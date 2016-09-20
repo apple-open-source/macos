@@ -68,11 +68,13 @@ WebInspector.IndexedDatabaseObjectStoreContentView = class IndexedDatabaseObject
         }
 
         this._dataGrid = new WebInspector.DataGrid(columnInfo);
+        this._dataGrid.variableHeightRows = true;
         this._dataGrid.scrollContainer.addEventListener("scroll", this._dataGridScrolled.bind(this));
         this.addSubview(this._dataGrid);
 
         this._entries = [];
 
+        this._fetchingMoreData = false;
         this._fetchMoreData();
 
         this._refreshButtonNavigationItem = new WebInspector.ButtonNavigationItem("indexed-database-object-store-refresh", WebInspector.UIString("Refresh"), "Images/ReloadFull.svg", 13, 13);
@@ -98,6 +100,11 @@ WebInspector.IndexedDatabaseObjectStoreContentView = class IndexedDatabaseObject
         cookie.databaseName = this._objectStore.parentDatabase.name;
         cookie.objectStoreName = this._objectStore.name;
         cookie.objectStoreIndexName = this._objectStoreIndex && this._objectStoreIndex.name;
+    }
+
+    get scrollableElements()
+    {
+        return [this._dataGrid.scrollContainer];
     }
 
     // Private
@@ -137,7 +144,7 @@ WebInspector.IndexedDatabaseObjectStoreContentView = class IndexedDatabaseObject
                 this._dataGrid.appendChild(dataGridNode);
             }
 
-            delete this._fetchingMoreData;
+            this._fetchingMoreData = false;
 
             if (moreAvailable && this._dataGrid.isScrolledToLastRow())
                 this._fetchMoreData();

@@ -170,15 +170,38 @@ xdr_mountlist(xdrs, objp)
 			mb->ml_directory = NULL;
 			mb->ml_next = NULL;
 
+			if (!xdr_name(xdrs, &mb->ml_hostname)) {
+				/* Oh joy, we failed, possibly after decoding for a while */
+				if (*objp != NULL) {
+					/* first lets free partial list */
+					XDR free_xdr;
+					free_xdr.x_op = XDR_FREE;
+					xdr_mountlist(&free_xdr, objp);
+				}
+				/* Now free the node itself */
+				free(mb);
+				return (FALSE);
+			}
+
+			if (!xdr_dirpath(xdrs, &mb->ml_directory)) {
+				/* Oh joy, we failed, possibly after decoding for a while */
+				if (*objp != NULL) {
+					/* first lets free partial list */
+					XDR free_xdr;
+					free_xdr.x_op = XDR_FREE;
+					xdr_mountlist(&free_xdr, objp);
+				}
+
+				/* Now free the node itself */
+				free(mb->ml_hostname);
+				free(mb);
+				return (FALSE);
+			}
+
 			if (mb_prev == NULL) {
 				mb_prev = mb;
 				*objp = mb;
 			}
-
-			if (!xdr_name(xdrs, &mb->ml_hostname))
-				return (FALSE);
-			if (!xdr_dirpath(xdrs, &mb->ml_directory))
-				return (FALSE);
 
 			if (mb_prev != mb) {
 				mb_prev->ml_next = mb;
@@ -266,13 +289,23 @@ xdr_groups(xdrs, objp)
 			gn->gr_name = NULL;
 			gn->gr_next = NULL;
 
+			if (!xdr_name(xdrs, &gn->gr_name)) {
+				/* Oh joy, we failed, possibly after decoding for a while */
+				if (*objp != NULL) {
+					/* first lets free partial list */
+					XDR free_xdr;
+					free_xdr.x_op = XDR_FREE;
+					xdr_groups(&free_xdr, objp);
+				}
+				/* Now free the node itself */
+				free(gn);
+				return (FALSE);
+			}
+
 			if (gn_prev == NULL) {
 				gn_prev = gn;
 				*objp = gn;
 			}
-
-			if (!xdr_name(xdrs, &gn->gr_name))
-				return (FALSE);
 
 			if (gn_prev != gn) {
 				gn_prev->gr_next = gn;
@@ -361,15 +394,35 @@ xdr_exports(xdrs, objp)
 			en->ex_groups = NULL;
 			en->ex_next = NULL;
 
+			if (!xdr_dirpath(xdrs, &en->ex_dir)) {
+				/* Oh joy, we failed, possible after decoding for a while */
+				if (*objp != NULL) {
+					/* First free up a partial list, by recursing once */
+					XDR free_xdr;
+					free_xdr.x_op = XDR_FREE;
+					xdr_exports(&free_xdr, objp);
+				}
+				/* now free the node that caused us all this trouble */
+				free(en);
+				return (FALSE);
+			}
+			if (!xdr_groups(xdrs, &en->ex_groups)) {
+				/* Oh joy, we failed, possible after decoding for a while */
+				if (*objp != NULL) {
+					/* First free up a partial list, by recursing once */
+					XDR free_xdr;
+					free_xdr.x_op = XDR_FREE;
+					xdr_exports(&free_xdr, objp);
+				}
+				/* now free the node that caused us all this trouble */
+				free(en);
+				return (FALSE);
+			}
+
 			if (en_prev == NULL) {
 				en_prev = en;
 				*objp = en;
 			}
-
-			if (!xdr_dirpath(xdrs, &en->ex_dir))
-				return (FALSE);
-			if (!xdr_groups(xdrs, &en->ex_groups))
-				return (FALSE);
 
 			if (en_prev != en) {
 				en_prev->ex_next = en;

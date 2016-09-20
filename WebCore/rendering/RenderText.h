@@ -27,12 +27,13 @@
 #include "RenderTextLineBoxes.h"
 #include "SimpleLineLayout.h"
 #include "Text.h"
-#include "TextBreakIterator.h"
 #include <wtf/Forward.h>
+#include <wtf/text/TextBreakIterator.h>
 
 namespace WebCore {
 
 class InlineTextBox;
+struct GlyphOverflow;
 
 class RenderText : public RenderObject {
 public:
@@ -41,15 +42,15 @@ public:
 
     virtual ~RenderText();
 
-    virtual const char* renderName() const override;
+    const char* renderName() const override;
 
-    Text* textNode() const;
+    WEBCORE_EXPORT Text* textNode() const;
 
     virtual bool isTextFragment() const;
 
-    RenderStyle& style() const;
-    RenderStyle& firstLineStyle() const;
-    RenderStyle* getCachedPseudoStyle(PseudoId, RenderStyle* parentStyle = nullptr) const;
+    const RenderStyle& style() const;
+    const RenderStyle& firstLineStyle() const;
+    const RenderStyle* getCachedPseudoStyle(PseudoId, const RenderStyle* parentStyle = nullptr) const;
 
     Color selectionBackgroundColor() const;
     Color selectionForegroundColor() const;
@@ -67,18 +68,18 @@ public:
     InlineTextBox* createInlineTextBox() { return m_lineBoxes.createAndAppendLineBox(*this); }
     void dirtyLineBoxes(bool fullLayout);
 
-    virtual void absoluteRects(Vector<IntRect>&, const LayoutPoint& accumulatedOffset) const override final;
+    void absoluteRects(Vector<IntRect>&, const LayoutPoint& accumulatedOffset) const final;
     Vector<IntRect> absoluteRectsForRange(unsigned startOffset = 0, unsigned endOffset = UINT_MAX, bool useSelectionHeight = false, bool* wasFixed = nullptr) const;
 #if PLATFORM(IOS)
-    virtual void collectSelectionRects(Vector<SelectionRect>&, unsigned startOffset = 0, unsigned endOffset = std::numeric_limits<unsigned>::max()) override;
+    void collectSelectionRects(Vector<SelectionRect>&, unsigned startOffset = 0, unsigned endOffset = std::numeric_limits<unsigned>::max()) override;
 #endif
 
-    virtual void absoluteQuads(Vector<FloatQuad>&, bool* wasFixed) const override final;
+    void absoluteQuads(Vector<FloatQuad>&, bool* wasFixed) const final;
     Vector<FloatQuad> absoluteQuadsForRange(unsigned startOffset = 0, unsigned endOffset = UINT_MAX, bool useSelectionHeight = false, bool* wasFixed = nullptr) const;
 
     Vector<FloatQuad> absoluteQuadsClippedToEllipsis() const;
 
-    virtual VisiblePosition positionForPoint(const LayoutPoint&, const RenderRegion*) override;
+    VisiblePosition positionForPoint(const LayoutPoint&, const RenderRegion*) override;
 
     bool is8Bit() const { return m_text.impl()->is8Bit(); }
     const LChar* characters8() const { return m_text.impl()->characters8(); }
@@ -101,7 +102,12 @@ public:
                            bool& hasBreakableChar, bool& hasBreak,
                            float& beginMaxW, float& endMaxW,
                            float& minW, float& maxW, bool& stripFrontSpaces);
-
+    float hangablePunctuationStartWidth(unsigned index) const;
+    float hangablePunctuationEndWidth(unsigned index) const;
+    unsigned firstCharacterIndexStrippingSpaces() const;
+    unsigned lastCharacterIndexStrippingSpaces() const;
+    bool isHangableStopOrComma(UChar) const;
+    
     WEBCORE_EXPORT virtual IntRect linesBoundingBox() const;
     LayoutRect linesVisualOverflowBoundingBox() const;
 
@@ -110,31 +116,31 @@ public:
     virtual void setText(const String&, bool force = false);
     void setTextWithOffset(const String&, unsigned offset, unsigned len, bool force = false);
 
-    virtual bool canBeSelectionLeaf() const override { return true; }
-    virtual void setSelectionState(SelectionState) override final;
-    virtual LayoutRect selectionRectForRepaint(const RenderLayerModelObject* repaintContainer, bool clipToVisibleContent = true) override;
-    virtual LayoutRect localCaretRect(InlineBox*, int caretOffset, LayoutUnit* extraWidthToEndOfLine = 0) override;
+    bool canBeSelectionLeaf() const override { return true; }
+    void setSelectionState(SelectionState) final;
+    LayoutRect selectionRectForRepaint(const RenderLayerModelObject* repaintContainer, bool clipToVisibleContent = true) override;
+    LayoutRect localCaretRect(InlineBox*, int caretOffset, LayoutUnit* extraWidthToEndOfLine = 0) override;
 
     LayoutRect collectSelectionRectsForLineBoxes(const RenderLayerModelObject* repaintContainer, bool clipToVisibleContent, Vector<LayoutRect>& rects);
 
     LayoutUnit marginLeft() const { return minimumValueForLength(style().marginLeft(), 0); }
     LayoutUnit marginRight() const { return minimumValueForLength(style().marginRight(), 0); }
 
-    virtual LayoutRect clippedOverflowRectForRepaint(const RenderLayerModelObject* repaintContainer) const override final;
+    LayoutRect clippedOverflowRectForRepaint(const RenderLayerModelObject* repaintContainer) const final;
 
     InlineTextBox* firstTextBox() const { return m_lineBoxes.first(); }
     InlineTextBox* lastTextBox() const { return m_lineBoxes.last(); }
 
-    virtual int caretMinOffset() const override;
-    virtual int caretMaxOffset() const override;
+    int caretMinOffset() const override;
+    int caretMaxOffset() const override;
     unsigned countRenderedCharacterOffsetsUntil(unsigned) const;
     bool containsRenderedCharacterOffset(unsigned) const;
     bool containsCaretOffset(unsigned) const;
     bool hasRenderedText() const;
 
-    virtual int previousOffset(int current) const override final;
-    virtual int previousOffsetForBackwardDeletion(int current) const override final;
-    virtual int nextOffset(int current) const override final;
+    int previousOffset(int current) const final;
+    int previousOffsetForBackwardDeletion(int current) const final;
+    int nextOffset(int current) const final;
 
     bool containsReversedText() const { return m_containsReversedText; }
 
@@ -164,10 +170,12 @@ public:
     StringView stringView(int start = 0, int stop = -1) const;
 
     LayoutUnit topOfFirstText() const;
+    
+    bool containsOnlyWhitespace(unsigned from, unsigned len) const;
 
 protected:
     virtual void computePreferredLogicalWidths(float leadWidth);
-    virtual void willBeDestroyed() override;
+    void willBeDestroyed() override;
 
     virtual void setRenderedText(const String&);
     virtual UChar previousCharacter() const;
@@ -175,7 +183,7 @@ protected:
 private:
     RenderText(Node&, const String&);
 
-    virtual bool canHaveChildren() const override final { return false; }
+    bool canHaveChildren() const final { return false; }
 
     void computePreferredLogicalWidths(float leadWidth, HashSet<const Font*>& fallbackFonts, GlyphOverflow&);
 
@@ -184,11 +192,10 @@ private:
     // Make length() private so that callers that have a RenderText*
     // will use the more efficient textLength() instead, while
     // callers with a RenderObject* can continue to use length().
-    virtual unsigned length() const override final { return textLength(); }
+    unsigned length() const final { return textLength(); }
 
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const HitTestLocation&, const LayoutPoint&, HitTestAction) override final { ASSERT_NOT_REACHED(); return false; }
+    bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const HitTestLocation&, const LayoutPoint&, HitTestAction) final { ASSERT_NOT_REACHED(); return false; }
 
-    bool containsOnlyWhitespace(unsigned from, unsigned len) const;
     float widthFromCache(const FontCascade&, int start, int len, float xPos, HashSet<const Font*>* fallbackFonts, GlyphOverflow*, const RenderStyle&) const;
     bool isAllASCII() const { return m_isAllASCII; }
     bool computeUseBackslashAsYenSymbol() const;
@@ -198,6 +205,8 @@ private:
     LayoutRect collectSelectionRectsForLineBoxes(const RenderLayerModelObject* repaintContainer, bool clipToVisibleContent, Vector<LayoutRect>*);
 
     void node() const = delete;
+    void container() const = delete; // Use parent() instead.
+    void container(const RenderLayerModelObject&, bool&) const = delete; // Use parent() instead.
 
     // We put the bitfield first to minimize padding on 64-bit.
     unsigned m_hasBreakableChar : 1; // Whether or not we can be broken into multiple lines.
@@ -244,17 +253,17 @@ inline UChar RenderText::characterAt(unsigned i) const
     return uncheckedCharacterAt(i);
 }
 
-inline RenderStyle& RenderText::style() const
+inline const RenderStyle& RenderText::style() const
 {
     return parent()->style();
 }
 
-inline RenderStyle& RenderText::firstLineStyle() const
+inline const RenderStyle& RenderText::firstLineStyle() const
 {
     return parent()->firstLineStyle();
 }
 
-inline RenderStyle* RenderText::getCachedPseudoStyle(PseudoId pseudoId, RenderStyle* parentStyle) const
+inline const RenderStyle* RenderText::getCachedPseudoStyle(PseudoId pseudoId, const RenderStyle* parentStyle) const
 {
     return parent()->getCachedPseudoStyle(pseudoId, parentStyle);
 }

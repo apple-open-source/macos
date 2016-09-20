@@ -24,32 +24,30 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MathMLTextElement_h
-#define MathMLTextElement_h
+#pragma once
 
 #if ENABLE(MATHML)
 #include "MathMLElement.h"
 
 namespace WebCore {
-    
+
 class MathMLTextElement final : public MathMLElement {
 public:
     static Ref<MathMLTextElement> create(const QualifiedName& tagName, Document&);
-    virtual void didAttachRenderers() override;
-
-    virtual bool isPresentationMathML() const override { return true; }
 
 private:
     MathMLTextElement(const QualifiedName& tagName, Document&);
 
-    virtual RenderPtr<RenderElement> createElementRenderer(Ref<RenderStyle>&&, const RenderTreePosition&) override;
-    virtual bool childShouldCreateRenderer(const Node&) const override;
+    RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) final;
+    bool childShouldCreateRenderer(const Node&) const final;
 
-    virtual void childrenChanged(const ChildChange&) override;
-    virtual void parseAttribute(const QualifiedName&, const AtomicString&) override;
+    void childrenChanged(const ChildChange&) final;
+    void parseAttribute(const QualifiedName&, const AtomicString&) final;
+    void didAttachRenderers() final;
+
+    bool isPresentationMathML() const final { return true; }
 };
-    
+
 }
 
 #endif // ENABLE(MATHML)
-#endif // MathMLTextElement_h

@@ -30,6 +30,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <syslog.h>
 #include <ctype.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -389,7 +390,7 @@ readfstab(void)
 	pthread_rwlock_unlock(&fstab_cache_lock);
 	err = pthread_rwlock_wrlock(&fstab_cache_lock);
 	if (err != 0) {
-		pr_msg("Error attempting to get write lock on fstab cache: %m");
+		pr_msg(LOG_ERR, "Error attempting to get write lock on fstab cache: %m");
 		return (err);	/* use the cached data */
 	}
 
@@ -480,7 +481,7 @@ readfstab(void)
 		getmnt_silent = 1;
 		mop = getmntopts(fs->fs_mntops, mopts_net, &flags, &altflags);
 		if (mop == NULL) {
-			pr_msg("Couldn't parse mount options \"%s\" for %s: %m",
+			pr_msg(LOG_WARNING, "Couldn't parse mount options \"%s\" for %s: %m",
 			    fs->fs_mntops, fs->fs_spec);
 			continue;	/* give up on this */
 		}
@@ -497,11 +498,11 @@ readfstab(void)
 			 * in at least one case, the problem was that
 			 * the path was missing, so report it as that.
 			 */
-			pr_msg("Mount for %s has no path for the directory to mount", fs->fs_spec);
+			pr_msg(LOG_WARNING, "Mount for %s has no path for the directory to mount", fs->fs_spec);
 			continue;	/* no path - ignore this */
 		}
 		if (p == fs->fs_spec) {
-			pr_msg("Mount for %s has an empty host name", fs->fs_spec);
+			pr_msg(LOG_WARNING, "Mount for %s has an empty host name", fs->fs_spec);
 			continue;	/* empty host name - ignore this */
 		}
 		*p = '\0';		/* split into host name and the rest */
@@ -524,7 +525,7 @@ readfstab(void)
 		 */
 		err = process_fstab_mntopts(fs, &mntops, &url);
 		if (err == ENAMETOOLONG) {
-			pr_msg("Mount options for %s are too long",
+			pr_msg(LOG_WARNING, "Mount options for %s are too long",
 			    fs->fs_spec);
 			free(localpath);
 			free(host);
@@ -546,7 +547,7 @@ readfstab(void)
 		if (strcmp(vfstype, "url") == 0) {
 			/* We must have a URL. */
 			if (url == NULL) {
-				pr_msg("Mount for %s has type url but no URL",
+				pr_msg(LOG_WARNING, "Mount for %s has type url but no URL",
 				    fs->fs_spec);
 				free(mntops);
 				free(localpath);
@@ -556,7 +557,7 @@ readfstab(void)
 		} else {
 			/* We must not have a URL. */
 			if (url != NULL) {
-				pr_msg("Mount for %s has type %s but has a URL",
+				pr_msg(LOG_WARNING, "Mount for %s has type %s but has a URL",
 				    fs->fs_spec, vfstype);
 				free(mntops);
 				free(url);
@@ -647,8 +648,12 @@ readfstab(void)
 			struct staticmap **static_bucket;
 
 			if (strlen(fs->fs_file) == 0) {
-				pr_msg("Mount for %s has an empty mount point path",
+				pr_msg(LOG_WARNING, "Mount for %s has an empty mount point path",
 				    fs->fs_spec);
+				if (url != NULL) free(url);
+				if (mntops != NULL) free(mntops);
+				if (localpath != NULL) free(localpath);
+				if (host != NULL) free(host);
 				continue;	/* empty mount point path - ignore this */
 			}
 
@@ -736,7 +741,7 @@ outofmem:
 	endfsent();
 	clean_hashtables();
 	pthread_rwlock_unlock(&fstab_cache_lock);
-	pr_msg("Memory allocation failed while reading fstab");
+	pr_msg(LOG_ERR, "Memory allocation failed while reading fstab");
 	return (ENOMEM);
 }
 

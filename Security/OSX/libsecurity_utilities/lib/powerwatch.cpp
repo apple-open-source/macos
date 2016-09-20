@@ -69,24 +69,22 @@ IOPowerWatcher::iopmcallback(void *				param,
 {
     IOPowerWatcher *me = (IOPowerWatcher *)param;
 
-    if (SECURITY_DEBUG_LOG_ENABLED()) {
-	secdebug("powerwatch", "powerstates");
+	secnotice("powerwatch", "powerstates");
 	if (capabilities & kIOPMSystemPowerStateCapabilityDisk)
-	    secdebug("powerwatch", "disk");
+	    secnotice("powerwatch", "disk");
 	if (capabilities & kIOPMSystemPowerStateCapabilityNetwork)
-	    secdebug("powerwatch", "net");
+	    secnotice("powerwatch", "net");
 	if (capabilities & kIOPMSystemPowerStateCapabilityAudio) 
-	    secdebug("powerwatch", "audio");
+	    secnotice("powerwatch", "audio");
 	if (capabilities & kIOPMSystemPowerStateCapabilityVideo)
-	    secdebug("powerwatch", "video");
-    }
+	    secnotice("powerwatch", "video");
 
     /* if cpu and no display -> in DarkWake */
     if ((capabilities & (kIOPMSystemPowerStateCapabilityCPU|kIOPMSystemPowerStateCapabilityVideo)) == kIOPMSystemPowerStateCapabilityCPU) {
-        secdebug("powerwatch", "enter DarkWake");
+        secnotice("powerwatch", "enter DarkWake");
 	me->mInDarkWake = true;
     } else if (me->mInDarkWake) {
-        secdebug("powerwatch", "exit DarkWake");
+        secnotice("powerwatch", "exit DarkWake");
 	me->mInDarkWake = false;
     }
 
@@ -177,43 +175,43 @@ void IOPowerWatcher::ioCallback(void *refCon, io_service_t service,
     enum { allow, refuse, ignore } reaction;
     switch (messageType) {
     case kIOMessageSystemWillSleep:
-        secdebug("powerwatch", "system will sleep");
+        secnotice("powerwatch", "system will sleep");
         me->systemWillSleep();
         reaction = allow;
         break;
     case kIOMessageSystemHasPoweredOn:
-        secdebug("powerwatch", "system has powered on");
+        secnotice("powerwatch", "system has powered on");
         me->systemIsWaking();
         reaction = ignore;
         break;
     case kIOMessageSystemWillPowerOff:
-        secdebug("powerwatch", "system will power off");
+        secnotice("powerwatch", "system will power off");
         me->systemWillPowerDown();
         reaction = allow;
         break;
     case kIOMessageSystemWillNotPowerOff:
-        secdebug("powerwatch", "system will not power off");
+        secnotice("powerwatch", "system will not power off");
         reaction = ignore;
         break;
     case kIOMessageCanSystemSleep:
-        secdebug("powerwatch", "can system sleep");
+        secnotice("powerwatch", "can system sleep");
         reaction = allow;
         break;
     case kIOMessageSystemWillNotSleep:
-        secdebug("powerwatch", "system will not sleep");
+        secnotice("powerwatch", "system will not sleep");
         reaction = ignore;
         break;
     case kIOMessageCanSystemPowerOff:
-        secdebug("powerwatch", "can system power off");
+        secnotice("powerwatch", "can system power off");
         reaction = allow;
         break;
 	case kIOMessageSystemWillPowerOn:
-        secdebug("powerwatch", "system will power on");
+        secnotice("powerwatch", "system will power on");
 		me->systemWillPowerOn();
         reaction = ignore;
         break;
     default:
-        secdebug("powerwatch",
+        secnotice("powerwatch",
             "type 0x%x message received (ignored)", messageType);
         reaction = ignore;
         break;
@@ -222,15 +220,15 @@ void IOPowerWatcher::ioCallback(void *refCon, io_service_t service,
     // handle acknowledgments
     switch (reaction) {
     case allow:
-		secdebug("powerwatch", "calling IOAllowPowerChange");
+		secnotice("powerwatch", "calling IOAllowPowerChange");
         IOAllowPowerChange(me->mKernelPort, long(argument));
         break;
     case refuse:
-		secdebug("powerwatch", "calling IOCancelPowerChange");
+		secnotice("powerwatch", "calling IOCancelPowerChange");
         IOCancelPowerChange(me->mKernelPort, long(argument));
         break;
     case ignore:
-		secdebug("powerwatch", "sending no response");
+		secnotice("powerwatch", "sending no response");
         break;
     }
 }

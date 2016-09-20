@@ -37,8 +37,8 @@
 namespace JSC {
 
 TypeSet::TypeSet()
-    : m_seenTypes(TypeNothing)
-    , m_isOverflown(false)
+    : m_isOverflown(false)
+    , m_seenTypes(TypeNothing)
 {
 }
 
@@ -49,7 +49,10 @@ void TypeSet::addTypeInformation(RuntimeType type, PassRefPtr<StructureShape> pr
 
     if (structure && newShape && !runtimeTypeIsPrimitive(type)) {
         if (!m_structureSet.contains(structure)) {
-            m_structureSet.add(structure);
+            {
+                ConcurrentJITLocker locker(m_lock);
+                m_structureSet.add(structure);
+            }
             // Make one more pass making sure that: 
             // - We don't have two instances of the same shape. (Same shapes may have different Structures).
             // - We don't have two shapes that share the same prototype chain. If these shapes share the same 
@@ -81,6 +84,7 @@ void TypeSet::addTypeInformation(RuntimeType type, PassRefPtr<StructureShape> pr
 
 void TypeSet::invalidateCache()
 {
+    ConcurrentJITLocker locker(m_lock);
     auto keepMarkedStructuresFilter = [] (Structure* structure) -> bool { return Heap::isMarked(structure); };
     m_structureSet.genericFilter(keepMarkedStructuresFilter);
 }
@@ -100,8 +104,8 @@ String TypeSet::dumpTypes() const
         seen.appendLiteral("Null ");
     if (m_seenTypes & TypeBoolean)
         seen.appendLiteral("Boolean ");
-    if (m_seenTypes & TypeMachineInt)
-        seen.appendLiteral("MachineInt ");
+    if (m_seenTypes & TypeAnyInt)
+        seen.appendLiteral("AnyInt ");
     if (m_seenTypes & TypeNumber)
         seen.appendLiteral("Number ");
     if (m_seenTypes & TypeString)
@@ -179,9 +183,9 @@ String TypeSet::displayName() const
         return ASCIILiteral("Null");
     if (doesTypeConformTo(TypeBoolean))
         return ASCIILiteral("Boolean");
-    if (doesTypeConformTo(TypeMachineInt))
+    if (doesTypeConformTo(TypeAnyInt))
         return ASCIILiteral("Integer");
-    if (doesTypeConformTo(TypeNumber | TypeMachineInt))
+    if (doesTypeConformTo(TypeNumber | TypeAnyInt))
         return ASCIILiteral("Number");
     if (doesTypeConformTo(TypeString))
         return ASCIILiteral("String");
@@ -195,9 +199,9 @@ String TypeSet::displayName() const
         return ASCIILiteral("Function?");
     if (doesTypeConformTo(TypeBoolean | TypeNull | TypeUndefined))
         return ASCIILiteral("Boolean?");
-    if (doesTypeConformTo(TypeMachineInt | TypeNull | TypeUndefined))
+    if (doesTypeConformTo(TypeAnyInt | TypeNull | TypeUndefined))
         return ASCIILiteral("Integer?");
-    if (doesTypeConformTo(TypeNumber | TypeMachineInt | TypeNull | TypeUndefined))
+    if (doesTypeConformTo(TypeNumber | TypeAnyInt | TypeNull | TypeUndefined))
         return ASCIILiteral("Number?");
     if (doesTypeConformTo(TypeString | TypeNull | TypeUndefined))
         return ASCIILiteral("String?");
@@ -224,7 +228,7 @@ Ref<Inspector::Protocol::Array<Inspector::Protocol::Runtime::StructureDescriptio
     for (size_t i = 0; i < m_structureHistory.size(); i++)
         description->addItem(m_structureHistory.at(i)->inspectorRepresentation());
 
-    return WTF::move(description);
+    return description;
 }
 
 Ref<Inspector::Protocol::Runtime::TypeSet> TypeSet::inspectorTypeSet() const
@@ -234,7 +238,7 @@ Ref<Inspector::Protocol::Runtime::TypeSet> TypeSet::inspectorTypeSet() const
         .setIsUndefined((m_seenTypes & TypeUndefined) != TypeNothing)
         .setIsNull((m_seenTypes & TypeNull) != TypeNothing)
         .setIsBoolean((m_seenTypes & TypeBoolean) != TypeNothing)
-        .setIsInteger((m_seenTypes & TypeMachineInt) != TypeNothing)
+        .setIsInteger((m_seenTypes & TypeAnyInt) != TypeNothing)
         .setIsNumber((m_seenTypes & TypeNumber) != TypeNothing)
         .setIsString((m_seenTypes & TypeString) != TypeNothing)
         .setIsObject((m_seenTypes & TypeObject) != TypeNothing)
@@ -277,7 +281,7 @@ String TypeSet::toJSONString() const
         hasAnItem = true;
         json.appendLiteral("\"Boolean\"");
     }
-    if (m_seenTypes & TypeMachineInt) {
+    if (m_seenTypes & TypeAnyInt) {
         if (hasAnItem)
             json.append(',');
         hasAnItem = true;
@@ -386,8 +390,10 @@ String StructureShape::leastCommonAncestor(const Vector<RefPtr<StructureShape>> 
             }
             if (!foundLUB) {
                 origin = origin->m_proto;
-                // All Objects must share the 'Object' Prototype. Therefore, at the very least, we should always converge on 'Object' before reaching a null prototype.
-                RELEASE_ASSERT(origin); 
+                // This is unlikely to happen, because we usually bottom out at "Object", but there are some sets of Objects
+                // that may cause this behavior. We fall back to "Object" because it's our version of Top.
+                if (!origin)
+                    return ASCIILiteral("Object");
             }
         }
 
@@ -517,13 +523,13 @@ Ref<Inspector::Protocol::Runtime::StructureDescription> StructureShape::inspecto
         if (currentShape->m_proto) {
             auto nextObject = Inspector::Protocol::Runtime::StructureDescription::create().release();
             currentObject->setPrototypeStructure(&nextObject.get());
-            currentObject = WTF::move(nextObject);
+            currentObject = WTFMove(nextObject);
         }
 
         currentShape = currentShape->m_proto;
     }
 
-    return WTF::move(base);
+    return base;
 }
 
 bool StructureShape::hasSamePrototypeChain(PassRefPtr<StructureShape> prpOther)
@@ -546,7 +552,7 @@ PassRefPtr<StructureShape> StructureShape::merge(const PassRefPtr<StructureShape
     RefPtr<StructureShape> b = prpB;
     ASSERT(a->hasSamePrototypeChain(b));
 
-    RefPtr<StructureShape> merged = StructureShape::create();
+    auto merged = StructureShape::create();
     for (auto field : a->m_fields) {
         if (b->m_fields.contains(field))
             merged->m_fields.add(field);
@@ -576,7 +582,7 @@ PassRefPtr<StructureShape> StructureShape::merge(const PassRefPtr<StructureShape
 
     merged->markAsFinal();
 
-    return merged.release();
+    return WTFMove(merged);
 }
 
 void StructureShape::enterDictionaryMode()

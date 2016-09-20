@@ -26,9 +26,10 @@
 
 [
     ImplementationLacksVTable,
+    ExportMacro=WEBCORE_EXPORT,
 ] interface ClientRectList {
     readonly attribute unsigned long length;
-    getter ClientRect item([IsIndex, Default=Undefined] optional unsigned long index);
+    getter ClientRect item(optional unsigned long index = 0);
     // FIXME: Fix list behavior to allow custom exceptions to be thrown.
 };
 

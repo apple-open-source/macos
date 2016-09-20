@@ -31,7 +31,7 @@ namespace WebCore {
 class SVGElement;
 class SVGTransformListPropertyTearOff;
 
-class SVGViewSpec : public RefCounted<SVGViewSpec>
+class SVGViewSpec final : public RefCounted<SVGViewSpec>
                   , public SVGZoomAndPan
                   , public SVGFitToViewBox {
 public:
@@ -68,7 +68,7 @@ public:
     void resetContextElement() { m_contextElement = nullptr; }
 
     // Custom non-animated 'transform' property.
-    SVGTransformListPropertyTearOff* transform();
+    RefPtr<SVGTransformListPropertyTearOff> transform();
     SVGTransformList transformBaseValue() const { return m_transform; }
 
     // Custom animated 'viewBox' property.

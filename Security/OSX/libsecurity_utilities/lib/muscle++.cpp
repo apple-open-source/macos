@@ -39,7 +39,8 @@ namespace Muscle {
 //
 Error::Error(MSC_RV err) : error(err)
 {
-	SECURITY_EXCEPTION_THROW_OTHER(this, err, (char *)"muscle");
+    SECURITY_EXCEPTION_THROW_OTHER(this, err, (char *)"muscle");
+    secnotice("security_exception", "muscle: %d", err);
 }
 
 
@@ -97,7 +98,7 @@ void Connection::open(const PCSC::ReaderState &reader, unsigned share)
 	// establish Muscle-level connection to card
 	Error::check(::MSCEstablishConnection(&info, share, NULL, 0, this));
 	mIsOpen = true;
-	secdebug("muscle", "%p opened %s", this, info.slotName);
+	secinfo("muscle", "%p opened %s", this, info.slotName);
 	
 	// pull initial status
 	updateStatus();
@@ -106,7 +107,7 @@ void Connection::open(const PCSC::ReaderState &reader, unsigned share)
 void Connection::close()
 {
 	if (mIsOpen) {
-		secdebug("muscle", "%p closing", this);
+		secinfo("muscle", "%p closing", this);
 		Error::check(::MSCReleaseConnection(this, SCARD_LEAVE_CARD));
 		mIsOpen = false;
 	}
@@ -117,14 +118,14 @@ void Connection::begin(Transaction *trans)
 {
 	assert(!mCurrentTransaction);
 	Error::check(::MSCBeginTransaction(this));
-	secdebug("muscle", "%p start transaction %p", this, trans);
+	secinfo("muscle", "%p start transaction %p", this, trans);
 	mCurrentTransaction = trans;
 }
 
 void Connection::end(Transaction *trans)
 {
 	assert(trans == mCurrentTransaction);
-	secdebug("muscle", "%p end transaction %p", this, trans);
+	secinfo("muscle", "%p end transaction %p", this, trans);
 	Error::check(::MSCEndTransaction(this, SCARD_LEAVE_CARD));
 	mCurrentTransaction = NULL;
 }

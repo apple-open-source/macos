@@ -38,7 +38,7 @@ __unused static const char copyright[] =
 #if 0
 static char sccsid[] = "@(#)from: sysctl.c	8.1 (Berkeley) 6/6/93";
 #endif
-static const char rcsid[] =
+__unused static const char rcsid[] =
   "$FreeBSD$";
 #endif /* not lint */
 
@@ -513,7 +513,7 @@ static int
 S_xswusage(int l2, void *p)
 {
         struct xsw_usage *xsu = (struct xsw_usage *)p;
-  
+
 	if (l2 != sizeof(*xsu)) {
 		warnx("S_xswusage %d != %ld", l2, sizeof(*xsu));
 		return (1);
@@ -693,7 +693,7 @@ oidfmt(int *oid, int len, char *fmt, u_int *kind)
 		}
 	}
 #endif
-	
+
 	return (0);
 }
 
@@ -825,7 +825,7 @@ show_var(int *oid, int nlen)
 		return (1);
 	}
 #endif
-	
+
 	switch (ctltype) {
 	case CTLTYPE_STRING:
 		if (!nflag)

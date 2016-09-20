@@ -32,6 +32,7 @@
 #include <err.h>
 #include <stdlib.h>
 #include <string.h>
+#include <libgen.h>
 
 struct section_info {
 	struct section_info *next;
@@ -55,6 +56,7 @@ struct section_info *current_section = NULL;
 
 int mode_raw = 0;
 int mode_block = 0;
+int mode_pcap = 0;
 
 #define PAD32(x) (((x) + 3) & ~3)
 
@@ -321,6 +323,9 @@ block_option_iterator(pcapng_block_t block, struct pcapng_option_info *option_in
 						case 3:
 							printf("      proc_path\n");
 							break;
+						case 4:
+							printf("      proc_uuid\n");
+							break;
 						default:
 							printf("      <unkown pib option>\n");
 							break;
@@ -379,7 +384,7 @@ read_callback(u_char *user, const struct pcap_pkthdr *hdr, const u_char *bytes)
 				struct pcapng_interface_description_fields *idb = (struct pcapng_interface_description_fields *)(block_header + 1);
 				printf("# Interface Description Block\n");
 				printf("  linktype %u reserved %u snaplen %u\n",
-					   idb->linktype, idb->reserved, idb->snaplen);
+					   idb->idb_linktype, idb->idb_reserved, idb->idb_snaplen);
 				
 				hex_and_ascii_print("", idb, sizeof(struct pcapng_interface_description_fields), "\n");
 				optptr = (u_char *)(idb + 1);
@@ -472,7 +477,7 @@ read_callback(u_char *user, const struct pcap_pkthdr *hdr, const u_char *bytes)
 				struct pcapng_interface_description_fields *idb = pcap_ng_get_interface_description_fields(block);
 				printf("# Interface Description Block\n");
 				printf("  linktype %u reserved %u snaplen %u\n",
-					   idb->linktype, idb->reserved, idb->snaplen);
+					   idb->idb_linktype, idb->idb_reserved, idb->idb_snaplen);
 				if (pcap_ng_block_get_option(block, PCAPNG_IF_NAME, &option_info) == 1)
 					if (option_info.value)
 						printf("  interface name: %s\n", option_info.value);
@@ -507,10 +512,20 @@ read_callback(u_char *user, const struct pcap_pkthdr *hdr, const u_char *bytes)
 				printf("  process_id %u\n",
 					   pib->process_id);
 				
-				if (pcap_ng_block_get_option(block, PCAPNG_PIB_NAME, &option_info) == 1)
+				if (pcap_ng_block_get_option(block, PCAPNG_PIB_NAME, &option_info) == 1) {
 					if (option_info.value)
 						printf("  process name: %s\n", option_info.value);
-				break;
+				}
+				if (pcap_ng_block_get_option(block, PCAPNG_PIB_UUID, &option_info) == 1) {
+					if (option_info.value) {
+						uuid_string_t uu_str;
+						
+						uuid_unparse_lower(option_info.value, uu_str);
+						
+						printf("  process uuid: %s\n", uu_str);
+					}
+				}
+break;
 			}
 			case PCAPNG_BT_ISB: {
 				printf("# Interface Statistics Block\n");
@@ -527,7 +542,7 @@ read_callback(u_char *user, const struct pcap_pkthdr *hdr, const u_char *bytes)
 				
 				osev_fields = pcap_ng_get_os_event_fields(block);
 
-				printf("  type %u timestamp_high %u timestamp_low %u caplen %u len %u\n",
+				printf("  type %u timestamp_high %u timestamp_low %u len %u\n",
 				       osev_fields->type,
 				       osev_fields->timestamp_high,
 				       osev_fields->timestamp_low,
@@ -575,7 +590,8 @@ test_pcap_ng_fopen_offline(const char *filename, char *errbuf)
 }
 
 
-int main(int argc, const char * argv[])
+int
+main(int argc, const char * argv[])
 {
 	int i;
 	char errbuf[PCAP_ERRBUF_SIZE];
@@ -601,6 +617,15 @@ int main(int argc, const char * argv[])
 	}
 #endif
 	for (i = 1; i < argc; i++) {
+		pcap_t *pcap;
+		
+		if (strcmp(argv[i], "-h") == 0) {
+			char *path = strdup((argv[0]));
+			printf("# usage: %s [-raw] [-block] file\n", basename(path));
+			if (path != NULL)
+				free(path);
+			exit(0);
+		}
 		if (strcmp(argv[i], "-raw") == 0) {
 			mode_raw = 1;
 			continue;
@@ -609,17 +634,30 @@ int main(int argc, const char * argv[])
 			mode_block = 1;
 			continue;
 		}
+		if (strcmp(argv[i], "-pcap") == 0) {
+			mode_pcap = 1;
+			continue;
+		}
 		if (mode_block == 0 && mode_raw == 0)
 			mode_block = 1;
 		
 		printf("#\n# opening %s\n#\n", argv[i]);
 		
-		pcap_t *pcap = pcap_ng_open_offline(argv[i], errbuf);
-		if (pcap == NULL) {
-			warnx("pcap_ng_open_offline(%s) failed: %s\n",
-				  argv[i], errbuf);
-			test_pcap_ng_fopen_offline(argv[i], errbuf);
-			continue;
+		if (mode_pcap == 0) {
+			pcap = pcap_ng_open_offline(argv[i], errbuf);
+			if (pcap == NULL) {
+				warnx("pcap_ng_open_offline(%s) failed: %s\n",
+					  argv[i], errbuf);
+				test_pcap_ng_fopen_offline(argv[i], errbuf);
+				continue;
+			}
+		} else {
+			pcap = pcap_open_offline(argv[i], errbuf);
+			if (pcap == NULL) {
+				warnx("pcap_open_offline(%s) failed: %s\n",
+				      argv[i], errbuf);
+				continue;
+			}
 		}
 		int result = pcap_dispatch(pcap, -1, read_callback, (u_char *)pcap);
 		if (result < 0) {

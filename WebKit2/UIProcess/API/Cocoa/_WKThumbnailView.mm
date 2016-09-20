@@ -56,7 +56,9 @@ using namespace WebKit;
     double _lastSnapshotScale;
 }
 
-@synthesize _waitingForSnapshot = _waitingForSnapshot;
+@synthesize snapshotSize=_snapshotSize;
+@synthesize _waitingForSnapshot=_waitingForSnapshot;
+@synthesize exclusivelyUsesSnapshot=_exclusivelyUsesSnapshot;
 
 - (instancetype)initWithFrame:(NSRect)frame fromWKView:(WKView *)wkView
 {
@@ -77,35 +79,8 @@ using namespace WebKit;
     return self;
 }
 
-- (void)_viewWasUnparented
+- (void)requestSnapshot
 {
-    [_wkView _setThumbnailView:nil];
-    [_wkView _setIgnoresAllEvents:NO];
-
-    self.layer.contents = nil;
-    _lastSnapshotScale = NAN;
-
-    _webPageProxy->setMayStartMediaWhenInWindow(_originalMayStartMediaWhenInWindow);
-}
-
-- (void)_viewWasParented
-{
-    if ([_wkView _thumbnailView])
-        return;
-
-    if (!_originalSourceViewIsInWindow)
-        _webPageProxy->setMayStartMediaWhenInWindow(false);
-
-    [self _requestSnapshotIfNeeded];
-    [_wkView _setThumbnailView:self];
-    [_wkView _setIgnoresAllEvents:YES];
-}
-
-- (void)_requestSnapshotIfNeeded
-{
-    if (self.layer.contents && _lastSnapshotScale == _scale)
-        return;
-
     if (_waitingForSnapshot) {
         _snapshotWasDeferred = YES;
         return;
@@ -126,8 +101,47 @@ using namespace WebKit;
     });
 }
 
+- (void)_viewWasUnparented
+{
+    if (!_exclusivelyUsesSnapshot) {
+        [_wkView _setThumbnailView:nil];
+        [_wkView _setIgnoresAllEvents:NO];
+        _webPageProxy->setMayStartMediaWhenInWindow(_originalMayStartMediaWhenInWindow);
+    }
+
+    self.layer.contents = nil;
+    _lastSnapshotScale = NAN;
+}
+
+- (void)_viewWasParented
+{
+    if ([_wkView _thumbnailView])
+        return;
+
+    if (!_exclusivelyUsesSnapshot && !_originalSourceViewIsInWindow)
+        _webPageProxy->setMayStartMediaWhenInWindow(false);
+
+    [self _requestSnapshotIfNeeded];
+
+    if (!_exclusivelyUsesSnapshot) {
+        [_wkView _setThumbnailView:self];
+        [_wkView _setIgnoresAllEvents:YES];
+    }
+}
+
+- (void)_requestSnapshotIfNeeded
+{
+    if (self.layer.contents && _lastSnapshotScale == _scale)
+        return;
+
+    [self requestSnapshot];
+}
+
 - (void)_didTakeSnapshot:(CGImageRef)image
 {
+    [self willChangeValueForKey:@"snapshotSize"];
+
+    _snapshotSize = CGSizeMake(CGImageGetWidth(image), CGImageGetHeight(image));
     _waitingForSnapshot = NO;
     self.layer.sublayers = @[];
     self.layer.contentsGravity = kCAGravityResizeAspectFill;
@@ -138,6 +152,8 @@ using namespace WebKit;
         _snapshotWasDeferred = NO;
         [self _requestSnapshotIfNeeded];
     }
+
+    [self didChangeValueForKey:@"snapshotSize"];
 }
 
 - (void)viewDidMoveToWindow

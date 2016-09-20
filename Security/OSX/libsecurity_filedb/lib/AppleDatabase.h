@@ -635,7 +635,12 @@ public:
                                      const AccessCredentials *inAccessCred,
                                      const void *inOpenParameters);
 
+    // These two methods will throw an exception on error
     virtual void dbMakeBackup();
+    virtual void dbMakeCopy(const char * path);
+
+    // Delete the file under this database
+    virtual void dbDeleteFile();
 
 	const CssmDbRecordAttributeInfo schemaRelations;
 	const CssmDbRecordAttributeInfo schemaAttributes;

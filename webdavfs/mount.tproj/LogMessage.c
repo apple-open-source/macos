@@ -41,19 +41,9 @@ u_int32_t gPrintLevel = kNone | kSysLog | kAll;
 
 void LogMessage(u_int32_t level, char *format, ...)
 {
-    u_int8_t* 	findex;
-    int8_t  	c;
-    int32_t		intarg;
-    u_int32_t		uintarg;
-    int8_t*		strarg;
-//    float		floatarg;
-	u_int64_t   ulonglongarg;
-    char		chararg;
-    void*		pointerarg;
     va_list		arglist;
     int8_t		*buffer = NULL;
     int8_t		*bufPtr;
-    int		len = 0;
 
 #if !DEBUG
 	if (!(level & kSysLog)) {
@@ -70,61 +60,7 @@ void LogMessage(u_int32_t level, char *format, ...)
 		bufPtr = buffer;
 
         va_start(arglist, format);
-
-        findex = (u_int8_t*) format;        
-        while (*findex != 0) {
-            c = *findex;
-            if (c == '%') {
-                ++findex;
-                c = *findex;
-                switch (c) {
-                    case 'i':
-                    case 'd':
-                        intarg = va_arg(arglist, int32_t);
-                        len += snprintf((char*) bufPtr, 300 - len, "%d", intarg);
-                        bufPtr += len;
-                        break;
-                    case 'X':
-                    case 'x':
-                        uintarg = va_arg(arglist, u_int32_t);
-                        len += snprintf((char*) bufPtr, 300 - len, "%X", uintarg);
-                        bufPtr += len;
-                        break;
-                    case 'p':
-                        pointerarg = va_arg(arglist, void*);
-                        len += snprintf((char*) bufPtr, 300 - len, "%p", pointerarg);
-                        bufPtr += len;
-                        break;
-                    case 'f':
-                        ulonglongarg = va_arg(arglist, u_int64_t);
-                        len += snprintf((char*) bufPtr, 300 - len, "%llx", (u_int64_t) ulonglongarg);
-                        bufPtr += len;
-                        break;
-                    case 's':
-                        strarg = va_arg(arglist, int8_t*);
-                        if (strarg != NULL) 
-                                len += snprintf((char*) bufPtr, 300 - len, "%s", strarg);
-                        else
-                                len += snprintf((char*) bufPtr, 300 - len, "NULLSTR");
-                        bufPtr += len;
-                        break;
-                    case 'c':
-                        chararg = va_arg(arglist, int);
-                        len += snprintf((char*) bufPtr, 300 - len, "%c", chararg);
-                        bufPtr += len;
-                        break;
-                    default:
-                        len += snprintf((char*) bufPtr, 300 - len, "%c", c);
-                        bufPtr += len;
-                        break;
-                }
-            }
-            else {
-                len += snprintf((char*) bufPtr, 300 - len, "%c", c);
-                bufPtr += len;
-            }
-            ++findex;
-        }
+        vsnprintf ( buffer, 300, format, arglist);
 
         if (level & kSysLog) {
             syslog(LOG_DEBUG, "webdavfs: %s", buffer);

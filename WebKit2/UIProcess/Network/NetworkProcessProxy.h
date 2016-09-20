@@ -26,20 +26,18 @@
 #ifndef NetworkProcessProxy_h
 #define NetworkProcessProxy_h
 
-#if ENABLE(NETWORK_PROCESS)
-
 #include "ChildProcessProxy.h"
 #include "CustomProtocolManagerProxy.h"
 #include "ProcessLauncher.h"
 #include "ProcessThrottler.h"
 #include "ProcessThrottlerClient.h"
 #include "WebProcessProxyMessages.h"
-#include "WebsiteDataTypes.h"
 #include <memory>
 #include <wtf/Deque.h>
 
 namespace WebCore {
 class AuthenticationChallenge;
+class ProtectionSpace;
 class ResourceRequest;
 class SecurityOrigin;
 class SessionID;
@@ -50,6 +48,8 @@ namespace WebKit {
 class DownloadProxy;
 class DownloadProxyMap;
 class WebProcessPool;
+enum class WebsiteDataFetchOption;
+enum class WebsiteDataType;
 struct NetworkProcessCreationParameters;
 
 class NetworkProcessProxy : public ChildProcessProxy, private ProcessThrottlerClient {
@@ -61,15 +61,14 @@ public:
 
     DownloadProxy* createDownloadProxy(const WebCore::ResourceRequest&);
 
-    void fetchWebsiteData(WebCore::SessionID, WebsiteDataTypes, std::function<void (WebsiteData)> completionHandler);
-    void deleteWebsiteData(WebCore::SessionID, WebsiteDataTypes, std::chrono::system_clock::time_point modifiedSince, std::function<void ()> completionHandler);
-    void deleteWebsiteDataForOrigins(WebCore::SessionID, WebsiteDataTypes, const Vector<RefPtr<WebCore::SecurityOrigin>>& origins, const Vector<String>& cookieHostNames, std::function<void ()> completionHandler);
+    void fetchWebsiteData(WebCore::SessionID, OptionSet<WebsiteDataType>, OptionSet<WebsiteDataFetchOption>, std::function<void (WebsiteData)> completionHandler);
+    void deleteWebsiteData(WebCore::SessionID, OptionSet<WebsiteDataType>, std::chrono::system_clock::time_point modifiedSince, std::function<void ()> completionHandler);
+    void deleteWebsiteDataForOrigins(WebCore::SessionID, OptionSet<WebKit::WebsiteDataType>, const Vector<RefPtr<WebCore::SecurityOrigin>>& origins, const Vector<String>& cookieHostNames, std::function<void ()> completionHandler);
 
 #if PLATFORM(COCOA)
     void setProcessSuppressionEnabled(bool);
 #endif
 
-    void didCancelProcessSuspension();
     void processReadyToSuspend();
 
     void setIsHoldingLockedFiles(bool);
@@ -80,11 +79,10 @@ private:
     NetworkProcessProxy(WebProcessPool&);
 
     // ChildProcessProxy
-    virtual void getLaunchOptions(ProcessLauncher::LaunchOptions&) override;
-    virtual void connectionWillOpen(IPC::Connection&) override;
-    virtual void processWillShutDown(IPC::Connection&) override;
+    void getLaunchOptions(ProcessLauncher::LaunchOptions&) override;
+    void connectionWillOpen(IPC::Connection&) override;
+    void processWillShutDown(IPC::Connection&) override;
 
-    void platformGetLaunchOptions(ProcessLauncher::LaunchOptions&);
     void networkProcessCrashedOrFailedToLaunch();
 
     // ProcessThrottlerClient
@@ -95,12 +93,12 @@ private:
     void didSetAssertionState(AssertionState) override;
 
     // IPC::Connection::Client
-    virtual void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
-    virtual void didReceiveSyncMessage(IPC::Connection&, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&) override;
-    virtual void didClose(IPC::Connection&) override;
-    virtual void didReceiveInvalidMessage(IPC::Connection&, IPC::StringReference messageReceiverName, IPC::StringReference messageName) override;
-    virtual IPC::ProcessType localProcessType() override { return IPC::ProcessType::UI; }
-    virtual IPC::ProcessType remoteProcessType() override { return IPC::ProcessType::Network; }
+    void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
+    void didReceiveSyncMessage(IPC::Connection&, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&) override;
+    void didClose(IPC::Connection&) override;
+    void didReceiveInvalidMessage(IPC::Connection&, IPC::StringReference messageReceiverName, IPC::StringReference messageName) override;
+    IPC::ProcessType localProcessType() override { return IPC::ProcessType::UI; }
+    IPC::ProcessType remoteProcessType() override { return IPC::ProcessType::Network; }
 
     // Message handlers
     void didReceiveNetworkProcessProxyMessage(IPC::Connection&, IPC::MessageDecoder&);
@@ -109,12 +107,16 @@ private:
     void didFetchWebsiteData(uint64_t callbackID, const WebsiteData&);
     void didDeleteWebsiteData(uint64_t callbackID);
     void didDeleteWebsiteDataForOrigins(uint64_t callbackID);
+    void grantSandboxExtensionsToDatabaseProcessForBlobs(uint64_t requestID, const Vector<String>& paths);
     void logSampledDiagnosticMessage(uint64_t pageID, const String& message, const String& description);
     void logSampledDiagnosticMessageWithResult(uint64_t pageID, const String& message, const String& description, uint32_t result);
     void logSampledDiagnosticMessageWithValue(uint64_t pageID, const String& message, const String& description, const String& value);
+#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
+    void canAuthenticateAgainstProtectionSpace(uint64_t loaderID, uint64_t pageID, uint64_t frameID, const WebCore::ProtectionSpace&);
+#endif
 
     // ProcessLauncher::Client
-    virtual void didFinishLaunching(ProcessLauncher*, IPC::Connection::Identifier) override;
+    void didFinishLaunching(ProcessLauncher*, IPC::Connection::Identifier) override;
 
     WebProcessPool& m_processPool;
     
@@ -132,7 +134,5 @@ private:
 };
 
 } // namespace WebKit
-
-#endif // ENABLE(NETWORK_PROCESS)
 
 #endif // NetworkProcessProxy_h

@@ -24,7 +24,7 @@ class Utilities
 
   # Provide a way to fail and die upon an error
   def self.bail(reason = nil)
-    puts "reason" if !reason.nil?
+    puts reason if !reason.nil?
     exit(-1)
   end
 
@@ -91,7 +91,7 @@ class CertTools
     @distrusted_certs_dir = File.join(certificate_dir, "distrusted")
     @revoked_certs_dir = File.join(certificate_dir, "revoked")
     @root_certs_dir = File.join(certificate_dir, "roots")
-    @intermediate_certs_dir = File.join(certificate_dir, "certs")
+    @intermediate_certs_dir = File.join(certificate_dir, "removed/intermediates")
    
     Utilities.check_path(@distrusted_certs_dir)
     Utilities.check_path(@revoked_certs_dir)
@@ -138,7 +138,7 @@ class CertTools
     CertTools.instance.project_dir
   end
 
-  # Get the directory path to the certs directory
+  # Get the directory path to the distrusted certs directory
   def self.distrusted_certs_dir
      CertTools.instance.distrusted_certs_dir
   end
@@ -153,7 +153,7 @@ class CertTools
     CertTools.instance.root_certs_dir
   end
   
-  # Get the directory path to the certs directory
+  # Get the directory path to the intermediates directory
   def self.intermediate_certs_dir
     CertTools.instance.intermediate_certs_dir
   end
@@ -242,7 +242,9 @@ class BuildRootKeychains
     FileUtils.rm_rf(@setting_file_path) if FileTest.exists? @setting_file_path
     cmd_str = CertTools.security_tool_path + " add-trusted-cert -o " + Utilities.quote_str(@setting_file_path)
     `#{cmd_str}`
-    $?
+    result = $?
+    puts "security add-trusted-cert returned an error for #{setting_file_path}" if result != 0
+    return result
   end
 
   # Add all of the root certificates in the root directory to the SystemRootCertificates.keychain
@@ -251,7 +253,7 @@ class BuildRootKeychains
     num_root_certs = 0
     Dir.foreach(CertTools.root_certs_dir) do |f|
       next if f[0].chr == "."
-      #puts "Processing root #{f}" if @verbose
+      puts "Processing root #{f}" if @verbose
       full_root_path = File.join(CertTools.root_certs_dir, f)
       if f == "AppleDEVID.cer" 
         puts " skipping intermediate #{f} for trust" if @verbose
@@ -375,13 +377,14 @@ class BuildRootKeychains
   def do_processing()
     result = create_root_keychain
     Utilities.bail("create_root_keychain failed")  if result != 0
-    Utilities.bail("create_setting_file failed") if create_setting_file != 0
+    result = create_setting_file
+    Utilities.bail("create_setting_file failed") if result != 0
     add_roots()
     Utilities.bail("create_temp_keychain failed") if create_temp_keychain != 0
     distrust_certs()
     revoked_certs()
     delete_temp_keychain()
-    Utilities.bail("check_all_roots_added failes") if !check_all_roots_added
+    Utilities.bail("check_all_roots_added failed") if !check_all_roots_added
     set_file_priv()
   end
 end
@@ -391,6 +394,8 @@ end
 # 
 # Description:  This class provides the necessary functionality to create the
 #               SystemCACertificates.keychain output file.
+# OBSOLETE
+# SystemCACertificates.keychain file is no longer generated: rdar://14206237
 # =============================================================================
 class BuildCAKeychain
   
@@ -619,15 +624,17 @@ end
 
 # Make the SystemRootCertificates.keychain and SystemTrustSettings.plist files
 
-# To get verbose logging set this true  
-verbose = false;
+# To get verbose logging set this true, otherwise false
+verbose = true;
 
 brkc = BuildRootKeychains.new(verbose)
 brkc.do_processing
 
 # Make the SystemCACertificates.keychain file
-bcakc = BuildCAKeychain.new(verbose)
-bcakc.do_processing
+# OBSOLETE
+# SystemCACertificates.keychain file is no longer generated: rdar://14206237
+#bcakc = BuildCAKeychain.new(verbose)
+#bcakc.do_processing
 
 # Make the EVRoots.plist file
 bevr = BuildEVRoots.new(verbose)

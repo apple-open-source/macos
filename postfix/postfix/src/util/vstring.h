@@ -20,6 +20,7 @@
   * Utility library.
   */
 #include <vbuf.h>
+#include <check_arg.h>
 
  /*
   * We can't allow bare VBUFs in the interface, because VSTRINGs have a
@@ -27,7 +28,7 @@
   */
 typedef struct VSTRING {
     VBUF    vbuf;
-    ssize_t  maxlen;
+    ssize_t maxlen;
 } VSTRING;
 
 extern VSTRING *vstring_alloc(ssize_t);
@@ -45,17 +46,24 @@ extern VSTRING *vstring_insert(VSTRING *, ssize_t, const char *, ssize_t);
 extern VSTRING *vstring_prepend(VSTRING *, const char *, ssize_t);
 extern VSTRING *PRINTFLIKE(2, 3) vstring_sprintf(VSTRING *, const char *,...);
 extern VSTRING *PRINTFLIKE(2, 3) vstring_sprintf_append(VSTRING *, const char *,...);
-extern VSTRING *PRINTFLIKE(2, 3) vstring_sprintf_prepend(VSTRING *, const char *, ...);
+extern VSTRING *PRINTFLIKE(2, 3) vstring_sprintf_prepend(VSTRING *, const char *,...);
 extern char *vstring_export(VSTRING *);
 extern VSTRING *vstring_import(char *);
 
+/* Legacy API: constant plus type-unchecked argument. */
 #define VSTRING_CTL_MAXLEN	1
 #define VSTRING_CTL_END		0
+
+/* Safer API: type-checked arguments. */
+#define CA_VSTRING_CTL_END		VSTRING_CTL_END
+#define CA_VSTRING_CTL_MAXLEN(val)	VSTRING_CTL_MAXLEN, CHECK_VAL(VSTRING_CTL, ssize_t, (val))
+
+CHECK_VAL_HELPER_DCL(VSTRING_CTL, ssize_t);
 
  /*
   * Macros. Unsafe macros have UPPERCASE names.
   */
-#define VSTRING_SPACE(vp, len)	((vp)->vbuf.space(&(vp)->vbuf, len))
+#define VSTRING_SPACE(vp, len)	((vp)->vbuf.space(&(vp)->vbuf, (len)))
 #define vstring_str(vp)		((char *) (vp)->vbuf.data)
 #define VSTRING_LEN(vp)		((ssize_t) ((vp)->vbuf.ptr - (vp)->vbuf.data))
 #define vstring_end(vp)		((char *) (vp)->vbuf.ptr)

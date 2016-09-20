@@ -117,9 +117,19 @@ static void __timerCallback(CFRunLoopTimerRef timer, void *info)
 
 static void __deviceCallback(void * context, IOReturn result, void * sender, IOHIDDeviceRef device)
 {
-    
     boolean_t   terminated  = context == 0;
     CFStringRef debugString = CFCopyDescription(device);
+    char * c_debug_string = NULL;
+    
+    if( debugString ){
+        // DG: Bluetooth "Product" strings have Unicode encoding and no nul terminator and CFStringGetCStringPtr returns NULL
+        // Need to manually copy to C string
+        CFIndex length = CFStringGetLength(debugString);
+        CFIndex maxSize = CFStringGetMaximumSizeForEncoding(length, CFStringGetSystemEncoding()) + 1;
+        c_debug_string = (char *)malloc(maxSize);
+        CFStringGetCString(debugString, c_debug_string, maxSize, CFStringGetSystemEncoding());
+        CFRelease(debugString);
+    }
     
     static CFMutableDictionaryRef s_timers = NULL;
     
@@ -130,11 +140,11 @@ static void __deviceCallback(void * context, IOReturn result, void * sender, IOH
     CFNumberRef temp = IOHIDDeviceGetProperty( device, CFSTR(kIOHIDUniqueIDKey) );
     if ( temp && CFGetTypeID(temp)  == CFNumberGetTypeID() ) CFNumberGetValue( temp, kCFNumberLongLongType, &uuid );
     CFNumberGetValue( IOHIDDeviceGetProperty( device, CFSTR(kIOHIDUniqueIDKey) ), kCFNumberLongLongType, &uuid );
-
-    printf("%-10.10s: %s UniqueID %llu\n", terminated ? "terminated" : "matched", debugString ? CFStringGetCStringPtr(debugString, CFStringGetSystemEncoding()) : "", uuid );
     
-    if ( debugString )
-        CFRelease(debugString);
+    printf("%-10.10s: %s UniqueID %llu\n", terminated ? "terminated" : "matched", c_debug_string ? c_debug_string : "", uuid );
+    
+    if ( c_debug_string )
+        free(c_debug_string);
     
     if ( terminated ) {
         CFDictionaryRemoveValue(gOutputElements, device);

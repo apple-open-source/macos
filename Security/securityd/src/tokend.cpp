@@ -48,11 +48,11 @@ TokenDaemon::TokenDaemon(RefPointer<Bundle> code,
 	switch (ServerChild::state()) {
 	case alive:
 		Tokend::ClientSession::servicePort(ServerChild::servicePort());
-		secdebug("tokend", "%p (pid %d) %s has launched", this, pid(), bundlePath().c_str());
+		secinfo("tokend", "%p (pid %d) %s has launched", this, pid(), bundlePath().c_str());
 		break;
 	case dead:
 		// tokend died or quit before becoming ready
-		secdebug("tokend", "%p (pid %d) %s failed on startup", this, pid(), bundlePath().c_str());
+		secinfo("tokend", "%p (pid %d) %s failed on startup", this, pid(), bundlePath().c_str());
 		break;
 	default:
 		assert(false);
@@ -68,7 +68,7 @@ TokenDaemon::TokenDaemon(RefPointer<Bundle> code,
 //
 TokenDaemon::~TokenDaemon()
 {
-	secdebug("tokend", "%p (pid %d) %s is being destroyed", this, pid(), bundlePath().c_str());
+	secinfo("tokend", "%p (pid %d) %s is being destroyed", this, pid(), bundlePath().c_str());
 }
 
 
@@ -106,11 +106,11 @@ void TokenDaemon::childAction()
 	::setgid(mGid);
 	::setuid(mUid);
 #endif //NDEBUG
-	secdebug("tokend", "uid=%d gid=%d", getuid(), getgid());
+	secinfo("tokend", "uid=%d gid=%d", getuid(), getgid());
 
 	// go run the tokend
 	char protocol[20]; snprintf(protocol, sizeof(protocol), "%d", TDPROTOVERSION);
-	secdebug("tokend", "executing %s(\"%s\",%s)",
+	secinfo("tokend", "executing %s(\"%s\",%s)",
 		mMe->executablePath().c_str(), mReaderName.c_str(), protocol);
 	execl(mMe->executablePath().c_str(),
 		mMe->executablePath().c_str(),
@@ -139,7 +139,7 @@ void TokenDaemon::dying()
 void TokenDaemon::fault(bool async, const char *reason)
 {
 	if (!mFaulted) {
-		secdebug("tokend", "%p declaring %s FAULT condition: %s",
+		secinfo("tokend", "%p declaring %s FAULT condition: %s",
 			this, async ? "ASYNCHRONOUS" : "SYNCHRONOUS", reason);
 		Syslog::notice("card in reader %s has faulted (%s)",
 			mReaderName.c_str(), reason);
@@ -169,9 +169,9 @@ void TokenDaemon::fault()
 //
 bool TokenDaemon::probe()
 {
-	secdebug("tokend", "%p probing", this);
+	secinfo("tokend", "%p probing", this);
 	ClientSession::probe(mScore, mTokenUid);
-	secdebug("tokend", "%p probed score=%d tokenUid=\"%s\"", this, mScore, mTokenUid.c_str());
+	secinfo("tokend", "%p probed score=%d tokenUid=\"%s\"", this, mScore, mTokenUid.c_str());
 	mProbed = true;
 	return mScore > 0;
 }

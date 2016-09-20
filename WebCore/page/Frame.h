@@ -5,7 +5,7 @@
  *                     2000-2001 Simon Hausmann <hausmann@kde.org>
  *                     2000-2001 Dirk Mueller <mueller@kde.org>
  *                     2000 Stefan Schimanski <1Stein@gmx.de>
- * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2016 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2008 Eric Seidel <eric@webkit.org>
  *
@@ -47,10 +47,13 @@
 #include "FrameWin.h"
 #endif
 
+#if PLATFORM(COCOA)
+OBJC_CLASS NSArray;
+#endif
+
 #if PLATFORM(IOS)
 OBJC_CLASS DOMCSSStyleDeclaration;
 OBJC_CLASS DOMNode;
-OBJC_CLASS NSArray;
 OBJC_CLASS NSString;
 #endif
 
@@ -138,7 +141,7 @@ namespace WebCore {
         void disconnectOwnerElement();
 
         MainFrame& mainFrame() const;
-        bool isMainFrame() const;
+        WEBCORE_EXPORT bool isMainFrame() const;
 
         Page* page() const;
         HTMLFrameOwnerElement* ownerElement() const;
@@ -148,6 +151,7 @@ namespace WebCore {
 
         Editor& editor() const;
         EventHandler& eventHandler() const;
+        EventHandler* eventHandlerPtr() const;
         FrameLoader& loader() const;
         NavigationScheduler& navigationScheduler() const;
         FrameSelection& selection() const;
@@ -185,6 +189,11 @@ namespace WebCore {
         WEBCORE_EXPORT float frameScaleFactor() const;
 
         void deviceOrPageScaleFactorChanged();
+        
+#if ENABLE(DATA_DETECTION)
+        void setDataDetectionResults(NSArray *results) { m_dataDetectionResults = results; }
+        NSArray *dataDetectionResults() const { return m_dataDetectionResults.get(); }
+#endif
 
 #if PLATFORM(IOS)
         const ViewportArguments& viewportArguments() const;
@@ -242,8 +251,10 @@ namespace WebCore {
         WEBCORE_EXPORT NSRect rectForScrollToVisible() const;
         WEBCORE_EXPORT DOMCSSStyleDeclaration* styleAtSelectionStart() const;
         WEBCORE_EXPORT unsigned formElementsCharacterCount() const;
+
+        // This function is used by Legacy WebKit.
         WEBCORE_EXPORT void setTimersPaused(bool);
-        bool timersPaused() const { return m_timersPausedCount; }
+
         WEBCORE_EXPORT void dispatchPageHideEventBeforePause();
         WEBCORE_EXPORT void dispatchPageShowEventBeforeResume();
         WEBCORE_EXPORT void setRangedSelectionBaseToCurrentSelection();
@@ -262,15 +273,15 @@ namespace WebCore {
         bool activeDOMObjectsAndAnimationsSuspended() const { return m_activeDOMObjectsAndAnimationsSuspendedCount > 0; }
 
         bool isURLAllowed(const URL&) const;
+        bool isAlwaysOnLoggingAllowed() const;
 
     // ========
 
     protected:
         Frame(Page&, HTMLFrameOwnerElement*, FrameLoaderClient&);
+        void setMainFrameWasDestroyed();
 
     private:
-        void injectUserScriptsForWorld(DOMWrapperWorld&, const UserScriptVector&, UserScriptInjectionTime);
-
         HashSet<FrameDestructionObserver*> m_destructionObservers;
 
         MainFrame& m_mainFrame;
@@ -287,9 +298,11 @@ namespace WebCore {
         const std::unique_ptr<ScriptController> m_script;
         const std::unique_ptr<Editor> m_editor;
         const std::unique_ptr<FrameSelection> m_selection;
-        const std::unique_ptr<EventHandler> m_eventHandler;
         const std::unique_ptr<AnimationController> m_animationController;
 
+#if ENABLE(DATA_DETECTION)
+        RetainPtr<NSArray> m_dataDetectionResults;
+#endif
 #if PLATFORM(IOS)
         void betterApproximateNode(const IntPoint& testPoint, NodeQualifier, Node*& best, Node* failedNode, IntPoint& bestPoint, IntRect& bestRect, const IntRect& testRect);
         bool hitTestResultAtViewportLocation(const FloatPoint& viewportLocation, HitTestResult&, IntPoint& center);
@@ -306,7 +319,6 @@ namespace WebCore {
         IntPoint m_overflowAutoScrollPos;
         ViewportArguments m_viewportArguments;
         bool m_selectionChangeCallbacksDisabled;
-        int m_timersPausedCount;
         VisibleSelection m_rangedSelectionBase;
         VisibleSelection m_rangedSelectionInitialExtent;
 #endif
@@ -315,6 +327,10 @@ namespace WebCore {
         float m_textZoomFactor;
 
         int m_activeDOMObjectsAndAnimationsSuspendedCount;
+        bool m_mainFrameWasDestroyed { false };
+
+    protected:
+        std::unique_ptr<EventHandler> m_eventHandler;
     };
 
     inline void Frame::init()
@@ -387,9 +403,20 @@ namespace WebCore {
         return *m_eventHandler;
     }
 
+    inline EventHandler* Frame::eventHandlerPtr() const
+    {
+        return m_eventHandler.get();
+    }
+
     inline MainFrame& Frame::mainFrame() const
     {
+        ASSERT_WITH_SECURITY_IMPLICATION(!m_mainFrameWasDestroyed);
         return m_mainFrame;
+    }
+
+    inline void Frame::setMainFrameWasDestroyed()
+    {
+        m_mainFrameWasDestroyed = false;
     }
 
 } // namespace WebCore

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -697,6 +697,9 @@ tcp_stats(uint32_t off , char *name, int af)
 	p(tcps_ecn_conn_plnoce, "\t\t%u connection%s using ECN have seen packet loss but no CE\n");
 	p(tcps_ecn_conn_pl_ce, "\t\t%u connection%s using ECN have seen packet loss and CE\n");
 	p(tcps_ecn_conn_nopl_ce, "\t\t%u connection%s using ECN received CE but no packet loss\n");
+	p(tcps_ecn_fallback_synloss, "\t\t%u connection%s fell back to non-ECN due to SYN-loss\n");
+	p(tcps_ecn_fallback_reorder, "\t\t%u connection%s fell back to non-ECN due to reordering\n");
+	p(tcps_ecn_fallback_ce, "\t\t%u connection%s fell back to non-ECN due to excessive CE-markings\n");
 	p(tcps_detect_reordering, "\t%u time%s packet reordering was detected on a connection\n");
 	p(tcps_reordered_pkts, "\t\t%u time%s transmitted packets were reordered\n");
 	p(tcps_delay_recovery, "\t\t%u time%s fast recovery was delayed to handle reordering\n");
@@ -721,6 +724,9 @@ tcp_stats(uint32_t off , char *name, int af)
 	p(tcps_tfo_syn_data_acked,"\t\t%u time%s our SYN with data has been acknowledged\n");
 	p(tcps_tfo_syn_loss,"\t%u time%s a connection-attempt with TFO fell back to regular TCP\n");
 	p(tcps_tfo_blackhole,"\t%u time%s a TFO-connection blackhole'd\n");
+	p(tcps_mss_to_default,"\t%u time%s maximum segment size was changed to default\n");
+	p(tcps_mss_to_medium,"\t%u time%s maximum segment size was changed to medium\n");
+	p(tcps_mss_to_low,"\t%u time%s maximum segment size was changed to low\n");
 
 	if (interval > 0) {
 		bcopy(&tcpstat, &ptcpstat, len);
@@ -791,10 +797,10 @@ mptcp_stats(uint32_t off , char *name, int af)
 	p(tcps_mp_badcsum, "\t%u bad DSS checksum%s\n");
 	p(tcps_mp_oodata, "\t%u time%s received out of order data \n");
 	p3(tcps_mp_switches, "\t%u subflow switch%s\n");
-	p3(tcps_mp_sel_symtomsd, "\t%u subflow switche%s due to advisory\n");
-	p3(tcps_mp_sel_rtt, "\t%u subflow switche%s due to rtt\n");
-	p3(tcps_mp_sel_rto, "\t%u subflow switche%s due to rto\n");
-	p3(tcps_mp_sel_peer, "\t%u subflow switche%s due to peer\n");
+	p3(tcps_mp_sel_symtomsd, "\t%u subflow switch%s due to advisory\n");
+	p3(tcps_mp_sel_rtt, "\t%u subflow switch%s due to rtt\n");
+	p3(tcps_mp_sel_rto, "\t%u subflow switch%s due to rto\n");
+	p3(tcps_mp_sel_peer, "\t%u subflow switch%s due to peer\n");
 	p3(tcps_mp_num_probes, "\t%u number of subflow probe%s\n");
 
 	if (interval > 0) {
@@ -1079,8 +1085,11 @@ arp_stats(uint32_t off, char *name, int af)
     printf(m, ARPDIFF(f), plural(ARPDIFF(f)))
 #define	p2(f, m) if (ARPDIFF(f) || sflag <= 1) \
     printf(m, ARPDIFF(f), pluralies(ARPDIFF(f)))
+#define	p3(f, m) if (ARPDIFF(f) || sflag <= 1) \
+    printf(m, ARPDIFF(f), plural(ARPDIFF(f)), pluralies(ARPDIFF(f)))
 
-	p(txrequests, "\t%u ARP request%s sent\n");
+	p(txrequests, "\t%u broadast ARP request%s sent\n");
+	p(txurequests, "\t%u unicast ARP request%s sent\n");
 	p2(txreplies, "\t%u ARP repl%s sent\n");
 	p(txannounces, "\t%u ARP announcement%s sent\n");
 	p(rxrequests, "\t%u ARP request%s received\n");
@@ -1089,6 +1098,7 @@ arp_stats(uint32_t off, char *name, int af)
 	p(txconflicts, "\t%u ARP conflict probe%s sent\n");
 	p(invalidreqs, "\t%u invalid ARP resolve request%s\n");
 	p(reqnobufs, "\t%u total packet%s dropped due to lack of memory\n");
+	p3(held, "\t%u total packet%s held awaiting ARP repl%s\n");
 	p(dropped, "\t%u total packet%s dropped due to no ARP entry\n");
 	p(purged, "\t%u total packet%s dropped during ARP entry removal\n");
 	p2(timeouts, "\t%u ARP entr%s timed out\n");

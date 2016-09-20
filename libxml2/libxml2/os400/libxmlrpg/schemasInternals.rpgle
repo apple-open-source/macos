@@ -15,12 +15,15 @@
       /include "libxmlrpg/xmlversion"
 
       /if defined(LIBXML_SCHEMAS_ENABLED)
+
+      /include "libxmlrpg/xmlTypesC"
       /include "libxmlrpg/xmlregexp"
       /include "libxmlrpg/hash"
       /include "libxmlrpg/dict"
 
      d xmlSchemaValType...
-     d                 s             10i 0 based(######typedef######)           enum
+     d                 s                   based(######typedef######)
+     d                                     like(xmlCenum)
      d  XML_SCHEMAS_UNKNOWN...
      d                 c                   0
      d  XML_SCHEMAS_STRING...
@@ -119,7 +122,8 @@
       * XML Schemas defines multiple type of types.
 
      d xmlSchemaTypeType...
-     d                 s             10i 0 based(######typedef######)           enum
+     d                 s                   based(######typedef######)
+     d                                     like(xmlCenum)
      d  XML_SCHEMA_TYPE_BASIC...                                                A builtin datatype
      d                 c                   1
      d  XML_SCHEMA_TYPE_ANY...
@@ -202,7 +206,8 @@
      d                 c                   2001
 
      d xmlSchemaContentType...
-     d                 s             10i 0 based(######typedef######)           enum
+     d                 s                   based(######typedef######)
+     d                                     like(xmlCenum)
      d  XML_SCHEMA_CONTENT_UNKNOWN...
      d                 c                   0
      d  XML_SCHEMA_CONTENT_EMPTY...
@@ -357,13 +362,13 @@
      d  annot                              like(xmlSchemaAnnotPtr)
       *
      d  base                               like(xmlSchemaTypePtr)               Deprecated
-     d  occurs                       10i 0                                      Deprecated
+     d  occurs                             like(xmlCint)                        Deprecated
      d  defValue                       *                                        const xmlChar *
      d  subtypes                           like(xmlSchemaTypePtr)               The type definition
      d  node                               like(xmlNodePtr)
      d  targetNamespace...                                                      const xmlChar *
      d                                 *
-     d  flags                        10i 0
+     d  flags                              like(xmlCint)
      d  refPrefix                      *                                        const xmlChar *
      d  defVal                             like(xmlSchemaValPtr)                Compiled constraint
      d  refDecl                            like(xmlSchemaAttributePtr)          Deprecated
@@ -413,14 +418,14 @@
      d  id                             *                                        const xmlChar *
      d  annot                              like(xmlSchemaAnnotPtr)
      d  node                               like(xmlNodePtr)
-     d  minOccurs                    10i 0                                      Deprecated; not used
-     d  maxOccurs                    10i 0                                      Deprecated; not used
+     d  minOccurs                          like(xmlCint)                        Deprecated; not used
+     d  maxOccurs                          like(xmlCint)                        Deprecated; not used
      d  processContents...
-     d                               10i 0
-     d  any                          10i 0                                      Ns constraint ##any?
+     d                                     like(xmlCint)
+     d  any                                like(xmlCint)                        Ns constraint ##any?
      d  nsSet                              like(xmlSchemaWildcardNsPtr)         Allowed namspce list
      d  negNsSet                           like(xmlSchemaWildcardNsPtr)         Negated namespace
-     d  flags                        10i 0                                      Deprecated; not used
+     d  flags                              like(xmlCint)                        Deprecated; not used
 
       * XML_SCHEMAS_ATTRGROUP_WILDCARD_BUILDED:
       *
@@ -478,7 +483,7 @@
       *
      d  attributes                         like(xmlSchemaAttributePtr)          Deprecated; not used
      d  node                               like(xmlNodePtr)
-     d  flags                        10i 0
+     d  flags                              like(xmlCint)
      d  attributeWildcard...
      d                                     like(xmlSchemaWildcardPtr)
      d  refPrefix                      *                                        const xmlChar *
@@ -753,21 +758,21 @@
      d  subtypes                           like(xmlSchemaTypePtr)
      d  attributes                         like(xmlSchemaAttributePtr)          Deprecated; not used
      d  node                               like(xmlNodePtr)
-     d  minOccurs                    10i 0                                      Deprecated; not used
-     d  maxOccurs                    10i 0                                      Deprecated; not used
+     d  minOccurs                          like(xmlCint)                        Deprecated; not used
+     d  maxOccurs                          like(xmlCint)                        Deprecated; not used
       *
-     d  flags                        10i 0
+     d  flags                              like(xmlCint)
      d  contentType                        like(xmlSchemaContentType)
      d  base                           *                                        const xmlChar *
      d  baseNs                         *                                        const xmlChar *
      d  baseType                           like(xmlSchemaTypePtr)               Base type component
      d  facets                             like(xmlSchemaFacetPtr)              Local facets
      d  redef                              like(xmlSchemaTypePtr)               Deprecated; not used
-     d  recurse                      10i 0                                      Obsolete
+     d  recurse                            like(xmlCint)                        Obsolete
      d  attributeUses                      like(xmlSchemaAttributeLinkPtr)      Deprecated; not used
      d  attributeWildcard...
      d                                     like(xmlSchemaWildcardPtr)
-     d  builtInType                  10i 0                                      Built-in types type
+     d  builtInType                        like(xmlCint)                        Built-in types type
      d  memberTypes                        like(xmlSchemaTypeLinkPtr)           Union member-types
      d  facetSet                           like(xmlSchemaFacetLinkPtr)          All facets
      d  refPrefix                      *                                        const xmlChar *
@@ -937,10 +942,10 @@
      d  subtypes                           like(xmlSchemaTypePtr)
      d  attributes                         like(xmlSchemaAttributePtr)          Deprecated; not used
      d  node                               like(xmlNodePtr)
-     d  minOccurs                    10i 0                                      Deprecated; not used
-     d  maxOccurs                    10i 0                                      Deprecated; not used
+     d  minOccurs                          like(xmlCint)                        Deprecated; not used
+     d  maxOccurs                          like(xmlCint)                        Deprecated; not used
       *
-     d  flags                        10i 0
+     d  flags                              like(xmlCint)
      d  targetNamespace...
      d                                 *                                        const xmlChar *
      d  namedType                      *                                        const xmlChar *
@@ -995,8 +1000,8 @@
      d  id                             *                                        const xmlChar *
      d  annot                              like(xmlSchemaAnnotPtr)
      d  node                               like(xmlNodePtr)
-     d  fixed                        10i 0                                      _FACET_PRESERVE, etc
-     d  whitespace                   10i 0
+     d  fixed                              like(xmlCint)                        _FACET_PRESERVE, etc
+     d  whitespace                         like(xmlCint)
      d  val                                like(xmlSchemaValPtr)                Compiled value
      d  regexp                             like(xmlRegexpPtr)                   Regexp for patterns
 
@@ -1106,7 +1111,7 @@
      d  id                             *                                        const xmlChar *
      d  doc                                like(xmlDocPtr)
      d  annot                              like(xmlSchemaAnnotPtr)
-     d  flags                        10i 0
+     d  flags                              like(xmlCint)
       *
      d  typeDecl                           like(xmlHashTablePtr)
      d  attrDecl                           like(xmlHashTablePtr)
@@ -1120,8 +1125,8 @@
      d  groupDecl                          like(xmlHashTablePtr)
      d  dict                               like(xmlDictPtr)
      d  includes                       *                                        void *
-     d  preserve                     10i 0                                      Do not free doc ?
-     d  counter                      10i 0                                      For name uniqueness
+     d  preserve                           like(xmlCint)                        Do not free doc ?
+     d  counter                            like(xmlCint)                        For name uniqueness
      d  idcDef                             like(xmlHashTablePtr)                All id-constr. defs
      d  volatiles                      *                                        void *
 

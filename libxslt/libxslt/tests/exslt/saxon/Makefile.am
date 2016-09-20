@@ -5,8 +5,8 @@ $(top_builddir)/xsltproc/xsltproc:
 
 EXTRA_DIST = 						\
 	eval.1.out	eval.1.xml	eval.1.xsl	\
-	eval.2.out	eval.2.xml	eval.2.xsl	\
-	eval.3.out	eval.3.xml	eval.3.xsl	\
+	eval.2.out	eval.2.xml	eval.2.xsl	eval.2.err  \
+	eval.3.out	eval.3.xml	eval.3.xsl	eval.3.err  \
 	lineno.1.out	lineno.1.xml	lineno.1.xsl
 
 CLEANFILES = .memdump

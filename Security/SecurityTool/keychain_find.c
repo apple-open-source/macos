@@ -27,7 +27,7 @@
 
 #include "keychain_utilities.h"
 #include "readline.h"
-#include "security.h"
+#include "security_tool.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -97,37 +97,37 @@ find_first_generic_password(CFTypeRef keychainOrArray,
 	}
 	if (kind != NULL && !primaryKey) {
 		attrs[attrList.count].tag = kSecDescriptionItemAttr;
-		attrs[attrList.count].length = strlen(kind);
+		attrs[attrList.count].length = (UInt32) strlen(kind);
 		attrs[attrList.count].data = (void*)kind;
 		attrList.count++;
 	}
 	if (value != NULL && !primaryKey) {
 		attrs[attrList.count].tag = kSecGenericItemAttr;
-		attrs[attrList.count].length = strlen(value);
+		attrs[attrList.count].length = (UInt32) strlen(value);
 		attrs[attrList.count].data = (void*)value;
 		attrList.count++;
 	}
 	if (comment != NULL && !primaryKey) {
 		attrs[attrList.count].tag = kSecCommentItemAttr;
-		attrs[attrList.count].length = strlen(comment);
+		attrs[attrList.count].length = (UInt32) strlen(comment);
 		attrs[attrList.count].data = (void*)comment;
 		attrList.count++;
 	}
 	if (label != NULL && !primaryKey) {
 		attrs[attrList.count].tag = kSecLabelItemAttr;
-		attrs[attrList.count].length = strlen(label);
+		attrs[attrList.count].length = (UInt32) strlen(label);
 		attrs[attrList.count].data = (void*)label;
 		attrList.count++;
 	}
 	if (serviceName != NULL) {
 		attrs[attrList.count].tag = kSecServiceItemAttr;
-		attrs[attrList.count].length = strlen(serviceName);
+		attrs[attrList.count].length = (UInt32) strlen(serviceName);
 		attrs[attrList.count].data = (void*)serviceName;
 		attrList.count++;
 	}
 	if (accountName != NULL) {
 		attrs[attrList.count].tag = kSecAccountItemAttr;
-		attrs[attrList.count].length = strlen(accountName);
+		attrs[attrList.count].length = (UInt32) strlen(accountName);
 		attrs[attrList.count].data = (void*)accountName;
 		attrList.count++;
 	}
@@ -204,43 +204,43 @@ find_first_internet_password(CFTypeRef keychainOrArray,
 	}
 	if (kind != NULL && !primaryKey) {
 		attrs[attrList.count].tag = kSecDescriptionItemAttr;
-		attrs[attrList.count].length = strlen(kind);
+		attrs[attrList.count].length = (UInt32) strlen(kind);
 		attrs[attrList.count].data = (void*)kind;
 		attrList.count++;
 	}
 	if (comment != NULL && !primaryKey) {
 		attrs[attrList.count].tag = kSecCommentItemAttr;
-		attrs[attrList.count].length = strlen(comment);
+		attrs[attrList.count].length = (UInt32) strlen(comment);
 		attrs[attrList.count].data = (void*)comment;
 		attrList.count++;
 	}
 	if (label != NULL && !primaryKey) {
 		attrs[attrList.count].tag = kSecLabelItemAttr;
-		attrs[attrList.count].length = strlen(label);
+		attrs[attrList.count].length = (UInt32) strlen(label);
 		attrs[attrList.count].data = (void*)label;
 		attrList.count++;
 	}
 	if (serverName != NULL) {
 		attrs[attrList.count].tag = kSecServerItemAttr;
-		attrs[attrList.count].length = strlen(serverName);
+		attrs[attrList.count].length = (UInt32) strlen(serverName);
 		attrs[attrList.count].data = (void*)serverName;
 		attrList.count++;
 	}
 	if (securityDomain != NULL) {
 		attrs[attrList.count].tag = kSecSecurityDomainItemAttr;
-		attrs[attrList.count].length = strlen(securityDomain);
+		attrs[attrList.count].length = (UInt32) strlen(securityDomain);
 		attrs[attrList.count].data = (void *)securityDomain;
 		attrList.count++;
 	}
 	if (accountName != NULL) {
 		attrs[attrList.count].tag = kSecAccountItemAttr;
-		attrs[attrList.count].length = strlen(accountName);
+		attrs[attrList.count].length = (UInt32) strlen(accountName);
 		attrs[attrList.count].data = (void *)accountName;
 		attrList.count++;
 	}
 	if (path != NULL) {
 		attrs[attrList.count].tag = kSecPathItemAttr;
-		attrs[attrList.count].length = strlen(path);
+		attrs[attrList.count].length = (UInt32) strlen(path);
 		attrs[attrList.count].data = (void *)path;
 		attrList.count++;
 	}
@@ -727,7 +727,7 @@ do_keychain_find_certificate(CFTypeRef keychainOrArray,
 			if ((SecCertificateGetData(certificateRef, &data) == noErr) &&
 				(SecDigestGetData(CSSM_ALGID_SHA1, &digest, &data) == CSSM_OK)) {
 				unsigned int i;
-				uint32 len = digest.Length;
+				size_t len = digest.Length;
 				uint8 *cp = digest.Data;
 				fprintf(stdout, "SHA-1 hash: ");
 				for(i=0; i<len; i++) {
@@ -1189,9 +1189,129 @@ cleanup:
 	return result;
 }
 
+int
+keychain_find_key(int argc, char * const *argv) {
+    /*
+     *  "    -a  Match \"application label\" string\n"
+     *  "    -c  Match \"creator\" (four-character code)\n"
+     *  "    -d  Match keys that can decrypt\n"
+     *  "    -D  Match \"description\" string\n"
+     *  "    -e  Match keys that can encrypt\n"
+     *  "    -j  Match \"comment\" string\n"
+     *  "    -l  Match \"label\" string\n"
+     *  "    -r  Match keys that can derive\n"
+     *  "    -s  Match keys that can sign\n"
+     *  "    -t  Type of key to find: one of \"symmetric\", \"public\", or \"private\"\n"
+     *  "    -u  Match keys that can unwrap\n"
+     *  "    -v  Match keys that can verify\n"
+     *  "    -w  Match keys that can wrap\n"
+     */
+
+    CFMutableDictionaryRef query = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    CFDictionarySetValue(query, kSecClass, kSecClassKey);
+    CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitAll);
+
+    CFTypeRef results = NULL;
+
+    int ch, result = 0;
+    while ((ch = getopt(argc, argv, "a:c:dD:ej:l:rst:uvw")) != -1)
+    {
+        switch  (ch)
+        {
+            case 'a':
+                CFDictionarySetValue(query, kSecAttrApplicationLabel, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 'c':
+                CFDictionarySetValue(query, kSecAttrCreator, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 'd':
+                CFDictionarySetValue(query, kSecAttrCanDecrypt, kCFBooleanTrue);
+                break;
+            case 'D':
+                CFDictionarySetValue(query, kSecAttrDescription, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 'e':
+                CFDictionarySetValue(query, kSecAttrCanEncrypt, kCFBooleanTrue);
+                break;
+            case 'j':
+                CFDictionarySetValue(query, kSecAttrComment, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 'l':
+                CFDictionarySetValue(query, kSecAttrLabel, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 'r':
+                CFDictionarySetValue(query, kSecAttrCanDerive, kCFBooleanTrue);
+                break;
+            case 's':
+                CFDictionarySetValue(query, kSecAttrCanSign, kCFBooleanTrue);
+                break;
+            case 't':
+                if(strcmp(optarg, "symmetric") == 0) {
+                    CFDictionarySetValue(query, kSecAttrKeyClass, kSecAttrKeyClassSymmetric);
+                } else if(strcmp(optarg, "public") == 0) {
+                    CFDictionarySetValue(query, kSecAttrKeyClass, kSecAttrKeyClassPublic);
+                } else if(strcmp(optarg, "private") == 0) {
+                    CFDictionarySetValue(query, kSecAttrKeyClass, kSecAttrKeyClassPrivate);
+                } else {
+                    result = 2;
+                    goto cleanup;
+                }
+                break;
+            case 'u':
+                CFDictionarySetValue(query, kSecAttrCanUnwrap, kCFBooleanTrue);
+                break;
+            case 'v':
+                CFDictionarySetValue(query, kSecAttrCanVerify, kCFBooleanTrue);
+                break;
+            case 'w':
+                CFDictionarySetValue(query, kSecAttrCanWrap, kCFBooleanTrue);
+                break;
+            case '?':
+            default:
+                result = 2;
+                goto cleanup;
+        }
+    }
+
+    argc -= optind;
+    argv += optind;
+
+    CFTypeRef keychainOrArray = keychain_create_array(argc, argv);
+
+    if(keychainOrArray && CFGetTypeID(keychainOrArray) == CFArrayGetTypeID()) {
+        CFDictionarySetValue(query, kSecMatchSearchList, keychainOrArray);
+    } else if(keychainOrArray) {
+        // if it's not an array (but is something), it's a keychain. Put it in an array.
+        CFMutableArrayRef searchList = (CFMutableArrayRef) CFArrayCreateMutable(kCFAllocatorDefault, 1, &kCFTypeArrayCallBacks);
+        CFArrayAppendValue((CFMutableArrayRef)searchList, keychainOrArray);
+        CFDictionarySetValue(query, kSecMatchSearchList, searchList);
+        CFRelease(searchList);
+    }
+
+    OSStatus status = SecItemCopyMatching(query, &results);
+    if(status) {
+        sec_perror("SecItemCopyMatching", status);
+        result = 1;
+        goto cleanup;
+    }
+
+    if (CFGetTypeID(results) == CFArrayGetTypeID()) {
+        for(int i = 0; i < CFArrayGetCount(results); i++) {
+            SecKeychainItemRef item = (SecKeychainItemRef) CFArrayGetValueAtIndex(results, i);
+
+            print_keychain_item_attributes(stdout, item, FALSE, FALSE, FALSE, FALSE);
+        }
+    }
+
+cleanup:
+    safe_CFRelease(&results);
+    safe_CFRelease(&query);
+    return result;
+}
+
 // Declare here to use later.
 int keychain_set_partition_list(SecKeychainRef kc, CFDictionaryRef query, CFStringRef password, CFStringRef partitionlist);
-int keychain_parse_args_and_set_partition_list(int argc, char * const *argv, CFDictionaryRef query, CFStringRef partitionidsinput, CFStringRef password);
+int keychain_parse_args_and_set_partition_list(int argc, char * const *argv, CFMutableDictionaryRef query, CFStringRef partitionidsinput, CFStringRef password);
 
 int keychain_set_internet_password_partition_list(int argc, char * const *argv) {
     /*
@@ -1306,7 +1426,7 @@ keychain_set_generic_password_partition_list(int argc, char * const *argv) {
     CFStringRef password = NULL;
 
     int ch, result = 0;
-    while ((ch = getopt(argc, argv, "a:c:C:D:G:j:l:s:S:k:")) != -1)
+    while ((ch = getopt(argc, argv, ":a:c:C:D:G:j:l:s:S:k:")) != -1)
     {
         switch  (ch)
         {
@@ -1341,6 +1461,14 @@ keychain_set_generic_password_partition_list(int argc, char * const *argv) {
                 password = CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull);
                 break;
             case '?':
+            case ':':
+                // They supplied the -k but with no data
+                // Leaving it null will cause prompt below
+                if (optopt == 'k') {
+                    break;
+                }
+                result = 2;
+                goto cleanup; /* @@@ Return 2 triggers usage message. */
             default:
                 result = 2;
                 goto cleanup;
@@ -1359,8 +1487,118 @@ cleanup:
     return result;
 }
 
+int
+keychain_set_key_partition_list(int argc, char * const *argv) {
+    /*
+     *  "    -a  Match \"application label\" string\n"
+     *  "    -c  Match \"creator\" (four-character code)\n"
+     *  "    -d  Match keys that can decrypt\n"
+     *  "    -D  Match \"description\" string\n"
+     *  "    -e  Match keys that can encrypt\n"
+     *  "    -j  Match \"comment\" string\n"
+     *  "    -l  Match \"label\" string\n"
+     *  "    -r  Match keys that can derive\n"
+     *  "    -s  Match keys that can sign\n"
+     *  "    -t  Type of key to find: one of \"symmetric\", \"public\", or \"private\"\n"
+     *  "    -u  Match keys that can unwrap\n"
+     *  "    -v  Match keys that can verify\n"
+     *  "    -w  Match keys that can wrap\n"
+     *  "    -S  Comma-separated list of allowed partition IDs
+     *  "    -k  password for keychain (required)
+     */
 
-int keychain_parse_args_and_set_partition_list(int argc, char * const *argv, CFDictionaryRef query, CFStringRef partitionidsinput, CFStringRef password) {
+    CFMutableDictionaryRef query = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    CFDictionarySetValue(query, kSecClass, kSecClassKey);
+    CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitAll);
+
+    CFStringRef partitionidsinput = NULL;
+    CFStringRef password = NULL;
+
+    int ch, result = 0;
+    while ((ch = getopt(argc, argv, ":a:c:dD:ej:k:l:rsS:t:uvw")) != -1)
+    {
+        switch  (ch)
+        {
+            case 'a':
+                CFDictionarySetValue(query, kSecAttrApplicationLabel, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 'c':
+                CFDictionarySetValue(query, kSecAttrCreator, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 'd':
+                CFDictionarySetValue(query, kSecAttrCanDecrypt, kCFBooleanTrue);
+                break;
+            case 'D':
+                CFDictionarySetValue(query, kSecAttrDescription, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 'e':
+                CFDictionarySetValue(query, kSecAttrCanEncrypt, kCFBooleanTrue);
+                break;
+            case 'j':
+                CFDictionarySetValue(query, kSecAttrComment, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 'l':
+                CFDictionarySetValue(query, kSecAttrLabel, CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull));
+                break;
+            case 'r':
+                CFDictionarySetValue(query, kSecAttrCanDerive, kCFBooleanTrue);
+            case 's':
+                CFDictionarySetValue(query, kSecAttrCanSign, kCFBooleanTrue);
+                break;
+            case 't':
+                if(strcmp(optarg, "symmetric") == 0) {
+                    CFDictionarySetValue(query, kSecAttrKeyClass, kSecAttrKeyClassSymmetric);
+                } else if(strcmp(optarg, "public") == 0) {
+                    CFDictionarySetValue(query, kSecAttrKeyClass, kSecAttrKeyClassPublic);
+                } else if(strcmp(optarg, "private") == 0) {
+                    CFDictionarySetValue(query, kSecAttrKeyClass, kSecAttrKeyClassPrivate);
+                } else {
+                    result = 2;
+                    goto cleanup;
+                }
+                break;
+            case 'u':
+                CFDictionarySetValue(query, kSecAttrCanUnwrap, kCFBooleanTrue);
+                break;
+            case 'v':
+                CFDictionarySetValue(query, kSecAttrCanVerify, kCFBooleanTrue);
+                break;
+            case 'w':
+                CFDictionarySetValue(query, kSecAttrCanWrap, kCFBooleanTrue);
+                break;
+            case 'S':
+                partitionidsinput = CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull);
+                break;
+            case 'k':
+                password = CFStringCreateWithCStringNoCopy(NULL, optarg, kCFStringEncodingUTF8, kCFAllocatorNull);
+                break;
+            case '?':
+            case ':':
+                // They supplied the -k but with no data
+                // Leaving it null will cause prompt below
+                if (optopt == 'k') {
+                    break;
+                }
+                result = 2;
+                goto cleanup; /* @@@ Return 2 triggers usage message. */
+            default:
+                result = 2;
+                goto cleanup;
+        }
+    }
+
+    argc -= optind;
+    argv += optind;
+
+    result = keychain_parse_args_and_set_partition_list(argc, argv, query, partitionidsinput, password);
+
+cleanup:
+    safe_CFRelease(&query);
+    return result;
+}
+
+
+int keychain_parse_args_and_set_partition_list(int argc, char * const *argv, CFMutableDictionaryRef query, CFStringRef partitionidsinput, CFStringRef password) {
     int result = 0;
     const char *keychainName = NULL;
     SecKeychainRef kc = NULL;

@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
@@ -10,7 +10,7 @@
  * except in compliance with the License.  Please obtain a copy of the
  * License at http://www.apple.com/publicsource and read it before using
  * this file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -18,7 +18,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
  * License for the specific language governing rights and limitations
  * under the License."
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
@@ -83,9 +83,7 @@ void	copyfile __P((int, int));
 void	usage __P((void));
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	int pfd, tfd;
 	struct stat begin, end;
@@ -97,7 +95,7 @@ main(argc, argv)
 		default:
 			usage();
 		}
-	
+
 	argc -= optind;
 	argv += optind;
 
@@ -128,12 +126,11 @@ main(argc, argv)
 }
 
 void
-copyfile(from, to)
-	int from, to;
+copyfile(int from, int to)
 {
-	int nr, nw, off;
+	long nr, nw, off;
 	char buf[8*1024];
-	
+
 	while ((nr = read(from, buf, sizeof(buf))) > 0)
 		for (off = 0; off < nr; nr -= nw, off += nw)
 			if ((nw = write(to, buf + off, nr)) < 0)
@@ -143,9 +140,8 @@ copyfile(from, to)
 }
 
 void
-usage()
+usage(void)
 {
-
 	(void)fprintf(stderr, "usage: vipw\n");
 	exit(1);
 }

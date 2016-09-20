@@ -25,7 +25,7 @@
 #include <security_utilities/globalizer.h>
 #include <security_utilities/threading.h>
 
-#define DESDebug(args...)	secdebug("desContext", ## args)
+#define DESDebug(args...)	secinfo("desContext", ## args)
 
 /*
  * DES encrypt/decrypt.

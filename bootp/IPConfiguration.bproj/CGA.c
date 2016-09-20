@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -59,6 +59,7 @@
 #define kHostUUID		CFSTR("HostUUID")		/* data */
 #define kGlobalModifier		CFSTR("GlobalModifier")		/* dict */
 #define kLinkLocalModifiers	CFSTR("LinkLocalModifiers")	/* dict[dict] */
+#define kInterfaceModifiers	CFSTR("InterfaceModifiers")	/* dict[dict] */
 
 /*
  * CGAKeys.plist schema
@@ -88,6 +89,7 @@
 
 STATIC CFDictionaryRef		S_GlobalModifier;
 STATIC CFMutableDictionaryRef	S_LinkLocalModifiers;
+STATIC CFMutableDictionaryRef	S_InterfaceModifiers;
 
 STATIC CFDataRef
 CGAModifierDictGetModifier(CFDictionaryRef dict, uint8_t * security_level);
@@ -228,7 +230,7 @@ CGAModifierDictGetModifier(CFDictionaryRef dict, uint8_t * security_level)
 {
     CFDataRef	modifier = NULL;
 
-    *security_level = 0;
+    *security_level = kCGASecurityLevelZero;
     if (isA_CFDictionary(dict) != NULL) {
 	modifier = CFDictionaryGetValue(dict, kModifier);
 	modifier = isA_CFData(modifier);
@@ -288,21 +290,31 @@ CGAModifierDictCreate(CFDataRef modifier, uint8_t sec_level)
 
 STATIC CFDictionaryRef
 cga_dict_create(CFDataRef host_uuid, CFDictionaryRef global_modifier,
-		CFDictionaryRef linklocal_modifiers)
+		CFDictionaryRef linklocal_modifiers,
+		CFDictionaryRef interface_modifiers)
 {
     CFIndex		count = 2;
     const void *	keys[] = {
 	kHostUUID,
 	kGlobalModifier,
-	kLinkLocalModifiers
+	NULL,
+	NULL
 
     };
     const void *	values[] = {
 	host_uuid,
 	global_modifier,
-	linklocal_modifiers
+	NULL,
+	NULL
     };
     if (linklocal_modifiers != NULL) {
+	keys[count] = kLinkLocalModifiers;
+	values[count] = linklocal_modifiers;
+	count++;
+    }
+    if (interface_modifiers != NULL) {
+	keys[count] = kInterfaceModifiers;
+	values[count] = interface_modifiers;
 	count++;
     }
     return (CFDictionaryCreate(NULL, keys, values, count,
@@ -312,12 +324,14 @@ cga_dict_create(CFDataRef host_uuid, CFDictionaryRef global_modifier,
 
 STATIC bool
 CGAWrite(CFDataRef host_uuid, CFDictionaryRef global_modifier,
-	 CFDictionaryRef linklocal_modifiers)
+	 CFDictionaryRef linklocal_modifiers,
+	 CFDictionaryRef interface_modifiers)
 {
     CFDictionaryRef	dict;
     bool		success = TRUE;
     
-    dict = cga_dict_create(host_uuid, global_modifier, linklocal_modifiers);
+    dict = cga_dict_create(host_uuid, global_modifier, linklocal_modifiers,
+			   interface_modifiers);
     if (my_CFPropertyListWriteFile(dict, CGA_FILE, 0644) < 0) {
 	/*
 	 * An ENOENT error is expected on a read-only filesystem.  All 
@@ -392,7 +406,7 @@ CGAParametersCreate(CFDataRef host_uuid)
     global_modifier = CGAModifierDictCreate(modifier, security_level);
 
     /* save the information */
-    if (CGAWrite(host_uuid, global_modifier, NULL)
+    if (CGAWrite(host_uuid, global_modifier, NULL, NULL)
 	&& CGAKeysWrite(priv, pub)) {
 	/* if we were able to save, push parameters to the kernel */
 	success = cga_parameters_set(priv, pub, modifier, security_level);
@@ -411,6 +425,7 @@ CGAParametersCreate(CFDataRef host_uuid)
 STATIC bool
 CGAParametersLoad(CFDataRef host_uuid)
 {
+    CFDictionaryRef	interface_modifiers = NULL;
     CFDictionaryRef	keys_info = NULL;
     CFDictionaryRef	global_modifier = NULL;
     CFDictionaryRef	linklocal_modifiers = NULL;
@@ -484,8 +499,17 @@ CGAParametersLoad(CFDataRef host_uuid)
 	= CFDictionaryGetValue(parameters, kLinkLocalModifiers);
     if (linklocal_modifiers != NULL
 	&& isA_CFDictionary(linklocal_modifiers) == NULL) {
-	my_log_fl(LOG_NOTICE, "%s is not a dictionary", kLinkLocalModifiers);
+	my_log_fl(LOG_NOTICE, "%@ is not a dictionary", kLinkLocalModifiers);
 	linklocal_modifiers = NULL;
+    }
+
+    /* interface modifiers */
+    interface_modifiers
+	= CFDictionaryGetValue(parameters, kInterfaceModifiers);
+    if (interface_modifiers != NULL
+	&& isA_CFDictionary(interface_modifiers) == NULL) {
+	my_log_fl(LOG_NOTICE, "%@ is not a dictionary", kInterfaceModifiers);
+	interface_modifiers = NULL;
     }
 
  done:
@@ -501,13 +525,25 @@ CGAParametersLoad(CFDataRef host_uuid)
     }
     if (linklocal_modifiers != NULL) {
 	/* make a copy of the existing one */
-	S_LinkLocalModifiers 
+	S_LinkLocalModifiers
 	    = CFDictionaryCreateMutableCopy(NULL, 0, linklocal_modifiers);
 	remove_old_linklocal_modifiers(S_LinkLocalModifiers);
     }
     else {
 	/* create an empty modifiers dictionary */
-	S_LinkLocalModifiers 
+	S_LinkLocalModifiers
+	    = CFDictionaryCreateMutable(NULL, 0,
+					&kCFTypeDictionaryKeyCallBacks,
+					&kCFTypeDictionaryValueCallBacks);
+    }
+    if (interface_modifiers != NULL) {
+	/* make a copy of the existing one */
+	S_InterfaceModifiers
+	    = CFDictionaryCreateMutableCopy(NULL, 0, interface_modifiers);
+    }
+    else {
+	/* create an empty modifiers dictionary */
+	S_InterfaceModifiers
 	    = CFDictionaryCreateMutable(NULL, 0,
 					&kCFTypeDictionaryKeyCallBacks,
 					&kCFTypeDictionaryValueCallBacks);
@@ -519,34 +555,89 @@ CGAParametersLoad(CFDataRef host_uuid)
     return (S_GlobalModifier != NULL);
 }
 
+STATIC CFDataRef
+GetModifierForInterface(CFStringRef ifname_cf, CFMutableDictionaryRef mod_dict,
+			uint8_t * security_level_p, bool * need_write)
+{
+    CFDictionaryRef	dict;
+    CFDataRef		modifier = NULL;
+
+    dict = CFDictionaryGetValue(mod_dict, ifname_cf);
+    if (isA_CFDictionary(dict) != NULL) {
+	modifier = CGAModifierDictGetModifier(dict, security_level_p);
+	*need_write = false;
+    }
+    if (modifier == NULL) {
+	*security_level_p = kCGASecurityLevelZero;
+	modifier = my_CFDataCreateWithRandomBytes(IN6_CGA_MODIFIER_LENGTH);
+	dict = CGAModifierDictCreate(modifier, *security_level_p);
+	CFRelease(modifier);
+	CFDictionarySetValue(mod_dict, ifname_cf, dict);
+	CFRelease(dict);
+	*need_write = true;
+    }
+    return (modifier);
+}
+
+STATIC void
+EstablishInterfaceModifiers(const char * ifname,
+			    struct in6_cga_prepare * cga_prep,
+			    bool linklocal)
+{
+    CFStringRef		ifname_cf;
+    CFDataRef		modifier = NULL;
+    bool		need_write = false;
+    CFDataRef		set_modifier = NULL;
+    uint8_t		set_security_level = kCGASecurityLevelZero;
+    uint8_t		security_level;
+
+    if (S_LinkLocalModifiers == NULL || S_InterfaceModifiers == NULL) {
+	my_log_fl(LOG_NOTICE,
+		  "S_LinkLocalModifiers or S_InterfaceModifiers is NULL");
+	return;
+    }
+    ifname_cf = CFStringCreateWithCString(NULL, ifname, kCFStringEncodingASCII);
+
+    /* link-local modifier */
+    modifier = GetModifierForInterface(ifname_cf, S_LinkLocalModifiers,
+				       &security_level, &need_write);
+    if (linklocal) {
+	/* this is the modifier we want to set */
+	set_modifier = modifier;
+	set_security_level = security_level;
+    }
+
+    /* interface modifier */
+    modifier = GetModifierForInterface(ifname_cf, S_InterfaceModifiers,
+				       &security_level, &need_write);
+    if (set_modifier == NULL) {
+	set_modifier = modifier;
+	set_security_level = security_level;
+    }
+
+    CFRelease(ifname_cf);
+    cga_prepare_set(cga_prep, set_modifier, set_security_level);
+
+    if (need_write) {
+	CGAWrite(HostUUIDGet(), S_GlobalModifier, S_LinkLocalModifiers,
+		 S_InterfaceModifiers);
+    }
+    return;
+}
+
+PRIVATE_EXTERN void
+CGAPrepareSetForInterfaceLinkLocal(const char * ifname,
+				   struct in6_cga_prepare * cga_prep)
+{
+    EstablishInterfaceModifiers(ifname, cga_prep, true);
+    return;
+}
+
 PRIVATE_EXTERN void
 CGAPrepareSetForInterface(const char * ifname,
 			  struct in6_cga_prepare * cga_prep)
 {
-    CFDictionaryRef	dict;
-    CFStringRef		ifname_cf;
-    CFDataRef		modifier = NULL;
-    uint8_t		security_level;
-
-    if (S_LinkLocalModifiers == NULL) {
-	my_log_fl(LOG_NOTICE, "S_LinkLocalModifiers is NULL");
-	return;
-    }
-    ifname_cf = CFStringCreateWithCString(NULL, ifname, kCFStringEncodingASCII);
-    dict = CFDictionaryGetValue(S_LinkLocalModifiers, ifname_cf);
-    if (isA_CFDictionary(dict) != NULL) {
-	modifier = CGAModifierDictGetModifier(dict, &security_level);
-    }
-    if (modifier == NULL) {
-	security_level = kCGASecurityLevelZero;
-	modifier = my_CFDataCreateWithRandomBytes(IN6_CGA_MODIFIER_LENGTH);
-	dict = CGAModifierDictCreate(modifier, security_level);
-	    CFDictionarySetValue(S_LinkLocalModifiers, ifname_cf, dict);
-	CFRelease(modifier);
-	CGAWrite(HostUUIDGet(), S_GlobalModifier, S_LinkLocalModifiers);
-    }
-    CFRelease(ifname_cf);
-    cga_prepare_set(cga_prep, modifier, security_level);
+    EstablishInterfaceModifiers(ifname, cga_prep, false);
     return;
 }
 

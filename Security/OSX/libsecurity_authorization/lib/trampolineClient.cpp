@@ -152,12 +152,12 @@ OSStatus AuthorizationExecuteWithPrivilegesExternalForm(const AuthorizationExter
 			if (errno == EAGAIN) {
 				// potentially recoverable resource shortage
 				if (n > 0) {
-					secdebug("authexec", "resource shortage (EAGAIN), delaying %d seconds", delay);
+					secinfo("authexec", "resource shortage (EAGAIN), delaying %d seconds", delay);
 					sleep(delay);
 					continue;
 				}
 			}
-			secdebug("authexec", "fork failed (errno=%d)", errno);
+			secinfo("authexec", "fork failed (errno=%d)", errno);
 			close(notify[READ]); close(notify[WRITE]);
 			return errAuthorizationToolExecuteFailure;
 
@@ -171,16 +171,16 @@ OSStatus AuthorizationExecuteWithPrivilegesExternalForm(const AuthorizationExter
             fclose(mbox);
 			
 			// get status notification from child
-			secdebug("authexec", "parent waiting for status");
+			secinfo("authexec", "parent waiting for status");
 			ssize_t rc = read(notify[READ], &status, sizeof(status));
 			status = n2h(status);
 			switch (rc) {
 			default:				// weird result of read: post error
-				secdebug("authexec", "unexpected read return value %ld", long(rc));
+				secinfo("authexec", "unexpected read return value %ld", long(rc));
 				status = errAuthorizationToolEnvironmentError;
 				// fall through
 			case sizeof(status):	// read succeeded: child reported an error
-				secdebug("authexec", "parent received status=%d", (int)status);
+				secinfo("authexec", "parent received status=%d", (int)status);
 				close(notify[READ]);
 				if (communicationsPipe) { close(comm[READ]); close(comm[WRITE]); }
 				goto exit_point;
@@ -188,7 +188,7 @@ OSStatus AuthorizationExecuteWithPrivilegesExternalForm(const AuthorizationExter
 				close(notify[READ]);
 				if (communicationsPipe)
 					*communicationsPipe = fdopen(comm[READ], "r+");
-				secdebug("authexec", "parent resumes (no error)");
+				secinfo("authexec", "parent resumes (no error)");
 				status = errSecSuccess;
 				goto exit_point;
 			}

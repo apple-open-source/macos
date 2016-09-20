@@ -46,7 +46,13 @@ end
 A = Array.new
 
 parsed["logs"].each do |log|
-    A.push({"key" => log["key"], "operator" => operators[log["operated_by"][0]]})
+    Entry = Hash.new;
+    Entry["key"] = CFPropertyList::Blob.new(Base64.decode64(log["key"]))
+    Entry["operator"] = operators[log["operated_by"][0]]
+    if log["expiry"] then
+        Entry["expiry"] = DateTime.parse(log["expiry"])
+    end
+    A.push(Entry)
 end
 
 

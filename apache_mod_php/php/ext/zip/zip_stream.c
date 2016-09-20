@@ -1,12 +1,27 @@
-/* $Id$ */
+/*
+  +----------------------------------------------------------------------+
+  | PHP Version 5                                                        |
+  +----------------------------------------------------------------------+
+  | Copyright (c) 1997-2016 The PHP Group                                |
+  +----------------------------------------------------------------------+
+  | This source file is subject to version 3.01 of the PHP license,      |
+  | that is bundled with this package in the file LICENSE, and is        |
+  | available through the world-wide-web at the following url:           |
+  | http://www.php.net/license/3_01.txt.                                 |
+  | If you did not receive a copy of the PHP license and are unable to   |
+  | obtain it through the world-wide-web, please send a note to          |
+  | license@php.net so we can mail you a copy immediately.               |
+  +----------------------------------------------------------------------+
+  | Author: Piere-Alain Joye <pierre@php.net>                            |
+  +----------------------------------------------------------------------+
+*/
+
 #ifdef HAVE_CONFIG_H
 #   include "config.h"
 #endif
 #include "php.h"
 #if HAVE_ZIP
 #ifdef ZEND_ENGINE_2
-
-#include "lib/zip.h"
 
 #include "php_streams.h"
 #include "ext/standard/file.h"
@@ -101,13 +116,13 @@ static int php_zip_ops_stat(php_stream *stream, php_stream_statbuf *ssb TSRMLS_D
 {
 	struct zip_stat sb;
 	const char *path = stream->orig_path;
-	int path_len = strlen(stream->orig_path);
+	size_t path_len = strlen(stream->orig_path);
 	char *file_basename;
 	size_t file_basename_len;
 	char file_dirname[MAXPATHLEN];
 	struct zip *za;
 	char *fragment;
-	int fragment_len;
+	size_t fragment_len;
 	int err;
 
 	fragment = strchr(path, '#');
@@ -185,7 +200,7 @@ php_stream_ops php_stream_zipio_ops = {
 };
 
 /* {{{ php_stream_zip_open */
-php_stream *php_stream_zip_open(char *filename, char *path, char *mode STREAMS_DC TSRMLS_DC)
+php_stream *php_stream_zip_open(const char *filename, const char *path, const char *mode STREAMS_DC TSRMLS_DC)
 {
 	struct zip_file *zf = NULL;
 	int err = 0;
@@ -214,7 +229,7 @@ php_stream *php_stream_zip_open(char *filename, char *path, char *mode STREAMS_D
 			self = emalloc(sizeof(*self));
 
 			self->za = stream_za;
-			self->zf = zf; 
+			self->zf = zf;
 			self->stream = NULL;
 			self->cursor = 0;
 			stream = php_stream_alloc(&php_stream_zipio_ops, self, NULL, mode);
@@ -235,13 +250,13 @@ php_stream *php_stream_zip_open(char *filename, char *path, char *mode STREAMS_D
 
 /* {{{ php_stream_zip_opener */
 php_stream *php_stream_zip_opener(php_stream_wrapper *wrapper,
-											char *path,
-											char *mode,
+											const char *path,
+											const char *mode,
 											int options,
 											char **opened_path,
 											php_stream_context *context STREAMS_DC TSRMLS_DC)
 {
-	int path_len;
+	size_t path_len;
 
 	char *file_basename;
 	size_t file_basename_len;
@@ -250,7 +265,7 @@ php_stream *php_stream_zip_opener(php_stream_wrapper *wrapper,
 	struct zip *za;
 	struct zip_file *zf = NULL;
 	char *fragment;
-	int fragment_len;
+	size_t fragment_len;
 	int err;
 
 	php_stream *stream = NULL;
@@ -293,7 +308,7 @@ php_stream *php_stream_zip_opener(php_stream_wrapper *wrapper,
 			self = emalloc(sizeof(*self));
 
 			self->za = za;
-			self->zf = zf; 
+			self->zf = zf;
 			self->stream = NULL;
 			self->cursor = 0;
 			stream = php_stream_alloc(&php_stream_zipio_ops, self, NULL, mode);

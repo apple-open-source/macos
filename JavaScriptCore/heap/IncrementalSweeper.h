@@ -40,16 +40,16 @@ public:
 #if USE(CF)
     JS_EXPORT_PRIVATE IncrementalSweeper(Heap*, CFRunLoopRef);
 #else
-    explicit IncrementalSweeper(VM*);
+    explicit IncrementalSweeper(Heap*);
 #endif
 
     void startSweeping();
 
-    JS_EXPORT_PRIVATE virtual void doWork() override;
+    JS_EXPORT_PRIVATE void doWork() override;
     bool sweepNextBlock();
     void willFinishSweeping();
 
-#if USE(CF)
+#if USE(CF) || PLATFORM(EFL) || USE(GLIB)
 private:
     void doSweep(double startTime);
     void scheduleTimer();

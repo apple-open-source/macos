@@ -170,6 +170,14 @@
 #define SK_VALUE(x,y) sk_X509_value(x,y)
 typedef STACK_OF(X509) X509_STACK_TYPE;
 
+#if defined(_MSC_VER)
+/* The following logic ensures we correctly glue FILE* within one CRT used
+ * by the OpenSSL library build to another CRT used by the ab.exe build.
+ * This became especially problematic with Visual Studio 2015.
+ */
+#include <openssl/applink.c>
+#endif
+
 #endif
 
 #if defined(USE_SSL)
@@ -423,6 +431,41 @@ static char *xstrdup(const char *s)
         exit(1);
     }
     return ret;
+}
+
+/*
+ * Similar to standard strstr() but we ignore case in this version.
+ * Copied from ap_strcasestr().
+ */
+static char *xstrcasestr(const char *s1, const char *s2)
+{
+    char *p1, *p2;
+    if (*s2 == '\0') {
+        /* an empty s2 */
+        return((char *)s1);
+    }
+    while(1) {
+        for ( ; (*s1 != '\0') && (apr_tolower(*s1) != apr_tolower(*s2)); s1++);
+        if (*s1 == '\0') {
+            return(NULL);
+        }
+        /* found first character of s2, see if the rest matches */
+        p1 = (char *)s1;
+        p2 = (char *)s2;
+        for (++p1, ++p2; apr_tolower(*p1) == apr_tolower(*p2); ++p1, ++p2) {
+            if (*p1 == '\0') {
+                /* both strings ended together */
+                return((char *)s1);
+            }
+        }
+        if (*p2 == '\0') {
+            /* second string ended, a match */
+            break;
+        }
+        /* didn't find a match here, try starting at next character in s1 */
+        s1++;
+    }
+    return((char *)s1);
 }
 
 /* pool abort function */
@@ -1516,7 +1559,7 @@ static void read_connection(struct connection * c)
                  */
                 char *p, *q;
                 size_t len = 0;
-                p = strstr(c->cbuff, "Server:");
+                p = xstrcasestr(c->cbuff, "Server:");
                 q = servername;
                 if (p) {
                     p += 8;
@@ -1553,22 +1596,15 @@ static void read_connection(struct connection * c)
             }
             c->gotheader = 1;
             *s = 0;     /* terminate at end of header */
-            if (keepalive &&
-            (strstr(c->cbuff, "Keep-Alive")
-             || strstr(c->cbuff, "keep-alive"))) {  /* for benefit of MSIIS */
+            if (keepalive && xstrcasestr(c->cbuff, "Keep-Alive")) {
                 char *cl;
-                cl = strstr(c->cbuff, "Content-Length:");
-                /* handle NCSA, which sends Content-length: */
-                if (!cl)
-                    cl = strstr(c->cbuff, "Content-length:");
-                if (cl) {
-                    c->keepalive = 1;
+                c->keepalive = 1;
+                cl = xstrcasestr(c->cbuff, "Content-Length:");
+                if (cl && method != HEAD) {
                     /* response to HEAD doesn't have entity body */
-                    c->length = method != HEAD ? atoi(cl + 16) : 0;
+                    c->length = atoi(cl + 16);
                 }
-                /* The response may not have a Content-Length header */
-                if (!cl) {
-                    c->keepalive = 1;
+                else {
                     c->length = 0;
                 }
             }
@@ -1890,14 +1926,14 @@ static void test(void)
 static void copyright(void)
 {
     if (!use_html) {
-        printf("This is ApacheBench, Version %s\n", AP_AB_BASEREVISION " <$Revision: 1706008 $>");
+        printf("This is ApacheBench, Version %s\n", AP_AB_BASEREVISION " <$Revision: 1748469 $>");
         printf("Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/\n");
         printf("Licensed to The Apache Software Foundation, http://www.apache.org/\n");
         printf("\n");
     }
     else {
         printf("<p>\n");
-        printf(" This is ApacheBench, Version %s <i>&lt;%s&gt;</i><br>\n", AP_AB_BASEREVISION, "$Revision: 1706008 $");
+        printf(" This is ApacheBench, Version %s <i>&lt;%s&gt;</i><br>\n", AP_AB_BASEREVISION, "$Revision: 1748469 $");
         printf(" Copyright 1996 Adam Twiss, Zeus Technology Ltd, http://www.zeustech.net/<br>\n");
         printf(" Licensed to The Apache Software Foundation, http://www.apache.org/<br>\n");
         printf("</p>\n<p>\n");

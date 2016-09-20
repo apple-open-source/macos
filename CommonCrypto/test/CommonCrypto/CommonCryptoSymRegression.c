@@ -370,7 +370,7 @@ static int doTest(const uint8_t *ptext,
 	bool inPlace,	
 	size_t ctxSize,		
 	bool askOutSize,
-	bool quiet)
+	__unused bool quiet)
 {
 	uint8_t			keyBytes[MAX_KEY_SIZE];
 	uint8_t			iv[MAX_BLOCK_SIZE];
@@ -466,7 +466,7 @@ static bool isBitSet(unsigned bit, unsigned word)
 static int kTestTestCount = 7001;
 
 
-int CommonCryptoSymRegression(int argc, char *const *argv)
+int CommonCryptoSymRegression(int __unused argc, char *const * __unused argv)
 {
 	unsigned			loop;
 	uint8_t				*ptext;
@@ -678,7 +678,7 @@ int CommonCryptoSymRegression(int argc, char *const *argv)
 				break;
 			}
 			if(pauseInterval && ((loop % pauseInterval) == 0)) {
-				char c;
+				int c;
 				fpurge(stdin);
 				diag("Hit CR to proceed, q to abort: ");
 				c = getchar();

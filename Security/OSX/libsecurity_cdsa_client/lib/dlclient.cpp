@@ -481,7 +481,7 @@ uint32 DbImpl::dbBlobVersion() {
     if(dl()->guid() == gGuidAppleCSPDL) {
         check(CSSM_DL_PassThrough(handle(), CSSM_APPLECSPDL_DB_GET_BLOB_VERSION, NULL, (void**) &dbBlobVersionPtr));
     } else {
-        secdebugfunc("integrity", "Non-Apple CSPDL keychains don't have keychain versions");
+        secnotice("integrity", "Non-Apple CSPDL keychains don't have keychain versions");
     }
     return dbBlobVersion;
 }
@@ -491,6 +491,10 @@ uint32 DbImpl::recodeDbToVersion(uint32 version) {
     uint32* newDbVersionPtr = &newDbVersion;
     check(CSSM_DL_PassThrough(handle(), CSSM_APPLECSPDL_DB_RECODE_TO_BLOB_VERSION, &version, (void**) &newDbVersionPtr));
     return newDbVersion;
+}
+
+void DbImpl::recodeFinished() {
+    check(CSSM_DL_PassThrough(handle(), CSSM_APPLECSPDL_DB_RECODE_FINISHED, NULL, NULL));
 }
 
 void DbImpl::takeFileLock() {
@@ -503,6 +507,52 @@ void DbImpl::releaseFileLock(bool success) {
 
 void DbImpl::makeBackup() {
     passThrough(CSSM_APPLECSPDL_DB_MAKE_BACKUP, NULL, NULL);
+}
+
+void DbImpl::makeCopy(const char* path) {
+    passThrough(CSSM_APPLECSPDL_DB_MAKE_COPY, path, NULL);
+}
+
+void DbImpl::deleteFile() {
+    passThrough(CSSM_APPLECSPDL_DB_DELETE_FILE, NULL, NULL);
+}
+
+void DbImpl::transferTo(const DLDbIdentifier& dldbidentifier) {
+    if (dldbidentifier.ssuid().subserviceType() & CSSM_SERVICE_CSP) {
+        // if we're an Apple CSPDL, do the fancy transfer:
+        //  clone the file, clone the db, remove the original file
+        string oldPath = name();
+
+        CSSM_DB_HANDLE dbhandle;
+        passThrough(CSSM_APPLECSPDL_DB_CLONE, &dldbidentifier, &dbhandle);
+
+        mDbName = dldbidentifier.dbName();
+        mHandle.DBHandle = dbhandle;
+
+        unlink(oldPath.c_str());
+
+        // Don't cache this name
+        if (mNameFromHandle) {
+            allocator().free(mNameFromHandle);
+            mNameFromHandle = NULL;
+        }
+    } else {
+        // if we're not an Apple CSPDL, just call rename
+        this->rename(dldbidentifier.dbName());
+    }
+}
+
+
+// cloneTo only makes sense if you're on an Apple CSPDL
+Db DbImpl::cloneTo(const DLDbIdentifier& dldbidentifier) {
+    CSSM_DB_HANDLE dbhandle;
+    passThrough(CSSM_APPLECSPDL_DB_CLONE, &dldbidentifier, &dbhandle);
+
+    // This is the only reasonable way to make a SSDbImpl at this layer.
+    CssmClient::Db db(dl(), dldbidentifier.dbName(), dldbidentifier.dbLocation());
+    db->mHandle.DBHandle = dbhandle;
+
+    return db;
 }
 
 //

@@ -43,7 +43,7 @@ static const int bufmax = kTestTestCount + 16;
 // This value need to be acceptable for all CCRegression since default value can only be restored by Super User.
 #define CCREGRESSION_MAX_FILE_OPEN_LIMIT 10
 
-int CommonRandom(int argc, char *const *argv)
+int CommonRandom(int __unused argc, char *const * __unused argv)
 {
     int i;
     uint8_t buf1[bufmax], buf2[bufmax], buf3[bufmax], buf4[bufmax], buf5[bufmax], buf6[bufmax], buf7[bufmax];
@@ -51,9 +51,18 @@ int CommonRandom(int argc, char *const *argv)
     
 	plan_tests(kTestTestCount * 14 + 11);
 
-    
     struct ccrng_state *devRandom = NULL;
     struct ccrng_state *drbg = NULL;
+    
+#if  !((defined(IPHONE_SIMULATOR_HOST_MIN_VERSION_REQUIRED) && IPHONE_SIMULATOR_HOST_MIN_VERSION_REQUIRED >= 100000) \
+|| (defined(__MAC_OS_X_VERSION_MIN_REQUIRED)  && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200)   \
+|| (defined(__IPHONE_OS_VERSION_MIN_REQUIRED) && __IPHONE_OS_VERSION_MIN_REQUIRED>= 100000)   \
+|| (defined(__TV_OS_VERSION_MIN_REQUIRED) &&     __TV_OS_VERSION_MIN_REQUIRED    >= 100000)   \
+|| (defined(__WATCH_OS_VERSION_MIN_REQUIRED) &&  __WATCH_OS_VERSION_MIN_REQUIRED >= 30000))
+
+    // This is for 10.11 / iOS9.0 and earlier.
+    // From now on, we use a syscall so that there is no file descriptor issue.
+
 
     // ============================================
     //          Negative testing first
@@ -94,6 +103,7 @@ int CommonRandom(int argc, char *const *argv)
     for(i=0; (i < rng_array_valid_cnt); i++) {
         ccrng_system_done(&rng_array[i]);
     }
+#endif
 
     // ============================================
     //          Positive testing

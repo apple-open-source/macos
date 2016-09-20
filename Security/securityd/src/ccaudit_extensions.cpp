@@ -419,7 +419,7 @@ RightAuthenticationLogger::logLeastPrivilege(uid_t userId, bool isAuthorizingUse
 }
 
 void
-RightAuthenticationLogger::logFailure(uid_t authenticator, const char *targetName)
+RightAuthenticationLogger::logAuthenticatorFailure(uid_t authenticator, const char *targetName)
 {
     if (false == open())
         return;

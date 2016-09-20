@@ -28,7 +28,7 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/lib/libc_r/man/pthread_detach.3,v 1.6.2.5 2001/08/17 15:42:51 ru Exp $
+.\" $FreeBSD$
 .\"
 .Dd April 4, 1996
 .Dt PTHREAD_DETACH 3
@@ -37,11 +37,9 @@
 .Nm pthread_detach
 .Nd detach a thread
 .Sh SYNOPSIS
-.Fd #include <pthread.h>
+.In pthread.h
 .Ft int
-.Fo pthread_detach
-.Fa "pthread_t thread"
-.Fc
+.Fn pthread_detach "pthread_t thread"
 .Sh DESCRIPTION
 The
 .Fn pthread_detach
@@ -58,19 +56,20 @@ The effect of multiple
 .Fn pthread_detach
 calls on the same target thread is unspecified.
 .Sh RETURN VALUES
-If successful,  the
+If successful, the
 .Fn pthread_detach
 function will return zero.
-Otherwise, an error number will be returned to
+Otherwise an error number will be returned to
 indicate the error.
 Note that the function does not change the value
-of errno, as it did for some drafts of the standard.
+of errno as it did for some drafts of the standard.
 These early drafts
 also passed a pointer to pthread_t as the argument.
 Beware!
 .Sh ERRORS
+The
 .Fn pthread_detach
-will fail if:
+function will fail if:
 .Bl -tag -width Er
 .It Bq Er EINVAL
 The implementation has detected that the value specified by
@@ -84,6 +83,7 @@ thread ID,
 .Sh SEE ALSO
 .Xr pthread_join 3
 .Sh STANDARDS
+The
 .Fn pthread_detach
-conforms to
+function conforms to
 .St -p1003.1-96 .

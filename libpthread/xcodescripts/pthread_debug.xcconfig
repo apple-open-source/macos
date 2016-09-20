@@ -1,4 +1,0 @@
-#include "pthread.xcconfig"
-
-BUILD_VARIANTS = normal debug
-OTHER_CFLAGS = $(OTHER_CFLAGS_debug)

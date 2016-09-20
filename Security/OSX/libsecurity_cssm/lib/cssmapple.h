@@ -37,6 +37,9 @@
 extern "C" {
 #endif
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 /* Guids for standard Apple addin modules. */
 
 /* CSSM itself: {87191ca0-0fc9-11d4-849a-000502b52122} */
@@ -389,6 +392,12 @@ enum {
 
     // Make a backup of this database in a new file
     CSSM_APPLEFILEDL_MAKE_BACKUP,
+
+    // Make a copy of this database
+    CSSM_APPLEFILEDL_MAKE_COPY,
+
+    // Delete this database
+    CSSM_APPLEFILEDL_DELETE_FILE,
 };
 
 /* UNLOCK_REFERRAL "type" attribute values */
@@ -701,6 +710,10 @@ enum
     CSSM_APPLE_PRIVATE_CSPDL_CODE_21 = 21,
     CSSM_APPLE_PRIVATE_CSPDL_CODE_22 = 22,
     CSSM_APPLE_PRIVATE_CSPDL_CODE_23 = 23,
+    CSSM_APPLE_PRIVATE_CSPDL_CODE_24 = 24,
+    CSSM_APPLE_PRIVATE_CSPDL_CODE_25 = 25,
+    CSSM_APPLE_PRIVATE_CSPDL_CODE_26 = 26,
+    CSSM_APPLE_PRIVATE_CSPDL_CODE_27 = 27,
 
 	/* Given a CSSM_KEY_PTR in any format, obtain the SHA-1 hash of the
 	 * associated key blob.
@@ -949,7 +962,7 @@ enum {
 	CSSM_TP_ACTION_REQUIRE_CRL_PER_CERT 	= 0x00000001,
 	// enable fetch from network
 	CSSM_TP_ACTION_FETCH_CRL_FROM_NET 		= 0x00000002,
-	// if set and positive OCSP verify for given cert, no further revocation
+	// if set and positive CRL verify for given cert, no further revocation
 	// checking need be done on that cert
 	CSSM_TP_ACTION_CRL_SUFFICIENT			= 0x00000004,
 	// require CRL verification for certs which claim a CRL provider
@@ -1151,6 +1164,7 @@ typedef struct {
  * (included here for lack of a better place)
  */
 #define kKeychainSuffix			".keychain"
+#define kKeychainDbSuffix       ".keychain-db"
 #define kSystemKeychainName		"System.keychain"
 #define kSystemKeychainDir		"/Library/Keychains/"
 #define kSystemUnlockFile		"/var/db/SystemKey"
@@ -1176,6 +1190,8 @@ const CSSM_OID *cssmAlgToOid(CSSM_ALGORITHMS algId);
  */
 #define errSecErrnoBase			100000
 #define errSecErrnoLimit		100255
+
+#pragma clang diagnostic pop
 
 #ifdef	__cplusplus
 }

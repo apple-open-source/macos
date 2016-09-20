@@ -27,7 +27,7 @@
 /*	The result value is a null pointer on failure. The peer_stream
 /*	is not closed.  The resulting proxy stream is single-buffered.
 /*
-/*	After this, it is a good idea to use the VSTREAM_CTL_SWAP_FD
+/*	After this, it is a good idea to use the CA_VSTREAM_CTL_SWAP_FD
 /*	request to swap the file descriptors between the plaintext
 /*	peer_stream and the proxy stream from tls_proxy_open().
 /*	This avoids the loss of application-configurable VSTREAM
@@ -155,9 +155,9 @@ VSTREAM *tls_proxy_open(const char *service, int flags,
     tlsproxy_stream = vstream_fdopen(fd, O_RDWR);
     vstring_sprintf(remote_endpt, "[%s]:%s", peer_addr, peer_port);
     attr_print(tlsproxy_stream, ATTR_FLAG_NONE,
-	       ATTR_TYPE_STR, MAIL_ATTR_REMOTE_ENDPT, STR(remote_endpt),
-	       ATTR_TYPE_INT, MAIL_ATTR_FLAGS, flags,
-	       ATTR_TYPE_INT, MAIL_ATTR_TIMEOUT, timeout,
+	       SEND_ATTR_STR(MAIL_ATTR_REMOTE_ENDPT, STR(remote_endpt)),
+	       SEND_ATTR_INT(MAIL_ATTR_FLAGS, flags),
+	       SEND_ATTR_INT(MAIL_ATTR_TIMEOUT, timeout),
 	       ATTR_TYPE_END);
     if (vstream_fflush(tlsproxy_stream) != 0) {
 	msg_warn("error sending request to %s service: %m",
@@ -174,7 +174,7 @@ VSTREAM *tls_proxy_open(const char *service, int flags,
      * descriptor. We can't assume UNIX-domain socket semantics here.
      */
     if (attr_scan(tlsproxy_stream, ATTR_FLAG_STRICT,
-		  ATTR_TYPE_INT, MAIL_ATTR_STATUS, &status,
+		  RECV_ATTR_INT(MAIL_ATTR_STATUS, &status),
 		  ATTR_TYPE_END) != 1 || status == 0) {
 
 	/*
@@ -216,7 +216,7 @@ TLS_SESS_STATE *tls_proxy_context_receive(VSTREAM *proxy_stream)
     tls_context = (TLS_SESS_STATE *) mymalloc(sizeof(*tls_context));
 
     if (attr_scan(proxy_stream, ATTR_FLAG_STRICT,
-	       ATTR_TYPE_FUNC, tls_proxy_context_scan, (char *) tls_context,
+	       RECV_ATTR_FUNC(tls_proxy_context_scan, (void *) tls_context),
 		  ATTR_TYPE_END) != 1) {
 	tls_proxy_context_free(tls_context);
 	return (0);
@@ -236,10 +236,10 @@ void    tls_proxy_context_free(TLS_SESS_STATE *tls_context)
     if (tls_context->peer_cert_fprint)
 	myfree(tls_context->peer_cert_fprint);
     if (tls_context->protocol)
-	myfree((char *) tls_context->protocol);
+	myfree((void *) tls_context->protocol);
     if (tls_context->cipher_name)
-	myfree((char *) tls_context->cipher_name);
-    myfree((char *) tls_context);
+	myfree((void *) tls_context->cipher_name);
+    myfree((void *) tls_context);
 }
 
 #endif

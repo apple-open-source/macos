@@ -697,11 +697,12 @@ static void refreshExpiredCrls(
 		}
 		
 		/* 
-		 * Not all CRLs have a URI attribute, which is required for 
-		 * refresh 
+		 * Not all CRLs have a (web)URI attribute, which is required for
+		 * refresh. Filter file URIs.
 		 */
+		uint8_t fileURIHeader[8] = "file://";
 		CSSM_DATA_PTR uri = crl->fetchValidAttr(ATTR_DEX_URI);
-		if(uri == NULL) {
+		if(uri == NULL || (uri->Length >= 7 && memcmp(fileURIHeader, uri->Data, 7))) {
 			ocspdCrlDebug("Expired CRL with no URI at dex %u", dex);
 			continue;
 		}

@@ -389,9 +389,6 @@ tests(void)
 
             ssl_server_handle_destroy(server);
             ssl_client_handle_destroy(client);
-            close(sp[0]);
-            close(sp[1]);
-
         }
     }
 

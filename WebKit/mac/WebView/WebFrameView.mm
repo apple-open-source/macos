@@ -100,7 +100,7 @@ using namespace WebCore;
 @end
 
 #if PLATFORM(MAC)
-@interface NSView (Details)
+@interface NSView ()
 - (void)setBackgroundColor:(NSColor *)color;
 @end
 #endif
@@ -381,6 +381,10 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
         bool throwExceptionsForRoundTwo = WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITH_ROUND_TWO_MAIN_THREAD_EXCEPTIONS);
         if (!throwExceptionsForRoundTwo)
             setDefaultThreadViolationBehavior(LogOnFirstThreadViolation, ThreadViolationRoundTwo);
+
+        bool throwExceptionsForRoundThree = WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITH_ROUND_THREE_MAIN_THREAD_EXCEPTIONS);
+        if (!throwExceptionsForRoundThree)
+            setDefaultThreadViolationBehavior(LogOnFirstThreadViolation, ThreadViolationRoundThree);
 #endif
     }
 
@@ -417,14 +421,6 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     _private = nil;
     
     [super dealloc];
-}
-
-- (void)finalize 
-{
-    if (_private && _private->includedInWebKitStatistics)
-        --WebFrameViewCount;
-
-    [super finalize];
 }
 
 #if PLATFORM(IOS)
@@ -526,7 +522,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
             NSRectFill(rect);
 #else
             CGContextRef cgContext = WKGetCurrentGraphicsContext();
-            CGContextSetFillColorWithColor(cgContext, cachedCGColor(Color::white, ColorSpaceDeviceRGB));
+            CGContextSetFillColorWithColor(cgContext, cachedCGColor(Color::white));
             WKRectFill(cgContext, rect);
 #endif
         }
@@ -538,7 +534,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
             NSRectFill(rect);
 #else
             CGContextRef cgContext = WKGetCurrentGraphicsContext();
-            CGContextSetFillColorWithColor(cgContext, cachedCGColor(Color::cyan, ColorSpaceDeviceRGB));
+            CGContextSetFillColorWithColor(cgContext, cachedCGColor(Color::cyan));
             WKRectFill(cgContext, rect);
 #endif
         }
@@ -921,6 +917,8 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     Frame* coreFrame = [self _web_frame];
     BOOL maintainsBackForwardList = coreFrame && static_cast<BackForwardList*>(coreFrame->page()->backForward().client())->enabled() ? YES : NO;
     
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     count = [characters length];
     for (index = 0; index < count; ++index) {
         switch ([characters characterAtIndex:index]) {
@@ -1093,7 +1091,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
                 break;
         }
     }
-    
+#pragma clang diagnostic pop
     if (callSuper) {
         [super keyDown:event];
     } else {

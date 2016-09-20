@@ -66,6 +66,8 @@ SecCmsContentInfoDestroy(SecCmsContentInfoRef cinfo)
 {
     SECOidTag kind;
 
+    if(!cinfo) return;
+
     kind = SecCmsContentInfoGetContentTypeTag(cinfo);
     switch (kind) {
     case SEC_OID_PKCS7_ENVELOPED_DATA:

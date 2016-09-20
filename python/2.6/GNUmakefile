@@ -106,7 +106,6 @@ $(OBJROOT)/$(PROJECT):
 	rm -rf $(PROJECT) && \
 	mv $(NAMEVERS) $(PROJECT) && \
 	ed - $(PROJECT)/Include/py_curses.h < $(FIX)/py_curses.h.ed && \
-	ed - $(PROJECT)/Include/pymactoolbox.h < $(FIX)/pymactoolbox.h.ed && \
 	ed - $(PROJECT)/Lib/ctypes/__init__.py < $(FIX)/Lib_ctypes___init__.py.ed && \
 	ed - $(PROJECT)/Lib/xml/__init__.py < $(FIX)/Lib_xml___init__.py.ed && \
 	ed - $(PROJECT)/Lib/distutils/command/install.py < $(FIX)/install.py.ed && \
@@ -148,9 +147,12 @@ $(OBJROOT)/$(PROJECT):
 	ed - $(PROJECT)/pyconfig.h.in < $(FIX)/pyconfig.h.in.ed && \
 	ed - $(PROJECT)/Python/ceval.c < $(FIX)/ceval.c.ed && \
 	ed - $(PROJECT)/Python/dynload_shlib.c < $(FIX)/dynload_shlib.c.ed && \
-	ed - $(PROJECT)/Python/mactoolboxglue.c < $(FIX)/mactoolboxglue.c.ed && \
 	patch $(PROJECT)/setup.py $(FIX)/setup.py-21106613.patch && \
 	ed - $(PROJECT)/setup.py < $(FIX)/setup.py.ed && \
+	patch $(PROJECT)/Mac/Makefile.in $(FIX)/Mac.Makefile.in.patch && \
+	patch $(PROJECT)/setup.py $(FIX)/setup.py-23359785.patch && \
+	patch $(PROJECT)/Include/pymactoolbox.h $(FIX)/pymactoolbox.h.diff && \
+	patch $(PROJECT)/Python/mactoolboxglue.c $(FIX)/mactoolboxglue.c.diff && \
 	for i in `find $(PROJECT)/Mac -name setup.py | xargs fgrep -l "'-framework', 'Carbon'"`; do \
 	    ed - $$i < $(FIX)/Mac_setup.py.ed || exit 1; \
 	done && \

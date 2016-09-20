@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -58,7 +58,7 @@ int main(int argc, char * argv[])
 	int flagd = -1, flagg = -1;
 	struct task_qos_policy qosinfo = { LATENCY_QOS_TIER_UNSPECIFIED, THROUGHPUT_QOS_TIER_UNSPECIFIED };
     uint64_t qos_clamp = POSIX_SPAWN_PROC_CLAMP_NONE;
-	
+
 	while ((ch = getopt(argc, argv, "xXbBd:g:c:t:l:p:")) != -1) {
 		switch (ch) {
 			case 'x':
@@ -131,7 +131,7 @@ int main(int argc, char * argv[])
 		warnx("Incompatible option(s) used with -p");
 		usage();
 	}
-	
+
 	if (flagx && flagX){
 		warnx("Incompatible options -x, -X");
 		usage();
@@ -206,25 +206,24 @@ int main(int argc, char * argv[])
 			err(EX_SOFTWARE, "task_policy_set(...TASK_OVERRIDE_QOS_POLICY...)");
 		}
 	}
-	
+
 	if (pid != 0)
 		return 0;
-    
-    
+
     ret = posix_spawnattr_init(&attr);
     if (ret != 0) errc(EX_NOINPUT, ret, "posix_spawnattr_init");
-    
+
     ret = posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETEXEC);
     if (ret != 0) errc(EX_NOINPUT, ret, "posix_spawnattr_setflags");
-    
+
     if (qos_clamp != POSIX_SPAWN_PROC_CLAMP_NONE) {
         ret = posix_spawnattr_set_qos_clamp_np(&attr, qos_clamp);
         if (ret != 0) errc(EX_NOINPUT, ret, "posix_spawnattr_set_qos_clamp_np");
     }
-    
+
     ret = posix_spawnp(&pid, argv[0], NULL, &attr, argv, environ);
     if (ret != 0) errc(EX_NOINPUT, ret, "posix_spawn");
-    
+
 	return EX_OSERR;
 }
 
@@ -240,14 +239,14 @@ static int parse_disk_policy(const char *strpolicy)
 {
 	long policy;
 	char *endptr = NULL;
-	
+
 	/* first try as an integer */
 	policy = strtol(strpolicy, &endptr, 0);
 	if (endptr && (endptr[0] == '\0') && (strpolicy[0] != '\0')) {
 		/* parsed complete string as a number */
 		return (int)policy;
 	}
-	
+
 	if (0 == strcasecmp(strpolicy, "DEFAULT") ) {
 		return IOPOL_DEFAULT;
 	} else if (0 == strcasecmp(strpolicy, "IMPORTANT")) {
@@ -268,7 +267,7 @@ static int parse_disk_policy(const char *strpolicy)
 static int parse_qos_tier(const char *strtier, int parameter){
 	long policy;
 	char *endptr = NULL;
-	
+
 	/* first try as an integer */
 	policy = strtol(strtier, &endptr, 0);
 	if (endptr && (endptr[0] == '\0') && (strtier[0] != '\0')) {
@@ -301,7 +300,7 @@ static int parse_qos_tier(const char *strtier, int parameter){
 }
 
 static uint64_t parse_qos_clamp(const char *qos_string) {
-    
+
     if (0 == strcasecmp(qos_string, "utility") ) {
         return POSIX_SPAWN_PROC_CLAMP_UTILITY;
     } else if (0 == strcasecmp(qos_string, "background")) {

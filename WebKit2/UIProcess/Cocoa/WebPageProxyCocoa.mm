@@ -24,12 +24,24 @@
  */
 
 #import "config.h"
+#import "WebPageProxy.h"
+
+#import "APIUIClient.h"
+#import "DataDetectionResult.h"
+#import "LoadParameters.h"
 #import "WebProcessProxy.h"
 
 #import <WebCore/SearchPopupMenuCocoa.h>
 #import <wtf/cf/TypeCastsCF.h>
 
 namespace WebKit {
+
+#if ENABLE(DATA_DETECTION)
+void WebPageProxy::setDataDetectionResult(const DataDetectionResult& dataDetectionResult)
+{
+    m_dataDetectionResults = dataDetectionResult.results;
+}
+#endif
 
 void WebPageProxy::saveRecentSearches(const String& name, const Vector<WebCore::RecentSearch>& searchItems)
 {
@@ -58,5 +70,10 @@ void WebPageProxy::contentFilterDidBlockLoadForFrame(const WebCore::ContentFilte
         frame->contentFilterDidBlockLoad(unblockHandler);
 }
 #endif
+
+void WebPageProxy::addPlatformLoadParameters(LoadParameters& loadParameters)
+{
+    loadParameters.dataDetectionContext = m_uiClient->dataDetectionContext();
+}
 
 }

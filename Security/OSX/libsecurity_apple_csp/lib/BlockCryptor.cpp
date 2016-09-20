@@ -30,9 +30,9 @@
 #include <security_utilities/debugging.h>
 #include <security_cdsa_utilities/cssmdata.h>
 
-#define BlockCryptDebug(args...)	secdebug("blockCrypt", ## args)
-#define bprintf(args...)			secdebug("blockCryptBuf", ## args)
-#define ioprintf(args...)			secdebug("blockCryptIo", ## args)
+#define BlockCryptDebug(args...)	secinfo("blockCrypt", ## args)
+#define bprintf(args...)			secinfo("blockCryptBuf", ## args)
+#define ioprintf(args...)			secinfo("blockCryptIo", ## args)
 
 BlockCryptor::~BlockCryptor()
 {

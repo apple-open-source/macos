@@ -44,12 +44,12 @@ static HashMap<PageOverlay*, WebPageOverlay*>& overlayMap()
 
 Ref<WebPageOverlay> WebPageOverlay::create(std::unique_ptr<WebPageOverlay::Client> client, PageOverlay::OverlayType overlayType)
 {
-    return adoptRef(*new WebPageOverlay(WTF::move(client), overlayType));
+    return adoptRef(*new WebPageOverlay(WTFMove(client), overlayType));
 }
 
 WebPageOverlay::WebPageOverlay(std::unique_ptr<WebPageOverlay::Client> client, PageOverlay::OverlayType overlayType)
     : m_overlay(PageOverlay::create(*this, overlayType))
-    , m_client(WTF::move(client))
+    , m_client(WTFMove(client))
 {
     ASSERT(m_client);
     overlayMap().add(m_overlay.get(), this);
@@ -82,16 +82,6 @@ void WebPageOverlay::setNeedsDisplay()
 void WebPageOverlay::clear()
 {
     m_overlay->clear();
-}
-
-void WebPageOverlay::pageOverlayDestroyed(PageOverlay&)
-{
-    if (m_overlay) {
-        overlayMap().remove(m_overlay.get());
-        m_overlay = nullptr;
-    }
-
-    m_client->pageOverlayDestroyed(*this);
 }
 
 void WebPageOverlay::willMoveToPage(PageOverlay&, Page* page)

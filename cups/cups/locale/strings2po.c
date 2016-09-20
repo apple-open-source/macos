@@ -1,6 +1,4 @@
 /*
- * "$Id: strings2po.c 11560 2014-02-06 20:10:19Z msweet $"
- *
  * Convert Apple .strings file (UTF-16 BE text file) to GNU gettext .po files.
  *
  * Copyright 2007-2014 by Apple Inc.
@@ -170,8 +168,3 @@ write_po(FILE       *po,		/* I - .po file */
 {
   fprintf(po, "%s \"%s\"\n", what, s);
 }
-
-
-/*
- * End of "$Id: strings2po.c 11560 2014-02-06 20:10:19Z msweet $".
- */

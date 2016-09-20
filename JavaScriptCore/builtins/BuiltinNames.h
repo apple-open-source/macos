@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,70 +26,197 @@
 #ifndef BuiltinNames_h
 #define BuiltinNames_h
 
+#include "BuiltinUtils.h"
+#include "BytecodeIntrinsicRegistry.h"
 #include "CommonIdentifiers.h"
 #include "JSCBuiltins.h"
 
 namespace JSC {
-    
-#define INITIALISE_BUILTIN_NAMES(name) , m_##name(Identifier::fromString(vm, #name)), m_##name##PrivateName(Identifier::fromUid(PrivateName()))
-#define DECLARE_BUILTIN_NAMES(name) const Identifier m_##name; const Identifier m_##name##PrivateName;
-#define DECLARE_BUILTIN_IDENTIFIER_ACCESSOR(name) \
-    const Identifier& name##PublicName() const { return m_##name; } \
-    const Identifier& name##PrivateName() const { return m_##name##PrivateName; }
 
-#define INITIALISE_BUILTIN_SYMBOLS(name) INITIALISE_BUILTIN_NAMES(name), m_##name##Symbol(Identifier::fromUid(PrivateName(PrivateName::Description, ASCIILiteral("Symbol." #name))))
-#define DECLARE_BUILTIN_SYMBOLS(name) DECLARE_BUILTIN_NAMES(name) const Identifier m_##name##Symbol;
-#define DECLARE_BUILTIN_SYMBOL_ACCESSOR(name) \
-    DECLARE_BUILTIN_IDENTIFIER_ACCESSOR(name) \
-    const Identifier& name##Symbol() const { return m_##name##Symbol; }
+#define JSC_COMMON_PRIVATE_IDENTIFIERS_EACH_PROPERTY_NAME(macro) \
+    JSC_COMMON_BYTECODE_INTRINSIC_FUNCTIONS_EACH_NAME(macro) \
+    JSC_COMMON_BYTECODE_INTRINSIC_CONSTANTS_EACH_NAME(macro) \
+    macro(iteratedObject) \
+    macro(arrayIteratorNextIndex) \
+    macro(arrayIterationKind) \
+    macro(arrayIteratorNext) \
+    macro(arrayIteratorIsDone) \
+    macro(arrayIteratorKind) \
+    macro(charCodeAt) \
+    macro(iteratedString) \
+    macro(stringIteratorNextIndex) \
+    macro(promise) \
+    macro(fulfillmentHandler) \
+    macro(rejectionHandler) \
+    macro(index) \
+    macro(deferred) \
+    macro(countdownHolder) \
+    macro(Object) \
+    macro(ownEnumerablePropertyKeys) \
+    macro(Number) \
+    macro(Array) \
+    macro(String) \
+    macro(RegExp) \
+    macro(Map) \
+    macro(Promise) \
+    macro(Reflect) \
+    macro(InternalPromise) \
+    macro(abs) \
+    macro(floor) \
+    macro(trunc) \
+    macro(create) \
+    macro(defineProperty) \
+    macro(getPrototypeOf) \
+    macro(getOwnPropertyDescriptor) \
+    macro(getOwnPropertyNames) \
+    macro(ownKeys) \
+    macro(Error) \
+    macro(RangeError) \
+    macro(TypeError) \
+    macro(typedArrayLength) \
+    macro(typedArraySort) \
+    macro(typedArrayGetOriginalConstructor) \
+    macro(typedArraySubarrayCreate) \
+    macro(BuiltinLog) \
+    macro(homeObject) \
+    macro(getTemplateObject) \
+    macro(enqueueJob) \
+    macro(handler) \
+    macro(promiseState) \
+    macro(promiseFulfillReactions) \
+    macro(promiseRejectReactions) \
+    macro(promiseResult) \
+    macro(push) \
+    macro(repeatCharacter) \
+    macro(capabilities) \
+    macro(starDefault) \
+    macro(InspectorInstrumentation) \
+    macro(get) \
+    macro(set) \
+    macro(shift) \
+    macro(allocateTypedArray) \
+    macro(Int8Array) \
+    macro(Int16Array) \
+    macro(Int32Array) \
+    macro(Uint8Array) \
+    macro(Uint8ClampedArray) \
+    macro(Uint16Array) \
+    macro(Uint32Array) \
+    macro(Float32Array) \
+    macro(Float64Array) \
+    macro(exec) \
+    macro(generator) \
+    macro(generatorNext) \
+    macro(generatorState) \
+    macro(generatorFrame) \
+    macro(generatorValue) \
+    macro(generatorThis) \
+    macro(generatorResumeMode) \
+    macro(Collator) \
+    macro(DateTimeFormat) \
+    macro(NumberFormat) \
+    macro(intlSubstituteValue) \
+    macro(thisTimeValue) \
+    macro(thisNumberValue) \
+    macro(newTargetLocal) \
+    macro(derivedConstructor) \
+    macro(isTypedArrayView) \
+    macro(isBoundFunction) \
+    macro(hasInstanceBoundFunction) \
+    macro(instanceOf) \
+    macro(isArray) \
+    macro(isArrayConstructor) \
+    macro(isConstructor) \
+    macro(isRegExpObject) \
+    macro(concatMemcpy) \
+    macro(appendMemcpy) \
+    macro(predictFinalLengthFromArgumunts) \
+    macro(print) \
+    macro(isSet) \
+    macro(isMap) \
+    macro(regExpCreate) \
+    macro(SetIterator) \
+    macro(setIteratorNext) \
+    macro(replaceUsingRegExp) \
+    macro(replaceUsingStringSearch) \
+    macro(MapIterator) \
+    macro(mapIteratorNext) \
+    macro(regExpBuiltinExec) \
+    macro(regExpMatchFast) \
+    macro(regExpProtoFlagsGetter) \
+    macro(regExpProtoGlobalGetter) \
+    macro(regExpProtoIgnoreCaseGetter) \
+    macro(regExpProtoMultilineGetter) \
+    macro(regExpProtoSourceGetter) \
+    macro(regExpProtoStickyGetter) \
+    macro(regExpProtoUnicodeGetter) \
+    macro(regExpPrototypeSymbolReplace) \
+    macro(regExpReplaceFast) \
+    macro(regExpSearchFast) \
+    macro(regExpSplitFast) \
+    macro(regExpTestFast) \
+    macro(stringIncludesInternal) \
+    macro(stringSplitFast) \
+    macro(stringSubstrInternal)
 
-#define INITIALISE_PRIVATE_TO_PUBLIC_ENTRY(name) m_privateToPublicMap.add(m_##name##PrivateName.impl(), &m_##name);
-#define INITIALISE_PUBLIC_TO_PRIVATE_ENTRY(name) m_publicToPrivateMap.add(m_##name.impl(), &m_##name##PrivateName);
-    
+
+#define INITIALIZE_PRIVATE_TO_PUBLIC_ENTRY(name) m_privateToPublicMap.add(m_##name##PrivateName.impl(), &m_##name);
+#define INITIALIZE_PUBLIC_TO_PRIVATE_ENTRY(name) m_publicToPrivateMap.add(m_##name.impl(), &m_##name##PrivateName);
+
+// We commandeer the publicToPrivateMap to allow us to convert private symbol names into the appropriate symbol.
+// e.g. @iteratorSymbol points to Symbol.iterator in this map rather than to a an actual private name.
+// FIXME: This is a weird hack and we shouldn't need to do this.
+#define INITIALIZE_SYMBOL_PUBLIC_TO_PRIVATE_ENTRY(name) m_publicToPrivateMap.add(m_##name##SymbolPrivateIdentifier.impl(), &m_##name##Symbol);
+
 class BuiltinNames {
     WTF_MAKE_NONCOPYABLE(BuiltinNames); WTF_MAKE_FAST_ALLOCATED;
     
 public:
+    // We treat the dollarVM name as a special case below for $vm (because CommonIdentifiers does not
+    // yet support the $ character).
+
     BuiltinNames(VM* vm, CommonIdentifiers* commonIdentifiers)
         : m_emptyIdentifier(commonIdentifiers->emptyIdentifier)
-        JSC_FOREACH_BUILTIN_FUNCTION_NAME(INITIALISE_BUILTIN_NAMES)
-        JSC_COMMON_PRIVATE_IDENTIFIERS_EACH_PROPERTY_NAME(INITIALISE_BUILTIN_NAMES)
-        JSC_COMMON_PRIVATE_IDENTIFIERS_EACH_WELL_KNOWN_SYMBOL(INITIALISE_BUILTIN_SYMBOLS)
+        JSC_FOREACH_BUILTIN_FUNCTION_NAME(INITIALIZE_BUILTIN_NAMES)
+        JSC_COMMON_PRIVATE_IDENTIFIERS_EACH_PROPERTY_NAME(INITIALIZE_BUILTIN_NAMES)
+        JSC_COMMON_PRIVATE_IDENTIFIERS_EACH_WELL_KNOWN_SYMBOL(INITIALIZE_BUILTIN_SYMBOLS)
+        , m_dollarVMName(Identifier::fromString(vm, "$vm"))
+        , m_dollarVMPrivateName(Identifier::fromUid(PrivateName(PrivateName::Description, ASCIILiteral("PrivateSymbol.$vm"))))
     {
-        JSC_FOREACH_BUILTIN_FUNCTION_NAME(INITIALISE_PRIVATE_TO_PUBLIC_ENTRY)
-        JSC_COMMON_PRIVATE_IDENTIFIERS_EACH_PROPERTY_NAME(INITIALISE_PRIVATE_TO_PUBLIC_ENTRY)
-        JSC_COMMON_PRIVATE_IDENTIFIERS_EACH_WELL_KNOWN_SYMBOL(INITIALISE_PRIVATE_TO_PUBLIC_ENTRY)
-        JSC_FOREACH_BUILTIN_FUNCTION_NAME(INITIALISE_PUBLIC_TO_PRIVATE_ENTRY)
-        JSC_COMMON_PRIVATE_IDENTIFIERS_EACH_PROPERTY_NAME(INITIALISE_PUBLIC_TO_PRIVATE_ENTRY)
-        JSC_COMMON_PRIVATE_IDENTIFIERS_EACH_WELL_KNOWN_SYMBOL(INITIALISE_PUBLIC_TO_PRIVATE_ENTRY)
+        JSC_FOREACH_BUILTIN_FUNCTION_NAME(INITIALIZE_PRIVATE_TO_PUBLIC_ENTRY)
+        JSC_COMMON_PRIVATE_IDENTIFIERS_EACH_PROPERTY_NAME(INITIALIZE_PRIVATE_TO_PUBLIC_ENTRY)
+        JSC_FOREACH_BUILTIN_FUNCTION_NAME(INITIALIZE_PUBLIC_TO_PRIVATE_ENTRY)
+        JSC_COMMON_PRIVATE_IDENTIFIERS_EACH_PROPERTY_NAME(INITIALIZE_PUBLIC_TO_PRIVATE_ENTRY)
+        JSC_COMMON_PRIVATE_IDENTIFIERS_EACH_WELL_KNOWN_SYMBOL(INITIALIZE_SYMBOL_PUBLIC_TO_PRIVATE_ENTRY)
+        m_privateToPublicMap.add(m_dollarVMPrivateName.impl(), &m_dollarVMName);
+        m_publicToPrivateMap.add(m_dollarVMName.impl(), &m_dollarVMPrivateName);
     }
 
     bool isPrivateName(SymbolImpl& uid) const;
     bool isPrivateName(UniquedStringImpl& uid) const;
     bool isPrivateName(const Identifier&) const;
-    const Identifier* getPrivateName(const Identifier&) const;
-    const Identifier& getPublicName(const Identifier&) const;
+    const Identifier* lookUpPrivateName(const Identifier&) const;
+    const Identifier& lookUpPublicName(const Identifier&) const;
     
+    void appendExternalName(const Identifier& publicName, const Identifier& privateName);
+
     JSC_FOREACH_BUILTIN_FUNCTION_NAME(DECLARE_BUILTIN_IDENTIFIER_ACCESSOR)
     JSC_COMMON_PRIVATE_IDENTIFIERS_EACH_PROPERTY_NAME(DECLARE_BUILTIN_IDENTIFIER_ACCESSOR)
     JSC_COMMON_PRIVATE_IDENTIFIERS_EACH_WELL_KNOWN_SYMBOL(DECLARE_BUILTIN_SYMBOL_ACCESSOR)
+    const JSC::Identifier& dollarVMPublicName() const { return m_dollarVMName; }
+    const JSC::Identifier& dollarVMPrivateName() const { return m_dollarVMPrivateName; }
 
 private:
     Identifier m_emptyIdentifier;
     JSC_FOREACH_BUILTIN_FUNCTION_NAME(DECLARE_BUILTIN_NAMES)
     JSC_COMMON_PRIVATE_IDENTIFIERS_EACH_PROPERTY_NAME(DECLARE_BUILTIN_NAMES)
     JSC_COMMON_PRIVATE_IDENTIFIERS_EACH_WELL_KNOWN_SYMBOL(DECLARE_BUILTIN_SYMBOLS)
+    const JSC::Identifier m_dollarVMName;
+    const JSC::Identifier m_dollarVMPrivateName;
     typedef HashMap<RefPtr<UniquedStringImpl>, const Identifier*, IdentifierRepHash> BuiltinNamesMap;
     BuiltinNamesMap m_publicToPrivateMap;
     BuiltinNamesMap m_privateToPublicMap;
 };
-
-#undef DECLARE_BUILTIN_NAMES
-#undef INITIALISE_BUILTIN_NAMES
-#undef DECLARE_BUILTIN_IDENTIFIER_ACCESSOR
-#undef DECLARE_BUILTIN_SYMBOLS
-#undef INITIALISE_BUILTIN_SYMBOLS
-#undef DECLARE_BUILTIN_SYMBOL_ACCESSOR
 
 inline bool BuiltinNames::isPrivateName(SymbolImpl& uid) const
 {
@@ -110,7 +237,7 @@ inline bool BuiltinNames::isPrivateName(const Identifier& ident) const
     return isPrivateName(*ident.impl());
 }
 
-inline const Identifier* BuiltinNames::getPrivateName(const Identifier& ident) const
+inline const Identifier* BuiltinNames::lookUpPrivateName(const Identifier& ident) const
 {
     auto iter = m_publicToPrivateMap.find(ident.impl());
     if (iter != m_publicToPrivateMap.end())
@@ -118,7 +245,7 @@ inline const Identifier* BuiltinNames::getPrivateName(const Identifier& ident) c
     return 0;
 }
 
-inline const Identifier& BuiltinNames::getPublicName(const Identifier& ident) const
+inline const Identifier& BuiltinNames::lookUpPublicName(const Identifier& ident) const
 {
     auto iter = m_privateToPublicMap.find(ident.impl());
     if (iter != m_privateToPublicMap.end())
@@ -126,6 +253,16 @@ inline const Identifier& BuiltinNames::getPublicName(const Identifier& ident) co
     return m_emptyIdentifier;
 }
 
+inline void BuiltinNames::appendExternalName(const Identifier& publicName, const Identifier& privateName)
+{
+#ifndef NDEBUG
+    for (const auto& key : m_publicToPrivateMap.keys())
+        ASSERT(publicName.string() != *key);
+#endif
+
+    m_privateToPublicMap.add(privateName.impl(), &publicName);
+    m_publicToPrivateMap.add(publicName.impl(), &privateName);
+}
 
 }
 

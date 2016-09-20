@@ -28,7 +28,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: CUPS 2.0\n"
 "Report-Msgid-Bugs-To: http://www.cups.org/str.php\n"
-"POT-Creation-Date: 2015-07-20 14:24-0400\n"
+"POT-Creation-Date: 2016-06-24 11:07-0400\n"
 "PO-Revision-Date: 2014-11-15 19:27+0900\n"
 "Last-Translator: OPFC TRANSCUPS <opfc-transcups@sourceforge.jp>\n"
 "Language-Team: OPFC TRANSCUPS <opfc-transcups@sourceforge.jp>\n"
@@ -95,10 +95,6 @@ msgstr "\t許可されているフォーム:"
 #, c-format
 msgid "\tInterface: %s.ppd"
 msgstr "\tインターフェイス: %s.ppd"
-
-#, c-format
-msgid "\tInterface: %s/interfaces/%s"
-msgstr "\tインターフェイス: %s/interfaces/%s"
 
 #, c-format
 msgid "\tInterface: %s/ppd/%s.ppd"
@@ -981,8 +977,8 @@ msgstr "  --help                  このヘルプを表示する。"
 msgid "  --host regex            Match hostname to regular expression."
 msgstr "  --host <正規表現>       ホスト名が正規表現にマッチするか。"
 
-msgid "  --lf                    End lines with LF (UNIX/Linux/OS X)."
-msgstr "  --lf                    行末を LF とする (UNIX/Linux/OS X)。"
+msgid "  --lf                    End lines with LF (UNIX/Linux/macOS)."
+msgstr ""
 
 msgid "  --list-filters          List filters that will be used."
 msgstr "  --list-filters          使用されるフィルターのリストを表示する。"
@@ -1133,9 +1129,6 @@ msgstr ""
 msgid "  -X                      Produce XML plist instead of plain text."
 msgstr "  -X                      プレーンテキストの代わりに XML を用いる。"
 
-msgid "  -a                      Browse for all services."
-msgstr "  -a                      すべてのサービスをブラウズする。"
-
 msgid "  -a                      Export all printers."
 msgstr "  -a                      すべてのプリンターをエクスポートする。"
 
@@ -1150,9 +1143,6 @@ msgstr "  -c cups-files.conf      cups-files.conf を利用するよう設定す
 
 msgid "  -c cupsd.conf           Set cupsd.conf file to use."
 msgstr "  -c cupsd.conf           使用する cupsd.conf ファイルを指定する。"
-
-msgid "  -d domain               Browse/resolve in specified domain."
-msgstr "  -d <ドメイン名>         指定されたドメインでブラウズ/名前解決する。"
 
 msgid "  -d name=value           Set named variable to value."
 msgstr ""
@@ -1253,11 +1243,6 @@ msgstr "  -p                      結果が真なら URI を表示する。"
 msgid "  -p filename.ppd         Set PPD file."
 msgstr "  -p filename.ppd         PPD ファイルを指定する。"
 
-msgid "  -p program              Run specified program for each service."
-msgstr ""
-"  -p <プログラム名>       指定されたプログラムをそれぞれのサービスに対し実行"
-"する。"
-
 msgid "  -q                      Quietly report match via exit code."
 msgstr ""
 "  -q                      マッチ結果を終了コードで報告し、出力をしない。"
@@ -1274,6 +1259,9 @@ msgstr "  -r                      寛容モードを用いる。"
 msgid "  -s                      Print service name if true."
 msgstr "  -s                      結果が真ならサービス名を表示する。"
 
+msgid "  -s cups-files.conf      Set cups-files.conf file to use."
+msgstr ""
+
 msgid "  -t                      Produce a test report."
 msgstr "  -t                      テストリポートを出力する。"
 
@@ -1288,9 +1276,6 @@ msgstr "  -t <キー名>             TXT レコードがキー名を含んでい
 
 msgid "  -t title                Set title."
 msgstr "  -t title                タイトルを指定する。"
-
-msgid "  -t type                 Browse/resolve with specified type."
-msgstr "  -t タイプ               指定されたタイプでブラウズ/名前解決する。"
 
 msgid "  -u                      Remove the PPD file when finished."
 msgstr "  -u                      終了したときに PPD ファイルを削除する。"
@@ -1714,6 +1699,10 @@ msgstr ""
 "きません。 "
 
 #, c-format
+msgid "%s: Error - copies must be 1 or more."
+msgstr ""
+
+#, c-format
 msgid "%s: Error - expected character set after \"-S\" option."
 msgstr "%s: エラー - \"-S\" オプションのあとには文字セットが必要です。"
 
@@ -1920,6 +1909,10 @@ msgstr ""
 
 #, c-format
 msgid "%s: Unable to resolve \"%s\"."
+msgstr ""
+
+#, c-format
+msgid "%s: Unknown argument \"%s\"."
 msgstr ""
 
 #, c-format
@@ -2210,6 +2203,18 @@ msgstr "2"
 msgid "2 inches/sec."
 msgstr "2 インチ/秒"
 
+msgid "2-Hole Punch (Landscape)"
+msgstr ""
+
+msgid "2-Hole Punch (Portrait)"
+msgstr ""
+
+msgid "2-Hole Punch (Reverse Landscape)"
+msgstr ""
+
+msgid "2-Hole Punch (Reverse Portrait)"
+msgstr ""
+
 msgid "2-Sided Printing"
 msgstr "両面印刷"
 
@@ -2324,6 +2329,18 @@ msgstr "3 インチ/秒"
 msgid "3 x 5"
 msgstr "3 x 5"
 
+msgid "3-Hole Punch (Landscape)"
+msgstr ""
+
+msgid "3-Hole Punch (Portrait)"
+msgstr ""
+
+msgid "3-Hole Punch (Reverse Landscape)"
+msgstr ""
+
+msgid "3-Hole Punch (Reverse Portrait)"
+msgstr ""
+
 msgid "3.00x1.00\""
 msgstr "3.00x1.00 インチ"
 
@@ -2389,6 +2406,18 @@ msgstr "4"
 
 msgid "4 inches/sec."
 msgstr "4 インチ/秒"
+
+msgid "4-Hole Punch (Landscape)"
+msgstr ""
+
+msgid "4-Hole Punch (Portrait)"
+msgstr ""
+
+msgid "4-Hole Punch (Reverse Landscape)"
+msgstr ""
+
+msgid "4-Hole Punch (Reverse Portrait)"
+msgstr ""
 
 msgid "4.00x1.00\""
 msgstr "4.00x1.00 インチ"
@@ -2688,6 +2717,9 @@ msgstr "ジョブの受け付け"
 msgid "Accepted"
 msgstr "受け付けました"
 
+msgid "Accordian Fold"
+msgstr ""
+
 msgid "Add Class"
 msgstr "クラスの追加"
 
@@ -2703,6 +2735,12 @@ msgstr "アドレス"
 msgid "Administration"
 msgstr "管理"
 
+msgid "Alternate"
+msgstr ""
+
+msgid "Alternate Roll"
+msgstr ""
+
 msgid "Always"
 msgstr "常に有効"
 
@@ -2717,8 +2755,19 @@ msgid "Attempt to set %s printer-state to bad value %d."
 msgstr "%s printer-state に 不正な値 %d を設定しようとしています。"
 
 #, c-format
+msgid "Attribute \"%s\" is in the wrong group."
+msgstr ""
+
+#, c-format
+msgid "Attribute \"%s\" is the wrong value type."
+msgstr ""
+
+#, c-format
 msgid "Attribute groups are out of order (%x < %x)."
 msgstr "属性グループは範囲外です (%x < %x)。"
+
+msgid "Automatic"
+msgstr ""
 
 msgid "B0"
 msgstr "B0"
@@ -2774,6 +2823,9 @@ msgstr "不正な OrderDependency"
 
 msgid "Bad PPD cache file."
 msgstr "不正な PPD キャッシュファイルです。"
+
+msgid "Bad PPD file."
+msgstr ""
 
 msgid "Bad Request"
 msgstr "不正なリクエスト"
@@ -2900,18 +2952,45 @@ msgstr "値文字列がありません"
 msgid "Bad/empty URI"
 msgstr "URI が不正か空"
 
+msgid "Bale"
+msgstr ""
+
 msgid "Banners"
 msgstr "バナー"
 
+msgid "Bind"
+msgstr ""
+
+msgid "Bind (Landscape)"
+msgstr ""
+
+msgid "Bind (Portrait)"
+msgstr ""
+
+msgid "Bind (Reverse Landscape)"
+msgstr ""
+
+msgid "Bind (Reverse Portrait)"
+msgstr ""
+
 msgid "Bond Paper"
 msgstr "ボンド紙"
+
+msgid "Booklet Maker"
+msgstr ""
 
 #, c-format
 msgid "Boolean expected for waiteof option \"%s\"."
 msgstr "論理値は、waiteof オプション \"%s\" であるべきです"
 
+msgid "Bottom"
+msgstr ""
+
 msgid "Buffer overflow detected, aborting."
 msgstr "オーバーフローが検出され、中断しました。"
+
+msgid "CD/DVD/Bluray"
+msgstr ""
 
 msgid "CMYK"
 msgstr "CMYK"
@@ -2928,11 +3007,20 @@ msgstr "RSS 購読をキャンセル"
 msgid "Canceling print job."
 msgstr "プリントジョブをキャンセルしています。"
 
+msgid "Cannot change printer-is-shared for remote queues."
+msgstr ""
+
 msgid "Cannot share a remote Kerberized printer."
 msgstr "リモートの Kerberos 認証のプリンターを共有できません。"
 
+msgid "Cardstock"
+msgstr ""
+
 msgid "Cassette"
 msgstr "カセット"
+
+msgid "Center"
+msgstr ""
 
 msgid "Change Settings"
 msgstr "設定の変更"
@@ -2949,6 +3037,9 @@ msgstr "プリントヘッドクリーニング"
 
 msgid "Close-Job doesn't support the job-uri attribute."
 msgstr "Close-Job は job-uri 属性をサポートしていません。"
+
+msgid "Coat"
+msgstr ""
 
 msgid "Color"
 msgstr "カラー"
@@ -2986,6 +3077,9 @@ msgstr "コントロールファイルが正常に送信されました。"
 msgid "Copying print data."
 msgstr "印刷データをコピーしています。"
 
+msgid "Cover"
+msgstr ""
+
 msgid "Created"
 msgstr "ジョブ作成"
 
@@ -3000,6 +3094,9 @@ msgstr "CustominTearInterval"
 
 msgid "Cut"
 msgstr "カット"
+
+msgid "Cut Media"
+msgstr ""
 
 msgid "Cutter"
 msgstr "カッター"
@@ -3071,9 +3168,30 @@ msgstr ""
 msgid "Disabled"
 msgstr "無効"
 
+msgid "Disc"
+msgstr ""
+
 #, c-format
 msgid "Document #%d does not exist in job #%d."
 msgstr "ドキュメント #%d がジョブ #%d に見つかりません。"
+
+msgid "Double Gate Fold"
+msgstr ""
+
+msgid "Double Staple (Landscape)"
+msgstr ""
+
+msgid "Double Staple (Portrait)"
+msgstr ""
+
+msgid "Double Staple (Reverse Landscape)"
+msgstr ""
+
+msgid "Double Staple (Reverse Portrait)"
+msgstr ""
+
+msgid "Draft"
+msgstr ""
 
 msgid "Duplexer"
 msgstr "両面オプション"
@@ -3112,8 +3230,11 @@ msgstr ""
 "root のユーザー名とパスワードを入力してください。Kerberos 認証を使用している"
 "場合、有効な Kerberos チケットがあることを確認してください。"
 
-msgid "Envelope #10 "
-msgstr "封筒 #10"
+msgid "Envelope"
+msgstr ""
+
+msgid "Envelope #10"
+msgstr ""
 
 msgid "Envelope #11"
 msgstr "封筒 #11"
@@ -3202,8 +3323,8 @@ msgstr "封筒 角3 長辺送り"
 msgid "Envelope Monarch"
 msgstr "封筒 Monarch"
 
-msgid "Envelope PRC1 "
-msgstr "封筒 PRC1"
+msgid "Envelope PRC1"
+msgstr ""
 
 msgid "Envelope PRC1 Long Edge"
 msgstr "封筒 PRC1 長辺送り"
@@ -3343,6 +3464,9 @@ msgstr "FanFold Legal German"
 msgid "Fanfold US"
 msgstr "Fanfold US"
 
+msgid "Fast Grayscale"
+msgstr ""
+
 #, c-format
 msgid "File \"%s\" contains a relative path."
 msgstr "ファイル \"%s\" は相対パスを含んでいます。"
@@ -3365,8 +3489,8 @@ msgstr "ファイル \"%s\" は利用できません: %s"
 msgid "File \"%s\" permissions OK (0%o/uid=%d/gid=%d)."
 msgstr "ファイル \"%s\" のパーミッションは問題ありません (0%o/uid=%d/gid=%d)。"
 
-msgid "File Folder "
-msgstr "ファイルフォルダー"
+msgid "File Folder"
+msgstr ""
 
 #, c-format
 msgid ""
@@ -3380,11 +3504,20 @@ msgstr ""
 msgid "Finished page %d."
 msgstr "ページ %d を終了。"
 
+msgid "Finishing"
+msgstr ""
+
+msgid "Fold"
+msgstr ""
+
 msgid "Folio"
 msgstr "フォリオ"
 
 msgid "Forbidden"
 msgstr "Forbidden"
+
+msgid "Gate Fold"
+msgstr ""
 
 msgid "General"
 msgstr "一般"
@@ -3398,6 +3531,9 @@ msgstr "Get-Response-PDU は不確定の長さを使用しています"
 msgid "Glossy Paper"
 msgstr "光沢紙"
 
+msgid "Glossy Photo"
+msgstr ""
+
 msgid "Got a printer-uri attribute but no job-id."
 msgstr "printer-uri 属性を取得しましたが、job-id を取得できませんでした。"
 
@@ -3407,11 +3543,29 @@ msgstr "グレースケール"
 msgid "HP"
 msgstr "HP"
 
+msgid "Hagaki"
+msgstr ""
+
+msgid "Half Fold"
+msgstr ""
+
+msgid "Half Z Fold"
+msgstr ""
+
 msgid "Hanging Folder"
 msgstr "Hanging Folder"
 
+msgid "Hash buffer too small."
+msgstr ""
+
 msgid "Help file not in index."
 msgstr "ヘルプファイルが索引に含まれていません。"
+
+msgid "High"
+msgstr ""
+
+msgid "High-Gloss Photo"
+msgstr ""
 
 msgid "IPP 1setOf attribute with incompatible value tags."
 msgstr "IPP の 1setOf 属性が value タグと互換性がありません。"
@@ -3533,6 +3687,9 @@ msgstr "無効なメディア名引数です。"
 msgid "Invalid media size."
 msgstr "無効なメディアサイズです。"
 
+msgid "Invalid ppd-name value."
+msgstr ""
+
 #, c-format
 msgid "Invalid printer command \"%s\"."
 msgstr "無効なプリンターコマンドです。 \"%s\""
@@ -3645,14 +3802,23 @@ msgstr "ジョブサブスクリプションを更新できません。"
 msgid "Jobs"
 msgstr "ジョブ"
 
+msgid "Jog"
+msgstr ""
+
 msgid "LPD/LPR Host or Printer"
 msgstr "LPD/LPR ホストまたはプリンター"
+
+msgid "Label"
+msgstr ""
 
 msgid "Label Printer"
 msgstr "ラベルプリンター"
 
 msgid "Label Top"
 msgstr "ラベルトップ"
+
+msgid "Laminate"
+msgstr ""
 
 #, c-format
 msgid "Language \"%s\" not supported."
@@ -3661,14 +3827,29 @@ msgstr "言語 \"%s\" はサポートされていません。"
 msgid "Large Address"
 msgstr "ラージアドレス"
 
+msgid "Large Capacity"
+msgstr ""
+
 msgid "LaserJet Series PCL 4/5"
 msgstr "LaserJet Series PCL 4/5"
+
+msgid "Left"
+msgstr ""
+
+msgid "Left Gate Fold"
+msgstr ""
+
+msgid "Letter Fold"
+msgstr ""
 
 msgid "Letter Oversize"
 msgstr "US レター (特大)"
 
 msgid "Letter Oversize Long Edge"
 msgstr "US レター (特大) 長辺送り"
+
+msgid "Letterhead"
+msgstr ""
 
 msgid "Light"
 msgstr "薄い"
@@ -3682,14 +3863,29 @@ msgstr "使用可能なプリンター一覧"
 msgid "Load paper."
 msgstr "用紙を補給してください。"
 
+msgid "Local printer created."
+msgstr ""
+
 msgid "Long-Edge (Portrait)"
 msgstr "長辺給紙 (縦向き)"
 
 msgid "Looking for printer..."
 msgstr ""
 
+msgid "Main"
+msgstr ""
+
+msgid "Main Roll"
+msgstr ""
+
+msgid "Manual"
+msgstr ""
+
 msgid "Manual Feed"
 msgstr "手差し"
+
+msgid "Matte Photo"
+msgstr ""
 
 msgid "Media Size"
 msgstr "用紙サイズ"
@@ -3708,6 +3904,9 @@ msgstr "紙質"
 
 msgid "Memory allocation error"
 msgstr "メモリー割り当てエラー"
+
+msgid "Middle"
+msgstr ""
 
 msgid "Missing CloseGroup"
 msgstr "CloseGroup がありません"
@@ -3745,6 +3944,10 @@ msgstr "オプションキーワードがありません"
 
 msgid "Missing requesting-user-name attribute."
 msgstr "requesting-user-name 属性が設定されていません。"
+
+#, c-format
+msgid "Missing required attribute \"%s\"."
+msgstr ""
 
 msgid "Missing required attributes."
 msgstr "必須の属性が設定されていません。"
@@ -3798,6 +4001,9 @@ msgstr "ジョブの移動"
 msgid "Moved Permanently"
 msgstr "別の場所へ移動しました"
 
+msgid "Multipurpose"
+msgstr ""
+
 msgid "NULL PPD file pointer"
 msgstr "PPD ファイルポインターが NULL です"
 
@@ -3815,6 +4021,9 @@ msgstr "いいえ"
 
 msgid "No Content"
 msgstr "中身がありません"
+
+msgid "No Finishing"
+msgstr ""
 
 msgid "No PPD name"
 msgstr "PPD の名前がありません"
@@ -3956,6 +4165,9 @@ msgstr "Oki"
 msgid "Online Help"
 msgstr "オンラインヘルプ"
 
+msgid "Only local users can create a local printer."
+msgstr ""
+
 #, c-format
 msgid "Open of %s failed: %s"
 msgstr "%s のオープンに失敗しました: %s"
@@ -3978,6 +4190,9 @@ msgstr "インストールされたオプション"
 
 msgid "Options:"
 msgstr "オプション:"
+
+msgid "Other"
+msgstr ""
 
 msgid "Out of date PPD cache file."
 msgstr "PPD キャッシュファイルが古すぎます。"
@@ -4039,6 +4254,9 @@ msgstr "給紙トレイが空です。"
 msgid "Paper tray is missing."
 msgstr "給紙トレイがありません。"
 
+msgid "Parallel Fold"
+msgstr ""
+
 msgid "ParamCustominCutInterval"
 msgstr "ParamCustominCutInterval"
 
@@ -4083,14 +4301,17 @@ msgstr "PostScript プリンター"
 msgid "Postcard"
 msgstr "ハガキ"
 
-msgid "Postcard Double "
-msgstr "往復ハガキ"
+msgid "Postcard Double"
+msgstr ""
 
 msgid "Postcard Double Long Edge"
 msgstr "往復ハガキ 長辺送り"
 
 msgid "Postcard Long Edge"
 msgstr "ハガキ 長辺送り"
+
+msgid "Poster Fold"
+msgstr ""
 
 msgid "Preparing to print."
 msgstr "印刷準備中です。"
@@ -4103,6 +4324,9 @@ msgstr "ジョブの印刷:"
 
 msgid "Print Mode"
 msgstr "印刷モード"
+
+msgid "Print Quality"
+msgstr ""
 
 msgid "Print Rate"
 msgstr "印刷レート"
@@ -4133,6 +4357,10 @@ msgstr "印刷ジョブが大きすぎます。"
 
 msgid "Print job was not accepted."
 msgstr "印刷ジョブが受け付けられませんでした。"
+
+#, c-format
+msgid "Printer \"%s\" already exists."
+msgstr ""
 
 msgid "Printer Added"
 msgstr "追加されたプリンター"
@@ -4168,6 +4396,9 @@ msgstr "プリンター"
 msgid "Printing page %d, %u%% complete."
 msgstr "ページ %d, %u%% の印刷が完了しました。"
 
+msgid "Punch"
+msgstr ""
+
 msgid "Quarto"
 msgstr "Quarto"
 
@@ -4176,6 +4407,9 @@ msgstr "クォータの制限に達しました。"
 
 msgid "Rank    Owner   Job     File(s)                         Total Size"
 msgstr "ランク  所有者  ジョブ  ファイル                        合計サイズ"
+
+msgid "Rear"
+msgstr ""
 
 msgid "Reject Jobs"
 msgstr "ジョブの拒否"
@@ -4209,6 +4443,42 @@ msgstr "返信用ラベル"
 msgid "Rewind"
 msgstr "巻き取り"
 
+msgid "Right"
+msgstr ""
+
+msgid "Right Gate Fold"
+msgstr ""
+
+msgid "Roll 1"
+msgstr ""
+
+msgid "Roll 10"
+msgstr ""
+
+msgid "Roll 2"
+msgstr ""
+
+msgid "Roll 3"
+msgstr ""
+
+msgid "Roll 4"
+msgstr ""
+
+msgid "Roll 5"
+msgstr ""
+
+msgid "Roll 6"
+msgstr ""
+
+msgid "Roll 7"
+msgstr ""
+
+msgid "Roll 8"
+msgstr ""
+
+msgid "Roll 9"
+msgstr ""
+
 #, c-format
 msgid "Running command: %s %s -N -A %s -c '%s'"
 msgstr "コマンドを実行中: %s %s -N -A %s -c '%s'"
@@ -4219,8 +4489,20 @@ msgstr "SEQUENCE は不定長を使用しています"
 msgid "SSL/TLS Negotiation Error"
 msgstr "SSL/TLS のネゴシエーションエラー"
 
+msgid "Saddle Stitch"
+msgstr ""
+
+msgid "Satin Photo"
+msgstr ""
+
 msgid "See Other"
 msgstr "残りを見てください"
+
+msgid "See remote printer."
+msgstr ""
+
+msgid "Semi-Gloss Photo"
+msgstr ""
 
 msgid "Sending data to printer."
 msgstr "データをプリンターに送信しています。"
@@ -4264,6 +4546,33 @@ msgstr "発送先ラベル"
 msgid "Short-Edge (Landscape)"
 msgstr "短辺 (横原稿)"
 
+msgid "Side"
+msgstr ""
+
+msgid "Single Punch (Landscape)"
+msgstr ""
+
+msgid "Single Punch (Portrait)"
+msgstr ""
+
+msgid "Single Punch (Reverse Landscape)"
+msgstr ""
+
+msgid "Single Punch (Reverse Portrait)"
+msgstr ""
+
+msgid "Single Staple (Landscape)"
+msgstr ""
+
+msgid "Single Staple (Portrait)"
+msgstr ""
+
+msgid "Single Staple (Reverse Landscape)"
+msgstr ""
+
+msgid "Single Staple (Reverse Portrait)"
+msgstr ""
+
 msgid "Special Paper"
 msgstr "特殊紙"
 
@@ -4273,6 +4582,24 @@ msgstr "ジョブをスプール中、%.0f%% 完了しました。"
 
 msgid "Standard"
 msgstr "標準"
+
+msgid "Staple"
+msgstr ""
+
+msgid "Staple Edge"
+msgstr ""
+
+msgid "Staple Edge (Landscape)"
+msgstr ""
+
+msgid "Staple Edge (Portrait)"
+msgstr ""
+
+msgid "Staple Edge (Reverse Landscape)"
+msgstr ""
+
+msgid "Staple Edge (Reverse Portrait)"
+msgstr ""
 
 #. TRANSLATORS: Banner/cover sheet before the print job.
 msgid "Starting Banner"
@@ -4513,6 +4840,9 @@ msgstr "job-sheets 値が多すぎます (%d > 2)。"
 msgid "Too many printer-state-reasons values (%d > %d)."
 msgstr "printer-state-reasons 値が多すぎます (%d > %d)。"
 
+msgid "Top"
+msgstr ""
+
 msgid "Transparency"
 msgstr "OHP シート"
 
@@ -4522,14 +4852,74 @@ msgstr "トレイ"
 msgid "Tray 1"
 msgstr "トレイ 1"
 
+msgid "Tray 10"
+msgstr ""
+
+msgid "Tray 11"
+msgstr ""
+
+msgid "Tray 12"
+msgstr ""
+
+msgid "Tray 13"
+msgstr ""
+
+msgid "Tray 14"
+msgstr ""
+
+msgid "Tray 15"
+msgstr ""
+
+msgid "Tray 16"
+msgstr ""
+
+msgid "Tray 17"
+msgstr ""
+
+msgid "Tray 18"
+msgstr ""
+
+msgid "Tray 19"
+msgstr ""
+
 msgid "Tray 2"
 msgstr "トレイ 2"
+
+msgid "Tray 20"
+msgstr ""
 
 msgid "Tray 3"
 msgstr "トレイ 3"
 
 msgid "Tray 4"
 msgstr "トレイ 4"
+
+msgid "Tray 5"
+msgstr ""
+
+msgid "Tray 6"
+msgstr ""
+
+msgid "Tray 7"
+msgstr ""
+
+msgid "Tray 8"
+msgstr ""
+
+msgid "Tray 9"
+msgstr ""
+
+msgid "Triple Staple (Landscape)"
+msgstr ""
+
+msgid "Triple Staple (Portrait)"
+msgstr ""
+
+msgid "Triple Staple (Reverse Landscape)"
+msgstr ""
+
+msgid "Triple Staple (Reverse Portrait)"
+msgstr ""
 
 msgid "URI Too Long"
 msgstr "URI が長すぎます"
@@ -4653,12 +5043,11 @@ msgid "Unable to copy Windows 9x printer driver files (%d)."
 msgstr ""
 "複数の Windows 9x プリンタードライバーファイルをコピーできません (%d)。"
 
-#, c-format
-msgid "Unable to copy interface script - %s"
-msgstr "インターフェイススクリプトをコピーできません - %s"
-
 msgid "Unable to create printer-uri"
 msgstr "printer-uri を作成できません"
+
+msgid "Unable to create printer."
+msgstr ""
 
 msgid "Unable to create server credentials."
 msgstr "サーバー証明書を作成できません。"
@@ -4873,6 +5262,9 @@ msgstr "\"%s\" は未知のファイルオーダーです。"
 msgid "Unknown format character: \"%c\"."
 msgstr "\"%c\" は未知の書式文字です。"
 
+msgid "Unknown hash algorithm."
+msgstr ""
+
 msgid "Unknown media size name."
 msgstr "未知のメディアサイズ名称です。"
 
@@ -5020,17 +5412,6 @@ msgstr ""
 "gz]]"
 
 msgid ""
-"Usage: ippdiscover [options] -a\n"
-"       ippdiscover [options] \"service name\"\n"
-"\n"
-"Options:"
-msgstr ""
-"使い方: ippdiscover [オプション] -a\n"
-"        ippdiscover [オプション] \"サービス名\"\n"
-"\n"
-"オプション:"
-
-msgid ""
 "Usage: ippfind [options] regtype[,subtype][.domain.] ... [expression]\n"
 "       ippfind [options] name[.regtype[.domain.]] ... [expression]\n"
 "       ippfind --help\n"
@@ -5118,6 +5499,9 @@ msgid ""
 msgstr ""
 "このページには URL <A HREF=\"https://%s:%d%s\">https://%s:%d%s</A> を使ってア"
 "クセスする必要があります。"
+
+msgid "Z Fold"
+msgstr ""
 
 msgid "ZPL Label Printer"
 msgstr "ZPL ラベルプリンター"
@@ -5347,8 +5731,9 @@ msgstr "job-printer-uri 属性がありません。"
 msgid "lpadmin: Class name can only contain printable characters."
 msgstr "lpadmin: クラス名は表示可能文字のみで構成されなければなりません。"
 
-msgid "lpadmin: Expected PPD after \"-P\" option."
-msgstr "lpadmin: \"-P\" オプションのあとには PPD が必要です。"
+#, c-format
+msgid "lpadmin: Expected PPD after \"-%c\" option."
+msgstr ""
 
 msgid "lpadmin: Expected allow/deny:userlist after \"-u\" option."
 msgstr ""
@@ -5371,9 +5756,6 @@ msgstr "lpadmin: \"-I\" オプションのあとにはファイル形式が必�
 
 msgid "lpadmin: Expected hostname after \"-h\" option."
 msgstr "lpadmin: \"-h\" オプションのあとにはホスト名が必要です。"
-
-msgid "lpadmin: Expected interface after \"-i\" option."
-msgstr "lpadmin: \"-i\" オプションのあとにはインターフェイス名が必要です。"
 
 msgid "lpadmin: Expected location after \"-L\" option."
 msgstr "lpadmin: \"-L\" オプションのあとには場所が必要です。"
@@ -5503,28 +5885,12 @@ msgstr ""
 "lpinfo: \"--timeout\" のあとには、タイムアウト値を指定する必要があります。"
 
 #, c-format
-msgid "lpinfo: Unknown argument \"%s\"."
-msgstr "lpinfo: 未知の引数 \"%s\"。"
-
-#, c-format
-msgid "lpinfo: Unknown option \"%c\"."
-msgstr "lpinfo: 未知のオプション \"%c\"。"
-
-#, c-format
-msgid "lpinfo: Unknown option \"%s\"."
-msgstr "lpinfo: 未知のオプション \"%s\"。"
-
-#, c-format
 msgid "lpmove: Unable to connect to server: %s"
 msgstr "lpmove: サーバーに接続できません: %s"
 
 #, c-format
 msgid "lpmove: Unknown argument \"%s\"."
 msgstr "lpmove: 未知の引数 \"%s\"。"
-
-#, c-format
-msgid "lpmove: Unknown option \"%c\"."
-msgstr "lpmove: 未知のオプション \"%c\"。"
 
 msgid "lpoptions: No printers."
 msgstr "lpoptions: プリンターがありません。"
@@ -6075,8 +6441,29 @@ msgstr "タイトルなし"
 msgid "variable-bindings uses indefinite length"
 msgstr "variable-bindings の長さが不定"
 
+#~ msgid "\tInterface: %s/interfaces/%s"
+#~ msgstr "\tインターフェイス: %s/interfaces/%s"
+
+#~ msgid "  --lf                    End lines with LF (UNIX/Linux/OS X)."
+#~ msgstr "  --lf                    行末を LF とする (UNIX/Linux/OS X)。"
+
+#~ msgid "  -a                      Browse for all services."
+#~ msgstr "  -a                      すべてのサービスをブラウズする。"
+
+#~ msgid "  -d domain               Browse/resolve in specified domain."
+#~ msgstr ""
+#~ "  -d <ドメイン名>         指定されたドメインでブラウズ/名前解決する。"
+
 #~ msgid "  -l                      Run cupsd from launchd(8)."
 #~ msgstr "  -l                      launchd(8) から cupsd を実行する。"
+
+#~ msgid "  -p program              Run specified program for each service."
+#~ msgstr ""
+#~ "  -p <プログラム名>       指定されたプログラムをそれぞれのサービスに対し実"
+#~ "行する。"
+
+#~ msgid "  -t type                 Browse/resolve with specified type."
+#~ msgstr "  -t タイプ               指定されたタイプでブラウズ/名前解決する。"
 
 #~ msgid ""
 #~ "\"%s\": Bad uriScheme value \"%s\" - bad length %d (RFC 2911 4.1.6 節)."
@@ -6105,6 +6492,15 @@ msgstr "variable-bindings の長さが不定"
 #~ msgid "Enter password:"
 #~ msgstr "パスワードを入力:"
 
+#~ msgid "Envelope #10 "
+#~ msgstr "封筒 #10"
+
+#~ msgid "Envelope PRC1 "
+#~ msgstr "封筒 PRC1"
+
+#~ msgid "File Folder "
+#~ msgstr "ファイルフォルダー"
+
 #~ msgid "Looking for printer."
 #~ msgstr "プリンターを探しています。"
 
@@ -6126,6 +6522,9 @@ msgstr "variable-bindings の長さが不定"
 #~ msgid "Output for printer %s/%s is sent to remote printer %s on %s"
 #~ msgstr ""
 #~ "プリンター %s/%s の出力は、リモートプリンター %s (%s 上) に送られます"
+
+#~ msgid "Postcard Double "
+#~ msgstr "往復ハガキ"
 
 #~ msgid "Print file accepted - job ID %d."
 #~ msgstr "プリントファイルを受け付けました - ジョブ ID %d。"
@@ -6194,6 +6593,9 @@ msgstr "variable-bindings の長さが不定"
 #~ msgid "There is a paper jam."
 #~ msgstr "用紙づまりが発生しています。"
 
+#~ msgid "Unable to copy interface script - %s"
+#~ msgstr "インターフェイススクリプトをコピーできません - %s"
+
 #~ msgid "Unable to create compressed print file"
 #~ msgstr "圧縮プリントファイルを作成できません"
 
@@ -6208,6 +6610,17 @@ msgstr "variable-bindings の長さが不定"
 
 #~ msgid "Usage: cupsfilter [ options ] filename"
 #~ msgstr "使い方: cupsfilter [オプション] ファイル名"
+
+#~ msgid ""
+#~ "Usage: ippdiscover [options] -a\n"
+#~ "       ippdiscover [options] \"service name\"\n"
+#~ "\n"
+#~ "Options:"
+#~ msgstr ""
+#~ "使い方: ippdiscover [オプション] -a\n"
+#~ "        ippdiscover [オプション] \"サービス名\"\n"
+#~ "\n"
+#~ "オプション:"
 
 #~ msgid "Usage: lppasswd [-g groupname]"
 #~ msgstr "使い方: lppasswd [-g グループ名]"
@@ -6244,6 +6657,24 @@ msgstr "variable-bindings の長さが不定"
 
 #~ msgid "ipptool: Missing version for \"-V\"."
 #~ msgstr "ipptool: \"-V\" にバージョンの指定がありません。"
+
+#~ msgid "lpadmin: Expected PPD after \"-P\" option."
+#~ msgstr "lpadmin: \"-P\" オプションのあとには PPD が必要です。"
+
+#~ msgid "lpadmin: Expected interface after \"-i\" option."
+#~ msgstr "lpadmin: \"-i\" オプションのあとにはインターフェイス名が必要です。"
+
+#~ msgid "lpinfo: Unknown argument \"%s\"."
+#~ msgstr "lpinfo: 未知の引数 \"%s\"。"
+
+#~ msgid "lpinfo: Unknown option \"%c\"."
+#~ msgstr "lpinfo: 未知のオプション \"%c\"。"
+
+#~ msgid "lpinfo: Unknown option \"%s\"."
+#~ msgstr "lpinfo: 未知のオプション \"%s\"。"
+
+#~ msgid "lpmove: Unknown option \"%c\"."
+#~ msgstr "lpmove: 未知のオプション \"%c\"。"
 
 #~ msgid "lppasswd: Only root can add or delete passwords."
 #~ msgstr "lppasswd: root だけがパスワードの追加と削除を行えます。"

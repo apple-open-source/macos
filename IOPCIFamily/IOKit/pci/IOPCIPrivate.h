@@ -162,10 +162,14 @@ struct IOPCIConfigShadow
 {
     IOPCIConfigSave          configSave;
     uint32_t                 flags;
+	uint8_t                  tunnelled;
+	uint8_t                  hpType;
     queue_chain_t            link;
     queue_chain_t            linkFinish;
 	queue_head_t             dependents;
+	IOLock      *            dependentsLock;
 	IOPCIDevice *			 tunnelRoot;
+	IOPCIDevice *			 sharedRoot;
     IOPCIDevice *            device;
     IOPCI2PCIBridge *        bridge;
     OSObject *               tunnelID;
@@ -209,11 +213,6 @@ enum
 	kMachineRestoreTunnels      = 0x00000008,
 };
 
-enum 
-{
-	kIOPCIRestoreDeviceStateEarly = 0x00000001
-};
-
 #define PCI_ADDRESS_TUPLE(device)   \
         device->space.s.busNum,     \
         device->space.s.deviceNum,  \
@@ -232,6 +231,7 @@ enum
 #define kIOPCIConfiguredKey       "IOPCIConfigured"
 #define kIOPCIResourcedKey        "IOPCIResourced"
 #define kIOPCIPMCSStateKey        "IOPCIPMCSState"
+#define kIOPCIHPTypeKey           "IOPCIHPType"
 
 #ifndef kACPIDevicePathKey
 #define kACPIDevicePathKey             "acpi-path"
@@ -279,6 +279,10 @@ extern uint32_t                   gIOPCIFlags;
 extern const OSSymbol *           gIOPlatformGetMessagedInterruptControllerKey;
 extern const OSSymbol *           gIOPlatformGetMessagedInterruptAddressKey;
 extern const OSSymbol *           gIOPCIThunderboltKey;
+extern const OSSymbol *           gIOPCIHotplugCapableKey;
+extern const OSSymbol *           gIOPCITunnelledKey;
+extern const OSSymbol *           gIOPCIHPTypeKey;
+
 extern const OSSymbol *           gIOPolledInterfaceActiveKey;
 #if ACPI_SUPPORT
 extern const OSSymbol *           gIOPCIPSMethods[kIOPCIDevicePowerStateCount];

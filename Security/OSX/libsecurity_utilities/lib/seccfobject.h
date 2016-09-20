@@ -29,15 +29,13 @@
 #include <CoreFoundation/CFRuntime.h>
 #include <new>
 #include "threading.h"
+#include <stdatomic.h>
 
 namespace Security {
 
 class CFClass;
 
-#define SECCFFUNCTIONS(OBJTYPE, APIPTR, ERRCODE, CFCLASS) \
-\
-void *operator new(size_t size) throw(std::bad_alloc) \
-{ return SecCFObject::allocate(size, CFCLASS); } \
+#define SECCFFUNCTIONS_BASE(OBJTYPE, APIPTR) \
 \
 operator APIPTR() const \
 { return (APIPTR)(this->operator CFTypeRef()); } \
@@ -45,7 +43,16 @@ operator APIPTR() const \
 OBJTYPE *retain() \
 { SecCFObject::handle(true); return this; } \
 APIPTR handle(bool retain = true) \
-{ return (APIPTR)SecCFObject::handle(retain); } \
+{ return (APIPTR)SecCFObject::handle(retain); }
+
+#define SECCFFUNCTIONS_CREATABLE(OBJTYPE, APIPTR, CFCLASS) \
+SECCFFUNCTIONS_BASE(OBJTYPE, APIPTR)\
+\
+void *operator new(size_t size) throw(std::bad_alloc) \
+{ return SecCFObject::allocate(size, CFCLASS); }
+
+#define SECCFFUNCTIONS(OBJTYPE, APIPTR, ERRCODE, CFCLASS) \
+SECCFFUNCTIONS_CREATABLE(OBJTYPE, APIPTR, CFCLASS) \
 \
 static OBJTYPE *required(APIPTR ptr) \
 { if (OBJTYPE *p = dynamic_cast<OBJTYPE *>(SecCFObject::required(ptr, ERRCODE))) \
@@ -60,7 +67,7 @@ static OBJTYPE *optional(APIPTR ptr) \
 
 struct SecRuntimeBase: CFRuntimeBase
 {
-	bool isNew;
+	atomic_flag isOld;
 };
 
 class SecCFObject
@@ -79,9 +86,9 @@ public:
 	bool isNew()
 	{
 		SecRuntimeBase *base = reinterpret_cast<SecRuntimeBase *>(reinterpret_cast<uint8_t *>(this) - kAlignedRuntimeSize);
-		bool isNew = base->isNew;
-		base->isNew = false;
-		return isNew;
+
+        // atomic flags start clear, and like to go high.
+        return !atomic_flag_test_and_set(&(base->isOld));
 	}
 
 	static SecCFObject *optional(CFTypeRef) throw();
@@ -94,7 +101,7 @@ public:
     uint32_t getRetainCount() {return updateRetainCount(0, NULL);}
 
 	static void operator delete(void *object) throw();
-	operator CFTypeRef() const throw()
+	virtual operator CFTypeRef() const throw()
 	{
 		return reinterpret_cast<CFTypeRef>(reinterpret_cast<const uint8_t *>(this) - kAlignedRuntimeSize);
 	}
@@ -107,7 +114,7 @@ public:
 	virtual CFStringRef copyFormattingDesc(CFDictionaryRef dict);
 	virtual CFStringRef copyDebugDesc();
 	virtual void aboutToDestruct();
-	virtual Mutex* getMutexForObject();
+	virtual Mutex* getMutexForObject() const;
     virtual bool mayDelete();
 };
 

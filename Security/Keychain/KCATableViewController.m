@@ -279,7 +279,6 @@
     nd[(NSString *)kCFUserNotificationAlertMessageKey]  = @"To view details";
     nd[(NSString *)kCFUserNotificationDefaultButtonTitleKey] = @"OK";
     nd[(NSString *)kCFUserNotificationAlternateButtonTitleKey] = @"Cancel";
-    nd[(__bridge __strong id)(SBUserNotificationGroupsTextFields)] = (__bridge id)(kCFBooleanTrue);
     nd[(NSString *)kCFUserNotificationTextFieldTitlesKey] = @[@"Passcode"];
     nd[(__bridge NSString *)SBUserNotificationTextAutocapitalizationType] = @[ @(NO_AUTOCAPITALIZATION) ];
     nd[(__bridge NSString *)SBUserNotificationTextAutocapitalizationType] = @[ @(NO_AUTOCORRECTION) ];

@@ -90,7 +90,7 @@ static void tests(void)
     int crash_count = __security_simulatecrash_enable(true);
     ok(crash_count == 0 || crash_count == 1, "Expecting no or one simcrash from recovery of corrupted DB");
 #else
-    is(__security_simulatecrash_enable(true), 1, "Expecting simcrash from recovery of corrupted DB");
+    is(__security_simulatecrash_enable(true), 0, "Not Expecting simcrash from recovery of corrupted DB");
 #endif
 
     CFReleaseSafe(eighty);

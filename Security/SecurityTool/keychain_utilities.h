@@ -50,9 +50,9 @@ extern int print_keychain_item_attributes(FILE *stream, SecKeychainItemRef item,
 
 extern void print_cfstring(FILE *stream, CFStringRef string);
 
-extern void print_buffer(FILE *stream, UInt32 length, const void *data);
+extern void print_buffer(FILE *stream, size_t length, const void *data);
 
-extern void print_buffer_pem(FILE *stream, const char *headerString, UInt32 length, const void *data);
+extern void print_buffer_pem(FILE *stream, const char *headerString, size_t length, const void *data);
 
 extern void print_uint32(FILE* stream, uint32 n);
 

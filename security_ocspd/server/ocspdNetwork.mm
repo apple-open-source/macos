@@ -1134,8 +1134,15 @@ static void ocspdNetFetchAsync(
 					 * already downloading this file.
 					 */
 					CFArrayAppendValue(gDownloadList, fileNameStr);
+
+                    char *ustr = (char *)malloc(params->url.Length + 1);
+                    memmove(ustr, params->url.Data, params->url.Length);
+                    ustr[params->url.Length] = '\0';
+                    ocspdErrorLog("ocspdNetFetchAsync: fetching CRL \"%@\" (%s)", fileNameStr, ustr);
+                    free(ustr);
 				} else {
 					/* already downloading; indicate "busy, try later" status */
+                    ocspdErrorLog("ocspdNetFetchAsync: already fetching CRL \"%@\"", fileNameStr);
 					crtn = CSSMERR_APPLETP_NETWORK_FAILURE;
 					params->result = crtn;
 				}
@@ -1216,6 +1223,7 @@ static void ocspdNetFetchAsync(
 			CFIndex idx =  CFArrayGetFirstIndexOfValue(gDownloadList,
 				CFRangeMake(0, CFArrayGetCount(gDownloadList)), fileNameStr);
 			if(idx >= 0) {
+                ocspdErrorLog("ocspdNetFetchAsync: done fetching CRL \"%@\"", fileNameStr);
 				CFArrayRemoveValueAtIndex(gDownloadList, idx);
 			}
 		}

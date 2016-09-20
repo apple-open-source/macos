@@ -23,8 +23,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef IDBKeyPath_h
-#define IDBKeyPath_h
+#pragma once
 
 #if ENABLE(INDEXED_DATABASE)
 
@@ -36,58 +35,104 @@ namespace WebCore {
 class KeyedDecoder;
 class KeyedEncoder;
 
-enum IDBKeyPathParseError {
-    IDBKeyPathParseErrorNone,
-    IDBKeyPathParseErrorStart,
-    IDBKeyPathParseErrorIdentifier,
-    IDBKeyPathParseErrorDot,
+enum class IDBKeyPathParseError {
+    None,
+    Start,
+    Identifier,
+    Dot,
 };
 
 void IDBParseKeyPath(const String&, Vector<String>&, IDBKeyPathParseError&);
 
 class IDBKeyPath {
 public:
-    IDBKeyPath() : m_type(NullType) { }
-    WEBCORE_EXPORT explicit IDBKeyPath(const String&);
-    WEBCORE_EXPORT explicit IDBKeyPath(const Vector<String>& array);
+    IDBKeyPath() { }
+    WEBCORE_EXPORT IDBKeyPath(const String&);
+    WEBCORE_EXPORT IDBKeyPath(const Vector<String>& array);
 
-    enum Type {
-        NullType = 0,
-        StringType,
-        ArrayType
-    };
-
+    enum class Type { Null, String, Array };
     Type type() const { return m_type; }
 
     const Vector<String>& array() const
     {
-        ASSERT(m_type == ArrayType);
+        ASSERT(m_type == Type::Array);
         return m_array;
     }
 
     const String& string() const
     {
-        ASSERT(m_type == StringType);
+        ASSERT(m_type == Type::String);
         return m_string;
     }
 
-    bool isNull() const { return m_type == NullType; }
+    bool isNull() const { return m_type == Type::Null; }
     bool isValid() const;
     bool operator==(const IDBKeyPath& other) const;
 
     IDBKeyPath isolatedCopy() const;
 
+    template<class Encoder> void encode(Encoder&) const;
+    template<class Decoder> static bool decode(Decoder&, IDBKeyPath&);
+    
     WEBCORE_EXPORT void encode(KeyedEncoder&) const;
     WEBCORE_EXPORT static bool decode(KeyedDecoder&, IDBKeyPath&);
 
 private:
-    Type m_type;
+    Type m_type { Type::Null };
     String m_string;
     Vector<String> m_array;
 };
 
+template<class Encoder> void IDBKeyPath::encode(Encoder& encoder) const
+{
+    encoder.encodeEnum(m_type);
+
+    switch (m_type) {
+    case Type::Null:
+        break;
+    case Type::String:
+        encoder << m_string;
+        break;
+    case Type::Array:
+        encoder << m_array;
+        break;
+    default:
+        ASSERT_NOT_REACHED();
+    }
+}
+
+template<class Decoder> bool IDBKeyPath::decode(Decoder& decoder, IDBKeyPath& keyPath)
+{
+    Type type;
+    if (!decoder.decodeEnum(type))
+        return false;
+
+    switch (type) {
+    case Type::Null:
+        keyPath = IDBKeyPath();
+        return true;
+
+    case Type::String: {
+        String string;
+        if (!decoder.decode(string))
+            return false;
+
+        keyPath = IDBKeyPath(string);
+        return true;
+    }
+    case Type::Array: {
+        Vector<String> array;
+        if (!decoder.decode(array))
+            return false;
+
+        keyPath = IDBKeyPath(array);
+        return true;
+    }
+    default:
+        return true;
+    }
+}
+
 } // namespace WebCore
 
 #endif
-
-#endif // IDBKeyPath_h

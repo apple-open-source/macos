@@ -163,11 +163,14 @@ int interrupt_pipe_enabled = 0;
 pthread_key_t interrupt_pipe_key;
 
 static int
-bind_random(int sock)
+bind_random(int sock, int family)
 {
 	int i, status;
 	uint16_t src_port;
-	struct sockaddr_in local;
+	struct sockaddr_storage local;
+	struct sockaddr_in *sin;
+	struct sockaddr_in6 *sin6;
+	struct sockaddr *sa;
 
 	src_port = 0;
 	status = -1;
@@ -176,11 +179,24 @@ bind_random(int sock)
 	{		
 		/* random port in the range RANDOM_BIND_FIRST to RANDOM_BIND_LAST */
 		src_port = (res_randomid() % (RANDOM_BIND_LAST - RANDOM_BIND_FIRST)) + RANDOM_BIND_FIRST;
-		memset(&local, 0, sizeof(struct sockaddr_in));
-		local.sin_family = AF_INET;
-		local.sin_port = htons(src_port);
+		memset(&local, 0, sizeof(local));
+		switch (family) {
+		case AF_INET:
+			sin = (struct sockaddr_in *)&local;
+			sin->sin_len = sizeof(struct sockaddr_in);
+			sin->sin_family = family;
+			sin->sin_port = htons(src_port);
+			break;
+		case AF_INET6:
+			sin6 = (struct sockaddr_in6 *)&local;
+			sin6->sin6_len = sizeof(struct sockaddr_in6);
+			sin6->sin6_family = family;
+			sin6->sin6_port = htons(src_port);
+			break;
+		}
 
-		status = bind(sock, (struct sockaddr *)&local, sizeof(struct sockaddr_in));
+		sa = (struct sockaddr *)&local;
+		status = bind(sock, sa, sa->sa_len);
 	}
 
 	return status;
@@ -1192,7 +1208,7 @@ send_dg(res_state statp, const u_char *buf, int buflen, u_char *ans, int *anssiz
 			return DNS_RES_STATUS_SYSTEM_ERROR;
 		}
 
-		bind_random(EXT(statp).nssocks[ns]);
+		bind_random(EXT(statp).nssocks[ns], nsap->sa_family);
 
 #ifndef CANNOT_CONNECT_DGRAM
 		/*

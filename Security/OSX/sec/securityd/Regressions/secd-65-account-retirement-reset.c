@@ -118,7 +118,7 @@ static void tests(void)
         ok(SOSAccountAssertUserCredentialsAndUpdate(carole_account,  cfaccount, cfpassword, &error), "carole credential setting (%@)", error);
         CFReleaseNull(error);
 
-        ok(SOSAccountResetToOffering(alice_account , &error), "Reset to offering (%@)", error);
+        ok(SOSAccountResetToOffering_wTxn(alice_account , &error), "Reset to offering (%@)", error);
         CFReleaseNull(error);
 
         return 2;
@@ -135,7 +135,7 @@ static void tests(void)
 
         return 2;
     }, ^{
-        ok(SOSAccountResetToOffering(bob_account , &error), "Reset to offering (%@)", error);
+        ok(SOSAccountResetToOffering_wTxn(bob_account , &error), "Reset to offering (%@)", error);
         CFReleaseNull(error);
 
         return 2;

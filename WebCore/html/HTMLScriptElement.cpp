@@ -27,6 +27,7 @@
 #include "Event.h"
 #include "EventNames.h"
 #include "HTMLNames.h"
+#include "HTMLParserIdioms.h"
 #include "Text.h"
 #include <wtf/Ref.h>
 
@@ -78,19 +79,19 @@ void HTMLScriptElement::finishedInsertingSubtree()
     ScriptElement::finishedInsertingSubtree();
 }
 
-void HTMLScriptElement::setText(const String &value)
+void HTMLScriptElement::setText(const String& value)
 {
-    Ref<HTMLScriptElement> protectFromMutationEvents(*this);
+    Ref<HTMLScriptElement> protectedThis(*this);
 
     if (hasOneChild() && is<Text>(*firstChild())) {
-        downcast<Text>(*firstChild()).setData(value, IGNORE_EXCEPTION);
+        downcast<Text>(*firstChild()).setData(value);
         return;
     }
 
     if (hasChildNodes())
         removeChildren();
 
-    appendChild(document().createTextNode(value.impl()), IGNORE_EXCEPTION);
+    appendChild(document().createTextNode(value), IGNORE_EXCEPTION);
 }
 
 void HTMLScriptElement::setAsync(bool async)
@@ -101,7 +102,17 @@ void HTMLScriptElement::setAsync(bool async)
 
 bool HTMLScriptElement::async() const
 {
-    return fastHasAttribute(asyncAttr) || forceAsync();
+    return hasAttributeWithoutSynchronization(asyncAttr) || forceAsync();
+}
+
+void HTMLScriptElement::setCrossOrigin(const AtomicString& value)
+{
+    setAttributeWithoutSynchronization(crossoriginAttr, value);
+}
+
+String HTMLScriptElement::crossOrigin() const
+{
+    return parseCORSSettingsAttribute(attributeWithoutSynchronization(crossoriginAttr));
 }
 
 URL HTMLScriptElement::src() const
@@ -118,47 +129,47 @@ void HTMLScriptElement::addSubresourceAttributeURLs(ListHashSet<URL>& urls) cons
 
 String HTMLScriptElement::sourceAttributeValue() const
 {
-    return fastGetAttribute(srcAttr).string();
+    return attributeWithoutSynchronization(srcAttr).string();
 }
 
 String HTMLScriptElement::charsetAttributeValue() const
 {
-    return fastGetAttribute(charsetAttr).string();
+    return attributeWithoutSynchronization(charsetAttr).string();
 }
 
 String HTMLScriptElement::typeAttributeValue() const
 {
-    return getAttribute(typeAttr).string();
+    return attributeWithoutSynchronization(typeAttr).string();
 }
 
 String HTMLScriptElement::languageAttributeValue() const
 {
-    return fastGetAttribute(languageAttr).string();
+    return attributeWithoutSynchronization(languageAttr).string();
 }
 
 String HTMLScriptElement::forAttributeValue() const
 {
-    return fastGetAttribute(forAttr).string();
+    return attributeWithoutSynchronization(forAttr).string();
 }
 
 String HTMLScriptElement::eventAttributeValue() const
 {
-    return fastGetAttribute(eventAttr).string();
+    return attributeWithoutSynchronization(eventAttr).string();
 }
 
 bool HTMLScriptElement::asyncAttributeValue() const
 {
-    return fastHasAttribute(asyncAttr);
+    return hasAttributeWithoutSynchronization(asyncAttr);
 }
 
 bool HTMLScriptElement::deferAttributeValue() const
 {
-    return fastHasAttribute(deferAttr);
+    return hasAttributeWithoutSynchronization(deferAttr);
 }
 
 bool HTMLScriptElement::hasSourceAttribute() const
 {
-    return fastHasAttribute(srcAttr);
+    return hasAttributeWithoutSynchronization(srcAttr);
 }
 
 void HTMLScriptElement::dispatchLoadEvent()
@@ -169,9 +180,9 @@ void HTMLScriptElement::dispatchLoadEvent()
     dispatchEvent(Event::create(eventNames().loadEvent, false, false));
 }
 
-RefPtr<Element> HTMLScriptElement::cloneElementWithoutAttributesAndChildren(Document& targetDocument)
+Ref<Element> HTMLScriptElement::cloneElementWithoutAttributesAndChildren(Document& targetDocument)
 {
-    return adoptRef(new HTMLScriptElement(tagQName(), targetDocument, false, alreadyStarted()));
+    return adoptRef(*new HTMLScriptElement(tagQName(), targetDocument, false, alreadyStarted()));
 }
 
 }

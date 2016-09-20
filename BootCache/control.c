@@ -31,7 +31,7 @@
 #include <unistd.h>
 #include <mach-o/dyld_priv.h>
 
-#include "BootCache.h"
+#include "BootCache_private.h"
 
 // --- For composite disk checking
 #include <IOKit/storage/CoreStorage/CoreStorageUserLib.h>

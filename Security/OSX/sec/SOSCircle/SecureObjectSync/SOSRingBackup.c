@@ -155,7 +155,7 @@ static SOSConcordanceStatus SOSRingPeerKeyConcordanceTrust_Backup(SOSFullPeerInf
         return kSOSConcordanceNoUserKey;
     }
     
-    if(SOSRingIsOlderGeneration(knownRing, proposedRing)) {
+    if(SOSRingIsOlderGeneration(proposedRing, knownRing)) {
         SOSCreateError(kSOSErrorReplay, CFSTR("Bad generation"), NULL, error);
         return kSOSConcordanceGenOld;
     }

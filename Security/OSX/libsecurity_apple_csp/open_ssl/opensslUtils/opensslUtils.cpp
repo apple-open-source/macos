@@ -35,7 +35,7 @@
 #include <AppleCSPUtils.h>
 #include <security_utilities/logging.h>
 
-#define sslUtilsDebug(args...)	secdebug("sslUtils", ## args)
+#define sslUtilsDebug(args...)	secinfo("sslUtils", ## args)
 
 openSslException::openSslException(
 	int irtn, 

@@ -2,8 +2,6 @@
 //  sc-150-backupkeyderivation.c
 //  sec
 //
-//  Created by Mitch Adler on 4/7/15.
-//
 //
 
 #include <stdio.h>
@@ -47,7 +45,7 @@ static inline CFMutableDataRef CFDataCreateMutableWithRandom(CFAllocatorRef allo
     CFMutableDataRef result = NULL;
     CFMutableDataRef data = CFDataCreateMutableWithScratch(allocator, size);
 
-    require_quiet(0 == SecRandomCopyBytes(kSecRandomDefault, size, CFDataGetMutableBytePtr(data)), fail);
+    require_quiet(errSecSuccess == SecRandomCopyBytes(kSecRandomDefault, size, CFDataGetMutableBytePtr(data)), fail);
 
     CFTransferRetained(result, data);
 

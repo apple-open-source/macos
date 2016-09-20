@@ -81,7 +81,7 @@ void Child::reset()
 	case unborn:
 		break;				// s'okay
 	default:
-		secdebug("unixchild", "%p reset (from state %d)", this, mState);
+		secinfo("unixchild", "%p reset (from state %d)", this, mState);
 		mState = unborn;
 		mPid = 0;
 		mStatus = 0;
@@ -162,11 +162,11 @@ void Child::wait()
 void Child::tryKill(int signal)
 {
 	assert(mState == alive);	// ... or don't bother us
-	secdebug("unixchild", "%p (pid %d) sending signal(%d)", this, pid(), signal);
+	secinfo("unixchild", "%p (pid %d) sending signal(%d)", this, pid(), signal);
 	if (::kill(pid(), signal))
 		switch (errno) {
 		case ESRCH: // someone else reaped ths child; or things are just wacky
-			secdebug("unixchild", "%p (pid %d) has disappeared!", this, pid());
+			secinfo("unixchild", "%p (pid %d) has disappeared!", this, pid());
 			mState = invalid;
 			mChildren().erase(pid());
 			// fall through
@@ -186,7 +186,7 @@ void Child::kill(int signal)
 	if (mState == alive)
 		tryKill(signal);
 	else
-		secdebug("unixchild", "%p (pid %d) not alive; cannot send signal %d",
+		secinfo("unixchild", "%p (pid %d) not alive; cannot send signal %d",
 			this, pid(), signal);
 }
 
@@ -201,23 +201,32 @@ void Child::kill(int signal)
 void Child::kill()
 {
 	// note that we mustn't hold the lock across these calls
-	if (this->state() == alive) {
-		this->kill(SIGTERM);				// shoot it once
-		checkChildren();					// check for quick death
+	switch (this->state()) {
+	case alive:
 		if (this->state() == alive) {
-			usleep(200000);					// give it some time to die
-			if (this->state() == alive) {	// could have been reaped by another thread
-				checkChildren();			// check again
-				if (this->state() == alive) {	// it... just... won't... die...
-					this->kill(SIGKILL);	// take THAT!
-					checkChildren();
-					if (this->state() == alive) // stuck zombie
-						this->abandon();	// leave the body behind
+			this->kill(SIGTERM);				// shoot it once
+			checkChildren();					// check for quick death
+			if (this->state() == alive) {
+				usleep(200000);					// give it some time to die
+				if (this->state() == alive) {	// could have been reaped by another thread
+					checkChildren();			// check again
+					if (this->state() == alive) {	// it... just... won't... die...
+						this->kill(SIGKILL);	// take THAT!
+						checkChildren();
+						if (this->state() == alive) // stuck zombie
+							this->abandon();	// leave the body behind
+					}
 				}
 			}
 		}
-	} else
-		secdebug("unixchild", "%p (pid %d) not alive; ignoring request to kill it", this, pid());
+		break;
+	case dead:
+		secinfo("unixchild", "%p (pid %d) already dead; ignoring kill request", this, pid());
+		break;
+	default:
+		secinfo("unixchild", "%p state %d; ignoring kill request", this, this->state());
+		break;
+	}
 }
 
 
@@ -231,11 +240,11 @@ void Child::abandon()
 {
 	StLock<Mutex> _(mChildren());
 	if (mState == alive) {
-		secdebug("unixchild", "%p (pid %d) abandoned", this, pid());
+		secinfo("unixchild", "%p (pid %d) abandoned", this, pid());
 		mState = abandoned;
 		mChildren().erase(pid());
 	} else {
-		secdebug("unixchild", "%p (pid %d) is not alive; abandon() ignored",
+		secinfo("unixchild", "%p (pid %d) is not alive; abandon() ignored",
 			this, pid());
 	}
 }
@@ -312,11 +321,11 @@ void Child::fork()
 		case -1:	// fork failed
 			switch (errno) {
 			case EINTR:
-				secdebug("unixchild", "%p fork EINTR; retrying", this);
+				secinfo("unixchild", "%p fork EINTR; retrying", this);
 				continue;	// no problem
 			case EAGAIN:
 				if (delay < maxDelay) {
-					secdebug("unixchild", "%p fork EAGAIN; delaying %d seconds",
+					secinfo("unixchild", "%p fork EAGAIN; delaying %d seconds",
 						this, delay);
 					sleep(delay);
 					delay *= 2;
@@ -330,16 +339,9 @@ void Child::fork()
 
 		case 0:		// child
 			//@@@ bother to clean child map?
-			secdebug("unixchild", "%p (child pid %d) running child action",
-				this, getpid());
-			secdelay("/tmp/delay/unixchild");
 			try {
 				this->childAction();
-				secdebug("unixchild", "%p (pid %d) child action returned; exiting",
-					this, getpid());
 			} catch (...) {
-				secdebug("unixchild", "%p (pid %d) child action had uncaught exception",
-					this, getpid());
 			}
 			_exit(1);
 
@@ -350,7 +352,7 @@ void Child::fork()
 				mPid = pid;
 				mChildren().insert(make_pair(pid, this));
 			}
-			secdebug("unixchild", "%p (parent) running parent action", this);
+			secinfo("unixchild", "%p (parent) running parent action", this);
 			this->parentAction();
 			break;
 		}
@@ -366,7 +368,7 @@ void Child::fork()
 bool Child::checkStatus(int options)
 {
 	assert(state() == alive);
-	secdebug("unixchild", "checking %p (pid %d)", this, this->pid());
+	secinfo("unixchild", "checking %p (pid %d)", this, this->pid());
 	int status;
   again:
 	switch (IFDEBUG(pid_t pid =) ::wait4(this->pid(), &status, options, NULL)) {
@@ -375,7 +377,7 @@ bool Child::checkStatus(int options)
 		case EINTR:
 			goto again;		// retry
 		case ECHILD:
-			secdebug("unixchild", "%p (pid=%d) unknown to kernel", this, this->pid());
+			secinfo("unixchild", "%p (pid=%d) unknown to kernel", this, this->pid());
 			mState = invalid;
 			mChildren().erase(this->pid());
 			return false;
@@ -419,18 +421,18 @@ void Child::checkChildren()
 		} else if (!mChildren().empty()) {
 			int status;
 			while (pid_t pid = ::wait4(0, &status, WNOHANG, NULL)) {
-				secdebug("unixchild", "universal child check (%ld children known alive)", mChildren().size());
+				secinfo("unixchild", "universal child check (%ld children known alive)", mChildren().size());
 				switch (pid) {
 				case pid_t(-1):
 					switch (errno) {
 					case EINTR:
-						secdebug("unixchild", "EINTR on wait4; retrying");
+						secinfo("unixchild", "EINTR on wait4; retrying");
 						continue;	// benign, but retry the wait()
 					case ECHILD:
 						// Should not normally happen (there *is* a child around),
 						// but gets returned anyway if the child is stopped in the debugger.
 						// Treat like a zero return (no children ready to be buried).
-						secdebug("unixchild", "ECHILD with filled nursery (ignored)");
+						secinfo("unixchild", "ECHILD with filled nursery (ignored)");
 						goto no_more;
 					default:
 						UnixError::throwMe();
@@ -441,7 +443,7 @@ void Child::checkChildren()
 						child->bury(status);
 						casualties.add(child);
 					} else
-						secdebug("unixchild", "reaping feral child pid=%d", pid);
+						secinfo("unixchild", "reaping feral child pid=%d", pid);
 					if (mChildren().empty())
 						goto no_more;	// none left
 					break;
@@ -449,7 +451,7 @@ void Child::checkChildren()
 			}
 		  no_more: ;
 		} else {
-			secdebug("unixchild", "spurious checkChildren (the nursery is empty)");
+			secinfo("unixchild", "spurious checkChildren (the nursery is empty)");
 		}
 	}	// release master lock
 	casualties.notify();
@@ -468,11 +470,11 @@ void Child::bury(int status)
 	mChildren().erase(mPid);
 #if !defined(NDEBUG)
 	if (bySignal())
-		secdebug("unixchild", "%p (pid %d) died by signal %d%s",
+		secinfo("unixchild", "%p (pid %d) died by signal %d%s",
 			this, mPid, exitSignal(),
 			coreDumped() ? " and dumped core" : "");
 	else
-		secdebug("unixchild", "%p (pid %d) died by exit(%d)",
+		secinfo("unixchild", "%p (pid %d) died by exit(%d)",
 			this, mPid, exitCode());
 #endif //NDEBUG
 }

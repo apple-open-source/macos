@@ -1,0 +1,29 @@
+// This is the configuration file for building XPC's executables' development
+// support bundle, which houses code that we want to be able to use internally
+// in certain tools, but we don't want to ship externally.
+#include "executable.xcconfig"
+
+SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator
+VALID_ARCHS[sdk=macosx*] = i386 x86_64
+
+XPC_SUPPORT_INSTALL_PATH = /usr/local/lib/xpc
+
+OTHER_CFLAGS = $(XPC_EXECUTABLE_OTHER_CFLAGS) -D__XPC_BUILDING_XPCDEVELOPMENT__=1
+HEADER_SEARCH_PATHS = $(XPC_BUILD_HEADER_SEARCH_PATHS) $(PROJECT_DIR)/development
+
+// This is a bundle, which is not stamped by our version-stamping script, so we
+// expand the build variables in the Info.plist.
+INFOPLIST_EXPAND_BUILD_SETTINGS = YES
+INFOPLIST_FILE = development/Info.plist
+
+GCC_ENABLE_OBJC_GC = unsupported
+// <rdar://problem/16129315>
+GCC_ENABLE_OBJC_GC[sdk=macosx*] = supported
+
+// Deployment and linking.
+MACH_O_TYPE = mh_bundle
+PRODUCT_NAME = development
+WRAPPER_EXTENSION = bundle
+INSTALL_PATH_ACTUAL = $(XPC_SUPPORT_INSTALL_PATH)
+OTHER_LDFLAGS = $(XPC_EXECUTABLE_OTHER_LDFLAGS)
+STRIP_STYLE = non-global

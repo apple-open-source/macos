@@ -199,6 +199,8 @@ The threshold where protocols with tiny maximum message sizes are not
 considered usable to send messages to the KDC.
 .It Li max_msg_size = Va number
 The threshold where Kerberos protocol packets are consider too large and are dropped.
+.It Li max_srv_entries = Va number
+The threshold of each SRV type (udp/tcp/kkdcp/etc) that Heimdal is willing to consider.
 .It Li ticket_lifetime = Va time
 Default ticket lifetime.
 .It Li renew_lifetime = Va time
@@ -237,6 +239,8 @@ Write log-entries using UTC instead of your local time zone.
 .It Li scan_interfaces = Va boolean
 Scan all network interfaces for addresses, as opposed to simply using
 the address associated with the system\'s host name.
+.It Li suppress_weak_enctype
+Suppress the warning that some encryptions are about to be deprecated.
 .It Li fcache_version = Va int
 Use file credential cache format version specified.
 .It Li krb4_get_tickets = Va boolean
@@ -490,6 +494,8 @@ Additional special values of keytypes are:
 .It Li v5
 The Kerberos 5 salt
 .Va pw-salt
+.El
+.El
 .It Li [password_quality]
 Check the Password quality assurance in the info documentation for
 more information.

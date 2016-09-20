@@ -19,48 +19,54 @@
  */
 
 [
+#if defined(ENABLE_CUSTOM_ELEMENTS) && ENABLE_CUSTOM_ELEMENTS
+    CustomConstructor(),
+#endif
     JSGenerateToNativeObject,
     JSCustomPushEventHandlerScope,
+    ExportMacro=WEBCORE_EXPORT,
 ] interface HTMLElement : Element {
-#if defined(LANGUAGE_OBJECTIVE_C) && LANGUAGE_OBJECTIVE_C
-             // FIXME: id should be moved to Element for ObjC as well.
-             [Reflect] attribute DOMString id;
-#endif
-             [Reflect] attribute DOMString title;
-             [Reflect] attribute DOMString lang;
-             attribute boolean             translate;
-             attribute DOMString dir;
+    [Reflect] attribute DOMString title;
+    [Reflect] attribute DOMString lang;
+    attribute boolean translate;
+    attribute DOMString dir;
 
-             attribute long              tabIndex;
-             attribute boolean           draggable;
-             [Reflect] attribute DOMString webkitdropzone;
-             [Reflect] attribute boolean hidden;
-             [Reflect] attribute DOMString accessKey;
+    attribute long tabIndex;
+    attribute boolean draggable;
 
-    // Extensions
-    [TreatNullAs=NullString, SetterRaisesException] attribute DOMString innerText;
-    [TreatNullAs=NullString, SetterRaisesException] attribute DOMString outerText;
-             
-    [RaisesException] Element insertAdjacentElement([Default=Undefined] optional DOMString where,
-                                  [Default=Undefined] optional Element element);
-    [RaisesException] void insertAdjacentHTML([Default=Undefined] optional DOMString where,
-                            [Default=Undefined] optional DOMString html);
-    [RaisesException] void insertAdjacentText([Default=Undefined] optional DOMString where,
-                            [Default=Undefined] optional DOMString text);
+    [Reflect] attribute DOMString webkitdropzone;
+    // FIXME: Support the standard HTML equivalent.
+    // [PutForwards=value] readonly attribute DOMTokenList dropzone;
 
-#if defined(LANGUAGE_OBJECTIVE_C) && LANGUAGE_OBJECTIVE_C
-    readonly attribute HTMLCollection children;
-#endif
+    [Reflect] attribute boolean hidden;
+    [Reflect] attribute DOMString accessKey;
 
-             [TreatNullAs=NullString, SetterRaisesException] attribute DOMString contentEditable;
+    [TreatNullAs=EmptyString, SetterRaisesException] attribute DOMString innerText;
+    [TreatNullAs=EmptyString, SetterRaisesException] attribute DOMString outerText;
+
+    [RaisesException] Element insertAdjacentElement(DOMString where, Element element);
+
+    // FIXME: Using "undefined" as default parameter value is wrong.
+    [RaisesException] void insertAdjacentHTML(optional DOMString where = "undefined", optional DOMString html = "undefined");
+    [RaisesException] void insertAdjacentText(optional DOMString where = "undefined", optional DOMString text = "undefined");
+
+    [SetterRaisesException] attribute DOMString contentEditable;
     readonly attribute boolean isContentEditable;
 
-             attribute boolean spellcheck;
-
-#if defined(LANGUAGE_OBJECTIVE_C) && LANGUAGE_OBJECTIVE_C
-    readonly attribute DOMString titleDisplayString;
-#endif
+    attribute boolean spellcheck;
 
     void click();
+
+#if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
+    void focus();
+    void blur();
+#endif
+
+#if defined(LANGUAGE_OBJECTIVE_C) && LANGUAGE_OBJECTIVE_C
+    [Reflect] attribute DOMString id;
+    readonly attribute HTMLCollection children;
+    readonly attribute DOMString titleDisplayString;
+#endif
 };
 
+HTMLElement implements GlobalEventHandlers;

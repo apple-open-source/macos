@@ -1,7 +1,0 @@
-{
-    IBClasses = (
-        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
-        {CLASS = MyView; LANGUAGE = ObjC; SUPERCLASS = NSView; }
-    ); 
-    IBVersion = 1; 
-}

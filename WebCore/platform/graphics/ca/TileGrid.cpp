@@ -28,7 +28,9 @@
 
 #include "GraphicsContext.h"
 #include "LayerPool.h"
+#include "Logging.h"
 #include "PlatformCALayer.h"
+#include "TextStream.h"
 #include "TileController.h"
 #include <wtf/MainThread.h>
 #include <wtf/text/CString.h>
@@ -42,10 +44,11 @@ namespace WebCore {
 TileGrid::TileGrid(TileController& controller)
     : m_controller(controller)
     , m_containerLayer(*controller.rootLayer().createCompatibleLayer(PlatformCALayer::LayerTypeLayer, nullptr))
-    , m_scale(1)
     , m_cohortRemovalTimer(*this, &TileGrid::cohortRemovalTimerFired)
+    , m_tileSize(kDefaultTileSize, kDefaultTileSize)
 {
     m_containerLayer.get().setName(TileController::tileGridContainerLayerName());
+    m_containerLayer.get().setContentsScale(m_controller.deviceScaleFactor());
 }
 
 TileGrid::~TileGrid()
@@ -75,6 +78,8 @@ void TileGrid::setScale(float scale)
     // FIXME: we may revalidateTiles twice in this commit.
     revalidateTiles(PruneSecondaryTiles);
 
+    m_containerLayer.get().setContentsScale(m_controller.deviceScaleFactor());
+
     for (auto& tile : m_tiles.values())
         tile.layer->setContentsScale(m_controller.deviceScaleFactor());
 }
@@ -101,21 +106,21 @@ void TileGrid::setNeedsDisplayInRect(const IntRect& rect)
     scaledRect.scale(m_scale);
     IntRect repaintRectInTileCoords(enclosingIntRect(scaledRect));
 
-    IntSize tileSize = m_controller.tileSize();
+    IntSize tileSize = m_tileSize;
 
     // For small invalidations, lookup the covered tiles.
     if (repaintRectInTileCoords.height() < 2 * tileSize.height() && repaintRectInTileCoords.width() < 2 * tileSize.width()) {
         TileIndex topLeft;
         TileIndex bottomRight;
-        getTileIndexRangeForRect(repaintRectInTileCoords, topLeft, bottomRight);
-
-        for (int y = topLeft.y(); y <= bottomRight.y(); ++y) {
-            for (int x = topLeft.x(); x <= bottomRight.x(); ++x) {
-                TileIndex tileIndex(x, y);
-                
-                TileMap::iterator it = m_tiles.find(tileIndex);
-                if (it != m_tiles.end())
-                    setTileNeedsDisplayInRect(tileIndex, it->value, repaintRectInTileCoords, m_primaryTileCoverageRect);
+        if (getTileIndexRangeForRect(repaintRectInTileCoords, topLeft, bottomRight)) {
+            for (int y = topLeft.y(); y <= bottomRight.y(); ++y) {
+                for (int x = topLeft.x(); x <= bottomRight.x(); ++x) {
+                    TileIndex tileIndex(x, y);
+                    
+                    TileMap::iterator it = m_tiles.find(tileIndex);
+                    if (it != m_tiles.end())
+                        setTileNeedsDisplayInRect(tileIndex, it->value, repaintRectInTileCoords, m_primaryTileCoverageRect);
+                }
             }
         }
         return;
@@ -194,12 +199,14 @@ bool TileGrid::tilesWouldChangeForCoverageRect(const FloatRect& coverageRect) co
     scaledRect.scale(m_scale);
     IntRect currentCoverageRectInTileCoords(enclosingIntRect(scaledRect));
 
+    IntRect tileCoverageRect;
     TileIndex topLeft;
     TileIndex bottomRight;
-    getTileIndexRangeForRect(currentCoverageRectInTileCoords, topLeft, bottomRight);
+    if (getTileIndexRangeForRect(currentCoverageRectInTileCoords, topLeft, bottomRight)) {
+        tileCoverageRect = rectForTileIndex(topLeft);
+        tileCoverageRect.unite(rectForTileIndex(bottomRight));
+    }
 
-    IntRect tileCoverageRect = rectForTileIndex(topLeft);
-    tileCoverageRect.unite(rectForTileIndex(bottomRight));
     return tileCoverageRect != m_primaryTileCoverageRect;
 }
 
@@ -218,7 +225,7 @@ IntRect TileGrid::rectForTileIndex(const TileIndex& tileIndex) const
     // FIXME: calculating the scaled size here should match with the rest of calculated sizes where we use the combination of
     // enclosingIntRect, expandedIntSize (floor vs ceil).
     // However enclosing this size could reveal gap on root layer's background. see RenderView::backgroundRect()
-    IntSize tileSize = m_controller.tileSize();
+    IntSize tileSize = m_tileSize;
     IntRect rect(tileIndex.x() * tileSize.width(), tileIndex.y() * tileSize.height(), tileSize.width(), tileSize.height());
     IntRect scaledBounds(m_controller.bounds());
     scaledBounds.scale(m_scale);
@@ -226,13 +233,16 @@ IntRect TileGrid::rectForTileIndex(const TileIndex& tileIndex) const
     return rect;
 }
 
-void TileGrid::getTileIndexRangeForRect(const IntRect& rect, TileIndex& topLeft, TileIndex& bottomRight) const
+bool TileGrid::getTileIndexRangeForRect(const IntRect& rect, TileIndex& topLeft, TileIndex& bottomRight) const
 {
     IntRect clampedRect = m_controller.bounds();
     clampedRect.scale(m_scale);
     clampedRect.intersect(rect);
+    
+    if (clampedRect.isEmpty())
+        return false;
 
-    auto tileSize = m_controller.tileSize();
+    auto tileSize = m_tileSize;
     if (clampedRect.x() >= 0)
         topLeft.setX(clampedRect.x() / tileSize.width());
     else
@@ -248,6 +258,8 @@ void TileGrid::getTileIndexRangeForRect(const IntRect& rect, TileIndex& topLeft,
 
     int bottomYRatio = ceil((float)clampedRect.maxY() / tileSize.height());
     bottomRight.setY(std::max(bottomYRatio - 1, 0));
+    
+    return true;
 }
 
 unsigned TileGrid::blankPixelCount() const
@@ -270,6 +282,17 @@ void TileGrid::removeTiles(Vector<TileGrid::TileIndex>& toRemove)
         m_tileRepaintCounts.remove(tileInfo.layer.get());
         tileInfo.layer->moveToLayerPool();
     }
+}
+
+void TileGrid::removeAllTiles()
+{
+    Vector<TileIndex> tilesToRemove;
+    tilesToRemove.reserveInitialCapacity(m_tiles.size());
+
+    for (auto& entry : m_tiles)
+        tilesToRemove.uncheckedAppend(entry.key);
+
+    removeTiles(tilesToRemove);
 }
 
 void TileGrid::removeAllSecondaryTiles()
@@ -318,6 +341,12 @@ void TileGrid::revalidateTiles(TileValidationPolicy validationPolicy)
 
     double minimumRevalidationTimerDuration = std::numeric_limits<double>::max();
     bool needsTileRevalidation = false;
+    
+    auto tileSize = m_controller.tileSize();
+    if (tileSize != m_tileSize) {
+        removeAllTiles();
+        m_tileSize = tileSize;
+    }
 
     // Move tiles newly outside the coverage rect into the cohort map.
     for (TileMap::iterator it = m_tiles.begin(), end = m_tiles.end(); it != end; ++it) {
@@ -326,6 +355,7 @@ void TileGrid::revalidateTiles(TileValidationPolicy validationPolicy)
 
         PlatformCALayer* tileLayer = tileInfo.layer.get();
         IntRect tileRect = rectForTileIndex(tileIndex);
+
         if (tileRect.intersects(coverageRectInTileCoords)) {
             tileInfo.cohort = VisibleTileCohort;
             if (tileInfo.hasStaleContent) {
@@ -422,14 +452,14 @@ void TileGrid::revalidateTiles(TileValidationPolicy validationPolicy)
 
         TileIndex topLeftForBounds;
         TileIndex bottomRightForBounds;
-        getTileIndexRangeForRect(boundsInTileCoords, topLeftForBounds, bottomRightForBounds);
-
-        Vector<TileIndex> tilesToRemove;
-        for (auto& index : m_tiles.keys()) {
-            if (index.y() < topLeftForBounds.y() || index.y() > bottomRightForBounds.y() || index.x() < topLeftForBounds.x() || index.x() > bottomRightForBounds.x())
-                tilesToRemove.append(index);
+        if (getTileIndexRangeForRect(boundsInTileCoords, topLeftForBounds, bottomRightForBounds)) {
+            Vector<TileIndex> tilesToRemove;
+            for (auto& index : m_tiles.keys()) {
+                if (index.y() < topLeftForBounds.y() || index.y() > bottomRightForBounds.y() || index.x() < topLeftForBounds.x() || index.x() > bottomRightForBounds.x())
+                    tilesToRemove.append(index);
+            }
+            removeTiles(tilesToRemove);
         }
-        removeTiles(tilesToRemove);
     }
 
     m_controller.didRevalidateTiles();
@@ -504,7 +534,8 @@ IntRect TileGrid::ensureTilesForRect(const FloatRect& rect, CoverageType newTile
 
     TileIndex topLeft;
     TileIndex bottomRight;
-    getTileIndexRangeForRect(rectInTileCoords, topLeft, bottomRight);
+    if (!getTileIndexRangeForRect(rectInTileCoords, topLeft, bottomRight))
+        return IntRect();
 
     TileCohort currCohort = nextTileCohort();
     unsigned tilesInCohort = 0;
@@ -559,10 +590,12 @@ IntRect TileGrid::extent() const
 {
     TileIndex topLeft;
     TileIndex bottomRight;
-    getTileIndexRangeForRect(m_primaryTileCoverageRect, topLeft, bottomRight);
+    if (getTileIndexRangeForRect(m_primaryTileCoverageRect, topLeft, bottomRight)) {
+        // Return index of top, left tile and the number of tiles across and down.
+        return IntRect(topLeft.x(), topLeft.y(), bottomRight.x() - topLeft.x() + 1, bottomRight.y() - topLeft.y() + 1);
+    }
 
-    // Return index of top, left tile and the number of tiles across and down.
-    return IntRect(topLeft.x(), topLeft.y(), bottomRight.x() - topLeft.x() + 1, bottomRight.y() - topLeft.y() + 1);
+    return IntRect();
 }
 
 double TileGrid::retainedTileBackingStoreMemory() const
@@ -642,13 +675,9 @@ void TileGrid::drawTileMapContents(CGContextRef context, CGRect layerBounds) con
         String repaintCount = String::number(m_tileRepaintCounts.get(tileLayer));
 
         CGContextSaveGState(context);
-        CGContextSetTextMatrix(context, CGAffineTransformMakeScale(3, -3));
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        CGContextSelectFont(context, "Helvetica", 58, kCGEncodingMacRoman);
-        CGContextShowTextAtPoint(context, frame.origin.x + 64, frame.origin.y + 192, repaintCount.ascii().data(), repaintCount.length());
-#pragma clang diagnostic pop
+        tileLayer->drawTextAtPoint(context, frame.origin.x + 64, frame.origin.y + 192, CGSizeMake(3, -3), 58,
+            repaintCount.ascii().data(), repaintCount.length());
 
         CGContextRestoreGState(context);
     }
@@ -674,7 +703,7 @@ void TileGrid::platformCALayerPaintContents(PlatformCALayer* platformCALayer, Gr
 
     int repaintCount = platformCALayerIncrementRepaintCount(platformCALayer);
     if (m_controller.rootLayer().owner()->platformCALayerShowRepaintCounter(0))
-        PlatformCALayer::drawRepaintIndicator(context.platformContext(), platformCALayer, repaintCount, cachedCGColor(m_controller.tileDebugBorderColor(), ColorSpaceDeviceRGB));
+        PlatformCALayer::drawRepaintIndicator(context.platformContext(), platformCALayer, repaintCount, cachedCGColor(m_controller.tileDebugBorderColor()));
 
     if (m_controller.scrollingPerformanceLoggingEnabled()) {
         FloatRect visiblePart(platformCALayer->position().x(), platformCALayer->position().y(), platformCALayer->bounds().size().width(), platformCALayer->bounds().size().height());
@@ -697,7 +726,12 @@ bool TileGrid::platformCALayerShowDebugBorders() const
 
 bool TileGrid::platformCALayerShowRepaintCounter(PlatformCALayer*) const
 {
-    return m_controller.rootLayer().owner()->platformCALayerShowRepaintCounter(0);
+    return m_controller.rootLayer().owner()->platformCALayerShowRepaintCounter(nullptr);
+}
+
+bool TileGrid::isUsingDisplayListDrawing(PlatformCALayer*) const
+{
+    return m_controller.rootLayer().owner()->isUsingDisplayListDrawing(nullptr);
 }
 
 bool TileGrid::platformCALayerContentsOpaque() const

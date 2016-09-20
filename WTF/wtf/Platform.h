@@ -103,20 +103,6 @@
 #define USE_ARENA_ALLOC_ALIGNMENT_INTEGER 1
 #endif /* MIPS */
 
-/* CPU(PPC) - PowerPC 32-bit */
-#if (  defined(__ppc__)        \
-    || defined(__PPC__)        \
-    || defined(__powerpc__)    \
-    || defined(__powerpc)      \
-    || defined(__POWERPC__)    \
-    || defined(_M_PPC)         \
-    || defined(__PPC))         \
-    && defined(__BYTE_ORDER__) \
-    && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
-#define WTF_CPU_PPC 1
-#define WTF_CPU_BIG_ENDIAN 1
-#endif
-
 /* CPU(PPC64) - PowerPC 64-bit Big Endian */
 #if (  defined(__ppc64__)      \
     || defined(__PPC64__))     \
@@ -136,6 +122,21 @@
 #define WTF_CPU_PPC64LE 1
 #endif
 
+/* CPU(PPC) - PowerPC 32-bit */
+#if (  defined(__ppc__)        \
+    || defined(__PPC__)        \
+    || defined(__powerpc__)    \
+    || defined(__powerpc)      \
+    || defined(__POWERPC__)    \
+    || defined(_M_PPC)         \
+    || defined(__PPC))         \
+    && !CPU(PPC64)             \
+    && defined(__BYTE_ORDER__) \
+    && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+#define WTF_CPU_PPC 1
+#define WTF_CPU_BIG_ENDIAN 1
+#endif
+
 /* CPU(SH4) - SuperH SH-4 */
 #if defined(__SH4__)
 #define WTF_CPU_SH4 1
@@ -148,7 +149,8 @@
 #endif
 
 /* CPU(S390) - S390 32-bit */
-#if defined(__s390__)
+#if (  defined(__s390__)        \
+    && !CPU(S390X))
 #define WTF_CPU_S390 1
 #define WTF_CPU_BIG_ENDIAN 1
 #endif
@@ -426,6 +428,12 @@
 
 /* Operating environments */
 
+/* Standard libraries */
+#if defined(HAVE_FEATURES_H) && HAVE_FEATURES_H
+/* If the included features.h is glibc's one, __GLIBC__ is defined. */
+#include <features.h>
+#endif
+
 /* FIXME: these are all mixes of OS, operating environment and policy choices. */
 /* PLATFORM(EFL) */
 /* PLATFORM(GTK) */
@@ -514,13 +522,10 @@
 #define USE_NETWORK_CFDATA_ARRAY_CALLBACK 1
 #define ENABLE_USER_MESSAGE_HANDLERS 1
 #define HAVE_OUT_OF_PROCESS_LAYER_HOSTING 1
-#define HAVE_DTRACE 1
+#define HAVE_DTRACE 0
 
 #if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
 #define HAVE_AVKIT 1
-#endif
-
-#if !PLATFORM(WATCHOS)
 #define HAVE_PARENTAL_CONTROLS 1
 #endif
 
@@ -528,12 +533,19 @@
 
 #if PLATFORM(MAC)
 
+#if __MAC_OS_X_VERSION_MIN_REQUIRED < 101200
+#define USE_QTKIT 1
+#else
+#define USE_QTKIT 0
+#endif
+
 #define USE_APPKIT 1
 #define HAVE_RUNLOOP_TIMER 1
 #define HAVE_SEC_IDENTITY 1
 #define HAVE_SEC_KEYCHAIN 1
 
 #if CPU(X86_64)
+#define HAVE_NETWORK_EXTENSION 1
 #define USE_PLUGIN_HOST_PROCESS 1
 #endif
 
@@ -547,15 +559,20 @@
 
 #if PLATFORM(IOS)
 
-#define HAVE_READLINE 1
-#if USE(APPLE_INTERNAL_SDK)
+#if USE(APPLE_INTERNAL_SDK) && __IPHONE_OS_VERSION_MIN_REQUIRED < 100000
 #define USE_CFNETWORK 1
 #endif
+
+#define HAVE_NETWORK_EXTENSION 1
+#define HAVE_READLINE 1
 #define USE_UIKIT_EDITING 1
 #define USE_WEB_THREAD 1
-#define USE_QUICK_LOOK 1
 
-#if defined(TARGET_OS_IOS) && TARGET_OS_IOS && __IPHONE_OS_VERSION_MIN_REQUIRED >= 90000
+#if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
+#define USE_QUICK_LOOK 1
+#endif
+
+#if TARGET_OS_IOS
 #define HAVE_APP_LINKS 1
 #endif
 
@@ -615,7 +632,7 @@
 #endif
 #endif
 
-#if OS(DARWIN) || OS(FREEBSD) || OS(NETBSD)
+#if (OS(DARWIN) || OS(FREEBSD) || OS(NETBSD)) && !defined(__GLIBC__)
 #define HAVE_STAT_BIRTHTIME 1
 #endif
 
@@ -630,12 +647,15 @@
 #define HAVE_DISPATCH_H 1
 #define HAVE_MADV_FREE 1
 #define HAVE_MADV_FREE_REUSE 1
+#define HAVE_MADV_DONTNEED 1
 #define HAVE_MERGESORT 1
 #define HAVE_PTHREAD_SETNAME_NP 1
 #define HAVE_READLINE 1
 #define HAVE_SYS_TIMEB_H 1
-#define USE_ACCELERATE 1
 
+#if !PLATFORM(GTK)
+#define USE_ACCELERATE 1
+#endif
 #if !PLATFORM(IOS)
 #define HAVE_HOSTED_CORE_ANIMATION 1
 #endif
@@ -648,12 +668,14 @@
 #define HAVE_ALIGNED_MALLOC 1
 #define HAVE_ISDEBUGGERPRESENT 1
 
-#include <WTF/WTFHeaderDetection.h>
-
 #endif
 
 #if OS(WINDOWS)
 #define HAVE_VIRTUALALLOC 1
+#endif
+
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200) || (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 100000)
+#define HAVE_CFNETWORK_STORAGE_PARTITIONING 1
 #endif
 
 /* ENABLE macro defaults */
@@ -665,19 +687,6 @@
 
 #if OS(WINDOWS)
 #define USE_SYSTEM_MALLOC 1
-#endif
-
-#define ENABLE_DEBUG_WITH_BREAKPOINT 0
-#define ENABLE_SAMPLING_COUNTERS 0
-#define ENABLE_SAMPLING_FLAGS 0
-#define ENABLE_SAMPLING_REGIONS 0
-#define ENABLE_OPCODE_SAMPLING 0
-#define ENABLE_CODEBLOCK_SAMPLING 0
-#if ENABLE(CODEBLOCK_SAMPLING) && !ENABLE(OPCODE_SAMPLING)
-#error "CODEBLOCK_SAMPLING requires OPCODE_SAMPLING"
-#endif
-#if ENABLE(OPCODE_SAMPLING) || ENABLE(SAMPLING_FLAGS) || ENABLE(SAMPLING_REGIONS)
-#define ENABLE_SAMPLING_THREAD 1
 #endif
 
 #if !defined(USE_JSVALUE64) && !defined(USE_JSVALUE32_64)
@@ -702,15 +711,6 @@
 #define ENABLE_JIT 1
 #endif
 
-/* Do we have LLVM? */
-#if !defined(HAVE_LLVM) && OS(DARWIN) && !PLATFORM(EFL) && !PLATFORM(GTK) && ENABLE(FTL_JIT) && (CPU(X86_64) || CPU(ARM64))
-#define HAVE_LLVM 1
-#endif
-
-#if PLATFORM(GTK) && HAVE(LLVM) && ENABLE(JIT) && !defined(ENABLE_FTL_JIT) && CPU(X86_64)
-#define ENABLE_FTL_JIT 1
-#endif
-
 /* The FTL *does not* work on 32-bit platforms. Disable it even if someone asked us to enable it. */
 #if USE(JSVALUE32_64)
 #undef ENABLE_FTL_JIT
@@ -723,12 +723,6 @@
 #define ENABLE_FTL_JIT 0
 #endif
 
-/* If possible, try to enable the LLVM disassembler. This is optional and we can
-   fall back on UDis86 if necessary. */
-#if !defined(USE_LLVM_DISASSEMBLER) && HAVE(LLVM) && (CPU(X86_64) || CPU(X86) || CPU(ARM64))
-#define USE_LLVM_DISASSEMBLER 1
-#endif
-
 /* If possible, try to enable a disassembler. This is optional. We proceed in two
    steps: first we try to find some disassembler that we can use, and then we
    decide if the high-level disassembler API can be enabled. */
@@ -737,11 +731,11 @@
 #define USE_UDIS86 1
 #endif
 
-#if !defined(ENABLE_DISASSEMBLER) && (USE(UDIS86) || USE(LLVM_DISASSEMBLER))
+#if !defined(ENABLE_DISASSEMBLER) && USE(UDIS86)
 #define ENABLE_DISASSEMBLER 1
 #endif
 
-#if !defined(USE_ARM64_DISASSEMBLER) && ENABLE(JIT) && CPU(ARM64) && !USE(LLVM_DISASSEMBLER)
+#if !defined(USE_ARM64_DISASSEMBLER) && ENABLE(JIT) && CPU(ARM64)
 #define USE_ARM64_DISASSEMBLER 1
 #endif
 
@@ -772,37 +766,36 @@
    values get stored to atomically. This is trivially true on 64-bit platforms,
    but not true at all on 32-bit platforms where values are composed of two
    separate sub-values. */
-#if (OS(DARWIN) || PLATFORM(EFL) || PLATFORM(GTK)) && ENABLE(DFG_JIT) && USE(JSVALUE64)
+#if ENABLE(DFG_JIT) && USE(JSVALUE64)
 #define ENABLE_CONCURRENT_JIT 1
+#endif
+
+/* This controls whether B3 is built. It will not be used unless FTL_USES_B3 is enabled. */
+#if ENABLE(FTL_JIT)
+#define ENABLE_B3_JIT 1
 #endif
 
 /* If the baseline jit is not available, then disable upper tiers as well: */
 #if !ENABLE(JIT)
-#undef ENABLE_DFG_JIT      /* Undef so that we can redefine it. */
-#undef ENABLE_FTL_JIT      /* Undef so that we can redefine it. */
+#undef ENABLE_DFG_JIT
+#undef ENABLE_FTL_JIT
+#undef ENABLE_B3_JIT
 #define ENABLE_DFG_JIT 0
 #define ENABLE_FTL_JIT 0
+#define ENABLE_B3_JIT 0
 #endif
 
-#if !defined(ENABLE_FTL_NATIVE_CALL_INLINING)
-#define ENABLE_FTL_NATIVE_CALL_INLINING 0
-#endif
-
-/* Used to make GCC's optimization not throw away a symbol that we would need for native inlining */
-#if ENABLE(FTL_NATIVE_CALL_INLINING) && COMPILER(GCC) && !COMPILER(CLANG)
-#define ATTR_USED __attribute__ ((used))
+/* The SamplingProfiler is the probabilistic and low-overhead profiler used by
+ * JSC to measure where time is spent inside a JavaScript program.
+ * In configurations other than Windows and Darwin, because layout of mcontext_t depends on standard libraries (like glibc),
+ * sampling profiler is enabled if WebKit uses pthreads and glibc. */
+#if !defined(ENABLE_SAMPLING_PROFILER)
+#if (OS(DARWIN) || OS(WINDOWS) || PLATFORM(GTK) || PLATFORM(EFL)) && ENABLE(JIT)
+#define ENABLE_SAMPLING_PROFILER 1
 #else
-#define ATTR_USED
+#define ENABLE_SAMPLING_PROFILER 0
 #endif
-
-/* Generational collector for JSC */
-#if !defined(ENABLE_GGC)
-#if CPU(X86_64) || CPU(X86) || CPU(ARM64) || CPU(ARM)
-#define ENABLE_GGC 1
-#else
-#define ENABLE_GGC 0
-#endif /* CPU(X86_64) || CPU(X86) || CPU(ARM64) || CPU(ARM) */
-#endif /* !defined(ENABLE_GGC) */
+#endif
 
 /* Counts uses of write barriers using sampling counters. Be sure to also
    set ENABLE_SAMPLING_COUNTERS to 1. */
@@ -833,14 +826,46 @@
 /* Configure the JIT */
 #if CPU(X86) && COMPILER(MSVC)
 #define JSC_HOST_CALL __fastcall
-#elif CPU(X86) && COMPILER(GCC)
+#elif CPU(X86) && COMPILER(GCC_OR_CLANG)
 #define JSC_HOST_CALL __attribute__ ((fastcall))
 #else
 #define JSC_HOST_CALL
 #endif
 
+#if CPU(X86) && OS(WINDOWS)
+#define CALLING_CONVENTION_IS_STDCALL 1
+#ifndef CDECL
+#if COMPILER(MSVC)
+#define CDECL __cdecl
+#else
+#define CDECL __attribute__ ((__cdecl))
+#endif
+#endif
+#else
+#define CALLING_CONVENTION_IS_STDCALL 0
+#endif
+
+#if CPU(X86)
+#define WTF_COMPILER_SUPPORTS_FASTCALL_CALLING_CONVENTION 1
+#ifndef FASTCALL
+#if COMPILER(MSVC)
+#define FASTCALL __fastcall
+#else
+#define FASTCALL  __attribute__ ((fastcall))
+#endif
+#endif
+#else
+#define WTF_COMPILER_SUPPORTS_FASTCALL_CALLING_CONVENTION 0
+#endif
+
+#if ENABLE(JIT) && CALLING_CONVENTION_IS_STDCALL
+#define JIT_OPERATION CDECL
+#else
+#define JIT_OPERATION
+#endif
+
 /* Configure the interpreter */
-#if COMPILER(GCC)
+#if COMPILER(GCC_OR_CLANG)
 #define HAVE_COMPUTED_GOTO 1
 #endif
 
@@ -881,9 +906,11 @@
 #endif
 #endif
 
-#if ENABLE(JIT)
 /* Enable the following if you want to use the MacroAssembler::probe() facility
    to do JIT debugging. */
+#if (CPU(X86) || CPU(X86_64) || CPU(ARM64) || (CPU(ARM_THUMB2) && PLATFORM(IOS))) && ENABLE(JIT) && OS(DARWIN) && !defined(NDEBUG)
+#define ENABLE_MASM_PROBE 1
+#else
 #define ENABLE_MASM_PROBE 0
 #endif
 
@@ -938,10 +965,6 @@
 /* Set up a define for a common error that is intended to cause a build error -- thus the space after Error. */
 #define WTF_PLATFORM_CFNETWORK Error USE_macro_should_be_used_with_CFNETWORK
 
-#if PLATFORM(WIN)
-#define USE_CROSS_PLATFORM_CONTEXT_MENUS 1
-#endif
-
 #if PLATFORM(COCOA) && HAVE(ACCESSIBILITY)
 #define USE_ACCESSIBILITY_CONTEXT_MENUS 1
 #endif
@@ -986,14 +1009,6 @@
 #define USE_IMLANG_FONT_LINK2 1
 #endif
 
-#if !defined(ENABLE_COMPARE_AND_SWAP) && (OS(WINDOWS) || (COMPILER(GCC) && (CPU(X86) || CPU(X86_64) || CPU(ARM_THUMB2) || CPU(ARM64))))
-#define ENABLE_COMPARE_AND_SWAP 1
-#endif
-
-#if !defined(ENABLE_PARALLEL_GC) && (OS(DARWIN) || PLATFORM(EFL) || PLATFORM(GTK)) && ENABLE(COMPARE_AND_SWAP)
-#define ENABLE_PARALLEL_GC 1
-#endif
-
 #if !defined(ENABLE_GC_VALIDATION) && !defined(NDEBUG)
 #define ENABLE_GC_VALIDATION 1
 #endif
@@ -1014,21 +1029,21 @@
 #endif
 #endif
 
-#if (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 60000) || PLATFORM(MAC)
+#if PLATFORM(IOS) || PLATFORM(MAC)
 #define USE_COREMEDIA 1
 #define HAVE_AVFOUNDATION_VIDEO_OUTPUT 1
 #endif
 
-#if (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 50000) || (PLATFORM(MAC) || (OS(WINDOWS) && USE(CG)) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080)
+#if PLATFORM(IOS) || PLATFORM(MAC) || (OS(WINDOWS) && USE(CG))
 #define HAVE_AVFOUNDATION_MEDIA_SELECTION_GROUP 1
 #endif
 
-#if (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 70000) || ((PLATFORM(MAC) || (OS(WINDOWS) && USE(CG))) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090)
+#if PLATFORM(IOS) || PLATFORM(MAC) || (OS(WINDOWS) && USE(CG))
 #define HAVE_AVFOUNDATION_LEGIBLE_OUTPUT_SUPPORT 1
 #define HAVE_MEDIA_ACCESSIBILITY_FRAMEWORK 1
 #endif
 
-#if (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 60000) || PLATFORM(MAC)
+#if PLATFORM(IOS) || PLATFORM(MAC)
 #define HAVE_AVFOUNDATION_LOADER_DELEGATE 1
 #endif
 
@@ -1053,13 +1068,13 @@
 #endif
 
 #ifndef HAVE_QOS_CLASSES
-#if PLATFORM(IOS) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000)
+#if PLATFORM(COCOA)
 #define HAVE_QOS_CLASSES 1
 #endif
 #endif
 
 #ifndef HAVE_VOUCHERS
-#if PLATFORM(IOS) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000)
+#if PLATFORM(COCOA)
 #define HAVE_VOUCHERS 1
 #endif
 #endif
@@ -1083,16 +1098,12 @@
 #define USE_MARKER_REMOVAL_UPON_EDITING 1
 #endif
 
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+#if PLATFORM(MAC)
 #define USE_INSERTION_UNDO_GROUPING 1
 #endif
 
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100) || (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 90000)
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100) || PLATFORM(IOS)
 #define HAVE_TIMINGDATAOPTIONS 1
-#endif
-
-#if PLATFORM(IOS)
-#define USE_PLATFORM_TEXT_TRACK_MENU 1
 #endif
 
 #if PLATFORM(COCOA)
@@ -1103,10 +1114,18 @@
 #define USE_IOSURFACE 1
 #endif
 
+#if PLATFORM(COCOA)
+#define ENABLE_RESOURCE_USAGE 1
+#endif
+
 #if PLATFORM(GTK) || PLATFORM(EFL)
 #undef ENABLE_OPENTYPE_VERTICAL
 #define ENABLE_OPENTYPE_VERTICAL 1
 #define ENABLE_CSS3_TEXT_DECORATION_SKIP_INK 1
+#endif
+
+#if PLATFORM(GTK)
+#define USE_WOFF2 1
 #endif
 
 #if PLATFORM(COCOA)
@@ -1118,18 +1137,18 @@
 #endif
 
 #if COMPILER(MSVC)
+#undef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS
 #undef __STDC_LIMIT_MACROS
 #define __STDC_LIMIT_MACROS
+#if _MSC_VER < 1900
 #undef _HAS_EXCEPTIONS
 #define _HAS_EXCEPTIONS 1
+#endif
 #endif
 
 #if PLATFORM(MAC)
 #define HAVE_NS_ACTIVITY 1
-#endif
-
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
-#define USE_ASYNC_NSTEXTINPUTCLIENT 1
 #endif
 
 #if (OS(DARWIN) && USE(CG)) || USE(FREETYPE) || (PLATFORM(WIN) && (USE(CG) || USE(CAIRO)))
@@ -1147,13 +1166,53 @@
 #define USE_MEDIATOOLBOX 1
 #endif
 
-#if PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 90000
-#define ENABLE_VIDEO_PRESENTATION_MODE 1
-#endif
-
 /* While 10.10 has support for fences, it is missing some API important for our integration of them. */
 #if PLATFORM(IOS) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100)
 #define HAVE_COREANIMATION_FENCES 1
+#endif
+
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200) || (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 100000)
+#define USE_OS_LOG 1
+#if USE(APPLE_INTERNAL_SDK)
+#define USE_OS_STATE 1
+#endif
+#endif
+
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200) || (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 100000)
+#define HAVE_SEC_TRUST_SERIALIZATION 1
+#endif
+
+#if !defined(WTF_DEFAULT_EVENT_LOOP)
+#define WTF_DEFAULT_EVENT_LOOP 1
+#endif
+
+#if WTF_DEFAULT_EVENT_LOOP
+#if PLATFORM(WIN)
+/* Use Windows message pump abstraction.
+ * Even if the port is AppleWin, we use the Windows message pump system for the event loop,
+ * so that USE(WINDOWS_EVENT_LOOP) && USE(CF) can be true.
+ * And PLATFORM(WIN), PLATFORM(EFL) and PLATFORM(GTK) are exclusive. If the port is GTK,
+ * PLATFORM(WIN) should be false. And in that case, GLib's event loop is used.
+ */
+#define USE_WINDOWS_EVENT_LOOP 1
+#elif PLATFORM(COCOA)
+/* OS X and IOS. Use CoreFoundation & GCD abstraction. */
+#define USE_COCOA_EVENT_LOOP 1
+#elif PLATFORM(EFL)
+/* EFL port uses GLib. But it uses its own event loop abstraction.
+ * Thus, USE(EFL_EVENT_LOOP) && USE(GLIB) can be true.
+ */
+#define USE_EFL_EVENT_LOOP 1
+#elif USE(GLIB)
+/* Use GLib's event loop abstraction. Primarily GTK port uses it. */
+#define USE_GLIB_EVENT_LOOP 1
+#else
+#define USE_GENERIC_EVENT_LOOP 1
+#endif
+#endif
+
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
+#define USE_MEDIAREMOTE 1
 #endif
 
 #endif /* WTF_Platform_h */

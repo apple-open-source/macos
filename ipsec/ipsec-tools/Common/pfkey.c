@@ -51,6 +51,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <ifaddrs.h>
 
 #include "var.h"
 #include "ipsec_strerror.h"
@@ -1110,8 +1111,11 @@ pfkey_send_x1(int so, u_int type, u_int satype, u_int mode, struct sockaddr_stor
               u_int32_t l_alloc, u_int32_t l_bytes, u_int32_t l_addtime, u_int32_t l_usetime, u_int32_t seq, u_int16_t port,
               u_int always_expire)
 {
-	struct sadb_msg *newmsg;
+	struct sadb_msg *newmsg = NULL;
+	struct ifaddrs *ifap = NULL;
+	struct ifaddrs *ifa = NULL;
 	int len;
+	int ret = -1;
 	caddr_t p;
 	int plen;
 	caddr_t ep;
@@ -1181,6 +1185,25 @@ pfkey_send_x1(int so, u_int type, u_int satype, u_int mode, struct sockaddr_stor
 		return -1;
 	}
 
+	if (getifaddrs(&ifap) < 0) {
+		return -1;
+	}
+
+	for (ifa = ifap; ifa != NULL; ifa = ifa->ifa_next) {
+		if (ifa->ifa_addr == NULL || ifa->ifa_addr->sa_family != src->ss_family)
+			continue;
+
+		if (src->ss_family == AF_INET) {
+			if (memcmp(&((struct sockaddr_in *)(ifa->ifa_addr))->sin_addr, &((struct sockaddr_in *)src)->sin_addr, sizeof(struct in_addr)) != 0)
+				continue;
+		} else if (src->ss_family == AF_INET6) {
+			if (memcmp(&((struct sockaddr_in6 *)(ifa->ifa_addr))->sin6_addr, &((struct sockaddr_in6 *)src)->sin6_addr, sizeof(struct in6_addr)) != 0)
+				continue;
+		}
+
+		break;
+	}
+
 	/* create new sadb_msg to reply. */
 	len = sizeof(struct sadb_msg)
 		+ sizeof(struct sadb_sa_2)
@@ -1190,7 +1213,8 @@ pfkey_send_x1(int so, u_int type, u_int satype, u_int mode, struct sockaddr_stor
 		+ sizeof(struct sadb_address)
 		+ PFKEY_ALIGN8(sysdep_sa_len((struct sockaddr *)dst))
 		+ sizeof(struct sadb_lifetime)
-		+ sizeof(struct sadb_lifetime);
+		+ sizeof(struct sadb_lifetime)
+		+ ((ifa != NULL && ifa->ifa_name != NULL) ? sizeof(struct sadb_x_ipsecif) : 0);
 		
 	if (e_type != SADB_EALG_NONE && satype != SADB_X_SATYPE_IPCOMP)
 		len += (sizeof(struct sadb_key) + PFKEY_ALIGN8(e_keylen));
@@ -1199,7 +1223,7 @@ pfkey_send_x1(int so, u_int type, u_int satype, u_int mode, struct sockaddr_stor
 
 	if ((newmsg = CALLOC((size_t)len, struct sadb_msg *)) == NULL) {
 		__ipsec_set_strerror(strerror(errno));
-		return -1;
+		goto err;
 	}
 	ep = ((caddr_t)(void *)newmsg) + len;
 
@@ -1207,45 +1231,47 @@ pfkey_send_x1(int so, u_int type, u_int satype, u_int mode, struct sockaddr_stor
 	                     satype, seq, getpid());
 	if (!p) {
 		free(newmsg);
+		freeifaddrs(ifap);
 		return -1;
 	}
 	p = pfkey_setsadbsa(p, ep, spi, wsize, a_type, e_type, flags, port);
 	if (!p) {
-		free(newmsg);
-		return -1;
+		goto err;
 	}
 	p = pfkey_setsadbxsa2(p, ep, mode, reqid, always_expire);
 	if (!p) {
-		free(newmsg);
-		return -1;
+		goto err;
 	}
 	p = pfkey_setsadbaddr(p, ep, SADB_EXT_ADDRESS_SRC, src, (u_int)plen,
 	    IPSEC_ULPROTO_ANY);
 	if (!p) {
-		free(newmsg);
-		return -1;
+		goto err;
 	}
 	p = pfkey_setsadbaddr(p, ep, SADB_EXT_ADDRESS_DST, dst, (u_int)plen,
 	    IPSEC_ULPROTO_ANY);
 	if (!p) {
-		free(newmsg);
-		return -1;
+		goto err;
+	}
+
+	if (ifa != NULL && ifa->ifa_name != NULL) {
+		p = pfkey_setsadbipsecif(p, ep, NULL, ifa->ifa_name, NULL, 0);
+		if (!p) {
+			goto err;
+		}
 	}
 
 	if (e_type != SADB_EALG_NONE && satype != SADB_X_SATYPE_IPCOMP) {
 		p = pfkey_setsadbkey(p, ep, SADB_EXT_KEY_ENCRYPT,
 		                   keymat, e_keylen);
 		if (!p) {
-			free(newmsg);
-			return -1;
+			goto err;
 		}
 	}
 	if (a_type != SADB_AALG_NONE) {
 		p = pfkey_setsadbkey(p, ep, SADB_EXT_KEY_AUTH,
 		                   keymat + e_keylen, a_keylen);
 		if (!p) {
-			free(newmsg);
-			return -1;
+			goto err;
 		}
 	}
 
@@ -1253,30 +1279,37 @@ pfkey_send_x1(int so, u_int type, u_int satype, u_int mode, struct sockaddr_stor
 	p = pfkey_setsadblifetime(p, ep, SADB_EXT_LIFETIME_HARD,
 			l_alloc, l_bytes, l_addtime, l_usetime);
 	if (!p) {
-		free(newmsg);
-		return -1;
+		goto err;
 	}
 	p = pfkey_setsadblifetime(p, ep, SADB_EXT_LIFETIME_SOFT,
 			l_alloc, l_bytes, l_addtime, l_usetime);
 	if (!p) {
-		free(newmsg);
-		return -1;
+		goto err;
 	}
 	
 	if (p != ep) {
-		free(newmsg);
-		return -1;
+		goto err;
 	}
 
 	/* send message */
 	len = pfkey_send(so, newmsg, len);
-	free(newmsg);
-
-	if (len < 0)
-		return -1;
+	if (len < 0) {
+		goto err;
+	}
 
 	__ipsec_errcode = EIPSEC_NO_ERROR;
-	return len;
+	ret = len;
+	
+err:
+	if (ifap != NULL) {
+		freeifaddrs(ifap);
+	}
+
+	if (newmsg != NULL) {
+		free(newmsg);
+	}
+
+	return ret;
 }
 
 

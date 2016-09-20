@@ -36,7 +36,7 @@
 #pragma D option quiet
 #pragma D option statusrate=10ms
 
-fbt::sigprocmask:return
+fbt::ioctl:return
 /arg1 == 0/
 {
 	printf("%s %x returned 0", probefunc, arg0);

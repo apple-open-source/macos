@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -64,12 +64,7 @@ extern uint32_t notify_monitor_file(int token, const char *name, int flags);
 #include <network_information.h>
 
 #include <dns_sd.h>
-#ifndef	kDNSServiceCompMulticastDNS
-#define	kDNSServiceCompMulticastDNS	"MulticastDNS"
-#endif
-#ifndef	kDNSServiceCompPrivateDNS
-#define	kDNSServiceCompPrivateDNS	"PrivateDNS"
-#endif
+#include <dns_sd_private.h>
 
 #define DNS_CONFIGURATION_FLAGS_KEY	CFSTR("__FLAGS__")
 #define DNS_CONFIGURATION_IF_INDEX_KEY	CFSTR("__IF_INDEX__")
@@ -116,8 +111,8 @@ add_dns_resolver_flags(const void *key, const void *value, void *context)
 	uint32_t	*resolver_flags	= (uint32_t *)context;
 
 	if (service_is_scoped_only(service)) {
-	return;
-}
+		return;
+	}
 
 	// update resovler flags based on configured (and available) protocols
 	*resolver_flags = dns_resolver_flags_service(service, *resolver_flags);
@@ -933,7 +928,7 @@ add_scoped_resolvers(CFMutableArrayRef	scoped,
 		// add "Request A/AAAA query" flag(s)
 		dns_resolver_flags = dns_resolver_flags_service(service, 0);
 		if (dns_resolver_flags == 0) {
-		    goto skip;
+			goto skip;
 		}
 		flags |= dns_resolver_flags;
 
@@ -1418,11 +1413,6 @@ compareDomain(const void *val1, const void *val2, void *context)
 		}
 	}
 
-	// must have domain names for any further comparisons
-	if ((domain1 == NULL) || (domain2 == NULL)) {
-		return kCFCompareEqualTo;
-	}
-
 	// forward (A, AAAA) domains sort before reverse (PTR) domains
 	rev1 = CFStringHasSuffix(domain1, CFSTR(".arpa"));
 	rev2 = CFStringHasSuffix(domain2, CFSTR(".arpa"));
@@ -1670,15 +1660,17 @@ static SCDynamicStoreCallBack	dns_configuration_callout;
 static void
 dns_configuration_changed(CFMachPortRef port, void *msg, CFIndex size, void *info)
 {
-	os_activity_t			activity_id;
-	static const CFStringRef	key		= CFSTR(_PATH_RESOLVER_DIR);
+	os_activity_t			activity;
+	static const CFStringRef	key	= CFSTR(_PATH_RESOLVER_DIR);
 	CFArrayRef			keys;
 	Boolean				resolvers_now;
 	static Boolean			resolvers_save	= FALSE;
 	struct stat			statbuf;
 
-	activity_id = os_activity_start("processing DNS configuration change",
-					OS_ACTIVITY_FLAG_DEFAULT);
+	activity = os_activity_create("processing DNS configuration change",
+				      OS_ACTIVITY_CURRENT,
+				      OS_ACTIVITY_FLAG_DEFAULT);
+	os_activity_scope(activity);
 
 	resolvers_now = (stat(_PATH_RESOLVER_DIR, &statbuf) == 0);
 	if (!resolvers_save && (resolvers_save == resolvers_now)) {
@@ -1698,7 +1690,7 @@ dns_configuration_changed(CFMachPortRef port, void *msg, CFIndex size, void *inf
 
     done :
 
-	os_activity_end(activity_id);
+	os_release(activity);
 
 	return;
 }

@@ -65,6 +65,9 @@ public:
     // others
 
     virtual bool start( IOService * provider );
+    virtual void stop( IOService * provider );
+    virtual IOReturn close( void );
+    
     virtual IOReturn setProperties( OSObject * properties );
     IOReturn extGetUserHidActivityState(void*,void*,void*,void*,void*,void*);
 };
@@ -94,33 +97,6 @@ public:
     IOReturn extGetUserHidActivityState(void*,void*,void*,void*,void*,void*);
 private:
     virtual IOReturn extPostEvent(void*,void*,void*,void*,void*,void*);
-};
-
-class IOHIDStackShotUserClient : public IOUserClient
-{
-    OSDeclareDefaultStructors(IOHIDStackShotUserClient)
-
-private:
-
-    IOHIDSystem     *owner;
-    task_t          client;
-    
-public:
-    virtual bool initWithTask(task_t owningTask, void * security_id, UInt32 type );
-
-    // IOUserClient methods    
-    virtual IOReturn clientClose( void );
-
-    virtual IOService * getService( void );
-
-    virtual IOReturn registerNotificationPort(
-		mach_port_t 	port,
-		UInt32		type,
-		UInt32		refCon );
-    // others
-
-    virtual bool start( IOService * provider );
-
 };
 
 class IOHIDEventSystemUserClient : public IOUserClient

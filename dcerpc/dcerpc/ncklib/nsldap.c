@@ -640,6 +640,8 @@ rpc_ns_binding_import_next(
 	}
 }
 
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 void rpc_ns_binding_lookup_begin
 (
 	unsigned32              entry_name_syntax,
@@ -658,7 +660,10 @@ void rpc_ns_binding_lookup_begin
 		lookup_context,
 		status);
 }
+#endif
 
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 void rpc_ns_binding_lookup_done
 (
 	rpc_ns_handle_t         *lookup_context,
@@ -667,7 +672,10 @@ void rpc_ns_binding_lookup_done
 {
 	rpc_ns_binding_import_done(lookup_context, status);
 }
+#endif
 
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 void rpc_ns_binding_lookup_next
 (
 	rpc_ns_handle_t         lookup_context,
@@ -693,7 +701,10 @@ void rpc_ns_binding_lookup_next
 		*status = rpc_s_no_more_bindings;
 	}
 }
+#endif
 
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 void rpc_ns_binding_unexport
 (
 	unsigned32              entry_name_syntax,
@@ -742,5 +753,6 @@ out:
 		RPC_MEM_FREE(serverDN, RPC_C_MEM_NSRESOLUTION);
 	}
 }
+#endif
 
 #endif /* BUILD_RPC_NS_LDAP */

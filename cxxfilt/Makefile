@@ -56,6 +56,9 @@ post-install:
 	$(MKDIR) $(DSTROOT)/usr/bin
 	$(STRIP) $(DSTROOT)/usr/local/bin/$(FAKE_TARGET)-c++filt \
 		-o $(DSTROOT)/usr/bin/c++filt
+	$(CP) $(DSTROOT)/usr/local/bin/$(FAKE_TARGET)-c++filt \
+		$(SYMROOT)/c++filt
+	$(DSYMUTIL) $(SYMROOT)/c++filt
 	$(MV) $(DSTROOT)/usr/share/man/man1/$(FAKE_TARGET)-c++filt.1 \
 		$(DSTROOT)/usr/share/man/man1/c++filt.1
 	$(RM) -r $(DSTROOT)/usr/share/info $(DSTROOT)/usr/local/bin

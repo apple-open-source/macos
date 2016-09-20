@@ -1,6 +1,6 @@
 /********************************************************************
- * COPYRIGHT: 
- * Copyright (c) 1997-2013,2015, International Business Machines Corporation and
+ * COPYRIGHT:
+ * Copyright (c) 1997-2016, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -8,7 +8,7 @@
 * File CBIAPTS.C
 *
 * Modification History:
-*        Name                     Description            
+*        Name                     Description
 *     Madhu Katragadda              Creation
 *********************************************************************************/
 /*C API TEST FOR BREAKITERATOR */
@@ -31,6 +31,7 @@
 #include "unicode/utext.h"
 #include "cintltst.h"
 #include "cbiapts.h"
+#include "cmemory.h"
 
 #define TEST_ASSERT_SUCCESS(status) {if (U_FAILURE(status)) { \
 log_data_err("Failure at file %s, line %d, error = %s (Are you missing data?)\n", __FILE__, __LINE__, u_errorName(status));}}
@@ -47,7 +48,8 @@ static void TestBreakIteratorStatusVec(void);
 static void TestBreakIteratorUText(void);
 static void TestBreakIteratorTailoring(void);
 static void TestBreakIteratorRefresh(void);
-static void TestBreakIteratorSuppressions(void); /* Apple-specific for now */
+static void TestBug11665(void);
+static void TestBreakIteratorSuppressions(void);
 
 void addBrkIterAPITest(TestNode** root);
 
@@ -63,6 +65,7 @@ void addBrkIterAPITest(TestNode** root)
     addTest(root, &TestBreakIteratorStatusVec, "tstxtbd/cbiapts/TestBreakIteratorStatusVec");
     addTest(root, &TestBreakIteratorTailoring, "tstxtbd/cbiapts/TestBreakIteratorTailoring");
     addTest(root, &TestBreakIteratorRefresh, "tstxtbd/cbiapts/TestBreakIteratorRefresh");
+    addTest(root, &TestBug11665, "tstxtbd/cbiapts/TestBug11665");
     addTest(root, &TestBreakIteratorSuppressions, "tstxtbd/cbiapts/TestBreakIteratorSuppressions");
 }
 
@@ -123,7 +126,7 @@ static UChar* toUChar(const char *src, void **freeHook) {
     if (dest == NULL) {
         return NULL;
     }
-    
+
     dest->link = (StringStruct*)(*freeHook);
     *freeHook = dest;
     return dest->str;
@@ -159,7 +162,7 @@ static void TestBreakIteratorCAPI()
 
 /*test ubrk_open()*/
     log_verbose("\nTesting BreakIterator open functions\n");
-                                            
+
     /* Use french for fun */
     word         = ubrk_open(UBRK_WORD, "en_US", text, u_strlen(text), &status);
     if(status == U_FILE_ACCESS_ERROR) {
@@ -171,7 +174,7 @@ static void TestBreakIteratorCAPI()
     else{
         log_verbose("PASS: Successfully opened  word breakiterator\n");
     }
-    
+
     sentence     = ubrk_open(UBRK_SENTENCE, "en_US", text, u_strlen(text), &status);
     if(U_FAILURE(status)){
         log_err_status(status, "FAIL: Error in ubrk_open() for sentence breakiterator: %s\n", myErrorName(status));
@@ -180,7 +183,7 @@ static void TestBreakIteratorCAPI()
     else{
         log_verbose("PASS: Successfully opened  sentence breakiterator\n");
     }
-    
+
     line         = ubrk_open(UBRK_LINE, "en_US", text, u_strlen(text), &status);
     if(U_FAILURE(status)){
         log_err("FAIL: Error in ubrk_open() for line breakiterator: %s\n", myErrorName(status));
@@ -189,7 +192,7 @@ static void TestBreakIteratorCAPI()
     else{
         log_verbose("PASS: Successfully opened  line breakiterator\n");
     }
-    
+
     character     = ubrk_open(UBRK_CHARACTER, "en_US", text, u_strlen(text), &status);
     if(U_FAILURE(status)){
         log_err("FAIL: Error in ubrk_open() for character breakiterator: %s\n", myErrorName(status));
@@ -227,10 +230,10 @@ static void TestBreakIteratorCAPI()
     }
     for(i=0;i<count;i++)
     {
-        log_verbose("%s\n", ubrk_getAvailable(i)); 
+        log_verbose("%s\n", ubrk_getAvailable(i));
         if (ubrk_getAvailable(i) == 0)
             log_err("No locale for which breakiterator is applicable\n");
-        else 
+        else
             log_verbose("A locale %s for which breakiterator is applicable\n",ubrk_getAvailable(i));
     }
 
@@ -253,10 +256,10 @@ static void TestBreakIteratorCAPI()
     if(end!=49)
         log_err("error ubrk_last(word) did not return 49\n");
     log_verbose("last (word = %d\n", (int32_t)end);
-    
+
     pos=ubrk_previous(word);
     log_verbose("%d   %d\n", end, pos);
-     
+
     pos=ubrk_previous(word);
     log_verbose("%d \n", pos);
 
@@ -272,7 +275,7 @@ static void TestBreakIteratorCAPI()
     }
 
 
-    
+
     log_verbose("\nTesting the functions for character\n");
     ubrk_first(character);
     pos = ubrk_following(character, 5);
@@ -287,7 +290,7 @@ static void TestBreakIteratorCAPI()
     if(pos!=21)
        log_err("error ubrk_preceding(character,22) did not return 21\n");
     log_verbose("preceding(character,22) = %d\n", (int32_t)pos);
-    
+
 
     log_verbose("\nTesting the functions for line\n");
     pos=ubrk_first(line);
@@ -299,7 +302,7 @@ static void TestBreakIteratorCAPI()
         log_err("error ubrk_following(line) did not return 22\n");
     log_verbose("following (line) = %d\n", (int32_t)pos);
 
-    
+
     log_verbose("\nTesting the functions for sentence\n");
     ubrk_first(sentence);
     pos = ubrk_current(sentence);
@@ -316,8 +319,8 @@ static void TestBreakIteratorCAPI()
     if (ubrk_first(sentence)!=ubrk_current(sentence)) {
         log_err("error in ubrk_first() or ubrk_current()\n");
     }
-    
- 
+
+
     /*---- */
     /*Testing ubrk_open and ubrk_close()*/
    log_verbose("\nTesting open and close for us locale\n");
@@ -363,7 +366,7 @@ static void TestBreakIteratorCAPI()
 static void TestBreakIteratorSafeClone(void)
 {
     UChar text[51];     /* Keep this odd to test for 64-bit memory alignment */
-                        /*  NOTE:  This doesn't reliably force mis-alignment of following items. */ 
+                        /*  NOTE:  This doesn't reliably force mis-alignment of following items. */
     uint8_t buffer [CLONETEST_ITERATOR_COUNT] [U_BRK_SAFECLONE_BUFFERSIZE];
     int32_t bufferSize = U_BRK_SAFECLONE_BUFFERSIZE;
 
@@ -521,7 +524,7 @@ static UBreakIterator * testOpenRules(char *rules) {
     bi = ubrk_openRules(ruleSourceU,  -1,     /*  The rules  */
                         NULL,  -1,            /*  The text to be iterated over. */
                         &parseErr, &status);
-    
+
     if (U_FAILURE(status)) {
         log_data_err("FAIL: ubrk_openRules: ICU Error \"%s\" (Are you missing data?)\n", u_errorName(status));
         bi = 0;
@@ -540,7 +543,7 @@ static void TestBreakIteratorRules() {
      *             keep together 'abc', but only when followed by 'def', OTHERWISE
      *             just return one char at a time.
      */
-    char         rules[]  = "abc{666}/def;\n   [\\p{L} - [a]]* {2};  . {1};";
+    char         rules[]  = "abc/def{666};\n   [\\p{L} - [a]]* {2};  . {1};";
     /*                        0123456789012345678 */
     char         data[]   =  "abcdex abcdefgh-def";     /* the test data string                     */
     char         breaks[] =  "**    **  *    **  *";    /*  * the expected break positions          */
@@ -771,13 +774,13 @@ typedef struct {
 } RBBITailoringTest;
 
 static const RBBITailoringTest tailoringTests[] = {
-    { "en", UBRK_CHARACTER, thTest, thTestOffs_thFwd, thTestOffs_thRev, sizeof(thTestOffs_thFwd)/sizeof(thTestOffs_thFwd[0]) },
-    { "en_US_POSIX", UBRK_CHARACTER, thTest, thTestOffs_thFwd, thTestOffs_thRev, sizeof(thTestOffs_thFwd)/sizeof(thTestOffs_thFwd[0]) },
-    { "en", UBRK_LINE,      heTest, heTestOffs_heFwd, heTestOffs_heRev, sizeof(heTestOffs_heFwd)/sizeof(heTestOffs_heFwd[0]) },
-    { "he", UBRK_LINE,      heTest, heTestOffs_heFwd, heTestOffs_heRev, sizeof(heTestOffs_heFwd)/sizeof(heTestOffs_heFwd[0]) },
-    { "en", UBRK_LINE,      fiTest, fiTestOffs_enFwd, fiTestOffs_enRev, sizeof(fiTestOffs_enFwd)/sizeof(fiTestOffs_enFwd[0]) },
-    { "fi", UBRK_LINE,      fiTest, fiTestOffs_fiFwd, fiTestOffs_fiRev, sizeof(fiTestOffs_fiFwd)/sizeof(fiTestOffs_fiFwd[0]) },
-    { "km", UBRK_WORD,      kmTest, kmTestOffs_kmFwd, kmTestOffs_kmRev, sizeof(kmTestOffs_kmFwd)/sizeof(kmTestOffs_kmFwd[0]) },
+    { "en", UBRK_CHARACTER, thTest, thTestOffs_thFwd, thTestOffs_thRev, UPRV_LENGTHOF(thTestOffs_thFwd) },
+    { "en_US_POSIX", UBRK_CHARACTER, thTest, thTestOffs_thFwd, thTestOffs_thRev, UPRV_LENGTHOF(thTestOffs_thFwd) },
+    { "en", UBRK_LINE,      heTest, heTestOffs_heFwd, heTestOffs_heRev, UPRV_LENGTHOF(heTestOffs_heFwd) },
+    { "he", UBRK_LINE,      heTest, heTestOffs_heFwd, heTestOffs_heRev, UPRV_LENGTHOF(heTestOffs_heFwd) },
+    { "en", UBRK_LINE,      fiTest, fiTestOffs_enFwd, fiTestOffs_enRev, UPRV_LENGTHOF(fiTestOffs_enFwd) },
+    { "fi", UBRK_LINE,      fiTest, fiTestOffs_fiFwd, fiTestOffs_fiRev, UPRV_LENGTHOF(fiTestOffs_fiFwd) },
+    { "km", UBRK_WORD,      kmTest, kmTestOffs_kmFwd, kmTestOffs_kmRev, UPRV_LENGTHOF(kmTestOffs_kmFwd) },
     { NULL, 0, NULL, NULL, NULL, 0 },
 };
 
@@ -804,7 +807,7 @@ static void TestBreakIteratorTailoring(void) {
             }
             if (!foundError && offsindx < testPtr->numOffsets) {
                 log_err("FAIL: locale %s, break type %d, ubrk_next expected %d, got UBRK_DONE\n",
-                        testPtr->locale, testPtr->type, testPtr->offsFwd[offsindx]);
+                    	testPtr->locale, testPtr->type, testPtr->offsFwd[offsindx]);
             }
 
             foundError = FALSE;
@@ -821,7 +824,7 @@ static void TestBreakIteratorTailoring(void) {
             }
             if (!foundError && offsindx < testPtr->numOffsets) {
                 log_err("FAIL: locale %s, break type %d, ubrk_previous expected %d, got UBRK_DONE\n",
-                        testPtr->locale, testPtr->type, testPtr->offsRev[offsindx]);
+                    	testPtr->locale, testPtr->type, testPtr->offsRev[offsindx]);
             }
 
             ubrk_close(ubrkiter);
@@ -846,9 +849,12 @@ static void TestBreakIteratorRefresh(void) {
     UBreakIterator *bi;
     UText ut1 = UTEXT_INITIALIZER;
     UText ut2 = UTEXT_INITIALIZER;
-    
+
     bi = ubrk_open(UBRK_LINE, "en_US", NULL, 0, &status);
     TEST_ASSERT_SUCCESS(status);
+    if (U_FAILURE(status)) {
+        return;
+    }
 
     utext_openUChars(&ut1, testStr, -1, &status);
     TEST_ASSERT_SUCCESS(status);
@@ -867,7 +873,7 @@ static void TestBreakIteratorRefresh(void) {
         TEST_ASSERT_SUCCESS(status);
         ubrk_refreshUText(bi, &ut2, &status);
         TEST_ASSERT_SUCCESS(status);
-    
+
         /* Find the following matches, now working in the moved string. */
         TEST_ASSERT(5 == ubrk_next(bi));
         TEST_ASSERT(7 == ubrk_next(bi));
@@ -881,11 +887,68 @@ static void TestBreakIteratorRefresh(void) {
     ubrk_close(bi);
 }
 
+
+static void TestBug11665(void) {
+    // The problem was with the incorrect breaking of Japanese text beginning
+    // with Katakana characters when no prior Japanese or Chinese text had been
+    // encountered.
+    //
+    // Tested here in cintltst, rather than in intltest, because only cintltst
+    // tests have the ability to reset ICU, which is needed to get the bug
+    // to manifest itself.
+
+    static UChar japaneseText[] = {0x30A2, 0x30EC, 0x30EB, 0x30AE, 0x30FC, 0x6027, 0x7D50, 0x819C, 0x708E};
+    int32_t boundaries[10] = {0};
+    UBreakIterator *bi = NULL;
+    int32_t brk;
+    int32_t brkIdx = 0;
+    int32_t totalBreaks = 0;
+    UErrorCode status = U_ZERO_ERROR;
+
+    ctest_resetICU();
+    bi = ubrk_open(UBRK_WORD, "en_US", japaneseText, UPRV_LENGTHOF(japaneseText), &status);
+    TEST_ASSERT_SUCCESS(status);
+    if (!bi) {
+        return;
+    }
+    for (brk=ubrk_first(bi); brk != UBRK_DONE; brk=ubrk_next(bi)) {
+        boundaries[brkIdx] = brk;
+        if (++brkIdx >= UPRV_LENGTHOF(boundaries) - 1) {
+            break;
+        }
+    }
+    if (brkIdx <= 2 || brkIdx >= UPRV_LENGTHOF(boundaries)) {
+        log_err("%s:%d too few or many breaks found.\n", __FILE__, __LINE__);
+    } else {
+        totalBreaks = brkIdx;
+        brkIdx = 0;
+        for (brk=ubrk_first(bi); brk != UBRK_DONE; brk=ubrk_next(bi)) {
+            if (brk != boundaries[brkIdx]) {
+                log_err("%s:%d Break #%d differs between first and second iteration.\n", __FILE__, __LINE__, brkIdx);
+                break;
+            }
+            if (++brkIdx >= UPRV_LENGTHOF(boundaries) - 1) {
+                log_err("%s:%d Too many breaks.\n", __FILE__, __LINE__);
+                break;
+            }
+        }
+        if (totalBreaks != brkIdx) {
+            log_err("%s:%d Number of breaks differ between first and second iteration.\n", __FILE__, __LINE__);
+        }
+    }
+    ubrk_close(bi);
+}
+
+/*
+ * expOffset is the set of expected offsets, ending with '-1'.
+ * "Expected expOffset -1" means "expected the end of the offsets"
+ */
+
 static const char testSentenceSuppressionsEn[]  = "Mr. Jones comes home. Dr. Smith Ph.D. is out. In the U.S.A. it is hot.";
-static const int32_t testSentSuppFwdOffsetsEn[] = { 22, 46, 70, -1 };             /* With suppressions */
-static const int32_t testSentFwdOffsetsEn[]     = {  4, 22, 26, 35, 46, 70, -1 }; /* Without suppressions */
-static const int32_t testSentSuppRevOffsetsEn[] = { 46, 22,  0, -1 };             /* With suppressions */
-static const int32_t testSentRevOffsetsEn[]     = { 46, 35, 26, 22,  4,  0, -1 }; /* Without suppressions */
+static const int32_t testSentSuppFwdOffsetsEn[] = { 22, 46, 70, -1 };         /* With suppressions */
+static const int32_t testSentFwdOffsetsEn[]     = {  4, 22, 26, 46, 70, -1 }; /* Without suppressions */
+static const int32_t testSentSuppRevOffsetsEn[] = { 46, 22,  0, -1 };         /* With suppressions */
+static const int32_t testSentRevOffsetsEn[]     = { 46, 26, 22,  4,  0, -1 }; /* Without suppressions */
 
 static const char testSentenceSuppressionsDe[]  = "Wenn ich schon h\\u00F6re zu Guttenberg kommt evtl. zur\\u00FCck.";
 //                                                "Wenn ich schon höre zu Guttenberg kommt evtl. zurück."
@@ -900,7 +963,33 @@ static const int32_t testSentFwdOffsetsEs[]     = { 52, 73, -1 };   /* Without s
 static const int32_t testSentSuppRevOffsetsEs[] = {  0, -1 };       /* With suppressions */
 static const int32_t testSentRevOffsetsEs[]     = { 52,  0, -1 };   /* Without suppressions */
 
-enum { kTextULenMax = 128 };
+static const char testSentenceSuppressionsE1[]  = "Add or detract. The world will little note.";
+static const char testSentenceSuppressionsE1u[] = "ADD OR DETRACT. THE WORLD WILL LITTLE NOTE.";
+static const int32_t testSentFwdOffsetsE1[]     = { 16, 43, -1 };   /* Suppressions and case should make no difference */
+static const int32_t testSentRevOffsetsE1[]     = { 16,  0, -1 };   /* Suppressions and case should make no difference */
+
+static const char testSentenceSuppressionsE2[]  = "Coming up, the sprints at NCAA. Are you watching?";
+static const char testSentenceSuppressionsE2u[] = "COMING UP, THE SPRINTS AT NCAA. ARE YOU WATCHING?";
+static const int32_t testSentFwdOffsetsE2[]     = { 32, 49, -1 };   /* Suppressions and case should make no difference */
+static const int32_t testSentRevOffsetsE2[]     = { 32,  0, -1 };   /* Suppressions and case should make no difference */
+
+static const char testSentenceSuppressionsFr[]  = "Tr\\u00E8s bonne prise de parole de M. Junod, municipal \\u00E0 la culture de Lausanne.";
+//                                                "Très bonne prise de parole de M. Junod, municipal à la culture de Lausanne."
+static const int32_t testSentFwdOffsetsFr[]     = { 33, 75, -1 };   /* Without suppressions */
+static const int32_t testSentSuppFwdOffsetsFr[] = { 75, -1 };       /* With suppressions */
+static const int32_t testSentRevOffsetsFr[]     = { 33,  0, -1 };   /* Without suppressions */
+static const int32_t testSentSuppRevOffsetsFr[] = {  0, -1 };       /* With suppressions */
+
+static const char testSentenceSuppressionsE3[]  = "G8 countries e.g. U.K., Japan. Sanctions i.e. restrictions. Test E. Xx G. Xx I. Xx.";
+static const char testSentenceSuppressionsE3u[] = "G8 COUNTRIES E.G. U.K., JAPAN. SANCTIONS I.E. RESTRICTIONS. TEST E. XX G. XX I. XX.";
+static const int32_t testSentSuppFwdOffsetsE3[] = { 31, 60, 83, -1 };                 /* With suppressions */
+static const int32_t testSentSuppRevOffsetsE3[] = { 60, 31,  0, -1 };                 /* With suppressions */
+static const int32_t testSentFwdOffsetsE3[]     = { 18, 31, 60, 68, 74, 80, 83, -1 }; /* Without suppressions */
+static const int32_t testSentRevOffsetsE3[]     = { 80, 74, 68, 60, 31, 18,  0, -1 }; /* Without suppressions */
+static const int32_t testSentFwdOffsetsE3u[]    = { 18, 31, 46, 60, 68, 74, 80, 83, -1 }; /* Without suppressions */
+static const int32_t testSentRevOffsetsE3u[]    = { 80, 74, 68, 60, 46, 31, 18,  0, -1 }; /* Without suppressions */
+
+enum { kTextULenMax = 128, kTextBLenMax = 192 };
 
 typedef struct {
     const char * locale;
@@ -922,72 +1011,107 @@ static const TestBISuppressionsItem testBISuppressionsItems[] = {
     { "de",             testSentenceSuppressionsDe, testSentFwdOffsetsDe,     testSentRevOffsetsDe     },
     { "es@ss=standard", testSentenceSuppressionsEs, testSentSuppFwdOffsetsEs, testSentSuppRevOffsetsEs },
     { "es",             testSentenceSuppressionsEs, testSentFwdOffsetsEs,     testSentRevOffsetsEs     },
+    { "en",             testSentenceSuppressionsE1,  testSentFwdOffsetsE1,    testSentRevOffsetsE1     },
+    { "en@ss=standard", testSentenceSuppressionsE1,  testSentFwdOffsetsE1,    testSentRevOffsetsE1     },
+    { "en",             testSentenceSuppressionsE1u, testSentFwdOffsetsE1,    testSentRevOffsetsE1     },
+    { "en@ss=standard", testSentenceSuppressionsE1u, testSentFwdOffsetsE1,    testSentRevOffsetsE1     },
+    { "en",             testSentenceSuppressionsE2,  testSentFwdOffsetsE2,    testSentRevOffsetsE2     },
+    { "en@ss=standard", testSentenceSuppressionsE2,  testSentFwdOffsetsE2,    testSentRevOffsetsE2     },
+    { "en",             testSentenceSuppressionsE2u, testSentFwdOffsetsE2,    testSentRevOffsetsE2     },
+    { "en@ss=standard", testSentenceSuppressionsE2u, testSentFwdOffsetsE2,    testSentRevOffsetsE2     },
+    { "fr",             testSentenceSuppressionsFr, testSentFwdOffsetsFr,     testSentRevOffsetsFr     },
+    { "fr@ss=standard", testSentenceSuppressionsFr, testSentSuppFwdOffsetsFr, testSentSuppRevOffsetsFr },
+    { "en@ss=standard", testSentenceSuppressionsE3, testSentSuppFwdOffsetsE3, testSentSuppRevOffsetsE3 },
+    { "en",             testSentenceSuppressionsE3, testSentFwdOffsetsE3,     testSentRevOffsetsE3     },
+    { "en@ss=standard", testSentenceSuppressionsE3u, testSentSuppFwdOffsetsE3, testSentSuppRevOffsetsE3 },
+    { "en",             testSentenceSuppressionsE3u, testSentFwdOffsetsE3u,    testSentRevOffsetsE3u    },
     { NULL, NULL, NULL }
 };
 
 static void TestBreakIteratorSuppressions(void) {
     const TestBISuppressionsItem * itemPtr;
-    
+
     for (itemPtr = testBISuppressionsItems; itemPtr->locale != NULL; itemPtr++) {
-        UChar textU[kTextULenMax];
+        UChar textU[kTextULenMax + 1];
+        char  textB[kTextBLenMax];
         int32_t textULen = u_unescape(itemPtr->text, textU, kTextULenMax);
+        textU[kTextULenMax] = 0; // ensure zero termination
         UErrorCode status = U_ZERO_ERROR;
         UBreakIterator *bi = ubrk_open(UBRK_SENTENCE, itemPtr->locale, textU, textULen, &status);
+        log_verbose("#%d: %s\n", (itemPtr-testBISuppressionsItems), itemPtr->locale);
         if (U_SUCCESS(status)) {
             int32_t offset, start;
             const int32_t * expOffsetPtr;
+            const int32_t * expOffsetStart;
+            u_austrcpy(textB, textU);
 
-            expOffsetPtr = itemPtr->expFwdOffsets;
+            expOffsetStart = expOffsetPtr = itemPtr->expFwdOffsets;
             ubrk_first(bi);
             for (; (offset = ubrk_next(bi)) != UBRK_DONE && *expOffsetPtr >= 0; expOffsetPtr++) {
                 if (offset != *expOffsetPtr) {
-                    log_err("FAIL: ubrk_next loc \"%s\", expected %d, got %d\n", itemPtr->locale, *expOffsetPtr, offset);
+                    log_err("FAIL: ubrk_next loc \"%s\", expected %d, got %d, text \"%s\"\n",
+                            itemPtr->locale, *expOffsetPtr, offset, textB);
                 }
             }
             if (offset != UBRK_DONE || *expOffsetPtr >= 0) {
-                log_err("FAIL: ubrk_next loc \"%s\", expected UBRK_DONE & expOffset -1, got %d and %d\n", itemPtr->locale, offset, *expOffsetPtr);
+                log_err("FAIL: ubrk_next loc \"%s\", expected UBRK_DONE & expOffset -1, got %d and %d, text \"%s\"\n",
+                        itemPtr->locale, offset, *expOffsetPtr, textB);
             }
 
-            expOffsetPtr = itemPtr->expFwdOffsets;
+            expOffsetStart = expOffsetPtr = itemPtr->expFwdOffsets;
             start = ubrk_first(bi) + 1;
             for (; (offset = ubrk_following(bi, start)) != UBRK_DONE && *expOffsetPtr >= 0; expOffsetPtr++) {
                 if (offset != *expOffsetPtr) {
-                    log_err("FAIL: ubrk_following(%d) loc \"%s\", expected %d, got %d\n", start, itemPtr->locale, *expOffsetPtr, offset);
+                    log_err("FAIL: ubrk_following(%d) loc \"%s\", expected %d, got %d, text \"%s\"\n",
+                            start, itemPtr->locale, *expOffsetPtr, offset, textB);
                 }
                 start = *expOffsetPtr + 1;
             }
             if (offset != UBRK_DONE || *expOffsetPtr >= 0) {
-                log_err("FAIL: ubrk_following(%d) loc \"%s\", expected UBRK_DONE & expOffset -1, got %d and %d\n", start, itemPtr->locale, offset, *expOffsetPtr);
+                log_err("FAIL: ubrk_following(%d) loc \"%s\", expected UBRK_DONE & expOffset -1, got %d and %d, text \"%s\"\n",
+                        start, itemPtr->locale, offset, *expOffsetPtr, textB);
             }
 
-            expOffsetPtr = itemPtr->expRevOffsets;
-            ubrk_last(bi);
+            expOffsetStart = expOffsetPtr = itemPtr->expRevOffsets;
+            offset = ubrk_last(bi);
+            log_verbose("___ @%d ubrk_last\n", offset);
+            if(offset == 0) {
+              log_err("FAIL: ubrk_last loc \"%s\" unexpected %d\n", itemPtr->locale, offset);
+            }
             for (; (offset = ubrk_previous(bi)) != UBRK_DONE && *expOffsetPtr >= 0; expOffsetPtr++) {
                 if (offset != *expOffsetPtr) {
-                    log_err("FAIL: ubrk_previous loc \"%s\", expected %d, got %d\n", itemPtr->locale, *expOffsetPtr, offset);
+                    log_err("FAIL: ubrk_previous loc \"%s\", expected %d, got %d, text \"%s\"\n",
+                            itemPtr->locale, *expOffsetPtr, offset, textB);
+                } else {
+                    log_verbose("[%d] @%d ubrk_previous()\n", (expOffsetPtr - expOffsetStart), offset);
                 }
             }
             if (offset != UBRK_DONE || *expOffsetPtr >= 0) {
-                log_err("FAIL: ubrk_previous loc \"%s\", expected UBRK_DONE & expOffset -1, got %d and %d\n", itemPtr->locale, offset, *expOffsetPtr);
+                log_err("FAIL: ubrk_previous loc \"%s\", expected UBRK_DONE & expOffset[%d] -1, got %d and %d, text \"%s\"\n",
+                        itemPtr->locale, expOffsetPtr - expOffsetStart, offset, *expOffsetPtr, textB);
             }
 
-            expOffsetPtr = itemPtr->expRevOffsets;
+            expOffsetStart = expOffsetPtr = itemPtr->expRevOffsets;
             start = ubrk_last(bi) - 1;
             for (; (offset = ubrk_preceding(bi, start)) != UBRK_DONE && *expOffsetPtr >= 0; expOffsetPtr++) {
                 if (offset != *expOffsetPtr) {
-                    log_err("FAIL: ubrk_preceding(%d) loc \"%s\", expected %d, got %d\n", start, itemPtr->locale, *expOffsetPtr, offset);
+                    log_err("FAIL: ubrk_preceding(%d) loc \"%s\", expected %d, got %d, text \"%s\"\n",
+                            start, itemPtr->locale, *expOffsetPtr, offset, textB);
                 }
                 start = *expOffsetPtr - 1;
             }
             if (start >=0 && (offset != UBRK_DONE || *expOffsetPtr >= 0)) {
-                log_err("FAIL: ubrk_preceding loc(%d) \"%s\", expected UBRK_DONE & expOffset -1, got %d and %d\n", start, itemPtr->locale, offset, *expOffsetPtr);
+                log_err("FAIL: ubrk_preceding loc(%d) \"%s\", expected UBRK_DONE & expOffset -1, got %d and %d, text \"%s\"\n",
+                        start, itemPtr->locale, offset, *expOffsetPtr, textB);
             }
 
             ubrk_close(bi);
         } else {
-            log_data_err("FAIL: ubrk_open(UBRK_SENTENCE, \"%s\", ...) status %s (Are you missing data?)\n", itemPtr->locale, u_errorName(status));
+            log_data_err("FAIL: ubrk_open(UBRK_SENTENCE, \"%s\", ...) status %s (Are you missing data?)\n",
+                    itemPtr->locale, u_errorName(status));
         }
     }
 }
+
 
 #endif /* #if !UCONFIG_NO_BREAK_ITERATION */

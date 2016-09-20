@@ -1,4 +1,4 @@
-#!/bin/ksh -p
+#!/bin/sh -p
 #
 # CDDL HEADER START
 #
@@ -67,15 +67,15 @@ EOF
 
 chmod 555 $dfilename
 
-userid=`ps -o pid,uid | grep "$$ " | awk '{print $2}' 2>/dev/null`
+userid=`ps -Ao pid,uid | grep "$$ " | awk '{print $2}' 2>/dev/null`
 if [ $? -ne 0 ]; then
-	print -u2 "unable to get uid of the current process with pid = $$"
+	echo "unable to get uid of the current process with pid = $$"
 	exit 1
 fi
 
 $dfilename $userid >/dev/null 2>&1
 if [ $? -ne 0 ]; then
-	print -u2 "Error in executing $dfilename"
+	echo "Error in executing $dfilename"
 	exit 1
 fi
 

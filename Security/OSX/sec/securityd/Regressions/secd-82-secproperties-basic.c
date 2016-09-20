@@ -98,7 +98,7 @@ static void tests(void)
     CFReleaseNull(error);
     CFReleaseNull(cfpassword);
     
-    ok(SOSAccountJoinCircles(account, &error), "Join Cirlce");
+    ok(SOSAccountJoinCircles_wTxn(account, &error), "Join Cirlce");
     
     ok(NULL != account, "Created");
     

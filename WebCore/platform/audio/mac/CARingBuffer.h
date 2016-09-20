@@ -29,7 +29,7 @@
 #if ENABLE(WEB_AUDIO) && USE(MEDIATOOLBOX)
 
 #include <runtime/ArrayBuffer.h>
-#include <wtf/ByteSpinLock.h>
+#include <wtf/Lock.h>
 #include <wtf/Vector.h>
 
 typedef struct AudioBufferList AudioBufferList;
@@ -84,8 +84,8 @@ private:
     };
     
     Vector<TimeBounds> m_timeBoundsQueue;
-    ByteSpinLock m_currentFrameBoundsLock;
-    int32_t m_timeBoundsQueuePtr;
+    Lock m_currentFrameBoundsLock;
+    std::atomic<int32_t> m_timeBoundsQueuePtr;
 };
 
 }

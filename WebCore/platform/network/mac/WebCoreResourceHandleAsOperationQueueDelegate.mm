@@ -31,6 +31,7 @@
 #import "AuthenticationChallenge.h"
 #import "AuthenticationMac.h"
 #import "Logging.h"
+#import "NSURLRequestSPI.h"
 #import "ResourceHandle.h"
 #import "ResourceHandleClient.h"
 #import "ResourceRequest.h"
@@ -38,10 +39,6 @@
 #import "SharedBuffer.h"
 #import "WebCoreURLResponse.h"
 #import <wtf/MainThread.h>
-
-@interface NSURLRequest (Details)
-- (id)_propertyForKey:(NSString *)key;
-@end
 
 using namespace WebCore;
 
@@ -103,7 +100,7 @@ using namespace WebCore;
     ASSERT(!isMainThread());
     UNUSED_PARAM(connection);
 
-    redirectResponse = synthesizeRedirectResponseIfNecessary(connection, newRequest, redirectResponse);
+    redirectResponse = synthesizeRedirectResponseIfNecessary([connection currentRequest], newRequest, redirectResponse);
 
     // See <rdar://problem/5380697>. This is a workaround for a behavior change in CFNetwork where willSendRequest gets called more often.
     if (!redirectResponse)
@@ -125,9 +122,7 @@ using namespace WebCore;
             return;
         }
 
-        ResourceRequest request = newRequest;
-
-        m_handle->willSendRequest(request, redirectResponse);
+        m_handle->willSendRequest(newRequest, redirectResponse);
     });
 
     dispatch_semaphore_wait(m_semaphore, DISPATCH_TIME_FOREVER);
@@ -147,22 +142,6 @@ using namespace WebCore;
             return;
         }
         m_handle->didReceiveAuthenticationChallenge(core(challenge));
-    });
-}
-
-- (void)connection:(NSURLConnection *)connection didCancelAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge
-{
-    // FIXME: We probably don't need to implement this (see <rdar://problem/8960124>).
-
-    ASSERT(!isMainThread());
-    UNUSED_PARAM(connection);
-
-    LOG(Network, "Handle %p delegate connection:%p didCancelAuthenticationChallenge:%p", m_handle, connection, challenge);
-
-    dispatch_async(dispatch_get_main_queue(), ^{
-        if (!m_handle)
-            return;
-        m_handle->didCancelAuthenticationChallenge(core(challenge));
     });
 }
 
@@ -199,15 +178,17 @@ using namespace WebCore;
     RetainPtr<id> protector(self);
 
     dispatch_async(dispatch_get_main_queue(), ^{
-        if (!m_handle) {
+        if (!m_handle || !m_handle->client()) {
             dispatch_semaphore_signal(m_semaphore);
             return;
         }
 
         // Avoid MIME type sniffing if the response comes back as 304 Not Modified.
         int statusCode = [r respondsToSelector:@selector(statusCode)] ? [(id)r statusCode] : 0;
-        if (statusCode != 304)
-            adjustMIMETypeIfNecessary([r _CFURLResponse]);
+        if (statusCode != 304) {
+            bool isMainResourceLoad = m_handle->firstRequest().requester() == ResourceRequest::Requester::Main;
+            adjustMIMETypeIfNecessary([r _CFURLResponse], isMainResourceLoad);
+        }
 
         if ([m_handle->firstRequest().nsURLRequest(DoNotUpdateHTTPBody) _propertyForKey:@"ForceHTMLMIMEType"])
             [r _setMIMEType:@"text/html"];
@@ -218,7 +199,7 @@ using namespace WebCore;
 #else
         UNUSED_PARAM(connection);
 #endif
-        m_handle->client()->didReceiveResponseAsync(m_handle, resourceResponse);
+        m_handle->client()->didReceiveResponseAsync(m_handle, WTFMove(resourceResponse));
     });
 
     dispatch_semaphore_wait(m_semaphore, DISPATCH_TIME_FOREVER);

@@ -379,8 +379,43 @@ struct GSUBTable : TableBase {
 
 } // namespace OpenType
 
-OpenTypeVerticalData::OpenTypeVerticalData(const FontPlatformData& platformData)
-    : m_defaultVertOriginY(0)
+static bool loadHmtxTable(const FontPlatformData& platformData, Vector<uint16_t>& advanceWidths)
+{
+    RefPtr<SharedBuffer> buffer = platformData.openTypeTable(OpenType::HheaTag);
+    const OpenType::HheaTable* hhea = OpenType::validateTable<OpenType::HheaTable>(buffer);
+    if (!hhea)
+        return false;
+    uint16_t countHmtxEntries = hhea->numberOfHMetrics;
+    if (!countHmtxEntries) {
+        LOG_ERROR("Invalid numberOfHMetrics");
+        return false;
+    }
+
+    buffer = platformData.openTypeTable(OpenType::HmtxTag);
+    const OpenType::HmtxTable* hmtx = OpenType::validateTable<OpenType::HmtxTable>(buffer, countHmtxEntries);
+    if (!hmtx) {
+        LOG_ERROR("hhea exists but hmtx does not (or broken)");
+        return false;
+    }
+
+    advanceWidths.resize(countHmtxEntries);
+    for (uint16_t i = 0; i < countHmtxEntries; ++i)
+        advanceWidths[i] = hmtx->entries[i].advanceWidth;
+    return true;
+}
+
+RefPtr<OpenTypeVerticalData> OpenTypeVerticalData::create(const FontPlatformData& platformData)
+{
+    // Load hhea and hmtx to get x-component of vertical origins. If these tables are missing, it's not an OpenType font.
+    Vector<uint16_t> advanceWidths;
+    if (!loadHmtxTable(platformData, advanceWidths))
+        return nullptr;
+
+    return adoptRef(new OpenTypeVerticalData(platformData, WTFMove(advanceWidths)));
+}
+
+OpenTypeVerticalData::OpenTypeVerticalData(const FontPlatformData& platformData, Vector<uint16_t>&& advanceWidths)
+    : m_advanceWidths(WTFMove(advanceWidths))
 {
     loadMetrics(platformData);
     loadVerticalGlyphSubstitutions(platformData);
@@ -388,30 +423,8 @@ OpenTypeVerticalData::OpenTypeVerticalData(const FontPlatformData& platformData)
 
 void OpenTypeVerticalData::loadMetrics(const FontPlatformData& platformData)
 {
-    // Load hhea and hmtx to get x-component of vertical origins.
-    // If these tables are missing, it's not an OpenType font.
-    RefPtr<SharedBuffer> buffer = platformData.openTypeTable(OpenType::HheaTag);
-    const OpenType::HheaTable* hhea = OpenType::validateTable<OpenType::HheaTable>(buffer);
-    if (!hhea)
-        return;
-    uint16_t countHmtxEntries = hhea->numberOfHMetrics;
-    if (!countHmtxEntries) {
-        LOG_ERROR("Invalid numberOfHMetrics");
-        return;
-    }
-
-    buffer = platformData.openTypeTable(OpenType::HmtxTag);
-    const OpenType::HmtxTable* hmtx = OpenType::validateTable<OpenType::HmtxTable>(buffer, countHmtxEntries);
-    if (!hmtx) {
-        LOG_ERROR("hhea exists but hmtx does not (or broken)");
-        return;
-    }
-    m_advanceWidths.resize(countHmtxEntries);
-    for (uint16_t i = 0; i < countHmtxEntries; ++i)
-        m_advanceWidths[i] = hmtx->entries[i].advanceWidth;
-
     // Load vhea first. This table is required for fonts that support vertical flow.
-    buffer = platformData.openTypeTable(OpenType::VheaTag);
+    RefPtr<SharedBuffer> buffer = platformData.openTypeTable(OpenType::VheaTag);
     const OpenType::VheaTable* vhea = OpenType::validateTable<OpenType::VheaTable>(buffer);
     if (!vhea)
         return;
@@ -535,19 +548,19 @@ void OpenTypeVerticalData::getVerticalTranslationsForGlyphs(const Font* font, co
     }
 }
 
-void OpenTypeVerticalData::substituteWithVerticalGlyphs(const Font* font, GlyphPage* glyphPage, unsigned offset, unsigned length) const
+void OpenTypeVerticalData::substituteWithVerticalGlyphs(const Font* font, GlyphPage* glyphPage) const
 {
     const HashMap<Glyph, Glyph>& map = m_verticalGlyphMap;
     if (map.isEmpty())
         return;
 
-    for (unsigned index = offset, end = offset + length; index < end; ++index) {
-        Glyph glyph = glyphPage->glyphAt(index);
+    for (unsigned index = 0; index < GlyphPage::size; ++index) {
+        Glyph glyph = glyphPage->glyphForIndex(index);
         if (glyph) {
-            ASSERT(glyphPage->glyphDataForIndex(index).font == font);
+            ASSERT_UNUSED(font, &glyphPage->font() == font);
             Glyph to = map.get(glyph);
             if (to)
-                glyphPage->setGlyphDataForIndex(index, to, font);
+                glyphPage->setGlyphForIndex(index, to);
         }
     }
 }

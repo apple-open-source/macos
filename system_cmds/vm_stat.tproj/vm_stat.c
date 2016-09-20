@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 1999-2009 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
@@ -10,7 +10,7 @@
  * except in compliance with the License.  Please obtain a copy of the
  * License at http://www.apple.com/publicsource and read it before using
  * this file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -18,7 +18,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
  * License for the specific language governing rights and limitations
  * under the License."
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
@@ -37,9 +37,9 @@
  *
  *  25-mar-99	A.Ramesh at Apple
  *		Ported to MacOS X
- *  
+ *
  *  22-Jan-09	R.Branche at Apple
- *  		Changed some fields to 64-bit to alleviate overflows
+ *		Changed some fields to 64-bit to alleviate overflows
  ************************************************************************
  */
 
@@ -68,7 +68,6 @@ void pstat(uint64_t n, int width);
 int
 main(int argc, char *argv[])
 {
-
 	double delay = 0.0;
 	int count = 0;
 
@@ -126,7 +125,6 @@ usage(void)
 void
 snapshot(void)
 {
-
 	get_stats(&vm_stat);
 	printf("Mach Virtual Memory Statistics: (page size of %llu bytes)\n", (mach_vm_size_t)vm_kernel_page_size);
 

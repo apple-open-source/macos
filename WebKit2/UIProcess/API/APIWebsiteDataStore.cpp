@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,12 +26,15 @@
 #include "config.h"
 #include "APIWebsiteDataStore.h"
 
+#include "WebKit2Initialize.h"
 #include "WebsiteDataStore.h"
 
 namespace API {
 
 RefPtr<WebsiteDataStore> WebsiteDataStore::defaultDataStore()
 {
+    WebKit::InitializeWebKit2();
+
     static WebsiteDataStore* defaultDataStore = adoptRef(new WebsiteDataStore(defaultDataStoreConfiguration())).leakRef();
 
     return defaultDataStore;
@@ -44,7 +47,7 @@ Ref<WebsiteDataStore> WebsiteDataStore::createNonPersistentDataStore()
 
 Ref<WebsiteDataStore> WebsiteDataStore::create(WebKit::WebsiteDataStore::Configuration configuration)
 {
-    return adoptRef(*new WebsiteDataStore(WTF::move(configuration)));
+    return adoptRef(*new WebsiteDataStore(WTFMove(configuration)));
 }
 
 WebsiteDataStore::WebsiteDataStore()
@@ -53,7 +56,7 @@ WebsiteDataStore::WebsiteDataStore()
 }
 
 WebsiteDataStore::WebsiteDataStore(WebKit::WebsiteDataStore::Configuration configuration)
-    : m_websiteDataStore(WebKit::WebsiteDataStore::create(WTF::move(configuration)))
+    : m_websiteDataStore(WebKit::WebsiteDataStore::create(WTFMove(configuration)))
 {
 }
 
@@ -66,7 +69,17 @@ bool WebsiteDataStore::isPersistent()
     return m_websiteDataStore->isPersistent();
 }
 
-#if !PLATFORM(COCOA) && !PLATFORM(GTK)
+bool WebsiteDataStore::resourceLoadStatisticsEnabled() const
+{
+    return m_websiteDataStore->resourceLoadStatisticsEnabled();
+}
+
+void WebsiteDataStore::setResourceLoadStatisticsEnabled(bool enabled)
+{
+    m_websiteDataStore->setResourceLoadStatisticsEnabled(enabled);
+}
+    
+#if !PLATFORM(COCOA) && !PLATFORM(EFL) && !PLATFORM(GTK)
 WebKit::WebsiteDataStore::Configuration WebsiteDataStore::defaultDataStoreConfiguration()
 {
     // FIXME: Fill everything in.
@@ -117,6 +130,20 @@ String WebsiteDataStore::defaultIndexedDBDatabaseDirectory()
     return String();
 }
 
+String WebsiteDataStore::defaultResourceLoadStatisticsDirectory()
+{
+    // FIXME: Implement.
+    return String();
+}
+
+#endif
+    
+#if !PLATFORM(COCOA)
+String WebsiteDataStore::defaultMediaCacheDirectory()
+{
+    // FIXME: Implement. https://bugs.webkit.org/show_bug.cgi?id=156369 and https://bugs.webkit.org/show_bug.cgi?id=156370
+    return String();
+}
 #endif
 
 }

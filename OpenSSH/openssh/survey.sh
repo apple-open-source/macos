@@ -14,13 +14,13 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-host="x86_64-apple-darwin15.0.0"
+host="x86_64-apple-darwin16.0.0"
 AWK="awk"
 CC="gcc"
 CPP="gcc -E"
 CFLAGS="-g -O2 -Qunused-arguments -Wunknown-warning-option -Wall -Wpointer-arith -Wuninitialized -Wsign-compare -Wformat-security -Wsizeof-pointer-memaccess -Wno-pointer-sign -Wno-unused-result -fno-strict-aliasing -D_FORTIFY_SOURCE=2 -ftrapv -fno-builtin-memset -fstack-protector-strong -fPIE "
-CPPFLAGS=" -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.Internal.sdk/usr/local/include/sshcrypto  "
-LDFLAGS=" -fstack-protector-strong -L/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.Internal.sdk/usr/local/lib/sshcrypto -pie"
+CPPFLAGS=" -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.12.Internal.sdk/usr/local/include/sshcrypto  "
+LDFLAGS=" -fstack-protector-strong -L/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.12.Internal.sdk/usr/local/lib/sshcrypto -pie"
 LIBS="-lcrypto -lbsm -lz  -lresolv"
 
 # Note format:

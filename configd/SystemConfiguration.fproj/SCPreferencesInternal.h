@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007-2011, 2013-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2011, 2013-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -24,14 +24,23 @@
 #ifndef _SCPREFERENCESINTERNAL_H
 #define _SCPREFERENCESINTERNAL_H
 
+#include <dispatch/dispatch.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <os/log.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
+
+#ifndef	SC_LOG_HANDLE
+#define	SC_LOG_HANDLE	__log_SCPreferences()
+#endif	// SC_LOG_HANDLE
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCValidation.h>
+#include <SystemConfiguration/SCPrivate.h>
+
 #include <SystemConfiguration/SCPreferences.h>
 #include <SystemConfiguration/SCDynamicStore.h>
-#include <dispatch/dispatch.h>
 
 
 #define	PREFS_DEFAULT_DIR		CFSTR("/Library/Preferences/SystemConfiguration")
@@ -122,6 +131,9 @@ typedef struct {
 
 
 __BEGIN_DECLS
+
+os_log_t
+__log_SCPreferences			();
 
 Boolean
 __SCPreferencesCreate_helper		(SCPreferencesRef	prefs);

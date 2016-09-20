@@ -26,11 +26,13 @@
 #include "HTMLTableSectionElement.h"
 
 #include "ExceptionCode.h"
+#include "GenericCachedHTMLCollection.h"
 #include "HTMLCollection.h"
 #include "HTMLNames.h"
 #include "HTMLTableRowElement.h"
 #include "HTMLTableElement.h"
 #include "NodeList.h"
+#include "NodeRareData.h"
 #include "Text.h"
 
 namespace WebCore {
@@ -47,7 +49,7 @@ Ref<HTMLTableSectionElement> HTMLTableSectionElement::create(const QualifiedName
     return adoptRef(*new HTMLTableSectionElement(tagName, document));
 }
 
-const StyleProperties* HTMLTableSectionElement::additionalPresentationAttributeStyle()
+const StyleProperties* HTMLTableSectionElement::additionalPresentationAttributeStyle() const
 {
     if (HTMLTableElement* table = findParentTable())
         return table->additionalGroupStyle(true);
@@ -66,14 +68,14 @@ RefPtr<HTMLElement> HTMLTableSectionElement::insertRow(int index, ExceptionCode&
     else {
         row = HTMLTableRowElement::create(trTag, document());
         if (numRows == index || index == -1)
-            appendChild(row, ec);
+            appendChild(*row, ec);
         else {
             Node* n;
             if (index < 1)
                 n = firstChild();
             else
                 n = children->item(index);
-            insertBefore(row, n, ec);
+            insertBefore(*row, n, ec);
         }
     }
     return row;
@@ -83,12 +85,15 @@ void HTMLTableSectionElement::deleteRow(int index, ExceptionCode& ec)
 {
     Ref<HTMLCollection> children = rows();
     int numRows = children->length();
-    if (index == -1)
+    if (index == -1) {
+        if (!numRows)
+            return;
+
         index = numRows - 1;
-    if (index >= 0 && index < numRows) {
-        RefPtr<Node> row = children->item(index);
-        HTMLElement::removeChild(row.get(), ec);
-    } else
+    }
+    if (index >= 0 && index < numRows)
+        HTMLElement::removeChild(*children->item(index), ec);
+    else
         ec = INDEX_SIZE_ERR;
 }
 
@@ -107,47 +112,47 @@ int HTMLTableSectionElement::numRows() const
 
 const AtomicString& HTMLTableSectionElement::align() const
 {
-    return fastGetAttribute(alignAttr);
+    return attributeWithoutSynchronization(alignAttr);
 }
 
 void HTMLTableSectionElement::setAlign(const AtomicString& value)
 {
-    setAttribute(alignAttr, value);
+    setAttributeWithoutSynchronization(alignAttr, value);
 }
 
 const AtomicString& HTMLTableSectionElement::ch() const
 {
-    return fastGetAttribute(charAttr);
+    return attributeWithoutSynchronization(charAttr);
 }
 
 void HTMLTableSectionElement::setCh(const AtomicString& value)
 {
-    setAttribute(charAttr, value);
+    setAttributeWithoutSynchronization(charAttr, value);
 }
 
 const AtomicString& HTMLTableSectionElement::chOff() const
 {
-    return getAttribute(charoffAttr);
+    return attributeWithoutSynchronization(charoffAttr);
 }
 
 void HTMLTableSectionElement::setChOff(const AtomicString& value)
 {
-    setAttribute(charoffAttr, value);
+    setAttributeWithoutSynchronization(charoffAttr, value);
 }
 
 const AtomicString& HTMLTableSectionElement::vAlign() const
 {
-    return fastGetAttribute(valignAttr);
+    return attributeWithoutSynchronization(valignAttr);
 }
 
 void HTMLTableSectionElement::setVAlign(const AtomicString& value)
 {
-    setAttribute(valignAttr, value);
+    setAttributeWithoutSynchronization(valignAttr, value);
 }
 
 Ref<HTMLCollection> HTMLTableSectionElement::rows()
 {
-    return ensureCachedHTMLCollection(TSectionRows);
+    return ensureRareData().ensureNodeLists().addCachedCollection<GenericCachedHTMLCollection<CollectionTypeTraits<TSectionRows>::traversalType>>(*this, TSectionRows);
 }
 
 }

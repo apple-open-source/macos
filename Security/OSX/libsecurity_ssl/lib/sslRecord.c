@@ -31,7 +31,6 @@
 #include "sslMemory.h"
 #include "sslContext.h"
 #include "sslDebug.h"
-#include "sslUtils.h"
 #include "SSLRecordInternal.h"
 
 #include <string.h>

@@ -43,7 +43,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#define CRL_CACHE_DB	"/private/var/db/crls/crlcache.db"
+#define CRL_CACHE_DB	"/private/var/db/crls/crlcache2.db"
 
 #pragma mark ---- OCSPD database singleton ----
 

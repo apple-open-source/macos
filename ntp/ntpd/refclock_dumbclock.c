@@ -115,29 +115,30 @@ dumbclock_start(
 	 * Open serial port. Don't bother with CLK line discipline, since
 	 * it's not available.
 	 */
-	(void)sprintf(device, DEVICE, unit);
+	snprintf(device, sizeof(device), DEVICE, unit);
 #ifdef DEBUG
 	if (debug)
 		printf ("starting Dumbclock with device %s\n",device);
 #endif
 	fd = refclock_open(device, SPEED232, 0);
-	if (fd < 0)
+	if (fd <= 0)
 		return (0);
 
 	/*
 	 * Allocate and initialize unit structure
 	 */
-	up = (struct dumbclock_unit *)emalloc(sizeof(struct dumbclock_unit));
-	memset((char *)up, 0, sizeof(struct dumbclock_unit));
+	up = emalloc_zero(sizeof(*up));
 	pp = peer->procptr;
-	pp->unitptr = (caddr_t)up;
+	pp->unitptr = up;
 	pp->io.clock_recv = dumbclock_receive;
-	pp->io.srcclock = (caddr_t)peer;
+	pp->io.srcclock = peer;
 	pp->io.datalen = 0;
 	pp->io.fd = fd;
 	if (!io_addclock(&pp->io)) {
-		(void) close(fd);
+		close(fd);
+		pp->io.fd = -1;
 		free(up);
+		pp->unitptr = NULL;
 		return (0);
 	}
 
@@ -176,9 +177,11 @@ dumbclock_shutdown(
 	struct refclockproc *pp;
 
 	pp = peer->procptr;
-	up = (struct dumbclock_unit *)pp->unitptr;
-	io_closeclock(&pp->io);
-	free(up);
+	up = pp->unitptr;
+	if (-1 != pp->io.fd)
+		io_closeclock(&pp->io);
+	if (NULL != up)
+		free(up);
 }
 
 
@@ -204,9 +207,9 @@ dumbclock_receive(
 	/*
 	 * Initialize pointers and read the timecode and timestamp
 	 */
-	peer = (struct peer *)rbufp->recv_srcclock;
+	peer = rbufp->recv_peer;
 	pp = peer->procptr;
-	up = (struct dumbclock_unit *)pp->unitptr;
+	up = pp->unitptr;
 	temp = refclock_gtlin(rbufp, pp->a_lastcode, BMAX, &trtmp);
 
 	if (temp == 0) {
@@ -360,7 +363,7 @@ dumbclock_poll(
 	 */
 #if 0
 	pp = peer->procptr;
-	up = (struct dumbclock_unit *)pp->unitptr;
+	up = pp->unitptr;
 	if (peer->reach == 0)
 		refclock_report(peer, CEVNT_TIMEOUT);
 	if (up->linect > 0)

@@ -18,7 +18,7 @@
 <body id="manual-page" class="no-sidebar"><div id="page-header">
 <p class="menu"><a href="./mod/">Modules</a> | <a href="./mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">Glossary</a> | <a href="./sitemap.html">Sitemap</a></p>
 <p class="apache">Apache HTTP Server Version 2.4</p>
-<img alt="" src="./images/feather.gif" /></div>
+<img alt="" src="./images/feather.png" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="./images/left.gif" /></a></div>
 <div id="path">
 <a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="./">Version 2.4</a></div><div id="page-content"><div id="preamble"><h1>Shared Object Cache in Apache HTTP Server</h1>
@@ -54,7 +54,7 @@
      The choice of underlying DBM used may be configurable
      if the installed APR version supports multiple DBM implementations.</dd>
     <dt>"dc" (<code class="module"><a href="./mod/mod_socache_dc.html">mod_socache_dc</a></code>)</dt>
-    <dd>This makes use of the <a href="http://www.distcache.org/">distcache</a>
+    <dd>This makes use of the <a href="http://distcache.sourceforge.net/">distcache</a>
     distributed session caching libraries.</dd>
     <dt>"memcache" (<code class="module"><a href="./mod/mod_socache_memcache.html">mod_socache_memcache</a></code>)</dt>
     <dd>This makes use of the <a href="http://memcached.org/">memcached</a>
@@ -136,7 +136,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/socache.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">Modules</a> | <a href="./mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">Glossary</a> | <a href="./sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

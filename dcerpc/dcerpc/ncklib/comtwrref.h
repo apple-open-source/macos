@@ -140,11 +140,14 @@ PRIVATE void rpc__tower_ref_inq_protseq_id (
     unsigned32          * /*status*/
 );
 
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PRIVATE boolean rpc__tower_ref_is_compatible (
     rpc_if_rep_p_t           /*if_spec*/,
     rpc_tower_ref_p_t        /*tower_ref*/,
     unsigned32              * /*status*/
 );
+#endif
 
 PRIVATE void rpc__tower_ref_vec_free (
     rpc_tower_ref_vector_p_t    * /*tower_vector*/,

@@ -43,17 +43,15 @@ void EditorState::encode(IPC::ArgumentEncoder& encoder) const
     encoder << hasComposition;
     encoder << isMissingPostLayoutData;
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || PLATFORM(GTK) || PLATFORM(MAC)
     if (!isMissingPostLayoutData)
         m_postLayoutData.encode(encoder);
+#endif
 
+#if PLATFORM(IOS)
     encoder << firstMarkedRect;
     encoder << lastMarkedRect;
     encoder << markedText;
-#endif
-
-#if PLATFORM(GTK)
-    encoder << cursorRect;
 #endif
 }
 
@@ -86,12 +84,14 @@ bool EditorState::decode(IPC::ArgumentDecoder& decoder, EditorState& result)
     if (!decoder.decode(result.isMissingPostLayoutData))
         return false;
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || PLATFORM(GTK) || PLATFORM(MAC)
     if (!result.isMissingPostLayoutData) {
         if (!PostLayoutData::decode(decoder, result.postLayoutData()))
             return false;
     }
+#endif
 
+#if PLATFORM(IOS)
     if (!decoder.decode(result.firstMarkedRect))
         return false;
     if (!decoder.decode(result.lastMarkedRect))
@@ -100,44 +100,66 @@ bool EditorState::decode(IPC::ArgumentDecoder& decoder, EditorState& result)
         return false;
 #endif
 
-#if PLATFORM(GTK)
-    if (!decoder.decode(result.cursorRect))
-        return false;
-#endif
-
     return true;
 }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || PLATFORM(GTK) || PLATFORM(MAC)
 void EditorState::PostLayoutData::encode(IPC::ArgumentEncoder& encoder) const
 {
-    encoder << selectionClipRect;
-    encoder << selectionRects;
+    encoder << typingAttributes;
+#if PLATFORM(IOS) || PLATFORM(GTK)
     encoder << caretRectAtStart;
-    encoder << caretRectAtEnd;
-    encoder << wordAtSelection;
+#endif
+#if PLATFORM(IOS) || PLATFORM(MAC)
+    encoder << selectionClipRect;
     encoder << selectedTextLength;
+    encoder << textAlignment;
+    encoder << textColor;
+    encoder << enclosingListType;
+#endif
+#if PLATFORM(IOS)
+    encoder << caretRectAtEnd;
+    encoder << selectionRects;
+    encoder << wordAtSelection;
     encoder << characterAfterSelection;
     encoder << characterBeforeSelection;
     encoder << twoCharacterBeforeSelection;
-    encoder << typingAttributes;
     encoder << isReplaceAllowed;
     encoder << hasContent;
+#endif
+#if PLATFORM(MAC)
+    encoder << candidateRequestStartPosition;
+    encoder << paragraphContextForCandidateRequest;
+    encoder << stringForCandidateRequest;
+#endif
 }
 
 bool EditorState::PostLayoutData::decode(IPC::ArgumentDecoder& decoder, PostLayoutData& result)
 {
+    if (!decoder.decode(result.typingAttributes))
+        return false;
+#if PLATFORM(IOS) || PLATFORM(GTK)
+    if (!decoder.decode(result.caretRectAtStart))
+        return false;
+#endif
+#if PLATFORM(IOS) || PLATFORM(MAC)
     if (!decoder.decode(result.selectionClipRect))
+        return false;
+    if (!decoder.decode(result.selectedTextLength))
+        return false;
+    if (!decoder.decode(result.textAlignment))
+        return false;
+    if (!decoder.decode(result.textColor))
+        return false;
+    if (!decoder.decode(result.enclosingListType))
+        return false;
+#endif
+#if PLATFORM(IOS)
+    if (!decoder.decode(result.caretRectAtEnd))
         return false;
     if (!decoder.decode(result.selectionRects))
         return false;
-    if (!decoder.decode(result.caretRectAtStart))
-        return false;
-    if (!decoder.decode(result.caretRectAtEnd))
-        return false;
     if (!decoder.decode(result.wordAtSelection))
-        return false;
-    if (!decoder.decode(result.selectedTextLength))
         return false;
     if (!decoder.decode(result.characterAfterSelection))
         return false;
@@ -145,15 +167,24 @@ bool EditorState::PostLayoutData::decode(IPC::ArgumentDecoder& decoder, PostLayo
         return false;
     if (!decoder.decode(result.twoCharacterBeforeSelection))
         return false;
-    if (!decoder.decode(result.typingAttributes))
-        return false;
     if (!decoder.decode(result.isReplaceAllowed))
         return false;
     if (!decoder.decode(result.hasContent))
         return false;
+#endif
+#if PLATFORM(MAC)
+    if (!decoder.decode(result.candidateRequestStartPosition))
+        return false;
+
+    if (!decoder.decode(result.paragraphContextForCandidateRequest))
+        return false;
+
+    if (!decoder.decode(result.stringForCandidateRequest))
+        return false;
+#endif
 
     return true;
 }
-#endif
+#endif // PLATFORM(IOS) || PLATFORM(GTK) || PLATFORM(MAC)
 
 }

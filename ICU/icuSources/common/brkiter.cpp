@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 1997-2015, International Business Machines Corporation and
+* Copyright (C) 1997-2016, International Business Machines Corporation and
 * others. All Rights Reserved.
 *******************************************************************************
 *
@@ -27,6 +27,7 @@
 #include "unicode/udata.h"
 #include "unicode/ures.h"
 #include "unicode/ustring.h"
+#include "unicode/filteredbrk.h"
 #include "ucln_cmn.h"
 #include "cstring.h"
 #include "umutex.h"
@@ -198,6 +199,7 @@ BreakIterator::getAvailableLocales(int32_t& count)
 //-------------------------------------------
 
 BreakIterator::BreakIterator()
+: fKeepAll(FALSE)
 {
     *validLocale = *actualLocale = 0;
 }
@@ -415,6 +417,12 @@ BreakIterator::makeInstance(const Locale& loc, int32_t kind, UErrorCode& status)
             }
         }
         result = BreakIterator::buildInstance(loc, lbType, kind, status);
+        if (U_SUCCESS(status) && result != NULL) {
+            char lwKeyValue[kKeyValueLenMax] = {0};
+            UErrorCode kvStatus = U_ZERO_ERROR;
+            int32_t kLen = loc.getKeywordValue("lw", lwKeyValue, kKeyValueLenMax, kvStatus);
+            result->setKeepAll(U_SUCCESS(kvStatus) && kLen > 0 && uprv_strcmp(lwKeyValue,"keepall")==0);
+        }
         break;
     case UBRK_SENTENCE:
         result = BreakIterator::buildInstance(loc, "sentence", kind, status);

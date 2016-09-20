@@ -29,7 +29,7 @@
 #	- Uncomment the line "CONF_OPT_X = --without-x" if you have X11 but
 #	  want to disable using X11 libraries.	This speeds up starting Vim,
 #	  but the window title will not be set and the X11 selection can not
-#	  used.
+#	  be used.
 #	- Uncomment the line "CONF_OPT_XSMP = --disable-xsmp" if you have the
 #	  X11 Session Management Protocol (XSMP) library (libSM) but do not
 #	  want to use it.
@@ -200,7 +200,7 @@
 #Solaris 2.5 (sun4m)  cc (SC4.0)     +X11R6 +GUI (CDE)	4.6b (E) Andrew Large
 #Solaris 2.5	      cc	     +X11 +GUI Athena	4.2  (9) Sonia Heimann
 #Solaris 2.5	      gcc 2.5.6      +X11 Motif		5.0m (R) Ant. Colombo
-#Solaris 2.6	      gcc 2.8.1      ncursus		5.3  (G) Larry W. Virden
+#Solaris 2.6	      gcc 2.8.1      ncurses		5.3  (G) Larry W. Virden
 #Solaris with -lthread					5.5  (W) K. Nagano
 #Solaris	      gcc				     (b) Riccardo
 #SunOS 4.1.x			     +X11 -GUI		5.1b (J) Bram Moolenaar
@@ -231,8 +231,8 @@
 # (D)  Uncomment lines below for QNX
 # (E)  You might want to use termlib instead of termcap, see below.
 # (F)  See below for instructions.
-# (G)  Using ncursus version 4.2 has reported to cause a crash.  Use the
-#      Sun cursus library instead.
+# (G)  Using ncurses version 4.2 has reported to cause a crash.  Use the
+#      Sun curses library instead.
 # (H)  See line for EXTRA_LIBS below.
 # (I)  SINIX-N 5.42 and 5.43 need some EXTRA_LIBS.  Also for Reliant-Unix.
 # (J)  If you get undefined symbols, see below for a solution.
@@ -283,12 +283,13 @@ CC=
 
 ######################## auto/config.mk ######################## {{{1
 # At this position auto/config.mk is included. When starting from the
-# distribution it is almost empty. After running auto/configure it contains
-# settings that have been discovered for your system. Settings below this
-# include override settings in auto/config.mk!
+# toplevel Makefile it is almost empty. After running auto/configure it
+# contains settings that have been discovered for your system. Settings below
+# this include override settings in auto/config.mk!
 
-# Note: if auto/config.mk is lost somehow (e.g., because configure was
-# interrupted), create an empty auto/config.mk file and do "make config".
+# Note: If make fails because auto/config.mk does not exist (it is not
+# included in the repository), do:
+#    cp config.mk.dist auto/config.mk
 
 # (X) How to include auto/config.mk depends on the version of "make" you have,
 #     if the current choice doesn't work, try the other one.
@@ -372,11 +373,20 @@ CClink = $(CC)
 #CONF_OPT_DARWIN = --with-mac-arch=ppc
 #CONF_OPT_DARWIN = --with-mac-arch=both
 
+# Uncomment the next line to fail if one of the requested language interfaces
+# cannot be configured.  Without this Vim will be build anyway, without
+# the failing interfaces.
+#CONF_OPT_FAIL = --enable-fail-if-missing
+
 # LUA
 # Uncomment one of these when you want to include the Lua interface.
 # First one is for static linking, second one for dynamic loading.
+# Use --with-luajit if you want to use LuaJIT instead of Lua.
+# Set PATH environment variable to find lua or luajit executable.
 #CONF_OPT_LUA = --enable-luainterp
 #CONF_OPT_LUA = --enable-luainterp=dynamic
+#CONF_OPT_LUA = --enable-luainterp --with-luajit
+#CONF_OPT_LUA = --enable-luainterp=dynamic --with-luajit
 # Lua installation dir (when not set uses $LUA_PREFIX or defaults to /usr)
 #CONF_OPT_LUA_PREFIX = --with-lua-prefix=/usr/local
 
@@ -396,7 +406,7 @@ CClink = $(CC)
 # to the command line.	If you see strange flags during compilation, check in
 # auto/config.mk where they come from.  If it's PERL_CFLAGS, try commenting
 # the next line.
-# When you get an error for a missing "perl.exp" file, try creating an emtpy
+# When you get an error for a missing "perl.exp" file, try creating an empty
 # one: "touch perl.exp".
 # This requires at least "small" features, "tiny" doesn't work.
 #CONF_OPT_PERL = --enable-perlinterp
@@ -404,6 +414,7 @@ CClink = $(CC)
 
 # PYTHON
 # Uncomment this when you want to include the Python interface.
+# Requires small features or better, fails with tiny features.
 # NOTE: This may cause threading to be enabled, which has side effects (such
 # as using different libraries and debugging becomes more difficult).
 # NOTE: Using this together with Perl may cause a crash in initialization.
@@ -414,12 +425,16 @@ CClink = $(CC)
 # However, this may still cause problems, such as "import termios" failing.
 # Build two separate versions of Vim in that case.
 #CONF_OPT_PYTHON = --enable-pythoninterp
+#CONF_OPT_PYTHON = --enable-pythoninterp=dynamic
 #CONF_OPT_PYTHON3 = --enable-python3interp
+#CONF_OPT_PYTHON3 = --enable-python3interp=dynamic
 
 # RUBY
 # Uncomment this when you want to include the Ruby interface.
+# First one for static linking, second one for loading when used.
 # Note: you need the development package (e.g., ruby1.9.1-dev on Ubuntu).
 #CONF_OPT_RUBY = --enable-rubyinterp
+#CONF_OPT_RUBY = --enable-rubyinterp=dynamic
 #CONF_OPT_RUBY = --enable-rubyinterp --with-ruby-command=ruby1.9.1
 
 # TCL
@@ -444,7 +459,7 @@ CClink = $(CC)
 
 # MULTIBYTE - To edit multi-byte characters.
 # Uncomment this when you want to edit a multibyte language.
-# It's automatically enabled with big features or IME support.
+# It's automatically enabled with normal features, GTK or IME support.
 # Note: Compile on a machine where setlocale() actually works, otherwise the
 # configure tests may fail.
 #CONF_OPT_MULTIBYTE = --enable-multibyte
@@ -531,6 +546,7 @@ CClink = $(CC)
 # again.
 #CC = cc
 #CC = gcc
+#CC = clang
 
 # COMPILER FLAGS - change as you please. Either before running {{{1
 # configure or afterwards. For examples see below.
@@ -556,8 +572,8 @@ CClink = $(CC)
 #CFLAGS = -g -O2 '-DSTARTUPTIME="vimstartup"' -fno-strength-reduce -Wall -Wmissing-prototypes
 
 # Use this with GCC to check for mistakes, unused arguments, etc.
-#CFLAGS = -g -Wall -Wextra -Wmissing-prototypes -Wunreachable-code -D_FORTIFY_SOURCE=1 -DU_DEBUG
-#CFLAGS = -g -O2 -Wall -Wextra -Wmissing-prototypes -D_FORTIFY_SOURCE=1 -DU_DEBUG
+#CFLAGS = -g -Wall -Wextra -Wmissing-prototypes -Wunreachable-code -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=1
+#CFLAGS = -g -O2 -Wall -Wextra -Wmissing-prototypes -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=1 -DU_DEBUG
 #PYTHON_CFLAGS_EXTRA = -Wno-missing-field-initializers
 #MZSCHEME_CFLAGS_EXTRA = -Wno-unreachable-code -Wno-unused-parameter
 
@@ -569,6 +585,9 @@ CClink = $(CC)
 # On FreeBSD you might need to enlarge the number of mmaps allowed.  Do this
 # as root: sysctl -w vm.max_proc_mmap=30000
 #EXTRA_LIBS = /usr/local/lib/libefence.a
+
+# Autoconf binary.
+AUTOCONF = autoconf
 
 # PURIFY - remove the # to use the "purify" program (hoi Nia++!)
 #PURIFY = purify
@@ -589,20 +608,29 @@ LINT_OPTIONS = -beprxzF
 
 # PROFILING - Uncomment the next two lines to do profiling with gcc and gprof.
 # Might not work with GUI or Perl.
-# For unknown reasons adding "-lc" fixes a linking problem with GCC.  That's
-# probably a bug in the "-pg" implementation.
+# For unknown reasons adding "-lc" fixes a linking problem with some versions
+# of GCC.  That's probably a bug in the "-pg" implementation.
+# After running Vim see the profile result with: gprof vim gmon.out | vim -
 # Need to recompile everything after changing this: "make clean" "make".
 #PROFILE_CFLAGS = -pg -g -DWE_ARE_PROFILING
 #PROFILE_LIBS = -pg
 #PROFILE_LIBS = -pg -lc
+
+# Uncomment one of the next two lines to compile Vim with the
+# address sanitizer or with the undefined sanitizer.  Works with gcc and
+# clang.  May make Vim twice as slow.  Errors reported on stderr.
+# More at: https://code.google.com/p/address-sanitizer/
+#SANITIZER_CFLAGS = -g -O0 -fsanitize=address -fno-omit-frame-pointer
+#SANITIZER_CFLAGS = -g -O0 -fsanitize=undefined -fno-omit-frame-pointer
+SANITIZER_LIBS = $(SANITIZER_CFLAGS)
 
 # MEMORY LEAK DETECTION
 # Requires installing the ccmalloc library.
 # Configuration is in the .ccmalloc or ~/.ccmalloc file.
 # Doesn't work very well, since memory linked to from global variables
 # (in libraries) is also marked as leaked memory.
-#PROFILE_CFLAGS = -DEXITFREE
-#PROFILE_LIBS = -lccmalloc
+#LEAK_CFLAGS = -DEXITFREE
+#LEAK_LIBS = -lccmalloc
 
 #####################################################
 ###  Specific systems, check if yours is listed!  ### {{{
@@ -723,12 +751,6 @@ LINT_OPTIONS = -beprxzF
 
 ### USL for Unix Systems Laboratories (SYSV 4.2)
 #EXTRA_DEFS = -DUSL
-
-### RISCos on MIPS without X11
-#EXTRA_DEFS = -DMIPS
-
-### RISCos on MIPS with X11
-#EXTRA_LIBS = -lsun
 
 ### (6)  A/UX 3.1.1 with gcc (Jim Jagielski)
 #CC= gcc -D_POSIX_SOURCE
@@ -870,6 +892,10 @@ LINT_OPTIONS = -beprxzF
 #CFLAGS = -O -Qtarget=m88110compat
 #EXTRA_LIBS = -lgen
 
+# The value of QUOTESED comes from auto/config.mk.
+# Uncomment the next line to use the default value.
+# QUOTESED = sed -e 's/[\\"]/\\&/g' -e 's/\\"/"/' -e 's/\\";$$/";/'
+
 ##################### end of system specific lines ################### }}}
 
 ### Names of the programs and targets  {{{1
@@ -935,7 +961,7 @@ MAN1DIR = /man1
 
 ### Vim version (adjusted by a script)
 VIMMAJOR = 7
-VIMMINOR = 3
+VIMMINOR = 4
 
 ### Location of Vim files (should not need to be changed, and  {{{1
 ### some things might not work when they are changed!)
@@ -1047,8 +1073,9 @@ INSTALL_PROG	= cp
 INSTALL_DATA	= cp
 INSTALL_DATA_R	= cp -r
 
-### Program to run on installed binary
+### Program to run on installed binary.  Use the second one to disable strip.
 #STRIP = strip
+#STRIP = /bin/true
 
 ### Permissions for binaries  {{{1
 BINMOD = 755
@@ -1284,7 +1311,7 @@ ALL_GUI_PRO  = gui.pro gui_gtk.pro gui_motif.pro gui_xmdlg.pro gui_athena.pro gu
 ### prototype headers are ignored due to -DPROTO, system
 ### headers #include <...> are ignored if we use the -MM option, as
 ### e.g. provided by gcc-cpp.
-### Include FEAT_GUI to get gependency on gui.h
+### Include FEAT_GUI to get dependency on gui.h
 ### Need to change "-I /<path>" to "-isystem /<path>" for GCC 3.x.
 CPP_DEPEND = $(CC) -I$(srcdir) -M$(CPP_MM) \
 		`echo "$(DEPEND_CFLAGS)" $(DEPEND_CFLAGS_FILTER)`
@@ -1321,20 +1348,22 @@ SHELL = /bin/sh
 .SUFFIXES: .c .o .pro
 
 PRE_DEFS = -Iproto $(DEFS) $(GUI_DEFS) $(GUI_IPATH) $(CPPFLAGS) $(EXTRA_IPATHS)
-POST_DEFS = $(X_CFLAGS) $(MZSCHEME_CFLAGS) $(TCL_CFLAGS) $(RUBY_CFLAGS) $(EXTRA_DEFS)
+POST_DEFS = $(X_CFLAGS) $(MZSCHEME_CFLAGS) $(TCL_CFLAGS) $(EXTRA_DEFS)
 
-ALL_CFLAGS = $(PRE_DEFS) $(CFLAGS) $(PROFILE_CFLAGS) $(POST_DEFS)
+ALL_CFLAGS = $(PRE_DEFS) $(CFLAGS) $(PROFILE_CFLAGS) $(SANITIZER_CFLAGS) $(LEAK_CFLAGS) $(POST_DEFS)
 
 # Exclude $CFLAGS for osdef.sh, for Mac 10.4 some flags don't work together
 # with "-E".
 OSDEF_CFLAGS = $(PRE_DEFS) $(POST_DEFS)
 
-LINT_CFLAGS = -DLINT -I. $(PRE_DEFS) $(POST_DEFS) $(LUA_CFLAGS) $(PERL_CFLAGS) $(PYTHON_CFLAGS) -Dinline= -D__extension__= -Dalloca=alloca
+LINT_CFLAGS = -DLINT -I. $(PRE_DEFS) $(POST_DEFS) $(RUBY_CFLAGS) $(LUA_CFLAGS) $(PERL_CFLAGS) $(PYTHON_CFLAGS) $(PYTHON3_CFLAGS) -Dinline= -D__extension__= -Dalloca=alloca
 
 LINT_EXTRA = -DUSE_SNIFF -DHANGUL_INPUT -D"__attribute__(x)="
 
 DEPEND_CFLAGS = -DPROTO -DDEPEND -DFEAT_GUI $(LINT_CFLAGS)
 
+# Note: MZSCHEME_LIBS must come before LIBS, because LIBS adds -lm which is
+# needed by racket.
 ALL_LIB_DIRS = $(GUI_LIBS_DIR) $(X_LIBS_DIR)
 ALL_LIBS = \
 	   $(GUI_LIBS1) \
@@ -1343,16 +1372,18 @@ ALL_LIBS = \
 	   $(X_PRE_LIBS) \
 	   $(X_LIBS) \
 	   $(X_EXTRA_LIBS) \
+	   $(MZSCHEME_LIBS) \
 	   $(LIBS) \
 	   $(EXTRA_LIBS) \
 	   $(LUA_LIBS) \
-	   $(MZSCHEME_LIBS) \
 	   $(PERL_LIBS) \
 	   $(PYTHON_LIBS) \
 	   $(PYTHON3_LIBS) \
 	   $(TCL_LIBS) \
 	   $(RUBY_LIBS) \
-	   $(PROFILE_LIBS)
+	   $(PROFILE_LIBS) \
+	   $(SANITIZER_LIBS) \
+	   $(LEAK_LIBS)
 
 # abbreviations
 DEST_BIN = $(DESTDIR)$(BINDIR)
@@ -1387,6 +1418,7 @@ DEST_MAN_FR_U = $(DEST_MAN_TOP)/fr.UTF-8$(MAN1DIR)
 DEST_MAN_IT = $(DEST_MAN_TOP)/it$(MAN1DIR)
 DEST_MAN_IT_I = $(DEST_MAN_TOP)/it.ISO8859-1$(MAN1DIR)
 DEST_MAN_IT_U = $(DEST_MAN_TOP)/it.UTF-8$(MAN1DIR)
+DEST_MAN_JA_U = $(DEST_MAN_TOP)/ja$(MAN1DIR)
 DEST_MAN_PL = $(DEST_MAN_TOP)/pl$(MAN1DIR)
 DEST_MAN_PL_I = $(DEST_MAN_TOP)/pl.ISO8859-2$(MAN1DIR)
 DEST_MAN_PL_U = $(DEST_MAN_TOP)/pl.UTF-8$(MAN1DIR)
@@ -1408,6 +1440,8 @@ BASIC_SRC = \
 	blowfish.c \
 	buffer.c \
 	charset.c \
+	crypt.c \
+	crypt_zip.c \
 	diff.c \
 	digraph.c \
 	edit.c \
@@ -1474,8 +1508,15 @@ EXTRA_SRC = hangulin.c if_lua.c if_mzsch.c auto/if_perl.c if_perlsfio.c \
 	    if_python.c if_python3.c if_tcl.c if_ruby.c if_sniff.c \
 	    gui_beval.c workshop.c wsdebug.c integration.c netbeans.c
 
+# Unittest files
+MEMFILE_TEST_SRC = memfile_test.c
+MEMFILE_TEST_TARGET = memfile_test$(EXEEXT)
+
+UNITTEST_SRC = $(MEMFILE_TEST_SRC)
+UNITTEST_TARGETS = $(MEMFILE_TEST_TARGET)
+
 # All sources, also the ones that are not configured
-ALL_SRC = $(BASIC_SRC) $(ALL_GUI_SRC) $(EXTRA_SRC)
+ALL_SRC = $(BASIC_SRC) $(ALL_GUI_SRC) $(UNITTEST_SRC) $(EXTRA_SRC)
 
 # Which files to check with lint.  Select one of these three lines.  ALL_SRC
 # checks more, but may not work well for checking a GUI that wasn't configured.
@@ -1486,10 +1527,12 @@ LINT_SRC = $(BASIC_SRC) $(GUI_SRC) $(HANGULIN_SRC) $(PYTHON_SRC) $(PYTHON3_SRC) 
 #LINT_SRC = $(ALL_SRC)
 #LINT_SRC = $(BASIC_SRC)
 
-OBJ = \
+OBJ_COMMON = \
 	objects/buffer.o \
 	objects/blowfish.o \
 	objects/charset.o \
+	objects/crypt.o \
+	objects/crypt_zip.o \
 	objects/diff.o \
 	objects/digraph.o \
 	objects/edit.o \
@@ -1507,10 +1550,8 @@ OBJ = \
 	$(HANGULIN_OBJ) \
 	objects/if_cscope.o \
 	objects/if_xcmdsrv.o \
-	objects/main.o \
 	objects/mark.o \
-	objects/memfile.o \
-	objects/memline.o \
+        objects/memline.o \
 	objects/menu.o \
 	objects/message.o \
 	objects/misc1.o \
@@ -1535,6 +1576,7 @@ OBJ = \
 	objects/term.o \
 	objects/ui.o \
 	objects/undo.o \
+	objects/version.o \
 	objects/window.o \
 	$(GUI_OBJ) \
 	$(LUA_OBJ) \
@@ -1549,10 +1591,19 @@ OBJ = \
 	$(NETBEANS_OBJ) \
 	$(WSDEBUG_OBJ)
 
+OBJ = $(OBJ_COMMON) \
+	objects/main.o \
+	objects/memfile.o
+
+MEMFILE_TEST_OBJ = $(OBJ_COMMON) \
+        objects/memfile_test.o
+
 PRO_AUTO = \
 	blowfish.pro \
 	buffer.pro \
 	charset.pro \
+	crypt.pro \
+	crypt_zip.pro \
 	diff.pro \
 	digraph.pro \
 	edit.pro \
@@ -1612,7 +1663,7 @@ PRO_AUTO = \
 RSRC_DIR = os_mac_rsrc
 
 PRO_MANUAL = os_amiga.pro os_msdos.pro os_win16.pro os_win32.pro \
-	os_mswin.pro os_beos.pro os_vms.pro os_riscos.pro $(PERL_PRO)
+	os_mswin.pro winclip.pro os_beos.pro os_vms.pro $(PERL_PRO)
 
 # Default target is making the executable and tools
 all: $(VIMTARGET) $(TOOLS) languages $(GUI_BUNDLE)
@@ -1628,12 +1679,21 @@ tools: $(TOOLS)
 # auto/config.h isn't updated.  The dependency on auto/config.mk should make
 # sure configure is run when it's needed.
 #
+# Remove the config.cache every time, once in a while it causes problems that
+# are very hard to figure out.
+#
 config auto/config.mk: auto/configure config.mk.in config.h.in
-	GUI_INC_LOC="$(GUI_INC_LOC)" GUI_LIB_LOC="$(GUI_LIB_LOC)" \
+	-rm -f auto/config.cache
+	if test "X$(MAKECMDGOALS)" != "Xclean" \
+		-a "X$(MAKECMDGOALS)" != "Xdistclean" \
+		-a "X$(MAKECMDGOALS)" != "Xautoconf" \
+		-a "X$(MAKECMDGOALS)" != "Xreconfig"; then \
+	    GUI_INC_LOC="$(GUI_INC_LOC)" GUI_LIB_LOC="$(GUI_LIB_LOC)" \
 		CC="$(CC)" CPPFLAGS="$(CPPFLAGS)" CFLAGS="$(CFLAGS)" \
 		LDFLAGS="$(LDFLAGS)" $(CONF_SHELL) srcdir="$(srcdir)" \
 		./configure $(CONF_OPT_GUI) $(CONF_OPT_X) $(CONF_OPT_XSMP) \
-		$(CONF_OPT_DARWIN) $(CONF_OPT_PERL) $(CONF_OPT_PYTHON) $(CONF_OPT_PYTHON3) \
+		$(CONF_OPT_DARWIN) $(CONF_OPT_FAIL) \
+		$(CONF_OPT_PERL) $(CONF_OPT_PYTHON) $(CONF_OPT_PYTHON3) \
 		$(CONF_OPT_TCL) $(CONF_OPT_RUBY) $(CONF_OPT_NLS) \
 		$(CONF_OPT_CSCOPE) $(CONF_OPT_MULTIBYTE) $(CONF_OPT_INPUT) \
 		$(CONF_OPT_OUTPUT) $(CONF_OPT_GPM) $(CONF_OPT_WORKSHOP) \
@@ -1641,7 +1701,8 @@ config auto/config.mk: auto/configure config.mk.in config.h.in
 		$(CONF_OPT_COMPBY) $(CONF_OPT_ACL)  $(CONF_OPT_NETBEANS) \
 		$(CONF_ARGS) $(CONF_OPT_MZSCHEME) $(CONF_OPT_PLTHOME) \
 		$(CONF_OPT_LUA) $(CONF_OPT_LUA_PREFIX) \
-		$(CONF_OPT_SYSMOUSE)
+		$(CONF_OPT_SYSMOUSE); \
+	fi
 
 # Use "make reconfig" to rerun configure without cached values.
 # When config.h changes, most things will be recompiled automatically.
@@ -1672,7 +1733,7 @@ reconfig: scratch clean
 # - Uses ">config.log" instead of "./config.log".
 autoconf:
 	if test ! -f configure.save; then mv configure configure.save; fi
-	autoconf
+	$(AUTOCONF)
 	sed -e 's+>config.log+>auto/config.log+' -e 's+\./config.log+auto/config.log+' configure > auto/configure
 	chmod 755 auto/configure
 	mv -f configure.save configure
@@ -1690,15 +1751,16 @@ CCC = $(CC) -c -I$(srcdir) $(ALL_CFLAGS)
 
 
 # Link the target for normal use or debugging.
-# A shell script is used to try linking without unneccesary libraries.
+# A shell script is used to try linking without unnecessary libraries.
 $(VIMTARGET): auto/config.mk objects $(OBJ) version.c version.h
 	$(CCC) version.c -o objects/version.o
 	@LINK="$(PURIFY) $(SHRPENV) $(CClink) $(ALL_LIB_DIRS) $(LDFLAGS) \
-		-o $(VIMTARGET) $(OBJ) objects/version.o $(ALL_LIBS)" \
-		MAKE="$(MAKE)" sh $(srcdir)/link.sh
+		-o $(VIMTARGET) $(OBJ) $(ALL_LIBS)" \
+		MAKE="$(MAKE)" LINK_AS_NEEDED=$(LINK_AS_NEEDED) \
+		sh $(srcdir)/link.sh
 
 xxd/xxd$(EXEEXT): xxd/xxd.c
-	cd xxd; CC="$(CC)" CFLAGS="$(CPPFLAGS) $(CFLAGS)" \
+	cd xxd; CC="$(CC)" CFLAGS="$(CPPFLAGS) $(CFLAGS)" LDFLAGS="$(LDFLAGS)" \
 		$(MAKE) -f Makefile
 
 # Build the language specific files if they were unpacked.
@@ -1706,10 +1768,11 @@ xxd/xxd$(EXEEXT): xxd/xxd.c
 languages:
 	@if test -n "$(MAKEMO)" -a -f $(PODIR)/Makefile; then \
 		cd $(PODIR); \
-		CC="$(CC)" $(MAKE) prefix=$(DESTDIR)$(prefix); \
+		  CC="$(CC)" $(MAKE) prefix=$(DESTDIR)$(prefix); \
 	fi
 	-@if test -n "$(MAKEMO)" -a -f $(PODIR)/Makefile; then \
-		cd $(PODIR); CC="$(CC)" $(MAKE) prefix=$(DESTDIR)$(prefix) converted; \
+		cd $(PODIR); \
+		  CC="$(CC)" $(MAKE) prefix=$(DESTDIR)$(prefix) converted; \
 	fi
 
 # Update the *.po files for changes in the sources.  Only run manually.
@@ -1725,12 +1788,12 @@ update-po:
 proto: $(PRO_AUTO) $(PRO_MANUAL)
 
 # Filter out arguments that cproto doesn't support.
-# Don't pass "-pthread" to cproto, it sees it as a list of individual flags.
-# Don't pass "-fstack-protector" to cproto, for the same reason.
+# Don't pass "-pthread", "-fwrapv" and similar arguments to cproto, it sees
+# them as a list of individual flags.
 # The -E"gcc -E" argument must be separate to avoid problems with shell
 # quoting.
 CPROTO = cproto $(PROTO_FLAGS) -DPROTO \
-	 `echo '$(LINT_CFLAGS)' | sed -e 's/-pthread//g' -e 's/-fstack-protector//g'`
+	 `echo '$(LINT_CFLAGS)' | sed -e 's/ -[a-z-]\+//g'`
 
 ### Would be nice if this would work for "normal" make.
 ### Currently it only works for (Free)BSD make.
@@ -1760,6 +1823,10 @@ os_win32.pro: os_win32.c
 	echo "/* vim: set ft=c : */" >> proto/$@
 
 os_mswin.pro: os_mswin.c
+	$(CPROTO) -DWIN16 -DWIN32 -UHAVE_CONFIG_H $< > proto/$@
+	echo "/* vim: set ft=c : */" >> proto/$@
+
+winclip.pro: winclip.c
 	$(CPROTO) -DWIN16 -DWIN32 -UHAVE_CONFIG_H $< > proto/$@
 	echo "/* vim: set ft=c : */" >> proto/$@
 
@@ -1804,26 +1871,95 @@ types.vim: $(TAGS_SRC) $(TAGS_INCL)
 #
 # This will produce a lot of garbage on your screen, including a few error
 # messages.  Don't worry about that.
-# If there is a real error, there will be a difference between "test.out" and
-# a "test99.ok" file.
+# If there is a real error, there will be a difference between "testXX.out" and
+# a "testXX.ok" file.
 # If everything is alright, the final message will be "ALL DONE".  If not you
 # get "TEST FAILURE".
 #
 test check:
 	$(MAKE) -f Makefile $(VIMTARGET)
-	-if test -n "$(MAKEMO)" -a -f $(PODIR)/Makefile; then \
+	if test -n "$(MAKEMO)" -a -f $(PODIR)/Makefile; then \
 		cd $(PODIR); $(MAKE) -f Makefile check VIM=../$(VIMTARGET); \
 	fi
 	-if test $(VIMTARGET) != vim -a ! -r vim; then \
 		ln -s $(VIMTARGET) vim; \
 	fi
-	cd testdir; $(MAKE) -f Makefile $(GUI_TESTTARGET) VIMPROG=../$(VIMTARGET) $(GUI_TESTARG)
+	cd testdir; $(MAKE) -f Makefile $(GUI_TESTTARGET) VIMPROG=../$(VIMTARGET) $(GUI_TESTARG) SCRIPTSOURCE=../$(SCRIPTSOURCE)
+	$(MAKE) -f Makefile unittest
+
+benchmark:
+	cd testdir; $(MAKE) -f Makefile benchmark VIMPROG=../$(VIMTARGET) SCRIPTSOURCE=../$(SCRIPTSOURCE)
+
+unittesttargets:
+	$(MAKE) -f Makefile $(UNITTEST_TARGETS)
+
+unittest unittests: $(UNITTEST_TARGETS)
+	@for t in $(UNITTEST_TARGETS); do \
+		./$$t || exit 1; echo $$t passed; \
+	done
+
+# Run individual test, assuming that Vim was already compiled.
+test1 \
+	test_argument_0count \
+	test_argument_count \
+	test_autocmd_option \
+	test_autoformat_join \
+	test_breakindent \
+	test_changelist \
+	test_charsearch \
+	test_close_count \
+	test_command_count \
+	test_erasebackword \
+	test_eval \
+	test_fixeol \
+	test_increment \
+	test_insertcount \
+	test_listchars \
+	test_listlbr \
+	test_listlbr_utf8 \
+	test_mapping \
+	test_marks \
+	test_match_conceal \
+	test_nested_function \
+	test_options \
+	test_perl \
+	test_qf_title \
+	test_ruby \
+	test_search_mbyte \
+	test_set \
+	test_signs \
+	test_textobjects \
+	test_utf8 \
+	test_writefile \
+	test2 test3 test4 test5 test6 test7 test8 test9 \
+	test10 test11 test12 test13 test14 test15 test16 test17 test18 test19 \
+	test20 test21 test22 test23 test24 test25 test26 test27 test28 test29 \
+	test30 test31 test32 test33 test34 test35 test36 test37 test38 test39 \
+	test40 test41 test42 test43 test44 test45 test46 test47 test48 test49 \
+	test50 test51 test52 test53 test54 test55 test56 test57 test58 test59 \
+	test60 test61 test62 test63 test64 test65 test66 test67 test68 test69 \
+	test70 test71 test72 test73 test74 test75 test76 test77 test78 test79 \
+	test80 test81 test82 test83 test84 test85 test86 test87 test88 test89 \
+	test90 test91 test92 test93 test94 test95 test96 test97 test98 test99 \
+	test100 test101 test102 test103 test104 test105 test106 test107:
+	cd testdir; rm $@.out; $(MAKE) -f Makefile $@.out VIMPROG=../$(VIMTARGET) $(GUI_TESTARG) SCRIPTSOURCE=../$(SCRIPTSOURCE)
 
 testclean:
 	cd testdir; $(MAKE) -f Makefile clean
 	if test -d $(PODIR); then \
 		cd $(PODIR); $(MAKE) checkclean; \
 	fi
+
+# Unittests
+# It's build just like Vim to satisfy all dependencies.
+$(MEMFILE_TEST_TARGET): auto/config.mk objects $(MEMFILE_TEST_OBJ)
+	$(CCC) version.c -o objects/version.o
+	@LINK="$(PURIFY) $(SHRPENV) $(CClink) $(ALL_LIB_DIRS) $(LDFLAGS) \
+		-o $(MEMFILE_TEST_TARGET) $(MEMFILE_TEST_OBJ) $(ALL_LIBS)" \
+		MAKE="$(MAKE)" LINK_AS_NEEDED=$(LINK_AS_NEEDED) \
+		sh $(srcdir)/link.sh
+
+# install targets
 
 install: $(GUI_INSTALL)
 
@@ -2013,6 +2149,7 @@ install-tool-languages:
 	-$(SHELL) ./installman.sh xxd $(DEST_MAN_IT) "-it" $(INSTALLMANARGS)
 	-$(SHELL) ./installman.sh xxd $(DEST_MAN_IT_I) "-it" $(INSTALLMANARGS)
 	-$(SHELL) ./installman.sh xxd $(DEST_MAN_IT_U) "-it.UTF-8" $(INSTALLMANARGS)
+	-$(SHELL) ./installman.sh xxd $(DEST_MAN_JA_U) "-ja.UTF-8" $(INSTALLMANARGS)
 	-$(SHELL) ./installman.sh xxd $(DEST_MAN_PL) "-pl" $(INSTALLMANARGS)
 	-$(SHELL) ./installman.sh xxd $(DEST_MAN_PL_I) "-pl" $(INSTALLMANARGS)
 	-$(SHELL) ./installman.sh xxd $(DEST_MAN_PL_U) "-pl.UTF-8" $(INSTALLMANARGS)
@@ -2027,6 +2164,7 @@ install-languages: languages $(DEST_LANG) $(DEST_KMAP)
 	-$(SHELL) ./installman.sh install $(DEST_MAN_IT) "-it" $(INSTALLMANARGS)
 	-$(SHELL) ./installman.sh install $(DEST_MAN_IT_I) "-it" $(INSTALLMANARGS)
 	-$(SHELL) ./installman.sh install $(DEST_MAN_IT_U) "-it.UTF-8" $(INSTALLMANARGS)
+	-$(SHELL) ./installman.sh install $(DEST_MAN_JA_U) "-ja.UTF-8" $(INSTALLMANARGS)
 	-$(SHELL) ./installman.sh install $(DEST_MAN_PL) "-pl" $(INSTALLMANARGS)
 	-$(SHELL) ./installman.sh install $(DEST_MAN_PL_I) "-pl" $(INSTALLMANARGS)
 	-$(SHELL) ./installman.sh install $(DEST_MAN_PL_U) "-pl.UTF-8" $(INSTALLMANARGS)
@@ -2044,6 +2182,8 @@ install-languages: languages $(DEST_LANG) $(DEST_KMAP)
 		$(DEST_MAN_IT_I) $(INSTALLMLARGS)
 	-$(SHELL) ./installml.sh install "$(GUI_MAN_TARGETS)" \
 		$(DEST_MAN_IT_U) $(INSTALLMLARGS)
+	-$(SHELL) ./installml.sh install "$(GUI_MAN_TARGETS)" \
+		$(DEST_MAN_JA_U) $(INSTALLMLARGS)
 	-$(SHELL) ./installml.sh install "$(GUI_MAN_TARGETS)" \
 		$(DEST_MAN_PL) $(INSTALLMLARGS)
 	-$(SHELL) ./installml.sh install "$(GUI_MAN_TARGETS)" \
@@ -2190,6 +2330,7 @@ uninstall_runtime:
 	-$(SHELL) ./installman.sh uninstall $(DEST_MAN_IT) "" $(INSTALLMANARGS)
 	-$(SHELL) ./installman.sh uninstall $(DEST_MAN_IT_I) "" $(INSTALLMANARGS)
 	-$(SHELL) ./installman.sh uninstall $(DEST_MAN_IT_U) "" $(INSTALLMANARGS)
+	-$(SHELL) ./installman.sh uninstall $(DEST_MAN_JA_U) "" $(INSTALLMANARGS)
 	-$(SHELL) ./installman.sh uninstall $(DEST_MAN_PL) "" $(INSTALLMANARGS)
 	-$(SHELL) ./installman.sh uninstall $(DEST_MAN_PL_I) "" $(INSTALLMANARGS)
 	-$(SHELL) ./installman.sh uninstall $(DEST_MAN_PL_U) "" $(INSTALLMANARGS)
@@ -2210,6 +2351,8 @@ uninstall_runtime:
 	-$(SHELL) ./installml.sh uninstall "$(GUI_MAN_TARGETS)" \
 		$(DEST_MAN_IT_U) $(INSTALLMLARGS)
 	-$(SHELL) ./installml.sh uninstall "$(GUI_MAN_TARGETS)" \
+		$(DEST_MAN_JA_U) $(INSTALLMLARGS)
+	-$(SHELL) ./installml.sh uninstall "$(GUI_MAN_TARGETS)" \
 		$(DEST_MAN_PL) $(INSTALLMLARGS)
 	-$(SHELL) ./installml.sh uninstall "$(GUI_MAN_TARGETS)" \
 		$(DEST_MAN_PL_I) $(INSTALLMLARGS)
@@ -2222,6 +2365,7 @@ uninstall_runtime:
 	-rm -f $(DEST_MAN)/xxd.1
 	-rm -f $(DEST_MAN_FR)/xxd.1 $(DEST_MAN_FR_I)/xxd.1 $(DEST_MAN_FR_U)/xxd.1
 	-rm -f $(DEST_MAN_IT)/xxd.1 $(DEST_MAN_IT_I)/xxd.1 $(DEST_MAN_IT_U)/xxd.1
+	-rm -f $(DEST_MAN_JA_U)/xxd.1
 	-rm -f $(DEST_MAN_PL)/xxd.1 $(DEST_MAN_PL_I)/xxd.1 $(DEST_MAN_PL_U)/xxd.1
 	-rm -f $(DEST_MAN_RU)/xxd.1 $(DEST_MAN_RU_U)/xxd.1
 	-rm -f $(DEST_HELP)/*.txt $(DEST_HELP)/tags $(DEST_HELP)/*.pl
@@ -2245,7 +2389,7 @@ uninstall_runtime:
 	-rm -rf $(DEST_COMP)
 	-rm -f $(DEST_PRINT)/*.ps
 	-rmdir $(DEST_HELP) $(DEST_PRINT) $(DEST_COL) $(DEST_SYN) $(DEST_IND)
-	-rm -rf $(DEST_FTP)/*.vim $(DEST_FTP)/README.txt
+	-rm -rf $(DEST_FTP)/*.vim $(DEST_FTP)/README.txt $(DEST_FTP)/logtalk.dict
 	-rm -f $(DEST_AUTO)/*.vim $(DEST_AUTO)/README.txt $(DEST_AUTO)/xml/*.vim
 	-rm -f $(DEST_PLUG)/*.vim $(DEST_PLUG)/README.txt
 	-rmdir $(DEST_FTP) $(DEST_AUTO)/xml $(DEST_AUTO) $(DEST_PLUG) $(DEST_RT)
@@ -2258,6 +2402,7 @@ clean celan: testclean
 	-rm -f *.o objects/* core $(VIMTARGET).core $(VIMTARGET) vim xxd/*.o
 	-rm -f $(TOOLS) auto/osdef.h auto/pathdef.c auto/if_perl.c
 	-rm -f conftest* *~ auto/link.sed
+	-rm -f $(UNITTEST_TARGETS)
 	-rm -f runtime pixmaps
 	-rm -rf $(APPDIR)
 	-rm -rf mzscheme_base.c
@@ -2271,9 +2416,11 @@ SHADOWDIR = shadow
 
 shadow:	runtime pixmaps
 	mkdir $(SHADOWDIR)
-	cd $(SHADOWDIR); ln -s ../*.[ch] ../*.in ../*.sh ../*.xs ../*.xbm ../toolcheck ../proto ../po ../vimtutor ../gvimtutor ../mkinstalldirs .
+	cd $(SHADOWDIR); ln -s ../*.[ch] ../*.in ../*.sh ../*.xs ../*.xbm ../toolcheck ../proto ../vimtutor ../gvimtutor ../mkinstalldirs .
 	mkdir $(SHADOWDIR)/auto
 	cd $(SHADOWDIR)/auto; ln -s ../../auto/configure .
+	mkdir $(SHADOWDIR)/po
+	cd $(SHADOWDIR)/po; ln -s ../../po/*.po ../../po/*.mak ../../po/*.vim ../../po/Makefile .
 	cd $(SHADOWDIR); rm -f auto/link.sed
 	cp Makefile configure $(SHADOWDIR)
 	rm -f $(SHADOWDIR)/auto/config.mk $(SHADOWDIR)/config.mk.dist
@@ -2291,6 +2438,9 @@ shadow:	runtime pixmaps
 				 ../../testdir/vimrc.unix \
 				 ../../testdir/*.in \
 				 ../../testdir/*.vim \
+				 ../../testdir/python* \
+				 ../../testdir/sautest \
+				 ../../testdir/test83-tags? \
 				 ../../testdir/*.ok .
 
 # Link needed for doing "make install" in a shadow directory.
@@ -2361,13 +2511,12 @@ lintinstall:
 
 auto/if_perl.c: if_perl.xs
 	$(PERL) -e 'unless ( $$] >= 5.005 ) { for (qw(na defgv errgv)) { print "#define PL_$$_ $$_\n" }}' > $@
-	$(PERL) $(PERLLIB)/ExtUtils/xsubpp -prototypes -typemap \
+	$(PERL) $(PERL_XSUBPP) -prototypes -typemap \
 	    $(PERLLIB)/ExtUtils/typemap if_perl.xs >> $@
 
 auto/osdef.h: auto/config.h osdef.sh osdef1.h.in osdef2.h.in
 	CC="$(CC) $(OSDEF_CFLAGS)" srcdir=$(srcdir) sh $(srcdir)/osdef.sh
 
-QUOTESED = sed -e 's/[\\"]/\\&/g' -e 's/\\"/"/' -e 's/\\";$$/";/'
 auto/pathdef.c: Makefile auto/config.mk
 	-@echo creating $@
 	-@echo '/* pathdef.c */' > $@
@@ -2403,6 +2552,12 @@ objects/buffer.o: buffer.c
 
 objects/charset.o: charset.c
 	$(CCC) -o $@ charset.c
+
+objects/crypt.o: crypt.c
+	$(CCC) -o $@ crypt.c
+
+objects/crypt_zip.o: crypt_zip.c
+	$(CCC) -o $@ crypt_zip.c
 
 objects/diff.o: diff.c
 	$(CCC) -o $@ diff.c
@@ -2512,18 +2667,10 @@ objects/if_perl.o: auto/if_perl.c
 objects/if_perlsfio.o: if_perlsfio.c
 	$(CCC) $(PERL_CFLAGS) -o $@ if_perlsfio.c
 
-objects/py_config.o: $(PYTHON_CONFDIR)/config.c
-	$(CCC) $(PYTHON_CFLAGS) -o $@ $(PYTHON_CONFDIR)/config.c \
-		-I$(PYTHON_CONFDIR) -DHAVE_CONFIG_H -DNO_MAIN
-
 objects/py_getpath.o: $(PYTHON_CONFDIR)/getpath.c
 	$(CCC) $(PYTHON_CFLAGS) -o $@ $(PYTHON_CONFDIR)/getpath.c \
 		-I$(PYTHON_CONFDIR) -DHAVE_CONFIG_H -DNO_MAIN \
 		$(PYTHON_GETPATH_CFLAGS)
-
-objects/py3_config.o: $(PYTHON3_CONFDIR)/config.c
-	$(CCC) $(PYTHON3_CFLAGS) -o $@ $(PYTHON3_CONFDIR)/config.c \
-		-I$(PYTHON3_CONFDIR) -DHAVE_CONFIG_H -DNO_MAIN
 
 objects/if_python.o: if_python.c if_py_both.h
 	$(CCC) $(PYTHON_CFLAGS) $(PYTHON_CFLAGS_EXTRA) -o $@ if_python.c
@@ -2532,7 +2679,7 @@ objects/if_python3.o: if_python3.c if_py_both.h
 	$(CCC) $(PYTHON3_CFLAGS) $(PYTHON3_CFLAGS_EXTRA) -o $@ if_python3.c
 
 objects/if_ruby.o: if_ruby.c
-	$(CCC) -o $@ if_ruby.c
+	$(CCC) $(RUBY_CFLAGS) -o $@ if_ruby.c
 
 objects/if_sniff.o: if_sniff.c
 	$(CCC) -o $@ if_sniff.c
@@ -2551,6 +2698,9 @@ objects/mark.o: mark.c
 
 objects/memfile.o: memfile.c
 	$(CCC) -o $@ memfile.c
+
+objects/memfile_test.o: memfile_test.c
+	$(CCC) -o $@ memfile_test.c
 
 objects/memline.o: memline.c
 	$(CCC) -o $@ memline.c
@@ -2597,6 +2747,12 @@ objects/os_mac_conv.o: os_mac_conv.c
 objects/os_unix.o: os_unix.c
 	$(CCC) -o $@ os_unix.c
 
+objects/os_mswin.o: os_mswin.c
+	$(CCC) -o $@ os_mswin.c
+
+objects/winclip.o: winclip.c
+	$(CCC) -o $@ winclip.c
+
 objects/pathdef.o: auto/pathdef.c
 	$(CCC) -o $@ auto/pathdef.c
 
@@ -2609,7 +2765,7 @@ objects/popupmnu.o: popupmnu.c
 objects/quickfix.o: quickfix.c
 	$(CCC) -o $@ quickfix.c
 
-objects/regexp.o: regexp.c
+objects/regexp.o: regexp.c regexp_nfa.c
 	$(CCC) -o $@ regexp.c
 
 objects/screen.o: screen.c
@@ -2724,9 +2880,9 @@ bundle-rsrc: os_mac.rsr.hqx
 	mv gui_mac.rsrc.rsrcfork $(RESDIR)/$(VIMNAME).rsrc
 
 # po/Make_osx.pl says something about generating a Mac message file
-# for Ukrananian.  Would somebody using Mac OS X in Ukranian
+# for Ukrainian.  Would somebody using Mac OS X in Ukrainian
 # *really* be upset that Carbon Vim was not localised in
-# Ukranian?
+# Ukrainian?
 #
 #bundle-language: bundle-dir po/Make_osx.pl
 #	cd po && perl Make_osx.pl --outdir ../$(RESDIR) $(MULTILANG)
@@ -2752,6 +2908,14 @@ objects/charset.o: charset.c vim.h auto/config.h feature.h os_unix.h auto/osdef.
  ascii.h keymap.h term.h macros.h option.h structs.h regexp.h gui.h \
  gui_beval.h proto/gui_beval.pro ex_cmds.h proto.h globals.h farsi.h \
  arabic.h
+objects/crypt.o: crypt.c vim.h auto/config.h feature.h os_unix.h auto/osdef.h \
+ ascii.h keymap.h term.h macros.h option.h structs.h regexp.h gui.h \
+ gui_beval.h proto/gui_beval.pro ex_cmds.h proto.h globals.h farsi.h \
+ arabic.h
+objects/crypt_zip.o: crypt_zip.c vim.h auto/config.h feature.h os_unix.h \
+ auto/osdef.h ascii.h keymap.h term.h macros.h option.h structs.h \
+ regexp.h gui.h gui_beval.h proto/gui_beval.pro ex_cmds.h proto.h \
+ globals.h farsi.h arabic.h
 objects/diff.o: diff.c vim.h auto/config.h feature.h os_unix.h auto/osdef.h \
  ascii.h keymap.h term.h macros.h option.h structs.h regexp.h gui.h \
  gui_beval.h proto/gui_beval.pro ex_cmds.h proto.h globals.h farsi.h \
@@ -2886,7 +3050,7 @@ objects/quickfix.o: quickfix.c vim.h auto/config.h feature.h os_unix.h \
 objects/regexp.o: regexp.c vim.h auto/config.h feature.h os_unix.h auto/osdef.h \
  ascii.h keymap.h term.h macros.h option.h structs.h regexp.h gui.h \
  gui_beval.h proto/gui_beval.pro ex_cmds.h proto.h globals.h farsi.h \
- arabic.h
+ arabic.h regexp_nfa.c
 objects/screen.o: screen.c vim.h auto/config.h feature.h os_unix.h auto/osdef.h \
  ascii.h keymap.h term.h macros.h option.h structs.h regexp.h gui.h \
  gui_beval.h proto/gui_beval.pro ex_cmds.h proto.h globals.h farsi.h \
@@ -3009,6 +3173,10 @@ objects/gui_at_fs.o: gui_at_fs.c vim.h auto/config.h feature.h os_unix.h \
 objects/pty.o: pty.c vim.h auto/config.h feature.h os_unix.h auto/osdef.h ascii.h \
  keymap.h term.h macros.h option.h structs.h regexp.h gui.h gui_beval.h \
  proto/gui_beval.pro ex_cmds.h proto.h globals.h farsi.h arabic.h
+objects/memfile_test.o: memfile_test.c main.c vim.h auto/config.h feature.h \
+ os_unix.h auto/osdef.h ascii.h keymap.h term.h macros.h option.h \
+ structs.h regexp.h gui.h gui_beval.h proto/gui_beval.pro ex_cmds.h \
+ proto.h globals.h farsi.h arabic.h farsi.c arabic.c memfile.c
 objects/hangulin.o: hangulin.c vim.h auto/config.h feature.h os_unix.h \
  auto/osdef.h ascii.h keymap.h term.h macros.h option.h structs.h \
  regexp.h gui.h gui_beval.h proto/gui_beval.pro ex_cmds.h proto.h \
@@ -3041,7 +3209,7 @@ objects/if_tcl.o: if_tcl.c vim.h auto/config.h feature.h os_unix.h auto/osdef.h 
  ascii.h keymap.h term.h macros.h option.h structs.h regexp.h gui.h \
  gui_beval.h proto/gui_beval.pro ex_cmds.h proto.h globals.h farsi.h \
  arabic.h
-objects/if_ruby.o: if_ruby.c vim.h auto/config.h feature.h os_unix.h auto/osdef.h \
+objects/if_ruby.o: if_ruby.c auto/config.h vim.h feature.h os_unix.h auto/osdef.h \
  ascii.h keymap.h term.h macros.h option.h structs.h regexp.h gui.h \
  gui_beval.h proto/gui_beval.pro ex_cmds.h proto.h globals.h farsi.h \
  arabic.h version.h

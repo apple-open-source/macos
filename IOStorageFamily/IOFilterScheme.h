@@ -104,7 +104,7 @@ protected:
 
     virtual bool handleOpen(IOService *  client,
                             IOOptionBits options,
-                            void *       access);
+                            void *       access) APPLE_KEXT_OVERRIDE;
 
     /*!
      * @function handleIsOpen
@@ -120,7 +120,7 @@ protected:
      * Returns true if the client was (or clients were) open, false otherwise.
      */
 
-    virtual bool handleIsOpen(const IOService * client) const;
+    virtual bool handleIsOpen(const IOService * client) const APPLE_KEXT_OVERRIDE;
 
     /*!
      * @function handleClose
@@ -134,7 +134,7 @@ protected:
      * Options for the close.  Set to zero.
      */
 
-    virtual void handleClose(IOService * client, IOOptionBits options);
+    virtual void handleClose(IOService * client, IOOptionBits options) APPLE_KEXT_OVERRIDE;
 
 public:
 
@@ -174,7 +174,7 @@ public:
                       UInt64                byteStart,
                       IOMemoryDescriptor *  buffer,
                       IOStorageAttributes * attributes,
-                      IOStorageCompletion * completion);
+                      IOStorageCompletion * completion) APPLE_KEXT_OVERRIDE;
 
     /*!
      * @function write
@@ -209,7 +209,7 @@ public:
                        UInt64                byteStart,
                        IOMemoryDescriptor *  buffer,
                        IOStorageAttributes * attributes,
-                       IOStorageCompletion * completion);
+                       IOStorageCompletion * completion) APPLE_KEXT_OVERRIDE;
 
     /*!
      * @function synchronize
@@ -230,7 +230,7 @@ public:
     virtual IOReturn synchronize(IOService *                 client,
                                  UInt64                      byteStart,
                                  UInt64                      byteCount,
-                                 IOStorageSynchronizeOptions options = 0);
+                                 IOStorageSynchronizeOptions options = 0) APPLE_KEXT_OVERRIDE;
 
     /*!
      * @function unmap
@@ -252,7 +252,33 @@ public:
     virtual IOReturn unmap(IOService *           client,
                            IOStorageExtent *     extents,
                            UInt32                extentsCount,
-                           IOStorageUnmapOptions options = 0);
+                           IOStorageUnmapOptions options = 0) APPLE_KEXT_OVERRIDE;
+
+    /*!
+     * @function getProvisionStatus
+     * @discussion
+     * Get device block provision status
+     * @param client
+     * Client requesting the synchronization.
+     * @param byteStart
+     * Byte offset of logical extent on the device.
+     * @param byteCount
+     * Byte length of logical extent on the device, 0 mean the entire remaining space.
+     * @param extentsCount
+     * Number of extents allocated in extents. On return, this parameter indicate number
+     * of provision extents returned.
+     * @param extents
+     * List of provision extents. See IOStorageProvisionExtents.
+     * @result
+     * Returns the status of the getProvisionStatus.
+     */
+
+    virtual IOReturn getProvisionStatus(IOService *                         client,
+                                        UInt64                              byteStart,
+                                        UInt64                              byteCount,
+                                        UInt32 *                            extentsCount,
+                                        IOStorageProvisionExtent *          extents,
+                                        IOStorageGetProvisionStatusOptions  options = 0) APPLE_KEXT_OVERRIDE;
 
     /*!
      * @function lockPhysicalExtents
@@ -265,7 +291,7 @@ public:
      * Returns true if the lock was successful, false otherwise.
      */
 
-    virtual bool lockPhysicalExtents(IOService * client);
+    virtual bool lockPhysicalExtents(IOService * client) APPLE_KEXT_OVERRIDE;
 
     /*!
      * @function copyPhysicalExtent
@@ -288,7 +314,7 @@ public:
 
     virtual IOStorage * copyPhysicalExtent(IOService * client,
                                            UInt64 *    byteStart,
-                                           UInt64 *    byteCount);
+                                           UInt64 *    byteCount) APPLE_KEXT_OVERRIDE;
 
     /*!
      * @function unlockPhysicalExtents
@@ -299,7 +325,7 @@ public:
      * Client requesting the operation.
      */
 
-    virtual void unlockPhysicalExtents(IOService * client);
+    virtual void unlockPhysicalExtents(IOService * client) APPLE_KEXT_OVERRIDE;
 
     /*!
      * @function setPriority
@@ -321,7 +347,7 @@ public:
     virtual IOReturn setPriority(IOService *       client,
                                  IOStorageExtent * extents,
                                  UInt32            extentsCount,
-                                 IOStoragePriority priority);
+                                 IOStoragePriority priority) APPLE_KEXT_OVERRIDE;
 
     /*
      * Obtain this object's provider.  We override the superclass's method
@@ -329,7 +355,7 @@ public:
      * method serves simply as a convenience to subclass developers.
      */
 
-    virtual IOMedia * getProvider() const;
+    virtual IOMedia * getProvider() const APPLE_KEXT_OVERRIDE;
 
     OSMetaClassDeclareReservedUnused(IOFilterScheme,  0);
     OSMetaClassDeclareReservedUnused(IOFilterScheme,  1);

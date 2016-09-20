@@ -1,21 +1,14 @@
 /*
- * "$Id: testnotify.c 11093 2013-07-03 20:48:42Z msweet $"
+ * Test notifier for CUPS.
  *
- *   Test notifier for CUPS.
+ * Copyright 2007-2016 by Apple Inc.
+ * Copyright 1997-2005 by Easy Software Products.
  *
- *   Copyright 2007-2011 by Apple Inc.
- *   Copyright 1997-2005 by Easy Software Products.
- *
- *   These coded instructions, statements, and computer programs are the
- *   property of Apple Inc. and are protected by Federal copyright
- *   law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- *   which should have been included with this file.  If this file is
- *   file is missing or damaged, see the license at "http://www.cups.org/".
- *
- * Contents:
- *
- *   main()             - Main entry for the test notifier.
- *   print_attributes() - Print the attributes in a request...
+ * These coded instructions, statements, and computer programs are the
+ * property of Apple Inc. and are protected by Federal copyright
+ * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
+ * which should have been included with this file.  If this file is
+ * file is missing or damaged, see the license at "http://www.cups.org/".
  */
 
 /*
@@ -115,13 +108,8 @@ print_attributes(ipp_t *ipp,		/* I - IPP request */
 
     ippAttributeString(attr, buffer, sizeof(buffer));
 
-    fprintf(stderr, "DEBUG: %*s%s (%s%s) %s", indent, "", attr->name,
+    fprintf(stderr, "DEBUG: %*s%s (%s%s) %s\n", indent, "", attr->name,
             attr->num_values > 1 ? "1setOf " : "",
 	    ippTagString(attr->value_tag), buffer);
   }
 }
-
-
-/*
- * End of "$Id: testnotify.c 11093 2013-07-03 20:48:42Z msweet $".
- */

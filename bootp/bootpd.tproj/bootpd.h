@@ -29,6 +29,7 @@
 #include <CoreFoundation/CFDictionary.h>
 #include <CoreFoundation/CFString.h>
 #include "netinfo.h"
+#include "mylog.h"
 
 typedef struct {
     interface_t *	if_p;
@@ -81,9 +82,6 @@ typedef struct subnet_match_args {
     interface_t *	if_p;
     boolean_t		has_binding;
 } subnet_match_args_t;
-
-extern void
-my_log(int priority, const char *message, ...);
 
 boolean_t
 detect_other_dhcp_server(interface_t * if_p);

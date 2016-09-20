@@ -1,6 +1,6 @@
 /*
  **********************************************************************
- *   Copyright (C) 1999-2014, International Business Machines
+ *   Copyright (C) 1999-2016, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  **********************************************************************
  *   Date        Name        Description
@@ -1112,8 +1112,8 @@ Transliterator::createFromRules(const UnicodeString& ID,
                         data, TRUE);
                 // Check if NULL before adding it to transliterators to avoid future usage of NULL pointer.
                 if (temprbt == NULL) {
-                	status = U_MEMORY_ALLOCATION_ERROR;
-                	return t;
+                    status = U_MEMORY_ALLOCATION_ERROR;
+                    return t;
                 }
                 transliterators.addElement(temprbt, status);
             }
@@ -1279,7 +1279,7 @@ void Transliterator::_registerAlias(const UnicodeString& aliasID,
 /**
  * Unregisters a transliterator or class.  This may be either
  * a system transliterator or a user transliterator or class.
- * 
+ *
  * @param ID the ID of the transliterator or class
  * @see #registerInstance
 
@@ -1483,13 +1483,13 @@ UBool Transliterator::initializeRegistry(UErrorCode &status) {
      * <id> is the ID of the system transliterator being defined.  These
      * are public IDs enumerated by Transliterator.getAvailableIDs(),
      * unless the second field is "internal".
-     * 
+     *
      * <resource> is a ResourceReader resource name.  Currently these refer
      * to file names under com/ibm/text/resources.  This string is passed
      * directly to ResourceReader, together with <encoding>.
-     * 
+     *
      * <direction> is either "FORWARD" or "REVERSE".
-     * 
+     *
      * <getInstanceArg> is a string to be passed directly to
      * Transliterator.getInstance().  The returned Transliterator object
      * then has its ID changed to <id> and is returned.
@@ -1498,52 +1498,53 @@ UBool Transliterator::initializeRegistry(UErrorCode &status) {
      */
     //static const char translit_index[] = "translit_index";
 
-    UResourceBundle *bundle, *transIDs, *colBund;
-    bundle = ures_open(U_ICUDATA_TRANSLIT, NULL/*open default locale*/, &status);
-    transIDs = ures_getByKey(bundle, RB_RULE_BASED_IDS, 0, &status);
-
-    int32_t row, maxRows;
+    UResourceBundle *bundle = ures_open(U_ICUDATA_TRANSLIT, NULL/*open default locale*/, &status);
+    UResourceBundle *transIDs = ures_getByKey(bundle, RB_RULE_BASED_IDS, 0, &status);
     if (U_SUCCESS(status)) {
-        maxRows = ures_getSize(transIDs);
+        UResourceBundle *colBund = NULL;
+        UResourceBundle* res = NULL;
+        int32_t row, maxRows = ures_getSize(transIDs);
         for (row = 0; row < maxRows; row++) {
-            colBund = ures_getByIndex(transIDs, row, 0, &status);
-            if (U_SUCCESS(status)) {
-                UnicodeString id(ures_getKey(colBund), -1, US_INV);
-                UResourceBundle* res = ures_getNextResource(colBund, NULL, &status);
-                const char* typeStr = ures_getKey(res);
-                UChar type;
-                u_charsToUChars(typeStr, &type, 1);
-
-                if (U_SUCCESS(status)) {
-                    int32_t len = 0;
-                    const UChar *resString;
-                    switch (type) {
-                    case 0x66: // 'f'
-                    case 0x69: // 'i'
-                        // 'file' or 'internal';
-                        // row[2]=resource, row[3]=direction
-                        {
-                            
-                            resString = ures_getStringByKey(res, "resource", &len, &status);
-                            UBool visible = (type == 0x0066 /*f*/);
-                            UTransDirection dir = 
-                                (ures_getUnicodeStringByKey(res, "direction", &status).charAt(0) ==
-                                 0x0046 /*F*/) ?
-                                UTRANS_FORWARD : UTRANS_REVERSE;
-                            registry->put(id, UnicodeString(TRUE, resString, len), dir, TRUE, visible, status);
-                        }
-                        break;
-                    case 0x61: // 'a'
-                        // 'alias'; row[2]=createInstance argument
-                        resString = ures_getString(res, &len, &status);
-                        registry->put(id, UnicodeString(TRUE, resString, len), TRUE, TRUE, status);
-                        break;
-                    }
-                }
-                ures_close(res);
+            colBund = ures_getByIndex(transIDs, row, colBund, &status);
+            if (U_FAILURE(status)) {
+                break;
             }
-            ures_close(colBund);
+            const char *tridKey = ures_getKey(colBund);
+            if (tridKey == NULL || uprv_strstr(tridKey, "-t-") != NULL) {
+                continue; // Apple version should not get any of these, eliminated the root.txt entries
+            }
+            res = ures_getNextResource(colBund, res, &status);
+            if (U_FAILURE(status)) {
+                break;
+            }
+            UnicodeString trID(tridKey, -1, US_INV);
+            const char* typeStr = ures_getKey(res);
+            int32_t len = 0, dlen = 0;
+            UBool visible = FALSE;
+            const UChar *resString;
+            switch (typeStr[0]) {
+                case 'f': // "file"
+                    visible = TRUE;
+                    // FALLTHROUGH
+                case 'i': // "internal" => visible = FALSE
+                    // child resources are resource and direction
+                    {
+                        resString = ures_getStringByKey(res, "resource", &len, &status);
+                        const UChar* dirString = ures_getStringByKey(res, "direction", &dlen, &status);
+                        UTransDirection dir = (dlen <= 0 || dirString[0] ==  0x0046 /*F*/)? UTRANS_FORWARD : UTRANS_REVERSE;
+                        registry->put(trID, UnicodeString(TRUE, resString, len), dir, TRUE, visible, status);
+                    }
+                    break;
+                case 'a': // "alias", string argument is alias
+                    resString = ures_getString(res, &len, &status);
+                    registry->put(trID, UnicodeString(TRUE, resString, len), TRUE, TRUE, status);
+                    break;
+                default: // do nothing
+                    break;
+            }
         }
+        ures_close(res);
+        ures_close(colBund);
     }
 
     ures_close(transIDs);
@@ -1552,7 +1553,7 @@ UBool Transliterator::initializeRegistry(UErrorCode &status) {
     // Manually add prototypes that the system knows about to the
     // cache.  This is how new non-rule-based transliterators are
     // added to the system.
-    
+
     // This is to allow for null pointer check
     NullTransliterator* tempNullTranslit = new NullTransliterator();
     LowercaseTransliterator* tempLowercaseTranslit = new LowercaseTransliterator();
@@ -1566,7 +1567,7 @@ UBool Transliterator::initializeRegistry(UErrorCode &status) {
 #endif
     // Check for null pointers
     if (tempNullTranslit == NULL || tempLowercaseTranslit == NULL || tempUppercaseTranslit == NULL ||
-        tempTitlecaseTranslit == NULL || tempUnicodeTranslit == NULL || 
+        tempTitlecaseTranslit == NULL || tempUnicodeTranslit == NULL ||
 #if !UCONFIG_NO_BREAK_ITERATION
         tempBreakTranslit == NULL ||
 #endif

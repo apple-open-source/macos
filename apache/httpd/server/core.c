@@ -349,6 +349,9 @@ static void *merge_core_dir_configs(apr_pool_t *a, void *basev, void *newv)
     if (new->handler) {
         conf->handler = new->handler;
     }
+    if (new->expr_handler) {
+        conf->expr_handler = new->expr_handler;
+    }
 
     if (new->output_filters) {
         conf->output_filters = new->output_filters;
@@ -405,6 +408,15 @@ static void *merge_core_dir_configs(apr_pool_t *a, void *basev, void *newv)
     conf->max_reversals = new->max_reversals != AP_MAXRANGES_UNSET ? new->max_reversals : base->max_reversals;
 
     conf->cgi_pass_auth = new->cgi_pass_auth != AP_CGI_PASS_AUTH_UNSET ? new->cgi_pass_auth : base->cgi_pass_auth;
+
+    if (new->cgi_var_rules) {
+        if (!conf->cgi_var_rules) {
+            conf->cgi_var_rules = new->cgi_var_rules;
+        }
+        else {
+            conf->cgi_var_rules = apr_hash_overlay(a, new->cgi_var_rules, conf->cgi_var_rules);
+        }
+    }
 
     AP_CORE_MERGE_FLAG(qualify_redirect_url, conf, base, new);
 
@@ -845,35 +857,36 @@ char *ap_response_code_string(request_rec *r, int error_index)
 
 
 /* Code from Harald Hanche-Olsen <hanche@imf.unit.no> */
-static APR_INLINE void do_double_reverse (conn_rec *conn)
+static APR_INLINE int do_double_reverse (int double_reverse,
+                                         const char *remote_host,
+                                         apr_sockaddr_t *client_addr,
+                                         apr_pool_t *pool)
 {
     apr_sockaddr_t *sa;
     apr_status_t rv;
 
-    if (conn->double_reverse) {
+    if (double_reverse) {
         /* already done */
-        return;
+        return double_reverse;
     }
 
-    if (conn->remote_host == NULL || conn->remote_host[0] == '\0') {
+    if (remote_host == NULL || remote_host[0] == '\0') {
         /* single reverse failed, so don't bother */
-        conn->double_reverse = -1;
-        return;
+        return -1;
     }
 
-    rv = apr_sockaddr_info_get(&sa, conn->remote_host, APR_UNSPEC, 0, 0, conn->pool);
+    rv = apr_sockaddr_info_get(&sa, remote_host, APR_UNSPEC, 0, 0, pool);
     if (rv == APR_SUCCESS) {
         while (sa) {
-            if (apr_sockaddr_equal(sa, conn->client_addr)) {
-                conn->double_reverse = 1;
-                return;
+            if (apr_sockaddr_equal(sa, client_addr)) {
+                return 1;
             }
 
             sa = sa->next;
         }
     }
 
-    conn->double_reverse = -1;
+    return -1;
 }
 
 AP_DECLARE(const char *) ap_get_remote_host(conn_rec *conn, void *dir_config,
@@ -911,7 +924,10 @@ AP_DECLARE(const char *) ap_get_remote_host(conn_rec *conn, void *dir_config,
             ap_str_tolower(conn->remote_host);
 
             if (hostname_lookups == HOSTNAME_LOOKUP_DOUBLE) {
-                do_double_reverse(conn);
+                conn->double_reverse = do_double_reverse(conn->double_reverse,
+                                                         conn->remote_host,
+                                                         conn->client_addr,
+                                                         conn->pool);
                 if (conn->double_reverse != 1) {
                     conn->remote_host = NULL;
                 }
@@ -925,7 +941,9 @@ AP_DECLARE(const char *) ap_get_remote_host(conn_rec *conn, void *dir_config,
     }
 
     if (type == REMOTE_DOUBLE_REV) {
-        do_double_reverse(conn);
+        conn->double_reverse = do_double_reverse(conn->double_reverse,
+                                                 conn->remote_host,
+                                                 conn->client_addr, conn->pool);
         if (conn->double_reverse == -1) {
             return NULL;
         }
@@ -946,6 +964,86 @@ AP_DECLARE(const char *) ap_get_remote_host(conn_rec *conn, void *dir_config,
         else {
             *str_is_ip = 1;
             return conn->client_ip;
+        }
+    }
+}
+
+AP_DECLARE(const char *) ap_get_useragent_host(request_rec *r,
+                                               int type, int *str_is_ip)
+{
+    conn_rec *conn = r->connection;
+    int hostname_lookups;
+    int ignored_str_is_ip;
+
+    /* Guard here when examining the host before the read_request hook
+     * has populated an r->useragent_addr
+     */
+    if (!r->useragent_addr || (r->useragent_addr == conn->client_addr)) {
+        return ap_get_remote_host(conn, r->per_dir_config, type, str_is_ip);
+    }
+
+    if (!str_is_ip) { /* caller doesn't want to know */
+        str_is_ip = &ignored_str_is_ip;
+    }
+    *str_is_ip = 0;
+
+    hostname_lookups = ((core_dir_config *)
+                        ap_get_core_module_config(r->per_dir_config))
+                            ->hostname_lookups;
+    if (hostname_lookups == HOSTNAME_LOOKUP_UNSET) {
+        hostname_lookups = HOSTNAME_LOOKUP_OFF;
+    }
+
+    if (type != REMOTE_NOLOOKUP
+        && r->useragent_host == NULL
+        && (type == REMOTE_DOUBLE_REV
+        || hostname_lookups != HOSTNAME_LOOKUP_OFF)) {
+
+        if (apr_getnameinfo(&r->useragent_host, r->useragent_addr, 0)
+            == APR_SUCCESS) {
+            ap_str_tolower(r->useragent_host);
+
+            if (hostname_lookups == HOSTNAME_LOOKUP_DOUBLE) {
+                r->double_reverse = do_double_reverse(r->double_reverse,
+                                                      r->useragent_host,
+                                                      r->useragent_addr,
+                                                      r->pool);
+                if (r->double_reverse != 1) {
+                    r->useragent_host = NULL;
+                }
+            }
+        }
+
+        /* if failed, set it to the NULL string to indicate error */
+        if (r->useragent_host == NULL) {
+            r->useragent_host = "";
+        }
+    }
+
+    if (type == REMOTE_DOUBLE_REV) {
+        r->double_reverse = do_double_reverse(r->double_reverse,
+                                              r->useragent_host,
+                                              r->useragent_addr, r->pool);
+        if (r->double_reverse == -1) {
+            return NULL;
+        }
+    }
+
+    /*
+     * Return the desired information; either the remote DNS name, if found,
+     * or either NULL (if the hostname was requested) or the IP address
+     * (if any identifier was requested).
+     */
+    if (r->useragent_host != NULL && r->useragent_host[0] != '\0') {
+        return r->useragent_host;
+    }
+    else {
+        if (type == REMOTE_HOST || type == REMOTE_DOUBLE_REV) {
+            return NULL;
+        }
+        else {
+            *str_is_ip = 1;
+            return r->useragent_ip;
         }
     }
 }
@@ -1359,7 +1457,7 @@ static const char *unset_define(cmd_parms *cmd, void *dummy,
     defines = (char **)ap_server_config_defines->elts;
     for (i = 0; i < ap_server_config_defines->nelts; i++) {
         if (strcmp(defines[i], name) == 0) {
-            defines[i] = apr_array_pop(ap_server_config_defines);
+            defines[i] = *(char **)apr_array_pop(ap_server_config_defines);
             break;
         }
     }
@@ -1452,7 +1550,7 @@ static const char *set_document_root(cmd_parms *cmd, void *dummy,
     /* TODO: ap_configtestonly */
     if (apr_filepath_merge((char**)&conf->ap_document_root, NULL, arg,
                            APR_FILEPATH_TRUENAME, cmd->pool) != APR_SUCCESS
-        || !ap_is_directory(cmd->pool, arg)) {
+        || !ap_is_directory(cmd->temp_pool, arg)) {
         if (cmd->server->is_virtual) {
             ap_log_perror(APLOG_MARK, APLOG_STARTUP, 0,
                           cmd->pool, APLOGNO(00112)
@@ -1461,7 +1559,9 @@ static const char *set_document_root(cmd_parms *cmd, void *dummy,
             conf->ap_document_root = arg;
         }
         else {
-            return "DocumentRoot must be a directory";
+            return apr_psprintf(cmd->pool, 
+                                "DocumentRoot '%s' is not a directory, or is not readable",
+                                arg);
         }
     }
     return NULL;
@@ -1710,6 +1810,31 @@ static const char *set_cgi_pass_auth(cmd_parms *cmd, void *d_, int flag)
     return NULL;
 }
 
+static const char *set_cgi_var(cmd_parms *cmd, void *d_,
+                               const char *var, const char *rule_)
+{
+    core_dir_config *d = d_;
+    char *rule = apr_pstrdup(cmd->pool, rule_);
+
+    ap_str_tolower(rule);
+
+    if (!strcmp(var, "REQUEST_URI")) {
+        if (strcmp(rule, "current-uri") && strcmp(rule, "original-uri")) {
+            return "Valid rules for REQUEST_URI are 'current-uri' and 'original-uri'";
+        }
+    }
+    else {
+        return apr_pstrcat(cmd->pool, "Unrecognized CGI variable: \"",
+                           var, "\"", NULL);
+    }
+
+    if (!d->cgi_var_rules) {
+        d->cgi_var_rules = apr_hash_make(cmd->pool);
+    }
+    apr_hash_set(d->cgi_var_rules, var, APR_HASH_KEY_STRING, rule);
+    return NULL;
+}
+
 static const char *set_qualify_redirect_url(cmd_parms *cmd, void *d_, int flag)
 {
     core_dir_config *d = d_;
@@ -1890,16 +2015,14 @@ static const char *set_sethandler(cmd_parms *cmd,
                                      const char *arg_)
 {
     core_dir_config *dirconf = d_;
-
-    if (arg_ == ap_strstr_c(arg_, "proxy:unix")) { 
-        dirconf->handler = arg_;
+    const char *err;
+    dirconf->expr_handler = ap_expr_parse_cmd(cmd, arg_,
+                                          AP_EXPR_FLAG_STRING_RESULT,
+                                          &err, NULL);
+    if (err) {
+        return apr_pstrcat(cmd->pool,
+                "Can't parse expression : ", err, NULL);
     }
-    else { 
-        char *arg = apr_pstrdup(cmd->pool,arg_);
-        ap_str_tolower(arg);
-        dirconf->handler = arg;
-    }
-
     return NULL;
 }
 
@@ -2603,17 +2726,7 @@ static const char *start_ifmod(cmd_parms *cmd, void *mconfig, const char *arg)
 
 AP_DECLARE(int) ap_exists_config_define(const char *name)
 {
-    char **defines;
-    int i;
-
-    defines = (char **)ap_server_config_defines->elts;
-    for (i = 0; i < ap_server_config_defines->nelts; i++) {
-        if (strcmp(defines[i], name) == 0) {
-            return 1;
-        }
-    }
-
-    return 0;
+    return ap_array_str_contains(ap_server_config_defines, name);
 }
 
 static const char *start_ifdefine(cmd_parms *cmd, void *dummy, const char *arg)
@@ -2906,7 +3019,7 @@ static const char *set_runtime_dir(cmd_parms *cmd, void *dummy, const char *arg)
     }
 
     if ((apr_filepath_merge((char**)&ap_runtime_dir, NULL,
-                            ap_server_root_relative(cmd->pool, arg),
+                            ap_server_root_relative(cmd->temp_pool, arg),
                             APR_FILEPATH_TRUENAME, cmd->pool) != APR_SUCCESS)
         || !ap_is_directory(cmd->temp_pool, ap_runtime_dir)) {
         return "DefaultRuntimeDir must be a valid directory, absolute or relative to ServerRoot";
@@ -3059,6 +3172,10 @@ static const char *include_config (cmd_parms *cmd, void *dummy,
     int optional = cmd->cmd->cmd_data ? 1 : 0;
     void *data;
 
+    /* NOTE: ap_include_sentinel is also used by ap_process_resource_config()
+     * during DUMP_INCLUDES; don't change its type or remove it without updating
+     * the other.
+     */
     apr_pool_userdata_get(&data, "ap_include_sentinel", cmd->pool);
     if (data) {
         recursion = data;
@@ -3081,6 +3198,24 @@ static const char *include_config (cmd_parms *cmd, void *dummy,
         *recursion = 0;
         return apr_pstrcat(cmd->pool, "Invalid Include path ",
                            name, NULL);
+    }
+
+    if (ap_exists_config_define("DUMP_INCLUDES")) {
+        unsigned *line_number;
+
+        /* NOTE: ap_include_lineno is used by ap_process_resource_config()
+         * during DUMP_INCLUDES; don't change its type or remove it without
+         * updating the other.
+         */
+        apr_pool_userdata_get(&data, "ap_include_lineno", cmd->pool);
+        if (data) {
+            line_number = data;
+        } else {
+            data = line_number = apr_palloc(cmd->pool, sizeof(*line_number));
+            apr_pool_userdata_setn(data, "ap_include_lineno", NULL, cmd->pool);
+        }
+
+        *line_number = cmd->config_file->line_number;
     }
 
     error = ap_process_fnmatch_configs(cmd->server, conffile, &conftree,
@@ -4219,6 +4354,8 @@ AP_INIT_TAKE12("LimitInternalRecursion", set_recursion_limit, NULL, RSRC_CONF,
 AP_INIT_FLAG("CGIPassAuth", set_cgi_pass_auth, NULL, OR_AUTHCFG,
              "Controls whether HTTP authorization headers, normally hidden, will "
              "be passed to scripts"),
+AP_INIT_TAKE2("CGIVar", set_cgi_var, NULL, OR_FILEINFO,
+              "Controls how some CGI variables are set"),
 AP_INIT_FLAG("QualifyRedirectURL", set_qualify_redirect_url, NULL, OR_FILEINFO,
              "Controls whether HTTP authorization headers, normally hidden, will "
              "be passed to scripts"),
@@ -4370,8 +4507,30 @@ static int core_override_type(request_rec *r)
     if (conf->mime_type && strcmp(conf->mime_type, "none"))
         ap_set_content_type(r, (char*) conf->mime_type);
 
-    if (conf->handler && strcmp(conf->handler, "none"))
+    if (conf->expr_handler) { 
+        const char *err;
+        const char *val;
+        val = ap_expr_str_exec(r, conf->expr_handler, &err);
+        if (err) {
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(03154)
+                          "Can't evaluate handler expression: %s", err);
+            return HTTP_INTERNAL_SERVER_ERROR;
+        }
+
+        if (val != ap_strstr_c(val, "proxy:unix")) { 
+            /* Retained for compatibility --  but not for UDS */
+            char *tmp = apr_pstrdup(r->pool, val);
+            ap_str_tolower(tmp);
+            val = tmp;
+        }
+
+        if (strcmp(val, "none")) { 
+            r->handler = val;
+        }
+    }
+    else if (conf->handler && strcmp(conf->handler, "none")) { 
         r->handler = conf->handler;
+    }
 
     /* Deal with the poor soul who is trying to force path_info to be
      * accepted within the core_handler, where they will let the subreq
@@ -4745,7 +4904,7 @@ static conn_rec *core_create_conn(apr_pool_t *ptrans, server_rec *server,
     conn_rec *c = (conn_rec *) apr_pcalloc(ptrans, sizeof(conn_rec));
 
     c->sbh = sbh;
-    (void)ap_update_child_status(c->sbh, SERVER_BUSY_READ, (request_rec *)NULL);
+    ap_update_child_status(c->sbh, SERVER_BUSY_READ, NULL);
 
     /* Got a connection structure, so initialize what fields we can
      * (the rest are zeroed out by pcalloc).

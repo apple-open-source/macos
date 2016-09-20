@@ -24,7 +24,7 @@
 #include "bsafecspi.h"
 #include <security_utilities/debugging.h>
 
-#define bbprintf(args...)	secdebug("BSafeBuf", ## args)
+#define bbprintf(args...)	secinfo("BSafeBuf", ## args)
 
 #define VERBOSE_DEBUG	0
 #if		VERBOSE_DEBUG

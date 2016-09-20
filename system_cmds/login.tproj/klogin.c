@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
@@ -10,7 +10,7 @@
  * except in compliance with the License.  Please obtain a copy of the
  * License at http://www.apple.com/publicsource and read it before using
  * this file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -18,7 +18,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
  * License for the specific language governing rights and limitations
  * under the License."
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*-
@@ -81,9 +81,7 @@ extern char *krbtkfile_env;
  *	  1 if Kerberos failed (try local password in login)
  */
 int
-klogin(pw, instance, localhost, password)
-	struct passwd *pw;
-	char *instance, *localhost, *password;
+klogin(struct passwd *pw, char *instance, char *localhost, char *password)
 {
 	int kerror;
 	AUTH_DAT authdata;
@@ -162,7 +160,7 @@ klogin(pw, instance, localhost, password)
 	kerror = krb_mk_req(&ticket, VERIFY_SERVICE, savehost, realm, 33);
 	if (kerror == KDC_PR_UNKNOWN) {
 		syslog(LOG_NOTICE,
-    		    "warning: TGT not verified (%s); %s.%s not registered, or srvtab is wrong?",
+		    "warning: TGT not verified (%s); %s.%s not registered, or srvtab is wrong?",
 		    krb_err_txt[kerror], VERIFY_SERVICE, savehost);
 		notickets = 0;
 		return (0);

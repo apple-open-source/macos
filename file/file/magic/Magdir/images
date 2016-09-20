@@ -1,6 +1,6 @@
 
 #------------------------------------------------------------------------------
-# $File: images,v 1.64 2009/12/06 00:38:50 christos Exp $
+# $File: images,v 1.107 2015/07/11 14:40:10 christos Exp $
 # images:  file(1) magic for image formats (see also "iff", and "c-lang" for
 # XPM bitmaps)
 #
@@ -18,32 +18,65 @@
 # `xv' recognizes only a subset of the following (RGB with pixelsize = 24)
 # `tgatoppm' recognizes a superset (Index may be anything)
 1	belong&0xfff7ffff	0x01010000	Targa image data - Map
+!:strength + 2
 >2	byte&8			8		- RLE
->12	leshort			>0		%hd x
->14	leshort			>0		%hd
+>12	leshort			>0		%d x
+>14	leshort			>0		%d
 1	belong&0xfff7ffff	0x00020000	Targa image data - RGB
+!:strength + 2
 >2	byte&8			8		- RLE
->12	leshort			>0		%hd x
->14	leshort			>0		%hd
+>12	leshort			>0		%d x
+>14	leshort			>0		%d
 1	belong&0xfff7ffff	0x00030000	Targa image data - Mono
+!:strength + 2
 >2	byte&8			8		- RLE
->12	leshort			>0		%hd x
->14	leshort			>0		%hd
+>12	leshort			>0		%d x
+>14	leshort			>0		%d
 
 # PBMPLUS images
 # The next byte following the magic is always whitespace.
-0	search/1	P1		Netpbm PBM image text
+# strength is changed to try these patterns before "x86 boot sector"
+0	name		netpbm
+>3	regex/s		=[0-9]{1,50}\ [0-9]{1,50}	Netpbm image data
+>>&0	regex		=[0-9]{1,50} 			\b, size = %s x
+>>>&0	regex		=[0-9]{1,50}			\b %s
+
+0	search/1	P1		
+>0	use		netpbm
+>>0	string		x	\b, bitmap
+!:strength + 45
 !:mime	image/x-portable-bitmap
-0	search/1	P2		Netpbm PGM image text
+
+0	search/1	P2		
+>0	use		netpbm
+>>0	string		x	\b, greymap
+!:strength + 45
 !:mime	image/x-portable-greymap
-0	search/1	P3		Netpbm PPM image text
+
+0	search/1	P3
+>0	use		netpbm
+>>0	string		x	\b, pixmap
+!:strength + 45
 !:mime	image/x-portable-pixmap
-0	string		P4		Netpbm PBM "rawbits" image data
+
+0	string		P4		
+>0	use		netpbm
+>>0	string		x	\b, rawbits, bitmap
+!:strength + 45
 !:mime	image/x-portable-bitmap
-0	string		P5		Netpbm PGM "rawbits" image data
+
+0	string		P5		
+>0	use		netpbm
+>>0	string		x	\b, rawbits, greymap
+!:strength + 45
 !:mime	image/x-portable-greymap
-0	string		P6		Netpbm PPM "rawbits" image data
+
+0	string		P6		
+>0	use		netpbm
+>>0	string		x	\b, rawbits, pixmap
+!:strength + 45
 !:mime	image/x-portable-pixmap
+
 0	string		P7		Netpbm PAM image file
 !:mime	image/x-portable-pixmap
 
@@ -63,12 +96,183 @@
 0	string		IIN1		NIFF image data
 !:mime	image/x-niff
 
+# Canon RAW version 1 (CRW) files are a type of Canon Image File Format
+# (CIFF) file. These are apparently all little-endian.
+# From: Adam Buchbinder <adam.buchbinder@gmail.com>
+# URL: http://www.sno.phy.queensu.ca/~phil/exiftool/canon_raw.html
+0	string		II\x1a\0\0\0HEAPCCDR	Canon CIFF raw image data
+!:mime	image/x-canon-crw
+>16	leshort		x	\b, version %d.
+>14	leshort		x	\b%d
+
+# Canon RAW version 2 (CR2) files are a kind of TIFF with an extra magic
+# number. Put this above the TIFF test to make sure we detect them.
+# These are apparently all little-endian.
+# From: Adam Buchbinder <adam.buchbinder@gmail.com>
+# URL: http://libopenraw.freedesktop.org/wiki/Canon_CR2
+0	string		II\x2a\0\x10\0\0\0CR	Canon CR2 raw image data
+!:mime	image/x-canon-cr2
+>10	byte		x	\b, version %d.
+>11	byte		x	\b%d
+
 # Tag Image File Format, from Daniel Quinlan (quinlan@yggdrasil.com)
 # The second word of TIFF files is the TIFF version number, 42, which has
 # never changed.  The TIFF specification recommends testing for it.
 0	string		MM\x00\x2a	TIFF image data, big-endian
 !:mime	image/tiff
+>(4.L)	use		\^tiff_ifd
 0	string		II\x2a\x00	TIFF image data, little-endian
+!:mime	image/tiff
+>(4.l)	use		tiff_ifd
+
+0	name		tiff_ifd
+>0	leshort		x		\b, direntries=%d
+>2	use		tiff_entry
+
+0	name		tiff_entry
+# NewSubFileType
+>0	leshort		0xfe
+>>12	use		tiff_entry
+>0	leshort		0x100
+>>4	lelong		1
+>>>12	use		tiff_entry
+>>>8	leshort		x		\b, width=%d
+>0	leshort		0x101
+>>4	lelong		1
+>>>8	leshort		x		\b, height=%d
+>>>12	use		tiff_entry
+>0	leshort		0x102
+>>8	leshort		x		\b, bps=%d
+>>12	use		tiff_entry
+>0	leshort		0x103
+>>4	lelong		1		\b, compression=
+>>>8	leshort		1		\bnone
+>>>8	leshort		2		\bhuffman
+>>>8	leshort		3		\bbi-level group 3
+>>>8	leshort		4		\bbi-level group 4
+>>>8	leshort		5		\bLZW
+>>>8	leshort		6		\bJPEG (old)
+>>>8	leshort		7		\bJPEG
+>>>8	leshort		8		\bdeflate
+>>>8	leshort		9		\bJBIG, ITU-T T.85
+>>>8	leshort		0xa		\bJBIG, ITU-T T.43
+>>>8	leshort		0x7ffe		\bNeXT RLE 2-bit
+>>>8	leshort		0x8005		\bPackBits (Macintosh RLE)
+>>>8	leshort		0x8029		\bThunderscan RLE
+>>>8	leshort		0x807f		\bRasterPadding (CT or MP)
+>>>8	leshort		0x8080		\bRLE (Line Work)
+>>>8	leshort		0x8081		\bRLE (High-Res Cont-Tone)
+>>>8	leshort		0x8082		\bRLE (Binary Line Work)
+>>>8	leshort		0x80b2		\bDeflate (PKZIP)
+>>>8	leshort		0x80b3		\bKodak DCS
+>>>8	leshort		0x8765		\bJBIG
+>>>8	leshort		0x8798		\bJPEG2000
+>>>8	leshort		0x8799		\bNikon NEF Compressed
+>>>8	default		x	
+>>>>8	leshort		x		\b(unknown 0x%x)
+>>>12	use		tiff_entry
+>0	leshort		0x106		\b, PhotometricIntepretation=
+>>8	clear		x
+>>8	leshort		0		\bWhiteIsZero
+>>8	leshort		1		\bBlackIsZero
+>>8	leshort		2		\bRGB
+>>8	leshort		3		\bRGB Palette
+>>8	leshort		4		\bTransparency Mask
+>>8	leshort		5		\bCMYK
+>>8	leshort		6		\bYCbCr
+>>8	leshort		8		\bCIELab
+>>8	default		x
+>>>8	leshort		x		\b(unknown=0x%x)
+>>12	use		tiff_entry
+# FillOrder
+>0	leshort		0x10a
+>>4	lelong		1
+>>>12	use		tiff_entry
+# DocumentName
+>0	leshort		0x10d
+>>(8.l)	string		x		\b, name=%s
+>>>12	use		tiff_entry
+# ImageDescription
+>0	leshort		0x10e
+>>(8.l)	string		x		\b, description=%s
+>>>12	use		tiff_entry
+# Make
+>0	leshort		0x10f
+>>(8.l)	string		x		\b, manufacturer=%s
+>>>12	use		tiff_entry
+# Model
+>0	leshort		0x110
+>>(8.l)	string		x		\b, model=%s
+>>>12	use		tiff_entry
+# StripOffsets
+>0	leshort		0x111
+>>12	use		tiff_entry
+# Orientation
+>0	leshort		0x112		\b, orientation=
+>>8	leshort		1		\bupper-left
+>>8	leshort		3		\blower-right
+>>8	leshort		6		\bupper-right
+>>8	leshort		8		\blower-left
+>>8	leshort		9		\bundefined
+>>8	default		x
+>>>8	leshort		x		\b[*%d*]
+>>12	use		tiff_entry
+# XResolution
+>0	leshort		0x11a
+>>8	lelong		x		\b, xresolution=%d
+>>12	use		tiff_entry
+# YResolution
+>0	leshort		0x11b
+>>8	lelong		x		\b, yresolution=%d
+>>12	use		tiff_entry
+# ResolutionUnit
+>0	leshort		0x128
+>>8	leshort		x		\b, resolutionunit=%d
+>>12	use		tiff_entry
+# Software
+>0	leshort		0x131
+>>(8.l)	string		x		\b, software=%s
+>>12	use		tiff_entry
+# Datetime
+>0	leshort		0x132
+>>(8.l)	string		x		\b, datetime=%s
+>>12	use		tiff_entry
+# HostComputer
+>0	leshort		0x13c
+>>(8.l)	string		x		\b, hostcomputer=%s
+>>12	use		tiff_entry
+# WhitePoint
+>0	leshort		0x13e
+>>12	use		tiff_entry
+# PrimaryChromaticities
+>0	leshort		0x13f
+>>12	use		tiff_entry
+# YCbCrCoefficients
+>0	leshort		0x211
+>>12	use		tiff_entry
+# YCbCrPositioning
+>0	leshort		0x213
+>>12	use		tiff_entry
+# ReferenceBlackWhite
+>0	leshort		0x214
+>>12	use		tiff_entry
+# Copyright
+>0	leshort		0x8298
+>>(8.l)	string		x		\b, copyright=%s
+>>12	use		tiff_entry
+# ExifOffset
+>0	leshort		0x8769
+>>12	use		tiff_entry
+# GPS IFD
+>0	leshort		0x8825		\b, GPS-Data
+>>12	use		tiff_entry
+
+#>0	leshort		x		\b, unknown=0x%x
+#>>12	use		tiff_entry
+
+0	string		MM\x00\x2b	Big TIFF image data, big-endian
+!:mime	image/tiff
+0	string		II\x2b\x00	Big TIFF image data, little-endian
 !:mime	image/tiff
 
 # PNG [Portable Network Graphics, or "PNG's Not GIF"] images
@@ -79,8 +283,8 @@
 #
 0	string		\x89PNG\x0d\x0a\x1a\x0a		PNG image data
 !:mime	image/png
->16	belong		x		\b, %ld x
->20	belong		x		%ld,
+>16	belong		x		\b, %d x
+>20	belong		x		%d,
 >24	byte		x		%d-bit
 >25	byte		0		grayscale,
 >25	byte		2		\b/color RGB,
@@ -115,8 +319,8 @@
 !:apple	8BIMGIFf
 >4	string		7a		\b, version 8%s,
 >4	string		9a		\b, version 8%s,
->6	leshort		>0		%hd x
->8	leshort		>0		%hd
+>6	leshort		>0		%d x
+>8	leshort		>0		%d
 #>10	byte		&0x80		color mapped,
 #>10	byte&0x07	=0x00		2 colors
 #>10	byte&0x07	=0x01		4 colors
@@ -179,8 +383,36 @@
 # From: Herbert Rosmanith <herp@wildsau.idv.uni.linz.at>
 0	string		Sfff		structured fax file
 
+# From: Joerg Jenderek <joerg.jen.der.ek@gmx.net>
+# most files with the extension .EPA and some with .BMP
+0	string		\x11\x06	Award BIOS Logo, 136 x 84
+!:mime	image/x-award-bioslogo
+0	string		\x11\x09	Award BIOS Logo, 136 x 126
+!:mime	image/x-award-bioslogo
+#0	string		\x07\x1f	BIOS Logo corrupted?
+# http://www.blackfiveservices.co.uk/awbmtools.shtml
+# http://biosgfx.narod.ru/v3/
+# http://biosgfx.narod.ru/abr-2/
+0	string		AWBM		
+>4	leshort		<1981		Award BIOS bitmap
+!:mime	image/x-award-bmp
+# image width is a multiple of 4
+>>4	leshort&0x0003	0		
+>>>4		leshort	x		\b, %d
+>>>6		leshort	x		x %d
+>>4	leshort&0x0003	>0		\b,
+>>>4	leshort&0x0003	=1		
+>>>>4		leshort	x		%d+3
+>>>4	leshort&0x0003	=2		
+>>>>4		leshort	x		%d+2
+>>>4	leshort&0x0003	=3		
+>>>>4		leshort	x		%d+1
+>>>6		leshort	x		x %d
+# at offset 8 starts imagedata followed by "RGB " marker
 
 # PC bitmaps (OS/2, Windows BMP files)  (Greg Roelofs, newt@uchicago.edu)
+# http://en.wikipedia.org/wiki/BMP_file_format#DIB_header_.\
+# 28bitmap_information_header.29
 0	string		BM
 >14	leshort		12		PC bitmap, OS/2 1.x format
 !:mime	image/x-ms-bmp
@@ -191,6 +423,16 @@
 >>18	leshort		x		\b, %d x
 >>20	leshort		x		%d
 >14	leshort		40		PC bitmap, Windows 3.x format
+!:mime	image/x-ms-bmp
+>>18	lelong		x		\b, %d x
+>>22	lelong		x		%d x
+>>28	leshort		x		%d
+>14	leshort		124		PC bitmap, Windows 98/2000 and newer format
+!:mime	image/x-ms-bmp
+>>18	lelong		x		\b, %d x
+>>22	lelong		x		%d x
+>>28	leshort		x		%d
+>14	leshort		108		PC bitmap, Windows 95/NT4 and newer format
 !:mime	image/x-ms-bmp
 >>18	lelong		x		\b, %d x
 >>22	lelong		x		%d x
@@ -209,8 +451,8 @@
 #0	string		BA		PC bitmap array data
 
 # XPM icons (Greg Roelofs, newt@uchicago.edu)
-# note possible collision with C/REXX entry in c-lang; currently commented out
 0	search/1	/*\ XPM\ */	X pixmap image text
+!:mime	image/x-xpmi
 
 # Utah Raster Toolkit RLE images (janl@ifi.uio.no)
 0	leshort		0xcc52		RLE image data,
@@ -310,11 +552,20 @@
 #   As described in /usr/X11R6/include/X11/XWDFile.h
 #   used by the xwd program.
 #   Bradford Castalia, idaeim, 1/01
-4	belong	7			XWD X Window Dump image data
->100	string	>\0			\b, "%s"
->16	belong	x			\b, %dx
->20	belong	x			\b%dx
->12	belong	x			\b%d
+#   updated by Adam Buchbinder, 2/09
+# The following assumes version 7 of the format; the first long is the length
+# of the header, which is at least 25 4-byte longs, and the one at offset 8
+# is a constant which is always either 1 or 2. Offset 12 is the pixmap depth,
+# which is a maximum of 32.
+0	belong	>100
+>8	belong	<3
+>>12	belong	<33
+>>>4	belong	7			XWD X Window Dump image data
+!:mime	image/x-xwindowdump
+>>>>100	string	>\0			\b, "%s"
+>>>>16	belong	x			\b, %dx
+>>>>20	belong	x			\b%dx
+>>>>12	belong	x			\b%d
 
 # PDS - Planetary Data System
 #   These files use Parameter Value Language in the header section.
@@ -343,7 +594,7 @@
 >5	byte	0x00		(white background)
 >5	byte	0xFF		(black background)
 
-# Gürkan Sengün <gurkan@linuks.mine.nu>, www.linuks.mine.nu
+# Gurkan Sengun <gurkan@linuks.mine.nu>, www.linuks.mine.nu
 # http://www.atarimax.com/jindroush.atari.org/afmtatr.html
 0	leshort	0x0296		Atari ATR image
 
@@ -368,38 +619,39 @@
 #>12	beshort	3		RP175
 #>12	beshort	4		YUV
 
-#------------------------------------------------------------------------------
-#
-# Marco Schmidt (marcoschmidt@users.sourceforge.net) -- an image  file format
-# for the EPOC operating system, which is used with PDAs like those from Psion
-#
-# see http://huizen.dds.nl/~frodol/psiconv/html/Index.html for a description
-# of various EPOC file formats
-
-0	string \x37\x00\x00\x10\x42\x00\x00\x10\x00\x00\x00\x00\x39\x64\x39\x47 EPOC MBM image file
-
 # PCX image files
 # From: Dan Fandrich <dan@coneharvesters.com>
-0	beshort		0x0a00	PCX ver. 2.5 image data
-0	beshort		0x0a02	PCX ver. 2.8 image data, with palette
-0	beshort		0x0a03	PCX ver. 2.8 image data, without palette
-0	beshort		0x0a04	PCX for Windows image data
-0	beshort		0x0a05	PCX ver. 3.0 image data
->4	leshort		x      bounding box [%hd,
->6	leshort		x      %hd] -
->8	leshort		x      [%hd,
->10	leshort		x      %hd],
->65	byte		>1	%d planes each of
->3	byte		x	%hhd-bit
->68	byte		0	image,
->68	byte		1	colour,
->68	byte		2	grayscale,
->68	byte		>2	image,
->68	byte		<0	image,
->12	leshort		>0	%hd x
->>14	leshort		x      %hd dpi,
->2	byte		0	uncompressed
->2	byte		1	RLE compressed
+# updated by Joerg Jenderek at Feb 2013 by http://de.wikipedia.org/wiki/PCX
+# http://web.archive.org/web/20100206055706/http://www.qzx.com/pc-gpe/pcx.txt
+# GRR: original test was still too general as it catches xbase examples T5.DBT,T6.DBT with 0xa000000
+# test for bytes 0x0a,version byte (0,2,3,4,5),compression byte flag(0,1), bit depth (>0) of PCX or T5.DBT,T6.DBT
+0	ubelong&0xffF8fe00	0x0a000000	
+# for PCX bit depth > 0 
+>3	ubyte		>0	
+# test for valid versions
+>>1	ubyte		<6	
+>>>1	ubyte		!1	PCX
+!:mime	image/x-pcx
+#!:mime	image/pcx
+>>>>1	ubyte		0	ver. 2.5 image data
+>>>>1	ubyte		2	ver. 2.8 image data, with palette
+>>>>1	ubyte		3	ver. 2.8 image data, without palette
+>>>>1	ubyte		4	for Windows image data
+>>>>1	ubyte		5	ver. 3.0 image data
+>>>>4	uleshort	x	bounding box [%d,
+>>>>6	uleshort	x	%d] -
+>>>>8	uleshort	x	[%d,
+>>>>10	uleshort	x	%d],
+>>>>65	ubyte		>1	%d planes each of
+>>>>3	ubyte		x	%d-bit
+>>>>68	byte		1	colour,
+>>>>68	byte		2	grayscale,
+# this should not happen
+>>>>68	default		x	image,
+>>>>12	leshort		>0	%d x
+>>>>>14	uleshort	x	%d dpi,
+>>>>2	byte		0	uncompressed
+>>>>2	byte		1	RLE compressed
 
 # Adobe Photoshop
 # From: Asbjoern Sloth Toennesen <asbjorn@lila.io>
@@ -433,7 +685,26 @@
 >25	string	>\0	dated %.14s
 
 # GEM Image: Version 1, Headerlen 8 (Wolfram Kleff)
-0	belong		0x00010008	GEM Image data
+# Format variations from: Bernd Nuernberger <bernd.nuernberger@web.de>
+# See http://fileformats.archiveteam.org/wiki/GEM_Raster
+# For variations, also see:
+#    http://www.seasip.info/Gem/ff_img.html (Ventura) 
+#    http://www.atari-wiki.com/?title=IMG_file (XIMG, STTT)
+#    http://www.fileformat.info/format/gemraster/spec/index.htm (XIMG, STTT)
+#    http://sylvana.net/1stguide/1STGUIDE.ENG (TIMG)
+0       beshort     0x0001
+>2      beshort     0x0008      GEM Image data
+>>0     use gem_info
+>2      beshort     0x0009      GEM Image data (Ventura)
+>>0     use gem_info
+16      string      XIMG\0      GEM XIMG Image data
+>0      use gem_info
+16      string      STTT\0\x10  GEM STTT Image data 
+>0      use gem_info
+16      string      TIMG\0      GEM TIMG Image data
+>0      use gem_info
+
+0   name        gem_info
 >12	beshort		x		%d x
 >14	beshort		x		%d,
 >4	beshort		x		%d planes,
@@ -521,7 +792,7 @@
 # Author: Hans-Joachim Baader <hjb@pro-linux.de>
 0		string	PaRtImAgE-VoLuMe	PartImage
 >0x0020		string	0.6.1		file version %s
->>0x0060	lelong	>-1		volume %ld
+>>0x0060	lelong	>-1		volume %d
 #>>0x0064 8 byte identifier
 #>>0x007c reserved
 >>0x0200	string	>\0		type %s
@@ -544,18 +815,23 @@
 # Kodak Cineon format for scanned negatives
 # http://www.kodak.com/US/en/motion/support/dlad/
 0	lelong  0xd75f2a80	Cineon image data
->200	belong  >0		\b, %ld x
->204	belong  >0		%ld
+>200	belong  >0		\b, %d x
+>204	belong  >0		%d
 
 
 # Bio-Rad .PIC is an image format used by microscope control systems
 # and related image processing software used by biologists.
 # From: Vebjorn Ljosa <vebjorn@ljosa.com>
-54	leshort 12345		Bio-Rad .PIC Image File
->0	leshort >0		%hd x
->2	leshort >0		%hd,
->4	leshort =1		1 image in file
->4	leshort >1		%hd images in file
+# BOOL values are two-byte integers; use them to rule out false positives.
+# http://web.archive.org/web/20050317223257/www.cs.ubc.ca/spider/ladic/text/biorad.txt
+# Samples: http://www.loci.wisc.edu/software/sample-data
+14	leshort <2
+>62	leshort <2
+>>54	leshort 12345		Bio-Rad .PIC Image File
+>>>0	leshort >0		%d x
+>>>2	leshort >0		%d,
+>>>4	leshort =1		1 image in file
+>>>4	leshort >1		%d images in file
 
 # From Jan "Yenya" Kasprzak <kas@fi.muni.cz>
 # The description of *.mrw format can be found at
@@ -577,9 +853,61 @@
 >12	string	THUM		DjVu page thumbnails
 !:mime	image/vnd.djvu
 
+# Originally by Marc Espie
+# Modified by Robert Minsk <robertminsk at yahoo.com>
+# http://www.openexr.com/openexrfilelayout.pdf
+0	lelong		20000630	OpenEXR image data,
+!:mime image/x-exr
+>4	lelong&0x000000ff x		version %d,
+>4	lelong		^0x00000200	storage: scanline
+>4	lelong		&0x00000200	storage: tiled
+>8	search/0x1000	compression\0	\b, compression:
+>>&16	byte		0		none
+>>&16	byte		1		rle
+>>&16	byte		2		zips
+>>&16	byte		3		zip
+>>&16	byte		4		piz
+>>&16	byte		5		pxr24
+>>&16	byte		6		b44
+>>&16	byte		7		b44a
+>>&16	byte		>7		unknown
+>8	 search/0x1000	dataWindow\0	\b, dataWindow:
+>>&10	lelong		x		(%d
+>>&14	lelong		x		%d)-
+>>&18	lelong		x		\b(%d
+>>&22	lelong		x		%d)
+>8	search/0x1000	displayWindow\0	\b, displayWindow:
+>>&10	lelong		x		(%d
+>>&14	lelong		x		%d)-
+>>&18	lelong		x		\b(%d
+>>&22	lelong		x		%d)
+>8	search/0x1000	lineOrder\0	 \b, lineOrder:
+>>&14	byte		0		increasing y
+>>&14	byte		1		decreasing y
+>>&14	byte		2		random y
+>>&14	byte		>2		unknown
 
-# From Marc Espie
-0	lelong	20000630		OpenEXR image data
+# SMPTE Digital Picture Exchange Format, SMPTE DPX
+#
+# ANSI/SMPTE 268M-1994, SMPTE Standard for File Format for Digital
+# Moving-Picture Exchange (DPX), v1.0, 18 February 1994
+# Robert Minsk <robertminsk at yahoo.com>
+0	string		SDPX	DPX image data, big-endian,
+!:mime image/x-dpx
+>768	beshort		<4
+>>772	belong		x	%dx
+>>776	belong		x	\b%d,
+>768	beshort		>3
+>>776	belong		x	%dx
+>>772	belong		x	\b%d,
+>768	beshort		0	left to right/top to bottom
+>768	beshort		1	right to left/top to bottom
+>768	beshort		2	left to right/bottom to top
+>768	beshort		3	right to left/bottom to top
+>768	beshort		4	top to bottom/left to right
+>768	beshort		5	top to bottom/right to left
+>768	leshort		6	bottom to top/left to right
+>768	leshort		7	bottom to top/right to left
 
 # From: Tom Hilinski <tom.hilinski@comcast.net>
 # http://www.unidata.ucar.edu/packages/netcdf/
@@ -590,8 +918,17 @@
 # specifications at http://hdf.ncsa.uiuc.edu/
 0	belong	0x0e031301	Hierarchical Data Format (version 4) data
 !:mime	application/x-hdf
-0	string	\211HDF\r\n\032	Hierarchical Data Format (version 5) data
+0	string	\211HDF\r\n\032\n	Hierarchical Data Format (version 5) data
 !:mime	application/x-hdf
+512	string	\211HDF\r\n\032\n	Hierarchical Data Format (version 5) with 512 bytes user block
+!:mime	application/x-hdf
+1024	string	\211HDF\r\n\032\n	Hierarchical Data Format (version 5) with 1k user block
+!:mime	application/x-hdf
+2048	string	\211HDF\r\n\032\n	Hierarchical Data Format (version 5) with 2k user block
+!:mime	application/x-hdf
+4096	string	\211HDF\r\n\032\n	Hierarchical Data Format (version 5) with 4k user block
+!:mime	application/x-hdf
+
 
 # From: Tobias Burnus <burnus@net-b.de>
 # Xara (for a while: Corel Xara) is a graphic package, see
@@ -627,6 +964,159 @@
 # From Tano M Fotang <mfotang@quanteq.com>
 0	string	\xff\xa0\xff\xa8\x00	Wavelet Scalar Quantization image data
 
-# JPEG 2000 Code Stream Bitmap
-# From Petr Splichal <psplicha@redhat.com>
-0	string	\xFF\x4F\xFF\x51\x00	JPEG-2000 Code Stream Bitmap data
+# Type:		PCO B16 image files
+# URL:		http://www.pco.de/fileadmin/user_upload/db/download/MA_CWDCOPIE_0412b.pdf
+# From:		Florian Philipp <florian.philipp@binarywings.net>
+# Extension:	.b16
+# Description:	Pixel image format produced by PCO Camware, typically used
+#		together with PCO cameras.
+# Note:		Different versions exist for e.g. 8 bit and 16 bit images.
+#		Documentation is incomplete.
+0	string/b	PCO-	PCO B16 image data
+>12	lelong		x	\b, %dx
+>16	lelong		x	\b%d
+>20	lelong		0	\b, short header
+>20	lelong		-1	\b, extended header
+>>24	lelong		0	\b, grayscale
+>>>36	lelong		0	linear LUT
+>>>36	lelong		1	logarithmic LUT
+>>>28	lelong		x	[%d
+>>>32	lelong		x	\b,%d]
+>>24	lelong		1	\b, color
+>>>64	lelong		0	linear LUT
+>>>64	lelong		1	logarithmic LUT
+>>>40	lelong		x	r[%d
+>>>44	lelong		x	\b,%d]
+>>>48	lelong		x	g[%d
+>>>52	lelong		x	\b,%d]
+>>>56	lelong		x	b[%d
+>>>60	lelong		x	\b,%d]
+
+# Polar Monitor Bitmap (.pmb) used as logo for Polar Electro watches
+# From: Markus Heidelberg <markus.heidelberg at web.de>
+0	string/t	[BitmapInfo2]	Polar Monitor Bitmap text
+!:mime	image/x-polar-monitor-bitmap
+
+# From: Rick Richardson <rickrich@gmail.com>
+0	string	GARMIN\ BITMAP\ 01	Garmin Bitmap file
+
+# Type:	Ulead Photo Explorer5 (.pe5)
+# URL:	http://www.jisyo.com/cgibin/view.cgi?EXT=pe5 (Japanese)
+# From:	Simon Horman <horms@debian.org>
+0	string	IIO2H			Ulead Photo Explorer5
+
+# Type:	X11 cursor
+# URL:	http://webcvs.freedesktop.org/mime/shared-mime-info/freedesktop.org.xml.in?view=markup
+# From:	Mathias Brodala <info@noctus.net>
+0	string	Xcur			X11 cursor
+
+# Type:	Olympus ORF raw images.
+# URL:	http://libopenraw.freedesktop.org/wiki/Olympus_ORF
+# From:	Adam Buchbinder <adam.buchbinder@gmail.com>
+0	string		MMOR		Olympus ORF raw image data, big-endian
+!:mime	image/x-olympus-orf
+0	string		IIRO		Olympus ORF raw image data, little-endian
+!:mime	image/x-olympus-orf
+0	string		IIRS		Olympus ORF raw image data, little-endian
+!:mime	image/x-olympus-orf
+
+# Type: files used in modern AVCHD camcoders to store clip information
+# Extension: .cpi
+# From: Alexander Danilov <alexander.a.danilov@gmail.com>
+0	string	HDMV0100	AVCHD Clip Information
+
+# From: Adam Buchbinder <adam.buchbinder@gmail.com>
+# URL: http://local.wasp.uwa.edu.au/~pbourke/dataformats/pic/
+# Radiance HDR; usually has .pic or .hdr extension.
+0	string	#?RADIANCE\n	Radiance HDR image data
+#!mime	image/vnd.radiance
+
+# From: Adam Buchbinder <adam.buchbinder@gmail.com>
+# URL: http://www.mpi-inf.mpg.de/resources/pfstools/pfs_format_spec.pdf
+# Used by the pfstools packages. The regex matches for the image size could
+# probably use some work. The MIME type is made up; if there's one in
+# actual common use, it should replace the one below.
+0	string	PFS1\x0a	PFS HDR image data
+#!mime	image/x-pfs
+>1	regex	[0-9]*\ 		\b, %s
+>>1	regex	\ [0-9]{4}		\bx%s
+
+# Type: Foveon X3F
+# URL:  http://www.photofo.com/downloads/x3f-raw-format.pdf
+# From: Adam Buchbinder <adam.buchbinder@gmail.com>
+# Note that the MIME type isn't defined anywhere that I can find; if
+# there's a canonical type for this format, it should replace this one.
+0	string	FOVb	Foveon X3F raw image data
+!:mime	image/x-x3f
+>6	leshort	x	\b, version %d.
+>4	leshort	x	\b%d
+>28	lelong	x	\b, %dx
+>32	lelong	x	\b%d
+
+# Paint.NET file
+# From Adam Buchbinder <adam.buchbinder@gmail.com>
+0	string	PDN3	Paint.NET image data
+!:mime	image/x-paintnet
+
+# Not really an image.
+# From: "Tano M. Fotang" <mfotang@quanteq.com>
+0	string	\x46\x4d\x52\x00	ISO/IEC 19794-2 Format Minutiae Record (FMR)
+
+# doc: http://www.shikino.co.jp/eng/products/images/FLOWER.jpg.zip
+# example: http://www.shikino.co.jp/eng/products/images/FLOWER.wdp.zip
+90	bequad		0x574D50484F544F00	JPEG-XR Image
+>98	byte&0x08	=0x08			\b, hard tiling
+>99	byte&0x80	=0x80			\b, tiling present
+>99	byte&0x40	=0x40			\b, codestream present
+>99	byte&0x38	x			\b, spatial xform=
+>99	byte&0x38	0x00			\bTL
+>99	byte&0x38	0x08			\bBL
+>99	byte&0x38	0x10			\bTR
+>99	byte&0x38	0x18			\bBR
+>99	byte&0x38	0x20			\bBT
+>99	byte&0x38	0x28			\bRB
+>99	byte&0x38	0x30			\bLT
+>99	byte&0x38	0x38			\bLB
+>100	byte&0x80	=0x80			\b, short header
+>>102	beshort+1	x			\b, %d
+>>104	beshort+1	x			\bx%d
+>100	byte&0x80	=0x00			\b, long header
+>>102	belong+1	x			\b, %x
+>>106	belong+1	x			\bx%x
+>101	beshort&0xf	x			\b, bitdepth=
+>>101	beshort&0xf	0x0			\b1-WHITE=1
+>>101	beshort&0xf	0x1			\b8
+>>101	beshort&0xf	0x2			\b16
+>>101	beshort&0xf	0x3			\b16-SIGNED
+>>101	beshort&0xf	0x4			\b16-FLOAT
+>>101	beshort&0xf	0x5			\b(reserved 5)
+>>101	beshort&0xf	0x6			\b32-SIGNED
+>>101	beshort&0xf	0x7			\b32-FLOAT
+>>101	beshort&0xf	0x8			\b5
+>>101	beshort&0xf	0x9			\b10
+>>101	beshort&0xf	0xa			\b5-6-5
+>>101	beshort&0xf	0xb			\b(reserved %d)
+>>101	beshort&0xf	0xc			\b(reserved %d)
+>>101	beshort&0xf	0xd			\b(reserved %d)
+>>101	beshort&0xf	0xe			\b(reserved %d)
+>>101	beshort&0xf	0xf			\b1-BLACK=1
+>101	beshort&0xf0	x			\b, colorfmt=
+>>101	beshort&0xf0	0x00			\bYONLY
+>>101	beshort&0xf0	0x10			\bYUV240
+>>101	beshort&0xf0	0x20			\bYWV422
+>>101	beshort&0xf0	0x30			\bYWV444
+>>101	beshort&0xf0	0x40			\bCMYK
+>>101	beshort&0xf0	0x50			\bCMYKDIRECT
+>>101	beshort&0xf0	0x60			\bNCOMPONENT
+>>101	beshort&0xf0	0x70			\bRGB
+>>101	beshort&0xf0	0x80			\bRGBE
+>>101	beshort&0xf0	>0x80			\b(reserved 0x%x)
+
+# From: Johan van der Knijff <johan.vanderknijff@kb.nl>
+#
+# BPG (Better Portable Graphics) format
+# http://bellard.org/bpg/
+# http://fileformats.archiveteam.org/wiki/BPG
+#
+0	string	\x42\x50\x47\xFB	BPG (Better Portable Graphics)
+!:mime  image/bpg

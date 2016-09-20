@@ -293,6 +293,21 @@
 >Ἐν ἀρχῇ ἦν ὁ λόγος, καὶ ὁ λόγος ἦν πρὸς τὸν θεόν, καὶ  ἦν ὁ λόγος
 >Ἐν ἀρχῇ ἦν ὁ λόγος, καὶ ὁ λόγος ἦν πρὸς τὸν θεόν, καὶ 
 
+  a="1ë34ë6"
+  print ${(BEN)a#*4}
+  print ${(BEN)a##*ë}
+  print ${(BEN)a%4*}
+  print ${(BEN)a%%ë*}
+  print ${(SBEN)a#ë3}
+  print ${(SBEN)a%4ë}
+0:Flags B, E, N and S in ${...#...} and ${...%...}
+>1 5 4
+>1 6 5
+>4 7 3
+>2 7 5
+>2 4 2
+>4 6 2
+
   foo=(κατέβην χθὲς εἰς Πειραιᾶ)
   print ${(l.3..¥.r.3..£.)foo}
   print ${(l.4..¥.r.2..£.)foo}
@@ -475,3 +490,59 @@
   . ./test_bad_param)
 127:Invalid parameter name with following tokenized input
 ?./test_bad_param:1: command not found: $\M-i#
+
+  lines=$'one\tＺＳＨ\tthree\nfour\tfive\tsix'
+  print -X8 -r -- $lines
+0:Tab expansion with extra-wide characters
+>one     ＺＳＨ  three
+>four    five    six
+# This doesn't look aligned in my editor because actually the characters
+# aren't quite double width, but the arithmetic is correct.
+# It appears just to be an effect of the font.
+
+  if zmodload zsh/regex 2>/dev/null; then
+    [[ $'\ua0' =~ '^.$' ]] && print OK
+    [[ $'\ua0' =~ $'^\ua0$' ]] && print OK
+    [[ $'\ua0'X =~ '^X$' ]] || print OK
+  else
+    ZTST_skip="regexp library not found."
+  fi
+0:Ensure no confusion on metafied input to regex module
+>OK
+>OK
+>OK
+
+  () {
+     emulate -L zsh
+     setopt errreturn
+     local cdpath=(.)
+     mkdir ホ
+     cd ホ
+     cd ..
+     cd ./ホ
+     cd ..
+  }
+0:cd with special characters
+
+  test_array=(
+  '[[ \xcc = \xcc ]]'
+  '[[ \xcc != \xcd ]]'
+  '[[ \xcc != \ucc ]]'
+  '[[ \ucc = \ucc ]]'
+  '[[ \ucc = [\ucc] ]]'
+  '[[ \xcc != [\ucc] ]]'
+  # Not clear how useful the following is...
+  '[[ \xcc = [\xcc] ]]'
+  )
+  for test in $test_array; do
+    if ! eval ${(g::)test} ; then
+      print -rl "Test $test failed" >&2
+    fi
+  done
+0:Invalid characters in pattern matching
+
+  [[ $'\xe3' == [[:INCOMPLETE:]] ]] || print fail 1
+  [[ $'\xe3\x83' == [[:INCOMPLETE:]][[:INVALID:]] ]] || print fail 2
+  [[ $'\xe3\x83\x9b' != [[:INCOMPLETE:][:INVALID:]] ]] || print fail 3
+  [[ $'\xe3\x83\x9b' = ? ]] || print fail 4
+0:Testing incomplete and invalid multibyte character components

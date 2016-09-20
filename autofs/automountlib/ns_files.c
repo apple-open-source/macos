@@ -64,7 +64,7 @@ init_files(char **stack, char ***stkptr)
 	 * is more appropriately initialized in the thread-private
 	 * routines
 	 */
-	if (stack == NULL && stkptr == NULL)
+	if (stack == NULL ||  stkptr == NULL)
 		return;
 	(void) stack_op(INIT, NULL, stack, stkptr);
 }
@@ -192,8 +192,16 @@ getmapent_files(key, mapname, ml, stack, stkptr, iswildcard, isrestricted)
 		}
 	}
 
-	(void) strcpy(ml->linebuf, lp);
-	(void) strcpy(ml->lineqbuf, lq);
+	if (strlcpy(ml->linebuf, lp, LINESZ) >= LINESZ) {
+		(void)memset(ml->linebuf, 0, LINESZ);
+		nserr = __NSW_UNAVAIL;
+		goto done;
+	}
+	if (strlcpy(ml->lineqbuf, lq, LINESZ) >= LINESZ) {
+		(void)memset(ml->lineqbuf, 0, LINESZ);
+		nserr = __NSW_UNAVAIL;
+		goto done;
+	}
 	nserr = __NSW_SUCCESS;
 done:
 	if (fp) {

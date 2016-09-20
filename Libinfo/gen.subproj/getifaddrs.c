@@ -402,23 +402,24 @@ getifaddrs(struct ifaddrs **pif)
 	if (--ift >= ifa) {
 		ift->ifa_next = NULL;
 		*pif = ifa;
-	} else {
-		*pif = NULL;
-		free(ifa);
-	}
-
-	for (ift = ifa; ift != NULL; ift = ift->ifa_next)
-	{
-		if (ift->ifa_addr->sa_family == AF_INET6)
+		
+		for (ift = ifa; ift != NULL; ift = ift->ifa_next)
 		{
-			sin6 = (struct sockaddr_in6 *)ift->ifa_addr;
-			if (IN6_IS_ADDR_LINKLOCAL(&sin6->sin6_addr) || IN6_IS_ADDR_SITELOCAL(&sin6->sin6_addr))
+			if (ift->ifa_addr->sa_family == AF_INET6)
 			{
-				esid = ntohs(sin6->sin6_addr.__u6_addr.__u6_addr16[1]);
-				sin6->sin6_addr.__u6_addr.__u6_addr16[1] = 0;
-				if (sin6->sin6_scope_id == 0) sin6->sin6_scope_id = esid;
+				sin6 = (struct sockaddr_in6 *)ift->ifa_addr;
+				if (IN6_IS_ADDR_LINKLOCAL(&sin6->sin6_addr) || IN6_IS_ADDR_SITELOCAL(&sin6->sin6_addr))
+				{
+					esid = ntohs(sin6->sin6_addr.__u6_addr.__u6_addr16[1]);
+					sin6->sin6_addr.__u6_addr.__u6_addr16[1] = 0;
+					if (sin6->sin6_scope_id == 0) sin6->sin6_scope_id = esid;
+				}
 			}
 		}
+	}
+	else {
+		*pif = NULL;
+		free(ifa);
 	}
 
 	return (0);

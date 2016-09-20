@@ -116,11 +116,11 @@ SOSRingRef SOSRingConvertAndAssertStable(CFTypeRef ringAsType) {
 CFStringRef SOSRingGetName(SOSRingRef ring) {
     assert(ring);
     assert(ring->signedInformation);
-    return CFDictionaryGetValue(ring->signedInformation, sNameKey);
+    return asString(CFDictionaryGetValue(ring->signedInformation, sNameKey), NULL);
 }
 
 const char *SOSRingGetNameC(SOSRingRef ring) {
-    CFStringRef name = SOSRingGetName(ring);
+    CFStringRef name = asString(SOSRingGetName(ring), NULL);
     if (!name)
         return strdup("");
     return CFStringToCString(name);
@@ -404,7 +404,7 @@ bool SOSRingSetPayload_Internal(SOSRingRef ring, CFDataRef payload) {
 
 CFSetRef SOSRingGetBackupViewset_Internal(SOSRingRef ring) {
     SOSRingAssertStable(ring);
-    return (CFSetRef) CFDictionaryGetValue(ring->signedInformation, sBackupViewSetKey);
+    return asSet(CFDictionaryGetValue(ring->signedInformation, sBackupViewSetKey), NULL);
 }
 
 bool SOSRingSetBackupViewset_Internal(SOSRingRef ring, CFSetRef viewSet) {
@@ -418,7 +418,7 @@ bool SOSRingSetBackupViewset_Internal(SOSRingRef ring, CFSetRef viewSet) {
 
 static inline CFMutableSetRef SOSRingGetPeerIDs(SOSRingRef ring) {
     SOSRingAssertStable(ring);
-    return (CFMutableSetRef) CFDictionaryGetValue(ring->signedInformation, sPeerIDsKey);
+    return (CFMutableSetRef) asSet(CFDictionaryGetValue(ring->signedInformation, sPeerIDsKey), NULL);
 }
 
 bool SOSRingSetPeerIDs(SOSRingRef ring, CFMutableSetRef peers) {
@@ -688,8 +688,13 @@ bool SOSRingVerify(SOSRingRef ring, SecKeyRef pubKey, CFErrorRef *error) {
 }
 
 bool SOSRingVerifyPeerSigned(SOSRingRef ring, SOSPeerInfoRef peer, CFErrorRef *error) {
-    SecKeyRef pubkey = SOSPeerInfoCopyPubKey(peer);
-    bool result = SOSRingVerify(ring, pubkey, error);
+    bool result = false;
+    SecKeyRef pubkey = SOSPeerInfoCopyPubKey(peer, error);
+    require_quiet(pubkey, fail);
+
+    result = SOSRingVerify(ring, pubkey, error);
+
+fail:
     CFReleaseSafe(pubkey);
     return result;
 }

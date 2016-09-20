@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -31,10 +31,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <asl.h>
 #include <CoreFoundation/CoreFoundation.h>
+
+#define	SC_LOG_HANDLE	__log_SCMonitor()
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
+
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOMessage.h>
 #include <ApplicationServices/ApplicationServices.h>
@@ -78,8 +80,6 @@ typedef struct {
 
 	Boolean				debug;
 
-	asl_object_t			log_msg;
-
 	CFStringRef			configuration_action;
 
 	CFRunLoopSourceRef		monitorRls;
@@ -107,6 +107,26 @@ static CFMutableDictionaryRef	notify_to_instance	= NULL;
 
 
 #pragma mark -
+#pragma mark Logging
+
+
+/*
+ * Logging
+ */
+static os_log_t
+__log_SCMonitor()
+{
+	static os_log_t	log	= NULL;
+
+	if (log == NULL) {
+		log = os_log_create("com.apple.SystemConfiguration", "SCMonitor");
+	}
+
+	return log;
+}
+
+
+#pragma mark -
 #pragma mark Authorization
 
 
@@ -122,9 +142,7 @@ getAuthorization(MyType *myInstance)
 					     flags,
 					     &myInstance->authorization);
 		if (status != errAuthorizationSuccess) {
-			SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR,
-			      CFSTR("AuthorizationCreate() failed: status = %d"),
-			      (int)status);
+			SC_log(LOG_ERR, "AuthorizationCreate() failed: status = %d", (int)status);
 		}
 	}
 
@@ -203,7 +221,7 @@ open_NetworkPrefPane(MyType *myInstance)
 			      strlen(NETWORK_PREF_CMD),
 			      &aeDesc);
 	if (status != noErr) {
-		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR, CFSTR("AECreateDesc() failed: %d"), (int)status);
+		SC_log(LOG_ERR, "AECreateDesc() failed: %d", (int)status);
 	}
 
 	prefSpec.appURL		= NULL;
@@ -214,7 +232,7 @@ open_NetworkPrefPane(MyType *myInstance)
 
 	status = LSOpenFromURLSpec(&prefSpec, NULL);
 	if (status != noErr) {
-		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR, CFSTR("LSOpenFromURLSpec() failed: %d"), (int)status);
+		SC_log(LOG_ERR, "LSOpenFromURLSpec() failed: %d", (int)status);
 	}
 
 	CFRelease(prefArray);
@@ -248,9 +266,9 @@ notify_remove(MyType *myInstance, Boolean cancel)
 
 			status = CFUserNotificationCancel(myInstance->userNotification);
 			if (status != 0) {
-				SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR,
-				      CFSTR("CFUserNotificationCancel() failed, status=%d"),
-				      (int)status);
+				SC_log(LOG_ERR,
+				       "CFUserNotificationCancel() failed, status=%d",
+				       (int)status);
 			}
 		}
 		CFRelease(myInstance->userNotification);
@@ -278,7 +296,7 @@ notify_reply(CFUserNotificationRef userNotification, CFOptionFlags response_flag
 		}
 	}
 	if (myInstance == NULL) {
-		SCLOG(NULL, NULL, ASL_LEVEL_ERR, CFSTR("can't find user notification"));
+		SC_log(LOG_ERR, "can't find user notification");
 		return;
 	}
 
@@ -348,7 +366,7 @@ notify_add(MyType *myInstance)
 		CFDictionarySetValue(dict, kCFUserNotificationLocalizationURLKey, url);
 		CFRelease(url);
 	} else {
-		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR, CFSTR("can't find bundle"));
+		SC_log(LOG_ERR, "can't find bundle");
 		goto done;
 	}
 
@@ -418,7 +436,7 @@ notify_add(MyType *myInstance)
 								&error,
 								dict);
 	if (myInstance->userNotification == NULL) {
-		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR, CFSTR("CFUserNotificationCreate() failed: %d"), (int)error);
+		SC_log(LOG_ERR, "CFUserNotificationCreate() failed: %d", (int)error);
 		goto done;
 	}
 
@@ -428,7 +446,7 @@ notify_add(MyType *myInstance)
 								    notify_reply,
 								    0);
 	if (myInstance->userRls == NULL) {
-		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR, CFSTR("CFUserNotificationCreateRunLoopSource() failed"));
+		SC_log(LOG_ERR, "CFUserNotificationCreateRunLoopSource() failed");
 		CFRelease(myInstance->userNotification);
 		myInstance->userNotification = NULL;
 		goto done;
@@ -475,10 +493,12 @@ notify_configure(MyType *myInstance)
 
 	set = SCNetworkSetCopyCurrent(prefs);
 	if (set == NULL) {
-		set = SCNetworkSetCreate(prefs);
+		// if no "current" set, create new/default ("Automatic") set
+		set = _SCNetworkSetCreateDefault(prefs);
 		if (set == NULL) {
 			goto done;
 		}
+		SC_log(LOG_DEBUG, "added new \"default\" set");
 	}
 
 	for (i = 0; i < n; i++) {
@@ -490,23 +510,23 @@ notify_configure(MyType *myInstance)
 			CFStringRef	name;
 
 			name = SCNetworkInterfaceGetLocalizedDisplayName(interface);
-			SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_NOTICE, CFSTR("add/update service for %@"), name);
+			SC_log(LOG_NOTICE, "add/update service for %@", name);
 		}
 	}
 
 	ok = SCPreferencesCommitChanges(prefs);
 	if (!ok) {
-		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR,
-		      CFSTR("SCPreferencesCommitChanges() failed: %s"),
-		      SCErrorString(SCError()));
+		SC_log(LOG_ERR,
+		       "SCPreferencesCommitChanges() failed: %s",
+		       SCErrorString(SCError()));
 		goto done;
 	}
 
 	ok = SCPreferencesApplyChanges(prefs);
 	if (!ok) {
-		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR,
-		      CFSTR("SCPreferencesApplyChanges() failed: %s"),
-		      SCErrorString(SCError()));
+		SC_log(LOG_ERR,
+		       "SCPreferencesApplyChanges() failed: %s",
+		       SCErrorString(SCError()));
 		goto done;
 	}
 
@@ -554,7 +574,8 @@ updateInterfaceList(MyType *myInstance)
 
 	set = SCNetworkSetCopyCurrent(prefs);
 	if (set == NULL) {
-		set = SCNetworkSetCreate(prefs);
+		// if no "current" set, create new/default ("Automatic") set
+		set = _SCNetworkSetCreateDefault(prefs);
 		if (set == NULL) {
 			goto done;
 		}
@@ -709,9 +730,9 @@ watcher_add_lan(MyType *myInstance)
 
 	store = SCDynamicStoreCreate(NULL, CFSTR("SCMonitor"), update_lan, &context);
 	if (store == NULL) {
-		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR,
-		      CFSTR("SCDynamicStoreCreate() failed: %s"),
-		      SCErrorString(SCError()));
+		SC_log(LOG_ERR,
+		       "SCDynamicStoreCreate() failed: %s",
+		       SCErrorString(SCError()));
 		return;
 	}
 
@@ -912,8 +933,9 @@ add_node_watcher(MyType *myInstance, io_registry_entry_t node, io_registry_entry
 		}
 		CFArrayAppendValue(myInstance->notifyNodes, myData);
 	} else {
-		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR,
-		      CFSTR("add_init_watcher IOServiceAddInterestNotification() failed, kr =  0x%x"), kr);
+		SC_log(LOG_ERR,
+		       "add_init_watcher IOServiceAddInterestNotification() failed, kr =  0x%x",
+		       kr);
 	}
 	CFRelease(myData);
 }
@@ -948,7 +970,7 @@ add_init_watcher(MyType *myInstance, io_registry_entry_t interface)
 			case kIOReturnNoDevice :	// if we have hit the root node
 				break;
 			default :
-				SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR, CFSTR("add_init_watcher IORegistryEntryGetParentEntry() failed, kr = 0x%x"), kr);
+				SC_log(LOG_ERR, "add_init_watcher IORegistryEntryGetParentEntry() failed, kr = 0x%x", kr);
 				break;
 		}
 		if (node != interface) {
@@ -1018,8 +1040,7 @@ watcher_add_serial(MyType *myInstance)
 
 	myInstance->notifyPort = IONotificationPortCreate(kIOMasterPortDefault);
 	if (myInstance->notifyPort == NULL) {
-		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR,
-		      CFSTR("IONotificationPortCreate failed"));
+		SC_log(LOG_ERR, "IONotificationPortCreate failed");
 		return;
 	}
 
@@ -1031,9 +1052,7 @@ watcher_add_serial(MyType *myInstance)
 					      (void *)myInstance,		// refCon
 					      &myInstance->notifyIterator);	// notification
 	if (kr != KERN_SUCCESS) {
-		SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR,
-		      CFSTR("SCMonitor : IOServiceAddMatchingNotification returned 0x%x"),
-		      kr);
+		SC_log(LOG_ERR, "SCMonitor : IOServiceAddMatchingNotification returned 0x%x", kr);
 		return;
 	}
 
@@ -1136,11 +1155,6 @@ watcher_add(MyType *myInstance)
 {
 	CFBundleRef	bundle;
 
-	if (myInstance->log_msg == NULL) {
-		myInstance->log_msg = asl_new(ASL_TYPE_MSG);
-		asl_set(myInstance->log_msg, ASL_KEY_FACILITY, MY_BUNDLE_ID);
-	}
-
 	bundle = CFBundleGetBundleWithIdentifier(CFSTR(MY_BUNDLE_ID));
 	if (bundle != NULL) {
 		CFStringRef	action;
@@ -1196,8 +1210,6 @@ watcher_remove(MyType *myInstance)
 		myInstance->interfaces_known = NULL;
 	}
 
-	asl_release(myInstance->log_msg);
-	myInstance->log_msg = NULL;
 	return;
 }
 

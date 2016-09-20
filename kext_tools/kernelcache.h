@@ -74,6 +74,10 @@ struct fat_arch * getFatArchForArchInfo(
 const NXArchInfo * 
 getThinHeaderPageArch(
     const void *headerPage);
+ExitStatus
+readFatFileArchsWith_fd(
+    int                the_fd,
+    CFMutableArrayRef * archsOut);
 ExitStatus readFatFileArchsWithPath(
     const char        * filePath,
     CFMutableArrayRef * archsOut);
@@ -87,11 +91,24 @@ ExitStatus readMachOSlices(
     mode_t            * modeOut,
     struct timeval      machOTimesOut[2]);
 
+ExitStatus readMachOSlicesWith_fd(
+    int                 the_fd,
+    CFMutableArrayRef * slicesOut,
+    CFMutableArrayRef * archsOut,
+    mode_t            * modeOut,
+    struct timeval      machOTimesOut[2]);
+
 CF_RETURNS_RETAINED
 CFDataRef  readMachOSliceForArch(
     const char        * filePath,
     const NXArchInfo  * archInfo,
     Boolean             checkArch);
+
+CF_RETURNS_RETAINED
+CFDataRef readMachOSliceForArchWith_fd(
+    int                   the_fd,
+    const NXArchInfo *    archInfo,
+    Boolean               checkArch);
 
 CF_RETURNS_RETAINED
 CFDataRef readMachOSlice(

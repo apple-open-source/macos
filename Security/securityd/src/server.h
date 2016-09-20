@@ -32,7 +32,6 @@
 #include <security_utilities/machserver.h>
 #include <security_utilities/powerwatch.h>
 #include <security_utilities/ccaudit.h>
-#include <security_utilities/threading.h>
 #include <security_cdsa_client/cssmclient.h>
 #include <security_cdsa_client/cspclient.h>
 #include <security_utilities/devrandom.h>
@@ -44,18 +43,7 @@
 #include "database.h"
 #include "localdatabase.h"
 #include "kcdatabase.h"
-#include "authority.h"
-#include "AuthorizationEngine.h"
 #include <map>
-
-//
-// The authority itself. You will usually only have one of these.
-//
-class Authority : public Authorization::Engine {
-public:
-	Authority(const char *configFile);
-	~Authority();
-};
 
 //
 // The server object itself. This is the "go to" object for anyone who wants
@@ -72,7 +60,7 @@ class Server : public PerGlobal,
 			   public MachPlusPlus::MachServer,
                public UniformRandomBlobs<DevRandomGenerator> {
 public:
-	Server(Authority &myAuthority, CodeSignatures &signatures, const char *bootstrapName);
+	Server(CodeSignatures &signatures, const char *bootstrapName);
 	~Server();
 		
     // run the server until it shuts down
@@ -126,7 +114,6 @@ public:
 	//
 	// publicly accessible components of the active server
 	//
-    static Authority &authority() { return active().mAuthority; }
 	static CodeSignatures &codeSignatures() { return active().mCodeSignatures; }
 	static CssmClient::CSP &csp() { return active().mCSP; }
 
@@ -215,7 +202,6 @@ private:
     CssmClient::Module mCSPModule;		// CSP module
 	CssmClient::CSP mCSP;				// CSP attachment
     
-	Authority &mAuthority;
 	CodeSignatures &mCodeSignatures;
 	
 	// busy state for primary state authority
@@ -233,5 +219,14 @@ public:
 	LongtermStLock(Mutex &lck);
 	// destructor inherited
 };
+
+
+//
+// Handling signals.
+// These are sent as Mach messages from ourselves to escape the limitations of
+// the signal handler environment.
+//
+kern_return_t self_server_handleSignal(mach_port_t sport, mach_port_t taskPort, int sig);
+kern_return_t self_server_handleSession(mach_port_t sport, mach_port_t taskPort, uint32_t event, uint64_t ident);
 
 #endif //_H_SERVER

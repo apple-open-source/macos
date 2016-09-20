@@ -47,23 +47,20 @@
 #include "TextTrack.h"
 #include "TextTrackCueList.h"
 #include "VTTCue.h"
+#include "VTTRegionList.h"
 #include <wtf/MathExtras.h>
 #include <wtf/text/StringBuilder.h>
-
-#if ENABLE(WEBVTT_REGIONS)
-#include "VTTRegionList.h"
-#endif
 
 namespace WebCore {
 
 static const int invalidCueIndex = -1;
 
-PassRefPtr<TextTrackCue> TextTrackCue::create(ScriptExecutionContext& context, double start, double end, const String& content)
+Ref<TextTrackCue> TextTrackCue::create(ScriptExecutionContext& context, double start, double end, const String& content)
 {
     return create(context, MediaTime::createWithDouble(start), MediaTime::createWithDouble(end), content);
 }
 
-PassRefPtr<TextTrackCue> TextTrackCue::create(ScriptExecutionContext& context, const MediaTime& start, const MediaTime& end, const String& content)
+Ref<TextTrackCue> TextTrackCue::create(ScriptExecutionContext& context, const MediaTime& start, const MediaTime& end, const String& content)
 {
     return VTTCue::create(context, start, end, content);
 }
@@ -193,10 +190,10 @@ void TextTrackCue::invalidateCueIndex()
     m_cueIndex = invalidCueIndex;
 }
 
-bool TextTrackCue::dispatchEvent(PassRefPtr<Event> event)
+bool TextTrackCue::dispatchEvent(Event& event)
 {
     // When a TextTrack's mode is disabled: no cues are active, no events fired.
-    if (!track() || track()->mode() == TextTrack::disabledKeyword())
+    if (!track() || track()->mode() == TextTrack::Mode::Disabled)
         return false;
 
     return EventTarget::dispatchEvent(event);
@@ -204,7 +201,7 @@ bool TextTrackCue::dispatchEvent(PassRefPtr<Event> event)
 
 bool TextTrackCue::isActive()
 {
-    return m_isActive && track() && track()->mode() != TextTrack::disabledKeyword();
+    return m_isActive && track() && track()->mode() != TextTrack::Mode::Disabled;
 }
 
 void TextTrackCue::setIsActive(bool active)

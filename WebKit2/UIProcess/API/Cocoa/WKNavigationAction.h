@@ -33,7 +33,7 @@
 #import <AppKit/AppKit.h>
 #endif
 
-WK_ASSUME_NONNULL_BEGIN
+NS_ASSUME_NONNULL_BEGIN
 
 @class WKFrameInfo;
 
@@ -53,12 +53,12 @@ typedef NS_ENUM(NSInteger, WKNavigationType) {
     WKNavigationTypeReload,
     WKNavigationTypeFormResubmitted,
     WKNavigationTypeOther = -1,
-} WK_ENUM_AVAILABLE(10_10, 8_0);
+} WK_API_AVAILABLE(macosx(10.10), ios(8.0));
 
 /*! 
 A WKNavigationAction object contains information about an action that may cause a navigation, used for making policy decisions.
  */
-WK_CLASS_AVAILABLE(10_10, 8_0)
+WK_CLASS_AVAILABLE(macosx(10.10), ios(8.0))
 @interface WKNavigationAction : NSObject
 
 /*! @abstract The frame requesting the navigation.
@@ -67,7 +67,7 @@ WK_CLASS_AVAILABLE(10_10, 8_0)
 
 /*! @abstract The target frame, or nil if this is a new window navigation.
  */
-@property (WK_NULLABLE_PROPERTY nonatomic, readonly, copy) WKFrameInfo *targetFrame;
+@property (nullable, nonatomic, readonly, copy) WKFrameInfo *targetFrame;
 
 /*! @abstract The type of action that triggered the navigation.
  @discussion The value is one of the constants of the enumerated type WKNavigationType.
@@ -92,6 +92,6 @@ WK_CLASS_AVAILABLE(10_10, 8_0)
 
 @end
 
-WK_ASSUME_NONNULL_END
+NS_ASSUME_NONNULL_END
 
 #endif

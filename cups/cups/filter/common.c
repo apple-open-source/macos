@@ -1,6 +1,4 @@
 /*
- * "$Id: common.c 11560 2014-02-06 20:10:19Z msweet $"
- *
  * Common filter routines for CUPS.
  *
  * Copyright 2007-2014 by Apple Inc.
@@ -517,8 +515,3 @@ WriteTextComment(const char *name,	/* I - Comment name ("Title", etc.) */
 
   puts(")");
 }
-
-
-/*
- * End of "$Id: common.c 11560 2014-02-06 20:10:19Z msweet $".
- */

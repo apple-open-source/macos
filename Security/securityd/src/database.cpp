@@ -135,7 +135,7 @@ void Database::findFirst(const CssmQuery &query,
 	CssmData *data, RefPointer<Key> &key, RefPointer<Search> &search, RefPointer<Record> &record,
 	CssmDbRecordAttributeData * &outAttributes, mach_msg_type_number_t &outAttributesLength)
 {
-	secdebug("database", "%p calling unimplemented findFirst", this);
+	secinfo("database", "%p calling unimplemented findFirst", this);
 	CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
 }
 
@@ -144,7 +144,7 @@ void Database::findNext(Search *search,
 	CssmData *data, RefPointer<Key> &key, RefPointer<Record> &record,
 	CssmDbRecordAttributeData * &outAttributes, mach_msg_type_number_t &outAttributesLength)
 {
-	secdebug("database", "%p calling unimplemented findNext", this);
+	secinfo("database", "%p calling unimplemented findNext", this);
 	CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
 }
 
@@ -153,7 +153,7 @@ void Database::findRecordHandle(Record *record,
 	CssmData *data, RefPointer<Key> &key,
 	CssmDbRecordAttributeData * &outAttributes, mach_msg_type_number_t &outAttributesLength)
 {
-	secdebug("database", "%p calling unimplemented findRecordHandle", this);
+	secinfo("database", "%p calling unimplemented findRecordHandle", this);
 	CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
 }
 
@@ -161,7 +161,7 @@ void Database::insertRecord(CSSM_DB_RECORDTYPE recordtype,
 	const CssmDbRecordAttributeData *attributes, mach_msg_type_number_t inAttributesLength,
 	const CssmData &data, RecordHandle &record)
 {
-	secdebug("database", "%p calling unimplemented insertRecord", this);
+	secinfo("database", "%p calling unimplemented insertRecord", this);
 	CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
 }
 
@@ -169,37 +169,37 @@ void Database::modifyRecord(CSSM_DB_RECORDTYPE recordtype, Record *record,
 	const CssmDbRecordAttributeData *attributes, mach_msg_type_number_t inAttributesLength,
 	const CssmData *data, CSSM_DB_MODIFY_MODE modifyMode)
 {
-	secdebug("database", "%p calling unimplemented modifyRecord", this);
+	secinfo("database", "%p calling unimplemented modifyRecord", this);
 	CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
 }
 
 void Database::deleteRecord(Database::Record *record)
 {
-	secdebug("database", "%p calling unimplemented deleteRecord", this);
+	secinfo("database", "%p calling unimplemented deleteRecord", this);
 	CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
 }
 
 void Database::authenticate(CSSM_DB_ACCESS_TYPE, const AccessCredentials *)
 {
-	secdebug("database", "%p calling unimplemented authenticate", this);
+	secinfo("database", "%p calling unimplemented authenticate", this);
 	CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
 }
 
 bool Database::checkCredentials(const AccessCredentials *)
 {
-    secdebug("database", "%p calling unimplemented checkCredentials", this);
+    secinfo("database", "%p calling unimplemented checkCredentials", this);
     CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
 }
 
 SecurityServerAcl &Database::acl()
 {
-	secdebug("database", "%p has no ACL implementation", this);
+	secinfo("database", "%p has no ACL implementation", this);
 	CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
 }
 
 bool Database::isLocked()
 {
-	secdebug("database", "%p calling unimplemented isLocked", this);
+	secinfo("database", "%p calling unimplemented isLocked", this);
 	CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
 }
 
@@ -227,62 +227,3 @@ bool Database::validateSecret(const AclSubject *, const AccessCredentials *)
 	return false;
 }
 
-
-//
-// Implementation of a "system keychain unlock key store"
-//
-SystemKeychainKey::SystemKeychainKey(const char *path)
-	: mPath(path), mValid(false)
-{
-	// explicitly set up a key header for a raw 3DES key
-	CssmKey::Header &hdr = mKey.header();
-	hdr.blobType(CSSM_KEYBLOB_RAW);
-	hdr.blobFormat(CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING);
-	hdr.keyClass(CSSM_KEYCLASS_SESSION_KEY);
-	hdr.algorithm(CSSM_ALGID_3DES_3KEY_EDE);
-	hdr.KeyAttr = 0;
-	hdr.KeyUsage = CSSM_KEYUSE_ANY;
-	mKey = CssmData::wrap(mBlob.masterKey);
-}
-
-SystemKeychainKey::~SystemKeychainKey()
-{
-}
-
-bool SystemKeychainKey::matches(const DbBlob::Signature &signature)
-{
-	return update() && signature == mBlob.signature;
-}
-
-bool SystemKeychainKey::update()
-{
-	// if we checked recently, just assume it's okay
-	if (mValid && mUpdateThreshold > Time::now())
-		return mValid;
-		
-	// check the file
-	struct stat st;
-	if (::stat(mPath.c_str(), &st)) {
-		// something wrong with the file; can't use it
-		mUpdateThreshold = Time::now() + Time::Interval(checkDelay);
-		return mValid = false;
-	}
-	if (mValid && Time::Absolute(st.st_mtimespec) == mCachedDate)
-		return true;
-	mUpdateThreshold = Time::now() + Time::Interval(checkDelay);
-	
-	try {
-		secdebug("syskc", "reading system unlock record from %s", mPath.c_str());
-		AutoFileDesc fd(mPath, O_RDONLY);
-		if (fd.read(mBlob) != sizeof(mBlob))
-			return false;
-		if (mBlob.isValid()) {
-			mCachedDate = st.st_mtimespec;
-			return mValid = true;
-		} else
-			return mValid = false;
-	} catch (...) {
-		secdebug("syskc", "system unlock record not available");
-		return false;
-	}
-}

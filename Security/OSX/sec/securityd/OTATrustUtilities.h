@@ -60,6 +60,11 @@ CFDictionaryRef SecOTAPKICopyAllowList(SecOTAPKIRef otapkiRef);
 CF_EXPORT
 CFArrayRef SecOTAPKICopyTrustedCTLogs(SecOTAPKIRef otapkiRef);
 
+// Accessor to retrieve a copy of the current CT whitelist.
+// Caller is responsible for releasing the returned CFSetRef
+CF_EXPORT
+CFDataRef SecOTAPKICopyCTWhiteList(SecOTAPKIRef otapkiRef);
+
 // Accessor to retrieve the array of Escrow certificates
 // Caller is responsible for releasing the returned CFArrayRef
 CF_EXPORT

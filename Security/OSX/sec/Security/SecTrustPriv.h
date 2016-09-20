@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2015 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2003-2016 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -31,16 +31,14 @@
 #define _SECURITY_SECTRUSTPRIV_H_
 
 #include <Security/SecTrust.h>
+#include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFData.h>
 #include <CoreFoundation/CFDictionary.h>
 
 __BEGIN_DECLS
 
-typedef enum {
-	useNetworkDefault,		// default policy: network fetch enabled only for SSL
-	useNetworkDisabled,		// explicitly disable network use for any policy
-	useNetworkEnabled		// explicitly enable network use for any policy
-} SecNetworkPolicy;
+CF_ASSUME_NONNULL_BEGIN
+CF_IMPLICIT_BRIDGING_ENABLED
 
 /* Constants used as keys in property lists.  See
    SecTrustCopySummaryPropertiesAtIndex for more information. */
@@ -63,6 +61,7 @@ extern const CFStringRef kSecTrustInfoCompanyNameKey;
 extern const CFStringRef kSecTrustInfoRevocationKey;
 extern const CFStringRef kSecTrustInfoRevocationValidUntilKey;
 extern const CFStringRef kSecTrustInfoCertificateTransparencyKey;
+extern const CFStringRef kSecTrustInfoCertificateTransparencyWhiteListKey;
 
 /*!
     @enum Trust Result Constants
@@ -160,6 +159,7 @@ extern const CFStringRef kSecTrustRevocationReason;
     @result A property array. It is the caller's responsability to CFRelease
     the returned array when it is no longer needed.
 */
+__nullable CF_RETURNS_RETAINED
 CFArrayRef SecTrustCopySummaryPropertiesAtIndex(SecTrustRef trust, CFIndex ix);
 
 /*!
@@ -174,21 +174,8 @@ CFArrayRef SecTrustCopySummaryPropertiesAtIndex(SecTrustRef trust, CFIndex ix);
 	Unlike that function call this function returns a detailed description
     of the certificate in question.
 */
+__nullable CF_RETURNS_RETAINED
 CFArrayRef SecTrustCopyDetailedPropertiesAtIndex(SecTrustRef trust, CFIndex ix);
-
-/*!
-	@function SecTrustCopyProperties
-	@abstract Return a property array for this trust evaluation.
-	@param trust A reference to the trust object to evaluate.
-    @result A property array. It is the caller's responsibility to CFRelease
-    the returned array when it is no longer needed. See
-    SecTrustCopySummaryPropertiesAtIndex for a detailed description of this array.
-    Unlike that function, this function returns a short text string suitable for
-    display in a sheet explaining to the user why this certificate chain is
-    not trusted for this operation. This function may return NULL if the
-    certificate chain was trusted.
-*/
-CFArrayRef SecTrustCopyProperties(SecTrustRef trust);
 
 /*!
 	@function SecTrustCopyInfo
@@ -222,25 +209,16 @@ CFArrayRef SecTrustCopyProperties(SecTrustRef trust);
     validated.  The caller is responsible for calling CFRelease on the value
     returned when it is no longer needed.
 */
+__nullable CF_RETURNS_RETAINED
 CFDictionaryRef SecTrustCopyInfo(SecTrustRef trust);
 
 /* For debugging purposes. */
+__nullable CF_RETURNS_RETAINED
 CFArrayRef SecTrustGetDetails(SecTrustRef trust);
 
 /* For debugging purposes. */
+__nullable CF_RETURNS_RETAINED
 CFStringRef SecTrustCopyFailureDescription(SecTrustRef trust);
-
-/*!
-	@function SecTrustSetPolicies
-	@abstract Set the trust policies against which the trust should be verified.
-	@param trust A reference to a trust object.
-    @param policies An array of one or more policies. You may pass a
-    SecPolicyRef to represent a single policy.
-	@result A result code.  See "Security Error Codes" (SecBase.h).
-    @discussion This function does not invalidate the trust, but should do so in the future.
-*/
-OSStatus SecTrustSetPolicies(SecTrustRef trust, CFTypeRef policies)
-   __OSX_AVAILABLE_STARTING(__MAC_10_3, __IPHONE_6_0);
 
 OSStatus SecTrustGetOTAPKIAssetVersionNumber(int* versionNumber);
 
@@ -268,6 +246,208 @@ OSStatus SecTrustSetSignedCertificateTimestamps(SecTrustRef trust, CFArrayRef sc
  of the trusted CT logs.
  */
 OSStatus SecTrustSetTrustedLogs(SecTrustRef trust, CFArrayRef trustedLogs);
+
+/* Keychain searches are allowed by default. Use this to turn off seaching of
+    -keychain search list (i.e. login.keychain, system.keychain)
+    -Local Items/iCloud Keychain
+    -user- and admin-trusted roots
+    -network-fetched issuers
+ User must provide all necessary certificates in the input certificates and/or anchors. */
+OSStatus SecTrustSetKeychainsAllowed(SecTrustRef trust, Boolean allowed)
+    __OSX_AVAILABLE(__MAC_10_12) __IOS_AVAILABLE(__IPHONE_10_0) __TVOS_AVAILABLE(__TVOS_10_0) __WATCHOS_AVAILABLE(__WATCHOS_3_0);
+
+/* Get the keychain search policy for the trust object. */
+OSStatus SecTrustGetKeychainsAllowed(SecTrustRef trust, Boolean * __nonnull allowed)
+    __OSX_AVAILABLE(__MAC_10_12) __IOS_AVAILABLE(__IPHONE_10_0) __TVOS_AVAILABLE(__TVOS_10_0) __WATCHOS_AVAILABLE(__WATCHOS_3_0);
+
+/*!
+ @function SecTrustEvaluateLeafOnly
+ @abstract Evaluates the leaf of the trust reference synchronously.
+ @param trust A reference to the trust object to evaluate.
+ @param result A pointer to a result type.
+ @result A result code. See "Security Error Codes" (SecBase.h).
+ @discussion This function will only evaluate the trust of the leaf certificate.
+ No chain will be built and only those aspects of the SecPolicyRef that address
+ the expected contents of the leaf will be checked. This function does not honor
+ any set exceptions.
+ */
+OSStatus SecTrustEvaluateLeafOnly(SecTrustRef trust, SecTrustResultType * __nonnull result)
+    __OSX_AVAILABLE(__MAC_10_12) __IOS_AVAILABLE(__IPHONE_10_0) __TVOS_AVAILABLE(__TVOS_10_0) __WATCHOS_AVAILABLE(__WATCHOS_3_0);
+
+/*!
+ @function SecTrustSerialize
+ @abstract Creates a serialized version of the trust object
+ @param trust A reference to the trust object to serialize.
+ @param error A pointer to an error.
+ @result The serialized trust object.
+ @discussion This function is intended to be used to share SecTrustRefs between
+ processes. Saving the results to disk or sending them over network channels
+ may cause unexpected behavior.
+ */
+__nullable CF_RETURNS_RETAINED
+CFDataRef SecTrustSerialize(SecTrustRef trust, CFErrorRef *error)
+    __OSX_AVAILABLE(__MAC_10_12) __IOS_AVAILABLE(__IPHONE_10_0) __TVOS_AVAILABLE(__TVOS_10_0) __WATCHOS_AVAILABLE(__WATCHOS_3_0);
+
+/*!
+ @function SecTrustDeserialize
+ @abstract Creates a trust object from the serialized data
+ @param serialiedTrust A reference to the serialized trust object
+ @param error A pointer to an error.
+ @result A trust object
+ @discussion This function is intended to be used to share SecTrustRefs between
+ processes. Saving the results to disk or sending them over network channels
+ may cause unexpected behavior.
+ */
+__nullable CF_RETURNS_RETAINED
+SecTrustRef SecTrustDeserialize(CFDataRef serializedTrust, CFErrorRef *error)
+    __OSX_AVAILABLE(__MAC_10_12) __IOS_AVAILABLE(__IPHONE_10_0) __TVOS_AVAILABLE(__TVOS_10_0) __WATCHOS_AVAILABLE(__WATCHOS_3_0);
+
+/*!
+ @function SecTrustGetTrustExceptionsArray
+ @abstract Return the exceptions array current set in the trust object
+ @param trust A reference to the trust object
+ @result The array of exceptions.
+ @discussion This function returns an array of exceptions that was previously set
+ using SecTrustSetExceptions, unlike SecTrustCopyExceptions which returns the
+ exceptions which could be set using SecTrustSetExceptions.
+ */
+__nullable CFArrayRef SecTrustGetTrustExceptionsArray(SecTrustRef trust)
+    __OSX_AVAILABLE(__MAC_10_12) __IOS_AVAILABLE(__IPHONE_10_0) __TVOS_AVAILABLE(__TVOS_10_0) __WATCHOS_AVAILABLE(__WATCHOS_3_0);
+
+CF_IMPLICIT_BRIDGING_DISABLED
+CF_ASSUME_NONNULL_END
+
+/*
+ *  Legacy functions (OS X only)
+ */
+#if TARGET_OS_MAC && !TARGET_OS_IPHONE
+
+CF_ASSUME_NONNULL_BEGIN
+CF_IMPLICIT_BRIDGING_ENABLED
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wfour-char-constants"
+/*
+	unique keychain item attributes for user trust records.
+ */
+enum {
+    kSecTrustCertAttr 				 = 'tcrt',
+    kSecTrustPolicyAttr				 = 'tpol',
+    /* Leopard and later */
+    kSecTrustPubKeyAttr				 = 'tpbk',
+    kSecTrustSignatureAttr			 = 'tsig'
+};
+
+#pragma clang diagnostic pop
+
+/*!
+	@function SecTrustGetUserTrust
+	@abstract Gets the user-specified trust settings of a certificate and policy.
+	@param certificate A reference to a certificate.
+	@param policy A reference to a policy.
+	@param trustSetting On return, a pointer to the user specified trust settings.
+	@result A result code. See "Security Error Codes" (SecBase.h).
+	@availability Mac OS X version 10.4. Deprecated in Mac OS X version 10.5.
+ */
+OSStatus SecTrustGetUserTrust(SecCertificateRef __nullable certificate, SecPolicyRef __nullable policy, SecTrustUserSetting * __nullable trustSetting)
+    __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_4, __MAC_10_5, __IPHONE_NA, __IPHONE_NA);
+
+/*!
+	@function SecTrustSetUserTrust
+	@abstract Sets the user-specified trust settings of a certificate and policy.
+	@param certificate A reference to a certificate.
+	@param policy A reference to a policy.
+	@param trustSetting The user-specified trust settings.
+	@result A result code. See "Security Error Codes" (SecBase.h).
+	@availability Mac OS X version 10.4. Deprecated in Mac OS X version 10.5.
+	@discussion as of Mac OS version 10.5, this will result in a call to
+ SecTrustSettingsSetTrustSettings().
+ */
+OSStatus SecTrustSetUserTrust(SecCertificateRef __nullable certificate, SecPolicyRef __nullable policy, SecTrustUserSetting trustSetting)
+    __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_4, __MAC_10_5, __IPHONE_NA, __IPHONE_NA);
+
+/*!
+	@function SecTrustSetUserTrustLegacy
+	@abstract Sets the user-specified trust settings of a certificate and policy.
+	@param certificate A reference to a certificate.
+	@param policy A reference to a policy.
+	@param trustSetting The user-specified trust settings.
+	@result A result code.  See "Security Error Codes" (SecBase.h).
+
+	@This is the private version of what used to be SecTrustSetUserTrust(); it operates
+    on UserTrust entries as that function used to. The current SecTrustSetUserTrust()
+    function operated on Trust Settings.
+ */
+OSStatus SecTrustSetUserTrustLegacy(SecCertificateRef __nullable certificate, SecPolicyRef __nullable policy, SecTrustUserSetting trustSetting)
+    __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_5, __MAC_10_12, __IPHONE_NA, __IPHONE_NA);
+
+/*!
+	@function SecTrustGetCSSMAnchorCertificates
+	@abstract Retrieves the CSSM anchor certificates.
+	@param cssmAnchors A pointer to an array of anchor certificates.
+	@param cssmAnchorCount A pointer to the number of certificates in anchors.
+	@result A result code. See "Security Error Codes" (SecBase.h).
+	@availability Mac OS X version 10.4. Deprecated in Mac OS X version 10.5.
+ */
+OSStatus SecTrustGetCSSMAnchorCertificates(const CSSM_DATA * __nullable * __nullable cssmAnchors, uint32 *cssmAnchorCount)
+    __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_4, __MAC_10_5, __IPHONE_NA, __IPHONE_NA);
+
+/*!
+	@function SecTrustCopyExtendedResult
+	@abstract Gets the extended trust result after an evaluation has been performed.
+	@param trust A trust reference.
+	@param result On return, result points to a CFDictionaryRef containing extended trust results (if no error occurred).
+	The caller is responsible for releasing this dictionary with CFRelease when finished with it.
+	@result A result code. See "Security Error Codes" (SecBase.h).
+	@discussion This function may only be used after SecTrustEvaluate has been called for the trust reference, otherwise
+	errSecTrustNotAvailable is returned. If the certificate is not an extended validation certificate, there is
+	no extended result data and errSecDataNotAvailable is returned. Currently, only one dictionary key is defined
+	(kSecEVOrganizationName).
+
+	Note: this function will be deprecated in a future release of OS X. Your
+	code should use SecTrustCopyResult to obtain the trust results dictionary.
+ */
+OSStatus SecTrustCopyExtendedResult(SecTrustRef trust, CFDictionaryRef * __nonnull CF_RETURNS_RETAINED result)
+    __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_5, __MAC_10_12, __IPHONE_NA, __IPHONE_NA);
+
+/*
+ * Preference-related strings for Revocation policies.
+ */
+
+/*
+ * Preference domain, i.e., the name of a plist in ~/Library/Preferences or in
+ * /Library/Preferences
+ */
+#define kSecRevocationDomain                "com.apple.security.revocation"
+
+/* OCSP and CRL style keys, followed by values used for both of them */
+#define kSecRevocationOcspStyle             CFSTR("OCSPStyle")
+#define kSecRevocationCrlStyle              CFSTR("CRLStyle")
+#define kSecRevocationOff                   CFSTR("None")
+#define kSecRevocationBestAttempt           CFSTR("BestAttempt")
+#define kSecRevocationRequireIfPresent      CFSTR("RequireIfPresent")
+#define kSecRevocationRequireForAll         CFSTR("RequireForAll")
+
+/* Which first if both enabled? */
+#define kSecRevocationWhichFirst            CFSTR("RevocationFirst")
+#define kSecRevocationOcspFirst             CFSTR("OCSP")
+#define kSecRevocationCrlFirst              CFSTR("CRL")
+
+/* boolean: A "this policy is sufficient per cert" for each */
+#define kSecRevocationOCSPSufficientPerCert CFSTR("OCSPSufficientPerCert")
+#define kSecRevocationCRLSufficientPerCert  CFSTR("CRLSufficientPerCert")
+
+/* local OCSP responder URI, value arbitrary string value */
+#define kSecOCSPLocalResponder              CFSTR("OCSPLocalResponder")
+
+/* Extended trust result keys (now in public API) */
+#define kSecEVOrganizationName              kSecTrustOrganizationName
+#define kSecTrustExpirationDate             kSecTrustRevocationValidUntilDate
+
+CF_IMPLICIT_BRIDGING_DISABLED
+CF_ASSUME_NONNULL_END
+
+#endif /* TARGET_OS_MAC && !TARGET_OS_IPHONE */
 
 __END_DECLS
 

@@ -34,23 +34,13 @@
 #
 script()
 {
-if [ -f /usr/lib/dtrace/darwin.d ]; then
-	$dtrace -s /dev/stdin <<EOF
-	proc:::create
-	/args[0]->pr_ppid == $child && ppid == $child/ /* parent proc keeps its thread_t on xnu */
-	{
-		exit(0);
-	}
-EOF
-else
-	$dtrace -s /dev/stdin <<EOF
+	$dtrace -xstatusrate=200ms -s /dev/stdin <<EOF
 	proc:::create
 	/args[0]->pr_ppid == $child && pid == $child/
 	{
 		exit(0);
 	}
 EOF
-fi
 }
 
 sleeper()

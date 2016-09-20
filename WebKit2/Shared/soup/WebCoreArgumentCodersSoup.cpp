@@ -79,7 +79,7 @@ bool ArgumentCoder<ResourceRequest>::decodePlatformData(ArgumentDecoder& decoder
     HTTPHeaderMap headers;
     if (!decoder.decode(headers))
         return false;
-    resourceRequest.setHTTPHeaderFields(WTF::move(headers));
+    resourceRequest.setHTTPHeaderFields(WTFMove(headers));
 
     double timeoutInterval;
     if (!decoder.decode(timeoutInterval))
@@ -186,28 +186,25 @@ bool ArgumentCoder<CertificateInfo>::decode(ArgumentDecoder& decoder, Certificat
 
 void ArgumentCoder<ResourceError>::encodePlatformData(ArgumentEncoder& encoder, const ResourceError& resourceError)
 {
-    bool errorIsNull = resourceError.isNull();
-    encoder << errorIsNull;
-    if (errorIsNull)
+    encoder.encodeEnum(resourceError.type());
+    if (resourceError.isNull())
         return;
 
     encoder << resourceError.domain();
     encoder << resourceError.errorCode();
-    encoder << resourceError.failingURL();
+    encoder << resourceError.failingURL().string();
     encoder << resourceError.localizedDescription();
-    encoder << resourceError.isCancellation();
-    encoder << resourceError.isTimeout();
 
     encoder << CertificateInfo(resourceError);
 }
 
 bool ArgumentCoder<ResourceError>::decodePlatformData(ArgumentDecoder& decoder, ResourceError& resourceError)
 {
-    bool errorIsNull;
-    if (!decoder.decode(errorIsNull))
+    ResourceErrorBase::Type errorType;
+    if (!decoder.decodeEnum(errorType))
         return false;
-    if (errorIsNull) {
-        resourceError = ResourceError();
+    if (errorType == ResourceErrorBase::Type::Null) {
+        resourceError = { };
         return true;
     }
 
@@ -227,17 +224,8 @@ bool ArgumentCoder<ResourceError>::decodePlatformData(ArgumentDecoder& decoder, 
     if (!decoder.decode(localizedDescription))
         return false;
 
-    bool isCancellation;
-    if (!decoder.decode(isCancellation))
-        return false;
-
-    bool isTimeout;
-    if (!decoder.decode(isTimeout))
-        return false;
-
-    resourceError = ResourceError(domain, errorCode, failingURL, localizedDescription);
-    resourceError.setIsCancellation(isCancellation);
-    resourceError.setIsTimeout(isTimeout);
+    resourceError = ResourceError(domain, errorCode, URL(URL(), failingURL), localizedDescription);
+    resourceError.setType(errorType);
 
     CertificateInfo certificateInfo;
     if (!decoder.decode(certificateInfo))

@@ -271,7 +271,8 @@ public:
 	CFDataRef cdhash() const;
 	
 	static void multipleHashFileData(UnixPlusPlus::FileDesc fd, size_t limit, HashAlgorithms types, void (^action)(HashAlgorithm type, DynamicHash* hasher));
-	
+    bool verifyMemoryContent(CFDataRef data, const Byte* digest) const;
+
 	static bool viableHash(HashAlgorithm type);
 	static HashAlgorithm bestHashOf(const HashAlgorithms& types);
 

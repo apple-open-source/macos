@@ -241,7 +241,7 @@ int filesystem_open(struct webdav_request_open *request_open,
 	struct node_entry *node;
 	int theCacheFile;
 	char *locktoken;
-	
+	int lockType = 0;
 	reply_open->pid = 0;
 	
 	locktoken = NULL;
@@ -283,7 +283,12 @@ int filesystem_open(struct webdav_request_open *request_open,
 			/* If we are opening this file for write access, lock it first,
 			  before we copy it into the cache file from the server, 
 			  or truncate the cache file. */
-			error = network_lock(request_open->pcr.pcr_uid, FALSE, node);
+			if (request_open->flags & O_SHLOCK)
+				lockType = 1;
+			else if (request_open->flags & O_EXLOCK)
+				lockType = 0;
+
+			error = network_lock(request_open->pcr.pcr_uid, lockType, FALSE, node);
 			if ( error == ENOENT )
 			{
 				/* the server says it's gone so delete it and its descendants */
@@ -1463,7 +1468,7 @@ int filesystem_lock(struct node_entry *node)
 
 	if ( node->file_locktoken != NULL )
 	{
-		error = network_lock(0, TRUE, node); /* uid for refreshes is ignored */
+		error = network_lock(0, 0, TRUE, node); /* uid for refreshes is ignored */
 	}
 	else
 	{

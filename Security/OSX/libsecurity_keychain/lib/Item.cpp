@@ -65,6 +65,31 @@ using namespace CSSMDateTimeUtils;
 // ItemImpl
 //
 
+ItemImpl *ItemImpl::required(SecKeychainItemRef ptr)
+{
+    if (ptr != NULL) {
+        if (ItemImpl *pp = optional(ptr)) {
+            return pp;
+        }
+    }
+    MacOSError::throwMe(errSecInvalidItemRef);
+}
+
+ItemImpl *ItemImpl::optional(SecKeychainItemRef ptr)
+{
+    if (SecCFObject *p = KeyItem::fromSecKeyRef(ptr)) {
+        return dynamic_cast<ItemImpl *>(p);
+    } else if (SecCFObject *p = SecCFObject::optional(ptr)) {
+        if (ItemImpl *pp = dynamic_cast<ItemImpl *>(p)) {
+            return pp;
+        } else {
+            MacOSError::throwMe(errSecInvalidItemRef);
+        }
+    } else {
+        return NULL;
+    }
+}
+
 // NewItemImpl constructor
 ItemImpl::ItemImpl(SecItemClass itemClass, OSType itemCreator, UInt32 length, const void* data, bool dontDoAttributes)
 	: mDbAttributes(new DbAttributes()),
@@ -156,7 +181,8 @@ ItemImpl::ItemImpl(ItemImpl &item) :
 	if (item.mKeychain) {
 		// get the entire source item from its keychain. This requires figuring
 		// out the schema for the item based on its record type.
-        fillDbAttributesFromSchema(*mDbAttributes, item.recordType());
+        // Ask the remote item to fill our attributes dictionary, because it probably has an attached keychain to ask
+        item.fillDbAttributesFromSchema(*mDbAttributes, item.recordType());
 
         item.getContent(mDbAttributes.get(), mData.get());
 	}
@@ -179,7 +205,7 @@ ItemImpl::~ItemImpl()
 
 
 Mutex*
-ItemImpl::getMutexForObject()
+ItemImpl::getMutexForObject() const
 {
 	if (mKeychain.get())
 	{
@@ -249,7 +275,7 @@ void ItemImpl::fillDbAttributesFromSchema(DbAttributes& dbAttributes, CSSM_DB_RE
     SecKeychainAttributeInfo* infos;
     keychain->getAttributeInfoForItemID(recordType, &infos);
 
-    secdebugfunc("integrity", "filling %u attributes for type %u", (unsigned int)infos->count, recordType);
+    secnotice("integrity", "filling %u attributes for type %u", (unsigned int)infos->count, recordType);
 
     for (uint32 i = 0; i < infos->count; i++) {
         CSSM_DB_ATTRIBUTE_INFO info;
@@ -267,27 +293,27 @@ void ItemImpl::fillDbAttributesFromSchema(DbAttributes& dbAttributes, CSSM_DB_RE
 
 DbAttributes* ItemImpl::getCurrentAttributes() {
     DbAttributes* dbAttributes;
-    secdebugfunc("integrity", "getting current attributes...");
+    secnotice("integrity", "getting current attributes...");
 
     if(mUniqueId.get()) {
         // If we have a unique id, there's an item in the database backing us. Ask for its attributes.
-        dbAttributes = new DbAttributes(mUniqueId->database(), 1);
+        dbAttributes = new DbAttributes(dbUniqueRecord()->database(), 1);
         fillDbAttributesFromSchema(*dbAttributes, recordType());
         mUniqueId->get(dbAttributes, NULL);
 
         // and fold in any updates.
         if(mDbAttributes.get()) {
-            secdebugfunc("integrity", "adding %d attributes from mDbAttributes", mDbAttributes->size());
+            secnotice("integrity", "adding %d attributes from mDbAttributes", mDbAttributes->size());
             dbAttributes->updateWithDbAttributes(&(*mDbAttributes.get()));
         }
     } else if (mDbAttributes.get()) {
         // We don't have a backing item, so all our attributes are in mDbAttributes. Copy them.
-        secdebugfunc("integrity", "no unique id, using %d attributes from mDbAttributes", mDbAttributes->size());
+        secnotice("integrity", "no unique id, using %d attributes from mDbAttributes", mDbAttributes->size());
         dbAttributes = new DbAttributes();
         dbAttributes->updateWithDbAttributes(&(*mDbAttributes.get()));
     } else {
         // No attributes at all. We should maybe throw here, but let's not.
-        secdebugfunc("integrity", "no attributes at all");
+        secnotice("integrity", "no attributes at all");
         dbAttributes = new DbAttributes();
     }
     dbAttributes->recordType(recordType());
@@ -309,7 +335,7 @@ void ItemImpl::encodeAttributesFromDictionary(CssmOwnedData &attributeBlob, DbAt
     CFRef<CFMutableDictionaryRef> attributes;
     attributes.take(CFDictionaryCreateMutable(NULL, dbAttributes->size(), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
 
-    secdebugfunc("integrity", "looking at %d attributes", dbAttributes->size());
+    secnotice("integrity", "looking at %d attributes", dbAttributes->size());
     // TODO: include record type and semantic information?
 
     for(int i = 0; i < dbAttributes->size(); i++) {
@@ -435,19 +461,19 @@ void ItemImpl::computeDigestFromDictionary(CssmOwnedData &sha2, DbAttributes* db
 
         sha2.length(CC_SHA256_DIGEST_LENGTH);
         CC_SHA256(attributeBlob.get().data(), static_cast<CC_LONG>(attributeBlob.get().length()), sha2);
-        secdebugfunc("integrity", "finished: %s", sha2.get().toHex().c_str());
+        secnotice("integrity", "finished: %s", sha2.get().toHex().c_str());
     } catch (MacOSError mose) {
-        secdebugfunc("integrity", "MacOSError: %d", (int)mose.osStatus());
+        secnotice("integrity", "MacOSError: %d", (int)mose.osStatus());
     } catch (...) {
-        secdebugfunc("integrity", "unknown exception");
+        secnotice("integrity", "unknown exception");
     }
 }
 
 void ItemImpl::addIntegrity(Access &access, bool force) {
-    secdebugfunc("integrity", "called");
+    secnotice("integrity", "called");
 
     if(!force && (!mKeychain || !mKeychain->hasIntegrityProtection())) {
-        secdebugfunc("integrity", "skipping integrity add due to keychain version\n");
+        secnotice("integrity", "skipping integrity add due to keychain version\n");
         return;
     }
 
@@ -462,17 +488,17 @@ void ItemImpl::addIntegrity(Access &access, bool force) {
     if(acls.size() >= 1) {
         // Use the existing ACL
         acl = acls[0];
-        secdebugfunc("integrity", "previous integrity acl exists; setting integrity");
+        secnotice("integrity", "previous integrity acl exists; setting integrity");
         acl->setIntegrity(digest.get());
 
         // Delete all extra ACLs
         for(int i = 1; i < acls.size(); i++) {
-            secdebugfunc("integrity", "extra integrity acls exist; removing %d",i);
+            secnotice("integrity", "extra integrity acls exist; removing %d",i);
             acls[i]->remove();
         }
     } else if(acls.size() == 0) {
         // Make a new ACL
-        secdebugfunc("integrity", "no previous integrity acl exists; making a new one");
+        secnotice("integrity", "no previous integrity acl exists; making a new one");
         acl = new ACL(digest.get());
         access.add(acl);
     }
@@ -480,7 +506,7 @@ void ItemImpl::addIntegrity(Access &access, bool force) {
 
  void ItemImpl::setIntegrity(bool force) {
      if(!force && (!mKeychain || !mKeychain->hasIntegrityProtection())) {
-         secdebugfunc("integrity", "skipping integrity set due to keychain version");
+         secnotice("integrity", "skipping integrity set due to keychain version");
          return;
      }
 
@@ -500,7 +526,7 @@ void ItemImpl::addIntegrity(Access &access, bool force) {
 
 void ItemImpl::setIntegrity(AclBearer &bearer, bool force) {
     if(!force && (!mKeychain || !mKeychain->hasIntegrityProtection())) {
-        secdebugfunc("integrity", "skipping integrity acl set due to keychain version");
+        secnotice("integrity", "skipping integrity acl set due to keychain version");
         return;
     }
 
@@ -511,17 +537,38 @@ void ItemImpl::setIntegrity(AclBearer &bearer, bool force) {
     access->setAccess(bearer, true);
 }
 
+void ItemImpl::removeIntegrity(const AccessCredentials *cred) {
+    removeIntegrity(*group(), cred);
+}
+
+void ItemImpl::removeIntegrity(AclBearer &bearer, const AccessCredentials *cred) {
+    SecPointer<Access> access = new Access(bearer);
+    vector<ACL *> acls;
+
+    access->findSpecificAclsForRight(CSSM_ACL_AUTHORIZATION_INTEGRITY, acls);
+    for(int i = 0; i < acls.size(); i++) {
+        acls[i]->remove();
+    }
+
+    access->findSpecificAclsForRight(CSSM_ACL_AUTHORIZATION_PARTITION_ID, acls);
+    for(int i = 0; i < acls.size(); i++) {
+        acls[i]->remove();
+    }
+
+    access->editAccess(bearer, true, cred);
+}
+
 bool ItemImpl::checkIntegrity() {
     // Note: subclasses are responsible for checking themselves.
 
     // If we don't have a keychain yet, we don't have any group. Return true?
     if(!isPersistent()) {
-        secdebugfunc("integrity", "no keychain, integrity is valid?");
+        secnotice("integrity", "no keychain, integrity is valid?");
         return true;
     }
 
     if(!mKeychain || !mKeychain->hasIntegrityProtection()) {
-        secdebugfunc("integrity", "skipping integrity check due to keychain version");
+        secnotice("integrity", "skipping integrity check due to keychain version");
         return true;
     }
 
@@ -538,7 +585,7 @@ bool ItemImpl::checkIntegrity() {
 
 bool ItemImpl::checkIntegrity(AclBearer& aclBearer) {
     if(!mKeychain || !mKeychain->hasIntegrityProtection()) {
-        secdebugfunc("integrity", "skipping integrity check due to keychain version");
+        secnotice("integrity", "skipping integrity check due to keychain version");
         return true;
     }
 
@@ -559,7 +606,7 @@ bool ItemImpl::checkIntegrityFromDictionary(AclBearer& aclBearer, DbAttributes* 
         auto_ptr<ACL> acl(new ACL(info, Allocator::standard()));
 
         for(int i = 1; i < aclInfos.count(); i++) {
-            secdebugfunc("integrity", "*** DUPLICATE INTEGRITY ACL, something has gone wrong");
+            secnotice("integrity", "*** DUPLICATE INTEGRITY ACL, something has gone wrong");
         }
 
         CssmAutoData digest(Allocator::standard());
@@ -570,7 +617,7 @@ bool ItemImpl::checkIntegrityFromDictionary(AclBearer& aclBearer, DbAttributes* 
     }
     catch (CssmError cssme) {
         const char* errStr = cssmErrorString(cssme.error);
-        secdebugfunc("integrity", "caught CssmError: %d %s", (int) cssme.error, errStr);
+        secnotice("integrity", "caught CssmError: %d %s", (int) cssme.error, errStr);
 
         if(cssme.error == CSSMERR_CSP_ACL_ENTRY_TAG_NOT_FOUND) {
             // TODO: No entry, run migrator?
@@ -579,17 +626,18 @@ bool ItemImpl::checkIntegrityFromDictionary(AclBearer& aclBearer, DbAttributes* 
         if(cssme.error == CSSMERR_CSP_INVALID_ACL_SUBJECT_VALUE) {
             // something went horribly wrong with fetching acl.
 
-            secdebugfunc("integrity", "INVALID ITEM (too many integrity acls)");
+            secnotice("integrity", "INVALID ITEM (too many integrity acls)");
             return false;
         }
         if(cssme.error == CSSMERR_CSP_VERIFY_FAILED) {
-            secdebugfunc("integrity", "MAC verification failed; something has gone very wrong");
+            secnotice("integrity", "MAC verification failed; something has gone very wrong");
+            return false; // No MAC, no integrity.
         }
 
         throw cssme;
     }
 
-    secdebugfunc("integrity", "***** INVALID ITEM");
+    secnotice("integrity", "***** INVALID ITEM");
     return false;
 }
 
@@ -626,6 +674,7 @@ PrimaryKey ItemImpl::addWithCopyInfo (Keychain &keychain, bool isCopy)
 	}
 
     // If the label (PrintName) attribute isn't specified, set a default label.
+    mDbAttributes->canonicalize(); // make sure we'll find the label with the thing Schema::attributeInfo returns
     if (!mDoNotEncrypt && !mDbAttributes->find(Schema::attributeInfo(kSecLabelItemAttr)))
     {
 		// if doNotEncrypt was set all of the attributes are wrapped in the data blob.  Don't calculate here.
@@ -727,17 +776,31 @@ ItemImpl::add (Keychain &keychain)
 Item
 ItemImpl::copyTo(const Keychain &keychain, Access *newAccess)
 {
+    // We'll be removing any Partition or Integrity ACLs from this item during
+    // the copy. Note that creating a new item from this one fetches the data,
+    // so this process must now be on the ACL/partition ID list for this item,
+    // and an attacker without access can't cause this removal.
+    //
+    // The integrity and partition ID acls will get re-added once the item lands
+    // in the new keychain, if it supports them. If it doesn't, removing the
+    // integrity acl as it leaves will prevent any issues if the item is
+    // modified in the unsupported keychain and then re-copied back into an
+    // integrity keychain.
+
 	StLock<Mutex>_(mMutex);
 	Item item(*this);
-	if (newAccess)
+	if (newAccess) {
+        newAccess->removeAclsForRight(CSSM_ACL_AUTHORIZATION_PARTITION_ID);
+        newAccess->removeAclsForRight(CSSM_ACL_AUTHORIZATION_INTEGRITY);
 		item->setAccess(newAccess);
-	else
-	{
+    } else {
 		/* Attempt to copy the access from the current item to the newly created one. */
 		SSGroup myGroup = group();
 		if (myGroup)
 		{
 			SecPointer<Access> access = new Access(*myGroup);
+            access->removeAclsForRight(CSSM_ACL_AUTHORIZATION_PARTITION_ID);
+            access->removeAclsForRight(CSSM_ACL_AUTHORIZATION_INTEGRITY);
 			item->setAccess(access);
 		}
 	}
@@ -768,19 +831,17 @@ ItemImpl::update()
 		setAttribute(schema->attributeInfoFor(aRecordType, kSecModDateItemAttr), date);
 	}
 
-	// Make sure that we have mUniqueId
-	dbUniqueRecord();
-	Db db(mUniqueId->database());
+	Db db(dbUniqueRecord()->database());
 	if (mDoNotEncrypt)
 	{
 		CSSM_DB_RECORD_ATTRIBUTE_DATA attrData;
 		memset (&attrData, 0, sizeof (attrData));
 		attrData.DataRecordType = aRecordType;
 
-		mUniqueId->modifyWithoutEncryption(aRecordType,
-										   &attrData,
-										   mData.get(),
-										   CSSM_DB_MODIFY_ATTRIBUTE_REPLACE);
+		dbUniqueRecord()->modifyWithoutEncryption(aRecordType,
+                                                  &attrData,
+                                                  mData.get(),
+                                                  CSSM_DB_MODIFY_ATTRIBUTE_REPLACE);
 	}
 	else if (useSecureStorage(db))
 	{
@@ -793,10 +854,10 @@ ItemImpl::update()
     }
 	else
 	{
-		mUniqueId->modify(aRecordType,
-						  mDbAttributes.get(),
-						  mData.get(),
-						  CSSM_DB_MODIFY_ATTRIBUTE_REPLACE);
+		dbUniqueRecord()->modify(aRecordType,
+                                 mDbAttributes.get(),
+                                 mData.get(),
+                                 CSSM_DB_MODIFY_ATTRIBUTE_REPLACE);
 	}
 
 	if (!mDoNotEncrypt)
@@ -820,7 +881,7 @@ ItemImpl::updateSSGroup(Db& db, CSSM_DB_RECORDTYPE recordType, CssmDataContainer
     AclFactory aclFactory;
     const AccessCredentials *nullCred = aclFactory.nullCred();
 
-    secdebugfunc("integrity", "called");
+    secnotice("integrity", "called");
 
     bool haveOldUniqueId = !!mUniqueId.get();
     SSDbUniqueRecord ssUniqueId(NULL);
@@ -839,7 +900,7 @@ ItemImpl::updateSSGroup(Db& db, CSSM_DB_RECORDTYPE recordType, CssmDataContainer
     // If there aren't any attributes, make up some blank ones.
     if (!mDbAttributes.get())
     {
-        secdebugfunc("integrity", "making new dbattributes");
+        secnotice("integrity", "making new dbattributes");
         mDbAttributes.reset(new DbAttributes());
         mDbAttributes->recordType(mPrimaryKey->recordType());
     }
@@ -857,7 +918,7 @@ ItemImpl::updateSSGroup(Db& db, CSSM_DB_RECORDTYPE recordType, CssmDataContainer
 
     if ((!access) && (haveOldUniqueId)) {
         // Copy the ACL from the old group.
-        secdebugfunc("integrity", "copying old ACL");
+        secnotice("integrity", "copying old ACL");
         access = new Access(*(ssGroup));
 
         // We can't copy these over to the new item; they're going to be reset.
@@ -865,7 +926,7 @@ ItemImpl::updateSSGroup(Db& db, CSSM_DB_RECORDTYPE recordType, CssmDataContainer
         access->removeAclsForRight(CSSM_ACL_AUTHORIZATION_PARTITION_ID);
         access->removeAclsForRight(CSSM_ACL_AUTHORIZATION_INTEGRITY);
     } else if (!access) {
-        secdebugfunc("integrity", "setting up new ACL");
+        secnotice("integrity", "setting up new ACL");
         // create default access controls for the new item
         CssmDbAttributeData *data = mDbAttributes->find(Schema::attributeInfo(kSecLabelItemAttr));
         string printName = data ? CssmData::overlay(data->Value[0]).toString() : "keychain item";
@@ -885,7 +946,7 @@ ItemImpl::updateSSGroup(Db& db, CSSM_DB_RECORDTYPE recordType, CssmDataContainer
             }
         }
     } else {
-        secdebugfunc("integrity", "passed an Access, use it");
+        secnotice("integrity", "passed an Access, use it");
         // Access is non-null. Do nothing.
     }
 
@@ -905,17 +966,17 @@ ItemImpl::updateSSGroup(Db& db, CSSM_DB_RECORDTYPE recordType, CssmDataContainer
     maker.initialOwner(prototype, nullCred);
 
     if(saveToNewSSGroup) {
-        secdebugfunc("integrity", "saving to a new SSGroup");
+        secnotice("integrity", "saving to a new SSGroup");
 
         // If we're updating an item, it has an old group and possibly an
         // old mUniqueId. Delete these from the database, so we can insert
         // new ones.
         if(haveOldUniqueId) {
-            secdebugfunc("integrity", "deleting old mUniqueId");
+            secnotice("integrity", "deleting old mUniqueId");
             mUniqueId->deleteRecord();
             mUniqueId.release();
         } else {
-            secdebugfunc("integrity", "no old mUniqueId");
+            secnotice("integrity", "no old mUniqueId");
         }
 
         // Create a new SSGroup with temporary access controls
@@ -924,8 +985,7 @@ ItemImpl::updateSSGroup(Db& db, CSSM_DB_RECORDTYPE recordType, CssmDataContainer
 
         try {
             doChange(keychain, recordType, ^{
-                mUniqueId = ssDb->insert(recordType, mDbAttributes.get(),
-                        newdata, newSSGroup, cred);
+                mUniqueId = ssDb->ssInsert(recordType, mDbAttributes.get(), newdata, newSSGroup, cred);
             });
 
             // now finalize the access controls on the group
@@ -935,29 +995,32 @@ ItemImpl::updateSSGroup(Db& db, CSSM_DB_RECORDTYPE recordType, CssmDataContainer
             // We have to reset this after we add the integrity, since it needs the attributes
             mDbAttributes.reset(NULL);
 
-            transaction.success();
+            transaction.commit();
         }
         catch (CssmError cssme) {
             const char* errStr = cssmErrorString(cssme.error);
-            secdebugfunc("integrity", "caught CssmError during add: %d %s", (int) cssme.error, errStr);
-            newSSGroup->deleteKey(nullCred);
+            secnotice("integrity", "caught CssmError during add: %d %s", (int) cssme.error, errStr);
+
+            // Delete the new SSGroup that we just created
+            deleteSSGroup(newSSGroup, nullCred);
             throw;
         }
         catch (MacOSError mose) {
-            secdebugfunc("integrity", "caught MacOSError during add: %d", (int) mose.osStatus());
-            newSSGroup->deleteKey(nullCred);
+            secnotice("integrity", "caught MacOSError during add: %d", (int) mose.osStatus());
+
+            deleteSSGroup(newSSGroup, nullCred);
             throw;
         }
         catch (...)
         {
-            secdebugfunc("integrity", "caught unknown exception during add");
-            // Delete the new SSGroup that we just created
-            newSSGroup->deleteKey(nullCred);
+            secnotice("integrity", "caught unknown exception during add");
+
+            deleteSSGroup(newSSGroup, nullCred);
             throw;
         }
     } else {
         // Modify the old SSGroup
-        secdebugfunc("integrity", "modifying the existing SSGroup");
+        secnotice("integrity", "modifying the existing SSGroup");
 
         try {
             doChange(keychain, recordType, ^{
@@ -976,23 +1039,36 @@ ItemImpl::updateSSGroup(Db& db, CSSM_DB_RECORDTYPE recordType, CssmDataContainer
             // We have to reset this after we add the integrity, since it needs the attributes
             mDbAttributes.reset(NULL);
 
-            transaction.success();
+            transaction.commit();
         }
         catch (CssmError cssme) {
             const char* errStr = cssmErrorString(cssme.error);
-            secdebugfunc("integrity", "caught CssmError during modify: %d %s", (int) cssme.error, errStr);
+            secnotice("integrity", "caught CssmError during modify: %d %s", (int) cssme.error, errStr);
             throw;
         }
         catch (MacOSError mose) {
-            secdebugfunc("integrity", "caught MacOSError during modify: %d", (int) mose.osStatus());
+            secnotice("integrity", "caught MacOSError during modify: %d", (int) mose.osStatus());
             throw;
         }
         catch (...)
         {
-            secdebugfunc("integrity", "caught unknown exception during modify");
+            secnotice("integrity", "caught unknown exception during modify");
             throw;
         }
 
+    }
+}
+
+// Helper function to delete a group and swallow all errors
+void ItemImpl::deleteSSGroup(SSGroup & ssgroup, const AccessCredentials* nullCred) {
+    try{
+        ssgroup->deleteKey(nullCred);
+    } catch(CssmError error) {
+        secnotice("integrity", "caught cssm error during deletion of group: %d %s", (int) error.osStatus(), error.what());
+    } catch(MacOSError error) {
+        secnotice("integrity", "caught macos error during deletion of group: %d %s", (int) error.osStatus(), error.what());
+    } catch(UnixError error) {
+        secnotice("integrity", "caught unix error during deletion of group: %d %s", (int) error.osStatus(), error.what());
     }
 }
 
@@ -1007,16 +1083,16 @@ ItemImpl::doChange(Keychain keychain, CSSM_DB_RECORDTYPE recordType, void (^tryC
         // Try to extract the item and check its attributes, then try again if necessary
         auto_ptr<CssmClient::DbAttributes> primaryKeyAttrs;
         if(cssme.error == CSSMERR_DL_INVALID_UNIQUE_INDEX_DATA) {
-            secdebugfunc("integrity", "possible duplicate, trying to delete invalid items");
+            secnotice("integrity", "possible duplicate, trying to delete invalid items");
 
             Keychain kc = (keychain ? keychain : mKeychain);
             if(!kc) {
-                secdebugfunc("integrity", "no valid keychain");
+                secnotice("integrity", "no valid keychain");
             }
 
             // Only check for corrupt items if the keychain supports them
             if((!kc) || !kc->hasIntegrityProtection()) {
-                secdebugfunc("integrity", "skipping integrity check for corrupt items due to keychain support");
+                secnotice("integrity", "skipping integrity check for corrupt items due to keychain support");
                 throw;
             } else {
                 primaryKeyAttrs.reset(getCurrentAttributes());
@@ -1037,7 +1113,7 @@ ItemImpl::doChange(Keychain keychain, CSSM_DB_RECORDTYPE recordType, void (^tryC
                     // Our keychain doesn't know about any item with this primary key, so maybe
                     // we have a corrupt item in the database. Let's check.
 
-                    secdebugfunc("integrity", "making a cursor from primary key");
+                    secnotice("integrity", "making a cursor from primary key");
                     CssmClient::DbCursor cursor = pk->createCursor(kc);
                     DbUniqueRecord uniqueId;
 
@@ -1051,11 +1127,11 @@ ItemImpl::doChange(Keychain keychain, CSSM_DB_RECORDTYPE recordType, void (^tryC
                     // Occasionally this cursor won't return the item attributes (for an unknown reason).
                     // However, we know the attributes any item with this primary key should have, so use those instead.
                     while (cursor->next(dbDupAttributes.get(), NULL, uniqueId)) {
-                        secdebugfunc("integrity", "got an item...");
+                        secnotice("integrity", "got an item...");
 
                         SSGroup group = safer_cast<SSDbUniqueRecordImpl &>(*uniqueId).group();
                         if(!ItemImpl::checkIntegrityFromDictionary(*group, dbDupAttributes.get())) {
-                            secdebugfunc("integrity", "item is invalid! deleting...");
+                            secnotice("integrity", "item is invalid! deleting...");
                             uniqueId->deleteRecord();
                             tryAgain = true;
                         }
@@ -1063,11 +1139,11 @@ ItemImpl::doChange(Keychain keychain, CSSM_DB_RECORDTYPE recordType, void (^tryC
                 }
 
                 if(tryAgain) {
-                    secdebugfunc("integrity", "trying again...");
+                    secnotice("integrity", "trying again...");
                     tryChange();
                 } else {
                     // We didn't find an invalid item, the duplicate item exception is real
-                    secdebugfunc("integrity", "duplicate item exception is real; throwing it on");
+                    secnotice("integrity", "duplicate item exception is real; throwing it on");
                     throw;
                 }
             }
@@ -1151,6 +1227,16 @@ ItemImpl::dbUniqueRecord()
 		if (!cursor->next(NULL, NULL, mUniqueId))
 			MacOSError::throwMe(errSecInvalidItemRef);
 	}
+
+    // Check that our Db still matches our keychain's db. If not, find this item again in the new Db.
+    // Why silly !(x == y) construction? Compiler calls operator bool() on each pointer otherwise.
+    if(!(mUniqueId->database() == keychain()->database())) {
+        secnotice("integrity", "updating db of mUniqueRecord");
+
+        DbCursor cursor(mPrimaryKey->createCursor(mKeychain));
+        if (!cursor->next(NULL, NULL, mUniqueId))
+            MacOSError::throwMe(errSecInvalidItemRef);
+    }
 
 	return mUniqueId;
 }
@@ -1289,7 +1375,7 @@ ItemImpl::getContent(SecItemClass *itemClass, SecKeychainAttributeList *attrList
 		UInt32 attrCount = attrList ? attrList->count : 0;
 
         // make a DBAttributes structure and populate it
-        DbAttributes dbAttributes(mUniqueId->database(), attrCount);
+        DbAttributes dbAttributes(dbUniqueRecord()->database(), attrCount);
         for (UInt32 ix = 0; ix < attrCount; ++ix)
         {
             dbAttributes.add(Schema::attributeInfo(attrList->attr[ix].tag));
@@ -1338,7 +1424,7 @@ ItemImpl::getContent(SecItemClass *itemClass, SecKeychainAttributeList *attrList
 #if SENDACCESSNOTIFICATIONS
     if (outData)
     {
-		secdebug("kcnotify", "ItemImpl::getContent(%p, %p, %p, %p) retrieved content",
+		secinfo("kcnotify", "ItemImpl::getContent(%p, %p, %p, %p) retrieved content",
 			itemClass, attrList, length, outData);
 
         KCEventNotifier::PostKeychainEvent(kSecDataAccessEvent, mKeychain, this);
@@ -1431,7 +1517,7 @@ ItemImpl::getAttributesAndData(SecKeychainAttributeInfo *info, SecItemClass *ite
 	dbUniqueRecord();
 
     UInt32 attrCount = info ? info->count : 0;
-	DbAttributes dbAttributes(mUniqueId->database(), attrCount);
+	DbAttributes dbAttributes(dbUniqueRecord()->database(), attrCount);
     for (UInt32 ix = 0; ix < attrCount; ix++)
 	{
 		CssmDbAttributeData &record = dbAttributes.add();
@@ -1487,7 +1573,7 @@ ItemImpl::getAttributesAndData(SecKeychainAttributeInfo *info, SecItemClass *ite
 		itemData.Length=0;
 
 #if SENDACCESSNOTIFICATIONS
-		secdebug("kcnotify", "ItemImpl::getAttributesAndData(%p, %p, %p, %p, %p) retrieved data",
+		secinfo("kcnotify", "ItemImpl::getAttributesAndData(%p, %p, %p, %p, %p) retrieved data",
 			info, itemClass, attrList, length, outData);
 
 		KCEventNotifier::PostKeychainEvent(kSecDataAccessEvent, mKeychain, this);
@@ -1535,10 +1621,9 @@ ItemImpl::getAttribute(SecKeychainAttribute& attr, UInt32 *actualLength)
 	if (!mKeychain)
 		MacOSError::throwMe(errSecNoSuchAttr);
 
-	dbUniqueRecord();
-	DbAttributes dbAttributes(mUniqueId->database(), 1);
+	DbAttributes dbAttributes(dbUniqueRecord()->database(), 1);
 	dbAttributes.add(Schema::attributeInfo(attr.tag));
-	mUniqueId->get(&dbAttributes, NULL);
+	dbUniqueRecord()->get(&dbAttributes, NULL);
 	getAttributeFrom(&dbAttributes.at(0), attr, actualLength);
 }
 
@@ -1568,7 +1653,7 @@ ItemImpl::getAttributeFrom(CssmDbAttributeData *data, SecKeychainAttribute &attr
             length = sizeof(zero);
             buf = &zero;
         }
-        else if (CSSM_DB_ATTRIBUTE_FORMAT_TIME_DATE)
+        else if (data->format() == CSSM_DB_ATTRIBUTE_FORMAT_TIME_DATE)
             length = 0; // Should we throw here?
         else // All other formats
             length = 0;
@@ -1655,7 +1740,7 @@ ItemImpl::getData(CssmDataContainer& outData)
     getContent(NULL, &outData);
 
 #if SENDACCESSNOTIFICATIONS
-    secdebug("kcnotify", "ItemImpl::getData retrieved data");
+    secinfo("kcnotify", "ItemImpl::getData retrieved data");
 
 	//%%%<might> be done elsewhere, but here is good for now
 	KCEventNotifier::PostKeychainEvent(kSecDataAccessEvent, mKeychain, this);
@@ -1672,7 +1757,7 @@ ItemImpl::group()
 		Db db(mKeychain->database());
 		if (useSecureStorage(db))
 		{
-			group = safer_cast<SSDbUniqueRecordImpl &>(*mUniqueId).group();
+			group = safer_cast<SSDbUniqueRecordImpl &>(*dbUniqueRecord()).group();
 		}
 	}
 
@@ -1729,19 +1814,27 @@ void
 ItemImpl::getContent(DbAttributes *dbAttributes, CssmDataContainer *itemData)
 {
 	StLock<Mutex>_(mMutex);
-    // Make sure mUniqueId is set.
-    dbUniqueRecord();
     if (itemData)
     {
-		Db db(mUniqueId->database());
+		Db db(dbUniqueRecord()->database());
 		if (mDoNotEncrypt)
 		{
-			mUniqueId->getWithoutEncryption (dbAttributes, itemData);
+			dbUniqueRecord()->getWithoutEncryption (dbAttributes, itemData);
 			return;
 		}
 		if (useSecureStorage(db))
 		{
-			SSDbUniqueRecordImpl* impl = dynamic_cast<SSDbUniqueRecordImpl *>(&(*mUniqueId));
+            try {
+                if(!checkIntegrity()) {
+                    secnotice("integrity", "item has no integrity, denying access");
+                    CssmError::throwMe(errSecInvalidItemRef);
+                }
+            } catch(CssmError cssme) {
+                secnotice("integrity", "error while checking integrity, denying access: %s", cssme.what());
+                throw cssme;
+            }
+
+			SSDbUniqueRecordImpl* impl = dynamic_cast<SSDbUniqueRecordImpl *>(&(*dbUniqueRecord()));
 			if (impl == NULL)
 			{
 				CssmError::throwMe(CSSMERR_CSSM_INVALID_POINTER);
@@ -1754,7 +1847,7 @@ ItemImpl::getContent(DbAttributes *dbAttributes, CssmDataContainer *itemData)
 		}
 	}
 
-    mUniqueId->get(dbAttributes, itemData);
+    dbUniqueRecord()->get(dbAttributes, itemData);
 }
 
 bool

@@ -328,20 +328,7 @@ bool AccessibilityTable::computeIsTableExposableThroughAccessibility() const
     if (hasARIARole())
         return false;
 
-    if (isDataTable())
-        return true;
-
-    // Gtk+ ATs used to expect all tables to be exposed as tables.
-    // N.B. Efl may wish to follow suit and also defer to WebCore. In the meantime, the following
-    // check fails for data tables with display:table-row-group. By checking for data tables first,
-    // we can handle that edge case without introducing regressions prior to switching to WebCore's
-    // default behavior for table exposure.
-#if PLATFORM(EFL)
-    Element* tableNode = downcast<RenderTable>(*m_renderer).element();
-    return is<HTMLTableElement>(tableNode);
-#endif
-
-    return false;
+    return isDataTable();
 }
 
 void AccessibilityTable::clearChildren()
@@ -472,7 +459,7 @@ void AccessibilityTable::addChildrenFromSection(RenderTableSection* tableSection
                     addTableCellChild(obj, appendedRows, maxColumnCount);
                     continue;
                 }
-                for (auto child = obj->firstChild(); child; child = child->nextSibling())
+                for (auto* child = obj->firstChild(); child; child = child->nextSibling())
                     queue.append(child);
             }
         } else
@@ -515,7 +502,10 @@ void AccessibilityTable::columnHeaders(AccessibilityChildrenVector& headers)
     
     updateChildrenIfNecessary();
     
-    for (const auto& column : m_columns) {
+    // Sometimes m_columns can be reset during the iteration, we cache it here to be safe.
+    AccessibilityChildrenVector columnsCopy = m_columns;
+    
+    for (const auto& column : columnsCopy) {
         if (AccessibilityObject* header = downcast<AccessibilityTableColumn>(*column).headerObject())
             headers.append(header);
     }
@@ -528,7 +518,10 @@ void AccessibilityTable::rowHeaders(AccessibilityChildrenVector& headers)
     
     updateChildrenIfNecessary();
     
-    for (const auto& row : m_rows) {
+    // Sometimes m_rows can be reset during the iteration, we cache it here to be safe.
+    AccessibilityChildrenVector rowsCopy = m_rows;
+    
+    for (const auto& row : rowsCopy) {
         if (AccessibilityObject* header = downcast<AccessibilityTableRow>(*row).headerObject())
             headers.append(header);
     }
@@ -621,6 +614,10 @@ AccessibilityRole AccessibilityTable::roleValue() const
 {
     if (!isExposableThroughAccessibility())
         return AccessibilityRenderObject::roleValue();
+    
+    AccessibilityRole ariaRole = ariaRoleAttribute();
+    if (ariaRole == GridRole || ariaRole == TreeGridRole)
+        return GridRole;
 
     return TableRole;
 }
@@ -667,6 +664,32 @@ String AccessibilityTable::title() const
         title = AccessibilityRenderObject::title();
     
     return title;
+}
+
+int AccessibilityTable::ariaColumnCount() const
+{
+    const AtomicString& colCountValue = getAttribute(aria_colcountAttr);
+    
+    int colCountInt = colCountValue.toInt();
+    // If only a portion of the columns is present in the DOM at a given moment, this attribute is needed to
+    // provide an explicit indication of the number of columns in the full table.
+    if (colCountInt > (int)m_columns.size())
+        return colCountInt;
+    
+    return -1;
+}
+
+int AccessibilityTable::ariaRowCount() const
+{
+    const AtomicString& rowCountValue = getAttribute(aria_rowcountAttr);
+    
+    int rowCountInt = rowCountValue.toInt();
+    // If only a portion of the rows is present in the DOM at a given moment, this attribute is needed to
+    // provide an explicit indication of the number of rows in the full table.
+    if (rowCountInt > (int)m_rows.size())
+        return rowCountInt;
+    
+    return -1;
 }
 
 } // namespace WebCore

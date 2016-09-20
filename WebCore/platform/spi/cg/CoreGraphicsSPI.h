@@ -29,12 +29,24 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreGraphics/CoreGraphics.h>
 
+#if USE(IOSURFACE)
+#include "IOSurfaceSPI.h"
+#endif
+
+#if PLATFORM(MAC)
+#include <ColorSync/ColorSync.h>
+#endif
+
 #if USE(APPLE_INTERNAL_SDK)
 
+#if PLATFORM(MAC)
+#include <ColorSync/ColorSyncPriv.h>
+#endif
 #include <CoreGraphics/CGFontCache.h>
 #include <CoreGraphics/CoreGraphicsPrivate.h>
 
 #else
+
 struct CGFontHMetrics {
     int ascent;
     int descent;
@@ -60,6 +72,19 @@ struct CGFontDescriptor {
 };
 
 typedef const struct CGColorTransform* CGColorTransformRef;
+
+typedef enum {
+    kCGContextTypeUnknown,
+    kCGContextTypePDF,
+    kCGContextTypePostScript,
+    kCGContextTypeWindow,
+    kCGContextTypeBitmap,
+    kCGContextTypeGL,
+    kCGContextTypeDisplayList,
+    kCGContextTypeKSeparation,
+    kCGContextTypeIOSurface,
+    kCGContextTypeCount
+} CGContextType;
 
 typedef enum {
     kCGCompositeCopy = 1,
@@ -138,10 +163,13 @@ CGCompositeOperation CGContextGetCompositeOperation(CGContextRef);
 CGColorRef CGContextGetFillColorAsColor(CGContextRef);
 CGFloat CGContextGetLineWidth(CGContextRef);
 bool CGContextGetShouldSmoothFonts(CGContextRef);
+bool CGContextGetShouldAntialias(CGContextRef);
 void CGContextSetBaseCTM(CGContextRef, CGAffineTransform);
 void CGContextSetCTM(CGContextRef, CGAffineTransform);
 void CGContextSetCompositeOperation(CGContextRef, CGCompositeOperation);
 void CGContextSetShouldAntialiasFonts(CGContextRef, bool shouldAntialiasFonts);
+void CGContextResetClip(CGContextRef);
+CGContextType CGContextGetType(CGContextRef);
 #if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100
 void CGContextSetFontDilation(CGContextRef, CGSize);
 void CGContextSetFontRenderingStyle(CGContextRef, CGFontRenderingStyle);
@@ -164,10 +192,18 @@ CGDataProviderRef CGPDFDocumentGetDataProvider(CGPDFDocumentRef);
 CGFontAntialiasingStyle CGContextGetFontAntialiasingStyle(CGContextRef);
 void CGContextSetFontAntialiasingStyle(CGContextRef, CGFontAntialiasingStyle);
 
+#if USE(IOSURFACE)
+CGContextRef CGIOSurfaceContextCreate(IOSurfaceRef, size_t, size_t, size_t, size_t, CGColorSpaceRef, CGBitmapInfo);
+CGImageRef CGIOSurfaceContextCreateImage(CGContextRef);
+CGImageRef CGIOSurfaceContextCreateImageReference(CGContextRef);
+CGColorSpaceRef CGIOSurfaceContextGetColorSpace(CGContextRef);
+#endif
+
 #if PLATFORM(COCOA)
 CGSRegionEnumeratorObj CGSRegionEnumerator(CGRegionRef);
 CGRect* CGSNextRect(const CGSRegionEnumeratorObj);
 CGError CGSReleaseRegionEnumerator(const CGSRegionEnumeratorObj);
+CGColorSpaceRef CGContextCopyDeviceColorSpace(CGContextRef);
 #endif
 
 #if PLATFORM(WIN)
@@ -181,6 +217,9 @@ CGSConnectionID CGSMainConnectionID(void);
 CFArrayRef CGSHWCaptureWindowList(CGSConnectionID cid, CGSWindowIDList windowList, CGSWindowCount windowCount, CGSWindowCaptureOptions options);
 CGError CGSSetConnectionProperty(CGSConnectionID, CGSConnectionID ownerCid, CFStringRef key, CFTypeRef value);
 CGError CGSCopyConnectionProperty(CGSConnectionID, CGSConnectionID ownerCid, CFStringRef key, CFTypeRef *value);
+CGError CGSGetScreenRectForWindow(CGSConnectionID, CGSWindowID, CGRect *);
+
+bool ColorSyncProfileIsWideGamut(ColorSyncProfileRef);
 #endif
 
 WTF_EXTERN_C_END

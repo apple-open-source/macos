@@ -1,6 +1,4 @@
 .\"
-.\" "$Id: lpc.man 12992 2015-11-19 15:19:00Z msweet $"
-.\"
 .\" lpc man page for CUPS.
 .\"
 .\" Copyright 2007-2014 by Apple Inc.
@@ -58,7 +56,4 @@ command or another CUPS-compatible client with that functionality.
 .BR lpstat (1),
 CUPS Online Help (http://localhost:631/help)
 .SH COPYRIGHT
-Copyright \[co] 2007-2015 by Apple Inc.
-.\"
-.\" End of "$Id: lpc.man 12992 2015-11-19 15:19:00Z msweet $".
-.\"
+Copyright \[co] 2007-2016 by Apple Inc.

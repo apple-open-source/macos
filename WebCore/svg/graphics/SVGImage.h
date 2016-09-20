@@ -33,13 +33,11 @@
 namespace WebCore {
 
 class Element;
-class FrameLoader;
 class FrameView;
 class ImageBuffer;
 class Page;
 class RenderBox;
 class SVGSVGElement;
-class SVGFrameLoaderClient;
 class SVGImageChromeClient;
 class SVGImageForContainer;
 
@@ -53,23 +51,22 @@ public:
     RenderBox* embeddedContentBox() const;
     FrameView* frameView() const;
 
-    virtual bool isSVGImage() const override { return true; }
-    virtual FloatSize size() const override { return m_intrinsicSize; }
+    bool isSVGImage() const override { return true; }
+    FloatSize size() const override { return m_intrinsicSize; }
 
     void setURL(const URL& url) { m_url = url; }
-    void setDataProtocolLoader(FrameLoader* dataProtocolLoader) { m_dataProtocolLoader = dataProtocolLoader; }
 
-    virtual bool hasSingleSecurityOrigin() const override;
+    bool hasSingleSecurityOrigin() const override;
 
-    virtual bool hasRelativeWidth() const override;
-    virtual bool hasRelativeHeight() const override;
+    bool hasRelativeWidth() const override;
+    bool hasRelativeHeight() const override;
 
-    virtual void startAnimation(CatchUpAnimation = CatchUp) override;
-    virtual void stopAnimation() override;
-    virtual void resetAnimation() override;
+    void startAnimation(CatchUpAnimation = CatchUp) override;
+    void stopAnimation() override;
+    void resetAnimation() override;
 
 #if USE(CAIRO)
-    virtual PassNativeImagePtr nativeImageForCurrentFrame() override;
+    NativeImagePtr nativeImageForCurrentFrame() override;
 #endif
 
 private:
@@ -78,35 +75,36 @@ private:
 
     virtual ~SVGImage();
 
-    virtual String filenameExtension() const override;
+    String filenameExtension() const override;
 
-    virtual void setContainerSize(const FloatSize&) override;
+    void setContainerSize(const FloatSize&) override;
     IntSize containerSize() const;
-    virtual bool usesContainerSize() const override { return true; }
-    virtual void computeIntrinsicDimensions(Length& intrinsicWidth, Length& intrinsicHeight, FloatSize& intrinsicRatio) override;
+    bool usesContainerSize() const override { return true; }
+    void computeIntrinsicDimensions(Length& intrinsicWidth, Length& intrinsicHeight, FloatSize& intrinsicRatio) override;
 
-    virtual bool dataChanged(bool allDataReceived) override;
+    void reportApproximateMemoryCost() const;
+    bool dataChanged(bool allDataReceived) override;
 
     // FIXME: SVGImages will be unable to prune because this function is not implemented yet.
-    virtual void destroyDecodedData(bool) override { }
+    void destroyDecodedData(bool) override { }
 
     // FIXME: Implement this to be less conservative.
-    virtual bool currentFrameKnownToBeOpaque() override { return false; }
+    bool currentFrameKnownToBeOpaque() override { return false; }
+
+    void dump(TextStream&) const override;
 
     SVGImage(ImageObserver&, const URL&);
-    virtual void draw(GraphicsContext*, const FloatRect& dstRect, const FloatRect& srcRect, ColorSpace styleColorSpace, CompositeOperator, BlendMode, ImageOrientationDescription) override;
-    void drawForContainer(GraphicsContext*, const FloatSize, float, const FloatRect&, const FloatRect&, ColorSpace, CompositeOperator, BlendMode);
-    void drawPatternForContainer(GraphicsContext*, const FloatSize& containerSize, float zoom, const FloatRect& srcRect, const AffineTransform&, const FloatPoint& phase, const FloatSize& spacing, ColorSpace,
+    void draw(GraphicsContext&, const FloatRect& fromRect, const FloatRect& toRect, CompositeOperator, BlendMode, ImageOrientationDescription) override;
+    void drawForContainer(GraphicsContext&, const FloatSize, float, const FloatRect&, const FloatRect&, CompositeOperator, BlendMode);
+    void drawPatternForContainer(GraphicsContext&, const FloatSize& containerSize, float zoom, const FloatRect& srcRect, const AffineTransform&, const FloatPoint& phase, const FloatSize& spacing,
         CompositeOperator, const FloatRect&, BlendMode);
 
     SVGSVGElement* rootElement() const;
 
-    std::unique_ptr<SVGFrameLoaderClient> m_loaderClient;
     std::unique_ptr<SVGImageChromeClient> m_chromeClient;
     std::unique_ptr<Page> m_page;
     FloatSize m_intrinsicSize;
     URL m_url;
-    FrameLoader* m_dataProtocolLoader { nullptr };
 };
 
 bool isInSVGImage(const Element*);

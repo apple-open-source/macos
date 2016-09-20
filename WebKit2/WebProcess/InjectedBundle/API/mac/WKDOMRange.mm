@@ -32,6 +32,7 @@
 #import "WKBundleAPICast.h"
 #import "WKDOMInternals.h"
 #import <WebCore/Document.h>
+#import <WebCore/VisibleUnits.h>
 
 @implementation WKDOMRange
 
@@ -65,65 +66,63 @@
 
 - (void)setStart:(WKDOMNode *)node offset:(int)offset
 {
+    if (!node)
+        return;
     // FIXME: Do something about the exception.
     WebCore::ExceptionCode ec = 0;
-    _impl->setStart(WebKit::toWebCoreNode(node), offset, ec);
+    _impl->setStart(*WebKit::toWebCoreNode(node), offset, ec);
 }
 
 - (void)setEnd:(WKDOMNode *)node offset:(int)offset
 {
+    if (!node)
+        return;
     // FIXME: Do something about the exception.
     WebCore::ExceptionCode ec = 0;
-    _impl->setEnd(WebKit::toWebCoreNode(node), offset, ec);
+    _impl->setEnd(*WebKit::toWebCoreNode(node), offset, ec);
 }
 
 - (void)collapse:(BOOL)toStart
 {
-    // FIXME: Do something about the exception.
-    WebCore::ExceptionCode ec = 0;
-    _impl->collapse(toStart, ec);
+    _impl->collapse(toStart);
 }
 
 - (void)selectNode:(WKDOMNode *)node
 {
+    if (!node)
+        return;
     // FIXME: Do something about the exception.
     WebCore::ExceptionCode ec = 0;
-    _impl->selectNode(WebKit::toWebCoreNode(node), ec);
+    _impl->selectNode(*WebKit::toWebCoreNode(node), ec);
 }
 
 - (void)selectNodeContents:(WKDOMNode *)node
 {
+    if (!node)
+        return;
     // FIXME: Do something about the exception.
     WebCore::ExceptionCode ec = 0;
-    _impl->selectNodeContents(WebKit::toWebCoreNode(node), ec);
+    _impl->selectNodeContents(*WebKit::toWebCoreNode(node), ec);
 }
 
 - (WKDOMNode *)startContainer
 {
-    // FIXME: Do something about the exception.
-    WebCore::ExceptionCode ec = 0;
-    return WebKit::toWKDOMNode(_impl->startContainer(ec));
+    return WebKit::toWKDOMNode(&_impl->startContainer());
 }
 
 - (NSInteger)startOffset
 {
-    // FIXME: Do something about the exception.
-    WebCore::ExceptionCode ec = 0;
-    return _impl->startOffset(ec);
+    return _impl->startOffset();
 }
 
 - (WKDOMNode *)endContainer
 {
-    // FIXME: Do something about the exception.
-    WebCore::ExceptionCode ec = 0;
-    return WebKit::toWKDOMNode(_impl->endContainer(ec));
+    return WebKit::toWKDOMNode(&_impl->endContainer());
 }
 
 - (NSInteger)endOffset
 {
-    // FIXME: Do something about the exception.
-    WebCore::ExceptionCode ec = 0;
-    return _impl->endOffset(ec);
+    return _impl->endOffset();
 }
 
 - (NSString *)text
@@ -133,17 +132,22 @@
 
 - (BOOL)isCollapsed
 {
-    // FIXME: Do something about the exception.
-    WebCore::ExceptionCode ec = 0;
-    return _impl->collapsed(ec);
+    return _impl->collapsed();
 }
 
 - (NSArray *)textRects
 {
     _impl->ownerDocument().updateLayoutIgnorePendingStylesheets();
     Vector<WebCore::IntRect> rects;
-    _impl->textRects(rects);
+    _impl->absoluteTextRects(rects);
     return WebKit::toNSArray(rects);
+}
+
+- (WKDOMRange *)rangeByExpandingToWordBoundaryByCharacters:(NSUInteger)characters inDirection:(WKDOMRangeDirection)direction
+{
+    RefPtr<WebCore::Range> newRange = rangeExpandedByCharactersInDirectionAtWordBoundary(direction == WKDOMRangeDirectionForward ?  _impl->endPosition() : _impl->startPosition(), characters, direction == WKDOMRangeDirectionForward ? WebCore::DirectionForward : WebCore::DirectionBackward);
+
+    return [[WKDOMRange alloc] _initWithImpl:newRange.get()];
 }
 
 @end
@@ -152,8 +156,8 @@
 
 - (WKBundleRangeHandleRef)_copyBundleRangeHandleRef
 {
-    RefPtr<WebKit::InjectedBundleRangeHandle> rangeHandle = WebKit::InjectedBundleRangeHandle::getOrCreate(_impl.get());
-    return toAPI(rangeHandle.release().leakRef());
+    auto rangeHandle = WebKit::InjectedBundleRangeHandle::getOrCreate(_impl.get());
+    return toAPI(rangeHandle.leakRef());
 }
 
 @end

@@ -28,7 +28,8 @@
 #include <arm/arch.h>
 #endif
 
-#if !defined(PTHREAD_TARGET_EOS) && !defined(VARIANT_DYLD) && \
+// XXX <rdar://problem/24290376> eOS version of libpthread doesn't have UP optimizations
+#if !defined(VARIANT_STATIC) && \
      defined(_ARM_ARCH_7) && !defined(__ARM_ARCH_7S__)
 
 #if OS_ATOMIC_UP
@@ -37,7 +38,7 @@
 #define OS_VARIANT_SELECTOR mp
 #endif
 
-#endif // !PTHREAD_TARGET_EOS && !VARIANT_DYLD && _ARM_ARCH_7 && !__ARM_ARCH_7S__
+#endif // !VARIANT_STATIC && _ARM_ARCH_7 && !__ARM_ARCH_7S__
 
 #define OS_VARIANT(f, v) OS_CONCAT(f, OS_CONCAT($VARIANT$, v))
 

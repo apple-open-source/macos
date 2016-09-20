@@ -26,7 +26,6 @@
 #import "config.h"
 #import "Editor.h"
 
-#import "BlockExceptions.h"
 #import "CSSPrimitiveValueMappings.h"
 #import "CSSValuePool.h"
 #import "CachedResourceLoader.h"
@@ -45,6 +44,7 @@
 #import "HTMLAttachmentElement.h"
 #import "HTMLConverter.h"
 #import "HTMLElement.h"
+#include "HTMLImageElement.h"
 #import "HTMLNames.h"
 #import "LegacyWebArchive.h"
 #import "MIMETypeRegistry.h"
@@ -57,6 +57,7 @@
 #import "RenderBlock.h"
 #import "RenderImage.h"
 #import "RuntimeApplicationChecks.h"
+#import "Settings.h"
 #import "Sound.h"
 #import "StyleProperties.h"
 #import "Text.h"
@@ -65,6 +66,7 @@
 #import "WebNSAttributedStringExtras.h"
 #import "htmlediting.h"
 #import "markup.h"
+#import <wtf/BlockObjCExceptions.h>
 
 namespace WebCore {
 
@@ -96,17 +98,9 @@ void Editor::pasteWithPasteboard(Pasteboard* pasteboard, bool allowPlainText, Ma
     RefPtr<DocumentFragment> fragment = webContentFromPasteboard(*pasteboard, *range, allowPlainText, chosePlainText);
 
     if (fragment && shouldInsertFragment(fragment, range, EditorInsertActionPasted))
-        pasteAsFragment(fragment, canSmartReplaceWithPasteboard(*pasteboard), false, mailBlockquoteHandling);
+        pasteAsFragment(fragment.releaseNonNull(), canSmartReplaceWithPasteboard(*pasteboard), false, mailBlockquoteHandling);
 
     client()->setInsertionPasteboard(String());
-}
-
-bool Editor::insertParagraphSeparatorInQuotedContent()
-{
-    // FIXME: Why is this missing calls to canEdit, canEditRichly, etc.?
-    TypingCommand::insertParagraphSeparatorInQuotedContent(document());
-    revealSelectionAfterEditingOperation();
-    return true;
 }
 
 const Font* Editor::fontForSelection(bool& hasMultipleFonts) const
@@ -115,7 +109,7 @@ const Font* Editor::fontForSelection(bool& hasMultipleFonts) const
 
     if (!m_frame.selection().isRange()) {
         Node* nodeToRemove;
-        RenderStyle* style = styleForSelectionStart(&m_frame, nodeToRemove); // sets nodeToRemove
+        auto* style = styleForSelectionStart(&m_frame, nodeToRemove); // sets nodeToRemove
 
         const Font* result = nullptr;
         if (style) {
@@ -126,7 +120,7 @@ const Font* Editor::fontForSelection(bool& hasMultipleFonts) const
         return result;
     }
 
-    const Font* font = 0;
+    const Font* font = nullptr;
     RefPtr<Range> range = m_frame.selection().toNormalizedRange();
     Node* startNode = adjustedSelectionStartForStyleComputation(m_frame.selection().selection()).deprecatedNode();
     if (range && startNode) {
@@ -154,7 +148,7 @@ const Font* Editor::fontForSelection(bool& hasMultipleFonts) const
 NSDictionary* Editor::fontAttributesForSelectionStart() const
 {
     Node* nodeToRemove;
-    RenderStyle* style = styleForSelectionStart(&m_frame, nodeToRemove);
+    auto* style = styleForSelectionStart(&m_frame, nodeToRemove);
     if (!style)
         return nil;
 
@@ -163,8 +157,8 @@ NSDictionary* Editor::fontAttributesForSelectionStart() const
     if (style->visitedDependentColor(CSSPropertyBackgroundColor).isValid() && style->visitedDependentColor(CSSPropertyBackgroundColor).alpha() != 0)
         [result setObject:nsColor(style->visitedDependentColor(CSSPropertyBackgroundColor)) forKey:NSBackgroundColorAttributeName];
 
-    if (style->fontCascade().primaryFont().getNSFont())
-        [result setObject:style->fontCascade().primaryFont().getNSFont() forKey:NSFontAttributeName];
+    if (auto ctFont = style->fontCascade().primaryFont().getCTFont())
+        [result setObject:toNSFont(ctFont) forKey:NSFontAttributeName];
 
     if (style->visitedDependentColor(CSSPropertyColor).isValid() && style->visitedDependentColor(CSSPropertyColor) != Color::black)
         [result setObject:nsColor(style->visitedDependentColor(CSSPropertyColor)) forKey:NSForegroundColorAttributeName];
@@ -283,7 +277,7 @@ void Editor::replaceNodeFromPasteboard(Node* node, const String& pasteboardName)
     if (RefPtr<DocumentFragment> fragment = webContentFromPasteboard(pasteboard, *range, true, chosePlainText)) {
         maybeCopyNodeAttributesToFragment(*node, *fragment);
         if (shouldInsertFragment(fragment, range, EditorInsertActionPasted))
-            pasteAsFragment(fragment.release(), canSmartReplaceWithPasteboard(pasteboard), false, MailBlockquoteHandling::IgnoreBlockquote);
+            pasteAsFragment(fragment.releaseNonNull(), canSmartReplaceWithPasteboard(pasteboard), false, MailBlockquoteHandling::IgnoreBlockquote);
     }
 
     client()->setInsertionPasteboard(String());
@@ -294,7 +288,7 @@ void Editor::replaceNodeFromPasteboard(Node* node, const String& pasteboardName)
 String Editor::stringSelectionForPasteboard()
 {
     if (!canCopy())
-        return "";
+        return emptyString();
     String text = selectedText();
     text.replace(noBreakSpace, ' ');
     return text;
@@ -303,32 +297,34 @@ String Editor::stringSelectionForPasteboard()
 String Editor::stringSelectionForPasteboardWithImageAltText()
 {
     if (!canCopy())
-        return "";
+        return emptyString();
     String text = selectedTextForDataTransfer();
     text.replace(noBreakSpace, ' ');
     return text;
 }
 
-PassRefPtr<SharedBuffer> Editor::selectionInWebArchiveFormat()
+RefPtr<SharedBuffer> Editor::selectionInWebArchiveFormat()
 {
     RefPtr<LegacyWebArchive> archive = LegacyWebArchive::createFromSelection(&m_frame);
-    return archive ? SharedBuffer::wrapCFData(archive->rawDataRepresentation().get()) : 0;
+    if (!archive)
+        return nullptr;
+    return SharedBuffer::wrapCFData(archive->rawDataRepresentation().get());
 }
 
-PassRefPtr<Range> Editor::adjustedSelectionRange()
+RefPtr<Range> Editor::adjustedSelectionRange()
 {
     // FIXME: Why do we need to adjust the selection to include the anchor tag it's in?
     // Whoever wrote this code originally forgot to leave us a comment explaining the rationale.
     RefPtr<Range> range = selectedRange();
-    Node* commonAncestor = range->commonAncestorContainer(IGNORE_EXCEPTION);
+    Node* commonAncestor = range->commonAncestorContainer();
     ASSERT(commonAncestor);
     auto* enclosingAnchor = enclosingElementWithTag(firstPositionInNode(commonAncestor), HTMLNames::aTag);
     if (enclosingAnchor && comparePositions(firstPositionInOrBeforeNode(range->startPosition().anchorNode()), range->startPosition()) >= 0)
-        range->setStart(enclosingAnchor, 0, IGNORE_EXCEPTION);
+        range->setStart(*enclosingAnchor, 0, IGNORE_EXCEPTION);
     return range;
 }
     
-static PassRefPtr<SharedBuffer> dataInRTFDFormat(NSAttributedString *string)
+static RefPtr<SharedBuffer> dataInRTFDFormat(NSAttributedString *string)
 {
     NSUInteger length = string.length;
     if (!length)
@@ -341,7 +337,7 @@ static PassRefPtr<SharedBuffer> dataInRTFDFormat(NSAttributedString *string)
     return nullptr;
 }
 
-static PassRefPtr<SharedBuffer> dataInRTFFormat(NSAttributedString *string)
+static RefPtr<SharedBuffer> dataInRTFFormat(NSAttributedString *string)
 {
     NSUInteger length = string.length;
     if (!length)
@@ -354,7 +350,7 @@ static PassRefPtr<SharedBuffer> dataInRTFFormat(NSAttributedString *string)
     return nullptr;
 }
 
-PassRefPtr<SharedBuffer> Editor::dataSelectionForPasteboard(const String& pasteboardType)
+RefPtr<SharedBuffer> Editor::dataSelectionForPasteboard(const String& pasteboardType)
 {
     // FIXME: The interface to this function is awkward. We'd probably be better off with three separate functions.
     // As of this writing, this is only used in WebKit2 to implement the method -[WKView writeSelectionToPasteboard:types:],
@@ -378,7 +374,7 @@ PassRefPtr<SharedBuffer> Editor::dataSelectionForPasteboard(const String& pasteb
         return dataInRTFFormat(attributedString);
     }
 
-    return 0;
+    return nullptr;
 }
 
 void Editor::writeSelectionToPasteboard(Pasteboard& pasteboard)
@@ -468,22 +464,28 @@ public:
     }
 
 private:
-    virtual bool readWebArchive(PassRefPtr<SharedBuffer>) override;
-    virtual bool readFilenames(const Vector<String>&) override;
-    virtual bool readHTML(const String&) override;
-    virtual bool readRTFD(PassRefPtr<SharedBuffer>) override;
-    virtual bool readRTF(PassRefPtr<SharedBuffer>) override;
-    virtual bool readImage(PassRefPtr<SharedBuffer>, const String& type) override;
-    virtual bool readURL(const URL&, const String& title) override;
-    virtual bool readPlainText(const String&) override;
+    bool readWebArchive(SharedBuffer*) override;
+    bool readFilenames(const Vector<String>&) override;
+    bool readHTML(const String&) override;
+    bool readRTFD(SharedBuffer&) override;
+    bool readRTF(SharedBuffer&) override;
+    bool readImage(Ref<SharedBuffer>&&, const String& type) override;
+    bool readURL(const URL&, const String& title) override;
+    bool readPlainText(const String&) override;
 };
 
-bool Editor::WebContentReader::readWebArchive(PassRefPtr<SharedBuffer> buffer)
+bool Editor::WebContentReader::readWebArchive(SharedBuffer* buffer)
 {
+    if (frame.settings().preferMIMETypeForImages())
+        return false;
+
     if (!frame.document())
         return false;
 
-    RefPtr<LegacyWebArchive> archive = LegacyWebArchive::create(URL(), buffer.get());
+    if (!buffer)
+        return false;
+
+    RefPtr<LegacyWebArchive> archive = LegacyWebArchive::create(URL(), *buffer);
     if (!archive)
         return false;
 
@@ -498,13 +500,13 @@ bool Editor::WebContentReader::readWebArchive(PassRefPtr<SharedBuffer> buffer)
         if (DocumentLoader* loader = frame.loader().documentLoader())
             loader->addAllArchiveResources(archive.get());
 
-        String markupString = String::fromUTF8(mainResource->data()->data(), mainResource->data()->size());
+        String markupString = String::fromUTF8(mainResource->data().data(), mainResource->data().size());
         fragment = createFragmentFromMarkup(*frame.document(), markupString, mainResource->url(), DisallowScriptingAndPluginContent);
         return true;
     }
 
     if (MIMETypeRegistry::isSupportedImageMIMEType(type)) {
-        fragment = frame.editor().createFragmentForImageResourceAndAddResource(mainResource.release());
+        fragment = frame.editor().createFragmentForImageResourceAndAddResource(WTFMove(mainResource));
         return true;
     }
 
@@ -513,8 +515,7 @@ bool Editor::WebContentReader::readWebArchive(PassRefPtr<SharedBuffer> buffer)
 
 bool Editor::WebContentReader::readFilenames(const Vector<String>& paths)
 {
-    size_t size = paths.size();
-    if (!size)
+    if (paths.isEmpty())
         return false;
 
     if (!frame.document())
@@ -523,18 +524,15 @@ bool Editor::WebContentReader::readFilenames(const Vector<String>& paths)
 
     fragment = document.createDocumentFragment();
 
-    for (size_t i = 0; i < size; i++) {
-        String text = paths[i];
+    for (auto& text : paths) {
 #if ENABLE(ATTACHMENT_ELEMENT)
-        RefPtr<HTMLAttachmentElement> attachment = HTMLAttachmentElement::create(attachmentTag, document);
+        auto attachment = HTMLAttachmentElement::create(attachmentTag, document);
         attachment->setFile(File::create([[NSURL fileURLWithPath:text] path]).ptr());
-        fragment->appendChild(attachment.release());
+        fragment->appendChild(attachment);
 #else
-        text = frame.editor().client()->userVisibleString([NSURL fileURLWithPath:text]);
-
-        RefPtr<HTMLElement> paragraph = createDefaultParagraphElement(document);
-        paragraph->appendChild(document.createTextNode(text));
-        fragment->appendChild(paragraph.release());
+        auto paragraph = createDefaultParagraphElement(document);
+        paragraph->appendChild(document.createTextNode(frame.editor().client()->userVisibleString([NSURL fileURLWithPath:text])));
+        fragment->appendChild(paragraph);
 #endif
     }
 
@@ -565,26 +563,32 @@ bool Editor::WebContentReader::readHTML(const String& string)
     return fragment;
 }
 
-bool Editor::WebContentReader::readRTFD(PassRefPtr<SharedBuffer> buffer)
+bool Editor::WebContentReader::readRTFD(SharedBuffer& buffer)
 {
-    fragment = frame.editor().createFragmentAndAddResources(adoptNS([[NSAttributedString alloc] initWithRTFD:buffer->createNSData().get() documentAttributes:nullptr]).get());
+    if (frame.settings().preferMIMETypeForImages())
+        return false;
+
+    fragment = frame.editor().createFragmentAndAddResources(adoptNS([[NSAttributedString alloc] initWithRTFD:buffer.createNSData().get() documentAttributes:nullptr]).get());
     return fragment;
 }
 
-bool Editor::WebContentReader::readRTF(PassRefPtr<SharedBuffer> buffer)
+bool Editor::WebContentReader::readRTF(SharedBuffer& buffer)
 {
-    fragment = frame.editor().createFragmentAndAddResources(adoptNS([[NSAttributedString alloc] initWithRTF:buffer->createNSData().get() documentAttributes:nullptr]).get());
+    if (frame.settings().preferMIMETypeForImages())
+        return false;
+
+    fragment = frame.editor().createFragmentAndAddResources(adoptNS([[NSAttributedString alloc] initWithRTF:buffer.createNSData().get() documentAttributes:nullptr]).get());
     return fragment;
 }
 
-bool Editor::WebContentReader::readImage(PassRefPtr<SharedBuffer> buffer, const String& type)
+bool Editor::WebContentReader::readImage(Ref<SharedBuffer>&& buffer, const String& type)
 {
     ASSERT(type.contains('/'));
     String typeAsFilenameWithExtension = type;
     typeAsFilenameWithExtension.replace('/', '.');
     URL imageURL = URL::fakeURLWithRelativePart(typeAsFilenameWithExtension);
 
-    fragment = frame.editor().createFragmentForImageResourceAndAddResource(ArchiveResource::create(buffer, imageURL, type, emptyString(), emptyString()));
+    fragment = frame.editor().createFragmentForImageResourceAndAddResource(ArchiveResource::create(WTFMove(buffer), imageURL, type, emptyString(), emptyString()));
     return fragment;
 }
 
@@ -593,12 +597,12 @@ bool Editor::WebContentReader::readURL(const URL& url, const String& title)
     if (url.string().isEmpty())
         return false;
 
-    RefPtr<Element> anchor = frame.document()->createElement(HTMLNames::aTag, false);
-    anchor->setAttribute(HTMLNames::hrefAttr, url.string());
+    auto anchor = frame.document()->createElement(HTMLNames::aTag, false);
+    anchor->setAttributeWithoutSynchronization(HTMLNames::hrefAttr, url.string());
     anchor->appendChild(frame.document()->createTextNode([title precomposedStringWithCanonicalMapping]));
 
     fragment = frame.document()->createDocumentFragment();
-    fragment->appendChild(anchor.release());
+    fragment->appendChild(anchor);
     return true;
 }
 
@@ -617,33 +621,33 @@ bool Editor::WebContentReader::readPlainText(const String& text)
 
 // FIXME: Should give this function a name that makes it clear it adds resources to the document loader as a side effect.
 // Or refactor so it does not do that.
-PassRefPtr<DocumentFragment> Editor::webContentFromPasteboard(Pasteboard& pasteboard, Range& context, bool allowPlainText, bool& chosePlainText)
+RefPtr<DocumentFragment> Editor::webContentFromPasteboard(Pasteboard& pasteboard, Range& context, bool allowPlainText, bool& chosePlainText)
 {
     WebContentReader reader(m_frame, context, allowPlainText);
     pasteboard.read(reader);
     chosePlainText = reader.madeFragmentFromPlainText;
-    return reader.fragment.release();
+    return WTFMove(reader.fragment);
 }
 
-PassRefPtr<DocumentFragment> Editor::createFragmentForImageResourceAndAddResource(PassRefPtr<ArchiveResource> resource)
+RefPtr<DocumentFragment> Editor::createFragmentForImageResourceAndAddResource(RefPtr<ArchiveResource>&& resource)
 {
     if (!resource)
         return nullptr;
 
-    // FIXME: The code in createFragmentAndAddResources calls setDefersLoading(true). Don't we need that here?
+    String resourceURL = resource->url().string();
     if (DocumentLoader* loader = m_frame.loader().documentLoader())
-        loader->addArchiveResource(resource.get());
+        loader->addArchiveResource(resource.releaseNonNull());
 
-    RefPtr<Element> imageElement = document().createElement(HTMLNames::imgTag, false);
-    imageElement->setAttribute(HTMLNames::srcAttr, resource->url().string());
+    auto imageElement = HTMLImageElement::create(*m_frame.document());
+    imageElement->setAttributeWithoutSynchronization(HTMLNames::srcAttr, resourceURL);
 
-    RefPtr<DocumentFragment> fragment = document().createDocumentFragment();
-    fragment->appendChild(imageElement.release());
+    auto fragment = document().createDocumentFragment();
+    fragment->appendChild(imageElement);
 
-    return fragment.release();
+    return WTFMove(fragment);
 }
 
-PassRefPtr<DocumentFragment> Editor::createFragmentAndAddResources(NSAttributedString *string)
+RefPtr<DocumentFragment> Editor::createFragmentAndAddResources(NSAttributedString *string)
 {
     if (!m_frame.page() || !document().isHTMLDocument())
         return nullptr;
@@ -659,14 +663,16 @@ PassRefPtr<DocumentFragment> Editor::createFragmentAndAddResources(NSAttributedS
     RefPtr<DocumentFragment> fragment = client()->documentFragmentFromAttributedString(string, resources);
 
     if (DocumentLoader* loader = m_frame.loader().documentLoader()) {
-        for (size_t i = 0, size = resources.size(); i < size; ++i)
-            loader->addArchiveResource(resources[i]);
+        for (auto& resource : resources) {
+            if (resource)
+                loader->addArchiveResource(resource.releaseNonNull());
+        }
     }
 
     if (!wasDeferringCallbacks)
         m_frame.page()->setDefersLoading(false);
 
-    return fragment.release();
+    return fragment;
 }
 
 void Editor::replaceSelectionWithAttributedString(NSAttributedString *attributedString, MailBlockquoteHandling mailBlockquoteHandling)
@@ -677,7 +683,7 @@ void Editor::replaceSelectionWithAttributedString(NSAttributedString *attributed
     if (m_frame.selection().selection().isContentRichlyEditable()) {
         RefPtr<DocumentFragment> fragment = createFragmentAndAddResources(attributedString);
         if (fragment && shouldInsertFragment(fragment, selectedRange(), EditorInsertActionPasted))
-            pasteAsFragment(fragment, false, false, mailBlockquoteHandling);
+            pasteAsFragment(fragment.releaseNonNull(), false, false, mailBlockquoteHandling);
     } else {
         String text = [attributedString string];
         if (shouldInsertText(text, selectedRange().get(), EditorInsertActionPasted))
@@ -687,11 +693,12 @@ void Editor::replaceSelectionWithAttributedString(NSAttributedString *attributed
 
 void Editor::applyFontStyles(const String& fontFamily, double fontSize, unsigned fontTraits)
 {
+    auto& cssValuePool = CSSValuePool::singleton();
     Ref<MutableStyleProperties> style = MutableStyleProperties::create();
-    style->setProperty(CSSPropertyFontFamily, cssValuePool().createFontFamilyValue(fontFamily));
+    style->setProperty(CSSPropertyFontFamily, cssValuePool.createFontFamilyValue(fontFamily));
     style->setProperty(CSSPropertyFontStyle, (fontTraits & NSFontItalicTrait) ? CSSValueItalic : CSSValueNormal);
-    style->setProperty(CSSPropertyFontWeight, cssValuePool().createValue(fontTraits & NSFontBoldTrait ? FontWeightBold : FontWeightNormal));
-    style->setProperty(CSSPropertyFontSize, cssValuePool().createValue(fontSize, CSSPrimitiveValue::CSS_PX));
+    style->setProperty(CSSPropertyFontWeight, cssValuePool.createValue(fontTraits & NSFontBoldTrait ? FontWeightBold : FontWeightNormal));
+    style->setProperty(CSSPropertyFontSize, cssValuePool.createValue(fontSize, CSSPrimitiveValue::CSS_PX));
     applyStyleToSelection(style.ptr(), EditActionSetFont);
 }
 

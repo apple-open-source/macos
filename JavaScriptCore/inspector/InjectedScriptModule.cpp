@@ -54,7 +54,7 @@ void InjectedScriptModule::ensureInjected(InjectedScriptManager* injectedScriptM
     ensureInjected(injectedScriptManager, injectedScript);
 }
 
-void InjectedScriptModule::ensureInjected(InjectedScriptManager* injectedScriptManager, InjectedScript injectedScript)
+void InjectedScriptModule::ensureInjected(InjectedScriptManager* injectedScriptManager, const InjectedScript& injectedScript)
 {
     ASSERT(!injectedScript.hasNoValue());
     if (injectedScript.hasNoValue())
@@ -65,23 +65,18 @@ void InjectedScriptModule::ensureInjected(InjectedScriptManager* injectedScriptM
     Deprecated::ScriptFunctionCall function(injectedScript.injectedScriptObject(), ASCIILiteral("module"), injectedScriptManager->inspectorEnvironment().functionCallHandler());
     function.appendArgument(name());
     bool hadException = false;
-    Deprecated::ScriptValue resultValue = injectedScript.callFunctionWithEvalEnabled(function, hadException);
+    auto resultValue = injectedScript.callFunctionWithEvalEnabled(function, hadException);
     ASSERT(!hadException);
-    if (hadException || resultValue.hasNoValue() || !resultValue.isObject()) {
+    if (hadException || !resultValue || !resultValue.isObject()) {
         Deprecated::ScriptFunctionCall function(injectedScript.injectedScriptObject(), ASCIILiteral("injectModule"), injectedScriptManager->inspectorEnvironment().functionCallHandler());
         function.appendArgument(name());
         function.appendArgument(source());
         function.appendArgument(host(injectedScriptManager, injectedScript.scriptState()));
         resultValue = injectedScript.callFunctionWithEvalEnabled(function, hadException);
-        if (hadException || (returnsObject() && (resultValue.hasNoValue() || !resultValue.isObject()))) {
+        if (hadException) {
             ASSERT_NOT_REACHED();
             return;
         }
-    }
-
-    if (returnsObject()) {
-        Deprecated::ScriptObject moduleObject(injectedScript.scriptState(), resultValue);
-        initialize(moduleObject, &injectedScriptManager->inspectorEnvironment());
     }
 }
 

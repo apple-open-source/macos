@@ -60,39 +60,39 @@ using namespace JSC::Bindings;
 
 namespace WebCore {
 
-PassRefPtr<JSC::Bindings::Instance> ScriptController::createScriptInstanceForWidget(Widget* widget)
+RefPtr<JSC::Bindings::Instance> ScriptController::createScriptInstanceForWidget(Widget* widget)
 {
     NSView* widgetView = widget->platformWidget();
     if (!widgetView)
-        return 0;
+        return nullptr;
 
-    RefPtr<RootObject> rootObject = createRootObject(widgetView);
+    auto rootObject = createRootObject(widgetView);
 
     if ([widgetView respondsToSelector:@selector(createPluginBindingsInstance:)])
-        return [widgetView createPluginBindingsInstance:rootObject.release()];
+        return [widgetView createPluginBindingsInstance:WTFMove(rootObject)];
         
     if ([widgetView respondsToSelector:@selector(objectForWebScript)]) {
         id objectForWebScript = [widgetView objectForWebScript];
         if (!objectForWebScript)
-            return 0;
-        return JSC::Bindings::ObjcInstance::create(objectForWebScript, rootObject.release());
+            return nullptr;
+        return JSC::Bindings::ObjcInstance::create(objectForWebScript, WTFMove(rootObject));
     }
 
     if ([widgetView respondsToSelector:@selector(createPluginScriptableObject)]) {
 #if !ENABLE(NETSCAPE_PLUGIN_API)
-        return 0;
+        return nullptr;
 #else
         NPObject* npObject = [widgetView createPluginScriptableObject];
         if (!npObject)
-            return 0;
-        RefPtr<Instance> instance = JSC::Bindings::CInstance::create(npObject, rootObject.release());
+            return nullptr;
+        RefPtr<Instance> instance = JSC::Bindings::CInstance::create(npObject, WTFMove(rootObject));
         // -createPluginScriptableObject returns a retained NPObject.  The caller is expected to release it.
         _NPN_ReleaseObject(npObject);
-        return instance.release();
+        return instance;
 #endif
     }
 
-    return 0;
+    return nullptr;
 }
 
 WebScriptObject* ScriptController::windowScriptObject()

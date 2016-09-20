@@ -27,7 +27,7 @@
 
 #include <security_utilities/debugging.h>
 
-#define cspSigDebug(args...)	secdebug("cspSig", ## args)
+#define cspSigDebug(args...)	secinfo("cspSig", ## args)
 
 SignatureContext::~SignatureContext()
 {

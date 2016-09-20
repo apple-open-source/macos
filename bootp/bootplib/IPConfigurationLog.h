@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,44 +36,23 @@
  * - created
  */
 
-#include <stdio.h>
-#include <unistd.h>
-#include <syslog.h>
-#include <CoreFoundation/CFString.h>
-#include <stdbool.h>
-#include <string.h>
-#include "symbol_scope.h"
+#ifndef SC_LOG_HANDLE
+#define SC_LOG_HANDLE	IPConfigLogGetHandle()
+#endif
+#include <SystemConfiguration/SCPrivate.h>
+
+#define kIPConfigurationLogSubsystem	"com.apple.IPConfiguration"
+
+#define kIPConfigurationLogCategoryServer	"Server"
+#define kIPConfigurationLogCategoryLibrary	"Library"
 
 void
-IPConfigurationLogSetVerbose(bool verbose);
+IPConfigLogSetHandle(os_log_t handle);
 
-void
-IPConfigurationLog(int level, CFStringRef format, ...);
+os_log_t
+IPConfigLogGetHandle();
 
-INLINE const char *
-IPConfigurationLogFileName(const char * file)
-{
-    const char *	ret;
-
-    ret = strrchr(file, '/');
-    if (ret != NULL) {
-	ret++;
-    }
-    else {
-	ret = file;
-    }
-    return (ret);
-}
-
-#define IPConfigLog(__level, __format, ...)			\
-    IPConfigurationLog(__level, CFSTR(__format),		\
-		       ## __VA_ARGS__)
-
-#define IPConfigLogFL(__level, __format, ...)			\
-    IPConfigurationLog(__level,					\
-		       CFSTR("[%s:%d] %s(): " __format),	\
-		       IPConfigurationLogFileName(__FILE__),	\
-		       __LINE__, __FUNCTION__,		    	\
-		       ## __VA_ARGS__)
+#define IPConfigLog	SC_log
+#define IPConfigLogFL	SC_log
 
 #endif /* _S_IPCONFIGURATIONLOG_H */

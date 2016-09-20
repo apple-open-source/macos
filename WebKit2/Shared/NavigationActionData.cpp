@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,6 +26,7 @@
 #include "config.h"
 #include "NavigationActionData.h"
 
+#include "ArgumentCoders.h"
 #include "ArgumentDecoder.h"
 #include "ArgumentEncoder.h"
 
@@ -38,9 +39,11 @@ void NavigationActionData::encode(IPC::ArgumentEncoder& encoder) const
     encoder.encodeEnum(navigationType);
     encoder.encodeEnum(modifiers);
     encoder.encodeEnum(mouseButton);
-    encoder << isProcessingUserGesture;
+    encoder.encodeEnum(syntheticClickType);
+    encoder << userGestureTokenIdentifier;
     encoder << canHandleRequest;
     encoder.encodeEnum(shouldOpenExternalURLsPolicy);
+    encoder << downloadAttribute;
 }
 
 bool NavigationActionData::decode(IPC::ArgumentDecoder& decoder, NavigationActionData& result)
@@ -51,11 +54,15 @@ bool NavigationActionData::decode(IPC::ArgumentDecoder& decoder, NavigationActio
         return false;
     if (!decoder.decodeEnum(result.mouseButton))
         return false;
-    if (!decoder.decode(result.isProcessingUserGesture))
+    if (!decoder.decodeEnum(result.syntheticClickType))
+        return false;
+    if (!decoder.decode(result.userGestureTokenIdentifier))
         return false;
     if (!decoder.decode(result.canHandleRequest))
         return false;
     if (!decoder.decodeEnum(result.shouldOpenExternalURLsPolicy))
+        return false;
+    if (!decoder.decode(result.downloadAttribute))
         return false;
 
     return true;

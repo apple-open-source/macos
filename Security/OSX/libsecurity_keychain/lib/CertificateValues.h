@@ -53,6 +53,7 @@ public:
 	CFDataRef copyNormalizedSubjectContent(CFErrorRef *error);
 	CFDataRef copyIssuerSequence(CFErrorRef *error);
 	CFDataRef copySubjectSequence(CFErrorRef *error);
+    CFDictionaryRef copyAttributeDictionary(CFErrorRef *error);
 	bool isValid(CFAbsoluteTime verifyTime, CFErrorRef *error);
 	CFAbsoluteTime notValidBefore(CFErrorRef *error);
 	CFAbsoluteTime notValidAfter(CFErrorRef *error);

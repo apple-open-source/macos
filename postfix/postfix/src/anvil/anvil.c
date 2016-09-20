@@ -130,6 +130,25 @@
 /*	    \fBstatus=0\fR
 /*	    \fBrate=\fInumber\fR
 /* .fi
+/* AUTH RATE CONTROL
+/* .ad
+/* .fi
+/*	To register an AUTH request send the following request
+/*	to the \fBanvil\fR(8) server:
+/*
+/* .nf
+/*	    \fBrequest=auth\fR
+/*	    \fBident=\fIstring\fR
+/* .fi
+/*
+/*	The \fBanvil\fR(8) server answers with the number of auth
+/*	requests per unit time for the (service, client) combination
+/*	specified with \fBident\fR:
+/*
+/* .nf
+/*	    \fBstatus=0\fR
+/*	    \fBrate=\fInumber\fR
+/* .fi
 /* SECURITY
 /* .ad
 /* .fi
@@ -237,6 +256,11 @@
 /*	IBM T.J. Watson Research
 /*	P.O. Box 704
 /*	Yorktown Heights, NY 10598, USA
+/*
+/*	Wietse Venema
+/*	Google, Inc.
+/*	111 8th Avenue
+/*	New York, NY 10011, USA
 /*--*/
 
 /* System library. */
@@ -288,6 +312,7 @@ typedef struct {
     int     mail;			/* message rate */
     int     rcpt;			/* recipient rate */
     int     ntls;			/* new TLS session rate */
+    int     auth;			/* AUTH request rate */
     time_t  start;			/* time of first rate sample */
 } ANVIL_REMOTE;
 
@@ -318,6 +343,7 @@ typedef struct {
 	(remote)->mail = 0; \
 	(remote)->rcpt = 0; \
 	(remote)->ntls = 0; \
+	(remote)->auth = 0; \
 	(remote)->start = event_time(); \
     } while(0)
 
@@ -326,7 +352,7 @@ typedef struct {
 #define ANVIL_REMOTE_FREE(remote) \
     do { \
 	myfree((remote)->ident); \
-	myfree((char *) (remote)); \
+	myfree((void *) (remote)); \
     } while(0)
 
 /* Reset or update rate information for existing (service, client) state. */
@@ -337,6 +363,7 @@ typedef struct {
 	(remote)->mail = 0; \
 	(remote)->rcpt = 0; \
 	(remote)->ntls = 0; \
+	(remote)->auth = 0; \
 	(remote)->start = _start; \
     } while(0)
 
@@ -355,7 +382,7 @@ typedef struct {
     do { \
 	ANVIL_REMOTE_INCR_RATE((remote), rate); \
 	if ((remote)->count == 0) \
-	    event_cancel_timer(anvil_remote_expire, (char *) remote); \
+	    event_cancel_timer(anvil_remote_expire, (void *) remote); \
 	(remote)->count++; \
     } while(0)
 
@@ -365,13 +392,15 @@ typedef struct {
 
 #define ANVIL_REMOTE_INCR_NTLS(remote)	ANVIL_REMOTE_INCR_RATE((remote), ntls)
 
+#define ANVIL_REMOTE_INCR_AUTH(remote)	ANVIL_REMOTE_INCR_RATE((remote), auth)
+
 /* Drop connection from (service, client) state. */
 
 #define ANVIL_REMOTE_DROP_ONE(remote) \
     do { \
 	if ((remote) && (remote)->count > 0) { \
 	    if (--(remote)->count == 0) \
-		event_request_timer(anvil_remote_expire, (char *) remote, \
+		event_request_timer(anvil_remote_expire, (void *) remote, \
 			var_anvil_time_unit); \
 	} \
     } while(0)
@@ -441,6 +470,7 @@ static ANVIL_MAX max_conn_rate;		/* peak connection rate */
 static ANVIL_MAX max_mail_rate;		/* peak message rate */
 static ANVIL_MAX max_rcpt_rate;		/* peak recipient rate */
 static ANVIL_MAX max_ntls_rate;		/* peak new TLS session rate */
+static ANVIL_MAX max_auth_rate;		/* peak AUTH request rate */
 
 static int max_cache_size;		/* peak cache size */
 static time_t max_cache_time;		/* time of peak size */
@@ -486,7 +516,7 @@ static time_t max_cache_time;		/* time of peak size */
 
 /* anvil_remote_expire - purge expired connection state */
 
-static void anvil_remote_expire(int unused_event, char *context)
+static void anvil_remote_expire(int unused_event, void *context)
 {
     ANVIL_REMOTE *anvil_remote = (ANVIL_REMOTE *) context;
     const char *myname = "anvil_remote_expire";
@@ -499,12 +529,12 @@ static void anvil_remote_expire(int unused_event, char *context)
 		  myname, anvil_remote->count);
 
     htable_delete(anvil_remote_map, anvil_remote->ident,
-		  (void (*) (char *)) 0);
+		  (void (*) (void *)) 0);
     ANVIL_REMOTE_FREE(anvil_remote);
 
     if (msg_verbose)
-	msg_info("%s: anvil_remote_map used=%d",
-		 myname, anvil_remote_map->used);
+	msg_info("%s: anvil_remote_map used=%ld",
+		 myname, (long) anvil_remote_map->used);
 }
 
 /* anvil_remote_lookup - dump address status */
@@ -525,12 +555,13 @@ static void anvil_remote_lookup(VSTREAM *client_stream, const char *ident)
     if ((anvil_remote =
 	 (ANVIL_REMOTE *) htable_find(anvil_remote_map, ident)) == 0) {
 	attr_print_plain(client_stream, ATTR_FLAG_NONE,
-			 ATTR_TYPE_INT, ANVIL_ATTR_STATUS, ANVIL_STAT_OK,
-			 ATTR_TYPE_INT, ANVIL_ATTR_COUNT, 0,
-			 ATTR_TYPE_INT, ANVIL_ATTR_RATE, 0,
-			 ATTR_TYPE_INT, ANVIL_ATTR_MAIL, 0,
-			 ATTR_TYPE_INT, ANVIL_ATTR_RCPT, 0,
-			 ATTR_TYPE_INT, ANVIL_ATTR_NTLS, 0,
+			 SEND_ATTR_INT(ANVIL_ATTR_STATUS, ANVIL_STAT_OK),
+			 SEND_ATTR_INT(ANVIL_ATTR_COUNT, 0),
+			 SEND_ATTR_INT(ANVIL_ATTR_RATE, 0),
+			 SEND_ATTR_INT(ANVIL_ATTR_MAIL, 0),
+			 SEND_ATTR_INT(ANVIL_ATTR_RCPT, 0),
+			 SEND_ATTR_INT(ANVIL_ATTR_NTLS, 0),
+			 SEND_ATTR_INT(ANVIL_ATTR_AUTH, 0),
 			 ATTR_TYPE_END);
     } else {
 
@@ -541,12 +572,13 @@ static void anvil_remote_lookup(VSTREAM *client_stream, const char *ident)
 	    && anvil_remote->start + var_anvil_time_unit < event_time())
 	    ANVIL_REMOTE_RSET_RATE(anvil_remote, 0);
 	attr_print_plain(client_stream, ATTR_FLAG_NONE,
-			 ATTR_TYPE_INT, ANVIL_ATTR_STATUS, ANVIL_STAT_OK,
-		       ATTR_TYPE_INT, ANVIL_ATTR_COUNT, anvil_remote->count,
-			 ATTR_TYPE_INT, ANVIL_ATTR_RATE, anvil_remote->rate,
-			 ATTR_TYPE_INT, ANVIL_ATTR_MAIL, anvil_remote->mail,
-			 ATTR_TYPE_INT, ANVIL_ATTR_RCPT, anvil_remote->rcpt,
-			 ATTR_TYPE_INT, ANVIL_ATTR_NTLS, anvil_remote->ntls,
+			 SEND_ATTR_INT(ANVIL_ATTR_STATUS, ANVIL_STAT_OK),
+		       SEND_ATTR_INT(ANVIL_ATTR_COUNT, anvil_remote->count),
+			 SEND_ATTR_INT(ANVIL_ATTR_RATE, anvil_remote->rate),
+			 SEND_ATTR_INT(ANVIL_ATTR_MAIL, anvil_remote->mail),
+			 SEND_ATTR_INT(ANVIL_ATTR_RCPT, anvil_remote->rcpt),
+			 SEND_ATTR_INT(ANVIL_ATTR_NTLS, anvil_remote->ntls),
+			 SEND_ATTR_INT(ANVIL_ATTR_AUTH, anvil_remote->auth),
 			 ATTR_TYPE_END);
     }
 }
@@ -574,7 +606,7 @@ static ANVIL_REMOTE *anvil_remote_conn_update(VSTREAM *client_stream, const char
 	 (ANVIL_REMOTE *) htable_find(anvil_remote_map, ident)) == 0) {
 	anvil_remote = (ANVIL_REMOTE *) mymalloc(sizeof(*anvil_remote));
 	ANVIL_REMOTE_FIRST_CONN(anvil_remote, ident);
-	htable_enter(anvil_remote_map, ident, (char *) anvil_remote);
+	htable_enter(anvil_remote_map, ident, (void *) anvil_remote);
 	if (max_cache_size < anvil_remote_map->used) {
 	    max_cache_size = anvil_remote_map->used;
 	    max_cache_time = event_time();
@@ -591,8 +623,8 @@ static ANVIL_REMOTE *anvil_remote_conn_update(VSTREAM *client_stream, const char
 	anvil_local = (ANVIL_LOCAL *) mymalloc(sizeof(*anvil_local));
 	ANVIL_LOCAL_INIT(anvil_local);
 	vstream_control(client_stream,
-			VSTREAM_CTL_CONTEXT, (void *) anvil_local,
-			VSTREAM_CTL_END);
+			CA_VSTREAM_CTL_CONTEXT((void *) anvil_local),
+			CA_VSTREAM_CTL_END);
     }
     ANVIL_LOCAL_ADD_ONE(anvil_local, anvil_remote);
     if (msg_verbose)
@@ -617,9 +649,9 @@ static void anvil_remote_connect(VSTREAM *client_stream, const char *ident)
      * Respond to the local server.
      */
     attr_print_plain(client_stream, ATTR_FLAG_NONE,
-		     ATTR_TYPE_INT, ANVIL_ATTR_STATUS, ANVIL_STAT_OK,
-		     ATTR_TYPE_INT, ANVIL_ATTR_COUNT, anvil_remote->count,
-		     ATTR_TYPE_INT, ANVIL_ATTR_RATE, anvil_remote->rate,
+		     SEND_ATTR_INT(ANVIL_ATTR_STATUS, ANVIL_STAT_OK),
+		     SEND_ATTR_INT(ANVIL_ATTR_COUNT, anvil_remote->count),
+		     SEND_ATTR_INT(ANVIL_ATTR_RATE, anvil_remote->rate),
 		     ATTR_TYPE_END);
 
     /*
@@ -649,8 +681,8 @@ static void anvil_remote_mail(VSTREAM *client_stream, const char *ident)
      */
     ANVIL_REMOTE_INCR_MAIL(anvil_remote);
     attr_print_plain(client_stream, ATTR_FLAG_NONE,
-		     ATTR_TYPE_INT, ANVIL_ATTR_STATUS, ANVIL_STAT_OK,
-		     ATTR_TYPE_INT, ANVIL_ATTR_RATE, anvil_remote->mail,
+		     SEND_ATTR_INT(ANVIL_ATTR_STATUS, ANVIL_STAT_OK),
+		     SEND_ATTR_INT(ANVIL_ATTR_RATE, anvil_remote->mail),
 		     ATTR_TYPE_END);
 
     /*
@@ -678,8 +710,8 @@ static void anvil_remote_rcpt(VSTREAM *client_stream, const char *ident)
      */
     ANVIL_REMOTE_INCR_RCPT(anvil_remote);
     attr_print_plain(client_stream, ATTR_FLAG_NONE,
-		     ATTR_TYPE_INT, ANVIL_ATTR_STATUS, ANVIL_STAT_OK,
-		     ATTR_TYPE_INT, ANVIL_ATTR_RATE, anvil_remote->rcpt,
+		     SEND_ATTR_INT(ANVIL_ATTR_STATUS, ANVIL_STAT_OK),
+		     SEND_ATTR_INT(ANVIL_ATTR_RATE, anvil_remote->rcpt),
 		     ATTR_TYPE_END);
 
     /*
@@ -687,6 +719,35 @@ static void anvil_remote_rcpt(VSTREAM *client_stream, const char *ident)
      */
     if (anvil_remote->rcpt > max_rcpt_rate.value)
 	ANVIL_MAX_UPDATE(max_rcpt_rate, anvil_remote->rcpt, anvil_remote->ident);
+}
+
+/* anvil_remote_auth - register auth request event */
+
+static void anvil_remote_auth(VSTREAM *client_stream, const char *ident)
+{
+    ANVIL_REMOTE *anvil_remote;
+
+    /*
+     * Be prepared for "postfix reload" after "connect".
+     */
+    if ((anvil_remote =
+	 (ANVIL_REMOTE *) htable_find(anvil_remote_map, ident)) == 0)
+	anvil_remote = anvil_remote_conn_update(client_stream, ident);
+
+    /*
+     * Update recipient address rate and respond to local server.
+     */
+    ANVIL_REMOTE_INCR_AUTH(anvil_remote);
+    attr_print_plain(client_stream, ATTR_FLAG_NONE,
+		     SEND_ATTR_INT(ANVIL_ATTR_STATUS, ANVIL_STAT_OK),
+		     SEND_ATTR_INT(ANVIL_ATTR_RATE, anvil_remote->auth),
+		     ATTR_TYPE_END);
+
+    /*
+     * Update peak statistics.
+     */
+    if (anvil_remote->auth > max_auth_rate.value)
+	ANVIL_MAX_UPDATE(max_auth_rate, anvil_remote->auth, anvil_remote->ident);
 }
 
 /* anvil_remote_newtls - register newtls event */
@@ -707,8 +768,8 @@ static void anvil_remote_newtls(VSTREAM *client_stream, const char *ident)
      */
     ANVIL_REMOTE_INCR_NTLS(anvil_remote);
     attr_print_plain(client_stream, ATTR_FLAG_NONE,
-		     ATTR_TYPE_INT, ANVIL_ATTR_STATUS, ANVIL_STAT_OK,
-		     ATTR_TYPE_INT, ANVIL_ATTR_RATE, anvil_remote->ntls,
+		     SEND_ATTR_INT(ANVIL_ATTR_STATUS, ANVIL_STAT_OK),
+		     SEND_ATTR_INT(ANVIL_ATTR_RATE, anvil_remote->ntls),
 		     ATTR_TYPE_END);
 
     /*
@@ -747,8 +808,8 @@ static void anvil_remote_newtls_stat(VSTREAM *client_stream, const char *ident)
      * Respond to local server.
      */
     attr_print_plain(client_stream, ATTR_FLAG_NONE,
-		     ATTR_TYPE_INT, ANVIL_ATTR_STATUS, ANVIL_STAT_OK,
-		     ATTR_TYPE_INT, ANVIL_ATTR_RATE, rate,
+		     SEND_ATTR_INT(ANVIL_ATTR_STATUS, ANVIL_STAT_OK),
+		     SEND_ATTR_INT(ANVIL_ATTR_RATE, rate),
 		     ATTR_TYPE_END);
 }
 
@@ -784,7 +845,7 @@ static void anvil_remote_disconnect(VSTREAM *client_stream, const char *ident)
      * Respond to the local server.
      */
     attr_print_plain(client_stream, ATTR_FLAG_NONE,
-		     ATTR_TYPE_INT, ANVIL_ATTR_STATUS, ANVIL_STAT_OK,
+		     SEND_ATTR_INT(ANVIL_ATTR_STATUS, ANVIL_STAT_OK),
 		     ATTR_TYPE_END);
 }
 
@@ -811,7 +872,7 @@ static void anvil_service_done(VSTREAM *client_stream, char *unused_service,
 	    msg_info("%s: anvil_local 0x%lx",
 		     myname, (unsigned long) anvil_local);
 	ANVIL_LOCAL_DROP_ALL(client_stream, anvil_local);
-	myfree((char *) anvil_local);
+	myfree((void *) anvil_local);
     } else if (msg_verbose)
 	msg_info("client socket not found for fd=%d",
 		 vstream_fileno(client_stream));
@@ -826,6 +887,7 @@ static void anvil_status_dump(char *unused_name, char **unused_argv)
     ANVIL_MAX_RATE_REPORT(max_mail_rate, "message");
     ANVIL_MAX_RATE_REPORT(max_rcpt_rate, "recipient");
     ANVIL_MAX_RATE_REPORT(max_ntls_rate, "newtls");
+    ANVIL_MAX_RATE_REPORT(max_auth_rate, "auth");
 
     if (max_cache_size > 0) {
 	msg_info("statistics: max cache size %d at %.15s",
@@ -836,7 +898,7 @@ static void anvil_status_dump(char *unused_name, char **unused_argv)
 
 /* anvil_status_update - log and reset extreme usage periodically */
 
-static void anvil_status_update(int unused_event, char *context)
+static void anvil_status_update(int unused_event, void *context)
 {
     anvil_status_dump((char *) 0, (char **) 0);
     event_request_timer(anvil_status_update, context, var_anvil_stat_time);
@@ -855,6 +917,7 @@ static void anvil_service(VSTREAM *client_stream, char *unused_service, char **a
 	ANVIL_REQ_NTLS, anvil_remote_newtls,
 	ANVIL_REQ_DISC, anvil_remote_disconnect,
 	ANVIL_REQ_NTLS_STAT, anvil_remote_newtls_stat,
+	ANVIL_REQ_AUTH, anvil_remote_auth,
 	ANVIL_REQ_LOOKUP, anvil_remote_lookup,
 	0, 0,
     };
@@ -884,14 +947,14 @@ static void anvil_service(VSTREAM *client_stream, char *unused_service, char **a
 	msg_info("--- start request ---");
     if (attr_scan_plain(client_stream,
 			ATTR_FLAG_MISSING | ATTR_FLAG_STRICT,
-			ATTR_TYPE_STR, ANVIL_ATTR_REQ, request,
-			ATTR_TYPE_STR, ANVIL_ATTR_IDENT, ident,
+			RECV_ATTR_STR(ANVIL_ATTR_REQ, request),
+			RECV_ATTR_STR(ANVIL_ATTR_IDENT, ident),
 			ATTR_TYPE_END) == 2) {
 	for (rp = request_table; /* see below */ ; rp++) {
 	    if (rp->name == 0) {
 		msg_warn("unrecognized request: \"%s\", ignored", STR(request));
 		attr_print_plain(client_stream, ATTR_FLAG_NONE,
-			  ATTR_TYPE_INT, ANVIL_ATTR_STATUS, ANVIL_STAT_FAIL,
+			  SEND_ATTR_INT(ANVIL_ATTR_STATUS, ANVIL_STAT_FAIL),
 				 ATTR_TYPE_END);
 		break;
 	    }
@@ -917,7 +980,7 @@ static void post_jail_init(char *unused_name, char **unused_argv)
     /*
      * Dump and reset extreme usage every so often.
      */
-    event_request_timer(anvil_status_update, (char *) 0, var_anvil_stat_time);
+    event_request_timer(anvil_status_update, (void *) 0, var_anvil_stat_time);
 
     /*
      * Initial client state tables.
@@ -954,10 +1017,10 @@ int     main(int argc, char **argv)
     MAIL_VERSION_STAMP_ALLOCATE;
 
     multi_server_main(argc, argv, anvil_service,
-		      MAIL_SERVER_TIME_TABLE, time_table,
-		      MAIL_SERVER_POST_INIT, post_jail_init,
-		      MAIL_SERVER_SOLITARY,
-		      MAIL_SERVER_PRE_DISCONN, anvil_service_done,
-		      MAIL_SERVER_EXIT, anvil_status_dump,
+		      CA_MAIL_SERVER_TIME_TABLE(time_table),
+		      CA_MAIL_SERVER_POST_INIT(post_jail_init),
+		      CA_MAIL_SERVER_SOLITARY,
+		      CA_MAIL_SERVER_PRE_DISCONN(anvil_service_done),
+		      CA_MAIL_SERVER_EXIT(anvil_status_dump),
 		      0);
 }

@@ -176,6 +176,7 @@ int network_rename(
 
 int network_lock(
 	uid_t uid,					/* -> uid of the user making the request (ignored if refreshing) */
+	int lockType,				/* -> exclusive == 0 | shared == 1 */
 	int refresh,				/* -> if FALSE, we're getting the lock (for uid); if TRUE, we're refreshing the lock */
 	struct node_entry *node);	/* -> node to get/renew server lock on */
 

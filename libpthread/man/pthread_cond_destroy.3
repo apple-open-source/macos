@@ -25,7 +25,7 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/lib/libc_r/man/pthread_cond_destroy.3,v 1.6.2.4 2001/08/17 15:42:51 ru Exp $
+.\" $FreeBSD$
 .\"
 .Dd July 28, 1998
 .Dt PTHREAD_COND_DESTROY 3
@@ -34,7 +34,7 @@
 .Nm pthread_cond_destroy
 .Nd destroy a condition variable
 .Sh SYNOPSIS
-.Fd #include <pthread.h>
+.In pthread.h
 .Ft int
 .Fn pthread_cond_destroy "pthread_cond_t *cond"
 .Sh DESCRIPTION
@@ -45,21 +45,21 @@ function frees the resources allocated by the condition variable
 .Sh RETURN VALUES
 If successful, the
 .Fn pthread_cond_destroy
-function will return zero.
-Otherwise, an error number will be returned
+function will return zero, otherwise an error number will be returned
 to indicate the error.
 .Sh ERRORS
+The
 .Fn pthread_cond_destroy
-will fail if:
+function will fail if:
 .Bl -tag -width Er
-.It Bq Er EBUSY
-The variable
-.Fa cond
-is locked by another thread.
 .It Bq Er EINVAL
 The value specified by
 .Fa cond
 is invalid.
+.It Bq Er EBUSY
+The variable
+.Fa cond
+is locked by another thread.
 .El
 .Sh SEE ALSO
 .Xr pthread_cond_broadcast 3 ,
@@ -68,6 +68,7 @@ is invalid.
 .Xr pthread_cond_timedwait 3 ,
 .Xr pthread_cond_wait 3
 .Sh STANDARDS
+The
 .Fn pthread_cond_destroy
-conforms to
+function conforms to
 .St -p1003.1-96 .

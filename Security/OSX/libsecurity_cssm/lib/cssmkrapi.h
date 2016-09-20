@@ -32,6 +32,9 @@
 extern "C" {
 #endif
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 typedef uint32 CSSM_KRSP_HANDLE; /* Key Recovery Service Provider Handle */
 
 typedef struct cssm_kr_name {
@@ -235,6 +238,8 @@ CSSM_KR_PassThrough (CSSM_KRSP_HANDLE KRSPHandle,
                      const void *InputParams,
                      void **OutputParams)
 		DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+
+#pragma clang diagnostic pop
 
 #ifdef __cplusplus
 }

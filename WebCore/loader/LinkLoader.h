@@ -32,6 +32,7 @@
 #ifndef LinkLoader_h
 #define LinkLoader_h
 
+#include "CachedResource.h"
 #include "CachedResourceClient.h"
 #include "CachedResourceHandle.h"
 #include "LinkLoaderClient.h"
@@ -49,10 +50,11 @@ public:
     explicit LinkLoader(LinkLoaderClient&);
     virtual ~LinkLoader();
 
-    bool loadLink(const LinkRelAttribute&, const URL&, Document&);
+    bool loadLink(const LinkRelAttribute&, const URL&, const String& as, const String& crossOrigin, Document&);
+    static Optional<CachedResource::Type> resourceTypeFromAsAttribute(const String& as);
 
 private:
-    virtual void notifyFinished(CachedResource*) override;
+    void notifyFinished(CachedResource*) override;
 
     void linkLoadTimerFired();
     void linkLoadingErrorTimerFired();

@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1999-2015, International Business Machines
+*   Copyright (C) 1999-2016, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -17,10 +17,8 @@
 #ifndef UBIDIIMP_H
 #define UBIDIIMP_H
 
-/*  set import/export definitions */
-#ifdef U_COMMON_IMPLEMENTATION
-
 #include "unicode/utypes.h"
+#include "unicode/ubidi.h"
 #include "unicode/uchar.h"
 #include "ubidi_props.h"
 
@@ -276,9 +274,10 @@ struct UBiDi {
     int32_t resultLength;
 
     /* memory sizes in bytes */
-    int32_t dirPropsSize, levelsSize, openingsSize, parasSize, runsSize, isolatesSize;
+    int32_t dirInsertSize, dirPropsSize, levelsSize, openingsSize, parasSize, runsSize, isolatesSize;
 
     /* allocated memory */
+    uint16_t *dirInsertMemory;
     DirProp *dirPropsMemory;
     UBiDiLevel *levelsMemory;
     Opening *openingsMemory;
@@ -290,6 +289,7 @@ struct UBiDi {
     UBool mayAllocateText, mayAllocateRuns;
 
     /* arrays with one value per text-character */
+    uint16_t *dirInsert;
     DirProp *dirProps;
     UBiDiLevel *levels;
 
@@ -380,6 +380,7 @@ struct UBiDi {
 #define IS_VALID_PARA_OR_LINE(x) ((x) && ((x)->pParaBiDi==(x) || (((x)->pParaBiDi) && (x)->pParaBiDi->pParaBiDi==(x)->pParaBiDi)))
 
 typedef union {
+    uint16_t *dirInsertMemory;
     DirProp *dirPropsMemory;
     UBiDiLevel *levelsMemory;
     Opening *openingsMemory;
@@ -430,6 +431,10 @@ U_CFUNC UBool
 ubidi_getMemory(BidiMemoryForAllocation *pMemory, int32_t *pSize, UBool mayAllocate, int32_t sizeNeeded);
 
 /* helper macros for each allocated array in UBiDi */
+#define getDirInsertMemory(pBiDi, length) \
+        ubidi_getMemory((BidiMemoryForAllocation *)&(pBiDi)->dirInsertMemory, &(pBiDi)->dirInsertSize, \
+                        (pBiDi)->mayAllocateText, (length)*sizeof(uint16_t))
+
 #define getDirPropsMemory(pBiDi, length) \
         ubidi_getMemory((BidiMemoryForAllocation *)&(pBiDi)->dirPropsMemory, &(pBiDi)->dirPropsSize, \
                         (pBiDi)->mayAllocateText, (length))
@@ -443,6 +448,10 @@ ubidi_getMemory(BidiMemoryForAllocation *pMemory, int32_t *pSize, UBool mayAlloc
                         (pBiDi)->mayAllocateRuns, (length)*sizeof(Run))
 
 /* additional macros used by ubidi_open() - always allow allocation */
+#define getInitialDirInsertMemory(pBiDi, length) \
+        ubidi_getMemory((BidiMemoryForAllocation *)&(pBiDi)->dirInsertMemory, &(pBiDi)->dirInsertSize, \
+                        TRUE, (length))
+
 #define getInitialDirPropsMemory(pBiDi, length) \
         ubidi_getMemory((BidiMemoryForAllocation *)&(pBiDi)->dirPropsMemory, &(pBiDi)->dirPropsSize, \
                         TRUE, (length))
@@ -466,7 +475,5 @@ ubidi_getMemory(BidiMemoryForAllocation *pMemory, int32_t *pSize, UBool mayAlloc
 #define getInitialIsolatesMemory(pBiDi, length) \
         ubidi_getMemory((BidiMemoryForAllocation *)&(pBiDi)->isolatesMemory, &(pBiDi)->isolatesSize, \
                         TRUE, (length)*sizeof(Isolate))
-
-#endif
 
 #endif

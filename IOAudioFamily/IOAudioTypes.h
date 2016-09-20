@@ -105,7 +105,7 @@ typedef enum _IOAudioEngineState {
 typedef struct _IOAudioEngineStatus {
     UInt32					fVersion;
     volatile UInt32			fCurrentLoopCount;
-    volatile AbsoluteTime                    fLastLoopTime;
+    volatile AbsoluteTime   fLastLoopTime;
     volatile UInt32			fEraseHeadSampleFrame;
 } IOAudioEngineStatus;
 

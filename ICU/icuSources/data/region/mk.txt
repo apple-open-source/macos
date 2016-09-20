@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/mk.xml
@@ -46,7 +46,6 @@ mk{
         AI{"Ангвила"}
         AL{"Албанија"}
         AM{"Ерменија"}
-        AN{"Холандски Антили"}
         AO{"Ангола"}
         AQ{"Антарктик"}
         AR{"Аргентина"}
@@ -289,7 +288,7 @@ mk{
         VI{"Американски Девствени Острови"}
         VN{"Виетнам"}
         VU{"Вануату"}
-        WF{"Волис и Футуна"}
+        WF{"Валис и Футуна"}
         WS{"Самоа"}
         XK{"Косово"}
         YE{"Јемен"}
@@ -309,10 +308,10 @@ mk{
     Countries%variant{
         CD{"Конго (Демократска Република Конго)"}
         CG{"Конго (Република)"}
-        CI{"Брег на Слоновата Коска"}
+        CI{"Брег на Слонова Коска"}
         FK{"Фолкландски Острови (Малвински Острови)"}
         MK{"Република Македонија"}
         TL{"Источен Тимор"}
     }
-    Version{"2.1.12.94"}
+    Version{"2.1.24.11"}
 }

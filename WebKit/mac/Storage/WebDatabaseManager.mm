@@ -34,6 +34,11 @@
 
 #import <WebCore/DatabaseManager.h>
 #import <WebCore/SecurityOrigin.h>
+#import <wtf/NeverDestroyed.h>
+
+#if ENABLE(INDEXED_DATABASE)
+#import "WebDatabaseProvider.h"
+#endif
 
 #if PLATFORM(IOS)
 #import "WebDatabaseManagerInternal.h"
@@ -132,7 +137,7 @@ static NSString *databasesDirectoryPath();
 
 - (void)deleteAllDatabases
 {
-    DatabaseManager::singleton().deleteAllDatabases();
+    DatabaseManager::singleton().deleteAllDatabasesImmediately();
 #if PLATFORM(IOS)
     // FIXME: This needs to be removed once DatabaseTrackers in multiple processes
     // are in sync: <rdar://problem/9567500> Remove Website Data pane is not kept in sync with Safari
@@ -148,6 +153,14 @@ static NSString *databasesDirectoryPath();
 - (BOOL)deleteDatabase:(NSString *)databaseIdentifier withOrigin:(WebSecurityOrigin *)origin
 {
     return DatabaseManager::singleton().deleteDatabase([origin _core], databaseIdentifier);
+}
+
+// For DumpRenderTree support only
+- (void)deleteAllIndexedDatabases
+{
+#if ENABLE(INDEXED_DATABASE)
+    WebDatabaseProvider::singleton().deleteAllDatabases();
+#endif
 }
 
 #if PLATFORM(IOS)
@@ -226,9 +239,9 @@ static bool isFileHidden(NSString *file)
 #if PLATFORM(IOS)
 @implementation WebDatabaseManager (WebDatabaseManagerInternal)
 
-static Mutex& transactionBackgroundTaskIdentifierLock()
+static Lock& transactionBackgroundTaskIdentifierLock()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(Mutex, mutex, ());
+    static NeverDestroyed<Lock> mutex;
     return mutex;
 }
 
@@ -261,21 +274,21 @@ static WebBackgroundTaskIdentifier getTransactionBackgroundTaskIdentifier()
 
 + (void)startBackgroundTask
 {
-    MutexLocker lock(transactionBackgroundTaskIdentifierLock());
+    LockHolder lock(transactionBackgroundTaskIdentifierLock());
 
     // If there's already an existing background task going on, there's no need to start a new one.
     if (getTransactionBackgroundTaskIdentifier() != invalidWebBackgroundTaskIdentifier())
         return;
     
     setTransactionBackgroundTaskIdentifier(startBackgroundTask(^ {
-        DatabaseTracker::tracker().closeAllDatabases();
+        DatabaseTracker::tracker().closeAllDatabases(CurrentQueryBehavior::Interrupt);
         [WebDatabaseManager endBackgroundTask];
     }));
 }
 
 + (void)endBackgroundTask
 {
-    MutexLocker lock(transactionBackgroundTaskIdentifierLock());
+    LockHolder lock(transactionBackgroundTaskIdentifierLock());
 
     // It is possible that we were unable to start the background task when the first transaction began.
     // Don't try to end the task in that case.
@@ -291,10 +304,6 @@ static WebBackgroundTaskIdentifier getTransactionBackgroundTaskIdentifier()
 
 @end
 
-void WebKitSetWebDatabasePaused(bool paused)
-{
-    DatabaseTracker::tracker().setDatabasesPaused(paused);
-}
 #endif // PLATFORM(IOS)
 
 static NSString *databasesDirectoryPath()

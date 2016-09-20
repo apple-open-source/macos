@@ -25,8 +25,8 @@
 #include <security_utilities/debugging.h>
 #include <opensslUtils/opensslUtils.h>
 
-#define rsaCryptDebug(args...)	secdebug("rsaCrypt", ## args)
-#define rbprintf(args...)		secdebug("rsaBuf", ## args)
+#define rsaCryptDebug(args...)	secinfo("rsaCrypt", ## args)
+#define rbprintf(args...)		secinfo("rsaBuf", ## args)
 
 static ModuleNexus<Mutex> gMutex;
 

@@ -45,6 +45,11 @@ ifneq "$(SRC_GROUP)" ""
 	$(_v) $(INSTALL_FILE) -m 0644 -c $(SRC_GROUP)	 "$(Destination)/group"
 endif
 	$(_v) $(INSTALL_FILE) -m 0644 -c hosts		 "$(Destination)/hosts"
+ifeq "$(RC_BRIDGE)" "YES"
+	$(_v) cat hosts.bridge >> "$(Destination)/hosts"
+	# NOTE: make sure to override (not append) the fstab with fstab.bridge
+	$(_v) $(INSTALL_FILE) -m 0644 -c fstab.bridge	 "$(Destination)/fstab"
+endif
 	$(_v) $(INSTALL_FILE) -m 0644 -c manpaths	 "$(Destination)/manpaths"
 ifneq "$(SRC_PASSWD)" ""
 	$(_v) $(INSTALL_FILE) -m 0600 -c $(SRC_PASSWD)	 "$(Destination)/master.passwd"

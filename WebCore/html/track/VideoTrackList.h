@@ -43,14 +43,14 @@ public:
     virtual ~VideoTrackList();
 
     VideoTrack* getTrackById(const AtomicString&) const;
-    long selectedIndex() const;
+    int selectedIndex() const;
 
     VideoTrack* item(unsigned) const;
     VideoTrack* lastItem() const { return item(length() - 1); }
-    void append(PassRefPtr<VideoTrack>);
+    void append(Ref<VideoTrack>&&);
 
     // EventTarget
-    virtual EventTargetInterface eventTargetInterface() const override;
+    EventTargetInterface eventTargetInterface() const override;
 
 private:
     VideoTrackList(HTMLMediaElement*, ScriptExecutionContext*);

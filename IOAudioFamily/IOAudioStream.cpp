@@ -31,6 +31,7 @@
 #include <IOKit/IOLib.h>
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOCommandGate.h>
+#include <IOKit/audio/AudioTracepoints.h>
 
 #include <libkern/c++/OSSymbol.h>
 #include <libkern/c++/OSNumber.h>
@@ -187,7 +188,7 @@ void IOAudioStream::safeLogError(int error , long unsigned int arg1 , long unsig
 
 				if ( reserved->mStreamErrorCounts[kErrorLogClipMoreThanOneBufferAhead] )
 				{
-					IOLog("IOAudioStream[%p]::clipIfNecessary() - Error: counted %u clip more than one buffer ahead errors.\n", this, reserved->mStreamErrorCounts[kErrorLogClipMoreThanOneBufferAhead] );
+					IOLog("IOAudioStream::clipIfNecessary() - Error: counted %u clip more than one buffer ahead errors.\n", reserved->mStreamErrorCounts[kErrorLogClipMoreThanOneBufferAhead] );
 					reserved->mStreamErrorCounts[kErrorLogClipMoreThanOneBufferAhead] = 0;
 				}
 				
@@ -196,25 +197,25 @@ void IOAudioStream::safeLogError(int error , long unsigned int arg1 , long unsig
 				
 				if ( reserved->mStreamErrorCounts[kErrorLogClipPositionIsOff] )
 				{					
-					IOLog("IOAudioStream[%p]::clipIfNecessary() - Error: counted %u clip position is off errors.\n", this, reserved->mStreamErrorCounts[kErrorLogClipPositionIsOff] );
+					IOLog("IOAudioStream::clipIfNecessary() - Error: counted %u clip position is off errors.\n", reserved->mStreamErrorCounts[kErrorLogClipPositionIsOff] );
 					reserved->mStreamErrorCounts[kErrorLogClipPositionIsOff] = 0;
 				}
 				
 				if ( reserved->mStreamErrorCounts[kErrorLogAlreadyClipped] )
 				{
-					IOLog("IOAudioStream[%p]::clipIfNecessary() - Error: counted %u already clipped errors.\n", this, reserved->mStreamErrorCounts[kErrorLogAlreadyClipped] );
+					IOLog("IOAudioStream::clipIfNecessary() - Error: counted %u already clipped errors.\n", reserved->mStreamErrorCounts[kErrorLogAlreadyClipped] );
 					reserved->mStreamErrorCounts[kErrorLogAlreadyClipped] = 0;
 				}
 				
 				if ( reserved->mStreamErrorCounts[kErrorLogClipBuffersAreNULL] )
 				{	
-					IOLog("IOAudioStream[%p]::clipIfNecessary() - Error: counted %u clip buffers are NULL errors.\n", this, reserved->mStreamErrorCounts[kErrorLogClipBuffersAreNULL] );
+					IOLog("IOAudioStream::clipIfNecessary() - Error: counted %u clip buffers are NULL errors.\n", reserved->mStreamErrorCounts[kErrorLogClipBuffersAreNULL] );
 					reserved->mStreamErrorCounts[kErrorLogClipBuffersAreNULL] = 0;
 				}
 				
 				if ( reserved->mStreamErrorCounts[kErrorLogClipReturnsAnError] )
 				{
-					IOLog("IOAudioStream[%p]::clipIfNecessary() - Error: counted %u clip returns an error conditions.\n", this, reserved->mStreamErrorCounts[kErrorLogClipReturnsAnError] );
+					IOLog("IOAudioStream::clipIfNecessary() - Error: counted %u clip returns an error conditions.\n", reserved->mStreamErrorCounts[kErrorLogClipReturnsAnError] );
 					reserved->mStreamErrorCounts[kErrorLogClipReturnsAnError] = 0;
 				}
 				
@@ -233,7 +234,7 @@ bool IOAudioStream::validateFormat(IOAudioStreamFormat *streamFormat, IOAudioStr
     bool foundFormat = false;
     
     audioDebugIOLog(3, "+ IOAudioStream[%p]::validateFormat(%p, %p, %p)\n", this, streamFormat, formatExtension, formatDesc);
-
+	AudioTrace_Start(kAudioTIOAudioStream, kTPIOAudioStreamValidateFormat, (uintptr_t)this, streamFormat ? streamFormat->fNumChannels : 0, streamFormat ? streamFormat->fBitDepth : 0, sampleRate ? sampleRate->whole : 0);
     
     if (streamFormat && availableFormats && (numAvailableFormats > 0) && sampleRate) {
         UInt32 formatIndex;
@@ -279,6 +280,7 @@ bool IOAudioStream::validateFormat(IOAudioStreamFormat *streamFormat, IOAudioStr
     }
     
     audioDebugIOLog(3, "- IOAudioStream[%p]::validateFormat(%p, %p, %p) returns %d\n", this, streamFormat, formatExtension, formatDesc, foundFormat );
+	AudioTrace_End(kAudioTIOAudioStream, kTPIOAudioStreamValidateFormat, (uintptr_t)this, 0, 0, foundFormat);
     return foundFormat;
 }
 
@@ -294,6 +296,7 @@ IOReturn IOAudioStream::setFormat(const IOAudioStreamFormat *streamFormat, const
     OSDictionary *formatDict = NULL;
 	IOAudioStreamFormatExtension validFormatExtension;
     
+	AudioTrace_Start(kAudioTIOAudioStream, kTPIOAudioStreamSetFormat, (uintptr_t)this, 3, streamFormat ? (((UInt64)streamFormat->fNumChannels << 32) | streamFormat->fBitDepth) : 0, callDriver);
     if (streamFormat) {
 		if (!formatExtension) {
 			IOAudioStreamFormatDesc formatDesc;
@@ -303,6 +306,7 @@ IOReturn IOAudioStream::setFormat(const IOAudioStreamFormat *streamFormat, const
 			validFormatExtension = *formatExtension;
 		}
         if ( (formatDict = createDictionaryFromFormat(streamFormat, &validFormatExtension)) ) {
+			AudioTrace(kAudioTIOAudioStream, kTPIOAudioStreamSetFormat, (uintptr_t)this, 3, (((UInt64)formatDict->getCount() << 32) | validFormatExtension.fVersion), 0);
             result = setFormat(streamFormat, &validFormatExtension, formatDict, callDriver);
             formatDict->release();
         } else {
@@ -312,6 +316,7 @@ IOReturn IOAudioStream::setFormat(const IOAudioStreamFormat *streamFormat, const
         result = kIOReturnBadArgument;
     }
 
+	AudioTrace_End(kAudioTIOAudioStream, kTPIOAudioStreamSetFormat, (uintptr_t)this, 3, 0, result);
     return result;
 }
 
@@ -328,10 +333,12 @@ IOReturn IOAudioStream::setFormat(const IOAudioStreamFormat *streamFormat, const
     const IOAudioSampleRate *requestedSampleRate = NULL;
     OSDictionary *sampleRateDict;
     
+	AudioTrace_Start(kAudioTIOAudioStream, kTPIOAudioStreamSetFormat, (uintptr_t)this, 4, streamFormat ? (((UInt64)streamFormat->fNumChannels << 32) | streamFormat->fBitDepth) : 0, callDriver);
     audioDebugIOLog(3, "+ IOAudioStream[%p]::setFormat(%p, %p)\n", this, streamFormat, formatDict);
 
     if (!streamFormat || !formatDict)
 	{
+		AudioTrace(kAudioTIOAudioStream, kTPIOAudioStreamSetFormat, (uintptr_t)this, 4, (uintptr_t)formatDict, 0);
         result = kIOReturnBadArgument;
     }
 	else
@@ -411,16 +418,22 @@ IOReturn IOAudioStream::setFormat(const IOAudioStreamFormat *streamFormat, const
 				}
 				
 				clientIterator->release();
-			
-				lockStreamForIO();
 				
 				audioEngine->pauseAudioEngine();
 				
 				if (callDriver) {
 					result = audioEngine->performFormatChange(this, &validFormat, &validFormatExtension, newSampleRate);
+					if (result != kIOReturnSuccess)
+					{
+						AudioTrace(kAudioTIOAudioStream, kTPIOAudioStreamSetFormat, (uintptr_t)this, 4, result, 2);
+					}
 					if ( result == kIOReturnUnsupported )
 					{
 						result = audioEngine->performFormatChange(this, &validFormat, newSampleRate);
+						if (result != kIOReturnSuccess)
+						{
+							AudioTrace(kAudioTIOAudioStream, kTPIOAudioStreamSetFormat, (uintptr_t)this, 4, result, 4);
+						}
 					}
 				}
 				
@@ -435,6 +448,8 @@ IOReturn IOAudioStream::setFormat(const IOAudioStreamFormat *streamFormat, const
 					if (newFormatDict) {
 						UInt32 oldNumChannels;
 						
+						lockStreamForIO();
+
 						if (mixBuffer != NULL) {
 							// If we have a mix buffer and the new format is not mixable, free the mix buffer
 							if (!validFormat.fIsMixable) {
@@ -454,6 +469,7 @@ IOReturn IOAudioStream::setFormat(const IOAudioStreamFormat *streamFormat, const
 								}
 							}
 						}
+						unlockStreamForIO();
 						
 						oldNumChannels = format.fNumChannels;
 						
@@ -473,7 +489,7 @@ IOReturn IOAudioStream::setFormat(const IOAudioStreamFormat *streamFormat, const
 					}
 				} else {
 					if ( kIOReturnNotReady != result ) {	//	<rdar://8094567>
-					IOLog("IOAudioStream<%p>::setFormat(0x%p, 0x%p) - audio engine unable to change format\n", this, streamFormat, formatDict);
+					IOLog("IOAudioStream::setFormat - audio engine unable to change format\n");
 					}
 				}
 				
@@ -482,8 +498,6 @@ IOReturn IOAudioStream::setFormat(const IOAudioStreamFormat *streamFormat, const
 				}
 				
 				audioEngine->resumeAudioEngine();
-		
-				unlockStreamForIO();
 				
 				// Unlock all of the user clients we originally locked
 				assert(userClientsToLock);
@@ -505,7 +519,8 @@ IOReturn IOAudioStream::setFormat(const IOAudioStreamFormat *streamFormat, const
 				result = kIOReturnNoMemory;
 			}
 		} else {
-			IOLog("IOAudioStream<0x%p>::setFormat(0x%p, 0x%p) - invalid format.\n", this, streamFormat, formatDict);
+			IOLog("IOAudioStream::setFormat - invalid format.\n");
+			AudioTrace(kAudioTIOAudioStream, kTPIOAudioStreamSetFormat, (uintptr_t)this, 4, requestedSampleRate ? requestedSampleRate->whole : 0, 1);
 			result = kIOReturnBadArgument;
 		}
 	}
@@ -514,6 +529,7 @@ Done:
     
     audioDebugIOLog(3, "IOAudioStream[%p]::setFormat(%p, %p) returns 0x%lx", this, streamFormat, formatDict, (long unsigned int)result);
 
+	AudioTrace_End(kAudioTIOAudioStream, kTPIOAudioStreamSetFormat, (uintptr_t)this, 4, 0, result);
     return result;
 }
 
@@ -544,15 +560,18 @@ void IOAudioStream::addAvailableFormat(const IOAudioStreamFormat *streamFormat, 
                 newAvailableFormatList[numAvailableFormats].formatExtension.bytesPerPacket = localFormatExtension.fBytesPerPacket = streamFormat->fNumChannels * (streamFormat->fBitWidth / 8);
             }
 
+			newAvailableFormatList[numAvailableFormats].ioFunctionList = NULL;
+			newAvailableFormatList[numAvailableFormats].numIOFunctions = 0;
+
             if (ioFunctionList && (numFunctions > 0)) {
                 newAvailableFormatList[numAvailableFormats].ioFunctionList = (AudioIOFunction *)IOMallocAligned(numFunctions * sizeof(AudioIOFunction), sizeof (AudioIOFunction *));
-                newAvailableFormatList[numAvailableFormats].numIOFunctions = numFunctions;
-                memcpy(newAvailableFormatList[numAvailableFormats].ioFunctionList, ioFunctionList, numFunctions * sizeof(AudioIOFunction));
-            } else {
-                newAvailableFormatList[numAvailableFormats].ioFunctionList = NULL;
-                newAvailableFormatList[numAvailableFormats].numIOFunctions = 0;
+
+				if (newAvailableFormatList[numAvailableFormats].ioFunctionList) {
+    	            newAvailableFormatList[numAvailableFormats].numIOFunctions = numFunctions;
+	                memcpy(newAvailableFormatList[numAvailableFormats].ioFunctionList, ioFunctionList, numFunctions * sizeof(AudioIOFunction));
+				}
             }
-            
+
             IOFreeAligned(availableFormats, numAvailableFormats * sizeof(IOAudioStreamFormatDesc));
             availableFormats = newAvailableFormatList;
             numAvailableFormats++;
@@ -1126,6 +1145,7 @@ void IOAudioStream::numSampleFramesPerBufferChanged()
 
 void IOAudioStream::clearSampleBuffer()
 {
+	lockStreamForIO();
     if (sampleBuffer && (sampleBufferSize > 0)) {
         bzero(sampleBuffer, sampleBufferSize);
     }
@@ -1133,6 +1153,7 @@ void IOAudioStream::clearSampleBuffer()
     if (mixBuffer && (mixBufferSize > 0)) {
         bzero(mixBuffer, mixBufferSize);
     }
+	unlockStreamForIO();
 }
 
 void IOAudioStream::setIOFunction(AudioIOFunction ioFunction)
@@ -1712,7 +1733,7 @@ IOReturn IOAudioStream::processOutputSamples(IOAudioClientBuffer *clientBuffer, 
 						result = kIOReturnSuccess;
 					}
 					if (result != kIOReturnSuccess) {
-						IOLog("IOAudioStream[%p]::processOutputSamples(%p) - Error: 0x%x returned from audioEngine->mixOutputSamples(%p, %p, 0x%lx, 0x%lx, %p, %p)\n", this, clientBuffer, result, clientBuffer->sourceBuffer, mixBuffer, (long unsigned int)firstSampleFrame,(long unsigned int) numSampleFramesPerBuffer - firstSampleFrame, &format, this);
+						IOLog("IOAudioStream::processOutputSamples - Error: 0x%x returned from audioEngine->mixOutputSamples\n", result);
 					}
 					nextSampleFrame = numSamplesToMix - (numSampleFramesPerBuffer - firstSampleFrame);
 					if (format.fIsMixable) {
@@ -1740,7 +1761,7 @@ IOReturn IOAudioStream::processOutputSamples(IOAudioClientBuffer *clientBuffer, 
                         }
                     }
                 } else {
-                    IOLog("IOAudioStream[%p]::processOutputSamples(%p) - Error: 0x%lx returned from audioEngine->mixOutputSamples(%p, %p, 0x%lx, 0x%lx, %p, %p)\n", this, clientBuffer, (long unsigned int)result, clientBuffer->sourceBuffer, mixBuffer, (long unsigned int)firstSampleFrame,(long unsigned int) numSampleFramesPerBuffer - firstSampleFrame, &format, this);
+                    IOLog("IOAudioStream::processOutputSamples - Error: 0x%lx returned from audioEngine->mixOutputSamples\n", (long unsigned int)result);
                 }
                 
                 if (mixBufferWrapped) {
@@ -1840,7 +1861,7 @@ IOReturn IOAudioStream::processOutputSamples(IOAudioClientBuffer *clientBuffer, 
 				result = reserved->mClipOutputStatus;
             }
         } else {
-            IOLog("IOAudioStream[%p]::processOutputSamples(%p) - Internal Error: No mix buffer\n", this, clientBuffer);
+            IOLog("IOAudioStream::processOutputSamples - Internal Error: No mix buffer\n");
             result = kIOReturnError;
         }
     } else {
@@ -1954,8 +1975,8 @@ void IOAudioStream::clipIfNecessary()
 #ifdef DEBUG
 							audioDebugIOLog(6,"IOAudioStream[%p]::clipIfNecessary() clipOutputSamples clip too large for source buffer numSamplesToClip=%lu clientBufferListStart->numSampleFrames %lu\n", 
 											this, (long unsigned int)numSamplesToClip, (long unsigned int)clientBufferListStart->numSampleFrames );
-							IOLog("IOAudioStream[%p]::clipIfNecessary() clipOutputSamples clip too large for source buffer numSamplesToClip=%lu clientBufferListStart->numSampleFrames %lu\n", 
-											this, (long unsigned int)numSamplesToClip, (long unsigned int)clientBufferListStart->numSampleFrames );
+							IOLog("IOAudioStream::clipIfNecessary() clipOutputSamples clip too large for source buffer numSamplesToClip=%lu clientBufferListStart->numSampleFrames %lu\n",
+											(long unsigned int)numSamplesToClip, (long unsigned int)clientBufferListStart->numSampleFrames );
 #endif
 						}
 					} else {
@@ -1981,8 +2002,8 @@ void IOAudioStream::clipIfNecessary()
 #ifdef DEBUG
 						audioDebugIOLog(6,"IOAudioStream[%p]::clipIfNecessary() clipOutputSamples wrap clip too large for source buffer numSamplesToClip=%lu clientBufferListStart->numSampleFrames %lu\n", 
 									this, (long unsigned int)numSamplesToClip, (long unsigned int)clientBufferListStart->numSampleFrames );					
-						IOLog("IOAudioStream[%p]::clipIfNecessary() clipOutputSamples wrap clip too large for source buffer numSamplesToClip=%lu clientBufferListStart->numSampleFrames %lu\n", 
-									this, (long unsigned int)numSamplesToClip, (long unsigned int)clientBufferListStart->numSampleFrames );					
+						IOLog("IOAudioStream::clipIfNecessary() clipOutputSamples wrap clip too large for source buffer numSamplesToClip=%lu clientBufferListStart->numSampleFrames %lu\n",
+									(long unsigned int)numSamplesToClip, (long unsigned int)clientBufferListStart->numSampleFrames );
 #endif
 					}
 				} else {
@@ -2005,8 +2026,8 @@ void IOAudioStream::clipIfNecessary()
 #ifdef DEBUG
 						audioDebugIOLog(6,"IOAudioStream[%p]::clipIfNecessary() clipOutputSamples mixBufferOffset  too large for source buffer numSamplesToClip=%lu clientBufferListStart->numSampleFrames=%lu remainingSamplesToClip=%lu\n", 
 									this, (long unsigned int)clientBufferListStart->mixedPosition.fSampleFrame, (long unsigned int)clientBufferListStart->numSampleFrames, (long unsigned int)remainingSamplesToClip );							
-						IOLog("IOAudioStream[%p]::clipIfNecessary() clipOutputSamples mixBufferOffset  too large for source buffer numSamplesToClip=%lu clientBufferListStart->numSampleFrames=%lu remainingSamplesToClip=%lu\n", 
-									this, (long unsigned int)clientBufferListStart->mixedPosition.fSampleFrame, (long unsigned int)clientBufferListStart->numSampleFrames, (long unsigned int)remainingSamplesToClip );
+						IOLog("IOAudioStream::clipIfNecessary() clipOutputSamples mixBufferOffset  too large for source buffer numSamplesToClip=%lu clientBufferListStart->numSampleFrames=%lu remainingSamplesToClip=%lu\n",
+									(long unsigned int)clientBufferListStart->mixedPosition.fSampleFrame, (long unsigned int)clientBufferListStart->numSampleFrames, (long unsigned int)remainingSamplesToClip );
 #endif
 					}
 				} else {
@@ -2114,7 +2135,7 @@ IOReturn IOAudioStream::addDefaultAudioControl(IOAudioControl *defaultAudioContr
             if (((getDirection() == kIOAudioStreamDirectionOutput) && (defaultAudioControl->getUsage() == kIOAudioControlUsageInput)) ||
                 ((getDirection() == kIOAudioStreamDirectionInput) && (defaultAudioControl->getUsage() == kIOAudioControlUsageOutput))) {
                 result = kIOReturnError;
-                IOLog("IOAudioStream[%p]::addDefaultAudioControl() - Error: invalid audio control - stream direction is opposite of control usage.\n", this);
+                IOLog("IOAudioStream::addDefaultAudioControl() - Error: invalid audio control - stream direction is opposite of control usage.\n");
                 goto Done;
             }
             
@@ -2122,7 +2143,7 @@ IOReturn IOAudioStream::addDefaultAudioControl(IOAudioControl *defaultAudioContr
             
             if ((controlChannelID != 0) && ((controlChannelID < startingChannelID) || (controlChannelID >= (startingChannelID + maxNumChannels)))) {
                 result = kIOReturnError;
-                IOLog("IOAudioStream[%p]::addDefaultAudioControl() - Error: audio control channel is not in this stream.\n", this);
+                IOLog("IOAudioStream::addDefaultAudioControl() - Error: audio control channel is not in this stream.\n");
                 goto Done;
             }
             

@@ -48,6 +48,10 @@
 
 __BEGIN_DECLS
 
+CF_ASSUME_NONNULL_BEGIN
+CF_IMPLICIT_BRIDGING_ENABLED
+
+
 /*!
 	@function   IOHIDElementGetTypeID
 	@abstract   Returns the type identifier of all IOHIDElement instances.
@@ -65,7 +69,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
     @result     Returns a new IOHIDElementRef.
 */
 CF_EXPORT
-IOHIDElementRef IOHIDElementCreateWithDictionary(CFAllocatorRef allocator, CFDictionaryRef dictionary)
+IOHIDElementRef IOHIDElementCreateWithDictionary(CFAllocatorRef _Nullable allocator, CFDictionaryRef dictionary)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*!
@@ -86,7 +90,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
     @result     Returns an IOHIDElementRef referencing the parent element.
 */
 CF_EXPORT
-IOHIDElementRef IOHIDElementGetParent(IOHIDElementRef element)
+IOHIDElementRef _Nullable IOHIDElementGetParent(IOHIDElementRef element)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*!
@@ -97,7 +101,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
     @result     Returns an CFArrayRef containing element objects of type IOHIDElementRef.
 */
 CF_EXPORT
-CFArrayRef IOHIDElementGetChildren(IOHIDElementRef element)
+CFArrayRef _Nullable IOHIDElementGetChildren(IOHIDElementRef element)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*!
@@ -130,7 +134,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
     @result     Returns a copy of the current attached elements.
 */
 CF_EXPORT
-CFArrayRef IOHIDElementCopyAttached(IOHIDElementRef element)
+CFArrayRef _Nullable IOHIDElementCopyAttached(IOHIDElementRef element)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*!
@@ -388,7 +392,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
     @result     Returns the property.
 */
 CF_EXPORT
-CFTypeRef IOHIDElementGetProperty(IOHIDElementRef element, CFStringRef key)
+CFTypeRef _Nullable IOHIDElementGetProperty(IOHIDElementRef element, CFStringRef key)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*!
@@ -403,6 +407,8 @@ CF_EXPORT
 Boolean IOHIDElementSetProperty(IOHIDElementRef element, CFStringRef key, CFTypeRef property)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
+CF_IMPLICIT_BRIDGING_DISABLED
+CF_ASSUME_NONNULL_END
 
 __END_DECLS
 

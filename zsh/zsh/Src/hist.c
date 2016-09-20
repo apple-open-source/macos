@@ -136,6 +136,7 @@ mod_export int hist_skip_flags;
 #define HA_NOINC	(1<<1)	/* Don't store, curhist not incremented */
 #define HA_INWORD       (1<<2)  /* We're inside a word, don't add
 				   start and end markers */
+#define HA_UNGET        (1<<3)  /* Recursively ungetting */
 
 /* Array of word beginnings and endings in current history line. */
 
@@ -389,6 +390,12 @@ ihgetc(void)
 {
     int c = ingetc();
 
+    if (exit_pending)
+    {
+	lexstop = 1;
+	errflag |= ERRFLAG_ERROR;
+	return ' ';
+    }
     qbang = 0;
     if (!stophist && !(inbufflags & INP_ALIAS)) {
 	/* If necessary, expand history characters. */
@@ -904,8 +911,14 @@ ihungetc(int c)
 
     while (!lexstop && !errflag) {
 	if (hptr[-1] != (char) c && stophist < 4 &&
-	    hptr > chline + 1 && hptr[-1] == '\n' && hptr[-2] == '\\')
-	    hungetc('\n'), hungetc('\\');
+	    hptr > chline + 1 && hptr[-1] == '\n' && hptr[-2] == '\\' &&
+	    !(histactive & HA_UNGET) &&
+	    (inbufflags & (INP_ALIAS|INP_HIST)) != INP_ALIAS) {
+	    histactive |= HA_UNGET;
+	    hungetc('\n');
+	    hungetc('\\');
+	    histactive &= ~HA_UNGET;
+	}
 
 	if (expanding) {
 	    zlemetacs--;
@@ -2000,7 +2013,7 @@ casemodify(char *str, int how)
 	VARARR(char, mbstr, MB_CUR_MAX);
 	mbstate_t ps;
 
-	mb_metacharinit();
+	mb_charinit();
 	memset(&ps, 0, sizeof(ps));
 	while (*str) {
 	    wint_t wc;
@@ -2241,7 +2254,7 @@ static char *
 getargs(Histent elist, int arg1, int arg2)
 {
     short *words = elist->words;
-    int pos1, nwords = elist->nwords;
+    int pos1, pos2, nwords = elist->nwords;
 
     if (arg2 < arg1 || arg1 >= nwords || arg2 >= nwords) {
 	/* remember, argN is indexed from 0, nwords is total no. of words */
@@ -2250,8 +2263,22 @@ getargs(Histent elist, int arg1, int arg2)
 	return NULL;
     }
 
+    /* optimization for accessing entire history event */
+    if (arg1 == 0 && arg2 == nwords - 1)
+	return dupstring(elist->node.nam);
+
     pos1 = words[2*arg1];
-    return dupstrpfx(elist->node.nam + pos1, words[2*arg2+1] - pos1);
+    pos2 = words[2*arg2+1];
+
+    /* a word has to be at least one character long, so if the position
+     * of a word is less than its index, we've overflowed our signed
+     * short integer word range and the recorded position is garbage. */
+    if (pos1 < 0 || pos1 < arg1 || pos2 < 0 || pos2 < arg2) {
+	herrflush();
+	zerr("history event too long, can't index requested words");
+	return NULL;
+    }
+    return dupstrpfx(elist->node.nam + pos1, pos2 - pos1);
 }
 
 /**/

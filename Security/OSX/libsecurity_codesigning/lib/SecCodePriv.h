@@ -42,8 +42,13 @@ extern "C" {
  */
 extern const CFStringRef kSecCodeInfoCodeDirectory;			/* Internal */
 extern const CFStringRef kSecCodeInfoCodeOffset;			/* Internal */
+extern const CFStringRef kSecCodeInfoDiskRepInfo;           /* Internal */
 extern const CFStringRef kSecCodeInfoResourceDirectory;		/* Internal */
 
+extern const CFStringRef kSecCodeInfoDiskRepOSPlatform;          /* Number */
+extern const CFStringRef kSecCodeInfoDiskRepOSVersionMin;        /* Number */
+extern const CFStringRef kSecCodeInfoDiskRepOSSDKVersion;        /* Number */
+extern const CFStringRef kSecCodeInfoDiskRepNoLibraryValidation; /* String */
 
 /*!
 	@function SecCodeGetStatus
@@ -177,6 +182,39 @@ OSStatus SecCodeCreateWithPID(pid_t pid, SecCSFlags flags, SecCodeRef *process)
 OSStatus SecCodeSetDetachedSignature(SecStaticCodeRef code, CFDataRef signature,
 	SecCSFlags flags);
 
+
+	
+/*
+	@function SecCodeCopyComponent
+ 	For a SecStaticCodeRef, directly retrieve the binary blob for a special slot,
+ 	optionally checking that its native hash is the one given.
+ 
+ 	@param code A code or StaticCode object.
+ 	@param slot The (positive) special slot number requested.
+ 	@param hash A CFDataRef containing the native slot hash for the slot requested.
+ 	@result NULL if anything went wrong (including a missing slot), or a CFDataRef
+ 		containing the slot data.
+ */
+CFDataRef SecCodeCopyComponent(SecCodeRef code, int slot, CFDataRef hash);
+    
+    
+/*
+    @funtion SecCodeValidateFileResource
+    For a SecStaticCodeRef, check that a given CFData object faithfully represents
+    a plain-file resource in its resource seal.
+    This call will fail if the file is missing in the bundle, even if it is optional.
+     
+    @param code A code or StaticCode object.
+    @param relativePath A CFStringRef containing the relative path to a sealed resource
+        file. This path is relative to the resource base, which is either Contents or
+        the bundle root, depending on bundle format.
+    @param fileData A CFDataRef containing the exact contents of that resource file.
+    @param flags Pass kSecCSDefaultFlags.
+    @result noErr if fileData is the exact content of the file at relativePath at the
+        time it was signed. Various error codes if it is different, there was no such file,
+        it was not a plain file, or anything is irregular.
+*/
+OSStatus SecCodeValidateFileResource(SecStaticCodeRef code, CFStringRef relativePath, CFDataRef fileData, SecCSFlags flags);
 
 #ifdef __cplusplus
 }

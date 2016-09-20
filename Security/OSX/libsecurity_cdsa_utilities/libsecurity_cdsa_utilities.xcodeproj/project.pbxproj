@@ -167,7 +167,7 @@
 		4CF64CFB052A3278008ED0EA /* cssmalloc.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cssmalloc.h; sourceTree = "<group>"; };
 		4CF64CFC052A3278008ED0EA /* cssmcert.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cssmcert.cpp; sourceTree = "<group>"; };
 		4CF64CFD052A3278008ED0EA /* cssmcert.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cssmcert.h; sourceTree = "<group>"; };
-		4CF64CFE052A3278008ED0EA /* cssmcred.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cssmcred.cpp; sourceTree = "<group>"; };
+		4CF64CFE052A3278008ED0EA /* cssmcred.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = cssmcred.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		4CF64CFF052A3278008ED0EA /* cssmcred.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cssmcred.h; sourceTree = "<group>"; };
 		4CF64D00052A3278008ED0EA /* cssmdata.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cssmdata.cpp; sourceTree = "<group>"; };
 		4CF64D01052A3278008ED0EA /* cssmdata.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cssmdata.h; sourceTree = "<group>"; };
@@ -207,7 +207,7 @@
 		C2371E3F06DD3E5E00E15E6F /* acl_preauth.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = acl_preauth.h; sourceTree = "<group>"; };
 		C2BFD03006E6CDFE0047EA99 /* aclsubject.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = aclsubject.cpp; sourceTree = "<group>"; };
 		C2BFD03106E6CDFE0047EA99 /* aclsubject.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = aclsubject.h; sourceTree = "<group>"; };
-		C2BFD03206E6CDFE0047EA99 /* objectacl.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = objectacl.cpp; sourceTree = "<group>"; };
+		C2BFD03206E6CDFE0047EA99 /* objectacl.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = objectacl.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C2BFD03306E6CDFE0047EA99 /* objectacl.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = objectacl.h; sourceTree = "<group>"; };
 		C2BFD05A06E6D0560047EA99 /* acl_secret.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = acl_secret.cpp; sourceTree = "<group>"; };
 		C2BFD05B06E6D0560047EA99 /* acl_secret.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = acl_secret.h; sourceTree = "<group>"; };
@@ -456,7 +456,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				182BB4F1146F2734000BF1F3 /* PBXTargetDependency */,
 				4CFF43000535E5E900638F31 /* PBXTargetDependency */,
 			);
 			name = libsecurity_cdsa_utilities;
@@ -486,7 +485,7 @@
 		4CA2A5330523D2CD00978A7B /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0700;
+				LastUpgradeCheck = 0800;
 			};
 			buildConfigurationList = C27AD2FA0987FCDD001272E0 /* Build configuration list for PBXProject "libsecurity_cdsa_utilities" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -532,17 +531,26 @@
 			files = (
 			);
 			inputPaths = (
+				"$(SRCROOT)/",
+				"$(SRCROOT)/lib/",
 			);
 			outputPaths = (
+				"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "nmedit -p \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"\nranlib \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"";
+			shellScript = "# with our source directories as input files, Xcode will only re-run this phase if there's been a source change\nnmedit -p \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"\nranlib \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"";
 		};
 		4CFF42FC0535E5B100638F31 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/lib/KeySchema.m4",
+			);
+			outputPaths = (
+				$BUILT_PRODUCTS_DIR/derived_src/KeySchema.cpp,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -653,12 +661,16 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1879B516146DD045007E536C /* debug.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = lossless;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				ONLY_ACTIVE_ARCH = YES;
 			};
 			name = Debug;
 		};
@@ -666,11 +678,13 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1879B518146DD045007E536C /* release.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = "respect-asset-catalog";
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Release;

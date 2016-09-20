@@ -36,8 +36,7 @@ script()
 {
 	$dtrace -s /dev/stdin <<EOF
 	proc:::exit
-	/curpsinfo->pr_ppid == $child &&
-	    curpsinfo->pr_psargs == "$longsleep" && args[0] == 1 /* CLD_KILLED */ /
+	/curpsinfo->pr_ppid == $child && args[0] == 1 /* CLD_KILLED */ /
 	{
 		exit(0);
 	}

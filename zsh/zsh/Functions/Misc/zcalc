@@ -114,11 +114,17 @@ forms=( '%2$g' '%.*g' '%.*f' '%.*E' '')
 zmodload -i zsh/mathfunc 2>/dev/null
 autoload -Uz zmathfuncdef
 
-: ${ZCALCPROMPT="%1v> "}
+if (( ! ${+ZCALCPROMPT} )); then
+  typeset -g ZCALCPROMPT="%1v> "
+fi
 
 # Supply some constants.
 float PI E
 (( PI = 4 * atan(1), E = exp(1) ))
+
+if [[ -f "${ZDOTDIR:-$HOME}/.zcalcrc" ]]; then
+  . "${ZDOTDIR:-$HOME}/.zcalcrc" || return 1
+fi
 
 # Process command line
 while [[ -n $1 && $1 = -(|[#-]*|f|e) ]]; do

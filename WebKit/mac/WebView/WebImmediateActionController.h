@@ -23,16 +23,24 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+#if PLATFORM(MAC)
 
 #import "WebUIDelegatePrivate.h"
 #import <WebCore/HitTestResult.h>
 #import <WebCore/NSImmediateActionGestureRecognizerSPI.h>
+#import <WebCore/TextIndicator.h>
 #import <wtf/RetainPtr.h>
 
 @class DDActionContext;
 @class QLPreviewMenuItem;
+@class NSDictionary;
 @class WebView;
+
+namespace WebCore {
+class Frame;
+class Range;
+struct DictionaryPopupInfo;
+};
 
 @interface WebImmediateActionController : NSObject <NSImmediateActionGestureRecognizerDelegate> {
 @private
@@ -55,6 +63,8 @@
 
 - (NSImmediateActionGestureRecognizer *)immediateActionRecognizer;
 
++ (WebCore::DictionaryPopupInfo)_dictionaryPopupInfoForRange:(WebCore::Range&)range inFrame:(WebCore::Frame*)frame withLookupOptions:(NSDictionary *)lookupOptions indicatorOptions:(WebCore::TextIndicatorOptions)indicatorOptions transition:(WebCore::TextIndicatorPresentationTransition)presentationTransition;
+
 @end
 
-#endif // PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+#endif // PLATFORM(MAC)

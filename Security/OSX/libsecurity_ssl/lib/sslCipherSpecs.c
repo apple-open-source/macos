@@ -31,7 +31,6 @@
 #include "sslDebug.h"
 #include "sslMemory.h"
 #include "sslDebug.h"
-#include "sslUtils.h"
 #include "sslPriv.h"
 
 #include <tls_handshake.h>
@@ -302,9 +301,12 @@ SSLGetEnabledCiphers		(SSLContextRef			ctx,
 
     err = tls_handshake_get_ciphersuites(ctx->hdsk, &ciphersuites, &n);
 
-    return cipherSuitesToCipherSuites(n,
-                                      ciphersuites,
-                                      ciphers,
-                                      numCiphers);
-
+    if(err) {
+        return err;
+    } else {
+        return cipherSuitesToCipherSuites(n,
+                                          ciphersuites,
+                                          ciphers,
+                                          numCiphers);
+    }
 }

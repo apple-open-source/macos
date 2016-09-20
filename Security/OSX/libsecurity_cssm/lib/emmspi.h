@@ -32,6 +32,9 @@
 extern "C" {
 #endif
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 typedef struct cssm_state_funcs {
     CSSM_RETURN (CSSMAPI *cssm_GetAttachFunctions)
         (CSSM_MODULE_HANDLE hAddIn,
@@ -86,6 +89,8 @@ ModuleManagerAuthenticate (CSSM_KEY_HIERARCHY KeyHierarchy,
                            const CSSM_GUID *AppGuid,
                            CSSM_MANAGER_REGISTRATION_INFO_PTR FunctionTable)
 						DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+
+#pragma clang diagnostic pop
 
 #ifdef __cplusplus
 }

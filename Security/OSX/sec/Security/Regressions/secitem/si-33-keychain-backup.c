@@ -248,6 +248,7 @@ static void test_persistent2(struct test_persistent_s *p)
 static CFMutableDictionaryRef test_create_lockdown_identity_query(void) {
     CFMutableDictionaryRef query = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
     CFDictionaryAddValue(query, kSecClass, kSecClassGenericPassword);
+    CFDictionaryAddValue(query, kSecAttrAccount, CFSTR("test-delete-me"));
     CFDictionaryAddValue(query, kSecAttrAccessGroup, CFSTR("lockdown-identities"));
     return query;
 }
@@ -377,6 +378,12 @@ static CFDataRef create_keybag(keybag_handle_t bag_type, CFDataRef password)
 /* Test low level keychain migration from device to device interface. */
 static void tests(void)
 {
+    {
+        CFMutableDictionaryRef lock_down_query = test_create_lockdown_identity_query();
+        (void)SecItemDelete(lock_down_query);
+        CFReleaseNull(lock_down_query);
+    }
+
     int v_eighty = 80;
     CFNumberRef eighty = CFNumberCreate(NULL, kCFNumberSInt32Type, &v_eighty);
     const char *v_data = "test";
@@ -390,7 +397,8 @@ static void tests(void)
     CFDictionaryAddValue(query, kSecAttrAuthenticationType, kSecAttrAuthenticationTypeDefault);
     CFDictionaryAddValue(query, kSecValueData, pwdata);
     // NUKE anything we might have left around from a previous test run so we don't crash.
-    SecItemDelete(query);
+    (void)SecItemDelete(query);
+
     ok_status(SecItemAdd(query, NULL), "add internet password");
     is_status(SecItemAdd(query, NULL), errSecDuplicateItem,
 	"add internet password again");

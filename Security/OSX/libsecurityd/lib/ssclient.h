@@ -180,10 +180,13 @@ public:
 	DbHandle createDb(const DLDbIdentifier &dbId,
         const AccessCredentials *cred, const AclEntryInput *owner,
         const DBParameters &params);
+    DbHandle cloneDb(const DLDbIdentifier &newDbId, DbHandle srcDb);
+
 	DbHandle cloneDbForSync(const CssmData &secretsBlob, DbHandle srcDb, 
 							const CssmData &agentData);
 	DbHandle recodeDbForSync(DbHandle dbToClone, DbHandle srcDb);
     DbHandle recodeDbToVersion(uint32 newVersion, DbHandle srcDb);
+    void recodeFinished(DbHandle db);
 	DbHandle authenticateDbsForSync(const CssmData &dbHandleArray, const CssmData &agentData);
     void commitDbForSync(DbHandle srcDb, DbHandle cloneDb, CssmData &blob, Allocator &alloc);
 	DbHandle decodeDb(const DLDbIdentifier &dbId,
@@ -337,23 +340,11 @@ public:
         KeyHandle &newKey, CssmKey::Header &newHeader)
 	{ return extractMasterKey(db, context, sourceDb, keyUsage, keyAttr, cred, owner,
 		newKey, newHeader, returnAllocator); }
+
+public:
+    // Testing support calls
+    void getUserPromptAttempts(uint32_t& attempts);
 		
-public:
-	// Authorization API support
-	void authCreate(const AuthorizationItemSet *rights,	const AuthorizationItemSet *environment, 
-		AuthorizationFlags flags,AuthorizationBlob &result);
-	void authRelease(const AuthorizationBlob &auth, AuthorizationFlags flags);
-	void authCopyRights(const AuthorizationBlob &auth,
-		const AuthorizationItemSet *rights, const AuthorizationItemSet *environment,
-		AuthorizationFlags flags, AuthorizationItemSet **result);
-	void authCopyInfo(const AuthorizationBlob &auth, const char *tag, AuthorizationItemSet * &info);
-	void authExternalize(const AuthorizationBlob &auth, AuthorizationExternalForm &extForm);
-	void authInternalize(const AuthorizationExternalForm &extForm, AuthorizationBlob &auth);
-    
-public:
-    // Session API support
-	void setSessionUserPrefs(SecuritySessionId sessionId, uint32_t userPreferencesLength, const void *userPreferences);
-    
 public:
     // Notification core support
     void postNotification(NotificationDomain domain, NotificationEvent event, const CssmData &data);
@@ -361,12 +352,6 @@ public:
 	// low-level callback (C form)
     typedef OSStatus ConsumeNotification(NotificationDomain domain, NotificationEvent event,
         const void *data, size_t dataLength, void *context);
-	
-public:
-	// AuthorizationDB API
-	void authorizationdbGet(const AuthorizationString rightname, CssmData &rightDefinition, Allocator &alloc);
-	void authorizationdbSet(const AuthorizationBlob &auth, const AuthorizationString rightname, uint32_t rightdefinitionLength, const void *rightdefinition);
-	void authorizationdbRemove(const AuthorizationBlob &auth, const AuthorizationString rightname);
 	
 public:
 	// securityd helper support

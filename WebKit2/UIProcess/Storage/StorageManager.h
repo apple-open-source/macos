@@ -37,11 +37,11 @@
 
 namespace WebCore {
 class SecurityOrigin;
+struct SecurityOriginData;
 }
 
 namespace WebKit {
 
-struct SecurityOriginData;
 class LocalStorageDatabaseTracker;
 class WebProcessProxy;
 
@@ -59,29 +59,29 @@ public:
     void processDidCloseConnection(WebProcessProxy&, IPC::Connection&);
     void applicationWillTerminate();
 
-    void getSessionStorageOrigins(std::function<void (HashSet<RefPtr<WebCore::SecurityOrigin>>&&)> completionHandler);
-    void deleteSessionStorageOrigins(std::function<void ()> completionHandler);
-    void deleteSessionStorageEntriesForOrigins(const Vector<RefPtr<WebCore::SecurityOrigin>>&, std::function<void ()> completionHandler);
+    void getSessionStorageOrigins(std::function<void (HashSet<RefPtr<WebCore::SecurityOrigin>>&&)>&& completionHandler);
+    void deleteSessionStorageOrigins(std::function<void ()>&& completionHandler);
+    void deleteSessionStorageEntriesForOrigins(const Vector<RefPtr<WebCore::SecurityOrigin>>&, std::function<void ()>&& completionHandler);
 
-    void getLocalStorageOrigins(std::function<void (HashSet<RefPtr<WebCore::SecurityOrigin>>&&)> completionHandler);
+    void getLocalStorageOrigins(std::function<void (HashSet<RefPtr<WebCore::SecurityOrigin>>&&)>&& completionHandler);
     void deleteLocalStorageEntriesForOrigin(const WebCore::SecurityOrigin&);
 
-    void deleteLocalStorageOriginsModifiedSince(std::chrono::system_clock::time_point, std::function<void ()> completionHandler);
-    void deleteLocalStorageEntriesForOrigins(const Vector<RefPtr<WebCore::SecurityOrigin>>&, std::function<void ()> completionHandler);
+    void deleteLocalStorageOriginsModifiedSince(std::chrono::system_clock::time_point, std::function<void ()>&& completionHandler);
+    void deleteLocalStorageEntriesForOrigins(const Vector<RefPtr<WebCore::SecurityOrigin>>&, std::function<void ()>&& completionHandler);
 
-    void getLocalStorageOriginDetails(std::function<void (Vector<LocalStorageDatabaseTracker::OriginDetails>)> completionHandler);
+    void getLocalStorageOriginDetails(std::function<void (Vector<LocalStorageDatabaseTracker::OriginDetails>)>&& completionHandler);
 
 private:
     explicit StorageManager(const String& localStorageDirectory);
 
     // IPC::Connection::WorkQueueMessageReceiver.
-    virtual void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
-    virtual void didReceiveSyncMessage(IPC::Connection&, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>& replyEncoder) override;
+    void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
+    void didReceiveSyncMessage(IPC::Connection&, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>& replyEncoder) override;
 
     // Message handlers.
-    void createLocalStorageMap(IPC::Connection&, uint64_t storageMapID, uint64_t storageNamespaceID, const SecurityOriginData&);
-    void createTransientLocalStorageMap(IPC::Connection&, uint64_t storageMapID, uint64_t storageNamespaceID, const SecurityOriginData& topLevelOriginData, const SecurityOriginData&);
-    void createSessionStorageMap(IPC::Connection&, uint64_t storageMapID, uint64_t storageNamespaceID, const SecurityOriginData&);
+    void createLocalStorageMap(IPC::Connection&, uint64_t storageMapID, uint64_t storageNamespaceID, const WebCore::SecurityOriginData&);
+    void createTransientLocalStorageMap(IPC::Connection&, uint64_t storageMapID, uint64_t storageNamespaceID, const WebCore::SecurityOriginData& topLevelOriginData, const WebCore::SecurityOriginData&);
+    void createSessionStorageMap(IPC::Connection&, uint64_t storageMapID, uint64_t storageNamespaceID, const WebCore::SecurityOriginData&);
     void destroyStorageMap(IPC::Connection&, uint64_t storageMapID);
 
     void getValues(IPC::Connection&, uint64_t storageMapID, uint64_t storageMapSeed, HashMap<String, String>& values);

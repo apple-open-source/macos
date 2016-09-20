@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 1999-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
@@ -10,7 +10,7 @@
  * except in compliance with the License.  Please obtain a copy of the
  * License at http://www.apple.com/publicsource and read it before using
  * this file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -18,7 +18,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
  * License for the specific language governing rights and limitations
  * under the License."
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -119,7 +119,7 @@ struct entry {
 };
 
 struct th_info {
-        int  thread;
+        uintptr_t  thread;
         int  depth;
         int  vfslookup;
         int  curpri;
@@ -129,7 +129,7 @@ struct th_info {
 };
 
 struct sc_entry {
-        char name[32];
+        char name[64];
         int  delta_count;
         int  total_count;
         int  waiting;
@@ -194,10 +194,9 @@ int    scalls;
 #define DIVISOR 16.6666        /* Trace divisor converts to microseconds */
 double divisor = DIVISOR;
 
-
 int mib[6];
 size_t needed;
-char  *my_buffer;
+void  *my_buffer;
 
 kbufinfo_t bufinfo = {0, 0, 0, 0};
 
@@ -205,29 +204,36 @@ int trace_enabled = 0;
 int set_remove_flag = 1;
 
 struct kinfo_proc *kp_buffer = 0;
-int kp_nentries = 0;
+size_t kp_nentries = 0;
 
 extern char **environ;
 
-void set_enable();
-void set_pidcheck();
-void set_remove();
-void set_numbufs();
-void set_init();
+static void set_enable(int);
+static void set_pidcheck(int, int);
+static void set_remove(void);
+static void set_numbufs(int);
+static void set_init(void);
 void quit(char *);
 int argtopid(char *);
 int argtoi(int, char*, char*, int);
 
 void get_bufinfo(kbufinfo_t *);
-
+static void reset_counters(void);
+static void getdivisor(void);
+static void screen_update(void);
+static void sc_tab_init(char *);
+static void sort_scalls(void);
+static void sample_sc(void);
+static int find_msgcode(int);
 
 /*
  *  signal handlers
  */
 
-void leave()			/* exit under normal conditions -- INT handler */
+/* exit under normal conditions -- INT handler */
+static void
+leave(__unused int unused)
 {
-
         if (no_screen_refresh == 0) {
 	        move(LINES - 1, 0);
 		refresh();
@@ -239,36 +245,16 @@ void leave()			/* exit under normal conditions -- INT handler */
 	exit(0);
 }
 
-void err_leave(s)	/* exit under error conditions */
-char *s;
-{
-
-        if (no_screen_refresh == 0) {
-	        move(LINES - 1, 0);
-		refresh();
-		endwin();
-	}
-
-        printf("sc_usage: ");
-	if (s)
-		printf("%s ", s);
-
-	set_enable(0);
-	set_pidcheck(pid, 0);
-	set_remove();
-
-	exit(1);
-}
-
-void sigwinch()
+static void
+sigwinch(__unused int unused)
 {
         if (no_screen_refresh == 0)
 	        newLINES = 1;
 }
 
-int
-exit_usage(char *myname) {
-
+static int
+exit_usage(char *myname)
+{
         fprintf(stderr, "Usage: %s [-c codefile] [-e] [-l] [-sn] pid | cmd | -E execute path\n", myname);
 	fprintf(stderr, "  -c         name of codefile containing mappings for syscalls\n");
 	fprintf(stderr, "             Default is /usr/share/misc/trace.codes\n");
@@ -282,10 +268,10 @@ exit_usage(char *myname) {
 	exit(1);
 }
 
-
 #define usec_to_1000ths(t)       ((t) / 1000)
 
-void print_time(char *p, unsigned int useconds, unsigned int seconds)
+static void
+print_time(char *p, unsigned int useconds, unsigned int seconds)
 {
 	long	minutes, hours;
 
@@ -306,20 +292,13 @@ void print_time(char *p, unsigned int useconds, unsigned int seconds)
 }
 
 int
-main(argc, argv)
-	int	argc;
-	char	*argv[];
+main(int argc, char *argv[])
 {
 	char	*myname   = "sc_usage";
 	char    *codefile = "/usr/share/misc/trace.codes";
 	char    ch;
 	char    *ptr;
 	int	delay = Default_DELAY;
-        void screen_update();
-	void sort_scalls();
-	void sc_tab_init();
-	void getdivisor();
-	void reset_counters();
 
 	if ( geteuid() != 0 ) {
 	      printf("'sc_usage' must be run as root...\n");
@@ -330,7 +309,7 @@ main(argc, argv)
 		fprintf(stderr, "Could not re-execute: %d\n", errno);
 		exit(1);
 	}
-	
+
 	/* get our name */
 	if (argc > 0) {
 		if ((myname = rindex(argv[0], '/')) == 0) {
@@ -381,7 +360,7 @@ main(argc, argv)
 
 		uid_t uid, euid;
 		gid_t gid, egid;
-		
+
 		ptr = strrchr(argv[optind], '/');
 		if (ptr)
 		  ptr++;
@@ -391,7 +370,7 @@ main(argc, argv)
 		strncpy(proc_name, ptr, sizeof(proc_name)-1);
 		proc_name[sizeof(proc_name)-1] = '\0';
 
-  		uid= getuid();
+		uid= getuid();
 		gid= getgid();
 		euid= geteuid();
 		egid= getegid();
@@ -470,7 +449,7 @@ main(argc, argv)
 	if ((sort_now = 10 / delay) < 2)
 	        sort_now = 2;
 
-	get_bufinfo(&bufinfo);	
+	get_bufinfo(&bufinfo);
 
 	my_buffer = malloc(bufinfo.nkdbufs * sizeof(kd_buf));
 	if(my_buffer == (char *) 0)
@@ -484,13 +463,12 @@ main(argc, argv)
 	while (1) {
 	        int     i;
 		char    c;
-		void    sample_sc();
-		
+
 	        for (i = 0; i < (10 * delay) && newLINES == 0; i++) {
 
 			if (no_screen_refresh == 0) {
-			        if ((c = getch()) != ERR && (char)c == 'q') 
-				        leave();
+			        if ((c = getch()) != ERR && (char)c == 'q')
+				        leave(0);
 				if (c != ERR)
 				        reset_counters();
 			} else
@@ -515,10 +493,11 @@ main(argc, argv)
 	}
 }
 
-void
-print_row(struct sc_entry *se, int no_wtime) {
+static void
+print_row(struct sc_entry *se, int no_wtime)
+{
 	char    tbuf[256];
-	int     clen;
+	size_t     clen;
 
 	if (se->delta_count)
 	        sprintf(tbuf, "%-23.23s    %8d(%d)", se->name, se->total_count, se->delta_count);
@@ -528,14 +507,14 @@ print_row(struct sc_entry *se, int no_wtime) {
 
 	memset(&tbuf[clen], ' ', 45 - clen);
 
-	print_time(&tbuf[45], (unsigned long)(se->stime_usecs), se->stime_secs);
+	print_time(&tbuf[45], (unsigned int)(se->stime_usecs), se->stime_secs);
 	clen = strlen(tbuf);
 
 	if (no_wtime == 0 && (se->wtime_usecs || se->wtime_secs)) {
 	        sprintf(&tbuf[clen], "  ");
 		clen += strlen(&tbuf[clen]);
 
-		print_time(&tbuf[clen], (unsigned long)(se->wtime_usecs), se->wtime_secs);
+		print_time(&tbuf[clen], (unsigned int)(se->wtime_usecs), se->wtime_secs);
 		clen += strlen(&tbuf[clen]);
 
 		if (se->waiting || se->delta_wtime_usecs || se->delta_wtime_secs) {
@@ -543,7 +522,7 @@ print_row(struct sc_entry *se, int no_wtime) {
 		        sprintf(&tbuf[clen], "(");
 			clen += strlen(&tbuf[clen]);
 
-			print_time(&tbuf[clen], (unsigned long)(se->delta_wtime_usecs),
+			print_time(&tbuf[clen], (unsigned int)(se->delta_wtime_usecs),
 				                                se->delta_wtime_secs);
 			clen += strlen(&tbuf[clen]);
 
@@ -566,23 +545,23 @@ print_row(struct sc_entry *se, int no_wtime) {
 	        printw(tbuf);
 }
 
-
-void screen_update()
+static void
+screen_update(void)
 {
         char    *p1, *p2, *p3;
 	char    tbuf[256];
-	int     clen;
-	int     plen;
+	size_t  clen;
+	size_t  plen;
 	int     n, i, rows;
 	long	curr_time;
 	long    elapsed_secs;
-	int     hours;
-	int     minutes;
+	long    hours;
+	long    minutes;
 	struct  sc_entry *se;
 	int     output_lf;
 	int     max_rows;
 	struct th_info *ti;
-	
+
 	if (no_screen_refresh == 0) {
 	        /* clear for new display */
 	        erase();
@@ -592,7 +571,7 @@ void screen_update()
 
 	sprintf(tbuf, "%-14.14s", proc_name);
 	clen = strlen(tbuf);
-	
+
 	if (preempted == 1)
 	        p1 = "preemption ";
 	else
@@ -613,7 +592,7 @@ void screen_update()
 	/*
 	 *  Display the current time.
 	 *  "ctime" always returns a string that looks like this:
-	 *  
+	 *
 	 *	Sun Sep 16 01:03:52 1973
 	 *      012345678901234567890123
 	 *	          1         2
@@ -652,7 +631,7 @@ void screen_update()
 
 	clen = strlen(tbuf);
 	sprintf(&tbuf[clen], "                    %3ld:%02ld:%02ld\n", 
-		(long)hours, (long)(minutes % 60), (long)(elapsed_secs % 60));
+		hours, minutes % 60, elapsed_secs % 60);
 	if (no_screen_refresh)
 	        printf("%s", tbuf);
 	else
@@ -678,7 +657,7 @@ void screen_update()
 	sprintf(tbuf, "System         Idle                                     ");
 	clen = strlen(tbuf);
 
-	print_time(&tbuf[clen], (unsigned long)(itime_usecs), itime_secs);
+	print_time(&tbuf[clen], itime_usecs, itime_secs);
 	clen += strlen(&tbuf[clen]);
 
 	if (delta_itime_usecs || delta_itime_secs) {
@@ -686,7 +665,7 @@ void screen_update()
 	        sprintf(&tbuf[clen], "(");
 		clen += strlen(&tbuf[clen]);
 
-		print_time(&tbuf[clen], (unsigned long)(delta_itime_usecs), delta_itime_secs);
+		print_time(&tbuf[clen], delta_itime_usecs, delta_itime_secs);
 		clen += strlen(&tbuf[clen]);
 
 		sprintf(&tbuf[clen], ")");
@@ -704,15 +683,15 @@ void screen_update()
 	sprintf(tbuf, "System         Busy                                     ");
 	clen = strlen(tbuf);
 
-	print_time(&tbuf[clen], (unsigned long)(otime_usecs), otime_secs);
+	print_time(&tbuf[clen], otime_usecs, otime_secs);
 	clen += strlen(&tbuf[clen]);
 
 	if (delta_otime_usecs || delta_otime_secs) {
 
-	        sprintf(&tbuf[clen], "(");	
+	        sprintf(&tbuf[clen], "(");
 	clen += strlen(&tbuf[clen]);
 
-		print_time(&tbuf[clen], (unsigned long)(delta_otime_usecs), delta_otime_secs);
+		print_time(&tbuf[clen], delta_otime_usecs, delta_otime_secs);
 		clen += strlen(&tbuf[clen]);
 
 		sprintf(&tbuf[clen], ")");
@@ -729,9 +708,9 @@ void screen_update()
 	sprintf(tbuf, "%-14.14s Usermode                      ", proc_name);
 	clen = strlen(tbuf);
 
-	print_time(&tbuf[clen], (unsigned long)(utime_usecs), utime_secs);
+	print_time(&tbuf[clen], utime_usecs, utime_secs);
 	clen += strlen(&tbuf[clen]);
-        
+
 	sprintf(&tbuf[clen], "\n");
 	if (no_screen_refresh)
 	        printf("%s", tbuf);
@@ -793,7 +772,7 @@ void screen_update()
 
 	if (num_of_threads) {
 	        sprintf(tbuf, "\nCURRENT_TYPE              LAST_PATHNAME_WAITED_FOR     CUR_WAIT_TIME THRD# PRI\n");
-		
+
 		if (no_screen_refresh)
 		        printf("%s", tbuf);
 		else
@@ -806,10 +785,10 @@ void screen_update()
 		        printw(tbuf);
 	}
 	ti = &th_state[0];
-		
+
 	for (i = 0; i < num_of_threads; i++, ti++) {
 	        struct entry *te;
-		char 	*p;
+		char	*p;
 		uint64_t now;
 		int      secs, time_secs, time_usecs;
 
@@ -828,14 +807,14 @@ void screen_update()
 				        sprintf(tbuf, "%-23.23s", sc_tab[te->code].name);
 				else
 				        sprintf(tbuf, "%-23.23s", "vm_fault");
-			} else 
+			} else
 			        sprintf(tbuf, "%-23.23s", state_name[te->sc_state]);
 		} else {
 		        te = &ti->th_entry[0];
 		        sprintf(tbuf, "%-23.23s", state_name[te->sc_state]);
 		}
 		clen = strlen(tbuf);
-		
+
 		/* print the tail end of the pathname */
 		p = (char *)ti->pathname;
 
@@ -848,7 +827,7 @@ void screen_update()
 
 		clen += strlen(&tbuf[clen]);
 
-		time_usecs = (unsigned long)(((double)now - te->otime) / divisor);
+		time_usecs = (((double)now - te->otime) / divisor);
 		secs = time_usecs / 1000000;
 		time_usecs -= secs * 1000000;
 		time_secs = secs;
@@ -893,8 +872,9 @@ void screen_update()
 	delta_otime_usecs = 0;
 }
 
-void
-reset_counters() {
+static void
+reset_counters(void)
+{
         int   i;
 
 	for (i = 0; i < (MAX_SC + msgcode_cnt) ; i++) {
@@ -924,7 +904,7 @@ reset_counters() {
 	total_faults = 0;
 	scalls = 0;
 	called = 0;
-	
+
 	utime_secs = 0;
 	utime_usecs = 0;
 	itime_secs = 0;
@@ -937,10 +917,11 @@ reset_counters() {
 	delta_otime_usecs = 0;
 }
 
-void
-sc_tab_init(char *codefile) {
+static void
+sc_tab_init(char *codefile)
+{
         int  code;
-	int  n, cnt;
+	int  n;
 	int msgcode_indx=0;
 	char name[56];
         FILE *fp;
@@ -949,7 +930,7 @@ sc_tab_init(char *codefile) {
 		printf("Failed to open code description file %s\n", codefile);
 		exit(1);
 	}
-	
+
 	/* Count Mach message MSG_ codes */
 	for (msgcode_cnt=0;;) {
 	        n = fscanf(fp, "%x%55s\n", &code, &name[0]);
@@ -983,7 +964,7 @@ sc_tab_init(char *codefile) {
 
 
 	rewind(fp);
-	
+
 	for (;;) {
 	        n = fscanf(fp, "%x%55s\n", &code, &name[0]);
 
@@ -1048,8 +1029,8 @@ sc_tab_init(char *codefile) {
 	strcpy(&faults[4].name[0], "cache_hit");
 }
 
-void
-find_proc_names()
+static void
+find_proc_names(void)
 {
 	size_t			bufSize = 0;
 	struct kinfo_proc       *kp;
@@ -1064,7 +1045,7 @@ find_proc_names()
 
 	if((kp = (struct kinfo_proc *)malloc(bufSize)) == (struct kinfo_proc *)0)
 	    quit("can't allocate memory for proc buffer\n");
-	
+
 	if (sysctl(mib, 4, kp, &bufSize, NULL, 0) < 0)
 	        quit("trace facility failure, KERN_PROC_ALL\n");
 
@@ -1072,7 +1053,9 @@ find_proc_names()
 	kp_buffer = kp;
 }
 
-struct th_info *find_thread(int thread) {
+static struct th_info *
+find_thread(uintptr_t thread)
+{
        struct th_info *ti;
 
        for (ti = th_state; ti < &th_state[MAX_THREADS]; ti++) {
@@ -1082,10 +1065,9 @@ struct th_info *find_thread(int thread) {
        return ((struct th_info *)0);
 }
 
-
-int
-cmp_wtime(struct sc_entry *s1, struct sc_entry *s2) {
-
+static int
+cmp_wtime(struct sc_entry *s1, struct sc_entry *s2)
+{
         if (s1->wtime_secs < s2->wtime_secs)
 	        return 0;
         if (s1->wtime_secs > s2->wtime_secs)
@@ -1095,9 +1077,9 @@ cmp_wtime(struct sc_entry *s1, struct sc_entry *s2) {
 	return 1;
 }
 
-
-void
-sort_scalls() {
+static void
+sort_scalls(void)
+{
         int  i, n, k, cnt, secs;
 	struct th_info *ti;
 	struct sc_entry *se;
@@ -1179,8 +1161,8 @@ sort_scalls() {
 	called++;
 }
 
-void
-set_enable(int val) 
+static void
+set_enable(int val)
 {
 	mib[0] = CTL_KERN;
 	mib[1] = KERN_KDEBUG;
@@ -1197,8 +1179,8 @@ set_enable(int val)
 	  trace_enabled = 0;
 }
 
-void
-set_numbufs(int nbufs) 
+static void
+set_numbufs(int nbufs)
 {
 	mib[0] = CTL_KERN;
 	mib[1] = KERN_KDEBUG;
@@ -1211,7 +1193,7 @@ set_numbufs(int nbufs)
 
 	mib[0] = CTL_KERN;
 	mib[1] = KERN_KDEBUG;
-	mib[2] = KERN_KDSETUP;		
+	mib[2] = KERN_KDSETUP;
 	mib[3] = 0;
 	mib[4] = 0;
 	mib[5] = 0;		        /* no flags */
@@ -1220,8 +1202,8 @@ set_numbufs(int nbufs)
 
 }
 
-void
-set_pidcheck(int pid, int on_off) 
+static void
+set_pidcheck(int pid, int on_off)
 {
         kd_regtype kr;
 
@@ -1236,7 +1218,7 @@ set_pidcheck(int pid, int on_off)
 	mib[4] = 0;
 	mib[5] = 0;
 	if (sysctl(mib, 3, &kr, &needed, NULL, 0) < 0) {
-	        if (on_off == 1) { 
+	        if (on_off == 1) {
 		        printf("pid %d does not exist\n", pid);
 			set_remove();
 			exit(2);
@@ -1250,7 +1232,7 @@ get_bufinfo(kbufinfo_t *val)
         needed = sizeof (*val);
 	mib[0] = CTL_KERN;
 	mib[1] = KERN_KDEBUG;
-	mib[2] = KERN_KDGETBUF;		
+	mib[2] = KERN_KDGETBUF;
 	mib[3] = 0;
 	mib[4] = 0;
 	mib[5] = 0;		/* no flags */
@@ -1259,8 +1241,8 @@ get_bufinfo(kbufinfo_t *val)
 
 }
 
-void
-set_remove() 
+static void
+set_remove(void)
 {
         extern int errno;
 
@@ -1284,9 +1266,10 @@ set_remove()
 	  }
 }
 
-void
-set_init() 
-{       kd_regtype kr;
+static void
+set_init(void)
+{
+	kd_regtype kr;
 
 	kr.type = KDBG_RANGETYPE;
 	kr.value1 = 0;
@@ -1294,7 +1277,7 @@ set_init()
 	needed = sizeof(kd_regtype);
 	mib[0] = CTL_KERN;
 	mib[1] = KERN_KDEBUG;
-	mib[2] = KERN_KDSETREG;		
+	mib[2] = KERN_KDSETREG;
 	mib[3] = 0;
 	mib[4] = 0;
 	mib[5] = 0;		/* no flags */
@@ -1303,24 +1286,21 @@ set_init()
 
 	mib[0] = CTL_KERN;
 	mib[1] = KERN_KDEBUG;
-	mib[2] = KERN_KDSETUP;		
+	mib[2] = KERN_KDSETUP;
 	mib[3] = 0;
 	mib[4] = 0;
 	mib[5] = 0;		/* no flags */
 	if (sysctl(mib, 3, NULL, &needed, NULL, 0) < 0)
 	        quit("trace facility failure, KERN_KDSETUP\n");
-
 }
 
-void
-sample_sc()
+static void
+sample_sc(void)
 {
 	kd_buf *kd;
-	int i, count;
+	int i;
+	size_t count;
 	int secs;
-	int find_msgcode();
-
-	int reenable;
 
 #ifdef OLD_KDEBUG
 	set_enable(0);
@@ -1330,12 +1310,12 @@ sample_sc()
 	needed = bufinfo.nkdbufs * sizeof(kd_buf);
 	mib[0] = CTL_KERN;
 	mib[1] = KERN_KDEBUG;
-	mib[2] = KERN_KDREADTR;     
-	mib[3] = 0; 
-	mib[4] = 0; 
+	mib[2] = KERN_KDREADTR;
+	mib[3] = 0;
+	mib[4] = 0;
 	mib[5] = 0;
-        
-	if (sysctl(mib, 3, my_buffer, &needed, NULL, 0) < 0) 
+
+	if (sysctl(mib, 3, my_buffer, &needed, NULL, 0) < 0)
 		quit("trace facility failure, KERN_KDREADTR\n");
 
 	count = needed;
@@ -1360,7 +1340,8 @@ sample_sc()
 	kd = (kd_buf *)my_buffer;
 
 	for (i = 0; i < count; i++) {
-	        int debugid, baseid, thread;
+	        int debugid, baseid;
+		uintptr_t thread;
 		int type, code;
 		uint64_t now;
 		struct th_info *ti, *switched_out, *switched_in;
@@ -1376,7 +1357,7 @@ sample_sc()
 		switched_in  = (struct th_info *)0;
 
 		now = kd[i].timestamp & KDBG_TIMESTAMP_MASK;
-		
+
 		baseid = debugid & 0xffff0000;
 
 		if (type == vfs_lookup) {
@@ -1518,14 +1499,14 @@ sample_sc()
 		if (switched_out || switched_in) {
 		        if (switched_out) {
 			        ti = switched_out;
-				ti->curpri = kd[i].arg3;
+				ti->curpri = (int)kd[i].arg3;
 
 				if (ti->depth) {
 				        te = &ti->th_entry[ti->depth-1];
 
 					if (te->sc_state == KERNEL_MODE)
 					        te->ctime += (double)now - te->stime;
-					te->sc_state = WAITING; 
+					te->sc_state = WAITING;
 
 					ti->vfslookup = 1;
 
@@ -1544,14 +1525,14 @@ sample_sc()
 			}
 			if (switched_in) {
 			        ti = switched_in;
-				ti->curpri = kd[i].arg4;
+				ti->curpri = (int)kd[i].arg4;
 
 				if (ti->depth) {
 				        te = &ti->th_entry[ti->depth-1];
 
 					if (te->sc_state == WAITING)
 					        te->wtime += (double)now - te->stime;
-					te->sc_state = KERNEL_MODE; 
+					te->sc_state = KERNEL_MODE;
 				} else {
 				        te = &ti->th_entry[0];
 
@@ -1561,7 +1542,7 @@ sample_sc()
 				te->otime = (double)now;
 			}
 			continue;
-		} 
+		}
 		if ((ti = find_thread(thread)) == (struct th_info *)0) {
 		        for (ti = &th_state[0]; ti < &th_state[MAX_THREADS]; ti++) {
 			        if (ti->thread == 0) {
@@ -1641,7 +1622,7 @@ sample_sc()
 					ti->depth--;
 
 					if (ti->depth == 0) {
-					        /* 
+					        /*
 						 * headed back to user mode
 						 * start the time accumulation
 						 */
@@ -1658,7 +1639,7 @@ sample_sc()
 				ti->depth--;
 
 				if (ti->depth == 0) {
-				        /* 
+				        /*
 					 * headed back to user mode
 					 * start the time accumulation
 					 */
@@ -1697,14 +1678,14 @@ quit(char *s)
         if (trace_enabled)
 	        set_enable(0);
 
-	/* 
+	/*
 	   This flag is turned off when calling
 	   quit() due to a set_remove() failure.
 	*/
 	if (set_remove_flag)
 	        set_remove();
 
-	if (no_screen_refresh == 0) { 
+	if (no_screen_refresh == 0) {
 		/* clear for new display */
 		erase();
 		move(0, 0);
@@ -1719,81 +1700,73 @@ quit(char *s)
 	exit(1);
 }
 
-void getdivisor()
+static void
+getdivisor(void)
 {
-  mach_timebase_info_data_t info;
+	mach_timebase_info_data_t info;
 
-  (void) mach_timebase_info (&info);
+	(void) mach_timebase_info (&info);
 
-  divisor = ( (double)info.denom / (double)info.numer) * 1000;
-
+	divisor = ( (double)info.denom / (double)info.numer) * 1000;
 }
 
-
 int
-argtopid(str)
-        char *str;
+argtopid(char *str)
 {
-        char *cp;
-        int ret;
+	char *cp;
+	int ret;
 	int i;
 
 	if (!kp_buffer)
-	        find_proc_names();
+		find_proc_names();
 
-        ret = (int)strtol(str, &cp, 10);
-        if (cp == str || *cp) {
-	  /* Assume this is a command string and find first matching pid */
-	        for (i=0; i < kp_nentries; i++) {
-		      if(kp_buffer[i].kp_proc.p_stat == 0)
-		          continue;
-		      else {
-			  if(!strcmp(str, kp_buffer[i].kp_proc.p_comm))
-			    {
-			      strncpy(proc_name, kp_buffer[i].kp_proc.p_comm, sizeof(proc_name)-1);
-			      proc_name[sizeof(proc_name)-1] = '\0';
-			      return(kp_buffer[i].kp_proc.p_pid);
-			    }
-		      }
+	ret = (int)strtol(str, &cp, 10);
+	if (cp == str || *cp) {
+		/* Assume this is a command string and find first matching pid */
+		for (i=0; i < kp_nentries; i++) {
+			if (kp_buffer[i].kp_proc.p_stat == 0)
+				continue;
+			else {
+				if (!strcmp(str, kp_buffer[i].kp_proc.p_comm)) {
+					strncpy(proc_name,
+						kp_buffer[i].kp_proc.p_comm,
+						sizeof(proc_name)-1);
+					proc_name[sizeof(proc_name)-1] = '\0';
+					return (kp_buffer[i].kp_proc.p_pid);
+				}
+			}
+		}
+	} else {
+		for (i=0; i < kp_nentries; i++) {
+			if (kp_buffer[i].kp_proc.p_stat == 0)
+				continue;
+			else if (kp_buffer[i].kp_proc.p_pid == ret) {
+				strncpy(proc_name,
+					kp_buffer[i].kp_proc.p_comm,
+					sizeof(proc_name)-1);
+				proc_name[sizeof(proc_name)-1] = '\0';
+				return (kp_buffer[i].kp_proc.p_pid);
+			}
 		}
 	}
-	else
-	  {
-	    for (i=0; i < kp_nentries; i++)
-	      {
-		if(kp_buffer[i].kp_proc.p_stat == 0)
-		  continue;
-		else if (kp_buffer[i].kp_proc.p_pid == ret) {
-		    strncpy(proc_name, kp_buffer[i].kp_proc.p_comm, sizeof(proc_name)-1);
-		    proc_name[sizeof(proc_name)-1] = '\0';
-		    return(kp_buffer[i].kp_proc.p_pid);		      
-		}
-	      }
-	  }
-        return(-1);
+	return (-1);
 }
-
 
 /* Returns index into sc_tab for a mach msg entry */
-int
+static int
 find_msgcode(int debugid)
 {
+	int indx;
 
-  int indx;
-
-  for (indx=0; indx< msgcode_cnt; indx++)
-    {
-      if (msgcode_tab[indx] == ((debugid & 0x00ffffff) >>2))
-	  return (MAX_SC+indx);
-    }
-  return (0);
+	for (indx=0; indx< msgcode_cnt; indx++) {
+		if (msgcode_tab[indx] == ((debugid & 0x00ffffff) >>2))
+			return (MAX_SC+indx);
+	}
+	return (0);
 }
 
 int
-argtoi(flag, req, str, base)
-	int flag;
-	char *req, *str;
-	int base;
+argtoi(int flag, char *req, char *str, int base)
 {
 	char *cp;
 	int ret;
@@ -1803,4 +1776,3 @@ argtoi(flag, req, str, base)
 		errx(EINVAL, "-%c flag requires a %s", flag, req);
 	return (ret);
 }
-

@@ -13,6 +13,15 @@
 #include "fileIo.h"
 
 int writeFile(
+              const char			*fileName,
+              const unsigned char	*bytes,
+              unsigned              numBytes)
+{
+    size_t n = numBytes;
+    return writeFileSizet(fileName, bytes, n);
+}
+
+int writeFileSizet(
 	const char			*fileName,
 	const unsigned char	*bytes,
 	size_t              numBytes)
@@ -28,7 +37,7 @@ int writeFile(
     }
 
 	fd = open(fileName, O_RDWR | O_CREAT | O_TRUNC, 0600);
-	if(fd <= 0) {
+	if(fd < 0) {
 		return errno;
 	}
 	wrc = write(fd, bytes, (size_t)numBytes);
@@ -48,7 +57,7 @@ int writeFile(
 /*
  * Read entire file.
  */
-int readFile(
+int readFileSizet(
 	const char		*fileName,
 	unsigned char	**bytes,		// mallocd and returned
 	size_t          *numBytes)		// returned
@@ -63,7 +72,7 @@ int readFile(
 	*numBytes = 0;
 	*bytes = NULL;
 	fd = open(fileName, O_RDONLY);
-	if(fd <= 0) {
+	if(fd < 0) {
 		return errno;
 	}
 	rtn = fstat(fd, &sb);

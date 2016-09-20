@@ -57,7 +57,7 @@ void UnixDb::open(const char *path, int flags, int mode, DBTYPE type)
 		close();
 		mDb = newDb;
 		setFd(mDb->fd(mDb));
-		secdebug("unixdb", "open(%s,0x%x,0x%x,type=%d)=%p", path, flags, mode, type, mDb);
+		secnotice("unixdb", "open(%s,0x%x,0x%x,type=%d)=%p", path, flags, mode, type, mDb);
 	} else
 		UnixError::throwMe();
 }
@@ -70,7 +70,7 @@ void UnixDb::open(const std::string &path, int flags, int mode, DBTYPE type)
 void UnixDb::close()
 {
 	if (mDb) {
-		secdebug("unixdb", "close(%p)", mDb);
+		secnotice("unixdb", "close(%p)", mDb);
 		mDb->close(mDb);
 		mDb = NULL;
 		setFd(invalidFd);
@@ -82,7 +82,7 @@ bool UnixDb::get(const CssmData &key, CssmData &value, int flags) const
 	Data dKey(key);
 	Data val;
 	int rc = mDb->get(mDb, &dKey, &val, flags);
-	secdebug("unixdb", "get(%p,[:%ld],flags=0x%x)=%d[:%ld]",
+	secnotice("unixdb", "get(%p,[:%ld],flags=0x%x)=%d[:%ld]",
 		mDb, key.length(), flags, rc, value.length());
 	checkError(rc);
 	if (!rc) {
@@ -107,7 +107,7 @@ bool UnixDb::put(const CssmData &key, const CssmData &value, int flags)
 	Data dKey(key);
 	Data dValue(value);
 	int rc = mDb->put(mDb, &dKey, &dValue, flags);
-	secdebug("unixdb", "put(%p,[:%ld],[:%ld],flags=0x%x)=%d",
+	secnotice("unixdb", "put(%p,[:%ld],[:%ld],flags=0x%x)=%d",
 		mDb, key.length(), value.length(), flags, rc);
 	checkError(rc);
 	return !rc;
@@ -116,7 +116,7 @@ bool UnixDb::put(const CssmData &key, const CssmData &value, int flags)
 void UnixDb::erase(const CssmData &key, int flags)
 {
 	Data dKey(key);
-	secdebug("unixdb", "delete(%p,[:%ld],flags=0x%x)", mDb, key.length(), flags);
+	secnotice("unixdb", "delete(%p,[:%ld],flags=0x%x)", mDb, key.length(), flags);
 	checkError(mDb->del(mDb, &dKey, flags));
 }
 

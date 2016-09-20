@@ -4,9 +4,8 @@
  * @APPLE_LLVM_LICENSE_HEADER@
  */
 
-// test non-GC -release of block-captured objects
+// test -release of block-captured objects
 
-// TEST_CONFIG MEM=mrc
 // TEST_CFLAGS -framework Foundation
 
 #import <Foundation/Foundation.h>

@@ -29,6 +29,9 @@ static char const REPORT_BUGS_TO[]="N/A";
 #include "tzfile.h"
 
 #include <stdarg.h>
+#if U_PLATFORM_IS_DARWIN_BASED || U_PLATFORM_IS_LINUX_BASED || U_PLATFORM == U_PF_BSD || U_PLATFORM == U_PF_SOLARIS
+#include <unistd.h>
+#endif
 
 #define	ZIC_VERSION_PRE_2013 '2'
 #define	ZIC_VERSION	'3'

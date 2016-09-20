@@ -29,7 +29,6 @@
 
 #include "server.h"
 #include "entropy.h"
-#include "authority.h"
 #include "session.h"
 #include "notifications.h"
 #include "pcscmonitor.h"
@@ -79,7 +78,7 @@ PCSCMonitor *gPCSC;
 int main(int argc, char *argv[])
 {
 	// clear the umask - we know what we're doing
-	secdebug("SS", "starting umask was 0%o", ::umask(0));
+	secnotice("SS", "starting umask was 0%o", ::umask(0));
 	::umask(0);
 
 	// tell the keychain (client) layer to turn off the server interface
@@ -95,7 +94,6 @@ int main(int argc, char *argv[])
 	int maxThreads = 0;
 	bool waitForClients = true;
     bool mdsIsInstalled = false;
-	const char *authorizationConfig = "/etc/authorization";
 	const char *tokenCacheDir = "/var/db/TokenCache";
     const char *entropyFile = "/var/db/SystemEntropyCache";
 	const char *smartCardOptions = getenv("SMARTCARDS");
@@ -104,7 +102,7 @@ int main(int argc, char *argv[])
 	
 	// check for the Installation-DVD environment and modify some default arguments if found
 	if (access("/etc/rc.cdrom", F_OK) == 0) {	// /etc/rc.cdrom exists
-		SECURITYD_INSTALLMODE();
+        secnotice("SS", "starting in installmode");
 		smartCardOptions = "off";	// needs writable directories that aren't
 	}
 
@@ -112,11 +110,8 @@ int main(int argc, char *argv[])
 	extern char *optarg;
 	extern int optind;
 	int arg;
-	while ((arg = getopt(argc, argv, "a:c:dE:imN:s:t:T:uvWX")) != -1) {
+	while ((arg = getopt(argc, argv, "c:dE:imN:s:t:T:uvWX")) != -1) {
 		switch (arg) {
-		case 'a':
-			authorizationConfig = optarg;
-			break;
 		case 'c':
 			tokenCacheDir = optarg;
 			break;
@@ -227,9 +222,6 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	// create an Authorization engine
-	Authority authority(authorizationConfig);
-	
 	// introduce all supported ACL subject types
 	new AnyAclSubject::Maker();
 	new PasswordAclSubject::Maker();
@@ -248,7 +240,7 @@ int main(int argc, char *argv[])
     CodeSignatures codeSignatures;
 
     // create the main server object and register it
- 	Server server(authority, codeSignatures, bootstrapName);
+ 	Server server(codeSignatures, bootstrapName);
 
     // Remember the primary service port to send signal events to
     gMainServerPort = server.primaryServicePort();
@@ -286,7 +278,7 @@ int main(int argc, char *argv[])
 	new SharedMemoryListener(messagingName, kSharedMemoryPoolSize);
 	
 	// okay, we're ready to roll
-	SECURITYD_INITIALIZED((char*)bootstrapName);
+    secnotice("SS", "Entering service as %s", (char*)bootstrapName);
 	Syslog::notice("Entering service");
     
 	// go
@@ -304,7 +296,6 @@ int main(int argc, char *argv[])
 static void usage(const char *me)
 {
 	fprintf(stderr, "Usage: %s [-dwX]"
-		"\n\t[-a authConfigFile]                    Authorization configuration file"
 		"\n\t[-c tokencache]                        smartcard token cache directory"
 		"\n\t[-e equivDatabase] 					path to code equivalence database"
 		"\n\t[-N serviceName]                       MACH service name"
@@ -346,7 +337,7 @@ static PCSCMonitor::ServiceLevel scOptions(const char *optionString)
 //
 static void handleSignals(int sig)
 {
-	SECURITYD_SIGNAL_RECEIVED(sig);
+    secnotice("SS", "signal received: %d", sig);
 	if (kern_return_t rc = self_client_handleSignal(gMainServerPort, mach_task_self(), sig))
 		Syslog::error("self-send failed (mach error %d)", rc);
 }

@@ -55,8 +55,10 @@ public:
 	Universal *mainExecutableImage();
 	void prepareForSigning(SigningContext &context);
 	size_t signingBase();
+	size_t signingLimit();
 	std::string format();
-	
+    CFDictionaryRef diskRepInformation();
+
 	std::string recommendedIdentifier(const SigningContext &ctx);
 	const Requirements *defaultRequirements(const Architecture *arch, const SigningContext &ctx);
 	size_t pageSize(const SigningContext &ctx);

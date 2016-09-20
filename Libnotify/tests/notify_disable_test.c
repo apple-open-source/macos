@@ -2,11 +2,15 @@
 #include <stdio.h>
 #include <notify.h>
 #include <notify_private.h>
+#include <darwintest.h>
 
 #define KEY1 "com.apple.notify.test.disable"
 #define KEY2 "com.apple.notify.test.disable.fail"
 
-int main(int argc, char *argv[])
+T_DECL(notify_disable_test,
+       "notify disable test",
+       T_META("owner", "Core Darwin Daemons & Tools"),
+       T_META("as_root", "false"))
 {
 	int token1, token2, status, fd;
 	uint64_t state;
@@ -16,68 +20,42 @@ int main(int argc, char *argv[])
 	fd = -1;
 
 	status = notify_register_file_descriptor(KEY1, &fd, 0, &token1);
-	if (status != NOTIFY_STATUS_OK)
-	{
-		fprintf(stderr, "notify_register_file_descriptor failed status %d\n", status);
-		return -1;
-	}
-
+    T_EXPECT_EQ(status, NOTIFY_STATUS_OK, "notify_register_file_descriptor %d == NOTIFY_STATUS_OK", status);
 	state = 123454321;
 	status = notify_set_state(token1, state);
-	if (status != NOTIFY_STATUS_OK)
-	{
-		fprintf(stderr, "notify_set_state failed status %d\n", status);
-		return -1;
-	}
+    T_EXPECT_EQ(status, NOTIFY_STATUS_OK, "notify_set_state %d == NOTIFY_STATUS_OK", status);
 	
 	state = 0;
 	status = notify_get_state(token1, &state);
-	if (status != NOTIFY_STATUS_OK)
-	{
-		fprintf(stderr, "notify_set_state failed status %d\n", status);
-		return -1;
-	}
+    T_EXPECT_EQ(status, NOTIFY_STATUS_OK, "notify_get_state %d == NOTIFY_STATUS_OK", status);
+    T_EXPECT_EQ(state, 123454321, "notify_get_state %llu == 123454321", state);
 
-	if (state != 123454321)
-	{
-		fprintf(stderr, "notify_get_state returned %llu expected 123454321\n", state);
-		return -1;
-	}
-
+    // Disable
+    T_LOG("notify_set_options(NOTIFY_OPT_DISABLE)");
 	notify_set_options(NOTIFY_OPT_DISABLE);
 	
 	status = notify_register_check(KEY2, &token2);
-	if (status == NOTIFY_STATUS_OK)
-	{
-		fprintf(stderr, "notify_register_check %s succeeded after notify_set_options(NOTIFY_OPT_DISABLE)\n", KEY2);
-		return -1;
-	}
+    T_EXPECT_NE(status, NOTIFY_STATUS_OK, "notify_register_check %d != NOTIFY_STATUS_OK", status);
 
 	state = 0;
 	status = notify_get_state(token1, &state);
-	if (status == NOTIFY_STATUS_OK)
-	{
-		fprintf(stderr, "notify_get_state succeeded after notify_set_options(NOTIFY_OPT_DISABLE)\n");
-		return -1;
-	}
+    T_EXPECT_NE(status, NOTIFY_STATUS_OK, "notify_get_state %d != NOTIFY_STATUS_OK", status);
 
+    // Re-enable
+    T_LOG("notify_set_options(NOTIFY_OPT_ENABLE)");
 	notify_set_options(NOTIFY_OPT_ENABLE);
 	
 	state = 0;
 	status = notify_get_state(token1, &state);
-	if (status != NOTIFY_STATUS_OK)
-	{
-		fprintf(stderr, "notify_set_state (2) failed status %d\n", status);
-		return -1;
-	}
-	
-	if (state != 123454321)
-	{
-		fprintf(stderr, "notify_get_state (2) returned %llu expected 123454321\n", state);
-		return -1;
-	}
+    T_EXPECT_EQ(status, NOTIFY_STATUS_OK, "notify_get_state %d ==  NOTIFY_STATUS_OK", status);
+    T_EXPECT_EQ(state, 123454321, "notify_get_state %llu == 123454321", state);
 
-	printf("Test succeeded\n");
+    T_LOG("checking token validity");
+    status = notify_is_valid_token(token1);
+    T_EXPECT_GT(status, 0, "notify_is_valid_token(token1) > 0 (%d)", status);
+
+    T_LOG("canceling token1");
 	notify_cancel(token1);
-	return 0;
+    status = notify_is_valid_token(token1);
+    T_EXPECT_EQ(status, 0, "notify_is_valid_token(token1) == 0 (%d)", status);
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2015, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,12 +27,15 @@
 
 #import <CoreFoundation/CoreFoundation.h>
 #import <wtf/OSObjectPtr.h>
+#import <wtf/RetainPtr.h>
 #import <wtf/spi/darwin/XPCSPI.h>
 
 namespace WebKit {
 
 static void XPCServiceEventHandler(xpc_connection_t peer)
 {
+    static xpc_object_t priorityBoostMessage = nullptr;
+
     xpc_connection_set_target_queue(peer, dispatch_get_main_queue());
     xpc_connection_set_event_handler(peer, ^(xpc_object_t event) {
         xpc_type_t type = xpc_get_type(event);
@@ -48,7 +51,7 @@ static void XPCServiceEventHandler(xpc_connection_t peer)
                 CFBundleRef webKitBundle = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.WebKit"));
                 CFStringRef entryPointFunctionName = (CFStringRef)CFBundleGetValueForInfoDictionaryKey(CFBundleGetMainBundle(), CFSTR("WebKitEntryPoint"));
 
-                typedef void (*InitializerFunction)(xpc_connection_t, xpc_object_t);
+                typedef void (*InitializerFunction)(xpc_connection_t, xpc_object_t, xpc_object_t);
                 InitializerFunction initializerFunctionPtr = reinterpret_cast<InitializerFunction>(CFBundleGetFunctionPointerForName(webKitBundle, entryPointFunctionName));
                 if (!initializerFunctionPtr) {
                     NSLog(@"Unable to find entry point in WebKit.framework with name: %@", (NSString *)entryPointFunctionName);
@@ -59,12 +62,24 @@ static void XPCServiceEventHandler(xpc_connection_t peer)
                 xpc_dictionary_set_string(reply.get(), "message-name", "process-finished-launching");
                 xpc_connection_send_message(xpc_dictionary_get_remote_connection(event), reply.get());
 
-                initializerFunctionPtr(peer, event);
+                int fd = xpc_dictionary_dup_fd(event, "stdout");
+                if (fd != -1)
+                    dup2(fd, STDOUT_FILENO);
+
+                fd = xpc_dictionary_dup_fd(event, "stderr");
+                if (fd != -1)
+                    dup2(fd, STDERR_FILENO);
+
+                initializerFunctionPtr(peer, event, priorityBoostMessage);
+                if (priorityBoostMessage)
+                    xpc_release(priorityBoostMessage);
             }
 
             // Leak a boost onto the NetworkProcess.
-            if (!strcmp(xpc_dictionary_get_string(event, "message-name"), "pre-bootstrap"))
-                xpc_retain(event);
+            if (!strcmp(xpc_dictionary_get_string(event, "message-name"), "pre-bootstrap")) {
+                assert(!priorityBoostMessage);
+                priorityBoostMessage = xpc_retain(event);
+            }
         }
     });
 
@@ -77,14 +92,40 @@ using namespace WebKit;
 
 int main(int argc, char** argv)
 {
-#if PLATFORM(IOS)
+#if defined(__i386__)
+    // FIXME: This should only be done for the 32-bit plug-in XPC service so we rely on the fact that
+    // it's the only of the XPC services that are 32-bit. We should come up with a more targeted #if check.
+    @autoreleasepool {
+        // We must set the state of AppleMagnifiedMode before NSApplication initialization so that the value will be in
+        // place before Cocoa startup logic runs and caches the value.
+        [[NSUserDefaults standardUserDefaults] registerDefaults:@{ @"AppleMagnifiedMode" : @YES }];
+    }
+#endif
+
     auto bootstrap = adoptOSObject(xpc_copy_bootstrap());
+#if PLATFORM(IOS)
     auto containerEnvironmentVariables = xpc_dictionary_get_value(bootstrap.get(), "ContainerEnvironmentVariables");
     xpc_dictionary_apply(containerEnvironmentVariables, ^(const char *key, xpc_object_t value) {
         setenv(key, xpc_string_get_string_ptr(value), 1);
         return true;
     });
 #endif
+
+    if (bootstrap) {
+        if (xpc_object_t languages = xpc_dictionary_get_value(bootstrap.get(), "OverrideLanguages")) {
+            @autoreleasepool {
+                NSDictionary *existingArguments = [[NSUserDefaults standardUserDefaults] volatileDomainForName:NSArgumentDomain];
+                NSMutableDictionary *newArguments = [existingArguments mutableCopy];
+                RetainPtr<NSMutableArray *> newLanguages = adoptNS([[NSMutableArray alloc] init]);
+                xpc_array_apply(languages, ^(size_t index, xpc_object_t value) {
+                    [newLanguages addObject:[NSString stringWithCString:xpc_string_get_string_ptr(value) encoding:NSUTF8StringEncoding]];
+                    return true;
+                });
+                [newArguments setValue:newLanguages.get() forKey:@"AppleLanguages"];
+                [[NSUserDefaults standardUserDefaults] setVolatileDomain:newArguments forName:NSArgumentDomain];
+            }
+        }
+    }
 
     xpc_main(XPCServiceEventHandler);
     return 0;

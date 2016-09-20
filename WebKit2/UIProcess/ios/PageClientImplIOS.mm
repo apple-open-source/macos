@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,7 +40,6 @@
 #import "WKContentViewInteraction.h"
 #import "WKGeolocationProviderIOS.h"
 #import "WKProcessPoolInternal.h"
-#import "WKViewPrivate.h"
 #import "WKWebViewConfigurationInternal.h"
 #import "WKWebViewContentProviderRegistry.h"
 #import "WKWebViewInternal.h"
@@ -111,15 +110,6 @@ namespace WebKit {
 PageClientImpl::PageClientImpl(WKContentView *contentView, WKWebView *webView)
     : m_contentView(contentView)
     , m_webView(webView)
-    , m_wkView(nil)
-    , m_undoTarget(adoptNS([[WKEditorUndoTargetObjC alloc] init]))
-{
-}
-
-PageClientImpl::PageClientImpl(WKContentView *contentView, WKView *wkView)
-    : m_contentView(contentView)
-    , m_webView(nil)
-    , m_wkView(wkView)
     , m_undoTarget(adoptNS([[WKEditorUndoTargetObjC alloc] init]))
 {
 }
@@ -133,23 +123,7 @@ std::unique_ptr<DrawingAreaProxy> PageClientImpl::createDrawingAreaProxy()
     return [m_contentView _createDrawingAreaProxy];
 }
 
-void PageClientImpl::setViewNeedsDisplay(const IntRect& rect)
-{
-    ASSERT_NOT_REACHED();
-}
-
-void PageClientImpl::displayView()
-{
-    ASSERT_NOT_REACHED();
-}
-
-bool PageClientImpl::canScrollView()
-{
-    notImplemented();
-    return false;
-}
-
-void PageClientImpl::scrollView(const IntRect&, const IntSize&)
+void PageClientImpl::setViewNeedsDisplay(const Region&)
 {
     ASSERT_NOT_REACHED();
 }
@@ -157,7 +131,7 @@ void PageClientImpl::scrollView(const IntRect&, const IntSize&)
 void PageClientImpl::requestScroll(const FloatPoint& scrollPosition, const IntPoint& scrollOrigin, bool isProgrammaticScroll)
 {
     UNUSED_PARAM(isProgrammaticScroll);
-    [m_webView _scrollToContentOffset:scrollPosition scrollOrigin:scrollOrigin];
+    [m_webView _scrollToContentScrollPosition:scrollPosition scrollOrigin:scrollOrigin];
 }
 
 IntSize PageClientImpl::viewSize()
@@ -182,7 +156,7 @@ bool PageClientImpl::isViewFocused()
 
 bool PageClientImpl::isViewVisible()
 {
-    if (isViewInWindow() && !m_contentView.isBackground)
+    if (isViewInWindow() && !m_webView._isBackground)
         return true;
     
     if ([m_webView _isShowingVideoPictureInPicture])
@@ -223,7 +197,6 @@ void PageClientImpl::didRelaunchProcess()
 {
     [m_contentView _didRelaunchProcess];
     [m_webView _didRelaunchProcess];
-    [m_wkView _didRelaunchProcess];
 }
 
 void PageClientImpl::pageClosed()
@@ -239,6 +212,11 @@ void PageClientImpl::preferencesDidChange()
 void PageClientImpl::toolTipChanged(const String&, const String&)
 {
     notImplemented();
+}
+
+void PageClientImpl::didNotHandleTapAsClick(const WebCore::IntPoint& point)
+{
+    [m_contentView _didNotHandleTapAsClick:point];
 }
 
 bool PageClientImpl::decidePolicyForGeolocationPermissionRequest(WebFrameProxy& frame, API::SecurityOrigin& origin, GeolocationPermissionRequestProxy& request)
@@ -265,9 +243,9 @@ void PageClientImpl::didChangeContentSize(const WebCore::IntSize&)
     notImplemented();
 }
 
-void PageClientImpl::didChangeViewportMetaTagWidth(float newWidth)
+void PageClientImpl::disableDoubleTapGesturesDuringTapIfNecessary(uint64_t requestID)
 {
-    [m_webView _setViewportMetaTagWidth:newWidth];
+    [m_contentView _disableDoubleTapGesturesDuringTapIfNecessary:requestID];
 }
 
 double PageClientImpl::minimumZoomScale() const
@@ -429,9 +407,9 @@ IntRect PageClientImpl::rootViewToAccessibilityScreen(const IntRect& rect)
     return enclosingIntRect(rootViewRect);
 }
     
-void PageClientImpl::doneWithKeyEvent(const NativeWebKeyboardEvent& event, bool)
+void PageClientImpl::doneWithKeyEvent(const NativeWebKeyboardEvent& event, bool eventWasHandled)
 {
-    [m_contentView _didHandleKeyEvent:event.nativeEvent()];
+    [m_contentView _didHandleKeyEvent:event.nativeEvent() eventWasHandled:eventWasHandled];
 }
 
 #if ENABLE(TOUCH_EVENTS)
@@ -441,23 +419,23 @@ void PageClientImpl::doneWithTouchEvent(const NativeWebTouchEvent& nativeWebtouc
 }
 #endif
 
-PassRefPtr<WebPopupMenuProxy> PageClientImpl::createPopupMenuProxy(WebPageProxy*)
+RefPtr<WebPopupMenuProxy> PageClientImpl::createPopupMenuProxy(WebPageProxy&)
 {
-    notImplemented();
-    return 0;
+    return nullptr;
 }
 
-PassRefPtr<WebContextMenuProxy> PageClientImpl::createContextMenuProxy(WebPageProxy*)
+#if ENABLE(CONTEXT_MENUS)
+std::unique_ptr<WebContextMenuProxy> PageClientImpl::createContextMenuProxy(WebPageProxy&, const UserData&)
 {
-    notImplemented();
-    return 0;
+    return nullptr;
+}
+#endif
+
+void PageClientImpl::setTextIndicator(Ref<TextIndicator> textIndicator, TextIndicatorWindowLifetime)
+{
 }
 
-void PageClientImpl::setTextIndicator(Ref<TextIndicator> textIndicator, TextIndicatorLifetime)
-{
-}
-
-void PageClientImpl::clearTextIndicator(TextIndicatorDismissalAnimation)
+void PageClientImpl::clearTextIndicator(TextIndicatorWindowDismissalAnimation)
 {
 }
 
@@ -475,6 +453,10 @@ void PageClientImpl::exitAcceleratedCompositingMode()
 }
 
 void PageClientImpl::updateAcceleratedCompositingMode(const LayerTreeContext&)
+{
+}
+
+void PageClientImpl::willEnterAcceleratedCompositingMode()
 {
 }
 
@@ -514,6 +496,11 @@ void PageClientImpl::didCommitLayerTree(const RemoteLayerTreeTransaction& layerT
     [m_contentView _didCommitLayerTree:layerTreeTransaction];
 }
 
+void PageClientImpl::layerTreeCommitComplete()
+{
+    [m_contentView _layerTreeCommitComplete];
+}
+
 void PageClientImpl::dynamicViewportUpdateChangedTarget(double newScale, const WebCore::FloatPoint& newScrollPosition, uint64_t nextValidLayerTreeTransactionID)
 {
     [m_webView _dynamicViewportUpdateChangedTargetToScale:newScale position:newScrollPosition nextValidLayerTreeTransactionID:nextValidLayerTreeTransactionID];
@@ -524,9 +511,9 @@ void PageClientImpl::couldNotRestorePageState()
     [m_webView _couldNotRestorePageState];
 }
 
-void PageClientImpl::restorePageState(const WebCore::FloatRect& exposedRect, double scale)
+void PageClientImpl::restorePageState(const WebCore::FloatPoint& scrollPosition, const WebCore::FloatPoint& scrollOrigin, const WebCore::FloatSize& obscuredInsetOnSave, double scale)
 {
-    [m_webView _restorePageStateToExposedRect:exposedRect scale:scale];
+    [m_webView _restorePageScrollPosition:scrollPosition scrollOrigin:scrollOrigin previousObscuredInset:obscuredInsetOnSave scale:scale];
 }
 
 void PageClientImpl::restorePageCenterAndScale(const WebCore::FloatPoint& center, double scale)
@@ -573,7 +560,7 @@ void PageClientImpl::showPlaybackTargetPicker(bool hasVideo, const IntRect& elem
     [m_contentView _showPlaybackTargetPicker:hasVideo fromRect:elementRect];
 }
 
-bool PageClientImpl::handleRunOpenPanel(WebPageProxy*, WebFrameProxy*, WebOpenPanelParameters* parameters, WebOpenPanelResultListenerProxy* listener)
+bool PageClientImpl::handleRunOpenPanel(WebPageProxy*, WebFrameProxy*, API::OpenPanelParameters* parameters, WebOpenPanelResultListenerProxy* listener)
 {
     [m_contentView _showRunOpenPanel:parameters resultListener:listener];
     return true;
@@ -676,16 +663,9 @@ void PageClientImpl::overflowScrollDidEndScroll()
     [m_contentView _overflowScrollingDidEnd];
 }
 
-void PageClientImpl::didFinishDrawingPagesToPDF(const IPC::DataReference& pdfData)
-{
-    RetainPtr<CFDataRef> data = adoptCF(CFDataCreate(kCFAllocatorDefault, pdfData.data(), pdfData.size()));
-    RetainPtr<CGDataProviderRef> dataProvider = adoptCF(CGDataProviderCreateWithCFData(data.get()));
-    m_webView._printedDocument = adoptCF(CGPDFDocumentCreateWithProvider(dataProvider.get())).get();
-}
-
 Vector<String> PageClientImpl::mimeTypesWithCustomContentProviders()
 {
-    return m_webView.configuration._contentProviderRegistry._mimeTypesWithCustomContentProviders;
+    return m_webView._contentProviderRegistry._mimeTypesWithCustomContentProviders;
 }
 
 void PageClientImpl::navigationGestureDidBegin()
@@ -715,8 +695,14 @@ void PageClientImpl::willRecordNavigationSnapshot(WebBackForwardListItem& item)
     NavigationState::fromWebPage(*m_webView->_page).willRecordNavigationSnapshot(item);
 }
 
+void PageClientImpl::didRemoveNavigationGestureSnapshot()
+{
+    NavigationState::fromWebPage(*m_webView->_page).navigationGestureSnapshotWasRemoved();
+}
+
 void PageClientImpl::didFirstVisuallyNonEmptyLayoutForMainFrame()
 {
+    [m_webView _didFirstVisuallyNonEmptyLayoutForMainFrame];
 }
 
 void PageClientImpl::didFinishLoadForMainFrame()
@@ -739,26 +725,27 @@ void PageClientImpl::didChangeBackgroundColor()
     [m_webView _updateScrollViewBackground];
 }
 
-#if ENABLE(VIDEO)
-void PageClientImpl::mediaDocumentNaturalSizeChanged(const IntSize& newSize)
-{
-    [m_webView _mediaDocumentNaturalSizeChanged:newSize];
-}
-#endif
-
-
 void PageClientImpl::refView()
 {
     [m_contentView retain];
     [m_webView retain];
-    [m_wkView retain];
 }
 
 void PageClientImpl::derefView()
 {
     [m_contentView release];
     [m_webView release];
-    [m_wkView release];
+}
+
+void PageClientImpl::didRestoreScrollPosition()
+{
+}
+
+WebCore::UserInterfaceLayoutDirection PageClientImpl::userInterfaceLayoutDirection()
+{
+    if (!m_webView)
+        return WebCore::UserInterfaceLayoutDirection::LTR;
+    return ([UIView userInterfaceLayoutDirectionForSemanticContentAttribute:[m_webView semanticContentAttribute]] == UIUserInterfaceLayoutDirectionLeftToRight) ? WebCore::UserInterfaceLayoutDirection::LTR : WebCore::UserInterfaceLayoutDirection::RTL;
 }
 
 } // namespace WebKit

@@ -1,0 +1,10 @@
+#freebsd = https://github.com/freebsd/freebsd.git
+private/etc/protocols	freebsd	etc/protocols	f0d258568af32f2a815311e3ad3c6d253c67cd6e
+private/etc/rpc	freebsd	etc/rpc	f0d258568af32f2a815311e3ad3c6d253c67cd6e
+usr/share/dict/README	freebsd	share/dict/README	f0d258568af32f2a815311e3ad3c6d253c67cd6e
+usr/share/dict/freebsd	freebsd	share/dict/freebsd	da0290f8d3606ed387adb04fec5d24de81a39032
+usr/share/man/man5/intro.5	freebsd	share/man/man5/intro.5	f0d258568af32f2a815311e3ad3c6d253c67cd6e
+usr/share/man/man7/hostname.7	freebsd	share/man/man7/hostname.7	f0d258568af32f2a815311e3ad3c6d253c67cd6e
+usr/share/man/man7/intro.7	freebsd	share/man/man7/intro.7	f0d258568af32f2a815311e3ad3c6d253c67cd6e
+usr/share/man/man7/mailaddr.7	freebsd	share/man/man7/mailaddr.7	f0d258568af32f2a815311e3ad3c6d253c67cd6e
+usr/share/man/man8/intro.8	freebsd	share/man/man8/intro.8	f0d258568af32f2a815311e3ad3c6d253c67cd6e

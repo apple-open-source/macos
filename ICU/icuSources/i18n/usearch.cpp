@@ -75,18 +75,22 @@ inline uint32_t getMask(UCollationStrength strength)
 }
 
 /**
-* This is to squeeze the 21bit ces into a 256 table
-* @param ce collation element
-* @return collapsed version of the collation element
+* @param ce 32-bit collation element
+* @return hash code
 */
 static
-inline int hash(uint32_t ce)
+inline int hashFromCE32(uint32_t ce)
 {
-    // the old value UCOL_PRIMARYORDER(ce) % MAX_TABLE_SIZE_ does not work
-    // well with the new collation where most of the latin 1 characters
-    // are of the value xx000xxx. their hashes will most of the time be 0
-    // to be discussed on the hash algo.
-    return UCOL_PRIMARYORDER(ce) % MAX_TABLE_SIZE_;
+    int hc = (int)(
+            ((((((ce >> 24) * 37) +
+            (ce >> 16)) * 37) +
+            (ce >> 8)) * 37) +
+            ce);
+    hc %= MAX_TABLE_SIZE_;
+    if (hc < 0) {
+        hc += MAX_TABLE_SIZE_;
+    }
+    return hc;
 }
 
 U_CDECL_BEGIN
@@ -492,22 +496,22 @@ inline void setShiftTable(int16_t   shift[], int16_t backshift[],
     for (count = 0; count < cesize; count ++) {
         // number of ces from right of array to the count
         int temp = defaultforward - count - 1;
-        shift[hash(cetable[count])] = temp > 1 ? temp : 1;
+        shift[hashFromCE32(cetable[count])] = temp > 1 ? temp : 1;
     }
-    shift[hash(cetable[cesize])] = 1;
+    shift[hashFromCE32(cetable[cesize])] = 1;
     // for ignorables we just shift by one. see test examples.
-    shift[hash(0)] = 1;
+    shift[hashFromCE32(0)] = 1;
 
     for (count = 0; count < MAX_TABLE_SIZE_; count ++) {
         backshift[count] = defaultbackward;
     }
     for (count = cesize; count > 0; count --) {
         // the original value count does not seem to work
-        backshift[hash(cetable[count])] = count > expansionsize ?
+        backshift[hashFromCE32(cetable[count])] = count > expansionsize ?
                                           (int16_t)(count - expansionsize) : 1;
     }
-    backshift[hash(cetable[0])] = 1;
-    backshift[hash(0)] = 1;
+    backshift[hashFromCE32(cetable[0])] = 1;
+    backshift[hashFromCE32(0)] = 1;
 }
 
 /**
@@ -730,7 +734,7 @@ inline int32_t shiftForward(UStringSearch *strsrch,
 {
     UPattern *pattern = &(strsrch->pattern);
     if (ce != UCOL_NULLORDER) {
-        int32_t shift = pattern->shift[hash(ce)];
+        int32_t shift = pattern->shift[hashFromCE32(ce)];
         // this is to adjust for characters in the middle of the
         // substring for matching that failed.
         int32_t adjust = pattern->cesLength - patternceindex;
@@ -1971,7 +1975,7 @@ inline int32_t reverseShift(UStringSearch *strsrch,
     }
     else {
         if (ce != UCOL_NULLORDER) {
-            int32_t shift = strsrch->pattern.backShift[hash(ce)];
+            int32_t shift = strsrch->pattern.backShift[hashFromCE32(ce)];
 
             // this is to adjust for characters in the middle of the substring
             // for matching that failed.
@@ -3805,6 +3809,28 @@ static UCompareCEsResult compareCE64s(int64_t targCE, int64_t patCE, int16_t com
 // TODO: #if BOYER_MOORE, need 32-bit version of compareCE64s
 #endif
 
+namespace {
+
+UChar32 codePointAt(const USearch &search, int32_t index) {
+    if (index < search.textLength) {
+        UChar32 c;
+        U16_NEXT(search.text, index, search.textLength, c);
+        return c;
+    }
+    return U_SENTINEL;
+}
+
+UChar32 codePointBefore(const USearch &search, int32_t index) {
+    if (0 < index) {
+        UChar32 c;
+        U16_PREV(search.text, 0, index, c);
+        return c;
+    }
+    return U_SENTINEL;
+}
+
+}  // namespace
+
 U_CAPI UBool U_EXPORT2 usearch_search(UStringSearch  *strsrch,
                                        int32_t        startIdx,
                                        int32_t        *matchStart,
@@ -3998,6 +4024,34 @@ U_CAPI UBool U_EXPORT2 usearch_search(UStringSearch  *strsrch,
             found = FALSE;
         }
 
+        // Allow matches to end in the middle of a grapheme cluster if the following
+        // conditions are met; this is needed to make prefix search work properly in
+        // Indic, see #11750
+        // * the default breakIter is being used
+        // * the next collation element after this combining sequence
+        //   - has non-zero primary weight
+        //   - corresponds to a separate character following the one at end of the current match
+        //   (the second of these conditions, and perhaps both, may be redundant given the
+        //   subsequent check for normalization boundary; however they are likely much faster
+        //   tests in any case)
+        // * the match limit is a normalization boundary
+        UBool allowMidclusterMatch = FALSE;
+        if (strsrch->search->text != NULL && strsrch->search->textLength > maxLimit) {
+            allowMidclusterMatch =
+                    strsrch->search->breakIter == NULL &&
+                    nextCEI != NULL && (((nextCEI->ce) >> 32) & 0xFFFF0000UL) != 0 &&
+                    maxLimit >= lastCEI->highIndex && nextCEI->highIndex > maxLimit &&
+                    (strsrch->nfd->hasBoundaryBefore(codePointAt(*strsrch->search, maxLimit)) ||
+                        strsrch->nfd->hasBoundaryAfter(codePointBefore(*strsrch->search, maxLimit)));
+        }
+        // If those conditions are met, then:
+        // * do NOT advance the candidate match limit (mLimit) to a break boundary; however
+        //   the match limit may be backed off to a previous break boundary. This handles
+        //   cases in which mLimit includes target characters that are ignorable with current
+        //   settings (such as space) and which extend beyond the pattern match.
+        // * do NOT require that end of the combining sequence not extend beyond the match in CE space
+        // * do NOT require that match limit be on a breakIter boundary
+
         //  Advance the match end position to the first acceptable match boundary.
         //    This advances the index over any combining charcters.
         mLimit = maxLimit;
@@ -4012,7 +4066,10 @@ U_CAPI UBool U_EXPORT2 usearch_search(UStringSearch  *strsrch,
                 mLimit = minLimit;
             } else {
                 int32_t nba = nextBoundaryAfter(strsrch, minLimit);
-                if (nba >= lastCEI->highIndex) {
+                // Note that we can have nba < maxLimit && nba >= minLImit, in which
+                // case we want to set mLimit to nba regardless of allowMidclusterMatch
+                // (i.e. we back off mLimit to the previous breakIterator boundary).
+                if (nba >= lastCEI->highIndex && (!allowMidclusterMatch || nba < maxLimit)) {
                     mLimit = nba;
                 }
             }
@@ -4024,18 +4081,7 @@ U_CAPI UBool U_EXPORT2 usearch_search(UStringSearch  *strsrch,
         }
     #endif
 
-        // If default breakIter is being used, and next collation element belonging to this
-        //    combining sequence has non-zero primary weight and corresponds to a separate
-        //    character following the one at end of the current match, then do NOT require
-        //    that match end position be on a breakIter boundary, or that end of the
-        //    combining sequence not extend beyond the match in CE space. Only do those
-        //    tests if the conditions above are not met. Added this to make prefix search
-        //    work in Indic scripts per <rdar://problem/18063262>.
-        UBool doLimitTests = !(strsrch->search->breakIter == NULL &&
-                    nextCEI != NULL && (((nextCEI->ce) >> 32) & 0xFFFF0000UL) != 0 &&
-                    nextCEI->lowIndex >= lastCEI->highIndex && nextCEI->highIndex > nextCEI->lowIndex);
-
-        if (doLimitTests) { // <rdar://problem/18063262>
+        if (!allowMidclusterMatch) {
             // If advancing to the end of a combining sequence in character indexing space
             //   advanced us beyond the end of the match in CE space, reject this match.
             if (mLimit > maxLimit) {
@@ -4261,28 +4307,47 @@ U_CAPI UBool U_EXPORT2 usearch_searchBackwards(UStringSearch  *strsrch,
 
             mLimit = maxLimit = nextCEI->lowIndex;
 
+            // Allow matches to end in the middle of a grapheme cluster if the following
+            // conditions are met; this is needed to make prefix search work properly in
+            // Indic, see #11750
+            // * the default breakIter is being used
+            // * the next collation element after this combining sequence
+            //   - has non-zero primary weight
+            //   - corresponds to a separate character following the one at end of the current match
+            //   (the second of these conditions, and perhaps both, may be redundant given the
+            //   subsequent check for normalization boundary; however they are likely much faster
+            //   tests in any case)
+            // * the match limit is a normalization boundary
+            UBool allowMidclusterMatch = FALSE;
+            if (strsrch->search->text != NULL && strsrch->search->textLength > maxLimit) {
+                allowMidclusterMatch =
+                        strsrch->search->breakIter == NULL &&
+                        nextCEI != NULL && (((nextCEI->ce) >> 32) & 0xFFFF0000UL) != 0 &&
+                        maxLimit >= lastCEI->highIndex && nextCEI->highIndex > maxLimit &&
+                        (strsrch->nfd->hasBoundaryBefore(codePointAt(*strsrch->search, maxLimit)) ||
+                            strsrch->nfd->hasBoundaryAfter(codePointBefore(*strsrch->search, maxLimit)));
+            }
+            // If those conditions are met, then:
+            // * do NOT advance the candidate match limit (mLimit) to a break boundary; however
+            //   the match limit may be backed off to a previous break boundary. This handles
+            //   cases in which mLimit includes target characters that are ignorable with current
+            //   settings (such as space) and which extend beyond the pattern match.
+            // * do NOT require that end of the combining sequence not extend beyond the match in CE space
+            // * do NOT require that match limit be on a breakIter boundary
+
             //  Advance the match end position to the first acceptable match boundary.
             //    This advances the index over any combining characters.
             if (minLimit < maxLimit) {
                 int32_t nba = nextBoundaryAfter(strsrch, minLimit);
-
-                if (nba >= lastCEI->highIndex) {
+                // Note that we can have nba < maxLimit && nba >= minLImit, in which
+                // case we want to set mLimit to nba regardless of allowMidclusterMatch
+                // (i.e. we back off mLimit to the previous breakIterator boundary).
+                if (nba >= lastCEI->highIndex && (!allowMidclusterMatch || nba < maxLimit)) {
                     mLimit = nba;
                 }
             }
 
-            // If default breakIter is being used, and next collation element belonging to this
-            //    combining sequence has non-zero primary weight and corresponds to a separate
-            //    character following the one at end of the current match, then do NOT require
-            //    that match end position be on a breakIter boundary, or that end of the
-            //    combining sequence not extend beyond the match in CE space. Only do those
-            //    tests if the conditions above are not met. Added this to make prefix search
-            //    work in Indic scripts per <rdar://problem/18063262>.
-            UBool doLimitTests = !(strsrch->search->breakIter == NULL &&
-                       nextCEI != NULL && (((nextCEI->ce) >> 32) & 0xFFFF0000UL) != 0 &&
-                       nextCEI->lowIndex >= lastCEI->highIndex && nextCEI->highIndex > nextCEI->lowIndex);
-
-            if (doLimitTests) { // <rdar://problem/18063262>
+            if (!allowMidclusterMatch) {
                 // If advancing to the end of a combining sequence in character indexing space
                 //   advanced us beyond the end of the match in CE space, reject this match.
                 if (mLimit > maxLimit) {

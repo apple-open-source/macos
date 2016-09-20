@@ -37,6 +37,7 @@
 #include "Path.h"
 #include "PlatformPathCairo.h"
 #include "RefPtrCairo.h"
+#include "Region.h"
 #include <wtf/Assertions.h>
 #include <wtf/Vector.h>
 
@@ -216,7 +217,7 @@ void drawPatternToCairoContext(cairo_t* cr, cairo_surface_t* image, const IntSiz
     cairo_restore(cr);
 }
 
-PassRefPtr<cairo_surface_t> copyCairoImageSurface(cairo_surface_t* originalSurface)
+RefPtr<cairo_surface_t> copyCairoImageSurface(cairo_surface_t* originalSurface)
 {
     // Cairo doesn't provide a way to copy a cairo_surface_t.
     // See http://lists.cairographics.org/archives/cairo/2007-June/010877.html
@@ -306,6 +307,16 @@ void cairoSurfaceGetDeviceScale(cairo_surface_t* surface, double& xScale, double
     xScale = 1;
     yScale = 1;
 #endif
+}
+
+RefPtr<cairo_region_t> toCairoRegion(const Region& region)
+{
+    RefPtr<cairo_region_t> cairoRegion = adoptRef(cairo_region_create());
+    for (const auto& rect : region.rects()) {
+        cairo_rectangle_int_t cairoRect = rect;
+        cairo_region_union_rectangle(cairoRegion.get(), &cairoRect);
+    }
+    return cairoRegion;
 }
 
 } // namespace WebCore

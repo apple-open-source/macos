@@ -27,6 +27,7 @@
 #ifndef RadioNodeList_h
 #define RadioNodeList_h
 
+#include "HTMLElement.h"
 #include "LiveNodeList.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/text/AtomicString.h>
@@ -40,13 +41,15 @@ public:
         return adoptRef(*new RadioNodeList(rootNode, name));
     }
 
-    ~RadioNodeList();
+    virtual ~RadioNodeList();
+
+    HTMLElement* item(unsigned offset) const override;
 
     String value() const;
     void setValue(const String&);
 
-    virtual bool elementMatches(Element&) const override;
-    virtual bool isRootedAtDocument() const override { return m_isRootedAtDocument; }
+    bool elementMatches(Element&) const override;
+    bool isRootedAtDocument() const override { return m_isRootedAtDocument; }
 
 private:
     RadioNodeList(ContainerNode&, const AtomicString& name);
@@ -55,6 +58,11 @@ private:
     AtomicString m_name;
     bool m_isRootedAtDocument;
 };
+
+inline HTMLElement* RadioNodeList::item(unsigned offset) const
+{
+    return downcast<HTMLElement>(CachedLiveNodeList<RadioNodeList>::item(offset));
+}
 
 } // namepsace
 

@@ -40,24 +40,14 @@ class SelectorFilter;
 
 struct MatchedRule {
     const RuleData* ruleData;
-    unsigned specificity;
+    unsigned specificity;   
+    unsigned treeContextOrdinal;
 };
 
 class ElementRuleCollector {
 public:
-    ElementRuleCollector(Element& element, RenderStyle* style, const DocumentRuleSets& ruleSets, const SelectorFilter& selectorFilter)
-        : m_element(element)
-        , m_style(style)
-        , m_ruleSets(ruleSets)
-        , m_selectorFilter(selectorFilter)
-        , m_isPrintStyle(false)
-        , m_regionForStyling(nullptr)
-        , m_pseudoStyleRequest(NOPSEUDO)
-        , m_sameOriginOnly(false)
-        , m_mode(SelectorChecker::Mode::ResolvingStyle)
-        , m_canUseFastReject(m_selectorFilter.parentStackIsConsistent(element.parentNode()))
-    {
-    }
+    ElementRuleCollector(const Element&, const DocumentRuleSets&, const SelectorFilter*);
+    ElementRuleCollector(const Element&, const RuleSet& authorStyle, const SelectorFilter*);
 
     void matchAllRules(bool matchAuthorAndUserStyles, bool includeSMILProperties);
     void matchUARules();
@@ -70,18 +60,25 @@ public:
     void setRegionForStyling(const RenderRegion* regionForStyling) { m_regionForStyling = regionForStyling; }
     void setMedium(const MediaQueryEvaluator* medium) { m_isPrintStyle = medium->mediaTypeMatchSpecific("print"); }
 
-    bool hasAnyMatchingRules(RuleSet*);
+    bool hasAnyMatchingRules(const RuleSet*);
 
     StyleResolver::MatchResult& matchedResult();
     const Vector<RefPtr<StyleRule>>& matchedRuleList() const;
 
-    bool hasMatchedRules() const { return m_matchedRules && !m_matchedRules->isEmpty(); }
+    bool hasMatchedRules() const { return !m_matchedRules.isEmpty(); }
     void clearMatchedRules();
+
+    const PseudoIdSet& matchedPseudoElementIds() const { return m_matchedPseudoElementIds; }
+    const Style::Relations& styleRelations() const { return m_styleRelations; }
+    bool didMatchUncommonAttributeSelector() const { return m_didMatchUncommonAttributeSelector; }
 
 private:
     void addElementStyleProperties(const StyleProperties*, bool isCacheable = true);
 
     void matchUARules(RuleSet*);
+    void matchHostPseudoClassRules(MatchRequest&, StyleResolver::RuleRange&);
+    void matchSlottedPseudoElementRules(MatchRequest&, StyleResolver::RuleRange&);
+    std::unique_ptr<RuleSet::RuleDataVector> collectSlottedPseudoElementRulesForSlot(bool includeEmptyRules);
 
     void collectMatchingRules(const MatchRequest&, StyleResolver::RuleRange&);
     void collectMatchingRulesForRegion(const MatchRequest&, StyleResolver::RuleRange&);
@@ -91,25 +88,29 @@ private:
     void sortMatchedRules();
     void sortAndTransferMatchedRules();
 
-    void addMatchedRule(const MatchedRule&);
+    void addMatchedRule(const RuleData&, unsigned specificity, unsigned treeContextOrdinal, StyleResolver::RuleRange&);
 
-    Element& m_element;
-    RenderStyle* m_style;
-    const DocumentRuleSets& m_ruleSets;
-    const SelectorFilter& m_selectorFilter;
+    const Element& m_element;
+    const RuleSet& m_authorStyle;
+    const RuleSet* m_userStyle { nullptr };
+    const SelectorFilter* m_selectorFilter { nullptr };
 
-    bool m_isPrintStyle;
-    const RenderRegion* m_regionForStyling;
-    PseudoStyleRequest m_pseudoStyleRequest;
-    bool m_sameOriginOnly;
-    SelectorChecker::Mode m_mode;
-    bool m_canUseFastReject;
+    bool m_isPrintStyle { false };
+    const RenderRegion* m_regionForStyling { nullptr };
+    PseudoStyleRequest m_pseudoStyleRequest { NOPSEUDO };
+    bool m_sameOriginOnly { false };
+    SelectorChecker::Mode m_mode { SelectorChecker::Mode::ResolvingStyle };
+    bool m_isMatchingSlottedPseudoElements { false };
+    Vector<std::unique_ptr<RuleSet::RuleDataVector>> m_keepAliveSlottedPseudoElementRules;
 
-    std::unique_ptr<Vector<MatchedRule, 32>> m_matchedRules;
+    Vector<MatchedRule, 64> m_matchedRules;
 
     // Output.
     Vector<RefPtr<StyleRule>> m_matchedRuleList;
+    bool m_didMatchUncommonAttributeSelector { false };
     StyleResolver::MatchResult m_result;
+    Style::Relations m_styleRelations;
+    PseudoIdSet m_matchedPseudoElementIds;
 };
 
 } // namespace WebCore

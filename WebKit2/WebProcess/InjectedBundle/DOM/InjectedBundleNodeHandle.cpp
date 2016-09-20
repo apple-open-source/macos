@@ -140,7 +140,7 @@ static PassRefPtr<WebImage> imageForRect(FrameView* frameView, const IntRect& re
     float scaleFactor = frameView->frame().page()->deviceScaleFactor();
     bitmapSize.scale(scaleFactor);
 
-    RefPtr<WebImage> snapshot = WebImage::create(bitmapSize, snapshotOptionsToImageOptions(options));
+    auto snapshot = WebImage::create(bitmapSize, snapshotOptionsToImageOptions(options));
     if (!snapshot->bitmap())
         return 0;
 
@@ -161,10 +161,10 @@ static PassRefPtr<WebImage> imageForRect(FrameView* frameView, const IntRect& re
 
     PaintBehavior oldPaintBehavior = frameView->paintBehavior();
     frameView->setPaintBehavior(paintBehavior);
-    frameView->paintContentsForSnapshot(graphicsContext.get(), rect, shouldPaintSelection, FrameView::DocumentCoordinates);
+    frameView->paintContentsForSnapshot(*graphicsContext.get(), rect, shouldPaintSelection, FrameView::DocumentCoordinates);
     frameView->setPaintBehavior(oldPaintBehavior);
 
-    return snapshot.release();
+    return snapshot;
 }
 
 PassRefPtr<WebImage> InjectedBundleNodeHandle::renderedImage(SnapshotOptions options)
@@ -187,10 +187,10 @@ PassRefPtr<WebImage> InjectedBundleNodeHandle::renderedImage(SnapshotOptions opt
     IntRect paintingRect = snappedIntRect(renderer->paintingRootRect(topLevelRect));
 
     frameView->setNodeToDraw(m_node.ptr());
-    RefPtr<WebImage> image = imageForRect(frameView, paintingRect, options);
+    auto image = imageForRect(frameView, paintingRect, options);
     frameView->setNodeToDraw(0);
 
-    return image.release();
+    return image;
 }
 
 PassRefPtr<InjectedBundleRangeHandle> InjectedBundleNodeHandle::visibleRange()
@@ -208,6 +208,14 @@ void InjectedBundleNodeHandle::setHTMLInputElementValueForUser(const String& val
         return;
 
     downcast<HTMLInputElement>(m_node.get()).setValueForUser(value);
+}
+
+void InjectedBundleNodeHandle::setHTMLInputElementSpellcheckEnabled(bool enabled)
+{
+    if (!is<HTMLInputElement>(m_node))
+        return;
+
+    downcast<HTMLInputElement>(m_node.get()).setSpellcheckEnabled(enabled);
 }
 
 bool InjectedBundleNodeHandle::isHTMLInputElementAutoFilled() const
@@ -231,15 +239,15 @@ bool InjectedBundleNodeHandle::isHTMLInputElementAutoFillButtonEnabled() const
     if (!is<HTMLInputElement>(m_node))
         return false;
     
-    return downcast<HTMLInputElement>(m_node.get()).showAutoFillButton();
+    return downcast<HTMLInputElement>(m_node.get()).autoFillButtonType() != AutoFillButtonType::None;
 }
 
-void InjectedBundleNodeHandle::setHTMLInputElementAutoFillButtonEnabled(bool filled)
+void InjectedBundleNodeHandle::setHTMLInputElementAutoFillButtonEnabled(AutoFillButtonType autoFillButtonType)
 {
     if (!is<HTMLInputElement>(m_node))
         return;
 
-    downcast<HTMLInputElement>(m_node.get()).setShowAutoFillButton(filled);
+    downcast<HTMLInputElement>(m_node.get()).setShowAutoFillButton(autoFillButtonType);
 }
 
 IntRect InjectedBundleNodeHandle::htmlInputElementAutoFillButtonBounds()

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1089,9 +1089,6 @@ settings_changed(CFMachPortRef port, void * msg, CFIndex size, void * info)
 static void
 check_prefs(SCPreferencesRef prefs)
 {
-    uint32_t	log_flags = EAPOLControlPrefsGetLogFlags();
-
-    EAPLogSetVerbose(log_flags != 0);
     EAPOLControlPrefsSynchronize();
     return;
 }
@@ -1152,7 +1149,10 @@ myInstall(void * myInstance)
     CFRunLoopSourceRef		rls;
     SCDynamicStoreRef		store;
 
-    store = SCDynamicStoreCreate(NULL, CFSTR("EAPOLMonitor"),
+	/* Initialize logging category for EAPOL Monitor */
+	EAPLogInit(kEAPLogCategoryMonitor);
+
+	store = SCDynamicStoreCreate(NULL, CFSTR("EAPOLMonitor"),
 				 handle_changes, &context);
     if (store == NULL) {
 	EAPLOG(LOG_NOTICE,

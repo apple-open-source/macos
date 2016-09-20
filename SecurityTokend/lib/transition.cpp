@@ -93,6 +93,7 @@ kern_return_t tokend_server_findFirst(TOKEND_ARGS,
 	relocate(inAttributes, inAttributesBase);
 	DataRetrieval interface(inAttributes, getData);
     CSSM_HANDLE searchHandle = 0;
+    *hSearch = 0; // to prevent uninitialized value when following CALL ends with exception
 	CALL(findFirst, (query, &interface, &searchHandle));
 	interface.returnData(*hKey, *hRecord, *outData, *outDataLength,
 		*outAttributes, *outAttributesLength, *outAttributesBase);

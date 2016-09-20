@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,6 +33,7 @@
 
 #include <sysexits.h>
 #include <unistd.h>
+#include <FSPrivate.h>
 #include <sys/attr.h>
 #include <sys/mount.h>
 #include <sys/wait.h>
@@ -157,7 +158,50 @@ DAReturn _DADiskRefresh( DADiskRef disk )
             }
         }
 
-        if ( mountListIndex == mountListCount )
+        if ( mountListIndex < mountListCount )
+        {
+            CFMutableArrayRef keys;
+
+            keys = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+
+            if ( keys )
+            {
+                CFTypeRef object;
+///w:start
+                if ( strcmp( mountList[mountListIndex].f_fstypename, "hfs" ) == 0 )
+                {
+                    object = _FSCopyNameForVolumeFormatAtURL( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) );
+
+                    if ( DADiskCompareDescription( disk, kDADiskDescriptionVolumeTypeKey, object ) )
+                    {
+                        DADiskSetDescription( disk, kDADiskDescriptionVolumeTypeKey, object );
+
+                        CFArrayAppendValue( keys, kDADiskDescriptionVolumeTypeKey );
+                    }
+
+                    if ( object )
+                    {
+                        CFRelease( object );
+                    }
+                }
+///w:stop
+
+                if ( CFArrayGetCount( keys ) )
+                {
+                    DALogDebugHeader( "bsd [0] -> %s", gDAProcessNameID );
+
+                    DALogDebug( "  updated disk, id = %@.", disk );
+
+                    if ( DADiskGetState( disk, kDADiskStateStagedAppear ) )
+                    {
+                        DADiskDescriptionChangedCallback( disk, keys );
+                    }
+                }
+
+                CFRelease( keys );
+            }
+        }
+        else
         {
             CFURLRef mountpoint;
 
@@ -335,11 +379,6 @@ Boolean _DAUnitIsUnreadable( DADiskRef disk )
             CFStringRef name;
 
             name = DADiskGetDescription( item, kDADiskDescriptionMediaBSDNameKey );
-
-            if ( DADiskGetBusy( item ) )
-            {
-                return FALSE;
-            }
 
             if ( DADiskGetClaim( item ) )
             {

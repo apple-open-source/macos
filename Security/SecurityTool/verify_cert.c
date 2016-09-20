@@ -34,6 +34,7 @@
 #include <sys/stat.h>
 #include <time.h>
 #include "trusted_cert_utils.h"
+#include "verify_cert.h"
 
 /*
  * Read file as a cert, add to a CFArray, creating the array if necessary
@@ -227,7 +228,7 @@ verify_cert(int argc, char * const *argv)
 			memset(&sslOpts, 0, sizeof(sslOpts));
 			sslOpts.Version = CSSM_APPLE_TP_SSL_OPTS_VERSION;
 			sslOpts.ServerName = sslHost;
-			sslOpts.ServerNameLen = strlen(sslHost);
+			sslOpts.ServerNameLen = (uint32) strlen(sslHost);
 			optionData.Data = (uint8 *)&sslOpts;
 			optionData.Length = sizeof(sslOpts);
 			ortn = SecPolicySetValue(policyRef, &optionData);
@@ -243,7 +244,7 @@ verify_cert(int argc, char * const *argv)
 			memset(&smimeOpts, 0, sizeof(smimeOpts));
 			smimeOpts.Version = CSSM_APPLE_TP_SMIME_OPTS_VERSION;
 			smimeOpts.SenderEmail = emailAddrs;
-			smimeOpts.SenderEmailLen = strlen(emailAddrs);
+			smimeOpts.SenderEmailLen = (uint32) strlen(emailAddrs);
 			optionData.Data = (uint8 *)&smimeOpts;
 			optionData.Length = sizeof(smimeOpts);
 			ortn = SecPolicySetValue(policyRef, &optionData);

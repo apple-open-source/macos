@@ -150,6 +150,8 @@ WebInspector.DOMNodeStyles = class DOMNodeStyles extends WebInspector.Object
                 propertyPayload.implicit = !this._propertyNameToEffectivePropertyMap[canonicalName];
 
                 var property = this._parseStylePropertyPayload(propertyPayload, NaN, this._computedStyle);
+                if (!property.implicit)
+                    property.implicit = !this._isPropertyFoundInMatchingRules(property.name);
                 properties.push(property);
             }
 
@@ -160,28 +162,42 @@ WebInspector.DOMNodeStyles = class DOMNodeStyles extends WebInspector.Object
 
             this._refreshPending = false;
 
-            var significantChange = this._previousSignificantChange || false;
-            if (!significantChange) {
-                for (var key in this._styleDeclarationsMap) {
-                    // Check if the same key exists in the previous map and has the same style objects.
-                    if (key in this._previousStyleDeclarationsMap && Object.shallowEqual(this._styleDeclarationsMap[key], this._previousStyleDeclarationsMap[key]))
+            let significantChange = false;
+            for (let key in this._styleDeclarationsMap) {
+                // Check if the same key exists in the previous map and has the same style objects.
+                if (key in this._previousStyleDeclarationsMap) {
+                    if (Object.shallowEqual(this._styleDeclarationsMap[key], this._previousStyleDeclarationsMap[key]))
                         continue;
 
-                    if (!this._includeUserAgentRulesOnNextRefresh) {
-                        // We can assume all the styles with the same key are from the same stylesheet and rule, so we only check the first.
-                        var firstStyle = this._styleDeclarationsMap[key][0];
-                        if (firstStyle && firstStyle.ownerRule && firstStyle.ownerRule.type === WebInspector.CSSStyleSheet.Type.UserAgent) {
-                            // User Agent styles get different identifiers after some edits. This would cause us to fire a significant refreshed
-                            // event more than it is helpful. And since the user agent stylesheet is static it shouldn't match differently
-                            // between refreshes for the same node. This issue is tracked by: https://webkit.org/b/110055
-                            continue;
+                    // Some styles have selectors such that they will match with the DOM node twice (for example "::before, ::after").
+                    // In this case a second style for a second matching may be generated and added which will cause the shallowEqual
+                    // to not return true, so in this case we just want to ensure that all the current styles existed previously.
+                    let styleFound = false;
+                    for (let style of this._styleDeclarationsMap[key]) {
+                        if (this._previousStyleDeclarationsMap[key].includes(style)) {
+                            styleFound = true;
+                            break;
                         }
                     }
 
-                    // This key is new or has different style objects than before. This is a significant change.
-                    significantChange = true;
-                    break;
+                    if (styleFound)
+                        continue;
                 }
+
+                if (!this._includeUserAgentRulesOnNextRefresh) {
+                    // We can assume all the styles with the same key are from the same stylesheet and rule, so we only check the first.
+                    let firstStyle = this._styleDeclarationsMap[key][0];
+                    if (firstStyle && firstStyle.ownerRule && firstStyle.ownerRule.type === WebInspector.CSSStyleSheet.Type.UserAgent) {
+                        // User Agent styles get different identifiers after some edits. This would cause us to fire a significant refreshed
+                        // event more than it is helpful. And since the user agent stylesheet is static it shouldn't match differently
+                        // between refreshes for the same node. This issue is tracked by: https://webkit.org/b/110055
+                        continue;
+                    }
+                }
+
+                // This key is new or has different style objects than before. This is a significant change.
+                significantChange = true;
+                break;
             }
 
             if (!significantChange) {
@@ -209,9 +225,6 @@ WebInspector.DOMNodeStyles = class DOMNodeStyles extends WebInspector.Object
             delete this._previousRulesMap;
             delete this._previousStyleDeclarationsMap;
 
-            // Delete the previous saved significant change flag so we rescan for a significant change next time.
-            delete this._previousSignificantChange;
-
             this.dispatchEventToListeners(WebInspector.DOMNodeStyles.Event.Refreshed, {significantChange});
         }
 
@@ -223,20 +236,36 @@ WebInspector.DOMNodeStyles = class DOMNodeStyles extends WebInspector.Object
         CSSAgent.getComputedStyleForNode.invoke({nodeId: this._node.id}, fetchedComputedStyle.bind(this));
     }
 
-    addRule(selector)
+    addRule(selector, text)
     {
+        selector = selector || this._node.appropriateSelectorFor(true);
+
+        function completed()
+        {
+            DOMAgent.markUndoableState();
+            this.refresh();
+        }
+
+        function styleChanged(error, stylePayload)
+        {
+            if (error)
+                return;
+
+            completed.call(this);
+        }
+
         function addedRule(error, rulePayload)
         {
             if (error)
                 return;
 
-            DOMAgent.markUndoableState();
+            if (!text || !text.length) {
+                completed.call(this);
+                return;
+            }
 
-            this.refresh();
+            CSSAgent.setStyleText(rulePayload.style.styleId, text, styleChanged.bind(this));
         }
-
-        if (!selector)
-            selector = this._node.appropriateSelectorFor(true);
 
         // COMPATIBILITY (iOS 9): Before CSS.createStyleSheet, CSS.addRule could be called with a contextNode.
         if (!CSSAgent.createStyleSheet) {
@@ -250,6 +279,22 @@ WebInspector.DOMNodeStyles = class DOMNodeStyles extends WebInspector.Object
         }
 
         WebInspector.cssStyleManager.preferredInspectorStyleSheetForFrame(this._node.frame, inspectorStyleSheetAvailable.bind(this));
+    }
+
+    rulesForSelector(selector)
+    {
+        selector = selector || this._node.appropriateSelectorFor(true);
+
+        function ruleHasSelector(rule) {
+            return !rule.mediaList.length && rule.selectorText === selector;
+        }
+
+        let rules = this._matchedRules.filter(ruleHasSelector);
+
+        for (let id in this._pseudoElements)
+            rules = rules.concat(this._pseudoElements[id].matchedRules.filter(ruleHasSelector));
+
+        return rules;
     }
 
     get matchedRules()
@@ -289,11 +334,11 @@ WebInspector.DOMNodeStyles = class DOMNodeStyles extends WebInspector.Object
 
     effectivePropertyForName(name)
     {
-        var property = this._propertyNameToEffectivePropertyMap[name];
+        let property = this._propertyNameToEffectivePropertyMap[name];
         if (property)
             return property;
 
-        var canonicalName = WebInspector.cssStyleManager.canonicalNameForPropertyName(name);
+        let canonicalName = WebInspector.cssStyleManager.canonicalNameForPropertyName(name);
         return this._propertyNameToEffectivePropertyMap[canonicalName] || null;
     }
 
@@ -582,7 +627,7 @@ WebInspector.DOMNodeStyles = class DOMNodeStyles extends WebInspector.Object
         for (var i = 0; payload.cssProperties && i < payload.cssProperties.length; ++i) {
             var propertyPayload = payload.cssProperties[i];
 
-            if (inherited && propertyPayload.name in WebInspector.CSSKeywordCompletions.InheritedProperties)
+            if (inherited && WebInspector.CSSProperty.isInheritedPropertyName(propertyPayload.name))
                 ++inheritedPropertyCount;
 
             var property = this._parseStylePropertyPayload(propertyPayload, i, styleDeclaration, text);
@@ -909,6 +954,13 @@ WebInspector.DOMNodeStyles = class DOMNodeStyles extends WebInspector.Object
                     propertyNameToEffectiveProperty[property.canonicalName] = property;
             }
         }
+    }
+
+    _isPropertyFoundInMatchingRules(propertyName)
+    {
+        return this._orderedStyles.some((style) => {
+            return style.properties.some((property) => property.name === propertyName);
+        });
     }
 };
 

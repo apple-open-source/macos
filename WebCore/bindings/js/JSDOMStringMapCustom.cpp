@@ -40,7 +40,7 @@ bool JSDOMStringMap::getOwnPropertySlotDelegate(ExecState* exec, PropertyName pr
     if (propertyName.isSymbol())
         return false;
     bool nameIsValid;
-    const AtomicString& item = impl().item(propertyNameToString(propertyName), nameIsValid);
+    const AtomicString& item = wrapped().item(propertyNameToString(propertyName), nameIsValid);
     if (nameIsValid) {
         slot.setValue(this, ReadOnly | DontDelete | DontEnum, toJS(exec, globalObject(), item));
         return true;
@@ -52,7 +52,7 @@ void JSDOMStringMap::getOwnPropertyNames(JSObject* object, ExecState* exec, Prop
 {
     JSDOMStringMap* thisObject = jsCast<JSDOMStringMap*>(object);
     Vector<String> names;
-    thisObject->m_impl->getNames(names);
+    thisObject->wrapped().getNames(names);
     size_t length = names.size();
     for (size_t i = 0; i < length; ++i)
         propertyNames.add(Identifier::fromString(exec, names[i]));
@@ -65,7 +65,7 @@ bool JSDOMStringMap::deleteProperty(JSCell* cell, ExecState* exec, PropertyName 
     JSDOMStringMap* thisObject = jsCast<JSDOMStringMap*>(cell);
     if (propertyName.isSymbol())
         return Base::deleteProperty(thisObject, exec, propertyName);
-    return thisObject->m_impl->deleteItem(propertyNameToString(propertyName));
+    return thisObject->wrapped().deleteItem(propertyNameToString(propertyName));
 }
 
 bool JSDOMStringMap::deletePropertyByIndex(JSCell* cell, ExecState* exec, unsigned index)
@@ -73,7 +73,7 @@ bool JSDOMStringMap::deletePropertyByIndex(JSCell* cell, ExecState* exec, unsign
     return deleteProperty(cell, exec, Identifier::from(exec, index));
 }
 
-bool JSDOMStringMap::putDelegate(ExecState* exec, PropertyName propertyName, JSValue value, PutPropertySlot&)
+bool JSDOMStringMap::putDelegate(ExecState* exec, PropertyName propertyName, JSValue value, PutPropertySlot&, bool& putResult)
 {
     if (propertyName.isSymbol())
         return false;
@@ -83,8 +83,9 @@ bool JSDOMStringMap::putDelegate(ExecState* exec, PropertyName propertyName, JSV
         return false;
 
     ExceptionCode ec = 0;
-    impl().setItem(propertyNameToString(propertyName), stringValue, ec);
+    wrapped().setItem(propertyNameToString(propertyName), stringValue, ec);
     setDOMException(exec, ec);
+    putResult = !ec;
     return !ec;
 }
 

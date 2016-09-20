@@ -328,7 +328,7 @@
 		189D462D166AC95C001D8533 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0460;
+				LastUpgradeCheck = 0800;
 				ORGANIZATIONNAME = Apple;
 			};
 			buildConfigurationList = 189D4630166AC95C001D8533 /* Build configuration list for PBXProject "securityd_service" */;
@@ -420,6 +420,7 @@
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				COMBINE_HIDPI_IMAGES = YES;
 				EXECUTABLE_PREFIX = lib;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -442,6 +443,7 @@
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_NS_ASSERTIONS = NO;
 				EXECUTABLE_PREFIX = lib;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
@@ -455,7 +457,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+				ASSETCATALOG_COMPRESSION = lossless;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
@@ -465,6 +467,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_TESTABILITY = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -475,6 +478,7 @@
 				);
 				GCC_STRICT_ALIASING = YES;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
@@ -489,7 +493,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+				ASSETCATALOG_COMPRESSION = "respect-asset-catalog";
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
@@ -505,6 +509,7 @@
 					"NDEBUG=1",
 				);
 				GCC_STRICT_ALIASING = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
@@ -518,6 +523,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = securityd_service/service.entitlements;
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -527,6 +533,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = securityd_service/service.entitlements;
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -559,6 +566,7 @@
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				COMBINE_HIDPI_IMAGES = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
@@ -566,6 +574,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				INFOPLIST_FILE = "KeyStore/KeyStore-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/UserEventPlugins";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = com.apple.KeyStore;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include;
 				WRAPPER_EXTENSION = plugin;
@@ -583,6 +592,7 @@
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_NS_ASSERTIONS = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -591,6 +601,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				INFOPLIST_FILE = "KeyStore/KeyStore-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/UserEventPlugins";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = com.apple.KeyStore;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include;
 				WRAPPER_EXTENSION = plugin;

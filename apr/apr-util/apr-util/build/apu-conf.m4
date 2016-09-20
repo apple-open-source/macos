@@ -285,8 +285,11 @@ AC_ARG_WITH(ldap,[  --with-ldap=library     ldap library to use],
         APU_FIND_LDAPLIB($LIBLDAP, "-ldl -lpthread")
       fi
 
-      test ${apu_has_ldap} != "1" && AC_MSG_ERROR(could not find an LDAP library)
-      test ${apu_has_ldap} == "1" && APR_ADDTO(LDADD_ldap, [$LDADD_ldap_found])
+      if test ${apu_has_ldap} != "1"; then
+        AC_MSG_ERROR(could not find an LDAP library)
+      else
+        APR_ADDTO(LDADD_ldap, [$LDADD_ldap_found])
+      fi
       AC_CHECK_LIB($apu_liblber_name, ber_init,
         [APR_ADDTO(LDADD_ldap, [-l${apu_liblber_name}])])
 

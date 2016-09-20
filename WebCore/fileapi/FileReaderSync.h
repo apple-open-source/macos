@@ -56,19 +56,15 @@ public:
 
     virtual ~FileReaderSync() { }
 
-    PassRefPtr<JSC::ArrayBuffer> readAsArrayBuffer(ScriptExecutionContext*, Blob*, ExceptionCode&);
-    String readAsBinaryString(ScriptExecutionContext*, Blob*, ExceptionCode&);
-    String readAsText(ScriptExecutionContext* scriptExecutionContext, Blob* blob, ExceptionCode& ec)
-    {
-        return readAsText(scriptExecutionContext, blob, "", ec);
-    }
-    String readAsText(ScriptExecutionContext*, Blob*, const String& encoding, ExceptionCode&);
-    String readAsDataURL(ScriptExecutionContext*, Blob*, ExceptionCode&);
+    RefPtr<JSC::ArrayBuffer> readAsArrayBuffer(ScriptExecutionContext&, Blob&, ExceptionCode&);
+    String readAsBinaryString(ScriptExecutionContext&, Blob&, ExceptionCode&);
+    String readAsText(ScriptExecutionContext&, Blob&, const String& encoding, ExceptionCode&);
+    String readAsDataURL(ScriptExecutionContext&, Blob&, ExceptionCode&);
 
 private:
     FileReaderSync();
 
-    void startLoading(ScriptExecutionContext*, FileReaderLoader&, Blob*, ExceptionCode&);
+    void startLoading(ScriptExecutionContext&, FileReaderLoader&, Blob&, ExceptionCode&);
 };
 
 } // namespace WebCore

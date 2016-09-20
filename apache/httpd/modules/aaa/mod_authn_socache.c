@@ -57,6 +57,7 @@ static apr_status_t remove_lock(void *data)
     }
     return APR_SUCCESS;
 }
+
 static apr_status_t destroy_cache(void *data)
 {
     if (socache_instance) {
@@ -65,7 +66,6 @@ static apr_status_t destroy_cache(void *data)
     }
     return APR_SUCCESS;
 }
-
 
 static int authn_cache_precfg(apr_pool_t *pconf, apr_pool_t *plog, apr_pool_t *ptmp)
 {
@@ -82,6 +82,7 @@ static int authn_cache_precfg(apr_pool_t *pconf, apr_pool_t *plog, apr_pool_t *p
     configured = 0;
     return OK;
 }
+
 static int authn_cache_post_config(apr_pool_t *pconf, apr_pool_t *plog,
                                    apr_pool_t *ptmp, server_rec *s)
 {
@@ -133,6 +134,7 @@ static int authn_cache_post_config(apr_pool_t *pconf, apr_pool_t *plog,
     apr_pool_cleanup_register(pconf, (void*)s, destroy_cache, apr_pool_cleanup_null);
     return OK;
 }
+
 static void authn_cache_child_init(apr_pool_t *p, server_rec *s)
 {
     const char *lock;
@@ -202,6 +204,7 @@ static void* authn_cache_dircfg_create(apr_pool_t *pool, char *s)
     ret->context = directory;
     return ret;
 }
+
 /* not sure we want this.  Might be safer to document use-all-or-none */
 static void* authn_cache_dircfg_merge(apr_pool_t *pool, void *BASE, void *ADD)
 {
@@ -264,7 +267,7 @@ static const char *construct_key(request_rec *r, const char *context,
                                  const char *user, const char *realm)
 {
     /* handle "special" context values */
-    if (!strcmp(context, "directory")) {
+    if (!strcmp(context, directory)) {
         /* FIXME: are we at risk of this blowing up? */
         char *new_context;
         char *slash = strrchr(r->uri, '/');
@@ -286,6 +289,7 @@ static const char *construct_key(request_rec *r, const char *context,
         return apr_pstrcat(r->pool, context, ":", user, ":", realm, NULL);
     }
 }
+
 static void ap_authn_cache_store(request_rec *r, const char *module,
                                  const char *user, const char *realm,
                                  const char* data)
@@ -294,21 +298,13 @@ static void ap_authn_cache_store(request_rec *r, const char *module,
     authn_cache_dircfg *dcfg;
     const char *key;
     apr_time_t expiry;
-    int i;
-    int use_cache = 0;
 
     /* first check whether we're cacheing for this module */
     dcfg = ap_get_module_config(r->per_dir_config, &authn_socache_module);
     if (!configured || !dcfg->providers) {
         return;
     }
-    for (i = 0; i < dcfg->providers->nelts; ++i) {
-        if (!strcmp(module, APR_ARRAY_IDX(dcfg->providers, i, const char*))) {
-            use_cache = 1;
-            break;
-        }
-    }
-    if (!use_cache) {
+    if (!ap_array_str_contains(dcfg->providers, module)) {
         return;
     }
 
@@ -352,14 +348,12 @@ static void ap_authn_cache_store(request_rec *r, const char *module,
     if (rv != APR_SUCCESS) {
         ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(01683) "Failed to release mutex!");
     }
-    return;
 }
 
 #define MAX_VAL_LEN 100
 static authn_status check_password(request_rec *r, const char *user,
                                    const char *password)
 {
-
     /* construct key
      * look it up
      * if found, test password
@@ -457,6 +451,7 @@ static const authn_provider authn_cache_provider =
     &check_password,
     &get_realm_hash,
 };
+
 static void register_hooks(apr_pool_t *p)
 {
     ap_register_auth_provider(p, AUTHN_PROVIDER_GROUP, "socache",

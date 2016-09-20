@@ -201,11 +201,11 @@ TEST_F(EWK2UnitTestBase, ewk_settings_offline_web_application_cache_enabled)
     // The offline web application cache is enabled by default.
     ASSERT_TRUE(ewk_settings_offline_web_application_cache_enabled_get(settings));
 
-    ASSERT_TRUE(ewk_settings_offline_web_application_cache_enabled_set(settings, true));
-    ASSERT_TRUE(ewk_settings_offline_web_application_cache_enabled_get(settings));
-
     ASSERT_TRUE(ewk_settings_offline_web_application_cache_enabled_set(settings, false));
     ASSERT_FALSE(ewk_settings_offline_web_application_cache_enabled_get(settings));
+
+    ASSERT_TRUE(ewk_settings_offline_web_application_cache_enabled_set(settings, true));
+    ASSERT_TRUE(ewk_settings_offline_web_application_cache_enabled_get(settings));
 }
 
 TEST_F(EWK2UnitTestBase, ewk_settings_scripts_can_open_windows)

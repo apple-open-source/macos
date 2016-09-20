@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -89,6 +89,7 @@ typedef uint32_t EAPOLControlState;
 #define kEAPOLControlClientStatus	CFSTR("ClientStatus")	/* CFNumber (EAPClientStatus) */
 #define kEAPOLControlDomainSpecificError	CFSTR("DomainSpecificError") /* CFNumber (EAPClientDomainSpecificError) */
 #define kEAPOLControlTimestamp		CFSTR("Timestamp")	/* CFDate */
+#define kEAPOLControlLastStatusChangeTimestamp	CFSTR("LastStatusTimestamp")	/* CFDate */
 #define kEAPOLControlRequiredProperties	CFSTR("RequiredProperties") /* CFArray[CFString] */
 #define kEAPOLControlAdditionalProperties	CFSTR("AdditionalProperties") /* CFDictionary */
 #define kEAPOLControlAuthenticatorMACAddress	CFSTR("AuthenticatorMACAddress") /* CFData */

@@ -44,7 +44,7 @@ void handle_connection_event(const xpc_connection_t peer);
 void handle_request_event(struct connection_info *info, xpc_object_t event);
 
 #ifndef NDEBUG
-    #define xpctsa_secdebug(format...) \
+    #define xpctsa_secinfo(format...) \
         do {  \
             syslog(LOG_WARNING, format);  \
         } while (0)
@@ -55,10 +55,10 @@ void handle_request_event(struct connection_info *info, xpc_object_t event);
 
 #else
     //empty
-    #define xpctsa_secdebug(format...)
+    #define xpctsa_secinfo(format...)
     #define xpctsaNSLog(format...)
 #endif
-#define xpctsaDebug(args...)			xpctsa_secdebug(args)
+#define xpctsaDebug(args...)			xpctsa_secinfo(args)
 
 /*
     These came from:

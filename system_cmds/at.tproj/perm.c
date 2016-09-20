@@ -1,4 +1,4 @@
-/* 
+/*
  *  perm.c - check user permission for at(1)
  *  Copyright (C) 1994  Thomas Koenig
  *

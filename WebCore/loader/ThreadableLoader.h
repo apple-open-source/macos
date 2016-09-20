@@ -33,7 +33,6 @@
 
 #include "ResourceLoaderOptions.h"
 #include <wtf/Noncopyable.h>
-#include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 #include <wtf/text/AtomicString.h>
@@ -59,16 +58,21 @@ namespace WebCore {
         PreventPreflight
     };
 
+    enum class ContentSecurityPolicyEnforcement {
+        DoNotEnforce,
+        EnforceChildSrcDirective,
+        EnforceConnectSrcDirective,
+        EnforceScriptSrcDirective,
+    };
+
     struct ThreadableLoaderOptions : ResourceLoaderOptions {
         ThreadableLoaderOptions();
-        ThreadableLoaderOptions(const ResourceLoaderOptions&, PreflightPolicy, CrossOriginRequestPolicy, RefPtr<SecurityOrigin>&&, String&& initiator);
+        ThreadableLoaderOptions(const ResourceLoaderOptions&, PreflightPolicy, CrossOriginRequestPolicy, ContentSecurityPolicyEnforcement, String&& initiator);
         ~ThreadableLoaderOptions();
 
-        std::unique_ptr<ThreadableLoaderOptions> isolatedCopy() const;
-
-        PreflightPolicy preflightPolicy; // If AccessControl is used, how to determine if a preflight is needed.
-        CrossOriginRequestPolicy crossOriginRequestPolicy;
-        RefPtr<SecurityOrigin> securityOrigin;
+        PreflightPolicy preflightPolicy { ConsiderPreflight };
+        CrossOriginRequestPolicy crossOriginRequestPolicy { DenyCrossOriginRequests };
+        ContentSecurityPolicyEnforcement contentSecurityPolicyEnforcement { ContentSecurityPolicyEnforcement::EnforceConnectSrcDirective };
         String initiator; // This cannot be an AtomicString, as isolatedCopy() wouldn't create an object that's safe for passing to another thread.
     };
 
@@ -78,7 +82,7 @@ namespace WebCore {
         WTF_MAKE_NONCOPYABLE(ThreadableLoader);
     public:
         static void loadResourceSynchronously(ScriptExecutionContext*, const ResourceRequest&, ThreadableLoaderClient&, const ThreadableLoaderOptions&);
-        static PassRefPtr<ThreadableLoader> create(ScriptExecutionContext*, ThreadableLoaderClient*, const ResourceRequest&, const ThreadableLoaderOptions&);
+        static RefPtr<ThreadableLoader> create(ScriptExecutionContext*, ThreadableLoaderClient*, const ResourceRequest&, const ThreadableLoaderOptions&);
 
         virtual void cancel() = 0;
         void ref() { refThreadableLoader(); }

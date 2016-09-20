@@ -64,6 +64,17 @@
 0:EXIT traps on a script
 >Exited.
 
+  trap -
+  trap
+  trap int INT
+  trap sigterm SIGTERM
+  trap quit 3
+  trap
+0: Outputting traps correctly
+>trap -- int INT
+>trap -- quit QUIT
+>trap -- sigterm TERM
+
   fn1() {
     trap -
     trap
@@ -398,6 +409,60 @@
     echo "ctr = $ctr"
    )
 1:ERREXIT in loop with simple commands
+
+  fn() {
+    emulate -L zsh
+    setopt errreturn
+    if false; then
+      false
+      print No.
+    else
+      print Oh, yes
+    fi
+  }
+  fn
+0:ERRRETURN not triggered in if condition
+>Oh, yes
+
+  fn() {
+    emulate -L zsh
+    setopt errreturn
+    if true; then
+      false
+      print No.
+    else
+      print No, no.
+    fi
+  }
+  fn
+1:ERRRETURN in "if"
+
+  fn() {
+    emulate -L zsh
+    setopt errreturn
+    if false; then
+      print No.
+    else
+      false
+      print No, no.
+    fi
+  }
+  fn
+1:ERRRETURN in "else" branch (regression test)
+
+  $ZTST_testdir/../Src/zsh -f =(<<<"
+  if false; then
+    :
+  else
+    if [[ -n '' ]]; then
+        a=2  
+    fi
+    print Yes
+  fi
+  ")
+0:ERRRETURN when false "if" is the first statement in an "else" (regression)
+>Yes
+F:Must be tested with a top-level script rather than source or function
 
 %clean
 

@@ -30,16 +30,16 @@
 
 namespace WebCore {
 
-PassRefPtr<GraphicsContext3D> GraphicsContext3D::create(GraphicsContext3D::Attributes attrs, HostWindow* hostWindow, RenderStyle renderStyle)
+RefPtr<GraphicsContext3D> GraphicsContext3D::create(GraphicsContext3D::Attributes attrs, HostWindow* hostWindow, RenderStyle renderStyle)
 {
     RefPtr<GraphicsContext3D> context = adoptRef(new GraphicsContext3D(attrs, hostWindow, renderStyle));
-    return context->m_private ? context.release() : 0;
+    return context->m_private ? context : nullptr;
 }
 
 GraphicsContext3D::GraphicsContext3D(GraphicsContext3D::Attributes attrs, HostWindow* hostWindow, GraphicsContext3D::RenderStyle renderStyle)
     : m_currentWidth(0)
     , m_currentHeight(0)
-    , m_compiler(isGLES2Compliant() ? SH_ESSL_OUTPUT : SH_GLSL_OUTPUT)
+    , m_compiler(isGLES2Compliant() ? SH_ESSL_OUTPUT : SH_GLSL_COMPATIBILITY_OUTPUT)
     , m_attrs(attrs)
     , m_renderStyle(renderStyle)
     , m_texture(0)
@@ -200,7 +200,7 @@ bool GraphicsContext3D::isGLES2Compliant() const
 
 void GraphicsContext3D::setContextLostCallback(std::unique_ptr<ContextLostCallback> callBack)
 {
-    m_private->setContextLostCallback(WTF::move(callBack));
+    m_private->setContextLostCallback(WTFMove(callBack));
 }
 
 void GraphicsContext3D::setErrorMessageCallback(std::unique_ptr<ErrorMessageCallback>)
@@ -263,7 +263,7 @@ bool GraphicsContext3D::ImageExtractor::extractImage(bool premultiplyAlpha, bool
         if (!decoder.frameCount() || !decoder.frameIsCompleteAtIndex(0))
             return false;
 
-        m_imageSurface = decoder.createFrameAtIndex(0);
+        m_imageSurface = decoder.createFrameImageAtIndex(0);
     } else {
         m_imageSurface = m_image->nativeImageForCurrentFrame();
         // 1. For texImage2D with HTMLVideoElment input, assume no PremultiplyAlpha had been applied and the alpha value is 0xFF for each pixel,

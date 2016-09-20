@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2008, 2011-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2008, 2011-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -35,11 +35,9 @@
 #include <sys/types.h>
 #include <servers/bootstrap.h>
 #include <mach/mach.h>
-#include <mach/mach_error.h>
 #include <bsm/libbsm.h>
 #include <dispatch/dispatch.h>
 #include <xpc/xpc.h>
-
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCPrivate.h>
 
@@ -49,6 +47,12 @@
 #include "dnsinfo_create.h"
 #include "dnsinfo_server.h"
 #include "dnsinfo_private.h"
+
+#ifdef	SC_LOG_HANDLE
+#include <os/log.h>
+os_log_t	SC_LOG_HANDLE;
+#endif	//SC_LOG_HANDLE
+
 
 #pragma mark -
 #pragma mark Globals
@@ -60,13 +64,6 @@
  * Note: all accesses should be made while running on the _dns_server_queue()
  */
 static libSC_info_server_t	S_dns_info;
-
-
-/*
- * S_logger
- *   Logging handle.
- */
-static SCLoggerRef	S_logger = NULL;
 
 
 /*
@@ -121,9 +118,8 @@ _dnsinfo_copy(xpc_connection_t connection, xpc_object_t request)
 	remote = xpc_dictionary_get_remote_connection(request);
 	reply = xpc_dictionary_create_reply(request);
 	if (reply == NULL) {
-		SCLoggerLog(S_logger, LOG_ERR,
-			    CFSTR("<%p> _dnsinfo_copy: xpc_dictionary_create_reply: failed"),
-			    connection);
+		SC_log(LOG_ERR, "<%p> _dnsinfo_copy: xpc_dictionary_create_reply: failed",
+		       connection);
 		return;
 	}
 
@@ -138,11 +134,11 @@ _dnsinfo_copy(xpc_connection_t connection, xpc_object_t request)
 		proc_name = "???";
 	}
 
-	SCLoggerLog(S_logger, LOG_DEBUG, CFSTR("<%p:%s[%d]> DNS configuration copy: %llu"),
-		    connection,
-		    proc_name,
-		    xpc_connection_get_pid(connection),
-		    generation);
+	SC_log(LOG_DEBUG, "<%p:%s[%d]> DNS configuration copy: %llu",
+	       connection,
+	       proc_name,
+	       xpc_connection_get_pid(connection),
+	       generation);
 
 	// return the DNS configuration (if available)
 	if (data != NULL) {
@@ -176,10 +172,10 @@ _dnsinfo_acknowledge(xpc_connection_t connection, xpc_object_t request)
 
 	generation = xpc_dictionary_get_uint64(request, DNSINFO_GENERATION);
 
-	SCLoggerLog(S_logger, LOG_DEBUG, CFSTR("<%p:%d> DNS configuration ack: %llu"),
-		    connection,
-		    xpc_connection_get_pid(connection),
-		    generation);
+	SC_log(LOG_DEBUG, "<%p:%d> DNS configuration ack: %llu",
+	       connection,
+	       xpc_connection_get_pid(connection),
+	       generation);
 
 	(void) _libSC_info_server_acknowledged(&S_dns_info, connection, generation);
 
@@ -187,7 +183,7 @@ _dnsinfo_acknowledge(xpc_connection_t connection, xpc_object_t request)
 	//       in a [new] network change being posted
 
 	inSync = _libSC_info_server_in_sync(&S_dns_info);
-	if (S_sync_handler) {
+	if (S_sync_handler != NULL) {
 	    S_sync_handler(inSync);
 	}
 	return;
@@ -216,10 +212,9 @@ process_request(xpc_connection_t connection, xpc_object_t request)
 
 			break;
 		default :
-			SCLoggerLog(S_logger, LOG_ERR,
-				    CFSTR("<%p> unknown request : %lld"),
-				    connection,
-				    op);
+			SC_log(LOG_ERR, "<%p> unknown request : %lld",
+			       connection,
+			       op);
 
 			break;
 	}
@@ -231,20 +226,16 @@ process_request(xpc_connection_t connection, xpc_object_t request)
 static void
 process_new_connection(xpc_connection_t c)
 {
-	SCLoggerLog(S_logger, LOG_DEBUG, CFSTR("<%p:%d> DNS configuration session: open"),
-		    c,
-		    xpc_connection_get_pid(c));
+	SC_log(LOG_DEBUG, "<%p:%d> DNS configuration session: open",
+	       c,
+	       xpc_connection_get_pid(c));
 
 	_libSC_info_server_open(&S_dns_info, c);
 
 	xpc_connection_set_target_queue(c, _dnsinfo_server_queue());
 
 	xpc_connection_set_event_handler(c, ^(xpc_object_t xobj) {
-		os_activity_t	activity_id;
 		xpc_type_t	type;
-
-		activity_id = os_activity_start("processing dnsinfo request",
-						OS_ACTIVITY_FLAG_DEFAULT);
 
 		type = xpc_get_type(xobj);
 		if (type == XPC_TYPE_DICTIONARY) {
@@ -258,9 +249,9 @@ process_new_connection(xpc_connection_t c)
 			if (xobj == XPC_ERROR_CONNECTION_INVALID) {
 				Boolean		changed;
 
-				SCLoggerLog(S_logger, LOG_DEBUG, CFSTR("<%p:%d> DNS configuration session: close"),
-					    c,
-					    xpc_connection_get_pid(c));
+				SC_log(LOG_DEBUG, "<%p:%d> DNS configuration session: close",
+				       c,
+				       xpc_connection_get_pid(c));
 
 				changed = _libSC_info_server_close(&S_dns_info, c);
 				if (changed) {
@@ -268,34 +259,31 @@ process_new_connection(xpc_connection_t c)
 
 					// report change
 					inSync = _libSC_info_server_in_sync(&S_dns_info);
-					S_sync_handler(inSync);
+					if (S_sync_handler != NULL) {
+						S_sync_handler(inSync);
+					}
 				}
 
 			} else if (xobj == XPC_ERROR_CONNECTION_INTERRUPTED) {
-				SCLoggerLog(S_logger, LOG_ERR,
-					    CFSTR("<%p:%d> %s"),
-					    c,
-					    xpc_connection_get_pid(c),
-					    desc);
+				SC_log(LOG_ERR, "<%p:%d> %s",
+				       c,
+				       xpc_connection_get_pid(c),
+				       desc);
 
 			} else {
-				SCLoggerLog(S_logger, LOG_ERR,
-					    CFSTR("<%p:%d> Connection error: %p : %s"),
-					    c,
-					    xpc_connection_get_pid(c),
-					    xobj,
-					    desc);
+				SC_log(LOG_ERR, "<%p:%d> Connection error: %p : %s",
+				       c,
+				       xpc_connection_get_pid(c),
+				       xobj,
+				       desc);
 			}
 
 		}  else {
-			SCLoggerLog(S_logger, LOG_ERR,
-				    CFSTR("<%p:%d> unknown event type : %p"),
-				    c,
-				    xpc_connection_get_pid(c),
-				    type);
+			SC_log(LOG_ERR, "<%p:%d> unknown event type : %p",
+			       c,
+			       xpc_connection_get_pid(c),
+			       type);
 		}
-
-		os_activity_end(activity_id);
 	});
 
 	xpc_connection_resume(c);
@@ -311,13 +299,10 @@ process_new_connection(xpc_connection_t c)
 __private_extern__
 void
 load_DNSConfiguration(CFBundleRef		bundle,
-		      SCLoggerRef		logger,
 		      _dns_sync_handler_t	syncHandler)
 {
 	xpc_connection_t	c;
 	const char		*name;
-
-	S_logger = logger;
 
 	/*
 	 * keep track of DNS configuration acknowledgements
@@ -340,11 +325,7 @@ load_DNSConfiguration(CFBundleRef		bundle,
 					       XPC_CONNECTION_MACH_SERVICE_LISTENER);
 
 	xpc_connection_set_event_handler(c, ^(xpc_object_t event) {
-		os_activity_t	activity_id;
 		xpc_type_t	type;
-
-		activity_id = os_activity_start("processing dnsinfo connection",
-						OS_ACTIVITY_FLAG_DEFAULT);
 
 		type = xpc_get_type(event);
 		if (type == XPC_TYPE_CONNECTION) {
@@ -355,30 +336,25 @@ load_DNSConfiguration(CFBundleRef		bundle,
 
 			desc = xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION);
 			if (event == XPC_ERROR_CONNECTION_INVALID) {
-				SCLoggerLog(S_logger, LOG_ERR, CFSTR("DNS configuration server: %s"), desc);
+				SC_log(LOG_ERR, "DNS configuration server: %s", desc);
 				xpc_release(c);
 			} else if (event == XPC_ERROR_CONNECTION_INTERRUPTED) {
-				SCLoggerLog(S_logger, LOG_ERR, CFSTR("DNS configuration server: %s"), desc);
+				SC_log(LOG_ERR, "DNS configuration server: %s", desc);
 			} else {
-				SCLoggerLog(S_logger, LOG_ERR,
-				      CFSTR("DNS configuration server: Connection error: %p : %s"),
-				      event,
-				      desc);
+				SC_log(LOG_ERR, "DNS configuration server: Connection error: %p : %s",
+				       event,
+				       desc);
 			}
 
 		} else {
-			SCLoggerLog(S_logger, LOG_ERR,
-				    CFSTR("DNS configuration server: unknown event type : %p"),
-				    type);
+			SC_log(LOG_ERR, "DNS configuration server: unknown event type : %p", type);
 
 		}
-
-		os_activity_end(activity_id);
 	});
 
 	xpc_connection_resume(c);
 
-SCLoggerLog(S_logger, LOG_DEBUG, CFSTR("XPC server \"%s\" started"), name);
+SC_log(LOG_DEBUG, "XPC server \"%s\" started", name);
 
 	return;
 }
@@ -400,9 +376,8 @@ _dns_configuration_store(dns_create_config_t *_config)
 
 		new_generation = config->config.generation;
 
-		SCLoggerLog(S_logger, LOG_INFO,
-			    CFSTR("DNS configuration updated: %llu"),
-			    new_generation);
+		SC_log(LOG_INFO, "DNS configuration updated: %llu",
+		       new_generation);
 
 		bytes = (const UInt8 *)config;
 		len = sizeof(_dns_config_buf_t) + ntohl(config->n_attribute);
@@ -420,7 +395,7 @@ _dns_configuration_store(dns_create_config_t *_config)
 
 	// if anyone is keeping us in sync, they now need to catch up
 	in_sync = _libSC_info_server_in_sync(&S_dns_info);
-	if (S_sync_handler) {
+	if (S_sync_handler != NULL) {
 	    S_sync_handler(in_sync);
 	}
 
@@ -431,7 +406,7 @@ _dns_configuration_store(dns_create_config_t *_config)
 
 		status = notify_post(notify_key);
 		if (status != NOTIFY_STATUS_OK) {
-			SCLoggerLog(S_logger, LOG_ERR, CFSTR("notify_post() failed: %d"), status);
+			SC_log(LOG_ERR, "notify_post() failed: %d", status);
 			// notification posting failures are non-fatal
 		}
 	}
@@ -455,11 +430,10 @@ main(int argc, char **argv)
 	_sc_debug   = TRUE;
 
 	load_DNSConfiguration(CFBundleGetMainBundle(),		// bundle
-			      NULL,				// SCLogger
 			      ^(Boolean inSync) {		// sync handler
-				      SCLoggerLog(NULL, LOG_INFO,
-					    CFSTR("in sync: %s"),
-					    inSync ? "Yes" : "No")
+				      SC_log(LOG_INFO,
+					     "in sync: %s",
+					     inSync ? "Yes" : "No")
 			      });
 	CFRunLoopRun();
 	/* not reached */

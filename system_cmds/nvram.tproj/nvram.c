@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2012 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -30,6 +30,7 @@ cc -o nvram nvram.c -framework CoreFoundation -framework IOKit -Wall
 #include <CoreFoundation/CoreFoundation.h>
 #include <err.h>
 #include <mach/mach_error.h>
+#include <sys/stat.h>
 
 // Prototypes
 static void UsageMessage(char *message);
@@ -62,23 +63,24 @@ int main(int argc, char **argv)
   char                *str, errorMessage[256];
   kern_return_t       result;
   mach_port_t         masterPort;
-  
+  int argcount = 0;
+
   // Get the name of the command.
   gToolName = strrchr(argv[0], '/');
   if (gToolName != 0) gToolName++;
   else gToolName = argv[0];
-  
+
   result = IOMasterPort(bootstrap_port, &masterPort);
   if (result != KERN_SUCCESS) {
     errx(1, "Error getting the IOMaster port: %s",
         mach_error_string(result));
   }
-  
+
   gOptionsRef = IORegistryEntryFromPath(masterPort, "IODeviceTree:/options");
   if (gOptionsRef == 0) {
     errx(1, "nvram is not supported on this system");
   }
-  
+
   for (cnt = 1; cnt < argc; cnt++) {
     str = argv[cnt];
     if (str[0] == '-' && str[1] != 0) {
@@ -101,7 +103,7 @@ int main(int argc, char **argv)
 	    UsageMessage("missing filename");
 	  }
 	  break;
-	  
+
 	case 'd':
 	  cnt++;
 	  if (cnt < argc && *argv[cnt] != '-') {
@@ -110,7 +112,7 @@ int main(int argc, char **argv)
 	    UsageMessage("missing name");
 	  }
 	  break;
-	  
+
 	case 'c':
 	  ClearOFVariables();
 	  break;
@@ -127,12 +129,18 @@ int main(int argc, char **argv)
       }
     } else {
       // Other arguments will be firmware variable requests.
+      argcount++;
       SetOrGetOFVariable(str);
     }
   }
-  
+
+  // radar:25206371
+  if (argcount == 0 && gUseForceSync == true) {
+    NVRamSyncNow("");
+  }
+
   IOObjectRelease(gOptionsRef);
-  
+
   return 0;
 }
 
@@ -143,7 +151,7 @@ int main(int argc, char **argv)
 static void UsageMessage(char *message)
 {
   warnx("(usage: %s)", message);
-  
+
   printf("%s [-x] [-p] [-f filename] [-d name] [-c] name[=value] ...\n", gToolName);
   printf("\t-x         use XML format for printing or reading variables\n");
   printf("\t           (must appear before -p or -f)\n");
@@ -154,7 +162,7 @@ static void UsageMessage(char *message)
   printf("\tname=value set named variable\n");
   printf("\tname       print variable\n");
   printf("Note that arguments and options are executed in order.\n");
-  
+
   exit(1);
 }
 
@@ -169,7 +177,7 @@ enum {
   kCollectValue,
   kContinueValue,
   kSetenv,
-  
+
   kMaxStringSize = 0x800,
   kMaxNameSize = 0x100
 };
@@ -181,7 +189,8 @@ enum {
 //
 static void ParseFile(char *fileName)
 {
-  long state, tc, ni = 0, vi = 0;
+  long state, ni = 0, vi = 0;
+  int tc;
   char name[kMaxNameSize];
   char value[kMaxStringSize];
   FILE *patches;
@@ -191,15 +200,15 @@ static void ParseFile(char *fileName)
     ParseXMLFile(fileName);
     return;
   }
-  
+
   patches = fopen(fileName, "r");
   if (patches == 0) {
     err(1, "Couldn't open patch file - '%s'", fileName);
   }
-  
+
   state = kFirstColumn;
   while ((tc = getc(patches)) != EOF) {
-    if(ni==(kMaxNameSize-1)) 
+    if(ni==(kMaxNameSize-1))
       errx(1, "Name exceeded max length of %d", kMaxNameSize);
     if(vi==(kMaxStringSize-1))
       errx(1, "Value exceeded max length of %d", kMaxStringSize);
@@ -218,7 +227,7 @@ static void ParseFile(char *fileName)
 	name[ni++] = tc;
       }
       break;
-      
+
     case kScanComment :
       if (tc == '\n') {
 	state = kFirstColumn;
@@ -226,7 +235,7 @@ static void ParseFile(char *fileName)
 	// state stays kScanComment.
       }
       break;
-      
+
     case kFindName :
       if (tc == '\n') {
 	state = kFirstColumn;
@@ -237,7 +246,7 @@ static void ParseFile(char *fileName)
 	name[ni++] = tc;
       }
       break;
-      
+
     case kCollectName :
       if (tc == '\n') {
 	name[ni] = 0;
@@ -250,7 +259,7 @@ static void ParseFile(char *fileName)
 	// state staus kCollectName.
       }
       break;
-      
+
     case kFindValue :
     case kContinueValue :
       if (tc == '\n') {
@@ -262,7 +271,7 @@ static void ParseFile(char *fileName)
 	value[vi++] = tc;
       }
       break;
-      
+
     case kCollectValue :
       if (tc == '\n') {
 	if (value[vi-1] == '\\') {
@@ -277,7 +286,7 @@ static void ParseFile(char *fileName)
       }
       break;
     }
-    
+
     if (state == kSetenv) {
       name[ni] = 0;
       value[vi] = 0;
@@ -288,12 +297,11 @@ static void ParseFile(char *fileName)
       state = kFirstColumn;
     }
   }
-  
+
   if (state != kFirstColumn) {
     errx(1, "Last line ended abruptly");
   }
 }
-
 
 // ParseXMLFile(fileName)
 //
@@ -303,55 +311,64 @@ static void ParseFile(char *fileName)
 static void ParseXMLFile(char *fileName)
 {
         CFPropertyListRef plist;
-        CFURLRef fileURL = NULL;
-        CFStringRef filePath = NULL;
-        CFStringRef errorString = NULL;
-        CFDataRef data = NULL;
-        SInt32 errorCode = 0;
+        int fd;
+        struct stat sb;
+        char *buffer;
+        CFReadStreamRef stream;
+        CFPropertyListFormat format = kCFPropertyListBinaryFormat_v1_0;
 
-        filePath = CFStringCreateWithCString(kCFAllocatorDefault, fileName, kCFStringEncodingUTF8);
-        if (filePath == NULL) {
-          errx(1, "Could not create file path string");
+        fd = open(fileName, O_RDONLY | O_NOFOLLOW, S_IFREG);
+        if (fd == -1) {
+          errx(1, "Could not open %s: %s", fileName, strerror(errno));
         }
 
-        // Create a URL that specifies the file we will create to 
-        // hold the XML data.
-        fileURL = CFURLCreateWithFileSystemPath( kCFAllocatorDefault,    
-                                                 filePath,
-                                                 kCFURLPOSIXPathStyle,
-                                                 false /* not a directory */ );
-        if (fileURL == NULL) {
-          errx(1, "Could not create file path URL");
+        if (fstat(fd, &sb) == -1) {
+          errx(1, "Could not fstat %s: %s", fileName, strerror(errno));
         }
 
-        CFRelease(filePath);
-
-        if (! CFURLCreateDataAndPropertiesFromResource(
-                    kCFAllocatorDefault,
-                    fileURL,
-                    &data,
-                    NULL,      
-                    NULL,
-                    &errorCode) || data == NULL ) {
-          errx(1, "Error reading XML file (%d)", (int)errorCode);
+        if (sb.st_size > UINT32_MAX) {
+          errx(1, "too big for our purposes");
         }
 
-        CFRelease(fileURL);
+        buffer = malloc((size_t)sb.st_size);
+        if (buffer == NULL) {
+          errx(1, "Could not allocate buffer");
+        }
 
-        plist = CFPropertyListCreateFromXMLData(kCFAllocatorDefault,
-                                                data,
-                                                kCFPropertyListImmutable,
-                                                &errorString);
+        if (read(fd, buffer, (size_t)sb.st_size) != sb.st_size) {
+          errx(1, "Could not read %s: %s", fileName, strerror(errno));
+        }
 
-        CFRelease(data);
+        close(fd);
+
+        stream = CFReadStreamCreateWithBytesNoCopy(kCFAllocatorDefault,
+                                                   (const UInt8 *)buffer,
+                                                   (CFIndex)sb.st_size,
+                                                   kCFAllocatorNull);
+        if (stream == NULL) {
+          errx(1, "Could not create stream from serialized data");
+        }
+
+        if (!CFReadStreamOpen(stream)) {
+          errx(1, "Could not open the stream");
+        }
+
+        plist = CFPropertyListCreateWithStream(kCFAllocatorDefault,
+                                               stream,
+                                               (CFIndex)sb.st_size,
+                                               kCFPropertyListImmutable,
+                                               &format,
+                                               NULL);
 
         if (plist == NULL) {
           errx(1, "Error parsing XML file");
         }
 
-        if (errorString != NULL) {
-          errx(1, "Error parsing XML file: %s", CFStringGetCStringPtr(errorString, kCFStringEncodingUTF8));
-        }
+        CFReadStreamClose(stream);
+
+        CFRelease(stream);
+
+        free(buffer);
 
         CFDictionaryApplyFunction(plist, &SetOFVariableFromFile, 0);
 
@@ -371,10 +388,10 @@ static void SetOrGetOFVariable(char *str)
   CFStringRef   nameRef;
   CFTypeRef     valueRef;
   kern_return_t result;
-  
+
   // OF variable name is first.
   name = str;
-  
+
   // Find the equal sign for set
   while (*str) {
     if (*str == '=') {
@@ -384,11 +401,11 @@ static void SetOrGetOFVariable(char *str)
     }
     str++;
   }
-  
+
   if (set == 1) {
     // On sets, the OF variable's value follows the equal sign.
     value = str;
-    
+
     result = SetOFVariable(name, value);
 	NVRamSyncNow(name);			/* Try syncing the new data to device, best effort! */
     if (result != KERN_SUCCESS) {
@@ -401,7 +418,7 @@ static void SetOrGetOFVariable(char *str)
       errx(1, "Error getting variable - '%s': %s", name,
            mach_error_string(result));
     }
-    
+
     PrintOFVariable(nameRef, valueRef, 0);
     CFRelease(nameRef);
     CFRelease(valueRef);
@@ -422,10 +439,10 @@ static kern_return_t GetOFVariable(char *name, CFStringRef *nameRef,
   if (*nameRef == 0) {
     errx(1, "Error creating CFString for key %s", name);
   }
-  
+
   *valueRef = IORegistryEntryCreateCFProperty(gOptionsRef, *nameRef, 0, 0);
   if (*valueRef == 0) return kIOReturnNotFound;
-  
+
   return KERN_SUCCESS;
 }
 
@@ -440,56 +457,56 @@ static kern_return_t SetOFVariable(char *name, char *value)
   CFTypeRef     valueRef;
   CFTypeID      typeID;
   kern_return_t result = KERN_SUCCESS;
-  
+
   nameRef = CFStringCreateWithCString(kCFAllocatorDefault, name,
 				      kCFStringEncodingUTF8);
   if (nameRef == 0) {
     errx(1, "Error creating CFString for key %s", name);
   }
-  
+
   valueRef = IORegistryEntryCreateCFProperty(gOptionsRef, nameRef, 0, 0);
   if (valueRef) {
     typeID = CFGetTypeID(valueRef);
     CFRelease(valueRef);
-    
+
     valueRef = ConvertValueToCFTypeRef(typeID, value);
     if (valueRef == 0) {
       errx(1, "Error creating CFTypeRef for value %s", value);
     }  result = IORegistryEntrySetCFProperty(gOptionsRef, nameRef, valueRef);
   } else {
     while (1) {
-      // In the default case, try data, string, number, then boolean.    
-      
+      // In the default case, try data, string, number, then boolean.
+
       valueRef = ConvertValueToCFTypeRef(CFDataGetTypeID(), value);
       if (valueRef != 0) {
 	result = IORegistryEntrySetCFProperty(gOptionsRef, nameRef, valueRef);
 	if (result == KERN_SUCCESS) break;
       }
-      
+
       valueRef = ConvertValueToCFTypeRef(CFStringGetTypeID(), value);
       if (valueRef != 0) {
 	result = IORegistryEntrySetCFProperty(gOptionsRef, nameRef, valueRef);
 	if (result == KERN_SUCCESS) break;
       }
-      
+
       valueRef = ConvertValueToCFTypeRef(CFNumberGetTypeID(), value);
       if (valueRef != 0) {
 	result = IORegistryEntrySetCFProperty(gOptionsRef, nameRef, valueRef);
 	if (result == KERN_SUCCESS) break;
       }
-      
+
       valueRef = ConvertValueToCFTypeRef(CFBooleanGetTypeID(), value);
       if (valueRef != 0) {
 	result = IORegistryEntrySetCFProperty(gOptionsRef, nameRef, valueRef);
 	if (result == KERN_SUCCESS) break;
       }
-      
+
       break;
     }
   }
-  
+
   CFRelease(nameRef);
-  
+
   return result;
 }
 
@@ -497,7 +514,7 @@ static kern_return_t SetOFVariable(char *name, char *value)
 // DeleteOFVariable(name)
 //
 //   Delete the named firmware variable.
-//   
+//
 //
 static void DeleteOFVariable(char *name)
 {
@@ -517,11 +534,11 @@ static void NVRamSyncNow(char *name)
 //
 //   Print all of the firmware variables.
 //
-static void PrintOFVariables()
+static void PrintOFVariables(void)
 {
   kern_return_t          result;
   CFMutableDictionaryRef dict;
-  
+
   result = IORegistryEntryCreateCFProperties(gOptionsRef, &dict, 0, 0);
   if (result != KERN_SUCCESS) {
     errx(1, "Error getting the firmware variables: %s", mach_error_string(result));
@@ -530,7 +547,7 @@ static void PrintOFVariables()
   if (gUseXML) {
     CFDataRef data;
 
-    data = CFPropertyListCreateXMLData( kCFAllocatorDefault, dict );
+    data = CFPropertyListCreateData( kCFAllocatorDefault, dict, kCFPropertyListXMLFormat_v1_0, 0, NULL );
     if (data == NULL) {
       errx(1, "Error converting variables to xml");
     }
@@ -544,7 +561,7 @@ static void PrintOFVariables()
     CFDictionaryApplyFunction(dict, &PrintOFVariable, 0);
 
   }
-  
+
   CFRelease(dict);
 }
 
@@ -565,9 +582,10 @@ static void PrintOFVariable(const void *key, const void *value, void *context)
   CFIndex       valueLen;
   char          *valueBuffer = 0;
   const char    *valueString = 0;
-  uint32_t      number, length;
+  uint32_t      number;
+  long		length;
   CFTypeID      typeID;
-  
+
   // Get the OF variable's name.
   nameLen = CFStringGetLength(key) + 1;
   nameBuffer = malloc(nameLen);
@@ -577,10 +595,10 @@ static void PrintOFVariable(const void *key, const void *value, void *context)
     warnx("Unable to convert property name to C string");
     nameString = "<UNPRINTABLE>";
   }
-  
+
   // Get the OF variable's type.
   typeID = CFGetTypeID(value);
-  
+
   if (typeID == CFBooleanGetTypeID()) {
     if (CFBooleanGetValue(value)) valueString = "true";
     else valueString = "false";
@@ -622,10 +640,10 @@ static void PrintOFVariable(const void *key, const void *value, void *context)
   } else {
     valueString="<INVALID>";
   }
-  
+
   if ((nameString != 0) && (valueString != 0))
     printf("%s\t%s\n", nameString, valueString);
-  
+
   if (dataBuffer != 0) free(dataBuffer);
   if (nameBuffer != 0) free(nameBuffer);
   if (valueBuffer != 0) free(valueBuffer);
@@ -668,7 +686,7 @@ static CFTypeRef ConvertValueToCFTypeRef(CFTypeID typeID, char *value)
   CFTypeRef     valueRef = 0;
   long          cnt, cnt2, length;
   unsigned long number, tmp;
-  
+
   if (typeID == CFBooleanGetTypeID()) {
     if (!strcmp("true", value)) valueRef = kCFBooleanTrue;
     else if (!strcmp("false", value)) valueRef = kCFBooleanFalse;
@@ -696,7 +714,7 @@ static CFTypeRef ConvertValueToCFTypeRef(CFTypeID typeID, char *value)
     valueRef = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, (const UInt8 *)value,
 					   cnt2, kCFAllocatorDefault);
   } else return 0;
-  
+
   return valueRef;
 }
 
@@ -706,7 +724,7 @@ static void SetOFVariableFromFile(const void *key, const void *value, void *cont
 
   result = IORegistryEntrySetCFProperty(gOptionsRef, key, value);
   if ( result != KERN_SUCCESS ) {
-          int nameLen;
+          long nameLen;
           char *nameBuffer;
           char *nameString;
 

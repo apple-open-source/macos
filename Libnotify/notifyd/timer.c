@@ -310,15 +310,6 @@ timer_oneshot(time_t when, dispatch_queue_t queue)
 	return t;
 }
 
-void
-timer_set_deactivation_handler(timer_t *t, void(^handler)())
-{
-	if (t == NULL) return;
-
-	if (t->deactivation_handler != NULL) Block_release(t->deactivation_handler);
-	t->deactivation_handler = Block_copy(handler);
-}
-
 timer_t *
 timer_clock(time_t first, time_t freq_sec, time_t end, dispatch_queue_t queue)
 {
@@ -429,37 +420,4 @@ timer_calendar(time_t first, time_t freq_mth, time_t end, int day, dispatch_queu
 	dispatch_resume(t->t_src);
 	
 	return t;
-}
-
-timer_t *
-timer_calendar_long(uint32_t start_year, uint32_t start_month, uint32_t start_day, uint32_t start_hour, uint32_t start_min, uint32_t start_sec, time_t freq, int day, uint32_t end_year, uint32_t end_month, uint32_t end_day, uint32_t end_hour, uint32_t end_min, uint32_t end_sec, dispatch_queue_t queue)
-{
-	struct tm tmp;
-	time_t first, last;
-	
-	memset(&tmp, 0, sizeof(struct tm));
-	tmp.tm_year = start_year - 1900;
-	tmp.tm_mon = start_month;
-	tmp.tm_mday = start_day;
-	tmp.tm_isdst = -1;
-	tmp.tm_hour = start_hour;
-	tmp.tm_min = start_min;
-	tmp.tm_sec = start_sec;
-	
-	first = mktime(&tmp);
-	
-	if (freq == 0) return timer_oneshot(first, queue);
-	
-	memset(&tmp, 0, sizeof(struct tm));
-	tmp.tm_year = end_year;
-	tmp.tm_mon = end_month;
-	tmp.tm_mday = end_day;
-	tmp.tm_isdst = -1;
-	tmp.tm_hour = end_hour;
-	tmp.tm_min = end_min;
-	tmp.tm_sec = end_sec;
-
-	last = mktime(&tmp);
-	
-	return timer_calendar(first, freq, day, last, queue);
 }

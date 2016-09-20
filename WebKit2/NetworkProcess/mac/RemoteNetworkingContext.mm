@@ -26,7 +26,9 @@
 #import "config.h"
 #import "RemoteNetworkingContext.h"
 
+#import "CustomProtocolManager.h"
 #import "NetworkProcess.h"
+#import "NetworkSession.h"
 #import "SessionTracker.h"
 #import "WebErrors.h"
 #import <WebCore/ResourceError.h>
@@ -55,7 +57,7 @@ bool RemoteNetworkingContext::localFileContentSniffingEnabled() const
 
 NetworkStorageSession& RemoteNetworkingContext::storageSession() const
 {
-    NetworkStorageSession* session = SessionTracker::session(m_sessionID);
+    NetworkStorageSession* session = SessionTracker::storageSession(m_sessionID);
     if (session)
         return *session;
     // Some requests may still be coming shortly after NetworkProcess was told to destroy its session.
@@ -65,14 +67,7 @@ NetworkStorageSession& RemoteNetworkingContext::storageSession() const
 
 RetainPtr<CFDataRef> RemoteNetworkingContext::sourceApplicationAuditData() const
 {
-#if PLATFORM(IOS)
-    audit_token_t auditToken;
-    if (!NetworkProcess::singleton().parentProcessConnection()->getAuditToken(auditToken))
-        return nullptr;
-    return adoptCF(CFDataCreate(0, (const UInt8*)&auditToken, sizeof(auditToken)));
-#else
-    return nullptr;
-#endif
+    return NetworkProcess::singleton().sourceApplicationAuditData();
 }
 
 String RemoteNetworkingContext::sourceApplicationIdentifier() const
@@ -89,11 +84,23 @@ void RemoteNetworkingContext::ensurePrivateBrowsingSession(SessionID sessionID)
 {
     ASSERT(sessionID.isEphemeral());
 
-    if (SessionTracker::session(sessionID))
+    if (SessionTracker::storageSession(sessionID))
         return;
 
-    ASSERT(!SessionTracker::getIdentifierBase().isNull());
-    SessionTracker::setSession(sessionID, NetworkStorageSession::createPrivateBrowsingSession(SessionTracker::getIdentifierBase() + '.' + String::number(sessionID.sessionID())));
+    String base;
+    if (SessionTracker::getIdentifierBase().isNull())
+        base = [[NSBundle mainBundle] bundleIdentifier];
+    else
+        base = SessionTracker::getIdentifierBase();
+
+    auto networkStorageSession = NetworkStorageSession::createPrivateBrowsingSession(sessionID, base + '.' + String::number(sessionID.sessionID()));
+
+#if USE(NETWORK_SESSION)
+    auto networkSession = NetworkSession::create(NetworkSession::Type::Ephemeral, sessionID, NetworkProcess::singleton().supplement<CustomProtocolManager>(), WTFMove(networkStorageSession));
+    SessionTracker::setSession(sessionID, WTFMove(networkSession));
+#else
+    SessionTracker::setSession(sessionID, WTFMove(networkStorageSession));
+#endif
 }
 
 }

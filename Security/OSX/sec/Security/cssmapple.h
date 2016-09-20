@@ -31,6 +31,9 @@
 extern "C" {
 #endif
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 /* First, an array of bits indicating various status of the cert. */
 typedef uint32 CSSM_TP_APPLE_CERT_STATUS;
 enum
@@ -72,6 +75,7 @@ typedef struct {
 
 } CSSM_TP_APPLE_EVIDENCE_INFO;
 
+#pragma clang diagnostic pop
 
 #ifdef	__cplusplus
 }

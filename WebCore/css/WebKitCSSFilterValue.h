@@ -27,7 +27,6 @@
 #define WebKitCSSFilterValue_h
 
 #include "CSSValueList.h"
-#include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
@@ -59,7 +58,7 @@ public:
 
     FilterOperationType operationType() const { return m_type; }
 
-    PassRefPtr<WebKitCSSFilterValue> cloneForCSSOM() const;
+    Ref<WebKitCSSFilterValue> cloneForCSSOM() const;
 
     bool equals(const WebKitCSSFilterValue&) const;
 

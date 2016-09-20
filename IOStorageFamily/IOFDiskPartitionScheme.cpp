@@ -146,6 +146,9 @@ bool IOFDiskPartitionScheme::start(IOService * provider)
 
     partitionIterator->release();
 
+    // set partition scheme to be valid
+    _partitionSchemeState |= kIOPartitionScheme_partition_valid;
+
     return true;
 }
 
@@ -190,6 +193,10 @@ IOReturn IOFDiskPartitionScheme::requestProbe(IOOptionBits options)
     SInt32  score         = 0;
 
     // Scan the provider media for partitions.
+    if ( ( _partitionSchemeState & kIOPartitionScheme_partition_valid ) == 0 )
+    {
+        return kIOReturnError;
+    }
 
     partitionsNew = scan( &score );
 

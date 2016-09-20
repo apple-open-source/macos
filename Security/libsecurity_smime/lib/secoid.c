@@ -467,7 +467,7 @@ CONST_OID ecdsaWithSHA384[]			= { ECDSA_WITH_SHA2, 3 };
 CONST_OID ecdsaWithSHA512[]			= { ECDSA_WITH_SHA2, 4 };
 CONST_OID ecPublicKey[]				= { ANSI_X9_62_PUBKEY_TYPE, 1 };
 /* This OID doesn't appear in a CMS msg */
-CONST_OID ecdsaSig[]				= { ANSI_X9_62_SIG_TYPE };
+__unused CONST_OID ecdsaSig[]				= { ANSI_X9_62_SIG_TYPE };
 
 /* ECDH curves */
 CONST_OID secp256r1[]				= { 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07 };
@@ -476,8 +476,8 @@ CONST_OID secp521r1[]				= { CERTICOM_ELL_CURVE, 0x23 };
 
 /* RFC 3278 */
 CONST_OID dhSinglePassStdDHsha1kdf[]		= {ANSI_X9_63_SCHEME, 2 };
-CONST_OID dhSinglePassCofactorDHsha1kdf[]	= {ANSI_X9_63_SCHEME, 3 };
-CONST_OID mqvSinglePassSha1kdf[]			= {ANSI_X9_63_SCHEME, 4 };
+__unused CONST_OID dhSinglePassCofactorDHsha1kdf[]	= {ANSI_X9_63_SCHEME, 3 };
+__unused CONST_OID mqvSinglePassSha1kdf[]			= {ANSI_X9_63_SCHEME, 4 };
 
 /* Apple Hash Agility */
 CONST_OID appleHashAgility[]                = {APPLE_CMS_ATTRIBUTES, 1};

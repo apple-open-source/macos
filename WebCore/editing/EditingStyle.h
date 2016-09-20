@@ -136,7 +136,7 @@ public:
     {
         return conflictsWithInlineStyleOfElement(element, &newInlineStyle, extractedStyle);
     }
-    bool conflictsWithImplicitStyleOfElement(HTMLElement*, EditingStyle* extractedStyle = 0, ShouldExtractMatchingStyle = DoNotExtractMatchingStyle) const;
+    bool conflictsWithImplicitStyleOfElement(HTMLElement*, EditingStyle* extractedStyle = nullptr, ShouldExtractMatchingStyle = DoNotExtractMatchingStyle) const;
     bool conflictsWithImplicitStyleOfAttributes(HTMLElement*) const;
     bool extractConflictingImplicitStyleOfAttributes(HTMLElement*, ShouldPreserveWritingDirection, EditingStyle* extractedStyle,
             Vector<QualifiedName>& conflictingAttributes, ShouldExtractMatchingStyle) const;
@@ -148,7 +148,7 @@ public:
     void mergeTypingStyle(Document&);
     enum CSSPropertyOverrideMode { OverrideValues, DoNotOverrideValues };
     void mergeInlineStyleOfElement(StyledElement*, CSSPropertyOverrideMode, PropertiesToInclude = AllProperties);
-    static PassRefPtr<EditingStyle> wrappingStyleForSerialization(Node* context, bool shouldAnnotate);
+    static Ref<EditingStyle> wrappingStyleForSerialization(Node* context, bool shouldAnnotate);
     void mergeStyleFromRules(StyledElement*);
     void mergeStyleFromRulesForSerialization(StyledElement*);
     void removeStyleFromRulesAndContext(StyledElement*, Node* context);
@@ -178,7 +178,7 @@ private:
     EditingStyle(CSSPropertyID, const String& value);
     EditingStyle(CSSPropertyID, CSSValueID);
     void init(Node*, PropertiesToInclude);
-    void removeTextFillAndStrokeColorsIfNeeded(RenderStyle*);
+    void removeTextFillAndStrokeColorsIfNeeded(const RenderStyle*);
     void setProperty(CSSPropertyID, const String& value, bool important = false);
     void extractFontSizeDelta();
     template<typename T> TriState triStateOfStyle(T& styleToCompare, ShouldIgnoreTextOnlyProperties) const;

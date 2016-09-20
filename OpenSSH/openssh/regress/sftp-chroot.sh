@@ -3,14 +3,17 @@
 
 tid="sftp in chroot"
 
-# Apple: /var/run is writable by group daemon; use /var/ssh-test
-$SUDO mkdir -m 0755 /var/ssh-test
-CHROOT=/var/ssh-test
+CHROOT=/var/run
 FILENAME=testdata_${USER}
 PRIVDATA=${CHROOT}/${FILENAME}
 
 if [ -z "$SUDO" ]; then
   echo "skipped: need SUDO to create file in /var/run, test won't work without"
+  exit 0
+fi
+
+if ! $OBJ/check-perm -m chroot "$CHROOT" ; then
+  echo "skipped: $CHROOT is unsuitable as ChrootDirectory"
   exit 0
 fi
 
@@ -26,5 +29,3 @@ ${SFTP} -S "$SSH" -F $OBJ/ssh_config host:/${FILENAME} $COPY \
 cmp $PRIVDATA $COPY || fail "$PRIVDATA $COPY differ"
 
 $SUDO rm $PRIVDATA
-#Apple:
-$SUDO rm -rf /var/ssh-test

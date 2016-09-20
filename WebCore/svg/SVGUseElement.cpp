@@ -30,6 +30,7 @@
 #include "CachedSVGDocument.h"
 #include "ElementIterator.h"
 #include "Event.h"
+#include "EventNames.h"
 #include "RenderSVGResource.h"
 #include "RenderSVGTransformableContainer.h"
 #include "ShadowRoot.h"
@@ -139,8 +140,9 @@ void SVGUseElement::transferSizeAttributesToTargetClone(SVGElement& shadowElemen
     } else if (is<SVGSVGElement>(shadowElement)) {
         // Spec (<use> on <svg>): If attributes width and/or height are provided on the 'use' element, then these
         // values will override the corresponding attributes on the 'svg' in the generated tree.
-        shadowElement.setAttribute(SVGNames::widthAttr, (widthIsValid() && width().valueInSpecifiedUnits()) ? AtomicString(width().valueAsString()) : shadowElement.correspondingElement()->getAttribute(SVGNames::widthAttr));
-        shadowElement.setAttribute(SVGNames::heightAttr, (heightIsValid() && height().valueInSpecifiedUnits()) ? AtomicString(height().valueAsString()) : shadowElement.correspondingElement()->getAttribute(SVGNames::heightAttr));
+        SVGElement* correspondingElement = shadowElement.correspondingElement();
+        shadowElement.setAttribute(SVGNames::widthAttr, (widthIsValid() && width().valueInSpecifiedUnits()) ? AtomicString(width().valueAsString()) : (correspondingElement ? correspondingElement->getAttribute(SVGNames::widthAttr) : nullAtom));
+        shadowElement.setAttribute(SVGNames::heightAttr, (heightIsValid() && height().valueInSpecifiedUnits()) ? AtomicString(height().valueAsString()) : (correspondingElement ? correspondingElement->getAttribute(SVGNames::heightAttr) : nullAtom));
     }
 }
 
@@ -177,11 +179,12 @@ void SVGUseElement::svgAttributeChanged(const QualifiedName& attrName)
     SVGGraphicsElement::svgAttributeChanged(attrName);
 }
 
-void SVGUseElement::willAttachRenderers()
+bool SVGUseElement::willRecalcStyle(Style::Change change)
 {
+    // FIXME: Shadow tree should be updated before style recalc.
     if (m_shadowTreeNeedsUpdate)
         updateShadowTree();
-    SVGGraphicsElement::willAttachRenderers();
+    return SVGGraphicsElement::willRecalcStyle(change);
 }
 
 static HashSet<AtomicString> createAllowedElementSet()
@@ -261,9 +264,9 @@ SVGElement* SVGUseElement::targetClone() const
     return downcast<SVGElement>(root->firstChild());
 }
 
-RenderPtr<RenderElement> SVGUseElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
+RenderPtr<RenderElement> SVGUseElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
 {
-    return createRenderer<RenderSVGTransformableContainer>(*this, WTF::move(style));
+    return createRenderer<RenderSVGTransformableContainer>(*this, WTFMove(style));
 }
 
 static bool isDirectReference(const SVGElement& element)
@@ -309,6 +312,15 @@ RenderElement* SVGUseElement::rendererClipChild() const
     return targetClone->renderer();
 }
 
+static inline void disassociateAndRemoveClones(const Vector<Element*>& clones)
+{
+    for (auto& clone : clones) {
+        for (auto& descendant : descendantsOfType<SVGElement>(*clone))
+            descendant.setCorrespondingElement(nullptr);
+        clone->parentNode()->removeChild(*clone);
+    }
+}
+
 static void removeDisallowedElementsFromSubtree(SVGElement& subtree)
 {
     // Remove disallowed elements after the fact rather than not cloning them in the first place.
@@ -329,11 +341,20 @@ static void removeDisallowedElementsFromSubtree(SVGElement& subtree)
         }
         ++it;
     }
-    for (auto* element : disallowedElements) {
-        for (auto& descendant : descendantsOfType<SVGElement>(*element))
-            descendant.setCorrespondingElement(nullptr);
-        element->parentNode()->removeChild(element);
-    }
+
+    disassociateAndRemoveClones(disallowedElements);
+}
+
+static void removeSymbolElementsFromSubtree(SVGElement& subtree)
+{
+    // Symbol elements inside the subtree should not be cloned for two reasons: 1) They are invisible and
+    // don't need to be cloned to get correct rendering. 2) expandSymbolElementsInShadowTree will turn them
+    // into <svg> elements, which is correct for symbol elements directly referenced by use elements,
+    // but incorrect for ones that just happen to be in a subtree.
+    Vector<Element*> symbolElements;
+    for (auto& descendant : descendantsOfType<SVGSymbolElement>(subtree))
+        symbolElements.append(&descendant);
+    disassociateAndRemoveClones(symbolElements);
 }
 
 static void associateClonesWithOriginals(SVGElement& clone, SVGElement& original)
@@ -405,11 +426,12 @@ SVGElement* SVGUseElement::findTarget(String* targetID) const
 
 void SVGUseElement::cloneTarget(ContainerNode& container, SVGElement& target) const
 {
-    Ref<SVGElement> targetClone = static_pointer_cast<SVGElement>(target.cloneElementWithChildren(document())).releaseNonNull();
+    Ref<SVGElement> targetClone = static_cast<SVGElement&>(target.cloneElementWithChildren(document()).get());
     associateClonesWithOriginals(targetClone.get(), target);
     removeDisallowedElementsFromSubtree(targetClone.get());
+    removeSymbolElementsFromSubtree(targetClone.get());
     transferSizeAttributesToTargetClone(targetClone.get());
-    container.appendChild(WTF::move(targetClone));
+    container.appendChild(targetClone);
 }
 
 static void cloneDataAndChildren(SVGElement& replacementClone, SVGElement& originalClone)
@@ -419,7 +441,7 @@ static void cloneDataAndChildren(SVGElement& replacementClone, SVGElement& origi
     ASSERT(!replacementClone.parentNode());
 
     replacementClone.cloneDataFromElement(originalClone);
-    originalClone.cloneChildNodes(&replacementClone);
+    originalClone.cloneChildNodes(replacementClone);
     associateReplacementClonesWithOriginals(replacementClone, originalClone);
     removeDisallowedElementsFromSubtree(replacementClone);
 }
@@ -448,7 +470,7 @@ void SVGUseElement::expandUseElementsInShadowTree() const
         if (target)
             originalClone.cloneTarget(replacementClone.get(), *target);
 
-        originalClone.parentNode()->replaceChild(replacementClone.ptr(), &originalClone);
+        originalClone.parentNode()->replaceChild(replacementClone, originalClone);
 
         // Resume iterating, starting just inside the replacement clone.
         it = descendants.from(replacementClone.get());
@@ -472,7 +494,7 @@ void SVGUseElement::expandSymbolElementsInShadowTree() const
         auto replacementClone = SVGSVGElement::create(document());
         cloneDataAndChildren(replacementClone.get(), originalClone);
 
-        originalClone.parentNode()->replaceChild(replacementClone.ptr(), &originalClone);
+        originalClone.parentNode()->replaceChild(replacementClone, originalClone);
 
         // Resume iterating, starting just inside the replacement clone.
         it = descendants.from(replacementClone.get());

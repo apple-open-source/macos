@@ -45,6 +45,7 @@
 
 #if defined(__APPLE__)
 #include <get_compat.h>
+#include <rootless.h>
 #endif /* __APPLE__ */
 
 #include "bashintl.h"
@@ -488,6 +489,10 @@ main (argc, argv, env)
     if (-1 == setreuid(ruid, euid))
       internal_error( _("setreuid(%u,%u) failed: %s"), ruid, euid, strerror(errno));   
   }
+  int rootless = rootless_restricted_environment();
+  if (-1 == rootless)
+    internal_error( _("Unable to determine rootless status: %s"), strerror(errno));
+  running_setuid |= rootless;
 #else  /* !__APPLE__ */
   if (running_setuid && privileged_mode == 0)
     disable_priv_mode ();

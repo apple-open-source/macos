@@ -9,7 +9,7 @@
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -72,11 +72,11 @@ static inline int
 _read_redirect(int descriptor, int flush)
 {
     int total_read = 0;
-    int nbytes;
+    ssize_t nbytes;
     asl_redirect_t *aslr = &redirect_descriptors[descriptor];
 
     while ((nbytes = read(descriptor, aslr->w, BUF_SIZE - (aslr->w - aslr->buf) - 1)) > 0)
-	{
+    {
         char *s, *p;
 
         /* Increment our returned number read */
@@ -88,19 +88,19 @@ _read_redirect(int descriptor, int flush)
 
         /* One line at a time */
         for (p = aslr->buf; p < aslr->w; p = s + 1)
-		{
+        {
             /* Find null or \n */
             for (s = p; *s && *s != '\n'; s++);
 
             if (*s == '\n') *s='\0';
 
             if (s < aslr->w || aslr->buf == p)
-			{
+            {
                 /* Either the first of multiple messages or one message which is larger than our buffer */
                 asl_log((aslclient)aslr->asl, (aslmsg)aslr->msg, aslr->level, "%s", p);
             }
-			else
-			{
+            else
+            {
                 /* We reached the end of the buffer, move this chunk to the start. */
                 memmove(aslr->buf, p, BUF_SIZE - (p - aslr->buf));
                 aslr->w = aslr->buf + (s - p);
@@ -109,7 +109,7 @@ _read_redirect(int descriptor, int flush)
         }
 
         if (p == aslr->w)
-		{
+        {
             /* Start writing at the beginning in the case where we cleared the buffer */
             aslr->w = aslr->buf;
         }
@@ -117,9 +117,9 @@ _read_redirect(int descriptor, int flush)
 
     /* Flush if requested or we're at EOF */
     if (flush || nbytes == 0)
-	{
+    {
         if (aslr->w > aslr->buf)
-		{
+        {
             *aslr->w = '\0';
             asl_log((aslclient)aslr->asl, (aslmsg)aslr->msg, aslr->level, "%s", aslr->buf);
         }
@@ -133,7 +133,7 @@ static void
 read_from_source(void *_source)
 {
     dispatch_source_t source = (dispatch_source_t)_source;
-    int descriptor = dispatch_source_get_handle(source);
+    int descriptor = (int)dispatch_source_get_handle(source);
     if (_read_redirect(descriptor, 0) == EOF)  dispatch_source_cancel(source);
 }
 
@@ -141,7 +141,7 @@ static void
 cancel_source(void *_source)
 {
     dispatch_source_t source = (dispatch_source_t)_source;
-    int descriptor = dispatch_source_get_handle(source);
+    int descriptor = (int)dispatch_source_get_handle(source);
     asl_redirect_t *aslr = &redirect_descriptors[descriptor];
 
     /* Flush the buffer */
@@ -175,7 +175,9 @@ redirect_atexit(void)
     int i;
 
     /* stdout is linebuffered, so flush the buffer */
-    if (redirect_descriptors[STDOUT_FILENO].buf) fflush(stdout);
+    if (n_redirect_descriptors > STDOUT_FILENO && redirect_descriptors[STDOUT_FILENO].buf) {
+        fflush(stdout);
+    }
 
     /* Cancel all of our dispatch sources, so they flush to ASL */
     for (i = 0; i < n_redirect_descriptors; i++) {
@@ -214,7 +216,7 @@ asl_log_from_descriptor(aslclient ac, aslmsg am, int level, int descriptor)
     if (descriptor < 0) return EBADF;
 
     if (msg != NULL)
-	{
+    {
         msg = asl_msg_copy(msg);
         if (msg == NULL) return ENOMEM;
     }
@@ -224,45 +226,45 @@ asl_log_from_descriptor(aslclient ac, aslmsg am, int level, int descriptor)
 
         /* Reallocate if we need more space */
         if (descriptor >= n_redirect_descriptors)
-		{
+        {
             size_t new_n = 1 << (fls(descriptor) + 1);
             asl_redirect_t *new_array = realloc(redirect_descriptors, new_n * sizeof(*redirect_descriptors));
             if (!new_array)
-			{
+            {
                 err = errno;
                 return;
             }
 
             redirect_descriptors = new_array;
             memset(redirect_descriptors + n_redirect_descriptors, 0, (new_n - n_redirect_descriptors) * sizeof(*redirect_descriptors));
-            n_redirect_descriptors = new_n;
+            n_redirect_descriptors = (int)new_n;
         }
-        
+
         /* If we're already listening on it, return error. */
         if (redirect_descriptors[descriptor].buf != NULL)
-		{
+        {
             err = EBADF;
             return;
         }
-        
+
         /* Initialize our buffer */
         redirect_descriptors[descriptor].buf = (char *)malloc(BUF_SIZE);
         if (redirect_descriptors[descriptor].buf == NULL)
-		{
+        {
             err = errno;
             return;
         }
 
         redirect_descriptors[descriptor].w = redirect_descriptors[descriptor].buf;
-        
+
         /* Store our ASL settings */
         redirect_descriptors[descriptor].level = level;
         redirect_descriptors[descriptor].asl = asl_client_retain(asl);
         redirect_descriptors[descriptor].msg = msg;
-        
+
         /* Don't block on reads from this descriptor */
         (void)fcntl(descriptor, F_SETFL, O_NONBLOCK);
-        
+
         /* Start listening */
         read_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, descriptor, 0, redirect_serial_q);
         redirect_descriptors[descriptor].read_source = read_source;
@@ -274,7 +276,7 @@ asl_log_from_descriptor(aslclient ac, aslmsg am, int level, int descriptor)
     });
 
     if (err) asl_msg_release(msg);
-    
+
     return err;
 }
 
@@ -291,15 +293,15 @@ asl_log_descriptor(aslclient ac, aslmsg am, int level, int descriptor, uint32_t 
 
     /* Create pipe */
     if (pipe(pipepair) == -1)
-	{
+    {
         retval = errno;
         errno = oerrno;
         return retval;
     }
-    
+
     /* Close the read descriptor but not the write descriptor on exec */
     if (fcntl(pipepair[0], F_SETFD, FD_CLOEXEC) == -1)
-	{
+    {
         retval = errno;
         errno = oerrno;
         return retval;
@@ -307,7 +309,7 @@ asl_log_descriptor(aslclient ac, aslmsg am, int level, int descriptor, uint32_t 
 
     /* Replace the existing descriptor */
     if (dup2(pipepair[1], descriptor) == -1)
-	{
+    {
         close(pipepair[0]);
         close(pipepair[1]);
         retval = errno;
@@ -317,7 +319,7 @@ asl_log_descriptor(aslclient ac, aslmsg am, int level, int descriptor, uint32_t 
 
     /* If we capture STDOUT_FILENO, make sure we linebuffer stdout */
     if (descriptor == STDOUT_FILENO) setlinebuf(stdout);
-    
+
     /* Close the duplicate descriptors since they've been reassigned */
     close(pipepair[1]);
 

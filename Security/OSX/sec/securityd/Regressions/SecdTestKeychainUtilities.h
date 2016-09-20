@@ -26,8 +26,14 @@
 #define _SECDTESTKEYCHAINUTILITIES_
 
 #include <dispatch/dispatch.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 #define kSecdTestSetupTestCount 1
 void secd_test_setup_temp_keychain(const char* test_prefix, dispatch_block_t do_before_reset);
+
+extern CFStringRef kTestView1;
+extern CFStringRef kTestView2;
+
+void secd_test_setup_testviews(void);
 
 #endif

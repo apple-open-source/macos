@@ -8,6 +8,9 @@
 #include <errno.h>
 #include <libkern/OSAtomic.h>
 
+#include <darwintest.h>
+#include <darwintest_utils.h>
+
 struct context {
 	pthread_cond_t cond;
 	pthread_mutex_t mutex;
@@ -15,27 +18,22 @@ struct context {
 	long count;
 };
 
-void *wait_thread(void *ptr) {
+static void *wait_thread(void *ptr) {
 	int res;
 	struct context *context = ptr;
-
-	int i = 0;
-	char *str;
 
 	bool loop = true;
 	while (loop) {
 		res = pthread_mutex_lock(&context->mutex);
 		if (res) {
-			fprintf(stderr, "[%ld] pthread_mutex_lock: %s\n", context->count, strerror(res));
-			abort();
+			T_ASSERT_POSIX_ZERO(res, "[%ld] pthread_mutex_lock", context->count);
 		}
 		
 		if (context->count > 0) {
 			++context->waiters;
 			res = pthread_cond_wait(&context->cond, &context->mutex);
 			if (res) {
-				fprintf(stderr, "[%ld] pthread_rwlock_unlock: %s\n", context->count, strerror(res));
-				abort();
+				T_ASSERT_POSIX_ZERO(res, "[%ld] pthread_rwlock_unlock", context->count);
 			}
 			--context->waiters;
 			--context->count;
@@ -45,29 +43,28 @@ void *wait_thread(void *ptr) {
 		
 		res = pthread_mutex_unlock(&context->mutex);
 		if (res) {
-			fprintf(stderr, "[%ld] pthread_mutex_unlock: %s\n", context->count, strerror(res));
-			abort();
+			T_ASSERT_POSIX_ZERO(res, "[%ld] pthread_mutex_unlock", context->count);
 		}
 	}
 
 	return NULL;
 }
 
-int main(int argc, char *argv[])
+T_DECL(cond, "pthread_cond",
+		T_META_ALL_VALID_ARCHS(YES))
 {
 	struct context context = {
 		.cond = PTHREAD_COND_INITIALIZER,
 		.mutex = PTHREAD_MUTEX_INITIALIZER,
 		.waiters = 0,
-		.count = 500000,
+		.count = 100000 * dt_ncpu(),
 	};
 	int i;
 	int res;
 	int threads = 2;
 	pthread_t p[threads];
 	for (i = 0; i < threads; ++i) {
-		res = pthread_create(&p[i], NULL, wait_thread, &context);
-		assert(res == 0);
+		T_ASSERT_POSIX_ZERO(pthread_create(&p[i], NULL, wait_thread, &context), NULL);
 	}
 
 	long half = context.count / 2;
@@ -76,8 +73,7 @@ int main(int argc, char *argv[])
 	while (loop) {
 		res = pthread_mutex_lock(&context.mutex);
 		if (res) {
-			fprintf(stderr, "[%ld] pthread_mutex_lock: %s\n", context.count, strerror(res));
-			abort();
+			T_ASSERT_POSIX_ZERO(res, "[%ld] pthread_mutex_lock", context.count);
 		}
 		if (context.waiters) {
 			char *str;
@@ -89,26 +85,21 @@ int main(int argc, char *argv[])
 				res = pthread_cond_signal(&context.cond);
 			}
 			if (res != 0) {
-				fprintf(stderr, "[%ld] %s: %s\n", context.count, str, strerror(res));
-				abort();
+				T_ASSERT_POSIX_ZERO(res, "[%ld] %s", context.count, str);
 			}
 		}
 		if (context.count <= 0) {
 			loop = false;
+			T_PASS("Completed stres test successfully.");
 		}
 		
 		res = pthread_mutex_unlock(&context.mutex);
 		if (res) {
-			fprintf(stderr, "[%ld] pthread_mutex_unlock: %s\n", context.count, strerror(res));
-			abort();
+			T_ASSERT_POSIX_ZERO(res, "[%ld] pthread_mutex_unlock", context.count);
 		}
 	}
 	
-	
 	for (i = 0; i < threads; ++i) {
-		res = pthread_join(p[i], NULL);
-		assert(res == 0);
+		T_ASSERT_POSIX_ZERO(pthread_join(p[i], NULL), NULL);
 	}
-
-	return 0;
 }

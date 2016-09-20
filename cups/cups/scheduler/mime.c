@@ -1,6 +1,4 @@
 /*
- * "$Id: mime.c 11560 2014-02-06 20:10:19Z msweet $"
- *
  * MIME database file routines for CUPS.
  *
  * Copyright 2007-2014 by Apple Inc.
@@ -932,8 +930,3 @@ mime_load_types(mime_t     *mime,	/* I - MIME database */
 
   cupsFileClose(fp);
 }
-
-
-/*
- * End of "$Id: mime.c 11560 2014-02-06 20:10:19Z msweet $".
- */

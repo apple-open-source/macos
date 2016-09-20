@@ -21,10 +21,24 @@
   */
 extern int defer_append(int, const char *, MSG_STATS *, RECIPIENT *,
 			        const char *, DSN *);
-extern int defer_flush(int, const char *, const char *, const char *,
+extern int defer_flush(int, const char *, const char *, const char *, int,
 		               const char *, const char *, int);
-extern int defer_warn(int, const char *, const char *, const char *,
-		              const char *, int);
+extern int defer_warn(int, const char *, const char *, const char *, int,
+		              const char *, const char *, int);
+extern int defer_one(int, const char *, const char *, const char *, int,
+		             const char *, const char *,
+		             int, MSG_STATS *, RECIPIENT *,
+		             const char *, DSN *);
+
+ /*
+  * Start of private API.
+  */
+#ifdef DSN_INTERN
+
+extern int defer_append_intern(int, const char *, MSG_STATS *, RECIPIENT *,
+			               const char *, DSN *);
+
+#endif
 
 /* LICENSE
 /* .ad

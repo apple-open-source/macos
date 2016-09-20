@@ -28,7 +28,7 @@
 
 namespace WebCore {
 
-class SVGPaint : public SVGColor {
+class SVGPaint final : public SVGColor {
 public:
     enum SVGPaintType {
         SVG_PAINTTYPE_UNKNOWN = 0,
@@ -42,11 +42,6 @@ public:
         SVG_PAINTTYPE_URI_RGBCOLOR_ICCCOLOR = 106,
         SVG_PAINTTYPE_URI = 107
     };
-
-    static Ref<SVGPaint> createUnknown()
-    {
-        return adoptRef(*new SVGPaint(SVG_PAINTTYPE_UNKNOWN));
-    }
 
     static Ref<SVGPaint> createNone()
     {

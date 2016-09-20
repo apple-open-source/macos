@@ -36,24 +36,24 @@ namespace WebCore {
     class PNGImageReader;
 
     // This class decodes the PNG image format.
-    class PNGImageDecoder : public ImageDecoder {
+    class PNGImageDecoder final : public ImageDecoder {
     public:
         PNGImageDecoder(ImageSource::AlphaOption, ImageSource::GammaAndColorProfileOption);
         virtual ~PNGImageDecoder();
 
         // ImageDecoder
-        virtual String filenameExtension() const override { return "png"; }
+        String filenameExtension() const override { return "png"; }
 #if ENABLE(APNG)
-        virtual size_t frameCount() override { return m_frameCount; }
-        virtual int repetitionCount() const override { return m_playCount-1; }
+        size_t frameCount() override { return m_frameCount; }
+        int repetitionCount() const override { return m_playCount-1; }
 #endif
-        virtual bool isSizeAvailable() override;
-        virtual bool setSize(unsigned width, unsigned height) override;
-        virtual ImageFrame* frameBufferAtIndex(size_t index) override;
+        bool isSizeAvailable() override;
+        bool setSize(unsigned width, unsigned height) override;
+        ImageFrame* frameBufferAtIndex(size_t index) override;
         // CAUTION: setFailed() deletes |m_reader|.  Be careful to avoid
         // accessing deleted memory, especially when calling this from inside
         // PNGImageReader!
-        virtual bool setFailed() override;
+        bool setFailed() override;
 
         // Callbacks from libpng
         void headerAvailable();
@@ -64,7 +64,7 @@ namespace WebCore {
         void frameHeader();
 
         void init();
-        virtual void clearFrameBufferCache(size_t clearBeforeFrame) override;
+        void clearFrameBufferCache(size_t clearBeforeFrame) override;
 #endif
 
         bool isComplete() const
@@ -80,11 +80,16 @@ namespace WebCore {
             return true;
         }
 
+        bool isCompleteAtIndex(size_t index)
+        {
+            return (index < m_frameBufferCache.size() && m_frameBufferCache[index].status() == ImageFrame::FrameComplete);
+        }
+
     private:
         // Decodes the image.  If |onlySize| is true, stops decoding after
         // calculating the image size.  If decoding fails but there is no more
         // data coming, sets the "decode failure" flag.
-        void decode(bool onlySize);
+        void decode(bool onlySize, unsigned haltAtFrame);
 #if ENABLE(APNG)
         void initFrameBuffer(size_t frameIndex);
         void frameComplete();

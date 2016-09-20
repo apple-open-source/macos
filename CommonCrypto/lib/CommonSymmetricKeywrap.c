@@ -36,7 +36,7 @@ const uint8_t * const CCrfc3394_iv = rfc3394_iv_data;
 const size_t CCrfc3394_ivLen = sizeof(rfc3394_iv_data);
 
 static uint64_t 
-pack64(const uint8_t *iv, size_t ivLen)
+pack64(const uint8_t *iv, size_t __unused ivLen)
 {
 	uint64_t retval;
 	int i;
@@ -75,7 +75,7 @@ pack64(const uint8_t *iv, size_t ivLen)
 
 
 int  
-CCSymmetricKeyWrap( CCWrappingAlgorithm algorithm, 
+CCSymmetricKeyWrap( CCWrappingAlgorithm __unused algorithm,
 				   const uint8_t *iv, const size_t ivLen,
 				   const uint8_t *kek, size_t kekLen,
 				   const uint8_t *rawKey, size_t rawKeyLen,
@@ -133,11 +133,11 @@ out:
 
 
 int  
-CCSymmetricKeyUnwrap( CCWrappingAlgorithm algorithm, 
+CCSymmetricKeyUnwrap( CCWrappingAlgorithm __unused algorithm,
 					 const uint8_t *iv, const size_t ivLen,
 					 const uint8_t *kek, size_t kekLen,
 					 const uint8_t  *wrappedKey, size_t wrappedKeyLen,
-					 uint8_t  *rawKey, size_t *rawKeyLen)
+					 uint8_t  *rawKey, size_t * __unused rawKeyLen)
 {
     size_t n = wrappedKeyLen/8 - 1; /* raw key size in 64 bit blocks */
     uint64_t (*R)[2] = NULL; /* R is a two-dimensional array, with n rows of 2 columns */
@@ -195,14 +195,14 @@ out:
 
 
 size_t
-CCSymmetricWrappedSize( CCWrappingAlgorithm algorithm, size_t rawKeyLen)
+CCSymmetricWrappedSize( CCWrappingAlgorithm __unused algorithm, size_t rawKeyLen)
 {
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
 	return (rawKeyLen + 8);
 }
 
 size_t
-CCSymmetricUnwrappedSize( CCWrappingAlgorithm algorithm, size_t wrappedKeyLen)
+CCSymmetricUnwrappedSize( CCWrappingAlgorithm __unused algorithm, size_t wrappedKeyLen)
 {
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
     return (wrappedKeyLen - 8);

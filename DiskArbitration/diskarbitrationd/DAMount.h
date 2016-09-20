@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -51,8 +51,6 @@ enum
 typedef UInt32 DAMountPreference;
 
 typedef void ( *DAMountCallback )( int status, CFURLRef mountpoint, void * context );
-
-extern void _DAMountCreateTrashFolder( DADiskRef disk, CFURLRef mountpoint );
 
 extern void DAMount( DADiskRef       disk,
                      CFURLRef        mountpoint,

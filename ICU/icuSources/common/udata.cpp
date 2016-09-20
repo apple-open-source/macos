@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1999-2014, International Business Machines
+*   Copyright (C) 1999-2016, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -29,6 +29,7 @@ might have to #include some other header
 #include "charstr.h"
 #include "cmemory.h"
 #include "cstring.h"
+#include "mutex.h"
 #include "putilimp.h"
 #include "uassert.h"
 #include "ucln_cmn.h"
@@ -66,8 +67,10 @@ might have to #include some other header
 
 /* If you are excruciatingly bored turn this on .. */
 /* #define UDATA_DEBUG 1 */
+/* For debugging use of timezone data in a separate file */
+/* #define UDATA_TZFILES_DEBUG 1 */
 
-#if defined(UDATA_DEBUG)
+#if defined(UDATA_DEBUG) || defined(UDATA_TZFILES_DEBUG)
 #   include <stdio.h>
 #endif
 
@@ -100,14 +103,15 @@ static UDataMemory *udata_findCachedData(const char *path);
  * that they really need, reducing the size of binaries that take advantage
  * of this.
  */
-static UDataMemory *gCommonICUDataArray[10] = { NULL };
+static UDataMemory *gCommonICUDataArray[10] = { NULL };   // Access protected by icu global mutex.
 
-static UBool gHaveTriedToLoadCommonData = FALSE;  /* See extendICUData(). */
+static u_atomic_int32_t gHaveTriedToLoadCommonData = ATOMIC_INT32_T_INITIALIZER(0);  //  See extendICUData().
 
 static UHashtable  *gCommonDataCache = NULL;  /* Global hash table of opened ICU data files.  */
 static icu::UInitOnce gCommonDataCacheInitOnce = U_INITONCE_INITIALIZER;
 
-static UDataFileAccess  gDataFileAccess = UDATA_DEFAULT_ACCESS;
+static UDataFileAccess  gDataFileAccess = UDATA_DEFAULT_ACCESS;  // Access not synchronized.
+                                                                 // Modifying is documented as thread-unsafe.
 
 static UBool U_CALLCONV
 udata_cleanup(void)
@@ -124,7 +128,7 @@ udata_cleanup(void)
         udata_close(gCommonICUDataArray[i]);
         gCommonICUDataArray[i] = NULL;
     }
-    gHaveTriedToLoadCommonData = FALSE;
+    gHaveTriedToLoadCommonData = 0;
 
     return TRUE;                   /* Everything was cleaned up */
 }
@@ -139,14 +143,16 @@ findCommonICUDataByName(const char *inBasename)
     if (pData == NULL)
         return FALSE;
 
-    for (i = 0; i < UPRV_LENGTHOF(gCommonICUDataArray); ++i) {
-        if ((gCommonICUDataArray[i] != NULL) && (gCommonICUDataArray[i]->pHeader == pData->pHeader)) {
-            /* The data pointer is already in the array. */
-            found = TRUE;
-            break;
+    {
+        Mutex lock;
+        for (i = 0; i < UPRV_LENGTHOF(gCommonICUDataArray); ++i) {
+            if ((gCommonICUDataArray[i] != NULL) && (gCommonICUDataArray[i]->pHeader == pData->pHeader)) {
+                /* The data pointer is already in the array. */
+                found = TRUE;
+                break;
+            }
         }
     }
-
     return found;
 }
 
@@ -663,7 +669,11 @@ openCommonData(const char *path,          /*  Path from OpenChoice?          */
         if(commonDataIndex >= UPRV_LENGTHOF(gCommonICUDataArray)) {
             return NULL;
         }
-        if(gCommonICUDataArray[commonDataIndex] == NULL) {
+        {
+            Mutex lock;
+            if(gCommonICUDataArray[commonDataIndex] != NULL) {
+                return gCommonICUDataArray[commonDataIndex];
+            }
             int32_t i;
             for(i = 0; i < commonDataIndex; ++i) {
                 if(gCommonICUDataArray[i]->pHeader == &U_ICUDATA_ENTRY_POINT) {
@@ -671,23 +681,26 @@ openCommonData(const char *path,          /*  Path from OpenChoice?          */
                     return NULL;
                 }
             }
-
-            /* Add the linked-in data to the list. */
-            /*
-             * This is where we would check and call weakly linked partial-data-library
-             * access functions.
-             */
-            /*
-            if (uprv_getICUData_collation) {
-                setCommonICUDataPointer(uprv_getICUData_collation(), FALSE, pErrorCode);
-            }
-            if (uprv_getICUData_conversion) {
-                setCommonICUDataPointer(uprv_getICUData_conversion(), FALSE, pErrorCode);
-            }
-            */
-            setCommonICUDataPointer(&U_ICUDATA_ENTRY_POINT, FALSE, pErrorCode);
         }
-        return gCommonICUDataArray[commonDataIndex];
+
+        /* Add the linked-in data to the list. */
+        /*
+         * This is where we would check and call weakly linked partial-data-library
+         * access functions.
+         */
+        /*
+        if (uprv_getICUData_collation) {
+            setCommonICUDataPointer(uprv_getICUData_collation(), FALSE, pErrorCode);
+        }
+        if (uprv_getICUData_conversion) {
+            setCommonICUDataPointer(uprv_getICUData_conversion(), FALSE, pErrorCode);
+        }
+        */
+        setCommonICUDataPointer(&U_ICUDATA_ENTRY_POINT, FALSE, pErrorCode);
+        {
+            Mutex lock;
+            return gCommonICUDataArray[commonDataIndex];
+        }
     }
 
 
@@ -795,7 +808,7 @@ static UBool extendICUData(UErrorCode *pErr)
     static UMutex extendICUDataMutex = U_MUTEX_INITIALIZER;
     umtx_lock(&extendICUDataMutex);
 #endif
-    if(!gHaveTriedToLoadCommonData) {
+    if(!umtx_loadAcquire(gHaveTriedToLoadCommonData)) {
         /* See if we can explicitly open a .dat file for the ICUData. */
         pData = openCommonData(
                    U_ICUDATA_NAME,            /*  "icudt20l" , for example.          */
@@ -820,7 +833,7 @@ static UBool extendICUData(UErrorCode *pErr)
                        pErr);             /*  setCommonICUData honors errors; NOP if error set    */
         }
 
-        gHaveTriedToLoadCommonData = TRUE;
+        umtx_storeRelease(gHaveTriedToLoadCommonData, 1);
     }
 
     didUpdate = findCommonICUDataByName(U_ICUDATA_NAME);  /* Return 'true' when a racing writes out the extended                        */
@@ -1250,8 +1263,50 @@ doOpenChoice(const char *path, const char *type, const char *name,
 #ifdef UDATA_DEBUG
             fprintf(stderr, "Trying Time Zone Files directory = %s\n", tzFilesDir);
 #endif
+#ifdef UDATA_TZFILES_DEBUG
+            fprintf(stderr, "# dOC U_TIMEZONE_FILES_DIR:  %s\n", U_TIMEZONE_FILES_DIR);
+#endif
+
+#if defined(U_TIMEZONE_PACKAGE)
+            // make tztocEntryName, like tocEntryName but with our package name
+            UErrorCode tzpkgErrorCode = U_ZERO_ERROR;
+            CharString tztocPkgPath;
+            tztocPkgPath.append(tzFilesDir, tzpkgErrorCode);
+            tztocPkgPath.append(U_FILE_SEP_CHAR, tzpkgErrorCode).append(U_TIMEZONE_PACKAGE, tzpkgErrorCode);
+            CharString tztocEntryName;
+            tztocEntryName.append(U_TIMEZONE_PACKAGE, tzpkgErrorCode);
+            if(!treeName.isEmpty()) {
+                tztocEntryName.append(U_TREE_ENTRY_SEP_CHAR, tzpkgErrorCode).append(treeName, tzpkgErrorCode);
+            }
+            tztocEntryName.append(U_TREE_ENTRY_SEP_CHAR, tzpkgErrorCode).append(name, tzpkgErrorCode);
+            if(type!=NULL && *type!=0) {
+                tztocEntryName.append(".", tzpkgErrorCode).append(type, tzpkgErrorCode);
+            }
+#ifdef UDATA_TZFILES_DEBUG
+            fprintf(stderr, "# dOC tz pkg, doLoadFromCommonData start; U_TIMEZONE_PACKAGE: %s, tztocPkgPath.data(): %s, tztocEntryName.data(): %s, name: %s\n",
+                            U_TIMEZONE_PACKAGE, tztocPkgPath.data(), tztocEntryName.data(), name);
+#endif
+            retVal = doLoadFromCommonData(FALSE, "" /*ignored*/, "" /*ignored*/, "" /*ignored*/,
+                            tztocEntryName.data(),  // tocEntryName, like icutz44/zoneinfo64.res
+                            tztocPkgPath.data(),     // path =  path to pkg, like /usr/share/icu/icutz44l
+                            type, name, isAcceptable, context, &subErrorCode, &tzpkgErrorCode);
+#ifdef UDATA_TZFILES_DEBUG
+            fprintf(stderr, "# dOC tz pkg, doLoadFromCommonData end; status %d, retVal %p\n", tzpkgErrorCode, retVal);
+#endif
+            if(U_SUCCESS(tzpkgErrorCode) && retVal != NULL) {
+                return retVal;
+            }
+#endif /* defined(U_TIMEZONE_PACKAGE) */
+            // The following assumes any timezone resources in tzFilesDir are in individual .res files
+#ifdef UDATA_TZFILES_DEBUG
+            fprintf(stderr, "# dOC tz files, doLoadFromIndividualFiles start; tzFilesDir: %s, tocEntryPathSuffix: %s, name: %s\n",
+                            tzFilesDir, tocEntryPathSuffix, name);
+#endif
             retVal = doLoadFromIndividualFiles(/* pkgName.data() */ "", tzFilesDir, tocEntryPathSuffix,
                             /* path */ "", type, name, isAcceptable, context, &subErrorCode, pErrorCode);
+#ifdef UDATA_TZFILES_DEBUG
+            fprintf(stderr, "# dOC tz files, doLoadFromIndividualFiles end; status %d, retVal %p\n", *pErrorCode, retVal);
+#endif
             if((retVal != NULL) || U_FAILURE(*pErrorCode)) {
                 return retVal;
             }
@@ -1264,9 +1319,20 @@ doOpenChoice(const char *path, const char *type, const char *name,
         fprintf(stderr, "Trying packages (UDATA_PACKAGES_FIRST)\n");
 #endif
         /* #2 */
+#ifdef UDATA_TZFILES_DEBUG
+        if (isTimeZoneFile(name, type)) {
+            fprintf(stderr, "# dOC std common 1, doLoadFromCommonData start; U_TIMEZONE_PACKAGE: path: %s, tocEntryName.data(): %s, name: %s\n",
+                            path, tocEntryName.data(), name);
+        }
+#endif
         retVal = doLoadFromCommonData(isICUData, 
                             pkgName.data(), dataPath, tocEntryPathSuffix, tocEntryName.data(),
                             path, type, name, isAcceptable, context, &subErrorCode, pErrorCode);
+#ifdef UDATA_TZFILES_DEBUG
+        if (isTimeZoneFile(name, type)) {
+            fprintf(stderr, "# dOC std common 1, doLoadFromCommonData end; status %d, retVal %p\n", *pErrorCode, retVal);
+        }
+#endif
         if((retVal != NULL) || U_FAILURE(*pErrorCode)) {
             return retVal;
         }
@@ -1280,8 +1346,19 @@ doOpenChoice(const char *path, const char *type, const char *name,
 #endif
         /* Check to make sure that there is a dataPath to iterate over */
         if ((dataPath && *dataPath) || !isICUData) {
+#ifdef UDATA_TZFILES_DEBUG
+            if (isTimeZoneFile(name, type)) {
+                fprintf(stderr, "# dOC std indiv files, doLoadFromIndividualFiles start; dataPath: %s, tocEntryPathSuffix: %s, name: %s\n",
+                            dataPath, tocEntryPathSuffix, name);
+            }
+#endif
             retVal = doLoadFromIndividualFiles(pkgName.data(), dataPath, tocEntryPathSuffix,
                             path, type, name, isAcceptable, context, &subErrorCode, pErrorCode);
+#ifdef UDATA_TZFILES_DEBUG
+            if (isTimeZoneFile(name, type)) {
+                fprintf(stderr, "# dOC std indiv files, doLoadFromIndividualFiles end; status %d, retVal %p\n", *pErrorCode, retVal);
+            }
+#endif
             if((retVal != NULL) || U_FAILURE(*pErrorCode)) {
                 return retVal;
             }
@@ -1294,9 +1371,20 @@ doOpenChoice(const char *path, const char *type, const char *name,
 #ifdef UDATA_DEBUG
         fprintf(stderr, "Trying packages (UDATA_ONLY_PACKAGES || UDATA_FILES_FIRST)\n");
 #endif
+#ifdef UDATA_TZFILES_DEBUG
+        if (isTimeZoneFile(name, type)) {
+            fprintf(stderr, "# dOC std common 2, doLoadFromCommonData start; U_TIMEZONE_PACKAGE: path: %s, tocEntryName.data(): %s, name: %s\n",
+                            path, tocEntryName.data(), name);
+        }
+#endif
         retVal = doLoadFromCommonData(isICUData,
                             pkgName.data(), dataPath, tocEntryPathSuffix, tocEntryName.data(),
                             path, type, name, isAcceptable, context, &subErrorCode, pErrorCode);
+#ifdef UDATA_TZFILES_DEBUG
+        if (isTimeZoneFile(name, type)) {
+            fprintf(stderr, "# dOC std common 2, doLoadFromCommonData end; status %d, retVal %p\n", *pErrorCode, retVal);
+        }
+#endif
         if((retVal != NULL) || U_FAILURE(*pErrorCode)) {
             return retVal;
         }
@@ -1398,5 +1486,6 @@ udata_getInfo(UDataMemory *pData, UDataInfo *pInfo) {
 
 U_CAPI void U_EXPORT2 udata_setFileAccess(UDataFileAccess access, UErrorCode * /*status*/)
 {
+    // Note: this function is documented as not thread safe.
     gDataFileAccess = access;
 }

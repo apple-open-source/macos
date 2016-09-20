@@ -265,10 +265,10 @@ Compare the source address of the packet with the source address of the interfac
 int ppp_ip_af_src_out(ifnet_t ifp, char *pkt)
 {
     struct ppp_if	*wan = (struct ppp_if *)ifnet_softc(ifp);
-    struct ip 		*ip;
-        
-    // Wcast-align fixes - use memcmp for unaligned move
-    ip = (struct ip *)(void*)pkt;
+    struct ip 		*ip, ip_data;
+    
+    ip = &ip_data;
+    memcpy((char *)ip, pkt, sizeof(struct ip));
     return (memcmp(&ip->ip_src.s_addr, &wan->ip_src.s_addr, sizeof(struct in_addr)) == 0 ? 0 : 1);
 }
 
@@ -278,10 +278,10 @@ Compare the source address of the packet with the dst address of the interface
 int ppp_ip_af_src_in(ifnet_t ifp, char *pkt)
 {
     struct ppp_if	*wan = (struct ppp_if *)ifnet_softc(ifp);
-    struct ip 		*ip;
-        
-    // Wcast-align fixes - use memcmp for unaligned accesses
-    ip = (struct ip *)(void*)pkt;
+    struct ip 		*ip, ip_data;
+    
+    ip = &ip_data;
+    memcpy((char *)ip, pkt, sizeof(struct ip));
     return (memcmp(&ip->ip_src.s_addr, &wan->ip_dst.s_addr, sizeof(struct in_addr)) == 0 ? 0 : 1);
 }
 
@@ -291,11 +291,11 @@ Check if the packet is a bootp packet for us
 int ppp_ip_bootp_client_in(ifnet_t ifp, char *pkt)
 {
     struct ppp_if	*wan = (struct ppp_if *)ifnet_softc(ifp);
-    struct ip 		*ip;
+    struct ip 		*ip, ip_data;
 	struct udphdr	udp;
-	
-    // Wcast-align fixes - use memcmp and memcpy for unaligned accesses
-    ip = (struct ip *)(void*)pkt;
+
+    ip = &ip_data;
+    memcpy((char *)ip, pkt, sizeof(struct ip));
     if (!memcmp(&ip->ip_dst.s_addr, &wan->ip_src.s_addr, sizeof(struct in_addr)) && ip->ip_p == IPPROTO_UDP) {
 	
 		memcpy(&udp, pkt + sizeof(struct ip), sizeof(struct udphdr));
@@ -313,12 +313,12 @@ Check if the packet is a broadcast bootp packet
 int ppp_ip_bootp_server_in(ifnet_t ifp, char *pkt)
 {
     //struct ppp_if	*wan = (struct ppp_if *)ifnet_softc(ifp);
-    struct ip 		*ip;
+    struct ip 		*ip, ip_data;
 	struct udphdr	udp;
     u_int32_t       val4;
     
-	// Wcast-align fixes - use memcmp and memcpy for unaligned accesses
-    ip = (struct ip *)(void*)pkt;
+    ip = &ip_data;
+    memcpy((char *)ip, pkt, sizeof(struct ip));
     val4 = htonl(INADDR_BROADCAST);
     if (!memcmp(&ip->ip_dst.s_addr, &val4, sizeof(struct in_addr)) && ip->ip_p == IPPROTO_UDP) {
 	

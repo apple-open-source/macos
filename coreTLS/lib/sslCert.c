@@ -64,14 +64,22 @@ SSLEncodeCertificate(tls_buffer *certificate, tls_handshake_t ctx)
 	assert(ctx->negProtocolVersion >= tls_protocol_version_SSL_3);
 	assert((ctx->localCert != NULL) || (ctx->negProtocolVersion >= tls_protocol_version_TLS_1_0));
     totalLength = 0;
-
     certCount = 0;
-    cert = ctx->localCert;
-    while (cert)
-    {   totalLength += 3 + cert->derCert.length;    /* 3 for encoded length field */
-        ++certCount;
-        cert = cert->next;
+
+    /* If we are the client and didn't select an auth type, we will send an empty message */
+    if(ctx->isServer || ctx->negAuthType != tls_client_auth_type_None) {
+        cert = ctx->localCert;
+        while (cert)
+        {   totalLength += 3 + cert->derCert.length;    /* 3 for encoded length field */
+            ++certCount;
+            cert = cert->next;
+        }
+        cert = ctx->localCert;
+    } else {
+        certCount = 0;
+        cert = NULL;
     }
+
     head = SSLHandshakeHeaderSize(ctx);
     if ((err = SSLAllocBuffer(certificate, totalLength + head + 3)))
         return err;
@@ -81,7 +89,6 @@ SSLEncodeCertificate(tls_buffer *certificate, tls_handshake_t ctx)
     charPtr = SSLEncodeSize(charPtr, totalLength, 3);      /* Vector length */
 
     /* Leaf cert is first in the linked list */
-    cert = ctx->localCert;
     while(cert) {
         charPtr = SSLEncodeSize(charPtr, cert->derCert.length, 3);
         memcpy(charPtr, cert->derCert.data, cert->derCert.length);
@@ -91,7 +98,7 @@ SSLEncodeCertificate(tls_buffer *certificate, tls_handshake_t ctx)
 
     assert(charPtr == certificate->data + certificate->length);
 
-    if ((!ctx->isServer) && (ctx->localCert)) {
+    if ((!ctx->isServer) && (ctx->negAuthType != tls_client_auth_type_None)) {
 		/* this tells us to send a CertificateVerify msg after the
 		 * client key exchange. We skip the cert vfy if we just
 		 * sent an empty cert msg (i.e., we were asked for a cert
@@ -327,7 +334,7 @@ SSLEncodeCertificateRequest(tls_buffer *request, tls_handshake_t ctx)
 
 	assert(ctx->isServer);
     if (sslVersionIsLikeTls12(ctx)) {
-        shListLen = 2 + 2 * (ctx->ecdsaEnable ? 6 : 3);  //FIXME: 5:3 should not be hardcoded here.
+        shListLen = 2 + 2 * ctx->numLocalSigAlgs;
     }
 
 	dnListLen = 0;
@@ -356,31 +363,10 @@ SSLEncodeCertificateRequest(tls_buffer *request, tls_handshake_t ctx)
 
     if (shListLen) {
         /* Encode the supported_signature_algorithms added in TLS1.2 */
-        /* We dont support SHA512 or SHA224 because we didnot implement the digest abstraction for those
-           and we dont keep a running hash for those.
-           We dont support SHA384/ECDSA because corecrypto ec does not support it with 256 bits curves */
         charPtr = SSLEncodeSize(charPtr, shListLen - 2, 2);
-        // *charPtr++ = tls_hash_algorithm_SHA512;
-        // *charPtr++ = tls_signature_algorithm_RSA;
-        *charPtr++ = tls_hash_algorithm_SHA384;
-        *charPtr++ = tls_signature_algorithm_RSA;
-        *charPtr++ = tls_hash_algorithm_SHA256;
-        *charPtr++ = tls_signature_algorithm_RSA;
-        // *charPtr++ = tls_hash_algorithm_SHA224;
-        // *charPtr++ = tls_signature_algorithm_RSA;
-        *charPtr++ = tls_hash_algorithm_SHA1;
-        *charPtr++ = tls_signature_algorithm_RSA;
-        if (ctx->ecdsaEnable) {
-            // *charPtr++ = tls_hash_algorithm_SHA512;
-            // *charPtr++ = tls_signature_algorithm_ECDSA;
-             *charPtr++ = tls_hash_algorithm_SHA384;
-             *charPtr++ = tls_signature_algorithm_ECDSA;
-            *charPtr++ = tls_hash_algorithm_SHA256;
-            *charPtr++ = tls_signature_algorithm_ECDSA;
-            // *charPtr++ = tls_hash_algorithm_SHA224;
-            // *charPtr++ = tls_signature_algorithm_ECDSA;
-            *charPtr++ = tls_hash_algorithm_SHA1;
-            *charPtr++ = tls_signature_algorithm_ECDSA;
+        for(int i=0; i<ctx->numLocalSigAlgs; i++) {
+            charPtr = SSLEncodeInt(charPtr, ctx->localSigAlgs[i].hash, 1);
+            charPtr = SSLEncodeInt(charPtr, ctx->localSigAlgs[i].signature, 1);
         }
     }
 
@@ -396,10 +382,6 @@ SSLEncodeCertificateRequest(tls_buffer *request, tls_handshake_t ctx)
     assert(charPtr == request->data + request->length);
     return errSSLSuccess;
 }
-
-#define SSL_ENABLE_ECDSA_SIGN_AUTH			1
-#define SSL_ENABLE_RSA_FIXED_ECDH_AUTH		0
-#define SSL_ENABLE_ECDSA_FIXED_ECDH_AUTH	0
 
 int
 SSLProcessCertificateRequest(tls_buffer message, tls_handshake_t ctx)
@@ -459,19 +441,19 @@ SSLProcessCertificateRequest(tls_buffer message, tls_handshake_t ctx)
             return errSSLProtocol;
         }
 
-        sslFree(ctx->serverSigAlgs);
-        ctx->numServerSigAlgs = shListLen / 2;
-        ctx->serverSigAlgs = (tls_signature_and_hash_algorithm *)
-                              sslMalloc((ctx->numServerSigAlgs) * sizeof(tls_signature_and_hash_algorithm));
-        if(ctx->serverSigAlgs==NULL)
+        sslFree(ctx->peerSigAlgs);
+        ctx->numPeerSigAlgs = shListLen / 2;
+        ctx->peerSigAlgs = (tls_signature_and_hash_algorithm *)
+                              sslMalloc((ctx->numPeerSigAlgs) * sizeof(tls_signature_and_hash_algorithm));
+        if(ctx->peerSigAlgs==NULL)
             return errSSLInternal;
 
-        for(i=0; i<ctx->numServerSigAlgs; i++) {
-            ctx->serverSigAlgs[i].hash = *charPtr++;
-            ctx->serverSigAlgs[i].signature = *charPtr++;
+        for(i=0; i<ctx->numPeerSigAlgs; i++) {
+            ctx->peerSigAlgs[i].hash = *charPtr++;
+            ctx->peerSigAlgs[i].signature = *charPtr++;
             sslLogNegotiateDebug("===Server specifies sigAlg %d %d",
-                                 ctx->serverSigAlgs[i].hash,
-                                 ctx->serverSigAlgs[i].signature);
+                                 ctx->peerSigAlgs[i].hash,
+                                 ctx->peerSigAlgs[i].signature);
         }
     }
 
@@ -518,24 +500,26 @@ SSLProcessCertificateRequest(tls_buffer message, tls_handshake_t ctx)
 
 /* TODO: this should be refactored with FindSigAlg in sslKeyExchange.c */
 static
-int FindCertSigAlg(tls_handshake_t ctx,
-                        tls_signature_and_hash_algorithm *alg)
+int FindCertSigAlg(tls_handshake_t ctx, tls_signature_and_hash_algorithm *alg)
 {
-    unsigned i;
-
 	assert(!ctx->isServer);
     assert(ctx->negProtocolVersion >= tls_protocol_version_TLS_1_2);
     assert(!ctx->isDTLS);
 
-    if((ctx->numServerSigAlgs==0) ||(ctx->serverSigAlgs==NULL))
+    if((ctx->numPeerSigAlgs==0) || (ctx->numLocalSigAlgs==0)) {
+        assert(0);
         return errSSLInternal;
+    }
 
-    for(i=0; i<ctx->numServerSigAlgs; i++) {
-        /* If negotiated algorithm is supported by server check hash algorithm */
-        if (alg->signature == ctx->serverSigAlgs[i].signature) {
-            alg->hash = ctx->serverSigAlgs[i].hash;
-            //Let's only support SHA1 and SHA256. SHA384 does not work with 512 bits RSA keys
-            if((alg->hash==tls_hash_algorithm_SHA1) || (alg->hash==tls_hash_algorithm_SHA256)) {
+    //Check for matching server signature algorithm and corresponding hash algorithm
+    for(int i=0; i<ctx->numLocalSigAlgs; i++) {
+        if (alg->signature != ctx->localSigAlgs[i].signature)
+            continue;
+        alg->hash = ctx->localSigAlgs[i].hash;
+        for(int j=0; j<ctx->numPeerSigAlgs; j++) {
+            if (alg->signature != ctx->peerSigAlgs[j].signature)
+                continue;
+            if(alg->hash == ctx->peerSigAlgs[j].hash) {
                 return errSSLSuccess;
             }
         }
@@ -569,11 +553,11 @@ SSLEncodeCertificateVerify(tls_buffer *certVerify, tls_handshake_t ctx)
 
     tls_signature_and_hash_algorithm sigAlg = {0,};
 
-	switch(ctx->negAuthType) {
-		case tls_client_auth_type_RSASign:
+	switch(ctx->signingPrivKeyRef->desc.type) {
+        case tls_private_key_type_rsa:
             sigAlg.signature = tls_signature_algorithm_RSA;
             break;
-		case tls_client_auth_type_ECDSASign:
+        case tls_private_key_type_ecdsa:
             sigAlg.signature = tls_signature_algorithm_ECDSA;
             if (ctx->negProtocolVersion <= tls_protocol_version_SSL_3) {
                 return errSSLInternal;
@@ -615,10 +599,9 @@ SSLEncodeCertificateVerify(tls_buffer *certVerify, tls_handshake_t ctx)
         *charPtr++ = sigAlg.signature;
 
         switch (sigAlg.hash) {
+            case tls_hash_algorithm_SHA512:
             case tls_hash_algorithm_SHA384:
-                break;
             case tls_hash_algorithm_SHA256:
-                break;
             case tls_hash_algorithm_SHA1:
                 break;
             default:

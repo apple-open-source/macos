@@ -32,10 +32,12 @@
 #include <WebCore/FilterOperations.h>
 #include <WebCore/FloatPoint3D.h>
 #include <WebCore/FloatSize.h>
+#include <WebCore/LayoutMilestones.h>
 #include <WebCore/PlatformCALayer.h>
 #include <WebCore/TransformationMatrix.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
+#include <wtf/text/StringHash.h>
 #include <wtf/text/WTFString.h>
 
 namespace IPC {
@@ -67,25 +69,27 @@ public:
         DoubleSidedChanged              = 1LLU << 14,
         MasksToBoundsChanged            = 1LLU << 15,
         OpaqueChanged                   = 1LLU << 16,
-        MaskLayerChanged                = 1LLU << 17,
-        ClonedContentsChanged           = 1LLU << 18,
-        ContentsRectChanged             = 1LLU << 19,
-        ContentsScaleChanged            = 1LLU << 20,
-        CornerRadiusChanged             = 1LLU << 21,
-        ShapeRoundedRectChanged         = 1LLU << 22,
-        ShapePathChanged                = 1LLU << 23,
-        MinificationFilterChanged       = 1LLU << 24,
-        MagnificationFilterChanged      = 1LLU << 25,
-        BlendModeChanged                = 1LLU << 26,
-        WindRuleChanged                 = 1LLU << 27,
-        SpeedChanged                    = 1LLU << 28,
-        TimeOffsetChanged               = 1LLU << 29,
-        BackingStoreChanged             = 1LLU << 30,
-        BackingStoreAttachmentChanged   = 1LLU << 31,
-        FiltersChanged                  = 1LLU << 32,
-        AnimationsChanged               = 1LLU << 33,
-        EdgeAntialiasingMaskChanged     = 1LLU << 34,
-        CustomAppearanceChanged         = 1LLU << 35,
+        ContentsHiddenChanged           = 1LLU << 17,
+        MaskLayerChanged                = 1LLU << 18,
+        ClonedContentsChanged           = 1LLU << 19,
+        ContentsRectChanged             = 1LLU << 20,
+        ContentsScaleChanged            = 1LLU << 21,
+        CornerRadiusChanged             = 1LLU << 22,
+        ShapeRoundedRectChanged         = 1LLU << 23,
+        ShapePathChanged                = 1LLU << 24,
+        MinificationFilterChanged       = 1LLU << 25,
+        MagnificationFilterChanged      = 1LLU << 26,
+        BlendModeChanged                = 1LLU << 27,
+        WindRuleChanged                 = 1LLU << 28,
+        SpeedChanged                    = 1LLU << 29,
+        TimeOffsetChanged               = 1LLU << 30,
+        BackingStoreChanged             = 1LLU << 31,
+        BackingStoreAttachmentChanged   = 1LLU << 32,
+        FiltersChanged                  = 1LLU << 33,
+        AnimationsChanged               = 1LLU << 34,
+        EdgeAntialiasingMaskChanged     = 1LLU << 35,
+        CustomAppearanceChanged         = 1LLU << 36,
+        UserInteractionEnabledChanged   = 1LLU << 37,
     };
     typedef uint64_t LayerChange;
 
@@ -162,6 +166,8 @@ public:
         bool doubleSided;
         bool masksToBounds;
         bool opaque;
+        bool contentsHidden;
+        bool userInteractionEnabled;
     };
 
     explicit RemoteLayerTreeTransaction();
@@ -222,6 +228,18 @@ public:
     double maximumScaleFactor() const { return m_maximumScaleFactor; }
     void setMaximumScaleFactor(double scale) { m_maximumScaleFactor = scale; }
 
+    double initialScaleFactor() const { return m_initialScaleFactor; }
+    void setInitialScaleFactor(double scale) { m_initialScaleFactor = scale; }
+
+    double viewportMetaTagWidth() const { return m_viewportMetaTagWidth; }
+    void setViewportMetaTagWidth(double width) { m_viewportMetaTagWidth = width; }
+
+    bool viewportMetaTagWidthWasExplicit() const { return m_viewportMetaTagWidthWasExplicit; }
+    void setViewportMetaTagWidthWasExplicit(bool widthWasExplicit) { m_viewportMetaTagWidthWasExplicit = widthWasExplicit; }
+
+    bool viewportMetaTagCameFromImageDocument() const { return m_viewportMetaTagCameFromImageDocument; }
+    void setViewportMetaTagCameFromImageDocument(bool cameFromImageDocument) { m_viewportMetaTagCameFromImageDocument = cameFromImageDocument; }
+
     bool allowsUserScaling() const { return m_allowsUserScaling; }
     void setAllowsUserScaling(bool allowsUserScaling) { m_allowsUserScaling = allowsUserScaling; }
 
@@ -230,7 +248,10 @@ public:
 
     typedef uint64_t TransactionCallbackID;
     const Vector<TransactionCallbackID>& callbackIDs() const { return m_callbackIDs; }
-    void setCallbackIDs(Vector<TransactionCallbackID> callbackIDs) { m_callbackIDs = WTF::move(callbackIDs); }
+    void setCallbackIDs(Vector<TransactionCallbackID>&& callbackIDs) { m_callbackIDs = WTFMove(callbackIDs); }
+
+    WebCore::LayoutMilestones newlyReachedLayoutMilestones() const { return m_newlyReachedLayoutMilestones; }
+    void setNewlyReachedLayoutMilestones(WebCore::LayoutMilestones milestones) { m_newlyReachedLayoutMilestones = milestones; }
     
 private:
     WebCore::GraphicsLayer::PlatformLayerID m_rootLayerID;
@@ -250,13 +271,18 @@ private:
     WebCore::IntPoint m_scrollPosition;
 #endif
     WebCore::Color m_pageExtendedBackgroundColor;
-    double m_pageScaleFactor;
-    double m_minimumScaleFactor;
-    double m_maximumScaleFactor;
-    uint64_t m_renderTreeSize;
-    uint64_t m_transactionID;
-    bool m_scaleWasSetByUIProcess;
-    bool m_allowsUserScaling;
+    double m_pageScaleFactor { 1 };
+    double m_minimumScaleFactor { 1 };
+    double m_maximumScaleFactor { 1 };
+    double m_initialScaleFactor { 1 };
+    double m_viewportMetaTagWidth { -1 };
+    uint64_t m_renderTreeSize { 0 };
+    uint64_t m_transactionID { 0 };
+    WebCore::LayoutMilestones m_newlyReachedLayoutMilestones { 0 };
+    bool m_scaleWasSetByUIProcess { false };
+    bool m_allowsUserScaling { false };
+    bool m_viewportMetaTagWidthWasExplicit { false };
+    bool m_viewportMetaTagCameFromImageDocument { false };
 };
 
 } // namespace WebKit

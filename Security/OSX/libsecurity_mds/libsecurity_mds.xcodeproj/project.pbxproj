@@ -37,13 +37,6 @@
 			remoteGlobalIDString = 4CA1FEBE052A3C8100F22E42;
 			remoteInfo = libsecurity_cdsa_plugin;
 		};
-		182BB369146F1259000BF1F3 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 182BB362146F1255000BF1F3 /* libsecurity_cdsa_plugin.xcodeproj */;
-			proxyType = 1;
-			remoteGlobalIDString = C2C38A530535EDE600D7421F;
-			remoteInfo = libsecurity_cdsa_plugin_generate;
-		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
@@ -52,22 +45,22 @@
 		182BB360146F11F1000BF1F3 /* lib.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = lib.xcconfig; sourceTree = "<group>"; };
 		182BB361146F11F1000BF1F3 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
 		182BB362146F1255000BF1F3 /* libsecurity_cdsa_plugin.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = libsecurity_cdsa_plugin.xcodeproj; path = ../libsecurity_cdsa_plugin/libsecurity_cdsa_plugin.xcodeproj; sourceTree = "<group>"; };
-		4C308389053237100028A8C6 /* mdsapi.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = mdsapi.cpp; sourceTree = "<group>"; };
+		4C308389053237100028A8C6 /* mdsapi.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = mdsapi.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		4C30838A053237100028A8C6 /* MDSAttrParser.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MDSAttrParser.cpp; sourceTree = "<group>"; };
 		4C30838B053237100028A8C6 /* MDSAttrParser.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MDSAttrParser.h; sourceTree = "<group>"; };
 		4C30838C053237100028A8C6 /* MDSAttrStrings.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MDSAttrStrings.cpp; sourceTree = "<group>"; };
 		4C30838D053237100028A8C6 /* MDSAttrStrings.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MDSAttrStrings.h; sourceTree = "<group>"; };
 		4C30838E053237100028A8C6 /* MDSAttrUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MDSAttrUtils.cpp; sourceTree = "<group>"; };
-		4C30838F053237100028A8C6 /* MDSAttrUtils.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MDSAttrUtils.h; sourceTree = "<group>"; };
+		4C30838F053237100028A8C6 /* MDSAttrUtils.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = MDSAttrUtils.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
 		4C308390053237100028A8C6 /* MDSDatabase.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MDSDatabase.cpp; sourceTree = "<group>"; };
 		4C308391053237100028A8C6 /* MDSDatabase.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MDSDatabase.h; sourceTree = "<group>"; };
 		4C308392053237100028A8C6 /* MDSDictionary.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MDSDictionary.cpp; sourceTree = "<group>"; };
 		4C308393053237100028A8C6 /* MDSDictionary.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MDSDictionary.h; sourceTree = "<group>"; };
-		4C308394053237100028A8C6 /* MDSModule.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MDSModule.cpp; sourceTree = "<group>"; };
+		4C308394053237100028A8C6 /* MDSModule.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = MDSModule.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		4C308395053237100028A8C6 /* MDSModule.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MDSModule.h; sourceTree = "<group>"; };
 		4C308398053237100028A8C6 /* MDSSchema.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MDSSchema.cpp; sourceTree = "<group>"; };
 		4C308399053237100028A8C6 /* MDSSchema.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MDSSchema.h; sourceTree = "<group>"; };
-		4C30839A053237100028A8C6 /* MDSSession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MDSSession.cpp; sourceTree = "<group>"; usesTabs = 1; };
+		4C30839A053237100028A8C6 /* MDSSession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = MDSSession.cpp; sourceTree = "<group>"; usesTabs = 1; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		4C30839B053237100028A8C6 /* MDSSession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MDSSession.h; sourceTree = "<group>"; };
 		4CA1FEBE052A3C8100F22E42 /* libsecurity_mds.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libsecurity_mds.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		4CCB008B05800B0B00981D43 /* security_mds.exp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.exports; path = security_mds.exp; sourceTree = "<group>"; };
@@ -188,7 +181,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				182BB36A146F1259000BF1F3 /* PBXTargetDependency */,
 			);
 			name = libsecurity_mds;
 			productName = libsecurity_mds;
@@ -201,7 +193,7 @@
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0700;
+				LastUpgradeCheck = 0800;
 			};
 			buildConfigurationList = C27AD3A80987FCDE001272E0 /* Build configuration list for PBXProject "libsecurity_mds" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -255,14 +247,6 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
-/* Begin PBXTargetDependency section */
-		182BB36A146F1259000BF1F3 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			name = libsecurity_cdsa_plugin_generate;
-			targetProxy = 182BB369146F1259000BF1F3 /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
-
 /* Begin XCBuildConfiguration section */
 		C27AD3A50987FCDE001272E0 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -292,13 +276,22 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB360146F11F1000BF1F3 /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = lossless;
+				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				ONLY_ACTIVE_ARCH = YES;
 			};
 			name = Debug;
 		};
@@ -306,13 +299,20 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB360146F11F1000BF1F3 /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = "respect-asset-catalog";
+				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
 			};
 			name = Release;
 		};

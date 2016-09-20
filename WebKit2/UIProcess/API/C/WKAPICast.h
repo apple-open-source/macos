@@ -32,7 +32,6 @@
 #include "HTTPCookieAcceptPolicy.h"
 #include "InjectedBundleHitTestResultMediaType.h"
 #include "PluginModuleInfo.h"
-#include "ProcessModel.h"
 #include "ResourceCachesToClear.h"
 #include "WKBundleHitTestResult.h"
 #include "WKContext.h"
@@ -52,11 +51,15 @@
 #include <WebCore/Settings.h>
 
 namespace API {
+class ExperimentalFeature;
+class FrameHandle;
 class FrameInfo;
+class HitTestResult;
 class Navigation;
 class NavigationAction;
 class NavigationData;
 class NavigationResponse;
+class OpenPanelParameters;
 class PageConfiguration;
 class ProcessPoolConfiguration;
 class SessionState;
@@ -74,6 +77,7 @@ class AuthenticationDecisionListener;
 class DownloadProxy;
 class GeolocationPermissionRequestProxy;
 class NotificationPermissionRequest;
+class UserMediaPermissionCheckProxy;
 class UserMediaPermissionRequestProxy;
 class WebBackForwardList;
 class WebBackForwardListItem;
@@ -82,22 +86,19 @@ class WebBatteryStatus;
 class WebColorPickerResultListenerProxy;
 class WebCookieManagerProxy;
 class WebCredential;
-class WebDatabaseManagerProxy;
 class WebFormSubmissionListenerProxy;
 class WebFramePolicyListenerProxy;
 class WebFrameProxy;
 class WebGeolocationManagerProxy;
 class WebGeolocationPosition;
 class WebGrammarDetail;
-class WebHitTestResult;
 class WebIconDatabase;
 class WebInspectorProxy;
-class WebMediaCacheManagerProxy;
+class WebMediaSessionFocusManager;
 class WebMediaSessionMetadata;
 class WebNotification;
 class WebNotificationManagerProxy;
 class WebNotificationProvider;
-class WebOpenPanelParameters;
 class WebOpenPanelResultListenerProxy;
 class WebPageGroup;
 class WebPageProxy;
@@ -123,20 +124,20 @@ WK_ADD_API_MAPPING(WKContextRef, WebProcessPool)
 WK_ADD_API_MAPPING(WKContextConfigurationRef, API::ProcessPoolConfiguration)
 WK_ADD_API_MAPPING(WKCookieManagerRef, WebCookieManagerProxy)
 WK_ADD_API_MAPPING(WKCredentialRef, WebCredential)
-WK_ADD_API_MAPPING(WKDatabaseManagerRef, WebDatabaseManagerProxy)
 WK_ADD_API_MAPPING(WKDownloadRef, DownloadProxy)
 WK_ADD_API_MAPPING(WKFormSubmissionListenerRef, WebFormSubmissionListenerProxy)
 WK_ADD_API_MAPPING(WKFramePolicyListenerRef, WebFramePolicyListenerProxy)
+WK_ADD_API_MAPPING(WKFrameHandleRef, API::FrameHandle)
 WK_ADD_API_MAPPING(WKFrameInfoRef, API::FrameInfo)
 WK_ADD_API_MAPPING(WKFrameRef, WebFrameProxy)
 WK_ADD_API_MAPPING(WKGeolocationManagerRef, WebGeolocationManagerProxy)
 WK_ADD_API_MAPPING(WKGeolocationPermissionRequestRef, GeolocationPermissionRequestProxy)
 WK_ADD_API_MAPPING(WKGeolocationPositionRef, WebGeolocationPosition)
 WK_ADD_API_MAPPING(WKGrammarDetailRef, WebGrammarDetail)
-WK_ADD_API_MAPPING(WKHitTestResultRef, WebHitTestResult)
+WK_ADD_API_MAPPING(WKHitTestResultRef, API::HitTestResult)
 WK_ADD_API_MAPPING(WKIconDatabaseRef, WebIconDatabase)
 WK_ADD_API_MAPPING(WKInspectorRef, WebInspectorProxy)
-WK_ADD_API_MAPPING(WKMediaCacheManagerRef, WebMediaCacheManagerProxy)
+WK_ADD_API_MAPPING(WKMediaSessionFocusManagerRef, WebMediaSessionFocusManager)
 WK_ADD_API_MAPPING(WKMediaSessionMetadataRef, WebMediaSessionMetadata)
 WK_ADD_API_MAPPING(WKNavigationActionRef, API::NavigationAction)
 WK_ADD_API_MAPPING(WKNavigationDataRef, API::NavigationData)
@@ -146,7 +147,7 @@ WK_ADD_API_MAPPING(WKNotificationManagerRef, WebNotificationManagerProxy)
 WK_ADD_API_MAPPING(WKNotificationPermissionRequestRef, NotificationPermissionRequest)
 WK_ADD_API_MAPPING(WKNotificationProviderRef, WebNotificationProvider)
 WK_ADD_API_MAPPING(WKNotificationRef, WebNotification)
-WK_ADD_API_MAPPING(WKOpenPanelParametersRef, WebOpenPanelParameters)
+WK_ADD_API_MAPPING(WKOpenPanelParametersRef, API::OpenPanelParameters)
 WK_ADD_API_MAPPING(WKOpenPanelResultListenerRef, WebOpenPanelResultListenerProxy)
 WK_ADD_API_MAPPING(WKPageGroupRef, WebPageGroup)
 WK_ADD_API_MAPPING(WKPageConfigurationRef, API::PageConfiguration)
@@ -160,6 +161,7 @@ WK_ADD_API_MAPPING(WKTextCheckerRef, WebTextChecker)
 WK_ADD_API_MAPPING(WKUserContentControllerRef, WebUserContentControllerProxy)
 WK_ADD_API_MAPPING(WKUserContentExtensionStoreRef, API::UserContentExtensionStore)
 WK_ADD_API_MAPPING(WKUserContentFilterRef, API::UserContentExtension)
+WK_ADD_API_MAPPING(WKUserMediaPermissionCheckRef, UserMediaPermissionCheckProxy)
 WK_ADD_API_MAPPING(WKUserMediaPermissionRequestRef, UserMediaPermissionRequestProxy)
 WK_ADD_API_MAPPING(WKUserScriptRef, API::UserScript)
 WK_ADD_API_MAPPING(WKVibrationRef, WebVibrationProxy)
@@ -226,31 +228,6 @@ inline WKCacheModel toAPI(CacheModel cacheModel)
     }
     
     return kWKCacheModelDocumentViewer;
-}
-
-inline ProcessModel toProcessModel(WKProcessModel wkProcessModel)
-{
-    switch (wkProcessModel) {
-    case kWKProcessModelSharedSecondaryProcess:
-        return ProcessModelSharedSecondaryProcess;
-    case kWKProcessModelMultipleSecondaryProcesses:
-        return ProcessModelMultipleSecondaryProcesses;
-    }
-
-    ASSERT_NOT_REACHED();
-    return ProcessModelSharedSecondaryProcess;
-}
-
-inline WKProcessModel toAPI(ProcessModel processModel)
-{
-    switch (processModel) {
-    case ProcessModelSharedSecondaryProcess:
-        return kWKProcessModelSharedSecondaryProcess;
-    case ProcessModelMultipleSecondaryProcesses:
-        return kWKProcessModelMultipleSecondaryProcesses;
-    }
-    
-    return kWKProcessModelSharedSecondaryProcess;
 }
 
 inline FontSmoothingLevel toFontSmoothingLevel(WKFontSmoothingLevel wkLevel)

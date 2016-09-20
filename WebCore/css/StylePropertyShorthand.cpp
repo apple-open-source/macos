@@ -21,8 +21,7 @@
 
 #include "config.h"
 #include "StylePropertyShorthand.h"
-
-#include <wtf/StdLibExtras.h>
+#include "StylePropertyShorthandFunctions.h"
 
 namespace WebCore {
 
@@ -35,15 +34,8 @@ StylePropertyShorthand borderAbridgedShorthand()
 
 StylePropertyShorthand animationShorthandForParsing(CSSPropertyID propId)
 {
-    // When we parse the animation shorthand we need to look for animation-name
-    // last because otherwise it might match against the keywords for fill mode,
-    // timing functions and infinite iteration. This means that animation names
-    // that are the same as keywords (e.g. 'forwards') won't always match in the
-    // shorthand. In that case the authors should be using longhands (or
-    // reconsidering their approach). This is covered by the animations spec
-    // bug: https://www.w3.org/Bugs/Public/show_bug.cgi?id=14790
-    // And in the spec (editor's draft) at:
-    // http://dev.w3.org/csswg/css3-animations/#animation-shorthand-property
+    // Animation-name must come last, so that keywords for other properties in the shorthand
+    // preferentially match those properties.
     static const CSSPropertyID animationPropertiesForParsing[] = {
         CSSPropertyAnimationDuration,
         CSSPropertyAnimationTimingFunction,
@@ -51,6 +43,7 @@ StylePropertyShorthand animationShorthandForParsing(CSSPropertyID propId)
         CSSPropertyAnimationIterationCount,
         CSSPropertyAnimationDirection,
         CSSPropertyAnimationFillMode,
+        CSSPropertyAnimationPlayState,
         CSSPropertyAnimationName
     };
 
@@ -61,6 +54,7 @@ StylePropertyShorthand animationShorthandForParsing(CSSPropertyID propId)
         CSSPropertyWebkitAnimationIterationCount,
         CSSPropertyWebkitAnimationDirection,
         CSSPropertyWebkitAnimationFillMode,
+        CSSPropertyWebkitAnimationPlayState,
         CSSPropertyWebkitAnimationName
     };
 
@@ -74,7 +68,7 @@ bool isShorthandCSSProperty(CSSPropertyID id)
     return shorthandForProperty(id).length();
 }
 
-unsigned indexOfShorthandForLonghand(CSSPropertyID shorthandID, const Vector<StylePropertyShorthand>& shorthands)
+unsigned indexOfShorthandForLonghand(CSSPropertyID shorthandID, const StylePropertyShorthandVector& shorthands)
 {
     for (unsigned i = 0, size = shorthands.size(); i < size; ++i) {
         if (shorthands[i].id() == shorthandID)

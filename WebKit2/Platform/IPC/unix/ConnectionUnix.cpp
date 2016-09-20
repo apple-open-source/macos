@@ -40,10 +40,12 @@
 #include <wtf/UniStdExtras.h>
 
 #if PLATFORM(GTK)
-#include <glib.h>
+#include <gio/gio.h>
 #endif
 
-#ifdef SOCK_SEQPACKET
+// Although it's available on Darwin, SOCK_SEQPACKET seems to work differently
+// than in traditional Unix so fallback to STREAM on that platform.
+#if defined(SOCK_SEQPACKET) && !OS(DARWIN)
 #define SOCKET_TYPE SOCK_SEQPACKET
 #else
 #if PLATFORM(GTK)
@@ -130,10 +132,8 @@ private:
 void Connection::platformInitialize(Identifier identifier)
 {
     m_socketDescriptor = identifier;
-    m_readBuffer.resize(messageMaxSize);
-    m_readBufferSize = 0;
-    m_fileDescriptors.resize(attachmentMaxAmount);
-    m_fileDescriptorsSize = 0;
+    m_readBuffer.reserveInitialCapacity(messageMaxSize);
+    m_fileDescriptors.reserveInitialCapacity(attachmentMaxAmount);
 }
 
 void Connection::platformInvalidate()
@@ -147,7 +147,9 @@ void Connection::platformInvalidate()
     if (!m_isConnected)
         return;
 
-#if PLATFORM(GTK) || PLATFORM(EFL)
+#if PLATFORM(GTK)
+    m_socketMonitor.stop();
+#elif PLATFORM(EFL)
     m_connectionQueue->unregisterSocketEventHandler(m_socketDescriptor);
 #endif
 
@@ -157,7 +159,7 @@ void Connection::platformInvalidate()
 
 bool Connection::processMessage()
 {
-    if (m_readBufferSize < sizeof(MessageInfo))
+    if (m_readBuffer.size() < sizeof(MessageInfo))
         return false;
 
     uint8_t* messageData = m_readBuffer.data();
@@ -166,7 +168,7 @@ bool Connection::processMessage()
     messageData += sizeof(messageInfo);
 
     size_t messageLength = sizeof(MessageInfo) + messageInfo.attachmentCount() * sizeof(AttachmentInfo) + (messageInfo.isMessageBodyIsOutOfLine() ? 0 : messageInfo.bodySize());
-    if (m_readBufferSize < messageLength)
+    if (m_readBuffer.size() < messageLength)
         return false;
 
     size_t attachmentFileDescriptorCount = 0;
@@ -243,30 +245,29 @@ bool Connection::processMessage()
     if (messageInfo.isMessageBodyIsOutOfLine())
         messageBody = reinterpret_cast<uint8_t*>(oolMessageBody->data());
 
-    auto decoder = std::make_unique<MessageDecoder>(DataReference(messageBody, messageInfo.bodySize()), WTF::move(attachments));
+    auto decoder = std::make_unique<MessageDecoder>(DataReference(messageBody, messageInfo.bodySize()), WTFMove(attachments));
 
-    processIncomingMessage(WTF::move(decoder));
+    processIncomingMessage(WTFMove(decoder));
 
-    if (m_readBufferSize > messageLength) {
-        memmove(m_readBuffer.data(), m_readBuffer.data() + messageLength, m_readBufferSize - messageLength);
-        m_readBufferSize -= messageLength;
+    if (m_readBuffer.size() > messageLength) {
+        memmove(m_readBuffer.data(), m_readBuffer.data() + messageLength, m_readBuffer.size() - messageLength);
+        m_readBuffer.shrink(m_readBuffer.size() - messageLength);
     } else
-        m_readBufferSize = 0;
+        m_readBuffer.shrink(0);
 
     if (attachmentFileDescriptorCount) {
-        if (m_fileDescriptorsSize > attachmentFileDescriptorCount) {
-            size_t fileDescriptorsLength = attachmentFileDescriptorCount * sizeof(int);
-            memmove(m_fileDescriptors.data(), m_fileDescriptors.data() + fileDescriptorsLength, m_fileDescriptorsSize - fileDescriptorsLength);
-            m_fileDescriptorsSize -= fileDescriptorsLength;
+        if (m_fileDescriptors.size() > attachmentFileDescriptorCount) {
+            memmove(m_fileDescriptors.data(), m_fileDescriptors.data() + attachmentFileDescriptorCount, (m_fileDescriptors.size() - attachmentFileDescriptorCount) * sizeof(int));
+            m_fileDescriptors.shrink(m_fileDescriptors.size() - attachmentFileDescriptorCount);
         } else
-            m_fileDescriptorsSize = 0;
+            m_fileDescriptors.shrink(0);
     }
 
 
     return true;
 }
 
-static ssize_t readBytesFromSocket(int socketDescriptor, uint8_t* buffer, int count, int* fileDescriptors, size_t* fileDescriptorsCount)
+static ssize_t readBytesFromSocket(int socketDescriptor, Vector<uint8_t>& buffer, Vector<int>& fileDescriptors)
 {
     struct msghdr message;
     memset(&message, 0, sizeof(message));
@@ -279,8 +280,10 @@ static ssize_t readBytesFromSocket(int socketDescriptor, uint8_t* buffer, int co
     memset(attachmentDescriptorBuffer.get(), 0, sizeof(char) * message.msg_controllen);
     message.msg_control = attachmentDescriptorBuffer.get();
 
-    iov[0].iov_base = buffer;
-    iov[0].iov_len = count;
+    size_t previousBufferSize = buffer.size();
+    buffer.grow(buffer.capacity());
+    iov[0].iov_base = buffer.data() + previousBufferSize;
+    iov[0].iov_len = buffer.size() - previousBufferSize;
 
     message.msg_iov = iov;
     message.msg_iovlen = 1;
@@ -292,33 +295,29 @@ static ssize_t readBytesFromSocket(int socketDescriptor, uint8_t* buffer, int co
             if (errno == EINTR)
                 continue;
 
+            buffer.shrink(previousBufferSize);
             return -1;
         }
 
-        bool found = false;
         struct cmsghdr* controlMessage;
         for (controlMessage = CMSG_FIRSTHDR(&message); controlMessage; controlMessage = CMSG_NXTHDR(&message, controlMessage)) {
             if (controlMessage->cmsg_level == SOL_SOCKET && controlMessage->cmsg_type == SCM_RIGHTS) {
-                *fileDescriptorsCount = (controlMessage->cmsg_len - CMSG_LEN(0)) / sizeof(int);
-                memcpy(fileDescriptors, CMSG_DATA(controlMessage), sizeof(int) * *fileDescriptorsCount);
+                size_t previousFileDescriptorsSize = fileDescriptors.size();
+                size_t fileDescriptorsCount = (controlMessage->cmsg_len - CMSG_LEN(0)) / sizeof(int);
+                fileDescriptors.grow(fileDescriptors.size() + fileDescriptorsCount);
+                memcpy(fileDescriptors.data() + previousFileDescriptorsSize, CMSG_DATA(controlMessage), sizeof(int) * fileDescriptorsCount);
 
-                for (size_t i = 0; i < *fileDescriptorsCount; ++i) {
-                    while (fcntl(fileDescriptors[i], F_SETFD, FD_CLOEXEC) == -1) {
-                        if (errno != EINTR) {
-                            ASSERT_NOT_REACHED();
-                            break;
-                        }
+                for (size_t i = 0; i < fileDescriptorsCount; ++i) {
+                    if (!setCloseOnExec(fileDescriptors[previousFileDescriptorsSize + i])) {
+                        ASSERT_NOT_REACHED();
+                        break;
                     }
                 }
-
-                found = true;
                 break;
             }
         }
 
-        if (!found)
-            *fileDescriptorsCount = 0;
-
+        buffer.shrink(previousBufferSize + bytesRead);
         return bytesRead;
     }
 
@@ -328,23 +327,19 @@ static ssize_t readBytesFromSocket(int socketDescriptor, uint8_t* buffer, int co
 void Connection::readyReadHandler()
 {
     while (true) {
-        size_t fileDescriptorsCount = 0;
-        size_t bytesToRead = m_readBuffer.size() - m_readBufferSize;
-        ssize_t bytesRead = readBytesFromSocket(m_socketDescriptor, m_readBuffer.data() + m_readBufferSize, bytesToRead,
-                                                m_fileDescriptors.data() + m_fileDescriptorsSize, &fileDescriptorsCount);
+        ssize_t bytesRead = readBytesFromSocket(m_socketDescriptor, m_readBuffer, m_fileDescriptors);
 
         if (bytesRead < 0) {
             // EINTR was already handled by readBytesFromSocket.
             if (errno == EAGAIN || errno == EWOULDBLOCK)
                 return;
 
-            WTFLogAlways("Error receiving IPC message on socket %d in process %d: %s", m_socketDescriptor, getpid(), strerror(errno));
-            connectionDidClose();
+            if (m_isConnected) {
+                WTFLogAlways("Error receiving IPC message on socket %d in process %d: %s", m_socketDescriptor, getpid(), strerror(errno));
+                connectionDidClose();
+            }
             return;
         }
-
-        m_readBufferSize += bytesRead;
-        m_fileDescriptorsSize += fileDescriptorsCount;
 
         if (!bytesRead) {
             connectionDidClose();
@@ -372,13 +367,21 @@ bool Connection::open()
     RefPtr<Connection> protectedThis(this);
     m_isConnected = true;
 #if PLATFORM(GTK)
-    m_connectionQueue->registerSocketEventHandler(m_socketDescriptor,
-        [protectedThis] {
-            protectedThis->readyReadHandler();
-        },
-        [protectedThis] {
+    GRefPtr<GSocket> socket = adoptGRef(g_socket_new_from_fd(m_socketDescriptor, nullptr));
+    m_socketMonitor.start(socket.get(), G_IO_IN, m_connectionQueue->runLoop(), [protectedThis] (GIOCondition condition) -> gboolean {
+        if (condition & G_IO_HUP || condition & G_IO_ERR || condition & G_IO_NVAL) {
             protectedThis->connectionDidClose();
-        });
+            return G_SOURCE_REMOVE;
+        }
+
+        if (condition & G_IO_IN) {
+            protectedThis->readyReadHandler();
+            return G_SOURCE_CONTINUE;
+        }
+
+        ASSERT_NOT_REACHED();
+        return G_SOURCE_REMOVE;
+    });
 #elif PLATFORM(EFL)
     m_connectionQueue->registerSocketEventHandler(m_socketDescriptor,
         [protectedThis] {
@@ -513,7 +516,8 @@ bool Connection::sendOutgoingMessage(std::unique_ptr<MessageEncoder> encoder)
             continue;
         }
 
-        WTFLogAlways("Error sending IPC message: %s", strerror(errno));
+        if (m_isConnected)
+            WTFLogAlways("Error sending IPC message: %s", strerror(errno));
         return false;
     }
     return true;
@@ -526,14 +530,14 @@ Connection::SocketPair Connection::createPlatformConnection(unsigned options)
 
     if (options & SetCloexecOnServer) {
         // Don't expose the child socket to the parent process.
-        while (fcntl(sockets[1], F_SETFD, FD_CLOEXEC)  == -1)
-            RELEASE_ASSERT(errno != EINTR);
+        if (!setCloseOnExec(sockets[1]))
+            RELEASE_ASSERT_NOT_REACHED();
     }
 
     if (options & SetCloexecOnClient) {
         // Don't expose the parent socket to potential future children.
-        while (fcntl(sockets[0], F_SETFD, FD_CLOEXEC) == -1)
-            RELEASE_ASSERT(errno != EINTR);
+        if (!setCloseOnExec(sockets[0]))
+            RELEASE_ASSERT_NOT_REACHED();
     }
 
     SocketPair socketPair = { sockets[0], sockets[1] };

@@ -54,6 +54,7 @@
 #include "workqueue_private.h"
 #include "introspection_private.h"
 #include "qos_private.h"
+#include "tsd_private.h"
 
 #include <stdlib.h>
 #include <errno.h>
@@ -96,7 +97,7 @@ int __unix_conforming = 0;
 // _pthread_list_lock protects _pthread_count, access to the __pthread_head
 // list, and the parentcheck, childrun and childexit flags of the pthread
 // structure. Externally imported by pthread_cancelable.c.
-__private_extern__ pthread_lock_t _pthread_list_lock = LOCK_INITIALIZER;
+__private_extern__ _pthread_lock _pthread_list_lock = _PTHREAD_LOCK_INITIALIZER;
 __private_extern__ struct __pthread_list __pthread_head = TAILQ_HEAD_INITIALIZER(__pthread_head);
 static int _pthread_count = 1;
 
@@ -122,11 +123,20 @@ typedef struct _pthread_reap_msg_t {
 	mach_msg_trailer_t trailer;
 } pthread_reap_msg_t;
 
-#define pthreadsize ((size_t)mach_vm_round_page(sizeof(struct _pthread)))
+/* 
+ * The pthread may be offset into a page.  In that event, by contract
+ * with the kernel, the allocation will extend PTHREAD_SIZE from the
+ * start of the next page.  There's also one page worth of allocation
+ * below stacksize for the guard page. <rdar://problem/19941744> 
+ */
+#define PTHREAD_SIZE ((size_t)mach_vm_round_page(sizeof(struct _pthread)))
+#define PTHREAD_ALLOCADDR(stackaddr, stacksize) ((stackaddr - stacksize) - vm_page_size)
+#define PTHREAD_ALLOCSIZE(stackaddr, stacksize) ((round_page((uintptr_t)stackaddr) + PTHREAD_SIZE) - (uintptr_t)PTHREAD_ALLOCADDR(stackaddr, stacksize))
+
 static pthread_attr_t _pthread_attr_default = {0};
 
 // The main thread's pthread_t
-static struct _pthread _thread __attribute__((aligned(4096))) = {0};
+static struct _pthread _thread __attribute__((aligned(64))) = {0};
 
 static int default_priority;
 static int max_priority;
@@ -155,13 +165,15 @@ static void _pthread_struct_init(pthread_t t,
 	const pthread_attr_t *attrs,
 	void *stack,
 	size_t stacksize,
-	int kernalloc);
+	void *freeaddr,
+	size_t freesize);
 
 extern void _pthread_set_self(pthread_t);
+static void _pthread_set_self_internal(pthread_t, bool needs_tsd_base_set);
 
 static void _pthread_dealloc_reply_port(pthread_t t);
 
-static inline void __pthread_add_thread(pthread_t t, bool parent);
+static inline void __pthread_add_thread(pthread_t t, bool parent, bool from_mach_thread);
 static inline int __pthread_remove_thread(pthread_t t, bool child, bool *should_exit);
 
 static int _pthread_find_thread(pthread_t thread);
@@ -195,11 +207,12 @@ _________________________________________
 -----------------------------------------
 */
 
-#define PTHREAD_START_CUSTOM	0x01000000
-#define PTHREAD_START_SETSCHED	0x02000000
-#define PTHREAD_START_DETACHED	0x04000000
-#define PTHREAD_START_QOSCLASS	0x08000000
-#define PTHREAD_START_QOSCLASS_MASK 0xffffff
+#define PTHREAD_START_CUSTOM		0x01000000
+#define PTHREAD_START_SETSCHED		0x02000000
+#define PTHREAD_START_DETACHED		0x04000000
+#define PTHREAD_START_QOSCLASS		0x08000000
+#define PTHREAD_START_TSD_BASE_SET	0x10000000
+#define PTHREAD_START_QOSCLASS_MASK 0x00ffffff
 #define PTHREAD_START_POLICY_BITSHIFT 16
 #define PTHREAD_START_POLICY_MASK 0xff
 #define PTHREAD_START_IMPORTANCE_MASK 0xffff
@@ -221,10 +234,10 @@ static const mach_vm_address_t PTHREAD_STACK_HINT = 0xB0000000;
 #error no PTHREAD_STACK_HINT for this architecture
 #endif
 
-#if defined(__i386__) && defined(static_assert)
-// Check for regression of <rdar://problem/13249323>
-static_assert(offsetof(struct _pthread, err_no) == 68);
-#endif
+// Check that offsets of _PTHREAD_STRUCT_DIRECT_*_OFFSET values hasn't changed
+_Static_assert(offsetof(struct _pthread, tsd) + _PTHREAD_STRUCT_DIRECT_THREADID_OFFSET
+		== offsetof(struct _pthread, thread_id),
+		"_PTHREAD_STRUCT_DIRECT_THREADID_OFFSET is correct");
 
 // Allocate a thread structure, stack and guard page.
 //
@@ -259,11 +272,11 @@ _pthread_allocate(pthread_t *thread, const pthread_attr_t *attrs, void **stack)
 	if (attrs->stackaddr != NULL) {
 		PTHREAD_ASSERT(((uintptr_t)attrs->stackaddr % vm_page_size) == 0);
 		*stack = attrs->stackaddr;
-		allocsize = pthreadsize;
+		allocsize = PTHREAD_SIZE;
 	} else {
 		guardsize = attrs->guardsize;
 		stacksize = attrs->stacksize;
-		allocsize = stacksize + guardsize + pthreadsize;
+		allocsize = stacksize + guardsize + PTHREAD_SIZE;
 	}
 	
 	kr = mach_vm_map(mach_task_self(),
@@ -303,9 +316,9 @@ _pthread_allocate(pthread_t *thread, const pthread_attr_t *attrs, void **stack)
 	}
 	
 	if (t != NULL) {
-		_pthread_struct_init(t, attrs, *stack, attrs->stacksize, 0);
-		t->freeaddr = (void *)allocaddr;
-		t->freesize = allocsize;
+		_pthread_struct_init(t, attrs,
+				     *stack, attrs->stacksize,
+				     allocaddr, allocsize);
 		*thread = t;
 		res = 0;
 	} else {
@@ -326,48 +339,76 @@ _pthread_deallocate(pthread_t t)
 	return 0;
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wreturn-stack-address"
+
+PTHREAD_NOINLINE
+static void*
+_current_stack_address(void)
+{
+	int a;
+	return &a;
+}
+
+#pragma clang diagnostic pop
+
 // Terminates the thread if called from the currently running thread.
-PTHREAD_NORETURN
+PTHREAD_NORETURN PTHREAD_NOINLINE
 static void
 _pthread_terminate(pthread_t t)
 {
 	PTHREAD_ASSERT(t == pthread_self());
-	
+
 	uintptr_t freeaddr = (uintptr_t)t->freeaddr;
 	size_t freesize = t->freesize;
+
+	// the size of just the stack
+	size_t freesize_stack = t->freesize;
+
+	// We usually pass our structure+stack to bsdthread_terminate to free, but
+	// if we get told to keep the pthread_t structure around then we need to
+	// adjust the free size and addr in the pthread_t to just refer to the
+	// structure and not the stack.  If we do end up deallocating the
+	// structure, this is useless work since no one can read the result, but we
+	// can't do it after the call to pthread_remove_thread because it isn't
+	// safe to dereference t after that.
+	if ((void*)t > t->freeaddr && (void*)t < t->freeaddr + t->freesize){
+		// Check to ensure the pthread structure itself is part of the
+		// allocation described by freeaddr/freesize, in which case we split and
+		// only deallocate the area below the pthread structure.  In the event of a
+		// custom stack, the freeaddr/size will be the pthread structure itself, in
+		// which case we shouldn't free anything (the final else case).
+		freesize_stack = trunc_page((uintptr_t)t - (uintptr_t)freeaddr);
+
+		// describe just the remainder for deallocation when the pthread_t goes away
+		t->freeaddr += freesize_stack;
+		t->freesize -= freesize_stack;
+	} else if (t == &_thread){
+		freeaddr = t->stackaddr - pthread_get_stacksize_np(t);
+		uintptr_t stackborder = trunc_page((uintptr_t)_current_stack_address());
+		freesize_stack = stackborder - freeaddr;
+	} else {
+		freesize_stack = 0;
+	}
 
 	mach_port_t kport = _pthread_kernel_thread(t);
 	semaphore_t joinsem = t->joiner_notify;
 
 	_pthread_dealloc_reply_port(t);
 
-	// If the pthread_t sticks around after the __bsdthread_terminate, we'll 
-	// need to free it later
-
-	// After the call to __pthread_remove_thread, it is only safe to
-	// dereference the pthread_t structure if EBUSY has been returned.
+	// After the call to __pthread_remove_thread, it is not safe to
+	// dereference the pthread_t structure.
 
 	bool destroy, should_exit;
 	destroy = (__pthread_remove_thread(t, true, &should_exit) != EBUSY);
 
-	if (t == &_thread) {
-		// Don't free the main thread.
-		freesize = 0;
-	} else if (!destroy) {
-		// We were told to keep the pthread_t structure around.  In the common
-		// case, the pthread structure itself is part of the allocation
-		// described by freeaddr/freesize, in which case we need to split and
-		// only deallocate the area below the pthread structure.  In the event
-		// of a custom stack, the freeaddr/size will be the pthread structure
-		// itself, in which case we shouldn't free anything.
-		if ((void*)t > t->freeaddr && (void*)t < t->freeaddr + t->freesize){
-			freesize = trunc_page((uintptr_t)t - (uintptr_t)freeaddr);
-			t->freeaddr += freesize;
-			t->freesize -= freesize;
-		} else {
-			freesize = 0;
-		}
+	if (!destroy || t == &_thread) {
+		// Use the adjusted freesize of just the stack that we computed above.
+		freesize = freesize_stack;
 	}
+
+	// Check if there is nothing to free because the thread has a custom
+	// stack allocation and is joinable.
 	if (freesize == 0) {
 		freeaddr = 0;
 	}
@@ -645,21 +686,30 @@ pthread_attr_getguardsize(const pthread_attr_t *attr, size_t *guardsize)
 /*
  * Create and start execution of a new thread.
  */
-
+PTHREAD_NOINLINE
 static void
-_pthread_body(pthread_t self)
+_pthread_body(pthread_t self, bool needs_tsd_base_set)
 {
-	_pthread_set_self(self);
-	__pthread_add_thread(self, false);
-	_pthread_exit(self, (self->fun)(self->arg));
+	_pthread_set_self_internal(self, needs_tsd_base_set);
+	__pthread_add_thread(self, false, false);
+	void *result = (self->fun)(self->arg);
+
+	_pthread_exit(self, result);
 }
 
 void
-_pthread_start(pthread_t self, mach_port_t kport, void *(*fun)(void *), void *arg, size_t stacksize, unsigned int pflags)
+_pthread_start(pthread_t self,
+	       mach_port_t kport,
+	       void *(*fun)(void *),
+	       void *arg,
+	       size_t stacksize,
+	       unsigned int pflags)
 {
 	if ((pflags & PTHREAD_START_CUSTOM) == 0) {
-		uintptr_t stackaddr = self;
-		_pthread_struct_init(self, &_pthread_attr_default, stackaddr, stacksize, 1);
+		void *stackaddr = self;
+		_pthread_struct_init(self, &_pthread_attr_default,
+				stackaddr, stacksize,
+				PTHREAD_ALLOCADDR(stackaddr, stacksize), PTHREAD_ALLOCSIZE(stackaddr, stacksize));
 
 		if (pflags & PTHREAD_START_SETSCHED) {
 			self->policy = ((pflags >> PTHREAD_START_POLICY_BITSHIFT) & PTHREAD_START_POLICY_MASK);
@@ -683,11 +733,13 @@ _pthread_start(pthread_t self, mach_port_t kport, void *(*fun)(void *), void *ar
 		self->tsd[_PTHREAD_TSD_SLOT_PTHREAD_QOS_CLASS] = _pthread_priority_make_newest(QOS_CLASS_UNSPECIFIED, 0, 0);
 	}
 
+	bool thread_tsd_bsd_set = (bool)(pflags & PTHREAD_START_TSD_BASE_SET);
+
 	_pthread_set_kernel_thread(self, kport);
 	self->fun = fun;
 	self->arg = arg;
-	
-	_pthread_body(self);
+
+	_pthread_body(self, !thread_tsd_bsd_set);
 }
 
 static void
@@ -695,27 +747,22 @@ _pthread_struct_init(pthread_t t,
 		     const pthread_attr_t *attrs,
 		     void *stackaddr,
 		     size_t stacksize,
-			 int kernalloc)
+		     void *freeaddr,
+		     size_t freesize)
 {
+#if DEBUG
+	PTHREAD_ASSERT(t->sig != _PTHREAD_SIG);
+#endif
+
 	t->sig = _PTHREAD_SIG;
 	t->tsd[_PTHREAD_TSD_SLOT_PTHREAD_SELF] = t;
 	t->tsd[_PTHREAD_TSD_SLOT_PTHREAD_QOS_CLASS] = _pthread_priority_make_newest(QOS_CLASS_UNSPECIFIED, 0, 0);
-	LOCK_INIT(t->lock);
+	_PTHREAD_LOCK_INIT(t->lock);
 
-	t->stacksize = stacksize;
 	t->stackaddr = stackaddr;
-
-	t->kernalloc = kernalloc;
-	if (kernalloc){
-		/* 
-		 * The pthread may be offset into a page.  In that event, by contract
-		 * with the kernel, the allocation will extend pthreadsize from the
-		 * start of the next page.  There's also one page worth of allocation
-		 * below stacksize for the guard page. <rdar://problem/19941744> 
-		 */
-		t->freeaddr = (stackaddr - stacksize) - vm_page_size;
-		t->freesize = (round_page((uintptr_t)stackaddr) + pthreadsize) - (uintptr_t)t->freeaddr;
-	}
+	t->stacksize = stacksize;
+	t->freeaddr = freeaddr;
+	t->freesize = freesize;
 
 	t->guardsize = attrs->guardsize;
 	t->detached = attrs->detached;
@@ -769,7 +816,7 @@ pthread_from_mach_thread_np(mach_port_t kernel_thread)
 	struct _pthread *p = NULL;
 
 	/* No need to wait as mach port is already known */
-	LOCK(_pthread_list_lock);
+	_PTHREAD_LOCK(_pthread_list_lock);
 
 	TAILQ_FOREACH(p, &__pthread_head, plist) {
 		if (_pthread_kernel_thread(p) == kernel_thread) {
@@ -777,7 +824,7 @@ pthread_from_mach_thread_np(mach_port_t kernel_thread)
 		}
 	}
 
-	UNLOCK(_pthread_list_lock);
+	_PTHREAD_UNLOCK(_pthread_list_lock);
 
 	return p;
 }
@@ -791,13 +838,44 @@ pthread_get_stacksize_np(pthread_t t)
 	if (t == NULL) {
 		return ESRCH; // XXX bug?
 	}
-	
-	// since the main thread will not get de-allocated from underneath us
+
+#if !defined(__arm__) && !defined(__arm64__)
+	// The default rlimit based allocations will be provided with a stacksize
+	// of the current limit and a freesize of the max.  However, custom
+	// allocations will just have the guard page to free.  If we aren't in the
+	// latter case, call into rlimit to determine the current stack size.  In
+	// the event that the current limit == max limit then we'll fall down the
+	// fast path, but since it's unlikely that the limit is going to be lowered
+	// after it's been change to the max, we should be fine.
+	//
+	// Of course, on arm rlim_cur == rlim_max and there's only the one guard
+	// page.  So, we can skip all this there.
+	if (t == &_thread && t->stacksize + vm_page_size != t->freesize) {
+		// We want to call getrlimit() just once, as it's relatively expensive
+		static size_t rlimit_stack;
+		
+		if (rlimit_stack == 0) {
+			struct rlimit limit;
+			int ret = getrlimit(RLIMIT_STACK, &limit);
+			
+			if (ret == 0) {
+				rlimit_stack = (size_t) limit.rlim_cur;
+			}
+		}
+		
+		if (rlimit_stack == 0 || rlimit_stack > t->freesize) {
+			return t->stacksize;
+		} else {
+			return rlimit_stack;
+		}
+	}
+#endif /* !defined(__arm__) && !defined(__arm64__) */
+
 	if (t == pthread_self() || t == &_thread) {
 		return t->stacksize;
 	}
 
-	LOCK(_pthread_list_lock);
+	_PTHREAD_LOCK(_pthread_list_lock);
 
 	ret = _pthread_find_thread(t);
 	if (ret == 0) {
@@ -806,7 +884,7 @@ pthread_get_stacksize_np(pthread_t t)
 		size = ret; // XXX bug?
 	}
 
-	UNLOCK(_pthread_list_lock);
+	_PTHREAD_UNLOCK(_pthread_list_lock);
 
 	return size;
 }
@@ -826,7 +904,7 @@ pthread_get_stackaddr_np(pthread_t t)
 		return t->stackaddr;
 	}
 
-	LOCK(_pthread_list_lock);
+	_PTHREAD_LOCK(_pthread_list_lock);
 
 	ret = _pthread_find_thread(t);
 	if (ret == 0) {
@@ -835,7 +913,7 @@ pthread_get_stackaddr_np(pthread_t t)
 		addr = (void *)(uintptr_t)ret; // XXX bug?
 	}
 
-	UNLOCK(_pthread_list_lock);
+	_PTHREAD_UNLOCK(_pthread_list_lock);
 
 	return addr;
 }
@@ -906,12 +984,12 @@ pthread_threadid_np(pthread_t thread, uint64_t *thread_id)
 	if (thread == NULL || thread == self) {
 		*thread_id = self->thread_id;
 	} else {
-		LOCK(_pthread_list_lock);
+		_PTHREAD_LOCK(_pthread_list_lock);
 		res = _pthread_find_thread(thread);
 		if (res == 0) {
 			*thread_id = thread->thread_id;
 		}
-		UNLOCK(_pthread_list_lock);
+		_PTHREAD_UNLOCK(_pthread_list_lock);
 	}
 	return res;
 }
@@ -925,12 +1003,12 @@ pthread_getname_np(pthread_t thread, char *threadname, size_t len)
 		return ESRCH;
 	}
 
-	LOCK(_pthread_list_lock);
+	_PTHREAD_LOCK(_pthread_list_lock);
 	res = _pthread_find_thread(thread);
 	if (res == 0) {
 		strlcpy(threadname, thread->pthread_name, len);
 	}
-	UNLOCK(_pthread_list_lock);
+	_PTHREAD_UNLOCK(_pthread_list_lock);
 	return res;
 }
 
@@ -960,12 +1038,16 @@ pthread_setname_np(const char *name)
 
 PTHREAD_ALWAYS_INLINE
 static inline void
-__pthread_add_thread(pthread_t t, bool parent)
+__pthread_add_thread(pthread_t t, bool parent, bool from_mach_thread)
 {
 	bool should_deallocate = false;
 	bool should_add = true;
 
-	LOCK(_pthread_list_lock);
+	if (from_mach_thread){
+		_PTHREAD_LOCK_FROM_MACH_THREAD(_pthread_list_lock);
+	} else {
+		_PTHREAD_LOCK(_pthread_list_lock);
+	}
 
 	// The parent and child threads race to add the thread to the list.
 	// When called by the parent:
@@ -980,7 +1062,7 @@ __pthread_add_thread(pthread_t t, bool parent)
 			// child got here first, don't add.
 			should_add = false;
 		}
-		
+
 		// If the child exits before we check in then it has to keep
 		// the thread structure memory alive so our dereferences above
 		// are valid. If it's a detached thread, then no joiner will
@@ -1006,10 +1088,20 @@ __pthread_add_thread(pthread_t t, bool parent)
 		_pthread_count++;
 	}
 
-	UNLOCK(_pthread_list_lock);
+	if (from_mach_thread){
+		_PTHREAD_UNLOCK_FROM_MACH_THREAD(_pthread_list_lock);
+	} else {
+		_PTHREAD_UNLOCK(_pthread_list_lock);
+	}
 
 	if (parent) {
-		_pthread_introspection_thread_create(t, should_deallocate);
+		if (!from_mach_thread) {
+			// PR-26275485: Mach threads will likely crash trying to run
+			// introspection code.  Since the fall out from the introspection
+			// code not seeing the injected thread is likely less than crashing
+			// in the introspection code, just don't make the call.
+			_pthread_introspection_thread_create(t, should_deallocate);
+		}
 		if (should_deallocate) {
 			_pthread_deallocate(t);
 		}
@@ -1029,7 +1121,7 @@ __pthread_remove_thread(pthread_t t, bool child, bool *should_exit)
 	
 	bool should_remove = true;
 
-	LOCK(_pthread_list_lock);
+	_PTHREAD_LOCK(_pthread_list_lock);
 
 	// When a thread removes itself:
 	//  - Set the childexit flag indicating that the thread has exited.
@@ -1067,17 +1159,18 @@ __pthread_remove_thread(pthread_t t, bool child, bool *should_exit)
 		TAILQ_REMOVE(&__pthread_head, t, plist);
 	}
 
-	UNLOCK(_pthread_list_lock);
+	_PTHREAD_UNLOCK(_pthread_list_lock);
 	
 	return ret;
 }
 
-int
-pthread_create(pthread_t *thread,
+static int
+_pthread_create(pthread_t *thread,
 	const pthread_attr_t *attr,
 	void *(*start_routine)(void *),
-	void *arg)
-{	
+	void *arg,
+	bool from_mach_thread)
+{
 	pthread_t t = NULL;
 	unsigned int flags = 0;
 
@@ -1104,7 +1197,7 @@ pthread_create(pthread_t *thread,
 	__is_threaded = 1;
 
 	void *stack;
-	
+
 	if (attrs->fastpath) {
 		// kernel will allocate thread and stack, pass stacksize.
 		stack = (void *)attrs->stacksize;
@@ -1135,11 +1228,37 @@ pthread_create(pthread_t *thread,
 		t = t2;
 	}
 
-	__pthread_add_thread(t, true);
-	
-	// XXX if a thread is created detached and exits, t will be invalid
+	__pthread_add_thread(t, true, from_mach_thread);
+
+	// n.b. if a thread is created detached and exits, t will be invalid
 	*thread = t;
 	return 0;
+}
+
+int
+pthread_create(pthread_t *thread,
+	const pthread_attr_t *attr,
+	void *(*start_routine)(void *),
+	void *arg)
+{
+	return _pthread_create(thread, attr, start_routine, arg, false);
+}
+
+int
+pthread_create_from_mach_thread(pthread_t *thread,
+	const pthread_attr_t *attr,
+	void *(*start_routine)(void *),
+	void *arg)
+{
+	return _pthread_create(thread, attr, start_routine, arg, true);
+}
+
+static void
+_pthread_suspended_body(pthread_t self)
+{
+	_pthread_set_self(self);
+	__pthread_add_thread(self, false, false);
+	_pthread_exit(self, (self->fun)(self->arg));
 }
 
 int
@@ -1182,10 +1301,10 @@ pthread_create_suspended_np(pthread_t *thread,
 	t->arg = arg;
 	t->fun = start_routine;
 
-	__pthread_add_thread(t, true);
+	__pthread_add_thread(t, true, false);
 
 	// Set up a suspended thread.
-	_pthread_setup(t, _pthread_body, stack, 1, 0);
+	_pthread_setup(t, _pthread_suspended_body, stack, 1, 0);
 	return res;
 }
 
@@ -1201,7 +1320,7 @@ pthread_detach(pthread_t thread)
 		return res; // Not a valid thread to detach.
 	}
 
-	LOCK(thread->lock);
+	_PTHREAD_LOCK(thread->lock);
 	if (thread->detached & PTHREAD_CREATE_JOINABLE) {
 		if (thread->detached & _PTHREAD_EXITED) {
 			// Join the thread if it's already exited.
@@ -1214,7 +1333,7 @@ pthread_detach(pthread_t thread)
 	} else {
 		res = EINVAL;
 	}
-	UNLOCK(thread->lock);
+	_PTHREAD_UNLOCK(thread->lock);
 
 	if (join) {
 		pthread_join(thread, NULL);
@@ -1255,9 +1374,9 @@ __pthread_workqueue_setkill(int enable)
 {
 	pthread_t self = pthread_self();
 
-	LOCK(self->lock);
+	_PTHREAD_LOCK(self->lock);
 	self->wqkillset = enable ? 1 : 0;
-	UNLOCK(self->lock);
+	_PTHREAD_UNLOCK(self->lock);
 
 	return 0;
 }
@@ -1305,7 +1424,7 @@ _pthread_exit(pthread_t self, void *value_ptr)
 	}
 	_pthread_tsd_cleanup(self);
 
-	LOCK(self->lock);
+	_PTHREAD_LOCK(self->lock);
 	self->detached |= _PTHREAD_EXITED;
 	self->exit_value = value_ptr;
 
@@ -1313,7 +1432,7 @@ _pthread_exit(pthread_t self, void *value_ptr)
 			self->joiner_notify == SEMAPHORE_NULL) {
 		self->joiner_notify = (semaphore_t)os_get_cached_semaphore();
 	}
-	UNLOCK(self->lock);
+	_PTHREAD_UNLOCK(self->lock);
 
 	// Clear per-thread semaphore cache
 	os_put_cached_semaphore(SEMAPHORE_NULL);
@@ -1343,7 +1462,7 @@ pthread_getschedparam(pthread_t thread,
 		return ESRCH;
 	}
 	
-	LOCK(_pthread_list_lock);
+	_PTHREAD_LOCK(_pthread_list_lock);
 
 	ret = _pthread_find_thread(thread);
 	if (ret == 0) {
@@ -1355,7 +1474,7 @@ pthread_getschedparam(pthread_t thread,
 		}
 	}
 
-	UNLOCK(_pthread_list_lock);
+	_PTHREAD_UNLOCK(_pthread_list_lock);
 
 	return ret;
 }
@@ -1415,13 +1534,13 @@ pthread_setschedparam(pthread_t t, int policy, const struct sched_param *param)
 	if (res == 0) {
 		if (bypass == 0) {
 			// Ensure the thread is still valid.
-			LOCK(_pthread_list_lock);
+			_PTHREAD_LOCK(_pthread_list_lock);
 			res = _pthread_find_thread(t);
 			if (res == 0) {
 				t->policy = policy;
 				t->param = *param;
 			}
-			UNLOCK(_pthread_list_lock);
+			_PTHREAD_UNLOCK(_pthread_list_lock);
 		}  else {
 			t->policy = policy;
 			t->param = *param;
@@ -1448,18 +1567,24 @@ pthread_equal(pthread_t t1, pthread_t t2)
 	return (t1 == t2);
 }
 
-// Force LLVM not to optimise this to a call to __pthread_set_self, if it does
-// then _pthread_set_self won't be bound when secondary threads try and start up.
+/* 
+ * Force LLVM not to optimise this to a call to __pthread_set_self, if it does
+ * then _pthread_set_self won't be bound when secondary threads try and start up.
+ */
 PTHREAD_NOINLINE
 void
 _pthread_set_self(pthread_t p)
 {
-	extern void __pthread_set_self(void *);
+	return _pthread_set_self_internal(p, true);
+}
 
+void
+_pthread_set_self_internal(pthread_t p, bool needs_tsd_base_set)
+{
 	if (p == NULL) {
 		p = &_thread;
 	}
-	
+
 	uint64_t tid = __thread_selfid();
 	if (tid == -1ull) {
 		PTHREAD_ABORT("failed to set thread_id");
@@ -1468,7 +1593,10 @@ _pthread_set_self(pthread_t p)
 	p->tsd[_PTHREAD_TSD_SLOT_PTHREAD_SELF] = p;
 	p->tsd[_PTHREAD_TSD_SLOT_ERRNO] = &p->err_no;
 	p->thread_id = tid;
-	__pthread_set_self(&p->tsd[0]);
+
+	if (needs_tsd_base_set) {
+		_thread_set_tsd_base(&p->tsd[0]);
+	}
 }
 
 struct _pthread_once_context {
@@ -1501,9 +1629,9 @@ _pthread_testcancel(pthread_t thread, int isconforming)
 {
 	const int flags = (PTHREAD_CANCEL_ENABLE|_PTHREAD_CANCEL_PENDING);
 
-	LOCK(thread->lock);
+	_PTHREAD_LOCK(thread->lock);
 	bool canceled = ((thread->cancel_state & flags) == flags);
-	UNLOCK(thread->lock);
+	_PTHREAD_UNLOCK(thread->lock);
 	
 	if (canceled) {
 		pthread_exit(isconforming ? PTHREAD_CANCELED : 0);
@@ -1538,12 +1666,65 @@ pthread_setconcurrency(int new_level)
 	return 0;
 }
 
-void
-_pthread_set_pfz(uintptr_t address)
+static unsigned long
+_pthread_strtoul(const char *p, const char **endptr, int base)
 {
+	uintptr_t val = 0;
+	
+	// Expect hex string starting with "0x"
+	if ((base == 16 || base == 0) && p && p[0] == '0' && p[1] == 'x') {
+		p += 2;
+		while (1) {
+			char c = *p;
+			if ('0' <= c && c <= '9') {
+				val = (val << 4) + (c - '0');
+			} else if ('a' <= c && c <= 'f') {
+				val = (val << 4) + (c - 'a' + 10);
+			} else if ('A' <= c && c <= 'F') {
+				val = (val << 4) + (c - 'A' + 10);
+			} else {
+				break;
+			}
+			++p;
+		}
+	}
+
+	*endptr = (char *)p;
+	return val;
 }
 
-#if !defined(PTHREAD_TARGET_EOS) && !defined(VARIANT_DYLD)
+static int
+parse_main_stack_params(const char *apple[],
+			void **stackaddr,
+			size_t *stacksize,
+			void **allocaddr,
+			size_t *allocsize)
+{
+	const char *p = _simple_getenv(apple, "main_stack");
+	if (!p) return 0;
+
+	int ret = 0;
+	const char *s = p;
+
+	*stackaddr = _pthread_strtoul(s, &s, 16);
+	if (*s != ',') goto out;
+
+	*stacksize = _pthread_strtoul(s + 1, &s, 16);
+	if (*s != ',') goto out;
+
+	*allocaddr = _pthread_strtoul(s + 1, &s, 16);
+	if (*s != ',') goto out;
+
+	*allocsize = _pthread_strtoul(s + 1, &s, 16);
+	if (*s != ',' && *s != 0) goto out;
+
+	ret = 1;
+out:
+	bzero((char *)p, strlen(p));
+	return ret;
+}
+
+#if !defined(VARIANT_STATIC)
 void *
 malloc(size_t sz)
 {
@@ -1561,7 +1742,7 @@ free(void *p)
 		_pthread_free(p);
 	}
 }
-#endif
+#endif // VARIANT_STATIC
 
 /*
  * Perform package initialization - called automatically when application starts
@@ -1569,8 +1750,10 @@ free(void *p)
 struct ProgramVars; /* forward reference */
 
 int
-__pthread_init(const struct _libpthread_functions *pthread_funcs, const char *envp[] __unused,
-               const char *apple[] __unused, const struct ProgramVars *vars __unused)
+__pthread_init(const struct _libpthread_functions *pthread_funcs,
+	       const char *envp[] __unused,
+	       const char *apple[],
+	       const struct ProgramVars *vars __unused)
 {
 	// Save our provided pushed-down functions
 	if (pthread_funcs) {
@@ -1605,17 +1788,33 @@ __pthread_init(const struct _libpthread_functions *pthread_funcs, const char *en
 	// Set up the main thread structure
 	//
 
-	void *stackaddr;
-	size_t stacksize = DFLSSIZ;
-	size_t len = sizeof(stackaddr);
-	int mib[] = { CTL_KERN, KERN_USRSTACK };
-	if (__sysctl(mib, 2, &stackaddr, &len, NULL, 0) != 0) {
-		stackaddr = (void *)USRSTACK;
+	// Get the address and size of the main thread's stack from the kernel.
+	void *stackaddr = 0;
+	size_t stacksize = 0;
+	void *allocaddr = 0;
+	size_t allocsize = 0;
+	if (!parse_main_stack_params(apple, &stackaddr, &stacksize, &allocaddr, &allocsize) ||
+		stackaddr == NULL || stacksize == 0) {
+		// Fall back to previous bevhaior.
+		size_t len = sizeof(stackaddr);
+		int mib[] = { CTL_KERN, KERN_USRSTACK };
+		if (__sysctl(mib, 2, &stackaddr, &len, NULL, 0) != 0) {
+#if defined(__LP64__)
+			stackaddr = (void *)USRSTACK64;
+#else
+			stackaddr = (void *)USRSTACK;
+#endif
+		}
+		stacksize = DFLSSIZ;
+		allocaddr = 0;
+		allocsize = 0;
 	}
 
 	pthread_t thread = &_thread;
 	pthread_attr_init(&_pthread_attr_default);
-	_pthread_struct_init(thread, &_pthread_attr_default, stackaddr, stacksize, 0);
+	_pthread_struct_init(thread, &_pthread_attr_default,
+			     stackaddr, stacksize,
+			     allocaddr, allocsize);
 	thread->detached = PTHREAD_CREATE_JOINABLE;
 
 	// Finish initialization with common code that is reinvoked on the
@@ -1646,7 +1845,7 @@ PTHREAD_NOEXPORT void
 __pthread_fork_child_internal(pthread_t p)
 {
 	TAILQ_INIT(&__pthread_head);
-	LOCK_INIT(_pthread_list_lock);
+	_PTHREAD_LOCK_INIT(_pthread_list_lock);
 
 	// Re-use the main thread's static storage if no thread was provided.
 	if (p == NULL) {
@@ -1656,7 +1855,7 @@ __pthread_fork_child_internal(pthread_t p)
 		p = &_thread;
 	}
 
-	LOCK_INIT(p->lock);
+	_PTHREAD_LOCK_INIT(p->lock);
 	_pthread_set_kernel_thread(p, mach_thread_self());
 	_pthread_set_reply_port(p, mach_reply_port());
 	p->__cleanup_stack = NULL;
@@ -1697,13 +1896,13 @@ _pthread_setcancelstate_internal(int state, int *oldstate, int conforming)
 	}
 
 	self = pthread_self();
-	LOCK(self->lock);
+	_PTHREAD_LOCK(self->lock);
 	if (oldstate) {
 		*oldstate = self->cancel_state & _PTHREAD_CANCEL_STATE_MASK;
 	}
 	self->cancel_state &= ~_PTHREAD_CANCEL_STATE_MASK;
 	self->cancel_state |= state;
-	UNLOCK(self->lock);
+	_PTHREAD_UNLOCK(self->lock);
 	if (!conforming) {
 		_pthread_testcancel(self, 0);  /* See if we need to 'die' now... */
 	}
@@ -1714,7 +1913,7 @@ _pthread_setcancelstate_internal(int state, int *oldstate, int conforming)
 static void
 _pthread_setcancelstate_exit(pthread_t self, void * value_ptr, int conforming)
 {
-	LOCK(self->lock);
+	_PTHREAD_LOCK(self->lock);
 	self->cancel_state &= ~(_PTHREAD_CANCEL_STATE_MASK | _PTHREAD_CANCEL_TYPE_MASK);
 	self->cancel_state |= (PTHREAD_CANCEL_DISABLE | PTHREAD_CANCEL_DEFERRED);
 	if (value_ptr == PTHREAD_CANCELED) {
@@ -1722,7 +1921,7 @@ _pthread_setcancelstate_exit(pthread_t self, void * value_ptr, int conforming)
 		self->detached |= _PTHREAD_WASCANCEL;
 // 4597450: end
 	}
-	UNLOCK(self->lock);
+	_PTHREAD_UNLOCK(self->lock);
 }
 
 int
@@ -1752,9 +1951,9 @@ loop:
 		TAILQ_FOREACH(p, &__pthread_head, plist) {
 			if (p == thread) {
 				if (_pthread_kernel_thread(thread) == MACH_PORT_NULL) {
-					UNLOCK(_pthread_list_lock);
+					_PTHREAD_UNLOCK(_pthread_list_lock);
 					sched_yield();
-					LOCK(_pthread_list_lock);
+					_PTHREAD_LOCK(_pthread_list_lock);
 					goto loop;
 				} 
 				return 0;
@@ -1774,7 +1973,7 @@ _pthread_lookup_thread(pthread_t thread, mach_port_t *portp, int only_joinable)
 		return ESRCH;
 	}
 	
-	LOCK(_pthread_list_lock);
+	_PTHREAD_LOCK(_pthread_list_lock);
 	
 	ret = _pthread_find_thread(thread);
 	if (ret == 0) {
@@ -1787,7 +1986,7 @@ _pthread_lookup_thread(pthread_t thread, mach_port_t *portp, int only_joinable)
 		}
 	}
 	
-	UNLOCK(_pthread_list_lock);
+	_PTHREAD_UNLOCK(_pthread_list_lock);
 	
 	if (portp != NULL) {
 		*portp = kport;
@@ -1805,7 +2004,7 @@ _pthread_clear_qos_tsd(mach_port_t thread_port)
 	} else {
 		pthread_t p;
 
-		LOCK(_pthread_list_lock);
+		_PTHREAD_LOCK(_pthread_list_lock);
 
 		TAILQ_FOREACH(p, &__pthread_head, plist) {
 			mach_port_t kp = _pthread_kernel_thread(p);
@@ -1815,7 +2014,7 @@ _pthread_clear_qos_tsd(mach_port_t thread_port)
 			}
 		}
 
-		UNLOCK(_pthread_list_lock);
+		_PTHREAD_UNLOCK(_pthread_list_lock);
 	}
 }
 
@@ -1824,24 +2023,25 @@ _pthread_clear_qos_tsd(mach_port_t thread_port)
 PTHREAD_NOEXPORT void
 pthread_workqueue_atfork_child(void)
 {
-	struct _pthread_registration_data data = {
-		.dispatch_queue_offset = __PTK_LIBDISPATCH_KEY0 * sizeof(void *),
-	};
+	struct _pthread_registration_data data = {};
+	data.version = sizeof(struct _pthread_registration_data);
+	data.dispatch_queue_offset = __PTK_LIBDISPATCH_KEY0 * sizeof(void *);
+	data.tsd_offset = offsetof(struct _pthread, tsd);
 
 	int rv = __bsdthread_register(thread_start,
-			     start_wqthread,
-			     (int)pthreadsize,
-			     (void*)&data,
-			     (uintptr_t)sizeof(data),
-			     data.dispatch_queue_offset);
+			start_wqthread, (int)PTHREAD_SIZE,
+			(void*)&data, (uintptr_t)sizeof(data),
+			data.dispatch_queue_offset);
 
 	if (rv > 0) {
 		__pthread_supported_features = rv;
 	}
 
-	if (_pthread_priority_get_qos_newest(data.main_qos) != QOS_CLASS_UNSPECIFIED) {
-		_pthread_set_main_qos(data.main_qos);
-		_thread.tsd[_PTHREAD_TSD_SLOT_PTHREAD_QOS_CLASS] = data.main_qos;
+	pthread_priority_t main_qos = (pthread_priority_t)data.main_qos;
+
+	if (_pthread_priority_get_qos_newest(main_qos) != QOS_CLASS_UNSPECIFIED) {
+		_pthread_set_main_qos(main_qos);
+		_thread.tsd[_PTHREAD_TSD_SLOT_PTHREAD_QOS_CLASS] = main_qos;
 	}
 
 	if (__libdispatch_workerfunction != NULL) {
@@ -1869,6 +2069,8 @@ _pthread_wqthread(pthread_t self, mach_port_t kport, void *stacklowaddr, void *k
 		priority_flags |= _PTHREAD_PRIORITY_OVERCOMMIT_FLAG;
 	if (flags & WQ_FLAG_THREAD_EVENT_MANAGER)
 		priority_flags |= _PTHREAD_PRIORITY_EVENT_MANAGER_FLAG;
+	if (kevent)
+		priority_flags |= _PTHREAD_PRIORITY_NEEDS_UNBIND_FLAG;
 
 	if ((__pthread_supported_features & PTHREAD_FEATURE_QOS_MAINTENANCE) == 0) {
 		priority = _pthread_priority_make_version2(thread_class, 0, priority_flags);
@@ -1878,8 +2080,12 @@ _pthread_wqthread(pthread_t self, mach_port_t kport, void *stacklowaddr, void *k
 
 	if (thread_reuse == 0) {
 		// New thread created by kernel, needs initialization.
+		void *stackaddr = self;
 		size_t stacksize = (uintptr_t)self - (uintptr_t)stacklowaddr;
-		_pthread_struct_init(self, &_pthread_attr_default, (void*)self, stacksize, 1);
+
+		_pthread_struct_init(self, &_pthread_attr_default,
+							 stackaddr, stacksize,
+							 PTHREAD_ALLOCADDR(stackaddr, stacksize), PTHREAD_ALLOCSIZE(stackaddr, stacksize));
 
 		_pthread_set_kernel_thread(self, kport);
 		self->wqthread = 1;
@@ -1890,10 +2096,10 @@ _pthread_wqthread(pthread_t self, mach_port_t kport, void *stacklowaddr, void *k
 		self->detached |= PTHREAD_CREATE_DETACHED;
 
 		// Update the running thread count and set childrun bit.
-		// XXX this should be consolidated with pthread_body().
-		_pthread_set_self(self);
+		bool thread_tsd_base_set = (bool)(flags & WQ_FLAG_THREAD_TSD_BASE_SET);
+		_pthread_set_self_internal(self, !thread_tsd_base_set);
 		_pthread_introspection_thread_create(self, false);
-		__pthread_add_thread(self, false);
+		__pthread_add_thread(self, false, false);
 	}
 
 	// If we're running with fine-grained priority, we also need to
@@ -1914,7 +2120,7 @@ _pthread_wqthread(pthread_t self, mach_port_t kport, void *stacklowaddr, void *k
 	}
 	self->arg = (void *)(uintptr_t)thread_class;
 
-	if (kevent && keventlist){
+	if (kevent && keventlist && nkevents > 0){
 	kevent_errors_retry:
 		(*__libdispatch_keventfunction)(&keventlist, &nkevents);
 
@@ -1925,12 +2131,12 @@ _pthread_wqthread(pthread_t self, mach_port_t kport, void *stacklowaddr, void *k
 		} else if (errors_out < 0){
 			PTHREAD_ABORT("kevent return produced an error: %d", errno);
 		}
-		_pthread_exit(self, NULL);
+		goto thexit;
     } else if (kevent){
 		(*__libdispatch_keventfunction)(NULL, NULL);
 
-		__workq_kernreturn(WQOPS_THREAD_RETURN, NULL, 0, 0);
-		_pthread_exit(self, NULL);
+		__workq_kernreturn(WQOPS_THREAD_KEVENT_RETURN, NULL, 0, 0);
+		goto thexit;
     }
 
 	if (__pthread_supported_features & PTHREAD_FEATURE_FINEPRIO) {
@@ -1995,6 +2201,14 @@ _pthread_wqthread(pthread_t self, mach_port_t kport, void *stacklowaddr, void *k
 	}
 
 	__workq_kernreturn(WQOPS_THREAD_RETURN, NULL, 0, 0);
+
+thexit:
+	{
+		// Reset QoS to something low for the cleanup process
+		pthread_priority_t priority = _pthread_priority_make_newest(WQ_THREAD_CLEANUP_QOS, 0, 0);
+		_pthread_setspecific_direct(_PTHREAD_TSD_SLOT_PTHREAD_QOS_CLASS, priority);
+	}
+
 	_pthread_exit(self, NULL);
 }
 
@@ -2164,7 +2378,7 @@ static void
 _pthread_introspection_hook_callout_thread_create(pthread_t t, bool destroy)
 {
 	_pthread_introspection_hook(PTHREAD_INTROSPECTION_THREAD_CREATE, t, t,
-			pthreadsize);
+			PTHREAD_SIZE);
 	if (!destroy) return;
 	_pthread_introspection_thread_destroy(t);
 }
@@ -2186,7 +2400,7 @@ _pthread_introspection_hook_callout_thread_start(pthread_t t)
 		freesize = t->stacksize + t->guardsize;
 		freeaddr = t->stackaddr - freesize;
 	} else {
-		freesize = t->freesize - pthreadsize;
+		freesize = t->freesize - PTHREAD_SIZE;
 		freeaddr = t->freeaddr;
 	}
 	_pthread_introspection_hook(PTHREAD_INTROSPECTION_THREAD_START, t,
@@ -2206,7 +2420,7 @@ _pthread_introspection_hook_callout_thread_terminate(pthread_t t,
 		void *freeaddr, size_t freesize, bool destroy)
 {
 	if (destroy && freesize) {
-		freesize -= pthreadsize;
+		freesize -= PTHREAD_SIZE;
 	}
 	_pthread_introspection_hook(PTHREAD_INTROSPECTION_THREAD_TERMINATE, t,
 			freeaddr, freesize);
@@ -2229,7 +2443,7 @@ _pthread_introspection_hook_callout_thread_destroy(pthread_t t)
 {
 	if (t == &_thread) return;
 	_pthread_introspection_hook(PTHREAD_INTROSPECTION_THREAD_DESTROY, t, t,
-			pthreadsize);
+			PTHREAD_SIZE);
 }
 
 static inline void

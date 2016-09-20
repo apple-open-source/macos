@@ -157,7 +157,7 @@
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0700;
+				LastUpgradeCheck = 0800;
 			};
 			buildConfigurationList = C27AD3080987FCDE001272E0 /* Build configuration list for PBXProject "libsecurity_cdsa_utils" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -183,12 +183,15 @@
 			files = (
 			);
 			inputPaths = (
+				"$(SRCROOT)/",
+				"$(SRCROOT)/lib/",
 			);
 			outputPaths = (
+				"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "nmedit -p \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"\nranlib \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"";
+			shellScript = "# with our source directories as input files, Xcode will only re-run this phase if there's been a source change\nnmedit -p \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"\nranlib \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -235,12 +238,21 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1879B51D146DD04F007E536C /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = lossless;
+				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				ONLY_ACTIVE_ARCH = YES;
 			};
 			name = Debug;
 		};
@@ -248,12 +260,19 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1879B51D146DD04F007E536C /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = "respect-asset-catalog";
+				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
 			};
 			name = Release;
 		};

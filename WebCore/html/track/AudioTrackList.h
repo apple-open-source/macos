@@ -46,10 +46,10 @@ public:
 
     AudioTrack* item(unsigned index) const;
     AudioTrack* lastItem() const { return item(length() - 1); }
-    void append(PassRefPtr<AudioTrack>);
+    void append(Ref<AudioTrack>&&);
 
     // EventTarget
-    virtual EventTargetInterface eventTargetInterface() const override;
+    EventTargetInterface eventTargetInterface() const override;
 
 private:
     AudioTrackList(HTMLMediaElement*, ScriptExecutionContext*);

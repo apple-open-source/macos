@@ -378,7 +378,7 @@ void AppleCSPSession::addRefKey(
 	cssmKey.KeyHeader.BlobType = CSSM_KEYBLOB_REFERENCE;
 	cssmKey.KeyHeader.Format = CSSM_KEYBLOB_REF_FORMAT_INTEGER;
 	keyRefToCssmData(keyRef, cssmKey.KeyData, normAllocator);
-	secdebug("freeKey", "CSP addRefKey key %p keyData %p keyRef %p", 
+	secinfo("freeKey", "CSP addRefKey key %p keyData %p keyRef %p", 
 		&cssmKey, cssmKey.KeyData.Data, &binKey);
 }
 	
@@ -432,7 +432,7 @@ void AppleCSPSession::FreeKey(
 			StLock<Mutex> _(refKeyMapLock);
 			BinaryKey *binKey = lookupKeyRef(keyRef);
 			if(binKey != NULL) {
-				secdebug("freeKey", "CSP FreeKey key %p keyData %p binKey %p", 
+				secinfo("freeKey", "CSP FreeKey key %p keyData %p binKey %p", 
 					&KeyPtr, KeyPtr.KeyData.Data, binKey);
 				try {
 					refKeyMap.erase(keyRef);
@@ -444,7 +444,7 @@ void AppleCSPSession::FreeKey(
 				}
 			}
 			else {
-				secdebug("freeKey", "CSP freeKey unknown key");
+				secinfo("freeKey", "CSP freeKey unknown key");
 			}
 		}
 	}

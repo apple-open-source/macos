@@ -127,27 +127,20 @@ static bool SOSAccountUpdateNamedRing(SOSAccountRef account, CFStringRef ringNam
                                       SOSRingRef (^create)(CFStringRef ringName, CFErrorRef *error),
                                       SOSRingRef (^copyModified)(SOSRingRef existing, CFErrorRef *error)) {
     bool result = false;
+    SOSRingRef found = SOSAccountCopyRing(account, ringName, error);
     SOSRingRef newRing = NULL;
-    SOSRingRef found = (SOSRingRef) CFDictionaryGetValue(account->trusted_rings, ringName);
-    if (isSOSRing(found)) {
-        found = SOSRingCopyRing(found, error);
-    } else {
-        if (found) {
-            secerror("Non ring in ring table: %@, purging!", found);
-            CFDictionaryRemoveValue(account->trusted_rings, ringName);
-        }
+    if(!found) {
         found = create(ringName, error);
     }
-    
-    require_quiet(found, exit);
+    require_quiet(found, errOut);
     newRing = copyModified(found, error);
     CFReleaseNull(found);
 
-    require_quiet(newRing, exit);
+    require_quiet(newRing, errOut);
 
     result = SOSAccountHandleUpdateRing(account, newRing, true, error);
 
-exit:
+errOut:
     CFReleaseNull(found);
     CFReleaseNull(newRing);
     return result;
@@ -219,7 +212,7 @@ errOut:
     return result;
 }
 
-bool SOSAccountStartNewBackup(SOSAccountRef account, CFStringRef viewName, CFErrorRef *error)
+bool SOSAccountNewBKSBForView(SOSAccountRef account, CFStringRef viewName, CFErrorRef *error)
 {
     return SOSAccountWithBSKBForView(account, viewName, error, ^(SOSBackupSliceKeyBagRef bskb, CFErrorRef *error) {
         bool result = SOSAccountSetKeybagForViewBackupRing(account, viewName, bskb, error);
@@ -229,10 +222,11 @@ bool SOSAccountStartNewBackup(SOSAccountRef account, CFStringRef viewName, CFErr
 
 bool SOSAccountIsBackupRingEmpty(SOSAccountRef account, CFStringRef viewName) {
     CFStringRef backupRing = SOSBackupCopyRingNameForView(viewName);
-    SOSRingRef ring = SOSAccountGetRing(account, backupRing, NULL);
+    SOSRingRef ring = SOSAccountCopyRing(account, backupRing, NULL);
     CFReleaseNull(backupRing);
     int peercnt = 0;
     if(ring) peercnt = SOSRingCountPeers(ring);
+    CFReleaseNull(ring);
     return peercnt == 0;
 }
 
@@ -256,31 +250,29 @@ bool SOSAccountIsMyPeerInBackupAndCurrentInView(SOSAccountRef account, CFStringR
     bool result = false;
     CFErrorRef bsError = NULL;
     CFDataRef backupSliceData = NULL;
+    SOSRingRef ring = NULL;
     SOSBackupSliceKeyBagRef backupSlice = NULL;
     
-    require_quiet(SOSPeerInfoIsViewBackupEnabled(SOSAccountGetMyPeerInfo(account), viewname), exit);
+    require_quiet(SOSPeerInfoIsViewBackupEnabled(SOSAccountGetMyPeerInfo(account), viewname), errOut);
     
-    CFMutableDictionaryRef trusted_rings = SOSAccountGetRings(account, &bsError);
-    require_quiet(trusted_rings, exit);
-
     CFStringRef ringName = SOSBackupCopyRingNameForView(viewname);
-    SOSRingRef ring = (SOSRingRef)CFDictionaryGetValue(trusted_rings, ringName);
+    ring = SOSAccountCopyRing(account, ringName, &bsError);
     CFReleaseNull(ringName);
     
-    require_quiet(ring, exit);
+    require_quiet(ring, errOut);
     
     //grab the backup slice from the ring
     backupSliceData = SOSRingGetPayload(ring, &bsError);
-    require_quiet(backupSliceData, exit);
+    require_quiet(backupSliceData, errOut);
 
     backupSlice = SOSBackupSliceKeyBagCreateFromData(kCFAllocatorDefault, backupSliceData, &bsError);
-    require_quiet(backupSlice, exit);
+    require_quiet(backupSlice, errOut);
     
     CFSetRef peers = SOSBSKBGetPeers(backupSlice);
     SOSPeerInfoRef myPeer = SOSAccountGetMyPeerInfo(account);
     
     SOSPeerInfoRef myPeerInBSKB = (SOSPeerInfoRef) CFSetGetValue(peers, myPeer);
-    require_quiet(isSOSPeerInfo(myPeerInBSKB), exit);
+    require_quiet(isSOSPeerInfo(myPeerInBSKB), errOut);
     
     CFDataRef myBK = SOSPeerInfoCopyBackupKey(myPeer);
     CFDataRef myPeerInBSKBBK = SOSPeerInfoCopyBackupKey(myPeerInBSKB);
@@ -288,7 +280,9 @@ bool SOSAccountIsMyPeerInBackupAndCurrentInView(SOSAccountRef account, CFStringR
     CFReleaseNull(myBK);
     CFReleaseNull(myPeerInBSKBBK);
     
-exit:
+errOut:
+    CFReleaseNull(ring);
+
     if (bsError) {
         secnotice("backup", "Failed to find BKSB: %@, %@ (%@)", backupSliceData, backupSlice, bsError);
     }
@@ -300,34 +294,34 @@ bool SOSAccountIsPeerInBackupAndCurrentInView(SOSAccountRef account, SOSPeerInfo
     bool result = false;
     CFErrorRef bsError = NULL;
     CFDataRef backupSliceData = NULL;
+    SOSRingRef ring = NULL;
     SOSBackupSliceKeyBagRef backupSlice = NULL;
 
-    require_quiet(testPeer, exit);
-
-    CFMutableDictionaryRef trusted_rings = SOSAccountGetRings(account, &bsError);
-    require_quiet(trusted_rings, exit);
+    require_quiet(testPeer, errOut);
 
     CFStringRef ringName = SOSBackupCopyRingNameForView(viewname);
-    SOSRingRef ring = (SOSRingRef)CFDictionaryGetValue(trusted_rings, ringName);
+    ring = SOSAccountCopyRing(account, ringName, &bsError);
     CFReleaseNull(ringName);
     
-    require_quiet(ring, exit);
+    require_quiet(ring, errOut);
     
     //grab the backup slice from the ring
     backupSliceData = SOSRingGetPayload(ring, &bsError);
-    require_quiet(backupSliceData, exit);
+    require_quiet(backupSliceData, errOut);
 
     backupSlice = SOSBackupSliceKeyBagCreateFromData(kCFAllocatorDefault, backupSliceData, &bsError);
-    require_quiet(backupSlice, exit);
+    require_quiet(backupSlice, errOut);
     
     CFSetRef peers = SOSBSKBGetPeers(backupSlice);
     
     SOSPeerInfoRef peerInBSKB = (SOSPeerInfoRef) CFSetGetValue(peers, testPeer);
-    require_quiet(isSOSPeerInfo(peerInBSKB), exit);
+    require_quiet(isSOSPeerInfo(peerInBSKB), errOut);
 
     result = CFEqualSafe(testPeer, peerInBSKB);
     
-exit:
+errOut:
+    CFReleaseNull(ring);
+
     if (bsError) {
         secnotice("backup", "Failed to find BKSB: %@, %@ (%@)", backupSliceData, backupSlice, bsError);
     }
@@ -349,7 +343,7 @@ bool SOSAccountUpdateOurPeerInBackup(SOSAccountRef account, SOSRingRef oldRing, 
         }
     });
 
-    result = SOSAccountStartNewBackup(account, viewName, error);
+    result = SOSAccountNewBKSBForView(account, viewName, error);
 
 fail:
     CFReleaseNull(viewName);
@@ -359,11 +353,9 @@ fail:
 void SOSAccountForEachBackupRingName(SOSAccountRef account, void (^operation)(CFStringRef value)) {
     SOSPeerInfoRef myPeer = SOSAccountGetMyPeerInfo(account);
     if (myPeer) {
-        CFMutableSetRef myBackupViews = CFSetCreateMutableCopy(kCFAllocatorDefault, 0, SOSPeerInfoGetPermittedViews(myPeer));
+        CFSetRef allViews = SOSViewCopyViewSet(kViewSetAll); // All non virtual views.
 
-        CFSetRemoveValue(myBackupViews, kSOSViewKeychainV0);
-
-        CFSetForEach(myBackupViews, ^(const void *value) {
+        CFSetForEach(allViews, ^(const void *value) {
             CFStringRef viewName = asString(value, NULL);
 
             if (viewName) {
@@ -373,7 +365,7 @@ void SOSAccountForEachBackupRingName(SOSAccountRef account, void (^operation)(CF
             }
         });
 
-        CFReleaseNull(myBackupViews);
+        CFReleaseNull(allViews);
     }
 }
 
@@ -382,20 +374,24 @@ void SOSAccountForEachBackupView(SOSAccountRef account,  void (^operation)(const
     
     if (myPeer) {
         CFMutableSetRef myBackupViews = CFSetCreateMutableCopy(kCFAllocatorDefault, 0, SOSPeerInfoGetPermittedViews(myPeer));
-        
         CFSetRemoveValue(myBackupViews, kSOSViewKeychainV0);
-        
         CFSetForEach(myBackupViews, operation);
-        
         CFReleaseNull(myBackupViews);
     }
 }
 
-bool SOSAccountSetBackupPublicKey(SOSAccountRef account, CFDataRef backupKey, CFErrorRef *error)
+bool SOSAccountSetBackupPublicKey(SOSAccountTransactionRef aTxn, CFDataRef backupKey, CFErrorRef *error)
 {
+    SOSAccountRef account = aTxn->account;
+
     __block bool result = false;
 
-    secnotice("backup", "setting backup public key");
+    CFDataPerformWithHexString(backupKey, ^(CFStringRef backupKeyString) {
+        CFDataPerformWithHexString(account->backup_key, ^(CFStringRef oldBackupKey) {
+            secnotice("backup", "SetBackupPublic: %@ from %@", backupKeyString, oldBackupKey);
+        });
+    });
+
     require_quiet(SOSAccountIsInCircle(account, error), exit);
 
     if (CFEqualSafe(backupKey, account->backup_key))
@@ -403,13 +399,13 @@ bool SOSAccountSetBackupPublicKey(SOSAccountRef account, CFDataRef backupKey, CF
     
     CFRetainAssign(account->backup_key, backupKey);
 
-    SOSAccountEnsureBackupStarts(account);
+    account->circle_rings_retirements_need_attention = true;
 
     result = true;
     
 exit:
     if (!result) {
-        secnotice("backupkey", "Failed to setup backup public key: %@", error ? (CFTypeRef) *error : (CFTypeRef) CFSTR("No error space provided"));
+        secnotice("backupkey", "SetBackupPublic Failed: %@", error ? (CFTypeRef) *error : (CFTypeRef) CFSTR("No error space"));
     }
     return result;
 }
@@ -451,21 +447,23 @@ exit:
     return result;
 }
 
-bool SOSAccountRemoveBackupPublickey(SOSAccountRef account, CFErrorRef *error)
+bool SOSAccountRemoveBackupPublickey(SOSAccountTransactionRef aTxn, CFErrorRef *error)
 {
+    SOSAccountRef account = aTxn->account;
+
     __block bool result = false;
-    __block CFMutableArrayRef removals = NULL;
-    
+    __block CFArrayRef removals = NULL;
+
+    CFReleaseNull(account->backup_key);
+
     require_quiet(SOSAccountUpdatePeerInfo(account, CFSTR("Backup public key"), error,
                                            ^bool(SOSFullPeerInfoRef fpi, CFErrorRef *error) {
                                                return SOSFullPeerInfoUpdateBackupKey(fpi, NULL, error);
                                            }), exit);
-    
-    CFReleaseNull(account->backup_key);
-    
-    removals = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
-    CFArrayAppendValue(removals, SOSAccountGetMyPeerInfo(account));
-    
+
+    removals = CFArrayCreateForCFTypes(kCFAllocatorDefault,
+                                       SOSAccountGetMyPeerInfo(account), NULL);
+
     SOSAccountForEachBackupView(account, ^(const void *value) {
         CFStringRef viewName = (CFStringRef)value;
         result = SOSAccountWithBSKBAndPeerInfosForView(account, removals, viewName, error, ^(SOSBackupSliceKeyBagRef bskb, CFErrorRef *error) {
@@ -552,18 +550,14 @@ bool SOSAccountRemoveBackupPeers(SOSAccountRef account, CFArrayRef peers, CFErro
 }
 
 SOSBackupSliceKeyBagRef SOSAccountBackupSliceKeyBagForView(SOSAccountRef account, CFStringRef viewName, CFErrorRef* error){
-    CFMutableDictionaryRef trusted_rings = NULL;
     CFDataRef backupSliceData = NULL;
     CFStringRef ringName = NULL;
     SOSRingRef ring = NULL;
     SOSBackupSliceKeyBagRef bskb = NULL;
 
-    trusted_rings = SOSAccountGetRings(account, error);
-    require_action_quiet(trusted_rings, exit, secnotice("keybag", "failed to get trusted rings (%@)", *error));
-
     ringName = SOSBackupCopyRingNameForView(viewName);
 
-    ring = (SOSRingRef)CFDictionaryGetValue(trusted_rings, ringName);
+    ring = SOSAccountCopyRing(account, ringName, NULL);
     require_action_quiet(ring, exit, SOSCreateErrorWithFormat(kSOSErrorNoCircle, NULL, error, NULL, CFSTR("failed to get ring")));
 
     //grab the backup slice from the ring
@@ -573,8 +567,30 @@ SOSBackupSliceKeyBagRef SOSAccountBackupSliceKeyBagForView(SOSAccountRef account
     bskb = SOSBackupSliceKeyBagCreateFromData(kCFAllocatorDefault, backupSliceData, error);
 
 exit:
+    CFReleaseNull(ring);
     CFReleaseNull(ringName);
 
     return bskb;
+}
+
+bool SOSAccountIsLastBackupPeer(SOSAccountRef account, CFErrorRef *error) {
+    __block bool retval = false;
+    SOSPeerInfoRef pi = SOSAccountGetMyPeerInfo(account);
+    require_quiet(SOSPeerInfoHasBackupKey(pi), errOut);
+    SOSCircleRef circle = SOSAccountGetCircle(account, error);
+    require_quiet(SOSAccountIsInCircle(account, error), errOut);
+    require_action_quiet(SOSCircleCountValidSyncingPeers(circle, SOSAccountGetTrustedPublicCredential(account, error)) != 1, errOut, retval = true);
+    // We're in a circle with more than 1 ActiveValidPeers - are they in the backups?
+    SOSAccountForEachBackupView(account, ^(const void *value) {
+        CFStringRef viewname = (CFStringRef) value;
+        SOSBackupSliceKeyBagRef keybag = SOSAccountBackupSliceKeyBagForView(account, viewname, error);
+        require_quiet(keybag, inner_errOut);
+        retval |= ((SOSBSKBCountPeers(keybag) == 1) && (SOSBSKBPeerIsInKeyBag(keybag, pi)));
+    inner_errOut:
+        CFReleaseNull(keybag);
+    });
+
+errOut:
+    return retval;
 }
 

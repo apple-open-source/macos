@@ -558,7 +558,14 @@ mount_generic(char *special, char *fstype, char *opts, int nfsvers,
 		}
 		mapped_opts_buflen = strlen(opts_copy) + 1;
 		mapped_opts = malloc(mapped_opts_buflen);
+		if (mapped_opts == NULL) {
+			syslog(LOG_ERR, "Can't mount \"%s\" - out of memory",
+			       special);
+			free(opts_copy);
+			return (ENOMEM);
+		}
 		*mapped_opts = '\0';
+
 		opts = opts_copy;
 		while ((p = strsep(&opts, ",")) != NULL) {
 

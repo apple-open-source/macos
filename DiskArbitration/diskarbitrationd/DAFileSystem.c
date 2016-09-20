@@ -394,25 +394,30 @@ _DAFileSystemCopyNameErr:
 CFUUIDRef _DAFileSystemCreateUUIDFromString( CFAllocatorRef allocator, CFStringRef string )
 {
     CFDataRef data;
-    CFUUIDRef uuid = NULL;
+    CFUUIDRef uuid;
 
-    data = ___CFDataCreateFromString( allocator, string );
+    uuid = ___CFUUIDCreateFromString( allocator, string );
 
-    if ( data )
+    if ( uuid == NULL )
     {
-        if ( CFDataGetLength( data ) == 8 )
-        {
-            if ( *( ( UInt64 * ) CFDataGetBytePtr( data ) ) )
-            {
-                uuid = ___CFUUIDCreateFromName( allocator, __kDAFileSystemUUIDSpaceSHA1, data );
-            }
-            else
-            {
-                uuid = CFRetain( ___kCFUUIDNull );
-            }
-        }
+        data = ___CFDataCreateFromString( allocator, string );
 
-        CFRelease( data );
+        if ( data )
+        {
+            if ( CFDataGetLength( data ) == 8 )
+            {
+                if ( *( ( UInt64 * ) CFDataGetBytePtr( data ) ) )
+                {
+                    uuid = ___CFUUIDCreateFromName( allocator, __kDAFileSystemUUIDSpaceSHA1, data );
+                }
+                else
+                {
+                    uuid = CFRetain( ___kCFUUIDNull );
+                }
+            }
+
+            CFRelease( data );
+        }
     }
 
     return uuid;

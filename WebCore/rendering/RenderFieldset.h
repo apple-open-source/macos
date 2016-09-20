@@ -33,26 +33,26 @@ class HTMLFieldSetElement;
 
 class RenderFieldset final : public RenderBlockFlow {
 public:
-    RenderFieldset(HTMLFieldSetElement&, Ref<RenderStyle>&&);
+    RenderFieldset(HTMLFieldSetElement&, RenderStyle&&);
 
     enum FindLegendOption { IgnoreFloatingOrOutOfFlow, IncludeFloatingOrOutOfFlow };
-    RenderBox* findLegend(FindLegendOption = IgnoreFloatingOrOutOfFlow) const;
+    RenderBox* findLegend(FindLegendOption = IgnoreFloatingOrOutOfFlow);
 
     HTMLFieldSetElement& fieldSetElement() const { return downcast<HTMLFieldSetElement>(nodeForNonAnonymous()); }
 
 private:
     void element() const = delete;
 
-    virtual const char* renderName() const override { return "RenderFieldSet"; }
-    virtual bool isFieldset() const override { return true; }
+    const char* renderName() const override { return "RenderFieldSet"; }
+    bool isFieldset() const override { return true; }
 
-    virtual RenderObject* layoutSpecialExcludedChild(bool relayoutChildren) override;
+    RenderObject* layoutSpecialExcludedChild(bool relayoutChildren) override;
 
-    virtual void computePreferredLogicalWidths() override;
-    virtual bool avoidsFloats() const override { return true; }
+    void computePreferredLogicalWidths() override;
+    bool avoidsFloats() const override { return true; }
 
-    virtual void paintBoxDecorations(PaintInfo&, const LayoutPoint&) override;
-    virtual void paintMask(PaintInfo&, const LayoutPoint&) override;
+    void paintBoxDecorations(PaintInfo&, const LayoutPoint&) override;
+    void paintMask(PaintInfo&, const LayoutPoint&) override;
 };
 
 } // namespace WebCore

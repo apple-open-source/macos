@@ -2,7 +2,7 @@
  * Copyright (C) 2002, 2003 The Karbon Developers
  * Copyright (C) 2006 Alexander Kellett <lypanov@kde.org>
  * Copyright (C) 2006, 2007 Rob Buis <buis@kde.org>
- * Copyright (C) 2007, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2009, 2015 Apple Inc. All rights reserved.
  * Copyright (C) Research In Motion Limited 2010. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -32,41 +32,31 @@ namespace WebCore {
 
 class SVGPathElement;
 
-class SVGPathSegListBuilder : public SVGPathConsumer {
+class SVGPathSegListBuilder final : public SVGPathConsumer {
 public:
-    SVGPathSegListBuilder();
-
-    void setCurrentSVGPathElement(SVGPathElement* pathElement) { m_pathElement = pathElement; }
-    void setCurrentSVGPathSegList(SVGPathSegList& pathSegList) { m_pathSegList = &pathSegList; }
-    void setCurrentSVGPathSegRole(SVGPathSegRole pathSegRole) { m_pathSegRole = pathSegRole; }
+    SVGPathSegListBuilder(SVGPathElement&, SVGPathSegList&, SVGPathSegRole);
 
 private:
-    virtual void incrementPathSegmentCount() override { }
-    virtual bool continueConsuming() override { return true; }
-    virtual void cleanup() override
-    {
-        m_pathElement = nullptr;
-        m_pathSegList = nullptr;
-        m_pathSegRole = PathSegUndefinedRole;
-    }
+    void incrementPathSegmentCount() override { }
+    bool continueConsuming() override { return true; }
 
     // Used in UnalteredParsing/NormalizedParsing modes.
-    virtual void moveTo(const FloatPoint&, bool closed, PathCoordinateMode) override;
-    virtual void lineTo(const FloatPoint&, PathCoordinateMode) override;
-    virtual void curveToCubic(const FloatPoint&, const FloatPoint&, const FloatPoint&, PathCoordinateMode) override;
-    virtual void closePath() override;
+    void moveTo(const FloatPoint&, bool closed, PathCoordinateMode) override;
+    void lineTo(const FloatPoint&, PathCoordinateMode) override;
+    void curveToCubic(const FloatPoint&, const FloatPoint&, const FloatPoint&, PathCoordinateMode) override;
+    void closePath() override;
 
     // Only used in UnalteredParsing mode.
-    virtual void lineToHorizontal(float, PathCoordinateMode) override;
-    virtual void lineToVertical(float, PathCoordinateMode) override;
-    virtual void curveToCubicSmooth(const FloatPoint&, const FloatPoint&, PathCoordinateMode) override;
-    virtual void curveToQuadratic(const FloatPoint&, const FloatPoint&, PathCoordinateMode) override;
-    virtual void curveToQuadraticSmooth(const FloatPoint&, PathCoordinateMode) override;
-    virtual void arcTo(float, float, float, bool largeArcFlag, bool sweepFlag, const FloatPoint&, PathCoordinateMode) override;
+    void lineToHorizontal(float, PathCoordinateMode) override;
+    void lineToVertical(float, PathCoordinateMode) override;
+    void curveToCubicSmooth(const FloatPoint&, const FloatPoint&, PathCoordinateMode) override;
+    void curveToQuadratic(const FloatPoint&, const FloatPoint&, PathCoordinateMode) override;
+    void curveToQuadraticSmooth(const FloatPoint&, PathCoordinateMode) override;
+    void arcTo(float, float, float, bool largeArcFlag, bool sweepFlag, const FloatPoint&, PathCoordinateMode) override;
 
-    SVGPathElement* m_pathElement;
-    SVGPathSegList* m_pathSegList;
-    SVGPathSegRole m_pathSegRole;
+    SVGPathElement& m_pathElement;
+    SVGPathSegList& m_pathSegList;
+    SVGPathSegRole m_pathSegRole { PathSegUndefinedRole };
 };
 
 } // namespace WebCore

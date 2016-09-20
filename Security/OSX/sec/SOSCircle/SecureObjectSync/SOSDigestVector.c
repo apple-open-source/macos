@@ -33,31 +33,37 @@ CFStringRef kSOSDigestVectorErrorDomain = CFSTR("com.apple.security.sos.digestve
 
 /* SOSDigestVector code. */
 
-#define VECTOR_GROW(vector, count, capacity) \
-do { \
-    if ((count) > capacity) { \
-        capacity = ((capacity) + 16) * 3 / 2; \
-        if (capacity < (count)) \
-            capacity = (count); \
-        vector = reallocf((vector), sizeof(*(vector)) * capacity); \
-    } \
-} while (0)
+const size_t kMaxDVCapacity = (1024*1024L);  // roughly based on KVS limit, helps avoid integer overflow issues
 
-static void SOSDigestVectorEnsureCapacity(struct SOSDigestVector *dv, size_t count) {
-	VECTOR_GROW(dv->digest, count, dv->capacity);
-}
+static bool SOSDigestVectorEnsureCapacity(struct SOSDigestVector *dv, size_t count) {
+    // Note that capacity is the number of digests it can hold, not the size in bytes
+    // Already big enough.
+    if (count <= dv->capacity)
+        return true;
+    // Too big
+    if (count > kMaxDVCapacity) {
+        secerror("Requesting too much space for digest vectors: %ld", count);
+        return false;
+    }
 
-void SOSDigestVectorReplaceAtIndex(struct SOSDigestVector *dv, size_t ix, const uint8_t *digest)
-{
-	SOSDigestVectorEnsureCapacity(dv, ix + 1);
-	memcpy(dv->digest[ix], digest, SOSDigestSize);
-	dv->unsorted = true;
+    size_t capacity = (dv->capacity + 16) * 3 / 2;
+    size_t digestSize = sizeof(*(dv->digest));
+    if (capacity < count)
+        capacity = count;
+    dv->digest = reallocf(dv->digest, digestSize * capacity);
+    if (dv->digest == NULL) {
+        dv->count = 0;
+        secerror("reallocf failed requesting space for digest vectors: %ld (bytes)", digestSize * capacity);
+        return false;
+    }
+    dv->capacity = capacity;
+    return true;
 }
 
 static void SOSDigestVectorAppendOrdered(struct SOSDigestVector *dv, const uint8_t *digest)
 {
-	SOSDigestVectorEnsureCapacity(dv, dv->count + 1);
-	memcpy(dv->digest[dv->count++], digest, SOSDigestSize);
+	if (SOSDigestVectorEnsureCapacity(dv, dv->count + 1))
+        memcpy(dv->digest[dv->count++], digest, SOSDigestSize);
 }
 
 void SOSDigestVectorAppend(struct SOSDigestVector *dv, const uint8_t *digest)
@@ -71,9 +77,9 @@ static int SOSDigestCompare(const void *a, const void *b)
 	return memcmp(a, b, SOSDigestSize);
 }
 
-// Remove duplicates from sorted manifest using minimal memcpy() calls
-static __unused void SOSDigestVectorUnique(struct SOSDigestVector *dv) {
-    if (dv->count < 2)
+// Remove duplicates from sorted manifest using minimal memmove() calls
+static void SOSDigestVectorUnique(struct SOSDigestVector *dv) {
+    if (dv->count < 2 || dv->digest == NULL)
         return;
 
     const uint8_t *prev = dv->digest[0];
@@ -95,7 +101,7 @@ static __unused void SOSDigestVectorUnique(struct SOSDigestVector *dv) {
             // 1) Finish copy for current region up to previous element
             prev += SOSDigestSize;
             if (dest != source)
-                memcpy(dest, source, prev - source);
+                memmove(dest, source, prev - source);
             dest += prev - source;
             // 2) Skip remaining dupes
             if (cur < end) {
@@ -117,7 +123,7 @@ static __unused void SOSDigestVectorUnique(struct SOSDigestVector *dv) {
     if (source < end) {
         prev += SOSDigestSize;
         if (dest != source)
-            memcpy(dest, source, prev - source);
+            memmove(dest, source, prev - source);
         dest += prev - source;
     }
     dv->count = (dest - dv->digest[0]) / SOSDigestSize;
@@ -126,7 +132,7 @@ static __unused void SOSDigestVectorUnique(struct SOSDigestVector *dv) {
 
 void SOSDigestVectorSort(struct SOSDigestVector *dv)
 {
-    if (dv->unsorted) {
+    if (dv->unsorted && dv->digest) {
         qsort(dv->digest, dv->count, sizeof(*dv->digest), SOSDigestCompare);
         dv->unsorted = false;
         SOSDigestVectorUnique(dv);
@@ -162,8 +168,12 @@ bool SOSDigestVectorContains(struct SOSDigestVector *dv, const uint8_t *digest)
 
 size_t SOSDigestVectorIndexOfSorted(const struct SOSDigestVector *dv, const uint8_t *digest)
 {
-    const void *pos = bsearch(digest, dv->digest, dv->count, sizeof(*dv->digest), SOSDigestCompare);
-    return pos ? ((size_t)(pos - (void *)dv->digest)) / SOSDigestSize : ((size_t)-1);
+    if (dv->digest) {
+        const void *pos = bsearch(digest, dv->digest, dv->count, sizeof(*dv->digest), SOSDigestCompare);
+        return pos ? ((size_t)(pos - (void *)dv->digest)) / SOSDigestSize : ((size_t)-1);
+    } else {
+        return -1;
+    }
 }
 
 size_t SOSDigestVectorIndexOf(struct SOSDigestVector *dv, const uint8_t *digest)
@@ -185,7 +195,7 @@ void SOSDigestVectorFree(struct SOSDigestVector *dv)
 void SOSDigestVectorApplySorted(const struct SOSDigestVector *dv, SOSDigestVectorApplyBlock with)
 {
     bool stop = false;
-	for (size_t ix = 0; !stop && ix < dv->count; ++ix) {
+	for (size_t ix = 0; !stop && ix < dv->count && dv->digest; ++ix) {
         with(dv->digest[ix], &stop);
 	}
 }
@@ -206,7 +216,7 @@ void SOSDigestVectorApply(struct SOSDigestVector *dv, SOSDigestVectorApplyBlock 
 
 static size_t SOSIncrementAndSkipDupes(const uint8_t *digests, size_t count, const size_t ix) {
     size_t new_ix = ix;
-    if (new_ix < count) {
+    if (digests && new_ix < count) {
         while (++new_ix < count) {
             int delta = SOSDigestCompare(digests + ix * SOSDigestSize, digests + new_ix * SOSDigestSize);
             assert(delta <= 0);
@@ -237,8 +247,8 @@ void SOSDigestVectorAppendMultipleOrdered(struct SOSDigestVector *dv,
 void SOSDigestVectorAppendMultipleOrdered(struct SOSDigestVector *dv,
                                           size_t count, const uint8_t *digests) {
     if (count) {
-        SOSDigestVectorEnsureCapacity(dv, dv->count + count);
-        memcpy(dv->digest[dv->count], digests, count * SOSDigestSize);
+        if (SOSDigestVectorEnsureCapacity(dv, dv->count + count))
+            memcpy(dv->digest[dv->count], digests, count * SOSDigestSize);
         dv->count += count;
     }
 }
@@ -334,7 +344,7 @@ static void SOSDigestVectorAppendComplementAtIndex(size_t a_ix, const struct SOS
                                      struct SOSDigestVector *dvcomplement)
 {
     assert(a_ix <= dvA->count && b_ix <= dvB->count);
-    while (a_ix < dvA->count && b_ix < dvB->count) {
+    while (a_ix < dvA->count && b_ix < dvB->count && dvA->digest && dvB->digest) {
         int delta = SOSDigestCompare(dvA->digest[a_ix], dvB->digest[b_ix]);
         if (delta == 0) {
             a_ix = SOSDVINCRIX(dvA, a_ix);
@@ -346,7 +356,8 @@ static void SOSDigestVectorAppendComplementAtIndex(size_t a_ix, const struct SOS
             b_ix = SOSDVINCRIX(dvB, b_ix);
         }
     }
-    SOSDigestVectorAppendMultipleOrdered(dvcomplement, dvB->count - b_ix, dvB->digest[b_ix]);
+    if (dvB->digest)
+        SOSDigestVectorAppendMultipleOrdered(dvcomplement, dvB->count - b_ix, dvB->digest[b_ix]);
 }
 
 

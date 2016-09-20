@@ -118,8 +118,6 @@ private:
 	uint32 mSubservice;		// dynamic subservice of gGuidAppleSdCSPDL
 	PCSC::ReaderState mState; // reader state as of insertion
 	
-	TokenDaemon::Score mScore; // score of winning tokend
-
 private:
 	typedef map<uint32, Token *> SSIDMap;
 	static SSIDMap mSubservices;

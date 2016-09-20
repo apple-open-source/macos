@@ -26,7 +26,7 @@
 #include "identity_prefs.h"
 #include "identity_find.h"
 #include "keychain_utilities.h"
-#include "security.h"
+#include "security_tool.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -80,7 +80,7 @@ cleanup:
 	return result;
 }
 
-int
+static int
 do_get_identity_preference(const char *service,
 	CSSM_KEYUSE keyUsage,
 	Boolean printName,
@@ -136,7 +136,7 @@ do_get_identity_preference(const char *service,
 		digest.Data = sha1_hash;
 		if (SecDigestGetData(CSSM_ALGID_SHA1, &digest, &certData) == CSSM_OK) {
 			unsigned int i;
-			uint32 len = digest.Length;
+			size_t len = digest.Length;
 			uint8 *cp = digest.Data;
 			fprintf(stdout, "SHA-1 hash: ");
 			for(i=0; i<len; i++) {

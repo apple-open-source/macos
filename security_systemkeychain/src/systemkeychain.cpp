@@ -487,12 +487,33 @@ OSStatus createTokenProtectedKeychain(const char *kcName)
 	CSP csp(gGuidAppleCSPDL);
 	DL dl(gGuidAppleCSPDL);
 	
+    // resolve the keychain name into a full path, this triggers a heuristics in securityd to ensure
+    // the newly created keychain will be always of ver.512, this addresses <rdar://problem/26562099>
+    const char *kcPath = kcName; // fallback to kcName if unable to resolve
+    {
+        // unfortunately, we can't simply use realpath() as it requires the source path to exist, so:
+        char kcDir[PATH_MAX] = ".";
+        const char *kcFile = kcName;
+        if (strchr(kcName, '/') && strlen(kcName) < sizeof(kcDir)) {
+            strcpy(kcDir, kcName);
+            char *pathSep = strrchr(kcDir, '/');
+            *pathSep = '\0';
+            kcFile = pathSep + 1;
+        }
+        char resolvedPath[PATH_MAX];
+        if (realpath(kcDir, resolvedPath) && (strlen(resolvedPath) + 1 + strlen(kcFile) < sizeof(resolvedPath))) {
+            strcat(resolvedPath, "/");
+            strcat(resolvedPath, kcFile);
+            kcPath = resolvedPath;
+        }
+    }
+
 	// create the keychain, using appropriate credentials
-	Db srcdb(dl, kcName);
+	Db srcdb(dl, kcPath);
 	Key masterKey;
 
 	createMasterKey(csp, masterKey);
-	createAKeychain(kcName, NULL, csp, dl, srcdb, &masterKey);
+	createAKeychain(kcPath, NULL, csp, dl, srcdb, &masterKey);
 
 	// Turn the raw key into a reference key in the local csp with a NULL unwrap
 	CssmClient::Key publicEncryptionKey(csp, pubEncryptionKey, true);

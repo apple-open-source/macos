@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		151A1C141561C645000E93F0 /* sourceroute.c in Sources */ = {isa = PBXBuildFile; fileRef = 151A1C131561C645000E93F0 /* sourceroute.c */; };
 		722CFA1A0FF4274A0065AA57 /* atomicio.c in Sources */ = {isa = PBXBuildFile; fileRef = 722504220FF4250C00D7B031 /* atomicio.c */; };
-		722CFA1B0FF4274A0065AA57 /* atomicio.h in Sources */ = {isa = PBXBuildFile; fileRef = 722504230FF4250C00D7B031 /* atomicio.h */; };
 		722CFA1C0FF4274A0065AA57 /* netcat.c in Sources */ = {isa = PBXBuildFile; fileRef = 722504240FF4250C00D7B031 /* netcat.c */; };
 		722CFA1D0FF4274A0065AA57 /* socks.c in Sources */ = {isa = PBXBuildFile; fileRef = 722504250FF4250C00D7B031 /* socks.c */; };
 		722CFA260FF427780065AA57 /* nc.1 in Copy manpage */ = {isa = PBXBuildFile; fileRef = 722504290FF4251B00D7B031 /* nc.1 */; };
@@ -171,7 +170,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				722CFA1A0FF4274A0065AA57 /* atomicio.c in Sources */,
-				722CFA1B0FF4274A0065AA57 /* atomicio.h in Sources */,
 				722CFA1C0FF4274A0065AA57 /* netcat.c in Sources */,
 				151A1C141561C645000E93F0 /* sourceroute.c in Sources */,
 				722CFA1D0FF4274A0065AA57 /* socks.c in Sources */,
@@ -205,6 +203,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/entitlements.plist";
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = USE_SELECT;
 				HEADER_SEARCH_PATHS = (
 					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
@@ -218,6 +217,46 @@
 			};
 			name = Release;
 		};
+		7251259C1C8E108C00BE5853 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				CODE_SIGN_IDENTITY = "-";
+				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /usr/bin;
+				PREBINDING = NO;
+				PRODUCT_NAME = nc;
+				SDKROOT = macosx.internal;
+				SUPPORTED_PLATFORMS = "macosx iphoneos";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
+		7251259D1C8E108C00BE5853 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/entitlements.plist";
+				COPY_PHASE_STRIP = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = USE_SELECT;
+				HEADER_SEARCH_PATHS = (
+					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
+					"$(SDKROOT)/usr/local/include",
+				);
+				INSTALL_MODE_FLAG = "ugo-w,a+rX";
+				INSTALL_PATH = /usr/bin;
+				ONLY_ACTIVE_ARCH = NO;
+				PREBINDING = NO;
+				PRODUCT_NAME = nc;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -225,6 +264,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1DEB928B08733DD80010E9CD /* Release */,
+				7251259C1C8E108C00BE5853 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -233,6 +273,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				722CFA170FF4271C0065AA57 /* Release */,
+				7251259D1C8E108C00BE5853 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

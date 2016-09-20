@@ -45,6 +45,7 @@
 #include <runtime/JSLock.h>
 #include <runtime/PropertyNameArray.h>
 #include <wtf/Assertions.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/StringExtras.h>
 #include <wtf/Vector.h>
@@ -56,7 +57,7 @@ namespace Bindings {
 
 static String& globalExceptionString()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(String, exceptionStr, ());
+    static NeverDestroyed<String> exceptionStr;
     return exceptionStr;
 }
 
@@ -78,8 +79,8 @@ void CInstance::moveGlobalExceptionToExecState(ExecState* exec)
     globalExceptionString() = String();
 }
 
-CInstance::CInstance(NPObject* o, PassRefPtr<RootObject> rootObject)
-    : Instance(rootObject)
+CInstance::CInstance(NPObject* o, RefPtr<RootObject>&& rootObject)
+    : Instance(WTFMove(rootObject))
 {
     _object = _NPN_RetainObject(o);
     _class = 0;
@@ -154,7 +155,7 @@ JSValue CInstance::getMethod(ExecState* exec, PropertyName propertyName)
 JSValue CInstance::invokeMethod(ExecState* exec, RuntimeMethod* runtimeMethod)
 {
     if (!asObject(runtimeMethod)->inherits(CRuntimeMethod::info()))
-        return exec->vm().throwException(exec, createTypeError(exec, "Attempt to invoke non-plug-in method on plug-in object."));
+        return throwTypeError(exec, "Attempt to invoke non-plug-in method on plug-in object.");
 
     CMethod* method = static_cast<CMethod*>(runtimeMethod->method());
     ASSERT(method);

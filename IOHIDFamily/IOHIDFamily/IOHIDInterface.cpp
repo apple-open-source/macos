@@ -27,6 +27,7 @@
 #include "IOHIDDevice.h"
 #include "IOHIDElementPrivate.h"
 #include "OSStackRetain.h"
+#include "IOHIDDebug.h"
 
 //===========================================================================
 // IOHIDInterface class
@@ -109,7 +110,7 @@ IOReturn IOHIDInterface::message(UInt32 type,
     if (kIOMessageServiceIsRequestingClose == type) {
         result = messageClients(type, argument);
         if (result != kIOReturnSuccess) {
-            IOLog("IOHIDInterface unsuccessfully requested close of clients: 0x%08x\n", result);
+            HIDLogError("IOHIDInterface unsuccessfully requested close of clients: 0x%08x", result);
         }
         else {
             provider->close(this);
@@ -128,7 +129,24 @@ IOReturn IOHIDInterface::message(UInt32 type,
 
 bool IOHIDInterface::start( IOService * provider )
 {
-    OSNumber * number;
+#define SET_STR_FROM_PROP(key, val)         \
+    do {                                    \
+        OSObject *obj = copyProperty(key);  \
+        val = OSDynamicCast(OSString, obj); \
+        if (!val) {                         \
+            OSSafeRelease(obj);             \
+        }                                   \
+    } while (0)
+    
+#define SET_INT_FROM_PROP(key, val)                     \
+    do {                                                \
+        OSObject *obj = copyProperty(key);              \
+        OSNumber *num = OSDynamicCast(OSNumber, obj);   \
+        if (num) {                                      \
+            val = num->unsigned32BitValue();            \
+        }                                               \
+        OSSafeReleaseNULL(obj);                         \
+    } while (0)
     
     if ( !super::start(provider) )
         return false;
@@ -137,60 +155,27 @@ bool IOHIDInterface::start( IOService * provider )
 	
 	if ( !_owner )
 		return false;
-            
     
-    _transportString    = (OSString*)copyProperty(kIOHIDTransportKey);
-    _manufacturerString = (OSString*)copyProperty(kIOHIDManufacturerKey);
-    _productString      = (OSString*)copyProperty(kIOHIDProductKey);
-    _serialNumberString = (OSString*)copyProperty(kIOHIDSerialNumberKey);
-    if (_transportString && !OSDynamicCast(OSString, _transportString))
-        OSSafeReleaseNULL(_transportString);
-    if (_manufacturerString && !OSDynamicCast(OSString, _manufacturerString))
-        OSSafeReleaseNULL(_manufacturerString);
-    if (_productString && !OSDynamicCast(OSString, _productString))
-        OSSafeReleaseNULL(_productString);
-    if (_serialNumberString && !OSDynamicCast(OSString, _serialNumberString))
-        OSSafeReleaseNULL(_serialNumberString);
+    SET_STR_FROM_PROP(kIOHIDTransportKey, _transportString);
+    SET_STR_FROM_PROP(kIOHIDManufacturerKey, _manufacturerString);
+    SET_STR_FROM_PROP(kIOHIDProductKey, _productString);
+    SET_STR_FROM_PROP(kIOHIDSerialNumberKey, _serialNumberString);
     
-    number = (OSNumber*)copyProperty(kIOHIDLocationIDKey);
-    if ( OSDynamicCast(OSNumber, number) ) _locationID = number->unsigned32BitValue();
-    OSSafeReleaseNULL(number);
+    SET_INT_FROM_PROP(kIOHIDLocationIDKey, _locationID);
+    SET_INT_FROM_PROP(kIOHIDVendorIDKey, _vendorID);
+    SET_INT_FROM_PROP(kIOHIDVendorIDSourceKey, _vendorIDSource);
+    SET_INT_FROM_PROP(kIOHIDProductIDKey, _productID);
+    SET_INT_FROM_PROP(kIOHIDVersionNumberKey, _version);
+    SET_INT_FROM_PROP(kIOHIDCountryCodeKey, _countryCode);
+    SET_INT_FROM_PROP(kIOHIDMaxInputReportSizeKey, _maxReportSize[kIOHIDReportTypeInput]);
+    SET_INT_FROM_PROP(kIOHIDMaxOutputReportSizeKey, _maxReportSize[kIOHIDReportTypeOutput]);
+    SET_INT_FROM_PROP(kIOHIDMaxFeatureReportSizeKey, _maxReportSize[kIOHIDReportTypeFeature]);
+    SET_INT_FROM_PROP(kIOHIDReportIntervalKey, _reportInterval);
     
-    number = (OSNumber*)copyProperty(kIOHIDVendorIDKey);
-    if ( OSDynamicCast(OSNumber, number) ) _vendorID = number->unsigned32BitValue();
-    OSSafeReleaseNULL(number);
-
-    number = (OSNumber*)copyProperty(kIOHIDVendorIDSourceKey);
-    if ( OSDynamicCast(OSNumber, number) ) _vendorIDSource = number->unsigned32BitValue();
-    OSSafeReleaseNULL(number);
-
-    number = (OSNumber*)copyProperty(kIOHIDProductIDKey);
-    if ( OSDynamicCast(OSNumber, number) ) _productID = number->unsigned32BitValue();
-    OSSafeReleaseNULL(number);
-
-    number = (OSNumber*)copyProperty(kIOHIDVersionNumberKey);
-    if ( OSDynamicCast(OSNumber, number) ) _version = number->unsigned32BitValue();
-    OSSafeReleaseNULL(number);
-
-    number = (OSNumber*)copyProperty(kIOHIDCountryCodeKey);
-    if ( OSDynamicCast(OSNumber, number) ) _countryCode = number->unsigned32BitValue();
-    OSSafeReleaseNULL(number);
-
-    number = (OSNumber*)_owner->copyProperty(kIOHIDMaxInputReportSizeKey);
-    if ( OSDynamicCast(OSNumber, number) ) _maxReportSize[kIOHIDReportTypeInput] = number->unsigned32BitValue();
-    OSSafeReleaseNULL(number);
-
-    number = (OSNumber*)_owner->copyProperty(kIOHIDMaxOutputReportSizeKey);
-    if ( OSDynamicCast(OSNumber, number) ) _maxReportSize[kIOHIDReportTypeOutput] = number->unsigned32BitValue();
-    OSSafeReleaseNULL(number);
-
-    number = (OSNumber*)_owner->copyProperty(kIOHIDMaxFeatureReportSizeKey);
-    if ( OSDynamicCast(OSNumber, number) ) _maxReportSize[kIOHIDReportTypeFeature] = number->unsigned32BitValue();
-    OSSafeReleaseNULL(number);
-    
-    number = (OSNumber*)_owner->copyProperty(kIOHIDReportIntervalKey);
-    if ( OSDynamicCast(OSNumber, number) ) _reportInterval = number->unsigned32BitValue();
-    OSSafeReleaseNULL(number);
+    OSObject *object = _owner->copyProperty(kIOHIDPhysicalDeviceUniqueIDKey);
+    OSString *string = OSDynamicCast(OSString, object);
+    if ( string ) setProperty(kIOHIDPhysicalDeviceUniqueIDKey, string);
+    OSSafeReleaseNULL(object);
     
     registerService(kIOServiceAsynchronous);
     

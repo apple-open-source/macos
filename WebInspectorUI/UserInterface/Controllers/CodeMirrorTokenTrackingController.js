@@ -44,7 +44,7 @@ WebInspector.CodeMirrorTokenTrackingController = class CodeMirrorTokenTrackingCo
         this._previousTokenInfo = null;
         this._hoveredMarker = null;
 
-        var hidePopover = this._hidePopover.bind(this);
+        const hidePopover = this._hidePopover.bind(this);
 
         this._codeMirror.addKeyMap({
             "Cmd-Enter": this._handleCommandEnterKey.bind(this),
@@ -164,6 +164,8 @@ WebInspector.CodeMirrorTokenTrackingController = class CodeMirrorTokenTrackingCo
         // Nothing to do if we're trying to highlight the same range.
         if (this._codeMirrorMarkedText && this._codeMirrorMarkedText.className === this._classNameForHighlightedRange) {
             var highlightedRange = this._codeMirrorMarkedText.find();
+            if (!highlightedRange)
+                return;
             if (WebInspector.compareCodeMirrorPositions(highlightedRange.from, range.start) === 0 &&
                 WebInspector.compareCodeMirrorPositions(highlightedRange.to, range.end) === 0)
                 return;
@@ -260,7 +262,7 @@ WebInspector.CodeMirrorTokenTrackingController = class CodeMirrorTokenTrackingCo
 
     _handleCommandEnterKey(codeMirror)
     {
-        var tokenInfo = this._getTokenInfoForPosition(codeMirror.getCursor("head"));
+        const tokenInfo = this._getTokenInfoForPosition(codeMirror.getCursor("head"));
         tokenInfo.triggeredBy = WebInspector.CodeMirrorTokenTrackingController.TriggeredBy.Keyboard;
         this._processNewHoveredToken(tokenInfo);
     }
@@ -271,11 +273,9 @@ WebInspector.CodeMirrorTokenTrackingController = class CodeMirrorTokenTrackingCo
             return CodeMirror.Pass;
 
         if (this._delegate && typeof this._delegate.tokenTrackingControllerHighlightedRangeReleased === "function") {
-            var forceHidePopover = true;
+            const forceHidePopover = true;
             this._delegate.tokenTrackingControllerHighlightedRangeReleased(this, forceHidePopover);
         }
-
-        this._candidate = null;
     }
 
     _mouseEntered(event)
@@ -504,14 +504,16 @@ WebInspector.CodeMirrorTokenTrackingController = class CodeMirrorTokenTrackingCo
             return null;
 
         // Not object literal property names, but yes if an object literal shorthand property, which is a variable.
-        var state = tokenInfo.innerMode.state;
+        let state = tokenInfo.innerMode.state;
         if (isProperty && state.lexical && state.lexical.type === "}") {
             // Peek ahead to see if the next token is "}" or ",". If it is, we are a shorthand and therefore a variable.
-            var shorthand = false;
-            var mode = tokenInfo.innerMode.mode;
-            var position =  {line: tokenInfo.position.line, ch: tokenInfo.token.end};
+            let shorthand = false;
+            let mode = tokenInfo.innerMode.mode;
+            let position =  {line: tokenInfo.position.line, ch: tokenInfo.token.end};
             WebInspector.walkTokens(this._codeMirror, mode, position, function(tokenType, string) {
                 if (tokenType)
+                    return false;
+                if (string === "(")
                     return false;
                 if (string === "," || string === "}") {
                     shorthand = true;

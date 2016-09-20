@@ -1,7 +1,4 @@
 NULL =
-AUTOMAKE_OPTIONS = 
-ETAGS_ARGS = $(srcdir)/Makefile.am
-EXTRA_DIST = autogen-version.def copyright.def debug-opt.def homerc.def version.def version.texi
 
 SUBDIRS = isc
 
@@ -11,13 +8,16 @@ noinst_HEADERS =	\
 	ascii.h		\
 	audio.h		\
 	binio.h		\
+	declcond.h	\
 	gps.h		\
 	hopf6039.h	\
 	icom.h		\
 	ieee754io.h	\
+	intreswork.h	\
 	iosignal.h	\
 	l_stdlib.h	\
 	lib_strbuf.h	\
+	libntp.h	\
 	mbg_gps166.h	\
 	mx4200.h	\
 	ntif.h		\
@@ -28,13 +28,16 @@ noinst_HEADERS =	\
 	ntp_config.h	\
 	ntp_control.h	\
 	ntp_crypto.h	\
-	ntp_data_structures.h	\
+	ntp_prio_q.h	\
 	ntp_datum.h	\
 	ntp_debug.h	\
 	ntp_filegen.h	\
 	ntp_fp.h	\
 	ntp_if.h	\
+	ntp_intres.h	\
 	ntp_io.h	\
+	ntp_keyacc.h	\
+	ntp_libopts.h	\
 	ntp_lineedit.h	\
 	ntp_lists.h	\
 	ntp_machine.h	\
@@ -47,7 +50,6 @@ noinst_HEADERS =	\
 	ntp_request.h	\
 	ntp_rfc2553.h	\
 	ntp_select.h	\
-	ntp_sprintf.h	\
 	ntp_stdlib.h	\
 	ntp_string.h	\
 	ntp_syscall.h	\
@@ -55,16 +57,25 @@ noinst_HEADERS =	\
 	ntp_tty.h	\
 	ntp_types.h	\
 	ntp_unixtime.h	\
+	ntp_worker.h	\
+	ntp_workimpl.h	\
 	ntpd.h		\
 	ntpsim.h	\
 	parse.h		\
 	parse_conf.h	\
+	rc_cmdlength.h	\
 	recvbuff.h	\
 	refclock_atom.h	\
+	refidsmear.h	\
+	safecast.h	\
 	ssl_applink.c	\
 	timepps-SCO.h	\
 	timepps-Solaris.h	\
 	timepps-SunOS.h	\
+	timespecops.h	\
+	timetoa.h	\
+	timevalops.h	\
 	trimble.h	\
+	vint64ops.h	\
 	$(NULL)
 

@@ -37,6 +37,23 @@ static void gui_set_fg_color __ARGS((char_u *name));
 static void gui_set_bg_color __ARGS((char_u *name));
 static win_T *xy2win __ARGS((int x, int y));
 
+#if defined(UNIX) && !defined(MACOS_X) && !defined(__APPLE__)
+# define MAY_FORK
+static void gui_do_fork __ARGS((void));
+
+static int gui_read_child_pipe __ARGS((int fd));
+
+/* Return values for gui_read_child_pipe */
+enum {
+    GUI_CHILD_IO_ERROR,
+    GUI_CHILD_OK,
+    GUI_CHILD_FAILED
+};
+
+#endif /* MAY_FORK */
+
+static void gui_attempt_start __ARGS((void));
+
 static int can_update_cursor = TRUE; /* can display the cursor */
 
 /*
@@ -59,42 +76,53 @@ static int can_update_cursor = TRUE; /* can display the cursor */
 gui_start()
 {
     char_u	*old_term;
-#if defined(UNIX) && !defined(__BEOS__) && !defined(MACOS_X)
-# define MAY_FORK
-    int		dofork = TRUE;
-#endif
     static int	recursive = 0;
 
     old_term = vim_strsave(T_NAME);
 
-    /*
-     * Set_termname() will call gui_init() to start the GUI.
-     * Set the "starting" flag, to indicate that the GUI will start.
-     *
-     * We don't want to open the GUI shell until after we've read .gvimrc,
-     * otherwise we don't know what font we will use, and hence we don't know
-     * what size the shell should be.  So if there are errors in the .gvimrc
-     * file, they will have to go to the terminal: Set full_screen to FALSE.
-     * full_screen will be set to TRUE again by a successful termcapinit().
-     */
     settmode(TMODE_COOK);		/* stop RAW mode */
     if (full_screen)
 	cursor_on();			/* needed for ":gui" in .vimrc */
-    gui.starting = TRUE;
     full_screen = FALSE;
 
-#ifdef MAY_FORK
-    if (!gui.dofork || vim_strchr(p_go, GO_FORG) || recursive)
-	dofork = FALSE;
-#endif
     ++recursive;
 
-    termcapinit((char_u *)"builtin_gui");
-    gui.starting = recursive - 1;
+#ifdef MAY_FORK
+    /*
+     * Quit the current process and continue in the child.
+     * Makes "gvim file" disconnect from the shell it was started in.
+     * Don't do this when Vim was started with "-f" or the 'f' flag is present
+     * in 'guioptions'.
+     */
+    if (gui.dofork && !vim_strchr(p_go, GO_FORG) && recursive <= 1)
+    {
+	gui_do_fork();
+    }
+    else
+#endif
+    {
+#ifdef FEAT_GUI_GTK
+	/* If there is 'f' in 'guioptions' and specify -g argument,
+	 * gui_mch_init_check() was not called yet.  */
+	if (gui_mch_init_check() != OK)
+	    exit(1);
+#endif
+	gui_attempt_start();
+    }
 
     if (!gui.in_use)			/* failed to start GUI */
     {
-	termcapinit(old_term);		/* back to old term settings */
+	/* Back to old term settings
+	 *
+	 * FIXME: If we got here because a child process failed and flagged to
+	 * the parent to resume, and X11 is enabled with FEAT_TITLE, this will
+	 * hit an X11 I/O error and do a longjmp(), leaving recursive
+	 * permanently set to 1. This is probably not as big a problem as it
+	 * sounds, because gui_mch_init() in both gui_x11.c and gui_gtk_x11.c
+	 * return "OK" unconditionally, so it would be very difficult to
+	 * actually hit this case.
+	 */
+	termcapinit(old_term);
 	settmode(TMODE_RAW);		/* restart RAW mode */
 #ifdef FEAT_TITLE
 	set_title_defaults();		/* set 'title' and 'icon' again */
@@ -103,90 +131,6 @@ gui_start()
 
     vim_free(old_term);
 
-#if defined(FEAT_GUI_GTK) || defined(FEAT_GUI_X11)
-    if (gui.in_use)
-	/* Display error messages in a dialog now. */
-	display_errors();
-#endif
-
-#if defined(MAY_FORK) && !defined(__QNXNTO__)
-    /*
-     * Quit the current process and continue in the child.
-     * Makes "gvim file" disconnect from the shell it was started in.
-     * Don't do this when Vim was started with "-f" or the 'f' flag is present
-     * in 'guioptions'.
-     */
-    if (gui.in_use && dofork)
-    {
-	int	pipefd[2];	/* pipe between parent and child */
-	int	pipe_error;
-	char	dummy;
-	pid_t	pid = -1;
-
-	/* Setup a pipe between the child and the parent, so that the parent
-	 * knows when the child has done the setsid() call and is allowed to
-	 * exit. */
-	pipe_error = (pipe(pipefd) < 0);
-	pid = fork();
-	if (pid > 0)	    /* Parent */
-	{
-	    /* Give the child some time to do the setsid(), otherwise the
-	     * exit() may kill the child too (when starting gvim from inside a
-	     * gvim). */
-	    if (pipe_error)
-		ui_delay(300L, TRUE);
-	    else
-	    {
-		/* The read returns when the child closes the pipe (or when
-		 * the child dies for some reason). */
-		close(pipefd[1]);
-		ignored = (int)read(pipefd[0], &dummy, (size_t)1);
-		close(pipefd[0]);
-	    }
-
-	    /* When swapping screens we may need to go to the next line, e.g.,
-	     * after a hit-enter prompt and using ":gui". */
-	    if (newline_on_exit)
-		mch_errmsg("\r\n");
-
-	    /*
-	     * The parent must skip the normal exit() processing, the child
-	     * will do it.  For example, GTK messes up signals when exiting.
-	     */
-	    _exit(0);
-	}
-
-# if defined(HAVE_SETSID) || defined(HAVE_SETPGID)
-	/*
-	 * Change our process group.  On some systems/shells a CTRL-C in the
-	 * shell where Vim was started would otherwise kill gvim!
-	 */
-	if (pid == 0)	    /* child */
-#  if defined(HAVE_SETSID)
-	    (void)setsid();
-#  else
-	    (void)setpgid(0, 0);
-#  endif
-# endif
-	if (!pipe_error)
-	{
-	    close(pipefd[0]);
-	    close(pipefd[1]);
-	}
-
-# if defined(FEAT_GUI_GNOME) && defined(FEAT_SESSION)
-	/* Tell the session manager our new PID */
-	gui_mch_forked();
-# endif
-    }
-#else
-# if defined(__QNXNTO__)
-    if (gui.in_use && dofork)
-	procmgr_daemon(0, PROCMGR_DAEMON_KEEPUMASK | PROCMGR_DAEMON_NOCHDIR |
-		PROCMGR_DAEMON_NOCLOSE | PROCMGR_DAEMON_NODEVNULL);
-# endif
-#endif
-
 #ifdef FEAT_AUTOCMD
     /* If the GUI started successfully, trigger the GUIEnter event, otherwise
      * the GUIFailed event. */
@@ -194,9 +138,208 @@ gui_start()
     apply_autocmds(gui.in_use ? EVENT_GUIENTER : EVENT_GUIFAILED,
 						   NULL, NULL, FALSE, curbuf);
 #endif
-
     --recursive;
 }
+
+/*
+ * Set_termname() will call gui_init() to start the GUI.
+ * Set the "starting" flag, to indicate that the GUI will start.
+ *
+ * We don't want to open the GUI shell until after we've read .gvimrc,
+ * otherwise we don't know what font we will use, and hence we don't know
+ * what size the shell should be.  So if there are errors in the .gvimrc
+ * file, they will have to go to the terminal: Set full_screen to FALSE.
+ * full_screen will be set to TRUE again by a successful termcapinit().
+ */
+    static void
+gui_attempt_start()
+{
+    static int recursive = 0;
+
+    ++recursive;
+    gui.starting = TRUE;
+
+#ifdef FEAT_GUI_GTK
+    gui.event_time = GDK_CURRENT_TIME;
+#endif
+
+    termcapinit((char_u *)"builtin_gui");
+    gui.starting = recursive - 1;
+
+#if defined(FEAT_GUI_GTK) || defined(FEAT_GUI_X11)
+    if (gui.in_use)
+    {
+# ifdef FEAT_EVAL
+	Window	x11_window;
+	Display	*x11_display;
+
+	if (gui_get_x11_windis(&x11_window, &x11_display) == OK)
+	    set_vim_var_nr(VV_WINDOWID, (long)x11_window);
+# endif
+
+	/* Display error messages in a dialog now. */
+	display_errors();
+    }
+#endif
+    --recursive;
+}
+
+#ifdef MAY_FORK
+
+/* for waitpid() */
+# if defined(HAVE_SYS_WAIT_H) || defined(HAVE_UNION_WAIT)
+#  include <sys/wait.h>
+# endif
+
+/*
+ * Create a new process, by forking. In the child, start the GUI, and in
+ * the parent, exit.
+ *
+ * If something goes wrong, this will return with gui.in_use still set
+ * to FALSE, in which case the caller should continue execution without
+ * the GUI.
+ *
+ * If the child fails to start the GUI, then the child will exit and the
+ * parent will return. If the child succeeds, then the parent will exit
+ * and the child will return.
+ */
+    static void
+gui_do_fork()
+{
+    int		pipefd[2];	/* pipe between parent and child */
+    int		pipe_error;
+    int		status;
+    int		exit_status;
+    pid_t	pid = -1;
+
+    /* Setup a pipe between the child and the parent, so that the parent
+     * knows when the child has done the setsid() call and is allowed to
+     * exit. */
+    pipe_error = (pipe(pipefd) < 0);
+    pid = fork();
+    if (pid < 0)	    /* Fork error */
+    {
+	EMSG(_("E851: Failed to create a new process for the GUI"));
+	return;
+    }
+    else if (pid > 0)	    /* Parent */
+    {
+	/* Give the child some time to do the setsid(), otherwise the
+	 * exit() may kill the child too (when starting gvim from inside a
+	 * gvim). */
+	if (!pipe_error)
+	{
+	    /* The read returns when the child closes the pipe (or when
+	     * the child dies for some reason). */
+	    close(pipefd[1]);
+	    status = gui_read_child_pipe(pipefd[0]);
+	    if (status == GUI_CHILD_FAILED)
+	    {
+		/* The child failed to start the GUI, so the caller must
+		 * continue. There may be more error information written
+		 * to stderr by the child. */
+# ifdef __NeXT__
+		wait4(pid, &exit_status, 0, (struct rusage *)0);
+# else
+		waitpid(pid, &exit_status, 0);
+# endif
+		EMSG(_("E852: The child process failed to start the GUI"));
+		return;
+	    }
+	    else if (status == GUI_CHILD_IO_ERROR)
+	    {
+		pipe_error = TRUE;
+	    }
+	    /* else GUI_CHILD_OK: parent exit */
+	}
+
+	if (pipe_error)
+	    ui_delay(300L, TRUE);
+
+	/* When swapping screens we may need to go to the next line, e.g.,
+	 * after a hit-enter prompt and using ":gui". */
+	if (newline_on_exit)
+	    mch_errmsg("\r\n");
+
+	/*
+	 * The parent must skip the normal exit() processing, the child
+	 * will do it.  For example, GTK messes up signals when exiting.
+	 */
+	_exit(0);
+    }
+    /* Child */
+
+#ifdef FEAT_GUI_GTK
+    /* Call gtk_init_check() here after fork(). See gui_init_check(). */
+    if (gui_mch_init_check() != OK)
+	exit(1);
+#endif
+
+# if defined(HAVE_SETSID) || defined(HAVE_SETPGID)
+    /*
+     * Change our process group.  On some systems/shells a CTRL-C in the
+     * shell where Vim was started would otherwise kill gvim!
+     */
+#  if defined(HAVE_SETSID)
+    (void)setsid();
+#  else
+    (void)setpgid(0, 0);
+#  endif
+# endif
+    if (!pipe_error)
+	close(pipefd[0]);
+
+# if defined(FEAT_GUI_GNOME) && defined(FEAT_SESSION)
+    /* Tell the session manager our new PID */
+    gui_mch_forked();
+# endif
+
+    /* Try to start the GUI */
+    gui_attempt_start();
+
+    /* Notify the parent */
+    if (!pipe_error)
+    {
+	if (gui.in_use)
+	    write_eintr(pipefd[1], "ok", 3);
+	else
+	    write_eintr(pipefd[1], "fail", 5);
+	close(pipefd[1]);
+    }
+
+    /* If we failed to start the GUI, exit now. */
+    if (!gui.in_use)
+	exit(1);
+}
+
+/*
+ * Read from a pipe assumed to be connected to the child process (this
+ * function is called from the parent).
+ * Return GUI_CHILD_OK if the child successfully started the GUI,
+ * GUY_CHILD_FAILED if the child failed, or GUI_CHILD_IO_ERROR if there was
+ * some other error.
+ *
+ * The file descriptor will be closed before the function returns.
+ */
+    static int
+gui_read_child_pipe(int fd)
+{
+    long	bytes_read;
+#define READ_BUFFER_SIZE 10
+    char	buffer[READ_BUFFER_SIZE];
+
+    bytes_read = read_eintr(fd, buffer, READ_BUFFER_SIZE - 1);
+#undef READ_BUFFER_SIZE
+    close(fd);
+    if (bytes_read < 0)
+	return GUI_CHILD_IO_ERROR;
+    buffer[bytes_read] = NUL;
+    if (strcmp(buffer, "ok") == 0)
+	return GUI_CHILD_OK;
+    return GUI_CHILD_FAILED;
+}
+
+#endif /* MAY_FORK */
 
 /*
  * Call this when vim starts up, whether or not the GUI is started
@@ -260,6 +403,14 @@ gui_init_check()
     gui.fontset = NOFONTSET;
 # endif
 #endif
+#ifdef FEAT_MBYTE
+    gui.wide_font = NOFONT;
+# ifndef FEAT_GUI_GTK
+    gui.wide_bold_font = NOFONT;
+    gui.wide_ital_font = NOFONT;
+    gui.wide_boldital_font = NOFONT;
+# endif
+#endif
 
 #ifdef FEAT_MENU
 # ifndef FEAT_GUI_GTK
@@ -291,7 +442,17 @@ gui_init_check()
 #ifdef ALWAYS_USE_GUI
     result = OK;
 #else
+# ifdef FEAT_GUI_GTK
+    /*
+     * Note: Don't call gtk_init_check() before fork, it will be called after
+     * the fork. When calling it before fork, it make vim hang for a while.
+     * See gui_do_fork().
+     * Use a simpler check if the GUI window can probably be opened.
+     */
+    result = gui.dofork ? gui_mch_early_init_check() : gui_mch_init_check();
+# else
     result = gui_mch_init_check();
+# endif
 #endif
     return result;
 }
@@ -387,10 +548,14 @@ gui_init()
 		 && do_source((char_u *)USR_GVIMRC_FILE2, TRUE,
 							  DOSO_GVIMRC) == FAIL
 #endif
+#ifdef USR_GVIMRC_FILE3
+		 && do_source((char_u *)USR_GVIMRC_FILE3, TRUE,
+							  DOSO_GVIMRC) == FAIL
+#endif
 				)
 	    {
-#ifdef USR_GVIMRC_FILE3
-		(void)do_source((char_u *)USR_GVIMRC_FILE3, TRUE, DOSO_GVIMRC);
+#ifdef USR_GVIMRC_FILE4
+		(void)do_source((char_u *)USR_GVIMRC_FILE4, TRUE, DOSO_GVIMRC);
 #endif
 	    }
 
@@ -431,6 +596,10 @@ gui_init()
 #endif
 #ifdef USR_GVIMRC_FILE3
 			&& fullpathcmp((char_u *)USR_GVIMRC_FILE3,
+				     (char_u *)GVIMRC_FILE, FALSE) != FPC_SAME
+#endif
+#ifdef USR_GVIMRC_FILE4
+			&& fullpathcmp((char_u *)USR_GVIMRC_FILE4,
 				     (char_u *)GVIMRC_FILE, FALSE) != FPC_SAME
 #endif
 			)
@@ -623,11 +792,9 @@ error:
 gui_exit(rc)
     int		rc;
 {
-#ifndef __BEOS__
     /* don't free the fonts, it leads to a BUS error
      * richard@whitequeen.com Jul 99 */
     free_highlight_fonts();
-#endif
     gui.in_use = FALSE;
     gui_mch_exit(rc);
 }
@@ -668,7 +835,7 @@ gui_shell_closed()
 #endif
 
 /*
- * Set the font.  "font_list" is a a comma separated list of font names.  The
+ * Set the font.  "font_list" is a comma separated list of font names.  The
  * first font name that works is used.  If none is found, use the default
  * font.
  * If "fontset" is TRUE, the "font_list" is used as one name for the fontset.
@@ -747,13 +914,7 @@ gui_init_font(font_list, fontset)
 # endif
 	    gui_mch_set_font(gui.norm_font);
 #endif
-	gui_set_shellsize(FALSE,
-#ifdef MSWIN
-		TRUE
-#else
-		FALSE
-#endif
-		, RESIZE_BOTH);
+	gui_set_shellsize(FALSE, TRUE, RESIZE_BOTH);
     }
 
     return ret;
@@ -839,7 +1000,7 @@ gui_get_wide_font()
     }
 
     gui_mch_free_font(gui.wide_font);
-#ifdef FEAT_GUI_GTK
+# ifdef FEAT_GUI_GTK
     /* Avoid unnecessary overhead if 'guifontwide' is equal to 'guifont'. */
     if (font != NOFONT && gui.norm_font != NOFONT
 			 && pango_font_description_equal(font, gui.norm_font))
@@ -848,8 +1009,16 @@ gui_get_wide_font()
 	gui_mch_free_font(font);
     }
     else
-#endif
+# endif
 	gui.wide_font = font;
+# ifdef FEAT_GUI_MSWIN
+    gui_mch_wide_font_changed();
+# else
+    /*
+     * TODO: setup wide_bold_font, wide_ital_font and wide_boldital_font to
+     * support those fonts for 'guifontwide'.
+     */
+# endif
     return OK;
 }
 #endif
@@ -1392,7 +1561,7 @@ gui_set_shellsize(mustset, fit_to_display, direction)
     if (!gui.shell_created)
 	return;
 
-#ifdef MSWIN
+#if defined(MSWIN) || defined(FEAT_GUI_GTK)
     /* If not setting to a user specified size and maximized, calculate the
      * number of characters that fit in the maximized window. */
     if (!mustset && gui_mch_maximized())
@@ -1406,7 +1575,7 @@ gui_set_shellsize(mustset, fit_to_display, direction)
     base_height = gui_get_base_height();
     if (fit_to_display)
 	/* Remember the original window position. */
-	gui_mch_get_winpos(&x, &y);
+	(void)gui_mch_get_winpos(&x, &y);
 
 #ifdef USE_SUN_WORKSHOP
     if (!mustset && usingSunWorkShop
@@ -1451,6 +1620,7 @@ gui_set_shellsize(mustset, fit_to_display, direction)
 	    un_maximize = FALSE;
 #endif
     }
+    limit_screen_size();
     gui.num_cols = Columns;
     gui.num_rows = Rows;
 
@@ -2017,6 +2187,9 @@ gui_outstr_nowrap(s, len, flags, fg, bg, back)
     guicolor_T	sp_color;
 #if !defined(MSWIN16_FASTTEXT) && !defined(FEAT_GUI_GTK)
     GuiFont	font = NOFONT;
+# ifdef FEAT_MBYTE
+    GuiFont	wide_font = NOFONT;
+# endif
 # ifdef FEAT_XFONTSET
     GuiFontset	fontset = NOFONTSET;
 # endif
@@ -2106,6 +2279,23 @@ gui_outstr_nowrap(s, len, flags, fg, bg, back)
 	}
 	else
 	    font = gui.norm_font;
+
+# ifdef FEAT_MBYTE
+	/*
+	 * Choose correct wide_font by font.  wide_font should be set with font
+	 * at same time in above block.  But it will make many "ifdef" nasty
+	 * blocks.  So we do it here.
+	 */
+	if (font == gui.boldital_font && gui.wide_boldital_font)
+	    wide_font = gui.wide_boldital_font;
+	else if (font == gui.bold_font && gui.wide_bold_font)
+	    wide_font = gui.wide_bold_font;
+	else if (font == gui.ital_font && gui.wide_ital_font)
+	    wide_font = gui.wide_ital_font;
+	else if (font == gui.norm_font && gui.wide_font)
+	    wide_font = gui.wide_font;
+# endif
+
     }
 # ifdef FEAT_XFONTSET
     if (fontset != NOFONTSET)
@@ -2146,7 +2336,7 @@ gui_outstr_nowrap(s, len, flags, fg, bg, back)
 
     if (highlight_mask & (HL_INVERSE | HL_STANDOUT))
     {
-#if defined(AMIGA) || defined(RISCOS)
+#if defined(AMIGA)
 	gui_mch_set_colors(bg_color, fg_color);
 #else
 	gui_mch_set_fg_color(bg_color);
@@ -2155,7 +2345,7 @@ gui_outstr_nowrap(s, len, flags, fg, bg, back)
     }
     else
     {
-#if defined(AMIGA) || defined(RISCOS)
+#if defined(AMIGA)
 	gui_mch_set_colors(fg_color, bg_color);
 #else
 	gui_mch_set_fg_color(fg_color);
@@ -2183,7 +2373,7 @@ gui_outstr_nowrap(s, len, flags, fg, bg, back)
     if (back != 0 && ((draw_flags & DRAW_BOLD) || (highlight_mask & HL_ITALIC)))
 	return FAIL;
 
-#if defined(RISCOS) || defined(FEAT_GUI_GTK)
+#if defined(FEAT_GUI_GTK)
     /* If there's no italic font, then fake it.
      * For GTK2, we don't need a different font for italic style. */
     if (hl_mask_todo & HL_ITALIC)
@@ -2221,14 +2411,16 @@ gui_outstr_nowrap(s, len, flags, fg, bg, back)
     {
 	int	start;		/* index of bytes to be drawn */
 	int	cells;		/* cellwidth of bytes to be drawn */
-	int	thislen;	/* length of bytes to be drawin */
+	int	thislen;	/* length of bytes to be drawn */
 	int	cn;		/* cellwidth of current char */
 	int	i;		/* index of current char */
 	int	c;		/* current char value */
 	int	cl;		/* byte length of current char */
 	int	comping;	/* current char is composing */
 	int	scol = col;	/* screen column */
-	int	dowide;		/* use 'guifontwide' */
+	int	curr_wide;	/* use 'guifontwide' */
+	int	prev_wide = FALSE;
+	int	wide_changed;
 
 	/* Break the string at a composing character, it has to be drawn on
 	 * top of the previous character. */
@@ -2242,10 +2434,10 @@ gui_outstr_nowrap(s, len, flags, fg, bg, back)
 #  ifdef FEAT_XFONTSET
 		    && fontset == NOFONTSET
 #  endif
-		    && gui.wide_font != NOFONT)
-		dowide = TRUE;
+		    && wide_font != NOFONT)
+		curr_wide = TRUE;
 	    else
-		dowide = FALSE;
+		curr_wide = FALSE;
 	    comping = utf_iscomposing(c);
 	    if (!comping)	/* count cells from non-composing chars */
 		cells += cn;
@@ -2253,9 +2445,11 @@ gui_outstr_nowrap(s, len, flags, fg, bg, back)
 	    if (cl == 0)	/* hit end of string */
 		len = i + cl;	/* len must be wrong "cannot happen" */
 
-	    /* print the string so far if it's the last character or there is
+	    wide_changed = curr_wide != prev_wide;
+
+	    /* Print the string so far if it's the last character or there is
 	     * a composing character. */
-	    if (i + cl >= len || (comping && i > start) || dowide
+	    if (i + cl >= len || (comping && i > start) || wide_changed
 #  if defined(FEAT_GUI_X11)
 		    || (cn > 1
 #   ifdef FEAT_XFONTSET
@@ -2267,25 +2461,28 @@ gui_outstr_nowrap(s, len, flags, fg, bg, back)
 #  endif
 	       )
 	    {
-		if (comping || dowide)
+		if (comping || wide_changed)
 		    thislen = i - start;
 		else
 		    thislen = i - start + cl;
 		if (thislen > 0)
 		{
+		    if (prev_wide)
+			gui_mch_set_font(wide_font);
 		    gui_mch_draw_string(gui.row, scol, s + start, thislen,
 								  draw_flags);
+		    if (prev_wide)
+			gui_mch_set_font(font);
 		    start += thislen;
 		}
 		scol += cells;
 		cells = 0;
-		if (dowide)
+		/* Adjust to not draw a character which width is changed
+		 * against with last one. */
+		if (wide_changed && !comping)
 		{
-		    gui_mch_set_font(gui.wide_font);
-		    gui_mch_draw_string(gui.row, scol - cn,
-						   s + start, cl, draw_flags);
-		    gui_mch_set_font(font);
-		    start += cl;
+		    scol -= cn;
+		    cl = 0;
 		}
 
 #  if defined(FEAT_GUI_X11)
@@ -2295,7 +2492,7 @@ gui_outstr_nowrap(s, len, flags, fg, bg, back)
 #   ifdef FEAT_XFONTSET
 			&& fontset == NOFONTSET
 #   endif
-			&& !dowide)
+			&& !wide_changed)
 		    gui_mch_draw_string(gui.row, scol - 1, (char_u *)" ",
 							       1, draw_flags);
 #  endif
@@ -2313,6 +2510,7 @@ gui_outstr_nowrap(s, len, flags, fg, bg, back)
 #  endif
 		start = i + cl;
 	    }
+	    prev_wide = curr_wide;
 	}
 	/* The stuff below assumes "len" is the length in screen columns. */
 	len = scol - col;
@@ -2352,7 +2550,7 @@ gui_outstr_nowrap(s, len, flags, fg, bg, back)
     if (draw_sign)
 	/* Draw the sign on top of the spaces. */
 	gui_mch_drawsign(gui.row, col, gui.highlight_mask);
-# if defined(FEAT_NETBEANS_INTG) && (defined(FEAT_GUI_MOTIF) \
+# if defined(FEAT_NETBEANS_INTG) && (defined(FEAT_GUI_X11) \
 	|| defined(FEAT_GUI_GTK) || defined(FEAT_GUI_W32))
     if (multi_sign)
 	netbeans_draw_multisign_indicator(gui.row);
@@ -2934,11 +3132,9 @@ button_set:
      */
     if (!mouse_has(checkfor) || checkfor == MOUSE_COMMAND)
     {
-#ifdef FEAT_VISUAL
 	/* Don't do modeless selection in Visual mode. */
 	if (checkfor != MOUSE_NONEF && VIsual_active && (State & NORMAL))
 	    return;
-#endif
 
 	/*
 	 * When 'mousemodel' is "popup", shift-left is translated to right.
@@ -2975,26 +3171,11 @@ button_set:
 	    did_clip = TRUE;
 	}
 	/* Allow the left button to start the selection */
-	else if (button ==
-# ifdef RISCOS
-		/* Only start a drag on a drag event. Otherwise
-		 * we don't get a release event. */
-		    MOUSE_DRAG
-# else
-		    MOUSE_LEFT
-# endif
-				)
+	else if (button == MOUSE_LEFT)
 	{
 	    clip_start_selection(X_2_COL(x), Y_2_ROW(y), repeated_click);
 	    did_clip = TRUE;
 	}
-# ifdef RISCOS
-	else if (button == MOUSE_LEFT)
-	{
-	    clip_clear_selection();
-	    did_clip = TRUE;
-	}
-# endif
 
 	/* Always allow pasting */
 	if (button != MOUSE_MIDDLE)
@@ -3008,7 +3189,7 @@ button_set:
     }
 
     if (clip_star.state != SELECT_CLEARED && !did_clip)
-	clip_clear_selection();
+	clip_clear_selection(&clip_star);
 #endif
 
     /* Don't put events in the input queue now. */
@@ -3738,7 +3919,7 @@ gui_drag_scrollbar(sb, value, still_dragging)
 	gui.dragged_sb = SBAR_NONE;
 #ifdef FEAT_GUI_GTK
 	/* Keep the "dragged_wp" value until after the scrolling, for when the
-	 * moust button is released.  GTK2 doesn't send the button-up event. */
+	 * mouse button is released.  GTK2 doesn't send the button-up event. */
 	gui.dragged_wp = NULL;
 #endif
     }
@@ -4893,7 +5074,7 @@ display_errors()
 		if (STRLEN(p) > 2000)
 		    STRCPY(p + 2000 - 14, "...(truncated)");
 		(void)do_dialog(VIM_ERROR, (char_u *)_("Error"),
-					      p, (char_u *)_("&Ok"), 1, NULL);
+				       p, (char_u *)_("&Ok"), 1, NULL, FALSE);
 		break;
 	    }
 	ga_clear(&error_ga);
@@ -5171,7 +5352,7 @@ gui_do_findrepl(flags, find_text, repl_text, down)
 	    }
 	    else
 		MSG(_("No match at cursor, finding next"));
-	    vim_free(regmatch.regprog);
+	    vim_regfree(regmatch.regprog);
 	}
     }
 
@@ -5185,7 +5366,7 @@ gui_do_findrepl(flags, find_text, repl_text, down)
     {
 	/* Search for the next match. */
 	i = msg_scroll;
-	do_search(NULL, down ? '/' : '?', ga.ga_data, 1L,
+	(void)do_search(NULL, down ? '/' : '?', ga.ga_data, 1L,
 					      SEARCH_MSG + SEARCH_MARK, NULL);
 	msg_scroll = i;	    /* don't let an error message set msg_scroll */
     }

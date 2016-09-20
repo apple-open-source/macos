@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/yi.xml
@@ -21,7 +21,6 @@ yi{
         arc{"אַראַמיש"}
         as{"אַסאַמיש"}
         az{"אַזערביידזשאַניש"}
-        azb{"דרום אַזערביידזשאַניש"}
         ban{"באַלינעזיש"}
         bar{"בײַעריש"}
         be{"בעלאַרוסיש"}
@@ -46,7 +45,6 @@ yi{
         enm{"מיטל ענגליש"}
         eo{"עספּעראַנטא"}
         es{"שפּאַניש"}
-        es_ES{"שפּאַניש (ES)"}
         et{"עסטיש"}
         eu{"באַסקיש"}
         fa{"פּערסיש"}
@@ -143,8 +141,8 @@ yi{
         sux{"סומעריש"}
         sv{"שוועדיש"}
         sw{"סוואַהיליש"}
+        sw_CD{"קאנגא־סוואַהיליש"}
         swb{"קאמאריש"}
-        swc{"קאנגא־סוואַהיליש"}
         szl{"שלעזיש"}
         ta{"טאַמיל"}
         tig{"טיגרע"}
@@ -171,9 +169,15 @@ yi{
         Cyrl{"ציריליש"}
         Deva{"דעוואַנאַגאַרי"}
         Grek{"גריכיש"}
+        Hebr{"Hebr"}
         Latn{"גַלחיש"}
     }
-    Version{"2.1.7.41"}
+    Types{
+        calendar{
+            gregorian{"גרעגארישער קאַלענדאַר"}
+        }
+    }
+    Version{"2.1.23.7"}
     codePatterns{
         language{"שפראַך: {0}"}
         script{"שריפֿט: {0}"}

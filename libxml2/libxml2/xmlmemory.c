@@ -218,7 +218,7 @@ xmlMallocLoc(size_t size, const char * file, int line)
 
 /**
  * xmlMallocAtomicLoc:
- * @size:  an unsigned int specifying the size in bytes to allocate.
+ * @size:  an unsigned int specifying the size in byte to allocate.
  * @file:  the file name or NULL
  * @line:  the line number
  *
@@ -562,7 +562,12 @@ xmlMemoryStrdup(const char *str) {
 
 int
 xmlMemUsed(void) {
-     return(debugMemSize);
+    int res;
+
+    xmlMutexLock(xmlMemMutex);
+    res = debugMemSize;
+    xmlMutexUnlock(xmlMemMutex);
+    return(res);
 }
 
 /**
@@ -575,7 +580,12 @@ xmlMemUsed(void) {
 
 int
 xmlMemBlocks(void) {
-     return(debugMemBlocks);
+    int res;
+
+    xmlMutexLock(xmlMemMutex);
+    res = debugMemBlocks;
+    xmlMutexUnlock(xmlMemMutex);
+    return(res);
 }
 
 #ifdef MEM_LIST

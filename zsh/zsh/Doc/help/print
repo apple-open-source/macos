@@ -1,5 +1,5 @@
 print [ -abcDilmnNoOpPrsSz ] [ -u n ] [ -f format ] [ -C cols ]
-      [ -R [ -en ]] [ arg ... ]
+      [ -xX tab-stop ] [ -R [ -en ]] [ arg ... ]
        With  the  `-f' option the arguments are printed as described by
        printf.  With no flags or with the flag `-', the  arguments  are
        printed  on  the  standard output as described by echo, with the
@@ -73,6 +73,30 @@ print [ -abcDilmnNoOpPrsSz ] [ -u n ] [ -f format ] [ -C cols ]
               active.
 
        -u n   Print the arguments to file descriptor n.
+
+       -x tab-stop
+              Expand leading tabs on each line of output in the printed
+              string  assuming  a  tab  stop every tab-stop characters.
+              This is appropriate  for  formatting  code  that  may  be
+              indented  with tabs.  Note that leading tabs of any argu-
+              ment to print, not just the first, are expanded, even  if
+              print  is  using spaces to separate arguments (the column
+              count is maintained across arguments but may be incorrect
+              on output owing to previous unexpanded tabs).
+
+              The  start of the output of each print command is assumed
+              to be aligned with a tab stop.  Widths of multibyte char-
+              acters  are handled if the option MULTIBYTE is in effect.
+              This option is ignored if other formatting options are in
+              effect,  namely  column  alignment or printf style, or if
+              output is to a special location such as shell history  or
+              the command line editor.
+
+       -X tab-stop
+              This  is  similar  to  -x,  except  that  all tabs in the
+              printed string are expanded.  This is appropriate if tabs
+              in  the  arguments are being used to produce a table for-
+              mat.
 
        -z     Push the arguments onto the editing buffer  stack,  sepa-
               rated by spaces.

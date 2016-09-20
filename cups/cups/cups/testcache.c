@@ -1,6 +1,4 @@
 /*
- * "$Id: testcache.c 11834 2014-04-24 15:05:02Z msweet $"
- *
  * PPD cache testing program for CUPS.
  *
  * Copyright 2009-2014 by Apple Inc.
@@ -91,8 +89,3 @@ main(int  argc,				/* I - Number of command-line args */
 
   return (0);
 }
-
-
-/*
- * End of "$Id: testcache.c 11834 2014-04-24 15:05:02Z msweet $".
- */

@@ -25,6 +25,7 @@
  */
 
 [
+    ImplicitThis,
     CheckSecurity,
     JSCustomDefineOwnProperty,
     CustomDeleteProperty,
@@ -34,34 +35,32 @@
     JSCustomMarkFunction,
     JSCustomToNativeObject,
     CustomPutFunction,
-    EventTarget,
-    JSGenerateToNativeObject,
-    ReplaceableConstructor,
     JSLegacyParent=JSDOMWindowBase,
     InterfaceName=Window,
-] interface DOMWindow {
+    ExportMacro=WEBCORE_EXPORT,
+] interface DOMWindow : EventTarget {
     // DOM Level 0
     [Replaceable] readonly attribute Screen screen;
-    [Replaceable, DoNotCheckSecurityOnGetter] readonly attribute History history;
+    readonly attribute History history;
     [Replaceable] readonly attribute BarProp locationbar;
     [Replaceable] readonly attribute BarProp menubar;
     [Replaceable] readonly attribute BarProp personalbar;
     [Replaceable] readonly attribute BarProp scrollbars;
     [Replaceable] readonly attribute BarProp statusbar;
     [Replaceable] readonly attribute BarProp toolbar;
-    [Replaceable] readonly attribute Navigator navigator;
+    readonly attribute Navigator navigator;
     [Replaceable] readonly attribute Navigator clientInformation;
     readonly attribute Crypto crypto;
-    [DoNotCheckSecurity, CustomSetter] attribute Location location;
+    [DoNotCheckSecurity, CustomSetter, Unforgeable] attribute Location location;
     [Replaceable, CustomGetter] readonly attribute Event event;
 
     DOMSelection getSelection();
 
     [CheckSecurityForNode] readonly attribute Element frameElement;
 
-    [DoNotCheckSecurity, CallWith=ScriptExecutionContext, ForwardDeclareInHeader] void focus();
+    [DoNotCheckSecurity, CallWith=CallerWindow, ForwardDeclareInHeader] void focus();
     [DoNotCheckSecurity, ForwardDeclareInHeader] void blur();
-    [DoNotCheckSecurity, CallWith=ScriptExecutionContext, ForwardDeclareInHeader] void close();
+    [DoNotCheckSecurity, CallWith=CallerDocument, ForwardDeclareInHeader] void close();
 
     void print();
     void stop();
@@ -74,18 +73,19 @@
                                        optional any dialogArgs,
                                        optional DOMString featureArgs);
 
-    void alert([Default=Undefined] optional DOMString message);
-    boolean confirm([Default=Undefined] optional DOMString message);
-    [TreatReturnedNullStringAs=Null] DOMString prompt([Default=Undefined] optional DOMString message,
-                                                [TreatNullAs=NullString, TreatUndefinedAs=NullString,Default=Undefined] optional DOMString defaultValue);
+    // FIXME: Using "undefined" as default parameter value is wrong.
+    void alert(optional DOMString message = "undefined");
+    boolean confirm(optional DOMString message = "undefined");
+    DOMString? prompt(optional DOMString message = "undefined", optional DOMString? defaultValue = null);
 
-    boolean find([Default=Undefined] optional DOMString string,
-                 [Default=Undefined] optional boolean caseSensitive,
-                 [Default=Undefined] optional boolean backwards,
-                 [Default=Undefined] optional boolean wrap,
-                 [Default=Undefined] optional boolean wholeWord,
-                 [Default=Undefined] optional boolean searchInFrames,
-                 [Default=Undefined] optional boolean showDialog);
+    // FIXME: Using "undefined" as default parameter value is wrong.
+    boolean find(optional DOMString string = "undefined",
+                 optional boolean caseSensitive = false,
+                 optional boolean backwards = false,
+                 optional boolean wrap = false,
+                 optional boolean wholeWord = false,
+                 optional boolean searchInFrames = false,
+                 optional boolean showDialog = false);
 
     [Replaceable] readonly attribute  boolean offscreenBuffering;
 
@@ -102,13 +102,20 @@
     readonly attribute long pageXOffset;
     readonly attribute long pageYOffset;
 
-    void scrollBy([Default=Undefined] optional long x, [Default=Undefined] optional long y);
-    void scrollTo([Default=Undefined] optional long x, [Default=Undefined] optional long y);
-    void scroll([Default=Undefined] optional long x, [Default=Undefined] optional long y);
-    void moveBy([Default=Undefined] optional unrestricted float x, [Default=Undefined] optional unrestricted float y); // FIXME: this should take longs not floats.
-    void moveTo([Default=Undefined] optional unrestricted float x, [Default=Undefined] optional unrestricted float y); // FIXME: this should take longs not floats.
-    void resizeBy([Default=Undefined] optional unrestricted float x, [Default=Undefined] optional unrestricted float y); // FIXME: this should take longs not floats.
-    void resizeTo([Default=Undefined] optional unrestricted float width, [Default=Undefined] optional unrestricted float height); // FIXME: this should take longs not floats.
+    void scrollBy(unrestricted double x, unrestricted double y);
+    void scrollTo(unrestricted double x, unrestricted double y);
+    [ImplementedAs=scrollTo] void scroll(unrestricted double x, unrestricted double y);
+
+#if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
+    void scrollBy(optional ScrollToOptions option);
+    void scrollTo(optional ScrollToOptions options);
+    [ImplementedAs=scrollTo] void scroll(optional ScrollToOptions options);
+#endif
+
+    void moveBy(optional unrestricted float x = NaN, optional unrestricted float y = NaN); // FIXME: this should take longs not floats.
+    void moveTo(optional unrestricted float x = NaN, optional unrestricted float y = NaN); // FIXME: this should take longs not floats.
+    void resizeBy(optional unrestricted float x = NaN, optional unrestricted float y = NaN); // FIXME: this should take longs not floats.
+    void resizeTo(optional unrestricted float width = NaN, optional unrestricted float height = NaN); // FIXME: this should take longs not floats.
 
     [DoNotCheckSecurity, ForwardDeclareInHeader] readonly attribute boolean closed;
 
@@ -125,15 +132,15 @@
 
     // Self referential attributes
     [Replaceable, DoNotCheckSecurityOnGetter] readonly attribute DOMWindow self;
-    [DoNotCheckSecurity] readonly attribute DOMWindow window;
+    [DoNotCheckSecurity, Unforgeable] readonly attribute DOMWindow window;
     [Replaceable, DoNotCheckSecurityOnGetter] readonly attribute  DOMWindow frames;
 
     [Replaceable, DoNotCheckSecurityOnGetter] readonly attribute DOMWindow opener;
     [Replaceable, DoNotCheckSecurityOnGetter] readonly attribute DOMWindow parent;
-    [DoNotCheckSecurityOnGetter] readonly attribute DOMWindow top;
+    [DoNotCheckSecurityOnGetter, Unforgeable] readonly attribute DOMWindow top;
 
     // DOM Level 2 AbstractView Interface
-    readonly attribute Document document;
+    [Unforgeable] readonly attribute Document document;
 
     // CSSOM View Module
     MediaQueryList matchMedia(DOMString query);
@@ -142,21 +149,19 @@
     readonly attribute StyleMedia styleMedia;
 
     // DOM Level 2 Style Interface
-    CSSStyleDeclaration getComputedStyle([Default=Undefined] optional Element element,
-                                                              [TreatNullAs=NullString, TreatUndefinedAs=NullString,Default=Undefined] optional DOMString pseudoElement);
+    CSSStyleDeclaration getComputedStyle(optional Element? element = null, optional DOMString? pseudoElement = null);
 
     // WebKit extensions
 #if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
-    CSSRuleList getMatchedCSSRules([Default=Undefined] optional Element element,
-                                   [TreatNullAs=NullString, TreatUndefinedAs=NullString,Default=Undefined] optional DOMString pseudoElement);
+    CSSRuleList getMatchedCSSRules(optional Element? element = null, optional DOMString? pseudoElement = null);
 #endif
 
     [Replaceable] readonly attribute unrestricted double devicePixelRatio;
     
-    WebKitPoint webkitConvertPointFromPageToNode([Default=Undefined] optional Node node, 
-                                                 [Default=Undefined] optional WebKitPoint p);
-    WebKitPoint webkitConvertPointFromNodeToPage([Default=Undefined] optional Node node, 
-                                                 [Default=Undefined] optional WebKitPoint p);
+    WebKitPoint webkitConvertPointFromPageToNode(optional Node? node = null,
+                                                 optional WebKitPoint? p = null);
+    WebKitPoint webkitConvertPointFromNodeToPage(optional Node? node = null,
+                                                 optional WebKitPoint? p = null);
 
     readonly attribute DOMApplicationCache applicationCache;
 
@@ -184,44 +189,20 @@
     [Conditional=REQUEST_ANIMATION_FRAME, ImplementedAs=cancelAnimationFrame] void webkitCancelAnimationFrame(long id);
     [Conditional=REQUEST_ANIMATION_FRAME, ImplementedAs=cancelAnimationFrame] void webkitCancelRequestAnimationFrame(long id); // This is a deprecated alias for webkitCancelAnimationFrame(). Remove this when removing vendor prefix.
 
-    [Replaceable] readonly attribute DOMWindowCSS CSS;
-
-    // EventTarget interface
-    [Custom] void addEventListener(DOMString type, EventListener listener, optional boolean useCapture);
-    [Custom] void removeEventListener(DOMString type, EventListener listener, optional boolean useCapture);
-    [RaisesException] boolean dispatchEvent(Event event);
-
     void captureEvents(/*in long eventFlags*/);
     void releaseEvents(/*in long eventFlags*/);
 
 #if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
     // Additional constructors.
     [CustomGetter, CustomConstructor] attribute HTMLImageElementNamedConstructor Image; // Usable with new operator
-
-    // Mozilla has a separate XMLDocument object for XML documents.
-    // We just use Document for this.
-    attribute DocumentConstructor XMLDocument;
-
-    [Conditional=IOS_TOUCH_EVENTS, CustomGetter] attribute TouchConstructor Touch; // Usable with the new operator
-    [Conditional=IOS_TOUCH_EVENTS, CustomGetter] attribute TouchListConstructor TouchList; // Usable with the new operator
+    attribute DOMTokenListConstructor DOMSettableTokenList; // Map DOMSettableTokenList to DOMTokenList for backward compatibility.
 
     attribute DOMURLConstructor webkitURL; // FIXME: deprecate this.
     attribute MutationObserverConstructor WebKitMutationObserver; // FIXME: Add metrics to determine when we can remove this.
-    [Conditional=INDEXED_DATABASE, EnabledAtRuntime=IndexedDB] attribute IDBCursorConstructor webkitIDBCursor;
-    [Conditional=INDEXED_DATABASE, EnabledAtRuntime=IndexedDB] attribute IDBDatabaseConstructor webkitIDBDatabase;
-    [Conditional=INDEXED_DATABASE, EnabledAtRuntime=IndexedDB] attribute IDBFactoryConstructor webkitIDBFactory;
-    [Conditional=INDEXED_DATABASE, EnabledAtRuntime=IndexedDB] attribute IDBIndexConstructor webkitIDBIndex;
-    [Conditional=INDEXED_DATABASE, EnabledAtRuntime=IndexedDB] attribute IDBKeyRangeConstructor webkitIDBKeyRange;
-    [Conditional=INDEXED_DATABASE, EnabledAtRuntime=IndexedDB] attribute IDBObjectStoreConstructor webkitIDBObjectStore;
-    [Conditional=INDEXED_DATABASE, EnabledAtRuntime=IndexedDB] attribute IDBRequestConstructor webkitIDBRequest;
-    [Conditional=INDEXED_DATABASE, EnabledAtRuntime=IndexedDB] attribute IDBTransactionConstructor webkitIDBTransaction;
 #endif // defined(LANGUAGE_JAVASCRIPT)
 
 
     // Event Handlers
-
-    // FIXME: This should be in GlobalEventHandlers.idl according to HTML5 - https://html.spec.whatwg.org/multipage/webappapis.html#globaleventhandlers
-    [NotEnumerable] attribute EventHandler onresize;
 
     // Unique to Element and DOMWindow
     // FIXME: Should these be exposed on Document as well (and therefore moved to GlobalEventHandlers.idl)?
@@ -229,10 +210,10 @@
     [NotEnumerable] attribute EventHandler onanimationiteration;
     [NotEnumerable] attribute EventHandler onanimationstart;
     [NotEnumerable] attribute EventHandler ontransitionend;
-    [NotEnumerable] attribute EventHandler onwebkitanimationend;
-    [NotEnumerable] attribute EventHandler onwebkitanimationiteration;
-    [NotEnumerable] attribute EventHandler onwebkitanimationstart;
-    [NotEnumerable] attribute EventHandler onwebkittransitionend;
+    [NotEnumerable, ImplementedAs=onwebkitAnimationEnd] attribute EventHandler onwebkitanimationend;
+    [NotEnumerable, ImplementedAs=onwebkitAnimationIteration] attribute EventHandler onwebkitanimationiteration;
+    [NotEnumerable, ImplementedAs=onwebkitAnimationStart] attribute EventHandler onwebkitanimationstart;
+    [NotEnumerable, ImplementedAs=onwebkitTransitionEnd] attribute EventHandler onwebkittransitionend;
     [NotEnumerable, Conditional=IOS_GESTURE_EVENTS] attribute EventHandler ongesturechange;
     [NotEnumerable, Conditional=IOS_GESTURE_EVENTS] attribute EventHandler ongestureend;
     [NotEnumerable, Conditional=IOS_GESTURE_EVENTS] attribute EventHandler ongesturestart;
@@ -243,7 +224,12 @@
     [NotEnumerable, Conditional=PROXIMITY_EVENTS] attribute EventHandler onwebkitdeviceproximity;
 };
 
+// FIXME: Support ScrollBehavior.
+dictionary ScrollToOptions {
+    unrestricted double left;
+    unrestricted double top;
+};
+
 DOMWindow implements GlobalEventHandlers;
-DOMWindow implements WindowBase64;
 DOMWindow implements WindowEventHandlers;
-DOMWindow implements WindowTimers;
+DOMWindow implements WindowOrWorkerGlobalScope;

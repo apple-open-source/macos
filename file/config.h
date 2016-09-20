@@ -13,6 +13,9 @@
 /* HAVE_DAYLIGHT */
 #define HAVE_DAYLIGHT 1
 
+/* HAVE_STDDEF_H */
+#define HAVE_STDDEF_H 1
+
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #define HAVE_DLFCN_H 1
 
@@ -193,13 +196,13 @@
 #define PACKAGE_NAME "file"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "file 5.04"
+#define PACKAGE_STRING "file 5.25"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "file"
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "5.04"
+#define PACKAGE_VERSION "5.25"
 
 /* The size of `long long', as computed by sizeof. */
 #define SIZEOF_LONG_LONG 8
@@ -211,7 +214,7 @@
 /* #undef TM_IN_SYS_TIME */
 
 /* Version number of package */
-#define VERSION "5.04"
+#define VERSION "5.25"
 
 /* Number of bits in a file offset, on hosts where this is settable. */
 /* #undef _FILE_OFFSET_BITS */
@@ -267,3 +270,4 @@ typedef long int64_t;
 #endif
 #endif
 
+#define HAVE_FORK 1

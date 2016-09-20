@@ -49,6 +49,12 @@ enum WKDebugOverlayRegionFlags {
 };
 typedef unsigned WKDebugOverlayRegions;
 
+enum _WKUserInterfaceDirectionPolicy {
+    kWKUserInterfaceDirectionPolicyContent,
+    kWKUserInterfaceDirectionPolicySystem,
+};
+typedef enum _WKUserInterfaceDirectionPolicy _WKUserInterfaceDirectionPolicy;
+
 WK_EXPORT WKTypeID WKPreferencesGetTypeID();
 
 WK_EXPORT WKPreferencesRef WKPreferencesCreate();
@@ -70,7 +76,7 @@ WK_EXPORT bool WKPreferencesGetLoadsImagesAutomatically(WKPreferencesRef prefere
 WK_EXPORT void WKPreferencesSetLoadsSiteIconsIgnoringImageLoadingPreference(WKPreferencesRef preferences, bool loadsSiteIconsIgnoringImageLoadingPreference);
 WK_EXPORT bool WKPreferencesGetLoadsSiteIconsIgnoringImageLoadingPreference(WKPreferencesRef preferences);
 
-// Defaults to false.
+// Defaults to true.
 WK_EXPORT void WKPreferencesSetOfflineWebApplicationCacheEnabled(WKPreferencesRef preferences, bool offlineWebApplicationCacheEnabled);
 WK_EXPORT bool WKPreferencesGetOfflineWebApplicationCacheEnabled(WKPreferencesRef preferences);
 
@@ -182,6 +188,10 @@ WK_EXPORT bool WKPreferencesGetFullScreenEnabled(WKPreferencesRef preferencesRef
 WK_EXPORT void WKPreferencesSetAVFoundationEnabled(WKPreferencesRef preferencesRef, bool enabled);
 WK_EXPORT bool WKPreferencesGetAVFoundationEnabled(WKPreferencesRef preferencesRef);
 
+// Defaults to false.
+WK_EXPORT void WKPreferencesSetAVFoundationNSURLSessionEnabled(WKPreferencesRef preferencesRef, bool enabled);
+WK_EXPORT bool WKPreferencesGetAVFoundationNSURLSessionEnabled(WKPreferencesRef preferencesRef);
+
 // Defaults to false
 WK_EXPORT void WKPreferencesSetWebAudioEnabled(WKPreferencesRef preferencesRef, bool enabled);
 WK_EXPORT bool WKPreferencesGetWebAudioEnabled(WKPreferencesRef preferencesRef);
@@ -261,6 +271,18 @@ WK_EXPORT bool WKPreferencesGetIgnoreViewportScalingConstraints(WKPreferencesRef
 // Defaults to true.
 WK_EXPORT void WKPreferencesSetAllowsAirPlayForMediaPlayback(WKPreferencesRef preferencesRef, bool enabled);
 WK_EXPORT bool WKPreferencesGetAllowsAirPlayForMediaPlayback(WKPreferencesRef preferencesRef);
+
+// Defaults to kWKUserInterfaceDirectionPolicyContent.
+WK_EXPORT void WKPreferencesSetUserInterfaceDirectionPolicy(WKPreferencesRef preferencesRef, _WKUserInterfaceDirectionPolicy userInterfaceDirectionPolicy);
+WK_EXPORT _WKUserInterfaceDirectionPolicy WKPreferencesGetUserInterfaceDirectionPolicy(WKPreferencesRef preferencesRef);
+
+// Defaults to false.
+WK_EXPORT bool WKPreferencesGetApplePayEnabled(WKPreferencesRef preferencesRef);
+WK_EXPORT void WKPreferencesSetApplePayEnabled(WKPreferencesRef preferencesRef, bool enabled);
+
+// Defaults to true.
+WK_EXPORT bool WKPreferencesGetApplePayCapabilityDisclosureAllowed(WKPreferencesRef preferencesRef);
+WK_EXPORT void WKPreferencesSetApplePayCapabilityDisclosureAllowed(WKPreferencesRef preferencesRef, bool allowed);
 
 #ifdef __cplusplus
 }

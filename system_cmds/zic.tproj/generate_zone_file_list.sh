@@ -1,4 +1,6 @@
 #!/bin/sh
+set -e
+set -x
 
 # we need to know where the data files are...
 if [ $# -ne 1 ]; then
@@ -7,7 +9,7 @@ if [ $# -ne 1 ]; then
 fi
 
 DATFILES="$1"
-ZONE_FILES="$(egrep --files-with-match '^(Zone|Rule|Link)' ${DATFILES}/* | awk -F "/" '{print $NF}')"
+ZONE_FILES="$(egrep --files-with-match '^(Zone|Rule|Link)' "${DATFILES}"/* | awk -F "/" '{print $NF}')"
 
 for tz in ${ZONE_FILES}; do
     if [ ${tz} = "backward" ]; then

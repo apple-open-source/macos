@@ -11,7 +11,7 @@
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
- * are also available at http://curl.haxx.se/docs/copyright.html.
+ * are also available at https://curl.haxx.se/docs/copyright.html.
  *
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
@@ -88,4 +88,10 @@ void Curl_multi_connchanged(struct Curl_multi *multi);
 
 void Curl_multi_closed(struct connectdata *conn, curl_socket_t s);
 
+/*
+ * Add a handle and move it into PERFORM state at once. For pushed streams.
+ */
+CURLMcode Curl_multi_add_perform(struct Curl_multi *multi,
+                                 struct SessionHandle *data,
+                                 struct connectdata *conn);
 #endif /* HEADER_CURL_MULTIIF_H */

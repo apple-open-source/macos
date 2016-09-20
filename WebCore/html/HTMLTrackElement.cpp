@@ -29,6 +29,7 @@
 
 #include "ContentSecurityPolicy.h"
 #include "Event.h"
+#include "EventNames.h"
 #include "HTMLMediaElement.h"
 #include "HTMLNames.h"
 #include "Logging.h"
@@ -92,73 +93,56 @@ void HTMLTrackElement::removedFrom(ContainerNode& insertionPoint)
 
 void HTMLTrackElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    if (RuntimeEnabledFeatures::sharedFeatures().webkitVideoTrackEnabled()) {
-        if (name == srcAttr) {
-            if (!value.isEmpty())
-                scheduleLoad();
-            else if (m_track)
-                m_track->removeAllCues();
+    if (name == srcAttr) {
+        if (!value.isEmpty())
+            scheduleLoad();
+        else if (m_track)
+            m_track->removeAllCues();
 
-        // 4.8.10.12.3 Sourcing out-of-band text tracks
-        // As the kind, label, and srclang attributes are set, changed, or removed, the text track must update accordingly...
-        } else if (name == kindAttr)
-            track()->setKind(value.lower());
-        else if (name == labelAttr)
-            track()->setLabel(value);
-        else if (name == srclangAttr)
-            track()->setLanguage(value);
-        else if (name == defaultAttr)
-            track()->setIsDefault(!value.isNull());
-    }
+    // 4.8.10.12.3 Sourcing out-of-band text tracks
+    // As the kind, label, and srclang attributes are set, changed, or removed, the text track must update accordingly...
+    } else if (name == kindAttr)
+        ensureTrack().setKindKeywordIgnoringASCIICase(value.string());
+    else if (name == labelAttr)
+        ensureTrack().setLabel(value);
+    else if (name == srclangAttr)
+        ensureTrack().setLanguage(value);
+    else if (name == defaultAttr)
+        ensureTrack().setIsDefault(!value.isNull());
 
     HTMLElement::parseAttribute(name, value);
 }
 
-String HTMLTrackElement::kind()
+const AtomicString& HTMLTrackElement::kind()
 {
-    return track()->kind();
+    return ensureTrack().kindKeyword();
 }
 
-void HTMLTrackElement::setKind(const String& kind)
+void HTMLTrackElement::setKind(const AtomicString& kind)
 {
-    setAttribute(kindAttr, kind);
+    setAttributeWithoutSynchronization(kindAttr, kind);
 }
 
-String HTMLTrackElement::srclang() const
+const AtomicString& HTMLTrackElement::srclang() const
 {
-    return getAttribute(srclangAttr);
+    return attributeWithoutSynchronization(srclangAttr);
 }
 
-void HTMLTrackElement::setSrclang(const String& srclang)
+const AtomicString& HTMLTrackElement::label() const
 {
-    setAttribute(srclangAttr, srclang);
-}
-
-String HTMLTrackElement::label() const
-{
-    return getAttribute(labelAttr);
-}
-
-void HTMLTrackElement::setLabel(const String& label)
-{
-    setAttribute(labelAttr, label);
+    return attributeWithoutSynchronization(labelAttr);
 }
 
 bool HTMLTrackElement::isDefault() const
 {
-    return fastHasAttribute(defaultAttr);
-}
-
-void HTMLTrackElement::setIsDefault(bool isDefault)
-{
-    setBooleanAttribute(defaultAttr, isDefault);
+    return hasAttributeWithoutSynchronization(defaultAttr);
 }
 
 LoadableTextTrack& HTMLTrackElement::ensureTrack()
 {
     if (!m_track) {
-        // The kind attribute is an enumerated attribute, limited only to know values. It defaults to 'subtitles' if missing or invalid.
-        String kind = getAttribute(kindAttr).lower();
+        // The kind attribute is an enumerated attribute, limited only to known values. It defaults to 'subtitles' if missing or invalid.
+        String kind = attributeWithoutSynchronization(kindAttr).convertToASCIILowercase();
         if (!TextTrack::isValidKindKeyword(kind))
             kind = TextTrack::subtitlesKeyword();
         m_track = LoadableTextTrack::create(this, kind, label(), srclang());
@@ -185,11 +169,8 @@ void HTMLTrackElement::scheduleLoad()
     if (m_loadTimer.isActive())
         return;
 
-    if (!RuntimeEnabledFeatures::sharedFeatures().webkitVideoTrackEnabled())
-        return;
-
     // 2. If the text track's text track mode is not set to one of hidden or showing, abort these steps.
-    if (ensureTrack().mode() != TextTrack::hiddenKeyword() && ensureTrack().mode() != TextTrack::showingKeyword())
+    if (ensureTrack().mode() != TextTrack::Mode::Hidden && ensureTrack().mode() != TextTrack::Mode::Showing)
         return;
 
     // 3. If the text track's track element does not have a media element as a parent, abort these steps.
@@ -202,7 +183,7 @@ void HTMLTrackElement::scheduleLoad()
 
 void HTMLTrackElement::loadTimerFired()
 {
-    if (!fastHasAttribute(srcAttr))
+    if (!hasAttributeWithoutSynchronization(srcAttr))
         return;
 
     // 6. Set the text track readiness state to loading.
@@ -223,9 +204,6 @@ void HTMLTrackElement::loadTimerFired()
 
 bool HTMLTrackElement::canLoadURL(const URL& url)
 {
-    if (!RuntimeEnabledFeatures::sharedFeatures().webkitVideoTrackEnabled())
-        return false;
-
     HTMLMediaElement* parent = mediaElement();
     if (!parent)
         return false;
@@ -260,7 +238,7 @@ void HTMLTrackElement::didCompleteLoad(LoadStatus status)
 
     if (status == Failure) {
         setReadyState(HTMLTrackElement::TRACK_ERROR);
-        dispatchEvent(Event::create(eventNames().errorEvent, false, false), IGNORE_EXCEPTION);
+        dispatchEvent(Event::create(eventNames().errorEvent, false, false));
         return;
     }
 
@@ -271,7 +249,7 @@ void HTMLTrackElement::didCompleteLoad(LoadStatus status)
 
     //     2. If the file was successfully processed, fire a simple event named load at the 
     //        track element.
-    dispatchEvent(Event::create(eventNames().loadEvent, false, false), IGNORE_EXCEPTION);
+    dispatchEvent(Event::create(eventNames().loadEvent, false, false));
 }
 
 // NOTE: The values in the TextTrack::ReadinessState enum must stay in sync with those in HTMLTrackElement::ReadyState.
@@ -295,7 +273,7 @@ HTMLTrackElement::ReadyState HTMLTrackElement::readyState()
 const AtomicString& HTMLTrackElement::mediaElementCrossOriginAttribute() const
 {
     if (HTMLMediaElement* parent = mediaElement())
-        return parent->fastGetAttribute(HTMLNames::crossoriginAttr);
+        return parent->attributeWithoutSynchronization(HTMLNames::crossoriginAttr);
     
     return nullAtom;
 }

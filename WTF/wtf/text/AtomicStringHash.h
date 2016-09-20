@@ -48,11 +48,20 @@ namespace WTF {
         static const bool safeToCompareToEmptyOrDeleted = false;
     };
 
-    // AtomicStringHash is the default hash for AtomicString
-    template<> struct HashTraits<WTF::AtomicString> : GenericHashTraits<WTF::AtomicString> {
-        static const bool emptyValueIsZero = true;
-        static void constructDeletedValue(WTF::AtomicString& slot) { new (NotNull, &slot) WTF::AtomicString(HashTableDeletedValue); }
-        static bool isDeletedValue(const WTF::AtomicString& slot) { return slot.isHashTableDeletedValue(); }
+    template<> struct HashTraits<WTF::AtomicString> : SimpleClassHashTraits<WTF::AtomicString> {
+        static const bool hasIsEmptyValueFunction = true;
+        static bool isEmptyValue(const AtomicString& value)
+        {
+            return value.isNull();
+        }
+
+        static void customDeleteBucket(AtomicString& value)
+        {
+            // See unique_ptr's customDeleteBucket() for an explanation.
+            ASSERT(!isDeletedValue(value));
+            AtomicString valueToBeDestroyed = WTFMove(value);
+            constructDeletedValue(value);
+        }
     };
 
 }

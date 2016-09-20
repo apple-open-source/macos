@@ -25,9 +25,9 @@ diff -Naur net-snmp-5.4.1.rc4/agent/mibgroup/ucd-snmp/data_access/Makefile.test 
 diff -Naur net-snmp-5.4.1.rc4/agent/mibgroup/ucd-snmp/data_access/sensors_darwin.c net-snmp-5.4.1.rc4.patched/agent/mibgroup/ucd-snmp/data_access/sensors_darwin.c
 --- net-snmp-5.4.1.rc4/agent/mibgroup/ucd-snmp/data_access/sensors_darwin.c	1969-12-31 16:00:00.000000000 -0800
 +++ net-snmp-5.4.1.rc4.patched/agent/mibgroup/ucd-snmp/data_access/sensors_darwin.c	2007-07-30 18:18:43.000000000 -0700
-@@ -0,0 +1,1402 @@
+@@ -0,0 +1,1406 @@
 +/*
-+ *  sensor_darwin.c
++ *  sensors_darwin.c
 + */
 +
 +#include <net-snmp/net-snmp-config.h>
@@ -213,6 +213,10 @@ diff -Naur net-snmp-5.4.1.rc4/agent/mibgroup/ucd-snmp/data_access/sensors_darwin
 +            continue;
 +        }
 +        pos = CFStringGetCStringPtr(description, 0);
++        if (NULL == pos) {
++            DEBUGMSGTL(("access:lmSensors","No description at %d\n", i));
++            continue;        
++        }
 +        value = (CFNumberRef)
 +            CFDictionaryGetValue(tmp_dict,kCurrentValueKey);
 +        if ((NULL == value) ||

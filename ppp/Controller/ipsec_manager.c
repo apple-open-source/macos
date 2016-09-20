@@ -133,6 +133,9 @@ enum {
 														(s == IPSEC_CLIENT_CERTIFICATE_EXPIRED) ||  \
 														(s == IPSEC_CLIENT_CERTIFICATE_ERROR))
 
+#define kIPSecRemoteAddress					CFSTR("RemoteAddress")
+#define kIPSecRemoteAddressNAT64Prefix		CFSTR("RemoteAddressNAT64Prefix")
+
 struct isakmp_xauth {
 	u_int16_t	type;
 	CFStringRef str;
@@ -143,7 +146,6 @@ struct isakmp_xauth {
 // extra CFUserNotification keys
 static CFStringRef const SBUserNotificationTextAutocapitalizationType = CFSTR("SBUserNotificationTextAutocapitalizationType");
 static CFStringRef const SBUserNotificationTextAutocorrectionType = CFSTR("SBUserNotificationTextAutocorrectionType");
-static CFStringRef const SBUserNotificationGroupsTextFields = CFSTR("SBUserNotificationGroupsTextFields");
 #endif
 
 /* -----------------------------------------------------------------------------
@@ -154,7 +156,7 @@ static void ipsec_log(int level, CFStringRef format, ...) CF_FORMAT_FUNCTION(2, 
 static void ipsec_updatephase(struct service *serv, int phase);
 static void display_notification(struct service *serv, CFStringRef message, int errnum, int dialog_type);
 static void racoon_timer(CFRunLoopTimerRef timer, void *info);
-static int racoon_restart_cisco_ipsec(struct service *serv, struct sockaddr_in *address, int retry_dhgroup2);
+static int racoon_restart_cisco_ipsec(struct service *serv, struct sockaddr_in *address, nw_nat64_prefix_t *prefix, int retry_dhgroup2);
 static int racoon_resolve(struct service *serv);
 static bool mode_config_is_default(struct service *serv);
 static void install_mode_config(struct service *serv, Boolean installConfig, Boolean installPolicies);
@@ -435,6 +437,10 @@ int ipsec_dispose_service(struct service *serv)
         return 1;
     free_service_routes(serv);
 	my_CFRelease(&serv->systemprefs);
+#if TARGET_OS_EMBEDDED
+	// serv->profileIdentifier is always retained.
+	my_CFRelease(&serv->profileIdentifier);
+#endif
     return 0;
 }
 
@@ -668,7 +674,7 @@ static boolean_t checkpassword(struct service *serv, int must_prompt)
 			 if the connection was established using a saved password, 
 			 then disconnect, and reconnect to make sure the user is prompted */
 
-			racoon_restart_cisco_ipsec(serv, &serv->u.ipsec.peer_address, 0);
+			racoon_restart_cisco_ipsec(serv, &serv->u.ipsec.peer_address, &serv->u.ipsec.nat64_prefix, 0);
 			didrestart = TRUE;
 		}
 	}
@@ -870,9 +876,6 @@ int ask_user_xauth(struct service *serv, char* message)
 		my_CFRelease(&autoCorrectionTypes);
 		my_CFRelease(&zeroRef);
 		my_CFRelease(&oneRef);
-
-		// make CFUN prettier
-		CFDictionarySetValue(dict, SBUserNotificationGroupsTextFields, kCFBooleanTrue);
 	}
 #endif
 
@@ -1312,7 +1315,7 @@ static void process_racoon_msg(struct service *serv)
 						redirect_addr.sin_port = htons(0);
 						redirect_addr.sin_addr.s_addr = *ALIGNED_CAST(u_int32_t*)failed_status->data;
 						ipsec_log(LOG_INFO, CFSTR("IPSec Controller: connection redirected to server '%s'..."), inet_ntoa(redirect_addr.sin_addr));
-						racoon_restart_cisco_ipsec(serv, &redirect_addr, 0);
+						racoon_restart_cisco_ipsec(serv, &redirect_addr, &serv->u.ipsec.nat64_prefix, 0);
 						break;
 
 					default:	
@@ -1546,7 +1549,11 @@ racoon_trigger_phase2(char *ifname, struct in_addr *ping)
 	}
 	
 	ifindex = if_nametoindex(ifname);
-	setsockopt(s, IPPROTO_IP, IP_BOUND_IF, &ifindex, sizeof(ifindex)); 
+	if (setsockopt(s, IPPROTO_IP, IP_BOUND_IF, &ifindex, sizeof(ifindex))) {
+		ipsec_log(LOG_ERR, CFSTR("racoon_trigger_phase2 failed to set IP_BOUND_IF"));
+		close(s);
+		return -1;
+	}
 	
 	whereto.sin_family = AF_INET;	/* Internet address family */
 	whereto.sin_port = 0;		/* Source port */
@@ -2107,18 +2114,7 @@ static void install_mode_config(struct service *serv, Boolean installConfig, Boo
 		/* check if is peer on our local subnet */
 		ref = SCNetworkReachabilityCreateWithAddress(NULL, (struct sockaddr *)&serv->u.ipsec.peer_address);
 		is_peer_local = SCNetworkReachabilityGetFlags(ref, &flags) && (flags & kSCNetworkFlagsIsDirect);
-		
-#if TARGET_OS_EMBEDDED
-		if (serv->u.ipsec.lower_interface[0]) {
-			// Mark interface as cellular based on NWI
-			serv->u.ipsec.lower_interface_cellular = interface_is_cellular(serv->u.ipsec.lower_interface);
-			ipsec_log(LOG_INFO, CFSTR("IPSec Controller: lower interface (%s) is%s cellular"), serv->u.ipsec.lower_interface, serv->u.ipsec.lower_interface_cellular ? "" : " not");
-		} else {
-			/* Mark interface as cellular based on reachability */
-			serv->u.ipsec.lower_interface_cellular = SCNetworkReachabilityGetFlags(ref, &flags) && (flags & kSCNetworkReachabilityFlagsIsWWAN);
-		}
-#endif
-		
+
 		CFRelease(ref);
 		
 		CFArrayRef includedRoutes = NULL;
@@ -2281,8 +2277,9 @@ void racoon_timer(CFRunLoopTimerRef timer, void *info)
 {
 	struct service *serv = info;
 	struct sockaddr_in address;
-	CFRange			range;
-	CFDataRef		dataref;
+	CFDataRef		dataref, nat64prefixref;
+	CFDictionaryRef	dictref;
+	nw_nat64_prefix_t prefix;
 	
 	ipsec_log(LOG_INFO, CFSTR("IPSec Controller: racoon_timer expired"));
 	
@@ -2292,16 +2289,33 @@ void racoon_timer(CFRunLoopTimerRef timer, void *info)
 		if (serv->u.ipsec.resolvedAddress &&
 			(serv->u.ipsec.next_address < CFArrayGetCount(serv->u.ipsec.resolvedAddress))) {
 
-			dataref = CFArrayGetValueAtIndex(serv->u.ipsec.resolvedAddress, serv->u.ipsec.next_address);
+			dictref = CFArrayGetValueAtIndex(serv->u.ipsec.resolvedAddress, serv->u.ipsec.next_address);
+			if (dictref == NULL) {
+				return;
+			}
+
 			serv->u.ipsec.next_address++;
-	
+
+			dataref = CFDictionaryGetValue(dictref, kIPSecRemoteAddress);
+			if (!dataref || CFDataGetLength(dataref) < sizeof(address)) {
+				return;
+			}
+
 			bzero(&address, sizeof(address));
-			range.location = 0;
-			range.length = sizeof(address);
-			CFDataGetBytes(dataref, range, (UInt8 *)&address); 
+			CFDataGetBytes(dataref, CFRangeMake(0, CFDataGetLength(dataref)), (UInt8 *)&address);
+
+			bzero(&prefix, sizeof(nw_nat64_prefix_t));
+			nat64prefixref = CFDictionaryGetValue(dictref, kIPSecRemoteAddressNAT64Prefix);
+			if (nat64prefixref != NULL) {
+				if (CFDataGetLength(nat64prefixref) != sizeof(nw_nat64_prefix_t)) {
+					return;
+				} else {
+					CFDataGetBytes(nat64prefixref, CFRangeMake(0, CFDataGetLength(nat64prefixref)), (UInt8 *)&prefix);
+				}
+			}
 
 			ipsec_log(LOG_INFO, CFSTR("IPSec Controller: racoon_timer call racoon_restart_cisco_ipsec"));
-			racoon_restart_cisco_ipsec(serv, &address, 0); 
+			racoon_restart_cisco_ipsec(serv, &address, &prefix, 0);
 			return;
 		}
 	}
@@ -2698,7 +2712,7 @@ ipsec_network_event(struct service *serv, struct kern_event_msg *ev_msg)
 	struct ifaddrs *ifap = NULL;
     char ev_if[32];
 	struct kev_in_data *inetdata;
-    
+
 	inetdata = (struct kev_in_data *) &ev_msg->event_data[0];
 	if (serv->u.ipsec.our_address.ss_family == AF_INET) {
 		IPSecLogVPNInterfaceAddressEvent(__FUNCTION__, ev_msg, serv->u.ipsec.timeout_lower_interface_change, serv->u.ipsec.lower_interface, &((struct sockaddr_in *)&serv->u.ipsec.our_address)->sin_addr);
@@ -2939,51 +2953,86 @@ void dns_start_query_callback(int32_t status, struct addrinfo *res, void *contex
 {
 	struct service *serv		= (struct service *)context;
 	struct addrinfo				*resP;
-	CFDataRef					dataref;
+	CFDictionaryRef				dictref;
+	CFDataRef					dataref, nat64prefixref;
 	struct sockaddr_in			address;
+	nw_nat64_prefix_t 			prefix, *prefixes = NULL;
+	int i;
+
+	int nat64_prefixes = nw_nat64_copy_prefixes(NULL, &prefixes);
 
 	if ((status == 0) && (res != NULL)) {
 
 		CFMutableArrayRef	addresses;
-		CFRange		range; 
-
 		addresses = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-		range.location = 0;
-		range.length = 0;
-		
+
 		for (resP = res; resP; resP = resP->ai_next) {
 			CFDataRef	newAddress;
 
-			if (resP->ai_addr->sa_family == AF_INET) {
+			if (resP->ai_addr->sa_family == AF_INET && nat64_prefixes == 0) {
 				/* make sure it will fit... */
 				if (resP->ai_addr->sa_len > sizeof(struct sockaddr_in)) {
 					continue;
 				}
 
+				CFMutableDictionaryRef newAddressDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+				if (newAddressDict == NULL) {
+					continue;
+				}
+
 				newAddress = CFDataCreate(NULL, (void *)resP->ai_addr, resP->ai_addr->sa_len);
 				if (newAddress != NULL) {
-					if (!CFArrayContainsValue(addresses, range, newAddress)) {
-						CFArrayAppendValue(addresses, newAddress);
-						range.length++;
-					}
+					CFDictionarySetValue(newAddressDict, kIPSecRemoteAddress, newAddress);
 					CFRelease(newAddress);
+
+					CFArrayAppendValue(addresses, newAddressDict);
+					CFRelease(newAddressDict);
 				}
-			} else if (resP->ai_addr->sa_family == AF_INET6) {
+			} else if (resP->ai_addr->sa_family == AF_INET6 && nat64_prefixes > 0) {
 				if (resP->ai_addr->sa_len > sizeof(struct sockaddr_in6)) {
 					continue;
 				}
+
+				struct in_addr extracted_ipv4_address;
+
+				for (i = 0; i < nat64_prefixes; i++) {
+					bzero(&extracted_ipv4_address, sizeof(struct in_addr));
+					if (nw_nat64_extract_v4(&prefixes[i], &(((struct sockaddr_in6 *)resP->ai_addr)->sin6_addr), &extracted_ipv4_address)) {
+						break;
+					}
+				}
+
+				if (i == nat64_prefixes) {
+					/* excluding pure IPv6 addresses */
+					continue;
+				}
+
+				CFMutableDictionaryRef newAddressDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+				if (newAddressDict == NULL) {
+					continue;
+				}
+
+				CFDataRef newNAT64Prefix = CFDataCreate(NULL, (void *)&prefixes[i], sizeof(nw_nat64_prefix_t));
+				if (newNAT64Prefix == NULL) {
+					CFRelease(newAddressDict);
+					continue;
+				}
+
+				CFDictionarySetValue(newAddressDict, kIPSecRemoteAddressNAT64Prefix, newNAT64Prefix);
+				CFRelease(newNAT64Prefix);
+
 				struct sockaddr_in converted_address;
 				memset(&converted_address, 0, sizeof(converted_address));
 				converted_address.sin_family = AF_INET;
 				converted_address.sin_len = sizeof(struct sockaddr_in);
-				converted_address.sin_addr.s_addr = ((struct sockaddr_in6 *)resP->ai_addr)->sin6_addr.__u6_addr.__u6_addr32[3];
+				converted_address.sin_addr.s_addr = extracted_ipv4_address.s_addr;
 				newAddress = CFDataCreate(NULL, (void *)&converted_address, converted_address.sin_len);
 				if (newAddress != NULL) {
-					if (!CFArrayContainsValue(addresses, range, newAddress)) {
-						CFArrayAppendValue(addresses, newAddress);
-						range.length++;
-					}
+					CFDictionarySetValue(newAddressDict, kIPSecRemoteAddress, newAddress);
 					CFRelease(newAddress);
+
+					CFArrayAppendValue(addresses, newAddressDict);
+					CFRelease(newAddressDict);
 				}
 			}
 		}
@@ -3001,19 +3050,36 @@ void dns_start_query_callback(int32_t status, struct addrinfo *res, void *contex
 		}
         
 		/* get the first address and start racoon */
-		dataref = CFArrayGetValueAtIndex(serv->u.ipsec.resolvedAddress, 0);
+		dictref = CFArrayGetValueAtIndex(serv->u.ipsec.resolvedAddress, 0);
+		if (dictref == NULL) {
+			ipsec_log(LOG_INFO, CFSTR("IPSec Controller: dns reply: failed to get elem %d from addr array"),
+					  serv->u.ipsec.next_address);
+			goto fail;
+		}
+
+		dataref = CFDictionaryGetValue(dictref, kIPSecRemoteAddress);
 		if (!dataref || CFDataGetLength(dataref) < sizeof(address)) {
 			ipsec_log(LOG_INFO, CFSTR("IPSec Controller: dns reply: failed to get elem %d from addr array"),
 			      serv->u.ipsec.next_address);
 			goto fail;
 		}
 		bzero(&address, sizeof(address));
-		range.location = 0;
-		range.length = sizeof(address);
-		CFDataGetBytes(dataref, range, (UInt8 *)&address); 
+		CFDataGetBytes(dataref, CFRangeMake(0, CFDataGetLength(dataref)), (UInt8 *)&address);
 		serv->u.ipsec.next_address = 1;
 
-		racoon_restart_cisco_ipsec(serv, &address, 0);
+		bzero(&prefix, sizeof(nw_nat64_prefix_t));
+		nat64prefixref = CFDictionaryGetValue(dictref, kIPSecRemoteAddressNAT64Prefix);
+		if (nat64prefixref != NULL) {
+			if (CFDataGetLength(nat64prefixref) != sizeof(nw_nat64_prefix_t)) {
+				ipsec_log(LOG_INFO, CFSTR("IPSec Controller: dns reply: failed to get elem %d from nat64 array"),
+						  serv->u.ipsec.next_address);
+				goto fail;
+			} else {
+				CFDataGetBytes(nat64prefixref, CFRangeMake(0, CFDataGetLength(nat64prefixref)), (UInt8 *)&prefix);
+			}
+		}
+
+		racoon_restart_cisco_ipsec(serv, &address, &prefix, 0);
 		goto done;
 	}
 	else {
@@ -3053,6 +3119,7 @@ int dns_start_query(struct service *serv, char *name)
 	bzero(&hints, sizeof(hints));
 	hints.ai_flags = AI_ADDRCONFIG;
 	hints.ai_family = PF_UNSPEC;
+	hints.ai_protocol = IPPROTO_UDP;
 #ifdef	AI_PARALLEL
 	hints.ai_flags |= AI_PARALLEL;
 #endif	/* AI_PARALLEL */
@@ -3539,7 +3606,7 @@ fail:
 ----------------------------------------------------------------------------- */
 
 static 
-int racoon_restart_cisco_ipsec(struct service *serv, struct sockaddr_in *address, int retry_dhgroup2)
+int racoon_restart_cisco_ipsec(struct service *serv, struct sockaddr_in *address, nw_nat64_prefix_t *prefix, int retry_dhgroup2)
 {
 	char			*errorstr;
 	int				error, need_kick = 0, found;
@@ -3551,16 +3618,18 @@ int racoon_restart_cisco_ipsec(struct service *serv, struct sockaddr_in *address
 
 	ipsec_log(LOG_INFO, CFSTR("IPSec Controller: racoon_restart_cisco_ipsec..."));
 
-	nw_nat64_prefix_t *prefixes = NULL;
-	int nat64_result = nw_nat64_copy_prefixes(NULL, &prefixes);
-	if (nat64_result > 0 && prefixes != NULL) {
-		memcpy(&serv->u.ipsec.nat64_prefix, &prefixes[0], sizeof(serv->u.ipsec.nat64_prefix));
-		free(prefixes);
-		ipsec_log(LOG_ERR, CFSTR("IPSec Controller: Found NAT64 prefix with length %d"), serv->u.ipsec.nat64_prefix.length);
+	if (prefix != NULL && prefix->length != 0) {
+		memcpy(&serv->u.ipsec.nat64_prefix, prefix, sizeof(serv->u.ipsec.nat64_prefix));
+		ipsec_log(LOG_INFO, CFSTR("IPSec Controller: NAT64 prefix with length %d"), serv->u.ipsec.nat64_prefix.length);
 	} else {
-		memset(&serv->u.ipsec.nat64_prefix, 0, sizeof(serv->u.ipsec.nat64_prefix));
-		if (nat64_result < 0) {
-			ipsec_log(LOG_ERR, CFSTR("IPSec Controller: NAT64 translation error %d"), nat64_result);
+		nw_nat64_prefix_t *prefixes = NULL;
+		int nat64_result = nw_nat64_copy_prefixes(NULL, &prefixes);
+		if (nat64_result > 0 && prefixes != NULL) {
+			memcpy(&serv->u.ipsec.nat64_prefix, &prefixes[0], sizeof(serv->u.ipsec.nat64_prefix));
+			free(prefixes);
+			ipsec_log(LOG_INFO, CFSTR("IPSec Controller: Found NAT64 prefix with length %d"), serv->u.ipsec.nat64_prefix.length);
+		} else {
+			memset(&serv->u.ipsec.nat64_prefix, 0, sizeof(serv->u.ipsec.nat64_prefix));
 		}
 	}
 
@@ -3594,7 +3663,7 @@ int racoon_restart_cisco_ipsec(struct service *serv, struct sockaddr_in *address
 
 	/* then try new address */
 	bcopy(address, &serv->u.ipsec.peer_address, sizeof(serv->u.ipsec.peer_address));
-	
+
 	bool useBoundInterface = FALSE;
 	if (serv->connectopts) {
 		if (GetStrFromDict(serv->connectopts, CFSTR(NESessionStartOptionOutgoingInterface), serv->u.ipsec.lower_interface, sizeof(serv->u.ipsec.lower_interface), "")) {
@@ -3623,7 +3692,34 @@ int racoon_restart_cisco_ipsec(struct service *serv, struct sockaddr_in *address
 			serv->u.ipsec.lower_interface, sizeof(serv->u.ipsec.lower_interface), 
 			(struct sockaddr *)&serv->u.ipsec.lower_gateway, sizeof(serv->u.ipsec.lower_gateway));
 	}
-	
+
+#if TARGET_OS_EMBEDDED
+	if (serv->u.ipsec.lower_interface[0]) {
+		// Mark interface as cellular based on NWI
+		serv->u.ipsec.lower_interface_cellular = interface_is_cellular(serv->u.ipsec.lower_interface);
+		ipsec_log(LOG_INFO, CFSTR("IPSec Controller: lower interface (%s) is%s cellular"), serv->u.ipsec.lower_interface, serv->u.ipsec.lower_interface_cellular ? "" : " not");
+	} else {
+		SCNetworkReachabilityRef ref;
+		SCNetworkConnectionFlags flags;
+
+		ref = SCNetworkReachabilityCreateWithAddress(NULL, (struct sockaddr *)&serv->u.ipsec.peer_address);
+		/* Mark interface as cellular based on reachability */
+		serv->u.ipsec.lower_interface_cellular = SCNetworkReachabilityGetFlags(ref, &flags) && (flags & kSCNetworkReachabilityFlagsIsWWAN);
+		CFRelease(ref);
+	}
+#endif
+
+	if (serv->ne_sm_bridge != NULL &&
+		serv->flags & FLAG_SETUP_ONDEMAND &&
+		serv->u.ipsec.lower_interface_cellular) {
+		Boolean hasPrimaryInterface = FALSE;
+		Boolean isCellular = primary_interface_is_cellular(&hasPrimaryInterface);
+		if (hasPrimaryInterface && !isCellular) {
+			ipsec_log(LOG_INFO, CFSTR("IPSec Controller: Skipping tunnel creation over cellular in favor of better interface"));
+			goto fail;
+		}
+	}
+
 #if !TARGET_OS_EMBEDDED
     serv->u.ipsec.lower_interface_media = get_if_media(serv->u.ipsec.lower_interface);
     serv->u.ipsec.timeout_lower_interface_change = get_interface_timeout(serv->u.ipsec.lower_interface_media, serv->flags);
@@ -3925,7 +4021,7 @@ int racoon_resolve(struct service *serv)
 		return 0;
 	}
 	
-	return racoon_restart_cisco_ipsec(serv, &serv->u.ipsec.peer_address, 0);
+	return racoon_restart_cisco_ipsec(serv, &serv->u.ipsec.peer_address, &serv->u.ipsec.nat64_prefix, 0);
 	
 fail:
 	if (serv->u.ipsec.laststatus == IPSEC_NO_ERROR)
@@ -4225,11 +4321,11 @@ ipsec_persist_connection (struct service *serv, u_int32_t flags, int retry_dhgro
 		my_CFRelease(&serv->connection_nid);
 		my_CFRelease(&serv->connection_nap);
         if (retry_dhgroup2) {
-            racoon_restart_cisco_ipsec(serv, &serv->u.ipsec.peer_address, 1);
+			racoon_restart_cisco_ipsec(serv, &serv->u.ipsec.peer_address, &serv->u.ipsec.nat64_prefix, 1);
         }
 #if !TARGET_OS_EMBEDDED
         else {
-            racoon_restart_cisco_ipsec(serv, &serv->u.ipsec.peer_address, 0);
+			racoon_restart_cisco_ipsec(serv, &serv->u.ipsec.peer_address, &serv->u.ipsec.nat64_prefix, 0);
             serv->persist_connect = 0;
         }
 #endif

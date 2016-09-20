@@ -1,4 +1,4 @@
-*fold.txt*      For Vim version 7.3.  Last change: 2010 May 13
+*fold.txt*      For Vim version 7.4.  Last change: 2013 Dec 04
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -60,7 +60,7 @@ level form a fold, with the lines with a higher level forming a nested fold.
 The nesting of folds is limited with 'foldnestmax'.
 
 Some lines are ignored and get the fold level of the line above or below it,
-whatever is the lowest.  These are empty or white lines and lines starting
+whichever is lower.  These are empty or white lines and lines starting
 with a character in 'foldignore'.  White space is skipped before checking for
 characters in 'foldignore'.  For C use "#" to ignore preprocessor lines.
 
@@ -285,9 +285,10 @@ zF		Create a fold for [count] lines.  Works like "zf".
 							*zd* *E351*
 zd		Delete one fold at the cursor.  When the cursor is on a folded
 		line, that fold is deleted.  Nested folds are moved one level
-		up.  In Visual mode all folds (partially) in the selected area
-		are deleted.  Careful: This easily deletes more folds than you
-		expect and there is no undo.
+		up.  In Visual mode one level of all folds (partially) in the
+		selected area are deleted.
+		Careful: This easily deletes more folds than you expect and
+		there is no undo for manual folding.
 		This only works when 'foldmethod' is "manual" or "marker".
 		Also see |fold-delete-marker|.
 
@@ -364,7 +365,7 @@ zX		Undo manually opened and closed folds: re-apply 'foldlevel'.
 		Also forces recomputing folds, like |zx|.
 
 							*zm*
-zm		Fold more: Subtract one from 'foldlevel'.  If 'foldlevel' was
+zm		Fold more: Subtract |v:count1| from 'foldlevel'.  If 'foldlevel' was
 		already zero nothing happens.
 		'foldenable' will be set.
 
@@ -373,7 +374,7 @@ zM		Close all folds: set 'foldlevel' to 0.
 		'foldenable' will be set.
 
 							*zr*
-zr		Reduce folding: Add one to 'foldlevel'.
+zr		Reduce folding: Add |v:count1| to 'foldlevel'.
 
 							*zR*
 zR		Open all folds.  This sets 'foldlevel' to highest fold level.

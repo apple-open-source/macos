@@ -33,6 +33,7 @@ namespace WebCore {
 // ViewportConstraints classes encapsulate data and logic required to reposition elements whose layout
 // depends on the viewport rect (positions fixed and sticky), when scrolling and zooming.
 class ViewportConstraints {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     enum ConstraintType {
         FixedPositionConstraint,
@@ -104,7 +105,7 @@ public:
     bool operator!=(const FixedPositionViewportConstraints& other) const { return !(*this == other); }
 
 private:
-    virtual ConstraintType constraintType() const override { return FixedPositionConstraint; };
+    ConstraintType constraintType() const override { return FixedPositionConstraint; };
 
     FloatRect m_viewportRectAtLastLayout;
     FloatPoint m_layerPositionAtLastLayout;
@@ -182,7 +183,7 @@ public:
     bool operator!=(const StickyPositionViewportConstraints& other) const { return !(*this == other); }
 
 private:
-    virtual ConstraintType constraintType() const override { return StickyPositionConstraint; };
+    ConstraintType constraintType() const override { return StickyPositionConstraint; };
 
     float m_leftOffset;
     float m_rightOffset;
@@ -194,6 +195,9 @@ private:
     FloatSize m_stickyOffsetAtLastLayout;
     FloatPoint m_layerPositionAtLastLayout;
 };
+
+WEBCORE_EXPORT TextStream& operator<<(TextStream&, const FixedPositionViewportConstraints&);
+WEBCORE_EXPORT TextStream& operator<<(TextStream&, const StickyPositionViewportConstraints&);
 
 } // namespace WebCore
 

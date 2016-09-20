@@ -51,6 +51,8 @@ uatmufmt_openWithNumberFormat(const char*  locale,
             mfWidth = UMEASFMT_WIDTH_SHORT; break;
         case UATIMEUNITSTYLE_NARROW:
             mfWidth = UMEASFMT_WIDTH_NARROW; break;
+        case UATIMEUNITSTYLE_SHORTER:
+            mfWidth = UMEASFMT_WIDTH_SHORTER; break;
         default:
             *status = U_ILLEGAL_ARGUMENT_ERROR; return NULL;
     }
@@ -195,6 +197,7 @@ uatmufmt_getListPattern(const char*     locale,
         case UATIMEUNITSTYLE_FULL:          { styleKey = "unit"; break; }
         case UATIMEUNITSTYLE_ABBREVIATED:   { styleKey = "unit-short"; break; }
         case UATIMEUNITSTYLE_NARROW:        { styleKey = "unit-narrow"; break; }
+        case UATIMEUNITSTYLE_SHORTER:       { styleKey = "unit-narrow"; break; }
         default: { *status = U_ILLEGAL_ARGUMENT_ERROR; return 0; }
     }
     const char* typeKey = NULL;

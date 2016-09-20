@@ -929,11 +929,8 @@ static char* ReportPosition(TidyDocImpl* doc, int line, int col, char* buf, size
 */
 
 static void messagePos( TidyDocImpl* doc, TidyReportLevel level,
-                        int line, int col, ctmbstr msg, va_list args )
-#ifdef __GNUC__
-__attribute__((format(printf, 5, 0)))
-#endif
-;
+                        int line, int col, ctmbstr msg, va_list args ) TIDY_ATTRIBUTE_PRINTF(5, 0);
+
 static void messagePos( TidyDocImpl* doc, TidyReportLevel level,
                         int line, int col, ctmbstr msg, va_list args )
 {
@@ -973,29 +970,17 @@ static void messagePos( TidyDocImpl* doc, TidyReportLevel level,
 
 /* Reports error at current Lexer line/column. */ 
 static
-void message( TidyDocImpl* doc, TidyReportLevel level, ctmbstr msg, ... )
-#ifdef __GNUC__
-__attribute__((format(printf, 3, 4)))
-#endif
-;
+void message( TidyDocImpl* doc, TidyReportLevel level, ctmbstr msg, ... ) TIDY_ATTRIBUTE_PRINTF(3, 4);
 
 /* Reports error at node line/column. */ 
 static
 void messageNode( TidyDocImpl* doc, TidyReportLevel level,
-                  Node* node, ctmbstr msg, ... )
-#ifdef __GNUC__
-__attribute__((format(printf, 4, 5)))
-#endif
-;
+                  Node* node, ctmbstr msg, ... ) TIDY_ATTRIBUTE_PRINTF(4, 5);
 
 /* Reports error at given line/column. */ 
 static
 void messageLexer( TidyDocImpl* doc, TidyReportLevel level, 
-                   ctmbstr msg, ... )
-#ifdef __GNUC__
-__attribute__((format(printf, 3, 4)))
-#endif
-;
+                   ctmbstr msg, ... ) TIDY_ATTRIBUTE_PRINTF(3, 4);
 
 /* For general reporting.  Emits nothing if --quiet yes */
 /* Apple Changes:
@@ -1008,11 +993,7 @@ static
 #else
 TIDY_EXPORT
 #endif
-void tidy_out( TidyDocImpl* doc, ctmbstr msg, ... )
-#ifdef __GNUC__
-__attribute__((format(printf, 2, 3)))
-#endif
-;
+void tidy_out( TidyDocImpl* doc, ctmbstr msg, ... ) TIDY_ATTRIBUTE_PRINTF(2, 3);
 
 
 void message( TidyDocImpl* doc, TidyReportLevel level, ctmbstr msg, ... )
@@ -1154,9 +1135,12 @@ void TY_(ReportEncodingWarning)(TidyDocImpl* doc, uint code, uint encoding)
     switch(code)
     {
     case ENCODING_MISMATCH:
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
         messageLexer(doc, TidyWarning, GetFormatFromCode(code), 
                      TY_(CharEncodingName)(doc->docIn->encoding),
                      TY_(CharEncodingName)(encoding));
+#pragma clang diagnostic pop
         doc->badChars |= BC_ENCODING_MISMATCH;
         break;
     }
@@ -1201,7 +1185,10 @@ void TY_(ReportEncodingError)(TidyDocImpl* doc, uint code, uint c, Bool discarde
     }
 
     if (fmt)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
         messageLexer( doc, TidyWarning, fmt, action, buf );
+#pragma clang diagnostic pop
 }
 
 void TY_(ReportEntityError)( TidyDocImpl* doc, uint code, ctmbstr entity,
@@ -1211,7 +1198,10 @@ void TY_(ReportEntityError)( TidyDocImpl* doc, uint code, ctmbstr entity,
     ctmbstr fmt = GetFormatFromCode(code);
 
     if (fmt)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
         messageLexer( doc, TidyWarning, fmt, entityname );
+#pragma clang diagnostic pop
 }
 
 void TY_(ReportAttrError)(TidyDocImpl* doc, Node *node, AttVal *av, uint code)
@@ -1232,6 +1222,8 @@ void TY_(ReportAttrError)(TidyDocImpl* doc, Node *node, AttVal *av, uint code)
             value = av->value;
     }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     switch (code)
     {
     case UNKNOWN_ATTRIBUTE:
@@ -1288,6 +1280,7 @@ void TY_(ReportAttrError)(TidyDocImpl* doc, Node *node, AttVal *av, uint code)
         messageLexer(doc, TidyWarning, fmt, tagdesc);
         break;
     }
+#pragma clang diagnostic pop
 }
 
 void TY_(ReportMissingAttr)( TidyDocImpl* doc, Node* node, ctmbstr name )
@@ -1297,7 +1290,10 @@ void TY_(ReportMissingAttr)( TidyDocImpl* doc, Node* node, ctmbstr name )
 
     assert( fmt != NULL );
     TagToString(node, tagdesc, sizeof(tagdesc));
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     messageNode( doc, TidyWarning, node, fmt, tagdesc, name );
+#pragma clang diagnostic pop
 }
 
 #if SUPPORT_ACCESSIBILITY_CHECKS
@@ -1336,14 +1332,22 @@ void TY_(ReportAccessWarning)( TidyDocImpl* doc, Node* node, uint code )
 {
     ctmbstr fmt = GetFormatFromCode(code);
     doc->badAccess = yes;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
+#pragma clang diagnostic ignored "-Wformat-security"
     messageNode( doc, TidyAccess, node, fmt );
+#pragma clang diagnostic pop
 }
 
 void TY_(ReportAccessError)( TidyDocImpl* doc, Node* node, uint code )
 {
     ctmbstr fmt = GetFormatFromCode(code);
     doc->badAccess = yes;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
+#pragma clang diagnostic ignored "-Wformat-security"
     messageNode( doc, TidyAccess, node, fmt );
+#pragma clang diagnostic pop
 }
 
 #endif /* SUPPORT_ACCESSIBILITY_CHECKS */
@@ -1359,10 +1363,15 @@ void TY_(ReportWarning)(TidyDocImpl* doc, Node *element, Node *node, uint code)
 
     TagToString(node, nodedesc, sizeof(nodedesc));
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     switch (code)
     {
     case NESTED_QUOTATION:
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-security"
         messageNode(doc, TidyWarning, rpt, fmt);
+#pragma clang diagnostic pop
         break;
 
     case OBSOLETE_ELEMENT:
@@ -1377,6 +1386,7 @@ void TY_(ReportWarning)(TidyDocImpl* doc, Node *element, Node *node, uint code)
         messageNode(doc, TidyWarning, rpt, fmt, node->element, node->element);
         break;
     }
+#pragma clang diagnostic pop
 }
 
 void TY_(ReportNotice)(TidyDocImpl* doc, Node *element, Node *node, uint code)
@@ -1390,6 +1400,8 @@ void TY_(ReportNotice)(TidyDocImpl* doc, Node *element, Node *node, uint code)
 
     TagToString(node, nodedesc, sizeof(nodedesc));
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     switch (code)
     {
     case TRIM_EMPTY_ELEMENT:
@@ -1402,6 +1414,7 @@ void TY_(ReportNotice)(TidyDocImpl* doc, Node *element, Node *node, uint code)
         messageNode(doc, TidyWarning, rpt, fmt, elemdesc, nodedesc);
         break;
     }
+#pragma clang diagnostic pop
 }
 
 void TY_(ReportError)(TidyDocImpl* doc, Node *element, Node *node, uint code)
@@ -1415,6 +1428,8 @@ void TY_(ReportError)(TidyDocImpl* doc, Node *element, Node *node, uint code)
 
     TagToString(node, nodedesc, sizeof(nodedesc));
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     switch ( code )
     {
     case MISSING_STARTTAG:
@@ -1443,7 +1458,10 @@ void TY_(ReportError)(TidyDocImpl* doc, Node *element, Node *node, uint code)
     case INCONSISTENT_NAMESPACE:
     case DOCTYPE_AFTER_TAGS:
     case DTYPE_NOT_UPPER_CASE:
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-security"
         messageNode(doc, TidyWarning, rpt, fmt);
+#pragma clang diagnostic pop
         break;
 
     case COERCE_TO_ENDTAG:
@@ -1459,7 +1477,10 @@ void TY_(ReportError)(TidyDocImpl* doc, Node *element, Node *node, uint code)
     case ENCODING_IO_CONFLICT:
     case MISSING_DOCTYPE:
     case SPACE_PRECEDING_XMLDECL:
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-security"
         messageNode(doc, TidyWarning, node, fmt);
+#pragma clang diagnostic pop
         break;
 
     case TRIM_EMPTY_ELEMENT:
@@ -1493,6 +1514,7 @@ void TY_(ReportError)(TidyDocImpl* doc, Node *element, Node *node, uint code)
         messageNode(doc, TidyWarning, rpt, fmt, elemdesc, nodedesc);
         break;
     }
+#pragma clang diagnostic pop
 }
 
 void TY_(ReportFatal)( TidyDocImpl* doc, Node *element, Node *node, uint code)
@@ -1501,11 +1523,16 @@ void TY_(ReportFatal)( TidyDocImpl* doc, Node *element, Node *node, uint code)
     Node* rpt = ( element ? element : node );
     ctmbstr fmt = GetFormatFromCode(code);
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     switch ( code )
     {
     case SUSPECTED_MISSING_QUOTE:
     case DUPLICATE_FRAMESET:
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-security"
         messageNode(doc, TidyError, rpt, fmt);
+#pragma clang diagnostic pop
         break;
 
     case UNKNOWN_ELEMENT:
@@ -1521,6 +1548,7 @@ void TY_(ReportFatal)( TidyDocImpl* doc, Node *element, Node *node, uint code)
         messageNode(doc, TidyError, node, fmt, node->element);
         break;
     }
+#pragma clang diagnostic pop
 }
 
 void TY_(ErrorSummary)( TidyDocImpl* doc )

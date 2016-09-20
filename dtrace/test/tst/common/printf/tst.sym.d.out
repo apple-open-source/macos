@@ -1,1 +1,1 @@
-symbol = mach_kernel`max_ncpus
+symbol = mach_kernel`real_ncpus

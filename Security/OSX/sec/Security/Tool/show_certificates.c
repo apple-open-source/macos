@@ -52,6 +52,7 @@
 #include <Security/SecPolicyPriv.h>
 #include <Security/SecTrustPriv.h>
 #include <Security/SecInternal.h>
+#include <Security/SecTrustStore.h>
 
 #include <SecurityTool/readline.h>
 
@@ -288,6 +289,134 @@ int keychain_show_certificates(int argc, char * const *argv)
     CFReleaseSafe(certs);
 
 	return result;
+}
+
+int trust_store_show_certificates(int argc, char * const *argv)
+{
+    int ch, result = 0;
+    bool output_subject = false;
+    bool verbose = false;
+    bool trust_settings = false;
+    bool output_pem = false;
+    bool output_finger_print = false;
+    bool output_keyid = false;
+    CFArrayRef certs = NULL;
+
+    while ((ch = getopt(argc, argv, "fpstvk")) != -1)
+    {
+        switch  (ch)
+        {
+            case 'p':
+                output_pem = true;
+                break;
+            case 's':
+                output_subject = true;
+                break;
+            case 'v':
+                verbose = true;
+                break;
+            case 't':
+                trust_settings = true;
+                break;
+            case 'f':
+                output_finger_print = true;
+                break;
+            case 'k':
+                output_keyid = true;
+                break;
+            case '?':
+            default:
+                return 2; /* @@@ Return 2 triggers usage message. */
+        }
+    }
+
+    if(SecTrustStoreCopyAll(SecTrustStoreForDomain(kSecTrustStoreDomainUser),
+                             &certs) || !certs) {
+        fprintf(stderr, "failed to get trust store contents for user\n");
+        return 1;
+    }
+
+    CFIndex ix, count = CFArrayGetCount(certs);
+    if (count) printf("*******************************************************\n");
+    for (ix = 0; ix < count; ix++) {
+        CFArrayRef certSettingsPair = NULL;
+        CFDataRef certData = NULL;
+        SecCertificateRef cert = NULL;
+
+        certSettingsPair = CFArrayGetValueAtIndex(certs, ix);
+        certData = (CFDataRef)CFArrayGetValueAtIndex(certSettingsPair, 0);
+        cert = SecCertificateCreateWithData(kCFAllocatorDefault, certData);
+        if (!cert) {
+            fprintf(stderr, "failed to get cert at %ld\n",ix);
+            return 1;
+        }
+        if (verbose) {
+            print_cert(cert, verbose);
+        } else if (output_subject) {
+            CFStringRef subject = SecCertificateCopySubjectString(cert);
+            if (subject) {
+                CFStringWriteToFileWithNewline(subject, stdout);
+                CFRelease(subject);
+            }
+        } else if (output_pem) {
+            print_buffer_pem(stdout, "CERTIFICATE",
+                             SecCertificateGetLength(cert),
+                             SecCertificateGetBytePtr(cert));
+        } else {
+            print_cert(cert, verbose);
+        }
+        if (output_keyid) {
+            CFDataRef key_fingerprint = SecCertificateCopyPublicKeySHA1Digest(cert);
+            if (key_fingerprint) {
+                int i;
+                CFIndex j = CFDataGetLength(key_fingerprint);
+                const uint8_t *byte = CFDataGetBytePtr(key_fingerprint);
+
+                fprintf(stdout, "Keyid:");
+                for (i = 0; i < j; i++) {
+                    fprintf(stdout, " %02X", byte[i]);
+                }
+                fprintf(stdout, "\n");
+            }
+            CFReleaseSafe(key_fingerprint);
+        }
+        if (output_finger_print) {
+            CFDataRef fingerprint = SecCertificateGetSHA1Digest(cert);
+            if (fingerprint) {
+                int i;
+                CFIndex j = CFDataGetLength(fingerprint);
+                const uint8_t *byte = CFDataGetBytePtr(fingerprint);
+
+                fprintf(stdout, "Fingerprint:");
+                for (i = 0; i < j; i++) {
+                    fprintf(stdout, " %02X", byte[i]);
+                }
+                fprintf(stdout, "\n");
+            }
+        }
+        if (trust_settings) {
+            CFPropertyListRef trust_settings = NULL;
+            trust_settings = CFArrayGetValueAtIndex(certSettingsPair, 1);
+            if (trust_settings && CFGetTypeID(trust_settings) != CFArrayGetTypeID()) {
+                fprintf(stderr, "failed to get trust settings for cert %ld\n", ix);
+                CFReleaseNull(cert);
+                return 1;
+            }
+            // place-holder until there are actual trust settings
+            CFStringRef settings = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@"), trust_settings);
+            char *settingsStr = NULL;
+            settingsStr = CFStringToCString(settings);
+            fprintf(stdout, "%s\n", settingsStr);
+            free(settingsStr);
+            CFRelease(settings);
+
+        }
+        printf("*******************************************************\n");
+        CFReleaseNull(cert);
+    }
+
+    CFRelease(certs);
+    return result;
 }
 
 #endif // TARGET_OS_EMBEDDED

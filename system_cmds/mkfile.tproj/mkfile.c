@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
@@ -10,7 +10,7 @@
  * except in compliance with the License.  Please obtain a copy of the
  * License at http://www.apple.com/publicsource and read it before using
  * this file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -18,19 +18,17 @@
  * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
  * License for the specific language governing rights and limitations
  * under the License."
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1997 Apple Computer, Inc. All Rights Reserved 
- *	
+ * Copyright (c) 1997 Apple Computer, Inc. All Rights Reserved
+ *
  * HISTORY
  * 29-Aug-97 Daniel Wade (danielw) at Apple
  *	Created.
  *
- */ 
-
-
+ */
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -43,37 +41,35 @@
 #include <ctype.h>
 #include <err.h>
 
-#define BF_SZ 	512	/* Size of write chunks */
+#define BF_SZ	512	/* Size of write chunks */
 
 extern void usage(char *, char *);
 extern void create_file(char *, quad_t, int, int);
 extern void err_rm(char *, char *);
 
 int
-main (argc, argv)
-	int argc;
-	char **argv;
+main(int argc, char **argv)
 {
 	char *b_num, *prog_name;
 	char *options = "nv";
 	char c;
 	off_t multiplier = 1;
 	off_t file_size;
-	int len;
+	size_t len;
 	int empty = 0;
 	int verbose = 0;
 	char* endptr = NULL;
 
 	prog_name = argv[0];	/* Get program name */
-    if (1 == argc)
+	if (1 == argc)
 		usage(prog_name, options);
 
 	/* Get options */
 	opterr=1;
-	
-    	while ((c=getopt(argc, argv, options)) != EOF)
-        	switch (c) {
-        	case 'v':   /* Turn on verbose setting */
+
+	while ((c=getopt(argc, argv, options)) != EOF)
+		switch (c) {
+		case 'v':   /* Turn on verbose setting */
 			verbose = 1;
 			break;
 		case 'n':   /* Create an empty file */
@@ -89,7 +85,7 @@ main (argc, argv)
 	argv += optind;
 	if (*argv == NULL)		/* Is there a size given? */
 		usage(prog_name, options);
-	
+
 	b_num = *argv++;		/* Size of file and byte multiplier */
 	len = strlen(b_num) - 1;
 
@@ -102,7 +98,7 @@ main (argc, argv)
 			case 'K':
                         case 'k':
                                 multiplier = 1024;
-                        	break;
+				break;
 			case 'M':
                         case 'm':
                                 multiplier = 1024 * 1024;
@@ -112,12 +108,12 @@ main (argc, argv)
                                 multiplier = 1024 * 1024 * 1024;
                                 break;
                         default:
-                        	usage(prog_name, options);
+				usage(prog_name, options);
                 }
 	}
-	
+
 	if (*argv == NULL)		/* Was a file name given? */
-		usage(prog_name, options);	
+		usage(prog_name, options);
 
 	if ((file_size = strtoll(b_num, &endptr, 10)) == 0 &&
 		(*endptr != 0 && endptr != &b_num[len])) {
@@ -130,21 +126,17 @@ main (argc, argv)
 	}
 
 	return (0);
-
 }
 
 
 /* Create a file and make it empty (lseek) or zero'd */
 
-void 
-create_file(file_name, size, empty, verbose)
-	char *file_name;
-	quad_t size;
-	int empty;
-	int verbose;
+void
+create_file(char *file_name, quad_t size, int empty, int verbose)
 {
 	char buff[BF_SZ];
-	int fd, bytes_written = BF_SZ;
+	int fd;
+	ssize_t bytes_written = BF_SZ;
 	quad_t i;
 	mode_t mode = S_IRUSR | S_IWUSR;
 
@@ -177,7 +169,7 @@ create_file(file_name, size, empty, verbose)
                                 err_rm (file_name, "Write Error");
 		}
 		for (; i > 0; i -= bytes_written) {
-                   	bytes_written = write (fd, buff, i);
+			bytes_written = write (fd, buff, (size_t)i);
                         if ( bytes_written == -1 )
                                 err_rm (file_name, "Write Error");
 		}
@@ -191,29 +183,22 @@ create_file(file_name, size, empty, verbose)
 
 	if (verbose)
 		(void)fprintf(stderr, "%s %qd bytes\n", file_name, size);
-
 }
 
 /* On error remove the file */
 
 void
-err_rm(filename, msg)
-	char *filename;
-	char *msg;
+err_rm(char *filename, char *msg)
 {
 	unlink(filename);
-	err(1, "(%s removed) %s", filename, msg); 
+	err(1, "(%s removed) %s", filename, msg);
 }
 
-
 /* Print usage string */
-void 
-usage (prog_name, options)
-	char *prog_name;
-	char *options;
+void
+usage(char *prog_name, char *options)
 {
-	(void)fprintf(stderr, 
+	(void)fprintf(stderr,
 		"usage: %s [-%s] size[b|k|m|g] filename ...\n", prog_name,  options);
 	exit(1);
-
 }

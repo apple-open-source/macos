@@ -22,9 +22,7 @@
 #ifndef WidthIterator_h
 #define WidthIterator_h
 
-#include "FontCascade.h"
-#include "SVGGlyph.h"
-#include "TextRun.h"
+#include <unicode/umachine.h>
 #include <wtf/HashSet.h>
 #include <wtf/Vector.h>
 
@@ -35,6 +33,9 @@ class GlyphBuffer;
 class Font;
 class TextRun;
 struct GlyphData;
+struct OriginalAdvancesForCharacterTreatedAsSpace;
+
+typedef Vector<std::pair<int, OriginalAdvancesForCharacterTreatedAsSpace>, 64> CharactersTreatedAsSpace;
 
 struct WidthIterator {
     WTF_MAKE_FAST_ALLOCATED;
@@ -51,14 +52,6 @@ public:
 
     const TextRun& run() const { return m_run; }
     float runWidthSoFar() const { return m_runWidthSoFar; }
-    bool enableKerning() const { return m_enableKerning; }
-    bool requiresShaping() const { return m_requiresShaping; }
-
-#if ENABLE(SVG_FONTS)
-    String lastGlyphName() const { return m_lastGlyphName; }
-    void setLastGlyphName(const String& name) { m_lastGlyphName = name; }
-    Vector<SVGGlyph::ArabicForm>& arabicForms() { return m_arabicForms; }
-#endif
 
     const FontCascade* m_font;
 
@@ -71,18 +64,14 @@ public:
     bool m_isAfterExpansion;
     float m_finalRoundingWidth;
 
-#if ENABLE(SVG_FONTS)
-    String m_lastGlyphName;
-    Vector<SVGGlyph::ArabicForm> m_arabicForms;
-#endif
-
 private:
-    GlyphData glyphDataForCharacter(UChar32, bool mirror, int currentCharacter, unsigned& advanceLength, String& normalizedSpacesStringCache);
+    GlyphData glyphDataForCharacter(UChar32, bool mirror);
     template <typename TextIterator>
     inline unsigned advanceInternal(TextIterator&, GlyphBuffer*);
 
     enum class TransformsType { None, Forced, NotForced };
     TransformsType shouldApplyFontTransforms(const GlyphBuffer*, int lastGlyphCount, UChar32 previousCharacter) const;
+    float applyFontTransforms(GlyphBuffer*, bool ltr, int& lastGlyphCount, const Font*, UChar32 previousCharacter, bool force, CharactersTreatedAsSpace&);
 
     HashSet<const Font*>* m_fallbackFonts { nullptr };
     bool m_accountForGlyphBounds { false };

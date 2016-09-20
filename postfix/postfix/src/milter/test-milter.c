@@ -22,7 +22,7 @@
 /* .IP "\fB-A address\fR"
 /*	Add the specified recipient address (specify ESMTP parameters
 /*	separated by space). Multiple -A options are supported.
-/* .IP "\fB-b pathname
+/* .IP "\fB-b pathname\fR"
 /*	Replace the message body by the content of the specified file.
 /* .IP "\fB-c connect|helo|mail|rcpt|data|header|eoh|body|eom|unknown|close|abort\fR"
 /*	When to send the non-default reply specified with \fB-a\fR.
@@ -34,7 +34,7 @@
 /* .IP "\fB-D\fI address\fR"
 /*	Delete the specified recipient address. Multiple -D options
 /*	are supported.
-/* .IP "\fB-f \fIsender\fR
+/* .IP "\fB-f \fIsender\fR"
 /*	Replace the sender by the specified address.
 /* .IP "\fB-h \fI'index header-label header-value'\fR"
 /*	Replace the message header at the specified position.

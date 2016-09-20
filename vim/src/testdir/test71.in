@@ -1,14 +1,21 @@
 Test for encryption.
+The test data is in another file to avoid problems with 'encoding', especially
+cp932.
 
 STARTTEST
 :so small.vim
+:set enc=latin1
+:bwipe!
+:r test71a.in
 :/^start of text/+1
 :let text_lines = getline('.', line('.') + 2)
 :/^start of cm=zip bytes/+1
 :let cm0_bytes = getline('.', '.')
 :/^start of cm=blowfish bytes/+1
 :let cm1_bytes = getline('.', '.')
-:bwipe
+:/^start of cm=blowfish2 bytes/+1
+:let cm2_bytes = getline('.', '.')
+:bwipe!
 :call append(0, text_lines)
 :$d
 :X
@@ -31,6 +38,18 @@ barfoo
 :e Xtestfile
 barfoo
 :let cm1_read_back = getline('.', '$')
+:set key=
+:set cryptmethod=blowfish2
+:" If the blowfish test fails 'cryptmethod' will be 'zip' now.
+:%s/^/\=&cryptmethod == 'blowfish2' ? "OK " : "blowfish test failed "/
+:X
+bar2foo
+bar2foo
+:w! Xtestfile
+:bwipe!
+:e Xtestfile
+bar2foo
+:let cm2_read_back = getline('.', '$')
 :bwipe!
 :set bin noeol key=
 :call append(0, cm0_bytes)
@@ -52,7 +71,20 @@ foofoo
 :set nobin
 :e Xtestfile
 barbar
+:let cm1_read_bin = getline('.', '$')
+:bwipe!
+:set bin noeol key=
+:call append(0, cm2_bytes)
+:$d
+:set fenc=latin1
+:w! Xtestfile
+:bwipe!
+:set nobin
+:e Xtestfile
+barburp
+:call append(0, cm1_read_bin)
 :call append(0, cm0_read_bin)
+:call append(0, cm2_read_back)
 :call append(0, cm1_read_back)
 :call append(0, cm0_read_back)
 :set key= fenc=latin1
@@ -60,16 +92,3 @@ barbar
 :qa!
 ENDTEST
 
-start of text
-01234567890123456789012345678901234567
-line 2  foo bar blah
-line 3 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-end of text
-
-start of cm=zip bytes
-VimCrypt~01!lV'Þ}Mg ê£V©çE#3Ž2Ué—
-end of cm=zip bytes
-
-start of cm=blowfish bytes
-VimCrypt~02!k)¾—#ÝSœõ=ºàÈ#¥M´†JÃAÍ¥M´†!€›õáÒ‚˜÷Ú
-end of cm=blowfish bytes

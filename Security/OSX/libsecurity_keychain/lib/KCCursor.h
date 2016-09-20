@@ -68,6 +68,9 @@ private:
 	bool mAllFailed;
     bool mDeleteInvalidRecords;
 
+    // Remembers if we've called newKeychain() on mCurrent.
+    bool mIsNewKeychain;
+
 protected:
 	Mutex mMutex;
     StReadWriteLock* mKeychainReadLock;

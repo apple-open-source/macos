@@ -36,9 +36,13 @@ namespace CodeSigning {
 //
 // Construct a running process representation
 //
-ProcessCode::ProcessCode(pid_t pid, PidDiskRep *pidDiskRep /*= NULL */)
+ProcessCode::ProcessCode(pid_t pid, const audit_token_t* token, PidDiskRep *pidDiskRep /*= NULL */)
 	: GenericCode(KernelCode::active()), mPid(pid), mPidBased(pidDiskRep)
 {
+	if (token)
+		mAudit = new audit_token_t(*token);
+	else
+		mAudit = NULL;
 }
 
 
@@ -46,6 +50,17 @@ mach_port_t ProcessCode::getHostingPort()
 {
 	return SecurityServer::ClientSession().hostingPort(pid());
 }
+	
+	
+int ProcessCode::csops(unsigned int ops, void *addr, size_t size)
+{
+	// pass pid and audit token both if we have it, or just the pid if we don't
+	if (mAudit)
+		return ::csops_audittoken(mPid, ops, addr, size, mAudit);
+	else
+		return ::csops(mPid, ops, addr, size);
+}
+
 
 /*
  *

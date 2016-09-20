@@ -25,10 +25,10 @@
 
 function useSVGSymbol(url, className, title)
 {
-    var svgNamespace = "http://www.w3.org/2000/svg";
-    var xlinkNamespace = "http://www.w3.org/1999/xlink";
+    const svgNamespace = "http://www.w3.org/2000/svg";
+    const xlinkNamespace = "http://www.w3.org/1999/xlink";
 
-    var svgElement = document.createElementNS(svgNamespace, "svg");
+    let svgElement = document.createElementNS(svgNamespace, "svg");
     svgElement.style.width = "100%";
     svgElement.style.height = "100%";
 
@@ -37,11 +37,11 @@ function useSVGSymbol(url, className, title)
     if (!url.includes("#"))
         url += "#root";
 
-    var useElement = document.createElementNS(svgNamespace, "use");
+    let useElement = document.createElementNS(svgNamespace, "use");
     useElement.setAttributeNS(xlinkNamespace, "xlink:href", url);
     svgElement.appendChild(useElement);
 
-    var wrapper = document.createElement("div");
+    let wrapper = document.createElement("div");
     wrapper.appendChild(svgElement);
 
     if (className)

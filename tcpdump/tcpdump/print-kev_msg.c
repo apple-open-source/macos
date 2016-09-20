@@ -39,13 +39,6 @@
 #include <stddef.h>
 #include <arpa/inet.h>
 
-#include <TargetConditionals.h>
-
-#if !TARGET_OS_EMBEDDED
-#include <netinet/ip_fw2.h>
-#include <netinet6/ip6_fw.h>
-#endif
-
 #define NETDISSECT_REWORKED
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -203,7 +196,7 @@ get_str_from_index(const char **array, int index)
 {
 	int		i= 0;
 	const char	*s;
-	
+
 	while ((s = array[i]) != NULL && i < index) {
 		i++;
 	}
@@ -215,7 +208,7 @@ get_str_from_ifflag(struct iff_str *array, uint32_t flag)
 {
 	int i = 0;
 	const char *s = "";
-	
+
 	while (array[i].str != NULL) {
 		if (flag == array[i].flag) {
 			s = array[i].str;
@@ -223,7 +216,7 @@ get_str_from_ifflag(struct iff_str *array, uint32_t flag)
 		}
 		i++;
 	}
-	return (NULL);
+	return (s);
 }
 
 static void
@@ -231,7 +224,7 @@ print_in6_ifflags(struct netdissect_options *ndo, uint32_t flags)
 {
 	int bit = 0x1;
 	size_t len = 0;
-	
+
 	while (bit) {
 		const char *s = get_str_from_ifflag(in6_iff_strs, bit & flags);
 		if (s != NULL && *s != 0) {
@@ -267,9 +260,9 @@ print_node_presence(struct netdissect_options *ndo, struct kev_dl_node_presence 
 
 	inet_ntop(AF_INET6, &kev->sin6_node_address.sin6_addr.s6_addr,
 		  sin6_node_address, sizeof(sin6_node_address));
-	
+
 	ND_PRINT((ndo, " inet6 %d", sin6_node_address));
-	
+
 	switch (kev->sdl_node_address.sdl_type)  {
 		case IFT_ETHER:
 		case IFT_FDDI:
@@ -293,12 +286,12 @@ static void
 print_node_absence(struct netdissect_options *ndo, struct kev_dl_node_absence *kev)
 {
 	char sin6_node_address[INET6_ADDRSTRLEN];
-	
+
 	inet_ntop(AF_INET6, &kev->sin6_node_address.sin6_addr.s6_addr,
 		  sin6_node_address, sizeof(sin6_node_address));
-	
+
 	ND_PRINT((ndo, " inet6 %d", sin6_node_address));
-	
+
 	switch (kev->sdl_node_address.sdl_type)  {
 		case IFT_ETHER:
 		case IFT_FDDI:
@@ -317,7 +310,7 @@ void
 print_kev_msg(struct netdissect_options *ndo, struct kern_event_msg *kev_msg)
 {
 	const char *event_code_str;
-	
+
 	if (kev_msg->vendor_code != KEV_VENDOR_APPLE) {
 		ND_PRINT((ndo, "kev size %u vendor %u class %u subclass %u code %u",
 			  kev_msg->total_size,
@@ -331,9 +324,9 @@ print_kev_msg(struct netdissect_options *ndo, struct kern_event_msg *kev_msg)
 	if (kev_msg->kev_class == KEV_NETWORK_CLASS) {
 		struct net_event_data *net_data = (struct net_event_data *) &kev_msg->event_data[0];
 		const char *if_family_str = get_str_from_index(str_if_family, net_data->if_family);
-		
+
 		ND_PRINT((ndo, "kev %s%d ", net_data->if_name, net_data->if_unit));
-		
+
 		if (ndo->ndo_vflag > 1) {
 			ND_PRINT((ndo, "%s", if_family_str ? if_family_str : "?"));
 		}
@@ -347,9 +340,9 @@ print_kev_msg(struct netdissect_options *ndo, struct kern_event_msg *kev_msg)
 			char ia_netbroadcast[INET_ADDRSTRLEN];
 			char ia_dstaddr[INET_ADDRSTRLEN];
 			in_addr_t addr;
-			
+
 			event_code_str = get_str_from_index(str_kev_net_inet, kev_msg->event_code);
-			
+
 			inet_ntop(AF_INET, &in_data->ia_addr.s_addr, ia_addr, sizeof(ia_addr));
 			addr = htonl(in_data->ia_net);
 			inet_ntop(AF_INET, &addr, ia_net, sizeof(ia_net));
@@ -361,7 +354,7 @@ print_kev_msg(struct netdissect_options *ndo, struct kern_event_msg *kev_msg)
 			inet_ntop(AF_INET, &addr, ia_subnetmask, sizeof(ia_subnetmask));
 			inet_ntop(AF_INET, &in_data->ia_netbroadcast.s_addr, ia_netbroadcast, sizeof(ia_netbroadcast));
 			inet_ntop(AF_INET, &in_data->ia_dstaddr.s_addr, ia_dstaddr, sizeof(ia_dstaddr));
-		
+
 			ND_PRINT((ndo,
 				  "inet %s %s net %s netmask %s subnet %s subnetmask %s netbroadcast %s dstaddr %s",
 				  event_code_str ? event_code_str : "?",
@@ -378,14 +371,14 @@ print_kev_msg(struct netdissect_options *ndo, struct kern_event_msg *kev_msg)
 			char ia_net[INET6_ADDRSTRLEN];
 			char ia_dstaddr[INET6_ADDRSTRLEN];
 			char ia_prefixmask[INET6_ADDRSTRLEN];
-		
+
 			event_code_str = get_str_from_index(str_kev_net_inet6, kev_msg->event_code);
 
 			inet_ntop(AF_INET6, &in6_data->ia_addr.sin6_addr.s6_addr, ia_addr, sizeof(ia_addr));
 			inet_ntop(AF_INET6, &in6_data->ia_net.sin6_addr.s6_addr, ia_net, sizeof(ia_net));
 			inet_ntop(AF_INET6, &in6_data->ia_dstaddr.sin6_addr.s6_addr, ia_dstaddr, sizeof(ia_dstaddr));
 			inet_ntop(AF_INET6, &in6_data->ia_prefixmask.sin6_addr.s6_addr, ia_prefixmask, sizeof(ia_prefixmask));
-			
+
 			ND_PRINT((ndo,
 				  "kev inet6 %s %s net %s dstaddr %s prefixmask %s plen %u",
 				  event_code_str ? event_code_str : "?",
@@ -407,14 +400,14 @@ print_kev_msg(struct netdissect_options *ndo, struct kern_event_msg *kev_msg)
 			ND_PRINT((ndo,
 				  "kev %s",
 				  event_code_str ? event_code_str : "?"));
-			
+
 			switch (kev_msg->event_code) {
 				case KEV_DL_PROTO_ATTACHED:
 				case KEV_DL_PROTO_DETACHED: {
 					struct kev_dl_proto_data *ev_pr_data;
-					
+
 					ev_pr_data = (struct kev_dl_proto_data *)net_data;
-					
+
 					ND_PRINT((ndo,
 						  " proto %u remaining %u",
 						  ev_pr_data->proto_family,
@@ -423,7 +416,7 @@ print_kev_msg(struct netdissect_options *ndo, struct kern_event_msg *kev_msg)
 				}
 				case KEV_DL_LINK_QUALITY_METRIC_CHANGED: {
 					struct kev_dl_link_quality_metric_data *ev_lqm_data;
-					
+
 					ev_lqm_data = (struct kev_dl_link_quality_metric_data *)net_data;
 
 					print_lqm(ndo, ev_lqm_data->link_quality_metric);
@@ -448,7 +441,7 @@ print_kev_msg(struct netdissect_options *ndo, struct kern_event_msg *kev_msg)
 				  event_code_str ? event_code_str : "?"));
 		} else {
 			const char *str_subclass = get_str_from_index(str_kev_net_subclass, kev_msg->kev_subclass);
-			
+
 			if (str_subclass != NULL) {
 				ND_PRINT((ndo, "kev net %s", str_subclass));
 			} else {
@@ -457,7 +450,7 @@ print_kev_msg(struct netdissect_options *ndo, struct kern_event_msg *kev_msg)
 		}
 	} else if (kev_msg->kev_class == KEV_SYSTEM_CLASS) {
 		const char *str_subclass = get_str_from_index(str_kev_systm_subclass, kev_msg->kev_subclass);
-		
+
 		if (str_subclass != NULL) {
 			ND_PRINT((ndo, "kev systm %s", str_subclass));
 		} else {

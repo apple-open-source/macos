@@ -62,15 +62,6 @@ typedef struct _Subnet * SubnetRef;
  ** SubnetListRef API's
  **/
 
-/*
- * Function: SubnetListLogErrors
- * Purpose:
- *   If log = TRUE, use syslog to log errors with the given level.
- *   If this function is never called, all errors go to stderr.
- */
-void
-SubnetListLogErrors(int level);
-
 SubnetRef
 SubnetListAcquireAddress(SubnetListRef list, struct in_addr * addr,
 			 SubnetIsAddressInUseFuncRef func, void * arg);

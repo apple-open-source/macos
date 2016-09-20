@@ -42,6 +42,7 @@ WebInspector.DOMTreeManager = class DOMTreeManager extends WebInspector.Object
         this._flows = new Map;
         this._contentNodesToFlowsMap = new Map;
         this._restoreSelectedNodeIsAllowed = true;
+        this._loadNodeAttributesTimeout = 0;
 
         WebInspector.Frame.addEventListener(WebInspector.Frame.Event.MainResourceDidChange, this._mainResourceDidChange, this);
     }
@@ -75,7 +76,7 @@ WebInspector.DOMTreeManager = class DOMTreeManager extends WebInspector.Object
             if (!error)
                 this._setDocument(root);
 
-            for (var callback of this._pendingDocumentRequestCallbacks)
+            for (let callback of this._pendingDocumentRequestCallbacks)
                 callback(this._document);
 
             this._pendingDocumentRequestCallbacks = null;
@@ -150,7 +151,7 @@ WebInspector.DOMTreeManager = class DOMTreeManager extends WebInspector.Object
     {
         for (var nodeId of nodeIds)
             this._attributeLoadNodeIds[nodeId] = true;
-        if ("_loadNodeAttributesTimeout" in this)
+        if (this._loadNodeAttributesTimeout)
             return;
         this._loadNodeAttributesTimeout = setTimeout(this._loadNodeAttributes.bind(this), 0);
     }
@@ -171,7 +172,7 @@ WebInspector.DOMTreeManager = class DOMTreeManager extends WebInspector.Object
             }
         }
 
-        this._loadNodeAttributesTimeout = undefined;
+        this._loadNodeAttributesTimeout = 0;
 
         for (var nodeId in this._attributeLoadNodeIds) {
             var nodeIdAsNumber = parseInt(nodeId);
@@ -285,14 +286,14 @@ WebInspector.DOMTreeManager = class DOMTreeManager extends WebInspector.Object
 
         delete this._idToDOMNode[node.id];
 
-        for (var i = 0; node.children && i < node.children.length; ++i)
+        for (let i = 0; node.children && i < node.children.length; ++i)
             this._unbind(node.children[i]);
 
-        var templateContent = node.templateContent();
+        let templateContent = node.templateContent();
         if (templateContent)
             this._unbind(templateContent);
 
-        for (var pseudoElement of node.pseudoElements().values())
+        for (let pseudoElement of node.pseudoElements().values())
             this._unbind(pseudoElement);
 
         // FIXME: Handle shadow roots.
@@ -330,13 +331,13 @@ WebInspector.DOMTreeManager = class DOMTreeManager extends WebInspector.Object
             this.inspectElement(nodeId);
 
             // Re-resolve the node in the console's object group when adding to the console.
-            var domNode = this.nodeForId(nodeId);
+            let domNode = this.nodeForId(nodeId);
             WebInspector.RemoteObject.resolveNode(domNode, WebInspector.RuntimeManager.ConsoleObjectGroup, function(remoteObject) {
                 if (!remoteObject)
                     return;
-                var specialLogStyles = true;
-                var synthetic = true;
-                WebInspector.consoleLogViewController.appendImmediateExecutionWithResult(WebInspector.UIString("Selected Element"), remoteObject, specialLogStyles, synthetic);
+                let specialLogStyles = true;
+                let shouldRevealConsole = false;
+                WebInspector.consoleLogViewController.appendImmediateExecutionWithResult(WebInspector.UIString("Selected Element"), remoteObject, specialLogStyles, shouldRevealConsole);
             });
         }
 
@@ -448,20 +449,18 @@ WebInspector.DOMTreeManager = class DOMTreeManager extends WebInspector.Object
 
     set inspectModeEnabled(enabled)
     {
-        function callback(error)
-        {
+        if (enabled === this._inspectModeEnabled)
+            return;
+
+        DOMAgent.setInspectModeEnabled(enabled, this._buildHighlightConfig(), (error) => {
             this._inspectModeEnabled = error ? false : enabled;
             this.dispatchEventToListeners(WebInspector.DOMTreeManager.Event.InspectModeStateChanged);
-        }
-
-        DOMAgent.setInspectModeEnabled(enabled, this._buildHighlightConfig(), callback.bind(this));
+        });
     }
 
-    _buildHighlightConfig(mode)
+    _buildHighlightConfig(mode = "all")
     {
-        mode = mode || "all";
-
-        var highlightConfig = {showInfo: mode === "all"};
+        let highlightConfig = {showInfo: mode === "all"};
 
         if (mode === "all" || mode === "content")
             highlightConfig.contentColor = {r: 111, g: 168, b: 220, a: 0.66};
@@ -494,7 +493,7 @@ WebInspector.DOMTreeManager = class DOMTreeManager extends WebInspector.Object
     _updateContentFlowFromPayload(contentFlow, flowPayload)
     {
         console.assert(contentFlow.contentNodes.length === flowPayload.content.length);
-        console.assert(contentFlow.contentNodes.every(function(node, i) { return node.id === flowPayload.content[i]; }));
+        console.assert(contentFlow.contentNodes.every((node, i) => node.id === flowPayload.content[i]));
 
         // FIXME: Collect the regions from the payload.
         contentFlow.overset = flowPayload.overset;

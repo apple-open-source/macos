@@ -240,7 +240,7 @@ struct ipsec_service {
 	/* async dns query */
 	CFMachPortRef			dnsPort;
 	struct timeval			dnsQueryStart;
-	CFArrayRef				resolvedAddress;	/* CFArray[CFData] */
+	CFArrayRef				resolvedAddress;	/* CFArray[CFDictionary] */
 	int						resolvedAddressError;
 	int						next_address; // next address to use in the array
 	Boolean					has_displayed_reenroll_alert;
@@ -428,7 +428,6 @@ double scnc_getsleepwaketimeout (struct service *serv);
 void scnc_idle_disconnect (struct service *serv);
 int scnc_suspend(struct service *serv);
 int scnc_resume(struct service *serv);
-int scnc_sendmsg(struct service *serv, uint32_t msg_type, CFDataRef cfdata, uid_t uid, gid_t gid, int pid, mach_port_t bootstrap, mach_port_t au_session);
 struct service *findbyserviceID(CFStringRef serviceID);
 struct service *findbypid(pid_t pid);
 struct service *findbysid(u_char *data, int len);

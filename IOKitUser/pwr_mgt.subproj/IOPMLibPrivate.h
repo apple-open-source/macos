@@ -521,6 +521,7 @@ IOReturn IOPMRequestSysWake(CFDictionaryRef request);
 #define kPMASLAssertionActionTurnOff            "TurnedOff"
 #define kPMASLAssertionActionTurnOn             "TurnedOn"
 #define kPMASlAssertionActionCapTimeOut         "CapExpired"
+#define kPMASLAssertionActionNameChange         "NameChange"
 
 #pragma mark Private Assertion Dictionary Keys
 /*
@@ -619,6 +620,103 @@ IOReturn IOPMRequestSysWake(CFDictionaryRef request);
 
 #define kIOPMAssertionAppliesOnLidClose                     CFSTR("AppliesOnLidClose")
 
+/*!
+ * @define          kIOPMAssertionAutoTimesout
+ *
+ * @abstract        The CFDictionary key in assertion info dictionary for auto timing out assertion after pre-defined
+ *                  number of seconds.
+ *
+ * @discussion      The value for this key will be a CFBooleanRef, with value <code>kCFBooleanTrue</code> or
+ *                  <code>kCFBooleanFalse</code>. A value of kCFBooleanTrue means that the assertion is allowed
+ *                  to auto-timeout after pre-defined number of seconds. The auto-timeout duration is a fixed value
+ *                  for all assertions with this property.
+ *
+ *                  A value of kCFBooleanFalse means that the auto-timeout is not allowed.
+ *                  This is the default value when this key is not set.
+ *
+ *                  This optional property can be set at the time of assertion creation and
+ *                  cannot be changed later.
+ */
+
+#define kIOPMAssertionAutoTimesout                          CFSTR("AutoTimesout")
+
+/*!
+ * @define          kIOPMAssertionResourcesUsed
+ *
+ * @abstract        This CFDictionary key in assertion info dictionary lists the resources used
+ *                  by the process creating this assertion, or by the process on-behalf of which
+ *                  this assertion is created.
+ *
+ * @discussion      The value for this key will be a CFArray, with each element specifying the
+ *                  resource used by the process.
+ *
+ *                  This optional property can be changed after the property is created.
+ */
+
+#define kIOPMAssertionResourcesUsed                         CFSTR("ResourcesUsed")
+
+/*
+ * Resource strings that can be used with kIOPMAssertionResourcesUsed key.
+ */
+#define kIOPMAssertionResourceAudioIn                       CFSTR("audio-in")
+#define kIOPMAssertionResourceAudioOut                      CFSTR("audio-out")
+#define kIOPMAssertionResourceGPS                           CFSTR("GPS")
+#define kIOPMAssertionResourceBaseband                      CFSTR("baseband")
+#define kIOPMAssertionResourceBluetooth                     CFSTR("bluetooth")
+
+/*!
+ * @define          kIOPMAssertionResourcesName
+ *
+ * @abstract        This CFDictionary key in assertion info dictionary lists the specific name
+ *                  of the resource used. If this key is set, then kIOPMAssertionResourcesUsed
+ *                  key should also be set. The resource names may be used to look up to registry.
+ *
+ * @discussion      The value for this key will be a CFArray, with each element specifying the
+ *                  resource names.
+ *
+ *                  This optional property can be changed after the property is created.
+ */
+#define kIOPMAssertionResourcesName                         CFSTR("ResourcesName")
+
+/*!
+ * @define          kIOPMAssertionActivityBudgeted
+ *
+ * @abstract        The CFDictionary key in assertion info dictionary specifies if the activity
+ *                  for which the assertion is created is budgeted.
+ *
+ * @discussion      The value for this key will be a CFBooleanRef, with value <code>kCFBooleanTrue</code> or
+ *                  <code>kCFBooleanFalse</code>. A value of kCFBooleanTrue means that the activity
+ *                  for which the assertions is created is budgeted.
+ *
+ *                  A value of kCFBooleanFalse means that the acitivity is not budgeted.
+ *                  This is the default value when this key is not set.
+ *
+ *                  This optional property can be set at the time of assertion creation and
+ *                  cannot be changed later. Only the activity scheduler is expected to set this property.
+ */
+
+#define kIOPMAssertionActivityBudgeted                      CFSTR("ActivityBudgeted")
+
+/*!
+ * @define          kIOPMAssertionAllowsDeviceRestart
+ *
+ * @abstract        The CFDictionary key in assertion info dictionary to specify that it is ok to
+ *                  restart the device even when this assertion is active.
+ *
+ * @discussion      The value for this key will be a CFBooleanRef, with value <code>kCFBooleanTrue</code> or
+ *                  <code>kCFBooleanFalse</code>. A value of kCFBooleanTrue means that the system can be
+ *                  restarted for system maintenance even when the assertion is active.
+ *
+ *                  A value of kCFBooleanFalse means that the system should NOT be restarted.
+ *                  This is the default value when this key is not set.
+ *
+ *                  This optional property can be set at the time of assertion creation and
+ *                  cannot be changed later.
+ */
+
+#define kIOPMAssertionAllowsDeviceRestart                   CFSTR("AllowsDeviceRestart")
+
+
 /*! 
  * @constant kIOPMAssertionCreatorBacktrace
  * @abstract CFDataRef type. If present, holds the backtrace of the thread creating assertion.
@@ -665,6 +763,12 @@ IOReturn IOPMRequestSysWake(CFDictionaryRef request);
  * @abstract Holds the assertionId returned to client on creation
  */
 #define kIOPMAssertionIdKey                     CFSTR("AssertionId")
+
+/*!
+ * @constant kIOPMAsyncClientAssertionIdKey
+ * @abstract Holds the assertionId returned to client on creation
+ */
+#define kIOPMAsyncClientAssertionIdKey          CFSTR("AsyncClientAssertionId")
 
 /*!
  * @constant        kIOPMAssertionTimedOutNotifyString
@@ -794,7 +898,120 @@ IOReturn IOPMPerformBlockWithAssertion(CFDictionaryRef assertion_properties, dis
  */
 IOReturn IOPMAssertionSetTimeout(IOPMAssertionID whichAssertion, CFTimeInterval timeoutInterval);
 
-/* 
+
+/*! @function           IOPMAssertionCreateWithAutoTimeout
+ *
+ * @abstract            A variant of IOPMAssertionCreateWithProperties to create assertion with property
+ *                      kIOPMAssertionAutoTimesout set to true.
+ *
+ * @description         Creates an IOPMAssertion with property kIOPMAssertionAutoTimesout set to true.
+ *                      It allows the caller to specify the Name, Details, and HumanReadableReason at creation time.
+ *                      There are other keys that can further describe an assertion, but most developers don't need
+ *                      to use them. Use <code>@link IOPMAssertionSetProperty @/link</code> or
+ *                      <code>@link IOPMAssertionCreateWithProperties @/link</code> if you need to specify properties
+ *                      that aren't available here.
+ *
+ * @param AssertionType An assertion type constant.
+ *	                    Caller must specify this argument.
+ *
+ * @param Name          A CFString value to correspond to key <code>@link kIOPMAssertionNameKey@/link</code>.
+ *	                    Caller must specify this argument.
+ *
+ * @param Details 	    A CFString value to correspond to key <code>@link kIOPMAssertionDetailsKey@/link</code>.
+ *	                    Caller my pass NULL, but it helps power users and administrators identify the
+ *                      reasons for this assertion.
+ *
+ * @param HumanReadableReason
+ *                      A CFString value to correspond to key <code>@link kIOPMAssertionHumanReadableReasonKey@/link</code>.
+ *                      Caller may pass NULL, but if it's specified OS X may display it to users
+ *                      to describe the active assertions on their system.
+ *
+ * @param LocalizationBundlePath
+ *	                    A CFString value to correspond to key <code>@link kIOPMAssertionLocalizationBundlePathKey@/link</code>.
+ *                      This bundle path should include a localization for the string <code>HumanReadableReason</code>
+ *                      Caller may pass NULL, but this argument is required if caller specifies <code>HumanReadableReason</code>
+ *
+ * @param Timeout       Specifies a timeout for this assertion. Pass 0 for no timeout.
+ *                      If the timeout value is larger than the auto-timeout value, it may get reduced to auto-timeout value.
+ *
+ * @param TimeoutAction Specifies a timeout action. Caller my pass NULL. If a timeout is specified but a TimeoutAction is not,
+ *                      the default timeout action is <code>kIOPMAssertionTimeoutActionTurnOff</code>
+ *
+ * @param AssertionID   (Output) On successful return, contains a unique reference to a PM assertion.
+ *
+ * @result              kIOReturnSuccess, or another IOKit return code on error.
+ */
+IOReturn	IOPMAssertionCreateWithAutoTimeout(
+                                           CFStringRef  AssertionType,
+                                           CFStringRef  Name,
+                                           CFStringRef  Details,
+                                           CFStringRef  HumanReadableReason,
+                                           CFStringRef  LocalizationBundlePath,
+                                           CFTimeInterval   Timeout,
+                                           CFStringRef  TimeoutAction,
+                                           IOPMAssertionID  *AssertionID)
+__OSX_AVAILABLE_STARTING(__MAC_NA, __IPHONE_10_0);
+
+
+/*! @function           IOPMAssertionCreateWithResourceList
+ *
+ * @abstract            A variant of IOPMAssertionCreateWithProperties to create assertion with property
+ *                      kIOPMAssertionResourcesUsed set to specified resources.
+ *
+ * @description         Creates an IOPMAssertion with property kIOPMAssertionResourcesUsed set to specified resources.
+ *                      It allows the caller to specify the Name, Details, and HumanReadableReason at creation time.
+ *                      There are other keys that can further describe an assertion, but most developers don't need
+ *                      to use them. Use <code>@link IOPMAssertionSetProperty @/link</code> or
+ *                      <code>@link IOPMAssertionCreateWithProperties @/link</code> if you need to specify properties
+ *                      that aren't available here.
+ *
+ * @param AssertionType An assertion type constant.
+ *	                    Caller must specify this argument.
+ *
+ * @param Name          A CFString value to correspond to key <code>@link kIOPMAssertionNameKey@/link</code>.
+ *	                    Caller must specify this argument.
+ *
+ * @param Details 	    A CFString value to correspond to key <code>@link kIOPMAssertionDetailsKey@/link</code>.
+ *	                    Caller my pass NULL, but it helps power users and administrators identify the
+ *                      reasons for this assertion.
+ *
+ * @param HumanReadableReason
+ *                      A CFString value to correspond to key <code>@link kIOPMAssertionHumanReadableReasonKey@/link</code>.
+ *                      Caller may pass NULL, but if it's specified OS X may display it to users
+ *                      to describe the active assertions on their system.
+ *
+ * @param LocalizationBundlePath
+ *	                    A CFString value to correspond to key <code>@link kIOPMAssertionLocalizationBundlePathKey@/link</code>.
+ *                      This bundle path should include a localization for the string <code>HumanReadableReason</code>
+ *                      Caller may pass NULL, but this argument is required if caller specifies <code>HumanReadableReason</code>
+ *
+ * @param Timeout       Specifies a timeout for this assertion. Pass 0 for no timeout.
+ *
+ * @param TimeoutAction Specifies a timeout action. Caller my pass NULL. If a timeout is specified but a TimeoutAction is not,
+ *                      the default timeout action is <code>kIOPMAssertionTimeoutActionTurnOff</code>
+ *
+ * @param Resources     A CFArray with the list of resources used by the process while holding this assertion. Possible values
+ *                      are listed with the documentation of <code>kIOPMAssertionResourcesUsed</code>
+ *
+ * @param AssertionID   (Output) On successful return, contains a unique reference to a PM assertion.
+ *
+ * @result              kIOReturnSuccess, or another IOKit return code on error.
+ */
+IOReturn	IOPMAssertionCreateWithResourceList(
+                                           CFStringRef  AssertionType,
+                                           CFStringRef  Name,
+                                           CFStringRef  Details,
+                                           CFStringRef  HumanReadableReason,
+                                           CFStringRef  LocalizationBundlePath,
+                                           CFTimeInterval   Timeout,
+                                           CFStringRef  TimeoutAction,
+                                           CFArrayRef   Resources,
+                                           IOPMAssertionID  *AssertionID)
+__OSX_AVAILABLE_STARTING(__MAC_NA, __IPHONE_10_0);
+
+
+
+/*
  * CFStrings defined for keys in dictionary returned by IOPMCopyAssertionActivityLog()
  */
 #define     kIOPMAssertionActivityTime      CFSTR("ActivityTime")
@@ -814,7 +1031,7 @@ IOReturn IOPMSetAssertionActivityLog(bool enable);
 
 /*
  *!  @function  IOPMCopyAssertionActivityLog
- *   @abstract  Internally calls IOPMCopyAssertionActivityUpdate(). 
+ *   @abstract  Internally calls IOPMCopyAssertionActivityUpdate().
  *   @result                 Return kIOReturnSuccess on success.
  */
 IOReturn IOPMCopyAssertionActivityLog(CFArrayRef *assertionLog, bool *overflow);
@@ -892,9 +1109,9 @@ IOReturn IOPMCopyAssertionsByProcessWithAllocator(CFDictionaryRef *AssertionsByP
 
 /*
  *! @function   IOPMCopyAssertionsByType
- *  @abstract   Copies all active assertions with the specified name.
+ *  @abstract   Copies all active assertions with the specified type.
  *
- *  @param name             Assertion name
+ *  @param type             Assertion type
  *
  *  @param assertionsArray  On Success, contains the list of assertions for the specified type
  *
@@ -902,6 +1119,37 @@ IOReturn IOPMCopyAssertionsByProcessWithAllocator(CFDictionaryRef *AssertionsByP
  */
 
 IOReturn IOPMCopyAssertionsByType(CFStringRef type, CFArrayRef *assertionsArray);
+
+/*
+ *! @function   IOPMCopyInactiveAssertionsByProcess
+ *
+ *  @abstract            Returns a dictionary listing all inactive assertions, grouped by their owning process.
+ *
+ * @discussion          Notes: One process may have multiple assertions. Several processes may
+ *                      have asserted the same assertion to different levels.
+ *
+ * @param AssertionsByPID On success, this returns a dictionary of inactive assertions per process.
+ *                      At the top level, keys to the CFDictionary are pids stored as CFNumbers (kCFNumberIntType).
+ *                      The value associated with each CFNumber pid is a CFArray of active assertions.
+ *                      Each entry in the CFArray is an assertion represented as a CFDictionary. See the keys
+ *                      kIOPMAssertionTypeKey and kIOPMAssertionLevelKey.
+ *                      Caller must CFRelease() this dictionary when done.
+ *
+ * @result              Returns kIOReturnSuccess on success.
+ */
+
+IOReturn IOPMCopyInactiveAssertionsByProcess(CFDictionaryRef  *inactiveAssertions);
+
+/*
+ *! @function   IOPMCopyDeviceRestartPreventers
+ *  @abstract   Copies all active assertions that will prevent device restart.
+ *
+ *  @param preventers       On Success, contains the list of assertions that prevent device restart.
+ *
+ *  @result                 Return kIOReturnSuccess on success.
+ */
+IOReturn IOPMCopyDeviceRestartPreventers(CFArrayRef *preventers);
+
 /*
  *! @function   IOPMSetAssertionActivityAggregate
  *  @abstract   Enable/disable assertion activity duration aggregates by powerd. Activity aggregation must be enabled explicitly
@@ -977,6 +1225,94 @@ CFDictionaryRef IOPMCopyAssertionActivityAggregate( );
 CFDictionaryRef IOPMCopyAssertionActivityAggregateWithAllocator(CFAllocatorRef allocator);
 
 /*
+ * ! @function  IOPMSetAssertionExceptionLimits
+ *   @abstract  Allows caller to set assertion exception limits.
+ *
+ *  @param procLimits   CFDictionary. Each key is a process name and the value is a dictionary with below keys:
+ *                      kIOPMAssertionDurationLimit: CFNumber, Max duration(in seconds) before which assertion should be released
+ *                      kIOPMAggregateAssertionLimit: CFNunber, Max duration(in seconds) for which the process can prevent sleep in an
+ *                                                    hour of system run time. This is measured across system sleep/wakes.
+ *
+ *                      If 'procLimits' has a dictionary with key 'kIOPMDefaultLimtsKey', the limits specified in that 
+ *                      dictionary will used for all processes that are not explictily specified in 'procLimits'.
+ *                      Additionally, 'kIOPMDefaultLimtsKey' can have below keys:
+ *                      kIOPMAggregateFrequencyLimit - Frequency at which aggregate assertion limit has to be checked
+ *                      kIOPMMinSleepDurationLimit - Minimum expected Sleep duration
+ *                      kIOPMMinWakeDurationLimit - Minimum expected Wake duration
+ *                      kIOPMFrequentSleepWakeLimit - Number of short sleep/wake cycles to trigger exception
+ *
+ *
+ *  @result     Returns kIOReturnSuccess on success.
+ *
+ *  This function should be called only by process with appropriate entiltlement. Any previously set
+ *  exception limits dictionary will be over-written by this new dictionary.
+ */
+IOReturn IOPMSetAssertionExceptionLimits(CFDictionaryRef procLimits);
+
+#define kIOPMAssertionDurationLimit     CFSTR("Asssertion Duration Limit")
+#define kIOPMAggregateAssertionLimit    CFSTR("Aggregate Assertion Limit")
+
+#define kIOPMDefaultLimtsKey            CFSTR("Default Limits")
+
+// kIOPMAggregateFrequencyLimit - CFNumberRef, frequency(in seconds) at which aggregate assertion duration
+// has to be monitored. Defaults to 2 hrs
+#define kIOPMAggregateFrequencyLimit    CFSTR("Aggregate Monitor Frequency")
+
+// kIOPMMinSleepDurationLimit - CFNumberRef, sleep duration(in seconds) below which that sleep is considered
+// a short sleep
+#define kIOPMMinSleepDurationLimit      CFSTR("Minimum Sleep Duration")
+
+// kIOPMMinWakeDurationLimit - CFNumberRef, wake duration(in seconds) below which that wake is considered
+// a short wake
+#define kIOPMMinWakeDurationLimit       CFSTR("Minimum Wake Duration")
+
+// kIOPMFrequentSleepWakeLimit - CFNumberRef, number of consecutive sleep/wakes that should trigger
+// a kIOPMFrequentSleepWakeException exception
+#define kIOPMFrequentSleepWakeLimit     CFSTR("Frequent SW Limit")
+
+/* Assertion Exception types */
+typedef enum  {
+    kIOPMAssertionDurationException = 1,
+    kIOPMAssertionAggregateException,
+    kIOPMFrequentSleepWakeException,
+} IOPMAssertionException;
+
+typedef uintptr_t IOPMNotificationHandle;
+
+/*
+ * ! @function    IOPMScheduleAssertionExceptionNotification
+ *   @abstract    Register a block to be called on asssertion exceptions.
+ *
+ *
+ * @param       queue The dispatch_queue on which the registered block is called.
+ *
+ * @param       block The block to execute for assertion exceptions.
+ *              The block will receive two arguments:
+ *                  IOPMAssertionException  exceptionType
+ *                  pid_t                   Process ID causing th exception
+ *
+ * @result      NULL on failure. Upon success, caller should store the
+ *              <code>IOPMNotificationHandle</code> and pass that handle to
+ *              <code>IOPMUnregisterExceptionNotification</code> to stop
+ *              receiving notifications.
+ */
+IOPMNotificationHandle IOPMScheduleAssertionExceptionNotification(dispatch_queue_t queue,
+                                                                  void (^block)(IOPMAssertionException, pid_t));
+/*
+ * ! @function    IOPMUnregisterExceptionNotification
+ *   @abstract    Unregister notifications for assertion exceptions
+ *
+ *
+ * @param       handle   IOPMNotificationHandle returned with IOPMScheduleAssertionExceptionNotification.
+ *
+ * @result      None.
+ */
+void IOPMUnregisterExceptionNotification(IOPMNotificationHandle handle);
+
+
+#define kIOPMAssertionExceptionNotifyName   "com.apple.powermanagement.assertionexception"
+
+/*
  * Deprecated assertion constants
  */
 #if TARGET_OS_IPHONE
@@ -1001,17 +1337,13 @@ CFDictionaryRef IOPMCopyAssertionActivityAggregateWithAllocator(CFAllocatorRef a
  */
 
 #define kIOPMDynamicStoreSettingsKey                    "State:/IOKit/PowerManagement/CurrentSettings"
-#define kIOPMDynamicStoreUserOverridesKey               "State:/IOKit/PowerManagement/UserOverrides"
-#define kIOPMDefaultPreferencesKey                      "Defaults"
-
 
 // units - CFNumber in minutes
 #define kIOPMDisplaySleepKey                            "Display Sleep Timer"
 // units - CFNumber in minutes
 #define kIOPMDiskSleepKey                               "Disk Sleep Timer"
 // units - CFNumber in minutes
-#define kIOPMSystemSleepKey                             "System Sleep Timer"	
-
+#define kIOPMSystemSleepKey                             "System Sleep Timer"
 // units - CFNumber 0/1
 #define kIOPMWakeOnLANKey                               "Wake On LAN"
 // units - CFNumber 0/1
@@ -1086,18 +1418,42 @@ CFDictionaryRef IOPMCopyAssertionActivityAggregateWithAllocator(CFAllocatorRef a
  *
  **************************************************/
 
-typedef void (*IOPMPrefsCallbackType)(void *context);
+#define kIOPMCFPrefsPath                                "com.apple.PowerManagement"
 
+#define kIOPMSystemPowerSettingsKey                     "SystemPowerSettings"
 /*!
- * @function    IOPMPrefsNotificationCreateRunLoopSource
- * @abstract    Returns a CFRunLoopSourceRef that notifies the caller when any PM preferences
- *              file changes - including Energy Saver or UPS changes.
- * @param       callback A function to be called whenever a prefs file changes.
- * @param       context Any user-defined pointer, passed to the IOPowerSource callback.
- * @result      Returns NULL if an error was encountered, otherwise a CFRunLoopSource. Caller must
- *              release the CFRunLoopSource.
+ * @constant        kIOPMPrefsChangeNotify
+ * @discussion      Preferences change notify(3) string
+ *                  Fires when any preference change
+ *                  occurs via IOPMSetPMPreferences
  */
-CFRunLoopSourceRef IOPMPrefsNotificationCreateRunLoopSource(IOPMPrefsCallbackType callback, void *context);
+#define kIOPMPrefsChangeNotify                          "com.apple.system.powermanagement.prefschange"
+
+/*
+ * @function    IOPMRegisterPrefsChangeNotification
+ *
+ * Get a callout when the power management preferences change.
+ *
+ * @param       queue The dispatch_queue to schedule the callout on.
+ *
+ * @param       block The block to execute when the state changes.
+ *
+ * @result      NULL on failure. Upon success, caller should store the
+ *              <code>IOPMNotificationHandle</code> and pass that handle to
+ *              <code>IOPMUnregisterPrefsChangeNotification</code> to stop
+ *              receiving notifications.
+ */
+
+
+IOPMNotificationHandle IOPMRegisterPrefsChangeNotification(dispatch_queue_t queue,
+                                                           void (^block)());
+
+/*
+ * @function    IOPMUnregisterPrefsChangeNotification
+ *
+ * @abstract    Cancel and release an <code>IOPMNotificationHandle</code>
+ */
+void IOPMUnregisterPrefsChangeNotification(IOPMNotificationHandle handle);
 
 /* Structure of a "pm preferences" dictionary, as referenced below.
  *
@@ -1106,7 +1462,8 @@ CFRunLoopSourceRef IOPMPrefsNotificationCreateRunLoopSource(IOPMPrefsCallbackTyp
  *      "AC Power" = PowerSourcePreferencesDictionary
  *      "Battery Power" = PowerSourcePreferencesDictionary
  *      "UPS Power" = PowerSourcePreferencesDictionary
- *      kIOPMDefaultPreferencesKey = true/false
+ *      "UPS Shutdown levels" = Shutdown levels dictionary
+ *      "SystemPowerSettings" = System settings dictionary
  * }
  *
  * PowerSourcePreferencesDictionary = 
@@ -1127,30 +1484,22 @@ CFRunLoopSourceRef IOPMPrefsNotificationCreateRunLoopSource(IOPMPrefsCallbackTyp
  *   be absent from the PM Preferences dictionary.
  * * If a given setting, like ReduceBrightness is unsupported on a given
  *   system, it will not appear in the PowerSourcePreferencesDictionary.
- * * If the property kIOPMDefaultPreferencesKey is present and set to true,
- *   then the user has not specified any custom PM preferences. These are all
- *   "hardcoded" default properties. As such, the settings in a default custom
- *   dict do NOT factor in power profile settings.
- *
- * * See IOPMCopyActivePMPreferences() for settings that account for PM profile
- *   selections.
  */
-
-    /*!
-@function IOPMCopyCustomPMPreferences
-@abstract Returns a dictionary of user-selected custom PM preferences. 
-    The CFString key kIOPMDefaultPreferencesKey will be present in the top-level 
-    dictionary if the returned settings are defaults, as in the case of a clean 
-    install
+/*!
+@function IOPMCopyPreferencesOnFile
+@abstract Returns a dictionary of custom PM preferences saved to disk
+          INTERNAL TO POWRED ONLY --- Returns settings that are saved to disk. This will
+          have all settings modified by user and may have some settings at default values
 @result Returns a CFDictionaryRef or NULL. Caller must CFRelease the dictionary.
-     */
-CFDictionaryRef     IOPMCopyCustomPMPreferences(void);
+*/
+
+CFMutableDictionaryRef IOPMCopyPreferencesOnFile(void);
 
 /*!
 @function IOPMCopyPMPreferences
-@abstract Identical to IOPMCopyCustomPMPreferences; Renamed to 
-    IOPMCopyCustomPMPreferences for clarity.
- */
+@abstract Returns a dictionary of user-selected custom PM preferences.
+@result Returns a CFDictionaryRef or NULL. Caller must CFRelease the dictionary.
+*/
 CFMutableDictionaryRef IOPMCopyPMPreferences(void);
 
 #if !TARGET_OS_IPHONE
@@ -1173,41 +1522,56 @@ IOReturn IOPMCopyPMSetting(CFStringRef key, CFStringRef power_source, CFTypeRef 
 
 /*!
 @function IOPMCopyActivePMPreferences
-@abstract Returns the _actual_ PM settings _currently_ in use by the system.
-@discussion Incorporates the active power profiles as well as custom settings.
-        Does not return any settings unsupported on the running computer.
+@abstract Same as IOPMCopyPMPreferences
+@discussion This is the same as IOPMCopyPMPreferences
  */
 CFDictionaryRef     IOPMCopyActivePMPreferences(void);
 
 /*!
-@function IOPMCopyUnabridgedActivePMPreferences
-@abstract Returns the _actual_ PM settings _currently_ in use by the system.
-@discussion Behaves identically to IOPMCopyActivePMPreferences, except 
-        IOPMCopyUnabridgedActivePMPreferences returns all settings, including
-        those settings unsupported on the running machine.
-        i.e. the returned dictionary will include a setting for WakeOnRing
-        on a computer without a modem.
+ @function IOPMCopyDefaultPreferences
+ @abstract Returns the machine's default power management preferences.
+ @result Returns a CFDictionaryRef or NULL. Caller must CFRelease the dictionary.
  */
-CFDictionaryRef     IOPMCopyUnabridgedActivePMPreferences(void);
+CFDictionaryRef IOPMCopyDefaultPreferences(void);
 
-
-    /*!
-@function IOPMSetCustomPMPreferences
-@abstract Writes a PM preferences dictionary to disk.
-    Also activates these preferences and sends notifications to interested 
-    applications via SystemConfiguration.
-@param ESPrefs  Dictionary of Power Management preferences to write out to disk.
-@result Returns kIOReturnSuccess or an error condition if request failed.
-     */
-IOReturn IOPMSetCustomPMPreferences(CFDictionaryRef ESPrefs);
+/*!
+ @function      IOPMSetPMPreference
+ @abstract      Multi purpose function for setting/reverting PM preferences.
+ @discussion    A user can provide a key/value pair for a power management setting.
+                Passing in NULL for the key will revert ALL keys for the given power
+                source. Passing in NULL for value will revert the preference for the
+                given power source. Passing in NULL For pwr_src will apply the key/value
+                pair to all supported power sources.
+ @param key     An Energy Settings CFStringRef key from IOPMLibPrivate.h or NULL.
+ @param value   Setting value, or NULL.
+ @param pwr_src CFSTR(kIOPMACPowerKey), CFSTR(kIOPMBatteryPowerKey), 
+                CFSTR(kIOPMUPSPowerKey), or NULL for all power sources.
+ @result        Returns kIOReturnSuccess or an error condition if request failed.
+ */
+IOReturn IOPMSetPMPreference(CFStringRef key, CFTypeRef value, CFStringRef pwr_src);
 
 /*!
 @function IOPMSetPMPreferences
-@abstract Identical to IOPMSetCustomPMPreferences. Renamed to 
-    IOPMSetCustomPMPreferencs for clarity.
+@abstract Writes a PM preferences dictionary to disk.
+    Also activates these preferences and sends notifications to interested
+    applications via SystemConfiguration.
+@param ESPrefs  Dictionary of Power Management preferences to write out to disk.
+@result Returns kIOReturnSuccess or an error condition if request failed.
  */
 IOReturn IOPMSetPMPreferences(CFDictionaryRef ESPrefs);
 
+/*!
+ @function          IOPMUsingDefaultPreferences
+ @abstract          Identifies if the machine is using default preferences 
+                    for a given power source. Note: If a user manually restores
+                    settings by modifying the plist directly, or by manually setting
+                    the value to its default via energy preferences, this SPI may
+                    return an incorrect value.
+ @param     pwr_src CFSTR(kIOPMACPowerKey), CFSTR(kIOPMBatteryPowerKey),
+                    CFSTR(kIOPMUPSPowerKey), or NULL for all power sources.
+ @result            True if using defaults, false otherwise.
+ */
+bool IOPMUsingDefaultPreferences(CFStringRef pwr_src);
 
 /*!
 @function IOPMRevertPMPreferences
@@ -1218,31 +1582,13 @@ IOReturn IOPMSetPMPreferences(CFDictionaryRef ESPrefs);
             Pass NULL to revert all settings to the OS Energy Saver defaults.
 @result kIOReturnSuccess on success; error otherwise.
  */
-
 IOReturn IOPMRevertPMPreferences(CFArrayRef keys_arr);
-
-
-    /*!
-@function IOPMActivatePMPreference
-@abstract Activates the set of preferences called "name." Sets idle spin down timers and other
-    Energy Saver settings according to profile name.
-@param SystemProfiles  The dictionary of preferences from IOPMCopyPMPreferences
-@param profile The name of the set of preferences defined in ESPrefs to activate.
-@param removeUnsupportedSettings Specifies whether to send settings to kernel for
-settings that are currently unsupported (i.e. WakeOnRing with no modem present). True
-means do not activate unsupported settings, false means DO activate unsupported settings.
-@result Returns kIOReturnSuccess or an error condition if request failed.
-     */
-IOReturn IOPMActivatePMPreference(
-    CFDictionaryRef SystemProfiles, 
-    CFStringRef profile,
-    bool removeUnsupportedSettings);
 
 /*!
  * @function        IOPMFeatureIsAvailable
  * @abstract        Identifies whether a PM feature is supported on this platform.
  * @param           feature The CFString feature to check for availability.
- * @param           power_source CFSTR(kIOPMACPowerKey) or CFSTR(kIOPMBatteryPowerKef). Doesn't 
+ * @param           power_source CFSTR(kIOPMACPowerKey) or CFSTR(kIOPMBatteryPowerKey). Doesn't 
  *                  matter for most features, but a few are power source dependent.
  * @result          Returns true if supported, false otherwise. 
  */
@@ -1266,7 +1612,7 @@ bool IOPMFeatureIsAvailable(CFStringRef feature, CFStringRef power_source);
  *
  * @param           PMFeature The CFString feature to check for availability.
  *
- * @param           power_source CFSTR(kIOPMACPowerKey) or CFSTR(kIOPMBatteryPowerKef). Doesn't 
+ * @param           power_source CFSTR(kIOPMACPowerKey) or CFSTR(kIOPMBatteryPowerKey). Doesn't
  *                  matter for most features, but a few are power source dependent.
  *
  * @param           supportedFeatures Pass in a CFDictionary describing available features, and which power sources
@@ -1287,46 +1633,38 @@ bool IOPMFeatureIsAvailableWithSupportedTable(
      CFStringRef                power_source,
      CFDictionaryRef            supportedFeatures);
 
-/**************************************************/
 /*!
- * @function IOPMOverrideDefaultPMPreferences
- *
- * @discussion
- * Caller specifies a set of default energy saver preferences for this machine.
- * The system will use these settings as defaults, until the user selets a custom preference
- * via pmset, Enengy Saver, or elsewhere IOPMSetPMPreferences API.
- *
- * Use this API to specify a default setting value at runtime for the platform you're running on.
- * For instance, hibernatemode = 0 on dekstops, and hibernatemode = 3 on portables. That distinction
- * is made by IOPlatformExpert in the kernel, in an analogue to this API.
- *
- * If multiple calls to IOPMOverrideDefaultPMPreferences affect the same preference, behavior is undefined.
- *
- * @param overrideSettings
- * Caller may specify the new defaults one of two ways. PM excepts both of these styles of dictionaries:
- *
- * (1) Specify a setting that applies to all power sources.
- *
- * dictionary = {
- *      Setting" = Object
- * }
- *
- * (2) Specify a setting that may have different falues for each of AC, Battery, or UPS.
- *
- *  dictionary = {
- *      "AC" = {
- *          "Setting" = "Object"
- *      },
- *      "Battery" = {
- *          "Setting" = "Object"
- *      },
- *      "UPS" = {
- *          "Setting" = "Object"
- *      }		
- *  }
- *
+ @function          IOPMRemoveIrrelevantProperties
+ @abstract          Given a dictionary of energy preferences, removes
+                    all unsuported key/values as well as power sources
+                    associated with that machine. This is used in cases
+                    such as migration, when a setting may not be avaiable
+                    on the target machine.
+ @param             A CFMutableDictionaryRef containing the energy preferences.
  */
-void IOPMOverrideDefaultPMPreferences(CFDictionaryRef overrideSettings);
+void IOPMRemoveIrrelevantProperties(CFMutableDictionaryRef energyPrefs);
+
+
+/*!
+ @function          IOPMWriteToPrefs
+ @abstract          Writes the specified key/value pair to PM Prefs
+ @param             key, value - key/value pair
+ @param             synchronize - should set to true if CFPreferencesSynchronize should be called.
+ @param             broadcast - should set to true if this write need to be notified to all listeners
+                    NOTE - INTERNAL TO PM. Don't use
+ */
+IOReturn IOPMWriteToPrefs(CFStringRef key, CFTypeRef value, bool synchronize, bool broadcast);
+
+/*!
+ @function          IOPMCopyFromPrefs
+ @abstract          Copies the value from the appropriate prefs path(based on the key) and returns it
+ * @param           prefsPath - The path to preferences file.
+ *                              If set to NULL, function will find the appropriate prefs path
+ * @param           key - Key  to read
+ *                  NOTE - INTERNAL TO PM. Don't use
+ */
+
+CFTypeRef IOPMCopyFromPrefs(CFStringRef prefsPath, CFStringRef key);
 /**************************************************/
 
 
@@ -1371,58 +1709,6 @@ IOReturn IOPMSetSystemPowerSetting( CFStringRef key, CFTypeRef value );
 @result   kIOReturnSuccess on success; IOReturn error otherwise
      */
 IOReturn IOPMActivateSystemPowerSettings( void );
-
-
-/**************************************************
-*
-* Power Profiles (use in combination with Energy Saver Preferences above)
-*
-**************************************************/
-/*!
- * @group Power Profiles
- */
-
-#define kIOPMCustomPowerProfile         -1
-#define kIOPMNumPowerProfiles           5
-
-/*! @function IOPMCopyPowerProfiles
-    @abstract Returns all power profiles and their corresponding Energy Settings.
-    @discussion The array return value contains 5 dictionaries.
-        - Entry 0 represents the "highest power savings", and entry 4 represents "Highest performance"
-        - Each entry in the array is a "Power Profile" dictionary, which in turn contains individual
-        dictionaries for AC Power, Battery Power, and UPS Power. Each of these per-power source
-        dictionaries contains a mapping of Energy Settings to their values.
-        Intended clients: Energy Saver Prefs, Battery Monitor, and pmset.
-        - Use IOPMCopyPMPreferences() to read the custom profile.
-        - Unsupported features and unsupported power sources will not be present in the returned data.
-    @result NULL on error, a CFArrayRef on success.
-        Caller must CFRelease() the return value when done.
-*/
-CFArrayRef          IOPMCopyPowerProfiles(void);
-
-/*! @function IOPMCopyActivePowerProfile
-    @abstract Returns the index of the currently active profile, or -1 if Custom preferences are active.
-    @result A CFDictionary containing 1 or more entries mapping Power Sources to the currently
-            selected profiles for each power source. kIOPMUPSPowerKey, kIOPMACPowerKey, kIOPMBatteryPowerKey
-            With corresponding CFNumber value specifying an index falling somewhere within the 
-            IOPMCopyPowerProfiles() array
-            OR integer value kIOPMCustomPowerProfile.
-*/
-CFDictionaryRef     IOPMCopyActivePowerProfiles(void);
-
-/*! @function IOPMSetActivePowerProfile
-    @abstract Activates the specified power profile, or the user's custom defined profile.
-    @discussion Caller must have root, or admin privileges, or be the console user.
-        Selects and activates a system power profile per power-source.
-        - Use IOPMSetPMPreferences() to re-program the custom profile.
-        - This call triggers notifications to all clients of IOPMPrefsNotificationCreateRunLoopSource()
-    @param which_profile A CFDictionary specifying which profile to use for each power source.
-        Keys should be CFSTR: kIOPMUPSPowerKey, kIOPMACPowerKey, kIOPMBatteryPowerKey
-        Value should be a CFNumber (IntType) with value -1 to 4
-    @result kIOReturnNotPrivileged if caller does not have permission.
-        Caller must CFRelease() the return value when done accessing it.
-*/
-IOReturn            IOPMSetActivePowerProfiles(CFDictionaryRef which_profile);
 
 /**************************************************
 *
@@ -1640,16 +1926,12 @@ IOReturn IOPMSetSleepServicesWakeTimeCap(CFTimeInterval cap);
 #define kIOPMSleepWakeWdogLogsValidKey      "SWWdogLogsValid"
 
 /*
- * For use by LoginWindow only.
- * facility - Pass CFSTR(kIOPMLoginWindowSecurityDebugKey) for the facility
- * data - Pass a pointer to a variable containing one byte of data.
- * dataCount - Pass the integer 1.
+ * Allow certain components to log their wake progress with IOPMrootDomain.
+ *
+ * component - Pass component wake progress value (defined in IOPMPrivate.h)
+ * progress_data - Debug data to be stored
  */
-IOReturn IOPMDebugTracePoint(
-        CFStringRef     facility, 
-        uint8_t         *data, 
-        int             dataCount);
-
+IOReturn IOPMLogWakeProgress(uint32_t component, uint32_t progress_data);
 
 /*
  * Returns data describing the sleep failure (if any) that occured prior to the system booting.
@@ -2570,7 +2852,47 @@ IOReturn IOPMConnectionAcknowledgeEventWithOptions(
             ) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_NA);
 
 
+/*!
+ * @function        IOPMRegisterForRemoteSystemPower
+ * @abstract        Register a block to be called when remote node's power state changes.
+ *
+ * @param queue     The dispatch_queue on which the registered block is called.
+ *
+ *  @param block    The block to execute when remote node power state changes.
+ *                  The block will receive two arguments:
+ *                      message     Message indicating the type of state change.
+ *                      msgData     Message data.
+ *
+ * @result          NULL on failure. Upon success, caller should store the
+ *                  <code>IOPMNotificationHandle</code> and pass that handle as a parameter to
+ *                  <code>IOPMAllowRemotePowerChange</code> and <code>IODeregisterForRemoteSystemPower</code>
+ *                  functions.
+ */
 
+IOPMNotificationHandle IOPMRegisterForRemoteSystemPower(
+                            dispatch_queue_t queue,
+                            void (^inblock)(IOMessage message, void *msgData));
+
+/*!
+ * @function        IOPMAllowRemotePowerChange
+ * @abstract        Call this function to acknowledge the remote node's state change message.
+ *
+ *  @param ref      The handle returned by function <code>IOPMRegisterForRemoteSystemPower</code>.
+ *
+ *  @param message  The message client is acknowledging.
+ *
+ * @result          kIOReturnSuccess on sucess. Otherwise, appropriate error is returned.
+ */
+IOReturn IOPMAllowRemotePowerChange(IOPMNotificationHandle ref, IOMessage message);
+
+/*!
+ * @function        IODeregisterForRemoteSystemPower
+ * @abstract        Call this function stop receiving notifications about remote node's power state
+ *                  and release all associated data structures.
+ *
+ *  @param ref      The handle returned by function <code>IOPMRegisterForRemoteSystemPower</code>.
+ */
+void IODeregisterForRemoteSystemPower(IOPMNotificationHandle ref);
 
 /*! @group IOPower Assertion SPI
  */
@@ -2620,7 +2942,10 @@ typedef enum {
  *                              Upon that system wakeup, the policy mechanism will try its
  *                              best to remain awake in a usable state until
  *                              <code>@link IOPMAssertionRelease@/link</code> gets called on the
- *                              AssertionID.
+ *                              AssertionID. In this case, client need to wait for the message
+ *                              kIOMessageSystemHasPoweredOn before proceeding with the work that need to be
+ *                              done with assertion. See documentation for IORegisterForSystemPower for details
+ *                              about message kIOMessageSystemHasPoweredOn.
  *                              If the sleep transition is a force sleep, IOKit will not attempt to 
  *                              immediately re-awaken the system. 
  *
@@ -2664,8 +2989,6 @@ IOReturn IOPMSetReservePowerMode(bool enable);
  */
 bool IOPMUserIsActive(void);
 
-typedef uintptr_t IOPMNotificationHandle;
-
 /*
  * @function    IOPMScheduleUserActiveNotification
  *
@@ -2702,6 +3025,13 @@ void IOPMUnregisterNotification(IOPMNotificationHandle handle);
  *              isn't interacting with it. This includes watching and
  *              listening to media.
  *
+ * @constant kIOPMUserPresentPassiveWithDisplay The user is probably paying attention to the system,
+ *              but isn't interacting with it. Display is on. This includes watching and
+ *              listening to media.
+ *
+ * @constant kIOPMUserPresentPassiveWithoutDisplay The user is probably using the system
+ *              but isn't interacting with it. Display is off. This includes listening to media.
+ *
  * @constant kIOPMUserRemoteClientActive A remote networked client
  *              is connected and actively using this system's resources.
  *              Including SMB, AFP, ssh, and other network 'Sharing' services.
@@ -2712,27 +3042,37 @@ void IOPMUnregisterNotification(IOPMNotificationHandle handle);
  *
  */
 enum {
-    kIOPMUserPresentActive        = (1<<0),
-    kIOPMUserPresentPassive       = (1<<1),
-    kIOPMUserRemoteClientActive   = (1<<2),
-    kIOPMUserNotificationActive   = (1<<3)
+    kIOPMUserPresentActive                  = (1<<0),
+    kIOPMUserPresentPassive                 = (1<<1),
+    kIOPMUserPresentPassiveWithDisplay      = (1<<2),
+    kIOPMUserPresentPassiveWithoutDisplay   = (1<<3),
+    kIOPMUserRemoteClientActive             = (1<<4),
+    kIOPMUserNotificationActive             = (1<<5)
 };
+
+#define kIOPMDefaultUserActivityTimeout (5*60)  // 5mins
 
 /*!
  * IOPMGetUserActivityLevel describes the user's current activity level at the system.
  *
- * OS X reports this user activity level independently of the user's display idle sleep time,
- * and system idle sleep times.
+ * Reports this user activity level independently of the user's display idle sleep time,
+ * and system idle sleep times. This call returns the activity levels with default HID
+ * idle timeout. If the caller registered the callback with
+ * <code>IOPMScheduleUserActivityLevelNotificationWithTimeout</code>, then the value
+ * returned IOPMGetUserActivityLevel may not match the timeout specified by the caller.
  *
  * - Where we measure user activity by the frequency of user action, the user's
- *      level shall remain active for 5 minutes after last activity.
- * - Where we measure activity through IOKit power assertions, we'll assume the 
+ *      level shall remain active for 'idle timeout' duration after last activity.
+ * - Where we measure activity through IOKit power assertions, we'll assume the
  *      user remains active as long as a power assertion is held.
  * - When the system goes to sleep, we'll zero out the user activity tracking state.
- * - It is a valid state for the Mac display to be lit and showing state 
- *      (say with display Sleep timer = 20 minutes), but for this API to return 
+ * - It is a valid state for the system display to be lit and showing state
+ *      (say with display Sleep timer = 20 minutes), but for this API to return
  *      activity with kIOPMUserPresentActive clear, because there's no
- *      user input within 5 minutes.
+ *      user input within 'idle timeout' duration.
+ *
+ * The default value for 'idle timeout' is 5 mins on OS X and 30secs on iOS.
+ * This value can be changed using <code>IOPMSetUserActivityIdleTimeout</code>.
  *
  * @param outUserActive is a bitfield, containing zero or more bits from User
  *              Active States enum.
@@ -2740,7 +3080,7 @@ enum {
  * @param mostSignificantActivity  When outUserActive includes one or more bits, this is the
  *              one bit that best describes the user's system activity.
  *              highOrderBit will be equal to one of the IOPMUserActivity constants
- *                  kIOPMUserPresentActive, kIOPMUserPresentPassive, 
+ *                  kIOPMUserPresentActive, kIOPMUserPresentPassive,
  *                  kIOPMUserRemoteClientActive, or kIOPMUserNotification
  *
  * @result kIOReturnSuccess on success
@@ -2767,11 +3107,52 @@ IOReturn IOPMGetUserActivityLevel(uint64_t *outUserActive,
  *
  * @result      NULL on failure. Upon success, caller should store the
  *              <code>IOPMNotificationHandle</code> and pass that handle to
- *              <code>IOPMUnregisterNotification</code> to stop 
+ *              <code>IOPMUnregisterNotification</code> to stop
  *              receiving notifications.
  */
 IOPMNotificationHandle IOPMScheduleUserActivityLevelNotification(dispatch_queue_t queue,
                                                                  void (^block)(uint64_t, uint64_t));
+
+/*
+ * @function    IOPMScheduleUserActivityLevelNotificationWithTimeout
+ *
+ * @abstract    Get a callout when the user activity level changes.
+ *
+ * @param       queue The dispatch_queue to schedule the callout on.
+ *
+ * @paramt      timeout  Number of seconds after last HID activity is user considered
+ *                       idle. Display state may overide the HID activity.
+ *
+ * @param       block The block to execute when the state changes.
+ *              The block will receive two arguments -
+ *                  uint64_t outUserActive,
+ *                  and uint64_t mostSignificantActivity
+ *
+ * @result      NULL on failure. Upon success, caller should store the
+ *              <code>IOPMNotificationHandle</code> and pass that handle to
+ *              <code>IOPMUnregisterNotification</code> to stop
+ *              receiving notifications.
+ */
+IOPMNotificationHandle IOPMScheduleUserActivityLevelNotificationWithTimeout(
+                                     dispatch_queue_t queue,
+                                     uint32_t timeout,
+                                     void (^inblock)(uint64_t, uint64_t));
+/*
+ * @function    IOPMSetUserActivityIdleTimeout
+ *
+ * @abstract    Change the duration for which user is considered active after
+ *              the most recent HID activity. This can be called only if the caller
+ *              registered callback with <code>IOPMScheduleUserActivityLevelNotificationWithTimeout</code>
+ *
+ * @param handle        The handle returned by IOPMScheduleUserActivityLevelNotification.
+ *
+ * @param idleTimeout   The duration in seconds for which user is considered active
+ *                      after the most recent HID activity.
+ *
+ * @result              'kIOReturnSuccess' on success. Otherwise, appropriate error
+ *                      is returned.
+ */
+IOReturn IOPMSetUserActivityIdleTimeout(IOPMNotificationHandle handle, uint32_t idleTimeout);
 
 /*!
  * IOPMCopyUserActivityLevelDescription
@@ -3015,6 +3396,10 @@ IOReturn IOPMAssertionNotify(char *name, int req_type);
  * The backtrace collected can be retrieved with IOPMCopyAssertionsByProcess() API.
  */
 void IOPMAssertionSetBTCollection(bool enable);
+
+
+IOReturn IOPMEnableAsyncAssertions();
+IOReturn IOPMDisableAsyncAssertions();
 
 
 __END_DECLS

@@ -1,4 +1,4 @@
-*autocmd.txt*   For Vim version 7.3.  Last change: 2010 Jul 22
+*autocmd.txt*   For Vim version 7.4.  Last change: 2015 Aug 18
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -33,7 +33,7 @@ files matching *.c.  You can also use autocommands to implement advanced
 features, such as editing compressed files (see |gzip-example|).  The usual
 place to put autocommands is in your .vimrc or .exrc file.
 
-							*E203* *E204* *E143*
+						*E203* *E204* *E143* *E855*
 WARNING: Using autocommands is very powerful, and may lead to unexpected side
 effects.  Be careful not to destroy your text.
 - It's a good idea to do some testing on an expendable copy of a file first.
@@ -259,12 +259,15 @@ Name			triggered by ~
 |Syntax|		when the 'syntax' option has been set
 |EncodingChanged|	after the 'encoding' option has been changed
 |TermChanged|		after the value of 'term' has changed
+|OptionSet|		after setting any option
 
 	Startup and exit
 |VimEnter|		after doing all the startup stuff
 |GUIEnter|		after starting the GUI successfully
+|GUIFailed|		after starting the GUI failed
 |TermResponse|		after the terminal response to |t_RV| is received
 
+|QuitPre|		when using `:quit`, before deciding whether to quit
 |VimLeavePre|		before exiting Vim, before writing the viminfo file
 |VimLeave|		before exiting Vim, after writing the viminfo file
 
@@ -276,6 +279,7 @@ Name			triggered by ~
 |ShellCmdPost|		after executing a shell command
 |ShellFilterPost|	after filtering with a shell command
 
+|CmdUndefined|		a user command is used but it isn't defined
 |FuncUndefined|		a user function is used but it isn't defined
 |SpellFileMissing|	a spell file is used but it can't be found
 |SourcePre|		before sourcing a Vim script
@@ -299,6 +303,11 @@ Name			triggered by ~
 |InsertEnter|		starting Insert mode
 |InsertChange|		when typing <Insert> while in Insert or Replace mode
 |InsertLeave|		when leaving Insert mode
+|InsertCharPre|		when a character was typed in Insert mode, before
+			inserting it
+
+|TextChanged|		after a change was made to the text in Normal mode
+|TextChangedI|		after a change was made to the text in Insert mode
 
 |ColorScheme|		after loading a color scheme
 
@@ -310,6 +319,7 @@ Name			triggered by ~
 |SessionLoadPost|	after loading a session file
 
 |MenuPopup|		just before showing the popup menu
+|CompleteDone|		after Insert mode completion is done
 
 |User|			to be used in combination with ":doautocmd"
 
@@ -383,6 +393,10 @@ BufRead or BufReadPost		When starting to edit a new buffer, after
 				This does NOT work for ":r file".  Not used
 				when the file doesn't exist.  Also used after
 				successfully recovering a file.
+				Also triggered for the filetypedetect group
+				when executing ":filetype detect" and when
+				writing an unnamed buffer in a way that the
+				buffer gets a name.
 							*BufReadCmd*
 BufReadCmd			Before starting to edit a new buffer.  Should
 				read the file into the buffer. |Cmd-event|
@@ -446,10 +460,23 @@ BufWriteCmd			Before writing the whole buffer to a file.
 				'modified' if successful, unless '+' is in
 				'cpo' and writing to another file |cpo-+|.
 				The buffer contents should not be changed.
+				When the command resets 'modified' the undo
+				information is adjusted to mark older undo
+				states as 'modified', like |:write| does.
 				|Cmd-event|
 							*BufWritePost*
 BufWritePost			After writing the whole buffer to a file
 				(should undo the commands for BufWritePre).
+							*CmdUndefined*
+CmdUndefined			When a user command is used but it isn't
+				defined.  Useful for defining a command only
+				when it's used.  The pattern is matched
+				against the command name.  Both <amatch> and
+				<afile> are set to the name of the command.
+				NOTE: Autocompletion won't work until the
+				command is defined.  An alternative is to
+				always define the user command and have it
+				invoke an autoloaded function.  See |autoload|.
 							*CmdwinEnter*
 CmdwinEnter			After entering the command-line window.
 				Useful for setting options specifically for
@@ -468,6 +495,19 @@ CmdwinLeave			Before leaving the command-line window.
 				|cmdwin-char|
 							*ColorScheme*
 ColorScheme			After loading a color scheme. |:colorscheme|
+				The pattern is matched against the
+				colorscheme name. <afile> can be used for the
+				name of the actual file where this option was
+				set, and <amatch> for the new colorscheme
+				name.
+
+
+							*CompleteDone*
+CompleteDone			After Insert mode completion is done.  Either
+				when something was completed or abandoning
+				completion. |ins-completion|
+				The |v:completed_item| variable contains
+				information about the completed item.
 
 							*CursorHold*
 CursorHold			When the user doesn't press a key for the time
@@ -482,6 +522,11 @@ CursorHold			When the user doesn't press a key for the time
 				operator.
 				While recording the CursorHold event is not
 				triggered. |q|
+							*<CursorHold>*
+				Internally the autocommand is triggered by the
+				<CursorHold> key. In an expression mapping
+				|getchar()| may see this character.
+
 				Note: Interactive commands cannot be used for
 				this event.  There is no hit-enter prompt,
 				the screen is updated directly (when needed).
@@ -496,16 +541,18 @@ CursorHold			When the user doesn't press a key for the time
 CursorHoldI			Just like CursorHold, but in Insert mode.
 
 							*CursorMoved*
-CursorMoved			After the cursor was moved in Normal mode.
-				Also when the text of the cursor line has been
-				changed, e.g., with "x", "rx" or "p".
+CursorMoved			After the cursor was moved in Normal or Visual
+				mode.  Also when the text of the cursor line
+				has been changed, e.g., with "x", "rx" or "p".
 				Not triggered when there is typeahead or when
 				an operator is pending.
 				For an example see |match-parens|.
-				Careful: Don't do anything that the user does
-				not expect or that is slow.
+				Careful: This is triggered very often, don't
+				do anything that the user does not expect or
+				that is slow.
 							*CursorMovedI*
 CursorMovedI			After the cursor was moved in Insert mode.
+				Not triggered when the popup menu is visible.
 				Otherwise the same as CursorMoved.
 							*EncodingChanged*
 EncodingChanged			Fires off after the 'encoding' option has been
@@ -534,11 +581,15 @@ FileChangedRO			Before making the first change to a read-only
 				It is not allowed to change to another buffer
 				here.  You can reload the buffer but not edit
 				another one.
+							*E881*
+				If the number of lines changes saving for undo
+				may fail and the change will be aborted.
 							*FileChangedShell*
 FileChangedShell		When Vim notices that the modification time of
 				a file has changed since editing started.
 				Also when the file attributes of the file
-				change. |timestamp|
+				change or when the size of the file changes.
+				|timestamp|
 				Mostly triggered after executing a shell
 				command, but also with a |:checktime| command
 				or when Gvim regains input focus.
@@ -638,6 +689,8 @@ FuncUndefined			When a user function is used but it isn't
 				when it's used.  The pattern is matched
 				against the function name.  Both <amatch> and
 				<afile> are set to the name of the function.
+				NOTE: When writing Vim scripts a better
+				alternative is to use an autoloaded function.
 				See |autoload-functions|.
 							*GUIEnter*
 GUIEnter			After starting the GUI successfully, and after
@@ -657,12 +710,26 @@ InsertChange			When typing <Insert> while in Insert or
 				indicates the new mode.
 				Be careful not to move the cursor or do
 				anything else that the user does not expect.
+							*InsertCharPre*
+InsertCharPre			When a character is typed in Insert mode,
+				before inserting the char.
+				The |v:char| variable indicates the char typed
+				and can be changed during the event to insert
+				a different character.  When |v:char| is set
+				to more than one character this text is
+				inserted literally.
+				It is not allowed to change the text |textlock|.
+				The event is not triggered when 'paste' is
+				set.
 							*InsertEnter*
 InsertEnter			Just before starting Insert mode.  Also for
 				Replace mode and Virtual Replace mode.  The
 				|v:insertmode| variable indicates the mode.
-				Be careful not to move the cursor or do
-				anything else that the user does not expect.
+				Be careful not to do anything else that the
+				user does not expect.
+				The cursor is restored afterwards.  If you do
+				not want that set |v:char| to a non-empty
+				string.
 							*InsertLeave*
 InsertLeave			When leaving Insert mode.  Also when using
 				CTRL-O |i_CTRL-O|.  But not for |i_CTRL-C|.
@@ -678,11 +745,37 @@ MenuPopup			Just before showing the popup menu (under the
 					o	Operator-pending
 					i	Insert
 					c	Command line
+							*OptionSet*
+OptionSet			After setting an option.  The pattern is
+				matched against the long option name.
+				The |v:option_old| variable indicates the
+				old option value, |v:option_new| variable
+				indicates the newly set value, the
+				|v:option_type| variable indicates whether
+				it's global or local scoped and |<amatch>|
+				indicates what option has been set.
+
+				Is not triggered on startup and for the 'key'
+				option for obvious reasons.
+
+				Usage example: Check for the existence of the
+				directory in the 'backupdir' and 'undodir'
+				options, create the directory if it doesn't
+				exist yet.
+
+				Note: It's a bad idea to reset an option
+				during this autocommand, this may break a
+				plugin. You can always use `:noa` to prevent
+				triggering this autocommand.
+
 							*QuickFixCmdPre*
 QuickFixCmdPre			Before a quickfix command is run (|:make|,
 				|:lmake|, |:grep|, |:lgrep|, |:grepadd|,
 				|:lgrepadd|, |:vimgrep|, |:lvimgrep|,
-				|:vimgrepadd|, |:lvimgrepadd|, |:cscope|).
+				|:vimgrepadd|, |:lvimgrepadd|, |:cscope|,
+				|:cfile|, |:cgetfile|, |:caddfile|, |:lfile|,
+				|:lgetfile|, |:laddfile|, |:helpgrep|,
+				|:lhelpgrep|).
 				The pattern is matched against the command
 				being run.  When |:grep| is used but 'grepprg'
 				is set to "internal" it still matches "grep".
@@ -693,7 +786,16 @@ QuickFixCmdPre			Before a quickfix command is run (|:make|,
 							*QuickFixCmdPost*
 QuickFixCmdPost			Like QuickFixCmdPre, but after a quickfix
 				command is run, before jumping to the first
-				location.  See |QuickFixCmdPost-example|.
+				location. For |:cfile| and |:lfile| commands
+				it is run after error file is read and before
+				moving to the first error.
+				See |QuickFixCmdPost-example|.
+							*QuitPre*
+QuitPre				When using `:quit`, `:wq` or `:qall`, before
+				deciding whether it closes the current window
+				or quits Vim.  Can be used to close any
+				non-essential window if the current window is
+				the last ordinary window.
 							*RemoteReply*
 RemoteReply			When a reply from a Vim that functions as
 				server was received |server2client()|.  The
@@ -786,13 +888,31 @@ TermChanged			After the value of 'term' has changed.  Useful
 TermResponse			After the response to |t_RV| is received from
 				the terminal.  The value of |v:termresponse|
 				can be used to do things depending on the
-				terminal version.
+				terminal version.  Note that this event may be
+				triggered halfway executing another event,
+				especially if file I/O, a shell command or
+				anything else that takes time is involved.
+							*TextChanged*
+TextChanged			After a change was made to the text in the
+				current buffer in Normal mode.  That is when
+				|b:changedtick| has changed.
+				Not triggered when there is typeahead or when
+				an operator is pending.
+				Careful: This is triggered very often, don't
+				do anything that the user does not expect or
+				that is slow.
+							*TextChangedI*
+TextChangedI			After a change was made to the text in the
+				current buffer in Insert mode.
+				Not triggered when the popup menu is visible.
+				Otherwise the same as TextChanged.
 							*User*
 User				Never executed automatically.  To be used for
 				autocommands that are only executed with
 				":doautocmd".
 							*UserGettingBored*
-UserGettingBored		When the user hits CTRL-C.  Just kidding! :-)
+UserGettingBored		When the user presses the same key 42 times.
+				Just kidding! :-)
 							*VimEnter*
 VimEnter			After doing all the startup stuff, including
 				loading .vimrc files, executing the "-c cmd"
@@ -838,6 +958,13 @@ WinLeave			Before leaving a window.  If the window to be
 
 ==============================================================================
 6. Patterns					*autocmd-patterns* *{pat}*
+
+The {pat} argument can be a comma separated list.  This works as if the
+command was given with each pattern separately.  Thus this command: >
+	:autocmd BufRead *.txt,*.info set et
+Is equivalent to: >
+	:autocmd BufRead *.txt set et
+	:autocmd BufRead *.info set et
 
 The file pattern {pat} is tested for a match against the file name in one of
 two ways:
@@ -889,7 +1016,8 @@ the autocommand is executed.  This is different from the command!
 
 							*file-pattern*
 The pattern is interpreted like mostly used in file names:
-	*	matches any sequence of characters
+	*	matches any sequence of characters; Unusual: includes path
+		separators
 	?	matches any single character
 	\?	matches a '?'
 	.	matches a '.'
@@ -898,6 +1026,9 @@ The pattern is interpreted like mostly used in file names:
 	\,	matches a ','
 	{ }	like \( \) in a |pattern|
 	,	inside { }: like \| in a |pattern|
+	\}	literal }
+	\{	literal {
+	\\\{n,m\}  like \{n,m} in a |pattern|
 	\	special meaning like in a |pattern|
 	[ch]	matches 'c' or 'h'
 	[^ch]   match any character but 'c' and 'h'
@@ -941,7 +1072,7 @@ Instead of a pattern buffer-local autocommands use one of these forms:
 Examples: >
     :au CursorHold <buffer>  echo 'hold'
     :au CursorHold <buffer=33>  echo 'hold'
-    :au CursorHold <buffer=abuf>  echo 'hold'
+    :au BufNewFile * au CursorHold <buffer=abuf>  echo 'hold'
 
 All the commands for autocommands also work with buffer-local autocommands,
 simply use the special string instead of the pattern.  Examples: >
@@ -1032,7 +1163,7 @@ Note that the 'eventignore' option applies here too.  Events listed in this
 option will not cause any commands to be executed.
 
 					*:do* *:doau* *:doautocmd* *E217*
-:do[autocmd] [group] {event} [fname]
+:do[autocmd] [<nomodeline>] [group] {event} [fname]
 			Apply the autocommands matching [fname] (default:
 			current file name) for {event} to the current buffer.
 			You can use this when the current file name does not
@@ -1041,8 +1172,8 @@ option will not cause any commands to be executed.
 			It's possible to use this inside an autocommand too,
 			so you can base the autocommands for one extension on
 			another extension.  Example: >
-				:au Bufenter *.cpp so ~/.vimrc_cpp
-				:au Bufenter *.cpp doau BufEnter x.c
+				:au BufEnter *.cpp so ~/.vimrc_cpp
+				:au BufEnter *.cpp doau BufEnter x.c
 <			Be careful to avoid endless loops.  See
 			|autocmd-nested|.
 
@@ -1051,14 +1182,17 @@ option will not cause any commands to be executed.
 			argument is included, Vim executes only the matching
 			autocommands for that group.  Note: if you use an
 			undefined group name, Vim gives you an error message.
-
+							*<nomodeline>*
 			After applying the autocommands the modelines are
 			processed, so that their settings overrule the
 			settings from autocommands, like what happens when
-			editing a file.
+			editing a file. This is skipped when the <nomodeline>
+			argument is present. You probably want to use
+			<nomodeline> for events that are not used when loading
+			a buffer, such as |User|.
 
 						*:doautoa* *:doautoall*
-:doautoa[ll] [group] {event} [fname]
+:doautoa[ll] [<nomodeline>] [group] {event} [fname]
 			Like ":doautocmd", but apply the autocommands to each
 			loaded buffer.  Note that [fname] is used to select
 			the autocommands, not the buffers to which they are

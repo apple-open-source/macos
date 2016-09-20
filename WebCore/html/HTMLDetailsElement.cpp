@@ -24,111 +24,103 @@
 #if ENABLE(DETAILS_ELEMENT)
 #include "AXObjectCache.h"
 #include "ElementIterator.h"
+#include "HTMLSlotElement.h"
 #include "HTMLSummaryElement.h"
-#include "InsertionPoint.h"
 #include "LocalizedStrings.h"
 #include "MouseEvent.h"
 #include "RenderBlockFlow.h"
+#include "ShadowRoot.h"
+#include "SlotAssignment.h"
 #include "Text.h"
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-static const AtomicString& summaryQuerySelector()
+static const AtomicString& summarySlotName()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, selector, ("summary:first-of-type", AtomicString::ConstructFromLiteral));
-    return selector;
-};
-
-class DetailsContentElement final : public InsertionPoint {
-public:
-    static Ref<DetailsContentElement> create(Document&);
-
-private:
-    DetailsContentElement(Document& document)
-        : InsertionPoint(webkitShadowContentTag, document)
-    {
-    }
-
-    virtual MatchType matchTypeFor(Node* node) const override
-    {
-        if (node->isElementNode() && node == node->parentNode()->querySelector(summaryQuerySelector(), ASSERT_NO_EXCEPTION))
-            return NeverMatches;
-        return AlwaysMatches;
-    }
-};
-
-Ref<DetailsContentElement> DetailsContentElement::create(Document& document)
-{
-    return adoptRef(*new DetailsContentElement(document));
+    static NeverDestroyed<AtomicString> summarySlot("summarySlot");
+    return summarySlot;
 }
 
-class DetailsSummaryElement final : public InsertionPoint {
-public:
-    static Ref<DetailsSummaryElement> create(Document&);
-
-    Element* fallbackSummary()
-    {
-        ASSERT(firstChild() && firstChild()->hasTagName(summaryTag));
-        return downcast<Element>(firstChild());
-    }
-
+class DetailsSlotAssignment final : public SlotAssignment {
 private:
-    DetailsSummaryElement(Document& document)
-        : InsertionPoint(webkitShadowContentTag, document)
-    {
-    }
-
-    virtual MatchType matchTypeFor(Node* node) const override
-    {
-        if (node->isElementNode() && node == node->parentNode()->querySelector(summaryQuerySelector(), ASSERT_NO_EXCEPTION))
-            return AlwaysMatches;
-        return NeverMatches;
-    }
+    void hostChildElementDidChange(const Element&, ShadowRoot&) override;
+    const AtomicString& slotNameForHostChild(const Node&) const override;
 };
 
-Ref<DetailsSummaryElement> DetailsSummaryElement::create(Document& document)
+void DetailsSlotAssignment::hostChildElementDidChange(const Element& childElement, ShadowRoot& shadowRoot)
 {
-    RefPtr<HTMLSummaryElement> summary = HTMLSummaryElement::create(summaryTag, document);
-    summary->appendChild(Text::create(document, defaultDetailsSummaryText()), ASSERT_NO_EXCEPTION);
+    if (is<HTMLSummaryElement>(childElement)) {
+        // Don't check whether this is the first summary element
+        // since we don't know the answer when this function is called inside Element::removedFrom.
+        didChangeSlot(summarySlotName(), ChangeType::DirectChild, shadowRoot);
+    } else
+        didChangeSlot(SlotAssignment::defaultSlotName(), ChangeType::DirectChild, shadowRoot);
+}
 
-    Ref<DetailsSummaryElement> detailsSummary = adoptRef(*new DetailsSummaryElement(document));
-    detailsSummary->appendChild(summary);
-    return detailsSummary;
+const AtomicString& DetailsSlotAssignment::slotNameForHostChild(const Node& child) const
+{
+    auto& parent = *child.parentNode();
+    ASSERT(is<HTMLDetailsElement>(parent));
+    auto& details = downcast<HTMLDetailsElement>(parent);
+
+    // The first summary child gets assigned to the summary slot.
+    if (is<HTMLSummaryElement>(child)) {
+        if (&child == childrenOfType<HTMLSummaryElement>(details).first())
+            return summarySlotName();
+    }
+    return SlotAssignment::defaultSlotName();
 }
 
 Ref<HTMLDetailsElement> HTMLDetailsElement::create(const QualifiedName& tagName, Document& document)
 {
-    Ref<HTMLDetailsElement> details = adoptRef(*new HTMLDetailsElement(tagName, document));
-    details->ensureUserAgentShadowRoot();
+    auto details = adoptRef(*new HTMLDetailsElement(tagName, document));
+    details->addShadowRoot(ShadowRoot::create(document, std::make_unique<DetailsSlotAssignment>()));
     return details;
 }
 
 HTMLDetailsElement::HTMLDetailsElement(const QualifiedName& tagName, Document& document)
     : HTMLElement(tagName, document)
-    , m_isOpen(false)
 {
     ASSERT(hasTagName(detailsTag));
 }
 
-RenderPtr<RenderElement> HTMLDetailsElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
+RenderPtr<RenderElement> HTMLDetailsElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
 {
-    return createRenderer<RenderBlockFlow>(*this, WTF::move(style));
+    return createRenderer<RenderBlockFlow>(*this, WTFMove(style));
 }
 
 void HTMLDetailsElement::didAddUserAgentShadowRoot(ShadowRoot* root)
 {
-    root->appendChild(DetailsSummaryElement::create(document()), ASSERT_NO_EXCEPTION);
-    root->appendChild(DetailsContentElement::create(document()), ASSERT_NO_EXCEPTION);
+    auto summarySlot = HTMLSlotElement::create(slotTag, document());
+    summarySlot->setAttributeWithoutSynchronization(nameAttr, summarySlotName());
+    m_summarySlot = summarySlot.ptr();
+
+    auto defaultSummary = HTMLSummaryElement::create(summaryTag, document());
+    defaultSummary->appendChild(Text::create(document(), defaultDetailsSummaryText()), ASSERT_NO_EXCEPTION);
+    m_defaultSummary = defaultSummary.ptr();
+
+    summarySlot->appendChild(defaultSummary);
+    root->appendChild(summarySlot);
+
+    m_defaultSlot = HTMLSlotElement::create(slotTag, document());
+    ASSERT(!m_isOpen);
 }
 
-const Element* HTMLDetailsElement::findMainSummary() const
+bool HTMLDetailsElement::isActiveSummary(const HTMLSummaryElement& summary) const
 {
-    if (auto summary = childrenOfType<HTMLSummaryElement>(*this).first())
-        return summary;
+    if (!m_summarySlot->assignedNodes())
+        return &summary == m_defaultSummary;
 
-    return static_cast<DetailsSummaryElement*>(userAgentShadowRoot()->firstChild())->fallbackSummary();
+    if (summary.parentNode() != this)
+        return false;
+
+    auto* slot = shadowRoot()->findAssignedSlot(summary);
+    if (!slot)
+        return false;
+    return slot == m_summarySlot;
 }
 
 void HTMLDetailsElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
@@ -136,32 +128,22 @@ void HTMLDetailsElement::parseAttribute(const QualifiedName& name, const AtomicS
     if (name == openAttr) {
         bool oldValue = m_isOpen;
         m_isOpen = !value.isNull();
-        if (oldValue != m_isOpen)
-            setNeedsStyleRecalc(ReconstructRenderTree);
+        if (oldValue != m_isOpen) {
+            auto* root = shadowRoot();
+            ASSERT(root);
+            if (m_isOpen)
+                root->appendChild(*m_defaultSlot);
+            else
+                root->removeChild(*m_defaultSlot);
+        }
     } else
         HTMLElement::parseAttribute(name, value);
 }
 
-bool HTMLDetailsElement::childShouldCreateRenderer(const Node& child) const
-{
-    if (child.isPseudoElement())
-        return HTMLElement::childShouldCreateRenderer(child);
-
-    if (!hasShadowRootOrActiveInsertionPointParent(child))
-        return false;
-
-    if (m_isOpen)
-        return HTMLElement::childShouldCreateRenderer(child);
-
-    if (!child.hasTagName(summaryTag))
-        return false;
-
-    return &child == findMainSummary() && HTMLElement::childShouldCreateRenderer(child);
-}
 
 void HTMLDetailsElement::toggleOpen()
 {
-    setAttribute(openAttr, m_isOpen ? nullAtom : emptyAtom);
+    setAttributeWithoutSynchronization(openAttr, m_isOpen ? nullAtom : emptyAtom);
 
     // We need to post to the document because toggling this element will delete it.
     if (AXObjectCache* cache = document().existingAXObjectCache())

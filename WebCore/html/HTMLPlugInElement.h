@@ -78,14 +78,14 @@ public:
     bool isCapturingMouseEvents() const { return m_isCapturingMouseEvents; }
     void setIsCapturingMouseEvents(bool capturing) { m_isCapturingMouseEvents = capturing; }
 
-    virtual bool canContainRangeEndPoint() const override { return false; }
+    bool canContainRangeEndPoint() const override { return false; }
 
     bool canProcessDrag() const;
 
 #if PLATFORM(IOS)
-    virtual bool willRespondToMouseMoveEvents() override { return false; }
+    bool willRespondToMouseMoveEvents() override { return false; }
 #endif
-    virtual bool willRespondToMouseClickEvents() override;
+    bool willRespondToMouseClickEvents() override;
 
     virtual bool isPlugInImageElement() const { return false; }
 
@@ -94,17 +94,17 @@ public:
 protected:
     HTMLPlugInElement(const QualifiedName& tagName, Document&);
 
-    virtual void willDetachRenderers() override;
-    virtual bool isPresentationAttribute(const QualifiedName&) const override;
-    virtual void collectStyleForPresentationAttribute(const QualifiedName&, const AtomicString&, MutableStyleProperties&) override;
+    void willDetachRenderers() override;
+    bool isPresentationAttribute(const QualifiedName&) const override;
+    void collectStyleForPresentationAttribute(const QualifiedName&, const AtomicString&, MutableStyleProperties&) override;
 
     virtual bool useFallbackContent() const { return false; }
 
-    virtual void defaultEventHandler(Event*) override;
+    void defaultEventHandler(Event*) override;
 
     virtual bool requestObject(const String& url, const String& mimeType, const Vector<String>& paramNames, const Vector<String>& paramValues);
-    virtual RenderPtr<RenderElement> createElementRenderer(Ref<RenderStyle>&&, const RenderTreePosition&) override;
-    virtual void didAddUserAgentShadowRoot(ShadowRoot*) override;
+    RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) override;
+    void didAddUserAgentShadowRoot(ShadowRoot*) override;
 
     // Subclasses should use guardedDispatchBeforeLoadEvent instead of calling dispatchBeforeLoadEvent directly.
     bool guardedDispatchBeforeLoadEvent(const String& sourceURL);
@@ -120,10 +120,10 @@ private:
     // This will load the plugin if necessary.
     virtual RenderWidget* renderWidgetLoadingPlugin() const = 0;
 
-    virtual bool supportsFocus() const override;
+    bool supportsFocus() const override;
 
-    virtual bool isKeyboardFocusable(KeyboardEvent*) const override;
-    virtual bool isPluginElement() const override final;
+    bool isKeyboardFocusable(KeyboardEvent*) const override;
+    bool isPluginElement() const final;
 
     RefPtr<JSC::Bindings::Instance> m_instance;
     Timer m_swapRendererTimer;

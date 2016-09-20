@@ -61,15 +61,15 @@ function outputstr
 	printf "\texit(0);\n}\n"
 }
 
-#dtrace -qs /dev/stdin -x encoding=utf8 <<EOF
-outputstr "why must i do this"
-# EOF
+dtrace -qs /dev/stdin -x encoding=utf8 <<EOF
+`outputstr "why must i do this"`
+EOF
 
-# dtrace -qs /dev/stdin -x encoding=ascii -x aggzoom <<EOF
-# `outputstr "i am not well"`
-# EOF
+dtrace -qs /dev/stdin -x encoding=ascii -x aggzoom <<EOF
+ `outputstr "i am not well"`
+EOF
 
-# dtrace -qs /dev/stdin -x encoding=utf8 -x aggzoom <<EOF
-# `outputstr "send help"`
-# EOF
+dtrace -qs /dev/stdin -x encoding=utf8 -x aggzoom <<EOF
+ `outputstr "send help"`
+EOF
 

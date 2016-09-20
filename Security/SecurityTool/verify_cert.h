@@ -30,7 +30,7 @@
 extern "C" {
 #endif
 
-extern int verify_cert(int argc, char * const *argv);
+int verify_cert(int argc, char * const *argv);
 
 #ifdef __cplusplus
 }

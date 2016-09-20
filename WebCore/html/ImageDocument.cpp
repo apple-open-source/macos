@@ -27,6 +27,7 @@
 
 #include "CachedImage.h"
 #include "Chrome.h"
+#include "ChromeClient.h"
 #include "DocumentLoader.h"
 #include "EventListener.h"
 #include "EventNames.h"
@@ -63,8 +64,8 @@ private:
     {
     }
 
-    virtual bool operator==(const EventListener&) override;
-    virtual void handleEvent(ScriptExecutionContext*, Event*) override;
+    bool operator==(const EventListener&) const override;
+    void handleEvent(ScriptExecutionContext*, Event*) override;
 
     ImageDocument& m_document;
 };
@@ -85,13 +86,13 @@ private:
 
     ImageDocument& document() const;
 
-    virtual void appendBytes(DocumentWriter&, const char*, size_t) override;
-    virtual void finish() override;
+    void appendBytes(DocumentWriter&, const char*, size_t) override;
+    void finish() override;
 };
 
 class ImageDocumentElement final : public HTMLImageElement {
 public:
-    static RefPtr<ImageDocumentElement> create(ImageDocument&);
+    static Ref<ImageDocumentElement> create(ImageDocument&);
 
 private:
     ImageDocumentElement(ImageDocument& document)
@@ -101,14 +102,14 @@ private:
     }
 
     virtual ~ImageDocumentElement();
-    virtual void didMoveToNewDocument(Document* oldDocument) override;
+    void didMoveToNewDocument(Document* oldDocument) override;
 
     ImageDocument* m_imageDocument;
 };
 
-inline RefPtr<ImageDocumentElement> ImageDocumentElement::create(ImageDocument& document)
+inline Ref<ImageDocumentElement> ImageDocumentElement::create(ImageDocument& document)
 {
-    return adoptRef(new ImageDocumentElement(document));
+    return adoptRef(*new ImageDocumentElement(document));
 }
 
 // --------
@@ -163,7 +164,7 @@ void ImageDocument::finishedParsing()
             String name = decodeURLEscapeSequences(url().lastPathComponent());
             if (name.isEmpty())
                 name = url().host();
-            setTitle(imageTitle(name, size));
+            setTitle(imageTitle(name, size), IGNORE_EXCEPTION);
         }
 
         imageUpdated();
@@ -209,19 +210,19 @@ Ref<DocumentParser> ImageDocument::createParser()
 
 void ImageDocument::createDocumentStructure()
 {
-    RefPtr<Element> rootElement = Document::createElement(htmlTag, false);
+    auto rootElement = Document::createElement(htmlTag, false);
     appendChild(rootElement);
-    downcast<HTMLHtmlElement>(*rootElement).insertedByParser();
+    downcast<HTMLHtmlElement>(rootElement.get()).insertedByParser();
 
     frame()->injectUserScripts(InjectAtDocumentStart);
 
-    RefPtr<Element> body = Document::createElement(bodyTag, false);
+    auto body = Document::createElement(bodyTag, false);
     body->setAttribute(styleAttr, "margin: 0px");
     if (MIMETypeRegistry::isPDFMIMEType(document().loader()->responseMIMEType()))
-        downcast<HTMLBodyElement>(*body).setInlineStyleProperty(CSSPropertyBackgroundColor, "white", CSSPrimitiveValue::CSS_IDENT);
+        downcast<HTMLBodyElement>(body.get()).setInlineStyleProperty(CSSPropertyBackgroundColor, "white", CSSPrimitiveValue::CSS_IDENT);
     rootElement->appendChild(body);
     
-    RefPtr<ImageDocumentElement> imageElement = ImageDocumentElement::create(*this);
+    auto imageElement = ImageDocumentElement::create(*this);
     if (m_shouldShrinkImage)
         imageElement->setAttribute(styleAttr, "-webkit-user-select:none; display:block; margin:auto;");
     else
@@ -236,14 +237,14 @@ void ImageDocument::createDocumentStructure()
         // Set the viewport to be in device pixels (rather than the default of 980).
         processViewport(ASCIILiteral("width=device-width"), ViewportArguments::ImageDocument);
 #else
-        RefPtr<EventListener> listener = ImageEventListener::create(*this);
+        auto listener = ImageEventListener::create(*this);
         if (DOMWindow* window = this->domWindow())
-            window->addEventListener("resize", listener, false);
-        imageElement->addEventListener("click", listener.release(), false);
+            window->addEventListener("resize", listener.copyRef(), false);
+        imageElement->addEventListener("click", WTFMove(listener), false);
 #endif
     }
 
-    m_imageElement = imageElement.get();
+    m_imageElement = imageElement.ptr();
 }
 
 void ImageDocument::imageUpdated()
@@ -264,6 +265,8 @@ void ImageDocument::imageUpdated()
         FloatSize screenSize = page()->chrome().screenSize();
         if (imageSize.width() > screenSize.width())
             processViewport(String::format("width=%u", static_cast<unsigned>(imageSize.width().toInt())), ViewportArguments::ImageDocument);
+        if (page())
+            page()->chrome().client().imageOrMediaDocumentSizeChanged(IntSize(imageSize.width(), imageSize.height()));
 #else
         // Call windowSizeChanged for its side effect of sizing the image.
         windowSizeChanged();
@@ -400,11 +403,11 @@ void ImageEventListener::handleEvent(ScriptExecutionContext*, Event* event)
         m_document.windowSizeChanged();
     else if (event->type() == eventNames().clickEvent && is<MouseEvent>(*event)) {
         MouseEvent& mouseEvent = downcast<MouseEvent>(*event);
-        m_document.imageClicked(mouseEvent.x(), mouseEvent.y());
+        m_document.imageClicked(mouseEvent.offsetX(), mouseEvent.offsetY());
     }
 }
 
-bool ImageEventListener::operator==(const EventListener& other)
+bool ImageEventListener::operator==(const EventListener& other) const
 {
     // All ImageEventListener objects compare as equal; OK since there is only one per document.
     return other.type() == ImageEventListenerType;

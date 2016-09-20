@@ -25,7 +25,6 @@
  */
 
 #include "config.h"
-#if ENABLE(NETWORK_PROCESS)
 #include "NetworkProcess.h"
 
 #include "NetworkCache.h"
@@ -74,7 +73,13 @@ void NetworkProcess::platformInitializeNetworkProcess(const NetworkProcessCreati
     // Clear the old soup cache if it exists.
     SoupNetworkSession::defaultSession().clearCache(WebCore::directoryName(m_diskCacheDirectory));
 
-    NetworkCache::singleton().initialize(m_diskCacheDirectory, parameters.shouldEnableNetworkCacheEfficacyLogging);
+    NetworkCache::Cache::Parameters cacheParameters {
+        parameters.shouldEnableNetworkCacheEfficacyLogging
+#if ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)
+        , parameters.shouldEnableNetworkCacheSpeculativeRevalidation
+#endif
+    };
+    NetworkCache::singleton().initialize(m_diskCacheDirectory, cacheParameters);
 #else
     // We used to use the given cache directory for the soup cache, but now we use a subdirectory to avoid
     // conflicts with other cache files in the same directory. Remove the old cache files if they still exist.
@@ -156,7 +161,7 @@ void NetworkProcess::clearCacheForAllOrigins(uint32_t cachesToClear)
 void NetworkProcess::clearDiskCache(std::chrono::system_clock::time_point modifiedSince, std::function<void ()> completionHandler)
 {
 #if ENABLE(NETWORK_CACHE)
-    NetworkCache::singleton().clear(modifiedSince, WTF::move(completionHandler));
+    NetworkCache::singleton().clear(modifiedSince, WTFMove(completionHandler));
 #else
     UNUSED_PARAM(modifiedSince);
     UNUSED_PARAM(completionHandler);
@@ -170,5 +175,3 @@ void NetworkProcess::platformTerminate()
 }
 
 } // namespace WebKit
-
-#endif

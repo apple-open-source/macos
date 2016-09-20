@@ -20,35 +20,21 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#include <AssertMacros.h>
 #include "IOHIDEventServiceUserClient.h"
 #include "IOHIDEventServiceQueue.h"
 #include "IOHIDEventData.h"
 #include "IOHIDEvent.h"
 #include "IOHIDPrivateKeys.h"
+#include "IOHIDDebug.h"
+#include <sys/proc.h>
 
 
 #define kQueueSizeMin   0
 #define kQueueSizeFake  128
 #define kQueueSizeMax   16384
 
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// __IOHIDEventServiceQueueFake
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-class __IOHIDEventServiceQueueFake {
-public:    
-    IOHIDEventServiceQueue * queue;
-    
-    __IOHIDEventServiceQueueFake() { 
-        queue = IOHIDEventServiceQueue::withCapacity(kQueueSizeFake);        
-    };
-    ~__IOHIDEventServiceQueueFake() {
-        queue->release();
-    };
-};
-
-static __IOHIDEventServiceQueueFake __fakeQueue;
-
+#define kIOHIDSystemUserAccessServiceEntitlement "com.apple.hid.system.user-access-service"
 
 //===========================================================================
 // IOHIDEventServiceUserClient class
@@ -83,6 +69,10 @@ const IOExternalMethodDispatch IOHIDEventServiceUserClient::sMethods[kIOHIDEvent
     },
 };
 
+enum {
+    kUserClientStateOpen  = 0x1,
+    kUserClientStateClose = 0x2
+};
 
 //==============================================================================
 // IOHIDEventServiceUserClient::getService
@@ -97,15 +87,6 @@ IOService * IOHIDEventServiceUserClient::getService( void )
 //==============================================================================
 IOReturn IOHIDEventServiceUserClient::clientClose( void )
 {
-//   if (_client) {
-//        task_deallocate(_client);
-//        _client = 0;
-//    }
-  
-   if (_owner) {	
-        _owner->close(this, _options);
-    }
-
     terminate();
     
     return kIOReturnSuccess;
@@ -119,16 +100,37 @@ IOReturn IOHIDEventServiceUserClient::registerNotificationPort(
                             UInt32                      type, 
                             UInt32                      refCon )
 {
-    _queue->setNotificationPort(port);
-         
+    if (_queue) {
+        _queue->setNotificationPort(port);
+    }
     return kIOReturnSuccess;
 }
+
 
 //==============================================================================
 // IOHIDEventServiceUserClient::clientMemoryForType
 //==============================================================================
 IOReturn IOHIDEventServiceUserClient::clientMemoryForType(
-                            UInt32                      type,
+                                                               UInt32                      type,
+                                                               IOOptionBits *              options,
+                                                               IOMemoryDescriptor **       memory )
+{
+  
+    IOReturn result;
+    
+    require_action(!isInactive(), exit, result=kIOReturnOffline);
+    
+    result = _commandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDEventServiceUserClient::clientMemoryForTypeGated), options, memory);
+  
+exit:
+  
+    return result;
+}
+
+//==============================================================================
+// IOHIDEventServiceUserClient::clientMemoryForType
+//==============================================================================
+IOReturn IOHIDEventServiceUserClient::clientMemoryForTypeGated(
                             IOOptionBits *              options,
                             IOMemoryDescriptor **       memory )
 {
@@ -156,48 +158,84 @@ IOReturn IOHIDEventServiceUserClient::clientMemoryForType(
     return ret;
 }
 
+
+
 //==============================================================================
 // IOHIDEventServiceUserClient::externalMethod
 //==============================================================================
-typedef struct HIDCommandGateArgs {
-    uint32_t                    selector; 
-    IOExternalMethodArguments * arguments;
-    IOExternalMethodDispatch *  dispatch;
-    OSObject *                  target;
-    void *                      reference;
-}HIDCommandGateArgs;
-
 IOReturn IOHIDEventServiceUserClient::externalMethod(
-                            uint32_t                    selector, 
-                            IOExternalMethodArguments * arguments,
-                            IOExternalMethodDispatch *  dispatch, 
-                            OSObject *                  target, 
-                            void *                      reference)
+                                                       uint32_t                    selector,
+                                                       IOExternalMethodArguments * arguments,
+                                                       IOExternalMethodDispatch *  dispatch,
+                                                       OSObject *                  target,
+                                                       void *                      reference)
 {
-    if (selector < (uint32_t) kIOHIDEventServiceUserClientNumCommands)
-    {
-        dispatch = (IOExternalMethodDispatch *) &sMethods[selector];
-        
-        if (!target)
-            target = this;
-    }
-	
-	return super::externalMethod(selector, arguments, dispatch, target, reference);
+  ExternalMethodGatedArguments gatedArguments = {selector, arguments, dispatch, target, reference};
+  IOReturn result;
+  
+  require_action(!isInactive(), exit, result=kIOReturnOffline);
+  
+  result = _commandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDEventServiceUserClient::externalMethodGated), &gatedArguments);
+  
+exit:
+
+  return result;
 }
+
+//==============================================================================
+// IOHIDEventServiceUserClient::externalMethodGated
+//==============================================================================
+IOReturn IOHIDEventServiceUserClient::externalMethodGated(ExternalMethodGatedArguments *arguments)
+{
+  IOReturn result;
+  
+  require_action(!isInactive(), exit, result=kIOReturnOffline);
+  
+  require_action(arguments->selector < (uint32_t) kIOHIDEventServiceUserClientNumCommands, exit, result=kIOReturnBadArgument);
+  
+  arguments->dispatch = (IOExternalMethodDispatch *) &sMethods[arguments->selector];
+  if (!arguments->target)
+    arguments->target = this;
+  
+  result = super::externalMethod(arguments->selector, arguments->arguments, arguments->dispatch, arguments->target, arguments->reference);
+  
+exit:
+  return result;
+}
+
 
 //==============================================================================
 // IOHIDEventServiceUserClient::initWithTask
 //==============================================================================
 bool IOHIDEventServiceUserClient::initWithTask(task_t owningTask, void * security_id, UInt32 type)
 {
-    if (!super::init())
-        return false;
+    bool result = false;
+    
+    OSObject* entitlement = copyClientEntitlement(owningTask, kIOHIDSystemUserAccessServiceEntitlement);
+    if (entitlement) {
+        result = (entitlement == kOSBooleanTrue);
+        entitlement->release();
+    }
+    if (!result) {
+        proc_t      process;
+        process = (proc_t)get_bsdtask_info(owningTask);
+        char name[255];
+        bzero(name, sizeof(name));
+        proc_name(proc_pid(process), name, sizeof(name));
+        HIDLogError("%s is not entitled", name);
+        goto exit;
+    }
+    
+    result = super::init();
+    require_action(result, exit, HIDLogError("failed"));
 
-    _client = owningTask;
+    _owner        = NULL;
+    _commandGate  = NULL;
+    _state        = 0;
+    _queue        = NULL;
     
-    //task_reference (_client);
-    
-    return true;
+exit:
+    return result;
 }
 
 //==============================================================================
@@ -205,43 +243,64 @@ bool IOHIDEventServiceUserClient::initWithTask(task_t owningTask, void * securit
 //==============================================================================
 bool IOHIDEventServiceUserClient::start( IOService * provider )
 {
-    OSObject *  object;
-    uint32_t    queueSize = kQueueSizeMax;
-    
-    if ( !super::start(provider) )
-        return false;
-        
-    _owner = OSDynamicCast(IOHIDEventService, provider);
-    if ( !_owner ) {
-        return false;
-    }
+    OSObject *    object;
+    OSNumber *    num;
+    uint32_t      queueSize = kQueueSizeMax;
+    IOWorkLoop *  workLoop;
+    boolean_t     result = false;
+    OSSerializer * debugStateSerializer;
   
+    require (super::start(provider), exit);
+  
+    _owner = OSDynamicCast(IOHIDEventService, provider);
+    require (_owner, exit);
+
     _owner->retain();
   
     object = provider->copyProperty(kIOHIDEventServiceQueueSize);
-    if ( OSDynamicCast(OSNumber, object) ) {
-        queueSize = ((OSNumber*)object)->unsigned32BitValue();
+    num = OSDynamicCast(OSNumber, object);
+    if ( num ) {
+        queueSize = num->unsigned32BitValue();
         queueSize = min(kQueueSizeMax, queueSize);
     }
     OSSafeReleaseNULL(object);
     
     if ( queueSize ) {
         _queue = IOHIDEventServiceQueue::withCapacity(queueSize);
-    } else {
-        _queue = __fakeQueue.queue;
-        if ( _queue )
-            _queue->retain();
+        require(_queue, exit);
     }
-    
-    if ( !_queue )
-        return false;    
-            
-    return true;
+  
+    workLoop = getWorkLoop();
+    require(workLoop, exit);
+  
+  
+    _commandGate = IOCommandGate::commandGate(this);
+    require(_commandGate, exit);
+    require(workLoop->addEventSource(_commandGate) == kIOReturnSuccess, exit);
+  
+    debugStateSerializer = OSSerializer::forTarget(this, OSMemberFunctionCast(OSSerializerCallback, this, &IOHIDEventServiceUserClient::serializeDebugState));
+    if (debugStateSerializer) {
+        setProperty("DebugState", debugStateSerializer);
+        debugStateSerializer->release();
+    }
+ 
+    result = true;
+
+exit:
+  
+    return result;
 }
 
 void IOHIDEventServiceUserClient::stop( IOService * provider )
 {
-    //_owner = NULL;
+    close();
+    
+    IOWorkLoop * workLoop = getWorkLoop();
+  
+    if (workLoop && _commandGate) {
+        workLoop->removeEventSource(_commandGate);
+    }
+
     super::stop(provider);
 }
 
@@ -261,23 +320,21 @@ IOReturn IOHIDEventServiceUserClient::_open(
 //==============================================================================
 IOReturn IOHIDEventServiceUserClient::open(IOOptionBits options)
 {
-    if (!_owner) {
-        _queue->setState(false);
+    if (!_owner || _state) {
         return kIOReturnOffline;
     }
     
-    // get ready just in case events start coming our way
-    _queue->setState(true);
     _options = options;
     
-    if (!_owner->open(  this, 
+    if (!_owner->open(  this,
                         options, 
                         NULL, 
                         OSMemberFunctionCast(IOHIDEventService::Action, 
                         this, &IOHIDEventServiceUserClient::eventServiceCallback)) ) {
-        _queue->setState(false);
-        return kIOReturnExclusiveAccess;
-    }     
+       return kIOReturnExclusiveAccess;
+    }
+    
+    OSBitOrAtomic(kUserClientStateOpen, &_state);
     
     return kIOReturnSuccess;
 }
@@ -298,10 +355,13 @@ IOReturn IOHIDEventServiceUserClient::_close(
 //==============================================================================
 IOReturn IOHIDEventServiceUserClient::close()
 {
-    _queue->setState(false);
-    if (_owner) {
+    
+    uint32_t state = _state;
+    
+    if (_owner && state == kUserClientStateOpen) {
       _owner->close(this, _options);
     }
+
     return kIOReturnSuccess;
 }
 
@@ -366,18 +426,19 @@ IOReturn IOHIDEventServiceUserClient::_setElementValue(
                                 void *                          reference, 
                                 IOExternalMethodArguments *     arguments)
 {
-    target->setElementValue(arguments->scalarInput[0], arguments->scalarInput[1], arguments->scalarInput[2]);
 
-    return kIOReturnSuccess;
+    return target->setElementValue(arguments->scalarInput[0], arguments->scalarInput[1], arguments->scalarInput[2]);;
 }
 
 //==============================================================================
 // IOHIDEventServiceUserClient::setElementValue
 //==============================================================================
-void IOHIDEventServiceUserClient::setElementValue(UInt32 usagePage, UInt32 usage, UInt32 value)
+IOReturn IOHIDEventServiceUserClient::setElementValue(UInt32 usagePage, UInt32 usage, UInt32 value)
 {
-    if (_owner)
-        _owner->setElementValue(usagePage, usage, value);
+    if (_owner) {
+        return _owner->setElementValue(usagePage, usage, value);
+    }
+    return kIOReturnNoDevice;
 }
 
 //==============================================================================
@@ -385,9 +446,9 @@ void IOHIDEventServiceUserClient::setElementValue(UInt32 usagePage, UInt32 usage
 //==============================================================================
 bool IOHIDEventServiceUserClient::didTerminate(IOService *provider, IOOptionBits options, bool *defer)
 {
-    if (_owner)
-        _owner->close(this, _options);
-        
+
+    close ();
+
     return super::didTerminate(provider, options, defer);
 }
 
@@ -396,16 +457,10 @@ bool IOHIDEventServiceUserClient::didTerminate(IOService *provider, IOOptionBits
 //==============================================================================
 void IOHIDEventServiceUserClient::free()
 {
-    if (_queue) {
-        _queue->release();
-        _queue = NULL;
-    }
-
-    if (_owner) {
-        _owner->release();
-        _owner = NULL;
-    }
-    
+    OSSafeReleaseNULL(_queue);
+    OSSafeReleaseNULL(_owner);
+    OSSafeReleaseNULL(_commandGate);
+  
     super::free();
 }
 
@@ -417,6 +472,7 @@ IOReturn IOHIDEventServiceUserClient::setProperties( OSObject * properties )
     return _owner ? _owner->setProperties(properties) : kIOReturnOffline;
 }
 
+
 //==============================================================================
 // IOHIDEventServiceUserClient::eventServiceCallback
 //==============================================================================
@@ -426,9 +482,79 @@ void IOHIDEventServiceUserClient::eventServiceCallback(
                                 IOHIDEvent *                    event, 
                                 IOOptionBits                    options)
 {
-    if (!_queue || !_queue->getState() || _queue == __fakeQueue.queue )
+    if (!_queue || _state != kUserClientStateOpen) {
         return;
-        
-    //enqueue the event
-    _queue->enqueueEvent(event);
+    }
+    _commandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDEventServiceUserClient::enqueueEventGated), event);
+  
+}
+
+//==============================================================================
+// IOHIDEventServiceUserClient::enqueueEventGated
+//==============================================================================
+void IOHIDEventServiceUserClient::enqueueEventGated( IOHIDEvent * event)
+{
+  //enqueue the event
+    if (_queue) {
+        _lastEventTime = event->getTimeStamp();
+        _lastEventType = event->getType();
+        Boolean result = _queue->enqueueEvent(event);
+        if (result == false) {
+          _lastDroppedEventTime = _lastEventTime;
+          ++_droppedEventCount;
+        }
+    }
+}
+
+
+//====================================================================================================
+// IOHIDEventServiceUserClient::serializeDebugState
+//====================================================================================================
+bool   IOHIDEventServiceUserClient::serializeDebugState(void * ref, OSSerialize * serializer) {
+    bool          result = false;
+    uint64_t      currentTime, deltaTime;
+    uint64_t      nanoTime;
+    OSDictionary  *debugDict = OSDictionary::withCapacity(4);
+    OSNumber      *num;
+  
+    require(debugDict, exit);
+    clock_get_uptime(&currentTime);
+  
+    if (_lastEventTime) {
+        deltaTime = AbsoluteTime_to_scalar(&currentTime) - AbsoluteTime_to_scalar(&(_lastEventTime));
+        absolutetime_to_nanoseconds(deltaTime, &nanoTime);
+        num = OSNumber::withNumber(nanoTime, 64);
+        if (num) {
+            debugDict->setObject("LastEventTime", num);
+            OSSafeReleaseNULL(num);
+        }
+    }
+    if (_lastEventType) {
+        num = OSNumber::withNumber(_lastEventType, 32);
+        if (num) {
+            debugDict->setObject("LastEventType", num);
+            OSSafeReleaseNULL(num);
+        }
+    }
+    if (_lastDroppedEventTime) {
+        deltaTime = AbsoluteTime_to_scalar(&currentTime) - AbsoluteTime_to_scalar(&(_lastDroppedEventTime));
+        absolutetime_to_nanoseconds(deltaTime, &nanoTime);
+        num = OSNumber::withNumber(nanoTime, 64);
+        if (num) {
+            debugDict->setObject("LastDroppedEventTime", num);
+            OSSafeReleaseNULL(num);
+        }
+    }
+    if (_droppedEventCount) {
+        num = OSNumber::withNumber(_droppedEventCount, 32);
+        if (num) {
+            debugDict->setObject("DroppedEventCount", num);
+            OSSafeReleaseNULL(num);
+        }
+    }
+    result = debugDict->serialize(serializer);
+    debugDict->release();
+
+exit:
+    return result;
 }

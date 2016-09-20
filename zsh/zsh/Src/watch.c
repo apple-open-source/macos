@@ -111,9 +111,6 @@
 # ifdef HAVE_STRUCT_UTMPX_UT_HOST
 #  define WATCH_UTMP_UT_HOST 1
 # endif
-# ifdef __APPLE__
-# define ut_name ut_user
-#endif
 #endif
 
 #if !defined(WATCH_STRUCT_UTMP) && defined(HAVE_STRUCT_UTMP) && defined(REAL_UTMP_FILE)
@@ -240,6 +237,7 @@ watchlog2(int inout, WATCH_STRUCT_UTMP *u, char *fmt, int prnt, int fini)
     time_t timet;
     struct tm *tm;
     char *fm2;
+    int len;
 # ifdef WATCH_UTMP_UT_HOST
     char *p;
     int i;
@@ -333,7 +331,9 @@ watchlog2(int inout, WATCH_STRUCT_UTMP *u, char *fmt, int prnt, int fini)
 		    }
 		    timet = getlogtime(u, inout);
 		    tm = localtime(&timet);
-		    ztrftime(buf, 40, fm2, tm, 0L);
+		    len = ztrftime(buf, 40, fm2, tm, 0L);
+		    if (len > 0)
+			metafy(buf, len, META_NOALLOC);
 		    printf("%s", (*buf == ' ') ? buf + 1 : buf);
 		    break;
 		case '%':
@@ -569,7 +569,7 @@ dowatch(void)
 	return;
     }
     queue_signals();
-    if (!(fmt = getsparam("WATCHFMT")))
+    if (!(fmt = getsparam_u("WATCHFMT")))
 	fmt = DEFAULT_WATCHFMT;
     while ((uct || wct) && !errflag)
 	if (!uct || (wct && ucmp(uptr, wptr) > 0))

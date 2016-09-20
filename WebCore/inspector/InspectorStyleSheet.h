@@ -140,7 +140,7 @@ public:
 private:
     InspectorStyle(const InspectorCSSId& styleId, RefPtr<CSSStyleDeclaration>&&, InspectorStyleSheet* parentStyleSheet);
 
-    bool populateAllProperties(Vector<InspectorStyleProperty>* result) const;
+    void populateAllProperties(Vector<InspectorStyleProperty>* result) const;
     Ref<Inspector::Protocol::CSS::CSSStyle> styleWithProperties() const;
     RefPtr<CSSRuleSourceData> extractSourceData() const;
     String shorthandValue(const String& shorthandProperty) const;
@@ -238,21 +238,21 @@ public:
     static Ref<InspectorStyleSheetForInlineStyle> create(InspectorPageAgent*, const String& id, RefPtr<Element>&&, Inspector::Protocol::CSS::StyleSheetOrigin, Listener*);
 
     void didModifyElementAttribute();
-    virtual bool getText(String* result) const override;
-    virtual CSSStyleDeclaration* styleForId(const InspectorCSSId& id) const override { ASSERT_UNUSED(id, !id.ordinal()); return inlineStyle(); }
+    bool getText(String* result) const override;
+    CSSStyleDeclaration* styleForId(const InspectorCSSId& id) const override { ASSERT_UNUSED(id, !id.ordinal()); return inlineStyle(); }
 
 protected:
     InspectorStyleSheetForInlineStyle(InspectorPageAgent*, const String& id, RefPtr<Element>&&, Inspector::Protocol::CSS::StyleSheetOrigin, Listener*);
 
-    virtual Document* ownerDocument() const override;
-    virtual RefPtr<CSSRuleSourceData> ruleSourceDataFor(CSSStyleDeclaration* style) const override { ASSERT_UNUSED(style, style == inlineStyle()); return m_ruleSourceData; }
-    virtual unsigned ruleIndexByStyle(CSSStyleDeclaration*) const override { return 0; }
-    virtual bool ensureParsedDataReady() override;
-    virtual RefPtr<InspectorStyle> inspectorStyleForId(const InspectorCSSId&) override;
+    Document* ownerDocument() const override;
+    RefPtr<CSSRuleSourceData> ruleSourceDataFor(CSSStyleDeclaration* style) const override { ASSERT_UNUSED(style, style == inlineStyle()); return m_ruleSourceData; }
+    unsigned ruleIndexByStyle(CSSStyleDeclaration*) const override { return 0; }
+    bool ensureParsedDataReady() override;
+    RefPtr<InspectorStyle> inspectorStyleForId(const InspectorCSSId&) override;
 
     // Also accessed by friend class InspectorStyle.
-    virtual bool setStyleText(CSSStyleDeclaration*, const String&, ExceptionCode&) override;
-    virtual std::unique_ptr<Vector<size_t>> lineEndings() const override;
+    bool setStyleText(CSSStyleDeclaration*, const String&, ExceptionCode&) override;
+    std::unique_ptr<Vector<size_t>> lineEndings() const override;
 
 private:
     CSSStyleDeclaration* inlineStyle() const;

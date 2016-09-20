@@ -49,14 +49,14 @@ PathList::PathList(const string &subPath,
 			if (envPath[0] == '!') {
 				// envar="!path" -> single-item override (debugging only)
 				mDebugOverride = envPath + 1;
-				secdebug("pathlist", "%p env(\"%s\") overrides to \"%s\"",
+				secinfo("pathlist", "%p env(\"%s\") overrides to \"%s\"",
 					this, envar, mDebugOverride.c_str());
 				return;
 			}
 #endif //NDEBUG
 
 			// treat envPath as a classic colon-separated list of directories
-			secdebug("pathlist", "%p configuring from env(\"%s\")", this, envar);
+			secinfo("pathlist", "%p configuring from env(\"%s\")", this, envar);
 			while (const char *p = strchr(envPath, ':')) {
 				addDirectory(string(envPath, p - envPath));
 				envPath = p + 1;
@@ -66,9 +66,9 @@ PathList::PathList(const string &subPath,
 		}
 
 	// no joy from environment variables
-	secdebug("pathlist", "%p configuring from default path set \"%s\"", this, subPath.c_str());
+	secinfo("pathlist", "%p configuring from default path set \"%s\"", this, subPath.c_str());
 	if (forUser)
-		secdebug("pathlist", "user search list not yet implemented");
+		secinfo("pathlist", "user search list not yet implemented");
 	addDirectory("/Library/" + subPath);
 	addDirectory("/System/Library/" + subPath);
 }

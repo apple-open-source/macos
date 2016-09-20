@@ -19,7 +19,7 @@
 <div id="page-header">
 <p class="menu"><a href="../mod/">Module</a> | <a href="../mod/directives.html">Direktiven</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossar</a> | <a href="../sitemap.html">Seitenindex</a></p>
 <p class="apache">Apache HTTP Server Version 2.4</p>
-<img alt="" src="../images/feather.gif" /></div>
+<img alt="" src="../images/feather.png" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
 <a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP-Server</a> &gt; <a href="http://httpd.apache.org/docs/">Dokumentation</a> &gt; <a href="../">Version 2.4</a> &gt; <a href="./">Module</a></div>
@@ -51,6 +51,7 @@ Servers</td></tr>
 <li><img alt="" src="../images/down.gif" /> <a href="#allowoverridelist">AllowOverrideList</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#cgimapextension">CGIMapExtension</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#cgipassauth">CGIPassAuth</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#cgivar">CGIVar</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#contentdigest">ContentDigest</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#defaultruntimedir">DefaultRuntimeDir</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#defaulttype">DefaultType</a></li>
@@ -125,7 +126,9 @@ Servers</td></tr>
 <li><img alt="" src="../images/down.gif" /> <a href="#usecanonicalphysicalport">UseCanonicalPhysicalPort</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#virtualhost">&lt;VirtualHost&gt;</a></li>
 </ul>
-<ul class="seealso"><li><a href="#comments_section">Kommentare</a></li></ul></div>
+<h3>Bugfix checklist</h3><ul class="seealso"><li><a href="https://www.apache.org/dist/httpd/CHANGES_2.4">httpd changelog</a></li><li><a href="https://bz.apache.org/bugzilla/buglist.cgi?bug_status=__open__&amp;list_id=144532&amp;product=Apache%20httpd-2&amp;query_format=specific&amp;order=changeddate%20DESC%2Cpriority%2Cbug_severity&amp;component=core">Known issues</a></li><li><a href="https://bz.apache.org/bugzilla/enter_bug.cgi?product=Apache%20httpd-2&amp;component=core">Report a bug</a></li></ul><h3>Siehe auch</h3>
+<ul class="seealso">
+<li><a href="#comments_section">Kommentare</a></li></ul></div>
 
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="AcceptFilter" id="AcceptFilter">AcceptFilter</a>-<a name="acceptfilter" id="acceptfilter">Direktive</a></h2>
@@ -541,6 +544,19 @@ variables</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Core</td></tr>
 <tr><th><a href="directive-dict.html#Module">Modul:</a></th><td>core</td></tr>
 <tr><th><a href="directive-dict.html#Compatibility">Kompatibilität:</a></th><td>Available in Apache HTTP Server 2.4.13 and later</td></tr>
+</table><p>Die Dokumentation zu dieser Direktive wurde
+            noch nicht übersetzt. Bitte schauen Sie in die englische
+            Version.</p></div>
+<div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="directive-section"><h2><a name="CGIVar" id="CGIVar">CGIVar</a>-<a name="cgivar" id="cgivar">Direktive</a></h2>
+<table class="directive">
+<tr><th><a href="directive-dict.html#Description">Beschreibung:</a></th><td>Controls how some CGI variables are set</td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>CGIVar <var>variable</var> <var>rule</var></code></td></tr>
+<tr><th><a href="directive-dict.html#Context">Kontext:</a></th><td>Verzeichnis, .htaccess</td></tr>
+<tr><th><a href="directive-dict.html#Override">AllowOverride:</a></th><td>FileInfo</td></tr>
+<tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Core</td></tr>
+<tr><th><a href="directive-dict.html#Module">Modul:</a></th><td>core</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Kompatibilität:</a></th><td>Available in Apache HTTP Server 2.4.21 and later</td></tr>
 </table><p>Die Dokumentation zu dieser Direktive wurde
             noch nicht übersetzt. Bitte schauen Sie in die englische
             Version.</p></div>
@@ -2765,7 +2781,7 @@ On Windows, from Apache 2.3.3 and later.</td></tr>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="QualifyRedirectURL" id="QualifyRedirectURL">QualifyRedirectURL</a>-<a name="qualifyredirecturl" id="qualifyredirecturl">Direktive</a></h2>
 <table class="directive">
-<tr><th><a href="directive-dict.html#Description">Beschreibung:</a></th><td>Controls whether the REDIRECT_URL environent variable is 
+<tr><th><a href="directive-dict.html#Description">Beschreibung:</a></th><td>Controls whether the REDIRECT_URL environment variable is
              fully qualified</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>QualifyRedirectURL ON|OFF</code></td></tr>
 <tr><th><a href="directive-dict.html#Default">Voreinstellung:</a></th><td><code>QualifyRedirectURL OFF</code></td></tr>
@@ -3699,7 +3715,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/core.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Lizenziert unter der <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Lizenziert unter der <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Module</a> | <a href="../mod/directives.html">Direktiven</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossar</a> | <a href="../sitemap.html">Seitenindex</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -236,6 +236,8 @@ tcp_socket(int domain, int type, int protocol, int ztflags)
     if (!sess) return NULL;
 
     sess->fd = socket(domain, type, protocol);
+    /* We'll check failure and tidy up in caller */
+    addmodulefd(sess->fd, FDT_MODULE);
     return sess;
 }
 
@@ -298,7 +300,7 @@ tcp_close(Tcp_session sess)
     {  
 	if (sess->fd != -1)
 	{
-	    err = close(sess->fd);
+	    err = zclose(sess->fd);
 	    if (err)
 		zwarn("connection close failed: %e", errno);
 	}
@@ -459,7 +461,7 @@ bin_ztcp(char *nam, char **args, Options ops, UNUSED(int func))
 	    return 1;
 	}
 
-	setiparam("REPLY", sess->fd);
+	setiparam_no_convert("REPLY", (zlong)sess->fd);
 
 	if (verbose)
 	    printf("%d listener is on fd %d\n", ntohs(sess->sock.in.sin_port), sess->fd);
@@ -519,7 +521,7 @@ bin_ztcp(char *nam, char **args, Options ops, UNUSED(int func))
 	    tv.tv_sec = 0;
 	    tv.tv_usec = 0;
 	    
-	    if ((ret = select(lfd+1, &rfds, NULL, NULL, &tv))) return 1;
+	    if ((ret = select(lfd+1, &rfds, NULL, NULL, &tv)) == 0) return 1;
 	    else if (ret == -1)
 	    {
 		zwarnnam(nam, "select error: %e", errno);
@@ -536,12 +538,18 @@ bin_ztcp(char *nam, char **args, Options ops, UNUSED(int func))
 	sess = zts_alloc(ZTCP_INBOUND);
 
 	len = sizeof(sess->peer.in);
-	if ((rfd = accept(lfd, (struct sockaddr *)&sess->peer.in, &len)) == -1)
-	{
+	do {
+	    rfd = accept(lfd, (struct sockaddr *)&sess->peer.in, &len);
+	} while (rfd < 0 && errno == EINTR && !errflag);
+
+	if (rfd == -1) {
 	    zwarnnam(nam, "could not accept connection: %e", errno);
 	    tcp_close(sess);
 	    return 1;
 	}
+
+	/* redup expects fd is already registered */
+	addmodulefd(rfd, FDT_MODULE);
 
 	if (targetfd) {
 	    sess->fd = redup(rfd, targetfd);
@@ -554,7 +562,7 @@ bin_ztcp(char *nam, char **args, Options ops, UNUSED(int func))
 	    sess->fd = rfd;
 	}
 
-	setiparam("REPLY", sess->fd);
+	setiparam_no_convert("REPLY", (zlong)sess->fd);
 
 	if (verbose)
 	    printf("%d is on fd %d\n", ntohs(sess->peer.in.sin_port), sess->fd);
@@ -673,7 +681,7 @@ bin_ztcp(char *nam, char **args, Options ops, UNUSED(int func))
 		}
 	    }
 
-	    setiparam("REPLY", sess->fd);
+	    setiparam_no_convert("REPLY", (zlong)sess->fd);
 
 	    if (verbose)
 		printf("%s:%d is now on fd %d\n",

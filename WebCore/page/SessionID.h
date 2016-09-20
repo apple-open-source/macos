@@ -42,6 +42,7 @@ public:
     uint64_t sessionID() const { return m_sessionID; }
     bool operator==(SessionID sessionID) const { return m_sessionID == sessionID.m_sessionID; }
     bool operator!=(SessionID sessionID) const { return m_sessionID != sessionID.m_sessionID; }
+    bool isAlwaysOnLoggingAllowed() const { return !isEphemeral(); }
 
     static SessionID emptySessionID() { return SessionID(0); }
     static SessionID defaultSessionID() { return SessionID(1); }
@@ -56,13 +57,12 @@ namespace WTF {
 
 // The empty value is emptySessionID(), the deleted value is (-1)
 struct SessionIDHash {
-    static unsigned hash(const WebCore::SessionID& p) { return (unsigned)p.sessionID(); }
+    static unsigned hash(const WebCore::SessionID& p) { return intHash(p.sessionID()); }
     static bool equal(const WebCore::SessionID& a, const WebCore::SessionID& b) { return a == b; }
     static const bool safeToCompareToEmptyOrDeleted = true;
 };
 template<> struct HashTraits<WebCore::SessionID> : GenericHashTraits<WebCore::SessionID> {
-    static const uint64_t deletedValueIdentifier = 0xffffffffffffffff;
-    static const bool needsDestruction = false;
+    static const uint64_t deletedValueIdentifier = std::numeric_limits<uint64_t>::max();
     static WebCore::SessionID emptyValue() { return WebCore::SessionID::emptySessionID(); }
 
     static void constructDeletedValue(WebCore::SessionID& slot) { slot = WebCore::SessionID(deletedValueIdentifier); }

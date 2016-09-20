@@ -29,6 +29,9 @@
 #define LIBBIND9_EXTERNAL_DATA
 #endif /* ISC_PLATFORM_USEDECLSPEC */
 
+#define ISC_PLATFORM_NORETURN_PRE
+#define ISC_PLATFORM_NORETURN_POST __attribute__((__noreturn__))
+
 /*
  * Tell emacs to use C mode for this file.
  *

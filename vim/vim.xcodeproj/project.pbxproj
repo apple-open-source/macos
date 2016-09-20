@@ -23,6 +23,8 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		3ECDF48C1BDAA945009B95F1 /* crypt_zip.c in Sources */ = {isa = PBXBuildFile; fileRef = 3ECDF48A1BDAA939009B95F1 /* crypt_zip.c */; };
+		3ECDF48D1BDAA945009B95F1 /* crypt.c in Sources */ = {isa = PBXBuildFile; fileRef = 3ECDF48B1BDAA939009B95F1 /* crypt.c */; };
 		4C9BEFC1104C5FB400182AEE /* libiconv.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C9BEFC0104C5FB400182AEE /* libiconv.dylib */; settings = {ATTRIBUTES = (Required, ); }; };
 		4CD04D5910361A31001C87D5 /* pathdef.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CD04B4910361A30001C87D5 /* pathdef.c */; };
 		4CD04D5A10361A31001C87D5 /* buffer.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CD04B4B10361A30001C87D5 /* buffer.c */; };
@@ -97,6 +99,139 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		3E715E361BDA880400A3AEB9 /* clojurecomplete.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = clojurecomplete.vim; sourceTree = "<group>"; };
+		3E715E371BDA880400A3AEB9 /* netrw_gitignore.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = netrw_gitignore.vim; sourceTree = "<group>"; };
+		3E715E381BDA880F00A3AEB9 /* industry.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = industry.vim; sourceTree = "<group>"; };
+		3E715E391BDA885E00A3AEB9 /* g95.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = g95.vim; sourceTree = "<group>"; };
+		3E715E3A1BDA885E00A3AEB9 /* go.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = go.vim; sourceTree = "<group>"; };
+		3E715E3B1BDA885E00A3AEB9 /* haml.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = haml.vim; sourceTree = "<group>"; };
+		3E715E3C1BDA885E00A3AEB9 /* ifort.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ifort.vim; sourceTree = "<group>"; };
+		3E715E3D1BDA885E00A3AEB9 /* msbuild.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = msbuild.vim; sourceTree = "<group>"; };
+		3E715E3E1BDA887F00A3AEB9 /* ocaml.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ocaml.vim; sourceTree = "<group>"; };
+		3E715E3F1BDA887F00A3AEB9 /* rake.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = rake.vim; sourceTree = "<group>"; };
+		3E715E401BDA887F00A3AEB9 /* sass.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sass.vim; sourceTree = "<group>"; };
+		3E715E411BDA889200A3AEB9 /* xbuild.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = xbuild.vim; sourceTree = "<group>"; };
+		3E715E421BDA88A300A3AEB9 /* evim-ja.UTF-8.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = "evim-ja.UTF-8.1"; sourceTree = "<group>"; };
+		3E715E431BDA88D700A3AEB9 /* pi_logipat.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = pi_logipat.txt; sourceTree = "<group>"; };
+		3E715E441BDA88D700A3AEB9 /* vim-de.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = "vim-de.1"; sourceTree = "<group>"; };
+		3E715E451BDA88D700A3AEB9 /* vim-de.UTF-8.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = "vim-de.UTF-8.1"; sourceTree = "<group>"; };
+		3E715E461BDA88D700A3AEB9 /* vimdiff-ja.UTF-8.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = "vimdiff-ja.UTF-8.1"; sourceTree = "<group>"; };
+		3E715E471BDA88F700A3AEB9 /* vimtutor-ja.UTF-8.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = "vimtutor-ja.UTF-8.1"; sourceTree = "<group>"; };
+		3E715E481BDA88F700A3AEB9 /* xxd-ja.UTF-8.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = "xxd-ja.UTF-8.1"; sourceTree = "<group>"; };
+		3E715E491BDA891B00A3AEB9 /* abap.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = abap.vim; sourceTree = "<group>"; };
+		3E715E4A1BDA891B00A3AEB9 /* bzl.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = bzl.vim; sourceTree = "<group>"; };
+		3E715E4B1BDA893A00A3AEB9 /* docbk.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = docbk.vim; sourceTree = "<group>"; };
+		3E715E4C1BDA893A00A3AEB9 /* dockerfile.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = dockerfile.vim; sourceTree = "<group>"; };
+		3E715E4D1BDA893A00A3AEB9 /* erlang.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = erlang.vim; sourceTree = "<group>"; };
+		3E715E4E1BDA893A00A3AEB9 /* falcon.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = falcon.vim; sourceTree = "<group>"; };
+		3E715E4F1BDA896300A3AEB9 /* go.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = go.vim; sourceTree = "<group>"; };
+		3E715E501BDA896300A3AEB9 /* gprof.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = gprof.vim; sourceTree = "<group>"; };
+		3E715E511BDA896300A3AEB9 /* j.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = j.vim; sourceTree = "<group>"; };
+		3E715E521BDA896300A3AEB9 /* jproperties.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = jproperties.vim; sourceTree = "<group>"; };
+		3E715E531BDA896300A3AEB9 /* json.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = json.vim; sourceTree = "<group>"; };
+		3E715E541BDA896300A3AEB9 /* less.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = less.vim; sourceTree = "<group>"; };
+		3E715E551BDA89A800A3AEB9 /* r.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = r.vim; sourceTree = "<group>"; };
+		3E715E561BDA89A800A3AEB9 /* registry.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = registry.vim; sourceTree = "<group>"; };
+		3E715E571BDA89A800A3AEB9 /* rhelp.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = rhelp.vim; sourceTree = "<group>"; };
+		3E715E581BDA89A800A3AEB9 /* rmd.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = rmd.vim; sourceTree = "<group>"; };
+		3E715E591BDA89A800A3AEB9 /* rnoweb.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = rnoweb.vim; sourceTree = "<group>"; };
+		3E715E5A1BDA89A800A3AEB9 /* rrst.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = rrst.vim; sourceTree = "<group>"; };
+		3E715E5B1BDA89D000A3AEB9 /* systemd.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = systemd.vim; sourceTree = "<group>"; };
+		3E715E5C1BDA89D000A3AEB9 /* systemverilog.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = systemverilog.vim; sourceTree = "<group>"; };
+		3E715E5D1BDA89D000A3AEB9 /* text.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = text.vim; sourceTree = "<group>"; };
+		3E715E5E1BDA89D000A3AEB9 /* treetop.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = treetop.vim; sourceTree = "<group>"; };
+		3E715E5F1BDA89D000A3AEB9 /* tt2html.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = tt2html.vim; sourceTree = "<group>"; };
+		3E715E601BDA89D000A3AEB9 /* vroom.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = vroom.vim; sourceTree = "<group>"; };
+		3E715E611BDA89DF00A3AEB9 /* zimbu.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = zimbu.vim; sourceTree = "<group>"; };
+		3E715E621BDA8A1F00A3AEB9 /* bzl.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = bzl.vim; sourceTree = "<group>"; };
+		3E715E631BDA8A1F00A3AEB9 /* clojure.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = clojure.vim; sourceTree = "<group>"; };
+		3E715E641BDA8A1F00A3AEB9 /* falcon.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = falcon.vim; sourceTree = "<group>"; };
+		3E715E651BDA8A8100A3AEB9 /* gitolite.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = gitolite.vim; sourceTree = "<group>"; };
+		3E715E661BDA8A8100A3AEB9 /* go.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = go.vim; sourceTree = "<group>"; };
+		3E715E671BDA8A8100A3AEB9 /* j.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = j.vim; sourceTree = "<group>"; };
+		3E715E681BDA8A8100A3AEB9 /* json.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = json.vim; sourceTree = "<group>"; };
+		3E715E691BDA8A8100A3AEB9 /* less.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = less.vim; sourceTree = "<group>"; };
+		3E715E6A1BDA8A8100A3AEB9 /* r.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = r.vim; sourceTree = "<group>"; };
+		3E715E6B1BDA8A8100A3AEB9 /* rhelp.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = rhelp.vim; sourceTree = "<group>"; };
+		3E715E6C1BDA8A8100A3AEB9 /* rmd.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = rmd.vim; sourceTree = "<group>"; };
+		3E715E6D1BDA8A8100A3AEB9 /* rnoweb.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = rnoweb.vim; sourceTree = "<group>"; };
+		3E715E6E1BDA8A8100A3AEB9 /* rrst.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = rrst.vim; sourceTree = "<group>"; };
+		3E715E6F1BDA8A8100A3AEB9 /* systemd.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = systemd.vim; sourceTree = "<group>"; };
+		3E715E701BDA8A8100A3AEB9 /* systemverilog.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = systemverilog.vim; sourceTree = "<group>"; };
+		3E715E711BDA8A8100A3AEB9 /* teraterm.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = teraterm.vim; sourceTree = "<group>"; };
+		3E715E721BDA8A8100A3AEB9 /* tex.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = tex.vim; sourceTree = "<group>"; };
+		3E715E731BDA8A8100A3AEB9 /* treetop.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = treetop.vim; sourceTree = "<group>"; };
+		3E715E741BDA8A8100A3AEB9 /* vroom.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = vroom.vim; sourceTree = "<group>"; };
+		3E715E751BDA8A8100A3AEB9 /* yaml.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = yaml.vim; sourceTree = "<group>"; };
+		3E715E761BDA8A8100A3AEB9 /* zimbu.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = zimbu.vim; sourceTree = "<group>"; };
+		3E715E771BDA8AA400A3AEB9 /* belarusian-jcuken.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "belarusian-jcuken.vim"; sourceTree = "<group>"; };
+		3E715E781BDA8AA400A3AEB9 /* russian-jcukenwintype.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "russian-jcukenwintype.vim"; sourceTree = "<group>"; };
+		3E715E791BDA8ABA00A3AEB9 /* menu_cs_cz.utf-8.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "menu_cs_cz.utf-8.vim"; sourceTree = "<group>"; };
+		3E715E7A1BDA8AC700A3AEB9 /* less.bat */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = less.bat; sourceTree = "<group>"; };
+		3E715E7B1BDA8ADD00A3AEB9 /* plugin */ = {isa = PBXFileReference; lastKnownFileType = folder; path = plugin; sourceTree = "<group>"; };
+		3E715E7C1BDA8B1300A3AEB9 /* fixdup.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = fixdup.vim; sourceTree = "<group>"; };
+		3E715E7D1BDA8B2800A3AEB9 /* spell.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = spell.vim; sourceTree = "<group>"; };
+		3E715E7E1BDA8C6400A3AEB9 /* aptconf.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = aptconf.vim; sourceTree = "<group>"; };
+		3E715E7F1BDA8C6400A3AEB9 /* arduino.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = arduino.vim; sourceTree = "<group>"; };
+		3E715E801BDA8C6400A3AEB9 /* asciidoc.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = asciidoc.vim; sourceTree = "<group>"; };
+		3E715E811BDA8C6400A3AEB9 /* bzl.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = bzl.vim; sourceTree = "<group>"; };
+		3E715E821BDA8C6400A3AEB9 /* csdl.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = csdl.vim; sourceTree = "<group>"; };
+		3E715E831BDA8C6400A3AEB9 /* dirpager.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = dirpager.vim; sourceTree = "<group>"; };
+		3E715E841BDA8C6400A3AEB9 /* dnsmasq.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = dnsmasq.vim; sourceTree = "<group>"; };
+		3E715E851BDA8C6400A3AEB9 /* dockerfile.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = dockerfile.vim; sourceTree = "<group>"; };
+		3E715E861BDA8C6400A3AEB9 /* dts.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = dts.vim; sourceTree = "<group>"; };
+		3E715E871BDA8C6400A3AEB9 /* euphoria3.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = euphoria3.vim; sourceTree = "<group>"; };
+		3E715E881BDA8C6400A3AEB9 /* euphoria4.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = euphoria4.vim; sourceTree = "<group>"; };
+		3E715E891BDA8C6400A3AEB9 /* falcon.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = falcon.vim; sourceTree = "<group>"; };
+		3E715E8A1BDA8C6400A3AEB9 /* gitolite.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = gitolite.vim; sourceTree = "<group>"; };
+		3E715E8B1BDA8C6400A3AEB9 /* gnash.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = gnash.vim; sourceTree = "<group>"; };
+		3E715E8C1BDA8C6400A3AEB9 /* go.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = go.vim; sourceTree = "<group>"; };
+		3E715E8D1BDA8C6400A3AEB9 /* godoc.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = godoc.vim; sourceTree = "<group>"; };
+		3E715E8E1BDA8C6400A3AEB9 /* gprof.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = gprof.vim; sourceTree = "<group>"; };
+		3E715E8F1BDA8C6400A3AEB9 /* hgcommit.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = hgcommit.vim; sourceTree = "<group>"; };
+		3E715E901BDA8C6400A3AEB9 /* hostsaccess.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = hostsaccess.vim; sourceTree = "<group>"; };
+		3E715E911BDA8C6400A3AEB9 /* j.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = j.vim; sourceTree = "<group>"; };
+		3E715E921BDA8C6400A3AEB9 /* jovial.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = jovial.vim; sourceTree = "<group>"; };
+		3E715E931BDA8C6400A3AEB9 /* json.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = json.vim; sourceTree = "<group>"; };
+		3E715E941BDA8C6400A3AEB9 /* kivy.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = kivy.vim; sourceTree = "<group>"; };
+		3E715E951BDA8C6400A3AEB9 /* less.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = less.vim; sourceTree = "<group>"; };
+		3E715E961BDA8C6400A3AEB9 /* mallard.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mallard.vim; sourceTree = "<group>"; };
+		3E715E971BDA8C6400A3AEB9 /* mix.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mix.vim; sourceTree = "<group>"; };
+		3E715E981BDA8C6400A3AEB9 /* ninja.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ninja.vim; sourceTree = "<group>"; };
+		3E715E991BDA8C6400A3AEB9 /* pli.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = pli.vim; sourceTree = "<group>"; };
+		3E715E9A1BDA8C6400A3AEB9 /* redif.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = redif.vim; sourceTree = "<group>"; };
+		3E715E9B1BDA8C6400A3AEB9 /* rmd.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = rmd.vim; sourceTree = "<group>"; };
+		3E715E9C1BDA8C6400A3AEB9 /* rng.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = rng.vim; sourceTree = "<group>"; };
+		3E715E9D1BDA8C6400A3AEB9 /* rrst.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = rrst.vim; sourceTree = "<group>"; };
+		3E715E9E1BDA8C6400A3AEB9 /* sqlhana.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sqlhana.vim; sourceTree = "<group>"; };
+		3E715E9F1BDA8C6400A3AEB9 /* srec.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = srec.vim; sourceTree = "<group>"; };
+		3E715EA01BDA8C6400A3AEB9 /* systemd.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = systemd.vim; sourceTree = "<group>"; };
+		3E715EA11BDA8C6400A3AEB9 /* systemverilog.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = systemverilog.vim; sourceTree = "<group>"; };
+		3E715EA21BDA8C6400A3AEB9 /* teraterm.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = teraterm.vim; sourceTree = "<group>"; };
+		3E715EA31BDA8C6400A3AEB9 /* treetop.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = treetop.vim; sourceTree = "<group>"; };
+		3E715EA41BDA8C6400A3AEB9 /* tt2.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = tt2.vim; sourceTree = "<group>"; };
+		3E715EA51BDA8C6400A3AEB9 /* tt2html.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = tt2html.vim; sourceTree = "<group>"; };
+		3E715EA61BDA8C6400A3AEB9 /* tt2js.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = tt2js.vim; sourceTree = "<group>"; };
+		3E715EA71BDA8C6400A3AEB9 /* upstart.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = upstart.vim; sourceTree = "<group>"; };
+		3E715EA81BDA8C6400A3AEB9 /* upstreamdat.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = upstreamdat.vim; sourceTree = "<group>"; };
+		3E715EA91BDA8C6400A3AEB9 /* upstreaminstalllog.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = upstreaminstalllog.vim; sourceTree = "<group>"; };
+		3E715EAA1BDA8C6400A3AEB9 /* upstreamlog.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = upstreamlog.vim; sourceTree = "<group>"; };
+		3E715EAB1BDA8C6400A3AEB9 /* upstreamrpt.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = upstreamrpt.vim; sourceTree = "<group>"; };
+		3E715EAC1BDA8C6400A3AEB9 /* usserverlog.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = usserverlog.vim; sourceTree = "<group>"; };
+		3E715EAD1BDA8C6400A3AEB9 /* usw2kagtlog.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = usw2kagtlog.vim; sourceTree = "<group>"; };
+		3E715EAE1BDA8C6400A3AEB9 /* vroom.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = vroom.vim; sourceTree = "<group>"; };
+		3E715EAF1BDA8C6400A3AEB9 /* zimbu.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = zimbu.vim; sourceTree = "<group>"; };
+		3E715EB01BDA8D0000A3AEB9 /* tutor.bar */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = tutor.bar; sourceTree = "<group>"; };
+		3E715EB11BDA8D0000A3AEB9 /* tutor.bar.utf-8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "tutor.bar.utf-8"; sourceTree = "<group>"; };
+		3E715EB21BDA8D0000A3AEB9 /* tutor.nl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = tutor.nl; sourceTree = "<group>"; };
+		3E715EB31BDA8D0000A3AEB9 /* tutor.nl.utf-8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "tutor.nl.utf-8"; sourceTree = "<group>"; };
+		3E715EB41BDA8D0000A3AEB9 /* tutor.sr.cp1250 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = tutor.sr.cp1250; sourceTree = "<group>"; };
+		3E715EB51BDA8D0000A3AEB9 /* tutor.sr.utf-8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "tutor.sr.utf-8"; sourceTree = "<group>"; };
+		3E715EB61BDA8D0000A3AEB9 /* tutor.uk.utf-8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "tutor.uk.utf-8"; sourceTree = "<group>"; };
+		3E715EB71BDA8D0000A3AEB9 /* tutor.zh_cn.utf-8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "tutor.zh_cn.utf-8"; sourceTree = "<group>"; };
+		3E715EB81BDA8D0000A3AEB9 /* tutor.zh_tw.utf-8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "tutor.zh_tw.utf-8"; sourceTree = "<group>"; };
+		3ECDF48A1BDAA939009B95F1 /* crypt_zip.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = crypt_zip.c; path = src/crypt_zip.c; sourceTree = "<group>"; };
+		3ECDF48B1BDAA939009B95F1 /* crypt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = crypt.c; path = src/crypt.c; sourceTree = "<group>"; };
 		4C9BE84F10484C1E00182AEE /* vim.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = vim.plist; sourceTree = "<group>"; };
 		4C9BE85910484D5400182AEE /* ada.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ada.vim; sourceTree = "<group>"; };
 		4C9BE85A10484D5400182AEE /* adacomplete.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = adacomplete.vim; sourceTree = "<group>"; };
@@ -399,7 +534,6 @@
 		4C9BE98810484D5400182AEE /* ada.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ada.vim; sourceTree = "<group>"; };
 		4C9BE98910484D5400182AEE /* alsaconf.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = alsaconf.vim; sourceTree = "<group>"; };
 		4C9BE98A10484D5400182AEE /* ant.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ant.vim; sourceTree = "<group>"; };
-		4C9BE98B10484D5400182AEE /* AppendMatchGroup.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = AppendMatchGroup.vim; sourceTree = "<group>"; };
 		4C9BE98C10484D5400182AEE /* arch.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = arch.vim; sourceTree = "<group>"; };
 		4C9BE98D10484D5400182AEE /* art.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = art.vim; sourceTree = "<group>"; };
 		4C9BE98E10484D5400182AEE /* aspvbs.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = aspvbs.vim; sourceTree = "<group>"; };
@@ -491,7 +625,6 @@
 		4C9BE9E410484D5400182AEE /* mplayerconf.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mplayerconf.vim; sourceTree = "<group>"; };
 		4C9BE9E510484D5400182AEE /* mrxvtrc.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mrxvtrc.vim; sourceTree = "<group>"; };
 		4C9BE9E610484D5400182AEE /* msmessages.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = msmessages.vim; sourceTree = "<group>"; };
-		4C9BE9E710484D5400182AEE /* mupad.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mupad.vim; sourceTree = "<group>"; };
 		4C9BE9E810484D5400182AEE /* muttrc.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = muttrc.vim; sourceTree = "<group>"; };
 		4C9BE9E910484D5400182AEE /* nanorc.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = nanorc.vim; sourceTree = "<group>"; };
 		4C9BE9EA10484D5400182AEE /* netrc.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = netrc.vim; sourceTree = "<group>"; };
@@ -604,7 +737,6 @@
 		4C9BEA5710484D5400182AEE /* eterm.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = eterm.vim; sourceTree = "<group>"; };
 		4C9BEA5810484D5400182AEE /* fortran.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = fortran.vim; sourceTree = "<group>"; };
 		4C9BEA5910484D5400182AEE /* framescript.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = framescript.vim; sourceTree = "<group>"; };
-		4C9BEA5A10484D5400182AEE /* GenericIndent.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = GenericIndent.vim; sourceTree = "<group>"; };
 		4C9BEA5B10484D5400182AEE /* gitconfig.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = gitconfig.vim; sourceTree = "<group>"; };
 		4C9BEA5C10484D5400182AEE /* haml.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = haml.vim; sourceTree = "<group>"; };
 		4C9BEA5D10484D5400182AEE /* hamster.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = hamster.vim; sourceTree = "<group>"; };
@@ -623,7 +755,6 @@
 		4C9BEA6A10484D5400182AEE /* matlab.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = matlab.vim; sourceTree = "<group>"; };
 		4C9BEA6B10484D5400182AEE /* mma.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mma.vim; sourceTree = "<group>"; };
 		4C9BEA6C10484D5400182AEE /* mp.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mp.vim; sourceTree = "<group>"; };
-		4C9BEA6D10484D5400182AEE /* mupad.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mupad.vim; sourceTree = "<group>"; };
 		4C9BEA6E10484D5400182AEE /* objc.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = objc.vim; sourceTree = "<group>"; };
 		4C9BEA6F10484D5400182AEE /* ocaml.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ocaml.vim; sourceTree = "<group>"; };
 		4C9BEA7010484D5400182AEE /* occam.vim */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = occam.vim; sourceTree = "<group>"; };
@@ -988,7 +1119,6 @@
 		4C9BEBED10484D5500182AEE /* es_ES.diff */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = es_ES.diff; sourceTree = "<group>"; };
 		4C9BEBEE10484D5500182AEE /* es_MX.diff */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = es_MX.diff; sourceTree = "<group>"; };
 		4C9BEBEF10484D5500182AEE /* main.aap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = main.aap; sourceTree = "<group>"; };
-		4C9BEBF010484D5500182AEE /* fixdup */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = fixdup; sourceTree = "<group>"; };
 		4C9BEBF210484D5500182AEE /* fo_FO.diff */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = fo_FO.diff; sourceTree = "<group>"; };
 		4C9BEBF310484D5500182AEE /* main.aap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = main.aap; sourceTree = "<group>"; };
 		4C9BEBF510484D5500182AEE /* fr_FR.diff */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = fr_FR.diff; sourceTree = "<group>"; };
@@ -1871,7 +2001,7 @@
 		4CD04CA510361A31001C87D5 /* test22.ok */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test22.ok; sourceTree = "<group>"; };
 		4CD04CA610361A31001C87D5 /* test23.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test23.in; sourceTree = "<group>"; };
 		4CD04CA710361A31001C87D5 /* test23.ok */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test23.ok; sourceTree = "<group>"; };
-		4CD04CA810361A31001C87D5 /* test24.in */ = {isa = PBXFileReference; lastKnownFileType = file; path = test24.in; sourceTree = "<group>"; };
+		4CD04CA810361A31001C87D5 /* test24.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = test24.in; sourceTree = "<group>"; };
 		4CD04CA910361A31001C87D5 /* test24.ok */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test24.ok; sourceTree = "<group>"; };
 		4CD04CAA10361A31001C87D5 /* test25.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test25.in; sourceTree = "<group>"; };
 		4CD04CAB10361A31001C87D5 /* test25.ok */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test25.ok; sourceTree = "<group>"; };
@@ -2028,6 +2158,8 @@
 		08FB7795FE84155DC02AAC07 /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				3ECDF48A1BDAA939009B95F1 /* crypt_zip.c */,
+				3ECDF48B1BDAA939009B95F1 /* crypt.c */,
 				4CD04B3F10361A30001C87D5 /* ascii.h */,
 				4CD04B4010361A30001C87D5 /* auto */,
 				FCEA259812357FDB00430E38 /* blowfish.c */,
@@ -2193,6 +2325,8 @@
 		4C9BE85810484D5400182AEE /* autoload */ = {
 			isa = PBXGroup;
 			children = (
+				3E715E361BDA880400A3AEB9 /* clojurecomplete.vim */,
+				3E715E371BDA880400A3AEB9 /* netrw_gitignore.vim */,
 				4C9BE85910484D5400182AEE /* ada.vim */,
 				4C9BE85A10484D5400182AEE /* adacomplete.vim */,
 				4C9BE85B10484D5400182AEE /* ccomplete.vim */,
@@ -2246,6 +2380,7 @@
 		4C9BE88110484D5400182AEE /* colors */ = {
 			isa = PBXGroup;
 			children = (
+				3E715E381BDA880F00A3AEB9 /* industry.vim */,
 				4C9BE88210484D5400182AEE /* blue.vim */,
 				4C9BE88310484D5400182AEE /* darkblue.vim */,
 				4C9BE88410484D5400182AEE /* default.vim */,
@@ -2271,6 +2406,15 @@
 		4C9BE89410484D5400182AEE /* compiler */ = {
 			isa = PBXGroup;
 			children = (
+				3E715E411BDA889200A3AEB9 /* xbuild.vim */,
+				3E715E3E1BDA887F00A3AEB9 /* ocaml.vim */,
+				3E715E3F1BDA887F00A3AEB9 /* rake.vim */,
+				3E715E401BDA887F00A3AEB9 /* sass.vim */,
+				3E715E391BDA885E00A3AEB9 /* g95.vim */,
+				3E715E3A1BDA885E00A3AEB9 /* go.vim */,
+				3E715E3B1BDA885E00A3AEB9 /* haml.vim */,
+				3E715E3C1BDA885E00A3AEB9 /* ifort.vim */,
+				3E715E3D1BDA885E00A3AEB9 /* msbuild.vim */,
 				4C9BE89510484D5400182AEE /* ant.vim */,
 				4C9BE89610484D5400182AEE /* bcc.vim */,
 				4C9BE89710484D5400182AEE /* bdf.vim */,
@@ -2325,6 +2469,13 @@
 		4C9BE8C510484D5400182AEE /* doc */ = {
 			isa = PBXGroup;
 			children = (
+				3E715E471BDA88F700A3AEB9 /* vimtutor-ja.UTF-8.1 */,
+				3E715E481BDA88F700A3AEB9 /* xxd-ja.UTF-8.1 */,
+				3E715E431BDA88D700A3AEB9 /* pi_logipat.txt */,
+				3E715E441BDA88D700A3AEB9 /* vim-de.1 */,
+				3E715E451BDA88D700A3AEB9 /* vim-de.UTF-8.1 */,
+				3E715E461BDA88D700A3AEB9 /* vimdiff-ja.UTF-8.1 */,
+				3E715E421BDA88A300A3AEB9 /* evim-ja.UTF-8.1 */,
 				4C9BE8C610484D5400182AEE /* arabic.txt */,
 				4C9BE8C710484D5400182AEE /* autocmd.txt */,
 				4C9BE8C810484D5400182AEE /* change.txt */,
@@ -2518,13 +2669,37 @@
 		4C9BE98410484D5400182AEE /* ftplugin */ = {
 			isa = PBXGroup;
 			children = (
+				3E715E611BDA89DF00A3AEB9 /* zimbu.vim */,
+				3E715E5B1BDA89D000A3AEB9 /* systemd.vim */,
+				3E715E5C1BDA89D000A3AEB9 /* systemverilog.vim */,
+				3E715E5D1BDA89D000A3AEB9 /* text.vim */,
+				3E715E5E1BDA89D000A3AEB9 /* treetop.vim */,
+				3E715E5F1BDA89D000A3AEB9 /* tt2html.vim */,
+				3E715E601BDA89D000A3AEB9 /* vroom.vim */,
+				3E715E551BDA89A800A3AEB9 /* r.vim */,
+				3E715E561BDA89A800A3AEB9 /* registry.vim */,
+				3E715E571BDA89A800A3AEB9 /* rhelp.vim */,
+				3E715E581BDA89A800A3AEB9 /* rmd.vim */,
+				3E715E591BDA89A800A3AEB9 /* rnoweb.vim */,
+				3E715E5A1BDA89A800A3AEB9 /* rrst.vim */,
+				3E715E4F1BDA896300A3AEB9 /* go.vim */,
+				3E715E501BDA896300A3AEB9 /* gprof.vim */,
+				3E715E511BDA896300A3AEB9 /* j.vim */,
+				3E715E521BDA896300A3AEB9 /* jproperties.vim */,
+				3E715E531BDA896300A3AEB9 /* json.vim */,
+				3E715E541BDA896300A3AEB9 /* less.vim */,
+				3E715E4B1BDA893A00A3AEB9 /* docbk.vim */,
+				3E715E4C1BDA893A00A3AEB9 /* dockerfile.vim */,
+				3E715E4D1BDA893A00A3AEB9 /* erlang.vim */,
+				3E715E4E1BDA893A00A3AEB9 /* falcon.vim */,
+				3E715E491BDA891B00A3AEB9 /* abap.vim */,
+				3E715E4A1BDA891B00A3AEB9 /* bzl.vim */,
 				4C9BE98510484D5400182AEE /* a2ps.vim */,
 				4C9BE98610484D5400182AEE /* aap.vim */,
 				4C9BE98710484D5400182AEE /* abaqus.vim */,
 				4C9BE98810484D5400182AEE /* ada.vim */,
 				4C9BE98910484D5400182AEE /* alsaconf.vim */,
 				4C9BE98A10484D5400182AEE /* ant.vim */,
-				4C9BE98B10484D5400182AEE /* AppendMatchGroup.vim */,
 				4C9BE98C10484D5400182AEE /* arch.vim */,
 				4C9BE98D10484D5400182AEE /* art.vim */,
 				4C9BE98E10484D5400182AEE /* aspvbs.vim */,
@@ -2616,7 +2791,6 @@
 				4C9BE9E410484D5400182AEE /* mplayerconf.vim */,
 				4C9BE9E510484D5400182AEE /* mrxvtrc.vim */,
 				4C9BE9E610484D5400182AEE /* msmessages.vim */,
-				4C9BE9E710484D5400182AEE /* mupad.vim */,
 				4C9BE9E810484D5400182AEE /* muttrc.vim */,
 				4C9BE9E910484D5400182AEE /* nanorc.vim */,
 				4C9BE9EA10484D5400182AEE /* netrc.vim */,
@@ -2707,6 +2881,27 @@
 		4C9BEA3B10484D5400182AEE /* indent */ = {
 			isa = PBXGroup;
 			children = (
+				3E715E651BDA8A8100A3AEB9 /* gitolite.vim */,
+				3E715E661BDA8A8100A3AEB9 /* go.vim */,
+				3E715E671BDA8A8100A3AEB9 /* j.vim */,
+				3E715E681BDA8A8100A3AEB9 /* json.vim */,
+				3E715E691BDA8A8100A3AEB9 /* less.vim */,
+				3E715E6A1BDA8A8100A3AEB9 /* r.vim */,
+				3E715E6B1BDA8A8100A3AEB9 /* rhelp.vim */,
+				3E715E6C1BDA8A8100A3AEB9 /* rmd.vim */,
+				3E715E6D1BDA8A8100A3AEB9 /* rnoweb.vim */,
+				3E715E6E1BDA8A8100A3AEB9 /* rrst.vim */,
+				3E715E6F1BDA8A8100A3AEB9 /* systemd.vim */,
+				3E715E701BDA8A8100A3AEB9 /* systemverilog.vim */,
+				3E715E711BDA8A8100A3AEB9 /* teraterm.vim */,
+				3E715E721BDA8A8100A3AEB9 /* tex.vim */,
+				3E715E731BDA8A8100A3AEB9 /* treetop.vim */,
+				3E715E741BDA8A8100A3AEB9 /* vroom.vim */,
+				3E715E751BDA8A8100A3AEB9 /* yaml.vim */,
+				3E715E761BDA8A8100A3AEB9 /* zimbu.vim */,
+				3E715E621BDA8A1F00A3AEB9 /* bzl.vim */,
+				3E715E631BDA8A1F00A3AEB9 /* clojure.vim */,
+				3E715E641BDA8A1F00A3AEB9 /* falcon.vim */,
 				4C9BEA3C10484D5400182AEE /* aap.vim */,
 				4C9BEA3D10484D5400182AEE /* ada.vim */,
 				4C9BEA3E10484D5400182AEE /* ant.vim */,
@@ -2737,7 +2932,6 @@
 				4C9BEA5710484D5400182AEE /* eterm.vim */,
 				4C9BEA5810484D5400182AEE /* fortran.vim */,
 				4C9BEA5910484D5400182AEE /* framescript.vim */,
-				4C9BEA5A10484D5400182AEE /* GenericIndent.vim */,
 				4C9BEA5B10484D5400182AEE /* gitconfig.vim */,
 				4C9BEA5C10484D5400182AEE /* haml.vim */,
 				4C9BEA5D10484D5400182AEE /* hamster.vim */,
@@ -2756,7 +2950,6 @@
 				4C9BEA6A10484D5400182AEE /* matlab.vim */,
 				4C9BEA6B10484D5400182AEE /* mma.vim */,
 				4C9BEA6C10484D5400182AEE /* mp.vim */,
-				4C9BEA6D10484D5400182AEE /* mupad.vim */,
 				4C9BEA6E10484D5400182AEE /* objc.vim */,
 				4C9BEA6F10484D5400182AEE /* ocaml.vim */,
 				4C9BEA7010484D5400182AEE /* occam.vim */,
@@ -2803,6 +2996,8 @@
 		4C9BEA9710484D5400182AEE /* keymap */ = {
 			isa = PBXGroup;
 			children = (
+				3E715E771BDA8AA400A3AEB9 /* belarusian-jcuken.vim */,
+				3E715E781BDA8AA400A3AEB9 /* russian-jcukenwintype.vim */,
 				4C9BEA9810484D5400182AEE /* accents.vim */,
 				4C9BEA9910484D5400182AEE /* arabic.vim */,
 				4C9BEA9A10484D5400182AEE /* arabic_utf-8.vim */,
@@ -2874,6 +3069,7 @@
 		4C9BEAD810484D5400182AEE /* lang */ = {
 			isa = PBXGroup;
 			children = (
+				3E715E791BDA8ABA00A3AEB9 /* menu_cs_cz.utf-8.vim */,
 				4C9BEAD910484D5400182AEE /* menu_af.latin1.vim */,
 				4C9BEADA10484D5400182AEE /* menu_af.utf-8.vim */,
 				4C9BEADB10484D5400182AEE /* menu_af_af.latin1.vim */,
@@ -3009,6 +3205,7 @@
 		4C9BEB5A10484D5400182AEE /* macros */ = {
 			isa = PBXGroup;
 			children = (
+				3E715E7A1BDA8AC700A3AEB9 /* less.bat */,
 				4C9BEB5B10484D5400182AEE /* dvorak */,
 				4C9BEB5C10484D5400182AEE /* editexisting.vim */,
 				4C9BEB5D10484D5400182AEE /* hanoi */,
@@ -3087,6 +3284,7 @@
 		4C9BEB8B10484D5400182AEE /* plugin */ = {
 			isa = PBXGroup;
 			children = (
+				3E715E7B1BDA8ADD00A3AEB9 /* plugin */,
 				4C9BEB8C10484D5400182AEE /* getscriptPlugin.vim */,
 				4C9BEB8D10484D5400182AEE /* gzip.vim */,
 				4C9BEB8E10484D5400182AEE /* matchparen.vim */,
@@ -3145,6 +3343,8 @@
 		4C9BEBBB10484D5400182AEE /* spell */ = {
 			isa = PBXGroup;
 			children = (
+				3E715E7D1BDA8B2800A3AEB9 /* spell.vim */,
+				3E715E7C1BDA8B1300A3AEB9 /* fixdup.vim */,
 				4C9BEBBC10484D5400182AEE /* af */,
 				4C9BEBBF10484D5400182AEE /* am */,
 				4C9BEBC210484D5400182AEE /* bg */,
@@ -3164,7 +3364,6 @@
 				4C9BEBE810484D5500182AEE /* en.utf-8.sug */,
 				4C9BEBE910484D5500182AEE /* eo */,
 				4C9BEBEC10484D5500182AEE /* es */,
-				4C9BEBF010484D5500182AEE /* fixdup */,
 				4C9BEBF110484D5500182AEE /* fo */,
 				4C9BEBF410484D5500182AEE /* fr */,
 				4C9BEBF710484D5500182AEE /* ga */,
@@ -3658,6 +3857,56 @@
 		4C9BEC6710484D5500182AEE /* syntax */ = {
 			isa = PBXGroup;
 			children = (
+				3E715E7E1BDA8C6400A3AEB9 /* aptconf.vim */,
+				3E715E7F1BDA8C6400A3AEB9 /* arduino.vim */,
+				3E715E801BDA8C6400A3AEB9 /* asciidoc.vim */,
+				3E715E811BDA8C6400A3AEB9 /* bzl.vim */,
+				3E715E821BDA8C6400A3AEB9 /* csdl.vim */,
+				3E715E831BDA8C6400A3AEB9 /* dirpager.vim */,
+				3E715E841BDA8C6400A3AEB9 /* dnsmasq.vim */,
+				3E715E851BDA8C6400A3AEB9 /* dockerfile.vim */,
+				3E715E861BDA8C6400A3AEB9 /* dts.vim */,
+				3E715E871BDA8C6400A3AEB9 /* euphoria3.vim */,
+				3E715E881BDA8C6400A3AEB9 /* euphoria4.vim */,
+				3E715E891BDA8C6400A3AEB9 /* falcon.vim */,
+				3E715E8A1BDA8C6400A3AEB9 /* gitolite.vim */,
+				3E715E8B1BDA8C6400A3AEB9 /* gnash.vim */,
+				3E715E8C1BDA8C6400A3AEB9 /* go.vim */,
+				3E715E8D1BDA8C6400A3AEB9 /* godoc.vim */,
+				3E715E8E1BDA8C6400A3AEB9 /* gprof.vim */,
+				3E715E8F1BDA8C6400A3AEB9 /* hgcommit.vim */,
+				3E715E901BDA8C6400A3AEB9 /* hostsaccess.vim */,
+				3E715E911BDA8C6400A3AEB9 /* j.vim */,
+				3E715E921BDA8C6400A3AEB9 /* jovial.vim */,
+				3E715E931BDA8C6400A3AEB9 /* json.vim */,
+				3E715E941BDA8C6400A3AEB9 /* kivy.vim */,
+				3E715E951BDA8C6400A3AEB9 /* less.vim */,
+				3E715E961BDA8C6400A3AEB9 /* mallard.vim */,
+				3E715E971BDA8C6400A3AEB9 /* mix.vim */,
+				3E715E981BDA8C6400A3AEB9 /* ninja.vim */,
+				3E715E991BDA8C6400A3AEB9 /* pli.vim */,
+				3E715E9A1BDA8C6400A3AEB9 /* redif.vim */,
+				3E715E9B1BDA8C6400A3AEB9 /* rmd.vim */,
+				3E715E9C1BDA8C6400A3AEB9 /* rng.vim */,
+				3E715E9D1BDA8C6400A3AEB9 /* rrst.vim */,
+				3E715E9E1BDA8C6400A3AEB9 /* sqlhana.vim */,
+				3E715E9F1BDA8C6400A3AEB9 /* srec.vim */,
+				3E715EA01BDA8C6400A3AEB9 /* systemd.vim */,
+				3E715EA11BDA8C6400A3AEB9 /* systemverilog.vim */,
+				3E715EA21BDA8C6400A3AEB9 /* teraterm.vim */,
+				3E715EA31BDA8C6400A3AEB9 /* treetop.vim */,
+				3E715EA41BDA8C6400A3AEB9 /* tt2.vim */,
+				3E715EA51BDA8C6400A3AEB9 /* tt2html.vim */,
+				3E715EA61BDA8C6400A3AEB9 /* tt2js.vim */,
+				3E715EA71BDA8C6400A3AEB9 /* upstart.vim */,
+				3E715EA81BDA8C6400A3AEB9 /* upstreamdat.vim */,
+				3E715EA91BDA8C6400A3AEB9 /* upstreaminstalllog.vim */,
+				3E715EAA1BDA8C6400A3AEB9 /* upstreamlog.vim */,
+				3E715EAB1BDA8C6400A3AEB9 /* upstreamrpt.vim */,
+				3E715EAC1BDA8C6400A3AEB9 /* usserverlog.vim */,
+				3E715EAD1BDA8C6400A3AEB9 /* usw2kagtlog.vim */,
+				3E715EAE1BDA8C6400A3AEB9 /* vroom.vim */,
+				3E715EAF1BDA8C6400A3AEB9 /* zimbu.vim */,
 				4C9BEC6810484D5500182AEE /* 2html.vim */,
 				4C9BEC6910484D5500182AEE /* a2ps.vim */,
 				4C9BEC6A10484D5500182AEE /* a65.vim */,
@@ -4212,6 +4461,15 @@
 		4C9BEE8710484D5500182AEE /* tutor */ = {
 			isa = PBXGroup;
 			children = (
+				3E715EB01BDA8D0000A3AEB9 /* tutor.bar */,
+				3E715EB11BDA8D0000A3AEB9 /* tutor.bar.utf-8 */,
+				3E715EB21BDA8D0000A3AEB9 /* tutor.nl */,
+				3E715EB31BDA8D0000A3AEB9 /* tutor.nl.utf-8 */,
+				3E715EB41BDA8D0000A3AEB9 /* tutor.sr.cp1250 */,
+				3E715EB51BDA8D0000A3AEB9 /* tutor.sr.utf-8 */,
+				3E715EB61BDA8D0000A3AEB9 /* tutor.uk.utf-8 */,
+				3E715EB71BDA8D0000A3AEB9 /* tutor.zh_cn.utf-8 */,
+				3E715EB81BDA8D0000A3AEB9 /* tutor.zh_tw.utf-8 */,
 				4C9BEE8810484D5500182AEE /* Makefile */,
 				4C9BEE8910484D5500182AEE /* README.el.cp737.txt */,
 				4C9BEE8A10484D5500182AEE /* README.el.txt */,
@@ -4588,6 +4846,8 @@
 /* Begin PBXProject section */
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "vim" */;
 			compatibilityVersion = "Xcode 3.1";
 			developmentRegion = English;
@@ -4657,6 +4917,7 @@
 				4CD04D8310361A31001C87D5 /* hardcopy.c in Sources */,
 				4CD04D8410361A31001C87D5 /* hashtab.c in Sources */,
 				4CD04D8510361A31001C87D5 /* if_cscope.c in Sources */,
+				3ECDF48D1BDAA945009B95F1 /* crypt.c in Sources */,
 				4CD04D8D10361A31001C87D5 /* if_xcmdsrv.c in Sources */,
 				4CD04D9010361A31001C87D5 /* main.c in Sources */,
 				4CD04DA210361A31001C87D5 /* mark.c in Sources */,
@@ -4675,6 +4936,7 @@
 				4CD04DBF10361A31001C87D5 /* popupmnu.c in Sources */,
 				4CD04DC110361A31001C87D5 /* quickfix.c in Sources */,
 				4CD04DC210361A31001C87D5 /* regexp.c in Sources */,
+				3ECDF48C1BDAA945009B95F1 /* crypt_zip.c in Sources */,
 				4CD04DC310361A31001C87D5 /* screen.c in Sources */,
 				4CD04DC410361A31001C87D5 /* search.c in Sources */,
 				4CD04DC510361A31001C87D5 /* spell.c in Sources */,

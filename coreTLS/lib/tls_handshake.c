@@ -43,23 +43,32 @@ int SSLAllocBuffer(tls_buffer *buf, size_t length);
 tls_private_key_t
 tls_private_key_rsa_create(tls_private_key_ctx_t ctx, size_t size, tls_private_key_rsa_sign sign, tls_private_key_rsa_decrypt decrypt)
 {
-    tls_private_key_t key;
+    tls_private_key_desc_t desc;
 
-    key = sslMalloc(sizeof(struct _tls_private_key));
+    desc.type = tls_private_key_type_rsa;
+    desc.rsa.decrypt = decrypt;
+    desc.rsa.sign = sign;
+    desc.rsa.size = size;
 
-    if(key==NULL) return NULL;
-
-    key->type = kSSLPrivKeyType_RSA;
-    key->ctx = ctx;
-    key->rsa.size = size;
-    key->rsa.sign = sign;
-    key->rsa.decrypt = decrypt;
-
-    return key;
+    return tls_private_key_create(&desc, ctx, NULL);
 }
 
 tls_private_key_t
 tls_private_key_ecdsa_create(tls_private_key_ctx_t ctx, size_t size, uint16_t curve, tls_private_key_ecdsa_sign sign)
+{
+    tls_private_key_desc_t desc;
+
+    desc.type = tls_private_key_type_ecdsa;
+    desc.ecdsa.sign = sign;
+    desc.ecdsa.size = size;
+    desc.ecdsa.curve = curve;
+
+    return tls_private_key_create(&desc, ctx, NULL);
+};
+
+tls_private_key_t tls_private_key_create(tls_private_key_desc_t *desc,
+                                         tls_private_key_ctx_t ctx,
+                                         tls_private_key_ctx_release ctx_release)
 {
     tls_private_key_t key;
 
@@ -67,14 +76,24 @@ tls_private_key_ecdsa_create(tls_private_key_ctx_t ctx, size_t size, uint16_t cu
 
     if(key==NULL) return NULL;
 
-    key->type = kSSLPrivKeyType_ECDSA;
     key->ctx = ctx;
-    key->ecdsa.size = size;
-    key->ecdsa.curve = curve;
-    key->ecdsa.sign = sign;
+    key->ctx_release = ctx_release;
+    key->desc.type = desc->type;
+    switch(desc->type) {
+        case tls_private_key_type_rsa:
+            key->desc.rsa = desc->rsa;
+            break;
+        case tls_private_key_type_ecdsa:
+            key->desc.ecdsa = desc->ecdsa;
+            break;
+        default:
+            sslFree(key);
+            key = NULL;
+            break;
+    }
 
     return key;
-};
+}
 
 tls_private_key_ctx_t tls_private_key_get_context(tls_private_key_t key)
 {
@@ -83,6 +102,8 @@ tls_private_key_ctx_t tls_private_key_get_context(tls_private_key_t key)
 
 void tls_private_key_destroy(tls_private_key_t key)
 {
+    if(key->ctx_release && key->ctx)
+        key->ctx_release(key->ctx);
     sslFree(key);
 }
 
@@ -159,14 +180,28 @@ tls_handshake_create(bool dtls, bool server)
     /* 
      * Default configuration
      */
-    tls_handshake_set_config(ctx, tls_handshake_config_legacy);
+    tls_handshake_set_config(ctx, tls_handshake_config_default);
 
+    /* 
+     * Enabled SCT and OCSP extension for client 
+     */
+    if(!ctx->isServer) {
+        tls_handshake_set_sct_enable(ctx, true);
+        tls_handshake_set_ocsp_enable(ctx, true);
+    }
+
+    tls_handshake_set_ems_enable(ctx, true);
 	/*
 	 * Initial/default set of ECDH curves
 	 */
     tls_handshake_set_curves(ctx, KnownCurves, CurvesCount);
 	ctx->ecdhPeerCurve = tls_curve_none;		/* until we negotiate one */
 	ctx->negAuthType = tls_client_auth_type_None;		/* ditto */
+
+    /*
+     * Initial/default set of SigAlgs
+     */
+    tls_handshake_set_sigalgs(ctx, KnownSigAlgs, SigAlgsCount);
 
     if (ctx->isServer) {
         SSLChangeHdskState(ctx, SSL_HdskStateServerUninit);
@@ -186,9 +221,10 @@ tls_handshake_destroy(tls_handshake_t filter)
     SSLResetFlight(filter);
 
     CloseHash(&SSLHashSHA1, &filter->shaState);
-	CloseHash(&SSLHashMD5,  &filter->md5State);
-	CloseHash(&SSLHashSHA256,  &filter->sha256State);
-	CloseHash(&SSLHashSHA384,  &filter->sha512State);
+    CloseHash(&SSLHashMD5,  &filter->md5State);
+    CloseHash(&SSLHashSHA256,  &filter->sha256State);
+    CloseHash(&SSLHashSHA384,  &filter->sha384State);
+    CloseHash(&SSLHashSHA512,  &filter->sha512State);
 
     sslFreePubKey(&filter->peerPubKey);
     sslFreePubKey(&filter->rsaEncryptPubKey);
@@ -220,12 +256,17 @@ tls_handshake_destroy(tls_handshake_t filter)
     sslFree(filter->enabledCipherSuites);
     sslFree(filter->requestedCipherSuites);
     sslFree(filter->ecdhCurves);
-    sslFree(filter->serverSigAlgs);
-    sslFree(filter->clientSigAlgs);
+    sslFree(filter->peerSigAlgs);
+    sslFree(filter->localSigAlgs);
     sslFree(filter->clientAuthTypes);
     sslFree(filter->ecdhContext._full);
     sslFree(filter->dhParams.gp);
     sslFree(filter->dhContext._full);
+    sslFree(filter->requested_ecdh_curves);
+
+    if(filter->signingPrivKeyRef)
+        tls_private_key_destroy(filter->signingPrivKeyRef);
+    SSLFreeCertificates(filter->localCert);
 
     SSLFreeCertificates(filter->peerCert);
     if(!filter->isServer) {
@@ -395,23 +436,22 @@ tls_protocol_version tls_handshake_min_allowed_version(tls_handshake_t filter, t
     switch(config) {
         case tls_handshake_config_ATSv1:
         case tls_handshake_config_ATSv1_noPFS:
+        case tls_handshake_config_anonymous:
             return tls_protocol_version_TLS_1_2;
         case tls_handshake_config_standard:
         case tls_handshake_config_RC4_fallback:
         case tls_handshake_config_TLSv1_fallback:
         case tls_handshake_config_TLSv1_RC4_fallback:
-            return tls_protocol_version_TLS_1_0;
         case tls_handshake_config_default:
         case tls_handshake_config_legacy:
         case tls_handshake_config_legacy_DHE:
-            return filter->isServer?tls_protocol_version_TLS_1_0:tls_protocol_version_SSL_3;
         case tls_handshake_config_none:
-            return tls_protocol_version_SSL_3;
+            return tls_protocol_version_TLS_1_0;
     }
 
     /* Note: we do this here instead of a 'default:' case, so that the compiler will warn us when
      adding new config in the enum */
-    return filter->isServer?tls_protocol_version_TLS_1_0:tls_protocol_version_SSL_3;
+    return tls_protocol_version_TLS_1_0;
 }
 
 static
@@ -432,6 +472,7 @@ tls_protocol_version tls_handshake_max_allowed_version(tls_handshake_t filter, t
         case tls_handshake_config_RC4_fallback:
         case tls_handshake_config_legacy:
         case tls_handshake_config_legacy_DHE:
+        case tls_handshake_config_anonymous:
             return tls_protocol_version_TLS_1_2;
     }
 
@@ -542,8 +583,20 @@ tls_handshake_set_dh_parameters(tls_handshake_t filter, tls_buffer *params)
 int
 tls_handshake_set_identity(tls_handshake_t filter, SSLCertificate *certs, tls_private_key_t key)
 {
-    filter->localCert = certs;
-    filter->signingPrivKeyRef = key;
+    SSLFreeCertificates(filter->localCert);
+    if(filter->signingPrivKeyRef)
+        tls_private_key_destroy(filter->signingPrivKeyRef);
+    if(certs) {
+        tls_buffer_list_t *copy;
+        tls_copy_buffer_list((tls_buffer_list_t *)certs, &copy);
+        filter->localCert = (SSLCertificate *)copy;
+    } else {
+        filter->localCert = NULL;
+    }
+    if(key)
+        filter->signingPrivKeyRef = tls_private_key_create(&key->desc, key->ctx, key->ctx_release);
+    else
+        filter->signingPrivKeyRef = NULL;
     return 0;
 }
 
@@ -593,6 +646,14 @@ tls_handshake_set_acceptable_dn_list(tls_handshake_t filter, DNListElem *dn_list
 {
     assert(filter->isServer);
     filter->acceptableDNList = dn_list;
+    return 0;
+}
+
+int
+tls_handshake_get_acceptable_dn_list(tls_handshake_t filter, DNListElem **dn_list)
+{
+    assert(filter->isServer);
+    *dn_list = filter->acceptableDNList;
     return 0;
 }
 
@@ -750,6 +811,23 @@ tls_handshake_set_sct_list(tls_handshake_t filter, tls_buffer_list_t *sct_list)
     return tls_copy_buffer_list(sct_list, &filter->sct_list);
 }
 
+/* Enables/ Disables Extended Master Secret TLS extension */
+int
+tls_handshake_set_ems_enable(tls_handshake_t filter, bool enabled)
+{
+    filter->extMSEnabled = enabled;
+    return 0;
+}
+
+/* Checks if extended master secret was sent */
+bool
+tls_handshake_get_negotiated_ems(tls_handshake_t filter)
+{
+    if (filter->extMSEnabled && filter->extMSReceived)
+        return true;
+    else
+        return false;
+}
 
 /* Set TLS user agent string, for diagnostic purposes */
 int
@@ -765,6 +843,77 @@ tls_handshake_set_user_agent(tls_handshake_t filter, const char *user_agent)
 
     return 0;
 }
+
+/*
+ Internal table used to initialize default ciphersuites,
+ This establish the preference order, but this is further filtered depending on configuration.
+
+
+ Order by preference, PFS first, more security first
+
+ Ordered by:
+ Key Exchange first: ECDHE_ECDSA, ECDHE_RSA, DHE_RSA, RSA
+ then by hash algorithm: SHA384, SHA256, SHA
+ then by symmetric cipher: AES_256_GCM, AES_128_GCM, AES_256_CBC, AES_128_CBC, 3DES
+
+ All RC4 ciphersuites are relegated at the end. They are deprecated by the IETF TLS WG.
+
+ 'DH_Anon' and 'ECDH_Anon' ciphers are only used in the anymous config.
+
+ The list is filtered based on server support, dtls support, and config if necessary.
+ */
+
+static
+const uint16_t all_ciphersuites[] = {
+    TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+    TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+    TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
+    TLS_DHE_RSA_WITH_AES_256_GCM_SHA384,
+    TLS_DHE_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,
+    TLS_DHE_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
+    TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
+    SSL_DHE_RSA_WITH_3DES_EDE_CBC_SHA,
+    TLS_RSA_WITH_AES_256_GCM_SHA384,
+    TLS_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_RSA_WITH_AES_256_CBC_SHA256,
+    TLS_RSA_WITH_AES_128_CBC_SHA256,
+    TLS_RSA_WITH_AES_256_CBC_SHA,
+    TLS_RSA_WITH_AES_128_CBC_SHA,
+    SSL_RSA_WITH_3DES_EDE_CBC_SHA,
+    TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
+    TLS_ECDHE_RSA_WITH_RC4_128_SHA,
+    SSL_RSA_WITH_RC4_128_SHA,
+    SSL_RSA_WITH_RC4_128_MD5,
+
+    /* those are only used by the 'anonymous' config. */
+    TLS_ECDH_anon_WITH_AES_256_CBC_SHA,
+    TLS_ECDH_anon_WITH_AES_128_CBC_SHA,
+    TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA,
+    TLS_ECDH_anon_WITH_RC4_128_SHA,
+
+    TLS_DH_anon_WITH_AES_256_CBC_SHA256,
+    TLS_DH_anon_WITH_AES_256_CBC_SHA,
+    TLS_DH_anon_WITH_AES_128_CBC_SHA256,
+    TLS_DH_anon_WITH_AES_128_CBC_SHA,
+    TLS_DH_anon_WITH_3DES_EDE_CBC_SHA,
+    TLS_DH_anon_WITH_RC4_128_MD5,
+
+};
+
+static const unsigned all_ciphersuites_count = sizeof(all_ciphersuites)/sizeof(all_ciphersuites[0]);
 
 /* Set tls config */
 int
@@ -790,7 +939,7 @@ tls_handshake_set_config(tls_handshake_t filter, tls_handshake_config_t config)
 
 
     /* ciphersuites: */
-    return tls_handshake_set_ciphersuites_internal(filter, config, KnownCipherSuites, CipherSuiteCount);
+    return tls_handshake_set_ciphersuites_internal(filter, config, all_ciphersuites, all_ciphersuites_count);
 }
 
 int
@@ -799,6 +948,43 @@ tls_handshake_get_config(tls_handshake_t filter, tls_handshake_config_t *config)
     *config = filter->config;
     return 0;
 }
+
+/* NOTE: The SigAlgs set here are only used to select which SigAlgs to advertise and select a SigAlg
+   for private key operations in TLS 1.2, and is mainly here to allow unit testing. 
+   If the peer select a SigAlg that we support but was not set here, coreTLS will still proceed and verify 
+   signature. 
+ */
+int
+tls_handshake_set_sigalgs(tls_handshake_t filter, const tls_signature_and_hash_algorithm *sigalgs, unsigned n)
+{
+
+    unsigned i;
+    unsigned count = 0;
+
+    for(i=0;i<n;i++) {
+        if(tls_handshake_sigalg_is_supported(sigalgs[i]))
+            count++;
+    }
+
+    sslFree(filter->localSigAlgs);
+    filter->numLocalSigAlgs = 0;
+
+    filter->localSigAlgs = sslMalloc(count*sizeof(tls_signature_and_hash_algorithm));
+    if(!filter->localSigAlgs) {
+        return errSSLAllocate;
+    }
+
+    for(i=0;i<n;i++) {
+        if(tls_handshake_sigalg_is_supported(sigalgs[i])) {
+            filter->localSigAlgs[filter->numLocalSigAlgs++]=sigalgs[i];
+        }
+    }
+
+    assert(filter->numLocalSigAlgs == count);
+
+    return 0;
+}
+
 
 /* (re)handshake */
 int
@@ -946,13 +1132,8 @@ const tls_signature_and_hash_algorithm *
 tls_handshake_get_peer_signature_algorithms(tls_handshake_t filter, unsigned *num)
 {
     assert(num);
-    if(filter->isServer) {
-        *num = filter->numClientSigAlgs;
-        return filter->clientSigAlgs;
-    } else {
-        *num = filter->numServerSigAlgs;
-        return filter->serverSigAlgs;
-    }
+    *num = filter->numPeerSigAlgs;
+    return filter->peerSigAlgs;
 }
 
 const tls_client_auth_type *
@@ -1047,6 +1228,14 @@ tls_handshake_get_peer_sct_list(tls_handshake_t filter)
 {
     assert(!filter->isServer);
     return filter->sct_list;
+}
+
+const uint16_t *
+tls_handshake_get_peer_requested_ecdh_curves(tls_handshake_t filter, unsigned *num)
+{
+    assert(num);
+    *num = filter->num_ec_curves;
+    return filter->requested_ecdh_curves;
 }
 
 /* Special functions for EAP-FAST */

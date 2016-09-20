@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/am.xml
@@ -46,7 +46,6 @@ am{
         AI{"አንጉኢላ"}
         AL{"አልባኒያ"}
         AM{"አርሜኒያ"}
-        AN{"ኔዘርላንድስ አንቲልስ"}
         AO{"አንጐላ"}
         AQ{"አንታርክቲካ"}
         AR{"አርጀንቲና"}
@@ -211,7 +210,7 @@ am{
         NG{"ናይጄሪያ"}
         NI{"ኒካራጓ"}
         NL{"ኔዘርላንድ"}
-        NO{"ኖርዌ"}
+        NO{"ኖርዌይ"}
         NP{"ኔፓል"}
         NR{"ናኡሩ"}
         NU{"ኒኡይ"}
@@ -236,7 +235,7 @@ am{
         RE{"ሪዩኒየን"}
         RO{"ሮሜኒያ"}
         RS{"ሰርብያ"}
-        RU{"ራሺያ"}
+        RU{"ራሽያ"}
         RW{"ሩዋንዳ"}
         SA{"ሳውድአረቢያ"}
         SB{"ሰሎሞን ደሴት"}
@@ -314,5 +313,5 @@ am{
         MK{"መቄዶንያ (የቀድሞ የዩጎስላቭ መቄዶንያ ሪፐብሊክ)"}
         TL{"ምስራቅ ቲሞር"}
     }
-    Version{"2.1.12.94"}
+    Version{"2.1.22.93"}
 }

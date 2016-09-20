@@ -24,7 +24,7 @@
 
 #include "Security_regressions.h"
 
-#if !TARGET_OS_WATCH
+#if !TARGET_OS_WATCH && !TARGET_OS_TV
 
 #define WAIT_WHILE(X) { while ((X)) { (void)CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.1, TRUE); } }
 
@@ -161,7 +161,7 @@ static void tests(void)
 
 int si_76_shared_credentials(int argc, char *const *argv)
 {
-#if !TARGET_OS_WATCH
+#if !TARGET_OS_WATCH && !TARGET_OS_TV
 		plan_tests(12);
 		tests();
 #else

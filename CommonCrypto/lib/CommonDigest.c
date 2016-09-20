@@ -210,7 +210,7 @@ CCDigestCreate(CCDigestAlgorithm alg)
 }
 
 
-uint8_t *
+const uint8_t *
 CCDigestOID(CCDigestRef ctx)
 {
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
@@ -227,7 +227,7 @@ CCDigestOIDLen(CCDigestRef ctx)
 }
 
 CCDigestRef
-CCDigestCreateByOID(uint8_t *OID, size_t OIDlen)
+CCDigestCreateByOID(const uint8_t *OID, size_t OIDlen)
 {    
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
     for(unsigned int i=kCCDigestMD2; i<diMax; i++) {

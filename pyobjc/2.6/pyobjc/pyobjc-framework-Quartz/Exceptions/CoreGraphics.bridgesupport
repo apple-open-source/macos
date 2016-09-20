@@ -93,6 +93,9 @@
   <function name='CGColorSpaceCopyICCProfile'>
     <retval already_cfretained='true' type='^{__CFData=}' type64='^{__CFData=}' />
   </function>
+  <function name='CGColorSpaceCopyICCData'>
+    <retval already_cfretained='true' type='^{__CFData=}' type64='^{__CFData=}' />
+  </function>
   <function name='CGColorSpaceCreateCalibratedGray'>
     <retval already_cfretained='true' />
   </function>

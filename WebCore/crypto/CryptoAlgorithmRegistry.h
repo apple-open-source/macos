@@ -50,13 +50,13 @@ public:
     bool getIdentifierForName(const String&, CryptoAlgorithmIdentifier&);
     String nameForIdentifier(CryptoAlgorithmIdentifier);
 
-    std::unique_ptr<CryptoAlgorithm> create(CryptoAlgorithmIdentifier);
+    RefPtr<CryptoAlgorithm> create(CryptoAlgorithmIdentifier);
 
 private:
     CryptoAlgorithmRegistry();
     void platformRegisterAlgorithms();
 
-    typedef std::unique_ptr<CryptoAlgorithm> (*CryptoAlgorithmConstructor)();
+    typedef Ref<CryptoAlgorithm> (*CryptoAlgorithmConstructor)();
 
     template<typename AlgorithmClass> void registerAlgorithm()
     {
@@ -65,7 +65,7 @@ private:
 
     void registerAlgorithm(const String& name, CryptoAlgorithmIdentifier, CryptoAlgorithmConstructor);
 
-    HashMap<String, CryptoAlgorithmIdentifier, CaseFoldingHash> m_nameToIdentifierMap;
+    HashMap<String, CryptoAlgorithmIdentifier, ASCIICaseInsensitiveHash> m_nameToIdentifierMap;
     HashMap<unsigned, String> m_identifierToNameMap;
     HashMap<unsigned, CryptoAlgorithmConstructor> m_identifierToConstructorMap;
 };

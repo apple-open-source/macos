@@ -1,4 +1,4 @@
-/* $OpenBSD: ssh-add.c,v 1.122 2015/03/26 12:32:38 naddy Exp $ */
+/* $OpenBSD: ssh-add.c,v 1.128 2016/02/15 09:47:49 dtucker Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -66,7 +66,10 @@
 #include "ssherr.h"
 #include "digest.h"
 
+#ifdef __APPLE_KEYCHAIN__
 #include "keychain.h"
+static int use_keychain = 0;
+#endif
 
 /* argv0 */
 extern char *__progname;
@@ -95,7 +98,7 @@ static int lifetime = 0;
 /* User has to confirm key use */
 static int confirm = 0;
 
-/* we keep a cache of one passphrases */
+/* we keep a cache of one passphrase */
 static char *pass = NULL;
 static void
 clear_pass(void)
@@ -108,30 +111,17 @@ clear_pass(void)
 }
 
 static int
-add_from_keychain(int agent_fd)
-{
-	extern int ssh_add_from_keychain(int);
-	int r;
-	
-	if ((r = ssh_add_from_keychain(agent_fd)) != 0) {
-		error("adding identities fails: %s", ssh_err(r));
-		return -1;
-	}
-
-	fprintf(stderr, "Added keychain identities.\n");
-	return 0;
-}
-
-static int
-delete_file(int agent_fd, const char *filename, int key_only, int keychain)
+delete_file(int agent_fd, const char *filename, int key_only)
 {
 	struct sshkey *public, *cert = NULL;
 	char *certpath = NULL, *comment = NULL;
 	int r, ret = -1;
 
-	if (keychain)
+#ifdef __APPLE_KEYCHAIN__
+	if (use_keychain)
 		remove_from_keychain(filename);
-	
+#endif
+
 	if ((r = sshkey_load_public(filename, &public,  &comment)) != 0) {
 		printf("Bad key file %s: %s\n", filename, ssh_err(r));
 		return -1;
@@ -170,10 +160,8 @@ delete_file(int agent_fd, const char *filename, int key_only, int keychain)
 		    certpath, ssh_err(r));
 
  out:
-	if (cert != NULL)
-		sshkey_free(cert);
-	if (public != NULL)
-		sshkey_free(public);
+	sshkey_free(cert);
+	sshkey_free(public);
 	free(certpath);
 	free(comment);
 
@@ -200,7 +188,7 @@ delete_all(int agent_fd)
 }
 
 static int
-add_file(int agent_fd, const char *filename, int key_only, int keychain)
+add_file(int agent_fd, const char *filename, int key_only)
 {
 	struct sshkey *private, *cert;
 	char *comment = NULL;
@@ -238,61 +226,74 @@ add_file(int agent_fd, const char *filename, int key_only, int keychain)
 	close(fd);
 
 	/* At first, try empty passphrase */
-	if ((r = sshkey_parse_private_fileblob(keyblob, "", filename,
-	    &private, &comment)) != 0 && r != SSH_ERR_KEY_WRONG_PASSPHRASE) {
+	if ((r = sshkey_parse_private_fileblob(keyblob, "", &private,
+	    &comment)) != 0 && r != SSH_ERR_KEY_WRONG_PASSPHRASE) {
 		fprintf(stderr, "Error loading key \"%s\": %s\n",
 		    filename, ssh_err(r));
 		goto fail_load;
 	}
-	if (keychain && private != NULL)
-		store_in_keychain(filename, "");
 
 	/* try last */
 	if (private == NULL && pass != NULL) {
-		if ((r = sshkey_parse_private_fileblob(keyblob, pass, filename,
-		    &private, &comment)) != 0 &&
-		    r != SSH_ERR_KEY_WRONG_PASSPHRASE) {
+		if ((r = sshkey_parse_private_fileblob(keyblob, pass, &private,
+		    &comment)) != 0 && r != SSH_ERR_KEY_WRONG_PASSPHRASE) {
 			fprintf(stderr, "Error loading key \"%s\": %s\n",
 			    filename, ssh_err(r));
 			goto fail_load;
 		}
-		if (keychain && private != NULL)
+#ifdef __APPLE_KEYCHAIN__
+		if (use_keychain && private != NULL)
 			store_in_keychain(filename, pass);
+#endif
 	}
-	if (comment == NULL)
-		comment = xstrdup(filename);
+
+#ifdef __APPLE_KEYCHAIN__
+	// try the keychain
+	if (private == NULL && use_keychain) {
+		clear_pass();
+		pass = keychain_read_passphrase(filename);
+		if (pass != NULL)
+			sshkey_parse_private_fileblob(keyblob, pass, &private, &comment);
+	}
+#endif
+
 	if (private == NULL) {
 		/* clear passphrase since it did not work */
 		clear_pass();
-		snprintf(msg, sizeof msg, "Enter passphrase for %.200s%s: ",
-		    comment, confirm ? " (will confirm each use)" : "");
+		snprintf(msg, sizeof msg, "Enter passphrase for %s%s: ",
+		    filename, confirm ? " (will confirm each use)" : "");
 		for (;;) {
 			pass = read_passphrase(msg, RP_ALLOW_STDIN);
 			if (strcmp(pass, "") == 0)
 				goto fail_load;
 			if ((r = sshkey_parse_private_fileblob(keyblob, pass,
-			    filename, &private, NULL)) == 0)
-				{
-					if (keychain && private != NULL)
-						store_in_keychain(filename, pass);
-					break;
-				}
+			    &private, &comment)) == 0)
+#ifdef __APPLE_KEYCHAIN__
+			{
+				if (use_keychain && private != NULL)
+					store_in_keychain(filename, pass);
+				break;
+			}
+#else
+				break;
+#endif
 			else if (r != SSH_ERR_KEY_WRONG_PASSPHRASE) {
 				fprintf(stderr,
 				    "Error loading key \"%s\": %s\n",
 				    filename, ssh_err(r));
  fail_load:
 				clear_pass();
-				free(comment);
 				sshbuf_free(keyblob);
 				return -1;
 			}
 			clear_pass();
 			snprintf(msg, sizeof msg,
-			    "Bad passphrase, try again for %.200s%s: ", comment,
+			    "Bad passphrase, try again for %s%s: ", filename,
 			    confirm ? " (will confirm each use)" : "");
 		}
 	}
+	if (comment == NULL || *comment == '\0')
+		comment = xstrdup(filename);
 	sshbuf_free(keyblob);
 
 	if ((r = ssh_add_identity_constrained(agent_fd, private, comment,
@@ -328,11 +329,10 @@ add_file(int agent_fd, const char *filename, int key_only, int keychain)
 		    certpath, filename);
 		sshkey_free(cert);
 		goto out;
-	} 
+	}
 
 	/* Graft with private bits */
-	if ((r = sshkey_to_certified(private,
-	    sshkey_cert_is_legacy(cert))) != 0) {
+	if ((r = sshkey_to_certified(private)) != 0) {
 		error("%s: sshkey_to_certified: %s", __func__, ssh_err(r));
 		sshkey_free(cert);
 		goto out;
@@ -416,7 +416,7 @@ list_identities(int agent_fd, int do_fp)
 			if (do_fp) {
 				fp = sshkey_fingerprint(idlist->keys[i],
 				    fingerprint_hash, SSH_FP_DEFAULT);
-				printf("%d %s %s (%s)\n",
+				printf("%u %s %s (%s)\n",
 				    sshkey_size(idlist->keys[i]),
 				    fp == NULL ? "(null)" : fp,
 				    idlist->comments[i],
@@ -474,13 +474,13 @@ lock_agent(int agent_fd, int lock)
 }
 
 static int
-do_file(int agent_fd, int deleting, int key_only, char *file, int keychain)
+do_file(int agent_fd, int deleting, int key_only, char *file)
 {
 	if (deleting) {
-		if (delete_file(agent_fd, file, key_only, keychain) == -1)
+		if (delete_file(agent_fd, file, key_only) == -1)
 			return -1;
 	} else {
-		if (add_file(agent_fd, file, key_only, keychain) == -1)
+		if (add_file(agent_fd, file, key_only) == -1)
 			return -1;
 	}
 	return 0;
@@ -503,11 +503,8 @@ usage(void)
 	fprintf(stderr, "  -X          Unlock agent.\n");
 	fprintf(stderr, "  -s pkcs11   Add keys from PKCS#11 provider.\n");
 	fprintf(stderr, "  -e pkcs11   Remove keys provided by PKCS#11 provider.\n");
-#ifdef SMARTCARD
-	fprintf(stderr, "  -s reader   Add key in smartcard reader.\n");
-	fprintf(stderr, "  -e reader   Remove key in smartcard reader.\n");
-#endif
-#ifdef KEYCHAIN
+
+#ifdef __APPLE_KEYCHAIN__
 	fprintf(stderr, "  -A          Add all identities stored in your keychain.\n");
 	fprintf(stderr, "  -K          Store passphrases in your keychain.\n");
 	fprintf(stderr, "              With -d, remove passphrases from your keychain.\n");
@@ -523,7 +520,6 @@ main(int argc, char **argv)
 	char *pkcs11provider = NULL;
 	int r, i, ch, deleting = 0, ret = 0, key_only = 0;
 	int xflag = 0, lflag = 0, Dflag = 0;
-	int keychain = 0;
 
 	/* Ensure that fds 0, 1 and 2 are open or directed to /dev/null */
 	sanitise_stdfd();
@@ -550,7 +546,11 @@ main(int argc, char **argv)
 		exit(2);
 	}
 
+#ifdef __APPLE_KEYCHAIN__
 	while ((ch = getopt(argc, argv, "klLcdDxXE:e:s:t:KA")) != -1) {
+#else
+	while ((ch = getopt(argc, argv, "klLcdDxXE:e:s:t:")) != -1) {
+#endif
 		switch (ch) {
 		case 'E':
 			fingerprint_hash = ssh_digest_alg_by_name(optarg);
@@ -595,13 +595,18 @@ main(int argc, char **argv)
 				goto done;
 			}
 			break;
+#ifdef __APPLE_KEYCHAIN__
 		case 'A':
-			if (add_from_keychain(agent_fd) == -1)
+			use_keychain = 1;
+			if (load_identities_from_keychain(^(const char *filename){
+				return add_file(agent_fd, filename, 0);
+			}))
 				ret = 1;
 			goto done;
 		case 'K':
-			keychain = 1;
+			use_keychain = 1;
 			break;
+#endif
 		default:
 			usage();
 			ret = 1;
@@ -635,7 +640,6 @@ main(int argc, char **argv)
 	if (argc == 0) {
 		char buf[PATH_MAX];
 		struct passwd *pw;
-		char *pw_dir;
 		struct stat st;
 		int count = 0;
 
@@ -646,26 +650,21 @@ main(int argc, char **argv)
 			goto done;
 		}
 
-		pw_dir = xstrdup(pw->pw_dir);
-
 		for (i = 0; default_files[i]; i++) {
-			snprintf(buf, sizeof(buf), "%s/%s", pw_dir,
+			snprintf(buf, sizeof(buf), "%s/%s", pw->pw_dir,
 			    default_files[i]);
 			if (stat(buf, &st) < 0)
 				continue;
-			if (do_file(agent_fd, deleting, key_only, buf, keychain) == -1)
+			if (do_file(agent_fd, deleting, key_only, buf) == -1)
 				ret = 1;
 			else
 				count++;
 		}
 		if (count == 0)
 			ret = 1;
-
-		free(pw_dir);
 	} else {
 		for (i = 0; i < argc; i++) {
-			if (do_file(agent_fd, deleting, key_only,
-			    argv[i], keychain) == -1)
+			if (do_file(agent_fd, deleting, key_only, argv[i]) == -1)
 				ret = 1;
 		}
 	}

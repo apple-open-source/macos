@@ -36,6 +36,7 @@ typedef struct DELIVER_REQUEST {
     long    data_size;			/* message size */
     char   *nexthop;			/* next hop name */
     char   *encoding;			/* content encoding */
+    int     smtputf8;			/* SMTPUTF8 level */
     char   *sender;			/* envelope sender */
     MSG_STATS msg_stats;		/* time profile */
     RECIPIENT_LIST rcpt_list;		/* envelope recipients */
@@ -72,6 +73,7 @@ typedef struct DELIVER_REQUEST {
 #define DEL_REQ_FLAG_RECORD	(1<<10)	/* record and deliver */
 #define DEL_REQ_FLAG_CONN_LOAD	(1<<11)	/* Consult opportunistic cache */
 #define DEL_REQ_FLAG_CONN_STORE	(1<<12)	/* Update opportunistic cache */
+#define DEL_REQ_FLAG_REC_DLY_SENT	(1<<13)	/* Record delayed delivery */
 
  /*
   * Cache Load and Store as value or mask. Use explicit _MASK for multi-bit
@@ -90,7 +92,8 @@ typedef struct DELIVER_REQUEST {
   * Mail that uses the trace(8) service, and maybe more.
   */
 #define DEL_REQ_TRACE_FLAGS_MASK \
-	(DEL_REQ_FLAG_MTA_VRFY | DEL_REQ_FLAG_USR_VRFY | DEL_REQ_FLAG_RECORD)
+	(DEL_REQ_FLAG_MTA_VRFY | DEL_REQ_FLAG_USR_VRFY | DEL_REQ_FLAG_RECORD \
+	| DEL_REQ_FLAG_REC_DLY_SENT)
 #define DEL_REQ_TRACE_FLAGS(f)	((f) & DEL_REQ_TRACE_FLAGS_MASK)
 
  /*

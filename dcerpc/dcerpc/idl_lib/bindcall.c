@@ -97,6 +97,8 @@
 #include <dce/rpc.h>
 #include <dce/stubbase.h>
 
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 void rpc_ss_bind_authn_client
 (
     rpc_binding_handle_t    *p_bh,      /* [io] Binding handle */
@@ -130,3 +132,4 @@ void rpc_ss_bind_authn_client
         (unsigned32) rpc_c_authz_name,  /* authz based on cli principal name */
         p_st);
 }
+#endif

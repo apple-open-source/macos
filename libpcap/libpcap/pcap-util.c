@@ -40,6 +40,8 @@
 #include "pcap-int.h"
 #include "pcap-util.h"
 
+static int null_uu_inited = 0;
+static uuid_t null_uu;
 
 void
 pcap_clear_if_infos(pcap_t * pcap)
@@ -54,8 +56,7 @@ pcap_clear_if_infos(pcap_t * pcap)
 		pcap->if_infos = NULL;
 	}
 	pcap->if_info_count = 0;
-	
-	return;
+	pcap->if_dump_id = 0;
 }
 
 struct pcap_if_info *
@@ -74,6 +75,9 @@ struct pcap_if_info *
 pcap_find_if_info_by_id(pcap_t * pcap, int if_id)
 {
 	int i;
+	
+	if (if_id == -1)
+		return (NULL);
 	
 	for (i = 0; i < pcap->if_info_count; i++) {
 		if (if_id == pcap->if_infos[i]->if_id)
@@ -177,8 +181,7 @@ pcap_clear_proc_infos(pcap_t * pcap)
 		pcap->proc_infos = NULL;
 	}
 	pcap->proc_info_count = 0;
-	
-	return;
+	pcap->proc_dump_index = 0;
 }
 
 struct pcap_proc_info *
@@ -191,6 +194,22 @@ pcap_find_proc_info(pcap_t * pcap, uint32_t pid, const char *name)
 		
 		if (pid == proc_info->proc_pid &&
 			strcmp(name, proc_info->proc_name) == 0)
+			return (proc_info);
+	}
+	return (NULL);
+}
+
+struct pcap_proc_info *
+pcap_find_proc_info_uuid(pcap_t * pcap, uint32_t pid, const char *name, uuid_t uu)
+{
+	int i;
+	
+	for (i = 0; i < pcap->proc_info_count; i++) {
+		struct pcap_proc_info *proc_info = pcap->proc_infos[i];
+		
+		if (pid == proc_info->proc_pid &&
+		    strcmp(name, proc_info->proc_name) == 0 &&
+		    uuid_compare(uu, proc_info->proc_uuid) == 0)
 			return (proc_info);
 	}
 	return (NULL);
@@ -228,7 +247,7 @@ pcap_free_proc_info(pcap_t * pcap, struct pcap_proc_info *proc_info)
 }
 
 struct pcap_proc_info *
-pcap_add_proc_info(pcap_t * pcap, uint32_t pid, const char *name)
+pcap_add_proc_info_uuid(pcap_t * pcap, uint32_t pid, const char *name, uuid_t uu)
 {
 	struct pcap_proc_info *proc_info = NULL;
 	size_t name_len = strlen(name);
@@ -251,6 +270,7 @@ pcap_add_proc_info(pcap_t * pcap, uint32_t pid, const char *name)
 	proc_info->proc_name[name_len] = 0;
 	proc_info->proc_pid = pid;
 	proc_info->proc_index = pcap->proc_info_count;
+	uuid_copy(proc_info->proc_uuid, uu);
 	
 	/*
 	 * Resize pointer array
@@ -266,6 +286,22 @@ pcap_add_proc_info(pcap_t * pcap, uint32_t pid, const char *name)
 	pcap->proc_infos = newarray;
 	pcap->proc_infos[pcap->proc_info_count] = proc_info;
 	pcap->proc_info_count += 1;
+	
+	return (proc_info);
+}
+
+
+struct pcap_proc_info *
+pcap_add_proc_info(pcap_t * pcap, uint32_t pid, const char *name)
+{
+	struct pcap_proc_info *proc_info = NULL;
+	
+	if (null_uu_inited == 0) {
+		uuid_clear(null_uu);
+		null_uu_inited = 1;
+	}
+	
+	proc_info = pcap_add_proc_info_uuid(pcap, pid, name, null_uu);
 	
 	return (proc_info);
 }
@@ -292,6 +328,5 @@ pcap_ng_init_section_info(pcap_t *p)
 	p->shb_added = 0;
 	pcap_clear_if_infos(p);
 	pcap_clear_proc_infos(p);
-	
 }
 

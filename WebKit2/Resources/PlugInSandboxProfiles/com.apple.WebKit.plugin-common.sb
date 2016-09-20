@@ -187,6 +187,8 @@
 
     (subpath "/Library/ColorSync")
 
+    (home-literal "/Library/Preferences/com.apple.lookup.shared.plist")
+
     ;; FIXME: This should be removed when <rdar://problem/10479685> is fixed.
     (subpath "/Library/Keychains"))
 
@@ -203,6 +205,7 @@
 (allow file*
     ;; FIXME: This should be removed when <rdar://problem/10479685> is fixed.
     (home-library-subpath "/Keychains"))
+(allow system-fsctl (fsctl-command (_IO "h" 47)))
 
 ;; IOKit user clients
 (allow iokit-open
@@ -231,6 +234,7 @@
     (global-name "com.apple.cmio.VDCAssistant")
     (global-name "com.apple.cookied") ;; FIXME: <rdar://problem/10790768> Limit access to cookies.
     (global-name "com.apple.coreservices.launchservicesd")
+    (global-name "com.apple.fonts")
     (global-name "com.apple.ocspd")
     (global-name "com.apple.pasteboard.1")
     (global-name "com.apple.pbs.fetch_services")

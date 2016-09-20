@@ -14,6 +14,7 @@
 			);
 			dependencies = (
 				72E2E252162743E8004E347B /* PBXTargetDependency */,
+				72B903741CE00F24008DB2D2 /* PBXTargetDependency */,
 				724B3DB815D3277800DAC815 /* PBXTargetDependency */,
 				724B3DBA15D3277800DAC815 /* PBXTargetDependency */,
 				724B3DBC15D3277800DAC815 /* PBXTargetDependency */,
@@ -41,12 +42,9 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
-		72441E9D15D322E2007A9F70 /* filtertest.c in Sources */ = {isa = PBXBuildFile; fileRef = 72441E8A15D32294007A9F70 /* filtertest.c */; };
+
+
 		72441EDF15D32367007A9F70 /* findalldevstest.c in Sources */ = {isa = PBXBuildFile; fileRef = 72441E8B15D32294007A9F70 /* findalldevstest.c */; };
-		72441EE015D32370007A9F70 /* nonblocktest.c in Sources */ = {isa = PBXBuildFile; fileRef = 72441E8C15D32294007A9F70 /* nonblocktest.c */; };
-		72441EE115D32376007A9F70 /* opentest.c in Sources */ = {isa = PBXBuildFile; fileRef = 72441E8D15D32294007A9F70 /* opentest.c */; };
-		72441EE215D3237D007A9F70 /* reactivatetest.c in Sources */ = {isa = PBXBuildFile; fileRef = 72441E8E15D32294007A9F70 /* reactivatetest.c */; };
-		72441EE315D32384007A9F70 /* selpolltest.c in Sources */ = {isa = PBXBuildFile; fileRef = 72441E8F15D32294007A9F70 /* selpolltest.c */; };
 		7244CBE11624FC8C00141ECF /* bpf_dump.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDE3589103676CF00CC3DD8 /* bpf_dump.c */; };
 		7244CBE21624FCC600141ECF /* bpf_filter.c in Sources */ = {isa = PBXBuildFile; fileRef = 72CE7C051233276B0081D089 /* bpf_filter.c */; };
 		7244CBE31624FCC600141ECF /* sf-pcap-ng.c in Sources */ = {isa = PBXBuildFile; fileRef = 724FC91E123322FA003B8C19 /* sf-pcap-ng.c */; };
@@ -64,12 +62,6 @@
 		7244CBEF1624FCC600141ECF /* savefile.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDE3595103676CF00CC3DD8 /* savefile.c */; };
 		7244CBF01624FCC600141ECF /* scanner.l in Sources */ = {isa = PBXBuildFile; fileRef = FCDE3596103676CF00CC3DD8 /* scanner.l */; };
 		7244CBF11624FCC600141ECF /* version.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDE364B103680B800CC3DD8 /* version.c */; };
-		724B3DA715D3269F00DAC815 /* libpcap.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 724B3DA615D3269F00DAC815 /* libpcap.dylib */; };
-		724B3DA915D326A800DAC815 /* libpcap.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 724B3DA615D3269F00DAC815 /* libpcap.dylib */; };
-		724B3DAA15D326AE00DAC815 /* libpcap.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 724B3DA615D3269F00DAC815 /* libpcap.dylib */; };
-		724B3DAB15D326B400DAC815 /* libpcap.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 724B3DA615D3269F00DAC815 /* libpcap.dylib */; };
-		724B3DAC15D326BB00DAC815 /* libpcap.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 724B3DA615D3269F00DAC815 /* libpcap.dylib */; };
-		724B3DAD15D326C100DAC815 /* libpcap.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 724B3DA615D3269F00DAC815 /* libpcap.dylib */; };
 		724FC91612331FCE003B8C19 /* pcap-common.c in Sources */ = {isa = PBXBuildFile; fileRef = 724FC91512331FCE003B8C19 /* pcap-common.c */; };
 		724FC91812331FDD003B8C19 /* pcap-common.h in Headers */ = {isa = PBXBuildFile; fileRef = 724FC91712331FDD003B8C19 /* pcap-common.h */; };
 		724FC91D1233226B003B8C19 /* sf-pcap.c in Sources */ = {isa = PBXBuildFile; fileRef = 724FC91C1233226B003B8C19 /* sf-pcap.c */; };
@@ -77,6 +69,7 @@
 		724FC9211233232D003B8C19 /* sf-pcap-ng.h in Headers */ = {isa = PBXBuildFile; fileRef = 724FC9201233232D003B8C19 /* sf-pcap-ng.h */; };
 		724FC92312332337003B8C19 /* sf-pcap.h in Headers */ = {isa = PBXBuildFile; fileRef = 724FC92212332337003B8C19 /* sf-pcap.h */; };
 		724FC92512332462003B8C19 /* pcap-int.h in Headers */ = {isa = PBXBuildFile; fileRef = 724FC92412332462003B8C19 /* pcap-int.h */; };
+
 		727A86A916CEECB700048C5E /* pcap-util.c in Sources */ = {isa = PBXBuildFile; fileRef = 727A86A816CEECB700048C5E /* pcap-util.c */; };
 		727A86AA16CEECB700048C5E /* pcap-util.c in Sources */ = {isa = PBXBuildFile; fileRef = 727A86A816CEECB700048C5E /* pcap-util.c */; };
 		727A86AC16CEF6D700048C5E /* pcap-util.h in Headers */ = {isa = PBXBuildFile; fileRef = 727A86AB16CEECD100048C5E /* pcap-util.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -88,6 +81,30 @@
 		727B12FB1628C06F0039A877 /* libpcap_static.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 7244CBDD1624FBE400141ECF /* libpcap_static.a */; };
 		729DE1E416CB05F700195247 /* pcap-darwin.c in Sources */ = {isa = PBXBuildFile; fileRef = 729DE1E316CB05F700195247 /* pcap-darwin.c */; };
 		729DE1E516CB05F700195247 /* pcap-darwin.c in Sources */ = {isa = PBXBuildFile; fileRef = 729DE1E316CB05F700195247 /* pcap-darwin.c */; };
+		72B903591CE00C9D008DB2D2 /* capturetest.c in Sources */ = {isa = PBXBuildFile; fileRef = 72B903581CE00C9D008DB2D2 /* capturetest.c */; };
+		72B903651CE00D9B008DB2D2 /* capturetest.c in Sources */ = {isa = PBXBuildFile; fileRef = 72B903581CE00C9D008DB2D2 /* capturetest.c */; };
+		72B903661CE00DB2008DB2D2 /* libpcap_static.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 7244CBDD1624FBE400141ECF /* libpcap_static.a */; };
+		72B903671CE00E97008DB2D2 /* filtertest.c in Sources */ = {isa = PBXBuildFile; fileRef = 72D13B1916BDF7D2009B01B1 /* filtertest.c */; };
+		72B903691CE00EA9008DB2D2 /* libpcap_static.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 7244CBDD1624FBE400141ECF /* libpcap_static.a */; };
+		72B9036A1CE00EBF008DB2D2 /* libpcap_static.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 7244CBDD1624FBE400141ECF /* libpcap_static.a */; };
+		72B9036B1CE00ED2008DB2D2 /* nonblocktest.c in Sources */ = {isa = PBXBuildFile; fileRef = 72D13B2216BDF7D2009B01B1 /* nonblocktest.c */; };
+		72B9036C1CE00EDC008DB2D2 /* libpcap_static.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 7244CBDD1624FBE400141ECF /* libpcap_static.a */; };
+		72B9036D1CE00EE6008DB2D2 /* opentest.c in Sources */ = {isa = PBXBuildFile; fileRef = 72D13B2316BDF7D2009B01B1 /* opentest.c */; };
+		72B9036E1CE00EED008DB2D2 /* libpcap_static.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 7244CBDD1624FBE400141ECF /* libpcap_static.a */; };
+		72B9036F1CE00EF5008DB2D2 /* reactivatetest.c in Sources */ = {isa = PBXBuildFile; fileRef = 72D13B2416BDF7D2009B01B1 /* reactivatetest.c */; };
+		72B903701CE00EFB008DB2D2 /* libpcap_static.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 7244CBDD1624FBE400141ECF /* libpcap_static.a */; };
+		72B903711CE00F03008DB2D2 /* selpolltest.c in Sources */ = {isa = PBXBuildFile; fileRef = 72D13B2516BDF7D2009B01B1 /* selpolltest.c */; };
+		72B903721CE00F07008DB2D2 /* libpcap_static.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 7244CBDD1624FBE400141ECF /* libpcap_static.a */; };
+		72B903761CE0145A008DB2D2 /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B903751CE0145A008DB2D2 /* config.h */; };
+		72B903781CE01476008DB2D2 /* gencode.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B903771CE01476008DB2D2 /* gencode.h */; };
+		72B9037A1CE014B0008DB2D2 /* arcnet.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B903791CE014B0008DB2D2 /* arcnet.h */; };
+		72B9037C1CE014C9008DB2D2 /* atmuni31.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B9037B1CE014C9008DB2D2 /* atmuni31.h */; };
+		72B9037E1CE014FC008DB2D2 /* ethertype.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B9037D1CE014FC008DB2D2 /* ethertype.h */; };
+		72B903801CE01511008DB2D2 /* ieee80211.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B9037F1CE01511008DB2D2 /* ieee80211.h */; };
+		72B903821CE01527008DB2D2 /* llc.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B903811CE01527008DB2D2 /* llc.h */; };
+		72B903841CE01544008DB2D2 /* nlpid.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B903831CE01544008DB2D2 /* nlpid.h */; };
+		72B903861CE015A0008DB2D2 /* ppp.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B903851CE015A0008DB2D2 /* ppp.h */; };
+		72B903881CE015BB008DB2D2 /* sunatmpos.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B903871CE015BB008DB2D2 /* sunatmpos.h */; };
 		72CE7C061233276B0081D089 /* bpf_filter.c in Sources */ = {isa = PBXBuildFile; fileRef = 72CE7C051233276B0081D089 /* bpf_filter.c */; };
 		72D13B3916BDF98B009B01B1 /* hex_and_ascii_print.c in Sources */ = {isa = PBXBuildFile; fileRef = 72D13B1B16BDF7D2009B01B1 /* hex_and_ascii_print.c */; };
 		72D13B3A16BDF98B009B01B1 /* ngdumptest.c in Sources */ = {isa = PBXBuildFile; fileRef = 72D13B1E16BDF7D2009B01B1 /* ngdumptest.c */; };
@@ -255,6 +272,13 @@
 			remoteGlobalIDString = 727B12F11628BF800039A877;
 			remoteInfo = ngdumptest;
 		};
+		72B903731CE00F24008DB2D2 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72B9035D1CE00CEC008DB2D2;
+			remoteInfo = capturetest;
+		};
 		72E2E24D16274394004E347B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -351,16 +375,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		72B9035C1CE00CEC008DB2D2 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		568DEF0D14BE09EC005DEBAE /* pcap_ng.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_ng.3; path = libpcap/pcap_ng.3; sourceTree = "<group>"; };
-		72441E8A15D32294007A9F70 /* filtertest.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = filtertest.c; path = libpcap/tests/filtertest.c; sourceTree = "<group>"; };
-		72441E8B15D32294007A9F70 /* findalldevstest.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = findalldevstest.c; path = libpcap/tests/findalldevstest.c; sourceTree = "<group>"; };
-		72441E8C15D32294007A9F70 /* nonblocktest.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = nonblocktest.c; path = libpcap/tests/nonblocktest.c; sourceTree = "<group>"; };
-		72441E8D15D32294007A9F70 /* opentest.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = opentest.c; path = libpcap/tests/opentest.c; sourceTree = "<group>"; };
-		72441E8E15D32294007A9F70 /* reactivatetest.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = reactivatetest.c; path = libpcap/tests/reactivatetest.c; sourceTree = "<group>"; };
-		72441E8F15D32294007A9F70 /* selpolltest.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = selpolltest.c; path = libpcap/tests/selpolltest.c; sourceTree = "<group>"; };
+
+
+		72441E8B15D32294007A9F70 /* findalldevstest.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = findalldevstest.c; sourceTree = "<group>"; };
 		72441E9415D322C1007A9F70 /* filtertest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = filtertest; sourceTree = BUILT_PRODUCTS_DIR; };
 		72441EA215D32317007A9F70 /* findalldevs */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = findalldevs; sourceTree = BUILT_PRODUCTS_DIR; };
 		72441EAF15D3232D007A9F70 /* nonblocktest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = nonblocktest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -384,13 +414,38 @@
 		727B12E316278AEF0039A877 /* pcapng.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pcapng.c; path = libpcap/pcapng.c; sourceTree = "<group>"; };
 		727B12F21628BF800039A877 /* ngdumptest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ngdumptest; sourceTree = BUILT_PRODUCTS_DIR; };
 		729DE1E316CB05F700195247 /* pcap-darwin.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "pcap-darwin.c"; path = "libpcap/pcap-darwin.c"; sourceTree = "<group>"; };
-		72CE4A92163F48AD009FAA7A /* ngdumptest.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = ngdumptest.1; sourceTree = "<group>"; };
-		72CE4A93163F48AD009FAA7A /* ngdumptest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ngdumptest.c; sourceTree = "<group>"; };
-		72CE4A96163F48C0009FAA7A /* ngofflinereadtest.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = ngofflinereadtest.1; sourceTree = "<group>"; };
-		72CE4A97163F48C0009FAA7A /* ngofflinereadtest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ngofflinereadtest.c; sourceTree = "<group>"; };
+		72B903581CE00C9D008DB2D2 /* capturetest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = capturetest.c; sourceTree = "<group>"; };
+		72B9035E1CE00CEC008DB2D2 /* capturetest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = capturetest; sourceTree = BUILT_PRODUCTS_DIR; };
+		72B903751CE0145A008DB2D2 /* config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = config.h; path = libpcap/config.h; sourceTree = "<group>"; };
+		72B903771CE01476008DB2D2 /* gencode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = gencode.h; path = libpcap/gencode.h; sourceTree = "<group>"; };
+		72B903791CE014B0008DB2D2 /* arcnet.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = arcnet.h; path = libpcap/arcnet.h; sourceTree = "<group>"; };
+		72B9037B1CE014C9008DB2D2 /* atmuni31.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = atmuni31.h; path = libpcap/atmuni31.h; sourceTree = "<group>"; };
+		72B9037D1CE014FC008DB2D2 /* ethertype.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ethertype.h; path = libpcap/ethertype.h; sourceTree = "<group>"; };
+		72B9037F1CE01511008DB2D2 /* ieee80211.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ieee80211.h; path = libpcap/ieee80211.h; sourceTree = "<group>"; };
+		72B903811CE01527008DB2D2 /* llc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = llc.h; path = libpcap/llc.h; sourceTree = "<group>"; };
+		72B903831CE01544008DB2D2 /* nlpid.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = nlpid.h; path = libpcap/nlpid.h; sourceTree = "<group>"; };
+		72B903851CE015A0008DB2D2 /* ppp.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ppp.h; path = libpcap/ppp.h; sourceTree = "<group>"; };
+		72B903871CE015BB008DB2D2 /* sunatmpos.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sunatmpos.h; path = libpcap/sunatmpos.h; sourceTree = "<group>"; };
+		72B903891CE015DD008DB2D2 /* pcap_compile.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_compile.3pcap; path = libpcap/pcap_compile.3pcap; sourceTree = "<group>"; };
+		72B9038A1CE015DD008DB2D2 /* pcap_datalink.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_datalink.3pcap; path = libpcap/pcap_datalink.3pcap; sourceTree = "<group>"; };
+		72B9038B1CE015DD008DB2D2 /* pcap_dump_open.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_dump_open.3pcap; path = libpcap/pcap_dump_open.3pcap; sourceTree = "<group>"; };
+		72B9038C1CE015DD008DB2D2 /* pcap_get_tstamp_precision.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_get_tstamp_precision.3pcap; path = libpcap/pcap_get_tstamp_precision.3pcap; sourceTree = "<group>"; };
+		72B9038D1CE015DD008DB2D2 /* pcap_get_tstamp_precision.3pcap.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_get_tstamp_precision.3pcap.in; path = libpcap/pcap_get_tstamp_precision.3pcap.in; sourceTree = "<group>"; };
+		72B9038E1CE015DD008DB2D2 /* pcap_list_datalinks.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_list_datalinks.3pcap; path = libpcap/pcap_list_datalinks.3pcap; sourceTree = "<group>"; };
+		72B9038F1CE015DD008DB2D2 /* pcap_list_tstamp_types.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_list_tstamp_types.3pcap; path = libpcap/pcap_list_tstamp_types.3pcap; sourceTree = "<group>"; };
+		72B903901CE015DD008DB2D2 /* pcap_list_tstamp_types.3pcap.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_list_tstamp_types.3pcap.in; path = libpcap/pcap_list_tstamp_types.3pcap.in; sourceTree = "<group>"; };
+		72B903911CE015DD008DB2D2 /* pcap_open_dead.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_open_dead.3pcap; path = libpcap/pcap_open_dead.3pcap; sourceTree = "<group>"; };
+		72B903921CE015DD008DB2D2 /* pcap_open_offline.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_open_offline.3pcap; path = libpcap/pcap_open_offline.3pcap; sourceTree = "<group>"; };
+		72B903931CE015DD008DB2D2 /* pcap_set_immediate_mode.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_set_immediate_mode.3pcap; path = libpcap/pcap_set_immediate_mode.3pcap; sourceTree = "<group>"; };
+		72B903941CE015DD008DB2D2 /* pcap_set_tstamp_precision.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_set_tstamp_precision.3pcap; path = libpcap/pcap_set_tstamp_precision.3pcap; sourceTree = "<group>"; };
+		72B903951CE015DD008DB2D2 /* pcap_set_tstamp_precision.3pcap.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_set_tstamp_precision.3pcap.in; path = libpcap/pcap_set_tstamp_precision.3pcap.in; sourceTree = "<group>"; };
+		72B903961CE015DD008DB2D2 /* pcap_set_tstamp_type.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_set_tstamp_type.3pcap; path = libpcap/pcap_set_tstamp_type.3pcap; sourceTree = "<group>"; };
+		72B903971CE015DD008DB2D2 /* pcap_set_tstamp_type.3pcap.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_set_tstamp_type.3pcap.in; path = libpcap/pcap_set_tstamp_type.3pcap.in; sourceTree = "<group>"; };
+		72B903981CE015DD008DB2D2 /* pcap_tstamp_type_name_to_val.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_tstamp_type_name_to_val.3pcap; path = libpcap/pcap_tstamp_type_name_to_val.3pcap; sourceTree = "<group>"; };
+		72B903991CE015DD008DB2D2 /* pcap_tstamp_type_val_to_name.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_tstamp_type_val_to_name.3pcap; path = libpcap/pcap_tstamp_type_val_to_name.3pcap; sourceTree = "<group>"; };
+		72B9039B1CE01C0F008DB2D2 /* libpcap.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = libpcap.plist; sourceTree = "<group>"; };
 		72CE7C051233276B0081D089 /* bpf_filter.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bpf_filter.c; path = libpcap/bpf/net/bpf_filter.c; sourceTree = "<group>"; };
 		72D13B1916BDF7D2009B01B1 /* filtertest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = filtertest.c; sourceTree = "<group>"; };
-		72D13B1A16BDF7D2009B01B1 /* findalldevstest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = findalldevstest.c; sourceTree = "<group>"; };
 		72D13B1B16BDF7D2009B01B1 /* hex_and_ascii_print.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = hex_and_ascii_print.c; sourceTree = "<group>"; };
 		72D13B1D16BDF7D2009B01B1 /* ngdumptest.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = ngdumptest.1; sourceTree = "<group>"; };
 		72D13B1E16BDF7D2009B01B1 /* ngdumptest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ngdumptest.c; sourceTree = "<group>"; };
@@ -442,8 +497,6 @@
 		FCDE36AA103682D400CC3DD8 /* pcap_file.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_file.3pcap; path = libpcap/pcap_file.3pcap; sourceTree = "<group>"; };
 		FCDE36AB103682D400CC3DD8 /* pcap_fileno.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_fileno.3pcap; path = libpcap/pcap_fileno.3pcap; sourceTree = "<group>"; };
 		FCDE36AC103682D400CC3DD8 /* pcap_findalldevs.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_findalldevs.3pcap; path = libpcap/pcap_findalldevs.3pcap; sourceTree = "<group>"; };
-		FCDE36AD103682D400CC3DD8 /* pcap_free_datalinks.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_free_datalinks.3pcap; path = libpcap/pcap_free_datalinks.3pcap; sourceTree = "<group>"; };
-		FCDE36AE103682D400CC3DD8 /* pcap_freealldevs.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_freealldevs.3pcap; path = libpcap/pcap_freealldevs.3pcap; sourceTree = "<group>"; };
 		FCDE36AF103682D400CC3DD8 /* pcap_freecode.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_freecode.3pcap; path = libpcap/pcap_freecode.3pcap; sourceTree = "<group>"; };
 		FCDE36B0103682D400CC3DD8 /* pcap_get_selectable_fd.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_get_selectable_fd.3pcap; path = libpcap/pcap_get_selectable_fd.3pcap; sourceTree = "<group>"; };
 		FCDE36B1103682D400CC3DD8 /* pcap_geterr.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_geterr.3pcap; path = libpcap/pcap_geterr.3pcap; sourceTree = "<group>"; };
@@ -486,7 +539,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				724B3DA715D3269F00DAC815 /* libpcap.dylib in Frameworks */,
+				72B903691CE00EA9008DB2D2 /* libpcap_static.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -494,7 +547,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				724B3DA915D326A800DAC815 /* libpcap.dylib in Frameworks */,
+				72B9036A1CE00EBF008DB2D2 /* libpcap_static.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -502,7 +555,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				724B3DAA15D326AE00DAC815 /* libpcap.dylib in Frameworks */,
+				72B9036C1CE00EDC008DB2D2 /* libpcap_static.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -510,7 +563,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				724B3DAB15D326B400DAC815 /* libpcap.dylib in Frameworks */,
+				72B9036E1CE00EED008DB2D2 /* libpcap_static.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -518,7 +571,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				724B3DAC15D326BB00DAC815 /* libpcap.dylib in Frameworks */,
+				72B903701CE00EFB008DB2D2 /* libpcap_static.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -526,7 +579,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				724B3DAD15D326C100DAC815 /* libpcap.dylib in Frameworks */,
+				72B903721CE00F07008DB2D2 /* libpcap_static.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -553,6 +606,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		72B9035B1CE00CEC008DB2D2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				72B903661CE00DB2008DB2D2 /* libpcap_static.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D289988505E68E00004EDB86 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -566,12 +627,12 @@
 		08FB7794FE84155DC02AAC07 /* libpcap */ = {
 			isa = PBXGroup;
 			children = (
-				72D13B1816BDF7D2009B01B1 /* tests */,
 				724B3DA615D3269F00DAC815 /* libpcap.dylib */,
 				FCDE36951036824D00CC3DD8 /* Headers */,
 				08FB7795FE84155DC02AAC07 /* Source */,
-				72441E8815D32278007A9F70 /* Tests */,
 				FCDE36981036827700CC3DD8 /* Documentation */,
+				72D13B1816BDF7D2009B01B1 /* tests */,
+				72B9039A1CE01BD7008DB2D2 /* Resources */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
 			);
 			name = libpcap;
@@ -580,6 +641,7 @@
 		08FB7795FE84155DC02AAC07 /* Source */ = {
 			isa = PBXGroup;
 			children = (
+
 				727B12E316278AEF0039A877 /* pcapng.c */,
 				727A86A816CEECB700048C5E /* pcap-util.c */,
 				72CE7C051233276B0081D089 /* bpf_filter.c */,
@@ -619,50 +681,25 @@
 				725032F015F6E5BF00BDA576 /* ngofflinereadtest */,
 				7244CBDD1624FBE400141ECF /* libpcap_static.a */,
 				727B12F21628BF800039A877 /* ngdumptest */,
+				72B9035E1CE00CEC008DB2D2 /* capturetest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		72441E8815D32278007A9F70 /* Tests */ = {
+		72B9039A1CE01BD7008DB2D2 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				72441E8A15D32294007A9F70 /* filtertest.c */,
-				72441E8B15D32294007A9F70 /* findalldevstest.c */,
-				72441E8C15D32294007A9F70 /* nonblocktest.c */,
-				72441E8D15D32294007A9F70 /* opentest.c */,
-				72441E8E15D32294007A9F70 /* reactivatetest.c */,
-				72441E8F15D32294007A9F70 /* selpolltest.c */,
-				72CE4A91163F48AD009FAA7A /* ngdumptest */,
-				72CE4A95163F48C0009FAA7A /* ngofflinereadtest */,
+				72B9039B1CE01C0F008DB2D2 /* libpcap.plist */,
 			);
-			name = Tests;
-			sourceTree = "<group>";
-		};
-		72CE4A91163F48AD009FAA7A /* ngdumptest */ = {
-			isa = PBXGroup;
-			children = (
-				72CE4A92163F48AD009FAA7A /* ngdumptest.1 */,
-				72CE4A93163F48AD009FAA7A /* ngdumptest.c */,
-			);
-			name = ngdumptest;
-			path = libpcap/tests/ngdumptest;
-			sourceTree = "<group>";
-		};
-		72CE4A95163F48C0009FAA7A /* ngofflinereadtest */ = {
-			isa = PBXGroup;
-			children = (
-				72CE4A96163F48C0009FAA7A /* ngofflinereadtest.1 */,
-				72CE4A97163F48C0009FAA7A /* ngofflinereadtest.c */,
-			);
-			name = ngofflinereadtest;
-			path = libpcap/tests/ngofflinereadtest;
+			name = Resources;
 			sourceTree = "<group>";
 		};
 		72D13B1816BDF7D2009B01B1 /* tests */ = {
 			isa = PBXGroup;
 			children = (
+				72B903581CE00C9D008DB2D2 /* capturetest.c */,
+				72441E8B15D32294007A9F70 /* findalldevstest.c */,
 				72D13B1916BDF7D2009B01B1 /* filtertest.c */,
-				72D13B1A16BDF7D2009B01B1 /* findalldevstest.c */,
 				72D13B1B16BDF7D2009B01B1 /* hex_and_ascii_print.c */,
 				72D13B1C16BDF7D2009B01B1 /* ngdumptest */,
 				72D13B1F16BDF7D2009B01B1 /* ngofflinereadtest */,
@@ -696,19 +733,30 @@
 		FCDE36951036824D00CC3DD8 /* Headers */ = {
 			isa = PBXGroup;
 			children = (
-				727A86AB16CEECD100048C5E /* pcap-util.h */,
+				72B903871CE015BB008DB2D2 /* sunatmpos.h */,
+				72B903791CE014B0008DB2D2 /* arcnet.h */,
+				72B9037B1CE014C9008DB2D2 /* atmuni31.h */,
+				FCDE367E103681F900CC3DD8 /* bpf.h */,
+				72B903751CE0145A008DB2D2 /* config.h */,
+				72B9037D1CE014FC008DB2D2 /* ethertype.h */,
+				72B903771CE01476008DB2D2 /* gencode.h */,
+				72B9037F1CE01511008DB2D2 /* ieee80211.h */,
+				72B903811CE01527008DB2D2 /* llc.h */,
+				FCDE367F103681F900CC3DD8 /* namedb.h */,
+				72B903831CE01544008DB2D2 /* nlpid.h */,
+				FCDE368A1036822200CC3DD8 /* pcap-bpf.h */,
+				724FC91712331FDD003B8C19 /* pcap-common.h */,
+				724FC92412332462003B8C19 /* pcap-int.h */,
+				FCDE368B1036822200CC3DD8 /* pcap-namedb.h */,
 				727B12DF16278ACD0039A877 /* pcap-ng.h */,
 				727B12E016278ACD0039A877 /* pcapng_private.h */,
-				724FC92412332462003B8C19 /* pcap-int.h */,
+
+				727A86AB16CEECD100048C5E /* pcap-util.h */,
+				FCDE368C1036822200CC3DD8 /* pcap.h */,
+				FCDE3680103681F900CC3DD8 /* pcap.h */,
+				72B903851CE015A0008DB2D2 /* ppp.h */,
 				724FC92212332337003B8C19 /* sf-pcap.h */,
 				724FC9201233232D003B8C19 /* sf-pcap-ng.h */,
-				724FC91712331FDD003B8C19 /* pcap-common.h */,
-				FCDE368C1036822200CC3DD8 /* pcap.h */,
-				FCDE368A1036822200CC3DD8 /* pcap-bpf.h */,
-				FCDE368B1036822200CC3DD8 /* pcap-namedb.h */,
-				FCDE367E103681F900CC3DD8 /* bpf.h */,
-				FCDE367F103681F900CC3DD8 /* namedb.h */,
-				FCDE3680103681F900CC3DD8 /* pcap.h */,
 				FCDE3681103681F900CC3DD8 /* sll.h */,
 				FCDE3682103681F900CC3DD8 /* usb.h */,
 				FCDE364C103680B800CC3DD8 /* version.h */,
@@ -720,52 +768,66 @@
 			isa = PBXGroup;
 			children = (
 				FCDE36CC103682D400CC3DD8 /* pcap-config.1 */,
-				FCDE370C1036838C00CC3DD8 /* pcap-linktype.manmisc.in */,
 				FCDE37091036837700CC3DD8 /* pcap-filter.manmisc.in */,
+				FCDE370C1036838C00CC3DD8 /* pcap-linktype.manmisc.in */,
 				FCDE37061036836500CC3DD8 /* pcap-savefile.manfile.in */,
 				FCDE36CD103682D400CC3DD8 /* pcap.3pcap.in */,
 				FCDE369B103682D400CC3DD8 /* pcap_activate.3pcap */,
 				FCDE369C103682D400CC3DD8 /* pcap_breakloop.3pcap */,
 				FCDE369D103682D400CC3DD8 /* pcap_can_set_rfmon.3pcap */,
 				FCDE369E103682D400CC3DD8 /* pcap_close.3pcap */,
+				72B903891CE015DD008DB2D2 /* pcap_compile.3pcap */,
 				FCDE369F103682D400CC3DD8 /* pcap_compile.3pcap.in */,
 				FCDE36A0103682D400CC3DD8 /* pcap_create.3pcap */,
+				72B9038A1CE015DD008DB2D2 /* pcap_datalink.3pcap */,
+				FCDE36A3103682D400CC3DD8 /* pcap_datalink.3pcap.in */,
 				FCDE36A1103682D400CC3DD8 /* pcap_datalink_name_to_val.3pcap */,
 				FCDE36A2103682D400CC3DD8 /* pcap_datalink_val_to_name.3pcap */,
-				FCDE36A3103682D400CC3DD8 /* pcap_datalink.3pcap.in */,
+				FCDE36A9103682D400CC3DD8 /* pcap_dump.3pcap */,
 				FCDE36A4103682D400CC3DD8 /* pcap_dump_close.3pcap */,
 				FCDE36A5103682D400CC3DD8 /* pcap_dump_file.3pcap */,
 				FCDE36A6103682D400CC3DD8 /* pcap_dump_flush.3pcap */,
 				FCDE36A7103682D400CC3DD8 /* pcap_dump_ftell.3pcap */,
+				72B9038B1CE015DD008DB2D2 /* pcap_dump_open.3pcap */,
 				FCDE36A8103682D400CC3DD8 /* pcap_dump_open.3pcap.in */,
-				FCDE36A9103682D400CC3DD8 /* pcap_dump.3pcap */,
 				FCDE36AA103682D400CC3DD8 /* pcap_file.3pcap */,
 				FCDE36AB103682D400CC3DD8 /* pcap_fileno.3pcap */,
 				FCDE36AC103682D400CC3DD8 /* pcap_findalldevs.3pcap */,
-				FCDE36AD103682D400CC3DD8 /* pcap_free_datalinks.3pcap */,
-				FCDE36AE103682D400CC3DD8 /* pcap_freealldevs.3pcap */,
 				FCDE36AF103682D400CC3DD8 /* pcap_freecode.3pcap */,
 				FCDE36B0103682D400CC3DD8 /* pcap_get_selectable_fd.3pcap */,
+				72B9038C1CE015DD008DB2D2 /* pcap_get_tstamp_precision.3pcap */,
+				72B9038D1CE015DD008DB2D2 /* pcap_get_tstamp_precision.3pcap.in */,
 				FCDE36B1103682D400CC3DD8 /* pcap_geterr.3pcap */,
 				FCDE36B2103682D400CC3DD8 /* pcap_inject.3pcap */,
 				FCDE36B3103682D400CC3DD8 /* pcap_is_swapped.3pcap */,
 				FCDE36B4103682D400CC3DD8 /* pcap_lib_version.3pcap */,
+				72B9038E1CE015DD008DB2D2 /* pcap_list_datalinks.3pcap */,
 				FCDE36B5103682D400CC3DD8 /* pcap_list_datalinks.3pcap.in */,
+				72B9038F1CE015DD008DB2D2 /* pcap_list_tstamp_types.3pcap */,
+				72B903901CE015DD008DB2D2 /* pcap_list_tstamp_types.3pcap.in */,
 				FCDE36B6103682D400CC3DD8 /* pcap_lookupdev.3pcap */,
 				FCDE36B7103682D400CC3DD8 /* pcap_lookupnet.3pcap */,
 				FCDE36B8103682D400CC3DD8 /* pcap_loop.3pcap */,
 				FCDE36B9103682D400CC3DD8 /* pcap_major_version.3pcap */,
+				568DEF0D14BE09EC005DEBAE /* pcap_ng.3 */,
 				FCDE36BA103682D400CC3DD8 /* pcap_next_ex.3pcap */,
 				FCDE36BB103682D400CC3DD8 /* pcap_offline_filter.3pcap */,
+				72B903911CE015DD008DB2D2 /* pcap_open_dead.3pcap */,
 				FCDE36BC103682D400CC3DD8 /* pcap_open_dead.3pcap.in */,
 				FCDE36BD103682D400CC3DD8 /* pcap_open_live.3pcap */,
+				72B903921CE015DD008DB2D2 /* pcap_open_offline.3pcap */,
 				FCDE36BE103682D400CC3DD8 /* pcap_open_offline.3pcap.in */,
 				FCDE36BF103682D400CC3DD8 /* pcap_set_buffer_size.3pcap */,
 				FCDE36C0103682D400CC3DD8 /* pcap_set_datalink.3pcap */,
+				72B903931CE015DD008DB2D2 /* pcap_set_immediate_mode.3pcap */,
 				FCDE36C1103682D400CC3DD8 /* pcap_set_promisc.3pcap */,
 				FCDE36C2103682D400CC3DD8 /* pcap_set_rfmon.3pcap */,
 				FCDE36C3103682D400CC3DD8 /* pcap_set_snaplen.3pcap */,
 				FCDE36C4103682D400CC3DD8 /* pcap_set_timeout.3pcap */,
+				72B903941CE015DD008DB2D2 /* pcap_set_tstamp_precision.3pcap */,
+				72B903951CE015DD008DB2D2 /* pcap_set_tstamp_precision.3pcap.in */,
+				72B903961CE015DD008DB2D2 /* pcap_set_tstamp_type.3pcap */,
+				72B903971CE015DD008DB2D2 /* pcap_set_tstamp_type.3pcap.in */,
 				FCDE36C5103682D400CC3DD8 /* pcap_setdirection.3pcap */,
 				FCDE36C6103682D400CC3DD8 /* pcap_setfilter.3pcap */,
 				FCDE36C7103682D400CC3DD8 /* pcap_setnonblock.3pcap */,
@@ -773,7 +835,8 @@
 				FCDE36C9103682D400CC3DD8 /* pcap_stats.3pcap */,
 				FCDE36CA103682D400CC3DD8 /* pcap_statustostr.3pcap */,
 				FCDE36CB103682D400CC3DD8 /* pcap_strerror.3pcap */,
-				568DEF0D14BE09EC005DEBAE /* pcap_ng.3 */,
+				72B903981CE015DD008DB2D2 /* pcap_tstamp_type_name_to_val.3pcap */,
+				72B903991CE015DD008DB2D2 /* pcap_tstamp_type_val_to_name.3pcap */,
 			);
 			name = Documentation;
 			sourceTree = "<group>";
@@ -794,20 +857,31 @@
 			files = (
 				FC293B301036978A0055686E /* pcap.h in Headers */,
 				FCDE368D1036822200CC3DD8 /* pcap-bpf.h in Headers */,
+				72B903761CE0145A008DB2D2 /* config.h in Headers */,
 				FCDE368E1036822200CC3DD8 /* pcap-namedb.h in Headers */,
+
 				727B12E116278ACD0039A877 /* pcap-ng.h in Headers */,
+				72B903821CE01527008DB2D2 /* llc.h in Headers */,
+				72B903861CE015A0008DB2D2 /* ppp.h in Headers */,
 				727A86AC16CEF6D700048C5E /* pcap-util.h in Headers */,
 				FCDE3683103681F900CC3DD8 /* bpf.h in Headers */,
+				72B903881CE015BB008DB2D2 /* sunatmpos.h in Headers */,
 				FCDE3684103681F900CC3DD8 /* namedb.h in Headers */,
 				FC293B26103695150055686E /* pcap.h in Headers */,
 				FCDE3686103681F900CC3DD8 /* sll.h in Headers */,
 				FCDE3687103681F900CC3DD8 /* usb.h in Headers */,
+				72B9037C1CE014C9008DB2D2 /* atmuni31.h in Headers */,
+				72B903801CE01511008DB2D2 /* ieee80211.h in Headers */,
 				FCDE364E103680B800CC3DD8 /* version.h in Headers */,
+				72B903841CE01544008DB2D2 /* nlpid.h in Headers */,
 				724FC91812331FDD003B8C19 /* pcap-common.h in Headers */,
 				724FC9211233232D003B8C19 /* sf-pcap-ng.h in Headers */,
 				724FC92312332337003B8C19 /* sf-pcap.h in Headers */,
 				724FC92512332462003B8C19 /* pcap-int.h in Headers */,
+				72B903781CE01476008DB2D2 /* gencode.h in Headers */,
+				72B9037E1CE014FC008DB2D2 /* ethertype.h in Headers */,
 				727B12E216278ACD0039A877 /* pcapng_private.h in Headers */,
+				72B9037A1CE014B0008DB2D2 /* arcnet.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -975,6 +1049,23 @@
 			productReference = 727B12F21628BF800039A877 /* ngdumptest */;
 			productType = "com.apple.product-type.tool";
 		};
+		72B9035D1CE00CEC008DB2D2 /* capturetest */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 72B903621CE00CEC008DB2D2 /* Build configuration list for PBXNativeTarget "capturetest" */;
+			buildPhases = (
+				72B9035A1CE00CEC008DB2D2 /* Sources */,
+				72B9035B1CE00CEC008DB2D2 /* Frameworks */,
+				72B9035C1CE00CEC008DB2D2 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = capturetest;
+			productName = capturetest;
+			productReference = 72B9035E1CE00CEC008DB2D2 /* capturetest */;
+			productType = "com.apple.product-type.tool";
+		};
 		D2AAC0620554660B00DB518D /* libpcap */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 1DEB914A08733D8E0010E9CD /* Build configuration list for PBXNativeTarget "libpcap" */;
@@ -1000,7 +1091,12 @@
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0700;
+				LastUpgradeCheck = 0800;
+				TargetAttributes = {
+					72B9035D1CE00CEC008DB2D2 = {
+						CreatedOnToolsVersion = 7.1;
+					};
+				};
 			};
 			buildConfigurationList = 1DEB914E08733D8E0010E9CD /* Build configuration list for PBXProject "libpcap" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -1017,6 +1113,7 @@
 				727B12E61627AF810039A877 /* all */,
 				72441EE415D323A7007A9F70 /* tests */,
 				7244CBDC1624FBE400141ECF /* libpcap_static */,
+				72B9035D1CE00CEC008DB2D2 /* capturetest */,
 				72441E9315D322C1007A9F70 /* filtertest */,
 				72441EA115D32317007A9F70 /* findalldevs */,
 				72441EAE15D3232D007A9F70 /* nonblocktest */,
@@ -1050,7 +1147,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				72441E9D15D322E2007A9F70 /* filtertest.c in Sources */,
+				72B903671CE00E97008DB2D2 /* filtertest.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1066,7 +1163,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				72441EE015D32370007A9F70 /* nonblocktest.c in Sources */,
+				72B9036B1CE00ED2008DB2D2 /* nonblocktest.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1074,7 +1171,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				72441EE115D32376007A9F70 /* opentest.c in Sources */,
+				72B9036D1CE00EE6008DB2D2 /* opentest.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1082,7 +1179,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				72441EE215D3237D007A9F70 /* reactivatetest.c in Sources */,
+				72B9036F1CE00EF5008DB2D2 /* reactivatetest.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1090,7 +1187,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				72441EE315D32384007A9F70 /* selpolltest.c in Sources */,
+				72B903711CE00F03008DB2D2 /* selpolltest.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1112,6 +1209,7 @@
 				7244CBEC1624FCC600141ECF /* optimize.c in Sources */,
 				7244CBED1624FCC600141ECF /* pcap-bpf.c in Sources */,
 				7244CBEE1624FCC600141ECF /* pcap.c in Sources */,
+
 				7244CBEF1624FCC600141ECF /* savefile.c in Sources */,
 				7244CBF01624FCC600141ECF /* scanner.l in Sources */,
 				7244CBF11624FCC600141ECF /* version.c in Sources */,
@@ -1139,6 +1237,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		72B9035A1CE00CEC008DB2D2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				72B903651CE00D9B008DB2D2 /* capturetest.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D2AAC0610554660B00DB518D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1153,9 +1259,11 @@
 				FCDE35A0103676CF00CC3DD8 /* optimize.c in Sources */,
 				FCDE35A1103676CF00CC3DD8 /* pcap-bpf.c in Sources */,
 				FCDE35A2103676CF00CC3DD8 /* pcap.c in Sources */,
+
 				FCDE35A3103676CF00CC3DD8 /* savefile.c in Sources */,
 				FCDE35A4103676CF00CC3DD8 /* scanner.l in Sources */,
 				FCDE364D103680B800CC3DD8 /* version.c in Sources */,
+				72B903591CE00C9D008DB2D2 /* capturetest.c in Sources */,
 				724FC91612331FCE003B8C19 /* pcap-common.c in Sources */,
 				724FC91D1233226B003B8C19 /* sf-pcap.c in Sources */,
 				724FC91F123322FA003B8C19 /* sf-pcap-ng.c in Sources */,
@@ -1239,6 +1347,11 @@
 			target = 727B12F11628BF800039A877 /* ngdumptest */;
 			targetProxy = 727B12FC1628C6240039A877 /* PBXContainerItemProxy */;
 		};
+		72B903741CE00F24008DB2D2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72B9035D1CE00CEC008DB2D2 /* capturetest */;
+			targetProxy = 72B903731CE00F24008DB2D2 /* PBXContainerItemProxy */;
+		};
 		72E2E24E16274394004E347B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 7244CBDC1624FBE400141ECF /* libpcap_static */;
@@ -1261,6 +1374,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				HEADER_SEARCH_PATHS = (
 					libpcap,
 					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
@@ -1276,7 +1390,7 @@
 		1DEB915008733D8E0010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				ASSETCATALOG_COMPRESSION = "respect-asset-catalog";
 				CODE_SIGN_IDENTITY = "-";
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -1311,7 +1425,6 @@
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 			};
 			name = Release;
 		};
@@ -1325,7 +1438,6 @@
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 			};
 			name = Release;
 		};
@@ -1339,7 +1451,6 @@
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 			};
 			name = Release;
 		};
@@ -1353,7 +1464,6 @@
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 			};
 			name = Release;
 		};
@@ -1367,7 +1477,6 @@
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 			};
 			name = Release;
 		};
@@ -1381,7 +1490,6 @@
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 			};
 			name = Release;
 		};
@@ -1460,11 +1568,12 @@
 		7257836A15D333E800712E55 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				ASSETCATALOG_COMPRESSION = lossless;
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -1492,6 +1601,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				HEADER_SEARCH_PATHS = (
 					libpcap,
 					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
@@ -1521,7 +1631,6 @@
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 			};
 			name = Debug;
 		};
@@ -1535,7 +1644,6 @@
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 			};
 			name = Debug;
 		};
@@ -1549,7 +1657,6 @@
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 			};
 			name = Debug;
 		};
@@ -1563,7 +1670,6 @@
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 			};
 			name = Debug;
 		};
@@ -1577,7 +1683,6 @@
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 			};
 			name = Debug;
 		};
@@ -1591,7 +1696,6 @@
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 			};
 			name = Debug;
 		};
@@ -1614,7 +1718,10 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = YES;
 				COPY_PHASE_STRIP = YES;
-				HEADER_SEARCH_PATHS = libpcap;
+				HEADER_SEARCH_PATHS = (
+					"$(PROJECT_DIR)/libpcap",
+					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -1623,7 +1730,73 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = YES;
-				HEADER_SEARCH_PATHS = libpcap;
+				HEADER_SEARCH_PATHS = (
+					"$(PROJECT_DIR)/libpcap",
+					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		72B903631CE00CEC008DB2D2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		72B903641CE00CEC008DB2D2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				MTL_ENABLE_DEBUG_INFO = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -1744,6 +1917,15 @@
 			buildConfigurations = (
 				727B12F91628BF800039A877 /* Release */,
 				727B12FA1628BF800039A877 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		72B903621CE00CEC008DB2D2 /* Build configuration list for PBXNativeTarget "capturetest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				72B903631CE00CEC008DB2D2 /* Release */,
+				72B903641CE00CEC008DB2D2 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

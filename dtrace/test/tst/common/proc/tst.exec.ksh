@@ -35,7 +35,7 @@
 script()
 {
 if [ -f /usr/lib/dtrace/darwin.d ]; then
-	$dtrace -s /dev/stdin <<EOF
+	$dtrace -xstatusrate=200ms -s /dev/stdin <<EOF
 	proc:::exec
 	/curpsinfo->pr_ppid == $child && args[0] == "/bin/sleep"/
 	{

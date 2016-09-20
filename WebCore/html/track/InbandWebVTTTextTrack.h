@@ -44,14 +44,12 @@ private:
     InbandWebVTTTextTrack(ScriptExecutionContext*, TextTrackClient*, PassRefPtr<InbandTextTrackPrivate>);
 
     WebVTTParser& parser();
-    virtual void parseWebVTTCueData(InbandTextTrackPrivate*, const char* data, unsigned length) override;
-    virtual void parseWebVTTCueData(InbandTextTrackPrivate*, const ISOWebVTTCue&) override;
+    void parseWebVTTCueData(InbandTextTrackPrivate*, const char* data, unsigned length) override;
+    void parseWebVTTCueData(InbandTextTrackPrivate*, const ISOWebVTTCue&) override;
 
-    virtual void newCuesParsed() override;
-#if ENABLE(WEBVTT_REGIONS)
-    virtual void newRegionsParsed() override;
-#endif
-    virtual void fileFailedToParse() override;
+    void newCuesParsed() override;
+    void newRegionsParsed() override;
+    void fileFailedToParse() override;
 
     std::unique_ptr<WebVTTParser> m_webVTTParser;
 };

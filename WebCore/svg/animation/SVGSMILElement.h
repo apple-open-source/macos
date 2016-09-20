@@ -33,6 +33,11 @@
 
 namespace WebCore {
 
+class SVGSMILElement;
+
+template<typename T> class EventSender;
+typedef EventSender<SVGSMILElement> SMILEventSender;
+
 class ConditionEventListener;
 class SMILTimeContainer;
 
@@ -42,10 +47,10 @@ public:
     SVGSMILElement(const QualifiedName&, Document&);
     virtual ~SVGSMILElement();
 
-    virtual void parseAttribute(const QualifiedName&, const AtomicString&) override;
-    virtual void svgAttributeChanged(const QualifiedName&) override;
-    virtual InsertionNotificationRequest insertedInto(ContainerNode&) override;
-    virtual void removedFrom(ContainerNode&) override;
+    void parseAttribute(const QualifiedName&, const AtomicString&) override;
+    void svgAttributeChanged(const QualifiedName&) override;
+    InsertionNotificationRequest insertedInto(ContainerNode&) override;
+    void removedFrom(ContainerNode&) override;
     
     virtual bool hasValidAttributeType() = 0;
     virtual bool hasValidAttributeName();
@@ -107,25 +112,30 @@ public:
     virtual void clearAnimatedType(SVGElement* targetElement) = 0;
     virtual void applyResultsToTarget() = 0;
 
+    void connectConditions();
+    bool hasConditionsConnected() const { return m_conditionsConnected; }
+    
+    void dispatchPendingEvent(SMILEventSender*);
+
 protected:
     void addBeginTime(SMILTime eventTime, SMILTime endTime, SMILTimeWithOrigin::Origin = SMILTimeWithOrigin::ParserOrigin);
     void addEndTime(SMILTime eventTime, SMILTime endTime, SMILTimeWithOrigin::Origin = SMILTimeWithOrigin::ParserOrigin);
 
     void setInactive() { m_activeState = Inactive; }
 
-    virtual bool rendererIsNeeded(const RenderStyle&) override { return false; }
+    bool rendererIsNeeded(const RenderStyle&) override { return false; }
 
     // Sub-classes may need to take action when the target is changed.
     virtual void setTargetElement(SVGElement*);
     virtual void setAttributeName(const QualifiedName&);
 
-    virtual void finishedInsertingSubtree() override;
+    void finishedInsertingSubtree() override;
 
 private:
     void buildPendingResource() override;
     void clearResourceReferences();
 
-    virtual void clearTarget() override;
+    void clearTarget() override;
 
     virtual void startedActiveInterval() = 0;
     void endedActiveInterval();
@@ -168,7 +178,6 @@ private:
     void parseBeginOrEnd(const String&, BeginOrEnd beginOrEnd);
     Element* eventBaseFor(const Condition&);
 
-    void connectConditions();
     void disconnectConditions();
 
     // Event base timing
@@ -197,7 +206,7 @@ private:
     float calculateAnimationPercentAndRepeat(SMILTime elapsed, unsigned& repeat) const;
     SMILTime calculateNextProgressTime(SMILTime elapsed) const;
 
-    virtual bool isSMILElement() const override final { return true; }
+    bool isSMILElement() const final { return true; }
 
     SVGElement* m_targetElement;
 

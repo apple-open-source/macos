@@ -506,7 +506,7 @@ getMemberInfo(CFStringRef partitionName)
 	mi->uuidString = (CFStringRef)CFDictionaryGetValue(properties, CFSTR(kIOMediaUUIDKey));
 	if (mi->uuidString) CFRetain(mi->uuidString);
 
-	strcpy(mi->wholeDiskName, mi->diskName);
+	strlcpy(mi->wholeDiskName, mi->diskName, sizeof(io_name_t));
 
 	if (!mi->isWhole) {
 	    char * c = mi->wholeDiskName + 4;				// skip over disk

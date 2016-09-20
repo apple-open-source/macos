@@ -32,8 +32,6 @@
 
 #include "IOHIDIUnknown.h"
 
-#define HIDLog(fmt, args...) {}
-
 enum {
     kHIDSetElementValuePendEvent    = 0x00010000,
     kHIDGetElementValueForcePoll    = 0x00020000,

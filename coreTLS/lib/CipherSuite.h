@@ -25,8 +25,8 @@
  * CipherSuite.h - SSL Cipher Suite definitions.
  */
 
-#ifndef _SECURITY_CIPHERSUITE_H_
-#define _SECURITY_CIPHERSUITE_H_
+#ifndef _CIPHERSUITE_H_
+#define _CIPHERSUITE_H_
 
 #include <TargetConditionals.h>
 #include <stdint.h>

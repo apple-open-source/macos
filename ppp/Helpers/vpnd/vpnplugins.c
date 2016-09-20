@@ -771,7 +771,6 @@ void accept_connections(struct vpn_params* params)
 		loop - listening for connection requests and other events
 	*/
     while (!got_terminate()) {
-
 		if (hastimeout) {
 			getabsolutetime(&timenow);
 			timeout.tv_sec = timeend.tv_sec > timenow.tv_sec ? timeend.tv_sec - timenow.tv_sec : 0;

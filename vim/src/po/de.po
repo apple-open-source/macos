@@ -426,7 +426,7 @@ msgstr "E109: Fehlender ':' nach '?'"
 msgid "E691: Can only compare List with List"
 msgstr "E691: Kann nur eine Liste mit einer Liste vergleichen"
 
-msgid "E692: Invalid operation for Lists"
+msgid "E692: Invalid operation for List"
 msgstr "E692: Unzulässige Operation für Listen"
 
 msgid "E735: Can only compare Dictionary with Dictionary"
@@ -1700,7 +1700,7 @@ msgid ""
 "&Load File"
 msgstr ""
 "&OK\n"
-"&Lese Datei"
+"&Lies Datei"
 
 #, c-format
 msgid "E462: Could not prepare for reloading \"%s\""
@@ -1975,21 +1975,6 @@ msgstr "Ersetze &alles"
 
 msgid "&Undo"
 msgstr "&Rückgängig"
-
-#, c-format
-msgid "E610: Can't load Zap font '%s'"
-msgstr "E610: Zap-Schriftart '%s' kann nicht geladen werden"
-
-#, c-format
-msgid "E611: Can't use font %s"
-msgstr "E611: Schriftart %s kann nicht verwendet werden"
-
-msgid ""
-"\n"
-"Sending message to terminate child process.\n"
-msgstr ""
-"\n"
-"Sende Nachricht zum Beenden des Kind-Prozesses.\n"
 
 #, c-format
 msgid "E671: Cannot find window title \"%s\""
@@ -2769,16 +2754,16 @@ msgid "-Z\t\t\tRestricted mode (like \"rvim\")"
 msgstr "-Z\t\t\tEingeschränkter Modus (wie \"rvim\")"
 
 msgid "-m\t\t\tModifications (writing files) not allowed"
-msgstr "-m\t\t\tModifikatioen (beim Schreiben von Dateien) sind nicht erlaubt"
+msgstr "-m\t\t\tModifikationen (beim Schreiben von Dateien) sind nicht erlaubt"
 
 msgid "-M\t\t\tModifications in text not allowed"
-msgstr "-M\t\t\tModifikatioen im Text nicht erlaubt"
+msgstr "-M\t\t\tModifikationen im Text nicht erlaubt"
 
 msgid "-b\t\t\tBinary mode"
 msgstr "-b\t\t\tBinärmodus"
 
 msgid "-l\t\t\tLisp mode"
-msgstr "-l\t\t\tList Modus"
+msgstr "-l\t\t\tLisp Modus"
 
 msgid "-C\t\t\tCompatible with Vi: 'compatible'"
 msgstr "-C\t\t\tKompatibel zu Vi: 'compatible'"
@@ -4168,9 +4153,6 @@ msgstr "E244: Unzulässiger Zeichensatz-Name \"%s\" im Schriftart-Namen \"%s\""
 #, c-format
 msgid "E245: Illegal char '%c' in font name \"%s\""
 msgstr "E245: Unzulässiges Zeichen '%c' in der Schriftart \"%s\""
-
-msgid "E366: Invalid 'osfiletype' option - using Text"
-msgstr "E366: Unzulässige 'osfiletype'-Option - verwende Text"
 
 msgid "Vim: Double signal, exiting\n"
 msgstr "Vim: Doppel-Signal, beenden\n"

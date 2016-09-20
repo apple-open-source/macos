@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008-2016 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,7 @@
 #include "ApplicationCache.h"
 #include "ApplicationCacheGroup.h"
 #include "ApplicationCacheResource.h"
+#include "ContentSecurityPolicy.h"
 #include "DocumentLoader.h"
 #include "DOMApplicationCache.h"
 #include "FileSystem.h"
@@ -37,6 +38,7 @@
 #include "FrameLoaderClient.h"
 #include "InspectorInstrumentation.h"
 #include "MainFrame.h"
+#include "Page.h"
 #include "ProgressEvent.h"
 #include "ResourceHandle.h"
 #include "ResourceRequest.h"
@@ -46,10 +48,10 @@
 namespace WebCore {
 
 ApplicationCacheHost::ApplicationCacheHost(DocumentLoader& documentLoader)
-    : m_domApplicationCache(0)
+    : m_domApplicationCache(nullptr)
     , m_documentLoader(documentLoader)
     , m_defersEvents(true)
-    , m_candidateApplicationCacheGroup(0)
+    , m_candidateApplicationCacheGroup(nullptr)
 {
 }
 
@@ -94,7 +96,7 @@ void ApplicationCacheHost::maybeLoadMainResource(ResourceRequest& request, Subst
                 responseToUse.setURL(url);
             }
 
-            substituteData = SubstituteData(resource->data(),
+            substituteData = SubstituteData(&resource->data(),
                                             URL(),
                                             responseToUse,
                                             SubstituteData::SessionHistoryVisibility::Visible);
@@ -166,7 +168,7 @@ void ApplicationCacheHost::finishedLoadingMainResource()
         group->finishedLoadingMainResource(&m_documentLoader);
 }
 
-bool ApplicationCacheHost::maybeLoadResource(ResourceLoader* loader, const ResourceRequest& request, const URL& originalURL)
+bool ApplicationCacheHost::maybeLoadResource(ResourceLoader& loader, const ResourceRequest& request, const URL& originalURL)
 {
     if (!isApplicationCacheEnabled() && !isApplicationCacheBlockedForRequest(request))
         return false;
@@ -178,7 +180,7 @@ bool ApplicationCacheHost::maybeLoadResource(ResourceLoader* loader, const Resou
     if (!shouldLoadResourceFromApplicationCache(request, resource))
         return false;
 
-    m_documentLoader.scheduleSubstituteResourceLoad(*loader, *resource);
+    m_documentLoader.scheduleSubstituteResourceLoad(loader, *resource);
     return true;
 }
 
@@ -237,7 +239,7 @@ bool ApplicationCacheHost::maybeLoadSynchronously(ResourceRequest& request, Reso
             // FIXME: Clients proably do not need a copy of the SharedBuffer.
             // Remove the call to copy() once we ensure SharedBuffer will not be modified.
             if (resource->path().isEmpty())
-                data = resource->data()->copy();
+                data = resource->data().copy();
             else
                 data = SharedBuffer::createWithContentsOfFile(resource->path());
         }
@@ -263,7 +265,7 @@ void ApplicationCacheHost::maybeLoadFallbackSynchronously(const ResourceRequest&
             response = resource->response();
             // FIXME: Clients proably do not need a copy of the SharedBuffer.
             // Remove the call to copy() once we ensure SharedBuffer will not be modified.
-            data = resource->data()->copy();
+            data = resource->data().copy();
         }
     }
 }
@@ -305,10 +307,8 @@ void ApplicationCacheHost::stopLoadingInFrame(Frame* frame)
 void ApplicationCacheHost::stopDeferringEvents()
 {
     Ref<DocumentLoader> protect(m_documentLoader);
-    for (unsigned i = 0; i < m_deferredEvents.size(); ++i) {
-        const DeferredEvent& deferred = m_deferredEvents[i];
-        dispatchDOMEvent(deferred.eventID, deferred.progressTotal, deferred.progressDone);
-    }
+    for (auto& event : m_deferredEvents)
+        dispatchDOMEvent(event.eventID, event.progressTotal, event.progressDone);
     m_deferredEvents.clear();
     m_defersEvents = false;
 }
@@ -352,7 +352,7 @@ void ApplicationCacheHost::dispatchDOMEvent(EventID id, int total, int done)
             event = ProgressEvent::create(eventType, true, done, total);
         else
             event = Event::create(eventType, false, false);
-        m_domApplicationCache->dispatchEvent(event, ASSERT_NO_EXCEPTION);
+        m_domApplicationCache->dispatchEvent(*event);
     }
 }
 
@@ -366,21 +366,27 @@ void ApplicationCacheHost::setApplicationCache(PassRefPtr<ApplicationCache> appl
 {
     if (m_candidateApplicationCacheGroup) {
         ASSERT(!m_applicationCache);
-        m_candidateApplicationCacheGroup = 0;
+        m_candidateApplicationCacheGroup = nullptr;
     }
 
     m_applicationCache = applicationCache;
 }
 
-bool ApplicationCacheHost::shouldLoadResourceFromApplicationCache(const ResourceRequest& request, ApplicationCacheResource*& resource)
+bool ApplicationCacheHost::shouldLoadResourceFromApplicationCache(const ResourceRequest& originalRequest, ApplicationCacheResource*& resource)
 {
     ApplicationCache* cache = applicationCache();
     if (!cache || !cache->isComplete())
         return false;
 
+    ResourceRequest request(originalRequest);
+    if (Frame* loaderFrame = m_documentLoader.frame()) {
+        if (Document* document = loaderFrame->document())
+            document->contentSecurityPolicy()->upgradeInsecureRequestIfNeeded(request, ContentSecurityPolicy::InsecureRequestType::Load);
+    }
+    
     // If the resource is not to be fetched using the HTTP GET mechanism or equivalent, or if its URL has a different
     // <scheme> component than the application cache's manifest, then fetch the resource normally.
-    if (!ApplicationCache::requestIsHTTPOrHTTPSGet(request) || !equalIgnoringCase(request.url().protocol(), cache->manifestResource()->url().protocol()))
+    if (!ApplicationCache::requestIsHTTPOrHTTPSGet(request) || !equalIgnoringASCIICase(request.url().protocol(), cache->manifestResource()->url().protocol()))
         return false;
 
     // If the resource's URL is an master entry, the manifest, an explicit entry, or a fallback entry

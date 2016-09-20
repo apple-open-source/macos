@@ -27,7 +27,13 @@
                                   see Recursive.''
                                         -- Unknown   */
 #include "ssl_private.h"
+#include "mod_ssl.h"
+#include "mod_ssl_openssl.h"
 #include "mpm_common.h"
+
+APR_IMPLEMENT_OPTIONAL_HOOK_RUN_ALL(ssl, SSL, int, init_server,
+                                    (server_rec *s,apr_pool_t *p,int is_proxy,SSL_CTX *ctx),
+                                    (s,p,is_proxy,ctx), OK, DECLINED)
 
 /*  _________________________________________________________________
 **
@@ -322,6 +328,21 @@ apr_status_t ssl_init_Module(apr_pool_t *p, apr_pool_t *plog,
      */
     if ((rv = ssl_init_CheckServers(base_server, ptemp)) != APR_SUCCESS) {
         return rv;
+    }
+
+    for (s = base_server; s; s = s->next) {
+        sc = mySrvConfig(s);
+
+        if (sc->enabled == SSL_ENABLED_TRUE || sc->enabled == SSL_ENABLED_OPTIONAL) {
+            if ((rv = ssl_run_init_server(s, p, 0, sc->server->ssl_ctx)) != APR_SUCCESS) {
+                return rv;
+            }
+        }
+        else if (sc->proxy_enabled == SSL_ENABLED_TRUE) {
+            if ((rv = ssl_run_init_server(s, p, 1, sc->proxy->ssl_ctx)) != APR_SUCCESS) {
+                return rv;
+            }
+        }
     }
 
     /*
@@ -773,14 +794,20 @@ static apr_status_t ssl_init_ctx_crl(server_rec *s,
     X509_STORE *store = SSL_CTX_get_cert_store(mctx->ssl_ctx);
     unsigned long crlflags = 0;
     char *cfgp = mctx->pkp ? "SSLProxy" : "SSL";
+    int crl_check_mode;
+
+    if (mctx->crl_check_mask == UNSET) {
+        mctx->crl_check_mask = SSL_CRLCHECK_NONE;
+    }
+    crl_check_mode = mctx->crl_check_mask & ~SSL_CRLCHECK_FLAGS;
 
     /*
      * Configure Certificate Revocation List (CRL) Details
      */
 
     if (!(mctx->crl_file || mctx->crl_path)) {
-        if (mctx->crl_check_mode == SSL_CRLCHECK_LEAF ||
-            mctx->crl_check_mode == SSL_CRLCHECK_CHAIN) {
+        if (crl_check_mode == SSL_CRLCHECK_LEAF ||
+            crl_check_mode == SSL_CRLCHECK_CHAIN) {
             ap_log_error(APLOG_MARK, APLOG_EMERG, 0, s, APLOGNO(01899)
                          "Host %s: CRL checking has been enabled, but "
                          "neither %sCARevocationFile nor %sCARevocationPath "
@@ -802,7 +829,7 @@ static apr_status_t ssl_init_ctx_crl(server_rec *s,
         return ssl_die(s);
     }
 
-    switch (mctx->crl_check_mode) {
+    switch (crl_check_mode) {
        case SSL_CRLCHECK_LEAF:
            crlflags = X509_V_FLAG_CRL_CHECK;
            break;
@@ -1033,7 +1060,7 @@ static apr_status_t ssl_init_server_certs(server_rec *s,
     X509 *cert;
     DH *dhparams;
 #ifdef HAVE_ECC
-    EC_GROUP *ecparams;
+    EC_GROUP *ecparams = NULL;
     int nid;
     EC_KEY *eckey = NULL;
 #endif
@@ -1181,6 +1208,7 @@ static apr_status_t ssl_init_server_certs(server_rec *s,
         ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s, APLOGNO(02540)
                      "Custom DH parameters (%d bits) for %s loaded from %s",
                      BN_num_bits(dhparams->p), vhost_id, certfile);
+        DH_free(dhparams);
     }
 
 #ifdef HAVE_ECC
@@ -1209,6 +1237,7 @@ static apr_status_t ssl_init_server_certs(server_rec *s,
 #endif
     }
     EC_KEY_free(eckey);
+    EC_GROUP_free(ecparams);
 #endif
 
     return APR_SUCCESS;
@@ -1445,7 +1474,8 @@ static apr_status_t ssl_init_proxy_certs(server_rec *s,
                 int j;
                 for (j = 0; j < i; j++) {
                     ssl_log_xerror(SSLLOG_MARK, APLOG_DEBUG, 0, ptemp, s,
-                                   sk_X509_value(chain, j), "%i:", j);
+                                   sk_X509_value(chain, j), APLOGNO(03039)
+                                   "%i:", j);
                 }
             }
         }

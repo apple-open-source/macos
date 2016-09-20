@@ -29,6 +29,7 @@
 #include "MDSAttrUtils.h"
 #include "MDSDictionary.h"
 #include <security_utilities/logging.h>
+#include <security_utilities/cfutilities.h>
 #include <Security/mds_schema.h>
 
 namespace Security
@@ -101,10 +102,10 @@ Parsing bundle {
 void MDSAttrParser::parseAttrs(CFStringRef subdir)
 {
 	/* get all *.mdsinfo files */
-	CFArrayRef bundleInfoFiles = CFBundleCopyResourceURLsOfType(mBundle,
+	CFRef<CFArrayRef> bundleInfoFiles = CFBundleCopyResourceURLsOfType(mBundle,
 		CFSTR(MDS_INFO_TYPE),
 		subdir);
-	if(bundleInfoFiles == NULL) {
+	if(!bundleInfoFiles) {
 		Syslog::alert("MDSAttrParser: no mdsattr files for %s", mPath);
 		return;
 	}
@@ -128,7 +129,7 @@ void MDSAttrParser::parseAttrs(CFStringRef subdir)
 		}
 		
 		// @@@  Workaround for 4234967: skip any filename beginning with "._"
-		CFStringRef lastComponent = CFURLCopyLastPathComponent(infoUrl);
+		CFRef<CFStringRef> lastComponent = CFURLCopyLastPathComponent(infoUrl);
 		if (lastComponent) {
 			CFStringRef resFilePfx = CFSTR("._");
 			// setting the search length and location like this permits, 
@@ -140,7 +141,6 @@ void MDSAttrParser::parseAttrs(CFStringRef subdir)
 												   range,
 												   0/*options*/,
 												   NULL/*returned substr*/);
-			CFRelease(lastComponent);
 			if (skip == true) {
 				Syslog::warning("MDSAttrParser: ignoring resource file");
 				continue;
@@ -149,7 +149,6 @@ void MDSAttrParser::parseAttrs(CFStringRef subdir)
 		
 		parseFile(infoUrl, subdir);
 	} /* for each mdsinfo */
-	CF_RELEASE(bundleInfoFiles);
 }
 
 void MDSAttrParser::parseFile(CFURLRef infoUrl, CFStringRef subdir)
@@ -438,14 +437,11 @@ void MDSAttrParser::parseCspCapabilitiesRecord(
 	mdsDict->lookupAttributes(&CSPCapabilitiesDict1RelInfo, outAttrs, 
 		numTopLevelAttrs);
 		
-	bool fetchedFromDisk = false;
-	
 	/* obtain Capabilities array */
-	CFArrayRef capArray = (CFArrayRef)mdsDict->lookupWithIndirect("Capabilities",
+	CFRef<CFArrayRef> capArray = (CFArrayRef)mdsDict->lookupWithIndirect("Capabilities",
 		mBundle,
-		CFArrayGetTypeID(),
-		fetchedFromDisk);
-	if(capArray == NULL) {
+		CFArrayGetTypeID());
+	if(!capArray) {
 		/* well we did not get very far.... */
 		MPDebug("parseCspCapabilitiesRecord: no (or bad) Capabilities");
 		delete [] outAttrs;
@@ -543,9 +539,6 @@ void MDSAttrParser::parseCspCapabilitiesRecord(
 	
 	MDSFreeDbRecordAttrs(outAttrs, numTopLevelAttrs);
 	delete [] outAttrs;
-	if(fetchedFromDisk) {
-		CF_RELEASE(capArray);
-	}
 }
 
 /*

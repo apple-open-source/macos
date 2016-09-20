@@ -416,6 +416,10 @@ SecCmsSignedDataDecodeAfterEnd(SecCmsSignedDataRef sigd)
     SecCmsSignerInfoRef *signerinfos;
     int i;
 
+    if (!sigd) {
+        return SECFailure;
+    }
+
     /* set cmsg for all the signerinfos */
     signerinfos = sigd->signerInfos;
 

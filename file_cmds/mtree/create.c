@@ -77,10 +77,12 @@ static gid_t gid;
 static uid_t uid;
 static mode_t mode;
 static u_long flags = 0xffffffff;
+static char *xattrs = kNone;
+static char *acl = kNone;
 
 static int	dsort(const FTSENT **, const FTSENT **);
 static void	output(int, int *, const char *, ...) __printflike(3, 4);
-static int	statd(FTS *, FTSENT *, uid_t *, gid_t *, mode_t *, u_long *);
+static int	statd(FTS *, FTSENT *, uid_t *, gid_t *, mode_t *, u_long *, char **, char **);
 static void	statf(int, FTSENT *);
 
 void
@@ -92,6 +94,7 @@ cwalk(void)
 	char *argv[2], host[MAXHOSTNAMELEN];
 	char dot[] = ".";
 	int indent = 0;
+	char *path;
 
 	if (!nflag) {
 		(void)time(&cl);
@@ -119,14 +122,20 @@ cwalk(void)
 		case FTS_D:
 			if (!dflag)
 				(void)printf("\n");
-			if (!nflag)
-				(void)printf("# %s\n", p->fts_path);
-			statd(t, p, &uid, &gid, &mode, &flags);
+			if (!nflag) {
+				path = escape_path(p->fts_path);
+				(void)printf("# %s\n", path);
+				free(path);
+			}
+			statd(t, p, &uid, &gid, &mode, &flags, &xattrs, &acl);
 			statf(indent, p);
 			break;
 		case FTS_DP:
-			if (!nflag && (p->fts_level > 0))
-				(void)printf("%*s# %s\n", indent, "", p->fts_path);
+			if (!nflag && (p->fts_level > 0)) {
+				path = escape_path(p->fts_path);
+				(void)printf("%*s# %s\n", indent, "", path);
+				free(path);
+			}
 			(void)printf("%*s..\n", indent, "");
 			if (!dflag)
 				(void)printf("\n");
@@ -218,7 +227,7 @@ statf(int indent, FTSENT *p)
 		output(indent, &offset, "size=%jd",
 		    (intmax_t)p->fts_statp->st_size);
 	if (keys & F_TIME)
-		output(indent, &offset, "time=%ld.%ld",
+		output(indent, &offset, "time=%ld.%09ld",
 		    (long)p->fts_statp->st_mtimespec.tv_sec,
 		    p->fts_statp->st_mtimespec.tv_nsec);
 	if (keys & F_CKSUM && S_ISREG(p->fts_statp->st_mode)) {
@@ -260,7 +269,7 @@ statf(int indent, FTSENT *p)
 #endif /* ENABLE_RMD160 */
 #ifdef ENABLE_SHA256
 	if (keys & F_SHA256 && S_ISREG(p->fts_statp->st_mode)) {
-		char *digest, buf[65];
+		char *digest, buf[kSHA256NullTerminatedBuffLen];
 
 		digest = SHA256_File(p->fts_accpath, buf);
 		if (!digest)
@@ -280,6 +289,53 @@ statf(int indent, FTSENT *p)
 		output(indent, &offset, "flags=%s", fflags);
 		free(fflags);
 	}
+	if (keys & F_BTIME) {
+		output(indent, &offset, "btime=%ld.%09ld",
+		       p->fts_statp->st_birthtimespec.tv_sec,
+		       p->fts_statp->st_birthtimespec.tv_nsec);
+	}
+	// only check access time on regular files, as traversing a folder will update its access time
+	if (keys & F_ATIME && S_ISREG(p->fts_statp->st_mode)) {
+		output(indent, &offset, "atime=%ld.%09ld",
+		       p->fts_statp->st_atimespec.tv_sec,
+		       p->fts_statp->st_atimespec.tv_nsec);
+	}
+	if (keys & F_CTIME) {
+		output(indent, &offset, "ctime=%ld.%09ld",
+		       p->fts_statp->st_ctimespec.tv_sec,
+		       p->fts_statp->st_ctimespec.tv_nsec);
+	}
+	// date added to parent folder is only supported for files and directories
+	if (keys & F_PTIME && (S_ISREG(p->fts_statp->st_mode) ||
+			       S_ISDIR(p->fts_statp->st_mode))) {
+		int supported;
+		struct timespec ptimespec = ptime(p->fts_accpath, &supported);
+		if (supported) {
+			output(indent, &offset, "ptime=%ld.%09ld",
+			       ptimespec.tv_sec,
+			       ptimespec.tv_nsec);
+		}
+	}
+	if (keys & F_XATTRS) {
+		char *digest, buf[kSHA256NullTerminatedBuffLen];
+		
+		digest = SHA256_Path_XATTRs(p->fts_accpath, buf);
+		if (digest && (strcmp(digest, xattrs) != 0)) {
+			output(indent, &offset, "xattrsdigest=%s", digest);
+		}
+	}
+	if (keys & F_INODE) {
+		output(indent, &offset, "inode=%llu", p->fts_statp->st_ino);
+	}
+	if (keys & F_ACL) {
+		char *digest, buf[kSHA256NullTerminatedBuffLen];
+		
+		digest = SHA256_Path_ACL(p->fts_accpath, buf);
+		if (digest && (strcmp(digest, acl) != 0)) {
+			output(indent, &offset, "acldigest=%s", digest);
+		}
+	}
+	
 	(void)putchar('\n');
 }
 
@@ -290,7 +346,7 @@ statf(int indent, FTSENT *p)
 #define	MAXS 16
 
 static int
-statd(FTS *t, FTSENT *parent, uid_t *puid, gid_t *pgid, mode_t *pmode, u_long *pflags)
+statd(FTS *t, FTSENT *parent, uid_t *puid, gid_t *pgid, mode_t *pmode, u_long *pflags, char **pxattrs, char **pacl)
 {
 	FTSENT *p;
 	gid_t sgid;
@@ -303,6 +359,8 @@ statd(FTS *t, FTSENT *parent, uid_t *puid, gid_t *pgid, mode_t *pmode, u_long *p
 	uid_t saveuid = *puid;
 	mode_t savemode = *pmode;
 	u_long saveflags = *pflags;
+	char *savexattrs = *pxattrs;
+	char *saveacl = *pacl;
 	u_short maxgid, maxuid, maxmode, maxflags;
 	u_short g[MAXGID], u[MAXUID], m[MAXMODE], f[MAXFLAGS];
 	char *fflags;
@@ -337,6 +395,12 @@ statd(FTS *t, FTSENT *parent, uid_t *puid, gid_t *pgid, mode_t *pmode, u_long *p
 				saveuid = suid;
 				maxuid = u[suid];
 			}
+			
+			/*
+			 * XXX
+			 * note that we don't count the most common xattr/acl digest
+			 * so set will always the default value (none)
+			 */
 
 			/*
 			 * XXX
@@ -399,11 +463,17 @@ statd(FTS *t, FTSENT *parent, uid_t *puid, gid_t *pgid, mode_t *pmode, u_long *p
 			(void)printf(" flags=%s", fflags);
 			free(fflags);
 		}
+		if (keys & F_XATTRS)
+			(void)printf(" xattrsdigest=%s", savexattrs);
+		if (keys & F_ACL)
+			(void)printf(" acldigest=%s", saveacl);
 		(void)printf("\n");
 		*puid = saveuid;
 		*pgid = savegid;
 		*pmode = savemode;
 		*pflags = saveflags;
+		*pxattrs = savexattrs;
+		*pacl = saveacl;
 	}
 	return (0);
 }

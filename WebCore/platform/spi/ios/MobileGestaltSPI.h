@@ -26,6 +26,10 @@
 #ifndef MobileGestaltSPI_h
 #define MobileGestaltSPI_h
 
+#import <wtf/Platform.h>
+
+#if PLATFORM(IOS)
+
 #include <CoreFoundation/CoreFoundation.h>
 
 #if USE(APPLE_INTERNAL_SDK)
@@ -34,9 +38,24 @@
 
 #else
 
-EXTERN_C const CFStringRef kMGQAppleInternalInstallCapability = CFSTR("apple-internal-install");
-EXTERN_C const CFStringRef kMGQMainScreenPitch = CFSTR("main-screen-pitch");
-EXTERN_C const CFStringRef kMGQMainScreenScale = CFSTR("main-screen-scale");
+static const CFStringRef kMGQAppleInternalInstallCapability = CFSTR("apple-internal-install");
+static const CFStringRef kMGQMainScreenPitch = CFSTR("main-screen-pitch");
+static const CFStringRef kMGQMainScreenScale = CFSTR("main-screen-scale");
+static const CFStringRef kMGQiPadCapability = CFSTR("ipad");
+static const CFStringRef kMGQDeviceName = CFSTR("DeviceName");
+static const CFStringRef kMGQDeviceClassNumber = CFSTR("DeviceClassNumber");
+static const CFStringRef kMGQHasExtendedColorDisplay = CFSTR("HasExtendedColorDisplay");
+
+typedef enum {
+    MGDeviceClassInvalid = -1,
+    /* 0 is intentionally not in this enum */
+    MGDeviceClassiPhone  = 1,
+    MGDeviceClassiPod    = 2,
+    MGDeviceClassiPad    = 3,
+    MGDeviceClassAppleTV = 4,
+    /* 5 is intentionally not in this enum */
+    MGDeviceClassWatch   = 6,
+} MGDeviceClass;
 
 #endif
 
@@ -44,6 +63,16 @@ EXTERN_C CFTypeRef MGCopyAnswer(CFStringRef question, CFDictionaryRef options);
 
 #ifndef MGGetBoolAnswer
 EXTERN_C bool MGGetBoolAnswer(CFStringRef question);
+#endif
+
+#ifndef MGGetSInt32Answer
+EXTERN_C SInt32 MGGetSInt32Answer(CFStringRef question, SInt32 defaultValue);
+#endif
+
+#ifndef MGGetFloat32Answer
+EXTERN_C Float32 MGGetFloat32Answer(CFStringRef question, Float32 defaultValue);
+#endif
+
 #endif
 
 #endif // MobileGestaltSPI_h

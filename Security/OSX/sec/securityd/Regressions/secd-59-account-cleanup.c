@@ -77,12 +77,12 @@ static void tests(void)
     
     ok(SOSAccountAssertUserCredentialsAndUpdate(carole_account, cfaccount, cfpassword, &error), "Credential setting (%@)", error);
     CFReleaseNull(error);
-    ok(SOSAccountResetToOffering(alice_account, &error), "Reset to offering (%@)", error);
+    ok(SOSAccountResetToOffering_wTxn(alice_account, &error), "Reset to offering (%@)", error);
     CFReleaseNull(error);
 
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, NULL), 2, "updates");
 
-    ok(SOSAccountJoinCircles(bob_account, &error), "Bob Applies (%@)", error);
+    ok(SOSAccountJoinCircles_wTxn(bob_account, &error), "Bob Applies (%@)", error);
     CFReleaseNull(error);
 
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, NULL), 2, "updates");
@@ -122,7 +122,7 @@ static void tests(void)
 
     //is(CFDictionaryGetCountOfValue(BobChanges, kCFNull),0, "0 Keys Nulled Out");
     
-    ok(SOSAccountJoinCircles(carole_account, &error), "Carole Applies (%@)", error);
+    ok(SOSAccountJoinCircles_wTxn(carole_account, &error), "Carole Applies (%@)", error);
     CFReleaseNull(error);
 
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, NULL), 2, "updates");

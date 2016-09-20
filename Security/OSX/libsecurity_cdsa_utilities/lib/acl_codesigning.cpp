@@ -91,11 +91,11 @@ CodeSignatureAclSubject *CodeSignatureAclSubject::Maker::make(const TypedList &l
 			if (list[n].is(CSSM_LIST_ELEMENT_DATUM)) {
 				const BlobCore *blob = list[n].data().interpretedAs<const BlobCore>();
 				if (blob->length() < sizeof(BlobCore)) {
-					secdebug("csblob", "runt blob (0x%x/%zd) slot %d in CSSM_LIST",
+					secinfo("csblob", "runt blob (0x%x/%zd) slot %d in CSSM_LIST",
 						blob->magic(), blob->length(), n);
 					CssmError::throwMe(CSSM_ERRCODE_INVALID_ACL_SUBJECT_VALUE);
 				} else if (blob->length() != list[n].data().length()) {
-					secdebug("csblob", "badly sized blob (0x%x/%zd) slot %d in CSSM_LIST",
+					secinfo("csblob", "badly sized blob (0x%x/%zd) slot %d in CSSM_LIST",
 						blob->magic(), blob->length(), n);
 					CssmError::throwMe(CSSM_ERRCODE_INVALID_ACL_SUBJECT_VALUE);
 				}
@@ -133,7 +133,7 @@ CodeSignatureAclSubject *CodeSignatureAclSubject::Maker::make(const SHA1::Byte *
 			blob = increment<const BlobCore>(blob, alignUp(blob->length(), commentBagAlignment))) {
 		size_t leftInBag = difference(commentBag.end(), blob);
 		if (leftInBag < sizeof(BlobCore) || blob->length() < sizeof(BlobCore) || blob->length() > leftInBag) {
-			secdebug("csblob", "invalid blob (0x%x/%zd) [%zd in bag] in code signing ACL for %s - stopping scan",
+			secinfo("csblob", "invalid blob (0x%x/%zd) [%zd in bag] in code signing ACL for %s - stopping scan",
 				blob->magic(), blob->length(), leftInBag, subj->path().c_str());
 			break;	// can't trust anything beyond this blob
 		}

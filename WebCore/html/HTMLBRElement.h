@@ -33,15 +33,15 @@ public:
     static Ref<HTMLBRElement> create(Document&);
     static Ref<HTMLBRElement> create(const QualifiedName&, Document&);
 
-    virtual bool canContainRangeEndPoint() const override { return false; }
+    bool canContainRangeEndPoint() const final { return false; }
 
 private:
     HTMLBRElement(const QualifiedName&, Document&);
 
-    virtual bool isPresentationAttribute(const QualifiedName&) const override;
-    virtual void collectStyleForPresentationAttribute(const QualifiedName&, const AtomicString&, MutableStyleProperties&) override;
+    bool isPresentationAttribute(const QualifiedName&) const final;
+    void collectStyleForPresentationAttribute(const QualifiedName&, const AtomicString&, MutableStyleProperties&) final;
 
-    virtual RenderPtr<RenderElement> createElementRenderer(Ref<RenderStyle>&&, const RenderTreePosition&) override;
+    RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) final;
 };
 
 } // namespace

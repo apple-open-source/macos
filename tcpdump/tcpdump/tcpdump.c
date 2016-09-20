@@ -218,8 +218,10 @@ static void info(int);
 static u_int packets_captured;
 #else /* __APPLE__ */
 static u_long packets_captured;
-static u_long max_packet_cnt = -1;
+static u_long max_packet_cnt = ULONG_MAX;
+static u_long skip_packet_cnt = 0;
 u_int packets_mtdt_fltr_drop = 0; /* Drops by metadata filter */
+static char leftover[LINE_MAX];
 #endif /* __APPLE__ */
 
 struct printer {
@@ -1094,7 +1096,7 @@ set_dumper_capsicum_rights(pcap_dumper_t *p)
 int
 main(int argc, char **argv)
 {
-	register int cnt, op, i;
+	int op, i;
 	bpf_u_int32 localnet =0 , netmask = 0;
 	register char *cp, *infile, *cmdbuf, *device, *RFileName, *VFileName, *WFileName;
 	pcap_handler callback;
@@ -1145,14 +1147,13 @@ main(int argc, char **argv)
 	gndo->ndo_snaplen = DEFAULT_SNAPLEN;
 	gndo->ndo_immediate = 0;
 
-	cnt = -1;
 	device = NULL;
 	infile = NULL;
 	RFileName = NULL;
 	VFileName = NULL;
 	VFile = NULL;
 	WFileName = NULL;
-	dlt = -1;
+
 	if ((cp = strrchr(argv[0], '/')) != NULL)
 		program_name = cp + 1;
 	else
@@ -1197,7 +1198,22 @@ main(int argc, char **argv)
 #endif /* defined(HAVE_PCAP_CREATE) || defined(WIN32) */
 
 		case 'c':
-			max_packet_cnt = strtoul(optarg, NULL, 0);
+#ifdef __APPLE__
+			leftover[0] = 0;
+			if (index(optarg, ',') != NULL) {
+				if (sscanf(optarg, "%li,%li%s", &skip_packet_cnt, &max_packet_cnt, leftover) == 0 ||
+				    *leftover != 0)
+				    error("invalid packet count %s", optarg);
+			} else {
+				if (sscanf(optarg, "%li%s", &max_packet_cnt, leftover) == 0 ||
+				    *leftover != 0)
+					error("invalid packet count %s", optarg);
+			}
+#else
+			cnt = atoi(optarg);
+			if (cnt <= 0)
+				error("invalid packet count %s", optarg);
+#endif /* __APPLE__ */
 			break;
 
 		case 'C':
@@ -1354,36 +1370,51 @@ main(int argc, char **argv)
 			int val = 0;
 			
 			if (optind >= argc || argv[optind][0] == '-') {
-				kflag = PRMD_ALL;
+				kflag = PRMD_DEFAULT;
 				break;
 			}
 			kstr = argv[optind];
 			
 			while ((ch = *kstr++) != 0) {
-				if (ch == 'I')
-					val |= PRMD_IF;
-				else if (ch == 'P')
-					val |= PRMD_PID;
-				else if (ch == 'N')
-					val |= PRMD_PNAME;
-				else if (ch == 'S')
-					val |= PRMD_SVC;
-				else if (ch == 'D')
-					val |= PRMD_DIR;
-				else if (ch == 'C')
-					val |= PRMD_COMMENT;
-				else {
-					/*
-					 * Was most likely parsing a filter expression 
-					 * if we do not recognize the character
-					 */
-					if (val == 0)
+				switch (ch) {
+					case 'A':
+						val |= PRMD_ALL;
 						break;
-					error("Invalid flag for option '-k'");
+					case 'C':
+						val |= PRMD_COMMENT;
+						break;
+					case 'D':
+						val |= PRMD_DIR;
+						break;
+					case 'I':
+						val |= PRMD_IF;
+						break;
+					case 'N':
+						val |= PRMD_PNAME;
+						break;
+					case 'P':
+						val |= PRMD_PID;
+						break;
+					case 'S':
+						val |= PRMD_SVC;
+						break;
+					case 'U':
+						val |= PRMD_PUUID;
+						break;
+						
+					default:
+						/*
+						 * Was most likely parsing a filter expression
+						 * if we do not recognize the character
+						 */
+						if (val == 0)
+							break;
+						error("Invalid flag for option '-k'");
+						/* NOT REACHED */
 				}
 			}
 			if (val == 0)
-				kflag = PRMD_ALL;
+				kflag = PRMD_DEFAULT;
 			else {
 				kflag = val;
 				optind++;
@@ -1566,6 +1597,16 @@ main(int argc, char **argv)
 				packettype = PT_PGM_ZMTP1;
 			else if (strcasecmp(optarg, "lmp") == 0)
 				packettype = PT_LMP;
+#ifdef __APPLE__
+			else if (strcasecmp(optarg, "iperf") == 0)
+				packettype = PT_IPERF;
+			else if (strcasecmp(optarg, "iperf3") == 0)
+				packettype = PT_IPERF3;
+			else if (strcasecmp(optarg, "iperf3-64") == 0)
+				packettype = PT_IPERF3_64;
+			else if (strcasecmp(optarg, "suttp") == 0)
+				packettype = PT_SUTTP;
+#endif /* __APPLE__ */
 			else
 				error("unknown packet type `%s'", optarg);
 			break;
@@ -2352,7 +2393,11 @@ main(int argc, char **argv)
 #endif	/* HAVE_CAPSICUM */
 
 	do {
+#ifdef __APPLE__
 		status = pcap_loop(pd, -1, callback, pcap_userdata);
+#else
+		status = pcap_loop(pd, cnt, callback, pcap_userdata);
+#endif /* __APPLE__ */
 		if (WFileName == NULL) {
 			/*
 			 * We're printing packets.  Flush the printed output,
@@ -2537,7 +2582,7 @@ info(register int verbose)
 	if (!verbose)
 		fprintf(stderr, "%s: ", program_name);
 
-	(void)fprintf(stderr, "%u packet%s captured", packets_captured,
+	(void)fprintf(stderr, "%lu packet%s captured", packets_captured,
 	    PLURAL_SUFFIX(packets_captured));
 	if (!verbose)
 		fputs(", ", stderr);
@@ -2551,6 +2596,7 @@ info(register int verbose)
 		putc('\n', stderr);
 	(void)fprintf(stderr, "%u packet%s dropped by kernel", stat.ps_drop,
 	    PLURAL_SUFFIX(stat.ps_drop));
+#ifdef __APPLE__
 	if (packets_mtdt_fltr_drop != 0) {
 		if (!verbose)
 			fputs(", ", stderr);
@@ -2559,6 +2605,7 @@ info(register int verbose)
 		(void)fprintf(stderr, "%u drop%s by metadata filter", packets_mtdt_fltr_drop,
 					  PLURAL_SUFFIX(packets_mtdt_fltr_drop));
 	}
+#endif /* __APPLE__ */
 	if (stat.ps_ifdrop != 0) {
 		if (!verbose)
 			fputs(", ", stderr);
@@ -3027,6 +3074,9 @@ int
 handle_pcap_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 				   const u_char *sp)
 {
+	if (packets_captured < skip_packet_cnt)
+		return (1);
+	
 	pcap_dump((u_char *)dump_info->p, h, sp);
 	
 	return (1);
@@ -3036,6 +3086,9 @@ int
 handle_bpf_exthdr_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 					const u_char *sp)
 {
+	if (packets_captured < skip_packet_cnt)
+		return (1);
+		
 	pcap_ng_dump((u_char *)dump_info->p, h, sp);
 
 	return (1);
@@ -3050,7 +3103,7 @@ handle_pcap_ng_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 {
 	static pcapng_block_t block = NULL;
 	struct pcap_if_info *if_info = NULL;
-	uint32_t if_id;
+	uint32_t src_if_id;
 	u_short pack_flags_code = 0;
 	u_char *pkt_data;
 	struct pcap_proc_info *proc_info = NULL;
@@ -3058,11 +3111,20 @@ handle_pcap_ng_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 	uint32_t pkt_svc = -1;
 	uint32_t packet_flags = 0;
 	struct pcapng_option_info option_info;
+	struct pcapng_option_info pib_index_option_info;
+	struct pcapng_option_info e_pib_index_option_info;
 	int result = 0;
+	static pcapng_block_t info_block = NULL;
 	
 	if (block == NULL) {
 		block = pcap_ng_block_alloc(65536);
 		if (block == NULL) {
+			error("%s: pcap_ng_block_alloc() no memory", __func__);
+		}
+	}
+	if (info_block == NULL) {
+		info_block = pcap_ng_block_alloc(2048);
+		if (info_block == NULL) {
 			error("%s: pcap_ng_block_alloc() no memory", __func__);
 		}
 	}
@@ -3087,11 +3149,8 @@ handle_pcap_ng_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 			
 			if (pcap_ng_block_get_option(block, PCAPNG_IF_NAME, &option_info) == 1)
 				ifname = (const char *)option_info.value;
-			if_info = pcap_add_if_info(dump_info->pd, ifname, -1, idbp->idb_linktype, idbp->idb_snaplen);
-			if (if_info == NULL)
-				error("%s: cannot allocate memory", __func__);
 			
-			pcap_ng_dump_block(dump_info->p, block);
+			(void) pcap_add_if_info(dump_info->pd, ifname, -1, idbp->idb_linktype, idbp->idb_snaplen);
 			
 			goto done;
 		}
@@ -3103,36 +3162,38 @@ handle_pcap_ng_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 			if (pcap_ng_block_get_option(block, PCAPNG_PIB_NAME, &option_info) == 1)
 				procname = option_info.value;
 			
-			(void) pcap_add_proc_info(dump_info->pd, pibp->process_id, procname);
-			
-			pcap_ng_dump_block(dump_info->p, block);
+			if (pcap_ng_block_get_option(block, PCAPNG_PIB_UUID, &option_info) == 1) {
+				(void) pcap_add_proc_info_uuid(dump_info->pd, pibp->process_id, procname, option_info.value);
+			} else {
+				(void) pcap_add_proc_info(dump_info->pd, pibp->process_id, procname);
+			}
 			
 			goto done;
 		}
 		case PCAPNG_BT_EPB: {
 			struct pcapng_enhanced_packet_fields *epbp = pcap_ng_get_enhanced_packet_fields(block);
 			
-			if (pcap_ng_block_get_option(block, PCAPNG_EPB_PIB_INDEX, &option_info) == 1) {
+			if (pcap_ng_block_get_option(block, PCAPNG_EPB_PIB_INDEX, &pib_index_option_info) == 1) {
 				uint32_t pibindex;
 				
-				if (option_info.length != 4) {
-					error("%s: pib index option length %u != 4", __func__, option_info.length);
+				if (pib_index_option_info.length != 4) {
+					error("%s: pib index option length %u != 4", __func__, pib_index_option_info.length);
 					abort();
 				}
-				pibindex = *(uint32_t *)(option_info.value);
+				pibindex = *(uint32_t *)(pib_index_option_info.value);
 				if (pcap_is_swapped(dump_info->pd))
 					pibindex = SWAPLONG(pibindex);
 				
 				proc_info = pcap_find_proc_info_by_index(dump_info->pd, pibindex);
 			}
-			if (pcap_ng_block_get_option(block, PCAPNG_EPB_E_PIB_INDEX, &option_info) == 1) {
+			if (pcap_ng_block_get_option(block, PCAPNG_EPB_E_PIB_INDEX, &e_pib_index_option_info) == 1) {
 				uint32_t pibindex;
 				
-				if (option_info.length != 4) {
-					error("%s: e_pib index option length %u != 4", __func__, option_info.length);
+				if (e_pib_index_option_info.length != 4) {
+					error("%s: e_pib index option length %u != 4", __func__, e_pib_index_option_info.length);
 					abort();
 				}
-				pibindex = *(uint32_t *)(option_info.value);
+				pibindex = *(uint32_t *)(e_pib_index_option_info.value);
 				if (pcap_is_swapped(dump_info->pd))
 					pibindex = SWAPLONG(pibindex);
 				
@@ -3148,15 +3209,14 @@ handle_pcap_ng_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 					pkt_svc = SWAPLONG(pkt_svc);
 			}
 			
-			if_id = epbp->interface_id;
+			src_if_id = epbp->interface_id;
 			
 			pack_flags_code = PCAPNG_EPB_FLAGS;
 			
 			break;
 		}
 		case PCAPNG_BT_SPB: {
-			
-			if_id = 0;
+			src_if_id = 0;
 			
 			pack_flags_code = PCAPNG_PACK_FLAGS;
 			
@@ -3165,7 +3225,7 @@ handle_pcap_ng_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 		case PCAPNG_BT_PB: {
 			struct pcapng_packet_fields *pbp = pcap_ng_get_packet_fields(block);
 			
-			if_id = pbp->interface_id;
+			src_if_id = pbp->interface_id;
 			
 			break;
 		}
@@ -3178,9 +3238,9 @@ handle_pcap_ng_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 	 */
 	pkt_data = pcap_ng_block_packet_get_data_ptr(block);
 	
-	if_info = pcap_find_if_info_by_id(dump_info->pd, if_id);
+	if_info = pcap_find_if_info_by_id(dump_info->pd, src_if_id);
 	if (if_info == NULL) {
-		error("%s: unknown interface id %u", __func__, if_id);
+		error("%s: unknown interface id %u", __func__, src_if_id);
 		abort();
 	}
 	
@@ -3190,6 +3250,14 @@ handle_pcap_ng_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 	if (if_info->if_filter_program.bf_insns != NULL &&
 		pcap_offline_filter(&if_info->if_filter_program, h, pkt_data) == 0)
 		goto done;
+	
+	/*
+	 * Skip until minimum packet count
+	 */
+	if (packets_captured < skip_packet_cnt) {
+		result = 1;
+		goto done;
+	}
 	
 	if (pcap_ng_block_get_option(block, pack_flags_code, &option_info) == 1) {
 		if (option_info.length != 4) {
@@ -3203,7 +3271,7 @@ handle_pcap_ng_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 	}
 	
 	/*
-	 * Evaluate the packet metadata expression
+	 * Evaluate the packet metadata expression before dumping the interface info
 	 */
 	if (pkt_meta_data_expression != NULL) {
 		struct pkt_meta_data pmd;
@@ -3223,7 +3291,55 @@ handle_pcap_ng_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 		}
 	}
 	
-	pcap_ng_dump_block(dump_info->p, block);
+	/*
+	 * Make sure the interface info and process info gets dumped after passing filtering
+	 */
+	if (proc_info != NULL)
+		(void) pcap_ng_dump_proc_info(dump_info->pd, dump_info->p, info_block, proc_info);
+	if (e_proc_info != NULL)
+		(void) pcap_ng_dump_proc_info(dump_info->pd, dump_info->p, info_block, e_proc_info);
+	if (if_info != NULL)
+		(void) pcap_ng_dump_if_info(dump_info->pd, dump_info->p, info_block, if_info);
+
+	/*
+	 * Adjust the interface ID and process indices to the ones in the dump file
+	 */
+	switch (pcap_ng_block_get_type(block)) {
+		case PCAPNG_BT_EPB: {
+			struct pcapng_enhanced_packet_fields *epbp = pcap_ng_get_enhanced_packet_fields(block);
+			
+			if (if_info != NULL) {
+				epbp->interface_id = if_info->if_dump_id;
+			}
+			if (proc_info != NULL) {
+				uint32_t pibindex = proc_info;
+				
+				if (pib_index_option_info.length != 4) {
+					error("%s: pib index option length %u != 4", __func__, pib_index_option_info.length);
+					abort();
+				}
+				pibindex = *(uint32_t *)(pib_index_option_info.value);
+				if (pcap_is_swapped(dump_info->pd))
+					pibindex = SWAPLONG(pibindex);
+				
+				proc_info = pcap_find_proc_info_by_index(dump_info->pd, pibindex);
+			}
+			
+			break;
+		}
+		case PCAPNG_BT_PB: {
+			struct pcapng_packet_fields *pbp = pcap_ng_get_packet_fields(block);
+			
+			if (if_info != NULL)
+				pbp->interface_id = if_info->if_dump_id;
+			
+			break;
+		}
+		default:
+			break;
+	}
+	
+	(void) pcap_ng_dump_block(dump_info->p, block);
 
 	result = 1;
 
@@ -3237,6 +3353,9 @@ handle_pktap_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 {
 	if (pktap_filter_packet(dump_info->pd, NULL, h, sp) == 0)
 		return (0);
+	
+	if (packets_captured < skip_packet_cnt)
+		return (1);
 	
 	if (pcap_ng_dump_pktap(dump_info->pd, dump_info->p, h, sp) == 0)
 		return (0);
@@ -3440,9 +3559,12 @@ print_pcap(struct print_info *print_info, const struct pcap_pkthdr *h, const u_c
 	
 	packets_captured++;
 	
+	if (packets_captured <= skip_packet_cnt)
+		return;
+	
 	ndo = print_info->ndo;
 	if (ndo->ndo_packet_number)
-		ND_PRINT((ndo, "%5u  ", packets_captured));
+		ND_PRINT((ndo, "%5u  ", packets_captured - skip_packet_cnt));
 	
 	ndo = print_info->ndo;
 
@@ -3479,6 +3601,44 @@ print_pktap_packet(struct print_info *print_info, const struct pcap_pkthdr *h, c
 }
 
 static void
+print_pcap_ng_procinfo(netdissect_options *ndo, const char *label, const char **pprsep, struct pcap_proc_info *proc_info)
+{
+	if (proc_info != NULL && (kflag & (PRMD_PNAME | PRMD_PID | PRMD_PUUID))) {
+		const char *semicolumn = "";
+		
+		ND_PRINT((ndo, "%s%s ", *pprsep, label));
+		
+		if ((kflag & PRMD_PNAME)) {
+			ND_PRINT((ndo, "%s%s",
+				  semicolumn, proc_info->proc_name));
+			semicolumn = ":";
+		}
+		if ((kflag & PRMD_PID)) {
+			if (proc_info->proc_pid != -1)
+				ND_PRINT((ndo, "%s%u",
+					  semicolumn, proc_info->proc_pid));
+			else
+				ND_PRINT((ndo, "%s",
+					  semicolumn));
+			semicolumn = ":";
+		}
+		if ((kflag & PRMD_PUUID)) {
+			if (uuid_is_null(proc_info->proc_uuid) == 0) {
+				uuid_string_t uuid_str;
+				
+				uuid_unparse_lower(proc_info->proc_uuid, uuid_str);
+				
+				ND_PRINT((ndo, "%s%s",
+					  semicolumn, uuid_str));
+			} else {
+				ND_PRINT((ndo, "%s", semicolumn));
+			}
+		}
+		*pprsep = ", ";
+	}
+}
+
+static void
 print_pcap_ng_block(struct print_info *print_info, const struct pcap_pkthdr *h, const u_char *sp)
 {
 	pcapng_block_t block;
@@ -3495,7 +3655,6 @@ print_pcap_ng_block(struct print_info *print_info, const struct pcap_pkthdr *h, 
 	uint32_t pkt_svc = -1;
 	uint32_t packet_flags = 0;
 	struct pcapng_option_info option_info;
-	int result = 0;
 	
 	block = pcap_ng_block_alloc_with_raw_block(print_info->pcap, (u_char *)sp);
 	if (block == NULL) {
@@ -3555,12 +3714,25 @@ print_pcap_ng_block(struct print_info *print_info, const struct pcap_pkthdr *h, 
 			
 			if (pcap_ng_block_get_option(block, PCAPNG_PIB_NAME, &option_info) == 1)
 				procname = option_info.value;
+
+			if (pcap_ng_block_get_option(block, PCAPNG_PIB_UUID, &option_info) == 1) {
+				proc_info = pcap_add_proc_info_uuid(print_info->pcap, pibp->process_id, procname, option_info.value);
+			} else {
+				proc_info = pcap_add_proc_info(print_info->pcap, pibp->process_id, procname);
+			}
 			
-			proc_info = pcap_add_proc_info(print_info->pcap, pibp->process_id, procname);
 			
-			if (vflag)
-				ND_PRINT((ndo, "Process Information Block pid: %u proc_name: %s\n",
-				       proc_info->proc_pid, proc_info->proc_name));
+			if (vflag) {
+				uuid_string_t uu_str;
+				int uu_null = uuid_is_null(proc_info->proc_uuid);
+				
+				if (uu_null == 0)
+					uuid_unparse_lower(proc_info->proc_uuid, uu_str);
+				
+				ND_PRINT((ndo, "Process Information Block pid: %u proc_name: %s%s%s\n",
+					  proc_info->proc_pid, proc_info->proc_name,
+					  uu_null == 0 ? uu_str : " proc_uuid: ", uu_null == 0 ? uu_str : ""));
+			}
 			goto done;
 		}
 		case PCAPNG_BT_EPB: {
@@ -3710,8 +3882,11 @@ print_pcap_ng_block(struct print_info *print_info, const struct pcap_pkthdr *h, 
 	
 	packets_captured++;
 	
+	if (packets_captured <= skip_packet_cnt)
+		return;
+
 	if (ndo->ndo_packet_number)
-		ND_PRINT((ndo, "%5lu  ", packets_captured));
+		ND_PRINT((ndo, "%5lu  ", packets_captured - skip_packet_cnt));
 	
 	ts_print(ndo, &h->ts);
 	
@@ -3737,50 +3912,9 @@ print_pcap_ng_block(struct print_info *print_info, const struct pcap_pkthdr *h, 
 		/*
 		 * Process name and/or process ID
 		 */
-		if (proc_info != NULL) {
-			switch ((kflag & (PRMD_PNAME |PRMD_PID))) {
-				case (PRMD_PNAME | PRMD_PID):
-					ND_PRINT((ndo, "%sproc %s:%u",
-						  prsep,
-						  proc_info->proc_name ,
-						  proc_info->proc_pid));
-					prsep = ", ";
-					if (e_proc_info != NULL) {
-						ND_PRINT((ndo, "%seproc %s:%u",
-							  prsep,
-							  e_proc_info->proc_name ,
-							  e_proc_info->proc_pid));
-						prsep = ", ";
-					}
-					break;
-				case PRMD_PNAME:
-					ND_PRINT((ndo, "%sproc %s",
-						  prsep,
-						  proc_info->proc_name));
-					prsep = ", ";
-					if (e_proc_info != NULL) {
-						ND_PRINT((ndo, "%seproc %s",
-							  prsep,
-							  e_proc_info->proc_name));
-					}
-					break;
-					
-				case PRMD_PID:
-					ND_PRINT((ndo, "%sproc %u",
-						  prsep,
-						  proc_info->proc_pid));
-					prsep = ", ";
-					if (e_proc_info != NULL) {
-						ND_PRINT((ndo, "%seproc %u",
-							  prsep,
-							  e_proc_info->proc_pid));
-					}
-					break;
-					
-				default:
-					break;
-			}
-		}
+		print_pcap_ng_procinfo(ndo, "proc", &prsep, proc_info);
+
+		print_pcap_ng_procinfo(ndo, "eproc", &prsep, e_proc_info);
 		
 		/*
 		 * Service class
@@ -3844,9 +3978,6 @@ print_pcap_ng_block(struct print_info *print_info, const struct pcap_pkthdr *h, 
 	print_raw_packet_data(ndo, h, pkt_data, hdrlen);
 	
 	putchar('\n');
-	
-	result = 1;
-	
 done:
 	if (block != NULL)
 	pcap_ng_free_block(block);
@@ -3924,7 +4055,7 @@ static void verbose_stats_dump(int sig _U_)
 	struct pcap_stat stat;
 
 	if (infodelay == 0 && pcap_stats(pd, &stat) >= 0)
-		fprintf(stderr, "Got %u\r", packets_captured);
+		fprintf(stderr, "Got %lu\r", packets_captured);
 	alarm(1);
 }
 #endif

@@ -426,7 +426,7 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 #else
 
 	krb5_error_code krbret;
-	krb5_context pam_context;
+	krb5_context pam_context = NULL;
 	krb5_principal princ = NULL;
 	krb5_creds creds;
 	krb5_ccache ccache_temp, ccache_perm = NULL;
@@ -445,6 +445,28 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 	gid_t egid;
 
 	if (flags & PAM_DELETE_CRED) {
+		krb5_cccol_cursor cursor;
+
+		krbret = krb5_init_context(&pam_context);
+		if (krbret != 0) {
+			PAM_LOG("Error krb5_init_secure_context() failed");
+			retval = PAM_SERVICE_ERR;
+			goto cleanup4;
+		}
+
+		krbret = krb5_cccol_cursor_new (pam_context, &cursor);
+		if (krbret) {
+			retval = PAM_SUCCESS;
+			goto cleanup4;
+		}
+
+		while (krb5_cccol_cursor_next (pam_context, cursor, &ccache_temp) == 0 && ccache_temp != NULL) {
+			krbret = krb5_cc_destroy (pam_context, ccache_temp);
+			if (krbret)
+				krb5_warn(pam_context, krbret, "krb5_cc_destroy");
+		}
+		krb5_cccol_cursor_free(pam_context, &cursor);
+
 		retval = PAM_SUCCESS;
 		goto cleanup4;
 	}
@@ -744,7 +766,6 @@ cleanup2:
 		krb5_free_principal(pam_context, princ);
 	PAM_LOG("Done cleanup2");
 cleanup3:
-	krb5_free_context(pam_context);
 	PAM_LOG("Done cleanup3");
 
 	seteuid(euid);
@@ -755,6 +776,8 @@ cleanup3:
 	if (cache_name_buf != NULL)
 		free(cache_name_buf);
 cleanup4:
+	if (pam_context)
+		krb5_free_context(pam_context);
 	pam_unsetenv(pamh, user_key);
 	pam_unsetenv(pamh, password_key);
 	PAM_LOG("Done cleanup4");

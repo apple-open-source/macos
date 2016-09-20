@@ -1,5 +1,4 @@
-#!/bin/ksh
-# #!/usr/bin/ksh
+#!/bin/bash
 #
 # topsyscall - display top syscalls by syscall name.
 #              Written using DTrace (Solaris 10 3/05).

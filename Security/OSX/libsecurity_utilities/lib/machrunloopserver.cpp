@@ -97,7 +97,7 @@ void MachRunLoopServer::receive(const Message &request)
 void MachRunLoopServer::oneRequest(const Message &request)
 {
 	if (!handle(request, mReplyMessage)) {	// MIG dispatch failed
-		secdebug("machrls", "MachRunLoopServer dispatch failed");
+		secinfo("machrls", "MachRunLoopServer dispatch failed");
 	} else {
 		// MIG dispatch handled the call. Send reply back to caller.
 		mReplyMessage.send((MACH_MSGH_BITS_REMOTE(mReplyMessage.bits()) == MACH_MSG_TYPE_MOVE_SEND_ONCE) ?

@@ -62,6 +62,10 @@ public:
     void removeTestDeferralForReason(WheelEventTestTrigger::ScrollableAreaIdentifier, WheelEventTestTrigger::DeferTestTriggerReason) const;
 #endif
 
+#if ENABLE(CSS_SCROLL_SNAP)
+    WEBCORE_EXPORT void updateScrollSnapPropertiesWithFrameView(const FrameView&) override;
+#endif
+
 protected:
     WEBCORE_EXPORT AsyncScrollingCoordinator(Page*);
 
@@ -69,47 +73,47 @@ protected:
 
     ScrollingStateTree* scrollingStateTree() { return m_scrollingStateTree.get(); }
 
-    PassRefPtr<ScrollingTree> releaseScrollingTree() { return m_scrollingTree.release(); }
+    PassRefPtr<ScrollingTree> releaseScrollingTree() { return WTFMove(m_scrollingTree); }
 
     void updateScrollPositionAfterAsyncScroll(ScrollingNodeID, const FloatPoint&, bool programmaticScroll, SetOrSyncScrollingLayerPosition);
 
-    WEBCORE_EXPORT virtual String scrollingStateTreeAsText() const override;
-    WEBCORE_EXPORT virtual void willCommitTree() override;
+    WEBCORE_EXPORT String scrollingStateTreeAsText() const override;
+    WEBCORE_EXPORT void willCommitTree() override;
 
-    bool nonFastScrollableRegionDirty() const { return m_nonFastScrollableRegionDirty; }
+    bool eventTrackingRegionsDirty() const { return m_eventTrackingRegionsDirty; }
 
 private:
-    virtual bool isAsyncScrollingCoordinator() const override { return true; }
+    bool isAsyncScrollingCoordinator() const override { return true; }
 
-    virtual bool supportsFixedPositionLayers() const override { return true; }
-    virtual bool hasVisibleSlowRepaintViewportConstrainedObjects(const FrameView&) const override { return false; }
+    bool supportsFixedPositionLayers() const override { return true; }
+    bool hasVisibleSlowRepaintViewportConstrainedObjects(const FrameView&) const override { return false; }
 
-    WEBCORE_EXPORT virtual void frameViewLayoutUpdated(FrameView&) override;
-    WEBCORE_EXPORT virtual void frameViewRootLayerDidChange(FrameView&) override;
-    WEBCORE_EXPORT virtual void frameViewNonFastScrollableRegionChanged(FrameView&) override;
+    WEBCORE_EXPORT void frameViewLayoutUpdated(FrameView&) override;
+    WEBCORE_EXPORT void frameViewRootLayerDidChange(FrameView&) override;
+    WEBCORE_EXPORT void frameViewEventTrackingRegionsChanged(FrameView&) override;
 
-    WEBCORE_EXPORT virtual bool requestScrollPositionUpdate(FrameView&, const IntPoint&) override;
+    WEBCORE_EXPORT bool requestScrollPositionUpdate(FrameView&, const IntPoint&) override;
 
-    WEBCORE_EXPORT virtual ScrollingNodeID attachToStateTree(ScrollingNodeType, ScrollingNodeID newNodeID, ScrollingNodeID parentID) override;
-    WEBCORE_EXPORT virtual void detachFromStateTree(ScrollingNodeID) override;
-    WEBCORE_EXPORT virtual void clearStateTree() override;
+    WEBCORE_EXPORT ScrollingNodeID attachToStateTree(ScrollingNodeType, ScrollingNodeID newNodeID, ScrollingNodeID parentID) override;
+    WEBCORE_EXPORT void detachFromStateTree(ScrollingNodeID) override;
+    WEBCORE_EXPORT void clearStateTree() override;
     
-    WEBCORE_EXPORT virtual void updateViewportConstrainedNode(ScrollingNodeID, const ViewportConstraints&, GraphicsLayer*) override;
+    WEBCORE_EXPORT void updateViewportConstrainedNode(ScrollingNodeID, const ViewportConstraints&, GraphicsLayer*) override;
     
-    WEBCORE_EXPORT virtual void updateFrameScrollingNode(ScrollingNodeID, GraphicsLayer* scrollLayer, GraphicsLayer* scrolledContentsLayer, GraphicsLayer* counterScrollingLayer, GraphicsLayer* insetClipLayer, const ScrollingGeometry* = nullptr) override;
-    WEBCORE_EXPORT virtual void updateOverflowScrollingNode(ScrollingNodeID, GraphicsLayer* scrollLayer, GraphicsLayer* scrolledContentsLayer, const ScrollingGeometry* = nullptr) override;
+    WEBCORE_EXPORT void updateFrameScrollingNode(ScrollingNodeID, GraphicsLayer* scrollLayer, GraphicsLayer* scrolledContentsLayer, GraphicsLayer* counterScrollingLayer, GraphicsLayer* insetClipLayer, const ScrollingGeometry* = nullptr) override;
+    WEBCORE_EXPORT void updateOverflowScrollingNode(ScrollingNodeID, GraphicsLayer* scrollLayer, GraphicsLayer* scrolledContentsLayer, const ScrollingGeometry* = nullptr) override;
     
-    virtual bool isRubberBandInProgress() const override;
-    virtual void setScrollPinningBehavior(ScrollPinningBehavior) override;
+    bool isRubberBandInProgress() const override;
+    void setScrollPinningBehavior(ScrollPinningBehavior) override;
 
 #if ENABLE(CSS_SCROLL_SNAP)
     bool isScrollSnapInProgress() const override;
 #endif
 
-    WEBCORE_EXPORT virtual void syncChildPositions(const LayoutRect& viewportRect) override;
-    WEBCORE_EXPORT virtual void scrollableAreaScrollbarLayerDidChange(ScrollableArea&, ScrollbarOrientation) override;
+    WEBCORE_EXPORT void syncChildPositions(const LayoutRect& viewportRect) override;
+    WEBCORE_EXPORT void scrollableAreaScrollbarLayerDidChange(ScrollableArea&, ScrollbarOrientation) override;
 
-    WEBCORE_EXPORT virtual void setSynchronousScrollingReasons(SynchronousScrollingReasons) override;
+    WEBCORE_EXPORT void setSynchronousScrollingReasons(SynchronousScrollingReasons) override;
 
     virtual void scheduleTreeStateCommit() = 0;
 
@@ -117,8 +121,8 @@ private:
     void updateMainFrameScrollLayerPosition();
 
     void updateScrollPositionAfterAsyncScrollTimerFired();
-    void setNonFastScrollableRegionDirty();
-    void updateNonFastScrollableRegion();
+    void setEventTrackingRegionsDirty();
+    void updateEventTrackingRegions();
     
     FrameView* frameViewForScrollingNode(ScrollingNodeID) const;
 
@@ -156,7 +160,7 @@ private:
     std::unique_ptr<ScrollingStateTree> m_scrollingStateTree;
     RefPtr<ScrollingTree> m_scrollingTree;
 
-    bool m_nonFastScrollableRegionDirty { false };
+    bool m_eventTrackingRegionsDirty { false };
 };
 
 } // namespace WebCore

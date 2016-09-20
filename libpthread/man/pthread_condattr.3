@@ -25,24 +25,20 @@
 .\" OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 .\" EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/lib/libc_r/man/pthread_condattr.3,v 1.9 2001/10/01 16:09:09 ru Exp $
-.Dd April 28, 2000
+.\" $FreeBSD$
+.Dd May 9, 2010
 .Dt PTHREAD_CONDATTR 3
 .Os
 .Sh NAME
+.Nm pthread_condattr_init ,
 .Nm pthread_condattr_destroy ,
-.Nm pthread_condattr_init
 .Nd condition attribute operations
 .Sh SYNOPSIS
 .In pthread.h
 .Ft int
-.Fo pthread_condattr_destroy
-.Fa "pthread_condattr_t *attr"
-.Fc
+.Fn pthread_condattr_init "pthread_condattr_t *attr"
 .Ft int
-.Fo pthread_condattr_init
-.Fa "pthread_condattr_t *attr"
-.Fc
+.Fn pthread_condattr_destroy "pthread_condattr_t *attr"
 .Sh DESCRIPTION
 Condition attribute objects are used to specify parameters to
 .Fn pthread_cond_init .
@@ -80,8 +76,9 @@ Out of memory.
 .Sh SEE ALSO
 .Xr pthread_cond_init 3
 .Sh STANDARDS
+The
 .Fn pthread_condattr_init
 and
 .Fn pthread_condattr_destroy
-conform to
+functions conform to
 .St -p1003.1-96

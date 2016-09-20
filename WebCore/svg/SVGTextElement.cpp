@@ -45,7 +45,7 @@ Ref<SVGTextElement> SVGTextElement::create(const QualifiedName& tagName, Documen
 AffineTransform SVGTextElement::animatedLocalTransform() const
 {
     AffineTransform matrix;
-    RenderStyle* style = renderer() ? &renderer()->style() : nullptr;
+    auto* style = renderer() ? &renderer()->style() : nullptr;
 
     // if CSS property was set, use that, otherwise fallback to attribute (if set)
     if (style && style->hasTransform()) {
@@ -64,9 +64,9 @@ AffineTransform SVGTextElement::animatedLocalTransform() const
     return matrix;
 }
 
-RenderPtr<RenderElement> SVGTextElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
+RenderPtr<RenderElement> SVGTextElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
 {
-    return createRenderer<RenderSVGText>(*this, WTF::move(style));
+    return createRenderer<RenderSVGText>(*this, WTFMove(style));
 }
 
 bool SVGTextElement::childShouldCreateRenderer(const Node& child) const

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2013-2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -59,6 +59,11 @@ void OSRExitCompiler::compileExit(const OSRExit& exit, const Operands<ValueRecov
         switch (recovery->type()) {
         case SpeculativeAdd:
             m_jit.sub32(recovery->src(), recovery->dest());
+            m_jit.or64(GPRInfo::tagTypeNumberRegister, recovery->dest());
+            break;
+
+        case SpeculativeAddImmediate:
+            m_jit.sub32(AssemblyHelpers::Imm32(recovery->immediate()), recovery->dest());
             m_jit.or64(GPRInfo::tagTypeNumberRegister, recovery->dest());
             break;
             
@@ -129,17 +134,15 @@ void OSRExitCompiler::compileExit(const OSRExit& exit, const Operands<ValueRecov
             }
         }
         
-        if (!!exit.m_valueProfile) {
-            EncodedJSValue* bucket = exit.m_valueProfile.getSpecFailBucket(0);
-            
+        if (MethodOfGettingAValueProfile profile = exit.m_valueProfile) {
             if (exit.m_jsValueSource.isAddress()) {
                 // We can't be sure that we have a spare register. So use the tagTypeNumberRegister,
                 // since we know how to restore it.
                 m_jit.load64(AssemblyHelpers::Address(exit.m_jsValueSource.asAddress()), GPRInfo::tagTypeNumberRegister);
-                m_jit.store64(GPRInfo::tagTypeNumberRegister, bucket);
+                profile.emitReportValue(m_jit, JSValueRegs(GPRInfo::tagTypeNumberRegister));
                 m_jit.move(AssemblyHelpers::TrustedImm64(TagTypeNumber), GPRInfo::tagTypeNumberRegister);
             } else
-                m_jit.store64(exit.m_jsValueSource.gpr(), bucket);
+                profile.emitReportValue(m_jit, JSValueRegs(exit.m_jsValueSource.gpr()));
         }
     }
     
@@ -202,13 +205,14 @@ void OSRExitCompiler::compileExit(const OSRExit& exit, const Operands<ValueRecov
     }
     
     // And voila, all GPRs are free to reuse.
-    
+
     // Save all state from FPRs into the scratch buffer.
     
     for (size_t index = 0; index < operands.size(); ++index) {
         const ValueRecovery& recovery = operands[index];
         
         switch (recovery.technique()) {
+        case UnboxedDoubleInFPR:
         case InFPR:
             m_jit.move(AssemblyHelpers::TrustedImmPtr(scratch + index), GPRInfo::regT0);
             m_jit.storeDouble(recovery.fpr(), MacroAssembler::Address(GPRInfo::regT0));
@@ -244,7 +248,7 @@ void OSRExitCompiler::compileExit(const OSRExit& exit, const Operands<ValueRecov
             break;
         }
     }
-    
+
     // Need to ensure that the stack pointer accounts for the worst-case stack usage at exit. This
     // could toast some stack that the DFG used. We need to do it before storing to stack offsets
     // used by baseline.
@@ -253,18 +257,34 @@ void OSRExitCompiler::compileExit(const OSRExit& exit, const Operands<ValueRecov
             -m_jit.codeBlock()->jitCode()->dfgCommon()->requiredRegisterCountForExit * sizeof(Register)),
         CCallHelpers::framePointerRegister, CCallHelpers::stackPointerRegister);
     
+    // Restore the DFG callee saves and then save the ones the baseline JIT uses.
+    m_jit.emitRestoreCalleeSaves();
+    m_jit.emitSaveCalleeSavesFor(m_jit.baselineCodeBlock());
+
+    // The tag registers are needed to materialize recoveries below.
+    m_jit.emitMaterializeTagCheckRegisters();
+
+    if (exit.isExceptionHandler())
+        m_jit.copyCalleeSavesToVMEntryFrameCalleeSavesBuffer();
+
     // Do all data format conversions and store the results into the stack.
     
     for (size_t index = 0; index < operands.size(); ++index) {
         const ValueRecovery& recovery = operands[index];
-        int operand = operands.operandForIndex(index);
-        
+        VirtualRegister reg = operands.virtualRegisterForIndex(index);
+
+        if (reg.isLocal() && reg.toLocal() < static_cast<int>(m_jit.baselineCodeBlock()->calleeSaveSpaceAsVirtualRegisters()))
+            continue;
+
+        int operand = reg.offset();
+
         switch (recovery.technique()) {
         case InGPR:
         case UnboxedCellInGPR:
         case DisplacedInJSStack:
         case CellDisplacedInJSStack:
         case BooleanDisplacedInJSStack:
+        case InFPR:
             m_jit.load64(scratch + index, GPRInfo::regT0);
             m_jit.store64(GPRInfo::regT0, AssemblyHelpers::addressFor(operand));
             break;
@@ -293,7 +313,7 @@ void OSRExitCompiler::compileExit(const OSRExit& exit, const Operands<ValueRecov
             m_jit.store64(GPRInfo::regT0, AssemblyHelpers::addressFor(operand));
             break;
             
-        case InFPR:
+        case UnboxedDoubleInFPR:
         case DoubleDisplacedInJSStack:
             m_jit.move(AssemblyHelpers::TrustedImmPtr(scratch + index), GPRInfo::regT0);
             m_jit.loadDouble(MacroAssembler::Address(GPRInfo::regT0), FPRInfo::fpRegT0);
@@ -318,7 +338,7 @@ void OSRExitCompiler::compileExit(const OSRExit& exit, const Operands<ValueRecov
             break;
         }
     }
-    
+
     // Now that things on the stack are recovered, do the arguments recovery. We assume that arguments
     // recoveries don't recursively refer to each other. But, we don't try to assume that they only
     // refer to certain ranges of locals. Hence why we need to do this here, once the stack is sensible.
@@ -368,7 +388,7 @@ void OSRExitCompiler::compileExit(const OSRExit& exit, const Operands<ValueRecov
     // Reify inlined call frames.
     
     reifyInlinedCallFrames(m_jit, exit);
-    
+
     // And finish.
     adjustAndJumpToTarget(m_jit, exit);
 }

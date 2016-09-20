@@ -28,7 +28,8 @@ AEP_Patches    = tmac__doc-common.diff tmac__troffrc.diff \
                  tmac__doc-syms.diff tmac__groff_mdoc.man.diff \
                  utf8.diff \
                  PR-13280133.diff \
-                 remove-pdfroff.diff
+                 remove-pdfroff.diff \
+                 remove-2graph.diff
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j

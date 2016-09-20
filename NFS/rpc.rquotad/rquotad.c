@@ -220,7 +220,8 @@ main(__unused int argc, __unused char *argv[])
 		if ((rqudp6sock = socket(AF_INET6, SOCK_DGRAM, 0)) < 0)
 			syslog(LOG_WARNING, "can't create UDP IPv6 socket: %s (%d)", strerror(errno), errno);
 		if (rqudp6sock >= 0) {
-			setsockopt(rqudp6sock, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
+			if (setsockopt(rqudp6sock, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on)))
+				syslog(LOG_WARNING, "can't set IPV6_V6ONLY on socket: %s (%d)", strerror(errno), errno);
 			sin6->sin6_family = AF_INET6;
 			sin6->sin6_addr = in6addr_any;
 			sin6->sin6_port = htons(config.rquota_port);
@@ -420,7 +421,7 @@ rquota_service(struct svc_req *request, SVCXPRT *transp)
 {
 	switch (request->rq_proc) {
 	case NULLPROC:
-		svc_sendreply(transp, (xdrproc_t)xdr_void, (char *)NULL);
+		(void) svc_sendreply(transp, (xdrproc_t)xdr_void, (char *)NULL);
 		break;
 
 	case RQUOTAPROC_GETQUOTA:
@@ -439,7 +440,7 @@ ext_rquota_service(struct svc_req *request, SVCXPRT *transp)
 {
 	switch (request->rq_proc) {
 	case NULLPROC:
-		svc_sendreply(transp, (xdrproc_t)xdr_void, (char *)NULL);
+		(void) svc_sendreply(transp, (xdrproc_t)xdr_void, (char *)NULL);
 		break;
 
 	case RQUOTAPROC_GETQUOTA:

@@ -1,6 +1,6 @@
 diff -ru unzip-5.52/unix/unix.c unzip-5.52.new/unix/unix.c
---- unix/unix.c.orig	2005-02-26 11:43:42.000000000 -0800
-+++ unix/unix.c	2012-06-30 00:09:07.000000000 -0700
+--- a/unix/unix.c	2005-02-26 11:43:42.000000000 -0800
++++ b/unix/unix.c	2012-06-30 00:09:07.000000000 -0700
 @@ -71,6 +71,8 @@
  #  endif
  #endif /* ?DIRENT */

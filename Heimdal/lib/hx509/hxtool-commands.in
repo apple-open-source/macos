@@ -167,6 +167,16 @@ command = {
 		help = "allow wrong oid flag"
 	}
 	option = {
+		long = "validate-certificate"
+		type = "-flag"
+		help = "dont validate certificates"
+	}
+	option = {
+		long = "certificate-ku-check"
+		type = "-flag"
+		help = "dont require correct Key Usage on certificate"
+	}
+	option = {
 		long = "signed-content"
 		type = "string"
 		help = "file containing content"

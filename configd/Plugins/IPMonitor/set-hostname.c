@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -42,7 +42,7 @@
 #include <notify.h>
 
 #ifdef	MAIN
-#define my_log(__level, fmt, ...)	SCPrint(TRUE, stdout, CFSTR(fmt "\n"), ## __VA_ARGS__)
+#define	my_log(__level, __format, ...)	SCPrint(TRUE, stdout, CFSTR(__format "\n"), ## __VA_ARGS__)
 #else	// MAIN
 #include "ip_plugin.h"
 #endif	// MAIN
@@ -481,14 +481,14 @@ update_hostname(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 
 	address = copy_primary_ip(store, serviceID);
 	if (address != NULL) {
-		Boolean	ok;
-		boolean_t isExpensive = FALSE;
+		boolean_t	isExpensive;
 
 		// start reverse DNS query using primary IP address
 		// if primary service is not expensive
 		isExpensive = check_if_service_expensive(serviceID);
+		if (!isExpensive) {
+			Boolean	ok;
 
-		if (isExpensive == FALSE) {
 			ok = ptr_query_start(address);
 			if (ok) {
 				// if query started
@@ -548,7 +548,7 @@ load_hostname(Boolean verbose)
 		       SCErrorString(SCError()));
 		goto error;
 	}
-	
+
 	queue = dispatch_queue_create(SET_HOSTNAME_QUEUE, NULL);
 	if (queue == NULL) {
 		my_log(LOG_ERR,

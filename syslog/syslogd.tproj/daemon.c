@@ -591,13 +591,6 @@ aslmsg_verify(asl_msg_t *msg, uint32_t source, int32_t *kern_post_level, uid_t *
 		asl_msg_set_key_val(msg, ASL_KEY_EXPIRE_TIME, buf);
 	}
 
-	/* Set DB Expire Time for Filesystem errors */
-	if (!strcmp(fac, FSLOG_VAL_FACILITY))
-	{
-		snprintf(buf, sizeof(buf), "%llu", (unsigned long long) tick + FS_TTL_SEC);
-		asl_msg_set_key_val(msg, ASL_KEY_EXPIRE_TIME, buf);
-	}
-
 	/*
 	 * special case handling of kernel disaster messages
 	 */

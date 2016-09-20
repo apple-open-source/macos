@@ -23,8 +23,10 @@
  * For semi-intelligent modem handling.
  */
 
+#include <sys/cdefs.h>
+
 #ifndef lint
-static const char rcsid[] =
+__unused static const char rcsid[] =
   "$FreeBSD: src/libexec/getty/chat.c,v 1.11 2005/04/06 17:42:24 stefanf Exp $";
 #endif /* not lint */
 
@@ -367,9 +369,9 @@ chat_expect(const char *str)
 				}
 			}
 			alarm(0);
-        		chat_unalarm();
-        		alarmed = 0;
-        		free(got);
+			chat_unalarm();
+			alarmed = 0;
+			free(got);
 		}
 	}
 
@@ -401,13 +403,13 @@ chat_send(char const *str)
                         unsigned char ch = (unsigned char)*str++;
 
                         if (alarmed)
-        			r = 3;
+			r = 3;
                         else if (ch == PAUSE_CH)
 				usleep(500000); /* 1/2 second */
 			else  {
 				usleep(10000);	/* be kind to modem */
                                 if (write(STDOUT_FILENO, &ch, 1) != 1)
-        		  		r = alarmed ? 3 : 2;
+					r = alarmed ? 3 : 2;
                         }
                 }
                 alarm(0);

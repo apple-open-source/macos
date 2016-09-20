@@ -34,6 +34,7 @@
 #if ENABLE(METER_ELEMENT)
 #include "HTMLDivElement.h"
 #include <wtf/Forward.h>
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
@@ -48,7 +49,7 @@ protected:
     MeterShadowElement(Document&);
 
 private:
-    virtual bool rendererIsNeeded(const RenderStyle&) override;
+    bool rendererIsNeeded(const RenderStyle&) override;
 };
 
 class MeterInnerElement final : public MeterShadowElement {
@@ -58,8 +59,8 @@ public:
 private:
     MeterInnerElement(Document&);
 
-    virtual bool rendererIsNeeded(const RenderStyle&) override;
-    virtual RenderPtr<RenderElement> createElementRenderer(Ref<RenderStyle>&&, const RenderTreePosition&) override;
+    bool rendererIsNeeded(const RenderStyle&) override;
+    RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) override;
 };
 
 inline Ref<MeterInnerElement> MeterInnerElement::create(Document& document)
@@ -75,7 +76,7 @@ private:
     MeterBarElement(Document& document)
         : MeterShadowElement(document)
     {
-        DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, pseudoId, ("-webkit-meter-bar", AtomicString::ConstructFromLiteral));
+        static NeverDestroyed<AtomicString> pseudoId("-webkit-meter-bar", AtomicString::ConstructFromLiteral);
         setPseudo(pseudoId);
     }
 };

@@ -1,6 +1,7 @@
 /*
 * Copyright (C) 2013 Google Inc. All rights reserved.
 * Copyright (C) 2014 University of Washington.
+* Copyright (C) 2015 Apple Inc. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -34,9 +35,7 @@
 
 #include "Event.h"
 #include "Frame.h"
-#include "FrameView.h"
-#include "InspectorClient.h"
-#include "InspectorInstrumentation.h"
+#include "InspectorMemoryAgent.h"
 #include "InspectorPageAgent.h"
 #include "InstrumentingAgents.h"
 #include "JSDOMWindow.h"
@@ -44,17 +43,21 @@
 #include "RenderView.h"
 #include "ScriptState.h"
 #include "TimelineRecordFactory.h"
+#include "WebConsoleAgent.h"
+#include <inspector/ConsoleMessage.h>
 #include <inspector/ScriptBreakpoint.h>
-#include <profiler/LegacyProfiler.h>
+#include <inspector/agents/InspectorDebuggerAgent.h>
+#include <inspector/agents/InspectorHeapAgent.h>
+#include <inspector/agents/InspectorScriptProfilerAgent.h>
 #include <wtf/Stopwatch.h>
 
 #if PLATFORM(IOS)
-#include "RuntimeApplicationChecksIOS.h"
-#include <WebCore/WebCoreThread.h>
+#include "RuntimeApplicationChecks.h"
+#include "WebCoreThread.h"
 #endif
 
 #if PLATFORM(COCOA)
-#include <WebCore/RunLoopObserver.h>
+#include "RunLoopObserver.h"
 #endif
 
 using namespace Inspector;
@@ -72,42 +75,41 @@ static CFRunLoopRef currentRunLoop()
     // we still allow this, see <rdar://problem/7403328>. Since the race condition and subsequent
     // crash are especially troublesome for iBooks, we never allow the observer to be added to the
     // main run loop in iBooks.
-    if (applicationIsIBooksOnIOS())
+    if (IOSApplication::isIBooks())
         return WebThreadRunLoop();
 #endif
     return CFRunLoopGetCurrent();
 }
 #endif
 
+InspectorTimelineAgent::InspectorTimelineAgent(WebAgentContext& context, InspectorScriptProfilerAgent* scriptProfileAgent, InspectorHeapAgent* heapAgent, InspectorPageAgent* pageAgent)
+    : InspectorAgentBase(ASCIILiteral("Timeline"), context)
+    , m_frontendDispatcher(std::make_unique<Inspector::TimelineFrontendDispatcher>(context.frontendRouter))
+    , m_backendDispatcher(Inspector::TimelineBackendDispatcher::create(context.backendDispatcher, this))
+    , m_scriptProfilerAgent(scriptProfileAgent)
+    , m_heapAgent(heapAgent)
+    , m_pageAgent(pageAgent)
+{
+}
+
 InspectorTimelineAgent::~InspectorTimelineAgent()
 {
 }
 
-void InspectorTimelineAgent::didCreateFrontendAndBackend(Inspector::FrontendChannel* frontendChannel, Inspector::BackendDispatcher* backendDispatcher)
+void InspectorTimelineAgent::didCreateFrontendAndBackend(Inspector::FrontendRouter*, Inspector::BackendDispatcher*)
 {
-    m_frontendDispatcher = std::make_unique<Inspector::TimelineFrontendDispatcher>(frontendChannel);
-    m_backendDispatcher = Inspector::TimelineBackendDispatcher::create(backendDispatcher, this);
-
-    m_instrumentingAgents->setPersistentInspectorTimelineAgent(this);
-
-    if (m_scriptDebugServer)
-        m_scriptDebugServer->recompileAllJSFunctions();
+    m_instrumentingAgents.setPersistentInspectorTimelineAgent(this);
 }
 
-void InspectorTimelineAgent::willDestroyFrontendAndBackend(Inspector::DisconnectReason reason)
+void InspectorTimelineAgent::willDestroyFrontendAndBackend(Inspector::DisconnectReason)
 {
-    m_frontendDispatcher = nullptr;
-    m_backendDispatcher = nullptr;
-
-    m_instrumentingAgents->setPersistentInspectorTimelineAgent(nullptr);
-
-    if (reason != Inspector::DisconnectReason::InspectedTargetDestroyed) {
-        if (m_scriptDebugServer)
-            m_scriptDebugServer->recompileAllJSFunctions();
-    }
+    m_instrumentingAgents.setPersistentInspectorTimelineAgent(nullptr);
 
     ErrorString unused;
     stop(unused);
+
+    m_autoCaptureEnabled = false;
+    m_instruments.clear();
 }
 
 void InspectorTimelineAgent::start(ErrorString&, const int* maxCallStackDepth)
@@ -124,6 +126,35 @@ void InspectorTimelineAgent::stop(ErrorString&)
     m_enabledFromFrontend = false;
 }
 
+void InspectorTimelineAgent::setAutoCaptureEnabled(ErrorString&, bool enabled)
+{
+    m_autoCaptureEnabled = enabled;
+}
+
+void InspectorTimelineAgent::setInstruments(ErrorString& errorString, const InspectorArray& instruments)
+{
+    Vector<Protocol::Timeline::Instrument> newInstruments;
+    newInstruments.reserveCapacity(instruments.length());
+
+    for (auto instrumentValue : instruments) {
+        String enumValueString;
+        if (!instrumentValue->asString(enumValueString)) {
+            errorString = ASCIILiteral("Unexpected type in instruments list, should be string");
+            return;
+        }
+
+        Optional<Protocol::Timeline::Instrument> instrumentType = Protocol::InspectorHelpers::parseEnumValueFromString<Protocol::Timeline::Instrument>(enumValueString);
+        if (!instrumentType) {
+            errorString = makeString("Unexpected enum value: ", enumValueString);
+            return;
+        }
+
+        newInstruments.uncheckedAppend(*instrumentType);
+    }
+
+    m_instruments.swap(newInstruments);
+}
+
 void InspectorTimelineAgent::internalStart(const int* maxCallStackDepth)
 {
     if (m_enabled)
@@ -134,18 +165,17 @@ void InspectorTimelineAgent::internalStart(const int* maxCallStackDepth)
     else
         m_maxCallStackDepth = 5;
 
-    m_instrumentingAgents->setInspectorTimelineAgent(this);
+    m_instrumentingAgents.setInspectorTimelineAgent(this);
 
-    if (m_scriptDebugServer)
-        m_scriptDebugServer->addListener(this);
+    m_environment.scriptDebugServer().addListener(this);
 
     m_enabled = true;
 
     // FIXME: Abstract away platform-specific code once https://bugs.webkit.org/show_bug.cgi?id=142748 is fixed.
 
 #if PLATFORM(COCOA)
-    m_frameStartObserver = RunLoopObserver::create(0, [this]() {
-        if (!m_enabled || m_scriptDebugServer->isPaused())
+    m_frameStartObserver = std::make_unique<RunLoopObserver>(0, [this]() {
+        if (!m_enabled || m_environment.scriptDebugServer().isPaused())
             return;
 
         if (!m_runLoopNestingLevel)
@@ -153,8 +183,8 @@ void InspectorTimelineAgent::internalStart(const int* maxCallStackDepth)
         m_runLoopNestingLevel++;
     });
 
-    m_frameStopObserver = RunLoopObserver::create(frameStopRunLoopOrder, [this]() {
-        if (!m_enabled || m_scriptDebugServer->isPaused())
+    m_frameStopObserver = std::make_unique<RunLoopObserver>(frameStopRunLoopOrder, [this]() {
+        if (!m_enabled || m_environment.scriptDebugServer().isPaused())
             return;
 
         ASSERT(m_runLoopNestingLevel > 0);
@@ -178,8 +208,7 @@ void InspectorTimelineAgent::internalStart(const int* maxCallStackDepth)
     m_runLoopNestingLevel = 1;
 #endif
 
-    if (m_frontendDispatcher)
-        m_frontendDispatcher->recordingStarted(timestamp());
+    m_frontendDispatcher->recordingStarted(timestamp());
 }
 
 void InspectorTimelineAgent::internalStop()
@@ -187,10 +216,9 @@ void InspectorTimelineAgent::internalStop()
     if (!m_enabled)
         return;
 
-    m_instrumentingAgents->setInspectorTimelineAgent(nullptr);
+    m_instrumentingAgents.setInspectorTimelineAgent(nullptr);
 
-    if (m_scriptDebugServer)
-        m_scriptDebugServer->removeListener(this, true);
+    m_environment.scriptDebugServer().removeListener(this, true);
 
 #if PLATFORM(COCOA)
     m_frameStartObserver = nullptr;
@@ -206,123 +234,74 @@ void InspectorTimelineAgent::internalStop()
 
     m_enabled = false;
     m_startedComposite = false;
+    m_autoCapturePhase = AutoCapturePhase::None;
 
-    if (m_frontendDispatcher)
-        m_frontendDispatcher->recordingStopped(timestamp());
+    m_frontendDispatcher->recordingStopped(timestamp());
 }
 
 double InspectorTimelineAgent::timestamp()
 {
-    return m_instrumentingAgents->inspectorEnvironment().executionStopwatch()->elapsedTime();
+    return m_environment.executionStopwatch()->elapsedTime();
 }
 
-void InspectorTimelineAgent::setPageScriptDebugServer(PageScriptDebugServer* scriptDebugServer)
+void InspectorTimelineAgent::startFromConsole(JSC::ExecState* exec, const String& title)
 {
-    ASSERT(!m_enabled);
-    ASSERT(!m_scriptDebugServer);
-
-    m_scriptDebugServer = scriptDebugServer;
-}
-
-static inline void startProfiling(JSC::ExecState* exec, const String& title, PassRefPtr<Stopwatch> stopwatch)
-{
-    JSC::LegacyProfiler::profiler()->startProfiling(exec, title, stopwatch);
-}
-
-static inline PassRefPtr<JSC::Profile> stopProfiling(JSC::ExecState* exec, const String& title)
-{
-    return JSC::LegacyProfiler::profiler()->stopProfiling(exec, title);
-}
-
-static inline void startProfiling(Frame* frame, const String& title, PassRefPtr<Stopwatch> stopwatch)
-{
-    startProfiling(toJSDOMWindow(frame, debuggerWorld())->globalExec(), title, stopwatch);
-}
-
-static inline PassRefPtr<JSC::Profile> stopProfiling(Frame* frame, const String& title)
-{
-    return stopProfiling(toJSDOMWindow(frame, debuggerWorld())->globalExec(), title);
-}
-
-void InspectorTimelineAgent::startFromConsole(JSC::ExecState* exec, const String &title)
-{
-    // Only allow recording of a profile if it is anonymous (empty title) or does not match
-    // the title of an already recording profile.
+    // Allow duplicate unnamed profiles. Disallow duplicate named profiles.
     if (!title.isEmpty()) {
         for (const TimelineRecordEntry& record : m_pendingConsoleProfileRecords) {
             String recordTitle;
             record.data->getString(ASCIILiteral("title"), recordTitle);
-            if (recordTitle == title)
+            if (recordTitle == title) {
+                if (WebConsoleAgent* consoleAgent = m_instrumentingAgents.webConsoleAgent()) {
+                    // FIXME: Send an enum to the frontend for localization?
+                    String warning = title.isEmpty() ? ASCIILiteral("Unnamed Profile already exists") : makeString("Profile \"", title, "\" already exists");
+                    consoleAgent->addMessageToConsole(std::make_unique<ConsoleMessage>(MessageSource::ConsoleAPI, MessageType::Profile, MessageLevel::Warning, warning));
+                }
                 return;
+            }
         }
     }
 
     if (!m_enabled && m_pendingConsoleProfileRecords.isEmpty())
-        internalStart();
-
-    startProfiling(exec, title, m_instrumentingAgents->inspectorEnvironment().executionStopwatch());
+        startProgrammaticCapture();
 
     m_pendingConsoleProfileRecords.append(createRecordEntry(TimelineRecordFactory::createConsoleProfileData(title), TimelineRecordType::ConsoleProfile, true, frameFromExecState(exec)));
 }
 
-PassRefPtr<JSC::Profile> InspectorTimelineAgent::stopFromConsole(JSC::ExecState* exec, const String& title)
+void InspectorTimelineAgent::stopFromConsole(JSC::ExecState*, const String& title)
 {
     // Stop profiles in reverse order. If the title is empty, then stop the last profile.
     // Otherwise, match the title of the profile to stop.
-    for (ptrdiff_t i = m_pendingConsoleProfileRecords.size() - 1; i >= 0; --i) {
+    for (int i = m_pendingConsoleProfileRecords.size() - 1; i >= 0; --i) {
         const TimelineRecordEntry& record = m_pendingConsoleProfileRecords[i];
 
         String recordTitle;
         record.data->getString(ASCIILiteral("title"), recordTitle);
-
         if (title.isEmpty() || recordTitle == title) {
-            RefPtr<JSC::Profile> profile = stopProfiling(exec, title);
-            if (profile)
-                TimelineRecordFactory::appendProfile(record.data.get(), profile.copyRef());
-
             didCompleteRecordEntry(record);
-
             m_pendingConsoleProfileRecords.remove(i);
 
             if (!m_enabledFromFrontend && m_pendingConsoleProfileRecords.isEmpty())
-                internalStop();
+                stopProgrammaticCapture();
 
-            return WTF::move(profile);
+            return;
         }
     }
 
-    return nullptr;
+    if (WebConsoleAgent* consoleAgent = m_instrumentingAgents.webConsoleAgent()) {
+        // FIXME: Send an enum to the frontend for localization?
+        String warning = title.isEmpty() ? ASCIILiteral("No profiles exist") : makeString("Profile \"", title, "\" does not exist");
+        consoleAgent->addMessageToConsole(std::make_unique<ConsoleMessage>(MessageSource::ConsoleAPI, MessageType::ProfileEnd, MessageLevel::Warning, warning));    
+    }
 }
 
 void InspectorTimelineAgent::willCallFunction(const String& scriptName, int scriptLine, Frame* frame)
 {
     pushCurrentRecord(TimelineRecordFactory::createFunctionCallData(scriptName, scriptLine), TimelineRecordType::FunctionCall, true, frame);
-
-    if (frame && !m_callStackDepth)
-        startProfiling(frame, ASCIILiteral("Timeline FunctionCall"), m_instrumentingAgents->inspectorEnvironment().executionStopwatch());
-
-    ++m_callStackDepth;
 }
 
-void InspectorTimelineAgent::didCallFunction(Frame* frame)
+void InspectorTimelineAgent::didCallFunction(Frame*)
 {
-    if (frame && m_callStackDepth) {
-        --m_callStackDepth;
-        ASSERT(m_callStackDepth >= 0);
-
-        if (!m_callStackDepth) {
-            if (m_recordStack.isEmpty())
-                return;
-
-            TimelineRecordEntry& entry = m_recordStack.last();
-            ASSERT(entry.type == TimelineRecordType::FunctionCall);
-
-            RefPtr<JSC::Profile> profile = stopProfiling(frame, ASCIILiteral("Timeline FunctionCall"));
-            if (profile)
-                TimelineRecordFactory::appendProfile(entry.data.get(), profile.release());
-        }
-    }
-
     didCompleteCurrentRecord(TimelineRecordType::FunctionCall);
 }
 
@@ -405,17 +384,7 @@ void InspectorTimelineAgent::didPaint(RenderObject* renderer, const LayoutRect& 
     didCompleteCurrentRecord(TimelineRecordType::Paint);
 }
 
-void InspectorTimelineAgent::willScroll(Frame& frame)
-{
-    pushCurrentRecord(InspectorObject::create(), TimelineRecordType::ScrollLayer, false, &frame);
-}
-
-void InspectorTimelineAgent::didScroll()
-{
-    didCompleteCurrentRecord(TimelineRecordType::ScrollLayer);
-}
-
-void InspectorTimelineAgent::didInstallTimer(int timerId, int timeout, bool singleShot, Frame* frame)
+void InspectorTimelineAgent::didInstallTimer(int timerId, std::chrono::milliseconds timeout, bool singleShot, Frame* frame)
 {
     appendRecord(TimelineRecordFactory::createTimerInstallData(timerId, timeout, singleShot), TimelineRecordType::TimerInstall, true, frame);
 }
@@ -435,55 +404,13 @@ void InspectorTimelineAgent::didFireTimer()
     didCompleteCurrentRecord(TimelineRecordType::TimerFire);
 }
 
-void InspectorTimelineAgent::willDispatchXHRReadyStateChangeEvent(const String& url, int readyState, Frame* frame)
-{
-    pushCurrentRecord(TimelineRecordFactory::createXHRReadyStateChangeData(url, readyState), TimelineRecordType::XHRReadyStateChange, false, frame);
-}
-
-void InspectorTimelineAgent::didDispatchXHRReadyStateChangeEvent()
-{
-    didCompleteCurrentRecord(TimelineRecordType::XHRReadyStateChange);
-}
-
-void InspectorTimelineAgent::willDispatchXHRLoadEvent(const String& url, Frame* frame)
-{
-    pushCurrentRecord(TimelineRecordFactory::createXHRLoadData(url), TimelineRecordType::XHRLoad, true, frame);
-}
-
-void InspectorTimelineAgent::didDispatchXHRLoadEvent()
-{
-    didCompleteCurrentRecord(TimelineRecordType::XHRLoad);
-}
-
 void InspectorTimelineAgent::willEvaluateScript(const String& url, int lineNumber, Frame& frame)
 {
     pushCurrentRecord(TimelineRecordFactory::createEvaluateScriptData(url, lineNumber), TimelineRecordType::EvaluateScript, true, &frame);
-
-    if (!m_callStackDepth) {
-        ++m_callStackDepth;
-        startProfiling(&frame, ASCIILiteral("Timeline EvaluateScript"), m_instrumentingAgents->inspectorEnvironment().executionStopwatch());
-    }
 }
 
-void InspectorTimelineAgent::didEvaluateScript(Frame& frame)
+void InspectorTimelineAgent::didEvaluateScript(Frame&)
 {
-    if (m_callStackDepth) {
-        --m_callStackDepth;
-        ASSERT(m_callStackDepth >= 0);
-
-        if (!m_callStackDepth) {
-            if (m_recordStack.isEmpty())
-                return;
-
-            TimelineRecordEntry& entry = m_recordStack.last();
-            ASSERT(entry.type == TimelineRecordType::EvaluateScript);
-
-            RefPtr<JSC::Profile> profile = stopProfiling(&frame, ASCIILiteral("Timeline EvaluateScript"));
-            if (profile)
-                TimelineRecordFactory::appendProfile(entry.data.get(), profile.release());
-        }
-    }
-
     didCompleteCurrentRecord(TimelineRecordType::EvaluateScript);
 }
 
@@ -500,6 +427,151 @@ void InspectorTimelineAgent::time(Frame& frame, const String& message)
 void InspectorTimelineAgent::timeEnd(Frame& frame, const String& message)
 {
     appendRecord(TimelineRecordFactory::createTimeStampData(message), TimelineRecordType::TimeEnd, true, &frame);
+}
+
+void InspectorTimelineAgent::mainFrameStartedLoading()
+{
+    if (m_enabled)
+        return;
+
+    if (!m_autoCaptureEnabled)
+        return;
+
+    if (m_instruments.isEmpty())
+        return;
+
+    m_autoCapturePhase = AutoCapturePhase::BeforeLoad;
+
+    // Pre-emptively disable breakpoints. The frontend must re-enable them.
+    if (InspectorDebuggerAgent* debuggerAgent = m_instrumentingAgents.inspectorDebuggerAgent()) {
+        ErrorString unused;
+        debuggerAgent->setBreakpointsActive(unused, false);
+    }
+
+    // Inform the frontend we started an auto capture. The frontend must stop capture.
+    m_frontendDispatcher->autoCaptureStarted();
+
+    toggleInstruments(InstrumentState::Start);
+}
+
+void InspectorTimelineAgent::mainFrameNavigated()
+{
+    if (m_autoCapturePhase == AutoCapturePhase::BeforeLoad) {
+        m_autoCapturePhase = AutoCapturePhase::FirstNavigation;
+        toggleInstruments(InstrumentState::Start);
+        m_autoCapturePhase = AutoCapturePhase::AfterFirstNavigation;
+    }
+}
+
+void InspectorTimelineAgent::startProgrammaticCapture()
+{
+    ASSERT(!m_enabled);
+
+    // Disable breakpoints during programmatic capture.
+    if (InspectorDebuggerAgent* debuggerAgent = m_instrumentingAgents.inspectorDebuggerAgent()) {
+        m_programmaticCaptureRestoreBreakpointActiveValue = debuggerAgent->breakpointsActive();
+        if (m_programmaticCaptureRestoreBreakpointActiveValue) {
+            ErrorString unused;
+            debuggerAgent->setBreakpointsActive(unused, false);
+        }
+    } else
+        m_programmaticCaptureRestoreBreakpointActiveValue = false;
+
+    m_frontendDispatcher->programmaticCaptureStarted();
+
+    toggleScriptProfilerInstrument(InstrumentState::Start); // Ensure JavaScript samping data.
+    toggleTimelineInstrument(InstrumentState::Start); // Ensure Console Profile event records.
+    toggleInstruments(InstrumentState::Start); // Any other instruments the frontend wants us to record.
+}
+
+void InspectorTimelineAgent::stopProgrammaticCapture()
+{
+    ASSERT(m_enabled);
+    ASSERT(!m_enabledFromFrontend);
+
+    toggleInstruments(InstrumentState::Stop);
+    toggleTimelineInstrument(InstrumentState::Stop);
+    toggleScriptProfilerInstrument(InstrumentState::Stop);
+
+    // Re-enable breakpoints if they were enabled.
+    if (m_programmaticCaptureRestoreBreakpointActiveValue) {
+        if (InspectorDebuggerAgent* debuggerAgent = m_instrumentingAgents.inspectorDebuggerAgent()) {
+            ErrorString unused;
+            debuggerAgent->setBreakpointsActive(unused, true);
+        }
+    }
+
+    m_frontendDispatcher->programmaticCaptureStopped();
+}
+
+void InspectorTimelineAgent::toggleInstruments(InstrumentState state)
+{
+    for (auto instrumentType : m_instruments) {
+        switch (instrumentType) {
+        case Inspector::Protocol::Timeline::Instrument::ScriptProfiler: {
+            toggleScriptProfilerInstrument(state);
+            break;
+        }
+        case Inspector::Protocol::Timeline::Instrument::Heap: {
+            toggleHeapInstrument(state);
+            break;
+        }
+        case Inspector::Protocol::Timeline::Instrument::Memory: {
+            toggleMemoryInstrument(state);
+            break;
+        }
+        case Inspector::Protocol::Timeline::Instrument::Timeline:
+            toggleTimelineInstrument(state);
+            break;
+        }
+    }
+}
+
+void InspectorTimelineAgent::toggleScriptProfilerInstrument(InstrumentState state)
+{
+    if (m_scriptProfilerAgent) {
+        ErrorString unused;
+        if (state == InstrumentState::Start) {
+            const bool includeSamples = true;
+            m_scriptProfilerAgent->startTracking(unused, &includeSamples);
+        } else
+            m_scriptProfilerAgent->stopTracking(unused);
+    }
+}
+
+void InspectorTimelineAgent::toggleHeapInstrument(InstrumentState state)
+{
+    if (m_heapAgent) {
+        ErrorString unused;
+        if (state == InstrumentState::Start) {
+            if (m_autoCapturePhase == AutoCapturePhase::None || m_autoCapturePhase == AutoCapturePhase::FirstNavigation)
+                m_heapAgent->startTracking(unused);
+        } else
+            m_heapAgent->stopTracking(unused);
+    }
+}
+
+void InspectorTimelineAgent::toggleMemoryInstrument(InstrumentState state)
+{
+#if ENABLE(RESOURCE_USAGE)
+    if (InspectorMemoryAgent* memoryAgent = m_instrumentingAgents.inspectorMemoryAgent()) {
+        ErrorString unused;
+        if (state == InstrumentState::Start)
+            memoryAgent->startTracking(unused);
+        else
+            memoryAgent->stopTracking(unused);
+    }
+#else
+    UNUSED_PARAM(state);
+#endif
+}
+
+void InspectorTimelineAgent::toggleTimelineInstrument(InstrumentState state)
+{
+    if (state == InstrumentState::Start)
+        internalStart();
+    else
+        internalStop();
 }
 
 void InspectorTimelineAgent::didCommitLoad()
@@ -527,36 +599,11 @@ void InspectorTimelineAgent::didFireAnimationFrame()
     didCompleteCurrentRecord(TimelineRecordType::FireAnimationFrame);
 }
 
-#if ENABLE(WEB_SOCKETS)
-void InspectorTimelineAgent::didCreateWebSocket(unsigned long identifier, const URL& url, const String& protocol, Frame* frame)
-{
-    appendRecord(TimelineRecordFactory::createWebSocketCreateData(identifier, url, protocol), TimelineRecordType::WebSocketCreate, true, frame);
-}
-
-void InspectorTimelineAgent::willSendWebSocketHandshakeRequest(unsigned long identifier, Frame* frame)
-{
-    appendRecord(TimelineRecordFactory::createGenericWebSocketData(identifier), TimelineRecordType::WebSocketSendHandshakeRequest, true, frame);
-}
-
-void InspectorTimelineAgent::didReceiveWebSocketHandshakeResponse(unsigned long identifier, Frame* frame)
-{
-    appendRecord(TimelineRecordFactory::createGenericWebSocketData(identifier), TimelineRecordType::WebSocketReceiveHandshakeResponse, false, frame);
-}
-
-void InspectorTimelineAgent::didDestroyWebSocket(unsigned long identifier, Frame* frame)
-{
-    appendRecord(TimelineRecordFactory::createGenericWebSocketData(identifier), TimelineRecordType::WebSocketDestroy, true, frame);
-}
-#endif // ENABLE(WEB_SOCKETS)
-
 // ScriptDebugListener
 
-void InspectorTimelineAgent::breakpointActionProbe(JSC::ExecState* exec, const Inspector::ScriptBreakpointAction& action, unsigned batchId, unsigned sampleId, const Deprecated::ScriptValue&)
+void InspectorTimelineAgent::breakpointActionProbe(JSC::ExecState& state, const Inspector::ScriptBreakpointAction& action, unsigned /*batchId*/, unsigned sampleId, JSC::JSValue)
 {
-    UNUSED_PARAM(batchId);
-    ASSERT(exec);
-
-    appendRecord(TimelineRecordFactory::createProbeSampleData(action, sampleId), TimelineRecordType::ProbeSample, false, frameFromExecState(exec));
+    appendRecord(TimelineRecordFactory::createProbeSampleData(action, sampleId), TimelineRecordType::ProbeSample, false, frameFromExecState(&state));
 }
 
 static Inspector::Protocol::Timeline::EventType toProtocol(TimelineRecordType type)
@@ -578,8 +625,6 @@ static Inspector::Protocol::Timeline::EventType toProtocol(TimelineRecordType ty
         return Inspector::Protocol::Timeline::EventType::Composite;
     case TimelineRecordType::RenderingFrame:
         return Inspector::Protocol::Timeline::EventType::RenderingFrame;
-    case TimelineRecordType::ScrollLayer:
-        return Inspector::Protocol::Timeline::EventType::ScrollLayer;
 
     case TimelineRecordType::TimerInstall:
         return Inspector::Protocol::Timeline::EventType::TimerInstall;
@@ -598,11 +643,6 @@ static Inspector::Protocol::Timeline::EventType toProtocol(TimelineRecordType ty
     case TimelineRecordType::TimeEnd:
         return Inspector::Protocol::Timeline::EventType::TimeEnd;
 
-    case TimelineRecordType::XHRReadyStateChange:
-        return Inspector::Protocol::Timeline::EventType::XHRReadyStateChange;
-    case TimelineRecordType::XHRLoad:
-        return Inspector::Protocol::Timeline::EventType::XHRLoad;
-
     case TimelineRecordType::FunctionCall:
         return Inspector::Protocol::Timeline::EventType::FunctionCall;
     case TimelineRecordType::ProbeSample:
@@ -616,15 +656,6 @@ static Inspector::Protocol::Timeline::EventType toProtocol(TimelineRecordType ty
         return Inspector::Protocol::Timeline::EventType::CancelAnimationFrame;
     case TimelineRecordType::FireAnimationFrame:
         return Inspector::Protocol::Timeline::EventType::FireAnimationFrame;
-
-    case TimelineRecordType::WebSocketCreate:
-        return Inspector::Protocol::Timeline::EventType::WebSocketCreate;
-    case TimelineRecordType::WebSocketSendHandshakeRequest:
-        return Inspector::Protocol::Timeline::EventType::WebSocketSendHandshakeRequest;
-    case TimelineRecordType::WebSocketReceiveHandshakeResponse:
-        return Inspector::Protocol::Timeline::EventType::WebSocketReceiveHandshakeResponse;
-    case TimelineRecordType::WebSocketDestroy:
-        return Inspector::Protocol::Timeline::EventType::WebSocketDestroy;
     }
 
     return Inspector::Protocol::Timeline::EventType::TimeStamp;
@@ -633,18 +664,18 @@ static Inspector::Protocol::Timeline::EventType toProtocol(TimelineRecordType ty
 void InspectorTimelineAgent::addRecordToTimeline(RefPtr<InspectorObject>&& record, TimelineRecordType type)
 {
     ASSERT_ARG(record, record);
-    record->setString("type", Inspector::Protocol::getEnumConstantValue(toProtocol(type)));
+    record->setString("type", Inspector::Protocol::InspectorHelpers::getEnumConstantValue(toProtocol(type)));
 
     if (m_recordStack.isEmpty()) {
-        auto recordObject = BindingTraits<Inspector::Protocol::Timeline::TimelineEvent>::runtimeCast(WTF::move(record));
-        sendEvent(WTF::move(recordObject));
+        auto recordObject = BindingTraits<Inspector::Protocol::Timeline::TimelineEvent>::runtimeCast(WTFMove(record));
+        sendEvent(WTFMove(recordObject));
     } else {
         const TimelineRecordEntry& parent = m_recordStack.last();
         // Nested paint records are an implementation detail and add no information not already contained in the parent.
         if (type == TimelineRecordType::Paint && parent.type == type)
             return;
 
-        parent.children->pushObject(WTF::move(record));
+        parent.children->pushObject(WTFMove(record));
     }
 }
 
@@ -674,46 +705,40 @@ void InspectorTimelineAgent::didCompleteCurrentRecord(TimelineRecordType type)
         TimelineRecordEntry entry = m_recordStack.last();
         m_recordStack.removeLast();
         ASSERT_UNUSED(type, entry.type == type);
+
+        // Don't send RenderingFrame records that have no children to reduce noise.
+        if (entry.type == TimelineRecordType::RenderingFrame && !entry.children->length())
+            return;
+
         didCompleteRecordEntry(entry);
     }
-}
-
-InspectorTimelineAgent::InspectorTimelineAgent(InstrumentingAgents* instrumentingAgents, InspectorPageAgent* pageAgent, InspectorType type, InspectorClient* client)
-    : InspectorAgentBase(ASCIILiteral("Timeline"), instrumentingAgents)
-    , m_pageAgent(pageAgent)
-    , m_inspectorType(type)
-    , m_client(client)
-{
 }
 
 void InspectorTimelineAgent::appendRecord(RefPtr<InspectorObject>&& data, TimelineRecordType type, bool captureCallStack, Frame* frame)
 {
     Ref<InspectorObject> record = TimelineRecordFactory::createGenericRecord(timestamp(), captureCallStack ? m_maxCallStackDepth : 0);
-    record->setObject("data", WTF::move(data));
+    record->setObject("data", WTFMove(data));
     setFrameIdentifier(&record.get(), frame);
-    addRecordToTimeline(WTF::move(record), type);
+    addRecordToTimeline(WTFMove(record), type);
 }
 
 void InspectorTimelineAgent::sendEvent(RefPtr<InspectorObject>&& event)
 {
-    if (!m_frontendDispatcher)
-        return;
-
     // FIXME: runtimeCast is a hack. We do it because we can't build TimelineEvent directly now.
-    auto recordChecked = BindingTraits<Inspector::Protocol::Timeline::TimelineEvent>::runtimeCast(WTF::move(event));
-    m_frontendDispatcher->eventRecorded(WTF::move(recordChecked));
+    auto recordChecked = BindingTraits<Inspector::Protocol::Timeline::TimelineEvent>::runtimeCast(WTFMove(event));
+    m_frontendDispatcher->eventRecorded(WTFMove(recordChecked));
 }
 
 InspectorTimelineAgent::TimelineRecordEntry InspectorTimelineAgent::createRecordEntry(RefPtr<InspectorObject>&& data, TimelineRecordType type, bool captureCallStack, Frame* frame)
 {
     Ref<InspectorObject> record = TimelineRecordFactory::createGenericRecord(timestamp(), captureCallStack ? m_maxCallStackDepth : 0);
     setFrameIdentifier(&record.get(), frame);
-    return TimelineRecordEntry(WTF::move(record), WTF::move(data), InspectorArray::create(), type);
+    return TimelineRecordEntry(WTFMove(record), WTFMove(data), InspectorArray::create(), type);
 }
 
 void InspectorTimelineAgent::pushCurrentRecord(RefPtr<InspectorObject>&& data, TimelineRecordType type, bool captureCallStack, Frame* frame)
 {
-    pushCurrentRecord(createRecordEntry(WTF::move(data), type, captureCallStack, frame));
+    pushCurrentRecord(createRecordEntry(WTFMove(data), type, captureCallStack, frame));
 }
 
 void InspectorTimelineAgent::clearRecordStack()
@@ -730,11 +755,6 @@ void InspectorTimelineAgent::localToPageQuad(const RenderObject& renderer, const
     quad->setP2(frameView.contentsToRootView(roundedIntPoint(absolute.p2())));
     quad->setP3(frameView.contentsToRootView(roundedIntPoint(absolute.p3())));
     quad->setP4(frameView.contentsToRootView(roundedIntPoint(absolute.p4())));
-}
-
-Page* InspectorTimelineAgent::page()
-{
-    return m_pageAgent ? m_pageAgent->page() : nullptr;
 }
 
 } // namespace WebCore

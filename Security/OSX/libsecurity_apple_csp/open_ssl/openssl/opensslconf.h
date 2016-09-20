@@ -56,6 +56,7 @@ extern "C" {
 #define NO_DES 		1
 #define NO_IDEA 	1
 #define NO_MDC2		1
+#define NO_MD2      1
 
 #ifdef	NDEBUG
 #define NO_ERR		1

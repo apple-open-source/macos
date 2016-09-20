@@ -81,6 +81,10 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "--config 9"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "--no-resumption"
             isEnabled = "NO">
          </CommandLineArgument>

@@ -119,7 +119,7 @@ gid_t vpncontrolsock_group = 0;
 mode_t vpncontrolsock_mode = 0600;
 
 static struct sockaddr_un sunaddr;
-static int vpncontrol_process (struct vpnctl_socket_elem *, char *);
+static int vpncontrol_process (struct vpnctl_socket_elem *, char *, size_t);
 static int vpncontrol_reply (int, char *);
 static void vpncontrol_close_comm (struct vpnctl_socket_elem *);
 static int checklaunchd (void);
@@ -316,7 +316,13 @@ vpncontrol_comm_handler(struct vpnctl_socket_elem *elem)
 		goto end;
 	}
 
-	(void)vpncontrol_process(elem, combuf);
+	if (len < (sizeof(hdr) + ntohs(hdr.len))) {
+		plog(ASL_LEVEL_ERR,
+			 "invalid length of vpn_control command - len=%ld - expected %ld\n", len, (sizeof(hdr) + ntohs(hdr.len)));
+		goto end;
+	}
+
+	(void)vpncontrol_process(elem, combuf, len);
 
 end:
 	if (combuf)
@@ -325,7 +331,7 @@ end:
 }
 
 static int
-vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
+vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf, size_t combuf_len)
 {
 	u_int16_t	error = 0;
 	struct vpnctl_hdr *hdr = ALIGNED_CAST(struct vpnctl_hdr *)combuf;
@@ -334,8 +340,20 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
 	
 		case VPNCTL_CMD_BIND:
 			{
+				if (combuf_len < sizeof(struct vpnctl_cmd_bind)) {
+					plog(ASL_LEVEL_ERR, "invalid header length for vpnctl bind cmd - len=%ld - expected %ld\n", combuf_len, sizeof(struct vpnctl_cmd_bind));
+					error = -1;
+					break;
+				}
+
 				struct vpnctl_cmd_bind *pkt = ALIGNED_CAST(struct vpnctl_cmd_bind *)combuf;
 				struct bound_addr *addr;
+
+				if (combuf_len < (sizeof(struct vpnctl_cmd_bind) + ntohs(pkt->vers_len))) {
+					plog(ASL_LEVEL_ERR, "invalid length for vpnctl bind cmd - len=%ld - expected %ld\n", combuf_len, (sizeof(struct vpnctl_cmd_bind) + ntohs(pkt->vers_len)));
+					error = -1;
+					break;
+				}
 			
 				plog(ASL_LEVEL_DEBUG, 
 					"received bind command on vpn control socket.\n");
@@ -364,6 +382,12 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
 			
 		case VPNCTL_CMD_UNBIND:
 			{
+				if (combuf_len < sizeof(struct vpnctl_cmd_unbind)) {
+					plog(ASL_LEVEL_ERR, "invalid header length for vpnctl unbind cmd - len=%ld - expected %ld\n", combuf_len, sizeof(struct vpnctl_cmd_unbind));
+					error = -1;
+					break;
+				}
+
 				struct vpnctl_cmd_unbind *pkt = ALIGNED_CAST(struct vpnctl_cmd_unbind *)combuf;
 				struct bound_addr *addr;
 				struct bound_addr *t_addr;
@@ -385,6 +409,12 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
 
 		case VPNCTL_CMD_REDIRECT:
 			{
+				if (combuf_len < sizeof(struct vpnctl_cmd_redirect)) {
+					plog(ASL_LEVEL_ERR, "invalid header length for vpnctl redirect cmd - len=%ld - expected %ld\n", combuf_len, sizeof(struct vpnctl_cmd_redirect));
+					error = -1;
+					break;
+				}
+
 				struct vpnctl_cmd_redirect *redirect_msg = ALIGNED_CAST(struct vpnctl_cmd_redirect *)combuf;
 				struct redirect *raddr;
 				struct redirect *t_raddr;
@@ -428,12 +458,24 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
 
 		case VPNCTL_CMD_XAUTH_INFO:
 			{
+				if (combuf_len < sizeof(struct vpnctl_cmd_xauth_info)) {
+					plog(ASL_LEVEL_ERR, "invalid header length for vpnctl xauth info cmd - len=%ld - expected %ld\n", combuf_len, sizeof(struct vpnctl_cmd_xauth_info));
+					error = -1;
+					break;
+				}
+
 				struct vpnctl_cmd_xauth_info *pkt = ALIGNED_CAST(struct vpnctl_cmd_xauth_info *)combuf;
 				struct bound_addr *addr;
 				struct bound_addr *t_addr;
 				void *attr_list;
 
-				plog(ASL_LEVEL_DEBUG, 
+				if (combuf_len < (sizeof(struct vpnctl_cmd_xauth_info) + ntohs(pkt->hdr.len) - sizeof(u_int32_t))) {
+					plog(ASL_LEVEL_ERR, "invalid length for vpnctl xauth info cmd - len=%ld - expected %ld\n", combuf_len, (sizeof(struct vpnctl_cmd_xauth_info) + ntohs(pkt->hdr.len) - sizeof(u_int32_t)));
+					error = -1;
+					break;
+				}
+
+				plog(ASL_LEVEL_DEBUG,
 					"received xauth info command vpn control socket.\n");
 				LIST_FOREACH_SAFE(addr, &elem->bound_addresses, chain, t_addr) {
 					if (pkt->address == addr->address) {
@@ -448,6 +490,12 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
 
 		case VPNCTL_CMD_SET_NAT64_PREFIX:
 			{
+				if (combuf_len < sizeof(struct vpnctl_cmd_set_nat64_prefix)) {
+					plog(ASL_LEVEL_ERR, "invalid header length for vpnctl nat64 prefix cmd - len=%ld - expected %ld\n", combuf_len, sizeof(struct vpnctl_cmd_set_nat64_prefix));
+					error = -1;
+					break;
+				}
+
 				struct vpnctl_cmd_set_nat64_prefix *pkt = ALIGNED_CAST(struct vpnctl_cmd_set_nat64_prefix *)combuf;
 				struct bound_addr *addr;
 				struct bound_addr *t_addr;
@@ -462,9 +510,24 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
 
 		case VPNCTL_CMD_CONNECT:
 			{
+				if (combuf_len < sizeof(struct vpnctl_cmd_connect)) {
+					plog(ASL_LEVEL_ERR, "invalid header length for vpnctl connect cmd - len=%ld - expected %ld\n", combuf_len, sizeof(struct vpnctl_cmd_connect));
+					error = -1;
+					break;
+				}
+
 				struct vpnctl_cmd_connect *pkt = ALIGNED_CAST(struct vpnctl_cmd_connect *)combuf;
 				struct bound_addr *addr;
 				struct bound_addr *t_addr;
+
+				if (pending_signal_handle) {
+					/*
+					 * This check is done to ensure that a SIGUSR1 signal to re-read the configuration file
+					 * is completed before calling a connect. This is to fix the issue seen in (rdar://problem/25641686)
+					 */
+					check_sigreq();
+					pending_signal_handle = 0;
+				}
 
 				plog(ASL_LEVEL_DEBUG, 
 					"received connect command on vpn control socket.\n");
@@ -480,6 +543,12 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
 			
 		case VPNCTL_CMD_DISCONNECT:
 			{
+				if (combuf_len < sizeof(struct vpnctl_cmd_connect)) {
+					plog(ASL_LEVEL_ERR, "invalid header length for vpnctl disconnect cmd - len=%ld - expected %ld\n", combuf_len, sizeof(struct vpnctl_cmd_connect));
+					error = -1;
+					break;
+				}
+
 				struct vpnctl_cmd_connect *pkt = ALIGNED_CAST(struct vpnctl_cmd_connect *)combuf;
 				struct bound_addr *addr;
 				struct bound_addr *t_addr;
@@ -498,6 +567,12 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
 			
 		case VPNCTL_CMD_START_PH2:
 			{
+				if (combuf_len < sizeof(struct vpnctl_cmd_start_ph2)) {
+					plog(ASL_LEVEL_ERR, "invalid header length for vpnctl start ph2 cmd - len=%ld - expected %ld\n", combuf_len, sizeof(struct vpnctl_cmd_start_ph2));
+					error = -1;
+					break;
+				}
+
 				struct vpnctl_cmd_start_ph2 *pkt = ALIGNED_CAST(struct vpnctl_cmd_start_ph2 *)combuf;
 				struct bound_addr *addr;
 				struct bound_addr *t_addr;
@@ -506,7 +581,7 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
 				LIST_FOREACH_SAFE(addr, &elem->bound_addresses, chain, t_addr) {
 					if (pkt->address == addr->address) {
 						/* start the connection */
-						error = vpn_start_ph2(addr, pkt);
+						error = vpn_start_ph2(addr, pkt, combuf_len);
 						break;
 					}
 				}
@@ -515,6 +590,12 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
 
 		case VPNCTL_CMD_START_DPD:
             {
+				if (combuf_len < sizeof(struct vpnctl_cmd_start_dpd)) {
+					plog(ASL_LEVEL_ERR, "invalid header length for vpnctl start dpd cmd - len=%ld - expected %ld\n", combuf_len, sizeof(struct vpnctl_cmd_start_dpd));
+					error = -1;
+					break;
+				}
+
                 struct vpnctl_cmd_start_dpd *pkt = ALIGNED_CAST(struct vpnctl_cmd_start_dpd *)combuf;
                 struct bound_addr *srv;
                 struct bound_addr *t_addr;
@@ -544,6 +625,12 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
 
 		case VPNCTL_CMD_ASSERT:
 			{
+				if (combuf_len < sizeof(struct vpnctl_cmd_assert)) {
+					plog(ASL_LEVEL_ERR, "invalid header length for vpnctl assert cmd - len=%ld - expected %ld\n", combuf_len, sizeof(struct vpnctl_cmd_assert));
+					error = -1;
+					break;
+				}
+
 				struct vpnctl_cmd_assert *pkt = ALIGNED_CAST(struct vpnctl_cmd_assert *)combuf;
 //				struct bound_addr *addr;
 //				struct bound_addr *t_addr;
@@ -573,6 +660,12 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
 
 		case VPNCTL_CMD_RECONNECT:
 			{
+				if (combuf_len < sizeof(struct vpnctl_cmd_connect)) {
+					plog(ASL_LEVEL_ERR, "invalid header length for vpnctl reconnect cmd - len=%ld - expected %ld\n", combuf_len, sizeof(struct vpnctl_cmd_connect));
+					error = -1;
+					break;
+				}
+
 				struct vpnctl_cmd_connect *pkt = ALIGNED_CAST(struct vpnctl_cmd_connect *)combuf;
 				struct bound_addr *addr;
 				struct bound_addr *t_addr;

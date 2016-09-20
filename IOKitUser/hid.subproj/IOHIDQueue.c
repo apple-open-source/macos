@@ -372,14 +372,14 @@ void IOHIDQueueRegisterValueAvailableCallback(
                                               void *                          context)
 {
     if (!callback) {
-        _IOHIDLog(ASL_LEVEL_ERR, "%s called with a NULL callback\n", __func__);
+        os_log_error(_IOHIDLog(), "called with a NULL callback");
         return;
     }    
     if (!queue->callbackDictionary) {
         queue->callbackDictionary = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
     }
     if (!queue->callbackDictionary) {
-        _IOHIDLog(ASL_LEVEL_ERR, "%s unable to create dictionary\n", __func__);
+        os_log_error(_IOHIDLog(), "unable to create dictionary");
         return;
     }
     CFDictionarySetValue(queue->callbackDictionary, (void*)callback, context);

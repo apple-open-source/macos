@@ -147,12 +147,14 @@ static void *securetransport_server_thread(void *arg)
                "SNI does not match");
         }
         require_noerr(SSLSetCertificate(ctx, server_certs), out);
+        free(sni);
     }
 
 out:
     SSLClose(ctx);
     SSLDisposeContext(ctx);
     close(ssl->comm);
+    CFReleaseSafe(server_certs);
 
     pthread_exit((void *)(intptr_t)ortn);
     return NULL;
@@ -214,7 +216,8 @@ ssl_test_handle_create(uint32_t session_id, bool server, int comm)
     return handle;
 
 out:
-   if (ctx) CFRelease(ctx);
+    if (handle) free(handle);
+    if (ctx) CFRelease(ctx);
     return NULL;
 }
 

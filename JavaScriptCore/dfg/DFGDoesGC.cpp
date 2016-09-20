@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014, 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -47,13 +47,16 @@ bool doesGC(Graph& graph, Node* node)
     case JSConstant:
     case DoubleConstant:
     case Int52Constant:
+    case LazyJSConstant:
     case Identity:
     case GetCallee:
-    case GetArgumentCount:
+    case GetArgumentCountIncludingThis:
+    case GetRestLength:
     case GetLocal:
     case SetLocal:
     case MovHint:
     case ZombieHint:
+    case ExitOK:
     case Phantom:
     case Upsilon:
     case Phi:
@@ -83,30 +86,51 @@ bool doesGC(Graph& graph, Node* node)
     case ArithMax:
     case ArithPow:
     case ArithSqrt:
+    case ArithRandom:
     case ArithRound:
+    case ArithFloor:
+    case ArithCeil:
+    case ArithTrunc:
     case ArithFRound:
     case ArithSin:
     case ArithCos:
     case ArithLog:
     case ValueAdd:
+    case TryGetById:
     case GetById:
     case GetByIdFlush:
+    case GetByIdWithThis:
     case PutById:
     case PutByIdFlush:
+    case PutByIdWithThis:
+    case PutByValWithThis:
     case PutByIdDirect:
+    case PutGetterById:
+    case PutSetterById:
+    case PutGetterSetterById:
+    case PutGetterByVal:
+    case PutSetterByVal:
+    case DeleteById:
+    case DeleteByVal:
     case CheckStructure:
     case GetExecutable:
     case GetButterfly:
     case CheckArray:
     case GetScope:
     case SkipScope:
+    case GetGlobalObject:
     case GetClosureVar:
     case PutClosureVar:
+    case GetRegExpObjectLastIndex:
+    case SetRegExpObjectLastIndex:
+    case RecordRegExpCachedResult:
     case GetGlobalVar:
-    case PutGlobalVar:
+    case GetGlobalLexicalVariable:
+    case PutGlobalVariable:
     case VarInjectionWatchpoint:
     case CheckCell:
     case CheckNotEmpty:
+    case CheckIdent:
     case RegExpExec:
     case RegExpTest:
     case CompareLess:
@@ -114,24 +138,25 @@ bool doesGC(Graph& graph, Node* node)
     case CompareGreater:
     case CompareGreaterEq:
     case CompareEq:
-    case CompareEqConstant:
     case CompareStrictEq:
     case Call:
+    case TailCallInlinedCaller:
     case Construct:
     case CallVarargs:
+    case TailCallVarargsInlinedCaller:
     case ConstructVarargs:
     case LoadVarargs:
     case CallForwardVarargs:
     case ConstructForwardVarargs:
-    case NativeCall:
-    case NativeConstruct:
-    case Breakpoint:
-    case ProfileWillCall:
-    case ProfileDidCall:
+    case TailCallForwardVarargs:
+    case TailCallForwardVarargsInlinedCaller:
     case ProfileType:
     case ProfileControlFlow:
-    case CheckHasInstance:
+    case OverridesHasInstance:
     case InstanceOf:
+    case InstanceOfCustom:
+    case IsJSArray:
+    case IsEmpty:
     case IsUndefined:
     case IsBoolean:
     case IsNumber:
@@ -139,9 +164,12 @@ bool doesGC(Graph& graph, Node* node)
     case IsObject:
     case IsObjectOrNull:
     case IsFunction:
+    case IsRegExpObject:
+    case IsTypedArrayView:
     case TypeOf:
     case LogicalNot:
     case ToPrimitive:
+    case ToNumber:
     case ToString:
     case CallStringConstructor:
     case In:
@@ -149,6 +177,8 @@ bool doesGC(Graph& graph, Node* node)
     case Branch:
     case Switch:
     case Return:
+    case TailCall:
+    case TailCallVarargs:
     case Throw:
     case CountExecution:
     case ForceOSRExit:
@@ -159,7 +189,6 @@ bool doesGC(Graph& graph, Node* node)
     case CheckTierUpInLoop:
     case CheckTierUpAtReturn:
     case CheckTierUpAndOSREnter:
-    case CheckTierUpWithNestedTriggerAndOSREnter:
     case LoopHint:
     case StoreBarrier:
     case InvalidationPoint:
@@ -167,6 +196,7 @@ bool doesGC(Graph& graph, Node* node)
     case CheckInBounds:
     case ConstantStoragePointer:
     case Check:
+    case CheckTypeInfoFlags:
     case MultiGetByOffset:
     case ValueRep:
     case DoubleRep:
@@ -174,6 +204,7 @@ bool doesGC(Graph& graph, Node* node)
     case GetGetter:
     case GetSetter:
     case GetByVal:
+    case GetByValWithThis:
     case GetIndexedPropertyStorage:
     case GetArrayLength:
     case ArrayPush:
@@ -199,10 +230,12 @@ bool doesGC(Graph& graph, Node* node)
     case BottomValue:
     case PhantomNewObject:
     case PhantomNewFunction:
+    case PhantomNewGeneratorFunction:
     case PhantomCreateActivation:
     case PhantomDirectArguments:
     case PhantomClonedArguments:
     case GetMyArgumentByVal:
+    case GetMyArgumentByValOutOfBounds:
     case ForwardVarargs:
     case PutHint:
     case CheckStructureImmediate:
@@ -211,12 +244,19 @@ bool doesGC(Graph& graph, Node* node)
     case GetStack:
     case GetFromArguments:
     case PutToArguments:
+    case CopyRest:
+    case LogShadowChickenPrologue:
+    case LogShadowChickenTail:
+    case GetDynamicVar:
+    case PutDynamicVar:
+    case ResolveScope:
         return false;
 
     case CreateActivation:
     case CreateDirectArguments:
     case CreateScopedArguments:
     case CreateClonedArguments:
+    case CallObjectConstructor:
     case ToThis:
     case CreateThis:
     case AllocatePropertyStorage:
@@ -231,6 +271,7 @@ bool doesGC(Graph& graph, Node* node)
     case NewStringObject:
     case MakeRope:
     case NewFunction:
+    case NewGeneratorFunction:
     case NewTypedArray:
     case ThrowReferenceError:
     case GetPropertyEnumerator:
@@ -239,6 +280,10 @@ bool doesGC(Graph& graph, Node* node)
     case ToIndexString:
     case MaterializeNewObject:
     case MaterializeCreateActivation:
+    case SetFunctionName:
+    case StrCat:
+    case StringReplace:
+    case StringReplaceRegExp:
         return true;
         
     case MultiPutByOffset:

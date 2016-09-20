@@ -1,3 +1,2156 @@
+2015-11-30  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* 37256: Completion/Debian/Command/_debchange: _debchange
+	(_dch): Update completion.
+
+	* 37252: Functions/VCS_Info/Backends/VCS_INFO_get_data_git:
+	vcs_info git: Compute %b correctly with "rebase --onto" of
+	detached heads. (Follow-up to 36725.)
+
+	* 37254: Src/params.c: No functional change: change code layout
+	in preparation for 37253.
+
+	* 37250: Src/params.c: No functional change: rename local
+	variables.
+
+2015-11-29  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* unposted; Config/version.mk: 5.1.1-test-3.
+
+2015-11-28  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* unposted (after 37243): Test/B02typeset.ztst: Explain the
+	breadcrumb by adding a comment.
+
+2015-11-27  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* unposted: Test/V10private.ztst: %cleanup block is not called when
+	%prep sets ZTST_unimplemented, so avoid leaving a mess
+
+	* 37243: Test/B02typeset.ztst, Test/V10private.ztst: too many
+	problems with inserting a line into B02, instead add a placeholder
+	and substitute for it.
+
+2015-11-27  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* unposted: Functions/Misc/zcalc: ZCALCPROMPT created globally.
+
+2015-11-27  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* 37214: Functions/Prompts/prompt_walters_setup: 'prompt
+	walters': Don't export PS1
+
+	* 37163: Completion/Unix/Command/_curl,
+	Completion/Unix/Type/_urls: Remove curl completion
+
+	* 37215: Completion/Base/Utility/_regex_words: _regex_words:
+	Don't add mismatched parentheses
+
+2015-11-26  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 37229: Src/Modules/param_private.c, Test/V10private.ztst: non-
+	local assignment to a parameter name whose outermost declaration
+	is private, is an error rather than a silent no-op.  Fix %prep
+	from 37225 for Solaris.
+
+	* unposted (cf. 37226): Test/B02typeset.ztst: export == typeset -xg
+
+	* 37225: Test/V10private.ztst: fix test from 37208
+
+	* 37224: Test/B02typeset.ztst: delete obsolete comment
+
+2015-11-26  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* Matthew Martin: 37100: Completion/Unix/Command/_sysctl:
+	updates.
+
+2015-11-25  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* unposted: Config/version.mk: 5.1.1-test-2
+
+2015-11-23  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 37208: Src/params.c: check for restricted parameter before
+	changing from unset to set; return NULL from setnparam() on
+	failure to retrieve value (avoids null-pointer dereference);
+	add some expository comments
+
+	* 37208: Test/V10parameter.ztst: re-run the "typeset" tests with
+	the private module loaded
+
+	* 37208: Src/Modules/param_private.c: assignment in a nested scope
+	should not change private parameters in the outer scope from unset
+	to set; bug remains that the attempt does not generate a warning
+
+	* 37206: Src/subst.c: fix ${(t)param} for "typeset -H param"
+
+	* 37205: Test/B01cd.ztst: update documentary comment
+
+2015-11-23  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 37203: Src/params.c: WARN_CREATE_GLOBAL test in wrong place
+	for associative array.
+
+2015-11-22  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* Matthew Martin: 37201: Completion/Unix/Type/_groups: change
+	quoting to handle group names with spaces
+
+2015-11-22  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 37192: Functions/Prompts/prompt_adam1_setup,
+	Functions/Prompts/prompt_adam2_setup,
+	Functions/Prompts/prompt_bart_setup,
+	Functions/Prompts/prompt_clint_setup,
+	Functions/Prompts/prompt_oliver_setup,
+	Functions/Prompts/prompt_special_chars,
+	Functions/Prompts/promptinit: silence WARN_CREATE_GLOBAL
+
+2015-11-22  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 37191: Src/utils.c: some locales prduce valid empty output for
+	strtfime escapes %p and %P.
+
+	* 37188: Test/B09hash.ztst: new test.
+
+	* 37187: Src/builtin.c: infinite loop in "hash -m".
+
+	* 37186: Functions/VCS_Info/VCS_INFO_nvcsformats,
+	Src/Zle/zle_main.c: a couple of WARN_CREATE_GLOBAL fixes.
+
+2015-11-21  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 37181: Test/C02cond.ztst, Test/D07multibyte.ztst,
+	Test/V01zmodload.ztst, Test/V02zregexparse.ztst,
+	Test/V03mathfunc.ztst, Test/V04features.ztst, Test/V05styles.ztst,
+	Test/V09datetime.ztst, Test/V10private.ztst, Test/X02zlevi.ztst,
+	Test/Y01completion.ztst, Test/Y02compmatch.ztst,
+	Test/Y03arguments.ztst, Test/comptest, Test/ztst.zsh: consistent
+	use of zmodload and corresponding ZTST_unimplemented or ZTST_skip
+
+2015-11-21  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* unposted: Config/version.mk, Etc/FAQ.yo, README: make
+	5.1.1-test-1 in preparation for 5.2.
+
+2015-11-20  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* unposted: Doc/Zsh/mod_paramter.yo: document order of entries
+	for $history and $historywords
+
+2015-11-20  Mikael Magnusson  <mikachu@gmail.com>
+
+	* 37161: Src/init.c: Disable the heuristic setting RPROMPT_INDENT
+	to 0
+
+2015-11-20  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 37170: Functions/Zle/smart-insert-last-word: suppress
+	WARN_CREATE_GLOBAL for intentional creation of global variables.
+
+	* 37168: Src/params.c: no WARN_CREATE_GLOBAL on special parameters.
+
+	* users/20974: Src/builtin.c, Test/D04parameter.ztst: fix bug
+	when scalar value assigned to special array in typeset.
+
+2015-11-20  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* 37164: Completion/Unix/Command/_tmux: _tmux: Complete external
+	commands
+
+	* 37149: Completion/Unix/Command/_git: _git: Complete
+	'bisect/bad' ref
+
+2015-11-19  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 37159: NEWS, README: update for next version.
+
+	* unposted: Doc/Zsh/params.yo: describe separators between
+	values in array assignment.
+
+2015-11-18  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 37145: Src/lex.c: suppress alias expansion in skipcomm() to
+	defer parsing aliases in $(...) et al. into the subshell
+
+2015-11-18  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 37140: Doc/Zsh/expn.yo: note that <<(...) is < <(...).
+
+2015-11-17  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* 37129: Completion/Unix/Command/_git: _git: Complete 'commit -p'
+
+2015-11-17  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 37128: Src/lex.c, Test/D06subscript.ztst: work around alias
+	expansion trashing subcript being parsed.
+
+	* 37127 (minor tweak): Doc/Zsh/params.yo: document indexing of
+	$signals.
+
+2015-11-16  Mikael Magnusson  <mikachu@gmail.com>
+
+	* Eric Cook: 36986: Functions/Misc/zed: Add -- to the `functions'
+	builtin calls
+
+	* Eric Cook: 37050: Completion/BSD/Command/_sockstat: minor improvements
+
+2015-11-15  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 37119: Doc/Zsh/expn.yo: further "Rules" clarifications
+
+2015-11-14  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 37115: Completion/Unix/Commmand/_git, Doc/Zsh/expn.yo: update
+	for changes in ${(P)...} evaluation.
+
+2015-11-13  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* unposted: Src/Zle/zle_tricky.c: Make $EDITOR's
+	jump-to-matching-brace happy.
+
+	* 37031: Completion/Unix/Command/_git: _git-merge: Exclude
+	ancestors of HEAD from recent commit completion
+
+	* 37025: Functions/VCS_Info/Backends/VCS_INFO_get_data_git:
+	vcs_info git: Add a cherry-pick patch-format
+
+2015-11-13  Jun-ichi Takimoto <takimoto-j@kba.biglobe.ne.jp>
+
+	* 37090: Doc/zman.yo, Doc/ztexi.yo: handle blank lines correctly
+	in yodl macro example()
+
+	* unposted: Doc/Zsh/builtins.yo, Doc/Zsh/contrib.yo,
+	Doc/Zsh/func.yo, Doc/Zsh/grammar.yo, Doc/Zsh/mod_pcre.yo,
+	Doc/Zsh/params.yo, Doc/Zsh/zle.yo: cosmetic format fix
+
+2015-11-12  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 37096: Src/subst.c, Test/D04parameter.ztst: make top-level
+	${(P)...} with nested ${(P)...} do the right thing.
+
+	* 37094: Src/subst.c, Test/D04parameter.ztst: Further tweaks to
+	parameter name references: array safety; nested parameters; tests.
+
+2015-11-11  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 37092: Doc/Zsh/expn.yo, Src/Zle/compctl.c,
+	Src/Zle/zle_tricky.c, Src/cond.c, Src/exec.c, Src/glob.c,
+	Src/subst.c, Src/zsh.h: make a ${(P)name} subexpression properly
+	refer to a parameter name.
+
+	* 37091: Src/Zle/zle_utils.c: clear lastline and lastlinesz when
+	freeing.
+
+2015-11-10  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 37084: Test/V10private.ztst: add check for zsh/param/private
+	implementation to test.
+
+2015-11-09  Jun-ichi Takimoto <takimoto-j@kba.biglobe.ne.jp>
+
+	* 37085: Doc/Zsh/options.yo: DEBUG_BEFORE_CMD is set by default.
+	Also fix entries in the option index.
+
+2015-11-09  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* unposted (cf. Jun T.: 37083): Doc/Zsh/mod_private.yo: proofreading
+
+2015-11-08  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 37081: Doc/Makefile.in, Doc/Zsh/mod_private.yo,
+	Src/Modules/param_private.c, Src/Modules/param_private.mdd,
+	Test/V10private.ztst: new module zsh/param/private for
+	private-scoped parameters in functions
+
+	* 37080: Src/builtin.c, Src/params.c: use paramtab abstraction more
+	consistently, add explanatory comments
+
+	* 37079: Etc/zsh-development-guide: better description of "optstr"
+	field in struct builtin as used in BUILTIN() macro
+
+2015-11-07  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 37074: Src/subst.c, Test/D04parameter.ztst: extend previous
+	fix to cover whitespace at end of substitution.
+
+2015-11-06  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 37073: Src/subst.c, Test/D04parameter.ztst: fix case of
+	SH_WORD_SPLIT with string before parameter substitution and
+	nested string that starts with a space e.g. x${:- y}.
+
+2015-11-04  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 37062: Completion/Unix/Command/_git: allow verbose
+	descriptions of commits and branches using git log.  Mechanism
+	for turning this on subject to change.
+
+2015-11-02  Daniel Hahler  <zsh@thequod.de>
+
+	* 35303: Completion/Unix/Command/_systemd: remove it in favour of the
+	one from upstream.
+
+2015-11-01  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 37038: Doc/Zsh/builtins.yo, Src/builtin.c, Src/options.c: add
+	-l option to emulate.
+
+2015-10-31  Oliver Kiddle  <opk@zsh.org>
+
+	* 37029: Completion/Unix/Command/_date,
+	Completion/Unix/Command/_sed, Completion/Unix/Command/_tail,
+	Completion/Unix/Command/_tr: update options and new tr completion
+
+	* 37028: Completion/Redhat/Command/_scl: new completion
+
+	* 36993: Eric Cook: Functions/Misc/zed: fix argument parsing
+
+2015-10-31  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* unposted (cf. 36998,36999): Src/mem.c: undo 36956 / restore 34451
+	with expanded comment about the flip-flopping
+
+2015-10-31  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* 37032: Completion/Unix/Command/_git: Temporarily revert 36959.
+
+2015-10-30  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* unposted (after 37018): Src/params.c, Test/E01options.ztst: Fix
+	typo in error message.
+
+2015-10-30  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 37027: Doc/Zsh/contrib.yo, Functions/Zle/match-word-context:
+	add editing word context to allow detecting being between words.
+
+	* 37022: Doc/Zsh/expn.yo, Doc/Zsh/options.yo, Src/glob.c,
+	Src/options.c, Src/zsh.h: add GLOB_STAR_SHORT option to
+	allow shorthand ** for **/* and *** for ***/*.
+
+2015-10-29  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 37018: Src/math.c, Src/params.c, Test/E01options.ztst: make
+	WARNCREATEGLOBAL consistent in all cases, outputting file name.
+
+	* unposted: .gitignore: ignore .orig files.
+
+	* 37014: Functions/MIME/zsh-mime-setup,
+	Functions/Misc/add-zsh-hook, Src/Modules/socket.c,
+	Src/Modules/tcp.c, Src/Modules/zpty.c, Src/builtin.c,
+	Src/params.c,Src/zsh.h: improved internal parameter setting.
+	Enhance WARNCREATEGLOBAL to work in many more cases.  Don't
+	create REPLY as an integer if it didn't previously exist as one,
+	even if the value to be set is integral, as this is likely to
+	mess up later uses of REPLY.
+
+2015-10-29  Jun-ichi Takimoto <takimoto-j@kba.biglobe.ne.jp>
+
+	* 36983 (with fix from 36990): Completion/Unix/Command/_head,
+	Completion/Unix/Command/_tail: new completions for head and tail
+
+2015-10-27  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 36994: Functions/Zle/bracketed-paste-magic: declare local REPLY
+	for use with "zle .read-command"; use .self-insert instead of
+	.self-insert-unmeta
+
+2015-10-27  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 36982: Doc/Zsh/expn.yo, Src/pattern.c, Test/D02glob.ztst,
+	Test/D04parameter.ztst: fix actual bug with (#cN) and back off
+	previous change.
+
+	* 36977: Doc/Zsh/expn.yo: note about complications of pattern
+	repetitions (#cN).
+
+	* 36974: Src/Modules/zftp.c, Src/Zle/complist.c,
+	Src/Zle/computil.c, Src/Zle/zle_thingy.c, Src/parse.c: fix empty
+	argument lists.
+
+2015-10-26  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 36906: Kamil Dudka <kdudka@redhat.com>: Src/mem.c:
+	queue_signals() in ZSH_MEM realloc()
+
+	* 36968: Src/Modules/db_gdbm.c: use addmodulefd() to tell the
+	shell about the descriptor of the dbm file
+
+	* 36956: Src/mem.c: revert 34451, mmap() is too slow on MacOS
+
+2015-10-26  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* users/20825: Src/Zle/zle_utils.c: get_undo_current_change()
+	needs same protection as mkundoent() for execution within
+	completion.
+
+2015-10-25  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* 36962: Completion/Unix/Command/_git: _git: Fix completion of
+	RHS of refspecs.
+
+	* 36964: Completion/Unix/Command/_git: _git: Complete remotes
+	branch names with slashes correctly.
+
+	* 36960: Completion/Unix/Command/_git: _git: Enable slash matcher
+	for more branch and tag completions, include 'git branch <TAB>'
+	and 'git tag <TAB>'.
+
+	* 36959: Completion/Unix/Command/_git: _git: Offer @~$n as
+	completion of recent commits.
+
+	* 36958: Completion/Unix/Command/_git: _git: Fix recent commit
+	completion descriptions.
+
+	* unposted: Completion/Unix/Command/_git: _git: Fix 'commit
+	object name' completion messages.
+
+2015-10-25  Jun-ichi Takimoto <takimoto-j@kba.biglobe.ne.jp>
+
+	* 36911: Src/Zle/computil.c: '-optarg' should not match
+	optspec '-opt='
+
+2015-10-24  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 36943 (with updated comment): Src/mem.c: restore scan for
+	reclaimable blocks in freeheap() [had been removed by 36834]
+
+2015-10-24  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* unposted: Completion/Unix/Command/_beep: _beep completion:
+	Actually hook it for the 'beep' command.
+
+	* 36913 + 36945: Functions/VCS_Info/VCS_INFO_quilt: vcs_info quilt:
+	Pass patch subject lines to gen-applied-string
+
+	* 36912: Functions/VCS_Info/VCS_INFO_quilt: vcs_info quilt:
+	Tolerate being in child of .pc's parent
+
+2015-10-24  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* unposted: Src/utils.c: small typo.
+
+	* 36944: Src/utils.c, Src/Modules/tcp.c, Src/Modules/socket.c:
+	extend the previous to zsocket, although this needs to allow the
+	fd to be closed explicitly.
+
+	* 36941: Src/utils.c, Src/zsh.h, Src/Modules/tcp.c: ensure shell
+	knows about file descriptiors used by ztcp and allow such file
+	descriptors to be marked as internal if needed (not yet used).
+
+2015-10-22  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* unposted: Doc/Zsh/contrib.yo: vcs_info docs: Typo fix.
+
+2015-10-21  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* unposted: Src/math.c: strdup should be ztrdup
+
+	* 36909: Src/hist.c: in getargs(), sanity-check the offsets for
+	start and end of the requested words, in case of overflow
+
+	* 36871: Functions/Zle/bracketed-paste-magic: move initial call
+	to "zle .bracketed-paste-magic" to occur earlier in the function
+
+2015-10-20  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* 36900: Completion/Unix/Command/_git: _git: stash names
+	completion: Display log messages
+
+2015-10-19  Oliver Kiddle  <opk@zsh.org>
+
+	* 36642: Eric Cook: Completion/Unix/Command/_zfs:
+	complete jail/unjail subcommands on freebsd
+
+	* 36646: Eric Cook: Completion/Unix/Type/_zfs_dataset,
+	Completion/Unix/Command/_zpool, Completion/Unix/Command/_zfs:
+	solaris/openzfs differences; only use -t share solaris
+
+	* 36889: Eric Cook: Completion/BSD/Command/_sockstat:
+	completion of system specific sockstat options
+
+	* 36869: Matthew Martin: Completion/Unix/Command/_ssh: use
+	permissions to limit files completed for ssh identity files
+
+2015-10-18  Frank Terbeck  <ft@bewatermyfriend.org>
+
+	* 36888: Functions/VCS_Info/vcs_info: vcs_info: Prevent
+	warn_create_global warning with '-preinit-' state
+
+2015-10-15  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 36864: Completion/Unix/Command/_nm,
+	Completion/Unix/Command/_objdump: new objdump completion plus
+	tweak to _nm.
+
+2015-10-14  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 36853: Src/exec.c: replace pushheap/popheap by NEWHEAPS/OLDHEAPS
+	in doshfunc() to optimize memory management
+
+2015-10-14  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 36856: Doc/Zsh/contrib.yo, Functions/Chpwd/cdr: add -p and -P
+	options to cdr for pruning the directory list.
+
+2015-10-11  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 36841: Completion/Base/Widget/_complete_help: factor out and
+	update the patterns that filter "uninteresting" functions out
+	of the $funcstack list when generating the call trace to show
+	where a tag is active.
+
+	* 36836: Src/mem.c: zhalloc() avoids re-scanning all heaps when
+	the last known heap with free space does not have enough space
+
+	* 36834: Src/mem.c: freeheap() preserves last allocated heap
+
+2015-10-11  Frank Terbeck  <ft@bewatermyfriend.org>
+
+	* 36830: Functions/VCS_Info/Backends/VCS_INFO_get_data_git:
+	vcs_info: Silence an error message with new git versions
+
+	* 36832: Functions/VCS_Info/Backends/VCS_INFO_get_data_git:
+	vcs_info: Remove dependency on "seq"
+
+2015-10-06  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 36780: Src/params.c: ensure HOME parameter is unset if
+	corresponding internal variable is null.
+
+2015-10-04  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 36773: Src/utils.c: limit CORRECT / CORRECT_ALL to directory
+	names in cases where it is obvious that a directory is expected
+
+2015-10-03  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* unposted (cf. 36696): Test/C03traps.ztst: test case for 36766
+
+	* unposted: Src/exec.c, Src/loop.c: back out 36707, fixed by 36766
+
+	* 36766: Src/exec.c: fix incorrect reset of noerrexit during
+	"if" conditions
+
+2015-10-03  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 36760: Src/pattern.c: ensure we don't do anything untoward
+	with an already metafied pattern trial match.
+
+2015-10-03  Mikael Magnusson  <mikachu@gmail.com>
+
+	* 36754: Functions/TCP/tcp_open, Functions/TCP/tcp_read,
+	Functions/TCP/tcp_send, Functions/TCP/tcp_shoot: Tweak some
+	usage output in the tcp_* functions
+
+2015-10-02  Jun-ichi Takimoto <takimoto-j@kba.biglobe.ne.jp>
+
+	* 36732: Completion/Unix/Command/_zsh: support -s and -b,
+	and complete script arguments
+
+2015-10-01  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 36737: Src/pattern.c: Ensure we are not dereferencing
+	zero-length unterminated string.
+
+	* 36735: Doc/Zsh/contrib.yo, Functions/Misc/zcalc: ~/.zcalcrc.
+
+	* Andrew Janke: 36729: MACHINES, NEWS, README: fix some typos.
+
+	* 36722: Completion/Unix/Command/_git: allow range to complete
+	after ^, taking acoount of backslash quoting.
+
+2015-10-01  Mikael Magnusson  <mikachu@gmail.com>
+
+	* 36709: Doc/Zsh/zle.yo, Functions/Zle/bracketed-paste-url-magic,
+	Src/Zle/zle_main.c, Src/Zle/zle_params.c, Src/Zle/zle_thingy.c:
+	zle -f from inside widget to set flags and make yank start/end
+	zle params writable.
+
+	* 36692: Functions/Zle/bracketed-paste-url-magic: simpler
+	alternative for handling pasted urls
+
+2015-09-30  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* users/20672: Src/text.c: missing "do" in gettext2() for "select"
+	
+	* 36707: Src/exec.c, Src/loop.c: distinguish ERR_RETURN value
+	of retflag so that execif() can ignore it in the test sublist
+
+	* cf. 36690: Doc/Zsh/builtins.yo: remove sentence fragment
+
+2015-09-30  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* 36725: Functions/VCS_Info/Backends/VCS_INFO_get_data_git:
+	vcs_info git: Compute %b correctly when "git am"-ing onto
+	detached heads.
+
+	* 36725: Functions/VCS_Info/Backends/VCS_INFO_get_data_git:
+	vcs_info git: Compute %b correctly when rebasing detached heads.
+
+	* 36725: Functions/VCS_Info/Backends/VCS_INFO_get_data_git:
+	vcs_info git: Compute %b correctly when merging to detached
+	heads.
+
+2015-09-30  Jun-ichi Takimoto <takimoto-j@kba.biglobe.ne.jp>
+
+	* 36697: Completion/Base/Utility/_arguments: handle options
+	of _arguments correctly
+
+2015-09-30  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* Matthew Martin: 36693: Doc/Zsh/arith.yo: arithmetic rounds
+	towards zero.
+
+	* 36711: Src/glob.c, Src/pattern.c: Memory for early unmetafied
+	pattern trial string is on the heap.
+
+2015-09-28  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 36682: Src/glob.c, Src/pattern.c, Src/zsh.h,
+	Src/Zle/complist,c, Src/Zle/zle_hist.c: expand pattern interface
+	to allow unmetafying trial string once for reuse.
+
+2015-09-28  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* unposted: Test/D04parameter.ztst: Test for 36669
+
+2015-09-28  Daniel Hahler  <git@thequod.de>
+
+	* 36601: Functions/VCS_Info/Backends/VCS_INFO_get_data_git:
+	vcs_info: handle missing .git/rebase-apply/{next,msg-clean}
+
+2015-09-28  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 36669: Src/lex.c: fix ${(z)...} of an an incomplete math
+	expression by restoring "((" at the front of the token
+
+2015-09-28  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* unposted: Etc/zsh-development-guide: Update link to my
+	ChangeLog generator script, on account of patching it to handle
+	commas properly (thanks Mikael).
+
+2015-09-28  Mikael Magnusson  <mikachu@gmail.com>
+
+	* unposted: Completion/Zsh/Context/_brace_parameter,
+	Completion/Zsh/Type/_delimiters, Completion/Zsh/Type/_globquals,
+	Functions/Calendar/age: Fix broken case condition and "qualifer"
+	typo
+
+2015-09-27  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* 36651: Doc/Zsh/options.yo, Src/exec.c, Src/math.c,
+	Test/E01options.ztst: WARN_CREATE_GLOBAL += math expressions
+
+	* Matthew Martin: 36653: Completion/Unix/Command/_user_admin:
+	OpenBSD's usermod has no -a flag
+
+2015-09-27  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 36663: Src/mkmakemod.sh, Src/zsh.mdd: replace obsolete
+	"autobins" commentary with "autofeatures"
+
+	* 36661: Src/Modules/curses.mdd: replace obsolete "autobins"
+	setting with "autofeatures"
+
+2015-09-28  Jun-ichi Takimoto <takimoto-j@kba.biglobe.ne.jp>
+
+	* 36631: Completion/Unix/Command/_sh,
+	Completion/Unix/Command/_zsh: separate _zsh from _sh	
+
+2015-09-26  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 36641: Src/Modules/complist.c: fix multibyte handling in
+	incremental search during menu selection
+
+2015-09-26  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* unposted (see 36633): Completion/Unix/Command/_hg: _hg:
+	Enable --option=value syntax and disable '-xy Xarg Yarg' syntax
+
+2015-09-25  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* unposted: Src/Zle/zle_tricky.c Src/Zle/zle_utils.c: zle:
+	Document the C helper function processcmd().
+
+2015-09-25  Christoph Mathys  <eraserix@gmail.com>
+
+	* 36626: Completion/Unix/Command/_hg: _hg: completion for
+	'hg bookmarks'
+
+2015-09-25  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 36630: Doc/Zsh/contrib.yo, Doc/Zsh/manual.yo,
+	Functions/Chpwd/zsh_directory_name_generic: new helper function.
+
+2015-09-24  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 36623: Doc/Zsh/contrib.yo: document bracketed-paste-magic and
+	url-quote-magic; add cross-reference to vim text object widgets
+
+2015-09-24  Mikael Magnusson  <mikachu@gmail.com>
+
+	* 36603: Src/glob.c: fix dirfd leak during Y shortcut qualifier
+
+2015-09-24  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* unposted: Completion/Unix/Command/_hg: Declare $expl as an array
+
+2015-09-24  Christoph Mathys  <eraserix@gmail.com>
+
+	* 36613: Completion/Unix/Command/_hg: extend completion for hg
+	push to support branch and bookmark
+
+2015-09-23  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 36604: Functions/Misc/zrecompile: fix getopts+shift calculation
+
+2015-09-23  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* unposted: Src/Zle/compmatch.c: Followup to 36586: Change C99
+	comment syntax to the C89 syntax.
+
+2015-09-23  Mikael Magnusson  <mikachu@gmail.com>
+
+	* Eric Cook: 36571: Completion/Linux/Command/_losetup,
+	Completion/Zsh/Command/_zsocket: Completion for zsocket and
+	updated losetup's completion
+
+2015-09-22  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 36587: Functions/Zle/edit-command-line: use +LINE:COLUMN to
+	place the cursor when invoking emacs variants, for emacsclient
+
+2015-09-22  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 36586: Han Pingtian: Src/Zle/compmatch.c: tweak to completion
+	matching with right anchor.
+
+	* 36545: Han Pingtian: Doc/Zsh/compwid.yo: tweak doc for match
+	anchors e and E.
+
+	* 36538: Han Pingtian: Doc/Zsh/compwid.yo: tweak doc for match
+	anchors to get correct difference between b and B.
+
+2015-09-22  Jun-ichi Takimoto <takimoto-j@kba.biglobe.ne.jp>
+
+	* 36578: Doc/Zsh/compsys.yo: option in a mutually exclusive set
+	has key "set-opt" in $opt_args
+
+2015-09-21  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 36580: Src/Zle/compmatch.c: don't copy empty buffer and check
+	size is consistent.
+
+2015-09-21  Frank Terbeck  <ft@bewatermyfriend.org>
+
+	* 36575: Completion/Unix/Command/_tmux: _tmux: 'lock-server'
+	option is gone in tmux.git
+
+	* 36576: Completion/Unix/Command/_tmux: _tmux: Fix tmux homepage
+	URI
+
+2015-09-21  Jun-ichi Takimoto <takimoto-j@kba.biglobe.ne.jp>
+
+	* 36574: Completion/Unix/Command/_lldb: new completion for
+	the lldb debugger
+
+	* 36556: Completion/Unix/Command/_sh: remove unnecessary
+	helpspec to '_argument --'
+
+2015-09-21  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 36577: configure.ac, Src/zsh.h: supplement 36559 to
+	use LONG_MAX for 64-bit long.
+
+	* unposted: Src/zsh.h: typo in 36559.
+
+2015-09-19  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* unposted: Doc/Zsh/builtins.yo: zcompile prepares scripts for
+	sourcing, not for execution
+
+	* 36566: Src/parse.c: check for regular file before lseek()
+
+	* 36562: Src/utils.c: sanitize $PWD on import, per POSIX
+
+2015-09-19  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 36559: Src/pattern.c: test earlier for overflow in pattern
+	range.
+
+	* unposted: Test/D07multibyte.ztst: fix typo.
+
+2015-09-18  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* unposted (cf. users/20586): Doc/Zsh/builtins.yo: clean up
+	cross-references to the "Autoloading Functions" section.
+
+2015-09-17  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* unposted: Test/D04parameter.ztst: test for 36552
+
+	* 36552: Src/utils.c: fix Nularg string in quotestring(QT_DOLLARS)
+
+2015-09-14  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* unposted: Doc/Zsh/zle.yo README: docs: Typo fixes
+
+2015-09-13  Axel Beckert  <abe@deuxchevaux.org>
+
+	* 36523: Thue Janus Kristensen: Completion/Unix/Command/_gphoto2:
+	Replace --delete-files with --delete-file.
+
+2015-09-12  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 36525: Src/Zle/zle_misc.c: revert only the selfinsert() bit of
+	36496 because selfinsert() may be called with incomplete wide
+	character processing from places other than getkeymapcmd()
+
+	* unposted: Functions/Zle/bracketed-paste-magic: revert 36483 as
+	multibyte is now handled by "zle .read-command"; adapt to new
+	default behavior of zle_highlight for paste
+
+	* 36522: Src/Zle/zle_thingy.c: unmetafy the argument of "zle -U"
+
+	* 36509: Src/Modules/curses.c: allocate hash table nodes with
+	zshcalloc() to avoid garbage flag values
+
+2015-09-12  Jun-ichi Takimoto <takimoto-j@kba.biglobe.ne.jp>
+
+	* 36491: Src/glob.c, Test/D07multibyte.ztst: Multibyte
+	support for the parameter expansion flags B, E and N.
+
+2015-09-11  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* 36443: Doc/Zsh/zle.yo Src/Zle/zle_refresh.c: 
+	Highlight pasted/yanked text as standout by default (i.e., when
+	$zle_highlight doesn't specify otherwise).
+
+	* 36443: Revert 35834.
+
+2015-09-11  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 36496 (plus tweak for key buffer length): Src/Zle/zle_hist.c,
+	Src/Zle/zle_keymap.c, Src/Zle/zle_main.c, Src/Zle/zle_misc.c,
+	Src/Zle/zle_vi.c: Read full multibyte string early for
+	self-insert.
+
+	* unposted: Config/version.mk: Update internal build to
+	5.1.1-dev-0
+
+	* unposted: Config/version.mk: 5.1.1
+
+	*  Sebastian Gniazdowski: 36489: Src/Modules/curses.c: fix bug
+	with hash table for colours.
+
+	* 36483: Functions/Zle/bracketed-paste-magic: use
+	[[:INCOMPLETE:]] to get rest of multibyte character.
+
+2015-09-11  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* unposted: NEWS, README: update for minor new features that
+	have just appeared.
+
+2015-09-10  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* 36445: Doc/Zsh/zle.yo Src/Zle/zle_params.c: Expose yankb,
+	yanke, ZLE_YANK to widgets.
+
+2015-09-10  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 36478: Src/pattern.c, Src/zsh.h, Src/Zle/comp.h,
+	Doc/Zsh/expn.yo, Test/D07multibyte.ztst: add [[:INCOMPLETE:]] and
+	[[:INVALID:]] pattern tests.
+
+2015-09-10  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 36470: Src/Zle/zle_main.c: Auxiliary to 36468, return an empty
+	buffer from zleread() if a widget exits
+
+2015-09-10  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 36468: Src/hist.c: Infinite loop if we tried to exit from a
+	Zle widget but the lexer thought the current lexical expression
+	needed finishing.
+
+	* 36460: Test/E01options.ztst: Discard benign error on failure
+	to write to pipe with no one reading.
+
+2015-09-08  Oliver Kiddle  <opk@zsh.org>
+
+	36422: Src/compat.c: add missing unmeta()
+
+2015-09-07  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* 36437: Doc/Zsh/zle.yo Src/Zle/zle.h: Document interaction of
+	$region_highlight and $zle_highlight.
+
+	* unposted: Doc/Zsh/zle.yo: ZLE_STATE: fix obvious documentation
+	typo.
+
+2015-09-07  James Clarke  <jrtc27@jrtc27.com>
+
+	* 36441: Completion/Unix/Command/_git: _git: Fixed typo in
+	--author-date-order description
+
+2015-09-06  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* unposted: Config/versiom.mk, Etc/FAQ.yo, NEWS, README: make
+	5.1-test-1 with updates for 5.1.1.
+
+2015-09-05  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* unposted: Doc/Zsh/params.yo Doc/Zsh/zle.yo: Minor documentation
+	tweaks.
+
+	* 36410: Doc/Zsh/contrib.yo
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_git: vcs_info git:
+	Present merge heads as patches
+
+2015-09-04  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 36421: Src/pattern.c: can't-get-the-staff fix for idiocy in
+	36415.
+
+2015-09-04  Jun-ichi Takimoto <takimoto-j@kba.biglobe.ne.jp>
+
+	* 36417: Doc/Zsh/manual.yo: fix/update top level texinfo menu
+
+2015-09-04  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 36415: Src/pattern.c, Test/D07multibyte.ztst: remap bytes from
+	invalid multibyte characters to 0xDC00 + index which is invalid
+	in Unicode.  Strictly this only works if whcar_t is
+	ISO-10646-compliant, however it ought to be at least as good as
+	the current fudge in any case.
+
+2015-09-03  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 36416: Src/Zle/zle_refresh.c, Src/Zle/zle_utils.c: If
+	keyboard interrupt during getzlequery(), don't propagate further,
+	just redraw the line.  Also handle logical error that we
+	attempted to redraw the line partially if an error or interrupt
+	was propagated.
+
+2015-09-03  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* 36403: Src/hashtable.c Test/A02alias.ztst: type -w +=
+	suffix alias
+
+2015-09-02  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* unposted: Test/A05execution.ztst: test for 36393
+
+	* 36393: Src/signals.c: process queued signals during dotrap()
+
+2015-09-02  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 36378: Src/exec.c: skip directories when looking for autoload
+	files.
+
+2015-09-02  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 36399: Src/text.c, Test/A04redirect.ztst: shell code with
+	multiple here documents wasn't shown properly.
+
+2015-09-01  Mikael Magnusson  <mikachu@gmail.com>
+
+	* 36380: Src/utils.c: Avoid gcc case syntax
+
+	* 36347: Src/params.c, Test/A06assign.ztst: Fix appending empty
+	array to associations
+
+2015-09-01  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 36376: Src/utils.c: handle signals during read1char() so it is
+	possible to interrupt correct/correctall prompts
+
+2015-09-01  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 36365: Src/Zle/zle_tricky.c: magic-space removed the rest of
+	the line if the lexer found something complicated.
+
+	* unposted: Config/version.mk: update version to 5.1-dev-0 to
+	avoid clash with 5.1 release.
+
+2015-09-01  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* 36353: Completion/Unix/Command/_git: _git: Unbreak after
+	previous.
+
+2015-08-30  Mateusz Karbowy  <mateusz.karbowy@gmail.com>
+
+	* 36328 + 36340: Completion/Unix/Command/_git: _git-cherry-pick:
+	Complete other branches only
+
+2015-08-30  Axel Beckert  <abe@deuxchevaux.org>
+
+	* 36338: Functions/Zle/*-magic: s/5.0.9/5.1/ in source comments
+
+2015-08-30  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* unposted: Config/version.mk: Release version 5.1
+
+2015-08-29  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* 36321: Completion/Debian/Command/_debcheckout: _debcheckout:
+	New completion.
+
+2015-08-28  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* 36306: Completion/Unix/Command/_subversion: _subversion:
+	Complete --show-item values
+
+2015-08-28  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* users/20475: Doc/Zsh/contrib.yo: mention that cdr mechanism
+	keeps unique list with most recent use first.
+
+	* users/20466: Test/V09datetime.ztst: make test for skipping
+	strftime extention tests one that is known to fail on
+	Solaris.  Reason is not yet known, but there's no current
+	evidence for a shell bug so replace the failure by skipping
+	test for the release.
+
+2015-08-28  Mikael Magnusson  <mikachu@gmail.com>
+
+	* 36302: Src/Modules/attr.c: Fix compilation with libcap 2.24
+
+	* 36314: Functions/Prompts/prompt_bart_setup: Avoid using
+	short_loops syntax in distributed files
+
+2015-08-27  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* unposted: Completion/Unix/Command/_subversion: _subversion:
+	Avoid SHORT_LOOPS
+
+	* 36304: Completion/Unix/Command/_git: _git-cat-file: Fix
+	regression in 36237
+
+2015-08-27  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* unposted (cf. Axel Beckert 36292): Test/A05execution.ztst:
+	discard even more extraneous stderr in "hang" test
+
+2015-08-26  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 36288: Src/Zle/zle_tricky.c: refine 36825, slightly different
+	test for redirect context
+
+	* 36285: Src/Zle/zle_tricky.c: update 36025, context cannot be
+	command and redirect at the same time, redirect wins
+
+	* 36282: Test/A05execution.ztst: discard stderr of "hang" test
+
+2015-08-25  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* unposted: Config/version.mk: 5.0.8-test-3.
+
+2015-08-24  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* 36277: Completion/Unix/Command/_git: _git: Updated for
+	git-clone 2.4.5.
+
+2015-08-24  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* unposted: Etc/FAQ.yo: replace 5.0.9 with 5.1.
+
+2015-08-23  Jun-ichi Takimoto <takimoto-j@kba.biglobe.ne.jp>
+
+	* users/20455: Src/Modules/zpty.c: do not use posix_openpt()
+	on OpenBSD
+
+2015-08-22  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 36274: Src/Zle/zle_vi.c: clear virangeflag when getvirange()
+	has an error (the next keystroke is not a motion/selection).
+
+	* 36273: Src/Zle/zle_move.c: teach endofline() and endoflinehist()
+	about invicmdmode() cursor placement.
+
+2015-08-21  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* unposted: Config/version.mk, Src/parse.c, Src/Zle/zle_misc.c:
+	update to 5.0.8-test-2 and fix some exports.
+
+2015-08-21  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 36266: Functions/Zle/bracketed-paste-magic: preserve emulation
+	and setopt context for init and finish functions, handle vi modes
+
+	* 36256: Src/builtin.c: local options should remain in effect
+	for "emulate -L" even if additional option settings are applied
+
+2015-08-21  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 36268: Test/C04funcdef.ztst: test for 36265.
+
+	* 36265 plus FAQ: fix alias expansion after "function"
+	Names after the first were treated as command words so had
+	non-global aliases expanded. Add an FAQ note that use of the
+	function keyword works around other alias problems.  Also
+	fixes problem that "function { ... }" didn't work with
+	IGNORE_BRACES set.
+
+	* 36264: Src/glob.c: pathbuf is apparently metafied; document
+	this and unmetafy for system calls.
+
+	* unposted: README, Etc/FAQ.yo: update latest release from 5.0.8
+	to 5.1 in descriptive text.
+
+	* 36262: Src/builin.c, Src/compat.c, Src/utils.c,
+	Test/D07multibyte.ztst: replace 36232: the unmeta()
+	was needed at a place higher up.  Add test.
+
+	* 36250, tweaked: README, NEWS: highlight bracketed paste mode;
+	next version will be 5.1 rather than 5.0.9.
+
+2015-08-20  Jun-ichi Takimoto <takimoto-j@kba.biglobe.ne.jp>
+
+	* 36243: Completion/Unix/Type/_pids: fix a few problems of
+	"_pids -m pattern"
+
+2015-08-19  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* 36247: Completion/Unix/Command/_git: __git_objects: Complete
+	HEAD:./foo correctly in worktree subdir
+
+	* 36237: Completion/Unix/Command/_git: __git_objects: Complete
+	HEAD:foo correctly in worktree subdir
+
+	* 36236: Completion/Unix/Command/_git: _git-log: Complete
+	multiple revspecs
+
+	* 36236: Completion/Unix/Command/_git: _git-log: complete
+	'git rm'd files
+
+2015-08-19  Oliver Kiddle  <opk@zsh.org>
+
+	* 36148: Completion/Unix/Command/_git: _git-log: Complete flags
+	after positional argument
+
+2015-08-19  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 36241: Test/V09datetime.ztst: Test for 36227.
+
+2015-08-19  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* 36208: Completion/Unix/Command/_subversion: _subversion:
+	Complete a few more option switches
+
+2015-08-18  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 36232: Src/compat.c: Unmeta an additional chdir().
+
+	* 36227: Src/Builtins/sched.c, Src/Modules/datetime.c,
+	Src/Modules/stat.c, Src/builtin.c, Src/prompt.c, Src/utils.c,
+	Src/watch.c: real fix for metafication problem in ztrftime:
+	unmetafy fmt on input and metafy return value with correct
+	length.
+
+	* unposted: revert 36222, not the correct fix.
+
+	* 36222: Src/Modules/datetime.c: unmetafy output from strftime.
+
+	* 36218: Src/files.c: use unmetafied file name for mkdir()
+	system call.
+
+	* 36216: Doc/Zsh/zle.yo: Simpler saving of UNDO_LIMIT_NO.
+
+2015-08-17  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 36212: Functions/Zle/narrow-to-region: save and restore HISTNO
+	along with other editor state, for sanity of "zle undo"
+
+2015-08-18  brian m. carlson  <sandals@crustytoothpaste.net>
+
+	* 36209: Functions/VCS_Info/Backends/VCS_INFO_get_data_git:
+	vcs_info: avoid grep error message when file is missing
+
+2015-08-17  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* unposted: Completion/Linux/Command/_sshfs: _sshfs: Fix
+	completion of options with values
+
+	* 36158: Completion/Linux/Command/_sshfs: _sshfs: Fix completion
+	of and after -o
+
+	* 36109: Src/Zle/zle_misc.c: bracketed-paste: change quoting
+	style
+
+	* 36186: Etc/FAQ.yo: FAQ (3.24): Update for bracketed paste
+
+2015-08-17  Mikael Magnusson  <mikachu@gmail.com>
+
+	* 36172: Completion/Unix/Command/_imagemagick: Use $formats a
+	bit more correctly
+
+2015-08-17  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* unposted (cf. 36200): Completion/Base/Completer/_expand: back out
+	backslash handling change from 34961.
+
+2015-08-17  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* unposted: Doc/Zsh/contrib.yo: use of $f in zmv.
+
+2015-08-17  Oliver Kiddle <opk@zsh.org>
+
+	* 36165: Completion/Unix/Type/_files: simplify file-patterns
+	default to a single pattern
+
+2015-08-17  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* unposted: Functions/Zle/url-quote-magic: mention
+	bracketed-paste-magic in comment
+
+2015-08-17  Mikael Magnusson  <mikachu@gmail.com>
+
+	* 36177: Completion/Zsh/Command/_setopt: complete printexitvalue
+	both ways
+
+	* 36183: Completion/Unix/Command/_ssh: update to 7.0
+
+2015-08-16  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 36195, 36196: Functions/Zle/bracketed-paste-magic: wrapper of
+	bracketed-paste for compatibilty with url-quote-magic and other
+	self-insert wrapper widgets
+
+2015-08-15  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 36180: Src/jobs.c: avoid infinite job stop/continue loop on
+	"wait PID" for a background job
+
+2015-08-15  Mikael Magnusson  <mikachu@gmail.com>
+
+	* Eric Cook: 36091: Completion/Unix/Command/_ncftp: search
+	XDG_DATA_HOME for bookmarks saved by lftp
+
+2015-08-14  Oliver Kiddle <opk@zsh.org>
+
+	* 36146: Completion/Zsh/Type/_command_names,
+	Completion/Zsh/Command/_zmodload: avoid mix of -/ and -g with
+	_files as that just overrides user preferences
+
+2015-08-13  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* unposted: Completion/Unix/Command/_subversion: _subversion:
+	Complete property names for propdel
+
+2015-08-13  Oliver Kiddle <opk@zsh.org>
+
+	* 36131: Functions/Zle/narrow-to-region, Src/Zle/zle_utils.c:
+	make use of undo limits; call mkundoent() when $UNDO_CHANGE_NO is
+	referenced for a clear change number marking the current state
+
+	* Eric Cook: 36113: Completion/Unix/Type/_find_net_interfaces:
+	ip(8) may add suffixes which is not good for completion matches
+
+	* Wieland Hoffmann: 36123: Completion/Unix/Command/_git:
+	protect against word splitting in __git_is_committish_range
+
+2015-08-12  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Kamil Dudka: 36106: Src/Zle/zle_keymap.c: fix const parameter.
+
+2015-08-12  Oliver Kiddle <opk@zsh.org>
+
+	* 36127: Completion/Zsh/Context/_brace_parameter,
+	Completion/Unix/Command/_git, Completion/Unix/Command/_ifconfig,
+	Completion/Unix/Command/_kvno, Completion/Unix/Command/_mh,
+	Completion/Unix/Command/_rm, Completion/Unix/Command/_ssh,
+	Completion/Unix/Command/_stty, Completion/Unix/Command/_vim,
+	Completion/Unix/Type/_pdf, Completion/Unix/Command/_clay:
+	assorted minor completion function changes
+
+	* 36125: Src/Zle/zle_hist.c: don't set history context in get-line
+
+	* 35834 (tweaked): Src/Zle/zle_misc.c: strip a final newline from
+	pasted text: inserting is hard to tell apart from accepting it
+	[reverted in 36443]
+
+2015-08-12  Mikael Magnusson  <mikachu@gmail.com>
+
+	* 36077: Functions/VCS_Info/Backends/VCS_INFO_get_data_bzr,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_hg,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_p4,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_svk,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_svn,
+	Functions/VCS_Info/VCS_INFO_formats,
+	Functions/VCS_Info/VCS_INFO_hook,
+	Functions/VCS_Info/VCS_INFO_quilt,
+	Functions/VCS_Info/VCS_INFO_set, Functions/VCS_Info/vcs_info,
+	Functions/VCS_Info/vcs_info_lastmsg,
+	Functions/VCS_Info/vcs_info_printsys: vcs_info: stop exporting
+	everything
+
+	* 36078: Doc/Zsh/contrib.yo: vcs_info: Adjust documentation for
+	no longer exporting
+
+	* 36116: Completion/Unix/Command/_git: various fixes
+
+	* 36117: Completion/Unix/Command/_wget: complete headers for
+	--header and add --no-use-server-timestamps
+
+	* 36120: Completion/Unix/Command/_sort: Fix syntax error
+
+	* 36119: Completion/Zsh/Command/_strftime: Add completion for
+	zsh/datetime's strftime builtin
+
+2015-08-11  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 36108: NEWS: list of major changes so far since 5.0.8
+
+	* 36104: Src/exec.c, Src/jobs.c: change order of child_block()
+	and dont_queue_signals() to resolve yet another race condition
+
+	* 36092: Doc/Zsh/mod_zpty.yo, Src/Modules/zpty.c: return the pty
+	master file descriptor in $REPLY for use with "zle -F" etc.
+
+	* 36090: Src/init.c: keep signals queued for preprompt()
+
+2015-08-11  Oliver Kiddle <opk@zsh.org>
+
+	* 36096: Src/Zle/zle_move.c: special . mark in vi mode
+
+	* 36044: Doc/Zsh/zle.yo, Src/Zle/iwidgets.list, Src/Zle/zle_keymap.c,
+	Src/Zle/zle_move.c: deactivate-region widget for escape in visual mode
+
+	* 35952: Jun-ichi Takimoto: Src/Zle/zle_bindings.c: bind escape in
+	vi mode so it is a full key sequence and later keys aren't dropped
+
+2015-08-11  Jun-ichi Takimoto <takimoto-j@kba.biglobe.ne.jp>
+
+	* 36067: Doc/Zsh/builtins.yo, Doc/Zsh/compsys.yo,
+	Doc/Zsh/contrib.yo, Doc/Zsh/expn.yo: fix typo and format
+
+2015-08-10  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 36084: Src/glob.c, Src/text.c: use zrealloc() consistently
+
+	* 36079: Src/signals.c: do not allow update_job() and its helpers
+	to run the signal queue while we are processing a job exit.
+
+2015-08-10  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 36083: Src/builtin.c, Test/B02typeset.ztst: set array value
+	when consistently retying scalar and array.
+
+2015-08-10  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 36074: Src/signals.c: Don't rely on implicit value for
+	saving status of background process.
+
+2015-08-10  Frank Terbeck  <ft@bewatermyfriend.org>
+
+	* 36046: Completion/Unix/Command/_tmux: _tmux: Update command line
+	options
+
+	* 36048: Completion/Unix/Command/_tmux: _tmux: Update options for
+	supported commands
+
+	* 36062: Completion/Unix/Command/_tmux: _tmux: Add support for new
+	sub-commands
+
+	* 36063: Completion/Unix/Command/_tmux: _tmux: Remove dead code
+
+	* 36050: Completion/Unix/Command/_tmux: _tmux: Don't unset, set
+	empty in local scope
+
+	* 36058: Completion/Unix/Command/_tmux: _tmux: No need to unset
+	local variables
+
+	* 36057: Completion/Unix/Command/_tmux: _tmux: Replay all
+	arguments when dispatching to new _tmux()
+
+	* 36054: Completion/Unix/Command/_tmux: _tmux: "local -x" serves
+	no purpose
+
+	* 36049: Completion/Unix/Command/_tmux: _tmux: options =>
+	session_options
+
+	* 36056: Util/check-tmux-state: Add helper script to check state
+	of _tmux completion
+
+	* 36052: Completion/Unix/Command/_tmux: _tmux: Remove old
+	sub-commands and their aliases
+
+	* 36064: Completion/Unix/Command/_tmux: _tmux: Add new command
+	aliases
+
+	* 36047: Completion/Unix/Command/_tmux: _tmux: Fix options with
+	changed scope
+
+	* 36051: Completion/Unix/Command/_tmux: _tmux: Remove support for
+	old options
+
+	* 36059: Completion/Unix/Command/_tmux: _tmux: Add new session
+	options
+
+	* 36055: Completion/Unix/Command/_tmux: _tmux: Add support for new
+	server options
+
+	* 36061: Completion/Unix/Command/_tmux: _tmux: Add support for new
+	window options
+
+	* 36060: Completion/Unix/Command/_tmux: _tmux: Update TODO
+
+	* 36070: Completion/Unix/Command/_tmux: _tmux: Update bell-action
+	and prefix options
+
+	* 36069: Completion/Unix/Command/_tmux: _tmux: Fix \ooo display in
+	completion list
+
+	* 36075: Util/check-tmux-state: Disable "local" keyword in
+	script to make data retrieval work
+
+2015-08-10  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 36045: Test/A05execution.ztst: make effect of failures
+	in wait test cleare.
+
+	* not quite posted: Src/Modules/socket.c, Src/Modules/tcp.c:
+	check for error return before testing for EINTR.
+
+	* Joshua Krusell: 36039: Src/Modules/socket.c,
+	Src/Modules/tcp.c: Restart socket commands on EINTR.
+
+	* 35885: Doc/Zsh/mod_system.zo: document how to close
+	fd's opened with sysopen.
+
+2015-08-09  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 36033: Src/glob.c, Src/pattern.c: a few more queue_signals()
+	to protect global state changes
+
+2015-08-09  Mikael Magnusson  <mikachu@gmail.com>
+
+	* unposted: Test/C03traps.ztst: add tests for outputting traps
+	specified with SIG prefix or numbers fixed by 36008.
+
+2015-08-09  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 26027: Src/builtin.c: fix retying variables in opposite
+	order (should be an error).
+
+	* 36025:Src/Zle/zle_tricky.c: Catch another case of context in
+	get_comp_string():  after "foo=bar; setopt " we didn't recognise
+	"setopt" as the command.  Attempt to do this without actually
+	understanding what the command context code is attempting to do
+	after a command separator.
+
+2015-08-09  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 36026: Src/Modules/zftp.c: zero freed pointers in cleanup_()
+	in case the module is re-loaded after unloading.
+
+	* 36022: Src/loop.c: fix bug that some loop constructs could
+	not be interrupted if all they did was variable assignments or
+	math expressions
+
+	* 36022: Src/exec.c, Src/init.c, Src/input.c, Src/parse.c,
+	Src/signals.c: revise signal queueing to better control the
+	circumtances in which trap handlers are executed
+
+2015-08-08  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* 36008: Src/builtin.c: trap: Fix listing of traps created
+	under non-alias non-canonical signal spelling
+
+2015-08-08  Mikael Magnusson  <mikachu@gmail.com>
+
+	* 35954: Doc/Zsh/mod_system.yo: sysopen -u is not optional
+
+2015-08-09  Jun-ichi Takimoto <takimoto-j@kba.biglobe.ne.jp>
+
+	* 35929: Src/jobs.c: protect FDT_PROC_SUBST by #ifdef
+
+2015-08-08  Jun-ichi Takimoto <takimoto-j@kba.biglobe.ne.jp>
+
+	* 35928: Src/utils.c, Doc/Zsh/prompt.yo: date/time format such
+	as '%-m' should work even if strftime(3) doesn't support it.
+	Also clarify document.
+
+2015-08-05  Mikael Magnusson  <mikachu@gmail.com>
+
+	* 35989: Completion/Unix/Command/_ssh: update to 6.9
+
+	* unposted: Completion/Unix/Command/_ssh: use -q for the
+	option suffix
+
+	* Christian Hesse: 35991: Completion/Unix/Command/_ssh: add ssh
+	option FingerprintHash
+
+2015-08-05  Oliver Kiddle <opk@zsh.org>
+
+	* Eric Cook: 35973: Completion/BSD/Command/_systat,
+	Completion/Unix/Command/_vmstat: new completions
+
+	* Eric Cook: 35972: Completion/Unix/Command/_ssh: allow for
+	Directive=Value format in .ssh/config
+
+	* Christian Hesse: 35986: Completion/Unix/Command/_ssh:
+	add ssh option UpdateHostKeys
+
+	* unposted (c.f. 35902): Functions/Zle/incremental-complete-word:
+	use - after zle -U in case $key starts with -
+
+2015-08-04  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* unposted: Src/builtin.c: Typo fix.
+
+2015-08-02  Daniel Hahler  <zsh@thequod.de>
+
+	* 35970: Completion/Unix/Command/_git,
+	Completion/Zsh/Context/_brace_parameter: completion: fix typos in _git
+	and _brace_parameter.
+
+2015-08-01  Jun-ichi Takimoto <takimoto-j@kba.biglobe.ne.jp>
+
+	* 35957: Completion/Unix/Command/_make: fix _make-expandVars(),
+	and use variables set in the command line and environment.
+
+2015-07-31  Oliver Kiddle <opk@zsh.org>
+
+	* 35963: Src/Modules/system.c: simplify condition found by
+	coverity scan to include tautology
+
+	* Matthew Martin: 35960 (tweaked): Completion/Unix/Command/_find:
+	complete correct options for OpenBSD's find
+
+2015-07-29  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 35953: Src/lex.c, Test/A01grammar.ztst: fix handling of command
+	substitution in math context, particularly in "for ((...))"
+
+2015-07-28  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 35947: Etc/zsh-development-guide: update discussion of module
+	wrappers, some examples
+
+2015-07-27  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 35937: Functions/Misc/zargs: wait for process IDs instead of
+	job numbers in parallel mode, in case zargs is in a pipeline
+
+2015-07-26  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* 35274 (plus tweaks): Completion/BSD/Command/_watch-snoop
+	Completion/Unix/Command/_watch: completion: Add FreeBSD's
+	watch(1)
+
+2015-07-26  Oliver Kiddle <opk@zsh.org>
+
+	* 35901: Completion/X/Type/_x_font: complete full names as removing
+	later components was broken for aliases and unwanted in any case
+
+2015-07-26  Jun-ichi Takimoto <takimoto-j@kba.biglobe.ne.jp>
+
+	* Antony Lee: 35899: Completion/Unix/Type/_python_modules:
+	faster method of generating list of python modules
+
+2015-07-25  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* unposted: Functions/Prompts/prompt_bart_setup: add RPS2 handling,
+	update help text, clean up indentation whitespace
+
+2015-07-25  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 35910: Src/input.c: Don't add to raw lex buffer if lex
+	stopped.  Fixes crash on completion of incomplete
+	math expresion e.g. '$((3*4)'.
+
+	* 35909: Src/utils.c: fix $((...) completion in _expand by
+	normalising quoting of the math expression containing tokens.
+
+	* 35908: Src/ZLe/zle_tricky.c: fix $((...)) completion
+	by expand-or-complete widget.
+
+2015-07-24  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 35896: Doc/Zsh/params.yo, Doc/Zsh/zle.yo: index zle_highlight
+
+	* 35882: Src/Zle/iwidgets.list: read-command has ZLE_NOTCOMMAND
+
+2015-07-24  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* 35810: Etc/FAQ.yo: FAQ += edit-command-line
+
+	* 35809: Util/zyodl.vim: zyodl.vim: Fix nested parentheses
+
+	* 35807: Functions/Zle/edit-command-line: edit-command-line:
+	Fix for non-7bit-data (after 35769)
+
+2015-07-24  Oliver Kiddle <opk@zsh.org>
+
+	* 35865: Doc/Zsh/prompt.yo: document %^ prompt expansion
+
+	* 35864: Doc/Zsh/mod_system.yo, Src/Modules/system.c,
+	Src/Modules/system.mdd: add sysopen, sysseek and systell to
+	system module
+
+	* 35879: Eric Cook: Completion/Linux/Command/_btrfs: fix for
+	subcommands that don't have a second subcommand
+
+2015-07-24  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 35883: Src/hist.c: Don't attempt to back up over history if
+	expanding alias.
+
+2015-07-23  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 35873: Test/D03procsubst.ztst: add original test from 35847:
+
+	* 35872: Src/utils.c: protect against NULL pointers in unmeta().
+
+	* 35849: Src/exec.c, Src/jobs.c, Test/D03procsubst.ztst: close
+	file descriptors from process substitution in parent after
+	fork.
+
+	* 35854: Stc/hist.c: ensure character unget doesn't cause
+	infinite recursion.
+
+	* 35793: Src/zsh.h: avoid undefined behaviour shifting signed
+	number.
+
+2015-07-23  Oliver Kiddle <opk@zsh.org>
+
+	* 35753: Completion/Zsh/Type/_ps1234: allow for numbers after
+	the ( in ternary expressions and fix backslash quoting
+
+	* 35867: Completion/Unix/Command/_patchutils: new completion
+
+	* 35866: Completion/Unix/Command/_gzip: complete also for pigz
+
+	* 35866: Completion/Unix/Command/_zcat: allow for NetBSD gzip
+
+	* 35824: Doc/Zsh/zle.yo, Src/Zle/iwidgets.list, Src/Zle/zle.h,
+	Src/Zle/zle_misc.c, Src/Zle/zle_refresh.c: allow highlighting of
+	just pasted text, put text from bracketed paste in cut buffers
+
+	* 35815: Functions/Misc/nslookup: fix for newer nslookup
+
+	* 35814: Src/Zle/zle_main.c: POSTEDIT needs to be unmetafied
+
+2015-07-22  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 35839: Joshua Krusell <js.shirin@gmail.com>:
+	Src/Modules/socket.c, Src/Modules/tcp.c: fix select polling in
+	ztcp and zsocket
+
+	* unposted: Completion/Zsh/Type/_directory_stack: move some more
+	recent code so an old comment is connected to the correct bit of
+	older code
+
+	* users/20324: Completion/Zsh/Type/_directory_stack: add (D) flag
+	for tilde-fied completion listing
+
+	* 35826: Src/Modules/newuser.c, Src/Modules/zftp.c,
+	Src/Zle/complist.c, Src/Zle/zle_misc.c, Src/init.c, Src/params.c,
+	Src/utils.c, Src/watch.c: add getsparam_u() to return unmetafied
+	string, use it for a number of references to non-special params
+
+	* 35823: Functions/Zle/narrow-to-region: fix handling of MARK
+	and CURSOR, clean up documentary comment
+
+2015-07-22  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* unposted: Test/B02typeset.ztst: fix another test for 35581
+	
+	* 35582: Test/A06assign.ztst, Test/B02typeset.ztst: test for 35581
+
+	* 35581: Src/params.c: output array assignments with spaces inside
+	the parens
+
+2015-07-16  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 35805: Test/E01options.ztst: tests for 35799
+
+2015-07-15  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 35799: Src/params.c: with NO_EXEC, parse parameter subscript
+	expressions to correctly balance enclosing braces, but do not
+	perform the subscripting
+
+2015-07-15  Mikael Magnusson  <mikachu@gmail.com>
+
+	* unposted: Completion/Zsh/Type/_ps1234: unposted: _ps1234:
+	Fix ternary test char completion
+
+2015-07-14  Oliver Kiddle  <opk@zsh.org>
+
+	* 35789: (tweaked c.f. Bart: 35791) Completion/Unix/Type/_files:
+	duplicate glob qualifier handling from _path_files so it is
+	called once and not for each file pattern
+
+2015-07-13  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* 35790: Util/zyodl.vim: zyodl.vim: Be compatible with Vim 6.
+
+	* 35775: Doc/Zsh/.vimrc Etc/zsh-development-guide Util/zyodl.vim:
+	New zsh-specific yodl vim syntax highlighting.
+
+2015-07-13  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* 35769: Functions/Zle/edit-command-line: edit-command-line:
+	Go to the right byte offset
+
+2015-07-13  Oliver Kiddle  <opk@zsh.org>
+
+	* 35737: (tweaked c.f. Peter: 35759): Src/Zle/zle_utils.c,
+	Functions/Zle/read-from-minibuffer: use new undo limit for
+	minibuffer and beep when limit is reached
+
+	* 35756: Completion/Zsh/Type/_ps1234: use the actual
+	colours in the completion list for terminal colours
+
+	* 35774: Completion/Unix/Type/_dates: fix double
+	formatting of date explanation message
+
+2015-07-13  Daniel Hahler  <zsh@thequod.de>
+
+	* 35779: Completion/Unix/Command/_git: _git-config: remove
+	extraneous "local expl".
+
+2015-07-12  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* unposted: Test/B01cd.ztst: Typo
+
+2015-07-10  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* unposted: Test/B01cd.ztst: notes on ZTST_unimplemented: and
+	ZTST_skip.
+
+2015-07-10  Mikael Magnusson  <mikachu@gmail.com>
+
+	* 35761: Test/V09datetime.ztst: Make sure to skip alternate
+	format extension test properly
+
+2015-07-10  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* unposted: another ZTST_skip.
+
+	* 35760: Test/A01grammar.ztst, Test/C02cond.ztst,
+	Test/V09datetime.ztst, Test/ztst.zsh: ZTST_skip
+	can be used to skip test case.
+
+2015-07-09  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 35708: Doc/Zsh/zle.yo, Src/Zle/zle_params.c,
+	Src/Zle/zle_utils.c; UNDO_LIMIT_NO.
+
+2015-07-09  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 35751: Src/exec.c, Test/C03traps.ztst: fix ERR_RETURN /
+	ERR_EXIT in else branch of if.
+
+2015-07-09  Mikael Magnusson  <mikachu@gmail.com>
+
+	* 35745: Src/utils.c, Test/V09datetime.ztst: ztrftime: Pass
+	everything unhandled to the system strftime()
+
+	* unposted: (c.f. Jun T: 35754): Test/V09datetime.ztst: Make
+	V09 set a known timezone
+
+2015-07-09  Oliver Kiddle  <opk@zsh.org>
+
+	* 35748: Completion/Zsh/Type/_ps1234,
+	Completion/Zsh/Command/_print: fixes to prompt spec completion
+	where it contains date formats
+
+	* 35749: (c.f. Jun T: 35732): Completion/Unix/Type/_date_formats:
+	fix exclusion list for flags/modifiers
+
+2015-07-08  Oliver Kiddle  <opk@zsh.org>
+
+	* 35729: Completion/Zsh/Command/_compadd: new compadd completion
+
+	* Matthew Martin: 35727: Completion/Unix/Type/_diff_options:
+	support OpenBSD for diff options
+
+2015-07-07  Oliver Kiddle  <opk@zsh.org>
+
+	* 35700: Completion/Unix/Type/_date_formats: complete OS specific
+	date format specifiers and put % in a prefix
+
+	* 35718: Completion/Unix/Command/_find, Completion/Unix/Type/_dates,
+	Completion/Zsh/Type/_globquals: new calendar style date completion
+
+2015-07-07  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* unposted: Src/Zle/complete.c: remove compiler warning.
+
+2015-07-06  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* unposted: Doc/Zsh/expn.yo: alphabetize ${(b)...} flag
+
+	* 35709: Doc/Zsh/expn.yo: explain :s/// modifier contexts
+
+	* 35694: Src/subst.c, Test/D04parameter.ztst: fix handling of
+	history modifiers (specifically :s/l/r/) when applied across all
+	elements of an array parameter value
+
+2015-07-06  Oliver Kiddle  <opk@zsh.org>
+
+	* 35704: Doc/Zsh/compwid.yo, Src/Zle/compcore.c, Src/Zle/complete.c:
+	compadd -E 0 should imply -J and -2
+
+2015-07-06  Mikael Magnusson  <mikachu@gmail.com>
+
+	* 35696: Completion/Unix/Type/_ps1234: complete colors for %F{
+	and %K{
+
+	* 35697: Completion/Unix/Type/_date_formats,
+	Completion/Unix/Type/_ps1234: Complete strftime formats for %D{}
+
+2015-07-06  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* 35441: Etc/zsh-development-guide: Make devs' ChangeLog
+	generator scripts discoverable
+
+2015-07-05  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 35692: Src/Zle/computil.c: cfp_matcher_range used wrong raw
+	character if it couldn't be converted to wchar_t.
+
+	* 35688: Src/text.c: Slightly more nearly definitive version of
+	turning wordcode case statements back to text.
+
+2015-07-04  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 35682: Src/text.c, plus Test/A01grammar.ztst: turning case
+	statements parsed as multiple alternatives back into text.
+
+2015-07-03  Oliver Kiddle  <opk@zsh.org>
+
+	* 35681: Src/Modules/datetime.c: fix day of month initialisation
+
+	* 35674: Src/Zle/zle_main.c: make an undo event for
+	initial buffer contents
+
+2015-07-03  Mikael Magnusson  <mikachu@gmail.com>
+
+	* 35673: Completion/Zsh/Function/_zargs: Improve _zargs
+
+2015-07-02  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* Han Pingtian: 35665: Src/Zle/complete.c: better error handling
+	for command line match processing.
+
+	* Eric Cook: 35663: Completion/Unix/Command/_zpool: fix for
+	changed interface.
+
+	* 35668: Src/input.c, Src/lex.c, Src/zsh.h,
+	Test/D03procsubst.ztst: replacement for 35667:
+	use input flag to stop unwanted backtracking,
+	additional test.
+
+2015-07-01  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 35667: Src/lex.c, Src/zsh.h, Test/D03procsubst.ztst,
+	Test/D08cmdsubst.ztst: fix command expansion which
+	starts but does not finish within alias.
+
+2015-06-29  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* unposted: Doc/Zsh/options.yo: fix formatting typo.
+
+	* 35655: Doc/Zsh/options.yo, Src/exec.c, Src/options.c,
+	Src/zsh.h: APPEND_CREATE option gives POSIX compatible behaviour
+	for NO_CLOBBER.
+
+2015-06-28  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 35660: Functions/Prompts/prompt_adam1_setup: avoid perl, fix help
+
+2015-06-29  Oliver Kiddle  <opk@zsh.org>
+
+	* 35637: Src/Zle/zle.h, Src/Zle/zle_main.c, Src/Zle/zle_tricky.c:
+	remove the now unused module hook for reverse-menu-complete
+
+	* 35627: Src/Zle/compcore.c, Src/Zle/compctl.c, Src/Zle/complete.c,
+	Src/Zle/complist.c, Src/Zle/compresult.c, Src/Zle/zle_tricky.c:
+	make reverse-menu-complete start with last match in menu selection
+
+	* 35623: Src/Zle/complist.c: fix menu-selection where initial
+	selection would not be displayed without scrolling
+
+2015-06-28  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 35643: Src/parse.c: redirections after typeset assignments
+	were broken.
+
+2015-06-27  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 35642: Src/context.c: signal queueing in zcontext_save_partial()
+
+	* 35634: Src/exec.c: handle failure of gettempname() in namedpipe()
+
+2015-06-27  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 35635: Src/builtin.c: a bit more consistency about
+	making elements of things local.
+
+	* users/20281: Completion/Base/Core/_main_complete:
+	don't require MULTIFUNCDEF as _main_complete is parsed
+	before we can ensure it's set.
+
+	* 35623: Src/builtin.c, Src/zsh.h, Test/B02typeset.ztst: 35610
+	was incomplete: all is_array asignments should be treated as
+	having a value.
+
+2015-06-26  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 35626: Doc/Zsh/options.yo: update POSIX_CD to note that it is on
+	in ksh and sh emulations
+
+2015-06-26  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 35615: Src/lex.c, Src/Zle/zle_tricky.c:
+	fix completion after typeset.
+
+	* 35613: Src/builtin.c, Test/B02typeset: handle
+	array slices in typeset.
+
+2015-06-25  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 35610: Src/builtin.c: typeset is silent if
+	arguments is x=() even if array x already exists.
+
+	* 35604: Src/exec.c, Test/B02typeset: create
+	empty arrays in typeset with array=().
+
+2015-06-24  Jun-ichi Takimoto <takimoto-j@kba.biglobe.ne.jp>
+
+	* 35550: Src/Zle/complist.c: fix backspace in interactive
+	mode of menu-select
+
+2015-06-24  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 35514: Han Pingtian: Src/pattern.c: [[:foo:]]
+	tests in completion weren't specific enough about
+	foo.
+
+	* 35590: Src/text.c, Test/B02typeset.ztst: tweak and
+	test text output for typeset.
+
+	* various culminating in 35586, c.f. commits on typeset-array
+	branch: Config/version.mk, Doc/Zsh/builtins.yo,
+	Doc/Zsh/grammar.yo, Doc/Zsh/options.yo, NEWS, README,
+	Src/builtin.c, Src/exec.c, Src/hashtable.c, Src/lex.c,
+	Src/options.c, Src/parse.c, Src/text.c, Src/zsh.h,
+	Test/B02typeset.ztst, Test/D01prompt.ztst, Test/E01options.ztst:
+	Implement assignment handling for typeset etc. when matched as
+	reserved words.  Document and test.
+
+2015-06-23  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 35573: Completion/compinit: turn off POSIX_BUILTINS
+	in completion, needed to get usable OPTIND behaviour.
+
+	* unposted: Src/Zle/zle_misc.c: add missing "void" argument
+	list.
+
+2015-06-23  Oliver Kiddle  <opk@zsh.org>
+
+	* 35568: Completion/Zsh/Type/_file_descriptors: use symlinks in
+	/proc/$$/path on Solaris and procstat on FreeBSD
+
+	* 35529: Completion/Unix/Command/_java: fix filename completion
+	after java -jar
+
+2015-06-22  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 35566: Src/Modules/regex.c: didn't handle faile
+	parenthesis matches.
+
+2015-06-22  Mikael Magnusson  <mikachu@gmail.com>
+
+	* 35554: Doc/Zsh/contrib.yo: Document narrow-to-region -l and -r.
+
+	* 35558: Functions/Zle/narrow-to-region: narrow-to-region:
+	Use unique parameter names for new feature.
+
+2015-06-21  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 35545: Functions/Zle/narrow-to-region: Add ability to return
+	buffer components from narrowed region.
+
+2015-06-19  Oliver Kiddle  <opk@zsh.org>
+
+	* 35531: Completion/Unix/Command/_adb: fallback on file completion
+
+	* 35527: Completion/Unix/Type/_email_addresses,
+	Completion/Zsh/Command/_fc, Completion/Zsh/Command/_zpty:
+	use list-separator style in cases where separator was hardcoded
+
+	* 35528: Completion/Unix/Type/_pids: allow for IPREFIX
+
+2015-06-18  Oliver Kiddle  <opk@zsh.org>
+
+	* 35474, 35492: Doc/Zsh/params.yo, Doc/Zsh/zle.yo,
+	Src/Zle/complist.c, Src/Zle/iwidgets.list, Src/Zle/zle_hist.c,
+	Src/Zle/zle_keymap.c, Src/Zle/zle_main.c: support the
+	bracketed paste mode of newer terminal emulators
+
+	* 35487, 35496: Doc/Zsh/zle.yo, Src/Zle/complist.c,
+	Src/Zle/zle_hist.c: don't reinstate previous incremental search
+	string when search direction changes
+
+	* 35510: Completion/Unix/Command/_git: use consistent
+	formatting for git subcommands
+
+	* 35504: Completion/Unix/Command/_git: complete % placeholders
+	for git log --format
+
+	* 35521: Completion/Zsh/Type/_file_descriptors: sort matches
+	numerically and use pfiles on Solaris
+
+	* Eric Cook: 35490: Completion/Zsh/Type/_file_descriptors:
+	silence errors and avoid blank match due to missing local
+
+2015-06-17  Mikael Magnusson  <mikachu@gmail.com>
+
+	* 35477: Completion/Unix/Command/_gdb: _gdb: Allow 'core' to
+	occur anywhere in a coredump filename
+
+	* 35476: Src/params.c: Allow setting $0 when POSIX_ARGZERO is
+	not set	
+
+2015-06-16  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 35493: Src/exec.c: erase $_ when the command line is an assignment
+
+	* 35482: Src/init.c: be consistent about how argzero is allocated
+
+2015-06-14  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 35469: Functions/Zle/smart-insert-last-word: test UNDO_CHANGE_NO
+	to determine whether to start over or use the next history event
+
+	* 35467: Completion/Unix/Command/_du: complete files for non-GNU du
+
+2015-06-12  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 35448: Src/Modules/curses.c, Src/Modules/regex.c,
+	Src/Zle/complist.c, Src/Zle/zle_utils.c, Src/builtin.c,
+	Src/glob.c, Src/hist.c, Src/prompt.c, Src/utils.c, Src/zsh.h,
+	Test/D07multibyte.ztst: Add non-metafied character length
+	handling and use this for regex module.  Add test.
+	Rename mb_metacharinit() to mb_charinit() since it doesn't
+	involve metafied characters.
+
+2015-06-11  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 35442: Doc/Zsh/options.yo: multibyte option now on
+	everywhere by default.
+
+2015-06-09  Oliver Kiddle  <opk@zsh.org>
+
+	* 35418: Doc/Zsh/compsys.yo: fix usage synopsis for _describe
+	to be clear that a single description is used
+
+2015-06-08  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 35416: Src/options.c: Turn on MULTIBYTE in all
+	emulations, including sh.
+
+2015-06-08  Daniel Hahler  <zsh@thequod.de>
+
+	* 35216: Completion/Unix/Command/_git: _git-checkout: do not call
+	__git_commits twice.
+
+2015-06-07  Oliver Kiddle  <opk@zsh.org>
+
+	* 35412: Src/builtin.c, Test/B03print.ztst: fix for - flag
+	when formating strings with printf that was broken in 34841
+
+2015-06-06  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 35350: Completion/Zsh/Command/_fc, Doc/Zsh/builtins.yo,
+	Src/builtin.c: extend "fc -I" to cover listing of "internal"
+	history events only
+
+	* 35163: Completion/Base/Core/_main_complete,
+	Completion/Base/Core/_setup: move "show-ambiguity" style to _setup
+	so that more precise context can be applied
+
+2015-06-05  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 35386: Doc/Zsh/builtins.yo, Doc/Zsh/contrib.yo,
+	Functions/Misc/zed, Src/builtin.c, Src/hashtable.c,
+	Src/pattern.c, Src/text.c, Src/utils.c, Src/zsh.h:
+	expand tabs for function output in functions, whence, where,
+	which and also zed -f using -x num option.
+
+2015-06-03  Oliver Kiddle  <opk@zsh.org>
+
+	* 35360 (replacing 35357): configure.ac, Src/Modules/zpty.c:
+	fix for configuring zpty on FreeBSD without pty.ko loaded
+
+2015-06-03  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 35374: Test/D07multibyte.ztst: add tab expansion test with
+	double width characters.
+
+2015-06-02  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 35369: Test/A06assign.ztst, Test/E01options.ztst: better
+	GLOB_ASSIGN testing.
+
+2015-06-02  Mikael Magnusson  <mikachu@gmail.com>
+
+	* 35365: Src/exec.c: GLOB_ASSIGN should only affect scalar
+	assignments, this regressed in 33816.
+
+2015-06-02  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* users/20243: Completion/compinit: turn off GLOB_ASSIGN in
+	completion system.
+
+2015-06-02  Daniel Shahaf  <d.s@daniel.shahaf.name>
+
+	* 35270: Completion/Base/Utility/_describe: _describe: Document
+	a known issue described in 35229 (which is the same thread as
+	35127 and 34768)
+
+	* 35271: Completion/Unix/Command/_beep: New completion:
+	beep.
+
+	* unposted: Doc/Zsh/options.yo: Typo fix
+
+2015-06-02  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* 35359 (plus changed error strings in tests): Src/math.c,
+	Test/C01arith.ztst: fix math parsing problem that trailing ")"
+	wasn't detected; also improve error messages to indicate they
+	refer to math expressions.
+
+	* Baptiste Daroussin: 35357: Src/Modules/zpty.c:
+	HAVE_POSIX_OPENPT is needed for FreeBSD zpty.
+
+	* 35353: Doc/Zsh/builtins.yo, Src/builtin.c, Src/utils.c,
+	Test/B03print.ztst: print -x and print -X expand tabs.
+
+2015-06-02  Oliver Kiddle  <opk@zsh.org>
+
+	* 35356: Completion/Unix/Type/_ttys, Completion/Unix/Command/_ps,
+	Completion/Unix/Command/_last, Completion/Unix/Command/_pgrep,
+	Completion/Unix/Command/_gdb: factor out completion of tty devices
+
+	* Adrien Vergé: 35352 (tweaked): Completion/Redhat/Command/_dnf:
+	completion for new Redhat package manager
+
+2015-06-01  Peter Stephenson  <p.stephenson@samsung.com>
+
+	* unposted: Config/version.mk: update to 5.0.8-dev-0 so
+	dev installs don't trash release.
+
 2015-05-31  Peter Stephenson  <p.w.stephenson@ntlworld.com>
 
 	* unposted: Config/version.mk: release 5.0.8, finally.

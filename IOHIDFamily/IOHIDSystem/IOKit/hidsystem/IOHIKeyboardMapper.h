@@ -65,12 +65,11 @@ typedef	UInt32 * kbdBitVector;
 // sticky keys state flags
 enum
 {
-    kState_Disabled_Flag	= 0x0001,	// disabled and will do nothing until this is changed
+    kState_Disabled_Flag        = 0x0001,	// disabled and will do nothing until this is changed
     kState_ShiftActivates_Flag	= 0x0002,	// the 'on' gesture (5 shifts) will activate
-    kState_On			= 0x0004,	// currently on, will hold down modifiers when pressed
-    kState_On_ModifiersDown	= 0x0008,	// one or more modifiers being held down
-
-    kState_Mask			= 0x00FF,	// mask for all states
+    kState_On                   = 0x0004,	// currently on, will hold down modifiers when pressed
+    kState_On_ModifiersDown     = 0x0008,	// one or more modifiers being held down
+    kState_Mask                 = 0x00FF,	// mask for all states
 };
 
 typedef struct _stickyKeys_ToggleInfo
@@ -122,38 +121,14 @@ private:
 	IOHIKeyboard *		_delegate;					// KeyMap delegate
 	bool				_mappingShouldBeFreed;		// true if map can be IOFree'd
 	NXParsedKeyMapping	_parsedMapping;				// current system-wide keymap
-	IOHIDSystem	 *		_hidSystem;					// target of IOHIKeyboard (should be IOHIDSystem)
 	
 	// binary compatibility padding
     struct ExpansionData { 
     
-        // This is for F12 eject
-	UInt16 			f12Eject_State;
-	UInt32 			eject_Delay_MS;
-	IOTimerEventSource 	*ejectTimerEventSource;
-
         // This is for sticky keys
         kbdBitVector		cached_KeyBits;
-        StickyKeys_ModifierInfo stickyKeys_StuckModifiers[kMAX_MODIFIERS];
-        IOInterruptEventSource  *stickyKeysMouseClickEventSource;
-        IOInterruptEventSource	*stickyKeysSetFnStateEventSource;
-        // The following should really be statics, but placing here 
-        // to match design by predecesor.
-        OSDictionary		*offFnParamDict;
-        OSDictionary		*onFnParamDict;
-
-        // This is for SlowKeys
-        UInt16			slowKeys_State;
-        UInt32 			slowKeys_Delay_MS;
-        IOTimerEventSource	*slowKeysTimerEventSource;
-        
-        // stored for slowKeysPostProcess
-        UInt8		slowKeys_Aborted_Key;
-        UInt8		slowKeys_Current_Key;        
         
         UInt32		specialKeyModifierFlags;
-        
-        bool		supportsF12Eject;
         
         SInt32      modifierSwap_Modifiers[NX_NUMMODIFIERS];
 		
@@ -207,84 +182,14 @@ private:
 private:
 	// original translateKeyCode
 	void rawTranslateKeyCode (UInt8 key, bool keyDown, kbdBitVector keyBits);
-    bool modifierSwapFilterKey(UInt8 * key);
-
-	// the current state of stickyKeys
-	UInt32            	_stickyKeys_State; 
-	
-	// the number of modifiers being held down by stickyKeys
-	int		    		_stickyKeys_NumModifiersDown;
-        
-	// contains the info needed to keep track of shift repetitions
-	StickyKeys_ToggleInfo * _stickyKeys_ShiftToggle;
-
-	// contains the info needed to keep track of option repetitions
-	StickyKeys_ToggleInfo * _stickyKeys_OptionToggle;
-
-	// dictionaries with cached on and off states, used to set params when state changes
-	bool				_stateDirty;
-	OSDictionary *		_onParamDict;
-	OSDictionary *		_offParamDict;
-
-	// init/free vars
-	bool stickyKeysinit (void);
-	void stickyKeysfree (void);
-
-	// allocate/free a StickyKeys_ToggleInfo struct
-	static StickyKeys_ToggleInfo * stickyKeysAllocToggleInfo (unsigned maxCount);
-	static void stickyKeysFreeToggleInfo (StickyKeys_ToggleInfo * toggleInfo);
-
-	// create on/off dicts as part of init
-	bool createParamDicts (void);
   
 	// post special keyboard events thru the event system
 	void postKeyboardSpecialEvent (unsigned subtype, unsigned eventType=NX_SYSDEFINED);
 
-	// check any modifier to see if it is pressed 5 times
-	// based on StickyKeys_ToggleInfo
-	bool stickyKeysModifierToggleCheck(
-							StickyKeys_ToggleInfo * toggleInfo,
-							UInt8        key,
-							bool         keyDown,
-							kbdBitVector keyBits,
-                                                        bool 	     mouseClick = false);
-
-	// non-modifier key pressed
-	void stickyKeysNonModifierKey (UInt8 key, bool keyDown, kbdBitVector keyBits, bool mouseClick = false);
-
-	// modifier key pressed (shift, command, option, control)
-	bool stickyKeysModifierKey (UInt8 key, bool keyDown, kbdBitVector keyBits);
-
-	// main entry point, called for all keys (returns true if key handled)
-	bool stickyKeysFilterKey (UInt8 key, bool keyDown, kbdBitVector keyBits, bool mouseClick = false);
-
-        // called by interrupt event source to inform sticky keys of mouse down event
-        static void stickyKeysMouseUp(IOHIKeyboardMapper *owner, IOEventSource *sender);
-
-	void stickyKeysCleanup();
-
-        // called by interrupt event source to restore prior fn state
-	static void stickyKeysSetFnState(IOHIKeyboardMapper *owner, IOEventSource *sender);
-
-        /* F12 Eject Functionality */ 
 private:
         
-        // Determining f12 eject key press
-        // Returns true if f12 held down for a predetermined period of time.
-        bool f12EjectFilterKey (UInt8 key, bool keyDown, kbdBitVector keyBits);
-        
-        // Timer function for eject
-        static void performF12Eject(IOHIKeyboardMapper *owner, IOTimerEventSource *sender);
-        
-        /* SlowKeys Functionality */
 private:
-        // Slow keys methods
-        bool slowKeysFilterKey (UInt8 key, bool keyDown, kbdBitVector keyBits);
-        
-        static void slowKeysPostProcess (IOHIKeyboardMapper *owner, IOTimerEventSource *sender);
-
-	
-public:	
+public:
     OSMetaClassDeclareReservedUsed(IOHIKeyboardMapper,  0);
     virtual IOReturn message( UInt32 type, IOService * provider, void * argument = 0 );
 

@@ -309,6 +309,17 @@ CFBooleanRef IOPSPowerSourceSupported(CFTypeRef ps_blob, CFStringRef ps_type)
 IOReturn _pm_connect(mach_port_t *newConnection);
 IOReturn _pm_disconnect(mach_port_t connection);
 
+dispatch_queue_t _getPSDispatchQueue(void)
+{
+    static dispatch_queue_t psQ = NULL;
+    
+    if (!psQ) {
+        psQ = dispatch_queue_create("Power Management power source queue", NULL);
+    }
+    
+    return psQ;
+}
+
 /* OpaqueIOPSPowerSourceID
  * As typecast in the header:
  * typedef struct OpaqueIOPSPowerSourceID *IOPSPowerSourceID;
@@ -352,80 +363,36 @@ fail:
 
 }
 
-IOReturn IOPSCreatePowerSource(
-    IOPSPowerSourceID *outPS)
-{
-    IOPSPowerSourceID           newPS = NULL;
-
-    int                         return_code = kIOReturnSuccess;
-    
-    if (!outPS) {
-        return kIOReturnBadArgument;
-    }
-
-    // newPS - This tracking structure must be freed by IOPSReleasePowerSource()
-    newPS = calloc(1, sizeof(struct OpaqueIOPSPowerSourceID));
-
-    if (!newPS) {
-        return kIOReturnVMError;
-    }
-
-    return_code = createPowerSource(newPS);
-
-
-    if (kIOReturnSuccess == return_code) {
-        *outPS = newPS;
-        notify_register_dispatch( kIOUserAssertionReSync, 
-                                  &newPS->resyncToken, dispatch_get_main_queue(),
-                                  ^(int t __unused) {
-                                    IOReturn ret;
-                                    if ((ret = createPowerSource(newPS)) != kIOReturnSuccess) {
-                                        asl_log(0,0,ASL_LEVEL_ERR, "createPowerSource returned 0x%x\n",ret);
-                                    }
-                                    if ((ret = IOPSSetPowerSourceDetails(newPS, newPS->resyncCopy)) != kIOReturnSuccess) {
-                                        asl_log(0,0,ASL_LEVEL_ERR, "IOPSSetPowerSourceDetails returned 0x%x\n",ret);
-                                    }
-                                  }
-                                );
-    } else {
-        *outPS = NULL;
-        if (newPS) {
-            free(newPS);
-        }
-    }
-    return return_code;
-}
-
-IOReturn IOPSSetPowerSourceDetails(
-    IOPSPowerSourceID whichPS, 
+static IOReturn setPowerSourceDetails(
+    IOPSPowerSourceID whichPS,
     CFDictionaryRef details)
 {
-    IOReturn                ret = kIOReturnSuccess;
-    CFDataRef               flatDetails;
-    mach_port_t             pm_server = MACH_PORT_NULL;
-
+    IOReturn        ret = kIOReturnSuccess;
+    CFDataRef       flatDetails;
+    mach_port_t     pm_server = MACH_PORT_NULL;
+    
     if (!whichPS || !isA_CFDictionary(details) || whichPS->psid == 0)
         return kIOReturnBadArgument;
-
+    
     flatDetails = IOCFSerialize(details, 0);
     if (!flatDetails) {
         ret = kIOReturnBadArgument;
         goto exit;
     }
-
+    
     ret = _pm_connect(&pm_server);
     if(kIOReturnSuccess != ret) {
         ret = kIOReturnNotOpen;
         goto exit;
     }
     
-    // Pass the details off to powerd 
+    // Pass the details off to powerd
     io_ps_update_pspowersource(pm_server,
                                whichPS->psid,
                                (vm_offset_t) CFDataGetBytePtr(flatDetails),
                                CFDataGetLength(flatDetails),
                                (int *)&ret);
-
+    
     if (ret == kIOReturnSuccess) {
         CFMutableDictionaryRef  resyncCopy = NULL;
         resyncCopy = CFDictionaryCreateMutableCopy(NULL, 0, details);
@@ -434,36 +401,107 @@ IOReturn IOPSSetPowerSourceDetails(
         whichPS->resyncCopy = resyncCopy;
     }
     _pm_disconnect(pm_server);
-
+    
 exit:
     if (flatDetails)
         CFRelease(flatDetails);
     return ret;
 }
 
+IOReturn IOPSCreatePowerSource(
+    IOPSPowerSourceID *outPS)
+{
+    __block IOReturn return_code = kIOReturnSuccess;
+    
+    dispatch_sync(_getPSDispatchQueue(), ^
+    {
+        IOPSPowerSourceID newPS = NULL;
+        
+        if (!outPS) {
+            return_code = kIOReturnBadArgument;
+            return;
+        }
+        
+        // newPS - This tracking structure must be freed by IOPSReleasePowerSource()
+        newPS = calloc(1, sizeof(struct OpaqueIOPSPowerSourceID));
+        
+        if (!newPS) {
+            return_code = kIOReturnVMError;
+            return;
+        }
+        
+        return_code = createPowerSource(newPS);
+        
+        if (kIOReturnSuccess == return_code) {
+            *outPS = newPS;
+            notify_register_dispatch( kIOUserAssertionReSync,
+                                     &newPS->resyncToken, _getPSDispatchQueue(),
+                                     ^(int t __unused) {
+                                         IOReturn ret;
+                                         if ((ret = createPowerSource(newPS)) != kIOReturnSuccess) {
+                                             asl_log(0,0,ASL_LEVEL_ERR, "createPowerSource returned 0x%x\n",ret);
+                                         }
+                                         if ((ret = setPowerSourceDetails(newPS, newPS->resyncCopy)) != kIOReturnSuccess) {
+                                             asl_log(0,0,ASL_LEVEL_ERR, "setPowerSourceDetails returned 0x%x\n",ret);
+                                         }
+                                     });
+        } else {
+            *outPS = NULL;
+            if (newPS) {
+                free(newPS);
+            }
+        }
+    });
+    
+    return return_code;
+}
+
+IOReturn IOPSSetPowerSourceDetails(
+    IOPSPowerSourceID whichPS,
+    CFDictionaryRef details)
+{
+    __block IOReturn ret = kIOReturnSuccess;
+    
+    dispatch_sync(_getPSDispatchQueue(), ^
+    {
+        ret = setPowerSourceDetails(whichPS, details);
+    });
+
+    return ret;
+}
+
 IOReturn IOPSReleasePowerSource(
     IOPSPowerSourceID whichPS)
 {
-    mach_port_t             pm_server = MACH_PORT_NULL;
-
-    if (!whichPS)
-        return kIOReturnBadArgument;
-
-    if (kIOReturnSuccess == _pm_connect(&pm_server)) {
-        // Pass the details off to powerd
-        io_ps_release_pspowersource(pm_server,
-                                   whichPS->psid);
-
-        _pm_disconnect(pm_server);
-    }
-
-    notify_cancel(whichPS->resyncToken);
-    if (isA_CFDictionary(whichPS->resyncCopy))
-        CFRelease(whichPS->resyncCopy);
-
-    whichPS->psid = 0;
-    free(whichPS);
-    return kIOReturnSuccess;
+    __block IOReturn ret = kIOReturnSuccess;
+    
+    dispatch_sync(_getPSDispatchQueue(), ^
+    {
+        mach_port_t pm_server = MACH_PORT_NULL;
+        
+        if (!whichPS) {
+            ret = kIOReturnBadArgument;
+            return;
+        }
+        
+        if (kIOReturnSuccess == _pm_connect(&pm_server)) {
+            // Pass the details off to powerd
+            io_ps_release_pspowersource(pm_server,
+                                        whichPS->psid);
+            
+            _pm_disconnect(pm_server);
+        }
+        
+        notify_cancel(whichPS->resyncToken);
+        if (isA_CFDictionary(whichPS->resyncCopy))
+            CFRelease(whichPS->resyncCopy);
+        
+        whichPS->resyncCopy = NULL;
+        whichPS->psid = 0;
+        free(whichPS);
+    });
+    
+    return ret;
 }
 
 

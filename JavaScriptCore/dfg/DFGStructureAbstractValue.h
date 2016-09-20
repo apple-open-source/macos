@@ -123,6 +123,14 @@ public:
     // m_set by looking at reachability as this would mean that the new set is TOP. Instead they
     // literally assume that the set is just m_set rather than m_set plus TOP.
     bool isClobbered() const { return m_set.getReservedFlag(); }
+
+    // A finite structure abstract value is one where enumerating over it will yield all
+    // of the structures that the value may have right now. This is true so long as we're
+    // neither top nor clobbered.
+    bool isFinite() const { return !isTop() && !isClobbered(); }
+
+    // An infinite structure abstract value may currently have any structure.
+    bool isInfinite() const { return !isFinite(); }
     
     bool add(Structure* structure);
     
@@ -184,15 +192,22 @@ public:
     }
     
     Structure* operator[](size_t i) const { return at(i); }
-    
+
     // In most cases, what you really want to do is verify whether the set is top or clobbered, and
     // if not, enumerate the set of structures. Use this only in cases where the singleton case is
     // meaningfully special, like for transitions.
     Structure* onlyStructure() const
     {
-        if (isTop() || isClobbered())
+        if (isInfinite())
             return nullptr;
         return m_set.onlyStructure();
+    }
+
+    template<typename Functor>
+    void forEach(const Functor& functor) const
+    {
+        ASSERT(!isTop());
+        m_set.forEach(functor);
     }
     
     void dumpInContext(PrintStream&, DumpContext*) const;

@@ -211,8 +211,9 @@ main(int argc, char **argv)
 		 */
 		if ((res & 0xFFFFFF00) != 0) {
 			syslog(LOG_ERR,
-			    "mount_url: Mount of %s on %s gives status %d",
+			    "mount_url: Mount of %1024s on %1024s gives status %d",
 			    argv[0], argv[1], res);
+
 			switch (res) {
 
 			case ENETFSACCOUNTRESTRICTED:

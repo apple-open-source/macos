@@ -97,7 +97,6 @@ $(OBJROOT)/$(PROJECT):
 	ed - $(PROJECT)/Lib/platform.py < $(FIX)/Lib_platform.py.ed && \
 	ed - $(PROJECT)/Lib/pydoc.py < $(FIX)/pydoc.py.ed && \
 	ed - $(PROJECT)/Lib/rlcompleter.py < $(FIX)/rlcompleter.py.ed && \
-	ed - $(PROJECT)/Lib/site.py < $(FIX)/site.py.ed && \
 	ed - $(PROJECT)/Lib/test/test__locale.py < $(FIX)/Lib_test_test__locale.py.ed && \
 	ed - $(PROJECT)/Lib/test/test_httpservers.py < $(FIX)/Lib_test_test_httpservers.py.ed && \
 	patch $(PROJECT)/Mac/Modules/cf/_CFmodule.c $(FIX)/_CFmodule.c.patch && \
@@ -119,6 +118,10 @@ $(OBJROOT)/$(PROJECT):
 	patch $(PROJECT)/setup.py $(FIX)/setup.py.patch && \
 	patch $(PROJECT)/setup.py $(FIX)/setup.py-21106613.patch && \
 	ed - $(PROJECT)/setup.py < $(FIX)/setup.py.ed && \
+	patch $(PROJECT)/Mac/Makefile.in $(FIX)/Mac.Makefile.in.patch && \
+	patch $(PROJECT)/setup.py $(FIX)/setup.py-23359785.patch && \
+	patch $(PROJECT)/Include/pymactoolbox.h $(FIX)/pymactoolbox.h.diff && \
+	patch $(PROJECT)/Python/mactoolboxglue.c $(FIX)/mactoolboxglue.c.diff && \
 	for i in `find $(PROJECT)/Mac -name setup.py | xargs fgrep -l "'-framework', 'Carbon'"`; do \
 	    ed - $$i < $(FIX)/Mac_setup.py.ed || exit 1; \
 	done && \

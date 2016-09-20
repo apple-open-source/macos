@@ -248,6 +248,33 @@ protected:
 	bool mActive;
 };
 
+//
+// This class behaves exactly as StLock above, but accepts a pointer to a mutex instead of a reference.
+// If the pointer is NULL, this class does nothing. Otherwise, it behaves as StLock.
+// Try not to use this.
+//
+template <class Lock,
+void (Lock::*_lock)() = &Lock::lock,
+void (Lock::*_unlock)() = &Lock::unlock>
+class StMaybeLock {
+public:
+    StMaybeLock(Lock *lck) : me(lck), mActive(false)
+                                            { if(me) { (me->*_lock)(); mActive = true; } }
+    StMaybeLock(Lock *lck, bool option) : me(lck), mActive(option) { }
+    ~StMaybeLock()							{ if (me) { if(mActive) (me->*_unlock)(); } else {mActive = false;} }
+
+    bool isActive() const				{ return mActive; }
+    void lock()							{ if(me) { if(!mActive) { (me->*_lock)(); mActive = true; }}}
+    void unlock()						{ if(me) { if(mActive) { (me->*_unlock)(); mActive = false; }}}
+    void release()						{ if(me) { assert(mActive); mActive = false; } }
+
+    operator const Lock &() const		{ return me; }
+
+protected:
+    Lock *me;
+    bool mActive;
+};
+
 // Note: if you use the TryRead or TryWrite modes, you must check if you
 // actually have the lock before proceeding
 class StReadWriteLock {

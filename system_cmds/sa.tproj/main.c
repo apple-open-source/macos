@@ -303,7 +303,7 @@ main(int argc, char **argv)
 }
 
 static void
-usage()
+usage(void)
 {
 	(void)fprintf(stderr,
 		"usage: sa [-abcdDfijkKlmnqrstu] [-P file] [-U file] [-v cutoff] [file ...]\n");

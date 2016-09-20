@@ -126,6 +126,8 @@ void sleepTimerExpiredCallout(CFDictionaryRef);
 void shutdownTimerExpiredCallout(CFDictionaryRef);
 void restartTimerExpiredCallout(CFDictionaryRef);
 
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
 /* AutoWakeScheduler overview
  * 
  * PURPOSE
@@ -469,7 +471,6 @@ static void print_one(char *str, CFDictionaryRef entry)
     userVisible = (CFDictionaryGetValue(entry, CFSTR(kIOPMPowerEventUserVisible)) == kCFBooleanTrue) ?
                     true : false;
 
-    abs = CFDateGetAbsoluteTime(date);
     name_str[0] = type_str[0] = 0;
     month=day=hour=minute=second = 0;
 

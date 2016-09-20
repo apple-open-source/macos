@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2014, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,7 +29,7 @@
 #include "APIObject.h"
 #include "Connection.h"
 #include "MessageReceiver.h"
-#include <WebCore/InspectorForwarding.h>
+#include <inspector/InspectorFrontendChannel.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/text/WTFString.h>
 
@@ -37,7 +37,7 @@ namespace WebKit {
 
 class WebPage;
 
-class WebInspector : public API::ObjectImpl<API::Object::Type::BundleInspector>, public IPC::Connection::Client, public WebCore::InspectorFrontendChannel {
+class WebInspector : public API::ObjectImpl<API::Object::Type::BundleInspector>, public IPC::Connection::Client, public Inspector::FrontendChannel {
 public:
     static Ref<WebInspector> create(WebPage*);
 
@@ -45,7 +45,8 @@ public:
 
     void updateDockingAvailability();
 
-    virtual bool sendMessageToFrontend(const String& message) override;
+    bool sendMessageToFrontend(const String& message) override;
+    ConnectionType connectionType() const override { return ConnectionType::Local; }
 
     // Implemented in generated WebInspectorMessageReceiver.cpp
     void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
@@ -53,8 +54,8 @@ public:
     // IPC::Connection::Client
     void didClose(IPC::Connection&) override { close(); }
     void didReceiveInvalidMessage(IPC::Connection&, IPC::StringReference, IPC::StringReference) override { close(); }
-    virtual IPC::ProcessType localProcessType() override { return IPC::ProcessType::Web; }
-    virtual IPC::ProcessType remoteProcessType() override { return IPC::ProcessType::UI; }
+    IPC::ProcessType localProcessType() override { return IPC::ProcessType::Web; }
+    IPC::ProcessType remoteProcessType() override { return IPC::ProcessType::UI; }
 
     // Called by WebInspector messages
     void connectionEstablished();
@@ -68,6 +69,7 @@ public:
 
     void showConsole();
     void showResources();
+    void showTimelines();
 
     void showMainResourceForFrame(uint64_t frameIdentifier);
 
@@ -77,6 +79,10 @@ public:
 
     void startPageProfiling();
     void stopPageProfiling();
+
+    void startElementSelection();
+    void stopElementSelection();
+    void elementSelectionChanged(bool);
 
     void sendMessageToBackend(const String&);
 
@@ -96,19 +102,19 @@ private:
     bool canAttachWindow();
 
     // Called from WebInspectorClient
-    void createInspectorPage(bool underTest);
+    void openFrontendConnection(bool underTest);
+    void closeFrontendConnection();
 
-    void closeFrontend();
     void bringToFront();
 
     WebPage* m_page;
 
     RefPtr<IPC::Connection> m_frontendConnection;
 
-    bool m_attached;
-    bool m_previousCanAttach;
+    bool m_attached { false };
+    bool m_previousCanAttach { false };
 #if ENABLE(INSPECTOR_SERVER)
-    bool m_remoteFrontendConnected;
+    bool m_remoteFrontendConnected { false };
 #endif
 };
 

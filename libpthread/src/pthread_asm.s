@@ -25,15 +25,6 @@
 
 #include <mach/i386/syscall_sw.h>
 
-	.text
-	.align 2, 0x90
-	.globl ___pthread_set_self
-___pthread_set_self:
-	movl	$0, %esi	// 0 as the second argument
-	movl    $ SYSCALL_CONSTRUCT_MDEP(3), %eax	// Machine-dependent syscall number 3
-	MACHDEP_SYSCALL_TRAP
-	ret
-
 #ifndef VARIANT_DYLD
 
 	.align 2, 0x90
@@ -63,17 +54,6 @@ _thread_start:
 #elif defined(__i386__)
 
 #include <mach/i386/syscall_sw.h>
-
-	.text
-	.align 2, 0x90
-	.globl ___pthread_set_self
-___pthread_set_self:
-	pushl   4(%esp)
-	pushl   $0
-	movl    $3,%eax
-	MACHDEP_SYSCALL_TRAP
-	addl    $8,%esp
-	ret
 
 #ifndef VARIANT_DYLD
 
@@ -116,16 +96,6 @@ _thread_start:
 #elif defined(__arm__)
 
 #include <mach/arm/syscall_sw.h>
-
-	.text
-	.align 2
-	.globl ___pthread_set_self
-___pthread_set_self:
-	/* fast trap for thread_set_cthread */
-	mov	r3, #2
-	mov	r12, #0x80000000
-	swi	#SWI_SYSCALL
-	bx	lr
 
 #ifndef VARIANT_DYLD
 

@@ -30,7 +30,6 @@
  */
 
 #include "config.h"
-
 #include "JSErrorHandler.h"
 
 #include "Document.h"
@@ -39,6 +38,7 @@
 #include "EventNames.h"
 #include "JSEvent.h"
 #include "JSMainThreadExecState.h"
+#include "JSMainThreadExecStateInstrumentation.h"
 #include <runtime/JSLock.h>
 #include <runtime/VMEntryScope.h>
 #include <wtf/Ref.h>
@@ -83,8 +83,8 @@ void JSErrorHandler::handleEvent(ScriptExecutionContext* scriptExecutionContext,
     CallData callData;
     CallType callType = jsFunction->methodTable()->getCallData(jsFunction, callData);
 
-    if (callType != CallTypeNone) {
-        Ref<JSErrorHandler> protectedctor(*this);
+    if (callType != CallType::None) {
+        Ref<JSErrorHandler> protectedThis(*this);
 
         Event* savedEvent = globalObject->currentEvent();
         globalObject->setCurrentEvent(event);
@@ -94,14 +94,19 @@ void JSErrorHandler::handleEvent(ScriptExecutionContext* scriptExecutionContext,
         args.append(jsStringWithCache(exec, errorEvent.filename()));
         args.append(jsNumber(errorEvent.lineno()));
         args.append(jsNumber(errorEvent.colno()));
+        args.append(errorEvent.sanitizedErrorValue(*exec, *globalObject));
 
         VM& vm = globalObject->vm();
         VMEntryScope entryScope(vm, vm.entryScope ? vm.entryScope->globalObject() : globalObject);
 
+        InspectorInstrumentationCookie cookie = JSMainThreadExecState::instrumentFunctionCall(scriptExecutionContext, callType, callData);
+
         NakedPtr<Exception> exception;
         JSValue returnValue = scriptExecutionContext->isDocument()
-            ? JSMainThreadExecState::call(exec, jsFunction, callType, callData, globalObject, args, exception)
-            : JSC::call(exec, jsFunction, callType, callData, globalObject, args, exception);
+            ? JSMainThreadExecState::profiledCall(exec, JSC::ProfilingReason::Other, jsFunction, callType, callData, globalObject, args, exception)
+            : JSC::profiledCall(exec, JSC::ProfilingReason::Other, jsFunction, callType, callData, globalObject, args, exception);
+
+        InspectorInstrumentation::didCallFunction(cookie, scriptExecutionContext);
 
         globalObject->setCurrentEvent(savedEvent);
 

@@ -7,7 +7,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>Mapa de este sitio web - Servidor HTTP Apache Versión 2.4</title>
+<title>Mapa de este sitio web - Servidor Apache HTTP Versión 2.4</title>
 <link href="./style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="./style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="./style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="./style/css/prettify.css" />
@@ -17,9 +17,9 @@
 <link href="./images/favicon.ico" rel="shortcut icon" /></head>
 <body id="manual-page">
 <div id="page-header">
-<p class="menu"><a href="./mod/">Módulos</a> | <a href="./mod/directives.html">Directivas</a> | <a href="http://wiki.apache.org/httpd/FAQ">Preguntas Frecuentes</a> | <a href="./glossary.html">Glosario</a> | <a href="./sitemap.html">Mapa de este sitio web</a></p>
+<p class="menu"><a href="./mod/">Módulos</a> | <a href="./mod/directives.html">Directivas</a> | <a href="http://wiki.apache.org/httpd/FAQ">Preguntas Frecuentes</a> | <a href="./glossary.html">Glosario</a> | <a href="./sitemap.html">Mapa del sitio web</a></p>
 <p class="apache">Versión 2.4 del Servidor HTTP Apache</p>
-<img alt="" src="./images/feather.gif" /></div>
+<img alt="" src="./images/feather.png" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="./images/left.gif" /></a></div>
 <div id="path">
 <a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">Servidor HTTP</a> &gt; <a href="http://httpd.apache.org/docs/">Documentación</a> &gt; <a href="./">Versión 2.4</a></div>
@@ -252,8 +252,10 @@ usados para describir las directivas de Apache</a></li>
 <li><a href="mod/mod_proxy_fcgi.html">Módulo Apache mod_proxy_fcgi</a></li>
 <li><a href="mod/mod_proxy_fdpass.html">Módulo Apache mod_proxy_fdpass</a></li>
 <li><a href="mod/mod_proxy_ftp.html">Módulo Apache mod_proxy_ftp</a></li>
+<li><a href="mod/mod_proxy_hcheck.html">Módulo Apache mod_proxy_hcheck</a></li>
 <li><a href="mod/mod_proxy_html.html">Módulo Apache mod_proxy_html</a></li>
 <li><a href="mod/mod_proxy_http.html">Módulo Apache mod_proxy_http</a></li>
+<li><a href="mod/mod_proxy_http2.html">Módulo Apache mod_proxy_http2</a></li>
 <li><a href="mod/mod_proxy_scgi.html">Módulo Apache mod_proxy_scgi</a></li>
 <li><a href="mod/mod_proxy_wstunnel.html">Módulo Apache mod_proxy_wstunnel</a></li>
 <li><a href="mod/mod_ratelimit.html">Módulo Apache mod_ratelimit</a></li>
@@ -336,8 +338,8 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/sitemap.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licencia bajo los términos de la <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
-<p class="menu"><a href="./mod/">Módulos</a> | <a href="./mod/directives.html">Directivas</a> | <a href="http://wiki.apache.org/httpd/FAQ">Preguntas Frecuentes</a> | <a href="./glossary.html">Glosario</a> | <a href="./sitemap.html">Mapa de este sitio web</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
+<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licencia bajo los términos de <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="menu"><a href="./mod/">Módulos</a> | <a href="./mod/directives.html">Directivas</a> | <a href="http://wiki.apache.org/httpd/FAQ">Preguntas Frecuentes</a> | <a href="./glossary.html">Glosario</a> | <a href="./sitemap.html">Mapa del sitio web</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();
 }

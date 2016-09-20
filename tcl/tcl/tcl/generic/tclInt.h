@@ -843,7 +843,7 @@ typedef struct CompiledLocal {
 				 * is marked by a unique ClientData tag during
 				 * compilation, and that same tag is used to
 				 * find the variable at runtime. */
-    char name[4];		/* Name of the local variable starts here. If
+    char name[1];		/* Name of the local variable starts here. If
 				 * the name is NULL, this will just be '\0'.
 				 * The actual size of this field will be large
 				 * enough to hold the name. MUST BE THE LAST

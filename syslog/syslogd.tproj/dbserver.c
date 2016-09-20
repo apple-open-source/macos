@@ -417,8 +417,8 @@ _internal_send_to_direct_watchers(asl_msg_t *msg)
 			{
 				direct_watch[j] = direct_watch[i];
 				direct_watch_port[j] = direct_watch_port[i];
-				j++;
 			}
+			j++;
 		}
 	}
 

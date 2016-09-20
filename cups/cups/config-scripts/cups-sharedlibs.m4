@@ -1,6 +1,4 @@
 dnl
-dnl "$Id: cups-sharedlibs.m4 11468 2013-12-18 20:31:42Z msweet $"
-dnl
 dnl Shared library support for CUPS.
 dnl
 dnl Copyright 2007-2013 by Apple Inc.
@@ -156,7 +154,3 @@ fi
 AC_SUBST(DSOLIBS)
 AC_SUBST(IMGLIBS)
 AC_SUBST(EXPORT_LDFLAGS)
-
-dnl
-dnl End of "$Id: cups-sharedlibs.m4 11468 2013-12-18 20:31:42Z msweet $".
-dnl

@@ -166,12 +166,15 @@ feeSig feeSigNewWithKey(
 		returnGiant(pt0.z);
 	}
 	else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunreachable-code"
 		if(SIG_CURVE == CURVE_PLUS) {
 			gtog(cp->x1Plus, sinst->PmX);
 		}
 		else {
 			gtog(cp->x1Minus, sinst->PmX);
 		}
+#pragma clang diagnostic pop
 		elliptic_simple(sinst->PmX, sinst->randGiant, cp);
 	}
 	#else	/* CRYPTKIT_ELL_PROJ_ENABLE */
@@ -582,6 +585,8 @@ feeReturn feeSigVerifyNoProj(feeSig sig,
 	 * pick a key (+/-)
 	 * Q := P1
 	 */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunreachable-code"
 	if(SIG_CURVE == CURVE_PLUS) {
 		origKey = feePubKeyPlusCurve(pubKey);
 		gtog(cp->x1Plus, Q);
@@ -590,6 +595,7 @@ feeReturn feeSigVerifyNoProj(feeSig sig,
 		origKey = feePubKeyMinusCurve(pubKey);
 		gtog(cp->x1Minus, Q);
 	}
+#pragma clang diagnostic pop
 
 	messageGiant = 	giant_with_data(data, dataLen);	// M(ciphertext)
 

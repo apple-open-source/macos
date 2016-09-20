@@ -242,7 +242,7 @@ public:
     void logAuthorizationResult(const char *client, const char *authCreator, int errcode);
     void logLeastPrivilege(uid_t userId, bool isAuthorizingUser);
     virtual void logFailure(const char *errMsg, int errcode)  { AuditLogger::logFailure(errMsg, errcode); }
-    void logFailure(uid_t authenticator, const char *targetName);
+    void logAuthenticatorFailure(uid_t authenticator, const char *targetName);
 };
 
 

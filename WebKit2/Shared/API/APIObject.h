@@ -82,6 +82,7 @@ public:
         URLResponse,
         UserContentURLPattern,
         UserScript,
+        UserStyleSheet,
         WebArchive,
         WebArchiveResource,
 
@@ -97,6 +98,7 @@ public:
         
         // UIProcess types
         ApplicationCacheManager,
+        AutomationSession,
         BackForwardList,
         BackForwardListItem,
         BatteryManager,
@@ -104,8 +106,8 @@ public:
         CacheManager,
         ColorPickerResultListener,
         CookieManager,
-        DatabaseManager,
         Download,
+        ExperimentalFeature,
         FormSubmissionListener,
         Frame,
         FrameInfo,
@@ -137,6 +139,8 @@ public:
         ProcessPoolConfiguration,
         PluginSiteDataManager,
         Preferences,
+        ResourceLoadStatisticsStore,
+        RunBeforeUnloadConfirmPanelResultListener,
         RunJavaScriptAlertResultListener,
         RunJavaScriptConfirmResultListener,
         RunJavaScriptPromptResultListener,
@@ -145,15 +149,19 @@ public:
         UserContentController,
         UserContentExtension,
         UserContentExtensionStore,
+        UserContentWorld,
+        UserInitiatedAction,
+        UserMediaPermissionCheck,
         UserMediaPermissionRequest,
         Vibration,
         ViewportAttributes,
-        VisitedLinkProvider,
+        VisitedLinkStore,
         WebsiteDataRecord,
         WebsiteDataStore,
         WindowFeatures,
 
 #if ENABLE(MEDIA_SESSION)
+        MediaSessionFocusManager,
         MediaSessionMetadata,
 #endif
 
@@ -167,7 +175,6 @@ public:
         BundleFrame,
         BundleHitTestResult,
         BundleInspector,
-        BundleInspectorUI,
         BundleNavigationAction,
         BundleNodeHandle,
         BundlePage,
@@ -249,7 +256,7 @@ protected:
     {
     }
 
-    virtual Type type() const override { return APIType; }
+    Type type() const override { return APIType; }
 
 #if DELEGATE_REF_COUNTING_TO_COCOA
     void* operator new(size_t size) { return newObject(size, APIType); }

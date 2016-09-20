@@ -1,0 +1,13 @@
+--- Python-2.6.9.orig/Mac/Makefile.in	2015-12-04 14:37:41.000000000 -0800
++++ Python-2.6.9/Mac/Makefile.in	2015-12-15 17:02:24.000000000 -0800
+@@ -49,8 +49,8 @@
+ CACHERSRC=$(srcdir)/scripts/cachersrc.py
+ compileall=$(srcdir)/../Lib/compileall.py
+ 
+-installapps: install_Python install_BuildApplet install_PythonLauncher \
+-	install_IDLE checkapplepython install_pythonw install_versionedtools
++installapps: install_Python \
++	checkapplepython install_pythonw install_versionedtools
+ 
+ installapps4way: install_Python4way install_BuildApplet install_PythonLauncher install_IDLE install_pythonw4way install_versionedtools
+ 

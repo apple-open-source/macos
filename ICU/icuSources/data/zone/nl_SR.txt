@@ -1,44 +1,14 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/nl_SR.xml
 // *
 // ***************************************************************************
 nl_SR{
-    Version{"2.1.6.69"}
+    Version{"2.1.19.14"}
     zoneStrings{
-        "meta:Acre"{
-            sd{"ACST"}
-            sg{"ACT"}
-            ss{"ACT"}
-        }
-        "meta:Amazon"{
-            sd{"AMST"}
-            sg{"AMT"}
-            ss{"AMT"}
-        }
-        "meta:Brasilia"{
-            sd{"BRST"}
-            sg{"BRT"}
-            ss{"BRT"}
-        }
-        "meta:Europe_Central"{
-            sd{"∅∅∅"}
-            sg{"∅∅∅"}
-            ss{"∅∅∅"}
-        }
-        "meta:Europe_Eastern"{
-            sd{"∅∅∅"}
-            sg{"∅∅∅"}
-            ss{"∅∅∅"}
-        }
-        "meta:Europe_Western"{
-            sd{"∅∅∅"}
-            sg{"∅∅∅"}
-            ss{"∅∅∅"}
-        }
         "meta:French_Guiana"{
             ss{"GFT"}
         }
@@ -47,9 +17,6 @@ nl_SR{
         }
         "meta:Suriname"{
             ss{"SRT"}
-        }
-        "meta:Venezuela"{
-            ss{"VET"}
         }
     }
 }

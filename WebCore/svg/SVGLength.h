@@ -98,7 +98,7 @@ public:
         return !m_valueInSpecifiedUnits;
     }
 
-    static SVGLength fromCSSPrimitiveValue(CSSPrimitiveValue&);
+    static SVGLength fromCSSPrimitiveValue(const CSSPrimitiveValue&);
     static Ref<CSSPrimitiveValue> toCSSPrimitiveValue(const SVGLength&);
     static SVGLengthMode lengthModeForAnimatedLengthAttribute(const QualifiedName&);
 
@@ -169,6 +169,7 @@ struct SVGPropertyTraits<SVGLength> {
     static String toString(const SVGLength& type) { return type.valueAsString(); }
 };
 
+TextStream& operator<<(TextStream&, const SVGLength&);
 
 } // namespace WebCore
 

@@ -241,6 +241,14 @@ const SSLCipherSuite TLSv1_fallback_ciphersuites[] = {
     SSL_RSA_WITH_3DES_EDE_CBC_SHA,
 };
 
+const SSLCipherSuite anonymous_ciphersuites[] = {
+    TLS_ECDH_anon_WITH_AES_256_CBC_SHA,
+    TLS_ECDH_anon_WITH_AES_128_CBC_SHA,
+    TLS_DH_anon_WITH_AES_256_CBC_SHA256,
+    TLS_DH_anon_WITH_AES_256_CBC_SHA,
+    TLS_DH_anon_WITH_AES_128_CBC_SHA256,
+    TLS_DH_anon_WITH_AES_128_CBC_SHA
+};
 
 
 static int test_GetEnabledCiphers(SSLContextRef ssl, unsigned expected_num_ciphers, const SSLCipherSuite *expected_ciphers)
@@ -251,8 +259,8 @@ static int test_GetEnabledCiphers(SSLContextRef ssl, unsigned expected_num_ciphe
     SSLCipherSuite *ciphers = NULL;
     OSStatus err;
 
-    err=SSLSetIOFuncs(ssl, &SocketRead, &SocketWrite);
-    err=SSLSetConnection(ssl, NULL);
+    require_noerr(SSLSetIOFuncs(ssl, &SocketRead, &SocketWrite), out);
+    require_noerr(SSLSetConnection(ssl, NULL), out);
 
     require_noerr(SSLGetNumberEnabledCiphers(ssl, &num_ciphers), out);
     require_string(num_ciphers==expected_num_ciphers, out, "wrong ciphersuites number");
@@ -268,8 +276,8 @@ static int test_GetEnabledCiphers(SSLContextRef ssl, unsigned expected_num_ciphe
     free(ciphers);
     ciphers = NULL;
 
-    err=SSLHandshake(ssl);
-
+    err = SSLHandshake(ssl);
+    require(err == errSSLWouldBlock, out);
 
     require_noerr(SSLGetNumberEnabledCiphers(ssl, &num_ciphers), out);
     require_string(num_ciphers==expected_num_ciphers, out, "wrong ciphersuites number");
@@ -373,16 +381,46 @@ out:
     if(ssl) CFRelease(ssl);
 }
 
+static void
+test_default(SSLProtocolSide side)
+{
+    SSLContextRef ssl = NULL;
+    bool server = (side == kSSLServerSide);
+
+    ssl=SSLCreateContext(kCFAllocatorDefault, side, kSSLStreamType);
+    ok(ssl, "test_config: SSLCreateContext(1) failed (%s)", server?"server":"client");
+    require(ssl, out);
+
+    /* The order of this tests does matter, be careful when adding tests */
+    ok(!test_GetSupportedCiphers(ssl, server), "test_default: GetSupportedCiphers test failed (%s)", server?"server":"client");
+    ok(!test_GetEnabledCiphers(ssl, sizeof(standard_ciphersuites)/sizeof(SSLCipherSuite), standard_ciphersuites), "test_default: GetEnabledCiphers test failed (%s)", server?"server":"client");
+
+    CFRelease(ssl); ssl=NULL;
+
+    ssl=SSLCreateContext(kCFAllocatorDefault, side, kSSLStreamType);
+    ok(ssl, "test_default: SSLCreateContext(2) failed (%s)", server?"server":"client");
+    require(ssl, out);
+
+    ok(!test_SetEnabledCiphers(ssl), "test_config: SetEnabledCiphers test failed (%s)", server?"server":"client");
+
+out:
+    if(ssl) CFRelease(ssl);
+}
+
+
 
 
 int ssl_46_SSLGetSupportedCiphers(int argc, char *const *argv)
 {
-    plan_tests(132);
+    plan_tests(154);
 
     test_dhe(kSSLClientSide, true);
     test_dhe(kSSLServerSide, true);
     test_dhe(kSSLClientSide, false);
     test_dhe(kSSLServerSide, false);
+
+    test_default(kSSLClientSide);
+    test_default(kSSLServerSide);
 
 #define TEST_CONFIG(x, y) do {  \
     test_config(kSSLClientSide, x, sizeof(y)/sizeof(SSLCipherSuite), y); \
@@ -397,7 +435,8 @@ int ssl_46_SSLGetSupportedCiphers(int argc, char *const *argv)
     TEST_CONFIG(kSSLSessionConfig_RC4_fallback, legacy_ciphersuites);
     TEST_CONFIG(kSSLSessionConfig_TLSv1_fallback, standard_ciphersuites);
     TEST_CONFIG(kSSLSessionConfig_TLSv1_RC4_fallback, legacy_ciphersuites);
-    TEST_CONFIG(kSSLSessionConfig_default, legacy_ciphersuites);
+    TEST_CONFIG(kSSLSessionConfig_default, standard_ciphersuites);
+    TEST_CONFIG(kSSLSessionConfig_anonymous, anonymous_ciphersuites);
 
     return 0;
 }

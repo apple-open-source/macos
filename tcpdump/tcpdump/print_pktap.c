@@ -40,6 +40,7 @@
 
 #include <net/pktap.h>
 #include <strings.h>
+#include <uuid/uuid.h>
 
 extern char *svc2str(uint32_t);
 
@@ -64,6 +65,47 @@ print_pktap_header(struct netdissect_options *ndo, struct pktap_header *pktp_hdr
 	ND_PRINT((ndo, "pth_ecomm %s\n", pktp_hdr->pth_ecomm));
 }
 #endif /* DEBUG */
+
+static void
+pktap_print_procinfo(struct netdissect_options *ndo, const char *label, const char **pprsep, char *comm, pid_t pid, uuid_t uu)
+{
+	if ((kflag & (PRMD_PNAME | PRMD_PID | PRMD_PUUID)) &&
+	    (comm[0] != 0 || pid != -1 || uuid_is_null(uu) == 0)) {
+		const char *semicolumn = "";
+		
+		ND_PRINT((ndo, "%s%s ", *pprsep, label));
+		
+		if ((kflag & PRMD_PNAME)) {
+			ND_PRINT((ndo, "%s%s",
+				  semicolumn,
+				  comm[0] != 0 ? comm : ""));
+			semicolumn = ":";
+		}
+		if ((kflag & PRMD_PID)) {
+			if (pid != -1)
+				ND_PRINT((ndo, "%s%u",
+					  semicolumn, pid));
+			else
+				ND_PRINT((ndo, "%s",
+					  semicolumn));
+			semicolumn = ":";
+		}
+		if ((kflag & PRMD_PUUID)) {
+			if (uuid_is_null(uu) == 0) {
+				uuid_string_t uuid_str;
+				
+				uuid_unparse_lower(uu, uuid_str);
+				
+				ND_PRINT((ndo, "%s%s",
+					  semicolumn, uuid_str));
+			} else {
+				ND_PRINT((ndo, "%s",
+					  semicolumn));
+			}
+		}
+		*pprsep = ", ";
+	}
+}
 
 u_int
 pktap_if_print(struct netdissect_options *ndo, const struct pcap_pkthdr *h,
@@ -93,76 +135,38 @@ pktap_if_print(struct netdissect_options *ndo, const struct pcap_pkthdr *h,
 		const char *prsep = "";
 		
 		ND_PRINT((ndo, "("));
-	
+		
 		if (kflag & PRMD_IF) {
 			ND_PRINT((ndo, "%s", pktp_hdr->pth_ifname));
 			prsep = ", ";
 		}
-		if (pktp_hdr->pth_pid != -1) {
-			switch ((kflag & (PRMD_PNAME |PRMD_PID))) {
-				case (PRMD_PNAME |PRMD_PID):
-					ND_PRINT((ndo, "%sproc %s:%u",
-							  prsep,
-							  pktp_hdr->pth_comm, pktp_hdr->pth_pid));
-					prsep = ", ";
-                    if ((pktp_hdr->pth_flags & PTH_FLAG_PROC_DELEGATED)) {
-                        ND_PRINT((ndo, "%seproc %s:%u",
-                                  prsep,
-                                  pktp_hdr->pth_ecomm, pktp_hdr->pth_epid));
-                        prsep = ", ";
-                    }
-					break;
-				case PRMD_PNAME:
-					ND_PRINT((ndo, "%sproc %s",
-							  prsep,
-							  pktp_hdr->pth_comm));
-					prsep = ", ";
-                    if ((pktp_hdr->pth_flags & PTH_FLAG_PROC_DELEGATED)) {
-                        ND_PRINT((ndo, "%seproc %s",
-                                  prsep,
-                                  pktp_hdr->pth_ecomm));
-                        prsep = ", ";
-                    }
-					break;
-					
-				case PRMD_PID:
-					ND_PRINT((ndo, "%sproc %u",
-							  prsep,
-							  pktp_hdr->pth_pid));
-					prsep = ", ";
-                    if ((pktp_hdr->pth_flags & PTH_FLAG_PROC_DELEGATED)) {
-                        ND_PRINT((ndo, "%seproc %u",
-                                  prsep,
-                                  pktp_hdr->pth_epid));
-                        prsep = ", ";
-                    }
-					break;
-					
-				default:
-					break;
-			}
-		}
+		
+		pktap_print_procinfo(ndo, "proc", &prsep, pktp_hdr->pth_comm, pktp_hdr->pth_pid, pktp_hdr->pth_uuid);
+
+		pktap_print_procinfo(ndo, "eproc", &prsep, pktp_hdr->pth_ecomm, pktp_hdr->pth_epid, pktp_hdr->pth_euuid);
+
+
 		if ((kflag & PRMD_SVC) && pktp_hdr->pth_svc != -1) {
 			ND_PRINT((ndo, "%ssvc %s",
-					  prsep,
-					  svc2str(pktp_hdr->pth_svc)));
+				  prsep,
+				  svc2str(pktp_hdr->pth_svc)));
 			prsep = ", ";
 		}
 		if (kflag & PRMD_DIR) {
 			if ((pktp_hdr->pth_flags & PTH_FLAG_DIR_IN)) {
 				ND_PRINT((ndo, "%sin",
-						  prsep));
+					  prsep));
 				prsep = ", ";
 			} else if ((pktp_hdr->pth_flags & PTH_FLAG_DIR_OUT)) {
 				ND_PRINT((ndo, "%sout",
-						  prsep));
+					  prsep));
 				prsep = ", ";
 			}
 		}
 		ND_PRINT((ndo, ") "));
 	}
 
-    /*
+	/*
 	 * Compensate for the pktap header
 	 */
 	bcopy(h, &tmp_hdr, sizeof(struct pcap_pkthdr));

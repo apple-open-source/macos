@@ -29,7 +29,6 @@
 
 #include "Element.h"
 #include "Event.h"
-#include "RenderStyle.h"
 #include <wtf/Forward.h>
 
 namespace WebCore {
@@ -45,37 +44,32 @@ public:
     Element* hostElement() const { return m_hostElement; }
     void clearHostElement();
 
-    virtual RefPtr<RenderStyle> customStyleForRenderer(RenderStyle& parentStyle) override;
-    virtual void didAttachRenderers() override;
-    virtual bool rendererIsNeeded(const RenderStyle&) override;
+    Optional<ElementStyle> resolveCustomStyle(const RenderStyle& parentStyle, const RenderStyle* shadowHostStyle) override;
+    void didAttachRenderers() override;
+    void didRecalcStyle(Style::Change) override;
+    bool rendererIsNeeded(const RenderStyle&) override;
 
     // As per http://dev.w3.org/csswg/css3-regions/#flow-into, pseudo-elements such as ::first-line, ::first-letter, ::before or ::after
     // cannot be directly collected into a named flow.
 #if ENABLE(CSS_REGIONS)
-    virtual bool shouldMoveToFlowThread(const RenderStyle&) const override { return false; }
+    bool shouldMoveToFlowThread(const RenderStyle&) const override { return false; }
 #endif
 
-    virtual bool canStartSelection() const override { return false; }
-    virtual bool canContainRangeEndPoint() const override { return false; }
+    bool canStartSelection() const override { return false; }
+    bool canContainRangeEndPoint() const override { return false; }
 
     static String pseudoElementNameForEvents(PseudoId);
 
 private:
     PseudoElement(Element&, PseudoId);
 
-    virtual void didRecalcStyle(Style::Change) override;
-    virtual PseudoId customPseudoId() const override { return m_pseudoId; }
+    PseudoId customPseudoId() const override { return m_pseudoId; }
 
     Element* m_hostElement;
     PseudoId m_pseudoId;
 };
 
 const QualifiedName& pseudoElementTagName();
-
-inline bool pseudoElementRendererIsNeeded(const RenderStyle* style)
-{
-    return style && style->display() != NONE && (style->contentData() || style->hasFlowFrom());
-}
 
 } // namespace WebCore
 

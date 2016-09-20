@@ -36,26 +36,26 @@
  */
 
 #pragma D option quiet
-
+#pragma D option statusrate=15ms
 
 BEGIN
 {
 	ptr = alloca(sizeof (int));
-	bcopy((void *)&`max_ncpus, ptr, sizeof (int));
+	bcopy((void *)&`real_ncpus, ptr, sizeof (int));
 	intp = (int *)ptr;
-	ret = (`max_ncpus == *intp) ? 0 : 1;
+	ret = (`real_ncpus == *intp) ? 0 : 1;
 }
 
-tick-1
+tick-10ms
 /ret == 0/
 {
 	exit(0);
 }
 
-tick-1
+tick-10ms
 /ret == 1/
 {
 	printf("memory address contained 0x%x, expected 0x%x\n",
-		*intp, `max_ncpus);
+		*intp, `real_ncpus);
 	exit(1);
 }

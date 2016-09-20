@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -96,11 +96,7 @@ union MaxMsgSize {
 	union __RequestUnion__gssd_mach_subsystem req;
 	union __ReplyUnion__gssd_mach_subsystem rep;
 };
-
 #define	MAX_GSSD_MSG_SIZE	(sizeof (union MaxMsgSize) + MAX_TRAILER_SIZE)
-
-
-
 
 #define	APPLE_PREFIX  "com.apple." /* Bootstrap name prefix */
 #define	MAXLABEL	256	/* Max bootstrap name */
@@ -109,19 +105,6 @@ union MaxMsgSize {
 #define	TIMEOUT	30		/* 30 seconds and then bye. */
 #define	SHUTDOWN_TIMEOUT  2     /* timeout gets set to this after TERM signal */
 
-#define NFS_SERVICE		"nfs"
-#define NFS_SERVICE_LEN		3
-#define IS_NFS_SERVICE(s)	((strncmp((s), NFS_SERVICE, NFS_SERVICE_LEN) == 0) && \
-				 ((s)[NFS_SERVICE_LEN] == '/' || (s)[NFS_SERVICE_LEN] == '@'))
-
-krb5_enctype NFS_ENCTYPES[] = {
-	ENCTYPE_DES_CBC_CRC,
-	ENCTYPE_DES_CBC_MD5,
-	ENCTYPE_DES_CBC_MD4,
-	ENCTYPE_DES3_CBC_SHA1
-};
-
-#define NUM_NFS_ENCTYPES	((uint32_t)(sizeof(NFS_ENCTYPES)/sizeof(krb5_enctype)))
 extern int ctx_counter;
 
 static uint32_t uid_to_gss_name(uint32_t *, uid_t, gss_OID, gss_name_t *);
@@ -140,7 +123,7 @@ static void	disable_timeout(int);
 static void *	timeout_thread(void *);
 static void	vm_alloc_buffer(gss_buffer_t, uint8_t **, uint32_t *);
 static uint32_t GetSessionKey(uint32_t *, gss_OID mech, gss_ctx_id_t, gssd_byte_buffer *,
-			mach_msg_type_number_t *);
+			      mach_msg_type_number_t *, int);
 static uint32_t badcall(char *, uint32_t *, gssd_ctx *, gssd_cred *, uint32_t *,
 			gssd_byte_buffer *, mach_msg_type_number_t *,
 			gssd_byte_buffer *, mach_msg_type_number_t *);
@@ -299,6 +282,12 @@ check_session(au_asid_t asid)
 }
 
 au_asid_t my_asid = AU_DEFAUDITSID;
+#ifdef CCOVERAGE
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/param.h>
+#include <unistd.h>
+#endif
 
 static void
 set_identity(void)
@@ -321,6 +310,13 @@ set_identity(void)
 		if (uuidstr2sessioninfo(instance, &uid, &asid))
 			Log("Could not parse  LaunchInstanceID: %s", instance);
 		else {
+#ifdef CCOVERAGE
+			char path[MAXPATHLEN+1];
+			snprintf(path, MAXPATHLEN, "/private/var/tmp/cc/gssd.%d/default.profraw", getpid());
+			path[MAXPATHLEN] = '\0';
+			chmod(path, 0666);
+			chown(path, uid, 0);
+#endif
 			if (join_session(asid, instance) == 0)
 				setuid(uid);
 		}
@@ -681,6 +677,9 @@ get_next_kerb_component(char *str)
  * getucred: Given a user name return the corresponding uid and gid list.
  * Note the first gid in the list is the principal (passwd entry) gid.
  *
+ * Note just return the primary group, we let the kernel's kauth mechanism do
+ * dynamic group lookups.
+ *
  * Return: True on success of False on failure. Note on failure, *uid and *gid
  * are set to nobody and *ngroups is set to 1.
  */
@@ -696,14 +695,8 @@ getucred(const char *uname, uid_t *uid, gid_t *gids, uint32_t *ngroups)
 	(void) getpwnam_r(uname, &pwent, pwdbuf, sizeof(pwdbuf), &pwd);
 	if (pwd) {
 		*uid = pwd->pw_uid;
-		*ngroups = NGROUPS_MAX;
-		if (getgrouplist(uname, pwd->pw_gid,
-			(int *)gids, (int *)ngroups) == -1) {
-			/* Best we can do is just return the principal gid */
-			*gids = pwd->pw_gid;
-			*ngroups = 1;
-		}
-		return (true);
+		*ngroups = 1;
+		*gids = pwd->pw_gid;
 	}
 	return (false);
 }
@@ -778,14 +771,19 @@ gss_name_to_ucred_1(uint32_t *minor, gss_name_t name,
 	}
 out:
 	if (!gotname)
-		Log("Directory Service could not map %s to unix credentials. Directory Service problem?\n", uname);
+		Info("Directory Service could not map %s to unix credentials. Directory Service problem?\n", uname);
 	else
 		Info("Directory Service mapped %s to uid %d", uname, *uid);
 
 	free(uname);
 	free_local_realms(realms);
 
-	return (uint32_t)(gotname ? GSS_S_COMPLETE : GSS_S_FAILURE);
+	/*
+	 * If we could not find a mapping for the principal then they are mapped to nobody.
+	 * This is important for service principals that probably don't have a mapping. Particularly during 
+	 * mounting.
+	 */
+	return (GSS_S_COMPLETE);
 }
 
 /*
@@ -832,15 +830,9 @@ gss_name_to_ucred(uint32_t *min, gss_name_t name,
 	}
 
 	if (pwd) {
-		*ngroups = NGROUPS_MAX;
-		if (getgrouplist(pwd->pw_name, pwd->pw_gid,
-				 (int *)gids, (int *)ngroups) == -1) {
-			/* Best we can do is just return the principal gid */
-			*gids = pwd->pw_gid;
-			*ngroups = 1;
-		} else {
-			DEBUG(2, "getgrouplist failed.\n");
-		}
+		/* We let kauth in the kernel do dynamic group mappings */
+		*ngroups = 1;
+		*gids = pwd->pw_gid;
 	} else {
 		Log("Directory Service could not find uid %d.\n", *uid);
 		return (GSS_S_FAILURE);
@@ -1234,37 +1226,6 @@ blob_to_svcnames(uint32_t *min, gssd_nametype nt, gssd_byte_buffer svc_princ, ui
 	}
 }
 
-static int
-is_nfs_service(gss_name_t svcname)
-{
-	uint32_t maj, min;
-	gss_buffer_desc nbuf;
-	gss_name_t canon;
-	char *str = NULL;
-	int is_nfs = 0;
-
-	maj = gss_canonicalize_name(&min, svcname, mechtab[GSSD_KRB5_MECH], &canon);
-	if (maj != GSS_S_COMPLETE)
-		return (0);
-
-	maj = gss_display_name(&min, canon, &nbuf, NULL);
-	if (maj != GSS_S_COMPLETE)
-		goto done;
-
-	str = buf_to_str(&nbuf);
-
-	DEBUG(3, "is_nfs_service principal is %s\n", str ? str : "");
-
-	if (str)
-		is_nfs = IS_NFS_SERVICE(str);
-
-done:
-	gss_release_name(&min, &canon);
-	free(str);
-
-	return (is_nfs);
-}
-
 /*
  * Figure out who nobody is and how big a buffer we need to fetch password entries.
  * If we're logging at a debug level print out the default realm if we can.
@@ -1348,7 +1309,7 @@ receive_message(void *arg __attribute__((unused)))
 #endif
 
 	if (kr != KERN_SUCCESS)  {
-		Info("mach_msg_server(mp): %s\n", mach_error_string(kr));
+		Log("mach_msg_server(mp): %s\n", mach_error_string(kr));
 		exit(1);
 	}
 
@@ -1632,7 +1593,7 @@ is_kerberos_key_mech(gss_const_OID mech)
 {
 	gss_OID *p;
 
-	for (p = kerb_mechs; p; p++) {
+	for (p = kerb_mechs; *p; p++) {
 		if (gss_oid_equal(mech, *p))
 			return (true);
 	}
@@ -1642,7 +1603,7 @@ is_kerberos_key_mech(gss_const_OID mech)
 
 static uint32_t
 GetSessionKey(uint32_t *minor, gss_OID mech, gss_ctx_id_t ctx,
-		gssd_byte_buffer *skey, mach_msg_type_number_t *skeyCnt)
+	      gssd_byte_buffer *skey, mach_msg_type_number_t *skeyCnt, int lucid)
 {
 	gss_krb5_lucid_context_v1_t *lucid_ctx = NULL;
 	gss_krb5_lucid_key_t *key;
@@ -1665,7 +1626,7 @@ GetSessionKey(uint32_t *minor, gss_OID mech, gss_ctx_id_t ctx,
 			if (keys->count > 1)
 				Info("GetSessionKey received multiple keys. Using first key of %d keys\n", (uint32_t)keys->count);
 			vm_alloc_buffer(&keys->elements[0], skey, skeyCnt);
-			if (skey == NULL) {
+			if (*skey == NULL) {
 				Log("Out of memory in GetSessionKey\n");
 				return (GSS_S_FAILURE);
 			}
@@ -1693,34 +1654,46 @@ GetSessionKey(uint32_t *minor, gss_OID mech, gss_ctx_id_t ctx,
 				(void) gss_krb5_free_lucid_sec_context(&min_stat, lucid_ctx);
 				return (GSS_S_UNAVAILABLE);
 		}
-
 		DEBUG(4, "vers = %d, protocol = %d\n",  vers, lucid_ctx->protocol);
 
 		switch (lucid_ctx->protocol) {
-			case 0:
-				DEBUG(4, "Got rfc1964\n");
-				key = &lucid_ctx->rfc1964_kd.ctx_key;
-				break;
-			case 1:
-				key = lucid_ctx->cfx_kd.have_acceptor_subkey ?
+		case 0:
+			DEBUG(4, "Got rfc1964\n");
+			key = &lucid_ctx->rfc1964_kd.ctx_key;
+			break;
+		case 1:
+			key = lucid_ctx->cfx_kd.have_acceptor_subkey ?
 				&lucid_ctx->cfx_kd.acceptor_subkey :
-				&lucid_ctx->cfx_kd.ctx_key;
-				break;
-			default:
-				(void) gss_krb5_free_lucid_sec_context(&min_stat, lucid_ctx);
-				return (GSS_S_CALL_BAD_STRUCTURE);  /* should never happen. */
+			&lucid_ctx->cfx_kd.ctx_key;
+			break;
+		default:
+			(void) gss_krb5_free_lucid_sec_context(&min_stat, lucid_ctx);
+			return (GSS_S_CALL_BAD_STRUCTURE);  /* should never happen. */
 		}
 
 		DEBUG(4, "lucid key type = %d\n", key->type);
-		buf.length = key->length;
-		buf.value  = key->data;
+		if (lucid) {
+			Info("exporting lucid context\n");
+			if (!make_lucid_stream(lucid_ctx, &buf.length, &buf.value)) {
+				Log("Could not encode lucid context\n");
+				free(buf.value);
+				return (GSS_S_FAILURE);
+			}
+		} else {
+			buf.length = key->length;
+			buf.value  = key->data;
+		}
 
 		vm_alloc_buffer(&buf, skey, skeyCnt);
-		if (skey == NULL) {
+		if (*skey == NULL) {
 			Log("Out of memory in GetSessionKey\n");
+			if (lucid)
+				free(buf.value);
 			return (GSS_S_FAILURE);
 		}
 
+		if (lucid)
+			free(buf.value);
 		(void) gss_krb5_free_lucid_sec_context(&min_stat, lucid_ctx);
 		return (GSS_S_COMPLETE);
 	}
@@ -1796,6 +1769,116 @@ gss_name_to_kprinc(uint32_t *minor, gss_name_t name, krb5_principal *princ, krb5
 
 	major = (uint32_t) (*minor ? GSS_S_FAILURE : GSS_S_COMPLETE);
 	free(strname);
+
+	return (major);
+}
+
+static uint32_t
+gssd_set_allowable_keytypes(uint32_t *minor, gss_cred_id_t cred_handle, gss_name_t service, uint32_t keytypesCnt, int32_t *keytypes)
+{
+	krb5_context kctx;
+	krb5_principal kprinc = NULL, kservice = NULL;
+	krb5_ccache ccache = NULL;
+	krb5_creds mcred, rcred;
+	gss_name_t name;
+	uint32_t major, m;
+
+	/* Initialize creds */
+	krb5_cc_clear_mcred(&mcred);
+	krb5_cc_clear_mcred(&rcred);
+
+	/* Set the allowable key types for this credential to be used when getting service tickets */
+	major = gss_krb5_set_allowable_enctypes(minor, cred_handle, keytypesCnt, keytypes);
+	if (service == GSS_C_NO_NAME || major != GSS_S_COMPLETE) {
+		if (major != GSS_S_COMPLETE)
+			Log("Could not set enctypes for cred");
+		return (major);
+	}
+
+	/*
+	 * Check if the service ticket for "service" has already been fetched.
+	 * If it has and the key type is not one we want we need to remove that
+	 * credential from the cache backing this cred_handle. So that a fetch of a new
+	 * service credential with one of the supported key types.
+	 */
+
+	major = gss_inquire_cred_by_mech(minor, cred_handle, GSS_KRB5_MECHANISM, &name, NULL, NULL, NULL);
+	if (major != GSS_S_COMPLETE) {
+		Info("gss_inquire_cred failed %K, minor = %#k", major, GSS_KRB5_MECHANISM, *minor);
+		return (major);
+	}
+	*minor = (uint32_t)krb5_init_context(&kctx);
+	if (*minor) {
+		Info("Could not establish krb5 context");
+		gss_release_name(&m, &name);
+		return (GSS_S_FAILURE);
+	}
+
+	major = gss_name_to_kprinc(minor, name, &kprinc, kctx);
+	if (major != GSS_S_COMPLETE) {
+		Info("gss_name_to_kprinc failed: %K minor = %#k", major, GSS_KRB5_MECHANISM, *minor);
+		goto out;
+	}
+	major = gss_name_to_kprinc(minor, service, &kservice, kctx);
+	if (major != GSS_S_COMPLETE) {
+		Info("gss_name_to_kprinc failed for service: %K minor = %#k", major, GSS_KRB5_MECHANISM, *minor);
+		goto out;
+	}
+	if (kprinc)
+		*minor = krb5_cc_cache_match(kctx, kprinc, &ccache);
+	else
+		*minor = krb5_cc_default(kctx, &ccache);
+	if (*minor)  {
+		major = GSS_S_FAILURE;
+		goto out;
+	}
+
+	mcred.server = kservice;
+	*minor = (uint32_t)krb5_cc_retrieve_cred(kctx, ccache, 0, &mcred, &rcred);
+
+	if (*minor) {
+		if (*minor == (uint32_t)KRB5_CC_NOTFOUND) {
+			*minor = 0;
+			Debug("Did not find credential");
+		} else {
+			major = GSS_S_FAILURE;
+			Debug("krb_cc_retrieve_cred failed %d", (int)*minor);
+		}
+		goto out;
+	}
+	Debug("Found matching credential");
+
+	/* See if the credential session keytype matches one of our keytypes */
+	for (uint32_t i = 0; i < keytypesCnt; i++) {
+		/* If we have a match we're done */
+		if (rcred.session.keytype == keytypes[i]) {
+			Debug("Found matching keytype %d", keytypes[i]);
+			goto out;
+		}
+	}
+
+	/*
+	 * We have a matched service but the key type dosen't match
+	 * one in our list. Lets attempt to remove it.
+	 */
+	*minor = krb5_cc_remove_cred(kctx, ccache, 0, &mcred);
+	if (*minor) {
+		Info("Could not remove credential from cache");
+		major = GSS_S_FAILURE;
+	} else {
+		Debug("Removed matching credential");
+	}
+out:
+	gss_release_name(&m, &name);
+	if (kprinc)
+		krb5_free_principal(kctx, kprinc);
+	if (kservice)
+		krb5_free_principal(kctx, kservice);
+	if (ccache)
+		krb5_cc_close(kctx, ccache);
+	if (rcred.server)
+		krb5_free_cred_contents(kctx, &rcred);
+	krb5_free_context(kctx);
 
 	return (major);
 }
@@ -2251,11 +2334,15 @@ svc_mach_gss_init_sec_context_common(
 	gss_OID mech_oid;
 	uint32_t major_stat;
 	uint32_t major, minor;
-	uint32_t __unused in_gssd_flags = *gssd_flags;
+	int  lucid = ((*gssd_flags & GSSD_LUCID_CONTEXT) == GSSD_LUCID_CONTEXT);
 
 	DEBUG(2, "Using mech = %d\n", mech);
 	DEBUG(3, "\tcred_handle = %p\n", cred_handle);
 	DEBUG(3, "\tgss_context = %p\n", context);
+
+	if (!context)
+		return (GSS_S_CALL_INACCESSIBLE_READ | GSS_S_CALL_INACCESSIBLE_WRITE);
+	DEBUG(3, "\t*gss_context = %p\n", (void *)*context);
 	DEBUG(2, "itokenCnt = %d\n", itokenCnt);
 	HEXDUMP(2, (char *)itoken, (itokenCnt > 80) ? 80 : itokenCnt);
 	if (die) {
@@ -2264,11 +2351,6 @@ svc_mach_gss_init_sec_context_common(
 	}
 
 	*gssd_flags = 0;
-
-#ifdef WIN2K_HACK
-	if ((in_gssd_flags & GSSD_WIN2K_HACK) && itokenCnt > 0)
-		spnego_win2k_hack(&intoken);
-#endif
 
 	major_stat = gss_init_sec_context(
 					  minor_stat,
@@ -2327,8 +2409,9 @@ svc_mach_gss_init_sec_context_common(
 		/*
 		 * Fetch the (sub)session key from the context
 		 */
+		Debug("lucid flag is %sset\n", lucid ? "" : "not ");
 		major_stat = GetSessionKey(minor_stat, mech_oid, *context,
-					   skey, skeyCnt);
+					   skey, skeyCnt, lucid);
 
 		DEBUG(2, "Client key: length = %d\n", *skeyCnt);
 		HEXDUMP(2, (char *) *skey, *skeyCnt);
@@ -2340,7 +2423,7 @@ svc_mach_gss_init_sec_context_common(
 		OSAtomicIncrement32(&initErr);
 
 	DEBUG(3, "cred = %p\n", cred_handle);
-	DEBUG(3, "\tgss_context = %p\n", *context);
+	DEBUG(3, "\tgss_context = %p\n", context ? *context : NULL);
 	DEBUG(2, "%sotokenCnt = %d\n", get_debug_level() > 2 ? "\t" : "", *otokenCnt);
 	HEXDUMP(2, (char *)*otoken, (*otokenCnt > 80) ? 80 : *otokenCnt);
 	DEBUG(3, "Returning from init %d errors out of a total %d calls\n", initErr, initCnt);
@@ -2424,6 +2507,61 @@ svc_mach_gss_init_sec_context_v2(
 	mach_msg_type_number_t *skeyCnt,
 	gssd_byte_buffer *otoken,
 	mach_msg_type_number_t *otokenCnt,
+	gssd_dstring displayname,
+	uint32_t *major_stat,
+	uint32_t *minor_stat)
+{
+	kern_return_t kr;
+
+	kr = svc_mach_gss_init_sec_context_v3(server,
+					      mech,
+					      itoken, itokenCnt,
+					      uid,
+					      clnt_nt,
+					      clnt_princ, clnt_princCnt,
+					      svc_nt,
+					      svc_princ, svc_princCnt,
+					      flags,
+					      NULL, 0,
+					      gssd_flags,
+					      gss_context,
+					      cred_handle,
+					      atok,
+					      ret_flags,
+					      skey, skeyCnt,
+					      otoken, otokenCnt,
+					      displayname,
+					      major_stat,
+					      minor_stat);
+
+	return (kr);
+}
+
+kern_return_t
+svc_mach_gss_init_sec_context_v3(
+	mach_port_t server __attribute__((unused)),
+	gssd_mechtype mech,
+	gssd_byte_buffer itoken,
+	mach_msg_type_number_t itokenCnt,
+	uint32_t uid,
+	gssd_nametype clnt_nt,
+	gssd_byte_buffer clnt_princ,
+	mach_msg_type_number_t clnt_princCnt,
+	gssd_nametype svc_nt,
+	gssd_byte_buffer svc_princ,
+	mach_msg_type_number_t svc_princCnt,
+	uint32_t flags,
+	gssd_etype_list etypes,
+	mach_msg_type_number_t etypesCnt,
+	uint32_t *gssd_flags,
+	gssd_ctx *gss_context,
+	gssd_cred *cred_handle,
+	audit_token_t atok,
+	uint32_t *ret_flags,
+	gssd_byte_buffer *skey,
+	mach_msg_type_number_t *skeyCnt,
+	gssd_byte_buffer *otoken,
+	mach_msg_type_number_t *otokenCnt,
 	 gssd_dstring displayname,
 	uint32_t *major_stat,
 	uint32_t *minor_stat)
@@ -2433,13 +2571,23 @@ svc_mach_gss_init_sec_context_v2(
 	uint32_t i, gnames = MAX_SVC_NAMES, name_index = MAX_SVC_NAMES;
 	uint32_t mstat;   /* Minor status for cleaning up. */
 	vproc_transaction_t gssd_vproc_handle;
-	uint32_t only_1des = ((*gssd_flags & GSSD_NFS_1DES) != 0);
 	kern_return_t kr = KERN_SUCCESS;
-
-	DEBUG(2, "Enter");
+	DEBUG(2, "Enter flags = %8.0x", *gssd_flags);
 
 	gssd_vproc_handle = vproc_transaction_begin(NULL);
 	new_worker_thread();
+
+	/*
+	 * Coverity is complaining that major_stat and minor_stat are
+	 * not initialize. Since these are out only parameters, mig
+	 * initializes them to zero, but Coverity dosn't grok that. If
+	 * we ever make major_stat and minor_stat in/out parameters we
+	 * should remove the next two lines.
+	 */
+	*major_stat = GSS_S_COMPLETE;
+	*minor_stat = 0;
+
+	*svc_gss_name = GSS_C_NO_NAME;
 
 	if (!check_audit(atok, FALSE)) {
 		kr = KERN_NO_ACCESS;
@@ -2451,7 +2599,8 @@ svc_mach_gss_init_sec_context_v2(
 	if (displayname)
 		*displayname = '\0';
 
-	if (!gssd_check(CAST(void *, *gss_context)) || !gssd_check(CAST(void *, *cred_handle))) {
+	if (gss_context == NULL || cred_handle == NULL ||
+	    !gssd_check(CAST(void *, *gss_context)) || !gssd_check(CAST(void *, *cred_handle))) {
 		*major_stat = badcall("svc_mach_gss_init_context",
 				      minor_stat, gss_context, cred_handle,
 				      gssd_flags,
@@ -2460,6 +2609,11 @@ svc_mach_gss_init_sec_context_v2(
 
 		kr = KERN_SUCCESS;
 		goto out;
+	}
+	if (*gss_context) {
+		g_cntx = gssd_get_context(*gss_context, svc_gss_name);
+		if (*svc_gss_name)
+			gnames = 1;
 	}
 
 	/*
@@ -2471,12 +2625,25 @@ svc_mach_gss_init_sec_context_v2(
 	 */
 	if (*major_stat != GSS_S_CONTINUE_NEEDED && *major_stat != GSS_S_COMPLETE) {
 		kr = KERN_SUCCESS;
-		g_cntx = gssd_get_context(*gss_context, svc_gss_name);
 		goto done;
 	}
+	if (*gssd_flags & GSSD_RESTART) {
+		if (g_cntx != GSS_C_NO_CONTEXT) {
+			Debug("Restarting, deleting context %p", g_cntx);
+			(void) gss_delete_sec_context(&mstat, &g_cntx, GSS_C_NO_BUFFER);
+			if (g_cntx != GSS_C_NO_CONTEXT) {
+				Debug("gss_delete_sec_context did not clear context");
+				g_cntx = GSS_C_NO_CONTEXT;
+			}
 
-	if (*gss_context == CAST(gssd_ctx, GSS_C_NO_CONTEXT)) {
+		}
+		if (*cred_handle) {
+			gssd_remove(CAST(void *, *cred_handle));
+			(void) gss_release_cred(&mstat, (gss_cred_id_t *) cred_handle);
+		}
+	}
 
+	if (*svc_gss_name == GSS_C_NO_NAME) {
 		if (no_canon || (*gssd_flags & GSSD_NO_CANON))
 			gnames = 1;
 		*major_stat = blob_to_svcnames(minor_stat, svc_nt, svc_princ, svc_princCnt,
@@ -2507,19 +2674,8 @@ svc_mach_gss_init_sec_context_v2(
 				free(oname);
 			}
 		}
-
 	}
-	else {
-		gnames = 1;
-		g_cntx = gssd_get_context(*gss_context, svc_gss_name);
-		if ((*gssd_flags & GSSD_RESTART) && g_cntx != GSS_C_NO_CONTEXT)
-			(void) gss_delete_sec_context(&mstat, &g_cntx, GSS_C_NO_BUFFER);
-	}
-	if (*cred_handle &&  (*gssd_flags & GSSD_RESTART)) {
-		gssd_remove(CAST(void *, *cred_handle));
-		(void) gss_release_cred(&mstat, (gss_cred_id_t *) cred_handle);
-	}
-	if (CAST(gss_cred_id_t, *cred_handle) == GSS_C_NO_CREDENTIAL || (*gssd_flags & GSSD_RESTART)) {
+	if (CAST(gss_cred_id_t, *cred_handle) == GSS_C_NO_CREDENTIAL) {
 		if (clnt_nt == GSSD_STRING_NAME)
 			*major_stat = do_acquire_cred_v1(minor_stat, (char *)clnt_princ, mech,
 							 *svc_gss_name, uid, (gss_cred_id_t *)cred_handle, *gssd_flags);
@@ -2530,18 +2686,32 @@ svc_mach_gss_init_sec_context_v2(
 		}
 		if (*major_stat != GSS_S_COMPLETE)
 			goto done;
-		/* ???
-		 * Currently NFS only supports a subset of the Kerberos enctypes
-		 * and only suports the kerberos mech. If using a non kerberos
-		 * credential, gss_krb5_set_allowable_enctypes will fail.
+		/*
+		 * if the service supplies an array of kerberos etypes then limit the 
+		 * etypes for kerberos to that set. Only NFS uses this currently.
 		 */
-		if (is_nfs_service(*svc_gss_name)) {
-			*major_stat = gss_krb5_set_allowable_enctypes
-				(minor_stat, *(gss_cred_id_t *)cred_handle,
-				 NUM_NFS_ENCTYPES - only_1des, NFS_ENCTYPES);
+		Debug("enctypes count = %d\n", etypesCnt);
+		if (etypesCnt) {
+			if (get_debug_level() > 1) {
+				char num[4];
+				char buf[80];
+				size_t j;
+				buf[0] = '\0';
+				for(i = 0; i < etypesCnt; i++) {
+					j = snprintf(num, sizeof (num), "%d ", etypes[i]);
+					if (j >= sizeof(num))
+						break;
+					strlcat(buf, num, sizeof(buf));
+
+				}
+				Debug("enctypes:%s\n", buf);
+			}
+			*major_stat = gssd_set_allowable_keytypes(minor_stat, *(gss_cred_id_t *)cred_handle, *svc_gss_name,
+								  etypesCnt, etypes);
 			if (*major_stat != GSS_S_COMPLETE) {
-				Log("Could not set enctypes for NFS\n");
-				goto done;
+				Log("Could not set enctypes for serive %K %#k\n", *major_stat, mechtab[mech], *minor_stat);
+				/* Ok to fail, we may not have selected a kerberos credential */
+				*major_stat = 0;
 			}
 		}
 		gssd_enter(CAST(void *, *cred_handle));
@@ -2592,9 +2762,9 @@ done:
 		(void) gss_release_cred(&mstat, (gss_cred_id_t *) cred_handle);
 		if (g_cntx != GSS_C_NO_CONTEXT)
 			(void) gss_delete_sec_context(&mstat, &g_cntx, GSS_C_NO_BUFFER);
-
 		if (name_index < gnames)
 			(void)gss_release_name(&mstat, &svc_gss_name[name_index]);
+		*gss_context = (gssd_ctx)GSS_C_NO_CONTEXT;
 	}
 
 out:
@@ -2757,7 +2927,7 @@ svc_mach_gss_accept_sec_context_v2(
 		 * Fetch the (sub)session key from the context
 		 */
 		*major_stat = GetSessionKey(minor_stat, oid, g_cntx,
-					    skey, skeyCnt);
+					    skey, skeyCnt, 1);
 
 		DEBUG(2, "Server key length = %d\n", *skeyCnt);
 		HEXDUMP(2, (char *) *skey, *skeyCnt);
@@ -2874,8 +3044,10 @@ svc_mach_gss_log_error(
 		maj_stat = gss_display_status (&min_stat, minor, GSS_C_MECH_CODE,
 					GSS_C_NULL_OID, &msg_context, &errBuf);
 		errStr = buf_to_str(&errBuf);
-		if (maj_stat != GSS_S_COMPLETE)
+		if (maj_stat != GSS_S_COMPLETE) {
+			free(errStr);
 			goto done;
+		}
 		full = strlcat(msgbuf, " - ", sizeof(msgbuf)) >= sizeof(msgbuf) ||
 		    strlcat(msgbuf, errStr, sizeof(msgbuf)) >= sizeof(msgbuf);
 		free(errStr);

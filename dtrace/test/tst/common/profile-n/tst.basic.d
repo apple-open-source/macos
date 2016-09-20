@@ -37,8 +37,9 @@
 
 
 #pragma D option quiet
+#pragma D option statusrate=15ms
 
-tick-1
+tick-10ms
 {
 	printf("This test is a simple profile-n provider test\n");
 	exit(0);

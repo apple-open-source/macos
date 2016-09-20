@@ -279,7 +279,10 @@ rule_create_with_plist(RuleType type, CFStringRef name, CFDictionaryRef plist, a
             if (_get_cf_bool(CFDictionaryGetValue(plist, CFSTR(kAuthorizationRuleParameterVPNEntitledAndGroup)), false)) {
                 flags |= RuleFlagVPNEntitledAndGroup;
             }
-           
+			if (_get_cf_bool(CFDictionaryGetValue(plist, CFSTR(kAuthorizationRuleParameterPasswordOnly)), false)) {
+				flags |= RuleFlagPasswordOnly;
+			}
+
             _copy_cf_rule_mechanisms(rule, CFDictionaryGetValue(plist, CFSTR(kAuthorizationRuleParameterMechanisms)), dbconn);
             
             break;
@@ -296,8 +299,8 @@ rule_create_with_plist(RuleType type, CFStringRef name, CFDictionaryRef plist, a
             if (_get_cf_bool(CFDictionaryGetValue(plist, CFSTR(kAuthorizationRuleParameterExtractPassword)), false)) {
                 flags |= RuleFlagExtractPassword;
             }
-            
-            _copy_cf_rule_mechanisms(rule, CFDictionaryGetValue(plist, CFSTR(kAuthorizationRuleParameterMechanisms)), dbconn);
+
+			_copy_cf_rule_mechanisms(rule, CFDictionaryGetValue(plist, CFSTR(kAuthorizationRuleParameterMechanisms)), dbconn);
             
             break;
         case RC_DENY:
@@ -502,7 +505,7 @@ _sql_bind(rule_t rule, sqlite3_stmt * stmt)
     rc = sqlite3_bind_text(stmt, column++, rule_get_identifier(rule), -1, NULL);
     require_noerr(rc, err);
 
-    CFDataRef data = rule_get_requirment_data(rule);
+    CFDataRef data = rule_get_requirement_data(rule);
     if (data) {
         rc = sqlite3_bind_blob(stmt, column++, CFDataGetBytePtr(data), (int32_t)CFDataGetLength(data), NULL);
     } else {
@@ -862,7 +865,7 @@ rule_copy_to_cfobject(rule_t rule, authdb_connection_t dbconn) {
         CFReleaseSafe(tmp);
     }
     
-    SecRequirementRef req = rule_get_requirment(rule);
+    SecRequirementRef req = rule_get_requirement(rule);
     if (req) {
         CFStringRef reqStr = NULL;
         SecRequirementCopyString(req, kSecCSDefaultFlags, &reqStr);
@@ -950,7 +953,10 @@ rule_copy_to_cfobject(rule_t rule, authdb_connection_t dbconn) {
             if (rule_get_extract_password(rule)) {
                 CFDictionarySetValue(dict, CFSTR(kAuthorizationRuleParameterExtractPassword), kCFBooleanTrue);
             }
-            
+			if (rule_get_password_only(rule)) {
+				CFDictionarySetValue(dict, CFSTR(kAuthorizationRuleParameterPasswordOnly), kCFBooleanTrue);
+			}
+
             count = CFArrayGetCount(rule->mechanisms);
             if (count) {
                 array = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
@@ -993,7 +999,7 @@ rule_copy_to_cfobject(rule_t rule, authdb_connection_t dbconn) {
             if (rule_get_extract_password(rule)) {
                 CFDictionarySetValue(dict, CFSTR(kAuthorizationRuleParameterExtractPassword), kCFBooleanTrue);
             }
-            
+
             n = rule_get_tries(rule);
             tmp = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt64Type, &n);
             CFDictionarySetValue(dict, CFSTR("tries"), tmp);
@@ -1156,6 +1162,12 @@ rule_get_extract_password(rule_t rule)
     return rule_check_flags(rule, RuleFlagExtractPassword);
 }
 
+bool
+rule_get_password_only(rule_t rule)
+{
+	return rule_check_flags(rule, RuleFlagPasswordOnly);
+}
+
 int64_t
 rule_get_tries(rule_t rule)
 {
@@ -1189,7 +1201,7 @@ const char * rule_get_identifier(rule_t rule)
     return auth_items_get_string(rule->data, RULE_IDENTIFIER);
 }
 
-CFDataRef rule_get_requirment_data(rule_t rule)
+CFDataRef rule_get_requirement_data(rule_t rule)
 {
     if (!rule->requirement_data && auth_items_exist(rule->data, RULE_REQUIREMENT)) {
         size_t len;
@@ -1200,10 +1212,10 @@ CFDataRef rule_get_requirment_data(rule_t rule)
     return rule->requirement_data;
 }
 
-SecRequirementRef rule_get_requirment(rule_t rule)
+SecRequirementRef rule_get_requirement(rule_t rule)
 {
     if (!rule->requirement) {
-        CFDataRef data = rule_get_requirment_data(rule);
+        CFDataRef data = rule_get_requirement_data(rule);
         if (data) {
             SecRequirementCreateWithData(data, kSecCSDefaultFlags, &rule->requirement);
         }

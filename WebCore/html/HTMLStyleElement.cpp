@@ -26,6 +26,7 @@
 
 #include "Document.h"
 #include "Event.h"
+#include "EventNames.h"
 #include "EventSender.h"
 #include "HTMLNames.h"
 #include "MediaList.h"
@@ -40,7 +41,7 @@ using namespace HTMLNames;
 
 static StyleEventSender& styleLoadEventSender()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(StyleEventSender, sharedLoadEventSender, (eventNames().loadEvent));
+    static NeverDestroyed<StyleEventSender> sharedLoadEventSender(eventNames().loadEvent);
     return sharedLoadEventSender;
 }
 

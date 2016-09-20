@@ -30,12 +30,14 @@
  */
 
 [
-    Conditional=MEDIA_STREAM,
-    CustomConstructor(optional Dictionary dictionary),
-    ConstructorRaisesException
+    Conditional=WEB_RTC,
+    Constructor(Dictionary dictionary),
+    ConstructorRaisesException,
+    PrivateIdentifier,
+    PublicIdentifier
 ] interface RTCIceCandidate {
     readonly attribute DOMString candidate;
-    readonly attribute DOMString sdpMid;
-    readonly attribute unsigned short sdpMLineIndex;
+    readonly attribute DOMString? sdpMid;
+    readonly attribute unsigned short? sdpMLineIndex;
 };
 

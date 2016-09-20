@@ -484,6 +484,8 @@ ALboolean	IsValidBufferObject(ALuint	inBID)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void	InitializeBufferMap()
 {
+    static pthread_mutex_t sInitLock = PTHREAD_MUTEX_INITIALIZER;
+    pthread_mutex_lock(&sInitLock);
 	if (gOALBufferMap == NULL)
 	{
 		gOALBufferMap = new OALBufferMap ();						// create the buffer map since there isn't one yet
@@ -494,6 +496,7 @@ void	InitializeBufferMap()
 		OALBuffer	*newBuffer = new OALBuffer (AL_NONE);
 		gOALBufferMap->Add(AL_NONE, &newBuffer);							// add the new buffer to the buffer map
 	}
+    pthread_mutex_unlock(&sInitLock);
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -627,11 +630,14 @@ ALC_API ALCdevice*      ALC_APIENTRY alcCaptureOpenDevice( const ALCchar *device
 		if(!IsFormatSupported(format))
 			throw ((OSStatus) AL_INVALID_VALUE);
 		
+        static pthread_mutex_t sInitLock = PTHREAD_MUTEX_INITIALIZER;
+        pthread_mutex_lock(&sInitLock);
 		if (gOALCaptureDeviceMap == NULL)
 		{
 			gOALCaptureDeviceMap = new OALCaptureDeviceMap ();                          // create the device map if there isn't one yet
 			gCaptureDeviceMapLock = new CAGuard("OAL:CaptureLock");								// create the list guard for thread safety
 		}
+        pthread_mutex_unlock(&sInitLock);
 		
         newDeviceToken = GetNewPtrToken();                                              // get a unique token
         newDevice = new OALCaptureDevice((const char *) devicename, newDeviceToken, frequency, format, buffersize);	// create a new device object
@@ -798,11 +804,14 @@ ALC_API ALCdevice* ALC_APIENTRY alcOpenDevice(const ALchar *deviceName)
 		if (Get3DMixerVersion() == kUnsupported3DMixer)
 			throw -1;
 		
+        static pthread_mutex_t sInitLock = PTHREAD_MUTEX_INITIALIZER;
+        pthread_mutex_lock(&sInitLock);
 		if (gOALDeviceMap == NULL)
 		{
 			gOALDeviceMap = new OALDeviceMap ();                                // create the device map if there isn't one yet
 			gDeviceMapLock = new CAGuard("OAL:DeviceLock");
 		}
+        pthread_mutex_unlock(&sInitLock);
 		 		
         newDeviceToken = GetNewPtrToken();																// get a unique token
         newDevice = new OALDevice((const char *) deviceName, newDeviceToken, gRenderChannelSetting);	// create a new device object
@@ -949,12 +958,16 @@ ALC_API ALCcontext* 	ALC_APIENTRY alcCreateContext(ALCdevice *device,	const ALCi
 	
 		oalDevice = ProtectDeviceObject ((uintptr_t) device);
 
-		// create the context map if there isn't one yet
+        // create the context map if there isn't one yet
+        static pthread_mutex_t sInitLock = PTHREAD_MUTEX_INITIALIZER;
+        pthread_mutex_lock(&sInitLock);
 		if (gOALContextMap == NULL)
 		{
 			gOALContextMap = new OALContextMap();
 			gContextMapLock = new CAGuard("OAL:ContextMapLock");
 		}
+        pthread_mutex_unlock(&sInitLock);
+        
 		newContextToken = GetNewPtrToken();
 		
 		// use the attribute hint for mono/stereo sources to set gMaximumMixerBusCount

@@ -42,9 +42,9 @@ public:
     {
     }
 
-    BlobPart(Vector<char> data)
+    BlobPart(Vector<uint8_t> data)
         : m_type(Data)
-        , m_data(WTF::move(data))
+        , m_data(WTFMove(data))
     {
     }
 
@@ -56,16 +56,16 @@ public:
 
     Type type() const { return m_type; }
 
-    const Vector<char>& data() const
+    const Vector<uint8_t>& data() const
     {
         ASSERT(m_type == Data);
         return m_data;
     }
 
-    Vector<char> moveData()
+    Vector<uint8_t> moveData()
     {
         ASSERT(m_type == Data);
-        return WTF::move(m_data);
+        return WTFMove(m_data);
     }
 
     const URL& url() const
@@ -81,7 +81,7 @@ public:
 
 private:
     Type m_type;
-    Vector<char> m_data;
+    Vector<uint8_t> m_data;
     URL m_url;
 };
 

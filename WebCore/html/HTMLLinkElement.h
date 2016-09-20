@@ -27,7 +27,7 @@
 #include "CSSStyleSheet.h"
 #include "CachedStyleSheetClient.h"
 #include "CachedResourceHandle.h"
-#include "DOMSettableTokenList.h"
+#include "DOMTokenList.h"
 #include "HTMLElement.h"
 #include "LinkLoader.h"
 #include "LinkLoaderClient.h"
@@ -35,8 +35,8 @@
 
 namespace WebCore {
 
+class DOMTokenList;
 class HTMLLinkElement;
-class RelList;
 class URL;
 
 template<typename T> class EventSender;
@@ -50,14 +50,14 @@ public:
     URL href() const;
     const AtomicString& rel() const;
 
-    virtual String target() const override;
+    String target() const final;
 
     const AtomicString& type() const;
 
-    IconType iconType() const;
+    Optional<LinkIconType> iconType() const;
 
     // the icon size string as parsed from the HTML attribute
-    String iconSizes() const;
+    String iconSizes();
 
     CSSStyleSheet* sheet() const { return m_sheet.get(); }
 
@@ -65,8 +65,10 @@ public:
 
     bool isDisabled() const { return m_disabledState == Disabled; }
     bool isEnabledViaScript() const { return m_disabledState == EnabledViaScript; }
-    void setSizes(const String&);
-    DOMSettableTokenList& sizes() { return m_sizes.get(); }
+    DOMTokenList& sizes();
+
+    void setCrossOrigin(const AtomicString&);
+    String crossOrigin() const;
 
     void dispatchPendingEvent(LinkEventSender*);
     static void dispatchPendingLoadEvents();
@@ -74,39 +76,39 @@ public:
     DOMTokenList& relList();
 
 private:
-    virtual void parseAttribute(const QualifiedName&, const AtomicString&) override;
+    void parseAttribute(const QualifiedName&, const AtomicString&) final;
 
-    virtual bool shouldLoadLink() override;
+    bool shouldLoadLink() final;
     void process();
     static void processCallback(Node*);
     void clearSheet();
 
-    virtual InsertionNotificationRequest insertedInto(ContainerNode&) override;
-    virtual void removedFrom(ContainerNode&) override;
+    InsertionNotificationRequest insertedInto(ContainerNode&) final;
+    void removedFrom(ContainerNode&) final;
 
     // from CachedResourceClient
-    virtual void setCSSStyleSheet(const String& href, const URL& baseURL, const String& charset, const CachedCSSStyleSheet* sheet) override;
-    virtual bool sheetLoaded() override;
-    virtual void notifyLoadedSheetAndAllCriticalSubresources(bool errorOccurred) override;
-    virtual void startLoadingDynamicSheet() override;
+    void setCSSStyleSheet(const String& href, const URL& baseURL, const String& charset, const CachedCSSStyleSheet*) final;
+    bool sheetLoaded() final;
+    void notifyLoadedSheetAndAllCriticalSubresources(bool errorOccurred) final;
+    void startLoadingDynamicSheet() final;
 
-    virtual void linkLoaded() override;
-    virtual void linkLoadingErrored() override;
+    void linkLoaded() final;
+    void linkLoadingErrored() final;
 
     bool isAlternate() const { return m_disabledState == Unset && m_relAttribute.isAlternate; }
     
     void setDisabledState(bool);
 
-    virtual bool isURLAttribute(const Attribute&) const override;
+    bool isURLAttribute(const Attribute&) const final;
 
-    virtual void defaultEventHandler(Event*) override;
+    void defaultEventHandler(Event*) final;
     void handleClick(Event&);
 
     HTMLLinkElement(const QualifiedName&, Document&, bool createdByParser);
 
-    virtual void addSubresourceAttributeURLs(ListHashSet<URL>&) const override;
+    void addSubresourceAttributeURLs(ListHashSet<URL>&) const final;
 
-    virtual void finishParsingChildren() override;
+    void finishParsingChildren() final;
 
     enum PendingSheetType { Unknown, ActiveSheet, InactiveSheet };
     void addPendingSheet(PendingSheetType);
@@ -129,7 +131,7 @@ private:
 
     String m_type;
     String m_media;
-    Ref<DOMSettableTokenList> m_sizes;
+    std::unique_ptr<DOMTokenList> m_sizes;
     DisabledState m_disabledState;
     LinkRelAttribute m_relAttribute;
     bool m_loading;
@@ -140,7 +142,7 @@ private:
 
     PendingSheetType m_pendingSheetType;
 
-    std::unique_ptr<RelList> m_relList;
+    std::unique_ptr<DOMTokenList> m_relList;
 };
 
 } //namespace

@@ -43,13 +43,9 @@ uint8_t* SOSPeerInfoEncodeToDER(SOSPeerInfoRef peer, CFErrorRef* error, const ui
 }
 
 CFDataRef SOSPeerInfoCopyEncodedData(SOSPeerInfoRef peer, CFAllocatorRef allocator, CFErrorRef *error) {
-    size_t size = SOSPeerInfoGetDEREncodedSize(peer, error);
-    if (size == 0) return NULL;
-    
-    uint8_t buffer[size];
-    uint8_t* start = SOSPeerInfoEncodeToDER(peer, error, buffer, buffer + sizeof(buffer));
-    CFDataRef result = CFDataCreate(kCFAllocatorDefault, start, size);
-    return result;
+    return CFDataCreateWithDER(kCFAllocatorDefault, SOSPeerInfoGetDEREncodedSize(peer, error), ^uint8_t*(size_t size, uint8_t *buffer) {
+        return SOSPeerInfoEncodeToDER(peer, error, buffer, (uint8_t *) buffer + size);
+    });
 }
 
 
@@ -117,7 +113,7 @@ SOSPeerInfoRef SOSPeerInfoCreateFromDER(CFAllocatorRef allocator, CFErrorRef* er
     pi->gestalt = gestalt;
     CFRetain(pi->gestalt);
     
-    pubKey = SOSPeerInfoCopyPubKey(pi);
+    pubKey = SOSPeerInfoCopyPubKey(pi, error);
     require_quiet(pubKey, fail);
     
     pi->id = SOSCopyIDOfKey(pubKey, error);

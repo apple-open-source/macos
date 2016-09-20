@@ -152,21 +152,21 @@ main(int argc, char *argv[])
 	while ((c = getopt(argc, argv, "mM:D:f:t:vcu?")) != EOF) {
 		switch (c) {
 		case 'm':
-			pr_msg("Warning: -m option not supported");
+			pr_msg(LOG_WARNING, "Warning: -m option not supported");
 			break;
 		case 'M':
-			pr_msg("Warning: -M option not supported");
+			pr_msg(LOG_WARNING, "Warning: -M option not supported");
 			break;
 		case 'D':
-			pr_msg("Warning: -D option not supported");
+			pr_msg(LOG_WARNING, "Warning: -D option not supported");
 			break;
 		case 'f':
-			pr_msg("Error: -f option no longer supported");
+			pr_msg(LOG_ERR, "Error: -f option no longer supported");
 			usage();
 			break;
 		case 't':
 			if (strchr(optarg, '=')) {
-				pr_msg("Error: invalid value for -t");
+				pr_msg(LOG_ERR, "Error: invalid value for -t");
 				usage();
 			}
 			mount_timeout = atoi(optarg);
@@ -187,7 +187,7 @@ main(int argc, char *argv[])
 	}
 
 	if (optind < argc) {
-		pr_msg("%s: command line mountpoints/maps "
+		pr_msg(LOG_ERR, "%s: command line mountpoints/maps "
 			"no longer supported",
 			argv[optind]);
 		usage();
@@ -198,7 +198,7 @@ main(int argc, char *argv[])
 	 */
 	num_current_mounts = getmntinfo(&current_mounts, MNT_NOWAIT);
 	if (num_current_mounts == 0) {
-		pr_msg("Couldn't get current mounts: %m");
+		pr_msg(LOG_ERR, "Couldn't get current mounts: %m");
 		exit(1);
 	}
 
@@ -246,7 +246,7 @@ main(int argc, char *argv[])
 		 */
 		error = load_autofs();
 		if (error != 0) {
-			pr_msg("can't load autofs kext");
+			pr_msg(LOG_ERR, "can't load autofs kext");
 			exit(1);
 		}
 
@@ -258,9 +258,9 @@ main(int argc, char *argv[])
 	}
 	if (autofs_control_fd == -1) {
 		if (errno == EBUSY)
-			pr_msg("Another automount is running");
+			pr_msg(LOG_ERR, "Another automount is running");
 		else
-			pr_msg("Couldn't open %s: %m", "/dev/" AUTOFS_CONTROL_DEVICE);
+			pr_msg(LOG_ERR, "Couldn't open %s: %m", "/dev/" AUTOFS_CONTROL_DEVICE);
 		exit(1);
 	}
 
@@ -268,7 +268,7 @@ main(int argc, char *argv[])
 	 * Update the mount timeout.
 	 */
 	if (ioctl(autofs_control_fd, AUTOFS_SET_MOUNT_TO, &mount_timeout) == -1)
-		pr_msg("AUTOFS_SET_MOUNT_TO failed: %m");
+		pr_msg(LOG_WARNING, "AUTOFS_SET_MOUNT_TO failed: %m");
 
 	/*
 	 * Attempt to unmount any non-busy triggered mounts; this includes
@@ -281,9 +281,9 @@ main(int argc, char *argv[])
 	 */
 	if (unmount_automounted) {
 		if (verbose)
-			pr_msg("Unmounting triggered mounts");
+			pr_msg(LOG_INFO, "Unmounting triggered mounts");
 		if (ioctl(autofs_control_fd, AUTOFS_UNMOUNT_TRIGGERED, 0) == -1)
-			pr_msg("AUTOFS_UNMOUNT_TRIGGERED failed: %m");
+			pr_msg(LOG_WARNING, "AUTOFS_UNMOUNT_TRIGGERED failed: %m");
 		exit(0);
 	}
 
@@ -293,7 +293,7 @@ main(int argc, char *argv[])
 		 * as we might be on a different network with different maps.
 		 */
 		if (ioctl(autofs_control_fd, AUTOFS_NOTIFYCHANGE, 0) == -1)
-			pr_msg("AUTOFS_NOTIFYCHANGE failed: %m");
+			pr_msg(LOG_WARNING, "AUTOFS_NOTIFYCHANGE failed: %m");
 	}
 
 	(void) umask(0);
@@ -317,7 +317,7 @@ main(int argc, char *argv[])
 			 * then, if that succeeds.
 			 */
 			if (errno != ENOENT) {
-				pr_msg("%s: Can't convert to real path: %m",
+				pr_msg(LOG_WARNING, "%s: Can't convert to real path: %m",
 				    dir->dir_name);
 				continue;
 			}
@@ -325,7 +325,7 @@ main(int argc, char *argv[])
 		} else {
 			dir->dir_realpath = strdup(real_mntpnt);
 			if (dir->dir_realpath == NULL) {
-				pr_msg("Couldn't allocate real path: %m");
+				pr_msg(LOG_ERR, "Couldn't allocate real path: %m");
 				exit(1);
 			}
 		}
@@ -385,7 +385,7 @@ main(int argc, char *argv[])
 				if (paths_match(dir, d) &&
 				    strcmp(d->dir_map, "-fstab") != 0 &&
 				    strcmp(d->dir_map, "-static") != 0) {
-					pr_msg("%s: ignoring redundant %s map",
+					pr_msg(LOG_NOTICE, "%s: ignoring redundant %s map",
 					    dir->dir_name, dir->dir_map);
 					break;
 				}
@@ -424,7 +424,7 @@ main(int argc, char *argv[])
 				 * be an entry here.  Log an error and
 				 * ignore this mount.
 				 */
-				pr_msg("can't find fstab entry for %s",
+				pr_msg(LOG_WARNING, "can't find fstab entry for %s",
 				    dir->dir_name);
 				continue;
 			}
@@ -455,7 +455,7 @@ main(int argc, char *argv[])
 			 * mount over it.
 			 */
 			if (strcmp(mntp->f_fstypename, MNTTYPE_AUTOFS) != 0) {
-				pr_msg("%s: already mounted on %s",
+				pr_msg(LOG_WARNING, "%s: already mounted on %s",
 					mntp->f_mntfromname, dir->dir_realpath);
 				continue;
 			}
@@ -477,11 +477,11 @@ main(int argc, char *argv[])
 
 			if (ioctl(autofs_control_fd, AUTOFS_UPDATE_OPTIONS,
 			    &au) < 0) {
-				pr_msg("update %s: %m", dir->dir_realpath);
+				pr_msg(LOG_INFO, "update %s: %m", dir->dir_realpath);
 				continue;
 			}
 			if (verbose)
-				pr_msg("%s updated", dir->dir_realpath);
+				pr_msg(LOG_INFO, "%s updated", dir->dir_realpath);
 		} else {
 			struct autofs_args ai;
 			int st_flags = 0;
@@ -499,7 +499,7 @@ main(int argc, char *argv[])
 			 */
 			if (lstat(dir->dir_name, &stbuf) == 0) {
 				if ((stbuf.st_mode & S_IFMT) != S_IFDIR) {
-					pr_msg("%s: Not a directory", dir->dir_name);
+					pr_msg(LOG_WARNING, "%s: Not a directory", dir->dir_name);
 					continue;
 				}
 				st_flags = stbuf.st_flags;
@@ -517,7 +517,7 @@ main(int argc, char *argv[])
 				 */
 				if (dir->dir_realpath == NULL) {
 					errno = ENOENT;
-					pr_msg("%s: Can't convert to real path: %m",
+					pr_msg(LOG_WARNING, "%s: Can't convert to real path: %m",
 					    dir->dir_name);
 					continue;
 				}
@@ -530,12 +530,12 @@ main(int argc, char *argv[])
 				 * containing the mountpoint hasn't mounted yet.
 				 */
 				if (strncmp(dir->dir_name, "/Volumes/", 9) == 0) {
-					pr_msg("%s: mountpoint unavailable", dir->dir_name);
+					pr_msg(LOG_WARNING, "%s: mountpoint unavailable", dir->dir_name);
 					continue;
 				}
 
 				if (mkdir_r(dir->dir_name)) {
-					pr_msg("%s: %m", dir->dir_name);
+					pr_msg(LOG_WARNING, "%s: %m", dir->dir_name);
 					continue;
 				}
 
@@ -550,13 +550,13 @@ main(int argc, char *argv[])
 					/*
 					 * Failed.
 					 */
-					pr_msg("%s: Can't convert to real path: %m",
+					pr_msg(LOG_WARNING, "%s: Can't convert to real path: %m",
 					    dir->dir_name);
 					continue;
 				}
 				dir->dir_realpath = strdup(real_mntpnt);
 				if (dir->dir_realpath == NULL) {
-					pr_msg("Couldn't allocate real path for %s: %m",
+					pr_msg(LOG_WARNING, "Couldn't allocate real path for %s: %m",
 					    dir->dir_name);
 					continue;
 				}
@@ -573,7 +573,7 @@ main(int argc, char *argv[])
 			else
 				st_flags &= ~UF_HIDDEN;
 			if (chflags(dir->dir_name, st_flags) < 0)
-				pr_msg("%s: can't set hidden", dir->dir_name);
+				pr_msg(LOG_WARNING, "%s: can't set hidden", dir->dir_name);
 
 			/*
 			 * Mount it.  Use the real path (symlink-free),
@@ -596,18 +596,18 @@ main(int argc, char *argv[])
 			if (mount(MNTTYPE_AUTOFS, dir->dir_realpath,
 			    MNT_DONTBROWSE | MNT_AUTOMOUNTED | flags,
 			    &ai) < 0) {
-				pr_msg("mount %s: %m", dir->dir_realpath);
+				pr_msg(LOG_INFO, "mount %s: %m", dir->dir_realpath);
 				continue;
 			}
 			if (verbose)
-				pr_msg("%s mounted", dir->dir_realpath);
+				pr_msg(LOG_INFO, "%s mounted", dir->dir_realpath);
 		}
 
 		count++;
 	}
 
 	if (verbose && count == 0)
-		pr_msg("no mounts");
+		pr_msg(LOG_NOTICE, "no mounts");
 
 	/*
 	 * Now compare the /etc/mnttab with the master
@@ -625,7 +625,10 @@ main(int argc, char *argv[])
 	 * done.
 	 */
 	fd = open("/var/run/automount.initialized", O_CREAT|O_WRONLY, 0600);
-	close(fd);
+	/* XXXab: What is going to break if we faile to create this? */
+	if (fd >= 0) {
+		close(fd);
+	}
 
 	return (0);
 }
@@ -656,7 +659,7 @@ make_symlink(const char *target, const char *path)
 				/*
 				 * FAIL.
 				 */
-				pr_msg("can't read target of %s: %m", path);
+				pr_msg(LOG_ERR, "can't read target of %s: %m", path);
 				return;
 			}
 			linktarget[pathlength] = '\0';
@@ -676,7 +679,7 @@ make_symlink(const char *target, const char *path)
 				 * We don't need to do anything.
 				 */
 				if (verbose)
-					pr_msg("link %s unchanged", path);
+					pr_msg(LOG_NOTICE, "link %s unchanged", path);
 				return;
 			}
 
@@ -684,7 +687,7 @@ make_symlink(const char *target, const char *path)
 			 * Get rid of the existing symlink.
 			 */
 			if (unlink(path) == -1) {
-				pr_msg("can't unlink %s: %m", path);
+				pr_msg(LOG_ERR, "can't unlink %s: %m", path);
 				return;
 			}
 		} else if ((stbuf.st_mode & S_IFMT) == S_IFDIR) {
@@ -750,7 +753,7 @@ make_symlink(const char *target, const char *path)
 	 * Make the symlink.
 	 */
 	if (symlink(target, path) == -1) {
-		pr_msg("can't create symlink from %s to %s: %m",
+		pr_msg(LOG_ERR, "can't create symlink from %s to %s: %m",
 		    path, target);
 	}
 
@@ -759,7 +762,7 @@ make_symlink(const char *target, const char *path)
 	 * don't match but still yield an ELOOP.
 	 */
 	if (stat(path, &st) < 0) {
-		pr_msg("Invalid symbolic link: %s to %s: %m", path, target);
+		pr_msg(LOG_ERR, "Invalid symbolic link: %s to %s: %m", path, target);
 		(void) unlink(path);
 	}
 }
@@ -786,7 +789,7 @@ find_mount(mntpnt)
 static void
 usage()
 {
-	pr_msg("Usage: automount  [ -vcu ]  [ -t duration ]");
+	pr_msg(LOG_ERR, "Usage: automount  [ -vcu ]  [ -t duration ]");
 	exit(1);
 	/* NOTREACHED */
 }
@@ -821,7 +824,7 @@ parse_mntopts(const char *opts, int *flags, int *altflags)
 	getmnt_silent = 1;
 	mp = getmntopts(opts, mopts_autofs, flags, altflags);
 	if (mp == NULL) {
-		pr_msg("memory allocation failure");
+		pr_msg(LOG_ERR, "memory allocation failure");
 		return (0);
 	}
 	freemntopts(mp);
@@ -885,7 +888,7 @@ do_unmounts(void)
 			static const char slashnetwork[] = "/Network/";
 
 			if (verbose) {
-				pr_msg("%s unmounted",
+				pr_msg(LOG_INFO, "%s unmounted",
 					mnt->f_mntonname);
 			}
 			count++;
@@ -907,7 +910,7 @@ do_unmounts(void)
 		}
 	}
 	if (verbose && count == 0)
-		pr_msg("no unmounts");
+		pr_msg(LOG_INFO, "no unmounts");
 }
 
 /*
@@ -1045,7 +1048,7 @@ have_ad(void)
 		kODNodeTypeAuthentication, &error);
 	if (node_ref == NULL) {
 		errstring = od_get_error_string(error);
-		pr_msg("have_ad: can't create search node for /Search: %s",
+		pr_msg(LOG_WARNING, "have_ad: can't create search node for /Search: %s",
 		    errstring);
 		free(errstring);
 		return (0);
@@ -1057,7 +1060,7 @@ have_ad(void)
 	paths = ODNodeCopySubnodeNames(node_ref, &error);
 	if (paths == NULL) {
 		errstring = od_get_error_string(error);
-		pr_msg("have_ad: can't get subnode names for /Search: %s",
+		pr_msg(LOG_WARNING, "have_ad: can't get subnode names for /Search: %s",
 		    errstring);
 		free(errstring);
 		return (0);
@@ -1090,15 +1093,17 @@ have_ad(void)
  */
 /* VARARGS1 */
 void
-pr_msg(const char *fmt, ...)
+pr_msg(int priority, const char *fmt, ...)
 {
 	va_list ap;
 	char buf[BUFSIZ], *p2;
 	const char *p1;
+	FILE *output;
 
-	if (!isatty(fileno(stderr))) {
+	output = (priority & 0x07) <= LOG_NOTICE ? stderr : stdout;
+	if (!isatty(fileno(output))) {
 		va_start(ap, fmt);
- 		(void) vsyslog(LOG_ERR, fmt, ap);
+		(void) vsyslog(priority, fmt, ap);
 		va_end(ap);
 		return;
 	}
@@ -1120,9 +1125,8 @@ pr_msg(const char *fmt, ...)
 		*p2++ = '\n';
 	*p2 = '\0';
 
-
 	va_start(ap, fmt);
- 	(void) vfprintf(stderr, buf, ap);
+	(void) vfprintf(output, buf, ap);
 	va_end(ap);
 }
 

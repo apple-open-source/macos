@@ -64,7 +64,7 @@ static CFDataRef CopyBackupKeyForString(CFStringRef string, CFErrorRef *error)
     return result;
 }
 
-static int kTestTestCount = 112;
+static int kTestTestCount = 133;
 #else
 static int kTestTestCount = 1;
 #endif
@@ -77,15 +77,8 @@ static void tests(void)
     CFDataRef cfpassword = CFDataCreate(NULL, (uint8_t *) "FooFooFoo", 10);
     CFStringRef cfaccount = CFSTR("test@test.org");
 
-    CFStringRef kTestView1 = CFSTR("TestView1");
-    CFStringRef kTestView2 = CFSTR("TestView2");
-
-    CFMutableSetRef testViews = CFSetCreateMutableForCFTypes(kCFAllocatorDefault);
-    CFSetAddValue(testViews, kTestView1);
-    //CFSetAddValue(testViews, kTestView2);
-
-    SOSViewsSetTestViewsSet(testViews);
-
+    secd_test_setup_testviews(); // for running this test solo
+    
     CFMutableDictionaryRef changes = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
     SOSAccountRef alice_account = CreateAccountForLocalChanges(CFSTR("Alice"), CFSTR("TestSource"));
     SOSAccountRef bob_account = CreateAccountForLocalChanges(CFSTR("Bob"), CFSTR("TestSource"));
@@ -99,7 +92,7 @@ static void tests(void)
     ok(SOSAccountAssertUserCredentialsAndUpdate(alice_account, cfaccount, cfpassword, &error), "Credential setting (%@)", error);
     CFReleaseNull(error);
 
-    ok(SOSAccountResetToOffering(alice_account, &error), "Reset to offering (%@)", error);
+    ok(SOSAccountResetToOffering_wTxn(alice_account, &error), "Reset to offering (%@)", error);
     CFReleaseNull(error);
 
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, "updates");
@@ -109,7 +102,7 @@ static void tests(void)
 
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 1, "updates");
 
-    ok(SOSAccountJoinCircles(bob_account, &error), "Bob Applies (%@)", error);
+    ok(SOSAccountJoinCircles_wTxn(bob_account, &error), "Bob Applies (%@)", error);
     CFReleaseNull(error);
 
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, "updates");
@@ -129,33 +122,53 @@ static void tests(void)
     ok(peers && CFArrayGetCount(peers) == 2, "See two peers %@ (%@)", peers, error);
     CFReleaseNull(peers);
 
-
-    
     is(SOSAccountUpdateView(alice_account, kTestView1, kSOSCCViewEnable, &error), kSOSCCViewMember, "Enable view (%@)", error);
+    CFReleaseNull(error);
+
+    ok(SOSAccountCheckForRings(alice_account, &error), "Alice_account is good");
     CFReleaseNull(error);
 
     is(SOSAccountUpdateView(bob_account, kTestView1, kSOSCCViewEnable, &error), kSOSCCViewMember, "Enable view (%@)", error);
     CFReleaseNull(error);
 
-    ok(SOSAccountSetBackupPublicKey(alice_account, alice_backup_key, &error), "Set backup public key, alice (%@)", error);
+    ok(SOSAccountCheckForRings(bob_account, &error), "Alice_account is good");
     CFReleaseNull(error);
 
-    ok(SOSAccountSetBackupPublicKey(bob_account, bob_backup_key, &error), "Set backup public key, alice (%@)", error);
+    ok(SOSAccountSetBackupPublicKey_wTxn(alice_account, alice_backup_key, &error), "Set backup public key, alice (%@)", error);
     CFReleaseNull(error);
-    
-    SOSAccountEnsureBackupStarts(alice_account);
-    SOSAccountEnsureBackupStarts(bob_account);
-    
+
+    ok(SOSAccountCheckForRings(alice_account, &error), "Alice_account is good");
+    CFReleaseNull(error);
+
+    ok(SOSAccountSetBackupPublicKey_wTxn(bob_account, bob_backup_key, &error), "Set backup public key, alice (%@)", error);
+    CFReleaseNull(error);
+
+    ok(SOSAccountCheckForRings(bob_account, &error), "Alice_account is good");
+    CFReleaseNull(error);
+
     ok(SOSAccountIsMyPeerInBackupAndCurrentInView(alice_account, kTestView1), "Is alice is in backup before sync?");
+
+    ok(SOSAccountCheckForRings(alice_account, &error), "Alice_account is good");
+    CFReleaseNull(error);
     
     ok(SOSAccountIsMyPeerInBackupAndCurrentInView(bob_account, kTestView1), "Is bob in the backup after sync? - 1");
     
+    ok(SOSAccountCheckForRings(bob_account, &error), "Alice_account is good");
+    CFReleaseNull(error);
+
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 4, "updates");
-    
+
+
+    ok(SOSAccountCheckForRings(alice_account, &error), "Alice_account is good");
+    CFReleaseNull(error);
+
     ok(SOSAccountIsMyPeerInBackupAndCurrentInView(alice_account, kTestView1), "Is alice is in backup after sync?");
     
     ok(SOSAccountIsMyPeerInBackupAndCurrentInView(bob_account, kTestView1), "IS bob in the backup after sync");
     
+    ok(!SOSAccountIsLastBackupPeer(alice_account, &error), "Alice is not last backup peer");
+    CFReleaseNull(error);
+
     //
     //Bob leaves the circle
     //
@@ -166,11 +179,18 @@ static void tests(void)
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, "updates");
     
     ok(SOSAccountIsMyPeerInBackupAndCurrentInView(alice_account, kTestView1), "Bob left the circle, Alice is not in the backup");
+    
+    ok(SOSAccountIsLastBackupPeer(alice_account, &error), "Alice is last backup peer");
+    CFReleaseNull(error);
+    ok(!SOSAccountIsLastBackupPeer(bob_account, &error), "Bob is not last backup peer");
+    CFReleaseNull(error);
+
+    ok(testAccountPersistence(alice_account), "Test Account->DER->Account Equivalence");
 
     ok(!SOSAccountIsPeerInBackupAndCurrentInView(alice_account, SOSFullPeerInfoGetPeerInfo(bob_account->my_identity), kTestView1), "Bob is still in the backup!");
 
     //Bob gets back into the circle
-    ok(SOSAccountJoinCircles(bob_account, &error));
+    ok(SOSAccountJoinCircles_wTxn(bob_account, &error));
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, "updates");
     {
         CFArrayRef applicants = SOSAccountCopyApplicants(alice_account, &error);
@@ -188,18 +208,23 @@ static void tests(void)
     is(SOSAccountUpdateView(bob_account, kTestView1, kSOSCCViewEnable, &error), kSOSCCViewMember, "Enable view (%@)", error);
     CFReleaseNull(error);
 
-    ok(SOSAccountSetBackupPublicKey(bob_account, bob_backup_key, &error), "Set backup public key, alice (%@)", error);
-    SOSAccountEnsureBackupStarts(bob_account);
-    
+    ok(!SOSAccountIsMyPeerInBackupAndCurrentInView(bob_account, kTestView1), "Bob isn't in the backup yet");
+
+    ok(!SOSAccountIsLastBackupPeer(alice_account, &error), "Alice is not last backup peer - Bob still registers as one");
+    CFReleaseNull(error);
+
+    ok(SOSAccountSetBackupPublicKey_wTxn(bob_account, bob_backup_key, &error), "Set backup public key, alice (%@)", error);
+
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 1, "updates");
 
-    
+    ok(!SOSAccountIsLastBackupPeer(alice_account, &error), "Alice is not last backup peer");
+    CFReleaseNull(error);
+
     //
     //removing backup key for bob account
     //
     
-    
-    ok(SOSAccountRemoveBackupPublickey(bob_account, &error), "Removing Bob's backup key (%@)", error);
+    ok(SOSAccountRemoveBackupPublickey_wTxn(bob_account, &error), "Removing Bob's backup key (%@)", error);
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 3, "updates");
 
     ok(!SOSAccountIsMyPeerInBackupAndCurrentInView(bob_account, kTestView1), "Bob's backup key is in the backup - should not be so!");
@@ -209,12 +234,11 @@ static void tests(void)
     // Setting new backup public key for Bob
     //
     
-    ok(SOSAccountSetBackupPublicKey(bob_account, bob_backup_key, &error), "Set backup public key, alice (%@)", error);
+    ok(SOSAccountSetBackupPublicKey_wTxn(bob_account, bob_backup_key, &error), "Set backup public key, alice (%@)", error);
     CFReleaseNull(error);
-    SOSAccountEnsureBackupStarts(bob_account);
     
     is(SOSAccountUpdateView(bob_account, kTestView1, kSOSCCViewEnable, &error), kSOSCCViewMember, "Enable view (%@)", error);
-    ok(SOSAccountStartNewBackup(bob_account, kTestView1, &error), "Setting new backup public key for bob account failed: (%@)", error);
+    ok(SOSAccountNewBKSBForView(bob_account, kTestView1, &error), "Setting new backup public key for bob account failed: (%@)", error);
     
     //bob is in his own backup
     ok(SOSAccountIsMyPeerInBackupAndCurrentInView(bob_account, kTestView1), "Bob's backup key is not in the backup");
@@ -236,8 +260,6 @@ static void tests(void)
     CFReleaseNull(alice_account);
     CFReleaseNull(cfpassword);
 
-    SOSViewsSetTestViewsSet(NULL);
-
     SOSUnregisterAllTransportMessages();
     SOSUnregisterAllTransportCircles();
     SOSUnregisterAllTransportKeyParameters();
@@ -245,7 +267,6 @@ static void tests(void)
     CFArrayRemoveAllValues(circle_transports);
     CFArrayRemoveAllValues(message_transports);
 
-    CFReleaseNull(testViews);
     CFReleaseNull(kTestView1);
     CFReleaseNull(kTestView2);
 #endif

@@ -35,6 +35,7 @@
  */
 
 #pragma D option quiet
+#pragma D option statusrate=15ms
 
 enum colors {
 	RED,
@@ -49,7 +50,7 @@ enum shades {
 };
 
 
-profile:::tick-1sec
+profile:::tick-10msec
 /(WHITE == RED) && (YELLOW == BLUE) && (GREEN == BLACK)/
 {
 	exit(0);

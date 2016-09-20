@@ -76,9 +76,18 @@ static void SOSAccountGenerationSignatureUpdateWith(SOSAccountRef account, SecKe
             if(iAmPeer && !SOSCircleVerify(circle, account->user_public, NULL)) {
                 change |= sosAccountUpgradeiCloudIdentity(circle, privKey);
                 SOSAccountRemoveInvalidApplications(account, circle);
-                change |= SOSCircleGenerationUpdate(circle, privKey, account->my_identity, NULL);
+                change |= SOSCircleGenerationSign(circle, privKey, account->my_identity, NULL);
                 account->departure_code = kSOSNeverLeftCircle;
+            } else if(iAmPeer) {
+                SOSFullPeerInfoRef icfpi = SOSCircleCopyiCloudFullPeerInfoRef(circle, NULL);
+                if(!icfpi) {
+                    SOSAccountRemoveIncompleteiCloudIdentities(account, circle, privKey, NULL);
+                    change |= SOSAccountAddiCloudIdentity(account, circle, privKey, NULL);
+                } else {
+                    CFReleaseNull(icfpi);
+                }
             }
+            secnotice("updatingGenSignature", "we changed the circle? %@", change ? CFSTR("YES") : CFSTR("NO"));
             return change;
         });
     }
@@ -112,9 +121,9 @@ void SOSAccountPurgePrivateCredential(SOSAccountRef account)
         account->user_private_timer = NULL;
         xpc_transaction_end();
     }
-    if (account->lock_notification_token) {
+    if (account->lock_notification_token != NOTIFY_TOKEN_INVALID) {
         notify_cancel(account->lock_notification_token);
-        account->lock_notification_token = 0;
+        account->lock_notification_token = NOTIFY_TOKEN_INVALID;
     }
 }
 
@@ -221,14 +230,20 @@ CFDataRef SOSAccountGetCachedPassword(SOSAccountRef account, CFErrorRef* error)
     return account->_password_tmp;
 }
 
-
-bool SOSAccountHasPublicKey(SOSAccountRef account, CFErrorRef* error)
+SecKeyRef SOSAccountGetTrustedPublicCredential(SOSAccountRef account, CFErrorRef* error)
 {
     if (account->user_public == NULL || account->user_public_trusted == false) {
         SOSCreateError(kSOSErrorPublicKeyAbsent, CFSTR("Public Key not available - failed to register before call"), NULL, error);
-        return false;
+        return NULL;
     }
-    return true;
+    return account->user_public;
+}
+
+
+
+bool SOSAccountHasPublicKey(SOSAccountRef account, CFErrorRef* error)
+{
+    return SOSAccountGetTrustedPublicCredential(account, error);
 }
 
 static void sosAccountSetTrustedCredentials(SOSAccountRef account, CFDataRef user_password, SecKeyRef user_private, bool public_was_trusted) {
@@ -255,7 +270,7 @@ errOut:
 static bool sosAccountValidatePasswordOrFail(SOSAccountRef account, CFDataRef user_password, CFErrorRef *error) {
     SecKeyRef privKey = sosAccountCreateKeyIfPasswordIsCorrect(account, user_password, error);
     if(!privKey) {
-        if(account->user_key_parameters) debugDumpUserParameters(CFSTR("params"), account->user_key_parameters);
+        if(account->user_key_parameters) debugDumpUserParameters(CFSTR("sosAccountValidatePasswordOrFail"), account->user_key_parameters);
         SOSCreateError(kSOSErrorWrongPassword, CFSTR("Could not create correct key with password."), NULL, error);
         return false;
     }
@@ -301,14 +316,14 @@ bool SOSAccountAssertUserCredentials(SOSAccountRef account, CFStringRef user_acc
 errOut:
     CFReleaseSafe(parameters);
     CFReleaseSafe(user_private);
-    SOSUpdateKeyInterest(account);
+    account->key_interests_need_updating = true;
     return account->user_public_trusted;
 }
 
 
 bool SOSAccountTryUserCredentials(SOSAccountRef account, CFStringRef user_account __unused, CFDataRef user_password, CFErrorRef *error) {
     bool success = sosAccountValidatePasswordOrFail(account, user_password, error);
-    SOSUpdateKeyInterest(account);
+    account->key_interests_need_updating = true;
     return success;
 }
 

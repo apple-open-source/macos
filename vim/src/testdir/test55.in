@@ -3,6 +3,7 @@ Tests for List and Dictionary types.     vim: set ft=vim :
 STARTTEST
 :so small.vim
 :fun Test(...)
+:lang C
 :" Creating List directly with different types
 :let l = [1, 'as''d', [1, 2, function("strlen")], {'a': 1},]
 :$put =string(l)
@@ -282,6 +283,199 @@ let l = [0, 1, 2, 3]
 :  endfor
 :endfor
 :"
+:" Unletting locked variables
+:$put ='Unletting:'
+:for depth in range(5)
+:  $put ='depth is ' . depth
+:  for u in range(3)
+:    unlet l
+:    let l = [0, [1, [2, 3]], {4: 5, 6: {7: 8}}]
+:    exe "lockvar " . depth . " l"
+:    if u == 1
+:      exe "unlockvar l"
+:    elseif u == 2
+:      exe "unlockvar " . depth . " l"
+:    endif
+:    let ps = islocked("l").islocked("l[1]").islocked("l[1][1]").islocked("l[1][1][0]").'-'.islocked("l[2]").islocked("l[2]['6']").islocked("l[2]['6'][7]")
+:    $put =ps
+:    let ps = ''
+:    try
+:      unlet l[2]['6'][7]
+:      let ps .= 'p'
+:    catch
+:      let ps .= 'F'
+:    endtry
+:    try
+:      unlet l[2][6]
+:      let ps .= 'p'
+:    catch
+:      let ps .= 'F'
+:    endtry
+:    try
+:      unlet l[2]
+:      let ps .= 'p'
+:    catch
+:      let ps .= 'F'
+:    endtry
+:    try
+:      unlet l[1][1][0]
+:      let ps .= 'p'
+:    catch
+:      let ps .= 'F'
+:    endtry
+:    try
+:      unlet l[1][1]
+:      let ps .= 'p'
+:    catch
+:      let ps .= 'F'
+:    endtry
+:    try
+:      unlet l[1]
+:      let ps .= 'p'
+:    catch
+:      let ps .= 'F'
+:    endtry
+:    try
+:      unlet l
+:      let ps .= 'p'
+:    catch
+:      let ps .= 'F'
+:    endtry
+:    $put =ps
+:  endfor
+:endfor
+:"
+:" Locked variables and :unlet or list / dict functions
+:$put ='Locks and commands or functions:'
+:"
+:$put ='No :unlet after lock on dict:'
+:unlet! d
+:let d = {'a': 99, 'b': 100}
+:lockvar 1 d
+:try
+:  unlet d.a
+:  $put ='did :unlet'
+:catch
+:  $put =v:exception[:16]
+:endtry
+:$put =string(d)
+:"
+:$put =':unlet after lock on dict item:'
+:unlet! d
+:let d = {'a': 99, 'b': 100}
+:lockvar d.a
+:try
+:  unlet d.a
+:  $put ='did :unlet'
+:catch
+:  $put =v:exception[:16]
+:endtry
+:$put =string(d)
+:"
+:$put ='filter() after lock on dict item:'
+:unlet! d
+:let d = {'a': 99, 'b': 100}
+:lockvar d.a
+:try
+:  call filter(d, 'v:key != "a"')
+:  $put ='did filter()'
+:catch
+:  $put =v:exception[:16]
+:endtry
+:$put =string(d)
+:"
+:$put ='map() after lock on dict:'
+:unlet! d
+:let d = {'a': 99, 'b': 100}
+:lockvar 1 d
+:try
+:  call map(d, 'v:val + 200')
+:  $put ='did map()'
+:catch
+:  $put =v:exception[:16]
+:endtry
+:$put =string(d)
+:"
+:$put ='No extend() after lock on dict item:'
+:unlet! d
+:let d = {'a': 99, 'b': 100}
+:lockvar d.a
+:try
+:  $put =string(extend(d, {'a': 123}))
+:  $put ='did extend()'
+:catch
+:  $put =v:exception[:14]
+:endtry
+:$put =string(d)
+:"
+:$put ='No remove() of write-protected scope-level variable:'
+:fun! Tfunc(this_is_a_loooooooooong_parameter_name)
+:  try
+:    $put =string(remove(a:, 'this_is_a_loooooooooong_parameter_name'))
+:    $put ='did remove()'
+:  catch
+:    $put =v:exception[:14]
+:  endtry
+:endfun
+:call Tfunc('testval')
+:"
+:$put ='No extend() of write-protected scope-level variable:'
+:fun! Tfunc(this_is_a_loooooooooong_parameter_name)
+:  try
+:    $put =string(extend(a:, {'this_is_a_loooooooooong_parameter_name': 1234}))
+:    $put ='did extend()'
+:  catch
+:    $put =v:exception[:14]
+:  endtry
+:endfun
+:call Tfunc('testval')
+:"
+:$put ='No :unlet of variable in locked scope:'
+:let b:testvar = 123
+:lockvar 1 b:
+:try
+:  unlet b:testvar
+:  $put ='b:testvar was :unlet: '. (!exists('b:testvar'))
+:catch
+:  $put =v:exception[:16]
+:endtry
+:unlockvar 1 b:
+:unlet! b:testvar
+:"
+:$put ='No :let += of locked list variable:'
+:let l = ['a', 'b', 3]
+:lockvar 1 l
+:try
+:  let l += ['x']
+:  $put ='did :let +='
+:catch
+:  $put =v:exception[:14]
+:endtry
+:$put =string(l)
+:"
+:unlet l
+:let l = [1, 2, 3, 4]
+:lockvar! l
+:$put =string(l)
+:unlockvar l[1]
+:unlet l[0:1]
+:$put =string(l)
+:unlet l[1:2]
+:$put =string(l)
+:unlockvar l[1]
+:let l[0:1] = [0, 1]
+:$put =string(l)
+:let l[1:2] = [0, 1]
+:$put =string(l)
+:unlet l
+:" :lockvar/islocked() triggering script autoloading
+:set rtp+=./sautest
+:lockvar g:footest#x
+:unlockvar g:footest#x
+:$put ='locked g:footest#x:'.islocked('g:footest#x')
+:$put ='exists g:footest#x:'.exists('g:footest#x')
+:$put ='g:footest#x: '.g:footest#x
+:"
 :" a:000 function argument
 :" first the tests that should fail
 :try
@@ -315,13 +509,21 @@ let l = [0, 1, 2, 3]
 :  $put ='caught ' . v:exception
 :endtry
 :"
-:" reverse() and sort()
-:let l = ['-0', 'A11', 2, 'xaaa', 4, 'foo', 'foo6', [0, 1, 2], 'x8']
+:" reverse(), sort(), uniq()
+:let l = ['-0', 'A11', 2, 2, 'xaaa', 4, 'foo', 'foo6', 'foo', [0, 1, 2], 'x8', [0, 1, 2], 1.5]
+:$put =string(uniq(copy(l)))
 :$put =string(reverse(l))
 :$put =string(reverse(reverse(l)))
 :$put =string(sort(l))
 :$put =string(reverse(sort(l)))
 :$put =string(sort(reverse(sort(l))))
+:$put =string(uniq(sort(l)))
+:let l=[7, 9, 'one', 18, 12, 22, 'two', 10.0e-16, -1, 'three', 0xff, 0.22, 'four']
+:$put =string(sort(copy(l), 'n'))
+:let l=[7, 9, 18, 12, 22, 10.0e-16, -1, 0xff, 0, -0, 0.22, 'bar', 'BAR', 'Bar', 'Foo', 'FOO', 'foo', 'FOOBAR', {}, []]
+:$put =string(sort(copy(l), 1))
+:$put =string(sort(copy(l), 'i'))
+:$put =string(sort(copy(l)))
 :"
 :" splitting a string to a List
 :$put =string(split('  aa  bb '))
@@ -342,12 +544,56 @@ let l = [0, 1, 2, 3]
 :$put =(d == d)
 :$put =(l != deepcopy(l))
 :$put =(d != deepcopy(d))
+:"
+:" compare complex recursively linked list and dict
+:let l = []
+:call add(l, l)
+:let dict4 = {"l": l}
+:call add(dict4.l, dict4)
+:let lcopy = deepcopy(l)
+:let dict4copy = deepcopy(dict4)
+:$put =(l == lcopy)
+:$put =(dict4 == dict4copy)
+:"
+:" Pass the same List to extend()
+:let l = [1, 2, 3, 4, 5]
+:call extend(l, l)
+:$put =string(l)
+:"
+:" Pass the same Dict to extend()
+:let d = { 'a': {'b': 'B'}}
+:call extend(d, d)
+:$put =string(d)
+:"
+:" Pass the same Dict to extend() with "error"
+:try
+:  call extend(d, d, "error")
+:catch
+:  $put =v:exception[:15] . v:exception[-1:-1]
+:endtry
+:$put =string(d)
+:"
+:" test for range assign
+:let l = [0]
+:let l[:] = [1, 2]
+:$put =string(l)
 :endfun
+:"
 :call Test(1, 2, [3, 4], {5: 6})  " This may take a while
 :"
 :delfunc Test
 :unlet dict
 :call garbagecollect(1)
+:"
+:" test for patch 7.3.637
+:let a = 'No error caught'
+:try|foldopen|catch|let a = matchstr(v:exception,'^[^ ]*')|endtry
+o=a:"
+:lang C
+:redir => a
+:try|foobar|catch|let a = matchstr(v:exception,'^[^ ]*')|endtry
+:redir END
+o=a:"
 :"
 :/^start:/,$wq! test.out
 ENDTEST

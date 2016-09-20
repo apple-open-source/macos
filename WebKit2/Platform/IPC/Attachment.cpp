@@ -36,7 +36,7 @@ Attachment::Attachment()
 {
 }
 
-#if OS(DARWIN)
+#if OS(DARWIN) && !USE(UNIX_DOMAIN_SOCKETS)
 Attachment::Attachment(mach_port_name_t port, mach_msg_type_name_t disposition)
     : m_type(MachPortType)
     , m_port(port)
@@ -52,7 +52,7 @@ void Attachment::release()
 
 void Attachment::encode(ArgumentEncoder& encoder) const
 {
-    encoder.addAttachment(WTF::move(*const_cast<Attachment*>(this)));
+    encoder.addAttachment(WTFMove(*const_cast<Attachment*>(this)));
 }
 
 bool Attachment::decode(ArgumentDecoder& decoder, Attachment& attachment)

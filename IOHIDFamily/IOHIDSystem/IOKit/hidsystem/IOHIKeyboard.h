@@ -114,8 +114,9 @@ class IOHIKeyboard : public IOHIDevice
     OSDeclareDefaultStructors(IOHIKeyboard);
 
     friend class IOHIDKeyboardDevice;
-	friend class IOHIDKeyboard;
-	friend class IOHIDConsumer;
+    friend class IOHIDKeyboardEventDevice;
+    friend class IOHIDKeyboard;
+    friend class IOHIDConsumer;
 
 protected:
     IOLock *	         _deviceLock;	// Lock for all device access

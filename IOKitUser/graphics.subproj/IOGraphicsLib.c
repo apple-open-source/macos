@@ -830,7 +830,7 @@ IOFBSetAttributeForFramebuffer( io_connect_t connect, io_connect_t otherConnect,
     if (!connectRef)
         return (kIOReturnBadArgument);
 
-    if (kIOFBConnectStateUnusable & connectRef->state)
+    if ((kIOWindowServerActiveAttribute != attribute) && (kIOFBConnectStateUnusable & connectRef->state))
         return (kIOReturnSuccess);
 
     if( otherConnect) {

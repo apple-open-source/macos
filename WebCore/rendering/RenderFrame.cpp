@@ -25,11 +25,12 @@
 #include "RenderFrame.h"
 
 #include "HTMLFrameElement.h"
+#include "RenderFrameSet.h"
 
 namespace WebCore {
 
-RenderFrame::RenderFrame(HTMLFrameElement& frame, Ref<RenderStyle>&& style)
-    : RenderFrameBase(frame, WTF::move(style))
+RenderFrame::RenderFrame(HTMLFrameElement& frame, RenderStyle&& style)
+    : RenderFrameBase(frame, WTFMove(style))
 {
 }
 

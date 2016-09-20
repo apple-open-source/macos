@@ -35,4 +35,3 @@ interface SVGNumberList {
     [StrictTypeChecking, RaisesException] SVGNumber removeItem(unsigned long index);
     [StrictTypeChecking, RaisesException] SVGNumber appendItem(SVGNumber item);
 };
-

@@ -49,9 +49,9 @@ catch (...)
 }
 
 SSUniqueRecord
-SSDatabaseImpl::insert(CSSM_DB_RECORDTYPE recordType,
+SSDatabaseImpl::ssInsert(CSSM_DB_RECORDTYPE recordType,
 					   const CSSM_DB_RECORD_ATTRIBUTE_DATA *attributes,
-					   const CSSM_DATA *data, bool)
+					   const CSSM_DATA *data)
 {
 	SSUniqueRecord uniqueId(SSDatabase(this));
 	check(CSSM_DL_DataInsert(handle(), recordType,
@@ -238,7 +238,7 @@ SSDatabaseImpl::commonCreate(const DLDbIdentifier &dlDbIdentifier, bool &autoCom
 }
 
 void
-SSDatabaseImpl::create(const DLDbIdentifier &dlDbIdentifier)
+SSDatabaseImpl::ssCreate(const DLDbIdentifier &dlDbIdentifier)
 {
 	try
 	{
@@ -260,7 +260,7 @@ SSDatabaseImpl::create(const DLDbIdentifier &dlDbIdentifier)
 		mSSDbHandle = mClientSession.createDb(dlDbIdentifier, cred, owner, dbParameters);
 		CssmDataContainer dbb(allocator());
 		mClientSession.encodeDb(mSSDbHandle, dbb, allocator());
-        secdebugfunc("integrity", "opening %s", name());
+        secnotice("integrity", "opening %s", name());
 		Db::Impl::insert(DBBlobRelationID, NULL, &dbb);
 		if (autoCommit)
 		{
@@ -285,13 +285,13 @@ SSDatabaseImpl::create(const DLDbIdentifier &dlDbIdentifier)
 }
 
 void
-SSDatabaseImpl::createWithBlob(const DLDbIdentifier &dlDbIdentifier, const CSSM_DATA &blob)
+SSDatabaseImpl::ssCreateWithBlob(const DLDbIdentifier &dlDbIdentifier, const CSSM_DATA &blob)
 {
 	try
 	{
 		bool autoCommit;
 		commonCreate(dlDbIdentifier, autoCommit);
-        secdebugfunc("integrity", "opening %s", name());
+        secnotice("integrity", "opening %s", name());
 		Db::Impl::insert(DBBlobRelationID, NULL, &blob);
 		if (autoCommit)
 		{
@@ -308,22 +308,30 @@ SSDatabaseImpl::createWithBlob(const DLDbIdentifier &dlDbIdentifier, const CSSM_
 }
 
 void
-SSDatabaseImpl::open(const DLDbIdentifier &dlDbIdentifier)
+SSDatabaseImpl::ssOpen(const DLDbIdentifier &dlDbIdentifier)
 {
-	mIdentifier = dlDbIdentifier;
-	Db::Impl::open();
+    load(dlDbIdentifier);
 
-	CssmDataContainer dbb(allocator());
-	getDbBlobId(&dbb);
-
-    secdebugfunc("integrity", "opening %s", name());
+    CssmDataContainer dbb(allocator());
+    getDbBlobId(&dbb);
 
     // Pull our version out of the database blob
 	mSSDbHandle = mClientSession.decodeDb(dlDbIdentifier, AccessCredentials::overlay(accessCredentials()), dbb);
 }
 
 void
-SSDatabaseImpl::recode(const CssmData &dbHandleArray, const CssmData &agentData)
+SSDatabaseImpl::load(const DLDbIdentifier &dlDbIdentifier) {
+    mIdentifier = dlDbIdentifier;
+    Db::Impl::open();
+
+    CssmDataContainer dbb(allocator());
+    getDbBlobId(&dbb);
+
+    secnotice("integrity", "loading %s", name());
+}
+
+void
+SSDatabaseImpl::ssRecode(const CssmData &dbHandleArray, const CssmData &agentData)
 {
     // Start a transaction (Implies activate()).
     passThrough(CSSM_APPLEFILEDL_TOGGLE_AUTOCOMMIT, 0);
@@ -375,9 +383,9 @@ SSDatabaseImpl::recodeDbToVersion(uint32 newBlobVersion) {
     try
     {
         if(isLocked()) {
-            secdebugfunc("integrity", "is currently locked");
+            secnotice("integrity", "is currently locked");
         } else {
-            secdebugfunc("integrity", "is already unlocked");
+            secnotice("integrity", "is already unlocked");
         }
 
         CssmDataContainer dbb(allocator());
@@ -389,24 +397,29 @@ SSDatabaseImpl::recodeDbToVersion(uint32 newBlobVersion) {
         dbb.clear();
 
         // Create a newDbHandle using the master secrets from the dbBlob we are recoding to.
-        secdebugfunc("integrity", "recoding db with handle %d", mSSDbHandle);
+        secnotice("integrity", "recoding db with handle %d", mSSDbHandle);
         SecurityServer::DbHandle clonedDbHandle = mClientSession.recodeDbToVersion(newBlobVersion, mSSDbHandle);
-        secdebugfunc("integrity", "received db with handle %d", clonedDbHandle);
+        secnotice("integrity", "received db with handle %d", clonedDbHandle);
 
         // @@@ If the dbb changed since we fetched it we should abort or
         // retry the operation here.
 
         uint32 newBlobVersion = recodeHelper(clonedDbHandle, dbBlobId);
-        secdebugfunc("integrity", "committing transaction %d", clonedDbHandle);
+        secnotice("integrity", "committing transaction %d", clonedDbHandle);
 
         // Commit the transaction to the db
-        transaction.success();
+        transaction.commit();
         return newBlobVersion;
     }
     catch (...)
     {
         throw;
     }
+}
+
+void
+SSDatabaseImpl::recodeFinished() {
+    mClientSession.recodeFinished(mSSDbHandle);
 }
 
 void SSDatabaseImpl::takeFileLock() {
@@ -422,9 +435,9 @@ void SSDatabaseImpl::releaseFileLock(bool success) {
     if(mTransaction) {
         try {
             if(success) {
-                mTransaction->success();
+                mTransaction->commit();
             }
-            // The destructor will commit the database and re-enable autocommit (if needed)
+            // If we didn't commit, the destructor will roll back and re-enable autocommit
             delete mTransaction;
             mTransaction = NULL;
         } catch(...) {
@@ -437,6 +450,25 @@ void SSDatabaseImpl::releaseFileLock(bool success) {
 void SSDatabaseImpl::makeBackup() {
     passThrough(CSSM_APPLEFILEDL_MAKE_BACKUP, NULL, NULL);
 }
+
+void SSDatabaseImpl::makeCopy(const char* path) {
+    passThrough(CSSM_APPLEFILEDL_MAKE_COPY, path, NULL);
+}
+
+void SSDatabaseImpl::deleteFile() {
+    passThrough(CSSM_APPLEFILEDL_DELETE_FILE, NULL, NULL);
+}
+
+SSDatabase SSDatabaseImpl::ssCloneTo(const DLDbIdentifier& dldbidentifier) {
+    makeCopy(dldbidentifier.dbName());
+    SSDatabase db(mClientSession, dl(), dldbidentifier.dbName(), dldbidentifier.dbLocation());
+
+    db->load(dldbidentifier);
+    db->mSSDbHandle = mClientSession.cloneDb(dldbidentifier, mSSDbHandle);
+
+    return db;
+}
+
 
 
 uint32 SSDatabaseImpl::recodeHelper(SecurityServer::DbHandle clonedDbHandle, CssmClient::DbUniqueRecord& dbBlobId) {
@@ -463,8 +495,8 @@ uint32 SSDatabaseImpl::recodeHelper(SecurityServer::DbHandle clonedDbHandle, Css
                     CSSM_DB_MODIFY_ATTRIBUTE_NONE);
         } catch (CssmError cssme) {
             const char* errStr = cssmErrorString(cssme.error);
-            secdebugfunc("integrity", "corrupt item while recoding: %d %s", (int) cssme.error, errStr);
-            secdebugfunc("integrity", "deleting corrupt item");
+            secnotice("integrity", "corrupt item while recoding: %d %s", (int) cssme.error, errStr);
+            secnotice("integrity", "deleting corrupt item");
 
 
             keyBlobId->deleteRecord();
@@ -472,12 +504,12 @@ uint32 SSDatabaseImpl::recodeHelper(SecurityServer::DbHandle clonedDbHandle, Css
             if(keyHandle != 0) {
                 // tell securityd not to worry about this key again
                 try {
-                    secdebugfunc("integrity", "releasing corrupt key");
+                    secnotice("integrity", "releasing corrupt key");
                     mClientSession.releaseKey(keyHandle);
                 } catch(CssmError cssme) {
                     // swallow the error
                     const char* errStr = cssmErrorString(cssme.error);
-                    secdebugfunc("integrity", "couldn't release corrupt key: %d %s", (int) cssme.error, errStr);
+                    secnotice("integrity", "couldn't release corrupt key: %d %s", (int) cssme.error, errStr);
                 }
             }
         }
@@ -486,7 +518,7 @@ uint32 SSDatabaseImpl::recodeHelper(SecurityServer::DbHandle clonedDbHandle, Css
     // Commit the new blob to securityd, reencode the db blob, release the
     // cloned db handle and commit the new blob to the db.
     CssmDataContainer dbb(allocator());
-    secdebugfunc("integrity", "committing %d", clonedDbHandle);
+    secnotice("integrity", "committing %d", clonedDbHandle);
     mClientSession.commitDbForSync(mSSDbHandle, clonedDbHandle,
             dbb, allocator());
     dbBlobId->modify(DBBlobRelationID, NULL, &dbb,
@@ -512,7 +544,7 @@ void SSDatabaseImpl::getRecordIdentifier(CSSM_DB_UNIQUE_RECORD_PTR uniqueRecord,
 	dest[3] = 0;
 }
 
-void SSDatabaseImpl::copyBlob(CSSM_DATA &data)
+void SSDatabaseImpl::ssCopyBlob(CSSM_DATA& data)
 {
 	// get the blob from the database
 	CssmDataContainer dbb(allocator());

@@ -11,8 +11,6 @@
 		<key>com.apple.ocspd</key>
 		<true/>
 	</dict>
-	<key>OnDemand</key>
-	<true/>
 	<key>ProgramArguments</key>
 	<array>
 		<string>/usr/sbin/ocspd</string>

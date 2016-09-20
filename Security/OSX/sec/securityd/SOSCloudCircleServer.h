@@ -47,6 +47,8 @@ bool SOSCCRequestToJoinCircleAfterRestore_Server(CFErrorRef* error);
 CFStringRef SOSCCCopyDeviceID_Server(CFErrorRef *error);
 bool SOSCCSetDeviceID_Server(CFStringRef IDS, CFErrorRef *error);
 HandleIDSMessageReason SOSCCHandleIDSMessage_Server(CFDictionaryRef messageDict, CFErrorRef* error);
+bool SOSCCRequestSyncWithPeerOverKVS_Server(CFStringRef peerID, CFErrorRef *error);
+bool SOSCCRequestSyncWithPeerOverIDS_Server(CFStringRef deviceID, CFErrorRef *error);
 
 bool SOSCCIDSServiceRegistrationTest_Server(CFStringRef message, CFErrorRef *error);
 bool SOSCCIDSPingTest_Server(CFStringRef message, CFErrorRef *error);
@@ -83,9 +85,13 @@ CFArrayRef SOSCCCopyEngineState_Server(CFErrorRef* error);
 CFArrayRef SOSCCCopyPeerPeerInfo_Server(CFErrorRef* error);
 CFArrayRef SOSCCCopyConcurringPeerPeerInfo_Server(CFErrorRef* error);
 bool SOSCCCheckPeerAvailability_Server(CFErrorRef *error);
+bool SOSCCkSecXPCOpIsThisDeviceLastBackup_Server(CFErrorRef *error);
+bool SOSCCkSecXPCOpIsThisDeviceLastBackup_Server(CFErrorRef *error);
 bool SOSCCAccountSetToNew_Server(CFErrorRef *error);
 bool SOSCCResetToOffering_Server(CFErrorRef* error);
 bool SOSCCResetToEmpty_Server(CFErrorRef* error);
+
+CFBooleanRef SOSCCPeersHaveViewsEnabled_Server(CFArrayRef viewNames, CFErrorRef *error);
 
 SOSViewResultCode SOSCCView_Server(CFStringRef view, SOSViewActionCode action, CFErrorRef *error);
 bool SOSCCViewSet_Server(CFSetRef enabledView, CFSetRef disabledViews);
@@ -120,6 +126,7 @@ void sync_the_last_data_to_kvs(SOSAccountRef account, bool waitForeverForSynchro
 
 // Expected to be called when the data source changes.
 void SOSCCSyncWithAllPeers(void);
+void SOSCCEnsurePeerRegistration(void);
 void SOSCCAddSyncablePeerBlock(CFStringRef ds_name, SOSAccountSyncablePeersBlock changeBlock);
 dispatch_queue_t SOSCCGetAccountQueue(void);
 
@@ -160,6 +167,13 @@ bool SOSItemUpdateOrAdd(CFStringRef label, CFStringRef accessibility, CFDataRef 
 
 bool SOSCCSetEscrowRecord_Server(CFStringRef escrow_label, uint64_t tries, CFErrorRef *error);
 CFDictionaryRef SOSCCCopyEscrowRecord_Server(CFErrorRef *error);
+
+SOSPeerInfoRef SOSCCCopyApplication_Server(CFErrorRef *error);
+CFDataRef SOSCCCopyCircleJoiningBlob_Server(SOSPeerInfoRef applicant, CFErrorRef *error);
+bool SOSCCJoinWithCircleJoiningBlob_Server(CFDataRef joiningBlob, CFErrorRef *error);
+
+bool SOSCCAccountHasPublicKey_Server(CFErrorRef *error);
+bool SOSCCAccountIsNew_Server(CFErrorRef *error);
 
 
 __END_DECLS

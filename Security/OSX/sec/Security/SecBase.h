@@ -109,6 +109,7 @@ CF_ENUM(OSStatus)
     errSecInteractionNotAllowed                 = -25308,  /* User interaction is not allowed. */
     errSecDecode                                = -26275,  /* Unable to decode the provided data. */
     errSecAuthFailed                            = -25293,  /* The user name or passphrase you entered is not correct. */
+    errSecVerifyFailed							= -67808,	/* A cryptographic verification failure has occurred. */
 };
 
 CF_IMPLICIT_BRIDGING_DISABLED

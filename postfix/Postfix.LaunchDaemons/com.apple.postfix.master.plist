@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.apple.postfix.master</string>
+	<key>Program</key>
+	<string>/usr/libexec/postfix/master</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>master</string>
+		<string>-e</string>
+		<string>60</string>
+	</array>
+	<key>QueueDirectories</key>
+	<array>
+		<string>/var/spool/postfix/maildrop</string>
+	</array>
+	<key>AbandonProcessGroup</key>
+	<true/>
+</dict>
+</plist>

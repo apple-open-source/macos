@@ -4,7 +4,7 @@
 
 # Equivalences:
 #  declare	typeset
-#  export	typeset -x		and typeset -x implies -g
+#  export	typeset -xg
 #  float	typeset -E
 #  functions	typeset -f
 #  integer	typeset -i
@@ -21,6 +21,10 @@
 #  Assorted illegal flag combinations
 
 %prep
+  ## Do not remove the next line, it's used by V10private.ztst
+  # test_zsh_param_private
+
+  mkdir typeset.tmp && cd typeset.tmp
 
   setopt noglob
 
@@ -231,7 +235,7 @@
 
  typeset -T THIS will not work
 1:Tied array syntax
-?(eval):typeset:1: -T requires names of scalar and array
+?(eval):typeset:1: too many arguments for -T
 
  local array[2]=x
 1:Illegal local array element assignment
@@ -451,7 +455,7 @@
  fn
 1:declare -p shouldn't create scoped values
 >typeset -a array
->array=(foo bar)
+>array=( foo bar )
 ?fn:typeset: no such variable: nonexistent
 
  unsetopt typesetsilent
@@ -465,9 +469,12 @@
  print $tied_array
  typeset -T TIED_SCALAR=goo:car tied_array
  print $tied_array
+ typeset -T TIED_SCALAR tied_array=(poo par)
+ print $TIED_SCALAR
 0:retying arrays to same array works
 >foo bar
 >goo car
+>poo:par
 
  (
    setopt POSIXBUILTINS
@@ -502,9 +509,206 @@
   typeset -pm 'r[12]'
 0:readonly -p output
 >typeset -a a1
->a1=(one two)
+>a1=( one two )
 >typeset -ar a1
 >typeset -a a2
->a2=(three four)
+>a2=( three four )
 >typeset -r r1=yes
 >typeset -r r2=no
+
+  one=hidden two=hidden three=hidden four=hidden five=hidden
+  fn() {
+     local bleugh="four=vier"
+     typeset -R10 one=eins two=(zwei dio) three $bleugh five=(cinq cinque)
+     three=drei
+     print -l $one $two $three $four $five
+  }
+  fn
+  print -l $one $two $three $four $five
+0:typeset reserved word interface: basic
+>      eins
+>zwei
+>dio
+>      drei
+>      vier
+>cinq
+>cinque
+>hidden
+>hidden
+>hidden
+>hidden
+>hidden
+
+  (
+  setopt glob
+  mkdir -p arrayglob
+  touch arrayglob/{one,two,three,four,five,six,seven}
+  fn() {
+    typeset array=(arrayglob/[tf]*)
+    print -l ${array:t}
+    #
+    typeset {first,second,third}=the_same_value array=(
+    extends
+    over
+    multiple
+    lines
+    )
+    print -l $first $second $third "$array"
+    #
+    integer i=$(echo 1 + 2 + 3 + 4)
+    print $i
+    #
+    # only noted by accident this was broken..
+    # we need to turn off special recognition
+    # of assignments within assignments...
+    typeset careful=( i=1 j=2 k=3 )
+    print -l $careful
+  }
+  fn
+  )
+0:typeset reserved word, more complicated cases
+>five
+>four
+>three
+>two
+>the_same_value
+>the_same_value
+>the_same_value
+>extends over multiple lines
+>10
+>i=1
+>j=2
+>k=3
+
+  (
+     # reserved word is recognised at parsing.
+     # yes, this is documented.
+     # anyway, that means we need to
+     # re-eval the function...
+     fn='
+     fn() {
+        typeset foo=`echo one word=two`
+        print $foo
+        print $word
+     }
+     '
+     print reserved
+     eval $fn; fn
+     print builtin
+     disable -r typeset
+     eval $fn; fn
+     enable -r typeset
+     disable typeset
+     print reserved
+     eval $fn; fn
+  )
+0:reserved word and builtin interfaces
+>reserved
+>one word=two
+>
+>builtin
+>one
+>two
+>reserved
+>one word=two
+>
+
+  fn() {
+    emulate -L zsh
+    setopt typeset_silent
+    local k
+    typeset -A hash=(k1 v1 k2 v2)
+    typeset foo=word array=(more than one word)
+    for k in ${(ko)hash}; do
+      print $k $hash[$k]
+    done
+    print -l $foo $array
+    typeset -A hash
+    typeset foo array
+    for k in ${(ko)hash}; do
+      print $k $hash[$k]
+    done
+    print -l $foo $array
+    typeset hash=(k3 v3 k4 v4) array=(odd number here)
+    for k in ${(ko)hash}; do
+      print $k $hash[$k]
+    done
+    print -l $array
+  }
+  fn
+0:typeset preserves existing variable types
+>k1 v1
+>k2 v2
+>word
+>more
+>than
+>one
+>word
+>k1 v1
+>k2 v2
+>word
+>more
+>than
+>one
+>word
+>k3 v3
+>k4 v4
+>odd
+>number
+>here
+
+  fn() { typeset foo bar thing=this stuff=(that other) more=woevva; }
+  which -x2 fn
+  fn2() { typeset assignfirst=(why not); }
+  which -x2 fn2
+0:text output from typeset
+>fn () {
+>  typeset foo bar thing=this stuff=(that other) more=woevva 
+>}
+>fn2 () {
+>  typeset assignfirst=(why not) 
+>}
+
+  fn() {
+    typeset array=()
+    print ${(t)array} ${#array}
+    typeset gnothergarray=() gnothergarray[1]=yes gnothergarray[2]=no
+    print -l ${(t)gnothergarray} $gnothergarray
+  }
+  fn
+0:can set empty array
+>array-local 0
+>array-local
+>yes
+>no
+
+  array=(nothing to see here)
+  fn() {
+    typeset array=(one two three four five)
+    typeset array[2,4]=(umm er)
+    print ${#array} $array
+    typeset array[2,3]=()
+    print ${#array} $array
+  }
+  fn
+  print ${#array} $array
+0:can update array slices in typeset
+>4 one umm er five
+>2 one five
+>4 nothing to see here
+
+  array=(no really nothing here)
+  fn() {
+    typeset array=() array[2]=two array[4]=four
+    typeset -p array
+    typeset array=() array[3]=three array[1]=one
+    typeset -p array
+  }
+  fn
+  print $array
+0:setting empty array in typeset
+>typeset -a array
+>array=( '' two '' four )
+>typeset -a array
+>array=( one '' three )
+>no really nothing here

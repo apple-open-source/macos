@@ -16,6 +16,7 @@
 
 #include "sslHandshake.h"
 #include "sslBuildFlags.h"
+#include "CipherSuite.h"
 
 #include <corecrypto/ccec.h>
 #include <corecrypto/ccdh.h>
@@ -37,32 +38,11 @@ struct _SSLPubKey {
     };
 };
 
-/* Types for Private asymmetric keys. */
-enum SSLPrivKeyType {
-    kSSLPrivKeyType_RSA = 0,
-    kSSLPrivKeyType_ECDSA = 1,
-};
-
-typedef struct _tls_private_key_rsa
-{
-    size_t size;    /* modulus size */
-    int (*sign)(tls_private_key_ctx_t ctx, tls_hash_algorithm hash, const uint8_t *plaintext, size_t plaintextLen, uint8_t *sig, size_t *sigLen);
-    int (*decrypt)(tls_private_key_ctx_t ctx, const uint8_t *ciphertext, size_t ciphertextLen, uint8_t *plaintext, size_t *plaintextLen);
-} tls_private_key_rsa_t;
-
-typedef struct _tls_private_key_ecdsa {
-    size_t size;
-    uint16_t curve;
-    int (*sign)(tls_private_key_ctx_t ctx, const uint8_t *plaintext, size_t plaintextLen, uint8_t *sig, size_t *sigLen);
-} tls_private_key_ecdsa_t;
 
 struct _tls_private_key {
-    enum SSLPrivKeyType type;
     tls_private_key_ctx_t ctx;
-    union {
-        tls_private_key_rsa_t rsa;
-        tls_private_key_ecdsa_t ecdsa;
-    };
+    tls_private_key_ctx_release ctx_release;
+    tls_private_key_desc_t desc;
 };
 
 
@@ -279,7 +259,7 @@ struct _tls_handshake_s {
     unsigned            dhMinGroupSize;     /* Minimum allowed DH group size */
     tls_buffer          dhPeerPublic;       /* Peer public DH key */
     ccdh_gp_t           dhParams;           /* native dh parameter object */
-    ccdh_full_ctx_in_t  dhContext;          /* Our private DH key */
+    ccdh_full_ctx_t     dhContext;          /* Our private DH key */
 #endif	/* APPLE_DH */
 
 	/*
@@ -294,7 +274,7 @@ struct _tls_handshake_s {
 	tls_buffer			ecdhPeerPublic;         /* peer's public ECDH key as ECPoint */
 	tls_named_curve     ecdhPeerCurve;          /* named curve associated with ecdhPeerPublic or
 												 *    peerPubKey */
-    ccec_full_ctx_in_t  ecdhContext;            /* Our private, ephemeral, ECDH Key */
+    ccec_full_ctx_t     ecdhContext;            /* Our private, ephemeral, ECDH Key */
 
 #if ALLOW_RSA_SERVER_KEY_EXCHANGE
     /*
@@ -361,7 +341,7 @@ struct _tls_handshake_s {
     uint8_t             masterSecret[SSL_MASTER_SECRET_SIZE];
 
 	/* running digests of all handshake messages */
-    tls_buffer   		shaState, md5State, sha256State, sha512State;
+    tls_buffer   		shaState, md5State, sha256State, sha384State, sha512State;
 
     tls_buffer		    fragmentedMessageCache;
 
@@ -389,6 +369,9 @@ struct _tls_handshake_s {
 	tls_handshake_master_secret_function_t	masterSecretCallback;
 	const void 			*masterSecretArg;
 
+    /* Extended master secret support RFC 7627 */
+    bool                extMSEnabled;
+    bool                extMSReceived;
 #if 	SSL_PAC_SERVER_ENABLE
 	/* server PAC resume sets serverRandom early to allow for secret acquisition */
 	uint8_t				serverRandomValid;
@@ -406,15 +389,17 @@ struct _tls_handshake_s {
 	/* client auth type actually negotiated */
 	tls_client_auth_type	negAuthType;
 
-    /* List of client-specified supported_signature_algorithms (for key exchange) */
-	unsigned                         numClientSigAlgs;
-	tls_signature_and_hash_algorithm *clientSigAlgs;
+    /* List of peer supported_signature_algorithms */
+	unsigned                         numPeerSigAlgs;
+	tls_signature_and_hash_algorithm *peerSigAlgs;
+
+    /* List of locally supported_signature_algorithms */
+    unsigned                         numLocalSigAlgs;
+    tls_signature_and_hash_algorithm *localSigAlgs;
+
+    tls_signature_and_hash_algorithm certSigAlg;  /* selected by client */
     tls_signature_and_hash_algorithm kxSigAlg;  /* selected by server */
 
-    /* List of server-specified supported_signature_algorithms (for client cert) */
-	unsigned                         numServerSigAlgs;
-	tls_signature_and_hash_algorithm *serverSigAlgs;
-    tls_signature_and_hash_algorithm certSigAlg;  /* selected by client */
 
 
     /* Retransmit attempt number for DTLS */
@@ -465,10 +450,19 @@ struct _tls_handshake_s {
     /* Fallback behavior */
     bool                fallback;       /* Client: enable fallback behaviors */
 
+    /* RFC 7507 Fallback SCSV */
+    bool                tls_fallback_scsv;  /* Server: Fallback SCSV received */
+
     /* SCT extension (RFC 6962) */
     bool                sct_enabled;        /* Client: send sct extension */
     bool                sct_peer_enabled;   /* Server: Client has sent extension */
     tls_buffer_list_t   *sct_list;          /* Sent by Server, received by Client */
+
+    /* RFC 4492 ECC extensions */
+    /* server only - list of client-specified supported EC curves */
+    uint16_t            *requested_ecdh_curves;
+    unsigned            num_ec_curves;
+
 
     /* config */
     tls_handshake_config_t config;          /* preset configuration */

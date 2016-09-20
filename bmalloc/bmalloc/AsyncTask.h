@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,7 +31,6 @@
 #include "Mutex.h"
 #include <atomic>
 #include <condition_variable>
-#include <pthread.h>
 #include <thread>
 
 namespace bmalloc {
@@ -40,59 +39,51 @@ template<typename Object, typename Function>
 class AsyncTask {
 public:
     AsyncTask(Object&, const Function&);
+    ~AsyncTask();
 
     void run();
-    void join();
 
 private:
-    enum State { Exited, Sleeping, Running, Signaled };
-
-    static const constexpr std::chrono::seconds exitDelay = std::chrono::seconds(1);
+    enum State { Sleeping, Running, RunRequested };
 
     void runSlowCase();
 
-    static void* pthreadEntryPoint(void*);
-    void entryPoint();
+    static void threadEntryPoint(AsyncTask*);
+    void threadRunLoop();
 
     std::atomic<State> m_state;
 
     Mutex m_conditionMutex;
     std::condition_variable_any m_condition;
-    pthread_t m_thread;
+
+    std::thread m_thread;
 
     Object& m_object;
     Function m_function;
 };
 
-template<typename Object, typename Function> const constexpr std::chrono::seconds AsyncTask<Object, Function>::exitDelay;
-
 template<typename Object, typename Function>
 AsyncTask<Object, Function>::AsyncTask(Object& object, const Function& function)
-    : m_state(Exited)
+    : m_state(Running)
     , m_condition()
-    , m_thread()
+    , m_thread(std::thread(&AsyncTask::threadEntryPoint, this))
     , m_object(object)
     , m_function(function)
 {
 }
 
 template<typename Object, typename Function>
-void AsyncTask<Object, Function>::join()
+AsyncTask<Object, Function>::~AsyncTask()
 {
-    if (m_state == Exited)
-        return;
-
-    { std::lock_guard<Mutex> lock(m_conditionMutex); }
-    m_condition.notify_one();
-
-    while (m_state != Exited)
-        std::this_thread::yield();
+    // We'd like to mark our destructor deleted but C++ won't allow it because
+    // we are an automatic member of Heap.
+    RELEASE_BASSERT(0);
 }
 
 template<typename Object, typename Function>
 inline void AsyncTask<Object, Function>::run()
 {
-    if (m_state == Signaled)
+    if (m_state == RunRequested)
         return;
     runSlowCase();
 }
@@ -100,45 +91,40 @@ inline void AsyncTask<Object, Function>::run()
 template<typename Object, typename Function>
 NO_INLINE void AsyncTask<Object, Function>::runSlowCase()
 {
-    State oldState = m_state.exchange(Signaled);
-    if (oldState == Signaled || oldState == Running)
+    State oldState = m_state.exchange(RunRequested);
+    if (oldState == RunRequested || oldState == Running)
         return;
 
-    if (oldState == Sleeping) {
-        { std::lock_guard<Mutex> lock(m_conditionMutex); }
-        m_condition.notify_one();
-        return;
-    }
-
-    BASSERT(oldState == Exited);
-    pthread_create(&m_thread, nullptr, &pthreadEntryPoint, this);
-    pthread_detach(m_thread);
+    BASSERT(oldState == Sleeping);
+    std::lock_guard<Mutex> lock(m_conditionMutex);
+    m_condition.notify_all();
 }
 
 template<typename Object, typename Function>
-void* AsyncTask<Object, Function>::pthreadEntryPoint(void* asyncTask)
+void AsyncTask<Object, Function>::threadEntryPoint(AsyncTask* asyncTask)
 {
-    static_cast<AsyncTask*>(asyncTask)->entryPoint();
-    return nullptr;
+    asyncTask->threadRunLoop();
 }
 
 template<typename Object, typename Function>
-void AsyncTask<Object, Function>::entryPoint()
+void AsyncTask<Object, Function>::threadRunLoop()
 {
+    // This loop ratchets downward from most active to least active state. While
+    // we ratchet downward, any other thread may reset our state.
+
+    // We require any state change while we are sleeping to signal to our
+    // condition variable and wake us up.
+
     while (1) {
-        State expectedState = Signaled;
+        State expectedState = RunRequested;
         if (m_state.compare_exchange_weak(expectedState, Running))
             (m_object.*m_function)();
 
         expectedState = Running;
         if (m_state.compare_exchange_weak(expectedState, Sleeping)) {
             std::unique_lock<Mutex> lock(m_conditionMutex);
-            m_condition.wait_for(lock, exitDelay, [=]() { return this->m_state != Sleeping; });
+            m_condition.wait(lock, [&]() { return m_state != Sleeping; });
         }
-
-        expectedState = Sleeping;
-        if (m_state.compare_exchange_weak(expectedState, Exited))
-            return;
     }
 }
 

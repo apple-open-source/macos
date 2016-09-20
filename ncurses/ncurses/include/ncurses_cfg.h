@@ -50,11 +50,11 @@
 #define CC_HAS_PROTOS 1
 #define HAVE_LONG_FILE_NAMES 1
 #define USE_DATABASE 1
-#define TERMINFO_DIRS "/usr/share/terminfo"
+#define TERMINFO_DIRS "/usr/share/terminfo:/usr/local/share/terminfo"
 #define TERMINFO "/usr/share/terminfo"
 #define HAVE_BIG_CORE 1
 #define USE_TERMCAP 1
-#define TERMPATH "/etc/termcap:/usr/share/misc/termcap"
+#define TERMPATH "/etc/termcap:/usr/share/misc/termcap:/usr/local/etc/termcap:/usr/local/share/misc/termcap"
 #define USE_HOME_TERMINFO 1
 #define USE_ROOT_ENVIRON 1
 #define HAVE_REMOVE 1

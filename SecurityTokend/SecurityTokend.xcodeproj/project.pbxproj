@@ -28,6 +28,7 @@
 		C28C0F2106D30837004CF059 /* transit.h in Headers */ = {isa = PBXBuildFile; fileRef = C28C0F1F06D30837004CF059 /* transit.h */; };
 		C28C736906B1DD8600E4B6B4 /* tokendServer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CAC2735069DD309002EB81D /* tokendServer.cpp */; };
 		C2F8ED9407A6E871008FA709 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = C2F8ED9207A6E871008FA709 /* InfoPlist.strings */; };
+		DCC07E771CFF50C9005C35C8 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DCC07E761CFF50C9005C35C8 /* Security.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -76,6 +77,7 @@
 		C28C0F1F06D30837004CF059 /* transit.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = transit.h; path = lib/transit.h; sourceTree = "<group>"; };
 		C2B6F2370B83E5A000187FD9 /* SecurityTokend.exp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.exports; name = SecurityTokend.exp; path = lib/SecurityTokend.exp; sourceTree = "<group>"; };
 		C2F8ED9307A6E871008FA709 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		DCC07E761CFF50C9005C35C8 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -83,6 +85,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DCC07E771CFF50C9005C35C8 /* Security.framework in Frameworks */,
 				18B965AA147312A3005A4D2E /* libsecurity_cdsa_utilities.a in Frameworks */,
 				18B965A614731276005A4D2E /* libsecurityd_client.a in Frameworks */,
 				18B965A41473124F005A4D2E /* libsecurity_utilities.a in Frameworks */,
@@ -145,6 +148,7 @@
 		4CC46A3306A4AD6F00027192 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				DCC07E761CFF50C9005C35C8 /* Security.framework */,
 				18B965A9147312A3005A4D2E /* libsecurity_cdsa_utilities.a */,
 				18B965A514731276005A4D2E /* libsecurityd_client.a */,
 				18B965A31473124F005A4D2E /* libsecurity_utilities.a */,
@@ -304,6 +308,8 @@
 /* Begin PBXProject section */
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = C27AD1AE0987FCDB001272E0 /* Build configuration list for PBXProject "SecurityTokend" */;
 			compatibilityVersion = "Xcode 2.4";
 			developmentRegion = English;

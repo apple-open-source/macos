@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/mt.xml
@@ -43,7 +43,7 @@ mt{
         minimumGroupingDigits{"1"}
         native{"latn"}
     }
-    Version{"2.1.10.93"}
+    Version{"2.1.23.7"}
     calendar{
         generic{
             DateTimePatterns{
@@ -64,6 +64,10 @@ mt{
         }
         gregorian{
             AmPmMarkers{
+                "AM",
+                "PM",
+            }
+            AmPmMarkersAbbr{
                 "AM",
                 "PM",
             }
@@ -317,6 +321,7 @@ mt{
         mon{
             relative{
                 "-1"{"It-Tnejn li għadda"}
+                "0"{"Dan It-Tnejn"}
                 "1"{"It-Tnejn li ġej"}
             }
         }
@@ -353,6 +358,7 @@ mt{
             dn{"Sena"}
             relative{
                 "-1"{"Is-sena li għaddiet"}
+                "0"{"din is-sena"}
                 "1"{"Is-sena d-dieħla"}
             }
             relativeTime{

@@ -105,13 +105,26 @@ rawname(char *name)
 	static char     rawbuf[32];
 	char           *dp;
 
+	(void) memset(rawbuf, 0, sizeof(rawbuf));
+
+	/* find the last "/" in a path, like /dev/disk2 */
 	if ((dp = strrchr(name, '/')) == 0)
-		return (0);
+		return NULL;
+
+	/* temporarily replace the last "/" with a NUL */
 	*dp = 0;
-	(void) strcpy(rawbuf, name);
+
+	/* copy name, with the "/" removed into 'rawbuf' */
+	(void) strlcpy(rawbuf, name, sizeof(rawbuf));
+
+	/* replace the "/" back */
 	*dp = '/';
-	(void) strcat(rawbuf, "/r");
-	(void) strcat(rawbuf, &dp[1]);
+
+	/* Now add the "/r" to make it a raw device */ 
+	(void) strlcat(rawbuf, "/r", sizeof(rawbuf));
+
+	/* then copy the rest of the string (after the /) into place */
+	(void) strlcat(rawbuf, &dp[1], sizeof(rawbuf));
 
 	return (rawbuf);
 }

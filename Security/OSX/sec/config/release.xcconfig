@@ -1,4 +1,4 @@
 #include "base.xcconfig"
 
 GCC_PREPROCESSOR_DEFINITIONS = $(inherited) NDEBUG=1
-GCC_PREPROCESSOR_DEFINITIONS[sdk=iphonesimulator*] = $(inherited) NO_SERVER=1
+GCC_PREPROCESSOR_DEFINITIONS[sdk=embeddedsimulator*] = $(inherited) NO_SERVER=1

@@ -12,9 +12,11 @@
       /define HTML_PARSER_H__
 
       /include "libxmlrpg/xmlversion"
-      /include "libxmlrpg/parser"
 
       /if defined(LIBXML_HTML_ENABLED)
+
+      /include "libxmlrpg/xmlTypesC"
+      /include "libxmlrpg/parser"
 
       * Most of the back-end structures from XML and HTML are shared.
 
@@ -63,13 +65,13 @@
      d htmlElemDesc    ds                  based(htmlElemDescPtr)
      d                                     align qualified
      d  name                           *                                        const char *
-     d  startTag                      3u 0                                      Start tag implied ?
-     d  endTag                        3u 0                                      End tag implied ?
-     d  saveEndTag                    3u 0                                      Save end tag ?
-     d  empty                         3u 0                                      Empty element ?
-     d  depr                          3u 0                                      Deprecated element ?
-     d  dtd                           3u 0                                      Loose DTD/Frameset
-     d  isinline                      3u 0                                      Block 0/inline elem?
+     d  startTag                           like(xmlCchar)                       Start tag implied ?
+     d  endTag                             like(xmlCchar)                       End tag implied ?
+     d  saveEndTag                         like(xmlCchar)                       Save end tag ?
+     d  empty                              like(xmlCchar)                       Empty element ?
+     d  depr                               like(xmlCchar)                       Deprecated element ?
+     d  dtd                                like(xmlCchar)                       Loose DTD/Frameset
+     d  isinline                           like(xmlCchar)                       Block 0/inline elem?
      d  desc                           *                                        const char *
       *
       * New fields encapsulating HTML structure
@@ -95,7 +97,7 @@
      d htmlEntityDesc...
      d                 ds                  based(htmlEntityDescPtr)
      d                                     align qualified
-     d  value                        10u 0                                      Unicode char value
+     d  value                              like(xmlCuint)
      d  name                           *                                        const char *
      d  desc                           *                                        const char *
 
@@ -113,15 +115,17 @@
      d htmlEntityValueLookup...
      d                 pr                  extproc('htmlEntityValueLookup')
      d                                     like(htmlEntityDescPtr)              const
-     d  value                        10u 0 value
+     d  value                              value like(xmlCuint)
 
      d htmlIsAutoClosed...
-     d                 pr            10i 0 extproc('htmlIsAutoClosed')
+     d                 pr                  extproc('htmlIsAutoClosed')
+     d                                     like(xmlCint)
      d  doc                                value like(htmlDocPtr)
      d  elem                               value like(htmlNodePtr)
 
      d htmlAutoCloseTag...
-     d                 pr            10i 0 extproc('htmlAutoCloseTag')
+     d                 pr                  extproc('htmlAutoCloseTag')
+     d                                     like(xmlCint)
      d  doc                                value like(htmlDocPtr)
      d  name                           *   value options(*string)               const xmlChar *
      d  elem                               value like(htmlNodePtr)
@@ -133,7 +137,8 @@
      d  str                            *                                        const xmlChar *(*)
 
      d htmlParseCharRef...
-     d                 pr            10i 0 extproc('htmlParseCharRef')
+     d                 pr                  extproc('htmlParseCharRef')
+     d                                     like(xmlCint)
      d  ctxt                               value like(htmlParserCtxtPtr)
 
      d htmlParseElement...
@@ -148,10 +153,11 @@
      d                 pr                  extproc('htmlCreateMemoryParserCtxt')
      d                                     like(htmlParserCtxtPtr)
      d  buffer                         *   value options(*string)               const char *
-     d  size                         10i 0 value
+     d  size                               value like(xmlCint)
 
      d htmlParseDocument...
-     d                 pr            10i 0 extproc('htmlParseDocument')
+     d                 pr                  extproc('htmlParseDocument')
+     d                                     like(xmlCint)
      d  ctxt                               value like(htmlParserCtxtPtr)
 
      d htmlSAXParseDoc...
@@ -180,27 +186,31 @@
      d  filename                       *   value options(*string)               const char *
      d  encoding                       *   value options(*string)               const char *
 
-     d UTF8ToHtml      pr            10i 0 extproc('UTF8ToHtml')
+     d UTF8ToHtml      pr                  extproc('UTF8ToHtml')
+     d                                     like(xmlCint)
      d  out                       65535    options(*varsize)                    unsigned char []
-     d  outlen                       10i 0
+     d  outlen                             like(xmlCint)
      d  in                             *   value options(*string)               const unsigned char*
-     d  inlen                        10i 0
+     d  inlen                              like(xmlCint)
 
      d htmlEncodeEntities...
-     d                 pr            10i 0 extproc('htmlEncodeEntities')
+     d                 pr                  extproc('htmlEncodeEntities')
+     d                                     like(xmlCint)
      d  out                       65535    options(*varsize)                    unsigned char []
-     d  outlen                       10i 0
+     d  outlen                             like(xmlCint)
      d  in                             *   value options(*string)               const unsigned char*
-     d  inlen                        10i 0
-     d  quoteChar                    10i 0 value
+     d  inlen                              like(xmlCint)
+     d  quoteChar                          value like(xmlCint)
 
      d htmlIsScriptAttribute...
-     d                 pr            10i 0 extproc('htmlIsScriptAttribute')
+     d                 pr                  extproc('htmlIsScriptAttribute')
+     d                                     like(xmlCint)
      d  name                           *   value options(*string)               const xmlChar *
 
      d htmlHandleOmittedElem...
-     d                 pr            10i 0 extproc('htmlHandleOmittedElem')
-     d  val                          10i 0 value
+     d                 pr                  extproc('htmlHandleOmittedElem')
+     d                                     like(xmlCint)
+     d  val                                value like(xmlCint)
 
       /if defined(LIBXML_PUSH_ENABLED)
 
@@ -212,15 +222,16 @@
      d  sax                                value like(htmlSAXHandlerPtr)
      d  user_data                      *   value                                void *
      d  chunk                          *   value options(*string)               const char *
-     d  size                         10i 0 value
+     d  size                               value like(xmlCint)
      d  filename                       *   value options(*string)               const char *
      d  enc                                value like(xmlCharEncoding)
 
-     d htmlParseChunk  pr            10i 0 extproc('htmlParseChunk')
+     d htmlParseChunk  pr                  extproc('htmlParseChunk')
+     d                                     like(xmlCint)
      d  ctxt                               value like(htmlParserCtxtPtr)
      d  chunk                          *   value options(*string)               const char *
-     d  size                         10i 0 value
-     d  terminate                    10i 0 value
+     d  size                               value like(xmlCint)
+     d  terminate                          value like(xmlCint)
       /endif                                                                    LIBXML_PUSH_ENABLED
 
      d htmlFreeParserCtxt...
@@ -235,7 +246,8 @@
       * to the xmlReadDoc() and similar calls.
 
      d htmlParserOption...
-     d                 s             10i 0 based(######typedef######)           enum
+     d                 s                   based(######typedef######)
+     d                                     like(xmlCenum)
      d  HTML_PARSE_RECOVER...                                                   Relaxed parsing
      d                 c                   X'00000001'
      d  HTML_PARSE_NODEFDTD...                                                  No default doctype
@@ -261,37 +273,38 @@
      d ctxt                                value like(htmlParserCtxtPtr)
 
      d htmlCtxtUseOptions...
-     d                 pr            10i 0 extproc('htmlCtxtUseOptions')
+     d                 pr                  extproc('htmlCtxtUseOptions')
+     d                                     like(xmlCint)
      d ctxt                                value like(htmlParserCtxtPtr)
-     d options                       10i 0 value
+     d options                             value like(xmlCint)
 
      d htmlReadDoc     pr                  extproc('htmlReadDoc')
      d                                     like(htmlDocPtr)
      d  cur                            *   value options(*string)               const xmlChar *
      d  URL                            *   value options(*string)               const char *
      d  encoding                       *   value options(*string)               const char *
-     d  options                      10i 0 value
+     d  options                            value like(xmlCint)
 
      d htmlReadFile    pr                  extproc('htmlReadFile')
      d                                     like(htmlDocPtr)
      d  URL                            *   value options(*string)               const char *
      d  encoding                       *   value options(*string)               const char *
-     d  options                      10i 0 value
+     d  options                            value like(xmlCint)
 
      d htmlReadMemory  pr                  extproc('htmlReadMemory')
      d                                     like(htmlDocPtr)
      d  buffer                         *   value options(*string)               const char *
-     d  size                         10i 0 value
+     d  size                               value like(xmlCint)
      d  URL                            *   value options(*string)               const char *
      d  encoding                       *   value options(*string)               const char *
-     d  options                      10i 0 value
+     d  options                            value like(xmlCint)
 
      d htmlReadFd      pr                  extproc('htmlReadFd')
      d                                     like(htmlDocPtr)
-     d  fd                           10i 0 value
+     d  fd                                 value like(xmlCint)
      d  URL                            *   value options(*string)               const char *
      d  encoding                       *   value options(*string)               const char *
-     d  options                      10i 0 value
+     d  options                            value like(xmlCint)
 
      d htmlReadIO      pr                  extproc('htmlReadIO')
      d                                     like(htmlDocPtr)
@@ -300,7 +313,7 @@
      d  ioctx                          *   value                                void *
      d  URL                            *   value options(*string)               const char *
      d  encoding                       *   value options(*string)               const char *
-     d  options                      10i 0 value
+     d  options                            value like(xmlCint)
 
      d htmlCtxtReadDoc...
      d                 pr                  extproc('htmlCtxtReadDoc')
@@ -309,7 +322,7 @@
      d  cur                            *   value options(*string)               const xmlChar *
      d  URL                            *   value options(*string)               const char *
      d  encoding                       *   value options(*string)               const char *
-     d  options                      10i 0 value
+     d  options                            value like(xmlCint)
 
      d htmlCtxtReadFile...
      d                 pr                  extproc('htmlCtxtReadFile')
@@ -317,25 +330,25 @@
      d  ctxt                               value like(xmlParserCtxtPtr)
      d  filename                       *   value options(*string)               const char *
      d  encoding                       *   value options(*string)               const char *
-     d  options                      10i 0 value
+     d  options                            value like(xmlCint)
 
      d htmlCtxtReadMemory...
      d                 pr                  extproc('htmlCtxtReadMemory')
      d                                     like(htmlDocPtr)
      d  ctxt                               value like(xmlParserCtxtPtr)
      d  buffer                         *   value options(*string)               const char *
-     d  size                         10i 0 value
+     d  size                               value like(xmlCint)
      d  URL                            *   value options(*string)               const char *
      d  encoding                       *   value options(*string)               const char *
-     d  options                      10i 0 value
+     d  options                            value like(xmlCint)
 
      d htmlCtxtReadFd  pr                  extproc('htmlCtxtReadFd')
      d                                     like(htmlDocPtr)
      d  ctxt                               value like(xmlParserCtxtPtr)
-     d  fd                           10i 0 value
+     d  fd                                 value like(xmlCint)
      d  URL                            *   value options(*string)               const char *
      d  encoding                       *   value options(*string)               const char *
-     d  options                      10i 0 value
+     d  options                            value like(xmlCint)
 
      d htmlCtxtReadIO  pr                  extproc('htmlCtxtReadIO')
      d                                     like(htmlDocPtr)
@@ -345,11 +358,12 @@
      d  ioctx                          *   value                                void *
      d  URL                            *   value options(*string)               const char *
      d  encoding                       *   value options(*string)               const char *
-     d  options                      10i 0 value
+     d  options                            value like(xmlCint)
 
       * Further knowledge of HTML structure
 
-     d htmlStatus      s             10i 0 based(######typedef######)           enum
+     d htmlStatus      s                   based(######typedef######)
+     d                                     like(xmlCenum)
      d  HTML_NA        c                   X'0000'                              No check at all
      d  HTML_INVALID   c                   X'0001'
      d  HTML_DEPRECATED...
@@ -365,10 +379,11 @@
      d                                     like(htmlStatus)
      d  #param1                            value like(htmlElemDescPtr)          const
      d  #param2                        *   value options(*string)               const xmlChar *
-     d  #param3                      10i 0 value
+     d  #param3                            value like(xmlCint)
 
      d htmlElementAllowedHere...
-     d                 pr            10i 0 extproc('htmlElementAllowedHere')
+     d                 pr                  extproc('htmlElementAllowedHere')
+     d                                     like(xmlCint)
      d  #param1                            value like(htmlElemDescPtr)          const
      d  #param2                        *   value options(*string)               const xmlChar *
 
@@ -381,7 +396,7 @@
      d htmlNodeStatus  pr                  extproc('htmlNodeStatus')
      d                                     like(htmlStatus)
      d  #param1                            value like(htmlNodePtr)
-     d  #param2                      10i 0 value
+     d  #param2                            value like(xmlCint)
 
       * C macros implemented as procedures for ILE/RPG support.
 
@@ -390,8 +405,9 @@
      d  elt                            *   value                                const htmlElemDesc *
 
      d htmlElementAllowedHereDesc...
-     d                 pr            10i 0 extproc(
+     d                 pr                  extproc(
      d                                     '__htmlElementAllowedHereDesc')
+     d                                     like(xmlCint)
      d  parent                         *   value                                const htmlElemDesc *
      d  elt                            *   value                                const htmlElemDesc *
 

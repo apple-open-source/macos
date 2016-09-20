@@ -45,7 +45,7 @@ BEGIN
 
 	/* Attempt a copy from scratch memory to a kernel address */
 
-	bcopy(ptr, (void *)&`max_ncpus, sizeof (int));
+	bcopy(ptr, (void *)&`real_ncpus, sizeof (int));
 	exit(1);
 }
 

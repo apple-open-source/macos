@@ -91,7 +91,7 @@ static int doHMacCloneTest(const uint8_t *ptext,
 	uint32_t keySizeInBytes,
 	bool stagedOrig,
 	bool stagedClone,
-	bool quiet,
+	__unused bool quiet,
 	bool verbose)
 {
 	uint8_t			*keyBytes;
@@ -226,7 +226,7 @@ static bool isBitSet(unsigned bit, unsigned word)
 static int kTestTestCount = 1200;
 
 
-int CommonHMacClone(int argc, char *const *argv)
+int CommonHMacClone(int __unused argc, char *const * __unused argv)
 {
 	unsigned			loop;
 	uint8_t				*ptext;

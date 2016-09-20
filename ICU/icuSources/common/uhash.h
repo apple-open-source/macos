@@ -1,6 +1,6 @@
 /*
 ******************************************************************************
-*   Copyright (C) 1997-2014, International Business Machines
+*   Copyright (C) 1997-2016, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 ******************************************************************************
 *   Date        Name        Description
@@ -58,10 +58,13 @@
  * hashcode.  During iteration an element may be deleted by calling
  * uhash_removeElement(); iteration may safely continue thereafter.
  * The uhash_remove() function may also be safely called in
- * mid-iteration.  However, if uhash_put() is called during iteration
- * then the iteration will be out of sync.  Under no circumstances
- * should the UHashElement returned by uhash_nextElement be modified
- * directly.
+ * mid-iteration.  If uhash_put() is called during iteration,
+ * the iteration is still guaranteed to terminate reasonably, but
+ * there is no guarantee that every element will be returned or that
+ * some won't be returned more than once.
+ *
+ * Under no circumstances should the UHashElement returned by
+ * uhash_nextElement be modified directly.
  *
  * By default, the hashtable grows when necessary, but never shrinks,
  * even if all items are removed.  For most applications this is
@@ -225,6 +228,25 @@ uhash_init(UHashtable *hash,
            UKeyComparator *keyComp,
            UValueComparator *valueComp,
            UErrorCode *status);
+
+/**
+ * Initialize an existing UHashtable.
+ * @param keyHash A pointer to the key hashing function.  Must not be
+ * NULL.
+ * @param keyComp A pointer to the function that compares keys.  Must
+ * not be NULL.
+ * @param size The initial capacity of this hash table.
+ * @param status A pointer to an UErrorCode to receive any errors.
+ * @return A pointer to a UHashtable, or 0 if an error occurred.
+ * @see uhash_openSize
+ */
+U_CAPI UHashtable* U_EXPORT2 
+uhash_initSize(UHashtable *hash,
+               UHashFunction *keyHash,
+               UKeyComparator *keyComp,
+               UValueComparator *valueComp,
+               int32_t size,
+               UErrorCode *status);
 
 /**
  * Close a UHashtable, releasing the memory used.

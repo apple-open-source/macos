@@ -270,7 +270,7 @@ void send_uid_list(int f)
 {
 	struct idlist *list;
 
-	if (numeric_ids)
+	if (numeric_ids > 0)
 		return;
 
 	if (preserve_uid) {
@@ -311,7 +311,7 @@ void recv_uid_list(int f, struct file_list *flist)
 	int id, i;
 	char *name;
 
-	if (preserve_uid && !numeric_ids) {
+	if (preserve_uid && numeric_ids <= 0) {
 		/* read the uid list */
 		while ((id = read_int(f)) != 0) {
 			int len = read_byte(f);
@@ -319,11 +319,15 @@ void recv_uid_list(int f, struct file_list *flist)
 			if (!name)
 				out_of_memory("recv_uid_list");
 			read_sbuf(f, name, len);
+			if (numeric_ids < 0) {
+				free(name);
+				name = NULL;
+			}
 			recv_add_uid(id, name); /* node keeps name's memory */
 		}
 	}
 
-	if (preserve_gid && !numeric_ids) {
+	if (preserve_gid && numeric_ids <= 0) {
 		/* read the gid list */
 		while ((id = read_int(f)) != 0) {
 			int len = read_byte(f);
@@ -331,6 +335,10 @@ void recv_uid_list(int f, struct file_list *flist)
 			if (!name)
 				out_of_memory("recv_uid_list");
 			read_sbuf(f, name, len);
+			if (numeric_ids < 0) {
+				free(name);
+				name = NULL;
+			}
 			recv_add_gid(id, name); /* node keeps name's memory */
 		}
 	}

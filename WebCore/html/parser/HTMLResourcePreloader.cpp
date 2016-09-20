@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -37,7 +37,7 @@ namespace WebCore {
 
 URL PreloadRequest::completeURL(Document& document)
 {
-    return document.completeURL(m_resourceURL, m_baseURL.isEmpty() ? document.url() : m_baseURL);
+    return document.completeURL(m_resourceURL, m_baseURL.isEmpty() ? document.baseURL() : m_baseURL);
 }
 
 CachedResourceRequest PreloadRequest::resourceRequest(Document& document)
@@ -45,31 +45,27 @@ CachedResourceRequest PreloadRequest::resourceRequest(Document& document)
     ASSERT(isMainThread());
     CachedResourceRequest request(ResourceRequest(completeURL(document)));
     request.setInitiator(m_initiator);
-
-    // FIXME: It's possible CORS should work for other request types?
-    if (m_resourceType == CachedResource::Script)
-        request.mutableResourceRequest().setAllowCookies(m_crossOriginModeAllowsCookies);
+    request.setAsPotentiallyCrossOrigin(m_crossOriginMode, document);
     return request;
 }
 
 void HTMLResourcePreloader::preload(PreloadRequestStream requests)
 {
     for (auto& request : requests)
-        preload(WTF::move(request));
+        preload(WTFMove(request));
 }
 
-static bool mediaAttributeMatches(Frame* frame, RenderStyle* renderStyle, const String& attributeValue)
+static bool mediaAttributeMatches(Document& document, const RenderStyle* renderStyle, const String& attributeValue)
 {
-    RefPtr<MediaQuerySet> mediaQueries = MediaQuerySet::createAllowingDescriptionSyntax(attributeValue);
-    MediaQueryEvaluator mediaQueryEvaluator("screen", frame, renderStyle);
-    return mediaQueryEvaluator.eval(mediaQueries.get());
+    auto mediaQueries = MediaQuerySet::createAllowingDescriptionSyntax(attributeValue);
+    return MediaQueryEvaluator { "screen", document, renderStyle }.evaluate(mediaQueries.get());
 }
 
 void HTMLResourcePreloader::preload(std::unique_ptr<PreloadRequest> preload)
 {
     ASSERT(m_document.frame());
     ASSERT(m_document.renderView());
-    if (!preload->media().isEmpty() && !mediaAttributeMatches(m_document.frame(), &m_document.renderView()->style(), preload->media()))
+    if (!preload->media().isEmpty() && !mediaAttributeMatches(m_document, &m_document.renderView()->style(), preload->media()))
         return;
 
     CachedResourceRequest request = preload->resourceRequest(m_document);

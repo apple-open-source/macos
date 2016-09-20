@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2011 Google Inc. All rights reserved.
+ * Copyright (C) 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -27,10 +28,12 @@
 #include "config.h"
 #include "ShadowRoot.h"
 
+#include "AuthorStyleSheets.h"
+#include "CSSStyleSheet.h"
 #include "ElementTraversal.h"
-#include "InsertionPoint.h"
 #include "RenderElement.h"
 #include "RuntimeEnabledFeatures.h"
+#include "SlotAssignment.h"
 #include "StyleResolver.h"
 #include "markup.h"
 
@@ -38,26 +41,30 @@ namespace WebCore {
 
 struct SameSizeAsShadowRoot : public DocumentFragment, public TreeScope {
     unsigned countersAndFlags[1];
-    ContentDistributor distributor;
+    void* styleResolver;
+    void* authorStyleSheets;
     void* host;
+    void* slotAssignment;
 };
 
 COMPILE_ASSERT(sizeof(ShadowRoot) == sizeof(SameSizeAsShadowRoot), shadowroot_should_stay_small);
 
-enum ShadowRootUsageOriginType {
-    ShadowRootUsageOriginWeb = 0,
-    ShadowRootUsageOriginNotWeb,
-    ShadowRootUsageOriginMax
-};
-
-ShadowRoot::ShadowRoot(Document& document, ShadowRootType type)
+ShadowRoot::ShadowRoot(Document& document, Type type)
     : DocumentFragment(document, CreateShadowRoot)
     , TreeScope(*this, document)
-    , m_resetStyleInheritance(false)
     , m_type(type)
-    , m_hostElement(0)
 {
 }
+
+
+ShadowRoot::ShadowRoot(Document& document, std::unique_ptr<SlotAssignment>&& slotAssignment)
+    : DocumentFragment(document, CreateShadowRoot)
+    , TreeScope(*this, document)
+    , m_type(Type::UserAgent)
+    , m_slotAssignment(WTFMove(slotAssignment))
+{
+}
+
 
 ShadowRoot::~ShadowRoot()
 {
@@ -73,10 +80,43 @@ ShadowRoot::~ShadowRoot()
     removeDetachedChildren();
 }
 
-PassRefPtr<Node> ShadowRoot::cloneNode(bool, ExceptionCode& ec)
+StyleResolver& ShadowRoot::styleResolver()
 {
-    ec = DATA_CLONE_ERR;
-    return 0;
+    if (m_type == Type::UserAgent)
+        return document().userAgentShadowTreeStyleResolver();
+
+    if (!m_styleResolver) {
+        // FIXME: We could share style resolver with shadow roots that have identical style.
+        m_styleResolver = std::make_unique<StyleResolver>(document());
+        if (m_authorStyleSheets)
+            m_styleResolver->appendAuthorStyleSheets(m_authorStyleSheets->activeStyleSheets());
+    }
+    return *m_styleResolver;
+}
+
+void ShadowRoot::resetStyleResolver()
+{
+    m_styleResolver = nullptr;
+}
+
+AuthorStyleSheets& ShadowRoot::authorStyleSheets()
+{
+    if (!m_authorStyleSheets)
+        m_authorStyleSheets = std::make_unique<AuthorStyleSheets>(*this);
+    return *m_authorStyleSheets;
+}
+
+void ShadowRoot::updateStyle()
+{
+    bool shouldRecalcStyle = false;
+
+    if (m_authorStyleSheets) {
+        // FIXME: Make optimized updated work.
+        shouldRecalcStyle = m_authorStyleSheets->updateActiveStyleSheets(AuthorStyleSheets::FullUpdate);
+    }
+
+    if (shouldRecalcStyle)
+        setNeedsStyleRecalc();
 }
 
 String ShadowRoot::innerHTML() const
@@ -91,8 +131,8 @@ void ShadowRoot::setInnerHTML(const String& markup, ExceptionCode& ec)
         return;
     }
 
-    if (RefPtr<DocumentFragment> fragment = createFragmentForInnerOuterHTML(markup, hostElement(), AllowScriptingContent, ec))
-        replaceChildrenWithFragment(*this, fragment.release(), ec);
+    if (RefPtr<DocumentFragment> fragment = createFragmentForInnerOuterHTML(*host(), markup, AllowScriptingContent, ec))
+        replaceChildrenWithFragment(*this, fragment.releaseNonNull(), ec);
 }
 
 bool ShadowRoot::childTypeAllowed(NodeType type) const
@@ -103,7 +143,6 @@ bool ShadowRoot::childTypeAllowed(NodeType type) const
     case COMMENT_NODE:
     case TEXT_NODE:
     case CDATA_SECTION_NODE:
-    case ENTITY_REFERENCE_NODE:
         return true;
     default:
         return false;
@@ -117,23 +156,15 @@ void ShadowRoot::setResetStyleInheritance(bool value)
 
     if (value != m_resetStyleInheritance) {
         m_resetStyleInheritance = value;
-        if (hostElement())
+        if (host())
             setNeedsStyleRecalc();
     }
 }
 
-void ShadowRoot::childrenChanged(const ChildChange& change)
+Ref<Node> ShadowRoot::cloneNodeInternal(Document&, CloningOperation)
 {
-    if (isOrphan())
-        return;
-
-    ContainerNode::childrenChanged(change);
-    invalidateDistribution();
-}
-
-RefPtr<Node> ShadowRoot::cloneNodeInternal(Document&, CloningOperation)
-{
-    return nullptr; // ShadowRoots should never be cloned.
+    RELEASE_ASSERT_NOT_REACHED();
+    return *static_cast<Node*>(nullptr); // ShadowRoots should never be cloned.
 }
 
 void ShadowRoot::removeAllEventListeners()
@@ -142,5 +173,35 @@ void ShadowRoot::removeAllEventListeners()
     for (Node* node = firstChild(); node; node = NodeTraversal::next(*node))
         node->removeAllEventListeners();
 }
+
+
+HTMLSlotElement* ShadowRoot::findAssignedSlot(const Node& node)
+{
+    ASSERT(node.parentNode() == host());
+    if (!m_slotAssignment)
+        return nullptr;
+    return m_slotAssignment->findAssignedSlot(node, *this);
+}
+
+void ShadowRoot::addSlotElementByName(const AtomicString& name, HTMLSlotElement& slot)
+{
+    if (!m_slotAssignment)
+        m_slotAssignment = std::make_unique<SlotAssignment>();
+
+    return m_slotAssignment->addSlotElementByName(name, slot, *this);
+}
+
+void ShadowRoot::removeSlotElementByName(const AtomicString& name, HTMLSlotElement& slot)
+{
+    return m_slotAssignment->removeSlotElementByName(name, slot, *this);
+}
+
+const Vector<Node*>* ShadowRoot::assignedNodesForSlot(const HTMLSlotElement& slot)
+{
+    if (!m_slotAssignment)
+        return nullptr;
+    return m_slotAssignment->assignedNodesForSlot(slot, *this);
+}
+
 
 }

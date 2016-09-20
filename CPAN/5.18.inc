@@ -53,7 +53,7 @@ CPAN_PROJECTS := \
     Date-Calc-6.3 \
     Convert-ASN1-0.26 \
     GSSAPI-0.28 \
-    Net-SSLeay-1.58 \
+    Net-SSLeay-1.72 \
     Authen-SASL-2.16 \
     XML-NamespaceSupport-1.11 \
     XML-SAX-Base-1.08 \

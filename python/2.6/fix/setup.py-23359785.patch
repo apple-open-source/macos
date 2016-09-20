@@ -1,0 +1,16 @@
+--- Python-2.6.9.orig/setup.py	2015-12-04 14:37:41.000000000 -0800
++++ Python-2.6.9/setup.py	2015-12-15 17:23:51.000000000 -0800
+@@ -313,6 +313,13 @@
+             self.announce('WARNING: skipping import check for Cygwin-based "%s"'
+                 % ext.name)
+             return
++        # Workaround for building python against an SDK on OSX, since
++        # modules may not work when imported into a system other than
++        # what they were built against
++        if self.get_platform() == 'darwin':
++            self.announce('WARNING: skipping import check for darwin-based "%s"'
++                % ext.name)
++            return
+         ext_filename = os.path.join(
+             self.build_lib,
+             self.get_ext_filename(self.get_ext_fullname(ext.name)))

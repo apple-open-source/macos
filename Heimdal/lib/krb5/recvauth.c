@@ -54,7 +54,7 @@ krb5_recvauth(krb5_context context,
 	      krb5_ticket **ticket)
 {
     return krb5_recvauth_match_version(context, auth_context, p_fd,
-				       match_exact, appl_version,
+				       match_exact, (void *)appl_version,
 				       server, flags,
 				       keytab, ticket);
 }

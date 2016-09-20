@@ -166,7 +166,7 @@
 		C2A59416052E3F0800AF1EE3 /* sstransit.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = sstransit.h; path = lib/sstransit.h; sourceTree = "<group>"; };
 		C2A59420052E3F2100AF1EE3 /* ucsp.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; path = ucsp.defs; sourceTree = "<group>"; };
 		C2A59421052E3F2100AF1EE3 /* ucspNotify.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; name = ucspNotify.defs; path = mig/ucspNotify.defs; sourceTree = SOURCE_ROOT; };
-		C2A594F8052E4FC200AF1EE3 /* ssblob.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = ssblob.cpp; path = lib/ssblob.cpp; sourceTree = "<group>"; };
+		C2A594F8052E4FC200AF1EE3 /* ssblob.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; name = ssblob.cpp; path = lib/ssblob.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C2A594F9052E4FC200AF1EE3 /* ssblob.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ssblob.h; path = lib/ssblob.h; sourceTree = "<group>"; };
 		C2A59508052E506A00AF1EE3 /* ucsp_types.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ucsp_types.h; path = lib/ucsp_types.h; sourceTree = "<group>"; };
 		C2A788430B7AA33400CFF85C /* ucspClientC.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = ucspClientC.c; path = derived_src/securityd_client/ucspClientC.c; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -175,7 +175,7 @@
 		C2BD60C60AC849180057FD3D /* cshostingClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = cshostingClient.cpp; path = derived_src/securityd_client/cshostingClient.cpp; sourceTree = BUILT_PRODUCTS_DIR; };
 		C2BD60C70AC849180057FD3D /* cshostingServer.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = cshostingServer.cpp; path = derived_src/securityd_client/cshostingServer.cpp; sourceTree = BUILT_PRODUCTS_DIR; };
 		C2BF13F20ABF086900908B48 /* cshosting.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; path = cshosting.defs; sourceTree = "<group>"; };
-		D6942E270A642276000E7E2F /* eventlistener.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = eventlistener.cpp; path = lib/eventlistener.cpp; sourceTree = "<group>"; };
+		D6942E270A642276000E7E2F /* eventlistener.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; name = eventlistener.cpp; path = lib/eventlistener.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		D6942E280A642276000E7E2F /* eventlistener.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = eventlistener.h; path = lib/eventlistener.h; sourceTree = "<group>"; };
 		D6942E310A6423BC000E7E2F /* SharedMemoryClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = SharedMemoryClient.cpp; path = lib/SharedMemoryClient.cpp; sourceTree = "<group>"; };
 		D6942E320A6423BC000E7E2F /* SharedMemoryClient.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = SharedMemoryClient.h; path = lib/SharedMemoryClient.h; sourceTree = "<group>"; };
@@ -461,7 +461,7 @@
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0700;
+				LastUpgradeCheck = 0800;
 			};
 			buildConfigurationList = C27AD4330987FCDF001272E0 /* Build configuration list for PBXProject "libsecurityd" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -510,12 +510,16 @@
 			files = (
 			);
 			inputPaths = (
+				"$(SRCROOT)/",
+				"$(SRCROOT)/lib/",
+				"$(SRCROOT)/mig/",
 			);
 			outputPaths = (
+				"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "nmedit -p \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"\nranlib \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"";
+			shellScript = "# with our source directories as input files, Xcode will only re-run this phase if there's been a source change\nnmedit -p \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"\nranlib \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"";
 		};
 		18B96B1214743FCF005A4D2E /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -523,12 +527,16 @@
 			files = (
 			);
 			inputPaths = (
+				"$(SRCROOT)/",
+				"$(SRCROOT)/lib/",
+				"$(SRCROOT)/mig/",
 			);
 			outputPaths = (
+				"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "nmedit -p \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"\nranlib \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"";
+			shellScript = "# with our source directories as input files, Xcode will only re-run this phase if there's been a source change\nnmedit -p \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"\nranlib \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -685,6 +693,21 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB174146EA1D6000BF1F3 /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = lossless;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				ONLY_ACTIVE_ARCH = YES;
 			};
 			name = Debug;
 		};
@@ -692,6 +715,19 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB174146EA1D6000BF1F3 /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = "respect-asset-catalog";
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
 			};
 			name = Release;
 		};

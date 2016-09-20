@@ -85,7 +85,7 @@ decode_addrport(const char *h, const char *p, struct sockaddr *addr,
 	return (0);
 }
 
-static int
+static size_t
 proxy_read_line(int fd, char *buf, size_t bufsz)
 {
 	size_t off;
@@ -113,7 +113,8 @@ socks_connect(const char *host, const char *port,
     const char *proxyhost, const char *proxyport, struct addrinfo proxyhints,
     int socksv)
 {
-	int proxyfd, r;
+	int proxyfd;
+	size_t r;
 	size_t hlen, wlen;
 	unsigned char buf[1024];
 	size_t cnt;
@@ -252,7 +253,7 @@ socks_connect(const char *host, const char *port,
 
 		cnt = atomicio(vwrite, proxyfd, buf, r);
 		if (cnt != r)
-			err(1, "write failed (%lu/%d)", cnt, r);
+			err(1, "write failed (%lu/%zd)", cnt, r);
 
 		/* Read reply */
 		for (r = 0; r < HTTP_MAXHDRS; r++) {

@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>BATSConfigVersion</key>
+	<string>0.1.0</string>
+	<key>Project</key>
+	<string>Security</string>
+	<key>TestSpecificLogs</key>
+	<array>
+		<string>/var/log/module/com.apple.securityd/security.log.*</string>
+		<string>/var/mobile/Library/Logs/CrashReporter/DiagnosticLogs/security.log.*</string>
+	</array>
+	<key>Tests</key>
+	<array>
+		<dict>
+			<key>TestName</key>
+			<string>KCDer</string>
+			<key>WorkingDirectory</key>
+			<string>/AppleInternal/Tests/Security</string>
+			<key>Arch</key>
+			<string>platform-native</string>
+			<key>AsRoot</key>
+			<false/>
+			<key>Command</key>
+			<array>
+				<string>BATS_XCTEST_CMD -NSTreatUnknownArgumentsAsOpen NO -ApplePersistenceIgnoreState YES -XCTest KCDerTest KeychainCircleTests.xctest</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>KCAESGCM</string>
+			<key>WorkingDirectory</key>
+			<string>/AppleInternal/Tests/Security</string>
+			<key>Arch</key>
+			<string>platform-native</string>
+			<key>AsRoot</key>
+			<false/>
+			<key>Command</key>
+			<array>
+				<string>BATS_XCTEST_CMD -NSTreatUnknownArgumentsAsOpen NO -ApplePersistenceIgnoreState YES -XCTest testAESGCMDuplex KeychainCircleTests.xctest</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>KCAESGCMCoding</string>
+			<key>WorkingDirectory</key>
+			<string>/AppleInternal/Tests/Security</string>
+			<key>Arch</key>
+			<string>platform-native</string>
+			<key>AsRoot</key>
+			<false/>
+			<key>Command</key>
+			<array>
+				<string>BATS_XCTEST_CMD -NSTreatUnknownArgumentsAsOpen NO -ApplePersistenceIgnoreState YES -XCTest testAESGCMDuplexCoding KeychainCircleTests.xctest</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>JoiningSession</string>
+			<key>WorkingDirectory</key>
+			<string>/AppleInternal/Tests/Security</string>
+			<key>Arch</key>
+			<string>platform-native</string>
+			<key>AsRoot</key>
+			<false/>
+			<key>Command</key>
+			<array>
+				<string>BATS_XCTEST_CMD -NSTreatUnknownArgumentsAsOpen NO -ApplePersistenceIgnoreState YES -XCTest testJoiningSession KeychainCircleTests.xctest</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>JoiningSessionRetry</string>
+			<key>WorkingDirectory</key>
+			<string>/AppleInternal/Tests/Security</string>
+			<key>Arch</key>
+			<string>platform-native</string>
+			<key>AsRoot</key>
+			<false/>
+			<key>Command</key>
+			<array>
+				<string>BATS_XCTEST_CMD -NSTreatUnknownArgumentsAsOpen NO -ApplePersistenceIgnoreState YES -XCTest testJoiningSessionRetry KeychainCircleTests.xctest</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>JoiningSessionCodeChange</string>
+			<key>WorkingDirectory</key>
+			<string>/AppleInternal/Tests/Security</string>
+			<key>Arch</key>
+			<string>platform-native</string>
+			<key>AsRoot</key>
+			<false/>
+			<key>Command</key>
+			<array>
+				<string>BATS_XCTEST_CMD -NSTreatUnknownArgumentsAsOpen NO -ApplePersistenceIgnoreState YES -XCTest testJoiningSessionCodeChange KeychainCircleTests.xctest</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

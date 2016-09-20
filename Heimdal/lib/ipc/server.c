@@ -831,7 +831,7 @@ stream_complete(heim_sipc_call ctx, int returnvalue, heim_idata *reply)
 
 	/* length */
 	if ((c->flags & DGRAM_SOCKET) == 0) {
-	    u32 = htonl(reply->length);
+	    u32 = htonl((uint32_t)reply->length);
 	    output_data(c, &u32, sizeof(u32));
 	}
 

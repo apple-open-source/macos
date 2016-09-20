@@ -37,6 +37,7 @@
 
 
 #pragma D option quiet
+#pragma D option statusrate=15ms
 
 BEGIN
 {
@@ -50,7 +51,7 @@ syscall:::entry
 
 }
 
-tick-1
+tick-10ms
 /i != 0/
 {
 	exit(0);

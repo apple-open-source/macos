@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2016 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -99,7 +99,7 @@ static void setup_signal_handlers(void);
 static int set_forwarding(int *oldval, int newval);
 static void create_log_file(char *inLogPath);
 static void close_log_file(void);
-void vpnlog(int nSyslogPriority, char *format_str, ...);
+void vpnlog(int nSyslogPriority, char *format_str, ...) __printflike(2,3);
 static void dump_params(struct vpn_params *params);
 
 // ----------------------------------------------------------------------------
@@ -117,7 +117,6 @@ int main (int argc, char *argv[])
 	fprintf(stderr, "must be root to run %s, since it is not setuid-root\n", argv[0]);
 	exit(EXIT_NOT_ROOT);
     }
-    
 
     params = (struct vpn_params*)malloc(sizeof (struct vpn_params));
     if (params == 0)

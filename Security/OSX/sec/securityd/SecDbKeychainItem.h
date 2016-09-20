@@ -35,7 +35,7 @@
 __BEGIN_DECLS
 
 bool ks_encrypt_data(keybag_handle_t keybag, SecAccessControlRef access_control, CFDataRef acm_context,
-                     CFDictionaryRef attributes, CFDictionaryRef authenticated_attributes, CFDataRef *pBlob, CFErrorRef *error);
+                     CFDictionaryRef attributes, CFDictionaryRef authenticated_attributes, CFDataRef *pBlob, bool useDefaultIV, CFErrorRef *error);
 bool ks_decrypt_data(keybag_handle_t keybag, CFTypeRef operation, SecAccessControlRef *paccess_control, CFDataRef acm_context,
                      CFDataRef blob, const SecDbClass *db_class, CFArrayRef caller_access_groups,
                      CFMutableDictionaryRef *attributes_p, uint32_t *version_p, CFErrorRef *error);

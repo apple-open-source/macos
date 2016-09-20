@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,7 +36,6 @@
 #include <pwd.h>
 #include <netdb.h>
 #include <string.h>
-#include <syslog.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <net/if.h>
@@ -44,6 +43,7 @@
 #include <netinet/if_ether.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include <syslog.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -65,8 +65,15 @@
 #include "IPv4ClasslessRoute.h"
 
 #include <SystemConfiguration/SCValidation.h>
-static bool 	S_use_syslog;
-static int 	S_log_level;
+
+#ifdef TEST_SUBNETS
+#define my_log(level, format, ...)					\
+    do {								\
+	fprintf(stderr, format "\n", ## __VA_ARGS__);			\
+    } while (0)
+#else
+#define my_log	syslog
+#endif
 
 /* default lease values */
 #define DEFAULT_LEASE_MIN	((dhcp_lease_time_t)60 * 60)	/* one hour */
@@ -713,14 +720,8 @@ createOptionsDataArrayFromDictionary(CFDictionaryRef plist, int * ret_space)
 	}
 	tag = dhcptag_with_name(option_name);
 	if (tag == -1) {
-	    if (S_use_syslog) {
-		syslog(S_log_level,
-		       "subnets: unrecognized option '%s'", option_name);
-	    }
-	    else {
-		fprintf(stderr, 
-			"subnets: unrecognized option '%s'\n", option_name);
-	    }
+	    my_log(LOG_NOTICE,
+		   "subnets: unrecognized option '%s'", option_name);
 	    goto loop_done;
 	}
 	if (tag == dhcptag_subnet_mask_e) {
@@ -746,16 +747,9 @@ createOptionsDataArrayFromDictionary(CFDictionaryRef plist, int * ret_space)
 	    CFRelease(dict);
 	}
 	else {
-	    if (S_use_syslog) {
-		syslog(S_log_level, 
-		       "subnets: Failed to convert '%s': %s",
-		       option_name, err);
-	    }
-	    else {
-		fprintf(stderr, 
-			"subnets: Failed to convert '%s': %s\n",
-			option_name, err);
-	    }
+	    my_log(LOG_NOTICE,
+		   "subnets: Failed to convert '%s': %s",
+		   option_name, err);
 	}
     loop_done:
 	free(option_name);
@@ -783,15 +777,9 @@ copyOptionsDataArrayToOptionTLVList(CFArrayRef option_list,
     count = CFArrayGetCount(option_list);
     if (buf_space < (sizeof(OptionTLV) * count)) {
 	/* internal error */
-	if (S_use_syslog) {
-	    syslog(S_log_level,
-		   "copyOptionsDataArrayToOptionTLVList %d < %d",
-		   buf_space, (int)(sizeof(OptionTLV) * count));
-	}
-	else {
-	    fprintf(stderr, "copyOptionsDataArrayToOptionTLVList %d < %d\n",
-		    buf_space, (int)(sizeof(OptionTLV) * count));
-	}
+	my_log(LOG_NOTICE,
+	       "copyOptionsDataArrayToOptionTLVList %d < %d",
+	       buf_space, (int)(sizeof(OptionTLV) * count));
 	return (NULL);
     }
     buf_space -= sizeof(OptionTLV) * count;
@@ -810,16 +798,9 @@ copyOptionsDataArrayToOptionTLVList(CFArrayRef option_list,
 	list[i].length = this_length;
 	list[i].value = start_options;
 	if (buf_space < this_length) {
-	    if (S_use_syslog) {
-		syslog(S_log_level,
-		       "copyOptionsDataArrayToOptionTLVList option %d < %d",
-		       buf_space, this_length);
-	    }
-	    else {
-		fprintf(stderr,
-			"copyOptionsDataArrayToOptionTLVList option %d < %d\n",
-			buf_space, this_length);
-	    }
+	    my_log(LOG_NOTICE,
+		   "copyOptionsDataArrayToOptionTLVList option %d < %d",
+		   buf_space, this_length);
 	    return (NULL);
 	}
 	memcpy(start_options, CFDataGetBytePtr(data), this_length);
@@ -1041,6 +1022,14 @@ SubnetCreateWithDictionary(CFDictionaryRef plist, char * err, int err_len)
 	}
 	goto failed;
     }
+    if ((in_addr_t)(iptohl(net_range.start))
+	> (in_addr_t)(iptohl(net_range.end))) {
+	if (err != NULL) {
+	    strlcpy(err, "'" SUBNET_PROP_NET_RANGE "' start > end",
+		    err_len);
+	}
+	goto failed;
+    }
     if (name_space == 0) {
 	name_prop = NULL;
 	name_space = (int)strlen(inet_nettoa(net_address, net_mask)) + 1;
@@ -1131,14 +1120,6 @@ SubnetCreateWithDictionary(CFDictionaryRef plist, char * err, int err_len)
  ** SubnetList
  **/
 
-void
-SubnetListLogErrors(int level)
-{
-    S_use_syslog = TRUE;
-    S_log_level = level;
-    return;
-}
-
 static __inline__ int
 SubnetListCount(SubnetListRef subnets)
 {
@@ -1165,18 +1146,10 @@ SubnetListAddSubnet(SubnetListRef subnets, SubnetRef new_entry)
 
 	c = SubnetCompareWithSubnet(new_entry, entry, &overlap);
 	if (overlap) {
-	    if (S_use_syslog) {
-		syslog(S_log_level,
-		       "subnets: net_range in '%s' overlaps with subnet '%s'",
-		       SubnetGetName(new_entry),
-		       SubnetGetName(entry));
-	    }
-	    else {
-		fprintf(stderr, 
-			"subnets: net_range in '%s' overlaps with '%s'\n",
-			SubnetGetName(new_entry),
-			SubnetGetName(entry));
-	    }
+	    my_log(LOG_NOTICE,
+		   "subnets: '%s' net_range overlaps with subnet '%s'",
+		   SubnetGetName(new_entry),
+		   SubnetGetName(entry));
 	    return (FALSE);
 	}
 	if (c < 0) {
@@ -1207,13 +1180,7 @@ SubnetListCreateWithArray(CFArrayRef list)
     SubnetListRef		subnets = NULL;
 
     if (isA_CFArray(list) == NULL) {
-	if (S_use_syslog) {
-	    syslog(S_log_level,
-		   "subnets: type is not an array");
-	}
-	else {
-	    fprintf(stderr, "subnets: type is not an array\n");
-	}
+	my_log(LOG_NOTICE, "subnets: type is not an array");
 	return (NULL);
     }
     subnets = (SubnetListRef)malloc(sizeof(*subnets));
@@ -1229,13 +1196,8 @@ SubnetListCreateWithArray(CFArrayRef list)
 
 	entry = SubnetCreateWithDictionary(dict, err, sizeof(err));
 	if (entry == NULL) {
-	    if (S_use_syslog) {
-		syslog(S_log_level,
-		       "subnets: create failed, %s", err);
-	    }
-	    else {
-		fprintf(stderr, "subnets: create failed, %s\n", err);
-	    }
+	    my_log(LOG_NOTICE,
+		   "subnets: create failed, %s", err);
 	    goto failed;
 	}
 	if (SubnetListAddSubnet(subnets, entry) == FALSE) {

@@ -69,6 +69,9 @@ public:
     int totalSize() const { return m_totalSize; }
     int maximum() const { return m_totalSize - m_visibleSize; }
     ScrollbarControlSize controlSize() const { return m_controlSize; }
+    
+    int occupiedWidth() const;
+    int occupiedHeight() const;
 
     int lineStep() const { return m_lineStep; }
     int pageStep() const { return m_pageStep; }
@@ -83,7 +86,7 @@ public:
     WEBCORE_EXPORT void setProportion(int visibleSize, int totalSize);
     void setPressedPos(int p) { m_pressedPos = p; }
 
-    virtual void paint(GraphicsContext*, const IntRect& damageRect) override;
+    void paint(GraphicsContext&, const IntRect& damageRect) override;
 
     bool enabled() const { return m_enabled; }
     virtual void setEnabled(bool);
@@ -107,25 +110,28 @@ public:
 
     WEBCORE_EXPORT bool mouseDown(const PlatformMouseEvent&);
 
-    ScrollbarTheme* theme() const { return m_theme; }
+    ScrollbarTheme& theme() const { return m_theme; }
 
-    virtual void invalidateRect(const IntRect&) override;
+    void invalidateRect(const IntRect&) override;
 
     bool suppressInvalidation() const { return m_suppressInvalidation; }
     void setSuppressInvalidation(bool s) { m_suppressInvalidation = s; }
 
     virtual void styleChanged() { }
 
-    virtual IntRect convertToContainingView(const IntRect&) const override;
-    virtual IntRect convertFromContainingView(const IntRect&) const override;
+    IntRect convertToContainingView(const IntRect&) const override;
+    IntRect convertFromContainingView(const IntRect&) const override;
 
-    virtual IntPoint convertToContainingView(const IntPoint&) const override;
-    virtual IntPoint convertFromContainingView(const IntPoint&) const override;
+    IntPoint convertToContainingView(const IntPoint&) const override;
+    IntPoint convertFromContainingView(const IntPoint&) const override;
 
     void moveThumb(int pos, bool draggingDocument = false);
 
     bool isAlphaLocked() const { return m_isAlphaLocked; }
     void setIsAlphaLocked(bool flag) { m_isAlphaLocked = flag; }
+
+    float opacity() const { return m_opacity; }
+    void setOpacity(float opacity) { m_opacity = opacity; }
 
     bool supportsUpdateOnSecondaryThread() const;
 
@@ -148,7 +154,7 @@ protected:
     ScrollableArea& m_scrollableArea;
     ScrollbarOrientation m_orientation;
     ScrollbarControlSize m_controlSize;
-    ScrollbarTheme* m_theme;
+    ScrollbarTheme& m_theme;
 
     int m_visibleSize;
     int m_totalSize;
@@ -175,8 +181,10 @@ protected:
 
     bool m_isCustomScrollbar;
 
+    float m_opacity { 1 };
+
 private:
-    virtual bool isScrollbar() const override { return true; }
+    bool isScrollbar() const override { return true; }
 
     WeakPtrFactory<Scrollbar> m_weakPtrFactory;
 };

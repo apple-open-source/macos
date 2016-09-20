@@ -1,0 +1,218 @@
+﻿// ***************************************************************************
+// *
+// * Copyright (C) 2016 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// *
+// ***************************************************************************
+en_JP{
+    %%Parent{"en_001"}
+    Version{"2.1.23.47"}
+    calendar{
+        chinese{
+            DateTimePatterns{
+                "H:mm:ss zzzz",
+                "H:mm:ss z",
+                "H:mm:ss",
+                "H:mm",
+                "r(U) MMMM d EEEE",
+                "r(U) MMMM d",
+                "r MMM d",
+                "r/MM/dd",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                EHm{"E H:mm"}
+                EHms{"E H:mm:ss"}
+                Ed{"d E"}
+                Ehm{"E aK:mm"}
+                Ehms{"E aK:mm:ss"}
+                GyMMMEd{"r(U) MMM d E"}
+                GyMMMMd{"r(U) MMMM d"}
+                GyMMMd{"r MMM d"}
+                H{"H"}
+                Hm{"H:mm"}
+                Hms{"H:mm:ss"}
+                MEd{"MM/dd E"}
+                MMMEd{"MMM d E"}
+                MMMMd{"MMMM d"}
+                MMMd{"MMM d"}
+                Md{"MM/dd"}
+                UMMMd{"U MMM d"}
+                UMd{"U/MM/dd"}
+                yMd{"r/MM/dd"}
+                yyyyM{"r/MM"}
+                yyyyMEd{"r/MM/dd E"}
+                yyyyMMMEd{"r(U) MMM d E"}
+                yyyyMMMd{"r MMM d"}
+                yyyyMd{"r/MM/dd"}
+            }
+        }
+        generic{
+            DateTimePatterns{
+                "H:mm:ss zzzz",
+                "H:mm:ss z",
+                "H:mm:ss",
+                "H:mm",
+                "G y MMMM d EEEE",
+                "G y MMMM d",
+                "G y MMM d",
+                "GGGGG y/MM/dd",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                EHm{"E H:mm"}
+                EHms{"E H:mm:ss"}
+                Ed{"d E"}
+                Ehm{"E aK:mm"}
+                Ehms{"E aK:mm:ss"}
+                GyMMMEd{"G y MMM d E"}
+                GyMMMd{"G y MMM d"}
+                H{"H"}
+                Hm{"H:mm"}
+                Hms{"H:mm:ss"}
+                MEd{"MM/dd E"}
+                MMMEd{"MMM d E"}
+                MMMMd{"MMMM d"}
+                MMMd{"MMM d"}
+                Md{"MM/dd"}
+                yyyyM{"GGGGG y/MM"}
+                yyyyMEd{"GGGGG y/MM/dd E"}
+                yyyyMMMEd{"G y MMM d E"}
+                yyyyMMMd{"G y MMM d"}
+                yyyyMd{"GGGGG y/MM/dd"}
+            }
+            intervalFormats{
+                MEd{
+                    M{"MM/dd E – MM/dd E"}
+                    d{"MM/dd E – MM/dd E"}
+                }
+                MMMEd{
+                    M{"MMM d E – MMM d E"}
+                    d{"MMM d E – d E"}
+                }
+                MMMd{
+                    M{"MMM d – MMM d"}
+                    d{"MMM d – d"}
+                }
+                Md{
+                    M{"MM/dd – MM/dd"}
+                    d{"MM/dd – MM/dd"}
+                }
+                yM{
+                    M{"GGGGG y/MM – y/MM"}
+                    y{"GGGGG y/MM – y/MM"}
+                }
+                yMEd{
+                    M{"GGGGG y/MM/dd E – y/MM/dd E"}
+                    d{"GGGGG y/MM/dd E – y/MM/dd E"}
+                    y{"GGGGG y/MM/dd E – y/MM/dd E"}
+                }
+                yMMMEd{
+                    M{"G y MMM d E – MMM d E"}
+                    d{"G y MMM d E – d E"}
+                    y{"G y MMM d E – y MMM d E"}
+                }
+                yMMMd{
+                    M{"G y MMM d – MMM d"}
+                    d{"G y MMM d – d"}
+                    y{"G y MMM d – y MMM d"}
+                }
+                yMd{
+                    M{"GGGGG y/MM/dd – y/MM/dd"}
+                    d{"GGGGG y/MM/dd – y/MM/dd"}
+                    y{"GGGGG y/MM/dd – y/MM/dd"}
+                }
+            }
+        }
+        gregorian{
+            DateTimePatterns{
+                "H:mm:ss zzzz",
+                "H:mm:ss z",
+                "H:mm:ss",
+                "H:mm",
+                "y MMMM d EEEE",
+                "y MMMM d",
+                "y MMM d",
+                "y/MM/dd",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                EHm{"E H:mm"}
+                EHms{"E H:mm:ss"}
+                Ed{"d E"}
+                Ehm{"E aK:mm"}
+                Ehms{"E aK:mm:ss"}
+                GyMMMEd{"G y MMM d E"}
+                GyMMMd{"G y MMM d"}
+                H{"H"}
+                Hm{"H:mm"}
+                Hms{"H:mm:ss"}
+                MEd{"MM/dd E"}
+                MMMEd{"MMM d E"}
+                MMMMd{"MMMM d"}
+                MMMd{"MMM d"}
+                MMdd{"MM/dd"}
+                Md{"MM/dd"}
+                yM{"y/MM"}
+                yMEd{"y/MM/dd E"}
+                yMMMEd{"y MMM d E"}
+                yMMMd{"y MMM d"}
+                yMd{"y/MM/dd"}
+            }
+            intervalFormats{
+                MEd{
+                    M{"MM/dd E – MM/dd E"}
+                    d{"MM/dd E – MM/dd E"}
+                }
+                MMMEd{
+                    M{"MMM d E – MMM d E"}
+                    d{"MMM d E – d E"}
+                }
+                MMMd{
+                    M{"MMM d – MMM d"}
+                    d{"MMM d – d"}
+                }
+                Md{
+                    M{"MM/dd – MM/dd"}
+                    d{"MM/dd – MM/dd"}
+                }
+                yM{
+                    M{"y/MM – y/MM"}
+                    y{"y/MM – y/MM"}
+                }
+                yMEd{
+                    M{"y/MM/dd E – y/MM/dd E"}
+                    d{"y/MM/dd E – y/MM/dd E"}
+                    y{"y/MM/dd E – y/MM/dd E"}
+                }
+                yMMMEd{
+                    M{"y MMM d E – MMM d E"}
+                    d{"y MMM d E – d E"}
+                    y{"y MMM d E – y MMM d E"}
+                }
+                yMMMd{
+                    M{"y MMM d – MMM d"}
+                    d{"y MMM d – d"}
+                    y{"y MMM d – y MMM d"}
+                }
+                yMd{
+                    M{"y/MM/dd – y/MM/dd"}
+                    d{"y/MM/dd – y/MM/dd"}
+                    y{"y/MM/dd – y/MM/dd"}
+                }
+            }
+        }
+    }
+}

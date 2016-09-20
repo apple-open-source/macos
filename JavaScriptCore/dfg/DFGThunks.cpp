@@ -30,17 +30,22 @@
 
 #include "CCallHelpers.h"
 #include "DFGOSRExitCompiler.h"
+#include "DFGJITCode.h"
 #include "FPRInfo.h"
 #include "GPRInfo.h"
 #include "LinkBuffer.h"
 #include "MacroAssembler.h"
 #include "JSCInlines.h"
+#include "DFGOSRExitCompilerCommon.h"
 
 namespace JSC { namespace DFG {
 
 MacroAssemblerCodeRef osrExitGenerationThunkGenerator(VM* vm)
 {
     MacroAssembler jit;
+
+    // This needs to happen before we use the scratch buffer because this function also uses the scratch buffer.
+    adjustFrameAndStackInOSRExitCompilerThunk<DFG::JITCode>(jit, vm, JITCode::DFGJIT);
     
     size_t scratchSize = sizeof(EncodedJSValue) * (GPRInfo::numberOfRegisters + FPRInfo::numberOfRegisters);
     ScratchBuffer* scratchBuffer = vm->scratchBufferForSize(scratchSize);
@@ -97,8 +102,8 @@ MacroAssemblerCodeRef osrExitGenerationThunkGenerator(VM* vm)
 
 MacroAssemblerCodeRef osrEntryThunkGenerator(VM* vm)
 {
-    MacroAssembler jit;
-    
+    AssemblyHelpers jit(vm, nullptr);
+
     // We get passed the address of a scratch buffer. The first 8-byte slot of the buffer
     // is the frame size. The second 8-byte slot is the pointer to where we are supposed to
     // jump. The remaining bytes are the new call frame header followed by the locals.
@@ -106,7 +111,7 @@ MacroAssemblerCodeRef osrEntryThunkGenerator(VM* vm)
     ptrdiff_t offsetOfFrameSize = 0; // This is the DFG frame count.
     ptrdiff_t offsetOfTargetPC = offsetOfFrameSize + sizeof(EncodedJSValue);
     ptrdiff_t offsetOfPayload = offsetOfTargetPC + sizeof(EncodedJSValue);
-    ptrdiff_t offsetOfLocals = offsetOfPayload + sizeof(Register) * JSStack::CallFrameHeaderSize;
+    ptrdiff_t offsetOfLocals = offsetOfPayload + sizeof(Register) * CallFrame::headerSizeInRegisters;
     
     jit.move(GPRInfo::returnValueGPR2, GPRInfo::regT0);
     jit.loadPtr(MacroAssembler::Address(GPRInfo::regT0, offsetOfFrameSize), GPRInfo::regT1); // Load the frame size.
@@ -123,12 +128,16 @@ MacroAssemblerCodeRef osrEntryThunkGenerator(VM* vm)
     jit.load32(MacroAssembler::BaseIndex(GPRInfo::regT0, GPRInfo::regT1, MacroAssembler::TimesEight, offsetOfLocals + sizeof(int32_t)), GPRInfo::regT3);
     jit.store32(GPRInfo::regT2, MacroAssembler::BaseIndex(GPRInfo::callFrameRegister, GPRInfo::regT4, MacroAssembler::TimesEight, -static_cast<intptr_t>(sizeof(Register))));
     jit.store32(GPRInfo::regT3, MacroAssembler::BaseIndex(GPRInfo::callFrameRegister, GPRInfo::regT4, MacroAssembler::TimesEight, -static_cast<intptr_t>(sizeof(Register)) + static_cast<intptr_t>(sizeof(int32_t))));
-    jit.branchPtr(MacroAssembler::NotEqual, GPRInfo::regT1, MacroAssembler::TrustedImmPtr(bitwise_cast<void*>(-static_cast<intptr_t>(JSStack::CallFrameHeaderSize)))).linkTo(loop, &jit);
+    jit.branchPtr(MacroAssembler::NotEqual, GPRInfo::regT1, MacroAssembler::TrustedImmPtr(bitwise_cast<void*>(-static_cast<intptr_t>(CallFrame::headerSizeInRegisters)))).linkTo(loop, &jit);
     
     jit.loadPtr(MacroAssembler::Address(GPRInfo::regT0, offsetOfTargetPC), GPRInfo::regT1);
     MacroAssembler::Jump ok = jit.branchPtr(MacroAssembler::Above, GPRInfo::regT1, MacroAssembler::TrustedImmPtr(bitwise_cast<void*>(static_cast<intptr_t>(1000))));
     jit.abortWithReason(DFGUnreasonableOSREntryJumpDestination);
+
     ok.link(&jit);
+    jit.restoreCalleeSavesFromVMEntryFrameCalleeSavesBuffer();
+    jit.emitMaterializeTagCheckRegisters();
+
     jit.jump(GPRInfo::regT1);
     
     LinkBuffer patchBuffer(*vm, jit, GLOBAL_THUNK_ID);

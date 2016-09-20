@@ -387,10 +387,7 @@ void MDSDictionary::lookupAttributes(
 const CFPropertyListRef MDSDictionary::lookupWithIndirect(
 	const char *key,
 	CFBundleRef bundle,
-	CFTypeID	desiredType,
-	bool		&fetchedFromDisk)	// true --> caller must CFRelease the returned
-									//     value
-									// false -> it's part of this dictionary
+	CFTypeID	desiredType)
 {
 	CFPropertyListRef ourRtn = NULL;
 	CFDataRef dictData = NULL;
@@ -402,8 +399,6 @@ const CFPropertyListRef MDSDictionary::lookupWithIndirect(
 	assert(key != NULL);
 	assert(bundle != NULL);
 	
-	fetchedFromDisk = false;
-	
 	/* basic local lookup */
 	CFStringRef cfKey = CFStringCreateWithCString(NULL,
 		key,
@@ -412,22 +407,22 @@ const CFPropertyListRef MDSDictionary::lookupWithIndirect(
 		MPDebug("CFStringCreateWithCString error");
 		return NULL;
 	}
-	const void *rtn = CFDictionaryGetValue(mDict, cfKey);
+	CFCopyRef<CFStringRef> rtn = (CFStringRef)CFDictionaryGetValue(mDict, cfKey);
 	CFRelease(cfKey);
-	if(rtn == NULL) {
+	if(!rtn) {
 		return NULL;
 	}
-	CFTypeID foundType = CFGetTypeID((CFTypeRef)rtn);
+	CFTypeID foundType = CFGetTypeID(rtn);
 	if(foundType == desiredType) {
 		/* found what we're looking for; done */
-		return (CFPropertyListRef)rtn;
+		return (CFPropertyListRef)rtn.yield();
 	}
 	
 	/* is it a string which starts with "file:"? */
 	if(foundType != CFStringGetTypeID()) {
 		return NULL;
 	}
-	const char *cVal = MDSCFStringToCString((CFStringRef)rtn);
+	const char *cVal = MDSCFStringToCString(rtn);
 	if(cVal == NULL) {
 		MPDebug("MDSCFStringToCString error in lookupWithIndirect");
 		return NULL;
@@ -490,8 +485,7 @@ const CFPropertyListRef MDSDictionary::lookupWithIndirect(
 	}
 
 	MPDebug("lookupWithIndirect: resource %s FOUND", cVal);
-	fetchedFromDisk = true;
-	
+
 abort:
 	delete [] cVal;
 	CF_RELEASE(cfFileName);

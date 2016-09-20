@@ -25,14 +25,13 @@
 #ifndef NodeRenderStyle_h
 #define NodeRenderStyle_h
 
-#include "RenderElement.h"
 #include "RenderObject.h"
 #include "RenderStyle.h"
 #include "Node.h"
 
 namespace WebCore {
 
-inline RenderStyle* Node::renderStyle() const
+inline const RenderStyle* Node::renderStyle() const
 {
     auto* renderer = this->renderer();
     if (!renderer)

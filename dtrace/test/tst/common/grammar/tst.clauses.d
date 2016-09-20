@@ -25,7 +25,7 @@
  */
 
 #pragma ident	"@(#)tst.clauses.d	1.1	06/08/28 SMI"
-
+#pragma D option statusrate=15ms
 /*
  * ASSERTION: Test the kinds of probe definition clause grammar rules.
  *
@@ -41,7 +41,7 @@ BEGIN
 /1/
 {}
 
-tick-1
+tick-10ms
 {
 	exit(0);
 }

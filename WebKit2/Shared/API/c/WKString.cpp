@@ -70,7 +70,10 @@ size_t WKStringGetMaximumUTF8CStringSize(WKStringRef stringRef)
     return toImpl(stringRef)->stringView().length() * 3 + 1;
 }
 
-size_t WKStringGetUTF8CString(WKStringRef stringRef, char* buffer, size_t bufferSize)
+enum StrictType { NonStrict = false, Strict = true };
+
+template <StrictType strict>
+size_t WKStringGetUTF8CStringImpl(WKStringRef stringRef, char* buffer, size_t bufferSize)
 {
     if (!bufferSize)
         return 0;
@@ -85,7 +88,7 @@ size_t WKStringGetUTF8CString(WKStringRef stringRef, char* buffer, size_t buffer
         result = WTF::Unicode::convertLatin1ToUTF8(&characters, characters + stringView.length(), &p, p + bufferSize - 1);
     } else {
         const UChar* characters = stringView.characters16();
-        result = WTF::Unicode::convertUTF16ToUTF8(&characters, characters + stringView.length(), &p, p + bufferSize - 1, /* strict */ true);
+        result = WTF::Unicode::convertUTF16ToUTF8(&characters, characters + stringView.length(), &p, p + bufferSize - 1, strict);
     }
 
     if (result != WTF::Unicode::conversionOK && result != WTF::Unicode::targetExhausted)
@@ -95,6 +98,16 @@ size_t WKStringGetUTF8CString(WKStringRef stringRef, char* buffer, size_t buffer
     return p - buffer;
 }
 
+size_t WKStringGetUTF8CString(WKStringRef stringRef, char* buffer, size_t bufferSize)
+{
+    return WKStringGetUTF8CStringImpl<StrictType::Strict>(stringRef, buffer, bufferSize);
+}
+
+size_t WKStringGetUTF8CStringNonStrict(WKStringRef stringRef, char* buffer, size_t bufferSize)
+{
+    return WKStringGetUTF8CStringImpl<StrictType::NonStrict>(stringRef, buffer, bufferSize);
+}
+
 bool WKStringIsEqual(WKStringRef aRef, WKStringRef bRef)
 {
     return toImpl(aRef)->stringView() == toImpl(bRef)->stringView();
@@ -102,13 +115,16 @@ bool WKStringIsEqual(WKStringRef aRef, WKStringRef bRef)
 
 bool WKStringIsEqualToUTF8CString(WKStringRef aRef, const char* b)
 {
+    // FIXME: Should we add a fast path that avoids memory allocation when the string is all ASCII?
+    // FIXME: We can do even the general case more efficiently if we write a function in StringView that understands UTF-8 C strings.
     return toImpl(aRef)->stringView() == WTF::String::fromUTF8(b);
 }
 
 bool WKStringIsEqualToUTF8CStringIgnoringCase(WKStringRef aRef, const char* b)
 {
-    // FIXME: Instead of copying the string here, we should add a version of equalIgnoringCase that takes StringViews.
-    return equalIgnoringCase(toImpl(aRef)->string(), WTF::String::fromUTF8(b));
+    // FIXME: Should we add a fast path that avoids memory allocation when the string is all ASCII?
+    // FIXME: We can do even the general case more efficiently if we write a function in StringView that understands UTF-8 C strings.
+    return equalIgnoringASCIICase(toImpl(aRef)->stringView(), WTF::String::fromUTF8(b));
 }
 
 WKStringRef WKStringCreateWithJSString(JSStringRef jsStringRef)

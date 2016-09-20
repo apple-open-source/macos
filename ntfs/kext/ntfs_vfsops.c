@@ -3214,7 +3214,12 @@ static errno_t ntfs_get_nr_set_bits(vnode_t vn, const s64 nr_bits, s64 *res)
 					"%lld, size %d, error %d).  Skipping "
 					"page.", (long long)ofs, PAGE_SIZE,
 					(int)err);
-			/* Count the whole buffer contents as set bits. */
+			/* Count the whole buffer contents as set bits only if I/O fails, otherwise bail out */
+			if (err != EIO) {
+				lck_rw_unlock_shared(&ni->lock);
+				vnode_put(vn);
+				return err;
+			}
 			nr_set += PAGE_SIZE * 8;
 			continue;
 		}

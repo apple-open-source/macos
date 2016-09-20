@@ -47,10 +47,10 @@ WebInspector.CallFrameView = class CallFrameView extends WebInspector.Object
                 var separatorElement = document.createElement("span");
                 separatorElement.classList.add("separator");
                 separatorElement.textContent = " — ";
-                subtitleElement.appendChild(separatorElement);
+                subtitleElement.append(separatorElement);
             }
 
-            subtitleElement.appendChild(linkElement);
+            subtitleElement.append(linkElement);
 
             sourceCodeLocation.populateLiveDisplayLocationTooltip(linkElement);
             sourceCodeLocation.populateLiveDisplayLocationString(linkElement, "textContent");
@@ -63,18 +63,19 @@ WebInspector.CallFrameView = class CallFrameView extends WebInspector.Object
             var imgElement = document.createElement("img");
             imgElement.classList.add("icon");
 
-            titleElement.appendChild(imgElement);
-            titleElement.appendChild(document.createTextNode(callFrame.functionName || WebInspector.UIString("(anonymous function)")));
+            titleElement.append(imgElement, callFrame.functionName || WebInspector.UIString("(anonymous function)"));
         }
 
-        callFrameElement.appendChild(titleElement);
-        callFrameElement.appendChild(subtitleElement);
+        callFrameElement.append(titleElement, subtitleElement);
 
         return callFrameElement;
     }
 
     static iconClassNameForCallFrame(callFrame)
     {
+        if (callFrame.isTailDeleted)
+            return WebInspector.CallFrameView.TailDeletedIcon;
+
         if (callFrame.programCode)
             return WebInspector.CallFrameView.ProgramIconStyleClassName;
 
@@ -94,3 +95,4 @@ WebInspector.CallFrameView.ProgramIconStyleClassName = "program-icon";
 WebInspector.CallFrameView.FunctionIconStyleClassName = "function-icon";
 WebInspector.CallFrameView.EventListenerIconStyleClassName = "event-listener-icon";
 WebInspector.CallFrameView.NativeIconStyleClassName = "native-icon";
+WebInspector.CallFrameView.TailDeletedIcon = "tail-deleted";

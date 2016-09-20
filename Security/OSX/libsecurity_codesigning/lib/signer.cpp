@@ -127,7 +127,7 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 {
 	// make sure the rep passes strict validation
 	if (strict)
-		rep->strictValidate(NULL, MacOSErrorSet(), flags);
+		rep->strictValidate(NULL, MacOSErrorSet(), flags | (kSecCSQuickCheck|kSecCSRestrictSidebandData));
 	
 	// initialize progress/cancellation state
 	code->prepareProgress(0);			// totally fake workload - we don't know how many files we'll encounter
@@ -149,9 +149,9 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 			identifier = state.mIdentifierPrefix + identifier;
 		if (identifier.find('.') == string::npos && isAdhoc())
 			identifier = identifier + "-" + uniqueName();
-		secdebug("signer", "using default identifier=%s", identifier.c_str());
+		secinfo("signer", "using default identifier=%s", identifier.c_str());
 	} else
-		secdebug("signer", "using explicit identifier=%s", identifier.c_str());
+		secinfo("signer", "using explicit identifier=%s", identifier.c_str());
 
 	teamID = state.mTeamID;
 	if (teamID.empty() && (inherit & kSecCodeSignerPreserveTeamIdentifier)) {
@@ -173,7 +173,7 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 	bool haveCdFlags = false;
 	if (!haveCdFlags && state.mCdFlagsGiven) {
 		cdFlags = state.mCdFlags;
-		secdebug("signer", "using explicit cdFlags=0x%x", cdFlags);
+		secinfo("signer", "using explicit cdFlags=0x%x", cdFlags);
 		haveCdFlags = true;
 	}
 	if (!haveCdFlags) {
@@ -182,10 +182,10 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 			if (CFTypeRef csflags = CFDictionaryGetValue(infoDict, CFSTR("CSFlags"))) {
 				if (CFGetTypeID(csflags) == CFNumberGetTypeID()) {
 					cdFlags = cfNumber<uint32_t>(CFNumberRef(csflags));
-					secdebug("signer", "using numeric cdFlags=0x%x from Info.plist", cdFlags);
+					secinfo("signer", "using numeric cdFlags=0x%x from Info.plist", cdFlags);
 				} else if (CFGetTypeID(csflags) == CFStringGetTypeID()) {
 					cdFlags = cdTextFlags(cfString(CFStringRef(csflags)));
-					secdebug("signer", "using text cdFlags=0x%x from Info.plist", cdFlags);
+					secinfo("signer", "using text cdFlags=0x%x from Info.plist", cdFlags);
 				} else
 					MacOSError::throwMe(errSecCSBadDictionaryFormat);
 				haveCdFlags = true;
@@ -193,7 +193,7 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 	}
 	if (!haveCdFlags && (inherit & kSecCodeSignerPreserveFlags)) {
 		cdFlags = code->codeDirectory(false)->flags & ~kSecCodeSignatureAdhoc;
-		secdebug("signer", "using inherited cdFlags=0x%x", cdFlags);
+		secinfo("signer", "using inherited cdFlags=0x%x", cdFlags);
 		haveCdFlags = true;
 	}
 	if (!haveCdFlags)
@@ -263,15 +263,16 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 	}
 	
 	// screen and set the signing time
-	CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
 	if (state.mSigningTime == CFDateRef(kCFNull)) {
-		signingTime = 0;		// no time at all
+		emitSigningTime = false;		// no time at all
 	} else if (!state.mSigningTime) {
-		signingTime = now;		// default
+		emitSigningTime = true;
+		signingTime = 0;			// wall clock, established later
 	} else {
 		CFAbsoluteTime time = CFDateGetAbsoluteTime(state.mSigningTime);
-		if (time > now)	// not allowed to post-date a signature
+		if (time > CFAbsoluteTimeGetCurrent())	// not allowed to post-date a signature
 			MacOSError::throwMe(errSecCSBadDictionaryFormat);
+		emitSigningTime = true;
 		signingTime = time;
 	}
 	
@@ -301,7 +302,7 @@ void SecCodeSigner::Signer::buildResources(std::string root, std::string relBase
 {
 	typedef ResourceBuilder::Rule Rule;
 	
-	secdebug("codesign", "start building resource directory");
+	secinfo("codesign", "start building resource directory");
 	__block CFRef<CFMutableDictionaryRef> result = makeCFMutableDictionary();
 	
 	CFDictionaryRef rules = cfget<CFDictionaryRef>(rulesDict, "rules");
@@ -352,7 +353,7 @@ void SecCodeSigner::Signer::buildResources(std::string root, std::string relBase
 					target[len] = '\0';
 					seal.take(cfmake<CFMutableDictionaryRef>("{symlink=%s}", target));
 				} else {
-					seal.take(resources.hashFile(accpath.c_str(), digestAlgorithms()));
+					seal.take(resources.hashFile(accpath.c_str(), digestAlgorithms(), signingFlags() & kSecCSSignStrictPreflight));
 				}
 				if (ruleFlags & ResourceBuilder::optional)
 					CFDictionaryAddValue(seal, CFSTR("optional"), kCFBooleanTrue);
@@ -392,11 +393,11 @@ void SecCodeSigner::Signer::buildResources(std::string root, std::string relBase
 					hash.take(resources.hashFile(ent->fts_accpath, kSecCodeSignatureHashSHA1));
 				if (ruleFlags == 0) {	// default case - plain hash
 					cfadd(files, "{%s=%O}", relpath.c_str(), hash.get());
-					secdebug("csresource", "%s added simple (rule %p)", relpath.c_str(), rule);
+					secinfo("csresource", "%s added simple (rule %p)", relpath.c_str(), rule);
 				} else {	// more complicated - use a sub-dictionary
 					cfadd(files, "{%s={hash=%O,optional=%B}}",
 						relpath.c_str(), hash.get(), ruleFlags & ResourceBuilder::optional);
-					secdebug("csresource", "%s added complex (rule %p)", relpath.c_str(), rule);
+					secinfo("csresource", "%s added complex (rule %p)", relpath.c_str(), rule);
 				}
 			}
 		});
@@ -419,9 +420,11 @@ CFMutableDictionaryRef SecCodeSigner::Signer::signNested(const std::string &path
 		if (signingFlags() & kSecCSSignNestedCode)
 			this->state.sign(code, signingFlags());
 		std::string dr = Dumper::dump(code->designatedRequirement());
-		return cfmake<CFMutableDictionaryRef>("{requirement=%s,cdhash=%O}",
-			Dumper::dump(code->designatedRequirement()).c_str(),
-			code->cdHash());
+		if (CFDataRef hash = code->cdHash())
+			return cfmake<CFMutableDictionaryRef>("{requirement=%s,cdhash=%O}",
+				Dumper::dump(code->designatedRequirement()).c_str(),
+				hash);
+		MacOSError::throwMe(errSecCSUnsigned);
 	} catch (const CommonError &err) {
 		CSError::throwMe(err.osStatus(), kSecCFErrorPath, CFTempURL(relpath, false, this->code->resourceBase()));
 	}
@@ -437,9 +440,10 @@ CFMutableDictionaryRef SecCodeSigner::Signer::signNested(const std::string &path
 void SecCodeSigner::Signer::signMachO(Universal *fat, const Requirement::Context &context)
 {
 	// Mach-O executable at the core - perform multi-architecture signing
+	RefPointer<DiskRep::Writer> writer = rep->writer();
 	auto_ptr<ArchEditor> editor(state.mDetached
 		? static_cast<ArchEditor *>(new BlobEditor(*fat, *this))
-		: new MachOEditor(rep->writer(), *fat, this->digestAlgorithms(), rep->mainExecutablePath()));
+		: new MachOEditor(writer, *fat, this->digestAlgorithms(), rep->mainExecutablePath()));
 	assert(editor->count() > 0);
 	if (!editor->attribute(writerNoGlobal))	// can store architecture-common components
 		populate(*editor);
@@ -510,8 +514,9 @@ void SecCodeSigner::Signer::signMachO(Universal *fat, const Requirement::Context
 	}
 	
 	// done: write edit copy back over the original
-	if (!state.mDryRun)
+	if (!state.mDryRun) {
 		editor->commit();
+	}
 }
 
 
@@ -644,9 +649,10 @@ CFDataRef SecCodeSigner::Signer::signCodeDirectory(const CodeDirectory *cd, CFDa
 	CMSEncoderSetSignerAlgorithm(cms, kCMSEncoderDigestAlgorithmSHA256);
 	MacOSError::check(CMSEncoderSetHasDetachedContent(cms, true));
 	
-	if (signingTime) {
+	if (emitSigningTime) {
 		MacOSError::check(CMSEncoderAddSignedAttributes(cms, kCMSAttrSigningTime));
-		MacOSError::check(CMSEncoderSetSigningTime(cms, signingTime));
+		CFAbsoluteTime time = signingTime ? signingTime : CFAbsoluteTimeGetCurrent();
+		MacOSError::check(CMSEncoderSetSigningTime(cms, time));
 	}
 	
 	if (hashBag) {

@@ -1,3 +1,0 @@
-A python version of the BasicDrawing example in the book 
-"Programming with Quartz". This shows how to use most of the core API's in
-Quartz/CoreGraphics.

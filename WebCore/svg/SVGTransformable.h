@@ -30,7 +30,7 @@ namespace WebCore {
 class AffineTransform;
 class SVGTransformList;
 
-class SVGTransformable : virtual public SVGLocatable {
+class SVGTransformable : public SVGLocatable {
 public:
     enum TransformParsingMode {
         ClearList,
@@ -40,10 +40,10 @@ public:
     virtual ~SVGTransformable();
 
     static bool parseTransformAttribute(SVGTransformList&, const UChar*& ptr, const UChar* end, TransformParsingMode mode = ClearList);
-    static bool parseTransformValue(unsigned type, const UChar*& ptr, const UChar* end, SVGTransform&);
+    static bool parseTransformValue(SVGTransform::SVGTransformType, const UChar*& ptr, const UChar* end, SVGTransform&);
     static SVGTransform::SVGTransformType parseTransformType(const String&);
 
-    virtual AffineTransform localCoordinateSpaceTransform(SVGLocatable::CTMScope) const override { return animatedLocalTransform(); }
+    AffineTransform localCoordinateSpaceTransform(SVGLocatable::CTMScope) const override { return animatedLocalTransform(); }
     virtual AffineTransform animatedLocalTransform() const = 0;
 };
 

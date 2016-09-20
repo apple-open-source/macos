@@ -14,6 +14,7 @@
 	<true/>
 	<key>keychain-access-groups</key>
 	<array>
+		<string>keychain-cloud-circle</string>
 		<string>com.apple.ProtectedCloudStorage</string>
 	</array>
 </dict>

@@ -193,7 +193,7 @@ krb5_cc_retrieve_cred(mit_krb5_context context,
     memset(creds, 0, sizeof(*creds));
     memset(&hcreds, 0, sizeof(hcreds));
 
-    whichfields = mshim_remap_flags(flags, whichfields_flags);
+    whichfields = (unsigned int)mshim_remap_flags(flags, whichfields_flags);
 
     mshim_mcred2hcred(HC(context), mcreds, &hmcreds);
     ret = heim_krb5_cc_retrieve_cred(HC(context), (krb5_ccache)cache, whichfields,

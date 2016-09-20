@@ -63,9 +63,7 @@ _gss_ntlm_allocate_ctx(OM_uint32 *minor_status, const char *domain, ntlm_ctx *ct
      * Check that NTLM is enabled before going forward
      */
 
-    if (!gss_mo_get(GSS_NTLM_MECHANISM, GSS_C_NTLM_V1, NULL) &&
-	!gss_mo_get(GSS_NTLM_MECHANISM, GSS_C_NTLM_V2, NULL))
-    {
+    if (!gss_mo_get(GSS_NTLM_MECHANISM, GSS_C_NTLM_V2, NULL)) {
 	*minor_status = 0;
 	return GSS_S_UNAVAILABLE;
     }

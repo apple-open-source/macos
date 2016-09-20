@@ -44,7 +44,10 @@
 #include "HTMLNames.h"
 #include "HTMLTableElement.h"
 #include "HostWindow.h"
+#include "RenderAncestorIterator.h"
+#include "RenderFieldset.h"
 #include "RenderObject.h"
+#include "SVGElement.h"
 #include "Settings.h"
 #include "TextIterator.h"
 #include "VisibleUnits.h"
@@ -108,54 +111,24 @@ static const gchar* webkitAccessibleGetName(AtkObject* object)
     g_return_val_if_fail(WEBKIT_IS_ACCESSIBLE(object), 0);
     returnValIfWebKitAccessibleIsInvalid(WEBKIT_ACCESSIBLE(object), 0);
 
-    AccessibilityObject* coreObject = core(object);
-    if (coreObject->isFieldset()) {
-        AccessibilityObject* label = coreObject->titleUIElement();
-        if (label) {
-            AtkObject* atkObject = label->wrapper();
-            if (ATK_IS_TEXT(atkObject))
-                return atk_text_get_text(ATK_TEXT(atkObject), 0, -1);
-        }
+    Vector<AccessibilityText> textOrder;
+    core(object)->accessibilityText(textOrder);
+
+    for (const auto& text : textOrder) {
+        // FIXME: This check is here because AccessibilityNodeObject::titleElementText()
+        // appends an empty String for the LabelByElementText source when there is a
+        // titleUIElement(). Removing this check makes some fieldsets lose their name.
+        if (text.text.isEmpty())
+            continue;
+
+        // WebCore Accessibility should provide us with the text alternative computation
+        // in the order defined by that spec. So take the first thing that our platform
+        // does not expose via the AtkObject description.
+        if (text.textSource != HelpText && text.textSource != SummaryText)
+            return cacheAndReturnAtkProperty(object, AtkCachedAccessibleName, text.text);
     }
 
-    if (coreObject->isControl()) {
-        AccessibilityObject* label = coreObject->correspondingLabelForControlElement();
-        if (label) {
-            AtkObject* atkObject = label->wrapper();
-            if (ATK_IS_TEXT(atkObject))
-                return atk_text_get_text(ATK_TEXT(atkObject), 0, -1);
-        }
-
-        // Try text under the node.
-        String textUnder = coreObject->textUnderElement();
-        if (textUnder.length())
-            return cacheAndReturnAtkProperty(object, AtkCachedAccessibleName, textUnder);
-    }
-
-    if (coreObject->isImage() || coreObject->isInputImage() || coreObject->isImageMap() || coreObject->isImageMapLink()) {
-        Node* node = coreObject->node();
-        if (is<HTMLElement>(node)) {
-            // Get the attribute rather than altText String so as not to fall back on title.
-            const AtomicString& alt = downcast<HTMLElement>(*node).getAttribute(HTMLNames::altAttr);
-            if (!alt.isEmpty())
-                return cacheAndReturnAtkProperty(object, AtkCachedAccessibleName, alt);
-        }
-    }
-
-    // Fallback for the webArea object: just return the document's title.
-    if (coreObject->isWebArea()) {
-        Document* document = coreObject->document();
-        if (document)
-            return cacheAndReturnAtkProperty(object, AtkCachedAccessibleName, document->title());
-    }
-
-    // Nothing worked so far, try with the AccessibilityObject's
-    // title() before going ahead with stringValue().
-    String axTitle = accessibilityTitle(coreObject);
-    if (!axTitle.isEmpty())
-        return cacheAndReturnAtkProperty(object, AtkCachedAccessibleName, axTitle);
-
-    return cacheAndReturnAtkProperty(object, AtkCachedAccessibleName, coreObject->stringValue());
+    return cacheAndReturnAtkProperty(object, AtkCachedAccessibleName, "");
 }
 
 static const gchar* webkitAccessibleGetDescription(AtkObject* object)
@@ -163,27 +136,26 @@ static const gchar* webkitAccessibleGetDescription(AtkObject* object)
     g_return_val_if_fail(WEBKIT_IS_ACCESSIBLE(object), 0);
     returnValIfWebKitAccessibleIsInvalid(WEBKIT_ACCESSIBLE(object), 0);
 
-    AccessibilityObject* coreObject = core(object);
-    Node* node = nullptr;
-    if (coreObject->isAccessibilityRenderObject())
-        node = coreObject->node();
-    if (!is<HTMLElement>(node) || coreObject->ariaRoleAttribute() != UnknownRole || coreObject->isImage())
-        return cacheAndReturnAtkProperty(object, AtkCachedAccessibleDescription, accessibilityDescription(coreObject));
+    Vector<AccessibilityText> textOrder;
+    core(object)->accessibilityText(textOrder);
 
-    // atk_table_get_summary returns an AtkObject. We have no summary object, so expose summary here.
-    if (coreObject->roleValue() == TableRole) {
-        const AtomicString& summary = downcast<HTMLTableElement>(*node).summary();
-        if (!summary.isEmpty())
-            return cacheAndReturnAtkProperty(object, AtkCachedAccessibleDescription, summary);
+    bool nameTextAvailable = false;
+    for (const auto& text : textOrder) {
+        // WebCore Accessibility should provide us with the text alternative computation
+        // in the order defined by that spec. So take the first thing that our platform
+        // does not expose via the AtkObject name.
+        if (text.textSource == HelpText || text.textSource == SummaryText)
+            return cacheAndReturnAtkProperty(object, AtkCachedAccessibleDescription, text.text);
+
+        // If there is no other text alternative, the title tag contents will have been
+        // used for the AtkObject name. We don't want to duplicate it here.
+        if (text.textSource == TitleTagText && nameTextAvailable)
+            return cacheAndReturnAtkProperty(object, AtkCachedAccessibleDescription, text.text);
+
+        nameTextAvailable = true;
     }
 
-    // The title attribute should be reliably available as the object's descripton.
-    // We do not want to fall back on other attributes in its absence. See bug 25524.
-    String title = downcast<HTMLElement>(*node).title();
-    if (!title.isEmpty())
-        return cacheAndReturnAtkProperty(object, AtkCachedAccessibleDescription, title);
-
-    return cacheAndReturnAtkProperty(object, AtkCachedAccessibleDescription, accessibilityDescription(coreObject));
+    return cacheAndReturnAtkProperty(object, AtkCachedAccessibleDescription, "");
 }
 
 static void removeAtkRelationByType(AtkRelationSet* relationSet, AtkRelationType relationType)
@@ -200,63 +172,53 @@ static void removeAtkRelationByType(AtkRelationSet* relationSet, AtkRelationType
 
 static void setAtkRelationSetFromCoreObject(AccessibilityObject* coreObject, AtkRelationSet* relationSet)
 {
-    if (coreObject->isFieldset()) {
-        AccessibilityObject* label = coreObject->titleUIElement();
-        if (label) {
-            removeAtkRelationByType(relationSet, ATK_RELATION_LABELLED_BY);
-            atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_LABELLED_BY, label->wrapper());
-        }
-        return;
-    }
+    // FIXME: We're not implementing all the relation types, most notably the inverse/reciprocal
+    // types. Filed as bug 155494.
 
-    if (coreObject->roleValue() == LegendRole) {
-        for (AccessibilityObject* parent = coreObject->parentObjectUnignored(); parent; parent = parent->parentObjectUnignored()) {
-            if (parent->isFieldset()) {
-                atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_LABEL_FOR, parent->wrapper());
-                break;
-            }
-        }
-        return;
-    }
-
+    // Elements with aria-labelledby should have the labelled-by relation as per the ARIA AAM spec.
+    // Controls with a label element and fieldsets with a legend element should also use this relation
+    // as per the HTML AAM spec. The reciprocal label-for relation should also be used.
+    removeAtkRelationByType(relationSet, ATK_RELATION_LABELLED_BY);
     if (coreObject->isControl()) {
-        AccessibilityObject* label = coreObject->correspondingLabelForControlElement();
-        if (label) {
-            removeAtkRelationByType(relationSet, ATK_RELATION_LABELLED_BY);
+        if (AccessibilityObject* label = coreObject->correspondingLabelForControlElement())
             atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_LABELLED_BY, label->wrapper());
+    } else if (coreObject->isFieldset()) {
+        if (AccessibilityObject* label = coreObject->titleUIElement())
+            atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_LABELLED_BY, label->wrapper());
+    } else if (coreObject->roleValue() == LegendRole) {
+        if (RenderFieldset* renderFieldset = ancestorsOfType<RenderFieldset>(*coreObject->renderer()).first()) {
+            AccessibilityObject* fieldset = coreObject->axObjectCache()->getOrCreate(renderFieldset);
+            atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_LABEL_FOR, fieldset->wrapper());
         }
+    } else if (AccessibilityObject* control = coreObject->correspondingControlForLabelElement()) {
+        atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_LABEL_FOR, control->wrapper());
     } else {
-        AccessibilityObject* control = coreObject->correspondingControlForLabelElement();
-        if (control)
-            atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_LABEL_FOR, control->wrapper());
+        AccessibilityObject::AccessibilityChildrenVector ariaLabelledByElements;
+        coreObject->ariaLabelledByElements(ariaLabelledByElements);
+        for (const auto& accessibilityObject : ariaLabelledByElements)
+            atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_LABELLED_BY, accessibilityObject->wrapper());
     }
 
-    // Check whether object supports aria-flowto
-    if (coreObject->supportsARIAFlowTo()) {
-        removeAtkRelationByType(relationSet, ATK_RELATION_FLOWS_TO);
-        AccessibilityObject::AccessibilityChildrenVector ariaFlowToElements;
-        coreObject->ariaFlowToElements(ariaFlowToElements);
-        for (const auto& accessibilityObject : ariaFlowToElements)
-            atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_FLOWS_TO, accessibilityObject->wrapper());
-    }
+    // Elements with aria-flowto should have the flows-to relation as per the ARIA AAM spec.
+    removeAtkRelationByType(relationSet, ATK_RELATION_FLOWS_TO);
+    AccessibilityObject::AccessibilityChildrenVector ariaFlowToElements;
+    coreObject->ariaFlowToElements(ariaFlowToElements);
+    for (const auto& accessibilityObject : ariaFlowToElements)
+        atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_FLOWS_TO, accessibilityObject->wrapper());
 
-    // Check whether object supports aria-describedby. It provides an additional information for the user.
-    if (coreObject->supportsARIADescribedBy()) {
-        removeAtkRelationByType(relationSet, ATK_RELATION_DESCRIBED_BY);
-        AccessibilityObject::AccessibilityChildrenVector ariaDescribedByElements;
-        coreObject->ariaDescribedByElements(ariaDescribedByElements);
-        for (const auto& accessibilityObject : ariaDescribedByElements)
-            atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_DESCRIBED_BY, accessibilityObject->wrapper());
-    }
+    // Elements with aria-describedby should have the described-by relation as per the ARIA AAM spec.
+    removeAtkRelationByType(relationSet, ATK_RELATION_DESCRIBED_BY);
+    AccessibilityObject::AccessibilityChildrenVector ariaDescribedByElements;
+    coreObject->ariaDescribedByElements(ariaDescribedByElements);
+    for (const auto& accessibilityObject : ariaDescribedByElements)
+        atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_DESCRIBED_BY, accessibilityObject->wrapper());
 
-    // Check whether object supports aria-controls. It provides information about elements that are controlled by the current object.
-    if (coreObject->supportsARIAControls()) {
-        removeAtkRelationByType(relationSet, ATK_RELATION_CONTROLLER_FOR);
-        AccessibilityObject::AccessibilityChildrenVector ariaControls;
-        coreObject->ariaControlsElements(ariaControls);
-        for (const auto& accessibilityObject : ariaControls)
-            atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_CONTROLLER_FOR, accessibilityObject->wrapper());
-    }
+    // Elements with aria-controls should have the controller-for relation as per the ARIA AAM spec.
+    removeAtkRelationByType(relationSet, ATK_RELATION_CONTROLLER_FOR);
+    AccessibilityObject::AccessibilityChildrenVector ariaControls;
+    coreObject->ariaControlsElements(ariaControls);
+    for (const auto& accessibilityObject : ariaControls)
+        atk_relation_set_add_relation_by_type(relationSet, ATK_RELATION_CONTROLLER_FOR, accessibilityObject->wrapper());
 }
 
 static gpointer webkitAccessibleParentClass = nullptr;
@@ -410,7 +372,7 @@ static AtkAttributeSet* webkitAccessibleGetAttributes(AtkObject* object)
     if (element) {
         String tagName = element->tagName();
         if (!tagName.isEmpty())
-            attributeSet = addToAtkAttributeSet(attributeSet, "tag", tagName.lower().utf8().data());
+            attributeSet = addToAtkAttributeSet(attributeSet, "tag", tagName.convertToASCIILowercase().utf8().data());
         String id = element->getIdAttribute().string();
         if (!id.isEmpty())
             attributeSet = addToAtkAttributeSet(attributeSet, "html-id", id.utf8().data());
@@ -454,6 +416,14 @@ static AtkAttributeSet* webkitAccessibleGetAttributes(AtkObject* object)
     if (coreObject->supportsARIASetSize())
         attributeSet = addToAtkAttributeSet(attributeSet, "setsize", String::number(coreObject->ariaSetSize()).utf8().data());
 
+    String isReadOnly = coreObject->ariaReadOnlyValue();
+    if (!isReadOnly.isEmpty())
+        attributeSet = addToAtkAttributeSet(attributeSet, "readonly", isReadOnly.utf8().data());
+
+    String valueDescription = coreObject->valueDescription();
+    if (!valueDescription.isEmpty())
+        attributeSet = addToAtkAttributeSet(attributeSet, "valuetext", valueDescription.utf8().data());
+
     // According to the W3C Core Accessibility API Mappings 1.1, section 5.4.1 General Rules:
     // "User agents must expose the WAI-ARIA role string if the API supports a mechanism to do so."
     // In the case of ATK, the mechanism to do so is an object attribute pair (xml-roles:"string").
@@ -467,6 +437,10 @@ static AtkAttributeSet* webkitAccessibleGetAttributes(AtkObject* object)
             attributeSet = addToAtkAttributeSet(attributeSet, "xml-roles", roleString.utf8().data());
         attributeSet = addToAtkAttributeSet(attributeSet, "computed-role", roleString.utf8().data());
     }
+
+    String roleDescription = coreObject->roleDescription();
+    if (!roleDescription.isEmpty())
+        attributeSet = addToAtkAttributeSet(attributeSet, "roledescription", roleDescription.utf8().data());
 
     return attributeSet;
 }
@@ -512,7 +486,11 @@ static AtkRole atkRole(AccessibilityObject* coreObject)
     case SearchFieldRole:
         return ATK_ROLE_ENTRY;
     case StaticTextRole:
+#if ATK_CHECK_VERSION(2, 15, 2)
+        return ATK_ROLE_STATIC;
+#else
         return ATK_ROLE_TEXT;
+#endif
     case OutlineRole:
     case TreeRole:
         return ATK_ROLE_TREE;
@@ -540,8 +518,7 @@ static AtkRole atkRole(AccessibilityObject* coreObject)
     case BusyIndicatorRole:
         return ATK_ROLE_PROGRESS_BAR; // Is this right?
     case ProgressIndicatorRole:
-        // return ATK_ROLE_SPIN_BUTTON; // Some confusion about this role in AccessibilityRenderObject.cpp
-        return ATK_ROLE_PROGRESS_BAR;
+        return coreObject->isMeter() ? ATK_ROLE_LEVEL_BAR : ATK_ROLE_PROGRESS_BAR;
     case WindowRole:
         return ATK_ROLE_WINDOW;
     case PopUpButtonRole:
@@ -564,16 +541,17 @@ static AtkRole atkRole(AccessibilityObject* coreObject)
         return ATK_ROLE_SCROLL_BAR;
     case ScrollAreaRole:
         return ATK_ROLE_SCROLL_PANE;
-    case GridRole: // Is this right?
+    case GridRole:
     case TableRole:
         return ATK_ROLE_TABLE;
     case ApplicationRole:
         return ATK_ROLE_APPLICATION;
-    case DocumentRegionRole:
-    case GroupRole:
     case RadioGroupRole:
+    case SVGRootRole:
     case TabPanelRole:
         return ATK_ROLE_PANEL;
+    case GroupRole:
+        return coreObject->isStyleFormatGroup() ? ATK_ROLE_SECTION : ATK_ROLE_PANEL;
     case RowHeaderRole:
         return ATK_ROLE_ROW_HEADER;
     case ColumnHeaderRole:
@@ -581,6 +559,7 @@ static AtkRole atkRole(AccessibilityObject* coreObject)
     case CaptionRole:
         return ATK_ROLE_CAPTION;
     case CellRole:
+    case GridCellRole:
         return coreObject->inheritsPresentationalRole() ? ATK_ROLE_SECTION : ATK_ROLE_TABLE_CELL;
     case LinkRole:
     case WebCoreLinkRole:
@@ -619,6 +598,7 @@ static AtkRole atkRole(AccessibilityObject* coreObject)
 #endif
     case DivRole:
     case PreRole:
+    case SVGTextRole:
         return ATK_ROLE_SECTION;
     case FooterRole:
         return ATK_ROLE_FOOTER;
@@ -636,7 +616,7 @@ static AtkRole atkRole(AccessibilityObject* coreObject)
         return ATK_ROLE_TOOL_TIP;
     case WebAreaRole:
         return ATK_ROLE_DOCUMENT_WEB;
-    case LandmarkApplicationRole:
+    case WebApplicationRole:
         return ATK_ROLE_EMBEDDED;
 #if ATK_CHECK_VERSION(2, 11, 3)
     case ApplicationLogRole:
@@ -682,6 +662,7 @@ static AtkRole atkRole(AccessibilityObject* coreObject)
     case LandmarkContentInfoRole:
     case LandmarkMainRole:
     case LandmarkNavigationRole:
+    case LandmarkRegionRole:
     case LandmarkSearchRole:
         return ATK_ROLE_LANDMARK;
 #endif
@@ -693,8 +674,17 @@ static AtkRole atkRole(AccessibilityObject* coreObject)
     case DescriptionListDetailRole:
         return ATK_ROLE_DESCRIPTION_VALUE;
 #endif
-#if ATK_CHECK_VERSION(2, 15, 2)
     case InlineRole:
+#if ATK_CHECK_VERSION(2, 15, 4)
+        if (coreObject->isSubscriptStyleGroup())
+            return ATK_ROLE_SUBSCRIPT;
+        if (coreObject->isSuperscriptStyleGroup())
+            return ATK_ROLE_SUPERSCRIPT;
+#endif
+#if ATK_CHECK_VERSION(2, 15, 2)
+        return ATK_ROLE_STATIC;
+    case SVGTextPathRole:
+    case SVGTSpanRole:
         return ATK_ROLE_STATIC;
 #endif
     default:
@@ -760,16 +750,15 @@ static void setAtkStateSetFromCoreObject(AccessibilityObject* coreObject, AtkSta
     if (isListBoxOption && coreObject->isSelectedOptionActive())
         atk_state_set_add_state(stateSet, ATK_STATE_ACTIVE);
 
+#if ATK_CHECK_VERSION(2,11,2)
+    if (coreObject->supportsChecked() && coreObject->canSetValueAttribute())
+        atk_state_set_add_state(stateSet, ATK_STATE_CHECKABLE);
+#endif
+
     if (coreObject->isChecked())
         atk_state_set_add_state(stateSet, ATK_STATE_CHECKED);
 
-    // FIXME: isReadOnly does not seem to do the right thing for
-    // controls, so check explicitly for them. In addition, because
-    // isReadOnly is false for listBoxOptions, we need to add one
-    // more check so that we do not present them as being "editable".
-    if ((!coreObject->isReadOnly()
-        || (coreObject->isControl() && coreObject->canSetValueAttribute()))
-        && !isListBoxOption)
+    if ((coreObject->isTextControl() || coreObject->isNonNativeTextControl()) && coreObject->canSetValueAttribute())
         atk_state_set_add_state(stateSet, ATK_STATE_EDITABLE);
 
     // FIXME: Put both ENABLED and SENSITIVE together here for now
@@ -813,6 +802,11 @@ static void setAtkStateSetFromCoreObject(AccessibilityObject* coreObject, AtkSta
 
     if (coreObject->isPressed())
         atk_state_set_add_state(stateSet, ATK_STATE_PRESSED);
+
+#if ATK_CHECK_VERSION(2,15,3)
+    if (!coreObject->canSetValueAttribute() && (coreObject->supportsARIAReadOnly()))
+        atk_state_set_add_state(stateSet, ATK_STATE_READ_ONLY);
+#endif
 
     if (coreObject->isRequired())
         atk_state_set_add_state(stateSet, ATK_STATE_REQUIRED);
@@ -1066,7 +1060,8 @@ static GType GetAtkInterfaceTypeFromWAIType(WAIType type)
 static bool roleIsTextType(AccessibilityRole role)
 {
     return role == ParagraphRole || role == HeadingRole || role == DivRole || role == CellRole
-        || role == LinkRole || role == WebCoreLinkRole || role == ListItemRole || role == PreRole;
+        || role == LinkRole || role == WebCoreLinkRole || role == ListItemRole || role == PreRole
+        || role == GridCellRole;
 }
 
 static guint16 getInterfaceMaskFromObject(AccessibilityObject* coreObject)
@@ -1102,9 +1097,9 @@ static guint16 getInterfaceMaskFromObject(AccessibilityObject* coreObject)
     // Text, Editable Text & Hypertext
     if (role == StaticTextRole || coreObject->isMenuListOption())
         interfaceMask |= 1 << WAIText;
-    else if (coreObject->isTextControl()) {
+    else if (coreObject->isTextControl() || coreObject->isNonNativeTextControl()) {
         interfaceMask |= 1 << WAIText;
-        if (!coreObject->isReadOnly())
+        if (coreObject->canSetValueAttribute())
             interfaceMask |= 1 << WAIEditableText;
     } else if (!coreObject->isWebArea()) {
         if (role != TableRole) {
@@ -1129,7 +1124,7 @@ static guint16 getInterfaceMaskFromObject(AccessibilityObject* coreObject)
         interfaceMask |= 1 << WAIImage;
 
     // Table
-    if (role == TableRole)
+    if (role == TableRole || role == GridRole)
         interfaceMask |= 1 << WAITable;
 
 #if ATK_CHECK_VERSION(2,11,90)

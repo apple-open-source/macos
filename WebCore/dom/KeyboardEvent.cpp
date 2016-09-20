@@ -26,6 +26,7 @@
 #include "Document.h"
 #include "EventDispatcher.h"
 #include "EventHandler.h"
+#include "EventNames.h"
 #include "Frame.h"
 #include "PlatformKeyboardEvent.h"
 #include "Settings.h"
@@ -90,15 +91,6 @@ static inline KeyboardEvent::KeyLocationCode keyLocationCode(const PlatformKeybo
     }
 }
 
-KeyboardEventInit::KeyboardEventInit()
-    : location(0)
-    , ctrlKey(false)
-    , altKey(false)
-    , shiftKey(false)
-    , metaKey(false)
-{
-}
-
 KeyboardEvent::KeyboardEvent()
     : m_location(DOM_KEY_LOCATION_STANDARD)
     , m_altGraphKey(false)
@@ -126,8 +118,14 @@ KeyboardEvent::KeyboardEvent(const PlatformKeyboardEvent& key, AbstractView* vie
 {
 }
 
+// FIXME: This method should be get ride of in the future.
+// DO NOT USE IT!
+KeyboardEvent::KeyboardEvent(WTF::HashTableDeletedValueType)
+{
+}
+
 KeyboardEvent::KeyboardEvent(const AtomicString& eventType, const KeyboardEventInit& initializer)
-    : UIEventWithKeyState(eventType, initializer.bubbles, initializer.cancelable, initializer.view, initializer.detail, initializer.ctrlKey, initializer.altKey, initializer.shiftKey, initializer.metaKey)
+    : UIEventWithKeyState(eventType, initializer)
     , m_keyIdentifier(initializer.keyIdentifier)
     , m_location(initializer.location)
     , m_altGraphKey(false)

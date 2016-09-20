@@ -45,7 +45,7 @@ WebInspector.VisualStyleFontFamilyTreeElement = class VisualStyleFontFamilyTreeE
         if (this.keywordEditorHidden)
             return;
 
-        var bounds = WebInspector.Rect.rectFromClientRect(this._keywordEditor.getBoundingClientRect());
+        let bounds = WebInspector.Rect.rectFromClientRect(this._keywordEditor.getBoundingClientRect());
         return bounds.pad(padding || 0);
     }
 
@@ -54,7 +54,7 @@ WebInspector.VisualStyleFontFamilyTreeElement = class VisualStyleFontFamilyTreeE
         this.mainTitle = this._keywordEditor.value = text;
         this._listItemNode.style.fontFamily = text + ", " + WebInspector.VisualStyleFontFamilyTreeElement.FontFamilyFallback;
 
-        var hasText = text && text.length;
+        let hasText = text && text.length;
         this._listItemNode.classList.toggle("no-value", !hasText);
         if (!hasText)
             this.subtitle = this._keywordEditor.placeholder;
@@ -118,21 +118,21 @@ WebInspector.VisualStyleFontFamilyTreeElement = class VisualStyleFontFamilyTreeE
         if (this.keywordEditorHidden)
             return;
 
-        var keyCode = event.keyCode;
-        var enterKeyCode = WebInspector.KeyboardShortcut.Key.Enter.keyCode;
+        let keyCode = event.keyCode;
+        let enterKeyCode = WebInspector.KeyboardShortcut.Key.Enter.keyCode;
         if (keyCode === enterKeyCode) {
             this._listItemNode.classList.add("editor-hidden");
             this.dispatchEventToListeners(WebInspector.VisualStyleFontFamilyTreeElement.Event.EditorKeyDown, {key: "Enter"});
             return;
         }
 
-        var escapeKeyCode = WebInspector.KeyboardShortcut.Key.Escape.keyCode;
+        let escapeKeyCode = WebInspector.KeyboardShortcut.Key.Escape.keyCode;
         if (keyCode === escapeKeyCode) {
             this.dispatchEventToListeners(WebInspector.VisualStyleFontFamilyTreeElement.Event.EditorKeyDown, {key: "Escape"});
             return;
         }
 
-        var tabKeyCode = WebInspector.KeyboardShortcut.Key.Tab.keyCode;
+        let tabKeyCode = WebInspector.KeyboardShortcut.Key.Tab.keyCode;
         if (keyCode === tabKeyCode) {
             event.preventDefault();
             this._dontFireKeyUp = true;
@@ -140,7 +140,7 @@ WebInspector.VisualStyleFontFamilyTreeElement = class VisualStyleFontFamilyTreeE
             return;
         }
 
-        var key = event.keyIdentifier;
+        let key = event.keyIdentifier;
         if (key === "Up" || key === "Down") {
             event.preventDefault();
             this._dontFireKeyUp = true;

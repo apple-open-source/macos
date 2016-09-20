@@ -1,6 +1,4 @@
 /*
- * "$Id: process.c 12671 2015-05-27 23:59:26Z msweet $"
- *
  * Process management routines for the CUPS scheduler.
  *
  * Copyright 2007-2015 by Apple Inc.
@@ -341,7 +339,7 @@ cupsdCreateProfile(int job_id,		/* I - Job ID or 0 for none */
     /* Only allow SNMP (UDP) and LPD (TCP) off the machine... */
     cupsFilePuts(fp, ")\n");
     cupsFilePuts(fp, "(allow network-outbound\n"
-		     "       (remote udp \"*:161\")"
+		     "       (remote udp \"*:161\")\n"
 		     "       (remote tcp \"*:515\"))\n");
     cupsFilePuts(fp, "(allow network-inbound\n"
 		     "       (local udp \"localhost:*\"))\n");
@@ -516,7 +514,7 @@ cupsdStartProcess(
   if (envp)
   {
    /*
-    * Add special voodoo magic for OS X - this allows OS X programs to access
+    * Add special voodoo magic for macOS - this allows macOS programs to access
     * their bundle resources properly...
     */
 
@@ -887,8 +885,3 @@ cupsd_requote(char       *dst,		/* I - Destination buffer */
   return (dst);
 }
 #endif /* HAVE_SANDBOX_H */
-
-
-/*
- * End of "$Id: process.c 12671 2015-05-27 23:59:26Z msweet $".
- */

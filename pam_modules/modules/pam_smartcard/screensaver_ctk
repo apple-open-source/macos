@@ -1,0 +1,6 @@
+# ctk: auth 
+auth       required       pam_smartcard.so			use_first_pass
+account    required       pam_opendirectory.so
+account    sufficient     pam_self.so
+account    required       pam_group.so no_warn group=admin,wheel fail_safe
+account    required       pam_group.so no_warn deny group=admin,wheel ruser fail_safe

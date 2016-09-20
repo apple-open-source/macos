@@ -305,8 +305,7 @@ _dnsinfo_flatfile_create_resolver(const char *dir, const char *path)
 		line = reallocf(line, len+1);
 		if (line == NULL) continue;
 
-		strncpy(line, buf, len);
-		line[len] = '\0';
+		strlcpy(line, buf, len+1);
 
 		// parse the first word of the line (the config token)
 		lineptr = line;

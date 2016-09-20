@@ -49,10 +49,19 @@
 
 #include "SOSRegressionUtilities.h"
 
-static int kTestTestCount = (10*(4+10*4));
+
+#if TARGET_OS_WATCH
+#define NPARMS 3
+#define NKEYS 3
+#else
+#define NPARMS 10
+#define NKEYS 10
+#endif
+
+static int kTestTestCount = (NKEYS*(4+NPARMS*4));
 
 
-static SecKeyRef getTestKey(CFDataRef cfpassword, CFDataRef parameters, CFErrorRef *error) {
+static SecKeyRef createTestKey(CFDataRef cfpassword, CFDataRef parameters, CFErrorRef *error) {
     SecKeyRef user_privkey = SOSUserKeygen(cfpassword, parameters, error);
     ok(user_privkey, "No key!");
     ok(*error == NULL, "Error: (%@)", *error);
@@ -64,24 +73,28 @@ static void tests(void) {
     CFErrorRef error = NULL;
     CFDataRef cfpassword = CFDataCreate(NULL, (uint8_t *) "FooFooFoo", 10);
     
-    for(int j=0; j < 10; j++) {
+    for(int j=0; j < NPARMS; j++) {
         CFDataRef parameters = SOSUserKeyCreateGenerateParameters(&error);
         ok(parameters, "No parameters!");
         ok(error == NULL, "Error: (%@)", error);
         CFReleaseNull(error);
 
-        SecKeyRef baseline_privkey = getTestKey(cfpassword, parameters, &error);
+        SecKeyRef baseline_privkey = createTestKey(cfpassword, parameters, &error);
         if(baseline_privkey) {
             SecKeyRef baseline_pubkey = SecKeyCreatePublicFromPrivate(baseline_privkey);
 
-            for(int i = 0; i < 10; i++) {
-                SecKeyRef user_privkey = getTestKey(cfpassword, parameters, &error);
+            for(int i = 0; i < NKEYS; i++) {
+                SecKeyRef user_privkey = createTestKey(cfpassword, parameters, &error);
                 SecKeyRef user_pubkey = SecKeyCreatePublicFromPrivate(user_privkey);
                 ok(CFEqualSafe(baseline_privkey, user_privkey), "Private Keys Don't Match");
                 ok(CFEqualSafe(baseline_pubkey, user_pubkey), "Public Keys Don't Match");
                 CFReleaseNull(error);
+                CFReleaseNull(user_privkey);
+                CFReleaseNull(user_pubkey);
             }
+            CFReleaseNull(baseline_pubkey);
         }
+        CFReleaseNull(baseline_privkey);
         CFReleaseNull(parameters);
     }
     CFReleaseNull(cfpassword);

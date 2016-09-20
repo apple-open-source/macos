@@ -12,7 +12,7 @@ entryPoint(CommonCryptoSymZeroLength,"CommonCrypto Symmetric Zero-Length Testing
 static int kTestTestCount = 4;
 
 
-int CommonCryptoSymZeroLength (int argc, char *const *argv) 
+int CommonCryptoSymZeroLength (int __unused argc, char *const * __unused argv) 
 {
 	char *keyStr;
 	char *iv;

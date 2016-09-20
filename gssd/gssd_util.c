@@ -297,7 +297,7 @@ gss_call_error(uint32_t status)
 	status &= (uint32_t)GSS_C_CALLING_ERROR_MASK;
 	if (status == 0)
 		return (NULL);
-		if (status > ERR_SIZE)
+		if (status > CALL_ERR_SIZE)
 			return ("GSS_UNKOWN_CALL_ERROR");
 	return (gss_call_err_names[status - 1]);
 }
@@ -1002,6 +1002,7 @@ gssd_log(int log_level, const char *fmt, ...)
 			ofp = fmt_parse(output_buffer, &obp, ofp, &ap);
 			if (ofp == NULL) {
 				g_log(ASL_LEVEL_ERR, "Invalid log format %s skipping ...\n", fmt);
+				va_end(ap);
 				return;
 			}
 		}

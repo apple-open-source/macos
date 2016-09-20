@@ -2,7 +2,9 @@
 int enc_canon_props __ARGS((char_u *name));
 char_u *mb_init __ARGS((void));
 int bomb_size __ARGS((void));
+void remove_bom __ARGS((char_u *s));
 int mb_get_class __ARGS((char_u *p));
+int mb_get_class_buf __ARGS((char_u *p, buf_T *buf));
 int dbcs_class __ARGS((unsigned lead, unsigned trail));
 int latin_char2len __ARGS((int c));
 int latin_char2bytes __ARGS((int c, char_u *buf));
@@ -56,7 +58,7 @@ void utf_find_illegal __ARGS((void));
 int utf_valid_string __ARGS((char_u *s, char_u *end));
 int dbcs_screen_tail_off __ARGS((char_u *base, char_u *p));
 void mb_adjust_cursor __ARGS((void));
-void mb_adjustpos __ARGS((pos_T *lp));
+void mb_adjustpos __ARGS((buf_T *buf, pos_T *lp));
 char_u *mb_prevptr __ARGS((char_u *line, char_u *p));
 int mb_charlen __ARGS((char_u *str));
 int mb_charlen_len __ARGS((char_u *str, int len));

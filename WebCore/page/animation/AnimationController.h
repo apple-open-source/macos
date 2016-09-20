@@ -44,13 +44,14 @@ class RenderElement;
 class RenderStyle;
 
 class AnimationController {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit AnimationController(Frame&);
     ~AnimationController();
 
     void cancelAnimations(RenderElement&);
-    bool updateAnimations(RenderElement&, RenderStyle& newStyle, Ref<RenderStyle>& animatedStyle);
-    PassRefPtr<RenderStyle> getAnimatedStyleForRenderer(RenderElement&);
+    bool updateAnimations(RenderElement&, const RenderStyle& newStyle, std::unique_ptr<RenderStyle>& animatedStyle);
+    std::unique_ptr<RenderStyle> getAnimatedStyleForRenderer(RenderElement&);
 
     // If possible, compute the visual extent of any transform animation on the given renderer
     // using the given rect, returning the result in the rect. Return false if there is some

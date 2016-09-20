@@ -625,7 +625,7 @@ static CssmUniformDate *cspNow()
 	return new CssmUniformDate(cfTime);
 }
 
-#define keyDateDebug(args...)	secdebug("keyDate", ## args) 
+#define keyDateDebug(args...)	secinfo("keyDate", ## args) 
 
 /*
  * Verify temporal validity of specified key. 

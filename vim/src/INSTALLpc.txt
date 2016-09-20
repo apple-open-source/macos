@@ -11,9 +11,9 @@ The file "feature.h" can be edited to match your preferences. You can skip
 this, then you will get the default behavior as is documented, which should
 be fine for most people.
 
-With the exception of the last two sections (Windows 3.1 and MS-DOS),
-this document assumes that you are building Vim for Win32
-(Windows NT/2000/XP/2003/Vista and Windows 95/98/Me)
+With the exception of two sections (Windows 3.1 and MS-DOS), this document
+assumes that you are building Vim for Win32 or later.
+(Windows 95/98/Me/NT/2000/XP/2003/Vista/7)
 
 
 Contents:
@@ -27,9 +27,13 @@ Contents:
 8. Windows 3.1
 9. MS-DOS
 
+10. Installing after building from sources
+
+
 The currently preferred method is using the free Visual C++ Toolkit 2008
-|msvc-2008-express|.  If you need the executable to run on Windows 98 or ME,
-use the 2003 one |msvc-2003-toolkit|.
+|msvc-2008-express|, the produced binary runs on most MS-Windows systems.  If
+you need the executable to run on Windows 98 or ME, use the 2003 one
+|msvc-2003-toolkit|.
 
 
 1. Microsoft Visual C++
@@ -40,6 +44,10 @@ Visual Studio
 
 Building with Visual Studio (VS 98, VS .NET, VS .NET 2003, VS 2005, and VS 2008)
 is straightforward. (These instructions should also work for VS 4 and VS 5.)
+
+Using VS C++ 2008 Express is recommended, the binaries build with that run on
+nearly all platforms.  Binaries from later versions may not run on Windows 95
+or XP.
 
 To build Vim from the command line with MSVC, use Make_mvc.mak.
 Visual Studio installed a batch file called vcvars32.bat, which you must
@@ -168,6 +176,10 @@ This includes the IDE and the debugger.
 To set the environment execute the msvc2008.bat script.  You can then build
 Vim with Make_mvc.mak.
 
+For building 64 bit binaries you also need to install the SDK:
+"Microsoft Windows SDK for Windows 7 and .NET Framework 3.5 SP1"
+You don't need the examples and documentation.
+
 
 Visual C++ 2010 Express Edition       *msvc-2010-express*
 -------------------------------
@@ -176,8 +188,32 @@ Visual C++ 2010 Express Edition can be downloaded for free from:
     http://www.microsoft.com/express/vc/Default.aspx
 This includes the IDE and the debugger.
 
-To set the environment execute the msvc2008.bat script.  You can then build
+To set the environment execute the msvc2010.bat script.  You can then build
 Vim with Make_mvc.mak.
+
+
+Targeting Windows XP with new MSVC      *new-msvc-windows-xp*
+----------------------------------
+
+Beginning with Visual C++ 2010, Microsoft changed the behavior of LINK.EXE
+so that it targets Windows 6.0 (Vista) by default.  In order to override
+this, the target Windows version number needs to be passed to LINK like
+follows:
+    LINK ... /subsystem:console,5.01
+
+Make_mvc.mak now supports a macro SUBSYSTEM_VER to pass the Windows version.
+Use lines like follows to target Windows XP (assuming using Visual C++ 2012
+under 64-bit Windows):
+    set WinSdk71=%ProgramFiles(x86)%\Microsoft SDKs\Windows\v7.1A
+    set SDK_INCLUDE_DIR=%WinSdk71%\Include
+    set INCLUDE=%WinSdk71%\Include;%INCLUDE%
+    set LIB=%WinSdk71%\Lib;%LIB%
+    set PATH=%WinSdk71%\Bin;%PATH%
+    set CL=/D_USING_V110_SDK71_
+    nmake -f Make_mvc.mak ... WINVER=0x0501 SUBSYSTEM_VER=5.01
+
+The following Visual C++ team blog can serve as a reference page:
+    http://blogs.msdn.com/b/vcblog/archive/2012/10/08/windows-xp-targeting-with-c-in-visual-studio-2012.aspx
 
 
 2. MinGW
@@ -192,11 +228,15 @@ at:
 
     http://www.mingw.org/
 
+or you can use 'MinGW-w64' compiler.
+
+    http://mingw-w64.sourceforge.net/
+
 Once you have downloaded the compiler binaries, unpack them on your hard disk
 somewhere, and put them on your PATH.  If you are on Win95/98 you can edit
 your AUTOEXEC.BAT file with a line like:
 
-    set PATH=C:\GCC-2.95.2\BIN;%PATH%
+    set PATH=C:\MinGW\bin;%PATH%
 
 or on NT/2000/XP, go to the Control Panel, (Performance and Maintenance),
 System, Advanced, and edit the environment from there.
@@ -204,10 +244,10 @@ System, Advanced, and edit the environment from there.
 Test if gcc is on your path.  From a CMD (or COMMAND on '95/98) window:
 
     C:\> gcc --version
-    2.95.2
+    gcc (GCC) 4.8.1
 
-    C:\> make --version
-    GNU Make version 3.77 (...etc...)
+    C:\> mingw32-make --version
+    GNU Make 3.82.90 (...etc...)
 
 Now you are ready to rock 'n' roll.  Unpack the vim sources (look on
 www.vim.org for exactly which version of the vim files you need).
@@ -219,7 +259,7 @@ Change directory to 'vim\src':
 
 and you type:
 
-    make -f Make_ming.mak gvim.exe
+    mingw32-make -f Make_ming.mak gvim.exe
 
 After churning for a while, you will end up with 'gvim.exe' in the 'vim\src'
 directory.
@@ -228,12 +268,18 @@ You should not need to do *any* editing of any files to get vim compiled this
 way.  If, for some reason, you want the console-mode-only version of vim (this
 is NOT recommended on Win32, especially on '95/'98!!!), you can use:
 
-    make -f Make_ming.mak GUI=no vim.exe
+    mingw32-make -f Make_ming.mak GUI=no vim.exe
 
 If you are dismayed by how big the EXE is, I strongly recommend you get 'UPX'
 (also free!) and compress the file (typical compression is 50%). UPX can be
 found at
     http://www.upx.org/
+
+As of 2011, UPX still does not support compressing 64-bit EXE's; if you have
+built a 64-bit vim then an alternative to UPX is 'MPRESS'. MPRESS can be found
+at:
+    http://www.matcode.com/mpress.htm
+
 
 ADDITION: NLS support with MinGW
 
@@ -249,8 +295,7 @@ You need to uncomment lines in Make_ming.mak to have NLS defined.
 Use Make_cyg.mak with Cygwin's GCC. See
     http://users.skynet.be/antoine.mechelynck/vim/compile.htm
 
-The Cygnus one many not fully work yet.
-With Cygnus gcc you can use the Unix Makefile instead (you need to get the
+With Cygnus gcc you should use the Unix Makefile instead (you need to get the
 Unix archive then).  Then you get a Cygwin application (feels like Vim is
 running on Unix), while with Make_cyg.mak you get a Windows application (like
 with the other makefiles).
@@ -274,9 +319,9 @@ your Linux (or other unix) box.  To do this, you need to follow a few steps:
 	http://www.mingw.org/wiki/LinuxCrossMinGW
 	http://www.libsdl.org/extras/win32/cross/README.txt
     2) Get and unpack both the Unix sources and the extra archive
-    3) in 'Make_ming.mak', set 'CROSS' to 'yes' instead of 'no'.
-       Make further changes to 'Make_ming.mak' as you wish.
-       If your cross-compiler prefix differs from the predefined value,
+    3) in 'Make_cyg_ming.mak', set 'CROSS' to 'yes' instead of 'no'.
+       Make further changes to 'Make_cyg_ming.mak' and 'Make_ming.mak' as you
+       wish.  If your cross-compiler prefix differs from the predefined value,
        set 'CROSS_COMPILE' corresponding.
     4) make -f Make_ming.mak gvim.exe
 
@@ -286,10 +331,12 @@ Now you have created the Windows binary from your Linux box!  Have fun...
 6. Building with Python support
 ===============================
 
-(written by Ron Aaron: <ronaharon@yahoo.com>)
+For building with MSVC 2008 the "Windows Installer" from www.python.org
+works fine.
 
-This has been tested with the mingw32 compiler, and the ActiveState
-ActivePython:
+(rest written by Ron Aaron: <ronaharon@yahoo.com>)
+
+Building with the mingw32 compiler, and the ActiveState ActivePython:
     http://www.ActiveState.com/Products/ActivePython/
 
 After installing the ActivePython, you will have to create a 'mingw32'
@@ -406,5 +453,61 @@ Windows exe (GUI or console mode), or a 16-bit MS-DOS version.
 NOTE: multi-byte support is broken in the Borland libraries, not everything
 will work properly!  Esp. handling multi-byte file names.
 
-If you get all kinds of strange error messages when compiling, try adding
-changing the file format from "unix" to "dos".
+If you get all kinds of strange error messages when compiling, try changing
+the file format from "unix" to "dos".
+
+
+10. Installing after building from sources
+==========================================
+
+[provided by Michael Soyka]
+
+After you've built the Vim binaries as described above, you're ready to
+install Vim on your system.  However, if you've obtained the Vim sources
+using Mercurial or by downloading them as a unix tar file, you must first 
+create a "vim73" directory.  If you instead downloaded the sources as
+zip files, you can skip this setup as the zip archives already have the
+correct directory structure.  
+
+  A.  Create a Vim "runtime" subdirectory named "vim73"
+  -----------------------------------------------------
+  If you obtained your Vim sources as zip files, you can skip this step.  
+  Otherwise, continue reading.
+
+  Go to the directory that contains the Vim "src" and "runtime"
+  directories and create a new subdirectory named "vim73".  
+  
+  Copy the "runtime" files into "vim73":
+     copy runtime\* vim73
+
+  B.  Copy the new binaries into the "vim73" directory
+  ----------------------------------------------------
+  Regardless of how you installed the Vim sources, you need to copy the
+  new binaries you created above into "vim73":
+
+     copy src\*.exe vim73
+     copy src\GvimExt\gvimext.dll vim73
+     copy src\xxd\xxd.exe vim73
+
+  C.  Move the "vim73" directory into the Vim installation subdirectory
+  ---------------------------------------------------------------------
+  Move the "vim73" subdirectory into the subdirectory where you want Vim
+  to be installed.  Typically, this subdirectory will be named "vim".  
+  If you already have a "vim73" subdirectory in "vim", delete it first
+  by running its uninstal.exe program.  
+
+  D.  Install Vim
+  ---------------
+  "cd" to your Vim installation subdirectory "vim\vim73" and run the
+  "install.exe" program.  It will ask you a number of questions about
+  how you would like to have your Vim setup.  Among these are:
+  - You can tell it to write a "_vimrc" file with your preferences in the
+    parent directory.
+  - It can also install an "Edit with Vim" entry in the Windows Explorer
+    popup menu.
+  - You can have it create batch files, so that you can run Vim from the
+    console or in a shell.  You can select one of the directories in your
+    PATH or add the directory to PATH using the Windows Control Panel.  
+  - Create entries for Vim on the desktop and in the Start menu.
+
+Happy Vimming!

@@ -60,7 +60,7 @@ void Selector::add(int fd, Client &client, Type type)
     assert(!client.isActive());		// one Selector per client, and no re-adding
     assert(fd >= 0);
     
-    secdebug("selector", "add client %p fd %d type=%d", &client, fd, type);
+    secinfo("selector", "add client %p fd %d type=%d", &client, fd, type);
     
     // grow FDSets if needed
     unsigned int pos = fd / NFDBITS;
@@ -99,7 +99,7 @@ void Selector::remove(int fd)
     assert(it != clientMap.end());
     assert(it->second->mSelector == this);
 
-    secdebug("selector", "remove client %p fd %d", it->second, fd);
+    secinfo("selector", "remove client %p fd %d", it->second, fd);
 
     // remove from FDSets
     set(fd, none);
@@ -129,7 +129,7 @@ void Selector::set(int fd, Type type)
     inSet.set(fd, type & input);
     outSet.set(fd, type & output);
     errSet.set(fd, type & critical);
-    secdebug("selector", "fd %d notifications 0x%x", fd, type);
+    secinfo("selector", "fd %d notifications 0x%x", fd, type);
 }
 
 
@@ -156,7 +156,7 @@ void Selector::operator () (Time::Absolute stopTime)
 void Selector::singleStep(Time::Interval maxWait)
 {
     assert(!clientMap.empty());
-    secdebug("selector", "select(%d) [%d-%d] for %ld clients",
+    secinfo("selector", "select(%d) [%d-%d] for %ld clients",
         fdMax + 1, fdMin, fdMax, clientMap.size());
     for (;;) {	// pseudo-loop - only retries
         struct timeval duration = maxWait.timevalInterval();
@@ -172,13 +172,13 @@ void Selector::singleStep(Time::Interval maxWait)
         case -1:		// error
             if (errno == EINTR)
                 continue;
-            secdebug("selector", "select failed: errno=%d", errno);
+            secinfo("selector", "select failed: errno=%d", errno);
             UnixError::throwMe();
         case 0:			// no events
-            secdebug("selector", "select returned nothing");
+            secinfo("selector", "select returned nothing");
             return;
         default:		// some events
-            secdebug("selector", "%d pending descriptors", hits);
+            secinfo("selector", "%d pending descriptors", hits);
             //@@@ This could be optimized as a word-merge scan.
             //@@@ The typical case doesn't benefit from this though, though browsers might
             //@@@ and integrated servers definitely would.
@@ -188,7 +188,7 @@ void Selector::singleStep(Time::Interval maxWait)
                 if (outSet[fd]) types |= output;
                 if (errSet[fd]) types |= critical;
                 if (types) {
-                    secdebug("selector", "notify fd %d client %p type %d",
+                    secinfo("selector", "notify fd %d client %p type %d",
                         fd, clientMap[fd], types);
                     clientMap[fd]->notify(fd, types);
                     hits--;

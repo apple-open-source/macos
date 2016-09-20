@@ -42,7 +42,7 @@ public:
     static uint64_t idForItem(WebCore::HistoryItem*);
     static void removeItem(uint64_t itemID);
 
-    static void addItemFromUIProcess(uint64_t itemID, PassRefPtr<WebCore::HistoryItem>, uint64_t pageID);
+    static void addItemFromUIProcess(uint64_t itemID, Ref<WebCore::HistoryItem>&&, uint64_t pageID);
     static void setHighestItemIDFromUIProcess(uint64_t itemID);
     
     void clear();
@@ -50,22 +50,22 @@ public:
 private:
     WebBackForwardListProxy(WebPage*);
 
-    virtual void addItem(Ref<WebCore::HistoryItem>&&) override;
+    void addItem(Ref<WebCore::HistoryItem>&&) override;
 
-    virtual void goToItem(WebCore::HistoryItem*) override;
+    void goToItem(WebCore::HistoryItem*) override;
         
-    virtual WebCore::HistoryItem* itemAtIndex(int) override;
-    virtual int backListCount() override;
-    virtual int forwardListCount() override;
+    WebCore::HistoryItem* itemAtIndex(int) override;
+    int backListCount() override;
+    int forwardListCount() override;
 
     virtual bool isActive();
 
-    virtual void close() override;
+    void close() override;
 
 #if PLATFORM(IOS)
-    virtual unsigned current() override;
-    virtual void setCurrent(unsigned newCurrent) override;
-    virtual bool clearAllPageCaches() override;
+    unsigned current() override;
+    void setCurrent(unsigned newCurrent) override;
+    bool clearAllPageCaches() override;
 #endif
 
     WebPage* m_page;

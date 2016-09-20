@@ -104,6 +104,7 @@ struct nfs_conf_client {
 	int is_mobile;
 	int squishy_flags;
 	int root_steals_gss_context;
+	char *default_nfs4domain;
 };
 /* init to invalid values so we will only set values specified in nfs.conf */
 struct nfs_conf_client config =
@@ -120,6 +121,7 @@ struct nfs_conf_client config =
 	-1,
 	-1,
 	-1,
+	NULL,
 };
 
 /* mount options */
@@ -146,6 +148,7 @@ struct nfs_conf_client config =
 #define ALTF_REALM		0x00040000
 #define ALTF_PRINCIPAL		0x00080000
 #define ALTF_SVCPRINCIPAL	0x00100000
+#define ALTF_ETYPE		0x00200000
 
 /* switches */
 #define ALTF_ATTRCACHE		0x00000001
@@ -187,6 +190,7 @@ struct mntopt mopts[] = {
 	{ "actimeo", 0, ALTF_ATTRCACHE_VAL, 1 },
 	{ "deadtimeout", 0, ALTF_DEADTIMEOUT, 1 },
 	{ "dsize", 0, ALTF_DSIZE, 1 },
+	{ "etype", 0, ALTF_ETYPE, 1 },
 	{ "maxgroups", 0, ALTF_MAXGROUPS, 1 },
 	{ "mountport", 0, ALTF_MOUNTPORT, 1 },
 	{ "port", 0, ALTF_PORT, 1 },
@@ -271,6 +275,7 @@ struct {
 	struct timespec	acregmin, acregmax, acdirmin, acdirmax;	/* attrcache values */
 	uint32_t	lockmode;				/* advisory file locking mode */
 	struct nfs_sec	sec;					/* security flavors */
+	struct nfs_etype etype;					/* Kerberos session key encryption types to use */
 	uint32_t	maxgrouplist;				/* max AUTH_SYS groups */
 	int		socket_type, socket_family;		/* socket info */
 	uint32_t	nfs_port, mount_port;			/* port info */
@@ -755,6 +760,12 @@ assemble_mount_args(struct nfs_fs_location *nfslhead, char **xdrbufp)
 		xb_add_32(error, &xb, options.lockmode);
 	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_SECURITY))
 		xb_add_word_array(error, &xb, options.sec.flavors, options.sec.count);
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_KERB_ETYPE)) {
+		xb_add_32(error, &xb, options.etype.count);
+		xb_add_32(error, &xb, options.etype.selected);
+		for (uint32_t j = 0; j < options.etype.count; j++)
+			xb_add_32(error, &xb, options.etype.etypes[j]);
+	}
 	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_MAX_GROUP_LIST))
 		xb_add_32(error, &xb, options.maxgrouplist);
 	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_SOCKET_TYPE)) {
@@ -1050,6 +1061,68 @@ get_sec_flavors(const char *flavorlist_orig, struct nfs_sec *sec_flavs)
 		return 1;
 }
 
+/*
+ * Parse security flavors
+ */
+static int
+get_etypes(const char *etypes_orig, struct nfs_etype *etypes)
+{
+	char *etype_list;
+	char *etype;
+	uint32_t etype_bits;
+
+#define DES3_BIT  0x00000001
+#define AES128_BIT 0x00000002
+#define AES256_BIT 0x00000004
+
+	/* try to make a copy of the string so we don't butcher the original */
+	etype_list = strdup(etypes_orig);
+	if (!etype_list)
+		return (ENOMEM);
+
+	bzero(etypes, sizeof(struct nfs_etype));
+	etype_bits = 0;
+	while ( ((etype = strsep(&etype_list, ":")) != NULL) && (etypes->count < NFS_MAX_ETYPES)) {
+		if (etype[0] == '\0')
+			continue;
+		if (!strcasecmp("des3", etype) ||
+			 !strcasecmp("des3-cbc-sha1", etype) || !strcasecmp("des3-cbc-sha1-kd", etype)) {
+			if (etype_bits & DES3_BIT) {
+				warnx("etype des3-cbc-sha1-kd  appears more than once: %s", etype_list);
+				continue;
+			}
+			etype_bits |= DES3_BIT;
+			etypes->etypes[etypes->count++] = NFS_DES3_CBC_SHA1_KD;
+		}
+		else if (!strcasecmp("aes128", etype) ||
+			 !strcasecmp("aes128-cts-hmac-sha1", etype) || !strcasecmp("aes128-cts-hmac-sha1-96", etype)) {
+			if (etype_bits & AES128_BIT) {
+				warnx("etype aes128-cts-hmac-sha1-96  appears more than once: %s", etype_list);
+				continue;
+			}
+			etype_bits |= AES128_BIT;
+			etypes->etypes[etypes->count++] = NFS_AES128_CTS_HMAC_SHA1_96;
+		}
+		else if (!strcasecmp("aes256", etype) ||
+			 !strcasecmp("aes256-cts-hmac-sha1", etype) || !strcasecmp("aes256-cts-hmac-sha1-96", etype)) {
+			if (etype_bits & AES128_BIT) {
+				warnx("etype aes256-cts-hmac-sha1-96  appears more than once: %s", etype_list);
+				continue;
+			}
+			etype_bits |= AES256_BIT;
+			etypes->etypes[etypes->count++] = NFS_AES256_CTS_HMAC_SHA1_96;
+		}
+		else {
+			warnx("etype %s is unknown etype. Ignored", etype);
+		}
+	}
+	free(etype_list);
+
+	etypes->selected = etypes->count; /* Nothing has been selected, so set selected to count */
+
+	return ((etypes->count) ? 0 : 1);
+}
+
 void
 set_krb5_sec_flavor_for_principal(void)
 {
@@ -1273,6 +1346,15 @@ handle_mntopts(char *opts)
 			warnx("couldn't parse security value -- %s", p2);
 		else
 			NFS_BITMAP_SET(options.mattrs, NFS_MATTR_SECURITY);
+	}
+	if (altflags & ALTF_ETYPE) {
+		p2 = getmntoptstr(mop, "etype");
+		if (!p2)
+			warnx("missing encryption type value for etype= option");
+		else if (get_etypes(p2, &options.etype))
+			warnx("couldn't parse type value -- %s", p2);
+		else
+			NFS_BITMAP_SET(options.mattrs, NFS_MATTR_KERB_ETYPE);
 	}
 	if (altflags & ALTF_TIMEO) {
 		num = getmntoptnum(mop, "timeo");
@@ -1636,7 +1718,11 @@ config_read(struct nfs_conf_client *conf)
 				conf->squishy_flags = val;
 		} else if (!strcmp(key, "nfs.client.root_steals_gss_context")) {
 			if (value && val)
-				conf->root_steals_gss_context = val;;
+				conf->root_steals_gss_context = val;
+		} else if (!strcmp(key, "nfs.client.default_nfs4domain")) {
+			if (value) {
+				conf->default_nfs4domain = strndup(value, MAXPATHLEN);
+			}
 		} else {
 			if (verbose)
 				printf("ignoring unknown config value: %4ld %s=%s\n", linenum, key, value ? value : "");
@@ -1766,6 +1852,9 @@ config_sysctl(void)
 		sysctl_set("vfs.generic.nfs.client.squishy_flags", config.squishy_flags);
 	if (config.root_steals_gss_context != -1)
 		sysctl_set("vfs.generic.nfs.client.root_steals_gss_context", config.root_steals_gss_context);
+	if (config.default_nfs4domain != NULL) {
+		sysctlbyname("vfs.generic.nfs.client.default_nfs4domain", NULL, 0, config.default_nfs4domain, strnlen(config.default_nfs4domain, MAXPATHLEN));
+	}
 }
 
 /*
@@ -1822,7 +1911,7 @@ parse_fs_locations(const char *mntfromarg, struct nfs_fs_location **nfslp)
 
 		/* parse hosts */
 		nfssprev = NULL;
-		while (*p && (!colon || !colonslash)) {
+		while (*p) {
 			if (!((nfss = malloc(sizeof(*nfss)))))
 				return (ENOMEM);
 			bzero(nfss, sizeof(*nfss));
@@ -1925,8 +2014,10 @@ addhost:
 		*p = '\0';
 		nfsl->nl_path = strdup(path);
 		*p = ch;
-		if (!nfsl->nl_path)
+		if (!nfsl->nl_path) {
+			free(nfsl);
 			return (ENOMEM);
+		}
 		/* Add the fs location to the list of locations. */
 		if (nfslprev)
 			nfslprev->nl_next = nfsl;
@@ -1939,9 +2030,9 @@ addhost:
 			p++;
 	}
 
+	free(argcopy);
 	if (!nfslhead)
 		return (EINVAL);
-	free(argcopy);
 
 	*nfslp = nfslhead;
 	return (0);
@@ -2160,6 +2251,17 @@ sec_flavor_name(uint32_t flavor)
 	}
 }
 
+static const char *
+etype_name(uint32_t etype)
+{
+	switch(etype) {
+	case NFS_DES3_CBC_SHA1_KD:		return ("des3-cbc-sha1-kd");
+	case NFS_AES128_CTS_HMAC_SHA1_96:	return ("aes128-cts-hmac-sha1-96");
+	case NFS_AES256_CTS_HMAC_SHA1_96:	return ("aes256-cts-hmac-sha1-96");
+	default:				return ("?");
+	}
+}
+
 void
 dump_mount_options(struct nfs_fs_location *nfslhead, char *mntonname)
 {
@@ -2309,6 +2411,11 @@ dump_mount_options(struct nfs_fs_location *nfslhead, char *mntonname)
 		printf(",sec=%s", sec_flavor_name(options.sec.flavors[0]));
 		for (i=1; i < options.sec.count; i++)
 			printf(":%s", sec_flavor_name(options.sec.flavors[i]));
+	}
+	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_KERB_ETYPE)) {
+		printf(",etype=%s", etype_name(options.etype.etypes[0]));
+		for (uint32_t j = 1; j < options.etype.count; j++)
+			printf(":%s", etype_name(options.etype.etypes[j]));
 	}
 	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_REALM))
 		printf(",realm=%s", options.realm);

@@ -2486,8 +2486,10 @@ create_local_addr(const struct sockaddr *remote, uint ifindex)
 	}
 
 	if (ifindex) {
-		setsockopt(s, remote->sa_family == AF_INET ? IPPROTO_IP : IPPROTO_IPV6,
-				   remote->sa_family == AF_INET ? IP_BOUND_IF : IPV6_BOUND_IF, &ifindex, sizeof(ifindex));
+		if (setsockopt(s, remote->sa_family == AF_INET ? IPPROTO_IP : IPPROTO_IPV6,
+                       remote->sa_family == AF_INET ? IP_BOUND_IF : IPV6_BOUND_IF, &ifindex, sizeof(ifindex))) {
+            syslog(LOG_ERR, "failed to set IP family on localaddr socket: %s\n", strerror(errno));
+        }
 	}
 
 	struct sockaddr_storage remote_with_port;

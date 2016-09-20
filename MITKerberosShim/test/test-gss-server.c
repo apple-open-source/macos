@@ -313,8 +313,8 @@ static int Authorize (gss_ctx_id_t *inContext, int *outAuthorized, int *outAutho
         *outAuthorizationError = authorizationErr;
     }
     
-    if (clientPrincipal  == NULL) { free (clientPrincipal); }
-    if (servicePrincipal == NULL) { free (servicePrincipal); }
+    if (clientPrincipal  != NULL) { free (clientPrincipal); }
+    if (servicePrincipal != NULL) { free (servicePrincipal); }
 
     return err; 
 }
@@ -341,7 +341,7 @@ int main (int argc, const char *argv[])
         
     for (i = 1; (i < argc) && !err; i++) {
         if ((strcmp (argv[i], "--port") == 0) && (i < (argc - 1))) {
-            port = strtol (argv[++i], NULL, 0);
+            port = (int)strtol (argv[++i], NULL, 0);
             if (port == 0) { err = errno; }
         } else if ((strcmp(argv[i], "--sname") == 0) && (i < (argc - 1))) {
             gServiceName = argv[++i];

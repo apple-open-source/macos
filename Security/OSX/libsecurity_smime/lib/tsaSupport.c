@@ -48,6 +48,7 @@
 #include <security_keychain/SecCertificateP.h>
 #include <security_keychain/SecCertificatePrivP.h>
 #include <utilities/SecCFRelease.h>
+#include <utilities/SecDispatchRelease.h>
 
 #include "tsaSupport.h"
 #include "tsaSupportPriv.h"
@@ -90,16 +91,16 @@ extern OSStatus impExpImportCertCommon(
                     fprintf(stderr, "%s " fmt, buf, ## __VA_ARGS__); \
                     syslog(LOG_ERR, " " fmt, ## __VA_ARGS__); \
                     } } while (0)
-    #define tsa_secdebug(scope, format...) \
+    #define tsa_secinfo(scope, format...) \
     { \
         syslog(LOG_NOTICE, format); \
-        secdebug(scope, format); \
+        secinfo(scope, format); \
         printf(format); \
     }
 #else
-    #define tsaDebug(args...)			tsa_secdebug("tsa", ## args)
-#define tsa_secdebug(scope, format...) \
-        secdebug(scope, format)
+    #define tsaDebug(args...)			tsa_secinfo("tsa", ## args)
+#define tsa_secinfo(scope, format...) \
+        secinfo(scope, format)
 #endif
 
 #ifndef NDEBUG
@@ -524,9 +525,9 @@ static OSStatus sendTSARequestWithXPC(const unsigned char *tsaReq, size_t tsaReq
     xpc_connection_send_message_with_reply(con, message, xpc_queue, ^(xpc_object_t reply)
     {
         tsaDebug("xpc_connection_send_message_with_reply handler called back\n");
-        dispatch_retain(waitSemaphore);
+        dispatch_retain_safe(waitSemaphore);
 
-    xpc_type_t xtype = xpc_get_type(reply);
+        xpc_type_t xtype = xpc_get_type(reply);
         if (XPC_TYPE_ERROR == xtype)
             {   tsaDebug("message error: %s\n", xpc_dictionary_get_string(reply, XPC_ERROR_KEY_DESCRIPTION)); }
         else if (XPC_TYPE_CONNECTION == xtype)
@@ -595,15 +596,13 @@ static OSStatus sendTSARequestWithXPC(const unsigned char *tsaReq, size_t tsaReq
     }
     else
         { tsaDebug("unexpected message reply type %p\n", xtype); }
-
-        dispatch_semaphore_signal(waitSemaphore);
-        dispatch_release(waitSemaphore);
+        if (waitSemaphore) { dispatch_semaphore_signal(waitSemaphore); }
+        dispatch_release_null(waitSemaphore);
     });
-
     { tsaDebug("waiting up to %d seconds for response from XPC\n", timeoutInSeconds); }
-	dispatch_semaphore_wait(waitSemaphore, finishTime);
+    if (waitSemaphore) { dispatch_semaphore_wait(waitSemaphore, finishTime); }
 
-	dispatch_release(waitSemaphore);
+    dispatch_release_null(waitSemaphore);
     xpc_release(tsaReqData);
     xpc_release(message);
 
@@ -780,12 +779,21 @@ OSStatus SecCmsTSADefaultCallback(CFTypeRef context, void *messageImprintV, uint
 #endif
     }
 
-    CFStringRef url = (CFStringRef)CFDictionaryGetValue((CFDictionaryRef)context, kTSAContextKeyURL);
+    CFTypeRef url = CFDictionaryGetValue((CFDictionaryRef)context, kTSAContextKeyURL);
     if (!url)
     {
         tsaDebug("[TSA] missing URL for TSA (key: %s)\n", "kTSAContextKeyURL");
         goto xit;
     }
+
+    CFStringRef urlStr = NULL;
+    if (CFURLGetTypeID() == CFGetTypeID(url)) {
+        urlStr = CFURLGetString(url);
+    } else {
+        require_quiet(CFStringGetTypeID() == CFGetTypeID(url), xit);
+        urlStr = url;
+    }
+    require_quiet(urlStr, xit);
 
     /*
         If debugging, look at special values in the context to mess things up
@@ -799,9 +807,9 @@ OSStatus SecCmsTSADefaultCallback(CFTypeRef context, void *messageImprintV, uint
     }
 
     // need to extract into buffer
-    CFIndex length = CFStringGetLength(url);        // in 16-bit character units
+    CFIndex length = CFStringGetLength(urlStr);        // in 16-bit character units
     tsaURL = malloc(6 * length + 1);                // pessimistic
-    if (!CFStringGetCString(url, (char *)tsaURL, 6 * length + 1, kCFStringEncodingUTF8))
+    if (!CFStringGetCString(urlStr, (char *)tsaURL, 6 * length + 1, kCFStringEncodingUTF8))
         goto xit;
 
     tsaDebug("[TSA] URL for timestamp server: %s\n", tsaURL);

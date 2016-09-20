@@ -599,8 +599,6 @@ SecCmsRecipientInfoWrapBulkKey(SecCmsRecipientInfoRef ri, SecSymmetricKeyRef bul
 					&kari->ukm,
 					&kari->keyEncAlg,
 					&oiok->id.originatorPublicKey.publicKey);
-	/* this is a BIT STRING */
-	oiok->id.originatorPublicKey.publicKey.Length <<= 3;
 	break;
 
     default:
@@ -688,8 +686,6 @@ SecCmsRecipientInfoUnwrapBulkKey(SecCmsRecipientInfoRef ri, int subIndex,
 	    SecCmsOriginatorPublicKey *opk = &oiok->id.originatorPublicKey;
 	    /* FIXME - verify opk->algorithmIdentifier here? */
 	    CSSM_DATA senderPubKey = opk->publicKey;
-	    /* Bit string, convert here */
-	    senderPubKey.Length = (senderPubKey.Length + 7) >> 3;
 	    CSSM_DATA_PTR ukm = &kari->ukm;
 	    bulkkey = SecCmsUtilDecryptSymKeyECDH(privkey, enckey, ukm, encalg, bulkalgtag, &senderPubKey);
 	    break;

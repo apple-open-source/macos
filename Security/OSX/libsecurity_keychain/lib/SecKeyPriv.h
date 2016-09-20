@@ -39,6 +39,7 @@
 #include <Security/x509defs.h>
 #include <Security/SecAsn1Types.h>
 #include <AvailabilityMacros.h>
+#include <CoreFoundation/CFRuntime.h>
 
 #if defined(__cplusplus)
 extern "C" {
@@ -66,14 +67,42 @@ enum {
        to a SecRSAPublicKeyParams and keyDataLength is
        sizeof(SecRSAPublicKeyParams). */
     kSecKeyEncodingRSAPublicParams = 3,
+
+    /* RSA public key in SecRSAPublicKeyParams format.  keyData is a pointer
+       to a SecRSAPublicKeyParams and keyDataLength is
+       sizeof(SecRSAPublicKeyParams). */
+    kSecDERKeyEncoding = 4,
+
+    /* Internal "encodings to send other data" */
+    kSecGenerateKey = 5,
+    kSecExtractPublicFromPrivate = 6,
+
+    /* Encoding came from SecKeyCopyPublicBytes for a public key,
+       or internally from a private key */
+    kSecKeyEncodingBytes = 7,
+
+    /* Handing in a private key from corecrypto directly. */
+    kSecKeyCoreCrypto = 8,
+};
+
+typedef uint32_t SecKeyWrapType;
+enum {
+    /* wrap key in RFC3394 (AESWrap) */
+    kSecKeyWrapRFC3394 = 0,
+
+    /* wrap key in PGP style (support EC keys only right now) */
+    kSecKeyWrapPublicKeyPGP = 1,
+
+};
+
+typedef CF_ENUM(CFIndex, SecKeyOperationMode) {
+    kSecKeyOperationModePerform = 0,
+    kSecKeyOperationModeCheckIfSupported = 1,
 };
 
 typedef OSStatus (*SecKeyInitMethod)(SecKeyRef, const uint8_t *, CFIndex,
     SecKeyEncoding);
-typedef void *(*SecKeyCopyMethod)(SecKeyRef);
 typedef void  (*SecKeyDestroyMethod)(SecKeyRef);
-typedef void  (*SecKeyDeleteMethod)(SecKeyRef);
-typedef void  (*SecKeyShowMethod)(SecKeyRef);
 typedef OSStatus (*SecKeyRawSignMethod)(SecKeyRef key, SecPadding padding,
 	const uint8_t *dataToSign, size_t dataToSignLen,
 	uint8_t *sig, size_t *sigLen);
@@ -86,27 +115,87 @@ typedef OSStatus (*SecKeyEncryptMethod)(SecKeyRef key, SecPadding padding,
 typedef OSStatus (*SecKeyDecryptMethod)(SecKeyRef key, SecPadding padding,
     const uint8_t *cipherText, size_t cipherTextLen,
     uint8_t *plainText, size_t *plainTextLen);
+typedef OSStatus (*SecKeyComputeMethod)(SecKeyRef key,
+    const uint8_t *pub_key, size_t pub_key_len,
+    uint8_t *computed_key, size_t *computed_key_len);
 typedef size_t (*SecKeyBlockSizeMethod)(SecKeyRef key);
 typedef CFDictionaryRef (*SecKeyCopyDictionaryMethod)(SecKeyRef key);
+typedef CFIndex (*SecKeyGetAlgorithmIDMethod)(SecKeyRef key);
+typedef OSStatus (*SecKeyCopyPublicBytesMethod)(SecKeyRef key, CFDataRef *serialization);
+typedef CFDataRef (*SecKeyCopyWrapKeyMethod)(SecKeyRef key, SecKeyWrapType type, CFDataRef unwrappedKey, CFDictionaryRef parameters, CFDictionaryRef *outParam, CFErrorRef *error);
+typedef CFDataRef (*SecKeyCopyUnwrapKeyMethod)(SecKeyRef key, SecKeyWrapType type, CFDataRef wrappedKey, CFDictionaryRef parameters, CFDictionaryRef *outParam, CFErrorRef *error);
+typedef CFStringRef (*SecKeyDescribeMethod)(SecKeyRef key);
 
-typedef struct {
+typedef CFDataRef (*SecKeyCopyExternalRepresentationMethod)(SecKeyRef key, CFErrorRef *error);
+typedef SecKeyRef (*SecKeyCopyPublicKeyMethod)(SecKeyRef key);
+typedef Boolean (*SecKeyIsEqualMethod)(SecKeyRef key1, SecKeyRef key2);
+/*!
+ @abstract Performs cryptographic operation with the key.
+ @param key Key to perform the operation on.
+ @param operation Type of operation to be performed.
+ @param algorithm Algorithm identifier for the operation.  Determines format of input and output data.
+ @param allAlgorithms Array of algorithms which were traversed until we got to this operation.  The last member of this array is always the same as @c algorithm parameter.
+ @param mode Mode in which the operation is performed.  Two available modes are checking only if the operation can be performed or actually performing the operation.
+ @param in1 First input parameter for the operation, meaningful only in ModePerform.
+ @param in2 Second input parameter for the operation, meaningful only in ModePerform.
+ @param error Error details when NULL is returned.
+ @return NULL if some failure occured. kCFNull if operation/algorithm/key combination is not supported, otherwise the result of the operation or kCFBooleanTrue in ModeCheckIfSupported.
+ */
+typedef CFTypeRef(*SecKeyCopyOperationResultMethod)(SecKeyRef key, SecKeyOperationType operation, SecKeyAlgorithm algorithm, CFArrayRef allAlgorithms, SecKeyOperationMode mode, CFTypeRef in1, CFTypeRef in2, CFErrorRef *error);
+
+#define kSecKeyDescriptorVersion  (4)
+
+typedef struct __SecKeyDescriptor {
+    /* Version of this SecKeyDescriptor.  Must be kSecKeyDescriptorVersion. */
+    uint32_t version;
+
+    /* Name of this key class for use by SecKeyShow(). */
     const char *name;
-    SecKeyInitMethod init;
-    SecKeyCopyMethod copy;
-    SecKeyDestroyMethod destroy;
-    SecKeyDeleteMethod remove;
-    SecKeyShowMethod show;
-    SecKeyRawSignMethod rawSign;
-    SecKeyRawVerifyMethod rawVerify;
-    SecKeyEncryptMethod encrypt;
-    SecKeyDecryptMethod decrypt;
-    SecKeyBlockSizeMethod blockSize;
-    SecKeyCopyDictionaryMethod copyDictionary;
-    /* If known, the number of bytes to allocate for the key field in the SecKey struct. */
-    int extraBytes;
-} SecKeyDescriptor;
 
-CFTypeID SecKeyGetCFClassTypeID(void);
+    /* If nonzero, SecKeyCreate will allocate this many bytes for the key
+       field in the SecKeyRef it creates.  If zero key is NULL and the
+       implementor can choose to dynamically allocate it in the init
+       function and free it in the destroy function.  */
+    uint32_t extraBytes;
+
+    /* Called by SecKeyCreate(). */
+    SecKeyInitMethod init;
+    /* Called by destructor (final CFRelease() or gc if using). */
+    SecKeyDestroyMethod destroy;
+    /* Called by SecKeyRawSign(). */
+    SecKeyRawSignMethod rawSign;
+    /* Called by SecKeyRawVerify(). */
+    SecKeyRawVerifyMethod rawVerify;
+    /* Called by SecKeyEncrypt(). */
+    SecKeyEncryptMethod encrypt;
+    /* Called by SecKeyDecrypt(). */
+    SecKeyDecryptMethod decrypt;
+    /* Reserved for future use. */
+    SecKeyComputeMethod compute;
+    /* Called by SecKeyGetBlockSize(). */
+    SecKeyBlockSizeMethod blockSize;
+    /* Called by SecKeyCopyAttributeDictionary(), which is private. */
+    SecKeyCopyDictionaryMethod copyDictionary;
+    /* Called by SecKeyDescribeMethod(). */
+    SecKeyDescribeMethod describe;
+#if kSecKeyDescriptorVersion > 0
+    /* Called by SecKeyCopyAttributeDictionary(), which is private. */
+    SecKeyGetAlgorithmIDMethod getAlgorithmID;
+#endif
+#if kSecKeyDescriptorVersion > 1
+    SecKeyCopyPublicBytesMethod copyPublic;
+#endif
+#if kSecKeyDescriptorVersion > 2
+    SecKeyCopyWrapKeyMethod copyWrapKey;
+    SecKeyCopyUnwrapKeyMethod copyUnwrapKey;
+#endif
+#if kSecKeyDescriptorVersion > 3
+    SecKeyCopyExternalRepresentationMethod copyExternalRepresentation;
+    SecKeyCopyPublicKeyMethod copyPublicKey;
+    SecKeyCopyOperationResultMethod copyOperationResult;
+    SecKeyIsEqualMethod isEqual;
+#endif
+} SecKeyDescriptor;
 
 /*!
 	@function SecKeyGetAlgorithmID
@@ -388,6 +477,77 @@ OSStatus SecKeyRawVerifyOSX(
 		 size_t              signedDataLen,
 		 const uint8_t       *sig,
 		 size_t              sigLen);
+
+/*!
+ @enum SecKeyAttestationKeyType
+ @abstract Defines types of builtin attestation keys.
+*/
+typedef CF_ENUM(uint32_t, SecKeyAttestationKeyType)
+{
+	kSecKeyAttestationKeyTypeSIK = 0,
+	kSecKeyAttestationKeyTypeGID
+} __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);
+
+/*!
+ @function SecKeyCopyAttestationKey
+ @abstract Returns a copy of a builtin attestation key.
+
+ @param keyType Type of the requested builtin key.
+ @param error An optional pointer to a CFErrorRef. This value is set if an error occurred.
+
+ @result On success a SecKeyRef containing the requested key is returned, on failure it returns NULL.
+*/
+SecKeyRef SecKeyCopyAttestationKey(SecKeyAttestationKeyType keyType, CFErrorRef *error)
+__OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);
+
+/*!
+ @function SecKeyCreateAttestation
+ @abstract Attests a key with another key.
+
+ @param key The attesting key.
+ @param keyToAttest The key which is to be attested.
+ @param error An optional pointer to a CFErrorRef. This value is set if an error occurred.
+
+ @result On success a CFDataRef containing the attestation data is returned, on failure it returns NULL.
+ 
+ @discussion Key attestation only works for CTK SEP keys, i.e. keys created with kSecAttrTokenID=kSecAttrTokenIDSecureEnclave.
+*/
+CFDataRef SecKeyCreateAttestation(SecKeyRef key, SecKeyRef keyToAttest, CFErrorRef *error)
+__OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);
+
+/*!
+ @function SecKeySetParameter
+ @abstract Sets unspecified key parameter for the backend.
+
+ @param key Key to set the parameter to.
+ @param name Identifies parameter to be set.
+ @param value New value for the parameter.
+ @param error Error which gathers more information when something went wrong.
+
+ @discussion Serves as channel between SecKey client and backend for passing additional sideband data send from SecKey caller
+ to SecKey implementation backend (currently only CTK-based token backend is supported).  Parameter names and types are
+ a contract between SecKey user (application) and backend and are not interpreted by SecKey layer in any way.
+ */
+Boolean SecKeySetParameter(SecKeyRef key, CFStringRef name, CFPropertyListRef value, CFErrorRef *error)
+__OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);
+
+/*!
+ Algorithms for converting between bigendian and core-crypto ccunit data representation.
+ */
+extern const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureRawCCUnit;
+extern const SecKeyAlgorithm kSecKeyAlgorithmRSAEncryptionRawCCUnit;
+
+/*!
+ Internal algorithm for RSA-MD5.  We do not want to export MD5 in new API, but we need it
+ for implementing legacy interfaces.
+ */
+extern const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureDigestPKCS1v15MD5;
+extern const SecKeyAlgorithm kSecKeyAlgorithmRSASignatureMessagePKCS1v15MD5;
+
+/*!
+ Algorithms for interoperability with libaks smartcard support.
+ */
+extern const SecKeyAlgorithm kSecKeyAlgorithmECIESEncryptionAKSSmartCard;
 
 #if defined(__cplusplus)
 }

@@ -31,6 +31,27 @@
     CSSParserString string;
     CSSSelector::MarginBoxType marginBox;
     CSSParserValue value;
+    CSSParserSelectorCombinator relation;
+    StyleRuleBase* rule;
+    Vector<RefPtr<StyleRuleBase>>* ruleList;
+    MediaQuerySet* mediaList;
+    MediaQuery* mediaQuery;
+    MediaQuery::Restrictor mediaQueryRestrictor;
+    MediaQueryExpression* mediaQueryExpression;
+    Vector<CSSParser::SourceSize>* sourceSizeList;
+    Vector<MediaQueryExpression>* mediaQueryExpressionList;
+    StyleKeyframe* keyframe;
+    Vector<RefPtr<StyleKeyframe>>* keyframeRuleList;
+    CSSPropertyID id;
+    CSSParserSelector* selector;
+    Vector<std::unique_ptr<CSSParserSelector>>* selectorList;
+    bool boolean;
+    CSSSelector::Match match;
+    int integer;
+    char character;
+    CSSParserValueList* valueList;
+    Vector<CSSParserString>* stringList;
+    CSSParser::Location location;
 }
 
 %{
@@ -230,14 +251,11 @@ static bool selectorListDoesNotMatchAnyPseudoElement(const Vector<std::unique_pt
 
 %token <string> UNICODERANGE
 
-%union { CSSParserSelectorCombinator relation; }
 %type <relation> combinator
 
-%union { StyleRuleBase* rule; }
 %type <rule> block_rule block_valid_rule font_face import keyframes media page region rule ruleset valid_rule
 %destructor { if ($$) $$->deref(); } block_rule block_valid_rule font_face import keyframes media page region rule ruleset valid_rule
 
-%union { Vector<RefPtr<StyleRuleBase>>* ruleList; }
 %type <ruleList> block_rule_list block_valid_rule_list
 %destructor { delete $$; } block_rule_list block_valid_rule_list
 
@@ -245,82 +263,65 @@ static bool selectorListDoesNotMatchAnyPseudoElement(const Vector<std::unique_pt
 
 %type <marginBox> margin_sym
 
-%union { MediaQuerySet* mediaList; }
 %type <mediaList> media_list maybe_media_list
 %destructor { if ($$) $$->deref(); } media_list maybe_media_list
 
-%union { MediaQuery* mediaQuery; }
 %type <mediaQuery> media_query
 %destructor { delete $$; } media_query
 
-%union { MediaQuery::Restrictor mediaQueryRestrictor; }
 %type <mediaQueryRestrictor> maybe_media_restrictor
 
-%union { MediaQueryExp* mediaQueryExp; }
-%type <mediaQueryExp> media_query_exp base_media_query_exp
-%destructor { delete $$; } media_query_exp base_media_query_exp
+%type <mediaQueryExpression> media_query_expression base_media_query_expression
+%destructor { delete $$; } media_query_expression base_media_query_expression
 
-%union { Vector<CSSParser::SourceSize>* sourceSizeList; }
 %type <sourceSizeList> source_size_list
 %destructor { delete $$; } source_size_list
 
-%type <mediaQueryExp> maybe_source_media_query_exp
-%destructor { delete $$; } maybe_source_media_query_exp
+%type <mediaQueryExpression> maybe_source_media_query_expression
+%destructor { delete $$; } maybe_source_media_query_expression
 
 %type <value> source_size_length
 %destructor { destroy($$); } source_size_length
 
-%union { Vector<std::unique_ptr<MediaQueryExp>>* mediaQueryExpList; }
-%type <mediaQueryExpList> media_query_exp_list maybe_and_media_query_exp_list
-%destructor { delete $$; } media_query_exp_list maybe_and_media_query_exp_list
+%type <mediaQueryExpressionList> media_query_expression_list maybe_and_media_query_expression_list
+%destructor { delete $$; } media_query_expression_list maybe_and_media_query_expression_list
 
 %type <string> keyframe_name
 
-%union { StyleKeyframe* keyframe; }
 %type <keyframe> keyframe_rule
 %destructor { if ($$) $$->deref(); } keyframe_rule
 
-%union { Vector<RefPtr<StyleKeyframe>>* keyframeRuleList; }
 %type <keyframeRuleList> keyframes_rule
 %destructor { delete $$; } keyframes_rule
 
-// These parser values never need to be destroyed because they are never functions or value lists.
-%type <value> calc_func_term key unary_term
+// These parser values never need to be destroyed because they are never functions, value lists, or variables.
+%type <value> key unary_term
 
-// These parser values need to be destroyed because they might be functions.
-%type <value> calc_function function variable_function min_or_max_function term
-%destructor { destroy($$); } calc_function function variable_function min_or_max_function term
+// These parser values need to be destroyed because they might be functions, value lists, or variables.
+%type <value> calc_func_term calc_function function min_or_max_function term variable_function
+%destructor { destroy($$); } calc_func_term calc_function function min_or_max_function term variable_function
 
-%union { CSSPropertyID id; }
 %type <id> property
 
-%union { CSSParserSelector* selector; }
 %type <selector> attrib class page_selector pseudo pseudo_page complex_selector complex_selector_with_trailing_whitespace compound_selector specifier specifier_list
 %destructor { delete $$; } attrib class page_selector pseudo pseudo_page complex_selector complex_selector_with_trailing_whitespace compound_selector specifier specifier_list
 
-%union { Vector<std::unique_ptr<CSSParserSelector>>* selectorList; }
 %type <selectorList> selector_list nested_selector_list simple_selector_list nth_selector_ending
 %destructor { delete $$; } selector_list nested_selector_list simple_selector_list
 %destructor { delete $$; } nth_selector_ending
 
-%union { bool boolean; }
 %type <boolean> attrib_flags declaration declaration_list decl_list priority
 
-%union { CSSSelector::Match match; }
 %type <match> match
 
-%union { int integer; }
 %type <integer> unary_operator maybe_unary_operator
 
-%union { char character; }
 %type <character> operator calc_func_operator
 
-%union { CSSParserValueList* valueList; }
 %type <valueList> calc_func_expr calc_func_expr_list calc_func_paren_expr expr key_list maybe_media_value valid_calc_func_expr valid_expr whitespace_or_expr maybe_expr
 %destructor { delete $$; } calc_func_expr calc_func_expr_list calc_func_paren_expr expr key_list maybe_media_value valid_calc_func_expr valid_expr whitespace_or_expr maybe_expr
 
 %type <string> lang_range
-%union { Vector<CSSParserString>* stringList; }
 %type <stringList> comma_separated_lang_ranges
 %destructor { delete $$; } comma_separated_lang_ranges
 
@@ -328,7 +329,6 @@ static bool selectorListDoesNotMatchAnyPseudoElement(const Vector<std::unique_pt
 
 %type <string> element_name
 
-%union { CSSParser::Location location; }
 %type <location> error_location
 
 #if ENABLE_CSS_GRID_LAYOUT
@@ -364,6 +364,11 @@ static bool selectorListDoesNotMatchAnyPseudoElement(const Vector<std::unique_pt
 %token <string> CUEFUNCTION
 
 #endif
+
+
+%token <string> SLOTTEDFUNCTION
+%token <string> HOSTFUNCTION
+
 
 %%
 
@@ -482,7 +487,7 @@ block_rule_list:
       if (RefPtr<StyleRuleBase> rule = adoptRef($2)) {
           if (!$$)
               $$ = new Vector<RefPtr<StyleRuleBase>>;
-          $$->append(rule.release());
+          $$->append(WTFMove(rule));
       }
   }
   ;
@@ -494,7 +499,7 @@ block_valid_rule_list:
       if (RefPtr<StyleRuleBase> rule = adoptRef($2)) {
           if (!$$)
               $$ = new Vector<RefPtr<StyleRuleBase>>;
-          $$->append(rule.release());
+          $$->append(WTFMove(rule));
       }
   }
   ;
@@ -569,59 +574,65 @@ webkit_source_size_list:
     ;
 
 source_size_list:
-    maybe_source_media_query_exp source_size_length {
+    maybe_source_media_query_expression source_size_length {
         $$ = new Vector<CSSParser::SourceSize>;
-        $$->append(parser->sourceSize(std::unique_ptr<MediaQueryExp>($1), $2));
+        if (auto result = parser->sourceSize(WTFMove(*$1), $2))
+            $$->append(WTFMove(result.value()));
+        delete $1;
     }
-    | source_size_list maybe_space ',' maybe_space maybe_source_media_query_exp source_size_length {
+    | source_size_list maybe_space ',' maybe_space maybe_source_media_query_expression source_size_length {
         $$ = $1;
-        $$->append(parser->sourceSize(std::unique_ptr<MediaQueryExp>($5), $6));
+        if (auto result = parser->sourceSize(WTFMove(*$5), $6))
+            $$->append(WTFMove(result.value()));
+        delete $5;
     }
     ;
 
-maybe_source_media_query_exp:
+maybe_source_media_query_expression:
     /* empty */ {
-        $$ = new MediaQueryExp;
+        $$ = new MediaQueryExpression;
     }
-    | base_media_query_exp maybe_space;
+    | base_media_query_expression maybe_space;
 
 source_size_length: unary_term | calc_function;
 
-base_media_query_exp: '(' maybe_space IDENT maybe_space maybe_media_value ')' {
+base_media_query_expression: '(' maybe_space IDENT maybe_space maybe_media_value ')' {
         std::unique_ptr<CSSParserValueList> mediaValue($5);
-        $3.lower();
-        $$ = new MediaQueryExp($3, mediaValue.get());
+        $3.convertToASCIILowercaseInPlace();
+        $$ = new MediaQueryExpression($3, mediaValue.get());
     }
     ;
 
-media_query_exp:
-    maybe_media_restrictor maybe_space base_media_query_exp maybe_space {
+media_query_expression:
+    maybe_media_restrictor maybe_space base_media_query_expression maybe_space {
         if ($1 != MediaQuery::None) {
             // If restrictor is specified, media query expression is invalid.
             // Create empty media query expression and continue parsing media query.
             delete $3;
-            $$ = new MediaQueryExp;
+            $$ = new MediaQueryExpression;
         } else
             $$ = $3;
     }
     ;
 
-media_query_exp_list:
-    media_query_exp {
-        $$ = new Vector<std::unique_ptr<MediaQueryExp>>;
-        $$->append(std::unique_ptr<MediaQueryExp>($1));
+media_query_expression_list:
+    media_query_expression {
+        $$ = new Vector<MediaQueryExpression>;
+        $$->append(WTFMove(*$1));
+        delete $1;
     }
-    | media_query_exp_list maybe_space MEDIA_AND maybe_space media_query_exp {
+    | media_query_expression_list maybe_space MEDIA_AND maybe_space media_query_expression {
         $$ = $1;
-        $$->append(std::unique_ptr<MediaQueryExp>($5));
+        $$->append(WTFMove(*$5));
+        delete $5;
     }
     ;
 
-maybe_and_media_query_exp_list:
+maybe_and_media_query_expression_list:
     /*empty*/ {
-        $$ = new Vector<std::unique_ptr<MediaQueryExp>>;
+        $$ = new Vector<MediaQueryExpression>;
     }
-    | MEDIA_AND maybe_space media_query_exp_list {
+    | MEDIA_AND maybe_space media_query_expression_list {
         $$ = $3;
     }
     ;
@@ -639,13 +650,15 @@ maybe_media_restrictor:
     ;
 
 media_query:
-    media_query_exp_list {
-        $$ = new MediaQuery(MediaQuery::None, "all", std::unique_ptr<Vector<std::unique_ptr<MediaQueryExp>>>($1));
+    media_query_expression_list {
+        $$ = new MediaQuery(MediaQuery::None, "all", WTFMove(*$1));
+        delete $1;
     }
     |
-    maybe_media_restrictor maybe_space IDENT maybe_space maybe_and_media_query_exp_list {
-        $3.lower();
-        $$ = new MediaQuery($1, $3, std::unique_ptr<Vector<std::unique_ptr<MediaQueryExp>>>($5));
+    maybe_media_restrictor maybe_space IDENT maybe_space maybe_and_media_query_expression_list {
+        $3.convertToASCIILowercaseInPlace();
+        $$ = new MediaQuery($1, $3, WTFMove(*$5));
+        delete $5;
     }
     ;
 
@@ -654,16 +667,17 @@ maybe_media_list: /* empty */ { $$ = &MediaQuerySet::create().leakRef(); } | med
 media_list:
     media_query {
         $$ = &MediaQuerySet::create().leakRef();
-        $$->addMediaQuery(std::unique_ptr<MediaQuery>($1));
-        parser->updateLastMediaLine($$);
+        $$->addMediaQuery(WTFMove(*$1));
+        delete $1;
+        parser->updateLastMediaLine(*$$);
     }
     | media_list ',' maybe_space media_query {
         $$ = $1;
-        std::unique_ptr<MediaQuery> mediaQuery($4);
         if ($$) {
-            $$->addMediaQuery(WTF::move(mediaQuery));
-            parser->updateLastMediaLine($$);
+            $$->addMediaQuery(WTFMove(*$4));
+            parser->updateLastMediaLine(*$$);
         }
+        delete $4;
     }
     | media_list error {
         $$ = nullptr;
@@ -692,10 +706,10 @@ at_rule_header_end_maybe_space:
 
 media:
     before_media_rule MEDIA_SYM maybe_space media_list at_rule_header_end '{' at_rule_body_start maybe_space block_rule_list save_block {
-        $$ = parser->createMediaRule(adoptRef($4), std::unique_ptr<Vector<RefPtr<StyleRuleBase>>>($9).get()).leakRef();
+        $$ = &parser->createMediaRule(adoptRef($4), std::unique_ptr<Vector<RefPtr<StyleRuleBase>>>($9).get()).leakRef();
     }
     | before_media_rule MEDIA_SYM at_rule_header_end_maybe_space '{' at_rule_body_start maybe_space block_rule_list save_block {
-        $$ = parser->createEmptyMediaRule(std::unique_ptr<Vector<RefPtr<StyleRuleBase>>>($7).get()).leakRef();
+        $$ = &parser->createEmptyMediaRule(std::unique_ptr<Vector<RefPtr<StyleRuleBase>>>($7).get()).leakRef();
     }
     | before_media_rule MEDIA_SYM at_rule_header_end_maybe_space ';' {
         $$ = nullptr;
@@ -705,7 +719,7 @@ media:
 
 supports:
     before_supports_rule SUPPORTS_SYM maybe_space supports_condition at_supports_rule_header_end '{' at_rule_body_start maybe_space block_rule_list save_block {
-        $$ = parser->createSupportsRule($4, std::unique_ptr<Vector<RefPtr<StyleRuleBase>>>($9).get()).leakRef();
+        $$ = &parser->createSupportsRule($4, std::unique_ptr<Vector<RefPtr<StyleRuleBase>>>($9).get()).leakRef();
     }
     | before_supports_rule SUPPORTS_SYM supports_error {
         $$ = nullptr;
@@ -763,7 +777,7 @@ supports_declaration_condition:
         CSSParser* p = static_cast<CSSParser*>(parser);
         std::unique_ptr<CSSParserValueList> propertyValue($6);
         if ($3 && propertyValue) {
-            p->m_valueList = WTF::move(propertyValue);
+            p->m_valueList = WTFMove(propertyValue);
             int oldParsedProperties = p->m_parsedProperties.size();
             $$ = p->parseValue($3, $7);
             // We just need to know if the declaration is supported as it is written. Rollback any additions.
@@ -779,7 +793,7 @@ supports_declaration_condition:
         CSSParser* p = static_cast<CSSParser*>(parser);
         std::unique_ptr<CSSParserValueList> propertyValue($6);
         if (propertyValue) {
-            parser->m_valueList = WTF::move(propertyValue);
+            parser->m_valueList = WTFMove(propertyValue);
             int oldParsedProperties = p->m_parsedProperties.size();
             p->setCustomPropertyName($3);
             $$ = p->parseValue(CSSPropertyCustom, $7);
@@ -799,7 +813,7 @@ before_keyframes_rule:
 
 keyframes:
     before_keyframes_rule KEYFRAMES_SYM maybe_space keyframe_name at_rule_header_end_maybe_space '{' at_rule_body_start maybe_space keyframes_rule closing_brace {
-        $$ = parser->createKeyframesRule($4, std::unique_ptr<Vector<RefPtr<StyleKeyframe>>>($9)).leakRef();
+        $$ = &parser->createKeyframesRule($4, std::unique_ptr<Vector<RefPtr<StyleKeyframe>>>($9)).leakRef();
     }
     ;
 
@@ -810,7 +824,7 @@ keyframes_rule:
     | keyframes_rule keyframe_rule maybe_space {
         $$ = $1;
         if (RefPtr<StyleKeyframe> keyframe = adoptRef($2))
-            $$->append(keyframe.release());
+            $$->append(WTFMove(keyframe));
     }
     ;
 
@@ -823,25 +837,30 @@ key_list:
     }
     | key_list maybe_space ',' maybe_space key {
         $$ = $1;
-        ASSERT($5.unit != CSSParserValue::Function); // No need to call destroy.
         if ($$)
             $$->addValue($5);
     }
     ;
 
 key:
-    maybe_unary_operator PERCENTAGE { $$.id = CSSValueInvalid; $$.isInt = false; $$.fValue = $1 * $2; $$.unit = CSSPrimitiveValue::CSS_NUMBER; }
+    maybe_unary_operator PERCENTAGE {
+        $$.id = CSSValueInvalid;
+        $$.isInt = false;
+        $$.fValue = $1 * $2;
+        $$.unit = CSSPrimitiveValue::CSS_NUMBER;
+    }
     | IDENT {
-        $$.id = CSSValueInvalid; $$.isInt = false; $$.unit = CSSPrimitiveValue::CSS_NUMBER;
-        CSSParserString& str = $1;
-        if (str.equalIgnoringCase("from"))
+        $$.id = CSSValueInvalid;
+        $$.isInt = false;
+        if (equalLettersIgnoringASCIICase($1, "from"))
             $$.fValue = 0;
-        else if (str.equalIgnoringCase("to"))
+        else if (equalLettersIgnoringASCIICase($1, "to"))
             $$.fValue = 100;
         else {
             $$.unit = 0;
             YYERROR;
         }
+        $$.unit = CSSPrimitiveValue::CSS_NUMBER;
     }
     | error {
         $$.unit = 0;
@@ -993,7 +1012,7 @@ before_viewport_rule:
 viewport:
     before_viewport_rule WEBKIT_VIEWPORT_RULE_SYM at_rule_header_end_maybe_space
     '{' at_rule_body_start maybe_space_before_declaration declaration_list closing_brace {
-        $$ = parser->createViewportRule().leakRef();
+        $$ = &parser->createViewportRule().leakRef();
         parser->markViewportRuleBodyEnd();
     }
     | before_viewport_rule WEBKIT_VIEWPORT_RULE_SYM error invalid_block {
@@ -1078,7 +1097,7 @@ selector_list:
         $$ = nullptr;
         if (selectorList && selector) {
             $$ = selectorList.release();
-            $$->append(WTF::move(selector));
+            $$->append(WTFMove(selector));
             parser->updateLastSelectorLineAndPosition();
         }
     }
@@ -1126,7 +1145,7 @@ complex_selector:
         std::unique_ptr<CSSParserSelector> right($2);
         $$ = nullptr;
         if (left && right) {
-            right->appendTagHistory(CSSParserSelectorCombinator::DescendantSpace, WTF::move(left));
+            right->appendTagHistory(CSSParserSelectorCombinator::DescendantSpace, WTFMove(left));
             $$ = right.release();
         }
     }
@@ -1135,7 +1154,7 @@ complex_selector:
         std::unique_ptr<CSSParserSelector> right($3);
         $$ = nullptr;
         if (left && right) {
-            right->appendTagHistory($2, WTF::move(left));
+            right->appendTagHistory($2, WTFMove(left));
             $$ = right.release();
         }
     }
@@ -1194,7 +1213,7 @@ simple_selector_list:
         $$ = nullptr;
         if (list && selector) {
             $$ = list.release();
-            $$->append(WTF::move(selector));
+            $$->append(WTFMove(selector));
         }
     }
     | simple_selector_list error {
@@ -1220,7 +1239,7 @@ specifier_list:
         std::unique_ptr<CSSParserSelector> specifier($2);
         $$ = nullptr;
         if (list && specifier)
-            $$ = parser->rewriteSpecifiers(WTF::move(list), WTF::move(specifier)).release();
+            $$ = parser->rewriteSpecifiers(WTFMove(list), WTFMove(specifier)).release();
     }
     | specifier_list error {
         $$ = nullptr;
@@ -1233,7 +1252,7 @@ specifier:
         $$ = new CSSParserSelector;
         $$->setMatch(CSSSelector::Id);
         if (parser->m_context.mode == CSSQuirksMode)
-            $1.lower();
+            $1.convertToASCIILowercaseInPlace();
         $$->setValue($1);
     }
   | HEX {
@@ -1243,7 +1262,7 @@ specifier:
             $$ = new CSSParserSelector;
             $$->setMatch(CSSSelector::Id);
             if (parser->m_context.mode == CSSQuirksMode)
-                $1.lower();
+                $1.convertToASCIILowercaseInPlace();
             $$->setValue($1);
         }
     }
@@ -1257,7 +1276,7 @@ class:
         $$ = new CSSParserSelector;
         $$->setMatch(CSSSelector::Class);
         if (parser->m_context.mode == CSSQuirksMode)
-            $2.lower();
+            $2.convertToASCIILowercaseInPlace();
         $$->setValue($2);
     }
   ;
@@ -1356,6 +1375,12 @@ pseudo:
         $$ = CSSParserSelector::parsePseudoElementCueFunctionSelector($3, $5);
     }
 #endif
+    | ':' ':' SLOTTEDFUNCTION maybe_space compound_selector maybe_space ')' {
+        $$ = CSSParserSelector::parsePseudoElementSlottedFunctionSelector($3, $5);
+    }
+    | ':' HOSTFUNCTION maybe_space compound_selector maybe_space ')' {
+        $$ = CSSParserSelector::parsePseudoClassHostFunctionSelector($2, $4);
+    }
     // use by :-webkit-any.
     // FIXME: should we support generic selectors here or just simple_selectors?
     // Use simple_selector_list for now to match -moz-any.
@@ -1561,7 +1586,7 @@ declaration:
         bool isPropertyParsed = false;
         std::unique_ptr<CSSParserValueList> propertyValue($4);
         if (propertyValue) {
-            parser->m_valueList = WTF::move(propertyValue);
+            parser->m_valueList = WTFMove(propertyValue);
             int oldParsedProperties = parser->m_parsedProperties.size();
             parser->setCustomPropertyName($1);
             $$ = parser->parseValue(CSSPropertyCustom, $5);
@@ -1578,7 +1603,7 @@ declaration:
         bool isPropertyParsed = false;
         std::unique_ptr<CSSParserValueList> propertyValue($4);
         if ($1 && propertyValue) {
-            parser->m_valueList = WTF::move(propertyValue);
+            parser->m_valueList = WTFMove(propertyValue);
             int oldParsedProperties = parser->m_parsedProperties.size();
             $$ = parser->parseValue($1, $5);
             if (!$$)
@@ -1764,7 +1789,7 @@ function:
     FUNCTION maybe_space closing_parenthesis {
         CSSParserFunction* f = new CSSParserFunction;
         f->name = $1;
-        f->args = std::unique_ptr<CSSParserValueList>(new CSSParserValueList);
+        f->args = std::make_unique<CSSParserValueList>();
         $$.id = CSSValueInvalid;
         $$.unit = CSSParserValue::Function;
         $$.function = f;
@@ -1799,7 +1824,7 @@ variable_function:
     | VARFUNCTION maybe_space CUSTOM_PROPERTY maybe_space ',' maybe_space closing_parenthesis {
         CSSParserVariable* var = new CSSParserVariable;
         var->name = $3;
-        var->args = std::unique_ptr<CSSParserValueList>(new CSSParserValueList());
+        var->args = std::make_unique<CSSParserValueList>();
         $$.id = CSSValueInvalid;
         $$.unit = CSSParserValue::Variable;
         $$.variable = var;
@@ -1823,6 +1848,7 @@ variable_function:
     | VARFUNCTION maybe_space expr closing_parenthesis {
         $$.id = CSSValueInvalid;
         $$.unit = 0;
+        delete $3;
         YYERROR;
     }
     | VARFUNCTION maybe_space expr_recovery closing_parenthesis {
@@ -1836,10 +1862,10 @@ invalid_var_fallback:
     '!' | ';';
 
 calc_func_term:
-  unary_term
-  | variable_function { $$ = $1; }
-  | unary_operator unary_term { $$ = $2; $$.fValue *= $1; }
-  ;
+    unary_term
+    | unary_operator unary_term { $$ = $2; $$.fValue *= $1; }
+    | variable_function
+    ;
 
 /*
  * The grammar requires spaces around binary ‘+’ and ‘-’ operators.

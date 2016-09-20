@@ -34,13 +34,13 @@
  */
 
 #pragma D option quiet
-
+#pragma D option statusrate=10ms
 BEGIN
 {
 	i = 0;
 }
 
-tick-10ms
+tick-1ms
 /i != 5/
 {
 	i++;
@@ -48,7 +48,7 @@ tick-10ms
 
 }
 
-tick-10ms
+tick-1ms
 /i == 5/
 {
 	exit(0);

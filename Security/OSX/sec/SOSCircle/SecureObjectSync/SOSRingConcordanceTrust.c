@@ -53,7 +53,8 @@ static inline SOSConcordanceStatus CheckPeerStatus(CFStringRef peerID, SOSPeerIn
     SecKeyRef pubKey = NULL;
 
     require_action_quiet(peer, exit, result = kSOSConcordanceNoPeer);
-    pubKey = SOSPeerInfoCopyPubKey(peer);
+    pubKey = SOSPeerInfoCopyPubKey(peer, error);
+    require_quiet(pubKey, exit);
     require_action_quiet(SOSRingHasPeerID(ring, peerID), exit, result = kSOSConcordanceNoPeer);
     require_action_quiet(SOSPeerInfoApplicationVerify(peer, userPub, NULL), exit, result = kSOSConcordanceNoPeer);
     require_action_quiet(SOSRingVerifySignatureExists(ring, pubKey, error), exit, result = kSOSConcordanceNoPeerSig);
@@ -149,7 +150,7 @@ SOSConcordanceStatus SOSRingUserKeyConcordanceTrust(SOSFullPeerInfoRef me, CFSet
         return GetSignersStatus(peers, proposedRing, proposedRing, userPubkey, NULL, error);
     }
 
-    if(SOSRingIsOlderGeneration(knownRing, proposedRing)) {
+    if(SOSRingIsOlderGeneration(proposedRing, knownRing)) {
         SOSCreateError(kSOSErrorReplay, CFSTR("Bad generation"), NULL, error);
         return kSOSConcordanceGenOld;
     }
@@ -177,7 +178,7 @@ SOSConcordanceStatus SOSRingPeerKeyConcordanceTrust(SOSFullPeerInfoRef me, CFSet
         return GetSignersStatus(peers, proposedRing, proposedRing, userPubkey, NULL, error);
     }
 
-    if(SOSRingIsOlderGeneration(knownRing, proposedRing)) {
+    if(SOSRingIsOlderGeneration(proposedRing, knownRing)) {
         SOSCreateError(kSOSErrorReplay, CFSTR("Bad generation"), NULL, error);
         return kSOSConcordanceGenOld;
     }

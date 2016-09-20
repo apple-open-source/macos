@@ -39,7 +39,6 @@ static int do_more_prompt __ARGS((int typed_char));
 static void msg_screen_putchar __ARGS((int c, int attr));
 static int  msg_check_screen __ARGS((void));
 static void redir_write __ARGS((char_u *s, int maxlen));
-static void verbose_write __ARGS((char_u *s, int maxlen));
 #ifdef FEAT_CON_DIALOG
 static char_u *msg_show_console_dialog __ARGS((char_u *message, char_u *buttons, int dfltbutton));
 static int	confirm_msg_used = FALSE;	/* displaying confirm_msg */
@@ -57,6 +56,9 @@ struct msg_hist
 static struct msg_hist *first_msg_hist = NULL;
 static struct msg_hist *last_msg_hist = NULL;
 static int msg_hist_len = 0;
+
+static FILE *verbose_fd = NULL;
+static int  verbose_did_open = FALSE;
 
 /*
  * When writing messages to the screen, there are many different situations.
@@ -83,7 +85,7 @@ static int msg_hist_len = 0;
  *		    need_wait_return to be set.  This is a hack to make ":ts"
  *		    work without an extra prompt.
  * lines_left	    Number of lines available for messages before the
- *		    more-prompt is to be given.
+ *		    more-prompt is to be given.  -1 when not set.
  * need_wait_return TRUE when the hit-return prompt is needed.
  *		    Reset: After giving the hit-return prompt, when the user
  *		    has answered some other prompt.
@@ -220,15 +222,16 @@ msg_strtrunc(s, force)
 	    if (enc_utf8)
 		/* may have up to 18 bytes per cell (6 per char, up to two
 		 * composing chars) */
-		buf = alloc((room + 2) * 18);
+		len = (room + 2) * 18;
 	    else if (enc_dbcs == DBCS_JPNU)
 		/* may have up to 2 bytes per cell for euc-jp */
-		buf = alloc((room + 2) * 2);
+		len = (room + 2) * 2;
 	    else
 #endif
-		buf = alloc(room + 2);
+		len = room + 2;
+	    buf = alloc(len);
 	    if (buf != NULL)
-		trunc_string(s, buf, room);
+		trunc_string(s, buf, room, len);
 	}
     }
     return buf;
@@ -239,10 +242,11 @@ msg_strtrunc(s, force)
  * "s" and "buf" may be equal.
  */
     void
-trunc_string(s, buf, room)
+trunc_string(s, buf, room, buflen)
     char_u	*s;
     char_u	*buf;
     int		room;
+    int		buflen;
 {
     int		half;
     int		len;
@@ -255,7 +259,7 @@ trunc_string(s, buf, room)
     len = 0;
 
     /* First part: Start of the string. */
-    for (e = 0; len < half; ++e)
+    for (e = 0; len < half && e < buflen; ++e)
     {
 	if (s[e] == NUL)
 	{
@@ -272,7 +276,8 @@ trunc_string(s, buf, room)
 	if (has_mbyte)
 	    for (n = (*mb_ptr2len)(s + e); --n > 0; )
 	    {
-		++e;
+		if (++e == buflen)
+		    break;
 		buf[e] = s[e];
 	    }
 #endif
@@ -317,8 +322,19 @@ trunc_string(s, buf, room)
     }
 
     /* Set the middle and copy the last part. */
-    mch_memmove(buf + e, "...", (size_t)3);
-    STRMOVE(buf + e + 3, s + i);
+    if (e + 3 < buflen)
+    {
+	mch_memmove(buf + e, "...", (size_t)3);
+	len = (int)STRLEN(s + i) + 1;
+	if (len >= buflen - e - 3)
+	    len = buflen - e - 3 - 1;
+	mch_memmove(buf + e + 3, s + i, len);
+	buf[e + 3 + len - 1] = NUL;
+    }
+    else
+    {
+	buf[e - 1] = NUL;  /* make sure it is truncated */
+    }
 }
 
 /*
@@ -569,6 +585,10 @@ emsg(s)
     int		severe;
 #endif
 
+    /* Skip this if not giving error messages at the moment. */
+    if (emsg_not_now())
+	return TRUE;
+
     called_emsg = TRUE;
     ex_exitval = 1;
 
@@ -580,10 +600,6 @@ emsg(s)
     severe = emsg_severe;
     emsg_severe = FALSE;
 #endif
-
-    /* Skip this if not giving error messages at the moment. */
-    if (emsg_not_now())
-	return TRUE;
 
     if (!emsg_off || vim_strchr(p_debug, 't') != NULL)
     {
@@ -853,6 +869,7 @@ msg_end_prompt()
     cmdline_row = msg_row;
     msg_col = 0;
     msg_clr_eos();
+    lines_left = -1;
 }
 #endif
 
@@ -870,6 +887,8 @@ wait_return(redraw)
     int		oldState;
     int		tmpState;
     int		had_got_int;
+    int		save_Recording;
+    FILE	*save_scriptout;
 
     if (redraw == TRUE)
 	must_redraw = CLEAR;
@@ -879,16 +898,17 @@ wait_return(redraw)
     if (msg_silent != 0)
 	return;
 
-/*
- * With the global command (and some others) we only need one return at the
- * end. Adjust cmdline_row to avoid the next message overwriting the last one.
- * When inside vgetc(), we can't wait for a typed character at all.
- */
+    /*
+     * When inside vgetc(), we can't wait for a typed character at all.
+     * With the global command (and some others) we only need one return at
+     * the end. Adjust cmdline_row to avoid the next message overwriting the
+     * last one.
+     */
     if (vgetc_busy > 0)
 	return;
+    need_wait_return = TRUE;
     if (no_wait_return)
     {
-	need_wait_return = TRUE;
 	if (!exmode_active)
 	    cmdline_row = msg_row;
 	return;
@@ -921,6 +941,12 @@ wait_return(redraw)
 #ifdef USE_ON_FLY_SCROLL
 	dont_scroll = TRUE;		/* disallow scrolling here */
 #endif
+	/* Avoid the sequence that the user types ":" at the hit-return prompt
+	 * to start an Ex command, but the file-changed dialog gets in the
+	 * way. */
+	if (need_check_timestamps)
+	    check_timestamps(FALSE);
+
 	hit_return_msg();
 
 	do
@@ -933,11 +959,21 @@ wait_return(redraw)
 	     * typeahead buffer. */
 	    ++no_mapping;
 	    ++allow_keys;
+
+	    /* Temporarily disable Recording. If Recording is active, the
+	     * character will be recorded later, since it will be added to the
+	     * typebuf after the loop */
+	    save_Recording = Recording;
+	    save_scriptout = scriptout;
+	    Recording = FALSE;
+	    scriptout = NULL;
 	    c = safe_vgetc();
 	    if (had_got_int && !global_busy)
 		got_int = FALSE;
 	    --no_mapping;
 	    --allow_keys;
+	    Recording = save_Recording;
+	    scriptout = save_scriptout;
 
 #ifdef FEAT_CLIPBOARD
 	    /* Strange way to allow copying (yanking) a modeless selection at
@@ -958,24 +994,37 @@ wait_return(redraw)
 	     */
 	    if (p_more && !p_cp)
 	    {
-		if (c == 'b' || c == 'k' || c == 'u' || c == 'g' || c == K_UP)
+		if (c == 'b' || c == 'k' || c == 'u' || c == 'g'
+						|| c == K_UP || c == K_PAGEUP)
 		{
-		    /* scroll back to show older messages */
-		    do_more_prompt(c);
+		    if (msg_scrolled > Rows)
+			/* scroll back to show older messages */
+			do_more_prompt(c);
+		    else
+		    {
+			msg_didout = FALSE;
+			c = K_IGNORE;
+			msg_col =
+#ifdef FEAT_RIGHTLEFT
+			    cmdmsg_rl ? Columns - 1 :
+#endif
+			    0;
+		    }
 		    if (quit_more)
 		    {
 			c = CAR;		/* just pretend CR was hit */
 			quit_more = FALSE;
 			got_int = FALSE;
 		    }
-		    else
+		    else if (c != K_IGNORE)
 		    {
 			c = K_IGNORE;
 			hit_return_msg();
 		    }
 		}
 		else if (msg_scrolled > Rows - 2
-			 && (c == 'j' || c == K_DOWN || c == 'd' || c == 'f'))
+			 && (c == 'j' || c == 'd' || c == 'f'
+					   || c == K_DOWN || c == K_PAGEDOWN))
 		    c = K_IGNORE;
 	    }
 	} while ((had_got_int && c == Ctrl_C)
@@ -1477,6 +1526,27 @@ msg_outtrans_special(strstart, from)
     return retval;
 }
 
+#if defined(FEAT_EVAL) || defined(PROTO)
+/*
+ * Return the lhs or rhs of a mapping, with the key codes turned into printable
+ * strings, in an allocated string.
+ */
+    char_u *
+str2special_save(str, is_lhs)
+    char_u  *str;
+    int	    is_lhs;  /* TRUE for lhs, FALSE for rhs */
+{
+    garray_T	ga;
+    char_u	*p = str;
+
+    ga_init2(&ga, 1, 40);
+    while (*p != NUL)
+	ga_concat(&ga, str2special(&p, is_lhs));
+    ga_append(&ga, NUL);
+    return (char_u *)ga.ga_data;
+}
+#endif
+
 /*
  * Return the printable string for the key codes at "*sp".
  * Used for translating the lhs or rhs of a mapping to printable chars.
@@ -1519,22 +1589,33 @@ str2special(sp, from)
 	{
 	    c = TO_SPECIAL(str[1], str[2]);
 	    str += 2;
-	    if (c == K_ZERO)	/* display <Nul> as ^@ */
+	    if (c == KS_ZERO)	/* display <Nul> as ^@ or <Nul> */
 		c = NUL;
 	}
 	if (IS_SPECIAL(c) || modifiers)	/* special key */
 	    special = TRUE;
     }
-    *sp = str + 1;
 
 #ifdef FEAT_MBYTE
-    /* For multi-byte characters check for an illegal byte. */
-    if (has_mbyte && MB_BYTE2LEN(*str) > (*mb_ptr2len)(str))
+    if (has_mbyte && !IS_SPECIAL(c))
     {
-	transchar_nonprint(buf, c);
-	return buf;
+	int len = (*mb_ptr2len)(str);
+
+	/* For multi-byte characters check for an illegal byte. */
+	if (has_mbyte && MB_BYTE2LEN(*str) > len)
+	{
+	    transchar_nonprint(buf, c);
+	    *sp = str + 1;
+	    return buf;
+	}
+	/* Since 'special' is TRUE the multi-byte character 'c' will be
+	 * processed by get_special_key_name() */
+	c = (*mb_ptr2char)(str);
+	*sp = str + len;
     }
+    else
 #endif
+	*sp = str + 1;
 
     /* Make unprintable characters in <> form, also <M-Space> and <Tab>.
      * Use <Space> only for lhs of a mapping. */
@@ -1616,8 +1697,18 @@ msg_prt_line(s, list)
 	else if (has_mbyte && (l = (*mb_ptr2len)(s)) > 1)
 	{
 	    col += (*mb_ptr2cells)(s);
-	    mch_memmove(buf, s, (size_t)l);
-	    buf[l] = NUL;
+	    if (lcs_nbsp != NUL && list
+		    && (mb_ptr2char(s) == 160
+			|| mb_ptr2char(s) == 0x202f))
+	    {
+		mb_char2bytes(lcs_nbsp, buf);
+		buf[(*mb_ptr2len)(buf)] = NUL;
+	    }
+	    else
+	    {
+		mch_memmove(buf, s, (size_t)l);
+		buf[l] = NUL;
+	    }
 	    msg_puts(buf);
 	    s += l;
 	    continue;
@@ -1643,6 +1734,11 @@ msg_prt_line(s, list)
 		    attr = hl_attr(HLF_8);
 		}
 	    }
+	    else if (c == 160 && list && lcs_nbsp != NUL)
+	    {
+		c = lcs_nbsp;
+		attr = hl_attr(HLF_8);
+	    }
 	    else if (c == NUL && list && lcs_eol != NUL)
 	    {
 		p_extra = (char_u *)"";
@@ -1665,6 +1761,11 @@ msg_prt_line(s, list)
 	    else if (c == ' ' && trail != NULL && s > trail)
 	    {
 		c = lcs_trail;
+		attr = hl_attr(HLF_8);
+	    }
+	    else if (c == ' ' && list && lcs_space != NUL)
+	    {
+		c = lcs_space;
 		attr = hl_attr(HLF_8);
 	    }
 	}
@@ -2018,8 +2119,8 @@ msg_puts_display(str, maxlen, attr, recurse)
 		msg_screen_putchar(' ', attr);
 	    while (msg_col & 7);
 	}
-	else if (*s == BELL)	    /* beep (from ":sh") */
-	    vim_beep();
+	else if (*s == BELL)		/* beep (from ":sh") */
+	    vim_beep(BO_SH);
 	else
 	{
 #ifdef FEAT_MBYTE
@@ -2262,7 +2363,7 @@ show_sb_text()
      * weird, typing a command without output results in one line. */
     mp = msg_sb_start(last_msgchunk);
     if (mp == NULL || mp->sb_prev == NULL)
-	vim_beep();
+	vim_beep(BO_MESS);
     else
     {
 	do_more_prompt('G');
@@ -2282,6 +2383,16 @@ msg_sb_start(mps)
     while (mp != NULL && mp->sb_prev != NULL && !mp->sb_prev->sb_eol)
 	mp = mp->sb_prev;
     return mp;
+}
+
+/*
+ * Mark the last message chunk as finishing the line.
+ */
+    void
+msg_sb_eol()
+{
+    if (last_msgchunk != NULL)
+	last_msgchunk->sb_eol = TRUE;
 }
 
 /*
@@ -2438,7 +2549,7 @@ do_more_prompt(typed_char)
 #ifdef FEAT_CON_DIALOG
     int		retval = FALSE;
 #endif
-    int		scroll;
+    int		toscroll;
     msgchunk_T	*mp_last = NULL;
     msgchunk_T	*mp;
     int		i;
@@ -2489,49 +2600,49 @@ do_more_prompt(typed_char)
 	}
 #endif
 
-	scroll = 0;
+	toscroll = 0;
 	switch (c)
 	{
 	case BS:		/* scroll one line back */
 	case K_BS:
 	case 'k':
 	case K_UP:
-	    scroll = -1;
+	    toscroll = -1;
 	    break;
 
 	case CAR:		/* one extra line */
 	case NL:
 	case 'j':
 	case K_DOWN:
-	    scroll = 1;
+	    toscroll = 1;
 	    break;
 
 	case 'u':		/* Up half a page */
-	    scroll = -(Rows / 2);
+	    toscroll = -(Rows / 2);
 	    break;
 
 	case 'd':		/* Down half a page */
-	    scroll = Rows / 2;
+	    toscroll = Rows / 2;
 	    break;
 
 	case 'b':		/* one page back */
 	case K_PAGEUP:
-	    scroll = -(Rows - 1);
+	    toscroll = -(Rows - 1);
 	    break;
 
 	case ' ':		/* one extra page */
 	case 'f':
 	case K_PAGEDOWN:
 	case K_LEFTMOUSE:
-	    scroll = Rows - 1;
+	    toscroll = Rows - 1;
 	    break;
 
 	case 'g':		/* all the way back to the start */
-	    scroll = -999999;
+	    toscroll = -999999;
 	    break;
 
 	case 'G':		/* all the way to the end */
-	    scroll = 999999;
+	    toscroll = 999999;
 	    lines_left = 999999;
 	    break;
 
@@ -2584,9 +2695,9 @@ do_more_prompt(typed_char)
 	    continue;
 	}
 
-	if (scroll != 0)
+	if (toscroll != 0)
 	{
-	    if (scroll < 0)
+	    if (toscroll < 0)
 	    {
 		/* go to start of last line */
 		if (mp_last == NULL)
@@ -2604,7 +2715,7 @@ do_more_prompt(typed_char)
 		if (mp != NULL && mp->sb_prev != NULL)
 		{
 		    /* Find line to be displayed at top. */
-		    for (i = 0; i > scroll; --i)
+		    for (i = 0; i > toscroll; --i)
 		    {
 			if (mp == NULL || mp->sb_prev == NULL)
 			    break;
@@ -2615,7 +2726,7 @@ do_more_prompt(typed_char)
 			    mp_last = msg_sb_start(mp_last->sb_prev);
 		    }
 
-		    if (scroll == -1 && screen_ins_lines(0, 0, 1,
+		    if (toscroll == -1 && screen_ins_lines(0, 0, 1,
 						       (int)Rows, NULL) == OK)
 		    {
 			/* display line at top */
@@ -2631,13 +2742,13 @@ do_more_prompt(typed_char)
 			    ++msg_scrolled;
 			}
 		    }
-		    scroll = 0;
+		    toscroll = 0;
 		}
 	    }
 	    else
 	    {
 		/* First display any text that we scrolled back. */
-		while (scroll > 0 && mp_last != NULL)
+		while (toscroll > 0 && mp_last != NULL)
 		{
 		    /* scroll up, display line at bottom */
 		    msg_scroll_up();
@@ -2645,11 +2756,11 @@ do_more_prompt(typed_char)
 		    screen_fill((int)Rows - 2, (int)Rows - 1, 0,
 						   (int)Columns, ' ', ' ', 0);
 		    mp_last = disp_sb_line((int)Rows - 2, mp_last);
-		    --scroll;
+		    --toscroll;
 		}
 	    }
 
-	    if (scroll <= 0)
+	    if (toscroll <= 0)
 	    {
 		/* displayed the requested text, more prompt again */
 		screen_fill((int)Rows - 1, (int)Rows, 0,
@@ -2659,7 +2770,7 @@ do_more_prompt(typed_char)
 	    }
 
 	    /* display more text, return to caller */
-	    lines_left = scroll;
+	    lines_left = toscroll;
 	}
 
 	break;
@@ -2975,7 +3086,7 @@ msg_clr_cmdline()
 msg_end()
 {
     /*
-     * if the string is larger than the window,
+     * If the string is larger than the window,
      * or the ruler option is set and we run into it,
      * we have to redraw the window.
      * Do not do this if we are abandoning the file or editing the command line.
@@ -3019,12 +3130,9 @@ redir_write(str, maxlen)
     if (redir_off)
 	return;
 
-    /*
-     * If 'verbosefile' is set write message in that file.
-     * Must come before the rest because of updating "msg_col".
-     */
-    if (*p_vfile != NUL)
-	verbose_write(s, maxlen);
+    /* If 'verbosefile' is set prepare for writing in that file. */
+    if (*p_vfile != NUL && verbose_fd == NULL)
+	verbose_open();
 
     if (redirecting())
     {
@@ -3038,9 +3146,12 @@ redir_write(str, maxlen)
 		    write_reg_contents(redir_reg, (char_u *)" ", -1, TRUE);
 		else if (redir_vname)
 		    var_redir_str((char_u *)" ", -1);
-		else if (redir_fd)
+		else
 #endif
+		    if (redir_fd != NULL)
 		    fputs(" ", redir_fd);
+		if (verbose_fd != NULL)
+		    fputs(" ", verbose_fd);
 		++cur_col;
 	    }
 	}
@@ -3052,13 +3163,16 @@ redir_write(str, maxlen)
 	    var_redir_str(s, maxlen);
 #endif
 
-	/* Adjust the current column */
+	/* Write and adjust the current column. */
 	while (*s != NUL && (maxlen < 0 || (int)(s - str) < maxlen))
 	{
 #ifdef FEAT_EVAL
-	    if (!redir_reg && !redir_vname && redir_fd != NULL)
+	    if (!redir_reg && !redir_vname)
 #endif
-		putc(*s, redir_fd);
+		if (redir_fd != NULL)
+		    putc(*s, redir_fd);
+	    if (verbose_fd != NULL)
+		putc(*s, verbose_fd);
 	    if (*s == '\r' || *s == '\n')
 		cur_col = 0;
 	    else if (*s == '\t')
@@ -3076,7 +3190,7 @@ redir_write(str, maxlen)
     int
 redirecting()
 {
-    return redir_fd != NULL
+    return redir_fd != NULL || *p_vfile != NUL
 #ifdef FEAT_EVAL
 			  || redir_reg || redir_vname
 #endif
@@ -3134,9 +3248,6 @@ verbose_leave_scroll()
 	cmdline_row = msg_row;
 }
 
-static FILE *verbose_fd = NULL;
-static int  verbose_did_open = FALSE;
-
 /*
  * Called when 'verbosefile' is set: stop writing to the file.
  */
@@ -3171,49 +3282,6 @@ verbose_open()
 	}
     }
     return OK;
-}
-
-/*
- * Write a string to 'verbosefile'.
- * When "maxlen" is -1 write the whole string, otherwise up to "maxlen" bytes.
- */
-    static void
-verbose_write(str, maxlen)
-    char_u	*str;
-    int		maxlen;
-{
-    char_u	*s = str;
-    static int	cur_col = 0;
-
-    /* Open the file when called the first time. */
-    if (verbose_fd == NULL)
-	verbose_open();
-
-    if (verbose_fd != NULL)
-    {
-	/* If the string doesn't start with CR or NL, go to msg_col */
-	if (*s != '\n' && *s != '\r')
-	{
-	    while (cur_col < msg_col)
-	    {
-		fputs(" ", verbose_fd);
-		++cur_col;
-	    }
-	}
-
-	/* Adjust the current column */
-	while (*s != NUL && (maxlen < 0 || (int)(s - str) < maxlen))
-	{
-	    putc(*s, verbose_fd);
-	    if (*s == '\r' || *s == '\n')
-		cur_col = 0;
-	    else if (*s == '\t')
-		cur_col += (8 - cur_col % 8);
-	    else
-		++cur_col;
-	    ++s;
-	}
-    }
 }
 
 /*
@@ -3294,7 +3362,7 @@ msg_advance(col)
  * different letter.
  */
     int
-do_dialog(type, title, message, buttons, dfltbutton, textfield)
+do_dialog(type, title, message, buttons, dfltbutton, textfield, ex_cmd)
     int		type UNUSED;
     char_u	*title UNUSED;
     char_u	*message;
@@ -3302,6 +3370,8 @@ do_dialog(type, title, message, buttons, dfltbutton, textfield)
     int		dfltbutton;
     char_u	*textfield UNUSED;	/* IObuff for inputdialog(), NULL
 					   otherwise */
+    int		ex_cmd;	    /* when TRUE pressing : accepts default and starts
+			       Ex command */
 {
     int		oldState;
     int		retval = 0;
@@ -3320,7 +3390,7 @@ do_dialog(type, title, message, buttons, dfltbutton, textfield)
     if (gui.in_use && vim_strchr(p_go, GO_CONDIALOG) == NULL)
     {
 	c = gui_mch_dialog(type, title, message, buttons, dfltbutton,
-								   textfield);
+							   textfield, ex_cmd);
 	/* avoid a hit-enter prompt without clearing the cmdline */
 	need_wait_return = FALSE;
 	emsg_on_display = FALSE;
@@ -3367,6 +3437,13 @@ do_dialog(type, title, message, buttons, dfltbutton, textfield)
 	    default:		/* Could be a hotkey? */
 		if (c < 0)	/* special keys are ignored here */
 		    continue;
+		if (c == ':' && ex_cmd)
+		{
+		    retval = dfltbutton;
+		    ins_char_typebuf(':');
+		    break;
+		}
+
 		/* Make the character lowercase, as chars in "hotkeys" are. */
 		c = MB_TOLOWER(c);
 		retval = 1;
@@ -3640,7 +3717,7 @@ vim_dialog_yesno(type, title, message, dflt)
     if (do_dialog(type,
 		title == NULL ? (char_u *)_("Question") : title,
 		message,
-		(char_u *)_("&Yes\n&No"), dflt, NULL) == 1)
+		(char_u *)_("&Yes\n&No"), dflt, NULL, FALSE) == 1)
 	return VIM_YES;
     return VIM_NO;
 }
@@ -3655,7 +3732,7 @@ vim_dialog_yesnocancel(type, title, message, dflt)
     switch (do_dialog(type,
 		title == NULL ? (char_u *)_("Question") : title,
 		message,
-		(char_u *)_("&Yes\n&No\n&Cancel"), dflt, NULL))
+		(char_u *)_("&Yes\n&No\n&Cancel"), dflt, NULL, FALSE))
     {
 	case 1: return VIM_YES;
 	case 2: return VIM_NO;
@@ -3674,7 +3751,7 @@ vim_dialog_yesnoallcancel(type, title, message, dflt)
 		title == NULL ? (char_u *)"Question" : title,
 		message,
 		(char_u *)_("&Yes\n&No\nSave &All\n&Discard All\n&Cancel"),
-								  dflt, NULL))
+							   dflt, NULL, FALSE))
     {
 	case 1: return VIM_YES;
 	case 2: return VIM_NO;
@@ -3960,11 +4037,11 @@ tv_float(tvs, idxp)
  * pointer for resulting string argument if "str_m" is zero (as per ISO C99).
  *
  * The return value is the number of characters which would be generated
- * for the given input, excluding the trailing null. If this value
+ * for the given input, excluding the trailing NUL. If this value
  * is greater or equal to "str_m", not all characters from the result
  * have been stored in str, output bytes beyond the ("str_m"-1) -th character
  * are discarded. If "str_m" is greater than zero it is guaranteed
- * the resulting string will be null-terminated.
+ * the resulting string will be NUL-terminated.
  */
 
 /*
@@ -4251,6 +4328,7 @@ vim_snprintf(str, str_m, fmt, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10)
 	    case '%':
 	    case 'c':
 	    case 's':
+	    case 'S':
 		length_modifier = '\0';
 		str_arg_l = 1;
 		switch (fmt_spec)
@@ -4279,6 +4357,7 @@ vim_snprintf(str, str_m, fmt, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10)
 		    }
 
 		case 's':
+		case 'S':
 		    str_arg =
 #ifndef HAVE_STDARG_H
 				(char *)get_a_arg(arg_idx);
@@ -4304,7 +4383,7 @@ vim_snprintf(str, str_m, fmt, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10)
 		    {
 			/* Don't put the #if inside memchr(), it can be a
 			 * macro. */
-#if SIZEOF_INT <= 2
+#if VIM_SIZEOF_INT <= 2
 			char *q = memchr(str_arg, '\0', precision);
 #else
 			/* memchr on HP does not like n > 2^31  !!! */
@@ -4315,6 +4394,24 @@ vim_snprintf(str, str_m, fmt, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10)
 			str_arg_l = (q == NULL) ? precision
 						      : (size_t)(q - str_arg);
 		    }
+#ifdef FEAT_MBYTE
+		    if (fmt_spec == 'S')
+		    {
+			if (min_field_width != 0)
+			    min_field_width += STRLEN(str_arg)
+				     - mb_string2cells((char_u *)str_arg, -1);
+			if (precision)
+			{
+			    char_u *p1 = (char_u *)str_arg;
+			    size_t i;
+
+			    for (i = 0; i < precision && *p1; i++)
+				p1 += mb_ptr2len(p1);
+
+			    str_arg_l = precision = p1 - (char_u *)str_arg;
+			}
+		    }
+#endif
 		    break;
 
 		default:

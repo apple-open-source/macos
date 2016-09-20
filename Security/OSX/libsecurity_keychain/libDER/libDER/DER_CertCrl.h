@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2009,2011,2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2005-2016 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,12 +30,10 @@
 #ifndef	_DER_CERT_CRL_H_
 #define _DER_CERT_CRL_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <libDER/libDER.h>
 #include <libDER/DER_Decode.h>
+
+__BEGIN_DECLS
 
 /* 
  * Top level cert or CRL - the two are identical at this level - three 
@@ -271,9 +269,7 @@ typedef struct {
 extern const DERItemSpec DERRevokedCertItemSpecs[];
 extern const DERSize DERNumRevokedCertItemSpecs;
 
-#ifdef __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif	/* _DER_CERT_CRL_H_ */
 

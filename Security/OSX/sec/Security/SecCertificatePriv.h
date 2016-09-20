@@ -46,8 +46,7 @@
 
 __BEGIN_DECLS
 
-typedef uint32_t SecKeyUsage;
-enum {
+typedef CF_OPTIONS(uint32_t, SecKeyUsage) {
     kSecKeyUsageUnspecified      = 0,
     kSecKeyUsageDigitalSignature = 1 << 0,
     kSecKeyUsageNonRepudiation   = 1 << 1,
@@ -63,12 +62,15 @@ enum {
     kSecKeyUsageAll              = 0x7FFFFFFF
 };
 
-typedef uint32_t SecCertificateEscrowRootType;
-enum {
+typedef CF_ENUM(uint32_t, SecCertificateEscrowRootType) {
     kSecCertificateBaselineEscrowRoot = 0,
     kSecCertificateProductionEscrowRoot = 1,
     kSecCertificateBaselinePCSEscrowRoot = 2,
     kSecCertificateProductionPCSEscrowRoot = 3,
+    kSecCertificateBaselineEscrowBackupRoot = 4,        // v100 and v101
+    kSecCertificateProductionEscrowBackupRoot = 5,
+    kSecCertificateBaselineEscrowEnrollmentRoot = 6,    // v101 only
+    kSecCertificateProductionEscrowEnrollmentRoot = 7,
 };
 
 /* The names of the files that contain the escrow certificates */
@@ -98,12 +100,19 @@ CFDataRef SecCertificateCopyIssuerSHA1Digest(SecCertificateRef certificate);
 
 CFDataRef SecCertificateCopyPublicKeySHA1Digest(SecCertificateRef certificate);
 
+CFDataRef SecCertificateCopySubjectPublicKeyInfoSHA1Digest(SecCertificateRef certificate);
+
 CFDataRef SecCertificateCopySubjectPublicKeyInfoSHA256Digest(SecCertificateRef certificate);
 
 CFDataRef SecCertificateCopySHA256Digest(SecCertificateRef certificate);
 
+SecKeyRef SecCertificateCopyPublicKey(SecCertificateRef certificate);
+
 SecCertificateRef SecCertificateCreateWithKeychainItem(CFAllocatorRef allocator,
 	CFDataRef der_certificate, CFTypeRef keychainItem);
+
+OSStatus SecCertificateSetKeychainItem(SecCertificateRef certificate,
+	CFTypeRef keychain_item);
 
 CFTypeRef SecCertificateCopyKeychainItem(SecCertificateRef certificate);
 
@@ -190,6 +199,10 @@ OSStatus SecCertificateIsSelfSigned(SecCertificateRef certRef, Boolean *isSelfSi
    extension indicating that it's a certificate authority. */
 bool SecCertificateIsSelfSignedCA(SecCertificateRef certificate);
 
+/* Return true if certificate has a basic constraints extension
+   indicating that it's a certificate authority. */
+bool SecCertificateIsCA(SecCertificateRef certificate);
+
 SecKeyUsage SecCertificateGetKeyUsage(SecCertificateRef certificate);
 
 /* Returns an array of CFDataRefs for all extended key usage oids or NULL */
@@ -220,11 +233,13 @@ CFArrayRef SecCertificateXPCArrayCopyArray(xpc_object_t xpc_certificates, CFErro
 /* Return the precert TBSCertificate DER data - used for Certificate Transparency */
 CFDataRef SecCertificateCopyPrecertTBS(SecCertificateRef certificate);
 
+/* Return an attribute dictionary used to store this item in a keychain. */
+CFDictionaryRef SecCertificateCopyAttributeDictionary(SecCertificateRef certificate);
+
 /*
  * Enumerated constants for signature hash algorithms.
  */
-typedef uint32_t SecSignatureHashAlgorithm;
-enum {
+typedef CF_ENUM(uint32_t, SecSignatureHashAlgorithm){
     kSecSignatureHashAlgorithmUnknown = 0,
     kSecSignatureHashAlgorithmMD2 = 1,
     kSecSignatureHashAlgorithmMD4 = 2,
@@ -248,6 +263,22 @@ enum {
 SecSignatureHashAlgorithm SecCertificateGetSignatureHashAlgorithm(SecCertificateRef certificate)
     __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
 
+/* Return the auth capabilities bitmask from the iAP marker extension */
+CF_RETURNS_RETAINED CFDataRef SecCertificateCopyiAPAuthCapabilities(SecCertificateRef certificate)
+    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
+
+typedef CF_ENUM(uint32_t, SeciAuthVersion) {
+    kSeciAuthInvalid = 0,
+    kSeciAuthVersion1 = 1, /* unused */
+    kSeciAuthVersion2 = 2,
+    kSeciAuthVersion3 = 3,
+} __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
+
+/* Return the iAuth version indicated by the certificate. This function does
+ * not guarantee that the certificate is valid, so the caller must still call
+ * SecTrustEvaluate to guarantee that the certificate was properly issued */
+SeciAuthVersion SecCertificateGetiAuthVersion(SecCertificateRef certificate)
+    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
 
 __END_DECLS
 

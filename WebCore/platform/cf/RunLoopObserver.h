@@ -34,11 +34,14 @@
 namespace WebCore {
 
 class RunLoopObserver {
-    WTF_MAKE_NONCOPYABLE(RunLoopObserver);
+    WTF_MAKE_NONCOPYABLE(RunLoopObserver); WTF_MAKE_FAST_ALLOCATED;
 public:
     typedef std::function<void ()> RunLoopObserverCallback;
 
-    WEBCORE_EXPORT static std::unique_ptr<RunLoopObserver> create(CFIndex order, RunLoopObserverCallback callback);
+    RunLoopObserver(CFIndex order, RunLoopObserverCallback callback)
+        : m_order(order)
+        , m_callback(callback)
+    { }
 
     WEBCORE_EXPORT ~RunLoopObserver();
 
@@ -52,11 +55,6 @@ public:
     };
 
 protected:
-    RunLoopObserver(CFIndex order, RunLoopObserverCallback callback)
-        : m_order(order)
-        , m_callback(callback)
-    { }
-
     void runLoopObserverFired();
 
 private:

@@ -38,33 +38,35 @@
 
 namespace WebCore {
 
-BitmapImage::BitmapImage(PassRefPtr<cairo_surface_t> nativeImage, ImageObserver* observer)
-    : Image(observer)
-    , m_size(cairoSurfaceSize(nativeImage.get()))
-    , m_minimumSubsamplingLevel(0)
-    , m_currentFrame(0)
-    , m_repetitionCount(cAnimationNone)
-    , m_repetitionCountStatus(Unknown)
-    , m_repetitionsComplete(0)
-    , m_decodedSize(m_size.width() * m_size.height() * 4)
-    , m_frameCount(1)
-    , m_isSolidColor(false)
-    , m_checkedForSolidColor(false)
-    , m_animationFinished(true)
-    , m_allDataReceived(true)
-    , m_haveSize(true)
-    , m_sizeAvailable(true)
-    , m_haveFrameCount(true)
-{
-    m_frames.grow(1);
-    m_frames[0].m_hasAlpha = cairo_surface_get_content(nativeImage.get()) != CAIRO_CONTENT_COLOR;
-    m_frames[0].m_frame = nativeImage;
-    m_frames[0].m_haveMetadata = true;
+namespace NativeImage {
 
-    checkForSolidColor();
+IntSize size(const RefPtr<cairo_surface_t>& image)
+{
+    return cairoSurfaceSize(image.get());
 }
 
-void BitmapImage::draw(GraphicsContext* context, const FloatRect& dst, const FloatRect& src, ColorSpace styleColorSpace, CompositeOperator op,
+bool hasAlpha(const RefPtr<cairo_surface_t>& image)
+{
+    return cairo_surface_get_content(image.get()) != CAIRO_CONTENT_COLOR;
+}
+
+Color singlePixelSolidColor(const RefPtr<cairo_surface_t>& image)
+{
+    ASSERT(image);
+    
+    if (NativeImage::size(image) != IntSize(1, 1))
+        return Color();
+
+    if (cairo_surface_get_type(image.get()) != CAIRO_SURFACE_TYPE_IMAGE)
+        return Color();
+
+    RGBA32* pixel = reinterpret_cast_ptr<RGBA32*>(cairo_image_surface_get_data(image.get()));
+    return colorFromPremultipliedARGB(*pixel);
+}
+
+}
+
+void BitmapImage::draw(GraphicsContext& context, const FloatRect& dst, const FloatRect& src, CompositeOperator op,
     BlendMode blendMode, ImageOrientationDescription description)
 {
     if (!dst.width() || !dst.height() || !src.width() || !src.height())
@@ -72,22 +74,23 @@ void BitmapImage::draw(GraphicsContext* context, const FloatRect& dst, const Flo
 
     startAnimation();
 
-    RefPtr<cairo_surface_t> surface = frameAtIndex(m_currentFrame);
+    auto surface = frameImageAtIndex(m_currentFrame);
     if (!surface) // If it's too early we won't have an image yet.
         return;
 
-    if (mayFillWithSolidColor()) {
-        fillWithSolidColor(context, dst, solidColor(), styleColorSpace, op);
+    Color color = singlePixelSolidColor();
+    if (color.isValid()) {
+        fillWithSolidColor(context, dst, color, op);
         return;
     }
 
-    context->save();
+    context.save();
 
     // Set the compositing operation.
     if (op == CompositeSourceOver && blendMode == BlendModeNormal && !frameHasAlphaAtIndex(m_currentFrame))
-        context->setCompositeOperation(CompositeCopy);
+        context.setCompositeOperation(CompositeCopy);
     else
-        context->setCompositeOperation(op, blendMode);
+        context.setCompositeOperation(op, blendMode);
 
 #if ENABLE(IMAGE_DECODER_DOWN_SAMPLING)
     IntSize scaledSize = cairoSurfaceSize(surface.get());
@@ -104,9 +107,9 @@ void BitmapImage::draw(GraphicsContext* context, const FloatRect& dst, const Flo
 
     if (frameOrientation != DefaultImageOrientation) {
         // ImageOrientation expects the origin to be at (0, 0).
-        context->translate(dstRect.x(), dstRect.y());
+        context.translate(dstRect.x(), dstRect.y());
         dstRect.setLocation(FloatPoint());
-        context->concatCTM(frameOrientation.transformFromDefault(dstRect.size()));
+        context.concatCTM(frameOrientation.transformFromDefault(dstRect.size()));
         if (frameOrientation.usesWidthAsHeight()) {
             // The destination rectangle will have it's width and height already reversed for the orientation of
             // the image, as it was needed for page layout, so we need to reverse it back here.
@@ -114,43 +117,12 @@ void BitmapImage::draw(GraphicsContext* context, const FloatRect& dst, const Flo
         }
     }
 
-    context->platformContext()->drawSurfaceToContext(surface.get(), dstRect, adjustedSrcRect, context);
+    context.platformContext()->drawSurfaceToContext(surface.get(), dstRect, adjustedSrcRect, context);
 
-    context->restore();
+    context.restore();
 
     if (imageObserver())
         imageObserver()->didDraw(this);
-}
-
-void BitmapImage::determineMinimumSubsamplingLevel() const
-{
-    m_minimumSubsamplingLevel = 0;
-}
-
-void BitmapImage::checkForSolidColor()
-{
-    m_isSolidColor = false;
-    m_checkedForSolidColor = true;
-
-    if (frameCount() > 1)
-        return;
-
-    RefPtr<cairo_surface_t> surface = frameAtIndex(m_currentFrame);
-    if (!surface) // If it's too early we won't have an image yet.
-        return;
-
-    if (cairo_surface_get_type(surface.get()) != CAIRO_SURFACE_TYPE_IMAGE)
-        return;
-
-    IntSize size = cairoSurfaceSize(surface.get());
-
-    if (size.width() != 1 || size.height() != 1)
-        return;
-
-    unsigned* pixelColor = reinterpret_cast_ptr<unsigned*>(cairo_image_surface_get_data(surface.get()));
-    m_solidColor = colorFromPremultipliedARGB(*pixelColor);
-
-    m_isSolidColor = true;
 }
 
 bool FrameData::clear(bool clearMetadata)
@@ -158,8 +130,8 @@ bool FrameData::clear(bool clearMetadata)
     if (clearMetadata)
         m_haveMetadata = false;
 
-    if (m_frame) {
-        m_frame = nullptr;
+    if (m_image) {
+        m_image = nullptr;
         return true;
     }
     return false;

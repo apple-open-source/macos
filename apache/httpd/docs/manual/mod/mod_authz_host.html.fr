@@ -19,7 +19,7 @@
 <div id="page-header">
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p>
 <p class="apache">Serveur Apache HTTP Version 2.4</p>
-<img alt="" src="../images/feather.gif" /></div>
+<img alt="" src="../images/feather.png" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
 <a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">Serveur HTTP</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.4</a> &gt; <a href="./">Modules</a></div>
@@ -34,8 +34,8 @@ IP)</td></tr>
 <tr><th><a href="module-dict.html#Status">Statut:</a></th><td>Base</td></tr>
 <tr><th><a href="module-dict.html#ModuleIdentifier">Identificateur de Module:</a></th><td>authz_host_module</td></tr>
 <tr><th><a href="module-dict.html#SourceFile">Fichier Source:</a></th><td>mod_authz_host.c</td></tr>
-<tr><th><a href="module-dict.html#Compatibility">Compatibilité:</a></th><td>Disponible depuis les versions 2.3 et supérieures
-d'Apache</td></tr></table>
+<tr><th><a href="module-dict.html#Compatibility">Compatibilité:</a></th><td>Le fournisseur <code>forward-dns</code> est disponible à partir
+de la version 2.4.19 du serveur HTTP Apache</td></tr></table>
 <h3>Sommaire</h3>
 
     <p>Les fournisseurs d'autorisation implémentés par le module
@@ -59,12 +59,12 @@ d'Apache</td></tr></table>
 <li><img alt="" src="../images/down.gif" /> <a href="#requiredirectives">Les directives Require</a></li>
 </ul><h3 class="directives">Directives</h3>
 <p>Ce module ne fournit aucune directive.</p>
-<h3>Voir aussi</h3>
+<h3>Traitement des bugs</h3><ul class="seealso"><li><a href="https://www.apache.org/dist/httpd/CHANGES_2.4">Journal des modifications de httpd</a></li><li><a href="https://bz.apache.org/bugzilla/buglist.cgi?bug_status=__open__&amp;list_id=144532&amp;product=Apache%20httpd-2&amp;query_format=specific&amp;order=changeddate%20DESC%2Cpriority%2Cbug_severity&amp;component=mod_authz_host">Problèmes connus</a></li><li><a href="https://bz.apache.org/bugzilla/enter_bug.cgi?product=Apache%20httpd-2&amp;component=mod_authz_host">Signaler un bug</a></li></ul><h3>Voir aussi</h3>
 <ul class="seealso">
 <li><a href="../howto/auth.html">Authentification, autorisation et
 contrôle d'accès</a></li>
 <li><code class="directive"><a href="../mod/mod_authz_core.html#require">Require</a></code></li>
-</ul><ul class="seealso"><li><a href="#comments_section">Commentaires</a></li></ul></div>
+<li><a href="#comments_section">Commentaires</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="requiredirectives" id="requiredirectives">Les directives Require</a></h2>
@@ -72,10 +72,10 @@ contrôle d'accès</a></li>
     <p>La directive Apache <code class="directive"><a href="../mod/mod_authz_core.html#require">Require</a></code> est utilisée au cours de
     la phase d'autorisation pour vérifier si un utilisateur se voit
     accorder ou refuser l'accès à une ressource. mod_authz_host fournit
-    les types d'autorisation <code>ip</code>, <code>host</code> et <code>local</code>. D'autres
-    types d'autorisation
-    sont aussi disponibles, mais nécessitent le chargement des modules
-    d'autorisation appropriés.</p>
+    les types d'autorisation <code>ip</code>, <code>host</code>,
+    <code>forward-dns</code> et <code>local</code>. D'autres
+    types d'autorisation sont aussi disponibles, mais nécessitent le chargement
+    des modules d'autorisation appropriés.</p>
 
     <p>Ces fournisseurs d'autorisation permettent de déterminer quels
     hôtes peuvent accéder à une zone du serveur. On peut contrôler
@@ -169,6 +169,29 @@ Require host .net example.edu</pre>
 
 
 
+<h3><a name="reqfwddns" id="reqfwddns">Require forward-dns</a></h3>
+
+    <p>Le fournisseur <code>forward-dns</code> permet d'accéder au serveur
+    sécurisé en fonction de simples noms d'hôte. Lorsque <code>Require
+    forward-dns <var>host-name</var></code> est spécifié, toute adresse IP
+    correspondant à <code><var>host-name</var></code> se voit autoriser l'accès.</p>
+
+    <p>A la différence du fournisseur <code>host</code>, ce fournisseur
+    n'effectue pas de recherche DNS inverse : il effectue simplement une requête
+    DNS directe pour le nom d'hôte spécifié et donne accès au client si son
+    adresse IP correspond. Il ne fonctionnera donc qu'avec des noms d'hôte, et
+    non avec des noms de domaine. Par contre, comme le DNS inverse n'est pas
+    sollicité, il fonctionnera avec des clients qui utilisent un service de DNS
+    dynamique.</p>
+
+    <pre class="prettyprint lang-config">Require forward-dns bla.example.org</pre>
+
+
+    <p>Un client dont l'adresse IP correspond au nom d'hôte
+    <code>bla.example.org</code> se verra autoriser l'accès.</p>
+
+
+
 <h3><a name="reqlocal" id="reqlocal">Require local</a></h3>
 
     <p>Le fournisseur <code>local</code> autorise l'accès au serveur si
@@ -222,7 +245,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_authz_host.h
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

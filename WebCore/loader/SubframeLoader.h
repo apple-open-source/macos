@@ -53,7 +53,7 @@ class Widget;
 
 // This is a slight misnomer. It handles the higher level logic of loading both subframes and plugins.
 class SubframeLoader {
-    WTF_MAKE_NONCOPYABLE(SubframeLoader);
+    WTF_MAKE_NONCOPYABLE(SubframeLoader); WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit SubframeLoader(Frame&);
 
@@ -65,11 +65,11 @@ public:
 
     PassRefPtr<Widget> createJavaAppletWidget(const IntSize&, HTMLAppletElement&, const Vector<String>& paramNames, const Vector<String>& paramValues);
 
-    WEBCORE_EXPORT bool allowPlugins(ReasonForCallingAllowPlugins);
+    WEBCORE_EXPORT bool allowPlugins();
 
     bool containsPlugins() const { return m_containsPlugins; }
     
-    bool resourceWillUsePlugin(const String& url, const String& mimeType, bool shouldPreferPlugInsForImages);
+    bool resourceWillUsePlugin(const String& url, const String& mimeType);
 
 private:
     bool requestPlugin(HTMLPlugInImageElement&, const URL&, const String& serviceType, const Vector<String>& paramNames, const Vector<String>& paramValues, bool useFallback);
@@ -77,10 +77,14 @@ private:
     Frame* loadSubframe(HTMLFrameOwnerElement&, const URL&, const String& name, const String& referrer);
     bool loadPlugin(HTMLPlugInImageElement&, const URL&, const String& mimeType, const Vector<String>& paramNames, const Vector<String>& paramValues, bool useFallback);
 
-    bool shouldUsePlugin(const URL&, const String& mimeType, bool shouldPreferPlugInsForImages, bool hasFallback, bool& useFallback);
+    bool isPluginContentAllowedByContentSecurityPolicy(HTMLPlugInImageElement&, const URL&, const String& mimeType) const;
+
+    bool shouldUsePlugin(const URL&, const String& mimeType, bool hasFallback, bool& useFallback);
     bool pluginIsLoadable(HTMLPlugInImageElement&, const URL&, const String& mimeType);
 
     Document* document() const;
+
+    bool shouldConvertInvalidURLsToBlank() const;
 
     bool m_containsPlugins;
     Frame& m_frame;

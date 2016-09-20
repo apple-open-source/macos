@@ -54,6 +54,7 @@ public:
 
 private:
     typedef typename MappedTraits::PeekType MappedPeekType;
+    typedef typename MappedTraits::TakeType MappedTakeType;
 
     typedef HashArg HashFunctions;
 
@@ -102,6 +103,9 @@ public:
     bool contains(const KeyType&) const;
     MappedPeekType get(const KeyType&) const;
 
+    // Same as get(), but aggressively inlined.
+    MappedPeekType fastGet(const KeyType&) const;
+
     // Replaces the value but not the key if the key is already present.
     // Return value includes both an iterator to the key location,
     // and an isNewEntry boolean that's true if a new entry was added.
@@ -118,13 +122,16 @@ public:
     template<typename V> AddResult fastAdd(const KeyType&, V&&);
     template<typename V> AddResult fastAdd(KeyType&&, V&&);
 
+    template<typename Functor> AddResult ensure(const KeyType&, const Functor&);
+    template<typename Functor> AddResult ensure(KeyType&&, const Functor&);
+
     bool remove(const KeyType&);
     bool remove(iterator);
     template<typename Functor>
     void removeIf(const Functor& functor);
     void clear();
 
-    MappedType take(const KeyType&); // efficient combination of get with remove
+    MappedTakeType take(const KeyType&); // efficient combination of get with remove
 
     // An alternate version of find() that finds the object by hashing and comparing
     // with some other type, to avoid the cost of type conversion. HashTranslator
@@ -150,7 +157,7 @@ public:
     template<typename K = KeyType> typename std::enable_if<IsSmartPtr<K>::value, MappedPeekType>::type inlineGet(typename GetPtrHelper<K>::PtrType) const;
     template<typename K = KeyType> typename std::enable_if<IsSmartPtr<K>::value, MappedPeekType>::type get(typename GetPtrHelper<K>::PtrType) const;
     template<typename K = KeyType> typename std::enable_if<IsSmartPtr<K>::value, bool>::type remove(typename GetPtrHelper<K>::PtrType);
-    template<typename K = KeyType> typename std::enable_if<IsSmartPtr<K>::value, MappedType>::type take(typename GetPtrHelper<K>::PtrType);
+    template<typename K = KeyType> typename std::enable_if<IsSmartPtr<K>::value, MappedTakeType>::type take(typename GetPtrHelper<K>::PtrType);
 
     void checkConsistency() const;
 
@@ -163,6 +170,9 @@ private:
     template<typename K, typename V>
     AddResult inlineAdd(K&&, V&&);
 
+    template<typename K, typename F>
+    AddResult inlineEnsure(K&&, const F&);
+
     HashTableType m_impl;
 };
 
@@ -172,8 +182,19 @@ struct HashMapTranslator {
     template<typename T, typename U> static bool equal(const T& a, const U& b) { return HashFunctions::equal(a, b); }
     template<typename T, typename U, typename V> static void translate(T& location, U&& key, V&& mapped)
     {
-        location.key = std::forward<U>(key);
-        location.value = std::forward<V>(mapped);
+        ValueTraits::KeyTraits::assignToEmpty(location.key, std::forward<U>(key));
+        ValueTraits::ValueTraits::assignToEmpty(location.value, std::forward<V>(mapped));
+    }
+};
+
+template<typename ValueTraits, typename HashFunctions>
+struct HashMapEnsureTranslator {
+    template<typename T> static unsigned hash(const T& key) { return HashFunctions::hash(key); }
+    template<typename T, typename U> static bool equal(const T& a, const U& b) { return HashFunctions::equal(a, b); }
+    template<typename T, typename U, typename Functor> static void translate(T& location, U&& key, const Functor& functor)
+    {
+        ValueTraits::KeyTraits::assignToEmpty(location.key, std::forward<U>(key));
+        ValueTraits::ValueTraits::assignToEmpty(location.value, functor());
     }
 };
 
@@ -297,6 +318,13 @@ ALWAYS_INLINE auto HashMap<KeyArg, MappedArg, HashArg, KeyTraitsArg, MappedTrait
 }
 
 template<typename KeyArg, typename MappedArg, typename HashArg, typename KeyTraitsArg, typename MappedTraitsArg>
+template<typename K, typename F>
+ALWAYS_INLINE auto HashMap<KeyArg, MappedArg, HashArg, KeyTraitsArg, MappedTraitsArg>::inlineEnsure(K&& key, const F& functor) -> AddResult
+{
+    return m_impl.template add<HashMapEnsureTranslator<KeyValuePairTraits, HashFunctions>>(std::forward<K>(key), functor);
+}
+
+template<typename KeyArg, typename MappedArg, typename HashArg, typename KeyTraitsArg, typename MappedTraitsArg>
 template<typename T>
 auto HashMap<KeyArg, MappedArg, HashArg, KeyTraitsArg, MappedTraitsArg>::set(const KeyType& key, T&& mapped) -> AddResult
 {
@@ -307,7 +335,7 @@ template<typename KeyArg, typename MappedArg, typename HashArg, typename KeyTrai
 template<typename T>
 auto HashMap<KeyArg, MappedArg, HashArg, KeyTraitsArg, MappedTraitsArg>::set(KeyType&& key, T&& mapped) -> AddResult
 {
-    return inlineSet(WTF::move(key), std::forward<T>(mapped));
+    return inlineSet(WTFMove(key), std::forward<T>(mapped));
 }
 
 template<typename KeyArg, typename MappedArg, typename HashArg, typename KeyTraitsArg, typename MappedTraitsArg>
@@ -328,7 +356,7 @@ template<typename KeyArg, typename MappedArg, typename HashArg, typename KeyTrai
 template<typename T>
 auto HashMap<KeyArg, MappedArg, HashArg, KeyTraitsArg, MappedTraitsArg>::add(KeyType&& key, T&& mapped) -> AddResult
 {
-    return inlineAdd(WTF::move(key), std::forward<T>(mapped));
+    return inlineAdd(WTFMove(key), std::forward<T>(mapped));
 }
 
 template<typename KeyArg, typename MappedArg, typename HashArg, typename KeyTraitsArg, typename MappedTraitsArg>
@@ -342,13 +370,36 @@ template<typename KeyArg, typename MappedArg, typename HashArg, typename KeyTrai
 template<typename T>
 ALWAYS_INLINE auto HashMap<KeyArg, MappedArg, HashArg, KeyTraitsArg, MappedTraitsArg>::fastAdd(KeyType&& key, T&& mapped) -> AddResult
 {
-    return inlineAdd(WTF::move(key), std::forward<T>(mapped));
+    return inlineAdd(WTFMove(key), std::forward<T>(mapped));
 }
 
+template<typename KeyArg, typename MappedArg, typename HashArg, typename KeyTraitsArg, typename MappedTraitsArg>
+template<typename Functor>
+auto HashMap<KeyArg, MappedArg, HashArg, KeyTraitsArg, MappedTraitsArg>::ensure(const KeyType& key, const Functor& functor) -> AddResult
+{
+    return inlineEnsure(key, functor);
+}
+
+template<typename KeyArg, typename MappedArg, typename HashArg, typename KeyTraitsArg, typename MappedTraitsArg>
+template<typename Functor>
+auto HashMap<KeyArg, MappedArg, HashArg, KeyTraitsArg, MappedTraitsArg>::ensure(KeyType&& key, const Functor& functor) -> AddResult
+{
+    return inlineEnsure(WTFMove(key), functor);
+}
+    
 template<typename T, typename U, typename V, typename W, typename MappedTraits>
 auto HashMap<T, U, V, W, MappedTraits>::get(const KeyType& key) const -> MappedPeekType
 {
     KeyValuePairType* entry = const_cast<HashTableType&>(m_impl).lookup(key);
+    if (!entry)
+        return MappedTraits::peek(MappedTraits::emptyValue());
+    return MappedTraits::peek(entry->value);
+}
+
+template<typename T, typename U, typename V, typename W, typename MappedTraits>
+ALWAYS_INLINE auto HashMap<T, U, V, W, MappedTraits>::fastGet(const KeyType& key) const -> MappedPeekType
+{
+    KeyValuePairType* entry = const_cast<HashTableType&>(m_impl).template inlineLookup<typename HashTableType::IdentityTranslatorType>(key);
     if (!entry)
         return MappedTraits::peek(MappedTraits::emptyValue());
     return MappedTraits::peek(entry->value);
@@ -384,12 +435,12 @@ inline void HashMap<T, U, V, W, X>::clear()
 }
 
 template<typename T, typename U, typename V, typename W, typename MappedTraits>
-auto HashMap<T, U, V, W, MappedTraits>::take(const KeyType& key) -> MappedType
+auto HashMap<T, U, V, W, MappedTraits>::take(const KeyType& key) -> MappedTakeType
 {
     iterator it = find(key);
     if (it == end())
-        return MappedTraits::emptyValue();
-    MappedType value = WTF::move(it->value);
+        return MappedTraits::take(MappedTraits::emptyValue());
+    auto value = MappedTraits::take(WTFMove(it->value));
     remove(it);
     return value;
 }
@@ -419,7 +470,7 @@ template<typename T, typename U, typename V, typename W, typename X>
 template<typename K>
 inline auto HashMap<T, U, V, W, X>::inlineGet(typename GetPtrHelper<K>::PtrType key) const -> typename std::enable_if<IsSmartPtr<K>::value, MappedPeekType>::type
 {
-    KeyValuePairType* entry = const_cast<HashTableType&>(m_impl).template lookup<HashMapTranslator<KeyValuePairTraits, HashFunctions>>(key);
+    KeyValuePairType* entry = const_cast<HashTableType&>(m_impl).template inlineLookup<HashMapTranslator<KeyValuePairTraits, HashFunctions>>(key);
     if (!entry)
         return MappedTraits::peek(MappedTraits::emptyValue());
     return MappedTraits::peek(entry->value);
@@ -441,12 +492,12 @@ inline auto HashMap<T, U, V, W, X>::remove(typename GetPtrHelper<K>::PtrType key
 
 template<typename T, typename U, typename V, typename W, typename X>
 template<typename K>
-inline auto HashMap<T, U, V, W, X>::take(typename GetPtrHelper<K>::PtrType key) -> typename std::enable_if<IsSmartPtr<K>::value, MappedType>::type
+inline auto HashMap<T, U, V, W, X>::take(typename GetPtrHelper<K>::PtrType key) -> typename std::enable_if<IsSmartPtr<K>::value, MappedTakeType>::type
 {
     iterator it = find(key);
     if (it == end())
-        return MappedTraits::emptyValue();
-    MappedType value = WTF::move(it->value);
+        return MappedTraits::take(MappedTraits::emptyValue());
+    auto value = MappedTraits::take(WTFMove(it->value));
     remove(it);
     return value;
 }

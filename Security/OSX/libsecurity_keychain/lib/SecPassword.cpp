@@ -179,7 +179,7 @@ SecPasswordAction(SecPasswordRef itemRef, CFTypeRef message, UInt32 flags, UInt3
                                             
         AuthorizationItemSet envSet = { sizeof(envRights) / sizeof(*envRights), envRights };
 
-	    secdebug("SecPassword", "dialog(%s)%s%s%s.", right.name, tries?" retry":"", keychain?" show-add-keychain":"", addToKeychain?" save-to-keychain":"");
+	    secinfo("SecPassword", "dialog(%s)%s%s%s.", right.name, tries?" retry":"", keychain?" show-add-keychain":"", addToKeychain?" save-to-keychain":"");
 
         status = AuthorizationCopyRights(authRef, &rightSet, &envSet, kAuthorizationFlagDefaults|kAuthorizationFlagInteractionAllowed|kAuthorizationFlagExtendRights, NULL);
         
@@ -224,14 +224,14 @@ SecPasswordAction(SecPasswordRef itemRef, CFTypeRef message, UInt32 flags, UInt3
                     if (data) 
                         *data = passwordData;
 						
-					secdebug("SecPassword", "Got password (%u,%p).", (unsigned int)passwordLength, passwordData);
+					secinfo("SecPassword", "Got password (%u,%p).", (unsigned int)passwordLength, passwordData);
                 }
                 else if (!strcmp(AGENT_ADD_TO_KEYCHAIN, item.name))
                 {
                     bool remember = (item.value && item.valueLength == strlen("YES") && !memcmp("YES", static_cast<char *>(item.value), item.valueLength));
 					passwordRef->setRememberInKeychain(remember);
 					if (remember)
-						secdebug("SecPassword", "User wants to add the password to the Keychain.");
+						secinfo("SecPassword", "User wants to add the password to the Keychain.");
                 }
             }
         }

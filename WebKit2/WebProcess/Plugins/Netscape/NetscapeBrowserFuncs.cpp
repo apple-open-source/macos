@@ -45,6 +45,10 @@
 #include <WebCore/MachSendRight.h>
 #endif
 
+#if PLUGIN_ARCHITECTURE(X11)
+#include <WebCore/PlatformDisplayX11.h>
+#endif
+
 using namespace WebCore;
 
 namespace WebKit {
@@ -201,7 +205,7 @@ static HTTPHeaderMap parseRFC822HeaderFields(const char* bytes, unsigned length)
                     break;
             }
             if (colon == endOfLine)
-                value = "";
+                value = emptyString();
             else
                 value = String(colon, endOfLine - colon);
             
@@ -303,7 +307,7 @@ static NPError NPN_PostURL(NPP npp, const char* url, const char* target, uint32_
         return error;
 
     RefPtr<NetscapePlugin> plugin = NetscapePlugin::fromNPP(npp);
-    plugin->loadURL("POST", makeURLString(url), target, WTF::move(headerFields), postData, false, 0);
+    plugin->loadURL("POST", makeURLString(url), target, WTFMove(headerFields), postData, false, 0);
     return NPERR_NO_ERROR;
 }
 
@@ -336,7 +340,7 @@ static void NPN_Status(NPP npp, const char* message)
 {
     String statusbarText;
     if (!message)
-        statusbarText = "";
+        statusbarText = emptyString();
     else
         statusbarText = String::fromUTF8WithLatin1Fallback(message, strlen(message));
 
@@ -413,8 +417,6 @@ static const unsigned WKNVSupportsCompositingCoreAnimationPluginsBool = 74656;
 static const unsigned WKNVExpectsNonretainedLayer = 74657;
 
 // 74658 and 74659 are no longer implemented.
-
-static const unsigned WKNVPlugInContainer = 74660;
 
 #endif
 
@@ -506,12 +508,6 @@ static NPError NPN_GetValue(NPP npp, NPNVariable variable, void *value)
             break;
         }
 
-        case WKNVPlugInContainer: {
-            RefPtr<NetscapePlugin> plugin = NetscapePlugin::fromNPP(npp);
-            *reinterpret_cast<void**>(value) = plugin->plugInContainer();
-            break;
-        }
-
 #ifndef NP_NO_QUICKDRAW
         case NPNVsupportsQuickDrawBool:
             // We don't support the QuickDraw drawing model.
@@ -524,18 +520,21 @@ static NPError NPN_GetValue(NPP npp, NPNVariable variable, void *value)
             break;
 #endif
 #elif PLUGIN_ARCHITECTURE(X11)
-       case NPNVxDisplay: {
-           if (!npp)
-               return NPERR_GENERIC_ERROR;
-           *reinterpret_cast<Display**>(value) = NetscapePlugin::x11HostDisplay();
-           break;
-       }
-       case NPNVSupportsXEmbedBool:
-           *static_cast<NPBool*>(value) = true;
-           break;
-       case NPNVSupportsWindowless:
-           *static_cast<NPBool*>(value) = true;
-           break;
+        case NPNVxDisplay: {
+            if (!npp)
+                return NPERR_GENERIC_ERROR;
+            auto& display = PlatformDisplay::sharedDisplay();
+            if (display.type() != PlatformDisplay::Type::X11)
+                return NPERR_GENERIC_ERROR;
+            *reinterpret_cast<Display**>(value) = downcast<PlatformDisplayX11>(display).native();
+            break;
+        }
+        case NPNVSupportsXEmbedBool:
+            *static_cast<NPBool*>(value) = PlatformDisplay::sharedDisplay().type() == PlatformDisplay::Type::X11;
+            break;
+        case NPNVSupportsWindowless:
+            *static_cast<NPBool*>(value) = true;
+            break;
 
        case NPNVToolkit: {
            // Gtk based plugins need to be assured about the toolkit version.
@@ -1053,11 +1052,7 @@ static void initializeBrowserFuncs(NPNetscapeFuncs &netscapeFuncs)
     netscapeFuncs.popupcontextmenu = 0;
     netscapeFuncs.convertpoint = 0;
 #endif
-#if ENABLE(NETWORK_PROCESS)
     netscapeFuncs.urlredirectresponse = NPN_URLRedirectResponse;
-#else
-    netscapeFuncs.urlredirectresponse = 0;
-#endif
 }
     
 NPNetscapeFuncs* netscapeBrowserFuncs()

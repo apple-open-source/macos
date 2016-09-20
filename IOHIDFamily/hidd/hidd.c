@@ -22,7 +22,31 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/hid/IOHIDEventSystem.h>
+#include <IOHIDParameter.h>
+#include <IOKit/IOKitLib.h>
 #include <mach/mach.h>
+#include <CoreFoundation/CFLogUtilities.h>
+
+void IOHIDEventSystemLoadDefaultParameters (IOHIDEventSystemRef eventSystem);
+
+
+void IOHIDEventSystemLoadDefaultParameters (IOHIDEventSystemRef eventSystem) {
+  //CFLog (kCFLogLevelError, CFSTR("+IOHIDEventSystemLoadDefaultParameters\n"));
+  
+    io_service_t service = IORegistryEntryFromPath(kIOMasterPortDefault, kIOServicePlane ":/IOResources/IOHIDSystem" );
+    if( !service) {
+        return;
+    }
+    CFTypeRef hidParams = IORegistryEntryCreateCFProperty (service, CFSTR(kIOHIDParametersKey), kCFAllocatorDefault, 0);
+    if (hidParams) {
+    //CFLog(kCFLogLevelError, CFSTR("IOHIDEventSystemLoadDefaultParameters: %@\n"), hidParams);
+        CFDictionaryRemoveValue(hidParams, CFSTR(kIOHIDKeyboardModifierMappingPairsKey));
+        IOHIDEventSystemSetProperty(eventSystem, CFSTR(kIOHIDParametersKey), hidParams);
+        CFRelease(hidParams);
+    }
+    IOObjectRelease (service);
+  //CFLog (kCFLogLevelError,CFSTR("-IOHIDEventSystemLoadDefaultParameters\n"));
+}
 
 int main (int argc __unused, const char * argv[] __unused) 
 {
@@ -34,7 +58,9 @@ int main (int argc __unused, const char * argv[] __unused)
     
     if ( !IOHIDEventSystemOpen(eventSystem, NULL, NULL, NULL, 0) )
         goto finish;
-    
+  
+    IOHIDEventSystemLoadDefaultParameters (eventSystem);
+  
     // Make sure this process remains at tier 0 for maximum timer accuracy, since it provides user input events
     memset(&qosinfo, 0, sizeof(qosinfo));
     qosinfo.task_latency_qos_tier = LATENCY_QOS_TIER_0;

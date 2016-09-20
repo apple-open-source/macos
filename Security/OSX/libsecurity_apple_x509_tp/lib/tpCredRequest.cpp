@@ -34,7 +34,7 @@
 #include <Security/cssmapple.h>
 #include <assert.h>
 
-#define tpCredDebug(args...)	secdebug("tpCred", ## args)
+#define tpCredDebug(args...)	secinfo("tpCred", ## args)
 
 /*
  * Build up a CSSM_X509_NAME from an arbitrary list of name/OID pairs. 

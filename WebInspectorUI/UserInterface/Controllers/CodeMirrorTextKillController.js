@@ -87,7 +87,7 @@ WebInspector.CodeMirrorTextKillController = class CodeMirrorTextKillController e
 
         // It doesn't make sense to get more than one change per kill.
         console.assert(changes.length === 1);
-        var change = changes[0];
+        let change = changes[0];
 
         // If an "empty kill" is followed by up/down or typing,
         // the empty kill won't fire a change event, then we'll get an
@@ -97,7 +97,7 @@ WebInspector.CodeMirrorTextKillController = class CodeMirrorTextKillController e
 
         // When killed text includes a newline, CodeMirror returns
         // strange change objects. Special-case for when this could happen.
-        var killedText;
+        let killedText;
         if (change.to.line === change.from.line + 1 && change.removed.length === 2) {
             // An entire line was deleted, including newline (Cmd-D).
             if (change.removed[0].length && !change.removed[1].length) 

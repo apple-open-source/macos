@@ -136,7 +136,7 @@ public:
     virtual ~KeychainImpl();
 
 	Mutex* getKeychainMutex();
-	Mutex* getMutexForObject();
+	Mutex* getMutexForObject() const;
 
     ReadWriteLock* getKeychainReadWriteLock();
 	void aboutToDestruct();
@@ -184,6 +184,7 @@ public:
 	KCCursor createCursor(const SecKeychainAttributeList *attrList);
 	KCCursor createCursor(SecItemClass itemClass, const SecKeychainAttributeList *attrList);
 	CssmClient::Db database() { StLock<Mutex>_(mDbMutex); return mDb; }
+    void changeDatabase(CssmClient::Db db);
 	DLDbIdentifier dlDbIdentifier() const { return mDb->dlDbIdentifier(); }
 
 	CssmClient::CSP csp();
@@ -222,6 +223,7 @@ public:
 	void inCache(bool inCache) throw() { mInCache = inCache; }
 	
 	void postEvent(SecKeychainEvent kcEvent, ItemImpl* item);
+    void postEvent(SecKeychainEvent kcEvent, ItemImpl* item, PrimaryKey pk);
 	
 	void addItem(const PrimaryKey &primaryKey, ItemImpl *dbItemImpl);
 
@@ -236,8 +238,27 @@ private:
     // DO NOT hold any of the keychain locks when you call this
     bool performKeychainUpgradeIfNeeded();
 
+    // Notify the keychain that you're accessing it. Used in conjunction with
+    // the StorageManager for time-based caching.
+    void tickle();
+
+    // Used by StorageManager to remember the timer->keychain pairing
+    dispatch_source_t mCacheTimer;
+
+    // Set this to true to make tickling do nothing.
+    bool mSuppressTickle;
+
+public:
+    // Grab the locks and then call attemptKeychainMigration
+    // The access credentials are only used when downgrading version, and will be passed along with ACL edits
+    bool keychainMigration(const string oldPath, const uint32 dbBlobVersion, const string newPath, const uint32 newBlobVersion, const AccessCredentials *cred = NULL);
+
+private:
     // Attempt to upgrade this keychain's database
-    uint32 attemptKeychainMigration(uint32 oldBlobVersion, uint32 newBlobVersion);
+    uint32 attemptKeychainMigration(const string oldPath, const uint32 oldBlobVersion, const string newPath, const uint32 newBlobVersion, const AccessCredentials *cred);
+
+    // Attempt to rename this keychain, if someone hasn't beaten us to it
+    void attemptKeychainRename(const string oldPath, const string newPath, uint32 blobVersion);
 
     // Remember if we've attempted to upgrade this keychain's database
     bool mAttemptedUpgrade;
@@ -250,9 +271,18 @@ private:
     // mDbDeletedItemMapMutex when you call this function.
     void forceRemoveFromCache(ItemImpl* inItemImpl);
 
+    // Looks up an item in the item cache.
+    //
+    // To use this in a thread-safe manner, you must hold this keychain's mutex
+    // from before you begin this operation until you have safely completed a
+    // CFRetain on the resulting ItemImpl.
 	ItemImpl *_lookupItem(const PrimaryKey &primaryKey);
 
     // Looks up a deleted item in the deleted item map. Does not check the normal map.
+    //
+    // To use this in a thread-safe manner, you must hold this keychain's mutex
+    // from before you begin this operation until you have safely completed a
+    // CFRetain on the resulting ItemImpl.
     ItemImpl *_lookupDeletedItemOnly(const PrimaryKey &primaryKey);
 
 	const AccessCredentials *makeCredentials();

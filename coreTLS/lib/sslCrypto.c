@@ -100,7 +100,7 @@ errOut:
 
 }
 
-int sslDhCreateKey(ccdh_const_gp_t gp, ccdh_full_ctx_in_t *dhKey)
+int sslDhCreateKey(ccdh_const_gp_t gp, ccdh_full_ctx_t *dhKey)
 {
     ccdh_full_ctx *dhContext = NULL;
     int ortn;
@@ -138,14 +138,14 @@ errOut:
     return ortn;
 }
 
-int sslDhKeyExchange(ccdh_full_ctx_in_t dhKey, const tls_buffer *dhPeerPublic, tls_buffer *preMasterSecret)
+int sslDhKeyExchange(ccdh_full_ctx_t dhKey, const tls_buffer *dhPeerPublic, tls_buffer *preMasterSecret)
 {
     int result = errSSLProtocol, rtn;
     cc_unit *r = NULL;
     size_t len;
     cc_size n;
 
-    ccdh_const_gp_t gp = ccdh_ctx_gp(dhKey._full);
+    ccdh_const_gp_t gp = ccdh_ctx_gp(dhKey);
     ccdh_pub_ctx_decl_gp(gp, pubKey);
     require_noerr(ccdh_import_pub(gp, dhPeerPublic->length, dhPeerPublic->data, pubKey), errOut);
 
@@ -154,7 +154,7 @@ int sslDhKeyExchange(ccdh_full_ctx_in_t dhKey, const tls_buffer *dhPeerPublic, t
     r = sslMalloc(len);
 
     require_noerr_action(rtn = SSLAllocBuffer(preMasterSecret, len), errOut, result = rtn);
-    require_noerr(ccdh_compute_key(dhKey._full, pubKey, r), errOut);
+    require_noerr(ccdh_compute_key(dhKey, pubKey, r), errOut);
 
     ccn_write_uint(n, r, &preMasterSecret->length, preMasterSecret->data);
     size_t out_size = ccn_write_uint_size(n, r);
@@ -182,7 +182,7 @@ errOut:
 /*
  * Generate ECDH key pair with the given tls_named_curve.
  */
-int sslEcdhCreateKey(ccec_const_cp_t cp, ccec_full_ctx_in_t *ecdhKey)
+int sslEcdhCreateKey(ccec_const_cp_t cp, ccec_full_ctx_t *ecdhKey)
 {
     ccec_full_ctx *ecdhContext = NULL;
     int ortn;
@@ -228,13 +228,13 @@ errOut:
  * ctx->peerPubKey for ECDH exchange.
  */
 
-int sslEcdhKeyExchange(const ccec_full_ctx_in_t ecdhKey, const ccec_pub_ctx_in_t ecdhPeerPublic, tls_buffer *preMasterSecret)
+int sslEcdhKeyExchange(const ccec_full_ctx_t ecdhKey, const ccec_pub_ctx_t ecdhPeerPublic, tls_buffer *preMasterSecret)
 {
     int ortn = errSSLSuccess;
 
     size_t len = 1 + 2 * ccec_ccn_size(ccec_ctx_cp(ecdhKey._full));
     require_noerr(ortn = SSLAllocBuffer(preMasterSecret, len), errOut);
-    require_noerr(ccec_compute_key(ecdhKey._full, ecdhPeerPublic._pub,  &preMasterSecret->length, preMasterSecret->data), errOut);
+    require_noerr(ccec_compute_key(ecdhKey, ecdhPeerPublic,  &preMasterSecret->length, preMasterSecret->data), errOut);
 
 	sslDebugLog("sslEcdhKeyExchange: exchanged key length=%ld, data=%p\n",
                 preMasterSecret->length, preMasterSecret->data);
@@ -301,20 +301,20 @@ int sslRawSign(
 
 	assert(actualBytes != NULL);
     int status = errSSLParam;
-    if (privKey->type == kSSLPrivKeyType_RSA) {
-        status = privKey->rsa.sign(privKey->ctx, tls_hash_algorithm_None, plainText, plainTextLen, sig, &inOutSigLen);
-    } else if (privKey->type == kSSLPrivKeyType_ECDSA) {
-        status = privKey->ecdsa.sign(privKey->ctx, plainText, plainTextLen, sig, &inOutSigLen);
+    if (privKey->desc.type == tls_private_key_type_rsa) {
+        status = privKey->desc.rsa.sign(privKey->ctx, tls_hash_algorithm_None, plainText, plainTextLen, sig, &inOutSigLen);
+    } else if (privKey->desc.type == tls_private_key_type_ecdsa) {
+        status = privKey->desc.ecdsa.sign(privKey->ctx, plainText, plainTextLen, sig, &inOutSigLen);
     } else
         status = errSSLParam;
 	if (status) {
-		sslErrorLog("privKey->rsa.sign: failed (error %d)\n", (int)status);
+		sslErrorLog("privKey->desc.rsa.sign: failed (error %d)\n", (int)status);
 	}
 
     /* Since the KeyExchange already allocated modulus size bytes we'll
         use all of them.  SecureTransport has always sent that many bytes,
         so we're not going to deviate, to avoid interoperability issues. */
-    if (!status && (privKey->type == kSSLPrivKeyType_RSA) && (inOutSigLen < sigLen)) {
+    if (!status && (privKey->desc.type == tls_private_key_type_rsa) && (inOutSigLen < sigLen)) {
         size_t offset = sigLen - inOutSigLen;
         memmove(sig + offset, sig, inOutSigLen);
         memset(sig, 0, offset);
@@ -339,13 +339,13 @@ int sslEcdsaSign(
     size_t inOutSigLen = sigLen;
 
     assert(actualBytes != NULL);
-    assert(privKey->type == kSSLPrivKeyType_ECDSA);
+    assert(privKey->desc.type == tls_private_key_type_ecdsa);
 
-    int status = privKey->ecdsa.sign(privKey->ctx, plainText, plainTextLen, sig,
+    int status = privKey->desc.ecdsa.sign(privKey->ctx, plainText, plainTextLen, sig,
                                      &inOutSigLen);
 
     if (status) {
-        sslErrorLog("privKey->ecdsa.sign: failed (error %d)\n", (int)status);
+        sslErrorLog("privKey->desc.ecdsa.sign: failed (error %d)\n", (int)status);
     }
 
     *actualBytes = inOutSigLen;
@@ -366,12 +366,12 @@ int sslRsaSign(
 	size_t inOutSigLen = sigLen;
 
 	assert(actualBytes != NULL);
-    assert(privKey->type == kSSLPrivKeyType_RSA);
+    assert(privKey->desc.type == tls_private_key_type_rsa);
 
-    int status = privKey->rsa.sign(privKey->ctx, hash, plainText, plainTextLen, sig, &inOutSigLen);
+    int status = privKey->desc.rsa.sign(privKey->ctx, hash, plainText, plainTextLen, sig, &inOutSigLen);
 
 	if (status) {
-		sslErrorLog("privKey->rsa.sign: failed (error %d)\n", (int)status);
+		sslErrorLog("privKey->desc.rsa.sign: failed (error %d)\n", (int)status);
 	}
 
     /* Since the KeyExchange already allocated modulus size bytes we'll
@@ -399,58 +399,25 @@ int sslRawRsaVerify(
 	const uint8_t       *sig,
 	size_t              sigLen)         // available
 {
-    int status = errSSLCrypto;
+    const uint8_t *oid = NULL;
+    bool valid;
 
     if(!pubKey->isRSA || pubKey->rsa.pub==NULL) {
         sslErrorLog("Internal Error: Invalid RSA public key\n");
         return errSSLInternal;
     }
 
-    ccrsa_pub_ctx_t pubkey = pubKey->rsa;
+    int status = ccrsa_verify_pkcs1v15(pubKey->rsa, oid, plainTextLen, plainText, sigLen, sig, &valid);
 
-    cc_unit s[ccrsa_ctx_n(pubkey)];
-
-    require_noerr(ccn_read_uint(ccrsa_ctx_n(pubkey), s, sigLen, sig), errOut);
-    require_noerr(ccrsa_pub_crypt(pubkey, s, s), errOut);
-    ccn_swap(ccrsa_ctx_n(pubkey), s);
-
-    const uint8_t* sBytes = (uint8_t*) s;
-    const uint8_t* sEnd = (uint8_t*) (s + ccrsa_ctx_n(pubkey));
-
-    // Verify and skip PKCS1 padding:
-    //
-    // 0x00, 0x01 (RSA_PKCS1_PAD_SIGN), 0xFF .. 0x00, signedData
-    //
-    size_t m_size = ccn_write_uint_size(ccrsa_ctx_n(pubkey), ccrsa_ctx_m(pubkey));
-    size_t prefix_zeros = ccn_sizeof_n(ccrsa_ctx_n(pubkey)) - m_size;
-
-    while (prefix_zeros--)
-        require_quiet(*sBytes++ == 0x00, errOut);
-
-    require_quiet(*sBytes++ == 0x00, errOut);
-    require_quiet(*sBytes++ == RSA_PKCS1_PAD_SIGN, errOut);
-
-    while (*sBytes == 0xFF) {
-        require_quiet(++sBytes < sEnd, errOut);
+    if (status) {
+        sslErrorLog("sslRawRsaVerify: ccrsa_verify_pkcs1v15 failed (error %d)\n", (int) status);
+    } else {
+        if(!valid) {
+            sslErrorLog("sslRawRsaVerify: ccrsa_verify_pkcs1v15 signature verify error\n", (int) status);
+            status = errSSLCrypto;
+        }
     }
-    // Required to have at least 8 0xFFs
-    require_quiet((sBytes - (uint8_t*)s) - 2 >= 8, errOut);
-
-    require_quiet(*sBytes == 0x00, errOut);
-    require_quiet(++sBytes < sEnd, errOut);
-
-    // Compare the rest.
-    require_quiet((sEnd - sBytes) == (ptrdiff_t)plainTextLen, errOut);
-    require_quiet(memcmp(sBytes, plainText, plainTextLen) == 0, errOut);
-
-    status = errSSLSuccess;
-
-errOut:
-	if (status) {
-		sslErrorLog("sslRawVerify: failed (error %d)\n", (int) status);
-	}
-
-	return status;
+    return status;
 }
 
 static
@@ -508,6 +475,8 @@ const uint8_t *ccoidForSSLHash(tls_hash_algorithm hash)
             return ccoid_sha256;
         case tls_hash_algorithm_SHA384:
             return ccoid_sha384;
+        case tls_hash_algorithm_SHA512:
+            return ccoid_sha512;
         default:
             break;
     }
@@ -656,16 +625,16 @@ int sslRsaDecrypt(
 	size_t              plainTextLen,		// available
 	size_t              *actualBytes) 		// RETURNED
 {
-    assert(privKey->type == kSSLPrivKeyType_RSA);
+    assert(privKey->desc.type == tls_private_key_type_rsa);
 	size_t ptlen = plainTextLen;
 
 	assert(actualBytes != NULL);
 
-    int status = privKey->rsa.decrypt(privKey->ctx, cipherText, cipherTextLen, plainText, &ptlen);
+    int status = privKey->desc.rsa.decrypt(privKey->ctx, cipherText, cipherTextLen, plainText, &ptlen);
 	*actualBytes = ptlen;
 
     if (status) {
-        sslErrorLog("sslRsaDecrypt: privKey->rsa->decrypt failed (error %d)\n", (int)status);
+        sslErrorLog("sslRsaDecrypt: privKey->desc.rsa->decrypt failed (error %d)\n", (int)status);
 	}
 
 	return status;
@@ -676,7 +645,7 @@ int sslRsaDecrypt(
  */
 size_t sslPrivKeyLengthInBytes(tls_private_key_t privKey)
 {
-    return privKey->rsa.size;
+    return privKey->desc.rsa.size;
 }
 
 /*
@@ -698,10 +667,14 @@ int sslGetMaxSigSize(
 {
 	assert(maxSigSize != NULL);
 
-    if (privKey->type == kSSLPrivKeyType_ECDSA) {
-        *maxSigSize = privKey->ecdsa.size;
-    } else if (privKey->type == kSSLPrivKeyType_RSA) {
-        *maxSigSize = privKey->rsa.size;
+    if (privKey == NULL) {
+        return errSSLInternal;
+    }
+
+    if (privKey->desc.type == tls_private_key_type_ecdsa) {
+        *maxSigSize = privKey->desc.ecdsa.size;
+    } else if (privKey->desc.type == tls_private_key_type_rsa) {
+        *maxSigSize = privKey->desc.rsa.size;
     } else
         return errSSLParam;
 

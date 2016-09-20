@@ -201,6 +201,7 @@
 		12E786260343571B03A87B01 /* DACommand.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = DACommand.c; path = diskarbitrationd/DACommand.c; sourceTree = "<group>"; };
 		12EFD4EB038AE27403A87B01 /* DALog.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = DALog.h; path = diskarbitrationd/DALog.h; sourceTree = "<group>"; };
 		12EFD4EC038AE27403A87B01 /* DALog.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = DALog.c; path = diskarbitrationd/DALog.c; sourceTree = "<group>"; };
+		2AE465A21CAB11830049D02E /* DiskArbitration.modulemap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = "sourcecode.module-map"; path = DiskArbitration.modulemap; sourceTree = "<group>"; };
 		60077B8112E630AF00D4AE4F /* DiskArbitrationAgent */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = DiskArbitrationAgent; sourceTree = BUILT_PRODUCTS_DIR; };
 		60077BAA12E63A8B00D4AE4F /* DiskArbitrationAgent.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = DiskArbitrationAgent.m; path = DiskArbitrationAgent/DiskArbitrationAgent.m; sourceTree = "<group>"; };
 		60077BD012E6403F00D4AE4F /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = /System/Library/Frameworks/ApplicationServices.framework; sourceTree = "<absolute>"; };
@@ -424,6 +425,7 @@
 		12D25927030A908603A87B01 = {
 			isa = PBXGroup;
 			children = (
+				2AE465A11CAB0F230049D02E /* Modules */,
 				1236382F031ABDC703A87B01 /* Frameworks */,
 				124AF309030AD93503A87B01 /* Products */,
 				12D2592F030A942703A87B01 /* Resources */,
@@ -459,6 +461,14 @@
 				60077C4412E645D100D4AE4F /* DiskArbitrationAgent */,
 			);
 			name = Resources;
+			sourceTree = "<group>";
+		};
+		2AE465A11CAB0F230049D02E /* Modules */ = {
+			isa = PBXGroup;
+			children = (
+				2AE465A21CAB11830049D02E /* DiskArbitration.modulemap */,
+			);
+			name = Modules;
 			sourceTree = "<group>";
 		};
 		60077B9812E6353500D4AE4F /* DiskArbitrationAgent */ = {
@@ -911,11 +921,13 @@
 					profile,
 				);
 				COPY_PHASE_STRIP = NO;
+				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				FRAMEWORK_VERSION = A;
 				INFOPLIST_FILE = DiskArbitration/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				"MODULEMAP_FILE[sdk=*]" = $SRCROOT/DiskArbitration.modulemap;
 				PRODUCT_NAME = DiskArbitration;
 				SECTORDER_FLAGS = (
 					"-sectorder",
@@ -935,11 +947,14 @@
 					debug,
 					profile,
 				);
+				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				FRAMEWORK_VERSION = A;
+				"GCC_PREPROCESSOR_DEFINITIONS[arch=*]" = "";
 				INFOPLIST_FILE = DiskArbitration/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				"MODULEMAP_FILE[sdk=*]" = $SRCROOT/DiskArbitration.modulemap;
 				PRODUCT_NAME = DiskArbitration;
 				SECTORDER_FLAGS = (
 					"-sectorder",

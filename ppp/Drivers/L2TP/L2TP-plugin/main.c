@@ -857,7 +857,9 @@ start:
 				dbglog("IPSec phase 1 client started\n");
 				state = RACOON_STARTED;
 				reliable = 1;
-				setsockopt(ctrlsockfd, PPPPROTO_L2TP, L2TP_OPT_RELIABILITY, &reliable, 2);
+				if (setsockopt(ctrlsockfd, PPPPROTO_L2TP, L2TP_OPT_RELIABILITY, &reliable, 2)) {
+					error("l2tp_trigger_ipsec: can't set L2TP_OPT_RELIABILITY: %s\n", strerror(errno));
+				}
 				break;
 
 			case VPNCTL_STATUS_PH1_START_PEER:
@@ -887,7 +889,10 @@ start:
 					
 					/* send L2TP packets to trigger IPSec connection */
 					reliable = 0;
-					setsockopt(ctrlsockfd, PPPPROTO_L2TP, L2TP_OPT_RELIABILITY, &reliable, 2);
+					if (setsockopt(ctrlsockfd, PPPPROTO_L2TP, L2TP_OPT_RELIABILITY, &reliable, 2)) {
+						error("l2tp_trigger_ipsec: can't set L2TP_OPT_RELIABILITY for default case: %s\n", strerror(errno));
+					}
+
 					l2tp_send_hello_trigger(ctrlsockfd, real_peer_address);
 					num_ipsec_triggers = 1;
 					state = RACOON_TRIGGERED;
@@ -1352,13 +1357,13 @@ static int l2tp_connect_internal(int *errorcode, int *aggressive_mode, int dhgro
     l2tp_set_flag(ctrlsockfd, 1, L2TP_FLAG_CONTROL);
     l2tp_set_flag(ctrlsockfd, our_params.seq_required, L2TP_FLAG_SEQ_REQ);
     l2tp_set_flag(ctrlsockfd, !opt_noipsec, L2TP_FLAG_IPSEC);
-    l2tp_set_delegated_process(ctrlsockfd, getpid());  // must be set before calling l2tp_set_ouraddress
+    (void)l2tp_set_delegated_process(ctrlsockfd, getpid());  // must be set before calling l2tp_set_ouraddress
 
     /* ask the kernel extension to make and assign a new tunnel id to the tunnel */
     optlen = 2;
     getsockopt(ctrlsockfd, PPPPROTO_L2TP, L2TP_OPT_NEW_TUNNEL_ID, &our_params.tunnel_id, &optlen);
 
-    l2tp_set_ourparams(ctrlsockfd,  &our_params);
+    (void)l2tp_set_ourparams(ctrlsockfd,  &our_params);
     l2tp_reset_timers(ctrlsockfd, 0);
 
     if (kill_link)
@@ -1513,7 +1518,7 @@ static int l2tp_connect_internal(int *errorcode, int *aggressive_mode, int dhgro
         /* bind the socket in the kernel with take an ephemeral port */
         /* on return, it ouraddress will contain actual port selected */
         ((struct sockaddr_in *)&our_address)->sin_port = htons(opt_udpport);
-        l2tp_set_ouraddress(ctrlsockfd, (struct sockaddr *)&our_address);        
+        (void)l2tp_set_ouraddress(ctrlsockfd, (struct sockaddr *)&our_address);
         
         /* set our peer address */
         l2tp_set_peeraddress(ctrlsockfd, real_peer_address);
@@ -1742,8 +1747,8 @@ static int l2tp_connect_internal(int *errorcode, int *aggressive_mode, int dhgro
     
             l2tp_set_flag(listenfd, kdebugflag & 1, L2TP_FLAG_DEBUG);
             l2tp_set_flag(listenfd, 1, L2TP_FLAG_CONTROL);
-			l2tp_set_flag(listenfd, !opt_noipsec, L2TP_FLAG_IPSEC);
-            l2tp_set_delegated_process(listenfd, getpid());  // must be set before calling l2tp_set_ouraddress
+            l2tp_set_flag(listenfd, !opt_noipsec, L2TP_FLAG_IPSEC);
+            (void)l2tp_set_delegated_process(listenfd, getpid());  // must be set before calling l2tp_set_ouraddress
 
     
             /* bind the socket in the kernel with L2TP port */
@@ -1759,7 +1764,7 @@ static int l2tp_connect_internal(int *errorcode, int *aggressive_mode, int dhgro
 				((struct sockaddr_in6 *)&listen_address)->sin6_port = htons(L2TP_UDP_PORT);
 				((struct sockaddr_in6 *)&listen_address)->sin6_addr = (struct in6_addr)IN6ADDR_ANY_INIT;
 			}
-            l2tp_set_ouraddress(listenfd, (struct sockaddr *)&listen_address);
+			(void)l2tp_set_ouraddress(listenfd, (struct sockaddr *)&listen_address);
 
 			memcpy(&our_address, &listen_address, sizeof(listen_address));
     
@@ -1802,7 +1807,9 @@ static int l2tp_connect_internal(int *errorcode, int *aggressive_mode, int dhgro
 			from.ss_len = sizeof(from);
             if ((err = l2tp_recv(listenfd, control_buf, MAX_CNTL_BUFFER_SIZE, &rcvlen, (struct sockaddr*)&from, -1, "SCCRQ"))){
             	if (err == 0) {
-                	setsockopt(ctrlsockfd, PPPPROTO_L2TP, L2TP_OPT_ACCEPT, 0, 0);
+                	if (setsockopt(ctrlsockfd, PPPPROTO_L2TP, L2TP_OPT_ACCEPT, 0, 0)) {
+                		error("l2tp_connect_internal: L2TP can't set L2TP accept: %s\n", strerror(errno));
+                	}
             	}
 			}
 
@@ -1856,17 +1863,17 @@ static int l2tp_connect_internal(int *errorcode, int *aggressive_mode, int dhgro
     l2tp_set_flag(datasockfd, peer_params.seq_required, L2TP_FLAG_SEQ_REQ);
 	l2tp_set_flag(datasockfd, !opt_noipsec, L2TP_FLAG_IPSEC);
 
-    l2tp_set_ouraddress(datasockfd, (struct sockaddr *)&our_address);
+    (void)l2tp_set_ouraddress(datasockfd, (struct sockaddr *)&our_address);
     /* set the peer address of the data socket */
     /* on a data socket, this will find the socket of the corresponding control connection */
     l2tp_set_peeraddress(datasockfd, (struct sockaddr *)real_peer_address);
 
-    l2tp_set_ourparams(datasockfd, &our_params);
-    l2tp_set_peerparams(datasockfd, &peer_params);
+    (void)l2tp_set_ourparams(datasockfd, &our_params);
+    (void)l2tp_set_peerparams(datasockfd, &peer_params);
     l2tp_reset_timers(datasockfd, 0);
 	
 	baudrate = get_if_baudrate((char*)interface);
-	l2tp_set_baudrate(datasockfd, baudrate);
+	(void)l2tp_set_baudrate(datasockfd, baudrate);
 
     if (!strcmp(opt_mode, MODE_CONNECT)) {
 		struct in_addr address;
@@ -1946,7 +1953,10 @@ void l2tp_disconnect()
 ----------------------------------------------------------------------------- */
 int l2tp_set_baudrate(int fd, u_int32_t baudrate)
 {
-	setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_BAUDRATE, &baudrate, 4);
+	if (setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_BAUDRATE, &baudrate, 4)) {
+		error("L2TP can't set L2TP baudrate: %s\n", strerror(errno));
+		return -1;
+	}
     return 0;
 }
 
@@ -1954,7 +1964,10 @@ int l2tp_set_baudrate(int fd, u_int32_t baudrate)
  ----------------------------------------------------------------------------- */
 int l2tp_set_delegated_process(int fd, int pid)
 {
-    setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_SETDELEGATEDPID, &pid, sizeof(pid));
+    if (setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_SETDELEGATEDPID, &pid, sizeof(pid))) {
+		error("L2TP can't set L2TP delegate process: %s\n", strerror(errno));
+		return -1;
+	}
     return 0;
 }
 
@@ -1965,7 +1978,7 @@ int l2tp_set_ouraddress(int fd, struct sockaddr *addr)
     socklen_t optlen;
 
 	if (setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_OURADDRESS, addr, addr->sa_len)) {
-		error("L2TP can't set L2TP local address: %d\n", errno);
+		error("L2TP can't set L2TP local address: %s\n", strerror(errno));
 		return -1;
 	}
     /* get the address to retrieve the actual port used */
@@ -1980,7 +1993,7 @@ int l2tp_set_peeraddress(int fd, struct sockaddr *addr)
 {
 
     if (setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_PEERADDRESS, addr, addr->sa_len)) {
-        error("L2TP can't set L2TP server address: %d\n", errno);
+        error("L2TP can't set L2TP server address: %s\n", strerror(errno));
         return -1;
     }
     return 0;
@@ -2000,22 +2013,42 @@ int l2tp_new_tunnelid(int fd, u_int16_t *tunnelid)
 ----------------------------------------------------------------------------- */
 int l2tp_set_ourparams(int fd, struct l2tp_parameters *our_params)
 {
-    setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_TUNNEL_ID, &our_params->tunnel_id, 2);
+    int             error;
+
+    error = setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_TUNNEL_ID, &our_params->tunnel_id, 2);
     /* session id is ignored for control connections */
-    setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_SESSION_ID, &our_params->session_id, 2);
-    setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_WINDOW, &our_params->window_size, 2);
-    return 0;
+    if (!error) {
+        error = setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_SESSION_ID, &our_params->session_id, 2);
+    }
+    if (!error) {
+        error = setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_WINDOW, &our_params->window_size, 2);
+    }
+    if (error) {
+        syslog(LOG_DEBUG, "l2tp_set_ourparams: failed to set L2TP socket options, err = %s",
+               strerror(errno));
+    }
+    return error;
 }
 
 /* ----------------------------------------------------------------------------- 
 ----------------------------------------------------------------------------- */
 int l2tp_set_peerparams(int fd, struct l2tp_parameters *peer_params)
 {
-    setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_PEER_TUNNEL_ID, &peer_params->tunnel_id, 2);
+    int             error;
+
+    error = setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_PEER_TUNNEL_ID, &peer_params->tunnel_id, 2);
     /* session id is ignored for control connections */
-    setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_PEER_SESSION_ID, &peer_params->session_id, 2);
-    setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_PEER_WINDOW, &peer_params->window_size, 2);
-    return 0;
+    if (!error) {
+        error = setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_PEER_SESSION_ID, &peer_params->session_id, 2);
+    }
+    if (!error) {
+        error = setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_PEER_WINDOW, &peer_params->window_size, 2);
+    }
+    if (error) {
+        syslog(LOG_ERR, "l2tp_set_peerparams: failed to set L2TP socket options, err = %s", strerror(errno));
+    }
+
+    return error;
 }
 
 /* ----------------------------------------------------------------------------- 
@@ -2059,7 +2092,7 @@ int l2tp_change_peeraddress(int fd, struct sockaddr *peer)
 					((struct sockaddr_in *)&our_address)->sin_port = htons(0);
 				else 
 					((struct sockaddr_in *)&our_address)->sin_port = htons(L2TP_UDP_PORT);
-				l2tp_set_ouraddress(fd, (struct sockaddr *)&our_address);
+				(void)l2tp_set_ouraddress(fd, (struct sockaddr *)&our_address);
 			}
 		}
 
@@ -2424,6 +2457,7 @@ int l2tp_set_flag(int fd, int set, u_int32_t flag)
 void l2tp_reset_timers (int fd, int connect_mode)
 {
     u_int16_t		timeout, timeoutcap, retries;
+    int             error;
 
     /* use non adaptative time for initial packet */
     l2tp_set_flag(fd, !connect_mode, L2TP_FLAG_ADAPT_TIMER);
@@ -2439,9 +2473,17 @@ void l2tp_reset_timers (int fd, int connect_mode)
         retries = opt_retrycount;
     }
 
-    setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_INITIAL_TIMEOUT, &timeout, 2);
-    setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_TIMEOUT_CAP, &timeoutcap, 2);
-    setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_MAX_RETRIES, &retries, 2);
+    error = setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_INITIAL_TIMEOUT, &timeout, 2);
+    if (!error) {
+        error = setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_TIMEOUT_CAP, &timeoutcap, 2);
+    }
+    if (!error) {
+        error = setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_MAX_RETRIES, &retries, 2);
+    }
+    if (error) {
+        syslog(LOG_ERR, "l2tp_reset_timers: failed to set L2TP socket options, err = %s",
+               strerror(errno));
+    }
 }
 
 /* -----------------------------------------------------------------------------

@@ -1,6 +1,4 @@
 /*
- * "$Id: tlscheck.c 12686 2015-06-03 15:21:14Z akiko $"
- *
  * TLS check program for CUPS.
  *
  * Copyright 2007-2015 by Apple Inc.
@@ -53,7 +51,8 @@ main(int  argc,				/* I - Number of command-line arguments */
 		host[256],		/* Hostname */
 		userpass[256],		/* Username/password */
 		resource[256];		/* Resource path */
-  int		tls_options = _HTTP_TLS_NONE,
+  int		af = AF_UNSPEC,		/* Address family */
+		tls_options = _HTTP_TLS_NONE,
 					/* TLS options */
 		verbose = 0;		/* Verbosity */
   ipp_t		*request,		/* IPP Get-Printer-Attributes request */
@@ -95,6 +94,14 @@ main(int  argc,				/* I - Number of command-line arguments */
     {
       verbose = 1;
     }
+    else if (!strcmp(argv[i], "-4"))
+    {
+      af = AF_INET;
+    }
+    else if (!strcmp(argv[i], "-6"))
+    {
+      af = AF_INET6;
+    }
     else if (argv[i][0] == '-')
     {
       printf("tlscheck: Unknown option '%s'.\n", argv[i]);
@@ -135,7 +142,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 
   _httpTLSSetOptions(tls_options);
 
-  http = httpConnect2(server, port, NULL, AF_UNSPEC, HTTP_ENCRYPTION_ALWAYS, 1, 30000, NULL);
+  http = httpConnect2(server, port, NULL, af, HTTP_ENCRYPTION_ALWAYS, 1, 30000, NULL);
   if (!http)
   {
     printf("%s: ERROR (%s)\n", server, cupsLastErrorString());
@@ -725,6 +732,8 @@ usage(void)
   puts("  --no-tls10  Disable TLS/1.0");
   puts("  --rc4       Allow RC4 encryption");
   puts("  --verbose   Be verbose");
+  puts("  -4          Connect using IPv4 addresses only");
+  puts("  -6          Connect using IPv6 addresses only");
   puts("  -v          Be verbose");
   puts("");
   puts("The default port is 631.");
@@ -732,8 +741,3 @@ usage(void)
   exit(1);
 }
 #endif /* !HAVE_SSL */
-
-
-/*
- * End of "$Id: tlscheck.c 12686 2015-06-03 15:21:14Z akiko $".
- */

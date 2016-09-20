@@ -214,8 +214,13 @@ parse_syslog_level( const char *arg, int *levelp )
 		{ BER_BVC( "ERR" ),	LOG_ERR },
 		{ BER_BVC( "WARNING" ),	LOG_WARNING },
 		{ BER_BVC( "NOTICE" ),	LOG_NOTICE },
+#ifdef __APPLE__
+		{ BER_BVC( "INFO" ),	LOG_NOTICE },
+		{ BER_BVC( "DEBUG" ),	LOG_NOTICE },
+#else
 		{ BER_BVC( "INFO" ),	LOG_INFO },
 		{ BER_BVC( "DEBUG" ),	LOG_DEBUG },
+#endif
 		{ BER_BVNULL, 0 }
 	};
 	int i = verb_to_mask( arg, str2syslog_level );
@@ -396,6 +401,11 @@ int main( int argc, char **argv )
 
 	int slapd_pid_file_unlink = 0, slapd_args_file_unlink = 0;
 	int firstopt = 1;
+
+#ifdef __APPLE__
+        // Default the syslog level so the messages make it into the new logging system.
+        ldap_syslog_level = LOG_NOTICE;
+#endif
 
 #ifdef CSRIMALLOC
 	FILE *leakfile;

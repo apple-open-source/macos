@@ -37,6 +37,7 @@
 #import <mach/mach_port.h>
 #import <spawn.h>
 #import <wtf/Assertions.h>
+#import <wtf/NeverDestroyed.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/StdLibExtras.h>
 
@@ -51,8 +52,7 @@ namespace WebKit {
 
 NetscapePluginHostManager& NetscapePluginHostManager::singleton()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(NetscapePluginHostManager, pluginHostManager, ());
-    
+    static NeverDestroyed<NetscapePluginHostManager> pluginHostManager;
     return pluginHostManager;
 }
 
@@ -272,7 +272,7 @@ PassRefPtr<NetscapePluginInstanceProxy> NetscapePluginHostManager::instantiatePl
     instance->setRenderContextID(reply->m_renderContextID);
     instance->setRendererType(reply->m_rendererType);
 
-    return instance.release();
+    return WTFMove(instance);
 }
 
 void NetscapePluginHostManager::createPropertyListFile(const String& pluginPath, cpu_type_t pluginArchitecture, const String& bundleIdentifier)

@@ -148,6 +148,7 @@
     <reference name='XML_ATTRIBUTE_NONE' href='html/libxml-tree.html#XML_ATTRIBUTE_NONE'/>
     <reference name='XML_ATTRIBUTE_NOTATION' href='html/libxml-tree.html#XML_ATTRIBUTE_NOTATION'/>
     <reference name='XML_ATTRIBUTE_REQUIRED' href='html/libxml-tree.html#XML_ATTRIBUTE_REQUIRED'/>
+    <reference name='XML_BUFFER_ALLOC_BOUNDED' href='html/libxml-tree.html#XML_BUFFER_ALLOC_BOUNDED'/>
     <reference name='XML_BUFFER_ALLOC_DOUBLEIT' href='html/libxml-tree.html#XML_BUFFER_ALLOC_DOUBLEIT'/>
     <reference name='XML_BUFFER_ALLOC_EXACT' href='html/libxml-tree.html#XML_BUFFER_ALLOC_EXACT'/>
     <reference name='XML_BUFFER_ALLOC_HYBRID' href='html/libxml-tree.html#XML_BUFFER_ALLOC_HYBRID'/>
@@ -3749,6 +3750,7 @@
       <ref name='XML_ATTRIBUTE_NONE'/>
       <ref name='XML_ATTRIBUTE_NOTATION'/>
       <ref name='XML_ATTRIBUTE_REQUIRED'/>
+      <ref name='XML_BUFFER_ALLOC_BOUNDED'/>
       <ref name='XML_BUFFER_ALLOC_DOUBLEIT'/>
       <ref name='XML_BUFFER_ALLOC_EXACT'/>
       <ref name='XML_BUFFER_ALLOC_HYBRID'/>
@@ -8404,9 +8406,7 @@
       <ref name='xmlSplitQName2'/>
       <ref name='xmlSplitQName3'/>
       <ref name='xmlStrEqual'/>
-      <ref name='xmlStrPrintf'/>
       <ref name='xmlStrQEqual'/>
-      <ref name='xmlStrVPrintf'/>
       <ref name='xmlStrcasecmp'/>
       <ref name='xmlStrcasestr'/>
       <ref name='xmlStrcat'/>
@@ -12100,6 +12100,7 @@
       <ref name='XML_ATTRIBUTE_NONE'/>
       <ref name='XML_ATTRIBUTE_NOTATION'/>
       <ref name='XML_ATTRIBUTE_REQUIRED'/>
+      <ref name='XML_BUFFER_ALLOC_BOUNDED'/>
       <ref name='XML_BUFFER_ALLOC_DOUBLEIT'/>
       <ref name='XML_BUFFER_ALLOC_EXACT'/>
       <ref name='XML_BUFFER_ALLOC_HYBRID'/>
@@ -21819,38 +21820,6 @@
         <word name='dictionaries'>
           <ref name='XML_MAX_NAME_LENGTH'/>
         </word>
-        <word name='dictionary'>
-          <ref name='XML_MAX_DICTIONARY_LIMIT'/>
-          <ref name='_xmlParserCtxt'/>
-          <ref name='_xmlXPathContext'/>
-          <ref name='xmlDictCleanup'/>
-          <ref name='xmlDictCreate'/>
-          <ref name='xmlDictCreateSub'/>
-          <ref name='xmlDictGetUsage'/>
-          <ref name='xmlDictReference'/>
-          <ref name='xmlDictSetLimit'/>
-          <ref name='xmlHashCreateDict'/>
-          <ref name='xmlInitializeDict'/>
-          <ref name='xmlPatterncompile'/>
-          <ref name='xmlStreamPush'/>
-          <ref name='xmlStreamPushAttr'/>
-          <ref name='xmlStreamPushNode'/>
-        </word>
-        <word name='dictionnary'>
-          <ref name='_xmlParserCtxt'/>
-          <ref name='xmlDictCreate'/>
-          <ref name='xmlDictCreateSub'/>
-          <ref name='xmlDictExists'/>
-          <ref name='xmlDictFree'/>
-          <ref name='xmlDictGetUsage'/>
-          <ref name='xmlDictLookup'/>
-          <ref name='xmlDictOwns'/>
-          <ref name='xmlDictQLookup'/>
-          <ref name='xmlDictReference'/>
-          <ref name='xmlDictSetLimit'/>
-          <ref name='xmlDictSize'/>
-          <ref name='xmlExpNewCtxt'/>
-        </word>
         <word name='did'>
           <ref name='XML_SCHEMAS_TYPE_BLOCK_DEFAULT'/>
           <ref name='xmlTextReaderGetRemainder'/>
@@ -30378,6 +30347,7 @@
         </word>
         <word name='unsigned'>
           <ref name='c'/>
+          <ref name='xmlMallocAtomicLoc'/>
           <ref name='xmlURIUnescapeString'/>
         </word>
         <word name='unsupported'>

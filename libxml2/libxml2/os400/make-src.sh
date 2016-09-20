@@ -17,7 +17,7 @@ cd "${TOPDIR}"
 echo '#pragma comment(user, "libxml2 version '"${LIBXML_VERSION}"'")' > os400.c
 echo '#pragma comment(user, __DATE__)' >> os400.c
 echo '#pragma comment(user, __TIME__)' >> os400.c
-echo '#pragma comment(copyright, "Copyright (C) 1998-2014 Daniel Veillard. OS/400 version by P. Monnerat.")' >> os400.c
+echo '#pragma comment(copyright, "Copyright (C) 1998-2015 Daniel Veillard. OS/400 version by P. Monnerat.")' >> os400.c
 make_module     OS400           os400.c
 LINK=                           # No need to rebuild service program yet.
 MODULES=
@@ -62,11 +62,11 @@ INCLUDES="'`pwd`'"
 
 #       OS/400 specific modules first.
 
-make_module     DLFCN           "${SCRIPTDIR}/dlfcn/dlfcn.c"    ''      ebcdic
-make_module     ICONV           "${SCRIPTDIR}/iconv/iconv.c"    ''      ebcdic
-make_module     WRAPPERS        "${SCRIPTDIR}/wrappers.c"       ''      ebcdic
-make_module     TRANSCODE       "${SCRIPTDIR}/transcode.c"
-make_module     RPGSUPPORT      "${SCRIPTDIR}/rpgsupport.c"
+make_module     --ebcdic        DLFCN           "${SCRIPTDIR}/dlfcn/dlfcn.c"
+make_module     --ebcdic        ICONV           "${SCRIPTDIR}/iconv/iconv.c"
+make_module     --ebcdic        WRAPPERS        "${SCRIPTDIR}/wrappers.c"
+make_module                     TRANSCODE       "${SCRIPTDIR}/transcode.c"
+make_module                     RPGSUPPORT      "${SCRIPTDIR}/rpgsupport.c"
 
 #       Regular libxml2 modules.
 
@@ -237,5 +237,119 @@ then    rm -rf "${LIBIFSNAME}/${DYNBNDDIR}.BNDDIR"
         system "${CMD}"
         CMD="ADDBNDDIRE BNDDIR(${TARGETLIB}/${DYNBNDDIR})"
         CMD="${CMD} OBJ((*LIBL/${SRVPGM} *SRVPGM))"
+        system "${CMD}"
+fi
+
+
+#       Compile the ASCII main() stub.
+
+make_module     --ebcdic --sysiconv     LIBXMLMAIN  "${SCRIPTDIR}/libxmlmain.c"
+
+
+#       Compile and link program xmllint.
+
+if action_needed "${LIBIFSNAME}/XMLLINT.PGM" "xmllint.c" ||
+   action_needed "${LIBIFSNAME}/XMLLINT.PGM" "${LIBIFSNAME}/${SRVPGM}.SRVPGM" ||
+   action_needed "${LIBIFSNAME}/XMLLINT.PGM" "${LIBIFSNAME}/LIBXMLMAIN.MODULE"
+then    make_module XMLLINT xmllint.c
+        CMD="CRTPGM PGM(${TARGETLIB}/XMLLINT) MODULE(${TARGETLIB}/XMLLINT)"
+        CMD="${CMD} ENTMOD(${TARGETLIB}/LIBXMLMAIN)"
+        CMD="${CMD} BNDSRVPGM(QADRTTS) BNDDIR((${TARGETLIB}/${STATBNDDIR})"
+        if [ "${WITH_ZLIB}" -ne 0 ]
+        then    CMD="${CMD} (${ZLIB_LIB}/${ZLIB_BNDDIR})"
+        fi
+        CMD="${CMD}) ACTGRP(*NEW) TEXT('XML tool')"
+        CMD="${CMD} TGTRLS(${TGTRLS})"
+        system "${CMD}"
+        rm -f "${LIBIFSNAME}/XMLLINT.MODULE"
+fi
+
+#       Install xmllint in IFS.
+
+if [ ! -d "${IFSDIR}/bin" ]
+then    mkdir -p "${IFSDIR}/bin"
+fi
+rm -f "${IFSDIR}/bin/xmllint"
+ln -s "${LIBIFSNAME}/XMLLINT.PGM" "${IFSDIR}/bin/xmllint"
+
+#       Prepare the XMLLINT command and its response program.
+
+if action_needed "${LIBIFSNAME}/XMLLINTCL.PGM" "${SCRIPTDIR}/xmllintcl.c"
+then    make_module --ebcdic XMLLINTCL "${SCRIPTDIR}/xmllintcl.c"
+        CMD="CRTPGM PGM(${TARGETLIB}/XMLLINTCL) MODULE(${TARGETLIB}/XMLLINTCL)"
+        CMD="${CMD} ACTGRP(*NEW) TEXT('XMLLINT command response')"
+        CMD="${CMD} TGTRLS(${TGTRLS})"
+        system "${CMD}"
+        rm -f "${LIBIFSNAME}/XMLLINTCL.MODULE"
+fi
+
+if action_needed "${LIBIFSNAME}/TOOLS.FILE/XMLLINT.MBR"                 \
+                 "${SCRIPTDIR}/xmllint.cmd"
+then    CMD="CPY OBJ('${SCRIPTDIR}/xmllint.cmd')"
+        CMD="${CMD} TOOBJ('${LIBIFSNAME}/TOOLS.FILE/XMLLINT.MBR')"
+        CMD="${CMD} TOCCSID(${TGTCCSID}) DTAFMT(*TEXT) REPLACE(*YES)"
+        system "${CMD}"
+fi
+
+if action_needed "${LIBIFSNAME}/XMLLINT.CMD"                            \
+                 "${LIBIFSNAME}/TOOLS.FILE/XMLLINT.MBR"
+then    CMD="CRTCMD CMD(${TARGETLIB}/XMLLINT) PGM(${TARGETLIB}/XMLLINTCL)"
+        CMD="${CMD} SRCFILE(${TARGETLIB}/TOOLS) SRCMBR(XMLLINT) THDSAFE(*YES)"
+        CMD="${CMD} TEXT('XML tool') REPLACE(*YES)"
+        system "${CMD}"
+fi
+
+
+#       Compile and link program xmlcatalog.
+
+if action_needed "${LIBIFSNAME}/XMLCATALOG.PGM" "xmlcatalog.c" ||
+   action_needed "${LIBIFSNAME}/XMLCATALOG.PGM"                         \
+                 "${LIBIFSNAME}/${SRVPGM}.SRVPGM" ||
+   action_needed "${LIBIFSNAME}/XMLCATALOG.PGM"                         \
+                 "${LIBIFSNAME}/LIBXMLMAIN.MODULE"
+then    make_module XMLCATALOG xmlcatalog.c
+        CMD="CRTPGM PGM(${TARGETLIB}/XMLCATALOG)"
+        CMD="${CMD}  MODULE(${TARGETLIB}/XMLCATALOG)"
+        CMD="${CMD} ENTMOD(${TARGETLIB}/LIBXMLMAIN)"
+        CMD="${CMD} BNDSRVPGM(QADRTTS) BNDDIR((${TARGETLIB}/${STATBNDDIR})"
+        if [ "${WITH_ZLIB}" -ne 0 ]
+        then    CMD="${CMD} (${ZLIB_LIB}/${ZLIB_BNDDIR})"
+        fi
+        CMD="${CMD}) ACTGRP(*NEW) TEXT('XML/SGML catalog tool')"
+        CMD="${CMD} TGTRLS(${TGTRLS})"
+        system "${CMD}"
+        rm -f "${LIBIFSNAME}/XMLCATALOG.MODULE"
+fi
+
+#       Install xmlcatalog in IFS.
+
+rm -f "${IFSDIR}/bin/xmlcatalog"
+ln -s "${LIBIFSNAME}/XMLCATALOG.PGM" "${IFSDIR}/bin/xmlcatalog"
+
+#       Prepare the XMLCATALOG command and its response program.
+
+if action_needed "${LIBIFSNAME}/XMLCATLGCL.PGM" "${SCRIPTDIR}/xmlcatlgcl.c"
+then    make_module --ebcdic XMLCATLGCL "${SCRIPTDIR}/xmlcatlgcl.c"
+        CMD="CRTPGM PGM(${TARGETLIB}/XMLCATLGCL)"
+        CMD="${CMD} MODULE(${TARGETLIB}/XMLCATLGCL)"
+        CMD="${CMD} ACTGRP(*NEW) TEXT('XMLCATALOG command response')"
+        CMD="${CMD} TGTRLS(${TGTRLS})"
+        system "${CMD}"
+        rm -f "${LIBIFSNAME}/XMLCATLGCL.MODULE"
+fi
+
+if action_needed "${LIBIFSNAME}/TOOLS.FILE/XMLCATALOG.MBR"              \
+                 "${SCRIPTDIR}/xmlcatalog.cmd"
+then    CMD="CPY OBJ('${SCRIPTDIR}/xmlcatalog.cmd')"
+        CMD="${CMD} TOOBJ('${LIBIFSNAME}/TOOLS.FILE/XMLCATALOG.MBR')"
+        CMD="${CMD} TOCCSID(${TGTCCSID}) DTAFMT(*TEXT) REPLACE(*YES)"
+        system "${CMD}"
+fi
+
+if action_needed "${LIBIFSNAME}/XMLCATALOG.CMD"                         \
+                 "${LIBIFSNAME}/TOOLS.FILE/XMLCATALOG.MBR"
+then    CMD="CRTCMD CMD(${TARGETLIB}/XMLCATALOG) PGM(${TARGETLIB}/XMLCATLGCL)"
+        CMD="${CMD} SRCFILE(${TARGETLIB}/TOOLS) SRCMBR(XMLCATALOG)"
+        CMD="${CMD} THDSAFE(*YES) TEXT('XML/SGML catalog tool') REPLACE(*YES)"
         system "${CMD}"
 fi

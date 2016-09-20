@@ -676,7 +676,7 @@ modify_file_acl(unsigned int optflags, const char *path, acl_t modifier, int pos
 	unsigned aindex  = 0, flag_new_acl = 0;
 	acl_entry_t newent = NULL;
 	acl_entry_t entry = NULL;
-	unsigned retval = 0 ;
+	unsigned retval = 0;
 
 	extern int fflag;
 
@@ -699,17 +699,36 @@ modify_file_acl(unsigned int optflags, const char *path, acl_t modifier, int pos
 
 	if (optflags & ACL_CLEAR_FLAG) {
 		filesec_t fsec = filesec_init();
-		if (fsec == NULL)
+		if (fsec == NULL) {
 			err(1, "filesec_init() failed");
-		if (filesec_set_property(fsec, FILESEC_ACL,
-					 _FILESEC_REMOVE_ACL) != 0)
+		}
+		if (filesec_set_property(fsec, FILESEC_ACL, _FILESEC_REMOVE_ACL) != 0) {
 			err(1, "filesec_set_property() failed");
-		if (chmodx_np(path, fsec) != 0) {
-			if (!fflag)
-				warn("Failed to clear ACL on file %s", path);
-			retval = 1;
-		} else
-			retval = 0;
+                }
+		if (follow) {
+			if (chmodx_np(path, fsec) != 0) {
+                                if (!fflag) {
+					warn("Failed to clear ACL on file %s", path);
+				}
+				retval = 1;
+			}
+		} else {
+			int fd = open(path, O_SYMLINK);
+			if (fd != -1) {
+				if (fchmodx_np(fd, fsec) != 0) {
+					if (!fflag) {
+						warn("Failed to clear ACL on file %s", path);
+					}
+					retval = 1;
+				}
+				close(fd);
+			} else {
+				if (!fflag) {
+					warn("Failed to open file %s", path);
+				}
+				retval = 1;
+			}
+		}
 		filesec_free(fsec);
 		return (retval);
 	}

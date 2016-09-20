@@ -50,7 +50,7 @@ Ref<HTMLOptGroupElement> HTMLOptGroupElement::create(const QualifiedName& tagNam
 
 bool HTMLOptGroupElement::isDisabledFormControl() const
 {
-    return fastHasAttribute(disabledAttr);
+    return hasAttributeWithoutSynchronization(disabledAttr);
 }
 
 bool HTMLOptGroupElement::isFocusable() const
@@ -64,7 +64,7 @@ bool HTMLOptGroupElement::isFocusable() const
 
 const AtomicString& HTMLOptGroupElement::formControlType() const
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, optgroup, ("optgroup", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<const AtomicString> optgroup("optgroup", AtomicString::ConstructFromLiteral);
     return optgroup;
 }
 
@@ -94,7 +94,7 @@ void HTMLOptGroupElement::recalcSelectOptions()
 
 String HTMLOptGroupElement::groupLabelText() const
 {
-    String itemText = document().displayStringModifiedByEncoding(fastGetAttribute(labelAttr));
+    String itemText = document().displayStringModifiedByEncoding(attributeWithoutSynchronization(labelAttr));
     
     // In WinIE, leading and trailing whitespace is ignored in options and optgroups. We match this behavior.
     itemText = itemText.stripWhiteSpace();

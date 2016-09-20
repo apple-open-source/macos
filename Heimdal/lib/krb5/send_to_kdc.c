@@ -1101,19 +1101,14 @@ host_create(krb5_context context,
     /*
      * Hint to kernel what direction this connection is going
      */
-    char *lhostname = strdup(host->hi->hostname);
-    char *hostname = host->hi->hostname;
-    if (lhostname) {
-	strlwr(lhostname);
-	_krb5_remove_trailing_dot(lhostname);
-	hostname = lhostname;
+    char *hostname = strdup(host->hi->hostname);
+    if (hostname) {
+	_krb5_remove_trailing_dot(hostname);
+	_krb5_debugx(context, 5, "host_create: setting hostname %s", hostname);
+
+	(void)ne_session_set_socket_attributes(host->fd, hostname, NULL);
+	free(hostname);
     }
-
-    _krb5_debugx(context, 5, "host_create: setting hostname %s", hostname);
-
-    (void)ne_session_set_socket_attributes(host->fd, hostname, NULL);
-    if (lhostname)
-	free(lhostname);
 #endif
 
 #endif /* __APPLE__ */

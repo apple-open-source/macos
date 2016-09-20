@@ -105,7 +105,6 @@ OSStatus SecStaticCodeCheckValidity(SecStaticCodeRef staticCodeRef, SecCSFlags f
 OSStatus SecStaticCodeCheckValidityWithErrors(SecStaticCodeRef staticCodeRef, SecCSFlags flags,
 	SecRequirementRef requirementRef, CFErrorRef *errors)
 {
-#if !SECTRUST_OSX
 	BEGIN_CSAPI
 
 	checkFlags(flags,
@@ -114,10 +113,11 @@ OSStatus SecStaticCodeCheckValidityWithErrors(SecStaticCodeRef staticCodeRef, Se
 		| kSecCSDoNotValidateExecutable
 		| kSecCSDoNotValidateResources
 		| kSecCSConsiderExpiration
-        | kSecCSEnforceRevocationChecks
+		| kSecCSEnforceRevocationChecks
 		| kSecCSNoNetworkAccess
 		| kSecCSCheckNestedCode
 		| kSecCSStrictValidate
+		| kSecCSRestrictSidebandData
 		| kSecCSCheckGatekeeperArchitectures
 		| kSecCSRestrictSymlinks
 		| kSecCSRestrictToAppLike
@@ -133,56 +133,6 @@ OSStatus SecStaticCodeCheckValidityWithErrors(SecStaticCodeRef staticCodeRef, Se
 	code->staticValidate(flags, req);
 
 	END_CSAPI_ERRORS
-#else
-#warning resolve before enabling SECTRUST_OSX: <rdar://21328880>
-	OSStatus result = errSecSuccess;
-	const char *func = "SecStaticCodeCheckValidity";
-	CFErrorRef localErrors = NULL;
-	if (!errors) { errors = &localErrors; }
-	try {
-		checkFlags(flags,
-			  kSecCSReportProgress
-			| kSecCSCheckAllArchitectures
-			| kSecCSDoNotValidateExecutable
-			| kSecCSDoNotValidateResources
-			| kSecCSConsiderExpiration
-			| kSecCSEnforceRevocationChecks
-			| kSecCSNoNetworkAccess
-			| kSecCSCheckNestedCode
-			| kSecCSStrictValidate
-			| kSecCSCheckGatekeeperArchitectures
-		);
-
-		if (errors)
-			flags |= kSecCSFullReport;	// internal-use flag
-
-		SecPointer<SecStaticCode> code = SecStaticCode::requiredStatic(staticCodeRef);
-		code->setValidationFlags(flags);
-		const SecRequirement *req = SecRequirement::optional(requirementRef);
-		DTRACK(CODESIGN_EVAL_STATIC, code, (char*)code->mainExecutablePath().c_str());
-		code->staticValidate(flags, req);
-	}
-	catch (...) {
-		// the actual error being thrown is not being caught by any of the
-		// type-specific blocks contained in the END_CSAPI_ERRORS macro,
-		// so we only have the catch-all block here for now.
-		result = errSecCSInternalError;
-	}
-
-	if (errors && *errors) {
-		CFShow(errors);
-		CFRelease(errors);
-		*errors = NULL;
-	}
-	if (result == errSecCSInternalError) {
-	#if !NDEBUG
-		Security::Syslog::error("WARNING: %s ignored error %d", func, (int)result);
-	#endif
-		result = errSecSuccess;
-	}
-	return result;
-
-#endif
 }
 
 
@@ -322,4 +272,37 @@ OSStatus SecStaticCodeCancelValidation(SecStaticCodeRef codeRef, SecCSFlags flag
 	code->cancelValidation();
 
 	END_CSAPI
+}
+
+
+//
+// Retrieve a component object for a special slot directly.
+//
+CFDataRef SecCodeCopyComponent(SecCodeRef codeRef, int slot, CFDataRef hash)
+{
+	BEGIN_CSAPI
+	
+	SecStaticCode* code = SecStaticCode::requiredStatic(codeRef);
+	return code->copyComponent(slot, hash);
+	
+	END_CSAPI1(NULL)
+}
+
+
+//
+// Validate a single plain file's resource seal against a memory copy.
+// This will fail for any other file type (symlink, directory, nested code, etc. etc.)
+//
+OSStatus SecCodeValidateFileResource(SecStaticCodeRef codeRef, CFStringRef relativePath, CFDataRef fileData, SecCSFlags flags)
+{
+    BEGIN_CSAPI
+    
+    checkFlags(0);
+    if (fileData == NULL)
+        MacOSError::throwMe(errSecCSObjectRequired);
+    SecStaticCode *code = SecStaticCode::requiredStatic(codeRef);
+    code->validatePlainMemoryResource(cfString(relativePath), fileData, flags);
+    
+    END_CSAPI
+    
 }

@@ -82,7 +82,7 @@ set_widearray(char *mb_array, Widechar_array wca)
 	wchar_t *wcptr = tmpwcs;
 	wint_t wci;
 
-	mb_metacharinit();
+	mb_charinit();
 	while (*mb_array) {
 	    int mblen = mb_metacharlenconv(mb_array, &wci);
 
@@ -248,7 +248,7 @@ VA_DCL
 
     VA_START(ap, message);
     VA_GET_ARG(ap, message, const char *);
-    if ((filename = getsparam("ZSH_DEBUG_LOG")) != NULL &&
+    if ((filename = getsparam_u("ZSH_DEBUG_LOG")) != NULL &&
 	(file = fopen(filename, "a")) != NULL) {
 	zerrmsg(file, message, ap);
 	fclose(file);
@@ -332,7 +332,7 @@ zerrmsg(FILE *file, const char *fmt, va_list ap)
 	    case 'c':
 		num = va_arg(ap, int);
 #ifdef MULTIBYTE_SUPPORT
-		mb_metacharinit();
+		mb_charinit();
 		zputs(wcs_nicechar(num, NULL, NULL), file);
 #else
 		zputs(nicechar(num), file);
@@ -461,12 +461,13 @@ static mbstate_t mb_shiftstate;
 
 /*
  * Initialise multibyte state: called before a sequence of
- * wcs_nicechar() or mb_metacharlenconv().
+ * wcs_nicechar(), mb_metacharlenconv(), or
+ * mb_charlenconv().
  */
 
 /**/
 mod_export void
-mb_metacharinit(void)
+mb_charinit(void)
 {
     memset(&mb_shiftstate, 0, sizeof(mb_shiftstate));
 }
@@ -500,7 +501,7 @@ mb_metacharinit(void)
  * (but not both).  (Note the complication that the wide character
  * part may contain metafied characters.)
  *
- * The caller needs to call mb_metacharinit() before the first call, to
+ * The caller needs to call mb_charinit() before the first call, to
  * set up the multibyte shift state for a range of characters.
  */
 
@@ -691,9 +692,23 @@ ispwd(char *s)
 {
     struct stat sbuf, tbuf;
 
-    if (stat(unmeta(s), &sbuf) == 0 && stat(".", &tbuf) == 0)
-	if (sbuf.st_dev == tbuf.st_dev && sbuf.st_ino == tbuf.st_ino)
-	    return 1;
+    /* POSIX: environment PWD must be absolute */
+    if (*s != '/')
+	return 0;
+
+    if (stat((s = unmeta(s)), &sbuf) == 0 && stat(".", &tbuf) == 0)
+	if (sbuf.st_dev == tbuf.st_dev && sbuf.st_ino == tbuf.st_ino) {
+	    /* POSIX: No element of $PWD may be "." or ".." */
+	    while (*s) {
+		if (s[0] == '.' &&
+		    (!s[1] || s[1] == '/' ||
+		     (s[1] == '.' && (!s[2] || s[2] == '/'))))
+		    break;
+		while (*s++ != '/' && *s)
+		    continue;
+	    }
+	    return !*s;
+	}
     return 0;
 }
 
@@ -1877,6 +1892,37 @@ redup(int x, int y)
 }
 
 /*
+ * Add an fd opened ithin a module.
+ *
+ * fdt is the type of the fd; see the FDT_ definitions in zsh.h.
+ * The most likely falures are:
+ *
+ * FDT_EXTERNAL: the fd can be used within the shell for normal I/O but
+ * it will not be closed automatically or by normal shell syntax.
+ *
+ * FDT_MODULE: as FDT_EXTERNAL, but it can only be closed by the module
+ * (which should included zclose() as part of the sequence), not by
+ * the standard shell syntax for closing file descriptors.
+ *
+ * FDT_INTERNAL: fd is treated like others created by the shell for
+ * internal use; it can be closed and will be closed by the shell if it
+ * exec's or performs an exec with a fork optimised out.
+ *
+ * Safe if fd is -1 to indicate failure.
+ */
+/**/
+mod_export void
+addmodulefd(int fd, int fdt)
+{
+    if (fd >= 0) {
+	check_fd_table(fd);
+	fdtable[fd] = fdt;
+    }
+}
+
+/**/
+
+/*
  * Indicate that an fd has a file lock; if cloexec is 1 it will be closed
  * on exec.
  * The fd should already be known to fdtable (e.g. by movefd).
@@ -1948,7 +1994,8 @@ extern char *_mktemp(char *);
 /* Get a unique filename for use as a temporary file.  If "prefix" is
  * NULL, the name is relative to $TMPPREFIX; If it is non-NULL, the
  * unique suffix includes a prefixed '.' for improved readability.  If
- * "use_heap" is true, we allocate the returned name on the heap. */
+ * "use_heap" is true, we allocate the returned name on the heap.
+ * The string passed as "prefix" is expected to be metafied. */
 
 /**/
 mod_export char *
@@ -1974,6 +2021,9 @@ gettempname(const char *prefix, int use_heap)
 
     return ret;
 }
+
+/* The gettempfile() "prefix" is expected to be metafied, see hist.c
+ * and gettempname(). */
 
 /**/
 mod_export int
@@ -2533,11 +2583,16 @@ static int
 read1char(int echo)
 {
     char c;
+    int q = queue_signal_level();
 
+    dont_queue_signals();
     while (read(SHTTY, &c, 1) != 1) {
-	if (errno != EINTR || errflag || retflag || breaks || contflag)
+	if (errno != EINTR || errflag || retflag || breaks || contflag) {
+	    restore_queue_signals(q);
 	    return -1;
+	}
     }
+    restore_queue_signals(q);
     if (echo)
 	write_loop(SHTTY, &c, 1);
     return STOUC(c);
@@ -2788,7 +2843,7 @@ spckword(char **s, int hist, int cmd, int ask)
 		     * as used in spscan(), so that an autocd is chosen *
 		     * only when it is better than anything so far, and *
 		     * so we prefer directories earlier in the cdpath.  */
-		    if ((thisdist = mindist(*pp, *s, bestcd)) < d) {
+		    if ((thisdist = mindist(*pp, *s, bestcd, 1)) < d) {
 			best = dupstring(bestcd);
 			d = thisdist;
 		    }
@@ -2873,6 +2928,10 @@ ztrftimebuf(int *bufsizeptr, int decr)
  * not enough memory --- and return -1.  Not guaranteed to be portable,
  * since the strftime() interface doesn't make any guarantees about
  * the state of the buffer if it returns zero.
+ *
+ * fmt is metafied, but we need to unmetafy it on the fly to
+ * pass into strftime / combine with the output from strftime.
+ * The return value in buf is not metafied.
  */
 
 /**/
@@ -2882,7 +2941,7 @@ ztrftime(char *buf, int bufsize, char *fmt, struct tm *tm, long usec)
     int hr12;
 #ifdef HAVE_STRFTIME
     int decr;
-    char tmp[4];
+    char *fmtstart;
 #else
     static char *astr[] =
     {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
@@ -2893,12 +2952,22 @@ ztrftime(char *buf, int bufsize, char *fmt, struct tm *tm, long usec)
     char *origbuf = buf;
 
 
-    while (*fmt)
-	if (*fmt == '%') {
+    while (*fmt) {
+	if (*fmt == Meta) {
+	    int chr = fmt[1] ^ 32;
+	    if (ztrftimebuf(&bufsize, 1))
+		return -1;
+	    *buf++ = chr;
+	    fmt += 2;
+	} else if (*fmt == '%') {
 	    int strip;
 	    int digs = 3;
 
+#ifdef HAVE_STRFTIME
+	    fmtstart =
+#endif
 	    fmt++;
+
 	    if (*fmt == '-') {
 		strip = 1;
 		fmt++;
@@ -2923,6 +2992,21 @@ ztrftime(char *buf, int bufsize, char *fmt, struct tm *tm, long usec)
 	     */
 	    if (ztrftimebuf(&bufsize, 2))
 		return -1;
+#ifdef HAVE_STRFTIME
+	    /* Our internal handling doesn't handle padding and other gnu extensions,
+	     * so here we detect them and pass over to strftime(). We don't want
+	     * to do this unconditionally though, as we have some extensions that
+	     * strftime() doesn't have (%., %f, %L and %K) */
+morefmt:
+	    if (!((fmt - fmtstart == 1) || (fmt - fmtstart == 2 && strip) || *fmt == '.')) {
+		while (*fmt && strchr("OE^#_-0123456789", *fmt))
+		    fmt++;
+		if (*fmt) {
+		    fmt++;
+		    goto strftimehandling;
+		}
+	    }
+#endif
 	    switch (*fmt++) {
 	    case '.':
 		if (ztrftimebuf(&bufsize, digs))
@@ -2938,10 +3022,10 @@ ztrftime(char *buf, int bufsize, char *fmt, struct tm *tm, long usec)
 		sprintf(buf, "%0*ld", digs, usec);
 		buf += digs;
 		break;
-	    case 'd':
-		if (tm->tm_mday > 9 || !strip)
-		    *buf++ = '0' + tm->tm_mday / 10;
-		*buf++ = '0' + tm->tm_mday % 10;
+	    case '\0':
+		/* Guard against premature end of string */
+		*buf++ = '%';
+		fmt--;
 		break;
 	    case 'f':
 		strip = 1;
@@ -2982,6 +3066,11 @@ ztrftime(char *buf, int bufsize, char *fmt, struct tm *tm, long usec)
 
 		*buf++ = '0' + (hr12 % 10);
 		break;
+	    case 'd':
+		if (tm->tm_mday > 9 || !strip)
+		    *buf++ = '0' + tm->tm_mday / 10;
+		*buf++ = '0' + tm->tm_mday % 10;
+		break;
 	    case 'm':
 		if (tm->tm_mon > 8 || !strip)
 		    *buf++ = '0' + (tm->tm_mon + 1) / 10;
@@ -3002,18 +3091,9 @@ ztrftime(char *buf, int bufsize, char *fmt, struct tm *tm, long usec)
 		    *buf++ = '0' + (tm->tm_year / 10) % 10;
 		*buf++ = '0' + tm->tm_year % 10;
 		break;
-	    case '\0':
-		/* Guard against premature end of string */
-		*buf++ = '%';
-		fmt--;
-		break;
 #ifndef HAVE_STRFTIME
 	    case 'Y':
 	    {
-		/*
-		 * Not worth handling this natively if
-		 * strftime has it.
-		 */
 		int year, digits, testyear;
 		year = tm->tm_year + 1900;
 		digits = 1;
@@ -3047,24 +3127,59 @@ ztrftime(char *buf, int bufsize, char *fmt, struct tm *tm, long usec)
 		if (fmt[-1] != '%')
 		    *buf++ = fmt[-1];
 #else
+	    case 'E':
+	    case 'O':
+	    case '^':
+	    case '#':
+	    case '_':
+	    case '-':
+	    case '0': case '1': case '2': case '3': case '4':
+	    case '5': case '6': case '7': case '8': case '9':
+		goto morefmt;
+strftimehandling:
 	    default:
 		/*
 		 * Remember we've already allowed for two characters
 		 * in the accounting in bufsize (but nowhere else).
 		 */
-		*buf = '\1';
-		sprintf(tmp, strip ? "%%-%c" : "%%%c", fmt[-1]);
-		if (!strftime(buf, bufsize + 2, tmp, tm))
 		{
-		    if (*buf) {
-			buf[0] = '\0';
-			return -1;
+		    char origchar = fmt[-1];
+		    int size = fmt - fmtstart;
+		    char *tmp, *last;
+		    tmp = zhalloc(size + 1);
+		    strncpy(tmp, fmtstart, size);
+		    last = fmt-1;
+		    if (*last == Meta) {
+			/*
+			 * This is for consistency in counting:
+			 * a metafiable character isn't actually
+			 * a valid strftime descriptor.
+			 *
+			 * Previous characters were explicitly checked,
+			 * so can't be metafied.
+			 */
+			*last = *++fmt ^ 32;
 		    }
-		    return 0;
+		    tmp[size] = '\0';
+		    *buf = '\1';
+		    if (!strftime(buf, bufsize + 2, tmp, tm))
+		    {
+			/*
+			 * Some locales don't have strings for
+			 * AM/PM, so empty output is valid.
+			 */
+			if (*buf || (origchar != 'p' && origchar != 'P')) {
+			    if (*buf) {
+				buf[0] = '\0';
+				return -1;
+			    }
+			    return 0;
+			}
+		    }
+		    decr = strlen(buf);
+		    buf += decr;
+		    bufsize -= decr - 2;
 		}
-		decr = strlen(buf);
-		buf += decr;
-		bufsize -= decr - 2;
 #endif
 		break;
 	    }
@@ -3073,6 +3188,7 @@ ztrftime(char *buf, int bufsize, char *fmt, struct tm *tm, long usec)
 		return -1;
 	    *buf++ = *fmt++;
 	}
+    }
     *buf = '\0';
     return buf - origbuf;
 }
@@ -3555,7 +3671,7 @@ zbeep(void)
 {
     char *vb;
     queue_signals();
-    if ((vb = getsparam("ZBEEP"))) {
+    if ((vb = getsparam_u("ZBEEP"))) {
 	int len;
 	vb = getkeystring(vb, &len, GETKEYS_BINDKEY, NULL);
 	write_loop(SHTTY, vb, len);
@@ -3832,7 +3948,7 @@ itype_end(const char *ptr, int itype, int once)
 #ifdef MULTIBYTE_SUPPORT
     if (isset(MULTIBYTE) &&
 	(itype != IIDENT || !isset(POSIXIDENTIFIERS))) {
-	mb_metacharinit();
+	mb_charinit();
 	while (*ptr) {
 	    wint_t wc;
 	    int len = mb_metacharlenconv(ptr, &wc);
@@ -3979,7 +4095,8 @@ spname(char *oldname)
 	    thresh = 3;
 	else if (thresh > 100)
 	    thresh = 100;
-	if ((thisdist = mindist(newname, spnameguess, spnamebest)) >= thresh) {
+	thisdist = mindist(newname, spnameguess, spnamebest, *old == '/');
+	if (thisdist >= thresh) {
 	    /* The next test is always true, except for the first path    *
 	     * component.  We could initialize bestdist to some large     *
 	     * constant instead, and then compare to that constant here,  *
@@ -4004,42 +4121,52 @@ spname(char *oldname)
 
 /**/
 static int
-mindist(char *dir, char *mindistguess, char *mindistbest)
+mindist(char *dir, char *mindistguess, char *mindistbest, int wantdir)
 {
     int mindistd, nd;
     DIR *dd;
     char *fn;
     char *buf;
+    struct stat st;
+    size_t dirlen;
 
     if (dir[0] == '\0')
 	dir = ".";
     mindistd = 100;
 
-    buf = zalloc(strlen(dir) + strlen(mindistguess) + 2);
+    if (!(buf = zalloc((dirlen = strlen(dir)) + strlen(mindistguess) + 2)))
+	return 0;
     sprintf(buf, "%s/%s", dir, mindistguess);
 
-    if (access(unmeta(buf), F_OK) == 0) {
+    if (stat(unmeta(buf), &st) == 0 && (!wantdir || S_ISDIR(st.st_mode))) {
 	strcpy(mindistbest, mindistguess);
 	free(buf);
 	return 0;
     }
-    free(buf);
 
-    if (!(dd = opendir(unmeta(dir))))
-	return mindistd;
-    while ((fn = zreaddir(dd, 0))) {
-	if (spnamepat && pattry(spnamepat, fn))
-	    continue;
-	nd = spdist(fn, mindistguess,
-		    (int)strlen(mindistguess) / 4 + 1);
-	if (nd <= mindistd) {
-	    strcpy(mindistbest, fn);
-	    mindistd = nd;
-	    if (mindistd == 0)
-		break;
+    if ((dd = opendir(unmeta(dir)))) {
+	while ((fn = zreaddir(dd, 0))) {
+	    if (spnamepat && pattry(spnamepat, fn))
+		continue;
+	    nd = spdist(fn, mindistguess,
+			(int)strlen(mindistguess) / 4 + 1);
+	    if (nd <= mindistd) {
+		if (wantdir) {
+		    if (!(buf = zrealloc(buf, dirlen + strlen(fn) + 2)))
+			continue;
+		    sprintf(buf, "%s/%s", dir, fn);
+		    if (stat(unmeta(buf), &st) != 0 || !S_ISDIR(st.st_mode))
+			continue;
+		}
+		strcpy(mindistbest, fn);
+		mindistd = nd;
+		if (mindistd == 0)
+		    break;
+	    }
 	}
+	closedir(dd);
     }
-    closedir(dd);
+    free(buf);
     return mindistd;
 }
 
@@ -4367,7 +4494,10 @@ unmeta(const char *file_name)
     char *p;
     const char *t;
     int newsz, meta;
-    
+
+    if (!file_name)
+	return NULL;
+
     meta = 0;
     for (t = file_name; *t; t++) {
 	if (*t == Meta)
@@ -4471,15 +4601,45 @@ ztrlen(char const *s)
     for (l = 0; *s; l++) {
 	if (*s++ == Meta) {
 #ifdef DEBUG
-	    if (! *s)
+	    if (! *s) {
 		fprintf(stderr, "BUG: unexpected end of string in ztrlen()\n");
-	    else
+		break;
+	    } else
 #endif
 	    s++;
 	}
     }
     return l;
 }
+
+#ifndef MULTIBYTE_SUPPORT
+/*
+ * ztrlen() but with explicit end point for non-null-terminated
+ * segments.  eptr may not be NULL.
+ */
+
+/**/
+mod_export int
+ztrlenend(char const *s, char const *eptr)
+{
+    int l;
+
+    for (l = 0; s < eptr; l++) {
+	if (*s++ == Meta) {
+#ifdef DEBUG
+	    if (! *s) {
+		fprintf(stderr,
+			"BUG: unexpected end of string in ztrlenend()\n");
+		break;
+	    } else
+#endif
+	    s++;
+	}
+    }
+    return l;
+}
+
+#endif /* MULTIBYTE_SUPPORT */
 
 /* Subtract two pointers in a metafied string. */
 
@@ -4879,11 +5039,16 @@ mb_metacharlenconv(const char *s, wint_t *wcp)
  * If width is 1, return total character width rather than number.
  * If width is greater than 1, return 1 if character has non-zero width,
  * else 0.
+ *
+ * Ends if either *ptr is '\0', the normal case (eptr may be NULL for
+ * this), or ptr is eptr (i.e.  *eptr is where the null would be if null
+ * terminated) for strings not delimited by nulls --- note these are
+ * still metafied.
  */
 
 /**/
 mod_export int
-mb_metastrlen(char *ptr, int width)
+mb_metastrlenend(char *ptr, int width, char *eptr)
 {
     char inchar, *laststart;
     size_t ret;
@@ -4898,7 +5063,7 @@ mb_metastrlen(char *ptr, int width)
     num = num_in_char = 0;
 
     memset(&mb_shiftstate, 0, sizeof(mb_shiftstate));
-    while (*ptr) {
+    while (*ptr && !(eptr && ptr >= eptr)) {
 	if (*ptr == Meta)
 	    inchar = *++ptr ^ 32;
 	else
@@ -4937,6 +5102,65 @@ mb_metastrlen(char *ptr, int width)
     return num + num_in_char;
 }
 
+/*
+ * The equivalent of mb_metacharlenconv_r() for
+ * strings that aren't metafied and hence have
+ * explicit lengths.
+ */
+
+/**/
+mod_export int
+mb_charlenconv_r(const char *s, int slen, wint_t *wcp, mbstate_t *mbsp)
+{
+    size_t ret = MB_INVALID;
+    char inchar;
+    const char *ptr;
+    wchar_t wc;
+
+    for (ptr = s; slen;  ) {
+	inchar = *ptr;
+	ptr++;
+	slen--;
+	ret = mbrtowc(&wc, &inchar, 1, mbsp);
+
+	if (ret == MB_INVALID)
+	    break;
+	if (ret == MB_INCOMPLETE)
+	    continue;
+	if (wcp)
+	    *wcp = wc;
+	return ptr - s;
+    }
+
+    if (wcp)
+	*wcp = WEOF;
+    /* No valid multibyte sequence */
+    memset(mbsp, 0, sizeof(*mbsp));
+    if (ptr > s) {
+	return 1;	/* Treat as single byte character */
+    } else
+	return 0;		/* Probably shouldn't happen */
+}
+
+/*
+ * The equivalent of mb_metacharlenconv() for
+ * strings that aren't metafied and hence have
+ * explicit lengths;
+ */
+
+/**/
+mod_export int
+mb_charlenconv(const char *s, int slen, wint_t *wcp)
+{
+    if (!isset(MULTIBYTE)) {
+	if (wcp)
+	    *wcp = (wint_t)*s;
+	return 1;
+    }
+
+    return mb_charlenconv_r(s, slen, wcp, &mb_shiftstate);
+}
+
 /**/
 #else
 
@@ -4961,8 +5185,127 @@ metacharlenconv(const char *x, int *c)
     return 1;
 }
 
+/* Simple replacement for mb_charlenconv */
+
+/**/
+mod_export int
+charlenconv(const char *x, int len, int *c)
+{
+    if (!len) {
+	if (c)
+	    *c = '\0';
+	return 0;
+    }
+
+    if (c)
+	*c = (char)*x;
+    return 1;
+}
+
 /**/
 #endif /* MULTIBYTE_SUPPORT */
+
+/*
+ * Expand tabs to given width, with given starting position on line.
+ * len is length of unmetafied string in bytes.
+ * Output to fout.
+ * Return the end position on the line, i.e. if this is 0 modulo width
+ * the next character is aligned with a tab stop.
+ *
+ * If all is set, all tabs are expanded, else only leading tabs.
+ */
+
+/**/
+mod_export int
+zexpandtabs(const char *s, int len, int width, int startpos, FILE *fout,
+	    int all)
+{
+    int at_start = 1;
+
+#ifdef MULTIBYTE_SUPPORT
+    mbstate_t mbs;
+    size_t ret;
+    wchar_t wc;
+
+    memset(&mbs, 0, sizeof(mbs));
+#endif
+
+    while (len) {
+	if (*s == '\t') {
+	    if (all || at_start) {
+		s++;
+		len--;
+		if (width <= 0 || !(startpos % width)) {
+		    /* always output at least one space */
+		    fputc(' ', fout);
+		    startpos++;
+		}
+		if (width <= 0)
+		    continue;	/* paranoia */
+		while (startpos % width) {
+		    fputc(' ', fout);
+		    startpos++;
+		}
+	    } else {
+		/*
+		 * Leave tab alone.
+		 * Guess width to apply... we might get this wrong.
+		 * This is only needed if there's a following string
+		 * that needs tabs expanding, which is unusual.
+		 */
+		startpos += width - startpos % width;
+		s++;
+		len--;
+		fputc('\t', fout);
+	    }
+	    continue;
+	} else if (*s == '\n' || *s == '\r') {
+	    fputc(*s, fout);
+	    s++;
+	    len--;
+	    startpos = 0;
+	    at_start = 1;
+	    continue;
+	}
+
+	at_start = 0;
+#ifdef MULTIBYTE_SUPPORT
+	if (isset(MULTIBYTE)) {
+	    const char *sstart = s;
+	    ret = mbrtowc(&wc, s, len, &mbs);
+	    if (ret == MB_INVALID) {
+		/* Assume single character per character */
+		memset(&mbs, 0, sizeof(mbs));
+		s++;
+		len--;
+	    } else if (ret == MB_INCOMPLETE) {
+		/* incomplete at end --- assume likewise, best we've got */
+		s++;
+		len--;
+	    } else {
+		s += ret;
+		len -= (int)ret;
+	    }
+	    if (ret == MB_INVALID || ret == MB_INCOMPLETE) {
+		startpos++;
+	    } else {
+		int wcw = WCWIDTH(wc);
+		if (wcw > 0)	/* paranoia */
+		    startpos += wcw;
+	    }
+	    fwrite(sstart, s - sstart, 1, fout);
+
+	    continue;
+	}
+#endif /* MULTIBYTE_SUPPORT */
+	fputc(*s, fout);
+	s++;
+	len--;
+	startpos++;
+    }
+
+    return startpos;
+}
 
 /* check for special characters in the string */
 
@@ -5104,6 +5447,12 @@ quotestring(const char *s, char **e, int instring)
 	  "BUG: bad quote type in quotestring");
     u = s;
     if (instring == QT_DOLLARS) {
+	/*
+	 * The only way to get Nularg here is when
+	 * it is placeholding for the empty string?
+	 */
+	if (inull(*u))
+	    u++;
 	/*
 	 * As we test for printability here we need to be able
 	 * to look for multibyte characters.
@@ -5301,7 +5650,25 @@ quotestring(const char *s, char **e, int instring)
 		/* Needs to be passed straight through. */
 		if (dobackslash)
 		    *v++ = '\\';
-		*v++ = *u++;
+		if (*u == Inparmath) {
+		    /*
+		     * Already syntactically quoted: don't
+		     * add more.
+		     */
+		    int inmath = 1;
+		    *v++ = *u++;
+		    for (;;) {
+			char uc = *u;
+			*v++ = *u++;
+			if (uc == '\0')
+			    break;
+			else if (uc == Outparmath && !--inmath)
+			    break;
+			else if (uc == Inparmath)
+			    ++inmath;
+		    }
+		} else
+		    *v++ = *u++;
 		continue;
 	    }
 
@@ -6148,10 +6515,15 @@ init_dirsav(Dirsav d)
     d->dirfd = d->level = -1;
 }
 
-/* Change directory, without following symlinks.  Returns 0 on success, -1 *
- * on failure.  Sets errno to ENOTDIR if any symlinks are encountered.  If *
- * fchdir() fails, or the current directory is unreadable, we might end up *
- * in an unwanted directory in case of failure.                            */
+/*
+ * Change directory, without following symlinks.  Returns 0 on success, -1
+ * on failure.  Sets errno to ENOTDIR if any symlinks are encountered.  If
+ * fchdir() fails, or the current directory is unreadable, we might end up
+ * in an unwanted directory in case of failure.
+ *
+ * path is an unmetafied but null-terminated string, as needed by system
+ * calls.
+ */
 
 /**/
 mod_export int

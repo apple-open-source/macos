@@ -24,7 +24,7 @@
  */
 
 #include "display_error_code.h"
-#include "security.h"
+#include "security_tool.h"
 #include <Security/cssmapple.h>
 #include <string.h>
 #include <ctype.h>
@@ -46,7 +46,7 @@ int display_error_code(int argc, char *const *argv)
 		if (strcmp("error", argv[ix])==0)
 			continue;
 		// set base to 0 to have it interpret radix automatically
-		error = strtoul(argv[ix], NULL, 0);
+		error = (CSSM_RETURN) strtoul(argv[ix], NULL, 0);
 		printf("Error: 0x%08X %d %s\n", error, error, cssmErrorString(error));
 	}
 

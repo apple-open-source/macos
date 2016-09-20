@@ -39,8 +39,8 @@ public:
     virtual ~TextInsertionBaseCommand() { };
 
 protected:
-    explicit TextInsertionBaseCommand(Document&);
-    static void applyTextInsertionCommand(Frame*, PassRefPtr<TextInsertionBaseCommand>, const VisibleSelection& selectionForInsertion, const VisibleSelection& endingSelection);
+    explicit TextInsertionBaseCommand(Document&, EditAction = EditActionUnspecified);
+    static void applyTextInsertionCommand(Frame*, TextInsertionBaseCommand&, const VisibleSelection& selectionForInsertion, const VisibleSelection& endingSelection);
 };
 
 String dispatchBeforeTextInsertedEvent(const String& text, const VisibleSelection& selectionForInsertion, bool insertionIsForUpdatingComposition);

@@ -25,7 +25,7 @@
 #
 #ident	"@(#)tst.depth.ksh	1.1	06/08/28 SMI"
 
-file=out.$$
+file=/tmp/out.$$
 dtrace=/usr/sbin/dtrace
 
 if [ -f /usr/lib/dtrace/darwin.d ]; then

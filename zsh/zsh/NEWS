@@ -4,7 +4,97 @@ CHANGES FROM PREVIOUS VERSIONS OF ZSH
 
 Note also the list of incompatibilities in the README file.
 
-Changes from 5.0.7 to 5.0.8
+Changes from 5.1.1 to 5.2
+-------------------------
+
+The new module zsh/param/private can be loaded to allow the shell
+to define parameters that are private to a function scope (i.e. are
+not propagated to nested functions called within this function).
+
+The parameter flag ${(P)...} is now more useful when it appears in
+a nested expansion.  For example,
+
+  typeset -A assoc=(one un two deux three trois)
+  name=assoc
+  print ${${(P)name}[one]}
+
+now prints "un".  In previous versions of the shell the value of the
+substitution was fully expanded on return from ${(P)name}, making
+associative array subscripting difficult.  As a side effect, flags
+for formatting appearing in the inner substitution now affect the
+substitution of the name (into "assoc" in this case), which is not
+normally useful: flags that should apply to the value must be in the
+outer substitution.
+
+The GLOB_STAR_SHORT option allows the pattern **/* to be shortened to
+just ** if no / follows. so **.c searches recursively for a file whose
+name has the suffix ".c".
+
+The effect of the WARN_CREATE_GLOBAL option has been significantly
+extended, so expect it to cause additional warning messages about
+parameters created globally within function scope.
+
+Changes from 5.1 to 5.1.1
+-------------------------
+
+5.1.1 is primarily a bug fix release; however, a few minor features were
+added.
+
+The ZLE variables YANK_ACTIVE, YANK_START and YANK_END have been added
+and are useful for managing highlighting.
+
+The zsh-specific pattern match range tests have been supplemented with
+[:INCOMPLETE:] and [:INVALID:] to help detect the state of partially
+read multibyte character strings.
+
+Changes from 5.0.8 to 5.1
+-------------------------
+
+The builtins declare, export, local, readonly and typeset
+now have corresponding reserved words.  When used in
+this form, the builtin syntax is extended so that assignments
+following the reserved word are treated similarly to
+assignments that appear at the start of the command line.
+For example,
+  local scalar=`echo one word` array=(several words)
+creates a local "scalar" containing the text "one word"
+and an array "array" containing the words "several"
+"words".
+
+- The print builtin has new options -x and -X to expand tabs.
+
+- Several new command completions and numerous updates to others.
+
+- Options to "fc" to segregate internal and shared history.
+
+- All emulations including "sh" use multibyte by default; several
+  repairs to multibyte handling.
+
+- ZLE supports "bracketed paste" mode to avoid interpreting pasted
+  newlines as accept-line.  Pastes can be highlighted for visibility
+  and to make it more obvious whether accept-line has occurred.
+
+- Improved (though still not perfect) POSIX compatibility for getopts
+  builtin when POSIX_BUILTINS is set.
+
+- New setopt APPEND_CREATE for POSIX-compatible NO_CLOBBER behaviour.
+
+- Completion of date values now displays in a calendar format when
+  the complist module is available.  Controllable by zstyle.
+
+- New parameter UNDO_LIMIT_NO for more control over ZLE undo repeat.
+
+- Several repairs/improvements to the contributed narrow-to-region
+  ZLE function.
+
+- Many changes to child-process and signal handling to eliminate race
+  conditions and avoid deadlocks on descriptor and memory management.
+
+- New builtin sysopen in zsh/system module for detailed control of
+  file descriptor modes.
+
+
+Changes from 5.0.0 to 5.0.8
 ---------------------------
 
 - Global aliases can be created for syntactic tokens such as command
@@ -46,9 +136,6 @@ Changes from 5.0.7 to 5.0.8
 
 - Some rationalisations have been made to the zsh/db/gdbm module that
   should make it more useful and predictable in operation.
-
-Changes from 5.0.0 to 5.0.7
----------------------------
 
 - Numeric constants encountered in mathematical expressions (but not other
   contexts) can contain underscores as separators that will be ignored on
@@ -872,7 +959,7 @@ Parameter and expansion changes:
   - expansion of ~ and other globbing flags via ${~param} do not depend
     upon EXTENDED_GLOB (bug fix).
   - nested parameter substitutions require braces (this was always the
-    documented behavior, but previous parsers didn't enforce it).
+    documented behaviour, but previous parsers didn't enforce it).
   - quote only nested expansion, e.g. ${(f)"$(<file)"} reads complete
     `file', then splits lines into array.
 
@@ -897,7 +984,7 @@ Other changes:
 Debugging enhancements:
   - LINENO is now very much more useful in scripts and functions and is
     reported correctly in most error messages.
-  - ERREXIT behavior is now consistent with newer Bourne-like shells,
+  - ERREXIT behaviour is now consistent with newer Bourne-like shells,
     e.g. with respect to `if' tests that fail.
 
 Configuration changes:

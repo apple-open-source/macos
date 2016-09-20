@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 Google Inc. All rights reserved.
+ * Copyright (C) 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,40 +44,40 @@ namespace WebCore {
 
 class Database;
 class InspectorDatabaseResource;
-class InstrumentingAgents;
 
 typedef String ErrorString;
 
 class InspectorDatabaseAgent final : public InspectorAgentBase, public Inspector::DatabaseBackendDispatcherHandler {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    explicit InspectorDatabaseAgent(InstrumentingAgents*);
+    explicit InspectorDatabaseAgent(WebAgentContext&);
     virtual ~InspectorDatabaseAgent();
 
-    virtual void didCreateFrontendAndBackend(Inspector::FrontendChannel*, Inspector::BackendDispatcher*) override;
-    virtual void willDestroyFrontendAndBackend(Inspector::DisconnectReason) override;
+    void didCreateFrontendAndBackend(Inspector::FrontendRouter*, Inspector::BackendDispatcher*) override;
+    void willDestroyFrontendAndBackend(Inspector::DisconnectReason) override;
 
     void clearResources();
 
     // Called from the front-end.
-    virtual void enable(ErrorString&) override;
-    virtual void disable(ErrorString&) override;
-    virtual void getDatabaseTableNames(ErrorString&, const String& databaseId, RefPtr<Inspector::Protocol::Array<String>>& names) override;
-    virtual void executeSQL(ErrorString&, const String& databaseId, const String& query, Ref<ExecuteSQLCallback>&&) override;
+    void enable(ErrorString&) override;
+    void disable(ErrorString&) override;
+    void getDatabaseTableNames(ErrorString&, const String& databaseId, RefPtr<Inspector::Protocol::Array<String>>& names) override;
+    void executeSQL(ErrorString&, const String& databaseId, const String& query, Ref<ExecuteSQLCallback>&&) override;
 
     // Called from the injected script.
     String databaseId(Database*);
 
-    void didOpenDatabase(PassRefPtr<Database>, const String& domain, const String& name, const String& version);
+    void didOpenDatabase(RefPtr<Database>&&, const String& domain, const String& name, const String& version);
 private:
     Database* databaseForId(const String& databaseId);
     InspectorDatabaseResource* findByFileName(const String& fileName);
 
     std::unique_ptr<Inspector::DatabaseFrontendDispatcher> m_frontendDispatcher;
     RefPtr<Inspector::DatabaseBackendDispatcher> m_backendDispatcher;
+
     typedef HashMap<String, RefPtr<InspectorDatabaseResource>> DatabaseResourcesMap;
     DatabaseResourcesMap m_resources;
-    bool m_enabled;
+    bool m_enabled { false };
 };
 
 } // namespace WebCore

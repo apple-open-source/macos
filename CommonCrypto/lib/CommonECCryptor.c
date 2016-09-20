@@ -415,10 +415,10 @@ CCECCryptorVerifyHash(CCECCryptorRef publicKey,
 
 
 CCCryptorStatus 
-CCECCryptorWrapKey(CCECCryptorRef publicKey, 
-                   const void *plainText, size_t plainTextLen, 
-                   void *cipherText, size_t *cipherTextLen,
-                   CCDigestAlg digestType)
+CCECCryptorWrapKey(CCECCryptorRef __unused publicKey,
+                   const void * __unused plainText, size_t __unused plainTextLen,
+                   void * __unused cipherText, size_t * __unused cipherTextLen,
+                   CCDigestAlg __unused digestType)
 {
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
     return kCCUnimplemented;
@@ -426,9 +426,9 @@ CCECCryptorWrapKey(CCECCryptorRef publicKey,
 
 
 CCCryptorStatus 
-CCECCryptorUnwrapKey(CCECCryptorRef privateKey, 
-                     const void *cipherText, size_t cipherTextLen,
-                     void *plainText, size_t *plainTextLen)
+CCECCryptorUnwrapKey(CCECCryptorRef __unused privateKey,
+                     const void * __unused cipherText, size_t __unused cipherTextLen,
+                     void * __unused plainText, size_t * __unused plainTextLen)
 {
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
     return kCCUnimplemented;

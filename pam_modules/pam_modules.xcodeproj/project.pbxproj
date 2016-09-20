@@ -13,10 +13,12 @@
 			buildPhases = (
 			);
 			dependencies = (
+				5FE441C91C5619790010C4FD /* PBXTargetDependency */,
 				1CFF7DCF1021165B0097ADA4 /* PBXTargetDependency */,
 				1CFF7DCD1021165B0097ADA4 /* PBXTargetDependency */,
 				1CFF7DCB1021165B0097ADA4 /* PBXTargetDependency */,
 				1CFF7DC91021165B0097ADA4 /* PBXTargetDependency */,
+				5FFEF0151C04A6620083839D /* PBXTargetDependency */,
 				1CFF7DC71021165B0097ADA4 /* PBXTargetDependency */,
 				1CFF7DC51021165B0097ADA4 /* PBXTargetDependency */,
 				1CFF7DC31021165B0097ADA4 /* PBXTargetDependency */,
@@ -92,13 +94,30 @@
 		1CFF7DE8102117270097ADA4 /* libpam.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.dylib */; };
 		1CFF7DFF102117810097ADA4 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF2102117580097ADA4 /* CoreFoundation.framework */; };
 		1CFF7E21102117890097ADA4 /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF5102117720097ADA4 /* OpenDirectory.framework */; };
-		1CFF7F001021181C0097ADA4 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7E81102118100097ADA4 /* Security.framework */; };
 		1CFF7F06102118410097ADA4 /* NetFS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7F05102118410097ADA4 /* NetFS.framework */; };
 		1CFF7F15102118530097ADA4 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF2102117580097ADA4 /* CoreFoundation.framework */; };
 		1CFF7F16102118620097ADA4 /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF5102117720097ADA4 /* OpenDirectory.framework */; };
 		1CFF7F1B102118740097ADA4 /* DiskImages.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7F17102118710097ADA4 /* DiskImages.framework */; };
 		1CFF7F50102118980097ADA4 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF2102117580097ADA4 /* CoreFoundation.framework */; };
 		1CFF7F51102118980097ADA4 /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF5102117720097ADA4 /* OpenDirectory.framework */; };
+		4394E9841C90CEFC00FD055E /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5FD7DF871C05FF43005DC226 /* Security.framework */; };
+		4394E9851C90CEFE00FD055E /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5FD7DF871C05FF43005DC226 /* Security.framework */; };
+		5F9145691C56179800E307FC /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF2102117580097ADA4 /* CoreFoundation.framework */; };
+		5F91456B1C56179800E307FC /* libpam.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.dylib */; };
+		5FD7DF861C05FF14005DC226 /* libcoreauthd_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5FD7DF851C05FF14005DC226 /* libcoreauthd_client.a */; };
+		5FD7DF881C05FF43005DC226 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5FD7DF871C05FF43005DC226 /* Security.framework */; };
+		5FD7DF901C060053005DC226 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 5FD7DF8F1C060053005DC226 /* main.m */; };
+		5FD7DF951C06047D005DC226 /* libpam.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5FD7DF941C06047D005DC226 /* libpam.dylib */; };
+		5FE441CA1C5619900010C4FD /* pam_aks.8 in man8 */ = {isa = PBXBuildFile; fileRef = 5FE441C71C56191F0010C4FD /* pam_aks.8 */; };
+		5FE441CB1C561B270010C4FD /* pam_aks.c in Sources */ = {isa = PBXBuildFile; fileRef = 5FE441C61C56190B0010C4FD /* pam_aks.c */; };
+		5FE441E11C5656AF0010C4FD /* authorization_la in CopyFiles */ = {isa = PBXBuildFile; fileRef = 5FE441DF1C5656880010C4FD /* authorization_la */; };
+		5FE441E21C5656AF0010C4FD /* screensaver_la in CopyFiles */ = {isa = PBXBuildFile; fileRef = 5FE441E01C5656880010C4FD /* screensaver_la */; };
+		5FE441E31C5656C20010C4FD /* authorization_aks in CopyFiles */ = {isa = PBXBuildFile; fileRef = 5FE441DD1C5656880010C4FD /* authorization_aks */; };
+		5FE441E41C5656C20010C4FD /* screensaver_aks in CopyFiles */ = {isa = PBXBuildFile; fileRef = 5FE441DE1C5656880010C4FD /* screensaver_aks */; };
+		5FFEF00C1C04A3950083839D /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF2102117580097ADA4 /* CoreFoundation.framework */; };
+		5FFEF00E1C04A3950083839D /* libpam.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.dylib */; };
+		5FFEF0161C04A6850083839D /* pam_localauthentication.8 in man8 */ = {isa = PBXBuildFile; fileRef = 5FFEF0121C04A3F70083839D /* pam_localauthentication.8 */; };
+		5FFEF0171C04A94C0083839D /* pam_localauthentication.c in Sources */ = {isa = PBXBuildFile; fileRef = 5FFEF0131C04A40E0083839D /* pam_localauthentication.c */; };
 		72B77D7E1260FA2100F47303 /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72B77D7D1260FA2100F47303 /* DiskArbitration.framework */; };
 		7434C8991255449C001D7F9E /* libpam.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.dylib */; };
 		7434C89D125544C7001D7F9E /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7434C88E12554434001D7F9E /* GSS.framework */; };
@@ -112,16 +131,18 @@
 		7434CA791255562B001D7F9E /* Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 7434C97812554E6F001D7F9E /* Common.c */; };
 		EB27C0B5143CA4AA003F6770 /* Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 7434C97812554E6F001D7F9E /* Common.c */; };
 		F60ABCB41BB40E4E006F85AD /* DirectoryService.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F60ABCB31BB40E4E006F85AD /* DirectoryService.framework */; };
-		F60ABD121BB441E1006F85AD /* attribute_matching.c in Sources */ = {isa = PBXBuildFile; fileRef = F60ABD101BB441E1006F85AD /* attribute_matching.c */; settings = {ASSET_TAGS = (); }; };
-		F60ABD581BB571CB006F85AD /* hash_matching.c in Sources */ = {isa = PBXBuildFile; fileRef = F60ABD561BB571CB006F85AD /* hash_matching.c */; settings = {ASSET_TAGS = (); }; };
-		F60ABD5E1BB572D7006F85AD /* scmatch_evaluation.c in Sources */ = {isa = PBXBuildFile; fileRef = F60ABD5C1BB572D7006F85AD /* scmatch_evaluation.c */; settings = {ASSET_TAGS = (); }; };
-		F60ABD601BB572D7006F85AD /* scmatch_evaluation.h in Headers */ = {isa = PBXBuildFile; fileRef = F60ABD5D1BB572D7006F85AD /* scmatch_evaluation.h */; settings = {ASSET_TAGS = (); }; };
+		F6529BBA1C84BE1D005245B2 /* libctkclient.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F6529BB91C84BE1D005245B2 /* libctkclient.a */; };
+		F67CB7E21C899F3600DABE90 /* authorization_ctk in CopyFiles */ = {isa = PBXBuildFile; fileRef = F67CB7DF1C899EB800DABE90 /* authorization_ctk */; };
+		F67CB7E31C899F3600DABE90 /* screensaver_ctk in CopyFiles */ = {isa = PBXBuildFile; fileRef = F67CB7E01C899EB800DABE90 /* screensaver_ctk */; };
 		F6C0B8E81B8DE6BC00892765 /* Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 7434C97812554E6F001D7F9E /* Common.c */; };
 		F6C0B8EB1B8DE6BC00892765 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF2102117580097ADA4 /* CoreFoundation.framework */; };
 		F6C0B8EC1B8DE6BC00892765 /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF5102117720097ADA4 /* OpenDirectory.framework */; };
 		F6C0B8ED1B8DE6BC00892765 /* libpam.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.dylib */; };
-		F6C0B8F31B8DE91500892765 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7E81102118100097ADA4 /* Security.framework */; };
 		F6DD1CAD1B8DFE0B00BA6BE0 /* pam_smartcard.c in Sources */ = {isa = PBXBuildFile; fileRef = F6DD1CAC1B8DFDAE00BA6BE0 /* pam_smartcard.c */; };
+		F6EF67F01D1C308000342741 /* attribute_matching.c in Sources */ = {isa = PBXBuildFile; fileRef = F6EF67ED1D1C306100342741 /* attribute_matching.c */; };
+		F6EF67F11D1C308000342741 /* hash_matching.c in Sources */ = {isa = PBXBuildFile; fileRef = F6EF67EE1D1C306100342741 /* hash_matching.c */; };
+		F6EF67F21D1C308000342741 /* scmatch_evaluation.c in Sources */ = {isa = PBXBuildFile; fileRef = F6EF67EF1D1C306100342741 /* scmatch_evaluation.c */; };
+		F6F434831C8D912A000BB264 /* libctkloginhelper.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F6F434821C8D912A000BB264 /* libctkloginhelper.a */; };
 		F6F8C6841B8F709E002596AE /* pam_smartcard.8 in man8 */ = {isa = PBXBuildFile; fileRef = F6F8C6831B8F708F002596AE /* pam_smartcard.8 */; };
 /* End PBXBuildFile section */
 
@@ -217,6 +238,34 @@
 			remoteGlobalIDString = 1CFF80BC10211AF10097ADA4;
 			remoteInfo = Cleanup;
 		};
+		5FD7DF961C0607C9005DC226 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5FFEF0061C04A3950083839D;
+			remoteInfo = localauthentication;
+		};
+		5FE441C81C5619790010C4FD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5F9145641C56179800E307FC;
+			remoteInfo = aks;
+		};
+		5FE441CC1C563EE30010C4FD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5F9145641C56179800E307FC;
+			remoteInfo = aks;
+		};
+		5FFEF0141C04A6620083839D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5FFEF0061C04A3950083839D;
+			remoteInfo = localauthentication;
+		};
 		7434C89E125544F9001D7F9E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -240,6 +289,8 @@
 			dstPath = /usr/share/man/man8;
 			dstSubfolderSpec = 0;
 			files = (
+				5FE441CA1C5619900010C4FD /* pam_aks.8 in man8 */,
+				5FFEF0161C04A6850083839D /* pam_localauthentication.8 in man8 */,
 				F6F8C6841B8F709E002596AE /* pam_smartcard.8 in man8 */,
 				1C23731C10290C600055216A /* pam_env.8 in man8 */,
 				1C23731D10290C600055216A /* pam_group.8 in man8 */,
@@ -255,6 +306,48 @@
 				1C23732710290C600055216A /* pam_uwtmp.8 in man8 */,
 			);
 			name = man8;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		5FD7DF8B1C060053005DC226 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		5FE441D91C5641EA0010C4FD /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /private/etc/pam.d;
+			dstSubfolderSpec = 0;
+			files = (
+				5FE441E11C5656AF0010C4FD /* authorization_la in CopyFiles */,
+				5FE441E21C5656AF0010C4FD /* screensaver_la in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		5FE441DB1C5642210010C4FD /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /private/etc/pam.d;
+			dstSubfolderSpec = 0;
+			files = (
+				5FE441E31C5656C20010C4FD /* authorization_aks in CopyFiles */,
+				5FE441E41C5656C20010C4FD /* screensaver_aks in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		F67CB7E11C899F2B00DABE90 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /private/etc/pam.d;
+			dstSubfolderSpec = 0;
+			files = (
+				F67CB7E21C899F3600DABE90 /* authorization_ctk in CopyFiles */,
+				F67CB7E31C899F3600DABE90 /* screensaver_ctk in CopyFiles */,
+			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -282,7 +375,7 @@
 		1C23733010290CBB0055216A /* pam_sacl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_sacl.c; path = modules/pam_sacl/pam_sacl.c; sourceTree = "<group>"; };
 		1C23733110290CBB0055216A /* pam_self.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_self.c; path = modules/pam_self/pam_self.c; sourceTree = "<group>"; };
 		1C23733310290CBB0055216A /* pam_uwtmp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_uwtmp.c; path = modules/pam_uwtmp/pam_uwtmp.c; sourceTree = "<group>"; };
-		1C84D323113480B3005764CC /* AppleSystemInfo.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppleSystemInfo.framework; path = /System/Library/PrivateFrameworks/AppleSystemInfo.framework; sourceTree = "<absolute>"; };
+		1C84D323113480B3005764CC /* AppleSystemInfo.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppleSystemInfo.framework; path = System/Library/PrivateFrameworks/AppleSystemInfo.framework; sourceTree = SDKROOT; };
 		1CFF7D2210210FC20097ADA4 /* pam_env.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_env.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
 		1CFF7D3D1021142C0097ADA4 /* pam_group.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_group.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
 		1CFF7D45102114560097ADA4 /* pam_krb5.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_krb5.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -294,35 +387,51 @@
 		1CFF7D75102114C60097ADA4 /* pam_sacl.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_sacl.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
 		1CFF7D7D102114E10097ADA4 /* pam_self.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_self.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
 		1CFF7D8D1021150B0097ADA4 /* pam_uwtmp.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_uwtmp.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
-		1CFF7DD5102116B70097ADA4 /* libpam.2.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libpam.2.dylib; path = /usr/lib/libpam.2.dylib; sourceTree = "<absolute>"; };
-		1CFF7DF2102117580097ADA4 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
-		1CFF7DF5102117720097ADA4 /* OpenDirectory.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenDirectory.framework; path = /System/Library/Frameworks/OpenDirectory.framework; sourceTree = "<absolute>"; };
-		1CFF7E81102118100097ADA4 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
-		1CFF7F05102118410097ADA4 /* NetFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetFS.framework; path = /System/Library/Frameworks/NetFS.framework; sourceTree = "<absolute>"; };
-		1CFF7F17102118710097ADA4 /* DiskImages.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskImages.framework; path = /System/Library/PrivateFrameworks/DiskImages.framework; sourceTree = "<absolute>"; };
-		1CFF7F55102118AF0097ADA4 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
-		72B77D7D1260FA2100F47303 /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = /System/Library/Frameworks/DiskArbitration.framework; sourceTree = "<absolute>"; };
-		7434C88E12554434001D7F9E /* GSS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GSS.framework; path = /System/Library/Frameworks/GSS.framework; sourceTree = "<absolute>"; };
-		7434C88F12554434001D7F9E /* Heimdal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Heimdal.framework; path = /System/Library/PrivateFrameworks/Heimdal.framework; sourceTree = "<absolute>"; };
+		1CFF7DD5102116B70097ADA4 /* libpam.2.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libpam.2.dylib; path = usr/lib/libpam.2.dylib; sourceTree = SDKROOT; };
+		1CFF7DF2102117580097ADA4 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
+		1CFF7DF5102117720097ADA4 /* OpenDirectory.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenDirectory.framework; path = System/Library/Frameworks/OpenDirectory.framework; sourceTree = SDKROOT; };
+		1CFF7F05102118410097ADA4 /* NetFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetFS.framework; path = System/Library/Frameworks/NetFS.framework; sourceTree = SDKROOT; };
+		1CFF7F17102118710097ADA4 /* DiskImages.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskImages.framework; path = System/Library/PrivateFrameworks/DiskImages.framework; sourceTree = SDKROOT; };
+		5F91456F1C56179800E307FC /* pam_aks.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_aks.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
+		5FCA00DB1CE62364003C2E9C /* MobileKeyBag.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileKeyBag.framework; path = System/Library/PrivateFrameworks/MobileKeyBag.framework; sourceTree = SDKROOT; };
+		5FD7DF851C05FF14005DC226 /* libcoreauthd_client.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libcoreauthd_client.a; path = usr/local/lib/libcoreauthd_client.a; sourceTree = SDKROOT; };
+		5FD7DF871C05FF43005DC226 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		5FD7DF8D1C060053005DC226 /* test_pam_localauthentication */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = test_pam_localauthentication; sourceTree = BUILT_PRODUCTS_DIR; };
+		5FD7DF8F1C060053005DC226 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		5FD7DF941C06047D005DC226 /* libpam.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libpam.dylib; path = usr/lib/libpam.dylib; sourceTree = SDKROOT; };
+		5FE441C61C56190B0010C4FD /* pam_aks.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_aks.c; path = modules/pam_aks/pam_aks.c; sourceTree = "<group>"; };
+		5FE441C71C56191F0010C4FD /* pam_aks.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_aks.8; path = modules/pam_aks/pam_aks.8; sourceTree = "<group>"; };
+		5FE441CE1C563F5B0010C4FD /* libaks.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libaks.a; path = usr/local/lib/libaks.a; sourceTree = SDKROOT; };
+		5FE441D01C563F9A0010C4FD /* libaks_acl.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libaks_acl.a; path = usr/local/lib/libaks_acl.a; sourceTree = SDKROOT; };
+		5FE441D21C563FE20010C4FD /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
+		5FE441DD1C5656880010C4FD /* authorization_aks */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = authorization_aks; path = modules/pam_aks/authorization_aks; sourceTree = "<group>"; };
+		5FE441DE1C5656880010C4FD /* screensaver_aks */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = screensaver_aks; path = modules/pam_aks/screensaver_aks; sourceTree = "<group>"; };
+		5FE441DF1C5656880010C4FD /* authorization_la */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = authorization_la; path = modules/pam_localauthentication/authorization_la; sourceTree = "<group>"; };
+		5FE441E01C5656880010C4FD /* screensaver_la */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = screensaver_la; path = modules/pam_localauthentication/screensaver_la; sourceTree = "<group>"; };
+		5FFEF0111C04A3950083839D /* pam_localauthentication.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_localauthentication.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
+		5FFEF0121C04A3F70083839D /* pam_localauthentication.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_localauthentication.8; path = modules/pam_localauthentication/pam_localauthentication.8; sourceTree = "<group>"; };
+		5FFEF0131C04A40E0083839D /* pam_localauthentication.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_localauthentication.c; path = modules/pam_localauthentication/pam_localauthentication.c; sourceTree = "<group>"; };
+		72B77D7D1260FA2100F47303 /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = System/Library/Frameworks/DiskArbitration.framework; sourceTree = SDKROOT; };
+		7434C88E12554434001D7F9E /* GSS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GSS.framework; path = System/Library/Frameworks/GSS.framework; sourceTree = SDKROOT; };
+		7434C88F12554434001D7F9E /* Heimdal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Heimdal.framework; path = System/Library/PrivateFrameworks/Heimdal.framework; sourceTree = SDKROOT; };
 		7434C89C1255449C001D7F9E /* pam_ntlm.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_ntlm.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
 		7434C8A01255452A001D7F9E /* pam_ntlm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_ntlm.c; path = modules/pam_ntlm/pam_ntlm.c; sourceTree = "<group>"; };
 		7434C8AB125545DA001D7F9E /* pam_ntlm.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_ntlm.8; path = modules/pam_ntlm/pam_ntlm.8; sourceTree = "<group>"; };
 		7434C97812554E6F001D7F9E /* Common.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = Common.c; path = common/Common.c; sourceTree = "<group>"; };
 		7434C97912554E6F001D7F9E /* Common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Common.h; path = common/Common.h; sourceTree = "<group>"; };
-		F60ABCB31BB40E4E006F85AD /* DirectoryService.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DirectoryService.framework; path = ../../../System/Library/Frameworks/DirectoryService.framework; sourceTree = "<group>"; };
-		F60ABCBC1BB42251006F85AD /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
-		F60ABCC21BB4226C006F85AD /* OpenDirectory.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenDirectory.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk/System/Library/Frameworks/OpenDirectory.framework; sourceTree = DEVELOPER_DIR; };
-		F60ABCC41BB42272006F85AD /* DirectoryService.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DirectoryService.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.sdk/System/Library/Frameworks/DirectoryService.framework; sourceTree = DEVELOPER_DIR; };
-		F60ABCC61BB423D4006F85AD /* libpam.2.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libpam.2.dylib; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.Internal.sdk/usr/lib/libpam.2.dylib; sourceTree = DEVELOPER_DIR; };
-		F60ABCC91BB42406006F85AD /* SecurityInterface.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SecurityInterface.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.Internal.sdk/System/Library/Frameworks/SecurityInterface.framework; sourceTree = DEVELOPER_DIR; };
-		F60ABCCB1BB42411006F85AD /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.Internal.sdk/System/Library/Frameworks/Security.framework; sourceTree = DEVELOPER_DIR; };
-		F60ABCCD1BB42432006F85AD /* ServerInformation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ServerInformation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.Internal.sdk/System/Library/PrivateFrameworks/ServerInformation.framework; sourceTree = DEVELOPER_DIR; };
-		F60ABD101BB441E1006F85AD /* attribute_matching.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = attribute_matching.c; path = modules/pam_smartcard/attribute_matching.c; sourceTree = "<group>"; };
-		F60ABD561BB571CB006F85AD /* hash_matching.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = hash_matching.c; path = modules/pam_smartcard/hash_matching.c; sourceTree = "<group>"; };
-		F60ABD5C1BB572D7006F85AD /* scmatch_evaluation.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = scmatch_evaluation.c; path = modules/pam_smartcard/scmatch_evaluation.c; sourceTree = "<group>"; };
-		F60ABD5D1BB572D7006F85AD /* scmatch_evaluation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = scmatch_evaluation.h; path = modules/pam_smartcard/scmatch_evaluation.h; sourceTree = "<group>"; };
+		F60ABCB31BB40E4E006F85AD /* DirectoryService.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DirectoryService.framework; path = System/Library/Frameworks/DirectoryService.framework; sourceTree = SDKROOT; };
+		F60F5FEF1C8478D4001C9533 /* CryptoTokenKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CryptoTokenKit.framework; path = System/Library/Frameworks/CryptoTokenKit.framework; sourceTree = SDKROOT; };
+		F64D8B731C89BB960004B9AE /* libahpsmartcard.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libahpsmartcard.a; path = usr/local/lib/libahpsmartcard.a; sourceTree = SDKROOT; };
+		F6529BB91C84BE1D005245B2 /* libctkclient.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libctkclient.a; path = usr/local/lib/libctkclient.a; sourceTree = SDKROOT; };
+		F67CB7DF1C899EB800DABE90 /* authorization_ctk */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = authorization_ctk; path = modules/pam_smartcard/authorization_ctk; sourceTree = "<group>"; };
+		F67CB7E01C899EB800DABE90 /* screensaver_ctk */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = screensaver_ctk; path = modules/pam_smartcard/screensaver_ctk; sourceTree = "<group>"; };
+		F6ABB8B11D22CDCC00AECC36 /* scmatch_evaluation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = scmatch_evaluation.h; path = modules/pam_smartcard/scmatch_evaluation.h; sourceTree = "<group>"; };
 		F6C0B8F01B8DE6BC00892765 /* pam_smartcard.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_smartcard.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
 		F6DD1CAC1B8DFDAE00BA6BE0 /* pam_smartcard.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_smartcard.c; path = modules/pam_smartcard/pam_smartcard.c; sourceTree = "<group>"; };
+		F6EF67ED1D1C306100342741 /* attribute_matching.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = attribute_matching.c; path = modules/pam_smartcard/attribute_matching.c; sourceTree = "<group>"; };
+		F6EF67EE1D1C306100342741 /* hash_matching.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = hash_matching.c; path = modules/pam_smartcard/hash_matching.c; sourceTree = "<group>"; };
+		F6EF67EF1D1C306100342741 /* scmatch_evaluation.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = scmatch_evaluation.c; path = modules/pam_smartcard/scmatch_evaluation.c; sourceTree = "<group>"; };
+		F6F434821C8D912A000BB264 /* libctkloginhelper.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libctkloginhelper.a; path = usr/local/lib/libctkloginhelper.a; sourceTree = SDKROOT; };
 		F6F8C6831B8F708F002596AE /* pam_smartcard.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_smartcard.8; path = modules/pam_smartcard/pam_smartcard.8; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -358,7 +467,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1CFF7F001021181C0097ADA4 /* Security.framework in Frameworks */,
+				4394E9841C90CEFC00FD055E /* Security.framework in Frameworks */,
 				1CFF7DE0102116FF0097ADA4 /* libpam.2.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -426,6 +535,34 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5F9145681C56179800E307FC /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5F9145691C56179800E307FC /* CoreFoundation.framework in Frameworks */,
+				5F91456B1C56179800E307FC /* libpam.2.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5FD7DF8A1C060053005DC226 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5FD7DF951C06047D005DC226 /* libpam.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5FFEF00B1C04A3950083839D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5FFEF00C1C04A3950083839D /* CoreFoundation.framework in Frameworks */,
+				5FD7DF881C05FF43005DC226 /* Security.framework in Frameworks */,
+				5FFEF00E1C04A3950083839D /* libpam.2.dylib in Frameworks */,
+				5FD7DF861C05FF14005DC226 /* libcoreauthd_client.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		7434C8961255449C001D7F9E /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -442,10 +579,12 @@
 			buildActionMask = 2147483647;
 			files = (
 				F60ABCB41BB40E4E006F85AD /* DirectoryService.framework in Frameworks */,
-				F6C0B8F31B8DE91500892765 /* Security.framework in Frameworks */,
+				4394E9851C90CEFE00FD055E /* Security.framework in Frameworks */,
 				F6C0B8EB1B8DE6BC00892765 /* CoreFoundation.framework in Frameworks */,
 				F6C0B8EC1B8DE6BC00892765 /* OpenDirectory.framework in Frameworks */,
 				F6C0B8ED1B8DE6BC00892765 /* libpam.2.dylib in Frameworks */,
+				F6529BBA1C84BE1D005245B2 /* libctkclient.a in Frameworks */,
+				F6F434831C8D912A000BB264 /* libctkloginhelper.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -455,18 +594,11 @@
 		08FB7794FE84155DC02AAC07 /* pam_modules */ = {
 			isa = PBXGroup;
 			children = (
-				F60ABCCD1BB42432006F85AD /* ServerInformation.framework */,
-				F60ABCCB1BB42411006F85AD /* Security.framework */,
-				F60ABCC91BB42406006F85AD /* SecurityInterface.framework */,
-				F60ABCC61BB423D4006F85AD /* libpam.2.dylib */,
-				F60ABCC41BB42272006F85AD /* DirectoryService.framework */,
-				F60ABCC21BB4226C006F85AD /* OpenDirectory.framework */,
-				F60ABCB31BB40E4E006F85AD /* DirectoryService.framework */,
-				F60ABCB21BB408E4006F85AD /* SmartcardRelated */,
 				1C47A8A9112CB89F00013ABE /* Common */,
 				08FB7795FE84155DC02AAC07 /* Modules */,
 				C6A0FF2B0290797F04C91782 /* Documentation */,
-				F60ABCBB1BB42251006F85AD /* PamTest */,
+				5FE441D41C56413D0010C4FD /* Configurations */,
+				5FD7DF8E1C060053005DC226 /* test_pam_localauthentication */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
 				1CFF7DDD102116DB0097ADA4 /* Linked */,
 			);
@@ -476,10 +608,12 @@
 		08FB7795FE84155DC02AAC07 /* Modules */ = {
 			isa = PBXGroup;
 			children = (
+				5FE441C61C56190B0010C4FD /* pam_aks.c */,
 				1C23732810290CBB0055216A /* pam_env.c */,
 				1C23732910290CBB0055216A /* pam_group.c */,
 				1C23732A10290CBB0055216A /* pam_krb5.c */,
 				1C23732B10290CBB0055216A /* pam_launchd.c */,
+				5FFEF0131C04A40E0083839D /* pam_localauthentication.c */,
 				1C23732C10290CBB0055216A /* pam_mount.c */,
 				1C23732D10290CBB0055216A /* pam_nologin.c */,
 				7434C8A01255452A001D7F9E /* pam_ntlm.c */,
@@ -509,6 +643,9 @@
 				1CFF7D8D1021150B0097ADA4 /* pam_uwtmp.so.2 */,
 				7434C89C1255449C001D7F9E /* pam_ntlm.so.2 */,
 				F6C0B8F01B8DE6BC00892765 /* pam_smartcard.so.2 */,
+				5FFEF0111C04A3950083839D /* pam_localauthentication.so.2 */,
+				5FD7DF8D1C060053005DC226 /* test_pam_localauthentication */,
+				5F91456F1C56179800E307FC /* pam_aks.so.2 */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -516,6 +653,10 @@
 		1C47A8A9112CB89F00013ABE /* Common */ = {
 			isa = PBXGroup;
 			children = (
+				F6EF67ED1D1C306100342741 /* attribute_matching.c */,
+				F6EF67EE1D1C306100342741 /* hash_matching.c */,
+				F6ABB8B11D22CDCC00AECC36 /* scmatch_evaluation.h */,
+				F6EF67EF1D1C306100342741 /* scmatch_evaluation.c */,
 				7434C97812554E6F001D7F9E /* Common.c */,
 				7434C97912554E6F001D7F9E /* Common.h */,
 			);
@@ -525,29 +666,62 @@
 		1CFF7DDD102116DB0097ADA4 /* Linked */ = {
 			isa = PBXGroup;
 			children = (
-				72B77D7D1260FA2100F47303 /* DiskArbitration.framework */,
+				5FCA00DB1CE62364003C2E9C /* MobileKeyBag.framework */,
+				F60F5FEF1C8478D4001C9533 /* CryptoTokenKit.framework */,
 				1C84D323113480B3005764CC /* AppleSystemInfo.framework */,
 				1CFF7DF2102117580097ADA4 /* CoreFoundation.framework */,
-				1CFF7E81102118100097ADA4 /* Security.framework */,
-				1CFF7DD5102116B70097ADA4 /* libpam.2.dylib */,
-				1CFF7F05102118410097ADA4 /* NetFS.framework */,
-				1CFF7DF5102117720097ADA4 /* OpenDirectory.framework */,
+				F60ABCB31BB40E4E006F85AD /* DirectoryService.framework */,
+				72B77D7D1260FA2100F47303 /* DiskArbitration.framework */,
 				1CFF7F17102118710097ADA4 /* DiskImages.framework */,
-				1CFF7F55102118AF0097ADA4 /* IOKit.framework */,
 				7434C88E12554434001D7F9E /* GSS.framework */,
 				7434C88F12554434001D7F9E /* Heimdal.framework */,
+				5FE441D21C563FE20010C4FD /* IOKit.framework */,
+				1CFF7F05102118410097ADA4 /* NetFS.framework */,
+				1CFF7DF5102117720097ADA4 /* OpenDirectory.framework */,
+				5FD7DF871C05FF43005DC226 /* Security.framework */,
+				F64D8B731C89BB960004B9AE /* libahpsmartcard.a */,
+				5FE441D01C563F9A0010C4FD /* libaks_acl.a */,
+				5FE441CE1C563F5B0010C4FD /* libaks.a */,
+				5FD7DF851C05FF14005DC226 /* libcoreauthd_client.a */,
+				F6529BB91C84BE1D005245B2 /* libctkclient.a */,
+				F6F434821C8D912A000BB264 /* libctkloginhelper.a */,
+				1CFF7DD5102116B70097ADA4 /* libpam.2.dylib */,
+				5FD7DF941C06047D005DC226 /* libpam.dylib */,
 			);
 			name = Linked;
+			sourceTree = "<group>";
+		};
+		5FD7DF8E1C060053005DC226 /* test_pam_localauthentication */ = {
+			isa = PBXGroup;
+			children = (
+				5FD7DF8F1C060053005DC226 /* main.m */,
+			);
+			path = test_pam_localauthentication;
+			sourceTree = "<group>";
+		};
+		5FE441D41C56413D0010C4FD /* Configurations */ = {
+			isa = PBXGroup;
+			children = (
+				5FE441DD1C5656880010C4FD /* authorization_aks */,
+				F67CB7DF1C899EB800DABE90 /* authorization_ctk */,
+				5FE441DF1C5656880010C4FD /* authorization_la */,
+				5FE441DE1C5656880010C4FD /* screensaver_aks */,
+				F67CB7E01C899EB800DABE90 /* screensaver_ctk */,
+				5FE441E01C5656880010C4FD /* screensaver_la */,
+			);
+			name = Configurations;
 			sourceTree = "<group>";
 		};
 		C6A0FF2B0290797F04C91782 /* Documentation */ = {
 			isa = PBXGroup;
 			children = (
+				5FE441C71C56191F0010C4FD /* pam_aks.8 */,
 				7434C8AB125545DA001D7F9E /* pam_ntlm.8 */,
 				1C23731010290C600055216A /* pam_env.8 */,
 				1C23731110290C600055216A /* pam_group.8 */,
 				1C23731210290C600055216A /* pam_krb5.8 */,
 				1C23731310290C600055216A /* pam_launchd.8 */,
+				5FFEF0121C04A3F70083839D /* pam_localauthentication.8 */,
 				1C23731410290C600055216A /* pam_mount.8 */,
 				1C23731510290C600055216A /* pam_nologin.8 */,
 				1C23731610290C600055216A /* pam_opendirectory.8 */,
@@ -558,25 +732,6 @@
 				1C23731B10290C600055216A /* pam_uwtmp.8 */,
 			);
 			name = Documentation;
-			sourceTree = "<group>";
-		};
-		F60ABCB21BB408E4006F85AD /* SmartcardRelated */ = {
-			isa = PBXGroup;
-			children = (
-				F60ABD101BB441E1006F85AD /* attribute_matching.c */,
-				F60ABD561BB571CB006F85AD /* hash_matching.c */,
-				F60ABD5C1BB572D7006F85AD /* scmatch_evaluation.c */,
-				F60ABD5D1BB572D7006F85AD /* scmatch_evaluation.h */,
-			);
-			name = SmartcardRelated;
-			sourceTree = "<group>";
-		};
-		F60ABCBB1BB42251006F85AD /* PamTest */ = {
-			isa = PBXGroup;
-			children = (
-				F60ABCBC1BB42251006F85AD /* main.m */,
-			);
-			path = PamTest;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -659,6 +814,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5F9145651C56179800E307FC /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5FFEF0071C04A3950083839D /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		7434C8921255449C001D7F9E /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -670,7 +839,6 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F60ABD601BB572D7006F85AD /* scmatch_evaluation.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -864,6 +1032,61 @@
 			productReference = 1CFF7D8D1021150B0097ADA4 /* pam_uwtmp.so.2 */;
 			productType = "com.apple.product-type.library.dynamic";
 		};
+		5F9145641C56179800E307FC /* aks */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5F91456D1C56179800E307FC /* Build configuration list for PBXNativeTarget "aks" */;
+			buildPhases = (
+				5F9145651C56179800E307FC /* Headers */,
+				5F9145661C56179800E307FC /* Sources */,
+				5F9145681C56179800E307FC /* Frameworks */,
+				5FE441DB1C5642210010C4FD /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = aks;
+			productName = pam_env;
+			productReference = 5F91456F1C56179800E307FC /* pam_aks.so.2 */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		5FD7DF8C1C060053005DC226 /* test_pam_localauthentication */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5FD7DF911C060053005DC226 /* Build configuration list for PBXNativeTarget "test_pam_localauthentication" */;
+			buildPhases = (
+				5FD7DF891C060053005DC226 /* Sources */,
+				5FD7DF8A1C060053005DC226 /* Frameworks */,
+				5FD7DF8B1C060053005DC226 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				5FE441CD1C563EE30010C4FD /* PBXTargetDependency */,
+				5FD7DF971C0607C9005DC226 /* PBXTargetDependency */,
+			);
+			name = test_pam_localauthentication;
+			productName = test_pam_localauthentication;
+			productReference = 5FD7DF8D1C060053005DC226 /* test_pam_localauthentication */;
+			productType = "com.apple.product-type.tool";
+		};
+		5FFEF0061C04A3950083839D /* localauthentication */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5FFEF00F1C04A3950083839D /* Build configuration list for PBXNativeTarget "localauthentication" */;
+			buildPhases = (
+				5FFEF0071C04A3950083839D /* Headers */,
+				5FFEF0081C04A3950083839D /* Sources */,
+				5FFEF00B1C04A3950083839D /* Frameworks */,
+				5FE441D91C5641EA0010C4FD /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = localauthentication;
+			productName = pam_env;
+			productReference = 5FFEF0111C04A3950083839D /* pam_localauthentication.so.2 */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
 		7434C8911255449C001D7F9E /* ntlm */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 7434C89A1255449C001D7F9E /* Build configuration list for PBXNativeTarget "ntlm" */;
@@ -888,6 +1111,7 @@
 				F6C0B8E61B8DE6BC00892765 /* Headers */,
 				F6C0B8E71B8DE6BC00892765 /* Sources */,
 				F6C0B8EA1B8DE6BC00892765 /* Frameworks */,
+				F67CB7E11C899F2B00DABE90 /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -904,6 +1128,11 @@
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				TargetAttributes = {
+					5FD7DF8C1C060053005DC226 = {
+						CreatedOnToolsVersion = 7.2;
+					};
+				};
 			};
 			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "pam_modules" */;
 			compatibilityVersion = "Xcode 3.1";
@@ -920,11 +1149,13 @@
 			projectRoot = "";
 			targets = (
 				1CFF7DB51021164C0097ADA4 /* pam_modules */,
+				5F9145641C56179800E307FC /* aks */,
 				1CFF7D2110210FC20097ADA4 /* env */,
 				1CFF7D361021142C0097ADA4 /* group */,
 				1CFF7D3E102114560097ADA4 /* krb5 */,
 				7434C8911255449C001D7F9E /* ntlm */,
 				1CFF7D461021146B0097ADA4 /* launchd */,
+				5FFEF0061C04A3950083839D /* localauthentication */,
 				1CFF7D4E1021147B0097ADA4 /* mount */,
 				1CFF7D56102114890097ADA4 /* nologin */,
 				1CFF7D5E1021149E0097ADA4 /* opendirectory */,
@@ -935,6 +1166,7 @@
 				1CFF7D861021150B0097ADA4 /* uwtmp */,
 				1CFF806D102119880097ADA4 /* Install Manpages */,
 				1CFF80BC10211AF10097ADA4 /* Cleanup */,
+				5FD7DF8C1C060053005DC226 /* test_pam_localauthentication */,
 			);
 		};
 /* End PBXProject section */
@@ -1047,6 +1279,30 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5F9145661C56179800E307FC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5FE441CB1C561B270010C4FD /* pam_aks.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5FD7DF891C060053005DC226 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5FD7DF901C060053005DC226 /* main.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5FFEF0081C04A3950083839D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5FFEF0171C04A94C0083839D /* pam_localauthentication.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		7434C8931255449C001D7F9E /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1060,10 +1316,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F6EF67F01D1C308000342741 /* attribute_matching.c in Sources */,
+				F6EF67F11D1C308000342741 /* hash_matching.c in Sources */,
+				F6EF67F21D1C308000342741 /* scmatch_evaluation.c in Sources */,
 				F6DD1CAD1B8DFE0B00BA6BE0 /* pam_smartcard.c in Sources */,
-				F60ABD5E1BB572D7006F85AD /* scmatch_evaluation.c in Sources */,
-				F60ABD121BB441E1006F85AD /* attribute_matching.c in Sources */,
-				F60ABD581BB571CB006F85AD /* hash_matching.c in Sources */,
 				F6C0B8E81B8DE6BC00892765 /* Common.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1135,6 +1391,26 @@
 			isa = PBXTargetDependency;
 			target = 1CFF80BC10211AF10097ADA4 /* Cleanup */;
 			targetProxy = 1CFF80D810211B040097ADA4 /* PBXContainerItemProxy */;
+		};
+		5FD7DF971C0607C9005DC226 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5FFEF0061C04A3950083839D /* localauthentication */;
+			targetProxy = 5FD7DF961C0607C9005DC226 /* PBXContainerItemProxy */;
+		};
+		5FE441C91C5619790010C4FD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5F9145641C56179800E307FC /* aks */;
+			targetProxy = 5FE441C81C5619790010C4FD /* PBXContainerItemProxy */;
+		};
+		5FE441CD1C563EE30010C4FD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5F9145641C56179800E307FC /* aks */;
+			targetProxy = 5FE441CC1C563EE30010C4FD /* PBXContainerItemProxy */;
+		};
+		5FFEF0151C04A6620083839D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5FFEF0061C04A3950083839D /* localauthentication */;
+			targetProxy = 5FFEF0141C04A6620083839D /* PBXContainerItemProxy */;
 		};
 		7434C89F125544F9001D7F9E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1345,13 +1621,86 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GCC_PREPROCESSOR_DEFINITIONS = darwin;
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INSTALL_MODE_FLAG = 0444;
-				WARNING_CFLAGS = (
-					"-Wall",
-					"-Werror",
+				SDKROOT = macosx.internal;
+				WARNING_CFLAGS = "-Wall";
+			};
+			name = Release;
+		};
+		5F91456E1C56179800E307FC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				EXECUTABLE_EXTENSION = so.2;
+				EXECUTABLE_PREFIX = pam_;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
+				INSTALL_PATH = /usr/lib/pam;
+				PREBINDING = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				VALID_ARCHS = "x86_64 x86_64h";
+			};
+			name = Release;
+		};
+		5FD7DF921C060053005DC226 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.11;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = Release;
+		};
+		5FFEF0101C04A3950083839D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				EXECUTABLE_EXTENSION = so.2;
+				EXECUTABLE_PREFIX = pam_;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
+				INSTALL_PATH = /usr/lib/pam;
+				PREBINDING = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
 		};
@@ -1511,6 +1860,30 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1DEB928B08733DD80010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5F91456D1C56179800E307FC /* Build configuration list for PBXNativeTarget "aks" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5F91456E1C56179800E307FC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5FD7DF911C060053005DC226 /* Build configuration list for PBXNativeTarget "test_pam_localauthentication" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5FD7DF921C060053005DC226 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5FFEF00F1C04A3950083839D /* Build configuration list for PBXNativeTarget "localauthentication" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5FFEF0101C04A3950083839D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

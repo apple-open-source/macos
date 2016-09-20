@@ -150,11 +150,21 @@ void TiledCoreAnimationDrawingAreaProxy::willSendUpdateGeometry()
     m_isWaitingForDidUpdateGeometry = true;
 }
 
-MachSendRight TiledCoreAnimationDrawingAreaProxy::createFenceForGeometryUpdate()
+MachSendRight TiledCoreAnimationDrawingAreaProxy::createFence()
 {
 #if HAVE(COREANIMATION_FENCES)
+    if (!m_webPageProxy.isValid())
+        return MachSendRight();
+
     RetainPtr<CAContext> rootLayerContext = [asLayer(m_webPageProxy.acceleratedCompositingRootLayer()) context];
     if (!rootLayerContext)
+        return MachSendRight();
+
+    // Don't fence if we don't have a connection, because the message
+    // will likely get dropped on the floor (if the Web process is terminated)
+    // or queued up until process launch completes, and there's nothing useful
+    // to synchronize in these cases.
+    if (!m_webPageProxy.process().connection())
         return MachSendRight();
 
     // Don't fence if we have incoming synchronous messages, because we may not
@@ -163,7 +173,6 @@ MachSendRight TiledCoreAnimationDrawingAreaProxy::createFenceForGeometryUpdate()
         return MachSendRight();
 
     MachSendRight fencePort = MachSendRight::adopt([rootLayerContext createFencePort]);
-    [rootLayerContext setFencePort:fencePort.sendRight()];
 
     // Invalidate the fence if a synchronous message arrives while it's installed,
     // because we won't be able to reply during the fence-wait.
@@ -173,6 +182,8 @@ MachSendRight TiledCoreAnimationDrawingAreaProxy::createFenceForGeometryUpdate()
     });
     RefPtr<WebPageProxy> retainedPage = &m_webPageProxy;
     [CATransaction addCommitHandler:[callbackID, retainedPage] {
+        if (!retainedPage->isValid())
+            return;
         if (Connection* connection = retainedPage->process().connection())
             connection->uninstallIncomingSyncMessageCallback(callbackID);
     } forPhase:kCATransactionPhasePostCommit];
@@ -188,7 +199,7 @@ void TiledCoreAnimationDrawingAreaProxy::sendUpdateGeometry()
     ASSERT(!m_isWaitingForDidUpdateGeometry);
 
     willSendUpdateGeometry();
-    m_webPageProxy.process().send(Messages::DrawingArea::UpdateGeometry(m_size, m_layerPosition, true, createFenceForGeometryUpdate()), m_webPageProxy.pageID());
+    m_webPageProxy.process().send(Messages::DrawingArea::UpdateGeometry(m_size, m_layerPosition, true, createFence()), m_webPageProxy.pageID());
 }
 
 void TiledCoreAnimationDrawingAreaProxy::adjustTransientZoom(double scale, FloatPoint origin)
@@ -199,6 +210,14 @@ void TiledCoreAnimationDrawingAreaProxy::adjustTransientZoom(double scale, Float
 void TiledCoreAnimationDrawingAreaProxy::commitTransientZoom(double scale, FloatPoint origin)
 {
     m_webPageProxy.process().send(Messages::DrawingArea::CommitTransientZoom(scale, origin), m_webPageProxy.pageID());
+}
+
+void TiledCoreAnimationDrawingAreaProxy::dispatchAfterEnsuringDrawing(std::function<void (CallbackBase::Error)> callback)
+{
+    // This callback is primarily used for testing in RemoteLayerTreeDrawingArea. We could in theory wait for a CA commit here.
+    dispatch_async(dispatch_get_main_queue(), ^{
+        callback(CallbackBase::Error::None);
+    });
 }
 
 } // namespace WebKit

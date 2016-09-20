@@ -59,8 +59,10 @@ public:
                 for (unsigned childIdx = 0; childIdx < AdjacencyList::Size; ++childIdx) {
                     if (!phi->children.child(childIdx))
                         break;
-                    
-                    phi->children.child(childIdx)->variableAccessData()->unify(phi->variableAccessData());
+
+                    // FIXME: Consider reversing the order of this unification, since the other
+                    // order will reveal more bugs. https://bugs.webkit.org/show_bug.cgi?id=154368
+                    phi->variableAccessData()->unify(phi->children.child(childIdx)->variableAccessData());
                 }
             }
         }
@@ -83,7 +85,6 @@ public:
 
 bool performUnification(Graph& graph)
 {
-    SamplingRegion samplingRegion("DFG Unification Phase");
     return runPhase<UnificationPhase>(graph);
 }
 

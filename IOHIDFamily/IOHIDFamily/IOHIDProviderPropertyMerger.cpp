@@ -86,8 +86,10 @@ dictionaryExit:
             if ( providerDictionaryCopy )
                 providerDictionaryCopy->release();
         } else {
-            // Not a dictionary, so just set the property
-            result = provider->setProperty(dictionaryEntry, properties->getObject(dictionaryEntry));
+            // Not a dictionary, so just set the property if it is not present on provider
+            if (!providerObject) {
+                result = provider->setProperty(dictionaryEntry, properties->getObject(dictionaryEntry));
+            }
         }
         
         if ( providerObject )

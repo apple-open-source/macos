@@ -65,7 +65,7 @@ wrapTest(char *kekstr, char *keystr, char *wrapped_keystr)
 static int kTestTestCount = 35;
 
 int
-CommonSymmetricWrap(int argc, char *const *argv)
+CommonSymmetricWrap(int __unused argc, char *const * __unused argv)
 {
     char *kek, *key, *wrapped_key;
     int accum = 0;
@@ -86,7 +86,7 @@ CommonSymmetricWrap(int argc, char *const *argv)
 
     if(verbose) diag("Test 3");
     byteBuffer keybuf = mallocByteBuffer(2048);
-    for(int i=0; i<2048; i++) keybuf->bytes[i] = i%256;
+    for(int i=0; i<2048; i++) keybuf->bytes[i] = (uint8_t)(i%256);
     key = bytesToHexString(keybuf);
     free(keybuf);
     accum |= wrapTest(kek, key, NULL);

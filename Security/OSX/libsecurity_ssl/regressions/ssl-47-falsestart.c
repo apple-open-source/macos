@@ -81,34 +81,20 @@ static int SocketConnect(const char *hostName, int port)
 {
     struct sockaddr_in  addr;
     struct in_addr      host;
-	int					sock;
+    int					sock;
     int                 err;
     struct hostent      *ent;
 
-    if (hostName[0] >= '0' && hostName[0] <= '9')
-    {
+    if (hostName[0] >= '0' && hostName[0] <= '9') {
         host.s_addr = inet_addr(hostName);
-    }
-    else {
-		unsigned dex;
-#define GETHOST_RETRIES 5
-		/* seeing a lot of soft failures here that I really don't want to track down */
-		for(dex=0; dex<GETHOST_RETRIES; dex++) {
-			if(dex != 0) {
-				printf("\n...retrying gethostbyname(%s)", hostName);
-			}
-			ent = gethostbyname(hostName);
-			if(ent != NULL) {
-				break;
-			}
-		}
+    } else {
+        ent = gethostbyname(hostName);
         if(ent == NULL) {
-			printf("\n***gethostbyname(%s) returned: %s\n", hostName, hstrerror(h_errno));
-            return -1;
+            printf("\n***gethostbyname(%s) returned: %s\n", hostName, hstrerror(h_errno));
+            return -2;
         }
         memcpy(&host, ent->h_addr, sizeof(struct in_addr));
     }
-
 
     sock = socket(AF_INET, SOCK_STREAM, 0);
     addr.sin_addr = host;
@@ -120,16 +106,14 @@ static int SocketConnect(const char *hostName, int port)
     if(err!=0)
     {
         perror("connect failed");
-        return err;
+        return -1;
     }
 
     /* make non blocking */
     fcntl(sock, F_SETFL, O_NONBLOCK);
 
-
     return sock;
 }
-
 
 static OSStatus SocketWrite(SSLConnectionRef conn, const void *data, size_t *length)
 {
@@ -224,8 +208,9 @@ static OSStatus securetransport(ssl_test_handle * ssl)
     bool got_server_auth = false, got_client_cert_req = false;
 
     ortn = SSLHandshake(ctx);
-    //fprintf(stderr, "Fell out of SSLHandshake with error: %ld\n", (long)ortn);
-    
+
+    require_action_quiet(ortn==errSSLWouldBlock, out, printf("SSLHandshake failed with err %ld\n", (long)ortn));
+
     size_t sent, received;
     const char *r=request;
     size_t l=sizeof(request);
@@ -306,6 +291,7 @@ struct s_server {
 
 #define NSERVERS (int)(sizeof(servers)/sizeof(servers[0]))
 #define NLOOPS 1
+#define CONNECT_TRIES 3
 
 static void
 tests(void)
@@ -318,11 +304,13 @@ tests(void)
     for(fs=0;fs<2; fs++) {
 
         ssl_test_handle *client;
-
-        int s;
         OSStatus r;
+        int s = -1;
 
-        s=SocketConnect(servers[p].host, servers[p].port);
+        for(int try = 0; s<0 && try<CONNECT_TRIES; try++) {
+            s=SocketConnect(servers[p].host, servers[p].port);
+        }
+
         if(s<0) {
             fail("connect failed with err=%d - %s:%d (try %d)", s, servers[p].host, servers[p].port, loops);
             break;

@@ -31,7 +31,9 @@
 
 #import "SandboxInitializationParameters.h"
 #import "WebKitSystemInterface.h"
+#import "XPCServiceEntryPoint.h"
 #import <WebCore/FileSystem.h>
+#import <WebCore/FloatingPointEnvironment.h>
 #import <WebCore/SystemVersion.h>
 #import <mach/mach.h>
 #import <mach/task.h>
@@ -39,17 +41,8 @@
 #import <stdlib.h>
 #import <sysexits.h>
 
-#import <WebCore/FloatingPointEnvironment.h> 
-
 #if ENABLE(MANUAL_SANDBOXING)
-
-// We have to #undef __APPLE_API_PRIVATE to prevent sandbox.h from looking for a header file that does not exist (<rdar://problem/9679211>).
-#undef __APPLE_API_PRIVATE
-#import <sandbox.h>
-
-#define SANDBOX_NAMED_EXTERNAL 0x0003
-extern "C" int sandbox_init_with_parameters(const char *profile, uint64_t flags, const char *const parameters[], char **errorbuf);
-
+#import <wtf/spi/darwin/SandboxSPI.h>
 #endif
 
 using namespace WebCore;
@@ -71,11 +64,11 @@ void ChildProcess::platformInitialize()
 void ChildProcess::initializeSandbox(const ChildProcessInitializationParameters& parameters, SandboxInitializationParameters& sandboxParameters)
 {
 #if ENABLE(MANUAL_SANDBOXING)
-    NSBundle *webkit2Bundle = [NSBundle bundleForClass:NSClassFromString(@"WKView")];
+    NSBundle *webkit2Bundle = [NSBundle bundleForClass:NSClassFromString(@"WKWebView")];
     String defaultProfilePath = [webkit2Bundle pathForResource:[[NSBundle mainBundle] bundleIdentifier] ofType:@"sb"];
-    if (sandboxParameters.systemDirectorySuffix().isNull()) {
-        String defaultSystemDirectorySuffix = String([[NSBundle mainBundle] bundleIdentifier]) + "+" + parameters.clientIdentifier;
-        sandboxParameters.setSystemDirectorySuffix(defaultSystemDirectorySuffix);
+    if (sandboxParameters.userDirectorySuffix().isNull()) {
+        String defaultUserDirectorySuffix = makeString(String([[NSBundle mainBundle] bundleIdentifier]), '+', parameters.clientIdentifier);
+        sandboxParameters.setUserDirectorySuffix(defaultUserDirectorySuffix);
     }
 
     String sandboxImportPath = "/usr/local/share/sandbox/imports";
@@ -120,6 +113,11 @@ void ChildProcess::initializeSandbox(const ChildProcessInitializationParameters&
 void ChildProcess::setQOS(int, int)
 {
 
+}
+
+void ChildProcess::platformStopRunLoop()
+{
+    XPCServiceExit(WTFMove(m_priorityBoostMessage));
 }
 
 } // namespace WebKit

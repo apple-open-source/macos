@@ -2,74 +2,154 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <os/assumes.h>
 #include <sys/wait.h>
+#include <stdlib.h>
 
-#define DECL_ATFORK(x) \
-static void prepare_##x(void) { \
-	printf("%d: %s\n", getpid(), __FUNCTION__); \
-} \
-static void parent_##x(void) { \
-	printf("%d: %s\n", getpid(), __FUNCTION__); \
-} \
-static void child_##x(void) { \
-	printf("%d: %s\n", getpid(), __FUNCTION__); \
+#include <darwintest.h>
+
+static const char ATFORK_PREPARE[] = "prepare";
+static const char ATFORK_PARENT[] = "parent";
+static const char ATFORK_CHILD[] = "child";
+
+struct callback_event {
+	size_t registration_idx;
+	const char *type;
+};
+
+#define NUM_REGISTRATIONS ((size_t) 20)
+static struct callback_event events[NUM_REGISTRATIONS * 5];
+static size_t recorded_events = 0;
+
+static void
+record_callback(size_t registration_idx, const char *type)
+{
+	if (recorded_events == (sizeof(events) / sizeof(events[0]))) {
+		return; // events array is full
+	}
+	struct callback_event *evt = &events[recorded_events++];
+	evt->registration_idx = registration_idx;
+	evt->type = type;
+	T_LOG("[%d] callback: #%lu %s", getpid(), registration_idx, type);
 }
 
-#define ATFORK(x) \
-os_assumes_zero(pthread_atfork(prepare_##x, parent_##x, child_##x));
+#define TWENTY(X) X(0) X(1) X(2) X(3) X(4) X(5) X(6) X(7) X(8) X(9) X(10) \
+		X(11) X(12) X(13) X(14) X(15) X(16) X(17) X(18) X(19)
 
-DECL_ATFORK(1);
-DECL_ATFORK(2);
-DECL_ATFORK(3);
-DECL_ATFORK(4);
-DECL_ATFORK(5);
-DECL_ATFORK(6);
-DECL_ATFORK(7);
-DECL_ATFORK(8);
-DECL_ATFORK(9);
-DECL_ATFORK(10);
-DECL_ATFORK(11);
-DECL_ATFORK(12);
-DECL_ATFORK(13);
-DECL_ATFORK(14);
-DECL_ATFORK(15);
-DECL_ATFORK(16);
-DECL_ATFORK(17);
-DECL_ATFORK(18);
-DECL_ATFORK(19);
+#define DECLARE_CB(idx) \
+static void cb_prepare_##idx() { record_callback(idx, ATFORK_PREPARE); } \
+static void cb_parent_##idx() { record_callback(idx, ATFORK_PARENT); } \
+static void cb_child_##idx() { record_callback(idx, ATFORK_CHILD); }
 
-int main(int argc, char *argv[]) {
-	ATFORK(1);
-	ATFORK(2);
-	ATFORK(3);
-	ATFORK(4);
-	ATFORK(5);
-	ATFORK(6);
-	ATFORK(7);
-	ATFORK(8);
-	ATFORK(9);
-	ATFORK(10);
-	ATFORK(11);
-	ATFORK(12);
-	ATFORK(13);
-	ATFORK(14);
-	ATFORK(15);
-	ATFORK(16);
-	ATFORK(17);
-	ATFORK(18);
-	ATFORK(19);
+TWENTY(DECLARE_CB)
 
-	pid_t pid = fork();
+typedef void (*atfork_cb_t)(void);
+static const atfork_cb_t callbacks[NUM_REGISTRATIONS][3] = {
+	#define CB_ELEM(idx) { cb_prepare_##idx, cb_parent_##idx, cb_child_##idx },
+	TWENTY(CB_ELEM)
+};
+
+static void assert_event_sequence(struct callback_event *sequence,
+		const char *expected_type, size_t start_idx, size_t end_idx)
+{
+	while (true) {
+		struct callback_event *evt = &sequence[0];
+		T_QUIET; T_ASSERT_EQ(evt->type, expected_type, NULL);
+		T_QUIET; T_ASSERT_EQ(evt->registration_idx, start_idx, NULL);
+
+		if (start_idx == end_idx) {
+			break;
+		}
+		if (start_idx < end_idx) {
+			start_idx++;
+		} else {
+			start_idx--;
+		}
+		sequence++;
+	}
+}
+
+static size_t inspect_event_sequence(struct callback_event *sequence,
+		const char *expected_type, size_t start_idx, size_t end_idx)
+{
+	size_t failures = 0;
+	while (true) {
+		struct callback_event *evt = &sequence[0];
+		if (evt->type != expected_type || evt->registration_idx != start_idx) {
+			T_LOG("FAIL: expected {idx, type}: {%lu, %s}. got {%lu, %s}",
+				  start_idx, expected_type, evt->registration_idx, evt->type);
+			failures++;
+		}
+		if (start_idx == end_idx) {
+			break;
+		}
+		if (start_idx < end_idx) {
+			start_idx++;
+		} else {
+			start_idx--;
+		}
+		sequence++;
+	}
+	return failures;
+}
+
+T_DECL(atfork, "pthread_atfork")
+{
+	pid_t pid;
+	int status;
+	size_t failures = 0;
+
+	for (size_t i = 0; i < NUM_REGISTRATIONS; i++) {
+		T_QUIET; T_ASSERT_POSIX_ZERO(pthread_atfork(
+				callbacks[i][0], callbacks[i][1], callbacks[i][2]),
+				"registering callbacks with pthread_atfork()");
+	}
+
+	pid = fork(); // first level fork
+
 	if (pid == 0) {
-		pid = fork(); 
+		// don't use ASSERTs/EXPECTs in child processes so not to confuse
+		// darwintest
+
+		pid = fork(); // second level fork
+		
+		if (pid < 0) {
+			T_LOG("FAIL: second fork() failed");
+			exit(1);
+		}
+		if (recorded_events != NUM_REGISTRATIONS * 4) {
+			T_LOG("FAIL: unexpected # of events: %lu instead of %lu",
+				  recorded_events, NUM_REGISTRATIONS * 4);
+			exit(1);
+		}
+		failures += inspect_event_sequence(&events[2 * NUM_REGISTRATIONS],
+				ATFORK_PREPARE, NUM_REGISTRATIONS - 1, 0);
+		failures += inspect_event_sequence(&events[3 * NUM_REGISTRATIONS],
+				(pid ? ATFORK_PARENT : ATFORK_CHILD), 0, NUM_REGISTRATIONS - 1);
+		if (failures) {
+			exit((int) failures);
+		}
+
+		if (pid > 0) {
+			if (waitpid(pid, &status, 0) != pid) {
+				T_LOG("FAIL: grandchild waitpid failed");
+				exit(1);
+			}
+			if (WEXITSTATUS(status) != 0) {
+				T_LOG("FAIL: grandchild exited with status %d",
+					  WEXITSTATUS(status));
+				exit(1);
+			}
+		}
+		exit(0); // don't run leaks in the child and the grandchild
+	} else {
+		T_ASSERT_GE(pid, 0, "first fork()");
+
+		T_ASSERT_EQ(recorded_events, NUM_REGISTRATIONS * 2, "# of events");
+		assert_event_sequence(events, ATFORK_PREPARE, NUM_REGISTRATIONS - 1, 0);
+		assert_event_sequence(&events[NUM_REGISTRATIONS],
+							  ATFORK_PARENT, 0, NUM_REGISTRATIONS - 1);
+
+		T_ASSERT_EQ(pid, waitpid(pid, &status, 0), "child waitpid");
+		T_ASSERT_POSIX_ZERO(WEXITSTATUS(status), "child exit status");
 	}
-	if (pid == -1) {
-		posix_assumes_zero(pid);
-	} else if (pid > 0) {
-		int status;
-		posix_assumes_zero(waitpid(pid, &status, 0));
-		posix_assumes_zero(WEXITSTATUS(status));
-	}
-	return 0;
 }

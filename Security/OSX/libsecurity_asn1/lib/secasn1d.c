@@ -1069,7 +1069,9 @@ sec_asn1d_check_and_subtract_length (unsigned long *remaining,
     PORT_Assert(cx);
     if (!remaining || !cx) {
         PORT_SetError (SEC_ERROR_INVALID_ARGS);
-        cx->status = decodeError;
+        if(cx) {
+            cx->status = decodeError;
+        }
         return PR_FALSE;
     }
     if (*remaining < consumed) {

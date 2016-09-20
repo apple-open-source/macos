@@ -32,7 +32,7 @@
 #include <Security/oidsalg.h>
 #include <YarrowConnection.h>
 
-#define dhKeyDebug(args...)	secdebug("dhKey", ## args)
+#define dhKeyDebug(args...)	secinfo("dhKey", ## args)
 
 /*
  * FIXME - the CDSA Algorithm Guide claims that the incoming params argument

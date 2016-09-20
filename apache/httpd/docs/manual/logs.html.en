@@ -18,7 +18,7 @@
 <body id="manual-page"><div id="page-header">
 <p class="menu"><a href="./mod/">Modules</a> | <a href="./mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">Glossary</a> | <a href="./sitemap.html">Sitemap</a></p>
 <p class="apache">Apache HTTP Server Version 2.4</p>
-<img alt="" src="./images/feather.gif" /></div>
+<img alt="" src="./images/feather.png" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="./images/left.gif" /></a></div>
 <div id="path">
 <a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="./">Version 2.4</a></div><div id="page-content"><div id="preamble"><h1>Log Files</h1>
@@ -47,7 +47,7 @@
 <li><img alt="" src="./images/down.gif" /> <a href="#piped">Piped Logs</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#virtualhost">Virtual Hosts</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#other">Other Log Files</a></li>
-</ul><ul class="seealso"><li><a href="#comments_section">Comments</a></li></ul></div>
+</ul><h3>See also</h3><ul class="seealso"><li><a href="#comments_section">Comments</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="overview" id="overview">Overview</a></h2>
@@ -197,9 +197,9 @@
     general is beyond the scope of this document, and not really
     part of the job of the web server itself. For more information
     about this topic, and for applications which perform log
-    analysis, check the <a href="http://dmoz.org/Computers/Software/Internet/Site_Management/Log_analysis/">
-    Open Directory</a> or <a href="http://dir.yahoo.com/Computers_and_Internet/Software/Internet/World_Wide_Web/Servers/Log_Analysis_Tools/">
-    Yahoo</a>.</p>
+    analysis, check the <a href="http://dmoz.org/Computers/Software/Internet/Site_Management/Log_Analysis/">
+    Open Directory</a>.
+    </p>
 
     <p>Various versions of Apache httpd have used other modules and
     directives to control access logging, including
@@ -446,9 +446,9 @@ CustomLog logs/access_log common env=!dontlog</pre>
       english-speakers to one log file, and non-english speakers to a
       different log file.</p>
 
-      <pre class="prettyprint lang-config">        SetEnvIf Accept-Language "en" english<br />
-        CustomLog logs/english_log common env=english<br />
-        CustomLog logs/non_english_log common env=!english</pre>
+      <pre class="prettyprint lang-config">SetEnvIf Accept-Language "en" english
+CustomLog logs/english_log common env=english
+CustomLog logs/non_english_log common env=!english</pre>
 
 
       <p>In a caching scenario one would want to know about
@@ -704,7 +704,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/logs.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">Modules</a> | <a href="./mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">Glossary</a> | <a href="./sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

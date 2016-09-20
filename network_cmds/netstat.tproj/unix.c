@@ -86,7 +86,7 @@ static	void unixdomainpr __P((struct xunpcb *, struct xsocket *));
 #endif
 
 static	const char *const socktype[] =
-    { "#0", "stream", "dgram", "raw", "rdm", "seqpacket" };
+    { "#0", "stream", "dgram", "raw" };
 
 void
 unixpr()
@@ -105,7 +105,7 @@ unixpr()
 	char mibvar[sizeof "net.local.seqpacket.pcblist"];
 #endif
 
-	for (type = SOCK_STREAM; type <= SOCK_SEQPACKET; type++) {
+	for (type = SOCK_STREAM; type <= SOCK_RAW; type++) {
 #if !TARGET_OS_EMBEDDED
 		snprintf(mibvar, sizeof(mibvar), "net.local.%s.pcblist64", socktype[type]);
 #else

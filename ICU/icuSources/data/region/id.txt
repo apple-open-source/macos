@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/id.xml
@@ -13,30 +13,30 @@ id{
         003{"Amerika Utara"}
         005{"Amerika Selatan"}
         009{"Oseania"}
-        011{"Afrika Barat"}
+        011{"Afrika Bagian Barat"}
         013{"Amerika Tengah"}
-        014{"Afrika Timur"}
-        015{"Afrika Utara"}
-        017{"Afrika Tengah"}
+        014{"Afrika Bagian Timur"}
+        015{"Afrika Bagian Utara"}
+        017{"Afrika Bagian Tengah"}
         018{"Afrika Bagian Selatan"}
         019{"Amerika"}
         021{"Amerika Bagian Utara"}
         029{"Kepulauan Karibia"}
-        030{"Asia Timur"}
-        034{"Asia Selatan"}
+        030{"Asia Bagian Timur"}
+        034{"Asia Bagian Selatan"}
         035{"Asia Tenggara"}
-        039{"Eropa Selatan"}
+        039{"Eropa Bagian Selatan"}
         053{"Australasia"}
         054{"Melanesia"}
         057{"Wilayah Mikronesia"}
         061{"Polinesia"}
         142{"Asia"}
         143{"Asia Tengah"}
-        145{"Asia Barat"}
+        145{"Asia Bagian Barat"}
         150{"Eropa"}
-        151{"Eropa Timur"}
-        154{"Eropa Utara"}
-        155{"Eropa Barat"}
+        151{"Eropa Bagian Timur"}
+        154{"Eropa Bagian Utara"}
+        155{"Eropa Bagian Barat"}
         419{"Amerika Latin"}
         AC{"Pulau Ascension"}
         AD{"Andorra"}
@@ -46,7 +46,6 @@ id{
         AI{"Anguilla"}
         AL{"Albania"}
         AM{"Armenia"}
-        AN{"Antilla Belanda"}
         AO{"Angola"}
         AQ{"Antarktika"}
         AR{"Argentina"}
@@ -87,7 +86,7 @@ id{
         CK{"Kepulauan Cook"}
         CL{"Cile"}
         CM{"Kamerun"}
-        CN{"China"}
+        CN{"Tiongkok"}
         CO{"Kolombia"}
         CP{"Pulau Clipperton"}
         CR{"Kosta Rika"}
@@ -138,7 +137,7 @@ id{
         GU{"Guam"}
         GW{"Guinea-Bissau"}
         GY{"Guyana"}
-        HK{"Hong Kong SAR China"}
+        HK{"Hong Kong SAR Tiongkok"}
         HM{"Pulau Heard dan Kepulauan McDonald"}
         HN{"Honduras"}
         HR{"Kroasia"}
@@ -192,7 +191,7 @@ id{
         ML{"Mali"}
         MM{"Myanmar (Burma)"}
         MN{"Mongolia"}
-        MO{"Makau SAR China"}
+        MO{"Makau SAR Tiongkok"}
         MP{"Kepulauan Mariana Utara"}
         MQ{"Martinik"}
         MR{"Mauritania"}
@@ -314,5 +313,5 @@ id{
         MK{"Makedonia (BRY)"}
         TL{"Timor Timur"}
     }
-    Version{"2.1.12.94"}
+    Version{"2.1.22.93"}
 }

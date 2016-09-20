@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004-2010, 2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004-2010, 2013, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -31,8 +31,6 @@
  * - initial revision
  */
 
-#include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCPrivate.h>
 #include "SCPreferencesInternal.h"
 #include "SCHelper_client.h"
 
@@ -89,29 +87,14 @@ __SCPreferencesUnlock_helper(SCPreferencesRef prefs)
 static void
 reportDelay(SCPreferencesRef prefs, struct timeval *delay)
 {
-	asl_object_t		m;
 	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
-	char			str[256];
 
-	m = asl_new(ASL_TYPE_MSG);
-	asl_set(m, "com.apple.message.domain", "com.apple.SystemConfiguration.SCPreferencesUnlock");
-	(void) _SC_cfstring_to_cstring(prefsPrivate->name, str, sizeof(str), kCFStringEncodingUTF8);
-	asl_set(m, "com.apple.message.signature", str);
-	(void) _SC_cfstring_to_cstring(prefsPrivate->prefsID, str, sizeof(str), kCFStringEncodingUTF8);
-	asl_set(m, "com.apple.message.signature2", str);
-	(void) snprintf(str, sizeof(str),
-			"%d.%3.3d",
-			(int)delay->tv_sec,
-			delay->tv_usec / 1000);
-	asl_set(m, "com.apple.message.value", str);
-	SCLOG(NULL, m, ASL_LEVEL_DEBUG,
-	      CFSTR("SCPreferences(%@:%@) lock held for %d.%3.3d seconds"),
-	      prefsPrivate->name,
-	      prefsPrivate->prefsID,
-	      (int)delay->tv_sec,
-	      delay->tv_usec / 1000);
-	asl_release(m);
-
+	SC_log(LOG_ERR,
+	       "SCPreferences(%@:%@) lock held for %d.%3.3d seconds",
+	       prefsPrivate->name,
+	       prefsPrivate->prefsID,
+	       (int)delay->tv_sec,
+	       delay->tv_usec / 1000);
 	return;
 }
 
@@ -161,6 +144,9 @@ SCPreferencesUnlock(SCPreferencesRef prefs)
 		// if we held the lock for more than 1 second
 		reportDelay(prefs, &lockElapsed);
 	}
+
+	SC_log(LOG_DEBUG, "SCPreferences() unlock: %s",
+	       prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path);
 
 	prefsPrivate->locked = FALSE;
 

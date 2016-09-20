@@ -298,10 +298,12 @@ IOFixed IOHIDPointing::resolution()
 void IOHIDPointing::setupProperties()
 {
     OSNumber *  number  = NULL;
+    OSObject *  obj     = NULL;
     
 	// Store the resolution
-	number = _provider ? (OSNumber*)_provider->copyProperty(kIOHIDPointerResolutionKey) : NULL;
-    if ( OSDynamicCast(OSNumber, number) )
+    obj = _provider->copyProperty(kIOHIDPointerResolutionKey);
+    number = _provider ? OSDynamicCast(OSNumber, obj) : NULL;
+    if ( number )
     {
         IOFixed newResolution = number->unsigned32BitValue();
         if ( newResolution != 0 ) {
@@ -314,11 +316,12 @@ void IOHIDPointing::setupProperties()
     {
         setProperty(kIOHIDPointerResolutionKey, _resolution, 32);
     }
-    OSSafeReleaseNULL(number);
+    OSSafeReleaseNULL(obj);
     
 	// Store the scroll resolution
-	number = _provider ? (OSNumber*)_provider->copyProperty(kIOHIDScrollResolutionKey) : NULL;
-    if ( OSDynamicCast(OSNumber, number) )
+    obj = _provider->copyProperty(kIOHIDScrollResolutionKey);
+	number = _provider ? OSDynamicCast(OSNumber, obj) : NULL;
+    if ( number )
     {
         _scrollResolution = number->unsigned32BitValue();
         setProperty(kIOHIDScrollResolutionKey, number);
@@ -328,17 +331,17 @@ void IOHIDPointing::setupProperties()
     {
         setProperty(kIOHIDScrollResolutionKey, _scrollResolution, 32);
     }
-    OSSafeReleaseNULL(number);
+    OSSafeReleaseNULL(obj);
 	
 	// deal with buttons
+    obj = _provider->copyProperty(kIOHIDPointerButtonCountKey);
 	if ( (_numButtons == 1) && 
-        (NULL != (number = _provider ? (OSNumber*)_provider->copyProperty(kIOHIDPointerButtonCountKey) : NULL)) &&
-	     OSDynamicCast(OSNumber, number) )
+        (NULL != (number = _provider ? OSDynamicCast(OSNumber, obj) : NULL)))
 	{
 		_numButtons = number->unsigned32BitValue();
 		_isDispatcher = FALSE;
 	}
-    OSSafeReleaseNULL(number);
+    OSSafeReleaseNULL(obj);
 
     if ( _isDispatcher )
         setProperty(kIOHIDVirtualHIDevice, kOSBooleanTrue);

@@ -151,3 +151,7 @@
 "system.services.networkextension.filtering" = "__APPNAME__ is trying to modify the content filtering configuration.";
 
 "com.apple.iCloud.passwordReset" = "__APPNAME__ wants to reset your Apple ID password. This Mac can be used to reset your password because you are signed into iCloud on it.";
+
+"system.preferences.continuity" = "__APPNAME__ is trying to unlock the Touch ID preferences.";
+
+"com.apple.ctkbind.admin" = "__APPNAME__ is trying to pair the current user with the SmartCard identity.";

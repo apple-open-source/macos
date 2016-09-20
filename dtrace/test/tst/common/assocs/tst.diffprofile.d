@@ -37,6 +37,7 @@
  */
 
 #pragma D option quiet
+#pragma D option statusrate=15ms
 
 this int x;
 this char c;

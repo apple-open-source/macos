@@ -1401,9 +1401,9 @@ static void cfstringshow(CFStringRef object)
 
 static CFStringRef createInheritanceStringForIORegistryClassName(CFStringRef name)
 {
-    CFStringRef				curClassCFStr = NULL;
-    CFStringRef				oldClassCFStr = NULL;
-    CFMutableStringRef		outCFStr = NULL;
+	CFStringRef				curClassCFStr = NULL;
+	CFStringRef				oldClassCFStr = NULL;
+	CFMutableStringRef		outCFStr = NULL;
 	
 	outCFStr = CFStringCreateMutable (NULL, 512);
     if (outCFStr == NULL) return(NULL);
@@ -1412,7 +1412,7 @@ static CFStringRef createInheritanceStringForIORegistryClassName(CFStringRef nam
     
     curClassCFStr = CFStringCreateCopy (NULL, name);
     if (curClassCFStr == NULL) return((CFStringRef) outCFStr);
-    
+
     for (;;)
     {
         oldClassCFStr = curClassCFStr;

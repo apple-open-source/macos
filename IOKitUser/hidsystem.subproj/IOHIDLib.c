@@ -41,6 +41,10 @@
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 #include <servers/bootstrap.h>
 #include "powermanagement.h"
+#include <IOKit/hid/IOHIDEventSystemClient.h>
+#include <IOKit/hid/IOHIDServiceKeys.h>
+#include <os/log.h>
+
 
 #if !TARGET_OS_IPHONE
 kern_return_t IOFramebufferServerStart( void );
@@ -193,7 +197,10 @@ IOHIDSetOnScreenCursorBounds( io_connect_t connect, const IOGPoint * point, cons
 kern_return_t
 IOHIDSetMouseLocation( io_connect_t connect, int x, int y )
 {
-    return IOHIDSetFixedMouseLocation(connect, x << 8, y << 8);
+    NXEventData	event;
+    IOGPoint   location = {x,y};
+    memset(&event, 0, sizeof(event));
+    return IOHIDPostEvent(connect, NX_NULLEVENT, location, &event, 2, -1, kIOHIDSetCursorPosition);
 }
 
 kern_return_t
@@ -253,19 +260,99 @@ IOHIDSetStateForSelector( io_connect_t handle, int selector, UInt32 state )
     return err;
 }
 
+
 kern_return_t
-IOHIDGetModifierLockState( io_connect_t handle, int selector, bool *state )
+IOHIDGetModifierLockState( io_connect_t handle __unused, int selector, bool *state )
 {
-    UInt32  internalState = 0;
-    kern_return_t err = IOHIDGetStateForSelector(handle, selector, &internalState);
-    *state = internalState ? true : false;
+    kern_return_t               err = kIOReturnSuccess;
+    boolean_t                   modifierState = false;
+    IOHIDEventSystemClientRef   client = NULL;
+    CFArrayRef                  services = NULL;
+  
+    if (selector != kIOHIDCapsLockState &&  selector != kIOHIDNumLockState) {
+        err = kIOReturnBadArgument;
+        goto exit;
+    }
+    
+    client = IOHIDEventSystemClientCreateWithType (kCFAllocatorDefault, kIOHIDEventSystemClientTypePassive, NULL);
+    if (client == NULL) {
+      os_log_error (OS_LOG_DEFAULT, "Failed to create event system client");
+      return kIOReturnError;
+    }
+    
+    services = (CFArrayRef) IOHIDEventSystemClientCopyServices (client);
+    if (services == NULL || CFArrayGetCount(services) == 0) {
+        err = kIOReturnNoDevice;
+        goto exit;
+    }
+    
+    for (CFIndex index = 0; index < CFArrayGetCount(services); index++) {
+        IOHIDServiceClientRef service = (IOHIDServiceClientRef) CFArrayGetValueAtIndex(services, index);
+        if (service && IOHIDServiceClientConformsTo (service, kHIDPage_GenericDesktop, kHIDUsage_GD_Keyboard)) {
+            CFStringRef key = (selector == kIOHIDCapsLockState) ?  CFSTR(kIOHIDServiceCapsLockStateKey) : CFSTR(kIOHIDServiceNumLockStateKey);
+            CFBooleanRef modifierStateProp = (CFBooleanRef)IOHIDServiceClientCopyProperty(service, key);
+            if (modifierStateProp) {
+                modifierState = CFBooleanGetValue(modifierStateProp);
+                if (modifierState) {
+                    break;
+                }
+                CFRelease(modifierStateProp);
+            }
+        }
+    }
+    
+exit:
+
+    *state = modifierState;
+    if (services) {
+        CFRelease(services);
+    }
+    if (client) {
+        CFRelease(client);
+    }
     return err;
 }
 
 kern_return_t
-IOHIDSetModifierLockState( io_connect_t handle, int selector, bool state )
+IOHIDSetModifierLockState( io_connect_t handle __unused, int selector, bool state )
 {
-    return IOHIDSetStateForSelector(handle, selector, state);
+    kern_return_t               err = kIOReturnSuccess;
+    IOHIDEventSystemClientRef   client = NULL;
+    CFArrayRef                  services = NULL;
+  
+    if (selector != kIOHIDCapsLockState &&  selector != kIOHIDNumLockState) {
+        err = kIOReturnBadArgument;
+        goto exit;
+    }
+    
+    client = IOHIDEventSystemClientCreateWithType (kCFAllocatorDefault, kIOHIDEventSystemClientTypePassive, NULL);
+    if (client == NULL) {
+        os_log_error (OS_LOG_DEFAULT, "Failed to create event system client");
+        return kIOReturnError;
+    }
+    
+    services = (CFArrayRef) IOHIDEventSystemClientCopyServices (client);
+    if (services == NULL || CFArrayGetCount(services) == 0) {
+        err = kIOReturnNoDevice;
+        goto exit;
+    }
+    
+    for (CFIndex index = 0; index < CFArrayGetCount(services); index++) {
+        IOHIDServiceClientRef service = (IOHIDServiceClientRef) CFArrayGetValueAtIndex(services, index);
+        if (service && IOHIDServiceClientConformsTo (service, kHIDPage_GenericDesktop, kHIDUsage_GD_Keyboard)) {
+            CFStringRef key = (selector == kIOHIDCapsLockState) ?  CFSTR(kIOHIDServiceCapsLockStateKey) : CFSTR(kIOHIDServiceNumLockStateKey);
+            IOHIDServiceClientSetProperty(service, key, state ? kCFBooleanTrue : kCFBooleanFalse);
+        }
+    }
+    
+exit:
+    if (services) {
+        CFRelease(services);
+    }
+    if (client) {
+        CFRelease(client);
+    }
+    return err;
 }
 
 kern_return_t

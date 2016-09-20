@@ -1,13 +1,13 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/ru.xml
 // *
 // ***************************************************************************
 ru{
-    Version{"2.1.13.53"}
+    Version{"2.1.22.93"}
     zoneStrings{
         "Africa:Abidjan"{
             ec{"Абиджан"}
@@ -684,6 +684,9 @@ ru{
         "Asia:Calcutta"{
             ec{"Калькутта"}
         }
+        "Asia:Chita"{
+            ec{"Чита"}
+        }
         "Asia:Choibalsan"{
             ec{"Чойбалсан"}
         }
@@ -824,6 +827,9 @@ ru{
         }
         "Asia:Singapore"{
             ec{"Сингапур"}
+        }
+        "Asia:Srednekolymsk"{
+            ec{"Среднеколымск"}
         }
         "Asia:Taipei"{
             ec{"Тайбэй"}
@@ -1145,6 +1151,9 @@ ru{
         "Pacific:Auckland"{
             ec{"Окленд"}
         }
+        "Pacific:Bougainville"{
+            ec{"Бугенвиль"}
+        }
         "Pacific:Chatham"{
             ec{"О-в Чатем"}
         }
@@ -1316,9 +1325,9 @@ ru{
             ls{"Анадырь, стандартное время"}
         }
         "meta:Apia"{
-            ld{"летнее время Апиа, Самоа"}
-            lg{"время Апиа, Самоа"}
-            ls{"Стандартное время Апиа, Самоа"}
+            ld{"Апиа, летнее время"}
+            lg{"Апиа"}
+            ls{"Апиа, стандартное время"}
         }
         "meta:Aqtau"{
             ld{"Актау, летнее время"}
@@ -1484,7 +1493,7 @@ ru{
             ls{"Восточная Европа, стандартное время"}
         }
         "meta:Europe_Further_Eastern"{
-            ls{"время в Калининграде и Минске"}
+            ls{"Минское время"}
         }
         "meta:Europe_Western"{
             ld{"Западная Европа, летнее время"}

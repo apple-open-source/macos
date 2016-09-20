@@ -1,4 +1,4 @@
-.TH "ZSHCOMPSYS" "1" "May 31, 2015" "zsh 5\&.0\&.8"
+.TH "ZSHCOMPSYS" "1" "December 2, 2015" "zsh 5\&.2"
 .SH "NAME"
 zshcompsys \- zsh completion system
 .\" Yodl file: Zsh/compsys.yo
@@ -3602,42 +3602,122 @@ different name for the argument context field\&.
 \fB_arguments\fP [ \fIopt\fP \&.\&.\&. ] \fB\-\fP\fB\-\fP [ \fB\-i\fP \fIpats\fP ] [ \fB\-s\fP \fIpair\fP ] [ \fIhelpspec\fP \&.\&.\&. ]
 This function can be used to give a complete specification for completion
 for a command whose arguments follow standard UNIX option and argument
-conventions\&.  Options to \fB_arguments\fP itself must be in separate words,
-i\&.e\&. \fB\-s \-w\fP, not \fB\-sw\fP\&.
+conventions\&.
 .RS
 .PP
-When calling \fB_arguments\fP, all \fIspec\fPs that describe options of the
-analyzed command line must precede all \fIspec\fPs that describe non\-option
-(aka "normal") arguments of the analyzed line\&.  To avoid ambiguity, all
+\fIOptions overview\fP
+.PP
+Options to \fB_arguments\fP itself must be in separate words, i\&.e\&. \fB\-s \-w\fP,
+not \fB\-sw\fP\&.  The options are followed by \fIspec\fPs that describe options and
+arguments of the analyzed command\&.  \fIspec\fPs that describe option flags must
+precede \fIspec\fPs that describe non\-option ("positional" or "normal")
+arguments of the analyzed line\&.  To avoid ambiguity, all
 options to \fB_arguments\fP itself may be separated from the \fIspec\fP forms
 by a single colon\&.
 .PP
-The \fB\-s \-w \-W \-A\fP and \fB\-S\fP options describe how parsing of the command
-line should proceed, and are discussed in context below\&.  The `\fB\-\fP\fB\-\fP\&'
+The `\fB\-\fP\fB\-\fP\&'
 form is used to intuit \fIspec\fP forms from the help output of the command
 being analyzed, and is described in detail below\&.  The \fIopts\fP for the
 `\fB\-\fP\fB\-\fP\&' form are otherwise the same options as the first form\&.  Note
 that `\fB\-s\fP\&' following `\fB\-\fP\fB\-\fP' has a distinct meaning from `\fB\-s\fP'
 preceding `\fB\-\fP\fB\-\fP\&', and both may appear\&.
 .PP
-With the option \fB\-n\fP, \fB_arguments\fP sets the parameter \fBNORMARG\fP
+The option switches \fB\-s\fP, \fB\-S\fP, \fB\-A\fP, \fB\-w\fP, and \fB\-W\fP affect how
+\fB_arguments\fP parses the analyzed command line\&'s options\&.  These switches are
+useful for commands with standard argument parsing\&.
+.PP
+The options of \fB_arguments\fP have the following meanings:
+.PP
+.PD 0
+.TP
+.PD
+\fB\-n\fP
+With this option, \fB_arguments\fP sets the parameter \fBNORMARG\fP
 to the position of the first normal argument in the \fB$words\fP array,
 i\&.e\&. the position after the end of the options\&.  If that argument
 has not been reached, \fBNORMARG\fP is set to \fB\-1\fP\&.  The caller
 should declare `\fBinteger NORMARG\fP\&' if the \fB\-n\fP option is passed;
 otherwise the parameter is not used\&.
+.TP
+\fB\-s\fP
+Enable \fIoption stacking\fP for single\-letter options, whereby multiple
+single\-letter options may be combined into a single word\&.  For example,
+the two options `\fB\-x\fP\&' and `\fB\-y\fP' may be combined into
+a single word `\fB\-xy\fP\&'\&.  By default, every word corresponds to a single
+option name (`\fB\-xy\fP\&' is a single option named `\fBxy\fP')\&.
+.RS
 .PP
-The option `\fB\-M\fP \fImatchspec\fP\&' sets a match specification to use to
-completion option names and values\&.  The default \fImatchspec\fP is:
+Options beginning with a single hyphen or plus sign are eligible for stacking;
+words beginning with two hyphens are not\&.
 .PP
+Note that \fB\-s\fP after \fB\-\fP\fB\-\fP has a different meaning, which is documented
+in the segment entitled `Deriving \fIspec\fP forms from the help output\&'\&.
+.RE
+.TP
+\fB\-w\fP
+In combination with \fB\-s\fP, allow option stacking
+even if one or more of the options take
+arguments\&.  For example, if \fB\-x\fP takes an argument, with no
+\fB\-s\fP, `\fB\-xy\fP\&' is considered as a single (unhandled) option; with
+\fB\-s\fP, \fB\-xy\fP is an option with the argument `\fBy\fP\&'; with both \fB\-s\fP
+and \fB\-w\fP, \fB\-xy\fP may be the option \fB\-x\fP and the option \fB\-y\fP with
+arguments still to come\&.
+.TP
+\fB\-W\fP
+This option takes \fB\-w\fP a stage further:  it is possible to
+complete single\-letter options even after an argument that occurs in the
+same word\&.  However, it depends on the action performed whether options
+will really be completed at this point\&.  For more control, use a
+utility function like \fB_guard\fP as part of the action\&.
+.TP
+\fB\-C\fP
+Modify the \fBcurcontext\fP parameter for an action of the form `\fB\->\fP\fIstate\fP\&'\&.
+This is discussed in detail below\&.
+.TP
+\fB\-R\fP
+Return status 300 instead of zero when a \fB$state\fP is to
+be handled, in the `\fB\->\fP\fIstring\fP\&' syntax\&.
+.TP
+\fB\-S\fP
+Do not complete options after a `\fB\-\fP\fB\-\fP\&' appearing on the line,
+and ignore the `\fB\-\fP\fB\-\fP\&'\&.  For example, with \fB\-S\fP, in the line
+.RS
+.PP
+.RS
+.nf
+\fBfoobar \-x \-\- \-y\fP
+.fi
+.RE
+.PP
+the `\fB\-x\fP\&' is considered an option, the `\fB\-y\fP' is considered an
+argument, and the `\fB\-\fP\fB\-\fP\&' is considered to be neither\&.
+.RE
+.TP
+\fB\-A\fP \fIpat\fP
+Do not complete options after the first non\-option
+argument on the line\&.  \fIpat\fP is a pattern matching
+all strings which are not to be taken as arguments\&.  For example, to make
+\fB_arguments\fP stop completing options after the first normal argument, but
+ignoring all strings starting with a hyphen even if they are not described
+by one of the \fIoptspec\fPs, the form is `\fB\-A "\-*"\fP\&'\&.
+.TP
+\fB\-O\fP \fIname\fP
+Pass the elements of the array \fIname\fP as arguments to functions called to
+execute \fIaction\fPs\&.
+This is discussed in detail below\&.
+.TP
+\fB\-M\fP \fImatchspec\fP
+Use the match specification \fImatchspec\fP for completing option names and values\&.
+The default \fImatchspec\fP allows partial word completion after `\fB_\fP\&' and
+`\fB\-\fP\&', such as completing `\fB\-f\-b\fP' to `\fB\-foo\-bar\fP'\&.  The default
+\fImatchspec\fP is:
 .RS
 .nf
 \fB\fBr:|[_\-]=* r:|=*\fP\fP
 .fi
 .RE
 .PP
-This allows partial word completion after `\fB_\fP\&' and `\fB\-\fP', for example
-`\fB\-f\-b\fP\&' can be completed to `\fB\-foo\-bar\fP'\&.
+\fI\fIspec\fPs: overview\fP
 .PP
 Each of the following forms is a \fIspec\fP describing individual sets of
 options or arguments on the command line being analyzed\&.
@@ -3695,26 +3775,6 @@ This describes an option\&.  The colon indicates handling for one or more
 arguments to the option; if it is not present, the option is assumed to
 take no arguments\&.
 .RS
-.PP
-By default, options are multi\-character name, one `\fB\-\fP\fIword\fP\&' per
-option\&.  With \fB\-s\fP, options may be single characters, with more than
-one option per word, although words starting with two hyphens, such as
-`\fB\-\fP\fB\-prefix\fP\&', are still considered complete option names\&.  This is
-suitable for standard GNU options\&.
-.PP
-The combination of \fB\-s\fP with \fB\-w\fP allows single\-letter options to be
-combined in a single word even if one or more of the options take
-arguments\&.  For example, if \fB\-x\fP takes an argument, with no
-\fB\-s\fP `\fB\-xy\fP\&' is considered as a single (unhandled) option; with
-\fB\-s\fP \fB\-xy\fP is an option with the argument `\fBy\fP\&'; with both \fB\-s\fP
-and \fB\-w\fP, \fB\-xy\fP may be the option \fB\-x\fP and the option \fB\-y\fP with
-arguments still to come\&.
-.PP
-The option \fB\-W\fP takes this a stage further:  it is possible to
-complete single\-letter options even after an argument that occurs in the
-same word\&.  However, it depends on the action performed whether options
-will really be completed at this point\&.  For more control, use a
-utility function like \fB_guard\fP as part of the action\&.
 .PP
 The following forms are available for the initial \fIoptspec\fP, whether
 or not the option has arguments\&.
@@ -3784,27 +3844,6 @@ that follows the \fIoptspec\fP; see below\&.
 It is possible for options with a literal `\fB+\fP\&' or `\fB=\fP' to
 appear, but that character must be quoted, for example `\fB\-\e+\fP\&'\&.
 .PP
-The options \fB\-S\fP and \fB\-A\fP are available to simplify the specifications
-for commands with standard option parsing\&.  With \fB\-S\fP, no option will be
-completed after a `\fB\-\fP\fB\-\fP\&' appearing on its own on the line; this
-argument will otherwise be ignored; hence in the line
-.PP
-.RS
-.nf
-\fBfoobar \-x \-\- \-y\fP
-.fi
-.RE
-.PP
-the `\fB\-x\fP\&' is considered an option but the `\fB\-y\fP' is considered an
-argument, while the `\fB\-\fP\fB\-\fP\&' is considered to be neither\&.
-.PP
-With \fB\-A\fP, no options will be completed after the first non\-option
-argument on the line\&.  The \fB\-A\fP must be followed by a pattern matching
-all strings which are not to be taken as arguments\&.  For example, to make
-\fB_arguments\fP stop completing options after the first normal argument, but
-ignoring all strings starting with a hyphen even if they are not described
-by one of the \fIoptspec\fPs, the form is `\fB\-A "\-*"\fP\&'\&.
-.PP
 Each \fIoptarg\fP following an \fIoptspec\fP must take one of the
 following forms:
 .PP
@@ -3836,7 +3875,7 @@ specifies that the option takes two arguments\&.
 \fB:*\fP\fIpattern\fP\fB:::\fP\fImessage\fP\fB:\fP\fIaction\fP
 This describes multiple arguments\&.  Only the last \fIoptarg\fP for
 an option taking multiple arguments may be
-given in this form\&.  If the \fIpattern\fP is empty (i\&.e\&., \fB:*:\fP), all
+given in this form\&.  If the \fIpattern\fP is empty (i\&.e\&. \fB:*:\fP), all
 the remaining words on the line are to be completed as described by the
 \fIaction\fP; otherwise, all the words up to and including a word matching
 the \fIpattern\fP are to be completed using the \fIaction\fP\&.
@@ -3882,15 +3921,17 @@ given by an array, and \fB_arguments\fP is called repeatedly for more
 specific contexts: on the first call `\fB_arguments $global_options\fP\&' is
 used, and on subsequent calls `\fB_arguments !$^global_options\fP\&'\&.
 .PP
+\fI\fIspec\fPs: actions\fP
+.PP
 In each of the forms above the \fIaction\fP determines how
 completions should be generated\&.  Except for the `\fB\->\fP\fIstring\fP\&'
 form below, the \fIaction\fP will be executed by calling the
 \fB_all_labels\fP function to process all tag labels\&.  No special handling
 of tags is needed unless a function call introduces a new one\&.
 .PP
-The option `\fB\-O\fP \fIname\fP\&' specifies the name of an array whose elements
-will be passed as arguments to functions called to execute \fIaction\fPs\&.
-For example, this can be used to pass the same set of options for the
+The functions called to execute \fIaction\fPs will be called with the the
+elements of the array named by the `\fB\-O\fP \fIname\fP\&' option as arguments\&.
+This can be used, for example, to pass the same set of options for the
 \fBcompadd\fP builtin to all \fIaction\fPs\&.
 .PP
 The forms for \fIaction\fP are as follows\&.
@@ -4058,6 +4099,8 @@ initialised to the current value at the start of the function:
 This is useful where it is not possible for multiple states to be valid
 together\&.
 .PP
+\fISpecifying multiple sets of options\fP
+.PP
 It is possible to specify multiple sets of options and
 arguments with the sets separated by single hyphens\&.  The specifications
 before the first hyphen (if any) are shared by all the remaining sets\&.
@@ -4087,6 +4130,11 @@ possible completions\&.  When it contains `\fB\-d\fP\&' or an argument, the
 option `\fB\-c\fP\&' will not be considered\&.  However, after `\fB\-a\fP'
 both sets will still be considered valid\&.
 .PP
+If an option in a set appears on the command line, it is stored in the
+associative array `\fBopt_args\fP\&' with '\fIset\fP\fB\-\fP\fIoption\fP'
+as a key\&.  In the example above, a key `\fBset1\-\-c\fP\&' is used if the option
+`\fB\-c\fP\&' is on the command line\&.
+.PP
 If the name given for one of the mutually exclusive sets is of the form
 `\fB(\fP\fIname\fP\fB)\fP\&' then only one value from each set will ever
 be completed; more formally, all specifications are mutually
@@ -4111,6 +4159,8 @@ set this form of argument is slow and should only be used when necessary\&.
 A useful alternative is often an option specification with rest\-arguments
 (as in `\fB\-foo:*:\&.\&.\&.\fP\&'); here the option \fB\-foo\fP swallows up all
 remaining arguments as described by the \fIoptarg\fP definitions\&.
+.PP
+\fIDeriving \fIspec\fP forms from the help output\fP
 .PP
 The option `\fB\-\fP\fB\-\fP\&' allows \fB_arguments\fP to work out the names of long
 options that support the `\fB\-\fP\fB\-help\fP\&' option which is standard in many
@@ -4199,6 +4249,8 @@ as `\fB\-\fP\fB\-enable\-foo\fP\&', but the script also accepts the negated form
 \fB_arguments \-\- \-s "((#s)\-\-enable\- \-\-disable\-)"\fP
 .fi
 .RE
+.PP
+\fIMiscellaneous notes\fP
 .PP
 Finally, note that \fB_arguments\fP generally expects to be the primary
 function handling any completion for which it is used\&.  It may have side
@@ -4335,7 +4387,7 @@ the functions for the fields if they are called\&.
 \fB_describe \fP[\fB\-12JVx\fP] [ \fB\-oO\fP | \fB\-t\fP \fItag\fP ] \fIdescr\fP \fIname1\fP [ \fIname2\fP ] [ \fIopt\fP \&.\&.\&. ]
 .TP
 .PD
-\fB          \fP[ \fB\-\fP\fB\-\fP \fIdescr\fP \fIname1\fP [ \fIname2\fP ] [ \fIopt\fP \&.\&.\&. ] \&.\&.\&. ]
+\fB          \fP[ \fB\-\fP\fB\-\fP \fIname1\fP [ \fIname2\fP ] [ \fIopt\fP \&.\&.\&. ] \&.\&.\&. ]
 This function associates completions with descriptions\&.
 Multiple groups separated by \fB\-\fP\fB\-\fP can be supplied, potentially with
 different completion options \fIopt\fPs\&.

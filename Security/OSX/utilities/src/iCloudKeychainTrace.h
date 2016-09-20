@@ -27,13 +27,13 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 
-const CFStringRef kCloudKeychainNumberOfSyncingConflicts
+extern const CFStringRef kCloudKeychainNumberOfSyncingConflicts
 	__OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
-const CFStringRef kCloudKeychainNumberOfTimesSyncFailed
+extern const CFStringRef kCloudKeychainNumberOfTimesSyncFailed
 	__OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
-const CFStringRef kCloudKeychainNumberOfConflictsResolved
+extern const CFStringRef kCloudKeychainNumberOfConflictsResolved
 	__OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
-const CFStringRef kCloudKeychainNumberOfTimesSyncedWithPeers
+extern const CFStringRef kCloudKeychainNumberOfTimesSyncedWithPeers
     __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 
 bool SetCloudKeychainTraceValueForKey(CFStringRef key, int64_t value)	

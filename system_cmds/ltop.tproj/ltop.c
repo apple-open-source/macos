@@ -20,7 +20,7 @@ int diff_mode = 0;
 struct proc_list {
 	int pid;
 	int seen;
-	char command[32];
+	char name[2 * MAXCOMLEN];
 	struct ledger *ledger;
 	struct proc_list *next;
 };
@@ -41,7 +41,7 @@ struct ledger {
 struct ledger *ledgers = NULL;
 
 static void
-get_template_info()
+get_template_info(void)
 {
 
 	void *buf;
@@ -76,17 +76,17 @@ top:
  * needs to be followed by another call to get_template_info().
  */
 static void
-dump_template_info()
+dump_template_info(void)
 {
 	int i, j;
 	const char *group = NULL;
-	
+
 	printf("Resources being tracked:\n");
 	printf("\t%10s  %15s  %8s\n", "GROUP", "RESOURCE", "UNITS");
 	for (i = 0; i < entry_cnt; i++) {
 		if (strlen(template[i].lti_name) == 0)
 			continue;
-		
+
 		group = template[i].lti_group;
 		for (j = i; j < entry_cnt; j++) {
 			if (strcmp(template[j].lti_group, group))
@@ -99,7 +99,7 @@ dump_template_info()
 }
 
 static void
-validate_group()
+validate_group(void)
 {
 	int i;
 
@@ -115,7 +115,7 @@ validate_group()
 }
 
 static void
-validate_resource()
+validate_resource(void)
 {
 	int i;
 
@@ -145,16 +145,6 @@ get_kern_max_proc(void)
 	return (max);
 }
 
-static int
-get_proc_kinfo(pid_t pid, struct kinfo_proc *kinfo)
-{
-	int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PID, pid };
-	size_t len;
-
-	len = sizeof(struct kinfo_proc);
-	return (sysctl(mib, 4, kinfo, &len, NULL, 0) < 0);
-}
-
 static struct ledger *
 ledger_find(struct ledger_info *li)
 {
@@ -176,9 +166,8 @@ ledger_find(struct ledger_info *li)
 		l->info = NULL;
 		l->old_info = NULL;
 		ledgers = l;
-	}		
+	}
 	return (l);
-
 }
 
 static void
@@ -194,7 +183,7 @@ ledger_update(pid_t pid, struct ledger *l)
 	arg = (void *)(long)pid;
     lei = (struct ledger_entry_info *)malloc((size_t)(cnt * sizeof (*lei)));
 	if (ledger(LEDGER_ENTRY_INFO, arg, (caddr_t)lei, (caddr_t)&cnt) < 0) {
-    	perror("ledger_info() failed: ");
+	perror("ledger_info() failed: ");
 		exit (1);
 	}
 	l->info = lei;
@@ -206,7 +195,6 @@ get_proc_info(int pid)
 	struct ledger_info li;
 	struct ledger *ledgerp;
 	struct proc_list *proc;
-	struct kinfo_proc kinfo;
 	void *arg;
 
 	if (pid == 0)
@@ -226,7 +214,7 @@ get_proc_info(int pid)
 	ledgerp = ledger_find(&li);
 	ledger_update(pid, ledgerp);
 	ledgerp->seen = 1;
-	
+
 	for (proc = procs; proc; proc = proc->next)
 		if (proc->pid == pid)
 			break;
@@ -237,11 +225,8 @@ get_proc_info(int pid)
 			exit (1);
 		}
 
-		if (get_proc_kinfo(pid, &kinfo))
-			strlcpy(proc->command, "Error", sizeof (proc->command));
-		else
-			strlcpy(proc->command, kinfo.kp_proc.p_comm,
-			    sizeof (proc->command));
+		if (proc_name(pid, proc->name, sizeof (proc->name)) == 0)
+			strlcpy(proc->name, "Error", sizeof (proc->name));
 
 		proc->pid = pid;
 		proc->ledger = ledgerp;
@@ -261,7 +246,7 @@ pid_compare(const void *a, const void *b)
 }
 
 static void
-get_all_info()
+get_all_info(void)
 {
 	pid_t *pids;
 	int sz, cnt, i;
@@ -297,15 +282,16 @@ get_all_info()
 static void
 print_num(int64_t num, int64_t delta)
 {
-	char suf = ' ';
+	char suf = '\0';
 	char posneg = ' ';
+	int numwidth;
 
 	if (diff_mode) {
 		num = delta;
 	}
 
 	if (num == LEDGER_LIMIT_INFINITY) {
-		printf("%10s ", "-  ");
+		printf("%10s  ", "-");
 		return;
 	}
 
@@ -319,31 +305,33 @@ print_num(int64_t num, int64_t delta)
 		num /= 1000;
 		suf = 'K';
 	}
+
 	posneg = (delta < 0) ? '-' : ((delta > 0) ? '+' : ' ');
 
-	if (suf == ' ') {
-		suf = posneg;
-		posneg = ' ';
-	}
-	printf("%8lld%c%c ", num, suf, posneg);
+	numwidth = 10;
+
+	if (suf != '\0')
+		numwidth--;
+
+	printf("%*lld%c%c ", numwidth, num, suf, posneg);
 }
 
 static void
-dump_all_info()
+dump_all_info(void)
 {
 	struct ledger_entry_info *info, *old;
 	struct proc_list *p;
 	int line, i;
 	int64_t d;
 
-	printf("\n%5s %10s %15s %10s %10s %10s %10s %10s\n", "PID", "COMMAND",
+	printf("\n%5s %32s %32s %10s  %10s  %10s  %10s  %10s \n", "PID", "COMMAND",
 	    "RESOURCE", "CREDITS", "DEBITS", "BALANCE", "LIMIT", "PERIOD");
 
 	for (p = procs; p; p = p->next) {
 		if (p->seen == 0)
 			continue;
-		
-		printf("%5d %10.10s ", p->pid, p->command);
+
+		printf("%5d %32s ", p->pid, p->name);
 		line = 0;
 
 		info = p->ledger->info;
@@ -358,9 +346,9 @@ dump_all_info()
 				continue;
 
 			if (line++)
-				printf("                 ");
-			printf("%15s ", template[i].lti_name);
-			
+				printf("%5s %32s ", "", "");
+			printf("%32s ", template[i].lti_name);
+
 			d = old ? info[i].lei_credit - old[i].lei_credit : 0;
 			print_num(info[i].lei_credit, d);
 
@@ -371,7 +359,7 @@ dump_all_info()
 			print_num(info[i].lei_balance, d);
 
 			if (info[i].lei_limit == LEDGER_LIMIT_INFINITY) {
-				printf("%10s %10s", "none", "-  ");
+				printf("%10s  %10s", "none", "-");
 			} else {
 				print_num(info[i].lei_limit, 0);
 				print_num(info[i].lei_refill_period, 0);
@@ -379,14 +367,14 @@ dump_all_info()
 			printf("\n");
 		}
 	}
-	
-	if (line == 0) 
+
+	if (line == 0)
 		exit (0);
 }
 
 static void
-cleanup()
-{	
+cleanup(void)
+{
 	struct proc_list *p, *pnext, *plast;
 	struct ledger *l, *lnext, *llast;
 
@@ -398,7 +386,7 @@ cleanup()
 				plast->next = pnext;
 			else
 				procs = pnext;
-			
+
 			free(p);
 		} else {
 			p->seen = 0;
@@ -416,7 +404,7 @@ cleanup()
 			free(l->info);
 			if (l->old_info)
 				free(l->old_info);
-			free(l);	
+			free(l);
 		} else {
 			l->seen = 0;
 			free(l->old_info);
@@ -432,7 +420,7 @@ cleanup()
 const char *pname;
 
 static void
-usage()
+usage(void)
 {
 	printf("%s [-hdL] [-g group] [-p pid] [-r resource] [interval]\n", pname);
 }
@@ -442,7 +430,7 @@ main(int argc, char **argv)
 {
 	int c;
 	int interval = 0;
-    
+
 	pname = argv[0];
 
 	while ((c = getopt(argc, argv, "g:hdLp:r:")) != -1) {
@@ -458,12 +446,12 @@ main(int argc, char **argv)
 		case 'h':
 			usage();
 			exit(0);
-	
+
 		case 'L':
 			get_template_info();
 			dump_template_info();
 			exit(0);
-			
+
 		case 'p':
 			pid = atoi(optarg);
 			break;

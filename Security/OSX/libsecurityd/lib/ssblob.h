@@ -75,12 +75,18 @@ public:
     
     static const uint32 magicNumber = 0xfade0711;
 
+    static const uint32 version_none = 0x0;                 // dummy value for default parameters. Never set this as an actual version.
     static const uint32 version_MacOS_10_0 = 0x00000100;	// MacOS 10.0.x
     static const uint32 version_MacOS_10_1 = 0x00000101;	// MacOS 10.1.x and on
-	static const uint32 version_partition = 0x00000200;		// MacOS 10.11.2 and on, supporting partitioning
+    static const uint32 version_partition = 0x00000200;		// MacOS 10.11.4 and on, supporting partitioning
     static const uint32 currentVersion = version_partition;
     
-  static uint32 getCurrentVersion();
+    static uint32 getCurrentVersion();
+
+    //Returns the version this database should be, given its filesystem location (as dbName)
+    static uint32 getCurrentVersionForDb(const char* dbName);
+
+    static bool pathInHomeLibraryKeychains(const string& path);
 public:
     void initialize();
     void initialize(uint32 version);
@@ -217,6 +223,36 @@ public:
 	typedef uint8 MasterKey[24];
 	MasterKey masterKey;		// raw bits (triple-DES) - make your own CssmKey
 	DbBlob::Signature signature; // signature is index
+};
+
+
+//
+// This class implements a "system keychain unlock record" store
+//
+class SystemKeychainKey {
+public:
+    SystemKeychainKey(const char *path);
+    ~SystemKeychainKey();
+
+    bool matches(const DbBlob::Signature &signature);
+    CssmKey &key();
+
+    // returns true if we have actually retrieved the key
+    bool valid();
+
+private:
+    std::string mPath;                  // path to file
+    CssmKey mKey;                       // proper CssmKey with data in mBlob
+
+    bool mValid;                        // mBlob was validly read from mPath
+    UnlockBlob mBlob;                   // contents of mPath as last read
+
+    Time::Absolute mCachedDate;         // modify date of file when last read
+    Time::Absolute mUpdateThreshold;    // cutoff threshold for checking again
+
+    static const int checkDelay = 1;    // seconds minimum delay between update checks
+
+    bool update();
 };
 
 

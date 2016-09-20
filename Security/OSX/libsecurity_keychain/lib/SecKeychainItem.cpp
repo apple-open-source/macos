@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004,2011-2015 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2011-2016 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -25,6 +25,7 @@
 #include <Security/SecKeychainItem.h>
 #include <Security/SecKeychainItemPriv.h>
 #include <Security/SecCertificatePriv.h>
+#include <Security/SecItemPriv.h>
 
 #include <security_keychain/Keychains.h>
 #include <security_keychain/KeyItem.h>
@@ -43,6 +44,7 @@
 #include "Access.h"
 #include "SecKeychainItemExtendedAttributes.h"
 
+extern "C" Boolean SecKeyIsCDSAKey(SecKeyRef ref);
 
 //
 // Given a polymorphic Sec type object, return
@@ -59,7 +61,7 @@ RefPointer<AclBearer> aclBearer(CFTypeRef itemRef)
 		// keychain item. If it's in a protected group, return the group key
 		if (SSGroup group = ItemImpl::required(SecKeychainItemRef(itemRef))->group())
 			return &*group;
-	} else if (id == gTypes().KeyItem.typeID) {
+	} else if (id == SecKeyGetTypeID() && SecKeyIsCDSAKey((SecKeyRef)itemRef)) {
 		// key item, return the key itself.
 		if (CssmClient::Key key = KeyItem::required(SecKeyRef(itemRef))->key())
 			return &*key;
@@ -88,29 +90,32 @@ SecKeychainItemCreateFromContent(SecItemClass itemClass, SecKeychainAttributeLis
 		UInt32 length, const void *data, SecKeychainRef keychainRef,
 		SecAccessRef initialAccess, SecKeychainItemRef *itemRef)
 {
-    BEGIN_SECAPI
-		KCThrowParamErrIf_(length!=0 && data==NULL);
-        Item item(itemClass, attrList, length, data);
-		if (initialAccess)
-			item->setAccess(Access::required(initialAccess));
+	BEGIN_SECAPI
 
-        Keychain keychain = nil;
-        try
-        {
-            keychain = Keychain::optional(keychainRef);
-            if ( !keychain->exists() )
-            {
-                MacOSError::throwMe(errSecNoSuchKeychain);	// Might be deleted or not available at this time.
-            }
-        }
-        catch(...)
-        {
-            keychain = globals().storageManager.defaultKeychainUI(item);
-        }
+	KCThrowParamErrIf_(length!=0 && data==NULL);
+	Item item(itemClass, attrList, length, data);
+	if (initialAccess) {
+		item->setAccess(Access::required(initialAccess));
+	}
+	Keychain keychain = nil;
+	try
+	{
+		keychain = Keychain::optional(keychainRef);
+		if ( !keychain->exists() )
+		{
+			MacOSError::throwMe(errSecNoSuchKeychain);	// Might be deleted or not available at this time.
+		}
+	}
+	catch(...)
+	{
+		keychain = globals().storageManager.defaultKeychainUI(item);
+	}
 
-        keychain->add(item);
-        if (itemRef)
-        	*itemRef = item->handle();
+	keychain->add(item);
+	if (itemRef) {
+		*itemRef = item->handle();
+	}
+
 	END_SECAPI
 }
 
@@ -118,69 +123,24 @@ SecKeychainItemCreateFromContent(SecItemClass itemClass, SecKeychainAttributeLis
 OSStatus
 SecKeychainItemModifyContent(SecKeychainItemRef itemRef, const SecKeychainAttributeList *attrList, UInt32 length, const void *data)
 {
-    BEGIN_SECAPI
-		Item item = ItemImpl::required(itemRef);
-		item->modifyContent(attrList, length, data);
-	END_SECAPI
+	BEGIN_SECKCITEMAPI
+
+	Item item = ItemImpl::required(__itemImplRef);
+	item->modifyContent(attrList, length, data);
+
+	END_SECKCITEMAPI
 }
 
 
 OSStatus
 SecKeychainItemCopyContent(SecKeychainItemRef itemRef, SecItemClass *itemClass, SecKeychainAttributeList *attrList, UInt32 *length, void **outData)
 {
-#if !SECTRUST_OSX
-	BEGIN_SECAPI
-		Item item = ItemImpl::required(itemRef);
-		item->getContent(itemClass, attrList, length, outData);
-	END_SECAPI
-#else
-	OSStatus __secapiresult;
-	bool isCertificate = false;
-	SecKeychainItemRef itemImplRef;
-	if (itemRef && CFGetTypeID(itemRef) == SecCertificateGetTypeID()) {
-		// TODO: determine whether we need to actually look up the cert in a keychain here
-		itemImplRef = (SecKeychainItemRef) SecCertificateCopyKeychainItem((SecCertificateRef)itemRef);
-		if (!itemImplRef) {
-			itemImplRef = (SecKeychainItemRef) SecCertificateCreateItemImplInstance((SecCertificateRef)itemRef);
-		}
-		isCertificate = true;
-	}
-	else {
-		itemImplRef = (SecKeychainItemRef)((itemRef) ? CFRetain(itemRef) : NULL);
-	}
+	BEGIN_SECKCITEMAPI
 
-	try
-	{
-		Item item = ItemImpl::required(itemImplRef);
-		item->getContent(itemClass, attrList, (isCertificate) ? NULL : length, (isCertificate) ? NULL : outData);
-		__secapiresult=0;
-	}
-	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
-	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
-	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; }
-	catch (...) { __secapiresult=errSecInternalComponent; }
+	Item item = ItemImpl::required(__itemImplRef);
+	item->getContent(itemClass, attrList, length, outData);
 
-	if (isCertificate && outData && *outData == NULL) {
-		// copy the data here
-		__secapiresult = errSecAllocate;
-		CFDataRef dataRef = SecCertificateCopyData((SecCertificateRef)itemRef);
-		if (dataRef) {
-			CFIndex dataLen = CFDataGetLength(dataRef);
-			const UInt8 *bytePtr = CFDataGetBytePtr(dataRef);
-			if ((bytePtr != NULL) && (dataLen > 0)) {
-				*outData = malloc(dataLen);
-				memcpy(*outData, bytePtr, dataLen);
-				*length = (UInt32)dataLen;
-				__secapiresult = errSecSuccess;
-			}
-			CFRelease(dataRef);
-		}
-	}
-	if (itemImplRef) {
-		CFRelease(itemImplRef);
-	}
-	return __secapiresult;
-#endif
+	END_SECKCITEMAPI
 }
 
 
@@ -188,7 +148,9 @@ OSStatus
 SecKeychainItemFreeContent(SecKeychainAttributeList *attrList, void *data)
 {
 	BEGIN_SECAPI
-		ItemImpl::freeContent(attrList, data);
+
+	ItemImpl::freeContent(attrList, data);
+
 	END_SECAPI
 }
 
@@ -196,52 +158,24 @@ SecKeychainItemFreeContent(SecKeychainAttributeList *attrList, void *data)
 OSStatus
 SecKeychainItemModifyAttributesAndData(SecKeychainItemRef itemRef, const SecKeychainAttributeList *attrList, UInt32 length, const void *data)
 {
-    BEGIN_SECAPI
-		Item item = ItemImpl::required(itemRef);
-		item->modifyAttributesAndData(attrList, length, data);
-	END_SECAPI
+	BEGIN_SECKCITEMAPI
+
+	Item item = ItemImpl::required(__itemImplRef);
+	item->modifyAttributesAndData(attrList, length, data);
+
+	END_SECKCITEMAPI
 }
 
 
 OSStatus
 SecKeychainItemCopyAttributesAndData(SecKeychainItemRef itemRef, SecKeychainAttributeInfo *info, SecItemClass *itemClass, SecKeychainAttributeList **attrList, UInt32 *length, void **outData)
 {
-#if !SECTRUST_OSX
-	BEGIN_SECAPI
-		Item item = ItemImpl::required(itemRef);
-		item->getAttributesAndData(info, itemClass, attrList, length, outData);
-	END_SECAPI
-#else
-	// if the item is a SecCertificateRef, must convert to an ItemImpl-based instance
-	// TODO: determine whether we need to actually look up the cert in a keychain here
-	OSStatus __secapiresult;
-	SecKeychainItemRef itemImplRef;
-	if (itemRef && CFGetTypeID(itemRef) == SecCertificateGetTypeID()) {
-		itemImplRef = (SecKeychainItemRef) SecCertificateCopyKeychainItem((SecCertificateRef)itemRef);
-		if (!itemImplRef) {
-			itemImplRef = (SecKeychainItemRef) SecCertificateCreateItemImplInstance((SecCertificateRef)itemRef);
-		}
-	}
-	else {
-		itemImplRef = (SecKeychainItemRef)((itemRef) ? CFRetain(itemRef) : NULL);
-	}
+	BEGIN_SECKCITEMAPI
 
-	try
-	{
-		Item item = ItemImpl::required(itemImplRef);
-		item->getAttributesAndData(info, itemClass, attrList, length, outData);
-		__secapiresult=0;
-	}
-	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
-	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
-	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; }
-	catch (...) { __secapiresult=errSecInternalComponent; }
+	Item item = ItemImpl::required(__itemImplRef);
+	item->getAttributesAndData(info, itemClass, attrList, length, outData);
 
-	if (itemImplRef) {
-		CFRelease(itemImplRef);
-	}
-	return __secapiresult;
-#endif
+	END_SECKCITEMAPI
 }
 
 
@@ -249,7 +183,9 @@ OSStatus
 SecKeychainItemFreeAttributesAndData(SecKeychainAttributeList *attrList, void *data)
 {
 	BEGIN_SECAPI
-		ItemImpl::freeAttributesAndData(attrList, data);
+
+	ItemImpl::freeAttributesAndData(attrList, data);
+
 	END_SECAPI
 }
 
@@ -257,136 +193,50 @@ SecKeychainItemFreeAttributesAndData(SecKeychainAttributeList *attrList, void *d
 OSStatus
 SecKeychainItemDelete(SecKeychainItemRef itemRef)
 {
-#if !SECTRUST_OSX
-    BEGIN_SECAPI
-		Item item = ItemImpl::required( itemRef );
-		Keychain keychain = item->keychain();
-		// item must be persistent.
-		KCThrowIf_( !keychain, errSecInvalidItemRef );
+	BEGIN_SECKCITEMAPI
 
-		/*
-		 * Before deleting the item, delete any existing Extended Attributes.
-		 */
-		OSStatus ortn;
-		CFArrayRef attrNames = NULL;
-		ortn = SecKeychainItemCopyAllExtendedAttributes(itemRef, &attrNames, NULL);
-		if(ortn == errSecSuccess) {
-			CFIndex numAttrs = CFArrayGetCount(attrNames);
-			for(CFIndex dex=0; dex<numAttrs; dex++) {
-				CFStringRef attrName = (CFStringRef)CFArrayGetValueAtIndex(attrNames, dex);
-				/* setting value to NULL ==> delete */
-				SecKeychainItemSetExtendedAttribute(itemRef, attrName, NULL);
-			}
-		}
+	Item item = ItemImpl::required(__itemImplRef);
+	Keychain keychain = item->keychain();
+	// item must be persistent.
+	KCThrowIf_( !keychain, errSecInvalidItemRef );
 
-		/* now delete the item */
-        keychain->deleteItem( item );
-	END_SECAPI
-#else
-	// if the item is a SecCertificateRef, must convert to an ItemImpl-based instance
-	// TODO: determine whether we need to actually look up the cert in a keychain here
-	OSStatus __secapiresult;
-	SecKeychainItemRef itemImplRef;
-	if (itemRef && CFGetTypeID(itemRef) == SecCertificateGetTypeID()) {
-		itemImplRef = (SecKeychainItemRef) SecCertificateCopyKeychainItem((SecCertificateRef)itemRef);
-		if (!itemImplRef) {
-			itemImplRef = (SecKeychainItemRef) SecCertificateCreateItemImplInstance((SecCertificateRef)itemRef);
+	/*
+	 * Before deleting the item, delete any existing Extended Attributes.
+	 */
+	OSStatus ortn;
+	CFArrayRef attrNames = NULL;
+	ortn = SecKeychainItemCopyAllExtendedAttributes(__itemImplRef, &attrNames, NULL);
+	if(ortn == errSecSuccess) {
+		CFIndex numAttrs = CFArrayGetCount(attrNames);
+		for(CFIndex dex=0; dex<numAttrs; dex++) {
+			CFStringRef attrName = (CFStringRef)CFArrayGetValueAtIndex(attrNames, dex);
+			/* setting value to NULL ==> delete */
+			SecKeychainItemSetExtendedAttribute(__itemImplRef, attrName, NULL);
 		}
 	}
-	else {
-		itemImplRef = (SecKeychainItemRef)((itemRef) ? CFRetain(itemRef) : NULL);
-	}
 
-	try
-	{
-		Item item = ItemImpl::required( itemImplRef );
-		Keychain keychain = item->keychain();
-		// item must be persistent.
-		KCThrowIf_( !keychain, errSecInvalidItemRef );
+	/* now delete the item */
+	keychain->deleteItem( item );
 
-		/*
-		 * Before deleting the item, delete any existing Extended Attributes.
-		 */
-		OSStatus ortn;
-		CFArrayRef attrNames = NULL;
-		ortn = SecKeychainItemCopyAllExtendedAttributes(itemImplRef, &attrNames, NULL);
-		if(ortn == errSecSuccess) {
-			CFIndex numAttrs = CFArrayGetCount(attrNames);
-			for(CFIndex dex=0; dex<numAttrs; dex++) {
-				CFStringRef attrName = (CFStringRef)CFArrayGetValueAtIndex(attrNames, dex);
-				/* setting value to NULL ==> delete */
-				SecKeychainItemSetExtendedAttribute(itemImplRef, attrName, NULL);
-			}
-		}
-
-		/* now delete the item */
-        keychain->deleteItem( item );
-		__secapiresult=0;
-	}
-	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
-	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
-	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; }
-	catch (...) { __secapiresult=errSecInternalComponent; }
-
-	if (itemImplRef) {
-		CFRelease(itemImplRef);
-	}
-	return __secapiresult;
-#endif
+	END_SECKCITEMAPI
 }
 
 
 OSStatus
 SecKeychainItemCopyKeychain(SecKeychainItemRef itemRef, SecKeychainRef* keychainRef)
 {
-#if !SECTRUST_OSX
-	BEGIN_SECAPI
-		// make sure this item has a keychain
-		Keychain kc = ItemImpl::required(itemRef)->keychain ();
-		if (kc == NULL)
-		{
-			MacOSError::throwMe(errSecNoSuchKeychain);
-		}
+	BEGIN_SECKCITEMAPI
 
-		Required(keychainRef) = kc->handle();
-	END_SECAPI
-#else
-	// if the item is a SecCertificateRef, must convert to an ItemImpl-based instance
-	// TODO: determine whether we need to actually look up the cert in a keychain here
-	OSStatus __secapiresult;
-	SecKeychainItemRef itemImplRef;
-	if (itemRef && CFGetTypeID(itemRef) == SecCertificateGetTypeID()) {
-		itemImplRef = (SecKeychainItemRef) SecCertificateCopyKeychainItem((SecCertificateRef)itemRef);
-		if (!itemImplRef) {
-			itemImplRef = (SecKeychainItemRef) SecCertificateCreateItemImplInstance((SecCertificateRef)itemRef);
-		}
-	}
-	else {
-		itemImplRef = (SecKeychainItemRef)((itemRef) ? CFRetain(itemRef) : NULL);
-	}
-
-	try
+	// make sure this item has a keychain
+	Keychain kc = ItemImpl::required(__itemImplRef)->keychain();
+	if (kc == NULL)
 	{
-		// make sure this item has a keychain
-		Keychain kc = ItemImpl::required(itemImplRef)->keychain();
-		if (kc == NULL)
-		{
-			MacOSError::throwMe(errSecNoSuchKeychain);
-		}
-
-		Required(keychainRef) = kc->handle();
-		__secapiresult=0;
+		MacOSError::throwMe(errSecNoSuchKeychain);
 	}
-	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
-	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
-	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; }
-	catch (...) { __secapiresult=errSecInternalComponent; }
 
-	if (itemImplRef) {
-		CFRelease(itemImplRef);
-	}
-	return __secapiresult;
-#endif
+	Required(keychainRef) = kc->handle();
+
+	END_SECKCITEMAPI
 }
 
 
@@ -394,36 +244,36 @@ OSStatus
 SecKeychainItemCreateCopy(SecKeychainItemRef itemRef, SecKeychainRef destKeychainRef,
 	SecAccessRef initialAccess, SecKeychainItemRef *itemCopy)
 {
-#if SECTRUST_OSX
-	// bridge code for certificate items
-	if (itemRef && CFGetTypeID(itemRef) == SecCertificateGetTypeID()) {
-		return SecCertificateAddToKeychain((SecCertificateRef)itemRef, destKeychainRef);
-	}
-#endif
+	BEGIN_SECKCITEMAPI
 
-	BEGIN_SECAPI
-		Item copy = ItemImpl::required(itemRef)->copyTo(Keychain::optional(destKeychainRef), Access::optional(initialAccess));
-		if (itemCopy)
-			*itemCopy = copy->handle();
-	END_SECAPI
+	Item copy = ItemImpl::required(__itemImplRef)->copyTo(Keychain::optional(destKeychainRef), Access::optional(initialAccess));
+	if (itemCopy) {
+		*itemCopy = copy->handle();
+	}
+
+	END_SECKCITEMAPI
 }
 
 
 OSStatus
 SecKeychainItemGetUniqueRecordID(SecKeychainItemRef itemRef, const CSSM_DB_UNIQUE_RECORD **uniqueRecordID)
 {
-	BEGIN_SECAPI
-		Required(uniqueRecordID) = ItemImpl::required(itemRef)->dbUniqueRecord();
-	END_SECAPI
+	BEGIN_SECKCITEMAPI
+
+	Required(uniqueRecordID) = ItemImpl::required(__itemImplRef)->dbUniqueRecord();
+
+	END_SECKCITEMAPI
 }
 
 
 OSStatus
 SecKeychainItemGetDLDBHandle(SecKeychainItemRef itemRef, CSSM_DL_DB_HANDLE* dldbHandle)
 {
-	BEGIN_SECAPI
-		*dldbHandle = ItemImpl::required(itemRef)->keychain()->database()->handle();
-	END_SECAPI
+	BEGIN_SECKCITEMAPI
+
+	*dldbHandle = ItemImpl::required(__itemImplRef)->keychain()->database()->handle();
+
+	END_SECKCITEMAPI
 }
 
 #if 0
@@ -432,9 +282,11 @@ OSStatus SecAccessCreateFromObject(CFTypeRef sourceRef,
 	SecAccessRef *accessRef)
 {
 	BEGIN_SECAPI
+
 	Required(accessRef);	// preflight
 	SecPointer<Access> access = new Access(*aclBearer(sourceRef));
 	*accessRef = access->handle();
+
 	END_SECAPI
 }
 
@@ -445,7 +297,9 @@ static
 OSStatus SecAccessModifyObject(SecAccessRef accessRef, CFTypeRef sourceRef)
 {
 	BEGIN_SECAPI
+
 	Access::required(accessRef)->setAccess(*aclBearer(sourceRef), true);
+
 	END_SECAPI
 }
 #endif
@@ -453,36 +307,37 @@ OSStatus SecAccessModifyObject(SecAccessRef accessRef, CFTypeRef sourceRef)
 OSStatus
 SecKeychainItemCopyAccess(SecKeychainItemRef itemRef, SecAccessRef* accessRef)
 {
-    BEGIN_SECAPI
+	BEGIN_SECKCITEMAPI
 
 	Required(accessRef);	// preflight
-	SecPointer<Access> access = new Access(*aclBearer(reinterpret_cast<CFTypeRef>(itemRef)));
+	SecPointer<Access> access = new Access(*aclBearer(reinterpret_cast<CFTypeRef>(__itemImplRef)));
 	*accessRef = access->handle();
 
-    END_SECAPI
+	END_SECKCITEMAPI
 }
 
 
 OSStatus
 SecKeychainItemSetAccess(SecKeychainItemRef itemRef, SecAccessRef accessRef)
 {
-    BEGIN_SECAPI
+	BEGIN_SECKCITEMAPI
 
-	Access::required(accessRef)->setAccess(*aclBearer(reinterpret_cast<CFTypeRef>(itemRef)), true);
+	Access::required(accessRef)->setAccess(*aclBearer(reinterpret_cast<CFTypeRef>(__itemImplRef)), true);
 
-	ItemImpl::required(itemRef)->postItemEvent (kSecUpdateEvent);
+	ItemImpl::required(__itemImplRef)->postItemEvent(kSecUpdateEvent);
 
-    END_SECAPI
+	END_SECKCITEMAPI
 }
 
-OSStatus SecKeychainItemSetAccessWithPassword(SecKeychainItemRef itemRef, SecAccessRef accessRef, UInt32 passwordLength, const void * password) {
-    BEGIN_SECAPI
+OSStatus SecKeychainItemSetAccessWithPassword(SecKeychainItemRef itemRef, SecAccessRef accessRef, UInt32 passwordLength, const void * password)
+{
+    BEGIN_SECKCITEMAPI
 
     OSStatus result;
 
     // try to unlock the keychain with this password first
     SecKeychainRef kc = NULL;
-    result = SecKeychainItemCopyKeychain(itemRef, &kc);
+    result = SecKeychainItemCopyKeychain(__itemImplRef, &kc);
     if(!result) {
         SecKeychainUnlock(kc, passwordLength, password, true);
         if(kc) {
@@ -494,10 +349,10 @@ OSStatus SecKeychainItemSetAccessWithPassword(SecKeychainItemRef itemRef, SecAcc
     CssmAutoData data(Allocator::standard(), password, passwordLength);
     AclFactory::PassphraseUnlockCredentials cred(data, Allocator::standard());
 
-    Access::required(accessRef)->editAccess(*aclBearer(reinterpret_cast<CFTypeRef>(itemRef)), true, cred.getAccessCredentials());
+    Access::required(accessRef)->editAccess(*aclBearer(reinterpret_cast<CFTypeRef>(__itemImplRef)), true, cred.getAccessCredentials());
     ItemImpl::required(itemRef)->postItemEvent (kSecUpdateEvent);
 
-    END_SECAPI
+    END_SECKCITEMAPI
 }
 
 
@@ -507,9 +362,11 @@ OSStatus SecKeychainItemSetAccessWithPassword(SecKeychainItemRef itemRef, SecAcc
 */
 OSStatus SecKeychainItemSetData(SecKeychainItemRef itemRef, UInt32 length, const void* data)
 {
-    BEGIN_SECAPI
-		ItemImpl::required(itemRef)->setData(length, data);
-	END_SECAPI
+	BEGIN_SECKCITEMAPI
+
+	ItemImpl::required(__itemImplRef)->setData(length, data);
+
+	END_SECKCITEMAPI
 }
 
 /*  Gets an item's data for legacy "KC" CoreServices APIs.
@@ -517,24 +374,28 @@ OSStatus SecKeychainItemSetData(SecKeychainItemRef itemRef, UInt32 length, const
 */
 OSStatus SecKeychainItemGetData(SecKeychainItemRef itemRef, UInt32 maxLength, void* data, UInt32* actualLength)
 {
-    BEGIN_SECAPI
-		/* The caller either needs to specify data and maxLength or an actualLength, so we return either the data itself or the actual length of the data or both.  */
-		if (!((data && maxLength) || actualLength))
-			MacOSError::throwMe(errSecParam);
+	BEGIN_SECKCITEMAPI
 
-        CssmDataContainer aData;
-        ItemImpl::required(itemRef)->getData(aData);
-        if (actualLength)
-            *actualLength = (UInt32)aData.length();
-
-		if (data)
-		{
-			// Make sure the buffer is big enough
-			if (aData.length() > maxLength)
-				MacOSError::throwMe(errSecBufferTooSmall);
-			memcpy(data, aData.data(), aData.length());
+	/* The caller either needs to specify data and maxLength or an actualLength,
+	 * so we return either the data itself or the actual length of the data or both.
+	 */
+	if (!((data && maxLength) || actualLength)) {
+		MacOSError::throwMe(errSecParam);
+	}
+	CssmDataContainer aData;
+	ItemImpl::required(__itemImplRef)->getData(aData);
+	if (actualLength) {
+		*actualLength = (UInt32)aData.length();
+	}
+	if (data) {
+		// Make sure the buffer is big enough
+		if (aData.length() > maxLength) {
+			MacOSError::throwMe(errSecBufferTooSmall);
 		}
-	END_SECAPI
+		memcpy(data, aData.data(), aData.length());
+	}
+
+	END_SECKCITEMAPI
 }
 
 /*  Update a keychain item for legacy "KC" CoreServices APIs.
@@ -542,38 +403,46 @@ OSStatus SecKeychainItemGetData(SecKeychainItemRef itemRef, UInt32 maxLength, vo
 */
 OSStatus SecKeychainItemUpdate(SecKeychainItemRef itemRef)
 {
-    BEGIN_SECAPI
-        ItemImpl::required(itemRef)->update();
-	END_SECAPI
+	BEGIN_SECKCITEMAPI
+
+	ItemImpl::required(__itemImplRef)->update();
+
+	END_SECKCITEMAPI
 }
 
 /* Add a 'floating' keychain item without UI for legacy "KC" CoreServices APIs.
 */
 OSStatus SecKeychainItemAddNoUI(SecKeychainRef keychainRef, SecKeychainItemRef itemRef)
 {
-    BEGIN_SECAPI
-        Item item = ItemImpl::required(itemRef);
-        Keychain::optional(keychainRef)->add(item);
-	END_SECAPI
+	BEGIN_SECKCITEMAPI
+
+	Item item = ItemImpl::required(__itemImplRef);
+	Keychain::optional(keychainRef)->add(item);
+
+	END_SECKCITEMAPI
 }
 
 /* Add a 'floating' keychain item to the default keychain with possible UI for legacy "KC" Carbon APIs.
 */
 OSStatus SecKeychainItemAdd(SecKeychainItemRef itemRef)
 {
-    BEGIN_SECAPI
-        Item item = ItemImpl::required(itemRef);
-        Keychain defaultKeychain = globals().storageManager.defaultKeychainUI(item);
-        defaultKeychain->add(item);
-	END_SECAPI
+	BEGIN_SECKCITEMAPI
+
+	Item item = ItemImpl::required(__itemImplRef);
+	Keychain defaultKeychain = globals().storageManager.defaultKeychainUI(item);
+	defaultKeychain->add(item);
+
+	END_SECKCITEMAPI
 }
 
 /* Creates a floating keychain item for legacy "KC" CoreServices APIs
 */
 OSStatus SecKeychainItemCreateNew(SecItemClass itemClass, OSType itemCreator, UInt32 length, const void* data, SecKeychainItemRef* itemRef)
 {
-    BEGIN_SECAPI
-        RequiredParam(itemRef) = Item(itemClass, itemCreator, length, data, false)->handle();
+	BEGIN_SECAPI
+
+	RequiredParam(itemRef) = Item(itemClass, itemCreator, length, data, false)->handle();
+
 	END_SECAPI
 }
 
@@ -581,18 +450,22 @@ OSStatus SecKeychainItemCreateNew(SecItemClass itemClass, OSType itemCreator, UI
 */
 OSStatus SecKeychainItemGetAttribute(SecKeychainItemRef itemRef, SecKeychainAttribute* attribute, UInt32* actualLength)
 {
-    BEGIN_SECAPI
-        ItemImpl::required(itemRef)->getAttribute(RequiredParam(attribute), actualLength);
-	END_SECAPI
+	BEGIN_SECKCITEMAPI
+
+	ItemImpl::required(__itemImplRef)->getAttribute(RequiredParam(attribute), actualLength);
+
+	END_SECKCITEMAPI
 }
 
 /* Sets an individual attribute for legacy "KC" CoreServices APIs
 */
 OSStatus SecKeychainItemSetAttribute(SecKeychainItemRef itemRef, SecKeychainAttribute* attribute)
 {
-    BEGIN_SECAPI
-        ItemImpl::required(itemRef)->setAttribute(RequiredParam(attribute));
-	END_SECAPI
+	BEGIN_SECKCITEMAPI
+
+	ItemImpl::required(__itemImplRef)->setAttribute(RequiredParam(attribute));
+
+	END_SECKCITEMAPI
 }
 
 /*  Finds a keychain item for legacy "KC" CoreServices APIs.
@@ -602,45 +475,83 @@ OSStatus SecKeychainItemSetAttribute(SecKeychainItemRef itemRef, SecKeychainAttr
 */
 OSStatus SecKeychainItemFindFirst(SecKeychainRef keychainRef, const SecKeychainAttributeList *attrList, SecKeychainSearchRef *searchRef, SecKeychainItemRef *itemRef)
 {
-    BEGIN_SECAPI
-        KCCursor cursor;
-        if (keychainRef)
-            cursor = KeychainImpl::required(keychainRef)->createCursor(attrList);
-        else
-            cursor = globals().storageManager.createCursor(attrList);
+	BEGIN_SECAPI
 
-        Item item;
-        if (!cursor->next(item))
-            return errSecItemNotFound;
+	KCCursor cursor;
+	if (keychainRef) {
+		cursor = KeychainImpl::required(keychainRef)->createCursor(attrList);
+	} else {
+		cursor = globals().storageManager.createCursor(attrList);
+	}
 
-        *itemRef=item->handle();
-        if (searchRef)
-            *searchRef=cursor->handle();
+	Item item;
+	if (!cursor->next(item))
+		return errSecItemNotFound;
+
+	*itemRef=item->handle();
+	if (searchRef) {
+		*searchRef=cursor->handle();
+	}
+
 	END_SECAPI
 }
 
 #if SECTRUST_OSX
 static OSStatus SecKeychainItemCreatePersistentReferenceFromCertificate(SecCertificateRef certRef,
-    CFDataRef *persistentItemRef)
+    CFDataRef *persistentItemRef, Boolean isIdentity)
 {
-	if (!certRef || !persistentItemRef)
-		return errSecParam;
-
 	OSStatus __secapiresult;
+	if (!certRef || !persistentItemRef) {
+		return errSecParam;
+	}
+
+	// If we already have a keychain item, we won't need to look it up by serial and issuer
+	SecKeychainItemRef kcItem = NULL;
+	if (SecCertificateIsItemImplInstance(certRef)) {
+		kcItem = (SecKeychainItemRef) CFRetain(certRef);
+	}
+	else {
+		kcItem = (SecKeychainItemRef) SecCertificateCopyKeychainItem(certRef);
+	}
+	if (kcItem) {
+		__secapiresult = errSecParam;
+		try {
+			Item item = ItemImpl::required((kcItem));
+			item->copyPersistentReference(*persistentItemRef, isIdentity);
+			__secapiresult = errSecSuccess;
+		}
+		catch(...) {}
+		CFRelease(kcItem);
+		if (__secapiresult == errSecSuccess) {
+			return __secapiresult;
+		}
+	}
+
+	// Certificate does not have a keychain item reference; look it up by serial and issuer
+	SecCertificateRef certItem = NULL;
+	if (SecCertificateIsItemImplInstance(certRef)) {
+		certItem = SecCertificateCreateFromItemImplInstance(certRef);
+	}
+	else {
+		certItem = (SecCertificateRef) CFRetain(certRef);
+	}
+
 	CFErrorRef errorRef = NULL;
-	CFDataRef serialData = SecCertificateCopySerialNumber(certRef, &errorRef);
+	CFDataRef serialData = SecCertificateCopySerialNumber(certItem, &errorRef);
 	if (errorRef) {
 		CFIndex err = CFErrorGetCode(errorRef);
 		CFRelease(errorRef);
 		if (serialData) { CFRelease(serialData); }
+		if (certItem) { CFRelease(certItem); }
 		return (OSStatus)err;
 	}
-	CFDataRef issuerData = SecCertificateCopyNormalizedIssuerContent(certRef, &errorRef);
+	CFDataRef issuerData = SecCertificateCopyNormalizedIssuerContent(certItem, &errorRef);
 	if (errorRef) {
 		CFIndex err = CFErrorGetCode(errorRef);
 		CFRelease(errorRef);
 		if (serialData) { CFRelease(serialData); }
 		if (issuerData) { CFRelease(issuerData); }
+		if (certItem) { CFRelease(certItem); }
 		return (OSStatus)err;
 	}
 
@@ -665,6 +576,8 @@ static OSStatus SecKeychainItemCreatePersistentReferenceFromCertificate(SecCerti
 		CFRelease(serialData);
 	if (issuerData)
 		CFRelease(issuerData);
+	if (certItem)
+		CFRelease(certItem);
 
 	return __secapiresult;
 }
@@ -677,8 +590,9 @@ OSStatus SecKeychainItemCreatePersistentReference(SecKeychainItemRef itemRef, CF
 
 	KCThrowParamErrIf_(!itemRef || !persistentItemRef);
 	Item item;
-	bool isIdentityRef = (CFGetTypeID(itemRef) == SecIdentityGetTypeID()) ? true : false;
-	bool isCertificateRef = (CFGetTypeID(itemRef) == SecCertificateGetTypeID()) ? true : false;
+    CFTypeID itemType = (itemRef) ? CFGetTypeID(itemRef) ? 0;
+    bool isIdentityRef = (itemType == SecIdentityGetTypeID()) ? true : false;
+    bool isCertificateRef = (itemType == SecCertificateGetTypeID()) ? true : false;
 	if (isIdentityRef) {
 		SecPointer<Certificate> certificatePtr(Identity::required((SecIdentityRef)itemRef)->certificate());
 		SecCertificateRef certificateRef = certificatePtr->handle(false);
@@ -700,17 +614,32 @@ OSStatus SecKeychainItemCreatePersistentReference(SecKeychainItemRef itemRef, CF
     if (!itemRef || !persistentItemRef) {
         return errSecParam;
     }
-    bool isIdentityRef = (CFGetTypeID(itemRef) == SecIdentityGetTypeID()) ? true : false;
-    bool isCertificateRef = (CFGetTypeID(itemRef) == SecCertificateGetTypeID()) ? true : false;
-    SecCertificateRef certRef = NULL;
-    if (isIdentityRef) {
-        SecIdentityCopyCertificate((SecIdentityRef)itemRef, &certRef);
+    // first, query the iOS keychain
+    {
+        const void *keys[] = { kSecValueRef, kSecReturnPersistentRef, kSecAttrNoLegacy };
+        const void *values[] = { itemRef, kCFBooleanTrue, kCFBooleanTrue };
+        CFRef<CFDictionaryRef> query = CFDictionaryCreate(kCFAllocatorDefault, keys, values,
+                                                          sizeof(keys) / sizeof(*keys),
+                                                          &kCFTypeDictionaryKeyCallBacks,
+                                                          &kCFTypeDictionaryValueCallBacks);
+        OSStatus status = SecItemCopyMatching(query, (CFTypeRef *)persistentItemRef);
+        if (status == errSecSuccess) {
+            return status;
+        }
     }
-    else if (isCertificateRef) {
+    // otherwise, handle certificate
+    SecCertificateRef certRef = NULL;
+    CFTypeID itemType = CFGetTypeID(itemRef);
+    bool isIdentity = false;
+    if (itemType == SecIdentityGetTypeID()) {
+        SecIdentityCopyCertificate((SecIdentityRef)itemRef, &certRef);
+        isIdentity = true;
+    }
+    else if (itemType == SecCertificateGetTypeID()) {
         certRef = (SecCertificateRef) CFRetain(itemRef);
     }
     if (certRef) {
-        OSStatus status = SecKeychainItemCreatePersistentReferenceFromCertificate(certRef, persistentItemRef);
+        OSStatus status = SecKeychainItemCreatePersistentReferenceFromCertificate(certRef, persistentItemRef, isIdentity);
         CFRelease(certRef);
         return status;
     }
@@ -729,6 +658,20 @@ OSStatus SecKeychainItemCopyFromPersistentReference(CFDataRef persistentItemRef,
     BEGIN_SECAPI
 
     KCThrowParamErrIf_(!persistentItemRef || !itemRef);
+    // first, query the iOS keychain
+    {
+        const void *keys[] = { kSecValuePersistentRef, kSecReturnRef, kSecAttrNoLegacy};
+        const void *values[] = { persistentItemRef, kCFBooleanTrue, kCFBooleanTrue };
+        CFRef<CFDictionaryRef> query = CFDictionaryCreate(kCFAllocatorDefault, keys, values,
+                                                          sizeof(keys) / sizeof(*keys),
+                                                          &kCFTypeDictionaryKeyCallBacks,
+                                                          &kCFTypeDictionaryValueCallBacks);
+        OSStatus status = SecItemCopyMatching(query, (CFTypeRef *)itemRef);
+        if (status == errSecSuccess) {
+            return status;
+        }
+    }
+    // otherwise, proceed as usual for keychain item
     CFTypeRef result = NULL;
     bool isIdentityRef = false;
     Item item = ItemImpl::makeFromPersistentReference(persistentItemRef, &isIdentityRef);
@@ -749,7 +692,7 @@ OSStatus SecKeychainItemCopyFromPersistentReference(CFDataRef persistentItemRef,
 #if SECTRUST_OSX
     /* see if we should convert outgoing item to a unified SecCertificateRef */
     SecItemClass tmpItemClass = Schema::itemClassFor(item->recordType());
-    if (tmpItemClass == kSecCertificateItemClass) {
+    if (tmpItemClass == kSecCertificateItemClass && !isIdentityRef) {
         SecPointer<Certificate> certificate(static_cast<Certificate *>(&*item));
         CssmData certData = certificate->data();
         CFDataRef data = NULL;
@@ -783,14 +726,16 @@ OSStatus SecKeychainItemCopyFromPersistentReference(CFDataRef persistentItemRef,
 
 OSStatus SecKeychainItemCopyRecordIdentifier(SecKeychainItemRef itemRef, CFDataRef *recordIdentifier)
 {
-    BEGIN_SECAPI
-		CSSM_DATA data;
-		RequiredParam (recordIdentifier);
-		Item item = ItemImpl::required(itemRef);
-		item->copyRecordIdentifier (data);
-		*recordIdentifier = ::CFDataCreate(kCFAllocatorDefault, (UInt8*) data.Data, data.Length);
-		free (data.Data);
-	END_SECAPI
+	BEGIN_SECKCITEMAPI
+
+	CSSM_DATA data;
+	RequiredParam (recordIdentifier);
+	Item item = ItemImpl::required(__itemImplRef);
+	item->copyRecordIdentifier (data);
+	*recordIdentifier = ::CFDataCreate(kCFAllocatorDefault, (UInt8*) data.Data, data.Length);
+	free (data.Data);
+
+	END_SECKCITEMAPI
 }
 
 OSStatus
@@ -799,51 +744,53 @@ SecKeychainItemCopyFromRecordIdentifier(SecKeychainRef keychainRef,
 										CFDataRef recordIdentifier)
 {
 	BEGIN_SECAPI
-		// make a local Keychain reference
-		RequiredParam (keychainRef);
-		Keychain keychain = KeychainImpl::optional (keychainRef);
-		RequiredParam (itemRef);
-		RequiredParam (recordIdentifier);
 
-		Db db(keychain->database());
+	// make a local Keychain reference
+	RequiredParam (keychainRef);
+	Keychain keychain = KeychainImpl::optional (keychainRef);
+	RequiredParam (itemRef);
+	RequiredParam (recordIdentifier);
 
-		// make a raw database call to get the data
-		CSSM_DL_DB_HANDLE dbHandle = db.handle ();
-		CSSM_DB_UNIQUE_RECORD uniqueRecord;
+	Db db(keychain->database());
 
-		// according to source, we should be able to reconsitute the uniqueRecord
-		// from the data we earlier retained
+	// make a raw database call to get the data
+	CSSM_DL_DB_HANDLE dbHandle = db.handle ();
+	CSSM_DB_UNIQUE_RECORD uniqueRecord;
 
-		// prepare the record id
-		memset (&uniqueRecord, 0, sizeof (uniqueRecord));
-		uniqueRecord.RecordIdentifier.Data = (uint8*) CFDataGetBytePtr (recordIdentifier);
-		uniqueRecord.RecordIdentifier.Length = CFDataGetLength (recordIdentifier);
+	// according to source, we should be able to reconsitute the uniqueRecord
+	// from the data we earlier retained
 
-		// convert this unique id to a CSSM_DB_UNIQUE_RECORD that works for the CSP/DL
-		CSSM_DB_UNIQUE_RECORD_PTR outputUniqueRecordPtr;
-		CSSM_RETURN result;
-		result = CSSM_DL_PassThrough (dbHandle, CSSM_APPLECSPDL_DB_CONVERT_RECORD_IDENTIFIER, &uniqueRecord, (void**) &outputUniqueRecordPtr);
-		KCThrowIf_(result != 0, errSecItemNotFound);
+	// prepare the record id
+	memset (&uniqueRecord, 0, sizeof (uniqueRecord));
+	uniqueRecord.RecordIdentifier.Data = (uint8*) CFDataGetBytePtr (recordIdentifier);
+	uniqueRecord.RecordIdentifier.Length = CFDataGetLength (recordIdentifier);
 
-		// from this, get the record type
-		CSSM_DB_RECORD_ATTRIBUTE_DATA attributeData;
-		memset (&attributeData, 0, sizeof (attributeData));
+	// convert this unique id to a CSSM_DB_UNIQUE_RECORD that works for the CSP/DL
+	CSSM_DB_UNIQUE_RECORD_PTR outputUniqueRecordPtr;
+	CSSM_RETURN result;
+	result = CSSM_DL_PassThrough (dbHandle, CSSM_APPLECSPDL_DB_CONVERT_RECORD_IDENTIFIER, &uniqueRecord, (void**) &outputUniqueRecordPtr);
+	KCThrowIf_(result != 0, errSecItemNotFound);
 
-		result = CSSM_DL_DataGetFromUniqueRecordId (dbHandle, outputUniqueRecordPtr, &attributeData, NULL);
-		KCThrowIf_(result != 0, errSecItemNotFound);
-		CSSM_DB_RECORDTYPE recordType = attributeData.DataRecordType;
+	// from this, get the record type
+	CSSM_DB_RECORD_ATTRIBUTE_DATA attributeData;
+	memset (&attributeData, 0, sizeof (attributeData));
 
-		// make the unique record item -- precursor to creation of a SecKeychainItemRef
-		DbUniqueRecord unique(db);
-		CSSM_DB_UNIQUE_RECORD_PTR *uniquePtr = unique;
-		*uniquePtr = outputUniqueRecordPtr;
+	result = CSSM_DL_DataGetFromUniqueRecordId (dbHandle, outputUniqueRecordPtr, &attributeData, NULL);
+	KCThrowIf_(result != 0, errSecItemNotFound);
+	CSSM_DB_RECORDTYPE recordType = attributeData.DataRecordType;
 
-		unique->activate ();
-		Item item = keychain->item (recordType, unique);
-		if (itemRef)
-		{
-			*itemRef = item->handle();
-		}
+	// make the unique record item -- precursor to creation of a SecKeychainItemRef
+	DbUniqueRecord unique(db);
+	CSSM_DB_UNIQUE_RECORD_PTR *uniquePtr = unique;
+	*uniquePtr = outputUniqueRecordPtr;
+
+	unique->activate ();
+	Item item = keychain->item (recordType, unique);
+	if (itemRef)
+	{
+		*itemRef = item->handle();
+	}
+
 	END_SECAPI
 }
 
@@ -851,44 +798,44 @@ OSStatus SecKeychainItemCreateFromEncryptedContent(SecItemClass itemClass,
 		UInt32 length, const void *data, SecKeychainRef keychainRef,
 		SecAccessRef initialAccess, SecKeychainItemRef *itemRef, CFDataRef *localID)
 {
-    BEGIN_SECAPI
-		KCThrowParamErrIf_(length!=0 && data==NULL);
+	BEGIN_SECAPI
 
-		RequiredParam (localID);
-		RequiredParam (keychainRef);
+	KCThrowParamErrIf_(length!=0 && data==NULL);
+	RequiredParam (localID);
+	RequiredParam (keychainRef);
 
-        Item item(itemClass, (uint32) 0, length, data, true);
-		if (initialAccess)
-			item->setAccess(Access::required(initialAccess));
+	Item item(itemClass, (uint32) 0, length, data, true);
+	if (initialAccess)
+		item->setAccess(Access::required(initialAccess));
 
-        Keychain keychain = Keychain::optional(keychainRef);
-		if (!keychain->exists())
+	Keychain keychain = Keychain::optional(keychainRef);
+	if (!keychain->exists())
+	{
+		MacOSError::throwMe(errSecNoSuchKeychain);	// Might be deleted or not available at this time.
+	}
+
+	item->doNotEncrypt ();
+	try
+	{
+		keychain->add(item);
+	}
+	catch (const CommonError &err)
+	{
+		if (err.osStatus () == errSecNoSuchClass)
 		{
-			MacOSError::throwMe(errSecNoSuchKeychain);	// Might be deleted or not available at this time.
-		}
-
-		item->doNotEncrypt ();
-		try
-		{
-			keychain->add(item);
-		}
-		catch (const CommonError &err)
-		{
-			if (err.osStatus () == errSecNoSuchClass)
+			// the only time this should happen is if the item is a certificate (for keychain syncing)
+			if (itemClass == CSSM_DL_DB_RECORD_X509_CERTIFICATE)
 			{
-				// the only time this should happen is if the item is a certificate (for keychain syncing)
-				if (itemClass == CSSM_DL_DB_RECORD_X509_CERTIFICATE)
-				{
-					// create the certificate relation
-					Db db(keychain->database());
+				// create the certificate relation
+				Db db(keychain->database());
 
-					db->createRelation(CSSM_DL_DB_RECORD_X509_CERTIFICATE,
+				db->createRelation(CSSM_DL_DB_RECORD_X509_CERTIFICATE,
 						"CSSM_DL_DB_RECORD_X509_CERTIFICATE",
 						Schema::X509CertificateSchemaAttributeCount,
 						Schema::X509CertificateSchemaAttributeList,
 						Schema::X509CertificateSchemaIndexCount,
 						Schema::X509CertificateSchemaIndexList);
-					keychain->keychainSchema()->didCreateRelation(
+				keychain->keychainSchema()->didCreateRelation(
 						CSSM_DL_DB_RECORD_X509_CERTIFICATE,
 						"CSSM_DL_DB_RECORD_X509_CERTIFICATE",
 						Schema::X509CertificateSchemaAttributeCount,
@@ -896,24 +843,25 @@ OSStatus SecKeychainItemCreateFromEncryptedContent(SecItemClass itemClass,
 						Schema::X509CertificateSchemaIndexCount,
 						Schema::X509CertificateSchemaIndexList);
 
-					// add the item again
-					keychain->add(item);
-				}
-			}
-			else
-			{
-				throw;
+				// add the item again
+				keychain->add(item);
 			}
 		}
+		else
+		{
+			throw;
+		}
+	}
 
-        if (itemRef)
-        	*itemRef = item->handle();
+	if (itemRef)
+		*itemRef = item->handle();
 
-		CSSM_DATA recordID;
-		item->copyRecordIdentifier (recordID);
+	CSSM_DATA recordID;
+	item->copyRecordIdentifier (recordID);
 
-		*localID = CFDataCreate(kCFAllocatorDefault, (UInt8*) recordID.Data, recordID.Length);
-		free (recordID.Data);
+	*localID = CFDataCreate(kCFAllocatorDefault, (UInt8*) recordID.Data, recordID.Length);
+	free (recordID.Data);
+
 	END_SECAPI
 }
 
@@ -921,18 +869,22 @@ OSStatus SecKeychainItemCopyAttributesAndEncryptedData(SecKeychainItemRef itemRe
 													   SecItemClass *itemClass, SecKeychainAttributeList **attrList,
 													   UInt32 *length, void **outData)
 {
-	BEGIN_SECAPI
-		Item item = ItemImpl::required(itemRef);
-		item->doNotEncrypt ();
-		item->getAttributesAndData(info, itemClass, attrList, length, outData);
-	END_SECAPI
+	BEGIN_SECKCITEMAPI
+
+	Item item = ItemImpl::required(__itemImplRef);
+	item->doNotEncrypt ();
+	item->getAttributesAndData(info, itemClass, attrList, length, outData);
+
+	END_SECKCITEMAPI
 }
 
 OSStatus SecKeychainItemModifyEncryptedData(SecKeychainItemRef itemRef, UInt32 length, const void *data)
 {
-    BEGIN_SECAPI
-		Item item = ItemImpl::required(itemRef);
-		item->doNotEncrypt ();
-		item->modifyAttributesAndData(NULL, length, data);
-	END_SECAPI
+	BEGIN_SECKCITEMAPI
+
+	Item item = ItemImpl::required(__itemImplRef);
+	item->doNotEncrypt ();
+	item->modifyAttributesAndData(NULL, length, data);
+
+	END_SECKCITEMAPI
 }

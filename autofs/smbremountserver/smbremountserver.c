@@ -68,8 +68,9 @@ main()
 		return 2;
 	}
 
-	if (byte_count == 0) {
-		fprintf(stderr, "smbremountserver: byte count is 0\n");
+	/* SMBRemountServer is expecting 8 byte fsid_t structure, sanity check the value */
+	if (byte_count == 0 || byte_count > 8) {
+		fprintf(stderr, "smbremountserver: expected 8 as byte_count, got %u.\n", byte_count);
 		return 2;
 	}
 

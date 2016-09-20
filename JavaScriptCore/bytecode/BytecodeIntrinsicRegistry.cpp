@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 Yusuke Suzuki <utatane.tea@gmail.com>.
+ * Copyright (C) 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,29 +27,67 @@
 #include "config.h"
 #include "BytecodeIntrinsicRegistry.h"
 
-#include "CommonIdentifiers.h"
+#include "ArrayIteratorPrototype.h"
+#include "BuiltinNames.h"
+#include "BytecodeGenerator.h"
+#include "JSCJSValueInlines.h"
+#include "JSGeneratorFunction.h"
+#include "JSPromise.h"
+#include "ModuleLoaderObject.h"
 #include "Nodes.h"
+#include "StrongInlines.h"
 
 namespace JSC {
 
-#define INITIALISE_BYTECODE_INTRINSIC_NAMES_TO_SET(name) m_bytecodeIntrinsicMap.add(propertyNames.name##PrivateName.impl(), &BytecodeIntrinsicNode::emit_intrinsic_##name);
+#define INITIALIZE_BYTECODE_INTRINSIC_NAMES_TO_SET(name) m_bytecodeIntrinsicMap.add(vm.propertyNames->builtinNames().name##PrivateName().impl(), &BytecodeIntrinsicNode::emit_intrinsic_##name);
 
-BytecodeIntrinsicRegistry::BytecodeIntrinsicRegistry(const CommonIdentifiers& propertyNames)
-    : m_propertyNames(propertyNames)
+BytecodeIntrinsicRegistry::BytecodeIntrinsicRegistry(VM& vm)
+    : m_vm(vm)
     , m_bytecodeIntrinsicMap()
 {
-    JSC_COMMON_BYTECODE_INTRINSICS_EACH_NAME(INITIALISE_BYTECODE_INTRINSIC_NAMES_TO_SET)
+    JSC_COMMON_BYTECODE_INTRINSIC_FUNCTIONS_EACH_NAME(INITIALIZE_BYTECODE_INTRINSIC_NAMES_TO_SET)
+    JSC_COMMON_BYTECODE_INTRINSIC_CONSTANTS_EACH_NAME(INITIALIZE_BYTECODE_INTRINSIC_NAMES_TO_SET)
+
+    m_undefined.set(m_vm, jsUndefined());
+    m_Infinity.set(m_vm, jsDoubleNumber(std::numeric_limits<double>::infinity()));
+    m_arrayIterationKindKey.set(m_vm, jsNumber(ArrayIterateKey));
+    m_arrayIterationKindValue.set(m_vm, jsNumber(ArrayIterateValue));
+    m_arrayIterationKindKeyValue.set(m_vm, jsNumber(ArrayIterateKeyValue));
+    m_MAX_STRING_LENGTH.set(m_vm, jsNumber(JSString::MaxLength));
+    m_MAX_SAFE_INTEGER.set(m_vm, jsDoubleNumber(maxSafeInteger()));
+    m_ModuleFetch.set(m_vm, jsNumber(static_cast<unsigned>(ModuleLoaderObject::Status::Fetch)));
+    m_ModuleTranslate.set(m_vm, jsNumber(static_cast<unsigned>(ModuleLoaderObject::Status::Translate)));
+    m_ModuleInstantiate.set(m_vm, jsNumber(static_cast<unsigned>(ModuleLoaderObject::Status::Instantiate)));
+    m_ModuleResolveDependencies.set(m_vm, jsNumber(static_cast<unsigned>(ModuleLoaderObject::Status::ResolveDependencies)));
+    m_ModuleLink.set(m_vm, jsNumber(static_cast<unsigned>(ModuleLoaderObject::Status::Link)));
+    m_ModuleReady.set(m_vm, jsNumber(static_cast<unsigned>(ModuleLoaderObject::Status::Ready)));
+    m_promiseStatePending.set(m_vm, jsNumber(static_cast<unsigned>(JSPromise::Status::Pending)));
+    m_promiseStateFulfilled.set(m_vm, jsNumber(static_cast<unsigned>(JSPromise::Status::Fulfilled)));
+    m_promiseStateRejected.set(m_vm, jsNumber(static_cast<unsigned>(JSPromise::Status::Rejected)));
+    m_GeneratorResumeModeNormal.set(m_vm, jsNumber(static_cast<int32_t>(JSGeneratorFunction::GeneratorResumeMode::NormalMode)));
+    m_GeneratorResumeModeThrow.set(m_vm, jsNumber(static_cast<int32_t>(JSGeneratorFunction::GeneratorResumeMode::ThrowMode)));
+    m_GeneratorResumeModeReturn.set(m_vm, jsNumber(static_cast<int32_t>(JSGeneratorFunction::GeneratorResumeMode::ReturnMode)));
+    m_GeneratorStateCompleted.set(m_vm, jsNumber(static_cast<int32_t>(JSGeneratorFunction::GeneratorState::Completed)));
+    m_GeneratorStateExecuting.set(m_vm, jsNumber(static_cast<int32_t>(JSGeneratorFunction::GeneratorState::Executing)));
 }
 
 BytecodeIntrinsicNode::EmitterType BytecodeIntrinsicRegistry::lookup(const Identifier& ident) const
 {
-    if (!m_propertyNames.isPrivateName(ident))
+    if (!m_vm.propertyNames->isPrivateName(ident))
         return nullptr;
     auto iterator = m_bytecodeIntrinsicMap.find(ident.impl());
     if (iterator == m_bytecodeIntrinsicMap.end())
         return nullptr;
     return iterator->value;
 }
+
+#define JSC_DECLARE_BYTECODE_INTRINSIC_CONSTANT_GENERATORS(name) \
+    JSValue BytecodeIntrinsicRegistry::name##Value(BytecodeGenerator&) \
+    { \
+        return m_##name.get(); \
+    }
+    JSC_COMMON_BYTECODE_INTRINSIC_CONSTANTS_EACH_NAME(JSC_DECLARE_BYTECODE_INTRINSIC_CONSTANT_GENERATORS)
+#undef JSC_DECLARE_BYTECODE_INTRINSIC_CONSTANT_GENERATORS
 
 } // namespace JSC
 

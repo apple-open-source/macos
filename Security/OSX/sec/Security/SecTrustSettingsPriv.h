@@ -65,7 +65,8 @@ extern "C" {
  * A usageConstraints dictionary is like so (all elements are optional). These key 
  * strings are defined in SecUserTrust.h.
  *
- * key = kSecTrustSettingsPolicy		value = policy OID as CFData
+ * key = kSecTrustSettingsPolicy		value = policy OID as CFString
+ * key = kSecTrustSettingsPolicyName    value = policy name as CFString
  * key = kSecTrustSettingsApplication	value = application path as CFString
  * key = kSecTrustSettingsPolicyString	value = CFString, policy-specific
  * key = kSecTrustSettingsAllowedError	value = CFNumber, an SInt32 CSSM_RETURN 
@@ -213,6 +214,25 @@ OSStatus SecTrustSettingsSetTrustSettingsExternal(
 	SecCertificateRef	certRef,					/* optional */
 	CFTypeRef			trustSettingsDictOrArray,	/* optional */
 	CFDataRef			*settingsOut);				/* RETURNED */
+
+#if (SECTRUST_OSX && !TARGET_OS_IPHONE)
+/*
+ * A wrapper around SecTrustSettingsCopyCertificates that combines user and admin
+ * domain outputs.
+ */
+OSStatus SecTrustSettingsCopyCertificatesForUserAdminDomains(
+    CFArrayRef CF_RETURNS_RETAINED *certArray);
+
+/*
+ * Obtain Trust Settings for specified cert.
+ * Caller must CFRelease() the returned CFArray.
+ * Returns errSecItemNotFound if no Trust settings exist for the cert.
+ */
+OSStatus SecTrustSettingsCopyTrustSettings(
+    SecCertificateRef		certRef,
+    SecTrustSettingsDomain	domain,
+    CFArrayRef * CF_RETURNS_RETAINED trustSettings);	/* RETURNED */
+#endif
 
 #ifdef __cplusplus
 }

@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 1999-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*-
@@ -135,7 +135,7 @@ main(int argc, char *argv[])
 	CFStringRef username = NULL;
 	CFStringRef authname = NULL;
 	CFStringRef location = NULL;
-	
+
 	progname = strrchr(argv[0], '/');
 	if (progname) progname++;
 	else progname = argv[0];
@@ -241,7 +241,7 @@ main(int argc, char *argv[])
 	} else if (strcmp(progname, "chpass") == 0) {
 		cfprintf(stderr, "Changing account information for %@.\n", username);
 	}
-	
+
 	/*
 	 * odGetUser updates DSPath global variable, performs authentication
 	 * if necessary, and extracts the attributes.
@@ -249,7 +249,7 @@ main(int argc, char *argv[])
 	CFDictionaryRef attrs_orig = NULL;
 	CFDictionaryRef attrs = NULL;
 	ODRecordRef rec = odGetUser(location, authname, username, &attrs_orig);
-	
+
 	if (!rec || !attrs_orig) exit(1);
 #endif /* OPEN_DIRECTORY */
 
@@ -273,9 +273,9 @@ main(int argc, char *argv[])
 #ifdef OPEN_DIRECTORY
 		else {
 			ENTRY* ep;
-			
+
 			setrestricted(attrs_orig);
-			
+
 			for (ep = list; ep->prompt; ep++) {
 				if (strncasecmp(ep->prompt, "shell", ep->len) == 0) {
 					if (!ep->restricted) {
@@ -356,11 +356,11 @@ main(int argc, char *argv[])
 		pw_fini();
 		if (pw == NULL)
 			err(1, "edit()");
-		/* 
+		/*
 		 * pw_equal does not check for crypted passwords, so we
 		 * should do it explicitly
 		 */
-		if (pw_equal(old_pw, pw) && 
+		if (pw_equal(old_pw, pw) &&
 		    strcmp(old_pw->pw_passwd, pw->pw_passwd) == 0)
 			errx(0, "user information unchanged");
 #endif /* OPEN_DIRECTORY */
@@ -379,7 +379,7 @@ main(int argc, char *argv[])
 
 #ifdef OPEN_DIRECTORY
 	odUpdateUser(rec, attrs_orig, attrs);
-	
+
 	if (rec) CFRelease(rec);
 
 	exit(0);
@@ -434,14 +434,12 @@ main(int argc, char *argv[])
 static void
 baduser(void)
 {
-
 	errx(1, "%s", strerror(EACCES));
 }
 
 static void
 usage(void)
 {
-
 	(void)fprintf(stderr,
 	    "usage: chpass%s %s [user]\n",
 #ifdef OPEN_DIRECTORY

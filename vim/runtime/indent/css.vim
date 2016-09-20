@@ -1,7 +1,7 @@
 " Vim indent file
 " Language:	    CSS
 " Maintainer:	    Nikolai Weibull <now@bitwi.se>
-" Latest Revision:  2006-12-20
+" Latest Revision:  2012-05-30
 
 if exists("b:did_indent")
   finish
@@ -12,9 +12,13 @@ setlocal indentexpr=GetCSSIndent()
 setlocal indentkeys=0{,0},!^F,o,O
 setlocal nosmartindent
 
+let b:undo_indent = "setl smartindent< indentkeys< indentexpr<"
+
 if exists("*GetCSSIndent")
   finish
 endif
+let s:keepcpo= &cpo
+set cpo&vim
 
 function s:prevnonblanknoncomment(lnum)
   let lnum = a:lnum
@@ -64,8 +68,6 @@ function GetCSSIndent()
   let line = getline(v:lnum)
   if line =~ '^\s*\*'
     return cindent(v:lnum)
-  elseif line =~ '^\s*}'
-    return indent(v:lnum) - &sw
   endif
 
   let pnum = s:prevnonblanknoncomment(v:lnum - 1)
@@ -73,12 +75,9 @@ function GetCSSIndent()
     return 0
   endif
 
-  let ind = indent(pnum) + s:count_braces(pnum, 1) * &sw
-
-  let pline = getline(pnum)
-  if pline =~ '}\s*$'
-    let ind -= (s:count_braces(pnum, 0) - (pline =~ '^\s*}' ? 1 : 0)) * &sw
-  endif
-
-  return ind
+  return indent(pnum) + s:count_braces(pnum, 1) * &sw
+        \ - s:count_braces(v:lnum, 0) * &sw
 endfunction
+
+let &cpo = s:keepcpo
+unlet s:keepcpo

@@ -179,7 +179,16 @@ EXTRA_DIST =	\
 	bug-178.xml \
 	bug-179.xml \
 	bug-180.xml \
+	bug-181.xml \
+	bug-182.xml \
+	bug-183.xml \
+	bug-184.xml \
+	bug-185-data.xml \
+	bug-185.xml \
+	bug-186.xml \
+	bug-187.xml \
 	character.xml \
+	date_add.xml \
 	array.xml \
 	items.xml
 

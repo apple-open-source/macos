@@ -671,8 +671,8 @@ extern int dtrace_provider_modules(dtrace_hdl_t *, const char **, int);
 extern const char *const _dtrace_version;
 extern int _dtrace_debug;
 #if defined(__APPLE__)
-extern int _dtrace_scanalzyer;
 extern int _dtrace_mangled;
+extern int _dtrace_disallow_dsym;
 #endif /* __APPLE__ */
 	
 #ifdef	__cplusplus

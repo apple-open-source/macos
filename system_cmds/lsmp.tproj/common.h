@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-20014 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -37,7 +37,6 @@ struct prog_configs {
     boolean_t verbose;
     int       voucher_detail_length;
     pid_t     pid; /* if user focusing only one pid */
-    
 };
 
 extern struct prog_configs lsmp_config;
@@ -59,6 +58,18 @@ struct my_per_thread_info {
     char * voucher_detail;
 };
 
+/* kobject to name hash table declarations */
+#define K2N_TABLE_SIZE	256
+
+struct k2n_table_node {
+    natural_t kobject; /* kobject referred to by the name -- the key into the table */
+    ipc_info_name_t *info_name; /* info about the name that refers to the key kobject -- value of the table */
+    struct k2n_table_node *next;
+};
+
+struct k2n_table_node *k2n_table_lookup_next(struct k2n_table_node *node, natural_t kobject);
+struct k2n_table_node *k2n_table_lookup(struct k2n_table_node **table, natural_t kobject);
+
 /* private structure to wrap up per-task info */
 typedef struct my_per_task_info {
     task_t task;
@@ -70,6 +81,7 @@ typedef struct my_per_task_info {
     ipc_info_tree_name_array_t tree;
     mach_msg_type_number_t treeCount;
     boolean_t valid; /* TRUE if all data is accurately collected */
+    struct k2n_table_node *k2ntable[K2N_TABLE_SIZE];
     char processName[PROC_NAME_LEN];
     struct exc_port_info exceptionInfo;
     struct my_per_thread_info * threadInfos; /* dynamically allocated in collect_per_task_info */
@@ -133,7 +145,7 @@ typedef struct my_per_task_info {
   (flags & MACH_PORT_STATUS_FLAG_TASKPTR)		?"P":"-"
 
 
-void show_recipe_detail(mach_voucher_attr_recipe_t recipe, char * voucher_outstr, uint32_t maxlen);
+uint32_t show_recipe_detail(mach_voucher_attr_recipe_t recipe, char * voucher_outstr, uint32_t maxlen);
 char *copy_voucher_detail(mach_port_t task, mach_port_name_t voucher);
 
 /* mach port related functions */
@@ -156,6 +168,6 @@ kern_return_t get_taskinfo_of_receiver_by_send_right(ipc_info_name_t *sendright,
 kern_return_t get_ipc_info_from_lsmp_spaceinfo(mach_port_t port_name, ipc_info_name_t *out_sendright);
 
 /* basic util functions */
-void print_hex_data(char *outstr, size_t maxlen, char *prefix, char *desc, void *addr, int len);
+uint32_t print_hex_data(char *outstr, size_t maxlen, char *prefix, char *desc, void *addr, int len);
 
 #endif

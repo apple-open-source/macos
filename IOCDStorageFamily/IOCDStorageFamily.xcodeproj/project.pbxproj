@@ -316,7 +316,7 @@
 					"-fprofile-instr-generate",
 					"-fcoverage-mapping",
 				);
-				OTHER_LDFLAGS = "-fprofile-instr-generate";
+				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = IOCDStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
@@ -345,7 +345,7 @@
 					"-fprofile-instr-generate",
 					"-fcoverage-mapping",
 				);
-				OTHER_LDFLAGS = "-fprofile-instr-generate";
+				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = IOCDStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;

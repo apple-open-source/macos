@@ -1,0 +1,14 @@
+SAX.setDocumentLocator()
+SAX.startDocument()
+SAX.internalSubset(html, -//W3C//DTD XHTML 1.0 Transitional//EN, http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd)
+SAX.startElement(html, lang='ja', xml:lang='ja', xmlns='http://www.w3.org/1999/xhtml')
+SAX.ignorableWhitespace(
+, 1)
+SAX.startElement(head)
+SAX.ignorableWhitespace(
+, 1)
+SAX.error: switching encoding: encoder error
+SAX.startElement(meta, http-equiv='content-type', content='text/html; charset=Shift_JIS')
+SAX.endElement(head)
+SAX.endElement(html)
+SAX.endDocument()

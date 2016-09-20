@@ -26,8 +26,6 @@
 #ifndef JSPromisePrototype_h
 #define JSPromisePrototype_h
 
-#if ENABLE(PROMISES)
-
 #include "JSObject.h"
 
 namespace JSC {
@@ -35,23 +33,21 @@ namespace JSC {
 class JSPromisePrototype : public JSNonFinalObject {
 public:
     typedef JSNonFinalObject Base;
-    static const unsigned StructureFlags = Base::StructureFlags | OverridesGetOwnPropertySlot;
+    static const unsigned StructureFlags = Base::StructureFlags | HasStaticPropertyTable;
 
-    static JSPromisePrototype* create(ExecState*, JSGlobalObject*, Structure*);
+    static JSPromisePrototype* create(VM&, JSGlobalObject*, Structure*);
     static Structure* createStructure(VM&, JSGlobalObject*, JSValue);
 
     DECLARE_INFO;
 
 protected:
     void finishCreation(VM&, Structure*);
+    JSPromisePrototype(VM&, Structure*);
 
 private:
-    JSPromisePrototype(ExecState*, Structure*);
-    static bool getOwnPropertySlot(JSObject*, ExecState*, PropertyName, PropertySlot&);
+    void addOwnInternalSlots(VM&, JSGlobalObject*);
 };
 
 } // namespace JSC
-
-#endif // ENABLE(PROMISES)
 
 #endif // JSPromisePrototype_h

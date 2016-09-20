@@ -119,7 +119,7 @@ int sectask_10_sectask_self(int argc, char *const *argv)
     SecTaskRef task=NULL;
     CFStringRef appId=NULL;
     CFStringRef signingIdentifier=NULL;
-    plan_tests(6);
+    plan_tests(7);
 
     ok(task=SecTaskCreateFromSelf(kCFAllocatorDefault), "SecTaskCreateFromSelf");
     require(task, out);
@@ -139,12 +139,15 @@ SKIP: {
 
     pid_t pid = getpid();
     CFStringRef name = copyProcName(pid);
-    CFStringRef expected = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%@[%d]"), name, pid);
+    CFStringRef pidstr = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("[%d]"), pid);
     CFStringRef desc = CFCopyDescription(task);
-    ok(CFEqual(desc, expected), "task-description expected: %@ got: %@", expected,  desc);
+
+    ok(CFStringFind(desc, name, 0).location != kCFNotFound, "didn't find name: %@ vs %@", desc, name);
+    ok(CFStringFind(desc, pidstr, 0).location != kCFNotFound, "didn't find pidstr: %@ vs %@", desc, pidstr);
+
     CFReleaseSafe(name);
     CFReleaseSafe(desc);
-    CFReleaseSafe(expected);
+    CFReleaseSafe(pidstr);
 
 out:
     CFReleaseSafe(task);
@@ -181,13 +184,15 @@ SKIP: {
 
     pid_t pid = getpid();
     CFStringRef name = copyProcName(pid);
-    CFStringRef expected = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%@[%d]"), name, pid);
+    CFStringRef pidstr = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("[%d]"), pid);
     CFStringRef desc = CFCopyDescription(task);
-    ok(CFEqual(desc, expected), "task-description expected: %@ got: %@", expected,  desc);
+
+    ok(CFStringFind(desc, name, 0).location != kCFNotFound, "didn't find name: %@ vs %@", desc, name);
+    ok(CFStringFind(desc, pidstr, 0).location != kCFNotFound, "didn't find pidstr: %@ vs %@", desc, pidstr);
 
     CFReleaseSafe(name);
     CFReleaseSafe(desc);
-    CFReleaseSafe(expected);
+    CFReleaseSafe(pidstr);
 
 out:
     CFReleaseSafe(task);

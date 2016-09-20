@@ -356,14 +356,14 @@ libxslt_xsltRegisterExtModuleElement(PyObject *self ATTRIBUTE_UNUSED,
     PyObject *pyobj_element_f;
     PyObject *pyobj_precomp_f;
 
-#ifdef DEBUG_EXTENSIONS
-    printf("libxslt_xsltRegisterExtModuleElement called\n",
-	   name, ns_uri);
-#endif
-
     if (!PyArg_ParseTuple(args, (char *)"szOO:registerExtModuleElement",
 		          &name, &ns_uri, &pyobj_precomp_f, &pyobj_element_f))
         return(NULL);
+
+#ifdef DEBUG_EXTENSIONS
+    printf("libxslt_xsltRegisterExtModuleElement called: %s %s\n",
+	   name, ns_uri);
+#endif
 
     if ((name == NULL) || (pyobj_element_f == NULL) || (pyobj_precomp_f == NULL)) {
 	py_retval = libxml_intWrap(-1);

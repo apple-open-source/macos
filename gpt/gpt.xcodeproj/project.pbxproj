@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 45;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -57,6 +57,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		07A2B5A61BC5C660000CBA1F /* gpt.ios.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = gpt.ios.entitlements; sourceTree = "<group>"; };
 		6003DADF071F234300B23FF4 /* gpt */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = gpt; sourceTree = BUILT_PRODUCTS_DIR; };
 		603F5D42071F0F5F00F87582 /* remove.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = remove.c; sourceTree = "<group>"; };
 		6086946205D071D70071FCB4 /* add.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = add.c; sourceTree = "<group>"; };
@@ -124,6 +125,7 @@
 		C6A0FF2B0290797F04C91782 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				07A2B5A61BC5C660000CBA1F /* gpt.ios.entitlements */,
 				60B3D1300B5E9BCF00CC8B37 /* gpt.plist */,
 				60B3D1310B5E9BCF00CC8B37 /* gpt.txt */,
 				6086948205D0722F0071FCB4 /* gpt.8 */,
@@ -173,9 +175,15 @@
 /* Begin PBXProject section */
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = 60E856F20B5D518E00817AFD /* Build configuration list for PBXProject "gpt" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 08FB7794FE84155DC02AAC07 /* gpt */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -218,6 +226,8 @@
 		60E856EF0B5D518E00817AFD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = gpt.ios.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -231,6 +241,8 @@
 		60E856F00B5D518E00817AFD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = gpt.ios.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
 				GCC_PREPROCESSOR_DEFINITIONS = "__FBSDID=__RCSID";
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = gpt;

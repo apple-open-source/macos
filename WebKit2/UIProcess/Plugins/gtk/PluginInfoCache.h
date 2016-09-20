@@ -29,9 +29,8 @@
 #if ENABLE(NETSCAPE_PLUGIN_API)
 
 #include "PluginModuleInfo.h"
-#include <mutex>
 #include <wtf/NeverDestroyed.h>
-#include <wtf/glib/GMainLoopSource.h>
+#include <wtf/RunLoop.h>
 #include <wtf/glib/GUniquePtr.h>
 
 namespace WebKit {
@@ -53,9 +52,8 @@ private:
 
     GUniquePtr<GKeyFile> m_cacheFile;
     GUniquePtr<char> m_cachePath;
-    GMainLoopSource m_saveToFileIdle;
+    RunLoop::Timer<PluginInfoCache> m_saveToFileIdle;
     bool m_readOnlyMode;
-    std::mutex m_mutex;
 };
 
 } // namespace WebKit

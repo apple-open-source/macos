@@ -25,20 +25,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef HTMLCanvasElement_h
-#define HTMLCanvasElement_h
+#pragma once
 
 #include "FloatRect.h"
 #include "HTMLElement.h"
 #include "IntSize.h"
 #include <memory>
 #include <wtf/Forward.h>
-
-#if USE(CG)
-#define DefaultInterpolationQuality InterpolationLow
-#else
-#define DefaultInterpolationQuality InterpolationDefault
-#endif
 
 namespace WebCore {
 
@@ -48,9 +41,12 @@ class GraphicsContext;
 class GraphicsContextStateSaver;
 class HTMLCanvasElement;
 class Image;
-class ImageData;
 class ImageBuffer;
-class IntSize;
+class ImageData;
+
+namespace DisplayList {
+typedef unsigned AsTextFlags;
+}
 
 class CanvasObserver {
 public:
@@ -70,14 +66,13 @@ public:
     void addObserver(CanvasObserver&);
     void removeObserver(CanvasObserver&);
 
-    // Attributes and functions exposed to script
-    int width() const { return size().width(); }
-    int height() const { return size().height(); }
+    unsigned width() const { return size().width(); }
+    unsigned height() const { return size().height(); }
 
     const IntSize& size() const { return m_size; }
 
-    void setWidth(int);
-    void setHeight(int);
+    void setWidth(unsigned);
+    void setHeight(unsigned);
 
     void setSize(const IntSize& newSize)
     { 
@@ -90,8 +85,8 @@ public:
         reset();
     }
 
-    CanvasRenderingContext* getContext(const String&, CanvasContextAttributes* attributes = 0);
-    bool probablySupportsContext(const String&, CanvasContextAttributes* = 0);
+    CanvasRenderingContext* getContext(const String&, CanvasContextAttributes* = nullptr);
+    bool probablySupportsContext(const String&, CanvasContextAttributes* = nullptr);
     static bool is2dType(const String&);
 #if ENABLE(WEBGL)
     static bool is3dType(const String&);
@@ -99,13 +94,13 @@ public:
 
     static String toEncodingMimeType(const String& mimeType);
     String toDataURL(const String& mimeType, const double* quality, ExceptionCode&);
-    String toDataURL(const String& mimeType, ExceptionCode& ec) { return toDataURL(mimeType, 0, ec); }
+    String toDataURL(const String& mimeType, ExceptionCode& ec) { return toDataURL(mimeType, nullptr, ec); }
 
     // Used for rendering
     void didDraw(const FloatRect&);
     void notifyObserversCanvasChanged(const FloatRect&);
 
-    void paint(GraphicsContext*, const LayoutRect&, bool useLowQualityScale = false);
+    void paint(GraphicsContext&, const LayoutRect&);
 
     GraphicsContext* drawingContext() const;
     GraphicsContext* existingDrawingContext() const;
@@ -135,16 +130,22 @@ public:
 
     bool shouldAccelerate(const IntSize&) const;
 
+    WEBCORE_EXPORT void setUsesDisplayListDrawing(bool);
+    WEBCORE_EXPORT void setTracksDisplayListReplay(bool);
+    WEBCORE_EXPORT String displayListAsText(DisplayList::AsTextFlags) const;
+    WEBCORE_EXPORT String replayDisplayListAsText(DisplayList::AsTextFlags) const;
+
     size_t memoryCost() const;
+    size_t externalMemoryCost() const;
 
 private:
     HTMLCanvasElement(const QualifiedName&, Document&);
 
-    virtual void parseAttribute(const QualifiedName&, const AtomicString&) override;
-    virtual RenderPtr<RenderElement> createElementRenderer(Ref<RenderStyle>&&, const RenderTreePosition&) override;
+    void parseAttribute(const QualifiedName&, const AtomicString&) final;
+    RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) final;
 
-    virtual bool canContainRangeEndPoint() const override;
-    virtual bool canStartSelection() const override;
+    bool canContainRangeEndPoint() const final;
+    bool canStartSelection() const final;
 
     void reset();
 
@@ -162,21 +163,20 @@ private:
 #endif
 
     HashSet<CanvasObserver*> m_observers;
-
-    IntSize m_size;
-
     std::unique_ptr<CanvasRenderingContext> m_context;
 
-    bool m_rendererIsCanvas;
-
-    bool m_ignoreReset;
     FloatRect m_dirtyRect;
+    IntSize m_size;
 
-    bool m_originClean;
+    bool m_originClean { true };
+    bool m_ignoreReset { false };
+
+    bool m_usesDisplayListDrawing { false };
+    bool m_tracksDisplayListReplay { false };
 
     // m_createdImageBuffer means we tried to malloc the buffer.  We didn't necessarily get it.
-    mutable bool m_hasCreatedImageBuffer;
-    mutable bool m_didClearImageBuffer;
+    mutable bool m_hasCreatedImageBuffer { false };
+    mutable bool m_didClearImageBuffer { false };
     mutable std::unique_ptr<ImageBuffer> m_imageBuffer;
     mutable std::unique_ptr<GraphicsContextStateSaver> m_contextStateSaver;
     
@@ -184,6 +184,4 @@ private:
     mutable RefPtr<Image> m_copiedImage; // FIXME: This is temporary for platforms that have to copy the image buffer to render (and for CSSCanvasValue).
 };
 
-} //namespace
-
-#endif
+} // namespace WebCore

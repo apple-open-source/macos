@@ -45,7 +45,7 @@ public:
 
     RenderEmbeddedObject* renderEmbeddedObject() const;
 
-    virtual void setDisplayState(DisplayState) override;
+    void setDisplayState(DisplayState) override;
 
     virtual void updateWidget(PluginCreationOption) = 0;
 
@@ -60,8 +60,6 @@ public:
             mimeType = mimeTypeFromURL(m_loadedUrl);
         return mimeType;
     }
-
-    bool shouldPreferPlugInsForImages() const { return m_shouldPreferPlugInsForImages; }
 
     // Public for FrameView::addWidgetToUpdate()
     bool needsWidgetUpdate() const { return m_needsWidgetUpdate; }
@@ -93,11 +91,10 @@ public:
     SnapshotDecision snapshotDecision() const { return m_snapshotDecision; }
 
 protected:
-    enum PreferPlugInsForImagesOption { ShouldPreferPlugInsForImages, ShouldNotPreferPlugInsForImages };
-    HTMLPlugInImageElement(const QualifiedName& tagName, Document&, bool createdByParser, PreferPlugInsForImagesOption);
+    HTMLPlugInImageElement(const QualifiedName& tagName, Document&, bool createdByParser);
 
-    virtual void didMoveToNewDocument(Document* oldDocument) override;
-    virtual bool requestObject(const String& url, const String& mimeType, const Vector<String>& paramNames, const Vector<String>& paramValues) override final;
+    void didMoveToNewDocument(Document* oldDocument) override;
+    bool requestObject(const String& url, const String& mimeType, const Vector<String>& paramNames, const Vector<String>& paramValues) final;
 
     bool isImageType();
     HTMLImageLoader* imageLoader() { return m_imageLoader.get(); }
@@ -111,25 +108,25 @@ protected:
     std::unique_ptr<HTMLImageLoader> m_imageLoader;
 
 private:
-    virtual bool isPlugInImageElement() const override final { return true; }
-    virtual bool isRestartedPlugin() const override final { return m_isRestartedPlugin; }
+    bool isPlugInImageElement() const final { return true; }
+    bool isRestartedPlugin() const final { return m_isRestartedPlugin; }
 
-    virtual void finishParsingChildren() override final;
-    virtual void didAddUserAgentShadowRoot(ShadowRoot*) override final;
+    void finishParsingChildren() final;
+    void didAddUserAgentShadowRoot(ShadowRoot*) final;
 
-    virtual RenderPtr<RenderElement> createElementRenderer(Ref<RenderStyle>&&, const RenderTreePosition&) override;
-    virtual bool childShouldCreateRenderer(const Node&) const override;
-    virtual bool willRecalcStyle(Style::Change) override final;
-    virtual void didAttachRenderers() override final;
-    virtual void willDetachRenderers() override final;
+    RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) override;
+    bool childShouldCreateRenderer(const Node&) const override;
+    bool willRecalcStyle(Style::Change) final;
+    void didAttachRenderers() final;
+    void willDetachRenderers() final;
 
-    virtual void documentWillSuspendForPageCache() override final;
-    virtual void documentDidResumeFromPageCache() override final;
+    void prepareForDocumentSuspension() final;
+    void resumeFromDocumentSuspension() final;
 
-    virtual void defaultEventHandler(Event*) override final;
-    virtual void dispatchPendingMouseClick() override final;
+    void defaultEventHandler(Event*) final;
+    void dispatchPendingMouseClick() final;
 
-    virtual void updateSnapshot(PassRefPtr<Image>) override final;
+    void updateSnapshot(PassRefPtr<Image>) final;
 
     void startLoadingImage();
     void updateWidgetIfNecessary();
@@ -142,7 +139,6 @@ private:
 
     URL m_loadedUrl;
     bool m_needsWidgetUpdate;
-    bool m_shouldPreferPlugInsForImages;
     bool m_needsDocumentActivationCallbacks;
     RefPtr<MouseEvent> m_pendingClickEventFromSnapshot;
     DeferrableOneShotTimer m_simulatedMouseClickTimer;

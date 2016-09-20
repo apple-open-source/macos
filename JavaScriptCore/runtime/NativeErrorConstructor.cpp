@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2003, 2008 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003, 2008, 2016 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -43,7 +43,7 @@ void NativeErrorConstructor::finishCreation(VM& vm, JSGlobalObject* globalObject
     Base::finishCreation(vm, name);
     ASSERT(inherits(info()));
     
-    NativeErrorPrototype* prototype = NativeErrorPrototype::create(vm, globalObject, prototypeStructure, name, this);
+    NativeErrorPrototype* prototype = NativeErrorPrototype::create(vm, prototypeStructure, name, this);
     
     putDirect(vm, vm.propertyNames->length, jsNumber(1), DontDelete | ReadOnly | DontEnum); // ECMA 15.11.7.5
     putDirect(vm, vm.propertyNames->prototype, prototype, DontDelete | ReadOnly | DontEnum);
@@ -63,7 +63,9 @@ void NativeErrorConstructor::visitChildren(JSCell* cell, SlotVisitor& visitor)
 EncodedJSValue JSC_HOST_CALL Interpreter::constructWithNativeErrorConstructor(ExecState* exec)
 {
     JSValue message = exec->argument(0);
-    Structure* errorStructure = static_cast<NativeErrorConstructor*>(exec->callee())->errorStructure();
+    Structure* errorStructure = InternalFunction::createSubclassStructure(exec, exec->newTarget(), jsCast<NativeErrorConstructor*>(exec->callee())->errorStructure());
+    if (exec->hadException())
+        return JSValue::encode(JSValue());
     ASSERT(errorStructure);
     return JSValue::encode(ErrorInstance::create(exec, errorStructure, message, nullptr, TypeNothing, false));
 }
@@ -71,7 +73,7 @@ EncodedJSValue JSC_HOST_CALL Interpreter::constructWithNativeErrorConstructor(Ex
 ConstructType NativeErrorConstructor::getConstructData(JSCell*, ConstructData& constructData)
 {
     constructData.native.function = Interpreter::constructWithNativeErrorConstructor;
-    return ConstructTypeHost;
+    return ConstructType::Host;
 }
     
 EncodedJSValue JSC_HOST_CALL Interpreter::callNativeErrorConstructor(ExecState* exec)
@@ -84,7 +86,7 @@ EncodedJSValue JSC_HOST_CALL Interpreter::callNativeErrorConstructor(ExecState* 
 CallType NativeErrorConstructor::getCallData(JSCell*, CallData& callData)
 {
     callData.native.function = Interpreter::callNativeErrorConstructor;
-    return CallTypeHost;
+    return CallType::Host;
 }
 
 } // namespace JSC

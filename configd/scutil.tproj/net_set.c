@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2005, 2009-2011, 2013, 2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2004, 2005, 2009-2011, 2013-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -533,6 +533,10 @@ set_set(int argc, char **argv)
 			}
 		} else {
 			SCPrint(TRUE, stdout, CFSTR("set what?\n"));
+		}
+
+		if (net_set == NULL) {
+			break;
 		}
 	}
 

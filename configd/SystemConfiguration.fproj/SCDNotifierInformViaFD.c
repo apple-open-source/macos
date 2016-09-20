@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2008-2011, 2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2008-2011, 2013, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -31,11 +31,6 @@
  * - initial revision
  */
 
-#include <mach/mach.h>
-#include <mach/mach_error.h>
-
-#include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCPrivate.h>
 #include "SCDynamicStoreInternal.h"
 #include "config.h"		/* MiG generated file */
 
@@ -50,12 +45,13 @@ SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store,
 				    int32_t		identifier,
 				    int			*fd)
 {
-	int				fildes[2]	= { -1, -1 };
-	fileport_t			fileport	= MACH_PORT_NULL;
-	int				ret;
-	int				sc_status;
-	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
-	kern_return_t			status;
+	struct os_activity_scope_state_s	activity_state;
+	int					fildes[2]	= { -1, -1 };
+	fileport_t				fileport	= MACH_PORT_NULL;
+	int					ret;
+	int					sc_status;
+	SCDynamicStorePrivateRef		storePrivate = (SCDynamicStorePrivateRef)store;
+	kern_return_t				status;
 
 	if (store == NULL) {
 		/* sorry, you must provide a session */
@@ -95,6 +91,8 @@ SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store,
 		goto fail;
 	}
 
+	os_activity_scope_enter(storePrivate->activity, &activity_state);
+
     retry :
 
 	status = notifyviafd(storePrivate->server,
@@ -108,6 +106,8 @@ SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store,
 						     "SCDynamicStoreNotifyFileDescriptor notifyviafd()")) {
 		goto retry;
 	}
+
+	os_activity_scope_leave(&activity_state);
 
 	if (status != KERN_SUCCESS) {
 		_SCErrorSet(status);

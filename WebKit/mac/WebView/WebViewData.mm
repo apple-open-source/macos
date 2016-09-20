@@ -37,7 +37,6 @@
 #import <WebCore/WebCoreObjCExtras.h>
 #import <WebCore/HistoryItem.h>
 #import <WebCore/TextIndicatorWindow.h>
-#import <objc/objc-auto.h>
 #import <runtime/InitializeThreading.h>
 #import <wtf/MainThread.h>
 #import <wtf/RunLoop.h>
@@ -48,6 +47,11 @@
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS)
 #import "WebMediaPlaybackTargetPicker.h"
+#endif
+
+#if PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE)
+#import <WebCore/WebPlaybackSessionInterfaceMac.h>
+#import <WebCore/WebPlaybackSessionModelMediaElement.h>
 #endif
 
 BOOL applicationIsTerminating = NO;
@@ -124,7 +128,6 @@ WebViewLayerFlushScheduler::WebViewLayerFlushScheduler(LayerFlushController* flu
     WTF::initializeMainThreadToProcessMainThread();
     RunLoop::initializeMainRunLoop();
 #endif
-    WebCoreObjCFinalizeOnMainThread(self);
 }
 
 - (id)init 
@@ -153,11 +156,7 @@ WebViewLayerFlushScheduler::WebViewLayerFlushScheduler(LayerFlushController* flu
     _geolocationProvider = [WebGeolocationProviderIOS sharedGeolocationProvider];
 #endif
 
-#if !PLATFORM(IOS)
-    shouldCloseWithWindow = objc_collectingEnabled();
-#else
     shouldCloseWithWindow = false;
-#endif
 
     pluginDatabaseClientCount++;
 
@@ -187,7 +186,7 @@ WebViewLayerFlushScheduler::WebViewLayerFlushScheduler(LayerFlushController* flu
 #endif
     [inspector release];
     [currentNodeHighlight release];
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+#if PLATFORM(MAC)
     [immediateActionController release];
 #endif
     [hostWindow release];
@@ -211,18 +210,6 @@ WebViewLayerFlushScheduler::WebViewLayerFlushScheduler(LayerFlushController* flu
 #endif
 
     [super dealloc];
-}
-
-- (void)finalize
-{
-#if !PLATFORM(IOS)
-    ASSERT(!insertionPasteboard);
-#endif
-#if ENABLE(VIDEO)
-    ASSERT(!fullscreenController);
-#endif
-
-    [super finalize];
 }
 
 @end

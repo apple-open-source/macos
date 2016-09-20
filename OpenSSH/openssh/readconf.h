@@ -1,4 +1,4 @@
-/* $OpenBSD: readconf.h,v 1.109 2015/02/16 22:13:32 djm Exp $ */
+/* $OpenBSD: readconf.h,v 1.113 2016/01/14 16:17:40 markus Exp $ */
 
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
@@ -45,12 +45,7 @@ typedef struct {
 	int     challenge_response_authentication;
 					/* Try S/Key or TIS, authentication. */
 	int     gss_authentication;	/* Try GSS authentication */
-	int     gss_keyex;		/* Try GSS key exchange */
 	int     gss_deleg_creds;	/* Delegate GSS credentials */
-	int	gss_trust_dns;		/* Trust DNS for GSS canonicalization */
-	int	gss_renewal_rekey;	/* Credential renewal forces rekey */
-	char    *gss_client_identity;   /* Principal to initiate GSSAPI with */
-	char    *gss_server_identity;   /* GSSAPI target principal */
 	int     password_authentication;	/* Try password
 						 * authentication. */
 	int     kbd_interactive_authentication; /* Try keyboard-interactive auth. */
@@ -100,6 +95,13 @@ typedef struct {
 	int    identity_file_userprovided[SSH_MAX_IDENTITY_FILES];
 	struct sshkey *identity_keys[SSH_MAX_IDENTITY_FILES];
 
+	int	num_certificate_files; /* Number of extra certificates for ssh. */
+	char	*certificate_files[SSH_MAX_CERTIFICATE_FILES];
+	int	certificate_file_userprovided[SSH_MAX_CERTIFICATE_FILES];
+	struct sshkey *certificates[SSH_MAX_CERTIFICATE_FILES];
+
+	int	add_keys_to_agent;
+
 	/* Local TCP/IP forward requests. */
 	int     num_local_forwards;
 	struct Forward *local_forwards;
@@ -136,9 +138,8 @@ typedef struct {
 	int	visual_host_key;
 
 #ifdef __APPLE_KEYCHAIN__
-	int ask_pass_gui;
+	int	use_keychain;
 #endif
-	int	use_roaming;
 
 	int	request_tty;
 
@@ -158,7 +159,8 @@ typedef struct {
 
 	int	 update_hostkeys; /* one of SSH_UPDATE_HOSTKEYS_* */
 
-	char	*hostbased_key_types;
+	char   *hostbased_key_types;
+	char   *pubkey_key_types;
 
 	char	*ignored_unknown; /* Pattern list of unknown tokens to ignore */
 }       Options;
@@ -201,5 +203,6 @@ void	 dump_client_config(Options *o, const char *host);
 void	 add_local_forward(Options *, const struct Forward *);
 void	 add_remote_forward(Options *, const struct Forward *);
 void	 add_identity_file(Options *, const char *, const char *, int);
+void	 add_certificate_file(Options *, const char *, int);
 
 #endif				/* READCONF_H */

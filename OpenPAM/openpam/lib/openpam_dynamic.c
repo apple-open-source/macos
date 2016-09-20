@@ -35,10 +35,13 @@
  * $Id: openpam_dynamic.c 408 2007-12-21 11:36:24Z des $
  */
 
+#include <assert.h>
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <dispatch/dispatch.h>
 
 #include <security/pam_appl.h>
 
@@ -54,24 +57,12 @@
  * Locate a dynamically linked module
  */
 
-pam_module_t *
-openpam_dynamic(const char *path)
+static bool
+openpam_dynamic_load(const char *prefix, const char *path, pam_module_t *module)
 {
-	pam_module_t *module;
-	const char *prefix;
 	char *vpath;
 	void *dlh;
 	int i;
-
-	dlh = NULL;
-	if ((module = calloc(1, sizeof *module)) == NULL)
-		goto buf_err;
-
-	/* Prepend the standard prefix if not an absolute pathname. */
-	if (path[0] != '/')
-		prefix = OPENPAM_MODULES_DIR;
-	else
-		prefix = "";
 
 	/* try versioned module first, then unversioned module */
 	if (asprintf(&vpath, "%s%s.%d", prefix, path, LIB_MAJ) < 0)
@@ -82,8 +73,7 @@ openpam_dynamic(const char *path)
 		if ((dlh = dlopen(vpath, RTLD_NOW)) == NULL) {
 			openpam_log(PAM_LOG_LIBDEBUG, "%s: %s", vpath, dlerror());
 			FREE(vpath);
-			FREE(module);
-			return (NULL);
+			return false;
 		}
 	}
 	FREE(vpath);
@@ -96,13 +86,70 @@ openpam_dynamic(const char *path)
 			openpam_log(PAM_LOG_LIBDEBUG, "%s: %s(): %s",
 			    path, _pam_sm_func_name[i], dlerror());
 	}
-	return (module);
+	return true;
+
  buf_err:
 	openpam_log(PAM_LOG_ERROR, "%m");
 	if (dlh != NULL)
 		dlclose(dlh);
+	return false;
+}
+
+
+pam_module_t *
+openpam_dynamic(const char *path)
+{
+	pam_module_t *module;
+
+	if ((module = calloc(1, sizeof *module)) == NULL) {
+		openpam_log(PAM_LOG_ERROR, "%m");
+		goto no_module;
+	}
+
+	/* Prepend the standard prefix if not an absolute pathname. */
+	if (path[0] != '/') {
+		// <rdar://problem/21545156> Add "/usr/local/lib/pam" to the search list
+		static dispatch_once_t onceToken;
+		static char *pam_modules_dirs  = NULL;
+		static char **pam_search_paths = NULL;
+
+		dispatch_once(&onceToken, ^{
+			size_t len = strlen(OPENPAM_MODULES_DIR);
+			char *tok, *str;
+			const char *delim = ";";
+			const char sep = delim[0];
+			int i, n;
+
+			str = OPENPAM_MODULES_DIR;
+			assert(len > 0);
+			assert(str[0]     != sep);		// OPENPAM_MODULES should not start with a ';'
+			assert(str[len-1] != sep);		// no terminating ';'
+			for (i = 0, n = 1; i < len; i++) n += (str[i] == sep);
+
+			if ((pam_modules_dirs = strdup(OPENPAM_MODULES_DIR)) != NULL &&
+				(pam_search_paths = (char **) malloc((n + 1) * sizeof(char *))) != NULL) {
+				for (tok = str = pam_modules_dirs, i = 0; i < n; i++)
+					pam_search_paths[i] = tok = strsep(&str, delim);
+				pam_search_paths[n] = NULL;
+			} else {
+				openpam_log(PAM_LOG_ERROR, "%m - PAM module search paths won't work!");
+			}
+		});
+
+		if (pam_search_paths) {
+			int i;
+			for (i = 0; pam_search_paths[i] != NULL; i++)
+				if (openpam_dynamic_load(pam_search_paths[i], path, module))
+					return module;
+		}
+	} else {
+		if (openpam_dynamic_load("", path, module))
+			return module;
+	}
+
+no_module:
 	FREE(module);
-	return (NULL);
+	return NULL;
 }
 
 /*

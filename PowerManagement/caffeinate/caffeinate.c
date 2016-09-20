@@ -99,7 +99,7 @@ main(int argc, char *argv[])
                 flags |= kUserActiveAssertionFlag;
                 break;
             case 'w':
-                waitforpid = strtol(optarg, NULL, 0);
+                waitforpid = (pid_t)strtol(optarg, NULL, 0);
                 if (waitforpid == 0 && errno != 0) {
                     usage();
                     exit(EXIT_FAILURE);

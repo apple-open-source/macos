@@ -1,13 +1,13 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/ko.xml
 // *
 // ***************************************************************************
 ko{
-    Version{"2.1.12.94"}
+    Version{"2.1.22.93"}
     zoneStrings{
         "Africa:Abidjan"{
             ec{"아비장"}
@@ -684,6 +684,9 @@ ko{
         "Asia:Calcutta"{
             ec{"콜카타"}
         }
+        "Asia:Chita"{
+            ec{"치타"}
+        }
         "Asia:Choibalsan"{
             ec{"초이발산"}
         }
@@ -824,6 +827,9 @@ ko{
         }
         "Asia:Singapore"{
             ec{"싱가포르"}
+        }
+        "Asia:Srednekolymsk"{
+            ec{"스레드네콜림스크"}
         }
         "Asia:Taipei"{
             ec{"타이베이"}
@@ -1008,7 +1014,7 @@ ko{
         }
         "Europe:London"{
             ec{"런던"}
-            ld{"영국 일광 절약 시간"}
+            ld{"영국 하계 표준시"}
         }
         "Europe:Luxembourg"{
             ec{"룩셈부르크"}
@@ -1144,6 +1150,9 @@ ko{
         }
         "Pacific:Auckland"{
             ec{"오클랜드"}
+        }
+        "Pacific:Bougainville"{
+            ec{"부갱빌"}
         }
         "Pacific:Chatham"{
             ec{"채텀"}
@@ -1281,7 +1290,7 @@ ko{
             ls{"알래스카 표준시"}
         }
         "meta:Almaty"{
-            ld{"알마티 서머 타임"}
+            ld{"알마티 하계 표준시"}
             lg{"알마티 표준 시간"}
             ls{"알마티 표준 표준시"}
         }
@@ -1311,7 +1320,7 @@ ko{
             ls{"미 태평양 표준시"}
         }
         "meta:Anadyr"{
-            ld{"아나디리 서머 타임"}
+            ld{"아나디리 하계 표준시"}
             lg{"아나디리 시간"}
             ls{"아나디리 표준시"}
         }
@@ -1321,12 +1330,12 @@ ko{
             ls{"아피아 표준시"}
         }
         "meta:Aqtau"{
-            ld{"악타우 서머 타임"}
+            ld{"악타우 하계 표준시"}
             lg{"악타우 표준 시간"}
             ls{"악타우 표준 표준시"}
         }
         "meta:Aqtobe"{
-            ld{"악퇴베 서머 타임"}
+            ld{"악퇴베 하계 표준시"}
             lg{"악퇴베 표준 시간"}
             ls{"악퇴베 표준 표준시"}
         }
@@ -1357,7 +1366,7 @@ ko{
         }
         "meta:Australia_Central"{
             ld{"오스트레일리아 중부 하계 표준시"}
-            lg{"중앙 오스트레일리아 시간"}
+            lg{"오스트레일리아 중부 시간"}
             ls{"오스트레일리아 중부 표준시"}
         }
         "meta:Australia_CentralWestern"{
@@ -1367,12 +1376,12 @@ ko{
         }
         "meta:Australia_Eastern"{
             ld{"오스트레일리아 동부 하계 표준시"}
-            lg{"동부 오스트레일리아 시간"}
+            lg{"오스트레일리아 동부 시간"}
             ls{"오스트레일리아 동부 표준시"}
         }
         "meta:Australia_Western"{
             ld{"오스트레일리아 서부 하계 표준시"}
-            lg{"서부 오스트레일리아 시간"}
+            lg{"오스트레일리아 서부 시간"}
             ls{"오스트레일리아 서부 표준시"}
         }
         "meta:Azerbaijan"{
@@ -1447,7 +1456,7 @@ ko{
             ls{"콜롬비아 표준시"}
         }
         "meta:Cook"{
-            ld{"쿡 제도 절반 서머 타임"}
+            ld{"쿡 제도 절반 하계 표준시"}
             lg{"쿡 제도 시간"}
             ls{"쿡 제도 표준시"}
         }
@@ -1474,30 +1483,30 @@ ko{
             ls{"에콰도르 시간"}
         }
         "meta:Europe_Central"{
-            ld{"중부유럽 하계 표준시"}
+            ld{"중부 유럽 하계 표준시"}
             lg{"중부 유럽 시간"}
             ls{"중부 유럽 표준시"}
         }
         "meta:Europe_Eastern"{
-            ld{"동부유럽 하계 표준시"}
-            lg{"동부유럽 시간"}
-            ls{"동부유럽 표준시"}
+            ld{"동유럽 하계 표준시"}
+            lg{"동유럽 시간"}
+            ls{"동유럽 표준시"}
         }
         "meta:Europe_Further_Eastern"{
             ls{"극동 유럽 표준시"}
         }
         "meta:Europe_Western"{
-            ld{"서유럽 서머 타임"}
+            ld{"서유럽 하계 표준시"}
             lg{"서유럽 시간"}
             ls{"서유럽 표준시"}
         }
         "meta:Falkland"{
-            ld{"포클랜드 하계 표준시"}
-            lg{"포클랜드 시간"}
+            ld{"포클랜드 제도 하계 표준시"}
+            lg{"포클랜드 제도 시간"}
             ls{"포클랜드 제도 표준시"}
         }
         "meta:Fiji"{
-            ld{"피지 서머 타임"}
+            ld{"피지 하계 표준시"}
             lg{"피지 시간"}
             ls{"피지 표준시"}
         }
@@ -1594,7 +1603,7 @@ ko{
             ls{"일본 표준시"}
         }
         "meta:Kamchatka"{
-            ld{"페트로파블롭스크-캄차츠키 서머 타임"}
+            ld{"페트로파블롭스크-캄차츠키 하계 표준시"}
             lg{"페트로파블롭스크-캄차츠키 시간"}
             ls{"페트로파블롭스크-캄차츠키 표준시"}
         }
@@ -1629,7 +1638,7 @@ ko{
             ls{"로드 하우 표준시"}
         }
         "meta:Macau"{
-            ld{"마카오 서머 타임"}
+            ld{"마카오 하계 표준시"}
             lg{"마카오 시간"}
             ls{"마카오 표준 시간"}
         }
@@ -1691,7 +1700,7 @@ ko{
             ls{"네팔 시간"}
         }
         "meta:New_Caledonia"{
-            ld{"뉴 칼레도니아 하계 표준시"}
+            ld{"뉴칼레도니아 하계 표준시"}
             lg{"뉴칼레도니아 시간"}
             ls{"뉴칼레도니아 표준시"}
         }
@@ -1727,7 +1736,7 @@ ko{
             ls{"옴스크 표준시"}
         }
         "meta:Pakistan"{
-            ld{"파키스탄 서머 타임"}
+            ld{"파키스탄 하계 표준시"}
             lg{"파키스탄 시간"}
             ls{"파키스탄 표준시"}
         }
@@ -1767,7 +1776,7 @@ ko{
             ls{"포나페 시간"}
         }
         "meta:Qyzylorda"{
-            ld{"키질로르다 서머 타임"}
+            ld{"키질로르다 하계 표준시"}
             lg{"키질로르다 시간"}
             ls{"키질로르다 표준 시간"}
         }
@@ -1783,7 +1792,7 @@ ko{
             ls{"사할린 표준시"}
         }
         "meta:Samara"{
-            ld{"사마라 서머 타임"}
+            ld{"사마라 하계 표준시"}
             lg{"사마라 시간"}
             ls{"사마라 표준시"}
         }
@@ -1825,7 +1834,7 @@ ko{
             ls{"토켈라우 시간"}
         }
         "meta:Tonga"{
-            ld{"통가 서머 타임"}
+            ld{"통가 하계 표준시"}
             lg{"통가 시간"}
             ls{"통가 표준시"}
         }
@@ -1851,7 +1860,7 @@ ko{
             ls{"우즈베키스탄 표준시"}
         }
         "meta:Vanuatu"{
-            ld{"바누아투 서머 타임"}
+            ld{"바누아투 하계 표준시"}
             lg{"바누아투 시간"}
             ls{"바누아투 표준시"}
         }

@@ -32,35 +32,38 @@ namespace WebKit {
 
 void VisibleContentRectUpdateInfo::encode(IPC::ArgumentEncoder& encoder) const
 {
-    encoder << m_exposedRect;
-    encoder << m_unobscuredRect;
+    encoder << m_exposedContentRect;
+    encoder << m_unobscuredContentRect;
     encoder << m_unobscuredRectInScrollViewCoordinates;
     encoder << m_customFixedPositionRect;
+    encoder << m_obscuredInset;
+    encoder << m_lastLayerTreeTransactionID;
     encoder << m_scale;
-    encoder << m_inStableState;
-    encoder << m_isChangingObscuredInsetsInteractively;
     encoder << m_timestamp;
     encoder << m_horizontalVelocity;
     encoder << m_verticalVelocity;
     encoder << m_scaleChangeRate;
-    encoder << m_lastLayerTreeTransactionID;
+    encoder << m_inStableState;
+    encoder << m_isChangingObscuredInsetsInteractively;
+    encoder << m_allowShrinkToFit;
+    encoder << m_enclosedInScrollableAncestorView;
 }
 
 bool VisibleContentRectUpdateInfo::decode(IPC::ArgumentDecoder& decoder, VisibleContentRectUpdateInfo& result)
 {
-    if (!decoder.decode(result.m_exposedRect))
+    if (!decoder.decode(result.m_exposedContentRect))
         return false;
-    if (!decoder.decode(result.m_unobscuredRect))
+    if (!decoder.decode(result.m_unobscuredContentRect))
         return false;
     if (!decoder.decode(result.m_unobscuredRectInScrollViewCoordinates))
         return false;
     if (!decoder.decode(result.m_customFixedPositionRect))
         return false;
+    if (!decoder.decode(result.m_obscuredInset))
+        return false;
+    if (!decoder.decode(result.m_lastLayerTreeTransactionID))
+        return false;
     if (!decoder.decode(result.m_scale))
-        return false;
-    if (!decoder.decode(result.m_inStableState))
-        return false;
-    if (!decoder.decode(result.m_isChangingObscuredInsetsInteractively))
         return false;
     if (!decoder.decode(result.m_timestamp))
         return false;
@@ -70,7 +73,13 @@ bool VisibleContentRectUpdateInfo::decode(IPC::ArgumentDecoder& decoder, Visible
         return false;
     if (!decoder.decode(result.m_scaleChangeRate))
         return false;
-    if (!decoder.decode(result.m_lastLayerTreeTransactionID))
+    if (!decoder.decode(result.m_inStableState))
+        return false;
+    if (!decoder.decode(result.m_isChangingObscuredInsetsInteractively))
+        return false;
+    if (!decoder.decode(result.m_allowShrinkToFit))
+        return false;
+    if (!decoder.decode(result.m_enclosedInScrollableAncestorView))
         return false;
 
     return true;

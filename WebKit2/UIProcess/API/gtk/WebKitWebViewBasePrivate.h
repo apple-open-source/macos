@@ -28,6 +28,7 @@
 #ifndef WebKitWebViewBasePrivate_h
 #define WebKitWebViewBasePrivate_h
 
+#include "APIPageConfiguration.h"
 #include "DragAndDropHandler.h"
 #include "GestureController.h"
 #include "WebContextMenuProxyGtk.h"
@@ -36,13 +37,14 @@
 #include "WebKitWebViewBase.h"
 #include "WebPageProxy.h"
 
-WebKitWebViewBase* webkitWebViewBaseCreate(WebKit::WebProcessPool*, WebKit::WebPreferences*, WebKit::WebPageGroup*, WebKit::WebUserContentControllerProxy*, WebKit::WebPageProxy*);
+WebKitWebViewBase* webkitWebViewBaseCreate(const API::PageConfiguration&);
 GtkIMContext* webkitWebViewBaseGetIMContext(WebKitWebViewBase*);
 WebKit::WebPageProxy* webkitWebViewBaseGetPage(WebKitWebViewBase*);
-void webkitWebViewBaseCreateWebPage(WebKitWebViewBase*, WebKit::WebProcessPool*, Ref<API::PageConfiguration>&&);
+void webkitWebViewBaseCreateWebPage(WebKitWebViewBase*, Ref<API::PageConfiguration>&&);
 void webkitWebViewBaseSetTooltipText(WebKitWebViewBase*, const char*);
 void webkitWebViewBaseSetTooltipArea(WebKitWebViewBase*, const WebCore::IntRect&);
 void webkitWebViewBaseForwardNextKeyEvent(WebKitWebViewBase*);
+void webkitWebViewBaseForwardNextWheelEvent(WebKitWebViewBase*);
 void webkitWebViewBaseChildMoveResize(WebKitWebViewBase*, GtkWidget*, const WebCore::IntRect&);
 void webkitWebViewBaseEnterFullScreen(WebKitWebViewBase*);
 void webkitWebViewBaseExitFullScreen(WebKitWebViewBase*);
@@ -53,13 +55,13 @@ WebKit::WebContextMenuProxyGtk* webkitWebViewBaseGetActiveContextMenuProxy(WebKi
 GdkEvent* webkitWebViewBaseTakeContextMenuEvent(WebKitWebViewBase*);
 void webkitWebViewBaseSetInputMethodState(WebKitWebViewBase*, bool enabled);
 void webkitWebViewBaseUpdateTextInputState(WebKitWebViewBase*);
+void webkitWebViewBaseSetContentsSize(WebKitWebViewBase*, const WebCore::IntSize&);
 
 void webkitWebViewBaseSetFocus(WebKitWebViewBase*, bool focused);
 bool webkitWebViewBaseIsInWindowActive(WebKitWebViewBase*);
 bool webkitWebViewBaseIsFocused(WebKitWebViewBase*);
 bool webkitWebViewBaseIsVisible(WebKitWebViewBase*);
 bool webkitWebViewBaseIsInWindow(WebKitWebViewBase*);
-bool webkitWebViewBaseIsWindowVisible(WebKitWebViewBase*);
 
 typedef void (*WebKitWebViewBaseDownloadRequestHandler) (WebKitWebViewBase*, WebKit::DownloadProxy*);
 void webkitWebViewBaseSetDownloadRequestHandler(WebKitWebViewBase*, WebKitWebViewBaseDownloadRequestHandler);
@@ -69,6 +71,7 @@ void webkitWebViewBaseAddAuthenticationDialog(WebKitWebViewBase*, GtkWidget* aut
 void webkitWebViewBaseCancelAuthenticationDialog(WebKitWebViewBase*);
 void webkitWebViewBaseAddWebInspector(WebKitWebViewBase*, GtkWidget* inspector, WebKit::AttachmentSide);
 void webkitWebViewBaseResetClickCounter(WebKitWebViewBase*);
+void webkitWebViewBaseWillEnterAcceleratedCompositingMode(WebKitWebViewBase*);
 void webkitWebViewBaseEnterAcceleratedCompositingMode(WebKitWebViewBase*);
 void webkitWebViewBaseExitAcceleratedCompositingMode(WebKitWebViewBase*);
 void webkitWebViewBaseDidRelaunchWebProcess(WebKitWebViewBase*);

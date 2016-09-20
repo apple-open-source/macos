@@ -25,7 +25,7 @@
 #ifndef MediaStreamEvent_h
 #define MediaStreamEvent_h
 
-#if ENABLE(MEDIA_STREAM)
+#if ENABLE(WEB_RTC)
 
 #include "Event.h"
 #include "MediaStream.h"
@@ -34,8 +34,6 @@
 namespace WebCore {
 
 struct MediaStreamEventInit : public EventInit {
-    MediaStreamEventInit();
-
     RefPtr<MediaStream> stream;
 };
 
@@ -43,17 +41,15 @@ class MediaStreamEvent : public Event {
 public:
     virtual ~MediaStreamEvent();
 
-    static Ref<MediaStreamEvent> create();
-    static Ref<MediaStreamEvent> create(const AtomicString& type, bool canBubble, bool cancelable, PassRefPtr<MediaStream>);
-    static Ref<MediaStreamEvent> create(const AtomicString& type, const MediaStreamEventInit& initializer);
+    static Ref<MediaStreamEvent> create(const AtomicString& type, bool canBubble, bool cancelable, RefPtr<MediaStream>&&);
+    static Ref<MediaStreamEvent> createForBindings(const AtomicString& type, const MediaStreamEventInit& initializer);
 
     MediaStream* stream() const;
 
     virtual EventInterface eventInterface() const;
 
 private:
-    MediaStreamEvent();
-    MediaStreamEvent(const AtomicString& type, bool canBubble, bool cancelable, PassRefPtr<MediaStream>);
+    MediaStreamEvent(const AtomicString& type, bool canBubble, bool cancelable, RefPtr<MediaStream>&&);
     MediaStreamEvent(const AtomicString& type, const MediaStreamEventInit&);
 
     RefPtr<MediaStream> m_stream;
@@ -61,6 +57,6 @@ private:
 
 } // namespace WebCore
 
-#endif // ENABLE(MEDIA_STREAM)
+#endif // ENABLE(WEB_RTC)
 
 #endif // MediaStreamEvent_h

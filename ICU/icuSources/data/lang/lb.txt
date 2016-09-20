@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/lb.xml
@@ -39,7 +39,7 @@ lb{
         ar{"Arabesch"}
         ar_001{"Modernt Héicharabesch"}
         arc{"Aramäesch"}
-        arn{"Araukanesch"}
+        arn{"Mapudungun"}
         aro{"Araona"}
         arp{"Arapaho-Sprooch"}
         arq{"Algerescht Arabesch"}
@@ -55,7 +55,6 @@ lb{
         awa{"Awadhi"}
         ay{"Aymara"}
         az{"Aserbaidschanesch"}
-        azb{"Süd-Aserbaidschanesch"}
         ba{"Baschkiresch"}
         bal{"Belutschesch"}
         ban{"Balinesesch"}
@@ -527,8 +526,8 @@ lb{
         sux{"Sumeresch"}
         sv{"Schwedesch"}
         sw{"Suaheli"}
+        sw_CD{"Kongo-Swahili"}
         swb{"Komoresch"}
-        swc{"Kongo-Swahili"}
         syc{"Alsyresch"}
         syr{"Syresch"}
         szl{"Schlesesch"}
@@ -882,7 +881,7 @@ lb{
         VALENCIA{"Valencianesch"}
         WADEGILE{"Wade-Giles"}
     }
-    Version{"2.1.12.94"}
+    Version{"2.1.23.7"}
     codePatterns{
         language{"Sprooch: {0}"}
         script{"Schrëft: {0}"}

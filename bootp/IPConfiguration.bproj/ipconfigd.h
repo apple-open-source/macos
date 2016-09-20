@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,8 +30,7 @@
  **/
 ipconfig_status_t
 ipconfig_method_info_from_plist(CFPropertyListRef plist,
-				ipconfig_method_t * method_p,
-				ipconfig_method_data_t * * method_data_p);
+				ipconfig_method_info_t info);
 int
 get_if_count();
 
@@ -53,21 +52,18 @@ get_if_v6_packet(const char * name, void * packet_data,
 
 ipconfig_status_t
 set_if(const char * name,
-       ipconfig_method_t method, 
-       ipconfig_method_data_t * method_data);
+       ipconfig_method_info_t info);
 
 ipconfig_status_t
 add_service(const char * name,
-	    ipconfig_method_t method, 
-	    ipconfig_method_data_t * method_data,
+	    ipconfig_method_info_t info,
 	    void * service_id, 
 	    unsigned int * service_id_len,
 	    CFDictionaryRef plist, pid_t pid);
 
 ipconfig_status_t
 set_service(const char * name,
-	    ipconfig_method_t method, 
-	    ipconfig_method_data_t * method_data,
+	    ipconfig_method_info_t info,
 	    void * service_id, 
 	    unsigned int * service_id_len);
 
@@ -79,15 +75,13 @@ remove_service_with_id(const char * name,
 ipconfig_status_t
 find_service(const char * name,
 	     boolean_t exact,
-	     ipconfig_method_t method, 
-	     ipconfig_method_data_t * method_data,
+	     ipconfig_method_info_t info,
 	     void * service_id, 
 	     unsigned int * service_id_len);
 
 ipconfig_status_t
 remove_service(const char * name,
-	       ipconfig_method_t method,
-	       ipconfig_method_data_t * method_data);
+	       ipconfig_method_info_t info);
 
 ipconfig_status_t
 refresh_service(const char * name,

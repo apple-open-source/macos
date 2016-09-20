@@ -47,42 +47,42 @@ namespace WebCore {
 
 const AtomicString& VideoTrack::alternativeKeyword()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, alternative, ("alternative", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<const AtomicString> alternative("alternative", AtomicString::ConstructFromLiteral);
     return alternative;
 }
 
 const AtomicString& VideoTrack::captionsKeyword()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, captions, ("captions", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<const AtomicString> captions("captions", AtomicString::ConstructFromLiteral);
     return captions;
 }
 
 const AtomicString& VideoTrack::mainKeyword()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, captions, ("main", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<const AtomicString> captions("main", AtomicString::ConstructFromLiteral);
     return captions;
 }
 
 const AtomicString& VideoTrack::signKeyword()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, sign, ("sign", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<const AtomicString> sign("sign", AtomicString::ConstructFromLiteral);
     return sign;
 }
 
 const AtomicString& VideoTrack::subtitlesKeyword()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, subtitles, ("subtitles", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<const AtomicString> subtitles("subtitles", AtomicString::ConstructFromLiteral);
     return subtitles;
 }
 
 const AtomicString& VideoTrack::commentaryKeyword()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, commentary, ("commentary", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<const AtomicString> commentary("commentary", AtomicString::ConstructFromLiteral);
     return commentary;
 }
 
 VideoTrack::VideoTrack(VideoTrackClient* client, PassRefPtr<VideoTrackPrivate> trackPrivate)
-    : TrackBase(TrackBase::VideoTrack, trackPrivate->id(), trackPrivate->label(), trackPrivate->language())
+    : MediaTrackBase(MediaTrackBase::VideoTrack, trackPrivate->id(), trackPrivate->label(), trackPrivate->language())
     , m_selected(trackPrivate->selected())
     , m_client(client)
     , m_private(trackPrivate)
@@ -175,7 +175,7 @@ void VideoTrack::languageChanged(TrackPrivateBase* trackPrivate, const AtomicStr
 void VideoTrack::willRemove(TrackPrivateBase* trackPrivate)
 {
     ASSERT_UNUSED(trackPrivate, trackPrivate == m_private);
-    mediaElement()->removeVideoTrack(this);
+    mediaElement()->removeVideoTrack(*this);
 }
 
 #if ENABLE(MEDIA_SOURCE)
@@ -197,7 +197,7 @@ void VideoTrack::setKind(const AtomicString& kind)
 
     // 4. Queue a task to fire a simple event named change at the VideoTrackList object referenced by
     // the videoTracks attribute on the HTMLMediaElement.
-    mediaElement()->videoTracks()->scheduleChangeEvent();
+    mediaElement()->videoTracks().scheduleChangeEvent();
 }
 
 void VideoTrack::setLanguage(const AtomicString& language)
@@ -208,7 +208,7 @@ void VideoTrack::setLanguage(const AtomicString& language)
     // FIXME(123926): Validate the BCP47-ness of langague.
 
     // 2. Update this attribute to the new value.
-    TrackBase::setLanguage(language);
+    MediaTrackBase::setLanguage(language);
 
     // 3. If the sourceBuffer attribute on this track is not null, then queue a task to fire a simple
     // event named change at sourceBuffer.videoTracks.
@@ -217,8 +217,7 @@ void VideoTrack::setLanguage(const AtomicString& language)
 
     // 4. Queue a task to fire a simple event named change at the VideoTrackList object referenced by
     // the videoTracks attribute on the HTMLMediaElement.
-    if (mediaElement()->videoTracks())
-        mediaElement()->videoTracks()->scheduleChangeEvent();
+    mediaElement()->videoTracks().scheduleChangeEvent();
 }
 #endif
 

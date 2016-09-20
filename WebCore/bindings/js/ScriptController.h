@@ -43,13 +43,13 @@ class ScriptValue;
 }
 
 namespace JSC {
-    class JSGlobalObject;
-    class ExecState;
+class JSGlobalObject;
+class ExecState;
 
-    namespace Bindings {
-        class Instance;
-        class RootObject;
-    }
+namespace Bindings {
+class Instance;
+class RootObject;
+}
 }
 
 namespace WebCore {
@@ -77,9 +77,9 @@ public:
     explicit ScriptController(Frame&);
     ~ScriptController();
 
-    WEBCORE_EXPORT static PassRefPtr<DOMWrapperWorld> createWorld();
+    WEBCORE_EXPORT static Ref<DOMWrapperWorld> createWorld();
 
-    JSDOMWindowShell* createWindowShell(DOMWrapperWorld&);
+    JSDOMWindowShell& createWindowShell(DOMWrapperWorld&);
     void destroyWindowShell(DOMWrapperWorld&);
 
     Vector<JSC::Strong<JSDOMWindowShell>> windowShells();
@@ -101,9 +101,9 @@ public:
 
     static void getAllWorlds(Vector<Ref<DOMWrapperWorld>>&);
 
-    Deprecated::ScriptValue executeScript(const ScriptSourceCode&);
-    WEBCORE_EXPORT Deprecated::ScriptValue executeScript(const String& script, bool forceUserGesture = false);
-    WEBCORE_EXPORT Deprecated::ScriptValue executeScriptInWorld(DOMWrapperWorld&, const String& script, bool forceUserGesture = false);
+    JSC::JSValue executeScript(const ScriptSourceCode&, ExceptionDetails* = nullptr);
+    WEBCORE_EXPORT JSC::JSValue executeScript(const String& script, bool forceUserGesture = false, ExceptionDetails* = nullptr);
+    WEBCORE_EXPORT JSC::JSValue executeScriptInWorld(DOMWrapperWorld&, const String& script, bool forceUserGesture = false);
 
     // Returns true if argument is a JavaScript URL.
     bool executeIfJavaScriptURL(const URL&, ShouldReplaceDocumentIfJavaScriptURL shouldReplaceDocumentIfJavaScriptURL = ReplaceDocumentIfJavaScriptURL);
@@ -112,8 +112,8 @@ public:
     // Darwin is an exception to this rule: it is OK to call this function from any thread, even reentrantly.
     static void initializeThreading();
 
-    Deprecated::ScriptValue evaluate(const ScriptSourceCode&);
-    Deprecated::ScriptValue evaluateInWorld(const ScriptSourceCode&, DOMWrapperWorld&);
+    JSC::JSValue evaluate(const ScriptSourceCode&, ExceptionDetails* = nullptr);
+    JSC::JSValue evaluateInWorld(const ScriptSourceCode&, DOMWrapperWorld&, ExceptionDetails* = nullptr);
 
     WTF::TextPosition eventHandlerPosition() const;
 
@@ -146,11 +146,11 @@ public:
 
     void updatePlatformScriptObjects();
 
-    PassRefPtr<JSC::Bindings::Instance>  createScriptInstanceForWidget(Widget*);
+    RefPtr<JSC::Bindings::Instance>  createScriptInstanceForWidget(Widget*);
     JSC::Bindings::RootObject* bindingRootObject();
     JSC::Bindings::RootObject* cacheableBindingRootObject();
 
-    WEBCORE_EXPORT PassRefPtr<JSC::Bindings::RootObject> createRootObject(void* nativeHandle);
+    WEBCORE_EXPORT RefPtr<JSC::Bindings::RootObject> createRootObject(void* nativeHandle);
 
     void collectIsolatedContexts(Vector<std::pair<JSC::ExecState*, SecurityOrigin*>>&);
 
@@ -165,8 +165,6 @@ public:
     NPObject* createScriptObjectForPluginElement(HTMLPlugInElement*);
     WEBCORE_EXPORT NPObject* windowScriptNPObject();
 #endif
-
-    bool shouldBypassMainWorldContentSecurityPolicy();
 
 private:
     WEBCORE_EXPORT JSDOMWindowShell* initScript(DOMWrapperWorld&);

@@ -3,7 +3,7 @@
  *  mean - lower process priorities with more force than nice
  *
  *  Created by Lucia Ballard on 9/16/09.
- *  Copyright 2009 Apple Inc. All rights reserved.
+ *  Copyright 2009-2016 Apple Inc. All rights reserved.
  *
  */
 
@@ -19,8 +19,7 @@
 
 void usage(void);
 
-
-void 
+void
 usage(void)
 {
 		fprintf(stderr, "Usage: mean -[r|s|u] <pid>\n");
@@ -31,7 +30,7 @@ usage(void)
 		exit(0);
 }
 
-int 
+int
 main(int argc, char **argv)
 {
 	int pid, err, i, ch;
@@ -39,13 +38,13 @@ main(int argc, char **argv)
 	mach_port_t task;
 	thread_act_array_t threads;
 	thread_precedence_policy_data_t policy;
-	
+
 	boolean_t do_high = 0, do_resume = 0, do_suspend = 0;
 	boolean_t do_low = 1;
-	
-	if (argc < 2) 
+
+	if (argc < 2)
 		usage();
-	
+
 	while ((ch = getopt(argc, argv, "rsu")) != -1)
 	switch (ch) {
 		case 'u':
@@ -63,16 +62,16 @@ main(int argc, char **argv)
 		default:
 			usage();
 	}
-	
+
 	argc -= optind; argv += optind;
-	
+
 	if (argc == 0)
 		usage();
 
 	pid = atoi(*argv);
-	if (!pid) 
+	if (!pid)
 		usage();
-	
+
 	err = task_for_pid(mach_task_self(), pid, &task);
 	if (err) {
 		fprintf(stderr, "Failed to get task port (%d)\n", err);
@@ -93,9 +92,9 @@ main(int argc, char **argv)
 			policy.importance = 0;
 
 		for (i = 0; i < count; i++) {
-			err = thread_policy_set(threads[i], 
-					THREAD_PRECEDENCE_POLICY, 
-					(thread_policy_t) &policy, 
+			err = thread_policy_set(threads[i],
+					THREAD_PRECEDENCE_POLICY,
+					(thread_policy_t) &policy,
 					THREAD_PRECEDENCE_POLICY_COUNT);
 			if (err) {
 				fprintf(stderr, "Failed to set thread priority (%d)\n", err);
@@ -103,10 +102,10 @@ main(int argc, char **argv)
 			}
 		}
 
-		printf("Process %d's threads set to %s priority.\n", pid, 
-				(do_low ? "lowest" : "highest"));	
+		printf("Process %d's threads set to %s priority.\n", pid,
+				(do_low ? "lowest" : "highest"));
 	}
-	
+
 	if (do_suspend) {
 		err = task_suspend(task);
 		if (err) {
@@ -114,9 +113,8 @@ main(int argc, char **argv)
 		} else {
 			printf("Process %d suspended.\n", pid);
 		}
-		
 	}
-	
+
 	if (do_resume) {
 		err = task_resume(task);
 		if (err) {
@@ -128,4 +126,3 @@ main(int argc, char **argv)
 
 	return 0;
 }
-

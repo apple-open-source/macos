@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2012, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,6 +32,7 @@
 #include "Cookie.h"
 #include "URL.h"
 #include "NetworkStorageSession.h"
+#include "NotImplemented.h"
 #include "SoftLinking.h"
 #include <CFNetwork/CFHTTPCookiesPriv.h>
 #include <CoreFoundation/CoreFoundation.h>
@@ -42,7 +43,7 @@
 #include <windows.h>
 #endif
 
-#if PLATFORM(WIN) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED <= 1090) || (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED < 80000)
+#if PLATFORM(WIN)
 enum {
     CFHTTPCookieStorageAcceptPolicyExclusivelyFromMainDocumentDomain = 3
 };
@@ -105,7 +106,7 @@ static RetainPtr<CFArrayRef> copyCookiesForURLWithFirstPartyURL(const NetworkSto
 {
     bool secure = url.protocolIs("https");
 
-#if (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 80000) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000)
+#if PLATFORM(COCOA)
     return adoptCF(_CFHTTPCookieStorageCopyCookiesForURLWithMainDocumentURL(session.cookieStorage().get(), url.createCFURL().get(), firstParty.createCFURL().get(), secure));
 #else
     // _CFHTTPCookieStorageCopyCookiesForURLWithMainDocumentURL is not available on other platforms.
@@ -116,7 +117,7 @@ static RetainPtr<CFArrayRef> copyCookiesForURLWithFirstPartyURL(const NetworkSto
 
 static CFArrayRef createCookies(CFDictionaryRef headerFields, CFURLRef url)
 {
-#if (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 90000)
+#if PLATFORM(IOS)
     CFArrayRef parsedCookies = _CFHTTPParsedCookiesWithResponseHeaderFields(kCFAllocatorDefault, headerFields, url);
 #else
     CFArrayRef parsedCookies = CFHTTPCookieCreateWithResponseHeaderFields(kCFAllocatorDefault, headerFields, url);
@@ -214,6 +215,12 @@ void deleteCookie(const NetworkStorageSession& session, const URL& url, const St
             break;
         }
     }
+}
+
+void addCookie(const NetworkStorageSession&, const URL&, const Cookie&)
+{
+    // FIXME: implement this command. <https://webkit.org/b/156298>
+    notImplemented();
 }
 
 void getHostnamesWithCookies(const NetworkStorageSession& session, HashSet<String>& hostnames)

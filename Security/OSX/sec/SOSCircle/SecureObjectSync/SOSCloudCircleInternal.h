@@ -55,8 +55,8 @@ CFArrayRef SOSCCCopyConcurringPeerPeerInfo(CFErrorRef* error);
 bool SOSCCPurgeUserCredentials(CFErrorRef* error);
 
 CFStringRef SOSCCGetStatusDescription(SOSCCStatus status);
-SecKeyRef SOSCCGetUserPrivKey(CFErrorRef *error);
-SecKeyRef SOSCCGetUserPubKey(CFErrorRef *error);
+bool SOSCCAccountHasPublicKey(CFErrorRef *error);
+bool SOSCCAccountIsNew(CFErrorRef *error);
 
 /*!
  @function SOSCCHandleIDSMessage
@@ -134,6 +134,8 @@ CFDataRef SOSCCCopyAccountState(CFErrorRef* error);
 bool SOSCCDeleteAccountState(CFErrorRef *error);
 CFDataRef SOSCCCopyEngineData(CFErrorRef* error);
 bool SOSCCDeleteEngineState(CFErrorRef *error);
+bool SOSCCRequestSyncWithPeerOverKVS( CFStringRef peerID, CFErrorRef *error);
+bool SOSCCRequestSyncWithPeerOverIDS(CFStringRef peerID, CFErrorRef *error);
 
 char *SOSCCSysdiagnose(const char *directoryname);
 

@@ -24,8 +24,8 @@
 
 namespace WebCore {
 
-RenderSVGResourceLinearGradient::RenderSVGResourceLinearGradient(SVGLinearGradientElement& element, Ref<RenderStyle>&& style)
-    : RenderSVGResourceGradient(element, WTF::move(style))
+RenderSVGResourceLinearGradient::RenderSVGResourceLinearGradient(SVGLinearGradientElement& element, RenderStyle&& style)
+    : RenderSVGResourceGradient(element, WTFMove(style))
 {
 }
 

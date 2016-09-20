@@ -44,8 +44,10 @@
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 #include <IOKit/hid/IOHIDKeys.h>
 #include <IOKit/hid/AppleHIDUsageTables.h>
+#include <IOKit/hid/IOHIDEventSystemPrivate.h>
 
 #include <Security/SecTask.h>
+#include <os/log.h>
 
 #include "powermanagementServer.h" // mig generated
 
@@ -117,7 +119,7 @@ static int kPMSpindumpDelayOnFullWake = 15; // Take spindump 15secs after fullwa
 // Global keys
 static CFStringRef              gTZNotificationNameString           = NULL;
 
-static SCPreferencesRef         gESPreferences                      = NULL;
+static IOPMNotificationHandle   gESPreferences                      = NULL;
 
 static io_connect_t             _pm_ack_port                        = 0;
 static io_iterator_t            _ups_added_noteref                  = 0;
@@ -161,7 +163,7 @@ extern uint32_t  gDebugFlags;
 
 
 // foward declarations
-static void initializeESPrefsDynamicStore(void);
+static void initializeESPrefsNotification(void);
 static void initializeInterestNotifications(void);
 static void initializeHIDInterestNotifications(IONotificationPortRef notify_port);
 static void initializeTimezoneChangeNotifications(void);
@@ -171,14 +173,19 @@ static void initializeRootDomainInterestNotifications(void);
 #if !TARGET_OS_EMBEDDED
 static void initializeUserNotifications(void);
 static void enableSleepWakeWdog();
+static void displayMatched(void *, io_iterator_t);
+static void displayPowerStateChange(
+                void *ref,
+                io_service_t service,
+                natural_t messageType,
+                void *arg);
+
+
 #endif
 static void initializeSleepWakeNotifications(void);
 
 static void SleepWakeCallback(void *,io_service_t, natural_t, void *);
-static void ESPrefsHaveChanged(
-                SCPreferencesRef prefs,
-                SCPreferencesNotification notificationType,
-                void *info);
+static void ESPrefsHaveChanged(void);
 static CFMutableDictionaryRef copyUPSMatchingDict( );
 static void _ioupsd_exited(pid_t, int, struct rusage *, void *);
 static void UPSDeviceAdded(void *, io_iterator_t);
@@ -208,13 +215,6 @@ static void timeZoneChangedCallBack(
                 const void *object, 
                 CFDictionaryRef userInfo);
 
-static void displayMatched(void *, io_iterator_t);
-static void displayPowerStateChange(
-                void *ref, 
-                io_service_t service, 
-                natural_t messageType, 
-                void *arg);
-
 static boolean_t pm_mig_demux(
                 mach_msg_header_t * request,
                 mach_msg_header_t * reply);
@@ -228,17 +228,10 @@ static void mig_server_callback(
 static void incoming_XPC_connection(xpc_connection_t);
 static void xpc_register(void);
 
-static void AppClaimWakeReason(xpc_object_t claim);
+static void AppClaimWakeReason(xpc_connection_t peer, xpc_object_t claim);
 
 
 
-
-kern_return_t _io_pm_set_active_profile(
-                mach_port_t         server,
-                audit_token_t       token,
-                vm_offset_t         profiles_ptr,
-                mach_msg_type_number_t    profiles_len,
-                int                 *result);
 
 kern_return_t _io_pm_last_wake_time(
                 mach_port_t             server,
@@ -268,6 +261,7 @@ __private_extern__ void dynamicStoreNotifyCallBack(
  * configd entry point
  */
 
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 int main(int argc __unused, char *argv[] __unused)
 {
@@ -281,30 +275,7 @@ int main(int argc __unused, char *argv[] __unused)
                             kIOPMServerBootstrapName,
                             &serverPort);
 
-#if TARGET_OS_EMBEDDED
-    if (BOOTSTRAP_SUCCESS != kern_result) {
-        kern_result = mach_port_allocate(
-                                mach_task_self(), 
-                                MACH_PORT_RIGHT_RECEIVE, 
-                                &serverPort);
-
-        if (KERN_SUCCESS == kern_result) {
-            kern_result = mach_port_insert_right(
-                                mach_task_self(), 
-                                serverPort, serverPort, 
-                                MACH_MSG_TYPE_MAKE_SEND);
-        }
-    
-        if (KERN_SUCCESS == kern_result) {
-            kern_result = bootstrap_register(
-                                bootstrap_port, 
-                                kIOPMServerBootstrapName, 
-                                serverPort);
-        }
-    }
-#else
     xpc_register();
-#endif
 
     if (BOOTSTRAP_SUCCESS != kern_result) {
         syslog(LOG_ERR, "PM configd: bootstrap_register \"%s\" error = %d\n",
@@ -332,7 +303,7 @@ int main(int argc __unused, char *argv[] __unused)
     
     PMStoreLoad();
     
-    initializeESPrefsDynamicStore();
+    initializeESPrefsNotification();
     initializeInterestNotifications();
     initializeTimezoneChangeNotifications();
     initializeCalendarResyncNotification();    
@@ -486,10 +457,10 @@ ClockSleepWakeNotification(IOPMSystemPowerStateCapabilities old_cap,
     }
 }
 
+#if !TARGET_OS_EMBEDDED
 static void takeSpindump( )
 {
 
-#if !TARGET_OS_EMBEDDED
     static int debug_arg = -1;
     int rc;
     static int spindump_pid = -1;
@@ -527,9 +498,10 @@ static void takeSpindump( )
         /* If the previously spawned process is alive, kill it */
         struct proc_bsdinfo pbsd;
         rc = proc_pidinfo(spindump_pid, PROC_PIDTBSDINFO, (uint64_t)0, &pbsd, sizeof(struct proc_bsdinfo));
-        if ((rc == 0) && (pbsd.pbi_ppid == getpid())) {
+        if ((rc == sizeof(pbsd)) && (pbsd.pbi_ppid == getpid())) {
             kill(spindump_pid, SIGKILL);
-            spindump_pid = -1;
+            // Don't start another spindump if one is running
+            return;
         }
     }
 
@@ -544,10 +516,21 @@ static void takeSpindump( )
                                     "100", "-file", kSpindumpOnFullWakeDir"/fullwake-spindump.txt", 0};
     spindump_pid = _SCDPluginExecCommand(NULL, NULL, 0, 0, "/usr/sbin/taskpolicy", spindump_args);
 
-#endif
 
 }
+#endif
 
+void sendSleepNotificationResponse(void *acknowledgementToken, bool allow)
+{
+    if (allow) {
+        IOAllowPowerChange(_pm_ack_port, (long)acknowledgementToken);
+    }
+    else {
+        os_log_debug(OS_LOG_DEFAULT, "Cancelling sleep due to async assertions\n");
+        IOCancelPowerChange(_pm_ack_port, (long)acknowledgementToken);
+    }
+
+}
 
 /*  
  * 
@@ -572,9 +555,12 @@ SleepWakeCallback(
             if (userActiveRootDomain()) {
                 userActiveHandleSleep();
             }
-            // Fall thru
-        case kIOMessageCanSystemSleep:
             IOAllowPowerChange(_pm_ack_port, (long)acknowledgementToken);
+             break;
+
+        case kIOMessageCanSystemSleep:
+            checkForAsyncAssertions(acknowledgementToken);
+            // Response is sent thru sendSleepNotificationResponse()
             break;
 
         case kIOMessageSystemWillPowerOn:
@@ -599,26 +585,17 @@ SleepWakeCallback(
  * from disk and transmit the new settings to the kernel.
  */
 static void 
-ESPrefsHaveChanged(
-    SCPreferencesRef prefs,
-    SCPreferencesNotification notificationType,
-    void *info)
+ESPrefsHaveChanged(void)
 {
-    if ((kSCPreferencesNotificationCommit & notificationType) == 0)
-        return;
-
-    if (gESPreferences == prefs)
-    {
-        // Tell ES Prefs listeners that the prefs have changed
-        PMSettingsPrefsHaveChanged();
-        mt2EvaluateSystemSupport();
+    // Tell ES Prefs listeners that the prefs have changed
+    PMSettingsPrefsHaveChanged();
+    mt2EvaluateSystemSupport();
 #if !TARGET_OS_EMBEDDED
-        UPSLowPowerPrefsHaveChanged();
-        TTYKeepAwakePrefsHaveChanged();
+    UPSLowPowerPrefsHaveChanged();
+    TTYKeepAwakePrefsHaveChanged();
 #endif
-        SystemLoadPrefsHaveChanged();
-    }
-
+    SystemLoadPrefsHaveChanged();
+    
     return;
 }
 
@@ -736,7 +713,9 @@ broadcastGMTOffset(void)
 
     CFTimeZoneResetSystem();
     tzr = CFTimeZoneCopySystem();
-    if(!tzr) return;
+    if(!tzr) {
+        goto exit;
+    }
 
     secondsOffset = (int)CFTimeZoneGetSecondsFromGMT(tzr, CFAbsoluteTimeGetCurrent());
     n = CFNumberCreate(0, kCFNumberIntType, &secondsOffset);
@@ -832,6 +811,7 @@ static void lwShutdownCallback(
 }
 
 
+#if !TARGET_OS_EMBEDDED
 /* displayPowerStateChange
  *
  * displayPowerStateChange gets notified when the display changes power state.
@@ -887,36 +867,24 @@ displayPowerStateChange(void *ref, io_service_t service, natural_t messageType, 
         logASLDisplayStateChange();
     }
 }
+#endif
 
 __private_extern__ bool isDisplayAsleep( )
 {
     return gDisplayIsAsleep;
 }
 
-/* initializeESPrefsDynamicStore
+/* initializeESPrefsNotification
  *
  * Registers a handler that configd calls when someone changes com.apple.PowerManagement.xml
  */
 static void
-initializeESPrefsDynamicStore(void)
+initializeESPrefsNotification(void)
 {
-    gESPreferences = SCPreferencesCreate(
-                    kCFAllocatorDefault,
-                    CFSTR("com.apple.configd.powermanagement"),
-                    CFSTR(kIOPMPrefsPath));
-
-    if (gESPreferences)
-    {
-        SCPreferencesSetCallback(
-                    gESPreferences,
-                    (SCPreferencesCallBack)ESPrefsHaveChanged,
-                    (SCPreferencesContext *)NULL);
-
-        SCPreferencesScheduleWithRunLoop(
-                    gESPreferences,
-                    CFRunLoopGetCurrent(),
-                    kCFRunLoopDefaultMode);
-    }
+    gESPreferences = IOPMRegisterPrefsChangeNotification(dispatch_get_main_queue(),
+                                                         ^(void) {
+                                                             ESPrefsHaveChanged();
+                                                         });
     
     return;
 }
@@ -960,56 +928,95 @@ static void pushNewSleepWakeUUID(void)
 }
 
 
-#if !TARGET_OS_EMBEDDED
-static void AppClaimWakeReason(xpc_object_t claim)
+static void AppClaimWakeReason(xpc_connection_t peer, xpc_object_t claim)
 {
     const char              *id;
     const char              *reason;
     xpc_object_t            d;
+    SecTaskRef secTask = NULL;
+    CFTypeRef  entitled_DarkWakeControl = NULL;
+    audit_token_t token;
 
     if (!claim) {
         return;
     }
+    xpc_connection_get_audit_token(peer, &token);
+    secTask = SecTaskCreateWithAuditToken(kCFAllocatorDefault, token);
+    if (secTask) {
+        entitled_DarkWakeControl = SecTaskCopyValueForEntitlement(secTask, kIOPMDarkWakeControlEntitlement, NULL);
+    }
 
-    id = xpc_dictionary_get_string(claim, "identity"),
-    reason = xpc_dictionary_get_string(claim, "reason"),
+    if (!entitled_DarkWakeControl) {
+        goto exit;;
+    }
+
+    id = xpc_dictionary_get_string(claim, "identity");
+    reason = xpc_dictionary_get_string(claim, "reason");
     d = xpc_dictionary_get_value(claim, "description");
 
     logASLAppWakeReason(id, reason);
+    INFO_LOG("Wake reason: \"%s\"  identitiy: \"%s\" \n", reason, id);
+
+exit:
+    if (secTask) {
+        CFRelease(secTask);
+    }
+    if (entitled_DarkWakeControl) {
+        CFRelease(entitled_DarkWakeControl);
+    }
 }
 
+static void handle_xpc_error(xpc_connection_t peer, xpc_object_t error)
+{
+    const char *errStr = xpc_dictionary_get_string(error, XPC_ERROR_KEY_DESCRIPTION);
+    os_log_debug(OS_LOG_DEFAULT, "Received error \"%s\" on peer %p(pid %d)\n",
+            errStr, peer, xpc_connection_get_pid(peer));
+
+    deRegisterUserActivityClient(peer);
+    releaseConnectionAssertions(peer);
+}
 static void incoming_XPC_connection(xpc_connection_t peer)
 {
+    xpc_connection_set_target_queue(peer, dispatch_get_main_queue());
+
     xpc_connection_set_event_handler(peer,
              ^(xpc_object_t event) {
-                 SecTaskRef secTask = NULL;
-                 CFTypeRef  entitled_DarkWakeControl = NULL;
-                 audit_token_t token;
 
-                 xpc_connection_get_audit_token(peer, &token);
-
-                 secTask = SecTaskCreateWithAuditToken(kCFAllocatorDefault, token);
-                 if (secTask) {
-                     entitled_DarkWakeControl = SecTaskCopyValueForEntitlement(secTask, kIOPMDarkWakeControlEntitlement, NULL);
-                 }
 
                  if (xpc_get_type(event) == XPC_TYPE_DICTIONARY) {
 
                      xpc_object_t inEvent;
 
-                     if (entitled_DarkWakeControl
-                         && (inEvent = xpc_dictionary_get_value(event, "claimSystemWakeEvent")))
-                     {
-                         AppClaimWakeReason(inEvent);
+                     if((inEvent = xpc_dictionary_get_value(event, kUserActivityRegister))) {
+                        registerUserActivityClient(peer, inEvent);
+                     }
+                     else if((inEvent = xpc_dictionary_get_value(event, kUserActivityTimeoutUpdate))) {
+                        updateUserActivityTimeout(peer, inEvent);
+                     }
+                     else if ((inEvent = xpc_dictionary_get_value(event, kClaimSystemWakeEvent))) {
+                        AppClaimWakeReason(peer, inEvent);
+                     }
+                     else if ((inEvent = xpc_dictionary_get_value(event, kAssertionCreateMsg))) {
+                        asyncAssertionCreate(peer, event);
+                     }
+                     else if ((inEvent = xpc_dictionary_get_value(event, kAssertionReleaseMsg))) {
+                        asyncAssertionRelease(peer, event);
+                     }
+                     else if ((inEvent = xpc_dictionary_get_value(event, kAssertionPropertiesMsg))) {
+                        asyncAssertionProperties(peer, event);
+                     }
+                     else {
+                        os_log_error(OS_LOG_DEFAULT, "Unexpected xpc dictionary\n");
                      }
                  }
+                 else if (xpc_get_type(event) == XPC_TYPE_ERROR) {
+                    handle_xpc_error(peer, event);
+                 }
+                 else {
+                    os_log_error(OS_LOG_DEFAULT, "Unexpected xpc type\n");
+                 }
 
-                 if (secTask) {
-                     CFRelease(secTask);
-                 }
-                 if (entitled_DarkWakeControl) {
-                     CFRelease(entitled_DarkWakeControl);
-                 }
+
              });
 
     xpc_connection_resume(peer);
@@ -1036,7 +1043,6 @@ static void xpc_register(void)
     
     xpc_connection_resume(connection);
 }
-#endif
 
 
 static boolean_t 
@@ -1208,7 +1214,8 @@ kern_return_t _io_pm_set_value_int(
     int           *result)
 {
     uid_t   callerUID;
-    audit_token_to_au32(token, NULL, NULL, NULL, &callerUID, 0, 0, NULL, NULL);
+    pid_t   callerPID;
+    audit_token_to_au32(token, NULL, NULL, NULL, &callerUID, 0, &callerPID, NULL, NULL);
     
     *result = kIOReturnSuccess;
     switch (selector) {
@@ -1221,7 +1228,7 @@ kern_return_t _io_pm_set_value_int(
         break;
 
     case kIOPMSetAssertionActivityAggregate:
-        setAssertionActivityAggregate(inValue);
+        setAssertionActivityAggregate(callerPID, inValue);
         break;
 
     case kIOPMSetReservePowerMode:
@@ -1343,37 +1350,6 @@ kern_return_t _io_pm_force_active_settings(
     return KERN_SUCCESS;
 }
 
-kern_return_t _io_pm_set_active_profile(
-    mach_port_t         server,
-    audit_token_t       token,
-    vm_offset_t         profiles_ptr,
-    mach_msg_type_number_t    profiles_len,
-    int                 *result)
-{
-    void                *profiles_buf = (void *)profiles_ptr;
-    CFDictionaryRef     power_profiles = NULL;
-    uid_t               callerUID;
-    gid_t               callerGID;
-    
-    audit_token_to_au32(token, NULL, &callerUID, &callerGID, NULL, NULL, NULL, NULL, NULL);
-    
-    power_profiles = (CFDictionaryRef)IOCFUnserialize(profiles_buf, 0, 0, 0);
-    if(isA_CFDictionary(power_profiles)) {
-        *result = _IOPMSetActivePowerProfilesRequiresRoot(power_profiles, callerUID, callerGID);
-        CFRelease(power_profiles);
-    } else if(power_profiles) {
-        CFRelease(power_profiles);
-    }
-
-    // deallocate client's memory
-    vm_deallocate(mach_task_self(), (vm_address_t)profiles_ptr, profiles_len);
-
-    return KERN_SUCCESS;
-}
-
-
-
-
 /* initializeInteresteNotifications
  *
  * Sets up the notification of general interest from the RootDomain
@@ -1383,7 +1359,9 @@ initializeInterestNotifications()
 {
     IONotificationPortRef       notify_port = 0;
     io_iterator_t               battery_iter = 0;
+#if !TARGET_OS_EMBEDDED
     io_iterator_t               display_iter = 0;
+#endif
     CFRunLoopSourceRef          rlser = 0;
     
     kern_return_t               kr;
@@ -1408,6 +1386,7 @@ initializeInterestNotifications()
         ioregBatteryMatch((void *)notify_port, battery_iter);
     }
 
+#if !TARGET_OS_EMBEDDED
     kr = IOServiceAddMatchingNotification(
                                 notify_port,
                                 kIOFirstMatchNotification,
@@ -1424,6 +1403,19 @@ initializeInterestNotifications()
         asl_log(NULL, NULL, ASL_LEVEL_ERR, 
                 "Failed to match DisplayWrangler(0x%x)\n", kr);
     }
+#else
+    int token;
+    notify_register_dispatch( kIOHIDEventSystemDisplayStatusNotifyKey,
+                              &token, dispatch_get_main_queue(),
+                              ^(int token) {
+                                    uint64_t displayState;
+                                    notify_get_state(token, &displayState);
+                                    gDisplayIsAsleep = displayState ? 0 : 1;
+                                    SystemLoadDisplayPowerStateHasChanged(gDisplayIsAsleep);
+                              });
+
+
+#endif
 
     // Listen for Power devices and Battery Systems to start ioupsd
     initializeHIDInterestNotifications(notify_port);
@@ -1808,6 +1800,7 @@ kern_return_t _io_pm_last_wake_time(
 }
 
 
+#if !TARGET_OS_EMBEDDED
 /* displayMatched
  *
  * Notification fires when IODisplayWranger object is created in the IORegistry.
@@ -1836,6 +1829,7 @@ static void displayMatched(
 
 }
 
+#endif
 
 static void 
 initializeShutdownNotifications(void)

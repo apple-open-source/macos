@@ -30,6 +30,7 @@
 #include "IntRect.h"
 #include "PlatformCALayer.h"
 #include "PlatformCALayerClient.h"
+#include "Timer.h"
 #include <wtf/Noncopyable.h>
 #include <wtf/RetainPtr.h>
 
@@ -53,15 +54,21 @@ public:
 
     void setDeviceScaleFactor(float);
 
+    void setNeedsUpdate();
+
 private:
     // PlatformCALayerClient
-    virtual GraphicsLayer::CompositingCoordinatesOrientation platformCALayerContentsOrientation() const override { return GraphicsLayer::CompositingCoordinatesTopDown; }
-    virtual bool platformCALayerContentsOpaque() const override { return true; }
-    virtual bool platformCALayerDrawsContent() const override { return true; }
-    virtual void platformCALayerPaintContents(PlatformCALayer*, GraphicsContext&, const FloatRect&) override;
-    virtual float platformCALayerDeviceScaleFactor() const override;
+    GraphicsLayer::CompositingCoordinatesOrientation platformCALayerContentsOrientation() const override { return GraphicsLayer::CompositingCoordinatesTopDown; }
+    bool platformCALayerContentsOpaque() const override { return true; }
+    bool platformCALayerDrawsContent() const override { return true; }
+    void platformCALayerPaintContents(PlatformCALayer*, GraphicsContext&, const FloatRect&) override;
+    float platformCALayerDeviceScaleFactor() const override;
 
+    void updateTimerFired();
+    
     const TileController& m_controller;
+    
+    Timer m_updateTimer;
 
     Ref<PlatformCALayer> m_layer;
     Ref<PlatformCALayer> m_visibleRectIndicatorLayer;

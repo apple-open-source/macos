@@ -2,6 +2,10 @@
     cc -I/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders -arch x86_64 -arch i386  -O -o trace trace.c
 */
 
+/*
+ * NOTE: There exists another copy of this file in the kernel_tools.  Changes
+ * made here may also need to be made there.
+ */
 
 #include <sys/param.h>
 #include <sys/types.h>
@@ -46,7 +50,6 @@
 
 #include <mach/mach.h>
 #include <mach/mach_time.h>
-
 
 int nbufs = 0;
 int enable_flag=0;
@@ -106,14 +109,8 @@ uint8_t* type_filter_bitmap;
 
 #define CSC_MASK		0xffff0000
 
-#define VFS_LOOKUP		0x03010090
 #define BSC_exit		0x040c0004
 #define BSC_thread_terminate	0x040c05a4
-#define TRACE_DATA_NEWTHREAD	0x07000004
-#define TRACE_STRING_NEWTHREAD	0x07010004
-#define TRACE_STRING_EXEC	0x07010008
-#define TRACE_LOST_EVENTS	0x07020008
-#define TRACE_INFO_STRING	0x07020010
 #define MACH_SCHEDULED		0x01400000
 #define MACH_MAKERUNNABLE	0x01400018
 #define MACH_STKHANDOFF		0x01400008
@@ -130,8 +127,8 @@ kd_threadmap *mapptr = 0;
 kd_cpumap_header* cpumap_header = NULL;
 kd_cpumap* cpumap = NULL;
 
-/* 
-   If NUMPARMS changes from the kernel, 
+/*
+   If NUMPARMS changes from the kernel,
    then PATHLENGTH will also reflect the change
    This is for the vfslookup entries that
    return pathnames
@@ -143,7 +140,7 @@ kd_cpumap* cpumap = NULL;
 #define US_TO_SLEEP	50000
 #define BASE_EVENTS	500000
 
-
+mach_timebase_info_data_t mach_timebase;
 double divisor;
 
 typedef struct {
@@ -170,7 +167,7 @@ typedef struct lookup *lookup_t;
 
 struct lookup {
 	lookup_t  lk_next;
-	
+
 	uintptr_t lk_thread;
 	uintptr_t lk_dvp;
 	long	 *lk_pathptr;
@@ -181,13 +178,13 @@ typedef struct threadmap *threadmap_t;
 
 struct threadmap {
 	threadmap_t	tm_next;
-	
+
 	uintptr_t	tm_thread;
 	uintptr_t	tm_pthread;
 	boolean_t	tm_deleteme;
 	char		tm_command[MAXCOMLEN + 1];
 };
-	
+
 #define HASH_SIZE	1024
 #define HASH_MASK	1023
 
@@ -234,6 +231,7 @@ static void set_pidexclude(int, int);
 static void set_numbufs(int);
 static void set_freerun();
 static void get_bufinfo(kbufinfo_t *);
+static int get_ktrace_state(void);
 static void set_init();
 static void set_kval_list();
 static void readtrace(char *);
@@ -250,7 +248,7 @@ static void execute_process(char * const argv[]);
 
 static int  writetrace(int);
 static int  write_command_map(int);
-static int  debugid_compar(code_type_t *, code_type_t *);
+static int  debugid_compar(const void *, const void *);
 
 static threadmap_t find_thread_entry(uintptr_t);
 
@@ -328,12 +326,12 @@ void set_enable(int val)
 	}
 }
 
-void set_remove()
+void set_remove(void)
 {
 	extern int errno;
-    
+
 	errno = 0;
-    
+
 	mib[0] = CTL_KERN;
 	mib[1] = KERN_KDEBUG;
 	mib[2] = KERN_KDREMOVE;
@@ -359,7 +357,7 @@ void set_numbufs(int nbufs)
 	mib[5] = 0;
 	if (sysctl(mib, 4, NULL, &needed, NULL, 0) < 0)
 		quit_args("trace facility failure, KERN_KDSETBUF: %s\n", strerror(errno));
-    
+
 	mib[0] = CTL_KERN;
 	mib[1] = KERN_KDEBUG;
 	mib[2] = KERN_KDSETUP;
@@ -370,7 +368,7 @@ void set_numbufs(int nbufs)
 		quit_args("trace facility failure, KERN_KDSETUP: %s\n", strerror(errno));
 }
 
-void set_nowrap()
+void set_nowrap(void)
 {
         mib[0] = CTL_KERN;
         mib[1] = KERN_KDEBUG;
@@ -386,7 +384,7 @@ void set_nowrap()
 void set_pidcheck(int pid, int on_off_flag)
 {
 	kd_regtype kr;
-    
+
 	kr.type = KDBG_TYPENONE;
 	kr.value1 = pid;
 	kr.value2 = on_off_flag;
@@ -420,7 +418,7 @@ void set_pidcheck(int pid, int on_off_flag)
 void set_pidexclude(int pid, int on_off_flag)
 {
 	kd_regtype kr;
-    
+
 	kr.type = KDBG_TYPENONE;
 	kr.value1 = pid;
 	kr.value2 = on_off_flag;
@@ -442,7 +440,7 @@ void set_pidexclude(int pid, int on_off_flag)
 	}
 }
 
-void set_freerun()
+void set_freerun(void)
 {
         mib[0] = CTL_KERN;
         mib[1] = KERN_KDEBUG;
@@ -452,6 +450,18 @@ void set_freerun()
         mib[5] = 0;
         if (sysctl(mib, 4, NULL, &needed, NULL, 0) < 0)
 		quit_args("trace facility failure, KDBG_FREERUN: %s\n", strerror(errno));
+}
+
+static int get_ktrace_state(void)
+{
+	int state;
+	size_t state_size = sizeof(state);
+	int err = sysctlbyname("ktrace.state", &state, &state_size, NULL, 0);
+	if (err) {
+		fprintf(stderr, "error: could not query ktrace.state sysctl (%d: %s)\n", errno, strerror(errno));
+		exit(1);
+	}
+	return state;
 }
 
 void get_bufinfo(kbufinfo_t *val)
@@ -467,10 +477,10 @@ void get_bufinfo(kbufinfo_t *val)
 		quit_args("trace facility failure, KERN_KDGETBUF: %s\n", strerror(errno));
 }
 
-void set_init()
+void set_init(void)
 {
         kd_regtype kr;
-    
+
         kr.type = KDBG_RANGETYPE;
         kr.value1 = 0;
         kr.value2 = -1;
@@ -483,7 +493,7 @@ void set_init()
 	mib[5] = 0;
         if (sysctl(mib, 3, &kr, &needed, NULL, 0) < 0)
             quit_args("trace facility failure, KERN_KDSETREG (rangetype): %s\n", strerror(errno));
-    
+
         mib[0] = CTL_KERN;
         mib[1] = KERN_KDEBUG;
         mib[2] = KERN_KDSETUP;
@@ -493,7 +503,6 @@ void set_init()
         if (sysctl(mib, 3, NULL, &needed, NULL, 0) < 0)
             quit_args("trace facility failure, KERN_KDSETUP: %s\n", strerror(errno));
 }
-
 
 static void
 set_filter(void)
@@ -507,10 +516,10 @@ set_filter(void)
 	}
 }
 
-void set_kval_list()
+void set_kval_list(void)
 {
         kd_regtype kr;
-    
+
         kr.type = KDBG_VALCHECK;
         kr.value1 = value1;
         kr.value2 = value2;
@@ -532,7 +541,7 @@ void readtrace(char *buffer)
 {
 	mib[0] = CTL_KERN;
 	mib[1] = KERN_KDEBUG;
-	mib[2] = KERN_KDREADTR;		
+	mib[2] = KERN_KDREADTR;
 	mib[3] = 0;
 	mib[4] = 0;
 	mib[5] = 0;
@@ -567,8 +576,15 @@ int write_command_map(int fd)
 	mib[4] = 0;
 	mib[5] = 0;
 
-	if (sysctl(mib, 4, NULL, &needed, NULL, 0) < 0)
-		return 1;
+	if (sysctl(mib, 4, NULL, &needed, NULL, 0) < 0) {
+		if (errno == ENODATA) {
+			if (verbose_flag) {
+				printf("Cannot write thread map -- this is not fatal\n");
+			}
+		} else {
+			return 1;
+		}
+	}
 
 	return 0;
 }
@@ -699,7 +715,7 @@ uint64_t consume_start_event(uintptr_t thread, int debugid, uint64_t now)
 			evp_prev = evp;
 
 			for (evp = evp->ev_next; evp; evp = evp->ev_next) {
-				
+
 				if (evp->ev_thread == thread && evp->ev_debugid == debugid) {
 					evp_prev->ev_next = evp->ev_next;
 					break;
@@ -709,7 +725,7 @@ uint64_t consume_start_event(uintptr_t thread, int debugid, uint64_t now)
 		}
 		if (evp) {
 			elapsed = now - evp->ev_timestamp;
-			
+
 			evp->ev_next = event_freelist;
 			event_freelist = evp;
 		}
@@ -717,16 +733,20 @@ uint64_t consume_start_event(uintptr_t thread, int debugid, uint64_t now)
 	return (elapsed);
 }
 
-
 void
-log_trace()
+log_trace(void)
 {
 	int fd = -1;
 	int ret = 0;
 	char *buffer;
 	uint32_t buffer_size = 1000000 * sizeof(kd_buf);
 
-	fd = open(logfile, O_TRUNC | O_WRONLY | O_CREAT, 0777);
+	if (logfile[0] == '-' && logfile[1] == '\0') {
+		fd = STDOUT_FILENO;
+	} else {
+		fd = open(logfile, O_TRUNC | O_WRONLY | O_CREAT, 0777);
+	}
+
 	if (fd == -1) {
 		perror("Can't open logfile");
 		exit(1);
@@ -775,28 +795,30 @@ log_trace()
 	close(fd);
 }
 
+/*
+ * Why does this function exist?
+ * trace -L needs millisecond level wait times.
+ * When this code is running remotely, the mach_timebase_info_t data may
+ * be from a device with a different timebase. This code avoids using
+ * mach_absolute_time(), so that time calculations come out correct both
+ * locally and remotely.
+ */
+static uint64_t current_millis() {
+	struct timeval time;
+	gettimeofday(&time, NULL);
+	return (time.tv_sec * 1000) + (time.tv_usec / 1000);
+}
 
 void
-Log_trace()
+Log_trace(void)
 {
-	int	size;
-	kd_buf  kd_tmp;
 	size_t	len;
-	int	num_cpus;
-	int	try_writetrace = 1;
+	int	num_cpus = 0;
 	int	fd;
-        char		*buffer;
-        kd_buf		*kd;
-	uint64_t sample_window_abs;
-	uint64_t next_window_begins;
-	uint64_t current_abs;
-	uint64_t ending_abstime;
+	uint64_t current_ms;
+	uint64_t ending_ms = 0;
 	uint64_t last_time_written;
-	uint32_t us_to_sleep;
-	uint32_t us_to_adjust;
 	uint32_t ms_to_run;
-
-	memset(&kd_tmp, 0, sizeof(kd_tmp));
 
 	if ((fd = open(logfile, O_TRUNC|O_WRONLY|O_CREAT, 0777)) == -1) {
 		perror("Can't open logfile");
@@ -826,13 +848,6 @@ Log_trace()
 		if (kval_flag)
 			set_kval_list();
 	}
-	/* Get kernel buffer information */
-	get_bufinfo(&bufinfo);
-
-	buffer = malloc(bufinfo.nkdbufs * sizeof(kd_buf));
-	if (buffer == (char *) 0)
-		quit("can't allocate memory for tracing info\n");
-	memset(buffer, 0, bufinfo.nkdbufs * sizeof(kd_buf));
 
 	if (use_current_buf == 0)
 		set_enable(1);
@@ -841,82 +856,41 @@ Log_trace()
 		quit("can't write tracefile header\n");
 	}
 
-	sample_window_abs = (uint64_t)((double)US_TO_SLEEP * divisor);
-
-	next_window_begins = mach_absolute_time() + sample_window_abs;
+	last_time_written = current_millis();
 
 	if (secs_to_run) {
-		ending_abstime = mach_absolute_time() + (uint64_t)((double)secs_to_run * (double)1000000 * divisor);
 		ms_to_run = secs_to_run * 1000;
+		ending_ms = last_time_written + ms_to_run;
 	} else
 		ms_to_run = 0;
-	last_time_written = mach_absolute_time();
 
 	while (LogRAW_flag) {
-		current_abs = mach_absolute_time();
+		needed = ms_to_run;
 
-		if (try_writetrace) {
-			needed = ms_to_run;
-				
-			if (writetrace(fd))
-				try_writetrace = 0;
-			else {
-				if (needed) {
-					current_abs = mach_absolute_time();
+		if (writetrace(fd)) {
+			perror("KDWRITETR returned error");
 
-					printf("wrote %d events - elapsed time = %.1f secs\n",
-					       (int)needed, ((double)(current_abs - last_time_written) / divisor) / 1000000);
-
-					last_time_written = current_abs;
-				}
-			}
+			/* Clean up and exit in case of write fail */
+			break;
 		}
-		if (try_writetrace == 0) {
 
-			if (next_window_begins > current_abs)
-				us_to_adjust = US_TO_SLEEP - (uint32_t)((double)(next_window_begins - current_abs) / divisor);
-			else
-				us_to_adjust = US_TO_SLEEP;
-			
-			next_window_begins = current_abs + sample_window_abs;
+		if (needed) {
+			current_ms = current_millis();
 
-			us_to_sleep = US_TO_SLEEP - us_to_adjust;
+			printf("wrote %d events - elapsed time = %.1f secs\n",
+			       (int)needed, (double)(current_ms - last_time_written) / 1000.0);
 
-			next_window_begins = current_abs + (uint64_t)((double)(us_to_sleep + US_TO_SLEEP) * divisor);
-
-			if (us_to_sleep)
-				usleep(us_to_sleep);
-
-			get_bufinfo(&bufinfo);
-
-			if (bufinfo.flags & KDBG_WRAPPED)
-				printf("lost events\n");
-
-			needed = bufinfo.nkdbufs * sizeof(kd_buf);
-
-			readtrace(buffer);
-
-			if (bufinfo.flags & KDBG_WRAPPED) {
-
-				kd = (kd_buf *) buffer;
-
-				kd_tmp.timestamp = kd[0].timestamp;
-				kd_tmp.debugid = TRACE_LOST_EVENTS;
-
-				write(fd, &kd_tmp, sizeof(kd_tmp));
-			}
-			write(fd, buffer, needed * sizeof(kd_buf));
-
-			if (verbose_flag && needed > nbufs)
-				printf("needed = %ld\n", needed);
+			last_time_written = current_ms;
 		}
+
 		if (secs_to_run) {
-			current_abs = mach_absolute_time();
+			current_ms = current_millis();
 
-			if (current_abs > ending_abstime)
+			if (current_ms > ending_ms)
 				break;
-			ms_to_run = (ending_abstime - current_abs) / (1000 * 1000);
-			
+
+			ms_to_run = (uint32_t)(ending_ms - current_ms);
+
 			if (ms_to_run == 0)
 				break;
 		}
@@ -929,13 +903,13 @@ Log_trace()
 }
 
 
-void read_trace()
+void read_trace(void)
 {
         char		*buffer;
 	uint32_t	buffer_size;
         kd_buf		*kd;
 	int		fd;
-	int 		firsttime = 1;
+	int		firsttime = 1;
 	int		lines = 0;
 	int		io_lines = 0;
 	uint64_t	bias = 0;
@@ -981,6 +955,34 @@ void read_trace()
 				perror("read failed");
 				exit(2);
 			}
+		} else if (raw_header.version_no == RAW_VERSION1) {
+#if defined(__ILP32__)
+			/*
+			 * If the raw trace file was written by armv7k, the 64-bit alignment
+			 * of TOD_secs causes RAW_header to be 24 bytes. If we only read 20
+			 * bytes, the next 4 bytes might be a legitimate thread_id, but it might
+			 * also be 0 or a leaked kernel pointer from an armv7k trace file. For
+			 * both those cases, consume the 4 bytes and look for the thread map
+			 * after it.
+			 */
+			if (sizeof(raw_header) == 20) {
+				uint32_t alignment_garbage;
+
+				if (read(fd, &alignment_garbage, sizeof(alignment_garbage)) != sizeof(alignment_garbage)) {
+					perror("read failed");
+					exit(2);
+				}
+
+				if ((alignment_garbage == 0) || (alignment_garbage >= 0x80000000)) {
+					if (verbose_flag) {
+						printf("Skipping 4 bytes to find valid thread map\n");
+					}
+				} else {
+					/* oops, go back to where we were */
+					lseek(fd, -(off_t)sizeof(alignment_garbage), SEEK_CUR);
+				}
+			}
+#endif
 		}
 		count_of_names = raw_header.thread_count;
 		trace_time = (time_t) (raw_header.TOD_secs);
@@ -993,7 +995,7 @@ void read_trace()
 	if (buffer == (char *) 0)
 		quit("can't allocate memory for tracing info\n");
 
-	kd = (kd_buf *)buffer;
+	kd = (kd_buf *)(uintptr_t)buffer;
 
 	read_command_map(fd, count_of_names);
 	read_cpu_map(fd);
@@ -1002,12 +1004,12 @@ void read_trace()
 		uint32_t count;
 		uint64_t now = 0;
 		uint64_t prev;
-		uint64_t prevdelta;
-		uint32_t cpunum;
+		uint64_t prevdelta = 0;
+		uint32_t cpunum = 0;
 		uintptr_t thread;
 		double	x = 0.0;
 		double	y = 0.0;
-		double  event_elapsed_time;
+		double  event_elapsed_time = 0;
 		kd_buf *kdp;
 		lookup_t  lkp;
 		boolean_t ending_event;
@@ -1024,7 +1026,7 @@ void read_trace()
 
 			mib[0] = CTL_KERN;
 			mib[1] = KERN_KDEBUG;
-			mib[2] = KERN_KDREADTR;		
+			mib[2] = KERN_KDREADTR;
 			mib[3] = 0;
 			mib[4] = 0;
 			mib[5] = 0;
@@ -1033,12 +1035,12 @@ void read_trace()
 
 			if (needed == 0)
 				break;
-			count = needed;
+			count = (uint32_t)needed;
 
 		} else {
 			uint32_t bytes_read;
 
-			bytes_read = read(fd, buffer, buffer_size);
+			bytes_read = (uint32_t)read(fd, buffer, buffer_size);
 
 			if (bytes_read == -1) {
 				perror("read failed");
@@ -1055,64 +1057,6 @@ void read_trace()
 			debugid = kdp->debugid;
 			debugid_base = debugid & DBG_FUNC_MASK;
 			now = kdp->timestamp & KDBG_TIMESTAMP_MASK;
-
-			if (firsttime)
-				bias = now;
-			now -= bias;
-
-			cpunum = kdbg_get_cpu(kdp); 
-			thread = kdp->arg5;
-
-			if (lines == 64 || firsttime)
-			{
-				prevdelta = now - prevdelta;
-
-				if (firsttime)
-					firsttime = 0;
-				else {
-					x = (double)prevdelta;
-					x /= divisor;
-
-					fprintf(output_file, "\n\nNumber of microsecs since in last page %8.1f\n", x);
-				}
-				prevdelta = now;
-           
-				/* 
-				 * Output description row to output file (make sure to format correctly for 32-bit and 64-bit)
-				 */
-				fprintf(output_file,
-#ifdef __LP64__
-					"   AbsTime(Us)      Delta            debugid                       arg1             arg2             arg3             arg4              thread         cpu#  command\n\n"
-#else
-					"   AbsTime(Us)      Delta            debugid                       arg1           arg2           arg3           arg4                thread   cpu#  command\n\n"
-#endif
-					);
-	    
-				lines = 0;
-				
-				if (io_lines > 15000) {
-					fcntl(output_fd, F_FLUSH_DATA, 0);
-
-					io_lines = 0;
-				}
-			}
-			lkp = 0;
-
-			if (debugid_base == VFS_LOOKUP) {
-				lkp = handle_lookup_event(thread, debugid, kdp);
-
-				if ( !lkp || !(debugid & DBG_FUNC_END))
-					continue;
-			}
-			x = (double)now;
-			x /= divisor;
-
-			if (last_event_time)
-				y = x - last_event_time;
-			else
-				y = x;
-			last_event_time = x;
-			ending_event = FALSE;
 
 			/*
 			 * Is this event from an IOP? If so, there will be no
@@ -1136,9 +1080,69 @@ void read_trace()
 						continue;
 				}
 			}
+
+			if (firsttime)
+				bias = now;
+			now -= bias;
+
+			cpunum = kdbg_get_cpu(kdp);
+			thread = kdp->arg5;
+
+			if (lines == 64 || firsttime)
+			{
+				prevdelta = now - prevdelta;
+
+				if (firsttime)
+					firsttime = 0;
+				else {
+					x = (double)prevdelta;
+					x /= divisor;
+
+					fprintf(output_file, "\n\nNumber of microsecs since in last page %8.1f\n", x);
+				}
+				prevdelta = now;
+
+				/*
+				 * Output description row to output file (make sure to format correctly for 32-bit and 64-bit)
+				 */
+				fprintf(output_file,
+#ifdef __LP64__
+					"   AbsTime(Us)      Delta            debugid                       arg1             arg2             arg3             arg4              thread         cpu#  command\n\n"
+#else
+					"   AbsTime(Us)      Delta            debugid                       arg1           arg2           arg3           arg4                thread   cpu#  command\n\n"
+#endif
+					);
+
+				lines = 0;
+
+				if (io_lines > 15000) {
+					fcntl(output_fd, F_FLUSH_DATA, 0);
+
+					io_lines = 0;
+				}
+			}
+			lkp = 0;
+
+			if (debugid_base == VFS_LOOKUP) {
+				lkp = handle_lookup_event(thread, debugid, kdp);
+
+				if ( !lkp || !(debugid & DBG_FUNC_END))
+					continue;
+			}
+
+			x = (double)now;
+			x /= divisor;
+
+			if (last_event_time)
+				y = x - last_event_time;
+			else
+				y = x;
+			last_event_time = x;
+			ending_event = FALSE;
+
 			if ( !lkp) {
 				int t_debugid;
-				int t_thread;
+				uintptr_t t_thread;
 
 				if ((debugid & DBG_FUNC_START) || debugid == MACH_MAKERUNNABLE) {
 
@@ -1153,7 +1157,7 @@ void read_trace()
 					}
 
 				} else if ((debugid & DBG_FUNC_END) || debugid == MACH_STKHANDOFF || debugid == MACH_SCHEDULED) {
-					
+
 					if (debugid == MACH_STKHANDOFF || debugid == MACH_SCHEDULED) {
 						t_debugid = MACH_MAKERUNNABLE;
 						t_thread = kdp->arg2;
@@ -1218,7 +1222,7 @@ void read_trace()
 				/*
 				 * print the tail end of the pathname
 				 */
-				len = strlen(strptr);
+				len = (int)strlen(strptr);
 				if (len > 51)
 					len -= 51;
 				else
@@ -1253,7 +1257,7 @@ void read_trace()
 
 
 
-void signal_handler(int sig) 
+void signal_handler(int sig)
 {
 	ptrace(PT_KILL, pid, (caddr_t)0, 0);
 	/*
@@ -1269,18 +1273,13 @@ void signal_handler_RAW(int sig)
 }
 
 
-
-int main(argc, argv, env)
-int argc;
-char **argv;
-char **env;
+int main (int argc, char* argv[], char *envp[])
 {
 	extern char *optarg;
 	extern int optind;
 	int ch;
 	int i;
 	char *output_filename = NULL;
-	char *filter_filename = NULL;
 	unsigned int parsed_arg;
 
 	for (i = 1; i < argc; i++) {
@@ -1407,7 +1406,7 @@ char **env;
 		case 'p':
 			filter_flag = 1;
 			parsed_arg = argtoi('p', "decimal, hex, or octal number", optarg, 0);
-			if (parsed_arg > 0xFF) 
+			if (parsed_arg > 0xFF)
 				quit_args("argument '-p %s' parsed as %u, "
 				          "end range value must be 0-255\n", optarg, parsed_arg);
 			saw_filter_end_range(parsed_arg);
@@ -1485,9 +1484,17 @@ char **env;
 
 	if (LogRAW_flag) {
 		get_bufinfo(&bufinfo);
+		int ktrace_state = get_ktrace_state();
 
-		if (bufinfo.nolog == 0)
+		/*
+		 * Only use the current kdebug configuration when foreground
+		 * tracing is enabled.  Both checks are necessary because the
+		 * background tool might have enabled tracing, but as soon as we
+		 * try to write a header, that configuration is removed for us.
+		 */
+		if ((ktrace_state == 1) && (bufinfo.nolog == 0)) {
 			use_current_buf = 1;
+		}
 	}
 
 	if (disable_flag)
@@ -1511,7 +1518,7 @@ char **env;
 		set_remove();
 		exit(0);
 	}
-    
+
 	if (bufset_flag )
 	{
 		if (!init_flag && !LogRAW_flag)
@@ -1521,15 +1528,50 @@ char **env;
 		}
 		set_numbufs(nbufs);
 	}
-    
+
 	if (nowrap_flag)
 		set_nowrap();
 
 	if (freerun_flag)
 		set_freerun();
- 
+
 	if (bufget_flag)
 	{
+		printf("The kernel tracing settings are:\n");
+
+		/* determine the state of ktrace */
+		int state = get_ktrace_state();
+
+		/* get the name of the last process to configure ktrace */
+		char execname[20] = { 0 };
+		size_t execname_size = sizeof(execname);
+		int err = sysctlbyname("ktrace.configured_by", &execname, &execname_size, NULL, 0);
+		if (err) {
+			fprintf(stderr, "error: could not query ktrace.configured_by sysctl (%d: %s)\n", errno, strerror(errno));
+			exit(1);
+		}
+
+		printf("\tTracing is ");
+		switch (state) {
+		case 0:
+			printf("off");
+			break;
+		case 1:
+			printf("active (foreground)");
+			break;
+		case 2:
+			printf("active (background)");
+			break;
+		default:
+			printf("in an invalid state");
+			break;
+		}
+		printf("\n");
+
+		printf("\tLast configured by \"%s\"\n", execname[0] == '\0' ? "<unknown>" : execname);
+
+		/* get kdebug info */
+
 		get_bufinfo(&bufinfo);
 
 		printf("The kernel buffer settings are:\n");
@@ -1572,7 +1614,7 @@ char **env;
 			printf("\tCollecting specific code values is enabled\n");
 		else
 			printf("\tCollecting specific code values is disabled\n");
-        
+
 		if (bufinfo.flags & KDBG_TYPEFILTER_CHECK)
 			printf("\tCollection based on a filter is enabled\n");
 		else
@@ -1592,6 +1634,50 @@ char **env;
 			printf("\tKernel buffer is not controlled by any process.\n");
 		else
 			printf("\tKernel buffer is controlled by proc id [%d]\n", bufinfo.bufid);
+
+
+		if (bufinfo.flags & KDBG_TYPEFILTER_CHECK) {
+			if (verbose_flag) {
+				bool (^should_print)(uint8_t*) = ^bool(uint8_t* ptr) {
+					for (uint32_t i=0; i<32; ++i) {
+						if (ptr[i] > 0) return true;
+					}
+
+					return false;
+				};
+
+				uint8_t* typefilter = (uint8_t*)kdebug_typefilter();
+				if (typefilter) {
+					bool header = false;
+
+					// Reduce noise, only print lines that are allowing events.
+					for (uint32_t tclass = 0; tclass < 0x100; ++tclass) {
+						uint8_t* base = &typefilter[tclass * 32];
+						if (should_print(base)) {
+							if (!header) {
+								header = true;
+								printf("\tTypefilter:\n");
+								printf("%18s  ","");
+								for (uint32_t tsubclass=0; tsubclass<32; ++tsubclass) {
+									printf("%02x ", tsubclass * 8);
+								}
+								printf("\n");
+								printf("%18s  ","");
+								for (uint32_t tsubclass=0; tsubclass<32; ++tsubclass) {
+									printf("---");
+								}
+								printf("\n");
+							}
+							printf("%16s%02x: ", "", tclass);
+							for (uint32_t tsubclass=0; tsubclass<32; ++tsubclass) {
+								printf("%02X ", typefilter[(tclass * 32) + tsubclass]);
+							}
+							printf("\n");
+						}
+					}
+				}
+			}
+		}
 	}
 
 	if (init_flag)
@@ -1631,7 +1717,7 @@ char **env;
 			usage(SHORT_HELP);
 		}
 		setbuffer(output_file, &sbuffer[0], SBUFFER_SIZE);
-	
+
 		if (fcntl(output_fd, F_NOCACHE, 1) < 0)
 		{
 			/* Not fatal */
@@ -1696,7 +1782,7 @@ execute_process(char * const argv[])
 }
 
 static void
-quit_args(const char *fmt, ...) 
+quit_args(const char *fmt, ...)
 {
 	char buffer[1024];
 
@@ -1733,7 +1819,7 @@ quit(char *s)
 
 	printf("trace: ");
 	if (s)
-		printf("%s ", s);
+		printf("%s", s);
 	exit(1);
 }
 
@@ -1841,9 +1927,9 @@ usage(int short_help)
 	(void)fprintf(stderr, "\tcollection of kernel trace elements for that process.\n");
 	(void)fprintf(stderr, "\tSee -e(enable) flag for option descriptions.\n\n");
 
-    (void)fprintf(stderr, "usage: trace -t [-o OutputFilename] [-N] [ExtraCodeFilename1 ExtraCodeFilename2 ...] \n"); 
+    (void)fprintf(stderr, "usage: trace -t [-o OutputFilename] [-N] [ExtraCodeFilename1 ExtraCodeFilename2 ...] \n");
 	(void)fprintf(stderr, "\tCollect the kernel buffer trace data and print it.\n\n");
-	(void)fprintf(stderr, "\t -N                 Do not import /usr/share/misc/trace.codes (for raw hex tracing or supplying an alternate set of codefiles)\n"); 
+	(void)fprintf(stderr, "\t -N                 Do not import /usr/share/misc/trace.codes (for raw hex tracing or supplying an alternate set of codefiles)\n");
 	(void)fprintf(stderr, "\t -o OutputFilename  Print trace output to OutputFilename. Default is stdout.\n\n");
 
 	(void)fprintf(stderr,
@@ -1851,7 +1937,7 @@ usage(int short_help)
 	(void)fprintf(stderr, "\tRead raw trace file and print it.\n\n");
 	(void)fprintf(stderr, "\t -X                 Force trace to interpret trace data as 32 bit. \n");
 	(void)fprintf(stderr, "\t                          Default is to match the bit width of the current system. \n");
-	(void)fprintf(stderr, "\t -N                 Do not import /usr/share/misc/trace.codes (for raw hex tracing or supplying an alternate set of codefiles)\n"); 
+	(void)fprintf(stderr, "\t -N                 Do not import /usr/share/misc/trace.codes (for raw hex tracing or supplying an alternate set of codefiles)\n");
 	(void)fprintf(stderr, "\t -F frequency       Specify the frequency of the clock used to timestamp entries in RawFilename.\n\t                    Use command \"sysctl hw.tbfrequency\" on the target device, to get target frequency.\n");
 	(void)fprintf(stderr, "\t -o OutputFilename  Print trace output to OutputFilename. Default is stdout.\n\n");
 
@@ -1917,10 +2003,7 @@ usage(int short_help)
 
 
 static int
-argtoi(flag, req, str, base)
-int flag;
-char *req, *str;
-int base;
+argtoi(int flag, char *req, char *str, int base)
 {
 	char *cp;
 	int ret;
@@ -1931,12 +2014,8 @@ int base;
 	return (ret);
 }
 
-
 static unsigned long
-argtoul(flag, req, str, base)
-int flag;
-char *req, *str;
-int base;
+argtoul(int flag, char *req, char *str, int base)
 {
 	char *cp;
 	unsigned long ret;
@@ -1947,23 +2026,23 @@ int base;
 	return (ret);
 }
 
-
 /*
  * comparison function for qsort
  * sort by debugid
  */
-int debugid_compar(p1, p2)
-	code_type_t *p1;
-	code_type_t *p2;
+int
+debugid_compar(const void *p1, const void *p2)
 {
-	if (p1->debugid > p2->debugid)
-		return(1);
-	else if (p1->debugid == p2->debugid)
-		return(0);
-	else
-		return(-1);
-}
+	const code_type_t *q1 = (const code_type_t *)p1;
+	const code_type_t *q2 = (const code_type_t *)p2;
 
+	if (q1->debugid > q2->debugid)
+		return (1);
+	else if (q1->debugid == q2->debugid)
+		return (0);
+	else
+		return (-1);
+}
 
 /*
  * Filter args parsing state machine:
@@ -2121,7 +2200,7 @@ set_filter_subclass(uint8_t class, uint8_t subclass)
 
 	uint16_t csc = ENCODE_CSC_LOW(class, subclass);
 
-	if (verbose_flag && !setting_class) 
+	if (verbose_flag && !setting_class)
 		printf("tracing subclass: 0x%4.4x\n", csc);
 
 	if (verbose_flag && isset(type_filter_bitmap, csc))
@@ -2173,7 +2252,8 @@ set_filter_range(uint8_t class, uint8_t end)
  */
 
 static void
-parse_filter_file(char *filename) {
+parse_filter_file(char *filename)
+{
 	FILE* file;
 	uint32_t current_line = 0;
 	uint32_t parsed_arg   = 0;
@@ -2191,7 +2271,7 @@ parse_filter_file(char *filename) {
 
 	while( fgets(line, sizeof(line), file) != NULL ) {
 		current_line++;
-		
+
 		switch (line[0]) {
 		case 'C':
 			rval = sscanf(line, "C 0x%x\n", &parsed_arg);
@@ -2237,14 +2317,11 @@ parse_filter_file(char *filename) {
 	fclose(file);
 }
 
-
 /*
  *  Find the debugid code in the list and return its index
  */
-static int binary_search(list, lowbound, highbound, code)
-	code_type_t *list;
-	int lowbound, highbound;
-	unsigned int code;
+static int
+binary_search(code_type_t *list, int lowbound, int highbound, unsigned int code)
 {
 	int low, high, mid;
 	int tries = 0;
@@ -2282,10 +2359,10 @@ static int
 parse_codefile(const char *filename)
 {
 	int fd;
-	int i, j, line;
+	int j, line;
 	size_t count;
 	struct stat stat_buf;
-	unsigned long file_size;
+	size_t file_size;
 	char *file_addr, *endp; 
 
 	if ((fd = open(filename, O_RDONLY, 0)) == -1)
@@ -2304,11 +2381,11 @@ parse_codefile(const char *filename)
 	 * For some reason mapping files with zero size fails
 	 * so it has to be handled specially.
 	 */
-	file_size = stat_buf.st_size;
+	file_size = (size_t)stat_buf.st_size;
 
 	if (stat_buf.st_size != 0)
 	{
-		if ((file_addr = mmap(0, stat_buf.st_size, PROT_READ|PROT_WRITE, 
+		if ((file_addr = mmap(0, file_size, PROT_READ|PROT_WRITE,
 				      MAP_PRIVATE|MAP_FILE, fd, 0)) == (char*) -1)
 		{
 			printf("Error: Can't map file: %s\n", filename);
@@ -2368,23 +2445,23 @@ parse_codefile(const char *filename)
 			j++;
 			line++;
 		}
-	
+
 		/* Skip leading whitespace */
 		while (file_addr[j] == ' ' || file_addr[j] == '\t')
 			j++;
 
 		/* Get the debugid code */
-		codesc[codesc_idx].debugid = strtoul(file_addr + j, &endp, 16); 
-		j = endp - file_addr;
+		codesc[codesc_idx].debugid = (uint32_t)strtoul(file_addr + j, &endp, 16);
+		j = (int)(endp - file_addr);
 
-		if (codesc[codesc_idx].debugid == 0) 
+		if (codesc[codesc_idx].debugid == 0)
 		{
 			/* We didn't find a debugid code - skip this line */
 			if (verbose_flag)
 				printf("Error: while parsing line %d, skip\n", line);
 			while (file_addr[j] != '\n' && j < file_size)
 				j++;
-			codesc_idx--; 
+			codesc_idx--;
 			line++;
 			continue;
 		}
@@ -2401,13 +2478,13 @@ parse_codefile(const char *filename)
 				printf("Error: while parsing line %d, (0x%x) skip\n", line, codesc[codesc_idx].debugid);
 
 			j++;
-			codesc_idx--; 
+			codesc_idx--;
 			line++;
 			continue;
 		}
 
 		/* Next is the debugid string terminated by a newline */
-		codesc[codesc_idx].debug_string = &file_addr[j]; 
+		codesc[codesc_idx].debug_string = &file_addr[j];
 
 		/* Null out the newline terminator */
 		while ((j < file_size) && (file_addr[j] != '\n'))
@@ -2426,25 +2503,27 @@ parse_codefile(const char *filename)
 	}
 
 	/* sort */
-	qsort((void *)codesc, codesc_idx, sizeof(code_type_t), debugid_compar); 
+	qsort((void *)codesc, codesc_idx, sizeof(code_type_t), debugid_compar);
 
 	if (verbose_flag)
 	{
-		printf("Sorted %zd codes in %s\n", codesc_idx, filename); 
+		printf("Sorted %zd codes in %s\n", codesc_idx, filename);
 		printf("lowbound  [%6d]: 0x%8x %s\n", 0, codesc[0].debugid, codesc[0].debug_string);
-		printf("highbound [%6zd]: 0x%8x %s\n\n", codesc_idx - 1, codesc[codesc_idx - 1].debugid, codesc[codesc_idx - 1].debug_string); 
+		printf("highbound [%6zd]: 0x%8x %s\n\n", codesc_idx - 1, codesc[codesc_idx - 1].debugid, codesc[codesc_idx - 1].debug_string);
 	}
 	codesc_find_dupes();
 
 #if 0
 	/* Dump the codefile */
+	int i;
 	for (i = 0; i < codesc_idx; i++)
 		printf("[%d]  0x%x   %s\n",i+1, codesc[i].debugid, codesc[i].debug_string);
 #endif
 	return(0);
 }
 
-static void codesc_find_dupes(void)
+static void
+codesc_find_dupes(void)
 {
 	boolean_t found_dupes = FALSE;
 	if (codesc_idx == 0)
@@ -2469,8 +2548,8 @@ static void codesc_find_dupes(void)
 	}
 }
 
-
-int match_debugid(unsigned int xx, char * debugstr, int * yy)
+int
+match_debugid(unsigned int xx, char * debugstr, int * yy)
 {
 	int indx;
 
@@ -2506,7 +2585,7 @@ read_cpu_map(int fd)
 	 * cpumap size is one page.
 	 */
 	cpumap_header = malloc(PAGE_SIZE);
-	
+
 	if (readRAW_flag) {
 		/*
 		 * cpu maps exist in a RAW_VERSION1+ header only
@@ -2524,11 +2603,11 @@ read_cpu_map(int fd)
 		}
 	} else {
 		int mib[3];
-		
+
 		mib[0] = CTL_KERN;
 		mib[1] = KERN_KDEBUG;
 		mib[2] = KERN_KDCPUMAP;
-		
+
 		size_t temp = PAGE_SIZE;
 		if (sysctl(mib, 3, cpumap_header, &temp, NULL, 0) == 0) {
 			if (PAGE_SIZE >= temp) {
@@ -2619,7 +2698,7 @@ read_command_map(int fd, uint32_t count)
 
 	if (verbose_flag) {
 		/* Dump the initial map */
-		
+
 		printf("Size of maptable returned is %ld, thus %ld entries\n", size, (size/sizeof(kd_threadmap)));
 
 		printf("Thread    Command\n");
@@ -2633,8 +2712,8 @@ read_command_map(int fd, uint32_t count)
 	return (int)size;
 }
 
-
-void create_map_entry(uintptr_t thread, char *command)
+void
+create_map_entry(uintptr_t thread, char *command)
 {
 	threadmap_t	tme;
 	int		hashid;
@@ -2656,8 +2735,8 @@ void create_map_entry(uintptr_t thread, char *command)
 	threadmap_hash[hashid] = tme;
 }
 
-
-void delete_thread_entry(uintptr_t thread)
+void
+delete_thread_entry(uintptr_t thread)
 {
 	threadmap_t	tme = 0;
 	threadmap_t	tme_prev;
@@ -2686,8 +2765,8 @@ void delete_thread_entry(uintptr_t thread)
 	}
 }
 
-
-void find_and_insert_tmp_map_entry(uintptr_t pthread, char *command)
+void
+find_and_insert_tmp_map_entry(uintptr_t pthread, char *command)
 {
 	threadmap_t	tme = 0;
 	threadmap_t	tme_prev;
@@ -2721,8 +2800,8 @@ void find_and_insert_tmp_map_entry(uintptr_t pthread, char *command)
 	}
 }
 
-
-void create_tmp_map_entry(uintptr_t thread, uintptr_t pthread)
+void
+create_tmp_map_entry(uintptr_t thread, uintptr_t pthread)
 {
 	threadmap_t	tme;
 
@@ -2756,8 +2835,8 @@ find_thread_entry(uintptr_t thread)
 	return (0);
 }
 
-
-void find_thread_name(uintptr_t thread, char **command, boolean_t deleteme)
+void
+find_thread_name(uintptr_t thread, char **command, boolean_t deleteme)
 {
 	threadmap_t	tme;
 
@@ -2770,8 +2849,8 @@ void find_thread_name(uintptr_t thread, char **command, boolean_t deleteme)
 		*command = EMPTYSTRING;
 }
 
-
-void find_thread_command(kd_buf *kbufp, char **command)
+void
+find_thread_command(kd_buf *kbufp, char **command)
 {
 	uintptr_t	thread;
 	threadmap_t	tme;
@@ -2817,16 +2896,13 @@ void find_thread_command(kd_buf *kbufp, char **command)
 		find_thread_name(thread, command, (debugid_base == BSC_thread_terminate));
 }
 
-
-static
-void getdivisor()
+static void
+getdivisor(void)
 {
-	mach_timebase_info_data_t info;
+	(void) mach_timebase_info (&mach_timebase);
 
 	if (frequency == 0) {
-		(void) mach_timebase_info (&info);
-
-		divisor = ( (double)info.denom / (double)info.numer) * 1000;
+		divisor = ( (double)mach_timebase.denom / (double)mach_timebase.numer) * 1000;
 	} else
 		divisor = (double)frequency / 1000000;
 

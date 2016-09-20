@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -81,9 +81,12 @@ int
 ControllerClientAttach(pid_t pid, if_name_t if_name,
 		       mach_port_t notify_port,
 		       mach_port_t * session_port,
-		       CFDictionaryRef * control_dict,
-		       mach_port_t * bootstrap,
-		       mach_port_t * au_session);
+		       CFDictionaryRef * control_dict);
+
+void
+ControllerClientGetSession(pid_t pid, if_name_t if_name,
+			   mach_port_t * bootstrap,
+			   mach_port_t * au_session);
 
 int
 ControllerClientDetach(mach_port_t session_port);

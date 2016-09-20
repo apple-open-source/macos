@@ -32,21 +32,21 @@ namespace WebCore {
 using namespace JSC;
 using namespace HTMLNames;
 
-JSValue JSHTMLSelectElement::remove(ExecState* exec)
+JSValue JSHTMLSelectElement::remove(ExecState& state)
 {
-    HTMLSelectElement& select = impl();
+    HTMLSelectElement& select = wrapped();
 
-    if (!exec->argumentCount()) {
+    if (!state.argumentCount()) {
         // When called with no argument, we should call Element::remove() to detach.
         ExceptionCode ec = 0;
         select.remove(ec);
-        setDOMException(exec, ec);
+        setDOMException(&state, ec);
     } else {
         // The HTMLSelectElement::remove() function can take either an option object or the index of an option.
-        if (HTMLOptionElement* option = JSHTMLOptionElement::toWrapped(exec->argument(0)))
-            select.remove(option);
+        if (HTMLOptionElement* option = JSHTMLOptionElement::toWrapped(state.argument(0)))
+            select.remove(*option);
         else
-            select.removeByIndex(exec->argument(0).toInt32(exec));
+            select.removeByIndex(state.argument(0).toInt32(&state));
     }
 
     return jsUndefined();
@@ -62,14 +62,14 @@ void selectIndexSetter(HTMLSelectElement* select, JSC::ExecState* exec, unsigned
         if (!option)
             ec = TYPE_MISMATCH_ERR;
         else
-            select->setOption(index, option, ec);
+            select->setOption(index, *option, ec);
         setDOMException(exec, ec);
     }
 }
 
 void JSHTMLSelectElement::indexSetter(JSC::ExecState* exec, unsigned index, JSC::JSValue value)
 {
-    selectIndexSetter(&impl(), exec, index, value);
+    selectIndexSetter(&wrapped(), exec, index, value);
 }
 
 }

@@ -12,7 +12,6 @@
 //  Copyright 2009 Apple. All rights reserved.
 //
 
-//  TEST_CONFIG
 //  TEST_CFLAGS -framework Foundation
 
 // tests whether assigning to a __block id variable works in a reasonable way
@@ -77,10 +76,8 @@ int main() {
     testFunction(false, false);
     testFunction(true, true);
     [pool drain];
-    if (! objc_collectingEnabled()) {
-        if (DellocationCounter != AllocationCounter) {
-            fail("only recovered %d of %d objects", DellocationCounter, AllocationCounter);
-        }
+    if (DellocationCounter != AllocationCounter) {
+        fail("only recovered %d of %d objects", DellocationCounter, AllocationCounter);
     }
 
     succeed(__FILE__);

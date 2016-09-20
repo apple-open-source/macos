@@ -166,13 +166,13 @@ zlecharasstring(ZLE_CHAR_T inchar, char *buf)
 }
 
 /*
- * Input a line in internal zle format, possibly using wide characters,
+ * Input: a line in internal zle format, possibly using wide characters,
  * possibly not, together with its length and the cursor position.
  * The length must be accurate and includes all characters (no NULL
  * termination is expected).  The input cursor position is only
  * significant if outcs is non-NULL.
  *
- * Output an ordinary NULL-terminated string, using multibyte characters
+ * Output: an ordinary NULL-terminated string, using multibyte characters
  * instead of wide characters where appropriate and with the contents
  * metafied.
  *
@@ -1183,6 +1183,11 @@ getzlequery(void)
 
     /* get a character from the tty and interpret it */
     c = getfullchar(0);
+    /*
+     * We'll interpret an interruption here as only interrupting the
+     * query, not the line editor.
+     */
+    errflag &= ~ERRFLAG_INT;
     if (c == ZWC('\t'))
 	c = ZWC('y');
     else if (ZC_icntrl(c) || c == ZLEEOF)
@@ -1288,7 +1293,7 @@ showmsg(char const *msg)
     p = unmetafy(umsg, &ulen);
     memset(&mbs, 0, sizeof mbs);
 
-    mb_metacharinit();
+    mb_charinit();
     while (ulen > 0) {
 	char const *n;
 	if (*p == '\n') {
@@ -1405,9 +1410,9 @@ static struct change *nextchanges, *endnextchanges;
 /**/
 zlong undo_changeno;
 
-/* If non-zero, the last increment to undo_changeno was for the variable */
+/* If positive, don't undo beyond this point */
 
-static int undo_set_by_variable;
+zlong undo_limitno;
 
 /**/
 void
@@ -1418,8 +1423,7 @@ initundo(void)
     curchange->prev = curchange->next = NULL;
     curchange->del = curchange->ins = NULL;
     curchange->dell = curchange->insl = 0;
-    curchange->changeno = undo_changeno = 0;
-    undo_set_by_variable = 0;
+    curchange->changeno = undo_changeno = undo_limitno = 0;
     lastline = zalloc((lastlinesz = linesz) * ZLE_CHAR_SIZE);
     ZS_memcpy(lastline, zleline, (lastll = zlell));
     lastcs = zlecs;
@@ -1432,6 +1436,8 @@ freeundo(void)
     freechanges(changes);
     freechanges(nextchanges);
     zfree(lastline, lastlinesz);
+    lastline = NULL;
+    lastlinesz = 0;
 }
 
 /**/
@@ -1545,7 +1551,6 @@ mkundoent(void)
 	ch->prev = NULL;
     }
     ch->changeno = ++undo_changeno;
-    undo_set_by_variable = 0;
     endnextchanges = ch;
 }
 
@@ -1580,12 +1585,13 @@ undo(char **args)
 	struct change *prev = curchange->prev;
 	if(!prev)
 	    return 1;
-	if (prev->changeno < last_change)
+	if (prev->changeno <= last_change)
 	    break;
-	if (unapplychange(prev))
-	    curchange = prev;
-	else
-	    break;
+	if (prev->changeno <= undo_limitno && !*args)
+	    return 1;
+	if (!unapplychange(prev) && last_change >= 0)
+	    unapplychange(prev);
+	curchange = prev;
     } while (last_change >= (zlong)0 || (curchange->flags & CH_PREV));
     setlastline();
     return 0;
@@ -1735,16 +1741,39 @@ zlecallhook(char *name, char *arg)
 zlong
 get_undo_current_change(UNUSED(Param pm))
 {
-    if (undo_set_by_variable) {
-	/* We were the last to increment this, doesn't need another one. */
-	return undo_changeno;
-    }
-    undo_set_by_variable = 1;
+    int remetafy;
+
     /*
-     * Increment the number in case a change is in progress;
-     * we don't want to back off what's already been done when
-     * we return to this change number.  This eliminates any
-     * problem about the point where a change is numbered.
+     * Yuk: we call this from within the completion system,
+     * so we need to convert back to the form which can be
+     * copied into undo entries.
      */
-    return ++undo_changeno;
+    if (zlemetaline != NULL) {
+	unmetafy_line();
+	remetafy = 1;
+    } else
+	remetafy = 0;
+
+    /* add entry for any pending changes */
+    mkundoent();
+    setlastline();
+
+    if (remetafy)
+	metafy_line();
+
+    return undo_changeno;
+}
+
+/**/
+zlong
+get_undo_limit_change(UNUSED(Param pm))
+{
+    return undo_limitno;
+}
+
+/**/
+void
+set_undo_limit_change(UNUSED(Param pm), zlong value)
+{
+    undo_limitno = value;
 }

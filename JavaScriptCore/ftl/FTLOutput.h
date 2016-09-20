@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -20,243 +20,228 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef FTLOutput_h
 #define FTLOutput_h
 
+#include "DFGCommon.h"
+
 #if ENABLE(FTL_JIT)
 
-#include "DFGCommon.h"
-#include "FTLAbbreviations.h"
+#include "B3ArgumentRegValue.h"
+#include "B3BasicBlockInlines.h"
+#include "B3CCallValue.h"
+#include "B3Compilation.h"
+#include "B3Const32Value.h"
+#include "B3ConstPtrValue.h"
+#include "B3ControlValue.h"
+#include "B3MemoryValue.h"
+#include "B3Procedure.h"
+#include "B3SlotBaseValue.h"
+#include "B3SwitchValue.h"
+#include "B3UpsilonValue.h"
+#include "B3ValueInlines.h"
+#include "FTLAbbreviatedTypes.h"
 #include "FTLAbstractHeapRepository.h"
 #include "FTLCommonValues.h"
-#include "FTLIntrinsicRepository.h"
 #include "FTLState.h"
 #include "FTLSwitchCase.h"
 #include "FTLTypedPointer.h"
+#include "FTLValueFromBlock.h"
 #include "FTLWeight.h"
 #include "FTLWeightedTarget.h"
+#include <wtf/OrderMaker.h>
 #include <wtf/StringPrintStream.h>
 
-namespace JSC { namespace FTL {
+// FIXME: remove this once everything can be generated through B3.
+#if COMPILER(GCC_OR_CLANG)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-noreturn"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#endif // COMPILER(GCC_OR_CLANG)
 
-// Idiomatic LLVM IR builder specifically designed for FTL. This uses our own lowering
-// terminology, and has some of its own notions:
-//
-// We say that a "reference" is what LLVM considers to be a "pointer". That is, it has
-// an element type and can be passed directly to memory access instructions. Note that
-// broadly speaking the users of FTL::Output should only use references for alloca'd
-// slots for mutable local variables.
-//
-// We say that a "pointer" is what LLVM considers to be a pointer-width integer.
-//
-// We say that a "typed pointer" is a pointer that carries TBAA meta-data (i.e. an
-// AbstractHeap). These should usually not have further computation performed on them
-// prior to access, though there are exceptions (like offsetting into the payload of
-// a typed pointer to a JSValue).
-//
-// We say that "get" and "set" are what LLVM considers to be "load" and "store". Get
-// and set take references.
-//
-// We say that "load" and "store" are operations that take a typed pointer. These
-// operations translate the pointer into a reference (or, a pointer in LLVM-speak),
-// emit get or set on the reference (or, load and store in LLVM-speak), and apply the
-// TBAA meta-data to the get or set.
+namespace JSC {
+
+namespace DFG { struct Node; }
+
+namespace FTL {
 
 enum Scale { ScaleOne, ScaleTwo, ScaleFour, ScaleEight, ScalePtr };
 
-class Output : public IntrinsicRepository {
+class Output : public CommonValues {
 public:
-    Output(LContext);
+    Output(State&);
     ~Output();
-    
-    void initialize(LModule, LValue, AbstractHeapRepository&);
-    
+
+    void initialize(AbstractHeapRepository&);
+
+    void setFrequency(double value)
+    {
+        m_frequency = value;
+    }
+
+    LBasicBlock newBlock();
+
     LBasicBlock insertNewBlocksBefore(LBasicBlock nextBlock)
     {
         LBasicBlock lastNextBlock = m_nextBlock;
         m_nextBlock = nextBlock;
         return lastNextBlock;
     }
-    
+
+    void applyBlockOrder();
+
     LBasicBlock appendTo(LBasicBlock, LBasicBlock nextBlock);
-    
     void appendTo(LBasicBlock);
-    
-    LBasicBlock newBlock(const char* name = "");
-    
-    LValue param(unsigned index) { return getParam(m_function, index); }
-    LValue constBool(bool value) { return constInt(boolean, value); }
-    LValue constInt8(int8_t value) { return constInt(int8, value); }
-    LValue constInt32(int32_t value) { return constInt(int32, value); }
+
+    void setOrigin(DFG::Node* node) { m_origin = node; }
+    B3::Origin origin() { return B3::Origin(m_origin); }
+
+    LValue framePointer();
+
+    B3::SlotBaseValue* lockedStackSlot(size_t bytes);
+
+    LValue constBool(bool value);
+    LValue constInt32(int32_t value);
     template<typename T>
-    LValue constIntPtr(T* value) { return constInt(intPtr, bitwise_cast<intptr_t>(value)); }
+    LValue constIntPtr(T* value) { return m_block->appendNew<B3::ConstPtrValue>(m_proc, origin(), value); }
     template<typename T>
-    LValue constIntPtr(T value) { return constInt(intPtr, static_cast<intptr_t>(value)); }
-    LValue constInt64(int64_t value) { return constInt(int64, value); }
-    LValue constDouble(double value) { return constReal(doubleType, value); }
-    
-    LValue phi(LType type) { return buildPhi(m_builder, type); }
+    LValue constIntPtr(T value) { return m_block->appendNew<B3::ConstPtrValue>(m_proc, origin(), value); }
+    LValue constInt64(int64_t value);
+    LValue constDouble(double value);
+
+    LValue phi(LType);
     template<typename... Params>
-    LValue phi(LType type, ValueFromBlock value, Params... theRest)
-    {
-        LValue result = phi(type, theRest...);
-        addIncoming(result, value);
-        return result;
-    }
+    LValue phi(LType, ValueFromBlock, Params... theRest);
     template<typename VectorType>
-    LValue phi(LType type, const VectorType& vector)
+    LValue phi(LType, const VectorType&);
+    void addIncomingToPhi(LValue phi, ValueFromBlock);
+    template<typename... Params>
+    void addIncomingToPhi(LValue phi, ValueFromBlock, Params... theRest);
+
+    LValue add(LValue, LValue);
+    LValue sub(LValue, LValue);
+    LValue mul(LValue, LValue);
+    LValue div(LValue, LValue);
+    LValue chillDiv(LValue, LValue);
+    LValue mod(LValue, LValue);
+    LValue chillMod(LValue, LValue);
+    LValue neg(LValue);
+
+    LValue doubleAdd(LValue, LValue);
+    LValue doubleSub(LValue, LValue);
+    LValue doubleMul(LValue, LValue);
+    LValue doubleDiv(LValue, LValue);
+    LValue doubleMod(LValue, LValue);
+    LValue doubleNeg(LValue value) { return neg(value); }
+
+    LValue bitAnd(LValue, LValue);
+    LValue bitOr(LValue, LValue);
+    LValue bitXor(LValue, LValue);
+    LValue shl(LValue, LValue shiftAmount);
+    LValue aShr(LValue, LValue shiftAmount);
+    LValue lShr(LValue, LValue shiftAmount);
+    LValue bitNot(LValue);
+    LValue logicalNot(LValue);
+
+    LValue ctlz32(LValue);
+    LValue doubleAbs(LValue);
+    LValue doubleCeil(LValue);
+    LValue doubleFloor(LValue);
+    LValue doubleTrunc(LValue);
+
+    LValue doubleSin(LValue);
+    LValue doubleCos(LValue);
+
+    LValue doublePow(LValue base, LValue exponent);
+    LValue doublePowi(LValue base, LValue exponent);
+
+    LValue doubleSqrt(LValue);
+
+    LValue doubleLog(LValue);
+
+    static bool hasSensibleDoubleToInt();
+    LValue doubleToInt(LValue);
+    LValue doubleToUInt(LValue);
+
+    LValue signExt32To64(LValue);
+    LValue zeroExt(LValue, LType);
+    LValue zeroExtPtr(LValue value) { return zeroExt(value, B3::Int64); }
+    LValue intToDouble(LValue);
+    LValue unsignedToDouble(LValue);
+    LValue castToInt32(LValue);
+    LValue doubleToFloat(LValue);
+    LValue floatToDouble(LValue);
+    LValue bitCast(LValue, LType);
+    LValue fround(LValue);
+
+    LValue load(TypedPointer, LType);
+    void store(LValue, TypedPointer);
+
+    LValue load8SignExt32(TypedPointer);
+    LValue load8ZeroExt32(TypedPointer);
+    LValue load16SignExt32(TypedPointer);
+    LValue load16ZeroExt32(TypedPointer);
+    LValue load32(TypedPointer pointer) { return load(pointer, B3::Int32); }
+    LValue load64(TypedPointer pointer) { return load(pointer, B3::Int64); }
+    LValue loadPtr(TypedPointer pointer) { return load(pointer, B3::pointerType()); }
+    LValue loadFloat(TypedPointer pointer) { return load(pointer, B3::Float); }
+    LValue loadDouble(TypedPointer pointer) { return load(pointer, B3::Double); }
+    void store32As8(LValue, TypedPointer);
+    void store32As16(LValue, TypedPointer);
+    void store32(LValue value, TypedPointer pointer)
     {
-        LValue result = phi(type);
-        for (unsigned i = 0; i < vector.size(); ++i)
-            addIncoming(result, vector[i]);
-        return result;
+        ASSERT(value->type() == B3::Int32);
+        store(value, pointer);
     }
+    void store64(LValue value, TypedPointer pointer)
+    {
+        ASSERT(value->type() == B3::Int64);
+        store(value, pointer);
+    }
+    void storePtr(LValue value, TypedPointer pointer)
+    {
+        ASSERT(value->type() == B3::pointerType());
+        store(value, pointer);
+    }
+    void storeFloat(LValue value, TypedPointer pointer)
+    {
+        ASSERT(value->type() == B3::Float);
+        store(value, pointer);
+    }
+    void storeDouble(LValue value, TypedPointer pointer)
+    {
+        ASSERT(value->type() == B3::Double);
+        store(value, pointer);
+    }
+
+    enum LoadType {
+        Load8SignExt32,
+        Load8ZeroExt32,
+        Load16SignExt32,
+        Load16ZeroExt32,
+        Load32,
+        Load64,
+        LoadPtr,
+        LoadFloat,
+        LoadDouble
+    };
+
+    LValue load(TypedPointer, LoadType);
     
-    LValue add(LValue left, LValue right) { return buildAdd(m_builder, left, right); }
-    LValue sub(LValue left, LValue right) { return buildSub(m_builder, left, right); }
-    LValue mul(LValue left, LValue right) { return buildMul(m_builder, left, right); }
-    LValue div(LValue left, LValue right) { return buildDiv(m_builder, left, right); }
-    LValue rem(LValue left, LValue right) { return buildRem(m_builder, left, right); }
-    LValue neg(LValue value) { return buildNeg(m_builder, value); }
+    enum StoreType {
+        Store32As8,
+        Store32As16,
+        Store32,
+        Store64,
+        StorePtr,
+        StoreFloat,
+        StoreDouble
+    };
 
-    LValue doubleAdd(LValue left, LValue right) { return buildFAdd(m_builder, left, right); }
-    LValue doubleSub(LValue left, LValue right) { return buildFSub(m_builder, left, right); }
-    LValue doubleMul(LValue left, LValue right) { return buildFMul(m_builder, left, right); }
-    LValue doubleDiv(LValue left, LValue right) { return buildFDiv(m_builder, left, right); }
-    LValue doubleRem(LValue left, LValue right) { return buildFRem(m_builder, left, right); }
-    LValue doubleNeg(LValue value) { return buildFNeg(m_builder, value); }
-
-    LValue bitAnd(LValue left, LValue right) { return buildAnd(m_builder, left, right); }
-    LValue bitOr(LValue left, LValue right) { return buildOr(m_builder, left, right); }
-    LValue bitXor(LValue left, LValue right) { return buildXor(m_builder, left, right); }
-    LValue shl(LValue left, LValue right) { return buildShl(m_builder, left, right); }
-    LValue aShr(LValue left, LValue right) { return buildAShr(m_builder, left, right); } // arithmetic = signed
-    LValue lShr(LValue left, LValue right) { return buildLShr(m_builder, left, right); } // logical = unsigned
-    LValue bitNot(LValue value) { return buildNot(m_builder, value); }
-    
-    LValue insertElement(LValue vector, LValue element, LValue index) { return buildInsertElement(m_builder, vector, element, index); }
-
-    LValue ceil64(LValue operand)
-    {
-        return call(ceil64Intrinsic(), operand);
-    }
-    LValue ctlz32(LValue xOperand, LValue yOperand)
-    {
-        return call(ctlz32Intrinsic(), xOperand, yOperand);
-    }
-    LValue addWithOverflow32(LValue left, LValue right)
-    {
-        return call(addWithOverflow32Intrinsic(), left, right);
-    }
-    LValue subWithOverflow32(LValue left, LValue right)
-    {
-        return call(subWithOverflow32Intrinsic(), left, right);
-    }
-    LValue mulWithOverflow32(LValue left, LValue right)
-    {
-        return call(mulWithOverflow32Intrinsic(), left, right);
-    }
-    LValue addWithOverflow64(LValue left, LValue right)
-    {
-        return call(addWithOverflow64Intrinsic(), left, right);
-    }
-    LValue subWithOverflow64(LValue left, LValue right)
-    {
-        return call(subWithOverflow64Intrinsic(), left, right);
-    }
-    LValue mulWithOverflow64(LValue left, LValue right)
-    {
-        return call(mulWithOverflow64Intrinsic(), left, right);
-    }
-    LValue doubleAbs(LValue value)
-    {
-        return call(doubleAbsIntrinsic(), value);
-    }
-
-    LValue doubleSin(LValue value)
-    {
-        return call(doubleSinIntrinsic(), value);
-    }
-    LValue doubleCos(LValue value)
-    {
-        return call(doubleCosIntrinsic(), value);
-    }
-
-    LValue doublePow(LValue xOperand, LValue yOperand)
-    {
-        return call(doublePowIntrinsic(), xOperand, yOperand);
-    }
-
-    LValue doublePowi(LValue xOperand, LValue yOperand)
-    {
-        return call(doublePowiIntrinsic(), xOperand, yOperand);
-    }
-
-    LValue doubleSqrt(LValue value)
-    {
-        return call(doubleSqrtIntrinsic(), value);
-    }
-
-    LValue doubleLog(LValue value)
-    {
-        return call(doubleLogIntrinsic(), value);
-    }
-
-    static bool hasSensibleDoubleToInt() { return isX86(); }
-    LValue sensibleDoubleToInt(LValue);
-    
-    LValue signExt(LValue value, LType type) { return buildSExt(m_builder, value, type); }
-    LValue zeroExt(LValue value, LType type) { return buildZExt(m_builder, value, type); }
-    LValue zeroExtPtr(LValue value) { return zeroExt(value, intPtr); }
-    LValue fpToInt(LValue value, LType type) { return buildFPToSI(m_builder, value, type); }
-    LValue fpToUInt(LValue value, LType type) { return buildFPToUI(m_builder, value, type); }
-    LValue fpToInt32(LValue value) { return fpToInt(value, int32); }
-    LValue fpToUInt32(LValue value) { return fpToUInt(value, int32); }
-    LValue intToFP(LValue value, LType type) { return buildSIToFP(m_builder, value, type); }
-    LValue intToDouble(LValue value) { return intToFP(value, doubleType); }
-    LValue unsignedToFP(LValue value, LType type) { return buildUIToFP(m_builder, value, type); }
-    LValue unsignedToDouble(LValue value) { return unsignedToFP(value, doubleType); }
-    LValue intCast(LValue value, LType type) { return buildIntCast(m_builder, value, type); }
-    LValue castToInt32(LValue value) { return intCast(value, int32); }
-    LValue fpCast(LValue value, LType type) { return buildFPCast(m_builder, value, type); }
-    LValue intToPtr(LValue value, LType type) { return buildIntToPtr(m_builder, value, type); }
-    LValue ptrToInt(LValue value, LType type) { return buildPtrToInt(m_builder, value, type); }
-    LValue bitCast(LValue value, LType type) { return buildBitCast(m_builder, value, type); }
-    
-    // Hilariously, the #define machinery in the stdlib means that this method is actually called
-    // __builtin_alloca. So far this appears benign. :-|
-    LValue alloca(LType type) { return buildAlloca(m_builder, type); }
-    
-    // Access the value of an alloca. Also used as a low-level implementation primitive for
-    // load(). Never use this to load from "pointers" in the FTL sense, since FTL pointers
-    // are actually integers. This requires an LLVM pointer. Broadly speaking, you don't
-    // have any LLVM pointers even if you really think you do. A TypedPointer is not an
-    // LLVM pointer. See comment block at top of this file to understand the distinction
-    // between LLVM pointers, FTL pointers, and FTL references.
-    LValue get(LValue reference) { return buildLoad(m_builder, reference); }
-    // Similar to get() but for storing to the value in an alloca.
-    LValue set(LValue value, LValue reference) { return buildStore(m_builder, value, reference); }
-    
-    LValue load(TypedPointer, LType refType);
-    void store(LValue, TypedPointer, LType refType);
-    
-    LValue load8(TypedPointer pointer) { return load(pointer, ref8); }
-    LValue load16(TypedPointer pointer) { return load(pointer, ref16); }
-    LValue load32(TypedPointer pointer) { return load(pointer, ref32); }
-    LValue load64(TypedPointer pointer) { return load(pointer, ref64); }
-    LValue loadPtr(TypedPointer pointer) { return load(pointer, refPtr); }
-    LValue loadFloat(TypedPointer pointer) { return load(pointer, refFloat); }
-    LValue loadDouble(TypedPointer pointer) { return load(pointer, refDouble); }
-    void store8(LValue value, TypedPointer pointer) { store(value, pointer, ref8); }
-    void store16(LValue value, TypedPointer pointer) { store(value, pointer, ref16); }
-    void store32(LValue value, TypedPointer pointer) { store(value, pointer, ref32); }
-    void store64(LValue value, TypedPointer pointer) { store(value, pointer, ref64); }
-    void storePtr(LValue value, TypedPointer pointer) { store(value, pointer, refPtr); }
-    void storeFloat(LValue value, TypedPointer pointer) { store(value, pointer, refFloat); }
-    void storeDouble(LValue value, TypedPointer pointer) { store(value, pointer, refDouble); }
+    void store(LValue, TypedPointer, StoreType);
 
     LValue addPtr(LValue value, ptrdiff_t immediate = 0)
     {
@@ -264,7 +249,7 @@ public:
             return value;
         return add(value, constIntPtr(immediate));
     }
-    
+
     // Construct an address by offsetting base by the requested amount and ascribing
     // the requested abstract heap to it.
     TypedPointer address(const AbstractHeap& heap, LValue base, ptrdiff_t offset = 0)
@@ -274,11 +259,11 @@ public:
     // Construct an address by offsetting base by the amount specified by the field,
     // and optionally an additional amount (use this with care), and then creating
     // a TypedPointer with the given field as the heap.
-    TypedPointer address(LValue base, const AbstractField& field, ptrdiff_t offset = 0)
+    TypedPointer address(LValue base, const AbstractHeap& field, ptrdiff_t offset = 0)
     {
         return address(field, base, offset + field.offset());
     }
-    
+
     LValue baseIndex(LValue base, LValue index, Scale, ptrdiff_t offset = 0);
 
     TypedPointer baseIndex(const AbstractHeap& heap, LValue base, LValue index, Scale scale, ptrdiff_t offset = 0)
@@ -289,100 +274,94 @@ public:
     {
         return heap.baseIndex(*this, base, index, indexAsConstant, offset);
     }
-    
-    TypedPointer absolute(void* address)
-    {
-        return TypedPointer(m_heaps->absolute[address], constIntPtr(address));
-    }
-    
-    LValue load8(LValue base, const AbstractField& field) { return load8(address(base, field)); }
-    LValue load16(LValue base, const AbstractField& field) { return load16(address(base, field)); }
-    LValue load32(LValue base, const AbstractField& field) { return load32(address(base, field)); }
-    LValue load64(LValue base, const AbstractField& field) { return load64(address(base, field)); }
-    LValue loadPtr(LValue base, const AbstractField& field) { return loadPtr(address(base, field)); }
-    LValue loadDouble(LValue base, const AbstractField& field) { return loadDouble(address(base, field)); }
-    void store8(LValue value, LValue base, const AbstractField& field) { store8(value, address(base, field)); }
-    void store32(LValue value, LValue base, const AbstractField& field) { store32(value, address(base, field)); }
-    void store64(LValue value, LValue base, const AbstractField& field) { store64(value, address(base, field)); }
-    void storePtr(LValue value, LValue base, const AbstractField& field) { storePtr(value, address(base, field)); }
-    void storeDouble(LValue value, LValue base, const AbstractField& field) { storeDouble(value, address(base, field)); }
-    
-    void ascribeRange(LValue loadInstruction, const ValueRange& range)
-    {
-        range.decorateInstruction(m_context, loadInstruction, rangeKind);
-    }
-    
-    LValue nonNegative32(LValue loadInstruction)
-    {
-        ascribeRange(loadInstruction, nonNegativeInt32);
-        return loadInstruction;
-    }
-    
-    LValue load32NonNegative(TypedPointer pointer) { return nonNegative32(load32(pointer)); }
-    LValue load32NonNegative(LValue base, const AbstractField& field) { return nonNegative32(load32(base, field)); }
-    
-    LValue icmp(LIntPredicate cond, LValue left, LValue right) { return buildICmp(m_builder, cond, left, right); }
-    LValue equal(LValue left, LValue right) { return icmp(LLVMIntEQ, left, right); }
-    LValue notEqual(LValue left, LValue right) { return icmp(LLVMIntNE, left, right); }
-    LValue above(LValue left, LValue right) { return icmp(LLVMIntUGT, left, right); }
-    LValue aboveOrEqual(LValue left, LValue right) { return icmp(LLVMIntUGE, left, right); }
-    LValue below(LValue left, LValue right) { return icmp(LLVMIntULT, left, right); }
-    LValue belowOrEqual(LValue left, LValue right) { return icmp(LLVMIntULE, left, right); }
-    LValue greaterThan(LValue left, LValue right) { return icmp(LLVMIntSGT, left, right); }
-    LValue greaterThanOrEqual(LValue left, LValue right) { return icmp(LLVMIntSGE, left, right); }
-    LValue lessThan(LValue left, LValue right) { return icmp(LLVMIntSLT, left, right); }
-    LValue lessThanOrEqual(LValue left, LValue right) { return icmp(LLVMIntSLE, left, right); }
-    
-    LValue fcmp(LRealPredicate cond, LValue left, LValue right) { return buildFCmp(m_builder, cond, left, right); }
-    LValue doubleEqual(LValue left, LValue right) { return fcmp(LLVMRealOEQ, left, right); }
-    LValue doubleNotEqualOrUnordered(LValue left, LValue right) { return fcmp(LLVMRealUNE, left, right); }
-    LValue doubleLessThan(LValue left, LValue right) { return fcmp(LLVMRealOLT, left, right); }
-    LValue doubleLessThanOrEqual(LValue left, LValue right) { return fcmp(LLVMRealOLE, left, right); }
-    LValue doubleGreaterThan(LValue left, LValue right) { return fcmp(LLVMRealOGT, left, right); }
-    LValue doubleGreaterThanOrEqual(LValue left, LValue right) { return fcmp(LLVMRealOGE, left, right); }
-    LValue doubleEqualOrUnordered(LValue left, LValue right) { return fcmp(LLVMRealUEQ, left, right); }
-    LValue doubleNotEqual(LValue left, LValue right) { return fcmp(LLVMRealONE, left, right); }
-    LValue doubleLessThanOrUnordered(LValue left, LValue right) { return fcmp(LLVMRealULT, left, right); }
-    LValue doubleLessThanOrEqualOrUnordered(LValue left, LValue right) { return fcmp(LLVMRealULE, left, right); }
-    LValue doubleGreaterThanOrUnordered(LValue left, LValue right) { return fcmp(LLVMRealUGT, left, right); }
-    LValue doubleGreaterThanOrEqualOrUnordered(LValue left, LValue right) { return fcmp(LLVMRealUGE, left, right); }
-    
-    LValue isZero8(LValue value) { return equal(value, int8Zero); }
-    LValue notZero8(LValue value) { return notEqual(value, int8Zero); }
-    LValue isZero32(LValue value) { return equal(value, int32Zero); }
-    LValue notZero32(LValue value) { return notEqual(value, int32Zero); }
-    LValue isZero64(LValue value) { return equal(value, int64Zero); }
-    LValue notZero64(LValue value) { return notEqual(value, int64Zero); }
-    LValue isNull(LValue value) { return equal(value, intPtrZero); }
-    LValue notNull(LValue value) { return notEqual(value, intPtrZero); }
-    
-    LValue testIsZero8(LValue value, LValue mask) { return isZero8(bitAnd(value, mask)); }
-    LValue testNonZero8(LValue value, LValue mask) { return notZero8(bitAnd(value, mask)); }
+
+    TypedPointer absolute(void* address);
+
+    LValue load8SignExt32(LValue base, const AbstractHeap& field) { return load8SignExt32(address(base, field)); }
+    LValue load8ZeroExt32(LValue base, const AbstractHeap& field) { return load8ZeroExt32(address(base, field)); }
+    LValue load16SignExt32(LValue base, const AbstractHeap& field) { return load16SignExt32(address(base, field)); }
+    LValue load16ZeroExt32(LValue base, const AbstractHeap& field) { return load16ZeroExt32(address(base, field)); }
+    LValue load32(LValue base, const AbstractHeap& field) { return load32(address(base, field)); }
+    LValue load64(LValue base, const AbstractHeap& field) { return load64(address(base, field)); }
+    LValue loadPtr(LValue base, const AbstractHeap& field) { return loadPtr(address(base, field)); }
+    LValue loadDouble(LValue base, const AbstractHeap& field) { return loadDouble(address(base, field)); }
+    void store32(LValue value, LValue base, const AbstractHeap& field) { store32(value, address(base, field)); }
+    void store64(LValue value, LValue base, const AbstractHeap& field) { store64(value, address(base, field)); }
+    void storePtr(LValue value, LValue base, const AbstractHeap& field) { storePtr(value, address(base, field)); }
+    void storeDouble(LValue value, LValue base, const AbstractHeap& field) { storeDouble(value, address(base, field)); }
+
+    // FIXME: Explore adding support for value range constraints to B3. Maybe it could be as simple as having
+    // a load instruction that guarantees that its result is non-negative.
+    // https://bugs.webkit.org/show_bug.cgi?id=151458
+    void ascribeRange(LValue, const ValueRange&) { }
+    LValue nonNegative32(LValue loadInstruction) { return loadInstruction; }
+    LValue load32NonNegative(TypedPointer pointer) { return load32(pointer); }
+    LValue load32NonNegative(LValue base, const AbstractHeap& field) { return load32(base, field); }
+
+    LValue equal(LValue, LValue);
+    LValue notEqual(LValue, LValue);
+    LValue above(LValue, LValue);
+    LValue aboveOrEqual(LValue, LValue);
+    LValue below(LValue, LValue);
+    LValue belowOrEqual(LValue, LValue);
+    LValue greaterThan(LValue, LValue);
+    LValue greaterThanOrEqual(LValue, LValue);
+    LValue lessThan(LValue, LValue);
+    LValue lessThanOrEqual(LValue, LValue);
+
+    LValue doubleEqual(LValue, LValue);
+    LValue doubleEqualOrUnordered(LValue, LValue);
+    LValue doubleNotEqualOrUnordered(LValue, LValue);
+    LValue doubleLessThan(LValue, LValue);
+    LValue doubleLessThanOrEqual(LValue, LValue);
+    LValue doubleGreaterThan(LValue, LValue);
+    LValue doubleGreaterThanOrEqual(LValue, LValue);
+    LValue doubleNotEqualAndOrdered(LValue, LValue);
+    LValue doubleLessThanOrUnordered(LValue, LValue);
+    LValue doubleLessThanOrEqualOrUnordered(LValue, LValue);
+    LValue doubleGreaterThanOrUnordered(LValue, LValue);
+    LValue doubleGreaterThanOrEqualOrUnordered(LValue, LValue);
+
+    LValue isZero32(LValue);
+    LValue notZero32(LValue);
+    LValue isZero64(LValue);
+    LValue notZero64(LValue);
+    LValue isNull(LValue value) { return isZero64(value); }
+    LValue notNull(LValue value) { return notZero64(value); }
+
     LValue testIsZero32(LValue value, LValue mask) { return isZero32(bitAnd(value, mask)); }
     LValue testNonZero32(LValue value, LValue mask) { return notZero32(bitAnd(value, mask)); }
     LValue testIsZero64(LValue value, LValue mask) { return isZero64(bitAnd(value, mask)); }
     LValue testNonZero64(LValue value, LValue mask) { return notZero64(bitAnd(value, mask)); }
-    
-    LValue select(LValue value, LValue taken, LValue notTaken) { return buildSelect(m_builder, value, taken, notTaken); }
-    LValue extractValue(LValue aggVal, unsigned index) { return buildExtractValue(m_builder, aggVal, index); }
-    
-    LValue fence(LAtomicOrdering ordering = LLVMAtomicOrderingSequentiallyConsistent, SynchronizationScope scope = CrossThread) { return buildFence(m_builder, ordering, scope); }
-    LValue fenceAcqRel() { return fence(LLVMAtomicOrderingAcquireRelease); }
-    
+    LValue testIsZeroPtr(LValue value, LValue mask) { return isNull(bitAnd(value, mask)); }
+    LValue testNonZeroPtr(LValue value, LValue mask) { return notNull(bitAnd(value, mask)); }
+
+    LValue select(LValue value, LValue taken, LValue notTaken);
+
     template<typename VectorType>
-    LValue call(LValue function, const VectorType& vector) { return buildCall(m_builder, function, vector); }
-    LValue call(LValue function) { return buildCall(m_builder, function); }
-    LValue call(LValue function, LValue arg1) { return buildCall(m_builder, function, arg1); }
-    template<typename... Args>
-    LValue call(LValue function, LValue arg1, Args... args) { return buildCall(m_builder, function, arg1, args...); }
-    
-    template<typename FunctionType>
-    LValue operation(FunctionType function)
+    LValue call(LType type, LValue function, const VectorType& vector)
     {
-        return intToPtr(constIntPtr(function), pointerType(operationType(function)));
+        B3::CCallValue* result = m_block->appendNew<B3::CCallValue>(m_proc, type, origin(), function);
+        result->children().appendVector(vector);
+        return result;
     }
-    
-    void jump(LBasicBlock destination) { buildBr(m_builder, destination); }
+    LValue call(LType type, LValue function) { return m_block->appendNew<B3::CCallValue>(m_proc, type, origin(), function); }
+    LValue call(LType type, LValue function, LValue arg1) { return m_block->appendNew<B3::CCallValue>(m_proc, type, origin(), function, arg1); }
+    template<typename... Args>
+    LValue call(LType type, LValue function, LValue arg1, Args... args) { return m_block->appendNew<B3::CCallValue>(m_proc, type, origin(), function, arg1, args...); }
+
+    template<typename Function, typename... Args>
+    LValue callWithoutSideEffects(B3::Type type, Function function, LValue arg1, Args... args)
+    {
+        return m_block->appendNew<B3::CCallValue>(m_proc, type, origin(), B3::Effects::none(),
+            m_block->appendNew<B3::ConstPtrValue>(m_proc, origin(), bitwise_cast<void*>(function)),
+            arg1, args...);
+    }
+
+    template<typename FunctionType>
+    LValue operation(FunctionType function) { return constIntPtr(bitwise_cast<void*>(function)); }
+
+    void jump(LBasicBlock);
     void branch(LValue condition, LBasicBlock taken, Weight takenWeight, LBasicBlock notTaken, Weight notTakenWeight);
     void branch(LValue condition, WeightedTarget taken, WeightedTarget notTaken)
     {
@@ -399,56 +378,85 @@ public:
     template<typename VectorType>
     void switchInstruction(LValue value, const VectorType& cases, LBasicBlock fallThrough, Weight fallThroughWeight)
     {
-        LValue inst = buildSwitch(m_builder, value, cases, fallThrough);
-        
-        double total = 0;
-        if (!fallThroughWeight)
-            return;
-        total += fallThroughWeight.value();
-        for (unsigned i = cases.size(); i--;) {
-            if (!cases[i].weight())
-                return;
-            total += cases[i].weight().value();
+        B3::SwitchValue* switchValue = m_block->appendNew<B3::SwitchValue>(
+            m_proc, origin(), value, B3::FrequentedBlock(fallThrough));
+        for (const SwitchCase& switchCase : cases) {
+            int64_t value = switchCase.value()->asInt();
+            B3::FrequentedBlock target(switchCase.target(), switchCase.weight().frequencyClass());
+            switchValue->appendCase(B3::SwitchCase(value, target));
         }
-        
-        Vector<LValue> mdArgs;
-        mdArgs.append(branchWeights);
-        mdArgs.append(constInt32(fallThroughWeight.scaleToTotal(total)));
-        for (unsigned i = 0; i < cases.size(); ++i)
-            mdArgs.append(constInt32(cases[i].weight().scaleToTotal(total)));
-        
-        setMetadata(inst, profKind, mdNode(m_context, mdArgs));
     }
-    
-    void ret(LValue value) { buildRet(m_builder, value); }
-    
-    void unreachable() { buildUnreachable(m_builder); }
-    
-    void trap()
-    {
-        call(trapIntrinsic());
-    }
-    
-    ValueFromBlock anchor(LValue value)
-    {
-        return ValueFromBlock(value, m_block);
-    }
-    
-    LValue m_function;
+
+    void ret(LValue);
+
+    void unreachable();
+
+    B3::CheckValue* speculate(LValue);
+    B3::CheckValue* speculateAdd(LValue, LValue);
+    B3::CheckValue* speculateSub(LValue, LValue);
+    B3::CheckValue* speculateMul(LValue, LValue);
+
+    B3::PatchpointValue* patchpoint(LType);
+
+    void trap();
+
+    ValueFromBlock anchor(LValue);
+
+    void incrementSuperSamplerCount();
+    void decrementSuperSamplerCount();
+
+#if PLATFORM(COCOA)
+#pragma mark - States
+#endif
+    B3::Procedure& m_proc;
+
+    DFG::Node* m_origin { nullptr };
+    LBasicBlock m_block { nullptr };
+    LBasicBlock m_nextBlock { nullptr };
+
     AbstractHeapRepository* m_heaps;
-    LBuilder m_builder;
-    LBasicBlock m_block;
-    LBasicBlock m_nextBlock;
+
+    double m_frequency { 1 };
+
+private:
+    OrderMaker<LBasicBlock> m_blockOrder;
 };
 
-#define FTL_NEW_BLOCK(output, nameArguments) \
-    (LIKELY(!verboseCompilationEnabled()) \
-    ? (output).newBlock() \
-    : (output).newBlock((toCString nameArguments).data()))
+template<typename... Params>
+inline LValue Output::phi(LType type, ValueFromBlock value, Params... theRest)
+{
+    LValue phiNode = phi(type);
+    addIncomingToPhi(phiNode, value, theRest...);
+    return phiNode;
+}
+
+template<typename VectorType>
+inline LValue Output::phi(LType type, const VectorType& vector)
+{
+    LValue phiNode = phi(type);
+    for (const ValueFromBlock& valueFromBlock : vector)
+        addIncomingToPhi(phiNode, valueFromBlock);
+    return phiNode;
+}
+
+inline void Output::addIncomingToPhi(LValue phi, ValueFromBlock value)
+{
+    value.value()->as<B3::UpsilonValue>()->setPhi(phi);
+}
+
+template<typename... Params>
+inline void Output::addIncomingToPhi(LValue phi, ValueFromBlock value, Params... theRest)
+{
+    addIncomingToPhi(phi, value);
+    addIncomingToPhi(phi, theRest...);
+}
+
+#if COMPILER(GCC_OR_CLANG)
+#pragma GCC diagnostic pop
+#endif // COMPILER(GCC_OR_CLANG)
 
 } } // namespace JSC::FTL
 
 #endif // ENABLE(FTL_JIT)
 
 #endif // FTLOutput_h
-

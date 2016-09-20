@@ -25,8 +25,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MediaStreamTrack_h
-#define MediaStreamTrack_h
+#pragma once
 
 #if ENABLE(MEDIA_STREAM)
 
@@ -35,20 +34,19 @@
 #include "MediaStreamTrackPrivate.h"
 #include "RealtimeMediaSource.h"
 #include "ScriptWrappable.h"
-#include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
+class AudioSourceProvider;
 class Dictionary;
 class MediaConstraintsImpl;
-class MediaSourceStates;
-class MediaStreamCapabilities;
+class MediaSourceSettings;
 class MediaTrackConstraints;
 
-class MediaStreamTrack final : public RefCounted<MediaStreamTrack>, public ScriptWrappable, public ActiveDOMObject, public EventTargetWithInlineData, public MediaStreamTrackPrivateClient {
+class MediaStreamTrack final : public RefCounted<MediaStreamTrack>, public ActiveDOMObject, public EventTargetWithInlineData, private MediaStreamTrackPrivate::Observer {
 public:
     class Observer {
     public:
@@ -70,7 +68,8 @@ public:
     bool readonly() const;
     bool remote() const;
 
-    const AtomicString& readyState() const;
+    enum class State { New, Live, Ended };
+    State readyState() const;
 
     bool ended() const;
 
@@ -78,20 +77,22 @@ public:
     void stopProducingData();
 
     RefPtr<MediaTrackConstraints> getConstraints() const;
-    RefPtr<MediaSourceStates> states() const;
-    RefPtr<MediaStreamCapabilities> getCapabilities() const;
+    RefPtr<MediaSourceSettings> getSettings() const;
+    RefPtr<RealtimeMediaSourceCapabilities> getCapabilities() const;
     void applyConstraints(const Dictionary&);
     void applyConstraints(const MediaConstraints&);
 
-    RealtimeMediaSource* source() const { return m_private->source(); }
+    RealtimeMediaSource& source() const { return m_private->source(); }
     MediaStreamTrackPrivate& privateTrack() { return m_private.get(); }
+
+    AudioSourceProvider* audioSourceProvider();
 
     void addObserver(Observer*);
     void removeObserver(Observer*);
 
     // EventTarget
-    virtual EventTargetInterface eventTargetInterface() const override final { return MediaStreamTrackEventTargetInterfaceType; }
-    virtual ScriptExecutionContext* scriptExecutionContext() const override final { return ActiveDOMObject::scriptExecutionContext(); }
+    EventTargetInterface eventTargetInterface() const final { return MediaStreamTrackEventTargetInterfaceType; }
+    ScriptExecutionContext* scriptExecutionContext() const final { return ActiveDOMObject::scriptExecutionContext(); }
 
     using RefCounted<MediaStreamTrack>::ref;
     using RefCounted<MediaStreamTrack>::deref;
@@ -103,26 +104,30 @@ private:
     void configureTrackRendering();
 
     // ActiveDOMObject API.
-    void stop() override final;
-    const char* activeDOMObjectName() const override final;
-    bool canSuspendForPageCache() const override final;
+    void stop() final;
+    const char* activeDOMObjectName() const final;
+    bool canSuspendForDocumentSuspension() const final;
 
     // EventTarget
-    virtual void refEventTarget() override final { ref(); }
-    virtual void derefEventTarget() override final { deref(); }
+    void refEventTarget() final { ref(); }
+    void derefEventTarget() final { deref(); }
 
-    // MediaStreamTrackPrivateClient
-    void trackEnded() override;
-    void trackMutedChanged() override;
+    // MediaStreamTrackPrivate::Observer
+    void trackEnded(MediaStreamTrackPrivate&) override;
+    void trackMutedChanged(MediaStreamTrackPrivate&) override;
+    void trackSettingsChanged(MediaStreamTrackPrivate&) override;
+    void trackEnabledChanged(MediaStreamTrackPrivate&) override;
 
     Vector<Observer*> m_observers;
     Ref<MediaStreamTrackPrivate> m_private;
 
     RefPtr<MediaConstraintsImpl> m_constraints;
+
+    bool m_ended { false };
 };
+
+typedef Vector<RefPtr<MediaStreamTrack>> MediaStreamTrackVector;
 
 } // namespace WebCore
 
 #endif // ENABLE(MEDIA_STREAM)
-
-#endif // MediaStreamTrack_h

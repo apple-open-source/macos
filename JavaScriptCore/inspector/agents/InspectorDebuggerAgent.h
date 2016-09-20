@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2010, 2013 Apple Inc. All rights reserved.
- * Copyright (C) 2010-2011 Google Inc. All rights reserved.
+ * Copyright (C) 2010, 2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,10 +43,6 @@
 #include <wtf/Vector.h>
 #include <wtf/text/StringHash.h>
 
-namespace WTF {
-class Stopwatch;
-}
-
 namespace Inspector {
 
 class InjectedScript;
@@ -65,29 +61,30 @@ public:
 
     virtual ~InspectorDebuggerAgent();
 
-    virtual void didCreateFrontendAndBackend(FrontendChannel*, BackendDispatcher*) override;
-    virtual void willDestroyFrontendAndBackend(DisconnectReason) override;
+    void didCreateFrontendAndBackend(FrontendRouter*, BackendDispatcher*) final;
+    void willDestroyFrontendAndBackend(DisconnectReason) final;
 
-    virtual void enable(ErrorString&) override;
-    virtual void disable(ErrorString&) override;
-    virtual void setBreakpointsActive(ErrorString&, bool active) override;
-    virtual void setBreakpointByUrl(ErrorString&, int lineNumber, const String* optionalURL, const String* optionalURLRegex, const int* optionalColumnNumber, const Inspector::InspectorObject* options, Inspector::Protocol::Debugger::BreakpointId*, RefPtr<Inspector::Protocol::Array<Inspector::Protocol::Debugger::Location>>& locations) override;
-    virtual void setBreakpoint(ErrorString&, const Inspector::InspectorObject& location, const Inspector::InspectorObject* options, Inspector::Protocol::Debugger::BreakpointId*, RefPtr<Inspector::Protocol::Debugger::Location>& actualLocation) override;
-    virtual void removeBreakpoint(ErrorString&, const String& breakpointIdentifier) override;
-    virtual void continueToLocation(ErrorString&, const InspectorObject& location) override;
-    virtual void searchInContent(ErrorString&, const String& scriptID, const String& query, const bool* optionalCaseSensitive, const bool* optionalIsRegex, RefPtr<Inspector::Protocol::Array<Inspector::Protocol::GenericTypes::SearchMatch>>&) override;
-    virtual void getScriptSource(ErrorString&, const String& scriptID, String* scriptSource) override;
-    virtual void getFunctionDetails(ErrorString&, const String& functionId, RefPtr<Inspector::Protocol::Debugger::FunctionDetails>&) override;
-    virtual void pause(ErrorString&) override;
-    virtual void resume(ErrorString&) override;
-    virtual void stepOver(ErrorString&) override;
-    virtual void stepInto(ErrorString&) override;
-    virtual void stepOut(ErrorString&) override;
-    virtual void setPauseOnExceptions(ErrorString&, const String& pauseState) override;
-    virtual void evaluateOnCallFrame(ErrorString&, const String& callFrameId, const String& expression, const String* objectGroup, const bool* includeCommandLineAPI, const bool* doNotPauseOnExceptionsAndMuteConsole, const bool* returnByValue, const bool* generatePreview, const bool* saveResult, RefPtr<Inspector::Protocol::Runtime::RemoteObject>& result, Inspector::Protocol::OptOutput<bool>* wasThrown, Inspector::Protocol::OptOutput<int>* savedResultIndex) override;
-    virtual void setOverlayMessage(ErrorString&, const String*) override;
+    void enable(ErrorString&) final;
+    void disable(ErrorString&) final;
+    void setBreakpointsActive(ErrorString&, bool active) final;
+    void setBreakpointByUrl(ErrorString&, int lineNumber, const String* optionalURL, const String* optionalURLRegex, const int* optionalColumnNumber, const Inspector::InspectorObject* options, Inspector::Protocol::Debugger::BreakpointId*, RefPtr<Inspector::Protocol::Array<Inspector::Protocol::Debugger::Location>>& locations) final;
+    void setBreakpoint(ErrorString&, const Inspector::InspectorObject& location, const Inspector::InspectorObject* options, Inspector::Protocol::Debugger::BreakpointId*, RefPtr<Inspector::Protocol::Debugger::Location>& actualLocation) final;
+    void removeBreakpoint(ErrorString&, const String& breakpointIdentifier) final;
+    void continueToLocation(ErrorString&, const InspectorObject& location) final;
+    void searchInContent(ErrorString&, const String& scriptID, const String& query, const bool* optionalCaseSensitive, const bool* optionalIsRegex, RefPtr<Inspector::Protocol::Array<Inspector::Protocol::GenericTypes::SearchMatch>>&) final;
+    void getScriptSource(ErrorString&, const String& scriptID, String* scriptSource) final;
+    void getFunctionDetails(ErrorString&, const String& functionId, RefPtr<Inspector::Protocol::Debugger::FunctionDetails>&) final;
+    void pause(ErrorString&) final;
+    void resume(ErrorString&) final;
+    void stepOver(ErrorString&) final;
+    void stepInto(ErrorString&) final;
+    void stepOut(ErrorString&) final;
+    void setPauseOnExceptions(ErrorString&, const String& pauseState) final;
+    void evaluateOnCallFrame(ErrorString&, const String& callFrameId, const String& expression, const String* objectGroup, const bool* includeCommandLineAPI, const bool* doNotPauseOnExceptionsAndMuteConsole, const bool* returnByValue, const bool* generatePreview, const bool* saveResult, RefPtr<Inspector::Protocol::Runtime::RemoteObject>& result, Inspector::Protocol::OptOutput<bool>* wasThrown, Inspector::Protocol::OptOutput<int>* savedResultIndex) final;
+    void setOverlayMessage(ErrorString&, const String*) override;
 
-    bool isPaused();
+    bool isPaused() const;
+    bool breakpointsActive() const;
 
     void setSuppressAllPauses(bool);
 
@@ -108,36 +105,34 @@ public:
     };
     void setListener(Listener* listener) { m_listener = listener; }
 
-    virtual ScriptDebugServer& scriptDebugServer() = 0;
-
 protected:
-    InspectorDebuggerAgent(InjectedScriptManager*);
+    InspectorDebuggerAgent(AgentContext&);
 
-    InjectedScriptManager* injectedScriptManager() const { return m_injectedScriptManager; }
+    InjectedScriptManager& injectedScriptManager() const { return m_injectedScriptManager; }
     virtual InjectedScript injectedScriptForEval(ErrorString&, const int* executionContextId) = 0;
 
-    virtual void startListeningScriptDebugServer() = 0;
-    virtual void stopListeningScriptDebugServer(bool skipRecompile) = 0;
+    ScriptDebugServer& scriptDebugServer() { return m_scriptDebugServer; }
+
     virtual void muteConsole() = 0;
     virtual void unmuteConsole() = 0;
 
     virtual void enable();
     virtual void disable(bool skipRecompile);
-    virtual void didPause(JSC::ExecState*, const Deprecated::ScriptValue& callFrames, const Deprecated::ScriptValue& exceptionOrCaughtValue) override;
-    virtual void didContinue() override;
+    void didPause(JSC::ExecState&, JSC::JSValue callFrames, JSC::JSValue exceptionOrCaughtValue) final;
+    void didContinue() final;
 
     virtual String sourceMapURLForScript(const Script&);
 
     void didClearGlobalObject();
 
 private:
-    Ref<Inspector::Protocol::Array<Inspector::Protocol::Debugger::CallFrame>> currentCallFrames(InjectedScript);
+    Ref<Inspector::Protocol::Array<Inspector::Protocol::Debugger::CallFrame>> currentCallFrames(const InjectedScript&);
 
-    virtual void didParseSource(JSC::SourceID, const Script&) override final;
-    virtual void failedToParseSource(const String& url, const String& data, int firstLine, int errorLine, const String& errorMessage) override final;
+    void didParseSource(JSC::SourceID, const Script&) final;
+    void failedToParseSource(const String& url, const String& data, int firstLine, int errorLine, const String& errorMessage) final;
 
-    virtual void breakpointActionSound(int breakpointActionIdentifier) override;
-    virtual void breakpointActionProbe(JSC::ExecState*, const ScriptBreakpointAction&, unsigned batchId, unsigned sampleId, const Deprecated::ScriptValue& sample) override final;
+    void breakpointActionSound(int breakpointActionIdentifier) final;
+    void breakpointActionProbe(JSC::ExecState&, const ScriptBreakpointAction&, unsigned batchId, unsigned sampleId, JSC::JSValue sample) final;
 
     RefPtr<Inspector::Protocol::Debugger::Location> resolveBreakpoint(const String& breakpointIdentifier, JSC::SourceID, const ScriptBreakpoint&);
     bool assertPaused(ErrorString&);
@@ -147,7 +142,7 @@ private:
     void clearExceptionValue();
 
     RefPtr<InspectorObject> buildBreakpointPauseReason(JSC::BreakpointID);
-    RefPtr<InspectorObject> buildExceptionPauseReason(const Deprecated::ScriptValue& exception, const InjectedScript&);
+    RefPtr<InspectorObject> buildExceptionPauseReason(JSC::JSValue exception, const InjectedScript&);
 
     bool breakpointActionsFromProtocol(ErrorString&, RefPtr<InspectorArray>& actions, BreakpointActions* result);
 
@@ -156,11 +151,12 @@ private:
     typedef HashMap<String, RefPtr<InspectorObject>> BreakpointIdentifierToBreakpointMap;
     typedef HashMap<JSC::BreakpointID, String> DebugServerBreakpointIDToBreakpointIdentifier;
 
-    InjectedScriptManager* m_injectedScriptManager;
+    InjectedScriptManager& m_injectedScriptManager;
     std::unique_ptr<DebuggerFrontendDispatcher> m_frontendDispatcher;
     RefPtr<DebuggerBackendDispatcher> m_backendDispatcher;
-    Listener* m_listener {nullptr};
-    JSC::ExecState* m_pausedScriptState {nullptr};
+    ScriptDebugServer& m_scriptDebugServer;
+    Listener* m_listener { nullptr };
+    JSC::ExecState* m_pausedScriptState { nullptr };
     Deprecated::ScriptValue m_currentCallStack;
     ScriptsMap m_scripts;
     BreakpointIdentifierToDebugServerBreakpointIDsMap m_breakpointIdentifierToDebugServerBreakpointIDs;
@@ -169,11 +165,10 @@ private:
     JSC::BreakpointID m_continueToLocationBreakpointID;
     DebuggerFrontendDispatcher::Reason m_breakReason;
     RefPtr<InspectorObject> m_breakAuxData;
-    bool m_enabled {false};
-    bool m_javaScriptPauseScheduled {false};
-    bool m_hasExceptionValue {false};
-    bool m_didPauseStopwatch {false};
-    RefPtr<WTF::Stopwatch> m_stopwatch;
+    bool m_enabled { false };
+    bool m_javaScriptPauseScheduled { false };
+    bool m_hasExceptionValue { false };
+    bool m_didPauseStopwatch { false };
 };
 
 } // namespace Inspector

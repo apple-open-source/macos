@@ -230,12 +230,12 @@ my_SCDynamicStorePublish(SCDynamicStoreRef store)
 				  NULL);
 	if (G_IPConfiguration_verbose) {
 	    if (S_keys_to_set != NULL) {
-		my_log(~LOG_DEBUG, 
+		my_log(~LOG_INFO,
 		       "DynamicStore Publish\n%@",
 		       S_keys_to_set);
 	    }
 	    if (S_keys_to_remove != NULL) {
-		my_log(~LOG_DEBUG, 
+		my_log(~LOG_INFO,
 		       "DynamicStore Remove\n%@",
 		       S_keys_to_remove);
 	    }

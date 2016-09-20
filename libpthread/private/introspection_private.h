@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2013, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -24,84 +24,6 @@
 #ifndef __PTHREAD_INTROSPECTION_PRIVATE__
 #define __PTHREAD_INTROSPECTION_PRIVATE__
 
-#include <sys/cdefs.h>
-#include <pthread/pthread.h>
-#include <Availability.h>
-
-/*!
- * @header
- *
- * @abstract
- * Introspection SPI for libpthread.
- */
-
-__BEGIN_DECLS
-
-/*!
- * @typedef pthread_introspection_hook_t
- *
- * @abstract
- * A function pointer called at various points in a PThread's lifetime.
- *
- * @param event
- * One of the events in pthread_introspection_event_t.
- *
- * @param thread
- * pthread_t associated with the event.
- *
- * @param addr
- * Address associated with the event.
- *
- * @param size
- * Size associated with the event.
- */
-typedef void (*pthread_introspection_hook_t)(unsigned int event,
-		pthread_t thread, void *addr, size_t size);
-
-/*!
- * @enum pthread_introspection_event_t
- *
- * @constant PTHREAD_INTROSPECTION_THREAD_CREATE
- * pthread_t was created.
- *
- * @constant PTHREAD_INTROSPECTION_THREAD_START
- * Thread has started and stack was allocated.
- *
- * @constant PTHREAD_INTROSPECTION_THREAD_TERMINATE
- * Thread is about to be terminated and stack will be deallocated.
- *
- * @constant PTHREAD_INTROSPECTION_THREAD_DESTROY
- * pthread_t is about to be destroyed.
- */
-enum {
-	PTHREAD_INTROSPECTION_THREAD_CREATE = 1,
-	PTHREAD_INTROSPECTION_THREAD_START,
-	PTHREAD_INTROSPECTION_THREAD_TERMINATE,
-	PTHREAD_INTROSPECTION_THREAD_DESTROY,
-};
-
-/*!
- * @function pthread_introspection_hook_install
- *
- * @abstract
- * Install introspection hook function into libpthread.
- *
- * @discussion
- * The caller is responsible for implementing chaining to the hook that was
- * previously installed (if any).
- *
- * @param hook
- * Pointer to hook function.
- *
- * @result
- * Previously installed hook function or NULL.
- */
-
-__OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0)
-__attribute__((__nonnull__, __warn_unused_result__))
-extern pthread_introspection_hook_t
-pthread_introspection_hook_install(pthread_introspection_hook_t hook);
-
-__END_DECLS
+#include <pthread/introspection.h>
 
 #endif

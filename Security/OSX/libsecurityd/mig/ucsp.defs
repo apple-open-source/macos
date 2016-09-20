@@ -205,30 +205,36 @@ routine dlPassThrough(UCSP_PORTS; in ssid: uint32; in id: uint32; in inData: Dat
 //
 // Authorization subsystem
 //
-routine authorizationCreate(UCSP_PORTS; 
-	in rights: Data;
-	in flags: uint32;
-	in environment: Data;
-	out authorization: AuthorizationBlob);
+//	routine authorizationCreate(UCSP_PORTS;
+//		in rights: Data;
+//		in flags: uint32;
+//		in environment: Data;
+//		out authorization: AuthorizationBlob);
+skip;
 
-routine authorizationRelease(UCSP_PORTS; in authorization: AuthorizationBlob;
-	in flags: uint32);
+//	routine authorizationRelease(UCSP_PORTS; in authorization: AuthorizationBlob;
+//		in flags: uint32);
+skip;
 
-routine authorizationCopyRights(UCSP_PORTS; in authorization: AuthorizationBlob;
-	in rights: Data;
-	in flags: uint32;
-	in environment: Data;
-	out result: Data);
+//	routine authorizationCopyRights(UCSP_PORTS; in authorization: AuthorizationBlob;
+//		in rights: Data;
+//		in flags: uint32;
+//		in environment: Data;
+//		out result: Data);
+skip;
 
-routine authorizationCopyInfo(UCSP_PORTS; in authorization: AuthorizationBlob;
-	in tag: AuthorizationString;
-	out info: Data);
+//	routine authorizationCopyInfo(UCSP_PORTS; in authorization: AuthorizationBlob;
+//		in tag: AuthorizationString;
+//		out info: Data);
+skip;
 
-routine authorizationExternalize(UCSP_PORTS; in authorization: AuthorizationBlob;
-	out form: AuthorizationExternalForm);
+//	routine authorizationExternalize(UCSP_PORTS; in authorization: AuthorizationBlob;
+//		out form: AuthorizationExternalForm);
+skip;
 
-routine authorizationInternalize(UCSP_PORTS; in form: AuthorizationExternalForm;
-	out authorization: AuthorizationBlob);
+//	routine authorizationInternalize(UCSP_PORTS; in form: AuthorizationExternalForm;
+//		out authorization: AuthorizationBlob);
+skip;
 
 
 //
@@ -238,7 +244,7 @@ skip;	// was getSessionInfo -- now kept by the kernel
 skip;	// was setupSession -- now kept by the kernel
 skip;	// was setSessionDistinguishedUid -- now kept by the kernel
 skip;	// was getSessionDistinguishedUid -- now kept by the kernel
-routine setSessionUserPrefs(UCSP_PORTS; in sessionId: SecuritySessionId; in userPrefs: Data);
+skip;	// was routine setSessionUserPrefs(UCSP_PORTS; in sessionId: SecuritySessionId; in userPrefs: Data);
 
 //
 // Notification subsystem
@@ -258,9 +264,9 @@ routine extractMasterKey(UCSP_PORTS; in db: IPCDbHandle; in context: Data; in so
 //
 // AuthorizationDB operations
 //
-routine authorizationdbGet(UCSP_PORTS; in rightname: AuthorizationString; out rightdefinition: Data);
-routine authorizationdbSet(UCSP_PORTS; in authorization: AuthorizationBlob; in rightname: AuthorizationString; in rightDefinition: Data);
-routine authorizationdbRemove(UCSP_PORTS; in authorization: AuthorizationBlob; in rightname: AuthorizationString);
+skip;	// was: routine authorizationdbGet(UCSP_PORTS; in rightname: AuthorizationString; out rightdefinition: Data);
+skip;	// was: routine authorizationdbSet(UCSP_PORTS; in authorization: AuthorizationBlob; in rightname: AuthorizationString; in rightDefinition: Data);
+skip;	// was: routine authorizationdbRemove(UCSP_PORTS; in authorization: AuthorizationBlob; in rightname: AuthorizationString);
 
 
 //
@@ -337,5 +343,12 @@ routine changeKeyStorePassphrase(UCSP_PORTS);
 //
 // Keychain version change support calls
 //
-routine recodeDbToVersion(UCSP_PORTS; in newVersion: uint32;
-    in srcDb: IPCDbHandle; out newDb: IPCDbHandle);
+routine recodeDbToVersion(UCSP_PORTS; in newVersion: uint32; in srcDb: IPCDbHandle; out newDb: IPCDbHandle);
+routine cloneDb(UCSP_PORTS; in srcDb: IPCDbHandle; in ident: Data; out newDb: IPCDbHandle);
+routine recodeFinished(UCSP_PORTS; in db: IPCDbHandle);
+
+//
+// Keychain Test Support calls
+//
+routine getUserPromptAttempts(UCSP_PORTS; out attempts: uint32_t);
+

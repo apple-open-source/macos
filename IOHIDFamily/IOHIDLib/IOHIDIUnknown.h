@@ -27,7 +27,7 @@
 #include <IOKit/IOCFPlugIn.h>
 
 __BEGIN_DECLS
-extern void *IOHIDLibFactory(CFAllocatorRef allocator, CFUUIDRef typeID);
+//extern void *IOHIDLibFactory(CFAllocatorRef allocator, CFUUIDRef typeID);
 __END_DECLS
 
 class IOHIDIUnknown {

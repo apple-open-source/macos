@@ -9,7 +9,7 @@ $dtrace -o $file -c $cmd -s /dev/stdin <<EOF
 	#pragma D option destructive
 	#pragma D option zdefs
 	
-	pid\$target:a.out:waiting:entry
+	pid\$target::waiting:entry
 	{
 		this->value = (int *)alloca(sizeof (int));
 		*this->value = 1;

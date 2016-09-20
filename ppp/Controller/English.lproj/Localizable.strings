@@ -45,11 +45,11 @@
 "PPP Error 0" = "You were disconnected by the PPP server. Try reconnecting.";
 "PPP Error 1" = "Your connection failed because of an unrecoverable error. Try reconnecting. If the problem continues, verify your settings and contact your Administrator.";
 "PPP Error 2" = "Your connection failed because of an incorrect PPP setting. Verify your settings and try reconnecting.";
-"PPP Error 3" = "PPP doesn't have sufficient privileges to work correctly.";
+"PPP Error 3" = "PPP doesn’t have sufficient privileges to work correctly.";
 "PPP Error 4" = "Could not find the PPP kernel extension.";
 /* "PPP Error 5" = ""; */ /* normal exit, nothing to display. this is special case in the code */
 "PPP Error 6" = "Lock failed"; /* not supported */
-"PPP Error 7" = "Your connection failed because the communication device is unavailable. Make sure it's connected to your computer and try reconnecting.";
+"PPP Error 7" = "Your connection failed because the communication device is unavailable. Make sure it’s connected to your computer and try reconnecting.";
 "PPP Error 8" = "Your connection failed. Try reconnecting. If the problem continues, verify your settings and contact your Administrator.";
 "PPP Error 9" = "The terminal connection failed. Verify your settings and try reconnecting."; /* not supported */
 "PPP Error 10" = "A connection could not be established to the PPP server. Try reconnecting. If the problem continues, verify your settings and contact your Administrator.";
@@ -84,10 +84,10 @@
 
 "PPPSerial Error 1" = "No phone service detected. Check your phone line and try reconnecting.";
 "PPPSerial Error 2" = "The connection failed because you have not entered a telephone number.";
-"PPPSerial Error 3" = "The phone number you're dialing is busy.";
+"PPPSerial Error 3" = "The phone number you’re dialing is busy.";
 "PPPSerial Error 4" = "No dial tone was detected. Check your phone line and try reconnecting.";
 "PPPSerial Error 5" = "An error occurred with the modem. Try reconnecting. If the problem continues, verify your settings and contact your Administrator.";
-"PPPSerial Error 6" = "The phone number you're dialing did not answer. Try reconnecting. If the problem continues, verify your settings and contact your Administrator.";
+"PPPSerial Error 6" = "The phone number you’re dialing did not answer. Try reconnecting. If the problem continues, verify your settings and contact your Administrator.";
 "PPPSerial Error 7" = "The modem disconnected. Try reconnecting. If the problem continues, verify your settings and contact your Administrator.";
 "PPPSerial Error 8" = "The modem script selected for your connection does not exist. Verify your settings and try reconnecting.";
 "PPPSerial Error 9" = "The modem script selected for your connection does not work with your modem. Verify your settings and try reconnecting.";
@@ -104,7 +104,7 @@
 "PPTP Error 1" = "The PPTP-VPN server was unreachable. Verify the server address and try reconnecting. If the problem continues, contact your Administrator.";
 "PPTP Error 2" = "The PPTP-VPN server did not respond. Try reconnecting. If the problem continues, verify your settings and contact your Administrator.";
 "PPTP Error 5" = "Your attempt to connect to the PPTP-VPN server failed. Verify the server address and try reconnecting.";
-"PPTP Error 6" = "You've been disconnected from the PPTP-VPN server because the network configuration changed.";
+"PPTP Error 6" = "You’ve been disconnected from the PPTP-VPN server because the network configuration changed.";
 
 
 /*  
@@ -137,7 +137,7 @@
 "IPSec Error 21" = "Your certificate has expired. Verify your settings and try reconnecting."; /* Client Certificate expiry error */
 "IPSec Error 22" = "The server certificate is premature. Contact your network administrator."; /* Server Certificate date not yet valid */
 "IPSec Error 23" = "The server certificate has expired. Contact your network administrator."; /* Server Certificate expiry error */
-"IPSec Error 24" = "The server certificate's identity is incorrect. Contact your network administrator."; /* Server Certificate ID mismatched or unexpected */
+"IPSec Error 24" = "The server certificate’s identity is incorrect. Contact your network administrator."; /* Server Certificate ID mismatched or unexpected */
 
 
 /* 
@@ -186,7 +186,7 @@
 "VPN Error 21" = "Your certificate has expired."; /* Certificate expired error */
 "VPN Error 22" = "The server certificate is premature. Contact your network administrator."; /* Server Certificate date not yet valid */
 "VPN Error 23" = "The server certificate has expired. Contact your network administrator."; /* Server Certificate expiry error */
-"VPN Error 24" = "The server certificate's identity is incorrect. Contact your network administrator."; /* Server Certificate ID mismatched or unexpected */
+"VPN Error 24" = "The server certificate’s identity is incorrect. Contact your network administrator."; /* Server Certificate ID mismatched or unexpected */
 "VPN Error 25" = "";																	/* Plugin Update */
 "VPN Error 26" = "Please launch the VPN application to enable the VPN connection.";			/* plugin needs to be enabled */
 

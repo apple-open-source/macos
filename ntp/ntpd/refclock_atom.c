@@ -134,17 +134,17 @@ atom_start(
 	memcpy((char *)&pp->refid, REFID, 4);
 	up = emalloc(sizeof(struct ppsunit));
 	memset(up, 0, sizeof(struct ppsunit));
-	pp->unitptr = (caddr_t)up;
+	pp->unitptr = up;
 
 	/*
 	 * Open PPS device. This can be any serial or parallel port and
 	 * not necessarily the port used for the associated radio.
 	 */
-	sprintf(device, DEVICE, unit);
+	snprintf(device, sizeof(device), DEVICE, unit);
 	up->fddev = tty_open(device, O_RDWR, 0777);
 	if (up->fddev <= 0) {
 		msyslog(LOG_ERR,
-		    "refclock_atom: %s: %m", device);
+			"refclock_atom: %s: %m", device);
 		return (0);
 	}
 
@@ -168,7 +168,7 @@ atom_shutdown(
 	struct ppsunit *up;
 
 	pp = peer->procptr;
-	up = (struct ppsunit *)pp->unitptr;
+	up = pp->unitptr;
 	if (up->fddev > 0)
 		close(up->fddev);
 	free(up);
@@ -188,7 +188,7 @@ atom_timer(
 	char	tbuf[80];
 
 	pp = peer->procptr;
-	up = (struct ppsunit *)pp->unitptr;
+	up = pp->unitptr;
 	if (refclock_pps(peer, &up->atom, pp->sloppyclockflag) <= 0)
 		return;
 
@@ -199,7 +199,8 @@ atom_timer(
 	 * That's so we can make awesome Allan deviation plots.
 	 */
 	if (pp->sloppyclockflag & CLK_FLAG4) {
-		sprintf(tbuf, "%.9f", pp->filter[pp->coderecv]);
+		snprintf(tbuf, sizeof(tbuf), "%.9f",
+			 pp->filter[pp->coderecv]);
 		record_clock_stats(&peer->srcadr, tbuf);
 	}
 }

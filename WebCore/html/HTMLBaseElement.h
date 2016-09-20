@@ -37,11 +37,11 @@ public:
 private:
     HTMLBaseElement(const QualifiedName&, Document&);
 
-    virtual String target() const override;
-    virtual bool isURLAttribute(const Attribute&) const override;
-    virtual void parseAttribute(const QualifiedName&, const AtomicString&) override;
-    virtual InsertionNotificationRequest insertedInto(ContainerNode&) override;
-    virtual void removedFrom(ContainerNode&) override;
+    String target() const final;
+    bool isURLAttribute(const Attribute&) const final;
+    void parseAttribute(const QualifiedName&, const AtomicString&) final;
+    InsertionNotificationRequest insertedInto(ContainerNode&) final;
+    void removedFrom(ContainerNode&) final;
 };
 
 } // namespace

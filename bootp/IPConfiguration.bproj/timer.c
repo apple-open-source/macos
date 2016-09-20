@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -64,6 +64,7 @@ struct timer_callout {
 };
 
 #ifdef TEST_ARP_SESSION
+#undef my_log
 #define my_log	syslog
 #endif /* TEST_ARP_SESSION */
 
@@ -235,18 +236,6 @@ long
 timer_current_secs()
 {
     return ((long)CFAbsoluteTimeGetCurrent());
-}
-
-struct timeval
-timer_current_time()
-{
-    double 		t = CFAbsoluteTimeGetCurrent();
-    struct timeval 	tv;
-
-    tv.tv_sec = (int32_t)t;
-    tv.tv_usec = (t - tv.tv_sec) * USECS_PER_SEC;
-
-    return (tv);
 }
 
 boolean_t

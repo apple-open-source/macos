@@ -19,8 +19,8 @@
 		EB0FBFD017844CE400EC4F54 /* expirationDateTransformer.m in Sources */ = {isa = PBXBuildFile; fileRef = EB0FBFCF17844CE400EC4F54 /* expirationDateTransformer.m */; };
 		EB0FBFD21784772B00EC4F54 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB0FBFD11784772B00EC4F54 /* Security.framework */; };
 		EB0FBFD41784774000EC4F54 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB0FBFD31784774000EC4F54 /* Security.framework */; };
-		EB1058601BB96B250024238F /* Main_tvOS.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = EB10585E1BB96B250024238F /* Main_tvOS.storyboard */; settings = {ASSET_TAGS = (); }; };
-		EB1058621BB96DBF0024238F /* GSSTestApp-tvOS-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = EB1058611BB96DBF0024238F /* GSSTestApp-tvOS-Info.plist */; settings = {ASSET_TAGS = (); }; };
+		EB1058601BB96B250024238F /* Main_tvOS.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = EB10585E1BB96B250024238F /* Main_tvOS.storyboard */; };
+		EB1058621BB96DBF0024238F /* GSSTestApp-tvOS-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = EB1058611BB96DBF0024238F /* GSSTestApp-tvOS-Info.plist */; };
 		EB1ADF2E19A448470054E692 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = EB1ADF2D19A448470054E692 /* main.m */; };
 		EB1ADF3619A449000054E692 /* XCTestCase+GSS.m in Sources */ = {isa = PBXBuildFile; fileRef = EBA2676417630E2900B5A686 /* XCTestCase+GSS.m */; };
 		EB1ADF3719A449000054E692 /* TestUsers.m in Sources */ = {isa = PBXBuildFile; fileRef = EB94FFDD18B1837300EF2C02 /* TestUsers.m */; };
@@ -805,7 +805,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				SDKROOT = appletvos.internal;
+				SDKROOT = macosx.internal;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
 			};
@@ -937,7 +937,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				SDKROOT = appletvos.internal;
+				SDKROOT = macosx.internal;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
 			};
@@ -1086,7 +1086,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				SDKROOT = appletvos.internal;
+				SDKROOT = macosx.internal;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -1117,7 +1117,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				SDKROOT = appletvos.internal;
+				SDKROOT = macosx.internal;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALIDATE_PRODUCT = YES;
 			};

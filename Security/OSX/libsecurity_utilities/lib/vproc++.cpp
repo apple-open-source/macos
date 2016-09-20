@@ -26,6 +26,7 @@
 // fdsel - select-style file descriptor set management
 //
 #include "vproc++.h"
+#include <assert.h>
 #include <security_utilities/debugging.h>
 #include <vproc_priv.h>
 

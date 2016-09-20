@@ -35,9 +35,9 @@ public:
 private:
     HTMLHRElement(const QualifiedName&, Document&);
 
-    virtual bool isPresentationAttribute(const QualifiedName&) const override;
-    virtual void collectStyleForPresentationAttribute(const QualifiedName&, const AtomicString&, MutableStyleProperties&) override;
-    virtual bool canContainRangeEndPoint() const override;
+    bool isPresentationAttribute(const QualifiedName&) const final;
+    void collectStyleForPresentationAttribute(const QualifiedName&, const AtomicString&, MutableStyleProperties&) final;
+    bool canContainRangeEndPoint() const final;
 };
 
 } // namespace WebCore

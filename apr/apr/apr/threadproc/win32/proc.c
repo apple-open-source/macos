@@ -465,8 +465,8 @@ APR_DECLARE(apr_status_t) apr_proc_create(apr_proc_t *new,
     new->err = attr->parent_err;
 
     if (attr->detached) {
-        /* If we are creating ourselves detached, Then we should hide the
-         * window we are starting in.  And we had better redfine our
+        /* If we are creating ourselves detached, then we should hide the
+         * window we are starting in.  And we had better redefine our
          * handles for STDIN, STDOUT, and STDERR. Do not set the
          * detached attribute for Win9x. We have found that Win9x does
          * not manage the stdio handles properly when running old 16
@@ -853,6 +853,7 @@ APR_DECLARE(apr_status_t) apr_proc_create(apr_proc_t *new,
                 rv = apr_get_os_error();
                 CloseHandle(attr->user_token);
                 attr->user_token = NULL;
+                LeaveCriticalSection(&proc_lock);
                 return rv;
             }
             rv = CreateProcessAsUserW(attr->user_token,

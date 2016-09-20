@@ -1,6 +1,4 @@
 /*
- * "$Id: string-private.h 12992 2015-11-19 15:19:00Z msweet $"
- *
  * Private string definitions for CUPS.
  *
  * Copyright 2007-2015 by Apple Inc.
@@ -217,7 +215,3 @@ extern char	*_cupsStrDate(char *buf, size_t bufsize, time_t timeval);
 #  endif /* __cplusplus */
 
 #endif /* !_CUPS_STRING_H_ */
-
-/*
- * End of "$Id: string-private.h 12992 2015-11-19 15:19:00Z msweet $".
- */

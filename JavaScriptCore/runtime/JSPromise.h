@@ -26,8 +26,6 @@
 #ifndef JSPromise_h
 #define JSPromise_h
 
-#if ENABLE(PROMISES)
-
 #include "JSObject.h"
 
 namespace JSC {
@@ -36,7 +34,7 @@ class JSPromise : public JSNonFinalObject {
 public:
     typedef JSNonFinalObject Base;
 
-    static JSPromise* create(VM&, JSGlobalObject*);
+    static JSPromise* create(VM&, Structure*);
     static Structure* createStructure(VM&, JSGlobalObject*, JSValue);
 
     DECLARE_EXPORT_INFO;
@@ -50,13 +48,15 @@ public:
     Status status(VM&) const;
     JSValue result(VM&) const;
 
-private:
+    // Initialize the promise with the executor.
+    // This may raise a JS exception.
+    void initialize(ExecState*, JSGlobalObject*, JSValue executor);
+
+protected:
     JSPromise(VM&, Structure*);
     void finishCreation(VM&);
 };
 
 } // namespace JSC
-
-#endif // ENABLE(PROMISES)
 
 #endif // JSPromise_h

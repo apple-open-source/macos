@@ -1,0 +1,8 @@
+# `file` magic for Darwin trace files
+
+0 lelong 0x55aa0101 Darwin trace file (v1)
+0 lelong 0x55aa0200 Darwin trace file (v2)
+0 lelong 0x55aa0300 Darwin trace file (v3)
+0 belong 0x55aa0101 Darwin trace file (v1)
+0 belong 0x55aa0200 Darwin trace file (v2)
+0 belong 0x55aa0300 Darwin trace file (v3)

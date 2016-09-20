@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2010, 2016 Apple Inc. All rights reserved.
  *           (C) 2006, 2007 Graham Dennis (graham.dennis@gmail.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,7 +34,6 @@
 #import "DOMDocumentInternal.h"
 #import "DOMNodeInternal.h"
 #import "DOMRangeInternal.h"
-#import "DictionaryPopupInfo.h"
 #import "WebArchive.h"
 #import "WebClipView.h"
 #import "WebContextMenuClient.h"
@@ -73,7 +72,6 @@
 #import "WebTypesInternal.h"
 #import "WebUIDelegatePrivate.h"
 #import "WebViewInternal.h"
-#import <WebCore/BlockExceptions.h>
 #import <WebCore/CSSStyleDeclaration.h>
 #import <WebCore/CachedImage.h>
 #import <WebCore/CachedResourceClient.h>
@@ -82,6 +80,7 @@
 #import <WebCore/ColorMac.h>
 #import <WebCore/ContextMenu.h>
 #import <WebCore/ContextMenuController.h>
+#import <WebCore/DictionaryLookup.h>
 #import <WebCore/Document.h>
 #import <WebCore/DocumentFragment.h>
 #import <WebCore/DocumentMarkerController.h>
@@ -106,10 +105,14 @@
 #import <WebCore/Image.h>
 #import <WebCore/KeyboardEvent.h>
 #import <WebCore/LegacyWebArchive.h>
+#import <WebCore/LocalizedStrings.h>
 #import <WebCore/MIMETypeRegistry.h>
 #import <WebCore/MainFrame.h>
+#import <WebCore/NSSpellCheckerSPI.h>
 #import <WebCore/NSURLFileTypeMappingsSPI.h>
+#import <WebCore/NSViewSPI.h>
 #import <WebCore/Page.h>
+#import <WebCore/PrintContext.h>
 #import <WebCore/Range.h>
 #import <WebCore/RenderView.h>
 #import <WebCore/RenderWidget.h>
@@ -130,6 +133,7 @@
 #import <dlfcn.h>
 #import <limits>
 #import <runtime/InitializeThreading.h>
+#import <wtf/BlockObjCExceptions.h>
 #import <wtf/MainThread.h>
 #import <wtf/MathExtras.h>
 #import <wtf/ObjcRuntimeExtras.h>
@@ -176,8 +180,375 @@ using namespace WTF;
 - (WebCore::ContextMenuController*)menuController;
 - (void)setMenuController:(WebCore::ContextMenuController*)menuController;
 - (void)forwardContextMenuAction:(id)sender;
-- (BOOL)validateMenuItem:(NSMenuItem *)item;
 @end
+
+static Optional<ContextMenuAction> toAction(NSInteger tag)
+{
+    if (tag >= ContextMenuItemBaseCustomTag && tag <= ContextMenuItemLastCustomTag) {
+        // Just pass these through.
+        return static_cast<ContextMenuAction>(tag);
+    }
+
+    switch (tag) {
+    case WebMenuItemTagOpenLinkInNewWindow:
+        return ContextMenuItemTagOpenLinkInNewWindow;
+    case WebMenuItemTagDownloadLinkToDisk:
+        return ContextMenuItemTagDownloadLinkToDisk;
+    case WebMenuItemTagCopyLinkToClipboard:
+        return ContextMenuItemTagCopyLinkToClipboard;
+    case WebMenuItemTagOpenImageInNewWindow:
+        return ContextMenuItemTagOpenImageInNewWindow;
+    case WebMenuItemTagDownloadImageToDisk:
+        return ContextMenuItemTagDownloadImageToDisk;
+    case WebMenuItemTagCopyImageToClipboard:
+        return ContextMenuItemTagCopyImageToClipboard;
+    case WebMenuItemTagOpenFrameInNewWindow:
+        return ContextMenuItemTagOpenFrameInNewWindow;
+    case WebMenuItemTagCopy:
+        return ContextMenuItemTagCopy;
+    case WebMenuItemTagGoBack:
+        return ContextMenuItemTagGoBack;
+    case WebMenuItemTagGoForward:
+        return ContextMenuItemTagGoForward;
+    case WebMenuItemTagStop:
+        return ContextMenuItemTagStop;
+    case WebMenuItemTagReload:
+        return ContextMenuItemTagReload;
+    case WebMenuItemTagCut:
+        return ContextMenuItemTagCut;
+    case WebMenuItemTagPaste:
+        return ContextMenuItemTagPaste;
+    case WebMenuItemTagSpellingGuess:
+        return ContextMenuItemTagSpellingGuess;
+    case WebMenuItemTagNoGuessesFound:
+        return ContextMenuItemTagNoGuessesFound;
+    case WebMenuItemTagIgnoreSpelling:
+        return ContextMenuItemTagIgnoreSpelling;
+    case WebMenuItemTagLearnSpelling:
+        return ContextMenuItemTagLearnSpelling;
+    case WebMenuItemTagOther:
+        return ContextMenuItemTagOther;
+    case WebMenuItemTagSearchInSpotlight:
+        return ContextMenuItemTagSearchInSpotlight;
+    case WebMenuItemTagSearchWeb:
+        return ContextMenuItemTagSearchWeb;
+    case WebMenuItemTagLookUpInDictionary:
+        return ContextMenuItemTagLookUpInDictionary;
+    case WebMenuItemTagOpenWithDefaultApplication:
+        return ContextMenuItemTagOpenWithDefaultApplication;
+    case WebMenuItemPDFActualSize:
+        return ContextMenuItemPDFActualSize;
+    case WebMenuItemPDFZoomIn:
+        return ContextMenuItemPDFZoomIn;
+    case WebMenuItemPDFZoomOut:
+        return ContextMenuItemPDFZoomOut;
+    case WebMenuItemPDFAutoSize:
+        return ContextMenuItemPDFAutoSize;
+    case WebMenuItemPDFSinglePage:
+        return ContextMenuItemPDFSinglePage;
+    case WebMenuItemPDFFacingPages:
+        return ContextMenuItemPDFFacingPages;
+    case WebMenuItemPDFContinuous:
+        return ContextMenuItemPDFContinuous;
+    case WebMenuItemPDFNextPage:
+        return ContextMenuItemPDFNextPage;
+    case WebMenuItemPDFPreviousPage:
+        return ContextMenuItemPDFPreviousPage;
+    case WebMenuItemTagOpenLink:
+        return ContextMenuItemTagOpenLink;
+    case WebMenuItemTagIgnoreGrammar:
+        return ContextMenuItemTagIgnoreGrammar;
+    case WebMenuItemTagSpellingMenu:
+        return ContextMenuItemTagSpellingMenu;
+    case WebMenuItemTagShowSpellingPanel:
+        return ContextMenuItemTagShowSpellingPanel;
+    case WebMenuItemTagCheckSpelling:
+        return ContextMenuItemTagCheckSpelling;
+    case WebMenuItemTagCheckSpellingWhileTyping:
+        return ContextMenuItemTagCheckSpellingWhileTyping;
+    case WebMenuItemTagCheckGrammarWithSpelling:
+        return ContextMenuItemTagCheckGrammarWithSpelling;
+    case WebMenuItemTagFontMenu:
+        return ContextMenuItemTagFontMenu;
+    case WebMenuItemTagShowFonts:
+        return ContextMenuItemTagShowFonts;
+    case WebMenuItemTagBold:
+        return ContextMenuItemTagBold;
+    case WebMenuItemTagItalic:
+        return ContextMenuItemTagItalic;
+    case WebMenuItemTagUnderline:
+        return ContextMenuItemTagUnderline;
+    case WebMenuItemTagOutline:
+        return ContextMenuItemTagOutline;
+    case WebMenuItemTagStyles:
+        return ContextMenuItemTagStyles;
+    case WebMenuItemTagShowColors:
+        return ContextMenuItemTagShowColors;
+    case WebMenuItemTagSpeechMenu:
+        return ContextMenuItemTagSpeechMenu;
+    case WebMenuItemTagStartSpeaking:
+        return ContextMenuItemTagStartSpeaking;
+    case WebMenuItemTagStopSpeaking:
+        return ContextMenuItemTagStopSpeaking;
+    case WebMenuItemTagWritingDirectionMenu:
+        return ContextMenuItemTagWritingDirectionMenu;
+    case WebMenuItemTagDefaultDirection:
+        return ContextMenuItemTagDefaultDirection;
+    case WebMenuItemTagLeftToRight:
+        return ContextMenuItemTagLeftToRight;
+    case WebMenuItemTagRightToLeft:
+        return ContextMenuItemTagRightToLeft;
+    case WebMenuItemPDFSinglePageScrolling:
+        return ContextMenuItemTagPDFSinglePageScrolling;
+    case WebMenuItemPDFFacingPagesScrolling:
+        return ContextMenuItemTagPDFFacingPagesScrolling;
+    case WebMenuItemTagInspectElement:
+        return ContextMenuItemTagInspectElement;
+    case WebMenuItemTagTextDirectionMenu:
+        return ContextMenuItemTagTextDirectionMenu;
+    case WebMenuItemTagTextDirectionDefault:
+        return ContextMenuItemTagTextDirectionDefault;
+    case WebMenuItemTagTextDirectionLeftToRight:
+        return ContextMenuItemTagTextDirectionLeftToRight;
+    case WebMenuItemTagTextDirectionRightToLeft:
+        return ContextMenuItemTagTextDirectionRightToLeft;
+    case WebMenuItemTagCorrectSpellingAutomatically:
+        return ContextMenuItemTagCorrectSpellingAutomatically;
+    case WebMenuItemTagSubstitutionsMenu:
+        return ContextMenuItemTagSubstitutionsMenu;
+    case WebMenuItemTagShowSubstitutions:
+        return ContextMenuItemTagShowSubstitutions;
+    case WebMenuItemTagSmartCopyPaste:
+        return ContextMenuItemTagSmartCopyPaste;
+    case WebMenuItemTagSmartQuotes:
+        return ContextMenuItemTagSmartQuotes;
+    case WebMenuItemTagSmartDashes:
+        return ContextMenuItemTagSmartDashes;
+    case WebMenuItemTagSmartLinks:
+        return ContextMenuItemTagSmartLinks;
+    case WebMenuItemTagTextReplacement:
+        return ContextMenuItemTagTextReplacement;
+    case WebMenuItemTagTransformationsMenu:
+        return ContextMenuItemTagTransformationsMenu;
+    case WebMenuItemTagMakeUpperCase:
+        return ContextMenuItemTagMakeUpperCase;
+    case WebMenuItemTagMakeLowerCase:
+        return ContextMenuItemTagMakeLowerCase;
+    case WebMenuItemTagCapitalize:
+        return ContextMenuItemTagCapitalize;
+    case WebMenuItemTagChangeBack:
+        return ContextMenuItemTagChangeBack;
+    case WebMenuItemTagOpenMediaInNewWindow:
+        return ContextMenuItemTagOpenMediaInNewWindow;
+    case WebMenuItemTagCopyMediaLinkToClipboard:
+        return ContextMenuItemTagCopyMediaLinkToClipboard;
+    case WebMenuItemTagToggleMediaControls:
+        return ContextMenuItemTagToggleMediaControls;
+    case WebMenuItemTagToggleMediaLoop:
+        return ContextMenuItemTagToggleMediaLoop;
+    case WebMenuItemTagEnterVideoFullscreen:
+        return ContextMenuItemTagEnterVideoFullscreen;
+    case WebMenuItemTagToggleVideoEnhancedFullscreen:
+        return ContextMenuItemTagToggleVideoEnhancedFullscreen;
+    case WebMenuItemTagMediaPlayPause:
+        return ContextMenuItemTagMediaPlayPause;
+    case WebMenuItemTagMediaMute:
+        return ContextMenuItemTagMediaMute;
+    case WebMenuItemTagDictationAlternative:
+        return ContextMenuItemTagDictationAlternative;
+    }
+    return Nullopt;
+}
+
+static Optional<NSInteger> toTag(ContextMenuAction action)
+{
+    switch (action) {
+    case ContextMenuItemTagNoAction:
+        return Nullopt;
+
+    case ContextMenuItemTagOpenLinkInNewWindow:
+        return WebMenuItemTagOpenLinkInNewWindow;
+    case ContextMenuItemTagDownloadLinkToDisk:
+        return WebMenuItemTagDownloadLinkToDisk;
+    case ContextMenuItemTagCopyLinkToClipboard:
+        return WebMenuItemTagCopyLinkToClipboard;
+    case ContextMenuItemTagOpenImageInNewWindow:
+        return WebMenuItemTagOpenImageInNewWindow;
+    case ContextMenuItemTagDownloadImageToDisk:
+        return WebMenuItemTagDownloadImageToDisk;
+    case ContextMenuItemTagCopyImageToClipboard:
+        return WebMenuItemTagCopyImageToClipboard;
+    case ContextMenuItemTagOpenFrameInNewWindow:
+        return WebMenuItemTagOpenFrameInNewWindow;
+    case ContextMenuItemTagCopy:
+        return WebMenuItemTagCopy;
+    case ContextMenuItemTagGoBack:
+        return WebMenuItemTagGoBack;
+    case ContextMenuItemTagGoForward:
+        return WebMenuItemTagGoForward;
+    case ContextMenuItemTagStop:
+        return WebMenuItemTagStop;
+    case ContextMenuItemTagReload:
+        return WebMenuItemTagReload;
+    case ContextMenuItemTagCut:
+        return WebMenuItemTagCut;
+    case ContextMenuItemTagPaste:
+        return WebMenuItemTagPaste;
+    case ContextMenuItemTagSpellingGuess:
+        return WebMenuItemTagSpellingGuess;
+    case ContextMenuItemTagNoGuessesFound:
+        return WebMenuItemTagNoGuessesFound;
+    case ContextMenuItemTagIgnoreSpelling:
+        return WebMenuItemTagIgnoreSpelling;
+    case ContextMenuItemTagLearnSpelling:
+        return WebMenuItemTagLearnSpelling;
+    case ContextMenuItemTagOther:
+        return WebMenuItemTagOther;
+    case ContextMenuItemTagSearchInSpotlight:
+        return WebMenuItemTagSearchInSpotlight;
+    case ContextMenuItemTagSearchWeb:
+        return WebMenuItemTagSearchWeb;
+    case ContextMenuItemTagLookUpInDictionary:
+        return WebMenuItemTagLookUpInDictionary;
+    case ContextMenuItemTagOpenWithDefaultApplication:
+        return WebMenuItemTagOpenWithDefaultApplication;
+    case ContextMenuItemPDFActualSize:
+        return WebMenuItemPDFActualSize;
+    case ContextMenuItemPDFZoomIn:
+        return WebMenuItemPDFZoomIn;
+    case ContextMenuItemPDFZoomOut:
+        return WebMenuItemPDFZoomOut;
+    case ContextMenuItemPDFAutoSize:
+        return WebMenuItemPDFAutoSize;
+    case ContextMenuItemPDFSinglePage:
+        return WebMenuItemPDFSinglePage;
+    case ContextMenuItemPDFFacingPages:
+        return WebMenuItemPDFFacingPages;
+    case ContextMenuItemPDFContinuous:
+        return WebMenuItemPDFContinuous;
+    case ContextMenuItemPDFNextPage:
+        return WebMenuItemPDFNextPage;
+    case ContextMenuItemPDFPreviousPage:
+        return WebMenuItemPDFPreviousPage;
+    case ContextMenuItemTagOpenLink:
+        return WebMenuItemTagOpenLink;
+    case ContextMenuItemTagIgnoreGrammar:
+        return WebMenuItemTagIgnoreGrammar;
+    case ContextMenuItemTagSpellingMenu:
+        return WebMenuItemTagSpellingMenu;
+    case ContextMenuItemTagShowSpellingPanel:
+        return WebMenuItemTagShowSpellingPanel;
+    case ContextMenuItemTagCheckSpelling:
+        return WebMenuItemTagCheckSpelling;
+    case ContextMenuItemTagCheckSpellingWhileTyping:
+        return WebMenuItemTagCheckSpellingWhileTyping;
+    case ContextMenuItemTagCheckGrammarWithSpelling:
+        return WebMenuItemTagCheckGrammarWithSpelling;
+    case ContextMenuItemTagFontMenu:
+        return WebMenuItemTagFontMenu;
+    case ContextMenuItemTagShowFonts:
+        return WebMenuItemTagShowFonts;
+    case ContextMenuItemTagBold:
+        return WebMenuItemTagBold;
+    case ContextMenuItemTagItalic:
+        return WebMenuItemTagItalic;
+    case ContextMenuItemTagUnderline:
+        return WebMenuItemTagUnderline;
+    case ContextMenuItemTagOutline:
+        return WebMenuItemTagOutline;
+    case ContextMenuItemTagStyles:
+        return WebMenuItemTagStyles;
+    case ContextMenuItemTagShowColors:
+        return WebMenuItemTagShowColors;
+    case ContextMenuItemTagSpeechMenu:
+        return WebMenuItemTagSpeechMenu;
+    case ContextMenuItemTagStartSpeaking:
+        return WebMenuItemTagStartSpeaking;
+    case ContextMenuItemTagStopSpeaking:
+        return WebMenuItemTagStopSpeaking;
+    case ContextMenuItemTagWritingDirectionMenu:
+        return WebMenuItemTagWritingDirectionMenu;
+    case ContextMenuItemTagDefaultDirection:
+        return WebMenuItemTagDefaultDirection;
+    case ContextMenuItemTagLeftToRight:
+        return WebMenuItemTagLeftToRight;
+    case ContextMenuItemTagRightToLeft:
+        return WebMenuItemTagRightToLeft;
+    case ContextMenuItemTagPDFSinglePageScrolling:
+        return WebMenuItemPDFSinglePageScrolling;
+    case ContextMenuItemTagPDFFacingPagesScrolling:
+        return WebMenuItemPDFFacingPagesScrolling;
+    case ContextMenuItemTagInspectElement:
+        return WebMenuItemTagInspectElement;
+    case ContextMenuItemTagTextDirectionMenu:
+        return WebMenuItemTagTextDirectionMenu;
+    case ContextMenuItemTagTextDirectionDefault:
+        return WebMenuItemTagTextDirectionDefault;
+    case ContextMenuItemTagTextDirectionLeftToRight:
+        return WebMenuItemTagTextDirectionLeftToRight;
+    case ContextMenuItemTagTextDirectionRightToLeft:
+        return WebMenuItemTagTextDirectionRightToLeft;
+    case ContextMenuItemTagCorrectSpellingAutomatically:
+        return WebMenuItemTagCorrectSpellingAutomatically;
+    case ContextMenuItemTagSubstitutionsMenu:
+        return WebMenuItemTagSubstitutionsMenu;
+    case ContextMenuItemTagShowSubstitutions:
+        return WebMenuItemTagShowSubstitutions;
+    case ContextMenuItemTagSmartCopyPaste:
+        return WebMenuItemTagSmartCopyPaste;
+    case ContextMenuItemTagSmartQuotes:
+        return WebMenuItemTagSmartQuotes;
+    case ContextMenuItemTagSmartDashes:
+        return WebMenuItemTagSmartDashes;
+    case ContextMenuItemTagSmartLinks:
+        return WebMenuItemTagSmartLinks;
+    case ContextMenuItemTagTextReplacement:
+        return WebMenuItemTagTextReplacement;
+    case ContextMenuItemTagTransformationsMenu:
+        return WebMenuItemTagTransformationsMenu;
+    case ContextMenuItemTagMakeUpperCase:
+        return WebMenuItemTagMakeUpperCase;
+    case ContextMenuItemTagMakeLowerCase:
+        return WebMenuItemTagMakeLowerCase;
+    case ContextMenuItemTagCapitalize:
+        return WebMenuItemTagCapitalize;
+    case ContextMenuItemTagChangeBack:
+        return WebMenuItemTagChangeBack;
+    case ContextMenuItemTagOpenMediaInNewWindow:
+        return WebMenuItemTagOpenMediaInNewWindow;
+    case ContextMenuItemTagDownloadMediaToDisk:
+        return WebMenuItemTagDownloadMediaToDisk;
+    case ContextMenuItemTagCopyMediaLinkToClipboard:
+        return WebMenuItemTagCopyMediaLinkToClipboard;
+    case ContextMenuItemTagToggleMediaControls:
+        return WebMenuItemTagToggleMediaControls;
+    case ContextMenuItemTagToggleMediaLoop:
+        return WebMenuItemTagToggleMediaLoop;
+    case ContextMenuItemTagEnterVideoFullscreen:
+        return WebMenuItemTagEnterVideoFullscreen;
+    case ContextMenuItemTagMediaPlayPause:
+        return WebMenuItemTagMediaPlayPause;
+    case ContextMenuItemTagMediaMute:
+        return WebMenuItemTagMediaMute;
+    case ContextMenuItemTagDictationAlternative:
+        return WebMenuItemTagDictationAlternative;
+    case ContextMenuItemTagToggleVideoFullscreen:
+        return WebMenuItemTagToggleVideoFullscreen;
+    case ContextMenuItemTagShareMenu:
+        return WebMenuItemTagShareMenu;
+    case ContextMenuItemTagToggleVideoEnhancedFullscreen:
+        return WebMenuItemTagToggleVideoEnhancedFullscreen;
+
+    case ContextMenuItemBaseCustomTag ... ContextMenuItemLastCustomTag:
+        // We just pass these through.
+        return static_cast<NSInteger>(action);
+
+    case ContextMenuItemBaseApplicationTag:
+        ASSERT_NOT_REACHED();
+    }
+
+    return Nullopt;
+}
 
 static WebMenuTarget* target;
 
@@ -202,16 +573,8 @@ static WebMenuTarget* target;
 
 - (void)forwardContextMenuAction:(id)sender
 {
-    WebCore::ContextMenuItem item(WebCore::ActionType, static_cast<WebCore::ContextMenuAction>([sender tag]), [sender title]);
-    _menuController->contextMenuItemSelected(&item);
-}
-
-- (BOOL)validateMenuItem:(NSMenuItem *)item
-{
-    WebCore::ContextMenuItem coreItem(item);
-    ASSERT(_menuController->contextMenu());
-    _menuController->checkOrEnableIfNeeded(coreItem);
-    return coreItem.enabled();
+    if (auto action = toAction([sender tag]))
+        _menuController->contextMenuItemSelected(*action, [sender title]);
 }
 
 @end
@@ -265,6 +628,12 @@ static BOOL forceNSViewHitTest;
 
 // if YES, do the "top WebHTMLView" hit test (which we'd like to do all the time but can't because of Java requirements [see bug 4349721])
 static BOOL forceWebHTMLViewHitTest;
+
+@interface NSApplication ()
+- (BOOL)isSpeaking;
+- (void)stopSpeaking:(id)sender;
+@end
+
 #endif // !PLATFORM(IOS)
 
 static WebHTMLView *lastHitView;
@@ -330,12 +699,20 @@ extern NSString *NSTextInputReplacementRangeAttributeName;
 @end
 
 #if !PLATFORM(IOS)
-static IMP oldSetNeedsDisplayInRectIMP;
 
-static void setNeedsDisplayInRect(NSView *self, SEL cmd, NSRect invalidRect)
+@interface NSView (WebSetNeedsDisplayInRect)
+- (void)_web_setNeedsDisplayInRect:(NSRect)invalidRect;
+@end
+
+@implementation NSView (WebSetNeedsDisplayInRect)
+
+- (void)_web_setNeedsDisplayInRect:(NSRect)invalidRect
 {
-    if (![self _drawnByAncestor]) {
-        wtfCallIMP<id>(oldSetNeedsDisplayInRectIMP, self, cmd, invalidRect);
+    // Note that we call method_exchangeImplementations below, so any calls
+    // to _web_setNeedsDisplayInRect: will actually call -[NSView setNeedsDisplayInRect:].
+
+    if (![NSThread isMainThread] || ![self _drawnByAncestor]) {
+        [self _web_setNeedsDisplayInRect:invalidRect];
         return;
     }
 
@@ -345,14 +722,14 @@ static void setNeedsDisplayInRect(NSView *self, SEL cmd, NSRect invalidRect)
         enclosingWebFrameView = (WebFrameView *)[enclosingWebFrameView superview];
 
     if (!enclosingWebFrameView) {
-        wtfCallIMP<id>(oldSetNeedsDisplayInRectIMP, self, cmd, invalidRect);
+        [self _web_setNeedsDisplayInRect:invalidRect];
         return;
     }
 
     Frame* coreFrame = core([enclosingWebFrameView webFrame]);
     FrameView* frameView = coreFrame ? coreFrame->view() : 0;
     if (!frameView || !frameView->isEnclosedInCompositingLayer()) {
-        wtfCallIMP<id>(oldSetNeedsDisplayInRectIMP, self, cmd, invalidRect);
+        [self _web_setNeedsDisplayInRect:invalidRect];
         return;
     }
 
@@ -363,6 +740,8 @@ static void setNeedsDisplayInRect(NSView *self, SEL cmd, NSRect invalidRect)
 
     frameView->invalidateRect(invalidRectInFrameViewCoordinates);
 }
+
+@end
 
 @interface NSApplication (WebNSApplicationDetails)
 - (void)speakString:(NSString *)string;
@@ -382,18 +761,8 @@ static void setNeedsDisplayInRect(NSView *self, SEL cmd, NSRect invalidRect)
 @end
 #endif // !PLATFORM(IOS)
 
-// By imaging to a width a little wider than the available pixels,
-// thin pages will be scaled down a little, matching the way they
-// print in IE and Camino. This lets them use fewer sheets than they
-// would otherwise, which is presumably why other browsers do this.
-// Wide pages will be scaled down more than this.
-const float _WebHTMLViewPrintingMinimumShrinkFactor = 1.25;
-
-// This number determines how small we are willing to reduce the page content
-// in order to accommodate the widest line. If the page would have to be
-// reduced smaller to make the widest line fit, we just clip instead (this
-// behavior matches MacIE and Mozilla, at least)
-const float _WebHTMLViewPrintingMaximumShrinkFactor = 2;
+const float _WebHTMLViewPrintingMinimumShrinkFactor = PrintContext::minimumShrinkFactor();
+const float _WebHTMLViewPrintingMaximumShrinkFactor = PrintContext::maximumShrinkFactor();
 
 #define AUTOSCROLL_INTERVAL             0.1f
 
@@ -620,6 +989,7 @@ struct WebHTMLViewInterpretKeyEventsParameters {
 #if !PLATFORM(IOS)
     BOOL installedTrackingArea;
     id flagsChangedEventMonitor;
+    NSRange softSpaceRange;
 #endif
 
 #ifndef NDEBUG
@@ -658,8 +1028,7 @@ static NSCellStateValue kit(TriState state)
     WTF::initializeMainThreadToProcessMainThread();
     RunLoop::initializeMainRunLoop();
 #endif
-    WebCoreObjCFinalizeOnMainThread(self);
-    
+
 #if !PLATFORM(IOS)
     if (!oldSetCursorForMouseLocationIMP) {
         Method setCursorMethod = class_getInstanceMethod([NSWindow class], @selector(_setCursorForMouseLocation:));
@@ -668,15 +1037,8 @@ static NSCellStateValue kit(TriState state)
         ASSERT(oldSetCursorForMouseLocationIMP);
     }
 
-    if (!oldSetNeedsDisplayInRectIMP) {
-        Method setNeedsDisplayInRectMethod = class_getInstanceMethod([NSView class], @selector(setNeedsDisplayInRect:));
-        ASSERT(setNeedsDisplayInRectMethod);
-        oldSetNeedsDisplayInRectIMP = method_setImplementation(setNeedsDisplayInRectMethod, (IMP)setNeedsDisplayInRect);
-        ASSERT(oldSetNeedsDisplayInRectIMP);
-    }
-
+    method_exchangeImplementations(class_getInstanceMethod([NSView class], @selector(setNeedsDisplayInRect:)), class_getInstanceMethod([NSView class], @selector(_web_setNeedsDisplayInRect:)));
 #endif
-
 }
 
 - (void)dealloc
@@ -708,16 +1070,6 @@ static NSCellStateValue kit(TriState state)
 #endif
 
     [super dealloc];
-}
-
-- (void)finalize
-{
-#if !PLATFORM(IOS)
-    if (promisedDragTIFFDataSource)
-        promisedDragTIFFDataSource->removeClient(promisedDataClient());
-#endif
-
-    [super finalize];
 }
 
 - (void)clear
@@ -978,7 +1330,7 @@ static NSURL* uniqueURLWithRelativePart(NSString *relativePart)
 
     DOMDocumentFragment *fragment = [self _documentFragmentFromPasteboard:pasteboard inContext:range allowPlainText:allowPlainText];
     if (fragment && [self _shouldInsertFragment:fragment replacingDOMRange:range givenAction:WebViewInsertActionPasted])
-        coreFrame->editor().pasteAsFragment(core(fragment), [self _canSmartReplaceWithPasteboard:pasteboard], false);
+        coreFrame->editor().pasteAsFragment(*core(fragment), [self _canSmartReplaceWithPasteboard:pasteboard], false);
 
     [webView _setInsertionPasteboard:nil];
     [webView release];
@@ -999,10 +1351,12 @@ static NSURL* uniqueURLWithRelativePart(NSString *relativePart)
 
 - (void)_postFakeMouseMovedEventForFlagsChangedEvent:(NSEvent *)flagsChangedEvent
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     NSEvent *fakeEvent = [NSEvent mouseEventWithType:NSMouseMoved location:flagsChangedEvent.window.mouseLocationOutsideOfEventStream
         modifierFlags:flagsChangedEvent.modifierFlags timestamp:flagsChangedEvent.timestamp windowNumber:flagsChangedEvent.windowNumber
-        context:flagsChangedEvent.context eventNumber:0 clickCount:0 pressure:0];
-
+        context:nullptr eventNumber:0 clickCount:0 pressure:0];
+#pragma clang diagnostic pop
     [self mouseMoved:fakeEvent];
 }
 
@@ -1152,7 +1506,10 @@ static NSURL* uniqueURLWithRelativePart(NSString *relativePart)
 #endif
 {
 #if !PLATFORM(IOS)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     ASSERT(!event || [event type] == NSLeftMouseDown || [event type] == NSRightMouseDown || [event type] == NSOtherMouseDown);
+#pragma clang diagnostic pop
 #else
     ASSERT(!event || event.type == WebEventMouseDown);
 #endif
@@ -1311,7 +1668,7 @@ static NSURL* uniqueURLWithRelativePart(NSString *relativePart)
         modifierFlags:[[NSApp currentEvent] modifierFlags]
         timestamp:[NSDate timeIntervalSinceReferenceDate]
         windowNumber:[[self window] windowNumber]
-        context:[[NSApp currentEvent] context]
+        context:nullptr
         eventNumber:0 clickCount:0 pressure:0];
 #pragma clang diagnostic pop
 
@@ -1329,7 +1686,7 @@ static NSURL* uniqueURLWithRelativePart(NSString *relativePart)
         if (Frame* coreFrame = core([self _frame])) {
             if (FrameView* coreView = coreFrame->view()) {
                 _private->inScrollPositionChanged = YES;
-                coreView->scrollPositionChangedViaPlatformWidget(IntPoint(_private->lastScrollPosition), IntPoint(origin));
+                coreView->scrollOffsetChangedViaPlatformWidget(IntPoint(_private->lastScrollPosition), IntPoint(origin));
                 _private->inScrollPositionChanged = NO;
             }
         }
@@ -1511,8 +1868,11 @@ static NSURL* uniqueURLWithRelativePart(NSString *relativePart)
 #if !PLATFORM(IOS)
 static BOOL isQuickLookEvent(NSEvent *event)
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     const int kCGSEventSystemSubtypeHotKeyCombinationReleased = 9;
     return [event type] == NSSystemDefined && [event subtype] == kCGSEventSystemSubtypeHotKeyCombinationReleased && [event data1] == 'lkup';
+#pragma clang diagnostic pop
 }
 #endif
 
@@ -1568,11 +1928,14 @@ static BOOL isQuickLookEvent(NSEvent *event)
     else {
         // FIXME: Why doesn't this include mouse entered/exited events, or other mouse button events?
         NSEvent *event = [[self window] currentEvent];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         captureHitsOnSubviews = !([event type] == NSMouseMoved
             || [event type] == NSRightMouseDown
             || ([event type] == NSLeftMouseDown && ([event modifierFlags] & NSControlKeyMask) != 0)
             || [event type] == NSFlagsChanged
             || isQuickLookEvent(event));
+#pragma clang diagnostic pop
     }
 
     if (!captureHitsOnSubviews) {
@@ -1660,6 +2023,8 @@ static BOOL isQuickLookEvent(NSEvent *event)
 - (void)_sendToolTipMouseExited
 {
     // Nothing matters except window, trackingNumber, and userData.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     NSEvent *fakeEvent = [NSEvent enterExitEventWithType:NSMouseExited
         location:NSMakePoint(0, 0)
         modifierFlags:0
@@ -1669,11 +2034,14 @@ static BOOL isQuickLookEvent(NSEvent *event)
         eventNumber:0
         trackingNumber:TRACKING_RECT_TAG
         userData:_private->trackingRectUserData];
+#pragma clang diagnostic pop
     [_private->trackingRectOwner mouseExited:fakeEvent];
 }
 
 - (void)_sendToolTipMouseEntered
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     // Nothing matters except window, trackingNumber, and userData.
     NSEvent *fakeEvent = [NSEvent enterExitEventWithType:NSMouseEntered
         location:NSMakePoint(0, 0)
@@ -1685,6 +2053,7 @@ static BOOL isQuickLookEvent(NSEvent *event)
         trackingNumber:TRACKING_RECT_TAG
         userData:_private->trackingRectUserData];
     [_private->trackingRectOwner mouseEntered:fakeEvent];
+#pragma clang diagnostic pop
 }
 #endif // !PLATFORM(IOS)
 
@@ -1720,6 +2089,8 @@ static BOOL isQuickLookEvent(NSEvent *event)
 static bool mouseEventIsPartOfClickOrDrag(NSEvent *event)
 {
     switch ([event type]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         case NSLeftMouseDown:
         case NSLeftMouseUp:
         case NSLeftMouseDragged:
@@ -1729,6 +2100,7 @@ static bool mouseEventIsPartOfClickOrDrag(NSEvent *event)
         case NSOtherMouseDown:
         case NSOtherMouseUp:
         case NSOtherMouseDragged:
+#pragma clang diagnostic pop
             return true;
         default:
             return false;
@@ -1762,13 +2134,16 @@ static bool mouseEventIsPartOfClickOrDrag(NSEvent *event)
         float yScroll = visibleRect.origin.y;
         float xScroll = visibleRect.origin.x;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         NSEvent *event = [NSEvent mouseEventWithType:NSMouseMoved
             location:NSMakePoint(-1 - xScroll, -1 - yScroll)
             modifierFlags:[[NSApp currentEvent] modifierFlags]
             timestamp:[NSDate timeIntervalSinceReferenceDate]
             windowNumber:[[view window] windowNumber]
-            context:[[NSApp currentEvent] context]
+            context:nullptr
             eventNumber:0 clickCount:0 pressure:0];
+#pragma clang diagnostic pop
         if (Frame* lastHitCoreFrame = core([lastHitView _frame]))
             lastHitCoreFrame->eventHandler().mouseMoved(event, [[self _webView] _pressureEvent]);
     }
@@ -1790,12 +2165,19 @@ static bool mouseEventIsPartOfClickOrDrag(NSEvent *event)
 #endif
                 ) {
                 coreFrame->eventHandler().mouseMoved(event, [[self _webView] _pressureEvent]);
-            } else
+            } else {
+                [self removeAllToolTips];
                 coreFrame->eventHandler().passMouseMovedEventToScrollbars(event, [[self _webView] _pressureEvent]);
+            }
         }
 
         [view release];
     }
+}
+
++ (NSString *)_dummyPasteboardType
+{
+    return @"Apple WebKit dummy pasteboard type";
 }
 
 + (NSArray *)_insertablePasteboardTypes
@@ -1955,7 +2337,7 @@ static bool mouseEventIsPartOfClickOrDrag(NSEvent *event)
         modifierFlags:[[NSApp currentEvent] modifierFlags]
         timestamp:[NSDate timeIntervalSinceReferenceDate]
         windowNumber:[[self window] windowNumber]
-        context:[[NSApp currentEvent] context]
+        context:nullptr
         eventNumber:0 clickCount:0 pressure:0];
 #pragma clang diagnostic pop
     [self mouseDragged:fakeEvent];
@@ -2267,7 +2649,7 @@ static bool mouseEventIsPartOfClickOrDrag(NSEvent *event)
     if (pboardType == NSStringPboardType) {
         if (!context)
             return nil;
-        return kit(createFragmentFromText(*core(context), [[pasteboard stringForType:NSStringPboardType] precomposedStringWithCanonicalMapping]).get());
+        return kit(createFragmentFromText(*core(context), [[pasteboard stringForType:NSStringPboardType] precomposedStringWithCanonicalMapping]).ptr());
     }
     return nil;
 }
@@ -2478,7 +2860,6 @@ static bool mouseEventIsPartOfClickOrDrag(NSEvent *event)
     WTF::initializeMainThreadToProcessMainThread();
     RunLoop::initializeMainRunLoop();
 #endif
-    WebCoreObjCFinalizeOnMainThread(self);
 }
 
 - (id)initWithFrame:(NSRect)frame
@@ -2501,6 +2882,8 @@ static bool mouseEventIsPartOfClickOrDrag(NSEvent *event)
     [[NSNotificationCenter defaultCenter] 
             addObserver:self selector:@selector(markedTextUpdate:) 
                    name:WebMarkedTextUpdatedNotification object:nil];
+#else
+    _private->softSpaceRange = NSMakeRange(NSNotFound, 0);
 #endif
     
     return self;
@@ -2522,15 +2905,6 @@ static bool mouseEventIsPartOfClickOrDrag(NSEvent *event)
     [_private release];
     _private = nil;
     [super dealloc];
-}
-
-- (void)finalize
-{
-    // We can't assert that close has already been called because
-    // this view can be removed from it's superview, even though
-    // it could be needed later, so close if needed.
-    [self close];
-    [super finalize];
 }
 
 // Returns YES if the delegate returns YES (so we should do no more work).
@@ -2772,7 +3146,7 @@ WEBCORE_COMMAND(toggleUnderline)
     COMMAND_PROLOGUE
 
     if (Frame* coreFrame = core([self _frame]))
-        coreFrame->selection().revealSelection(ScrollAlignment::alignCenterAlways);
+        coreFrame->selection().revealSelection(SelectionRevealMode::Reveal, ScrollAlignment::alignCenterAlways);
 }
 
 #if !PLATFORM(IOS)
@@ -2983,9 +3357,12 @@ WEBCORE_COMMAND(toggleUnderline)
     // or from calls back from WebCore once we begin mouse-down event handling.
 #if !PLATFORM(IOS)            
     NSEvent *event = [NSApp currentEvent];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     if ([event type] == NSLeftMouseDown
             && !_private->handlingMouseDownEvent
             && NSPointInRect([event locationInWindow], [self convertRect:[self visibleRect] toView:nil])) {
+#pragma clang diagnostic pop
         return NO;
     }
 #else
@@ -3154,10 +3531,13 @@ WEBCORE_COMMAND(toggleUnderline)
 
 #if !PLATFORM(IOS)
         if (!_private->flagsChangedEventMonitor) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
             _private->flagsChangedEventMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSFlagsChangedMask handler:^(NSEvent *flagsChangedEvent) {
                 [self _postFakeMouseMovedEventForFlagsChangedEvent:flagsChangedEvent];
                 return flagsChangedEvent;
             }];
+#pragma clang diagnostic pop
         }
     } else {
         [NSEvent removeMonitor:_private->flagsChangedEventMonitor];
@@ -3307,26 +3687,327 @@ WEBCORE_COMMAND(toggleUnderline)
         coreframe->eventHandler().mouseUp(event, [[self _webView] _pressureEvent]);
 }
 
-static void setMenuItemTarget(NSMenuItem* menuItem)
+static BOOL isPreVersion3Client(void)
 {
-    // Don't set the menu item's action to the context menu action forwarder if we already
-    // have an action.
-    if ([menuItem action])
-        return;
-
-    [menuItem setTarget:[WebMenuTarget sharedMenuTarget]];
-    [menuItem setAction:@selector(forwardContextMenuAction:)];
+    static BOOL preVersion3Client = !WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITH_3_0_CONTEXT_MENU_TAGS);
+    return preVersion3Client;
 }
 
-static void setMenuTargets(NSMenu* menu)
+static BOOL isPreInspectElementTagClient(void)
 {
-    NSInteger itemCount = [menu numberOfItems];
-    for (NSInteger i = 0; i < itemCount; ++i) {
-        NSMenuItem *item = [menu itemAtIndex:i];
-        setMenuItemTarget(item);
-        if ([item hasSubmenu])
-            setMenuTargets([item submenu]);
+    static BOOL preInspectElementTagClient = !WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITH_INSPECT_ELEMENT_MENU_TAG);
+    return preInspectElementTagClient;
+}
+
+enum {
+    // The next three values were used in WebKit 2.0 for SPI. In WebKit 3.0 these are API, with different values.
+    OldWebMenuItemTagSearchInSpotlight = 1000,
+    OldWebMenuItemTagSearchWeb,
+    OldWebMenuItemTagLookUpInDictionary,
+};
+
+static RetainPtr<NSArray> fixMenusToSendToOldClients(NSMutableArray *defaultMenuItems)
+{
+    auto savedItems = adoptNS([[NSMutableArray alloc] init]);
+
+    unsigned defaultItemsCount = [defaultMenuItems count];
+
+    if (isPreInspectElementTagClient() && defaultItemsCount >= 2) {
+        NSMenuItem *secondToLastItem = [defaultMenuItems objectAtIndex:defaultItemsCount - 2];
+        NSMenuItem *lastItem = [defaultMenuItems objectAtIndex:defaultItemsCount - 1];
+
+        if ([secondToLastItem isSeparatorItem] && [lastItem tag] == WebMenuItemTagInspectElement) {
+            savedItems = adoptNS([[NSMutableArray alloc] initWithCapacity:2]);
+            [savedItems addObject:secondToLastItem];
+            [savedItems addObject:lastItem];
+
+            [defaultMenuItems removeObject:secondToLastItem];
+            [defaultMenuItems removeObject:lastItem];
+            defaultItemsCount -= 2;
+        }
     }
+
+    BOOL preVersion3Client = isPreVersion3Client();
+    if (!preVersion3Client)
+        return savedItems;
+
+    for (NSMenuItem *item in defaultMenuItems) {
+        int tag = item.tag;
+        int oldStyleTag = tag;
+
+        if (tag >= WEBMENUITEMTAG_WEBKIT_3_0_SPI_START) {
+            // Change all editing-related SPI tags listed in WebUIDelegatePrivate.h to WebMenuItemTagOther
+            // to match our old WebKit context menu behavior.
+            oldStyleTag = WebMenuItemTagOther;
+        } else {
+            // All items are expected to have useful tags coming into this method.
+            ASSERT(tag != WebMenuItemTagOther);
+            
+            // Use the pre-3.0 tags for the few items that changed tags as they moved from SPI to API. We
+            // do this only for old clients; new Mail already expects the new symbols in this case.
+            if (preVersion3Client) {
+                switch (tag) {
+                case WebMenuItemTagSearchInSpotlight:
+                    oldStyleTag = OldWebMenuItemTagSearchInSpotlight;
+                    break;
+                case WebMenuItemTagSearchWeb:
+                    oldStyleTag = OldWebMenuItemTagSearchWeb;
+                    break;
+                case WebMenuItemTagLookUpInDictionary:
+                    oldStyleTag = OldWebMenuItemTagLookUpInDictionary;
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
+
+        item.tag = oldStyleTag;
+    }
+
+    return savedItems;
+}
+
+static RetainPtr<NSArray> fixMenusReceivedFromOldClients(NSArray *delegateSuppliedItems, NSArray *savedItems)
+{
+    auto newMenuItems = adoptNS([delegateSuppliedItems mutableCopy]);
+
+    if (savedItems)
+        [newMenuItems addObjectsFromArray:savedItems];
+
+    BOOL preVersion3Client = isPreVersion3Client();
+    if (!preVersion3Client)
+        return newMenuItems;
+    
+    // Restore the modern tags to the menu items whose tags we altered in fixMenusToSendToOldClients. 
+    unsigned newItemsCount = [newMenuItems count];
+    for (unsigned i = 0; i < newItemsCount; ++i) {
+        NSMenuItem *item = [newMenuItems objectAtIndex:i];
+        
+        int tag = [item tag];
+        int modernTag = tag;
+        
+        if (tag == WebMenuItemTagOther) {
+            // Restore the specific tag for items on which we temporarily set WebMenuItemTagOther to match old behavior.
+            NSString *title = [item title];
+            if ([title isEqualToString:contextMenuItemTagOpenLink()])
+                modernTag = WebMenuItemTagOpenLink;
+            else if ([title isEqualToString:contextMenuItemTagIgnoreGrammar()])
+                modernTag = WebMenuItemTagIgnoreGrammar;
+            else if ([title isEqualToString:contextMenuItemTagSpellingMenu()])
+                modernTag = WebMenuItemTagSpellingMenu;
+            else if ([title isEqualToString:contextMenuItemTagShowSpellingPanel(true)] || [title isEqualToString:contextMenuItemTagShowSpellingPanel(false)])
+                modernTag = WebMenuItemTagShowSpellingPanel;
+            else if ([title isEqualToString:contextMenuItemTagCheckSpelling()])
+                modernTag = WebMenuItemTagCheckSpelling;
+            else if ([title isEqualToString:contextMenuItemTagCheckSpellingWhileTyping()])
+                modernTag = WebMenuItemTagCheckSpellingWhileTyping;
+            else if ([title isEqualToString:contextMenuItemTagCheckGrammarWithSpelling()])
+                modernTag = WebMenuItemTagCheckGrammarWithSpelling;
+            else if ([title isEqualToString:contextMenuItemTagFontMenu()])
+                modernTag = WebMenuItemTagFontMenu;
+            else if ([title isEqualToString:contextMenuItemTagShowFonts()])
+                modernTag = WebMenuItemTagShowFonts;
+            else if ([title isEqualToString:contextMenuItemTagBold()])
+                modernTag = WebMenuItemTagBold;
+            else if ([title isEqualToString:contextMenuItemTagItalic()])
+                modernTag = WebMenuItemTagItalic;
+            else if ([title isEqualToString:contextMenuItemTagUnderline()])
+                modernTag = WebMenuItemTagUnderline;
+            else if ([title isEqualToString:contextMenuItemTagOutline()])
+                modernTag = WebMenuItemTagOutline;
+            else if ([title isEqualToString:contextMenuItemTagStyles()])
+                modernTag = WebMenuItemTagStyles;
+            else if ([title isEqualToString:contextMenuItemTagShowColors()])
+                modernTag = WebMenuItemTagShowColors;
+            else if ([title isEqualToString:contextMenuItemTagSpeechMenu()])
+                modernTag = WebMenuItemTagSpeechMenu;
+            else if ([title isEqualToString:contextMenuItemTagStartSpeaking()])
+                modernTag = WebMenuItemTagStartSpeaking;
+            else if ([title isEqualToString:contextMenuItemTagStopSpeaking()])
+                modernTag = WebMenuItemTagStopSpeaking;
+            else if ([title isEqualToString:contextMenuItemTagWritingDirectionMenu()])
+                modernTag = WebMenuItemTagWritingDirectionMenu;
+            else if ([title isEqualToString:contextMenuItemTagDefaultDirection()])
+                modernTag = WebMenuItemTagDefaultDirection;
+            else if ([title isEqualToString:contextMenuItemTagLeftToRight()])
+                modernTag = WebMenuItemTagLeftToRight;
+            else if ([title isEqualToString:contextMenuItemTagRightToLeft()])
+                modernTag = WebMenuItemTagRightToLeft;
+            else if ([title isEqualToString:contextMenuItemTagInspectElement()])
+                modernTag = WebMenuItemTagInspectElement;
+            else if ([title isEqualToString:contextMenuItemTagCorrectSpellingAutomatically()])
+                modernTag = WebMenuItemTagCorrectSpellingAutomatically;
+            else if ([title isEqualToString:contextMenuItemTagSubstitutionsMenu()])
+                modernTag = WebMenuItemTagSubstitutionsMenu;
+            else if ([title isEqualToString:contextMenuItemTagShowSubstitutions(true)] || [title isEqualToString:contextMenuItemTagShowSubstitutions(false)])
+                modernTag = WebMenuItemTagShowSubstitutions;
+            else if ([title isEqualToString:contextMenuItemTagSmartCopyPaste()])
+                modernTag = WebMenuItemTagSmartCopyPaste;
+            else if ([title isEqualToString:contextMenuItemTagSmartQuotes()])
+                modernTag = WebMenuItemTagSmartQuotes;
+            else if ([title isEqualToString:contextMenuItemTagSmartDashes()])
+                modernTag = WebMenuItemTagSmartDashes;
+            else if ([title isEqualToString:contextMenuItemTagSmartLinks()])
+                modernTag = WebMenuItemTagSmartLinks;
+            else if ([title isEqualToString:contextMenuItemTagTextReplacement()])
+                modernTag = WebMenuItemTagTextReplacement;
+            else if ([title isEqualToString:contextMenuItemTagTransformationsMenu()])
+                modernTag = WebMenuItemTagTransformationsMenu;
+            else if ([title isEqualToString:contextMenuItemTagMakeUpperCase()])
+                modernTag = WebMenuItemTagMakeUpperCase;
+            else if ([title isEqualToString:contextMenuItemTagMakeLowerCase()])
+                modernTag = WebMenuItemTagMakeLowerCase;
+            else if ([title isEqualToString:contextMenuItemTagCapitalize()])
+                modernTag = WebMenuItemTagCapitalize;
+            else {
+            // We don't expect WebMenuItemTagOther for any items other than the ones we explicitly handle.
+            // There's nothing to prevent an app from applying this tag, but they are supposed to only
+            // use tags in the range starting with WebMenuItemBaseApplicationTag=10000
+                ASSERT_NOT_REACHED();
+            }
+        } else if (preVersion3Client) {
+            // Restore the new API tag for items on which we temporarily set the old SPI tag. The old SPI tag was
+            // needed to avoid confusing clients linked against earlier WebKits; the new API tag is needed for
+            // WebCore to handle the menu items appropriately (without needing to know about the old SPI tags).
+            switch (tag) {
+            case OldWebMenuItemTagSearchInSpotlight:
+                modernTag = WebMenuItemTagSearchInSpotlight;
+                break;
+            case OldWebMenuItemTagSearchWeb:
+                modernTag = WebMenuItemTagSearchWeb;
+                break;
+            case OldWebMenuItemTagLookUpInDictionary:
+                modernTag = WebMenuItemTagLookUpInDictionary;
+                break;
+            default:
+                break;
+            }
+        }
+        
+        if (modernTag != tag)
+            [item setTag:modernTag];        
+    }
+
+    return newMenuItems;
+}
+
+static RetainPtr<NSMenuItem> createShareMenuItem(const HitTestResult& hitTestResult)
+{
+    if (![[NSMenuItem class] respondsToSelector:@selector(standardShareMenuItemWithItems:)])
+        return nil;
+
+    auto items = adoptNS([[NSMutableArray alloc] init]);
+
+    if (!hitTestResult.absoluteLinkURL().isEmpty()) {
+        NSURL *absoluteLinkURL = hitTestResult.absoluteLinkURL();
+        [items addObject:absoluteLinkURL];
+    }
+
+    if (!hitTestResult.absoluteMediaURL().isEmpty() && hitTestResult.isDownloadableMedia()) {
+        NSURL *downloadableMediaURL = hitTestResult.absoluteMediaURL();
+        [items addObject:downloadableMediaURL];
+    }
+
+    if (Image* image = hitTestResult.image()) {
+        if (RefPtr<SharedBuffer> buffer = image->data())
+            [items addObject:adoptNS([[NSImage alloc] initWithData:[NSData dataWithBytes:buffer->data() length:buffer->size()]]).get()];
+    }
+
+    if (!hitTestResult.selectedText().isEmpty()) {
+        NSString *selectedText = hitTestResult.selectedText();
+        [items addObject:selectedText];
+    }
+
+    if (![items count])
+        return nil;
+
+    return [NSMenuItem standardShareMenuItemWithItems:items.get()];
+}
+
+static RetainPtr<NSMutableArray> createMenuItems(const HitTestResult&, const Vector<ContextMenuItem>&);
+
+static RetainPtr<NSMenuItem> createMenuItem(const HitTestResult& hitTestResult, const ContextMenuItem& item)
+{
+    if (item.action() == ContextMenuItemTagShareMenu)
+        return createShareMenuItem(hitTestResult);
+
+    switch (item.type()) {
+    case WebCore::ActionType:
+    case WebCore::CheckableActionType: {
+        auto menuItem = adoptNS([[NSMenuItem alloc] initWithTitle:item.title() action:@selector(forwardContextMenuAction:) keyEquivalent:@""]);
+
+        if (auto tag = toTag(item.action()))
+            [menuItem setTag:*tag];
+        [menuItem setEnabled:item.enabled()];
+        [menuItem setState:item.checked() ? NSOnState : NSOffState];
+        [menuItem setTarget:[WebMenuTarget sharedMenuTarget]];
+
+        return menuItem;
+    }
+
+    case SeparatorType:
+        return [NSMenuItem separatorItem];
+
+    case SubmenuType: {
+        auto menu = adoptNS([[NSMenu alloc] init]);
+
+        auto submenuItems = createMenuItems(hitTestResult, item.subMenuItems());
+        for (NSMenuItem *menuItem in submenuItems.get())
+            [menu addItem:menuItem];
+
+        auto menuItem = adoptNS([[NSMenuItem alloc] initWithTitle:item.title() action:nullptr keyEquivalent:@""]);
+        [menuItem setEnabled:item.enabled()];
+        [menuItem setSubmenu:menu.get()];
+
+        return menuItem;
+    }
+    }
+}
+
+static RetainPtr<NSMutableArray> createMenuItems(const HitTestResult& hitTestResult, const Vector<ContextMenuItem>& items)
+{
+    auto menuItems = adoptNS([[NSMutableArray alloc] init]);
+
+    for (auto& item : items) {
+        if (auto menuItem = createMenuItem(hitTestResult, item))
+            [menuItems addObject:menuItem.get()];
+    }
+
+    return menuItems;
+}
+
+static RetainPtr<NSArray> customMenuFromDefaultItems(WebView *webView, const ContextMenu& defaultMenu)
+{
+    const auto& hitTestResult = webView.page->contextMenuController().hitTestResult();
+    auto defaultMenuItems = createMenuItems(hitTestResult, defaultMenu.items());
+
+    id delegate = [webView UIDelegate];
+    SEL selector = @selector(webView:contextMenuItemsForElement:defaultMenuItems:);
+    if (![delegate respondsToSelector:selector])
+        return defaultMenuItems;
+
+    auto element = adoptNS([[WebElementDictionary alloc] initWithHitTestResult:hitTestResult]);
+
+    BOOL preVersion3Client = isPreVersion3Client();
+    if (preVersion3Client) {
+        DOMNode *node = [element objectForKey:WebElementDOMNodeKey];
+        if ([node isKindOfClass:[DOMHTMLInputElement class]] && [(DOMHTMLInputElement *)node _isTextField])
+            return defaultMenuItems;
+        if ([node isKindOfClass:[DOMHTMLTextAreaElement class]])
+            return defaultMenuItems;
+    }
+
+    for (NSMenuItem *menuItem in defaultMenuItems.get()) {
+        if (!menuItem.representedObject)
+            menuItem.representedObject = element.get();
+    }
+
+    auto savedItems = fixMenusToSendToOldClients(defaultMenuItems.get());
+
+    NSArray *delegateSuppliedItems = CallUIDelegate(webView, selector, element.get(), defaultMenuItems.get());
+
+    return fixMenusReceivedFromOldClients(delegateSuppliedItems, savedItems.get()).autorelease();
 }
 
 - (NSMenu *)menuForEvent:(NSEvent *)event
@@ -3361,41 +4042,30 @@ static void setMenuTargets(NSMenu* menu)
     if (!page)
         return nil;
 
-    ContextMenu* coreMenu = page->contextMenuController().contextMenu();
-    if (!coreMenu)
+    ContextMenu* contextMenu = page->contextMenuController().contextMenu();
+    if (!contextMenu)
         return nil;
 
-    auto menuItemVector = contextMenuItemVector(coreMenu->platformDescription());
-    for (auto& menuItem : menuItemVector) {
-        if (menuItem.action() != ContextMenuItemTagShareMenu)
-            continue;
+    auto menuItems = customMenuFromDefaultItems([self _webView], *contextMenu);
+    if (![menuItems count])
+        return nil;
 
-        NSMenuItem *nsItem = menuItem.platformDescription();
-        if (![nsItem.representedObject isKindOfClass:[NSSharingServicePicker class]]) {
-            ASSERT_NOT_REACHED();
-            continue;
-        }
+    auto menu = adoptNS([[NSMenu alloc] init]);
+
+    for (NSMenuItem *item in menuItems.get()) {
+        [menu addItem:item];
+
+        if (item.tag == ContextMenuItemTagShareMenu) {
+            ASSERT([item.representedObject isKindOfClass:[NSSharingServicePicker class]]);
 #if ENABLE(SERVICE_CONTROLS)
-        _private->currentSharingServicePickerController = adoptNS([[WebSharingServicePickerController alloc] initWithSharingServicePicker:nsItem.representedObject client:static_cast<WebContextMenuClient&>(page->contextMenuController().client())]);
+            _private->currentSharingServicePickerController = adoptNS([[WebSharingServicePickerController alloc] initWithSharingServicePicker:item.representedObject client:static_cast<WebContextMenuClient&>(page->contextMenuController().client())]);
 #endif
+        }
     }
 
-    NSArray* menuItems = coreMenu->platformDescription();
-    if (!menuItems)
-        return nil;
-
-    NSUInteger count = [menuItems count];
-    if (!count)
-        return nil;
-
-    NSMenu* menu = [[[NSMenu alloc] init] autorelease];
-    for (NSUInteger i = 0; i < count; i++)
-        [menu addItem:[menuItems objectAtIndex:i]];
-    setMenuTargets(menu);
-    
     [[WebMenuTarget sharedMenuTarget] setMenuController:&page->contextMenuController()];
     
-    return menu;
+    return menu.autorelease();
 }
 #endif // !PLATFORM(IOS)
 
@@ -3727,7 +4397,7 @@ static void setMenuTargets(NSMenu* menu)
         frame->eventHandler().wheelEvent(event);
 #endif
 
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+#if PLATFORM(MAC)
     [[[self _webView] _immediateActionController] webView:[self _webView] didHandleScrollWheel:event];
 #endif
 }
@@ -3897,6 +4567,8 @@ static void setMenuTargets(NSMenu* menu)
         slideBack:(BOOL)slideBack
 {
     ASSERT(self == [self _topHTMLView]);
+    [pasteboard setString:@"" forType:[WebHTMLView _dummyPasteboardType]];
+
     [super dragImage:dragImage at:at offset:offset event:event pasteboard:pasteboard source:source slideBack:slideBack];
 }
 
@@ -3961,7 +4633,7 @@ static void setMenuTargets(NSMenu* menu)
                                        modifierFlags:[[NSApp currentEvent] modifierFlags]
                                            timestamp:[NSDate timeIntervalSinceReferenceDate]
                                         windowNumber:[[self window] windowNumber]
-                                             context:[[NSApp currentEvent] context]
+                                             context:nullptr
                                          eventNumber:0 clickCount:0 pressure:0];
     [self mouseUp:fakeEvent]; // This will also update the mouseover state.
 }
@@ -4130,12 +4802,19 @@ static PassRefPtr<KeyboardEvent> currentKeyboardEvent(Frame* coreFrame)
         return 0;
 
     switch ([event type]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     case NSKeyDown: {
+#pragma clang diagnostic pop
+
         PlatformKeyboardEvent platformEvent = PlatformEventFactory::createPlatformKeyboardEvent(event);
         platformEvent.disambiguateKeyDownEvent(PlatformEvent::RawKeyDown);
         return KeyboardEvent::create(platformEvent, coreFrame->document()->defaultView());
     }
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     case NSKeyUp:
+#pragma clang diagnostic pop
         return KeyboardEvent::create(PlatformEventFactory::createPlatformKeyboardEvent(event), coreFrame->document()->defaultView());
     default:
         return 0;
@@ -4666,7 +5345,7 @@ static PassRefPtr<KeyboardEvent> currentKeyboardEvent(Frame* coreFrame)
     COMMAND_PROLOGUE
 
     if (Frame* coreFrame = core([self _frame]))
-        coreFrame->selection().revealSelection(ScrollAlignment::alignCenterAlways);
+        coreFrame->selection().revealSelection(SelectionRevealMode::Reveal, ScrollAlignment::alignCenterAlways);
 }
 
 #if !PLATFORM(IOS)
@@ -4813,7 +5492,7 @@ static PassRefPtr<KeyboardEvent> currentKeyboardEvent(Frame* coreFrame)
 - (void)_applyEditingStyleToSelection:(Ref<EditingStyle>&&)editingStyle withUndoAction:(EditAction)undoAction
 {
     if (Frame* coreFrame = core([self _frame]))
-        coreFrame->editor().applyStyleToSelection(WTF::move(editingStyle), undoAction);
+        coreFrame->editor().applyStyleToSelection(WTFMove(editingStyle), undoAction);
 }
 
 #if !PLATFORM(IOS)
@@ -4829,9 +5508,12 @@ static PassRefPtr<KeyboardEvent> currentKeyboardEvent(Frame* coreFrame)
     if (![self _canEdit])
         return NO;
     
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     if (([event modifierFlags] & NSDeviceIndependentModifierFlagsMask) != NSCommandKeyMask)
         return NO;
-    
+#pragma clang diagnostic pop
+
     NSString *string = [event characters];
     if ([string caseInsensitiveCompare:@"b"] == NSOrderedSame) {
         [self executeCoreCommandByName:"ToggleBold"];
@@ -4915,15 +5597,14 @@ static PassRefPtr<KeyboardEvent> currentKeyboardEvent(Frame* coreFrame)
     return [[NSFontManager sharedFontManager] fontWithFamily:@"Times" traits:NSFontItalicTrait weight:STANDARD_BOLD_WEIGHT size:12.0f];
 }
 
-static NSString *fontNameForDescription(NSString *familyName, BOOL italic, BOOL bold, int pointSize)
+static RetainPtr<CFStringRef> fontNameForDescription(NSString *familyName, BOOL italic, BOOL bold)
 {
     // Find the font the same way the rendering code would later if it encountered this CSS.
     FontDescription fontDescription;
     fontDescription.setIsItalic(italic);
     fontDescription.setWeight(bold ? FontWeight900 : FontWeight500);
-    fontDescription.setSpecifiedSize(pointSize);
     RefPtr<Font> font = FontCache::singleton().fontForFamily(fontDescription, familyName);
-    return [font->platformData().nsFont() fontName];
+    return adoptCF(CTFontCopyPostScriptName(font->getCTFont()));
 }
 
 - (void)_addToStyle:(DOMCSSStyleDeclaration *)style fontA:(NSFont *)a fontB:(NSFont *)b
@@ -4962,8 +5643,10 @@ static NSString *fontNameForDescription(NSString *familyName, BOOL italic, BOOL 
         // the Postscript name.
         // If we don't find a font with the same Postscript name, then we'll have to use the
         // Postscript name to make the CSS specific enough.
-        if (![fontNameForDescription(aFamilyName, aIsItalic, aIsBold, aPointSize) isEqualToString:[a fontName]])
-            familyNameForCSS = [a fontName];
+        auto fontName = fontNameForDescription(aFamilyName, aIsItalic, aIsBold);
+        auto aName = [a fontName];
+        if (!fontName || !aName || !CFEqual(fontName.get(), static_cast<CFStringRef>(aName)))
+            familyNameForCSS = aName;
 
         // FIXME: Need more sophisticated escaping code if we want to handle family names
         // with characters like single quote or backslash in their names.
@@ -5463,6 +6146,10 @@ static BOOL writingDirectionKeyBindingsEnabled()
     [self _updateSelectionForInputManager];
 #if !PLATFORM(IOS)
     [self _updateFontPanel];
+    if (Frame* coreFrame = core([self _frame])) {
+        if (!coreFrame->editor().isHandlingAcceptedCandidate())
+            _private->softSpaceRange = NSMakeRange(NSNotFound, 0);
+    }
 #endif
 }
 
@@ -5499,7 +6186,12 @@ static BOOL writingDirectionKeyBindingsEnabled()
     [fontManager setSelectedFont:font isMultiple:multipleFonts];
     [fontManager setSelectedAttributes:(attributes ? attributes : @{ }) isMultiple:multipleFonts];
 }
-#endif
+
+- (void)_setSoftSpaceRange:(NSRange)range
+{
+    _private->softSpaceRange = range;
+}
+#endif // !PLATFORM(IOS)
 
 - (BOOL)_canSmartCopyOrDelete
 {
@@ -5668,34 +6360,20 @@ static BOOL writingDirectionKeyBindingsEnabled()
 
 - (void)_lookUpInDictionaryFromMenu:(id)sender
 {
-    // Dictionary API will accept a whitespace-only string and display UI as if it were real text,
-    // so bail out early to avoid that.
-    if ([[[self selectedString] _webkit_stringByTrimmingWhitespace] length] == 0)
-        return;
-
-    NSAttributedString *attrString = [self selectedAttributedString];
-
     Frame* coreFrame = core([self _frame]);
     if (!coreFrame)
         return;
 
-    NSRect rect = coreFrame->selection().selectionBounds();
+    RefPtr<Range> selectionRange = coreFrame->selection().selection().firstRange();
+    if (!selectionRange)
+        return;
 
-    NSDictionary *attributes = [attrString fontAttributesInRange:NSMakeRange(0, 1)];
-    NSFont *font = [attributes objectForKey:NSFontAttributeName];
-    if (font)
-        rect.origin.y += [font descender];
-
-    DictionaryPopupInfo info;
-    info.attributedString = attrString;
-    info.origin = coreFrame->view()->contentsToWindow(enclosingIntRect(rect)).location();
-    info.textIndicator = TextIndicator::createWithSelectionInFrame(*coreFrame, TextIndicatorPresentationTransition::BounceAndCrossfade);
-    [[self _webView] _showDictionaryLookupPopup:info];
+    [[self _webView] _showDictionaryLookupPopup:[WebImmediateActionController _dictionaryPopupInfoForRange:*selectionRange inFrame:coreFrame withLookupOptions:nil indicatorOptions:TextIndicatorOptionIncludeSnapshotWithSelectionHighlight transition:TextIndicatorPresentationTransition::BounceAndCrossfade]];
 }
 
 - (void)quickLookWithEvent:(NSEvent *)event
 {
-    [[self _webView] _clearTextIndicatorWithAnimation:TextIndicatorDismissalAnimation::FadeOut];
+    [[self _webView] _clearTextIndicatorWithAnimation:TextIndicatorWindowDismissalAnimation::FadeOut];
     [super quickLookWithEvent:event];
 }
 #endif // !PLATFORM(IOS)
@@ -5754,11 +6432,14 @@ static BOOL writingDirectionKeyBindingsEnabled()
         return NO;
 
     NSEvent *macEvent = platformEvent->macEvent();
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     if ([macEvent type] == NSKeyDown && [_private->completionController filterKeyDown:macEvent])
         return YES;
     
     if ([macEvent type] == NSFlagsChanged)
         return NO;
+#pragma clang diagnostic pop
     
     parameters.event = event;
     _private->interpretKeyEventsParameters = &parameters;
@@ -5813,10 +6494,6 @@ static BOOL writingDirectionKeyBindingsEnabled()
 #define kWebBackspaceKey     0x0008
 #define kWebReturnKey        0x000d
 #define kWebDeleteKey        0x007F
-#define kWebLeftArrowKey     0x00AC
-#define kWebUpArrowKey       0x00AD
-#define kWebRightArrowKey    0x00AE
-#define kWebDownArrowKey     0x00AF
 #define kWebDeleteForwardKey 0xF728
     
 - (BOOL)_handleEditingKeyEvent:(KeyboardEvent *)wcEvent
@@ -5828,79 +6505,36 @@ static BOOL writingDirectionKeyBindingsEnabled()
     // embedded as the whole view, as in Mail, and tabs should input tabs as expected
     // in a text editor.
     
-    // FIXME - this code will break when content editable is supported.
     if (const PlatformKeyboardEvent* platformEvent = wcEvent->keyEvent()) {
         WebEvent *event = platformEvent->event();
         if (![[self _webView] isEditable] && event.isTabKey) 
             return NO;
         
-        // Now process the key normally
-        BOOL shift = platformEvent->shiftKey();
-        
-        switch (event.characterSet) {
-            case WebEventCharacterSetSymbol: {
-                SEL sel = 0;
-                NSString *s = [event charactersIgnoringModifiers];
-                if ([s length] == 0)
-                    break;
-                switch ([s characterAtIndex:0]) {
-                    case kWebLeftArrowKey:
-                        sel = shift ? @selector(moveLeftAndModifySelection:) : @selector(moveLeft:);
-                        break;
-                    case kWebUpArrowKey:
-                        sel = shift ? @selector(moveUpAndModifySelection:) : @selector(moveUp:);
-                        break;
-                    case kWebRightArrowKey:
-                        sel = shift ? @selector(moveRightAndModifySelection:) : @selector(moveRight:);
-                        break;
-                    case kWebDownArrowKey:
-                        sel = shift ? @selector(moveDownAndModifySelection:) : @selector(moveDown:);
-                        break;
-                }
-                if (sel) {
-                    [self performSelector:sel withObject:self];
-                    return YES;
-                }
-                break;
+        NSString *s = [event characters];
+        if (!s.length)
+            return NO;
+        WebView* webView = [self _webView];
+        switch ([s characterAtIndex:0]) {
+        case kWebBackspaceKey:
+        case kWebDeleteKey:
+            [[webView _UIKitDelegateForwarder] deleteFromInputWithFlags:event.keyboardFlags];
+            return YES;
+        case kWebEnterKey:
+        case kWebReturnKey:
+            if (platformEvent->type() == PlatformKeyboardEvent::Char) {
+                // Map \r from HW keyboard to \n to match the behavior of the soft keyboard.
+                [[webView _UIKitDelegateForwarder] addInputString:@"\n" withFlags:0];
+                return YES;
             }
-            case WebEventCharacterSetASCII:
-            case WebEventCharacterSetUnicode: {
-                NSString *s = [event characters];
-                if ([s length] == 0)
-                    break;
-                WebView* webView = [self _webView];
-                switch ([s characterAtIndex:0]) {
-                    case kWebBackspaceKey:
-                    case kWebDeleteKey:
-                        // FIXME: remove the call to deleteFromInput when UIKit implements deleteFromInputWithFlags.
-                        if ([webView respondsToSelector:@selector(deleteFromInputWithFlags:)])
-                            [[webView _UIKitDelegateForwarder] deleteFromInputWithFlags:event.keyboardFlags];
-                        else
-                            [[webView _UIKitDelegateForwarder] deleteFromInput];
-                        return YES;
-                    case kWebEnterKey:
-                    case kWebReturnKey:
-                        if (platformEvent->type() == PlatformKeyboardEvent::Char) {
-                            // Map \r from HW keyboard to \n to match the behavior of the soft keyboard.
-                            [[webView _UIKitDelegateForwarder] addInputString:@"\n" withFlags:0];
-                            return YES;
-                        }
-                        return NO;
-                    case kWebDeleteForwardKey:
-                        [self deleteForward:self];
-                        return YES;
-                    default: {                    
-                        if (platformEvent->type() == PlatformKeyboardEvent::Char) {
-                            [[webView _UIKitDelegateForwarder] addInputString:event.characters withFlags:event.keyboardFlags];
-                            return YES;
-                        }
-                        return NO;
-                    }
-                }
-                break;
+            break;
+        case kWebDeleteForwardKey:
+            [self deleteForward:self];
+            return YES;
+        default:
+            if (platformEvent->type() == PlatformKeyboardEvent::Char) {
+                [[webView _UIKitDelegateForwarder] addInputString:event.characters withFlags:event.keyboardFlags];
+                return YES;
             }
-            default:
-                return NO;
         }
     }
     return NO;
@@ -6006,6 +6640,7 @@ static BOOL writingDirectionKeyBindingsEnabled()
 #endif
 }
 
+#if PLATFORM(MAC)
 - (void)drawLayer:(CALayer *)layer inContext:(CGContextRef)ctx
 {
     if (_private) {
@@ -6018,6 +6653,7 @@ static BOOL writingDirectionKeyBindingsEnabled()
     if (_private)
         _private->drawingIntoLayer = NO;
 }
+#endif
 
 - (BOOL)_web_isDrawingIntoLayer
 {
@@ -6458,8 +7094,23 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
     if (!coreFrame || !coreFrame->editor().canEdit())
         return;
 
-    if (replacementRange.location != NSNotFound)
-        [[self _frame] _selectNSRange:replacementRange];
+    BOOL needToRemoveSoftSpace = NO;
+#if HAVE(ADVANCED_SPELL_CHECKING)
+    if (_private->softSpaceRange.location != NSNotFound && (replacementRange.location == NSMaxRange(_private->softSpaceRange) || replacementRange.location == NSNotFound) && !replacementRange.length && [[NSSpellChecker sharedSpellChecker] deletesAutospaceBeforeString:text language:nil]) {
+        replacementRange = _private->softSpaceRange;
+        needToRemoveSoftSpace = YES;
+    }
+#endif
+#if !PLATFORM(IOS)
+    _private->softSpaceRange = NSMakeRange(NSNotFound, 0);
+#endif
+
+    if (replacementRange.location != NSNotFound) {
+        WebRangeIsRelativeTo rangeIsRelativeTo = needToRemoveSoftSpace ? WebRangeIsRelativeTo::Paragraph : WebRangeIsRelativeTo::EditableRoot;
+        RefPtr<Range> domRange = [[self _frame] _convertToDOMRange:replacementRange rangeIsRelativeTo:rangeIsRelativeTo];
+        if (domRange)
+            coreFrame->selection().setSelection(VisibleSelection(*domRange, SEL_DEFAULT_AFFINITY));
+    }
 
     bool eventHandled = false;
     String eventText = text;
@@ -6562,6 +7213,10 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
     // Why doesn't it?  See <rdar://problem/6837252> for questions.
 #endif // PLATFORM(IOS)
 }
+
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200 && USE(APPLE_INTERNAL_SDK)
+#import <WebKitAdditions/WebHTMLViewWebNSTextInputSupportAdditions.mm>
+#endif
 
 @end
 
@@ -6817,7 +7472,7 @@ static CGImageRef selectionImage(Frame* frame, bool forceBlackText)
     if (!coreFrame)
         return nil;
     HitTestRequest::HitTestRequestType hitType = HitTestRequest::ReadOnly | HitTestRequest::Active
-        | (allow ? 0 : HitTestRequest::DisallowShadowContent);
+        | (allow ? 0 : HitTestRequest::DisallowUserAgentShadowContent);
     return [[[WebElementDictionary alloc] initWithHitTestResult:coreFrame->eventHandler().hitTestResultAtPoint(IntPoint(point), hitType)] autorelease];
 }
 
@@ -6864,7 +7519,7 @@ static CGImageRef selectionImage(Frame* frame, bool forceBlackText)
     if (!document)
         return [NSArray array];
 
-    Vector<IntRect> rects = document->markers().renderedRectsForMarkers(DocumentMarker::TextMatch);
+    Vector<FloatRect> rects = document->markers().renderedRectsForMarkers(DocumentMarker::TextMatch);
     unsigned count = rects.size();
     NSMutableArray *result = [NSMutableArray arrayWithCapacity:count];
     for (unsigned index = 0; index < count; ++index)

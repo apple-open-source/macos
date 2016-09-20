@@ -26,7 +26,8 @@
 #import "GraphicsContext.h"
 #import "IntRect.h"
 #import "LocalCurrentGraphicsContext.h"
-#import <wtf/PassRefPtr.h>
+#import "UTIUtilities.h"
+#import <wtf/RefPtr.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -46,7 +47,7 @@ Icon::~Icon()
 }
 
 // FIXME: Move the code to ChromeClient::iconForFiles().
-PassRefPtr<Icon> Icon::createIconForFiles(const Vector<String>& filenames)
+RefPtr<Icon> Icon::createIconForFiles(const Vector<String>& filenames)
 {
     if (filenames.isEmpty())
         return nullptr;
@@ -72,14 +73,35 @@ PassRefPtr<Icon> Icon::createIconForFiles(const Vector<String>& filenames)
     return adoptRef(new Icon(image));
 }
 
+RefPtr<Icon> Icon::createIconForFileExtension(const String& fileExtension)
+{
+    NSImage *image = [[NSWorkspace sharedWorkspace] iconForFileType:[@"." stringByAppendingString:fileExtension]];
+    if (!image)
+        return nullptr;
+
+    return adoptRef(new Icon(image));
+}
+
+RefPtr<Icon> Icon::createIconForUTI(const String& UTI)
+{
+    NSImage *image = [[NSWorkspace sharedWorkspace] iconForFileType:UTI];
+    if (!image)
+        return nullptr;
+
+    return adoptRef(new Icon(image));
+}
+
 void Icon::paint(GraphicsContext& context, const FloatRect& rect)
 {
     if (context.paintingDisabled())
         return;
 
-    LocalCurrentGraphicsContext localCurrentGC(&context);
+    LocalCurrentGraphicsContext localCurrentGC(context);
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     [m_nsImage drawInRect:rect fromRect:NSMakeRect(0, 0, [m_nsImage size].width, [m_nsImage size].height) operation:NSCompositeSourceOver fraction:1.0f];
+#pragma clang diagnostic pop
 }
 
 }

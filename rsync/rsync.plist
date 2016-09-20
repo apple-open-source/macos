@@ -1,16 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<array>
 <dict>
-	<key>OpenSourceProject</key>
-	<string>rsync</string>
-	<key>OpenSourceVersion</key>
-	<string>2.6.9</string>
-	<key>OpenSourceWebsiteURL</key>
-	<string>http://rsync.samba.org/</string>
-	<key>OpenSourceURL</key>
-	<string>http://rsync.samba.org/ftp/rsync/rsync-2.6.9.tar.gz</string>
-	<key>OpenSourceSHA1</key>
-	<string>341618e230ea2e0e551d0ccf06f840d4f824c843</string>
 	<key>OpenSourceImportDate</key>
 	<string>2007-10-30</string>
 	<key>OpenSourceLicense</key>
@@ -19,9 +10,20 @@
 	<string>rsync.txt</string>
 	<key>OpenSourceModifications</key>
 	<array>
-	  <string>munge-symlinks patch http://rsync.samba.org/ftp/rsync/munge-symlinks-2.6.9.diff</string>
-	  <string>Support for Apple ACL/EA syncing</string>
+		<string>CVE-2007-4091: munge-symlinks patch http://rsync.samba.org/ftp/rsync/munge-symlinks-2.6.9.diff</string>
+		<string>Support for Apple ACL/EA syncing</string>
+		<string>patch CVE-2007-6199</string>
+		<string>patch CVE-2007-6200</string>
 	</array>
+	<key>OpenSourceProject</key>
+	<string>rsync</string>
+	<key>OpenSourceSHA1</key>
+	<string>341618e230ea2e0e551d0ccf06f840d4f824c843</string>
+	<key>OpenSourceURL</key>
+	<string>http://rsync.samba.org/ftp/rsync/rsync-2.6.9.tar.gz</string>
+	<key>OpenSourceVersion</key>
+	<string>2.6.9</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://rsync.samba.org/</string>
 </dict>
-</array>
 </plist>

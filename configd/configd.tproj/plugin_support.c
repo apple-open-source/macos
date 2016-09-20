@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -42,9 +42,9 @@
 #include <sys/param.h>
 #include <sys/wait.h>
 #include <dirent.h>
+#include <sysdir.h>
 #include <sysexits.h>
 #include <unistd.h>
-#include <NSSystemDirectories.h>
 
 #include "configd.h"
 #include "configd_server.h"
@@ -82,7 +82,7 @@ static const CFStringRef	pluginWhitelist[]	= {
 	PLUGIN_ALL   ("com.apple.SystemConfiguration.Logger"),
 	PLUGIN_ALL   ("com.apple.SystemConfiguration.PPPController"),
 	PLUGIN_ALL   ("com.apple.SystemConfiguration.PreferencesMonitor"),
-	PLUGIN_ALL   ("com.apple.SystemConfiguration.SCNetworkReachability"),
+	PLUGIN_IOS   ("com.apple.SystemConfiguration.QoSMarking"),
 	PLUGIN_MACOSX("com.apple.print.notification"),
 };
 #define	N_PLUGIN_WHITELIST	(sizeof(pluginWhitelist) / sizeof(pluginWhitelist[0]))
@@ -115,14 +115,17 @@ CFRunLoopRef			plugin_runLoop		= NULL;
 
 extern SCDynamicStoreBundleLoadFunction		load_IPMonitor;
 extern SCDynamicStoreBundlePrimeFunction	prime_IPMonitor;
-#if	!TARGET_IPHONE_SIMULATOR
+#if	!TARGET_OS_SIMULATOR
 extern SCDynamicStoreBundleLoadFunction		load_InterfaceNamer;
 extern SCDynamicStoreBundleLoadFunction		load_KernelEventMonitor;
 extern SCDynamicStoreBundlePrimeFunction	prime_KernelEventMonitor;
 extern SCDynamicStoreBundleLoadFunction		load_LinkConfiguration;
 extern SCDynamicStoreBundleLoadFunction		load_PreferencesMonitor;
 extern SCDynamicStoreBundlePrimeFunction	prime_PreferencesMonitor;
-#endif	// !TARGET_IPHONE_SIMULATOR
+#if	TARGET_OS_IPHONE
+extern SCDynamicStoreBundleLoadFunction		load_QoSMarking;
+#endif	// TARGET_OS_IPHONE
+#endif	// !TARGET_OS_SIMULATOR
 
 
 typedef struct {
@@ -142,7 +145,7 @@ static const builtin builtin_plugins[] = {
 		&prime_IPMonitor,
 		NULL
 	},
-#if	!TARGET_IPHONE_SIMULATOR
+#if	!TARGET_OS_SIMULATOR
 	{
 		CFSTR("com.apple.SystemConfiguration.InterfaceNamer"),
 		&load_InterfaceNamer,
@@ -171,66 +174,17 @@ static const builtin builtin_plugins[] = {
 		&prime_PreferencesMonitor,
 		NULL
 	},
-#endif	// !TARGET_IPHONE_SIMULATOR
+#if	TARGET_OS_IPHONE
+	{
+		CFSTR("com.apple.SystemConfiguration.QoSMarking"),
+		&load_QoSMarking,
+		NULL,
+		NULL,
+		NULL
+	},
+#endif	// TARGET_OS_IPHONE
+#endif	// !TARGET_OS_SIMULATOR
 };
-
-
-#ifdef	DEBUG
-static void
-traceBundle(const char *op, CFBundleRef bundle)
-{
-	if (bundle != NULL) {
-		CFStringRef	bundleID	= CFBundleGetIdentifier(bundle);
-
-		SC_trace(_configd_trace, "bundle  : %s %@\n",
-			 op,
-			 bundleID);
-	} else {
-		SC_trace(_configd_trace, "bundle  : %s\n",
-			 op);
-	}
-
-	const char *path = getenv("LOG_CONFIGD_BUNDLE_USAGE");
-	if (path != NULL) {
-		FILE	*file;
-		int	status;
-		char	*top_command;
-
-		file = fopen(path, "a");
-		if (file == NULL) {
-			return;
-		}
-
-		// let everything settle down before grabbing a snapshot
-		(void)sleep(2);
-
-		SCPrint(TRUE, file, CFSTR("\n--------------------\n\n"), op);
-		if (bundle != NULL) {
-			CFStringRef	bundleID	= CFBundleGetIdentifier(bundle);
-
-			SC_trace(file, "%s bundle \"%@\"\n\n", op, bundleID);
-		} else {
-			SC_trace(file, "%s\n\n", op);
-		}
-		SCPrint(TRUE, file, CFSTR("%@\n\n"), CFRunLoopGetCurrent());
-		fclose(file);
-
-		if (asprintf(&top_command, "/usr/bin/top -o+pid -l 1 >> %s", path) == -1) {
-			return;
-		}
-
-		status = system(top_command);
-		if ((status == -1) ||
-		    !WIFEXITED(status) ||
-		    (WEXITSTATUS(status) != 0)) {
-			SC_log(LOG_NOTICE, "system(\"%s\") failed", top_command);
-		}
-		free(top_command);
-	}
-
-	return;
-}
-#endif	/* DEBUG */
 
 
 static void
@@ -453,10 +407,6 @@ loadBundle(const void *value, void *context) {
 
 		SC_log(LOG_INFO, "loading %@", bundleID);
 
-#ifdef	DEBUG
-		traceBundle("loading", bundleInfo->bundle);
-#endif	/* DEBUG */
-
 		if (!CFBundleLoadExecutableAndReturnError(bundleInfo->bundle, &error)) {
 			CFDictionaryRef	user_info;
 
@@ -509,9 +459,8 @@ callLoadFunction(const void *value, void *context) {
 		return;
 	}
 
-#ifdef	DEBUG
-	traceBundle("calling load() for", bundleInfo->bundle);
-#endif	/* DEBUG */
+	SC_log(LOG_DEBUG, "calling load() for %@",
+	       CFBundleGetIdentifier(bundleInfo->bundle));
 
 	(*bundleInfo->load)(bundleInfo->bundle, bundleInfo->verbose);
 
@@ -555,9 +504,8 @@ callStartFunction(const void *value, void *context) {
 	len = strlen(bundleName) - (sizeof(BUNDLE_DIR_EXTENSION) - 1);
 	bundleName[len] = '\0';
 
-#ifdef	DEBUG
-	traceBundle("calling start() for", bundleInfo->bundle);
-#endif	/* DEBUG */
+	SC_log(LOG_DEBUG, "calling start() for %@",
+	       CFBundleGetIdentifier(bundleInfo->bundle));
 
 	(*bundleInfo->start)(bundleName, bundlePath);
 
@@ -582,9 +530,8 @@ callPrimeFunction(const void *value, void *context) {
 		return;
 	}
 
-#ifdef	DEBUG
-	traceBundle("calling prime() for", bundleInfo->bundle);
-#endif	/* DEBUG */
+	SC_log(LOG_DEBUG, "calling prime() for %@",
+	       CFBundleGetIdentifier(bundleInfo->bundle));
 
 	(*bundleInfo->prime)();
 
@@ -813,23 +760,6 @@ plugin_term(int *status)
 #pragma mark initialization
 
 
-#ifdef	DEBUG
-static void
-timerCallback(CFRunLoopTimerRef timer, void *info)
-{
-	static int	pass	= 0;
-
-	pass++;
-	if ((pass > 120) && ((pass % 60) != 0)) {
-		return;
-	}
-
-	traceBundle("the [plugin] CFRunLoop is waiting...", NULL);
-	return;
-}
-#endif	/* DEBUG */
-
-
 static void
 sortBundles(CFMutableArrayRef orig)
 {
@@ -905,7 +835,7 @@ sortBundles(CFMutableArrayRef orig)
 			}
 		}
 
-		if (inserted == FALSE) {
+		if (!inserted) {
 			SC_log(LOG_NOTICE, "Bundles have circular dependency!!!");
 			break;
 		}
@@ -962,19 +892,19 @@ plugin_exec(void *arg)
 	_SCDPluginExecInit();
 
 	if (arg == NULL) {
-		char				path[MAXPATHLEN];
-		NSSearchPathEnumerationState	state;
+		char					path[MAXPATHLEN];
+		sysdir_search_path_enumeration_state	state;
 
 		/*
 		 * identify and load all bundles
 		 */
-		state = NSStartSearchPathEnumeration(NSLibraryDirectory,
-						     NSSystemDomainMask);
-		while ((state = NSGetNextSearchPathEnumeration(state, path))) {
+		state = sysdir_start_search_path_enumeration(SYSDIR_DIRECTORY_LIBRARY,
+							     SYSDIR_DOMAIN_MASK_SYSTEM);
+		while ((state = sysdir_get_next_search_path_enumeration(state, path))) {
 			CFArrayRef	bundles;
 			CFURLRef	url;
 
-#if	TARGET_IPHONE_SIMULATOR
+#if	TARGET_OS_SIMULATOR
 			const char	*path_sim_prefix;
 
 			path_sim_prefix = getenv("IPHONE_SIMULATOR_ROOT");
@@ -987,7 +917,7 @@ plugin_exec(void *arg)
 			} else {
 				path[0] = '\0';
 			}
-#endif	// TARGET_IPHONE_SIMULATOR
+#endif	// TARGET_OS_SIMULATOR
 
 			/* load any available bundle */
 			strlcat(path, BUNDLE_DIRECTORY, sizeof(path));
@@ -1078,10 +1008,6 @@ plugin_exec(void *arg)
 		}
 	}
 
-#ifdef	DEBUG
-	traceBundle("before loading any plugins", NULL);
-#endif	/* DEBUG */
-
 	/*
 	 * load each bundle.
 	 */
@@ -1142,27 +1068,6 @@ plugin_exec(void *arg)
 			     CFRangeMake(0, CFArrayGetCount(allBundles)),
 			     callPrimeFunction,
 			     NULL);
-
-#ifdef	DEBUG
-	if (arg == NULL && (nLoaded > 0)) {
-		CFRunLoopTimerRef	timer;
-
-		/* allocate a periodic event (to help show we're not blocking) */
-		timer = CFRunLoopTimerCreate(NULL,				/* allocator */
-					     CFAbsoluteTimeGetCurrent() + 1.0,	/* fireDate */
-					     1.0,				/* interval */
-					     0,					/* flags */
-					     0,					/* order */
-					     timerCallback,			/* callout */
-					     NULL);				/* context */
-		CFRunLoopAddTimer(CFRunLoopGetCurrent(), timer, kCFRunLoopDefaultMode);
-		CFRelease(timer);
-	}
-#endif	/* DEBUG */
-
-#ifdef	DEBUG
-	traceBundle("about to start plugin CFRunLoop", NULL);
-#endif	/* DEBUG */
 
 	/*
 	 * The assumption is that each loaded plugin will establish CFMachPortRef,

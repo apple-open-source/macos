@@ -177,13 +177,17 @@ OSStatus ntlmParseSecBuffer(
 /*
  * Convert CFString to little-endian unicode. 
  */
-void ntlmStringToLE(
+OSStatus ntlmStringToLE(
 	CFStringRef		pwd,
 	unsigned char   **ucode,		// mallocd and RETURNED
 	unsigned		*ucodeLen)		// RETURNED
 {
 	CFIndex len = CFStringGetLength(pwd);
+    if (len > NTLM_MAX_STRING_LEN)
+        return errSecAllocate;
 	unsigned char *data = (unsigned char *)malloc(len * 2);
+    if (data == NULL)
+        return errSecAllocate;
 	unsigned char *cp = data;
 
 	CFIndex dex;
@@ -194,6 +198,8 @@ void ntlmStringToLE(
 	}
 	*ucode = data;
 	*ucodeLen = (unsigned)(len * 2);
+
+    return errSecSuccess;
 }
 
 /*
@@ -209,12 +215,14 @@ OSStatus ntlmStringFlatten(
 {
 	if(unicode) {
 		/* convert to little-endian unicode */
-		ntlmStringToLE(str, flat, flatLen);
-		return errSecSuccess;
+		return ntlmStringToLE(str, flat, flatLen);
 	}
 	else {
 		/* convert to ASCII C string */
 		CFIndex strLen = CFStringGetLength(str);
+        if (strLen > NTLM_MAX_STRING_LEN)
+            return errSecAllocate;
+
 		char *cStr = (char *)malloc(strLen + 1);
 		if(cStr == NULL) {
 			return errSecAllocate;
@@ -229,22 +237,23 @@ OSStatus ntlmStringFlatten(
 		 * Well that didn't work. Try UTF8 - I don't know how a MS would behave if
 		 * this portion of auth (only used for the LM response) didn't work.
 		 */
-		dprintf("lmPasswordHash: ASCII password conversion failed; trying UTF8\n");
+		dprintf("ntlmStringFlatten: ASCII password conversion failed; trying UTF8\n");
 		free(cStr);
-		cStr = (char *)malloc(strLen * 4);
-		if(cStr == NULL) {
-			return errSecAllocate;
-		}
-        CFDataRef dataFromCString = CFStringCreateExternalRepresentation(NULL, str, kCFStringEncodingUTF8, 0);
-		if(dataFromCString) {
-			*flat = (unsigned char *)cStr;
-			*flatLen = (unsigned)strLen;
-            CFReleaseNull(dataFromCString);
+
+        CFDataRef dataFromString = CFStringCreateExternalRepresentation(NULL, str, kCFStringEncodingUTF8, 0);
+		if(dataFromString) {
+			*flatLen = (unsigned)CFDataGetLength(dataFromString);
+            *flat = malloc(*flatLen);
+            if (*flat == NULL) {
+                CFRelease(dataFromString);
+                return errSecAllocate;
+            }
+            memcpy(*flat, CFDataGetBytePtr(dataFromString), *flatLen);
+            CFReleaseNull(dataFromString);
 			return errSecSuccess;
 		}
 		dprintf("lmPasswordHash: UTF8 password conversion failed\n");
-		free(cStr);
-        CFReleaseNull(dataFromCString);
+        CFReleaseNull(dataFromString);
 		return NTLM_ERR_PARSE_ERR;
 	}
 }
@@ -257,7 +266,9 @@ void ntlmRand(
 	unsigned		len,
 	void			*buf)				/* allocated by caller, random data RETURNED */
 {
-	SecRandomCopyBytes(kSecRandomDefault, len, buf);
+    int status;
+    status=SecRandomCopyBytes(kSecRandomDefault, len, buf);
+    (void)status; // Prevent warning
 }
 
 /* Obtain host name in appropriate encoding */
@@ -287,9 +298,10 @@ OSStatus ntlmHostName(
 		return errSecSuccess;
 	}
 	else {
-		*flat = (unsigned char *)malloc(len);
+		*flat = (unsigned char *)malloc(len+1);
 		*flatLen = (unsigned)len;
 		memmove(*flat, hostname, len);
+        flat[len] = '\0'; // ensure null terminator
 		return errSecSuccess;
 	}
 }
@@ -398,76 +410,33 @@ OSStatus ntlmHmacMD5(
     CCHmacUpdate(&hmac_md5_context, inData, inDataLen);
     CCHmacFinal(&hmac_md5_context, mac);
 
-    return 0;
+    return errSecSuccess;
 }
 
 // MARK: -
-// MARK: LM and NTLM password and digest munging
+// MARK: NTLM password and digest munging
 
-/*
- * Calculate LM-style password hash. This really only works if the password 
- * is convertible to ASCII (that is, it will indeed return an error if that
- * is not true). 
- *
- * This is the most gawdawful constant I've ever seen in security-related code.
- */
-static const unsigned char lmHashPlaintext[] = {'K', 'G', 'S', '!', '@', '#', '$', '%'};
 
-OSStatus lmPasswordHash(	
-	CFStringRef		pwd,
-	unsigned char   *digest)		// caller-supplied, NTLM_DIGEST_LENGTH
-{
-	/* convert to ASCII */
-	unsigned strLen;
-	unsigned char *cStr;
-	OSStatus ortn;
-	ortn = ntlmStringFlatten(pwd, false, &cStr, &strLen);
-	if(ortn) {
-		dprintf("lmPasswordHash: ASCII password conversion failed\n");
-		return ortn;
-	}
-	
-	/* truncate/pad to 14 bytes and convert to upper case */
-	unsigned char pwdFix[NTLM_LM_PASSWORD_LEN];
-	unsigned toMove = NTLM_LM_PASSWORD_LEN;
-	if(strLen < NTLM_LM_PASSWORD_LEN) {
-		toMove = strLen;
-	}
-	memmove(pwdFix, cStr, toMove);
-	free(cStr);
-	unsigned dex;
-	for(dex=0; dex<NTLM_LM_PASSWORD_LEN; dex++) {
-		pwdFix[dex] = toupper(pwdFix[dex]);
-	}
-	
-	/* two DES keys - raw material 7 bytes, munge to 8 bytes */
-	unsigned char desKey1[DES_KEY_SIZE], desKey2[DES_KEY_SIZE];
-	ntlmMakeDesKey(pwdFix, desKey1);
-	ntlmMakeDesKey(pwdFix + DES_RAW_KEY_SIZE, desKey2);
-	
-	/* use each of those keys to encrypt the magic string */
-	ortn = ntlmDesCrypt(desKey1, lmHashPlaintext, digest);
-	if(ortn == errSecSuccess) {
-		ortn = ntlmDesCrypt(desKey2, lmHashPlaintext, digest + DES_BLOCK_SIZE);
-	}
-	return ortn;
-}
-	
 /*
  * Calculate NTLM password hash (MD4 on a unicode password).
  */
-void ntlmPasswordHash(
+OSStatus ntlmPasswordHash(
 	CFStringRef		pwd,
 	unsigned char   *digest)		// caller-supplied, NTLM_DIGEST_LENGTH
 {
+    OSStatus res;
 	unsigned char *data;
 	unsigned len;
 
 	/* convert to little-endian unicode */
-	ntlmStringToLE(pwd, &data, &len);
+    res = ntlmStringToLE(pwd, &data, &len);
+    if (res)
+        return res;
 	/* md4 hash of that */
 	md4Hash(data, len, digest);
 	free(data);
+
+    return 0;
 }
 
 /* 
@@ -476,7 +445,7 @@ void ntlmPasswordHash(
  * of three DES encrypts. 
  */
 #define ALL_KEYS_LENGTH (3 * DES_RAW_KEY_SIZE)
-OSStatus ntlmResponse(
+OSStatus lmv2Response(
 	const unsigned char *digest,		// NTLM_DIGEST_LENGTH bytes
 	const unsigned char *ptext,			// challenge or session hash 
 	unsigned char		*ntlmResp)		// caller-supplied NTLM_LM_RESPONSE_LEN

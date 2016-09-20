@@ -31,7 +31,7 @@
 #include <security_utilities/globalizer.h>
 #include <Security/SecBase.h>
 
-#define SecImpInferDbg(args...)	secdebug("SecImpInfer", ## args)
+#define SecImpInferDbg(args...)	secinfo("SecImpInfer", ## args)
 
 using namespace Security;
 using namespace KeychainCore;

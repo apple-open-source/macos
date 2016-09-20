@@ -63,13 +63,9 @@ uint8_t* SOSRingEncodeToDER(SOSRingRef ring, CFErrorRef* error, const uint8_t* d
 }
 
 CFDataRef SOSRingCopyEncodedData(SOSRingRef ring, CFErrorRef *error) {
-    size_t size = SOSRingGetDEREncodedSize(ring, error);
-    if (size == 0) return NULL;
-
-    uint8_t buffer[size];
-    uint8_t* start = SOSRingEncodeToDER(ring, error, buffer, buffer + sizeof(buffer));
-    CFDataRef result = CFDataCreate(kCFAllocatorDefault, start, size);
-    return result;
+    return CFDataCreateWithDER(kCFAllocatorDefault, SOSRingGetDEREncodedSize(ring, error), ^uint8_t*(size_t size, uint8_t *buffer) {
+        return SOSRingEncodeToDER(ring, error, buffer, (uint8_t *) buffer + size);
+    });
 }
 
 SOSRingRef SOSRingCreateFromDER(CFErrorRef* error, const uint8_t** der_p, const uint8_t *der_end) {

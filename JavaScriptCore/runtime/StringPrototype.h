@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2007, 2008, 2013 Apple Inc. All rights reserved.
+ *  Copyright (C) 2007-2008, 2013, 2016 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -21,11 +21,14 @@
 #ifndef StringPrototype_h
 #define StringPrototype_h
 
+#include "JITOperations.h"
 #include "StringObject.h"
 
 namespace JSC {
 
 class ObjectPrototype;
+class RegExp;
+class RegExpObject;
 
 class StringPrototype : public StringObject {
 private:
@@ -33,7 +36,7 @@ private:
 
 public:
     typedef StringObject Base;
-    static const unsigned StructureFlags = Base::StructureFlags;
+    static const unsigned StructureFlags = HasStaticPropertyTable | Base::StructureFlags;
 
     static StringPrototype* create(VM&, JSGlobalObject*, Structure*);
 
@@ -47,6 +50,23 @@ public:
 protected:
     void finishCreation(VM&, JSGlobalObject*, JSString*);
 };
+
+EncodedJSValue JIT_OPERATION operationStringProtoFuncReplaceGeneric(
+    ExecState*, EncodedJSValue thisValue, EncodedJSValue searchValue, EncodedJSValue replaceValue);
+
+EncodedJSValue JIT_OPERATION operationStringProtoFuncReplaceRegExpEmptyStr(
+    ExecState*, JSString* thisValue, RegExpObject* searchValue);
+
+EncodedJSValue JIT_OPERATION operationStringProtoFuncReplaceRegExpString(
+    ExecState*, JSString* thisValue, RegExpObject* searchValue, JSString* replaceValue);
+
+String substituteBackreferences(const String& replacement, StringView source, const int* ovector, RegExp* reg);
+
+EncodedJSValue JSC_HOST_CALL stringProtoFuncRepeatCharacter(ExecState*);
+EncodedJSValue JSC_HOST_CALL stringProtoFuncSplitFast(ExecState*);
+
+EncodedJSValue JSC_HOST_CALL builtinStringSubstrInternal(ExecState*);
+EncodedJSValue JSC_HOST_CALL builtinStringIncludesInternal(ExecState*);
 
 } // namespace JSC
 

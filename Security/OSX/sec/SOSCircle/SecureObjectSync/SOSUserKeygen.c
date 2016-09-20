@@ -319,8 +319,9 @@ CF_RETURNS_RETAINED CFStringRef UserParametersDescription(CFDataRef parameters){
                                                            &newKey, &newParameters, &error,
                                                            CFDataGetBytePtr(parameters), CFDataGetPastEndPtr(parameters));
     
+    
     if (parse_end != CFDataGetPastEndPtr(parameters)){
-        secnotice("keygen", "failed to decode cloud parameters");
+        secdebug("keygen", "failed to decode cloud parameters");
         return NULL;
     }
 
@@ -335,15 +336,21 @@ CF_RETURNS_RETAINED CFStringRef UserParametersDescription(CFDataRef parameters){
     
     der = der_decode_pbkdf2_params(&saltlen, &salt, &iterations, &keysize, der, der_end);
     if (der == NULL) {
-        secnotice("keygen", "failed to decode pbkdf2 params");
+        secdebug("keygen", "failed to decode pbkdf2 params");
         return NULL;
     }
     
-    BufferPerformWithHexString(salt, saltlen, ^(CFStringRef saltHex) {
+    CFStringRef userPubKeyID = SOSCopyIDOfKeyWithLength(newKey, 8, NULL);
+    
+    BufferPerformWithHexString(salt, 4, ^(CFStringRef saltHex) { // Only dump 4 bytes worth of salthex
         CFDataPerformWithHexString(newParameters, ^(CFStringRef parametersHex) {
-            description = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<Params: count: %zd, keysize: %zd, salt: %@, key: %@>"), iterations, keysize, saltHex, newKey);
+            description = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<Params: iter: %zd, size: %zd, salt: %@> <keyid: %@>"), iterations, keysize, saltHex, userPubKeyID);
         });
     });
+    
+    CFReleaseNull(newParameters);
+    CFReleaseNull(newKey);
+    CFReleaseNull(userPubKeyID);
     
     return description;
 }

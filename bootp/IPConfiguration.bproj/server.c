@@ -132,8 +132,7 @@ my_CFPropertyListCreateWithBytePtrAndLength(const void * data, int data_len)
 static ipconfig_status_t
 method_info_from_xml_data(xmlData_t xml_data,
 			  mach_msg_type_number_t xml_data_len,
-			  ipconfig_method_t * method_p,
-			  ipconfig_method_data_t * * method_data_p)
+			  ipconfig_method_info_t info)
 {
     CFPropertyListRef	plist = NULL;
     ipconfig_status_t	status;
@@ -142,7 +141,7 @@ method_info_from_xml_data(xmlData_t xml_data,
 	plist = my_CFPropertyListCreateWithBytePtrAndLength(xml_data,
 							    xml_data_len);
     }
-    status = ipconfig_method_info_from_plist(plist, method_p, method_data_p);
+    status = ipconfig_method_info_from_plist(plist, info);
     if (plist != NULL) {
 	CFRelease(plist);
     }
@@ -202,8 +201,7 @@ _ipconfig_set(mach_port_t p, if_name_t name,
 	      ipconfig_status_t * ret_status,
 	      audit_token_t audit_token)
 {
-    ipconfig_method_t		method;
-    ipconfig_method_data_t *	method_data;
+    ipconfig_method_info	info;
     ipconfig_status_t		status;
 
     S_process_audit_token(audit_token);
@@ -211,15 +209,14 @@ _ipconfig_set(mach_port_t p, if_name_t name,
 	status = ipconfig_status_permission_denied_e;
 	goto done;
     }
-    status = method_info_from_xml_data(xml_data, xml_data_len,
-				       &method, &method_data);
+    ipconfig_method_info_init(&info);
+    status = method_info_from_xml_data(xml_data, xml_data_len, &info);
     if (status != ipconfig_status_success_e) {
 	goto done;
     }
-    status = set_if(name, method, method_data);
-    if (method_data != NULL) {
-	free(method_data);
-    }
+    status = set_if(name, &info);
+    ipconfig_method_info_free(&info);
+
  done:
     if (xml_data != NULL) {
 	(void)vm_deallocate(mach_task_self(), (vm_address_t)xml_data,
@@ -257,8 +254,7 @@ _ipconfig_add_service(mach_port_t p,
 		      ipconfig_status_t * ret_status,
 		      audit_token_t audit_token)
 {
-    ipconfig_method_t		method;
-    ipconfig_method_data_t *	method_data;
+    ipconfig_method_info	info;
     CFPropertyListRef		plist = NULL;
     ipconfig_status_t		status;
 
@@ -270,15 +266,14 @@ _ipconfig_add_service(mach_port_t p,
 	plist = my_CFPropertyListCreateWithBytePtrAndLength(xml_data,
 							    xml_data_len);
     }
-    status = ipconfig_method_info_from_plist(plist, &method, &method_data);
+    ipconfig_method_info_init(&info);
+    status = ipconfig_method_info_from_plist(plist, &info);
     if (status != ipconfig_status_success_e) {
 	goto done;
     }
-    status = add_service(name, method, method_data, service_id, service_id_len,
-			 plist, S_pid);
-    if (method_data != NULL) {
-	free(method_data);
-    }
+    status = add_service(name, &info, service_id, service_id_len, plist, S_pid);
+    ipconfig_method_info_free(&info);
+
  done:
     if (plist != NULL) {
 	CFRelease(plist);
@@ -301,24 +296,21 @@ _ipconfig_set_service(mach_port_t p,
 		      ipconfig_status_t * ret_status,
 		      audit_token_t audit_token)
 {
-    ipconfig_method_t		method;
-    ipconfig_method_data_t *	method_data;
+    ipconfig_method_info	info;
     ipconfig_status_t		status;
 
     if (!S_IPConfigurationServiceOperationAllowed(audit_token)) {
 	status = ipconfig_status_permission_denied_e;
 	goto done;
     }
-    status = method_info_from_xml_data(xml_data, xml_data_len,
-				       &method, &method_data);
+    ipconfig_method_info_init(&info);
+    status = method_info_from_xml_data(xml_data, xml_data_len, &info);
     if (status != ipconfig_status_success_e) {
 	goto done;
     }
-    status = set_service(name, method, method_data, 
-			 service_id, service_id_len);
-    if (method_data != NULL) {
-	free(method_data);
-    }
+    status = set_service(name, &info, service_id, service_id_len);
+    ipconfig_method_info_free(&info);
+
  done:
     if (xml_data != NULL) {
 	(void)vm_deallocate(mach_task_self(), (vm_address_t)xml_data,
@@ -371,20 +363,16 @@ _ipconfig_find_service(mach_port_t server,
 		       mach_msg_type_number_t *service_id_len,
 		       ipconfig_status_t * ret_status)
 {
-    ipconfig_method_t		method;
-    ipconfig_method_data_t *	method_data;
+    ipconfig_method_info	info;
     ipconfig_status_t		status;
 
-    status = method_info_from_xml_data(xml_data, xml_data_len,
-				       &method, &method_data);
+    ipconfig_method_info_init(&info);
+    status = method_info_from_xml_data(xml_data, xml_data_len, &info);
     if (status != ipconfig_status_success_e) {
 	goto done;
     }
-    status = find_service(name, exact, method, method_data,
-			  service_id, service_id_len);
-    if (method_data != NULL) {
-	free(method_data);
-    }
+    status = find_service(name, exact, &info, service_id, service_id_len);
+    ipconfig_method_info_free(&info);
 
  done:
     if (xml_data != NULL) {
@@ -403,23 +391,20 @@ _ipconfig_remove_service(mach_port_t server,
 			 ipconfig_status_t * ret_status,
 			 audit_token_t audit_token)
 {
-    ipconfig_method_t		method;
-    ipconfig_method_data_t *	method_data;
+    ipconfig_method_info	info;
     ipconfig_status_t		status;
 
     if (!S_IPConfigurationServiceOperationAllowed(audit_token)) {
 	status = ipconfig_status_permission_denied_e;
 	goto done;
     }
-    status = method_info_from_xml_data(xml_data, xml_data_len,
-				       &method, &method_data);
+    ipconfig_method_info_init(&info);
+    status = method_info_from_xml_data(xml_data, xml_data_len, &info);
     if (status != ipconfig_status_success_e) {
 	goto done;
     }
-    status = remove_service(name, method, method_data);
-    if (method_data != NULL) {
-	free(method_data);
-    }
+    status = remove_service(name, &info);
+    ipconfig_method_info_free(&info);
 
  done:
     if (xml_data != NULL) {

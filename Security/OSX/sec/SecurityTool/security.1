@@ -222,6 +222,7 @@ Unset it if no keychain is specified.
 .Op Ar keychain...
 .Bl -item -offset -indent
 Create keychains and add them to the search list.  If no keychains are specified the user is prompted for one.
+Use of the -p option is insecure.
 .It  
 Options:
 .Bl -tag -compact -width -indent-indent
@@ -469,6 +470,7 @@ Specifies that private keys are to be wrapped on export.
 Specifies that PEM armour is to be applied to the output data.
 .It Fl P Ar passphrase
 Specify the wrapping passphrase immediately. The default is to obtain a secure passphrase via GUI.
+Use of the -P option is unsecure.
 .It Fl o Ar outfile
 Write the output data to 
 .Ar outfile Ns
@@ -509,6 +511,7 @@ Specify the format of the exported data. Possible formats are openssl, bsafe, ra
 Specifies that private keys are wrapped and must be unwrapped on import. 
 .It Fl P Ar passphrase
 Specify the unwrapping passphrase immediately. The default is to obtain a secure passphrase via GUI.
+Use of the -P option is unsecure.
 .El
 .It
 .Sy Examples

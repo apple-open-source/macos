@@ -47,7 +47,7 @@ class InjectedBundlePageUIClient : public API::Client<WKBundlePageUIClientBase>,
 public:
     explicit InjectedBundlePageUIClient(const WKBundlePageUIClientBase*);
 
-    void willAddMessageToConsole(WebPage*, const String& message, int32_t lineNumber) override;
+    void willAddMessageToConsole(WebPage*, MessageSource, MessageLevel, const String& message, unsigned lineNumber, unsigned columnNumber, const String& sourceID) override;
     void willSetStatusbarText(WebPage*, const String&) override;
     void willRunJavaScriptAlert(WebPage*, const String&, WebFrame*) override;
     void willRunJavaScriptConfirm(WebPage*, const String&, WebFrame*) override;
@@ -69,10 +69,6 @@ public:
     String plugInStartLabelSubtitle(const String& mimeType) const override;
     String plugInExtraStyleSheet() const override;
     String plugInExtraScript() const override;
-
-    void didBeginTrackingPotentialLongMousePress(WebPage*, const WebCore::IntPoint&, const WebCore::HitTestResult&, RefPtr<API::Object>& userData) override;
-    void didRecognizeLongMousePress(WebPage*, RefPtr<API::Object>& userData) override;
-    void didCancelTrackingPotentialLongMousePress(WebPage*, RefPtr<API::Object>& userData) override;
 
     void didClickAutoFillButton(WebPage&, InjectedBundleNodeHandle&, RefPtr<API::Object>& userData) override;
 };

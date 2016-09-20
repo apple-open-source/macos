@@ -28,9 +28,6 @@
 
 #if __DARWIN_C_LEVEL >= __DARWIN_C_FULL
 
-// <rdar://problem/16611709>
-#define QOS_CLASS_LEGACY QOS_CLASS_DEFAULT
-
 #ifdef __has_include
 #if __has_include(<pthread/qos_private.h>)
 #include <pthread/qos_private.h>

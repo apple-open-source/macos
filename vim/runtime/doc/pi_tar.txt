@@ -1,14 +1,21 @@
-*pi_tar.txt*	For Vim version 7.3.  Last change: 2010 Aug 09
+*pi_tar.txt*	For Vim version 7.4.  Last change: 2013 Apr 17
 
 		       +====================+
 		       | Tar File Interface |
 		       +====================+
 
-Author:  Charles E. Campbell, Jr.  <NdrOchip@ScampbellPfamily.AbizM>
+Author:  Charles E. Campbell  <NdrOchip@ScampbellPfamily.AbizM>
 	  (remove NOSPAM from Campbell's email first)
-Copyright 2005-2010: The GPL (gnu public license) applies to	*tar-copyright*
-	   tar.vim, tarPlugin.vim, and pi_tar.txt.
-	   No warranty, express or implied.  Use At-Your-Own-Risk.
+Copyright 2005-2012:					*tar-copyright*
+	The VIM LICENSE (see |copyright|) applies to the files in this
+	package, including tarPlugin.vim, tar.vim, and pi_tar.txt.  Like
+	anything else that's except use "tar.vim" instead of "VIM".  Like
+	anything else that's free, tar.vim and its associated files are
+	provided *as is* and comes with no warranty of any kind, either
+	expressed or implied.  No guarantees of merchantability.  No
+	guarantees of suitability for any purpose.  By using this plugin, you
+	agree that in no event will the copyright holder be liable for any
+	damages resulting from the use of this software. Use at your own risk!
 
 ==============================================================================
 1. Contents					*tar* *tar-contents*
@@ -43,6 +50,21 @@ Copyright 2005-2010: The GPL (gnu public license) applies to	*tar-copyright*
 	*g:tar_extractcmd* , which by default is >
 		"tar -xf"
 <
+						*:TarDiff*
+   DIFFERENCING SUPPORT~
+
+   :TarDiff [filename]
+
+	This command will attempt to show the differences between the tarball
+	version of a file and the associated file on the system.  In order to
+	find that file on the system, the script uses the path associated with
+	the file mentioned in the tarball.  If the current directory is not
+	correct for that path, :TarDiff will fail to find the associated file.
+
+	If the [filename] is given, that that filename (and path) will be used
+	to specify the associated file.
+
+
    PREVENTING LOADING~
 
    If for some reason you do not wish to use vim to examine tar'd files,
@@ -83,8 +105,13 @@ Copyright 2005-2010: The GPL (gnu public license) applies to	*tar-copyright*
 4. History						*tar-history*
 
 
+   v28 Jun 23, 2011 * a few more decompression options (tbz tb2 txz)
+   v27 May 31, 2011 * moved cygwin detection before g:tar_copycmd handling
+   		    * inserted additional |:keepj| modifiers
+		    * changed silent  to  sil!  (|:silent|)
    v26 Aug 09, 2010 * uses buffer-local instead of window variables to hold
 		      tarfile name
+		    * inserted keepj before 0d to protect jump list
    v25 Jun 19, 2010 * (Jan Steffens) added support for xz compression
    v24 Apr 07, 2009 * :Untarvim command implemented
        Sep 28, 2009 * Added lzma support

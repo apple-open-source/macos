@@ -36,8 +36,11 @@
 
 namespace WTF {
 
-enum InPlaceTag { InPlace };
-enum NulloptTag { Nullopt };
+struct InPlaceTag { };
+constexpr InPlaceTag InPlace { };
+
+struct NulloptTag { explicit constexpr NulloptTag(int) { } };
+constexpr NulloptTag Nullopt { 0 };
 
 template<typename T>
 class Optional {
@@ -69,13 +72,13 @@ public:
         : m_isEngaged(other.m_isEngaged)
     {
         if (m_isEngaged)
-            new (NotNull, &m_value) T(WTF::move(*other.asPtr()));
+            new (NotNull, &m_value) T(WTFMove(*other.asPtr()));
     }
 
     Optional(T&& value)
         : m_isEngaged(true)
     {
-        new (NotNull, &m_value) T(WTF::move(value));
+        new (NotNull, &m_value) T(WTFMove(value));
     }
 
     template<typename... Args>
@@ -116,7 +119,7 @@ public:
 
         destroy();
         if (other.m_isEngaged) {
-            new (NotNull, &m_value) T(WTF::move(*other.asPtr()));
+            new (NotNull, &m_value) T(WTFMove(*other.asPtr()));
             m_isEngaged = true;
         }
         return *this;
@@ -136,13 +139,13 @@ public:
     const T* operator->() const
     {
         ASSERT(m_isEngaged);
-        return asPtr()->operator->();
+        return asPtr();
     }
 
     T* operator->()
     {
         ASSERT(m_isEngaged);
-        return asPtr()->operator->();
+        return asPtr();
     }
 
     const T& operator*() const { return value(); }
@@ -193,10 +196,78 @@ private:
     typename std::aligned_storage<sizeof(T), std::alignment_of<T>::value>::type m_value;
 };
 
+template<typename T>
+constexpr bool operator==(const Optional<T>& lhs, const Optional<T>& rhs)
+{
+    return static_cast<bool>(lhs) == static_cast<bool>(rhs) && (!static_cast<bool>(lhs) || lhs.value() == rhs.value());
+}
+
+template<typename T>
+constexpr bool operator!=(const Optional<T>& lhs, const Optional<T>& rhs)
+{
+    return !(lhs == rhs);
+}
+
+template<typename T>
+constexpr bool operator==(const Optional<T>& opt, NulloptTag)
+{
+    return !opt;
+}
+
+template<typename T>
+constexpr bool operator!=(const Optional<T>& opt, NulloptTag)
+{
+    return static_cast<bool>(opt);
+}
+
+template<typename T>
+constexpr bool operator==(NulloptTag, const Optional<T>& opt)
+{
+    return !opt;
+}
+
+template<typename T>
+constexpr bool operator!=(NulloptTag, const Optional<T>& opt)
+{
+    return static_cast<bool>(opt);
+}
+
+template<typename T>
+constexpr bool operator==(const Optional<T>& opt, const T& value)
+{
+    return opt && opt.value() == value;
+}
+
+template<typename T>
+constexpr bool operator!=(const Optional<T>& opt, const T& value)
+{
+    return !(opt == value);
+}
+
+template<typename T>
+constexpr bool operator==(const T& value, const Optional<T>& opt)
+{
+    return opt && opt.value() == value;
+}
+
+template<typename T>
+constexpr bool operator!=(const T& value, const Optional<T>& opt)
+{
+    return !(value == opt);
+}
+
+template<typename T>
+Optional<typename std::decay<T>::type>
+makeOptional(T&& value)
+{
+    return Optional<typename std::decay<T>::type>(std::forward<T>(value));
+}
+
 } // namespace WTF
 
 using WTF::InPlace;
 using WTF::Nullopt;
 using WTF::Optional;
+using WTF::makeOptional;
 
 #endif // Optional_h

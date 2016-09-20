@@ -39,8 +39,8 @@ public:
     bool hasSelfPaintingLayer() const;
     RenderLayer* layer() const { return m_layer.get(); }
 
-    virtual void styleWillChange(StyleDifference, const RenderStyle& newStyle) override;
-    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle) override;
+    void styleWillChange(StyleDifference, const RenderStyle& newStyle) override;
+    void styleDidChange(StyleDifference, const RenderStyle* oldStyle) override;
     virtual void updateFromStyle() { }
 
     virtual bool requiresLayer() const = 0;
@@ -51,9 +51,11 @@ public:
 
     virtual bool isScrollableOrRubberbandableBox() const { return false; }
 
+    bool shouldPlaceBlockDirectionScrollbarOnLeft() const;
+
 protected:
-    RenderLayerModelObject(Element&, Ref<RenderStyle>&&, unsigned baseTypeFlags);
-    RenderLayerModelObject(Document&, Ref<RenderStyle>&&, unsigned baseTypeFlags);
+    RenderLayerModelObject(Element&, RenderStyle&&, BaseTypeFlags);
+    RenderLayerModelObject(Document&, RenderStyle&&, BaseTypeFlags);
 
     void createLayer();
 

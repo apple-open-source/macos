@@ -17,8 +17,6 @@
 	Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-/* $Id$ */
-
 #include <config.h>
 
 #ifdef HAVE_STDIO_H
@@ -80,6 +78,22 @@ static unsigned int T1_card_timeout(double f, double d, int TC1, int BWI,
 	int CWI, int clock_frequency);
 static int get_IFSC(ATR_t *atr, int *i);
 
+static void FreeChannel(int reader_index)
+{
+#ifdef HAVE_PTHREAD
+	(void)pthread_mutex_lock(&ifdh_context_mutex);
+#endif
+
+	(void)ClosePort(reader_index);
+	ReleaseReaderIndex(reader_index);
+
+	free(CcidSlots[reader_index].readerName);
+	memset(&CcidSlots[reader_index], 0, sizeof(CcidSlots[reader_index]));
+
+#ifdef HAVE_PTHREAD
+	(void)pthread_mutex_unlock(&ifdh_context_mutex);
+#endif
+}
 
 static RESPONSECODE CreateChannelByNameOrChannel(DWORD Lun,
 	LPSTR lpcDevice, DWORD Channel)
@@ -163,7 +177,10 @@ static RESPONSECODE CreateChannelByNameOrChannel(DWORD Lun,
 		oldReadTimeout = ccid_descriptor->readTimeout;
 
 		/* 100 ms just to resync the USB toggle bits */
-		ccid_descriptor->readTimeout = 100;
+		/* Do not use a fixed 100 ms value but compute it from the
+		 * default timeout. It is now possible to use a different value
+		 * by changing readTimeout in ccid_open_hack_pre() */
+		ccid_descriptor->readTimeout = ccid_descriptor->readTimeout * 100.0 / DEFAULT_COM_READ_TIMEOUT;
 
 		if ((IFD_COMMUNICATION_ERROR == CmdGetSlotStatus(reader_index, pcbuffer))
 			&& (IFD_COMMUNICATION_ERROR == CmdGetSlotStatus(reader_index, pcbuffer)))
@@ -193,8 +210,7 @@ error:
 	if (return_value != IFD_SUCCESS)
 	{
 		/* release the allocated resources */
-		free(CcidSlots[reader_index].readerName);
-		ReleaseReaderIndex(reader_index);
+		FreeChannel(reader_index);
 	}
 
 	return return_value;
@@ -272,19 +288,7 @@ EXTERNAL RESPONSECODE IFDHCloseChannel(DWORD Lun)
 	(void)CmdPowerOff(reader_index);
 	/* No reader status check, if it failed, what can you do ? :) */
 
-#ifdef HAVE_PTHREAD
-	(void)pthread_mutex_lock(&ifdh_context_mutex);
-#endif
-
-	(void)ClosePort(reader_index);
-	ReleaseReaderIndex(reader_index);
-
-	free(CcidSlots[reader_index].readerName);
-	memset(&CcidSlots[reader_index], 0, sizeof(CcidSlots[reader_index]));
-
-#ifdef HAVE_PTHREAD
-	(void)pthread_mutex_unlock(&ifdh_context_mutex);
-#endif
+	FreeChannel(reader_index);
 
 	return IFD_SUCCESS;
 } /* IFDHCloseChannel */
@@ -592,7 +596,7 @@ EXTERNAL RESPONSECODE IFDHGetCapabilities(DWORD Lun, DWORD Tag,
 				if (ccid_desc->sIFD_serial_number)
 				{
 					strlcpy((char *)Value, ccid_desc->sIFD_serial_number, *Length);
-					*Length = strlen((char *)Value);
+					*Length = strlen((char *)Value)+1;
 				}
 				else
 				{
@@ -1276,17 +1280,22 @@ EXTERNAL RESPONSECODE IFDHTransmitToICC(DWORD Lun, SCARD_IO_HEADER SendPci,
 	RESPONSECODE return_value;
 	unsigned int rx_length;
 	int reader_index;
+	int old_read_timeout;
+	int restore_timeout = FALSE;
+	_ccid_descriptor *ccid_descriptor;
 
 	(void)RecvPci;
 
 	if (-1 == (reader_index = LunToReaderIndex(Lun)))
 		return IFD_COMMUNICATION_ERROR;
 
+	ccid_descriptor = get_ccid_descriptor(reader_index);
+
 	DEBUG_INFO3("%s (lun: " DWORD_X ")", CcidSlots[reader_index].readerName,
 		Lun);
 
 	/* special APDU for the Kobil IDToken (CLASS = 0xFF) */
-	if (KOBIL_IDTOKEN == get_ccid_descriptor(reader_index) -> readerID)
+	if (KOBIL_IDTOKEN == ccid_descriptor -> readerID)
 	{
 		char manufacturer[] = {0xFF, 0x9A, 0x01, 0x01, 0x00};
 		char product_name[] = {0xFF, 0x9A, 0x01, 0x03, 0x00};
@@ -1314,7 +1323,7 @@ EXTERNAL RESPONSECODE IFDHTransmitToICC(DWORD Lun, SCARD_IO_HEADER SendPci,
 		if ((sizeof firmware_version == TxLength)
 			&& (memcmp(TxBuffer, firmware_version, sizeof firmware_version) == 0))
 		{
-			int IFD_bcdDevice = get_ccid_descriptor(reader_index)->IFD_bcdDevice;
+			int IFD_bcdDevice = ccid_descriptor -> IFD_bcdDevice;
 
 			DEBUG_INFO1("IDToken: Firmware version command");
 			*RxLength = sprintf((char *)RxBuffer, "%X.%02X",
@@ -1336,6 +1345,16 @@ EXTERNAL RESPONSECODE IFDHTransmitToICC(DWORD Lun, SCARD_IO_HEADER SendPci,
 
 	}
 
+	/* Pseudo-APDU as defined in PC/SC v2 part 10 supplement document
+	 * CLA=0xFF, INS=0xC2, P1=0x01 */
+	if (0 == memcmp(TxBuffer, "\xFF\xC2\x01", 3))
+	{
+		/* Yes, use the same timeout as for SCardControl() */
+		restore_timeout = TRUE;
+		old_read_timeout = ccid_descriptor -> readTimeout;
+		ccid_descriptor -> readTimeout = 90 * 1000;	/* 90 seconds */
+	}
+
 	rx_length = *RxLength;
 	return_value = CmdXfrBlock(reader_index, TxLength, TxBuffer, &rx_length,
 		RxBuffer, SendPci.Protocol);
@@ -1343,6 +1362,10 @@ EXTERNAL RESPONSECODE IFDHTransmitToICC(DWORD Lun, SCARD_IO_HEADER SendPci,
 		*RxLength = rx_length;
 	else
 		*RxLength = 0;
+
+	/* restore timeout */
+	if (restore_timeout)
+		ccid_descriptor -> readTimeout = old_read_timeout;
 
 	return return_value;
 } /* IFDHTransmitToICC */

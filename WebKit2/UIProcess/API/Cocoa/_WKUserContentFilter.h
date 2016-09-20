@@ -27,7 +27,7 @@
 
 #if WK_API_ENABLED
 
-WK_CLASS_AVAILABLE(WK_MAC_TBA, WK_IOS_TBA)
+WK_CLASS_AVAILABLE(macosx(10.11), ios(9.0))
 @interface _WKUserContentFilter : NSObject
 
 @end

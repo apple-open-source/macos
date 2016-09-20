@@ -44,10 +44,10 @@ class ArchiveResourceCollection {
 public:
     ArchiveResourceCollection();
 
-    void addResource(PassRefPtr<ArchiveResource>);
+    void addResource(Ref<ArchiveResource>&&);
     void addAllResources(Archive*);
     
-    ArchiveResource* archiveResourceForURL(const URL&);
+    WEBCORE_EXPORT ArchiveResource* archiveResourceForURL(const URL&);
     PassRefPtr<Archive> popSubframeArchive(const String& frameName, const URL&);
     
 private:    

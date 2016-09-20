@@ -6,6 +6,7 @@
 #include <string>
 #include <sys/stat.h>
 #include <security_utilities/crc.h>
+#include <security_utilities/casts.h>
 #include <unistd.h>
 
 static const char* kPrefix = "/private/var/db/mds/messages/se_";
@@ -25,18 +26,17 @@ SharedMemoryServer::SharedMemoryServer (const char* segmentName, SegmentOffsetTy
 	unlink (mFileName.c_str ());
 	
 	// open the file
-	int segmentDescriptor = open (mFileName.c_str (), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-	if (segmentDescriptor < 0)
+    mBackingFile = open (mFileName.c_str (), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+    if (mBackingFile < 0)
 	{
 		return;
 	}
 	
 	// set the segment size
-	ftruncate (segmentDescriptor, segmentSize);
+   ftruncate (mBackingFile, segmentSize);
 	
 	// map it into memory
-	mSegment = (u_int8_t*) mmap (NULL, mSegmentSize, PROT_READ | PROT_WRITE, MAP_SHARED, segmentDescriptor, 0);
-	close (segmentDescriptor);
+   mSegment = (u_int8_t*) mmap (NULL, mSegmentSize, PROT_READ | PROT_WRITE, MAP_SHARED, mBackingFile, 0);
 
 	if (mSegment == (u_int8_t*) -1) // can't map the memory?
 	{
@@ -62,6 +62,8 @@ SharedMemoryServer::~SharedMemoryServer ()
 	
 	// get out of memory
 	munmap (mSegment, mSegmentSize);
+
+    close(mBackingFile);
 	
 	// mark the segment for deletion
 	unlink (mFileName.c_str ());
@@ -78,6 +80,9 @@ const SegmentOffsetType
 
 void SharedMemoryServer::WriteMessage (SegmentOffsetType domain, SegmentOffsetType event, const void *message, SegmentOffsetType messageLength)
 {
+    // backing file MUST be right size
+    ftruncate (mBackingFile, mSegmentSize);
+
 	// assemble the final message
 	ssize_t messageSize = kHeaderLength + messageLength;
 	u_int8_t finalMessage[messageSize];
@@ -89,16 +94,16 @@ void SharedMemoryServer::WriteMessage (SegmentOffsetType domain, SegmentOffsetTy
 	SegmentOffsetType crc = CalculateCRC(finalMessage, messageSize);
 	
 	// write the length
-	WriteOffset(messageSize);
+	WriteOffset(int_cast<size_t, SegmentOffsetType>(messageSize));
 	
 	// write the crc
 	WriteOffset(crc);
 	
 	// write the data
-	WriteData (finalMessage, messageSize);
+	WriteData (finalMessage, int_cast<size_t, SegmentOffsetType>(messageSize));
 	
 	// write the data count
-	SetProducerOffset(mDataPtr - mDataArea);
+	SetProducerOffset(int_cast<size_t, SegmentOffsetType>(mDataPtr - mDataArea));
 }
 
 
@@ -114,16 +119,6 @@ size_t SharedMemoryServer::GetSegmentSize ()
 {
 	return mSegmentSize;
 }
-
-
-
-SegmentOffsetType SharedMemoryServer::GetProducerOffset ()
-{
-	// the data is stored in the buffer in network byte order
-	u_int32_t pCount = OSSwapBigToHostInt32 (*(u_int32_t*) mSegment);
-	return OSSwapHostToBigInt32 (pCount);
-}
-
 
 
 void SharedMemoryServer::SetProducerOffset (SegmentOffsetType producerCount)
@@ -147,7 +142,7 @@ void SharedMemoryServer::WriteData(const void* data, SegmentOffsetType length)
 	// figure out where in the buffer we actually need to write the data
 	// figure out how many bytes we can write without overflowing the buffer
 	const u_int8_t* dp = (const u_int8_t*) data;
-	SegmentOffsetType bytesToEnd = mDataMax - mDataPtr;
+	SegmentOffsetType bytesToEnd = int_cast<ptrdiff_t, SegmentOffsetType>(mDataMax - mDataPtr);
 	
 	// figure out how many bytes we can write
 	SegmentOffsetType bytesToWrite = (length <= bytesToEnd) ? length : bytesToEnd;

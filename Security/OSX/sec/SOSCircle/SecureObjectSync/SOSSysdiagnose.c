@@ -41,6 +41,8 @@
 
 #include "keychain_log.h"
 #include "secToolFileIO.h"
+#include "secViewDisplay.h"
+
 
 #include <Security/SecPasswordGenerate.h>
 
@@ -54,9 +56,13 @@ CF_EXPORT const CFStringRef _kCFSystemVersionBuildVersionKey;
 
 
 
-static char *CFDictionaryCopyCString(CFDictionaryRef dict, const void *key) {
+static char *CFDictionaryCopyCStringWithDefault(CFDictionaryRef dict, const void *key, char *defaultString) {
+    char *retval = NULL;
+    require_quiet(dict, use_default);
     CFStringRef val = CFDictionaryGetValue(dict, key);
-    char *retval = CFStringToCString(val);
+    retval = CFStringToCString(val);
+use_default:
+    if(!retval) retval = strdup(defaultString);
     return retval;
 }
 
@@ -516,82 +522,6 @@ static bool dumpKVS(char *itemName, CFErrorRef *err)
 }
 
 
-static struct foo {
-    const char *name;
-    const CFStringRef *viewspec;
-} string2View[] = {
-    {
-        "keychain", &kSOSViewKeychainV0
-    }, {
-        "masterkey", &kSOSViewPCSMasterKey,
-    }, {
-        "iclouddrive", &kSOSViewPCSiCloudDrive,
-    }, {
-        "photos", &kSOSViewPCSPhotos,
-    }, {
-        "escrow", &kSOSViewPCSEscrow,
-    }, {
-        "fde", &kSOSViewPCSFDE,
-    }, {
-        "maildrop", &kSOSViewPCSMailDrop,
-    }, {
-        "icloudbackup", &kSOSViewPCSiCloudBackup,
-    }, {
-        "notes", &kSOSViewPCSNotes,
-    }, {
-        "imessage", &kSOSViewPCSiMessage,
-    }, {
-        "feldspar", &kSOSViewPCSFeldspar,
-    }, {
-        "appletv", &kSOSViewAppleTV,
-    }, {
-        "homekit", &kSOSViewHomeKit,
-    }, {
-        "wifi", &kSOSViewWiFi,
-    }, {
-        "passwords", &kSOSViewAutofillPasswords,
-    }, {
-        "creditcards", &kSOSViewSafariCreditCards,
-    }, {
-        "icloudidentity", &kSOSViewiCloudIdentity,
-    }, {
-        "othersyncable", &kSOSViewOtherSyncable,
-    }
-};
-
-static CFStringRef convertViewReturnCodeToString(SOSViewActionCode ac) {
-    CFStringRef retval = NULL;
-    switch(ac) {
-        case kSOSCCGeneralViewError:
-            retval = CFSTR("General Error"); break;
-        case kSOSCCViewMember:
-            retval = CFSTR("Is Member of View"); break;
-        case kSOSCCViewNotMember:
-            retval = CFSTR("Is Not Member of View"); break;
-        case kSOSCCViewNotQualified:
-            retval = CFSTR("Is not qualified for View"); break;
-        case kSOSCCNoSuchView:
-            retval = CFSTR("No Such View"); break;
-    }
-    return retval;
-}
-
-static bool listviewcmd(CFErrorRef *err) {
-    unsigned n;
-    
-    for (n = 0; n < sizeof(string2View)/sizeof(string2View[0]); n++) {
-        CFStringRef viewspec = *string2View[n].viewspec;
-        
-        SOSViewResultCode rc = SOSCCView(viewspec, kSOSCCViewQuery, err);
-        CFStringRef resultString = convertViewReturnCodeToString(rc);
-        
-        printmsg(CFSTR("View Result: %@ : %@\n"), resultString, viewspec);
-    };
-    
-    return true;
-}
-
-
 static char *createDateStrNow() {
     char *retval = NULL;
     time_t clock;
@@ -646,7 +576,6 @@ static char *sysdiagnose_dir(const char *passedIn, const char *hostname, const c
 }
 
 
-
 static char *sysdiagnose_dump(const char *dirname) {
     char *outputDir = NULL;
     char hostname[80];
@@ -658,17 +587,9 @@ static char *sysdiagnose_dump(const char *dirname) {
     char *now = createDateStrNow();
     
     CFDictionaryRef sysfdef = _CFCopySystemVersionDictionary();
-    if(sysfdef) {
-        productName = CFDictionaryCopyCString(sysfdef, _kCFSystemVersionProductNameKey);
-        productVersion = CFDictionaryCopyCString(sysfdef, _kCFSystemVersionProductVersionKey);
-        buildVersion = CFDictionaryCopyCString(sysfdef, _kCFSystemVersionBuildVersionKey);
-    }
-    if (productName == NULL)
-        productName = strdup("unknownProduct");
-    if (productVersion == NULL)
-        productVersion = strdup("unknownProductVersion");
-    if (buildVersion)
-        buildVersion = strdup("unknownVersion");
+    productName = CFDictionaryCopyCStringWithDefault(sysfdef, _kCFSystemVersionProductNameKey, "unknownProduct");
+    productVersion = CFDictionaryCopyCStringWithDefault(sysfdef, _kCFSystemVersionProductVersionKey, "unknownProductVersion");
+    buildVersion = CFDictionaryCopyCStringWithDefault(sysfdef, _kCFSystemVersionBuildVersionKey, "unknownVersion");
 
     if(gethostname(hostname, 80)) {
         strcpy(hostname, "unknownhost");
@@ -684,7 +605,7 @@ static char *sysdiagnose_dump(const char *dirname) {
 #endif
     
     outputDir = sysdiagnose_dir(dirname, hostname, productVersion, now);
-    if(!outputDir) return NULL;
+    if(!outputDir) goto errOut;
     
     mkdir(outputDir, 0700);
     
@@ -714,16 +635,16 @@ static char *sysdiagnose_dump(const char *dirname) {
     copyFileToOutputDir(outputDir, keysToRegister);
     copyFileToOutputDir(outputDir, cloudkeychainproxy3);
 
-    if(productName) free(productName);
-    if(productVersion) free(productVersion);
-    if(buildVersion) free(buildVersion);
-
-    free(now);
+errOut:
+    if(now) free(now);
     CFReleaseNull(sysfdef);
 #if ! TARGET_OS_EMBEDDED
     free(keysToRegister);
     free(cloudkeychainproxy3);
 #endif
+    if(productName) free(productName);
+    if(productVersion) free(productVersion);
+    if(buildVersion) free(buildVersion);
     return outputDir;
 }
 

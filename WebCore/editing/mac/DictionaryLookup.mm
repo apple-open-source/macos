@@ -28,7 +28,6 @@
 
 #if PLATFORM(MAC)
 
-#import "BlockExceptions.h"
 #import "Document.h"
 #import "FocusController.h"
 #import "Frame.h"
@@ -36,6 +35,7 @@
 #import "HTMLConverter.h"
 #import "HitTestResult.h"
 #import "LookupSPI.h"
+#import "NSImmediateActionGestureRecognizerSPI.h"
 #import "Page.h"
 #import "Range.h"
 #import "RenderObject.h"
@@ -46,28 +46,14 @@
 #import "WebCoreSystemInterface.h"
 #import "htmlediting.h"
 #import <PDFKit/PDFKit.h>
+#import <wtf/BlockObjCExceptions.h>
 #import <wtf/RefPtr.h>
+
+SOFT_LINK_CONSTANT_MAY_FAIL(Lookup, LUTermOptionDisableSearchTermIndicator, NSString *)
 
 namespace WebCore {
 
-bool isPositionInRange(const VisiblePosition& position, Range* range)
-{
-    RefPtr<Range> positionRange = makeRange(position, position);
-
-    ExceptionCode ec = 0;
-    range->compareBoundaryPoints(Range::START_TO_START, positionRange.get(), ec);
-    if (ec)
-        return false;
-
-    if (!range->isPointInRange(positionRange->startContainer(), positionRange->startOffset(), ec))
-        return false;
-    if (ec)
-        return false;
-
-    return true;
-}
-
-bool shouldUseSelection(const VisiblePosition& position, const VisibleSelection& selection)
+static bool selectionContainsPosition(const VisiblePosition& position, const VisibleSelection& selection)
 {
     if (!selection.isRange())
         return false;
@@ -76,10 +62,10 @@ bool shouldUseSelection(const VisiblePosition& position, const VisibleSelection&
     if (!selectedRange)
         return false;
 
-    return isPositionInRange(position, selectedRange.get());
+    return selectedRange->contains(position);
 }
 
-PassRefPtr<Range> rangeForDictionaryLookupForSelection(const VisibleSelection& selection, NSDictionary **options)
+RefPtr<Range> DictionaryLookup::rangeForSelection(const VisibleSelection& selection, NSDictionary **options)
 {
     RefPtr<Range> selectedRange = selection.toNormalizedRange();
     if (!selectedRange)
@@ -104,10 +90,10 @@ PassRefPtr<Range> rangeForDictionaryLookupForSelection(const VisibleSelection& s
         [luLookupDefinitionModule tokenRangeForString:fullPlainTextString range:rangeToPass options:options];
     END_BLOCK_OBJC_EXCEPTIONS;
 
-    return selectedRange.release();
+    return selectedRange;
 }
 
-PassRefPtr<Range> rangeForDictionaryLookupAtHitTestResult(const HitTestResult& hitTestResult, NSDictionary **options)
+RefPtr<Range> DictionaryLookup::rangeAtHitTestResult(const HitTestResult& hitTestResult, NSDictionary **options)
 {
     Node* node = hitTestResult.innerNonSharedNode();
     if (!node)
@@ -130,9 +116,10 @@ PassRefPtr<Range> rangeForDictionaryLookupAtHitTestResult(const HitTestResult& h
     if (position.isNull())
         position = firstPositionInOrBeforeNode(node);
 
+    // If we hit the selection, use that instead of letting Lookup decide the range.
     VisibleSelection selection = frame->page()->focusController().focusedOrMainFrame().selection().selection();
-    if (shouldUseSelection(position, selection))
-        return rangeForDictionaryLookupForSelection(selection, options);
+    if (selectionContainsPosition(position, selection))
+        return DictionaryLookup::rangeForSelection(selection, options);
 
     VisibleSelection selectionAccountingForLineRules = VisibleSelection(position);
     selectionAccountingForLineRules.expandUsingGranularity(WordGranularity);
@@ -154,7 +141,8 @@ PassRefPtr<Range> rangeForDictionaryLookupAtHitTestResult(const HitTestResult& h
         extractedRange = [luLookupDefinitionModule tokenRangeForString:fullPlainTextString range:rangeToPass options:options];
 
     // This function sometimes returns {NSNotFound, 0} if it was unable to determine a good string.
-    if (extractedRange.location == NSNotFound)
+    // FIXME (159063): We shouldn't need to check for zero length here.
+    if (extractedRange.location == NSNotFound || extractedRange.length == 0)
         return nullptr;
 
     return TextIterator::subrange(fullCharacterRange.get(), extractedRange.location, extractedRange.length);
@@ -178,7 +166,7 @@ static void expandSelectionByCharacters(PDFSelection *selection, NSInteger numbe
     END_BLOCK_OBJC_EXCEPTIONS;
 }
 
-NSString *dictionaryLookupForPDFSelection(PDFSelection *selection, NSDictionary **options)
+NSString *DictionaryLookup::stringForPDFSelection(PDFSelection *selection, NSDictionary **options)
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
 
@@ -216,6 +204,72 @@ NSString *dictionaryLookupForPDFSelection(PDFSelection *selection, NSDictionary 
 
     END_BLOCK_OBJC_EXCEPTIONS;
     return nil;
+}
+
+static PlatformAnimationController showPopupOrCreateAnimationController(bool createAnimationController, const DictionaryPopupInfo& dictionaryPopupInfo, NSView *view, std::function<void(TextIndicator&)> textIndicatorInstallationCallback, std::function<FloatRect(FloatRect)> rootViewToViewConversionCallback)
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+
+    if (!getLULookupDefinitionModuleClass())
+        return nil;
+
+    RetainPtr<NSMutableDictionary> mutableOptions = adoptNS([(NSDictionary *)dictionaryPopupInfo.options.get() mutableCopy]);
+
+    auto textIndicator = TextIndicator::create(dictionaryPopupInfo.textIndicator);
+
+    if (canLoadLUTermOptionDisableSearchTermIndicator() && textIndicator.get().contentImage()) {
+        textIndicatorInstallationCallback(textIndicator.get());
+        [mutableOptions setObject:@YES forKey:getLUTermOptionDisableSearchTermIndicator()];
+
+        if ([getLULookupDefinitionModuleClass() respondsToSelector:@selector(showDefinitionForTerm:relativeToRect:ofView:options:)]) {
+            FloatRect firstTextRectInViewCoordinates = textIndicator.get().textRectsInBoundingRectCoordinates()[0];
+            FloatRect textBoundingRectInViewCoordinates = textIndicator.get().textBoundingRectInRootViewCoordinates();
+            if (rootViewToViewConversionCallback)
+                textBoundingRectInViewCoordinates = rootViewToViewConversionCallback(textBoundingRectInViewCoordinates);
+            firstTextRectInViewCoordinates.moveBy(textBoundingRectInViewCoordinates.location());
+            if (createAnimationController)
+                return [getLULookupDefinitionModuleClass() lookupAnimationControllerForTerm:dictionaryPopupInfo.attributedString.get() relativeToRect:firstTextRectInViewCoordinates ofView:view options:mutableOptions.get()];
+
+            [getLULookupDefinitionModuleClass() showDefinitionForTerm:dictionaryPopupInfo.attributedString.get() relativeToRect:firstTextRectInViewCoordinates ofView:view options:mutableOptions.get()];
+            return nil;
+        }
+    }
+
+    NSPoint textBaselineOrigin = dictionaryPopupInfo.origin;
+
+    // Convert to screen coordinates.
+    textBaselineOrigin = [view convertPoint:textBaselineOrigin toView:nil];
+    textBaselineOrigin = [view.window convertRectToScreen:NSMakeRect(textBaselineOrigin.x, textBaselineOrigin.y, 0, 0)].origin;
+
+    if (createAnimationController)
+        return [getLULookupDefinitionModuleClass() lookupAnimationControllerForTerm:dictionaryPopupInfo.attributedString.get() atLocation:textBaselineOrigin options:mutableOptions.get()];
+
+    [getLULookupDefinitionModuleClass() showDefinitionForTerm:dictionaryPopupInfo.attributedString.get() atLocation:textBaselineOrigin options:mutableOptions.get()];
+    return nil;
+
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return nil;
+}
+
+void DictionaryLookup::showPopup(const DictionaryPopupInfo& dictionaryPopupInfo, NSView *view, std::function<void(TextIndicator&)> textIndicatorInstallationCallback, std::function<FloatRect(FloatRect)> rootViewToViewConversionCallback)
+{
+    showPopupOrCreateAnimationController(false, dictionaryPopupInfo, view, textIndicatorInstallationCallback, rootViewToViewConversionCallback);
+}
+
+void DictionaryLookup::hidePopup()
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+
+    if (!getLULookupDefinitionModuleClass())
+        return;
+    [getLULookupDefinitionModuleClass() hideDefinition];
+
+    END_BLOCK_OBJC_EXCEPTIONS;
+}
+
+PlatformAnimationController DictionaryLookup::animationControllerForPopup(const DictionaryPopupInfo& dictionaryPopupInfo, NSView *view, std::function<void(TextIndicator&)> textIndicatorInstallationCallback, std::function<FloatRect(FloatRect)> rootViewToViewConversionCallback)
+{
+    return showPopupOrCreateAnimationController(true, dictionaryPopupInfo, view, textIndicatorInstallationCallback, rootViewToViewConversionCallback);
 }
 
 } // namespace WebCore

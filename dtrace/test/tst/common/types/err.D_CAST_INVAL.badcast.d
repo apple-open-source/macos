@@ -40,6 +40,6 @@
 
 BEGIN
 {
-	(char)trace(`max_ncpus);
+	(char)trace(`real_ncpus);
 	exit();
 }

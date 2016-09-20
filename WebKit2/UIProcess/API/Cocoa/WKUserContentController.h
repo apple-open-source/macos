@@ -29,7 +29,7 @@
 
 #import <Foundation/Foundation.h>
 
-WK_ASSUME_NONNULL_BEGIN
+NS_ASSUME_NONNULL_BEGIN
 
 @class WKUserScript;
 @protocol WKScriptMessageHandler;
@@ -39,13 +39,13 @@ WK_ASSUME_NONNULL_BEGIN
  The user content controller associated with a web view is specified by its
  web view configuration.
  */
-WK_CLASS_AVAILABLE(10_10, 8_0)
-@interface WKUserContentController : NSObject
+WK_CLASS_AVAILABLE(macosx(10.10), ios(8.0))
+@interface WKUserContentController : NSObject <NSCoding>
 
 /*! @abstract The user scripts associated with this user content
  controller.
 */
-@property (nonatomic, readonly, copy) WK_ARRAY(WKUserScript *) *userScripts;
+@property (nonatomic, readonly, copy) NSArray<WKUserScript *> *userScripts;
 
 /*! @abstract Adds a user script.
  @param userScript The user script to add.
@@ -72,6 +72,6 @@ WK_CLASS_AVAILABLE(10_10, 8_0)
 
 @end
 
-WK_ASSUME_NONNULL_END
+NS_ASSUME_NONNULL_END
 
 #endif

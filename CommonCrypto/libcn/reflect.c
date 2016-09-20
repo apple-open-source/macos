@@ -56,6 +56,7 @@ reflect(uint64_t w, size_t bits)
     uint64_t retval = 0;
     uint8_t *in = (uint8_t *) &w;
     uint8_t *out = (uint8_t *) &retval;
+
     size_t len = bits/8;
     if (len>sizeof(w)) {len=sizeof(w);}
 

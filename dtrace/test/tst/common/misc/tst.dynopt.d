@@ -31,12 +31,12 @@
 #pragma D option switchrate=1ms
 #pragma D option aggrate=1ms
 
-tick-100ms
+tick-200ms
 {
 	i++;
 }
 
-tick-100ms
+tick-200ms
 /i > 1/
 {
 	setopt("quiet", "no");
@@ -47,15 +47,15 @@ tick-100ms
 	printa("%@d\n", @);
 }
 
-tick-100ms
+tick-200ms
 /i == 5/
 {
 	setopt("switchrate", "5sec");
 	setopt("aggrate", "5sec");
 }
 
-tick-100ms
-/i == 31/
+tick-200ms
+/i == 11/
 {
 	exit(0);
 }

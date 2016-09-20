@@ -1,6 +1,4 @@
 /*
- * "$Id: client.c 12992 2015-11-19 15:19:00Z msweet $"
- *
  * Client routines for the CUPS scheduler.
  *
  * Copyright 2007-2015 by Apple Inc.
@@ -143,7 +141,12 @@ cupsdAcceptClient(cupsd_listener_t *lis)/* I - Listener socket */
   * Save the connected address and port number...
   */
 
-  con->clientaddr = lis->address;
+  addrlen = sizeof(con->clientaddr);
+
+  if (getsockname(httpGetFd(con->http), (struct sockaddr *)&con->clientaddr, &addrlen) || addrlen == 0)
+    con->clientaddr = lis->address;
+
+  cupsdLogClient(con, CUPSD_LOG_DEBUG, "Server address is \"%s\".", httpAddrString(&con->clientaddr, name, sizeof(name)));
 
  /*
   * Check the number of clients on the same address...
@@ -1156,29 +1159,28 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 		break;
 	      }
 	    }
-	    else if (!WebInterface)
-	    {
-	     /*
-	      * Web interface is disabled. Show an appropriate message...
-	      */
 
-	      if (!cupsdSendError(con, HTTP_STATUS_CUPS_WEBIF_DISABLED, CUPSD_AUTH_NONE))
-	      {
-		cupsdCloseClient(con);
-		return;
-	      }
-
-	      break;
-	    }
-
-	    if ((!strncmp(con->uri, "/admin", 6) &&
-		  strncmp(con->uri, "/admin/conf/", 12) &&
-		  strncmp(con->uri, "/admin/log/", 11)) ||
+	    if ((!strncmp(con->uri, "/admin", 6) && strcmp(con->uri, "/admin/conf/cupsd.conf") && strncmp(con->uri, "/admin/log/", 11)) ||
 		 !strncmp(con->uri, "/printers", 9) ||
 		 !strncmp(con->uri, "/classes", 8) ||
 		 !strncmp(con->uri, "/help", 5) ||
 		 !strncmp(con->uri, "/jobs", 5))
 	    {
+	      if (!WebInterface)
+	      {
+	       /*
+		* Web interface is disabled. Show an appropriate message...
+		*/
+
+		if (!cupsdSendError(con, HTTP_STATUS_CUPS_WEBIF_DISABLED, CUPSD_AUTH_NONE))
+		{
+		  cupsdCloseClient(con);
+		  return;
+		}
+
+		break;
+	      }
+
 	     /*
 	      * Send CGI output...
 	      */
@@ -1245,20 +1247,14 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 	      if (httpGetVersion(con->http) <= HTTP_VERSION_1_0)
 		httpSetKeepAlive(con->http, HTTP_KEEPALIVE_OFF);
 	    }
-            else if ((!strncmp(con->uri, "/admin/conf/", 12) &&
-	              (strchr(con->uri + 12, '/') ||
-		       strlen(con->uri) == 12)) ||
-		     (!strncmp(con->uri, "/admin/log/", 11) &&
-	              (strchr(con->uri + 11, '/') ||
-		       strlen(con->uri) == 11)))
+            else if (!strncmp(con->uri, "/admin/log/", 11) && (strchr(con->uri + 11, '/') || strlen(con->uri) == 11))
 	    {
 	     /*
 	      * GET can only be done to configuration files directly under
 	      * /admin/conf...
 	      */
 
-	      cupsdLogClient(con, CUPSD_LOG_ERROR,
-			      "Request for subdirectory \"%s\"!", con->uri);
+	      cupsdLogClient(con, CUPSD_LOG_ERROR, "Request for subdirectory \"%s\".", con->uri);
 
 	      if (!cupsdSendError(con, HTTP_STATUS_FORBIDDEN, CUPSD_AUTH_NONE))
 	      {
@@ -1396,9 +1392,7 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 
 	      break;
 	    }
-	    else if ((!strncmp(con->uri, "/admin", 6) &&
-	              strncmp(con->uri, "/admin/conf/", 12) &&
-	              strncmp(con->uri, "/admin/log/", 11)) ||
+	    else if ((!strncmp(con->uri, "/admin", 6) && strncmp(con->uri, "/admin/log/", 11)) ||
 	             !strncmp(con->uri, "/printers", 9) ||
 	             !strncmp(con->uri, "/classes", 8) ||
 	             !strncmp(con->uri, "/help", 5) ||
@@ -1648,9 +1642,7 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 	      break;
 	    }
 
-	    if ((!strncmp(con->uri, "/admin", 6) &&
-	         strncmp(con->uri, "/admin/conf/", 12) &&
-	         strncmp(con->uri, "/admin/log/", 11)) ||
+	    if ((!strncmp(con->uri, "/admin", 6) && strcmp(con->uri, "/admin/conf/cupsd.conf") && strncmp(con->uri, "/admin/log/", 11)) ||
 		!strncmp(con->uri, "/printers", 9) ||
 		!strncmp(con->uri, "/classes", 8) ||
 		!strncmp(con->uri, "/help", 5) ||
@@ -1670,12 +1662,7 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 
               cupsdLogRequest(con, HTTP_STATUS_OK);
 	    }
-            else if ((!strncmp(con->uri, "/admin/conf/", 12) &&
-	              (strchr(con->uri + 12, '/') ||
-		       strlen(con->uri) == 12)) ||
-		     (!strncmp(con->uri, "/admin/log/", 11) &&
-	              (strchr(con->uri + 11, '/') ||
-		       strlen(con->uri) == 11)))
+            else if (!strncmp(con->uri, "/admin/log/", 11) && (strchr(con->uri + 11, '/') || strlen(con->uri) == 11))
 	    {
 	     /*
 	      * HEAD can only be done to configuration files under
@@ -2382,7 +2369,7 @@ cupsdSendHeader(
       * requests when the request requires system group membership - then the
       * client knows the root certificate can/should be used.
       *
-      * Also, for OS X we also look for @AUTHKEY and add an "authkey"
+      * Also, for macOS we also look for @AUTHKEY and add an "authkey"
       * parameter as needed...
       */
 
@@ -4090,8 +4077,3 @@ write_pipe(cupsd_client_t *con)		/* I - Client connection */
 
   cupsdLogClient(con, CUPSD_LOG_DEBUG, "CGI data ready to be sent.");
 }
-
-
-/*
- * End of "$Id: client.c 12992 2015-11-19 15:19:00Z msweet $".
- */

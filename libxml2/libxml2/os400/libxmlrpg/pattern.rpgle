@@ -10,10 +10,12 @@
       /define XML_PATTERN_H__
 
       /include "libxmlrpg/xmlversion"
-      /include "libxmlrpg/tree"
-      /include "libxmlrpg/dict"
 
       /if defined(LIBXML_PATTERN_ENABLED)
+
+      /include "libxmlrpg/xmlTypesC"
+      /include "libxmlrpg/tree"
+      /include "libxmlrpg/dict"
 
       * xmlPattern:
       *
@@ -28,7 +30,8 @@
       * matching with this module
 
      d xmlPatternFlags...
-     d                 s             10i 0 based(######typedef######)           enum
+     d                 s                   based(######typedef######)
+     d                                     like(xmlCenum)
      d  XML_PATTERN_DEFAULT...                                                  Simple pattern match
      d                 c                   X'0000'
      d  XML_PATTERN_XPATH...                                                    Std XPath pattern
@@ -50,11 +53,12 @@
      d                                     like(xmlPatternPtr)
      d  pattern                        *   value options(*string)               const xmlChar *
      d  dict                           *   value                                xmlDict *
-     d  flags                        10i 0 value
+     d  flags                              value like(xmlCint)
      d  namespaces                     *                                        const xmlChar *(*)
 
      d xmlPatternMatch...
-     d                 pr            10i 0 extproc('xmlPatternMatch')
+     d                 pr                  extproc('xmlPatternMatch')
+     d                                     like(xmlCint)
      d  comp                               value like(xmlPatternPtr)
      d  node                               value like(xmlNodePtr)
 
@@ -64,19 +68,23 @@
      d                 s               *   based(######typedef######)
 
      d xmlPatternStreamable...
-     d                 pr            10i 0 extproc('xmlPatternStreamable')
+     d                 pr                  extproc('xmlPatternStreamable')
+     d                                     like(xmlCint)
      d  comp                               value like(xmlPatternPtr)
 
      d xmlPatternMaxDepth...
-     d                 pr            10i 0 extproc('xmlPatternMaxDepth')
+     d                 pr                  extproc('xmlPatternMaxDepth')
+     d                                     like(xmlCint)
      d  comp                               value like(xmlPatternPtr)
 
      d xmlPatternMinDepth...
-     d                 pr            10i 0 extproc('xmlPatternMinDepth')
+     d                 pr                  extproc('xmlPatternMinDepth')
+     d                                     like(xmlCint)
      d  comp                               value like(xmlPatternPtr)
 
      d xmlPatternFromRoot...
-     d                 pr            10i 0 extproc('xmlPatternFromRoot')
+     d                 pr                  extproc('xmlPatternFromRoot')
+     d                                     like(xmlCint)
      d  comp                               value like(xmlPatternPtr)
 
      d xmlPatternGetStreamCtxt...
@@ -89,28 +97,33 @@
      d  stream                             value like(xmlStreamCtxtPtr)
 
      d xmlStreamPushNode...
-     d                 pr            10i 0 extproc('xmlStreamPushNode')
+     d                 pr                  extproc('xmlStreamPushNode')
+     d                                     like(xmlCint)
      d  stream                             value like(xmlStreamCtxtPtr)
      d  name                           *   value options(*string)               const xmlChar *
      d  ns                             *   value options(*string)               const xmlChar *
-     d  nodeType                     10i 0 value
+     d  nodeType                           value like(xmlCint)
 
-     d xmlStreamPush   pr            10i 0 extproc('xmlStreamPush')
+     d xmlStreamPush   pr                  extproc('xmlStreamPush')
+     d                                     like(xmlCint)
      d  stream                             value like(xmlStreamCtxtPtr)
      d  name                           *   value options(*string)               const xmlChar *
      d  ns                             *   value options(*string)               const xmlChar *
 
      d xmlStreamPushAttr...
-     d                 pr            10i 0 extproc('xmlStreamPushAttr')
+     d                 pr                  extproc('xmlStreamPushAttr')
+     d                                     like(xmlCint)
      d  stream                             value like(xmlStreamCtxtPtr)
      d  name                           *   value options(*string)               const xmlChar *
      d  ns                             *   value options(*string)               const xmlChar *
 
-     d xmlStreamPop    pr            10i 0 extproc('xmlStreamPop')
+     d xmlStreamPop    pr                  extproc('xmlStreamPop')
+     d                                     like(xmlCint)
      d  stream                             value like(xmlStreamCtxtPtr)
 
      d xmlStreamWantsAnyNode...
-     d                 pr            10i 0 extproc('xmlStreamWantsAnyNode')
+     d                 pr                  extproc('xmlStreamWantsAnyNode')
+     d                                     like(xmlCint)
      d  stream                             value like(xmlStreamCtxtPtr)
 
       /endif                                                                    LIBXML_PATTERN_ENBLD

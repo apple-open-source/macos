@@ -23,6 +23,10 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+var emDash = "\u2014";
+var enDash = "\u2013";
+var ellipsis = "\u2026";
+
 Object.defineProperty(Object, "shallowCopy",
 {
     value: function(object)
@@ -87,6 +91,17 @@ Object.defineProperty(Object.prototype, "valueForCaseInsensitiveKey",
         }
 
         return undefined;
+    }
+});
+
+Object.defineProperty(Map, "fromObject",
+{
+    value: function(object)
+    {
+        let map = new Map;
+        for (let key in object)
+            map.set(key, object[key]);
+        return map;
     }
 });
 
@@ -409,6 +424,27 @@ Object.defineProperty(DocumentFragment.prototype, "createChild",
     value: Element.prototype.createChild
 });
 
+Object.defineProperty(Array, "shallowEqual",
+{
+    value: function(a, b)
+    {
+        if (a === b)
+            return true;
+
+        let length = a.length;
+
+        if (length !== b.length)
+            return false;
+
+        for (var i = 0; i < length; ++i) {
+            if (a[i] !== b[i])
+                return false;
+        }
+
+        return true;
+    }
+});
+
 Object.defineProperty(Array.prototype, "lastValue",
 {
     get: function()
@@ -445,10 +481,43 @@ Object.defineProperty(Array.prototype, "keySet",
 {
     value: function()
     {
-        var keys = Object.create(null);
+        let keys = Object.create(null);
         for (var i = 0; i < this.length; ++i)
             keys[this[i]] = true;
         return keys;
+    }
+});
+
+Object.defineProperty(Array.prototype, "partition",
+{
+    value: function(callback)
+    {
+        let positive = [];
+        let negative = [];
+        for (let i = 0; i < this.length; ++i) {
+            let value = this[i];
+            if (callback(value))
+                positive.push(value);
+            else
+                negative.push(value);
+        }
+        return [positive, negative];
+    }
+});
+
+Object.defineProperty(String.prototype, "isLowerCase",
+{
+    value: function()
+    {
+        return String(this) === this.toLowerCase();
+    }
+});
+
+Object.defineProperty(String.prototype, "isUpperCase",
+{
+    value: function()
+    {
+        return String(this) === this.toUpperCase();
     }
 });
 
@@ -460,7 +529,7 @@ Object.defineProperty(String.prototype, "trimMiddle",
             return this;
         var leftHalf = maxLength >> 1;
         var rightHalf = maxLength - leftHalf - 1;
-        return this.substr(0, leftHalf) + "\u2026" + this.substr(this.length - rightHalf, rightHalf);
+        return this.substr(0, leftHalf) + ellipsis + this.substr(this.length - rightHalf, rightHalf);
     }
 });
 
@@ -470,7 +539,7 @@ Object.defineProperty(String.prototype, "trimEnd",
     {
         if (this.length <= maxLength)
             return this;
-        return this.substr(0, maxLength - 1) + "\u2026";
+        return this.substr(0, maxLength - 1) + ellipsis;
     }
 });
 
@@ -483,12 +552,12 @@ Object.defineProperty(String.prototype, "truncate",
         if (this.length <= maxLength)
             return this;
 
-        var clipped = this.slice(0, maxLength);
-        var indexOfLastWhitespace = clipped.search(/\s\S*$/);
+        let clipped = this.slice(0, maxLength);
+        let indexOfLastWhitespace = clipped.search(/\s\S*$/);
         if (indexOfLastWhitespace > Math.floor(maxLength / 2))
             clipped = clipped.slice(0, indexOfLastWhitespace - 1);
 
-        return clipped + "\u2026";
+        return clipped + ellipsis;
     }
 });
 
@@ -497,6 +566,14 @@ Object.defineProperty(String.prototype, "collapseWhitespace",
     value: function()
     {
         return this.replace(/[\s\xA0]+/g, " ");
+    }
+});
+
+Object.defineProperty(String.prototype, "removeWhitespace",
+{
+    value: function()
+    {
+        return this.replace(/[\s\xA0]+/g, "");
     }
 });
 
@@ -584,15 +661,17 @@ Object.defineProperty(String, "tokenizeFormatString",
                 }
             }
 
-            var precision = -1;
+            const defaultPrecision = 6;
+
+            let precision = defaultPrecision;
             if (format[index] === ".") {
                 // This is a precision specifier. If no digit follows the ".",
-                // then the precision should be zero.
+                // then use the default precision of six digits (ISO C99 specification).
                 ++index;
 
                 precision = parseInt(format.substring(index), 10);
                 if (isNaN(precision))
-                    precision = 0;
+                    precision = defaultPrecision;
 
                 while (!isNaN(format[index]))
                     ++index;
@@ -614,10 +693,10 @@ Object.defineProperty(String.prototype, "hash",
 {
     get: function()
     {
-        // Matches the wtf/StringHasher.h (SuperFastHash) algorithm.
+        // Matches the wtf/Hasher.h (SuperFastHash) algorithm.
 
         // Arbitrary start value to avoid mapping all 0's to all 0's.
-        var stringHashingStartValue = 0x9e3779b9;
+        const stringHashingStartValue = 0x9e3779b9;
 
         var result = stringHashingStartValue;
         var pendingCharacter = null;
@@ -659,14 +738,21 @@ Object.defineProperty(String, "standardFormatters",
     value: {
         d: function(substitution)
         {
-            return !isNaN(substitution) ? substitution : 0;
+            return parseInt(substitution);
         },
 
         f: function(substitution, token)
         {
-            if (substitution && token.precision > -1)
-                substitution = substitution.toFixed(token.precision);
-            return !isNaN(substitution) ? substitution : (token.precision > -1 ? Number(0).toFixed(token.precision) : 0);
+            let value = parseFloat(substitution);
+            if (isNaN(value))
+                return NaN;
+
+            let options = {
+                minimumFractionDigits: token.precision,
+                maximumFractionDigits: token.precision,
+                useGrouping: false
+            };
+            return value.toLocaleString(undefined, options);
         },
 
         s: function(substitution)
@@ -685,7 +771,7 @@ Object.defineProperty(String, "format",
 
         function prettyFunctionName()
         {
-            return "String.format(\"" + format + "\", \"" + substitutions.join("\", \"") + "\")";
+            return "String.format(\"" + format + "\", \"" + Array.from(substitutions).join("\", \"") + "\")";
         }
 
         function warn(msg)
@@ -823,6 +909,14 @@ Object.defineProperty(String.prototype, "levenshteinDistance",
     }
 });
 
+Object.defineProperty(String.prototype, "toCamelCase",
+{
+    value: function()
+    {
+        return this.toLowerCase().replace(/[^\w]+(\w)/g, (match, group) => group.toUpperCase());
+    }
+});
+
 Object.defineProperty(Math, "roundTo",
 {
     value: function(num, step)
@@ -835,6 +929,9 @@ Object.defineProperty(Number, "constrain",
 {
     value: function(num, min, max)
     {
+        if (max < min)
+            return min;
+
         if (num < min)
             num = min;
         else if (num > max)
@@ -843,39 +940,66 @@ Object.defineProperty(Number, "constrain",
     }
 });
 
+Object.defineProperty(Number, "percentageString",
+{
+    value: function(fraction, precision = 1)
+    {
+        console.assert(fraction >= 0 && fraction <= 1);
+        return fraction.toLocaleString(undefined, {minimumFractionDigits: precision, style: "percent"});
+    }
+});
+
+Object.defineProperty(Number, "secondsToMillisecondsString",
+{
+    value: function(seconds, higherResolution)
+    {
+        let ms = seconds * 1000;
+
+        if (higherResolution)
+            return WebInspector.UIString("%.2fms").format(ms);
+        return WebInspector.UIString("%.1fms").format(ms);
+    }
+});
+
 Object.defineProperty(Number, "secondsToString",
 {
     value: function(seconds, higherResolution)
     {
-        var ms = seconds * 1000;
+        let ms = seconds * 1000;
+        if (!ms)
+            return WebInspector.UIString("%.0fms").format(0);
 
-        if (higherResolution && Math.abs(ms) < 10)
-            return WebInspector.UIString("%.3fms").format(ms);
-        else if (Math.abs(ms) < 10)
+        if (Math.abs(ms) < 10) {
+            if (higherResolution)
+                return WebInspector.UIString("%.3fms").format(ms);
             return WebInspector.UIString("%.2fms").format(ms);
+        }
 
-        if (higherResolution && Math.abs(ms) < 100)
-            return WebInspector.UIString("%.2fms").format(ms);
-        else if (Math.abs(ms) < 100)
+        if (Math.abs(ms) < 100) {
+            if (higherResolution)
+                return WebInspector.UIString("%.2fms").format(ms);
             return WebInspector.UIString("%.1fms").format(ms);
+        }
 
-        if (higherResolution && Math.abs(ms) < 1000)
-            return WebInspector.UIString("%.1fms").format(ms);
-        else if (Math.abs(ms) < 1000)
+        if (Math.abs(ms) < 1000) {
+            if (higherResolution)
+                return WebInspector.UIString("%.1fms").format(ms);
             return WebInspector.UIString("%.0fms").format(ms);
+        }
 
-        if (Math.abs(seconds) < 60)
+        // Do not go over seconds when in high resolution mode.
+        if (higherResolution || Math.abs(seconds) < 60)
             return WebInspector.UIString("%.2fs").format(seconds);
 
-        var minutes = seconds / 60;
+        let minutes = seconds / 60;
         if (Math.abs(minutes) < 60)
             return WebInspector.UIString("%.1fmin").format(minutes);
 
-        var hours = minutes / 60;
+        let hours = minutes / 60;
         if (Math.abs(hours) < 24)
             return WebInspector.UIString("%.1fhrs").format(hours);
 
-        var days = hours / 24;
+        let days = hours / 24;
         return WebInspector.UIString("%.1f days").format(days);
     }
 });
@@ -890,17 +1014,17 @@ Object.defineProperty(Number, "bytesToString",
         if (Math.abs(bytes) < 1024)
             return WebInspector.UIString("%.0f B").format(bytes);
 
-        var kilobytes = bytes / 1024;
-        if (Math.abs(kilobytes) < 10 || (higherResolution && Math.abs(kilobytes) < 1024))
-            return WebInspector.UIString("%.2f KB").format(kilobytes);
-        else if (Math.abs(kilobytes) < 1024)
+        let kilobytes = bytes / 1024;
+        if (Math.abs(kilobytes) < 1024) {
+            if (higherResolution || Math.abs(kilobytes) < 10)
+                return WebInspector.UIString("%.2f KB").format(kilobytes);
             return WebInspector.UIString("%.1f KB").format(kilobytes);
+        }
 
-        var megabytes = kilobytes / 1024;
+        let megabytes = kilobytes / 1024;
         if (higherResolution || Math.abs(megabytes) < 10)
             return WebInspector.UIString("%.2f MB").format(megabytes);
-        else
-            return WebInspector.UIString("%.1f MB").format(megabytes);
+        return WebInspector.UIString("%.1f MB").format(megabytes);
     }
 });
 
@@ -1090,9 +1214,137 @@ Object.defineProperty(Array.prototype, "binaryIndexOf",
     }
 });
 
+(function() {
+    // The `debounce` function lets you call any function on an object with a delay
+    // and if the function keeps getting called, the delay gets reset. Since `debounce`
+    // returns a Proxy, you can cache it and call multiple functions with the same delay.
+
+    // Use: object.debounce(200).foo("Argument 1", "Argument 2")
+    // Note: The last call's arguments get used for the delayed call.
+
+    const debounceTimeoutSymbol = Symbol("debounce-timeout");
+    const debounceSoonProxySymbol = Symbol("debounce-soon-proxy");
+
+    Object.defineProperty(Object.prototype, "soon",
+    {
+        get: function()
+        {
+            if (!this[debounceSoonProxySymbol])
+                this[debounceSoonProxySymbol] = this.debounce(0);
+            return this[debounceSoonProxySymbol];
+        }
+    });
+
+    Object.defineProperty(Object.prototype, "debounce",
+    {
+        value: function(delay)
+        {
+            console.assert(delay >= 0);
+
+            return new Proxy(this, {
+                get(target, property, receiver) {
+                    return (...args) => {
+                        let original = target[property];
+                        console.assert(typeof original === "function");
+
+                        if (original[debounceTimeoutSymbol])
+                            clearTimeout(original[debounceTimeoutSymbol]);
+
+                        let performWork = () => {
+                            original[debounceTimeoutSymbol] = undefined;
+                            original.apply(target, args);
+                        };
+
+                        original[debounceTimeoutSymbol] = setTimeout(performWork, delay);
+                    };
+                }
+            });
+        }
+    });
+
+    Object.defineProperty(Function.prototype, "cancelDebounce",
+    {
+        value: function()
+        {
+            if (!this[debounceTimeoutSymbol])
+                return;
+
+            clearTimeout(this[debounceTimeoutSymbol]);
+            this[debounceTimeoutSymbol] = undefined;
+        }
+    });
+
+    const requestAnimationFrameSymbol = Symbol("peform-on-animation-frame");
+    const requestAnimationFrameProxySymbol = Symbol("perform-on-animation-frame-proxy");
+
+    Object.defineProperty(Object.prototype, "onNextFrame",
+    {
+        get: function()
+        {
+            if (!this[requestAnimationFrameProxySymbol]) {
+                this[requestAnimationFrameProxySymbol] = new Proxy(this, {
+                    get(target, property, receiver) {
+                        return (...args) => {
+                            let original = target[property];
+                            console.assert(typeof original === "function");
+
+                            if (original[requestAnimationFrameSymbol])
+                                return;
+
+                            let performWork = () => {
+                                original[requestAnimationFrameSymbol] = undefined;
+                                original.apply(target, args);
+                            };
+
+                            original[requestAnimationFrameSymbol] = requestAnimationFrame(performWork);
+                        };
+                    }
+                });
+            }
+
+            return this[requestAnimationFrameProxySymbol];
+        }
+    });
+})();
+
 function appendWebInspectorSourceURL(string)
 {
-    return string + "\n//# sourceURL=__WebInspectorInternal__\n";
+    if (string.includes("//# sourceURL"))
+        return string;
+    return "\n//# sourceURL=__WebInspectorInternal__\n" + string;
+}
+
+function appendWebInspectorConsoleEvaluationSourceURL(string)
+{
+    if (string.includes("//# sourceURL"))
+        return string;
+    return "\n//# sourceURL=__WebInspectorConsoleEvaluation__\n" + string;
+}
+
+function isWebInspectorInternalScript(url)
+{
+    return url === "__WebInspectorInternal__";
+}
+
+function isWebInspectorConsoleEvaluationScript(url)
+{
+    return url === "__WebInspectorConsoleEvaluation__";
+}
+
+function isWebKitInjectedScript(url)
+{
+    return url && url.startsWith("__InjectedScript_") && url.endsWith(".js");
+}
+
+function isWebKitInternalScript(url)
+{
+    if (isWebInspectorConsoleEvaluationScript(url))
+        return false;
+
+    if (isWebKitInjectedScript(url))
+        return true;
+
+    return url && url.startsWith("__Web") && url.endsWith("__");
 }
 
 function isFunctionStringNativeCode(str)
@@ -1102,7 +1354,7 @@ function isFunctionStringNativeCode(str)
 
 function doubleQuotedString(str)
 {
-    return "\"" + str.replace(/"/g, "\\\"") + "\"";
+    return "\"" + str.replace(/\\/g, "\\\\").replace(/"/g, "\\\"") + "\"";
 }
 
 function insertionIndexForObjectInListSortedByFunction(object, list, comparator, insertionIndexAfter)
@@ -1123,7 +1375,7 @@ function decodeBase64ToBlob(base64Data, mimeType)
 {
     mimeType = mimeType || '';
 
-    var sliceSize = 1024;
+    const sliceSize = 1024;
     var byteCharacters = atob(base64Data);
     var bytesLength = byteCharacters.length;
     var slicesCount = Math.ceil(bytesLength / sliceSize);
@@ -1147,4 +1399,11 @@ function decodeBase64ToBlob(base64Data, mimeType)
 function timestamp()
 {
     return window.performance ? performance.now() : Date.now();
+}
+
+if (!window.handlePromiseException) {
+    window.handlePromiseException = function handlePromiseException(error)
+    {
+        console.error("Uncaught exception in Promise", error);
+    };
 }

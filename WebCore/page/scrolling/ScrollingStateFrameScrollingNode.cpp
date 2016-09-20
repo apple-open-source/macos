@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,10 +46,10 @@ ScrollingStateFrameScrollingNode::ScrollingStateFrameScrollingNode(ScrollingStat
 ScrollingStateFrameScrollingNode::ScrollingStateFrameScrollingNode(const ScrollingStateFrameScrollingNode& stateNode, ScrollingStateTree& adoptiveTree)
     : ScrollingStateScrollingNode(stateNode, adoptiveTree)
 #if PLATFORM(MAC)
-    , m_verticalScrollbarPainter(stateNode.verticalScrollbarPainter())
-    , m_horizontalScrollbarPainter(stateNode.horizontalScrollbarPainter())
+    , m_verticalScrollerImp(stateNode.verticalScrollerImp())
+    , m_horizontalScrollerImp(stateNode.horizontalScrollerImp())
 #endif
-    , m_nonFastScrollableRegion(stateNode.nonFastScrollableRegion())
+    , m_eventTrackingRegions(stateNode.eventTrackingRegions())
     , m_requestedScrollPosition(stateNode.requestedScrollPosition())
     , m_frameScaleFactor(stateNode.frameScaleFactor())
     , m_topContentInset(stateNode.topContentInset())
@@ -98,13 +98,13 @@ void ScrollingStateFrameScrollingNode::setFrameScaleFactor(float scaleFactor)
     setPropertyChanged(FrameScaleFactor);
 }
 
-void ScrollingStateFrameScrollingNode::setNonFastScrollableRegion(const Region& nonFastScrollableRegion)
+void ScrollingStateFrameScrollingNode::setEventTrackingRegions(const EventTrackingRegions& eventTrackingRegions)
 {
-    if (m_nonFastScrollableRegion == nonFastScrollableRegion)
+    if (m_eventTrackingRegions == eventTrackingRegions)
         return;
 
-    m_nonFastScrollableRegion = nonFastScrollableRegion;
-    setPropertyChanged(NonFastScrollableRegion);
+    m_eventTrackingRegions = eventTrackingRegions;
+    setPropertyChanged(EventTrackingRegion);
 }
 
 void ScrollingStateFrameScrollingNode::setSynchronousScrollingReasons(SynchronousScrollingReasons reasons)
@@ -216,34 +216,49 @@ void ScrollingStateFrameScrollingNode::setFixedElementsLayoutRelativeToFrame(boo
 }
 
 #if !PLATFORM(MAC)
-void ScrollingStateFrameScrollingNode::setScrollbarPaintersFromScrollbars(Scrollbar*, Scrollbar*)
+void ScrollingStateFrameScrollingNode::setScrollerImpsFromScrollbars(Scrollbar*, Scrollbar*)
 {
 }
 #endif
 
-void ScrollingStateFrameScrollingNode::dumpProperties(TextStream& ts, int indent) const
+void ScrollingStateFrameScrollingNode::dumpProperties(TextStream& ts, int indent, ScrollingStateTreeAsTextBehavior behavior) const
 {
     ts << "(Frame scrolling node" << "\n";
     
-    ScrollingStateScrollingNode::dumpProperties(ts, indent);
+    ScrollingStateScrollingNode::dumpProperties(ts, indent, behavior);
     
     if (m_frameScaleFactor != 1) {
         writeIndent(ts, indent + 1);
         ts << "(frame scale factor " << m_frameScaleFactor << ")\n";
     }
-    
-    if (!m_nonFastScrollableRegion.isEmpty()) {
+
+    if (!m_eventTrackingRegions.asynchronousDispatchRegion.isEmpty()) {
         ++indent;
         writeIndent(ts, indent);
-        ts << "(non-fast-scrollable region";
+        ts << "(asynchronous event dispatch region";
         ++indent;
-        for (auto rect : m_nonFastScrollableRegion.rects()) {
+        for (auto rect : m_eventTrackingRegions.asynchronousDispatchRegion.rects()) {
             ts << "\n";
             writeIndent(ts, indent);
             ts << rect;
         }
         ts << ")\n";
         indent -= 2;
+    }
+    if (!m_eventTrackingRegions.eventSpecificSynchronousDispatchRegions.isEmpty()) {
+        for (const auto& synchronousEventRegion : m_eventTrackingRegions.eventSpecificSynchronousDispatchRegions) {
+            ++indent;
+            writeIndent(ts, indent);
+            ts << "(synchronous event dispatch region for event " << synchronousEventRegion.key;
+            ++indent;
+            for (auto rect : synchronousEventRegion.value.rects()) {
+                ts << "\n";
+                writeIndent(ts, indent);
+                ts << rect;
+            }
+            ts << ")\n";
+            indent -= 2;
+        }
     }
 
     if (m_synchronousScrollingReasons) {

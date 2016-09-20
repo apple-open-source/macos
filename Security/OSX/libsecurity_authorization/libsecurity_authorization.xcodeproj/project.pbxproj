@@ -53,7 +53,7 @@
 		40BC5D9605322F76009E6ADA /* AuthorizationTags.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AuthorizationTags.h; path = lib/AuthorizationTags.h; sourceTree = "<group>"; };
 		40BC5D9805322F76009E6ADA /* AuthSession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AuthSession.h; path = lib/AuthSession.h; sourceTree = "<group>"; };
 		40C767090534CCDB008AC043 /* AuthorizationTagsPriv.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AuthorizationTagsPriv.h; path = lib/AuthorizationTagsPriv.h; sourceTree = "<group>"; };
-		4C481F03058161C400846F0C /* trampolineClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = trampolineClient.cpp; path = lib/trampolineClient.cpp; sourceTree = "<group>"; };
+		4C481F03058161C400846F0C /* trampolineClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; name = trampolineClient.cpp; path = lib/trampolineClient.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		4C481F04058161C400846F0C /* trampolineServer.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = trampolineServer.cpp; path = lib/trampolineServer.cpp; sourceTree = "<group>"; };
 		4C6848A005815EE4003AC7B2 /* privPort.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = privPort.h; path = lib/privPort.h; sourceTree = "<group>"; };
 		4CA1FEBE052A3C8100F22E42 /* libsecurity_authorization.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libsecurity_authorization.a; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -162,7 +162,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				182BB337146F100D000BF1F3 /* PBXTargetDependency */,
 			);
 			name = libsecurity_authorization;
 			productInstallPath = /usr/local/lib;
@@ -176,7 +175,7 @@
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0700;
+				LastUpgradeCheck = 0800;
 			};
 			buildConfigurationList = C27AD2B70987FCDD001272E0 /* Build configuration list for PBXProject "libsecurity_authorization" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -266,12 +265,21 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18446156146E928E00B12992 /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = lossless;
+				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				ONLY_ACTIVE_ARCH = YES;
 			};
 			name = Debug;
 		};
@@ -279,12 +287,19 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18446156146E928E00B12992 /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = "respect-asset-catalog";
+				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
 			};
 			name = Release;
 		};

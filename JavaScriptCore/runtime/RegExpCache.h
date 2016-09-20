@@ -46,7 +46,7 @@ class RegExpCache : private WeakHandleOwner {
 
 public:
     RegExpCache(VM* vm);
-    void invalidateCode();
+    void deleteAllCode();
 
 private:
     
@@ -54,7 +54,7 @@ private:
 
     static const int maxStrongCacheableEntries = 32;
 
-    virtual void finalize(Handle<Unknown>, void* context) override;
+    void finalize(Handle<Unknown>, void* context) override;
 
     RegExp* lookupOrCreate(const WTF::String& patternString, RegExpFlags);
     void addToStrongCache(RegExp*);

@@ -25,9 +25,9 @@
 .\" OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 .\" EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/lib/libc_r/man/pthread_sigmask.3,v 1.9 2001/10/01 16:09:09 ru Exp $
-.Dd April 27, 2000
-.Dt PTHREAD_SIGMASK 2
+.\" $FreeBSD$
+.Dd February 19, 2011
+.Dt PTHREAD_SIGMASK 3
 .Os
 .Sh NAME
 .Nm pthread_sigmask
@@ -35,11 +35,8 @@
 .Sh SYNOPSIS
 .In signal.h
 .Ft int
-.Fo pthread_sigmask
-.Fa "int how"
-.Fa "const sigset_t *restrict set"
-.Fa "sigset_t *restrict oset"
-.Fc
+.Fn pthread_sigmask "int how" "const sigset_t * restrict set" \
+    "sigset_t * restrict oset"
 .Sh DESCRIPTION
 The
 .Fn pthread_sigmask
@@ -78,8 +75,9 @@ If successful,
 returns 0.
 Otherwise, an error is returned.
 .Sh ERRORS
+The
 .Fn pthread_sigmask
-will fail if:
+function will fail if:
 .Bl -tag -width Er
 .It Bq Er EINVAL
 .Fa how

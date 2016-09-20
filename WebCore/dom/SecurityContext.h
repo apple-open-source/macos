@@ -28,9 +28,8 @@
 #define SecurityContext_h
 
 #include <memory>
-#include <wtf/PassRefPtr.h>
+#include <wtf/Forward.h>
 #include <wtf/RefPtr.h>
-#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -76,6 +75,10 @@ public:
     WEBCORE_EXPORT SecurityOrigin* securityOrigin() const;
 
     static SandboxFlags parseSandboxPolicy(const String& policy, String& invalidTokensErrorMessage);
+    bool foundMixedContent() const { return m_foundMixedContent; }
+    void setFoundMixedContent() { m_foundMixedContent = true; }
+    bool geolocationAccessed() const { return m_geolocationAccessed; }
+    void setGeolocationAccessed() { m_geolocationAccessed = true; }
 
 protected:
     SecurityContext();
@@ -91,6 +94,8 @@ private:
     SandboxFlags m_sandboxFlags;
     RefPtr<SecurityOriginPolicy> m_securityOriginPolicy;
     std::unique_ptr<ContentSecurityPolicy> m_contentSecurityPolicy;
+    bool m_foundMixedContent { false };
+    bool m_geolocationAccessed { false };
 };
 
 } // namespace WebCore

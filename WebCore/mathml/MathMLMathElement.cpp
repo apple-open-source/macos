@@ -29,13 +29,18 @@
 #if ENABLE(MATHML)
 
 #include "MathMLMathElement.h"
+
+#include "MathMLNames.h"
 #include "RenderMathMLMath.h"
 
 namespace WebCore {
 
+using namespace MathMLNames;
+
 inline MathMLMathElement::MathMLMathElement(const QualifiedName& tagName, Document& document)
     : MathMLInlineContainerElement(tagName, document)
 {
+    setHasCustomStyleResolveCallbacks();
 }
 
 Ref<MathMLMathElement> MathMLMathElement::create(const QualifiedName& tagName, Document& document)
@@ -43,9 +48,24 @@ Ref<MathMLMathElement> MathMLMathElement::create(const QualifiedName& tagName, D
     return adoptRef(*new MathMLMathElement(tagName, document));
 }
 
-RenderPtr<RenderElement> MathMLMathElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
+RenderPtr<RenderElement> MathMLMathElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
 {
-    return createRenderer<RenderMathMLMath>(*this, WTF::move(style));
+    return createRenderer<RenderMathMLMath>(*this, WTFMove(style));
+}
+
+void MathMLMathElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
+{
+    if ((name == displaystyleAttr || name == displayAttr || name == mathvariantAttr) && renderer())
+        MathMLStyle::resolveMathMLStyleTree(renderer());
+
+    MathMLInlineContainerElement::parseAttribute(name, value);
+}
+
+void MathMLMathElement::didAttachRenderers()
+{
+    MathMLInlineContainerElement::didAttachRenderers();
+
+    MathMLStyle::resolveMathMLStyleTree(renderer());
 }
 
 }

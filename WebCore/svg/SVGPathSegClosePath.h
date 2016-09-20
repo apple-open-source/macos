@@ -25,21 +25,21 @@
 
 namespace WebCore {
 
-class SVGPathSegClosePath : public SVGPathSegWithContext {
+class SVGPathSegClosePath final : public SVGPathSegWithContext {
 public:
-    static Ref<SVGPathSegClosePath> create(SVGPathElement* element, SVGPathSegRole role)
+    static Ref<SVGPathSegClosePath> create(const SVGPathElement& element, SVGPathSegRole role)
     {
         return adoptRef(*new SVGPathSegClosePath(element, role));
     }
 
 private:
-    SVGPathSegClosePath(SVGPathElement* element, SVGPathSegRole role)
+    SVGPathSegClosePath(const SVGPathElement& element, SVGPathSegRole role)
         : SVGPathSegWithContext(element, role)
     {
     }
 
-    virtual unsigned short pathSegType() const override { return PATHSEG_CLOSEPATH; }
-    virtual String pathSegTypeAsLetter() const override { return "Z"; }
+    unsigned short pathSegType() const override { return PATHSEG_CLOSEPATH; }
+    String pathSegTypeAsLetter() const override { return "Z"; }
 };
 
 } // namespace WebCore

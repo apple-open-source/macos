@@ -39,6 +39,8 @@
 #include "RenderTextControl.h"
 #include "RenderView.h"
 #include "ScriptController.h"
+#include "ShadowRoot.h"
+#include "StyleResolver.h"
 #include "TextEvent.h"
 #include "TextEventInputType.h"
 #include <wtf/Ref.h>
@@ -57,9 +59,9 @@ Ref<TextControlInnerContainer> TextControlInnerContainer::create(Document& docum
     return adoptRef(*new TextControlInnerContainer(document));
 }
     
-RenderPtr<RenderElement> TextControlInnerContainer::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
+RenderPtr<RenderElement> TextControlInnerContainer::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
 {
-    return createRenderer<RenderTextControlInnerContainer>(*this, WTF::move(style));
+    return createRenderer<RenderTextControlInnerContainer>(*this, WTFMove(style));
 }
 
 TextControlInnerElement::TextControlInnerElement(Document& document)
@@ -73,10 +75,21 @@ Ref<TextControlInnerElement> TextControlInnerElement::create(Document& document)
     return adoptRef(*new TextControlInnerElement(document));
 }
 
-RefPtr<RenderStyle> TextControlInnerElement::customStyleForRenderer(RenderStyle&)
+Optional<ElementStyle> TextControlInnerElement::resolveCustomStyle(const RenderStyle&, const RenderStyle* shadowHostStyle)
 {
-    RenderTextControlSingleLine& parentRenderer = downcast<RenderTextControlSingleLine>(*shadowHost()->renderer());
-    return parentRenderer.createInnerBlockStyle(&parentRenderer.style());
+    auto innerContainerStyle = RenderStyle::createPtr();
+    innerContainerStyle->inheritFrom(shadowHostStyle);
+
+    innerContainerStyle->setFlexGrow(1);
+    // min-width: 0; is needed for correct shrinking.
+    innerContainerStyle->setMinWidth(Length(0, Fixed));
+    innerContainerStyle->setDisplay(BLOCK);
+    innerContainerStyle->setDirection(LTR);
+
+    // We don't want the shadow dom to be editable, so we set this block to read-only in case the input itself is editable.
+    innerContainerStyle->setUserModify(READ_ONLY);
+
+    return ElementStyle(WTFMove(innerContainerStyle));
 }
 
 // ---------------------------
@@ -111,9 +124,9 @@ void TextControlInnerTextElement::defaultEventHandler(Event* event)
         HTMLDivElement::defaultEventHandler(event);
 }
 
-RenderPtr<RenderElement> TextControlInnerTextElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
+RenderPtr<RenderElement> TextControlInnerTextElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
 {
-    return createRenderer<RenderTextControlInnerBlock>(*this, WTF::move(style));
+    return createRenderer<RenderTextControlInnerBlock>(*this, WTFMove(style));
 }
 
 RenderTextControlInnerBlock* TextControlInnerTextElement::renderer() const
@@ -121,10 +134,33 @@ RenderTextControlInnerBlock* TextControlInnerTextElement::renderer() const
     return downcast<RenderTextControlInnerBlock>(HTMLDivElement::renderer());
 }
 
-RefPtr<RenderStyle> TextControlInnerTextElement::customStyleForRenderer(RenderStyle&)
+Optional<ElementStyle> TextControlInnerTextElement::resolveCustomStyle(const RenderStyle&, const RenderStyle* shadowHostStyle)
 {
-    RenderTextControl& parentRenderer = downcast<RenderTextControl>(*shadowHost()->renderer());
-    return parentRenderer.createInnerTextStyle(&parentRenderer.style());
+    auto style = downcast<HTMLTextFormControlElement>(*shadowHost()).createInnerTextStyle(*shadowHostStyle);
+    return ElementStyle(std::make_unique<RenderStyle>(WTFMove(style)));
+}
+
+// ----------------------------
+
+TextControlPlaceholderElement::TextControlPlaceholderElement(Document& document)
+    : HTMLDivElement(divTag, document)
+{
+    setPseudo(AtomicString("placeholder", AtomicString::ConstructFromLiteral));
+    setHasCustomStyleResolveCallbacks();
+}
+
+Optional<ElementStyle> TextControlPlaceholderElement::resolveCustomStyle(const RenderStyle& parentStyle, const RenderStyle* shadowHostStyle)
+{
+    auto style = resolveStyle(&parentStyle);
+
+    auto& controlElement = downcast<HTMLTextFormControlElement>(*containingShadowRoot()->host());
+    style.renderStyle->setDisplay(controlElement.isPlaceholderVisible() ? BLOCK : NONE);
+
+    if (is<HTMLInputElement>(controlElement)) {
+        auto& inputElement = downcast<HTMLInputElement>(controlElement);
+        style.renderStyle->setTextOverflow(inputElement.shouldTruncateText(*shadowHostStyle) ? TextOverflowEllipsis : TextOverflowClip);
+    }
+    return WTFMove(style);
 }
 
 // ----------------------------
@@ -142,16 +178,18 @@ Ref<SearchFieldResultsButtonElement> SearchFieldResultsButtonElement::create(Doc
 void SearchFieldResultsButtonElement::defaultEventHandler(Event* event)
 {
     // On mousedown, bring up a menu, if needed
-    HTMLInputElement* input = downcast<HTMLInputElement>(shadowHost());
+    auto* input = downcast<HTMLInputElement>(shadowHost());
     if (input && event->type() == eventNames().mousedownEvent && is<MouseEvent>(*event) && downcast<MouseEvent>(*event).button() == LeftButton) {
         input->focus();
         input->select();
 #if !PLATFORM(IOS)
-        RenderSearchField& renderer = downcast<RenderSearchField>(*input->renderer());
-        if (renderer.popupIsVisible())
-            renderer.hidePopup();
-        else if (input->maxResults() > 0)
-            renderer.showPopup();
+        if (auto* renderer = input->renderer()) {
+            auto& searchFieldRenderer = downcast<RenderSearchField>(*renderer);
+            if (searchFieldRenderer.popupIsVisible())
+                searchFieldRenderer.hidePopup();
+            else if (input->maxResults() > 0)
+                searchFieldRenderer.showPopup();
+        }
 #endif
         event->setDefaultHandled();
     }
@@ -174,9 +212,9 @@ inline SearchFieldCancelButtonElement::SearchFieldCancelButtonElement(Document& 
 {
     setPseudo(AtomicString("-webkit-search-cancel-button", AtomicString::ConstructFromLiteral));
 #if !PLATFORM(IOS)
-    setAttribute(aria_labelAttr, AXSearchFieldCancelButtonText());
+    setAttributeWithoutSynchronization(aria_labelAttr, AXSearchFieldCancelButtonText());
 #endif
-    setAttribute(roleAttr, AtomicString("button", AtomicString::ConstructFromLiteral));
+    setAttributeWithoutSynchronization(roleAttr, AtomicString("button", AtomicString::ConstructFromLiteral));
 }
 
 Ref<SearchFieldCancelButtonElement> SearchFieldCancelButtonElement::create(Document& document)

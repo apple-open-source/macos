@@ -60,6 +60,7 @@ KCCursorImpl::KCCursorImpl(const StorageManager::KeychainList &searchList, SecIt
 	mCurrent(mSearchList.begin()),
 	mAllFailed(true),
     mDeleteInvalidRecords(false),
+    mIsNewKeychain(true),
 	mMutex(Mutex::recursive),
     mKeychainReadLock(NULL)
 {
@@ -117,6 +118,7 @@ KCCursorImpl::KCCursorImpl(const StorageManager::KeychainList &searchList, const
 	mCurrent(mSearchList.begin()),
 	mAllFailed(true),
     mDeleteInvalidRecords(false),
+    mIsNewKeychain(true),
 	mMutex(Mutex::recursive),
     mKeychainReadLock(NULL)
 {
@@ -187,20 +189,10 @@ KCCursorImpl::next(Item &item)
 	DbUniqueRecord uniqueId;
 	OSStatus status = 0;
 
-    // if this is true, we should perform newKeychain() on mCurrent before
-    // taking any locks. Starts false because mDbCursor isn't anything yet, and
-    // so the while loop will run newKeychain for us.
-    bool isNewKeychain = false;
-
 	for (;;)
 	{
         Item tempItem = NULL;
         {
-            if(isNewKeychain) {
-                newKeychain(mCurrent);
-                isNewKeychain = false;
-            }
-
             while (!mDbCursor)
             {
                 // Do the newKeychain dance before we check our done status
@@ -229,6 +221,7 @@ KCCursorImpl::next(Item &item)
                 catch(const CommonError &err)
                 {
                     ++mCurrent;
+                    mIsNewKeychain = true;
                 }
             }
 
@@ -271,7 +264,7 @@ KCCursorImpl::next(Item &item)
                 // we'd like to call newKeychain(mCurrent) here, but to avoid deadlock
                 // we need to drop the current keychain's mutex first. Use this silly
                 // hack to void the stack Mutex object.
-                isNewKeychain = true;
+                mIsNewKeychain = true;
                 continue;
             }
 
@@ -319,7 +312,7 @@ KCCursorImpl::next(Item &item)
                 if (mDeleteInvalidRecords) {
                     // This is an invalid record for some reason; delete it and restart the loop
                     const char* errStr = cssmErrorString(cssme.error);
-                    secdebugfunc("integrity", "deleting corrupt record because: %d %s", (int) cssme.error, errStr);
+                    secnotice("integrity", "deleting corrupt record because: %d %s", (int) cssme.error, errStr);
 
                     deleteInvalidRecord(uniqueId);
                     // if deleteInvalidRecord doesn't throw, we want to restart the loop
@@ -330,26 +323,6 @@ KCCursorImpl::next(Item &item)
             }
         }
         // release the Keychain lock before checking item integrity to avoid deadlock
-
-        try {
-            // If the Item's attribute hash does not match, skip the item
-            if(!tempItem->checkIntegrity()) {
-                secdebugfunc("integrity", "item has no integrity, skipping");
-                continue;
-            }
-        } catch(CssmError cssme) {
-            if (mDeleteInvalidRecords) {
-                // This is an invalid record for some reason; delete it and restart the loop
-                const char* errStr = cssmErrorString(cssme.error);
-                secdebugfunc("integrity", "deleting corrupt record because: %d %s", (int) cssme.error, errStr);
-
-                deleteInvalidRecord(uniqueId);
-                // if deleteInvalidRecord doesn't throw, we want to restart the loop
-                continue;
-            } else {
-                throw;
-            }
-        }
 
 		item = tempItem;
 
@@ -366,7 +339,7 @@ void KCCursorImpl::deleteInvalidRecord(DbUniqueRecord& uniqueId) {
         uniqueId->deleteRecord();
     } catch(CssmError delcssme) {
         if (delcssme.osStatus() == CSSMERR_DL_RECORD_NOT_FOUND) {
-            secdebugfunc("integrity", "couldn't delete nonexistent record (this is okay)");
+            secnotice("integrity", "couldn't delete nonexistent record (this is okay)");
         } else {
             throw;
         }
@@ -392,6 +365,11 @@ void KCCursorImpl::setDeleteInvalidRecords(bool deleteRecord) {
 }
 
 void KCCursorImpl::newKeychain(StorageManager::KeychainList::iterator kcIter) {
+    if(!mIsNewKeychain) {
+        // We've already been called on this keychain, don't bother.
+        return;
+    }
+
     // Always lose the last keychain's lock
     if(mKeychainReadLock) {
         delete mKeychainReadLock;
@@ -400,8 +378,12 @@ void KCCursorImpl::newKeychain(StorageManager::KeychainList::iterator kcIter) {
 
     if(kcIter != mSearchList.end()) {
         (*kcIter)->performKeychainUpgradeIfNeeded();
+        (*kcIter)->tickle();
 
         // Grab a read lock on the keychain
         mKeychainReadLock = new StReadWriteLock(*((*kcIter)->getKeychainReadWriteLock()), StReadWriteLock::Read);
     }
+
+    // Mark down that this function has been called
+    mIsNewKeychain = false;
 }

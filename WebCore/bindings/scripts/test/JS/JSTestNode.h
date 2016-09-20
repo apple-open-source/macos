@@ -18,8 +18,7 @@
     Boston, MA 02110-1301, USA.
 */
 
-#ifndef JSTestNode_h
-#define JSTestNode_h
+#pragma once
 
 #include "JSNode.h"
 #include "TestNode.h"
@@ -29,15 +28,16 @@ namespace WebCore {
 class WEBCORE_TESTSUPPORT_EXPORT JSTestNode : public JSNode {
 public:
     typedef JSNode Base;
+    typedef TestNode DOMWrapped;
     static JSTestNode* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, Ref<TestNode>&& impl)
     {
-        JSTestNode* ptr = new (NotNull, JSC::allocateCell<JSTestNode>(globalObject->vm().heap)) JSTestNode(structure, globalObject, WTF::move(impl));
+        JSTestNode* ptr = new (NotNull, JSC::allocateCell<JSTestNode>(globalObject->vm().heap)) JSTestNode(structure, *globalObject, WTFMove(impl));
         ptr->finishCreation(globalObject->vm());
         return ptr;
     }
 
     static JSC::JSObject* createPrototype(JSC::VM&, JSC::JSGlobalObject*);
-    static JSC::JSObject* getPrototype(JSC::VM&, JSC::JSGlobalObject*);
+    static JSC::JSObject* prototype(JSC::VM&, JSC::JSGlobalObject*);
 
     DECLARE_INFO;
 
@@ -46,15 +46,15 @@ public:
         return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::JSType(JSNodeType), StructureFlags), info());
     }
 
-    static JSC::JSValue getConstructor(JSC::VM&, JSC::JSGlobalObject*);
+    static JSC::JSValue getConstructor(JSC::VM&, const JSC::JSGlobalObject*);
     static void visitChildren(JSCell*, JSC::SlotVisitor&);
 
-    TestNode& impl() const
+    TestNode& wrapped() const
     {
-        return static_cast<TestNode&>(Base::impl());
+        return static_cast<TestNode&>(Base::wrapped());
     }
 protected:
-    JSTestNode(JSC::Structure*, JSDOMGlobalObject*, Ref<TestNode>&&);
+    JSTestNode(JSC::Structure*, JSDOMGlobalObject&, Ref<TestNode>&&);
 
     void finishCreation(JSC::VM& vm)
     {
@@ -64,8 +64,10 @@ protected:
 
 };
 
+WEBCORE_TESTSUPPORT_EXPORT JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, TestNode&);
+inline JSC::JSValue toJS(JSC::ExecState* state, JSDOMGlobalObject* globalObject, TestNode* impl) { return impl ? toJS(state, globalObject, *impl) : JSC::jsNull(); }
+JSC::JSValue toJSNewlyCreated(JSC::ExecState*, JSDOMGlobalObject*, Ref<TestNode>&&);
+inline JSC::JSValue toJSNewlyCreated(JSC::ExecState* state, JSDOMGlobalObject* globalObject, RefPtr<TestNode>&& impl) { return impl ? toJSNewlyCreated(state, globalObject, impl.releaseNonNull()) : JSC::jsNull(); }
 
 
 } // namespace WebCore
-
-#endif

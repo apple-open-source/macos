@@ -1,6 +1,4 @@
 /*
- * "$Id: gziptoany.c 12669 2015-05-27 19:42:43Z msweet $"
- *
  * GZIP/raw pre-filter for CUPS.
  *
  * Copyright 2007-2015 by Apple Inc.
@@ -109,8 +107,3 @@ main(int  argc,				/* I - Number of command-line arguments */
 
   return (0);
 }
-
-
-/*
- * End of "$Id: gziptoany.c 12669 2015-05-27 19:42:43Z msweet $".
- */

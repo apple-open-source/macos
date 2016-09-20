@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/vi.xml
@@ -46,7 +46,6 @@ vi{
         AI{"Anguilla"}
         AL{"Albani"}
         AM{"Armenia"}
-        AN{"Tây Ấn Hà Lan"}
         AO{"Angola"}
         AQ{"Nam Cực"}
         AR{"Argentina"}
@@ -65,7 +64,7 @@ vi{
         BH{"Bahrain"}
         BI{"Burundi"}
         BJ{"Benin"}
-        BL{"Saint Barthélemy"}
+        BL{"St. Barthélemy"}
         BM{"Bermuda"}
         BN{"Brunei"}
         BO{"Bolivia"}
@@ -138,8 +137,8 @@ vi{
         GU{"Guam"}
         GW{"Guinea-Bissau"}
         GY{"Guyana"}
-        HK{"Đặc khu hành chính Hồng Kông - Trung Quốc"}
-        HM{"Đảo Heard và Quần đảo McDonald"}
+        HK{"Hồng Kông, Trung Quốc"}
+        HM{"Quần đảo Heard và McDonald"}
         HN{"Honduras"}
         HR{"Croatia"}
         HT{"Haiti"}
@@ -164,7 +163,7 @@ vi{
         KH{"Campuchia"}
         KI{"Kiribati"}
         KM{"Comoros"}
-        KN{"Saint Kitts và Nevis"}
+        KN{"St. Kitts và Nevis"}
         KP{"Triều Tiên"}
         KR{"Hàn Quốc"}
         KW{"Cô-oét"}
@@ -172,7 +171,7 @@ vi{
         KZ{"Kazakhstan"}
         LA{"Lào"}
         LB{"Li-băng"}
-        LC{"Saint Lucia"}
+        LC{"St. Lucia"}
         LI{"Liechtenstein"}
         LK{"Sri Lanka"}
         LR{"Liberia"}
@@ -185,14 +184,14 @@ vi{
         MC{"Monaco"}
         MD{"Moldova"}
         ME{"Montenegro"}
-        MF{"Saint Martin"}
+        MF{"St. Martin"}
         MG{"Madagascar"}
         MH{"Quần đảo Marshall"}
         MK{"Macedonia"}
         ML{"Mali"}
         MM{"Myanmar (Miến Điện)"}
         MN{"Mông Cổ"}
-        MO{"Đặc khu hành chính Macao - Trung Quốc"}
+        MO{"Macao, Trung Quốc"}
         MP{"Quần đảo Bắc Mariana"}
         MQ{"Martinique"}
         MR{"Mauritania"}
@@ -244,7 +243,7 @@ vi{
         SD{"Sudan"}
         SE{"Thụy Điển"}
         SG{"Singapore"}
-        SH{"Saint Helena"}
+        SH{"St. Helena"}
         SI{"Slovenia"}
         SJ{"Svalbard và Jan Mayen"}
         SK{"Slovakia"}
@@ -283,7 +282,7 @@ vi{
         UY{"Uruguay"}
         UZ{"Uzbekistan"}
         VA{"Thành Vatican"}
-        VC{"Saint Vincent và Grenadines"}
+        VC{"St. Vincent và Grenadines"}
         VE{"Venezuela"}
         VG{"Quần đảo Virgin thuộc Anh"}
         VI{"Quần đảo Virgin thuộc Mỹ"}
@@ -312,5 +311,5 @@ vi{
         FK{"Quần đảo Falkland (Islas Malvinas)"}
         MK{"Macedonia (FYROM)"}
     }
-    Version{"2.1.12.94"}
+    Version{"2.1.23.12"}
 }

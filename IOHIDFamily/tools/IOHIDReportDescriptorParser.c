@@ -492,6 +492,27 @@ void PrintHIDDescriptor(const uint8_t *reportDesc, uint32_t length)
                         }
                         strcat((char *)tempbuf, (char *)")");
                     }
+                    else if (usagePage == kHIDPage_LEDs)
+                    {
+                        strcat((char *)buf, (char *)"(");
+                        switch (value)
+                        {
+                            case 0x01: sprintf((char *)tempbuf, "Num Lock"); break;
+                            case 0x02: sprintf((char *)tempbuf, "Caps Lock"); break;
+                            case 0x03: sprintf((char *)tempbuf, "Scroll Lock"); break;
+                            case 0x4E: sprintf((char *)tempbuf, "Player Indicator"); break;
+                            case 0x4F: sprintf((char *)tempbuf, "Player 1"); break;
+                            case 0x50: sprintf((char *)tempbuf, "Player 2"); break;
+                            case 0x51: sprintf((char *)tempbuf, "Player 3"); break;
+                            case 0x52: sprintf((char *)tempbuf, "Player 4"); break;
+                            case 0x53: sprintf((char *)tempbuf, "Player 5"); break;
+                            case 0x54: sprintf((char *)tempbuf, "Player 6"); break;
+                            case 0x55: sprintf((char *)tempbuf, "Player 7"); break;
+                            case 0x56: sprintf((char *)tempbuf, "Player 8"); break;
+                            default: sprintf((char *)tempbuf, "%d (0x%x)", (int)value, (unsigned int)value); break;
+                        }
+                        strcat((char *)tempbuf, (char *)")");
+                    }
                     else if (usagePage == kHIDPage_PID)
                     {
                         strcat((char *)buf, (char *)"(");

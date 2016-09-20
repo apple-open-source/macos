@@ -53,7 +53,7 @@ std::unique_ptr<GLTransportSurface> GLTransportSurface::createTransportSurface(c
 #endif
 
     if (surface && surface->handle() && surface->drawable())
-        return WTF::move(surface);
+        return surface;
 
     return nullptr;
 }
@@ -170,7 +170,7 @@ void GLTransportSurface::initializeShaderProgram()
     vertexArrayObjectSupported = m_context3D->getExtensions()->supports("GL_OES_vertex_array_object");
 
     TextureMapperShaderProgram::Options options = TextureMapperShaderProgram::Texture;
-    m_shaderProgram = TextureMapperShaderProgram::create(m_context3D, options);
+    m_shaderProgram = TextureMapperShaderProgram::create(*m_context3D, options);
 
     ::glUseProgram(m_shaderProgram->programID());
     ::glUniform1i(m_shaderProgram->samplerLocation(), 0);
@@ -220,7 +220,7 @@ std::unique_ptr<GLTransportSurfaceClient> GLTransportSurfaceClient::createTransp
         return nullptr;
     }
 
-    return WTF::move(client);
+    return client;
 }
 
 

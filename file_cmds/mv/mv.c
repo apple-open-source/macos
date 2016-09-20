@@ -443,7 +443,7 @@ copy(char *from, char *to)
 {
 	int pid, status;
 	
-	/* posix_spawn mv from to && rm from */
+	/* posix_spawn cp from to && rm from */
 
 	if ((pid = fork()) == 0) {
 		execl(_PATH_CP, "mv", vflg ? "-PRpv" : "-PRp", "--", from, to,

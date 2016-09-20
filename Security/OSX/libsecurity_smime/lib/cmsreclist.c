@@ -172,6 +172,7 @@ nss_cms_recipient_list_destroy(SecCmsRecipient **recipient_list)
 	    PK11_FreeSlot(recipient->slot);
 #endif
 	PORT_Free(recipient);
+        recipient_list[i] = NULL;
     }
     PORT_Free(recipient_list);
 }

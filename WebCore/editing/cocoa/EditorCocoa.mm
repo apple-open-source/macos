@@ -41,7 +41,7 @@
 namespace WebCore {
 
 // FIXME: This figures out the current style by inserting a <span>!
-RenderStyle* Editor::styleForSelectionStart(Frame* frame, Node *&nodeToRemove)
+const RenderStyle* Editor::styleForSelectionStart(Frame* frame, Node *&nodeToRemove)
 {
     nodeToRemove = nullptr;
     
@@ -56,36 +56,36 @@ RenderStyle* Editor::styleForSelectionStart(Frame* frame, Node *&nodeToRemove)
     if (!typingStyle || !typingStyle->style())
         return &position.deprecatedNode()->renderer()->style();
 
-    RefPtr<Element> styleElement = frame->document()->createElement(HTMLNames::spanTag, false);
+    Ref<Element> styleElement = frame->document()->createElement(HTMLNames::spanTag, false);
 
     String styleText = typingStyle->style()->asText() + " display: inline";
     styleElement->setAttribute(HTMLNames::styleAttr, styleText);
 
-    styleElement->appendChild(frame->document()->createEditingTextNode(""), ASSERT_NO_EXCEPTION);
+    styleElement->appendChild(frame->document()->createEditingTextNode(emptyString()), ASSERT_NO_EXCEPTION);
 
     ContainerNode* parentNode = position.deprecatedNode()->parentNode();
 
-    if (!parentNode->ensurePreInsertionValidity(*styleElement, nullptr, IGNORE_EXCEPTION))
-        return nullptr;
+    if (!parentNode->ensurePreInsertionValidity(styleElement.copyRef(), nullptr, IGNORE_EXCEPTION))
+        return nullptr; 
 
     parentNode->appendChild(styleElement, ASSERT_NO_EXCEPTION);
 
-    nodeToRemove = styleElement.get();
+    nodeToRemove = styleElement.ptr();
 
     frame->document()->updateStyleIfNeeded();
     return styleElement->renderer() ? &styleElement->renderer()->style() : nullptr;
 }
 
-void Editor::getTextDecorationAttributesRespectingTypingStyle(RenderStyle& style, NSMutableDictionary* result) const
+void Editor::getTextDecorationAttributesRespectingTypingStyle(const RenderStyle& style, NSMutableDictionary* result) const
 {
     RefPtr<EditingStyle> typingStyle = m_frame.selection().typingStyle();
     if (typingStyle && typingStyle->style()) {
         RefPtr<CSSValue> value = typingStyle->style()->getPropertyCSSValue(CSSPropertyWebkitTextDecorationsInEffect);
         if (value && value->isValueList()) {
             CSSValueList& valueList = downcast<CSSValueList>(*value);
-            if (valueList.hasValue(cssValuePool().createIdentifierValue(CSSValueLineThrough).ptr()))
+            if (valueList.hasValue(CSSValuePool::singleton().createIdentifierValue(CSSValueLineThrough).ptr()))
                 [result setObject:[NSNumber numberWithInt:NSUnderlineStyleSingle] forKey:NSStrikethroughStyleAttributeName];
-            if (valueList.hasValue(cssValuePool().createIdentifierValue(CSSValueUnderline).ptr()))
+            if (valueList.hasValue(CSSValuePool::singleton().createIdentifierValue(CSSValueUnderline).ptr()))
                 [result setObject:[NSNumber numberWithInt:NSUnderlineStyleSingle] forKey:NSUnderlineStyleAttributeName];
         }
     } else {

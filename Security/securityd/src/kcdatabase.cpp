@@ -58,8 +58,15 @@
 #include <syslog.h>
 #include <sys/sysctl.h>
 #include <sys/kauth.h>
+#include <sys/csr.h>
 
 void unflattenKey(const CssmData &flatKey, CssmKey &rawKey);	//>> make static method on KeychainDatabase
+
+//
+// Static members
+//
+KeychainDbCommon::CommonSet KeychainDbCommon::mCommonSet;
+ReadWriteLock KeychainDbCommon::mRWCommonLock;
 
 // Process is using a cached effective uid, login window switches uid after the intial connection
 static void get_process_euid(pid_t pid, uid_t * out_euid)
@@ -201,7 +208,7 @@ unlock_keybag_with_cred(KeychainDatabase &db, const AccessCredentials *cred){
                 case CSSM_SAMPLE_TYPE_PASSWORD: {
                     if (sample.length() != 2)
                         CssmError::throwMe(CSSM_ERRCODE_INVALID_SAMPLE_VALUE);
-                    secdebug("KCdb", "%p attempting passphrase unlock of keybag");
+                    secinfo("KCdb", "attempting passphrase unlock of keybag");
                     if (unlock_keybag(db, sample[1].data().data(), (int)sample[1].data().length())) {
                         return true;
                     }
@@ -209,7 +216,7 @@ unlock_keybag_with_cred(KeychainDatabase &db, const AccessCredentials *cred){
                 }
                 default: {
                     // Unknown sub-sample for unlocking.
-                    secdebug("KCdb", "keybag: unknown sub-sample unlock (%d) ignored", sample.type());
+                    secinfo("KCdb", "keybag: unknown sub-sample unlock (%d) ignored", sample.type());
                     break;
                 }
             }
@@ -223,7 +230,7 @@ unlock_keybag_with_cred(KeychainDatabase &db, const AccessCredentials *cred){
 //
 KeychainDatabase::KeychainDatabase(const DLDbIdentifier &id, const DBParameters &params, Process &proc,
             const AccessCredentials *cred, const AclEntryPrototype *owner)
-    : LocalDatabase(proc), mValidData(false), mSecret(Allocator::standard(Allocator::sensitive)), mSaveSecret(false), version(0), mBlob(NULL)
+    : LocalDatabase(proc), mValidData(false), mSecret(Allocator::standard(Allocator::sensitive)), mSaveSecret(false), version(0), mBlob(NULL), mRecoded(false)
 {
     // save a copy of the credentials for later access control
     mCred = DataWalkers::copy(cred, Allocator::standard());
@@ -234,9 +241,13 @@ KeychainDatabase::KeychainDatabase(const DLDbIdentifier &id, const DBParameters 
     DbIdentifier ident(id, newSig);
 	
     // create common block and initialize
-	RefPointer<KeychainDbCommon> newCommon = new KeychainDbCommon(proc.session(), ident);
+    // Since this is a creation step, figure out the correct blob version for this database
+    RefPointer<KeychainDbCommon> newCommon = new KeychainDbCommon(proc.session(), ident, CommonBlob::getCurrentVersionForDb(ident.dbName()));
+    newCommon->initializeKeybag();
+
 	StLock<Mutex> _(*newCommon);
 	parent(*newCommon);
+	newCommon->insert();
 	// new common is now visible (in ident-map) but we hold its lock
 
 	// establish the new master secret
@@ -263,7 +274,7 @@ KeychainDatabase::KeychainDatabase(const DLDbIdentifier &id, const DBParameters 
 	// this new keychain is unlocked; make it so
 	activity();
 	
-	SECURITYD_KEYCHAIN_CREATE(&common(), (char*)this->dbName(), this);
+    secinfo("KCdb", "creating keychain %p %s with common %p", this, (char*)this->dbName(), &common());
 }
 
 
@@ -272,7 +283,7 @@ KeychainDatabase::KeychainDatabase(const DLDbIdentifier &id, const DBParameters 
 //
 KeychainDatabase::KeychainDatabase(const DLDbIdentifier &id, const DbBlob *blob, Process &proc,
     const AccessCredentials *cred)
-	: LocalDatabase(proc), mValidData(false), mSecret(Allocator::standard(Allocator::sensitive)), mSaveSecret(false), version(0), mBlob(NULL)
+	: LocalDatabase(proc), mValidData(false), mSecret(Allocator::standard(Allocator::sensitive)), mSaveSecret(false), version(0), mBlob(NULL), mRecoded(false)
 {
 	validateBlob(blob);
 
@@ -283,19 +294,79 @@ KeychainDatabase::KeychainDatabase(const DLDbIdentifier &id, const DbBlob *blob,
     // check to see if we already know about this database
     DbIdentifier ident(id, blob->randomSignature);
 	Session &session = process().session();
-	if (RefPointer<KeychainDbCommon> dbcom =
-			session.findFirst<KeychainDbCommon, const DbIdentifier &>(&KeychainDbCommon::identifier, ident)) {
-		parent(*dbcom);
-		//@@@ arbitrate sequence number here, perhaps update common().mParams
-		SECURITYD_KEYCHAIN_JOIN(&common(), (char*)this->dbName(), this);
+	RefPointer<KeychainDbCommon> com;
+    secnotice("kccommon", "looking for a common at %s", ident.dbName());
+	if (KeychainDbCommon::find(ident, session, com)) {
+        secnotice("kccommon", "found %p", com.get());
+		parent(*com);
+        secinfo("KCdb", "joining keychain %p %s with common %p", this, (char*)this->dbName(), &common());
 	} else {
 		// DbCommon not present; make a new one
-		parent(*new KeychainDbCommon(proc.session(), ident));
+        secnotice("kccommon", "no common found");
+		parent(*com);
 		common().mParams = blob->params;
-		SECURITYD_KEYCHAIN_MAKE(&common(), (char*)this->dbName(), this);
+        secinfo("KCdb", "making keychain %p %s with common %p", this, (char*)this->dbName(), &common());
 		// this DbCommon is locked; no timer or reference setting
 	}
 	proc.addReference(*this);
+}
+
+void KeychainDbCommon::insert()
+{
+    StReadWriteLock _(mRWCommonLock, StReadWriteLock::Write);
+    insertHoldingLock();
+}
+
+void KeychainDbCommon::insertHoldingLock()
+{
+    mCommonSet.insert(this);
+}
+
+
+
+// find or make a DbCommon. Returns true if an existing one was found and used.
+bool KeychainDbCommon::find(const DbIdentifier &ident, Session &session, RefPointer<KeychainDbCommon> &common, uint32 requestedVersion, KeychainDbCommon* cloneFrom)
+{
+    // Prepare to drop the mRWCommonLock.
+    {
+        StReadWriteLock _(mRWCommonLock, StReadWriteLock::Read);
+        for (CommonSet::const_iterator it = mCommonSet.begin(); it != mCommonSet.end(); ++it) {
+            if (&session == &(*it)->session() && ident == (*it)->identifier()) {
+                common = *it;
+                secnotice("kccommon", "found a common for %s at %p", ident.dbName(), common.get());
+                return true;
+            }
+        }
+    }
+
+    // not found. Grab the write lock, ensure that nobody has beaten us to adding,
+    // and then create a DbCommon and add it to the map.
+    {
+        StReadWriteLock _(mRWCommonLock, StReadWriteLock::Write);
+        for (CommonSet::const_iterator it = mCommonSet.begin(); it != mCommonSet.end(); ++it) {
+            if (&session == &(*it)->session() && ident == (*it)->identifier()) {
+                common = *it;
+                secnotice("kccommon", "found a common for %s at %p", ident.dbName(), common.get());
+                return true;
+            }
+        }
+
+        // not found
+        if(cloneFrom) {
+            common = new KeychainDbCommon(session, ident, *cloneFrom);
+        } else if(requestedVersion != CommonBlob::version_none) {
+            common = new KeychainDbCommon(session, ident, requestedVersion);
+        } else {
+            common = new KeychainDbCommon(session, ident);
+        }
+
+        secnotice("kccommon", "made a new common for %s at %p", ident.dbName(), common.get());
+
+        // Can't call insert() here, because it grabs the write lock (which we have).
+        common->insertHoldingLock();
+    }
+    common->initializeKeybag();
+    return false;
 }
 
 // recode/clone:
@@ -309,7 +380,7 @@ KeychainDatabase::KeychainDatabase(const DLDbIdentifier &id, const DbBlob *blob,
 // the re-encoding can declare it done.  
 //
 KeychainDatabase::KeychainDatabase(KeychainDatabase &src, Process &proc, DbHandle dbToClone)
-	: LocalDatabase(proc), mValidData(false), mSecret(Allocator::standard(Allocator::sensitive)), mSaveSecret(false), version(0), mBlob(NULL)
+	: LocalDatabase(proc), mValidData(false), mSecret(Allocator::standard(Allocator::sensitive)), mSaveSecret(false), version(0), mBlob(NULL), mRecoded(false)
 {
 	mCred = DataWalkers::copy(src.mCred, Allocator::standard());
 
@@ -320,8 +391,10 @@ KeychainDatabase::KeychainDatabase(KeychainDatabase &src, Process &proc, DbHandl
 
     // create common block and initialize
 	RefPointer<KeychainDbCommon> newCommon = new KeychainDbCommon(proc.session(), ident);
+    newCommon->initializeKeybag();
 	StLock<Mutex> _(*newCommon);
 	parent(*newCommon);
+	newCommon->insert();
 
 	// set initial database parameters from the source keychain
 	common().mParams = src.common().mParams;
@@ -333,7 +406,7 @@ KeychainDatabase::KeychainDatabase(KeychainDatabase &src, Process &proc, DbHandl
 	//      SecurityAgentQuery type, new UI, and--possibly--modifications to
 	//      ensure that the new password is available here to generate the 
 	//      new master secret.  
-	src.unlockDb();		// precaution for masterKey()
+	src.unlockDb(false);		// precaution for masterKey()
 	common().setup(src.blob(), src.common().masterKey());
 	
     // import the operational secrets
@@ -357,14 +430,56 @@ KeychainDatabase::KeychainDatabase(KeychainDatabase &src, Process &proc, DbHandl
     encode();
 
 	proc.addReference(*this);
-	secdebug("SSdb", "database %s(%p) created as copy, common at %p",
+	secinfo("SSdb", "database %s(%p) created as copy, common at %p",
 			 common().dbName(), this, &common());
+}
+
+// Make a new KeychainDatabase from an old one, but have a completely different location
+KeychainDatabase::KeychainDatabase(const DLDbIdentifier& id, KeychainDatabase &src, Process &proc)
+: LocalDatabase(proc), mValidData(false), mSecret(Allocator::standard(Allocator::sensitive)), mSaveSecret(false), version(0), mBlob(NULL), mRecoded(false)
+{
+    mCred = DataWalkers::copy(src.mCred, Allocator::standard());
+
+    DbIdentifier ident(id, src.identifier());
+
+    // create common block and initialize
+    RefPointer<KeychainDbCommon> newCommon;
+    if(KeychainDbCommon::find(ident, process().session(), newCommon, CommonBlob::version_none, &src.common())) {
+        // A common already existed. Write over it, but note that everything may go horribly from here on out.
+        secnotice("kccommon", "Found common where we didn't expect. Possible strange behavior ahead.");
+        newCommon->cloneFrom(src.common());
+    }
+
+    StLock<Mutex> _(*newCommon);
+    parent(*newCommon);
+
+    // set initial database parameters from the source keychain
+    common().mParams = src.common().mParams;
+
+    // import source keychain's ACL
+    CssmData pubAcl, privAcl;
+    src.acl().exportBlob(pubAcl, privAcl);
+    importBlob(pubAcl.data(), privAcl.data());
+    src.acl().allocator.free(pubAcl);
+    src.acl().allocator.free(privAcl);
+
+    // Copy the source database's blob, if possible
+    if(src.mBlob) {
+        mBlob = src.mBlob->copy();
+        version = src.version;
+    }
+
+    // We've copied everything we can from our source. If they were valid, so are we.
+    mValidData = src.mValidData;
+
+    proc.addReference(*this);
+    secinfo("SSdb", "database %s(%p) created as expected clone, common at %p", common().dbName(), this, &common());
 }
 
 
 // Make a new KeychainDatabase from an old one, but have entirely new operational secrets
-KeychainDatabase::KeychainDatabase(KeychainDatabase &src, Process &proc)
-: LocalDatabase(proc), mValidData(false), mSecret(Allocator::standard(Allocator::sensitive)), mSaveSecret(false), version(0), mBlob(NULL)
+KeychainDatabase::KeychainDatabase(uint32 requestedVersion, KeychainDatabase &src, Process &proc)
+: LocalDatabase(proc), mValidData(false), mSecret(Allocator::standard(Allocator::sensitive)), mSaveSecret(false), version(0), mBlob(NULL), mRecoded(false)
 {
     mCred = DataWalkers::copy(src.mCred, Allocator::standard());
 
@@ -375,8 +490,17 @@ KeychainDatabase::KeychainDatabase(KeychainDatabase &src, Process &proc)
     DLDbIdentifier newDLDbIdent(src.identifier().dlDbIdentifier().ssuid(), newDbName.c_str(), src.identifier().dlDbIdentifier().dbLocation());
     DbIdentifier ident(newDLDbIdent, src.identifier());
 
+    // hold the lock for src's common during this operation (to match locking common locking order with KeychainDatabase::recodeKey)
+    StLock<Mutex> __(src.common());
+
     // create common block and initialize
-    RefPointer<KeychainDbCommon> newCommon = new KeychainDbCommon(proc.session(), ident);
+    RefPointer<KeychainDbCommon> newCommon;
+    if(KeychainDbCommon::find(ident, process().session(), newCommon, requestedVersion)) {
+        // A common already existed here. Write over it, but note that everything may go horribly from here on out.
+        secnotice("kccommon", "Found common where we didn't expect. Possible strange behavior ahead.");
+        newCommon->cloneFrom(src.common(), requestedVersion);
+    }
+    newCommon->initializeKeybag();
     StLock<Mutex> _(*newCommon);
     parent(*newCommon);
 
@@ -384,7 +508,7 @@ KeychainDatabase::KeychainDatabase(KeychainDatabase &src, Process &proc)
     // same password), but reroll new operational secrets.
 
     // Copy the master secret over...
-    src.unlockDb(); // precaution
+    src.unlockDb(false); // precaution
 
     common().setup(src.blob(), src.common().masterKey(), false); // keep the new common's version intact
 
@@ -411,7 +535,7 @@ KeychainDatabase::KeychainDatabase(KeychainDatabase &src, Process &proc)
     encode();
 
     proc.addReference(*this);
-    secdebug("SSdb", "database %s(%p) created as expected copy, common at %p",
+    secinfo("SSdb", "database %s(%p) created as expected copy, common at %p",
              common().dbName(), this, &common());
 }
 
@@ -420,7 +544,7 @@ KeychainDatabase::KeychainDatabase(KeychainDatabase &src, Process &proc)
 //
 KeychainDatabase::~KeychainDatabase()
 {
-    secdebug("KCdb", "deleting database %s(%p) common %p",
+    secinfo("KCdb", "deleting database %s(%p) common %p",
         common().dbName(), this, &common());
     Allocator::standard().free(mCred);
 	Allocator::standard().free(mBlob);
@@ -455,13 +579,6 @@ Database *KeychainDatabase::relatedDatabase()
 	return this;
 }
 
-
-static inline KeychainKey &myKey(Key *key)
-{
-	return *safe_cast<KeychainKey *>(key);
-}
-
-
 //
 // (Re-)Authenticate the database. This changes the stored credentials.
 //
@@ -473,12 +590,12 @@ void KeychainDatabase::authenticate(CSSM_DB_ACCESS_TYPE mode,
 	// the (Apple specific) RESET bit means "lock the database now"
 	switch (mode) {
 	case CSSM_DB_ACCESS_RESET:
-		secdebug("KCdb", "%p ACCESS_RESET triggers keychain lock", this);
+		secinfo("KCdb", "%p ACCESS_RESET triggers keychain lock", this);
 		common().lockDb();
 		break;
 	default:
 		//  store the new credentials for future use
-		secdebug("KCdb", "%p authenticate stores new database credentials", this);
+		secinfo("KCdb", "%p authenticate stores new database credentials", this);
 		AccessCredentials *newCred = DataWalkers::copy(cred, Allocator::standard());
 		Allocator::standard().free(mCred);
 		mCred = newCred;
@@ -516,7 +633,7 @@ DbBlob *KeychainDatabase::blob()
 {
 	StLock<Mutex> _(common());
     if (!validBlob()) {
-        makeUnlocked();			// unlock to get master secret
+        makeUnlocked(false);	// unlock to get master secret
 		encode();				// (re)encode blob if needed
     }
     activity();					// reset timeout
@@ -536,7 +653,7 @@ void KeychainDatabase::encode()
 	Allocator::standard().free(mBlob);
 	mBlob = blob;
 	version = common().version;
-	secdebug("KCdb", "encoded database %p common %p(%s) version %u params=(%u,%u)",
+	secinfo("KCdb", "encoded database %p common %p(%s) version %u params=(%u,%u)",
 		this, &common(), dbName(), version,
 		common().mParams.idleTimeout, common().mParams.lockOnSleep);
 }
@@ -553,18 +670,18 @@ void KeychainDatabase::changePassphrase(const AccessCredentials *cred)
 	// establish OLD secret - i.e. unlock the database
 	//@@@ do we want to leave the final lock state alone?
     if (common().isLoginKeychain()) mSaveSecret = true;
-	makeUnlocked(cred);
+	makeUnlocked(cred, false);
 	
     // establish NEW secret
     if(!establishNewSecrets(cred, SecurityAgent::changePassphrase)) {
-        secdebug("KCdb", "Old and new passphrases are the same. Database %s(%p) master secret did not change.",
+        secinfo("KCdb", "Old and new passphrases are the same. Database %s(%p) master secret did not change.",
                  common().dbName(), this);
         return;
     }
     if (mSecret) { mSecret.reset(); }
     mSaveSecret = false;
 	common().invalidateBlob();	// blob state changed
-	secdebug("KCdb", "Database %s(%p) master secret changed", common().dbName(), this);
+	secinfo("KCdb", "Database %s(%p) master secret changed", common().dbName(), this);
 	encode();			// force rebuild of local blob
 	
 	// send out a notification
@@ -587,8 +704,8 @@ void KeychainDatabase::commitSecretsForSync(KeychainDatabase &cloneDb)
         CssmError::throwMe(CSSM_ERRCODE_INVALID_DB_HANDLE);
 	
     // in case we autolocked since starting the sync
-    makeUnlocked(); // call this because we already own the lock
-	cloneDb.unlockDb(); // we may not own the lock here, so calling unlockDb will lock the cloneDb's common lock
+    makeUnlocked(false); // call this because we already own the lock
+	cloneDb.unlockDb(false); // we may not own the lock here, so calling unlockDb will lock the cloneDb's common lock
 
     // Decode all keys whose handles refer to this on-disk keychain so that
     // if the holding client commits the key back to disk, it's encoded with
@@ -608,11 +725,14 @@ void KeychainDatabase::commitSecretsForSync(KeychainDatabase &cloneDb)
             if (kckey->database().global().identifier() == identifier()) {
                 kckey->key();               // force decode
                 kckey->invalidateBlob();
-				secdebug("kcrecode", "changed extant key %p (proc %d)",
+				secinfo("kcrecode", "changed extant key %p (proc %d)",
 						 &*kckey, kckey->process().pid());
             }
         }
 	}
+
+    // mark down that we just recoded
+    mRecoded = true;
 
     // it is now safe to replace the old op secrets
     common().importSecrets(cloneDb.common());
@@ -634,7 +754,7 @@ RefPointer<Key> KeychainDatabase::extractMasterKey(Database &db,
 	lockDb();
 	
 	// unlock to establish master secret
-	makeUnlocked();
+	makeUnlocked(false);
 	
 	// extract the raw cryptographic key
 	CssmClient::WrapKey wrap(Server::csp(), CSSM_ALGID_NONE);
@@ -653,21 +773,21 @@ RefPointer<Key> KeychainDatabase::extractMasterKey(Database &db,
 // The makeUnlocked forms are identical except the assume the caller already
 // holds the common lock.
 //
-void KeychainDatabase::unlockDb()
+void KeychainDatabase::unlockDb(bool unlockKeybag)
 {
 	StLock<Mutex> _(common());
-	makeUnlocked();
+	makeUnlocked(unlockKeybag);
 }
 
-void KeychainDatabase::makeUnlocked()
+void KeychainDatabase::makeUnlocked(bool unlockKeybag)
 {
-	return makeUnlocked(mCred);
+	return makeUnlocked(mCred, unlockKeybag);
 }
 
-void KeychainDatabase::makeUnlocked(const AccessCredentials *cred)
+void KeychainDatabase::makeUnlocked(const AccessCredentials *cred, bool unlockKeybag)
 {
     if (isLocked()) {
-		secdebug("KCdb", "%p(%p) unlocking for makeUnlocked()", this, &common());
+		secinfo("KCdb", "%p(%p) unlocking for makeUnlocked()", this, &common());
         assert(mBlob || (mValidData && common().hasMaster()));
 		establishOldSecrets(cred);
 		common().setUnlocked(); // mark unlocked
@@ -680,7 +800,7 @@ void KeychainDatabase::makeUnlocked(const AccessCredentials *cred)
             service_context_t context = common().session().get_current_service_context();
             service_client_stash_load_key(&context, rawMaster.keyData(), (int)rawMaster.length());
         }
-	} else if (common().isLoginKeychain()) {
+	} else if (unlockKeybag && common().isLoginKeychain()) {
         bool locked = false;
         service_context_t context = common().session().get_current_service_context();
         if ((service_client_kb_is_locked(&context, &locked, NULL) == 0) && locked) {
@@ -690,7 +810,7 @@ void KeychainDatabase::makeUnlocked(const AccessCredentials *cred)
         }
     }
 	if (!mValidData) {	// need to decode to get our ACLs, master secret available
-		secdebug("KCdb", "%p(%p) is unlocked; decoding for makeUnlocked()", this, &common());
+		secinfo("KCdb", "%p(%p) is unlocked; decoding for makeUnlocked()", this, &common());
 		if (!decode())
 			CssmError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
 	}
@@ -778,13 +898,13 @@ void KeychainDatabase::stashDb()
 // The following unlock given an explicit passphrase, rather than using
 // (special cred sample based) default procedures.
 //
-void KeychainDatabase::unlockDb(const CssmData &passphrase)
+void KeychainDatabase::unlockDb(const CssmData &passphrase, bool unlockKeybag)
 {
 	StLock<Mutex> _(common());
-	makeUnlocked(passphrase);
+	makeUnlocked(passphrase, unlockKeybag);
 }
 
-void KeychainDatabase::makeUnlocked(const CssmData &passphrase)
+void KeychainDatabase::makeUnlocked(const CssmData &passphrase, bool unlockKeybag)
 {
 	if (isLocked()) {
 		if (decode(passphrase))
@@ -796,7 +916,7 @@ void KeychainDatabase::makeUnlocked(const CssmData &passphrase)
 			CssmError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
 	}
 
-    if (common().isLoginKeychain()) {
+    if (unlockKeybag && common().isLoginKeychain()) {
         bool locked = false;
         service_context_t context = common().session().get_current_service_context();
         if (!common().session().keybagGetState(session_keybag_check_master_key) || ((service_client_kb_is_locked(&context, &locked, NULL) == 0) && locked)) {
@@ -845,7 +965,7 @@ bool KeychainDatabase::decode()
 		Allocator::standard().free(privateAclBlob);
 		return true;
 	}
-	secdebug("KCdb", "%p decode failed", this);
+	secinfo("KCdb", "%p decode failed", this);
 	return false;
 }
 
@@ -879,7 +999,7 @@ void KeychainDatabase::establishOldSecrets(const AccessCredentials *creds)
 	if (forSystem) {
 		SystemKeychainKey systemKeychain(kSystemUnlockFile);
 		if (systemKeychain.matches(mBlob->randomSignature)) {
-			secdebug("KCdb", "%p attempting system unlock", this);
+			secinfo("KCdb", "%p attempting system unlock", this);
 			common().setup(mBlob, CssmClient::Key(Server::csp(), systemKeychain.key(), true));
 			if (decode())
 				return;
@@ -903,7 +1023,7 @@ void KeychainDatabase::establishOldSecrets(const AccessCredentials *creds)
 			case CSSM_SAMPLE_TYPE_PASSWORD:
 				if (sample.length() != 2)
 					CssmError::throwMe(CSSM_ERRCODE_INVALID_SAMPLE_VALUE);
-				secdebug("KCdb", "%p attempting passphrase unlock", this);
+				secinfo("KCdb", "%p attempting passphrase unlock", this);
 				if (decode(sample[1]))
 					return;
 				break;
@@ -911,7 +1031,7 @@ void KeychainDatabase::establishOldSecrets(const AccessCredentials *creds)
 			case CSSM_SAMPLE_TYPE_SYMMETRIC_KEY:
 			case CSSM_SAMPLE_TYPE_ASYMMETRIC_KEY:
 				assert(mBlob);
-				secdebug("KCdb", "%p attempting explicit key unlock", this);
+				secinfo("KCdb", "%p attempting explicit key unlock", this);
 				common().setup(mBlob, keyFromCreds(sample, 4));
                 if (decode()) {
 					return;
@@ -919,7 +1039,7 @@ void KeychainDatabase::establishOldSecrets(const AccessCredentials *creds)
 				break;
 			// explicitly defeat the default action but don't try anything in particular
 			case CSSM_WORDID_CANCELED:
-				secdebug("KCdb", "%p defeat default action", this);
+				secinfo("KCdb", "%p defeat default action", this);
 				break;
 			default:
 				// Unknown sub-sample for unlocking.
@@ -928,7 +1048,7 @@ void KeychainDatabase::establishOldSecrets(const AccessCredentials *creds)
 				// But instead we try to be tolerant and continue on.
 				// This DOES however count as an explicit attempt at specifying unlock,
 				// so we will no longer try the default case below...
-				secdebug("KCdb", "%p unknown sub-sample unlock (%d) ignored", this, sample.type());
+				secinfo("KCdb", "%p unknown sub-sample unlock (%d) ignored", this, sample.type());
 				break;
 			}
 		}
@@ -950,20 +1070,9 @@ void KeychainDatabase::establishOldSecrets(const AccessCredentials *creds)
 // This function is almost identical to establishOldSecrets, but:
 //   1. It will never prompt the user; these credentials either work or they don't
 //   2. It will not change the secrets of this database
-//   3. Things that are "system keychains" are checked against the system keychain file.
 //
 // TODO: These two functions should probably be refactored to something nicer.
 bool KeychainDatabase::checkCredentials(const AccessCredentials *creds) {
-    // attempt system-keychain unlock
-    if (this->belongsToSystem()) {
-        SystemKeychainKey systemKeychain(kSystemUnlockFile);
-
-        // We can unlock this keychain only if we match the signature and have
-        // the same master key
-        CssmClient::Key systemKey(Server::csp(), systemKeychain.key(), true);
-        return (systemKeychain.matches(mBlob->randomSignature) &&
-                common().masterKey() == systemKey);
-    }
 
     list<CssmSample> samples;
     if (creds && creds->samples().collect(CSSM_SAMPLE_TYPE_KEYCHAIN_LOCK, samples)) {
@@ -974,23 +1083,32 @@ bool KeychainDatabase::checkCredentials(const AccessCredentials *creds) {
                 // interactively prompt the user - no additional data
                 case CSSM_SAMPLE_TYPE_KEYCHAIN_PROMPT:
                     // do nothing, because this function will never prompt the user
-                    secdebug("integrity", "%p ignoring keychain prompt", this);
+                    secinfo("integrity", "%p ignoring keychain prompt", this);
                     break;
-                    // try to use an explicitly given passphrase - Data:passphrase
+                // try to use an explicitly given passphrase - Data:passphrase
                 case CSSM_SAMPLE_TYPE_PASSWORD:
                     if (sample.length() != 2)
                         CssmError::throwMe(CSSM_ERRCODE_INVALID_SAMPLE_VALUE);
-                    secdebug("integrity", "%p checking passphrase", this);
-                    return validatePassphrase(sample[1]);
-                    // try to open with a given master key - Data:CSP or KeyHandle, Data:CssmKey
+                    secinfo("integrity", "%p checking passphrase", this);
+                    if(validatePassphrase(sample[1])) {
+                        return true;
+                    }
+                    break;
+                // try to open with a given master key - Data:CSP or KeyHandle, Data:CssmKey
                 case CSSM_SAMPLE_TYPE_SYMMETRIC_KEY:
                 case CSSM_SAMPLE_TYPE_ASYMMETRIC_KEY:
                     assert(mBlob);
-                    secdebug("integrity", "%p attempting explicit key unlock", this);
-                    CssmClient::Key checkKey = keyFromCreds(sample, 4);
-                    return common().masterKey() == checkKey;
+                    secinfo("integrity", "%p attempting explicit key unlock", this);
+                    try {
+                        CssmClient::Key checkKey = keyFromCreds(sample, 4);
+                        if(common().validateKey(checkKey)) {
+                            return true;
+                        }
+                    } catch(...) {
+                        // ignore all problems in keyFromCreds
+                        secinfo("integrity", "%p caught error", this);
+                    }
                     break;
-                    // explicitly defeat the default action but don't try anything in particular
             }
         }
     }
@@ -999,9 +1117,13 @@ bool KeychainDatabase::checkCredentials(const AccessCredentials *creds) {
     return false;
 }
 
+uint32_t KeychainDatabase::interactiveUnlockAttempts = 0;
+
 bool KeychainDatabase::interactiveUnlock()
 {
-	secdebug("KCdb", "%p attempting interactive unlock", this);
+	secinfo("KCdb", "%p attempting interactive unlock", this);
+    interactiveUnlockAttempts++;
+
 	SecurityAgent::Reason reason = SecurityAgent::noReason;
     QueryUnlock query(*this);
 	// take UI interlock and release DbCommon lock (to avoid deadlocks)
@@ -1016,7 +1138,7 @@ bool KeychainDatabase::interactiveUnlock()
         }
         query.disconnect();
 	} else {
-		secdebug("KCdb", "%p was unlocked during uiLock delay", this);
+		secinfo("KCdb", "%p was unlocked during uiLock delay", this);
 	}
 
     if (common().isLoginKeychain()) {
@@ -1041,6 +1163,15 @@ bool KeychainDatabase::interactiveUnlock()
     return reason == SecurityAgent::noReason;
 }
 
+uint32_t KeychainDatabase::getInteractiveUnlockAttempts() {
+    if (csr_check(CSR_ALLOW_APPLE_INTERNAL)) {
+        // Not an internal install; don't answer
+        return 0;
+    } else {
+        return interactiveUnlockAttempts;
+    }
+}
+
 
 //
 // Same thing, but obtain a new secret somehow and set it into the common.
@@ -1056,7 +1187,7 @@ bool KeychainDatabase::establishNewSecrets(const AccessCredentials *creds, Secur
 			// interactively prompt the user
 			case CSSM_SAMPLE_TYPE_KEYCHAIN_PROMPT:
                 {
-				secdebug("KCdb", "%p specified interactive passphrase", this);
+				secinfo("KCdb", "%p specified interactive passphrase", this);
 				QueryNewPassphrase query(*this, reason);
 				StSyncLock<Mutex, Mutex> uisync(common().uiLock(), common());
 				query.inferHints(Server::process());
@@ -1072,7 +1203,7 @@ bool KeychainDatabase::establishNewSecrets(const AccessCredentials *creds, Secur
 			// try to use an explicitly given passphrase
 			case CSSM_SAMPLE_TYPE_PASSWORD:
 				{
-                    secdebug("KCdb", "%p specified explicit passphrase", this);
+                    secinfo("KCdb", "%p specified explicit passphrase", this);
                     if (sample.length() != 2)
                         CssmError::throwMe(CSSM_ERRCODE_INVALID_SAMPLE_VALUE);
                     if (common().isLoginKeychain()) {
@@ -1108,12 +1239,12 @@ bool KeychainDatabase::establishNewSecrets(const AccessCredentials *creds, Secur
 			// try to open with a given master key
 			case CSSM_WORDID_SYMMETRIC_KEY:
 			case CSSM_SAMPLE_TYPE_ASYMMETRIC_KEY:
-				secdebug("KCdb", "%p specified explicit master key", this);
+				secinfo("KCdb", "%p specified explicit master key", this);
 				common().setup(NULL, keyFromCreds(sample, 3));
 				return true;
 			// explicitly defeat the default action but don't try anything in particular
 			case CSSM_WORDID_CANCELED:
-				secdebug("KCdb", "%p defeat default action", this);
+				secinfo("KCdb", "%p defeat default action", this);
 				break;
 			default:
 				// Unknown sub-sample for acquiring new secret.
@@ -1122,7 +1253,7 @@ bool KeychainDatabase::establishNewSecrets(const AccessCredentials *creds, Secur
 				// But instead we try to be tolerant and continue on.
 				// This DOES however count as an explicit attempt at specifying unlock,
 				// so we will no longer try the default case below...
-				secdebug("KCdb", "%p unknown sub-sample acquisition (%d) ignored",
+				secinfo("KCdb", "%p unknown sub-sample acquisition (%d) ignored",
 					this, sample.type());
 				break;
 			}
@@ -1237,8 +1368,31 @@ CssmClient::Key KeychainDatabase::keyFromCreds(const TypedList &sample, unsigned
 
 		return safer_cast<LocalKey &>(*masterKey).key();
 	}
-	else
-	{
+	else if (sample.type() == CSSM_SAMPLE_TYPE_SYMMETRIC_KEY && sample.length() == 4 && sample[3].data().length() > 0) {
+        /*
+         Contents (see MasterKeyUnlockCredentials in libsecurity_cdsa_client/lib/aclclient.cpp)
+
+         sample[0]  sample type
+         sample[1]  0, since we don't have a valid handle
+         sample[2]  CssmKey of the masterKey [can't immediately use since it includes a CSSM_DATA struct with pointers]
+         sample[3]  flattened symmetric master key, including the key data
+         */
+
+        // Fix up key to include actual data
+        CssmData &flattenedKey = sample[3].data();
+        unflattenKey(flattenedKey, key);
+
+        // Check that we have a reasonable key
+        if (key.header().blobType() != CSSM_KEYBLOB_RAW) {
+            CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_REFERENCE);
+        }
+        if (key.header().keyClass() != CSSM_KEYCLASS_SESSION_KEY) {
+            CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
+        }
+
+        // bring the key into the CSP and return it
+        return CssmClient::Key(Server::csp(), key, true);
+    } else {
 		// not a KeyHandle reference; use key as a raw key
 		if (key.header().blobType() != CSSM_KEYBLOB_RAW)
 			CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_REFERENCE);
@@ -1250,6 +1404,14 @@ CssmClient::Key KeychainDatabase::keyFromCreds(const TypedList &sample, unsigned
 
 void unflattenKey(const CssmData &flatKey, CssmKey &rawKey)
 {
+    // The format we're expecting is a CSSM_KEY followed by the actual key data:
+    //    CSSM_KEY : KEY DATA
+    // which is approximately:
+    //    h2ni(CSSM_KEYHEADER) : 4 bytes padding : CSSM_DATA{?:?} : KEY BYTES
+    //
+    // Note that CSSM_KEY includes a CSSM_DATA struct, which we will ignore as it has pointers.
+    // The pointer and length will be set to whatever key data follows the CSSM_KEY in rawKey.
+
 	// unflatten the raw input key naively: key header then key data
 	// We also convert it back to host byte order
 	// A CSSM_KEY is a CSSM_KEYHEADER followed by a CSSM_DATA
@@ -1257,7 +1419,7 @@ void unflattenKey(const CssmData &flatKey, CssmKey &rawKey)
 	// Now copy: header, then key struct, then key data
 	memcpy(&rawKey.KeyHeader, flatKey.Data, sizeof(CSSM_KEYHEADER));
 	memcpy(&rawKey.KeyData, flatKey.Data + sizeof(CSSM_KEYHEADER), sizeof(CSSM_DATA));
-	const uint32 keyDataLength = flatKey.length() - sizeof(CSSM_KEY);
+	size_t keyDataLength = flatKey.length() - sizeof(CSSM_KEY);
 	rawKey.KeyData.Data = Allocator::standard().malloc<uint8>(keyDataLength);
 	rawKey.KeyData.Length = keyDataLength;
 	memcpy(rawKey.KeyData.Data, flatKey.Data + sizeof(CSSM_KEY), keyDataLength);
@@ -1311,7 +1473,7 @@ KeyBlob *KeychainDatabase::encodeKey(const CssmKey &key, const CssmData &pubAcl,
 	}
 	StLock<Mutex> _(common());
 	if(!inTheClear)
-		makeUnlocked();
+		makeUnlocked(false);
 	
     // tell the cryptocore to form the key blob
     return common().encodeKeyCore(key, pubAcl, privAcl, inTheClear);
@@ -1327,7 +1489,7 @@ void KeychainDatabase::decodeKey(KeyBlob *blob, CssmKey &key, void * &pubAcl, vo
 	StLock<Mutex> _(common());
 
 	if(!blob->isClearText())
-		makeUnlocked();							// we need our keys
+		makeUnlocked(false);							// we need our keys
 
 	common().decodeKeyCore(blob, key, pubAcl, privAcl);
 	// memory protocol: pubAcl points into blob; privAcl was allocated
@@ -1344,6 +1506,12 @@ KeyBlob *KeychainDatabase::recodeKey(KeychainKey &oldKey)
 	if (mRecodingSource != &oldKey.referent<KeychainDatabase>()) {
         CssmError::throwMe(CSSMERR_CSP_INVALID_KEY);
     }
+
+    // To protect this operation, we need to take the mutex for both our common and the remote key's common in some defined order.
+    // Grab the common being cloned (oldKey's) first, and then the common receiving the recoding (ours).
+    StLock<Mutex> _ (oldKey.referent<KeychainDatabase>().common());
+    StLock<Mutex> __(common());
+
 	oldKey.instantiateAcl();	// make sure key is decoded
 	CssmData publicAcl, privateAcl;
 	oldKey.exportBlob(publicAcl, privateAcl);
@@ -1371,11 +1539,11 @@ KeyBlob *KeychainDatabase::recodeKey(KeychainKey &oldKey)
 void KeychainDatabase::setParameters(const DBParameters &params)
 {
 	StLock<Mutex> _(common());
-    makeUnlocked();
+    makeUnlocked(false);
 	common().mParams = params;
     common().invalidateBlob();		// invalidate old blobs
     activity();				// (also resets the timeout timer)
-	secdebug("KCdb", "%p common %p(%s) set params=(%u,%u)",
+	secinfo("KCdb", "%p common %p(%s) set params=(%u,%u)",
 		this, &common(), dbName(), params.idleTimeout, params.lockOnSleep);
 }
 
@@ -1386,7 +1554,7 @@ void KeychainDatabase::setParameters(const DBParameters &params)
 void KeychainDatabase::getParameters(DBParameters &params)
 {
 	StLock<Mutex> _(common());
-    makeUnlocked();
+    makeUnlocked(false);
 	params = common().mParams;
     //activity();		// getting parameters does not reset the idle timer
 }
@@ -1408,7 +1576,7 @@ SecurityServerAcl &KeychainDatabase::acl()
 void KeychainDatabase::instantiateAcl()
 {
 	StLock<Mutex> _(common());
-	makeUnlocked();
+	makeUnlocked(false);
 }
 
 void KeychainDatabase::changedAcl()
@@ -1438,6 +1606,25 @@ void KeychainDatabase::validateBlob(const DbBlob *blob)
 		default:
 			CssmError::throwMe(CSSMERR_APPLEDL_INCOMPATIBLE_DATABASE_BLOB);
 	}
+}
+
+//
+// Check if this database is currently recoding
+//
+bool KeychainDatabase::isRecoding()
+{
+    secnotice("integrity", "recoding source: %p", mRecodingSource.get());
+    return (mRecodingSource.get() != NULL || mRecoded);
+}
+
+//
+// Mark ourselves as no longer recoding
+//
+void KeychainDatabase::recodeFinished()
+{
+    secnotice("integrity", "recoding finished");
+    mRecodingSource = NULL;
+    mRecoded = false;
 }
 
 
@@ -1480,8 +1667,8 @@ void KeychainDatabase::dumpNode()
 //
 // DbCommon basic features
 //
-KeychainDbCommon::KeychainDbCommon(Session &ssn, const DbIdentifier &id)
-	: LocalDbCommon(ssn), sequence(0), version(1), mIdentifier(id),
+KeychainDbCommon::KeychainDbCommon(Session &ssn, const DbIdentifier &id, uint32 requestedVersion)
+	: LocalDbCommon(ssn), DatabaseCryptoCore(requestedVersion), sequence(0), version(1), mIdentifier(id),
       mIsLocked(true), mValidParams(false), mLoginKeychain(false)
 {
     // match existing DbGlobal or create a new one
@@ -1491,11 +1678,11 @@ KeychainDbCommon::KeychainDbCommon(Session &ssn, const DbIdentifier &id)
         if (KeychainDbGlobal *dbglobal =
                 server.findFirst<KeychainDbGlobal, const DbIdentifier &>(&KeychainDbGlobal::identifier, identifier())) {
             parent(*dbglobal);
-            secdebug("KCdb", "%p linking to existing DbGlobal %p", this, dbglobal);
+            secinfo("KCdb", "%p linking to existing DbGlobal %p", this, dbglobal);
         } else {
             // DbGlobal not present; make a new one
             parent(*new KeychainDbGlobal(identifier()));
-            secdebug("KCdb", "%p linking to new DbGlobal %p", this, &global());
+            secinfo("KCdb", "%p linking to new DbGlobal %p", this, &global());
         }
 
         // link lifetime to the Session
@@ -1505,7 +1692,9 @@ KeychainDbCommon::KeychainDbCommon(Session &ssn, const DbIdentifier &id)
             mLoginKeychain = true;
         }
     }
+}
 
+void KeychainDbCommon::initializeKeybag() {
     if (mLoginKeychain && !session().keybagGetState(session_keybag_loaded)) {
         service_context_t context = session().get_current_service_context();
         if (service_client_kb_load(&context) == 0) {
@@ -1514,15 +1703,57 @@ KeychainDbCommon::KeychainDbCommon(Session &ssn, const DbIdentifier &id)
     }
 }
 
+KeychainDbCommon::KeychainDbCommon(Session &ssn, const DbIdentifier &id, KeychainDbCommon& toClone)
+    : LocalDbCommon(ssn), DatabaseCryptoCore(toClone.mBlobVersion), sequence(toClone.sequence), mParams(toClone.mParams), version(toClone.version),
+    mIdentifier(id), mIsLocked(toClone.mIsLocked), mValidParams(toClone.mValidParams), mLoginKeychain(toClone.mLoginKeychain)
+{
+    cloneFrom(toClone);
+
+    {
+        Server &server = Server::active();
+        StLock<Mutex> _(server);
+        if (KeychainDbGlobal *dbglobal =
+            server.findFirst<KeychainDbGlobal, const DbIdentifier &>(&KeychainDbGlobal::identifier, identifier())) {
+            parent(*dbglobal);
+            secinfo("KCdb", "%p linking to existing DbGlobal %p", this, dbglobal);
+        } else {
+            // DbGlobal not present; make a new one
+            parent(*new KeychainDbGlobal(identifier()));
+            secinfo("KCdb", "%p linking to new DbGlobal %p", this, &global());
+        }
+        session().addReference(*this);
+    }
+}
+
 KeychainDbCommon::~KeychainDbCommon()
 {
-	SECURITYD_KEYCHAIN_RELEASE(this, (char*)this->dbName());
+    secinfo("KCdb", "releasing keychain %p %s", this, (char*)this->dbName());
 
 	// explicitly unschedule ourselves
 	Server::active().clearTimer(this);
     if (mLoginKeychain) {
         session().keybagClearState(session_keybag_unlocked);
     }
+    // remove ourselves from mCommonSet
+    kill();
+}
+
+void KeychainDbCommon::cloneFrom(KeychainDbCommon& toClone, uint32 requestedVersion) {
+    // don't clone the mIdentifier
+    sequence = toClone.sequence;
+    mParams = toClone.mParams;
+    version = toClone.version;
+    mIsLocked = toClone.mIsLocked;
+    mValidParams = toClone.mValidParams;
+    mLoginKeychain = toClone.mLoginKeychain;
+
+    DatabaseCryptoCore::initializeFrom(toClone, requestedVersion);
+}
+
+void KeychainDbCommon::kill()
+{
+    StReadWriteLock _(mRWCommonLock, StReadWriteLock::Write);
+    mCommonSet.erase(this);
 }
 
 KeychainDbGlobal &KeychainDbCommon::global() const
@@ -1567,9 +1798,9 @@ bool KeychainDbCommon::unlockDb(DbBlob *blob, void **privateAclBlob)
 		// in an astonishing variety of ways if the passphrase is wrong.
 		assert(hasMaster());
 		decodeCore(blob, privateAclBlob);
-		secdebug("KCdb", "%p unlock successful", this);
+		secinfo("KCdb", "%p unlock successful", this);
 	} catch (...) {
-		secdebug("KCdb", "%p unlock failed", this);
+		secinfo("KCdb", "%p unlock failed", this);
 		return false;
 	}
 	
@@ -1587,7 +1818,7 @@ bool KeychainDbCommon::unlockDb(DbBlob *blob, void **privateAclBlob)
 	if (isLocked) {
 		// broadcast unlock notification, but only if we were previously locked
 		notify(kNotificationEventUnlocked);
-		SECURITYD_KEYCHAIN_UNLOCK(this, (char*)this->dbName());
+        secinfo("KCdb", "unlocking keychain %p %s", this, (char*)this->dbName());
 	}
     return true;
 }
@@ -1608,7 +1839,7 @@ void KeychainDbCommon::lockDb()
         if (!isLocked()) {
             DatabaseCryptoCore::invalidate();
             notify(kNotificationEventLocked);
-            SECURITYD_KEYCHAIN_LOCK(this, (char*)this->dbName());
+            secinfo("KCdb", "locking keychain %p %s", this, (char*)this->dbName());
             Server::active().clearTimer(this);
 
             mIsLocked = true;		// mark locked
@@ -1617,13 +1848,6 @@ void KeychainDbCommon::lockDb()
             // this call may destroy us if we have no databases anymore
             session().removeReference(*this);
         }
-    }
-    
-    if (mLoginKeychain && lock) {
-        // Locking can happens on a timer outside of a process request session().get_current_service_context()
-        service_context_t context = { session().sessionId(), session().originatorUid(), {} };
-        service_client_kb_lock(&context);
-        session().keybagClearState(session_keybag_unlocked);
     }
 }
 
@@ -1658,14 +1882,14 @@ DbBlob *KeychainDbCommon::encode(KeychainDatabase &db)
 //
 void KeychainDbCommon::action()
 {
-	secdebug("KCdb", "common %s(%p) locked by timer", dbName(), this);
+	secinfo("KCdb", "common %s(%p) locked by timer", dbName(), this);
 	lockDb();
 }
 
 void KeychainDbCommon::activity()
 {
     if (!isLocked()) {
-		secdebug("KCdb", "setting DbCommon %p timer to %d",
+		secinfo("KCdb", "setting DbCommon %p timer to %d",
 			this, int(mParams.idleTimeout));
 		Server::active().setTimer(this, Time::Interval(int(mParams.idleTimeout)));
 	}
@@ -1673,7 +1897,7 @@ void KeychainDbCommon::activity()
 
 void KeychainDbCommon::sleepProcessing()
 {
-	secdebug("KCdb", "common %s(%p) sleep-lock processing", dbName(), this);
+	secinfo("KCdb", "common %s(%p) sleep-lock processing", dbName(), this);
     if (mParams.lockOnSleep && !isDefaultSystemKeychain()) {
         StLock<Mutex> _(*this);
 		lockDb();
@@ -1716,5 +1940,5 @@ KeychainDbGlobal::KeychainDbGlobal(const DbIdentifier &id)
 
 KeychainDbGlobal::~KeychainDbGlobal()
 {
-	secdebug("KCdb", "DbGlobal %p destroyed", this);
+	secinfo("KCdb", "DbGlobal %p destroyed", this);
 }

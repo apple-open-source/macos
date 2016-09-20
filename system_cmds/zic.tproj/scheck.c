@@ -1,11 +1,12 @@
 #ifndef lint
 #ifndef NOID
-static const char	elsieid[] = "@(#)scheck.c	8.15";
+#include <sys/cdefs.h>
+__unused static const char	elsieid[] = "@(#)scheck.c	8.15";
 #endif /* !defined lint */
 #endif /* !defined NOID */
 
 #ifndef lint
-static const char rcsid[] =
+__unused static const char rcsid[] =
   "$FreeBSD: src/usr.sbin/zic/scheck.c,v 1.7 2001/07/18 11:27:04 dd Exp $";
 #endif /* not lint */
 
@@ -14,17 +15,15 @@ static const char rcsid[] =
 #include "private.h"
 
 char *
-scheck(string, format)
-const char * const	string;
-const char * const	format;
+scheck(const char * const string, const char * const format)
 {
-	register char *		fbuf;
-	register const char *	fp;
-	register char *		tp;
-	register int		c;
-	register char *		result;
-	char			dummy;
-	static char		nada;
+	char *		fbuf;
+	const char *	fp;
+	char *		tp;
+	int		c;
+	char *		result;
+	char		dummy;
+	static char	nada;
 
 	result = &nada;
 	if (string == NULL || format == NULL)

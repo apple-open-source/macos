@@ -1131,7 +1131,6 @@
 		4D3DCC4E08E0B73400C78A0B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = newfs_msdos.tproj/newfs_msdos.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;

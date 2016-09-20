@@ -63,8 +63,8 @@
 		0C80AB1317E9025B008F7F5B /* sslCrypto.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C80AB1217E9025B008F7F5B /* sslCrypto.c */; };
 		0C86A5FD19705A08009B006A /* ssl-52-noconn.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C86A5FC19705A08009B006A /* ssl-52-noconn.c */; };
 		0C8DD1561B1CF75400D43050 /* ssl-54-dhe.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C8DD1531B1CEE9A00D43050 /* ssl-54-dhe.c */; };
+		0C9A76A81CB478D7002111EE /* ssl-56-renegotiate.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CD3A1951CB466DB00667E3F /* ssl-56-renegotiate.c */; };
 		0CA9800617E3925A00205D87 /* sslKeychain.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF4230534D89900303760 /* sslKeychain.c */; };
-		0CA9800917E7734000205D87 /* appleSession.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF3FF0534D89900303760 /* appleSession.c */; };
 		0CA9803417E7899B00205D87 /* SSLRecordInternal.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCA413A15C75863002AEC4C /* SSLRecordInternal.c */; };
 		0CB3EC4818AEDB6B00647921 /* ssl-48-split.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CB3EC4718AEDB6B00647921 /* ssl-48-split.c */; };
 		0CCA417915C89EA3002AEC4C /* ssl-39-echo.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCA416815C89EA3002AEC4C /* ssl-39-echo.c */; };
@@ -84,7 +84,6 @@
 		4CAFF4540534D89900303760 /* sslContext.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF41A0534D89900303760 /* sslContext.c */; };
 		4CAFF4640534D89900303760 /* sslRecord.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF42A0534D89900303760 /* sslRecord.c */; };
 		4CAFF4680534D89900303760 /* sslTransport.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF42E0534D89900303760 /* sslTransport.c */; };
-		4CAFF4690534D89900303760 /* sslUtils.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF42F0534D89900303760 /* sslUtils.c */; };
 		AAB589F216CACE540071FE64 /* ssl-44-crashes.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CC954F0161A62AE005D3D4A /* ssl-44-crashes.c */; };
 /* End PBXBuildFile section */
 
@@ -190,11 +189,10 @@
 		0CCA42EB15C8A71A002AEC4C /* sslAppUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sslAppUtils.h; path = sslViewer/sslAppUtils.h; sourceTree = SOURCE_ROOT; };
 		0CCAB6191B3C93E100C97526 /* ssl-55-sessioncache.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ssl-55-sessioncache.c"; sourceTree = "<group>"; };
 		0CCF28B7166D5F5000AFA37C /* ssl-47-falsestart.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ssl-47-falsestart.c"; sourceTree = "<group>"; };
+		0CD3A1951CB466DB00667E3F /* ssl-56-renegotiate.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ssl-56-renegotiate.c"; sourceTree = "<group>"; };
 		0CDDC9A6195CD44400E93A27 /* ssl-51-state.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ssl-51-state.c"; sourceTree = "<group>"; };
 		0CEA459218CF71AE00BD32A9 /* ssl-49-sni.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ssl-49-sni.c"; sourceTree = "<group>"; };
 		4CA1FEBE052A3C8100F22E42 /* libsecurity_ssl.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libsecurity_ssl.a; sourceTree = BUILT_PRODUCTS_DIR; };
-		4CAFF3FF0534D89900303760 /* appleSession.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = appleSession.c; sourceTree = "<group>"; };
-		4CAFF4000534D89900303760 /* appleSession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = appleSession.h; sourceTree = "<group>"; };
 		4CAFF4020534D89900303760 /* cipherSpecs.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cipherSpecs.h; sourceTree = "<group>"; };
 		4CAFF4030534D89900303760 /* CipherSuite.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CipherSuite.h; sourceTree = "<group>"; };
 		4CAFF4090534D89900303760 /* SecureTransport.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecureTransport.h; sourceTree = "<group>"; };
@@ -202,7 +200,7 @@
 		4CAFF4170534D89900303760 /* sslBuildFlags.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sslBuildFlags.h; sourceTree = "<group>"; };
 		4CAFF41A0534D89900303760 /* sslContext.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sslContext.c; sourceTree = "<group>"; };
 		4CAFF41B0534D89900303760 /* sslContext.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sslContext.h; sourceTree = "<group>"; };
-		4CAFF41C0534D89900303760 /* sslDebug.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sslDebug.h; sourceTree = "<group>"; };
+		4CAFF41C0534D89900303760 /* sslDebug.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = sslDebug.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
 		4CAFF4230534D89900303760 /* sslKeychain.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sslKeychain.c; sourceTree = "<group>"; };
 		4CAFF4240534D89900303760 /* sslKeychain.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sslKeychain.h; sourceTree = "<group>"; };
 		4CAFF4260534D89900303760 /* sslMemory.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sslMemory.c; sourceTree = "<group>"; };
@@ -260,7 +258,6 @@
 		050651C7056A83F3008AD683 /* Apple Custom */ = {
 			isa = PBXGroup;
 			children = (
-				4CAFF3FF0534D89900303760 /* appleSession.c */,
 				4CAFF4230534D89900303760 /* sslKeychain.c */,
 			);
 			name = "Apple Custom";
@@ -368,6 +365,7 @@
 				0C4B8F391A895D6E00AE503B /* ssl-53-clientauth.c */,
 				0C8DD1531B1CEE9A00D43050 /* ssl-54-dhe.c */,
 				0CCAB6191B3C93E100C97526 /* ssl-55-sessioncache.c */,
+				0CD3A1951CB466DB00667E3F /* ssl-56-renegotiate.c */,
 				0C6C634215D1BDCF00BC68CD /* ssl-utils.c */,
 				0C6C634415D1BE3900BC68CD /* ssl-utils.h */,
 				0C0E0469162CA288009F7C71 /* ssl_regressions.h */,
@@ -445,7 +443,6 @@
 				0CCA413715C75863002AEC4C /* sslCipherSpecs.h */,
 				0CCA413B15C75863002AEC4C /* SSLRecordInternal.h */,
 				0CCA414215C75863002AEC4C /* tls_record_internal.h */,
-				4CAFF4000534D89900303760 /* appleSession.h */,
 				4CAFF4020534D89900303760 /* cipherSpecs.h */,
 				4CAFF40B0534D89900303760 /* ssl.h */,
 				4CAFF4170534D89900303760 /* sslBuildFlags.h */,
@@ -572,7 +569,7 @@
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0700;
+				LastUpgradeCheck = 0800;
 			};
 			buildConfigurationList = C27AD4040987FCDF001272E0 /* Build configuration list for PBXProject "libsecurity_ssl" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -618,6 +615,7 @@
 				0C8DD1561B1CF75400D43050 /* ssl-54-dhe.c in Sources */,
 				0CCAB61A1B3C93E100C97526 /* ssl-55-sessioncache.c in Sources */,
 				0C0F140B191AC0A200481BA2 /* ssl-50-server.c in Sources */,
+				0C9A76A81CB478D7002111EE /* ssl-56-renegotiate.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -648,14 +646,12 @@
 				0C1F06F7189B1F0600E65030 /* sslMemory.c in Sources */,
 				0C80AB1317E9025B008F7F5B /* sslCrypto.c in Sources */,
 				0CA9803417E7899B00205D87 /* SSLRecordInternal.c in Sources */,
-				0CA9800917E7734000205D87 /* appleSession.c in Sources */,
 				0CA9800617E3925A00205D87 /* sslKeychain.c in Sources */,
 				0C03D65917DFD8C00087643B /* sslCipherSpecs.c in Sources */,
 				4CAFF4540534D89900303760 /* sslContext.c in Sources */,
 				0C03D65B17DFE67E0087643B /* tlsCallbacks.c in Sources */,
 				4CAFF4640534D89900303760 /* sslRecord.c in Sources */,
 				4CAFF4680534D89900303760 /* sslTransport.c in Sources */,
-				4CAFF4690534D89900303760 /* sslUtils.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -755,6 +751,9 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = BE6A959D14E3700A00C158E0 /* debug.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = lossless;
+				ENABLE_TESTABILITY = YES;
+				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx.internal;
 			};
 			name = Debug;
@@ -763,6 +762,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = BE6A959F14E3700A00C158E0 /* release.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = "respect-asset-catalog";
 				SDKROOT = macosx.internal;
 			};
 			name = Release;

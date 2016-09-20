@@ -20,8 +20,6 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#if ENABLE(NETWORK_PROCESS)
-
 messages -> NetworkProcess LegacyReceiver {
     # Initializes the network process.
     InitializeNetworkProcess(struct WebKit::NetworkProcessCreationParameters processCreationParameters)
@@ -34,16 +32,27 @@ messages -> NetworkProcess LegacyReceiver {
     UserPreferredLanguagesChanged(Vector<String> languages)
 #endif
 
+    ClearCachedCredentials()
+
     EnsurePrivateBrowsingSession(WebCore::SessionID sessionID)
     DestroyPrivateBrowsingSession(WebCore::SessionID sessionID)
 
-    FetchWebsiteData(WebCore::SessionID sessionID, uint64_t websiteDataTypes, uint64_t callbackID)
-    DeleteWebsiteData(WebCore::SessionID sessionID, uint64_t websiteDataTypes, std::chrono::system_clock::time_point modifiedSince, uint64_t callbackID)
-    DeleteWebsiteDataForOrigins(WebCore::SessionID sessionID, uint64_t websiteDataTypes, Vector<WebKit::SecurityOriginData> origins, Vector<String> cookieHostNames, uint64_t callbackID)
+    FetchWebsiteData(WebCore::SessionID sessionID, OptionSet<WebKit::WebsiteDataType> websiteDataTypes, OptionSet<WebKit::WebsiteDataFetchOption> fetchOptions, uint64_t callbackID)
+    DeleteWebsiteData(WebCore::SessionID sessionID, OptionSet<WebKit::WebsiteDataType> websiteDataTypes, std::chrono::system_clock::time_point modifiedSince, uint64_t callbackID)
+    DeleteWebsiteDataForOrigins(WebCore::SessionID sessionID, OptionSet<WebKit::WebsiteDataType> websiteDataTypes, Vector<WebCore::SecurityOriginData> origins, Vector<String> cookieHostNames, uint64_t callbackID)
 
-    DownloadRequest(uint64_t downloadID, WebCore::ResourceRequest request)
-    ResumeDownload(uint64_t downloadID, IPC::DataReference resumeData, String path, WebKit::SandboxExtension::Handle sandboxExtensionHandle)
-    CancelDownload(uint64_t downloadID)
+    DownloadRequest(WebCore::SessionID sessionID, WebKit::DownloadID downloadID, WebCore::ResourceRequest request)
+    ResumeDownload(WebCore::SessionID sessionID, WebKit::DownloadID downloadID, IPC::DataReference resumeData, String path, WebKit::SandboxExtension::Handle sandboxExtensionHandle)
+    CancelDownload(WebKit::DownloadID downloadID)
+
+#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
+    ContinueCanAuthenticateAgainstProtectionSpace(uint64_t loaderID, bool canAuthenticate)
+#endif
+#if USE(NETWORK_SESSION)
+    ContinueCanAuthenticateAgainstProtectionSpaceDownload(WebKit::DownloadID downloadID, bool canAuthenticate)
+    ContinueWillSendRequest(WebKit::DownloadID downloadID, WebCore::ResourceRequest request)
+    ContinueDecidePendingDownloadDestination(WebKit::DownloadID downloadID, String destination, WebKit::SandboxExtension::Handle sandboxExtensionHandle, bool allowOverwrite)
+#endif
 
     SetProcessSuppressionEnabled(bool flag)
 #if PLATFORM(COCOA)
@@ -62,6 +71,6 @@ messages -> NetworkProcess LegacyReceiver {
     PrepareToSuspend()
     CancelPrepareToSuspend()
     ProcessDidResume()
-}
 
-#endif // ENABLE(NETWORK_PROCESS)
+    DidGrantSandboxExtensionsToDatabaseProcessForBlobs(uint64_t requestID)
+}

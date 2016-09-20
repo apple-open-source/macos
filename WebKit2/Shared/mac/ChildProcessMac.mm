@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2012, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,6 +28,7 @@
 #if PLATFORM(MAC)
 #import "ChildProcess.h"
 
+#import "CodeSigning.h"
 #import "SandboxInitializationParameters.h"
 #import "WebKitSystemInterface.h"
 #import <WebCore/CFNetworkSPI.h>
@@ -38,18 +39,10 @@
 #import <pwd.h>
 #import <stdlib.h>
 #import <sysexits.h>
+#import <wtf/spi/darwin/SandboxSPI.h>
 
-// We have to #undef __APPLE_API_PRIVATE to prevent sandbox.h from looking for a header file that does not exist (<rdar://problem/9679211>). 
-#undef __APPLE_API_PRIVATE
-#import <sandbox.h>
-
-#define SANDBOX_NAMED_EXTERNAL 0x0003
-extern "C" int sandbox_init_with_parameters(const char *profile, uint64_t flags, const char *const parameters[], char **errorbuf);
-
-#ifdef __has_include
-#if __has_include(<HIServices/ProcessesPriv.h>)
+#if USE(APPLE_INTERNAL_SDK)
 #include <HIServices/ProcessesPriv.h>
-#endif
 #endif
 
 typedef bool (^LSServerConnectionAllowedBlock) ( CFDictionaryRef optionsRef );
@@ -90,9 +83,17 @@ void ChildProcess::initializeSandbox(const ChildProcessInitializationParameters&
     NSBundle *webkit2Bundle = [NSBundle bundleForClass:NSClassFromString(@"WKView")];
     String defaultProfilePath = [webkit2Bundle pathForResource:[[NSBundle mainBundle] bundleIdentifier] ofType:@"sb"];
 
-    if (sandboxParameters.systemDirectorySuffix().isNull()) {
-        String defaultSystemDirectorySuffix = String([[NSBundle mainBundle] bundleIdentifier]) + "+" + parameters.clientIdentifier;
-        sandboxParameters.setSystemDirectorySuffix(defaultSystemDirectorySuffix);
+    if (sandboxParameters.userDirectorySuffix().isNull()) {
+        auto userDirectorySuffix = parameters.extraInitializationData.find("user-directory-suffix");
+        if (userDirectorySuffix != parameters.extraInitializationData.end())
+            sandboxParameters.setUserDirectorySuffix([makeString(userDirectorySuffix->value, '/', String([[NSBundle mainBundle] bundleIdentifier])) fileSystemRepresentation]);
+        else {
+            String clientIdentifier = codeSigningIdentifier(parameters.connectionIdentifier.xpcConnection.get());
+            if (clientIdentifier.isNull())
+                clientIdentifier = parameters.clientIdentifier;
+            String defaultUserDirectorySuffix = makeString(String([[NSBundle mainBundle] bundleIdentifier]), '+', clientIdentifier);
+            sandboxParameters.setUserDirectorySuffix(defaultUserDirectorySuffix);
+        }
     }
 
     Vector<String> osVersionParts;
@@ -106,7 +107,7 @@ void ChildProcess::initializeSandbox(const ChildProcessInitializationParameters&
     sandboxParameters.addParameter("_OS_VERSION", osVersion.utf8().data());
 
     // Use private temporary and cache directories.
-    setenv("DIRHELPER_USER_DIR_SUFFIX", fileSystemRepresentation(sandboxParameters.systemDirectorySuffix()).data(), 0);
+    setenv("DIRHELPER_USER_DIR_SUFFIX", fileSystemRepresentation(sandboxParameters.userDirectorySuffix()).data(), 1);
     char temporaryDirectory[PATH_MAX];
     if (!confstr(_CS_DARWIN_USER_TEMP_DIR, temporaryDirectory, sizeof(temporaryDirectory))) {
         WTFLogAlways("%s: couldn't retrieve private temporary directory path: %d\n", getprogname(), errno);
@@ -171,7 +172,7 @@ void ChildProcess::initializeSandbox(const ChildProcessInitializationParameters&
     // This will override LSFileQuarantineEnabled from Info.plist unless sandbox quarantine is globally disabled.
     OSStatus error = WKEnableSandboxStyleFileQuarantine();
     if (error) {
-        WTFLogAlways("%s: Couldn't enable sandbox style file quarantine: %ld\n", getprogname(), (long)error);
+        WTFLogAlways("%s: Couldn't enable sandbox style file quarantine: %ld\n", getprogname(), static_cast<long>(error));
         exit(EX_NOPERM);
     }
 }
@@ -196,7 +197,10 @@ void ChildProcess::stopNSAppRunLoop()
     ASSERT([NSApp isRunning]);
     [NSApp stop:nil];
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     NSEvent *event = [NSEvent otherEventWithType:NSApplicationDefined location:NSMakePoint(0, 0) modifierFlags:0 timestamp:0.0 windowNumber:0 context:nil subtype:0 data1:0 data2:0];
+#pragma clang diagnostic pop
     [NSApp postEvent:event atStart:true];
 }
 #endif

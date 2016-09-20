@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2009,2011-2015 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2005-2009,2011-2016 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -33,13 +33,13 @@
 #include <libDER/oids.h>
 #include <stdbool.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 /* Apple Oids */
 extern const DERItem
     oidAppleSecureBootCertSpec,
+    oidAppleSecureBootTicketCertSpec,
+    oidAppleImg4ManifestCertSpec,
     oidAppleProvisioningProfile,
     oidAppleApplicationSigning,
     oidAppleTVOSApplicationSigningProd,
@@ -80,14 +80,18 @@ extern const DERItem
     oidAppleCertExtCryptoServicesExtEncryption,
     oidAppleCertExtAST2DiagnosticsServerAuthTest,
     oidAppleCertExtAST2DiagnosticsServerAuthProd,
+    oidAppleCertExtEscrowProxyServerAuthTest,
+    oidAppleCertExtEscrowProxyServerAuthProd,
+    oidAppleCertExtFMiPServerAuthTest,
+    oidAppleCertExtFMiPServerAuthProd,
     oidAppleCertExtHomeKitServerAuth,
-    oidAppleIntmMarkerAppleHomeKitServerCA;
+    oidAppleIntmMarkerAppleHomeKitServerCA,
+    oidAppleCertExtAppleServerAuthenticationMMCSTest,
+    oidAppleCertExtAppleServerAuthenticationMMCSProd;
 
     /* Compare two decoded OIDs.  Returns true iff they are equivalent. */
     bool DEROidCompare(const DERItem *oid1, const DERItem *oid2);
 
-#ifdef __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif	/* _LIB_DER_UTILS_H_ */

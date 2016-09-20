@@ -1,13 +1,13 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/en_001.xml
 // *
 // ***************************************************************************
 en_001{
-    Version{"2.1.12.90"}
+    Version{"2.1.22.91"}
     calendar{
         chinese{
             DateTimePatterns{
@@ -179,6 +179,7 @@ en_001{
                 "{1}, {0}",
             }
             availableFormats{
+                Ed{"E d"}
                 GyMMMEd{"E, d MMM y G"}
                 GyMMMd{"d MMM y G"}
                 MEd{"E, dd/MM"}

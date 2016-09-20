@@ -7,11 +7,12 @@ CODE_SIGN_IDENTITY =
 
 HEADER_SEARCH_PATHS[sdk=macosx*] = $(PROJECT_DIR) $(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework/Headers $(inherited)
 
-HEADER_SEARCH_PATHS[sdk=iphone*] = $(PROJECT_DIR) $(BUILT_PRODUCTS_DIR)$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/include $(inherited)
+HEADER_SEARCH_PATHS[sdk=embedded*] = $(PROJECT_DIR) $(BUILT_PRODUCTS_DIR)/usr/local/include $(inherited)
 
 INSTALL_PATH = /usr/local/lib
-SKIP_INSTALL[sdk=macosx*] = NO
-SKIP_INSTALL[sdk=iphone*] = YES
+PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/security_libDER/libDER
+
+SKIP_INSTALL = YES
 
 ALWAYS_SEARCH_USER_PATHS = NO
 
@@ -29,6 +30,4 @@ GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES
 GCC_WARN_ABOUT_RETURN_TYPE = YES
 GCC_WARN_UNUSED_VARIABLE = YES
 
-SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator
-
-GCC_PREPROCESSOR_DEFINITIONS[sdk=iphonesimulator*] = INDIGO=1 $(inherited)
+SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator

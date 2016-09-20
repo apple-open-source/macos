@@ -26,47 +26,57 @@
 #include "config.h"
 #include "Hyphenation.h"
 
-#include "AtomicStringKeyedMRUCache.h"
 #include "Language.h"
-#include "TextBreakIteratorInternalICU.h"
 #include <wtf/ListHashSet.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/TinyLRUCache.h>
 #include <wtf/text/StringView.h>
+#include <wtf/text/TextBreakIteratorInternalICU.h>
+
+namespace WTF {
+
+template<>
+class TinyLRUCachePolicy<AtomicString, RetainPtr<CFLocaleRef>>
+{
+public:
+    static TinyLRUCache<AtomicString, RetainPtr<CFLocaleRef>>& cache()
+    {
+        static NeverDestroyed<TinyLRUCache<AtomicString, RetainPtr<CFLocaleRef>>> cache;
+        return cache;
+    }
+
+    static bool isKeyNull(const AtomicString& localeIdentifier)
+    {
+        return localeIdentifier.isNull();
+    }
+
+    static RetainPtr<CFLocaleRef> createValueForNullKey()
+    {
+        // CF hyphenation functions use locale (regional formats) language, which doesn't necessarily match primary UI language,
+        // so we can't use default locale here. See <rdar://problem/14897664>.
+        RetainPtr<CFLocaleRef> locale = adoptCF(CFLocaleCreate(kCFAllocatorDefault, WebCore::defaultLanguage().createCFString().get()));
+        return CFStringIsHyphenationAvailableForLocale(locale.get()) ? locale : nullptr;
+    }
+
+    static RetainPtr<CFLocaleRef> createValueForKey(const AtomicString& localeIdentifier)
+    {
+        RetainPtr<CFLocaleRef> locale = adoptCF(CFLocaleCreate(kCFAllocatorDefault, localeIdentifier.string().createCFString().get()));
+
+        return CFStringIsHyphenationAvailableForLocale(locale.get()) ? locale : nullptr;
+    }
+};
+}
 
 namespace WebCore {
 
-template<>
-RetainPtr<CFLocaleRef> AtomicStringKeyedMRUCache<RetainPtr<CFLocaleRef>>::createValueForNullKey()
-{
-    // CF hyphenation functions use locale (regional formats) language, which doesn't necessarily match primary UI language,
-    // so we can't use default locale here. See <rdar://problem/14897664>.
-    RetainPtr<CFLocaleRef> locale = adoptCF(CFLocaleCreate(kCFAllocatorDefault, defaultLanguage().createCFString().get()));
-
-    return CFStringIsHyphenationAvailableForLocale(locale.get()) ? locale : 0;
-}
-
-template<>
-RetainPtr<CFLocaleRef> AtomicStringKeyedMRUCache<RetainPtr<CFLocaleRef>>::createValueForKey(const AtomicString& localeIdentifier)
-{
-    RetainPtr<CFLocaleRef> locale = adoptCF(CFLocaleCreate(kCFAllocatorDefault, localeIdentifier.string().createCFString().get()));
-
-    return CFStringIsHyphenationAvailableForLocale(locale.get()) ? locale : 0;
-}
-
-static AtomicStringKeyedMRUCache<RetainPtr<CFLocaleRef>>& cfLocaleCache()
-{
-    DEPRECATED_DEFINE_STATIC_LOCAL(AtomicStringKeyedMRUCache<RetainPtr<CFLocaleRef>>, cache, ());
-    return cache;
-}
-
 bool canHyphenate(const AtomicString& localeIdentifier)
 {
-    return cfLocaleCache().get(localeIdentifier);
+    return TinyLRUCachePolicy<AtomicString, RetainPtr<CFLocaleRef>>::cache().get(localeIdentifier);
 }
 
 size_t lastHyphenLocation(StringView text, size_t beforeIndex, const AtomicString& localeIdentifier)
 {
-    RetainPtr<CFLocaleRef> locale = cfLocaleCache().get(localeIdentifier);
+    RetainPtr<CFLocaleRef> locale = TinyLRUCachePolicy<AtomicString, RetainPtr<CFLocaleRef>>::cache().get(localeIdentifier);
     ASSERT(locale);
 
     CFOptionFlags searchAcrossWordBoundaries = 1;

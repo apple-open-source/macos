@@ -1,4 +1,5 @@
 /* os_win32.c */
+HINSTANCE vimLoadLib __ARGS((char *name));
 int dyn_libintl_init __ARGS((char *libname));
 void dyn_libintl_end __ARGS((void));
 void PlatformId __ARGS((void));
@@ -19,9 +20,13 @@ long mch_getperm __ARGS((char_u *name));
 int mch_setperm __ARGS((char_u *name, long perm));
 void mch_hide __ARGS((char_u *name));
 int mch_isdir __ARGS((char_u *name));
+int mch_mkdir __ARGS((char_u *name));
+int mch_is_hard_link __ARGS((char_u *fname));
+int mch_is_symbolic_link __ARGS((char_u *fname));
 int mch_is_linked __ARGS((char_u *fname));
+int win32_fileinfo __ARGS((char_u *fname, BY_HANDLE_FILE_INFORMATION *info));
 int mch_writable __ARGS((char_u *name));
-int mch_can_exe __ARGS((char_u *name));
+int mch_can_exe __ARGS((char_u *name, char_u **path, int use_path));
 int mch_nodetype __ARGS((char_u *name));
 vim_acl_T mch_get_acl __ARGS((char_u *fname));
 void mch_set_acl __ARGS((char_u *fname, vim_acl_T acl));
@@ -37,7 +42,6 @@ void mch_write __ARGS((char_u *s, int len));
 void mch_delay __ARGS((long msec, int ignoreinput));
 int mch_remove __ARGS((char_u *name));
 void mch_breakcheck __ARGS((void));
-long_u mch_avail_mem __ARGS((int special));
 int mch_wrename __ARGS((WCHAR *wold, WCHAR *wnew));
 int mch_rename __ARGS((const char *pszOldFile, const char *pszNewFile));
 char *default_shell __ARGS((void));

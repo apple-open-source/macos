@@ -115,9 +115,7 @@ _gss_ntlm_init_sec_context(OM_uint32 * minor_status,
      * Check that NTLM is enabled before going forward
      */
 
-    if (!gss_mo_get(GSS_NTLM_MECHANISM, GSS_C_NTLM_V1, NULL) &&
-	!gss_mo_get(GSS_NTLM_MECHANISM, GSS_C_NTLM_V2, NULL))
-    {
+    if (!gss_mo_get(GSS_NTLM_MECHANISM, GSS_C_NTLM_V2, NULL)) {
 	*minor_status = 0;
 	return GSS_S_UNAVAILABLE;
     }

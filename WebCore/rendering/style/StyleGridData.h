@@ -28,7 +28,7 @@
 
 #if ENABLE(CSS_GRID_LAYOUT)
 
-#include "GridCoordinate.h"
+#include "GridArea.h"
 #include "GridTrackSize.h"
 #include "RenderStyleConstants.h"
 #include <wtf/PassRefPtr.h>
@@ -49,7 +49,18 @@ public:
     bool operator==(const StyleGridData& o) const
     {
         // FIXME: comparing two hashes doesn't look great for performance. Something to keep in mind going forward.
-        return m_gridColumns == o.m_gridColumns && m_gridRows == o.m_gridRows && m_gridAutoFlow == o.m_gridAutoFlow && m_gridAutoRows == o.m_gridAutoRows && m_gridAutoColumns == o.m_gridAutoColumns && m_namedGridColumnLines == o.m_namedGridColumnLines && m_namedGridRowLines == o.m_namedGridRowLines && m_namedGridArea == o.m_namedGridArea && m_namedGridArea == o.m_namedGridArea && m_namedGridAreaRowCount == o.m_namedGridAreaRowCount && m_namedGridAreaColumnCount == o.m_namedGridAreaColumnCount && m_orderedNamedGridRowLines == o.m_orderedNamedGridRowLines && m_orderedNamedGridColumnLines == o.m_orderedNamedGridColumnLines;
+        return m_gridColumns == o.m_gridColumns && m_gridRows == o.m_gridRows
+            && m_gridAutoFlow == o.m_gridAutoFlow && m_gridAutoRows == o.m_gridAutoRows && m_gridAutoColumns == o.m_gridAutoColumns
+            && m_namedGridColumnLines == o.m_namedGridColumnLines && m_namedGridRowLines == o.m_namedGridRowLines
+            && m_autoRepeatNamedGridColumnLines == o.m_autoRepeatNamedGridColumnLines && m_autoRepeatNamedGridRowLines == o.m_autoRepeatNamedGridRowLines
+            && m_autoRepeatOrderedNamedGridColumnLines == o.m_autoRepeatOrderedNamedGridColumnLines && m_autoRepeatOrderedNamedGridRowLines == o.m_autoRepeatOrderedNamedGridRowLines
+            && m_namedGridArea == o.m_namedGridArea && m_namedGridArea == o.m_namedGridArea
+            && m_namedGridAreaRowCount == o.m_namedGridAreaRowCount && m_namedGridAreaColumnCount == o.m_namedGridAreaColumnCount
+            && m_orderedNamedGridRowLines == o.m_orderedNamedGridRowLines && m_orderedNamedGridColumnLines == o.m_orderedNamedGridColumnLines
+            && m_gridColumnGap == o.m_gridColumnGap && m_gridRowGap == o.m_gridRowGap
+            && m_gridAutoRepeatColumns == o.m_gridAutoRepeatColumns && m_gridAutoRepeatRows == o.m_gridAutoRepeatRows
+            && m_autoRepeatColumnsInsertionPoint == o.m_autoRepeatColumnsInsertionPoint && m_autoRepeatRowsInsertionPoint == o.m_autoRepeatRowsInsertionPoint
+            && m_autoRepeatColumnsType == o.m_autoRepeatColumnsType && m_autoRepeatRowsType == o.m_autoRepeatRowsType;
     }
 
     bool operator!=(const StyleGridData& o) const
@@ -67,6 +78,11 @@ public:
     OrderedNamedGridLinesMap m_orderedNamedGridColumnLines;
     OrderedNamedGridLinesMap m_orderedNamedGridRowLines;
 
+    NamedGridLinesMap m_autoRepeatNamedGridColumnLines;
+    NamedGridLinesMap m_autoRepeatNamedGridRowLines;
+    OrderedNamedGridLinesMap m_autoRepeatOrderedNamedGridColumnLines;
+    OrderedNamedGridLinesMap m_autoRepeatOrderedNamedGridRowLines;
+
     unsigned m_gridAutoFlow : GridAutoFlowBits;
 
     GridTrackSize m_gridAutoRows;
@@ -77,6 +93,18 @@ public:
     // of the explicit grid size defined by both named and unnamed grid areas.
     unsigned m_namedGridAreaRowCount;
     unsigned m_namedGridAreaColumnCount;
+
+    Length m_gridColumnGap;
+    Length m_gridRowGap;
+
+    Vector<GridTrackSize> m_gridAutoRepeatColumns;
+    Vector<GridTrackSize> m_gridAutoRepeatRows;
+
+    unsigned m_autoRepeatColumnsInsertionPoint;
+    unsigned m_autoRepeatRowsInsertionPoint;
+
+    AutoRepeatType m_autoRepeatColumnsType;
+    AutoRepeatType m_autoRepeatRowsType;
 
 private:
     StyleGridData();

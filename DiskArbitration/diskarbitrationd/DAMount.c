@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,9 +30,6 @@
 #include "DASupport.h"
 
 #include <fstab.h>
-#include <libgen.h>
-#include <unistd.h>
-#include <sys/param.h>
 #include <sys/stat.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
 
@@ -214,8 +211,6 @@ static void __DAMountWithArgumentsCallbackStage2( int status, void * parameter )
 
         DALogDebug( "  mounted disk, id = %@, success.", context->disk );
 
-        _DAMountCreateTrashFolder( context->disk, context->mountpoint );
-
         /*
          * Execute the "repair quotas" command.
          */
@@ -252,51 +247,6 @@ static void __DAMountWithArgumentsCallbackStage3( int status, void * parameter )
     }
 
     __DAMountWithArgumentsCallback( 0, context );
-}
-
-void _DAMountCreateTrashFolder( DADiskRef disk, CFURLRef mountpoint )
-{
-    /*
-     * Create the trash folder in which the user trashes will be stored.
-     */
-
-    /*
-     * Determine whether the disk is writable.
-     */
-
-    if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanTrue )
-    {
-        char path[MAXPATHLEN];
-
-        /*
-         * Obtain the mount point path.
-         */
-
-        if ( CFURLGetFileSystemRepresentation( mountpoint, TRUE, ( void * ) path, sizeof( path ) ) )
-        {
-            /*
-             * Determine whether the trash folder exists already.
-             */
-
-            strlcat( path, "/.Trashes", sizeof( path ) );
-
-            if ( access( path, F_OK ) )
-            {
-                /*
-                 * Create the trash folder.
-                 */
-
-                if ( ___mkdir( path, 01333 ) == 0 )
-                {
-                    /*
-                     * Correct the trash folder's attributes.
-                     */
-
-                    ___chattr( path, ___ATTR_INVISIBLE, 0 );
-                }
-            }
-        }
-    }
 }
 
 void DAMount( DADiskRef disk, CFURLRef mountpoint, DAMountCallback callback, void * callbackContext )

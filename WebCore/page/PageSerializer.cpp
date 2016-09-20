@@ -44,6 +44,7 @@
 #include "HTMLLinkElement.h"
 #include "HTMLMetaCharsetParser.h"
 #include "HTMLNames.h"
+#include "HTMLObjectElement.h"
 #include "HTMLStyleElement.h"
 #include "HTTPParsers.h"
 #include "Image.h"
@@ -104,10 +105,10 @@ private:
     PageSerializer& m_serializer;
     Document& m_document;
 
-    virtual void appendText(StringBuilder&, const Text&) override;
-    virtual void appendElement(StringBuilder&, const Element&, Namespaces*) override;
-    virtual void appendCustomAttributes(StringBuilder&, const Element&, Namespaces*) override;
-    virtual void appendEndTag(const Element&) override;
+    void appendText(StringBuilder&, const Text&) override;
+    void appendElement(StringBuilder&, const Element&, Namespaces*) override;
+    void appendCustomAttributes(StringBuilder&, const Element&, Namespaces*) override;
+    void appendEndTag(const Element&) override;
 };
 
 SerializerMarkupAccumulator::SerializerMarkupAccumulator(PageSerializer& serializer, Document& document, Vector<Node*>* nodes)
@@ -116,7 +117,7 @@ SerializerMarkupAccumulator::SerializerMarkupAccumulator(PageSerializer& seriali
     , m_document(document)
 {
     // MarkupAccumulator does not serialize the <?xml ... line, so we add it explicitely to ensure the right encoding is specified.
-    if (m_document.isXHTMLDocument() || m_document.xmlStandalone() || m_document.isSVGDocument())
+    if (m_document.isXMLDocument() || m_document.xmlStandalone())
         appendString("<?xml version=\"" + m_document.xmlVersion() + "\" encoding=\"" + m_document.charset() + "\"?>");
 }
 
@@ -232,13 +233,13 @@ void PageSerializer::serializeFrame(Frame* frame)
 
         if (is<HTMLImageElement>(element)) {
             HTMLImageElement& imageElement = downcast<HTMLImageElement>(element);
-            URL url = document->completeURL(imageElement.fastGetAttribute(HTMLNames::srcAttr));
+            URL url = document->completeURL(imageElement.attributeWithoutSynchronization(HTMLNames::srcAttr));
             CachedImage* cachedImage = imageElement.cachedImage();
             addImageToResources(cachedImage, imageElement.renderer(), url);
         } else if (is<HTMLLinkElement>(element)) {
             HTMLLinkElement& linkElement = downcast<HTMLLinkElement>(element);
             if (CSSStyleSheet* sheet = linkElement.sheet()) {
-                URL url = document->completeURL(linkElement.getAttribute(HTMLNames::hrefAttr));
+                URL url = document->completeURL(linkElement.attributeWithoutSynchronization(HTMLNames::hrefAttr));
                 serializeCSSStyleSheet(sheet, url);
                 ASSERT(m_resourceURLs.contains(url));
             }
@@ -330,12 +331,12 @@ void PageSerializer::retrieveResourcesForProperties(const StyleProperties* style
         if (!is<CSSImageValue>(*cssValue))
             continue;
 
-        StyleImage* styleImage = downcast<CSSImageValue>(*cssValue).cachedOrPendingImage();
+        auto& styleImage = downcast<CSSImageValue>(*cssValue).cachedOrPendingImage();
         // Non cached-images are just place-holders and do not contain data.
         if (!is<StyleCachedImage>(styleImage))
             continue;
 
-        CachedImage* image = downcast<StyleCachedImage>(*styleImage).cachedImage();
+        CachedImage* image = downcast<StyleCachedImage>(styleImage).cachedImage();
 
         URL url = document->completeURL(image->url());
         addImageToResources(image, nullptr, url);

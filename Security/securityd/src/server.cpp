@@ -36,6 +36,7 @@
 #include "child.h"
 #include <mach/mach_error.h>
 #include <security_utilities/ccaudit.h>
+#include <security_utilities/casts.h>
 #include "pcscmonitor.h"
 
 #include "agentquery.h"
@@ -44,27 +45,13 @@
 using namespace MachPlusPlus;
 
 //
-// Construct an Authority
-//
-Authority::Authority(const char *configFile)
-: Authorization::Engine(configFile)
-{
-}
-
-Authority::~Authority()
-{
-}
-
-
-//
 // Construct the server object
 //
-Server::Server(Authority &authority, CodeSignatures &signatures, const char *bootstrapName)
+Server::Server(CodeSignatures &signatures, const char *bootstrapName)
   : MachServer(bootstrapName),
     mBootstrapName(bootstrapName),
     mCSPModule(gGuidAppleCSP, mCssm), mCSP(mCSPModule),
-    mAuthority(authority),
-	mCodeSignatures(signatures), 
+	mCodeSignatures(signatures),
 	mVerbosity(0),
 	mWaitForClients(true), mShuttingDown(false)
 {
@@ -190,8 +177,8 @@ void Server::run()
 //
 void Server::threadLimitReached(UInt32 limit)
 {
-	Syslog::notice("securityd has reached its thread limit (%ld) - service deadlock is possible",
-		limit);
+	Syslog::notice("securityd has reached its thread limit (%d) - service deadlock is possible",
+		(uint32_t) limit);
 }
 
 
@@ -222,7 +209,7 @@ boolean_t Server::handle(mach_msg_header_t *in, mach_msg_header_t *out)
 void Server::setupConnection(ConnectLevel type, Port replyPort, Port taskPort,
     const audit_token_t &auditToken, const ClientSetupInfo *info)
 {
-	AuditToken audit(auditToken);
+	Security::CommonCriteria::AuditToken audit(auditToken);
 	
 	// first, make or find the process based on task port
 	StLock<Mutex> _(*this);
@@ -280,12 +267,12 @@ void Server::notifyDeadName(Port port)
 	// unbounded time, including calls out to token daemons etc.
 	
 	StLock<Mutex> serverLock(*this);
-	secdebug("SSports", "port %d is dead", port.port());
+	secnotice("SSports", "port %d is dead", port.port());
     
     // is it a connection?
     PortMap<Connection>::iterator conIt = mConnections.find(port);
     if (conIt != mConnections.end()) {
-		SECURITYD_PORTS_DEAD_CONNECTION(port);
+        secnotice("SS", "%p dead connection %d", this, port.port());
         RefPointer<Connection> con = conIt->second;
 		mConnections.erase(conIt);
         serverLock.unlock();
@@ -296,7 +283,7 @@ void Server::notifyDeadName(Port port)
     // is it a process?
     PortMap<Process>::iterator procIt = mProcesses.find(port);
     if (procIt != mProcesses.end()) {
-		SECURITYD_PORTS_DEAD_PROCESS(port);
+        secnotice("SS", "%p dead process %d", this, port.port());
         RefPointer<Process> proc = procIt->second;
 		mPids.erase(proc->pid());
 		mProcesses.erase(procIt);
@@ -309,8 +296,7 @@ void Server::notifyDeadName(Port port)
     }
     
 	// well, what IS IT?!
-	SECURITYD_PORTS_DEAD_ORPHAN(port);
-	secdebug("server", "spurious dead port notification for port %d", port.port());
+	secnotice("server", "spurious dead port notification for port %d", port.port());
 }
 
 
@@ -320,7 +306,7 @@ void Server::notifyDeadName(Port port)
 //
 void Server::notifyNoSenders(Port port, mach_port_mscount_t)
 {
-	SECURITYD_PORTS_DEAD_SESSION(port);
+    secnotice("SS", "%p dead session %d", this, port.port());
 }
 
 
@@ -333,7 +319,7 @@ kern_return_t self_server_handleSignal(mach_port_t sport,
 	mach_port_t taskPort, int sig)
 {
     try {
-		SECURITYD_SIGNAL_HANDLED(sig);
+        secnotice("SS", "signal handled %d", sig);
         if (taskPort != mach_task_self()) {
             Syslog::error("handleSignal: received from someone other than myself");
 			return KERN_SUCCESS;
@@ -343,7 +329,7 @@ kern_return_t self_server_handleSignal(mach_port_t sport,
 			ServerChild::checkChildren();
 			break;
 		case SIGINT:
-			SECURITYD_SHUTDOWN_NOW();
+            secnotice("SS", "shutdown due to SIGINT");
 			Syslog::notice("securityd terminated due to SIGINT");
 			_exit(0);
 		case SIGTERM:
@@ -370,7 +356,7 @@ kern_return_t self_server_handleSignal(mach_port_t sport,
 			assert(false);
         }
     } catch(...) {
-		secdebug("SS", "exception handling a signal (ignored)");
+		secnotice("SS", "exception handling a signal (ignored)");
 	}
     mach_port_deallocate(mach_task_self(), taskPort);
     return KERN_SUCCESS;
@@ -385,10 +371,10 @@ kern_return_t self_server_handleSession(mach_port_t sport,
             Syslog::error("handleSession: received from someone other than myself");
 			return KERN_SUCCESS;
 		}
-		if (event == AUE_SESSION_CLOSE)
-			Session::destroy(ident);
+		if (event == AUE_SESSION_END)
+            Session::destroy(int_cast<uint64_t, Session::SessionId>(ident));
     } catch(...) {
-		secdebug("SS", "exception handling a signal (ignored)");
+		secnotice("SS", "exception handling a signal (ignored)");
 	}
     mach_port_deallocate(mach_task_self(), taskPort);
     return KERN_SUCCESS;
@@ -400,7 +386,7 @@ kern_return_t self_server_handleSession(mach_port_t sport,
 //
 void Server::SleepWatcher::systemWillSleep()
 {
-	SECURITYD_POWER_SLEEP();
+    secnotice("SS", "%p will sleep", this);
     Session::processSystemSleep();
 	for (set<PowerWatcher *>::const_iterator it = mPowerClients.begin(); it != mPowerClients.end(); it++)
 		(*it)->systemWillSleep();
@@ -408,14 +394,14 @@ void Server::SleepWatcher::systemWillSleep()
 
 void Server::SleepWatcher::systemIsWaking()
 {
-	SECURITYD_POWER_WAKE();
+    secnotice("SS", "%p is waking", this);
 	for (set<PowerWatcher *>::const_iterator it = mPowerClients.begin(); it != mPowerClients.end(); it++)
 		(*it)->systemIsWaking();
 }
 
 void Server::SleepWatcher::systemWillPowerOn()
 {
-	SECURITYD_POWER_ON();
+    secnotice("SS", "%p will power on", this);
 	Server::active().longTermActivity();
 	for (set<PowerWatcher *>::const_iterator it = mPowerClients.begin(); it != mPowerClients.end(); it++)
 		(*it)->systemWillPowerOn();
@@ -464,13 +450,13 @@ void Server::beginShutdown()
 {
 	StLock<Mutex> _(*this);
 	if (!mWaitForClients) {
-		SECURITYD_SHUTDOWN_NOW();
+        secnotice("SS", "%p shutting down now", this);
 		_exit(0);
 	} else {
 		if (!mShuttingDown) {
 			mShuttingDown = true;
             Session::invalidateAuthHosts();
-			SECURITYD_SHUTDOWN_BEGIN();
+            secnotice("SS", "%p beginning shutdown", this);
 			if (verbosity() >= 2) {
 				reportFile = fopen("/var/log/securityd-shutdown.log", "w");
 				shutdownSnitch();
@@ -490,12 +476,9 @@ void Server::eventDone()
 {
 	if (this->shuttingDown()) {
 		StLock<Mutex> lazy(*this, false);	// lazy lock acquisition
-		if (SECURITYD_SHUTDOWN_COUNT_ENABLED()) {
-			lazy.lock();
-			SECURITYD_SHUTDOWN_COUNT(mProcesses.size(), VProc::Transaction::debugCount());
-		}
 		if (verbosity() >= 2) {
 			lazy.lock();
+            secnotice("SS", "shutting down with %ld processes and %ld transactions", mProcesses.size(), VProc::Transaction::debugCount());
 			shutdownSnitch();
 		}
 		IFDUMPING("shutdown", NodeCore::dumpAll());
@@ -508,15 +491,10 @@ void Server::shutdownSnitch()
 	time_t now;
 	time(&now);
 	fprintf(reportFile, "%.24s %d residual clients:\n",	ctime(&now), int(mPids.size()));
-	for (PidMap::const_iterator it = mPids.begin(); it != mPids.end(); ++it)
-		if (SecCodeRef clientCode = it->second->processCode()) {
-			CFRef<CFURLRef> path;
-			OSStatus rc = SecCodeCopyPath(clientCode, kSecCSDefaultFlags, &path.aref());
-			if (path)
-				fprintf(reportFile, " %s (%d)\n", cfString(path).c_str(), it->first);
-			else
-				fprintf(reportFile,  "pid=%d (error %d)\n", it->first, int32_t(rc));
-		}
+	for (PidMap::const_iterator it = mPids.begin(); it != mPids.end(); ++it) {
+		string path = it->second->getPath();
+		fprintf(reportFile, " %s (%d)\n", path.c_str(), it->first);
+	}
 	fprintf(reportFile, "\n");
 	fflush(reportFile);
 }
@@ -539,14 +517,14 @@ void Server::loadCssm(bool mdsIsInstalled)
 		VProc::Transaction xact;
 		if (!mCssm->isActive()) {
             if (!mdsIsInstalled) {  // non-system securityd instance should not reinitialize MDS
-                secdebug("SS", "Installing MDS");
+                secnotice("SS", "Installing MDS");
                 IFDEBUG(if (geteuid() == 0))
 				MDSClient::mds().install();
             }
-			secdebug("SS", "CSSM initializing");
+			secnotice("SS", "CSSM initializing");
 			mCssm->init();
 			mCSP->attach();
-			secdebug("SS", "CSSM ready with CSP %s", mCSP->guid().toString().c_str());
+			secnotice("SS", "CSSM ready with CSP %s", mCSP->guid().toString().c_str());
 		}
 	}
 }

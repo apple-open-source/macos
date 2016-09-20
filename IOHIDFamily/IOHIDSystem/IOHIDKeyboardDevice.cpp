@@ -25,6 +25,7 @@
 #include <IOKit/IOLib.h>
 
 #include "IOHIDKeyboardDevice.h" 
+#include "IOHIDPrivateKeys.h"
 
 typedef struct __attribute__((packed)) GenericKeyboardRpt {
     UInt8 modifiers;
@@ -415,4 +416,15 @@ OSString * IOHIDKeyboardDevice::newProductString() const
         string = OSString::withCString("Virtual Keyboard");
         
     return string;
+}
+
+bool IOHIDKeyboardDevice::matchPropertyTable(OSDictionary *table, SInt32 * score __unused)
+{
+    if (super::matchPropertyTable(table, score) == false) {
+        return false;
+    }
+    if (table->getObject(kIOHIDCompatibilityInterface)) {
+        return true;
+    }
+    return false;
 }

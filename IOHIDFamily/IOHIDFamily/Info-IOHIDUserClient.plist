@@ -34,7 +34,7 @@
 				</dict>
 				<dict>
 					<key>DeviceUsagePage</key>
-					<string>133</string>
+					<integer>133</integer>
 				</dict>
 			</array>
 			<key>IOClass</key>

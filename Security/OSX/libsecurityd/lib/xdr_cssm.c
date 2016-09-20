@@ -154,7 +154,7 @@ bool_t inline xdr_CSSM_LIST_ELEMENT(XDR *xdrs, CSSM_LIST_ELEMENT *objp)
     case CSSM_LIST_ELEMENT_WORDID:
         break;
     default:
-        secdebug("secxdr", "Illegal CSSM_LIST_ELEMENT type: %u", objp->ElementType); return (FALSE);
+        secinfo("secxdr", "Illegal CSSM_LIST_ELEMENT type: %u", objp->ElementType); return (FALSE);
     }
 
     if (!sec_xdr_pointer(xdrs, (uint8_t**)&objp->NextElement, sizeof(CSSM_LIST_ELEMENT), (xdrproc_t)xdr_CSSM_LIST_ELEMENT))

@@ -1,15 +1,15 @@
 /*
  * Copyright (c) 2002-2008,2011-2012 Apple Inc. All Rights Reserved.
- * 
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  *
  * IdentityCursor.cpp -- Working with IdentityCursor
@@ -47,20 +47,22 @@ IdentityCursorPolicyAndID::IdentityCursorPolicyAndID(const StorageManager::Keych
 	mPreferredIdentityChecked(false),
 	mPreferredIdentity(nil)
 {
-    if (mPolicy)
-        CFRetain(mPolicy);
-
-    if (mIDString)
-        CFRetain(mIDString);
+	if (mPolicy) {
+		CFRetain(mPolicy);
+	}
+	if (mIDString) {
+		CFRetain(mIDString);
+	}
 }
 
 IdentityCursorPolicyAndID::~IdentityCursorPolicyAndID() throw()
 {
-    if (mPolicy)
-        CFRelease(mPolicy);
-
-    if (mIDString)
-        CFRelease(mIDString);
+	if (mPolicy) {
+		CFRelease(mPolicy);
+	}
+	if (mIDString) {
+		CFRelease(mIDString);
+	}
 }
 
 void
@@ -105,7 +107,7 @@ IdentityCursorPolicyAndID::findPreferredIdentity()
 	SecPointer<Identity> identity(new Identity(mSearchList /*keychains*/, certificate));
 
 	mPreferredIdentity = identity;
-	
+
 	if (certItemRef)
 		CFRelease(certItemRef);
 }
@@ -221,7 +223,7 @@ IdentityCursorPolicyAndID::next(SecPointer<Identity> &identity)
 			break;
 		}
 	}   // for(;;)
-	
+
 	if ( identityOK )
 	{
 		identity = currIdentity; // caller will release the identity
@@ -311,7 +313,7 @@ IdentityCursor::next(SecPointer<Identity> &identity)
 			Item key;
 			if (!mKeyCursor->next(key))
 				return false;
-	
+
 			mCurrentKey = static_cast<KeyItem *>(key.get());
 
 			CssmClient::DbUniqueRecord uniqueId = mCurrentKey->dbUniqueRecord();
@@ -319,7 +321,7 @@ IdentityCursor::next(SecPointer<Identity> &identity)
 			dbAttributes.add(KeySchema::Label);
 			uniqueId->get(&dbAttributes, NULL);
 			const CssmData &keyHash = dbAttributes[0];
-            
+
 			mCertificateCursor = KCCursor(mSearchList, CSSM_DL_DB_RECORD_X509_CERTIFICATE, NULL);
 			mCertificateCursor->add(CSSM_DB_EQUAL, Schema::kX509CertificatePublicKeyHash, keyHash);
 
@@ -337,7 +339,7 @@ IdentityCursor::next(SecPointer<Identity> &identity)
                 CFRelease(kerbKDCCertPubKeyHash);
             }
 		}
-	
+
 		Item cert;
 		if (mCertificateCursor->next(cert))
 		{

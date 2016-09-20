@@ -29,19 +29,40 @@
 #ifndef ScrollbarThemeEfl_h
 #define ScrollbarThemeEfl_h
 
-#include "ScrollbarTheme.h"
+#include "ScrollbarThemeComposite.h"
 
 namespace WebCore {
 
-class ScrollbarThemeEfl final : public ScrollbarTheme {
-public:
-    ScrollbarThemeEfl() : m_scrollbarThickness(0) { }
-    void setScrollbarThickness(int thickness) { m_scrollbarThickness = thickness; }
-    virtual int scrollbarThickness(ScrollbarControlSize = RegularScrollbar) override { return m_scrollbarThickness; }
+class RenderThemeEfl;
 
-    virtual void registerScrollbar(Scrollbar&) override { }
-    virtual void unregisterScrollbar(Scrollbar&) override { }
+class ScrollbarThemeEfl final : public ScrollbarThemeComposite {
+public:
+    ~ScrollbarThemeEfl();
+
+    int scrollbarThickness(ScrollbarControlSize = RegularScrollbar) override;
+    void setScrollbarThickness(int thickness) { m_scrollbarThickness = thickness; }
+
+protected:
+    bool usesOverlayScrollbars() const override;
+    bool hasButtons(Scrollbar&) override { return false; }
+    bool hasThumb(Scrollbar&) override;
+
+    IntRect backButtonRect(Scrollbar&, ScrollbarPart, bool) override;
+    IntRect forwardButtonRect(Scrollbar&, ScrollbarPart, bool) override;
+    IntRect trackRect(Scrollbar&, bool) override;
+
+    int minimumThumbLength(Scrollbar&) override;
+
+    void paintTrackBackground(GraphicsContext&, Scrollbar&, const IntRect&) override;
+    void paintThumb(GraphicsContext&, Scrollbar&, const IntRect&) override;
+
+    void registerScrollbar(Scrollbar&) override;
+    void unregisterScrollbar(Scrollbar&) override;
+
 private:
+    void loadThemeIfNeeded(Scrollbar&);
+
+    RefPtr<RenderThemeEfl> m_theme;
     int m_scrollbarThickness;
 };
 

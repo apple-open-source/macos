@@ -39,24 +39,13 @@
 
 #include <TargetConditionals.h>
 
-#define ENABLE_ECDH      		1
 #define ENABLE_AES_GCM          1
 #define ENABLE_PSK              1
 
 /*
-    List of default CipherSuites we implement.
-
-    Order by preference, PFS first, more security first
-
-    Ordered by:
-    Key Exchange first: ECDHE_ECDSA, ECDHE_RSA, DHE_RSA, RSA
-    then by hash algorithm: SHA384, SHA256, SHA
-    then by symmetric cipher: AES_256_GCM, AES_128_GCM, AES_256_CBC, AES_128_CBC, 3DES
-
-    All RC4 ciphersuites are relegated at the end. They are likely to be soon deprecated by the IETF TLS WG.
-    ECDH_ECDSA, ECDH_RSA, PSK, AnonDH and NULL ciphers, AnonDH ciphers, and PSK ciphers are not in this list and need to be enabled explicetely.
-    The list is filtered based on server support, dtls support, and config if necessary.
-*/
+    This list is exported and used by a couple project, don't change it.
+    Internally, use AllCipherSuites instead.
+ */
 
 const uint16_t KnownCipherSuites[] = {
 #if ENABLE_AES_GCM
@@ -119,6 +108,19 @@ const uint16_t KnownCurves[] = {
 
 const unsigned CurvesCount = sizeof(KnownCurves)/sizeof(KnownCurves[0]);
 
+/* SigAlgs we support: */
+const tls_signature_and_hash_algorithm KnownSigAlgs[] = {
+    {tls_hash_algorithm_SHA256, tls_signature_algorithm_RSA},
+    {tls_hash_algorithm_SHA1,   tls_signature_algorithm_RSA},
+    {tls_hash_algorithm_SHA384, tls_signature_algorithm_RSA},
+    {tls_hash_algorithm_SHA512, tls_signature_algorithm_RSA},
+    {tls_hash_algorithm_SHA256, tls_signature_algorithm_ECDSA},
+    {tls_hash_algorithm_SHA1,   tls_signature_algorithm_ECDSA},
+    {tls_hash_algorithm_SHA384, tls_signature_algorithm_ECDSA},
+    {tls_hash_algorithm_SHA512, tls_signature_algorithm_ECDSA},
+};
+const unsigned SigAlgsCount = sizeof(KnownSigAlgs)/sizeof(KnownSigAlgs[0]);
+
 /*
  * Given a valid ctx->validCipherSpecs array, calculate how many of those
  * cipherSpecs are *not* SSLv2 only, storing result in
@@ -137,9 +139,7 @@ void sslAnalyzeCipherSpecs(tls_handshake_t ctx)
 	ctx->ecdsaEnable = false;
 	for(dex=0; dex<ctx->numEnabledCipherSuites; dex++, cipherSuite++) {
 		switch(sslCipherSuiteGetKeyExchangeMethod(*cipherSuite)) {
-			case SSL_ECDH_ECDSA:
 			case SSL_ECDHE_ECDSA:
-			case SSL_ECDH_RSA:
 			case SSL_ECDHE_RSA:
 			case SSL_ECDH_anon:
 				ctx->ecdsaEnable = true;
@@ -192,10 +192,10 @@ verifyCipherSuite(tls_handshake_t ctx, uint16_t cs)
         case SSL_RSA:
         case SSL_DHE_RSA:
         case SSL_ECDHE_RSA:
-            return ((ctx->signingPrivKeyRef) && (ctx->signingPrivKeyRef->type == kSSLPrivKeyType_RSA));
+            return ((ctx->signingPrivKeyRef) && (ctx->signingPrivKeyRef->desc.type == tls_private_key_type_rsa));
             break;
         case SSL_ECDHE_ECDSA:
-            return ((ctx->signingPrivKeyRef) && (ctx->signingPrivKeyRef->type == kSSLPrivKeyType_ECDSA));
+            return ((ctx->signingPrivKeyRef) && (ctx->signingPrivKeyRef->desc.type == tls_private_key_type_ecdsa));
             break;
         /* Other key exchange don't care about certificate key */
         default:
@@ -257,17 +257,13 @@ bool tls_handshake_kem_is_supported(bool server, KeyExchangeMethod kem)
 {
     switch(kem) {
         case SSL_RSA:
-        case SSL_DH_RSA:
         case SSL_DHE_RSA:
         case SSL_DH_anon:
         case TLS_PSK:
         case SSL_ECDHE_ECDSA:
         case SSL_ECDHE_RSA:
-            return true;
-        case SSL_ECDH_ECDSA:
-        case SSL_ECDH_RSA:
         case SSL_ECDH_anon:
-            return (!server); // Only supported on the client side
+            return true;
         default:
             return false;
     }
@@ -285,13 +281,15 @@ bool tls_handshake_kem_is_allowed(tls_handshake_config_t config, KeyExchangeMeth
         case tls_handshake_config_legacy_DHE:
             return (kem==SSL_RSA || kem == SSL_DHE_RSA || kem == SSL_ECDHE_ECDSA || kem == SSL_ECDHE_RSA);
         case tls_handshake_config_ATSv1_noPFS:
+        case tls_handshake_config_default:
         case tls_handshake_config_standard:
         case tls_handshake_config_RC4_fallback:
         case tls_handshake_config_TLSv1_fallback:
         case tls_handshake_config_TLSv1_RC4_fallback:
         case tls_handshake_config_legacy:
-        case tls_handshake_config_default:
             return (kem==SSL_RSA || kem == SSL_ECDHE_ECDSA || kem == SSL_ECDHE_RSA);
+        case tls_handshake_config_anonymous:
+            return (kem==SSL_ECDH_anon || kem == SSL_DH_anon);
     }
 
     /* Note: we do this here instead of a 'default:' case, so that the compiler will warn us when
@@ -311,8 +309,6 @@ bool tls_handshake_kem_is_valid(tls_handshake_t ctx, KeyExchangeMethod kem)
             return true;
         case SSL_ECDHE_ECDSA:
         case SSL_ECDHE_RSA:
-        case SSL_ECDH_ECDSA:
-        case SSL_ECDH_RSA:
         case SSL_ECDH_anon:
             return ctx->maxProtocolVersion!=tls_protocol_version_SSL_3; // EC ciphersuites not valid for SSLv3
         default:
@@ -346,12 +342,13 @@ bool tls_handshake_sym_is_allowed(tls_handshake_config_t config, SSL_CipherAlgor
             return true;
         case tls_handshake_config_ATSv1:
         case tls_handshake_config_ATSv1_noPFS:
+        case tls_handshake_config_anonymous:
             return (sym>=SSL_CipherAlgorithmAES_128_CBC);
+        case tls_handshake_config_default:
         case tls_handshake_config_standard:
         case tls_handshake_config_TLSv1_fallback:
             return (sym>=SSL_CipherAlgorithm3DES_CBC);
         case tls_handshake_config_legacy:
-        case tls_handshake_config_default:
         case tls_handshake_config_RC4_fallback:
         case tls_handshake_config_TLSv1_RC4_fallback:
         case tls_handshake_config_legacy_DHE:
@@ -360,7 +357,7 @@ bool tls_handshake_sym_is_allowed(tls_handshake_config_t config, SSL_CipherAlgor
 
     /* Note: we do this here instead of a 'default:' case, so that the compiler will warn us when
      adding new config in the enum */
-    return (sym==SSL_CipherAlgorithmRC4_128) || (sym>=SSL_CipherAlgorithm3DES_CBC);
+    return (sym>=SSL_CipherAlgorithm3DES_CBC);
 }
 
 static
@@ -405,6 +402,7 @@ bool tls_handshake_mac_is_allowed(tls_handshake_config_t config, HMAC_Algs mac)
             return true;
         case tls_handshake_config_ATSv1:
         case tls_handshake_config_ATSv1_noPFS:
+        case tls_handshake_config_anonymous:
             return (mac>=HA_SHA1);
         case tls_handshake_config_default:
         case tls_handshake_config_legacy:
@@ -480,4 +478,33 @@ bool tls_handshake_curve_is_supported(uint16_t curve)
         default:
             return false;
     }
+}
+
+bool tls_handshake_sigalg_is_supported(tls_signature_and_hash_algorithm sigalg)
+{
+
+    bool hash_supported;
+    bool sig_supported;
+
+    switch(sigalg.hash) {
+        case tls_hash_algorithm_SHA1:
+        case tls_hash_algorithm_SHA256:
+        case tls_hash_algorithm_SHA384:
+        case tls_hash_algorithm_SHA512:
+            hash_supported = true;
+            break;
+        default:
+            hash_supported = false;
+    }
+
+    switch(sigalg.signature) {
+        case tls_signature_algorithm_RSA:
+        case tls_signature_algorithm_ECDSA:
+            sig_supported = true;
+            break;
+        default:
+            sig_supported = false;
+    }
+
+    return sig_supported && hash_supported;
 }

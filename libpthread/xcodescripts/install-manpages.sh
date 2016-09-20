@@ -24,6 +24,9 @@
 if [ "$ACTION" = installhdrs ]; then exit 0; fi
 if [ "${RC_ProjectName%_Sim}" != "${RC_ProjectName}" ]; then exit 0; fi
 
+set -x
+set -e
+
 mkdir -p "$DSTROOT"/usr/share/man/man2 || true
 mkdir -p "$DSTROOT"/usr/share/man/man3 || true
 mkdir -p "$DSTROOT"/usr/local/share/man/man2 || true
@@ -41,12 +44,6 @@ BASE_PAGES="pthread.3 \
 	pthread_atfork.3 \
 	pthread_attr.3 \
 	pthread_attr_init_destroy.3 \
-	pthread_attr_set_getdetachstate.3 \
-	pthread_attr_set_getinheritsched.3 \
-	pthread_attr_set_getschedparam.3 \
-	pthread_attr_set_getschedpolicy.3 \
-	pthread_attr_set_getscope.3 pthread_attr_set_getstackaddr.3 \
-	pthread_attr_set_getstacksize.3 \
 	pthread_cancel.3 \
 	pthread_cleanup_pop.3 \
 	pthread_cleanup_push.3 \
@@ -85,9 +82,25 @@ BASE_PAGES="pthread.3 \
 	pthread_rwlockattr_setpshared.3 \
 	pthread_self.3 \
 	pthread_setcancelstate.3 \
-	pthread_setspecific.3"
+	pthread_setname_np.3 \
+	pthread_setspecific.3 \
+	pthread_threadid_np.3 \
+	pthread_yield_np.3"
 
 cp $BASE_PAGES "$DSTROOT"/usr/share/man/man3
+
+for ATTR in \
+	detachstate \
+	inheritsched \
+	schedparam \
+	schedpolicy \
+	scope \
+	stackaddr \
+	stacksize \
+	; do
+	cp pthread_attr_set_get$ATTR.3 "$DSTROOT"/usr/share/man/man3/pthread_attr_set$ATTR.3
+	cp pthread_attr_set_get$ATTR.3 "$DSTROOT"/usr/share/man/man3/pthread_attr_get$ATTR.3
+done
 
 # Make hard links
 
@@ -102,21 +115,11 @@ ln -fh pthread_rwlock_wrlock.3 pthread_rwlock_trywrlock.3
 
 for M in \
 	pthread_attr_destroy.3 \
-	pthread_attr_getdetachstate.3 \
-	pthread_attr_getinheritsched.3 \
-	pthread_attr_getschedparam.3 \
-	pthread_attr_getschedpolicy.3 \
-	pthread_attr_getscope.3 \
-	pthread_attr_getstackaddr.3 \
-	pthread_attr_getstacksize.3 \
 	pthread_attr_init.3 \
-	pthread_attr_setdetachstate.3 \
-	pthread_attr_setinheritsched.3 \
-	pthread_attr_setschedparam.3 \
-	pthread_attr_setschedpolicy.3 \
-	pthread_attr_setscope.3 \
-	pthread_attr_setstackaddr.3 \
-	pthread_attr_setstacksize.3 \
+	pthread_attr_setstack.3 \
+	pthread_attr_getstack.3 \
+	pthread_attr_setguardsize.3 \
+	pthread_attr_getguardsize.3 \
 	; do
 	ln -fh pthread_attr.3 $M
 done

@@ -46,7 +46,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-#include <asl.h>
+#include <os/log.h>
 
 #include "DeconstructServiceName.h"
 #include "utils.h"
@@ -64,14 +64,14 @@ static krb5_error_code
 _k5_check_err(krb5_error_code error, const char *function, const char *file, int line)
 {
     //    if (error)
-    //        asl_log(NULL, NULL, ASL_LEVEL_DEBUG, "    %s: krb5 call got %d (%s) on %s:%d", function, error, error_message(error), file, line);
+    //        os_log(OS_LOG_DEFAULT, "    %s: krb5 call got %d (%s) on %s:%d", function, error, error_message(error), file, line);
     return error;
 }
 
 // static krb5_error_code _k5_check_err(krb5_error_code error, const char *function, const char *file, int line);
 #define k5_ok(x) _k5_check_err (x, __func__, __FILE__, __LINE__)
 
-#define KHLog(FMT, ...)     asl_log(NULL, NULL, ASL_LEVEL_DEBUG, FMT, __VA_ARGS__)
+#define KHLog(FMT, ...)     os_log(OS_LOG_DEFAULT, FMT, __VA_ARGS__)
 
 static const char lkdc_prefix[] = "LKDC:";
 

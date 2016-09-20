@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2009, 2010, 2011, 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2016 Apple Inc. All rights reserved.
  * Copyright (C) 2012 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,11 +27,9 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef FrameLoaderClient_h
-#define FrameLoaderClient_h
+#pragma once
 
 #include "FrameLoaderTypes.h"
-#include "IconURL.h"
 #include "LayoutMilestones.h"
 #include "ResourceLoadPriority.h"
 #include <functional>
@@ -52,10 +50,10 @@ typedef void* RemoteAXObjectRef;
 #endif
 #endif
 
-typedef class _jobject* jobject;
-
 #if PLATFORM(COCOA)
+OBJC_CLASS NSArray;
 OBJC_CLASS NSCachedURLResponse;
+OBJC_CLASS NSDictionary;
 OBJC_CLASS NSView;
 #endif
 
@@ -90,10 +88,11 @@ namespace WebCore {
     class ResourceHandle;
     class ResourceRequest;
     class ResourceResponse;
-#if ENABLE(MEDIA_STREAM)
+#if ENABLE(WEB_RTC)
     class RTCPeerConnectionHandler;
 #endif
     class SecurityOrigin;
+    class SessionID;
     class SharedBuffer;
     class StringWithDirection;
     class SubstituteData;
@@ -137,7 +136,6 @@ namespace WebCore {
         virtual void dispatchWillSendRequest(DocumentLoader*, unsigned long identifier, ResourceRequest&, const ResourceResponse& redirectResponse) = 0;
         virtual bool shouldUseCredentialStorage(DocumentLoader*, unsigned long identifier) = 0;
         virtual void dispatchDidReceiveAuthenticationChallenge(DocumentLoader*, unsigned long identifier, const AuthenticationChallenge&) = 0;
-        virtual void dispatchDidCancelAuthenticationChallenge(DocumentLoader*, unsigned long identifier, const AuthenticationChallenge&) = 0;        
 #if USE(PROTECTION_SPACE_AUTH_CALLBACK)
         virtual bool canAuthenticateAgainstProtectionSpace(DocumentLoader*, unsigned long identifier, const ProtectionSpace&) = 0;
 #endif
@@ -152,7 +150,7 @@ namespace WebCore {
         virtual void dispatchDidFailLoading(DocumentLoader*, unsigned long identifier, const ResourceError&) = 0;
         virtual bool dispatchDidLoadResourceFromMemoryCache(DocumentLoader*, const ResourceRequest&, const ResourceResponse&, int length) = 0;
 
-        virtual void dispatchDidHandleOnloadEvents() = 0;
+        virtual void dispatchDidDispatchOnloadEvents() = 0;
         virtual void dispatchDidReceiveServerRedirectForProvisionalLoad() = 0;
         virtual void dispatchDidChangeProvisionalURL() { }
         virtual void dispatchDidCancelClientRedirect() = 0;
@@ -166,12 +164,14 @@ namespace WebCore {
         virtual void dispatchDidReceiveIcon() = 0;
         virtual void dispatchDidStartProvisionalLoad() = 0;
         virtual void dispatchDidReceiveTitle(const StringWithDirection&) = 0;
-        virtual void dispatchDidChangeIcons(IconType) = 0;
         virtual void dispatchDidCommitLoad() = 0;
         virtual void dispatchDidFailProvisionalLoad(const ResourceError&) = 0;
         virtual void dispatchDidFailLoad(const ResourceError&) = 0;
         virtual void dispatchDidFinishDocumentLoad() = 0;
         virtual void dispatchDidFinishLoad() = 0;
+#if ENABLE(DATA_DETECTION)
+        virtual void dispatchDidFinishDataDetection(NSArray *detectionResults) = 0;
+#endif
 
         virtual void dispatchDidLayout() { }
         virtual void dispatchDidLayout(LayoutMilestones) { }
@@ -228,8 +228,12 @@ namespace WebCore {
 
         virtual ResourceError cancelledError(const ResourceRequest&) = 0;
         virtual ResourceError blockedError(const ResourceRequest&) = 0;
+        virtual ResourceError blockedByContentBlockerError(const ResourceRequest&) = 0;
         virtual ResourceError cannotShowURLError(const ResourceRequest&) = 0;
         virtual ResourceError interruptedForPolicyChangeError(const ResourceRequest&) = 0;
+#if ENABLE(CONTENT_FILTERING)
+        virtual ResourceError blockedByContentFilterError(const ResourceRequest&) = 0;
+#endif
 
         virtual ResourceError cannotShowMIMETypeError(const ResourceResponse&) = 0;
         virtual ResourceError fileDoesNotExistError(const ResourceResponse&) = 0;
@@ -244,13 +248,13 @@ namespace WebCore {
         virtual String generatedMIMETypeForURLScheme(const String& URLScheme) const = 0;
 
         virtual void frameLoadCompleted() = 0;
-        virtual void saveViewStateToItem(HistoryItem*) = 0;
+        virtual void saveViewStateToItem(HistoryItem&) = 0;
         virtual void restoreViewState() = 0;
         virtual void provisionalLoadStarted() = 0;
         virtual void didFinishLoad() = 0;
         virtual void prepareForDataSourceReplacement() = 0;
 
-        virtual PassRefPtr<DocumentLoader> createDocumentLoader(const ResourceRequest&, const SubstituteData&) = 0;
+        virtual Ref<DocumentLoader> createDocumentLoader(const ResourceRequest&, const SubstituteData&) = 0;
         virtual void updateCachedDocumentLoader(DocumentLoader&) = 0;
         virtual void setTitle(const StringWithDirection&, const URL&) = 0;
 
@@ -269,10 +273,10 @@ namespace WebCore {
         virtual void dispatchDidBecomeFrameset(bool) = 0; // Can change due to navigation or DOM modification.
 
         virtual bool canCachePage() const = 0;
-        virtual void convertMainResourceLoadToDownload(DocumentLoader*, const ResourceRequest&, const ResourceResponse&) = 0;
+        virtual void convertMainResourceLoadToDownload(DocumentLoader*, SessionID, const ResourceRequest&, const ResourceResponse&) = 0;
 
-        virtual PassRefPtr<Frame> createFrame(const URL& url, const String& name, HTMLFrameOwnerElement* ownerElement, const String& referrer, bool allowsScrolling, int marginWidth, int marginHeight) = 0;
-        virtual PassRefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement*, const URL&, const Vector<String>&, const Vector<String>&, const String&, bool loadManually) = 0;
+        virtual RefPtr<Frame> createFrame(const URL&, const String& name, HTMLFrameOwnerElement*, const String& referrer, bool allowsScrolling, int marginWidth, int marginHeight) = 0;
+        virtual RefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement*, const URL&, const Vector<String>&, const Vector<String>&, const String&, bool loadManually) = 0;
         virtual void recreatePlugin(Widget*) = 0;
         virtual void redirectDataToPlugin(Widget* pluginWidget) = 0;
 
@@ -280,7 +284,7 @@ namespace WebCore {
 
         virtual void dispatchDidFailToStartPlugin(const PluginViewBase*) const { }
 
-        virtual ObjectContentType objectContentType(const URL&, const String& mimeType, bool shouldPreferPlugInsForImages) = 0;
+        virtual ObjectContentType objectContentType(const URL&, const String& mimeType) = 0;
         virtual String overrideMediaType() const = 0;
 
         virtual void dispatchDidClearWindowObjectInWorld(DOMWrapperWorld&) = 0;
@@ -291,6 +295,7 @@ namespace WebCore {
         // Allow an accessibility object to retrieve a Frame parent if there's no PlatformWidget.
         virtual RemoteAXObjectRef accessibilityRemoteObject() = 0;
         virtual NSCachedURLResponse* willCacheResponse(DocumentLoader*, unsigned long identifier, NSCachedURLResponse*) const = 0;
+        virtual NSDictionary *dataDetectionContext() { return nullptr; }
 #endif
 #if PLATFORM(WIN) && USE(CFNETWORK)
         // FIXME: Windows should use willCacheResponse - <https://bugs.webkit.org/show_bug.cgi?id=57257>.
@@ -320,7 +325,7 @@ namespace WebCore {
         virtual void dispatchDidReconnectDOMWindowExtensionToGlobalObject(DOMWindowExtension*) { }
         virtual void dispatchWillDestroyGlobalObjectForDOMWindowExtension(DOMWindowExtension*) { }
 
-#if ENABLE(MEDIA_STREAM)
+#if ENABLE(WEB_RTC)
         virtual void dispatchWillStartUsingPeerConnectionHandler(RTCPeerConnectionHandler*) { }
 #endif
 
@@ -338,8 +343,6 @@ namespace WebCore {
         // FIXME (bug 116233): We need to get rid of EmptyFrameLoaderClient completely, then this will no longer be needed.
         virtual bool isEmptyFrameLoaderClient() { return false; }
 
-        virtual FrameLoader* dataProtocolLoader() const { return nullptr; }
-
 #if USE(QUICK_LOOK)
         virtual void didCreateQuickLookHandle(QuickLookHandle&) { }
 #endif
@@ -347,8 +350,10 @@ namespace WebCore {
 #if ENABLE(CONTENT_FILTERING)
         virtual void contentFilterDidBlockLoad(ContentFilterUnblockHandler) { }
 #endif
+
+        virtual void prefetchDNS(const String&) = 0;
+
+        virtual void didRestoreScrollPosition() { }
     };
 
 } // namespace WebCore
-
-#endif // FrameLoaderClient_h

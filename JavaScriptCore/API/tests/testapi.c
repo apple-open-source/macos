@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2015 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2015-2016 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,19 +41,17 @@
 
 #include "CompareAndSwapTest.h"
 #include "CustomGlobalObjectClassTest.h"
+#include "ExecutionTimeLimitTest.h"
+#include "FunctionOverridesTest.h"
 #include "GlobalContextWithFinalizerTest.h"
 #include "PingPongStackOverflowTest.h"
-
-#if OS(DARWIN)
-#include "ExecutionTimeLimitTest.h"
-#endif
+#include "TypedArrayCTest.h"
 
 #if JSC_OBJC_API_ENABLED
 void testObjectiveCAPI(void);
 #endif
 
 bool assertTrue(bool value, const char* message);
-extern void JSSynchronousGarbageCollectForDebugging(JSContextRef);
 
 static JSGlobalContextRef context;
 int failed;
@@ -1116,19 +1114,9 @@ static void checkConstnessInJSObjectNames()
     val.name = "something";
 }
 
-
 int main(int argc, char* argv[])
 {
 #if OS(WINDOWS)
-#if defined(_M_X64) || defined(__x86_64__)
-    // The VS2013 runtime has a bug where it mis-detects AVX-capable processors
-    // if the feature has been disabled in firmware. This causes us to crash
-    // in some of the math functions. For now, we disable those optimizations
-    // because Microsoft is not going to fix the problem in VS2013.
-    // FIXME: http://webkit.org/b/141449: Remove this workaround when we switch to VS2015+.
-    _set_FMA3_enable(0);
-#endif
-
     // Cygwin calls ::SetErrorMode(SEM_FAILCRITICALERRORS), which we will inherit. This is bad for
     // testing/debugging, as it causes the post-mortem debugger not to be invoked. We reset the
     // error mode here to work around Cygwin's behavior. See <http://webkit.org/b/55222>.
@@ -1140,6 +1128,8 @@ int main(int argc, char* argv[])
 #if JSC_OBJC_API_ENABLED
     testObjectiveCAPI();
 #endif
+
+
 
     const char *scriptPath = "testapi.js";
     if (argc > 1) {
@@ -1855,26 +1845,48 @@ int main(int argc, char* argv[])
         JSObjectRef globalObject = JSContextGetGlobalObject(context);
         {
             JSStringRef promiseProperty = JSStringCreateWithUTF8CString("Promise");
-            ASSERT(!JSObjectHasProperty(context, globalObject, promiseProperty));
+            ASSERT(JSObjectHasProperty(context, globalObject, promiseProperty));
             JSStringRelease(promiseProperty);
         }
         {
             JSStringRef script = JSStringCreateWithUTF8CString("typeof Promise");
-            JSStringRef undefined = JSStringCreateWithUTF8CString("undefined");
+            JSStringRef function = JSStringCreateWithUTF8CString("function");
             JSValueRef value = JSEvaluateScript(context, script, NULL, NULL, 1, NULL);
             ASSERT(JSValueIsString(context, value));
             JSStringRef valueAsString = JSValueToStringCopy(context, value, NULL);
-            ASSERT(JSStringIsEqual(valueAsString, undefined));
+            ASSERT(JSStringIsEqual(valueAsString, function));
             JSStringRelease(valueAsString);
-            JSStringRelease(undefined);
+            JSStringRelease(function);
             JSStringRelease(script);
         }
-        printf("PASS: Promise is not exposed under JSContext API.\n");
+        printf("PASS: Promise is exposed under JSContext API.\n");
     }
 
-#if OS(DARWIN)
+    // Check microtasks.
+    {
+        JSGlobalContextRef context = JSGlobalContextCreateInGroup(NULL, NULL);
+        {
+            JSObjectRef globalObject = JSContextGetGlobalObject(context);
+            JSValueRef exception;
+            JSStringRef code = JSStringCreateWithUTF8CString("result = 0; Promise.resolve(42).then(function (value) { result = value; });");
+            JSStringRef file = JSStringCreateWithUTF8CString("");
+            assertTrue(JSEvaluateScript(context, code, globalObject, file, 1, &exception), "An exception should not be thrown");
+            JSStringRelease(code);
+            JSStringRelease(file);
+
+            JSStringRef resultProperty = JSStringCreateWithUTF8CString("result");
+            ASSERT(JSObjectHasProperty(context, globalObject, resultProperty));
+
+            JSValueRef resultValue = JSObjectGetProperty(context, globalObject, resultProperty, &exception);
+            assertEqualsAsNumber(resultValue, 42);
+            JSStringRelease(resultProperty);
+        }
+        JSGlobalContextRelease(context);
+    }
+
+    failed = testTypedArrayCAPI() || failed;
     failed = testExecutionTimeLimit() || failed;
-#endif /* OS(DARWIN) */
+    failed = testFunctionOverrides() || failed;
     failed = testGlobalContextWithFinalizer() || failed;
     failed = testPingPongStackOverflow() || failed;
 

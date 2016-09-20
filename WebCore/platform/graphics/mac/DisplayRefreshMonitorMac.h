@@ -29,6 +29,7 @@
 #if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
 
 #include "DisplayRefreshMonitor.h"
+#include <wtf/WeakPtr.h>
 
 typedef struct __CVDisplayLink *CVDisplayLinkRef;
 
@@ -43,11 +44,13 @@ public:
     
     virtual ~DisplayRefreshMonitorMac();
 
-    void displayLinkFired(double nowSeconds, double outputTimeSeconds);
-    virtual bool requestRefreshCallback() override;
+    void displayLinkFired();
+    bool requestRefreshCallback() override;
 
 private:
     explicit DisplayRefreshMonitorMac(PlatformDisplayID);
+
+    WeakPtrFactory<DisplayRefreshMonitorMac> m_weakFactory;
     CVDisplayLinkRef m_displayLink;
 };
 

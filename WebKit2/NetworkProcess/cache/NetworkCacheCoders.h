@@ -23,14 +23,14 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NetworkCacheCoders_h
-#define NetworkCacheCoders_h
+#pragma once
 
 #if ENABLE(NETWORK_CACHE)
 
 #include "NetworkCacheDecoder.h"
 #include "NetworkCacheEncoder.h"
 #include <WebCore/CertificateInfo.h>
+#include <WebCore/HTTPHeaderMap.h>
 #include <utility>
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
@@ -80,6 +80,38 @@ template<typename Rep, typename Period> struct Coder<std::chrono::duration<Rep, 
     }
 };
 
+template<typename T> struct Coder<Optional<T>> {
+    static void encode(Encoder& encoder, const Optional<T>& optional)
+    {
+        if (!optional) {
+            encoder << false;
+            return;
+        }
+        
+        encoder << true;
+        encoder << optional.value();
+    }
+    
+    static bool decode(Decoder& decoder, Optional<T>& optional)
+    {
+        bool isEngaged;
+        if (!decoder.decode(isEngaged))
+            return false;
+        
+        if (!isEngaged) {
+            optional = Nullopt;
+            return true;
+        }
+        
+        T value;
+        if (!decoder.decode(value))
+            return false;
+        
+        optional = WTFMove(value);
+        return true;
+    }
+};
+
 template<typename KeyType, typename ValueType> struct Coder<WTF::KeyValuePair<KeyType, ValueType>> {
     static void encode(Encoder& encoder, const WTF::KeyValuePair<KeyType, ValueType>& pair)
     {
@@ -124,7 +156,7 @@ template<typename T, size_t inlineCapacity> struct VectorCoder<false, T, inlineC
             if (!decoder.decode(element))
                 return false;
             
-            tmp.append(WTF::move(element));
+            tmp.append(WTFMove(element));
         }
 
         tmp.shrinkToFit();
@@ -258,7 +290,11 @@ template<> struct Coder<SHA1::Digest> {
     static bool decode(Decoder&, SHA1::Digest&);
 };
 
+template<> struct Coder<WebCore::HTTPHeaderMap> {
+    static void encode(Encoder&, const WebCore::HTTPHeaderMap&);
+    static bool decode(Decoder&, WebCore::HTTPHeaderMap&);
+};
+
 }
 }
-#endif
 #endif

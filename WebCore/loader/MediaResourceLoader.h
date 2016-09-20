@@ -29,36 +29,62 @@
 #if ENABLE(VIDEO)
 #include "CachedRawResourceClient.h"
 #include "CachedResourceHandle.h"
+#include "ContextDestructionObserver.h"
 #include "PlatformMediaResourceLoader.h"
+#include <wtf/HashSet.h>
+#include <wtf/Ref.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
 class CachedRawResource;
 class Document;
+class MediaResource;
 
-class MediaResourceLoader final : public PlatformMediaResourceLoader, CachedRawResourceClient {
+class MediaResourceLoader final : public PlatformMediaResourceLoader, public ContextDestructionObserver {
 public:
-    MediaResourceLoader(Document&, const String& crossOriginMode, std::unique_ptr<PlatformMediaResourceLoaderClient>);
-    virtual ~MediaResourceLoader();
+    WEBCORE_EXPORT MediaResourceLoader(Document&, const String& crossOriginMode);
+    WEBCORE_EXPORT virtual ~MediaResourceLoader();
 
-    virtual bool start(const ResourceRequest&, LoadOptions) override;
-    virtual void stop() override;
-    virtual void setDefersLoading(bool) override;
-    virtual bool didPassAccessControlCheck() const override { return m_didPassAccessControlCheck; }
+    RefPtr<PlatformMediaResource> requestResource(const ResourceRequest&, LoadOptions) override;
+    void removeResource(MediaResource&);
+
+    Document* document() { return m_document; }
+    const String& crossOriginMode() const { return m_crossOriginMode; }
+
+private:
+    void contextDestroyed() override;
+
+    Document* m_document;
+    String m_crossOriginMode;
+    HashSet<MediaResource*> m_resources;
+};
+
+class MediaResource : public PlatformMediaResource, CachedRawResourceClient {
+public:
+    static Ref<MediaResource> create(MediaResourceLoader&, CachedResourceHandle<CachedRawResource>);
+    virtual ~MediaResource();
+
+    // PlatformMediaResource
+    void stop() override;
+    void setDefersLoading(bool) override;
+    bool didPassAccessControlCheck() const override { return m_didPassAccessControlCheck; }
 
     // CachedResourceClient
-    virtual void responseReceived(CachedResource*, const ResourceResponse&) override;
-    virtual void dataReceived(CachedResource*, const char*, int) override;
-    virtual void notifyFinished(CachedResource*) override;
+    void responseReceived(CachedResource*, const ResourceResponse&) override;
+    void redirectReceived(CachedResource*, ResourceRequest&, const ResourceResponse&) override;
+    bool shouldCacheResponse(CachedResource*, const ResourceResponse&) override;
+    void dataSent(CachedResource*, unsigned long long, unsigned long long) override;
+    void dataReceived(CachedResource*, const char*, int) override;
+    void notifyFinished(CachedResource*) override;
 #if USE(SOUP)
-    virtual char* getOrCreateReadBuffer(CachedResource*, size_t /*requestedSize*/, size_t& /*actualSize*/) override;
+    char* getOrCreateReadBuffer(CachedResource*, size_t /*requestedSize*/, size_t& /*actualSize*/) override;
 #endif
 
 private:
-    Document& m_document;
-    String m_crossOriginMode;
-    bool m_didPassAccessControlCheck;
+    MediaResource(MediaResourceLoader&, CachedResourceHandle<CachedRawResource>);
+    Ref<MediaResourceLoader> m_loader;
+    bool m_didPassAccessControlCheck { false };
     CachedResourceHandle<CachedRawResource> m_resource;
 };
 

@@ -281,8 +281,8 @@ vtd_ballocator_init(vtd_space_t * bf, uint32_t buddybits)
     idx = vtd_log2up(buddybits);
 	// reserve 2M of space
     if (idx < 9) idx = 9;
-	VTLOG("ballocator count %d, bits 0x%lx, table %p, reserved 0x%x\n",
-			bf->bheads_count, bf->table_bitmap_size, bf->tables[0], (1 << idx));
+	VTLOG("ballocator count %d, table %p, reserved 0x%x\n",
+			bf->bheads_count, bf->tables[0], (1 << idx));
 
 	for (; idx < buddybits; idx++)
 	{

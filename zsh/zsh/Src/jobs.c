@@ -1179,7 +1179,7 @@ addfilelist(const char *name, int fd)
 
 /**/
 void
-pipecleanfilelist(LinkList filelist)
+pipecleanfilelist(LinkList filelist, int proc_subst_only)
 {
     LinkNode node;
 
@@ -1188,7 +1188,12 @@ pipecleanfilelist(LinkList filelist)
     node = firstnode(filelist);
     while (node) {
 	Jobfile jf = (Jobfile)getdata(node);
-	if (jf->is_fd) {
+	if (jf->is_fd &&
+	    (!proc_subst_only
+#ifdef FDT_PROC_SUBST
+	     || fdtable[jf->u.fd] == FDT_PROC_SUBST
+#endif
+		)) {
 	    LinkNode next = nextnode(node);
 	    zclose(jf->u.fd);
 	    (void)remnode(filelist, node);
@@ -1379,10 +1384,17 @@ waitforpid(pid_t pid, int wait_cmd)
     dont_queue_signals();
     child_block();		/* unblocked in signal_suspend() */
     queue_traps(wait_cmd);
+
+    /* This function should never be called with a pid that is not a
+     * child of the current shell.  Consequently, if kill(0, pid)
+     * fails here with ESRCH, the child has already been reaped.  In
+     * the loop body, we expect this to happen in signal_suspend()
+     * via zhandler(), after which this test terminates the loop.
+     */
     while (!errflag && (kill(pid, 0) >= 0 || errno != ESRCH)) {
 	if (first)
 	    first = 0;
-	else
+	else if (!wait_cmd)
 	    kill(pid, SIGCONT);
 
 	last_signal = -1;
@@ -1415,9 +1427,9 @@ zwaitjob(int job, int wait_cmd)
     int q = queue_signal_level();
     Job jn = jobtab + job;
 
-    dont_queue_signals();
     child_block();		 /* unblocked during signal_suspend() */
     queue_traps(wait_cmd);
+    dont_queue_signals();
     if (jn->procs || jn->auxprocs) { /* if any forks were done         */
 	jn->stat |= STAT_LOCKED;
 	if (jn->stat & STAT_CHANGED)
@@ -1433,7 +1445,7 @@ zwaitjob(int job, int wait_cmd)
 	     * we can't deadlock on the fact that those still exist, so
 	     * that's not a problem.
 	     */
-	    pipecleanfilelist(jn->filelist);
+	    pipecleanfilelist(jn->filelist, 0);
 	}
 	while (!errflag && jn->stat &&
 	       !(jn->stat & STAT_DONE) &&
@@ -1473,9 +1485,9 @@ zwaitjob(int job, int wait_cmd)
 	pipestats[0] = lastval;
 	numpipestats = 1;
     }
+    restore_queue_signals(q);
     unqueue_traps();
     child_unblock();
-    restore_queue_signals(q);
 
     return 0;
 }
@@ -1623,7 +1635,7 @@ spawnjob(void)
 	deletejob(jobtab + thisjob, 0);
     else {
 	jobtab[thisjob].stat |= STAT_LOCKED;
-	pipecleanfilelist(jobtab[thisjob].filelist);
+	pipecleanfilelist(jobtab[thisjob].filelist, 0);
     }
     thisjob = -1;
 }

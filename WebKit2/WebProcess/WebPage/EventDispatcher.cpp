@@ -54,7 +54,7 @@ Ref<EventDispatcher> EventDispatcher::create()
 
 EventDispatcher::EventDispatcher()
     : m_queue(WorkQueue::create("com.apple.WebKit.EventDispatcher", WorkQueue::Type::Serial, WorkQueue::QOS::UserInteractive))
-    , m_recentWheelEventDeltaTracker(std::make_unique<WheelEventDeltaTracker>())
+    , m_recentWheelEventDeltaFilter(WheelEventDeltaFilter::create())
 {
 }
 
@@ -65,7 +65,7 @@ EventDispatcher::~EventDispatcher()
 #if ENABLE(ASYNC_SCROLLING)
 void EventDispatcher::addScrollingTreeForPage(WebPage* webPage)
 {
-    MutexLocker locker(m_scrollingTreesMutex);
+    LockHolder locker(m_scrollingTreesMutex);
 
     ASSERT(webPage->corePage()->scrollingCoordinator());
     ASSERT(!m_scrollingTrees.contains(webPage->pageID()));
@@ -76,7 +76,7 @@ void EventDispatcher::addScrollingTreeForPage(WebPage* webPage)
 
 void EventDispatcher::removeScrollingTreeForPage(WebPage* webPage)
 {
-    MutexLocker locker(m_scrollingTreesMutex);
+    LockHolder locker(m_scrollingTreesMutex);
     ASSERT(m_scrollingTrees.contains(webPage->pageID()));
 
     m_scrollingTrees.remove(webPage->pageID());
@@ -88,19 +88,6 @@ void EventDispatcher::initializeConnection(IPC::Connection* connection)
     connection->addWorkQueueMessageReceiver(Messages::EventDispatcher::messageReceiverName(), &m_queue.get(), this);
 }
 
-#if ENABLE(CSS_SCROLL_SNAP) || ENABLE(RUBBER_BANDING)
-static void updateWheelEventTestTriggersIfNeeded(uint64_t pageID)
-{
-    WebPage* webPage = WebProcess::singleton().webPage(pageID);
-    Page* page = webPage ? webPage->corePage() : nullptr;
-
-    if (!page || !page->expectsWheelEventTriggers())
-        return;
-
-    page->testTrigger()->deferTestsForReason(reinterpret_cast<WheelEventTestTrigger::ScrollableAreaIdentifier>(page), WheelEventTestTrigger::ScrollingThreadSyncNeeded);
-}
-#endif
-
 void EventDispatcher::wheelEvent(uint64_t pageID, const WebWheelEvent& wheelEvent, bool canRubberBandAtLeft, bool canRubberBandAtRight, bool canRubberBandAtTop, bool canRubberBandAtBottom)
 {
     PlatformWheelEvent platformWheelEvent = platform(wheelEvent);
@@ -108,31 +95,24 @@ void EventDispatcher::wheelEvent(uint64_t pageID, const WebWheelEvent& wheelEven
 #if PLATFORM(COCOA)
     switch (wheelEvent.phase()) {
     case PlatformWheelEventPhaseBegan:
-        m_recentWheelEventDeltaTracker->beginTrackingDeltas();
+        m_recentWheelEventDeltaFilter->beginFilteringDeltas();
         break;
     case PlatformWheelEventPhaseEnded:
-        m_recentWheelEventDeltaTracker->endTrackingDeltas();
+        m_recentWheelEventDeltaFilter->endFilteringDeltas();
         break;
     default:
         break;
     }
 
-    if (m_recentWheelEventDeltaTracker->isTrackingDeltas()) {
-        m_recentWheelEventDeltaTracker->recordWheelEventDelta(platformWheelEvent);
-
-        DominantScrollGestureDirection dominantDirection = DominantScrollGestureDirection::None;
-        dominantDirection = m_recentWheelEventDeltaTracker->dominantScrollGestureDirection();
-
-        // Workaround for scrolling issues <rdar://problem/14758615>.
-        if (dominantDirection == DominantScrollGestureDirection::Vertical && platformWheelEvent.deltaX())
-            platformWheelEvent = platformWheelEvent.copyIgnoringHorizontalDelta();
-        else if (dominantDirection == DominantScrollGestureDirection::Horizontal && platformWheelEvent.deltaY())
-            platformWheelEvent = platformWheelEvent.copyIgnoringVerticalDelta();
+    if (m_recentWheelEventDeltaFilter->isFilteringDeltas()) {
+        m_recentWheelEventDeltaFilter->updateFromDelta(FloatSize(platformWheelEvent.deltaX(), platformWheelEvent.deltaY()));
+        FloatSize filteredDelta = m_recentWheelEventDeltaFilter->filteredDelta();
+        platformWheelEvent = platformWheelEvent.copyWithDeltas(filteredDelta.width(), filteredDelta.height());
     }
 #endif
 
 #if ENABLE(ASYNC_SCROLLING)
-    MutexLocker locker(m_scrollingTreesMutex);
+    LockHolder locker(m_scrollingTreesMutex);
     if (RefPtr<ThreadedScrollingTree> scrollingTree = m_scrollingTrees.get(pageID)) {
         // FIXME: It's pretty horrible that we're updating the back/forward state here.
         // WebCore should always know the current state and know when it changes so the
@@ -146,11 +126,6 @@ void EventDispatcher::wheelEvent(uint64_t pageID, const WebWheelEvent& wheelEven
 
         ScrollingTree::EventResult result = scrollingTree->tryToHandleWheelEvent(platformWheelEvent);
 
-#if ENABLE(CSS_SCROLL_SNAP) || ENABLE(RUBBER_BANDING)
-        if (result == ScrollingTree::DidHandleEvent)
-            updateWheelEventTestTriggersIfNeeded(pageID);
-#endif
-
         if (result == ScrollingTree::DidHandleEvent || result == ScrollingTree::DidNotHandleEvent) {
             sendDidReceiveEvent(pageID, wheelEvent, result == ScrollingTree::DidHandleEvent);
             return;
@@ -163,18 +138,16 @@ void EventDispatcher::wheelEvent(uint64_t pageID, const WebWheelEvent& wheelEven
     UNUSED_PARAM(canRubberBandAtBottom);
 #endif
 
-    RefPtr<EventDispatcher> eventDispatcher = this;
-    RunLoop::main().dispatch([eventDispatcher, pageID, wheelEvent] {
-        eventDispatcher->dispatchWheelEvent(pageID, wheelEvent);
+    RunLoop::main().dispatch([protectedThis = makeRef(*this), pageID, wheelEvent]() mutable {
+        protectedThis->dispatchWheelEvent(pageID, wheelEvent);
     }); 
 }
 
 #if ENABLE(MAC_GESTURE_EVENTS)
 void EventDispatcher::gestureEvent(uint64_t pageID, const WebKit::WebGestureEvent& gestureEvent)
 {
-    RefPtr<EventDispatcher> eventDispatcher = this;
-    RunLoop::main().dispatch([eventDispatcher, pageID, gestureEvent] {
-        eventDispatcher->dispatchGestureEvent(pageID, gestureEvent);
+    RunLoop::main().dispatch([protectedThis = makeRef(*this), pageID, gestureEvent]() mutable {
+        protectedThis->dispatchGestureEvent(pageID, gestureEvent);
     });
 }
 #endif
@@ -182,13 +155,13 @@ void EventDispatcher::gestureEvent(uint64_t pageID, const WebKit::WebGestureEven
 #if ENABLE(IOS_TOUCH_EVENTS)
 void EventDispatcher::clearQueuedTouchEventsForPage(const WebPage& webPage)
 {
-    SpinLockHolder locker(&m_touchEventsLock);
+    LockHolder locker(&m_touchEventsLock);
     m_touchEvents.remove(webPage.pageID());
 }
 
 void EventDispatcher::getQueuedTouchEventsForPage(const WebPage& webPage, TouchEventQueue& destinationQueue)
 {
-    SpinLockHolder locker(&m_touchEventsLock);
+    LockHolder locker(&m_touchEventsLock);
     destinationQueue = m_touchEvents.take(webPage.pageID());
 }
 
@@ -196,7 +169,7 @@ void EventDispatcher::touchEvent(uint64_t pageID, const WebKit::WebTouchEvent& t
 {
     bool updateListWasEmpty;
     {
-        SpinLockHolder locker(&m_touchEventsLock);
+        LockHolder locker(&m_touchEventsLock);
         updateListWasEmpty = m_touchEvents.isEmpty();
         auto addResult = m_touchEvents.add(pageID, TouchEventQueue());
         if (addResult.isNewEntry)
@@ -216,9 +189,8 @@ void EventDispatcher::touchEvent(uint64_t pageID, const WebKit::WebTouchEvent& t
     }
 
     if (updateListWasEmpty) {
-        RefPtr<EventDispatcher> eventDispatcher = this;
-        RunLoop::main().dispatch([eventDispatcher] {
-            eventDispatcher->dispatchTouchEvents();
+        RunLoop::main().dispatch([protectedThis = makeRef(*this)]() mutable {
+            protectedThis->dispatchTouchEvents();
         });
     }
 }
@@ -227,7 +199,7 @@ void EventDispatcher::dispatchTouchEvents()
 {
     HashMap<uint64_t, TouchEventQueue> localCopy;
     {
-        SpinLockHolder locker(&m_touchEventsLock);
+        LockHolder locker(&m_touchEventsLock);
         localCopy.swap(m_touchEvents);
     }
 

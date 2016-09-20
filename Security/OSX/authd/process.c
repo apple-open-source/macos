@@ -207,29 +207,34 @@ process_get_key(process_t proc)
 uid_t
 process_get_uid(process_t proc)
 {
-    return proc ? proc->auditInfo.euid : (uid_t)-2;
+    assert(proc); // marked non-null
+    return proc->auditInfo.euid;
 }
 
 pid_t
 process_get_pid(process_t proc)
 {
-    return proc ? proc->auditInfo.pid : -1;
+    assert(proc); // marked non-null
+    return proc->auditInfo.pid;
 }
 
 int32_t process_get_generation(process_t proc)
 {
+    assert(proc); // marked non-null
     return proc->auditInfo.tid;
 }
 
 session_id_t
 process_get_session_id(process_t proc)
 {
-    return proc ? proc->auditInfo.asid : -1;
+    assert(proc); // marked non-null
+    return proc->auditInfo.asid;
 }
 
 session_t
 process_get_session(process_t proc)
 {
+    assert(proc); // marked non-null
     return proc->session;
 }
 

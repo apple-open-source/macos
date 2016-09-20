@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2011 Google Inc. All rights reserved.
+ * Copyright (C) 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -40,8 +41,8 @@ using namespace Inspector;
 
 namespace WebCore {
 
-PageConsoleAgent::PageConsoleAgent(WebInjectedScriptManager* injectedScriptManager, InspectorDOMAgent* domAgent)
-    : WebConsoleAgent(injectedScriptManager)
+PageConsoleAgent::PageConsoleAgent(WebAgentContext& context, InspectorHeapAgent* heapAgent, InspectorDOMAgent* domAgent)
+    : WebConsoleAgent(context, heapAgent)
     , m_inspectorDOMAgent(domAgent)
 {
 }
@@ -56,7 +57,7 @@ void PageConsoleAgent::clearMessages(ErrorString& errorString)
 class InspectableNode final : public CommandLineAPIHost::InspectableObject {
 public:
     explicit InspectableNode(Node* node) : m_node(node) { }
-    virtual Deprecated::ScriptValue get(JSC::ExecState* state) override
+    JSC::JSValue get(JSC::ExecState& state) final
     {
         return InspectorDOMAgent::nodeAsScriptValue(state, m_node.get());
     }
@@ -72,7 +73,7 @@ void PageConsoleAgent::addInspectedNode(ErrorString& errorString, int nodeId)
         return;
     }
 
-    if (CommandLineAPIHost* commandLineAPIHost = static_cast<WebInjectedScriptManager*>(m_injectedScriptManager)->commandLineAPIHost())
+    if (CommandLineAPIHost* commandLineAPIHost = static_cast<WebInjectedScriptManager&>(m_injectedScriptManager).commandLineAPIHost())
         commandLineAPIHost->addInspectedObject(std::make_unique<InspectableNode>(node));
 }
 

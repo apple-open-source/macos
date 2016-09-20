@@ -1,9 +1,14 @@
 " Vim syntax file
-" Language:	cl ("Clever Language" by Multibase, http://www.mbase.com.au)
-" Filename extensions: *.ent, *.eni
-" Maintainer:	Philip Uren <philuSPAX@ieee.org> - Remove SPAX spam block
-" Last update:	Wed Apr 12 08:47:18 EST 2006
-" $Id: cl.vim,v 1.3 2006/04/12 21:43:28 vimboss Exp $
+" Language:		CL
+" 			(pronounced alphabetically: "Cee-El".
+" 			CL stands for Clever Language,
+" 			but the language is CL, not "Clever".
+" 			CL was created by Multibase, http://www.mbase.com.au)
+" Filename extensions:	*.ent
+"			*.eni
+" Maintainer:		Philip Uren	<philuSPAX@ieee.org> Remove SPAX spam block
+" Version:              6
+" Last Change:		Mar 06 2013
 
 " For version 5.x: Clear all syntax items
 " For version 6.x: Quit when a syntax file was already loaded
@@ -14,9 +19,9 @@ elseif exists("b:current_syntax")
 endif
 
 if version >= 600
-	setlocal iskeyword=@,48-57,_,-,
+	setlocal iskeyword=@,48-57,_,-
 else
-	set iskeyword=@,48-57,_,-,
+	set iskeyword=@,48-57,_,-
 endif
 
 syn case ignore
@@ -24,12 +29,12 @@ syn case ignore
 syn sync lines=300
 
 "If/else/elsif/endif and while/wend mismatch errors
-syn match	clifError		"\<wend\>"
-syn match	clifError		"\<elsif\>"
-syn match	clifError		"\<else\>"
-syn match	clifError		"\<endif\>"
+syn match	clifError	"\<wend\>"
+syn match	clifError	"\<elsif\>"
+syn match	clifError	"\<else\>"
+syn match	clifError	"\<endif\>"
 
-syn match	clSpaceError		"\s\+$"
+syn match	clSpaceError	"\s\+$"
 
 " If and while regions
 syn region	clLoop		transparent matchgroup=clWhile start="\<while\>" matchgroup=clWhile end="\<wend\>" contains=ALLBUT,clBreak,clProcedure
@@ -40,7 +45,7 @@ syn keyword	clTodo		contained	TODO BUG DEBUG FIX
 syn match	clNeedsWork	contained	"NEED[S]*\s\s*WORK"
 syn keyword	clDebug		contained	debug
 
-syn match	clComment	"#.*$"		contains=clTodo,clNeedsWork
+syn match	clComment	"#.*$"		contains=clTodo,clNeedsWork,@Spell
 syn region	clProcedure	oneline		start="^\s*[{}]" end="$"
 syn match	clInclude	"^\s*include\s.*"
 
@@ -60,8 +65,8 @@ syn match	clOperator	"[!;|)(:.><+*=-]"
 
 syn match	clNumber	"\<\d\+\(u\=l\=\|lu\|f\)\>"
 
-syn region	clString	matchgroup=clQuote	start=+"+ end=+"+	skip=+\\"+
-syn region	clString	matchgroup=clQuote	start=+'+ end=+'+	skip=+\\'+
+syn region	clString	matchgroup=clQuote	start=+"+ end=+"+	skip=+\\"+ contains=@Spell
+syn region	clString	matchgroup=clQuote	start=+'+ end=+'+	skip=+\\'+ contains=@Spell
 
 syn keyword	clReserved	ERROR EXIT INTERRUPT LOCKED LREPLY MODE MCOL MLINE MREPLY NULL REPLY V1 V2 V3 V4 V5 V6 V7 V8 V9 ZERO BYPASS GOING_BACK AAUTO ABORT ABORT ALIGN BIGE CONVERT FNUM GOBACK HANGUP JUSTIFY NEXIT OUTPUT RAUTO RAWDISPLAY RAWPRINT REPEAT SKIP TAB TRIM LCOUNT PCOUNT PLINES SLINES SCOLS MATCH LMATCH
 

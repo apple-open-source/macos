@@ -47,6 +47,7 @@ extern "C" {
 #include <IOKit/IOLib.h>
 #include <IOKit/IOBSD.h>
 #include <IOKit/IOKitKeys.h>
+#include <IOKit/pwr_mgt/RootDomain.h>	// registerPrioritySleepWakeInterest()
 #include <IOKit/network/IONetworkInterface.h>
 #include <IOKit/network/IOEthernetController.h>  // for setAggressiveness()
 #include "IONetworkStack.h"
@@ -192,12 +193,27 @@ bool IONetworkStack::start( IOService * provider )
         ucClassName->release();
     }
 
+    _sleepWakeNotifier = registerPrioritySleepWakeInterest(
+                            &IONetworkStack::handleSystemSleep, (void *) this);
+
     registerService();
     return true;
 
 fail:
     LOG("IONetworkStack::start(%p) %p failed\n", provider, this);
     return false;
+}
+
+//------------------------------------------------------------------------------
+
+void IONetworkStack::stop( IOService * provider )
+{
+    if (_sleepWakeNotifier)
+    {
+        _sleepWakeNotifier->remove();
+        _sleepWakeNotifier = 0;
+    }
+    super::stop(provider);
 }
 
 //------------------------------------------------------------------------------
@@ -258,6 +274,29 @@ void IONetworkStack::free( void )
     }
 
     super::free();
+}
+
+//------------------------------------------------------------------------------
+
+IOReturn IONetworkStack::handleSystemSleep(
+    void * target, void * refCon,
+    UInt32 messageType, IOService * provider,
+    void * messageArgument, vm_size_t argSize )
+{
+    if ((kIOMessageSystemCapabilityChange == messageType) &&
+        (argSize == sizeof(IOPMSystemCapabilityChangeParameters)))
+    {
+        IOPMSystemCapabilityChangeParameters * params =
+            (IOPMSystemCapabilityChangeParameters *) messageArgument;
+
+        if ((params->changeFlags & kIOPMSystemCapabilityWillChange) &&
+            (params->fromCapabilities & kIOPMSystemCapabilityCPU) &&
+            ((params->toCapabilities & kIOPMSystemCapabilityCPU) == 0))
+        {
+            ifnet_normalise_unsent_data();
+        }
+    }
+    return kIOReturnSuccess;
 }
 
 //------------------------------------------------------------------------------

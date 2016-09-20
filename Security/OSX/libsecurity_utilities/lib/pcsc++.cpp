@@ -59,7 +59,8 @@ inline void decode(vector<string> &names, const vector<char> &buffer, size_t siz
 //
 Error::Error(unsigned long err) : error(err)
 {
-	SECURITY_EXCEPTION_THROW_PCSC(this, (unsigned int)err);
+    SECURITY_EXCEPTION_THROW_PCSC(this, (unsigned int)err);
+    secnotice("security_exception", "pcsc: %d", (unsigned int) err);
 }
 
 
@@ -158,11 +159,11 @@ void Session::open()
 		try {
 			Error::check(::SCardEstablishContext(SCARD_SCOPE_SYSTEM, NULL, NULL, &mContext));
 			mIsOpen = true;
-			secdebug("pcsc", "context opened");
+			secinfo("pcsc", "context opened");
 		} catch (const Error &err) {
 			if (err.error == SCARD_F_INTERNAL_ERROR)
 			{
-				secdebug("pcsc", "got internal error; assuming pcscd absent; context not ready");
+				secinfo("pcsc", "got internal error; assuming pcscd absent; context not ready");
 				return;
 			}
 		}
@@ -176,11 +177,11 @@ void Session::close()
 		try {
 			if (mContext)
 			Error::check(SCardReleaseContext(mContext));
-			secdebug("pcsc", "context closed");
+			secinfo("pcsc", "context closed");
 		} catch (const Error &err) {
 			if (err.error == SCARD_F_INTERNAL_ERROR)
 			{
-				secdebug("pcsc", "got internal error; assuming pcscd absent; context not ready");
+				secinfo("pcsc", "got internal error; assuming pcscd absent; context not ready");
 				return;
 			}
 		}
@@ -203,18 +204,23 @@ bool Session::check(long rc)
 
 void Session::listReaders(vector<string> &readers, const char *groups)
 {
-	uint32_t size = 0;
-	if (check(::SCardListReaders(mContext, groups, NULL, &size)))
+	uint32_t size = uint32_t(mReaderBuffer.size());
+	for (;;)
 	{
-		mReaderBuffer.resize(size);
-		if (check(::SCardListReaders(mContext, groups, &mReaderBuffer[0], &size)))
-		{
-			decode(readers, mReaderBuffer, size);
-			return;
+		int32_t rc = ::SCardListReaders(mContext, groups, &mReaderBuffer[0], &size);
+		switch (rc) {
+		case SCARD_S_SUCCESS:
+			if (size <= mReaderBuffer.size()) {
+				decode(readers, mReaderBuffer, size);
+				return;
+			}
+		case SCARD_E_INSUFFICIENT_BUFFER:
+			mReaderBuffer.resize(size);
+			break;
+		default:
+			Error::throwMe(rc);
 		}
 	}
-	
-	readers.clear();	// treat as success (returning zero readers)
 }
 
 
@@ -282,7 +288,7 @@ void Card::disconnect(unsigned long disposition)
 	{
 		if (mTransactionNestLevel > 0)
 		{
-			secdebug("pcsc", "%p: disconnect, dropping: %d transactions", this, mTransactionNestLevel);
+			secinfo("pcsc", "%p: disconnect, dropping: %d transactions", this, mTransactionNestLevel);
 			mTransactionNestLevel = 0;
 		}
 
@@ -297,7 +303,7 @@ Card::checkReset(unsigned int rv)
 {
 	if (rv == SCARD_W_RESET_CARD)
 	{
-		secdebug("pcsc", "%p: card reset during pcsc call, we're disconnected", this);
+		secinfo("pcsc", "%p: card reset during pcsc call, we're disconnected", this);
 		didDisconnect();
 	}
     Error::check(rv);
@@ -321,7 +327,7 @@ Card::transmit(const unsigned char *pbSendBuffer, size_t cbSendLength,
 {
 	if (mConnectedState == kDisconnected)
 	{
-		secdebug("pcsc", "%p: transmit after disconnect, reconnecting", this);
+		secinfo("pcsc", "%p: transmit after disconnect, reconnecting", this);
 		reconnect();
 	}
 
@@ -342,25 +348,25 @@ void Card::begin()
 	{
 		if (mConnectedState == kDisconnected)
 		{
-			secdebug("pcsc", "%p: begin transaction after disconnect, reconnecting", this);
+			secinfo("pcsc", "%p: begin transaction after disconnect, reconnecting", this);
 			reconnect();
 		}
 
 		checkReset(::SCardBeginTransaction(mHandle));
 	}
 	mTransactionNestLevel++;
-	secdebug("pcsc", "%p begin transaction: %d", this, mTransactionNestLevel);
+	secinfo("pcsc", "%p begin transaction: %d", this, mTransactionNestLevel);
 }
 
 void Card::end(unsigned long disposition)
 {
 	// Only the last transaction ended is sent to PCSC
-	secdebug("pcsc", "%p end transaction: %d", this, mTransactionNestLevel);
+	secinfo("pcsc", "%p end transaction: %d", this, mTransactionNestLevel);
 	if (disposition == SCARD_RESET_CARD)
 	{
 		if (mConnectedState == kDisconnected)
 		{
-			secdebug("pcsc", "%p: end transaction after disconnect, reconnecting to reset card", this);
+			secinfo("pcsc", "%p: end transaction after disconnect, reconnecting to reset card", this);
 			reconnect();
 		}
 
@@ -373,7 +379,7 @@ void Card::end(unsigned long disposition)
 		if (mTransactionNestLevel == 0)
 		{
 			if (mConnectedState == kDisconnected)
-				secdebug("pcsc", "%p: end transaction while disconnected ignored", this);
+				secinfo("pcsc", "%p: end transaction while disconnected ignored", this);
 			else
 			{
 				checkReset(::SCardEndTransaction(mHandle, (uint32_t)disposition));

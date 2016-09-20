@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -39,8 +39,19 @@
 #include "libSystemConfiguration_server.h"
 
 #include <network_information.h>
-#include "network_information_priv.h"
+#include "network_state_information_priv.h"
 #include "network_information_server.h"
+
+#if !TARGET_OS_SIMULATOR
+#include "agent-monitor.h"
+#include "configAgentDefines.h"
+#include "network_config_agent_info_priv.h"
+#endif // !TARGET_OS_SIMULATOR
+
+#ifdef	SC_LOG_HANDLE
+#include <os/log.h>
+os_log_t	SC_LOG_HANDLE;
+#endif	//SC_LOG_HANDLE
 
 
 #pragma mark -
@@ -53,13 +64,6 @@
  * Note: all accesses should be made while running on the _nwi_server_queue()
  */
 static libSC_info_server_t	S_nwi_info;
-
-
-/*
- * S_logger
- *   Logging handle.
- */
-static SCLoggerRef	S_logger	= NULL;
 
 
 /*
@@ -114,9 +118,8 @@ _nwi_state_copy(xpc_connection_t connection, xpc_object_t request)
 	remote = xpc_dictionary_get_remote_connection(request);
 	reply = xpc_dictionary_create_reply(request);
 	if (reply == NULL) {
-		SCLoggerLog(S_logger, LOG_ERR,
-			    CFSTR("<%p> _nwi_state_copy: xpc_dictionary_create_reply: failed"),
-			    connection);
+		SC_log(LOG_ERR, "<%p> _nwi_state_copy: xpc_dictionary_create_reply: failed",
+		       connection);
 		return;
 	}
 
@@ -129,11 +132,11 @@ _nwi_state_copy(xpc_connection_t connection, xpc_object_t request)
 		proc_name = "???";
 	}
 
-	SCLoggerLog(S_logger, LOG_DEBUG, CFSTR("<%p:%s[%d]> Network information copy: %llu"),
-		    connection,
-		    proc_name,
-		    xpc_connection_get_pid(connection),
-		    generation);
+	SC_log(LOG_DEBUG, "<%p:%s[%d]> Network information copy: %llu",
+	       connection,
+	       proc_name,
+	       xpc_connection_get_pid(connection),
+	       generation);
 
 	// return the Network information (if available)
 	if (data != NULL) {
@@ -167,23 +170,95 @@ _nwi_state_acknowledge(xpc_connection_t connection, xpc_object_t request)
 
 	generation = xpc_dictionary_get_uint64(request, NWI_GENERATION);
 
-	SCLoggerLog(S_logger, LOG_DEBUG, CFSTR("<%p:%d> Network information ack: %llu"),
-		    connection,
-		    xpc_connection_get_pid(connection),
-		    generation);
+	SC_log(LOG_DEBUG, "<%p:%d> Network information ack: %llu",
+	       connection,
+	       xpc_connection_get_pid(connection),
+	       generation);
 
-	_libSC_info_server_acknowledged(&S_nwi_info, connection, generation);
 	changed = _libSC_info_server_acknowledged(&S_nwi_info, connection, generation);
 	if (changed) {
 		Boolean		inSync;
 
 		// report change
 		inSync = _libSC_info_server_in_sync(&S_nwi_info);
-		S_sync_handler(inSync);
+		if (S_sync_handler != NULL) {
+			S_sync_handler(inSync);
+		}
 	}
 
 	return;
 }
+
+#if !TARGET_OS_SIMULATOR
+/*
+ * _nwi_config_agent_copy
+ *
+ * Called when a client wants a copy of the agent data
+ *
+ * - caller must be running on the _nwi_server_queue()
+ */
+static void
+_nwi_config_agent_copy(xpc_connection_t connection, xpc_object_t request)
+{
+	const void *buffer = NULL;
+	const char *proc_name = NULL;
+	uint64_t length = 0;
+	xpc_connection_t	remote;
+	xpc_object_t		reply = NULL;
+
+	remote = xpc_dictionary_get_remote_connection(request);
+	reply = xpc_dictionary_create_reply(request);
+
+	uuid_t agent_uuid;
+	const uint8_t *agent_uuid_value = xpc_dictionary_get_uuid(request, kConfigAgentAgentUUID);
+	if (agent_uuid_value != NULL) {
+		uuid_copy(agent_uuid, agent_uuid_value);
+	} else {
+		goto done;
+	}
+
+	const char *agent_type = xpc_dictionary_get_string(request, kConfigAgentType);
+	if (agent_type == NULL) {
+		goto done;
+	}
+
+	proc_name = xpc_dictionary_get_string(request, NWI_PROC_NAME);
+	if (proc_name == NULL) {
+		proc_name = "???";
+	}
+
+	SC_log(LOG_DEBUG, "<%p:%s[%d]> Config agent information copy",
+	       connection,
+	       proc_name,
+	       xpc_connection_get_pid(connection));
+
+	if (strcmp(agent_type, kConfigAgentTypeDNS) == 0) {
+		buffer = copy_dns_information_for_agent_uuid(agent_uuid, &length);
+	} else if (strcmp(agent_type, kConfigAgentTypeProxy) == 0) {
+		buffer = copy_proxy_information_for_agent_uuid(agent_uuid, &length);
+	}
+
+	if (buffer != NULL && length > 0) {
+		xpc_dictionary_set_data(reply,
+					kConfigAgentAgentData,
+					buffer,
+					(size_t)length);
+	}
+
+	xpc_connection_send_message(remote, reply);
+
+done:
+	if (reply != NULL) {
+		xpc_release(reply);
+	}
+
+	if (buffer != NULL) {
+		free((void *)buffer);
+	}
+
+	return;
+}
+#endif // !TARGET_OS_SIMULATOR
 
 
 static void
@@ -193,25 +268,33 @@ process_request(xpc_connection_t connection, xpc_object_t request)
 
 	op = xpc_dictionary_get_int64(request, NWI_REQUEST);
 	switch (op) {
-		case NWI_REQUEST_COPY :
+		case NWI_STATE_REQUEST_COPY :
 			/*
 			 * Return the Network information
 			 */
 			_nwi_state_copy(connection, request);
 			break;
 
-		case NWI_REQUEST_ACKNOWLEDGE :
+		case NWI_STATE_REQUEST_ACKNOWLEDGE :
 			/*
 			 * Acknowlege a [processed] Network information
 			 */
 			_nwi_state_acknowledge(connection, request);
 
 			break;
+#if !TARGET_OS_SIMULATOR
+		case NWI_CONFIG_AGENT_REQUEST_COPY :
+			/*
+			 * Return the agent information
+			 */
+			_nwi_config_agent_copy(connection, request);
+
+			break;
+#endif // !TARGET_OS_SIMULATOR
 		default :
-			SCLoggerLog(S_logger, LOG_ERR,
-				    CFSTR("<%p> unknown request : %lld"),
-				    connection,
-				    op);
+			SC_log(LOG_ERR, "<%p> unknown request : %lld",
+			       connection,
+			       op);
 
 			break;
 	}
@@ -223,20 +306,16 @@ process_request(xpc_connection_t connection, xpc_object_t request)
 static void
 process_new_connection(xpc_connection_t c)
 {
-	SCLoggerLog(S_logger, LOG_DEBUG, CFSTR("<%p:%d> Network information session: open"),
-		    c,
-		    xpc_connection_get_pid(c));
+	SC_log(LOG_DEBUG, "<%p:%d> Network information session: open",
+	       c,
+	       xpc_connection_get_pid(c));
 
 	_libSC_info_server_open(&S_nwi_info, c);
 
 	xpc_connection_set_target_queue(c, _nwi_state_server_queue());
 
 	xpc_connection_set_event_handler(c, ^(xpc_object_t xobj) {
-		os_activity_t	activity_id;
 		xpc_type_t	type;
-
-		activity_id = os_activity_start("processing nwi request",
-						OS_ACTIVITY_FLAG_DEFAULT);
 
 		type = xpc_get_type(xobj);
 		if (type == XPC_TYPE_DICTIONARY) {
@@ -250,9 +329,9 @@ process_new_connection(xpc_connection_t c)
 			if (xobj == XPC_ERROR_CONNECTION_INVALID) {
 				Boolean		changed;
 
-				SCLoggerLog(S_logger, LOG_DEBUG, CFSTR("<%p:%d> Network information session: close"),
-					    c,
-					    xpc_connection_get_pid(c));
+				SC_log(LOG_DEBUG, "<%p:%d> Network information session: close",
+				       c,
+				       xpc_connection_get_pid(c));
 
 				changed = _libSC_info_server_close(&S_nwi_info, c);
 				if (changed) {
@@ -260,34 +339,31 @@ process_new_connection(xpc_connection_t c)
 
 					// report change
 					inSync = _libSC_info_server_in_sync(&S_nwi_info);
-					S_sync_handler(inSync);
+					if (S_sync_handler != NULL) {
+						S_sync_handler(inSync);
+					}
 				}
 
 			} else if (xobj == XPC_ERROR_CONNECTION_INTERRUPTED) {
-				SCLoggerLog(S_logger, LOG_ERR,
-					    CFSTR("<%p:%d> %s"),
-					    c,
-					    xpc_connection_get_pid(c),
-					    desc);
+				SC_log(LOG_ERR, "<%p:%d> %s",
+				       c,
+				       xpc_connection_get_pid(c),
+				       desc);
 
 			} else {
-				SCLoggerLog(S_logger, LOG_ERR,
-					    CFSTR("<%p:%d> Connection error: %p : %s"),
-					    c,
-					    xpc_connection_get_pid(c),
-					    xobj,
-					    desc);
+				SC_log(LOG_ERR, "<%p:%d> Connection error: %p : %s",
+				       c,
+				       xpc_connection_get_pid(c),
+				       xobj,
+				       desc);
 			}
 
 		}  else {
-			SCLoggerLog(S_logger, LOG_ERR,
-				    CFSTR("<%p:%d> unknown event type : %p"),
-				    c,
-				    xpc_connection_get_pid(c),
-				    type);
+			SC_log(LOG_ERR, "<%p:%d> unknown event type : %p",
+			       c,
+			       xpc_connection_get_pid(c),
+			       type);
 		}
-
-		os_activity_end(activity_id);
 	});
 
 	xpc_connection_resume(c);
@@ -303,13 +379,10 @@ process_new_connection(xpc_connection_t c)
 __private_extern__
 void
 load_NetworkInformation(CFBundleRef		bundle,
-			SCLoggerRef		logger,
 			_nwi_sync_handler_t	syncHandler)
 {
 	xpc_connection_t	c;
 	const char		*name;
-
-	S_logger = logger;
 
 	/*
 	 * keep track of Network information acknowledgements
@@ -332,11 +405,7 @@ load_NetworkInformation(CFBundleRef		bundle,
 					       XPC_CONNECTION_MACH_SERVICE_LISTENER);
 
 	xpc_connection_set_event_handler(c, ^(xpc_object_t event) {
-		os_activity_t	activity_id;
 		xpc_type_t	type;
-
-		activity_id = os_activity_start("processing nwi connection",
-						OS_ACTIVITY_FLAG_DEFAULT);
 
 		type = xpc_get_type(event);
 		if (type == XPC_TYPE_CONNECTION) {
@@ -347,30 +416,25 @@ load_NetworkInformation(CFBundleRef		bundle,
 
 			desc = xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION);
 			if (event == XPC_ERROR_CONNECTION_INVALID) {
-				SCLoggerLog(S_logger, LOG_ERR, CFSTR("Network information server: %s"), desc);
+				SC_log(LOG_ERR, "Network information server: %s", desc);
 				xpc_release(c);
 			} else if (event == XPC_ERROR_CONNECTION_INTERRUPTED) {
-				SCLoggerLog(S_logger, LOG_ERR, CFSTR("Network information server: %s"), desc);
+				SC_log(LOG_ERR, "Network information server: %s", desc);
 			} else {
-				SCLoggerLog(S_logger, LOG_ERR,
-					    CFSTR("Network information server: Connection error: %p : %s"),
-					    event,
-					    desc);
+				SC_log(LOG_ERR, "Network information server: Connection error: %p : %s",
+				       event,
+				       desc);
 			}
 
 		} else {
-			SCLoggerLog(S_logger, LOG_ERR,
-				    CFSTR("Network information server: unknown event type : %p"),
-				    type);
+			SC_log(LOG_ERR, "Network information server: unknown event type : %p", type);
 
 		}
-
-		os_activity_end(activity_id);
 	});
 
 	xpc_connection_resume(c);
 
-SCLoggerLog(S_logger, LOG_DEBUG, CFSTR("XPC server \"%s\" started"), name);
+SC_log(LOG_DEBUG, "XPC server \"%s\" started", name);
 
 	return;
 }
@@ -391,8 +455,8 @@ _nwi_state_store(nwi_state *state)
 
 		new_generation = state->generation_count;
 
-		SCLoggerLog(S_logger, LOG_DEBUG, CFSTR("Network information updated: %llu"),
-			    new_generation);
+		SC_log(LOG_DEBUG, "Network information updated: %llu",
+		       new_generation);
 
 		bytes = (const UInt8 *)state;
 		len = nwi_state_size(state);
@@ -410,7 +474,9 @@ _nwi_state_store(nwi_state *state)
 
 	// if anyone is keeping us in sync, they now need to catchup
 	in_sync = _libSC_info_server_in_sync(&S_nwi_info);
-	S_sync_handler(in_sync);
+	if (S_sync_handler != NULL) {
+		S_sync_handler(in_sync);
+	}
 
 	// and let everyone else know that the configuration has been updated
 	notify_key = nwi_state_get_notify_key();
@@ -420,7 +486,7 @@ _nwi_state_store(nwi_state *state)
 		_nwi_state_force_refresh();
 		status = notify_post(notify_key);
 		if (status != NOTIFY_STATUS_OK) {
-			SCLoggerLog(S_logger, LOG_ERR, CFSTR("notify_post() failed: %d"), status);
+			SC_log(LOG_ERR, "notify_post() failed: %d", status);
 			// notification posting failures are non-fatal
 		}
 	}
@@ -439,16 +505,15 @@ int
 main(int argc, char **argv)
 {
 	static Boolean verbose = (argc > 1) ? TRUE : FALSE;
-	//	_sc_log     = FALSE;
+//	_sc_log     = FALSE;
 	_sc_verbose = (argc > 1) ? TRUE : FALSE;
 	_sc_debug   = TRUE;
 
 	load_NetworkInformation(CFBundleGetMainBundle(),	// bundle
-				NULL,				// SCLogger
 				^(Boolean inSync) {		// sync handler
-				      SCLoggerLog(NULL, LOG_INFO,
-						  CFSTR("in sync: %s"),
-						  inSync ? "Yes" : "No");
+					SC_log(LOG_INFO,
+					       "in sync: %s",
+					       inSync ? "Yes" : "No")
 				});
 	CFRunLoopRun();
 	/* not reached */

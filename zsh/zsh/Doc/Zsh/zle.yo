@@ -29,11 +29,13 @@ line editor. See
 ifzman(em(Parameters Used By The Shell) in zmanref(zshparam))\
 ifnzman(noderef(Parameters Used By The Shell)).
 
+vindex(zle_highlight, use of)
 The parameter tt(zle_highlight) is also used by the line editor; see
 ifzman(em(Character Highlighting) below)\
 ifnzman(noderef(Character Highlighting)).  Highlighting
 of special characters and the region between the cursor and the
-mark (as set with tt(set-mark-command) in Emacs mode) is enabled
+mark (as set with tt(set-mark-command) in Emacs mode, or by tt(visual-mode)
+in Vi mode) is enabled
 by default; consult this reference for more information.  Irascible
 conservatives will wish to know that all highlighting may be disabled by
 the following setting:
@@ -42,7 +44,7 @@ example(zle_highlight=(none))
 
 In many places, references are made to the tt(numeric argument).  This can
 by default be entered in emacs mode by holding the alt key and typing
-a number, or pressing escape before each number, and in vi command mode
+a number, or pressing escape before each digit, and in vi command mode
 by typing the number before entering a command.  Generally the numeric
 argument causes the next command entered to be repeated the specified
 number of times, unless otherwise noted below. See also
@@ -402,6 +404,7 @@ xitem(tt(zle) tt(-l) [ tt(-L) | tt(-a) ] [ var(string) ... ])
 xitem(tt(zle) tt(-D) var(widget) ...)
 xitem(tt(zle) tt(-A) var(old-widget) var(new-widget))
 xitem(tt(zle) tt(-N) var(widget) [ var(function) ])
+xitem(tt(zle) tt(-f) var(flag) [ var(flag)... ])
 xitem(tt(zle) tt(-C) var(widget) var(completion-widget) var(function))
 xitem(tt(zle) tt(-R) [ tt(-c) ] [ var(display-string) ] [ var(string) ... ])
 xitem(tt(zle) tt(-M) var(string))
@@ -461,6 +464,21 @@ the same name as the widget.  For further information, see
 ifzman(the section `Widgets' below)\
 ifnzman(noderef(Zle Widgets))\
 .
+)
+item(tt(-f) var(flag) [ var(flag)... ])(
+Set various flags on the running widget.  Possible values for var(flag) are:
+
+tt(yank) for indicating that the widget has yanked text into the buffer.
+If the widget is wrapping an existing internal widget, no further
+action is necessary, but if it has inserted the text manually, then it
+should also take care to set tt(YANK_START) and tt(YANK_END) correctly.
+tt(yankbefore) does the same but is used when the yanked text appears
+after the cursor.
+
+tt(kill) for indicating that text has been killed into the cutbuffer.
+When repeatedly invoking a kill widget, text is appended to the cutbuffer
+instead of replacing it, but when wrapping such widgets, it is necessary
+to call `tt(zle -f kill)' to retain this effect.
 )
 cindex(completion widgets, creating)
 item(tt(-C) var(widget) var(completion-widget) var(function))(
@@ -953,12 +971,35 @@ any predisplay string should be highlighted in bold.
 
 Note that the effect of tt(region_highlight) is not saved and disappears
 as soon as the line is accepted.
+
+The final highlighting on the command line depends on both tt(region_highlight)
+and tt(zle_highlight); see
+ifzman(the section CHARACTER HIGHLIGHTING below)\
+ifnzman(noderef(Character Highlighting)) for details.
 )
 vindex(UNDO_CHANGE_NO)
 item(tt(UNDO_CHANGE_NO) (integer))(
 A number representing the state of the undo history.  The only use
 of this is passing as an argument to the tt(undo) widget in order to
 undo back to the recorded point.  Read-only.
+)
+vindex(UNDO_LIMIT_NO)
+item(tt(UNDO_LIMIT_NO) (integer))(
+A number corresponding to an existing change in the undo history;
+compare tt(UNDO_CHANGE_NO).  If this is set to a value greater
+than zero, the tt(undo) command will not allow the line to
+be undone beyond the given change number.  It is still possible
+to use `tt(zle undo) var(change)' in a widget to undo beyond
+that point; in that case, it will not be possible to undo at
+all until tt(UNDO_LIMIT_NO) is reduced.  Set to 0 to disable the limit.
+
+A typical use of this variable in a widget function is as follows (note
+the additional function scope is required):
+
+example(LPAR()RPAR() {
+  local UNDO_LIMIT_NO=$UNDO_CHANGE_NO
+  # Perform some form of recursive edit.
+})
 )
 vindex(WIDGET)
 item(tt(WIDGET) (scalar))(
@@ -980,6 +1021,21 @@ executed; the second argument that followed tt(zle -C) when the widget was
 defined.  This is the name of a builtin completion widget.  For widgets
 defined with tt(zle -N) this is set to the empty string.  Read-only.
 )
+vindex(YANK_ACTIVE)
+vindex(YANK_START)
+vindex(YANK_END)
+xitem(tt(YANK_ACTIVE) (integer))
+xitem(tt(YANK_START) (integer))
+item(tt(YANK_END) (integer))(
+tt(YANK_ACTIVE) indicates whether text has just been yanked (pasted)
+into the buffer.  tt(YANK_START) and tt(YANK_END) give the location of
+the pasted text and are in the same units as tt(CURSOR).  They are only
+valid for reading when tt(YANK_ACTIVE) is non-zero.  They can also be
+assigned by widgets that insert text in a yank-like fashion, for example
+wrappers of tt(bracketed-paste).  See also tt(zle -f).
+
+tt(YANK_ACTIVE) is read-only.
+)
 vindex(ZLE_STATE)
 item(tt(ZLE_STATE) (scalar))(
 Contains a set of space-separated words that describe the current tt(zle)
@@ -998,7 +1054,7 @@ The substrings are sorted in alphabetical order so that if you want to
 test for two specific substrings in a future-proof way, you can do match
 by doing:
 
-example(if [[ $ZLE_STATE == *insert*globalhistory* ]]; then ...; fi)
+example(if [[ $ZLE_STATE == *globalhistory*insert* ]]; then ...; fi)
 )
 enditem()
 
@@ -1360,7 +1416,9 @@ item(tt(clear-screen))(
 Clear the screen, remaining in incremental search mode.
 )
 item(tt(history-incremental-search-backward))(
-Find the next occurrence of the contents of the mini-buffer.
+Find the next occurrence of the contents of the mini-buffer. If the
+mini-buffer is empty, the most recent previously used search string is
+reinstated.
 )
 item(tt(history-incremental-search-forward))(
 Invert the sense of the search.
@@ -2057,6 +2115,18 @@ tindex(beep)
 item(tt(beep))(
 Beep, unless the tt(BEEP) option is unset.
 )
+tindex(bracketed-paste)
+item(tt(bracketed-paste))(
+This widget is invoked when text is pasted to the terminal emulator. It
+is not intended to be bound to actual keys but instead to the special
+sequence generated by the terminal emulator when text is pasted.
+If a numeric argument is given, shell quoting will be applied to the
+pasted text before it is inserted. When called from a widget function,
+an argument can be given to specify a variable to which pasted text is
+assigned.
+
+See also the tt(zle_bracketed_paste) parameter.
+)
 tindex(vi-cmd-mode)
 item(tt(vi-cmd-mode) (tt(^X^V)) (unbound) (tt(^[)))(
 Enter command mode; that is, select the `tt(vicmd)' keymap.
@@ -2071,6 +2141,11 @@ track of their caps lock key (like the author).
 tindex(clear-screen)
 item(tt(clear-screen) (tt(^L ESC-^L)) (tt(^L)) (tt(^L)))(
 Clear the screen and redraw the prompt.
+)
+tindex(deactivate-region)
+item(tt(deactivate-region))(
+Make the current region inactive. This disables vim-style visual
+selection mode if it is active.
 )
 tindex(describe-key-briefly)
 item(tt(describe-key-briefly))(
@@ -2199,6 +2274,7 @@ the command line or key bindings temporarily.
 
 
 The following widget, tt(caps-lock), serves as an example.
+
 example(self-insert-ucase+LPAR()RPAR() {
   LBUFFER+=${(U)KEYS[-1]}
 }
@@ -2218,8 +2294,8 @@ zle -D save-caps-lock
 
 (( stat )) && zle send-break
 
-return $stat
-)
+return $stat)
+
 This causes typed letters to be inserted capitalised until either
 tt(accept-line) (i.e. typically the return key) is typed or the
 tt(caps-lock) widget is invoked again; the later is handled by saving
@@ -2319,7 +2395,8 @@ item(tt(undo) (tt(^_ ^Xu ^X^U)) (tt(u)) (unbound))(
 Incrementally undo the last text modification.  When called from a
 user-defined widget, takes an optional argument indicating a previous state
 of the undo history as returned by the tt(UNDO_CHANGE_NO) variable;
-modifications are undone until that state is reached.
+modifications are undone until that state is reached, subject to
+any limit imposed by the tt(UNDO_LIMIT_NO) variable.
 
 Note that when invoked from vi command mode, the full prior change made in
 insert mode is reverted, the changes having been merged when command mode was
@@ -2422,6 +2499,7 @@ enditem()
 texinode(Character Highlighting)()(Zle Widgets)(Zsh Line Editor)
 sect(Character Highlighting)
 
+vindex(zle_highlight, setting)
 The line editor has the ability to highlight characters or regions
 of the line that have a particular significance.  This is controlled
 by the array parameter tt(zle_highlight), if it has been set by the user.
@@ -2475,7 +2553,16 @@ a directory name.  Note that suffix removal is configurable; the
 circumstances under which the suffix will be removed may differ
 for different completions.
 )
+item(tt(paste))(
+Following a command to paste text, the characters that were inserted.
+)
 enditem()
+
+When tt(region_highlight) is set, the contexts that describe a region DASH()-
+tt(isearch), tt(region), tt(suffix), and tt(paste) DASH()-
+are applied first, then tt(region_highlight) is applied, then the remaining
+tt(zle_highlight) contexts are applied.  If a particular character is
+affected by multiple specifications, the last specification wins.
 
 tt(zle_highlight) may contain additional fields for controlling how
 terminal sequences to change colours are output.  Each of the following is
@@ -2612,7 +2699,7 @@ If tt(zle_highlight) is not set or no value applies to a particular
 context, the defaults applied are equivalent to
 
 example(zle_highlight=LPAR()region:standout special:standout
-suffix:bold isearch:underline+RPAR())
+suffix:bold isearch:underline paste:standout+RPAR())
 
 i.e. both the region and special characters are shown in standout mode.
 

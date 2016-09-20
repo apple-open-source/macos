@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/mn.xml
@@ -209,7 +209,7 @@ mn{
         NF{"Норфолк Арлууд"}
         NG{"Нигери"}
         NI{"Никарагуа"}
-        NL{"Голланд"}
+        NL{"Нидерланд"}
         NO{"Норвеги"}
         NP{"Балба"}
         NR{"Науру"}
@@ -313,5 +313,5 @@ mn{
         MK{"Македон (Хуучин Югославын бүрэлдэхүүний Македон)"}
         TL{"Зүүн Тимор"}
     }
-    Version{"2.1.12.94"}
+    Version{"2.1.23.7"}
 }

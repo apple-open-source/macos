@@ -242,11 +242,11 @@ static void pageDidDrawToImage(const ShareableBitmap::Handle& imageHandle, IPCCa
     ASSERT(RunLoop::isMain());
 
     if (!_webFrame->page()) {
-        _printingCallbackCondition.notify_one();
+        _printingCallbackCondition.notifyOne();
         return;
     }
 
-    std::lock_guard<std::mutex> lock(_printingCallbackMutex);
+    std::lock_guard<Lock> lock(_printingCallbackMutex);
 
     ASSERT([self _hasPageRects]);
     ASSERT(_printedPagesData.isEmpty());
@@ -258,7 +258,7 @@ static void pageDidDrawToImage(const ShareableBitmap::Handle& imageHandle, IPCCa
 
     ASSERT(firstPage > 0);
     ASSERT(firstPage <= lastPage);
-    LOG(View, "WKPrintingView requesting PDF data for pages %u...%u", firstPage, lastPage);
+    LOG(Printing, "WKPrintingView requesting PDF data for pages %u...%u", firstPage, lastPage);
 
     PrintInfo printInfo([_printOperation printInfo]);
     // Return to printing mode if we're already back to screen (e.g. due to window resizing).
@@ -278,7 +278,7 @@ static void pageDidDrawToImage(const ShareableBitmap::Handle& imageHandle, IPCCa
             if (data)
                 view->_printedPagesData.append(data->bytes(), data->size());
             view->_expectedPrintCallback = 0;
-            view->_printingCallbackCondition.notify_one();
+            view->_printingCallbackCondition.notifyOne();
         }
     });
     _expectedPrintCallback = callback->callbackID();
@@ -317,7 +317,7 @@ static void pageDidComputePageRects(const Vector<WebCore::IntRect>& pageRects, d
         NSRect newFrameSize = NSMakeRect(0, 0, 
             ceil(lastPrintingPageRect.maxX() * view->_totalScaleFactorForPrinting), 
             ceil(lastPrintingPageRect.maxY() * view->_totalScaleFactorForPrinting));
-        LOG(View, "WKPrintingView setting frame size to x:%g y:%g width:%g height:%g", newFrameSize.origin.x, newFrameSize.origin.y, newFrameSize.size.width, newFrameSize.size.height);
+        LOG(Printing, "WKPrintingView setting frame size to x:%g y:%g width:%g height:%g", newFrameSize.origin.x, newFrameSize.origin.y, newFrameSize.size.width, newFrameSize.size.height);
         [view setFrame:newFrameSize];
 
         if ([view _isPrintingPreview]) {
@@ -340,7 +340,7 @@ static void pageDidComputePageRects(const Vector<WebCore::IntRect>& pageRects, d
     ASSERT(!_expectedComputedPagesCallback);
 
     IPCCallbackContext* context = new IPCCallbackContext;
-    RefPtr<ComputedPagesCallback> callback = ComputedPagesCallback::create([context](const Vector<WebCore::IntRect>& pageRects, double totalScaleFactorForPrinting, WebKit::CallbackBase::Error) {
+    auto callback = ComputedPagesCallback::create([context](const Vector<WebCore::IntRect>& pageRects, double totalScaleFactorForPrinting, WebKit::CallbackBase::Error) {
         std::unique_ptr<IPCCallbackContext> contextDeleter(context);
         pageDidComputePageRects(pageRects, totalScaleFactorForPrinting, context);
     });
@@ -348,16 +348,15 @@ static void pageDidComputePageRects(const Vector<WebCore::IntRect>& pageRects, d
     context->view = self;
     context->callbackID = _expectedComputedPagesCallback;
 
-    _webFrame->page()->computePagesForPrinting(_webFrame.get(), PrintInfo([_printOperation printInfo]), callback.release());
+    _webFrame->page()->computePagesForPrinting(_webFrame.get(), PrintInfo([_printOperation printInfo]), WTFMove(callback));
     return YES;
 }
 
-static void prepareDataForPrintingOnSecondaryThread(void* untypedContext)
+static void prepareDataForPrintingOnSecondaryThread(WKPrintingView *view)
 {
     ASSERT(RunLoop::isMain());
 
-    WKPrintingView *view = static_cast<WKPrintingView *>(untypedContext);
-    std::lock_guard<std::mutex> lock(view->_printingCallbackMutex);
+    std::lock_guard<Lock> lock(view->_printingCallbackMutex);
 
     // We may have received page rects while a message to call this function traveled from secondary thread to main one.
     if ([view _hasPageRects]) {
@@ -374,7 +373,7 @@ static void prepareDataForPrintingOnSecondaryThread(void* untypedContext)
 
 - (BOOL)knowsPageRange:(NSRangePointer)range
 {
-    LOG(View, "-[WKPrintingView %p knowsPageRange:], %s, %s", self, [self _hasPageRects] ? "print data is available" : "print data is not available yet", RunLoop::isMain() ? "on main thread" : "on secondary thread");
+    LOG(Printing, "-[WKPrintingView %p knowsPageRange:], %s, %s", self, [self _hasPageRects] ? "print data is available" : "print data is not available yet", RunLoop::isMain() ? "on main thread" : "on secondary thread");
     ASSERT(_printOperation == [NSPrintOperation currentOperation]);
 
     // Assuming that once we switch to printing from a secondary thread, we don't go back.
@@ -395,8 +394,12 @@ static void prepareDataForPrintingOnSecondaryThread(void* untypedContext)
         *range = NSMakeRange(1, _printingPageRects.size());
     else if (!RunLoop::isMain()) {
         ASSERT(![self _isPrintingPreview]);
-        std::unique_lock<std::mutex> lock(_printingCallbackMutex);
-        callOnMainThread(prepareDataForPrintingOnSecondaryThread, self);
+        std::unique_lock<Lock> lock(_printingCallbackMutex);
+
+        RunLoop::main().dispatch([self] {
+            prepareDataForPrintingOnSecondaryThread(self);
+        });
+
         _printingCallbackCondition.wait(lock);
         *range = NSMakeRange(1, _printingPageRects.size());
     } else {
@@ -446,7 +449,10 @@ static void prepareDataForPrintingOnSecondaryThread(void* untypedContext)
     CGContextTranslateCTM(context, point.x, point.y);
     CGContextScaleCTM(context, _totalScaleFactorForPrinting, -_totalScaleFactorForPrinting);
     CGContextTranslateCTM(context, 0, -[pdfPage boundsForBox:kPDFDisplayBoxMediaBox].size.height);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     [pdfPage drawWithBox:kPDFDisplayBoxMediaBox];
+#pragma clang diagnostic pop
 
     CGAffineTransform transform = CGContextGetCTM(context);
 
@@ -454,7 +460,10 @@ static void prepareDataForPrintingOnSecondaryThread(void* untypedContext)
         if (![annotation isKindOfClass:pdfAnnotationLinkClass()])
             continue;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         PDFAnnotationLink *linkAnnotation = (PDFAnnotationLink *)annotation;
+#pragma clang diagnostic pop
         NSURL *url = [linkAnnotation URL];
         if (!url)
             continue;
@@ -522,7 +531,7 @@ static void prepareDataForPrintingOnSecondaryThread(void* untypedContext)
 
 - (void)drawRect:(NSRect)nsRect
 {
-    LOG(View, "WKPrintingView %p printing rect x:%g, y:%g, width:%g, height:%g%s", self, nsRect.origin.x, nsRect.origin.y, nsRect.size.width, nsRect.size.height, [self _isPrintingPreview] ? " for preview" : "");
+    LOG(Printing, "WKPrintingView %p printing rect x:%g, y:%g, width:%g, height:%g%s", self, nsRect.origin.x, nsRect.origin.y, nsRect.size.width, nsRect.size.height, [self _isPrintingPreview] ? " for preview" : "");
 
     ASSERT(_printOperation == [NSPrintOperation currentOperation]);
 
@@ -606,7 +615,7 @@ static void prepareDataForPrintingOnSecondaryThread(void* untypedContext)
 {
     ASSERT(_printOperation == [NSPrintOperation currentOperation]);
     if (![self _hasPageRects]) {
-        LOG(View, "-[WKPrintingView %p rectForPage:%d] - data is not yet available", self, (int)page);
+        LOG(Printing, "-[WKPrintingView %p rectForPage:%d] - data is not yet available", self, (int)page);
         if (!_webFrame->page()) {
             // We may have not told AppKit how many pages there are, so it will try to print until a null rect is returned.
             return NSMakeRect(0, 0, 0, 0);
@@ -625,7 +634,7 @@ static void prepareDataForPrintingOnSecondaryThread(void* untypedContext)
 
     IntRect rect = _printingPageRects[page - 1];
     rect.scale(_totalScaleFactorForPrinting);
-    LOG(View, "-[WKPrintingView %p rectForPage:%d] -> x %d, y %d, width %d, height %d", self, (int)page, rect.x(), rect.y(), rect.width(), rect.height());
+    LOG(Printing, "-[WKPrintingView %p rectForPage:%d] -> x %d, y %d, width %d, height %d", self, (int)page, rect.x(), rect.y(), rect.width(), rect.height());
     return rect;
 }
 
@@ -644,7 +653,7 @@ static void prepareDataForPrintingOnSecondaryThread(void* untypedContext)
     if (isForcingPreviewUpdate)
         return;
 
-    LOG(View, "-[WKPrintingView %p beginDocument]", self);
+    LOG(Printing, "-[WKPrintingView %p beginDocument]", self);
 
     [super beginDocument];
 
@@ -659,7 +668,7 @@ static void prepareDataForPrintingOnSecondaryThread(void* untypedContext)
     if (isForcingPreviewUpdate)
         return;
 
-    LOG(View, "-[WKPrintingView %p endDocument] - clearing cached data", self);
+    LOG(Printing, "-[WKPrintingView %p endDocument] - clearing cached data", self);
 
     // Both existing data and pending responses are now obsolete.
     _printingPageRects.clear();

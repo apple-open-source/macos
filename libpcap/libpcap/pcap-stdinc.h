@@ -41,21 +41,18 @@
 #ifdef _WINSOCKAPI_
 #undef _WINSOCKAPI_
 #endif
+
 #include <winsock2.h>
-
 #include <fcntl.h>
-
-#include "bittypes.h"
 #include <time.h>
 #include <io.h>
 
-#ifndef __MINGW32__
+#include "bittypes.h"
 #include "IP6_misc.h"
-#endif
 
 #define caddr_t char*
 
-#if _MSC_VER < 1500
+#if defined(_MSC_VER)
 #define snprintf _snprintf
 #define vsnprintf _vsnprintf
 #define strdup _strdup
@@ -65,8 +62,7 @@
 
 #ifdef __MINGW32__
 #include <stdint.h>
-#else /*__MINGW32__*/
-/* MSVC compiler */
+#else
 #ifndef _UINTPTR_T_DEFINED
 #ifdef  _WIN64
 typedef unsigned __int64    uintptr_t;
@@ -84,6 +80,6 @@ typedef _W64 int   intptr_t;
 #endif
 #define _INTPTR_T_DEFINED
 #endif 
-
 #endif /*__MINGW32__*/
+
 #endif /* pcap_stdinc_h */

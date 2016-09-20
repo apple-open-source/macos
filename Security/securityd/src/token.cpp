@@ -62,13 +62,13 @@ Mutex Token::mSSIDLock;
 Token::Token()
 	: mFaulted(false), mTokend(NULL), mResetLevel(1)
 {
-	secdebug("token", "%p created", this);
+	secinfo("token", "%p created", this);
 }
 
 
 Token::~Token()
 {
-	secdebug("token", "%p (%s:%d) destroyed",
+	secinfo("token", "%p (%s:%d) destroyed",
 		this, mGuid.toString().c_str(), mSubservice);
 }
 
@@ -171,7 +171,7 @@ void Token::resetAcls()
 	{
 		StLock<Mutex> _(*this);
 		mResetLevel++;
-		secdebug("token", "%p reset (level=%d, propagating to %ld common(s)",
+		secinfo("token", "%p reset (level=%d, propagating to %ld common(s)",
 			this, mResetLevel, mCommons.size());
 		// Make a copy to avoid deadlock with TokenDbCommon lock
 		tmpCommons = mCommons;
@@ -182,13 +182,13 @@ void Token::resetAcls()
 
 void Token::addCommon(TokenDbCommon &dbc)
 {
-	secdebug("token", "%p addCommon TokenDbCommon %p", this, &dbc);
+	secinfo("token", "%p addCommon TokenDbCommon %p", this, &dbc);
 	mCommons.insert(&dbc);
 }
 
 void Token::removeCommon(TokenDbCommon &dbc)
 {
-	secdebug("token", "%p removeCommon TokenDbCommon %p", this, &dbc);
+	secinfo("token", "%p removeCommon TokenDbCommon %p", this, &dbc);
 	if (mCommons.find(&dbc) != mCommons.end())
 		mCommons.erase(&dbc);
 }
@@ -212,7 +212,7 @@ void Token::insert(::Reader &slot, RefPointer<TokenDaemon> tokend)
 		if (tokend == NULL) {
 			// no pre-determined Tokend - search for one
 			if (!(tokend = chooseTokend())) {
-				secdebug("token", "%p no token daemons available - faulting this card", this);
+				secinfo("token", "%p no token daemons available - faulting this card", this);
 				fault(false);	// throws
 			}
 		}
@@ -221,7 +221,7 @@ void Token::insert(::Reader &slot, RefPointer<TokenDaemon> tokend)
 		StLock<Mutex> _(*this);
 
 		Syslog::debug("token inserted into reader %s", slot.name().c_str());
-		secdebug("token", "%p begin insertion into slot %p (reader %s)",
+		secinfo("token", "%p begin insertion into slot %p (reader %s)",
 			this, &slot, slot.name().c_str());
 		
 		// tell the tokend object to relay faults to us
@@ -229,16 +229,16 @@ void Token::insert(::Reader &slot, RefPointer<TokenDaemon> tokend)
 
 		// locate or establish cache directories
 		if (tokend->hasTokenUid()) {
-			secdebug("token", "%p using %s (score=%d, uid=\"%s\")",
+			secinfo("token", "%p using %s (score=%d, uid=\"%s\")",
 				this, tokend->bundlePath().c_str(), tokend->score(), tokend->tokenUid().c_str());
 			mCache = new TokenCache::Token(reader().cache,
 				tokend->bundleIdentifier() + ":" + tokend->tokenUid());
 		} else {
-			secdebug("token", "%p using %s (score=%d, temporary)",
+			secinfo("token", "%p using %s (score=%d, temporary)",
 				this, tokend->bundlePath().c_str(), tokend->score());
 			mCache = new TokenCache::Token(reader().cache);
 		}
-		secdebug("token", "%p token cache at %s", this, mCache->root().c_str());
+		secinfo("token", "%p token cache at %s", this, mCache->root().c_str());
 		
 		// here's the primary parameters of the new subservice
 		mGuid = gGuidAppleSdCSPDL;
@@ -268,7 +268,7 @@ void Token::insert(::Reader &slot, RefPointer<TokenDaemon> tokend)
 			mCache->printName(mPrintName);		// store in cache
 
 		// install MDS
-		secdebug("token", "%p installing MDS from %s(%s)", this,
+		secinfo("token", "%p installing MDS from %s(%s)", this,
 			tokend->bundlePath().c_str(),
 			mdsDirectory[0] ? mdsDirectory : "ALL");
 		string holdGuid = mGuid.toString();	// extend lifetime of std::string
@@ -300,19 +300,19 @@ void Token::insert(::Reader &slot, RefPointer<TokenDaemon> tokend)
 
 		notify(kNotificationCDSAInsertion);
 		
-		Syslog::notice("reader %s inserted token \"%s\" (%s) subservice %ld using driver %s",
+		Syslog::notice("reader %s inserted token \"%s\" (%s) subservice %d using driver %s",
 			slot.name().c_str(), mPrintName.c_str(),
 			mTokend->hasTokenUid() ? mTokend->tokenUid().c_str() : "NO UID",
 			mSubservice, mTokend->bundleIdentifier().c_str());
-		secdebug("token", "%p inserted as %s:%d", this, mGuid.toString().c_str(), mSubservice);
+		secinfo("token", "%p inserted as %s:%d", this, mGuid.toString().c_str(), mSubservice);
 	} catch (const CommonError &err) {
-		Syslog::notice("token in reader %s cannot be used (error %ld)", slot.name().c_str(), err.osStatus());
-		secdebug("token", "exception during insertion processing");
+		Syslog::notice("token in reader %s cannot be used (error %d)", slot.name().c_str(), err.osStatus());
+		secinfo("token", "exception during insertion processing");
 		fault(false);
 	} catch (...) {
 		// exception thrown during insertion processing. Mark faulted
 		Syslog::notice("token in reader %s cannot be used", slot.name().c_str());
-		secdebug("token", "exception during insertion processing");
+		secinfo("token", "exception during insertion processing");
 		fault(false);
 	}
 }
@@ -332,22 +332,22 @@ void Token::insert(::Reader &slot, RefPointer<TokenDaemon> tokend)
 void Token::remove()
 {
 	StLock<Mutex> _(*this);
-	Syslog::notice("reader %s removed token \"%s\" (%s) subservice %ld",
+	Syslog::notice("reader %s removed token \"%s\" (%s) subservice %d",
 			reader().name().c_str(), mPrintName.c_str(),
 			mTokend
 				? (mTokend->hasTokenUid() ? mTokend->tokenUid().c_str() : "NO UID")
 				: "NO tokend",
 			mSubservice);
-	secdebug("token", "%p begin removal from slot %p (reader %s)",
+	secinfo("token", "%p begin removal from slot %p (reader %s)",
 		this, &reader(), reader().name().c_str());
 	if (mTokend)
 		mTokend->faultRelay(NULL);		// unregister (no more faults, please)
 	mds().uninstall(mGuid.toString().c_str(), mSubservice);
-	secdebug("token", "%p mds uninstall complete", this);
+	secinfo("token", "%p mds uninstall complete", this);
 	this->kill();
-	secdebug("token", "%p kill complete", this);
+	secinfo("token", "%p kill complete", this);
 	notify(kNotificationCDSARemoval);
-	secdebug("token", "%p removal complete", this);
+	secinfo("token", "%p removal complete", this);
 }
 
 
@@ -364,7 +364,7 @@ void Token::fault(bool async)
 {
 	StLock<Mutex> _(*this);
 	if (!mFaulted) {	// first one
-		secdebug("token", "%p %s FAULT", this, async ? "ASYNCHRONOUS" : "SYNCHRONOUS");
+		secinfo("token", "%p %s FAULT", this, async ? "ASYNCHRONOUS" : "SYNCHRONOUS");
 		
 		// mark faulted
 		mFaulted = true;
@@ -384,7 +384,7 @@ void Token::fault(bool async)
 
 void Token::relayFault(bool async)
 {
-	secdebug("token", "%p fault relayed from tokend", this);
+	secinfo("token", "%p fault relayed from tokend", this);
 	this->fault(async);
 }
 
@@ -492,7 +492,7 @@ RefPointer<TokenDaemon> Token::chooseTokend()
 				chosenIdentifier = leader->bundleIdentifier();
 			}
 		} catch (...) {
-			secdebug("token", "exception setting up %s (moving on)", candidate->canonicalPath().c_str());
+			secinfo("token", "exception setting up %s (moving on)", candidate->canonicalPath().c_str());
 		}
 	}
 

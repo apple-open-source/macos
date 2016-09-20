@@ -2186,28 +2186,6 @@
             ]
         },
         {
-            "name": "canClearBrowserCache",
-            "description": "Tells whether clearing browser cache is supported.",
-            "returns": [
-                { "name": "result", "type": "boolean", "description": "True if browser cache can be cleared." }
-            ]
-        },
-        {
-            "name": "clearBrowserCache",
-            "description": "Clears browser cache."
-        },
-        {
-            "name": "canClearBrowserCookies",
-            "description": "Tells whether clearing browser cookies is supported.",
-            "returns": [
-                { "name": "result", "type": "boolean", "description": "True if browser cookies can be cleared." }
-            ]
-        },
-        {
-            "name": "clearBrowserCookies",
-            "description": "Clears browser cookies."
-        },
-        {
             "name": "setCacheDisabled",
             "parameters": [
                 { "name": "cacheDisabled", "type": "boolean", "description": "Cache disabled state." }
@@ -3164,10 +3142,6 @@
             "description": "Releases all remote objects that belong to a given group."
         },
         {
-            "name": "run",
-            "description": "Tells inspected instance(worker or page) that it can run in case it was started paused."
-        },
-        {
             "name": "enable",
             "description": "Enables reporting of execution contexts creation by means of <code>executionContextCreated</code> event. When the reporting gets enabled the event will be sent immediately for each existing execution context."
         },
@@ -3232,7 +3206,6 @@
                 "Paint",
                 "Composite",
                 "RenderingFrame",
-                "ScrollLayer",
                 "ParseHTML",
                 "TimerInstall",
                 "TimerRemove",
@@ -3248,7 +3221,6 @@
                 "FunctionCall",
                 "ProbeSample",
                 "ConsoleProfile",
-                "GCEvent",
                 "RequestAnimationFrame",
                 "CancelAnimationFrame",
                 "FireAnimationFrame",
@@ -3332,78 +3304,6 @@
         {
             "name": "recordingStopped",
             "description": "Fired when recording has stopped."
-        }
-    ]
-}
-,
-{
-    "domain": "Worker",
-    "types": [],
-    "availability": "web",
-    "commands": [
-        {
-            "name": "enable"
-        },
-        {
-            "name": "disable"
-        },
-        {
-            "name": "sendMessageToWorker",
-            "parameters": [
-                { "name": "workerId", "type": "integer" },
-                { "name": "message", "type": "object" }
-            ]
-        },
-        {
-            "name": "canInspectWorkers",
-            "description": "Tells whether browser supports workers inspection.",
-            "returns": [
-                { "name": "result", "type": "boolean", "description": "True if browser has workers support." }
-            ]
-        },
-        {
-            "name": "connectToWorker",
-            "parameters": [
-                { "name": "workerId", "type": "integer" }
-            ]
-        },
-        {
-            "name": "disconnectFromWorker",
-            "parameters": [
-                { "name": "workerId", "type": "integer" }
-            ]
-        },
-        {
-            "name": "setAutoconnectToWorkers",
-            "parameters": [
-                { "name": "value", "type": "boolean" }
-            ]
-        }
-    ],
-    "events": [
-        {
-            "name": "workerCreated",
-            "parameters": [
-                { "name": "workerId", "type": "integer" },
-                { "name": "url", "type": "string" },
-                { "name": "inspectorConnected", "type": "boolean" }
-            ]
-        },
-        {
-            "name": "workerTerminated",
-            "parameters": [
-                { "name": "workerId", "type": "integer" }
-            ]
-        },
-        {
-            "name": "dispatchMessageFromWorker",
-            "parameters": [
-                { "name": "workerId", "type": "integer" },
-                { "name": "message", "type": "object" }
-            ]
-        },
-        {
-            "name": "disconnectedFromWorker"
         }
     ]
 }

@@ -48,7 +48,7 @@ static inline size_t pkcs7decryptUpdateResultLength_by_blocksize(size_t len, siz
     return round_down_by_blocksize(len, blocksize);
 }
 
-int CommonCryptoOutputLength (int argc, char *const *argv)
+int CommonCryptoOutputLength (int __unused argc, char *const * __unused argv)
 {
     int verbose = 0;
 	plan_tests(kTestTestCount);

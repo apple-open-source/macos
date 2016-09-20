@@ -1,5 +1,5 @@
---- icuSources/common/unicode/uconfig.h	2012-11-06 20:15:02.000000000 -0800
-+++ build/common/unicode/uconfig.h	2012-11-09 02:15:45.000000000 -0800
+--- ./common/unicode/uconfig.h	2016-03-19 21:18:39.000000000 -0700
++++ ./common/unicode/uconfig.h	2016-03-29 15:23:56.000000000 -0700
 @@ -87,7 +87,7 @@
   * @internal
   */
@@ -9,7 +9,7 @@
  #endif
  
  /**
-@@ -385,7 +385,7 @@
+@@ -413,7 +413,7 @@
   * @stable ICU 3.2
   */
  #ifndef UCONFIG_NO_SERVICE
@@ -18,14 +18,14 @@
  #endif
  
  /**
---- icuSources/common/unicode/utypes.h	2012-02-28 00:12:59.000000000 -0800
-+++ build/common/unicode/utypes.h	2012-11-09 02:16:25.000000000 -0800
-@@ -139,7 +139,7 @@
- #define U_ICUDATA_NAME    "icudt" U_ICU_VERSION_SHORT U_ICUDATA_TYPE_LETTER
- #ifndef U_HIDE_INTERNAL_API
- #define U_USRDATA_NAME    "usrdt" U_ICU_VERSION_SHORT U_ICUDATA_TYPE_LETTER  /**< @internal */
--#define U_USE_USRDATA     1  /**< @internal */
-+#define U_USE_USRDATA     0  /**< @internal */
- #endif  /* U_HIDE_INTERNAL_API */
- 
- /**
+--- ./common/unicode/utypes.h	2016-04-20 14:47:56.000000000 -0700
++++ ./common/unicode/utypes.h	2016-04-20 14:52:41.000000000 -0700
+@@ -61,7 +61,7 @@
+  */
+ #ifdef __cplusplus
+ #   ifndef U_SHOW_CPLUSPLUS_API
+-#       define U_SHOW_CPLUSPLUS_API 1
++#       define U_SHOW_CPLUSPLUS_API 0
+ #   endif
+ #else
+ #   undef U_SHOW_CPLUSPLUS_API

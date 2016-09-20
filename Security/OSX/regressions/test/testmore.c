@@ -24,6 +24,8 @@
  */
 
 #include <fcntl.h>
+#include <dispatch/dispatch.h>
+#include <pthread.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,6 +37,7 @@
 #include "testmore.h"
 #include "testenv.h"
 
+pthread_mutex_t test_mutex; // protects the test number variables
 static int test_fails = 0;
 static int test_todo_pass = 0;
 static int test_todo = 0;
@@ -102,9 +105,14 @@ void test_bail_out(const char *reason, const char *file, unsigned line)
 
 void test_plan_skip_all(const char *reason)
 {
-    if (test_num < test_cases)
+    // Not super thread-safe. Don't test_plan_skip_all from multiple threads simultaneously.
+    pthread_mutex_lock(&test_mutex);
+    int skipN = test_cases - test_num;
+    pthread_mutex_unlock(&test_mutex);
+
+    if (skipN > 0)
     {
-        test_skip(reason, test_cases - test_num, 0);
+        test_skip(reason, skipN, 0);
     }
 }
 
@@ -144,6 +152,7 @@ int test_plan_ok(void) {
     fflush(stderr);
     const char *name = test_plan_name();
 
+    pthread_mutex_lock(&test_mutex);
     if (!test_num)
     {
         if (test_cases)
@@ -170,11 +179,13 @@ int test_plan_ok(void) {
         fprintf(stdout, "%s failed %d tests of %d.\n", name, test_fails, test_num);
         status = 1;
     }
+    pthread_mutex_unlock(&test_mutex);
     fflush(stdout);
 
     return status;
 }
 
+// You should hold the test_mutex when you call this.
 static void test_plan_reset(void) {
     test_fails = 0;
     test_todo_pass = 0;
@@ -186,6 +197,7 @@ static void test_plan_reset(void) {
 }
 
 void test_plan_final(int *failed, int *todo_pass, int *todo, int *actual, int *planned, const char **file, int *line) {
+    pthread_mutex_lock(&test_mutex);
     if (failed)
         *failed = test_fails;
     if (todo_pass)
@@ -202,6 +214,7 @@ void test_plan_final(int *failed, int *todo_pass, int *todo, int *actual, int *p
         *line = test_plan_line;
 
     test_plan_reset();
+    pthread_mutex_unlock(&test_mutex);
 }
 
 void test_plan_tests(int count, const char *file, unsigned line) {
@@ -226,6 +239,13 @@ void test_plan_tests(int count, const char *file, unsigned line) {
         test_plan_line=line;
 
         test_cases = count;
+
+        static dispatch_once_t onceToken;
+        dispatch_once(&onceToken, ^{
+            if(pthread_mutex_init(&test_mutex, NULL) != 0) {
+                fprintf(stdout, "Failed to initialize mutex: %d\n", errno);
+            }
+        });
 	}
 }
 
@@ -298,6 +318,7 @@ test_ok(int passed, __attribute((cf_consumed)) CFStringRef description, const ch
 			//fflush(stdout);
 		}
 
+        pthread_mutex_lock(&test_mutex);
 		++test_num;
         if (passed) {
             if (is_todo) {
@@ -342,6 +363,7 @@ test_ok(int passed, __attribute((cf_consumed)) CFStringRef description, const ch
                      reason ? reason : "");
             fflush(stdout);
         }
+        pthread_mutex_unlock(&test_mutex);
     }
 
     if (description)
@@ -350,28 +372,43 @@ test_ok(int passed, __attribute((cf_consumed)) CFStringRef description, const ch
     return passed;
 }
 
+
 // TODO: Move this to testsec.h so that testmore and testenv can be shared
+static void buf_kill(void* p) {
+    free(p);
+}
+
 const char *
 sec_errstr(int err)
 {
-#if 1
-	static int bufnum = 0;
-    static char buf[2][20];
-	bufnum = bufnum ? 0 : 1;
-    sprintf(buf[bufnum], "0x%X", err);
-    return buf[bufnum];
-#else /* !1 */
-    if (err >= errSecErrnoBase && err <= errSecErrnoLimit)
-        return strerror(err - 100000);
+    static pthread_key_t buffer0key;
+    static pthread_key_t buffer1key;
+    static pthread_key_t switchkey;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        pthread_key_create(&buffer0key, buf_kill);
+        pthread_key_create(&buffer1key, buf_kill);
+        pthread_key_create(&switchkey, buf_kill);
+    });
 
-#ifdef MAC_OS_X_VERSION_10_4
-    /* AvailabilityMacros.h would only define this if we are on a
-       Tiger or later machine. */
-    extern const char *cssmErrorString(long);
-    return cssmErrorString(err);
-#else /* !defined(MAC_OS_X_VERSION_10_4) */
-    extern const char *_ZN8Security15cssmErrorStringEl(long);
-    return _ZN8Security15cssmErrorStringEl(err);
-#endif /* MAC_OS_X_VERSION_10_4 */
-#endif /* !1 */
+    uint32_t * switchp = (uint32_t*) pthread_getspecific(switchkey);
+    if(switchp == NULL) {
+        switchp = (uint32_t*) malloc(sizeof(uint32_t));
+        *switchp = 0;
+        pthread_setspecific(switchkey, switchp);
+    }
+
+    char* buf = NULL;
+
+    pthread_key_t current = (*switchp) ? buffer0key : buffer1key;
+    *switchp = !(*switchp);
+
+    buf = pthread_getspecific(current);
+    if(buf == NULL) {
+        buf = (char*) malloc(20);
+        pthread_setspecific(current, buf);
+    }
+
+    snprintf(buf, 20, "0x%X", err);
+    return buf;
 }

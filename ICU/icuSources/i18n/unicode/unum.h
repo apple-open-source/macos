@@ -148,7 +148,11 @@ typedef enum UNumberFormatStyle {
      */
     UNUM_DECIMAL=1,
     /**
-     * Currency format with a currency symbol, e.g., "$1.00".
+     * Currency format (generic).
+     * Defaults to UNUM_CURRENCY_STANDARD style
+     * (using currency symbol, e.g., "$1.00", with non-accounting
+     * style for negative values e.g. using minus sign).
+     * The specific style may be specified using the -cf- locale key.
      * @stable ICU 2.0
      */
     UNUM_CURRENCY=2,
@@ -205,17 +209,16 @@ typedef enum UNumberFormatStyle {
     /**
      * Currency format for accounting, e.g., "($3.00)" for
      * negative currency amount instead of "-$3.00" ({@link #UNUM_CURRENCY}).
+     * Overrides any style specified using -cf- key in locale.
      * @stable ICU 53
      */
     UNUM_CURRENCY_ACCOUNTING=12,
-#ifndef U_HIDE_DRAFT_API
     /**
      * Currency format with a currency symbol given CASH usage, e.g., 
      * "NT$3" instead of "NT$3.23".
-     * @draft ICU 54
+     * @stable ICU 54
      */
     UNUM_CASH_CURRENCY=13,
-#endif /* U_HIDE_DRAFT_API */
 #ifndef U_HIDE_DRAFT_API
     /**
      * Decimal format expressed using compact notation
@@ -231,13 +234,20 @@ typedef enum UNumberFormatStyle {
      * @draft ICU 56
      */
     UNUM_DECIMAL_COMPACT_LONG=15,
+    /**
+     * Currency format with a currency symbol, e.g., "$1.00",
+     * using non-accounting style for negative values (e.g. minus sign).
+     * Overrides any style specified using -cf- key in locale.
+     * @draft ICU 56
+     */
+    UNUM_CURRENCY_STANDARD=16,
 #endif /* U_HIDE_DRAFT_API */
 
     /**
      * One more than the highest number format style constant.
      * @stable ICU 4.8
      */
-    UNUM_FORMAT_STYLE_COUNT=16,
+    UNUM_FORMAT_STYLE_COUNT=17,
 
     /**
      * Default format
@@ -861,6 +871,9 @@ typedef enum UNumberFormatAttributeValue {
   UNUM_YES = 1,
   /** @internal */
   UNUM_MAYBE = 2
+#else
+  /** @internal */
+  UNUM_FORMAT_ATTRIBUTE_VALUE_HIDDEN
 #endif /* U_HIDE_INTERNAL_API */
 } UNumberFormatAttributeValue;
 #endif
@@ -917,7 +930,7 @@ typedef enum UNumberFormatAttribute {
    * This is an internal ICU API. Do not use.
    * @internal
    */
-  UNUM_PARSE_ALL_INPUT = UNUM_LENIENT_PARSE + 1,
+  UNUM_PARSE_ALL_INPUT = 20,
 #endif
   /** 
     * Scale, which adjusts the position of the
@@ -928,23 +941,33 @@ typedef enum UNumberFormatAttribute {
     * <p>Example: setting the scale to -4, 123 formats as "0.0123"
     *
    * @stable ICU 51 */
-  UNUM_SCALE = UNUM_LENIENT_PARSE + 2,
-
+  UNUM_SCALE = 21,
+#ifndef U_HIDE_INTERNAL_API
+  /**
+   * Minimum grouping digits, technology preview.
+   * See DecimalFormat::getMinimumGroupingDigits().
+   *
+   * @internal technology preview
+   */
+  UNUM_MINIMUM_GROUPING_DIGITS = 22,
+  /* TODO: test C API when it becomes @draft */
+#endif  /* U_HIDE_INTERNAL_API */
 #ifndef U_HIDE_INTERNAL_API
   /** Count of "regular" numeric attributes.
+   * This internal value was unused by ICU and removed in ICU 56.
+   * Unfortunately CF references it (but does not use it) so it
+   * is being temporarily restored per <rdar://problem/23544928>
    * @internal */
-  UNUM_NUMERIC_ATTRIBUTE_COUNT = UNUM_LENIENT_PARSE + 3,
+  UNUM_NUMERIC_ATTRIBUTE_COUNT = 22, /* UNUM_LENIENT_PARSE + 3 */
 #endif  /* U_HIDE_INTERNAL_API */
 
-#ifndef U_HIDE_DRAFT_API
   /** 
    * if this attribute is set to 0, it is set to UNUM_CURRENCY_STANDARD purpose,
    * otherwise it is UNUM_CURRENCY_CASH purpose
    * Default: 0 (UNUM_CURRENCY_STANDARD purpose)
-   * @draft ICU 54
+   * @stable ICU 54
    */
-  UNUM_CURRENCY_USAGE = UNUM_LENIENT_PARSE + 4,
-#endif  /* U_HIDE_DRAFT_API */
+  UNUM_CURRENCY_USAGE = 23,
 
   /* The following cannot be #ifndef U_HIDE_INTERNAL_API, needed in .h file variable declararions */
   /** One below the first bitfield-boolean item.
@@ -966,22 +989,20 @@ typedef enum UNumberFormatAttribute {
    */
   UNUM_PARSE_NO_EXPONENT,
 
-#ifndef U_HIDE_DRAFT_API
   /** 
    * if this attribute is set to 1, specifies that, if the pattern contains a 
    * decimal mark the input is required to have one. If this attribute is set to 0,
    * specifies that input does not have to contain a decimal mark.
    * Has no effect on formatting.
    * Default: 0 (unset)
-   * @draft ICU 54
+   * @stable ICU 54
    */
-  UNUM_PARSE_DECIMAL_MARK_REQUIRED = UNUM_PARSE_NO_EXPONENT+1,
-#endif  /* U_HIDE_DRAFT_API */
+  UNUM_PARSE_DECIMAL_MARK_REQUIRED = 0x1002,
 
   /* The following cannot be #ifndef U_HIDE_INTERNAL_API, needed in .h file variable declararions */
   /** Limit of boolean attributes.
    * @internal */
-  UNUM_LIMIT_BOOLEAN_ATTRIBUTE = UNUM_PARSE_NO_EXPONENT+2
+  UNUM_LIMIT_BOOLEAN_ATTRIBUTE = 0x1003
 } UNumberFormatAttribute;
 
 /**
@@ -992,7 +1013,7 @@ typedef enum UNumberFormatAttribute {
 * UNUM_DECIMAL_ALWAYS_SHOWN, UNUM_MAX_INTEGER_DIGITS, UNUM_MIN_INTEGER_DIGITS, UNUM_INTEGER_DIGITS,
 * UNUM_MAX_FRACTION_DIGITS, UNUM_MIN_FRACTION_DIGITS, UNUM_FRACTION_DIGITS, UNUM_MULTIPLIER,
 * UNUM_GROUPING_SIZE, UNUM_ROUNDING_MODE, UNUM_FORMAT_WIDTH, UNUM_PADDING_POSITION, UNUM_SECONDARY_GROUPING_SIZE,
-* UNUM_SCALE.
+* UNUM_SCALE, UNUM_MINIMUM_GROUPING_DIGITS.
 * @return The value of attr.
 * @see unum_setAttribute
 * @see unum_getDoubleAttribute
@@ -1015,7 +1036,7 @@ unum_getAttribute(const UNumberFormat*          fmt,
 * UNUM_DECIMAL_ALWAYS_SHOWN, UNUM_MAX_INTEGER_DIGITS, UNUM_MIN_INTEGER_DIGITS, UNUM_INTEGER_DIGITS,
 * UNUM_MAX_FRACTION_DIGITS, UNUM_MIN_FRACTION_DIGITS, UNUM_FRACTION_DIGITS, UNUM_MULTIPLIER,
 * UNUM_GROUPING_SIZE, UNUM_ROUNDING_MODE, UNUM_FORMAT_WIDTH, UNUM_PADDING_POSITION, UNUM_SECONDARY_GROUPING_SIZE,
-* UNUM_LENIENT_PARSE, or UNUM_SCALE.
+* UNUM_LENIENT_PARSE, UNUM_SCALE, UNUM_MINIMUM_GROUPING_DIGITS.
 * @param newValue The new value of attr.
 * @see unum_getAttribute
 * @see unum_getDoubleAttribute
@@ -1254,12 +1275,10 @@ typedef enum UNumberFormatSymbol {
    */
   UNUM_NINE_DIGIT_SYMBOL = 26,
 
-#ifndef U_HIDE_DRAFT_API
   /** Multiplication sign
-   * @draft ICU 54
+   * @stable ICU 54
    */
   UNUM_EXPONENT_MULTIPLICATION_SYMBOL = 27,
-#endif  /* U_HIDE_DRAFT_API */
 
   /** count symbol constants */
   UNUM_FORMAT_SYMBOL_COUNT = 28

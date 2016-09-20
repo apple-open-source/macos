@@ -37,15 +37,16 @@
 
 
 #pragma D option quiet
+#pragma D option statusrate=110ms
 
-tick-1
+tick-100ms
 /(arg0 != 0 && arg1 == 0) || (arg0 == 0 && arg1 != 0)/
 {
 	printf("Test passed; either arg0/arg1 is zero\n");
 	exit(0);
 }
 
-tick-1
+tick-100ms
 /(arg0 == 0 && arg1 == 0) || (arg0 != 0 && arg1 != 0)/
 {
 	printf("Test failed; either arg0 (or) arg1 should be non zero\n");

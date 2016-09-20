@@ -894,10 +894,8 @@ zgetline(UNUSED(char **args))
 	free(s);
 	free(lineadd);
 	clearlist = 1;
-	if (stackhist != -1) {
-	    histline = stackhist;
-	    stackhist = -1;
-	}
+	/* not restoring stackhist as we're inserting into current line */
+	stackhist = -1;
     }
     return 0;
 }
@@ -1308,8 +1306,8 @@ doisearch(char **args, int dir, int pattern)
 			     * this mode.
 			     */
 			    if (!skip_pos &&
-				pattryrefs(patprog, zt, -1, -1, 0, NULL, NULL,
-					   &end_pos))
+				pattryrefs(patprog, zt, -1, -1, NULL, 0,
+					   NULL, NULL, &end_pos))
 				t = zt;
 			} else {
 			    if (!matchlist && !skip_pos) {
@@ -1598,7 +1596,7 @@ doisearch(char **args, int dir, int pattern)
 	    dir = odir;
 	    skip_pos = 1;
 	rpt:
-	    if (!sbptr && previous_search_len) {
+	    if (!sbptr && previous_search_len && dir == odir) {
 		if (previous_search_len > sibuf - FIRST_SEARCH_CHAR - 2) {
 		    ibuf = hrealloc((char *)ibuf, sibuf,
 				    (sibuf + previous_search_len));
@@ -1620,6 +1618,21 @@ doisearch(char **args, int dir, int pattern)
 		feep = 1;
 	    else
 		goto ins;
+	} else if (cmd == Th(z_bracketedpaste)) {
+	    char *paste = bracketedstring();
+	    set_isrch_spot(top_spot++, hl, pos, pat_hl, pat_pos, end_pos,
+			   zlemetacs, sbptr, dir, nomatch);
+	    size_t pastelen = strlen(paste);
+	    if (sbptr + pastelen >= sibuf - FIRST_SEARCH_CHAR - 2) {
+		int oldsize = sibuf;
+		sibuf += (pastelen >= sibuf) ? pastelen + 1 : sibuf;
+		ibuf = hrealloc(ibuf, oldsize, sibuf);
+		sbuf = ibuf + FIRST_SEARCH_CHAR;
+	    }
+	    strcpy(sbuf + sbptr, paste);
+	    sbptr += pastelen;
+	    patprog = NULL;
+	    free(paste);
 	} else if (cmd == Th(z_acceptsearch)) {
 	    break;
 	} else {
@@ -1630,7 +1643,7 @@ doisearch(char **args, int dir, int pattern)
 	    } else if (cmd == Th(z_selfinsert)) {
 #ifdef MULTIBYTE_SUPPORT
 		if (!lastchar_wide_valid)
-		    if (getrestchar(lastchar) == WEOF) {
+		    if (getrestchar(lastchar, NULL, NULL) == WEOF) {
 			handlefeep(zlenoargs);
 			continue;
 		    }
@@ -1864,7 +1877,7 @@ getvisrchstr(void)
 	    } else {
 #ifdef MULTIBYTE_SUPPORT
 		if (!lastchar_wide_valid)
-		    if (getrestchar(lastchar) == WEOF) {
+		    if (getrestchar(lastchar, NULL, NULL) == WEOF) {
 			handlefeep(zlenoargs);
 			continue;
 		    }

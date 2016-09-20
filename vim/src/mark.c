@@ -98,6 +98,18 @@ setmark_pos(c, pos, fnum)
 	return OK;
     }
 
+    if (c == '<' || c == '>')
+    {
+	if (c == '<')
+	    curbuf->b_visual.vi_start = *pos;
+	else
+	    curbuf->b_visual.vi_end = *pos;
+	if (curbuf->b_visual.vi_mode == NUL)
+	    /* Visual_mode has not yet been set, use a sane default. */
+	    curbuf->b_visual.vi_mode = 'v';
+	return OK;
+    }
+
 #ifndef EBCDIC
     if (c > 'z')	    /* some islower() and isupper() cannot handle
 				characters above 127 */
@@ -291,7 +303,7 @@ movechangelist(count)
 #endif
 
 /*
- * Find mark "c".
+ * Find mark "c" in buffer pointed to by "buf".
  * If "changefile" is TRUE it's allowed to edit another file for '0, 'A, etc.
  * If "fnum" is not NULL store the fnum there for '0, 'A etc., don't edit
  * another file.
@@ -302,23 +314,31 @@ movechangelist(count)
  * - -1 if mark is in other file and jumped there (only if changefile is TRUE)
  */
     pos_T *
+getmark_buf(buf, c, changefile)
+    buf_T	*buf;
+    int		c;
+    int		changefile;
+{
+    return getmark_buf_fnum(buf, c, changefile, NULL);
+}
+
+    pos_T *
 getmark(c, changefile)
     int		c;
     int		changefile;
 {
-    return getmark_fnum(c, changefile, NULL);
+    return getmark_buf_fnum(curbuf, c, changefile, NULL);
 }
 
     pos_T *
-getmark_fnum(c, changefile, fnum)
+getmark_buf_fnum(buf, c, changefile, fnum)
+    buf_T	*buf;
     int		c;
     int		changefile;
     int		*fnum;
 {
     pos_T		*posp;
-#ifdef FEAT_VISUAL
     pos_T		*startp, *endp;
-#endif
     static pos_T	pos_copy;
 
     posp = NULL;
@@ -338,15 +358,15 @@ getmark_fnum(c, changefile, fnum)
 	posp = &pos_copy;		/*   w_pcmark may be changed soon */
     }
     else if (c == '"')			/* to pos when leaving buffer */
-	posp = &(curbuf->b_last_cursor);
+	posp = &(buf->b_last_cursor);
     else if (c == '^')			/* to where Insert mode stopped */
-	posp = &(curbuf->b_last_insert);
+	posp = &(buf->b_last_insert);
     else if (c == '.')			/* to where last change was made */
-	posp = &(curbuf->b_last_change);
+	posp = &(buf->b_last_change);
     else if (c == '[')			/* to start of previous operator */
-	posp = &(curbuf->b_op_start);
+	posp = &(buf->b_op_start);
     else if (c == ']')			/* to end of previous operator */
-	posp = &(curbuf->b_op_end);
+	posp = &(buf->b_op_end);
     else if (c == '{' || c == '}')	/* to previous/next paragraph */
     {
 	pos_T	pos;
@@ -379,11 +399,10 @@ getmark_fnum(c, changefile, fnum)
 	curwin->w_cursor = pos;
 	listcmd_busy = slcb;
     }
-#ifdef FEAT_VISUAL
     else if (c == '<' || c == '>')	/* start/end of visual area */
     {
-	startp = &curbuf->b_visual.vi_start;
-	endp = &curbuf->b_visual.vi_end;
+	startp = &buf->b_visual.vi_start;
+	endp = &buf->b_visual.vi_end;
 	if ((c == '<') == lt(*startp, *endp))
 	    posp = startp;
 	else
@@ -391,7 +410,7 @@ getmark_fnum(c, changefile, fnum)
 	/*
 	 * For Visual line mode, set mark at begin or end of line
 	 */
-	if (curbuf->b_visual.vi_mode == 'V')
+	if (buf->b_visual.vi_mode == 'V')
 	{
 	    pos_copy = *posp;
 	    posp = &pos_copy;
@@ -404,10 +423,9 @@ getmark_fnum(c, changefile, fnum)
 #endif
 	}
     }
-#endif
     else if (ASCII_ISLOWER(c))		/* normal named mark */
     {
-	posp = &(curbuf->b_namedm[c - 'a']);
+	posp = &(buf->b_namedm[c - 'a']);
     }
     else if (ASCII_ISUPPER(c) || VIM_ISDIGIT(c))	/* named file mark */
     {
@@ -422,7 +440,7 @@ getmark_fnum(c, changefile, fnum)
 
 	if (fnum != NULL)
 	    *fnum = namedfm[c].fmark.fnum;
-	else if (namedfm[c].fmark.fnum != curbuf->b_fnum)
+	else if (namedfm[c].fmark.fnum != buf->b_fnum)
 	{
 	    /* mark is in another file */
 	    posp = &pos_copy;
@@ -733,10 +751,8 @@ do_marks(eap)
     show_one_mark(']', arg, &curbuf->b_op_end, NULL, TRUE);
     show_one_mark('^', arg, &curbuf->b_last_insert, NULL, TRUE);
     show_one_mark('.', arg, &curbuf->b_last_change, NULL, TRUE);
-#ifdef FEAT_VISUAL
     show_one_mark('<', arg, &curbuf->b_visual.vi_start, NULL, TRUE);
     show_one_mark('>', arg, &curbuf->b_visual.vi_end, NULL, TRUE);
-#endif
     show_one_mark(-1, arg, NULL, NULL, FALSE);
 }
 
@@ -868,10 +884,8 @@ ex_delmarks(eap)
 		    case '.': curbuf->b_last_change.lnum = 0; break;
 		    case '[': curbuf->b_op_start.lnum    = 0; break;
 		    case ']': curbuf->b_op_end.lnum      = 0; break;
-#ifdef FEAT_VISUAL
 		    case '<': curbuf->b_visual.vi_start.lnum = 0; break;
 		    case '>': curbuf->b_visual.vi_end.lnum   = 0; break;
-#endif
 		    case ' ': break;
 		    default:  EMSG2(_(e_invarg2), p);
 			      return;
@@ -1024,6 +1038,7 @@ mark_adjust(line1, line2, amount, amount_after)
 #ifdef FEAT_WINDOWS
     tabpage_T	*tab;
 #endif
+    static pos_T initpos = INIT_POS_T(1, 0, 0);
 
     if (line2 < line1 && amount_after == 0L)	    /* nothing to do */
 	return;
@@ -1049,17 +1064,20 @@ mark_adjust(line1, line2, amount, amount_after)
 	/* last change position */
 	one_adjust(&(curbuf->b_last_change.lnum));
 
+	/* last cursor position, if it was set */
+	if (!equalpos(curbuf->b_last_cursor, initpos))
+	    one_adjust(&(curbuf->b_last_cursor.lnum));
+
+
 #ifdef FEAT_JUMPLIST
 	/* list of change positions */
 	for (i = 0; i < curbuf->b_changelistlen; ++i)
 	    one_adjust_nodel(&(curbuf->b_changelist[i].lnum));
 #endif
 
-#ifdef FEAT_VISUAL
 	/* Visual area */
 	one_adjust_nodel(&(curbuf->b_visual.vi_start.lnum));
 	one_adjust_nodel(&(curbuf->b_visual.vi_end.lnum));
-#endif
 
 #ifdef FEAT_QUICKFIX
 	/* quickfix marks */
@@ -1106,14 +1124,12 @@ mark_adjust(line1, line2, amount, amount_after)
 		    if (win->w_tagstack[i].fmark.fnum == fnum)
 			one_adjust_nodel(&(win->w_tagstack[i].fmark.mark.lnum));
 
-#ifdef FEAT_VISUAL
 	    /* the displayed Visual area */
 	    if (win->w_old_cursor_lnum != 0)
 	    {
 		one_adjust_nodel(&(win->w_old_cursor_lnum));
 		one_adjust_nodel(&(win->w_old_visual_lnum));
 	    }
-#endif
 
 	    /* topline and cursor position for windows with the same buffer
 	     * other than the current window */
@@ -1230,11 +1246,9 @@ mark_col_adjust(lnum, mincol, lnum_amount, col_amount)
 	col_adjust(&(curbuf->b_changelist[i]));
 #endif
 
-#ifdef FEAT_VISUAL
     /* Visual area */
     col_adjust(&(curbuf->b_visual.vi_start));
     col_adjust(&(curbuf->b_visual.vi_end));
-#endif
 
     /* previous context mark */
     col_adjust(&(curwin->w_pcmark));
@@ -1344,7 +1358,8 @@ free_jumplist(wp)
 set_last_cursor(win)
     win_T	*win;
 {
-    win->w_buffer->b_last_cursor = win->w_cursor;
+    if (win->w_buffer != NULL)
+	win->w_buffer->b_last_cursor = win->w_cursor;
 }
 
 #if defined(EXITFREE) || defined(PROTO)
@@ -1750,7 +1765,10 @@ copy_viminfo_marks(virp, fp_out, count, eof, flags)
 	    {
 		if (line[1] != NUL)
 		{
-		    sscanf((char *)line + 2, "%ld %u", &pos.lnum, &pos.col);
+		    unsigned u;
+
+		    sscanf((char *)line + 2, "%ld %u", &pos.lnum, &u);
+		    pos.col = u;
 		    switch (line[1])
 		    {
 			case '"': curbuf->b_last_cursor = pos; break;

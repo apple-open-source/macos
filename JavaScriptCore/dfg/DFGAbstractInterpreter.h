@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -97,14 +97,11 @@ public:
     void executeEdges(Node*);
     void executeEdges(unsigned indexInBlock);
     
+    void executeKnownEdgeTypes(Node*);
+    
     ALWAYS_INLINE void filterEdgeByUse(Edge& edge)
     {
-        ASSERT(mayHaveTypeCheck(edge.useKind()) || !needsTypeCheck(edge));
         filterByType(edge, typeFilterFor(edge.useKind()));
-    }
-    ALWAYS_INLINE void filterEdgeByUse(Node*, Edge& edge)
-    {
-        filterEdgeByUse(edge);
     }
     
     // Abstractly execute the effects of the given node. This changes the abstract
@@ -116,9 +113,9 @@ public:
     void dump(PrintStream& out);
     
     template<typename T>
-    FiltrationResult filter(T node, const StructureSet& set)
+    FiltrationResult filter(T node, const StructureSet& set, SpeculatedType admittedTypes = SpecNone)
     {
-        return filter(forNode(node), set);
+        return filter(forNode(node), set, admittedTypes);
     }
     
     template<typename T>
@@ -139,7 +136,7 @@ public:
         return filterByValue(forNode(node), value);
     }
     
-    FiltrationResult filter(AbstractValue&, const StructureSet&);
+    FiltrationResult filter(AbstractValue&, const StructureSet&, SpeculatedType admittedTypes = SpecNone);
     FiltrationResult filterArrayModes(AbstractValue&, ArrayModes);
     FiltrationResult filter(AbstractValue&, SpeculatedType);
     FiltrationResult filterByValue(AbstractValue&, FrozenValue);

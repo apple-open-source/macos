@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2011, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -69,7 +69,7 @@ _notifyWatchers()
 		const void **		watchers	= watchers_q;
 
 		dict = CFDictionaryGetValue(storeData, (CFStringRef)keys[keyCnt]);
-		if ((dict == NULL) || (CFDictionaryContainsKey(dict, kSCDWatchers) == FALSE)) {
+		if ((dict == NULL) || !CFDictionaryContainsKey(dict, kSCDWatchers)) {
 			/* key doesn't exist or nobody cares if it changed */
 			continue;
 		}
@@ -95,7 +95,7 @@ _notifyWatchers()
 
 			sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@"), watchers[watcherCnt]);
 			info = CFDictionaryGetValue(sessionData, sessionKey);
-			if (info) {
+			if (info != NULL) {
 				newInfo = CFDictionaryCreateMutableCopy(NULL, 0, info);
 			} else {
 				newInfo = CFDictionaryCreateMutable(NULL,
@@ -111,9 +111,9 @@ _notifyWatchers()
 				newChanges = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 			}
 
-			if (CFArrayContainsValue(newChanges,
-						 CFRangeMake(0, CFArrayGetCount(newChanges)),
-						 (CFStringRef)keys[keyCnt]) == FALSE) {
+			if (!CFArrayContainsValue(newChanges,
+						  CFRangeMake(0, CFArrayGetCount(newChanges)),
+						  (CFStringRef)keys[keyCnt])) {
 				CFArrayAppendValue(newChanges, (CFStringRef)keys[keyCnt]);
 			}
 			CFDictionarySetValue(newInfo, kSCDChangedKeys, newChanges);

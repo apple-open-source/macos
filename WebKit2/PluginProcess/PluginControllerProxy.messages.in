@@ -66,7 +66,7 @@ messages -> PluginControllerProxy LegacyReceiver {
     ManualStreamDidFail(bool wasCancelled)
 
     # Sent when a mouse event (that isn't a mouse enter/leave event or a wheel event) should be processed.
-    HandleMouseEvent(WebKit::WebMouseEvent mouseEvent) -> (bool handled) Delayed
+    HandleMouseEvent(WebKit::WebMouseEvent mouseEvent)
     
     # Sent when a mouse wheel event should be processed.
     HandleWheelEvent(WebKit::WebWheelEvent wheelEvent) -> (bool handled)
@@ -88,6 +88,9 @@ messages -> PluginControllerProxy LegacyReceiver {
     
     # Return whether or not a plugin wants to handle page scale factor itself.
     HandlesPageScaleFactor() -> (bool enabled);
+
+    # Return whether or not a plugin wants page scale, page zoom, and text zoom all to affect page scale.
+    RequiresUnifiedScaleFactor() -> (bool required);
 
     # Sent when the plug-in focus changes.
     SetFocus(bool isFocused)

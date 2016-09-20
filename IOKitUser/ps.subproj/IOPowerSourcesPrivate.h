@@ -185,10 +185,10 @@ IOReturn        IOPSReleasePowerSource(IOPSPowerSourceID whichPS);
 
 /*!
  * @function    IOPSGetPercentRemaining
- * @abstract    Get the percent charge remaining for the device’s power source(s).
- * @param       Returns the percent charge remaining (0 to 100).
- * @param       Returns true if the power source is being charged.
- * @param       Returns true if the power source is fully charged.
+ * @abstract    Get the percent charge remaining for the device power source(s).
+ * @param       percent - Returns the percent charge remaining (0 to 100).
+ * @param       isCharging - Returns true if the power source is being charged. Optional parameter.
+ * @param       isFullyCharged - Returns true if the power source is fully charged. Optional parameter.
  * @result      Returns kIOReturnSuccess on success, or an error code from IOReturn.h and
  *              also report the percent remaining as 100%.
  */
@@ -238,6 +238,7 @@ IOReturn IOPSGetSupportedPowerSources(IOPSPowerSourceIndex *active,
 #define kPSCriticalLevelBit                     (1 << 24)
 #define kPSRestrictedLevelBit                   (1 << 25)
 #define kPSTimeRemainingNotifyRawExternalBit    (1 << 26)
+#define kPSTimeRemainingNotifyShowChargingUIBit (1 << 27)
 #endif
 #define kPSTimeRemainingNotifyActivePS8BitsStarts   56
 

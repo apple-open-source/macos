@@ -40,23 +40,23 @@ class WebPageProxy;
 
 class WebPopupMenuProxyMac : public WebPopupMenuProxy {
 public:
-    static Ref<WebPopupMenuProxyMac> create(WKView *webView, WebPopupMenuProxy::Client* client)
+    static Ref<WebPopupMenuProxyMac> create(NSView *webView, WebPopupMenuProxy::Client& client)
     {
         return adoptRef(*new WebPopupMenuProxyMac(webView, client));
     }
     ~WebPopupMenuProxyMac();
 
-    virtual void showPopupMenu(const WebCore::IntRect&, WebCore::TextDirection, double pageScaleFactor, const Vector<WebPopupItem>&, const PlatformPopupMenuData&, int32_t selectedIndex) override;
-    virtual void hidePopupMenu() override;
-    virtual void cancelTracking() override;
+    void showPopupMenu(const WebCore::IntRect&, WebCore::TextDirection, double pageScaleFactor, const Vector<WebPopupItem>&, const PlatformPopupMenuData&, int32_t selectedIndex) override;
+    void hidePopupMenu() override;
+    void cancelTracking() override;
 
 private:
-    WebPopupMenuProxyMac(WKView *, WebPopupMenuProxy::Client*);
+    WebPopupMenuProxyMac(NSView *, WebPopupMenuProxy::Client&);
 
     void populate(const Vector<WebPopupItem>&, NSFont *, WebCore::TextDirection);
 
     RetainPtr<NSPopUpButtonCell> m_popup;
-    WKView *m_webView;
+    NSView *m_webView;
     bool m_wasCanceled;
 };
 

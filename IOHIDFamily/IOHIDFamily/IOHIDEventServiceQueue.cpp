@@ -59,19 +59,26 @@ void IOHIDEventServiceQueue::free()
     super::free();
 }
 
+
 //---------------------------------------------------------------------------
 // Add event to the queue.
 
 Boolean IOHIDEventServiceQueue::enqueueEvent( IOHIDEvent * event )
 {
-    IOByteCount         dataSize  = event->getLength();
-    const UInt32        head      = dataQueue->head;  // volatile
-    const UInt32        tail      = dataQueue->tail;
+    IOByteCount         eventSize = event->getLength();
+    IOByteCount         dataSize  = ALIGNED_DATA_SIZE (eventSize, sizeof(uint32_t));
+    UInt32              head;
+    UInt32              tail;
+    UInt32              newTail;
     const UInt32        entrySize = dataSize + DATA_QUEUE_ENTRY_HEADER_SIZE;
     IODataQueueEntry *  entry;
     bool                queueFull = false;
     bool                result    = true;
-    
+
+    // Force a single read of head and tail
+    head = __c11_atomic_load((_Atomic UInt32 *)&dataQueue->head, __ATOMIC_RELAXED);
+    tail = __c11_atomic_load((_Atomic UInt32 *)&dataQueue->tail, __ATOMIC_RELAXED);
+
     if ( tail > getQueueSize() || head > getQueueSize() || entrySize < dataSize)
     {
         return false;
@@ -85,14 +92,13 @@ Boolean IOHIDEventServiceQueue::enqueueEvent( IOHIDEvent * event )
             entry = (IODataQueueEntry *)((UInt8 *)dataQueue->queue + tail);
 
             entry->size = dataSize;
-            event->readBytes(&entry->data, dataSize);
+            event->readBytes(&entry->data, eventSize);
 
             // The tail can be out of bound when the size of the new entry
             // exactly matches the available space at the end of the queue.
             // The tail can range from 0 to getQueueSize() inclusive.
 
-            // RY: effectively performs a memory barrier
-            OSAddAtomic(entrySize, (SInt32 *)&dataQueue->tail);
+            newTail = tail + entrySize;
         }
         else if ( head > entrySize ) 	// Is there enough room at the beginning?
         {
@@ -110,10 +116,9 @@ Boolean IOHIDEventServiceQueue::enqueueEvent( IOHIDEvent * event )
                 ((IODataQueueEntry *)((UInt8 *)dataQueue->queue + tail))->size = dataSize;
             }
 
-            event->readBytes(&dataQueue->queue->data, dataSize);
+            event->readBytes(&dataQueue->queue->data, eventSize);
             
-            // RY: effectively performs a memory barrier
-            OSCompareAndSwap(dataQueue->tail, entrySize, &dataQueue->tail);
+            newTail = entrySize;
         }
         else
         {
@@ -131,10 +136,9 @@ Boolean IOHIDEventServiceQueue::enqueueEvent( IOHIDEvent * event )
             entry = (IODataQueueEntry *)((UInt8 *)dataQueue->queue + tail);
 
             entry->size = dataSize;
-            event->readBytes(&entry->data, dataSize);
+            event->readBytes(&entry->data, eventSize);
 
-            // RY: effectively performs a memory barrier
-            OSAddAtomic(entrySize, (SInt32 *)&dataQueue->tail);
+            newTail = tail + entrySize;
         }
         else
         {
@@ -143,12 +147,18 @@ Boolean IOHIDEventServiceQueue::enqueueEvent( IOHIDEvent * event )
         }
     }
 
+    if (result) {
+        // Update tail with release barrier
+        __c11_atomic_store((_Atomic UInt32 *)&dataQueue->tail, newTail, __ATOMIC_RELEASE);
+    }
+
     // Send notification (via mach message) that data is available if either the
     // queue was empty prior to enqueue() or queue was emptied during enqueue()
     if ( (event->getOptions() & kHIDDispatchOptionDeliveryNotificationSuppress) == 0) {
-        if ( (event->getOptions() & kHIDDispatchOptionDeliveryNotificationForce) || ( head == tail ) || ( dataQueue->head == tail ) || queueFull) {
+        if ( (event->getOptions() & kHIDDispatchOptionDeliveryNotificationForce) || ( head == tail )
+            || ( __c11_atomic_load((_Atomic UInt32 *)&dataQueue->head, __ATOMIC_RELAXED) == tail ) || queueFull) {
     //        if (queueFull) {
-    //            IOLog("IOHIDEventServiceQueue::enqueueEvent - Queue is full, notifying again\n");
+    //            HIDLogError("IOHIDEventServiceQueue::enqueueEvent - Queue is full, notifying again");
     //        }
             sendDataAvailableNotification();
         }

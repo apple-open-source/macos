@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2007-2015 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,6 +35,7 @@
 extern "C" {
 #endif
 
+#define CFRetainSafe(CF)  { CFTypeRef _cf = (CF); if (_cf) CFRetain(_cf);  }
 #define CFReleaseSafe(CF) { CFTypeRef _cf = (CF); if (_cf) CFRelease(_cf); }
 #define CFReleaseNull(CF) { CFTypeRef _cf = (CF); \
 	if (_cf) { (CF) = NULL; CFRelease(_cf); } }

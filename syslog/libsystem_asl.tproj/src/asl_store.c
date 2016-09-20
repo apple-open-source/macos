@@ -1066,7 +1066,7 @@ _jump_set_iteration_index(asl_object_private_t *obj, size_t n)
 }
 
 static void
-_jump_append(asl_object_private_t *obj, asl_object_private_t *newobj)
+_jump_append(asl_object_private_t *obj, asl_object_private_t *newobj, void *addr)
 {
 	asl_store_t *s = (asl_store_t *)obj;
 	int type = asl_get_type((asl_object_t)newobj);

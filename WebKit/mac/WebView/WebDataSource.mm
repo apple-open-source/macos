@@ -92,7 +92,12 @@ public:
     ~WebDataSourcePrivate()
     {
         if (loader) {
-            ASSERT(!loader->isLoading());
+            // We might run in to infinite recursion if we're stopping loading as the result of detaching from the frame.
+            // Therefore, DocumentLoader::detachFromFrame() did some smart things to stop the recursion.
+            // As a result of breaking the resursion, DocumentLoader::m_subresourceLoader
+            // and DocumentLoader::m_plugInStreamLoaders might not be empty at this time.
+            // See <rdar://problem/9673866> for more details.
+            ASSERT(!loader->isLoading() || loader->isStopping());
             loader->detachDataSource();
         }
     }
@@ -151,7 +156,6 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
         WTF::initializeMainThreadToProcessMainThread();
         RunLoop::initializeMainRunLoop();
 #endif
-        WebCoreObjCFinalizeOnMainThread(self);
     }
 }
 
@@ -435,16 +439,6 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     [super dealloc];
 }
 
-- (void)finalize
-{
-    if (toPrivate(_private) && toPrivate(_private)->includedInWebKitStatistics)
-        --WebDataSourceCount;
-
-    delete toPrivate(_private);
-
-    [super finalize];
-}
-
 - (NSData *)data
 {
     RefPtr<SharedBuffer> mainResourceData = toPrivate(_private)->loader->mainResourceData();
@@ -519,13 +513,13 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     if (!toPrivate(_private)->loader->isCommitted())
         return nil;
         
-    return [[[WebArchive alloc] _initWithCoreLegacyWebArchive:LegacyWebArchive::create(core([self webFrame]))] autorelease];
+    return [[[WebArchive alloc] _initWithCoreLegacyWebArchive:LegacyWebArchive::create(*core([self webFrame]))] autorelease];
 }
 
 - (WebResource *)mainResource
 {
-    RefPtr<ArchiveResource> coreResource = toPrivate(_private)->loader->mainResource();
-    return [[[WebResource alloc] _initWithCoreResource:coreResource.release()] autorelease];
+    auto coreResource = toPrivate(_private)->loader->mainResource();
+    return [[[WebResource alloc] _initWithCoreResource:WTFMove(coreResource)] autorelease];
 }
 
 - (NSArray *)subresources
@@ -550,7 +544,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (void)addSubresource:(WebResource *)subresource
 {    
-    toPrivate(_private)->loader->addArchiveResource([subresource _coreResource]);
+    toPrivate(_private)->loader->addArchiveResource(*[subresource _coreResource]);
 }
 
 @end

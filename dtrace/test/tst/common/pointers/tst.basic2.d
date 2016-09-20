@@ -39,9 +39,9 @@
 
 BEGIN
 {
-	assoc_array["ncpusAddress"] = &`max_ncpus;
+	assoc_array["ncpusAddress"] = &`real_ncpus;
 	ncpusValue = *(assoc_array["ncpusAddress"]);
-	printf("Address of max_ncpus: %x\n", (int) assoc_array["ncpusAddress"]);
-	printf("Value of max_ncpus: %d\n", ncpusValue);
+	printf("Address of real_ncpus: %x\n", (int) assoc_array["ncpusAddress"]);
+	printf("Value of real_ncpus: %d\n", ncpusValue);
 	exit(0);
 }

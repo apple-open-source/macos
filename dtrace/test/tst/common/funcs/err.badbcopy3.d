@@ -40,7 +40,7 @@
 BEGIN
 {
 	/* Attempt to copy to a NULL address */
-	bcopy((void *)&`max_ncpus, (void *)NULL, sizeof (int));
+	bcopy((void *)&`real_ncpus, (void *)NULL, sizeof (int));
 	exit(1);
 }
 

@@ -39,13 +39,13 @@ public:
     // DOM Functions
 
     void start();
-    virtual void stop() override;
+    void stop() final;
     
-    int scrollAmount() const;
-    void setScrollAmount(int, ExceptionCode&);
+    unsigned scrollAmount() const;
+    void setScrollAmount(unsigned);
     
-    int scrollDelay() const;
-    void setScrollDelay(int, ExceptionCode&);
+    unsigned scrollDelay() const;
+    void setScrollDelay(unsigned);
     
     int loop() const;
     void setLoop(int, ExceptionCode&);
@@ -53,14 +53,14 @@ public:
 private:
     HTMLMarqueeElement(const QualifiedName&, Document&);
 
-    virtual bool isPresentationAttribute(const QualifiedName&) const override;
-    virtual void collectStyleForPresentationAttribute(const QualifiedName&, const AtomicString&, MutableStyleProperties&) override;
+    bool isPresentationAttribute(const QualifiedName&) const final;
+    void collectStyleForPresentationAttribute(const QualifiedName&, const AtomicString&, MutableStyleProperties&) final;
 
     // ActiveDOMObject
-    virtual bool canSuspendForPageCache() const override;
-    virtual void suspend(ReasonForSuspension) override;
-    virtual void resume() override;
-    virtual const char* activeDOMObjectName() const override { return "HTMLMarqueeElement"; }
+    bool canSuspendForDocumentSuspension() const final;
+    void suspend(ReasonForSuspension) final;
+    void resume() final;
+    const char* activeDOMObjectName() const final { return "HTMLMarqueeElement"; }
 
     RenderMarquee* renderMarquee() const;
 };

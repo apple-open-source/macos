@@ -107,3 +107,6 @@ _notify_globals(void)
 	return _notify_globals_impl();
 #endif
 }
+
+__private_extern__ uint32_t _notify_lib_peek(notify_state_t *ns, pid_t pid, int token, int *val);
+

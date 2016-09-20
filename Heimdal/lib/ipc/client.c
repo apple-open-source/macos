@@ -416,7 +416,7 @@ unix_socket_ipc(void *ctx,
 		heim_icred *cred)
 {
     struct path_ctx *s = ctx;
-    uint32_t len = htonl(req->length);
+    uint32_t len = htonl((uint32_t)req->length);
     uint32_t rv;
     int retval;
 

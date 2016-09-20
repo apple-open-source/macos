@@ -1,9 +1,7 @@
 /*
- * "$Id: encode.c 12669 2015-05-27 19:42:43Z msweet $"
- *
  * Option encoding routines for CUPS.
  *
- * Copyright 2007-2015 by Apple Inc.
+ * Copyright 2007-2016 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products.
  *
  * These coded instructions, statements, and computer programs are the
@@ -281,6 +279,7 @@ static const _ipp_option_t ipp_options[] =
   { 0, "printer-info",		IPP_TAG_TEXT,		IPP_TAG_PRINTER },
   { 0, "printer-is-accepting-jobs", IPP_TAG_BOOLEAN,	IPP_TAG_PRINTER },
   { 0, "printer-is-shared",	IPP_TAG_BOOLEAN,	IPP_TAG_PRINTER },
+  { 0, "printer-is-temporary",	IPP_TAG_BOOLEAN,	IPP_TAG_PRINTER },
   { 0, "printer-location",	IPP_TAG_TEXT,		IPP_TAG_PRINTER },
   { 0, "printer-make-and-model", IPP_TAG_TEXT,		IPP_TAG_PRINTER },
   { 0, "printer-more-info",	IPP_TAG_URI,		IPP_TAG_PRINTER },
@@ -339,7 +338,7 @@ cupsEncodeOptions(ipp_t         *ipp,		/* I - Request to add to */
         	  int           num_options,	/* I - Number of options */
 		  cups_option_t *options)	/* I - Options */
 {
-  DEBUG_printf(("cupsEncodeOptions(%p, %d, %p)", ipp, num_options, options));
+  DEBUG_printf(("cupsEncodeOptions(%p, %d, %p)", (void *)ipp, num_options, (void *)options));
 
  /*
   * Add the options in the proper groups & order...
@@ -358,7 +357,7 @@ cupsEncodeOptions(ipp_t         *ipp,		/* I - Request to add to */
  * function multiple times for each group, or use cupsEncodeOptions()
  * to add the standard groups.
  *
- * @since CUPS 1.2/OS X 10.5@
+ * @since CUPS 1.2/macOS 10.5@
  */
 
 void
@@ -385,10 +384,7 @@ cupsEncodeOptions2(
   const ipp_op_t	*ops;		/* List of allowed operations */
 
 
-  DEBUG_printf(("cupsEncodeOptions2(ipp=%p(%s), num_options=%d, options=%p, "
-                "group_tag=%x)", ipp,
-                ipp ? ippOpString(ippGetOperation(ipp)) : "", num_options,
-                options, group_tag));
+  DEBUG_printf(("cupsEncodeOptions2(ipp=%p(%s), num_options=%d, options=%p, group_tag=%x)", (void *)ipp, ipp ? ippOpString(ippGetOperation(ipp)) : "", num_options, (void *)options, group_tag));
 
  /*
   * Range check input...
@@ -542,14 +538,13 @@ cupsEncodeOptions2(
 	else if (*sep == ',' && !quote)
 	  count ++;
 	else if (*sep == '\\' && sep[1])
-	  sep ++;
+	  sep += 2;
       }
     }
     else
       count = 1;
 
-    DEBUG_printf(("2cupsEncodeOptions2: option=\"%s\", count=%d",
-                  option->name, count));
+    DEBUG_printf(("2cupsEncodeOptions2: option=\"%s\", value=\"%s\", count=%d", option->name, option->value, count));
 
    /*
     * Allocate memory for the attribute values...
@@ -633,6 +628,7 @@ cupsEncodeOptions2(
 	    * Skip quoted character...
 	    */
 
+	    memmove(sep, sep + 1, strlen(sep));
 	    sep ++;
 	  }
 	}
@@ -850,8 +846,3 @@ compare_ipp_options(_ipp_option_t *a,	/* I - First option */
 {
   return (strcmp(a->name, b->name));
 }
-
-
-/*
- * End of "$Id: encode.c 12669 2015-05-27 19:42:43Z msweet $".
- */

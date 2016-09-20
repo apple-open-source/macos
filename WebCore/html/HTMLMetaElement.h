@@ -38,8 +38,8 @@ public:
 private:
     HTMLMetaElement(const QualifiedName&, Document&);
 
-    virtual void parseAttribute(const QualifiedName&, const AtomicString&) override;
-    virtual InsertionNotificationRequest insertedInto(ContainerNode&) override;
+    void parseAttribute(const QualifiedName&, const AtomicString&) final;
+    InsertionNotificationRequest insertedInto(ContainerNode&) final;
 
     void process();
 };

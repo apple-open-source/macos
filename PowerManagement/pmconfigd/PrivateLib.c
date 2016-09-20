@@ -80,6 +80,9 @@
 #define kIOPMMaintenanceScheduleImmediate               "MaintenanceImmediate"
 #endif
 
+
+#define kIOPMBatteryWarnSettings   CFSTR("BatteryWarn")
+
 // Duplicating the enum from IOServicePMPrivate.h
 enum {
     kDriverCallInformPreChange,
@@ -117,6 +120,7 @@ static int sleepCntSinceFailure = -1;
 
 __private_extern__ bool             isDisplayAsleep( );
 
+#if !TARGET_OS_EMBEDDED
 // Cached data for LowCapRatio
 static time_t               cachedLowCapRatioTime = 0;
 static bool                 cachedKeyPresence = false;
@@ -128,7 +132,6 @@ static bool                 cachedHasLowCap = false;
 // Power events include sleep, wake, AC change etc.
 #define kFDRIntervalAfterPE (1*60)
 
-#if !TARGET_OS_EMBEDDED
 static uint64_t nextFDREventDue = 0;
 #endif
 
@@ -197,6 +200,8 @@ static void logASLMessageHibernateStatistics(void);
 
 extern SCDynamicStoreRef                gSCDynamicStore;
 
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
 __private_extern__ SCDynamicStoreRef _getSharedPMDynamicStore(void)
 {
     return gSCDynamicStore;
@@ -224,28 +229,60 @@ __private_extern__ dispatch_queue_t     _getPMDispatchQueue(void)
     return pmQ;
 }
 
+asl_object_t getSleepCntObject(char *store)
+{
+    asl_object_t        response = NULL;
+    size_t              endMessageID;
+
+    if (!store) {
+        return NULL;
+    }
+    asl_object_t query = asl_new(ASL_TYPE_LIST);
+    if (query != NULL)
+    {
+		asl_object_t cq = asl_new(ASL_TYPE_QUERY);
+        if (cq == NULL) {
+            goto exit;
+        }
+        asl_set_query(cq, ASL_KEY_FACILITY, kPMFacility, ASL_QUERY_OP_EQUAL);
+        asl_set_query(cq, kPMASLDomainKey, kPMASLDomainHibernateStatistics, ASL_QUERY_OP_EQUAL);
+        asl_append(query, cq);
+        asl_release(cq);
+
+
+        asl_object_t pmstore = asl_open_path(store, 0);
+        if (pmstore != NULL) {
+            // Don't block for more than a second
+            response = asl_match(pmstore, query, &endMessageID, SIZE_MAX, 1, 100000, ASL_MATCH_DIRECTION_REVERSE);
+            asl_release(pmstore);
+        }
+    }
+
+exit:
+    if (query) {
+        asl_release(query);
+    }
+    return response;
+}
+
+
 static void initSleepCnt()
 {
-    int cnt = INT_MAX; // Init to a huge number in case of failure.
+    int cnt = -1; // Init to invalid value
 #if !TARGET_OS_EMBEDDED
     size_t msgCnt;
     asl_object_t cq = NULL;
-    asl_object_t        msg, store, msgList = NULL;
+    asl_object_t        msg, msgList = NULL;
     const char *str = NULL;
 
     if (sleepCntSinceFailure != -1) {
         return;
     }
 
-    store = open_pm_asl_store();
-    cq = asl_new(ASL_TYPE_QUERY);
-    if (cq == NULL) {
+    msgList = getSleepCntObject(kPMASLStorePath);
+    if (msgList == NULL) {
         goto exit;
     }
-
-    asl_set_query(cq, kPMASLDomainKey, kPMASLDomainHibernateStatistics, ASL_QUERY_OP_EQUAL);
-    msgList = asl_search(store, cq);
-
     msgCnt = asl_count(msgList);
     if (msgCnt <= 0) {
         goto exit;
@@ -260,9 +297,6 @@ exit:
     if (cq) {
         asl_release(cq);
     }
-    if (store) {
-        asl_release(store);
-    }
     if (msgList) {
         asl_release(msgList);
     }
@@ -275,6 +309,9 @@ __private_extern__ void incrementSleepCnt()
     sleepCntSinceBoot++;
     if (sleepCntSinceFailure == -1) {
         initSleepCnt();
+    }
+    if (sleepCntSinceFailure == -1) {
+        sleepCntSinceFailure = 0;
     }
     sleepCntSinceFailure++;
 }
@@ -631,8 +668,6 @@ __private_extern__ void _askNicelyThenRestartSystem(void)
 
 
 
-#define kIOPMAppName                "Power Management configd plugin"
-#define kIOPMPrefsPath              "com.apple.PowerManagement.xml"
 
 IOReturn _getLowCapRatioTime(CFStringRef batterySerialNumber,
                              boolean_t *hasLowCapRatio,
@@ -641,9 +676,9 @@ IOReturn _getLowCapRatioTime(CFStringRef batterySerialNumber,
     IOReturn                    ret         = kIOReturnError;
     
 #if !TARGET_OS_EMBEDDED
-    SCPreferencesRef            energyPrefs = NULL; // must release
-    CFNumberRef                 num         = NULL; // must release
-    CFPropertyListRef           plist       = NULL; // do not release
+    CFNumberRef                 num         = NULL;
+    CFDictionaryRef             dict        = NULL;
+
     if (!hasLowCapRatio || !since || !isA_CFString(batterySerialNumber)) {
         return ret;
     }
@@ -658,43 +693,14 @@ IOReturn _getLowCapRatioTime(CFStringRef batterySerialNumber,
         goto exit;
     }
 
-    energyPrefs = SCPreferencesCreate(kCFAllocatorDefault,
-                                      CFSTR(kIOPMAppName),
-                                      CFSTR(kIOPMPrefsPath));
-
-    if (kSCStatusNoConfigFile == SCError()) {
-        cachedKeyPresence = true;
-        cachedHasLowCap = false;
-        cachedLowCapRatioTime = 0;
-        ret = kIOReturnSuccess;
+    dict = IOPMCopyFromPrefs(NULL, kIOPMBatteryWarnSettings);
+    if (!isA_CFDictionary(dict)) {
         goto exit;
     }
 
-    if (!SCPreferencesLock(energyPrefs, true)) {
-        ret = kIOReturnInternalError;
-        goto exit;
-    }
-
-    plist = SCPreferencesGetValue(energyPrefs, CFSTR("BatteryWarn"));
-
-    if (kSCStatusNoKey == SCError()) {
-        cachedKeyPresence = true;
-        cachedHasLowCap = false;
-        cachedLowCapRatioTime = 0;
-        ret = kIOReturnSuccess;
-        goto exit;
-    }
-
-    if (!plist || CFGetTypeID(plist) != CFDictionaryGetTypeID()) {
-        SCPreferencesUnlock(energyPrefs);
-        goto exit;
-    }
-    
-    SCPreferencesUnlock(energyPrefs);
-    
-    num = CFDictionaryGetValue(plist, batterySerialNumber);
-    if (num && CFNumberGetTypeID() == CFGetTypeID(num)) {
-        if (!CFNumberGetValue(num, CFNumberGetType(num), since)) {
+    num = CFDictionaryGetValue(dict, batterySerialNumber);
+    if (isA_CFNumber(num)) {
+        if (!CFNumberGetValue(num, kCFNumberSInt64Type, since)) {
             goto exit;
         }
         *hasLowCapRatio = true;
@@ -703,11 +709,14 @@ IOReturn _getLowCapRatioTime(CFStringRef batterySerialNumber,
         // set the flag to indicate the file was read once successfully
         cachedKeyPresence = true;
     }
+
     
     ret = kIOReturnSuccess;
     
 exit:
-    if (energyPrefs) CFRelease(energyPrefs);
+    if (dict) {
+        CFRelease(dict);
+    }
     
 #endif
     return ret;
@@ -719,13 +728,9 @@ IOReturn _setLowCapRatioTime(CFStringRef batterySerialNumber,
 {
     IOReturn                    ret         = kIOReturnError;
 #if !TARGET_OS_EMBEDDED
-    boolean_t                   contains    = false;
-    boolean_t                   locked      = false;
     
-    SCPreferencesRef            energyPrefs = NULL; // must release
     CFMutableDictionaryRef      dict        = NULL; // must release
     CFNumberRef                 num         = NULL; // must release
-    CFPropertyListRef           plist       = NULL; // do not release
     
     if (!isA_CFString(batterySerialNumber))
         goto exit;
@@ -738,118 +743,27 @@ IOReturn _setLowCapRatioTime(CFStringRef batterySerialNumber,
         }
     }
 
-    energyPrefs = SCPreferencesCreate(kCFAllocatorDefault,
-                                      CFSTR(kIOPMAppName),
-                                      CFSTR(kIOPMPrefsPath));
-    if (!energyPrefs) {
-        goto exit;
-    }
-    
-    if (!SCPreferencesLock(energyPrefs, true)) {
-        ret = kIOReturnInternalError;
-        goto exit;
-    }
-    
-    locked = true;
-
-    plist = SCPreferencesGetValue(energyPrefs, CFSTR("BatteryWarn"));
-    
-    if (!plist) {
-        contains = false;
-    }
-    else {
-        if (CFGetTypeID(plist) != CFDictionaryGetTypeID()) {
-            goto exit;
-        }
-        contains = CFDictionaryContainsKey(plist, batterySerialNumber);
-    }
-    
-    // need to make changes to the SCPreferencesRef
-    if (!plist) {
+    if (hasLowCapRatio) {
         dict = CFDictionaryCreateMutable(kCFAllocatorDefault,
                                          0,
                                          &kCFTypeDictionaryKeyCallBacks,
                                          &kCFTypeDictionaryValueCallBacks);
-        if (!dict) {
-            goto exit;
-        }
-    }
-    else {
-        dict = CFDictionaryCreateMutableCopy(kCFAllocatorDefault,
-                                             0,
-                                             plist);
-        if (!dict) {
-            goto exit;
-        }
-    }
-    
-    if (hasLowCapRatio && !contains) {
-        // need to add entry
+
         num = CFNumberCreate(kCFAllocatorDefault,
                              kCFNumberSInt64Type,
                              &since);
         CFDictionarySetValue(dict, batterySerialNumber, num);
         CFRelease(num);
-    }
-    
-    if (!hasLowCapRatio && contains) {
-        // need to remove entry
-        CFDictionaryRemoveValue(dict, batterySerialNumber);
-    }
-    
-    if (CFDictionaryGetCount(dict) == 0) {
-        // if dictionary is empty, remove it from the SCPreferences.
-        if (!SCPreferencesRemoveValue(energyPrefs, CFSTR("BatteryWarn"))) {
-            goto exit;
-        }
+
     }
     else {
-        if (!SCPreferencesSetValue(energyPrefs,
-                                   CFSTR("BatteryWarn"),
-                                   dict)) {
-            goto exit;
-        }
+        // This removes the dictionary from prefs
+        dict = NULL;
     }
-    
-    if (!SCPreferencesCommitChanges(energyPrefs))
-    {
-        // handle error
-        if (kSCStatusAccessError == SCError()) ret = kIOReturnNotPrivileged;
-        else ret = kIOReturnError;
-        goto exit;
-    }
-    
-    if (!SCPreferencesApplyChanges(energyPrefs))
-    {
-        // handle error
-        if (kSCStatusAccessError == SCError())
-            ret = kIOReturnNotPrivileged;
-        else
-            ret = kIOReturnError;
+    ret = IOPMWriteToPrefs(kIOPMBatteryWarnSettings, dict, true, false);
 
-        goto exit;
-    } else {
-        // update the cached status only when changes get applied
-        if (contains) {
-            // entry was removed
-            cachedHasLowCap = false;
-            cachedLowCapRatioTime = 0;
-        } else {
-            // entry was added
-            cachedHasLowCap = true;
-            cachedLowCapRatioTime = since;
-        }
-
-        if (!cachedKeyPresence)
-            cachedKeyPresence = true;
-    }
-
-    ret = kIOReturnSuccess;
     
 exit:
-    if (locked)         SCPreferencesUnlock(energyPrefs);
-    
-    if (energyPrefs)    CFRelease(energyPrefs);
     if (dict)           CFRelease(dict);
     
 #endif
@@ -1130,6 +1044,20 @@ static void printCapabilitiesToBuf(char *buf, int buf_size, IOPMCapabilityBits i
                              (caps & kIOPMCapabilityBackgroundTask) ? "B":"");
 }
 
+__private_extern__ bool isA_installEnvironment()
+{
+#if TARGET_OS_EMBEDDED
+    return false;
+#else
+    static int installEnv = -1;
+
+    if (installEnv == -1) {
+        installEnv = (getenv("__OSINSTALL_ENVIRONMENT") != NULL) ? 1 : 0;
+    }
+
+    return (installEnv);
+#endif
+}
 
 __private_extern__ aslmsg new_msg_pmset_log(void)
 {
@@ -1156,6 +1084,10 @@ __private_extern__ void logASLMessagePMStart(void)
     asl_set(m, ASL_KEY_MSG, "powerd process is started\n");
     asl_send(NULL, m);
     asl_release(m);
+
+    if (isA_installEnvironment()) {
+        syslog(LOG_INFO | LOG_INSTALL, "powerd process is started\n");
+    }
 }
 
 #if TCPKEEPALIVE
@@ -1205,6 +1137,7 @@ __private_extern__ void logASLMessageSleep(
     char                    tcpKeepAliveString[50];
     PowerSources            pwrSrc;
 
+    numbuf[0] = 0;
     m = new_msg_pmset_log();
 
     reasonString[0] = messageString[0] = tcpKeepAliveString[0] = source[0] =  0;
@@ -1243,7 +1176,6 @@ __private_extern__ void logASLMessageSleep(
     }
     else {
         asl_set(m, kPMASLDomainKey, kPMASLDomainSWFailure);
-        sleepCntSinceFailure = 0;
     }
 
     // UUID
@@ -1257,13 +1189,17 @@ __private_extern__ void logASLMessageSleep(
             messageString, tcpKeepAliveString);
     
     asl_set(m, kPMASLSignatureKey, sig);
+#if TARGET_OS_EMBEDDED
+    INFO_LOG("%s", messageString);
+#else
     asl_set(m, ASL_KEY_MSG, messageString);
     asl_send(NULL, m);
+#endif
     asl_release(m);
 
-    if (!success) {
-        // Log stats to update sleepCntSinceFailure in asl
-        logASLMessageHibernateStatistics( );
+    if (isA_installEnvironment()) {
+        syslog(LOG_INFO | LOG_INSTALL, "%s battCap:%s pwrSrc: %s\n",
+                messageString, numbuf, (pwrSrc == kACPowered) ? "AC" : "Batt");
     }
 }
 
@@ -1289,6 +1225,7 @@ __private_extern__ void logASLMessageWake(
     const char *            detailString = NULL;
     static int              darkWakeCnt = 0;
     char                    numbuf[15];
+    char                    battCap[15];
     static char             prev_uuid[50];
     CFStringRef             wakeType = NULL;
     const char *            sleepTypeString;
@@ -1307,7 +1244,7 @@ __private_extern__ void logASLMessageWake(
         }
     }
 
-    buf[0] = source[0] = 0;
+    buf[0] = source[0] = battCap[0] = 0;
     if (!strncmp(sig, kPMASLSigSuccess, sizeof(kPMASLSigSuccess)))
     {
         char  wakeTypeBuf[50];
@@ -1327,8 +1264,8 @@ __private_extern__ void logASLMessageWake(
 #endif
         detailString = wakeReasonBuf;
         if (getPowerState(&pwrSrc, &percentage)) {
-            snprintf(numbuf, 10, "%d", percentage);
-            asl_set(m, kPMASLBatteryPercentageKey, numbuf);
+            snprintf(battCap, 10, "%d", percentage);
+            asl_set(m, kPMASLBatteryPercentageKey, battCap);
         }
         asl_set(m, kPMASLPowerSourceKey, (pwrSrc == kACPowered) ? "AC" : "BATT");
     } else {
@@ -1337,7 +1274,6 @@ __private_extern__ void logASLMessageWake(
                  (sig) ? sig : "");
         success = false;
 
-        sleepCntSinceFailure = 0;
     }
     
     /* populate driver wake reasons */
@@ -1435,11 +1371,23 @@ __private_extern__ void logASLMessageWake(
           detailString ? "due to" : "",
           detailString ? detailString : "");
 
+#if TARGET_OS_EMBEDDED
+    INFO_LOG("%s\n", buf);
+#else
     asl_set(m, ASL_KEY_MSG, buf);
     asl_send(NULL, m);
+    if (success) {
+        logASLMessageHibernateStatistics( );
+    }
+#endif
     asl_release(m);
 
-    logASLMessageHibernateStatistics( );
+    if (isA_installEnvironment()) {
+        syslog(LOG_INFO | LOG_INSTALL, "%s battCap:%s pwrSrc: %s\n",
+                buf, battCap, (pwrSrc == kACPowered) ? "AC" : "Batt");
+    }
+
+
 }
 /*****************************************************************************/
 
@@ -1484,6 +1432,9 @@ static void logASLMessageHibernateStatistics(void)
 
     if (sleepCntSinceFailure == -1) {
         initSleepCnt();
+        if (sleepCntSinceFailure < 0) {
+            sleepCntSinceFailure = 0;
+        }
     }
     m = new_msg_pmset_log();
 
@@ -1501,29 +1452,24 @@ static void logASLMessageHibernateStatistics(void)
     asl_set(m, kPMASLSleepCntSinceFailure, buf);
 
     hibernateModeNum = (CFNumberRef)_copyRootDomainProperty(CFSTR(kIOHibernateModeKey));
-    if (!hibernateModeNum)
-        goto exit;
-    CFNumberGetValue(hibernateModeNum, kCFNumberIntType, &hibernateMode);
-    CFRelease(hibernateModeNum);
+    if (hibernateModeNum) {
+        CFNumberGetValue(hibernateModeNum, kCFNumberIntType, &hibernateMode);
+        CFRelease(hibernateModeNum);
+    }
 
     hibernateDelayNum= (CFNumberRef)_copyRootDomainProperty(CFSTR(kIOPMDeepSleepDelayKey));
-    if (!hibernateDelayNum)
-        goto exit;
-    CFNumberGetValue(hibernateDelayNum, kCFNumberIntType, &hibernateDelay);
-    CFRelease(hibernateDelayNum);
+    if (hibernateDelayNum) {
+        CFNumberGetValue(hibernateDelayNum, kCFNumberIntType, &hibernateDelay);
+        CFRelease(hibernateDelayNum);
+    }
 
     statsData = (CFDataRef)_copyRootDomainProperty(CFSTR(kIOPMSleepStatisticsKey));
-    if (!statsData || !(stats = (PMStatsStruct *)CFDataGetBytePtr(statsData)))
+    if (statsData && (stats = (PMStatsStruct *)CFDataGetBytePtr(statsData)))
     {
-        goto exit;
-    } else {
         writeHIBImageMS = (stats->hibWrite.stop - stats->hibWrite.start)/1000000UL;
 
         readHIBImageMS =(stats->hibRead.stop - stats->hibRead.start)/1000000UL;
 
-        /* Hibernate image is not generated on every sleep for some h/w */
-        if ( !writeHIBImageMS && !readHIBImageMS)
-            goto exit;
     }
 
     snprintf(valuestring, sizeof(valuestring), "hibernatemode=%d", hibernateMode);
@@ -1540,7 +1486,6 @@ static void logASLMessageHibernateStatistics(void)
     snprintf(buf, sizeof(buf), "hibmode=%d standbydelay=%d", hibernateMode, hibernateDelay);
     asl_set(m, ASL_KEY_MSG, buf);
 
-exit:
     if (m) {
         asl_send(NULL, m);
         asl_release(m);
@@ -1614,6 +1559,10 @@ __private_extern__ void logASLDisplayStateChange()
         /* Log all assertions when display goes off */
         CFRunLoopPerformBlock(_getPMRunLoop(), kCFRunLoopDefaultMode, ^{ logASLAllAssertions(); });
         CFRunLoopWakeUp(_getPMRunLoop());
+    }
+
+    if (isA_installEnvironment()) {
+        syslog(LOG_INFO | LOG_INSTALL, "%s\n", buf);
     }
 #endif
 }
@@ -2764,6 +2713,9 @@ void mt2PublishSleepWakeFailure(const char *failType, const char *phase, const c
     else if (!strncmp(failType, kPMASLWakeFailureType, strlen(failType))) {
         mt2PublishWakeFailure(phase, pci_string);
     } 
+
+    sleepCntSinceFailure = 0;
+    logASLMessageHibernateStatistics();
 }
 #endif      /* #endif for iOS */
 
@@ -2963,15 +2915,21 @@ static void registerForCalendarChangedNotification(void)
 }
 #endif
 
-/* Returns monotonic time in secs */
-__private_extern__ uint64_t getMonotonicTime( )
+__private_extern__ uint64_t monotonicTS2Secs(uint64_t tsc)
 {
     static mach_timebase_info_data_t    timebaseInfo;
 
-    if (timebaseInfo.denom == 0)
+    if (timebaseInfo.denom == 0) {
         mach_timebase_info(&timebaseInfo);
+    }
 
-    return ( (mach_absolute_time( ) * timebaseInfo.numer) / (timebaseInfo.denom * NSEC_PER_SEC));
+    return ( (tsc * timebaseInfo.numer) / (timebaseInfo.denom * NSEC_PER_SEC));
+
+}
+/* Returns monotonic time in secs */
+__private_extern__ uint64_t getMonotonicTime( )
+{
+    return monotonicTS2Secs(mach_absolute_time());
 }
 
 __private_extern__ int callerIsRoot(int uid)
@@ -3216,7 +3174,7 @@ static uint32_t makeKey(uint8_t a, uint8_t b, uint8_t c, uint8_t d) {
 /* rdar://23925883 - Machines that have Ace interface require a special
  * polling mechanism in order to read adapter info from the SMC.
  */
-static CFMutableDictionaryRef getSMCAdapterInfo(uint8_t port, CFDictionaryRef oldACDict)
+static CFMutableDictionaryRef copySMCAdapterInfo(uint8_t port, CFDictionaryRef oldACDict)
 {
     bool readFromSMC = false;
     int32_t current, nominalV, minV, maxV, watts;
@@ -3224,6 +3182,7 @@ static CFMutableDictionaryRef getSMCAdapterInfo(uint8_t port, CFDictionaryRef ol
     uint8_t readKeyLen;
     CFMutableDictionaryRef acDict = NULL;
     IOReturn ret;
+    uint8_t prevPort = 0xff;
     
     current = nominalV = minV =  maxV = watts = 0;
     readKeyLen = sizeof(current);
@@ -3246,6 +3205,12 @@ static CFMutableDictionaryRef getSMCAdapterInfo(uint8_t port, CFDictionaryRef ol
         CFNumberRef prevCurrentRef = NULL;
         CFNumberRef prevNominalVRef = NULL;
         
+        if (prevPort != port) {
+            // Get the data again when winner port has changed.
+            prevPort = port;
+            readFromSMC = true;
+            break;
+        }
         if (!isA_CFDictionary(oldACDict)) {
             readFromSMC = true;
             break;
@@ -3257,6 +3222,7 @@ static CFMutableDictionaryRef getSMCAdapterInfo(uint8_t port, CFDictionaryRef ol
             (!CFNumberGetValue(prevCurrentRef, kCFNumberIntType, &prevCurrent)) ||
             (current != prevCurrent)
             ) {
+            // Get the data again when current has changed.
             readFromSMC = true;
             break;
         }
@@ -3266,6 +3232,7 @@ static CFMutableDictionaryRef getSMCAdapterInfo(uint8_t port, CFDictionaryRef ol
             (!CFNumberGetValue(prevNominalVRef, kCFNumberIntType, &prevNominalV)) ||
             (nominalV != prevNominalV)
             ) {
+            // Get the data again when voltage has changed.
             readFromSMC = true;
             break;
         }
@@ -3389,7 +3356,7 @@ __private_extern__ CFDictionaryRef _copyACAdapterInfo(CFDictionaryRef oldACDict)
         ret =  _smcReadKey('AC-W', (void *)&acWinner, &readKeyLen, false);
         if (ret == kIOReturnSuccess && acWinner > 0) {
             // Get the winning adapter's dictionary
-            acDict = getSMCAdapterInfo(acWinner, oldACDict);
+            acDict = copySMCAdapterInfo(acWinner, oldACDict);
         }
     } else if (ret == kIOReturnNotFound) {
         readKeyLen = sizeof(acBits);
@@ -3405,7 +3372,7 @@ __private_extern__ CFDictionaryRef _copyACAdapterInfo(CFDictionaryRef oldACDict)
             populateAcidData(acBits, acDict);
         } else if (ret == kIOReturnNotFound) {
             // Handle machines that do not support Ace or ACID
-            acDict = getSMCAdapterInfo(0, oldACDict);
+            acDict = copySMCAdapterInfo(0, oldACDict);
         }
     }
     return acDict;
@@ -3417,7 +3384,6 @@ __private_extern__ CFDictionaryRef _copyACAdapterInfo(CFDictionaryRef oldACDict)
 /************************************************************************/
 __private_extern__ PowerSources _getPowerSource(void)
 {
-#if !TARGET_OS_EMBEDDED
    IOPMBattery      **batteries;
 
    if (_batteryCount() && (batteries = _batteries())
@@ -3425,9 +3391,6 @@ __private_extern__ PowerSources _getPowerSource(void)
       return kBatteryPowered;
    else
       return kACPowered;
-#else
-    return kBatteryPowered;
-#endif
 }
 
 

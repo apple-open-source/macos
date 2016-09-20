@@ -38,6 +38,7 @@
 #include <glib.h>
 #include <locale.h>
 #include <wtf/RunLoop.h>
+#include <wtf/UniStdExtras.h>
 #include <wtf/glib/GLibUtilities.h>
 #include <wtf/glib/GUniquePtr.h>
 #include <wtf/text/CString.h>
@@ -62,11 +63,12 @@ void ProcessLauncher::launchProcess()
     String executablePath, pluginPath;
     CString realExecutablePath, realPluginPath;
     switch (m_launchOptions.processType) {
-    case WebProcess:
+    case ProcessLauncher::ProcessType::Web:
         executablePath = executablePathOfWebProcess();
         break;
 #if ENABLE(NETSCAPE_PLUGIN_API)
-    case PluginProcess:
+    case ProcessLauncher::ProcessType::Plugin64:
+    case ProcessLauncher::ProcessType::Plugin32:
         executablePath = executablePathOfPluginProcess();
 #if ENABLE(PLUGIN_PROCESS_GTK2)
         if (m_launchOptions.extraInitializationData.contains("requires-gtk2"))
@@ -76,13 +78,11 @@ void ProcessLauncher::launchProcess()
         realPluginPath = fileSystemRepresentation(pluginPath);
         break;
 #endif
-#if ENABLE(NETWORK_PROCESS)
-    case NetworkProcess:
+    case ProcessLauncher::ProcessType::Network:
         executablePath = executablePathOfNetworkProcess();
         break;
-#endif
 #if ENABLE(DATABASE_PROCESS)
-    case DatabaseProcess:
+    case ProcessLauncher::ProcessType::Database:
         executablePath = executablePathOfDatabaseProcess();
         break;
 #endif
@@ -126,8 +126,8 @@ void ProcessLauncher::launchProcess()
     }
 
     // Don't expose the parent socket to potential future children.
-    while (fcntl(socketPair.client, F_SETFD, FD_CLOEXEC) == -1)
-        RELEASE_ASSERT(errno != EINTR);
+    if (!setCloseOnExec(socketPair.client))
+        RELEASE_ASSERT_NOT_REACHED();
 
     close(socketPair.client);
     m_processIdentifier = pid;

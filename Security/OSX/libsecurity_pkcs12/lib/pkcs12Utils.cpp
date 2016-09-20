@@ -133,14 +133,18 @@ CSSM_DATA_PTR p12StringToUtf8(
 	if(cfStr == NULL) {
 		return NULL;
 	}
-	CFIndex strLen = CFStringGetLength(cfStr);
+
+    CFIndex strLen = 0;
+    CFRange range = { 0, CFStringGetLength(cfStr) };
+    CFStringGetBytes(cfStr, range, kCFStringEncodingUTF8, 0, FALSE, NULL, 0, &strLen);
 	if(strLen == 0) {
 		return NULL;
 	}
+
 	CSSM_DATA_PTR rtn = coder.mallocn<CSSM_DATA>();
-	coder.allocItem(*rtn, strLen + 1);
-	if(!CFStringGetCString(cfStr, (char *)rtn->Data,strLen + 1,
-			kCFStringEncodingUTF8)) {
+	coder.allocItem(*rtn, strLen);
+
+    if(!CFStringGetBytes(cfStr, range, kCFStringEncodingUTF8, 0, FALSE, (UInt8*)rtn->Data, strLen, &strLen)) {
 		/* not convertible from native Unicode to UTF8 */
 		return NULL;
 	}

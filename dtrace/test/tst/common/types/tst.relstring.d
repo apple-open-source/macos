@@ -35,7 +35,7 @@
  */
 
 #pragma D option quiet
-
+#pragma D option statusrate=15ms
 
 BEGIN
 {
@@ -44,7 +44,7 @@ BEGIN
 	string_3 = "abcdef";
 }
 
-tick-1
+tick-10ms
 /string_1 <= string_2 || string_2 >= string_1 || string_1 == string_2/
 {
 	printf("Shouldn't end up here (1)\n");
@@ -53,7 +53,7 @@ tick-1
 	exit(1);
 }
 
-tick-1
+tick-10ms
 /string_3 < string_1 || string_1 > string_3 || string_3 == string_1/
 {
 	printf("Shouldn't end up here (2)\n");
@@ -62,7 +62,7 @@ tick-1
 	exit(1);
 }
 
-tick-1
+tick-10ms
 /string_3 > string_1 && string_1 > string_2 &&
 	string_1 != string_2 && string_2 != string_3/
 {

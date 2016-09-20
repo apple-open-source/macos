@@ -35,7 +35,7 @@
 
 
 /*
- * $Id: machine.h,v 1.10 2013/01/02 17:03:05 abe Exp $
+ * $Id: machine.h,v 1.10 2013/01/02 17:03:05 abe Exp abe $
  */
 
 
@@ -244,7 +244,7 @@
 			lf->guardflags = 0;
 #define SETLFILEADD Lf->V_path = (char *)NULL; \
 		    Lf->fileport = MACH_PORT_NULL; \
-	 	    Lf->guardflags = 0;
+		    Lf->guardflags = 0;
 
 
 /*

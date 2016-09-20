@@ -103,7 +103,7 @@ static DOMAIN_LIST *flush_domains;
 
 void    flush_init(void)
 {
-    flush_domains = domain_list_init(MATCH_FLAG_RETURN
+    flush_domains = domain_list_init(VAR_FFLUSH_DOMAINS, MATCH_FLAG_RETURN
 				   | match_parent_style(VAR_FFLUSH_DOMAINS),
 				     var_fflush_domains);
 }
@@ -125,7 +125,7 @@ int     flush_purge(void)
 	status = FLUSH_STAT_DENY;
     else
 	status = mail_command_client(MAIL_CLASS_PUBLIC, var_flush_service,
-			      ATTR_TYPE_STR, MAIL_ATTR_REQ, FLUSH_REQ_PURGE,
+			      SEND_ATTR_STR(MAIL_ATTR_REQ, FLUSH_REQ_PURGE),
 				     ATTR_TYPE_END);
 
     if (msg_verbose)
@@ -151,7 +151,7 @@ int     flush_refresh(void)
 	status = FLUSH_STAT_DENY;
     else
 	status = mail_command_client(MAIL_CLASS_PUBLIC, var_flush_service,
-			    ATTR_TYPE_STR, MAIL_ATTR_REQ, FLUSH_REQ_REFRESH,
+			    SEND_ATTR_STR(MAIL_ATTR_REQ, FLUSH_REQ_REFRESH),
 				     ATTR_TYPE_END);
 
     if (msg_verbose)
@@ -176,12 +176,16 @@ int     flush_send_site(const char *site)
      */
     if (flush_domains == 0)
 	msg_panic("missing flush client initialization");
-    if (domain_list_match(flush_domains, site) != 0)
+    if (domain_list_match(flush_domains, site) != 0) {
+	if (warn_compat_break_flush_domains)
+	    msg_info("using backwards-compatible default setting "
+		     VAR_RELAY_DOMAINS "=$mydestination to flush "
+		     "mail for domain \"%s\"", site);
 	status = mail_command_client(MAIL_CLASS_PUBLIC, var_flush_service,
-			  ATTR_TYPE_STR, MAIL_ATTR_REQ, FLUSH_REQ_SEND_SITE,
-				     ATTR_TYPE_STR, MAIL_ATTR_SITE, site,
+			  SEND_ATTR_STR(MAIL_ATTR_REQ, FLUSH_REQ_SEND_SITE),
+				     SEND_ATTR_STR(MAIL_ATTR_SITE, site),
 				     ATTR_TYPE_END);
-    else if (flush_domains->error == 0)
+    } else if (flush_domains->error == 0)
 	status = FLUSH_STAT_DENY;
     else
 	status = FLUSH_STAT_FAIL;
@@ -206,8 +210,8 @@ int     flush_send_file(const char *queue_id)
      * Require that the service is turned on.
      */
     status = mail_command_client(MAIL_CLASS_PUBLIC, var_flush_service,
-			  ATTR_TYPE_STR, MAIL_ATTR_REQ, FLUSH_REQ_SEND_FILE,
-				 ATTR_TYPE_STR, MAIL_ATTR_QUEUEID, queue_id,
+			  SEND_ATTR_STR(MAIL_ATTR_REQ, FLUSH_REQ_SEND_FILE),
+				 SEND_ATTR_STR(MAIL_ATTR_QUEUEID, queue_id),
 				 ATTR_TYPE_END);
 
     if (msg_verbose)
@@ -232,13 +236,17 @@ int     flush_add(const char *site, const char *queue_id)
      */
     if (flush_domains == 0)
 	msg_panic("missing flush client initialization");
-    if (domain_list_match(flush_domains, site) != 0)
+    if (domain_list_match(flush_domains, site) != 0) {
+	if (warn_compat_break_flush_domains)
+	    msg_info("using backwards-compatible default setting "
+		     VAR_RELAY_DOMAINS "=$mydestination to update "
+		     "fast-flush logfile for domain \"%s\"", site);
 	status = mail_command_client(MAIL_CLASS_PUBLIC, var_flush_service,
-				ATTR_TYPE_STR, MAIL_ATTR_REQ, FLUSH_REQ_ADD,
-				     ATTR_TYPE_STR, MAIL_ATTR_SITE, site,
-				 ATTR_TYPE_STR, MAIL_ATTR_QUEUEID, queue_id,
+				SEND_ATTR_STR(MAIL_ATTR_REQ, FLUSH_REQ_ADD),
+				     SEND_ATTR_STR(MAIL_ATTR_SITE, site),
+				 SEND_ATTR_STR(MAIL_ATTR_QUEUEID, queue_id),
 				     ATTR_TYPE_END);
-    else if (flush_domains->error == 0)
+    } else if (flush_domains->error == 0)
 	status = FLUSH_STAT_DENY;
     else
 	status = FLUSH_STAT_FAIL;

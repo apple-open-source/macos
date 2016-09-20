@@ -215,7 +215,7 @@ static void dump_node_address
     if (debug_dump)
     {
         indent(indentation);
-        if (node_name != NULL) printf (node_name);
+        if (node_name != NULL) printf ("%s", node_name);
         printf (NODE_ADDR_FMT, (unsigned long)node_address);
         if (node_name != NULL)
         {

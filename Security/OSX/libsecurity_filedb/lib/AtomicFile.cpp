@@ -98,7 +98,7 @@ AtomicFile::performDelete()
 	if (::unlink(mPath.c_str()) != 0)
 	{
 		int error = errno;
-		secdebug("atomicfile", "unlink %s: %s", mPath.c_str(), strerror(error));
+		secnotice("atomicfile", "unlink %s: %s", mPath.c_str(), strerror(error));
         if (error == ENOENT)
 			CssmError::throwMe(CSSMERR_DL_DATASTORE_DOESNOT_EXIST);
 		else
@@ -121,7 +121,7 @@ AtomicFile::rename(const std::string &inNewPath)
 	if (::rename(path, newPath) != 0)
 	{
 		int error = errno;
-		secdebug("atomicfile", "rename(%s, %s): %s", path, newPath, strerror(error));
+		secnotice("atomicfile", "rename(%s, %s): %s", path, newPath, strerror(error));
 		UnixError::throwMe(error);
 	}
 }
@@ -140,7 +140,7 @@ AtomicFile::create(mode_t mode)
     if (fileRef == -1)
     {
         int error = errno;
-		secdebug("atomicfile", "open %s: %s", path, strerror(error));
+		secnotice("atomicfile", "open %s: %s", path, strerror(error));
 
         // Do the obvious error code translations here.
 		// @@@ Consider moving these up a level.
@@ -158,7 +158,7 @@ AtomicFile::create(mode_t mode)
 		// Now that we have created the lock and the new db file create a tempfile
 		// object.
 		RefPointer<AtomicTempFile> temp(new AtomicTempFile(*this, lock, mode));
-		secdebug("atomicfile", "%p created %s", this, path);
+		secnotice("atomicfile", "%p created %s", this, path);
 		return temp;
 	}
 	catch (...)
@@ -166,7 +166,7 @@ AtomicFile::create(mode_t mode)
 		// Creating the temp file failed so remove the db file we just created too.
 		if (::unlink(path) == -1)
 		{
-			secdebug("atomicfile", "unlink %s: %s", path, strerror(errno));
+			secnotice("atomicfile", "unlink %s: %s", path, strerror(errno));
 		}
 		throw;
 	}
@@ -202,7 +202,7 @@ AtomicFile::mode() const
 	if (::stat(path, &st) == -1)
 	{
 		int error = errno;
-		secdebug("atomicfile", "stat %s: %s", path, strerror(error));
+		secnotice("atomicfile", "stat %s: %s", path, strerror(error));
 		UnixError::throwMe(error);
 	}
 	return st.st_mode;
@@ -381,8 +381,7 @@ AtomicBufferedFile::AtomicBufferedFile(const std::string &inPath, bool isLocal) 
 	mPath(inPath),
 	mFileRef(-1),
 	mBuffer(NULL),
-	mLength(0),
-	mIsMapped(isLocal)
+	mLength(0)
 {
 }
 
@@ -393,12 +392,12 @@ AtomicBufferedFile::~AtomicBufferedFile()
 	  	// In release mode, the assert() is compiled out so rv may be unused.
 	        __unused int rv = AtomicFile::rclose(mFileRef);
 		assert(rv == 0);
-		secdebug("atomicfile", "%p closed %s", this, mPath.c_str());
+		secnotice("atomicfile", "%p closed %s", this, mPath.c_str());
 	}
 
 	if (mBuffer)
 	{
-		secdebug("atomicfile", "%p free %s buffer %p", this, mPath.c_str(), mBuffer);
+		secnotice("atomicfile", "%p free %s buffer %p", this, mPath.c_str(), mBuffer);
 		unloadBuffer();
 	}
 }
@@ -412,7 +411,7 @@ AtomicBufferedFile::open()
 	const char *path = mPath.c_str();
 	if (mFileRef >= 0)
 	{
-		secdebug("atomicfile", "open %s: already open, closing and reopening", path);
+		secnotice("atomicfile", "open %s: already open, closing and reopening", path);
 		close();
 	}
 
@@ -420,7 +419,7 @@ AtomicBufferedFile::open()
     if (mFileRef == -1)
     {
         int error = errno;
-		secdebug("atomicfile", "open %s: %s", path, strerror(error));
+		secnotice("atomicfile", "open %s: %s", path, strerror(error));
 
         // Do the obvious error code translations here.
 		// @@@ Consider moving these up a level.
@@ -441,13 +440,13 @@ AtomicBufferedFile::open()
 	else
 	{
 		int error = errno;
-		secdebug("atomicfile", "lseek(%s, END): %s", path, strerror(error));
+		secnotice("atomicfile", "lseek(%s, END): %s", path, strerror(error));
 		AtomicFile::rclose(mFileRef);
 		mFileRef = -1;
 		UnixError::throwMe(error);
 	}
 
-	secdebug("atomicfile", "%p opened %s: %qd bytes", this, path, mLength);
+	secnotice("atomicfile", "%p opened %s: %qd bytes", this, path, mLength);
 
 	return mLength;
 }
@@ -458,69 +457,48 @@ AtomicBufferedFile::open()
 void
 AtomicBufferedFile::unloadBuffer()
 {
-	if (!mIsMapped)
-	{
-		delete [] mBuffer;
-	}
-	else
-	{
-		munmap(mBuffer, (size_t)mLength);
-	}
+    if(mBuffer) {
+        delete [] mBuffer;
+    }
 }
 
 //
 // Load the contents of the file into memory.
-// If we are on a local file system, we mmap the file.  Otherwise, we
-// read it all into memory
 void
 AtomicBufferedFile::loadBuffer()
 {
-	if (!mIsMapped)
-	{
-		// make a buffer big enough to hold the entire file
-		mBuffer = new uint8[mLength];
-		lseek(mFileRef, 0, SEEK_SET);
-		ssize_t pos = 0;
-		
-		ssize_t bytesToRead = (ssize_t)mLength;
-		while (bytesToRead > 0)
-		{
-			ssize_t bytesRead = ::read(mFileRef, mBuffer + pos, bytesToRead);
-			if (bytesRead == -1)
-			{
-				if (errno != EINTR)
-				{
-					int error = errno;
-					secdebug("atomicfile", "lseek(%s, END): %s", mPath.c_str(), strerror(error));
-					if (mFileRef >= 0) {
-					  	AtomicFile::rclose(mFileRef);
-						mFileRef = -1;
-					}
-					UnixError::throwMe(error);
-				}
-			}
-			else
-			{
-				bytesToRead -= bytesRead;
-				pos += bytesRead;
-			}
-		}
-	}
-	else
-	{
-		// mmap the buffer into place
-		mBuffer = (uint8*) mmap(NULL, (size_t)mLength, PROT_READ, MAP_PRIVATE, mFileRef, 0);
-		if (mBuffer == (uint8*) -1)
-		{
-			int error = errno;
-			secdebug("atomicfile", "lseek(%s, END): %s", mPath.c_str(), strerror(error));
-			if (mFileRef >= 0) {
-			  	AtomicFile::rclose(mFileRef);
-				mFileRef = -1;
-			}
-			UnixError::throwMe(error);
-		}
-	}
+    // make a buffer big enough to hold the entire file
+    mBuffer = new uint8[mLength];
+    if(lseek(mFileRef, 0, SEEK_SET) < 0) {
+        int error = errno;
+        secnotice("atomicfile", "lseek(%s, BEGINNING): %s", mPath.c_str(), strerror(error));
+        UnixError::throwMe(error);
+    }
+    ssize_t pos = 0;
+
+    ssize_t bytesToRead = (ssize_t)mLength;
+    while (bytesToRead > 0)
+    {
+        ssize_t bytesRead = ::read(mFileRef, mBuffer + pos, bytesToRead);
+        if (bytesRead == -1)
+        {
+            if (errno != EINTR)
+            {
+                int error = errno;
+                secnotice("atomicfile", "read(%s, %zd): %s", mPath.c_str(), bytesToRead, strerror(error));
+                if (mFileRef >= 0) {
+                    AtomicFile::rclose(mFileRef);
+                    mFileRef = -1;
+                }
+                UnixError::throwMe(error);
+            }
+        }
+        else
+        {
+            bytesToRead -= bytesRead;
+            pos += bytesRead;
+        }
+    }
 }
 
 
@@ -536,20 +514,20 @@ AtomicBufferedFile::read(off_t inOffset, off_t inLength, off_t &outLength)
 {
 	if (mFileRef < 0)
 	{
-		secdebug("atomicfile", "read %s: file yet not opened, opening", mPath.c_str());
+		secnotice("atomicfile", "read %s: file yet not opened, opening", mPath.c_str());
 		open();
 	}
 
 	off_t bytesLeft = inLength;
 	if (mBuffer)
 	{
-		secdebug("atomicfile", "%p free %s buffer %p", this, mPath.c_str(), mBuffer);
+		secnotice("atomicfile", "%p free %s buffer %p", this, mPath.c_str(), mBuffer);
 		unloadBuffer();
 	}
 
 	loadBuffer();
 	
-	secdebug("atomicfile", "%p allocated %s buffer %p size %qd", this, mPath.c_str(), mBuffer, bytesLeft);
+	secnotice("atomicfile", "%p allocated %s buffer %p size %qd", this, mPath.c_str(), mBuffer, bytesLeft);
 	
 	off_t maxEnd = inOffset + inLength;
 	if (maxEnd > mLength)
@@ -567,7 +545,7 @@ AtomicBufferedFile::close()
 {
 	if (mFileRef < 0)
 	{
-		secdebug("atomicfile", "close %s: already closed", mPath.c_str());
+		secnotice("atomicfile", "close %s: already closed", mPath.c_str());
 	}
 	else
 	{
@@ -576,11 +554,11 @@ AtomicBufferedFile::close()
 		if (result == -1)
 		{
 			int error = errno;
-			secdebug("atomicfile", "close %s: %s", mPath.c_str(), strerror(errno));
+			secnotice("atomicfile", "close %s: %s", mPath.c_str(), strerror(errno));
 			UnixError::throwMe(error);
 		}
 
-		secdebug("atomicfile", "%p closed %s", this, mPath.c_str());
+		secnotice("atomicfile", "%p closed %s", this, mPath.c_str());
 	}
 }
 
@@ -647,7 +625,7 @@ AtomicTempFile::create(mode_t mode)
     if (mFileRef == -1)
     {
         int error = errno;
-		secdebug("atomicfile", "open %s: %s", path, strerror(error));
+		secnotice("atomicfile", "open %s: %s", path, strerror(error));
 
         // Do the obvious error code translations here.
 		// @@@ Consider moving these up a level.
@@ -666,12 +644,12 @@ AtomicTempFile::create(mode_t mode)
 		if (::fchmod(mFileRef, mode))
 		{
 			int error = errno;
-			secdebug("atomicfile", "fchmod %s: %s", path, strerror(error));
+			secnotice("atomicfile", "fchmod %s: %s", path, strerror(error));
 			UnixError::throwMe(error);
 		}
 	}
 
-	secdebug("atomicfile", "%p created %s", this, path);
+	secnotice("atomicfile", "%p created %s", this, path);
 }
 
 void
@@ -708,7 +686,7 @@ AtomicTempFile::write(AtomicFile::OffsetType inOffsetType, off_t inOffset, const
 		if (pos == -1)
 		{
 			int error = errno;
-			secdebug("atomicfile", "lseek(%s, %qd): %s", mPath.c_str(), inOffset, strerror(error));
+			secnotice("atomicfile", "lseek(%s, %qd): %s", mPath.c_str(), inOffset, strerror(error));
 			UnixError::throwMe(error);
 		}
 	}
@@ -729,18 +707,18 @@ AtomicTempFile::write(AtomicFile::OffsetType inOffsetType, off_t inOffset, const
 			if (error == EINTR)
 			{
 				// We got interrupted by a signal, so try again.
-				secdebug("atomicfile", "write %s: interrupted, retrying", mPath.c_str());
+				secnotice("atomicfile", "write %s: interrupted, retrying", mPath.c_str());
 				continue;
 			}
 
-			secdebug("atomicfile", "write %s: %s", mPath.c_str(), strerror(error));
+			secnotice("atomicfile", "write %s: %s", mPath.c_str(), strerror(error));
 			UnixError::throwMe(error);
 		}
 
 		// Write returning 0 is bad mmkay.
 		if (bytesWritten == 0)
 		{
-			secdebug("atomicfile", "write %s: 0 bytes written", mPath.c_str());
+			secnotice("atomicfile", "write %s: 0 bytes written", mPath.c_str());
 			CssmError::throwMe(CSSMERR_DL_INTERNAL_ERROR);
 		}
 
@@ -757,7 +735,7 @@ AtomicTempFile::fsync()
 {
 	if (mFileRef < 0)
 	{
-		secdebug("atomicfile", "fsync %s: already closed", mPath.c_str());
+		secnotice("atomicfile", "fsync %s: already closed", mPath.c_str());
 	}
 	else
 	{
@@ -770,11 +748,11 @@ AtomicTempFile::fsync()
 		if (result == -1)
 		{
 			int error = errno;
-			secdebug("atomicfile", "fsync %s: %s", mPath.c_str(), strerror(errno));
+			secnotice("atomicfile", "fsync %s: %s", mPath.c_str(), strerror(errno));
 			UnixError::throwMe(error);
 		}
 
-		secdebug("atomicfile", "%p fsynced %s", this, mPath.c_str());
+		secnotice("atomicfile", "%p fsynced %s", this, mPath.c_str());
 	}
 }
 
@@ -783,7 +761,7 @@ AtomicTempFile::close()
 {
 	if (mFileRef < 0)
 	{
-		secdebug("atomicfile", "close %s: already closed", mPath.c_str());
+		secnotice("atomicfile", "close %s: already closed", mPath.c_str());
 	}
 	else
 	{
@@ -792,11 +770,11 @@ AtomicTempFile::close()
 		if (result == -1)
 		{
 			int error = errno;
-			secdebug("atomicfile", "close %s: %s", mPath.c_str(), strerror(errno));
+			secnotice("atomicfile", "close %s: %s", mPath.c_str(), strerror(errno));
 			UnixError::throwMe(error);
 		}
 
-		secdebug("atomicfile", "%p closed %s", this, mPath.c_str());
+		secnotice("atomicfile", "%p closed %s", this, mPath.c_str());
 	}
 }
 
@@ -823,7 +801,7 @@ AtomicTempFile::commit()
 		s = copyfile_state_alloc();
 
 		if(copyfile(newPath, oldPath, s, COPYFILE_SECURITY | COPYFILE_NOFOLLOW) == -1) // Not fatal
-			secdebug("atomicfile", "copyfile (%s, %s): %s", oldPath, newPath, strerror(errno));
+			secnotice("atomicfile", "copyfile (%s, %s): %s", oldPath, newPath, strerror(errno));
 
 		copyfile_state_free(s);
 		// END <rdar://problem/6991037>
@@ -833,14 +811,14 @@ AtomicTempFile::commit()
 		if (::rename(oldPath, newPath) == -1)
 		{
 			int error = errno;
-			secdebug("atomicfile", "rename (%s, %s): %s", oldPath, newPath, strerror(errno));
+			secnotice("atomicfile", "rename (%s, %s): %s", oldPath, newPath, strerror(errno));
 			UnixError::throwMe(error);
 		}
 
+        secnotice("atomicfile", "%p commited %s to %s", this, oldPath, newPath);
+
 		// Unlock the lockfile
 		mLockedFile = NULL;
-
-		secdebug("atomicfile", "%p commited %s", this, oldPath);
 	}
 	catch (...)
 	{
@@ -863,7 +841,7 @@ AtomicTempFile::rollback() throw()
 	const char *path = mPath.c_str();
 	if (::unlink(path) == -1)
 	{
-		secdebug("atomicfile", "unlink %s: %s", path, strerror(errno));
+		secnotice("atomicfile", "unlink %s: %s", path, strerror(errno));
 		// rollback can't throw
 	}
 
@@ -873,7 +851,7 @@ AtomicTempFile::rollback() throw()
 		const char *path = mFile.path().c_str();
 		if (::unlink(path) == -1)
 		{
-			secdebug("atomicfile", "unlink %s: %s", path, strerror(errno));
+			secnotice("atomicfile", "unlink %s: %s", path, strerror(errno));
 			// rollback can't throw
 		}
 	}
@@ -933,7 +911,7 @@ LocalFileLocker::lock(mode_t mode)
 		int result = flock(mLockFile, LOCK_EX);
 		IFDEBUG(double endTime = GetTime());
 		
-		IFDEBUG(secdebug("atomictime", "Waited %.4f milliseconds for file lock", (endTime - startTime) * 1000.0));
+		IFDEBUG(secnotice("atomictime", "Waited %.4f milliseconds for file lock", (endTime - startTime) * 1000.0));
 		
 		// errors at this point are bad
 		if (result == -1)
@@ -1027,7 +1005,7 @@ NetworkFileLocker::unique(mode_t mode)
 	{
 		int error = errno;
 		::syslog(LOG_ERR, "Couldn't create temp file %s: %s", fullname.c_str(), strerror(error));
-		secdebug("atomicfile", "Couldn't create temp file %s: %s", fullname.c_str(), strerror(error));
+		secnotice("atomicfile", "Couldn't create temp file %s: %s", fullname.c_str(), strerror(error));
 		UnixError::throwMe(error);
 	}
 
@@ -1134,7 +1112,7 @@ NetworkFileLocker::lock(mode_t mode)
 		else
 			doSyslog = true;
 
-		secdebug("atomicfile", "Locking %s", path);          /* in order to cater for clock skew: get */
+		secnotice("atomicfile", "Locking %s", path);          /* in order to cater for clock skew: get */
 		if (!xcreat(path, mode, t))    /* time t from the filesystem */
 		{
 			/* lock acquired, hurray! */
@@ -1157,12 +1135,12 @@ NetworkFileLocker::lock(mode_t mode)
 				{
 					triedforce=true;
 					::syslog(LOG_ERR, "Forced unlock denied on %s", path);
-					secdebug("atomicfile", "Forced unlock denied on %s", path);
+					secnotice("atomicfile", "Forced unlock denied on %s", path);
 				}
 				else
 				{
 					::syslog(LOG_ERR, "Forcing lock on %s", path);
-					secdebug("atomicfile", "Forcing lock on %s", path);
+					secnotice("atomicfile", "Forcing lock on %s", path);
 					sleep(16 /* DEFsuspend */);
 					break;
 				}
@@ -1193,7 +1171,7 @@ NetworkFileLocker::lock(mode_t mode)
 		case ENAMETOOLONG:     /* Filename is too long, shorten and retry */
 			if (mPath.size() > mDir.size() + 8)
 			{
-				secdebug("atomicfile", "Truncating %s and retrying lock", path);
+				secnotice("atomicfile", "Truncating %s and retrying lock", path);
 				mPath.erase(mPath.end() - 1);
 				path = mPath.c_str();
 				/* Reset retry counter. */
@@ -1212,7 +1190,7 @@ NetworkFileLocker::lock(mode_t mode)
 	{
 		int error = errno;
 		::syslog(LOG_ERR, "Lock failure on %s: %s", path, strerror(error));
-		secdebug("atomicfile", "Lock failure on %s: %s", path, strerror(error));
+		secnotice("atomicfile", "Lock failure on %s: %s", path, strerror(error));
 		UnixError::throwMe(error);
 	}
 }
@@ -1223,7 +1201,7 @@ NetworkFileLocker::unlock()
 	const char *path = mPath.c_str();
 	if (::unlink(path) == -1)
 	{
-		secdebug("atomicfile", "unlink %s: %s", path, strerror(errno));
+		secnotice("atomicfile", "unlink %s: %s", path, strerror(errno));
 		// unlock can't throw
 	}
 }

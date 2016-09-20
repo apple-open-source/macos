@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -57,17 +57,15 @@
 #include <arpa/inet.h>
 #include <net/if_types.h>
 #include <net/if_dl.h>
+#include "ipconfigd_globals.h"
 #include "dhcp_options.h"
 #include "util.h"
 #include <syslog.h>
 #include <sys/uio.h>
-
-
 #include "dhcplib.h"
 #include "dynarray.h"
 #include "bootp_session.h"
 #include "bootp_transmit.h"
-#include "ipconfigd_globals.h"
 #include "timer.h"
 
 static bool S_verbose;
@@ -360,7 +358,7 @@ bootp_client_bind_socket_to_if(bootp_client_t * client, int opt)
     else if (setsockopt(fd, IPPROTO_IP, IP_BOUND_IF, &opt, sizeof(opt)) < 0) {
 	my_log(LOG_ERR, 
 	       "bootp_client_bind_socket_to_if(%s, %d):"
-	       " setsockopt IP_BOUND_IF failed",
+	       " setsockopt IP_BOUND_IF failed %s",
 	       if_name(client->if_p), opt, strerror(errno));
     }
     return;
@@ -404,14 +402,14 @@ bootp_client_transmit(bootp_client_t * client,
 	str = CFStringCreateMutable(NULL, 0);
 	dhcp_packet_print_cfstr(str, (struct dhcp *)data, len);
 	if (if_index != 0) {
-	    my_log(~LOG_DEBUG, 
+	    my_log(~LOG_INFO,
 		   "[%s] Transmit %d byte packet dest "
 		   IP_FORMAT " scope %d\n%@",
-		   if_name(client->if_p), len, 
+		   if_name(client->if_p), len,
 		   IP_LIST(&dest_ip), if_index, str);
 	}
 	else {
-	    my_log(~LOG_DEBUG, 
+	    my_log(~LOG_INFO,
 		   "[%s] Transmit %d byte packet\n%@",
 		   if_name(client->if_p), len, str);
 	}
@@ -422,16 +420,16 @@ bootp_client_transmit(bootp_client_t * client,
 	       "[%s] Transmit %d byte packet xid 0x%lx to "
 	       IP_FORMAT " [scope=%d]",
 	       if_name(client->if_p), len,
-	       ntohl(((struct dhcp *)data)->dp_xid),
+	       (unsigned long)ntohl(((struct dhcp *)data)->dp_xid),
 	       IP_LIST(&dest_ip),
 	       if_index);
     }
     if (session->read_fd != NULL) {
 	sockfd = FDCalloutGetFD(session->read_fd);
     }
-    error = bootp_transmit(sockfd, send_buf, 
-			   if_name(client->if_p), 
-			   if_link_arptype(client->if_p), NULL, 0, 
+    error = bootp_transmit(sockfd, send_buf,
+			   if_name(client->if_p),
+			   if_link_arptype(client->if_p), NULL,
 			   dest_ip, src_ip, dest_port, src_port, data, len);
     if (needs_close) {
 	bootp_client_close_socket(client);
@@ -494,8 +492,8 @@ bootp_session_deliver(bootp_session_t * session, const char * ifname,
 	str = CFStringCreateMutable(NULL, 0);
 	dhcp_packet_with_options_print_cfstr(str, event.data, size,
 					     &event.options);
-	my_log(~LOG_DEBUG,
-	       "[%s] Receive %d byte packet from " IP_FORMAT "\n%@", 
+	my_log(~LOG_INFO,
+	       "[%s] Receive %d byte packet from " IP_FORMAT "\n%@",
 	       ifname, size, IP_LIST(from_ip), str);
 	CFRelease(str);
     }
@@ -503,7 +501,7 @@ bootp_session_deliver(bootp_session_t * session, const char * ifname,
 	my_log(LOG_INFO, "[%s] Receive %d byte packet xid 0x%lx from "
 	       IP_FORMAT,
 	       ifname, size,
-	       ntohl(event.data->dp_xid),
+	       (unsigned long)ntohl(event.data->dp_xid),
 	       IP_LIST(from_ip));
     }
 

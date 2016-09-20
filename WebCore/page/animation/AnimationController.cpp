@@ -48,7 +48,7 @@
 
 namespace WebCore {
 
-static const double cAnimationTimerDelay = 0.025;
+static const double cAnimationTimerDelay = 1.0 / 60;
 static const double cBeginAnimationUpdateTimeNotSet = -1;
 
 class AnimationPrivateUpdateBlock {
@@ -107,8 +107,8 @@ bool AnimationControllerPrivate::clear(RenderElement& renderer)
         return info.element == element;
     });
 
-    m_elementChangesToDispatch.removeAllMatching([element] (const Ref<Element>& currElement) {
-        return &currElement.get() == element;
+    m_elementChangesToDispatch.removeAllMatching([element](auto& currentElement) {
+        return currentElement.ptr() == element;
     });
     
     // Return false if we didn't do anything OR we are suspended (so we don't try to
@@ -201,7 +201,7 @@ void AnimationControllerPrivate::fireEventsAndUpdateStyle()
     bool updateStyle = !m_eventsToDispatch.isEmpty() || !m_elementChangesToDispatch.isEmpty();
 
     // fire all the events
-    Vector<EventToDispatch> eventsToDispatch = WTF::move(m_eventsToDispatch);
+    Vector<EventToDispatch> eventsToDispatch = WTFMove(m_eventsToDispatch);
     for (auto& event : eventsToDispatch) {
         Element& element = *event.element;
         if (event.eventType == eventNames().transitionendEvent)
@@ -239,7 +239,7 @@ void AnimationControllerPrivate::addEventToDispatch(PassRefPtr<Element> element,
 
 void AnimationControllerPrivate::addElementChangeToDispatch(Ref<Element>&& element)
 {
-    m_elementChangesToDispatch.append(WTF::move(element));
+    m_elementChangesToDispatch.append(WTFMove(element));
     ASSERT(!m_elementChangesToDispatch.last()->document().inPageCache());
     startUpdateStyleIfNeededDispatcher();
 }
@@ -416,18 +416,18 @@ void AnimationControllerPrivate::receivedStartTimeResponse(double time)
     startTimeResponse(time);
 }
 
-PassRefPtr<RenderStyle> AnimationControllerPrivate::getAnimatedStyleForRenderer(RenderElement& renderer)
+std::unique_ptr<RenderStyle> AnimationControllerPrivate::getAnimatedStyleForRenderer(RenderElement& renderer)
 {
     AnimationPrivateUpdateBlock animationUpdateBlock(*this);
 
     ASSERT(renderer.isCSSAnimating());
     ASSERT(m_compositeAnimations.contains(&renderer));
     const CompositeAnimation& rendererAnimations = *m_compositeAnimations.get(&renderer);
-    RefPtr<RenderStyle> animatingStyle = rendererAnimations.getAnimatedStyle();
+    std::unique_ptr<RenderStyle> animatingStyle = rendererAnimations.getAnimatedStyle();
     if (!animatingStyle)
-        animatingStyle = &renderer.style();
+        animatingStyle = RenderStyle::clonePtr(renderer.style());
     
-    return animatingStyle.release();
+    return animatingStyle;
 }
 
 bool AnimationControllerPrivate::computeExtentOfAnimation(RenderElement& renderer, LayoutRect& bounds) const
@@ -559,7 +559,8 @@ void AnimationControllerPrivate::scrollWasUpdated()
     auto* view = m_frame.view();
     if (!view || !wantsScrollUpdates())
         return;
-    m_scrollPosition = view->scrollOffsetForFixedPosition().height().toFloat();
+
+    m_scrollPosition = view->scrollPositionForFixedPosition().y().toFloat();
 
     // FIXME: This is updating all the animations, rather than just the ones
     // that are dependent on scroll. We to go from our AnimationBase to its CompositeAnimation
@@ -592,9 +593,9 @@ void AnimationController::cancelAnimations(RenderElement& renderer)
         element->setNeedsStyleRecalc(SyntheticStyleChange);
 }
 
-bool AnimationController::updateAnimations(RenderElement& renderer, RenderStyle& newStyle, Ref<RenderStyle>& animatedStyle)
+bool AnimationController::updateAnimations(RenderElement& renderer, const RenderStyle& newStyle, std::unique_ptr<RenderStyle>& animatedStyle)
 {
-    RenderStyle* oldStyle = renderer.hasInitializedStyle() ? &renderer.style() : nullptr;
+    auto* oldStyle = renderer.hasInitializedStyle() ? &renderer.style() : nullptr;
     if ((!oldStyle || (!oldStyle->animations() && !oldStyle->transitions())) && (!newStyle.animations() && !newStyle.transitions()))
         return false;
 
@@ -623,20 +624,20 @@ bool AnimationController::updateAnimations(RenderElement& renderer, RenderStyle&
 #endif
     }
 
-    if (animatedStyle.ptr() != &newStyle) {
+    if (animatedStyle) {
         // If the animations/transitions change opacity or transform, we need to update
         // the style to impose the stacking rules. Note that this is also
         // done in StyleResolver::adjustRenderStyle().
-        if (animatedStyle.get().hasAutoZIndex() && (animatedStyle.get().opacity() < 1.0f || animatedStyle.get().hasTransform()))
-            animatedStyle.get().setZIndex(0);
+        if (animatedStyle->hasAutoZIndex() && (animatedStyle->opacity() < 1.0f || animatedStyle->hasTransform()))
+            animatedStyle->setZIndex(0);
     }
     return animationStateChanged;
 }
 
-PassRefPtr<RenderStyle> AnimationController::getAnimatedStyleForRenderer(RenderElement& renderer)
+std::unique_ptr<RenderStyle> AnimationController::getAnimatedStyleForRenderer(RenderElement& renderer)
 {
     if (!renderer.isCSSAnimating())
-        return &renderer.style();
+        return RenderStyle::clonePtr(renderer.style());
     return m_data->getAnimatedStyleForRenderer(renderer);
 }
 

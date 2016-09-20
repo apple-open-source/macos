@@ -71,13 +71,6 @@ void PluginProcess::initializeProcess(const ChildProcessInitializationParameters
 {
     m_pluginPath = parameters.extraInitializationData.get("plugin-path");
     platformInitializeProcess(parameters);
-
-    auto& memoryPressureHandler = MemoryPressureHandler::singleton();
-    memoryPressureHandler.setLowMemoryHandler([this] (Critical, Synchronous) {
-        if (shouldTerminate())
-            terminate();
-    });
-    memoryPressureHandler.install();
 }
 
 void PluginProcess::removeWebProcessConnection(WebProcessConnection* webProcessConnection)
@@ -137,24 +130,43 @@ void PluginProcess::initializePluginProcess(PluginProcessCreationParameters&& pa
 {
     ASSERT(!m_pluginModule);
 
+    auto& memoryPressureHandler = MemoryPressureHandler::singleton();
+#if OS(LINUX)
+    if (parameters.memoryPressureMonitorHandle.fileDescriptor() != -1)
+        memoryPressureHandler.setMemoryPressureMonitorHandle(parameters.memoryPressureMonitorHandle.releaseFileDescriptor());
+#endif
+    memoryPressureHandler.setLowMemoryHandler([this] (Critical, Synchronous) {
+        if (shouldTerminate())
+            terminate();
+    });
+    memoryPressureHandler.install();
+
     m_supportsAsynchronousPluginInitialization = parameters.supportsAsynchronousPluginInitialization;
     setMinimumLifetime(parameters.minimumLifetime);
     setTerminationTimeout(parameters.terminationTimeout);
 
-    platformInitializePluginProcess(WTF::move(parameters));
+    platformInitializePluginProcess(WTFMove(parameters));
 }
 
 void PluginProcess::createWebProcessConnection()
 {
     bool didHaveAnyWebProcessConnections = !m_webProcessConnections.isEmpty();
 
-#if OS(DARWIN)
+#if USE(UNIX_DOMAIN_SOCKETS)
+    IPC::Connection::SocketPair socketPair = IPC::Connection::createPlatformConnection();
+
+    auto connection = WebProcessConnection::create(socketPair.server);
+    m_webProcessConnections.append(WTFMove(connection));
+
+    IPC::Attachment clientSocket(socketPair.client);
+    parentProcessConnection()->send(Messages::PluginProcessProxy::DidCreateWebProcessConnection(clientSocket, m_supportsAsynchronousPluginInitialization), 0);
+#elif OS(DARWIN)
     // Create the listening port.
     mach_port_t listeningPort;
     mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &listeningPort);
 
     // Create a listening connection.
-    RefPtr<WebProcessConnection> connection = WebProcessConnection::create(IPC::Connection::Identifier(listeningPort));
+    auto connection = WebProcessConnection::create(IPC::Connection::Identifier(listeningPort));
 
     if (m_audioHardwareListener) {
         if (m_audioHardwareListener->hardwareActivity() == WebCore::AudioHardwareActivityType::IsActive)
@@ -163,18 +175,10 @@ void PluginProcess::createWebProcessConnection()
             connection->audioHardwareDidBecomeInactive();
     }
 
-    m_webProcessConnections.append(connection.release());
+    m_webProcessConnections.append(WTFMove(connection));
 
     IPC::Attachment clientPort(listeningPort, MACH_MSG_TYPE_MAKE_SEND);
     parentProcessConnection()->send(Messages::PluginProcessProxy::DidCreateWebProcessConnection(clientPort, m_supportsAsynchronousPluginInitialization), 0);
-#elif USE(UNIX_DOMAIN_SOCKETS)
-    IPC::Connection::SocketPair socketPair = IPC::Connection::createPlatformConnection();
-
-    RefPtr<WebProcessConnection> connection = WebProcessConnection::create(socketPair.server);
-    m_webProcessConnections.append(connection.release());
-
-    IPC::Attachment clientSocket(socketPair.client);
-    parentProcessConnection()->send(Messages::PluginProcessProxy::DidCreateWebProcessConnection(clientSocket, m_supportsAsynchronousPluginInitialization), 0);
 #else
     notImplemented();
 #endif

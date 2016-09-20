@@ -26,7 +26,7 @@
 #ifndef RTCDTMFSenderHandlerMock_h
 #define RTCDTMFSenderHandlerMock_h
 
-#if ENABLE(MEDIA_STREAM)
+#if ENABLE(WEB_RTC)
 
 #include "RTCDTMFSenderHandler.h"
 #include "RTCPeerConnectionHandler.h"
@@ -38,10 +38,10 @@ public:
     RTCDTMFSenderHandlerMock();
     virtual ~RTCDTMFSenderHandlerMock() { }
 
-    virtual void setClient(RTCDTMFSenderHandlerClient*) override;
-    virtual String currentToneBuffer() override { return m_toneBuffer; }
-    virtual bool canInsertDTMF() override { return true; }
-    virtual bool insertDTMF(const String& tones, long duration, long interToneGap) override;
+    void setClient(RTCDTMFSenderHandlerClient*) override;
+    String currentToneBuffer() override { return m_toneBuffer; }
+    bool canInsertDTMF() override { return true; }
+    bool insertDTMF(const String& tones, long duration, long interToneGap) override;
 
 private:
     RTCDTMFSenderHandlerClient* m_client;
@@ -53,6 +53,6 @@ private:
 
 } // namespace WebCore
 
-#endif // ENABLE(MEDIA_STREAM)
+#endif // ENABLE(WEB_RTC)
 
 #endif // RTCDataChannelHandlerMock_h

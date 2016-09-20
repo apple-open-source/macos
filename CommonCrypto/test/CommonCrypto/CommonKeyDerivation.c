@@ -92,7 +92,7 @@ PBKDF2Test(KDFVector *kdfvec)
 
 static int testsPerVector = 5;
 
-int CommonKeyDerivation(int argc, char *const *argv) {
+int CommonKeyDerivation(int __unused argc, char *const * __unused argv) {
 	plan_tests((int) (kdfvLen*testsPerVector));
     
     for(size_t testcase = 0; testcase < kdfvLen; testcase++) {

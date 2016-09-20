@@ -625,7 +625,7 @@ static void *securetransport_ssl_thread(void *arg)
     unsigned char ibuf[4096], obuf[4096];
     size_t len;
     if (ssl->is_server) {
-        SecRandomCopyBytes(kSecRandomDefault, sizeof(obuf), obuf);
+        require_action(errSecSuccess==SecRandomCopyBytes(kSecRandomDefault, sizeof(obuf), obuf),out, ortn = -1);
         require_noerr_quiet(ortn = SSLWrite(ctx, obuf, sizeof(obuf), &len), out);
         require_action_quiet(len == sizeof(obuf), out, ortn = -1);
     }

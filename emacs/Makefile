@@ -32,7 +32,8 @@ AEP_Patches    = Apple.diff files.el.diff \
 	fast-lock.el.diff python.el.diff src_Makefile.in.diff \
 	lisp_Makefile.in.diff xdisp.c.diff lib-src_update-game-score.c.diff \
 	src_fileio.c.diff src_search.c.diff lib-src_etags.c.diff \
-	src_regex.c.diff
+	src_regex.c.diff \
+	src_eval.c.25331628.diff
 
 # Extract the source.
 install_source::

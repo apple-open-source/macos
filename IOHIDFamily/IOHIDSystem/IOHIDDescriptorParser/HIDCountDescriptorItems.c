@@ -72,6 +72,7 @@ OSStatus HIDCountDescriptorItems(HIDReportDescriptor *ptDescriptor, HIDPreparsed
 	IOByteCount iSpaceRequired;
 	HIDItem *ptItem;
 	UInt8 *pMem;
+	vm_size_t sz = 0;
 /*
  *	Initialize Counters
 */
@@ -193,14 +194,37 @@ OSStatus HIDCountDescriptorItems(HIDReportDescriptor *ptDescriptor, HIDPreparsed
 /*
  *	Calculate the space needed for the structures
 */
-	iSpaceRequired = (sizeof(HIDCollection) * collectionCount)
-				   + (sizeof(HIDReportItem) * reportItemCount)
-				   + (sizeof(HIDReportSizes) * reportCount)
-				   + (sizeof(HIDP_UsageItem) * iUsages)
-				   + (sizeof(HIDStringItem) * iStrings)
-				   + (sizeof(HIDDesignatorItem) * iDesigs)
-				   + (sizeof(int) * iMaxCollectionNesting)
-				   + (sizeof(HIDGlobalItems) * iMaxGlobalsNesting);
+	if (os_mul_overflow(sizeof(HIDCollection), collectionCount, &sz)) return kHIDInvalidPreparsedDataErr;
+	iSpaceRequired = (sizeof(HIDCollection) * collectionCount);
+
+	if (os_mul_overflow(sizeof(HIDReportItem), reportItemCount, &sz)) return kHIDInvalidPreparsedDataErr;
+	if (os_add_overflow(iSpaceRequired, (sizeof(HIDReportItem) * reportItemCount), &sz)) return kHIDInvalidPreparsedDataErr;
+	iSpaceRequired += (sizeof(HIDReportItem) * reportItemCount);
+
+	if (os_mul_overflow(sizeof(HIDReportSizes), reportCount, &sz)) return kHIDInvalidPreparsedDataErr;
+	if (os_add_overflow(iSpaceRequired, (sizeof(HIDReportSizes) * reportCount), &sz)) return kHIDInvalidPreparsedDataErr;
+	iSpaceRequired += (sizeof(HIDReportSizes) * reportCount);
+
+	if (os_mul_overflow(sizeof(HIDP_UsageItem), iUsages, &sz)) return kHIDInvalidPreparsedDataErr;
+	if (os_add_overflow(iSpaceRequired, (sizeof(HIDP_UsageItem) * iUsages), &sz)) return kHIDInvalidPreparsedDataErr;
+	iSpaceRequired += (sizeof(HIDP_UsageItem) * iUsages);
+
+	if (os_mul_overflow(sizeof(HIDStringItem), iStrings, &sz)) return kHIDInvalidPreparsedDataErr;
+	if (os_add_overflow(iSpaceRequired, (sizeof(HIDStringItem) * iStrings), &sz)) return kHIDInvalidPreparsedDataErr;
+	iSpaceRequired += (sizeof(HIDStringItem) * iStrings);
+
+	if (os_mul_overflow(sizeof(HIDDesignatorItem), iDesigs, &sz)) return kHIDInvalidPreparsedDataErr;
+	if (os_add_overflow(iSpaceRequired, (sizeof(HIDDesignatorItem) * iDesigs), &sz)) return kHIDInvalidPreparsedDataErr;
+	iSpaceRequired += (sizeof(HIDDesignatorItem) * iDesigs);
+
+	if (os_mul_overflow(sizeof(int), iMaxCollectionNesting, &sz)) return kHIDInvalidPreparsedDataErr;
+	if (os_add_overflow(iSpaceRequired, (sizeof(int) * iMaxCollectionNesting), &sz)) return kHIDInvalidPreparsedDataErr;
+	iSpaceRequired += (sizeof(int) * iMaxCollectionNesting);
+
+	if (os_mul_overflow(sizeof(HIDGlobalItems), iMaxGlobalsNesting, &sz)) return kHIDInvalidPreparsedDataErr;
+	if (os_add_overflow(iSpaceRequired, (sizeof(HIDGlobalItems) * iMaxGlobalsNesting), &sz)) return kHIDInvalidPreparsedDataErr;
+	iSpaceRequired += (sizeof(HIDGlobalItems) * iMaxGlobalsNesting);
+
 	pMem = PoolAllocateResident(iSpaceRequired, kShouldClearMem);
 	
 	if (pMem == NULL)

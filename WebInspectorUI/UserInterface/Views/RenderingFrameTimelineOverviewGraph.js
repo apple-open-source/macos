@@ -84,30 +84,38 @@ WebInspector.RenderingFrameTimelineOverviewGraph = class RenderingFrameTimelineO
         record[WebInspector.RenderingFrameTimelineOverviewGraph.RecordWasFilteredSymbol] = filtered;
 
         // Set filtered style if the frame element is within the visible range.
-        var startIndex = Math.floor(this.startTime);
-        var endIndex = Math.min(Math.floor(this.endTime), this._renderingFrameTimeline.records.length - 1);
+        const startIndex = Math.floor(this.startTime);
+        const endIndex = Math.min(Math.floor(this.endTime), this._renderingFrameTimeline.records.length - 1);
         if (record.frameIndex < startIndex || record.frameIndex > endIndex)
             return;
 
-        var frameIndex = record.frameIndex - startIndex;
+        const frameIndex = record.frameIndex - startIndex;
         this._timelineRecordFrames[frameIndex].filtered = filtered;
     }
 
     // Protected
 
+    get height()
+    {
+        return 108;
+    }
+
     layout()
     {
+        if (!this.visible)
+            return;
+
         if (!this._renderingFrameTimeline.records.length)
             return;
 
-        var records = this._renderingFrameTimeline.records;
-        var startIndex = Math.floor(this.startTime);
-        var endIndex = Math.min(Math.floor(this.endTime), records.length - 1);
-        var recordFrameIndex = 0;
+        let records = this._renderingFrameTimeline.records;
+        let startIndex = Math.floor(this.startTime);
+        let endIndex = Math.min(Math.floor(this.endTime), records.length - 1);
+        let recordFrameIndex = 0;
 
-        for (var i = startIndex; i <= endIndex; ++i) {
-            var record = records[i];
-            var timelineRecordFrame = this._timelineRecordFrames[recordFrameIndex];
+        for (let i = startIndex; i <= endIndex; ++i) {
+            let record = records[i];
+            let timelineRecordFrame = this._timelineRecordFrames[recordFrameIndex];
             if (!timelineRecordFrame)
                 timelineRecordFrame = this._timelineRecordFrames[recordFrameIndex] = new WebInspector.TimelineRecordFrame(this, record);
             else
@@ -138,8 +146,8 @@ WebInspector.RenderingFrameTimelineOverviewGraph = class RenderingFrameTimelineO
             return;
         }
 
-        var visibleDuration = this.timelineOverview.visibleDuration;
-        var frameIndex = this.selectedRecord.frameIndex;
+        const visibleDuration = this.timelineOverview.visibleDuration;
+        const frameIndex = this.selectedRecord.frameIndex;
 
         // Reveal a newly selected record if it's outside the visible range.
         if (frameIndex < Math.ceil(this.timelineOverview.scrollStartTime) || frameIndex >= this.timelineOverview.scrollStartTime + visibleDuration) {
@@ -170,7 +178,7 @@ WebInspector.RenderingFrameTimelineOverviewGraph = class RenderingFrameTimelineO
         if (this.graphHeightSeconds === 0)
             return;
 
-        var overviewGraphHeight = this.element.offsetHeight;
+        let overviewGraphHeight = this.height;
 
         function createDividerAtPosition(framesPerSecond)
         {
@@ -211,8 +219,6 @@ WebInspector.RenderingFrameTimelineOverviewGraph = class RenderingFrameTimelineO
         if (!this.selectedRecord) {
             if (this._selectedFrameMarker.parentElement)
                 this.element.removeChild(this._selectedFrameMarker);
-
-            this.dispatchSelectedRecordChangedEvent();
             return;
         }
 
@@ -236,8 +242,6 @@ WebInspector.RenderingFrameTimelineOverviewGraph = class RenderingFrameTimelineO
 
         this._selectedTimelineRecordFrame = this._timelineRecordFrames[index];
         this._selectedTimelineRecordFrame.selected = true;
-
-        this.dispatchSelectedRecordChangedEvent();
     }
 
     _mouseClicked(event)
@@ -251,9 +255,8 @@ WebInspector.RenderingFrameTimelineOverviewGraph = class RenderingFrameTimelineO
         if (newSelectedRecord[WebInspector.RenderingFrameTimelineOverviewGraph.RecordWasFilteredSymbol])
             return;
 
-        // Clicking the selected frame causes it to be deselected.
         if (this.selectedRecord === newSelectedRecord)
-            newSelectedRecord = null;
+            return;
 
         if (frameIndex >= this.timelineOverview.selectionStartTime && frameIndex < this.timelineOverview.selectionStartTime + this.timelineOverview.selectionDuration) {
             this.selectedRecord = newSelectedRecord;

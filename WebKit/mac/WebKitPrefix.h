@@ -26,6 +26,10 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#if defined(HAVE_CONFIG_H) && HAVE_CONFIG_H && defined(BUILDING_WITH_CMAKE)
+#include "cmakeconfig.h"
+#endif
+
 #include <TargetConditionals.h>
 
 #ifdef __cplusplus
@@ -92,3 +96,7 @@ typedef float CGFloat;
 #endif
 
 #include <wtf/DisallowCType.h>
+
+#if USE(APPLE_INTERNAL_SDK)
+#include <WebKitAdditions/WebKitAdditionsDefines.h>
+#endif

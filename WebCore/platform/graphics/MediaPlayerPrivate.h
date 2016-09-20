@@ -50,19 +50,22 @@ public:
     virtual void load(const String& url, MediaSourcePrivateClient*) = 0;
 #endif
 #if ENABLE(MEDIA_STREAM)
-    virtual void load(MediaStreamPrivate*) = 0;
+    virtual void load(MediaStreamPrivate&) = 0;
 #endif
     virtual void cancelLoad() = 0;
     
     virtual void prepareToPlay() { }
     virtual PlatformMedia platformMedia() const { return NoPlatformMedia; }
     virtual PlatformLayer* platformLayer() const { return 0; }
-#if PLATFORM(IOS)
-    virtual void setVideoFullscreenLayer(PlatformLayer*) { }
+
+#if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
+    virtual void setVideoFullscreenLayer(PlatformLayer*, std::function<void()> completionHandler) { completionHandler(); }
     virtual void setVideoFullscreenFrame(FloatRect) { }
     virtual void setVideoFullscreenGravity(MediaPlayer::VideoGravity) { }
     virtual void setVideoFullscreenMode(MediaPlayer::VideoFullscreenMode) { }
+#endif
 
+#if PLATFORM(IOS)
     virtual NSArray *timedMetadata() const { return 0; }
     virtual String accessLog() const { return emptyString(); }
     virtual String errorLog() const { return emptyString(); }
@@ -144,11 +147,11 @@ public:
 
     virtual void setSize(const IntSize&) = 0;
 
-    virtual void paint(GraphicsContext*, const FloatRect&) = 0;
+    virtual void paint(GraphicsContext&, const FloatRect&) = 0;
 
-    virtual void paintCurrentFrameInContext(GraphicsContext* c, const FloatRect& r) { paint(c, r); }
-    virtual bool copyVideoTextureToPlatformTexture(GraphicsContext3D*, Platform3DObject, GC3Dint, GC3Denum, GC3Denum, bool, bool) { return false; }
-    virtual PassNativeImagePtr nativeImageForCurrentTime() { return nullptr; }
+    virtual void paintCurrentFrameInContext(GraphicsContext& c, const FloatRect& r) { paint(c, r); }
+    virtual bool copyVideoTextureToPlatformTexture(GraphicsContext3D*, Platform3DObject, GC3Denum, GC3Dint, GC3Denum, GC3Denum, GC3Denum, bool, bool) { return false; }
+    virtual NativeImagePtr nativeImageForCurrentTime() { return nullptr; }
 
     virtual void setPreload(MediaPlayer::Preload) { }
 
@@ -211,9 +214,9 @@ public:
     virtual unsigned audioDecodedByteCount() const { return 0; }
     virtual unsigned videoDecodedByteCount() const { return 0; }
 
-    void getSitesInMediaCache(Vector<String>&) { }
-    void clearMediaCache() { }
-    void clearMediaCacheForSite(const String&) { }
+    HashSet<RefPtr<SecurityOrigin>> originsInMediaCache(const String&) { return { }; }
+    void clearMediaCache(const String&, std::chrono::system_clock::time_point) { }
+    void clearMediaCacheForOrigins(const String&, const HashSet<RefPtr<SecurityOrigin>>&) { }
 
     virtual void setPrivateBrowsingMode(bool) { }
 
@@ -242,11 +245,6 @@ public:
     virtual void tracksChanged() { };
 #endif
 
-#if USE(PLATFORM_TEXT_TRACK_MENU)
-    virtual bool implementsTextTrackControls() const { return false; }
-    virtual PassRefPtr<PlatformTextTrackMenuInterface> textTrackMenu() { return 0; }
-#endif
-
 #if USE(GSTREAMER)
     virtual void simulateAudioInterruption() { }
 #endif
@@ -264,6 +262,8 @@ public:
     }
 
     virtual unsigned long long fileSize() const { return 0; }
+
+    virtual bool ended() const { return false; }
 
 #if ENABLE(MEDIA_SOURCE)
     virtual unsigned long totalVideoFrames() { return 0; }

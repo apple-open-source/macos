@@ -30,7 +30,6 @@
 #include "SecBridge.h"
 #include <sys/param.h>
 
-#undef secdebug
 #include <utilities/SecCFWrappers.h>
 
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006-2013, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -39,9 +39,6 @@
 #include <ne_session.h>
 #endif	// !TARGET_OS_SIMULATOR
 
-
-
-
 CFStringRef
 SCDynamicStoreKeyCreateProxies(CFAllocatorRef allocator)
 {
@@ -78,7 +75,8 @@ validate_proxy_content(CFMutableDictionaryRef	proxies,
 			goto disable;		// if not enabled, remove provided key/value
 		}
 
-		if ((enabled != 0) && !isA_CFString(host)) {
+		if ((enabled != 0) &&
+		    (!isA_CFString(host) || (CFStringGetLength(host) == 0))) {
 			goto disable;		// if enabled, not provided (or not valid)
 		}
 	}
@@ -268,7 +266,7 @@ __SCNetworkProxiesCopyNormalized(CFDictionaryRef proxy)
 			CFStringRef	str;
 
 			str = CFArrayGetValueAtIndex(array, i);
-			if (!isA_CFString(str)) {
+			if (!isA_CFString(str) || (CFStringGetLength(str) == 0)) {
 				// if we don't like the array contents
 				n = 0;
 				break;
@@ -369,12 +367,12 @@ normalize_scoped_proxy(const void *key, const void *value, void *context)
 static void
 normalize_services_proxy(const void *key, const void *value, void *context)
 {
-	CFStringRef		serviceID	= (CFStringRef)key;
+	CFNumberRef		serviceIndex	= (CFNumberRef)key;
 	CFDictionaryRef		proxy		= (CFDictionaryRef)value;
 	CFMutableDictionaryRef	newServices	= (CFMutableDictionaryRef)context;
 
 	proxy = __SCNetworkProxiesCopyNormalized(proxy);
-	CFDictionarySetValue(newServices, serviceID, proxy);
+	CFDictionarySetValue(newServices, serviceIndex, proxy);
 	CFRelease(proxy);
 
 	return;
@@ -459,7 +457,6 @@ SCDynamicStoreCopyProxiesWithOptions(SCDynamicStoreRef store, CFDictionaryRef op
 					     &kCFTypeDictionaryValueCallBacks);
 	}
 
-
 	return proxies;
 }
 
@@ -497,7 +494,6 @@ _SCNetworkProxiesCopyMatchingInternal(CFDictionaryRef	globalConfiguration,
 
 		euuid = CFDictionaryGetValue(options, kSCProxiesMatchExecutableUUID);
 		euuid = isA_CFType(euuid, CFUUIDGetTypeID());
-
 		if (euuid != NULL) {
 			CFUUIDBytes uuid_bytes = CFUUIDGetUUIDBytes(euuid);
 			uuid_copy(match_uuid, (const uint8_t *)&uuid_bytes);
@@ -667,11 +663,17 @@ _SCNetworkProxiesCopyMatchingInternal(CFDictionaryRef	globalConfiguration,
     done :
 
 	if (sc_status != kSCStatusOK) {
-		if (proxies != NULL) {
-			CFRelease(proxies);
-			proxies = NULL;
-		}
 		_SCErrorSet(sc_status);
+
+//		Note: if we are returning an error then we must
+//		      return w/proxies==NULL.  At present, there
+//		      is no code (above) that would get here with
+//		      proxies!=NULL so we don't need to take any
+//		      action but future coder's should beware :-)
+//		if (proxies != NULL) {
+//			CFRelease(proxies);
+//			proxies = NULL;
+//		}
 	}
 	if (trimmed != NULL) CFRelease(trimmed);
 

@@ -81,8 +81,9 @@ SSCSPDLSession::makeReferenceKey(SSCSPSession &session, KeyHandle inKeyHandle,
 {
 	SSKey* sskey = new SSKey(session, inKeyHandle, outKey, inSSDatabase, inKeyAttr,
 			  inKeyLabel);
+    (void) sskey; // Compiler thinks this variable isn't used, but we want the side effects of creation. Tell the compiler it's okay.
 
-    secdebug("SecAccessReference", "made a new reference sskey with handle %d [%d]", sskey->keyHandle(), sskey->keyReference());
+    secinfo("SecAccessReference", "made a new reference sskey with handle %d [%ld]", sskey->keyHandle(), sskey->keyReference());
 }
 
 SSKey &
@@ -96,7 +97,7 @@ SSCSPDLSession::lookupKey(const CssmKey &inKey)
 	/* fetch key (this is just mapping the value in inKey.KeyData to an SSKey) */
 	SSKey &theKey = find<SSKey>(inKey);
 
-    secdebug("SecAccessReference", "looked up a sskey with handle %d [%d]", theKey.keyHandle(), theKey.keyReference());
+    secinfo("SecAccessReference", "looked up a sskey with handle %d [%ld]", theKey.keyHandle(), theKey.keyReference());
 	
 	#ifdef someday 
 	/* 
@@ -147,7 +148,7 @@ SSCSPDLSession::didChangeKeyAcl(SecurityServer::ClientSession &clientSession,
 	else
 	{
 		// @@@ Should we really throw here or just continue without updating the ACL?  In reality this should never happen, so let's at least log it and throw.
-		secdebug("keyacl", "SSCSPDLSession::didChangeKeyAcl() keyHandle: %lu not found in map", (unsigned long)keyHandle);
+		secinfo("keyacl", "SSCSPDLSession::didChangeKeyAcl() keyHandle: %lu not found in map", (unsigned long)keyHandle);
 		CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_REFERENCE);
 	}
 }
@@ -177,7 +178,7 @@ void
 ClientSessionKey::getAcl(AutoAclEntryInfoList &aclInfos,
 	const char *selectionTag) const
 {
-	secdebug("keyacl", "ClientSessionKey::getAcl() keyHandle: %u", mKeyHandle);
+	secinfo("keyacl", "ClientSessionKey::getAcl() keyHandle: %u", mKeyHandle);
 	aclInfos.allocator(mClientSession.returnAllocator);
 	mClientSession.getKeyAcl(mKeyHandle, selectionTag,
 		*static_cast<uint32 *>(aclInfos),
@@ -188,14 +189,14 @@ void
 ClientSessionKey::changeAcl(const CSSM_ACL_EDIT &aclEdit,
 	const CSSM_ACCESS_CREDENTIALS *cred)
 {
-	secdebug("keyacl", "ClientSessionKey::changeAcl() keyHandle: %u", mKeyHandle);
+	secinfo("keyacl", "ClientSessionKey::changeAcl() keyHandle: %u", mKeyHandle);
 	mClientSession.changeKeyAcl(mKeyHandle, AccessCredentials::overlay(*cred), AclEdit::overlay(aclEdit));
 }
 
 void
 ClientSessionKey::getOwner(AutoAclOwnerPrototype &owner) const
 {
-	secdebug("keyacl", "ClientSessionKey::getOwner() keyHandle: %u", mKeyHandle);
+	secinfo("keyacl", "ClientSessionKey::getOwner() keyHandle: %u", mKeyHandle);
 	owner.allocator(mClientSession.returnAllocator);
 	mClientSession.getKeyOwner(mKeyHandle,
 		*reinterpret_cast<AclOwnerPrototype *>(static_cast<CSSM_ACL_OWNER_PROTOTYPE *>(owner)));
@@ -205,7 +206,7 @@ void
 ClientSessionKey::changeOwner(const CSSM_ACL_OWNER_PROTOTYPE &newOwner,
 	const CSSM_ACCESS_CREDENTIALS *cred)
 {
-	secdebug("keyacl", "ClientSessionKey::changeOwner() keyHandle: %u", mKeyHandle);
+	secinfo("keyacl", "ClientSessionKey::changeOwner() keyHandle: %u", mKeyHandle);
 	mClientSession.changeKeyOwner(mKeyHandle, AccessCredentials::overlay(*cred), AclOwnerPrototype::overlay(newOwner));
 }
 

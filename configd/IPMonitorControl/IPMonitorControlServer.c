@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -46,7 +46,7 @@
 #include <SystemConfiguration/SCPrivate.h>
 
 #ifdef TEST_IPMONITOR_CONTROL
-#define my_log(__level, fmt, ...)	SCPrint(TRUE, stdout, CFSTR(fmt "\n"), ## __VA_ARGS__)
+#define	my_log(__level, __format, ...)	SCPrint(TRUE, stdout, CFSTR(__format "\n"), ## __VA_ARGS__)
 
 #else /* TEST_IPMONITOR_CONTROL */
 #include "ip_plugin.h"
@@ -81,8 +81,7 @@ InterfaceChangedListAddInterface(CFStringRef ifname)
 	CFArrayAppendValue(S_if_changes, ifname);
 	S_if_changes_range.length = 1;
     }
-    else if (CFArrayContainsValue(S_if_changes, S_if_changes_range,
-				  ifname) == FALSE) {
+    else if (!CFArrayContainsValue(S_if_changes, S_if_changes_range, ifname)) {
 	CFArrayAppendValue(S_if_changes, ifname);
 	S_if_changes_range.length++;
     }
@@ -111,14 +110,14 @@ InterfaceRankAssertionAdd(const void * key, const void * value, void * context)
 	    = CFDictionaryCreateMutable(NULL, 0,
 					&kCFTypeDictionaryKeyCallBacks,
 					&kCFTypeDictionaryValueCallBacks);
-	CFDictionarySetValue(*assertions_p, key, value);
+	CFDictionarySetValue(*assertions_p, key, rank);
 	return;
     }
     existing_rank = CFDictionaryGetValue(*assertions_p, key);
     if (existing_rank == NULL
 	|| (CFNumberCompare(rank, existing_rank, NULL)
 	    == kCFCompareGreaterThan)) {
-	CFDictionarySetValue(*assertions_p, key, value);
+	CFDictionarySetValue(*assertions_p, key, rank);
     }
     return;
 }
@@ -316,7 +315,7 @@ IPMonitorControlServerHandleSetInterfaceRank(xpc_connection_t connection,
     SCNetworkServicePrimaryRank	rank;
     ControlSessionRef		session;
 
-    if (IPMonitorControlServerValidateConnection(connection) == FALSE) {
+    if (!IPMonitorControlServerValidateConnection(connection)) {
 	my_log(LOG_INFO, "connection %p pid %d permission denied",
 	       connection, xpc_connection_get_pid(connection));
 	return (EPERM);
@@ -454,16 +453,10 @@ IPMonitorControlServerHandleNewConnection(xpc_connection_t connection)
     xpc_handler_t	handler;
 
     handler = ^(xpc_object_t event) {
-	os_activity_t	activity_id;
-
-	activity_id = os_activity_start("processing IPMonitor [rank] request",
-					OS_ACTIVITY_FLAG_DEFAULT);
-
 	IPMonitorControlServerHandleRequest(connection, event);
-
-	os_activity_end(activity_id);
     };
     xpc_connection_set_event_handler(connection, handler);
+    xpc_connection_set_target_queue(connection, S_IPMonitorControlServerQueue);
     xpc_connection_resume(connection);
     return;
 }
@@ -480,11 +473,7 @@ IPMonitorControlServerCreate(dispatch_queue_t queue, const char * name)
 	return (NULL);
     }
     handler = ^(xpc_object_t event) {
-	os_activity_t	activity_id;
 	xpc_type_t	type;
-
-	activity_id = os_activity_start("processing IPMonitor [rank] connection request",
-					OS_ACTIVITY_FLAG_DEFAULT);
 
 	type = xpc_get_type(event);
 	if (type == XPC_TYPE_CONNECTION) {
@@ -505,8 +494,6 @@ IPMonitorControlServerCreate(dispatch_queue_t queue, const char * name)
 	else {
 	    my_log(LOG_NOTICE, "unknown event %p", type);
 	}
-
-	os_activity_end(activity_id);
     };
     S_IPMonitorControlServerQueue = queue;
     xpc_connection_set_event_handler(connection, handler);

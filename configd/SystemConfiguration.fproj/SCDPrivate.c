@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -34,6 +34,7 @@
 //#define DO_NOT_CRASH
 //#define DO_NOT_INFORM
 
+#define SC_LOG_HANDLE	_SC_LOG_DEFAULT()
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>
@@ -70,8 +71,8 @@
 #pragma mark Miscellaneous
 
 
-char *
-_SC_cfstring_to_cstring(CFStringRef cfstr, char *buf, CFIndex bufLen, CFStringEncoding encoding)
+__private_extern__ char *
+_SC_cfstring_to_cstring_ext(CFStringRef cfstr, char *buf, CFIndex bufLen, CFStringEncoding encoding, UInt8 lossByte, CFIndex *usedBufLen)
 {
 	CFIndex	converted;
 	CFIndex	last	= 0;
@@ -86,7 +87,7 @@ _SC_cfstring_to_cstring(CFStringRef cfstr, char *buf, CFIndex bufLen, CFStringEn
 	converted = CFStringGetBytes(cfstr,
 				     CFRangeMake(0, len),
 				     encoding,
-				     0,
+				     lossByte,
 				     FALSE,
 				     NULL,
 				     0,
@@ -117,14 +118,26 @@ _SC_cfstring_to_cstring(CFStringRef cfstr, char *buf, CFIndex bufLen, CFStringEn
 	(void)CFStringGetBytes(cfstr,
 			       CFRangeMake(0, len),
 			       encoding,
-			       0,
+			       lossByte,
 			       FALSE,
 			       (UInt8 *)buf,
 			       bufLen,
 			       &last);
 	buf[last] = '\0';
 
+	if (usedBufLen != NULL) {
+		*usedBufLen = last;
+	}
+
 	return buf;
+}
+
+
+char *
+_SC_cfstring_to_cstring(CFStringRef cfstr, char *buf, CFIndex bufLen, CFStringEncoding encoding)
+{
+	return _SC_cfstring_to_cstring_ext(cfstr, buf, bufLen, encoding, 0, NULL);
+
 }
 
 
@@ -206,7 +219,7 @@ _SC_string_to_sockaddr(const char *str, sa_family_t af, void *buf, size_t bufLen
 		addr.sin6->sin6_len    = sizeof(struct sockaddr_in6);
 		addr.sin6->sin6_family = AF_INET6;
 
-		p = strchr(buf, '%');
+		p = strchr(str, '%');
 		if (p != NULL) {
 			addr.sin6->sin6_scope_id = if_nametoindex(p + 1);
 		}
@@ -694,6 +707,64 @@ _SCUnserializeMultiple(CFDictionaryRef dict)
 
 
 #pragma mark -
+
+
+CFPropertyListRef
+_SCCreatePropertyListFromResource(CFURLRef url)
+{
+	CFDictionaryRef	dict		= NULL;
+	SInt64		fileLen		= 0;
+	Boolean		ok;
+	CFReadStreamRef readStream;
+	CFNumberRef	val		= NULL;
+
+	if (!CFURLCopyResourcePropertyForKey(url, kCFURLFileSizeKey, &val, NULL) ||
+	    (val == NULL)) {
+		// if size not available
+		SC_log(LOG_NOTICE, "CFURLCopyResourcePropertyForKey() size not available: %@", url);
+		return NULL;
+	}
+
+	ok = CFNumberGetValue(val, kCFNumberSInt64Type, &fileLen);
+	CFRelease(val);
+	if (!ok || (fileLen == 0)) {
+		// if empty or size too large
+		SC_log(LOG_INFO, "_SCCreatePropertyListFromResource() improper size: %@", url);
+		return NULL;
+	}
+
+	readStream = CFReadStreamCreateWithFile(NULL, url);
+	if (readStream != NULL) {
+		if (CFReadStreamOpen(readStream)) {
+			UInt8		*buffer;
+			CFIndex		dataLen;
+
+			buffer = CFAllocatorAllocate(NULL, (CFIndex)fileLen, 0);
+			dataLen = CFReadStreamRead(readStream, buffer, (CFIndex)fileLen);
+			if (dataLen == (CFIndex)fileLen) {
+				CFDataRef	data;
+
+				data = CFDataCreateWithBytesNoCopy(NULL, buffer, (CFIndex)fileLen, kCFAllocatorNull);
+				if (data != NULL) {
+					dict = CFPropertyListCreateWithData(NULL,
+									    data,
+									    kCFPropertyListImmutable,
+									    NULL,
+									    NULL);
+					CFRelease(data);
+				}
+			}
+			CFAllocatorDeallocate(NULL, buffer);
+			CFReadStreamClose(readStream);
+		}
+		CFRelease(readStream);
+	}
+
+	return dict;
+}
+
+
+#pragma mark -
 #pragma mark CFRunLoop scheduling
 
 
@@ -886,9 +957,9 @@ _SC_CFBundleGet(void)
 
 	env = getenv("DYLD_FRAMEWORK_PATH");
 	len = (env != NULL) ? strlen(env) : 0;
-	
+
 	if (len > 0) {	/* We are debugging */
-		
+
 		// trim any trailing slashes
 		while (len > 1) {
 			if (env[len - 1] != '/') {
@@ -896,17 +967,17 @@ _SC_CFBundleGet(void)
 			}
 			len--;
 		}
-		
+
 		// if DYLD_FRAMEWORK_PATH is ".../xxx~sym" than try ".../xxx~dst"
 		if ((len > SUFFIX_SYM_LEN) &&
 		    (strncmp(&env[len - SUFFIX_SYM_LEN], SUFFIX_SYM, SUFFIX_SYM_LEN) == 0) &&
 		    ((len + SYSTEMCONFIGURATION_FRAMEWORK_PATH_LEN) < MAXPATHLEN)) {
 			char		path[MAXPATHLEN];
-			
+
 			strlcpy(path, env, sizeof(path));
 			strlcpy(&path[len - SUFFIX_SYM_LEN], SUFFIX_DST, sizeof(path) - (len - SUFFIX_SYM_LEN));
 			strlcat(&path[len], SYSTEMCONFIGURATION_FRAMEWORK_PATH, sizeof(path) - len);
-			
+
 			url = CFURLCreateFromFileSystemRepresentation(NULL,
 								      (UInt8 *)path,
 								      len + SYSTEMCONFIGURATION_FRAMEWORK_PATH_LEN,
@@ -915,18 +986,18 @@ _SC_CFBundleGet(void)
 			CFRelease(url);
 		}
 	}
- 
+
 	if (bundle == NULL) { /* Try a more "direct" route to get the bundle */
-		
+
 		url = CFURLCreateWithFileSystemPath(NULL,
 						    CFSTR(SYSTEMCONFIGURATION_FRAMEWORK_PATH),
 						    kCFURLPOSIXPathStyle,
 						    TRUE);
-		
+
 		bundle = CFBundleCreate(NULL, url);
 		CFRelease(url);
 	}
-	
+
 	if (bundle == NULL) {
 		SC_log(LOG_ERR, "could not get CFBundle for \"%@\"", SYSTEMCONFIGURATION_BUNDLE_ID);
 	}
@@ -939,14 +1010,14 @@ done:
 CFStringRef
 _SC_CFBundleCopyNonLocalizedString(CFBundleRef bundle, CFStringRef key, CFStringRef value, CFStringRef tableName)
 {
-	CFDataRef	data	= NULL;
-	SInt32		errCode	= 0;
-	Boolean		ok;
 	CFURLRef	resourcesURL;
 	CFStringRef	str	= NULL;
+	CFDictionaryRef	table	= NULL;
 	CFURLRef	url;
 
-	if ((tableName == NULL) || CFEqual(tableName, CFSTR(""))) tableName = CFSTR("Localizable");
+	if ((tableName == NULL) || CFEqual(tableName, CFSTR(""))) {
+		tableName = CFSTR("Localizable");
+	}
 
 	/*
 	 * First, try getting the requested string using a manually constructed
@@ -961,83 +1032,46 @@ _SC_CFBundleCopyNonLocalizedString(CFBundleRef bundle, CFStringRef key, CFString
 	 */
 	resourcesURL = CFBundleCopyResourcesDirectoryURL(bundle);
 	if (resourcesURL != NULL) {
-		CFStringRef fileName = CFStringCreateWithFormat(
-					    NULL, NULL, CFSTR("%@.strings"), tableName);
-		CFURLRef enlproj = CFURLCreateCopyAppendingPathComponent(
-				      NULL, resourcesURL, CFSTR("English.lproj"), true);
-		url = CFURLCreateCopyAppendingPathComponent(
-				   NULL, enlproj, fileName, false);
-		CFRelease(enlproj);
+		CFURLRef	en_lproj;
+		CFStringRef	fileName;
+
+		en_lproj = CFURLCreateCopyAppendingPathComponent(NULL,
+								 resourcesURL,
+								 CFSTR("English.lproj"),
+								 TRUE);
+		fileName = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@.strings"), tableName);
+		url = CFURLCreateCopyAppendingPathComponent(NULL, en_lproj, fileName, FALSE);
+		CFRelease(en_lproj);
 		CFRelease(fileName);
 		CFRelease(resourcesURL);
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated"
-		ok = CFURLCreateDataAndPropertiesFromResource(NULL,
-							      url,
-							      &data,
-							      NULL,
-							      NULL,
-							      &errCode);
-#pragma GCC diagnostic pop
-		if (!ok) {
-			/*
-			 * Failed to get the data using a manually-constructed URL
-			 * for the given strings table. Fall back to using
-			 * CFBundleCopyResourceURLForLocalization() below.
-			 */
-			SC_log(LOG_NOTICE, "%s: failed to create data properties from resource (error=%ld)", __FUNCTION__ , (long)errCode);
-			data = NULL;
-		}
+		table = _SCCreatePropertyListFromResource(url);
 		CFRelease(url);
 	}
 
-	if (data == NULL) {
+	if (table == NULL) {
 		url = CFBundleCopyResourceURLForLocalization(bundle,
 							     tableName,
 							     CFSTR("strings"),
 							     NULL,
 							     CFSTR("English"));
 		if (url != NULL) {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated"
-			ok = CFURLCreateDataAndPropertiesFromResource(NULL,
-								      url,
-								      &data,
-								      NULL,
-								      NULL,
-								      &errCode);
-#pragma GCC diagnostic pop
-			if (!ok) {
-				SC_log(LOG_NOTICE, "%s: failed to create data properties from resource (error=%ld)", __FUNCTION__ , (long)errCode);
-				data = NULL;
-			}
+			table = _SCCreatePropertyListFromResource(url);
 			CFRelease(url);
 		} else {
-			SC_log(LOG_ERR, "%s: failed to get resource url: {bundle:%@, table: %@}", __FUNCTION__,bundle, tableName);
+			SC_log(LOG_ERR, "failed to get resource url: {bundle:%@, table: %@}", bundle, tableName);
 		}
 	}
 
-	if (data != NULL) {
-		CFDictionaryRef	table;
-
-		table = CFPropertyListCreateWithData(NULL,
-						     data,
-						     kCFPropertyListImmutable,
-						     NULL,
-						     NULL);
-		if (table != NULL) {
-			if (isA_CFDictionary(table)) {
-				str = CFDictionaryGetValue(table, key);
-				if (str != NULL) {
-					CFRetain(str);
-				}
+	if (table != NULL) {
+		if (isA_CFDictionary(table)) {
+			str = CFDictionaryGetValue(table, key);
+			if (str != NULL) {
+				CFRetain(str);
 			}
-
-			CFRelease(table);
 		}
 
-		CFRelease(data);
+		CFRelease(table);
 	}
 
 	if (str == NULL) {
@@ -1419,30 +1453,17 @@ _SC_SimulateCrash(const char *crash_info, CFStringRef notifyHeader, CFStringRef 
 {
 	Boolean	ok	= FALSE;
 
-#if ! TARGET_IPHONE_SIMULATOR
-	static bool	(*dyfunc_SimulateCrash)(pid_t, mach_exception_data_type_t, CFStringRef)	= NULL;
-	static void	*image									= NULL;
+#if	!TARGET_OS_SIMULATOR
+	static bool		(*dyfunc_SimulateCrash)(pid_t, mach_exception_data_type_t, CFStringRef)	= NULL;
+	static void		*image	= NULL;
+	static dispatch_once_t	once;
 
-	if ((dyfunc_SimulateCrash == NULL) && (image == NULL)) {
-		const char	*framework	= "/System/Library/PrivateFrameworks/CrashReporterSupport.framework/CrashReporterSupport";
-		struct stat	statbuf;
-		const char	*suffix	= getenv("DYLD_IMAGE_SUFFIX");
-		char		path[MAXPATHLEN];
-
-		strlcpy(path, framework, sizeof(path));
-		if (suffix) strlcat(path, suffix, sizeof(path));
-		if (0 <= stat(path, &statbuf)) {
-			image = dlopen(path, RTLD_LAZY | RTLD_LOCAL);
-		} else {
-			image = dlopen(framework, RTLD_LAZY | RTLD_LOCAL);
-		}
-
+	dispatch_once(&once, ^{
+		image = _SC_dlopen("/System/Library/PrivateFrameworks/CrashReporterSupport.framework/CrashReporterSupport");
 		if (image != NULL) {
 			dyfunc_SimulateCrash = dlsym(image, "SimulateCrash");
-		} else {
-			image = (void *)0x1;	// to ensure that we only dlopen() once
 		}
-	}
+	});
 
 	if (dyfunc_SimulateCrash != NULL) {
 		CFStringRef	str;
@@ -1476,7 +1497,7 @@ _SC_SimulateCrash(const char *crash_info, CFStringRef notifyHeader, CFStringRef 
 		}
 	}
 #endif	// TARGET_OS_EMBEDDED && !defined(DO_NOT_INFORM)
-#endif /* ! TARGET_IPHONE_SIMULATOR */
+#endif	// !TARGET_OS_SIMULATOR
 
 	return ok;
 }

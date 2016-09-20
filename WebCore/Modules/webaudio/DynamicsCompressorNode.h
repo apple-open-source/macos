@@ -35,7 +35,7 @@ class DynamicsCompressor;
 
 class DynamicsCompressorNode : public AudioNode {
 public:
-    static Ref<DynamicsCompressorNode> create(AudioContext* context, float sampleRate)
+    static Ref<DynamicsCompressorNode> create(AudioContext& context, float sampleRate)
     {
         return adoptRef(*new DynamicsCompressorNode(context, sampleRate));
     }
@@ -43,10 +43,10 @@ public:
     virtual ~DynamicsCompressorNode();
 
     // AudioNode
-    virtual void process(size_t framesToProcess) override;
-    virtual void reset() override;
-    virtual void initialize() override;
-    virtual void uninitialize() override;
+    void process(size_t framesToProcess) override;
+    void reset() override;
+    void initialize() override;
+    void uninitialize() override;
 
     // Static compression curve parameters.
     AudioParam* threshold() { return m_threshold.get(); }
@@ -59,10 +59,10 @@ public:
     AudioParam* reduction() { return m_reduction.get(); }
 
 private:
-    virtual double tailTime() const override;
-    virtual double latencyTime() const override;
+    double tailTime() const override;
+    double latencyTime() const override;
 
-    DynamicsCompressorNode(AudioContext*, float sampleRate);
+    DynamicsCompressorNode(AudioContext&, float sampleRate);
 
     std::unique_ptr<DynamicsCompressor> m_dynamicsCompressor;
     RefPtr<AudioParam> m_threshold;

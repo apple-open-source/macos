@@ -163,10 +163,12 @@ struct QMGR_TRANSPORT {
     QMGR_FEEDBACK pos_feedback;		/* positive feedback control */
     QMGR_FEEDBACK neg_feedback;		/* negative feedback control */
     int     fail_cohort_limit;		/* flow shutdown control */
+    int     xport_rate_delay;		/* suspend per delivery */
     int     rate_delay;			/* suspend per delivery */
 };
 
 #define QMGR_TRANSPORT_STAT_DEAD	(1<<1)
+#define QMGR_TRANSPORT_STAT_RATE_LOCK	(1<<2)
 
 typedef void (*QMGR_TRANSPORT_ALLOC_NOTIFY) (QMGR_TRANSPORT *, VSTREAM *);
 extern QMGR_TRANSPORT *qmgr_transport_select(void);
@@ -298,6 +300,7 @@ struct QMGR_MESSAGE {
     char   *sender;			/* complete address */
     char   *dsn_envid;			/* DSN envelope ID */
     int     dsn_ret;			/* DSN headers/full */
+    int     smtputf8;			/* requires unicode */
     char   *verp_delims;		/* VERP delimiters */
     char   *filter_xport;		/* filtering transport */
     char   *inspect_xport;		/* inspecting transport */
@@ -327,6 +330,7 @@ struct QMGR_MESSAGE {
 
 extern int qmgr_message_count;
 extern int qmgr_recipient_count;
+extern int qmgr_vrfy_pend_count;
 
 extern void qmgr_message_free(QMGR_MESSAGE *);
 extern void qmgr_message_update_warn(QMGR_MESSAGE *);

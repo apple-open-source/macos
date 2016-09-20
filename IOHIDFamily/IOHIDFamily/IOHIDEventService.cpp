@@ -36,6 +36,8 @@
 #include "IOHIDPrivateKeys.h"
 #include "AppleHIDUsageTables.h"
 #include "OSStackRetain.h"
+#include <sys/sysctl.h>
+#include <kern/debug.h>
 
 #if !TARGET_OS_EMBEDDED
     #include "IOHIDPointing.h"
@@ -49,6 +51,9 @@
 #include "IOHIDevicePrivateKeys.h"
 #include "ev_private.h"
 #include "IOHIDFamilyTrace.h"
+#include "IOHIDDebug.h"
+
+#include "IOHIDEventServiceUserClient.h"
 
 extern "C" int  kern_stack_snapshot_with_reason(char *reason);
 extern "C" kern_return_t sysdiagnose_notify_user(uint32_t keycode);
@@ -108,15 +113,20 @@ enum {
 #define     _multiAxis                          _reserved->multiAxis
 #define     _digitizer                          _reserved->digitizer
 #define     _relativePointer                    _reserved->relativePointer
+#define     _absolutePointer                    _reserved->absolutePointer
+#define     _keyboardShim                       _reserved->keyboardShim
+#define     _pointingShim                       _reserved->pointingShim
 
-#if TARGET_OS_EMBEDDED
 
 #define     _clientDict                         _reserved->clientDict
 
 #define     kDebuggerDelayMS                    2500
 #define     kDebuggerLongDelayMS                5000
+#define     kShutdownDelayForStackshot          4000
+#define     kShutdownDelayForPanic              3500
 #define     kATVChordDelayMS                    5000
 #define     kDelayedStackshotMask               (1 << 31)
+
 
 #define STACKSHOT_MASK_ATV          0x30        // ATV PlayPause + Volume-)
 #define STACKSHOT_MASK_WATCH        0x0C        // Menu (Crown) + Help (Pill)
@@ -134,6 +144,13 @@ enum {
 
 
 
+
+enum {
+    kLegacyShimDisabled,
+    kLegacyShimEnabledForSingleUserMode,
+    kLegacyShimEnabled
+};
+
 //===========================================================================
 // IOHIDClientData class
 class IOHIDClientData : public OSObject
@@ -150,8 +167,6 @@ public:
     inline void *       getContext()    { return context; }
     inline void *       getAction()     { return action; }
 };
-
-#endif /* TARGET_OS_EMBEDDED */
 
 //===========================================================================
 // IOHIDEventService class
@@ -172,13 +187,9 @@ bool IOHIDEventService::init ( OSDictionary * properties )
 
     _nubLock = IORecursiveLockAlloc();
 
-#if TARGET_OS_EMBEDDED
     _clientDict = OSDictionary::withCapacity(2);
     if ( _clientDict == 0 )
         return false;
-#endif /* TARGET_OS_EMBEDDED */
-
-    _keyboard.eject.delayMS = kEjectKeyDelayMS;
 
     return true;
 }
@@ -187,8 +198,10 @@ bool IOHIDEventService::init ( OSDictionary * properties )
 //====================================================================================================
 bool IOHIDEventService::start ( IOService * provider )
 {
-    UInt32      bootProtocol = 0;
+    UInt32      bootProtocol  = 0;
+    OSObject    *obj          = NULL;
     OSNumber    *number       = NULL;
+    OSString    *string       = NULL;
 
     _provider = provider;
 
@@ -206,23 +219,6 @@ bool IOHIDEventService::start ( IOService * provider )
     
     _keyboard.appleVendorSupported = (getProperty(kIOHIDAppleVendorSupported, gIOServicePlane) == kOSBooleanTrue);
 
-    _keyboard.eject.timer = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &IOHIDEventService::ejectTimerCallback));
-    if (!_keyboard.eject.timer || (_workLoop->addEventSource(_keyboard.eject.timer) != kIOReturnSuccess))
-        return false;
-
-    number = (OSNumber*)copyProperty(kIOHIDKeyboardEjectDelay);
-    if ( OSDynamicCast(OSNumber, number) )
-        _keyboard.eject.delayMS = number->unsigned32BitValue();
-    OSSafeReleaseNULL(number);
-
-    _keyboard.caps.timer =
-            IOTimerEventSource::timerEventSource(this,
-                                                 OSMemberFunctionCast(IOTimerEventSource::Action,
-                                                                      this,
-                                                                      &IOHIDEventService::capsTimerCallback));
-    if (!_keyboard.caps.timer || (_workLoop->addEventSource(_keyboard.caps.timer) != kIOReturnSuccess))
-        return false;
-
     _multiAxis.timer =
     IOTimerEventSource::timerEventSource(this,
                                          OSMemberFunctionCast(IOTimerEventSource::Action,
@@ -236,21 +232,56 @@ bool IOHIDEventService::start ( IOService * provider )
     if (!_commandGate || (_workLoop->addEventSource(_commandGate) != kIOReturnSuccess))
         return false;
 
-    calculateCapsLockDelay();
-
     calculateStandardType();
 
     SET_HID_PROPERTIES(this);
     SET_HID_PROPERTIES_EMBEDDED(this);
 
-    number = (OSNumber*)copyProperty("BootProtocol");
-    if (OSDynamicCast(OSNumber, number))
+    obj = copyProperty("BootProtocol");
+    number = OSDynamicCast(OSNumber, obj);
+    if (number)
         bootProtocol = number->unsigned32BitValue();
-    OSSafeReleaseNULL(number);
+    OSSafeReleaseNULL(obj);
+    
+    obj = copyProperty(kIOHIDPhysicalDeviceUniqueIDKey);
+    string = OSDynamicCast(OSString, obj);
+    if (string)
+        setProperty(kIOHIDPhysicalDeviceUniqueIDKey, string);
+    OSSafeReleaseNULL(obj);
 
+#if !TARGET_OS_EMBEDDED
+   
+    int legacy_shim;
+    if (!PE_parse_boot_argn("hid-legacy-shim", &legacy_shim, sizeof (legacy_shim))) {
+        legacy_shim = 0;
+    }
+    
+    IOLog("HID: Legacy shim %d\n", kLegacyShimEnabled);
+    
+    if (legacy_shim) {
+        
+        _keyboardShim  = kLegacyShimEnabled;
+        _pointingShim  = kLegacyShimEnabled;
+        
+    } else {
+ 
+        char namep[16];
+        boolean_t singleUser = false;
+        if ( PE_parse_boot_argn("-s", namep, sizeof (namep))) {
+            singleUser = true;
+        }
+
+        _pointingShim = kLegacyShimDisabled;
+        _keyboardShim = singleUser ? kLegacyShimEnabledForSingleUserMode : kLegacyShimDisabled;
+        
+    }
+    
+#endif
+    
     parseSupportedElements (getReportElements(), bootProtocol);
 
 #if !TARGET_OS_EMBEDDED
+    
     if ((!_consumerNub && _keyboardNub) || (!_keyboardNub && _consumerNub)) {
         OSDictionary * matchingDictionary = IOService::serviceMatching( "IOHIDEventService" );
         if ( matchingDictionary ) {
@@ -285,8 +316,9 @@ bool IOHIDEventService::start ( IOService * provider )
             matchingDictionary->release();
         }
     }
-#endif /* TARGET_OS_EMBEDDED */
 
+#endif /* TARGET_OS_EMBEDDED */
+    
     _readyForInputReports = true;
 
     registerService(kIOServiceAsynchronous);
@@ -325,24 +357,6 @@ void IOHIDEventService::stop( IOService * provider )
     handleStop ( provider );
     _provider = NULL;
 
-    if (_keyboard.caps.timer) {
-        _keyboard.caps.timer->cancelTimeout();
-        if ( _workLoop )
-            _workLoop->removeEventSource(_keyboard.caps.timer);
-
-        _keyboard.caps.timer->release();
-        _keyboard.caps.timer = 0;
-    }
-
-    if (_keyboard.eject.timer) {
-        _keyboard.eject.timer->cancelTimeout();
-        if ( _workLoop )
-            _workLoop->removeEventSource(_keyboard.eject.timer);
-
-        _keyboard.eject.timer->release();
-        _keyboard.eject.timer = 0;
-    }
-
     if (_multiAxis.timer) {
         _multiAxis.timer->cancelTimeout();
         if ( _workLoop )
@@ -379,6 +393,16 @@ void IOHIDEventService::stop( IOService * provider )
         _keyboard.debug.stackshotTimer->release();
         _keyboard.debug.stackshotTimer = 0;
     }
+
+    if (_keyboard.debug.shutdownDebugTimer) {
+		 _keyboard.debug.shutdownDebugTimer->cancelTimeout();
+        if ( _workLoop )
+            _workLoop->removeEventSource(_keyboard.debug.shutdownDebugTimer);
+
+        _keyboard.debug.shutdownDebugTimer->release();
+        _keyboard.debug.shutdownDebugTimer = 0;
+    }
+
 #else
 
     NUB_LOCK;
@@ -398,6 +422,7 @@ void IOHIDEventService::stop( IOService * provider )
     }
 
     NUB_UNLOCK;
+    
 #endif /* TARGET_OS_EMBEDDED */
 
     super::stop( provider );
@@ -427,133 +452,54 @@ bool IOHIDEventService::_publishMatchingNotificationHandler(
 {
 #if !TARGET_OS_EMBEDDED
     IOHIDEventService * self    = (IOHIDEventService *) target;
-    IOHIDEventService * service = (IOHIDEventService *) newService;
-    IONotifier * publishNotify  = NULL;
-    // NUB_LOCK;
-    if (self->_nubLock) IORecursiveLockLock(self->_nubLock);
-    if (self->_publishNotify) {
-        if ( service->_keyboardNub ) {
-            if ( self->_keyboardNub
-                    && self->_keyboardNub->isDispatcher()
-                    && !service->_keyboardNub->isDispatcher() ) {
-                stopAndReleaseShim ( self->_keyboardNub, self );
-                self->_keyboardNub = 0;
+    if (self && self->_keyboardShim == kLegacyShimEnabled) {
+        IOHIDEventService * service = (IOHIDEventService *) newService;
+        IONotifier * publishNotify  = NULL;
+        if (self->_nubLock) IORecursiveLockLock(self->_nubLock);
+        if (self->_publishNotify) {
+            if ( service->_keyboardNub ) {
+                if ( self->_keyboardNub
+                        && self->_keyboardNub->isDispatcher()
+                        && !service->_keyboardNub->isDispatcher() ) {
+                    stopAndReleaseShim ( self->_keyboardNub, self );
+                    self->_keyboardNub = 0;
+                }
+
+                if ( !self->_keyboardNub ) {
+                    self->_keyboardNub = service->_keyboardNub;
+                    self->_keyboardNub->retain();
+
+                    if (self->_publishNotify) {
+                        publishNotify = self->_publishNotify;
+                        self->_publishNotify = 0;
+                    }
+                }
             }
 
-            if ( !self->_keyboardNub ) {
-                self->_keyboardNub = service->_keyboardNub;
-                self->_keyboardNub->retain();
+            if ( service->_consumerNub ) {
+                if ( self->_consumerNub
+                        && self->_consumerNub->isDispatcher()
+                        && !service->_consumerNub->isDispatcher() ) {
+                    stopAndReleaseShim ( self->_consumerNub, self );
+                    self->_consumerNub = 0;
+                }
 
-                if (self->_publishNotify) {
-                    publishNotify = self->_publishNotify;
-                    self->_publishNotify = 0;
+                if ( !self->_consumerNub ) {
+                    self->_consumerNub = service->_consumerNub;
+                    self->_consumerNub->retain();
+
+                    if (self->_publishNotify) {
+                        publishNotify = self->_publishNotify;
+                        self->_publishNotify = 0;
+                    }
                 }
             }
         }
-
-        if ( service->_consumerNub ) {
-            if ( self->_consumerNub
-                    && self->_consumerNub->isDispatcher()
-                    && !service->_consumerNub->isDispatcher() ) {
-                stopAndReleaseShim ( self->_consumerNub, self );
-                self->_consumerNub = 0;
-            }
-
-            if ( !self->_consumerNub ) {
-                self->_consumerNub = service->_consumerNub;
-                self->_consumerNub->retain();
-
-                if (self->_publishNotify) {
-                    publishNotify = self->_publishNotify;
-                    self->_publishNotify = 0;
-                }
-            }
-        }
+        if (self->_nubLock) IORecursiveLockUnlock(self->_nubLock);
+        if (publishNotify) publishNotify->remove();
     }
-    // NUB_UNLOCK;
-    if (self->_nubLock) IORecursiveLockUnlock(self->_nubLock);
-    if (publishNotify) publishNotify->remove();
 #endif /* TARGET_OS_EMBEDDED */
     return true;
-}
-
-//====================================================================================================
-// IOHIDEventService::calculateCapsLockDelay
-//====================================================================================================
-void IOHIDEventService::calculateCapsLockDelay()
-{
-    OSNumber        *delay = NULL;
-    OSNumber        *delayOverride = NULL;
-    OSDictionary    *deviceParameters = NULL;
-    OSArray         *mappings = NULL;
-    UInt32          count = 0;
-
-    // default to no delay
-    _keyboard.caps.delayMS = 0;
-
-    // If this keyboard does not support delay, get out. Otherwise, use it.
-    delay = (OSNumber*)copyProperty(kIOHIDKeyboardCapsLockDelay);
-    if (!OSDynamicCast(OSNumber, delay))
-        goto GET_OUT;
-    _keyboard.caps.delayMS = delay->unsigned32BitValue();
-
-    // If there is an override in place, use that.
-
-    delayOverride = (OSNumber*)copyProperty(kIOHIDKeyboardCapsLockDelayOverride);
-    if (OSDynamicCast(OSNumber, delayOverride))
-        _keyboard.caps.delayMS = delayOverride->unsigned32BitValue();
-    OSSafeReleaseNULL(delayOverride);
-
-    // If there is no delay at this point, get out.
-    if (!_keyboard.caps.delayMS)
-        goto GET_OUT;
-
-    // At this point, we need to scan all of the modifier mappings (if any) to see
-    // if the NX_MODIFIERKEY_ALPHALOCK is remapped to something other than the
-    // NX_MODIFIERKEY_ALPHALOCK.
-    deviceParameters = (OSDictionary*)copyProperty(kIOHIDEventServicePropertiesKey);
-    if (!OSDynamicCast(OSDictionary, deviceParameters))
-        goto GET_OUT;
-
-    mappings = OSDynamicCast(OSArray, deviceParameters->getObject(kIOHIDKeyboardModifierMappingPairsKey));
-    if (!mappings) goto GET_OUT;
-
-    count = mappings->getCount();
-    if ( count ) {
-        for ( unsigned i=0; i < count; i++ ) {
-            OSDictionary    *pair   = OSDynamicCast(OSDictionary, mappings->getObject(i));
-            OSNumber        *number         = NULL;
-            SInt32   src    = 0;
-            SInt32   dst    = 0;
-
-            if ( !pair ) continue;
-
-            number = OSDynamicCast(OSNumber, pair->getObject(kIOHIDKeyboardModifierMappingSrcKey));
-
-            if ( !number ) continue;
-
-            src = number->unsigned32BitValue();
-
-            if (src != NX_MODIFIERKEY_ALPHALOCK) continue;
-
-            number = OSDynamicCast(OSNumber, pair->getObject(kIOHIDKeyboardModifierMappingDstKey));
-
-            if ( !number ) continue;
-
-            dst = number->unsigned32BitValue();
-
-            if (dst == NX_MODIFIERKEY_ALPHALOCK) continue;
-
-            // NX_MODIFIERKEY_ALPHALOCK is remapped. Set delay to 0 and get out.
-            _keyboard.caps.delayMS = 0;
-            goto GET_OUT;
-        }
-    }
-
-GET_OUT:
-    OSSafeReleaseNULL(deviceParameters);
-    OSSafeReleaseNULL(delay);
-    IOHID_DEBUG(kIOHIDDebugCode_CalculatedCapsDelay, _keyboard.caps.delayMS, 0, 0, 0);
 }
 
 //====================================================================================================
@@ -563,13 +509,14 @@ void IOHIDEventService::calculateStandardType()
 {
     IOHIDStandardType   result = kIOHIDStandardTypeANSI;
     OSNumber *          number;
+    OSObject *          obj;
 
-        number = (OSNumber*)copyProperty(kIOHIDStandardTypeKey);
-        if ( OSDynamicCast(OSNumber, number) ) {
+        obj = copyProperty(kIOHIDStandardTypeKey);
+        number = OSDynamicCast(OSNumber, obj);
+        if ( number ) {
             result = number->unsigned32BitValue();
         }
         else {
-            OSSafeReleaseNULL(number);
             UInt16 productID    = getProductID();
             UInt16 vendorID     = getVendorID();
 
@@ -601,12 +548,13 @@ void IOHIDEventService::calculateStandardType()
                 setProperty(kIOHIDStandardTypeKey, result, 32);
             }
         }
-    OSSafeReleaseNULL(number);
+    OSSafeReleaseNULL(obj);
 
 #if TARGET_OS_EMBEDDED
     if ( !_keyboard.swapISO && result == kIOHIDStandardTypeISO ) {
-        number = (OSNumber*)copyProperty("alt_handler_id");
-        if ( OSDynamicCast(OSNumber, number) ) {
+        obj = copyProperty("alt_handler_id");
+        number = OSDynamicCast(OSNumber, obj);
+        if ( number ) {
             switch (number->unsigned32BitValue()) {
                 case kgestUSBCosmoISOKbd:
                 case kgestUSBAndyISOKbd:
@@ -618,7 +566,7 @@ void IOHIDEventService::calculateStandardType()
                     break;
             }
         }
-        OSSafeReleaseNULL(number);
+        OSSafeReleaseNULL(obj);
     }
 #endif /* TARGET_OS_EMBEDDED */
 }
@@ -631,36 +579,10 @@ IOReturn IOHIDEventService::setSystemProperties( OSDictionary * properties )
     OSDictionary *  dict        = NULL;
     OSArray *       array       = NULL;
     OSNumber *      number      = NULL;
-    bool            setCapsDelay= false;
 
     if ( !properties )
         return kIOReturnBadArgument;
-
-    if ( properties->getObject(kIOHIDDeviceParametersKey) != kOSBooleanTrue ) {
-        OSDictionary * propsCopy = OSDictionary::withDictionary(properties);
-        if ( propsCopy ) {
-            propsCopy->setObject(kIOHIDEventServicePropertiesKey, kOSBooleanTrue);
-
-#if !TARGET_OS_EMBEDDED
-            if ( _keyboardNub )
-                _keyboardNub->setParamProperties(properties);
-
-            if ( _pointingNub )
-                _pointingNub->setParamProperties(properties);
-
-            if ( _consumerNub )
-                _consumerNub->setParamProperties(properties);
-#endif
-            propsCopy->release();
-        }
-    }
-
-    number = OSDynamicCast(OSNumber, properties->getObject(kIOHIDKeyboardCapsLockDelayOverride));
-    if (number) {
-        setProperty(kIOHIDKeyboardCapsLockDelayOverride, number);
-        setCapsDelay = true;
-    }
-
+    
     if ( ( array = OSDynamicCast(OSArray, properties->getObject(kIOHIDKeyboardModifierMappingPairsKey)) ) ) {
         UInt32  srcVirtualCode, dstVirtualCode;
         Boolean capsMap = FALSE;
@@ -692,29 +614,19 @@ IOReturn IOHIDEventService::setSystemProperties( OSDictionary * properties )
             break;
         }
 
-        if ( capsMap ) {
-            // Clear out the delay
-            _keyboard.caps.delayMS = 0;
-            setCapsDelay = false;
-        }
-        else if ( !_keyboard.caps.delayMS ) {
-            setCapsDelay = true;
-        }
     }
 
-    if (setCapsDelay) {
-        calculateCapsLockDelay();
-    }
     if ( properties->getObject(kIOHIDDeviceParametersKey) == kOSBooleanTrue ) {
-        OSDictionary * eventServiceProperties = (OSDictionary*)copyProperty(kIOHIDEventServicePropertiesKey);
-        if ( OSDynamicCast(OSDictionary, eventServiceProperties) ) {
+        OSObject *obj = copyProperty(kIOHIDEventServicePropertiesKey);
+        OSDictionary * eventServiceProperties = OSDynamicCast(OSDictionary, obj);
+        if ( eventServiceProperties ) {
             if (eventServiceProperties->setOptions(0, 0) & OSDictionary::kImmutable) {
                 OSDictionary * copyEventServiceProperties = (OSDictionary*)eventServiceProperties->copyCollection();
-                eventServiceProperties ->release();
+                obj->release();
                 eventServiceProperties = copyEventServiceProperties;
             }
         } else {
-            OSSafeReleaseNULL(eventServiceProperties);
+            OSSafeReleaseNULL(obj);
             eventServiceProperties = OSDictionary::withCapacity(4);
         }
 
@@ -738,13 +650,11 @@ IOReturn IOHIDEventService::setProperties( OSObject * properties )
 {
     OSDictionary *  propertyDict    = OSDynamicCast(OSDictionary, properties);
     IOReturn        ret             = kIOReturnBadArgument;
-
-    if ( propertyDict ) {
-        propertyDict->setObject(kIOHIDDeviceParametersKey, kOSBooleanTrue);
-        ret = setSystemProperties( propertyDict );
-        propertyDict->removeObject(kIOHIDDeviceParametersKey);
+    if (propertyDict) {
+      propertyDict->setObject(kIOHIDDeviceParametersKey, kOSBooleanTrue);
+      ret = setSystemProperties( propertyDict );
+      propertyDict->removeObject(kIOHIDDeviceParametersKey);
     }
-
     return ret;
 }
 
@@ -937,8 +847,6 @@ void IOHIDEventService::parseSupportedElements ( OSArray * elementArray, UInt32 
         _deviceUsagePairs = functions;
     }
 
-    NUB_LOCK;
-
     if ( pointingDevice )
     {
         if ( pointingResolution )
@@ -946,19 +854,35 @@ void IOHIDEventService::parseSupportedElements ( OSArray * elementArray, UInt32 
 
         if ( scrollResolution )
             setProperty(kIOHIDScrollResolutionKey, scrollResolution, 32);
+      
+        if (buttonCount) {
+            setProperty(kIOHIDPointerButtonCountKey, buttonCount, 32);
+        }
+    }
+    if (keyboardDevice) {
+        setProperty(kIOHIDKeyboardSupportedModifiersKey, supportedModifiers, 32);
+        setProperty("HIDKeyboardKeysDefined", true);
+    }
 
+#if !TARGET_OS_EMBEDDED
+    
+    NUB_LOCK;
+  
+#ifdef POINTING_SHIM_SUPPORT
+    if ( pointingDevice && _pointingShim != kLegacyShimDisabled) {
         _pointingNub = newPointingShim(buttonCount, pointingResolution, scrollResolution, kShimEventProcessor);
     }
-    if ( keyboardDevice )
-    {
+#endif
+    if (keyboardDevice && _keyboardShim != kLegacyShimDisabled) {
         _keyboardNub = newKeyboardShim(supportedModifiers, kShimEventProcessor);
     }
-    if ( consumerDevice )
-    {
+    if (consumerDevice && _keyboardShim != kLegacyShimDisabled) {
         _consumerNub = newConsumerShim(kShimEventProcessor);
     }
 
     NUB_UNLOCK;
+
+#endif
 }
 
 //====================================================================================================
@@ -1135,14 +1059,6 @@ void IOHIDEventService::free()
         _nubLock = NULL;
     }
 
-    if (_keyboard.eject.timer) {
-        if ( _workLoop )
-            _workLoop->removeEventSource(_keyboard.eject.timer);
-
-        _keyboard.eject.timer->release();
-        _keyboard.eject.timer = 0;
-    }
-
     if (_commandGate) {
         if ( _workLoop )
             _workLoop->removeEventSource(_commandGate);
@@ -1151,26 +1067,18 @@ void IOHIDEventService::free()
         _commandGate = 0;
     }
 
-    if (_keyboard.caps.timer) {
-        if ( _workLoop )
-            _workLoop->removeEventSource(_keyboard.caps.timer);
-
-        _keyboard.caps.timer->release();
-        _keyboard.caps.timer = 0;
-    }
-
     if ( _deviceUsagePairs ) {
         _deviceUsagePairs->release();
         _deviceUsagePairs = NULL;
     }
     
-#if TARGET_OS_EMBEDDED
     if ( _clientDict ) {
         assert(_clientDict->getCount() == 0);
         _clientDict->release();
         _clientDict = NULL;
     }
 
+#if TARGET_OS_EMBEDDED
     if (_keyboard.debug.nmiTimer) {
         if ( _workLoop )
             _workLoop->removeEventSource(_keyboard.debug.nmiTimer);
@@ -1185,6 +1093,14 @@ void IOHIDEventService::free()
 
         _keyboard.debug.stackshotTimer->release();
         _keyboard.debug.stackshotTimer = 0;
+    }
+	
+    if (_keyboard.debug.shutdownDebugTimer) {
+        if ( _workLoop )
+            _workLoop->removeEventSource(_keyboard.debug.shutdownDebugTimer);
+
+        _keyboard.debug.shutdownDebugTimer->release();
+        _keyboard.debug.shutdownDebugTimer = 0;
     }
 
 #endif /* TARGET_OS_EMBEDDED */
@@ -1215,8 +1131,6 @@ bool IOHIDEventService::handleOpen(IOService *  client,
                                     IOOptionBits options,
                                     void *       argument)
 {
-#if TARGET_OS_EMBEDDED
-
     bool accept = false;
     do {
         // Was this object already registered as our client?
@@ -1235,13 +1149,6 @@ bool IOHIDEventService::handleOpen(IOService *  client,
     } while (false);
 
     return accept;
-
-#else
-
-    return super::handleOpen(client, options, argument);
-
-#endif /* TARGET_OS_EMBEDDED */
-
 }
 
 //==============================================================================
@@ -1249,12 +1156,8 @@ bool IOHIDEventService::handleOpen(IOService *  client,
 //==============================================================================
 void IOHIDEventService::handleClose(IOService * client, IOOptionBits options)
 {
-#if TARGET_OS_EMBEDDED
     if ( _clientDict->getObject((const OSSymbol *)client) )
         _clientDict->removeObject((const OSSymbol *)client);
-#else
-    super::handleClose(client, options);
-#endif /* TARGET_OS_EMBEDDED */
 }
 
 //==============================================================================
@@ -1262,14 +1165,10 @@ void IOHIDEventService::handleClose(IOService * client, IOOptionBits options)
 //==============================================================================
 bool IOHIDEventService::handleIsOpen(const IOService * client) const
 {
-#if TARGET_OS_EMBEDDED
     if (client)
         return _clientDict->getObject((const OSSymbol *)client) != NULL;
     else
         return (_clientDict->getCount() > 0);
-#else
-    return super::handleIsOpen(client);
-#endif /* TARGET_OS_EMBEDDED */
 }
 
 //====================================================================================================
@@ -1329,10 +1228,11 @@ UInt32 IOHIDEventService::getLocationID ()
 	UInt32 value = 0;
 
 	if ( _provider ) {
-		OSNumber * number = (OSNumber*)_provider->copyProperty(kIOHIDLocationIDKey);
-		if ( OSDynamicCast(OSNumber, number) )
+        OSObject *obj = _provider->copyProperty(kIOHIDLocationIDKey);
+        OSNumber * number = OSDynamicCast(OSNumber, obj);
+		if ( number )
 			value = number->unsigned32BitValue();
-		OSSafeReleaseNULL(number);
+		OSSafeReleaseNULL(obj);
 	}
     return value;
 }
@@ -1345,10 +1245,11 @@ UInt32 IOHIDEventService::getVendorID ()
 	UInt32 value = 0;
 
 	if ( _provider ) {
-		OSNumber * number = (OSNumber*)_provider->copyProperty(kIOHIDVendorIDKey);
-		if ( OSDynamicCast(OSNumber, number) )
+        OSObject *obj = _provider->copyProperty(kIOHIDVendorIDKey);
+        OSNumber * number = OSDynamicCast(OSNumber, obj);
+		if ( number )
 			value = number->unsigned32BitValue();
-		OSSafeReleaseNULL(number);
+		OSSafeReleaseNULL(obj);
 	}
     return value;
 }
@@ -1361,10 +1262,11 @@ UInt32 IOHIDEventService::getVendorIDSource ()
 	UInt32 value = 0;
 
 	if ( _provider ) {
-		OSNumber * number = (OSNumber*)_provider->copyProperty(kIOHIDVendorIDSourceKey);
-		if ( OSDynamicCast(OSNumber, number) )
+        OSObject *obj = _provider->copyProperty(kIOHIDVendorIDSourceKey);
+        OSNumber * number = OSDynamicCast(OSNumber, obj);
+		if ( number )
 			value = number->unsigned32BitValue();
-		OSSafeReleaseNULL(number);
+		OSSafeReleaseNULL(obj);
 	}
     return value;
 }
@@ -1377,10 +1279,11 @@ UInt32 IOHIDEventService::getProductID ()
 	UInt32 value = 0;
 
 	if ( _provider ) {
-		OSNumber * number = (OSNumber*)_provider->copyProperty(kIOHIDProductIDKey);
-		if ( OSDynamicCast(OSNumber, number) )
+        OSObject *obj = _provider->copyProperty(kIOHIDProductIDKey);
+        OSNumber * number = OSDynamicCast(OSNumber, obj);
+		if ( number )
 			value = number->unsigned32BitValue();
-		OSSafeReleaseNULL(number);
+		OSSafeReleaseNULL(obj);
 	}
     return value;
 }
@@ -1393,10 +1296,11 @@ UInt32 IOHIDEventService::getVersion ()
 	UInt32 value = 0;
 
 	if ( _provider ) {
-		OSNumber * number = (OSNumber*)_provider->copyProperty(kIOHIDVersionNumberKey);
-		if ( OSDynamicCast(OSNumber, number) )
+        OSObject *obj = _provider->copyProperty(kIOHIDVersionNumberKey);
+        OSNumber * number = OSDynamicCast(OSNumber, obj);
+		if ( number )
 			value = number->unsigned32BitValue();
-		OSSafeReleaseNULL(number);
+		OSSafeReleaseNULL(obj);
 	}
     return value;
 }
@@ -1409,10 +1313,11 @@ UInt32 IOHIDEventService::getCountryCode ()
 	UInt32 value = 0;
 
 	if ( _provider ) {
-		OSNumber * number = (OSNumber*)_provider->copyProperty(kIOHIDCountryCodeKey);
-		if ( OSDynamicCast(OSNumber, number) )
+        OSObject *obj = _provider->copyProperty(kIOHIDCountryCodeKey);
+        OSNumber * number = OSDynamicCast(OSNumber, obj);
+		if ( number )
 			value = number->unsigned32BitValue();
-        OSSafeReleaseNULL(number);
+        OSSafeReleaseNULL(obj);
 	}
     return value;
 }
@@ -1428,11 +1333,12 @@ OSArray * IOHIDEventService::getReportElements()
 //====================================================================================================
 // IOHIDEventService::setElementValue
 //====================================================================================================
-void IOHIDEventService::setElementValue (
+IOReturn IOHIDEventService::setElementValue (
                                 UInt32                      usagePage __unused,
                                 UInt32                      usage __unused,
                                 UInt32                      value __unused )
 {
+    return kIOReturnUnsupported;
 }
 
 //====================================================================================================
@@ -1446,56 +1352,92 @@ UInt32 IOHIDEventService::getElementValue (
 }
 
 
-//====================================================================================================
-// ejectTimerCallback
-//====================================================================================================
-void IOHIDEventService::ejectTimerCallback(IOTimerEventSource *sender __unused)
-{
-    IOHID_DEBUG(kIOHIDDebugCode_EjectCallback, _keyboard.eject.state, 0, 0, 0);
-    if ( _keyboard.eject.state ) {
-        AbsoluteTime timeStamp;
-
-        clock_get_uptime(&timeStamp);
-
-        dispatchKeyboardEvent(timeStamp, kHIDPage_Consumer, kHIDUsage_Csmr_Eject, 1, _keyboard.eject.options | kDelayedOption);
-        dispatchKeyboardEvent(timeStamp, kHIDPage_Consumer, kHIDUsage_Csmr_Eject, 0, _keyboard.eject.options | kDelayedOption);
-
-        _keyboard.eject.state = 0;
-    }
-}
-
-//====================================================================================================
-// capsTimerCallback
-//====================================================================================================
-void IOHIDEventService::capsTimerCallback(IOTimerEventSource *sender __unused)
-{
-    IOHID_DEBUG(kIOHIDDebugCode_CapsCallback, _keyboard.caps.state, 0, 0, 0);
-    AbsoluteTime timeStamp;
-    
-    clock_get_uptime(&timeStamp);
-#if TARGET_OS_EMBEDDED
-    dispatchKeyboardEvent(timeStamp, kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardCapsLock, 1, _keyboard.caps.options | kDelayedOption);
-#else
-    if ( _keyboard.caps.state ) {
-        dispatchKeyboardEvent(timeStamp, kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardCapsLock, 1, _keyboard.caps.options | kDelayedOption);
-        dispatchKeyboardEvent(timeStamp, kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardCapsLock, 0, _keyboard.caps.options | kDelayedOption);
-
-        _keyboard.caps.state = 0;
-    }
-#endif
-}
-
-
 #if TARGET_OS_EMBEDDED
 //==============================================================================
 // IOHIDEventService::debuggerTimerCallback
 //==============================================================================
 void IOHIDEventService::debuggerTimerCallback(IOTimerEventSource *sender)
 {
-    if ( _keyboard.debug.mask && _keyboard.debug.mask == _keyboard.debug.startMask   )
+    if ( _keyboard.debug.mask && _keyboard.debug.mask == _keyboard.debug.startMask && _keyboard.debug.mask == _keyboard.debug.nmiMask) {
         PE_enter_debugger("NMI");
+    }
 }
 
+#if TARGET_OS_IPHONE || TARGET_OS_WATCH
+//==============================================================================
+// IOHIDEventService::forcedShutdownDebugTimerCallback
+//==============================================================================
+void IOHIDEventService::forcedShutdownDebugTimerCallback(IOTimerEventSource *sender)
+{
+    if ( _keyboard.debug.mask && _keyboard.debug.mask == _keyboard.debug.startMask && _keyboard.debug.mask == _keyboard.debug.shutdownDebugKeyMask) {
+        if (_keyboard.debug.shutdownDebugMode == kHIDShutdownDebugModePanic) {
+            HIDLogError ("HID: Debug panic on forced shutdown");
+            panic_with_options (0, NULL, DEBUGGER_OPTION_PANICLOGANDREBOOT, "btn_rst");
+        } else if (_keyboard.debug.shutdownDebugMode == kHIDShutdownDebugModeStackshots) {
+            HIDLogError ("HID: Debug stackshot on forced shutdown");
+            handle_stackshot_keychord(0x3);
+        }
+    }
+}
+//==============================================================================
+// IOHIDEventService::forcedShutdownDebugInit
+//==============================================================================
+void IOHIDEventService::forcedShutdownDebugInit() {
+    _keyboard.debug.shutdownDebugMode = kHIDShutdownDebugModeDisabled;
+    if(!PE_parse_boot_argn("forced_shutdown_mode", &_keyboard.debug.shutdownDebugMode, sizeof (_keyboard.debug.shutdownDebugMode))) {
+        OSDictionary *matchingDict = nameMatching("defaults");
+        if (matchingDict) {
+            IOService *defaults = copyMatchingService(matchingDict);
+            _keyboard.debug.shutdownDebugMode = kHIDShutdownDebugModeStackshots;
+            if (defaults) {
+                OSData *shutdownDebugMode = OSDynamicCast(OSData, defaults->getProperty("panic-on-home-lock-button",gIOServicePlane));
+                if (shutdownDebugMode && shutdownDebugMode->getLength() == sizeof(uint32_t) && *((uint32_t*)shutdownDebugMode->getBytesNoCopy()) == 1) {
+                    _keyboard.debug.shutdownDebugMode = kHIDShutdownDebugModePanic;
+                }
+                defaults->release();
+            }
+            matchingDict->release();
+        }
+    }
+    if (_keyboard.debug.shutdownDebugMode != kHIDShutdownDebugModeDisabled) {
+        if (!PE_parse_boot_argn("forced_shutdown_debug_delay", &_keyboard.debug.shutdownDebugDelay, sizeof (_keyboard.debug.shutdownDebugDelay))) {
+            if (_keyboard.debug.shutdownDebugMode == kHIDShutdownDebugModeStackshots) {
+              _keyboard.debug.shutdownDebugDelay = kShutdownDelayForStackshot;
+            } else {
+              _keyboard.debug.shutdownDebugDelay = kShutdownDelayForPanic;
+            }
+        }
+        if (!PE_parse_boot_argn("forced_shutdown_debug_key_mask", &_keyboard.debug.shutdownDebugKeyMask, sizeof (_keyboard.debug.shutdownDebugKeyMask))) {
+#if TARGET_OS_WATCH
+          _keyboard.debug.shutdownDebugKeyMask = STACKSHOT_MASK_WATCH;
+#else
+          _keyboard.debug.shutdownDebugKeyMask = 0x5;
+#endif
+        }
+        OSNumber * value;
+        OSDictionary * debug = OSDictionary::withCapacity (3);
+        if (debug) {
+          value = OSNumber::withNumber (_keyboard.debug.shutdownDebugMode, 32);
+          if (value) {
+            debug->setObject ("shutdownDebugMode",value);
+            value->release();
+          }
+          value = OSNumber::withNumber (_keyboard.debug.shutdownDebugDelay, 32);
+          if (value) {
+            debug->setObject ("shutdownDebugDelay",value);
+            value->release();
+          }
+          value = OSNumber::withNumber (_keyboard.debug.shutdownDebugKeyMask, 32);
+          if (value) {
+            debug->setObject ("shutdownDebugKeyMask",value);
+            value->release();
+          }
+          setProperty("ForcedShutdownDebug", debug);
+          debug->release();
+        }
+    }
+}
+#endif
 #endif /* TARGET_OS_EMBEDDED */
 
 #if TARGET_OS_EMBEDDED
@@ -1522,6 +1464,64 @@ void IOHIDEventService::multiAxisTimerCallback(IOTimerEventSource *sender __unus
     dispatchMultiAxisPointerEvent(timestamp, _multiAxis.buttonState, _multiAxis.x, _multiAxis.y, _multiAxis.z, _multiAxis.rX, _multiAxis.rY, _multiAxis.rZ, _multiAxis.options | kIOHIDEventOptionIsRepeat);
 }
 
+#if !TARGET_OS_EMBEDDED
+
+KeyValueMask IOHIDEventService::keyMonitorTable[] = {
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardLeftControl ),     kKeyMaskCtrl},
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardRightControl),     kKeyMaskCtrl},
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardLeftShift   ),     kKeyMaskShift},
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardRightShift  ),     kKeyMaskShift},
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardLeftAlt     ),     kKeyMaskAlt},
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardRightAlt    ),     kKeyMaskAlt},
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardLeftGUI     ),     kKeyMaskCommand},
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardRightGUI    ),     kKeyMaskCommand},
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardPeriod      ),     kKeyMaskPeriod},
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeypadPeriod        ),     kKeyMaskPeriod},
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardComma       ),     kKeyMaskComma},
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeypadComma         ),     kKeyMaskComma},
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardSlash       ),     kKeyMaskSlash},
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeypadSlash         ),     kKeyMaskSlash},
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardEscape      ),     kKeyMaskEsc}
+};
+
+DebugKeyAction IOHIDEventService::debugKeyActionTable[] = {
+  { (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskCommand | kKeyMaskPeriod),
+    IOHIDEventService::debugActionSysdiagnose,
+    (void*)kHIDUsage_KeyboardPeriod
+  },
+  { (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskCommand | kKeyMaskComma),
+    IOHIDEventService::debugActionSysdiagnose,
+    (void*)kHIDUsage_KeyboardComma
+  },
+  { (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskCommand | kKeyMaskSlash),
+    IOHIDEventService::debugActionSysdiagnose,
+    (void*)kHIDUsage_KeyboardSlash
+  },
+  { kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskCommand | kKeyMaskEsc,
+    debugActionNMI,
+    NULL
+  },
+};
+
+//====================================================================================================
+// IOHIDEventService::debugActionNMI
+//====================================================================================================
+
+void IOHIDEventService::debugActionNMI (IOHIDEventService *self, void * parameter) {
+  PE_enter_debugger("HID: USB Programmer Key");
+}
+
+//====================================================================================================
+// IOHIDEventService::debugActionSysdiagnose
+//====================================================================================================
+void IOHIDEventService::debugActionSysdiagnose (IOHIDEventService *self, void * parameter) {
+  uint32_t  keyCode = (uint32_t)(uintptr_t)parameter;
+  kern_stack_snapshot_with_reason("HID: Stackshot triggered using keycombo");
+  sysdiagnose_notify_user(keyCode);
+  HIDLog("HID: Posted stackshot event 0x%08x", keyCode);
+}
+
+#endif
 
 //====================================================================================================
 // IOHIDEventService::dispatchKeyboardEvent
@@ -1535,9 +1535,8 @@ void IOHIDEventService::dispatchKeyboardEvent(
 {
     if ( ! _readyForInputReports )
         return;
-
-#if TARGET_OS_EMBEDDED // {
     IOHIDEvent * event = NULL;
+#if TARGET_OS_EMBEDDED // {
     UInt32 debugMask = 0;
     if ( !_keyboard.debug.nmiMask ) {
         OSData * nmi_mask = OSDynamicCast(OSData, getProperty("button-nmi_mask", gIOServicePlane));
@@ -1555,7 +1554,7 @@ void IOHIDEventService::dispatchKeyboardEvent(
         }
     }
     
-
+  
     switch (usagePage) {
         case kHIDPage_KeyboardOrKeypad:
             if ( _keyboard.swapISO ) {
@@ -1576,10 +1575,8 @@ void IOHIDEventService::dispatchKeyboardEvent(
                     debugMask = 0x1;
                     break;
                 case kHIDUsage_Csmr_VolumeDecrement:
-#if TARGET_OS_TV // Volume- should be treated differently than Volume+ for ATV stackshot only
                     debugMask = 0x20;
                     break;
-#endif // TARGET_OS_TV
                 case kHIDUsage_Csmr_VolumeIncrement:
                     debugMask = 0x2;
                     break;
@@ -1611,6 +1608,7 @@ void IOHIDEventService::dispatchKeyboardEvent(
     else
         _keyboard.debug.mask &= ~debugMask;
 
+
     if ( _keyboard.debug.mask == _keyboard.debug.nmiMask ) {
         if ( !_keyboard.debug.nmiTimer ) {
             _keyboard.debug.nmiTimer = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &IOHIDEventService::debuggerTimerCallback));
@@ -1626,10 +1624,30 @@ void IOHIDEventService::dispatchKeyboardEvent(
             _keyboard.debug.startMask = _keyboard.debug.mask;
         }
     }
-
+#if TARGET_OS_IPHONE || TARGET_OS_WATCH
+    if (_keyboard.debug.shutdownDebugMode == 0) {
+      forcedShutdownDebugInit();
+    }
+    if ( _keyboard.debug.shutdownDebugMode != kHIDShutdownDebugModeDisabled && _keyboard.debug.mask == _keyboard.debug.shutdownDebugKeyMask ) {
+        if ( !_keyboard.debug.shutdownDebugTimer) {
+            _keyboard.debug.shutdownDebugTimer = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &IOHIDEventService::forcedShutdownDebugTimerCallback));
+            if (_keyboard.debug.shutdownDebugTimer) {
+                if ((_workLoop->addEventSource(_keyboard.debug.shutdownDebugTimer) != kIOReturnSuccess)) {
+                    _keyboard.debug.shutdownDebugTimer->release();
+                    _keyboard.debug.shutdownDebugTimer = NULL;
+                }
+            }
+        }
+        if ( _keyboard.debug.shutdownDebugTimer ) {
+            _keyboard.debug.shutdownDebugTimer->setTimeoutMS( _keyboard.debug.shutdownDebugDelay );
+            _keyboard.debug.startMask = _keyboard.debug.shutdownDebugKeyMask;
+        }
+    }
+#endif
     // stackshot keychord check
-    if(_keyboard.debug.mask == 0x3 || // Power + Volume
-       _keyboard.debug.mask == 0x6 || // Menu (Home)  + Volume
+    if(_keyboard.debug.mask == 0x3  || // Power + Volume up
+       _keyboard.debug.mask == 0x6  || // Menu (Home) + Volume up
+       _keyboard.debug.mask == 0x24 || // Menu (Home) + Volume down
        _keyboard.debug.mask == STACKSHOT_MASK_WATCH ||
        _keyboard.debug.mask == STACKSHOT_MASK_ATV) {
        // Only create the timer for the watch and ATV
@@ -1661,127 +1679,142 @@ void IOHIDEventService::dispatchKeyboardEvent(
         _keyboard.debug.stackshotHeld = 0;
     }
 
-    // Keyboard caps lock delay - quick taps of caps lock could be accidental, so ignore
-    if ( _keyboard.caps.delayMS && (usagePage == kHIDPage_KeyboardOrKeypad) && (usage == kHIDUsage_KeyboardCapsLock ) ) {
-        if ( (options & kDelayedOption) == 0) {
-            if ( value ) {
-                if ( ( getElementValue(kHIDPage_LEDs, kHIDUsage_LED_CapsLock) == 0 ) ) {
-                    _keyboard.caps.options = options;
-
-                    if ( _keyboard.caps.timer )
-                        _keyboard.caps.timer->setTimeoutMS( _keyboard.caps.delayMS );
-                }
-                else {
-                    event = IOHIDEvent::keyboardEvent(timeStamp, usagePage, usage, value!=0, _keyboard.caps.options);
-                }
-            }
-            else {
-                if ( ( getElementValue(kHIDPage_LEDs, kHIDUsage_LED_CapsLock) != 0 ) ) {
-                    event = IOHIDEvent::keyboardEvent(timeStamp, usagePage, usage, value!=0, _keyboard.caps.options);
-                }
-                else if ( _keyboard.caps.state ) {
-                    event = IOHIDEvent::keyboardEvent(timeStamp, usagePage, usage, value!=0, _keyboard.caps.options);
-                    _keyboard.caps.state = 0;
-                }
-
-                if ( _keyboard.caps.timer )
-                    _keyboard.caps.timer->cancelTimeout();
-            }
-        }
-        else {
-            event = IOHIDEvent::keyboardEvent(timeStamp, usagePage, usage, value!=0, _keyboard.caps.options);
-            _keyboard.caps.state = 1;
-        }
+    event = IOHIDEvent::keyboardEvent(timeStamp, usagePage, usage, value!=0, options);
+    if ( event ) {
+      dispatchEvent(event);
+      event->release();
     }
-    else
-    {
-        event = IOHIDEvent::keyboardEvent(timeStamp, usagePage, usage, value!=0, options);
+
+#endif
+
+#if !TARGET_OS_EMBEDDED
+    for (int index = 0 ; index < sizeof(_keyboard.pressedKeys)/sizeof(_keyboard.pressedKeys[0]); index++) {
+        if (value) {
+            if (!_keyboard.pressedKeys[index].isValid()) {
+                _keyboard.pressedKeys[index] = Key (usagePage, usage);
+                break;
+            }
+        } else {
+            if (_keyboard.pressedKeys[index].usage() == usage && _keyboard.pressedKeys[index].usagePage() == usagePage) {
+                _keyboard.pressedKeys[index] = Key (0, 0);
+                break;
+            }
+        }
     }
     
-    if ( !event )
-        return;
-
-    dispatchEvent(event);
-
-    event->release();
-
-#else // } {
-
-    NUB_LOCK;
-
-    IOHID_DEBUG(kIOHIDDebugCode_DispatchKeyboard, usagePage, usage, value, options);
-
-    if ((( usagePage == kHIDPage_KeyboardOrKeypad ) &&
-            (usage != kHIDUsage_KeyboardLockingNumLock) &&
-            !(_keyboard.caps.delayMS && (usage == kHIDUsage_KeyboardCapsLock))) ||
-            (_keyboard.appleVendorSupported &&
-             ((usagePage == kHIDPage_AppleVendorKeyboard) ||
-              ((usagePage == kHIDPage_AppleVendorTopCase) &&
-               (usage == kHIDUsage_AV_TopCase_KeyboardFn))))) {
-        if ( !_keyboardNub )
-            _keyboardNub = newKeyboardShim();
-
-        if ( _keyboardNub )
-            _keyboardNub->dispatchKeyboardEvent(timeStamp, usagePage, usage, (value != 0), options);
-
-    }
-    else {
-        if ( !_consumerNub )
-            _consumerNub = newConsumerShim();
-
-        if ( _consumerNub ) {
-            if ( (usagePage == kHIDPage_Consumer) && (usage == kHIDUsage_Csmr_Eject) && ((options & kDelayedOption) == 0) && _keyboardNub && ((_keyboardNub->eventFlags() & SPECIALKEYS_MODIFIER_MASK) == 0)) {
-                if (( _keyboard.eject.state != value ) && _keyboard.eject.timer) {
-                    if ( value ) {
-                        _keyboard.eject.options       = options;
-
-                        _keyboard.eject.timer->setTimeoutMS( _keyboard.eject.delayMS );
-                    }
-                    else {
-                        _keyboard.eject.timer->cancelTimeout();
-                    }
-
-                   _keyboard.eject.state = value;
+    _keyboard.pressedKeysMask = 0;
+    
+    for (int index = 0 ; index < sizeof(_keyboard.pressedKeys)/sizeof(_keyboard.pressedKeys[0]); index++) {
+        uint32_t maskForKey = 0;
+        if (_keyboard.pressedKeys[index].isValid()) {
+            maskForKey = kKeyMaskUnknown;
+            for (int i = 0 ; i < sizeof (keyMonitorTable)/sizeof(keyMonitorTable[0]); i++) {
+                if (keyMonitorTable[i].key == _keyboard.pressedKeys[index]) {
+                    maskForKey = keyMonitorTable[i].mask;
+                    break;
                 }
             }
-            else  if (!(((options & kDelayedOption) == 0) && _keyboard.eject.state && (usagePage == kHIDPage_Consumer) && (usage == kHIDUsage_Csmr_Eject))) {
+        }
+        _keyboard.pressedKeysMask |= maskForKey;
+    }
+    
+    uint32_t debugMask = (_keyboard.pressedKeysMask & kKeyMaskUnknown) ? 0 : _keyboard.pressedKeysMask;
+
+    if (debugMask && value != 0) {
+      for (int index = 0 ; index < sizeof (debugKeyActionTable)/sizeof(debugKeyActionTable[0]); index++) {
+        if (debugKeyActionTable[index].mask == debugMask) {
+          HIDLogError ("HID: taking action for debug key mask %x", debugMask);
+          debugKeyActionTable[index].action(this, debugKeyActionTable[index].parameter);
+          return;
+        }
+      }
+    }
+  
+    
+    event = IOHIDEvent::keyboardEvent(timeStamp, usagePage, usage, (value != 0), options);
+    if ( event ) {
+        dispatchEvent(event);
+        event->release();
+    }
+    
+    if (_keyboardShim != kLegacyShimDisabled) {
+
+        NUB_LOCK;
+    
+        IOHID_DEBUG(kIOHIDDebugCode_DispatchKeyboard, usagePage, usage, value, options);
+        
+        if (usagePage == kHIDPage_KeyboardOrKeypad ||
+           (_keyboard.appleVendorSupported && (usagePage == kHIDPage_AppleVendorKeyboard || (usagePage == kHIDPage_AppleVendorTopCase && usage == kHIDUsage_AV_TopCase_KeyboardFn)))) {
+            if ( !_keyboardNub ) {
+                _keyboardNub = newKeyboardShim();
+            }
+            if ( _keyboardNub ) {
+                _keyboardNub->dispatchKeyboardEvent(timeStamp, usagePage, usage, (value != 0), options);
+            }
+        }
+
+        if (usagePage == kHIDPage_Consumer) {
+            if ( !_consumerNub )
+                _consumerNub = newConsumerShim();
+            
+            if ( _consumerNub ) {
                 _consumerNub->dispatchConsumerEvent(_keyboardNub, timeStamp, usagePage, usage, value, options);
             }
         }
-
-        if ( _keyboard.caps.delayMS && (usagePage == kHIDPage_KeyboardOrKeypad) && (usage == kHIDUsage_KeyboardCapsLock)) {
-            if ( (options & kDelayedOption) == 0) {
-
-                if ( getElementValue(kHIDPage_LEDs, kHIDUsage_LED_CapsLock) == 0 ) {
-                    if (( _keyboard.caps.state != value ) && _keyboard.caps.timer ) {
-                        if ( value ) {
-                            _keyboard.caps.options       = options;
-
-                            _keyboard.caps.timer->setTimeoutMS( _keyboard.caps.delayMS );
-                        }
-                        else {
-                            _keyboard.caps.timer->cancelTimeout();
-                        }
-
-                        _keyboard.caps.state = value;
-                    }
-                }
-                else {
-                    _keyboardNub->dispatchKeyboardEvent(timeStamp, usagePage, usage, value, options);
-                }
-            }
-            else  if (!( ((options & kDelayedOption) == 0) && _keyboard.caps.state ) ) {
-                _keyboardNub->dispatchKeyboardEvent(timeStamp, usagePage, usage, value, options);
-            }
-        }
+        
+        NUB_UNLOCK;
     }
-
-    NUB_UNLOCK;
-
 #endif /* TARGET_OS_EMBEDDED */ // }
 
 }
 
+//====================================================================================================
+// IOHIDEventService::dispatchRelativePointerEvent
+//====================================================================================================
+void IOHIDEventService::dispatchRelativePointerEventWithFixed(
+                                AbsoluteTime                timeStamp,
+                                IOFixed                     dx,
+                                IOFixed                     dy,
+                                UInt32                      buttonState,
+                                IOOptionBits                options)
+{
+
+    IOHID_DEBUG(kIOHIDDebugCode_DispatchRelativePointer, dx, dy, buttonState, options);
+
+    if ( ! _readyForInputReports )
+        return;
+
+    if ( !dx && !dy && buttonState == _relativePointer.buttonState )
+        return;
+
+    
+    IOHIDEvent *event = IOHIDEvent::relativePointerEventWithFixed(timeStamp, dx, dy, 0, buttonState, _relativePointer.buttonState);
+
+    if ( event ) {
+        dispatchEvent(event);
+        event->release();
+    }
+
+
+#ifdef POINTING_SHIM_SUPPORT
+    if (_pointingShim != kLegacyShimDisabled) {
+        
+        NUB_LOCK;
+        
+        if (!_pointingNub ) {
+            _pointingNub = newPointingShim();
+        }
+        if (_pointingNub) {
+            _pointingNub->dispatchRelativePointerEvent(timeStamp, dx, dy, buttonState, options);
+        }
+      
+        NUB_UNLOCK;
+    }
+#endif
+    
+    _relativePointer.buttonState = buttonState;
+
+}
 
 //====================================================================================================
 // IOHIDEventService::dispatchRelativePointerEvent
@@ -1793,39 +1826,9 @@ void IOHIDEventService::dispatchRelativePointerEvent(
                                 UInt32                      buttonState,
                                 IOOptionBits                options)
 {
-    IOHID_DEBUG(kIOHIDDebugCode_DispatchRelativePointer, dx, dy, buttonState, options);
-
-    if ( ! _readyForInputReports )
-        return;
-
-    if ( !dx && !dy && buttonState == _relativePointer.buttonState )
-        return;
-
-#if TARGET_OS_EMBEDDED
-    
-    IOHIDEvent *event = IOHIDEvent::relativePointerEvent(timeStamp, dx, dy, 0, buttonState, _relativePointer.buttonState);
-
-    if ( event ) {
-        dispatchEvent(event);
-        event->release();
-    }
-
-#else
-    NUB_LOCK;
-
-    if ( !_pointingNub )
-        _pointingNub = newPointingShim();
-
-    if ( _pointingNub )
-        _pointingNub->dispatchRelativePointerEvent(timeStamp, dx, dy, buttonState, options);
-
-    NUB_UNLOCK;
-#endif /* TARGET_OS_EMBEDDED */
-    
-    _relativePointer.buttonState = buttonState;
+    dispatchRelativePointerEventWithFixed (timeStamp, dx << 16, dy << 16, buttonState, options);
 }
 
-#if TARGET_OS_EMBEDDED
 static IOFixed __ScaleToFixed(int32_t value, int32_t min, int32_t max)
 {
     int32_t range = max - min;
@@ -1833,7 +1836,6 @@ static IOFixed __ScaleToFixed(int32_t value, int32_t min, int32_t max)
 
     return IOFixedDivide(offset<<16, range<<16);
 }
-#endif
 
 //====================================================================================================
 // IOHIDEventService::dispatchAbsolutePointerEvent
@@ -1857,30 +1859,73 @@ void IOHIDEventService::dispatchAbsolutePointerEvent(
 #else
     IOHID_DEBUG(kIOHIDDebugCode_DispatchAbsolutePointer, x, y, buttonState, options);
 
-    if ( ! _readyForInputReports )
-        return;
-
-    if ( !inRange ) {
-        buttonState = 0;
-        tipPressure = tipPressureMin;
+    IOHIDEvent *event = IOHIDEvent::absolutePointerEvent(timeStamp, __ScaleToFixed(x, bounds->minx, bounds->maxx), __ScaleToFixed(y, bounds->miny, bounds->maxy), _absolutePointer.buttonState, buttonState);
+    
+    if (event) {
+        dispatchEvent(event);
     }
 
-    NUB_LOCK;
+#ifdef POINTING_SHIM_SUPPORT
+    if (_pointingShim != kLegacyShimDisabled) {
+        
+        NUB_LOCK;
 
-    if ( !_pointingNub )
-        _pointingNub = newPointingShim();
+        if ( !_pointingNub )
+            _pointingNub = newPointingShim();
 
-    IOGPoint newLoc;
+        NUB_UNLOCK;
+    }
+#endif
+  
+    _absolutePointer.buttonState = buttonState;
 
-    newLoc.x = x;
-    newLoc.y = y;
-
-    _pointingNub->dispatchAbsolutePointerEvent(timeStamp, &newLoc, bounds, buttonState, inRange, tipPressure, tipPressureMin, tipPressureMax, options);
-
-    NUB_UNLOCK;
 #endif /* !TARGET_OS_EMBEDDED */
 
 }
+
+
+//====================================================================================================
+// IOHIDEventService::dispatchScrollWheelEvent
+//====================================================================================================
+void IOHIDEventService::dispatchScrollWheelEventWithFixed(
+                                AbsoluteTime                timeStamp,
+                                IOFixed                     deltaAxis1,
+                                IOFixed                     deltaAxis2,
+                                IOFixed                     deltaAxis3,
+                                IOOptionBits                options)
+{
+    uint8_t momentumOrPhase = (options & kHIDDispatchOptionPhaseAny) >> 4 | ((options & kHIDDispatchOptionScrollMomentumAny) << (4 - 1));
+    IOHID_DEBUG(kIOHIDDebugCode_DispatchScroll, deltaAxis1, deltaAxis2, deltaAxis3, options);
+
+    if ( ! _readyForInputReports )
+        return;
+    
+    if ( !deltaAxis1 && !deltaAxis2 && !deltaAxis3 && !momentumOrPhase )
+        return;
+
+    IOHIDEvent *event = IOHIDEvent::scrollEventWithFixed(timeStamp, deltaAxis2, deltaAxis1, deltaAxis3); //yxz should be xyz
+    if ( event ) {
+        if (momentumOrPhase) {
+          event->setPhase (momentumOrPhase);
+        }
+        dispatchEvent(event);
+        event->release();
+    }
+
+#ifdef POINTING_SHIM_SUPPORT
+    if (_pointingShim != kLegacyShimDisabled) {
+        NUB_LOCK;
+
+        if ( !_pointingNub )
+            _pointingNub = newPointingShim();
+        if (_pointingNub)
+            _pointingNub->dispatchScrollWheelEvent(timeStamp, deltaAxis1 >> 16, deltaAxis2 >> 16, deltaAxis3 >> 16, options);
+
+        NUB_UNLOCK;
+    }
+#endif
+}
+
 
 //====================================================================================================
 // IOHIDEventService::dispatchScrollWheelEvent
@@ -1892,36 +1937,7 @@ void IOHIDEventService::dispatchScrollWheelEvent(
                                 SInt32                      deltaAxis3,
                                 IOOptionBits                options)
 {
-    bool momentumOrPhase = options & (kHIDDispatchOptionScrollMomentumAny | kHIDDispatchOptionPhaseAny);
-    IOHID_DEBUG(kIOHIDDebugCode_DispatchScroll, deltaAxis1, deltaAxis2, deltaAxis3, options);
-
-    if ( ! _readyForInputReports )
-        return;
-    
-    if ( !deltaAxis1 && !deltaAxis2 && !deltaAxis3 && !momentumOrPhase )
-        return;
-
-#if TARGET_OS_EMBEDDED
-
-    IOHIDEvent *event = IOHIDEvent::scrollEvent(timeStamp, deltaAxis2, deltaAxis1, deltaAxis3); //yxz should be xyz
-
-    if ( event ) {
-        dispatchEvent(event);
-        event->release();
-    }
-
-#else
-
-    NUB_LOCK;
-
-    if ( !_pointingNub )
-        _pointingNub = newPointingShim();
-
-    if ( _pointingNub )
-        _pointingNub->dispatchScrollWheelEvent(timeStamp, deltaAxis1, deltaAxis2, deltaAxis3, options);
-
-    NUB_UNLOCK;
-#endif /* TARGET_OS_EMBEDDED */
+    dispatchScrollWheelEventWithFixed (timeStamp, deltaAxis1 << 16, deltaAxis2 << 16, deltaAxis3 << 16);
 }
 
 #if !TARGET_OS_EMBEDDED
@@ -1958,43 +1974,48 @@ void IOHIDEventService::dispatchTabletPointerEvent(
                                 UInt32                      twist,
                                 IOOptionBits                options)
 {
-#if !TARGET_OS_EMBEDDED
+//#if !TARGET_OS_EMBEDDED
     IOHID_DEBUG(kIOHIDDebugCode_DispatchTabletPointer, x, y, buttonState, options);
+
 
     if ( ! _readyForInputReports )
         return;
 
-    NUB_LOCK;
+#ifdef POINTING_SHIM_SUPPORT
+  
+    if (_pointingShim != kLegacyShimDisabled) {
+        NUB_LOCK;
 
-    if ( !_pointingNub )
-        _pointingNub = newPointingShim();
+        if ( !_pointingNub )
+            _pointingNub = newPointingShim();
 
-    NXEventData         tabletData = {};
+//        NXEventData         tabletData = {};
+//
+//        ScalePressure(&tipPressure, tipPressureMin, tipPressureMax, 0, kMaxSystemTipPressure);
+//        ScalePressure(&barrelPressure, barrelPressureMin, barrelPressureMax, -kMaxSystemBarrelPressure, kMaxSystemBarrelPressure);
+//
+//        IOGPoint newLoc;
+//
+//        newLoc.x = x;
+//        newLoc.y = y;
+//
+//        //IOHIDSystem::scaleLocationToCurrentScreen(&newLoc, bounds);
+//
+//        tabletData.tablet.x                    = newLoc.x;
+//        tabletData.tablet.y                    = newLoc.y;
+//        tabletData.tablet.z        f            = z;
+//        tabletData.tablet.buttons              = buttonState;
+//        tabletData.tablet.pressure             = tipPressure;
+//        tabletData.tablet.tilt.x               = tiltX;
+//        tabletData.tablet.tilt.y               = tiltY;
+//        tabletData.tablet.rotation             = twist;
+//        tabletData.tablet.tangentialPressure   = barrelPressure;
+//        tabletData.tablet.deviceID             = _digitizer.deviceID;
+//
+//        _pointingNub->dispatchTabletEvent(&tabletData, timeStamp);
 
-    ScalePressure(&tipPressure, tipPressureMin, tipPressureMax, 0, kMaxSystemTipPressure);
-    ScalePressure(&barrelPressure, barrelPressureMin, barrelPressureMax, -kMaxSystemBarrelPressure, kMaxSystemBarrelPressure);
-
-    IOGPoint newLoc;
-
-    newLoc.x = x;
-    newLoc.y = y;
-
-    //IOHIDSystem::scaleLocationToCurrentScreen(&newLoc, bounds);
-
-    tabletData.tablet.x                    = newLoc.x;
-    tabletData.tablet.y                    = newLoc.y;
-    tabletData.tablet.z                    = z;
-    tabletData.tablet.buttons              = buttonState;
-    tabletData.tablet.pressure             = tipPressure;
-    tabletData.tablet.tilt.x               = tiltX;
-    tabletData.tablet.tilt.y               = tiltY;
-    tabletData.tablet.rotation             = twist;
-    tabletData.tablet.tangentialPressure   = barrelPressure;
-    tabletData.tablet.deviceID             = _digitizer.deviceID;
-
-    _pointingNub->dispatchTabletEvent(&tabletData, timeStamp);
-
-    NUB_UNLOCK;
+        NUB_UNLOCK;
+    }
 #endif /* !TARGET_OS_EMBEDDED */
 }
 
@@ -2010,53 +2031,56 @@ void IOHIDEventService::dispatchTabletProximityEvent(
                                 UInt32                      vendorTransducerSerialNumber,
                                 IOOptionBits                options)
 {
-#if !TARGET_OS_EMBEDDED
+//#if !TARGET_OS_EMBEDDED
     IOHID_DEBUG(kIOHIDDebugCode_DispatchTabletProx, transducerID, vendorTransducerUniqueID, vendorTransducerSerialNumber, options);
 
     if ( ! _readyForInputReports )
         return;
 
-    NUB_LOCK;
+#ifdef POINTING_SHIM_SUPPORT
+  
+    if (_pointingShim != kLegacyShimDisabled) {
+        NUB_LOCK;
 
-    if ( !_pointingNub )
-        _pointingNub = newPointingShim();
+        if ( !_pointingNub )
+            _pointingNub = newPointingShim();
 
-    NXEventData tabletData      = {};
-    UInt32      capabilityMask  = NX_TABLET_CAPABILITY_DEVICEIDMASK | NX_TABLET_CAPABILITY_ABSXMASK | NX_TABLET_CAPABILITY_ABSYMASK;
-    
-    if ( _digitizer.deviceID == 0 )
-        _digitizer.deviceID = IOHIDPointing::generateDeviceID();
-    
-    if ( options & kDigitizerCapabilityButtons )
-        capabilityMask |= NX_TABLET_CAPABILITY_BUTTONSMASK;
-    if ( options & kDigitizerCapabilityPressure )
-        capabilityMask |= NX_TABLET_CAPABILITY_PRESSUREMASK;
-    if ( options & kDigitizerCapabilityTangentialPressure )
-        capabilityMask |= NX_TABLET_CAPABILITY_TANGENTIALPRESSUREMASK;
-    if ( options & kDigitizerCapabilityZ )
-        capabilityMask |= NX_TABLET_CAPABILITY_ABSZMASK;
-    if ( options & kDigitizerCapabilityTiltX )
-        capabilityMask |= NX_TABLET_CAPABILITY_TILTXMASK;
-    if ( options & kDigitizerCapabilityTiltY )
-        capabilityMask |= NX_TABLET_CAPABILITY_TILTYMASK;
-    if ( options & kDigitizerCapabilityTwist )
-        capabilityMask |= NX_TABLET_CAPABILITY_ROTATIONMASK;
+//        NXEventData tabletData      = {};
+//        UInt32      capabilityMask  = NX_TABLET_CAPABILITY_DEVICEIDMASK | NX_TABLET_CAPABILITY_ABSXMASK | NX_TABLET_CAPABILITY_ABSYMASK;
+//        
+//        if ( _digitizer.deviceID == 0 )
+//            _digitizer.deviceID = IOHIDPointing::generateDeviceID();
+//        
+//        if ( options & kDigitizerCapabilityButtons )
+//            capabilityMask |= NX_TABLET_CAPABILITY_BUTTONSMASK;
+//        if ( options & kDigitizerCapabilityPressure )
+//            capabilityMask |= NX_TABLET_CAPABILITY_PRESSUREMASK;
+//        if ( options & kDigitizerCapabilityTangentialPressure )
+//            capabilityMask |= NX_TABLET_CAPABILITY_TANGENTIALPRESSUREMASK;
+//        if ( options & kDigitizerCapabilityZ )
+//            capabilityMask |= NX_TABLET_CAPABILITY_ABSZMASK;
+//        if ( options & kDigitizerCapabilityTiltX )
+//            capabilityMask |= NX_TABLET_CAPABILITY_TILTXMASK;
+//        if ( options & kDigitizerCapabilityTiltY )
+//            capabilityMask |= NX_TABLET_CAPABILITY_TILTYMASK;
+//        if ( options & kDigitizerCapabilityTwist )
+//            capabilityMask |= NX_TABLET_CAPABILITY_ROTATIONMASK;
+//
+//        tabletData.proximity.vendorID               = getVendorID();
+//        tabletData.proximity.tabletID               = getProductID();
+//        tabletData.proximity.pointerID              = transducerID;
+//        tabletData.proximity.deviceID               = _digitizer.deviceID;
+//        tabletData.proximity.vendorPointerType      = NX_TABLET_POINTER_PEN;
+//        tabletData.proximity.pointerSerialNumber    = vendorTransducerSerialNumber;
+//        tabletData.proximity.uniqueID               = vendorTransducerUniqueID;
+//        tabletData.proximity.capabilityMask         = capabilityMask;
+//        tabletData.proximity.enterProximity         = inRange;
+//        tabletData.proximity.pointerType            = invert ? NX_TABLET_POINTER_ERASER : NX_TABLET_POINTER_PEN;
+//
+//        _pointingNub->dispatchProximityEvent(&tabletData, timeStamp);
 
-    tabletData.proximity.vendorID               = getVendorID();
-    tabletData.proximity.tabletID               = getProductID();
-    tabletData.proximity.pointerID              = transducerID;
-    tabletData.proximity.deviceID               = _digitizer.deviceID;
-    tabletData.proximity.vendorPointerType      = NX_TABLET_POINTER_PEN;
-    tabletData.proximity.pointerSerialNumber    = vendorTransducerSerialNumber;
-    tabletData.proximity.uniqueID               = vendorTransducerUniqueID;
-    tabletData.proximity.capabilityMask         = capabilityMask;
-    tabletData.proximity.enterProximity         = inRange;
-    tabletData.proximity.pointerType            = invert ? NX_TABLET_POINTER_ERASER : NX_TABLET_POINTER_PEN;
-
-    _pointingNub->dispatchProximityEvent(&tabletData, timeStamp);
-
-    NUB_UNLOCK;
-
+        NUB_UNLOCK;
+    }
 #endif /* !TARGET_OS_EMBEDDED */
 }
 
@@ -2072,18 +2096,17 @@ OSMetaClassDefineReservedUsed(IOHIDEventService,  0);
 OSArray * IOHIDEventService::getDeviceUsagePairs()
 {
     //RY: Correctly deal with kIOHIDDeviceUsagePairsKey
-    OSArray * providerUsagePairs = _provider ? (OSArray*)_provider->copyProperty(kIOHIDDeviceUsagePairsKey) : NULL;
+    OSObject *obj = _provider->copyProperty(kIOHIDDeviceUsagePairsKey);
+    OSArray * providerUsagePairs = _provider ? OSDynamicCast(OSArray, obj) : NULL;
 
-    if ( OSDynamicCast(OSArray, providerUsagePairs) && ( providerUsagePairs != _deviceUsagePairs ) ) {
+    if ( providerUsagePairs && ( providerUsagePairs != _deviceUsagePairs ) ) {
         setProperty(kIOHIDDeviceUsagePairsKey, providerUsagePairs);
         if ( _deviceUsagePairs )
             _deviceUsagePairs->release();
 
         _deviceUsagePairs = providerUsagePairs;
         _deviceUsagePairs->retain();
-    }
-#if TARGET_OS_EMBEDDED
-    else if ( !_deviceUsagePairs ) {
+    } else if ( !_deviceUsagePairs ) {
         _deviceUsagePairs = OSArray::withCapacity(2);
 
         if ( _deviceUsagePairs ) {
@@ -2109,9 +2132,7 @@ OSArray * IOHIDEventService::getDeviceUsagePairs()
             }
         }
     }
-#endif
-    OSSafeRelease(providerUsagePairs);
-
+    OSSafeReleaseNULL(obj);
     return _deviceUsagePairs;
 }
 
@@ -2123,8 +2144,10 @@ UInt32 IOHIDEventService::getReportInterval()
 {
     UInt32 interval = 8000; // default to 8 milliseconds
     OSObject *object = copyProperty(kIOHIDReportIntervalKey, gIOServicePlane, kIORegistryIterateRecursively | kIORegistryIterateParents);
-    if ( OSDynamicCast(OSNumber, object) )
-        interval = ((OSNumber*)object)->unsigned32BitValue();
+    OSNumber *num = OSDynamicCast(OSNumber, object);
+    
+    if ( num )
+        interval = num->unsigned32BitValue();
     OSSafeReleaseNULL(object);
 
     return interval;
@@ -2491,7 +2514,7 @@ void IOHIDEventService::dispatchUnicodeEvent(AbsoluteTime timeStamp, UInt8 * pay
 #endif
 }
 
-#if TARGET_OS_EMBEDDED
+//YG #if TARGET_OS_EMBEDDED
 //==============================================================================
 // IOHIDEventService::dispatchStandardGameControllerEvent
 //==============================================================================
@@ -2697,31 +2720,82 @@ bool IOHIDEventService::openGated(IOService *                 client,
                                   void *                      context,
                                   Action                      action)
 {
-    IOHIDClientData * clientData =
-    IOHIDClientData::withClientInfo(client, context, (void*)action);
+    IOHIDClientData * clientData = IOHIDClientData::withClientInfo(client, context, (void*)action);
     bool ret = false;
 
     if ( clientData ) {
-        if ( super::open(client, *pOptions, clientData) )
+        if (super::open(client, *pOptions, clientData)) {
             ret = true;
+        }
         clientData->release();
     }
+
+#if !TARGET_OS_EMBEDDED
+    
+    if (_keyboardShim == kLegacyShimEnabledForSingleUserMode) {
+
+        NUB_LOCK;
+
+        _keyboardShim = kLegacyShimDisabled;
+        
+        if (_keyboardNub) {
+            stopAndReleaseShim ( _keyboardNub, this );
+            _keyboardNub = NULL;
+        }
+
+        if (_consumerNub) {
+            stopAndReleaseShim ( _consumerNub, this );
+            _consumerNub = NULL;
+        }
+
+        NUB_UNLOCK;
+    }
+    
+#endif
 
     return ret;
 }
 
 
+//==============================================================================
+// IOService::newUserClient
+//==============================================================================
 
-#else
+IOReturn  IOHIDEventService::newUserClient (
+                                            task_t owningTask,
+                                            void * securityID,
+                                            UInt32 type,
+                                            OSDictionary * properties,
+                                            IOUserClient ** handler )
+{
+    if (type == kIOHIDEventServiceUserClientType) {
+        IOHIDEventServiceUserClient * client = OSTypeAlloc(IOHIDEventServiceUserClient);
+        if (client) {
+            if (!client->initWithTask(owningTask, securityID, type)) {
+                client->release();
+                return kIOReturnBadArgument;
+            }
 
-OSMetaClassDefineReservedUnused(IOHIDEventService,  7);
-OSMetaClassDefineReservedUnused(IOHIDEventService,  8);
-OSMetaClassDefineReservedUnused(IOHIDEventService,  9);
-OSMetaClassDefineReservedUnused(IOHIDEventService, 10);
-OSMetaClassDefineReservedUnused(IOHIDEventService, 11);
-OSMetaClassDefineReservedUnused(IOHIDEventService, 12);
-OSMetaClassDefineReservedUnused(IOHIDEventService, 13);
-#endif /* TARGET_OS_EMBEDDED */
+            if ( !client->attach(this) ) {
+                client->release();
+                return kIOReturnUnsupported;
+            }
+
+            if ( !client->start(this) ) {
+                client->detach(this);
+                client->release();
+                return kIOReturnUnsupported;
+            }
+
+            *handler = client;
+            return kIOReturnSuccess;
+        }
+        return kIOReturnNoMemory;
+    }
+    return super::newUserClient(owningTask, securityID, type, properties, handler);
+}
+
+
 OSMetaClassDefineReservedUnused(IOHIDEventService, 14);
 OSMetaClassDefineReservedUnused(IOHIDEventService, 15);
 OSMetaClassDefineReservedUnused(IOHIDEventService, 16);

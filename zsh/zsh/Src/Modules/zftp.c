@@ -409,7 +409,7 @@ zfalarm(int tmout)
 
 /**/
 static void
-zfpipe()
+zfpipe(void)
 {
     /* Just ignore SIGPIPE and rely on getting EPIPE from the write. */
     signal(SIGPIPE, SIG_IGN);
@@ -450,7 +450,7 @@ zfunalarm(void)
 
 /**/
 static void
-zfunpipe()
+zfunpipe(void)
 {
     if (sigtrapped[SIGPIPE]) {
 	if (siglists[SIGPIPE] || (sigtrapped[SIGPIPE] & ZSIG_FUNC))
@@ -731,7 +731,7 @@ zfgetmsg(void)
     stopit = (*ptr++ != '-');
 
     queue_signals();
-    if (!(verbose = getsparam("ZFTP_VERBOSE")))
+    if (!(verbose = getsparam_u("ZFTP_VERBOSE")))
 	verbose = "";
     if (strchr(verbose, lastcodestr[0])) {
 	/* print the whole thing verbatim */
@@ -1298,7 +1298,7 @@ zfstarttrans(char *nam, int recv, off_t sz)
 
 /**/
 static void
-zfendtrans()
+zfendtrans(void)
 {
     zfunsetparam("ZFTP_SIZE");
     zfunsetparam("ZFTP_FILE");
@@ -1785,7 +1785,7 @@ zftp_open(char *name, char **args, int flags)
 	char *hname;
 	alarm(0);
 	queue_signals();
-	if ((hname = getsparam("ZFTP_HOST")) && *hname) 
+	if ((hname = getsparam_u("ZFTP_HOST")) && *hname) 
 	    zwarnnam(name, "timeout connecting to %s", hname);
 	else
 	    zwarnnam(name, "timeout on host name lookup");
@@ -2834,7 +2834,7 @@ newsession(char *nm)
 /* Save the existing session: this just means saving the parameters. */
 
 static void
-savesession()
+savesession(void)
 {
     char **ps, **pd, *val;
 
@@ -3077,7 +3077,7 @@ bin_zftp(char *name, char **args, UNUSED(Options ops), UNUSED(int func))
     }
 
     queue_signals();
-    if ((prefs = getsparam("ZFTP_PREFS"))) {
+    if ((prefs = getsparam_u("ZFTP_PREFS"))) {
 	zfprefs = 0;
 	for (ptr = prefs; *ptr; ptr++) {
 	    switch (toupper(STOUC(*ptr))) {
@@ -3149,9 +3149,11 @@ zftp_cleanup(void)
 	zfclose(zfsess != cursess);
     }
     zsfree(lastmsg);
+    lastmsg = NULL;
     zfunsetparam("ZFTP_SESSION");
     freelinklist(zfsessions, (FreeFunc) freesession);
     zfree(zfstatusp, sizeof(int)*zfsesscnt);
+    zfstatusp = NULL;
 }
 
 static int

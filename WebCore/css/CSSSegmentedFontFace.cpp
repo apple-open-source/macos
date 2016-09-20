@@ -37,135 +37,105 @@
 
 namespace WebCore {
 
-CSSSegmentedFontFace::CSSSegmentedFontFace(CSSFontSelector* fontSelector)
-    : m_fontSelector(fontSelector)
+CSSSegmentedFontFace::CSSSegmentedFontFace()
 {
 }
 
 CSSSegmentedFontFace::~CSSSegmentedFontFace()
 {
-    pruneTable();
-    unsigned size = m_fontFaces.size();
-    for (unsigned i = 0; i < size; i++)
-        m_fontFaces[i]->removedFromSegmentedFontFace(this);
+    for (auto& face : m_fontFaces)
+        face->removeClient(*this);
 }
 
-void CSSSegmentedFontFace::pruneTable()
+void CSSSegmentedFontFace::appendFontFace(Ref<CSSFontFace>&& fontFace)
 {
-    m_descriptionToRangesMap.clear();
+    m_cache.clear();
+    fontFace->addClient(*this);
+    m_fontFaces.append(WTFMove(fontFace));
 }
 
-bool CSSSegmentedFontFace::isValid() const
+void CSSSegmentedFontFace::fontLoaded(CSSFontFace&)
 {
-    // Valid if at least one font face is valid.
-    unsigned size = m_fontFaces.size();
-    for (unsigned i = 0; i < size; i++) {
-        if (m_fontFaces[i]->isValid())
-            return true;
+    m_cache.clear();
+}
+
+class CSSFontAccessor final : public FontAccessor {
+public:
+    static Ref<CSSFontAccessor> create(CSSFontFace& fontFace, const FontDescription& fontDescription, bool syntheticBold, bool syntheticItalic)
+    {
+        return adoptRef(*new CSSFontAccessor(fontFace, fontDescription, syntheticBold, syntheticItalic));
     }
-    return false;
-}
 
-void CSSSegmentedFontFace::fontLoaded(CSSFontFace*)
-{
-    pruneTable();
-
-#if ENABLE(FONT_LOAD_EVENTS)
-    if (RuntimeEnabledFeatures::sharedFeatures().fontLoadEventsEnabled() && !isLoading()) {
-        Vector<RefPtr<LoadFontCallback>> callbacks;
-        m_callbacks.swap(callbacks);
-        for (size_t index = 0; index < callbacks.size(); ++index) {
-            if (checkFont())
-                callbacks[index]->notifyLoaded();
-            else
-                callbacks[index]->notifyError();
-        }
+    const Font* font() const final
+    {
+        if (!m_result)
+            m_result = m_fontFace->font(m_fontDescription, m_syntheticBold, m_syntheticItalic);
+        return m_result.value().get();
     }
-#endif
-}
 
-void CSSSegmentedFontFace::appendFontFace(PassRefPtr<CSSFontFace> fontFace)
-{
-    pruneTable();
-    fontFace->addedToSegmentedFontFace(this);
-    m_fontFaces.append(fontFace);
-}
+private:
+    CSSFontAccessor(CSSFontFace& fontFace, const FontDescription& fontDescription, bool syntheticBold, bool syntheticItalic)
+        : m_fontFace(fontFace)
+        , m_fontDescription(fontDescription)
+        , m_syntheticBold(syntheticBold)
+        , m_syntheticItalic(syntheticItalic)
+    {
+    }
 
-static void appendFontWithInvalidUnicodeRangeIfLoading(FontRanges& ranges, Ref<Font>&& font, const Vector<CSSFontFace::UnicodeRange>& unicodeRanges)
+    bool isLoading() const final
+    {
+        return m_result && m_result.value() && m_result.value()->isLoading();
+    }
+
+    mutable Optional<RefPtr<Font>> m_result; // Caches nullptr too
+    mutable Ref<CSSFontFace> m_fontFace;
+    FontDescription m_fontDescription;
+    bool m_syntheticBold;
+    bool m_syntheticItalic;
+};
+
+static void appendFontWithInvalidUnicodeRangeIfLoading(FontRanges& ranges, Ref<FontAccessor>&& fontAccessor, const Vector<CSSFontFace::UnicodeRange>& unicodeRanges)
 {
-    if (font->isLoading()) {
-        ranges.appendRange(FontRanges::Range(0, 0, WTF::move(font)));
+    if (fontAccessor->isLoading()) {
+        ranges.appendRange({ 0, 0, WTFMove(fontAccessor) });
         return;
     }
 
-    unsigned numRanges = unicodeRanges.size();
-    if (!numRanges) {
-        ranges.appendRange(FontRanges::Range(0, 0x7FFFFFFF, WTF::move(font)));
+    if (unicodeRanges.isEmpty()) {
+        ranges.appendRange({ 0, 0x7FFFFFFF, WTFMove(fontAccessor) });
         return;
     }
 
-    for (unsigned j = 0; j < numRanges; ++j)
-        ranges.appendRange(FontRanges::Range(unicodeRanges[j].from(), unicodeRanges[j].to(), font.copyRef()));
+    for (auto& range : unicodeRanges)
+        ranges.appendRange({ range.from, range.to, fontAccessor.copyRef() });
 }
 
 FontRanges CSSSegmentedFontFace::fontRanges(const FontDescription& fontDescription)
 {
-    if (!isValid())
-        return FontRanges();
-
     FontTraitsMask desiredTraitsMask = fontDescription.traitsMask();
 
-    auto addResult = m_descriptionToRangesMap.add(FontDescriptionFontDataCacheKey(fontDescription), FontRanges()); 
-    auto& fontRanges = addResult.iterator->value;
+    auto addResult = m_cache.add(FontDescriptionKey(fontDescription), FontRanges());
+    auto& result = addResult.iterator->value;
 
-    if (true /*addResult.isNewEntry*/) {
+    if (addResult.isNewEntry) {
         for (auto& face : m_fontFaces) {
-            if (!face->isValid())
+            if (face->allSourcesFailed())
                 continue;
 
             FontTraitsMask traitsMask = face->traitsMask();
             bool syntheticBold = (fontDescription.fontSynthesis() & FontSynthesisWeight) && !(traitsMask & (FontWeight600Mask | FontWeight700Mask | FontWeight800Mask | FontWeight900Mask)) && (desiredTraitsMask & (FontWeight600Mask | FontWeight700Mask | FontWeight800Mask | FontWeight900Mask));
             bool syntheticItalic = (fontDescription.fontSynthesis() & FontSynthesisStyle) && !(traitsMask & FontStyleItalicMask) && (desiredTraitsMask & FontStyleItalicMask);
 
-            if (RefPtr<Font> faceFont = face->font(fontDescription, syntheticBold, syntheticItalic))
-                appendFontWithInvalidUnicodeRangeIfLoading(fontRanges, faceFont.releaseNonNull(), face->ranges());
+            // This doesn't trigger an unnecessary download because every element styled with this family will need font metrics in order to run layout.
+            // Metrics used for layout come from FontRanges::fontForFirstRange(), which assumes that the first font is non-null.
+            // We're kicking off this necessary first download now.
+            auto fontAccessor = CSSFontAccessor::create(face, fontDescription, syntheticBold, syntheticItalic);
+            if (result.isNull() && !fontAccessor->font())
+                continue;
+            appendFontWithInvalidUnicodeRangeIfLoading(result, WTFMove(fontAccessor), face->ranges());
         }
     }
-    return fontRanges;
+    return result;
 }
-
-#if ENABLE(FONT_LOAD_EVENTS)
-bool CSSSegmentedFontFace::isLoading() const
-{
-    for (auto& face : m_fontFaces) {
-        if (face->loadState() == CSSFontFace::Loading)
-            return true;
-    }
-    return false;
-}
-
-bool CSSSegmentedFontFace::checkFont() const
-{
-    for (auto& face : m_fontFaces) {
-        if (face->loadState() != CSSFontFace::Loaded)
-            return false;
-    }
-    return true;
-}
-
-void CSSSegmentedFontFace::loadFont(const FontDescription& fontDescription, PassRefPtr<LoadFontCallback> callback)
-{
-    fontRanges(fontDescription); // Kick off the load.
-
-    if (callback) {
-        if (isLoading())
-            m_callbacks.append(callback);
-        else if (checkFont())
-            callback->notifyLoaded();
-        else
-            callback->notifyError();
-    }
-}
-#endif
 
 }

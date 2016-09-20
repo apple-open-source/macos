@@ -262,18 +262,18 @@ SDDLSession::postGetRecord(RecordHandle record, U32HandleObject::Handle resultsH
 			catch (...)
 			{
 				try { mClientSession.releaseRecord(record); }
-				catch(...) { secdebug("ssCrypt", "releaseRecord threw during catch"); }
+				catch(...) { secinfo("ssCrypt", "releaseRecord threw during catch"); }
 				if (resultsHandle != CSSM_INVALID_HANDLE)
 				{
 					try { mClientSession.releaseSearch(resultsHandle); }
-					catch(...) { secdebug("ssCrypt", "releaseSearch threw during catch"); }
+					catch(...) { secinfo("ssCrypt", "releaseSearch threw during catch"); }
 				}
 				throw;
 			}
 		} else {	// not a key
 			if (hKey != noKey) {
 				try { mClientSession.releaseRecord(record); }
-				catch(...) { secdebug("ssCrypt", "failed releasing bogus key handle"); }
+				catch(...) { secinfo("ssCrypt", "failed releasing bogus key handle"); }
 				CssmError::throwMe(CSSMERR_CSP_INVALID_KEY);
 			}
 		}
@@ -452,7 +452,7 @@ SDDLSession::PassThrough(CSSM_DB_HANDLE inDbHandle,
 
 			const AclEntryInfo &slot = acls.at(0);
 			if (acls.size() > 1)
-				secdebug("acl",
+				secinfo("acl",
 					"Using entry handle %ld from %d total candidates",
 					slot.handle(), acls.size());
 			AclEdit edit(slot.handle(), slot.proto());

@@ -1,1 +1,1 @@
-probe name = tick-1sec
+probe name = tick-10msec

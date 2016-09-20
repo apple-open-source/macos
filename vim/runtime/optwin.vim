@@ -1,7 +1,7 @@
 " These commands create the option window.
 "
 " Maintainer:	Bram Moolenaar <Bram@vim.org>
-" Last Change:	2010 Jul 24
+" Last Change:	2015 Jul 22
 
 " If there already is an option window, jump to that one.
 if bufwinnr("option-window") > 0
@@ -10,7 +10,7 @@ if bufwinnr("option-window") > 0
     if @% == "option-window"
       finish
     endif
-    exe "norm! \<C-W>w"
+    wincmd w
     if s:thiswin == winnr()
       break
     endif
@@ -26,12 +26,8 @@ set cpo&vim
 fun! <SID>CR()
 
   " If on a continued comment line, go back to the first comment line
-  let lnum = line(".")
+  let lnum = search("^[^\t]", 'bWcn')
   let line = getline(lnum)
-  while line[0] == "\t"
-    let lnum = lnum - 1
-    let line = getline(lnum)
-  endwhile
 
   " <CR> on a "set" line executes the option line
   if match(line, "^ \tset ") >= 0
@@ -82,11 +78,11 @@ fun! <SID>Find(lnum)
     if getline(a:lnum - 1) =~ "(local to"
       let local = 1
       let thiswin = winnr()
-      exe "norm! \<C-W>p"
+      wincmd p
       if exists("b:current_syntax") && b:current_syntax == "help"
-	exe "norm! \<C-W>j"
+	wincmd j
 	if winnr() == thiswin
-	  exe "norm! \<C-W>j"
+	  wincmd j
 	endif
       endif
     else
@@ -111,10 +107,10 @@ fun! <SID>Update(lnum, line, local, thiswin)
   if name == "pt" && &pt =~ "\x80"
     let val = <SID>PTvalue()
   else
-    exe "let val = substitute(&" . name . ', "[ \\t\\\\\"|]", "\\\\\\0", "g")'
+    let val = escape(eval('&' . name), " \t\\\"|")
   endif
   if a:local
-    exe "norm! " . a:thiswin . "\<C-W>w"
+    exe a:thiswin . "wincmd w"
   endif
   if match(a:line, "=") >= 0 || (val != "0" && val != "1")
     call setline(a:lnum, " \tset " . name . "=" . val)
@@ -139,7 +135,7 @@ set notitle noicon nosc noru
 " Relies on syntax highlighting to be switched on.
 let s:thiswin = winnr()
 while exists("b:current_syntax") && b:current_syntax == "help"
-  exe "norm! \<C-W>w"
+  wincmd w
   if s:thiswin == winnr()
     break
   endif
@@ -147,13 +143,13 @@ endwhile
 
 " Open the window
 new option-window
-setlocal ts=15 tw=0 noro
+setlocal ts=15 tw=0 noro buftype=nofile
 
 " Insert help and a "set" command for each option.
 call append(0, '" Each "set" line shows the current value of an option (on the left).')
 call append(1, '" Hit <CR> on a "set" line to execute it.')
 call append(2, '"            A boolean option will be toggled.')
-call append(3, '"            For other options you can edit the value.')
+call append(3, '"            For other options you can edit the value before hitting <CR>.')
 call append(4, '" Hit <CR> on a help line to open a help window on this option.')
 call append(5, '" Hit <CR> on an index line to jump there.')
 call append(6, '" Hit <Space> on a "set" line to refresh it.')
@@ -162,9 +158,7 @@ call append(6, '" Hit <Space> on a "set" line to refresh it.')
 
 " Init a local binary option
 fun! <SID>BinOptionL(name)
-  exe "norm! \<C-W>p"
-  exe "let val = &" . a:name
-  exe "norm! \<C-W>p"
+  let val = getwinvar(winnr('#'), '&' . a:name)
   call append("$", substitute(substitute(" \tset " . val . a:name . "\t" .
 	\!val . a:name, "0", "no", ""), "1", "", ""))
 endfun
@@ -177,16 +171,13 @@ endfun
 
 " Init a local string option
 fun! <SID>OptionL(name)
-  exe "norm! \<C-W>p"
-  exe "let val = substitute(&" . a:name . ', "[ \\t\\\\\"|]", "\\\\\\0", "g")'
-  exe "norm! \<C-W>p"
+  let val = escape(getwinvar(winnr('#'), '&' . a:name), " \t\\\"|")
   call append("$", " \tset " . a:name . "=" . val)
 endfun
 
 " Init a global string option
 fun! <SID>OptionG(name, val)
-  call append("$", " \tset " . a:name . "=" . substitute(a:val, '[ \t\\"|]',
-	\ '\\\0', "g"))
+  call append("$", " \tset " . a:name . "=" . escape(a:val, " \t\\\"|"))
 endfun
 
 let s:idx = 1
@@ -267,6 +258,8 @@ call append("$", "incsearch\tshow match for partly typed search command")
 call <SID>BinOptionG("is", &is)
 call append("$", "magic\tchange the way backslashes are used in search patterns")
 call <SID>BinOptionG("magic", &magic)
+call append("$", "regexpengine\tselect the default regexp engine used")
+call <SID>OptionG("re", &re)
 call append("$", "ignorecase\tignore case when using a search pattern")
 call <SID>BinOptionG("ic", &ic)
 call append("$", "smartcase\toverride 'ignorecase' when pattern has upper case characters")
@@ -315,6 +308,8 @@ if has("cscope")
   call append("$", " \tset cspc=" . &cspc)
   call append("$", "cscopequickfix\twhen to open a quickfix window for cscope")
   call <SID>OptionG("csqf", &csqf)
+  call append("$", "cscoperelative\tfile names in a cscope file are relative to that file")
+  call <SID>BinOptionG("csre", &csre)
 endif
 
 
@@ -329,6 +324,12 @@ call <SID>BinOptionG("wrap", &wrap)
 call append("$", "linebreak\twrap long lines at a character in 'breakat'")
 call append("$", "\t(local to window)")
 call <SID>BinOptionL("lbr")
+call append("$", "breakindent\tpreserve indentation in wrapped text")
+call append("$", "\t(local to window)")
+call <SID>BinOptionL("bri")
+call append("$", "breakindentopt\tadjust breakindent behaviour")
+call append("$", "\t(local to window)")
+call <SID>OptionL("briopt")
 call append("$", "breakat\twhich characters might cause a line break")
 call <SID>OptionG("brk", &brk)
 call append("$", "showbreak\tstring to put before wrapped screen lines")
@@ -605,6 +606,10 @@ if has("gui")
     call append("$", "guiheadroom\troom (in pixels) left above/below the window")
     call append("$", " \tset ghr=" . &ghr)
   endif
+  if has("directx")
+    call append("$", "renderoptions\toptions for text rendering")
+    call <SID>OptionG("rop", &rop)
+  endif
   call append("$", "guipty\tuse a pseudo-tty for I/O to external commands")
   call <SID>BinOptionG("guipty", &guipty)
   if has("browse")
@@ -700,6 +705,8 @@ call append("$", "errorbells\tring the bell for error messages")
 call <SID>BinOptionG("eb", &eb)
 call append("$", "visualbell\tuse a visual bell instead of beeping")
 call <SID>BinOptionG("vb", &vb)
+call append("$", "belloff\tdo not ring the bell for these reasons")
+call <SID>OptionG("belloff", &belloff)
 if has("multi_lang")
   call append("$", "helplang\tlist of preferred languages for finding help")
   call <SID>OptionG("hlg", &hlg)
@@ -723,6 +730,7 @@ call <SID>OptionG("km", &km)
 
 call <SID>Header("editing text")
 call append("$", "undolevels\tmaximum number of changes that can be undone")
+call append("$", "\t(global or local to buffer)")
 call append("$", " \tset ul=" . &ul)
 call append("$", "undoreload\tmaximum number lines to save for undo on a buffer reload")
 call append("$", " \tset ur=" . &ur)
@@ -860,7 +868,7 @@ if has("lispindent")
   call append("$", "\t(local to buffer)")
   call <SID>BinOptionL("lisp")
   call append("$", "lispwords\twords that change how lisp indenting works")
-  call <SID>OptionG("lw", &lw)
+  call <SID>OptionL("lw")
 endif
 
 
@@ -948,6 +956,9 @@ call <SID>BinOptionL("bin")
 call append("$", "endofline\tlast line in the file has an end-of-line")
 call append("$", "\t(local to buffer)")
 call <SID>BinOptionL("eol")
+call append("$", "fixendofline\tfixes missing end-of-line at end of text file")
+call append("$", "\t(local to buffer)")
+call <SID>BinOptionL("fixeol")
 if has("multi_byte")
   call append("$", "bomb\tprepend a Byte Order Mark to the file")
   call append("$", "\t(local to buffer)")
@@ -972,6 +983,7 @@ call <SID>BinOptionG("bk", &bk)
 call append("$", "backupskip\tpatterns that specify for which files a backup is not made")
 call append("$", " \tset bsk=" . &bsk)
 call append("$", "backupcopy\twhether to make the backup as a copy or rename the existing file")
+call append("$", "\t(global or local to buffer)")
 call append("$", " \tset bkc=" . &bkc)
 call append("$", "backupdir\tlist of directories to put backup files in")
 call <SID>OptionG("bdir", &bdir)
@@ -1042,6 +1054,10 @@ if has("wildignore")
   call append("$", "wildignore\tlist of patterns to ignore files for file name completion")
   call <SID>OptionG("wig", &wig)
 endif
+call append("$", "fileignorecase\tignore case when using file names")
+call <SID>BinOptionG("fic", &fic)
+call append("$", "wildignorecase\tignore case when completing file names")
+call <SID>BinOptionG("wic", &wic)
 if has("wildmenu")
   call append("$", "wildmenu\tcommand-line completion shows a list of matches")
   call <SID>BinOptionG("wmnu", &wmnu)
@@ -1069,6 +1085,8 @@ call append("$", "shellquote\tcharacter(s) to enclose a shell command in")
 call <SID>OptionG("shq", &shq)
 call append("$", "shellxquote\tlike 'shellquote' but include the redirection")
 call <SID>OptionG("sxq", &sxq)
+call append("$", "shellxescape\tcharacters to escape when 'shellxquote' is (")
+call <SID>OptionG("sxe", &sxe)
 call append("$", "shellcmdflag\targument for 'shell' to execute a command")
 call <SID>OptionG("shcf", &shcf)
 call append("$", "shellredir\tused to redirect command output to a file")
@@ -1181,8 +1199,10 @@ if has("keymap")
   call <SID>OptionL("kmp")
 endif
 if has("langmap")
-  call append("$", "langmap\ttranslate characters for Normal mode")
+  call append("$", "langmap\tlist of characters that are translated in Normal mode")
   call <SID>OptionG("lmap", &lmap)
+  call append("$", "langnoremap\tdon't apply 'langmap' to mapped characters")
+  call <SID>BinOptionG("lnr", &lnr)
 endif
 if has("xim")
   call append("$", "imdisable\twhen set never use IM; overrules following IM options")
@@ -1197,6 +1217,10 @@ call <SID>OptionL("ims")
 if has("xim")
   call append("$", "imcmdline\twhen set always use IM when starting to edit a command line")
   call <SID>BinOptionG("imc", &imc)
+  call append("$", "imstatusfunc\tfunction to obtain IME status")
+  call <SID>OptionG("imsf", &imsf)
+  call append("$", "imactivatefunc\tfunction to enable/disable IME")
+  call <SID>OptionG("imaf", &imaf)
 endif
 
 
@@ -1340,3 +1364,5 @@ let &ru = s:old_ru
 let &sc = s:old_sc
 let &cpo = s:cpo_save
 unlet s:old_title s:old_icon s:old_ru s:old_sc s:cpo_save s:idx s:lnum
+
+" vim: ts=8 sw=2 sts=2

@@ -1,6 +1,4 @@
 /*
- * "$Id: testhttp.c 12698 2015-06-08 17:47:35Z msweet $"
- *
  * HTTP test program for CUPS.
  *
  * Copyright 2007-2014 by Apple Inc.
@@ -886,8 +884,3 @@ main(int  argc,				/* I - Number of command-line arguments */
 
   return (0);
 }
-
-
-/*
- * End of "$Id: testhttp.c 12698 2015-06-08 17:47:35Z msweet $".
- */

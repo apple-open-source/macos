@@ -160,11 +160,7 @@ fail:
 
 CFDataRef SOSCircleCopyEncodedData(SOSCircleRef circle, CFAllocatorRef allocator, CFErrorRef *error)
 {
-    size_t size = SOSCircleGetDEREncodedSize(circle, error);
-    if (size == 0)
-        return NULL;
-    uint8_t buffer[size];
-    uint8_t* start = SOSCircleEncodeToDER(circle, error, buffer, buffer + sizeof(buffer));
-    CFDataRef result = CFDataCreate(kCFAllocatorDefault, start, size);
-    return result;
+    return CFDataCreateWithDER(kCFAllocatorDefault, SOSCircleGetDEREncodedSize(circle, error), ^uint8_t*(size_t size, uint8_t *buffer) {
+        return SOSCircleEncodeToDER(circle, error, buffer, (uint8_t *) buffer + size);
+    });
 }

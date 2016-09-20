@@ -3,7 +3,7 @@
 #
 
 # Handshake Layer
-
+_tls_private_key_create
 _tls_private_key_rsa_create
 _tls_private_key_ecdsa_create
 _tls_private_key_get_context
@@ -42,6 +42,7 @@ _tls_handshake_set_peer_hostname
 _tls_handshake_get_peer_hostname
 _tls_handshake_set_client_auth
 _tls_handshake_set_acceptable_dn_list
+_tls_handshake_get_acceptable_dn_list
 _tls_handshake_set_acceptable_client_auth_type
 _tls_handshake_set_peer_rsa_public_key
 _tls_handshake_set_peer_ec_public_key
@@ -62,7 +63,9 @@ _tls_handshake_set_session_ticket_enabled
 _tls_handshake_set_user_agent
 _tls_handshake_set_config
 _tls_handshake_get_config
-
+_tls_handshake_set_sigalgs
+_tls_handshake_set_ems_enable
+_tls_handshake_get_negotiated_ems
 
 _tls_handshake_get_negotiated_protocol_version
 _tls_handshake_get_negotiated_cipherspec
@@ -125,6 +128,16 @@ _tls_record_set_record_splitting
 _tls_stream_parser_create
 _tls_stream_parser_parse
 _tls_stream_parser_destroy
+
+# Session cache
+_tls_cache_create
+_tls_cache_destroy
+_tls_cache_empty
+_tls_cache_cleanup
+_tls_cache_save_session_data
+_tls_cache_load_session_data
+_tls_cache_delete_session_data
+
 
 # cipherspecs
 _sslCipherSuiteGetMacAlgorithm

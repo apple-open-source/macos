@@ -36,7 +36,6 @@
 #include <zlib.h>
 #endif
 
-#include <assert.h>
 #include <libxml/xmlmemory.h>
 #include <libxml/tree.h>
 #include <libxml/parser.h>
@@ -308,7 +307,7 @@ xmlParserInputRead(xmlParserInputPtr in ATTRIBUTE_UNUSED, int len ATTRIBUTE_UNUS
  */
 int
 xmlParserInputGrow(xmlParserInputPtr in, int len) {
-    size_t ret;
+    int ret;
     size_t indx;
     const xmlChar *content;
 
@@ -436,7 +435,12 @@ xmlNextChar(xmlParserCtxtPtr ctxt)
         (ctxt->input == NULL))
         return;
 
-    assert(VALID_CTXT(ctxt));
+    if (!(VALID_CTXT(ctxt))) {
+        xmlErrInternal(ctxt, "Parser input data memory error\n", NULL);
+	ctxt->errNo = XML_ERR_INTERNAL_ERROR;
+        xmlStopParser(ctxt);
+	return;
+    }
 
     if ((*ctxt->input->cur == 0) &&
         (xmlParserInputGrow(ctxt->input, INPUT_CHUNK) <= 0)) {

@@ -141,9 +141,8 @@ static void setEnableHighAccuracy(WKGeolocationManagerRef geolocationManager, bo
     if (!self)
         return nil;
     _geolocationManager = processPool.supplement<WebGeolocationManagerProxy>();
-    WKGeolocationProvider providerCallback = {
-        kWKGeolocationProviderCurrentVersion,
-        self,
+    WKGeolocationProviderV1 providerCallback = {
+        { 1, self },
         startUpdatingCallback,
         stopUpdatingCallback,
         setEnableHighAccuracy
@@ -173,7 +172,7 @@ static void setEnableHighAccuracy(WKGeolocationManagerRef geolocationManager, bo
 - (void)geolocationAuthorizationGranted
 {
     // Step 2: ask the user if the this particular page can use gelocation.
-    Vector<GeolocationRequestData> requests = WTF::move(_requestsWaitingForCoreLocationAuthorization);
+    Vector<GeolocationRequestData> requests = WTFMove(_requestsWaitingForCoreLocationAuthorization);
     for (const auto& request : requests) {
         bool requiresUserAuthorization = true;
 
@@ -199,7 +198,7 @@ static void setEnableHighAccuracy(WKGeolocationManagerRef geolocationManager, bo
 
 - (void)geolocationAuthorizationDenied
 {
-    Vector<GeolocationRequestData> requests = WTF::move(_requestsWaitingForCoreLocationAuthorization);
+    Vector<GeolocationRequestData> requests = WTFMove(_requestsWaitingForCoreLocationAuthorization);
     for (const auto& requestData : requests)
         requestData.permissionRequest->deny();
 }

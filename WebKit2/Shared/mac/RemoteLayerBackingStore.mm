@@ -36,8 +36,9 @@
 #import <QuartzCore/QuartzCore.h>
 #import <WebCore/GraphicsContextCG.h>
 #import <WebCore/IOSurface.h>
-#import <WebCore/IOSurfacePool.h>
 #import <WebCore/MachSendRight.h>
+#import <WebCore/PlatformCALayerClient.h>
+#import <WebCore/PlatformScreen.h>
 #import <WebCore/QuartzCoreSPI.h>
 #import <WebCore/WebLayer.h>
 
@@ -48,6 +49,16 @@
 using namespace WebCore;
 
 namespace WebKit {
+
+#if USE(IOSURFACE)
+static WebCore::IOSurface::Format bufferFormat(bool isOpaque)
+{
+    if (screenSupportsExtendedColor())
+        return isOpaque ? WebCore::IOSurface::Format::RGB10 : WebCore::IOSurface::Format::RGB10A8;
+
+    return WebCore::IOSurface::Format::RGBA;
+}
+#endif // USE(IOSURFACE)
 
 RemoteLayerBackingStore::RemoteLayerBackingStore(PlatformCALayerRemote* layer)
     : m_layer(layer)
@@ -108,7 +119,10 @@ void RemoteLayerBackingStore::encode(IPC::ArgumentEncoder& encoder) const
 
 #if USE(IOSURFACE)
     if (m_acceleratesDrawing) {
-        encoder << m_frontBuffer.surface->createSendRight();
+        if (m_frontBuffer.surface)
+            encoder << m_frontBuffer.surface->createSendRight();
+        else
+            encoder << WebCore::MachSendRight();
         return;
     }
 #endif
@@ -139,7 +153,7 @@ bool RemoteLayerBackingStore::decode(IPC::ArgumentDecoder& decoder, RemoteLayerB
         MachSendRight sendRight;
         if (!decoder.decode(sendRight))
             return false;
-        result.m_frontBuffer.surface = IOSurface::createFromSendRight(sendRight, ColorSpaceDeviceRGB);
+        result.m_frontBuffer.surface = WebCore::IOSurface::createFromSendRight(sendRight, sRGBColorSpaceRef());
         return true;
     }
 #endif
@@ -171,6 +185,19 @@ IntSize RemoteLayerBackingStore::backingStoreSize() const
     return roundedIntSize(scaledSize);
 }
 
+unsigned RemoteLayerBackingStore::bytesPerPixel() const
+{
+#if USE(IOSURFACE)
+    switch (bufferFormat(m_isOpaque)) {
+    case WebCore::IOSurface::Format::RGBA: return 4;
+    case WebCore::IOSurface::Format::YUV422: return 2;
+    case WebCore::IOSurface::Format::RGB10: return 4;
+    case WebCore::IOSurface::Format::RGB10A8: return 5;
+    }
+#endif
+    return 4;
+}
+
 void RemoteLayerBackingStore::swapToValidFrontBuffer()
 {
     IntSize expandedScaledSize = backingStoreSize();
@@ -186,10 +213,9 @@ void RemoteLayerBackingStore::swapToValidFrontBuffer()
         std::swap(m_frontBuffer, m_backBuffer);
 
         if (!m_frontBuffer.surface)
-            m_frontBuffer.surface = IOSurface::create(expandedScaledSize, ColorSpaceDeviceRGB);
+            m_frontBuffer.surface = WebCore::IOSurface::create(expandedScaledSize, sRGBColorSpaceRef(), bufferFormat(m_isOpaque));
 
         setBufferVolatility(BufferType::Front, false);
-
         return;
     }
 #endif
@@ -239,13 +265,15 @@ bool RemoteLayerBackingStore::display()
         if (m_backBuffer.surface && !willPaintEntireBackingStore)
             backImage = m_backBuffer.surface->createImage();
 
-        GraphicsContext& context = m_frontBuffer.surface->ensureGraphicsContext();
+        if (m_frontBuffer.surface) {
+            GraphicsContext& context = m_frontBuffer.surface->ensureGraphicsContext();
 
-        context.scale(FloatSize(1, -1));
-        context.translate(0, -expandedScaledSize.height());
-        drawInContext(context, backImage.get());
+            context.scale(FloatSize(1, -1));
+            context.translate(0, -expandedScaledSize.height());
+            drawInContext(context, backImage.get());
 
-        m_frontBuffer.surface->releaseGraphicsContext();
+            m_frontBuffer.surface->releaseGraphicsContext();
+        }
     } else
 #endif
     {
@@ -269,16 +297,6 @@ void RemoteLayerBackingStore::drawInContext(GraphicsContext& context, CGImageRef
     FloatSize scaledSize = m_size;
     scaledSize.scale(m_scale);
     IntRect scaledLayerBounds(IntPoint(), roundedIntSize(scaledSize));
-
-    if (!m_isOpaque)
-        context.clearRect(scaledLayerBounds);
-
-#ifndef NDEBUG
-    if (m_isOpaque)
-        context.fillRect(scaledLayerBounds, Color(255, 0, 0), ColorSpaceDeviceRGB);
-#endif
-
-    CGContextRef cgContext = context.platformContext();
 
     // If we have less than webLayerMaxRectsToPaint rects to paint and they cover less
     // than webLayerWastedSpaceThreshold of the total dirty area, we'll repaint each rect separately.
@@ -307,21 +325,25 @@ void RemoteLayerBackingStore::drawInContext(GraphicsContext& context, CGImageRef
         cgPaintingRects[i] = scaledPaintingRect;
     }
 
+    CGContextRef cgContext = context.platformContext();
+
     if (backImage) {
-        CGContextSaveGState(cgContext);
+        CGContextStateSaver stateSaver(cgContext);
         CGContextSetBlendMode(cgContext, kCGBlendModeCopy);
-
-        CGContextAddRect(cgContext, CGRectInfinite);
-        CGContextAddRects(cgContext, cgPaintingRects, m_paintingRects.size());
-        CGContextEOClip(cgContext);
-
         CGContextTranslateCTM(cgContext, 0, scaledLayerBounds.height());
         CGContextScaleCTM(cgContext, 1, -1);
         CGContextDrawImage(cgContext, scaledLayerBounds, backImage);
-        CGContextRestoreGState(cgContext);
     }
 
     CGContextClipToRects(cgContext, cgPaintingRects, m_paintingRects.size());
+
+    if (!m_isOpaque)
+        context.clearRect(scaledLayerBounds);
+
+#ifndef NDEBUG
+    if (m_isOpaque)
+        context.fillRect(scaledLayerBounds, Color(255, 0, 0));
+#endif
 
     context.scale(FloatSize(m_scale, m_scale));
 
@@ -383,7 +405,7 @@ void RemoteLayerBackingStore::applyBackingStoreToLayer(CALayer *layer)
 
 #if USE(IOSURFACE)
     if (acceleratesDrawing()) {
-        layer.contents = (id)m_frontBuffer.surface->surface();
+        layer.contents = m_frontBuffer.surface ? m_frontBuffer.surface->asLayerContents() : nil;
         return;
     }
 #endif
@@ -394,7 +416,7 @@ void RemoteLayerBackingStore::applyBackingStoreToLayer(CALayer *layer)
 
 RetainPtr<CGContextRef> RemoteLayerBackingStore::takeFrontContextPendingFlush()
 {
-    return WTF::move(m_frontContextPendingFlush);
+    return WTFMove(m_frontContextPendingFlush);
 }
 
 #if USE(IOSURFACE)
@@ -406,11 +428,11 @@ bool RemoteLayerBackingStore::setBufferVolatility(BufferType type, bool isVolati
             if (isVolatile)
                 m_frontBuffer.surface->releaseGraphicsContext();
             if (!isVolatile || !m_frontBuffer.surface->isInUse()) {
-                IOSurface::SurfaceState previousState = m_frontBuffer.surface->setIsVolatile(isVolatile);
+                auto previousState = m_frontBuffer.surface->setIsVolatile(isVolatile);
                 m_frontBuffer.isVolatile = isVolatile;
 
                 // Becoming non-volatile and the front buffer was purged, so we need to repaint.
-                if (!isVolatile && (previousState == IOSurface::SurfaceState::Empty))
+                if (!isVolatile && (previousState == WebCore::IOSurface::SurfaceState::Empty))
                     setNeedsDisplay();
             } else
                 return false;
@@ -452,7 +474,7 @@ void RemoteLayerBackingStore::Buffer::discard()
 {
 #if USE(IOSURFACE)
     if (surface)
-        IOSurfacePool::sharedPool().addSurface(WTF::move(surface));
+        WebCore::IOSurface::moveToPool(WTFMove(surface));
     isVolatile = false;
 #endif
     bitmap = nullptr;

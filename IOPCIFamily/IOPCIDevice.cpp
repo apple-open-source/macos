@@ -55,6 +55,12 @@ enum
     kPMEOptionS3Disable = 0x04
 };
 
+#if !DEVELOPMENT && !defined(__x86_64__)
+
+#define DLOG(fmt, args...)
+
+#else
+
 #define DLOG(fmt, args...)                   \
     do {                                                    \
         if ((gIOPCIFlags & kIOPCIConfiguratorIOLog) && !ml_at_interrupt_context())   \
@@ -63,6 +69,7 @@ enum
             kprintf(fmt, ## args);                          \
     } while(0)
 
+#endif	/* !DEVELOPMENT && !defined(__x86_64__) */
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 

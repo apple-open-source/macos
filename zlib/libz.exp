@@ -63,3 +63,9 @@ _inflateBackInit_
 _zError
 _inflateSyncPoint
 _get_crc_table
+_deflatePending
+_deflateResetKeep
+_gzgetc_
+_inflateResetKeep
+_inflateGetDictionary
+_gzvprintf

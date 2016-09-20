@@ -26,6 +26,7 @@
 #include "config.h"
 #include "PlatformDisplay.h"
 
+#include <cstdlib>
 #include <mutex>
 #include <wtf/NeverDestroyed.h>
 
@@ -42,13 +43,16 @@
 #endif
 
 #if PLATFORM(GTK)
-#if PLATFORM(X11)
+#include <gdk/gdk.h>
+#endif
+
+#if PLATFORM(GTK) && PLATFORM(X11)
 #include <gdk/gdkx.h>
 #endif
-#if PLATFORM(WAYLAND) && !defined(GTK_API_VERSION_2)
+
+#if PLATFORM(GTK) && PLATFORM(WAYLAND) && !defined(GTK_API_VERSION_2)
 #include <gdk/gdkwayland.h>
 #endif
-#endif // PLATFORM(GTK)
 
 #if PLATFORM(EFL) && defined(HAVE_ECORE_X)
 #include <Ecore_X.h>
@@ -109,10 +113,8 @@ PlatformDisplay::PlatformDisplay()
 
 PlatformDisplay::~PlatformDisplay()
 {
-    // WinCairo crashes when terminating EGL on exit.
-    // https://bugs.webkit.org/show_bug.cgi?id=145832
-#if USE(EGL) && !PLATFORM(WIN)
-    terminateEGLDisplay();
+#if USE(EGL)
+    ASSERT(m_eglDisplay == EGL_NO_DISPLAY);
 #endif
 }
 
@@ -129,6 +131,12 @@ void PlatformDisplay::initializeEGLDisplay()
     m_eglDisplayInitialized = true;
 
     if (m_eglDisplay == EGL_NO_DISPLAY) {
+// EGL is optionally soft linked on Windows.
+#if PLATFORM(WIN)
+        auto eglGetDisplay = eglGetDisplayPtr();
+        if (!eglGetDisplay)
+            return;
+#endif
         m_eglDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
         if (m_eglDisplay == EGL_NO_DISPLAY)
             return;
@@ -150,10 +158,21 @@ void PlatformDisplay::initializeEGLDisplay()
         terminateEGLDisplay();
         return;
     }
+
+    // EGL registers atexit handlers to cleanup its global display list.
+    // Since the global PlatformDisplay instance is created before,
+    // when the PlatformDisplay destructor is called, EGL has already removed the
+    // display from the list, causing eglTerminate() to crash. So, here we register
+    // our own atexit handler, after EGL has been initialized and after the global
+    // instance has been created to ensure we call eglTerminate() before the other
+    // EGL atexit handlers and the PlatformDisplay destructor.
+    // See https://bugs.webkit.org/show_bug.cgi?id=157973.
+    std::atexit([] { PlatformDisplay::sharedDisplay().terminateEGLDisplay(); });
 }
 
 void PlatformDisplay::terminateEGLDisplay()
 {
+    ASSERT(m_eglDisplayInitialized);
     if (m_eglDisplay == EGL_NO_DISPLAY)
         return;
     eglTerminate(m_eglDisplay);

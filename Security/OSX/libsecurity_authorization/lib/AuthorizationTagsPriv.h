@@ -229,6 +229,12 @@
  */
 #define kAuthorizationRuleParameterRequireAppleSigned		"require-apple-signed"
 
+/*! @defined kAuthorizationRuleParameterPasswordOnly
+ boolean, default false - if true, all alternative authentication methods
+ like smart cards are disabled for this rule, only password is allowed
+ */
+#define kAuthorizationRuleParameterPasswordOnly		"password-only"
+
 /*
  * Hints for internal Authorization use
  */
@@ -240,6 +246,7 @@
 #define AGENT_HINT_CUSTOM_PROMPT "prompt"
 #define AGENT_HINT_AUTHORIZE_RIGHT "authorize-right"
 #define AGENT_HINT_CLIENT_PID "client-pid"
+#define AGENT_HINT_CUSTOM_PID "custom-pid"
 #define AGENT_HINT_CLIENT_UID "client-uid"
 #define AGENT_HINT_CLIENT_VALIDITY "client-signature-validity"
 #define AGENT_HINT_CREATOR_PID "creator-pid"
@@ -253,6 +260,10 @@
 #define AGENT_HINT_TOKEN_NAME "token-name"
 #define AGENT_HINT_PROCESS_SIGNED "process-apple-signed"
 #define AGENT_HINT_SHOW_RESET "show-reset"
+#define AGENT_HINT_PASSWORD_ONLY "password-only"
+
+// Public Key Hash from certificate used for login
+#define AGENT_HINT_TOKEN_HASH "token-hash"
 
 /* passed by loginwindow to securityd and agent */
 #define AGENT_HINT_IMMEDIATE_LAUNCH "immediate-agent"
@@ -268,6 +279,7 @@
 #define AGENT_HINT_ACL_MISMATCH "acl-mismatch"
 #define AGENT_HINT_KEYCHAIN_ITEM_NAME "keychain-item-name"
 #define AGENT_HINT_KEYCHAIN_PATH "keychain-path"
+#define AGENT_HINT_KEYCHAIN_CHECK "keychain-check-pwd"
 #define AGENT_HINT_WINDOW_LEVEL "window-level"
 
 /* Login Keychain Creation hint keys */
@@ -324,5 +336,17 @@
 // ACLowner etc. code identity panel
 #define AGENT_CONTEXT_REMEMBER_ACTION   "remember-action"
 #define AGENT_CONTEXT_ALLOW   "allow"
+
+/* Authorization Hints Providers */
+#define AGENT_CONTEXT_AP_USER_NAME "ap-user-name"
+#define AGENT_CONTEXT_AP_TOKEN "ap-token"
+#define AGENT_CONTEXT_AP_PAM_SERVICE_NAME "ap-pam-service-name"
+#define AGENT_CONTEXT_AP_PAM_ERROR_MESSAGE "ap-pam-error-message"
+
+/* ID of smartcard which was used for authentication */
+#define AGENT_CONTEXT_AUTH_TOKEN_ID "authenticated-token-id"
+
+/* LocalAuthentication specific */
+#define AGENT_CONTEXT_LACONTEXT "la-context"
 
 #endif /* !_SECURITY_AUTHORIZATIONTAGSPRIV_H_ */

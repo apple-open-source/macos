@@ -26,7 +26,7 @@
 #include "keychain_unlock.h"
 #include "readline.h"
 #include "keychain_utilities.h"
-#include "security.h"
+#include "security_tool.h"
 
 #include <pwd.h>
 #include <stdio.h>
@@ -50,7 +50,7 @@ do_unlock(const char *keychainName, char *password, Boolean use_password)
 		}
 	}
 
-	result = SecKeychainUnlock(keychain, password ? strlen(password) : 0, password, use_password);
+	result = SecKeychainUnlock(keychain, password ? (UInt32) strlen(password) : 0, password, use_password);
 	if (result)
 	{
 		sec_error("SecKeychainUnlock %s: %s", keychainName ? keychainName : "<NULL>", sec_errstr(result));

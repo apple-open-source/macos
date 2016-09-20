@@ -24,7 +24,7 @@
  */
 
 #include "leaks.h"
-#include "security.h"
+#include "security_tool.h"
 
 #include <errno.h>
 #include <stdio.h>

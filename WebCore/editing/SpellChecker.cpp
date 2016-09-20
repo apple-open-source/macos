@@ -32,7 +32,6 @@
 #include "Frame.h"
 #include "HTMLInputElement.h"
 #include "HTMLTextAreaElement.h"
-#include "Node.h"
 #include "Page.h"
 #include "PositionIterator.h"
 #include "RenderObject.h"
@@ -44,10 +43,9 @@
 namespace WebCore {
 
 SpellCheckRequest::SpellCheckRequest(PassRefPtr<Range> checkingRange, PassRefPtr<Range> paragraphRange, const String& text, TextCheckingTypeMask mask, TextCheckingProcessType processType)
-    : m_checker(0)
-    , m_checkingRange(checkingRange)
+    : m_checkingRange(checkingRange)
     , m_paragraphRange(paragraphRange)
-    , m_rootEditableElement(m_checkingRange->startContainer()->rootEditableElement())
+    , m_rootEditableElement(m_checkingRange->startContainer().rootEditableElement())
     , m_requestData(unrequestedTextCheckingSequence, text, mask, processType)
 {
 }
@@ -78,16 +76,20 @@ void SpellCheckRequest::didSucceed(const Vector<TextCheckingResult>& results)
 {
     if (!m_checker)
         return;
+
+    Ref<SpellCheckRequest> protectedThis(*this);
     m_checker->didCheckSucceed(m_requestData.sequence(), results);
-    m_checker = 0;
+    m_checker = nullptr;
 }
 
 void SpellCheckRequest::didCancel()
 {
     if (!m_checker)
         return;
+
+    Ref<SpellCheckRequest> protectedThis(*this);
     m_checker->didCheckCancel(m_requestData.sequence());
-    m_checker = 0;
+    m_checker = nullptr;
 }
 
 void SpellCheckRequest::setCheckerAndSequence(SpellChecker* requester, int sequence)
@@ -100,7 +102,7 @@ void SpellCheckRequest::setCheckerAndSequence(SpellChecker* requester, int seque
 
 void SpellCheckRequest::requesterDestroyed()
 {
-    m_checker = 0;
+    m_checker = nullptr;
 }
 
 SpellChecker::SpellChecker(Frame& frame)
@@ -115,8 +117,8 @@ SpellChecker::~SpellChecker()
 {
     if (m_processingRequest)
         m_processingRequest->requesterDestroyed();
-    for (RequestQueue::iterator i = m_requestQueue.begin(); i != m_requestQueue.end(); ++i)
-        (*i)->requesterDestroyed();
+    for (auto& queue : m_requestQueue)
+        queue->requesterDestroyed();
 }
 
 TextCheckerClient* SpellChecker::client() const
@@ -150,8 +152,8 @@ bool SpellChecker::isCheckable(Range* range) const
 {
     if (!range || !range->firstNode() || !range->firstNode()->renderer())
         return false;
-    const Node* node = range->startContainer();
-    if (is<Element>(node) && !downcast<Element>(*node).isSpellCheckingEnabled())
+    const Node& node = range->startContainer();
+    if (is<Element>(node) && !downcast<Element>(node).isSpellCheckingEnabled())
         return false;
     return true;
 }
@@ -182,18 +184,18 @@ void SpellChecker::invokeRequest(PassRefPtr<SpellCheckRequest> request)
     if (!client())
         return;
     m_processingRequest = request;
-    client()->requestCheckingOfString(m_processingRequest);
+    client()->requestCheckingOfString(m_processingRequest, m_frame.selection().selection());
 }
 
 void SpellChecker::enqueueRequest(PassRefPtr<SpellCheckRequest> request)
 {
     ASSERT(request);
 
-    for (RequestQueue::iterator it = m_requestQueue.begin(); it != m_requestQueue.end(); ++it) {
-        if (request->rootEditableElement() != (*it)->rootEditableElement())
+    for (auto& queue : m_requestQueue) {
+        if (request->rootEditableElement() != queue->rootEditableElement())
             continue;
 
-        *it = request;
+        queue = request;
         return;
     }
 

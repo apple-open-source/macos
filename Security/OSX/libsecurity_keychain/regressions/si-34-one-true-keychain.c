@@ -97,16 +97,16 @@ static void tests(void)
     ok_status(SecItemAdd(noLegacyQuery, &result), "add internet password in iOS keychain");
     CFDictionaryRemoveValue(noLegacyQuery, kSecValueData);
 
-    is_status(SecItemCopyMatching(query, &result), errSecItemNotFound, "do not find the ios item");
+    ok_status(SecItemCopyMatching(query, &result), "find the ios item with generic query");
     CFReleaseNull(result);
     ok_status(SecItemCopyMatching(noLegacyQuery, &result), "find the ios item with noLegacy");
     CFReleaseNull(result);
-    is_status(SecItemCopyMatching(syncAnyQuery, &result), errSecItemNotFound, "do not find the ios item with synchronizableAny");
+    ok_status(SecItemCopyMatching(syncAnyQuery, &result), "find the ios item with synchronizableAny");
     CFReleaseNull(result);
     is_status(SecItemCopyMatching(syncQuery, &result), errSecItemNotFound, "do not find the ios item with synchronizable");
     CFReleaseNull(result);
 
-    is_status(SecItemUpdate(query, toUpdate), errSecItemNotFound, "do not update the ios item");
+    ok_status(SecItemUpdate(query, toUpdate), "update the ios item without any flags");
     ok_status(SecItemUpdate(noLegacyQuery, toUpdate), "update the ios item with noLegacy");
     ok_status(SecItemUpdate(syncAnyQuery, toUpdate), "update the ios item with synchronizableAny");
 

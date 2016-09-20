@@ -516,7 +516,14 @@ mapline_to_mapent(struct mapent **mapents, struct mapline *ml, const char *key,
                         return (EIO);
                 }
 
-	implied = *w != '/'; /* implied is 1 only if '/' is implicit */
+	/* implied code path results in reading nested maps.
+	 * for fstype=autofs leading / implies absolute path for nested map
+	 * instead of file system mount locations.
+	 * XXXab: Is smbfs affected too? In case of fstype=smbfs //user@server/path/to/share?
+	 */
+	implied = (*w != '/') || (strstr(defaultopts, "fstype=autofs") != NULL);
+	if (trace > 3)
+		trace_prt(1, "  mapline_mapent: implied = %d\n", implied);
 	while (*w == '/' || implied) {
 		mp = me;
 		if ((me = (struct mapent *)malloc(sizeof (*me))) == NULL)
@@ -1035,7 +1042,7 @@ fstype_opts(struct mapent *me, const char *opts, const char *defaultopts,
 	 * if they exist, or mapopts, if the global defaults for the
 	 * entry does not exist.
 	 */
-	if (strcmp(defaultopts, opts) == 0) {
+	if (defaultopts && (strcmp(defaultopts, opts) == 0)) {
 		if (*mapopts == '-')
 			mapopts++;
 		optstopush = mapopts;
@@ -2099,6 +2106,7 @@ parse_special(me, w, wq, lp, lq, wsize)
 	mfs->mfs_dir = strdup(&mountname[mountname[0] == ':']);
 	if (mfs->mfs_dir == NULL) {
 		syslog(LOG_ERR, "parse_special: Memory allocation failed");
+		free(mfs);
 		return (EIO);
 	}
 	me->map_fs = mfs;
@@ -2294,11 +2302,11 @@ trace_hierarchy(hiernode *node, int nodelevel)
 	while (node != NULL) {
 		if (node->mapent) {
 			trace_prt(1, "%s(\"%s\", %d, %s)\n", tabs,
-				node->dirname ? node->dirname :"-null-",
+				node->dirname,
 				node->mapent->map_mntlevel,
 				node->mapent->map_mntopts ?  node->mapent->map_mntopts:"");
 		} else
-			trace_prt(1, "%s(\"%s\")\n", tabs, node->dirname ? node->dirname :"-null-");
+			trace_prt(1, "%s(\"%s\")\n", tabs, node->dirname);
 
 		if (node->subdir)
 			trace_hierarchy(node->subdir, nodelevel + 1);

@@ -85,6 +85,8 @@
 #define NX_NUM_SCANNED_SPECIALKEYS	24 /* First 24 special keys are */
 					  /* actively scanned in kernel */
 
+#define NX_KEYTYPE_MENU		25
+
 /* Mask of special keys that are posted as events */
 
 #define NX_SPECIALKEY_POST_MASK		\

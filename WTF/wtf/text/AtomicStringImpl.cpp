@@ -33,7 +33,7 @@
 #include <wtf/unicode/UTF8.h>
 
 #if USE(WEB_THREAD)
-#include "SpinLock.h"
+#include "Lock.h"
 #endif
 
 namespace WTF {
@@ -42,18 +42,18 @@ using namespace Unicode;
 
 #if USE(WEB_THREAD)
 
-class AtomicStringTableLocker : public SpinLockHolder {
+class AtomicStringTableLocker : public LockHolder {
     WTF_MAKE_NONCOPYABLE(AtomicStringTableLocker);
 
-    static StaticSpinLock s_stringTableLock;
+    static StaticLock s_stringTableLock;
 public:
     AtomicStringTableLocker()
-        : SpinLockHolder(&s_stringTableLock)
+        : LockHolder(&s_stringTableLock)
     {
     }
 };
 
-StaticSpinLock AtomicStringTableLocker::s_stringTableLock;
+StaticLock AtomicStringTableLocker::s_stringTableLock;
 
 #else
 
@@ -219,7 +219,7 @@ struct HashAndUTF8CharactersTranslator {
     static void translate(StringImpl*& location, const HashAndUTF8Characters& buffer, unsigned hash)
     {
         UChar* target;
-        RefPtr<StringImpl> newString = StringImpl::createUninitialized(buffer.utf16Length, target);
+        auto newString = StringImpl::createUninitialized(buffer.utf16Length, target);
 
         bool isAllASCII;
         const char* source = buffer.characters;
@@ -229,7 +229,7 @@ struct HashAndUTF8CharactersTranslator {
         if (isAllASCII)
             newString = StringImpl::create(buffer.characters, buffer.length);
 
-        location = newString.release().leakRef();
+        location = &newString.leakRef();
         location->setHash(hash);
         location->setIsAtomic(true);
     }
@@ -284,7 +284,7 @@ struct SubstringLocation {
 struct SubstringTranslator {
     static void translate(StringImpl*& location, const SubstringLocation& buffer, unsigned hash)
     {
-        location = &StringImpl::createSubstringSharingImpl(buffer.baseString, buffer.start, buffer.length).leakRef();
+        location = &StringImpl::createSubstringSharingImpl(*buffer.baseString, buffer.start, buffer.length).leakRef();
         location->setHash(hash);
         location->setIsAtomic(true);
     }

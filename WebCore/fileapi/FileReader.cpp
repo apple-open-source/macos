@@ -29,9 +29,9 @@
  */
 
 #include "config.h"
-
 #include "FileReader.h"
 
+#include "EventNames.h"
 #include "ExceptionCode.h"
 #include "File.h"
 #include "Logging.h"
@@ -43,7 +43,7 @@
 
 namespace WebCore {
 
-static const auto progressNotificationInterval = std::chrono::milliseconds(50);
+static const auto progressNotificationInterval = 50ms;
 
 Ref<FileReader> FileReader::create(ScriptExecutionContext& context)
 {
@@ -65,7 +65,7 @@ FileReader::~FileReader()
     terminate();
 }
 
-bool FileReader::canSuspendForPageCache() const
+bool FileReader::canSuspendForDocumentSuspension() const
 {
     // FIXME: It is not currently possible to suspend a FileReader, so pages with FileReader can not go into page cache.
     return false;
@@ -88,7 +88,7 @@ void FileReader::readAsArrayBuffer(Blob* blob, ExceptionCode& ec)
 
     LOG(FileAPI, "FileReader: reading as array buffer: %s %s\n", blob->url().string().utf8().data(), is<File>(*blob) ? downcast<File>(*blob).path().utf8().data() : "");
 
-    readInternal(blob, FileReaderLoader::ReadAsArrayBuffer, ec);
+    readInternal(*blob, FileReaderLoader::ReadAsArrayBuffer, ec);
 }
 
 void FileReader::readAsBinaryString(Blob* blob, ExceptionCode& ec)
@@ -98,7 +98,7 @@ void FileReader::readAsBinaryString(Blob* blob, ExceptionCode& ec)
 
     LOG(FileAPI, "FileReader: reading as binary: %s %s\n", blob->url().string().utf8().data(), is<File>(*blob) ? downcast<File>(*blob).path().utf8().data() : "");
 
-    readInternal(blob, FileReaderLoader::ReadAsBinaryString, ec);
+    readInternal(*blob, FileReaderLoader::ReadAsBinaryString, ec);
 }
 
 void FileReader::readAsText(Blob* blob, const String& encoding, ExceptionCode& ec)
@@ -109,12 +109,7 @@ void FileReader::readAsText(Blob* blob, const String& encoding, ExceptionCode& e
     LOG(FileAPI, "FileReader: reading as text: %s %s\n", blob->url().string().utf8().data(), is<File>(*blob) ? downcast<File>(*blob).path().utf8().data() : "");
 
     m_encoding = encoding;
-    readInternal(blob, FileReaderLoader::ReadAsText, ec);
-}
-
-void FileReader::readAsText(Blob* blob, ExceptionCode& ec)
-{
-    readAsText(blob, String(), ec);
+    readInternal(*blob, FileReaderLoader::ReadAsText, ec);
 }
 
 void FileReader::readAsDataURL(Blob* blob, ExceptionCode& ec)
@@ -124,10 +119,10 @@ void FileReader::readAsDataURL(Blob* blob, ExceptionCode& ec)
 
     LOG(FileAPI, "FileReader: reading as data URL: %s %s\n", blob->url().string().utf8().data(), is<File>(*blob) ? downcast<File>(*blob).path().utf8().data() : "");
 
-    readInternal(blob, FileReaderLoader::ReadAsDataURL, ec);
+    readInternal(*blob, FileReaderLoader::ReadAsDataURL, ec);
 }
 
-void FileReader::readInternal(Blob* blob, FileReaderLoader::ReadType type, ExceptionCode& ec)
+void FileReader::readInternal(Blob& blob, FileReaderLoader::ReadType type, ExceptionCode& ec)
 {
     // If multiple concurrent read methods are called on the same FileReader, INVALID_STATE_ERR should be thrown when the state is LOADING.
     if (m_state == LOADING) {
@@ -137,7 +132,7 @@ void FileReader::readInternal(Blob* blob, FileReaderLoader::ReadType type, Excep
 
     setPendingActivity(this);
 
-    m_blob = blob;
+    m_blob = &blob;
     m_readType = type;
     m_state = LOADING;
     m_error = nullptr;
@@ -145,7 +140,7 @@ void FileReader::readInternal(Blob* blob, FileReaderLoader::ReadType type, Excep
     m_loader = std::make_unique<FileReaderLoader>(m_readType, this);
     m_loader->setEncoding(m_encoding);
     m_loader->setDataType(m_blob->type());
-    m_loader->start(scriptExecutionContext(), m_blob.get());
+    m_loader->start(scriptExecutionContext(), blob);
 }
 
 void FileReader::abort()
@@ -241,10 +236,10 @@ void FileReader::fireEvent(const AtomicString& type)
     dispatchEvent(ProgressEvent::create(type, true, m_loader ? m_loader->bytesLoaded() : 0, m_loader ? m_loader->totalBytes() : 0));
 }
 
-PassRefPtr<ArrayBuffer> FileReader::arrayBufferResult() const
+RefPtr<ArrayBuffer> FileReader::arrayBufferResult() const
 {
     if (!m_loader || m_error)
-        return 0;
+        return nullptr;
     return m_loader->arrayBufferResult();
 }
 

@@ -37,8 +37,8 @@ WebInspector.VisualStylePropertyEditor = class VisualStylePropertyEditor extends
             if (!values)
                 return;
 
-            var canonicalizedValues = {};
-            for (var value of values)
+            let canonicalizedValues = {};
+            for (let value of values)
                 canonicalizedValues[value.toLowerCase().replace(/\s/g, "-")] = value;
 
             return canonicalizedValues;
@@ -62,36 +62,31 @@ WebInspector.VisualStylePropertyEditor = class VisualStylePropertyEditor extends
             else
                 this._possibleUnits = possibleUnits;
         }
+        this._dependencies = new Map;
 
         this._element = document.createElement("div");
         this._element.classList.add("visual-style-property-container", className);
         this._element.classList.toggle("layout-reversed", !!layoutReversed);
 
         if (label && label.length) {
-            var titleContainer = document.createElement("div");
-            titleContainer.classList.add("visual-style-property-title");
+            let titleContainer = this._element.createChild("div", "visual-style-property-title");
 
-            this._titleElement = document.createElement("span");
-            this._titleElement.appendChild(document.createTextNode(label));
+            this._titleElement = titleContainer.createChild("span");
+            this._titleElement.append(label);
+            this._titleElement.title = label;
             this._titleElement.addEventListener("mouseover", this._titleElementMouseOver.bind(this));
             this._titleElement.addEventListener("mouseout", this._titleElementMouseOut.bind(this));
             this._titleElement.addEventListener("click", this._titleElementClick.bind(this));
-            titleContainer.appendChild(this._titleElement);
-
-            this._element.appendChild(titleContainer);
 
             this._boundTitleElementPrepareForClick = this._titleElementPrepareForClick.bind(this);
         }
 
-        this._contentElement = document.createElement("div");
-        this._contentElement.classList.add("visual-style-property-value-container");
+        this._contentElement = this._element.createChild("div", "visual-style-property-value-container");
 
-        this._specialPropertyPlaceholderElement = document.createElement("span");
-        this._specialPropertyPlaceholderElement.classList.add("visual-style-special-property-placeholder");
+        this._specialPropertyPlaceholderElement = this._contentElement.createChild("span", "visual-style-special-property-placeholder");
         this._specialPropertyPlaceholderElement.hidden = true;
-        this._contentElement.appendChild(this._specialPropertyPlaceholderElement);
 
-        this._element.appendChild(this._contentElement);
+        this._warningElement = this._element.createChild("div", "visual-style-property-editor-warning");
 
         this._updatedValues = {};
         this._lastValue = null;
@@ -104,7 +99,7 @@ WebInspector.VisualStylePropertyEditor = class VisualStylePropertyEditor extends
             this._element.classList.add("multiple");
         }
 
-        for (var name of propertyNames) {
+        for (let name of propertyNames) {
             this._element.classList.add(name);
             this._propertyInfoList.push({
                 name,
@@ -128,15 +123,15 @@ WebInspector.VisualStylePropertyEditor = class VisualStylePropertyEditor extends
         styleText = styleText || "";
 
         // FIXME: <rdar://problem/10593948> Provide a way to change the tab width in the Web Inspector
-        var linePrefixText = "    ";
-        var lineSuffixWhitespace = "\n";
-        var trimmedText = styleText.trimRight();
-        var textHasNewlines = trimmedText.includes("\n");
+        let linePrefixText = "    ";
+        let lineSuffixWhitespace = "\n";
+        let trimmedText = styleText.trimRight();
+        let textHasNewlines = trimmedText.includes("\n");
 
         if (trimmedText.trimLeft().length) {
-            var styleTextPrefixWhitespace = trimmedText.match(/^\s*/);
+            let styleTextPrefixWhitespace = trimmedText.match(/^\s*/);
             if (styleTextPrefixWhitespace) {
-                var linePrefixWhitespaceMatch = styleTextPrefixWhitespace[0].match(/[^\S\n]+$/);
+                let linePrefixWhitespaceMatch = styleTextPrefixWhitespace[0].match(/[^\S\n]+$/);
                 if (linePrefixWhitespaceMatch && textHasNewlines)
                     linePrefixText = linePrefixWhitespaceMatch[0];
                 else {
@@ -273,29 +268,36 @@ WebInspector.VisualStylePropertyEditor = class VisualStylePropertyEditor extends
             return;
 
         this._updatedValues = {};
-        var propertyValuesConflict = false;
-        var propertyMissing = false;
-        for (var propertyInfo of this._propertyInfoList) {
-            var property = this._style.propertyForName(propertyInfo.name, true);
+        let propertyValuesConflict = false;
+        let propertyMissing = false;
+        for (let propertyInfo of this._propertyInfoList) {
+            let property = this._style.propertyForName(propertyInfo.name, true);
             propertyMissing = !property;
             if (propertyMissing && this._style.nodeStyles)
                 property = this._style.nodeStyles.computedStyle.propertyForName(propertyInfo.name);
 
-            var longhandPropertyValue = null;
+            let longhandPropertyValue = null;
             if (typeof this._generateTextFromLonghandProperties === "function")
                 longhandPropertyValue = this._generateTextFromLonghandProperties();
 
             if (longhandPropertyValue)
                 propertyMissing = false;
 
-            var propertyText = (property && property.value) || longhandPropertyValue;
+            let propertyText = (property && property.value) || longhandPropertyValue;
             if (!propertyText || !propertyText.length)
                 continue;
 
             if (!propertyMissing && property && property.anonymous)
                 this._representedProperty = property;
 
-            var newValues = this.getValuesFromText(propertyText, propertyMissing);
+            if (!propertyMissing && property && !property.valid) {
+                this._warningElement.classList.add("invalid-value");
+                this._warningElement.title = WebInspector.UIString("The value “%s” is not supported for this property.").format(propertyText);
+                this.specialPropertyPlaceholderElementText = propertyText;
+                return;
+            }
+
+            let newValues = this.getValuesFromText(propertyText, propertyMissing);
             if (this._updatedValues.placeholder && this._updatedValues.placeholder !== newValues.placeholder)
                 propertyValuesConflict = true;
 
@@ -304,7 +306,7 @@ WebInspector.VisualStylePropertyEditor = class VisualStylePropertyEditor extends
 
             if (propertyValuesConflict) {
                 this._updatedValues.conflictingValues = true;
-                this._specialPropertyPlaceholderElement.textContent = WebInspector.UIString("(multiple)");
+                this.specialPropertyPlaceholderElementText = WebInspector.UIString("(multiple)");
                 break;
             }
         }
@@ -323,6 +325,9 @@ WebInspector.VisualStylePropertyEditor = class VisualStylePropertyEditor extends
 
         this._lastValue = this.synthesizedValue;
         this.disabled = false;
+
+        this._warningElement.classList.remove("invalid-value");
+        this._checkDependencies();
     }
 
     resetEditorValues(value)
@@ -334,13 +339,13 @@ WebInspector.VisualStylePropertyEditor = class VisualStylePropertyEditor extends
             return;
         }
 
-        var updatedValues = this.getValuesFromText(value);
+        let updatedValues = this.getValuesFromText(value);
         this.updateEditorValues(updatedValues);
     }
 
     modifyPropertyText(text, value)
     {
-        for (var property of this._propertyInfoList) {
+        for (let property of this._propertyInfoList) {
             if (property.textContainsNameRegExp.test(text))
                 text = text.replace(property.replacementRegExp, value !== null ? "$1$2: " + value + ";" : "$1");
             else if (value !== null)
@@ -351,10 +356,10 @@ WebInspector.VisualStylePropertyEditor = class VisualStylePropertyEditor extends
 
     getValuesFromText(text, propertyMissing)
     {
-        var match = this.parseValue(text);
-        var placeholder = match ? match[1] : text;
-        var units = match ? match[2] : null;
-        var value = placeholder;
+        let match = this.parseValue(text);
+        let placeholder = match ? match[1] : text;
+        let units = match ? match[2] : null;
+        let value = placeholder;
         if (propertyMissing)
             value = this.valueIsSupportedKeyword(text) ? text : null;
 
@@ -379,7 +384,6 @@ WebInspector.VisualStylePropertyEditor = class VisualStylePropertyEditor extends
         if (!this._possibleValues)
             return false;
 
-        value = value || this.value;
         if (Object.keys(this._possibleValues.basic).includes(value))
             return true;
 
@@ -391,11 +395,22 @@ WebInspector.VisualStylePropertyEditor = class VisualStylePropertyEditor extends
         if (!this._possibleUnits)
             return false;
 
-        unit = unit || this.units;
         if (this._possibleUnits.basic.includes(unit))
             return true;
 
         return this._valueIsSupportedAdvancedUnit(unit);
+    }
+
+    addDependency(propertyNames, propertyValues)
+    {
+        if (!propertyNames || !propertyNames.length || !propertyValues || !propertyValues.length)
+            return;
+
+        if (!Array.isArray(propertyNames))
+            propertyNames = [propertyNames];
+
+        for (let property of propertyNames)
+            this._dependencies.set(property, propertyValues);
     }
 
     // Protected
@@ -410,6 +425,15 @@ WebInspector.VisualStylePropertyEditor = class VisualStylePropertyEditor extends
         return this._specialPropertyPlaceholderElement;
     }
 
+    set specialPropertyPlaceholderElementText(text)
+    {
+        if (!text || !text.length)
+            return;
+
+        this._specialPropertyPlaceholderElement.hidden = false;
+        this._specialPropertyPlaceholderElement.textContent = text;
+    }
+
     parseValue(text)
     {
         return /^([^;]+)\s*;?$/.exec(text);
@@ -419,12 +443,12 @@ WebInspector.VisualStylePropertyEditor = class VisualStylePropertyEditor extends
 
     _valueIsSupportedAdvancedKeyword(value)
     {
-        return this._possibleValues.advanced && Object.keys(this._possibleValues.advanced).includes(value || this.value);
+        return this._possibleValues.advanced && Object.keys(this._possibleValues.advanced).includes(value);
     }
 
     _valueIsSupportedAdvancedUnit(unit)
     {
-        return this._possibleUnits.advanced && this._possibleUnits.advanced.includes(unit || this.units);
+        return this._possibleUnits.advanced && this._possibleUnits.advanced.includes(unit);
     }
 
     _canonicalizedKeywordForKey(value)
@@ -440,7 +464,7 @@ WebInspector.VisualStylePropertyEditor = class VisualStylePropertyEditor extends
         if (!keyword || !keyword.length || !this._possibleValues)
             return null;
 
-        for (var basicKey in this._possibleValues.basic) {
+        for (let basicKey in this._possibleValues.basic) {
             if (this._possibleValues.basic[basicKey] === keyword)
                 return basicKey;
         }
@@ -448,7 +472,7 @@ WebInspector.VisualStylePropertyEditor = class VisualStylePropertyEditor extends
         if (!this._possibleValues.advanced)
             return null;
 
-        for (var advancedKey in this._possibleValues.advanced) {
+        for (let advancedKey in this._possibleValues.advanced) {
             if (this._possibleValues.advanced[advancedKey] === keyword)
                 return advancedKey;
         }
@@ -458,12 +482,12 @@ WebInspector.VisualStylePropertyEditor = class VisualStylePropertyEditor extends
 
     _valueDidChange()
     {
-        var value = this.synthesizedValue;
+        let value = this.synthesizedValue;
         if (value === this._lastValue)
             return false;
 
         if (this._style && !this._suppressStyleTextUpdate) {
-            var newText = this._style.text;
+            let newText = this._style.text;
             newText = this._replaceShorthandPropertyWithLonghandProperties(newText);
             newText = this.modifyPropertyText(newText, value);
             this._style.text = newText;
@@ -476,6 +500,9 @@ WebInspector.VisualStylePropertyEditor = class VisualStylePropertyEditor extends
         this._ignoreNextUpdate = true;
         this._specialPropertyPlaceholderElement.hidden = true;
 
+        this._checkDependencies();
+        this._warningElement.classList.remove("invalid-value");
+
         this.dispatchEventToListeners(WebInspector.VisualStylePropertyEditor.Event.ValueDidChange);
         return true;
     }
@@ -485,16 +512,44 @@ WebInspector.VisualStylePropertyEditor = class VisualStylePropertyEditor extends
         if (!this._representedProperty)
             return text;
 
-        var shorthand = this._representedProperty.relatedShorthandProperty;
+        let shorthand = this._representedProperty.relatedShorthandProperty;
         if (!shorthand)
             return text;
 
-        var longhandText = "";
-        for (var longhandProperty of shorthand.relatedLonghandProperties) {
+        let longhandText = "";
+        for (let longhandProperty of shorthand.relatedLonghandProperties) {
             if (longhandProperty.anonymous)
                 longhandText += longhandProperty.synthesizedText;
         }
         return longhandText ? text.replace(shorthand.text, longhandText) : text;
+    }
+
+    _hasMultipleConflictingValues()
+    {
+        return this._hasMultipleProperties && !this._specialPropertyPlaceholderElement.hidden;
+    }
+
+    _checkDependencies()
+    {
+        if (!this._dependencies.size || !this._style || !this.synthesizedValue) {
+            this._warningElement.classList.remove("missing-dependency");
+            return;
+        }
+
+        let title = "";
+
+        let dependencies = this._style.nodeStyles.computedStyle.properties.filter((property) => {
+            return this._dependencies.has(property.name) || this._dependencies.has(property.canonicalName);
+        });
+
+        for (let property of dependencies) {
+            let dependencyValues = this._dependencies.get(property.name);
+            if (!dependencyValues.includes(property.value))
+                title += "\n " + property.name + ": " + dependencyValues.join("/");
+        }
+
+        this._warningElement.classList.toggle("missing-dependency", !!title.length);
+        this._warningElement.title = !!title.length ? WebInspector.UIString("Missing Dependencies:%s").format(title) : null;
     }
 
     _titleElementPrepareForClick(event)
@@ -528,27 +583,22 @@ WebInspector.VisualStylePropertyEditor = class VisualStylePropertyEditor extends
             this._showPropertyInfoPopover();
     }
 
-    _hasMultipleConflictingValues()
-    {
-        return this._hasMultipleProperties && !this._specialPropertyPlaceholderElement.hidden;
-    }
-
     _showPropertyInfoPopover()
     {
         if (!this._hasPropertyReference)
             return;
 
-        var propertyInfoElement = document.createElement("p");
+        let propertyInfoElement = document.createElement("p");
         propertyInfoElement.classList.add("visual-style-property-info-popover");
 
-        var propertyInfoTitleElement = document.createElement("h3");
+        let propertyInfoTitleElement = document.createElement("h3");
         propertyInfoTitleElement.appendChild(document.createTextNode(this._propertyReferenceName));
         propertyInfoElement.appendChild(propertyInfoTitleElement);
 
         propertyInfoElement.appendChild(document.createTextNode(this._propertyReferenceText));
 
-        var bounds = WebInspector.Rect.rectFromClientRect(this._titleElement.getBoundingClientRect());
-        var popover = new WebInspector.Popover(this);
+        let bounds = WebInspector.Rect.rectFromClientRect(this._titleElement.getBoundingClientRect());
+        let popover = new WebInspector.Popover(this);
         popover.content = propertyInfoElement;
         popover.present(bounds.pad(2), [WebInspector.RectEdge.MIN_Y]);
     }

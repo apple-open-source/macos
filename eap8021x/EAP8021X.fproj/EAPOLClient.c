@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -125,6 +125,47 @@ _EAPOLClientCFMachPortCreate(CFMachPortCallBack callout, CFMachPortContext * con
 
 }
 
+Boolean
+EAPOLClientEstablishSession(const char * interface_name)
+{
+    mach_port_t			au_session;
+    mach_port_t			bootstrap;
+    mach_port_t			server;
+    Boolean			session_established = FALSE;
+    kern_return_t		status;
+    if_name_t			if_name;
+
+    status = eapolcontroller_server_port(&server);
+    if (status != BOOTSTRAP_SUCCESS) {
+	EAPLOG_FL(LOG_NOTICE, "eapolcontroller_server_port(): %s",
+		  mach_error_string(status));
+	goto failed;
+    }
+    bzero(if_name, sizeof(if_name));
+    strlcpy(if_name, interface_name, sizeof(if_name));
+    status = eapolcontroller_client_get_session(server, mach_task_self(),
+						if_name,
+						&bootstrap, &au_session);
+    if (status != KERN_SUCCESS) {
+	EAPLOG_FL(LOG_NOTICE,
+		  "eapolcontroller_client_get_session(%s): %s",
+		  interface_name, mach_error_string(status));
+	goto failed;
+    }
+    if (bootstrap != MACH_PORT_NULL && au_session != MACH_PORT_NULL) {
+	task_set_bootstrap_port(mach_task_self(), bootstrap);
+	if (audit_session_join(au_session) == AU_DEFAUDITSID) {
+	    EAPLOG_FL(LOG_NOTICE,
+		      "audit_session_join returned AU_DEFAULTSID");
+	    goto failed;
+	}
+	session_established = TRUE;
+    }
+
+ failed:
+    return (session_established);
+}
+
 EAPOLClientRef
 EAPOLClientAttach(const char * interface_name, 
 		  EAPOLClientCallBack callback_func, 
@@ -132,8 +173,6 @@ EAPOLClientAttach(const char * interface_name,
 		  CFDictionaryRef * control_dict, 
 		  int * result_p)
 {
-    mach_port_t			au_session;
-    mach_port_t			bootstrap;
     EAPOLClientRef		client = NULL;
     xmlDataOut_t		control = NULL;
     unsigned int		control_len = 0;
@@ -185,23 +224,13 @@ EAPOLClientAttach(const char * interface_name,
     status = eapolcontroller_client_attach(server, mach_task_self(),
 					   client->if_name,
 					   port, &client->session_port,
-					   &control, &control_len,
-					   &bootstrap, &au_session, &result);
+					   &control, &control_len, &result);
     if (status != KERN_SUCCESS) {
 	EAPLOG_FL(LOG_NOTICE, 
 		  "eapolcontroller_client_attach(%s): %s",
 		  client->if_name, mach_error_string(status));
 	result = ENXIO;
 	goto failed;
-    }
-    if (bootstrap != MACH_PORT_NULL) {
-	task_set_bootstrap_port(mach_task_self(), bootstrap);
-    }
-    if (au_session != MACH_PORT_NULL) {
-	if (audit_session_join(au_session) == AU_DEFAUDITSID) {
-	    EAPLOG_FL(LOG_NOTICE,
-		      "audit_session_join returned AU_DEFAULTSID");
-	}
     }
     if (control != NULL) {
 	*control_dict

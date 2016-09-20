@@ -478,7 +478,7 @@ static int testMulMod()
 
 
 
-int CommonBigNum(int argc, char *const *argv) {
+int CommonBigNum(int __unused argc, char *const * __unused argv) {
 
     
 	plan_tests(kTestTestCount);

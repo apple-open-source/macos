@@ -1,9 +1,7 @@
 /*
- * "$Id: printers.h 12669 2015-05-27 19:42:43Z msweet $"
- *
  * Printer definitions for the CUPS scheduler.
  *
- * Copyright 2007-2013 by Apple Inc.
+ * Copyright 2007-2016 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  * These coded instructions, statements, and computer programs are the
@@ -59,6 +57,7 @@ typedef struct cupsd_job_s cupsd_job_t;
 
 struct cupsd_printer_s
 {
+  _cups_rwlock_t lock;			/* Concurrency lock for background updates */
   char		*uri,			/* Printer URI */
 		*uuid,			/* Printer UUID */
 		*hostname,		/* Host printer resides on */
@@ -73,6 +72,7 @@ struct cupsd_printer_s
 		*error_policy;		/* Error policy */
   cupsd_policy_t *op_policy_ptr;	/* Pointer to operation policy */
   int		shared;			/* Shared? */
+  int		temporary;		/* Temporary queue? */
   int		accepting;		/* Accepting jobs? */
   int		holding_new_jobs;	/* Holding new jobs for printing? */
   int		in_implicit_class;	/* In an implicit class? */
@@ -191,8 +191,3 @@ extern const char	*cupsdValidateDest(const char *uri,
 			        	   cups_ptype_t *dtype,
 					   cupsd_printer_t **printer);
 extern void		cupsdWritePrintcap(void);
-
-
-/*
- * End of "$Id: printers.h 12669 2015-05-27 19:42:43Z msweet $".
- */

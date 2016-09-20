@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 1999-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,11 +17,11 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
-/* 
+/*
    cc -I/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders -DPRIVATE -D__APPLE_PRIVATE -arch x86_64 -arch i386 -O -o latency latency.c -lncurses -lutil
 */
 
@@ -87,8 +87,8 @@ struct i_latencies {
 	int      i_msec_1_bins[10];
 	int      i_msec_10_bins[5];
 	int      i_too_slow;
-	int      i_max_latency;
-	int      i_min_latency;
+	long     i_max_latency;
+	long     i_min_latency;
 	int      i_total_samples;
 	int	 i_total;
 	int      i_exceeded_threshold;
@@ -114,7 +114,7 @@ char *kernelpath = NULL;
 
 typedef struct {
 	void	 *k_sym_addr;	/* kernel symbol address from nm */
-	u_int	  k_sym_len;	/* length of kernel symbol string */
+	size_t    k_sym_len;	/* length of kernel symbol string */
 	char     *k_sym_name;	/* kernel symbol string from nm */
 } kern_sym_t;
 
@@ -163,7 +163,7 @@ uint64_t cpu_mask;
 int	sample_generation = 0;
 int	num_i_latency_cpus = 1;
 int	num_cpus;
-char *my_buffer;
+void *my_buffer;
 int	num_entries;
 
 kd_buf **last_decrementer_kd;   /* last DECR_TRAP per cpu */
@@ -186,7 +186,7 @@ typedef struct lookup *lookup_t;
 
 struct lookup {
 	lookup_t  lk_next;
-	
+
 	uintptr_t lk_thread;
 	uintptr_t lk_dvp;
 	long	 *lk_pathptr;
@@ -198,7 +198,7 @@ typedef struct threadmap *threadmap_t;
 
 struct threadmap {
 	threadmap_t	tm_next;
-	
+
 	uintptr_t	tm_thread;
 	uintptr_t	tm_pthread;
 	char		tm_command[MAXCOMLEN + 1];
@@ -210,7 +210,7 @@ typedef struct threadrun *threadrun_t;
 
 struct threadrun {
 	threadrun_t	tr_next;
-	
+
 	uintptr_t	tr_thread;
 	kd_buf		*tr_entry;
 	uint64_t	tr_timestamp;
@@ -225,7 +225,6 @@ struct thread_entry {
 
 	uintptr_t	te_thread;
 };
-	
 
 #define HASH_SIZE       1024
 #define HASH_MASK       1023
@@ -266,26 +265,21 @@ typedef struct {
 #define KERNEL_MODE	1
 
 
-#define TRACE_DATA_NEWTHREAD	0x07000004
-#define TRACE_STRING_NEWTHREAD	0x07010004
-#define TRACE_STRING_EXEC	0x07010008
-
-#define INTERRUPT         	0x01050000
-#define DECR_TRAP         	0x01090000
-#define DECR_SET          	0x01090004
-#define MACH_vmfault     	0x01300008
-#define MACH_sched        	0x01400000
-#define MACH_stkhandoff   	0x01400008
+#define INTERRUPT		0x01050000
+#define DECR_TRAP		0x01090000
+#define DECR_SET		0x01090004
+#define MACH_vmfault		0x01300008
+#define MACH_sched		0x01400000
+#define MACH_stkhandoff		0x01400008
 #define MACH_makerunnable	0x01400018
 #define MACH_idle		0x01400024
-#define VFS_LOOKUP        	0x03010090
-#define IES_action        	0x050b0018
-#define IES_filter        	0x050b001c
-#define TES_action        	0x050c0010
-#define CQ_action         	0x050d0018
+#define IES_action		0x050b0018
+#define IES_filter		0x050b001c
+#define TES_action		0x050c0010
+#define CQ_action		0x050d0018
 #define CPUPM_CPUSTER_RUNCOUNT	0x05310144
 
-#define BSC_exit          	0x040C0004
+#define BSC_exit		0x040C0004
 #define BSC_thread_terminate	0x040c05a4
 
 #define DBG_FUNC_MASK	~(DBG_FUNC_START | DBG_FUNC_END)
@@ -293,7 +287,6 @@ typedef struct {
 #define CPU_NUMBER(kp)	kdbg_get_cpu(kp)
 
 #define EMPTYSTRING	""
-
 
 const char *fault_name[] = {
 	"",
@@ -333,9 +326,9 @@ const char *sched_reasons[] = {
 static double handle_decrementer(kd_buf *, int);
 static kd_buf *log_decrementer(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, double i_latency);
 static void read_command_map(void);
-static void enter_syscall(FILE *fp, kd_buf *kd, int thread, int type, char *command, uint64_t now, uint64_t idelta, uint64_t start_bias, int print_info);
-static void exit_syscall(FILE *fp, kd_buf *kd, int thread, int type, char *command, uint64_t now, uint64_t idelta, uint64_t start_bias, int print_info);
-static void print_entry(FILE *fp, kd_buf *kd, int thread, int type, char *command, uint64_t now, uint64_t idelta, uint64_t start_bias, kd_buf *kd_note);
+static void enter_syscall(FILE *fp, kd_buf *kd, uintptr_t thread, int type, char *command, uint64_t now, uint64_t idelta, uint64_t start_bias, int print_info);
+static void exit_syscall(FILE *fp, kd_buf *kd, uintptr_t thread, int type, char *command, uint64_t now, uint64_t idelta, uint64_t start_bias, int print_info);
+static void print_entry(FILE *fp, kd_buf *kd, uintptr_t thread, int type, char *command, uint64_t now, uint64_t idelta, uint64_t start_bias, kd_buf *kd_note);
 static void log_info(uint64_t now, uint64_t idelta, uint64_t start_bias, kd_buf *kd, kd_buf *kd_note);
 static char *find_code(int);
 static void pc_to_string(char *pcstring, uintptr_t pc, int max_len, int mode);
@@ -364,7 +357,7 @@ quit(char *s)
 		if (trace_enabled) {
 			set_enable(0);
 		}
-		/* 
+		/*
 		 *  This flag is turned off when calling
 		 * quit() due to a set_remove() failure.
 		 */
@@ -380,7 +373,7 @@ quit(char *s)
 }
 
 void
-set_enable(int val) 
+set_enable(int val)
 {
 	int mib[] = { CTL_KERN, KERN_KDEBUG, KERN_KDENABLE, val };
 	size_t needed;
@@ -390,8 +383,8 @@ set_enable(int val)
 	}
 }
 
-void
-set_numbufs(int nbufs) 
+static void
+set_numbufs(int nbufs)
 {
 	int mib1[] = { CTL_KERN, KERN_KDEBUG, KERN_KDSETBUF, nbufs };
 	int mib2[] = { CTL_KERN, KERN_KDEBUG, KERN_KDSETUP };
@@ -405,8 +398,8 @@ set_numbufs(int nbufs)
 	}
 }
 
-void
-set_pidexclude(int pid, int on_off) 
+static void
+set_pidexclude(int pid, int on_off)
 {
 	int mib[] = { CTL_KERN, KERN_KDEBUG, KERN_KDPIDEX };
 	size_t needed = sizeof(kd_regtype);
@@ -420,12 +413,12 @@ set_pidexclude(int pid, int on_off)
 	sysctl(mib, ARRAYSIZE(mib), &kr, &needed, NULL, 0);
 }
 
-void
+static void
 get_bufinfo(kbufinfo_t *val)
 {
 	int mib[] = { CTL_KERN, KERN_KDEBUG, KERN_KDGETBUF };
 	size_t needed = sizeof (*val);
-	
+
 	if (sysctl(mib, ARRAYSIZE(mib), val, &needed, 0, 0) < 0) {
 		quit("trace facility failure, KERN_KDGETBUF\n");
 	}
@@ -450,7 +443,7 @@ set_remove(void)
 }
 
 
-void
+static void
 write_high_res_latencies(void)
 {
 	int i;
@@ -466,7 +459,7 @@ write_high_res_latencies(void)
 	}
 }
 
-void
+static void
 sigintr(int signo __attribute__((unused)))
 {
 	write_high_res_latencies();
@@ -481,7 +474,7 @@ sigintr(int signo __attribute__((unused)))
 }
 
 /* exit under normal conditions -- signal handler */
-void
+static void
 leave(int signo __attribute__((unused)))
 {
 	write_high_res_latencies();
@@ -490,17 +483,17 @@ leave(int signo __attribute__((unused)))
 	set_pidexclude(getpid(), 0);
 	endwin();
 	set_remove();
-	
+
 	exit(1);
 }
 
-void
+static void
 sigwinch(int signo __attribute__((unused)))
 {
 	gotSIGWINCH = 1;
 }
 
-void
+static void
 print_total(FILE *fp, char *s, int total)
 {
 	int  cpu;
@@ -541,10 +534,10 @@ screen_update(FILE *fp)
 	int cpu;
 	int clen;
 	int itotal, stotal;
-	int elapsed_secs;
-	int elapsed_mins;
-	int elapsed_hours;
-	int min_lat, max_lat;
+	long elapsed_secs;
+	long elapsed_mins;
+	long elapsed_hours;
+	long min_lat, max_lat;
 	uint64_t tot_lat;
 	unsigned int average_s_latency;
 	unsigned int average_i_latency;
@@ -560,7 +553,7 @@ screen_update(FILE *fp)
 	/*
 	 *  Display the current time.
 	 *  "ctime" always returns a string that looks like this:
-	 *  
+	 *
 	 *	Sun Sep 16 01:03:52 1973
 	 *      012345678901234567890123
 	 *	          1         2
@@ -568,7 +561,7 @@ screen_update(FILE *fp)
 	 *  We want indices 11 thru 18 (length 8).
 	 */
 	if (RAW_flag) {
-		curr_time = sample_TOD_secs;
+		curr_time = (unsigned long)sample_TOD_secs;
 		elapsed_secs = ((last_now - first_now) / divisor) / 1000000;
 	} else {
 		elapsed_secs = curr_time - start_time;
@@ -663,7 +656,7 @@ screen_update(FILE *fp)
 		if (i_latency_per_cpu == TRUE) {
 			for (cpu = 0; cpu < num_i_latency_cpus; cpu++) {
 				il = &i_lat[cpu];
-				
+
 				clen += sprintf(&tbuf[clen], " %9d", il->i_usec_10_bins[i]);
 			}
 		}
@@ -768,7 +761,7 @@ screen_update(FILE *fp)
 	if (i_latency_per_cpu == TRUE) {
 		for (cpu = 0; cpu < num_i_latency_cpus; cpu++) {
 			il = &i_lat[cpu];
-		
+
 			clen += sprintf(&tbuf[clen], " %9d", il->i_too_slow);
 		}
 	}
@@ -785,13 +778,13 @@ screen_update(FILE *fp)
 			min_lat = il->i_min_latency;
 		}
 	}
-	clen = sprintf(tbuf, "\n\nminimum latency(usecs) %7d      %9d", s_min_latency, min_lat);
+	clen = sprintf(tbuf, "\n\nminimum latency(usecs) %7d      %9ld", s_min_latency, min_lat);
 
 	if (i_latency_per_cpu == TRUE) {
 		for (cpu = 0; cpu < num_i_latency_cpus; cpu++) {
 			il = &i_lat[cpu];
-		
-			clen += sprintf(&tbuf[clen], " %9d", il->i_min_latency);
+
+			clen += sprintf(&tbuf[clen], " %9ld", il->i_min_latency);
 		}
 	}
 	if (fp) {
@@ -808,13 +801,13 @@ screen_update(FILE *fp)
 			max_lat = il->i_max_latency;
 		}
 	}
-	clen = sprintf(tbuf, "\nmaximum latency(usecs) %7d      %9d", s_max_latency, max_lat);
+	clen = sprintf(tbuf, "\nmaximum latency(usecs) %7d      %9ld", s_max_latency, max_lat);
 
 	if (i_latency_per_cpu == TRUE) {
 		for (cpu = 0; cpu < num_i_latency_cpus; cpu++) {
 			il = &i_lat[cpu];
-		
-			clen += sprintf(&tbuf[clen], " %9d", il->i_max_latency);
+
+			clen += sprintf(&tbuf[clen], " %9ld", il->i_max_latency);
 		}
 	}
 	if (fp) {
@@ -822,7 +815,7 @@ screen_update(FILE *fp)
 	} else {
 		printw(tbuf);
 	}
-	
+
 	if (s_total_samples) {
 		average_s_latency = (unsigned int)(s_total_latency/s_total_samples);
 	} else {
@@ -831,7 +824,7 @@ screen_update(FILE *fp)
 
 	for (itotal = 0, tot_lat = 0, cpu = 0; cpu < num_i_latency_cpus; cpu++) {
 		il = &i_lat[cpu];
-		
+
 		itotal += il->i_total_samples;
 		tot_lat += il->i_total_latency;
 	}
@@ -846,7 +839,7 @@ screen_update(FILE *fp)
 	if (i_latency_per_cpu == TRUE) {
 		for (cpu = 0; cpu < num_i_latency_cpus; cpu++) {
 			il = &i_lat[cpu];
-		
+
 			if (il->i_total_samples) {
 				average_i_latency = (unsigned int)(il->i_total_latency/il->i_total_samples);
 			} else {
@@ -861,10 +854,10 @@ screen_update(FILE *fp)
 	} else {
 		printw(tbuf);
 	}
-	
+
 	for (itotal = 0, cpu = 0; cpu < num_i_latency_cpus; cpu++) {
 		il = &i_lat[cpu];
-		
+
 		itotal += il->i_exceeded_threshold;
 	}
 	clen = sprintf(tbuf, "\nexceeded threshold     %7d      %9d", s_exceeded_threshold, itotal);
@@ -872,7 +865,7 @@ screen_update(FILE *fp)
 	if (i_latency_per_cpu == TRUE) {
 		for (cpu = 0; cpu < num_i_latency_cpus; cpu++) {
 			il = &i_lat[cpu];
-		
+
 			clen += sprintf(&tbuf[clen], " %9d", il->i_exceeded_threshold);
 		}
 	}
@@ -882,7 +875,7 @@ screen_update(FILE *fp)
 		fprintf(fp, "%s", tbuf);
 	} else {
 		printw(tbuf);
-	}	
+	}
 
 	if (fp == NULL) {
 		refresh();
@@ -891,27 +884,26 @@ screen_update(FILE *fp)
 	}
 }
 
-int
+static int
 exit_usage(void)
 {
 	fprintf(stderr, "Usage: latency [-p <priority>] [-h] [-m] [-st <threshold>] [-it <threshold>]\n");
 	fprintf(stderr, "               [-c <codefile>] [-l <logfile>] [-R <rawfile>] [-n <kernel>]\n\n");
- 
+
 	fprintf(stderr, "  -p    specify scheduling priority to watch... default is realtime. Can also be a range, e.g. \"31-47\".\n");
 	fprintf(stderr, "  -h    Display high resolution interrupt latencies and write them to latencies.csv (truncate existing file) upon exit.\n");
 	fprintf(stderr, "  -st   set scheduler latency threshold in microseconds... if latency exceeds this, then log trace\n");
-	fprintf(stderr, "  -m    specify per-CPU interrupt latency reporting\n");	
+	fprintf(stderr, "  -m    specify per-CPU interrupt latency reporting\n");
 	fprintf(stderr, "  -it   set interrupt latency threshold in microseconds... if latency exceeds this, then log trace\n");
 	fprintf(stderr, "  -c    specify name of codes file... default is /usr/share/misc/trace.codes\n");
 	fprintf(stderr, "  -l    specify name of file to log trace entries to when the specified threshold is exceeded\n");
 	fprintf(stderr, "  -R    specify name of raw trace file to process\n");
-	fprintf(stderr, "  -n    specify kernel... default is /System/Library/Kernels/kernel.development\n");	
+	fprintf(stderr, "  -n    specify kernel... default is /System/Library/Kernels/kernel.development\n");
 
 	fprintf(stderr, "\nlatency must be run as root\n\n");
 
 	exit(1);
 }
-
 
 int
 main(int argc, char *argv[])
@@ -969,7 +961,7 @@ main(int argc, char *argv[])
 		} else if (strcmp(argv[1], "-it") == 0) {
 			argc--;
 			argv++;
-			
+
 			if (argc > 1) {
 				i_thresh_hold = atoi(argv[1]);
 			} else {
@@ -978,7 +970,7 @@ main(int argc, char *argv[])
 		} else if (strcmp(argv[1], "-c") == 0) {
 			argc--;
 			argv++;
-			
+
 			if (argc > 1) {
 				code_file = argv[1];
 			} else {
@@ -987,7 +979,7 @@ main(int argc, char *argv[])
 		} else if (strcmp(argv[1], "-l") == 0) {
 			argc--;
 			argv++;
-			
+
 			if (argc > 1) {
 				open_logfile(argv[1]);
 			} else {
@@ -1147,8 +1139,6 @@ main(int argc, char *argv[])
 	}
 }
 
-
-												  
 void
 read_command_map(void)
 {
@@ -1177,7 +1167,7 @@ read_command_map(void)
 			}
 		}
                 total_threads = header.thread_count;
-		
+
 		sample_TOD_secs = header.TOD_secs;
 		sample_TOD_usecs = header.TOD_usecs;
 
@@ -1190,14 +1180,14 @@ read_command_map(void)
 	} else {
 		total_threads = bufinfo.nkdthreads;
 	}
-		
+
 	size = total_threads * sizeof(kd_threadmap);
 
 	if (size == 0 || ((mapptr = (kd_threadmap *) malloc(size)) == 0)) {
 		return;
 	}
 	bzero (mapptr, size);
- 
+
 	/*
 	 * Now read the threadmap
 	 */
@@ -1251,7 +1241,7 @@ create_map_entry(uintptr_t thread, char *command)
 	threadmap_hash[hashid] = tme;
 }
 
-void
+static void
 delete_thread_entry(uintptr_t thread)
 {
 	threadmap_t tme;
@@ -1279,7 +1269,7 @@ delete_thread_entry(uintptr_t thread)
 	}
 }
 
-void
+static void
 find_and_insert_tmp_map_entry(uintptr_t pthread, char *command)
 {
 	threadmap_t tme;
@@ -1310,7 +1300,7 @@ find_and_insert_tmp_map_entry(uintptr_t pthread, char *command)
 	}
 }
 
-void
+static void
 create_tmp_map_entry(uintptr_t thread, uintptr_t pthread)
 {
 	threadmap_t tme;
@@ -1330,7 +1320,7 @@ create_tmp_map_entry(uintptr_t thread, uintptr_t pthread)
 	threadmap_temp = tme;
 }
 
-threadmap_t
+static threadmap_t
 find_thread_entry(uintptr_t thread)
 {
 	threadmap_t tme;
@@ -1345,7 +1335,7 @@ find_thread_entry(uintptr_t thread)
 	return 0;
 }
 
-void
+static void
 find_thread_name(uintptr_t thread, char **command)
 {
 	threadmap_t     tme;
@@ -1357,7 +1347,7 @@ find_thread_name(uintptr_t thread, char **command)
 	}
 }
 
-void
+static void
 add_thread_entry_to_list(thread_entry_t *list, uintptr_t thread)
 {
 	thread_entry_t	te;
@@ -1373,7 +1363,7 @@ add_thread_entry_to_list(thread_entry_t *list, uintptr_t thread)
 	*list = te;
 }
 
-void
+static void
 exec_thread_entry(uintptr_t thread, char *command)
 {
 	threadmap_t	tme;
@@ -1392,13 +1382,13 @@ exec_thread_entry(uintptr_t thread, char *command)
 	}
 }
 
-void
+static void
 record_thread_entry_for_gc(uintptr_t thread)
 {
 	add_thread_entry_to_list(&thread_delete_list, thread);
 }
 
-void
+static void
 gc_thread_entries(void)
 {
 	thread_entry_t te;
@@ -1417,7 +1407,7 @@ gc_thread_entries(void)
 	thread_delete_list = 0;
 }
 
-void
+static void
 gc_reset_entries(void)
 {
 	thread_entry_t te;
@@ -1434,7 +1424,7 @@ gc_reset_entries(void)
 	thread_reset_list = 0;
 }
 
-void
+static void
 reset_thread_names(void)
 {
 	thread_entry_t te;
@@ -1460,7 +1450,7 @@ reset_thread_names(void)
 	thread_reset_list = 0;
 }
 
-void
+static void
 delete_all_thread_entries(void)
 {
 	threadmap_t tme = 0;
@@ -1476,9 +1466,6 @@ delete_all_thread_entries(void)
 		threadmap_hash[i] = 0;
 	}
 }
-
-
-
 
 static void
 insert_run_event(uintptr_t thread, int priority, kd_buf *kd, uint64_t now)
@@ -1555,7 +1542,8 @@ delete_run_event(uintptr_t thread)
 }
 
 static void
-gc_run_events(void) {
+gc_run_events(void)
+{
 	thread_entry_t te;
 	thread_entry_t te_next;
 	threadrun_t	trp;
@@ -1679,7 +1667,7 @@ gc_start_events(void)
 	thread_event_list = 0;
 }
 
-int
+static int
 thread_in_user_mode(uintptr_t thread, char *command)
 {
 	event_t evp;
@@ -1697,8 +1685,6 @@ thread_in_user_mode(uintptr_t thread, char *command)
 	}
 	return 1;
 }
-
-
 
 static lookup_t
 handle_lookup_event(uintptr_t thread, int debugid, kd_buf *kdp)
@@ -1788,7 +1774,8 @@ delete_lookup_event(uintptr_t thread, lookup_t lkp_to_delete)
 }
 
 static void
-gc_lookup_events(void) {
+gc_lookup_events(void)
+{
 	thread_entry_t	te;
 	thread_entry_t	te_next;
 	lookup_t	lkp;
@@ -1819,7 +1806,8 @@ sample_sc(void)
 {
 	kd_buf	*kd, *end_of_sample;
 	int	keep_going = 1;
-	int	count, i;
+	int	i;
+	ssize_t	count;
 
 	if (!RAW_flag) {
 		/*
@@ -1833,7 +1821,7 @@ sample_sc(void)
 		need_new_map = 0;
 	}
 	if (RAW_flag) {
-		uint32_t bytes_read;
+		ssize_t bytes_read;
 
 		bytes_read = read(RAW_fd, my_buffer, num_entries * sizeof(kd_buf));
 
@@ -1852,7 +1840,7 @@ sample_sc(void)
 			first_now = kd->timestamp & KDBG_TIMESTAMP_MASK;
 			first_read = 0;
 		}
-		
+
 	} else {
 		int mib[] = { CTL_KERN, KERN_KDEBUG, KERN_KDREADTR };
 		size_t needed = bufinfo.nkdbufs * sizeof(kd_buf);
@@ -1866,7 +1854,7 @@ sample_sc(void)
 
 		if (bufinfo.flags & KDBG_WRAPPED) {
 			need_new_map = 1;
-			
+
 			if (log_fp) {
 				fprintf(log_fp, "\n\n%-19.19s   sample = %d   <<<<<<< trace buffer wrapped >>>>>>>\n\n",
 					&(ctime(&curr_time)[0]), sample_generation);
@@ -1925,10 +1913,8 @@ sample_sc(void)
 	return keep_going;
 }
 
-
-
 void
-enter_syscall(FILE *fp, kd_buf *kd, int thread, int type, char *command, uint64_t now, uint64_t idelta, uint64_t start_bias, int print_info)
+enter_syscall(FILE *fp, kd_buf *kd, uintptr_t thread, int type, char *command, uint64_t now, uint64_t idelta, uint64_t start_bias, int print_info)
 {
 	char	*p;
 	double	timestamp;
@@ -1953,19 +1939,19 @@ enter_syscall(FILE *fp, kd_buf *kd, int thread, int type, char *command, uint64_
 
 				pc_to_string(&pcstring[0], kd->arg2, 58, mode);
 
-				fprintf(fp, "%9.1f %8.1f\t\tINTERRUPT[%2lx] @ %-58.58s                       %8x   %2d  %s\n",
+				fprintf(fp, "%9.1f %8.1f\t\tINTERRUPT[%2lx] @ %-58.58s                       %8lx   %2d  %s\n",
 					timestamp, delta, kd->arg1, &pcstring[0], thread, cpunum, command);
 			} else if (type == MACH_vmfault) {
-				fprintf(fp, "%9.1f %8.1f\t\t%-28.28s                                                                     %8x   %2d  %s\n",
+				fprintf(fp, "%9.1f %8.1f\t\t%-28.28s                                                                     %8lx   %2d  %s\n",
 					timestamp, delta, p, thread, cpunum, command);
 			} else {
-				fprintf(fp, "%9.1f %8.1f\t\t%-28.28s %-16lx %-16lx %-16lx %-16lx %8x   %2d  %s\n",
-					timestamp, delta, p, kd->arg1, kd->arg2, kd->arg3, kd->arg4, 
+				fprintf(fp, "%9.1f %8.1f\t\t%-28.28s %-16lx %-16lx %-16lx %-16lx %8lx   %2d  %s\n",
+					timestamp, delta, p, kd->arg1, kd->arg2, kd->arg3, kd->arg4,
 					thread, cpunum, command);
 			}
 		} else {
-			fprintf(fp, "%9.1f %8.1f\t\t%-8x                     %-16lx %-16lx %-16lx %-16lx %8x   %2d  %s\n",
-				timestamp, delta, type, kd->arg1, kd->arg2, kd->arg3, kd->arg4, 
+			fprintf(fp, "%9.1f %8.1f\t\t%-8x                     %-16lx %-16lx %-16lx %-16lx %8lx   %2d  %s\n",
+				timestamp, delta, type, kd->arg1, kd->arg2, kd->arg3, kd->arg4,
 				thread, cpunum, command);
 	       }
 	}
@@ -1974,9 +1960,8 @@ enter_syscall(FILE *fp, kd_buf *kd, int thread, int type, char *command, uint64_
 	}
 }
 
-
 void
-exit_syscall(FILE *fp, kd_buf *kd, int thread, int type, char *command, uint64_t now, uint64_t idelta, uint64_t start_bias, int print_info)
+exit_syscall(FILE *fp, kd_buf *kd, uintptr_t thread, int type, char *command, uint64_t now, uint64_t idelta, uint64_t start_bias, int print_info)
 {
 	char   *p;
 	uint64_t user_addr;
@@ -1996,29 +1981,28 @@ exit_syscall(FILE *fp, kd_buf *kd, int thread, int type, char *command, uint64_t
 
 		if ((p = find_code(type))) {
 			if (type == INTERRUPT) {
-				fprintf(fp, "INTERRUPT                                                                                        %8x   %2d  %s\n", thread, cpunum, command);
+				fprintf(fp, "INTERRUPT                                                                                        %8lx   %2d  %s\n", thread, cpunum, command);
 			} else if (type == MACH_vmfault && kd->arg4 <= DBG_PAGEIND_FAULT) {
 				user_addr = ((uint64_t)kd->arg1 << 32) | (uint32_t)kd->arg2;
 
-			    fprintf(fp, "%-28.28s %-10.10s   %-16qx                                       %8x   %2d  %s\n",
+			    fprintf(fp, "%-28.28s %-10.10s   %-16qx                                       %8lx   %2d  %s\n",
 					p, fault_name[kd->arg4], user_addr,
 					thread, cpunum, command);
 		       } else {
-				fprintf(fp, "%-28.28s %-16lx %-16lx                                   %8x   %2d  %s\n",
+				fprintf(fp, "%-28.28s %-16lx %-16lx                                   %8lx   %2d  %s\n",
 					p, kd->arg1, kd->arg2,
 					thread, cpunum, command);
 		       }
 		} else {
-			fprintf(fp, "%-8x                     %-16lx %-16lx                                   %8x   %2d  %s\n",
+			fprintf(fp, "%-8x                     %-16lx %-16lx                                   %8lx   %2d  %s\n",
 				type, kd->arg1, kd->arg2,
 				thread, cpunum, command);
 		}
 	}
 }
 
-
 void
-print_entry(FILE *fp, kd_buf *kd, int thread, int type, char *command, uint64_t now, uint64_t idelta, uint64_t start_bias, kd_buf *kd_note)
+print_entry(FILE *fp, kd_buf *kd, uintptr_t thread, int type, char *command, uint64_t now, uint64_t idelta, uint64_t start_bias, kd_buf *kd_note)
 {
 	char	*p;
 
@@ -2037,15 +2021,14 @@ print_entry(FILE *fp, kd_buf *kd, int thread, int type, char *command, uint64_t 
 		} else {
 			fprintf(fp, "%9.1f %8.1f\t\t", timestamp, delta);
 		}
-		fprintf(fp, "%-28.28s %-16lx %-16lx %-16lx %-16lx %8x   %2d  %s\n",
+		fprintf(fp, "%-28.28s %-16lx %-16lx %-16lx %-16lx %8lx   %2d  %s\n",
 			p, kd->arg1, kd->arg2, kd->arg3, kd->arg4, thread, cpunum, command);
 	} else {
-		fprintf(fp, "%9.1f %8.1f\t\t%-8x                     %-16lx %-16lx %-16lx %-16lx %8x   %2d  %s\n",
-			timestamp, delta, type, kd->arg1, kd->arg2, kd->arg3, kd->arg4, 
+		fprintf(fp, "%9.1f %8.1f\t\t%-8x                     %-16lx %-16lx %-16lx %-16lx %8lx   %2d  %s\n",
+			timestamp, delta, type, kd->arg1, kd->arg2, kd->arg3, kd->arg4,
 			thread, cpunum, command);
 	}
 }
-
 
 void
 check_for_thread_update(uintptr_t thread, int debugid_base, kd_buf *kbufp, char **command)
@@ -2072,13 +2055,12 @@ check_for_thread_update(uintptr_t thread, int debugid_base, kd_buf *kbufp, char 
 	}
 }
 
-
 void
 log_info(uint64_t now, uint64_t idelta, uint64_t start_bias, kd_buf *kd, kd_buf *kd_note)
 {
 	lookup_t	lkp;
 	int		mode;
-	int		reason;
+	uintptr_t	reason;
 	char		*p;
 	char		*command;
 	char		*command1;
@@ -2091,7 +2073,7 @@ log_info(uint64_t now, uint64_t idelta, uint64_t start_bias, kd_buf *kd, kd_buf 
 	double		delta;
 	char joe[32];
 
-	int thread  = kd->arg5;
+	uintptr_t thread  = kd->arg5;
 	int cpunum	= CPU_NUMBER(kd);
 	int debugid = kd->debugid;
 	int type    = kd->debugid & DBG_FUNC_MASK;
@@ -2111,28 +2093,28 @@ log_info(uint64_t now, uint64_t idelta, uint64_t start_bias, kd_buf *kd, kd_buf 
 		case CQ_action:
 			pc_to_string(&pcstring[0], kd->arg1, 84, KERNEL_MODE);
 
-			fprintf(log_fp, "%9.1f %8.1f\t\tCQ_action @ %-84.84s %8x   %2d  %s\n",
+			fprintf(log_fp, "%9.1f %8.1f\t\tCQ_action @ %-84.84s %8lx   %2d  %s\n",
 				timestamp, delta, &pcstring[0], thread, cpunum, command);
 			break;
 
 		case TES_action:
 			pc_to_string(&pcstring[0], kd->arg1, 83, KERNEL_MODE);
 
-			fprintf(log_fp, "%9.1f %8.1f\t\tTES_action @ %-83.83s %8x   %2d  %s\n",
+			fprintf(log_fp, "%9.1f %8.1f\t\tTES_action @ %-83.83s %8lx   %2d  %s\n",
 				timestamp, delta, &pcstring[0], thread, cpunum, command);
 			break;
 
 		case IES_action:
 			pc_to_string(&pcstring[0], kd->arg1, 83, KERNEL_MODE);
 
-			fprintf(log_fp, "%9.1f %8.1f\t\tIES_action @ %-83.83s %8x   %2d  %s\n",
+			fprintf(log_fp, "%9.1f %8.1f\t\tIES_action @ %-83.83s %8lx   %2d  %s\n",
 				timestamp, delta, &pcstring[0], thread, cpunum, command);
 			break;
 
 		case IES_filter:
 			pc_to_string(&pcstring[0], kd->arg1, 83, KERNEL_MODE);
 
-			fprintf(log_fp, "%9.1f %8.1f\t\tIES_filter @ %-83.83s %8x   %2d  %s\n",
+			fprintf(log_fp, "%9.1f %8.1f\t\tIES_filter @ %-83.83s %8lx   %2d  %s\n",
 				timestamp, delta, &pcstring[0], thread, cpunum, command);
 			break;
 
@@ -2157,12 +2139,12 @@ log_info(uint64_t now, uint64_t idelta, uint64_t start_bias, kd_buf *kd, kd_buf 
 
 			pc_to_string(&pcstring[0], kd->arg2, 84, mode);
 
-			fprintf(log_fp, "%9.1f %8.1f[%.1f]%s\tDECR_TRAP @ %-84.84s %8x   %2d  %s\n",
+			fprintf(log_fp, "%9.1f %8.1f[%.1f]%s\tDECR_TRAP @ %-84.84s %8lx   %2d  %s\n",
 					timestamp, delta, i_latency, p, &pcstring[0], thread, cpunum, command);
 			break;
 
 		case DECR_SET:
-			fprintf(log_fp, "%9.1f %8.1f[%.1f]  \t%-28.28s                                                                     %8x   %2d  %s\n",
+			fprintf(log_fp, "%9.1f %8.1f[%.1f]  \t%-28.28s                                                                     %8lx   %2d  %s\n",
 					timestamp, delta, (double)kd->arg1/divisor, "DECR_SET", thread, cpunum, command);
 			break;
 
@@ -2170,7 +2152,7 @@ log_info(uint64_t now, uint64_t idelta, uint64_t start_bias, kd_buf *kd, kd_buf 
 		case MACH_stkhandoff:
 
 			find_thread_name(kd->arg2, &command1);
-			
+
 			if (command1 == EMPTYSTRING) {
 				command1 = command_buf;
 				sprintf(command1, "%-8lx", kd->arg2);
@@ -2190,12 +2172,12 @@ log_info(uint64_t now, uint64_t idelta, uint64_t start_bias, kd_buf *kd, kd_buf 
 			}
 
 			if (sched_reason[0] == '?') {
-				sprintf(joe, "%x", reason);
+				sprintf(joe, "%lx", reason);
 				sched_reason = joe;
 			}
 			sprintf(sched_info, "%16.16s @ pri %3lu  -->  %16.16s @ pri %3lu%s", command, kd->arg3, command1, kd->arg4, p);
 
-			fprintf(log_fp, "%9.1f %8.1f\t\t%-10.10s[%s]     %s                   %8x   %2d\n",
+			fprintf(log_fp, "%9.1f %8.1f\t\t%-10.10s[%s]     %s                   %8lx   %2d\n",
 				timestamp, delta, "MACH_SCHED", sched_reason, sched_info, thread, cpunum);
 			break;
 
@@ -2205,16 +2187,16 @@ log_info(uint64_t now, uint64_t idelta, uint64_t start_bias, kd_buf *kd, kd_buf 
 				 * print the tail end of the pathname
 				 */
 				p = (char *)lkp->lk_pathname;
-				int clen = strlen(p);
+				size_t clen = strlen(p);
 
 				if (clen > 45) {
 					clen -= 45;
 				} else {
 					clen = 0;
 				}
-				
-				fprintf(log_fp, "%9.1f %8.1f\t\t%-14.14s %-59s    %-16lx   %8x   %2d  %s\n",
-					timestamp, delta, "VFS_LOOKUP", 
+
+				fprintf(log_fp, "%9.1f %8.1f\t\t%-14.14s %-59s    %-16lx   %8lx   %2d  %s\n",
+					timestamp, delta, "VFS_LOOKUP",
 					&p[clen], lkp->lk_dvp, thread, cpunum, command);
 
 				delete_lookup_event(thread, lkp);
@@ -2233,9 +2215,7 @@ log_info(uint64_t now, uint64_t idelta, uint64_t start_bias, kd_buf *kd, kd_buf 
 	}
 }
 
-
-
-void
+static void
 log_range(kd_buf *kd_buffer, kd_buf *kd_start, kd_buf *kd_stop, kd_buf *kd_note, char *buf1)
 {
 	uint64_t last_timestamp = 0;
@@ -2243,7 +2223,7 @@ log_range(kd_buf *kd_buffer, kd_buf *kd_start, kd_buf *kd_stop, kd_buf *kd_note,
 	uint64_t start_bias = 0;
 	uint64_t now;
 	kd_buf	*kd;
-	int	clen;
+	size_t	clen;
 	char buf2[128];
 
 	clen = strlen(buf1);
@@ -2270,7 +2250,7 @@ log_range(kd_buf *kd_buffer, kd_buf *kd_start, kd_buf *kd_stop, kd_buf *kd_note,
 			last_timestamp = now;
 		} else {
 			int	debugid = kd->debugid;
-			int	thread = kd->arg5;
+			uintptr_t	thread = kd->arg5;
 			int	type = kd->debugid & DBG_FUNC_MASK;
 
 			if ((type >> 24) == DBG_TRACE) {
@@ -2293,7 +2273,6 @@ log_range(kd_buf *kd_buffer, kd_buf *kd_start, kd_buf *kd_stop, kd_buf *kd_note,
 	gc_lookup_events();
 }
 
-
 kd_buf *
 log_decrementer(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, double i_latency)
 {
@@ -2303,7 +2282,7 @@ log_decrementer(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, double i_
 	double sample_timestamp;
 	char buf1[128];
 
-	int thread = kd_beg->arg5;
+	uintptr_t thread = kd_beg->arg5;
 	int cpunum = CPU_NUMBER(kd_end);
 
 	for (kd_count = 0, kd_start = kd_beg - 1; (kd_start >= (kd_buf *)my_buffer); kd_start--, kd_count++) {
@@ -2314,7 +2293,7 @@ log_decrementer(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, double i_
 		if (CPU_NUMBER(kd_start) != cpunum) {
 		        continue;
 		}
-										     
+
 		if ((kd_start->debugid & DBG_FUNC_MASK) == DECR_TRAP) {
 			break;
 		}
@@ -2354,7 +2333,7 @@ log_decrementer(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, double i_
 		sample_timestamp = (double)(now - first_now) / divisor;
 
 		TOD_usecs = (uint64_t)sample_timestamp;
-		TOD_secs = sample_TOD_secs + ((sample_TOD_usecs + TOD_usecs) / 1000000);
+		TOD_secs = (unsigned long)sample_TOD_secs + (unsigned long)((sample_TOD_usecs + TOD_usecs) / 1000000);
 
 		sprintf(buf1, "%-19.19s     interrupt latency = %.1fus [timestamp %.1f]", ctime(&TOD_secs), i_latency, sample_timestamp);
 	} else {
@@ -2380,9 +2359,9 @@ log_scheduler(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, int s_prior
 
 	for (count = 0, kd_start = kd_beg; (kd_start >= (kd_buf *)my_buffer); kd_start--) {
 		cpunum = CPU_NUMBER(kd_start);
-		
+
 		cmask |= ((uint64_t)1 << cpunum);
-		
+
 		if (cmask == cpu_mask) {
 			if (count++ > 100)
 				break;
@@ -2409,7 +2388,7 @@ log_scheduler(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, int s_prior
 		sample_timestamp = (double)(now - first_now) / divisor;
 
 		TOD_usecs = (uint64_t)sample_timestamp;
-		TOD_secs = sample_TOD_secs + ((sample_TOD_usecs + TOD_usecs) / 1000000);
+		TOD_secs = (unsigned long)sample_TOD_secs + (unsigned long)((sample_TOD_usecs + TOD_usecs) / 1000000);
 
 		sprintf(buf1, "%-19.19s     priority = %d,  scheduling latency = %.1fus [timestamp %.1f]", ctime(&TOD_secs), s_priority, s_latency, sample_timestamp);
 	} else {
@@ -2418,8 +2397,6 @@ log_scheduler(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, int s_prior
 
 	log_range((kd_buf *)my_buffer, kd_start, kd_stop, kd_beg, buf1);
 }
-
-
 
 int
 check_for_scheduler_latency(int type, uintptr_t *thread, uint64_t now, kd_buf *kd, kd_buf **kd_start, int *priority, double *latency)
@@ -2466,7 +2443,7 @@ check_for_scheduler_latency(int type, uintptr_t *thread, uint64_t now, kd_buf *k
 
 				if (s_thresh_hold && s_latency > s_thresh_hold) {
 					s_exceeded_threshold++;
-					
+
 					if (log_fp) {
 						*kd_start = trp->tr_entry;
 						*priority = trp->tr_priority;
@@ -2480,7 +2457,6 @@ check_for_scheduler_latency(int type, uintptr_t *thread, uint64_t now, kd_buf *k
 	}
 	return found_latency;
 }
-
 
 double
 handle_decrementer(kd_buf *kd, int cpunum)
@@ -2505,7 +2481,7 @@ handle_decrementer(kd_buf *kd, int cpunum)
 	if (elapsed_usecs < 100) {
 		il->i_usec_10_bins[elapsed_usecs/10]++;
 	}
-	
+
 	if (elapsed_usecs < 1000) {
 		il->i_usec_100_bins[elapsed_usecs/100]++;
 	} else if (elapsed_usecs < 10000) {
@@ -2534,8 +2510,6 @@ handle_decrementer(kd_buf *kd, int cpunum)
 	return latency;
 }
 
-
-
 char *
 find_code(int type)
 {
@@ -2547,7 +2521,6 @@ find_code(int type)
 	}
 	return NULL;
 }
-
 
 void
 init_code_file(void)
@@ -2584,11 +2557,11 @@ init_code_file(void)
 	fclose(fp);
 }
 
-
 void
 do_kernel_nm(void)
 {
-	int i, len;
+	int i;
+	size_t len;
 	FILE *fp = NULL;
 	char tmp_nm_file[128];
 	char tmpstr[1024];
@@ -2613,7 +2586,7 @@ do_kernel_nm(void)
 	sprintf (tmpstr, "/usr/bin/nm -f -n -s __TEXT __text %s > %s",
 		 kernelpath, tmp_nm_file);
 	system(tmpstr);
-  
+
 	/*
 	 * Parse the output from the nm command
 	 */
@@ -2695,10 +2668,10 @@ do_kernel_nm(void)
 	 */
 	for (i = 0; i < kern_sym_count; i++) {
 		if (kern_sym_tbl[i].k_sym_name) {
-			printf ("[%d] %-16p    %s\n", i, 
+			printf ("[%d] %-16p    %s\n", i,
 				kern_sym_tbl[i].k_sym_addr, kern_sym_tbl[i].k_sym_name);
 		} else {
-			printf ("[%d] %-16p    %s\n", i, 
+			printf ("[%d] %-16p    %s\n", i,
 				kern_sym_tbl[i].k_sym_addr, "No symbol name");
 		}
 	}
@@ -2709,7 +2682,7 @@ void
 pc_to_string(char *pcstring, uintptr_t pc, int max_len, int mode)
 {
 	int ret;
-	int len;
+	size_t len;
 
 	if (mode == USER_MODE) {
 		sprintf(pcstring, "%-16lx [usermode addr]", pc);
@@ -2738,7 +2711,7 @@ int
 binary_search(kern_sym_t *list, int low, int high, uintptr_t addr)
 {
 	int mid;
-  
+
 	if (kern_sym_count == 0) {
 		return -1;
 	}
@@ -2747,7 +2720,7 @@ binary_search(kern_sym_t *list, int low, int high, uintptr_t addr)
 		return -1;   /* failed */
 	}
 
-	if (low + 1 == high) { 
+	if (low + 1 == high) {
 		if ((uintptr_t)list[low].k_sym_addr <= addr && addr < (uintptr_t)list[high].k_sym_addr) {
 			/*
 			 * We have a range match
@@ -2761,7 +2734,7 @@ binary_search(kern_sym_t *list, int low, int high, uintptr_t addr)
 		 * Failed
 		 */
 		return -1;
-	}      
+	}
 	mid = (low + high) / 2;
 
 	if (addr < (uintptr_t)list[mid].k_sym_addr) {
@@ -2770,7 +2743,6 @@ binary_search(kern_sym_t *list, int low, int high, uintptr_t addr)
 
 	return binary_search(list, mid, high, addr);
 }
-
 
 void
 open_logfile(const char *path)
@@ -2786,7 +2758,6 @@ open_logfile(const char *path)
 	}
 }
 
-
 void
 open_rawfile(const char *path)
 {
@@ -2801,12 +2772,11 @@ open_rawfile(const char *path)
 	}
 }
 
-
 void
 getdivisor(void)
 {
 	mach_timebase_info_data_t info;
-	
+
 	(void)mach_timebase_info(&info);
 
 	divisor = ((double)info.denom / (double)info.numer) * 1000;

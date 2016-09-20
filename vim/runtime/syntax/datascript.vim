@@ -1,35 +1,42 @@
 " Vim syntax file
-" Language:	Datascript
+" Language:	DataScript
 " Maintainer:	Dominique Pelle <dominique.pelle@gmail.com>
-" Last Change:	2010-08-01
+" Last Change:	2015 Jul 30
 "
 " DataScript is a formal language for modelling binary datatypes,
 " bitstreams or file formats. For more information, see:
-" http://datascript.berlios.de/DataScriptLanguageOverview.html
+"
+" http://dstools.sourceforge.net/DataScriptLanguageOverview.html
 
 if version < 600
   syntax clear
 elseif exists("b:current_syntax")
   finish
 endif
+let s:keepcpo= &cpo
+set cpo&vim
 
 syn keyword dsPackage      import package
-syn keyword dsType         bit string
-syn keyword dsType         int8 int16 int32 int64
+syn keyword dsType         bit bool string
+syn keyword dsType         int int8 int16 int32 int64
 syn keyword dsType         uint8 uint16 uint32 uint64
+syn keyword dsType         varint16 varint32 varint64
+syn keyword dsType         varuint16 varuint32 varuint64
 syn keyword dsType         leint16 leint32 leint64
 syn keyword dsType         leuint16 leuint32 leuint64
 syn keyword dsEndian       little big
 syn keyword dsAlign        align
 syn keyword dsLabel        case default
 syn keyword dsConditional  if condition
-syn keyword dsCompound     union choice on enum bitmask subtype
+syn keyword dsBoolean      true false
+syn keyword dsCompound     union choice on enum bitmask subtype explicit
 syn keyword dsKeyword      function return
 syn keyword dsOperator     sizeof bitsizeof lengthof is sum forall in
 syn keyword dsStorageClass const
 syn keyword dsTodo         contained TODO FIXME XXX
-syn keyword dsSql          sql sql_table sql_database sql_pragma
-syn keyword dsSql          sql_integer sql_metadata sql_key
+syn keyword dsSql          sql sql_table sql_database sql_pragma sql_index
+syn keyword dsSql          sql_integer sql_metadata sql_key sql_virtual
+syn keyword dsSql          using reference_key foreign_key to
 
 " dsCommentGroup allows adding matches for special things in comments.
 syn cluster dsCommentGroup  contains=dsTodo
@@ -58,6 +65,8 @@ syn region   dsComment
 syn region  dsString
   \ start=+L\="+ skip=+\\\\\|\\"+ end=+"+ contains=@Spell
 
+syn sync ccomment dsComment
+
 " Define the default highlighting.
 hi def link dsType              Type
 hi def link dsEndian            StorageClass
@@ -68,6 +77,7 @@ hi def link dsOffset            Label
 hi def link dsSql               PreProc
 hi def link dsCompound          Structure
 hi def link dsConditional       Conditional
+hi def link dsBoolean           Boolean
 hi def link dsKeyword           Statement
 hi def link dsString            String
 hi def link dsNumber            Number
@@ -88,3 +98,6 @@ hi def link cCommentL           dsComment
 hi def link dsComment           Comment
 
 let b:current_syntax = "datascript"
+
+let &cpo = s:keepcpo
+unlet s:keepcpo

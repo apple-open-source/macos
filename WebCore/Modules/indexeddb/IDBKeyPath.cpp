@@ -125,7 +125,7 @@ static bool IDBIsValidKeyPath(const String& keyPath)
     IDBKeyPathParseError error;
     Vector<String> keyPathElements;
     IDBParseKeyPath(keyPath, keyPathElements, error);
-    return error == IDBKeyPathParseErrorNone;
+    return error == IDBKeyPathParseError::None;
 }
 
 void IDBParseKeyPath(const String& keyPath, Vector<String>& elements, IDBKeyPathParseError& error)
@@ -146,7 +146,7 @@ void IDBParseKeyPath(const String& keyPath, Vector<String>& elements, IDBKeyPath
     else if (tokenType == IDBKeyPathLexer::TokenEnd)
         state = End;
     else {
-        error = IDBKeyPathParseErrorStart;
+        error = IDBKeyPathParseError::Start;
         return;
     }
 
@@ -165,7 +165,7 @@ void IDBParseKeyPath(const String& keyPath, Vector<String>& elements, IDBKeyPath
             else if (tokenType == IDBKeyPathLexer::TokenEnd)
                 state = End;
             else {
-                error = IDBKeyPathParseErrorIdentifier;
+                error = IDBKeyPathParseError::Identifier;
                 return;
             }
             break;
@@ -178,13 +178,13 @@ void IDBParseKeyPath(const String& keyPath, Vector<String>& elements, IDBKeyPath
             if (tokenType == IDBKeyPathLexer::TokenIdentifier)
                 state = Identifier;
             else {
-                error = IDBKeyPathParseErrorDot;
+                error = IDBKeyPathParseError::Dot;
                 return;
             }
             break;
         }
         case End: {
-            error = IDBKeyPathParseErrorNone;
+            error = IDBKeyPathParseError::None;
             return;
         }
         }
@@ -192,17 +192,17 @@ void IDBParseKeyPath(const String& keyPath, Vector<String>& elements, IDBKeyPath
 }
 
 IDBKeyPath::IDBKeyPath(const String& string)
-    : m_type(StringType)
+    : m_type(Type::String)
     , m_string(string)
 {
     ASSERT(!m_string.isNull());
 }
 
 IDBKeyPath::IDBKeyPath(const Vector<String>& array)
-    : m_type(ArrayType)
+    : m_type(Type::Array)
     , m_array(array)
 {
-#ifndef NDEBUG
+#if !LOG_DISABLED
     for (auto& key : array)
         ASSERT(!key.isNull());
 #endif
@@ -211,13 +211,11 @@ IDBKeyPath::IDBKeyPath(const Vector<String>& array)
 bool IDBKeyPath::isValid() const
 {
     switch (m_type) {
-    case NullType:
+    case Type::Null:
         return false;
-
-    case StringType:
+    case Type::String:
         return IDBIsValidKeyPath(m_string);
-
-    case ArrayType:
+    case Type::Array:
         if (m_array.isEmpty())
             return false;
         for (auto& key : m_array) {
@@ -236,11 +234,11 @@ bool IDBKeyPath::operator==(const IDBKeyPath& other) const
         return false;
 
     switch (m_type) {
-    case NullType:
+    case Type::Null:
         return true;
-    case StringType:
+    case Type::String:
         return m_string == other.m_string;
-    case ArrayType:
+    case Type::Array:
         return m_array == other.m_array;
     }
     ASSERT_NOT_REACHED();
@@ -252,11 +250,9 @@ IDBKeyPath IDBKeyPath::isolatedCopy() const
     IDBKeyPath result;
     result.m_type = m_type;
     result.m_string = m_string.isolatedCopy();
-
     result.m_array.reserveInitialCapacity(m_array.size());
     for (auto& key : m_array)
         result.m_array.uncheckedAppend(key.isolatedCopy());
-
     return result;
 }
 
@@ -264,44 +260,41 @@ void IDBKeyPath::encode(KeyedEncoder& encoder) const
 {
     encoder.encodeEnum("type", m_type);
     switch (m_type) {
-    case IDBKeyPath::NullType:
-        break;
-    case IDBKeyPath::StringType:
+    case Type::Null:
+        return;
+    case Type::String:
         encoder.encodeString("string", m_string);
-        break;
-    case IDBKeyPath::ArrayType:
+        return;
+    case Type::Array:
         encoder.encodeObjects("array", m_array.begin(), m_array.end(), [](WebCore::KeyedEncoder& encoder, const String& string) {
             encoder.encodeString("string", string);
         });
-        break;
-    default:
-        ASSERT_NOT_REACHED();
+        return;
     };
+    ASSERT_NOT_REACHED();
 }
 
 bool IDBKeyPath::decode(KeyedDecoder& decoder, IDBKeyPath& result)
 {
-    auto enumFunction = [](int64_t value) {
-        return value == NullType || value == StringType || value == ArrayType;
-    };
-
-    if (!decoder.decodeEnum("type", result.m_type, enumFunction))
+    bool succeeded = decoder.decodeEnum("type", result.m_type, [](Type value) {
+        return value == Type::Null || value == Type::String || value == Type::Array;
+    });
+    if (!succeeded)
         return false;
 
-    if (result.m_type == NullType)
+    switch (result.m_type) {
+    case Type::Null:
         return true;
-
-    if (result.m_type == StringType)
+    case Type::String:
         return decoder.decodeString("string", result.m_string);
-
-    ASSERT(result.m_type == ArrayType);
-
-    auto arrayFunction = [](KeyedDecoder& decoder, String& result) {
-        return decoder.decodeString("string", result);
-    };
-
-    result.m_array.clear();
-    return decoder.decodeObjects("array", result.m_array, arrayFunction);
+    case Type::Array:
+        result.m_array.clear();
+        return decoder.decodeObjects("array", result.m_array, [](KeyedDecoder& decoder, String& result) {
+            return decoder.decodeString("string", result);
+        });
+    }
+    ASSERT_NOT_REACHED();
+    return false;
 }
 
 } // namespace WebCore

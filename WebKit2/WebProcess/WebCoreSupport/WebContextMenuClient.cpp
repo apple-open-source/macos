@@ -49,25 +49,6 @@ void WebContextMenuClient::contextMenuDestroyed()
     delete this;
 }
 
-#if USE(CROSS_PLATFORM_CONTEXT_MENUS)
-std::unique_ptr<ContextMenu> WebContextMenuClient::customizeMenu(std::unique_ptr<ContextMenu> menu)
-{
-    // WebKit2 ignores this client callback and does context menu customization when it is told to show the menu.
-    return menu;
-}
-#else
-PlatformMenuDescription WebContextMenuClient::getCustomMenuFromDefaultItems(ContextMenu* menu)
-{
-    // WebKit2 ignores this client callback and does context menu customization when it is told to show the menu.
-    return menu->platformDescription();
-}
-#endif
-
-void WebContextMenuClient::contextMenuItemSelected(ContextMenuItem*, const ContextMenu*)
-{
-    notImplemented();
-}
-
 void WebContextMenuClient::downloadURL(const URL&)
 {
     // This is handled in the UI process.
@@ -85,7 +66,7 @@ void WebContextMenuClient::searchWithGoogle(const Frame* frame)
     String url = "http://www.google.com/search?q=" + encoded + "&ie=UTF-8&oe=UTF-8";
 
     if (Page* page = frame->page()) {
-        UserGestureIndicator indicator(DefinitelyProcessingUserGesture);
+        UserGestureIndicator indicator(ProcessingUserGesture);
         page->mainFrame().loader().urlSelected(URL(ParsedURLString, url), String(), 0, LockHistory::No, LockBackForwardList::No, MaybeSendReferrer, ShouldOpenExternalURLsPolicy::ShouldNotAllow);
     }
 }

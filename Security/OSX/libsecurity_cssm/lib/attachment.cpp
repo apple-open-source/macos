@@ -81,7 +81,7 @@ Attachment::Attachment(Module *parent,
             &upcalls,
             &spiFunctionTable)) {
         // attach rejected by module
-		secdebug("cssm", "attach of module %p(%s) failed",
+		secinfo("cssm", "attach of module %p(%s) failed",
 			&module, module.name().c_str());
         CssmError::throwMe(err);
     }
@@ -89,7 +89,7 @@ Attachment::Attachment(Module *parent,
         if (spiFunctionTable == NULL || spiFunctionTable->ServiceType != subserviceType())
             CssmError::throwMe(CSSMERR_CSSM_INVALID_ADDIN_FUNCTION_TABLE);
         mIsActive = true;	// now officially attached to plugin
-		secdebug("cssm", "%p attached module %p(%s) (ssid %ld type %ld)",
+		secinfo("cssm", "%p attached module %p(%s) (ssid %ld type %ld)",
 			this, parent, parent->name().c_str(), (long)ssId, (long)ssType);
         // subclass is responsible for taking spiFunctionTable and build
         // whatever dispatch is needed
@@ -116,7 +116,7 @@ void Attachment::detach(bool isLocked)
             CssmError::throwMe(CSSM_ERRCODE_FUNCTION_FAILED);	//@#attachment busy
         if (CSSM_RETURN error = module.plugin->detach(handle()))
 			CssmError::throwMe(error);	// I'm sorry Dave, ...
-		secdebug("cssm", "%p detach module %p(%s)", this,
+		secinfo("cssm", "%p detach module %p(%s)", this,
 			&module, module.name().c_str());
         mIsActive = false;
         module.detach(this);
@@ -175,7 +175,6 @@ CSSM_RETURN Attachment::upcallCcToHandle(CSSM_CC_HANDLE handle,
                                          CSSM_MODULE_HANDLE *modHandle)
 {
     BEGIN_API
-#warning Cast from CSSM_CC_HANDLE to CSSM_HANDLE
     Required(modHandle) = HandleObject::find<HandleContext>((CSSM_HANDLE)handle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).attachment.handle();
     END_API(CSP)
 }

@@ -41,9 +41,9 @@ public:
     OESVertexArrayObject(WebGLRenderingContextBase*);
     virtual ~OESVertexArrayObject();
 
-    virtual ExtensionName getName() const override;
+    ExtensionName getName() const override;
     
-    PassRefPtr<WebGLVertexArrayObjectOES> createVertexArrayOES();
+    RefPtr<WebGLVertexArrayObjectOES> createVertexArrayOES();
     void deleteVertexArrayOES(WebGLVertexArrayObjectOES*);
     GC3Dboolean isVertexArrayOES(WebGLVertexArrayObjectOES*);
     void bindVertexArrayOES(WebGLVertexArrayObjectOES*, ExceptionCode&);

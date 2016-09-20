@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014, 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,6 +48,7 @@ enum AbortReason {
     AHTagTypeNumberNotInPlace                         = 130,
     AHTypeInfoInlineTypeFlagsAreValid                 = 140,
     AHTypeInfoIsValid                                 = 150,
+    B3Oops                                            = 155,
     DFGBailedAtTopOfBlock                             = 161,
     DFGBailedAtEndOfNode                              = 162,
     DFGBasicStorageAllocatorZeroSize                  = 170,
@@ -56,12 +57,17 @@ enum AbortReason {
     DFGNegativeStringLength                           = 200,
     DFGSlowPathGeneratorFellThrough                   = 210,
     DFGUnreachableBasicBlock                          = 220,
+    DFGUnreachableNode                                = 225,
     DFGUnreasonableOSREntryJumpDestination            = 230,
     DFGVarargsThrowingPathDidNotThrow                 = 235,
+    FTLCrash                                          = 236,
+    JITDidReturnFromTailCall                          = 237,
     JITDivOperandsAreNotNumbers                       = 240,
     JITGetByValResultIsNotEmpty                       = 250,
     JITNotSupported                                   = 260,
     JITOffsetIsNotOutOfLine                           = 270,
+    JITUncoughtExceptionAfterCall                     = 275,
+    JITUnexpectedCallFrameSize                        = 277,
     JITUnreasonableLoopHintJumpTarget                 = 280,
     RPWUnreasonableJumpTarget                         = 290,
     RepatchIneffectiveWatchpoint                      = 300,

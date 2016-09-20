@@ -76,7 +76,7 @@ apple_gss_krb5_export_authdata_if_relevant_context(uint32_t *min_stat,
     }
 
     d->type = KRB5_AUTHDATA_IF_RELEVANT;
-    d->length = buffer.length;
+    d->length = (OM_uint32)buffer.length;
     d->data = malloc(buffer.length);
     if (d->data == NULL) {
 	gss_release_buffer(min_stat, &buffer);

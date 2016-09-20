@@ -26,8 +26,6 @@
 #include <security_utilities/threading.h>
 #include <CoreFoundation/CFString.h>
 #include <sys/time.h>
-#include <auto_zone.h>
-#include <objc/objc-auto.h>
 
 //
 // CFClass
@@ -60,42 +58,11 @@ CFClass::cleanupObject(intptr_t op, CFTypeRef cf, bool &zap)
     // the default is to not throw away the object
     zap = false;
     
-    bool isGC = CF_IS_COLLECTABLE(cf);
-    
     uint32_t currentCount;
     SecCFObject *obj = SecCFObject::optional(cf);
 
     uint32_t oldCount;
     currentCount = obj->updateRetainCount(op, &oldCount);
-    
-    if (isGC)
-    {
-        auto_zone_t* zone = objc_collectableZone();
-        
-        if (op == -1 && oldCount == 0)
-        {
-            auto_zone_release(zone, (void*) cf);
-        }
-        else if (op == 1 && oldCount == 0 && currentCount == 1)
-        {
-           auto_zone_retain(zone, (void*) cf);
-        }
-        else if (op == -1 && oldCount == 1 && currentCount == 0)
-        {
-            /*
-                To prevent accidental resurrection, just pull it out of the
-                cache.
-            */
-            obj->aboutToDestruct();
-            auto_zone_release(zone, (void*) cf);
-        }
-        else if (op == 0)
-        {
-            return currentCount;
-        }
-        
-        return 0;
-    }
 
     if (op == 0)
     {
@@ -163,22 +130,13 @@ void
 CFClass::finalizeType(CFTypeRef cf) throw()
 {
     /*
-        Why are we asserting the mutex here as well as in refCountForType?
-        Because the way we control the objects and the queues are different
-        under GC than they are under non-GC operations.
-        
-        In non-GC, we need to control the lifetime of the object.  This means
+        We need to control the lifetime of the object.  This means
         that the cache lock has to be asserted while we are determining if the
         object should live or die.  The mutex is recursive, which means that
         we won't end up with mutex inversion.
-        
-        In GC, GC figures out the lifetime of the object.  We probably don't need
-        to assert the mutex here, but it doesn't hurt.
     */
     
     SecCFObject *obj = SecCFObject::optional(cf);
-
-	bool isCollectable = CF_IS_COLLECTABLE(cf);
 
     try
 	{
@@ -207,11 +165,6 @@ CFClass::finalizeType(CFTypeRef cf) throw()
 	catch(...)
 	{
 	}
-    
-    if (isCollectable)
-    {
-        delete obj;
-    }
 }
 
 Boolean

@@ -1,4 +1,4 @@
-/* $OpenBSD: monitor.c,v 1.150 2015/06/22 23:42:16 djm Exp $ */
+/* $OpenBSD: monitor.c,v 1.157 2016/02/15 23:32:37 djm Exp $ */
 /*
  * Copyright 2002 Niels Provos <provos@citi.umich.edu>
  * Copyright 2002 Markus Friedl <markus@openbsd.org>
@@ -100,7 +100,6 @@
 #include "monitor_fdpass.h"
 #include "compat.h"
 #include "ssh2.h"
-#include "roaming.h"
 #include "authfd.h"
 #include "match.h"
 #include "ssherr.h"
@@ -157,8 +156,6 @@ int mm_answer_gss_setup_ctx(int, Buffer *);
 int mm_answer_gss_accept_ctx(int, Buffer *);
 int mm_answer_gss_userok(int, Buffer *);
 int mm_answer_gss_checkmic(int, Buffer *);
-int mm_answer_gss_sign(int, Buffer *);
-int mm_answer_gss_updatecreds(int, Buffer *);
 #endif
 
 #ifdef SSH_AUDIT_EVENTS
@@ -236,18 +233,11 @@ struct mon_table mon_dispatch_proto20[] = {
     {MONITOR_REQ_GSSSTEP, MON_ISAUTH, mm_answer_gss_accept_ctx},
     {MONITOR_REQ_GSSUSEROK, MON_AUTH, mm_answer_gss_userok},
     {MONITOR_REQ_GSSCHECKMIC, MON_ISAUTH, mm_answer_gss_checkmic},
-    {MONITOR_REQ_GSSSIGN, MON_ONCE, mm_answer_gss_sign},
 #endif
     {0, 0, NULL}
 };
 
 struct mon_table mon_dispatch_postauth20[] = {
-#ifdef GSSAPI
-    {MONITOR_REQ_GSSSETUP, 0, mm_answer_gss_setup_ctx},
-    {MONITOR_REQ_GSSSTEP, 0, mm_answer_gss_accept_ctx},
-    {MONITOR_REQ_GSSSIGN, 0, mm_answer_gss_sign},
-    {MONITOR_REQ_GSSUPCREDS, 0, mm_answer_gss_updatecreds},
-#endif
 #ifdef WITH_OPENSSL
     {MONITOR_REQ_MODULI, 0, mm_answer_moduli},
 #endif
@@ -362,10 +352,6 @@ monitor_child_preauth(Authctxt *_authctxt, struct monitor *pmonitor)
 		/* Permit requests for moduli and signatures */
 		monitor_permit(mon_dispatch, MONITOR_REQ_MODULI, 1);
 		monitor_permit(mon_dispatch, MONITOR_REQ_SIGN, 1);
-#ifdef GSSAPI
-		/* and for the GSSAPI key exchange */
-		monitor_permit(mon_dispatch, MONITOR_REQ_GSSSETUP, 1);
-#endif
 	} else {
 		mon_dispatch = mon_dispatch_proto15;
 
@@ -474,10 +460,6 @@ monitor_child_postauth(struct monitor *pmonitor)
 		monitor_permit(mon_dispatch, MONITOR_REQ_MODULI, 1);
 		monitor_permit(mon_dispatch, MONITOR_REQ_SIGN, 1);
 		monitor_permit(mon_dispatch, MONITOR_REQ_TERM, 1);
-#ifdef GSSAPI
-		/* and for the GSSAPI key exchange */
-		monitor_permit(mon_dispatch, MONITOR_REQ_GSSSETUP, 1);
-#endif		
 	} else {
 		mon_dispatch = mon_dispatch_postauth15;
 		monitor_permit(mon_dispatch, MONITOR_REQ_TERM, 1);
@@ -504,15 +486,10 @@ monitor_sync(struct monitor *pmonitor)
 static void *
 mm_zalloc(struct mm_master *mm, u_int ncount, u_int size)
 {
-	size_t len = (size_t) size * ncount;
-	void *address;
-
-	if (len == 0 || ncount > SIZE_MAX / size)
+	if (size == 0 || ncount == 0 || ncount > SIZE_MAX / size)
 		fatal("%s: mm_zalloc(%u, %u)", __func__, ncount, size);
 
-	address = mm_malloc(mm, len);
-
-	return (address);
+	return mm_malloc(mm, size * ncount);
 }
 
 static void
@@ -707,17 +684,18 @@ mm_answer_sign(int sock, Buffer *m)
 	struct ssh *ssh = active_state; 	/* XXX */
 	extern int auth_sock;			/* XXX move to state struct? */
 	struct sshkey *key;
-	struct sshbuf *sigbuf;
-	u_char *p;
-	u_char *signature;
-	size_t datlen, siglen;
+	struct sshbuf *sigbuf = NULL;
+	u_char *p = NULL, *signature = NULL;
+	char *alg = NULL;
+	size_t datlen, siglen, alglen;
 	int r, keyid, is_proof = 0;
 	const char proof_req[] = "hostkeys-prove-00@openssh.com";
 
 	debug3("%s", __func__);
 
-	if ((r = sshbuf_get_u32(m, (u_int32_t *)&keyid)) != 0 ||
-	    (r = sshbuf_get_string(m, &p, &datlen)) != 0)
+	if ((r = sshbuf_get_u32(m, &keyid)) != 0 ||
+	    (r = sshbuf_get_string(m, &p, &datlen)) != 0 ||
+	    (r = sshbuf_get_cstring(m, &alg, &alglen)) != 0)
 		fatal("%s: buffer error: %s", __func__, ssh_err(r));
 
 	/*
@@ -744,7 +722,7 @@ mm_answer_sign(int sock, Buffer *m)
 			fatal("%s: sshbuf_new", __func__);
 		if ((r = sshbuf_put_cstring(sigbuf, proof_req)) != 0 ||
 		    (r = sshbuf_put_string(sigbuf, session_id2,
-		    session_id2_len) != 0) ||
+		    session_id2_len)) != 0 ||
 		    (r = sshkey_puts(key, sigbuf)) != 0)
 			fatal("%s: couldn't prepare private key "
 			    "proof buffer: %s", __func__, ssh_err(r));
@@ -764,14 +742,14 @@ mm_answer_sign(int sock, Buffer *m)
 	}
 
 	if ((key = get_hostkey_by_index(keyid)) != NULL) {
-		if ((r = sshkey_sign(key, &signature, &siglen, p, datlen,
+		if ((r = sshkey_sign(key, &signature, &siglen, p, datlen, alg,
 		    datafellows)) != 0)
 			fatal("%s: sshkey_sign failed: %s",
 			    __func__, ssh_err(r));
 	} else if ((key = get_hostkey_public_by_index(keyid, ssh)) != NULL &&
 	    auth_sock > 0) {
 		if ((r = ssh_agent_sign(auth_sock, key, &signature, &siglen,
-		    p, datlen, datafellows)) != 0) {
+		    p, datlen, alg, datafellows)) != 0) {
 			fatal("%s: ssh_agent_sign failed: %s",
 			    __func__, ssh_err(r));
 		}
@@ -785,6 +763,7 @@ mm_answer_sign(int sock, Buffer *m)
 	if ((r = sshbuf_put_string(m, signature, siglen)) != 0)
 		fatal("%s: buffer error: %s", __func__, ssh_err(r));
 
+	free(alg);
 	free(p);
 	free(signature);
 
@@ -988,7 +967,7 @@ mm_answer_bsdauthrespond(int sock, Buffer *m)
 	char *response;
 	int authok;
 
-	if (authctxt->as == 0)
+	if (authctxt->as == NULL)
 		fatal("%s: no bsd auth session", __func__);
 
 	response = buffer_get_string(m, NULL);
@@ -1057,7 +1036,8 @@ mm_answer_skeyrespond(int sock, Buffer *m)
 	debug3("%s: sending authenticated: %d", __func__, authok);
 	mm_request_send(sock, MONITOR_ANS_SKEYRESPOND, m);
 
-	auth_method = "skey";
+	auth_method = "keyboard-interactive";
+	auth_submethod = "skey";
 
 	return (authok != 0);
 }
@@ -1317,7 +1297,7 @@ monitor_valid_userblob(u_char *data, u_int datalen)
 	buffer_append(&b, data, datalen);
 
 	if (datafellows & SSH_OLD_SESSIONID) {
-		p = (char *)buffer_ptr(&b);
+		p = buffer_ptr(&b);
 		len = buffer_len(&b);
 		if ((session_id2 == NULL) ||
 		    (len < session_id2_len) ||
@@ -1466,7 +1446,7 @@ mm_answer_keyverify(int sock, Buffer *m)
 	    __func__, key, (verified == 1) ? "verified" : "unverified");
 
 	/* If auth was successful then record key to ensure it isn't reused */
-	if (verified == 1)
+	if (verified == 1 && key_blobtype == MM_USERKEY)
 		auth2_record_userkey(authctxt, key);
 	else
 		key_free(key);
@@ -1869,7 +1849,7 @@ monitor_apply_keystate(struct monitor *pmonitor)
 	sshbuf_free(child_state);
 	child_state = NULL;
 
-	if ((kex = ssh->kex) != 0) {
+	if ((kex = ssh->kex) != NULL) {
 		/* XXX set callbacks */
 #ifdef WITH_OPENSSL
 		kex->kex[KEX_DH_GRP1_SHA1] = kexdh_server;
@@ -1880,13 +1860,6 @@ monitor_apply_keystate(struct monitor *pmonitor)
 		kex->kex[KEX_ECDH_SHA2] = kexecdh_server;
 # endif
 #endif /* WITH_OPENSSL */
-#ifdef GSSAPI
-		if (options.gss_keyex) {
-			kex->kex[KEX_GSS_GRP1_SHA1] = kexgss_server;
-			kex->kex[KEX_GSS_GRP14_SHA1] = kexgss_server;
-			kex->kex[KEX_GSS_GEX_SHA1] = kexgss_server;
-		}
-#endif
 		kex->kex[KEX_C25519_SHA256] = kexc25519_server;
 		kex->load_host_public_key=&get_hostkey_public_by_type;
 		kex->load_host_private_key=&get_hostkey_private_by_type;
@@ -1987,9 +1960,6 @@ mm_answer_gss_setup_ctx(int sock, Buffer *m)
 	OM_uint32 major;
 	u_int len;
 
-	if (!options.gss_authentication && !options.gss_keyex)
-		fatal("In GSSAPI monitor when GSSAPI is disabled");
-
 	goid.elements = buffer_get_string(m, &len);
 	goid.length = len;
 
@@ -2017,9 +1987,6 @@ mm_answer_gss_accept_ctx(int sock, Buffer *m)
 	OM_uint32 flags = 0; /* GSI needs this */
 	u_int len;
 
-	if (!options.gss_authentication && !options.gss_keyex)
-		fatal("In GSSAPI monitor when GSSAPI is disabled");
-
 	in.value = buffer_get_string(m, &len);
 	in.length = len;
 	major = ssh_gssapi_accept_ctx(gsscontext, &in, &out, &flags);
@@ -2031,16 +1998,12 @@ mm_answer_gss_accept_ctx(int sock, Buffer *m)
 	buffer_put_int(m, flags);
 	mm_request_send(sock, MONITOR_ANS_GSSSTEP, m);
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 	gss_release_buffer(&minor, &out);
-#pragma clang diagnostic pop
 
 	if (major == GSS_S_COMPLETE) {
 		monitor_permit(mon_dispatch, MONITOR_REQ_GSSSTEP, 0);
 		monitor_permit(mon_dispatch, MONITOR_REQ_GSSUSEROK, 1);
 		monitor_permit(mon_dispatch, MONITOR_REQ_GSSCHECKMIC, 1);
-		monitor_permit(mon_dispatch, MONITOR_REQ_GSSSIGN, 1);
 	}
 	return (0);
 }
@@ -2051,9 +2014,6 @@ mm_answer_gss_checkmic(int sock, Buffer *m)
 	gss_buffer_desc gssbuf, mic;
 	OM_uint32 ret;
 	u_int len;
-
-	if (!options.gss_authentication && !options.gss_keyex)
-		fatal("In GSSAPI monitor when GSSAPI is disabled");
 
 	gssbuf.value = buffer_get_string(m, &len);
 	gssbuf.length = len;
@@ -2081,11 +2041,7 @@ mm_answer_gss_userok(int sock, Buffer *m)
 {
 	int authenticated;
 
-	if (!options.gss_authentication && !options.gss_keyex)
-		fatal("In GSSAPI monitor when GSSAPI is disabled");
-
-	authenticated = authctxt->valid && 
-	    ssh_gssapi_userok(authctxt->user, authctxt->pw);
+	authenticated = authctxt->valid && ssh_gssapi_userok(authctxt->user);
 
 	buffer_clear(m);
 	buffer_put_int(m, authenticated);
@@ -2098,76 +2054,5 @@ mm_answer_gss_userok(int sock, Buffer *m)
 	/* Monitor loop will terminate if authenticated */
 	return (authenticated);
 }
-
-int 
-mm_answer_gss_sign(int socket, Buffer *m)
-{
-	gss_buffer_desc data;
-	gss_buffer_desc hash = GSS_C_EMPTY_BUFFER;
-	OM_uint32 major, minor;
-	u_int len;
-
-	if (!options.gss_authentication && !options.gss_keyex)
-		fatal("In GSSAPI monitor when GSSAPI is disabled");
-
-	data.value = buffer_get_string(m, &len);
-	data.length = len;
-	if (data.length != 20) 
-		fatal("%s: data length incorrect: %d", __func__, 
-		    (int) data.length);
-
-	/* Save the session ID on the first time around */
-	if (session_id2_len == 0) {
-		session_id2_len = data.length;
-		session_id2 = xmalloc(session_id2_len);
-		memcpy(session_id2, data.value, session_id2_len);
-	}
-	major = ssh_gssapi_sign(gsscontext, &data, &hash);
-
-	free(data.value);
-
-	buffer_clear(m);
-	buffer_put_int(m, major);
-	buffer_put_string(m, hash.value, hash.length);
-
-	mm_request_send(socket, MONITOR_ANS_GSSSIGN, m);
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-	gss_release_buffer(&minor, &hash);
-#pragma clang diagnostic pop
-
-	/* Turn on getpwnam permissions */
-	monitor_permit(mon_dispatch, MONITOR_REQ_PWNAM, 1);
-	
-	/* And credential updating, for when rekeying */
-	monitor_permit(mon_dispatch, MONITOR_REQ_GSSUPCREDS, 1);
-
-	return (0);
-}
-
-int
-mm_answer_gss_updatecreds(int socket, Buffer *m) {
-	ssh_gssapi_ccache store;
-	int ok;
-
-	store.filename = buffer_get_string(m, NULL);
-	store.envvar   = buffer_get_string(m, NULL);
-	store.envval   = buffer_get_string(m, NULL);
-
-	ok = ssh_gssapi_update_creds(&store);
-
-	free(store.filename);
-	free(store.envvar);
-	free(store.envval);
-
-	buffer_clear(m);
-	buffer_put_int(m, ok);
-
-	mm_request_send(socket, MONITOR_ANS_GSSUPCREDS, m);
-
-	return(0);
-}
-
 #endif /* GSSAPI */
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -47,7 +47,6 @@ struct saved_pkt {
     uint32_t			pkt[1500/sizeof(uint32_t)];
     int				pkt_size;
     unsigned 			rating;
-    boolean_t			is_dhcp;
     struct in_addr		our_ip;
     struct in_addr		server_ip;
 };

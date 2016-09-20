@@ -27,56 +27,46 @@
 #define ScrollbarThemeGtk_h
 
 #include "ScrollbarThemeComposite.h"
+#include <wtf/glib/GRefPtr.h>
 
 namespace WebCore {
 
 class Scrollbar;
 
-class ScrollbarThemeGtk : public ScrollbarThemeComposite {
+class ScrollbarThemeGtk final : public ScrollbarThemeComposite {
 public:
     virtual ~ScrollbarThemeGtk();
 
-    virtual bool hasButtons(Scrollbar&) { return true; }
-    virtual bool hasThumb(Scrollbar&);
-    virtual IntRect backButtonRect(Scrollbar&, ScrollbarPart, bool);
-    virtual IntRect forwardButtonRect(Scrollbar&, ScrollbarPart, bool);
-    virtual IntRect trackRect(Scrollbar&, bool);
+    bool hasButtons(Scrollbar&) override;
+    bool hasThumb(Scrollbar&) override;
+    IntRect backButtonRect(Scrollbar&, ScrollbarPart, bool) override;
+    IntRect forwardButtonRect(Scrollbar&, ScrollbarPart, bool) override;
+    IntRect trackRect(Scrollbar&, bool) override;
 
 #ifndef GTK_API_VERSION_2
     ScrollbarThemeGtk();
 
-    IntRect thumbRect(Scrollbar&, const IntRect& unconstrainedTrackRect);
-    bool paint(Scrollbar&, GraphicsContext&, const IntRect& damageRect);
-    void paintScrollbarBackground(GraphicsContext&, Scrollbar&);
-    void paintTrackBackground(GraphicsContext&, Scrollbar&, const IntRect&);
-    void paintThumb(GraphicsContext&, Scrollbar&, const IntRect&);
-    virtual void paintButton(GraphicsContext&, Scrollbar&, const IntRect&, ScrollbarPart);
-    virtual bool shouldCenterOnThumb(Scrollbar&, const PlatformMouseEvent&);
-    virtual int scrollbarThickness(ScrollbarControlSize);
-    virtual IntSize buttonSize(Scrollbar&);
-    virtual int minimumThumbLength(Scrollbar&);
+    bool paint(Scrollbar&, GraphicsContext&, const IntRect& damageRect) override;
+    ScrollbarButtonPressAction handleMousePressEvent(Scrollbar&, const PlatformMouseEvent&, ScrollbarPart) override;
+    int scrollbarThickness(ScrollbarControlSize) override;
+    int minimumThumbLength(Scrollbar&) override;
 
     // TODO: These are the default GTK+ values. At some point we should pull these from the theme itself.
-    virtual double initialAutoscrollTimerDelay() { return 0.20; }
-    virtual double autoscrollTimerDelay() { return 0.02; }
-    void themeChanged();
-    void updateScrollbarsFrameThickness();
-    void registerScrollbar(Scrollbar&);
-    void unregisterScrollbar(Scrollbar&);
+    double initialAutoscrollTimerDelay() override { return 0.20; }
+    double autoscrollTimerDelay() override { return 0.02; }
+    void themeChanged() override;
+    bool usesOverlayScrollbars() const override { return m_usesOverlayScrollbars; }
+    // When using overlay scrollbars, always invalidate the whole scrollbar when entering/leaving.
+    bool invalidateOnMouseEnterExit() override { return m_usesOverlayScrollbars; }
 
-protected:
+private:
     void updateThemeProperties();
 
-    int m_thumbFatness;
-    int m_troughBorderWidth;
-    int m_stepperSize;
-    int m_stepperSpacing;
-    int m_minThumbLength;
-    gboolean m_troughUnderSteppers;
-    gboolean m_hasForwardButtonStartPart;
-    gboolean m_hasForwardButtonEndPart;
-    gboolean m_hasBackButtonStartPart;
-    gboolean m_hasBackButtonEndPart;
+    bool m_hasForwardButtonStartPart : 1;
+    bool m_hasForwardButtonEndPart : 1;
+    bool m_hasBackButtonStartPart : 1;
+    bool m_hasBackButtonEndPart : 1;
+    bool m_usesOverlayScrollbars { false };
 #endif // GTK_API_VERSION_2
 };
 

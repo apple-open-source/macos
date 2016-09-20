@@ -267,8 +267,12 @@ parse_cmatcher(char *name, char *s)
 		s++;
 
 	    if (!*s || !*++s) {
-		if (name)
-		    zwarnnam(name, "missing line pattern");
+		if (name) {
+                   if (both)
+                       zwarnnam(name, "missing right anchor");
+                   else
+                       zwarnnam(name, "missing line pattern");
+		}
 		return pcm_err;
 	    }
 	} else
@@ -288,6 +292,7 @@ parse_cmatcher(char *name, char *s)
 	if ((fl & CMF_RIGHT) && !fl2 && (!*s || !*++s)) {
 	    if (name)
 		zwarnnam(name, "missing right anchor");
+           return pcm_err;
 	} else if (!(fl & CMF_RIGHT) || fl2) {
 	    if (!*s) {
 		if (name)
@@ -313,8 +318,7 @@ parse_cmatcher(char *name, char *s)
 		return pcm_err;
 	    }
 	    s++;
-	} else
-	    right = NULL;
+       }
 
 	if (*s == '*') {
 	    if (!(fl & (CMF_LEFT | CMF_RIGHT))) {
@@ -537,7 +541,7 @@ bin_compadd(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
     dat.match = NULL;
     dat.flags = 0;
     dat.aflags = CAF_MATCH;
-    dat.dummies = 0;
+    dat.dummies = -1;
 
     for (; *argv && **argv ==  '-'; argv++) {
 	if (!(*argv)[1]) {
@@ -1625,7 +1629,6 @@ boot_(Module m)
     addhookfunc("before_complete", (Hookfn) before_complete);
     addhookfunc("after_complete", (Hookfn) after_complete);
     addhookfunc("accept_completion", (Hookfn) accept_last);
-    addhookfunc("reverse_menu", (Hookfn) reverse_menu);
     addhookfunc("list_matches", (Hookfn) list_matches);
     addhookfunc("invalidate_list", (Hookfn) invalidate_list);
     (void)addhookdefs(m, comphooks, sizeof(comphooks)/sizeof(*comphooks));
@@ -1640,7 +1643,6 @@ cleanup_(Module m)
     deletehookfunc("before_complete", (Hookfn) before_complete);
     deletehookfunc("after_complete", (Hookfn) after_complete);
     deletehookfunc("accept_completion", (Hookfn) accept_last);
-    deletehookfunc("reverse_menu", (Hookfn) reverse_menu);
     deletehookfunc("list_matches", (Hookfn) list_matches);
     deletehookfunc("invalidate_list", (Hookfn) invalidate_list);
     (void)deletehookdefs(m, comphooks,

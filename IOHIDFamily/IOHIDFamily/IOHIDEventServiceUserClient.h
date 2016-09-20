@@ -23,6 +23,8 @@
 #ifndef _IOKIT_IOHIDEVENTSERVICEUSERCLIENT_H
 #define _IOKIT_IOHIDEVENTSERVICEUSERCLIENT_H
 
+#define kIOHIDEventServiceUserClientType 'HIDD'
+
 enum IOHIDEventServiceUserClientCommandCodes {
     kIOHIDEventServiceUserClientOpen,
     kIOHIDEventServiceUserClientClose,
@@ -31,10 +33,12 @@ enum IOHIDEventServiceUserClientCommandCodes {
     kIOHIDEventServiceUserClientNumCommands
 };
 
+
 #ifdef KERNEL
 
 #include <IOKit/IOUserClient.h>
 #include "IOHIDEventService.h"
+#include <IOKit/IOCommandGate.h>
 
 class IOHIDEventServiceQueue;
 
@@ -43,15 +47,30 @@ class IOHIDEventServiceUserClient : public IOUserClient
     OSDeclareDefaultStructors(IOHIDEventServiceUserClient)
 
 private:
+  
+  typedef struct ExternalMethodGatedArguments {
+    uint32_t                    selector;
+    IOExternalMethodArguments * arguments;
+    IOExternalMethodDispatch *  dispatch;
+    OSObject *                  target;
+    void *                      reference;
+  } ExternalMethodGatedArguments;
+  
     static const IOExternalMethodDispatch
 		sMethods[kIOHIDEventServiceUserClientNumCommands];
 
     IOHIDEventService *         _owner;
     IOHIDEventServiceQueue *    _queue;
     IOOptionBits                _options;
-    task_t                      _client;
-    
-    void eventServiceCallback(  IOHIDEventService *             sender, 
+    IOCommandGate *             _commandGate;
+    uint32_t                    _state;
+    uint64_t                    _lastEventTime;
+    uint32_t                    _lastEventType;
+    uint32_t                    _droppedEventCount;
+    uint64_t                    _lastDroppedEventTime;
+  
+  
+    void eventServiceCallback(  IOHIDEventService *             sender,
                                 void *                          context,
                                 IOHIDEvent *                    event, 
                                 IOOptionBits                    options);
@@ -74,6 +93,10 @@ private:
                                 void *                          reference, 
                                 IOExternalMethodArguments *     arguments);
 
+    void enqueueEventGated( IOHIDEvent * event);
+
+    bool   serializeDebugState(void * ref, OSSerialize * serializer);
+
 protected:
     // IOUserClient methods
     virtual IOReturn clientClose( void );
@@ -91,14 +114,20 @@ protected:
                                 IOOptionBits *                  options,
                                 IOMemoryDescriptor **           memory );
 
-	virtual IOReturn externalMethod(
+  
+    IOReturn clientMemoryForTypeGated(
+                                IOOptionBits *                  options,
+                                IOMemoryDescriptor **           memory );
+  
+    virtual IOReturn externalMethod(
                                 uint32_t                        selector, 
                                 IOExternalMethodArguments *     arguments,
                                 IOExternalMethodDispatch *      dispatch, 
                                 OSObject *                      target, 
                                 void *                          reference);
 
-
+    IOReturn externalMethodGated(ExternalMethodGatedArguments *arguments);
+ 
 public:
     // others
     virtual bool initWithTask(task_t owningTask, void * security_id, UInt32 type);
@@ -109,7 +138,7 @@ public:
     virtual IOReturn open(IOOptionBits options);
     virtual IOReturn close();
     virtual IOHIDEvent * copyEvent(IOHIDEventType type, IOHIDEvent * matching, IOOptionBits options = 0);
-    virtual void setElementValue(UInt32 usagePage, UInt32 usage, UInt32 value);
+    virtual IOReturn setElementValue(UInt32 usagePage, UInt32 usage, UInt32 value);
 };
 
 #endif /* KERNEL */

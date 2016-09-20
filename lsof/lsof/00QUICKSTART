@@ -265,12 +265,11 @@
   Address  Type          Vnode     Conn  Local Addr      Remote Addr
   ffffff0084253b68 stream-ord 0000000 0000000
 
-  Using lsof's -U opetion and its output piped to a grep on the address
+  Using lsof's -U option and its output piped to a grep on the address
   yields:
 
   $ lsof -U | grep ffffff0084253b68
   squid 1638 nobody 12u unix 18,98 0t10 9437188 /devices/pseudo/tl@0:ticots->0xffffff0084253b68 stream-ord
-  $ lsof -U |
 
 
 8.  Finding Files Open to a Named Command
@@ -1020,4 +1019,4 @@ D.  Miscellaneous Lsof Options
 
 
 Vic Abell <abe@purdue.edu>
-January 18, 2010
+October 13, 2014

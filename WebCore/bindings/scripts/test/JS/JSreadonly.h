@@ -18,8 +18,7 @@
     Boston, MA 02110-1301, USA.
 */
 
-#ifndef JSreadonly_h
-#define JSreadonly_h
+#pragma once
 
 #include "JSDOMWrapper.h"
 #include "readonly.h"
@@ -27,21 +26,20 @@
 
 namespace WebCore {
 
-class JSreadonly : public JSDOMWrapper {
+class JSreadonly : public JSDOMWrapper<readonly> {
 public:
-    typedef JSDOMWrapper Base;
+    typedef JSDOMWrapper<readonly> Base;
     static JSreadonly* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, Ref<readonly>&& impl)
     {
-        JSreadonly* ptr = new (NotNull, JSC::allocateCell<JSreadonly>(globalObject->vm().heap)) JSreadonly(structure, globalObject, WTF::move(impl));
+        JSreadonly* ptr = new (NotNull, JSC::allocateCell<JSreadonly>(globalObject->vm().heap)) JSreadonly(structure, *globalObject, WTFMove(impl));
         ptr->finishCreation(globalObject->vm());
         return ptr;
     }
 
     static JSC::JSObject* createPrototype(JSC::VM&, JSC::JSGlobalObject*);
-    static JSC::JSObject* getPrototype(JSC::VM&, JSC::JSGlobalObject*);
+    static JSC::JSObject* prototype(JSC::VM&, JSC::JSGlobalObject*);
     static readonly* toWrapped(JSC::JSValue);
     static void destroy(JSC::JSCell*);
-    ~JSreadonly();
 
     DECLARE_INFO;
 
@@ -50,14 +48,9 @@ public:
         return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), info());
     }
 
-    static JSC::JSValue getConstructor(JSC::VM&, JSC::JSGlobalObject*);
-    readonly& impl() const { return *m_impl; }
-    void releaseImpl() { std::exchange(m_impl, nullptr)->deref(); }
-
-private:
-    readonly* m_impl;
+    static JSC::JSValue getConstructor(JSC::VM&, const JSC::JSGlobalObject*);
 protected:
-    JSreadonly(JSC::Structure*, JSDOMGlobalObject*, Ref<readonly>&&);
+    JSreadonly(JSC::Structure*, JSDOMGlobalObject&, Ref<readonly>&&);
 
     void finishCreation(JSC::VM& vm)
     {
@@ -79,10 +72,15 @@ inline JSC::WeakHandleOwner* wrapperOwner(DOMWrapperWorld&, readonly*)
     return &owner.get();
 }
 
-JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, readonly*);
-inline JSC::JSValue toJS(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, readonly& impl) { return toJS(exec, globalObject, &impl); }
+inline void* wrapperKey(readonly* wrappableObject)
+{
+    return wrappableObject;
+}
+
+JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, readonly&);
+inline JSC::JSValue toJS(JSC::ExecState* state, JSDOMGlobalObject* globalObject, readonly* impl) { return impl ? toJS(state, globalObject, *impl) : JSC::jsNull(); }
+JSC::JSValue toJSNewlyCreated(JSC::ExecState*, JSDOMGlobalObject*, Ref<readonly>&&);
+inline JSC::JSValue toJSNewlyCreated(JSC::ExecState* state, JSDOMGlobalObject* globalObject, RefPtr<readonly>&& impl) { return impl ? toJSNewlyCreated(state, globalObject, impl.releaseNonNull()) : JSC::jsNull(); }
 
 
 } // namespace WebCore
-
-#endif

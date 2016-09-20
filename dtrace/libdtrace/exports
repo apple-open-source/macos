@@ -173,6 +173,7 @@ _dtrace_vopen
 _dtrace_work
 _dtrace_xstr2desc
 __dtrace_version
+__dtrace_disallow_dsym
 _Pstate
 _Pstatus
 _Pxlookup_by_addr

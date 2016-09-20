@@ -63,7 +63,8 @@ AEP_Patches    = ext_digest_md5_commoncrypto.diff \
 	common.mk.diff \
 	message_tracing_main.c.diff \
 	ext_psych_yaml_scanner.c.diff \
-	lib_rubygems_defaults.rb.diff
+	lib_rubygems_defaults.rb.diff \
+	getaddrinfo-test.diff
 
 MAJOR     = $(shell echo $(AEP_Version) | cut -d. -f1)
 MINOR     = $(shell echo $(AEP_Version) | cut -d. -f2)
@@ -82,7 +83,7 @@ $(ConfigStamp2): $(ConfigStamp)
 
 build:: configure
 	$(INSTALL_DIRECTORY) $(SYMROOT)
-	$(_v) $(MAKE) -C $(BuildDirectory) V=1 CC=$(shell xcrun -f clang) OBJCOPY=": noobjcopy" XLDFLAGS='' RUBY_CODESIGN="-"
+	$(_v) $(MAKE) -C $(BuildDirectory) CC=$(shell xcrun -f clang) OBJCOPY=": noobjcopy" XLDFLAGS='' RUBY_CODESIGN="-"
 
 post-install:
 	$(INSTALL_DIRECTORY) $(DSTROOT)$(FW_VERSION_DIR)/Resources
@@ -138,7 +139,15 @@ post-install:
 	$(INSTALL_FILE) $(SRCROOT)/gem.1 $(DSTROOT)$(MANDIR)/man1
 	# nuke duplicates that are only different in case
 	find $(DSTROOT) -type f | sort -fr | uniq -id | xargs -t rm
+	# Now deal with dirs
+	find $(DSTROOT) -type d -path '*/ri/*' -empty -ls -delete
+	@echo 'vvv case insensitive duplicates vvv'
+	find $(DSTROOT) -print | sort -fr | uniq -id
+	@echo '^^^ Case Insensitive Duplicates ^^^'
 	$(INSTALL_DIRECTORY) $(DSTROOT)/$(USRGEMDIR)
+	find "$(OBJROOT)" -name "*.log" -print0 | while IFS= read -r -d $$'\0' mkmflog; do echo "Printing $$mkmflog"; cat "$$mkmflog"; done
+	darwinvers=`$(SRCROOT)/ruby/tool/config.guess | sed -e 's/.*-//' | sed -e 's/\..*//'`; if [ ! -e "$(DSTROOT)/$(FW_VERSION_DIR)/$(USRLIBDIR)/ruby/$(VERSION3)/universal-$${darwinvers}/socket.bundle" ]; then exit 1; fi
+
 
 OSV = $(DSTROOT)/usr/local/OpenSourceVersions
 OSL = $(DSTROOT)/usr/local/OpenSourceLicenses

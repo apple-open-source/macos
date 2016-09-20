@@ -37,7 +37,7 @@
 
 #include <assert.h>
 
-#define sslAsn1Debug(args...)	secdebug("sslAsn1", ##args)
+#define sslAsn1Debug(args...)	secinfo("sslAsn1", ##args)
 
 #ifndef	NDEBUG
 /* set to 1 to see all ASN related errors */

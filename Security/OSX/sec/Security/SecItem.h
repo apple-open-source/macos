@@ -352,7 +352,8 @@ extern const CFStringRef kSecClassIdentity
         kSecAttrLabel (which is intended to be human-readable). This attribute
         is used to look up a key programmatically; in particular, for keys of
         class kSecAttrKeyClassPublic and kSecAttrKeyClassPrivate, the value of
-        this attribute is the hash of the public key.
+        this attribute is the hash of the public key. This item is a type of CFDataRef.
+        Legacy keys may contain a UUID in this field as a CFStringRef.
     @constant kSecAttrIsPermanent Specifies a dictionary key whose value is a
         CFBooleanRef indicating whether the key in question will be stored
         permanently.
@@ -492,7 +493,7 @@ extern const CFStringRef kSecAttrCanUnwrap
 extern const CFStringRef kSecAttrSyncViewHint
     __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
 extern const CFStringRef kSecAttrTokenID
-    __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
+    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_9_0);
 
 /*!
     @enum kSecAttrAccessible Value Constants
@@ -710,12 +711,15 @@ extern const CFStringRef kSecAttrKeyClassSymmetric
 		in a dictionary. The kSecAttrKeyType constant is the key
 		and its value is one of the constants defined here.
     @constant kSecAttrKeyTypeRSA.
-    @constant kSecAttrKeyTypeEC.
+    @constant kSecAttrKeyTypeECSECPrimeRandom.
+    @constant kSecAttrKeyTypeEC This is legacy name for kSecAttrKeyTypeECSECPrimeRandom, new applications should not use it.
 */
 extern const CFStringRef kSecAttrKeyTypeRSA
     __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_2_0);
 extern const CFStringRef kSecAttrKeyTypeEC
     __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_4_0);
+extern const CFStringRef kSecAttrKeyTypeECSECPrimeRandom
+    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
 
 /*!
     @enum kSecAttrSynchronizable Value Constants
@@ -896,7 +900,7 @@ extern const CFStringRef kSecUseItemList
 extern const CFStringRef kSecUseOperationPrompt
     __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
 extern const CFStringRef kSecUseNoAuthenticationUI
-    __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_10, __MAC_10_11, __IPHONE_8_0, __IPHONE_9_0, "Use a kSecAuthenticationUI instead.");
+    __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_10, __MAC_10_11, __IPHONE_8_0, __IPHONE_9_0, "Use a kSecUseAuthenticationUI instead.");
 extern const CFStringRef kSecUseAuthenticationUI
     __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
 extern const CFStringRef kSecUseAuthenticationContext
@@ -937,8 +941,26 @@ extern const CFStringRef kSecUseAuthenticationUISkip
          kSecAttrTokenIDSecureEnclave in the parameters dictionary, it is not
          possible to import pregenerated keys to kSecAttrTokenIDSecureEnclave token.
 */
+#if !RC_HIDE_J79 && !RC_HIDE_J80
 extern const CFStringRef kSecAttrTokenIDSecureEnclave
-    __OSX_AVAILABLE_STARTING(__MAC_NA, __IPHONE_9_0);
+__OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_9_0);
+#else
+extern const CFStringRef kSecAttrTokenIDSecureEnclave
+__OSX_AVAILABLE_STARTING(__MAC_NA, __IPHONE_9_0);
+#endif
+
+/*!
+     @enum kSecAttrAccessGroup Value Constants
+     @constant kSecAttrAccessGroupToken Represents well-known access group
+         which contains items provided by external token (typically smart card).
+         This may be used as a value for kSecAttrAccessGroup attribute. Every
+         application has access to this access group so it is not needed to
+         explicitly list it in keychain-access-groups entitlement, but application
+         must explicitly state this access group in keychain queries in order to
+         be able to access items from external tokens.
+*/
+extern const CFStringRef kSecAttrAccessGroupToken
+    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
 
 /*!
     @function SecItemCopyMatching

@@ -41,7 +41,7 @@
 # include <Events.h>
 # include <Menus.h>
 # if !(defined (TARGET_API_MAC_CARBON) && (TARGET_API_MAC_CARBON))
-#   include <Windows.h>
+#  include <Windows.h>
 # endif
 # include <Controls.h>
 /*# include <TextEdit.h>*/
@@ -52,23 +52,10 @@
 # include <SegLoad.h>*/
 #endif
 
-#ifdef RISCOS
-# include "gui_riscos.h"
-#endif
-
 #ifdef FEAT_GUI_PHOTON
 # include <Ph.h>
 # include <Pt.h>
 # include "photon/PxProto.h"
-#endif
-
-/*
- * On some systems, when we compile with the GUI, we always use it.  On Mac
- * there is no terminal version, and on Windows we can't figure out how to
- * fork one off with :gui.
- */
-#if defined(FEAT_GUI_MSWIN) || (defined(FEAT_GUI_MAC) && !defined(MACOS_X_UNIX))
-# define ALWAYS_USE_GUI
 #endif
 
 /*
@@ -151,7 +138,7 @@
 #define DRAW_BOLD		0x02	/* draw bold text */
 #define DRAW_UNDERL		0x04	/* draw underline text */
 #define DRAW_UNDERC		0x08	/* draw undercurl text */
-#if defined(RISCOS) || defined(FEAT_GUI_GTK)
+#if defined(FEAT_GUI_GTK)
 # define DRAW_ITALIC		0x10	/* draw italic text */
 #endif
 #define DRAW_CURSOR		0x20	/* drawing block cursor (win32) */
@@ -218,9 +205,6 @@ typedef struct GuiScrollbar
 #endif
 #ifdef FEAT_GUI_MAC
     ControlHandle id;		/* A handle to the scrollbar */
-#endif
-#ifdef RISCOS
-    int		id;		/* Window handle of scrollbar window */
 #endif
 #ifdef FEAT_GUI_PHOTON
     PtWidget_t	*id;
@@ -327,7 +311,12 @@ typedef struct Gui
 # endif
 #endif
 #ifdef FEAT_MBYTE
-    GuiFont	wide_font;	    /* 'guifontwide' font */
+    GuiFont	wide_font;	    /* Normal 'guifontwide' font */
+# ifndef FEAT_GUI_GTK
+    GuiFont	wide_bold_font;	    /* Bold 'guifontwide' font */
+    GuiFont	wide_ital_font;	    /* Italic 'guifontwide' font */
+    GuiFont	wide_boldital_font; /* Bold-Italic 'guifontwide' font */
+# endif
 #endif
 #ifdef FEAT_XFONTSET
     GuiFontset	fontset;	    /* set of fonts for multi-byte chars */
@@ -408,6 +397,8 @@ typedef struct Gui
     GtkAccelGroup *accel_group;
     GtkWidget	*filedlg;	    /* file selection dialog */
     char_u	*browse_fname;	    /* file name from filedlg */
+
+    guint32	event_time;
 #endif	/* FEAT_GUI_GTK */
 
 #if defined(FEAT_GUI_TABLINE) \
@@ -448,14 +439,6 @@ typedef struct Gui
     int		MacOSHelpItems;	    /* Nr of help-items supplied by MacOS */
     WindowPtr	wid;		    /* Window id of text area */
     int		visibility;	    /* Is window partially/fully obscured? */
-#endif
-
-#ifdef RISCOS
-    int		window_handle;
-    char_u	*window_title;
-    int		window_title_size;
-    int		fg_colour;		/* in 0xBBGGRR format */
-    int		bg_colour;
 #endif
 
 #ifdef FEAT_GUI_PHOTON

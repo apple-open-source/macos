@@ -196,7 +196,7 @@ bool EncodingTraits<NondeterministicInputBase>::decodeValue(EncodedValue& encode
         if (!InputTraits<name>::decode(encodedValue, decodedInput)) \
             return false; \
         \
-        input = WTF::move(decodedInput); \
+        input = WTFMove(decodedInput); \
         return true; \
     } \
 
@@ -209,7 +209,7 @@ bool EncodingTraits<NondeterministicInputBase>::decodeValue(EncodedValue& encode
         if (!InputTraits<MemoizedDOMResultBase>::decode(encodedValue, decodedInput))
             return false;
 
-        input = WTF::move(decodedInput);
+        input = WTFMove(decodedInput);
         return true;
     }
 
@@ -338,7 +338,7 @@ bool EncodingTraits<PlatformMouseEvent>::decodeValue(EncodedValue& encodedValue,
     input = std::make_unique<PlatformMouseEvent>(IntPoint(positionX, positionY),
         IntPoint(globalPositionX, globalPositionY),
         button, type, clickCount,
-        shiftKey, ctrlKey, altKey, metaKey, timestamp, force);
+        shiftKey, ctrlKey, altKey, metaKey, timestamp, force, WebCore::NoTap);
     return true;
 }
 

@@ -46,6 +46,8 @@ class DatabaseManagerClient;
 class OriginLock;
 class SecurityOrigin;
 
+enum class CurrentQueryBehavior { Interrupt, RunToCompletion };
+
 class DatabaseTracker {
     WTF_MAKE_NONCOPYABLE(DatabaseTracker); WTF_MAKE_FAST_ALLOCATED;
 public:
@@ -74,9 +76,7 @@ public:
 
     unsigned long long getMaxSizeForDatabase(const Database*);
 
-    WEBCORE_EXPORT void closeAllDatabases();
-
-    void interruptAllDatabasesForContext(const DatabaseContext*);
+    WEBCORE_EXPORT void closeAllDatabases(CurrentQueryBehavior = CurrentQueryBehavior::RunToCompletion);
 
 private:
     explicit DatabaseTracker(const String& databasePath);
@@ -97,7 +97,7 @@ public:
     void setQuota(SecurityOrigin*, unsigned long long);
     RefPtr<OriginLock> originLockFor(SecurityOrigin*);
 
-    void deleteAllDatabases();
+    void deleteAllDatabasesImmediately();
     WEBCORE_EXPORT void deleteDatabasesModifiedSince(std::chrono::system_clock::time_point);
     WEBCORE_EXPORT bool deleteOrigin(SecurityOrigin*);
     bool deleteDatabase(SecurityOrigin*, const String& name);
@@ -109,12 +109,10 @@ public:
     // MobileSafari will grab this mutex on the main thread before dispatching the task to 
     // clean up zero byte database files.  Any operations to open new database will have to
     // wait for that task to finish by waiting on this mutex.
-    static Mutex& openDatabaseMutex();
+    static Lock& openDatabaseMutex();
     
     WEBCORE_EXPORT static void emptyDatabaseFilesRemovalTaskWillBeScheduled();
     WEBCORE_EXPORT static void emptyDatabaseFilesRemovalTaskDidFinish();
-    
-    WEBCORE_EXPORT void setDatabasesPaused(bool);
 #endif
     
     void setClient(DatabaseManagerClient*);
@@ -146,7 +144,20 @@ private:
 
     bool addDatabase(SecurityOrigin*, const String& name, const String& path);
 
-    bool deleteDatabaseFile(SecurityOrigin*, const String& name);
+    enum class DeletionMode {
+        Immediate,
+#if PLATFORM(IOS)
+        // Deferred deletion is currently only supported on iOS
+        // (see removeDeletedOpenedDatabases etc, above).
+        Deferred,
+        Default = Deferred
+#else
+        Default = Immediate
+#endif
+    };
+
+    bool deleteOrigin(SecurityOrigin*, DeletionMode);
+    bool deleteDatabaseFile(SecurityOrigin*, const String& name, DeletionMode);
 
     void deleteOriginLockFor(SecurityOrigin*);
 
@@ -154,11 +165,11 @@ private:
     typedef HashMap<String, DatabaseSet*> DatabaseNameMap;
     typedef HashMap<RefPtr<SecurityOrigin>, DatabaseNameMap*> DatabaseOriginMap;
 
-    Mutex m_openDatabaseMapGuard;
+    Lock m_openDatabaseMapGuard;
     mutable std::unique_ptr<DatabaseOriginMap> m_openDatabaseMap;
 
     // This lock protects m_database, m_originLockMap, m_databaseDirectoryPath, m_originsBeingDeleted, m_beingCreated, and m_beingDeleted.
-    Mutex m_databaseGuard;
+    Lock m_databaseGuard;
     SQLiteDatabase m_database;
 
     typedef HashMap<String, RefPtr<OriginLock>> OriginLockMap;
@@ -188,7 +199,7 @@ private:
     void doneDeletingOrigin(SecurityOrigin*);
 
     static void scheduleForNotification();
-    static void notifyDatabasesChanged(void*);
+    static void notifyDatabasesChanged();
 };
 
 } // namespace WebCore

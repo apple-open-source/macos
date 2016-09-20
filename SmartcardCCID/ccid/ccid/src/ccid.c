@@ -17,10 +17,6 @@
 	Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-/*
- * $Id$
- */
-
 #include <config.h>
 
 #ifdef HAVE_STDIO_H
@@ -74,6 +70,15 @@ int ccid_open_hack_pre(unsigned int reader_index)
 		case OZ776:
 		case OZ776_7772:
 			ccid_descriptor->dwMaxDataRate = 9600;
+			break;
+
+		case ElatecTWN4:
+			/* use a timeout of 400 ms instead of 100 ms in CmdGetSlotStatus()
+			 * used by CreateChannelByNameOrChannel()
+			 * The reader answers after 280 ms if no tag is present */
+		case SCM_SCL011:
+			/* The SCM SCL011 reader needs 350 ms to answer */
+			ccid_descriptor->readTimeout = DEFAULT_COM_READ_TIMEOUT * 4;
 			break;
 	}
 
@@ -455,9 +460,19 @@ int ccid_open_hack_post(unsigned int reader_index)
 		case HP_CCIDSMARTCARDKEYBOARD:
 		case FUJITSUSMARTKEYB:
 			/* the Secure Pin Entry is bogus so disable it
-			 * http://martinpaljak.net/2011/03/19/insecure-hp-usb-smart-card-keyboard/
+			 * https://web.archive.org/web/20120320001756/http://martinpaljak.net/2011/03/19/insecure-hp-usb-smart-card-keyboard/
+			 *
+			 * The problem is that the PIN code entered using the Secure
+			 * Pin Entry function is also sent to the host.
 			 */
 			ccid_descriptor->bPINSupport = 0;
+			break;
+		case HID_AVIATOR:
+			/* The chip advertises pinpad but actually doesn't have one */
+			ccid_descriptor->bPINSupport = 0;
+			/* Firmware uses chaining */
+			ccid_descriptor->dwFeatures &= ~CCID_CLASS_EXCHANGE_MASK;
+			ccid_descriptor->dwFeatures |= CCID_CLASS_EXTENDED_APDU;
 			break;
 
 #if 0
@@ -498,6 +513,26 @@ int ccid_open_hack_post(unsigned int reader_index)
 			}
 			break;
 #endif
+		case CHERRY_KC1000SC:
+			if ((0x0100 == ccid_descriptor->IFD_bcdDevice)
+				&& (ccid_descriptor->dwFeatures & CCID_CLASS_EXCHANGE_MASK) == CCID_CLASS_SHORT_APDU)
+			{
+				/* firmware 1.00 is bogus
+				 * With a T=1 card and case 2 APDU (data from card to
+				 * host) the maximum size returned by the reader is 128
+				 * byes. The reader is then using chaining as with
+				 * extended APDU.
+				 */
+				ccid_descriptor->dwFeatures &= ~CCID_CLASS_EXCHANGE_MASK;
+				ccid_descriptor->dwFeatures |= CCID_CLASS_EXTENDED_APDU;
+			}
+			break;
+
+		case ElatecTWN4:
+		case SCM_SCL011:
+			/* restore default timeout (modified in ccid_open_hack_pre()) */
+			ccid_descriptor->readTimeout = DEFAULT_COM_READ_TIMEOUT;
+			break;
 	}
 
 	/* Gemalto readers may report additional information */

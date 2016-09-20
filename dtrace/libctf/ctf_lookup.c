@@ -85,7 +85,6 @@ ctf_lookup_by_name(ctf_file_t *fp, const char *name)
 	const char *p, *q, *end;
 	ctf_id_t type = 0;
 	ctf_id_t ntype, ptype;
-
 	if (name == NULL)
 		return (ctf_set_errno(fp, EINVAL));
 
@@ -131,7 +130,11 @@ ctf_lookup_by_name(ctf_file_t *fp, const char *name)
 
 		for (lp = fp->ctf_lookups; lp->ctl_prefix != NULL; lp++) {
 			if (lp->ctl_prefix[0] == '\0' ||
-			    strncmp(p, lp->ctl_prefix, (size_t)(q - p)) == 0) {
+				/* We need to make sure here that we will not
+				 * overflow the name buffer in p by adding
+				 * the ctl_len prefix length to it
+				 */
+				(strncmp(p, lp->ctl_prefix, (size_t)(q - p)) == 0 && ((size_t)(q - p) >= lp->ctl_len))) {
 				for (p += lp->ctl_len; isspace(*p); p++)
 					continue; /* skip prefix and next ws */
 

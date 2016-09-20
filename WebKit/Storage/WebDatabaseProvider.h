@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,11 +23,16 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebDatabaseProvider_h
-#define WebDatabaseProvider_h
+#pragma once
 
 #include <WebCore/DatabaseProvider.h>
 #include <wtf/Forward.h>
+#include <wtf/HashMap.h>
+#include <wtf/RefPtr.h>
+
+#if ENABLE(INDEXED_DATABASE)
+#include <WebCore/InProcessIDBServer.h>
+#endif
 
 class WebDatabaseProvider final : public WebCore::DatabaseProvider {
     friend class NeverDestroyed<WebDatabaseProvider>;
@@ -35,12 +40,18 @@ public:
     static WebDatabaseProvider& singleton();
     virtual ~WebDatabaseProvider();
 
+#if ENABLE(INDEXED_DATABASE)
+    WebCore::IDBClient::IDBConnectionToServer& idbConnectionToServerForSession(const WebCore::SessionID&) override;
+
+    void deleteAllDatabases();
+#endif
+
 private:
     explicit WebDatabaseProvider();
 
+    static String indexedDatabaseDirectoryPath();
+
 #if ENABLE(INDEXED_DATABASE)
-    virtual RefPtr<WebCore::IDBFactoryBackendInterface> createIDBFactoryBackend() override;
+    HashMap<uint64_t, RefPtr<WebCore::InProcessIDBServer>> m_idbServerMap;
 #endif
 };
-
-#endif // WebDatabaseProvider_h

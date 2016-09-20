@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -47,7 +47,6 @@ typedef struct timer_callout timer_callout_t;
 
 typedef void (timer_func_t)(void * arg1, void * arg2, void * arg3);
 
-struct timeval		timer_current_time();
 absolute_time_t		timer_current_secs();
 
 INLINE CFAbsoluteTime

@@ -130,7 +130,7 @@ agent_create(engine_t engine, mechanism_t mech, auth_token_t auth, process_t pro
     agent->actionQueue = dispatch_queue_create("Agent Action Queue", 0);
     
     if (!mechanism_is_privileged(mech)) {
-		if (auid != AU_DEFAUDITID) {
+		if (auid != AU_DEFAUDITID && audit_info->auid != AU_DEFAUDITID) {
 			// User => regular user-level SecurityAgent
 			agent->agentConnection = xpc_connection_create_mach_service(SECURITYAGENT_BOOTSTRAP_NAME_BASE, NULL, 0);
 			xpc_connection_set_target_uid(agent->agentConnection, auid);

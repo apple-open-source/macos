@@ -1,9 +1,56 @@
 ##
 # Wrapper makefile for ICU
-# Copyright (C) 2003-2015 Apple Inc. All rights reserved.
+# Copyright (C) 2003-2016 Apple Inc. All rights reserved.
 #
 # See http://www.gnu.org/manual/make/html_chapter/make_toc.html#SEC_Contents
 # for documentation on makefiles. Most of this was culled from the ncurses makefile.
+#
+#################################
+# Apple ICU repository tag and submission numbers
+#
+# The repository tag number consists of a main version and an optional branch version, as
+# follows:
+# ICU-MMmAA[.B]
+#
+# MM comes from the open-source ICU major version, and can range from 1 to 214 (the max is
+#    due to B&I limits on submission versions. As of March 2016 this is 57; it increases
+#    by 1 for each ICU major release (usually 2 / year). This corresponds to
+#    U_ICU_VERSION_MAJOR_NUM.
+# m  is a single digit specifying the open-source ICU minor version. This is 0 before final
+#    release (e.g. for pre-release milestones), becomes 1 for release candidate and final
+#    release, and may increase to 2 or a little more for occasional dot releases with
+#    maintenance fixes. This corresponds to U_ICU_VERSION_MINOR_NUM.
+#
+#    Note that the ICU release may also utilize U_ICU_VERSION_PATCHLEVEL_NUM; however
+#    that is ignored for the Apple ICU tag and submission numbers, and any related code
+#    or data changes will bne distinguished by updating the Apple delta version AA below.
+#
+# AA is a 2-digit value specifying the version of the additional Apple deltas after
+#    integrating a major release. This is always 2 digits (zero padded) and ranges from
+#    00 (the first release after integrating a new ICU version) to 99.
+# B  is an optional branch version, i.e. a branch from the mainline version specified by
+#    the MMmAA part. It can range from 1 to 99 and is NOT zero-padded.
+#
+#    For Windows builds, the first 3 values of the 4-part FILEVERSION and PRODUCTVERSION
+#    are formed from U_ICU_VERSION_MAJOR_NUM, U_ICU_VERSION_MINOR_NUM, and
+#    U_ICU_VERSION_PATCHLEVEL_NUM; the 4th value is ICU_BUILD, formed from AA and B as
+#    ICU_BUILD = 100*AA + B.
+#
+# The B&I submission version always has 3 parts separated by '.':
+# MMmAA.(0 | B).T
+#
+# The first part MMmAA is the same as the repository tag number.
+# If the repository tag has no branch version, the second part is 0, otherwise it is
+# the same as the branch version (1..99).
+# The third part is a single digit designating the submission train; since the installsrc
+# target now submits different sources to different trains, we have to distinguish them.
+# The values currently defined for T are
+# 1  OSX trains
+# 2  embedded trains (iOS, tvos, watchos) including simulator versions thereof
+# 8  AAS for Windows
+# 9  linux for Siri servers
+# (additional train numbers for Apple platforms can be assigned from 3 up, additional
+# train numbers for non-Apple platforms can be assigned from 7 down).
 #
 #################################
 # Notes on building for AAS using Windows (7) + Visual Studio (2010) + Cygwin:
@@ -50,10 +97,27 @@
 # when used. This is in contrast to using '=' which denotes a
 # recursively expanded variable.
 
-# Sane defaults, which are typically overridden on the command line.
+# Sane defaults, which are typically overridden on the command line
+#or by the environment
 WINDOWS=NO
 LINUX=NO
 ARCH64=NO
+RC_ARCHS=
+ifndef RC_ProjectSourceVersion
+ifdef RC_PROJECTSOURCEVERSION
+	RC_ProjectSourceVersion=$(RC_PROJECTSOURCEVERSION)
+endif
+endif
+$(info # RC_ARCHS=$(RC_ARCHS))
+$(info # RC_ProjectName=$(RC_ProjectName))
+$(info # RC_ProjectSourceVersion=$(RC_ProjectSourceVersion))
+
+# Disallow $(WINDOWS) and $(LINUX) both YES
+ifeq "$(WINDOWS)" "YES"
+	ifeq "$(LINUX)" "YES"
+		$(error WINDOWS and LINUX cannot both be YES)
+	endif
+endif
 
 # chicken and egg problem: we can't use cygpath until PATH & SHELL are set,
 # but we have to convert VS100VCTOOLS_PATH in order to set PATH. So instead we
@@ -106,6 +170,14 @@ endif
 ifndef SYMROOT
 	SYMROOT:=$(OBJROOT)
 endif
+$(info # SRCROOT=$(SRCROOT))
+$(info # OBJROOT=$(OBJROOT))
+$(info # DSTROOT=$(DSTROOT))
+
+# Disallow $(SRCROOT) == $(OBJROOT)
+ifeq ($(OBJROOT), $(SRCROOT))
+$(error SRCROOT same as OBJROOT)
+endif
 
 ifeq "$(WINDOWS)" "YES"
 	ifeq "$(ARCH64)" "YES"
@@ -127,60 +199,6 @@ else
 	OBJROOT_CURRENT=$(OBJROOT)
 	SYMROOT_CURRENT=$(SYMROOT)
 endif
-CROSSHOST_OBJROOT=$(OBJROOT)/crossbuildhost
-APPLE_INTERNAL_DIR=/AppleInternal
-RC_ARCHS=
-MAC_OS_X_VERSION_MIN_REQUIRED=1090
-OSX_HOST_VERSION_MIN_STRING=10.9
-ifndef IPHONEOS_DEPLOYMENT_TARGET
-	IOS_VERSION_TARGET_STRING=9.0
-else ifeq "$(IPHONEOS_DEPLOYMENT_TARGET)" ""
-	IOS_VERSION_TARGET_STRING=9.0
-else
-	IOS_VERSION_TARGET_STRING=$(IPHONEOS_DEPLOYMENT_TARGET)
-endif
-ifndef MACOSX_DEPLOYMENT_TARGET
-	OSX_VERSION_TARGET_STRING=10.11
-else ifeq "$(MACOSX_DEPLOYMENT_TARGET)" ""
-	OSX_VERSION_TARGET_STRING=10.11
-else
-	OSX_VERSION_TARGET_STRING=$(MACOSX_DEPLOYMENT_TARGET)
-endif
-ifndef WATCHOS_DEPLOYMENT_TARGET
-	WATCHOS_VERSION_TARGET_STRING=2.0
-else ifeq "$(WATCHOS_DEPLOYMENT_TARGET)" ""
-	WATCHOS_VERSION_TARGET_STRING=2.0
-else
-	WATCHOS_VERSION_TARGET_STRING=$(WATCHOS_DEPLOYMENT_TARGET)
-endif
-ifndef TVOS_DEPLOYMENT_TARGET
-	TVOS_VERSION_TARGET_STRING=9.0
-else ifeq "$(TVOS_DEPLOYMENT_TARGET)" ""
-	TVOS_VERSION_TARGET_STRING=9.0
-else
-	TVOS_VERSION_TARGET_STRING=$(TVOS_DEPLOYMENT_TARGET)
-endif
-
-$(info # SRCROOT=$(SRCROOT))
-$(info # DSTROOT=$(DSTROOT))
-$(info # OBJROOT=$(OBJROOT))
-$(info # IOS_VERSION_TARGET_STRING=$(IOS_VERSION_TARGET_STRING))
-$(info # OSX_VERSION_TARGET_STRING=$(OSX_VERSION_TARGET_STRING))
-$(info # WATCHOS_VERSION_TARGET_STRING=$(WATCHOS_VERSION_TARGET_STRING))
-$(info # TVOS_VERSION_TARGET_STRING=$(TVOS_VERSION_TARGET_STRING))
-
-# For some reason, under cygwin, bash uname is not found, and
-# sh uname does not produce a result with -p or -m. So we just
-# hardcode here.
-ifeq "$(WINDOWS)" "YES"
-	UNAME_PROCESSOR:=i386
-else
-	UNAME_PROCESSOR:=$(shell uname -p)
-endif
-
-# The following is a holdover from use of Makefile.indigo;
-# should just change to use DSTROOT everywhere instead of DEST_ROOT
-DEST_ROOT=$(DSTROOT)/
 
 ifndef SDKROOT
 	SDKPATH:=/
@@ -192,32 +210,262 @@ else
 		SDKPATH:=/
 	endif
 endif
-ifneq "$(RC_ARCHS)" ""
-	ifneq "$(filter arm armv6 armv7 armv7s arm64,$(RC_ARCHS))" ""
-		CROSS_BUILD=YES
-		BUILD_TYPE=DEVICE
-	else ifeq "$(RC_INDIGO)" "YES"
-		CROSS_BUILD=YES
-		BUILD_TYPE=SIMULATOR
-	else
-		CROSS_BUILD=NO
-		BUILD_TYPE=
-	endif
-	INSTALLHDRS_ARCH=-arch $(shell echo $(RC_ARCHS) | cut -d' ' -f1)
-else
-	CROSS_BUILD=NO
-	INSTALLHDRS_ARCH=
-	BUILD_TYPE=
-endif
-$(info # RC_ARCHS=$(RC_ARCHS))
-$(info # INSTALLHDRS_ARCH=$(INSTALLHDRS_ARCH))
-$(info # buildhost=$(UNAME_PROCESSOR))
 $(info # SDKROOT=$(SDKROOT))
 $(info # SDKPATH=$(SDKPATH))
-$(info # RC_INDIGO=$(RC_INDIGO))
+
+# An Apple submission version (passed in RC_ProjectSourceVersion for official builds) is
+# X[.Y[.Z]]
+# where X is in range 0-214747, Y and Z are in range 0-99 (with no leading zeros).
+# This corresponds to MMmAA.(0 | B).T where
+# MM is U_ICU_VERSION_MAJOR_NUM
+# m  is U_ICU_VERSION_MINOR_NUM
+# AA is the Apple delta version 
+# B  is the Apple branch version (1 or 2 digits)
+# T  is the Apple train code for submissions.
+# Note The value for the SourceVersion property in version.plists will be calculated as
+# (X*10000 + Y*100 + Z).
+# We want ICU_BUILD = 100*AA + B.
+# 
+ifneq "$(RC_ProjectSourceVersion)" ""
+	ifeq "$(WINDOWS)" "YES"
+		ICU_BUILD_AA  := $(shell echo $(RC_ProjectSourceVersion) | sed -r -e 's/([0-9]+)([0-9]{2})(\.([0-9])([0-9])?(\.([0-9]{1,2}))?)?/\2/')
+		ICU_BUILD_B1 := $(shell echo $(RC_ProjectSourceVersion) | sed -r -e 's/([0-9]+)([0-9]{2})(\.([0-9])([0-9])?(\.([0-9]{1,2}))?)?/\4/')
+		ICU_BUILD_B2 := $(shell echo $(RC_ProjectSourceVersion) | sed -r -e 's/([0-9]+)([0-9]{2})(\.([0-9])([0-9])?(\.([0-9]{1,2}))?)?/\5/')
+		ICU_TRAIN_CODE := $(shell echo $(RC_ProjectSourceVersion) | sed -r -e 's/([0-9]+)([0-9]{2})(\.([0-9])([0-9])?(\.([0-9]{1,2}))?)?/\7/')
+	else
+		ICU_BUILD_AA  := $(shell echo $(RC_ProjectSourceVersion) | sed -E -e 's/([0-9]+)([0-9]{2})(\.([0-9])([0-9])?(\.([0-9]{1,2}))?)?/\2/')
+		ICU_BUILD_B1 := $(shell echo $(RC_ProjectSourceVersion) | sed -E -e 's/([0-9]+)([0-9]{2})(\.([0-9])([0-9])?(\.([0-9]{1,2}))?)?/\4/')
+		ICU_BUILD_B2 := $(shell echo $(RC_ProjectSourceVersion) | sed -E -e 's/([0-9]+)([0-9]{2})(\.([0-9])([0-9])?(\.([0-9]{1,2}))?)?/\5/')
+		ICU_TRAIN_CODE := $(shell echo $(RC_ProjectSourceVersion) | sed -E -e 's/([0-9]+)([0-9]{2})(\.([0-9])([0-9])?(\.([0-9]{1,2}))?)?/\7/')
+	endif
+	ifeq "$(ICU_BUILD_AA)" ""
+		ICU_BUILD := 0
+	else
+		ICU_BUILD := $(subst a,$(ICU_BUILD_AA),abc)
+		ifeq "$(ICU_BUILD_B1)" ""
+			ICU_BUILD := $(subst b,0,$(ICU_BUILD))
+			ICU_BUILD := $(subst c,0,$(ICU_BUILD))
+		else
+			ifeq "$(ICU_BUILD_B2)" ""
+				ICU_BUILD := $(subst b,0,$(ICU_BUILD))
+				ICU_BUILD := $(subst c,$(ICU_BUILD_B1),$(ICU_BUILD))
+			else
+				ICU_BUILD := $(subst b,$(ICU_BUILD_B1),$(ICU_BUILD))
+				ICU_BUILD := $(subst c,$(ICU_BUILD_B2),$(ICU_BUILD))
+			endif
+		endif
+	endif
+	ifeq "$(ICU_TRAIN_CODE)" ""
+		ICU_TRAIN_CODE := 0
+	endif
+else
+	ICU_BUILD := 0
+	ICU_TRAIN_CODE := 0
+endif
+$(info # ICU_BUILD=$(ICU_BUILD))
+$(info # ICU_TRAIN_CODE=$(ICU_TRAIN_CODE))
+ifeq "$(ICU_BUILD)" "0"
+	DEFINE_BUILD_LEVEL =
+else
+	DEFINE_BUILD_LEVEL =-DU_ICU_VERSION_BUILDLEVEL_NUM=$(ICU_BUILD)
+endif
+
+# Determine build type. In some cases (e.g. running installsrc for submitproject)
+# the only accurate information we may have about build type is from ICU_TRAIN_CODE,
+# so give priority to that if nonzero.
+# The values currently defined for ICU_TRAIN_CODE and corresponding ICU_BUILD_TYPE are
+# 1  OSX trains
+# 2  embedded trains (iOS, tvos, watchos) including simulator versions thereof.
+#    may have BUILD_TYPE=DEVICE,SIMULATOR,TOOL
+# 8  AAS for Windows
+# 9  linux for Siri servers
+#
+ifeq "$(WINDOWS)" "YES"
+	ICU_FOR_APPLE_PLATFORMS:=NO
+else ifeq "$(ICU_TRAIN_CODE)" "8"
+	override WINDOWS=YES
+	ICU_FOR_APPLE_PLATFORMS:=NO
+else ifeq "$(LINUX)" "YES"
+	ICU_FOR_APPLE_PLATFORMS:=NO
+else ifeq "$(ICU_TRAIN_CODE)" "9"
+	override LINUX=YES
+	ICU_FOR_APPLE_PLATFORMS:=NO
+else
+	ICU_FOR_APPLE_PLATFORMS:=YES
+endif
+
+# For Apple builds, get more details from the SDK if available
+# In TargetConditionals.h:
+# TARGET_OS_IPHONE -is 1 iff generating code for firmware, devices, or simulator (all embedded trains)
+# in that case:
+# 	exactly one of the following is 1: TARGET_OS_SIMULATOR, TARGET_OS_EMBEDDED (i.e. device)
+# 	exactly one of the following is 1: TARGET_OS_IOS, TARGET_OS_TV, TARGET_OS_WATCH
+#
+ifeq "$(ICU_FOR_APPLE_PLATFORMS)" "YES"
+	HOSTCC := $(shell xcrun --sdk macosx --find cc)
+	HOSTCXX := $(shell xcrun --sdk macosx --find c++)
+	HOSTSDKPATH := $(shell xcrun --sdk macosx --show-sdk-path)
+	HOSTISYSROOT = -isysroot $(HOSTSDKPATH)
+	ifeq "$(SDKPATH)" "/"
+		ISYSROOT:= -isysroot $(HOSTSDKPATH)
+		CC := $(HOSTCC)
+		CXX := $(HOSTCXX)
+		NM := $(shell xcrun --sdk macosx --find nm)
+		STRIPCMD := $(shell xcrun --sdk macosx --find strip)
+		ifeq "$(ICU_TRAIN_CODE)" "2"
+		    export ICU_FOR_EMBEDDED_TRAINS:=YES
+		else
+		    export ICU_FOR_EMBEDDED_TRAINS:=NO
+		endif
+	else
+		ISYSROOT:= -isysroot $(SDKPATH)
+		CC := $(shell xcrun --sdk $(SDKPATH) --find cc)
+		CXX := $(shell xcrun --sdk $(SDKPATH) --find c++)
+		NM := $(shell xcrun --sdk $(SDKPATH) --find nm)
+		STRIPCMD := $(shell xcrun --sdk $(SDKPATH) --find strip)
+		EMBEDDEDTRAIN:=$(shell $(CXX) -E -dM -x c $(ISYSROOT) -include TargetConditionals.h /dev/null | fgrep define' 'TARGET_OS_IPHONE | cut -d' ' -f3)
+		ifeq "$(EMBEDDEDTRAIN)" "1"
+			export ICU_FOR_EMBEDDED_TRAINS:=YES
+		else
+		    export ICU_FOR_EMBEDDED_TRAINS:=NO
+		endif
+	endif
+	SIMULATOROS:=$(shell $(CXX) -E -dM -x c $(ISYSROOT) -include TargetConditionals.h /dev/null | fgrep define' 'TARGET_OS_SIMULATOR | cut -d' ' -f3)
+	TVOS:=$(shell $(CXX) -E -dM -x c $(ISYSROOT) -include TargetConditionals.h /dev/null | fgrep define' 'TARGET_OS_TV | cut -d' ' -f3)
+	WATCHOS:=$(shell $(CXX) -E -dM -x c $(ISYSROOT) -include TargetConditionals.h /dev/null | fgrep define' 'TARGET_OS_WATCH | cut -d' ' -f3)
+	ifeq "$(ICU_FOR_EMBEDDED_TRAINS)" "YES"
+		ifeq "$(SIMULATOROS)" "1"
+			BUILD_TYPE=SIMULATOR
+		else
+			BUILD_TYPE=DEVICE
+		endif
+	else ifeq "$(RC_ProjectName)" "tzTools"
+		BUILD_TYPE=TOOL
+	else
+		BUILD_TYPE=
+	endif
+else
+	ifeq "$(LINUX)" "YES"
+		ISYSROOT:=
+		CC := gcc
+		CXX := g++
+	endif
+	export ICU_FOR_EMBEDDED_TRAINS:=NO
+	TVOS:=0
+	WATCHOS:=0
+	BUILD_TYPE=
+endif
+
+CROSS_BUILD:=$(ICU_FOR_EMBEDDED_TRAINS)
+CROSSHOST_OBJROOT=$(OBJROOT)/crossbuildhost
+
+$(info # ICU_FOR_APPLE_PLATFORMS=$(ICU_FOR_APPLE_PLATFORMS))
+$(info # HOSTCC=$(HOSTCC))
+$(info # HOSTCXX=$(HOSTCXX))
+$(info # HOSTISYSROOT=$(HOSTISYSROOT))
+$(info # CC=$(CC))
+$(info # CXX=$(CXX))
+$(info # ISYSROOT=$(ISYSROOT))
+$(info # ICU_FOR_EMBEDDED_TRAINS=$(ICU_FOR_EMBEDDED_TRAINS))
 $(info # CROSS_BUILD=$(CROSS_BUILD))
 $(info # BUILD_TYPE=$(BUILD_TYPE))
-$(info # DEST_ROOT=$(DEST_ROOT))
+
+# Disallow cross builds on Windows/Linux for now
+# (since those builds are not out-of-source as required for cross-builds)
+ifeq "$(CROSS_BUILD)" "YES"
+ifeq "$(WINDOWS)" "YES"
+$(error Cross-builds currently not allowed on Windows)
+endif
+ifeq "$(LINUX)" "YES"
+$(error Cross-builds currently not allowed on Linux)
+endif
+endif
+
+MAC_OS_X_VERSION_MIN_REQUIRED=101000
+OSX_HOST_VERSION_MIN_STRING=10.10
+
+ifndef IPHONEOS_DEPLOYMENT_TARGET
+	IOS_VERSION_TARGET_STRING=10.0
+else ifeq "$(IPHONEOS_DEPLOYMENT_TARGET)" ""
+	IOS_VERSION_TARGET_STRING=10.0
+else
+	IOS_VERSION_TARGET_STRING=$(IPHONEOS_DEPLOYMENT_TARGET)
+endif
+
+ifndef MACOSX_DEPLOYMENT_TARGET
+	OSX_VERSION_TARGET_STRING=10.12
+else ifeq "$(MACOSX_DEPLOYMENT_TARGET)" ""
+	OSX_VERSION_TARGET_STRING=10.12
+else
+	OSX_VERSION_TARGET_STRING=$(MACOSX_DEPLOYMENT_TARGET)
+endif
+
+ifndef WATCHOS_DEPLOYMENT_TARGET
+	WATCHOS_VERSION_TARGET_STRING=3.0
+else ifeq "$(WATCHOS_DEPLOYMENT_TARGET)" ""
+	WATCHOS_VERSION_TARGET_STRING=3.0
+else
+	WATCHOS_VERSION_TARGET_STRING=$(WATCHOS_DEPLOYMENT_TARGET)
+endif
+
+ifndef TVOS_DEPLOYMENT_TARGET
+	TVOS_VERSION_TARGET_STRING=10.0
+else ifeq "$(TVOS_DEPLOYMENT_TARGET)" ""
+	TVOS_VERSION_TARGET_STRING=10.0
+else
+	TVOS_VERSION_TARGET_STRING=$(TVOS_DEPLOYMENT_TARGET)
+endif
+
+$(info # IOS_VERSION_TARGET_STRING=$(IOS_VERSION_TARGET_STRING))
+$(info # OSX_VERSION_TARGET_STRING=$(OSX_VERSION_TARGET_STRING))
+$(info # WATCHOS_VERSION_TARGET_STRING=$(WATCHOS_VERSION_TARGET_STRING))
+$(info # TVOS_VERSION_TARGET_STRING=$(TVOS_VERSION_TARGET_STRING))
+
+ifeq "$(BUILD_TYPE)" "DEVICE"
+	ifeq "$(WATCHOS)" "1"
+		ICU_TARGET_VERSION := -mwatchos-version-min=$(WATCHOS_VERSION_TARGET_STRING)
+	else ifeq "$(TVOS)" "1"
+		ICU_TARGET_VERSION := -mtvos-version-min=$(TVOS_VERSION_TARGET_STRING)
+	else
+		ICU_TARGET_VERSION := -miphoneos-version-min=$(IOS_VERSION_TARGET_STRING)
+	endif
+else ifeq "$(BUILD_TYPE)" "SIMULATOR"
+	ifeq "$(WATCHOS)" "1"
+		ICU_TARGET_VERSION := -mwatchos-simulator-version-min=$(WATCHOS_VERSION_TARGET_STRING)
+	else ifeq "$(TVOS)" "1"
+		ICU_TARGET_VERSION := -mtvos-simulator-version-min=$(TVOS_VERSION_TARGET_STRING)
+	else
+		ICU_TARGET_VERSION := -mios-simulator-version-min=$(IOS_VERSION_TARGET_STRING)
+	endif
+else
+	ICU_TARGET_VERSION :=
+endif
+$(info # ICU_TARGET_VERSION=$(ICU_TARGET_VERSION))
+
+
+DISABLE_DRAFT:=$(ICU_FOR_EMBEDDED_TRAINS)
+ifeq "$(DISABLE_DRAFT)" "YES"
+	DRAFT_FLAG=--disable-draft
+else
+	DRAFT_FLAG=
+endif
+
+# For some reason, under cygwin, bash uname is not found, and
+# sh uname does not produce a result with -p or -m. So we just
+# hardcode here.
+ifeq "$(WINDOWS)" "YES"
+	UNAME_PROCESSOR:=i386
+else
+	UNAME_PROCESSOR:=$(shell uname -p)
+endif
+
+ifneq "$(RC_ARCHS)" ""
+	INSTALLHDRS_ARCH=-arch $(shell echo $(RC_ARCHS) | cut -d' ' -f1)
+else
+	INSTALLHDRS_ARCH=
+endif
+$(info # INSTALLHDRS_ARCH=$(INSTALLHDRS_ARCH))
+$(info # buildhost=$(UNAME_PROCESSOR))
 
 
 # FORCEENDIAN below is to override silly configure behavior in which if
@@ -227,7 +475,7 @@ $(info # DEST_ROOT=$(DEST_ROOT))
 #
 ifeq "$(CROSS_BUILD)" "YES"
 	RC_ARCHS_FIRST=$(shell echo $(RC_ARCHS) | cut -d' ' -f1)
-	TARGET_SPEC=$(RC_ARCHS_FIRST)-apple-darwin14.0.0
+	TARGET_SPEC=$(RC_ARCHS_FIRST)-apple-darwin15.0.0
 	ENV_CONFIGURE_ARCHS=-arch $(RC_ARCHS_FIRST)
 	ICUPKGTOOLIBS="$(CROSSHOST_OBJROOT)/lib:$(CROSSHOST_OBJROOT)/stubdata"
 	ICUPKGTOOL=$(CROSSHOST_OBJROOT)/bin/icupkg
@@ -243,7 +491,7 @@ else ifeq "$(LINUX)" "YES"
 	ICUPKGTOOL=$(OBJROOT_CURRENT)/bin/icupkg
 	FORCEENDIAN=
 else
-	TARGET_SPEC=$(UNAME_PROCESSOR)-apple-darwin14.0.0
+	TARGET_SPEC=$(UNAME_PROCESSOR)-apple-darwin15.0.0
 	ENV_CONFIGURE_ARCHS=
 	ICUPKGTOOLIBS="$(OBJROOT_CURRENT)/lib:$(OBJROOT_CURRENT)/stubdata"
 	ICUPKGTOOL=$(OBJROOT_CURRENT)/bin/icupkg
@@ -269,179 +517,24 @@ ifeq "$(shell test -d $(SDKPATH)/usr/local/share/tz && echo YES )" "YES"
 endif
 $(info # TZDATA=$(TZDATA))
 
-ifeq "$(WINDOWS)" "YES"
-	EMBEDDED:=0
-	WATCHOS:=0
-	TVOS:=0
-	SIMULATOROS := 0
-else ifeq "$(LINUX)" "YES"
-	CC := gcc
-	CXX := g++
-	EMBEDDED:=0
-	WATCHOS:=0
-	TVOS:=0
-	SIMULATOROS := 0
-	ISYSROOT =
-else
-	ifeq "$(BUILD_TYPE)" ""
-		HOSTCC := $(shell xcrun -sdk $(SDKPATH) -find cc)
-		HOSTCXX := $(shell xcrun -sdk $(SDKPATH) -find c++)
-		ifeq "$(SDKPATH)" "/"
-			ifneq (,$(findstring XcodeDefault,$(HOSTCC)))
-				HOSTSDKPATH := $(shell xcodebuild -version -sdk macosx Path)
-			else
-				HOSTSDKPATH := $(shell xcodebuild -version -sdk macosx.internal Path)
-			endif
-		else
-			HOSTSDKPATH := $(SDKPATH)
-		endif
-		ISYSROOT:= -isysroot $(HOSTSDKPATH)
-		CC := $(HOSTCC)
-		CXX := $(HOSTCXX)
-		NM := $(shell xcrun -find nm)
-		STRIPCMD := $(shell xcrun -find strip)
-	else
-		HOSTCC := $(shell xcrun -sdk macosx -find cc)
-		HOSTCXX := $(shell xcrun -sdk macosx -find c++)
-		HOSTSDKPATH := $(shell xcodebuild -version -sdk macosx Path)
-		ISYSROOT:= -isysroot $(SDKPATH)
-		CC := $(shell xcrun -sdk $(SDKPATH) -find cc)
-		CXX := $(shell xcrun -sdk $(SDKPATH) -find c++)
-		NM := $(shell xcrun -sdk $(SDKPATH) -find nm)
-		STRIPCMD := $(shell xcrun -sdk $(SDKPATH) -find strip)
-	endif
-	HOSTISYSROOT = -isysroot $(HOSTSDKPATH)
-	EMBEDDED:=$(shell $(CXX) -E -dM -x c $(ISYSROOT) -include TargetConditionals.h /dev/null | fgrep define' 'TARGET_OS_EMBEDDED | cut -d' ' -f3)
-	WATCHOS:=$(shell $(CXX) -E -dM -x c $(ISYSROOT) -include TargetConditionals.h /dev/null | fgrep define' 'TARGET_OS_WATCH | cut -d' ' -f3)
-	TVOS:=$(shell $(CXX) -E -dM -x c $(ISYSROOT) -include TargetConditionals.h /dev/null | fgrep define' 'TARGET_OS_TV | cut -d' ' -f3)
-	SIMULATOROS:=$(shell $(CXX) -E -dM -x c $(ISYSROOT) -include TargetConditionals.h /dev/null | fgrep define' 'TARGET_OS_SIMULATOR | cut -d' ' -f3)
-endif
+APPLE_INTERNAL_DIR=/AppleInternal
 DSYMTOOL := /usr/bin/dsymutil
 DSYMSUFFIX := .dSYM
-
-$(info # HOSTCC=$(HOSTCC))
-$(info # HOSTCXX=$(HOSTCXX))
-$(info # HOSTISYSROOT=$(HOSTISYSROOT))
-$(info # CC=$(CC))
-$(info # CXX=$(CXX))
-$(info # ISYSROOT=$(ISYSROOT))
-
-ifeq "$(EMBEDDED)" "1"
-	export APPLE_EMBEDDED=YES
-	DISABLE_DRAFT=YES
-else ifeq "$(RC_INDIGO)" "YES"
-	export APPLE_EMBEDDED=YES
-	DISABLE_DRAFT=YES
-else
-	export APPLE_EMBEDDED=NO
-	DISABLE_DRAFT=NO
-endif
-
-ifeq "$(APPLE_EMBEDDED)" "YES"
-	ifeq "$(WATCHOS)" "1"
-		ICU_TARGET_VERSION := -mwatchos-version-min=$(WATCHOS_VERSION_TARGET_STRING)
-	else ifeq "$(TVOS)" "1"
-		ICU_TARGET_VERSION := -mtvos-version-min=$(TVOS_VERSION_TARGET_STRING)
-	else
-		ICU_TARGET_VERSION := -miphoneos-version-min=$(IOS_VERSION_TARGET_STRING)
-	endif
-else ifeq "$(SIMULATOROS)" "1"
-	ifeq "$(WATCHOS)" "1"
-		ICU_TARGET_VERSION := -mwatchos-simulator-version-min=$(WATCHOS_VERSION_TARGET_STRING)
-	else ifeq "$(TVOS)" "1"
-		ICU_TARGET_VERSION := -mtvos-simulator-version-min=$(TVOS_VERSION_TARGET_STRING)
-	else
-		ICU_TARGET_VERSION := -mios-simulator-version-min=$(IOS_VERSION_TARGET_STRING)
-	endif
-else
-	ICU_TARGET_VERSION := 
-endif
-$(info # ICU_TARGET_VERSION=$(ICU_TARGET_VERSION))
-
-ifeq "$(DISABLE_DRAFT)" "YES"
-	DRAFT_FLAG=--disable-draft
-else
-	DRAFT_FLAG=
-endif
-
-ifndef RC_ProjectSourceVersion
-ifdef RC_PROJECTSOURCEVERSION
-	RC_ProjectSourceVersion=$(RC_PROJECTSOURCEVERSION)
-endif
-endif
-
-# An Apple submission version (passed in RC_ProjectSourceVersion for official builds) is
-# X[.Y[.Z]]
-# where X is in range 0-214747, Y and Z are in range 0-99 (with no leading zeros).
-# The value for the SourceVersion property in version.plists will be calculated as
-# (X*10000 + Y*100 + Z). So we want U_ICU_VERSION_BUILDLEVEL_NUM to be Y*100 + Z
-ifneq "$(RC_ProjectSourceVersion)" ""
-	ifeq "$(WINDOWS)" "YES"
-		ICU_BUILD_Y  := $(shell echo $(RC_ProjectSourceVersion) | sed -r -e 's/([0-9]+)(\.([0-9]{1,2})(\.([0-9])([0-9])?)?)?/\3/')
-		ICU_BUILD_Z1 := $(shell echo $(RC_ProjectSourceVersion) | sed -r -e 's/([0-9]+)(\.([0-9]{1,2})(\.([0-9])([0-9])?)?)?/\5/')
-		ICU_BUILD_Z2 := $(shell echo $(RC_ProjectSourceVersion) | sed -r -e 's/([0-9]+)(\.([0-9]{1,2})(\.([0-9])([0-9])?)?)?/\6/')
-	else
-		ICU_BUILD_Y  := $(shell echo $(RC_ProjectSourceVersion) | sed -E -e 's/([0-9]+)(\.([0-9]{1,2})(\.([0-9])([0-9])?)?)?/\3/')
-		ICU_BUILD_Z1 := $(shell echo $(RC_ProjectSourceVersion) | sed -E -e 's/([0-9]+)(\.([0-9]{1,2})(\.([0-9])([0-9])?)?)?/\5/')
-		ICU_BUILD_Z2 := $(shell echo $(RC_ProjectSourceVersion) | sed -E -e 's/([0-9]+)(\.([0-9]{1,2})(\.([0-9])([0-9])?)?)?/\6/')
-	endif
-	ifeq "$(ICU_BUILD_Y)" ""
-		ICU_BUILD := 0
-	else
-		ICU_BUILD := $(subst a,$(ICU_BUILD_Y),abc)
-		ifeq "$(ICU_BUILD_Z1)" ""
-			ICU_BUILD := $(subst b,0,$(ICU_BUILD))
-			ICU_BUILD := $(subst c,0,$(ICU_BUILD))
-		else
-			ifeq "$(ICU_BUILD_Z2)" ""
-				ICU_BUILD := $(subst b,0,$(ICU_BUILD))
-				ICU_BUILD := $(subst c,$(ICU_BUILD_Z1),$(ICU_BUILD))
-			else
-				ICU_BUILD := $(subst b,$(ICU_BUILD_Z1),$(ICU_BUILD))
-				ICU_BUILD := $(subst c,$(ICU_BUILD_Z2),$(ICU_BUILD))
-			endif
-		endif
-	endif
-else
-	ICU_BUILD := 0
-endif
-$(info # ICU_BUILD=$(ICU_BUILD))
-ifeq "$(ICU_BUILD)" "0"
-	DEFINE_BUILD_LEVEL = 
-else
-	DEFINE_BUILD_LEVEL =-DU_ICU_VERSION_BUILDLEVEL_NUM=$(ICU_BUILD)
-endif
-
-# Disallow $(SRCROOT) == $(OBJROOT)
-ifeq ($(OBJROOT), $(SRCROOT))
-$(error SRCROOT same as OBJROOT)
-endif
-
-# Disallow cross builds on Windows/Linux for now
-# (since those builds are not out-of-source as required for cross-builds)
-ifeq "$(CROSS_BUILD)" "YES"
-ifeq "$(WINDOWS)" "YES"
-$(error Cross-builds currently not allowed on Windows)
-endif
-ifeq "$(LINUX)" "YES"
-$(error Cross-builds currently not allowed on Linux)
-endif
-endif
 
 #################################
 # Headers
 #################################
 
 # For installhdrs. Not every compiled module has an associated header. Normally,
-# ICU installs headers as a sub-targe of the install target. But since we only want
+# ICU installs headers as a sub-target of the install target. But since we only want
 # certain libraries to install (and since we link all of our own .o modules), we need
 # invoke the headers targets ourselves. This may be problematic because there isn't a
 # good way to dist-clean afterwards...we need to do explicit dist-cleans, especially if
 # install the extra libraries.
 
 EXTRA_HDRS =
-# EXTRA_HDRS = ./extra/ustdio/ ./layout/ 
-ifeq "$(APPLE_EMBEDDED)" "YES"
+# EXTRA_HDRS = ./extra/ustdio/ ./layout/
+ifeq "$(ICU_FOR_EMBEDDED_TRAINS)" "YES"
     HDR_MAKE_SUBDIR = ./common/ ./i18n/ $(EXTRA_HDRS)
 else ifeq "$(WINDOWS)" "YES"
     HDR_MAKE_SUBDIR = ./common/ ./i18n/ $(EXTRA_HDRS)
@@ -450,7 +543,7 @@ else
 endif
 ifeq "$(WINDOWS)" "YES"
 	PRIVATE_HDR_PREFIX=$(APPLE_INTERNAL_DIR)
-else ifeq "$(APPLE_EMBEDDED)" "YES"
+else ifeq "$(ICU_FOR_EMBEDDED_TRAINS)" "YES"
 	HDR_PREFIX=/usr
 	PRIVATE_HDR_PREFIX=/usr/local
 else
@@ -461,8 +554,8 @@ endif
 # Install
 #################################
 
-# For install. We currently don't install EXTRA_LIBS. We also don't install the data 
-# directly into the ICU library. It is now installed at /usr/share/icu/*.dat. Thus we 
+# For install. We currently don't install EXTRA_LIBS. We also don't install the data
+# directly into the ICU library. It is now installed at /usr/share/icu/*.dat. Thus we
 # don't use DATA_OBJ anymore. This could change if we decide to move the data back into
 # the icucore monolithic library.
 
@@ -474,7 +567,7 @@ STUB_DATA_OBJ = ./stubdata/*.o
 EXTRA_LIBS =
 #EXTRA_LIBS =./extra/ ./layout/ ./tools/ctestfw/ ./tools/toolutil/
 #DATA_OBJ = ./data/out/build/*.o
-ifeq "$(APPLE_EMBEDDED)" "YES"
+ifeq "$(ICU_FOR_EMBEDDED_TRAINS)" "YES"
     DYLIB_OBJS=$(COMMON_OBJ) $(I18N_OBJ) $(STUB_DATA_OBJ)
 else ifeq "$(WINDOWS)" "YES"
     DYLIB_OBJS=$(COMMON_OBJ) ./common/common.res $(I18N_OBJ) $(STUB_DATA_OBJ)
@@ -500,15 +593,15 @@ INSTALLSRC_VARFILES=./ICU_embedded.order \
 
 #We need to clean after installing.
 
-EXTRA_CLEAN = 
+EXTRA_CLEAN =
 
 # Some directories aren't cleaned recursively. Clean them manually...
 MANUAL_CLEAN_TOOLS = ./tools/dumpce
 MANUAL_CLEAN_EXTRA = ./extra/scrptrun ./samples/layout ./extra/ustdio ./extra
-MANUAL_CLEAN_TEST = ./test/collperf ./test/iotest ./test/letest ./test/thaitest ./test/threadtest ./test/testmap ./test 
+MANUAL_CLEAN_TEST = ./test/collperf ./test/iotest ./test/letest ./test/thaitest ./test/threadtest ./test/testmap ./test
 MANUAL_CLEAN_SAMPLE = ./samples/layout ./samples
 
-CLEAN_SUBDIR = ./stubdata ./common ./i18n ./io ./layout ./layoutex ./data ./tools ./$(MANUAL_CLEAN_TOOLS) $(MANUAL_CLEAN_EXTRA) $(MANUAL_CLEAN_TEST) $(MANUAL_CLEAN_SAMPLE) 
+CLEAN_SUBDIR = ./stubdata ./common ./i18n ./io ./layout ./layoutex ./data ./tools ./$(MANUAL_CLEAN_TOOLS) $(MANUAL_CLEAN_EXTRA) $(MANUAL_CLEAN_TEST) $(MANUAL_CLEAN_SAMPLE)
 
 #################################
 # Config flags
@@ -534,8 +627,8 @@ else ifeq "$(LINUX)" "YES"
 			--with-data-packaging=archive --prefix=$(PRIVATE_HDR_PREFIX) --with-library-bits=32 \
 			$(DRAFT_FLAG)
 	endif
-else ifeq "$(APPLE_EMBEDDED)" "YES"
-	CONFIG_FLAGS = --disable-renaming --disable-extras --disable-layout --disable-samples --disable-icuio \
+else ifeq "$(ICU_FOR_EMBEDDED_TRAINS)" "YES"
+	CONFIG_FLAGS = --disable-renaming --disable-extras --disable-layout --disable-samples \
 		--with-data-packaging=archive --prefix=$(PRIVATE_HDR_PREFIX) \
 		$(DRAFT_FLAG)
 else
@@ -548,15 +641,15 @@ endif
 # Install paths
 #################################
 
-# This may or may not be an appropriate name for the icu dylib. This naming scheme is 
-# an attempt to follow the icu convention in naming the dylib and then having symbolic 
-# links of easier to remember library names point it it. *UPDATE* the version and 
+# This may or may not be an appropriate name for the icu dylib. This naming scheme is
+# an attempt to follow the icu convention in naming the dylib and then having symbolic
+# links of easier to remember library names point it it. *UPDATE* the version and
 # sub-version variables as needed. The Core version should be 'A' until the core
 # version changes it's API...that is a new version isn't backwards compatible.
 # The ICU version/subversion should reflect the actual ICU version.
 
 LIB_NAME = icucore
-ICU_VERS = 55
+ICU_VERS = 57
 ICU_SUBVERS = 1
 CORE_VERS = A
 
@@ -621,18 +714,35 @@ B_DATA_FILE=icudt$(ICU_VERS)b.dat
 L_DATA_FILE=icudt$(ICU_VERS)l.dat
 DATA_BUILD_SUBDIR= data/out
 DATA_INSTALL_DIR=/usr/share/icu/
+
 # DATA_LOOKUP_DIR is what the target ICU_DATA_DIR gets set to in CFLAGS, CXXFLAGS;
 # DATA_LOOKUP_DIR_BUILDHOST is what any crossbuild host ICU_DATA_DIR gets set to.
-ifneq "$(APPLE_EMBEDDED)" "YES"
-	DATA_LOOKUP_DIR=/usr/share/icu/
-else
-	ifeq "$(RC_INDIGO)" "YES"
-		DATA_LOOKUP_DIR=/usr/share/icu/
-	else
-		DATA_LOOKUP_DIR=/var/db/icu/
-	endif
-endif
+# Formerly we had DATA_LOOKUP_DIR=/var/db/icu/ for embedded non-simulator builds
+# and DATA_LOOKUP_DIR=/usr/share/icu/ for everything else. Now all systems look
+# in the same place for the main data file:
+DATA_LOOKUP_DIR=/usr/share/icu/
 DATA_LOOKUP_DIR_BUILDHOST=/usr/share/icu/
+
+# Timezone data file(s)
+# ICU will look for /var/db/icutz/icutz44l.dat
+# If directory or file is not present, the timesone data in
+# current data file e.g. /usr/share/icu/icudt56l.dat will be used.
+# Currently we are not conditionalizing the definition of
+# TZDATA_LOOKUP_DIR as in
+#	ifeq "$(BUILD_TYPE)" "DEVICE"
+#		TZDATA_LOOKUP_DIR = /var/db/icutz
+#	else
+#	...
+# since the code stats the path for TZDATA_LOOKUP_DIR and does
+# not try to use it if it does not exist. We could define it
+# as TZDATA_LOOKUP_DIR = /usr/share/icutz when not needed...
+# TZDATA_LOOKUP_DIR is passed to compiler as U_TIMEZONE_FILES_DIR
+# TZDATA_PACKAGE is passed to compiler as U_TIMEZONE_PACKAGE
+TZDATA_LOOKUP_DIR = /var/db/icutz
+TZDATA_PACKAGE = icutz44l
+TZDATA_FORMAT_STRING = "44l"
+TZDATA_FORMAT_FILE = icutzformat.txt
+
 
 # Name of runtime environment variable to get the prefix path for DATA_LOOKUP_DIR
 # Currently we are only using this for LINUX, should also use for iOS simulator
@@ -643,14 +753,46 @@ else
 endif
 
 #################################
-# Info tool
+# Tools
 #################################
 
 localtooldir=/usr/local/bin/
+locallibdir=/usr/local/lib/
 
 INFOTOOL = icuinfo
-
 INFOTOOL_OBJS = ./tools/icuinfo/icuinfo.o ./tools/toolutil/udbgutil.o ./tools/toolutil/uoptions.o
+
+TOOLSLIB_NAME = icutu
+TOOLS_DYLIB = libicutu.$(DYLIB_SUFF)
+TOOLS_DYLIB_OBJS = ./tools/toolutil/*.o
+# The following version enables the tz toools to be used on systems with ICU 55 or later
+TOOLS_DYLIB_OBJS_FORSDK = ./tools/toolutil/collationinfo.o ./tools/toolutil/filestrm.o \
+./tools/toolutil/package.o ./tools/toolutil/pkg_icu.o ./tools/toolutil/pkgitems.o \
+./tools/toolutil/swapimpl.o ./tools/toolutil/toolutil.o ./tools/toolutil/ucbuf.o \
+./tools/toolutil/unewdata.o ./tools/toolutil/uoptions.o ./tools/toolutil/uparse.o \
+$(COMMON_OBJ) $(STUB_DATA_OBJ)
+
+ZICTOOL = icuzic
+ZICTOOL_OBJS = ./tools/tzcode/zic.o ./tools/tzcode/localtime.o ./tools/tzcode/asctime.o ./tools/tzcode/scheck.o ./tools/tzcode/ialloc.o
+
+RESTOOL = icugenrb
+RESTOOL_OBJS = ./tools/genrb/errmsg.o ./tools/genrb/genrb.o ./tools/genrb/parse.o ./tools/genrb/read.o ./tools/genrb/reslist.o ./tools/genrb/ustr.o \
+				./tools/genrb/rbutil.o ./tools/genrb/wrtjava.o ./tools/genrb/rle.o ./tools/genrb/wrtxml.o ./tools/genrb/prscmnts.o
+
+# note there is also a symbol ICUPKGTOOL which refers to the one used
+# internally which is linked against the separate uc and i18n libs.
+PKGTOOL = icupkg
+PKGTOOL_OBJS = ./tools/icupkg/icupkg.o
+
+TZ2ICUTOOL = tz2icu
+TZ2ICUTOOL_OBJS = ./tools/tzcode/tz2icu.o
+
+ICUZDUMPTOOL = icuzdump
+ifeq "$(ICU_FOR_EMBEDDED_TRAINS)" "YES"
+    ICUZDUMPTOOL_OBJS = ./tools/tzcode/icuzdump.o $(IO_OBJ)
+else
+    ICUZDUMPTOOL_OBJS = ./tools/tzcode/icuzdump.o
+endif
 
 #################################
 # CLDR file(s)
@@ -704,7 +846,7 @@ else ifeq "$(LINUX)" "YES"
 			CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m64 -g -Os -fno-exceptions -fvisibility=hidden" \
 			CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m64 -g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
 			TZDATA="$(TZDATA)" \
-			DYLD_LIBRARY_PATH="$(DEST_ROOT)usr/local/lib64"
+			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib64"
 
 		ENV= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
 			CC="$(CC)" \
@@ -712,7 +854,7 @@ else ifeq "$(LINUX)" "YES"
 			CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m64 -g -Os -fno-exceptions -fvisibility=hidden" \
 			CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m64 -g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
 			TZDATA="$(TZDATA)" \
-			DYLD_LIBRARY_PATH="$(DEST_ROOT)usr/local/lib64"
+			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib64"
 
 		ENV_DEBUG= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
 			CC="$(CC)" \
@@ -720,15 +862,15 @@ else ifeq "$(LINUX)" "YES"
 			CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m64 -O0 -gfull -fno-exceptions -fvisibility=hidden" \
 			CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m64 -O0 -gfull -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
 			TZDATA="$(TZDATA)" \
-			DYLD_LIBRARY_PATH="$(DEST_ROOT)usr/local/lib64"
-		
+			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib64"
+
 		ENV_PROFILE= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
 			CC="$(CC)" \
 			CXX="$(CXX)" \
 			CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m64 -g -Os -pg -fno-exceptions -fvisibility=hidden" \
 			CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m64 -g -Os -pg -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
 			TZDATA="$(TZDATA)" \
-			DYLD_LIBRARY_PATH="$(DEST_ROOT)usr/local/lib64"
+			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib64"
 	else
 		ENV_CONFIGURE= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
 			CPPFLAGS="-DU_DISABLE_RENAMING=1 $(DEFINE_BUILD_LEVEL)" \
@@ -737,70 +879,70 @@ else ifeq "$(LINUX)" "YES"
 			CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m32 -g -Os -fno-exceptions -fvisibility=hidden" \
 			CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m32 -g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
 			TZDATA="$(TZDATA)" \
-			DYLD_LIBRARY_PATH="$(DEST_ROOT)usr/local/lib"
-		
+			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
+
 		ENV= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
 			CC="$(CC)" \
 			CXX="$(CXX)" \
 			CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m32 -g -Os -fno-exceptions -fvisibility=hidden" \
 			CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m32 -g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
 			TZDATA="$(TZDATA)" \
-			DYLD_LIBRARY_PATH="$(DEST_ROOT)usr/local/lib"
-			
+			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
+
 		ENV_DEBUG= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
 			CC="$(CC)" \
 			CXX="$(CXX)" \
 			CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m32 -O0 -gfull -fno-exceptions -fvisibility=hidden" \
 			CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m32 -O0 -gfull -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
 			TZDATA="$(TZDATA)" \
-			DYLD_LIBRARY_PATH="$(DEST_ROOT)usr/local/lib"
-		
+			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
+
 		ENV_PROFILE= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
 			CC="$(CC)" \
 			CXX="$(CXX)" \
 			CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m32 -g -Os -pg -fno-exceptions -fvisibility=hidden" \
 			CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m32 -g -Os -pg -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
 			TZDATA="$(TZDATA)" \
-			DYLD_LIBRARY_PATH="$(DEST_ROOT)usr/local/lib"
+			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 	endif
 else
-	CPPOPTIONS = 
+	CPPOPTIONS =
 	ENV_CONFIGURE= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
 		CPPFLAGS="$(DEFINE_BUILD_LEVEL) -DSTD_INSPIRED -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) $(ISYSROOT) $(ENV_CONFIGURE_ARCHS)" \
 		CC="$(CC)" \
 		CXX="$(CXX)" \
-		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" $(ENV_CONFIGURE_ARCHS) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden $(ISYSROOT) $(THUMB_FLAG)" \
-		CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" $(ENV_CONFIGURE_ARCHS) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) $(THUMB_FLAG)" \
+		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(ENV_CONFIGURE_ARCHS) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden $(ISYSROOT) $(THUMB_FLAG)" \
+		CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(ENV_CONFIGURE_ARCHS) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) $(THUMB_FLAG)" \
 		RC_ARCHS="$(RC_ARCHS)" $(FORCEENDIAN)\
 		TZDATA="$(TZDATA)" \
-		DYLD_LIBRARY_PATH="$(DEST_ROOT)usr/local/lib"
-	
+		DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
+
 	ENV= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
 		CC="$(CC)" \
 		CXX="$(CXX)" \
-		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden $(ISYSROOT) $(THUMB_FLAG)" \
-		CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) $(THUMB_FLAG)" \
+		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden $(ISYSROOT) $(THUMB_FLAG)" \
+		CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) $(THUMB_FLAG)" \
 		RC_ARCHS="$(RC_ARCHS)" \
 		TZDATA="$(TZDATA)" \
-		DYLD_LIBRARY_PATH="$(DEST_ROOT)usr/local/lib"
-		
+		DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
+
 	ENV_DEBUG= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
 		CC="$(CC)" \
 		CXX="$(CXX)" \
-		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -O0 -gfull -Wglobal-constructors -fno-exceptions -fvisibility=hidden $(ISYSROOT) $(THUMB_FLAG)" \
-		CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -O0 -gfull -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) $(THUMB_FLAG)" \
+		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -O0 -gfull -Wglobal-constructors -fno-exceptions -fvisibility=hidden $(ISYSROOT) $(THUMB_FLAG)" \
+		CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -O0 -gfull -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) $(THUMB_FLAG)" \
 		RC_ARCHS="$(RC_ARCHS)" \
 		TZDATA="$(TZDATA)" \
-		DYLD_LIBRARY_PATH="$(DEST_ROOT)usr/local/lib"
-	
+		DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
+
 	ENV_PROFILE= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
 		CC="$(CC)" \
 		CXX="$(CXX)" \
-		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -pg -Wglobal-constructors -fno-exceptions -fvisibility=hidden $(ISYSROOT) $(THUMB_FLAG)" \
-		CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -pg -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) $(THUMB_FLAG)" \
+		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -pg -Wglobal-constructors -fno-exceptions -fvisibility=hidden $(ISYSROOT) $(THUMB_FLAG)" \
+		CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -pg -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) $(THUMB_FLAG)" \
 		RC_ARCHS="$(RC_ARCHS)" \
 		TZDATA="$(TZDATA)" \
-		DYLD_LIBRARY_PATH="$(DEST_ROOT)usr/local/lib"
+		DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 
 	ENV_CONFIGURE_BUILDHOST= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
 		CPPFLAGS="$(DEFINE_BUILD_LEVEL) -DSTD_INSPIRED -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) $(HOSTISYSROOT)" \
@@ -809,25 +951,25 @@ else
 		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR_BUILDHOST)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) $(HOSTISYSROOT) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden" \
 		CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR_BUILDHOST)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) $(HOSTISYSROOT) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
 		TZDATA="$(TZDATA)" \
-		DYLD_LIBRARY_PATH="$(DEST_ROOT)usr/local/lib"
-	
+		DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
+
 	ENV_BUILDHOST= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
 		CC="$(HOSTCC)" \
 		CXX="$(HOSTCXX)" \
 		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR_BUILDHOST)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) $(HOSTISYSROOT) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden" \
 		CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR_BUILDHOST)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) $(HOSTISYSROOT) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
 		TZDATA="$(TZDATA)" \
-		DYLD_LIBRARY_PATH="$(DEST_ROOT)usr/local/lib"
+		DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 
 endif
-	
+
 ENV_icu = ENV
 ENV_debug = ENV_DEBUG
 ENV_profile = ENV_PROFILE
 
 ifeq "$(BUILD_TYPE)" "DEVICE"
 	ORDERFILE=$(SDKPATH)/AppleInternal/OrderFiles/libicucore.order
-else ifeq "$(APPLE_EMBEDDED)" "YES"
+else ifeq "$(BUILD_TYPE)" "SIMULATOR"
 	ORDERFILE=$(SRCROOT)/ICU_embedded.order
 else
 	ORDERFILE=/usr/local/lib/OrderFiles/libicucore.order
@@ -845,8 +987,47 @@ endif
 #################################
 #################################
 
-.PHONY : icu check installsrc installhdrs installhdrsint clean install debug debug-install crossbuildhost
+.PHONY : icu check installsrc installhdrs installhdrsint clean install debug debug-install \
+crossbuildhost icutztoolsforsdk
 .DELETE_ON_ERROR :
+
+# Rule for adjusting sources for different train types.
+# Assumes current directory is icuSources to be patched.
+# This may be:
+#   $(SRCROOT)/icuSources for installsrc, or
+#   $(OBJROOT_CURRENT) if sources are copied for e.g. a local make.
+#
+# The various patchconfig files should assume the current directory is icuSources.
+#
+# Note that if sources have been installed by installsrc (only run as part of buildit
+# or B&I builds), then
+#    $(SRCROOT)/.git is not present, and
+#    ADJUST_SOURCES has already have been run.
+# Otherwise, if we are doing a local build (e.g. make check, make install), then
+#    $(SRCROOT)/.git is present, and
+#    ADJUST_SOURCES has not been run (run it after copying sources to OBJROOT_CURRENT)
+#
+
+ADJUST_SOURCES = \
+		if test "$(ICU_FOR_EMBEDDED_TRAINS)" = "YES"; then \
+			patch -p1 <$(SRCROOT)/minimalpatchconfig.txt; \
+		elif test "$(WINDOWS)" = "YES"; then \
+			patch -p1 <$(SRCROOT)/windowspatchconfig.txt; \
+		else \
+			patch -p1 <$(SRCROOT)/patchconfig.txt; \
+		fi; \
+		if test "$(WINDOWS)" = "YES"; then \
+			mv data/unidata/base_unidata/*.txt data/unidata/; \
+			mv data/unidata/norm2/base_norm2/*.txt data/unidata/norm2/; \
+			mv data/in/base_in/*.nrm data/in/; \
+			mv data/in/base_in/*.icu data/in/; \
+		elif test "$(LINUX)" = "YES"; then \
+			mv data/unidata/base_unidata/*.txt data/unidata/; \
+			mv data/unidata/norm2/base_norm2/*.txt data/unidata/norm2/; \
+			mv data/in/base_in/*.nrm data/in/; \
+			mv data/in/base_in/*.icu data/in/; \
+		fi
+
 
 icu debug profile : $(OBJROOT_CURRENT)/Makefile
 	echo "# make for target";
@@ -954,8 +1135,17 @@ icu debug profile : $(OBJROOT_CURRENT)/Makefile
 					-install_name $(libdir)$($(INSTALLED_DYLIB_$@)) -o ./$($(INSTALLED_DYLIB_$@)) $(DYLIB_OBJS); \
 				if test "$@" = "icu"; then \
 					ln -fs  $(INSTALLED_DYLIB) $(DYLIB); \
+					echo '# build' $(INFOTOOL) 'linked against' $(LIB_NAME) ; \
 					$($(ENV_$@)) $(CXX) $(RC_ARCHS:%=-arch %) -g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) $(THUMB_FLAG) \
 						$(LDFLAGS) -dead_strip -o ./$(INFOTOOL) $(INFOTOOL_OBJS) -L./ -l$(LIB_NAME) ; \
+					echo '# build' $(TOOLS_DYLIB) 'linked against' $(LIB_NAME) ; \
+					$($(ENV_$@)) $(CXX) -current_version $(ICU_VERS).$(ICU_SUBVERS) -compatibility_version 1 -dynamiclib -dynamic \
+						$(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) $(THUMB_FLAG) \
+						$(CXXFLAGS) $(LDFLAGS) -single_module \
+						-install_name $(locallibdir)$(TOOLS_DYLIB) -o ./$(TOOLS_DYLIB) $(TOOLS_DYLIB_OBJS) -L./ -l$(LIB_NAME) ; \
+					echo '# build' $(ICUZDUMPTOOL) 'linked against' $(TOOLSLIB_NAME) $(LIB_NAME) ; \
+					$($(ENV_$@)) $(LINK.cc) $(RC_ARCHS:%=-arch %) -g -Os $(ISYSROOT) $(THUMB_FLAG) --std=c++0x \
+						-dead_strip -o ./$(ICUZDUMPTOOL) $(ICUZDUMPTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME) -l$(LIB_NAME); \
 				fi; \
 			fi; \
 			if test -f ./$(DATA_BUILD_SUBDIR)/$(B_DATA_FILE); then \
@@ -967,6 +1157,7 @@ icu debug profile : $(OBJROOT_CURRENT)/Makefile
 				DYLD_LIBRARY_PATH=$(ICUPKGTOOLIBS) \
 				$(ICUPKGTOOL) -tl ./$(DATA_BUILD_SUBDIR)/$(B_DATA_FILE) $(L_DATA_FILE); \
 			fi; \
+			printf $(TZDATA_FORMAT_STRING) > $(TZDATA_FORMAT_FILE); \
 		fi; \
 	);
 
@@ -974,6 +1165,32 @@ crossbuildhost : $(CROSSHOST_OBJROOT)/Makefile
 	echo "# make for crossbuild host";
 	(cd $(CROSSHOST_OBJROOT); \
 		$(MAKE) $($(ENV_BUILDHOST)); \
+	);
+
+# For the install-icutztoolsforsdk target, SDKROOT will always be an OSX SDK root.
+# we need to patch using crosshostpatchconfig.txt as for $(CROSSHOST_OBJROOT)/Makefile
+icutztoolsforsdk : $(OBJROOT_CURRENT)/Makefile
+	echo "# make icutztoolsforsdk";
+	(cd $(OBJROOT_CURRENT); \
+		if test ! -d $(SRCROOT)/.git ; then patch -p1 <$(SRCROOT)/crosshostpatchconfig.txt; fi; \
+		$(MAKE) $($(ENV)); \
+		echo '# build' $(TOOLS_DYLIB) 'linked against' $(LIB_NAME) ; \
+		$($(ENV)) $(CXX) -current_version $(ICU_VERS).$(ICU_SUBVERS) -compatibility_version 1 -dynamiclib -dynamic \
+			-g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) \
+			$(CXXFLAGS) $(LDFLAGS) -single_module \
+			-install_name $(locallibdir)$(TOOLS_DYLIB) -o ./$(TOOLS_DYLIB) $(TOOLS_DYLIB_OBJS_FORSDK) -L./ -l$(LIB_NAME) ; \
+		echo '# build' $(ZICTOOL) 'linked against' $(TOOLSLIB_NAME) ; \
+		$($(ENV_BUILDHOST)) $(CXX) -g -Os -isysroot $(HOSTSDKPATH) \
+			$(LDFLAGS) -dead_strip -o ./$(ZICTOOL) $(ZICTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME) ; \
+		echo '# build' $(RESTOOL) 'linked against' $(TOOLSLIB_NAME) $(LIB_NAME) ; \
+		$($(ENV_BUILDHOST)) $(CXX) -g -Os -isysroot $(HOSTSDKPATH) \
+			$(LDFLAGS) -dead_strip -o ./$(RESTOOL) $(RESTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME) -l$(LIB_NAME) ; \
+		echo '# build' $(PKGTOOL) 'linked against' $(TOOLSLIB_NAME) ; \
+		$($(ENV_BUILDHOST)) $(CXX) -g -Os -isysroot $(HOSTSDKPATH) \
+			$(LDFLAGS) -dead_strip -o ./$(PKGTOOL) $(PKGTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME) ; \
+		echo '# build' $(TZ2ICUTOOL) 'linked against' $(TOOLSLIB_NAME) ; \
+		$($(ENV_BUILDHOST)) $(CXX) -g -Os -isysroot $(HOSTSDKPATH) \
+			$(LDFLAGS) -dead_strip -o ./$(TZ2ICUTOOL) $(TZ2ICUTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME) ; \
 	);
 
 check : icu
@@ -1005,7 +1222,7 @@ extra: icu
 	);
 
 ifneq "$(CROSS_BUILD)" "YES"
-$(OBJROOT_CURRENT)/Makefile : 
+$(OBJROOT_CURRENT)/Makefile :
 else
 $(OBJROOT_CURRENT)/Makefile : crossbuildhost
 endif
@@ -1013,218 +1230,266 @@ endif
 		mkdir -p $(OBJROOT_CURRENT); \
 	fi;
 	cp -Rpf $(SRCROOT)/icuSources/* $(OBJROOT_CURRENT)/;
-	if test "$(WINDOWS)" = "YES"; then \
-		echo "# configure for target"; \
-		(cd $(OBJROOT_CURRENT)/data/unidata; mv base_unidata/*.txt .;); \
-		(cd $(OBJROOT_CURRENT)/data/unidata/norm2; mv base_norm2/*.txt .;); \
-		(cd $(OBJROOT_CURRENT)/data/in; mv base_in/*.nrm .; mv base_in/*.icu .;); \
-		(cd $(OBJROOT_CURRENT); $(ENV_CONFIGURE) ./runConfigureICU Cygwin/MSVC $(CONFIG_FLAGS);) \
-	elif test "$(LINUX)" = "YES"; then \
-		echo "# configure for target"; \
-		(cd $(OBJROOT_CURRENT)/data/unidata; mv base_unidata/*.txt .;); \
-		(cd $(OBJROOT_CURRENT)/data/unidata/norm2; mv base_norm2/*.txt .;); \
-		(cd $(OBJROOT_CURRENT)/data/in; mv base_in/*.nrm .; mv base_in/*.icu .;); \
-		(cd $(OBJROOT_CURRENT); $(ENV_CONFIGURE) ./runConfigureICU Linux $(CONFIG_FLAGS);) \
-	elif test "$(CROSS_BUILD)" = "YES"; then \
-		echo "# configure for crossbuild target"; \
-		(cd $(OBJROOT_CURRENT); $(ENV_CONFIGURE) ./configure --host=$(TARGET_SPEC) --with-cross-build=$(CROSSHOST_OBJROOT) $(CONFIG_FLAGS);) \
-	else \
-		echo "# configure for non-crossbuild target"; \
-		(cd $(OBJROOT_CURRENT); $(ENV_CONFIGURE) ./runConfigureICU MacOSX $(CONFIG_FLAGS);) \
-	fi;
-	if test "$(APPLE_EMBEDDED)" = "YES"; then \
-		(cd $(OBJROOT_CURRENT)/common/unicode/; patch <$(SRCROOT)/minimalpatchconfig.txt;) \
-	elif test "$(WINDOWS)" = "YES"; then \
-		(cd $(OBJROOT_CURRENT)/common/unicode/; patch <$(SRCROOT)/windowspatchconfig.txt;) \
-	else \
-		(cd $(OBJROOT_CURRENT)/common/unicode/; patch <$(SRCROOT)/patchconfig.txt;) \
-	fi; \
+	(cd $(OBJROOT_CURRENT); \
+		if test -d $(SRCROOT)/.git ; then $(ADJUST_SOURCES); fi; \
+		if test "$(WINDOWS)" = "YES"; then \
+			echo "# configure for target"; \
+			$(ENV_CONFIGURE) ./runConfigureICU Cygwin/MSVC $(CONFIG_FLAGS); \
+		elif test "$(LINUX)" = "YES"; then \
+			echo "# configure for target"; \
+			$(ENV_CONFIGURE) ./runConfigureICU Linux $(CONFIG_FLAGS); \
+		elif test "$(CROSS_BUILD)" = "YES"; then \
+			echo "# configure for crossbuild target"; \
+			$(ENV_CONFIGURE) ./configure --host=$(TARGET_SPEC) --with-cross-build=$(CROSSHOST_OBJROOT) $(CONFIG_FLAGS); \
+		else \
+			echo "# configure for non-crossbuild target"; \
+			$(ENV_CONFIGURE) ./runConfigureICU MacOSX $(CONFIG_FLAGS); \
+		fi; \
+	);
 
 # for the tools that build the data file, cannot set UDATA_DEFAULT_ACCESS = UDATA_ONLY_PACKAGES
-# as minimalpatchconfig.txt does; need different patches for the host build.
-$(CROSSHOST_OBJROOT)/Makefile : 
+# as minimalpatchconfig.txt does; need different patches for the host build. Thus
+# we have to use crosshostpatchconfig.txt to undo the udata.h changes that would have
+# been made for ICU_FOR_EMBEDDED_TRAINS builds.
+$(CROSSHOST_OBJROOT)/Makefile :
 	if test ! -d $(CROSSHOST_OBJROOT); then \
 		mkdir -p $(CROSSHOST_OBJROOT); \
 	fi;
 	cp -Rpf $(SRCROOT)/icuSources/* $(CROSSHOST_OBJROOT);
-	echo "# configure for crossbuild host";
-	(cd $(CROSSHOST_OBJROOT); $(ENV_CONFIGURE_BUILDHOST) ./runConfigureICU MacOSX $(CONFIG_FLAGS);)
-	(cd $(CROSSHOST_OBJROOT)/common/unicode/; patch <$(SRCROOT)/crosshostpatchconfig.txt;)
+	(cd $(CROSSHOST_OBJROOT); \
+		if test -d $(SRCROOT)/.git; then $(ADJUST_SOURCES); fi; \
+		if test "$(ICU_FOR_EMBEDDED_TRAINS)" = "YES"; then \
+			patch -p1 <$(SRCROOT)/crosshostpatchconfig.txt; \
+		fi; \
+		echo "# configure for crossbuild host"; \
+		$(ENV_CONFIGURE_BUILDHOST) ./runConfigureICU MacOSX $(CONFIG_FLAGS); \
+	);
 
 #################################
 # B&I TARGETS
 #################################
 
-# Since our sources are in icuSources (ignore the ICU subdirectory for now), we wish to 
+# Since our sources are in icuSources (ignore the ICU subdirectory for now), we wish to
 # copy them to somewhere else. We tar it to stdout, cd to the appropriate directory, and
-# untar from stdin.  We then look for all the CVS directories and remove them. We may have 
+# untar from stdin.  We then look for all the CVS directories and remove them. We may have
 # to remove the .cvsignore files also.
 
 installsrc :
 	if test ! -d $(SRCROOT); then mkdir $(SRCROOT); fi;
 	if test -d $(SRCROOT)/icuSources ; then rm -rf $(SRCROOT)/icuSources; fi;
-	tar cf - ./makefile ./ICU.plist ./license.html ./icuSources ./cldrFiles $(INSTALLSRC_VARFILES) | (cd $(SRCROOT) ; tar xfp -); \
-	for i in `find $(SRCROOT)/icuSources/ | grep "CVS$$"` ; do \
-		if test -d $$i ; then \
-			rm -rf $$i; \
-		fi; \
-	done
-	for j in `find $(SRCROOT)/icuSources/ | grep ".cvsignore"` ; do \
-		if test -f $$j ; then \
-			rm -f $$j; \
-		fi; \
-	done
+	tar cf - ./makefile ./ICU.plist ./LICENSE ./icuSources ./cldrFiles $(INSTALLSRC_VARFILES) | (cd $(SRCROOT) ; tar xfp -); \
+	(cd $(SRCROOT)/icuSources; $(ADJUST_SOURCES) );
 
-# This works. Just not for ~ in the DEST_ROOT. We run configure first (in case it hasn't 
-# been already). Then we make the install-headers target on specific makefiles (since 
+# This works. Just not for ~ in the DSTROOT. We run configure first (in case it hasn't
+# been already). Then we make the install-headers target on specific makefiles (since
 # not every subdirectory/sub-component has a install-headers target).
 
-# installhdrs should be no-op for RC_INDIGO
-ifeq "$(RC_INDIGO)" "YES"
+# installhdrs should be no-op for BUILD_TYPE=TOOL
+ifeq "$(BUILD_TYPE)" "TOOL"
 installhdrs :
 else
 installhdrs : installhdrsint
 endif
-	
+
+MKINSTALLDIRS=$(SHELL) $(SRCROOT)/icuSources/mkinstalldirs
+INSTALL_DATA=${INSTALL} -m 644
+
+ifeq "$(RC_XBS)" "YES"
+installhdrsint :
+else
 installhdrsint : $(OBJROOT_CURRENT)/Makefile
-	(cd $(OBJROOT_CURRENT); \
+endif
+	(if test -d $(SRCROOT)/.git; then cd $(OBJROOT_CURRENT); else cd $(SRCROOT)/icuSources/; fi; \
+		$(MKINSTALLDIRS) $(DSTROOT)/$(PRIVATE_HDR_PREFIX)/include/unicode/; \
 		for subdir in $(HDR_MAKE_SUBDIR); do \
-			(cd $$subdir; $(MAKE) -e DESTDIR=$(DEST_ROOT) $(ENV) install-headers); \
+			echo "# Subdir $$subdir"; \
+			(cd $$subdir/unicode; \
+				for i in *.h; do \
+	 				echo "$(INSTALL_DATA) $$i $(DSTROOT)/$(PRIVATE_HDR_PREFIX)/include/unicode/"; \
+	 				$(INSTALL_DATA) $$i $(DSTROOT)/$(PRIVATE_HDR_PREFIX)/include/unicode/ || exit; \
+				done; \
+			); \
 		done; \
-		if test "$(APPLE_EMBEDDED)" = "YES"; then \
-			if test ! -d $(DEST_ROOT)$(HDR_PREFIX)/include/unicode/; then \
-				$(INSTALL) -d -m 0755 $(DEST_ROOT)$(HDR_PREFIX)/include/unicode/; \
+		if test "$(ICU_FOR_EMBEDDED_TRAINS)" = "YES"; then \
+			if test ! -d $(DSTROOT)/$(HDR_PREFIX)/include/unicode/; then \
+				$(INSTALL) -d -m 0755 $(DSTROOT)/$(HDR_PREFIX)/include/unicode/; \
 			fi; \
-			if test -d $(DEST_ROOT)$(PRIVATE_HDR_PREFIX)/include/unicode/; then \
-				(cd $(DEST_ROOT)$(PRIVATE_HDR_PREFIX)/include/unicode; \
+			if test -d $(DSTROOT)/$(PRIVATE_HDR_PREFIX)/include/unicode/; then \
+				(cd $(DSTROOT)/$(PRIVATE_HDR_PREFIX)/include/unicode; \
 					for i in *.h; do \
 						if fgrep -q -x $$i $(SRCROOT)/minimalapis.txt ; then \
-							mv $$i $(DEST_ROOT)$(HDR_PREFIX)/include/unicode ; \
+							mv $$i $(DSTROOT)/$(HDR_PREFIX)/include/unicode ; \
 						fi ; \
 					done ); \
-				$(CC) $(SRCROOT)/minimalapisTest.c $(INSTALLHDRS_ARCH) $(ISYSROOT) -nostdinc \
-					-I $(DEST_ROOT)$(HDR_PREFIX)/include/ -I $(SDKPATH)/usr/include/ -E > /dev/null ; \
+				if test ! "$(RC_XBS)" = "YES"; then \
+					echo "# Not building for XBS, so running minimal test"; \
+					$(CC) $(SRCROOT)/minimalapisTest.c $(INSTALLHDRS_ARCH) $(ISYSROOT) -nostdinc \
+						-I $(DSTROOT)/$(HDR_PREFIX)/include/ -I $(SDKPATH)/usr/include/ -E > /dev/null ; \
+				fi; \
 			fi; \
-			if test ! -d $(DEST_ROOT)$(CLDRFILESDIR)/; then \
-				$(INSTALL) -d -m 0755 $(DEST_ROOT)$(CLDRFILESDIR)/; \
+			if test ! -d $(DSTROOT)/$(CLDRFILESDIR)/; then \
+				$(INSTALL) -d -m 0755 $(DSTROOT)/$(CLDRFILESDIR)/; \
 			fi; \
-			$(INSTALL) -b -m 0644  $(SRCROOT)/cldrFiles/supplementalData.xml $(DEST_ROOT)$(CLDRFILESDIR)/supplementalData.xml; \
+			$(INSTALL) -b -m 0644  $(SRCROOT)/cldrFiles/supplementalData.xml $(DSTROOT)/$(CLDRFILESDIR)/supplementalData.xml; \
 		fi; \
 	);
 
-# We run configure and run make first. This generates the .o files. We then link them 
-# all up together into libicucore. Then we put it into its install location, create 
-# symbolic links, and then strip the main dylib. Then install the remaining libraries. 
+# We run configure and run make first. This generates the .o files. We then link them
+# all up together into libicucore. Then we put it into its install location, create
+# symbolic links, and then strip the main dylib. Then install the remaining libraries.
 # We cleanup the sources folder.
 
 install : installhdrsint icu
 	if test "$(WINDOWS)" = "YES"; then \
-		if test ! -d $(DEST_ROOT)$(winprogdir)/; then \
-			$(INSTALL) -d -m 0755 $(DEST_ROOT)$(winprogdir)/; \
+		if test ! -d $(DSTROOT)/$(winprogdir)/; then \
+			$(INSTALL) -d -m 0755 $(DSTROOT)/$(winprogdir)/; \
 		fi; \
-		if test ! -d $(DEST_ROOT)$(winintlibdir)/; then \
-			$(INSTALL) -d -m 0755 $(DEST_ROOT)$(winintlibdir)/; \
+		if test ! -d $(DSTROOT)/$(winintlibdir)/; then \
+			$(INSTALL) -d -m 0755 $(DSTROOT)/$(winintlibdir)/; \
 		fi; \
-		$(INSTALL) -b -m 0644 $(OBJROOT_CURRENT)/lib/libicuuc.lib $(DEST_ROOT)$(winintlibdir)libicuuc.lib; \
-		$(INSTALL) -b -m 0644 $(OBJROOT_CURRENT)/lib/libicuuc.pdb $(DEST_ROOT)$(winprogdir)libicuuc.pdb; \
-		$(INSTALL) -b -m 0755 $(OBJROOT_CURRENT)/lib/libicuuc.dll $(DEST_ROOT)$(winprogdir)libicuuc.dll; \
-		$(INSTALL) -b -m 0644 $(OBJROOT_CURRENT)/lib/libicuin.lib $(DEST_ROOT)$(winintlibdir)libicuin.lib; \
-		$(INSTALL) -b -m 0644 $(OBJROOT_CURRENT)/lib/libicuin.pdb $(DEST_ROOT)$(winprogdir)libicuin.pdb; \
-		$(INSTALL) -b -m 0755 $(OBJROOT_CURRENT)/lib/libicuin.dll $(DEST_ROOT)$(winprogdir)libicuin.dll; \
-		$(INSTALL) -b -m 0755 $(OBJROOT_CURRENT)/lib/icudt$(ICU_VERS).dll $(DEST_ROOT)$(winprogdir)icudt$(ICU_VERS).dll; \
+		$(INSTALL) -b -m 0644 $(OBJROOT_CURRENT)/lib/libicuuc.lib $(DSTROOT)/$(winintlibdir)libicuuc.lib; \
+		$(INSTALL) -b -m 0644 $(OBJROOT_CURRENT)/lib/libicuuc.pdb $(DSTROOT)/$(winprogdir)libicuuc.pdb; \
+		$(INSTALL) -b -m 0755 $(OBJROOT_CURRENT)/lib/libicuuc.dll $(DSTROOT)/$(winprogdir)libicuuc.dll; \
+		$(INSTALL) -b -m 0644 $(OBJROOT_CURRENT)/lib/libicuin.lib $(DSTROOT)/$(winintlibdir)libicuin.lib; \
+		$(INSTALL) -b -m 0644 $(OBJROOT_CURRENT)/lib/libicuin.pdb $(DSTROOT)/$(winprogdir)libicuin.pdb; \
+		$(INSTALL) -b -m 0755 $(OBJROOT_CURRENT)/lib/libicuin.dll $(DSTROOT)/$(winprogdir)libicuin.dll; \
+		$(INSTALL) -b -m 0755 $(OBJROOT_CURRENT)/lib/icudt$(ICU_VERS).dll $(DSTROOT)/$(winprogdir)icudt$(ICU_VERS).dll; \
 		if test "$(ARCH64)" != "YES"; then \
-			$(INSTALL) -b -m 0644 $(OBJROOT_CURRENT)/lib/shim/icuuc.lib $(DEST_ROOT)$(winintlibdir)icuuc.lib; \
-			$(INSTALL) -b -m 0644 $(OBJROOT_CURRENT)/lib/icuuc40.pdb $(DEST_ROOT)$(winprogdir)icuuc40.pdb; \
-			$(INSTALL) -b -m 0755 $(OBJROOT_CURRENT)/lib/icuuc40.dll $(DEST_ROOT)$(winprogdir)icuuc40.dll; \
-			$(INSTALL) -b -m 0644 $(OBJROOT_CURRENT)/lib/shim/icuin.lib $(DEST_ROOT)$(winintlibdir)icuin.lib; \
-			$(INSTALL) -b -m 0644 $(OBJROOT_CURRENT)/lib/icuin40.pdb $(DEST_ROOT)$(winprogdir)icuin40.pdb; \
-			$(INSTALL) -b -m 0755 $(OBJROOT_CURRENT)/lib/icuin40.dll $(DEST_ROOT)$(winprogdir)icuin40.dll; \
+			$(INSTALL) -b -m 0644 $(OBJROOT_CURRENT)/lib/shim/icuuc.lib $(DSTROOT)/$(winintlibdir)icuuc.lib; \
+			$(INSTALL) -b -m 0644 $(OBJROOT_CURRENT)/lib/icuuc40.pdb $(DSTROOT)/$(winprogdir)icuuc40.pdb; \
+			$(INSTALL) -b -m 0755 $(OBJROOT_CURRENT)/lib/icuuc40.dll $(DSTROOT)/$(winprogdir)icuuc40.dll; \
+			$(INSTALL) -b -m 0644 $(OBJROOT_CURRENT)/lib/shim/icuin.lib $(DSTROOT)/$(winintlibdir)icuin.lib; \
+			$(INSTALL) -b -m 0644 $(OBJROOT_CURRENT)/lib/icuin40.pdb $(DSTROOT)/$(winprogdir)icuin40.pdb; \
+			$(INSTALL) -b -m 0755 $(OBJROOT_CURRENT)/lib/icuin40.dll $(DSTROOT)/$(winprogdir)icuin40.dll; \
 		fi; \
 	else \
-		if test ! -d $(DEST_ROOT)$(libdir)/; then \
-			$(INSTALL) -d -m 0755 $(DEST_ROOT)$(libdir)/; \
+		if test ! -d $(DSTROOT)/$(libdir)/; then \
+			$(INSTALL) -d -m 0755 $(DSTROOT)/$(libdir)/; \
 		fi; \
-		$(INSTALL) -b -m 0755 $(OBJROOT_CURRENT)/$(INSTALLED_DYLIB) $(DEST_ROOT)$(libdir)$(INSTALLED_DYLIB); \
+		$(INSTALL) -b -m 0755 $(OBJROOT_CURRENT)/$(INSTALLED_DYLIB) $(DSTROOT)/$(libdir)$(INSTALLED_DYLIB); \
 		if test "$(LINUX)" = "YES"; then \
 			cp $(OBJROOT_CURRENT)/$(INSTALLED_DYLIB) $(SYMROOT_CURRENT)/$(INSTALLED_DYLIB); \
-			strip -x -S $(DEST_ROOT)$(libdir)$(INSTALLED_DYLIB); \
+			strip -x -S $(DSTROOT)/$(libdir)$(INSTALLED_DYLIB); \
 		else \
-			(cd $(DEST_ROOT)$(libdir); \
+			(cd $(DSTROOT)/$(libdir); \
 			ln -fs  $(INSTALLED_DYLIB) $(DYLIB)); \
 			cp $(OBJROOT_CURRENT)/$(INSTALLED_DYLIB) $(SYMROOT_CURRENT)/$(INSTALLED_DYLIB); \
-			if test "$(APPLE_EMBEDDED)" = "NO"; then \
-				$(DSYMTOOL) -o $(SYMROOT_CURRENT)/$(INSTALLED_DYLIB)$(DSYMSUFFIX) $(SYMROOT_CURRENT)/$(INSTALLED_DYLIB); \
-			fi; \
-			$(STRIPCMD) -x -u -r -S $(DEST_ROOT)$(libdir)$(INSTALLED_DYLIB); \
+			$(DSYMTOOL) -o $(SYMROOT_CURRENT)/$(INSTALLED_DYLIB)$(DSYMSUFFIX) $(SYMROOT_CURRENT)/$(INSTALLED_DYLIB); \
+			$(STRIPCMD) -x -u -r -S $(DSTROOT)/$(libdir)$(INSTALLED_DYLIB); \
 		fi; \
 		for subdir in $(EXTRA_LIBS); do \
-			(cd $(OBJROOT_CURRENT)/$$subdir; $(MAKE) -e DESTDIR=$(DEST_ROOT) $(ENV) install-library;) \
+			(cd $(OBJROOT_CURRENT)/$$subdir; $(MAKE) -e DESTDIR=$(DSTROOT)/ $(ENV) install-library;) \
 		done; \
-		if test ! -d $(DEST_ROOT)$(DATA_INSTALL_DIR)/; then \
-			$(INSTALL) -d -m 0755 $(DEST_ROOT)$(DATA_INSTALL_DIR)/; \
+		if test ! -d $(DSTROOT)/$(DATA_INSTALL_DIR)/; then \
+			$(INSTALL) -d -m 0755 $(DSTROOT)/$(DATA_INSTALL_DIR)/; \
 		fi; \
 		if test -f $(OBJROOT_CURRENT)/$(L_DATA_FILE); then \
-			$(INSTALL) -b -m 0644  $(OBJROOT_CURRENT)/$(L_DATA_FILE) $(DEST_ROOT)$(DATA_INSTALL_DIR)$(L_DATA_FILE); \
+			$(INSTALL) -b -m 0644  $(OBJROOT_CURRENT)/$(L_DATA_FILE) $(DSTROOT)/$(DATA_INSTALL_DIR)$(L_DATA_FILE); \
 		fi; \
-		if test ! -d $(DEST_ROOT)$(OPEN_SOURCE_VERSIONS_DIR)/; then \
-			$(INSTALL) -d -m 0755 $(DEST_ROOT)$(OPEN_SOURCE_VERSIONS_DIR)/; \
+		if test -f $(OBJROOT_CURRENT)/$(TZDATA_FORMAT_FILE); then \
+			$(INSTALL) -b -m 0644  $(OBJROOT_CURRENT)/$(TZDATA_FORMAT_FILE) $(DSTROOT)/$(DATA_INSTALL_DIR)$(TZDATA_FORMAT_FILE); \
 		fi; \
-		$(INSTALL) -b -m 0644 $(SRCROOT)/ICU.plist $(DEST_ROOT)$(OPEN_SOURCE_VERSIONS_DIR)ICU.plist; \
-		if test ! -d $(DEST_ROOT)$(OPEN_SOURCE_LICENSES_DIR)/; then \
-			$(INSTALL) -d -m 0755 $(DEST_ROOT)$(OPEN_SOURCE_LICENSES_DIR)/; \
+		if test ! -d $(DSTROOT)/$(OPEN_SOURCE_VERSIONS_DIR)/; then \
+			$(INSTALL) -d -m 0755 $(DSTROOT)/$(OPEN_SOURCE_VERSIONS_DIR)/; \
 		fi; \
-		$(INSTALL) -b -m 0644 $(SRCROOT)/license.html $(DEST_ROOT)$(OPEN_SOURCE_LICENSES_DIR)ICU.html; \
-		if test -f $(OBJROOT_CURRENT)/$(INFOTOOL); then \
-			if test ! -d $(DEST_ROOT)$(localtooldir)/; then \
-				$(INSTALL) -d -m 0755 $(DEST_ROOT)$(localtooldir)/; \
+		$(INSTALL) -b -m 0644 $(SRCROOT)/ICU.plist $(DSTROOT)/$(OPEN_SOURCE_VERSIONS_DIR)ICU.plist; \
+		if test ! -d $(DSTROOT)/$(OPEN_SOURCE_LICENSES_DIR)/; then \
+			$(INSTALL) -d -m 0755 $(DSTROOT)/$(OPEN_SOURCE_LICENSES_DIR)/; \
+		fi; \
+		$(INSTALL) -b -m 0644 $(SRCROOT)/LICENSE $(DSTROOT)/$(OPEN_SOURCE_LICENSES_DIR)ICU.txt; \
+		if test "$(LINUX)" != "YES"; then \
+			if test ! -d $(DSTROOT)/$(localtooldir)/; then \
+				$(INSTALL) -d -m 0755 $(DSTROOT)/$(localtooldir)/; \
 			fi; \
-			$(INSTALL) -b -m 0755  $(OBJROOT_CURRENT)/$(INFOTOOL) $(DEST_ROOT)$(localtooldir)$(INFOTOOL); \
-			if test "$(LINUX)" != "YES"; then \
+			if test -f $(OBJROOT_CURRENT)/$(INFOTOOL); then \
+				echo '# install' $(INFOTOOL) 'to' $(DSTROOT)/$(localtooldir)$(INFOTOOL) ; \
+				$(INSTALL) -b -m 0755  $(OBJROOT_CURRENT)/$(INFOTOOL) $(DSTROOT)/$(localtooldir)$(INFOTOOL); \
 				cp $(OBJROOT_CURRENT)/$(INFOTOOL) $(SYMROOT_CURRENT)/$(INFOTOOL); \
-				if test "$(APPLE_EMBEDDED)" = "NO"; then \
-					$(DSYMTOOL) -o $(SYMROOT_CURRENT)/$(INFOTOOL)$(DSYMSUFFIX) $(SYMROOT_CURRENT)/$(INFOTOOL); \
-				fi; \
+				$(DSYMTOOL) -o $(SYMROOT_CURRENT)/$(INFOTOOL)$(DSYMSUFFIX) $(SYMROOT_CURRENT)/$(INFOTOOL); \
+			fi; \
+			if test ! -d $(DSTROOT)/$(locallibdir)/; then \
+				$(INSTALL) -d -m 0755 $(DSTROOT)/$(locallibdir)/; \
+			fi; \
+			if test -f $(OBJROOT_CURRENT)/$(TOOLS_DYLIB); then \
+				echo '# install' $(TOOLS_DYLIB) 'to' $(DSTROOT)/$(locallibdir)$(TOOLS_DYLIB) ; \
+				$(INSTALL) -b -m 0755 $(OBJROOT_CURRENT)/$(TOOLS_DYLIB) $(DSTROOT)/$(locallibdir)$(TOOLS_DYLIB); \
+				cp $(OBJROOT_CURRENT)/$(TOOLS_DYLIB) $(SYMROOT_CURRENT)/$(TOOLS_DYLIB); \
+				$(DSYMTOOL) -o $(SYMROOT_CURRENT)/$(TOOLS_DYLIB)$(DSYMSUFFIX) $(SYMROOT_CURRENT)/$(TOOLS_DYLIB); \
+			fi; \
+			if test -f $(OBJROOT_CURRENT)/$(ICUZDUMPTOOL); then \
+				echo '# install' $(ICUZDUMPTOOL) 'to' $(DSTROOT)/$(localtooldir)$(ICUZDUMPTOOL) ; \
+				$(INSTALL) -b -m 0755  $(OBJROOT_CURRENT)/$(ICUZDUMPTOOL) $(DSTROOT)/$(localtooldir)$(ICUZDUMPTOOL); \
+				cp $(OBJROOT_CURRENT)/$(ICUZDUMPTOOL) $(SYMROOT_CURRENT)/$(ICUZDUMPTOOL); \
+				$(DSYMTOOL) -o $(SYMROOT_CURRENT)/$(ICUZDUMPTOOL)$(DSYMSUFFIX) $(SYMROOT_CURRENT)/$(ICUZDUMPTOOL); \
 			fi; \
 		fi; \
 	fi;
 
 DEPEND_install_debug = debug
 DEPEND_install_profile = profile
-	
+
 .SECONDEXPANSION:
 install_debug install_profile : $$(DEPEND_$$@)
 	if test "$(WINDOWS)" = "YES"; then \
-		if test ! -d $(DEST_ROOT)$(winprogdir)/; then \
-			$(INSTALL) -d -m 0755 $(DEST_ROOT)$(winprogdir)/; \
+		if test ! -d $(DSTROOT)/$(winprogdir)/; then \
+			$(INSTALL) -d -m 0755 $(DSTROOT)/$(winprogdir)/; \
 		fi; \
-		if test ! -d $(DEST_ROOT)$(winintlibdir)/; then \
-			$(INSTALL) -d -m 0755 $(DEST_ROOT)$(winintlibdir)/; \
+		if test ! -d $(DSTROOT)/$(winintlibdir)/; then \
+			$(INSTALL) -d -m 0755 $(DSTROOT)/$(winintlibdir)/; \
 		fi; \
-		$(INSTALL) -b -m 0644 $(OBJROOT_CURRENT)/lib/libicuuc_$(DEPEND_$@).lib $(DEST_ROOT)$(winintlibdir)libicuuc_$(DEPEND_$@).lib; \
-		$(INSTALL) -b -m 0644 $(OBJROOT_CURRENT)/lib/libicuuc_$(DEPEND_$@).pdb $(DEST_ROOT)$(winprogdir)libicuuc_$(DEPEND_$@).pdb; \
-		$(INSTALL) -b -m 0755 $(OBJROOT_CURRENT)/lib/libicuuc_$(DEPEND_$@).dll $(DEST_ROOT)$(winprogdir)libicuuc_$(DEPEND_$@).dll; \
-		$(INSTALL) -b -m 0644 $(OBJROOT_CURRENT)/lib/libicuin_$(DEPEND_$@).lib $(DEST_ROOT)$(winintlibdir)libicuin_$(DEPEND_$@).lib; \
-		$(INSTALL) -b -m 0644 $(OBJROOT_CURRENT)/lib/libicuin_$(DEPEND_$@).pdb $(DEST_ROOT)$(winprogdir)libicuin_$(DEPEND_$@).pdb; \
-		$(INSTALL) -b -m 0755 $(OBJROOT_CURRENT)/lib/libicuin_$(DEPEND_$@).dll $(DEST_ROOT)$(winprogdir)libicuin_$(DEPEND_$@).dll; \
+		$(INSTALL) -b -m 0644 $(OBJROOT_CURRENT)/lib/libicuuc_$(DEPEND_$@).lib $(DSTROOT)/$(winintlibdir)libicuuc_$(DEPEND_$@).lib; \
+		$(INSTALL) -b -m 0644 $(OBJROOT_CURRENT)/lib/libicuuc_$(DEPEND_$@).pdb $(DSTROOT)/$(winprogdir)libicuuc_$(DEPEND_$@).pdb; \
+		$(INSTALL) -b -m 0755 $(OBJROOT_CURRENT)/lib/libicuuc_$(DEPEND_$@).dll $(DSTROOT)/$(winprogdir)libicuuc_$(DEPEND_$@).dll; \
+		$(INSTALL) -b -m 0644 $(OBJROOT_CURRENT)/lib/libicuin_$(DEPEND_$@).lib $(DSTROOT)/$(winintlibdir)libicuin_$(DEPEND_$@).lib; \
+		$(INSTALL) -b -m 0644 $(OBJROOT_CURRENT)/lib/libicuin_$(DEPEND_$@).pdb $(DSTROOT)/$(winprogdir)libicuin_$(DEPEND_$@).pdb; \
+		$(INSTALL) -b -m 0755 $(OBJROOT_CURRENT)/lib/libicuin_$(DEPEND_$@).dll $(DSTROOT)/$(winprogdir)libicuin_$(DEPEND_$@).dll; \
 	else \
-		if test ! -d $(DEST_ROOT)$(libdir)/; then \
-			$(INSTALL) -d -m 0755 $(DEST_ROOT)$(libdir)/; \
+		if test ! -d $(DSTROOT)/$(libdir)/; then \
+			$(INSTALL) -d -m 0755 $(DSTROOT)/$(libdir)/; \
 		fi; \
-		$(INSTALL) -b -m 0664 $(OBJROOT_CURRENT)/$($(INSTALLED_DYLIB_$(DEPEND_$@))) $(DEST_ROOT)$(libdir)$($(INSTALLED_DYLIB_$(DEPEND_$@))); \
+		$(INSTALL) -b -m 0664 $(OBJROOT_CURRENT)/$($(INSTALLED_DYLIB_$(DEPEND_$@))) $(DSTROOT)/$(libdir)$($(INSTALLED_DYLIB_$(DEPEND_$@))); \
 		if test "$(LINUX)" = "YES"; then \
 			cp $(OBJROOT_CURRENT)/$($(INSTALLED_DYLIB_$(DEPEND_$@))) $(SYMROOT_CURRENT)/$($(INSTALLED_DYLIB_$(DEPEND_$@))); \
-			strip -x -S $(DEST_ROOT)$(libdir)$($(INSTALLED_DYLIB_$(DEPEND_$@))); \
+			strip -x -S $(DSTROOT)/$(libdir)$($(INSTALLED_DYLIB_$(DEPEND_$@))); \
 		else \
-			(cd $(DEST_ROOT)$(libdir); \
+			(cd $(DSTROOT)/$(libdir); \
 			ln -fs  $($(INSTALLED_DYLIB_$(DEPEND_$@))) $($(DYLIB_$(DEPEND_$@)))); \
 			cp $(OBJROOT_CURRENT)/$($(INSTALLED_DYLIB_$(DEPEND_$@))) $(SYMROOT_CURRENT)/$($(INSTALLED_DYLIB_$(DEPEND_$@))); \
-			$(STRIPCMD) -x -u -r -S $(DEST_ROOT)$(libdir)$($(INSTALLED_DYLIB_$(DEPEND_$@))); \
+			$(STRIPCMD) -x -u -r -S $(DSTROOT)/$(libdir)$($(INSTALLED_DYLIB_$(DEPEND_$@))); \
 		fi; \
 		for subdir in $(EXTRA_LIBS); do \
-			(cd $(OBJROOT_CURRENT)/$$subdir; $(MAKE) -e DESTDIR=$(DEST_ROOT) $(ENV) install-library;) \
+			(cd $(OBJROOT_CURRENT)/$$subdir; $(MAKE) -e DESTDIR=$(DSTROOT)/ $(ENV) install-library;) \
 		done; \
 	fi;
 
 clean :
 	-rm -rf $(OBJROOT)
 
+# For the install-icutztoolsforsdk target, SDKROOT will always be an OSX SDK root
+install-icutztoolsforsdk : icutztoolsforsdk
+	if test ! -d $(DSTROOT)$(localtooldir)/; then \
+		$(INSTALL) -d -m 0755 $(DSTROOT)$(localtooldir)/; \
+	fi;
+	if test ! -d $(DSTROOT)$(locallibdir)/; then \
+		$(INSTALL) -d -m 0755 $(DSTROOT)$(locallibdir)/; \
+	fi;
+	if test -f $(OBJROOT_CURRENT)/$(TOOLS_DYLIB); then \
+		echo '# install' $(TOOLS_DYLIB) 'to' $(DSTROOT)$(locallibdir)$(TOOLS_DYLIB) ; \
+		$(INSTALL) -b -m 0755 $(OBJROOT_CURRENT)/$(TOOLS_DYLIB) $(DSTROOT)$(locallibdir)$(TOOLS_DYLIB); \
+	fi;
+	if test -f $(OBJROOT_CURRENT)/$(ZICTOOL); then \
+		echo '# install' $(ZICTOOL) 'to' $(DSTROOT)$(localtooldir)$(ZICTOOL) ; \
+		$(INSTALL) -b -m 0755  $(OBJROOT_CURRENT)/$(ZICTOOL) $(DSTROOT)$(localtooldir)$(ZICTOOL); \
+	fi;
+	if test -f $(OBJROOT_CURRENT)/$(RESTOOL); then \
+		echo '# install' $(RESTOOL) 'to' $(DSTROOT)$(localtooldir)$(RESTOOL) ; \
+		$(INSTALL) -b -m 0755  $(OBJROOT_CURRENT)/$(RESTOOL) $(DSTROOT)$(localtooldir)$(RESTOOL); \
+	fi;
+	if test -f $(OBJROOT_CURRENT)/$(PKGTOOL); then \
+		echo '# install' $(PKGTOOL) 'to' $(DSTROOT)$(localtooldir)$(PKGTOOL) ; \
+		$(INSTALL) -b -m 0755  $(OBJROOT_CURRENT)/$(PKGTOOL) $(DSTROOT)$(localtooldir)$(PKGTOOL); \
+	fi;
+	if test -f $(OBJROOT_CURRENT)/$(TZ2ICUTOOL); then \
+		echo '# install' $(TZ2ICUTOOL) 'to' $(DSTROOT)$(localtooldir)$(TZ2ICUTOOL) ; \
+		$(INSTALL) -b -m 0755  $(OBJROOT_CURRENT)/$(TZ2ICUTOOL) $(DSTROOT)$(localtooldir)$(TZ2ICUTOOL); \
+	fi;

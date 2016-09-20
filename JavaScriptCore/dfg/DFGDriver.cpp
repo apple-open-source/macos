@@ -30,17 +30,17 @@
 #include "JSString.h"
 
 #include "CodeBlock.h"
-#include "DFGFunctionWhitelist.h"
 #include "DFGJITCode.h"
 #include "DFGPlan.h"
 #include "DFGThunks.h"
 #include "DFGWorklist.h"
+#include "FunctionWhitelist.h"
 #include "JITCode.h"
 #include "JSCInlines.h"
 #include "Options.h"
-#include "SamplingTool.h"
 #include "TypeProfilerLog.h"
 #include <wtf/Atomics.h>
+#include <wtf/NeverDestroyed.h>
 
 #if ENABLE(FTL_JIT)
 #include "FTLThunks.h"
@@ -56,15 +56,24 @@ unsigned getNumCompilations()
 }
 
 #if ENABLE(DFG_JIT)
+static FunctionWhitelist& ensureGlobalDFGWhitelist()
+{
+    static LazyNeverDestroyed<FunctionWhitelist> dfgWhitelist;
+    static std::once_flag initializeWhitelistFlag;
+    std::call_once(initializeWhitelistFlag, [] {
+        const char* functionWhitelistFile = Options::dfgWhitelist();
+        dfgWhitelist.construct(functionWhitelistFile);
+    });
+    return dfgWhitelist;
+}
+
 static CompilationResult compileImpl(
     VM& vm, CodeBlock* codeBlock, CodeBlock* profiledDFGCodeBlock, CompilationMode mode,
     unsigned osrEntryBytecodeIndex, const Operands<JSValue>& mustHandleValues,
     PassRefPtr<DeferredCompilationCallback> callback)
 {
-    SamplingRegion samplingRegion("DFG Compilation (Driver)");
-    
     if (!Options::bytecodeRangeToDFGCompile().isInRange(codeBlock->instructionCount())
-        || !FunctionWhitelist::ensureGlobalWhitelist().contains(codeBlock))
+        || !ensureGlobalDFGWhitelist().contains(codeBlock))
         return CompilationFailed;
     
     numCompilations++;
@@ -81,19 +90,8 @@ static CompilationResult compileImpl(
     // make sure that all JIT code generation does finalization on the main thread.
     vm.getCTIStub(osrExitGenerationThunkGenerator);
     vm.getCTIStub(throwExceptionFromCallSlowPathGenerator);
-    if (mode == DFGMode) {
-        vm.getCTIStub(linkCallThunkGenerator);
-        vm.getCTIStub(linkConstructThunkGenerator);
-        vm.getCTIStub(linkPolymorphicCallThunkGenerator);
-        vm.getCTIStub(virtualCallThunkGenerator);
-        vm.getCTIStub(virtualConstructThunkGenerator);
-    } else {
-        vm.getCTIStub(linkCallThatPreservesRegsThunkGenerator);
-        vm.getCTIStub(linkConstructThatPreservesRegsThunkGenerator);
-        vm.getCTIStub(linkPolymorphicCallThatPreservesRegsThunkGenerator);
-        vm.getCTIStub(virtualCallThatPreservesRegsThunkGenerator);
-        vm.getCTIStub(virtualConstructThatPreservesRegsThunkGenerator);
-    }
+    vm.getCTIStub(linkCallThunkGenerator);
+    vm.getCTIStub(linkPolymorphicCallThunkGenerator);
     
     if (vm.typeProfiler())
         vm.typeProfilerLog()->processLogEntries(ASCIILiteral("Preparing for DFG compilation."));
@@ -102,7 +100,7 @@ static CompilationResult compileImpl(
         new Plan(codeBlock, profiledDFGCodeBlock, mode, osrEntryBytecodeIndex, mustHandleValues));
     
     plan->callback = callback;
-    if (Options::enableConcurrentJIT()) {
+    if (Options::useConcurrentJIT()) {
         Worklist* worklist = ensureGlobalWorklistFor(mode);
         if (logCompilationChanges(mode))
             dataLog("Deferring DFG compilation of ", *codeBlock, " with queue length ", worklist->queueLength(), ".\n");
@@ -132,7 +130,7 @@ CompilationResult compile(
         vm, codeBlock, profiledDFGCodeBlock, mode, osrEntryBytecodeIndex, mustHandleValues,
         callback);
     if (result != CompilationDeferred)
-        callback->compilationDidComplete(codeBlock, result);
+        callback->compilationDidComplete(codeBlock, profiledDFGCodeBlock, result);
     return result;
 }
 

@@ -23,37 +23,79 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "LargeObject.h"
-#include "Line.h"
 #include "PerProcess.h"
-#include "SuperChunk.h"
 #include "VMHeap.h"
 #include <thread>
 
 namespace bmalloc {
 
-VMHeap::VMHeap()
-    : m_largeObjects(Owner::VMHeap)
+XLargeRange VMHeap::tryAllocateLargeChunk(std::lock_guard<StaticMutex>&, size_t alignment, size_t size)
 {
-}
+    // We allocate VM in aligned multiples to increase the chances that
+    // the OS will provide contiguous ranges that we can merge.
+    size_t roundedAlignment = roundUpToMultipleOf<chunkSize>(alignment);
+    if (roundedAlignment < alignment) // Check for overflow
+        return XLargeRange();
+    alignment = roundedAlignment;
 
-void VMHeap::grow()
-{
-    SuperChunk* superChunk = SuperChunk::create();
+    size_t roundedSize = roundUpToMultipleOf<chunkSize>(size);
+    if (roundedSize < size) // Check for overflow
+        return XLargeRange();
+    size = roundedSize;
+
+    void* memory = tryVMAllocate(alignment, size);
+    if (!memory)
+        return XLargeRange();
+
+    Chunk* chunk = static_cast<Chunk*>(memory);
+    
 #if BOS(DARWIN)
-    m_zone.addSuperChunk(superChunk);
+    m_zone.addRange(Range(chunk->bytes(), size));
 #endif
 
-    SmallChunk* smallChunk = superChunk->smallChunk();
-    for (auto* it = smallChunk->begin(); it != smallChunk->end(); ++it)
-        m_smallPages.push(it);
+    return XLargeRange(chunk->bytes(), size, 0);
+}
 
-    MediumChunk* mediumChunk = superChunk->mediumChunk();
-    for (auto* it = mediumChunk->begin(); it != mediumChunk->end(); ++it)
-        m_mediumPages.push(it);
+void VMHeap::allocateSmallChunk(std::lock_guard<StaticMutex>& lock, size_t pageClass)
+{
+    size_t pageSize = bmalloc::pageSize(pageClass);
+    size_t smallPageCount = pageSize / smallPageSize;
 
-    LargeChunk* largeChunk = superChunk->largeChunk();
-    m_largeObjects.insert(LargeObject(LargeObject::init(largeChunk).begin()));
+    void* memory = vmAllocate(chunkSize, chunkSize);
+    Chunk* chunk = static_cast<Chunk*>(memory);
+
+    // We align to our page size in order to honor OS APIs and in order to
+    // guarantee that we can service aligned allocation requests at equal
+    // and smaller powers of two.
+    size_t vmPageSize = roundUpToMultipleOf(bmalloc::vmPageSize(), pageSize);
+    size_t metadataSize = roundUpToMultipleOfNonPowerOfTwo(vmPageSize, sizeof(Chunk));
+
+    Object begin(chunk, metadataSize);
+    Object end(chunk, chunkSize);
+
+    // Establish guard pages before writing to Chunk memory to work around
+    // an edge case in the Darwin VM system (<rdar://problem/25910098>).
+    vmRevokePermissions(begin.address(), vmPageSize);
+    vmRevokePermissions(end.address() - vmPageSize, vmPageSize);
+    
+    begin = begin + vmPageSize;
+    end = end - vmPageSize;
+    BASSERT(begin <= end && end.offset() - begin.offset() >= pageSize);
+
+    new (chunk) Chunk(lock);
+
+#if BOS(DARWIN)
+    m_zone.addRange(Range(begin.address(), end.address() - begin.address()));
+#endif
+
+    for (Object it = begin; it + pageSize <= end; it = it + pageSize) {
+        SmallPage* page = it.page();
+
+        for (size_t i = 0; i < smallPageCount; ++i)
+            page[i].setSlide(i);
+
+        m_smallPages[pageClass].push(page);
+    }
 }
 
 } // namespace bmalloc

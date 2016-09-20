@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -59,7 +59,6 @@
 #include <fcntl.h>
 #include <ctype.h>
 #include <netdb.h>
-#include <syslog.h>
 #include <sys/param.h>
 #include <sys/mount.h>
 #include <arpa/inet.h>
@@ -83,15 +82,16 @@
 #include "nbimages.h"
 #include "NetBootServer.h"
 #include "util.h"
+#include "bootpd.h"
 
 /* 
- * Function: timestamp_syslog
+ * Function: timestamp_log
  *
  * Purpose:
- *   Log a timestamped event message to the syslog.
+ *   Log a message with time delta between this and the previous message.
  */
 static void
-S_timestamp_syslog(const char * msg)
+S_timestamp_log(const char * msg)
 {
     static struct timeval	tvp = {0,0};
     struct timeval		tv;
@@ -101,22 +101,21 @@ S_timestamp_syslog(const char * msg)
 	struct timeval result;
       
 	timeval_subtract(tv, tvp, &result);
-	syslog(LOG_INFO, "%ld.%06d (%ld.%06d): %s", 
+	my_log(LOG_INFO, "%ld.%06d (%ld.%06d): %s",
 	       tv.tv_sec, tv.tv_usec, result.tv_sec, result.tv_usec, msg);
     }
     else 
-	syslog(LOG_INFO, "%ld.%06d (%d.%06d): %s", 
+	my_log(LOG_INFO, "%ld.%06d (%d.%06d): %s",
 	       tv.tv_sec, tv.tv_usec, 0, 0, msg);
     tvp = tv;
 }
-
 
 
 static __inline__ void
 S_timestamp(const char * msg)
 {
     if (verbose)
-	S_timestamp_syslog(msg);
+	S_timestamp_log(msg);
 }
 
 static boolean_t
@@ -291,7 +290,7 @@ S_create_volume_dir(NBSPEntry * entry, char * dirname, mode_t mode)
     S_get_volpath(path, entry, dirname, NULL);
     if (create_path(path, mode) < 0) {
 	my_log(LOG_INFO, "macNC: create_volume_dir: create_path(%s)"
-	       " failed, %m",  path);
+	       " failed, %m", path);
 	return (FALSE);
     }
     (void)chmod(path, mode);
@@ -341,7 +340,7 @@ S_create_shadow_file(const char * shadow_path, uid_t uid, gid_t gid,
 
     if (set_dimg) {
 	if (S_set_dimg_ddsk(shadow_path) == FALSE) {
-	    my_log(LOG_INFO, "macNC: set type/creator '%s' failed, %m", 
+	    my_log(LOG_INFO, "macNC: set type/creator '%s' failed, %m",
 		   shadow_path);
 	    goto err;
 	}
@@ -352,7 +351,7 @@ S_create_shadow_file(const char * shadow_path, uid_t uid, gid_t gid,
 
     /* correct the owner of the path */
     if (S_set_uid_gid(shadow_path, uid, gid)) {
-	my_log(LOG_INFO, "macNC: setuidgid '%s' to %ld,%ld failed: %m", 
+	my_log(LOG_INFO, "macNC: setuidgid '%s' to %u, %u failed: %m", 
 	       shadow_path, uid, gid);
 	return (FALSE);
     }
@@ -499,7 +498,7 @@ macNC_allocate_shadow(const char * machine_name, int host_number,
     int			vol_index;
 
     if (G_client_sharepoints == NULL) {
-	syslog(LOG_NOTICE, "macNC_allocate_shadow: no client sharepoints");
+	my_log(LOG_NOTICE, "macNC_allocate_shadow: no client sharepoints");
 	return (NULL);
     }
 
@@ -654,7 +653,7 @@ S_add_image_options(NBImageEntryRef image_entry,
 	     image_entry->bootfile);
     if (set_privs(path, &statb, ROOT_UID, G_admin_gid,
 		  SHARED_FILE_PERMS, FALSE) == FALSE) {
-	syslog(LOG_INFO, "macNC: '%s' does not exist", path);
+	my_log(LOG_INFO, "macNC: '%s' does not exist", path);
 	return (FALSE);
     }
 
@@ -746,7 +745,7 @@ S_add_image_options(NBImageEntryRef image_entry,
 	/* set the shared system image permissions */
 	if (set_privs(shared_path, &statb, ROOT_UID, G_admin_gid,
 		      SHARED_FILE_PERMS, FALSE) == FALSE) {
-	    syslog(LOG_INFO, "macNC: '%s' does not exist", shared_path);
+	    my_log(LOG_INFO, "macNC: '%s' does not exist", shared_path);
 	    return (FALSE);
 	}
 
@@ -900,7 +899,7 @@ macNC_allocate(NBImageEntryRef image_entry,
 	       uid_t uid, const char * afp_user, const char * passwd)
 {
     if (G_client_sharepoints == NULL) {
-	syslog(LOG_NOTICE, "macNC_allocate: no client sharepoints");
+	my_log(LOG_NOTICE, "macNC_allocate: no client sharepoints");
 	return (FALSE);
     }
 

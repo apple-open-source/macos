@@ -68,9 +68,9 @@ PassRefPtr<Image> Image::loadPlatformResource(const char *name)
     NSString *imagePath = [bundle pathForResource:[NSString stringWithUTF8String:name] ofType:@"png"];
     NSData *namedImageData = [NSData dataWithContentsOfFile:imagePath];
     if (namedImageData) {
-        RefPtr<Image> image = BitmapImage::create();
+        auto image = BitmapImage::create();
         image->setData(SharedBuffer::wrapNSData(namedImageData), true);
-        return image.release();
+        return WTFMove(image);
     }
 
     // We have reports indicating resource loads are failing, but we don't yet know the root cause(s).
@@ -95,7 +95,7 @@ CFDataRef BitmapImage::getTIFFRepresentation()
 
     Vector<CGImageRef> images;
     for (unsigned i = 0; i < numFrames; ++i ) {
-        CGImageRef cgImage = frameAtIndex(i);
+        CGImageRef cgImage = frameImageAtIndex(i).get();
         if (cgImage)
             images.append(cgImage);
     }

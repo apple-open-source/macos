@@ -89,7 +89,12 @@ std::unique_ptr<FontCustomPlatformData> createFontCustomPlatformData(SharedBuffe
 
 bool FontCustomPlatformData::supportsFormat(const String& format)
 {
-    return equalIgnoringCase(format, "truetype") || equalIgnoringCase(format, "opentype") || equalIgnoringCase(format, "woff");
+    return equalLettersIgnoringASCIICase(format, "truetype")
+        || equalLettersIgnoringASCIICase(format, "opentype")
+#if USE(WOFF2)
+        || equalLettersIgnoringASCIICase(format, "woff2")
+#endif
+        || equalLettersIgnoringASCIICase(format, "woff");
 }
 
 }

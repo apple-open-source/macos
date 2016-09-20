@@ -32,7 +32,6 @@
 #include "CommandLineAPIHost.h"
 
 #include "Database.h"
-#include "InspectorClient.h"
 #include "InspectorDOMAgent.h"
 #include "InspectorDOMStorageAgent.h"
 #include "InspectorDatabaseAgent.h"
@@ -85,8 +84,8 @@ void CommandLineAPIHost::inspectImpl(RefPtr<InspectorValue>&& object, RefPtr<Ins
     if (!hints->asObject(hintsObject))
         return;
 
-    auto remoteObject = BindingTraits<Inspector::Protocol::Runtime::RemoteObject>::runtimeCast(WTF::move(object));
-    m_inspectorAgent->inspect(WTF::move(remoteObject), WTF::move(hintsObject));
+    auto remoteObject = BindingTraits<Inspector::Protocol::Runtime::RemoteObject>::runtimeCast(WTFMove(object));
+    m_inspectorAgent->inspect(WTFMove(remoteObject), WTFMove(hintsObject));
 }
 
 void CommandLineAPIHost::getEventListenersImpl(Node* node, Vector<EventListenerInfo>& listenersArray)
@@ -108,14 +107,14 @@ void CommandLineAPIHost::copyText(const String& text)
     Pasteboard::createForCopyAndPaste()->writePlainText(text, Pasteboard::CannotSmartReplace);
 }
 
-Deprecated::ScriptValue CommandLineAPIHost::InspectableObject::get(JSC::ExecState*)
+JSC::JSValue CommandLineAPIHost::InspectableObject::get(JSC::ExecState&)
 {
-    return Deprecated::ScriptValue();
+    return { };
 }
 
 void CommandLineAPIHost::addInspectedObject(std::unique_ptr<CommandLineAPIHost::InspectableObject> object)
 {
-    m_inspectedObject = WTF::move(object);
+    m_inspectedObject = WTFMove(object);
 }
 
 CommandLineAPIHost::InspectableObject* CommandLineAPIHost::inspectedObject()
@@ -145,7 +144,7 @@ JSValue CommandLineAPIHost::wrapper(ExecState* exec, JSDOMGlobalObject* globalOb
 
     JSObject* prototype = JSCommandLineAPIHost::createPrototype(exec->vm(), globalObject);
     Structure* structure = JSCommandLineAPIHost::createStructure(exec->vm(), globalObject, prototype);
-    JSCommandLineAPIHost* commandLineAPIHost = JSCommandLineAPIHost::create(structure, globalObject, Ref<CommandLineAPIHost>(*this));
+    JSCommandLineAPIHost* commandLineAPIHost = JSCommandLineAPIHost::create(structure, globalObject, makeRef(*this));
     m_wrappers.addWrapper(globalObject, commandLineAPIHost);
 
     return commandLineAPIHost;

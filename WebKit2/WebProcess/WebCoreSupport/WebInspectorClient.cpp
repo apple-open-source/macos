@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2014, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -51,7 +51,7 @@ public:
     }
     virtual ~RepaintIndicatorLayerClient() { }
 private:
-    virtual void notifyAnimationEnded(const GraphicsLayer* layer, const String&) override
+    void notifyAnimationEnded(const GraphicsLayer* layer, const String&) override
     {
         m_inspectorClient.animationEndedForLayer(layer);
     }
@@ -76,23 +76,19 @@ WebInspectorClient::~WebInspectorClient()
         m_page->mainFrame()->pageOverlayController().uninstallPageOverlay(m_paintRectOverlay.get(), PageOverlay::FadeMode::Fade);
 }
 
-void WebInspectorClient::inspectorDestroyed()
+void WebInspectorClient::inspectedPageDestroyed()
 {
-    closeInspectorFrontend();
+    if (WebInspector* inspector = m_page->inspector(WebPage::LazyCreationPolicy::UseExistingOnly))
+        inspector->close();
+
     delete this;
 }
 
-WebCore::InspectorFrontendChannel* WebInspectorClient::openInspectorFrontend(InspectorController* controller)
+Inspector::FrontendChannel* WebInspectorClient::openLocalFrontend(InspectorController* controller)
 {
-    m_page->inspector()->createInspectorPage(controller->isUnderTest());
+    m_page->inspector()->openFrontendConnection(controller->isUnderTest());
 
     return m_page->inspector();
-}
-
-void WebInspectorClient::closeInspectorFrontend()
-{
-    if (m_page->inspector())
-        m_page->inspector()->closeFrontend();
 }
 
 void WebInspectorClient::bringFrontendToFront()
@@ -111,9 +107,9 @@ void WebInspectorClient::highlight()
 {
 #if !PLATFORM(IOS)
     if (!m_highlightOverlay) {
-        RefPtr<PageOverlay> highlightOverlay = PageOverlay::create(*this);
-        m_highlightOverlay = highlightOverlay.get();
-        m_page->mainFrame()->pageOverlayController().installPageOverlay(highlightOverlay.release(), PageOverlay::FadeMode::Fade);
+        auto highlightOverlay = PageOverlay::create(*this);
+        m_highlightOverlay = highlightOverlay.ptr();
+        m_page->mainFrame()->pageOverlayController().installPageOverlay(WTFMove(highlightOverlay), PageOverlay::FadeMode::Fade);
         m_highlightOverlay->setNeedsDisplay();
     } else {
         m_highlightOverlay->stopFadeOutAnimation();
@@ -196,8 +192,10 @@ void WebInspectorClient::didSetSearchingForNode(bool enabled)
 }
 #endif
 
-void WebInspectorClient::pageOverlayDestroyed(PageOverlay&)
+void WebInspectorClient::elementSelectionChanged(bool active)
 {
+    if (m_page->inspector())
+        m_page->inspector()->elementSelectionChanged(active);
 }
 
 void WebInspectorClient::willMoveToPage(PageOverlay&, Page* page)

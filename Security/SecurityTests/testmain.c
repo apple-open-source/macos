@@ -2,7 +2,6 @@
  *  testmain.c
  *  Security
  *
- *  Created by Fabrice Gautier on 8/26/10.
  *  Copyright (c) 2010,2012-2014 Apple Inc. All Rights Reserved.
  *
  */

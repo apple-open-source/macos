@@ -103,9 +103,9 @@ pthread_cancel(pthread_t thread)
 #if __DARWIN_UNIX03
 	int state;
 
-	LOCK(thread->lock);
+	_PTHREAD_LOCK(thread->lock);
 	state = thread->cancel_state |= _PTHREAD_CANCEL_PENDING;
-	UNLOCK(thread->lock);
+	_PTHREAD_UNLOCK(thread->lock);
 	if (state & PTHREAD_CANCEL_ENABLE)
 		__pthread_markcancel(_pthread_kernel_thread(thread));
 #else /* __DARWIN_UNIX03 */
@@ -161,12 +161,12 @@ pthread_setcanceltype(int type, int *oldtype)
 	    (type != PTHREAD_CANCEL_ASYNCHRONOUS))
 		return EINVAL;
 	self = pthread_self();
-	LOCK(self->lock);
+	_PTHREAD_LOCK(self->lock);
 	if (oldtype)
 		*oldtype = self->cancel_state & _PTHREAD_CANCEL_TYPE_MASK;
 	self->cancel_state &= ~_PTHREAD_CANCEL_TYPE_MASK;
 	self->cancel_state |= type;
-	UNLOCK(self->lock);
+	_PTHREAD_UNLOCK(self->lock);
 #if !__DARWIN_UNIX03
 	_pthread_testcancel(self, 0);  /* See if we need to 'die' now... */
 #endif /* __DARWIN_UNIX03 */
@@ -197,10 +197,10 @@ __posix_join_cleanup(void *arg)
 {
 	pthread_t thread = (pthread_t)arg;
 
-	LOCK(thread->lock);
+	_PTHREAD_LOCK(thread->lock);
 	/* leave another thread to join */
 	thread->joiner = (struct _pthread *)NULL;
-	UNLOCK(thread->lock);
+	_PTHREAD_UNLOCK(thread->lock);
 }
 
 #endif /* __DARWIN_UNIX03 */
@@ -240,7 +240,7 @@ pthread_join(pthread_t thread,
 			death = (semaphore_t)os_get_cached_semaphore();
 		}
 
-		LOCK(thread->lock);
+		_PTHREAD_LOCK(thread->lock);
 		if ((thread->detached & PTHREAD_CREATE_JOINABLE) &&
 				(thread->joiner == NULL)) {
 			PTHREAD_ASSERT(_pthread_kernel_thread(thread) == kthport);
@@ -251,7 +251,7 @@ pthread_join(pthread_t thread,
 				} 
 				joinsem = thread->joiner_notify;
 				thread->joiner = self;
-				UNLOCK(thread->lock);
+				_PTHREAD_UNLOCK(thread->lock);
 
 				if (death != SEMAPHORE_NULL) {
 					os_put_cached_semaphore((os_semaphore_t)death);
@@ -274,11 +274,11 @@ pthread_join(pthread_t thread,
 				os_put_cached_semaphore((os_semaphore_t)joinsem);
 				res = _pthread_join_cleanup(thread, value_ptr, conforming);
 			} else {
-				UNLOCK(thread->lock);
+				_PTHREAD_UNLOCK(thread->lock);
 				res = EDEADLK;
 			}
 		} else {
-			UNLOCK(thread->lock);
+			_PTHREAD_UNLOCK(thread->lock);
 			res = EINVAL;
 		}
 		if (death != SEMAPHORE_NULL) {

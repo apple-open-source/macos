@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
@@ -10,7 +10,7 @@
  * except in compliance with the License.  Please obtain a copy of the
  * License at http://www.apple.com/publicsource and read it before using
  * this file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -18,7 +18,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
  * License for the specific language governing rights and limitations
  * under the License."
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
@@ -190,7 +190,7 @@ static int record_device(io_registry_entry_t drive);
 
 static int compare_drivestats(const void* pa, const void* pb);
 
-static long double compute_etime(struct timeval cur_time, 
+static long double compute_etime(struct timeval cur_time,
 				 struct timeval prev_time);
 
 static void
@@ -315,7 +315,7 @@ main(int argc, char **argv)
 				maxshowdevs = 4;
 		} else {
 			if ((dflag > 0) && (Cflag == 0))
-				maxshowdevs = 4;		
+				maxshowdevs = 4;
 			else
 				maxshowdevs = 3;
 		}
@@ -346,7 +346,7 @@ main(int argc, char **argv)
 		waittime = atoi(*argv);
 
 		/* Let the user know he goofed, but keep going anyway */
-		if (wflag != 0) 
+		if (wflag != 0)
 			warnx("discarding previous wait interval, using"
 			      " %d instead", waittime);
 		wflag++;
@@ -412,7 +412,7 @@ main(int argc, char **argv)
 			headercount = 20;
 			do_phdr();
 		}
-		
+
 		last_time = cur_time;
 		gettimeofday(&cur_time, NULL);
 
@@ -431,7 +431,7 @@ main(int argc, char **argv)
 			etime = 1.0;
 
 		if (Tflag > 0)
-			printf("%4.0Lf%5.0Lf", cur.tk_nin / etime, 
+			printf("%4.0Lf%5.0Lf", cur.tk_nin / etime,
 				cur.tk_nout / etime);
 
 		devstats(hflag, etime, havelast);
@@ -464,11 +464,11 @@ static void
 phdr(int signo)
 {
 
-	phdr_flag = 1;	
+	phdr_flag = 1;
 }
 
 static void
-do_phdr() 
+do_phdr(void)
 {
 	register int i;
 
@@ -479,14 +479,14 @@ do_phdr()
 		if (oflag > 0)
 			(void)printf("%12.6s ", drivestat[i].name);
 		else
-			printf("%15.6s ", drivestat[i].name);
+			printf("%19.6s ", drivestat[i].name);
 	}
-		
+
 	if (Cflag > 0)
 		(void)printf("      cpu");
 
 	if (Uflag > 0)
-		(void)printf("     load average\n");
+		(void)printf("    load average\n");
 	else
 		(void)printf("\n");
 
@@ -501,7 +501,7 @@ do_phdr()
 				(void)printf(" blk xfr msps ");
 		} else {
 			if (Iflag == 0)
-				printf("    KB/t tps  MB/s ");
+				printf("    KB/t  tps  MB/s ");
 			else
 				printf("    KB/t xfrs   MB ");
 		}
@@ -605,7 +605,7 @@ devstats(int perf_select, long double etime, int havelast)
 		 * Compute delta values and stats.
 		 */
 		interval_bytes = total_bytes - drivestat[i].total_bytes;
-		interval_transfers = total_transfers 
+		interval_transfers = total_transfers
 			- drivestat[i].total_transfers;
 		interval_time = total_time - drivestat[i].total_time;
 
@@ -614,7 +614,7 @@ devstats(int perf_select, long double etime, int havelast)
 			drivestat[i].total_bytes = total_bytes;
 			drivestat[i].total_transfers = total_transfers;
 			drivestat[i].total_time = total_time;
-		}				
+		}
 
 		interval_blocks = interval_bytes / drivestat[i].blocksize;
 		total_blocks = total_bytes / drivestat[i].blocksize;
@@ -624,16 +624,16 @@ devstats(int perf_select, long double etime, int havelast)
 		mb_per_second = (interval_bytes / etime) / (1024 * 1024);
 
 		kb_per_transfer = (interval_transfers > 0) ?
-			((long double)interval_bytes / interval_transfers) 
+			((long double)interval_bytes / interval_transfers)
 			/ 1024 : 0;
 
 		/* times are in nanoseconds, convert to milliseconds */
 		ms_per_transaction = (interval_transfers > 0) ?
-			((long double)interval_time / interval_transfers) 
+			((long double)interval_time / interval_transfers)
 			/ 1000 : 0;
 
 		if (Kflag)
-			total_blocks = total_blocks * drivestat[i].blocksize 
+			total_blocks = total_blocks * drivestat[i].blocksize
 				/ 1024;
 
 		if (oflag > 0) {
@@ -645,7 +645,7 @@ devstats(int perf_select, long double etime, int havelast)
 				       transfers_per_second,
 				       msdig,
 				       ms_per_transaction);
-			else 
+			else
 				printf("%4.1qu%4.1qu%5.*Lf ",
 				       interval_blocks,
 				       interval_transfers,
@@ -653,7 +653,7 @@ devstats(int perf_select, long double etime, int havelast)
 				       ms_per_transaction);
 		} else {
 			if (Iflag == 0)
-				printf(" %7.2Lf %3.0Lf %5.2Lf ", 
+				printf(" %7.2Lf %4.0Lf %5.2Lf ",
 				       kb_per_transfer,
 				       transfers_per_second,
 				       mb_per_second);
@@ -661,7 +661,7 @@ devstats(int perf_select, long double etime, int havelast)
 				interval_mb = interval_bytes;
 				interval_mb /= 1024 * 1024;
 
-				printf(" %7.2Lf %3.1qu %5.2Lf ", 
+				printf(" %7.2Lf %3.1qu %5.2Lf ",
 				       kb_per_transfer,
 				       interval_transfers,
 				       interval_mb);
@@ -706,7 +706,7 @@ cpustats(void)
 	last.load.cpu_ticks[CPU_STATE_IDLE]
 		+= cur.load.cpu_ticks[CPU_STATE_IDLE];
 	time += cur.load.cpu_ticks[CPU_STATE_IDLE];
-	
+
 	/*
 	 * Print times.
 	 */
@@ -779,8 +779,8 @@ compute_etime(struct timeval cur_time, struct timeval prev_time)
 
 	timersub(&cur_time, &prev_time, &busy_time);
 
-	busy_usec = busy_time.tv_sec;  
-	busy_usec *= 1000000;          
+	busy_usec = busy_time.tv_sec;
+	busy_usec *= 1000000;
 	busy_usec += busy_time.tv_usec;
 	etime = busy_usec;
 	etime /= 1000000;
@@ -832,7 +832,8 @@ record_all_devices(void)
 	return(0);
 }
 
-static void record_drivelist(void* context, io_iterator_t drivelist)
+static void
+record_drivelist(void* context, io_iterator_t drivelist)
 {
 	io_registry_entry_t drive;
 	while ((drive = IOIteratorNext(drivelist))) {
@@ -845,7 +846,8 @@ static void record_drivelist(void* context, io_iterator_t drivelist)
 	qsort(drivestat, num_devices, sizeof(struct drivestats), &compare_drivestats);
 }
 
-static void remove_drivelist(void* context, io_iterator_t drivelist)
+static void
+remove_drivelist(void* context, io_iterator_t drivelist)
 {
 	io_registry_entry_t drive;
 	while ((drive = IOIteratorNext(drivelist))) {
@@ -936,7 +938,7 @@ record_device(io_registry_entry_t drive)
 	CFStringRef name;
 	CFNumberRef number;
 	kern_return_t status;
-	
+
 	/* get drive's parent */
 	status = IORegistryEntryGetParentEntry(drive,
 		kIOServicePlane, &parent);
@@ -957,7 +959,7 @@ record_device(io_registry_entry_t drive)
 		name = (CFStringRef)CFDictionaryGetValue(properties,
 			CFSTR(kIOBSDNameKey));
 		if (name)
-			CFStringGetCString(name, drivestat[num_devices].name, 
+			CFStringGetCString(name, drivestat[num_devices].name,
 					   MAXDRIVENAME, kCFStringEncodingUTF8);
 		else {
 			errx(1, "device does not have a BSD name");

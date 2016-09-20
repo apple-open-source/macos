@@ -31,7 +31,7 @@
 #include <assert.h>
 #include <security_utilities/debugging.h>
 
-#define feeSigObjDebug(args...)		secdebug("feeSig", ##args)
+#define feeSigObjDebug(args...)		secinfo("feeSig", ##args)
 
 CryptKit::FEESigner::~FEESigner()
 {

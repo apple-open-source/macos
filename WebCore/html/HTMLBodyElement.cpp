@@ -30,7 +30,8 @@
 #include "EventNames.h"
 #include "Frame.h"
 #include "FrameView.h"
-#include "HTMLFrameElementBase.h"
+#include "HTMLFrameElement.h"
+#include "HTMLIFrameElement.h"
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
 #include "Page.h"
@@ -82,7 +83,7 @@ void HTMLBodyElement::collectStyleForPresentationAttribute(const QualifiedName& 
         if (!url.isEmpty()) {
             auto imageValue = CSSImageValue::create(document().completeURL(url).string());
             imageValue.get().setInitiator(localName());
-            style.setProperty(CSSProperty(CSSPropertyBackgroundImage, WTF::move(imageValue)));
+            style.setProperty(CSSProperty(CSSPropertyBackgroundImage, WTFMove(imageValue)));
         }
     } else if (name == marginwidthAttr || name == leftmarginAttr) {
         addHTMLLengthToStyle(style, CSSPropertyMarginRight, value);
@@ -95,7 +96,7 @@ void HTMLBodyElement::collectStyleForPresentationAttribute(const QualifiedName& 
     } else if (name == textAttr) {
         addHTMLColorToStyle(style, CSSPropertyColor, value);
     } else if (name == bgpropertiesAttr) {
-        if (equalIgnoringCase(value, "fixed"))
+        if (equalLettersIgnoringASCIICase(value, "fixed"))
            addPropertyToPresentationAttributeStyle(style, CSSPropertyBackgroundAttachment, CSSValueFixed);
     } else
         HTMLElement::collectStyleForPresentationAttribute(name, value, style);
@@ -329,7 +330,7 @@ void HTMLBodyElement::addSubresourceAttributeURLs(ListHashSet<URL>& urls) const
 {
     HTMLElement::addSubresourceAttributeURLs(urls);
 
-    addSubresourceURL(urls, document().completeURL(fastGetAttribute(backgroundAttr)));
+    addSubresourceURL(urls, document().completeURL(attributeWithoutSynchronization(backgroundAttr)));
 }
 
 } // namespace WebCore

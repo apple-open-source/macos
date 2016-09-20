@@ -17,8 +17,6 @@
 #    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 #    02110-1301 USA.
 
-# $Id$
-
 # to use
 # ./MacOSX/configure
 # make
@@ -127,6 +125,10 @@ set -x
 	$CONFIGURE_ARGS \
 	"$@"
 
+r=$?
+
 # force a regeneration of Info.plist
 rm -f src/Info.plist
 
+# exit with the return code from ./configure
+exit $r

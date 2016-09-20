@@ -341,7 +341,7 @@
 					"-fprofile-instr-generate",
 					"-fcoverage-mapping",
 				);
-				OTHER_LDFLAGS = "-fprofile-instr-generate";
+				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireSerialBusProtocolTransport;
 				SECTORDER_FLAGS = "";

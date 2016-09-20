@@ -73,7 +73,8 @@ private:
 	void restoreQEnter(IOPCIDevice * device);
     void restoreQRemove(IOPCIDevice * device);
 
-	IOReturn restoreTunnelState(IOPCIDevice * root, IOOptionBits options);
+	IOReturn restoreTunnelState(IOPCIDevice * rootDevice, IOOptionBits options, 
+                                bool * didTunnelController);
     IOReturn restoreMachineState( IOOptionBits options, IOPCIDevice * device );
     void tunnelsWait(IOPCIDevice * device);
     static IOReturn finishMachineState(IOOptionBits options);
@@ -82,6 +83,7 @@ private:
 										void * messageArgument, vm_size_t argSize);
 
     IOReturn _restoreDeviceState( IOPCIDevice * device, IOOptionBits options );
+    IOReturn _restoreDeviceDependents(IOPCIDevice * device, IOOptionBits options, IOPCIDevice * forDependent);
     IOReturn resolveLegacyInterrupts( IOService * provider, IOPCIDevice * nub );
     IOReturn resolveMSIInterrupts   ( IOService * provider, IOPCIDevice * nub );
 

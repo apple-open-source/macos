@@ -36,7 +36,10 @@
 
 #if ENABLE(MEDIA_STREAM)
 
+#include "AudioSourceProvider.h"
+#include "Image.h"
 #include "MediaConstraints.h"
+#include "PlatformLayer.h"
 #include "RealtimeMediaSourceCapabilities.h"
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
@@ -44,10 +47,11 @@
 
 namespace WebCore {
 
-class AudioBus;
+class FloatRect;
+class GraphicsContext;
 class MediaConstraints;
 class MediaStreamPrivate;
-class RealtimeMediaSourceStates;
+class RealtimeMediaSourceSettings;
 
 class RealtimeMediaSource : public RefCounted<RealtimeMediaSource> {
 public:
@@ -58,6 +62,7 @@ public:
         // Source state changes.
         virtual void sourceStopped() = 0;
         virtual void sourceMutedChanged() = 0;
+        virtual void sourceSettingsChanged() = 0;
 
         // Observer state queries.
         virtual bool preventSourceFromStopping() = 0;
@@ -65,18 +70,23 @@ public:
 
     virtual ~RealtimeMediaSource() { }
 
-    bool isAudioStreamSource() const { return type() == Audio; }
-
     const String& id() const { return m_id; }
+
+    const String& persistentID() const { return m_persistentID; }
+    virtual void setPersistentID(const String& persistentID) { m_persistentID = persistentID; }
 
     enum Type { None, Audio, Video };
     Type type() const { return m_type; }
 
     virtual const String& name() const { return m_name; }
     virtual void setName(const String& name) { m_name = name; }
+    
+    virtual unsigned fitnessScore() const { return m_fitnessScore; }
+    virtual void setFitnessScore(const unsigned fitnessScore) { m_fitnessScore = fitnessScore; }
 
-    virtual RefPtr<RealtimeMediaSourceCapabilities> capabilities() const = 0;
-    virtual const RealtimeMediaSourceStates& states() = 0;
+    virtual RefPtr<RealtimeMediaSourceCapabilities> capabilities() = 0;
+    virtual const RealtimeMediaSourceSettings& settings() = 0;
+    void settingsDidChanged();
     
     bool stopped() const { return m_stopped; }
 
@@ -94,25 +104,36 @@ public:
 
     virtual void startProducingData() { }
     virtual void stopProducingData() { }
+    virtual bool isProducingData() const { return false; }
 
     void stop(Observer* callingObserver = nullptr);
     void requestStop(Observer* callingObserver = nullptr);
 
-    void reset();
+    virtual void reset();
+
+    virtual AudioSourceProvider* audioSourceProvider() { return nullptr; }
+
+    virtual PlatformLayer* platformLayer() const { return nullptr; }
+    virtual RefPtr<Image> currentFrameImage() { return nullptr; }
+    virtual void paintCurrentFrameInContext(GraphicsContext&, const FloatRect&) { }
 
 protected:
     RealtimeMediaSource(const String& id, Type, const String& name);
 
+    bool m_muted { false };
+
 private:
     String m_id;
+    String m_persistentID;
     Type m_type;
     String m_name;
-    bool m_stopped;
+    bool m_stopped { false };
     Vector<Observer*> m_observers;
 
-    bool m_muted;
-    bool m_readonly;
-    bool m_remote;
+    bool m_readonly { false };
+    bool m_remote { false };
+    
+    unsigned m_fitnessScore { 0 };
 };
 
 } // namespace WebCore

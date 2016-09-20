@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -118,7 +118,7 @@ typedef struct {
 struct DHCPv6Client {
     CFRunLoopSourceRef			callback_rls;
     DHCPv6ClientNotificationCallBack 	callback;
-    void * 				callback_arg;
+    void *				callback_arg;
     struct in6_addr			our_ip;
     int					our_prefix_length;
     DHCPv6ClientState			cstate;
@@ -201,7 +201,7 @@ DHCPv6ClientSetRequestedOptions(uint16_t * requested_options,
     return;
 }
 
-bool
+PRIVATE_EXTERN bool
 DHCPv6ClientOptionIsOK(int option)
 {
     int i;
@@ -370,7 +370,7 @@ get_ia_na_addr(DHCPv6ClientRef client, int msg_type,
 	else if (preferred_lifetime > valid_lifetime) {
 	    /* server is confused */
 	    my_log(LOG_INFO,
-		   "DHCP %s: %s IA_ADDR preferred %d > valid lifetime",
+		   "DHCP %s: %s IA_ADDR preferred %d > valid lifetime %d",
 		   if_name(if_p), DHCPv6MessageName(msg_type),
 		   preferred_lifetime, valid_lifetime);
 	    break;
@@ -1698,12 +1698,25 @@ DHCPv6Client_Solicit(DHCPv6ClientRef client, IFEventID_t event_id,
 	my_log(LOG_INFO, "DHCPv6 %s: Solicit Transmit (try=%d)",
 	       if_name(if_p), client->try);
 	DHCPv6ClientSendSolicit(client);
+#define GENERATE_SYMPTOM_AT_TRY		6
+	if (client->try >= GENERATE_SYMPTOM_AT_TRY) {
+	    /*
+	     * We generally don't want to be calling the provided callback
+	     * directly because of re-entrancy issues: the callback could call
+	     * us, and we could call them, and enter an endless loop.
+	     * This call is safe because we're running as a result of our timer
+	     * and the client callback code isn't going to call back into us.
+	     */
+	    (*client->callback)(client, client->callback_arg,
+				kDHCPv6ClientNotificationTypeGenerateSymptom);
+	}
 	break;
     }
     case IFEventID_data_e: {
 	DHCPv6SocketReceiveDataRef 	data;
 	DHCPv6OptionIA_NARef		ia_na;
 	DHCPv6OptionIAADDRRef		ia_addr;
+	bool				first_saved = false;
 	char 				ntopbuf[INET6_ADDRSTRLEN];
 	int				option_len;
 	uint8_t				pref;
@@ -1786,11 +1799,22 @@ DHCPv6Client_Solicit(DHCPv6ClientRef client, IFEventID_t event_id,
 		   if_name(if_p), str);
 	    CFRelease(str);
 	}
+	first_saved = (client->saved.pkt_len == 0);
 	DHCPv6ClientSavePacket(client, data);
 	if (pref == kDHCPv6OptionPREFERENCEMaxValue) {
 	    /* if preference is max, jump right to Request */
 	    DHCPv6Client_Request(client, IFEventID_start_e, NULL);
 	    break;
+	}
+	else if (first_saved) {
+#define DHCPv6_GATHER_TIMEOUT	1.0
+	    /* set a short timeout */
+	    my_log(LOG_INFO,
+		   "DHCPv6 %s: Gathering responses", if_name(if_p));
+	    timer_callout_set(client->timer,
+			      DHCPv6_GATHER_TIMEOUT,
+			      (timer_func_t *)DHCPv6Client_Solicit, 
+			      client, (void *)IFEventID_timeout_e, NULL);
 	}
 	break;
     }
@@ -1800,7 +1824,7 @@ DHCPv6Client_Solicit(DHCPv6ClientRef client, IFEventID_t event_id,
     return;
 }
 
-DHCPv6ClientRef
+PRIVATE_EXTERN DHCPv6ClientRef
 DHCPv6ClientCreate(interface_t * if_p)
 {
     DHCPv6ClientRef		client;
@@ -1812,7 +1836,7 @@ DHCPv6ClientCreate(interface_t * if_p)
     return (client);
 }
 
-void
+PRIVATE_EXTERN void
 DHCPv6ClientStart(DHCPv6ClientRef client, bool allocate_address)
 {
     if (allocate_address) {
@@ -1832,7 +1856,7 @@ DHCPv6ClientStart(DHCPv6ClientRef client, bool allocate_address)
     return;
 }
 
-void
+PRIVATE_EXTERN void
 DHCPv6ClientStop(DHCPv6ClientRef client, bool discard_information)
 {
     /* remove the IP address */
@@ -1848,7 +1872,7 @@ DHCPv6ClientStop(DHCPv6ClientRef client, bool discard_information)
     return;
 }
 
-void
+PRIVATE_EXTERN void
 DHCPv6ClientRelease(DHCPv6ClientRef * client_p)
 {
     DHCPv6ClientRef	client = *client_p;
@@ -1874,7 +1898,7 @@ DHCPv6ClientRelease(DHCPv6ClientRef * client_p)
     return;
 }
 
-bool
+PRIVATE_EXTERN bool
 DHCPv6ClientGetInfo(DHCPv6ClientRef client, dhcpv6_info_t * info_p)
 {
     if (client->saved.options == NULL || client->saved_verified == FALSE) {
@@ -1887,7 +1911,7 @@ DHCPv6ClientGetInfo(DHCPv6ClientRef client, dhcpv6_info_t * info_p)
     return (TRUE);
 }
 
-void
+PRIVATE_EXTERN void
 DHCPv6ClientCopyAddresses(DHCPv6ClientRef client, 
 			  inet6_addrlist_t * addr_list_p)
 {
@@ -1914,11 +1938,12 @@ DHCPv6ClientDeliverNotification(void * info)
 	       "DHCPv6Client: runloop source signaled but callback is NULL");
 	return;
     }
-    (*client->callback)(client->callback_arg, client);
+    (*client->callback)(client, client->callback_arg,
+			kDHCPv6ClientNotificationTypeStatusChanged);
     return;
 }
 
-void
+PRIVATE_EXTERN void
 DHCPv6ClientSetNotificationCallBack(DHCPv6ClientRef client, 
 				    DHCPv6ClientNotificationCallBack callback,
 				    void * callback_arg)
@@ -1944,7 +1969,7 @@ DHCPv6ClientSetNotificationCallBack(DHCPv6ClientRef client,
     return;
 }
 
-void
+PRIVATE_EXTERN void
 DHCPv6ClientAddressChanged(DHCPv6ClientRef client, 
 			   inet6_addrlist_t * addr_list_p)
 {

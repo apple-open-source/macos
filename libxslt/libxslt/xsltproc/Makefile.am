@@ -23,7 +23,7 @@ DEPS = $(top_builddir)/libxslt/libxslt.la \
 
 LDADDS = $(top_builddir)/libxslt/libxslt.la \
          $(top_builddir)/libexslt/libexslt.la \
-	$(LIBXML_LIBS) $(EXTRA_LIBS) $(WIN32_EXTRA_LIBADD)
+	$(LIBXML_LIBS) $(EXTRA_LIBS) $(M_LIBS) $(WIN32_EXTRA_LIBADD)
 
 xsltproc_LDADD = $(LIBGCRYPT_LIBS) $(LDADDS)
 

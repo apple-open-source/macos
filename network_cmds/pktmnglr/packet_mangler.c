@@ -145,7 +145,7 @@ main(int argc, char * const argv[]) {
         exit(0);
     }
     
-    while ((ch = getopt(argc, argv, "hf:l:r:t:p:m:M:L:R")) != -1) {
+    while ((ch = getopt(argc, argv, "hf:l:r:t:p:m:M:L:R:")) != -1) {
         switch (ch) {
             case 'h':
                 usage(argv[0]);

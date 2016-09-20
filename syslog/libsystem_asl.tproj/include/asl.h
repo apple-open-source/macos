@@ -39,6 +39,12 @@ typedef asl_object_t aslmsg;
 typedef asl_object_t aslresponse;
 
 /*! @header
+ * These routines are deprecated and replaced by os_log(3).  On OS versions
+ * with os_log(3), the ASL routines for emitting log messages are shimmed into
+ * the equivalent os_log functionality.  Functions whose deprecation messages
+ * indicate they are unsupported will have no effect on OS versions with
+ * os_log(3) support.
+ *
  * These routines provide an interface to the Apple System Log facility.
  * The API allows client applications to create flexible, structured messages
  * and send them to the syslogd server.  Messages received by the server are
@@ -333,7 +339,7 @@ uint32_t _asl_evaluate_send(asl_object_t client, asl_object_t msg, int level);
  *    (input) Options (see Client Creation Options).
  * @result Returns an ASL client handle (asl_object_t of type ASL_TYPE_CLIENT).
  */
-asl_object_t asl_open(const char *ident, const char *facility, uint32_t opts) __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+asl_object_t asl_open(const char *ident, const char *facility, uint32_t opts) __API_DEPRECATED("os_log(3) has replaced asl(3); see os_log_create(3)", macosx(10.4,10.12), ios(2.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Open an ASL database or ASL data file for read or write access.
@@ -364,7 +370,7 @@ asl_object_t asl_open(const char *ident, const char *facility, uint32_t opts) __
  *    (input) Options (see File and Store Open Options).
  * @result Returns an ASL object of type ASL_TYPE_STORE or ASL_TYPE_FILE, or NULL on failure.
  */
-asl_object_t asl_open_path(const char *path, uint32_t opts) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+asl_object_t asl_open_path(const char *path, uint32_t opts) __API_DEPRECATED("os_log(3) has replaced asl(3); this functionality is no longer supported", macosx(10.10,10.12), ios(8.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Shuts down a connection to the server.
@@ -373,7 +379,7 @@ asl_object_t asl_open_path(const char *path, uint32_t opts) __OSX_AVAILABLE_STAR
  * @param obj
  *    (input) An ASL object.
  */
-void asl_close(asl_object_t obj) __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+void asl_close(asl_object_t obj) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.4,10.12), ios(2.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Write log messages to the given file descriptor.
@@ -388,7 +394,7 @@ void asl_close(asl_object_t obj) __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2
  *    (input) A file descriptor.
  * @result Returns 0 on success, non-zero on failure.
 */
-int asl_add_log_file(asl_object_t client, int descriptor) __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+int asl_add_log_file(asl_object_t client, int descriptor) __API_DEPRECATED("os_log(3) has replaced asl(3); this functionality is no longer supported", macosx(10.4,10.12), ios(2.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Write log messages to the given file descriptor.
@@ -413,7 +419,7 @@ int asl_add_log_file(asl_object_t client, int descriptor) __OSX_AVAILABLE_STARTI
  *    (input) A text encoding type.
  * @result Returns 0 on success, non-zero on failure.
  */
-int asl_add_output_file(asl_object_t client, int fd, const char *mfmt, const char *tfmt, int filter, int text_encoding) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+int asl_add_output_file(asl_object_t client, int fd, const char *mfmt, const char *tfmt, int filter, int text_encoding) __API_DEPRECATED("os_log(3) has replaced asl(3); this functionality is no longer supported", macosx(10.10,10.12), ios(7.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Write log messages to the given file descriptor.
@@ -429,11 +435,11 @@ int asl_add_output_file(asl_object_t client, int fd, const char *mfmt, const cha
  *    (input) A filter value.
  * @result Returns the previous filter value.
  */
-int asl_set_output_file_filter(asl_object_t client, int fd, int filter) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+int asl_set_output_file_filter(asl_object_t client, int fd, int filter) __API_DEPRECATED("os_log(3) has replaced asl(3); this functionality is no longer supported", macosx(10.10,10.12), ios(7.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Stop writing log messages to the given file descriptor.
- * The file descripter is not closed by this routine.
+ * The file descriptor is not closed by this routine.
  *
  * @param client
  *    (input) An ASL client handle (asl_object_t of type ASL_TYPE_CLIENT).
@@ -441,7 +447,7 @@ int asl_set_output_file_filter(asl_object_t client, int fd, int filter) __OSX_AV
  *    (input) A file descriptor.
  * @result Returns 0 on success, non-zero on failure.
  */
-int asl_remove_log_file(asl_object_t client, int descriptor) __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+int asl_remove_log_file(asl_object_t client, int descriptor) __API_DEPRECATED("os_log(3) has replaced asl(3); this functionality is no longer supported", macosx(10.4,10.12), ios(2.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Set a filter for messages being sent to the server.
@@ -461,7 +467,7 @@ int asl_remove_log_file(asl_object_t client, int descriptor) __OSX_AVAILABLE_STA
  *    (input) A filter value.
  * @result Returns the previous filter value.
  */
-int asl_set_filter(asl_object_t client, int f) __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+int asl_set_filter(asl_object_t client, int f) __API_DEPRECATED("os_log(3) has replaced asl(3); see log(1)'s config command", macosx(10.4,10.12), ios(2.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*
  * Examine attribute keys.
@@ -473,7 +479,7 @@ int asl_set_filter(asl_object_t client, int f) __OSX_AVAILABLE_STARTING(__MAC_10
  * @result Returns the key of the nth attribute in a message (beginning at zero),
  * or NULL if n is greater than the largest message index.
  */
-const char *asl_key(asl_object_t msg, uint32_t n) __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+const char *asl_key(asl_object_t msg, uint32_t n) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.4,10.12), ios(2.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*
  * Examine attribute keys.
@@ -490,7 +496,7 @@ const char *asl_key(asl_object_t msg, uint32_t n) __OSX_AVAILABLE_STARTING(__MAC
  *    (input) An index value.
  * @result returns 0 for success, non-zero for failure.
  */
-int asl_fetch_key_val_op(asl_object_t msg, uint32_t n, const char **key, const char **val, uint32_t *op) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+int asl_fetch_key_val_op(asl_object_t msg, uint32_t n, const char **key, const char **val, uint32_t *op) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.10,10.12), ios(8.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Create a new log message, query message, message list, or a connection to the system database.
@@ -505,7 +511,7 @@ int asl_fetch_key_val_op(asl_object_t msg, uint32_t n, const char **key, const c
  *    The Sender and Facility values associated with an ASL_TYPE_CLIENT may
  *    be reset using asl_set().
  */
-asl_object_t asl_new(uint32_t type) __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+asl_object_t asl_new(uint32_t type) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.4,10.12), ios(2.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Set or re-set a message or query attribute.
@@ -520,7 +526,7 @@ asl_object_t asl_new(uint32_t type) __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHON
  *    (input) Attribute value.
  * @result returns 0 for success, non-zero for failure.
  */
-int asl_set(asl_object_t obj, const char *key, const char *value) __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+int asl_set(asl_object_t obj, const char *key, const char *value) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.4,10.12), ios(2.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Remove a key/value attribute.
@@ -531,7 +537,7 @@ int asl_set(asl_object_t obj, const char *key, const char *value) __OSX_AVAILABL
  *    (input) Attribute key.
  * returns 0 for success, non-zero for failure.
  */
-int asl_unset(asl_object_t obj, const char *key) __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+int asl_unset(asl_object_t obj, const char *key) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.4,10.12), ios(2.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Get the value associated with an attribute key.
@@ -542,7 +548,7 @@ int asl_unset(asl_object_t obj, const char *key) __OSX_AVAILABLE_STARTING(__MAC_
  *    (input) Attribute key.
  * @result Returns the attribute value, or NULL if the object does not contain the key.
  */
-const char *asl_get(asl_object_t msg, const char *key) __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+const char *asl_get(asl_object_t msg, const char *key) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.4,10.12), ios(2.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Log a message with a particular log level.
@@ -577,7 +583,7 @@ const char *asl_get(asl_object_t msg, const char *key) __OSX_AVAILABLE_STARTING(
  *    The object type ASL_TYPE_QUERY is supported, but the key/value pairs set in the
  *    object will have an operator value of zero.
  */
-int asl_log(asl_object_t client, asl_object_t msg, int level, const char *format, ...) __printflike(4, 5) __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+int asl_log(asl_object_t client, asl_object_t msg, int level, const char *format, ...) __printflike(4, 5) __not_tail_called __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.4,10.12), ios(2.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Log a message with a particular log level.
@@ -592,7 +598,7 @@ int asl_log(asl_object_t client, asl_object_t msg, int level, const char *format
  *    (input) A printf() - style format string followed by a list of arguments.
  * @result Returns 0 for success, non-zero for failure.
  */
-int asl_log_message(int level, const char *format, ...) __printflike(2, 3) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+int asl_log_message(int level, const char *format, ...) __printflike(2, 3) __not_tail_called __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.10,10.12), ios(8.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Log a message with a particular log level.
@@ -614,7 +620,7 @@ int asl_log_message(int level, const char *format, ...) __printflike(2, 3) __OSX
  *    types of input object.
  *
  */
-int asl_vlog(asl_object_t obj, asl_object_t msg, int level, const char *format, va_list ap) __printflike(4, 0) __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+int asl_vlog(asl_object_t obj, asl_object_t msg, int level, const char *format, va_list ap) __printflike(4, 0) __not_tail_called __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.4,10.12), ios(2.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Log a message.
@@ -631,7 +637,7 @@ int asl_vlog(asl_object_t obj, asl_object_t msg, int level, const char *format, 
  *    See the discussion for asl_log() for a description of how this routine treats different
  *    types of input object.
  */
-int asl_send(asl_object_t obj, asl_object_t msg) __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+int asl_send(asl_object_t obj, asl_object_t msg) __not_tail_called __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.4,10.12), ios(2.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * DEPRECATED: Free an ASL object and all internal resources associated with it.
@@ -641,7 +647,7 @@ int asl_send(asl_object_t obj, asl_object_t msg) __OSX_AVAILABLE_STARTING(__MAC_
  * @param obj
  *    (input) An ASL object to free.
  */
-void asl_free(asl_object_t obj) __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+void asl_free(asl_object_t obj) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.4,10.12), ios(2.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Increment the internal reference count of an ASL object.
@@ -650,7 +656,7 @@ void asl_free(asl_object_t obj) __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_
  *    (input) An ASL object to retain.
  * @result Returns the object.
  */
-asl_object_t asl_retain(asl_object_t obj) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+asl_object_t asl_retain(asl_object_t obj) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.10,10.12), ios(8.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Decrement the internal reference count of an ASL object.
@@ -659,7 +665,7 @@ asl_object_t asl_retain(asl_object_t obj) __OSX_AVAILABLE_STARTING(__MAC_10_10, 
  * @param obj
  *    (input) An ASL object to release.
  */
-void asl_release(asl_object_t obj) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+void asl_release(asl_object_t obj) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.10,10.12), ios(8.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Get the internal type of an ASL object.
@@ -668,7 +674,7 @@ void asl_release(asl_object_t obj) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHON
  *    (input) An ASL object.
  * @result Returns the object type.
  */
-uint32_t asl_get_type(asl_object_t obj) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+uint32_t asl_get_type(asl_object_t obj) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.10,10.12), ios(8.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Set arbitrary parameters of a query.
@@ -685,7 +691,7 @@ uint32_t asl_get_type(asl_object_t obj) __OSX_AVAILABLE_STARTING(__MAC_10_10, __
  *    (input) An operation (ASL_QUERY_OP_*)
  * @result Returns 0 for success, non-zero for failure
  */
-int asl_set_query(asl_object_t msg, const char *key, const char *value, uint32_t op) __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+int asl_set_query(asl_object_t msg, const char *key, const char *value, uint32_t op) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.4,10.12), ios(2.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Search for messages matching the criteria described by an query object.
@@ -717,7 +723,7 @@ int asl_set_query(asl_object_t msg, const char *key, const char *value, uint32_t
  *    If obj is of type ASL_TYPE_QUERY and query is of type ASL_TYPE_MSG, the routine returns NULL.
  *
  */
-asl_object_t asl_search(asl_object_t obj, asl_object_t query) __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+asl_object_t asl_search(asl_object_t obj, asl_object_t query) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.4,10.12), ios(2.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * DEPRECATED: Iterate over messages in an asl_object_t (same as an aslresponse).
@@ -757,7 +763,7 @@ void aslresponse_free(asl_object_t obj) __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC
  * @param obj_to_add
  *    (input) An object of type ASL_TYPE_MSG, ASL_TYPE_QUERY or type ASL_TYPE_LIST.
  */
-void asl_append(asl_object_t obj, asl_object_t obj_to_add) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+void asl_append(asl_object_t obj, asl_object_t obj_to_add) __not_tail_called __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.10,10.12), ios(8.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Prepend messages to an object of type ASL_TYPE_LIST.  The input "obj"
@@ -771,7 +777,7 @@ void asl_append(asl_object_t obj, asl_object_t obj_to_add) __OSX_AVAILABLE_START
  * @param obj_to_add
  *    (input) An object of type ASL_TYPE_MSG, ASL_TYPE_QUERY or type ASL_TYPE_LIST.
  */
-void asl_prepend(asl_object_t obj, asl_object_t obj_to_add) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+void asl_prepend(asl_object_t obj, asl_object_t obj_to_add) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.10,10.12), ios(8.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Get the number of key/value pairs in an object of type ASL_TYPE_MSG or ASL_TYPE_QUERY,
@@ -783,7 +789,7 @@ void asl_prepend(asl_object_t obj, asl_object_t obj_to_add) __OSX_AVAILABLE_STAR
  *    Returns zero if object is empty or NULL, or if the type is not
  *    ASL_TYPE_MSG, ASL_TYPE_QUERY, or ASL_TYPE_LIST.
  */
-size_t asl_count(asl_object_t obj) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+size_t asl_count(asl_object_t obj) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.10,10.12), ios(8.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Retreive a message from an object of type ASL_TYPE_LIST.
@@ -793,7 +799,7 @@ size_t asl_count(asl_object_t obj) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHON
  * @result Returns the message (an object of type ASL_TYPE_MSG or ASL_TYPE_QUERY) at the specified index.
  *    Returns NULL if the index is out of range or if list is not an object of type ASL_TYPE_LIST.
  */
-asl_object_t asl_get_index(asl_object_t list, size_t index) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+asl_object_t asl_get_index(asl_object_t list, size_t index) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.10,10.12), ios(8.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Remove the message at a specified index from an object of type ASL_TYPE_LIST.
@@ -801,7 +807,7 @@ asl_object_t asl_get_index(asl_object_t list, size_t index) __OSX_AVAILABLE_STAR
  * @param list
  *    (input) An object of type ASL_TYPE_LIST.
  */
-void asl_remove_index(asl_object_t list, size_t index) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+void asl_remove_index(asl_object_t list, size_t index) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.10,10.12), ios(8.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Creates an auxiliary file that may be used to save arbitrary data.  The ASL message msg
@@ -830,7 +836,7 @@ void asl_remove_index(asl_object_t list, size_t index) __OSX_AVAILABLE_STARTING(
  *    (output) A writable file descriptor.
  * @result Returns 0 for success, non-zero for failure
  */
-int asl_create_auxiliary_file(asl_object_t msg, const char *title, const char *uti, int *out_descriptor) __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0);
+int asl_create_auxiliary_file(asl_object_t msg, const char *title, const char *uti, int *out_descriptor) __API_DEPRECATED("os_log(3) has replaced asl(3); this functionality is no longer supported", macosx(10.7,10.12), ios(5.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Close an auxiliary file opened by asl_create_auxiliary_file() when writing is complete.
@@ -841,7 +847,7 @@ int asl_create_auxiliary_file(asl_object_t msg, const char *title, const char *u
  *    (input) The file descriptor
  * @result Returns 0 for success, non-zero for failure
  */
-int asl_close_auxiliary_file(int descriptor) __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0);
+int asl_close_auxiliary_file(int descriptor) __API_DEPRECATED("os_log(3) has replaced asl(3); this functionality is no longer supported", macosx(10.7,10.12), ios(5.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Sends an ASL message to syslogd along with a title string, Uniform Resource Locator, 
@@ -859,7 +865,7 @@ int asl_close_auxiliary_file(int descriptor) __OSX_AVAILABLE_STARTING(__MAC_10_7
  *    (input) Uniform Type Locator
  * @result Returns 0 for success, non-zero for failure
  */
-int asl_log_auxiliary_location(asl_object_t msg, const char *title, const char *uti, const char *url) __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0);
+int asl_log_auxiliary_location(asl_object_t msg, const char *title, const char *uti, const char *url) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.7,10.12), ios(5.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Creates an object of type ASL_TYPE_CLIENT for logging to a file descriptor.
@@ -891,7 +897,7 @@ int asl_log_auxiliary_location(asl_object_t msg, const char *title, const char *
  *    (input) Facility name
  * @result An object of type ASL_TYPE_CLIENT.
  */
-asl_object_t asl_open_from_file(int descriptor, const char *ident, const char *facility) __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0);
+asl_object_t asl_open_from_file(int descriptor, const char *ident, const char *facility) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.7,10.12), ios(5.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * This API provides functionality to use file descriptors to send logging
@@ -935,7 +941,7 @@ asl_object_t asl_open_from_file(int descriptor, const char *ident, const char *f
  *    (input) Either ASL_LOG_DESCRIPTOR_READ or ASL_LOG_DESCRIPTOR_WRITE
  * @result Returns 0 for success, non-zero for failure
  */
-int asl_log_descriptor(asl_object_t asl, asl_object_t msg, int level, int descriptor, uint32_t fd_type) __OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_5_1);
+int asl_log_descriptor(asl_object_t asl, asl_object_t msg, int level, int descriptor, uint32_t fd_type) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.8,10.12), ios(5.1,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 #pragma mark -
 
@@ -962,7 +968,7 @@ int asl_log_descriptor(asl_object_t asl, asl_object_t msg, int level, int descri
  *    (input) Text encoding control (for special characters).  See "Text Encoding Types".
 * @result Returns a character string, or NULL in case of a failure.
  */
-char *asl_format(asl_object_t msg, const char *msg_fmt, const char *time_fmt, uint32_t text_encoding) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+char *asl_format(asl_object_t msg, const char *msg_fmt, const char *time_fmt, uint32_t text_encoding) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.10,10.12), ios(8.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Encodes a buffer with embedded nul characters into a nul terminated C string.
@@ -979,7 +985,7 @@ char *asl_format(asl_object_t msg, const char *msg_fmt, const char *time_fmt, ui
  *    (input) Length (in octets) of data buffer.
  * @result Returns an encoded character string.
  */
-char *asl_encode_buffer(const char *buf, size_t len) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+char *asl_encode_buffer(const char *buf, size_t len) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.10,10.12), ios(8.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Decodes a C string previously created by asl_encode_buffer back into a buffer,
@@ -998,7 +1004,7 @@ char *asl_encode_buffer(const char *buf, size_t len) __OSX_AVAILABLE_STARTING(__
  *    (input) Length (in octets) of data buffer.
  * @result Returns 0 on success, non-zero on failure.
  */
-int asl_decode_buffer(const char *in, char **buf, size_t *len) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+int asl_decode_buffer(const char *in, char **buf, size_t *len) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.10,10.12), ios(8.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Iterate forward through messages in an asl_object_t.
@@ -1013,7 +1019,7 @@ int asl_decode_buffer(const char *in, char **buf, size_t *len) __OSX_AVAILABLE_S
  *    which should be of type ASL_TYPE_CLIENT, ASL_TYPE_LIST, ASL_TYPE_STORE, or ASL_TYPE_FILE.
  *    Returns NULL when there are no more messages or if obj is not a type that holds messages.
  */
-asl_object_t asl_next(asl_object_t obj) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+asl_object_t asl_next(asl_object_t obj) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.10,10.12), ios(8.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Iterate backwards through messages in an asl_object_t.
@@ -1028,7 +1034,7 @@ asl_object_t asl_next(asl_object_t obj) __OSX_AVAILABLE_STARTING(__MAC_10_10, __
  *    which should be of type ASL_TYPE_CLIENT, ASL_TYPE_LIST, ASL_TYPE_STORE, or ASL_TYPE_FILE.
  *    Returns NULL when there are no more messages or if obj is not a type that holds messages.
  */
-asl_object_t asl_prev(asl_object_t obj) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+asl_object_t asl_prev(asl_object_t obj) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.10,10.12), ios(8.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Reset internal interation index in an asl_object_t.
@@ -1039,7 +1045,7 @@ asl_object_t asl_prev(asl_object_t obj) __OSX_AVAILABLE_STARTING(__MAC_10_10, __
  *    (input) Use 0 to position the internal interation index at the beginning of the asl_object_t object,
  *    and SIZE_MAX to position it at the end.  Other values of position may cause unpredictable behavior.
  */
-void asl_reset_iteration(asl_object_t obj, size_t position) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+void asl_reset_iteration(asl_object_t obj, size_t position) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.10,10.12), ios(8.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 /*!
  * Searches an asl_object_t.
@@ -1077,7 +1083,7 @@ void asl_reset_iteration(asl_object_t obj, size_t position) __OSX_AVAILABLE_STAR
  *    (input) ASL_MATCH_DIRECTION_FORWARD or ASL_MATCH_DIRECTION_REVERSE.
  * @result Returns an ASL object containing messages matching the querylist, or NULL if there are no matches.
  */
-asl_object_t asl_match(asl_object_t data, asl_object_t querylist, size_t *last, size_t start, size_t count, uint32_t duration, int32_t direction) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+asl_object_t asl_match(asl_object_t data, asl_object_t querylist, size_t *last, size_t start, size_t count, uint32_t duration, int32_t direction) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.10,10.12), ios(8.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 __END_DECLS
 

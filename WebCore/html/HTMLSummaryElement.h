@@ -31,20 +31,22 @@ class HTMLSummaryElement final : public HTMLElement {
 public:
     static Ref<HTMLSummaryElement> create(const QualifiedName&, Document&);
 
-    bool isMainSummary() const;
-    virtual bool willRespondToMouseClickEvents() override;
+    bool isActiveSummary() const;
+    bool willRespondToMouseClickEvents() final;
 
 private:
     HTMLSummaryElement(const QualifiedName&, Document&);
 
-    virtual RenderPtr<RenderElement> createElementRenderer(Ref<RenderStyle>&&, const RenderTreePosition&) override;
-    virtual bool childShouldCreateRenderer(const Node&) const override;
-    virtual void defaultEventHandler(Event*) override;
+    RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) final;
+    void defaultEventHandler(Event*) final;
 
-    virtual void didAddUserAgentShadowRoot(ShadowRoot*) override;
+    void didAddUserAgentShadowRoot(ShadowRoot*) final;
+
+    bool hasCustomFocusLogic() const final { return true; }
+
     HTMLDetailsElement* detailsElement() const;
 
-    virtual bool supportsFocus() const override;
+    bool supportsFocus() const final;
 };
 
 }

@@ -108,7 +108,7 @@ void ManifestItemList::AddFileSystemObject (char* path, StringSet& exceptions, b
 	StringSet::iterator it = exceptions.find (path);
 	if (it != exceptions.end ())
 	{
-		secdebug ("manifest", "Did not add %s to the manifest.", path);
+		secinfo ("manifest", "Did not add %s to the manifest.", path);
 		return;
 	}
 	
@@ -223,13 +223,13 @@ void ManifestItemList::ConvertToStringSet (const char* path, CFArrayRef exceptio
 			
 			// always prepend the prefix -- the spec says that all items in the exception list are relative to the root
 			std::string s = prefix + cfString (CFStringRef (dataRef));
-			secdebug ("manifest", "Uncanonicalized path is %s", s.c_str ());
+			secinfo ("manifest", "Uncanonicalized path is %s", s.c_str ());
 
 			// canonicalize the path and insert if successful.
 			char realPath [PATH_MAX];
 			if (realpath (s.c_str (), realPath) != NULL)
 			{
-				secdebug ("manifest", "Inserted path %s as an exception", realPath);
+				secinfo ("manifest", "Inserted path %s as an exception", realPath);
 				exceptions.insert (realPath);
 			}
 		}
@@ -362,7 +362,7 @@ ManifestInternal::ManifestInternal ()
 
 ManifestInternal::~ManifestInternal ()
 {
-	secdebug ("manifest", "Destroyed manifest internal %p", this);
+	secinfo ("manifest", "Destroyed manifest internal %p", this);
 }
 
 
@@ -493,7 +493,7 @@ void FileSystemEntryItem::SetPath (char* path)
 	
 	// while we are at it, extract that last name of the path name and save it off as the name
 	mName = StringTail (path);
-	secdebug ("manifest", "Created file item for %s with name %s", mPath.c_str (), mName.c_str ());
+	secinfo ("manifest", "Created file item for %s with name %s", mPath.c_str (), mName.c_str ());
 }
 
 
@@ -577,7 +577,7 @@ bool ManifestFileItem::FileSystemHasTrueForks (char* pathToFile)
     int result = statfs (pathToFile, &st);
     if (result != 0)
     {
-        secdebug ("manifest", "Could not get statfs (error was %s)", strerror (errno));
+        secinfo ("manifest", "Could not get statfs (error was %s)", strerror (errno));
         UnixError::throwMe ();
     }
     
@@ -632,7 +632,7 @@ ManifestFileItem::ManifestFileItem () : mNumForks (1)
 
 ManifestFileItem::~ManifestFileItem ()
 {
-	secdebug ("manifest", "Destroyed manifest item %p for path %s", this, mPath.c_str ());
+	secinfo ("manifest", "Destroyed manifest item %p for path %s", this, mPath.c_str ());
 }
 
 
@@ -734,7 +734,7 @@ static u_int32_t ExtractUInt32 (u_int8_t *&finger)
 
 void ManifestFileItem::ComputeDigestForAppleDoubleResourceFork (char* name, SHA1Digest &digest, size_t &fileLength)
 {
-	secdebug ("manifest", "Creating digest for AppleDouble resource fork %s", name);
+	secinfo ("manifest", "Creating digest for AppleDouble resource fork %s", name);
 
 	CC_SHA1_CTX digestContext;
 	CC_SHA1_Init (&digestContext);
@@ -760,7 +760,7 @@ void ManifestFileItem::ComputeDigestForAppleDoubleResourceFork (char* name, SHA1
 	
 	if (bytesRead != st.st_size)
 	{
-		delete [] buffer;
+		delete[] buffer;
 		UnixError::throwMe ();
 	}
 	
@@ -801,14 +801,14 @@ void ManifestFileItem::ComputeDigestForAppleDoubleResourceFork (char* name, SHA1
 	// compute the SHA1 hash
 	CC_SHA1_Final (digest, &digestContext);
 	
-	delete [] buffer;
+	delete[] buffer;
 }
 
 
 
 void ManifestFileItem::ComputeDigestForFile (char* name, SHA1Digest &digest, size_t &fileLength, struct stat &st)
 {
-	secdebug ("manifest", "Creating digest for %s", name);
+	secinfo ("manifest", "Creating digest for %s", name);
 
 	// create a context for the digest operation
 	CC_SHA1_CTX digestContext;
@@ -865,7 +865,7 @@ void ManifestFileItem::Compare (ManifestItem *manifestItem, bool compareOwnerAnd
 
 	ManifestFileItem* item = static_cast< ManifestFileItem*>(manifestItem);
 	
-	secdebug ("manifest", "Comparing file item %s against %s", GetName (), item->GetName ());
+	secinfo ("manifest", "Comparing file item %s against %s", GetName (), item->GetName ());
 
 	// the number of forks should be equal
 	if (mNumForks != item->mNumForks)
@@ -903,7 +903,7 @@ ManifestDirectoryItem::ManifestDirectoryItem ()
 
 ManifestDirectoryItem::~ManifestDirectoryItem ()
 {
-	secdebug ("manifest", "Destroyed directory item %p for path %s", this, mPath.c_str ());
+	secinfo ("manifest", "Destroyed directory item %p for path %s", this, mPath.c_str ());
 }
 
 
@@ -995,7 +995,7 @@ void ManifestDirectoryItem::SetPath (char* path, StringSet &exceptions, bool isR
 		FileSystemEntryItem::SetPath (path);
 	}
 	
-	secdebug ("manifest", "Added directory entry for %s with name %s", mPath.c_str (), mName.c_str ());
+	secinfo ("manifest", "Added directory entry for %s with name %s", mPath.c_str (), mName.c_str ());
 	
 	// enumerate the contents of the directory.
 	char* path_argv[] = { path, NULL };
@@ -1050,7 +1050,7 @@ void ManifestDirectoryItem::Compare (ManifestItem* a, bool compareOwnerAndGroup)
 {
 	FileSystemEntryItem::Compare (a, compareOwnerAndGroup);
 	ManifestDirectoryItem* aa = static_cast<ManifestDirectoryItem*>(a);
-	secdebug ("manifest", "Comparing directory item %s against %s", GetName (), aa->GetName ());
+	secinfo ("manifest", "Comparing directory item %s against %s", GetName (), aa->GetName ());
 	mDirectoryItems.Compare (aa->mDirectoryItems, compareOwnerAndGroup);
 }
 
@@ -1068,7 +1068,7 @@ ManifestSymLinkItem::ManifestSymLinkItem ()
 
 ManifestSymLinkItem::~ManifestSymLinkItem ()
 {
-	secdebug ("manifest", "Destroyed symlink item for %s", mPath.c_str ());
+	secinfo ("manifest", "Destroyed symlink item for %s", mPath.c_str ());
 }
 
 
@@ -1077,7 +1077,7 @@ void ManifestSymLinkItem::ComputeRepresentation ()
 {
 	char path [FILENAME_MAX];
 	int result = (int)readlink (mPath.c_str (), path, sizeof (path));
-	secdebug ("manifest", "Read content %s for %s", path, mPath.c_str ());
+	secinfo ("manifest", "Read content %s for %s", path, mPath.c_str ());
 	
 	// create a digest context
 	CC_SHA1_CTX digestContext;
@@ -1119,7 +1119,7 @@ void ManifestSymLinkItem::Compare (ManifestItem *a, bool compareOwnerAndGroup)
 {
 	FileSystemEntryItem::Compare (a, compareOwnerAndGroup);
 	ManifestSymLinkItem* aa = static_cast<ManifestSymLinkItem*>(a);
-	secdebug ("manifest", "Comparing symlink item %s against %s", GetName (), aa->GetName ());
+	secinfo ("manifest", "Comparing symlink item %s against %s", GetName (), aa->GetName ());
 	
 	// now compare the data
 	if (memcmp (&mDigest, &aa->mDigest, kSHA1DigestSize) != 0)
@@ -1142,7 +1142,7 @@ ManifestOtherItem::ManifestOtherItem ()
 
 ManifestOtherItem::~ManifestOtherItem ()
 {
-	secdebug ("manifest", "Destroyed other item for path %s", mPath.c_str ());
+	secinfo ("manifest", "Destroyed other item for path %s", mPath.c_str ());
 }
 
 
@@ -1157,5 +1157,5 @@ ManifestItemType ManifestOtherItem::GetItemType ()
 void ManifestOtherItem::Compare (ManifestItem *a, bool compareOwnerAndGroup)
 {
 	FileSystemEntryItem::Compare (a, compareOwnerAndGroup);
-	secdebug ("manifest", "Comparing other item %s against %s", GetName (), static_cast<FileSystemEntryItem*>(a)->GetName ());
+	secinfo ("manifest", "Comparing other item %s against %s", GetName (), static_cast<FileSystemEntryItem*>(a)->GetName ());
 }

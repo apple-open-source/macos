@@ -81,6 +81,12 @@ extern char *strsep(char **, const char *);
 #define PT_PGM		14	/* [UDP-encapsulated] Pragmatic General Multicast */
 #define PT_PGM_ZMTP1	15	/* ZMTP/1.0 inside PGM (native or UDP-encapsulated) */
 #define PT_LMP		16	/* Link Management Protocol */
+#ifdef __APPLE__
+#define PT_IPERF	17	/* iperf-2 UDP */
+#define PT_IPERF3	18	/* iperf-3 UDP */
+#define PT_IPERF3_64	19	/* iperf-3 UDP with 64 bit packet ID */
+#define PT_SUTTP	20	/* Simple UDP throughput test protocol */
+#endif /* __APPLE__ */
 
 #define ESRC(ep) ((ep)->ether_shost)
 #define EDST(ep) ((ep)->ether_dhost)

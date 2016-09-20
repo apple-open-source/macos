@@ -106,8 +106,8 @@ OSStatus AuthorizationCreate(const AuthorizationRights *rights,
     
     // Reply
     reply = xpc_connection_send_message_with_reply_sync(get_authorization_connection(), message);
-    require_action(reply != NULL, done, status = errAuthorizationInternal);
-    require_action(xpc_get_type(reply) != XPC_TYPE_ERROR, done, status = errAuthorizationInternal);
+    require_action_quiet(reply != NULL, done, status = errAuthorizationInternal);
+    require_action_quiet(xpc_get_type(reply) != XPC_TYPE_ERROR, done, status = errAuthorizationInternal);
 
     // Status
     status = (OSStatus)xpc_dictionary_get_int64(reply, AUTH_XPC_STATUS);

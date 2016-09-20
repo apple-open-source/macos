@@ -87,7 +87,6 @@ extern CFStringRef kSecAssessmentOperationTypeOpenDocument; // .. LaunchServices
 	@constant kSecAssessmentAllowWeak Allow signatures that contain known weaknesses, such as an
 		insecure resource envelope.
 	@constant kSecAssessmentIgnoreWhitelist Do not search the weak signature whitelist.
-	@constant kSecAssessmentFlagDequarantine Set the ASSESSMENT_OK flag if successful.
 	@constant kSecAssessmentFlagIgnoreActiveAssessments Permit parallel re-assessment of the same target.
 	@constant kSecAssessmentFlagLowPriority Run the assessment in low priority.
 
@@ -105,7 +104,7 @@ enum {
 	kSecAssessmentFlagEnforce = 1 << 26,			// force on (disable bypass switches)
 	kSecAssessmentFlagAllowWeak = 1 << 25,			// allow weak signatures
 	kSecAssessmentFlagIgnoreWhitelist = 1 << 24,	// do not search weak signature whitelist
-    kSecAssessmentFlagDequarantine = 1 << 23,		// set the ASSESSMENT_OK flag if successful
+    // 1 << 23 removed (was kSecAssessmentFlagDequarantine)
     kSecAssessmentFlagIgnoreActiveAssessments = 1 << 22, // permit parallel re-assessment of the same target
     kSecAssessmentFlagLowPriority = 1 << 21,        // run the assessment in low priority
 };
@@ -144,6 +143,8 @@ extern CFStringRef kSecAssessmentFeedbackProgress;		// progress reporting feedba
 extern CFStringRef kSecAssessmentFeedbackInfoCurrent;	// info key: current work progress
 extern CFStringRef kSecAssessmentFeedbackInfoTotal;		// info key: total expected work
 	
+extern CFStringRef kSecAssessmentContextKeyPrimarySignature; // on document assessment, treat code signature as primary and return its status
+	
 extern CFStringRef kSecAssessmentAssessmentVerdict;		// CFBooleanRef: master result - allow or deny
 extern CFStringRef kSecAssessmentAssessmentOriginator;	// CFStringRef: describing the signature originator
 extern CFStringRef kSecAssessmentAssessmentAuthority;	// CFDictionaryRef: authority used to arrive at result
@@ -154,6 +155,7 @@ extern CFStringRef kSecAssessmentAssessmentCodeSigningError; // error code retur
 extern CFStringRef kSecAssessmentAssessmentAuthorityRow; // (internal)
 extern CFStringRef kSecAssessmentAssessmentAuthorityOverride; // (internal)
 extern CFStringRef kSecAssessmentAssessmentAuthorityOriginalVerdict; // (internal)
+extern CFStringRef kSecAssessmentAssessmentAuthorityFlags; // (internal)
 
 extern CFStringRef kDisabledOverride;					// AuthorityOverride value for "Gatekeeper is disabled"
 

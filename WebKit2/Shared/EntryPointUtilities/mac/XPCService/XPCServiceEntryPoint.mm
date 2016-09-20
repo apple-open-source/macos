@@ -97,6 +97,12 @@ bool XPCServiceInitializerDelegate::getExtraInitializationData(HashMap<String, S
     if (!inspectorProcess.isEmpty())
         extraInitializationData.add(ASCIILiteral("inspector-process"), inspectorProcess);
 
+    if (!isClientSandboxed()) {
+        String userDirectorySuffix = xpc_dictionary_get_string(extraDataInitializationDataObject, "user-directory-suffix");
+        if (!userDirectorySuffix.isEmpty())
+            extraInitializationData.add(ASCIILiteral("user-directory-suffix"), userDirectorySuffix);
+    }
+
     return true;
 }
 
@@ -112,6 +118,15 @@ bool XPCServiceInitializerDelegate::hasEntitlement(const char* entitlement)
 bool XPCServiceInitializerDelegate::isClientSandboxed()
 {
     return processIsSandboxed(xpc_connection_get_pid(m_connection.get()));
+}
+
+void XPCServiceExit(OSObjectPtr<xpc_object_t>&& priorityBoostMessage)
+{
+    // Make sure to destroy the priority boost message to avoid leaking a transaction.
+    priorityBoostMessage = nullptr;
+    // Balances the xpc_transaction_begin() in XPCServiceInitializer.
+    xpc_transaction_end();
+    xpc_transaction_exit_clean();
 }
 
 } // namespace WebKit

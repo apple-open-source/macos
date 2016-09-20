@@ -38,15 +38,15 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-RenderTableRow::RenderTableRow(Element& element, Ref<RenderStyle>&& style)
-    : RenderBox(element, WTF::move(style), 0)
+RenderTableRow::RenderTableRow(Element& element, RenderStyle&& style)
+    : RenderBox(element, WTFMove(style), 0)
     , m_rowIndex(unsetRowIndex)
 {
     setInline(false);
 }
 
-RenderTableRow::RenderTableRow(Document& document, Ref<RenderStyle>&& style)
-    : RenderBox(document, WTF::move(style), 0)
+RenderTableRow::RenderTableRow(Document& document, RenderStyle&& style)
+    : RenderBox(document, WTFMove(style), 0)
     , m_rowIndex(unsetRowIndex)
 {
     setInline(false);
@@ -173,11 +173,13 @@ void RenderTableRow::layout()
             cell->setChildNeedsLayout(MarkOnlyThis);
 
         if (cell->needsLayout()) {
-            cell->computeAndSetBlockDirectionMargins(table());
+            cell->computeAndSetBlockDirectionMargins(*table());
             cell->layout();
         }
     }
 
+    clearOverflow();
+    addVisualEffectOverflow();
     // We only ever need to repaint if our cells didn't, which menas that they didn't need
     // layout, so we know that our bounds didn't change. This code is just making up for
     // the fact that we did not repaint in setStyle() because we had a layout hint.
@@ -196,7 +198,6 @@ void RenderTableRow::layout()
 LayoutRect RenderTableRow::clippedOverflowRectForRepaint(const RenderLayerModelObject* repaintContainer) const
 {
     ASSERT(parent());
-    
     // Rows and cells are in the same coordinate space. We need to both compute our overflow rect (which
     // will accommodate a row outline and any visual effects on the row itself), but we also need to add in
     // the repaint rects of cells.
@@ -261,7 +262,7 @@ void RenderTableRow::imageChanged(WrappedImagePtr, const IntRect*)
 
 RenderTableRow* RenderTableRow::createAnonymousWithParentRenderer(const RenderObject* parent)
 {
-    auto newRow = new RenderTableRow(parent->document(), RenderStyle::createAnonymousStyleWithDisplay(&parent->style(), TABLE_ROW));
+    auto newRow = new RenderTableRow(parent->document(), RenderStyle::createAnonymousStyleWithDisplay(parent->style(), TABLE_ROW));
     newRow->initializeStyle();
     return newRow;
 }

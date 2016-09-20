@@ -81,13 +81,13 @@ private:
     // similar to how PaintInfo/LayoutState cache values needed for
     // the current paint/layout.
     RenderStyle* style() const;
-    RenderStyle* rootElementStyle() const;
+    const RenderStyle* rootElementStyle() const;
     bool useSVGZoomRules() const;
 
     // FIXME: This should be part of some sort of StyleImageCache object which
     // is held by the StyleResolver, and likely provided to this object
     // during the resolve.
-    PassRefPtr<StyleImage> styleImage(CSSPropertyID, CSSValue&);
+    RefPtr<StyleImage> styleImage(CSSPropertyID, CSSValue&);
 
     StyleResolver* m_resolver;
 };

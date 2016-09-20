@@ -36,7 +36,7 @@ SOSCopyECWrappedData(ccec_pub_ctx *ec_ctx, CFDataRef data, CFErrorRef *error)
 
     require_quiet(SecRequirementError(data != NULL, error, CFSTR("data required for wrapping")), exit);
     require_quiet(SecRequirementError(ec_ctx != NULL, error, CFSTR("ec pub key required for wrapping")), exit);
-    require_quiet(ec_ctx, exit); // This should be removed when SecRequirementError can squelch analyzer warnings
+    require_quiet(ec_ctx != NULL, exit);
 
     outputLength = ccec_rfc6637_wrap_key_size(ec_ctx, CCEC_RFC6637_COMPACT_KEYS | DEBUGKEYS, CFDataGetLength(data));
 

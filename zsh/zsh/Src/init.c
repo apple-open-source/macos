@@ -105,6 +105,7 @@ loop(int toplevel, int justonce)
     Eprog prog;
     int err, non_empty = 0;
 
+    queue_signals();
     pushheap();
     if (!toplevel)
 	zcontext_save();
@@ -218,6 +219,7 @@ loop(int toplevel, int justonce)
 	if (((!interact || sourcelevel) && errflag) || retflag)
 	    break;
 	if (isset(SINGLECOMMAND) && toplevel) {
+	    dont_queue_signals();
 	    if (sigtrapped[SIGEXIT])
 		dotrap(SIGEXIT);
 	    exit(lastval);
@@ -229,6 +231,7 @@ loop(int toplevel, int justonce)
     if (!toplevel)
 	zcontext_restore();
     popheap();
+    unqueue_signals();
 
     if (err)
 	return LOOP_ERROR;
@@ -787,8 +790,10 @@ init_term(void)
 	    tcstr[TCCLEARSCREEN] = ztrdup("\14");
 	    tclen[TCCLEARSCREEN] = 1;
 	}
-	/* This might work, but there may be more to it */
-	rprompt_indent = ((hasam && !hasbw) || hasye || !tccan(TCLEFT));
+	rprompt_indent = 1;
+	/* The following is an attempt at a heuristic,
+	 * but it fails in some cases */
+	/* rprompt_indent = ((hasam && !hasbw) || hasye || !tccan(TCLEFT)); */
     }
     return 1;
 }
@@ -1117,8 +1122,9 @@ setupshin(char *runscript)
 	    exit(127);
 	}
 	scriptfilename = sfname;
-	zsfree(argzero); /* ztrdup'd in parseargs */
-	argzero = runscript;
+	sfname = argzero; /* copy to avoid race condition */
+	argzero = ztrdup(runscript);
+	zsfree(sfname); /* argzero ztrdup'd in parseargs */
     }
     /*
      * We only initialise line numbering once there is a script to
@@ -1425,7 +1431,7 @@ sourcehome(char *s)
     char *h;
 
     queue_signals();
-    if (EMULATION(EMULATE_SH|EMULATE_KSH) || !(h = getsparam("ZDOTDIR"))) {
+    if (EMULATION(EMULATE_SH|EMULATE_KSH) || !(h = getsparam_u("ZDOTDIR"))) {
 	h = home;
 	if (!h)
 	    return;

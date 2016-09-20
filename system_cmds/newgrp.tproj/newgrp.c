@@ -158,7 +158,9 @@ addgroup(const char *grpname)
 	gid_t egid;
 	struct group *grp;
 	char *ep, *pass;
+#ifndef __APPLE__
 	char **p;
+#endif
 	char *grp_passwd;
 #ifdef __APPLE__
 	uuid_t user_uuid;
@@ -218,7 +220,7 @@ addgroup(const char *grpname)
 	ngrps_max = sysconf(_SC_NGROUPS_MAX) + 1;
 	if ((grps = malloc(sizeof(gid_t) * ngrps_max)) == NULL)
 		err(1, "malloc");
-	if ((ngrps = getgroups(ngrps_max, (gid_t *)grps)) < 0) {
+	if ((ngrps = getgroups((int)ngrps_max, (gid_t *)grps)) < 0) {
 		warn("getgroups");
 		goto end;
 	}

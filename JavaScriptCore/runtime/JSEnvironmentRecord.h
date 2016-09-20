@@ -52,14 +52,14 @@ public:
         return bitwise_cast<WriteBarrierBase<Unknown>*>(bitwise_cast<char*>(this) + offsetOfVariables());
     }
     
-    bool isValid(ScopeOffset offset)
+    bool isValidScopeOffset(ScopeOffset offset)
     {
         return !!offset && offset.offset() < symbolTable()->scopeSize();
     }
     
     WriteBarrierBase<Unknown>& variableAt(ScopeOffset offset)
     {
-        ASSERT(isValid(offset));
+        ASSERT(isValidScopeOffset(offset));
         return variables()[offset.offset()];
     }
 
@@ -100,16 +100,18 @@ protected:
         Base::finishCreation(vm);
     }
     
-    void finishCreation(VM& vm)
+    void finishCreation(VM& vm, JSValue value)
     {
         finishCreationUninitialized(vm);
+        ASSERT(value == jsUndefined() || value == jsTDZValue());
         for (unsigned i = symbolTable()->scopeSize(); i--;) {
-            // Filling this with undefined is useful because that's what variables start out as.
-            variableAt(ScopeOffset(i)).setUndefined();
+            // Filling this with undefined/TDZEmptyValue is useful because that's what variables start out as.
+            variableAt(ScopeOffset(i)).setStartingValue(value);
         }
     }
 
     static void visitChildren(JSCell*, SlotVisitor&);
+    static void heapSnapshot(JSCell*, HeapSnapshotBuilder&);
 };
 
 } // namespace JSC

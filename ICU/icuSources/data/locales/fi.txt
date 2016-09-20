@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/fi.xml
@@ -91,6 +91,56 @@ fi{
                 }
             }
             patternsShort{
+                currencyFormat{
+                    1000{
+                        one{"0 t'.' ¤"}
+                        other{"0 t'.' ¤"}
+                    }
+                    10000{
+                        one{"00 t'.' ¤"}
+                        other{"00 t'.' ¤"}
+                    }
+                    100000{
+                        one{"000 t'.' ¤"}
+                        other{"000 t'.' ¤"}
+                    }
+                    1000000{
+                        one{"0 milj'.' ¤"}
+                        other{"0 milj'.' ¤"}
+                    }
+                    10000000{
+                        one{"00 milj'.' ¤"}
+                        other{"00 milj'.' ¤"}
+                    }
+                    100000000{
+                        one{"000 milj'.' ¤"}
+                        other{"000 milj'.' ¤"}
+                    }
+                    1000000000{
+                        one{"0 mrd'.' ¤"}
+                        other{"0 mrd'.' ¤"}
+                    }
+                    10000000000{
+                        one{"00 mrd'.' ¤"}
+                        other{"00 mrd'.' ¤"}
+                    }
+                    100000000000{
+                        one{"000 mrd'.' ¤"}
+                        other{"000 mrd'.' ¤"}
+                    }
+                    1000000000000{
+                        one{"0 bilj'.' ¤"}
+                        other{"0 bilj'.' ¤"}
+                    }
+                    10000000000000{
+                        one{"00 bilj'.' ¤"}
+                        other{"00 bilj'.' ¤"}
+                    }
+                    100000000000000{
+                        one{"000 bilj'.' ¤"}
+                        other{"000 bilj'.' ¤"}
+                    }
+                }
                 decimalFormat{
                     1000{
                         one{"0 t'.'"}
@@ -160,7 +210,7 @@ fi{
         minimumGroupingDigits{"1"}
         native{"latn"}
     }
-    Version{"2.1.13.33"}
+    Version{"2.1.22.93"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -427,8 +477,6 @@ fi{
                 "{1} 'klo' {0}",
                 "{1} {0}",
             }
-            NoonMarker{"keskipäivä"}
-            NoonMarkerNarrow{"kp."}
             appendItems{
                 Timezone{"{0} {1}"}
             }
@@ -551,6 +599,72 @@ fi{
                         "torstai",
                         "perjantai",
                         "lauantai",
+                    }
+                }
+            }
+            dayPeriod{
+                format{
+                    abbreviated{
+                        afternoon1{"iltap."}
+                        evening1{"ilta"}
+                        midnight{"keskiyö"}
+                        morning1{"aamu"}
+                        morning2{"aamup."}
+                        night1{"yö"}
+                        noon{"keskip."}
+                    }
+                    narrow{
+                        afternoon1{"ip."}
+                        evening1{"ilta"}
+                        midnight{"ky."}
+                        morning1{"aamu"}
+                        morning2{"ap."}
+                        night1{"yö"}
+                        noon{"kp."}
+                    }
+                    wide{
+                        afternoon1{"iltapäivällä"}
+                        evening1{"illalla"}
+                        midnight{"keskiyöllä"}
+                        morning1{"aamulla"}
+                        morning2{"aamupäivällä"}
+                        night1{"yöllä"}
+                        noon{"keskipäivällä"}
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        afternoon1{"iltap."}
+                        am{"ap."}
+                        evening1{"ilta"}
+                        midnight{"keskiyö"}
+                        morning1{"aamu"}
+                        morning2{"aamup."}
+                        night1{"yö"}
+                        noon{"keskip."}
+                        pm{"ip."}
+                    }
+                    narrow{
+                        afternoon1{"ip."}
+                        am{"ap."}
+                        evening1{"ilta"}
+                        midnight{"ky."}
+                        morning1{"aamu"}
+                        morning2{"ap."}
+                        night1{"yö"}
+                        noon{"kp."}
+                        pm{"ip."}
+                    }
+                    wide{
+                        afternoon1{"iltapäivä"}
+                        am{"ap."}
+                        evening1{"ilta"}
+                        midnight{"keskiyö"}
+                        morning1{"aamu"}
+                        morning2{"aamupäivä"}
+                        night1{"yö"}
+                        noon{"keskipäivä"}
+                        pm{"ip."}
                     }
                 }
             }
@@ -1017,6 +1131,13 @@ fi{
         }
         day-narrow{
             dn{"pv"}
+            relative{
+                "-1"{"eilen"}
+                "-2"{"toissap."}
+                "0"{"tänään"}
+                "1"{"huom."}
+                "2"{"ylihuom."}
+            }
             relativeTime{
                 future{
                     one{"{0} pv päästä"}
@@ -1030,6 +1151,13 @@ fi{
         }
         day-short{
             dn{"pv"}
+            relative{
+                "-1"{"eilen"}
+                "-2"{"toissap."}
+                "0"{"tänään"}
+                "1"{"huom."}
+                "2"{"ylihuom."}
+            }
             relativeTime{
                 future{
                     one{"{0} pv päästä"}
@@ -1187,6 +1315,11 @@ fi{
         }
         month-narrow{
             dn{"kk"}
+            relative{
+                "-1"{"viime kk"}
+                "0"{"tässä kk"}
+                "1"{"ensi kk"}
+            }
             relativeTime{
                 future{
                     one{"{0} kk päästä"}
@@ -1200,6 +1333,11 @@ fi{
         }
         month-short{
             dn{"kk"}
+            relative{
+                "-1"{"viime kk"}
+                "0"{"tässä kk"}
+                "1"{"ensi kk"}
+            }
             relativeTime{
                 future{
                     one{"{0} kk päästä"}
@@ -1213,6 +1351,11 @@ fi{
         }
         quarter{
             dn{"neljännesvuosi"}
+            relative{
+                "-1"{"viime neljännesvuonna"}
+                "0"{"tänä neljännesvuonna"}
+                "1"{"ensi neljännesvuonna"}
+            }
             relativeTime{
                 future{
                     one{"{0} neljännesvuoden päästä"}
@@ -1226,6 +1369,11 @@ fi{
         }
         quarter-narrow{
             dn{"nelj."}
+            relative{
+                "-1"{"viime nelj."}
+                "0"{"tänä nelj."}
+                "1"{"ensi nelj."}
+            }
             relativeTime{
                 future{
                     one{"{0} nelj. päästä"}
@@ -1239,6 +1387,11 @@ fi{
         }
         quarter-short{
             dn{"neljännes"}
+            relative{
+                "-1"{"viime neljänneksenä"}
+                "0"{"tänä neljänneksenä"}
+                "1"{"ensi neljänneksenä"}
+            }
             relativeTime{
                 future{
                     one{"{0} neljänneksen päästä"}
@@ -1289,6 +1442,9 @@ fi{
         }
         second-narrow{
             dn{"s"}
+            relative{
+                "0"{"nyt"}
+            }
             relativeTime{
                 future{
                     one{"{0} s päästä"}
@@ -1302,6 +1458,9 @@ fi{
         }
         second-short{
             dn{"s"}
+            relative{
+                "0"{"nyt"}
+            }
             relativeTime{
                 future{
                     one{"{0} s päästä"}
@@ -1417,6 +1576,11 @@ fi{
         }
         week-narrow{
             dn{"vk"}
+            relative{
+                "-1"{"viime vk"}
+                "0"{"tällä vk"}
+                "1"{"ensi vk"}
+            }
             relativeTime{
                 future{
                     one{"{0} vk päästä"}
@@ -1430,6 +1594,11 @@ fi{
         }
         week-short{
             dn{"vk"}
+            relative{
+                "-1"{"viime vk"}
+                "0"{"tällä vk"}
+                "1"{"ensi vk"}
+            }
             relativeTime{
                 future{
                     one{"{0} vk päästä"}
@@ -1464,6 +1633,11 @@ fi{
         }
         year-narrow{
             dn{"v"}
+            relative{
+                "-1"{"viime v"}
+                "0"{"tänä v"}
+                "1"{"ensi v"}
+            }
             relativeTime{
                 future{
                     one{"{0} v päästä"}
@@ -1477,14 +1651,19 @@ fi{
         }
         year-short{
             dn{"v"}
+            relative{
+                "-1"{"viime v"}
+                "0"{"tänä v"}
+                "1"{"ensi v"}
+            }
             relativeTime{
                 future{
-                    one{"{0} vuoden päästä"}
-                    other{"{0} vuoden päästä"}
+                    one{"{0} v päästä"}
+                    other{"{0} v päästä"}
                 }
                 past{
-                    one{"{0} vuotta sitten"}
-                    other{"{0} vuotta sitten"}
+                    one{"{0} v sitten"}
+                    other{"{0} v sitten"}
                 }
             }
         }

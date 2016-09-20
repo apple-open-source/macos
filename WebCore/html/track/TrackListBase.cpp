@@ -46,6 +46,16 @@ TrackListBase::TrackListBase(HTMLMediaElement* element, ScriptExecutionContext* 
 
 TrackListBase::~TrackListBase()
 {
+    clearElement();
+}
+
+void TrackListBase::clearElement()
+{
+    m_element = nullptr;
+    for (auto& track : m_inbandTracks) {
+        track->setMediaElement(nullptr);
+        track->clearClient();
+    }
 }
 
 Element* TrackListBase::element() const
@@ -58,38 +68,33 @@ unsigned TrackListBase::length() const
     return m_inbandTracks.size();
 }
 
-void TrackListBase::remove(TrackBase* track, bool scheduleEvent)
+void TrackListBase::remove(TrackBase& track, bool scheduleEvent)
 {
-    size_t index = m_inbandTracks.find(track);
+    size_t index = m_inbandTracks.find(&track);
     ASSERT(index != notFound);
 
-    ASSERT(track->mediaElement() == m_element);
-    track->setMediaElement(0);
+    ASSERT(track.mediaElement() == m_element);
+    track.setMediaElement(nullptr);
 
-    RefPtr<TrackBase> trackRef = m_inbandTracks[index];
+    Ref<TrackBase> trackRef = *m_inbandTracks[index];
 
     m_inbandTracks.remove(index);
 
     if (scheduleEvent)
-        scheduleRemoveTrackEvent(trackRef.release());
+        scheduleRemoveTrackEvent(WTFMove(trackRef));
 }
 
-bool TrackListBase::contains(TrackBase* track) const
+bool TrackListBase::contains(TrackBase& track) const
 {
-    return m_inbandTracks.find(track) != notFound;
+    return m_inbandTracks.find(&track) != notFound;
 }
 
-void TrackListBase::scheduleTrackEvent(const AtomicString& eventName, PassRefPtr<TrackBase> track)
+void TrackListBase::scheduleTrackEvent(const AtomicString& eventName, Ref<TrackBase>&& track)
 {
-    TrackEventInit initializer;
-    initializer.track = track;
-    initializer.bubbles = false;
-    initializer.cancelable = false;
-
-    m_asyncEventQueue.enqueueEvent(TrackEvent::create(eventName, initializer));
+    m_asyncEventQueue.enqueueEvent(TrackEvent::create(eventName, false, false, WTFMove(track)));
 }
 
-void TrackListBase::scheduleAddTrackEvent(PassRefPtr<TrackBase> track)
+void TrackListBase::scheduleAddTrackEvent(Ref<TrackBase>&& track)
 {
     // 4.8.10.5 Loading the media resource
     // ...
@@ -109,10 +114,10 @@ void TrackListBase::scheduleAddTrackEvent(PassRefPtr<TrackBase> track)
     // bubble and is not cancelable, and that uses the TrackEvent interface, with
     // the track attribute initialized to the text track's TextTrack object, at
     // the media element's textTracks attribute's TextTrackList object.
-    scheduleTrackEvent(eventNames().addtrackEvent, track);
+    scheduleTrackEvent(eventNames().addtrackEvent, WTFMove(track));
 }
 
-void TrackListBase::scheduleRemoveTrackEvent(PassRefPtr<TrackBase> track)
+void TrackListBase::scheduleRemoveTrackEvent(Ref<TrackBase>&& track)
 {
     // 4.8.10.6 Offsets into the media resource
     // If at any time the user agent learns that an audio or video track has
@@ -136,7 +141,7 @@ void TrackListBase::scheduleRemoveTrackEvent(PassRefPtr<TrackBase> track)
     // interface, with the track attribute initialized to the text track's
     // TextTrack object, at the media element's textTracks attribute's
     // TextTrackList object.
-    scheduleTrackEvent(eventNames().removetrackEvent, track);
+    scheduleTrackEvent(eventNames().removetrackEvent, WTFMove(track));
 }
 
 void TrackListBase::scheduleChangeEvent()
@@ -149,18 +154,12 @@ void TrackListBase::scheduleChangeEvent()
     // Whenever a track in a VideoTrackList that was previously not selected is
     // selected, the user agent must queue a task to fire a simple event named
     // change at the VideoTrackList object.
-
-    EventInit initializer;
-    initializer.bubbles = false;
-    initializer.cancelable = false;
-
-    m_asyncEventQueue.enqueueEvent(Event::create(eventNames().changeEvent, initializer));
+    m_asyncEventQueue.enqueueEvent(Event::create(eventNames().changeEvent, false, false));
 }
 
 bool TrackListBase::isAnyTrackEnabled() const
 {
-    for (size_t i = 0; i < m_inbandTracks.size(); ++i) {
-        TrackBase* track = m_inbandTracks[i].get();
+    for (auto& track : m_inbandTracks) {
         if (track->enabled())
             return true;
     }

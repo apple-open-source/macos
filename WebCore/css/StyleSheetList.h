@@ -18,12 +18,10 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef StyleSheetList_h
-#define StyleSheetList_h
+#pragma once
 
 #include <wtf/Forward.h>
 #include <wtf/RefCounted.h>
-#include <wtf/PassRefPtr.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -41,6 +39,7 @@ public:
     StyleSheet* item(unsigned index);
 
     HTMLStyleElement* getNamedItem(const String&) const;
+    Vector<AtomicString> supportedPropertyNames();
 
     Document* document() { return m_document; }
 
@@ -55,5 +54,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // StyleSheetList_h

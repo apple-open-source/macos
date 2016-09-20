@@ -312,7 +312,7 @@ void	merge_secflavs(struct nfs_sec *, struct nfs_sec *);
 void	del_mlist(char *, char *);
 int	expdir_search(struct expfs *, char *, struct sockaddr *, int *, struct nfs_sec *);
 int	do_export(int, struct expfs *, struct expdir *, struct grouplist *, int,
-		struct xucred *, struct nfs_sec *);
+		struct xucred *, struct nfs_sec *, u_int *);
 int	do_opt(char **, char **, struct grouplist *, int *,
 		int *, int *, struct xucred *, struct nfs_sec *, char *, u_char *);
 struct expfs *ex_search(u_char *);
@@ -387,6 +387,15 @@ SVCXPRT *udptransp, *tcptransp;
 SVCXPRT *udp6transp, *tcp6transp;
 int mounttcpsock, mountudpsock;
 int mounttcp6sock, mountudp6sock;
+
+/*
+ * We hold a power assertion to prevent idle sleep whenever we have
+ * exports visible to the network.  This is protected by the exports
+ * lock.
+ */
+#include <IOKit/pwr_mgt/IOPMLib.h>
+IOPMAssertionID	prevent_idle_sleep_assertion = kIOPMNullAssertionID;
+void		prevent_idle_sleep_assertion_update(u_int);
 
 /* export options */
 #define	OP_MAPROOT	0x00000001	/* map root credentials */
@@ -591,7 +600,8 @@ mountd(void)
 		if ((mountudp6sock = socket(AF_INET6, SOCK_DGRAM, 0)) < 0)
 			log(LOG_ERR, "can't create MOUNT/UDP IPv6 socket: %s (%d)", strerror(errno), errno);
 		if (mountudp6sock >= 0) {
-			setsockopt(mountudp6sock, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
+			if (setsockopt(mountudp6sock, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on)))
+				log(LOG_WARNING, "can't set IPV6_V6ONLY on socket: %s (%d)", strerror(errno), errno);
 			sin6->sin6_family = AF_INET6;
 			sin6->sin6_addr = in6addr_any;
 			sin6->sin6_port = htons(config.mount_port);
@@ -768,6 +778,10 @@ mountd(void)
 		log(LOG_ERR, "Can't create any MOUNT sockets!");
 		exit(1);
 	}
+
+	/* set minimum threads for mountd */
+	if (config.nfsd_threads)
+		rpc_control(RPC_SVC_MIN_THREADS_SET, (void *)config.nfsd_threads);
 
 	/* launch mountd pthread */
 	error = pthread_create(&thd, &pattr, mountd_thread, NULL);
@@ -1424,10 +1438,8 @@ get_uuid(const struct statfs *fsb, u_char *uuid)
 		}
 		if (uuidchanged) {
 			uuidstring(ulp->ul_dauuid, buf);
-			if (davalid)
-				uuidstring(dauuid, buf2);
-			else
-				strlcpy(buf2, "------------------------------------", sizeof(buf2));
+			/* If uuidchanged is true, then from above, davalid is always true */
+			uuidstring(dauuid, buf2);
 			if (ulp->ul_exported) {
 				/*
 				 * Woah!  We already have this file system exported with
@@ -1720,6 +1732,7 @@ uuidlist_restore(void)
 			log(LOG_ERR, "invalid entry at line %d of %s",
 				linenum, _PATH_MOUNTEXPLIST);
 			free(ulp);
+			ulp = NULL;
 			continue;
 		}
 		cp++;
@@ -1727,6 +1740,7 @@ uuidlist_restore(void)
 			log(LOG_ERR, "invalid entry at line %d of %s",
 				linenum, _PATH_MOUNTEXPLIST);
 			free(ulp);
+			ulp = NULL;
 			continue;
 		}
 		while (*cp && (*cp != ' '))
@@ -1735,6 +1749,7 @@ uuidlist_restore(void)
 			log(LOG_ERR, "invalid entry at line %d of %s",
 				linenum, _PATH_MOUNTEXPLIST);
 			free(ulp);
+			ulp = NULL;
 			continue;
 		}
 		cp++;
@@ -1786,14 +1801,13 @@ uuidlist_restore(void)
 		}
 		if (uuidchanged) {
 			/* The UUID changed, so we'll drop any entry */
+			/* If uuidchanged is true, then from above, davalid is always true */
 			uuidstring(ulp->ul_dauuid, buf);
-			if (davalid)
-				uuidstring(dauuid, buf2);
-			else
-				strlcpy(buf2, "------------------------------------", sizeof(buf2));
+			uuidstring(dauuid, buf2);
 			log(LOG_WARNING, "UUID changed for %s, was %s now %s",
 				ulp->ul_mntonname, buf, buf2);
 			free(ulp);
+			ulp = NULL;
 			continue;
 		}
 
@@ -2003,6 +2017,7 @@ get_exportlist(void)
 	struct uuidlist *ulp, *bestulp;
 	char buf[64], buf2[64];
 	int error, opt_flags, need_export, saved_errors;
+	u_int non_loopback_exports = 0;
 
 	lock_exports();
 
@@ -2544,7 +2559,7 @@ prepare_offline_export:
 			 */
 			if (need_export && !(checkexports && (opt_flags & OP_MISSING))) {
 				int expcmd = checkexports ? NXA_CHECK : NXA_REPLACE;
-				if (do_export(expcmd, xf, xd, tgrp, exflags, &anon, &secflavs)) {
+				if (do_export(expcmd, xf, xd, tgrp, exflags, &anon, &secflavs, &non_loopback_exports)) {
 					if ((errno == ENOTSUP) || (errno == EISDIR)) {
 						/* if ENOTSUP report lack of NFS export support */
 						/* if EISDIR report lack of extended readdir support */
@@ -2798,7 +2813,7 @@ exports_read:
 					g = g->gr_next;
 				}
 			}
-			if (tgrp && do_export(NXA_DELETE, xf, xd, tgrp, 0, NULL, NULL)) {
+			if (tgrp && do_export(NXA_DELETE, xf, xd, tgrp, 0, NULL, NULL, NULL)) {
 				log(LOG_ERR, "kernel export unregistration failed for %s, %s%s",
 					xd->xd_dir, grp_name(tgrp), tgrp->gr_next ? ", ..." : "");
 			}
@@ -2811,7 +2826,7 @@ exports_read:
 				DEBUG(1, "deleting default export for %s/%s", xf->xf_fsdir, xd->xd_xid->xid_path);
 				/* we need to delete this default export */
 				xd->xd_flags = xd->xd_oflags = 0;
-				if (do_export(NXA_DELETE, xf, xd, NULL, 0, NULL, NULL)) {
+				if (do_export(NXA_DELETE, xf, xd, NULL, 0, NULL, NULL, NULL)) {
 					log(LOG_ERR, "kernel export unregistration failed for %s,"
 						" default export", xd->xd_dir);
 				}
@@ -2876,6 +2891,13 @@ exports_read:
 		recheckexports = 1;
 	else
 		recheckexports = 0;
+
+	/*
+	 * Now that we've recomputed the export table, obtain / releaes our power
+	 * assertion as necessary.
+	 */
+	if (!checkexports)
+		prevent_idle_sleep_assertion_update(non_loopback_exports);
 
 	unlock_exports();
 
@@ -4319,7 +4341,8 @@ do_export(
 	struct grouplist *grplist,
 	int exflags,
 	struct xucred *cr,
-	struct nfs_sec *secflavs)
+	struct nfs_sec *secflavs,
+	u_int *non_loopback_exports_out)
 {
 	struct nfs_export_args nxa;
 	struct nfs_export_net_args *netargs, *na;
@@ -4328,6 +4351,8 @@ do_export(
 	struct sockaddr_in *sin, *imask;
 	struct sockaddr_in6 *sin6, *imask6;
 	uint32_t net;
+	u_int non_loopback_exports = 0;
+	int rv = 1;	/* default to failure */
 
 	nxa.nxa_flags = expcmd;
 	if ((exflags & NX_OFFLINE) && (expcmd != NXA_CHECK))
@@ -4392,6 +4417,7 @@ do_export(
 	na = netargs;
 	if (!grplist) {
 		/* default export, no address */
+		non_loopback_exports++;
 		INIT_NETARG(na, AF_INET);
 		sin->sin_len = 0;
 		imask->sin_len = 0;
@@ -4409,10 +4435,20 @@ do_export(
 				if (ai->ai_family == AF_INET) {
 					sin->sin_addr.s_addr = ((struct sockaddr_in*) AOK ai->ai_addr)->sin_addr.s_addr;
 					imask->sin_len = 0;
+					net = ntohl(sin->sin_addr.s_addr);
+					if (!IN_LOOPBACK(net))
+						non_loopback_exports++;
 				} else if (ai->ai_family == AF_INET6) {
 					bcopy(&((struct sockaddr_in6*) AOK ai->ai_addr)->sin6_addr, &sin6->sin6_addr,
 						sizeof(sin6->sin6_addr));
 					imask6->sin6_len = 0;
+					if (IN6_IS_ADDR_V4MAPPED(&sin6->sin6_addr) ||
+					    IN6_IS_ADDR_V4COMPAT(&sin6->sin6_addr)) {
+						net = ntohl(sin6->sin6_addr.__u6_addr.__u6_addr32[3]);
+						if (!IN_LOOPBACK(net))
+							non_loopback_exports++;
+					} else if (!IN6_IS_ADDR_LOOPBACK(&sin6->sin6_addr))
+						non_loopback_exports++;
 				}
 				na++;
 			}
@@ -4420,10 +4456,12 @@ do_export(
 		case GT_NET:
 			INIT_NETARG(na, grp->gr_u.gt_net.nt_family);
 			if (grp->gr_u.gt_net.nt_family == AF_INET) {
+				net = ntohl(grp->gr_u.gt_net.nt_net);
+				if (!IN_LOOPBACK(net))
+					non_loopback_exports++;
 				if (grp->gr_u.gt_net.nt_mask)
 				    imask->sin_addr.s_addr = grp->gr_u.gt_net.nt_mask;
 				else {
-				    net = ntohl(grp->gr_u.gt_net.nt_net);
 				    if (IN_CLASSA(net))
 					imask->sin_addr.s_addr = inet_addr("255.0.0.0");
 				    else if (IN_CLASSB(net))
@@ -4439,6 +4477,12 @@ do_export(
 			} else if (grp->gr_u.gt_net.nt_family == AF_INET6) {
 				bcopy(&grp->gr_u.gt_net.nt_net6, &sin6->sin6_addr, sizeof(sin6->sin6_addr));
 				bcopy(&grp->gr_u.gt_net.nt_mask6, &imask6->sin6_addr, sizeof(imask6->sin6_addr));
+				if (IN6_IS_ADDR_V4MAPPED(&sin6->sin6_addr) ||
+				    IN6_IS_ADDR_V4COMPAT(&sin6->sin6_addr)) {
+					net = ntohl(sin6->sin6_addr.__u6_addr.__u6_addr32[3]);
+					if (!IN_LOOPBACK(net))
+						non_loopback_exports++;
+				}
 				na++;
 			}
 			break;
@@ -4446,8 +4490,7 @@ do_export(
 			break;
 		default:
 			log(LOG_ERR, "Bad grouptype");
-			free(netargs);
-			return (1);
+			goto out;
 		}
 
 		grp = grp->gr_next;
@@ -4457,18 +4500,21 @@ do_export(
 		if ((expcmd != NXA_CHECK) && (expcmd != NXA_DELETE) && (errno == EPERM)) {
 			log(LOG_ERR, "Can't change attributes for %s.  See 'exports' man page.",
 				xd->xd_dir);
-			free(netargs);
-			return (1);
+			goto out;
 		}
 		log(LOG_ERR, "Can't %sexport %s: %s (%d)",
 			(expcmd == NXA_DELETE) ? "un" : "",
 			xd->xd_dir, strerror(errno), errno);
-		free(netargs);
-		return (1);
+		goto out;
 	}
 
-	free(netargs);
-	return (0);
+ 	rv = 0;
+	if (non_loopback_exports_out != NULL)
+		*non_loopback_exports_out += non_loopback_exports;
+ out:
+	if (netargs != NULL)
+		free(netargs);
+	return (rv);
 }
 
 /*
@@ -4795,8 +4841,10 @@ parsecred(char *namelist, struct xucred *cr)
 
 	/* try to make a copy of the string so we don't butcher the original */
 	namelistcopy = strdup(namelist);
-	if (namelistcopy)
-		namelist = namelistcopy;
+	if (namelistcopy == NULL)
+		return (ENOMEM);
+
+	namelist = namelistcopy;
 
 	/*
 	 * Set up the unpriviledged user.
@@ -5050,7 +5098,7 @@ check_options(int opt_flags)
 		return (1);
 	}
 	if ((opt_flags & OP_MASK) && (opt_flags & OP_NET) == 0) {
-		log(LOG_ERR, "-mask requires -net");
+		log(LOG_ERR, "-mask requires -network");
 		return (1);
 	}
 	return (0);
@@ -5331,3 +5379,29 @@ check_for_mount_changes(void)
 	return (gotmount);
 }
 
+void
+prevent_idle_sleep_assertion_update(u_int non_loopback_exports)
+{
+	IOReturn ioret;
+
+	if (non_loopback_exports) {
+		if (prevent_idle_sleep_assertion != kIOPMNullAssertionID)
+			return;
+		ioret = IOPMAssertionCreateWithName(kIOPMAssertionTypePreventUserIdleSystemSleep,
+						    kIOPMAssertionLevelOn,
+						    CFSTR("com.apple.nfsd"),
+						    &prevent_idle_sleep_assertion);
+		if (ioret != kIOReturnSuccess) {
+			prevent_idle_sleep_assertion = kIOPMNullAssertionID;
+			log(LOG_ERR, "Unable to take idle system sleep assertion");
+		}
+	} else {
+		if (prevent_idle_sleep_assertion == kIOPMNullAssertionID)
+			return;
+		ioret = IOPMAssertionRelease(prevent_idle_sleep_assertion);
+		if (ioret != kIOReturnSuccess)
+			log(LOG_ERR, "Unable to release idle system sleep assertion");
+		else
+			prevent_idle_sleep_assertion = kIOPMNullAssertionID;
+	}
+}

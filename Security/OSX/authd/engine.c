@@ -30,6 +30,8 @@ static void _set_auth_token_hints(auth_items_t, auth_token_t);
 static OSStatus _evaluate_user_credential_for_rule(engine_t, credential_t, rule_t, bool, bool, enum Reason *);
 static void _engine_set_credential(engine_t, credential_t, bool);
 static OSStatus _evaluate_rule(engine_t, rule_t, bool *);
+static bool _preevaluate_class_rule(engine_t engine, rule_t rule);
+static bool _preevaluate_rule(engine_t engine, rule_t rule);
 
 enum {
     kEngineHintsFlagTemporary = (1 << 30)
@@ -552,9 +554,8 @@ _evaluate_authentication(engine_t engine, rule_t rule)
         
         auth_items_set_data(engine->hints, AGENT_HINT_RETRY_REASON, &engine->reason, sizeof(engine->reason));
         auth_items_set_int(engine->hints, AGENT_HINT_TRIES, engine->tries);
-        
         status = _evaluate_mechanisms(engine, mechanisms);
-        
+
         LOGV("engine[%i]: evaluate mechanisms result %d", connection_get_pid(engine->conn), (int)status);
         
         // successfully ran mechanisms to obtain credential
@@ -794,6 +795,23 @@ _evaluate_class_rule(engine_t engine, rule_t rule, bool *save_pwd)
     return status;
 }
 
+static bool
+_preevaluate_class_rule(engine_t engine, rule_t rule)
+{
+	LOGV("engine[%i]: _preevaluate_class_rule %s", connection_get_pid(engine->conn), rule_get_name(rule));
+
+	__block bool password_only = false;
+	rule_delegates_iterator(rule, ^bool(rule_t delegate) {
+		if (_preevaluate_rule(engine, delegate)) {
+				password_only = true;
+				return false;
+		}
+		return true;
+	});
+
+	return password_only;
+}
+
 static OSStatus
 _evaluate_class_mechanism(engine_t engine, rule_t rule)
 {
@@ -876,7 +894,7 @@ _evaluate_rule(engine_t engine, rule_t rule, bool *save_pwd)
 
 	*save_pwd |= rule_get_extract_password(rule);
 
-    switch (rule_get_class(rule)) {
+	switch (rule_get_class(rule)) {
         case RC_ALLOW:
             LOGV("engine[%i]: rule set to allow", connection_get_pid(engine->conn));
             return errAuthorizationSuccess;
@@ -890,9 +908,30 @@ _evaluate_rule(engine_t engine, rule_t rule, bool *save_pwd)
         case RC_MECHANISM:
             return _evaluate_class_mechanism(engine, rule);
         default:
-            LOGE("engine[%i]: invalid class for rule or rule not found", connection_get_pid(engine->conn));
+            LOGE("engine[%i]: invalid class for rule or rule not found: %s", connection_get_pid(engine->conn), rule_get_name(rule));
             return errAuthorizationInternal;
     }
+}
+
+// returns true if this rule or its children contain RC_USER rule with password_only==true
+static bool
+_preevaluate_rule(engine_t engine, rule_t rule)
+{
+	LOGV("engine[%i]: _preevaluate_rule %s", connection_get_pid(engine->conn), rule_get_name(rule));
+
+	switch (rule_get_class(rule)) {
+		case RC_ALLOW:
+		case RC_DENY:
+			return false;
+		case RC_USER:
+			return rule_get_password_only(rule);
+		case RC_RULE:
+			return _preevaluate_class_rule(engine, rule);
+		case RC_MECHANISM:
+			return false;
+		default:
+			return false;
+	}
 }
 
 static rule_t
@@ -963,8 +1002,11 @@ static void _parse_environment(engine_t engine, auth_items_t environment)
     if (engine->flags & kAuthorizationFlagExtendRights) {
         const char * user = auth_items_get_string(environment, kAuthorizationEnvironmentUsername);
         const char * pass = auth_items_get_string(environment, kAuthorizationEnvironmentPassword);
+		const bool password_was_used = auth_items_get_string(environment, AGENT_CONTEXT_AP_PAM_SERVICE_NAME) == nil; // AGENT_CONTEXT_AP_PAM_SERVICE_NAME in the context means alternative PAM was used
+		require(password_was_used == true, done);
+
         bool shared = auth_items_exist(environment, kAuthorizationEnvironmentShared);
-        require(user != NULL, done);
+        require_action(user != NULL, done, LOGV("engine[%i]: user not used password", connection_get_pid(engine->conn)));
 
         struct passwd *pw = getpwnam(user);
         require_action(pw != NULL, done, LOGE("engine[%i]: user not found %s", connection_get_pid(engine->conn), user));
@@ -1012,6 +1054,8 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
 {
     __block OSStatus status = errAuthorizationSuccess;
     __block bool savePassword = false;
+	__block bool password_only = false;
+
     ccaudit_t ccaudit = NULL;
     
     require(rights != NULL, done);
@@ -1032,7 +1076,32 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
     
     engine->dismissed = false;
     auth_rights_clear(engine->grantedRights);
-    
+
+	{
+		// first check if any of rights uses rule with password-only set to true
+		// if so, set appropriate hint so SecurityAgent won't use alternate authentication methods like smartcard etc.
+		authdb_connection_t dbconn = authdb_connection_acquire(server_get_database()); // get db handle
+		auth_rights_iterate(rights, ^bool(const char *key) {
+			if (!key)
+				return true;
+			LOGV("engine[%i]: checking if rule %s contains password-only item", connection_get_pid(engine->conn), key);
+
+			rule_t rule = _find_rule(engine, dbconn, key);
+
+			if (rule && _preevaluate_rule(engine, rule)) {
+				password_only = true;
+				return false;
+			}
+			return true;
+		});
+		authdb_connection_release(&dbconn); // release db handle
+	}
+
+	if (password_only) {
+		LOGV("engine[%i]: password-only item found, forcing SecurityAgent to use password-only UI", connection_get_pid(engine->conn));
+		auth_items_set_bool(engine->immutable_hints, AGENT_HINT_PASSWORD_ONLY, true);
+	}
+
     auth_rights_iterate(rights, ^bool(const char *key) {
         if (!key)
             return true;
@@ -1119,13 +1188,18 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
         
         return true;
     });
+
+	if (password_only) {
+		LOGV("engine[%i]: removing password-only flag", connection_get_pid(engine->conn));
+		auth_items_remove(engine->immutable_hints, AGENT_HINT_PASSWORD_ONLY);
+	}
     
     if ((engine->flags & kAuthorizationFlagPartialRights) && (auth_rights_get_count(engine->grantedRights) > 0)) {
         status = errAuthorizationSuccess;
     }
     
     if (engine->dismissed) {
-		LOGE("engine[%i]: engine dismissed");
+		LOGE("engine: engine dismissed");
         status = errAuthorizationDenied;
     }
     

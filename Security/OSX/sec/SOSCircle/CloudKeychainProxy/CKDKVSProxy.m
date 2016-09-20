@@ -39,7 +39,6 @@
 
 #import "CKDKVSProxy.h"
 #import "CKDPersistentState.h"
-#import "CKDUserInteraction.h"
 
 #include <Security/SecureObjectSync/SOSARCDefines.h>
 #import <IDS/IDS.h>
@@ -77,7 +76,6 @@ static NSString *kKeyUnlockNotificationRequested = @"unlockNotificationRequested
 static NSString *kKeySyncWithPeersPending = @"SyncWithPeersPending";
 static NSString *kKeyEnsurePeerRegistration = @"EnsurePeerRegistration";
 static NSString *kKeyDSID = @"DSID";
-
 static NSString *kMonitorState = @"MonitorState";
 
 static NSString *kMonitorPenaltyBoxKey = @"Penalty";
@@ -98,8 +96,7 @@ static NSString *kMonitorWroteInTimeSlice = @"TimeSlice";
 #define kSecServerKeychainChangedNotification "com.apple.security.keychainchanged"
 
 static int max_penalty_timeout = 32;
-static int seconds_per_minute = 60;
-
+static int seconds_per_minute = 5;
 enum
 {
     kCallbackMethodSecurityd = 0,
@@ -116,11 +113,6 @@ static const int64_t kSyncTimerLeeway = (NSEC_PER_MSEC * 250);      // 250ms lee
 
 @interface NSUbiquitousKeyValueStore (NSUbiquitousKeyValueStore_PrivateZ)
 - (void) _synchronizeWithCompletionHandler:(void (^)(NSError *error))completionHandler;
-
-/*
- // SPI For Security
- - (void) synchronizeWithCompletionHandler:(void (^)(NSError *error))completionHandler;
- */
 
 @end
 
@@ -160,7 +152,7 @@ static const int64_t kSyncTimerLeeway = (NSEC_PER_MSEC * 250);      // 250ms lee
             [self timerFired];
         });
         dispatch_resume(_syncTimer);
-        
+
         _monitor = [NSMutableDictionary dictionary];
 
         [[NSNotificationCenter defaultCenter]
@@ -174,12 +166,13 @@ static const int64_t kSyncTimerLeeway = (NSEC_PER_MSEC * 250);      // 250ms lee
                                                      name:NSUbiquitousKeyValueStoreDidChangeExternallyNotification
                                                    object:nil];
         int notificationToken;
-        notify_register_dispatch(kSecServerKeychainChangedNotification, &notificationToken, _ckdkvsproxy_queue,
+        notify_register_dispatch(kSecServerKeychainChangedNotification, &notificationToken, dispatch_get_main_queue(),
                                  ^ (int token __unused)
                                  {
                                      secinfo("backoff", "keychain changed, wiping backoff monitor state");
                                      _monitor = [NSMutableDictionary dictionary];
                                  });
+
         [self importKeyInterests: [SOSPersistentState registeredKeys]];
 
         // Register for lock state changes
@@ -274,7 +267,7 @@ static const int64_t kSyncTimerLeeway = (NSEC_PER_MSEC * 250);      // 250ms lee
 
 -(void) increasePenalty:(NSNumber*)currentPenalty key:(NSString*)key keyEntry:(NSMutableDictionary**)keyEntry
 {
-    secnotice("backoff", "increasing penalty!");
+    secinfo("backoff", "increasing penalty!");
     int newPenalty = 0;
     if([currentPenalty intValue] == max_penalty_timeout){
         newPenalty = max_penalty_timeout;
@@ -283,12 +276,12 @@ static const int64_t kSyncTimerLeeway = (NSEC_PER_MSEC * 250);      // 250ms lee
         newPenalty = 1;
     else
         newPenalty = [currentPenalty intValue]*2;
-    
-    secnotice("backoff", "key %@, waiting %d minutes long to send next messages", key, newPenalty);
-    
+
+    secinfo("backoff", "key %@, waiting %d minutes long to send next messages", key, newPenalty);
+
     NSNumber* penalty_timeout = [[NSNumber alloc]initWithInt:newPenalty];
     dispatch_source_t existingTimer = [*keyEntry valueForKey:kMonitorPenaltyTimer];
-    
+
     if(existingTimer != nil){
         [*keyEntry removeObjectForKey:kMonitorPenaltyTimer];
         dispatch_suspend(existingTimer);
@@ -300,7 +293,7 @@ static const int64_t kSyncTimerLeeway = (NSEC_PER_MSEC * 250);      // 250ms lee
         dispatch_source_t timer = [self setNewTimer:newPenalty key:key];
         [*keyEntry setObject:timer forKey:kMonitorPenaltyTimer];
     }
-    
+
     [*keyEntry setObject:penalty_timeout forKey:kMonitorPenaltyBoxKey];
     [_monitor setObject:*keyEntry forKey:key];
 }
@@ -308,16 +301,16 @@ static const int64_t kSyncTimerLeeway = (NSEC_PER_MSEC * 250);      // 250ms lee
 -(void) decreasePenalty:(NSNumber*)currentPenalty key:(NSString*)key keyEntry:(NSMutableDictionary**)keyEntry
 {
     int newPenalty = 0;
-    secnotice("backoff","decreasing penalty!");
+    secinfo("backoff","decreasing penalty!");
     if([currentPenalty intValue] == 0 || [currentPenalty intValue] == 1)
         newPenalty = 0;
     else
         newPenalty = [currentPenalty intValue]/2;
-    
-    secnotice("backoff","key %@, waiting %d minutes long to send next messages", key, newPenalty);
-    
+
+    secinfo("backoff","key %@, waiting %d minutes long to send next messages", key, newPenalty);
+
     NSNumber* penalty_timeout = [[NSNumber alloc]initWithInt:newPenalty];
-    
+
     dispatch_source_t existingTimer = [*keyEntry valueForKey:kMonitorPenaltyTimer];
     if(existingTimer != nil){
         [*keyEntry removeObjectForKey:kMonitorPenaltyTimer];
@@ -338,7 +331,7 @@ static const int64_t kSyncTimerLeeway = (NSEC_PER_MSEC * 250);      // 250ms lee
             [*keyEntry setObject:timer forKey:kMonitorPenaltyTimer];
         }
     }
-    
+
     [*keyEntry setObject:penalty_timeout forKey:kMonitorPenaltyBoxKey];
     [_monitor setObject:*keyEntry forKey:key];
     
@@ -346,24 +339,24 @@ static const int64_t kSyncTimerLeeway = (NSEC_PER_MSEC * 250);      // 250ms lee
 
 - (void)penaltyTimerFired:(NSString*)key
 {
-    secnotice("backoff", "key: %@, !!!!!!!!!!!!!!!!penalty timeout is up!!!!!!!!!!!!", key);
+    secinfo("backoff","key: %@, !!!!!!!!!!!!!!!!penalty timeout is up!!!!!!!!!!!!", key);
     NSMutableDictionary *keyEntry = [_monitor objectForKey:key];
     NSMutableDictionary *queuedMessages = [keyEntry objectForKey:kMonitorMessageQueue];
-    secnotice("backoff","key: %@, queuedMessages: %@", key, queuedMessages);
+    secinfo("backoff","key: %@, queuedMessages: %@", key, queuedMessages);
     if(queuedMessages && [queuedMessages count] != 0){
-        secnotice("backoff","key: %@, message queue not empty, writing to KVS!", key);
+        secinfo("backoff","key: %@, message queue not empty, writing to KVS!", key);
         [self setObjectsFromDictionary:queuedMessages];
         [keyEntry setObject:[NSMutableDictionary dictionary] forKey:kMonitorMessageQueue];
     }
     //decrease timeout since we successfully wrote messages out
     NSNumber *penalty_timeout = [keyEntry valueForKey:kMonitorPenaltyBoxKey];
     [self decreasePenalty:penalty_timeout key:key keyEntry:&keyEntry];
-    
+
     //recompute the timetable and number of consecutive writes to KVS
     NSMutableDictionary *timetable = [keyEntry valueForKey:kMonitorTimeTable];
     NSNumber *consecutiveWrites = [keyEntry valueForKey:kMonitorConsecutiveWrites];
     [self recordTimestampForAppropriateInterval:&timetable key:key consecutiveWrites:&consecutiveWrites];
-    
+
     [keyEntry setObject:consecutiveWrites forKey:kMonitorConsecutiveWrites];
     [keyEntry setObject:timetable forKey:kMonitorTimeTable];
     [_monitor setObject:keyEntry forKey:key];
@@ -377,7 +370,7 @@ static const int64_t kSyncTimerLeeway = (NSEC_PER_MSEC * 250);      // 250ms lee
     NSMutableDictionary *thirdMinute = [NSMutableDictionary dictionaryWithObjectsAndKeys:[currentTime dateByAddingTimeInterval: seconds_per_minute * 3], kMonitorThirdMinute, @"NO",kMonitorWroteInTimeSlice, nil];
     NSMutableDictionary *fourthMinute = [NSMutableDictionary dictionaryWithObjectsAndKeys:[currentTime dateByAddingTimeInterval: seconds_per_minute * 4],kMonitorFourthMinute, @"NO", kMonitorWroteInTimeSlice, nil];
     NSMutableDictionary *fifthMinute = [NSMutableDictionary dictionaryWithObjectsAndKeys:[currentTime dateByAddingTimeInterval: seconds_per_minute * 5], kMonitorFifthMinute, @"NO", kMonitorWroteInTimeSlice, nil];
-    
+
     NSMutableDictionary *timeTable = [NSMutableDictionary dictionaryWithObjectsAndKeys: firstMinute, kMonitorFirstMinute,
                                       secondMinute, kMonitorSecondMinute,
                                       thirdMinute, kMonitorThirdMinute,
@@ -390,11 +383,11 @@ static const int64_t kSyncTimerLeeway = (NSEC_PER_MSEC * 250);      // 250ms lee
 {
     NSMutableDictionary *timeTable = [self initializeTimeTable:key];
     NSDate *currentTime = [NSDate date];
-    
+
     NSMutableDictionary *keyEntry = [NSMutableDictionary dictionaryWithObjectsAndKeys: key, kMonitorMessageKey, @0, kMonitorConsecutiveWrites, currentTime, kMonitorLastWriteTimestamp, @0, kMonitorPenaltyBoxKey, timeTable, kMonitorTimeTable,[NSMutableDictionary dictionary], kMonitorMessageQueue, nil];
-    
+
     [_monitor setObject:keyEntry forKey:key];
-    
+
 }
 
 - (void)recordTimestampForAppropriateInterval:(NSMutableDictionary**)timeTable key:(NSString*)key consecutiveWrites:(NSNumber**)consecutiveWrites
@@ -408,13 +401,13 @@ static const int64_t kSyncTimerLeeway = (NSEC_PER_MSEC * 250);      // 250ms lee
      {
          if(foundTimeSlot == YES)
              return;
-         [*timeTable enumerateKeysAndObjectsUsingBlock: ^(id minute, id obj, BOOL *stop2)
+         [*timeTable enumerateKeysAndObjectsUsingBlock: ^(id key, id obj, BOOL *stop)
           {
               if(foundTimeSlot == YES)
                   return;
-              if([sortedKey isEqualToString:minute]){
+              if([sortedKey isEqualToString:key]){
                   NSMutableDictionary *minutesTable = (NSMutableDictionary*)obj;
-                  NSString *minuteKey = (NSString*)minute;
+                  NSString *minuteKey = (NSString*)key;
                   NSDate *date = [minutesTable valueForKey:minuteKey];
                   if([date compare:currentTime] == NSOrderedDescending){
                       foundTimeSlot = YES;
@@ -437,18 +430,18 @@ static const int64_t kSyncTimerLeeway = (NSEC_PER_MSEC * 250);      // 250ms lee
               }
           }];
      }];
-    
+
     if(foundTimeSlot == NO){
         //reset the time table
-        secnotice("backoff","didn't find a time slot, resetting the table");
+        secinfo("backoff","didn't find a time slot, resetting the table");
         NSMutableDictionary *lastTable = [*timeTable valueForKey:kMonitorFifthMinute];
         NSDate *lastDate = [lastTable valueForKey:kMonitorFifthMinute];
-        
+
         if((double)[currentTime timeIntervalSinceDate: lastDate] >= seconds_per_minute){
             *consecutiveWrites = [[NSNumber alloc]initWithInt:0];
         }
         else{
-            NSString* written = [lastTable valueForKey:kMonitorWroteInTimeSlice];
+           NSString* written = [lastTable valueForKey:kMonitorWroteInTimeSlice];
             if([written isEqualToString:@"YES"]){
                 cWrites++;
                 *consecutiveWrites = [[NSNumber alloc]initWithInt:cWrites];
@@ -457,7 +450,7 @@ static const int64_t kSyncTimerLeeway = (NSEC_PER_MSEC * 250);      // 250ms lee
                 *consecutiveWrites = [[NSNumber alloc]initWithInt:0];
             }
         }
-        
+
         *timeTable  = [self initializeTimeTable:key];
         return;
     }
@@ -484,26 +477,26 @@ static const int64_t kSyncTimerLeeway = (NSEC_PER_MSEC * 250);      // 250ms lee
                  NSMutableDictionary *timeTable = [keyEntry objectForKey: kMonitorTimeTable];
                  NSNumber *existingWrites = [keyEntry objectForKey: kMonitorConsecutiveWrites];
                  NSDate *currentTime = [NSDate date];
-                 
+
                  [self recordTimestampForAppropriateInterval:&timeTable key:key consecutiveWrites:&existingWrites];
-                 
+
                  int consecutiveWrites = [existingWrites intValue];
-                 secnotice("backoff","consecutive writes: %d", consecutiveWrites);
+                 secinfo("backoff","consecutive writes: %d", consecutiveWrites);
                  [keyEntry setObject:existingWrites forKey:kMonitorConsecutiveWrites];
                  [keyEntry setObject:timeTable forKey:kMonitorTimeTable];
                  [keyEntry setObject:currentTime forKey:kMonitorLastWriteTimestamp];
                  [_monitor setObject:keyEntry forKey:key];
-                 
+
                  if([penalty_timeout intValue] != 0 || ((double)[currentTime timeIntervalSinceDate: lastWriteTimestamp] <= 60 && consecutiveWrites >= 5)){
                      if([penalty_timeout intValue] != 0)
-                         secnotice("backoff","still in timeout, shouldn't write anything to KVS in this time period");
-                     else
-                         secnotice("backoff","monitor: keys have been written for 5 or more minutes, time to bump penalty timers");
+                         secinfo("backoff","still in timeout, shouldn't write anything to KVS in this time period");
+                        else
+                         secinfo("backoff","monitor: keys have been written for 5 or more minutes, time to bump penalty timers");
                      [self increasePenalty:penalty_timeout key:key keyEntry:&keyEntry];
                  }
                  //keep writing freely but record it
                  else if((double)[currentTime timeIntervalSinceDate: lastWriteTimestamp] <= 60 && consecutiveWrites < 5){
-                     secnotice("backoff","monitor: still writing freely");
+                     secinfo("backoff","monitor: still writing freely");
                  }
              }
          }];
@@ -519,9 +512,9 @@ static const int64_t kSyncTimerLeeway = (NSEC_PER_MSEC * 250);      // 250ms lee
          NSNumber *penalty = [keyEntry objectForKey:kMonitorPenaltyBoxKey];
          if([penalty intValue] != 0){
              NSMutableDictionary* existingQueue = [keyEntry valueForKey:kMonitorMessageQueue];
-             
+
              [existingQueue setObject:obj forKey:key];
-             
+
              [keyEntry setObject:existingQueue forKey:kMonitorMessageQueue];
              [_monitor setObject:keyEntry forKey:key];
          }
@@ -539,34 +532,34 @@ static const int64_t kSyncTimerLeeway = (NSEC_PER_MSEC * 250);      // 250ms lee
     {
         secnoticeq("dsid", "Ensure DSIDs match");
         NSMutableDictionary *mutableValues = [NSMutableDictionary dictionaryWithCapacity:0];
-        
-        secnotice("backoff","!!writing these keys to KVS!!: %@", values);
-        [values enumerateKeysAndObjectsUsingBlock: ^(id key, id obj, BOOL *stop)
-         {
-             if (obj == NULL || obj == [NSNull null])
-                 [store removeObjectForKey:key];
-             
-             else if([key isEqualToString: @"^OfficialDSID"]){
-                 _dsid = obj;
-                 secnotice("dsid", "setting dsid to %@", obj);
-             }
-             
-             else if([key isEqual: @"^Required"]){
-                 if( [_dsid isEqualToString: @""]){
-                     secdebug("dsid", "CloudKeychainProxy setting dsid to :%@ from securityd", obj);
-                     _dsid = obj;
-                 }
-                     
-                 else if(![_dsid isEqual: obj]){
-                     secerror("Account DSIDs do not match, cloud keychain proxy: %@, securityd: %@", _dsid, obj);
-                     secerror("Not going to write these: %@ into KVS!", values);
-                     return;
-                 }
-             }
-             else
-                 [ mutableValues setValue:obj forKey:key ];
 
-         }];
+        secinfo("backoff","!!writing these keys to KVS!!: %@", values);
+            [values enumerateKeysAndObjectsUsingBlock: ^(id key, id obj, BOOL *stop)
+             {
+                 if (obj == NULL || obj == [NSNull null])
+                     [store removeObjectForKey:key];
+
+                 else if([key isEqualToString: @"^OfficialDSID"]){
+                     _dsid = obj;
+                     secnotice("dsid", "setting dsid to %@", obj);
+                 }
+
+                 else if([key isEqual: @"^Required"]){
+                     if( [_dsid isEqualToString: @""]){
+                         secdebug("dsid", "CloudKeychainProxy setting dsid to :%@ from securityd", obj);
+                         _dsid = obj;
+                     }
+
+                     else if(![_dsid isEqual: obj]){
+                         secerror("Account DSIDs do not match, cloud keychain proxy: %@, securityd: %@", _dsid, obj);
+                         secerror("Not going to write these: %@ into KVS!", values);
+                         return;
+                     }
+                 }
+                 else
+                     [ mutableValues setObject:obj forKey:key ];
+                 
+             }];
         
          secnoticeq("keytrace", "%@ sending: %@", self, [[mutableValues allKeys] componentsJoinedByString: @" "]);
          [mutableValues enumerateKeysAndObjectsUsingBlock: ^(id key, id obj, BOOL *stop)
@@ -756,6 +749,7 @@ static void wait_until(dispatch_time_t when) {
 
 - (NSDictionary*) exportKeyInterests
 {
+
     return @{ kKeyAlwaysKeys:[_alwaysKeys allObjects],
               kKeyFirstUnlockKeys:[_firstUnlockKeys allObjects],
               kKeyUnlockedKeys:[_unlockedKeys allObjects],
@@ -848,33 +842,6 @@ static void wait_until(dispatch_time_t when) {
     if ([newKeysForCurrentLockState count] != 0) {
         [self processPendingKeysForCurrentLockState];
     }
-}
-
-- (NSDictionary *)localNotification:(NSDictionary *)localNotificationDict outFlags:(int64_t *)outFlags
-{
-    __block bool done = false;
-    __block int64_t returnedFlags = 0;
-    __block NSDictionary *responses = NULL;
-    
-    CKDUserInteraction *cui = [CKDUserInteraction sharedInstance];
-    [cui requestShowNotification:localNotificationDict completion:^ bool (CFDictionaryRef userResponses, int64_t flags)
-     {
-         responses = [NSDictionary dictionaryWithDictionary:(__bridge NSDictionary *)userResponses];
-         returnedFlags = flags;
-         secdebug(XPROXYSCOPE, "%@ requestShowNotification: dict: %@, flags: %#llx", self, responses, returnedFlags);
-         done = true;
-         return true;
-     }];
-    
-    // TODO: replace with e.g. dispatch calls to wait, or semaphore
-    while (!done)
-        sleep(1);
-    if (outFlags)
-    {
-        secdebug(XPROXYSCOPE, "%@ outFlags: %#llx", self, returnedFlags);
-        *outFlags = returnedFlags;
-    }
-    return responses;
 }
 
 - (void)saveToUbiquitousStore
@@ -1007,7 +974,6 @@ static void wait_until(dispatch_time_t when) {
 - (void) calloutWith: (void(^)(NSSet *pending, bool syncWithPeersPending, bool ensurePeerRegistration, dispatch_queue_t queue, void(^done)(NSSet *handledKeys, bool handledSyncWithPeers, bool handledEnsurePeerRegistration))) callout
 {
     // In CKDKVSProxy's serial queue
-    dispatch_queue_t ckdkvsproxy_queue = dispatch_get_main_queue();
 
     _oldInCallout = YES;
     
@@ -1019,7 +985,7 @@ static void wait_until(dispatch_time_t when) {
         __block bool mySyncWithPeersPending;
         __block bool myEnsurePeerRegistration;
         __block bool wasLocked;
-        dispatch_sync(ckdkvsproxy_queue, ^{
+        dispatch_sync(_ckdkvsproxy_queue, ^{
             myPending = [_pendingKeys copy];
             mySyncWithPeersPending = _syncWithPeersPending;
             myEnsurePeerRegistration = _ensurePeerRegistration;
@@ -1033,7 +999,7 @@ static void wait_until(dispatch_time_t when) {
             _shadowSyncWithPeersPending = NO;
         });
 
-        callout(myPending, mySyncWithPeersPending, myEnsurePeerRegistration, ckdkvsproxy_queue, ^(NSSet *handledKeys, bool handledSyncWithPeers, bool handledEnsurePeerRegistration) {
+        callout(myPending, mySyncWithPeersPending, myEnsurePeerRegistration, _ckdkvsproxy_queue, ^(NSSet *handledKeys, bool handledSyncWithPeers, bool handledEnsurePeerRegistration) {
             secdebug("event", "%@ %s%s before callout handled: %s%s", self, mySyncWithPeersPending ? "S" : "s", myEnsurePeerRegistration ? "E" : "e", handledSyncWithPeers ? "S" : "s", handledEnsurePeerRegistration ? "E" : "e");
             
             // In CKDKVSProxy's serial queue

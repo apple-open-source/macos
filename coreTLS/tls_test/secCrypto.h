@@ -48,9 +48,7 @@ unsigned int eckey_der_len;
 extern unsigned char eccert_der[];
 extern unsigned int eccert_der_len;
 
-int tls_create_peer_trust(tls_handshake_t hdsk, SecTrustRef *trustRef);
-int tls_set_peer_pubkey(tls_handshake_t hdsk, SecTrustRef trustRef);
-int tls_evaluate_trust(tls_handshake_t hdsk, SecTrustRef trustRef);
+int tls_evaluate_trust(tls_handshake_t hdsk, bool server);
 int tls_set_encrypt_pubkey(tls_handshake_t hdsk, const SSLCertificate *certchain);
 
 int init_server_keys(bool ecdsa,

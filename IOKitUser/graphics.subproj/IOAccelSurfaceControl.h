@@ -24,6 +24,10 @@
 #ifndef _IOACCEL_SURFACE_CONTROL_H
 #define _IOACCEL_SURFACE_CONTROL_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <IOKit/graphics/IOAccelSurfaceConnect.h>
 
 #define IOACCEL_SURFACE_CONTROL_REV     8
@@ -83,6 +87,10 @@ IOReturn IOAccelDestroyAccelID(IOOptionBits options, IOAccelID identifier);
 
 IOReturn IOAccelSurfaceControl( IOAccelConnect connect,
                                     UInt32 selector, UInt32 arg, UInt32 * result);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _IOACCEL_SURFACE_CONTROL_H */
 

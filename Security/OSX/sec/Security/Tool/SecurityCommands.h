@@ -17,7 +17,7 @@ SECURITY_COMMAND("add-internet-password", keychain_add_internet_password,
 
 SECURITY_COMMAND("item", keychain_item,
                  "[-v][-a|-D|-u attr=value,...|[-q][-g] attr=value,...] [-d password | -f datafile] [attr=value,...]\n"
-                 "-q Query for item matching (default)\n"
+                 "-q Query for item matching (default). Note: as default query skips items with ACL, you have to define 'u_AuthUI=u_AuthUIA' if you want to query items with ACL\n"
                  "-g Get password data\n"
                  "-a Add item to keychain\n"
                  "-u Update item in keychain (require query to match)\n"
@@ -159,3 +159,13 @@ SECURITY_COMMAND_IOS("verify-cert", verify_cert,
                  "   -q              Quiet.\n"
                  "   -C              Set client to true. Otherwise, verify-cert defaults to server (ssl, IPSec, eap).\n",
                  "Verify certificate(s).")
+
+SECURITY_COMMAND_IOS("trust-store", trust_store_show_certificates,
+                     "[-p][-f][-s][-v][-t][-k]\n"
+                     "    -p Output cert in PEM format.\n"
+                     "    -f Show fingerprint (SHA1 digest certificate.)\n"
+                     "    -s Show subject.\n"
+                     "    -v Show entire certificate in text form.\n"
+                     "    -t Show trust settings for certificates.\n"
+                     "    -k Show keyid (SHA1 digest of public key)",
+                     "Display user trust store certificates and trust settings.")

@@ -1,22 +1,31 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/fr_CA.xml
 // *
 // ***************************************************************************
 fr_CA{
-    Version{"2.1.13.23"}
+    Version{"2.1.24.13"}
     zoneStrings{
         "Africa:Ndjamena"{
             ec{"Ndjamena"}
+        }
+        "Africa:Tripoli"{
+            ec{"Tripoli [Libye]"}
         }
         "America:Barbados"{
             ec{"Barbade (La)"}
         }
         "America:Cayman"{
             ec{"Îles Caïmans"}
+        }
+        "America:North_Dakota:Beulah"{
+            ec{"Beulah [Dakota du Nord]"}
+        }
+        "America:North_Dakota:Center"{
+            ec{"Center [Dakota du Nord]"}
         }
         "America:North_Dakota:New_Salem"{
             ec{"New Salem, Dakota du Nord"}

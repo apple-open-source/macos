@@ -24,11 +24,11 @@ typedef struct {
     int flags;			/* Operations for which Tcl command is to be
 				 * invoked. */
     size_t length;		/* Number of non-NUL chars. in command. */
-    char command[4];		/* Space for Tcl command to invoke. Actual
+    char command[1];		/* Space for Tcl command to invoke. Actual
 				 * size will be as large as necessary to hold
 				 * command. This field must be the last in the
-				 * structure, so that it can be larger than 4
-				 * bytes. */
+				 * structure, so that it can be larger than 1
+				 * byte. */
 } TraceVarInfo;
 
 typedef struct {
@@ -453,8 +453,7 @@ TraceExecutionObjCmd(
 	    TraceCommandInfo *tcmdPtr;
 
 	    tcmdPtr = (TraceCommandInfo *) ckalloc((unsigned)
-		    (sizeof(TraceCommandInfo) - sizeof(tcmdPtr->command)
-			    + length + 1));
+		    ((TclOffset(TraceCommandInfo, command) + 1) + length));
 	    tcmdPtr->flags = flags;
 	    tcmdPtr->stepTrace = NULL;
 	    tcmdPtr->startLevel = 0;
@@ -695,8 +694,7 @@ TraceCommandObjCmd(
 	    TraceCommandInfo *tcmdPtr;
 
 	    tcmdPtr = (TraceCommandInfo *) ckalloc((unsigned)
-		    (sizeof(TraceCommandInfo) - sizeof(tcmdPtr->command)
-			    + length + 1));
+		    ((TclOffset(TraceCommandInfo, command) + 1) + length));
 	    tcmdPtr->flags = flags;
 	    tcmdPtr->stepTrace = NULL;
 	    tcmdPtr->startLevel = 0;
@@ -901,8 +899,7 @@ TraceVariableObjCmd(
 	    CombinedTraceVarInfo *ctvarPtr;
 
 	    ctvarPtr = (CombinedTraceVarInfo *) ckalloc((unsigned)
-		    (sizeof(CombinedTraceVarInfo) + length + 1
-		    - sizeof(ctvarPtr->traceCmdInfo.command)));
+		    ((TclOffset(CombinedTraceVarInfo, traceCmdInfo.command) + 1) + length));
 	    ctvarPtr->traceCmdInfo.flags = flags;
 	    if (objv[0] == NULL) {
 		ctvarPtr->traceCmdInfo.flags |= TCL_TRACE_OLD_STYLE;

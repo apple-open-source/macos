@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,6 +28,7 @@
 
 #include "JSCJSValue.h"
 #include "Opcode.h"
+#include <array>
 
 namespace JSC {
 
@@ -42,13 +43,32 @@ typedef void (*LLIntCode)();
 
 namespace LLInt {
 
+struct OpcodeStats {
+    OpcodeID id;
+    size_t count { 0 };
+    size_t slowPathCount { 0 };
+};
+typedef std::array<OpcodeStats, numOpcodeIDs> OpcodeStatsArray;
+
 class Data {
 public:
+
     static void performAssertions(VM&);
+    static OpcodeStats& opcodeStats(OpcodeID id) { return (*s_opcodeStatsArray)[id]; }
+
+    JS_EXPORT_PRIVATE static void finalizeStats();
+
+    static void dumpStats();
+    static void loadStats();
 
 private:
+    static void ensureStats();
+    static void resetStats();
+    static void saveStats();
+
     static Instruction* s_exceptionInstructions;
     static Opcode s_opcodeMap[numOpcodeIDs];
+    static OpcodeStatsArray* s_opcodeStatsArray;
 
     friend void initialize();
 

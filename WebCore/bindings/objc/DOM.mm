@@ -55,6 +55,10 @@
 #import <JavaScriptCore/APICast.h>
 #import <wtf/HashMap.h>
 
+#if ENABLE(VIDEO)
+#import "DOMHTMLVideoElement.h"
+#endif
+
 #if PLATFORM(IOS)
 #import "FocusController.h"
 #import "HTMLLinkElement.h"
@@ -163,6 +167,9 @@ static void createElementClassMap()
     addElementClass(HTMLNames::titleTag, [DOMHTMLTitleElement class]);
     addElementClass(HTMLNames::trTag, [DOMHTMLTableRowElement class]);
     addElementClass(HTMLNames::ulTag, [DOMHTMLUListElement class]);
+#if ENABLE(VIDEO)
+    addElementClass(HTMLNames::videoTag, [DOMHTMLVideoElement class]);
+#endif
     addElementClass(HTMLNames::xmpTag, [DOMHTMLPreElement class]);
 }
 
@@ -311,10 +318,6 @@ Class kitClass(WebCore::Node* impl)
             return [DOMText class];
         case WebCore::Node::CDATA_SECTION_NODE:
             return [DOMCDATASection class];
-        case WebCore::Node::ENTITY_REFERENCE_NODE:
-            return [DOMEntityReference class];
-        case WebCore::Node::ENTITY_NODE:
-            return [DOMEntity class];
         case WebCore::Node::PROCESSING_INSTRUCTION_NODE:
             return [DOMProcessingInstruction class];
         case WebCore::Node::COMMENT_NODE:
@@ -327,10 +330,6 @@ Class kitClass(WebCore::Node* impl)
             return [DOMDocumentType class];
         case WebCore::Node::DOCUMENT_FRAGMENT_NODE:
             return [DOMDocumentFragment class];
-        case WebCore::Node::XPATH_NAMESPACE_NODE:
-            // FIXME: Create an XPath objective C wrapper
-            // See http://bugs.webkit.org/show_bug.cgi?id=8755
-            return nil;
     }
     ASSERT_NOT_REACHED();
     return nil;
@@ -500,7 +499,7 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
     if (!renderer)
         return emptyQuad();
 
-    RenderStyle& style = renderer->style();
+    auto& style = renderer->style();
     IntRect boundingBox = renderer->absoluteBoundingBoxRect(true /* use transforms*/);
 
     boundingBox.move(style.borderLeftWidth(), style.borderTopWidth());
@@ -514,7 +513,7 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
 - (float)computedFontSize
 {
     WebCore::Node *node = core(self);
-    RenderStyle *style = node->renderStyle();
+    auto *style = node->renderStyle();
     if (!style)
         return 0.0f;
     return style->fontDescription().computedSize();
@@ -526,8 +525,9 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
     if (!page)
         return nil;
 
-    RefPtr<KeyboardEvent> key = KeyboardEvent::create();
-    return kit(page->focusController().nextFocusableElement(FocusNavigationScope::focusNavigationScopeOf(&core(self)->document()), core(self), key.get()));
+    // FIXME: using KeyboardEvent::createForDummy() here should be deprecated,
+    // should use one that is not for bindings.
+    return kit(page->focusController().nextFocusableElement(*core(self)));
 }
 
 - (DOMNode *)previousFocusNode
@@ -536,8 +536,9 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
     if (!page)
         return nil;
 
-    RefPtr<KeyboardEvent> key = KeyboardEvent::create();
-    return kit(page->focusController().previousFocusableElement(FocusNavigationScope::focusNavigationScopeOf(&core(self)->document()), core(self), key.get()));
+    // FIXME: using KeyboardEvent::createForDummy() here should be deprecated,
+    // should use one that is not for bindings.
+    return kit(page->focusController().previousFocusableElement(*core(self)));
 }
 
 #endif // PLATFORM(IOS)
@@ -579,7 +580,7 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
     if (!object->inherits(JSNode::info()))
         return nil;
 
-    WebCore::Node& node = jsCast<JSNode*>(object)->impl();
+    WebCore::Node& node = jsCast<JSNode*>(object)->wrapped();
     return kit(&node);
 }
 
@@ -596,7 +597,12 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
     Ref<Range> range = rangeOfContents(*coreNode);
 
     const float margin = 4 / coreNode->document().page()->pageScaleFactor();
-    RefPtr<TextIndicator> textIndicator = TextIndicator::createWithRange(range, TextIndicatorPresentationTransition::None, margin);
+    RefPtr<TextIndicator> textIndicator = TextIndicator::createWithRange(range, TextIndicatorOptionTightlyFitContent |
+        TextIndicatorOptionRespectTextColor |
+        TextIndicatorOptionPaintBackgrounds |
+        TextIndicatorOptionUseBoundingRectAndPaintAllContentForComplexRanges |
+        TextIndicatorOptionIncludeMarginIfRangeMatchesSelection,
+        TextIndicatorPresentationTransition::None, FloatSize(margin, margin));
 
     if (textIndicator) {
         if (Image* image = textIndicator->contentImage())
@@ -647,7 +653,7 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
 {
     // FIXME: The call to updateLayoutIgnorePendingStylesheets should be moved into WebCore::Range.
     core(self)->ownerDocument().updateLayoutIgnorePendingStylesheets();
-    return core(self)->boundingBox();
+    return core(self)->absoluteBoundingBox();
 }
 
 #if !PLATFORM(IOS)
@@ -680,7 +686,7 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
     // FIXME: The call to updateLayoutIgnorePendingStylesheets should be moved into WebCore::Range.
     Vector<WebCore::IntRect> rects;
     core(self)->ownerDocument().updateLayoutIgnorePendingStylesheets();
-    core(self)->textRects(rects);
+    core(self)->absoluteTextRects(rects);
     return kit(rects);
 }
 
@@ -701,10 +707,10 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
 - (NSImage*)image
 {
     // FIXME: Could we move this function to WebCore::Node and autogenerate?
-    WebCore::RenderObject* renderer = core(self)->renderer();
+    auto* renderer = core(self)->renderer();
     if (!is<RenderImage>(renderer))
         return nil;
-    WebCore::CachedImage* cachedImage = downcast<RenderImage>(*renderer).cachedImage();
+    auto* cachedImage = downcast<RenderImage>(*renderer).cachedImage();
     if (!cachedImage || cachedImage->errorOccurred())
         return nil;
     return cachedImage->imageForRenderer(renderer)->getNSImage();
@@ -715,24 +721,13 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
 
 @implementation DOMElement (WebPrivate)
 
-#if !PLATFORM(IOS)
-- (NSFont *)_font
-{
-    // FIXME: Could we move this function to WebCore::Element and autogenerate?
-    auto renderer = core(self)->renderer();
-    if (!renderer)
-        return nil;
-    return renderer->style().fontCascade().primaryFont().getNSFont();
-}
-#else
 - (CTFontRef)_font
 {
-    RenderObject* renderer = core(self)->renderer();
+    auto* renderer = core(self)->renderer();
     if (!renderer)
         return nil;
     return renderer->style().fontCascade().primaryFont().getCTFont();
 }
-#endif
 
 #if !PLATFORM(IOS)
 - (NSData *)_imageTIFFRepresentation
@@ -767,7 +762,9 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
 @end
 
 #if PLATFORM(IOS)
+
 @implementation DOMHTMLLinkElement (WebPrivate)
+
 - (BOOL)_mediaQueryMatchesForOrientation:(int)orientation
 {
     Document& document = static_cast<HTMLLinkElement*>(core(self))->document();
@@ -795,18 +792,19 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
 
 - (BOOL)_mediaQueryMatches
 {
-    HTMLLinkElement* link = static_cast<HTMLLinkElement*>(core(self));
-    String media = link->getAttribute(HTMLNames::mediaAttr);
+    HTMLLinkElement& link = *static_cast<HTMLLinkElement*>(core(self));
+
+    auto& media = link.attributeWithoutSynchronization(HTMLNames::mediaAttr);
     if (media.isEmpty())
         return true;
-    Document& document = link->document();
 
-    RefPtr<MediaQuerySet> mediaQuerySet = MediaQuerySet::createAllowingDescriptionSyntax(media);
-    MediaQueryEvaluator screenEval("screen", document.frame(), document.renderView() ? &document.renderView()->style() : 0);
-
-    return screenEval.eval(mediaQuerySet.get());
+    Document& document = link.document();
+    auto mediaQuerySet = MediaQuerySet::createAllowingDescriptionSyntax(media);
+    return MediaQueryEvaluator { "screen", document, document.renderView() ? &document.renderView()->style() : nullptr }.evaluate(mediaQuerySet.get());
 }
+
 @end
+
 #endif
 
 //------------------------------------------------------------------------------------------

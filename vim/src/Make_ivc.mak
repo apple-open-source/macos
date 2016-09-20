@@ -213,6 +213,8 @@ LINK32_OBJS= \
 	"$(INTDIR)/blowfish.obj" \
 	"$(INTDIR)/buffer.obj" \
 	"$(INTDIR)/charset.obj" \
+	"$(INTDIR)/crypt.obj" \
+	"$(INTDIR)/crypt_zip.obj" \
 	"$(INTDIR)/diff.obj" \
 	"$(INTDIR)/digraph.obj" \
 	"$(INTDIR)/edit.obj" \
@@ -241,6 +243,7 @@ LINK32_OBJS= \
 	"$(INTDIR)/ops.obj" \
 	"$(INTDIR)/option.obj" \
 	"$(INTDIR)/os_mswin.obj" \
+	"$(INTDIR)/winclip.obj" \
 	"$(INTDIR)/os_win32.obj" \
 	"$(INTDIR)/popupmnu.obj" \
 	"$(INTDIR)/quickfix.obj" \
@@ -335,6 +338,14 @@ SOURCE=.\buffer.c
 # Begin Source File
 
 SOURCE=.\charset.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\crypt.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\crypt_zip.c
 # End Source File
 # Begin Source File
 
@@ -597,6 +608,10 @@ SOURCE=.\option.c
 # Begin Source File
 
 SOURCE=.\os_mswin.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\winclip.c
 # End Source File
 # Begin Source File
 

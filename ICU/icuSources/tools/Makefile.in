@@ -50,6 +50,10 @@ all-recursive install-recursive clean-recursive distclean-recursive dist-recursi
 	  fi; \
 	  (cd $$subdir && $(MAKE) $$local_target) || exit; \
 	done; \
+	if test "$$target" != "clean"; then \
+		echo "$(MAKE)[$(MAKELEVEL)]: Making \`tztoolobjs' in \`tzcode'"; \
+		(cd tzcode && $(MAKE) tztoolobjs) || exit; \
+	fi; \
 	if test "$$dot_seen" = "no"; then \
 	  $(MAKE) "$$target-local" || exit; \
 	fi

@@ -44,8 +44,7 @@ if test "x$apr_preload_done" != "xyes" ; then
 
   case "$host" in
     *mint)
-	APR_ADDTO(CPPFLAGS, [-DMINT])
-	APR_ADDTO(LIBS, [-lportlib])
+	APR_ADDTO(CPPFLAGS, [-DMINT -D_GNU_SOURCE])
 	;;
     *MPE/iX*)
 	APR_ADDTO(CPPFLAGS, [-DMPE -D_POSIX_SOURCE -D_SOCKET_SOURCE])
@@ -184,7 +183,7 @@ dnl	       # Not a problem in 10.20.  Otherwise, who knows?
 	APR_ADDTO(CPPFLAGS, [-DRHAPSODY])
 	;;
     *-apple-darwin*)
-        APR_ADDTO(CPPFLAGS, [-DDARWIN -DSIGPROCMASK_SETS_THREAD_MASK -no-cpp-precomp])
+        APR_ADDTO(CPPFLAGS, [-DDARWIN -DSIGPROCMASK_SETS_THREAD_MASK])
         APR_SETIFNULL(apr_posixsem_is_global, [yes])
         case $host in
             *-apple-darwin[[1-9]].*)
@@ -430,10 +429,8 @@ dnl	       # Not a problem in 10.20.  Otherwise, who knows?
         APR_SETIFNULL(apr_gethostbyaddr_is_thread_safe, [yes])
         APR_SETIFNULL(apr_getservbyname_is_thread_safe, [yes])
         ;;
-    *cygwin*)
-	APR_ADDTO(CPPFLAGS, [-DCYGWIN])
-	;;
     *mingw*)
+        APR_ADDTO(INTERNAL_CPPFLAGS, -DBINPATH=$apr_builddir/test/.libs)
         APR_ADDTO(CPPFLAGS, [-DWIN32 -D__MSVCRT__])
         APR_ADDTO(LDFLAGS, [-Wl,--enable-auto-import,--subsystem,console])
         APR_SETIFNULL(have_unicode_fs, [1])

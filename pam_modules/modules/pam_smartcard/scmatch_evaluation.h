@@ -6,7 +6,10 @@
 
 SecKeychainRef copyAttributeMatchedKeychain(ODRecordRef odRecord, CFArrayRef identities, SecIdentityRef* returnedIdentity);
 SecKeychainRef copyHashMatchedKeychain(ODRecordRef odRecord, CFArrayRef identities, SecIdentityRef* returnedIdentity);
+
+// caller is responsible for releasing copiedIdentity
 SecKeychainRef copySmartCardKeychainForUser(ODRecordRef odRecord, const char* username, SecIdentityRef* copiedIdentity);
+
 OSStatus verifySmartCardSigning(SecKeyRef publicKey, SecKeyRef privateKey);
 OSStatus validateCertificate(SecCertificateRef certificate, SecKeychainRef keychain);
 

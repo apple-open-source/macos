@@ -659,7 +659,7 @@ getgrouplist_internal(const char *name, int basegid, gid_t *groups, uint32_t *ng
 	groups[0] = basegid;
 	*ngroups = 1;
 
-	item = si_grouplist(si_search(), name, max);
+	item = si_grouplist(si_search(), name, max+1);
 	LI_set_thread_item(CATEGORY_GROUPLIST, item);
 	if (item == NULL) return 0;
 

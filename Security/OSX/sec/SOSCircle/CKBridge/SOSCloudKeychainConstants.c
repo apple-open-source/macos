@@ -68,6 +68,7 @@ const char *kMessageKeyDeviceName = "deviceName";
 const char *kMessageKeyIDSDataMessage = "idsDataMessage";
 const char *kMessageKeyDeviceID = "deviceID";
 const char *kMessageKeyPeerID = "peerID";
+const char *kMessageKeySendersPeerID = "sendersPeerID";
 
 const char *kMessageOperationItemChanged = "ItemChanged";
 
@@ -79,14 +80,13 @@ const char *kOperationFlush = "Flush";
 
 const char *kOperationPUTDictionary = "PUTDictionary";
 const char *kOperationGETv2 = "GETv2";
-const char *kOperationRemoveObjectForKey = "RemoveObjectForKey";
 
 const char *kOperationRegisterKeys = "RegisterKeys";
 const char *kOperationGetDeviceID = "DeviceID";
 
+const char *kOperationSendDeviceList = "IDSDeviceList";
 const char *kOperationSendIDSMessage = "IDSMessage";
-
-const char *kOperationUILocalNotification = "UILocalNotification";
+const char *kOperationSendFragmentedIDSMessage = "IDSMessageFragmented";
 
 const char *kOperationRequestSyncWithAllPeers = "requestSyncWithAllPeers";
 const char *kOperationRequestEnsurePeerRegistration = "requestEnsurePeerRegistration";

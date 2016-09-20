@@ -1,4 +1,4 @@
-.TH "ZSHMODULES" "1" "May 31, 2015" "zsh 5\&.0\&.8"
+.TH "ZSHMODULES" "1" "December 2, 2015" "zsh 5\&.2"
 .SH "NAME"
 zshmodules \- zsh loadable modules
 .\" Yodl file: Zsh/modules.yo
@@ -74,6 +74,9 @@ Access to internal hash tables via special associative arrays\&.
 .TP
 \fBzsh/pcre\fP
 Interface to the PCRE library\&.
+.TP
+\fBzsh/param/private\fP
+Builtins for managing private\-scoped parameters in function context\&.
 .TP
 \fBzsh/regex\fP
 Interface to the POSIX regex library\&.
@@ -1765,9 +1768,13 @@ directory, the current working directory\&.
 .TP
 \fBhistory\fP
 This associative array maps history event numbers to the full history lines\&.
+Although it is presented as an associative array, the array of all values
+(\fB${history[@]}\fP) is guaranteed to be returned in order from most recent
+to oldest history event, that is, by decreasing history event number\&.
 .TP
 \fBhistorywords\fP
-A special array containing the words stored in the history\&.
+A special array containing the words stored in the history\&.  These also
+appear in most to least recent order\&.
 .TP
 \fBjobdirs\fP
 This associative array maps job numbers to the directories from which the
@@ -1927,8 +1934,7 @@ A simple example of "find all non\-overlapping matches":
 .PP
 .RS
 .nf
-\fB
-string="The following zip codes: 78884 90210 99513"
+\fBstring="The following zip codes: 78884 90210 99513"
 pcre_compile \-m "\ed{5}"
 accum=()
 pcre_match \-b \-\- $string
@@ -1937,9 +1943,7 @@ while [[ $? \-eq 0 ]] do
     accum+=$MATCH
     pcre_match \-b \-n $b[2] \-\- $string
 done
-print \-l $accum
-.PP
-\fP
+print \-l $accum\fP
 .fi
 .RE
 .RE
@@ -1967,6 +1971,114 @@ If the \fBREMATCH_PCRE\fP option is set, the \fB=~\fP operator is equivalent to
 \fBNO_CASE_MATCH\fP never applies to the \fBpcre_match\fP builtin, instead use
 the \fB\-i\fP switch of \fBpcre_compile\fP\&.
 .RE
+.SH "THE ZSH/PARAM/PRIVATE MODULE"
+.\" Yodl file: Zsh/mod_private.yo
+
+The \fBzsh/param/private\fP module is used to create parameters whose scope
+is limited to the current function body, and \fInot\fP to other functions
+called by the current function\&.
+.PP
+This module provides a single autoloaded builtin:
+
+.PD 0
+.TP
+.PD
+\fBprivate\fP [ {\fB+\fP|\fB\-\fP}\fBAHUahlprtux\fP ] [ {\fB+\fP|\fB\-\fP}\fBEFLRZi\fP [ \fIn\fP ] ] [ \fIname\fP[\fB=\fP\fIvalue\fP] \&.\&.\&. ]
+The \fBprivate\fP builtin accepts all the same options and arguments as \fBlocal\fP
+(\fIzshbuiltins\fP(1)) except
+for the `\fB\-\fP\fBT\fP\&' option\&.  Tied parameters may not be made private\&.
+.RS
+.PP
+If used at the top level (outside a function scope), \fBprivate\fP creates a
+normal parameter in the same manner as \fBdeclare\fP or \fBtypeset\fP\&.  A
+warning about this is printed if \fBWARN_CREATE_GLOBAL\fP is set
+(\fIzshoptions\fP(1))\&.  Used inside a
+function scope, \fBprivate\fP creates a local parameter similar to one
+declared with \fBlocal\fP, except having special properties noted below\&.
+.PP
+Special parameters which expose or manipulate internal shell state, such
+as \fBARGC\fP, \fBargv\fP, \fBCOLUMNS\fP, \fBLINES\fP, \fBUID\fP, \fBEUID\fP, \fBIFS\fP,
+\fBPROMPT\fP, \fBRANDOM\fP, \fBSECONDS\fP, etc\&., cannot be made private unless
+the `\fB\-\fP\fBh\fP\&' option is used to hide the special meaning of the
+parameter\&.  This may change in the future\&.
+.RE
+.PP
+As with other \fBtypeset\fP equivalents, \fBprivate\fP is both a builtin and a
+reserved word, so arrays may be assigned with parenthesized word list
+\fIname\fP\fB=(\fP\fIvalue\fP\&.\&.\&.\fB)\fP syntax\&.  However, the reserved
+word `\fBprivate\fP\&' is not available until \fBzsh/param/private\fP is loaded,
+so care must be taken with order of execution and parsing for function
+definitions which use \fBprivate\fP\&.  To compensate for this, the module
+also adds the option `\fB\-P\fP\&' to the `\fBlocal\fP' builtin to declare private
+parameters\&.
+.PP
+For example, this construction fails if \fBzsh/param/private\fP has not yet
+been loaded when `\fBbad_declaration\fP\&' is defined:
+.RS
+.nf
+\fBbad_declaration() {
+  zmodload zsh/param/private
+  private array=( one two three )
+}\fP
+.fi
+.RE
+.PP
+This construction works because \fBlocal\fP is already a keyword, and the
+module is loaded before the statement is executed:
+.RS
+.nf
+\fBgood_declaration() {
+  zmodload zsh/param/private
+  local \-P array=( one two three )
+}\fP
+.fi
+.RE
+.PP
+The following is usable in scripts but may have trouble with \fBautoload\fP:
+.RS
+.nf
+\fBzmodload zsh/param/private
+iffy_declaration() {
+  private array=( one two three )
+}\fP
+.fi
+.RE
+.PP
+The \fBprivate\fP builtin may always be used with scalar assignments and
+for declarations without assignments\&.
+.PP
+Parameters declared with \fBprivate\fP have the following properties:
+
+.PD 0
+.TP
+.PD
+\(bu
+Within the function body where it is declared, the parameter
+behaves as a local, except as noted above for tied or special parameters\&.
+.TP
+\(bu
+The type of a parameter declared private cannot be changed in the
+scope where it was declared, even if the parameter is unset\&.  Thus an
+array cannot be assigned to a private scalar, etc\&.
+.TP
+\(bu
+Within any other function called by the declaring function, the
+private parameter does \fINOT\fP hide other parameters of the same name, so
+for example a global parameter of the same name is visible and may be
+assigned or unset\&.  This includes calls to anonymous functions, although
+that may also change in the future\&.
+.TP
+\(bu
+An exported private remains in the environment of inner scopes but
+appears unset for the current shell in those scopes\&.  Generally, exporting
+private parameters should be avoided\&.
+.PP
+Note that this differs from the static scope defined by compiled languages
+derived from C, in that the a new call to the same function creates a new
+scope, i\&.e\&., the parameter is still associated with the call stack rather
+than with the function definition\&.  It differs from ksh `\fBtypeset \-S\fP\&'
+because the syntax used to define the function has no bearing on whether
+the parameter scope is respected\&.
 .SH "THE ZSH/REGEX MODULE"
 .\" Yodl file: Zsh/mod_regex.yo
 
@@ -2097,6 +2209,15 @@ will be taken as the target file descriptor for the
 connection\&.
 .PP
 In order to elicit more verbose output, use \fB\-v\fP\&.
+.PP
+File descriptors can be closed with normal shell syntax when no longer
+needed, for example:
+.PP
+.RS
+.nf
+\fBexec {REPLY}>&\-\fP
+.fi
+.RE
 .RE
 .PP
 .SS "Inbound Connections"
@@ -2346,6 +2467,66 @@ not recognised (no message is printed for this)\&.
 
 .TP
 .PD 0
+\fBsysopen\fP [ \fB\-arw\fP ] [ \fB\-m\fP \fIpermissions\fP ] [ \fB\-o\fP \fIoptions\fP ]
+.TP
+.PD
+\fB        \fP\fB\-u\fP \fIfd\fP \fIfile\fP
+This command opens a file\&. The \fB\-r\fP, \fB\-w\fP and \fB\-a\fP flags indicate
+whether the file should be opened for reading, writing and appending,
+respectively\&. The \fB\-m\fP option allows the initial permissions to use when
+creating a file to be specified in octal form\&.  The file descriptor is
+specified with \fB\-u\fP\&. Either an explicit file descriptor in the range 0 to 9 can
+be specified or a variable name can be given to which the file descriptor
+number will be assigned\&.
+.RS
+.PP
+The \fB\-o\fP option allows various system specific options to be
+specified as a comma\-separated list\&. The following is a list of possible
+options\&. Note that, depending on the system, some may not be available\&.
+.PD 0
+.TP
+.PD
+\fBcloexec\fP
+mark file to be closed when other programs are executed
+.TP
+.PD 0
+\fBcreate\fP
+.TP
+.PD
+\fBcreat\fP
+create file if it does not exist
+.TP
+\fBexcl\fP
+create file, error if it already exists
+.TP
+\fBnoatime\fP
+suppress updating of the file atime
+.TP
+\fBnofollow\fP
+fail if \fIfile\fP is a symbolic link
+.TP
+\fBsync\fP
+request that writes wait until data has been physically written
+.TP
+.PD 0
+\fBtruncate\fP
+.TP
+.PD
+\fBtrunc\fP
+truncate file to size 0
+.PP
+To close the file, use one of the following:
+.PP
+.RS
+.nf
+\fB\fBexec {\fP\fIfd\fP\fB}<&\-\fP
+\fBexec {\fP\fIfd\fP\fB}>&\-\fP\fP
+.fi
+.RE
+.RE
+
+.TP
+.PD 0
 \fBsysread \fP[ \fB\-c\fP \fIcountvar\fP ] [ \fB\-i\fP \fIinfd\fP ] [ \fB\-o\fP \fIoutfd\fP ]
 .TP
 .PD
@@ -2408,6 +2589,14 @@ No system error occurred, but zero bytes were read\&.  This usually
 indicates end of file\&.  The parameters are set according to the
 usual rules; no write to \fIoutfd\fP is attempted\&.
 .RE
+.TP
+\fBsysseek\fP [ \fB\-u\fP \fIfd\fP ] [ \fB\-w\fP \fBstart\fP|\fBend\fP|\fBcurrent\fP ] \fIoffset\fP
+The current file position at which future reads and writes will take place is
+adjusted to the specified byte offset\&. The \fIoffset\fP is evaluated as a math
+expression\&. The \fB\-u\fP option allows the file descriptor to be specified\&. By
+default the offset is specified relative to the start or the file but, with the
+\fB\-w\fP option, it is possible to specify that the offset should be relative to
+the current position or the end of the file\&.
 .TP
 \fBsyswrite\fP [ \fB\-c\fP \fIcountvar\fP ] [ \fB\-o\fP \fIoutfd\fP ] \fIdata\fP
 The data (a single string of bytes) are written to the file descriptor
@@ -2485,6 +2674,15 @@ is returned\&.  Status 1 can indicate one of two things:  \fIsubcommand\fP
 is known but not supported by the current operating system, or
 \fIsubcommand\fP is not known (possibly because this is an older
 version of the shell before it was implemented)\&.
+.PP
+.SS "Math Functions"
+.PP
+.PD 0
+.TP
+.PD
+\fBsystell(\fIfd\fP)\fP
+The systell math function returns the current file position for the file
+descriptor passed as an argument\&.
 .PP
 .SS "Parameters"
 .PP
@@ -3390,6 +3588,13 @@ characters are echoed\&.
 .PP
 With the \fB\-b\fP option, input to and output from the pseudo\-terminal are
 made non\-blocking\&.
+.PP
+The shell parameter \fBREPLY\fP is set to the file descriptor assigned to
+the master side of the pseudo\-terminal\&.  This allows the terminal to be
+monitored with ZLE descriptor handlers (see \fIzshzle\fP(1)) or manipulated with \fBsysread\fP and
+\fBsyswrite\fP (see THE ZSH/SYSTEM MODULE in \fIzshmodules\fP(1))\&.  \fIWarning\fP: Use of \fBsysread\fP
+and \fBsyswrite\fP is \fInot\fP recommended, use \fBzpty \-r\fP and \fBzpty \-w\fP
+unless you know exactly what you are doing\&.
 .RE
 .TP
 \fBzpty\fP \fB\-d\fP [ \fIname\fP \&.\&.\&. ]

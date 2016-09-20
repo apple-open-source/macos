@@ -180,7 +180,7 @@
 		BA5511A9136C9D400012B9B5 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0420;
+				LastUpgradeCheck = 0700;
 			};
 			buildConfigurationList = BA5511AC136C9D400012B9B5 /* Build configuration list for PBXProject "Libsystem" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -287,6 +287,7 @@
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME).B";
 				"PRODUCT_NAME[sdk=iphonesimulator*]" = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
 			};
 			name = Release;
 		};

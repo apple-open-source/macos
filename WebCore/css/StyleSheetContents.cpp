@@ -36,6 +36,7 @@
 #include "StyleRule.h"
 #include "StyleRuleImport.h"
 #include <wtf/Deque.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/Ref.h>
 
 namespace WebCore {
@@ -128,33 +129,30 @@ bool StyleSheetContents::isCacheable() const
     return true;
 }
 
-void StyleSheetContents::parserAppendRule(PassRefPtr<StyleRuleBase> rule)
+void StyleSheetContents::parserAppendRule(Ref<StyleRuleBase>&& rule)
 {
     ASSERT(!rule->isCharsetRule());
-    if (is<StyleRuleImport>(*rule)) {
+
+    if (is<StyleRuleImport>(rule)) {
         // Parser enforces that @import rules come before anything else except @charset.
         ASSERT(m_childRules.isEmpty());
-        m_importRules.append(downcast<StyleRuleImport>(rule.get()));
+        m_importRules.append(downcast<StyleRuleImport>(rule.ptr()));
         m_importRules.last()->setParentStyleSheet(this);
         m_importRules.last()->requestStyleSheet();
         return;
     }
 
-#if ENABLE(RESOLUTION_MEDIA_QUERY)
-    // Add warning message to inspector if dpi/dpcm values are used for screen media.
-    if (is<StyleRuleMedia>(*rule))
-        reportMediaQueryWarningIfNeeded(singleOwnerDocument(), downcast<StyleRuleMedia>(*rule).mediaQueries());
-#endif
+    if (is<StyleRuleMedia>(rule))
+        reportMediaQueryWarningIfNeeded(singleOwnerDocument(), downcast<StyleRuleMedia>(rule.get()).mediaQueries());
 
     // NOTE: The selector list has to fit into RuleData. <http://webkit.org/b/118369>
     // If we're adding a rule with a huge number of selectors, split it up into multiple rules
-    if (is<StyleRule>(*rule) && downcast<StyleRule>(*rule).selectorList().componentCount() > RuleData::maximumSelectorComponentCount) {
-        Vector<RefPtr<StyleRule>> rules = downcast<StyleRule>(*rule).splitIntoMultipleRulesWithMaximumSelectorComponentCount(RuleData::maximumSelectorComponentCount);
-        m_childRules.appendVector(rules);
+    if (is<StyleRule>(rule) && downcast<StyleRule>(rule.get()).selectorList().componentCount() > RuleData::maximumSelectorComponentCount) {
+        m_childRules.appendVector(downcast<StyleRule>(rule.get()).splitIntoMultipleRulesWithMaximumSelectorComponentCount(RuleData::maximumSelectorComponentCount));
         return;
     }
 
-    m_childRules.append(rule);
+    m_childRules.append(WTFMove(rule));
 }
 
 StyleRuleBase* StyleSheetContents::ruleAt(unsigned index) const
@@ -206,7 +204,7 @@ void StyleSheetContents::parserSetEncodingFromCharsetRule(const String& encoding
     m_encodingFromCharsetRule = encoding; 
 }
 
-bool StyleSheetContents::wrapperInsertRule(PassRefPtr<StyleRuleBase> rule, unsigned index)
+bool StyleSheetContents::wrapperInsertRule(Ref<StyleRuleBase>&& rule, unsigned index)
 {
     ASSERT(m_isMutable);
     ASSERT_WITH_SECURITY_IMPLICATION(index <= ruleCount());
@@ -225,24 +223,24 @@ bool StyleSheetContents::wrapperInsertRule(PassRefPtr<StyleRuleBase> rule, unsig
     
     if (childVectorIndex < m_importRules.size() || (childVectorIndex == m_importRules.size() && rule->isImportRule())) {
         // Inserting non-import rule before @import is not allowed.
-        if (!is<StyleRuleImport>(*rule))
+        if (!is<StyleRuleImport>(rule))
             return false;
-        m_importRules.insert(childVectorIndex, downcast<StyleRuleImport>(rule.get()));
+        m_importRules.insert(childVectorIndex, downcast<StyleRuleImport>(rule.ptr()));
         m_importRules[childVectorIndex]->setParentStyleSheet(this);
         m_importRules[childVectorIndex]->requestStyleSheet();
         // FIXME: Stylesheet doesn't actually change meaningfully before the imported sheets are loaded.
         return true;
     }
     // Inserting @import rule after a non-import rule is not allowed.
-    if (is<StyleRuleImport>(*rule))
+    if (is<StyleRuleImport>(rule))
         return false;
     childVectorIndex -= m_importRules.size();
 
     // If the number of selectors would overflow RuleData, we drop the operation.
-    if (is<StyleRule>(*rule) && downcast<StyleRule>(*rule).selectorList().componentCount() > RuleData::maximumSelectorComponentCount)
+    if (is<StyleRule>(rule) && downcast<StyleRule>(rule.get()).selectorList().componentCount() > RuleData::maximumSelectorComponentCount)
         return false;
 
-    m_childRules.insert(childVectorIndex, rule);
+    m_childRules.insert(childVectorIndex, WTFMove(rule));
     return true;
 }
 
@@ -316,11 +314,11 @@ void StyleSheetContents::parseAuthorStyleSheet(const CachedCSSStyleSheet* cached
 
     if (m_parserContext.needsSiteSpecificQuirks && isStrictParserMode(m_parserContext.mode)) {
         // Work around <https://bugs.webkit.org/show_bug.cgi?id=28350>.
-        DEPRECATED_DEFINE_STATIC_LOCAL(const String, mediaWikiKHTMLFixesStyleSheet, (ASCIILiteral("/* KHTML fix stylesheet */\n/* work around the horizontal scrollbars */\n#column-content { margin-left: 0; }\n\n")));
+        static NeverDestroyed<const String> mediaWikiKHTMLFixesStyleSheet(ASCIILiteral("/* KHTML fix stylesheet */\n/* work around the horizontal scrollbars */\n#column-content { margin-left: 0; }\n\n"));
         // There are two variants of KHTMLFixes.css. One is equal to mediaWikiKHTMLFixesStyleSheet,
         // while the other lacks the second trailing newline.
-        if (baseURL().string().endsWith("/KHTMLFixes.css") && !sheetText.isNull() && mediaWikiKHTMLFixesStyleSheet.startsWith(sheetText)
-            && sheetText.length() >= mediaWikiKHTMLFixesStyleSheet.length() - 1)
+        if (baseURL().string().endsWith("/KHTMLFixes.css") && !sheetText.isNull() && mediaWikiKHTMLFixesStyleSheet.get().startsWith(sheetText)
+            && sheetText.length() >= mediaWikiKHTMLFixesStyleSheet.get().length() - 1)
             clearRules();
     }
 }
@@ -354,7 +352,7 @@ void StyleSheetContents::checkLoaded()
     // Avoid |this| being deleted by scripts that run via
     // ScriptableDocumentParser::executeScriptsWaitingForStylesheets().
     // See <rdar://problem/6622300>.
-    Ref<StyleSheetContents> protect(*this);
+    Ref<StyleSheetContents> protectedThis(*this);
     StyleSheetContents* parentSheet = parentStyleSheet();
     if (parentSheet) {
         parentSheet->checkLoaded();

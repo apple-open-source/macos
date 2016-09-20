@@ -33,6 +33,7 @@
 #include "GraphicsContext.h"
 #include "HTMLCanvasElement.h"
 #include "HTMLNames.h"
+#include "ImageQualityController.h"
 #include "Page.h"
 #include "PaintInfo.h"
 #include "RenderView.h"
@@ -41,8 +42,8 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-RenderHTMLCanvas::RenderHTMLCanvas(HTMLCanvasElement& element, Ref<RenderStyle>&& style)
-    : RenderReplaced(element, WTF::move(style), element.size())
+RenderHTMLCanvas::RenderHTMLCanvas(HTMLCanvasElement& element, RenderStyle&& style)
+    : RenderReplaced(element, WTFMove(style), element.size())
 {
     // Actual size is not known yet, report the default intrinsic size.
     view().frameView().incrementVisuallyNonEmptyPixelCount(roundedIntSize(intrinsicSize()));
@@ -66,7 +67,7 @@ bool RenderHTMLCanvas::requiresLayer() const
 
 void RenderHTMLCanvas::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
-    GraphicsContext* context = paintInfo.context;
+    GraphicsContext& context = paintInfo.context();
 
     LayoutRect contentBoxRect = this->contentBoxRect();
     contentBoxRect.moveBy(paintOffset);
@@ -75,17 +76,17 @@ void RenderHTMLCanvas::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& pa
 
     // Not allowed to overflow the content box.
     bool clip = !contentBoxRect.contains(replacedContentRect);
-    GraphicsContextStateSaver stateSaver(*paintInfo.context, clip);
+    GraphicsContextStateSaver stateSaver(paintInfo.context(), clip);
     if (clip)
-        paintInfo.context->clip(snappedIntRect(contentBoxRect));
+        paintInfo.context().clip(snappedIntRect(contentBoxRect));
 
     if (Page* page = frame().page()) {
         if (paintInfo.phase == PaintPhaseForeground)
             page->addRelevantRepaintedObject(this, intersection(replacedContentRect, contentBoxRect));
     }
 
-    bool useLowQualityScale = style().imageRendering() == ImageRenderingCrispEdges || style().imageRendering() == ImageRenderingOptimizeSpeed;
-    canvasElement().paint(context, replacedContentRect, useLowQualityScale);
+    InterpolationQualityMaintainer interpolationMaintainer(context, ImageQualityController::interpolationQualityFromStyle(style()));
+    canvasElement().paint(context, replacedContentRect);
 }
 
 void RenderHTMLCanvas::canvasSizeChanged()
@@ -100,18 +101,7 @@ void RenderHTMLCanvas::canvasSizeChanged()
 
     if (!parent())
         return;
-
-    if (!preferredLogicalWidthsDirty())
-        setPreferredLogicalWidthsDirty(true);
-
-    LayoutSize oldSize = size();
-    updateLogicalWidth();
-    updateLogicalHeight();
-    if (oldSize == size())
-        return;
-
-    if (!selfNeedsLayout())
-        setNeedsLayout();
+    setNeedsLayoutIfNeededAfterIntrinsicSizeChange();
 }
 
 } // namespace WebCore

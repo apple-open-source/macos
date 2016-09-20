@@ -317,8 +317,8 @@ clnttcp_call(h, proc, xdr_args, args_ptr, xdr_results, results_ptr, timeout)
 	}
 
 	shipnow =
-	    (xdr_results == (xdrproc_t)0 && timeout.tv_sec == 0
-	    && timeout.tv_usec == 0) ? FALSE : TRUE;
+	    (xdr_results == (xdrproc_t)NULLPROC || (timeout.tv_sec == 0
+	    && timeout.tv_usec == 0)) ? FALSE : TRUE;
 
 call_again:
 	xdrs->x_op = XDR_ENCODE;

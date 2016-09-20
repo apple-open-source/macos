@@ -38,7 +38,7 @@ namespace WebCore {
 AsyncAudioDecoder::AsyncAudioDecoder()
 {
     // Start worker thread.
-    MutexLocker lock(m_threadCreationMutex);
+    LockHolder lock(m_threadCreationMutex);
     m_threadID = createThread(AsyncAudioDecoder::threadEntry, this, "Audio Decoder");
 }
 
@@ -51,15 +51,12 @@ AsyncAudioDecoder::~AsyncAudioDecoder()
     m_threadID = 0;
 }
 
-void AsyncAudioDecoder::decodeAsync(ArrayBuffer* audioData, float sampleRate, PassRefPtr<AudioBufferCallback> successCallback, PassRefPtr<AudioBufferCallback> errorCallback)
+void AsyncAudioDecoder::decodeAsync(Ref<ArrayBuffer>&& audioData, float sampleRate, RefPtr<AudioBufferCallback>&& successCallback, RefPtr<AudioBufferCallback>&& errorCallback)
 {
     ASSERT(isMainThread());
-    ASSERT(audioData);
-    if (!audioData)
-        return;
 
-    auto decodingTask = std::make_unique<DecodingTask>(audioData, sampleRate, successCallback, errorCallback);
-    m_queue.append(WTF::move(decodingTask)); // note that ownership of the task is effectively taken by the queue.
+    auto decodingTask = std::make_unique<DecodingTask>(WTFMove(audioData), sampleRate, WTFMove(successCallback), WTFMove(errorCallback));
+    m_queue.append(WTFMove(decodingTask)); // note that ownership of the task is effectively taken by the queue.
 }
 
 // Asynchronously decode in this thread.
@@ -76,7 +73,7 @@ void AsyncAudioDecoder::runLoop()
 
     {
         // Wait for until we have m_threadID established before starting the run loop.
-        MutexLocker lock(m_threadCreationMutex);
+        LockHolder lock(m_threadCreationMutex);
     }
 
     // Keep running decoding tasks until we're killed.
@@ -87,35 +84,23 @@ void AsyncAudioDecoder::runLoop()
     }
 }
 
-AsyncAudioDecoder::DecodingTask::DecodingTask(ArrayBuffer* audioData, float sampleRate, PassRefPtr<AudioBufferCallback> successCallback, PassRefPtr<AudioBufferCallback> errorCallback)
-    : m_audioData(audioData)
+AsyncAudioDecoder::DecodingTask::DecodingTask(Ref<ArrayBuffer>&& audioData, float sampleRate, RefPtr<AudioBufferCallback>&& successCallback, RefPtr<AudioBufferCallback>&& errorCallback)
+    : m_audioData(WTFMove(audioData))
     , m_sampleRate(sampleRate)
-    , m_successCallback(successCallback)
-    , m_errorCallback(errorCallback)
+    , m_successCallback(WTFMove(successCallback))
+    , m_errorCallback(WTFMove(errorCallback))
 {
 }
 
 void AsyncAudioDecoder::DecodingTask::decode()
 {
-    ASSERT(m_audioData.get());
-    if (!m_audioData.get())
-        return;
-
     // Do the actual decoding and invoke the callback.
     m_audioBuffer = AudioBuffer::createFromAudioFileData(m_audioData->data(), m_audioData->byteLength(), false, sampleRate());
     
     // Decoding is finished, but we need to do the callbacks on the main thread.
-    callOnMainThread(notifyCompleteDispatch, this);
-}
-
-void AsyncAudioDecoder::DecodingTask::notifyCompleteDispatch(void* userData)
-{
-    AsyncAudioDecoder::DecodingTask* task = reinterpret_cast<AsyncAudioDecoder::DecodingTask*>(userData);
-    ASSERT(task);
-    if (!task)
-        return;
-
-    task->notifyComplete();
+    callOnMainThread([this] {
+        notifyComplete();
+    });
 }
 
 void AsyncAudioDecoder::DecodingTask::notifyComplete()

@@ -6,11 +6,6 @@
 .Nd create kext cache files
 .Sh SYNOPSIS
 .Nm
-.Ar mkext_option Op Ar filename
-.Op Ar options
-.Op Fl -
-.Ar kext_or_directory Li \&.\|.\|.
-.Nm
 .Fl prelinked-kernel Ar filename
 .Op Ar options
 .Op Fl -
@@ -54,7 +49,7 @@ for information on updating kext caches on prior releases of Mac OS X.
 .Pp
 .Nm
 creates several kinds of kext caches.
-The first is the prelinked kernel (also known as a \*(Lqkernelcache\*(Rq),
+The first is the prelinked kernel (also known as a \*(Lqprelinkedkernel\*(Rq),
 which contains the kernel code
 and the essential files (info dictionary and executable)
 for an arbitrary set of kexts,
@@ -79,18 +74,6 @@ use the
 .Fl system-caches
 option.
 .Pp
-The last type of kext cache is the mkext cache,
-which contains the essential files (info dictionary and executable)
-for an arbitrary set of kexts;
-executables are unrelocated.
-Mkext is a legacy format that was used on prior releases of Mac OS X.
-To create an mkext cache, use one of the
-.Fl mkext ,
-.Fl mkext1 ,
-or
-.Fl mkext2
-options,
-with appropriate filtering options, described below.
 .Sh PRIMARY OPTIONS
 You must specify one of these options to have
 .Nm
@@ -156,19 +139,12 @@ immediately rebooted off the newer kernel cache.
 Used with
 .Fl U
 to enable early boot behaviors such as limiting which caches must be updated.
-.It Fl m Ar filename , Fl mkext Ar filename
-Create an mkext of the latest supported format.
-.It Fl mkext1 Ar filename
-Create an mkext of format 1, used on Mac OS X versions 10.5 (Leopard)
-and earlier.
-.It Fl mkext2 Ar filename
-Create an mkext of format 2, used on Mac OS X version 10.6 (Snow Leopard).
 .It Fl e , Fl system-mkext
 This option is provided for legacy compatibility, and is simply an alias to
 .Fl system-prelinked-kernel .
 .El
-.Sh PRELINKED KERNEL AND MKEXT FILTERING OPTIONS
-These options restrict which kexts are included in a prelinked kernel or mkext.
+.Sh PRELINKED KERNEL FILTERING OPTIONS
+These options restrict which kexts are included in a prelinked kernel.
 The options
 .Fl arch
 and
@@ -184,7 +160,7 @@ or whose OSBundleRequired property is
 or
 .Dq Console .
 .Pp
-A prelinked kernel or mkext cache intended for a startup from a local disk
+A prelinked kernel cache intended for a startup from a local disk
 should be created with the
 .Fl local-root
 option, while a cache intended for startup from the network
@@ -199,7 +175,7 @@ kexts requested by the kernel are always included
 regardless of these filtering options.
 .Bl -tag -width -indent
 .It Fl a Ar arch , Fl arch Ar arch
-Include in an mkext or prelinked kernel only kexts
+Include in a prelinked kernel only kexts
 loadable on
 .Ar arch ,
 thinning executables to that architecture before inclusion.
@@ -214,7 +190,7 @@ by the current Mac OS X version is used (Mac OS X 10.6 and later).
 Find the kext whose CFBundleIdentifier is
 .Ar identifier
 amongst known kexts and repository directories
-and include it in the mkext or prelinked kernel.
+and include it in the prelinked kernel.
 The kext of the highest CFBundleVersion with the given identifier is used;
 in the case of version ties,
 the last such kext specified on the command line is used.
@@ -279,9 +255,9 @@ option.
 .Bl -tag -width -indent
 .It Ar kext_or_directory
 A kext bundle or a repository directory containing kexts
-to consider for inclusion in an mkext or prelinked kernel.
+to consider for inclusion in a prelinked kernel.
 The filtering options described under
-.Dq PRELINKED KERNEL AND MKEXT FILTERING OPTIONS
+.Dq PRELINKED KERNEL FILTERING OPTIONS
 select the individual kexts to be included in the archive.
 If no filtering options are specified, then all kexts
 named as arguments are included (this is probably not what you want).
@@ -326,9 +302,9 @@ that have been loaded by the machine running
 this command during this startup session.
 This include kexts loaded and later unloaded.
 .It Fl compressed
-Compress the mkext or prelinked kernel (enabled by default).
+Compress the prelinked kernel (enabled by default).
 .It Fl uncompressed
-Do not compress the mkext or prelinked kernel.
+Do not compress the prelinked kernel.
 If specified as the only other argument with
 .Fl c ,
 uncompresses an existing prelinked kernel file in place.
@@ -412,8 +388,9 @@ The standard system repository of kernel extensions.
 .It Pa /Library/Extensions/
 The standard repository of non Apple kernel extensions.
 .It Pa /System/Library/Caches/com.apple.kext.caches/
-Contains all kext caches for a Mac OS X 10.6 system: prelinked kernel,
-mkext, and system kext info caches.
+Contains system kext info caches for a Mac OS X system.
+.It Pa /System/Library/PrelinkedKernels/
+Contains prelinked kernel for a Mac OS X system.
 .It Pa /System/Library/Kernels/kernel
 The default kernel file.
 .It Pa /usr/standalone/bootcaches.plist
@@ -431,7 +408,6 @@ Many single-letter options are inconsistent in meaning
 with (or directly contradictory to) the same letter options
 in other kext tools.
 .Sh SEE ALSO
-.Xr mkextunpack 8 ,
 .Xr kext_logging 8 ,
 .Xr kextd 8 ,
 .Xr kextload 8 ,

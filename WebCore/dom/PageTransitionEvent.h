@@ -31,34 +31,27 @@
 namespace WebCore {
 
 struct PageTransitionEventInit : public EventInit {
-    PageTransitionEventInit();
-
-    bool persisted;
+    bool persisted { false };
 };
 
 class PageTransitionEvent final : public Event {
 public:
-    static Ref<PageTransitionEvent> create()
-    {
-        return adoptRef(*new PageTransitionEvent);
-    }
     static Ref<PageTransitionEvent> create(const AtomicString& type, bool persisted)
     {
         return adoptRef(*new PageTransitionEvent(type, persisted));
     }
-    static Ref<PageTransitionEvent> create(const AtomicString& type, const PageTransitionEventInit& initializer)
+    static Ref<PageTransitionEvent> createForBindings(const AtomicString& type, const PageTransitionEventInit& initializer)
     {
         return adoptRef(*new PageTransitionEvent(type, initializer));
     }
 
     virtual ~PageTransitionEvent();
 
-    virtual EventInterface eventInterface() const override;
+    EventInterface eventInterface() const override;
 
     bool persisted() const { return m_persisted; }
 
 private:
-    PageTransitionEvent();
     PageTransitionEvent(const AtomicString& type, bool persisted);
     PageTransitionEvent(const AtomicString&, const PageTransitionEventInit&);
 

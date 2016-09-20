@@ -1,6 +1,4 @@
 #
-# "$Id: Makefile 11791 2014-04-02 16:56:54Z msweet $"
-#
 # System V commands makefile for CUPS.
 #
 # Copyright 2007-2014 by Apple Inc.
@@ -276,8 +274,3 @@ lpstat:	lpstat.o ../cups/$(LIBCUPS)
 #
 
 include Dependencies
-
-
-#
-# End of "$Id: Makefile 11791 2014-04-02 16:56:54Z msweet $".
-#

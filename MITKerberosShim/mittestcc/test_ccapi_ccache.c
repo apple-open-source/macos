@@ -835,7 +835,7 @@ int check_cc_ccache_store_credentials(void) {
 		check_once_cc_ccache_store_credentials(ccache, &creds_union, ccNoError, "ok creds");
 	}
 	
-	if (&creds_union) { release_v5_creds_union(&creds_union); }
+	release_v5_creds_union(&creds_union);
 	
 	// try with bad params
 	check_once_cc_ccache_store_credentials(ccache, NULL, ccErrBadParam, "NULL creds param");
@@ -853,8 +853,8 @@ int check_cc_ccache_store_credentials(void) {
 		check_once_cc_ccache_store_credentials(ccache, &creds_union, ccErrBadParam, "invalid creds (NULL client string)");
 	}
 	
-	if (&creds_union) { release_v5_creds_union(&creds_union); }
-	
+    release_v5_creds_union(&creds_union);
+
 	// bad creds version
 	if (!err) {
 		err = new_v5_creds_union(&creds_union, "BAR.ORG");
@@ -868,8 +868,8 @@ int check_cc_ccache_store_credentials(void) {
 		creds_union.version = cc_credentials_v5;
 	}
 	
-	if (&creds_union) { release_v5_creds_union(&creds_union); }
-	
+    release_v5_creds_union(&creds_union);
+
 	// non-existent ccache
 	if (ccache) { 
 		err = cc_ccache_get_name(ccache, &name);
@@ -888,7 +888,7 @@ int check_cc_ccache_store_credentials(void) {
 		check_once_cc_ccache_store_credentials(ccache, &creds_union, ccErrInvalidCCache, "invalid ccache");
 	}
 	
-	if (!err && &creds_union) { release_v5_creds_union(&creds_union); }
+	if (!err) { release_v5_creds_union(&creds_union); }
 	if (ccache) { cc_ccache_release(ccache); }
 	if (context) { 
 		destroy_all_ccaches(context);
@@ -962,7 +962,7 @@ int check_cc_ccache_remove_credentials(void) {
 	cc_context_t context = NULL;
 	cc_ccache_t ccache = NULL;
 	cc_ccache_t dup_ccache = NULL;
-	cc_credentials_t creds_array[10];
+    cc_credentials_t creds_array[10] = { 0 };
 	cc_credentials_t creds = NULL;
 	cc_credentials_union creds_union;
 	cc_credentials_iterator_t creds_iterator = NULL;
@@ -990,7 +990,7 @@ int check_cc_ccache_remove_credentials(void) {
 	for(i = 0; !err && (i < 10); i++) {
 		new_v5_creds_union(&creds_union, "BAR.ORG");
 		err = cc_ccache_store_credentials(ccache, &creds_union);
-		if (&creds_union) { release_v5_creds_union(&creds_union); }
+        release_v5_creds_union(&creds_union);
 	}
 	if (err) {
 		log_error("failure to store creds_union in remove_creds test");

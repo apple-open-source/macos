@@ -18,10 +18,6 @@
 	Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-/*
- * $Id$
- */
-
 #include <config.h>
 
 #ifdef HAVE_STRING_H
@@ -59,7 +55,6 @@
  * of 260 bytes since the driver check this value */
 #define BOGUS_SCM_FIRMWARE_FOR_dwMaxCCIDMessageLength
 
-#define max( a, b )   ( ( ( a ) > ( b ) ) ? ( a ) : ( b ) )
 #ifndef offsetof
 #define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
 #endif
@@ -1193,6 +1188,11 @@ again_status:
 	}
 #endif
 
+#ifdef __APPLE__
+	if (MICROCHIP_SEC1100 == ccid_descriptor->readerID)
+		InterruptRead(reader_index, 10);
+#endif
+
 	cmd[0] = 0x65; /* GetSlotStatus */
 	cmd[1] = cmd[2] = cmd[3] = cmd[4] = 0;	/* dwLength */
 	cmd[5] = ccid_descriptor->bCurrentSlotIndex;	/* slot number */
@@ -1510,7 +1510,7 @@ time_request:
 		{
 			case 0xEF:	/* cancel */
 				if (*rx_length < 2)
-					return IFD_COMMUNICATION_ERROR;
+					return IFD_ERROR_INSUFFICIENT_BUFFER;
 				rx_buffer[0]= 0x64;
 				rx_buffer[1]= 0x01;
 				*rx_length = 2;
@@ -1518,7 +1518,7 @@ time_request:
 
 			case 0xF0:	/* timeout */
 				if (*rx_length < 2)
-					return IFD_COMMUNICATION_ERROR;
+					return IFD_ERROR_INSUFFICIENT_BUFFER;
 				rx_buffer[0]= 0x64;
 				rx_buffer[1]= 0x00;
 				*rx_length = 2;

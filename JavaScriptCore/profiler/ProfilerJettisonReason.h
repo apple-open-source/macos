@@ -33,12 +33,12 @@ enum JettisonReason {
     JettisonDueToWeakReference,
     JettisonDueToDebuggerBreakpoint,
     JettisonDueToDebuggerStepping,
-    JettisonDueToLegacyProfiler,
     JettisonDueToBaselineLoopReoptimizationTrigger,
     JettisonDueToBaselineLoopReoptimizationTriggerOnOSREntryFail,
     JettisonDueToOSRExit,
     JettisonDueToProfiledWatchpoint,
-    JettisonDueToUnprofiledWatchpoint
+    JettisonDueToUnprofiledWatchpoint,
+    JettisonDueToOldAge
 };
 
 } } // namespace JSC::Profiler

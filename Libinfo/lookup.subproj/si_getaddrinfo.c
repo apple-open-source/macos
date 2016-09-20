@@ -355,6 +355,7 @@ si_nameinfo(si_mod_t *si, const struct sockaddr *sa, int flags, const char *inte
 					{
 						/* ENXIO */
 						if (err != NULL) *err = SI_STATUS_EAI_FAIL;
+						free(serv);
 						return NULL;
 					}
 				}
@@ -871,6 +872,11 @@ _gai_simple(si_mod_t *si, const void *nodeptr, const void *servptr, uint32_t fam
 
 	if ((flags & AI_NUMERICSERV) != 0)
 	{
+		if (servptr == NULL)
+		{
+			if (err) *err = SI_STATUS_H_ERRNO_NO_RECOVERY;
+			return NULL;
+		}
 		port = *(uint16_t*)servptr;
 	}
 	else
@@ -1024,7 +1030,7 @@ _gai_srv(si_mod_t *si, const char *node, const char *serv, uint32_t family, uint
 }
 
 static si_list_t *
-_gai_nat64_synthesis(si_mod_t *si, const char *node, const char *serv, int numericserv,
+_gai_nat64_synthesis(si_mod_t *si, const char *node, const void *servptr, int numericserv,
 					 uint32_t family, uint32_t socktype, uint32_t proto, uint32_t flags, const char *interface)
 {
 	if (NULL == node)
@@ -1051,6 +1057,13 @@ _gai_nat64_synthesis(si_mod_t *si, const char *node, const char *serv, int numer
 		return NULL;
 	}
 
+	/* validate that IPv4 address is eligible for NAT64 synthesis */
+#if defined(NW_NAT64_API_VERSION) && NW_NAT64_API_VERSION >= 2
+	if (!nw_nat64_can_v4_address_be_synthesized(&a4)) {
+		return NULL;
+	}
+#endif // NW_NAT64_API_VERSION
+
 	/* validate that there is at least an IPv6 address configured */
 	uint32_t num_inet6 = 0;
 	if ((si_inet_config(NULL, &num_inet6) < 0) || (0 == num_inet6))
@@ -1073,7 +1086,7 @@ _gai_nat64_synthesis(si_mod_t *si, const char *node, const char *serv, int numer
 	uint16_t port = 0;
 	if (0 == numericserv)
 	{
-		if (_gai_serv_to_port(serv, proto, &port) != 0)
+		if (_gai_serv_to_port((const char *)servptr, proto, &port) != 0)
 		{
 			return NULL;
 		}
@@ -1081,6 +1094,10 @@ _gai_nat64_synthesis(si_mod_t *si, const char *node, const char *serv, int numer
 		{
 			flags |= AI_NUMERICSERV;
 		}
+	}
+	else if (NULL != servptr)
+	{
+		port = *((const uint16_t *)servptr);
 	}
 
 	/* query NAT64 prefixes */
@@ -1276,7 +1293,7 @@ si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, u
 	}
 
 	/* NAT64 IPv6 address synthesis support */
-	si_list_t *nat64_list = _gai_nat64_synthesis(si, node, serv, numericserv, family, socktype, proto, flags, interface);
+	si_list_t *nat64_list = _gai_nat64_synthesis(si, node, servptr, numericserv, family, socktype, proto, flags, interface);
 	if (NULL != nat64_list)
 	{
 		return nat64_list;

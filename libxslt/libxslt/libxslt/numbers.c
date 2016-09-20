@@ -612,9 +612,7 @@ xsltNumberFormatGetAnyLevel(xsltTransformContextPtr context,
 			    xmlNodePtr node,
 			    xsltCompMatchPtr countPat,
 			    xsltCompMatchPtr fromPat,
-			    double *array,
-			    xmlDocPtr doc,
-			    xmlNodePtr elem)
+			    double *array)
 {
     int amount = 0;
     int cnt = 0;
@@ -678,9 +676,7 @@ xsltNumberFormatGetMultipleLevel(xsltTransformContextPtr context,
 				 xsltCompMatchPtr countPat,
 				 xsltCompMatchPtr fromPat,
 				 double *array,
-				 int max,
-				 xmlDocPtr doc,
-				 xmlNodePtr elem)
+				 int max)
 {
     int amount = 0;
     int cnt;
@@ -768,23 +764,28 @@ xsltNumberFormat(xsltTransformContextPtr ctxt,
     int amount, i;
     double number;
     xsltFormat tokens;
-    int tempformat = 0;
 
-    if ((data->format == NULL) && (data->has_format != 0)) {
-	data->format = xsltEvalAttrValueTemplate(ctxt, data->node,
+    if (data->format != NULL) {
+        xsltNumberFormatTokenize(data->format, &tokens);
+    }
+    else {
+        xmlChar *format;
+
+	/* The format needs to be recomputed each time */
+        if (data->has_format == 0)
+            return;
+	format = xsltEvalAttrValueTemplate(ctxt, data->node,
 					     (const xmlChar *) "format",
 					     XSLT_NAMESPACE);
-	tempformat = 1;
-    }
-    if (data->format == NULL) {
-	return;
+        if (format == NULL)
+            return;
+        xsltNumberFormatTokenize(format, &tokens);
+	xmlFree(format);
     }
 
     output = xmlBufferCreate();
     if (output == NULL)
 	goto XSLT_NUMBER_FORMAT_END;
-
-    xsltNumberFormatTokenize(data->format, &tokens);
 
     /*
      * Evaluate the XPath expression to find the value(s)
@@ -810,9 +811,7 @@ xsltNumberFormat(xsltTransformContextPtr ctxt,
 						      data->countPat,
 						      data->fromPat,
 						      &number,
-						      1,
-						      data->doc,
-						      data->node);
+						      1);
 	    if (amount == 1) {
 		xsltNumberFormatInsertNumbers(data,
 					      &number,
@@ -828,9 +827,7 @@ xsltNumberFormat(xsltTransformContextPtr ctxt,
 						      data->countPat,
 						      data->fromPat,
 						      numarray,
-						      max,
-						      data->doc,
-						      data->node);
+						      max);
 	    if (amount > 0) {
 		xsltNumberFormatInsertNumbers(data,
 					      numarray,
@@ -843,9 +840,7 @@ xsltNumberFormat(xsltTransformContextPtr ctxt,
 						 node,
 						 data->countPat,
 						 data->fromPat,
-						 &number,
-						 data->doc,
-						 data->node);
+						 &number);
 	    if (amount > 0) {
 		xsltNumberFormatInsertNumbers(data,
 					      &number,
@@ -858,6 +853,9 @@ xsltNumberFormat(xsltTransformContextPtr ctxt,
     /* Insert number as text node */
     xsltCopyTextString(ctxt, ctxt->insert, xmlBufferContent(output), 0);
 
+    xmlBufferFree(output);
+
+XSLT_NUMBER_FORMAT_END:
     if (tokens.start != NULL)
 	xmlFree(tokens.start);
     if (tokens.end != NULL)
@@ -866,14 +864,6 @@ xsltNumberFormat(xsltTransformContextPtr ctxt,
 	if (tokens.tokens[i].separator != NULL)
 	    xmlFree(tokens.tokens[i].separator);
     }
-
-XSLT_NUMBER_FORMAT_END:
-    if (tempformat == 1) {
-	/* The format need to be recomputed each time */
-	data->format = NULL;
-    }
-    if (output != NULL)
-	xmlBufferFree(output);
 }
 
 static int

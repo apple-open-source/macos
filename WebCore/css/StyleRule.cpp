@@ -32,6 +32,7 @@
 #include "CSSStyleRule.h"
 #include "CSSSupportsRule.h"
 #include "CSSUnknownRule.h"
+#include "MediaList.h"
 #include "StyleProperties.h"
 #include "StyleRuleImport.h"
 #include "WebKitCSSRegionRule.h"
@@ -45,14 +46,14 @@ struct SameSizeAsStyleRuleBase : public WTF::RefCountedBase {
 
 COMPILE_ASSERT(sizeof(StyleRuleBase) == sizeof(SameSizeAsStyleRuleBase), StyleRuleBase_should_stay_small);
 
-PassRefPtr<CSSRule> StyleRuleBase::createCSSOMWrapper(CSSStyleSheet* parentSheet) const
+RefPtr<CSSRule> StyleRuleBase::createCSSOMWrapper(CSSStyleSheet* parentSheet) const
 {
-    return createCSSOMWrapper(parentSheet, 0);
+    return createCSSOMWrapper(parentSheet, nullptr);
 }
 
-PassRefPtr<CSSRule> StyleRuleBase::createCSSOMWrapper(CSSRule* parentRule) const
+RefPtr<CSSRule> StyleRuleBase::createCSSOMWrapper(CSSRule* parentRule) const
 { 
-    return createCSSOMWrapper(0, parentRule);
+    return createCSSOMWrapper(nullptr, parentRule);
 }
 
 void StyleRuleBase::destroy()
@@ -140,7 +141,7 @@ Ref<StyleRuleBase> StyleRuleBase::copy() const
     return Ref<StyleRuleBase>(*static_cast<StyleRuleBase*>(nullptr));
 }
 
-PassRefPtr<CSSRule> StyleRuleBase::createCSSOMWrapper(CSSStyleSheet* parentSheet, CSSRule* parentRule) const
+RefPtr<CSSRule> StyleRuleBase::createCSSOMWrapper(CSSStyleSheet* parentSheet, CSSRule* parentRule) const
 {
     RefPtr<CSSRule> rule;
     StyleRuleBase& self = const_cast<StyleRuleBase&>(*this);
@@ -187,7 +188,7 @@ PassRefPtr<CSSRule> StyleRuleBase::createCSSOMWrapper(CSSStyleSheet* parentSheet
     }
     if (parentRule)
         rule->setParentRule(parentRule);
-    return rule.release();
+    return rule;
 }
 
 unsigned StyleRule::averageSizeInBytes()
@@ -197,7 +198,7 @@ unsigned StyleRule::averageSizeInBytes()
 
 StyleRule::StyleRule(int sourceLine, Ref<StyleProperties>&& properties)
     : StyleRuleBase(Style, sourceLine)
-    , m_properties(WTF::move(properties))
+    , m_properties(WTFMove(properties))
 {
 }
 
@@ -226,7 +227,7 @@ Ref<StyleRule> StyleRule::create(int sourceLine, const Vector<const CSSSelector*
     for (unsigned i = 0; i < selectors.size(); ++i)
         new (NotNull, &selectorListArray[i]) CSSSelector(*selectors.at(i));
     selectorListArray[selectors.size() - 1].setLastInSelectorList();
-    auto rule = StyleRule::create(sourceLine, WTF::move(properties));
+    auto rule = StyleRule::create(sourceLine, WTFMove(properties));
     rule.get().parserAdoptSelectorArray(selectorListArray);
     return rule;
 }
@@ -259,7 +260,7 @@ Vector<RefPtr<StyleRule>> StyleRule::splitIntoMultipleRulesWithMaximumSelectorCo
 
 StyleRulePage::StyleRulePage(Ref<StyleProperties>&& properties)
     : StyleRuleBase(Page)
-    , m_properties(WTF::move(properties))
+    , m_properties(WTFMove(properties))
 {
 }
 
@@ -283,7 +284,7 @@ MutableStyleProperties& StyleRulePage::mutableProperties()
 
 StyleRuleFontFace::StyleRuleFontFace(Ref<StyleProperties>&& properties)
     : StyleRuleBase(FontFace, 0)
-    , m_properties(WTF::move(properties))
+    , m_properties(WTFMove(properties))
 {
 }
 
@@ -320,7 +321,7 @@ StyleRuleGroup::StyleRuleGroup(const StyleRuleGroup& o)
 
 void StyleRuleGroup::wrapperInsertRule(unsigned index, Ref<StyleRuleBase>&& rule)
 {
-    m_childRules.insert(index, WTF::move(rule));
+    m_childRules.insert(index, WTFMove(rule));
 }
     
 void StyleRuleGroup::wrapperRemoveRule(unsigned index)
@@ -329,9 +330,9 @@ void StyleRuleGroup::wrapperRemoveRule(unsigned index)
 }
 
 
-StyleRuleMedia::StyleRuleMedia(PassRefPtr<MediaQuerySet> media, Vector<RefPtr<StyleRuleBase>>& adoptRules)
+StyleRuleMedia::StyleRuleMedia(Ref<MediaQuerySet>&& media, Vector<RefPtr<StyleRuleBase>>& adoptRules)
     : StyleRuleGroup(Media, adoptRules)
-    , m_mediaQueries(media)
+    , m_mediaQueries(WTFMove(media))
 {
 }
 
@@ -373,7 +374,7 @@ StyleRuleRegion::StyleRuleRegion(const StyleRuleRegion& o)
 #if ENABLE(CSS_DEVICE_ADAPTATION)
 StyleRuleViewport::StyleRuleViewport(Ref<StyleProperties>&& properties)
     : StyleRuleBase(Viewport, 0)
-    , m_properties(WTF::move(properties))
+    , m_properties(WTFMove(properties))
 {
 }
 

@@ -127,7 +127,6 @@ static inline bool SecAKSGetHasBeenUnlocked(bool* hasBeenUnlocked, CFErrorRef* e
 }
 
 bool SecAKSDoWhileUserBagLocked(CFErrorRef *error, dispatch_block_t action);
-
 //
 // if you can't use the block version above, use these.
 // !!!!!Remember to balance them!!!!!!

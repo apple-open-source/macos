@@ -28,7 +28,6 @@
 #define PageScriptDebugServer_h
 
 #include <inspector/ScriptDebugServer.h>
-#include <wtf/Forward.h>
 
 namespace WebCore {
 
@@ -43,18 +42,17 @@ public:
     PageScriptDebugServer(Page&);
     virtual ~PageScriptDebugServer() { }
 
-    void addListener(Inspector::ScriptDebugListener*);
-    void removeListener(Inspector::ScriptDebugListener*, bool isBeingDestroyed);
-
-    virtual void recompileAllJSFunctions() override;
+    void recompileAllJSFunctions() override;
 
 private:
-    virtual ListenerSet& getListeners() override { return m_listeners; }
-    virtual void didPause(JSC::JSGlobalObject*) override;
-    virtual void didContinue(JSC::JSGlobalObject*) override;
-    virtual void runEventLoopWhilePaused() override;
-    virtual bool isContentScript(JSC::ExecState*) const override;
-    virtual void reportException(JSC::ExecState*, JSC::Exception*) const override;
+    void attachDebugger() override;
+    void detachDebugger(bool isBeingDestroyed) override;
+
+    void didPause(JSC::JSGlobalObject*) override;
+    void didContinue(JSC::JSGlobalObject*) override;
+    void runEventLoopWhilePaused() override;
+    bool isContentScript(JSC::ExecState*) const override;
+    void reportException(JSC::ExecState*, JSC::Exception*) const override;
 
     void runEventLoopWhilePausedInternal();
 
@@ -63,7 +61,6 @@ private:
     void setJavaScriptPaused(Frame*, bool paused);
     void setJavaScriptPaused(FrameView*, bool paused);
 
-    ListenerSet m_listeners;
     Page& m_page;
 };
 

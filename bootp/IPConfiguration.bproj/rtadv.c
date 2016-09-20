@@ -184,6 +184,20 @@ rtadv_start(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	    }
 	}
 	if (rtadv->try > MAX_RTR_SOLICITATIONS) {
+	    if (rtadv->try == (MAX_RTR_SOLICITATIONS + 1)) {
+		/* set a timer that fires if we don't get an address */
+#define ADDRESS_ACQUISITION_FAILURE_TIMEOUT	20
+		tv.tv_sec = ADDRESS_ACQUISITION_FAILURE_TIMEOUT;
+		tv.tv_usec = 0;
+		timer_set_relative(rtadv->timer, tv,
+				   (timer_func_t *)rtadv_start,
+				   service_p,
+				   (void *)IFEventID_timeout_e, NULL);
+	    }
+	    else if (rtadv->try == (MAX_RTR_SOLICITATIONS + 2)) {
+		/* generate a symptom if we don't get an address */
+		ServiceGenerateFailureSymptom(service_p);
+	    }
 	    /* now we just wait to see if something comes in */
 	    return;
 	}
@@ -410,7 +424,6 @@ rtadv_address_changed(ServiceRef service_p,
 	inet6_addrinfo_t	list[addr_list_p->count];
 	struct in6_addr *	router = NULL;
 	int			router_count = 0;
-	CFStringRef		signature = NULL;
 
 	inet6_addrlist_init(&dhcp_addr_list);
 	if (rtadv->dhcp_client != NULL) {
@@ -445,28 +458,44 @@ rtadv_address_changed(ServiceRef service_p,
 	    info.dns_servers_count = rtadv->dns_servers_count;
 	    info_p = &info;
 	}
-	signature = rtadv_create_signature(service_p, list, count);
-	ServicePublishSuccessIPv6(service_p, list, count, router, router_count,
-				  info_p, signature);
+	if (router_count != 0) {
+	    CFStringRef		signature;
+
+	    signature = rtadv_create_signature(service_p, list, count);
+	    ServicePublishSuccessIPv6(service_p, list, count,
+				      router, router_count,
+				      info_p, signature);
+	    my_CFRelease(&signature);
+	}
 	if (rtadv->renew) {
 	    /* re-assign address to trigger DAD */
 	    rtadv_trigger_dad(service_p, list, count);
 	    rtadv->renew = FALSE;
 	}
-	my_CFRelease(&signature);
     }
     return;
 }
 
 STATIC void
-rtadv_dhcp_callback(void * callback_arg, DHCPv6ClientRef client)
+rtadv_dhcp_callback(DHCPv6ClientRef client, void * callback_arg,
+		    DHCPv6ClientNotificationType type)
 {
     inet6_addrlist_t	addrs;
     ServiceRef		service_p = (ServiceRef)callback_arg;
 
-    inet6_addrlist_copy(&addrs, if_link_index(service_interface(service_p)));
-    rtadv_address_changed(service_p, &addrs);
-    inet6_addrlist_free(&addrs);
+    switch (type) {
+    case kDHCPv6ClientNotificationTypeStatusChanged:
+	inet6_addrlist_copy(&addrs,
+			    if_link_index(service_interface(service_p)));
+	rtadv_address_changed(service_p, &addrs);
+	inet6_addrlist_free(&addrs);
+	break;
+    case kDHCPv6ClientNotificationTypeGenerateSymptom:
+	ServiceGenerateFailureSymptom(service_p);
+	break;
+    default:
+	break;
+    }
     return;
 }
 
@@ -576,10 +605,10 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	}
 	rtadv_address_changed(service_p, event_data);
 	break;
+    case IFEventID_wake_e:
     case IFEventID_renew_e:
     case IFEventID_link_status_changed_e: {
-	link_status_t	link_status;
-	void *		network_changed = event_data;
+	link_status_t		link_status;
 
 	if (rtadv == NULL) {
 	    return (ipconfig_status_internal_error_e);
@@ -587,7 +616,9 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	link_status = service_link_status(service_p);
 	if (link_status.valid == FALSE
 	    || link_status.active == TRUE) {
-	    if (network_changed != NULL) {
+	    link_event_data_t	link_event = (link_event_data_t)event_data;
+
+	    if ((link_event->flags & kLinkFlagsSSIDChanged) != 0) {
 		inet6_flush_prefixes(if_name(if_p));
 		inet6_flush_routes(if_name(if_p));
 		inet6_rtadv_disable(if_name(if_p));
@@ -597,7 +628,7 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 		service_publish_failure(service_p,
 					ipconfig_status_network_changed_e);
 	    }
-	    else if (evid == IFEventID_link_status_changed_e
+	    else if (evid != IFEventID_renew_e
 		     && rtadv->try == 1
 		     && rtadv->data_received == FALSE) {
 		/* we're already on it */
@@ -607,7 +638,10 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 		&& if_ift_type(if_p) == IFT_CELLULAR) {
 		rtadv->renew = TRUE;
 	    }
-	    rtadv_init(service_p);
+	    if (evid != IFEventID_wake_e
+		|| ServiceIsPublished(service_p) == FALSE) {
+		rtadv_init(service_p);
+	    }
 	}
 	else {
 	    rtadv->try = 0;
@@ -619,9 +653,6 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	if (rtadv->dhcp_client != NULL) {
 	    DHCPv6ClientStop(rtadv->dhcp_client, FALSE);
 	}
-	break;
-
-    case IFEventID_wake_e:
 	break;
 
     case IFEventID_get_dhcpv6_info_e: {

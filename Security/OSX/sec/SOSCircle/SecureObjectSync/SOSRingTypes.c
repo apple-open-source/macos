@@ -255,9 +255,12 @@ errOut:
 }
 
 bool SOSRingPeerTrusted(SOSRingRef ring, SOSFullPeerInfoRef requestor, CFErrorRef *error) {
+    bool retval = false;
     SOSPeerInfoRef pi = SOSFullPeerInfoGetPeerInfo(requestor);
-    SecKeyRef pubkey = SOSPeerInfoCopyPubKey(pi);
-    bool retval = SOSRingPKTrusted(ring, pubkey, error);
+    SecKeyRef pubkey = SOSPeerInfoCopyPubKey(pi, error);
+    require_quiet(pubkey, exit);
+    retval = SOSRingPKTrusted(ring, pubkey, error);
+exit:
     CFReleaseNull(pubkey);
     return retval;
 }

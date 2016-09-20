@@ -35,19 +35,19 @@ namespace WebCore {
 
 class ImageBackingSurfaceClient : public CoordinatedSurface::Client {
 public:
-    ImageBackingSurfaceClient(Image* image, const IntRect& rect)
+    ImageBackingSurfaceClient(Image& image, const IntRect& rect)
         : m_image(image)
         , m_rect(rect)
     {
     }
 
-    virtual void paintToSurfaceContext(GraphicsContext* context) override
+    void paintToSurfaceContext(GraphicsContext& context) override
     {
-        context->drawImage(m_image, ColorSpaceDeviceRGB, m_rect, m_rect);
+        context.drawImage(m_image, m_rect, m_rect);
     }
 
 private:
-    Image* m_image;
+    Image& m_image;
     IntRect m_rect;
 };
 
@@ -128,12 +128,12 @@ void CoordinatedImageBacking::update()
 
     IntRect rect(IntPoint::zero(), IntSize(m_image->size()));
 
-    ImageBackingSurfaceClient surfaceClient(m_image.get(), rect);
-    m_surface->paintToSurface(rect, &surfaceClient);
+    ImageBackingSurfaceClient surfaceClient(*m_image, rect);
+    m_surface->paintToSurface(rect, surfaceClient);
 
     m_nativeImagePtr = m_image->nativeImageForCurrentFrame();
 
-    m_client->updateImageBacking(id(), m_surface);
+    m_client->updateImageBacking(id(), m_surface.copyRef());
     m_isDirty = false;
 }
 

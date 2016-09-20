@@ -32,6 +32,8 @@
 #import "GraphicsContext3D.h"
 #import "GraphicsContextCG.h"
 #import "GraphicsLayer.h"
+#import "GraphicsLayerCA.h"
+#import "PlatformCALayer.h"
 #import <wtf/FastMalloc.h>
 #import <wtf/RetainPtr.h>
 
@@ -142,7 +144,7 @@ static void freeData(void *, const void *data, size_t /* size */)
 
     RetainPtr<CGColorSpaceRef> imageColorSpace = colorSpace;
     if (!imageColorSpace)
-        imageColorSpace = adoptCF(CGColorSpaceCreateDeviceRGB());
+        imageColorSpace = sRGBColorSpaceRef();
 
     CGRect layerBounds = CGRectIntegral([self bounds]);
 
@@ -179,6 +181,9 @@ static void freeData(void *, const void *data, size_t /* size */)
     [super display];
 #endif
     _context->markLayerComposited();
+    PlatformCALayer* layer = PlatformCALayer::platformCALayer(self);
+    if (layer && layer->owner())
+        layer->owner()->platformCALayerLayerDidDisplay(layer);
 }
 
 @end

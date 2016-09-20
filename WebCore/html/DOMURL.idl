@@ -25,7 +25,7 @@
  */
 
 [
-    GlobalContext=DOMWindow&WorkerGlobalScope,
+    Exposed=(Window,Worker),
     Constructor(DOMString url),
     Constructor(DOMString url, DOMString base),
     Constructor(DOMString url, DOMURL base),
@@ -34,8 +34,9 @@
     JSGenerateToJSObject,
     InterfaceName=URL,
     ImplementationLacksVTable,
+    ExportMacro=WEBCORE_EXPORT,
 ] interface DOMURL {
-    [CallWith=ScriptExecutionContext,TreatReturnedNullStringAs=Null] static DOMString createObjectURL(Blob? blob);
+    [CallWith=ScriptExecutionContext] static DOMString? createObjectURL(Blob? blob); // FIXME: The return value and the parameter should not be nullable.
     [CallWith=ScriptExecutionContext] static void revokeObjectURL(DOMString url);
 };
 

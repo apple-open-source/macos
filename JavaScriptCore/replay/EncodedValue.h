@@ -59,12 +59,12 @@ public:
 
     static EncodedValue createString(const String& value)
     {
-        return EncodedValue(Inspector::InspectorString::create(value));
+        return EncodedValue(Inspector::InspectorValue::create(value));
     }
 
     static EncodedValue createString(const char* value)
     {
-        return EncodedValue(Inspector::InspectorString::create(value));
+        return EncodedValue(Inspector::InspectorValue::create(value));
     }
 
     template<typename T>
@@ -114,7 +114,7 @@ struct EncodingTraits<Vector<T, inlineCapacity, OverflowHandler>> {
         for (const typename EncodingTraits<T>::DecodedType& value : vectorOfValues)
             encodedVector.append<T>(value);
 
-        return WTF::move(encodedVector);
+        return encodedVector;
     }
 
     static bool decodeValue(EncodedValue& encodedVector, DecodedType& decodedValue)

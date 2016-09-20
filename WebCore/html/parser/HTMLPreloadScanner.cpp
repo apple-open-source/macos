@@ -22,7 +22,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -110,15 +110,15 @@ public:
         ASSERT(isMainThread());
         if (m_tagId >= TagId::Unknown)
             return;
-
-        for (HTMLToken::AttributeList::const_iterator iter = attributes.begin(); iter != attributes.end(); ++iter) {
-            AtomicString attributeName(iter->name);
-            String attributeValue = StringImpl::create8BitIfPossible(iter->value);
+        
+        for (auto& attribute : attributes) {
+            AtomicString attributeName(attribute.name);
+            String attributeValue = StringImpl::create8BitIfPossible(attribute.value);
             processAttribute(attributeName, attributeValue, document, pictureState);
         }
         
         if (m_tagId == TagId::Source && !pictureState.isEmpty() && !pictureState.last() && m_mediaMatched && !m_srcSetAttribute.isEmpty()) {
-            float sourceSize = parseSizesAttribute(m_sizesAttribute, document.renderView(), document.frame());
+            float sourceSize = parseSizesAttribute(document, m_sizesAttribute);
             ImageCandidate imageCandidate = bestFitSourceForImageAttributes(m_deviceScaleFactor, m_urlToLoad, m_srcSetAttribute, sourceSize);
             if (!imageCandidate.isEmpty()) {
                 pictureState.last() = true;
@@ -128,7 +128,7 @@ public:
         
         // Resolve between src and srcSet if we have them and the tag is img.
         if (m_tagId == TagId::Img && !m_srcSetAttribute.isEmpty()) {
-            float sourceSize = parseSizesAttribute(m_sizesAttribute, document.renderView(), document.frame());
+            float sourceSize = parseSizesAttribute(document, m_sizesAttribute);
             ImageCandidate imageCandidate = bestFitSourceForImageAttributes(m_deviceScaleFactor, m_urlToLoad, m_srcSetAttribute, sourceSize);
             setUrlToLoad(imageCandidate.string.toString(), true);
         }
@@ -143,8 +143,7 @@ public:
             return nullptr;
 
         auto request = std::make_unique<PreloadRequest>(initiatorFor(m_tagId), m_urlToLoad, predictedBaseURL, resourceType(), m_mediaAttribute);
-
-        request->setCrossOriginModeAllowsCookies(crossOriginModeAllowsCookies());
+        request->setCrossOriginMode(m_crossOriginMode);
         request->setCharset(charset());
         return request;
     }
@@ -160,7 +159,7 @@ private:
     {
         if (match(attributeName, srcAttr))
             setUrlToLoad(attributeValue);
-        else if (match(attributeName, crossoriginAttr) && !attributeValue.isNull())
+        else if (match(attributeName, crossoriginAttr))
             m_crossOriginMode = stripLeadingAndTrailingHTMLSpaces(attributeValue);
         else if (match(attributeName, charsetAttr))
             m_charset = attributeValue;
@@ -198,10 +197,9 @@ private:
             }
             if (match(attributeName, mediaAttr) && m_mediaAttribute.isNull()) {
                 m_mediaAttribute = attributeValue;
-                Ref<MediaQuerySet> mediaSet = MediaQuerySet::createAllowingDescriptionSyntax(attributeValue);
-                Vector<std::unique_ptr<MediaQueryResult>> viewportDependentMediaQueryResults;
-                MediaQueryEvaluator evaluator(document.printing() ? "print" : "screen", document.frame(), document.documentElement() ? document.documentElement()->computedStyle() : nullptr);
-                m_mediaMatched = evaluator.evalCheckingViewportDependentResults(mediaSet.ptr(), viewportDependentMediaQueryResults);
+                auto mediaSet = MediaQuerySet::createAllowingDescriptionSyntax(attributeValue);
+                auto* documentElement = document.documentElement();
+                m_mediaMatched = MediaQueryEvaluator { document.printing() ? "print" : "screen", document, documentElement ? documentElement->computedStyle() : nullptr }.evaluate(mediaSet.get());
             }
             break;
         case TagId::Script:
@@ -216,18 +214,20 @@ private:
                 m_mediaAttribute = attributeValue;
             else if (match(attributeName, charsetAttr))
                 m_charset = attributeValue;
+            else if (match(attributeName, crossoriginAttr))
+                m_crossOriginMode = stripLeadingAndTrailingHTMLSpaces(attributeValue);
             break;
         case TagId::Input:
             if (match(attributeName, srcAttr))
                 setUrlToLoad(attributeValue);
             else if (match(attributeName, typeAttr))
-                m_inputIsImage = equalIgnoringCase(attributeValue, InputTypeNames::image());
+                m_inputIsImage = equalLettersIgnoringASCIICase(attributeValue, "image");
             break;
         case TagId::Meta:
             if (match(attributeName, contentAttr))
                 m_metaContent = attributeValue;
             else if (match(attributeName, nameAttr))
-                m_metaIsViewport = equalIgnoringCase(attributeValue, "viewport");
+                m_metaIsViewport = equalLettersIgnoringASCIICase(attributeValue, "viewport");
             break;
         case TagId::Base:
         case TagId::Style:
@@ -241,7 +241,7 @@ private:
     static bool relAttributeIsStyleSheet(const String& attributeValue)
     {
         LinkRelAttribute parsedAttribute { attributeValue };
-        return parsedAttribute.isStyleSheet && !parsedAttribute.isAlternate && parsedAttribute.iconType == InvalidIcon && !parsedAttribute.isDNSPrefetch;
+        return parsedAttribute.isStyleSheet && !parsedAttribute.isAlternate && !parsedAttribute.iconType && !parsedAttribute.isDNSPrefetch;
     }
 
     void setUrlToLoad(const String& value, bool allowReplacement = false)
@@ -291,7 +291,7 @@ private:
         if (m_urlToLoad.isEmpty())
             return false;
 
-        if (protocolIs(m_urlToLoad, "data"))
+        if (protocolIs(m_urlToLoad, "data") || protocolIs(m_urlToLoad, "about"))
             return false;
 
         if (m_tagId == TagId::Link && !m_linkIsStyleSheet)
@@ -301,11 +301,6 @@ private:
             return false;
 
         return true;
-    }
-
-    bool crossOriginModeAllowsCookies()
-    {
-        return m_crossOriginMode.isNull() || equalIgnoringCase(m_crossOriginMode, "use-credentials");
     }
 
     TagId m_tagId;
@@ -340,13 +335,11 @@ void TokenPreloadScanner::scan(const HTMLToken& token, Vector<std::unique_ptr<Pr
 
     case HTMLToken::EndTag: {
         TagId tagId = tagIdFor(token.name());
-#if ENABLE(TEMPLATE_ELEMENT)
         if (tagId == TagId::Template) {
             if (m_templateCount)
                 --m_templateCount;
             return;
         }
-#endif
         if (tagId == TagId::Style) {
             if (m_inStyle)
                 m_cssScanner.reset();
@@ -358,17 +351,13 @@ void TokenPreloadScanner::scan(const HTMLToken& token, Vector<std::unique_ptr<Pr
     }
 
     case HTMLToken::StartTag: {
-#if ENABLE(TEMPLATE_ELEMENT)
         if (m_templateCount)
             return;
-#endif
         TagId tagId = tagIdFor(token.name());
-#if ENABLE(TEMPLATE_ELEMENT)
         if (tagId == TagId::Template) {
             ++m_templateCount;
             return;
         }
-#endif
         if (tagId == TagId::Style) {
             m_inStyle = true;
             return;
@@ -388,7 +377,7 @@ void TokenPreloadScanner::scan(const HTMLToken& token, Vector<std::unique_ptr<Pr
         StartTagScanner scanner(tagId, m_deviceScaleFactor);
         scanner.processAttributes(token.attributes(), document, m_pictureSourceState);
         if (auto request = scanner.createPreloadRequest(m_predictedBaseElementURL))
-            requests.append(WTF::move(request));
+            requests.append(WTFMove(request));
         return;
     }
 
@@ -433,7 +422,7 @@ void HTMLPreloadScanner::scan(HTMLResourcePreloader& preloader, Document& docume
         m_scanner.scan(*token, requests, document);
     }
 
-    preloader.preload(WTF::move(requests));
+    preloader.preload(WTFMove(requests));
 }
 
 bool testPreloadScannerViewportSupport(Document* document)

@@ -25,5 +25,5 @@
 
 BEGIN
 {
-	print((void)`p0);
+	print((void)`real_ncpus);
 }

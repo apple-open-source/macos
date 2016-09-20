@@ -256,10 +256,11 @@ static CFArrayRef handleCircleMessages(SOSTransportCircleRef transport, CFMutabl
     CFMutableArrayRef handledKeys = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
     CFDictionaryForEach(circle_circle_messages_table, ^(const void *key, const void *value) {
         CFErrorRef circleMessageError = NULL;
-        if (!SOSAccountHandleCircleMessage(SOSTransportCircleGetAccount(transport), key, value, &circleMessageError)) {
+        if(!isString(key) || !isData(value)) {
+            secerror("Error, Key-Value for CircleMessage was not CFString/CFData");
+        } if (!SOSAccountHandleCircleMessage(SOSTransportCircleGetAccount(transport), key, value, &circleMessageError)) {
             secerror("Error handling circle message %@ (%@): %@", key, value, circleMessageError);
-        }
-        else{
+        } else{
             CFStringRef circle_id = (CFStringRef) key;
             CFArrayAppendValue(handledKeys, circle_id);
         }
@@ -341,15 +342,11 @@ bool SOSTransportCircleKVSAppendRingKeyInterest(SOSTransportCircleKVSRef transpo
             CFReleaseNull(ring_key);
         });
 
-        // And any trusted rings!
-        CFMutableDictionaryRef rings = SOSAccountGetRings(account, error);
-        require_quiet(rings, fail);
-        require_quiet(CFDictionaryGetCount(rings) > 0, fail);
-        CFDictionaryForEach(rings, ^(const void *key, const void *value) {
-            CFStringRef ringName = asString(key, NULL);
-            CFStringRef ring_key = SOSRingKeyCreateWithRingName(ringName);
+        SOSAccountForEachRing(account, ^SOSRingRef(CFStringRef name, SOSRingRef ring) {
+            CFStringRef ring_key = SOSRingKeyCreateWithRingName(name);
             CFSetAddValue(ringKeys, ring_key);
             CFReleaseNull(ring_key);
+            return NULL;
         });
 
         CFSetForEach(ringKeys, ^(const void *value) {

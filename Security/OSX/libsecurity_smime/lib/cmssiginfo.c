@@ -501,11 +501,6 @@ loser:
 	SECITEM_FreeItem (&signature, PR_FALSE);
     if (privkey)
 	SECKEY_DestroyPrivateKey(privkey);
-    if((algID != NULL) & (algID != &freeAlgID)) {
-	/* this is dicey - this was actually mallocd by either SecCertificate or 
-	 * by SecKey...it all boils down to a free() in the end though. */
-	SECOID_DestroyAlgorithmID((SECAlgorithmID *)algID, PR_FALSE);
-    }
     if (tmppoolp)
 	PORT_FreeArena(tmppoolp, PR_FALSE);
     return SECFailure;
@@ -671,7 +666,6 @@ SecCmsSignerInfoVerifyWithPolicy(SecCmsSignerInfoRef signerinfo,CFTypeRef timeSt
 	}
 
 	if ((poolp = PORT_NewArena (1024)) == NULL) {
-            syslog(LOG_ERR, "SecCmsSignerInfoVerifyWithPolicy: failed to make new Arena %d", PORT_GetError());
 	    vs = SecCmsVSProcessingError;
 	    goto loser;
 	}
@@ -689,7 +683,6 @@ SecCmsSignerInfoVerifyWithPolicy(SecCmsSignerInfoRef signerinfo,CFTypeRef timeSt
 	if (SecCmsAttributeArrayEncode(poolp, &(signerinfo->authAttr), &encoded_attrs) == NULL ||
 		encoded_attrs.Data == NULL || encoded_attrs.Length == 0)
 	{
-            syslog(LOG_ERR, "SecCmsSignerInfoVerifyWithPolicy: failed to encode attributes");
 	    vs = SecCmsVSProcessingError;
 	    goto loser;
 	}

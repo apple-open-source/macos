@@ -1,6 +1,4 @@
-# chmod 0755 */*.exe
-# perl ../../cmd/scripts/dtest.pl -d /var/tmp/Sandbox/ `grep -v '#' NoSafetyTests `
-# N.B. The shell gets tetchy when the "grep -v" just above returns more than 29K characters or so.
+perf/perf.launchtime.ksh
 aggs/err.D_AGG_FUNC.bad.d
 aggs/err.D_AGG_MDIM.bad.d
 aggs/err.D_AGG_NULL.bad.d
@@ -77,7 +75,7 @@ aggs/err.D_TRUNC_SCALAR.bad.d
 aggs/tst.aggencoding.d
 aggs/tst.agghist.d
 aggs/tst.aggpack.d
-aggs/tst.aggpackbanner.ksh
+# aggs/tst.aggpackbanner.ksh DIF program exceed maximum size on Darwin
 aggs/tst.aggpackzoom.d
 aggs/tst.aggzoom.d
 aggs/tst.allquant.d
@@ -185,6 +183,8 @@ bitfields/err.D_OFFSETOF_BITFIELD.d
 bitfields/err.D_SIZEOF_BITFIELD.SizeofBitfield.d
 bitfields/tst.BitFieldPromotion.d
 bitfields/tst.SizeofBitField.d
+buffering/err.buflimit.low.d
+buffering/err.buflimit.high.d
 buffering/err.end.d
 buffering/err.resize1.d
 buffering/err.resize2.d
@@ -375,7 +375,7 @@ dtraceUtil/tst.InvalidTraceProvider3.d.ksh
 dtraceUtil/tst.InvalidTraceProvider4.d.ksh
 dtraceUtil/tst.InvalidTraceProvider5.d.ksh
 dtraceUtil/tst.MultipleInvalidProbeId.d.ksh
-dtraceUtil/tst.PreprocessorAttribute.d.ksh
+#dtraceUtil/tst.PreprocessorAttribute.d.ksh // Unstable on OSX, depends on the contents of stdio.h
 dtraceUtil/tst.PreprocessorStatement.d.ksh
 dtraceUtil/tst.QuietMode.d.ksh
 dtraceUtil/tst.TestCompile.d.ksh
@@ -401,6 +401,7 @@ error/tst.DTRACEFLT_DIVZERO.d
 error/tst.DTRACEFLT_UNKNOWN.d
 error/tst.error.d
 error/tst.errorend.d
+error/tst.noerror.d
 exit/err.D_PROTO_LEN.noarg.d
 exit/err.exitarg1.d
 exit/tst.basic1.d
@@ -430,7 +431,7 @@ funcs/err.copyoutbadaddr.ksh
 funcs/err.copyoutstrbadaddr.ksh
 funcs/err.D_FUNC_UNDEF.progenyofbad1.d
 funcs/err.D_OP_VFPTR.badop.d
-funcs/err.D_PROTO_ARG.addrpermbadarg.d
+# funcs/err.D_PROTO_ARG.addrpermbadarg.d /* RADAR 24973750 : vm_kernel_addrperm accepts invalid arguments */
 funcs/err.D_PROTO_ARG.chillbadarg.d
 funcs/err.D_PROTO_ARG.copyoutbadarg.d
 # funcs/err.D_PROTO_ARG.mobadarg.d				/* RADAR 4769158: Awaits mutex_enter mutex_owner probes. */
@@ -467,7 +468,6 @@ funcs/tst.chill.ksh
 funcs/tst.cleanpath.d
 funcs/tst.copyin.d
 funcs/tst.copyinto.d
-funcs/tst.core_profile.d
 # funcs/tst.ddi_pathname.d						/* WAIVED: Solaris device driver model specific. */
 funcs/tst.default.d
 funcs/tst.freopen.ksh
@@ -572,10 +572,10 @@ pid/tst.manypids.ksh
 pid/tst.ret1.d
 pid/tst.ret2.d
 pid/tst.vfork.d
-pid/tst.dlopen.ksh
+# pid/tst.dlopen.ksh /* RADAR 24974843 */
 # pid/tst.weak1.d								/* DEFERRED wants #pragma weak _go = go */
 # pid/tst.weak2.d								/* DEFERRED wants #pragma weak _go = go */
-plockstat/tst.available.d
+# plockstat/tst.available.d /* RADAR 12533717 plockstat is broken */
 # plockstat/tst.libmap.d						/* DEFERRED wants "libc" as alias to libSystem !?! */
 pointers/err.BadAlign.d
 pointers/err.D_ADDROF_VAR.agg.d
@@ -701,7 +701,7 @@ printf/tst.printY.d
 printf/tst.rawfmt.d
 printf/tst.same-encoding.d
 printf/tst.str.d
-printf/tst.sym.d
+printf/tst.sym.ksh
 printf/tst.uints.d
 printf/tst.widths.d
 printf/tst.widths1.d
@@ -824,7 +824,7 @@ scalars/tst.localvar.d
 scalars/tst.misc.d
 scalars/tst.self.d
 scalars/tst.selfarray.d
-scalars/tst.selfarray2.d
+# scalars/tst.selfarray2.d /* Thread can change PID on fork */
 scalars/tst.selfthis.d
 scalars/tst.this.d
 scalars/tst.thisself.d
@@ -1118,6 +1118,6 @@ vars/tst.ppid.d
 vars/tst.ucaller.ksh
 vars/tst.uid.d
 vars/tst.walltimestamp.d
-version/tst.1.0.d
+#version/tst.1.0.d /* only support DOF version 3 on Darwin */
 ../i386/pid/tst.nop.d
 

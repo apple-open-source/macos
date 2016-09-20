@@ -37,11 +37,13 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 2005 Apple Computer, Inc. and Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: dstore.c,v 1.4 2008/10/21 16:15:16 abe Exp $";
+static char *rcsid = "$Id: dstore.c,v 1.4 2008/10/21 16:15:16 abe Exp abe $";
 #endif
 
 
 #include "lsof.h"
+
+struct file *Cfp;			/* current file's file struct pointer */
 
 
 #if	defined(HASFSTRUCT)
@@ -86,15 +88,28 @@ struct pff_tab Pof_tab[] = {
 	{ (long)PROC_FP_GUARDED,"GRD"		},
 # endif	/* defined(PROC_FP_GUARDED) */
 
+# if	defined(UF_CLOSING)
+	{ (long)UF_CLOSING,	POF_CLOSING	},
+# endif	/* defined(UF_CLOSING) */
+
+# if	defined(UF_EXCLOSE)
+	{ (long)UF_EXCLOSE,	POF_CLOEXEC	},
+# endif	/* defined(UF_EXCLOSE) */
+
+# if	defined(UF_RESERVED)
+	{ (long)UF_RESERVED,	POF_RESERVED	},
+# endif	/* defined(UF_RESERVED) */
+
 	{ (long)0,		NULL		}
 };
+#endif	/* defined(HASFSTRUCT) */
 
 
+#if	defined(PROC_FP_GUARDED)
 /*
  * Pgf_tab[] - table for print process open file guard flags
  */
 
-# if	defined(PROC_FP_GUARDED)
 struct pff_tab Pgf_tab[] = {
 	{ (long)PROC_FI_GUARD_CLOSE,		"CLOSE"		},
 	{ (long)PROC_FI_GUARD_DUP,		"DUP"		},
@@ -103,6 +118,4 @@ struct pff_tab Pgf_tab[] = {
 
 	{ (long)0,				NULL		}
 };
-# endif	/* defined(PROC_FP_GUARDED) */
-
-#endif	/* defined(HASFSTRUCT) */
+#endif	/* defined(PROC_FP_GUARDED) */

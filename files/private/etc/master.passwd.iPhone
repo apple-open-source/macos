@@ -20,3 +20,6 @@ _unknown:*:99:99::0:0:Unknown User:/var/empty:/usr/bin/false
 _distnote:*:241:241::0:0:Distributed Notifications:/var/empty:/usr/bin/false
 _astris:*:245:245::0:0:Astris Services:/var/db/astris:/usr/bin/false
 _ondemand:*:249:249::0:0:On Demand Resource Daemon:/var/db/ondemand:/usr/bin/false
+_findmydevice:*:254:254::0:0:Find My Device Daemon:/var/db/findmydevice:/usr/bin/false
+_datadetectors:*:257:257::0:0:DataDetectors:/var/db/datadetectors:/usr/bin/false
+_captiveagent:*:258:258::0:0:captiveagent:/var/empty:/usr/bin/false

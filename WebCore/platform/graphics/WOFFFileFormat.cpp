@@ -30,27 +30,32 @@
 #include "SharedBuffer.h"
 #include <wtf/ByteOrder.h>
 
+#if USE(WOFF2)
+#include "woff2_common.h"
+#include "woff2_dec.h"
+#endif
+
 namespace WebCore {
 
-static bool readUInt32(SharedBuffer* buffer, size_t& offset, uint32_t& value)
+static bool readUInt32(SharedBuffer& buffer, size_t& offset, uint32_t& value)
 {
-    ASSERT_ARG(offset, offset <= buffer->size());
-    if (buffer->size() - offset < sizeof(value))
+    ASSERT_ARG(offset, offset <= buffer.size());
+    if (buffer.size() - offset < sizeof(value))
         return false;
 
-    value = ntohl(*reinterpret_cast_ptr<const uint32_t*>(buffer->data() + offset));
+    value = ntohl(*reinterpret_cast_ptr<const uint32_t*>(buffer.data() + offset));
     offset += sizeof(value);
 
     return true;
 }
 
-static bool readUInt16(SharedBuffer* buffer, size_t& offset, uint16_t& value)
+static bool readUInt16(SharedBuffer& buffer, size_t& offset, uint16_t& value)
 {
-    ASSERT_ARG(offset, offset <= buffer->size());
-    if (buffer->size() - offset < sizeof(value))
+    ASSERT_ARG(offset, offset <= buffer.size());
+    if (buffer.size() - offset < sizeof(value))
         return false;
 
-    value = ntohs(*reinterpret_cast_ptr<const uint16_t*>(buffer->data() + offset));
+    value = ntohs(*reinterpret_cast_ptr<const uint16_t*>(buffer.data() + offset));
     offset += sizeof(value);
 
     return true;
@@ -70,15 +75,22 @@ static bool writeUInt16(Vector<char>& vector, uint16_t value)
 
 static const uint32_t woffSignature = 0x774f4646; /* 'wOFF' */
 
-bool isWOFF(SharedBuffer* buffer)
+bool isWOFF(SharedBuffer& buffer)
 {
     size_t offset = 0;
     uint32_t signature;
 
-    return readUInt32(buffer, offset, signature) && signature == woffSignature;
+    if (!readUInt32(buffer, offset, signature))
+        return false;
+
+#if USE(WOFF2)
+    return signature == woffSignature || signature == woff2::kWoff2Signature;
+#else
+    return signature == woffSignature;
+#endif
 }
 
-bool convertWOFFToSfnt(SharedBuffer* woff, Vector<char>& sfnt)
+bool convertWOFFToSfnt(SharedBuffer& woff, Vector<char>& sfnt)
 {
     ASSERT_ARG(sfnt, sfnt.isEmpty());
 
@@ -86,7 +98,26 @@ bool convertWOFFToSfnt(SharedBuffer* woff, Vector<char>& sfnt)
 
     // Read the WOFF header.
     uint32_t signature;
-    if (!readUInt32(woff, offset, signature) || signature != woffSignature) {
+    if (!readUInt32(woff, offset, signature)) {
+        ASSERT_NOT_REACHED();
+        return false;
+    }
+
+#if USE(WOFF2)
+    if (signature == woff2::kWoff2Signature) {
+        const uint8_t* woffData = reinterpret_cast_ptr<const uint8_t*>(woff.data());
+        const size_t woffSize = woff.size();
+        const size_t sfntSize = woff2::ComputeWOFF2FinalSize(woffData, woffSize);
+
+        if (!sfnt.tryReserveCapacity(sfntSize))
+            return false;
+        sfnt.resize(sfntSize);
+
+        return woff2::ConvertWOFF2ToTTF(reinterpret_cast<uint8_t*>(sfnt.data()), sfnt.size(), woffData, woffSize);
+    }
+#endif
+
+    if (signature != woffSignature) {
         ASSERT_NOT_REACHED();
         return false;
     }
@@ -96,7 +127,7 @@ bool convertWOFFToSfnt(SharedBuffer* woff, Vector<char>& sfnt)
         return false;
 
     uint32_t length;
-    if (!readUInt32(woff, offset, length) || length != woff->size())
+    if (!readUInt32(woff, offset, length) || length != woff.size())
         return false;
 
     uint16_t numTables;
@@ -114,7 +145,7 @@ bool convertWOFFToSfnt(SharedBuffer* woff, Vector<char>& sfnt)
     if (!readUInt32(woff, offset, totalSfntSize))
         return false;
 
-    if (woff->size() - offset < sizeof(uint16_t) + sizeof(uint16_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t))
+    if (woff.size() - offset < sizeof(uint16_t) + sizeof(uint16_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t))
         return false;
 
     offset += sizeof(uint16_t); // majorVersion
@@ -126,7 +157,7 @@ bool convertWOFFToSfnt(SharedBuffer* woff, Vector<char>& sfnt)
     offset += sizeof(uint32_t); // privLength
 
     // Check if the WOFF can supply as many tables as it claims it has.
-    if (woff->size() - offset < numTables * 5 * sizeof(uint32_t))
+    if (woff.size() - offset < numTables * 5 * sizeof(uint32_t))
         return false;
 
     // Write the sfnt offset subtable.
@@ -170,7 +201,7 @@ bool convertWOFFToSfnt(SharedBuffer* woff, Vector<char>& sfnt)
         if (!readUInt32(woff, offset, tableCompLength))
             return false;
 
-        if (tableOffset > woff->size() || tableCompLength > woff->size() - tableOffset)
+        if (tableOffset > woff.size() || tableCompLength > woff.size() - tableOffset)
             return false;
 
         uint32_t tableOrigLength;
@@ -194,7 +225,7 @@ bool convertWOFFToSfnt(SharedBuffer* woff, Vector<char>& sfnt)
 
         if (tableCompLength == tableOrigLength) {
             // The table is not compressed.
-            if (!sfnt.tryAppend(woff->data() + tableOffset, tableCompLength))
+            if (!sfnt.tryAppend(woff.data() + tableOffset, tableCompLength))
                 return false;
         } else {
             uLongf destLen = tableOrigLength;
@@ -202,7 +233,7 @@ bool convertWOFFToSfnt(SharedBuffer* woff, Vector<char>& sfnt)
                 return false;
             Bytef* dest = reinterpret_cast<Bytef*>(sfnt.end());
             sfnt.grow(sfnt.size() + tableOrigLength);
-            if (uncompress(dest, &destLen, reinterpret_cast<const Bytef*>(woff->data() + tableOffset), tableCompLength) != Z_OK)
+            if (uncompress(dest, &destLen, reinterpret_cast<const Bytef*>(woff.data() + tableOffset), tableCompLength) != Z_OK)
                 return false;
             if (destLen != tableOrigLength)
                 return false;

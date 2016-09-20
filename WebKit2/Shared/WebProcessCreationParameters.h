@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2011, 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -68,13 +68,13 @@ struct WebProcessCreationParameters {
 
     UserData initializationUserData;
 
-    String applicationCacheDirectory;    
+    String applicationCacheDirectory;
+    String applicationCacheFlatFileSubdirectoryName;
     SandboxExtension::Handle applicationCacheDirectoryExtensionHandle;
     String webSQLDatabaseDirectory;
     SandboxExtension::Handle webSQLDatabaseDirectoryExtensionHandle;
-#if ENABLE(SECCOMP_FILTERS)
-    String cookieStorageDirectory;
-#endif
+    String mediaCacheDirectory;
+    SandboxExtension::Handle mediaCacheDirectoryExtensionHandle;
 #if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100
     Vector<uint8_t> uiProcessCookieStorageIdentifier;
 #endif
@@ -96,23 +96,18 @@ struct WebProcessCreationParameters {
     Vector<String> urlSchemesRegisteredAsNoAccess;
     Vector<String> urlSchemesRegisteredAsDisplayIsolated;
     Vector<String> urlSchemesRegisteredAsCORSEnabled;
+    Vector<String> urlSchemesRegisteredAsAlwaysRevalidated;
 #if ENABLE(CACHE_PARTITIONING)
     Vector<String> urlSchemesRegisteredAsCachePartitioned;
-#endif
-    Vector<String> urlSchemesRegisteredForCustomProtocols;
-#if USE(SOUP)
-    String diskCacheDirectory;
-    String cookiePersistentStoragePath;
-    uint32_t cookiePersistentStorageType;
-    HTTPCookieAcceptPolicy cookieAcceptPolicy;
-    bool ignoreTLSErrors;
 #endif
 
     CacheModel cacheModel;
 
     bool shouldAlwaysUseComplexTextCodePath;
     bool shouldEnableMemoryPressureReliefLogging;
+    bool shouldSuppressMemoryPressureHandler { false };
     bool shouldUseFontSmoothing;
+    bool resourceLoadStatisticsEnabled { false };
 
     Vector<String> fontWhitelist;
 
@@ -153,10 +148,6 @@ struct WebProcessCreationParameters {
     HashMap<String, bool> notificationPermissions;
 #endif
 
-#if ENABLE(NETWORK_PROCESS)
-    bool usesNetworkProcess;
-#endif
-
     HashMap<WebCore::SessionID, HashMap<unsigned, double>> plugInAutoStartOriginHashes;
     Vector<String> plugInAutoStartOrigins;
 
@@ -172,8 +163,12 @@ struct WebProcessCreationParameters {
     HashMap<String, HashMap<String, HashMap<String, uint8_t>>> pluginLoadClientPolicies;
 #endif
 
-#if (TARGET_OS_IPHONE && __IPHONE_OS_VERSION_MIN_REQUIRED >= 90000) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100)
+#if TARGET_OS_IPHONE || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100)
     RetainPtr<CFDataRef> networkATSContext;
+#endif
+
+#if OS(LINUX)
+    IPC::Attachment memoryPressureMonitorHandle;
 #endif
 };
 

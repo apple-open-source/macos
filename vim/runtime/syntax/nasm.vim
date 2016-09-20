@@ -1,9 +1,10 @@
 " Vim syntax file
 " Language:	NASM - The Netwide Assembler (v0.98)
-" Maintainer:	Manuel M.H. Stol	<mmh.stol@gmx.net>
-" Last Change:	2003 May 11
-" Vim URL:	http://www.vim.org/lang.html
-" NASM Home:	http://www.cryogen.com/Nasm/
+" Maintainer:	Andriy Sokolov	<andriy145@gmail.com>
+" Original Author:	Manuel M.H. Stol	<Manuel.Stol@allieddata.nl>
+" Former Maintainer:	Manuel M.H. Stol	<Manuel.Stol@allieddata.nl>
+" Last Change:	2012 Feb 7
+" NASM Home:	http://www.nasm.us/
 
 
 
@@ -47,14 +48,14 @@ syn cluster nasmGrpComments	contains=@nasmGrpInComments,nasmComment,nasmSpecialC
 "  in NASM: 'Everything is a Label'
 "  Definition Label = label defined by %[i]define or %[i]assign
 "  Identifier Label = label defined as first non-keyword on a line or %[i]macro
-syn match   nasmLabelError	"$\=\(\d\+\K\|[#\.@]\|\$\$\k\)\k*\>"
+syn match   nasmLabelError	"$\=\(\d\+\K\|[#.@]\|\$\$\k\)\k*\>"
 syn match   nasmLabel		"\<\(\h\|[?@]\)\k*\>"
 syn match   nasmLabel		"[\$\~]\(\h\|[?@]\)\k*\>"lc=1
 "  Labels starting with one or two '.' are special
 syn match   nasmLocalLabel	"\<\.\(\w\|[#$?@~]\)\k*\>"
 syn match   nasmLocalLabel	"\<\$\.\(\w\|[#$?@~]\)\k*\>"ms=s+1
 if !exists("nasm_no_warn")
-  syn match  nasmLabelWarn	"\<\~\=\$\=[_\.][_\.\~]*\>"
+  syn match  nasmLabelWarn	"\<\~\=\$\=[_.][_.\~]*\>"
 endif
 if exists("nasm_loose_syntax")
   syn match   nasmSpecialLabel	"\<\.\.@\k\+\>"
@@ -89,7 +90,6 @@ syn match   nasmHexNumber	"\<\~\(\d\x*h\|0x\x\+\|\$\d\x*\)\>"lc=1
 syn match   nasmFltNumber	"\<\d\+\.\d*\(e[+-]\=\d\+\)\=\>"
 syn keyword nasmFltNumber	Inf Infinity Indefinite NaN SNaN QNaN
 syn match   nasmNumberError	"\<\~\s*\d\+\.\d*\(e[+-]\=\d\+\)\=\>"
-
 
 
 " Netwide Assembler Storage Directives:
@@ -160,6 +160,7 @@ syn region  nasmInMacStrucDef	contained transparent matchgroup=nasmStructure kee
 "syn region  nasmInMacStrucDef	contained transparent matchgroup=nasmStructure keepend start="^\s*UNION\>"hs=e-4 end="^\s*ENDUNION\>"re=e-8 contains=@nasmGrpCntnMacro
 "syn region  nasmInMacStrucDef	contained transparent matchgroup=nasmStructure keepend start="\<IUNION\>" end="\<IEND\(UNION\)\=\>" contains=@nasmGrpCntnMacro,nasmInStructure
 syn region  nasmInMacPreConDef	contained transparent matchgroup=nasmInMacPreCondit start="^\s*%ifnidni\>"hs=e-7 start="^\s*%if\(idni\|n\(ctx\|def\|idn\|num\|str\)\)\>"hs=e-6 start="^\s*%if\(ctx\|def\|idn\|nid\|num\|str\)\>"hs=e-5 start="^\s*%ifid\>"hs=e-4 start="^\s*%if\>"hs=e-2 end="%endif\>" contains=@nasmGrpCntnMacro,nasmInMacPreCondit,nasmInPreCondit
+" Todo: allow STRUC/ISTRUC to be used inside preprocessor conditional block
 syn match   nasmInMacPreCondit	contained transparent "ctx\s"lc=3 skipwhite nextgroup=@nasmGrpNxtCtx
 syn match   nasmInMacPreCondit	contained "^\s*%elifctx\>"hs=e-7 skipwhite nextgroup=@nasmGrpNxtCtx
 syn match   nasmInMacPreCondit	contained "^\s*%elifnctx\>"hs=e-8 skipwhite nextgroup=@nasmGrpNxtCtx
@@ -179,7 +180,7 @@ if exists("nasm_ctx_outside_macro")
   syn region nasmPreConditDef	transparent matchgroup=nasmCtxPreCondit start="^\s*%ifnctx\>"hs=e-6 start="^\s*%ifctx\>"hs=e-5 end="%endif\>" contains=@nasmGrpCntnPreCon
   syn match  nasmCtxPreProc	"^\s*%pop\>"hs=e-3
   if exists("nasm_loose_syntax")
-    syn match   nasmCtxLocLabel	"%$\+\(\w\|[#\.?@~]\)\k*\>"
+    syn match   nasmCtxLocLabel	"%$\+\(\w\|[#.?@~]\)\k*\>"
   else
     syn match   nasmCtxLocLabel	"%$\+\(\h\|[?@]\)\k*\>"
   endif
@@ -210,15 +211,17 @@ syn cluster nasmGrpInPreCondits	contains=nasmPreCondit,nasmInPreCondit,nasmCtxPr
 syn cluster nasmGrpPreCondits	contains=nasmPreConditDef,@nasmGrpInPreCondits,nasmCtxPreProc,nasmCtxLocLabel
 
 "  Other pre-processor statements
-syn match   nasmPreProc		"^\s*%rep\>"hs=e-3
+syn match   nasmPreProc		"^\s*%\(rep\|use\)\>"hs=e-3
 syn match   nasmPreProc		"^\s*%line\>"hs=e-4
-syn match   nasmPreProc		"^\s*%\(clear\|error\)\>"hs=e-5
-syn match   nasmPreProc		"^\s*%endrep\>"hs=e-6
-syn match   nasmPreProc		"^\s*%exitrep\>"hs=e-7
+syn match   nasmPreProc		"^\s*%\(clear\|error\|fatal\)\>"hs=e-5
+syn match   nasmPreProc		"^\s*%\(endrep\|strlen\|substr\)\>"hs=e-6
+syn match   nasmPreProc		"^\s*%\(exitrep\|warning\)\>"hs=e-7
 syn match   nasmDefine		"^\s*%undef\>"hs=e-5
 syn match   nasmDefine		"^\s*%\(assign\|define\)\>"hs=e-6
 syn match   nasmDefine		"^\s*%i\(assign\|define\)\>"hs=e-7
+syn match   nasmDefine		"^\s*%unmacro\>"hs=e-7
 syn match   nasmInclude		"^\s*%include\>"hs=e-7
+" Todo: Treat the line tail after %fatal, %error, %warning as text
 
 "  Multiple pre-processor instructions on single line detection (obsolete)
 "syn match   nasmPreProcError	+^\s*\([^\t "%';][^"%';]*\|[^\t "';][^"%';]\+\)%\a\+\>+
@@ -231,6 +234,7 @@ syn cluster nasmGrpPreProcs	contains=nasmMacroDef,@nasmGrpInMacros,@nasmGrpPreCo
 syn match   nasmGen08Register	"\<[A-D][HL]\>"
 syn match   nasmGen16Register	"\<\([A-D]X\|[DS]I\|[BS]P\)\>"
 syn match   nasmGen32Register	"\<E\([A-D]X\|[DS]I\|[BS]P\)\>"
+syn match   nasmGen64Register	"\<R\([A-D]X\|[DS]I\|[BS]P\|[89]\|1[0-5]\|[89][WD]\|1[0-5][WD]\)\>"
 syn match   nasmSegRegister	"\<[C-GS]S\>"
 syn match   nasmSpcRegister	"\<E\=IP\>"
 syn match   nasmFpuRegister	"\<ST\o\>"
@@ -244,10 +248,10 @@ syn match   nasmRegisterError	"\<X\=MM[8-9]\>"
 syn match   nasmRegisterError	"\<ST\((\d)\|[8-9]\>\)"
 syn match   nasmRegisterError	"\<E\([A-D][HL]\|[C-GS]S\)\>"
 "  Memory reference operand (address):
-syn match   nasmMemRefError	"[\[\]]"
+syn match   nasmMemRefError	"[[\]]"
 syn cluster nasmGrpCntnMemRef	contains=ALLBUT,@nasmGrpComments,@nasmGrpPreProcs,@nasmGrpInStrucs,nasmMemReference,nasmMemRefError
-syn match   nasmInMacMemRef	contained "\[[^;\[\]]\{-}\]" contains=@nasmGrpCntnMemRef,nasmPreProcError,nasmInMacLabel,nasmInMacLblWarn,nasmInMacParam
-syn match   nasmMemReference	"\[[^;\[\]]\{-}\]" contains=@nasmGrpCntnMemRef,nasmPreProcError,nasmCtxLocLabel
+syn match   nasmInMacMemRef	contained "\[[^;[\]]\{-}\]" contains=@nasmGrpCntnMemRef,nasmPreProcError,nasmInMacLabel,nasmInMacLblWarn,nasmInMacParam
+syn match   nasmMemReference	"\[[^;[\]]\{-}\]" contains=@nasmGrpCntnMemRef,nasmPreProcError,nasmCtxLocLabel
 
 
 
@@ -298,20 +302,21 @@ syn match   nasmStdInstruction	"\<\(CMOV\|J\|SET\)\(N\=\([ABGL]E\=\|[CEOSZ]\)\|P
 syn match   nasmStdInstruction	"\<POP\>"
 syn keyword nasmStdInstruction	AAA AAD AAM AAS ADC ADD AND
 syn keyword nasmStdInstruction	BOUND BSF BSR BSWAP BT[C] BTR BTS
-syn keyword nasmStdInstruction	CALL CBW CDQ CLC CLD CMC CMP CMPSB CMPSD CMPSW
-syn keyword nasmStdInstruction	CMPXCHG CMPXCHG8B CPUID CWD[E]
+syn keyword nasmStdInstruction	CALL CBW CDQ CLC CLD CMC CMP CMPSB CMPSD CMPSW CMPSQ
+syn keyword nasmStdInstruction	CMPXCHG CMPXCHG8B CPUID CWD[E] CQO
 syn keyword nasmStdInstruction	DAA DAS DEC DIV ENTER
-syn keyword nasmStdInstruction	IDIV IMUL INC INT[O] IRET[D] IRETW
+syn keyword nasmStdInstruction	IDIV IMUL INC INT[O] IRET[D] IRETW IRETQ
 syn keyword nasmStdInstruction	JCXZ JECXZ JMP
-syn keyword nasmStdInstruction	LAHF LDS LEA LEAVE LES LFS LGS LODSB LODSD
+syn keyword nasmStdInstruction	LAHF LDS LEA LEAVE LES LFS LGS LODSB LODSD LODSQ
 syn keyword nasmStdInstruction	LODSW LOOP[E] LOOPNE LOOPNZ LOOPZ LSS
-syn keyword nasmStdInstruction	MOVSB MOVSD MOVSW MOVSX MOVZX MUL NEG NOP NOT
-syn keyword nasmStdInstruction	OR POPA[D] POPAW POPF[D] POPFW
-syn keyword nasmStdInstruction	PUSH[AD] PUSHAW PUSHF[D] PUSHFW
+syn keyword nasmStdInstruction	MOVSB MOVSD MOVSW MOVSX MOVSQ MOVZX MUL NEG NOP NOT
+syn keyword nasmStdInstruction	OR POPA[D] POPAW POPF[D] POPFW POPFQ
+syn keyword nasmStdInstruction	PUSH[AD] PUSHAW PUSHF[D] PUSHFW PUSHFQ
 syn keyword nasmStdInstruction	RCL RCR RETF RET[N] ROL ROR
 syn keyword nasmStdInstruction	SAHF SAL SAR SBB SCASB SCASD SCASW
-syn keyword nasmStdInstruction	SHL[D] SHR[D] STC STD STOSB STOSD STOSW SUB
+syn keyword nasmStdInstruction	SHL[D] SHR[D] STC STD STOSB STOSD STOSW STOSQ SUB
 syn keyword nasmStdInstruction	TEST XADD XCHG XLATB XOR
+syn keyword nasmStdInstruction	LFENCE MFENCE SFENCE
 
 
 " System Instructions: (usually privileged)

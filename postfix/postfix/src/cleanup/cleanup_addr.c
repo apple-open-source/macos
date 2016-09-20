@@ -6,7 +6,7 @@
 /* SYNOPSIS
 /*	#include <cleanup.h>
 /*
-/*	void	cleanup_addr_sender(state, addr)
+/*	off_t	cleanup_addr_sender(state, addr)
 /*	CLEANUP_STATE *state;
 /*	const char *addr;
 /*
@@ -29,7 +29,8 @@
 /*	sender/recipient auto bcc address generation.
 /*
 /*	cleanup_addr_sender() processes sender envelope information and updates
-/*	state->sender.
+/*	state->sender. The result value is the offset of the record that
+/*	follows the sender record if milters are enabled, otherwise zero.
 /*
 /*	cleanup_addr_recipient() processes recipient envelope information
 /*	and updates state->recip.
@@ -70,10 +71,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-#ifdef STRCASECMP_IN_STRINGS_H
-#include <strings.h>
-#endif
-
 /* Utility library. */
 
 #include <msg.h>
@@ -85,6 +82,7 @@
 /* Global library. */
 
 #include <rec_type.h>
+#include <record.h>
 #include <cleanup_user.h>
 #include <mail_params.h>
 #include <ext_prop.h>
@@ -93,20 +91,25 @@
 #include <mail_addr_find.h>
 #include <mail_proto.h>
 #include <dsn_mask.h>
+#include <smtputf8.h>
 
 /* Application-specific. */
 
 #include "cleanup.h"
 
 #define STR			vstring_str
+#define LEN			VSTRING_LEN
 #define IGNORE_EXTENSION	(char **) 0
 
 /* cleanup_addr_sender - process envelope sender record */
 
-void    cleanup_addr_sender(CLEANUP_STATE *state, const char *buf)
+off_t   cleanup_addr_sender(CLEANUP_STATE *state, const char *buf)
 {
+    const char myname[] = "cleanup_addr_sender";
     VSTRING *clean_addr = vstring_alloc(100);
+    off_t   after_sender_offs = 0;
     const char *bcc;
+    size_t  len;
 
     /*
      * Note: an unqualified envelope address is for all practical purposes
@@ -119,10 +122,10 @@ void    cleanup_addr_sender(CLEANUP_STATE *state, const char *buf)
      * bounced mail traffic more robustly.
      */
     cleanup_rewrite_internal(MAIL_ATTR_RWR_LOCAL, clean_addr, buf);
-    if (strncasecmp(STR(clean_addr), MAIL_ADDR_MAIL_DAEMON "@",
-		    sizeof(MAIL_ADDR_MAIL_DAEMON)) == 0) {
+    if (strncasecmp_utf8(STR(clean_addr), MAIL_ADDR_MAIL_DAEMON "@",
+			 sizeof(MAIL_ADDR_MAIL_DAEMON)) == 0) {
 	canon_addr_internal(state->temp1, MAIL_ADDR_MAIL_DAEMON);
-	if (strcasecmp(STR(clean_addr), STR(state->temp1)) == 0)
+	if (strcasecmp_utf8(STR(clean_addr), STR(state->temp1)) == 0)
 	    vstring_strcpy(clean_addr, "");
     }
     if (state->flags & CLEANUP_FLAG_MAP_OK) {
@@ -138,10 +141,27 @@ void    cleanup_addr_sender(CLEANUP_STATE *state, const char *buf)
 	    && (cleanup_masq_flags & CLEANUP_MASQ_FLAG_ENV_FROM))
 	    cleanup_masquerade_internal(state, clean_addr, cleanup_masq_domains);
     }
+    /* Fix 20140711: Auto-detect an UTF8 sender. */
+    if (var_smtputf8_enable && *STR(clean_addr) && !allascii(STR(clean_addr))
+	&& valid_utf8_string(STR(clean_addr), LEN(clean_addr))) {
+	state->smtputf8 |= SMTPUTF8_FLAG_SENDER;
+	/* Fix 20140713: request SMTPUTF8 support selectively. */
+	if (state->flags & CLEANUP_FLAG_AUTOUTF8)
+	    state->smtputf8 |= SMTPUTF8_FLAG_REQUESTED;
+    }
     CLEANUP_OUT_BUF(state, REC_TYPE_FROM, clean_addr);
     if (state->sender)				/* XXX Can't happen */
 	myfree(state->sender);
     state->sender = mystrdup(STR(clean_addr));	/* Used by Milter client */
+    /* Fix 20160310: Moved from cleanup_envelope.c. */
+    if (state->milters || cleanup_milters) {
+	/* Make room to replace sender. */
+	if ((len = LEN(clean_addr)) < REC_TYPE_PTR_PAYL_SIZE)
+	    rec_pad(state->dst, REC_TYPE_PTR, REC_TYPE_PTR_PAYL_SIZE - len);
+	/* Remember the after-sender record offset. */
+	if ((after_sender_offs = vstream_ftell(state->dst)) < 0)
+	    msg_fatal("%s: vstream_ftell %s: %m:", myname, cleanup_path);
+    }
     if ((state->flags & CLEANUP_FLAG_BCC_OK)
 	&& *STR(clean_addr)
 	&& cleanup_send_bcc_maps) {
@@ -156,6 +176,7 @@ void    cleanup_addr_sender(CLEANUP_STATE *state, const char *buf)
 	}
     }
     vstring_free(clean_addr);
+    return after_sender_offs;
 }
 
 /* cleanup_addr_recipient - process envelope recipient */
@@ -187,6 +208,18 @@ void    cleanup_addr_recipient(CLEANUP_STATE *state, const char *buf)
 	    && (cleanup_masq_flags & CLEANUP_MASQ_FLAG_ENV_RCPT))
 	    cleanup_masquerade_internal(state, clean_addr, cleanup_masq_domains);
     }
+    /* Fix 20140711: Auto-detect an UTF8 recipient. */
+    if (var_smtputf8_enable && *STR(clean_addr) && !allascii(STR(clean_addr))
+	&& valid_utf8_string(STR(clean_addr), LEN(clean_addr))) {
+	/* Fix 20140713: request SMTPUTF8 support selectively. */
+	if (state->flags & CLEANUP_FLAG_AUTOUTF8)
+	    state->smtputf8 |= SMTPUTF8_FLAG_REQUESTED;
+    }
+    /* Fix 20141024: Don't fake up a "bare" DSN original rcpt in smtp(8). */
+    if (state->dsn_orcpt == 0 && *STR(clean_addr) != 0)
+	state->dsn_orcpt = concatenate((!allascii(STR(clean_addr))
+			   && (state->smtputf8 & SMTPUTF8_FLAG_REQUESTED)) ?
+		      "utf-8" : "rfc822", ";", STR(clean_addr), (char *) 0);
     cleanup_out_recipient(state, state->dsn_orcpt, state->dsn_notify,
 			  state->orig_rcpt, STR(clean_addr));
     if (state->recip)				/* This can happen */
@@ -232,6 +265,13 @@ void    cleanup_addr_bcc_dsn(CLEANUP_STATE *state, const char *bcc,
 	if (cleanup_masq_domains
 	    && (cleanup_masq_flags & CLEANUP_MASQ_FLAG_ENV_RCPT))
 	    cleanup_masquerade_internal(state, clean_addr, cleanup_masq_domains);
+    }
+    /* Fix 20140711: Auto-detect an UTF8 recipient. */
+    if (var_smtputf8_enable && *STR(clean_addr) && !allascii(STR(clean_addr))
+	&& valid_utf8_string(STR(clean_addr), LEN(clean_addr))) {
+	/* Fix 20140713: request SMTPUTF8 support selectively. */
+	if (state->flags & CLEANUP_FLAG_AUTOUTF8)
+	    state->smtputf8 |= SMTPUTF8_FLAG_REQUESTED;
     }
     cleanup_out_recipient(state, dsn_orcpt, dsn_notify,
 			  STR(clean_addr), STR(clean_addr));

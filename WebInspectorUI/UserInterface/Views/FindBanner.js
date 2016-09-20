@@ -25,11 +25,9 @@
 
 WebInspector.FindBanner = class FindBanner extends WebInspector.NavigationItem
 {
-    constructor(delegate, className, fixed)
+    constructor(delegate, className, fixed = false)
     {
         super();
-
-        fixed = fixed || false;
 
         this._delegate = delegate || null;
 
@@ -77,7 +75,7 @@ WebInspector.FindBanner = class FindBanner extends WebInspector.NavigationItem
         if (fixed)
             this._clearAndBlurKeyboardShortcut = new WebInspector.KeyboardShortcut(null, WebInspector.KeyboardShortcut.Key.Escape, this._clearAndBlur.bind(this), this.element);
         else {
-            var doneButtonElement = document.createElement("button");
+            let doneButtonElement = document.createElement("button");
             doneButtonElement.textContent = WebInspector.UIString("Done");
             doneButtonElement.addEventListener("click", this._doneButtonClicked.bind(this));
             this.element.appendChild(doneButtonElement);

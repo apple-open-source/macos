@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2015 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2002-2016 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -50,7 +50,6 @@
 #include "AppleBaselineEscrowCertificates.h"
 
 
-SecCertificateRef SecCertificateCreateItemImplInstance(SecCertificateRef certificate);
 OSStatus SecCertificateGetCLHandle_legacy(SecCertificateRef certificate, CSSM_CL_HANDLE *clHandle);
 extern CSSM_KEYUSE ConvertArrayToKeyUsage(CFArrayRef usage);
 
@@ -63,9 +62,12 @@ SEC_CONST_DECL (kSecCertificateEscrowFileName, "AppleESCertificates");
 
 using namespace CssmClient;
 
-#if !SECTRUST_OSX
 CFTypeID
+#if SECTRUST_OSX
+static SecCertificateGetTypeID_osx(void)
+#else
 SecCertificateGetTypeID(void)
+#endif
 {
 	BEGIN_SECAPI
 
@@ -73,7 +75,33 @@ SecCertificateGetTypeID(void)
 
 	END_SECAPI1(_kCFRuntimeNotATypeID)
 }
+
+Boolean
+SecCertificateIsItemImplInstance(SecCertificateRef certificate)
+{
+    if (certificate == NULL) {
+        return false;
+    }
+#if !SECTRUST_OSX
+    return true;
+#else
+    CFTypeID typeID = CFGetTypeID(certificate);
+
+#if 0 /* debug code to verify type IDs */
+	syslog(LOG_ERR, "SecCertificate typeID=%d [STU=%d, OSX=%d, SKI=%d]",
+			(int)typeID,
+			(int)SecCertificateGetTypeID(),
+			(int)SecCertificateGetTypeID_osx(),
+			(int)SecKeychainItemGetTypeID());
 #endif
+	if (typeID == _kCFRuntimeNotATypeID) {
+		return false;
+	}
+
+    return (typeID == SecCertificateGetTypeID_osx() ||
+            typeID == SecKeychainItemGetTypeID()) ? true : false;
+#endif
+}
 
 /* convert a new-world SecCertificateRef to an old-world ItemImpl instance */
 SecCertificateRef
@@ -144,6 +172,26 @@ SecCertificateCreateFromItemImplInstance(SecCertificateRef certificate)
 #endif
 }
 
+#if !SECTRUST_OSX
+OSStatus
+SecCertificateSetKeychainItem(SecCertificateRef certificate, CFTypeRef keychain_item)
+{
+	// pre-STU, this function is a no-op since it's the same item reference
+	return errSecSuccess;
+}
+#endif
+
+#if !SECTRUST_OSX
+CFTypeRef
+SecCertificateCopyKeychainItem(SecCertificateRef certificate)
+{
+	if (certificate) {
+		CFRetain(certificate);
+	}
+	return certificate;
+}
+#endif
+
 /* OS X only: DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER */
 OSStatus
 SecCertificateCreateFromData(const CSSM_DATA *data, CSSM_CERT_TYPE type, CSSM_CERT_ENCODING encoding, SecCertificateRef *certificate)
@@ -161,7 +209,16 @@ SecCertificateCreateFromData(const CSSM_DATA *data, CSSM_CERT_TYPE type, CSSM_CE
 		return errSecParam;
 	}
 	SecCertificateRef certRef = NULL;
-	CFDataRef dataRef = CFDataCreate(NULL, data->Data, data->Length);
+
+    // <rdar://problem/24403998> REG: Adobe {Photoshop, InDesign} CC(2015) crashes on launch
+    // If you take the length that SecKeychainItemCopyContent gives you (a Uint32) and assign it incorrectly
+    // to a CSSM_DATA Length field (a CSSM_SIZE, i.e., a size_t), the upper 32 bits aren't set. If those bits
+    // are non-zero, the length is incredibly wrong.
+    //
+    // Assume that there will not exist a certificate > 4GiB, and fake this length field.
+    CSSM_SIZE length = data->Length & 0xfffffffful;
+
+	CFDataRef dataRef = CFDataCreate(NULL, data->Data, length);
 	if (dataRef) {
 		certRef = SecCertificateCreateWithData(NULL, dataRef);
 		CFRelease(dataRef);
@@ -201,7 +258,7 @@ SecCertificateCreateWithData(CFAllocatorRef allocator, CFDataRef data)
 OSStatus
 SecCertificateAddToKeychain(SecCertificateRef certificate, SecKeychainRef keychain)
 {
-	// This macro converts a new-style SecCertificateRef to an old-style ItemImpl
+	// This macro creates an ItemImpl certificate if it does not exist
 	BEGIN_SECCERTAPI
 
 	Item item(Certificate::required(__itemImplRef));
@@ -214,12 +271,28 @@ SecCertificateAddToKeychain(SecCertificateRef certificate, SecKeychainRef keycha
 OSStatus
 SecCertificateGetData(SecCertificateRef certificate, CSSM_DATA_PTR data)
 {
-	// This macro converts a new-style SecCertificateRef to an old-style ItemImpl
+#if !SECTRUST_OSX
+	BEGIN_SECAPI
+
+	Required(data) = Certificate::required(certificate)->data();
+
+	END_SECAPI
+#else
 	BEGIN_SECCERTAPI
 
-	Required(data) = Certificate::required(__itemImplRef)->data();
+	if (!certificate || !data) {
+		__secapiresult=errSecParam;
+	}
+	else if (SecCertificateIsItemImplInstance(certificate)) {
+		Required(data) = Certificate::required(certificate)->data();
+	}
+	else {
+		data->Length = (CSSM_SIZE)SecCertificateGetLength(certificate);
+		data->Data = (uint8*)SecCertificateGetBytePtr(certificate);
+	}
 
 	END_SECCERTAPI
+#endif
 }
 
 #if !SECTRUST_OSX
@@ -228,7 +301,7 @@ CFDataRef
 SecCertificateCopyData(SecCertificateRef certificate)
 {
 	CFDataRef data = NULL;
-    OSStatus __secapiresult = errSecSuccess;
+	OSStatus __secapiresult = errSecSuccess;
 	try {
 		CssmData output = Certificate::required(certificate)->data();
 		CFIndex length = (CFIndex)output.length();
@@ -241,6 +314,27 @@ SecCertificateCopyData(SecCertificateRef certificate)
 	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
 	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; }
 	catch (...) { __secapiresult=errSecInternalComponent; }
+	return data;
+}
+#endif
+
+#if !SECTRUST_OSX
+/* new in 10.12 */
+CFDataRef
+SecCertificateCopySHA256Digest(SecCertificateRef certificate)
+{
+    CFDataRef data = NULL;
+    OSStatus __secapiresult = errSecSuccess;
+    try {
+        data = Certificate::required(certificate)->sha256Hash();
+        if (data) {
+            CFRetain(data);
+        }
+    }
+    catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
+    catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
+    catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; }
+    catch (...) { __secapiresult=errSecInternalComponent; }
     return data;
 }
 #endif
@@ -260,25 +354,6 @@ SecCertificateGetSHA1Digest(SecCertificateRef certificate)
 	catch (...) { __secapiresult=errSecInternalComponent; }
     return data;
 }
-
-CFDataRef
-SecCertificateCopySHA256Digest(SecCertificateRef certificate)
-{
-    CFDataRef data = NULL;
-    OSStatus __secapiresult = errSecSuccess;
-    try {
-        data = Certificate::required(certificate)->sha256Hash();
-        if (data)
-            CFRetain(data);
-    }
-    catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
-    catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
-    catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; }
-    catch (...) { __secapiresult=errSecInternalComponent; }
-    return data;
-}
-
-
 #endif
 
 #if !SECTRUST_OSX
@@ -324,7 +399,7 @@ SecCertificateCopyDNSNames(SecCertificateRef certificate)
 OSStatus
 SecCertificateGetType(SecCertificateRef certificate, CSSM_CERT_TYPE *certificateType)
 {
-    // This macro converts a new-style SecCertificateRef to an old-style ItemImpl
+    // This macro creates an ItemImpl certificate if it does not exist
     BEGIN_SECCERTAPI
 
     Required(certificateType) = Certificate::required(__itemImplRef)->type();
@@ -336,7 +411,7 @@ SecCertificateGetType(SecCertificateRef certificate, CSSM_CERT_TYPE *certificate
 OSStatus
 SecCertificateGetSubject(SecCertificateRef certificate, const CSSM_X509_NAME **subject)
 {
-    // This macro converts a new-style SecCertificateRef to an old-style ItemImpl
+    // This macro creates an ItemImpl certificate if it does not exist
     BEGIN_SECCERTAPI
 
     Required(subject) = Certificate::required(__itemImplRef)->subjectName();
@@ -348,7 +423,7 @@ SecCertificateGetSubject(SecCertificateRef certificate, const CSSM_X509_NAME **s
 OSStatus
 SecCertificateGetIssuer(SecCertificateRef certificate, const CSSM_X509_NAME **issuer)
 {
-    // This macro converts a new-style SecCertificateRef to an old-style ItemImpl
+    // This macro creates an ItemImpl certificate if it does not exist
     BEGIN_SECCERTAPI
 
     Required(issuer) = Certificate::required(__itemImplRef)->issuerName();
@@ -360,55 +435,12 @@ SecCertificateGetIssuer(SecCertificateRef certificate, const CSSM_X509_NAME **is
 OSStatus
 SecCertificateGetCLHandle(SecCertificateRef certificate, CSSM_CL_HANDLE *clHandle)
 {
-#if !SECTRUST_OSX
-    BEGIN_SECAPI
-
-    Required(clHandle) = Certificate::required(certificate)->clHandle();
-
-    END_SECAPI
-#else
-#if 0
-    // This macro converts a new-style SecCertificateRef to an old-style ItemImpl
+    // This macro creates an ItemImpl certificate if it does not exist
     BEGIN_SECCERTAPI
 
     Required(clHandle) = Certificate::required(__itemImplRef)->clHandle();
 
     END_SECCERTAPI
-#endif
-	/* bridge code to support deprecated functionality */
-	OSStatus __secapiresult=errSecSuccess;
-	bool kcItem=true;
-	SecCertificateRef __itemImplRef=(SecCertificateRef)SecCertificateCopyKeychainItem(certificate);
-	if (!__itemImplRef) { __itemImplRef=SecCertificateCreateItemImplInstance(certificate); kcItem=false; }
-	try {
-		Required(clHandle) = Certificate::required(__itemImplRef)->clHandle();
-	}
-	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
-	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
-	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; }
-	catch (...) { __secapiresult=errSecInternalComponent; }
-	if (__itemImplRef) {
-		if (!kcItem) {
-			/* we can't release the temporary certificate, or the CL handle becomes invalid.
-			 * for now, just stick the temporary certificate into an array.
-			 * TBD: use a dictionary, indexed by hash of certificate. */
-			static CFMutableArrayRef sLegacyCertArray = NULL;
-			if (!sLegacyCertArray) {
-				sLegacyCertArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-				if (!sLegacyCertArray) {
-					return errSecAllocate;
-				}
-			}
-			CFArrayAppendValue(sLegacyCertArray, __itemImplRef);
-#ifndef NDEBUG
-			syslog(LOG_ERR, "WARNING: SecCertificateGetCLHandle called on certificate which is not in a keychain.");
-#endif
-		}
-		CFRelease(__itemImplRef);
-	}
-	return __secapiresult;
-
-#endif
 }
 
 /* private function; assumes input is old-style ItemImpl certificate reference,
@@ -424,7 +456,6 @@ SecCertificateGetCLHandle_legacy(SecCertificateRef certificate, CSSM_CL_HANDLE *
     END_SECAPI
 }
 
-
 /*
  * Private API to infer a display name for a SecCertificateRef which
  * may or may not be in a keychain.
@@ -434,7 +465,7 @@ SecCertificateGetCLHandle_legacy(SecCertificateRef certificate, CSSM_CL_HANDLE *
 OSStatus
 SecCertificateInferLabel(SecCertificateRef certificate, CFStringRef *label)
 {
-    // This macro converts a new-style SecCertificateRef to an old-style ItemImpl
+    // This macro creates an ItemImpl certificate if it does not exist
     BEGIN_SECCERTAPI
 
     Certificate::required(__itemImplRef)->inferLabel(false, &Required(label));
@@ -446,7 +477,7 @@ SecCertificateInferLabel(SecCertificateRef certificate, CFStringRef *label)
 OSStatus
 SecCertificateCopyPublicKey(SecCertificateRef certificate, SecKeyRef *key)
 {
-    // This macro converts a new-style SecCertificateRef to an old-style ItemImpl
+    // This macro creates an ItemImpl certificate if it does not exist
     BEGIN_SECCERTAPI
 
     Required(key) = Certificate::required(__itemImplRef)->publicKey()->handle();
@@ -458,7 +489,7 @@ SecCertificateCopyPublicKey(SecCertificateRef certificate, SecKeyRef *key)
 OSStatus
 SecCertificateGetAlgorithmID(SecCertificateRef certificate, const CSSM_X509_ALGORITHM_IDENTIFIER **algid)
 {
-    // This macro converts a new-style SecCertificateRef to an old-style ItemImpl
+    // This macro creates an ItemImpl certificate if it does not exist
     BEGIN_SECCERTAPI
 
     Required(algid) = Certificate::required(__itemImplRef)->algorithmID();
@@ -470,7 +501,7 @@ SecCertificateGetAlgorithmID(SecCertificateRef certificate, const CSSM_X509_ALGO
 OSStatus
 SecCertificateCopyCommonName(SecCertificateRef certificate, CFStringRef *commonName)
 {
-    // This macro converts a new-style SecCertificateRef to an old-style ItemImpl
+    // This macro creates an ItemImpl certificate if it does not exist
     BEGIN_SECCERTAPI
 
     Required(commonName) = Certificate::required(__itemImplRef)->commonName();
@@ -484,7 +515,7 @@ CFStringRef
 SecCertificateCopySubjectSummary(SecCertificateRef certificate)
 {
 	CFStringRef summary = NULL;
-    OSStatus __secapiresult;
+	OSStatus __secapiresult;
 	try {
 		Certificate::required(certificate)->inferLabel(false, &summary);
 
@@ -494,7 +525,7 @@ SecCertificateCopySubjectSummary(SecCertificateRef certificate)
 	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
 	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; }
 	catch (...) { __secapiresult=errSecInternalComponent; }
-    return summary;
+	return summary;
 }
 #endif
 
@@ -521,7 +552,7 @@ SecCertificateCopyIssuerSummary(SecCertificateRef certificate)
 OSStatus
 SecCertificateCopySubjectComponent(SecCertificateRef certificate, const CSSM_OID *component, CFStringRef *result)
 {
-    // This macro converts a new-style SecCertificateRef to an old-style ItemImpl
+    // This macro creates an ItemImpl certificate if it does not exist
     BEGIN_SECCERTAPI
 
     Required(result) = Certificate::required(__itemImplRef)->distinguishedName(&CSSMOID_X509V1SubjectNameCStruct, component);
@@ -541,7 +572,7 @@ SecCertificateGetCommonName(SecCertificateRef certificate, CFStringRef *commonNa
 OSStatus
 SecCertificateGetEmailAddress(SecCertificateRef certificate, CFStringRef *emailAddress)
 {
-    // This macro converts a new-style SecCertificateRef to an old-style ItemImpl
+    // This macro creates an ItemImpl certificate if it does not exist
     BEGIN_SECCERTAPI
 
     Required(emailAddress) = Certificate::required(__itemImplRef)->copyFirstEmailAddress();
@@ -553,7 +584,7 @@ SecCertificateGetEmailAddress(SecCertificateRef certificate, CFStringRef *emailA
 OSStatus
 SecCertificateCopyEmailAddresses(SecCertificateRef certificate, CFArrayRef *emailAddresses)
 {
-    // This macro converts a new-style SecCertificateRef to an old-style ItemImpl
+    // This macro creates an ItemImpl certificate if it does not exist
     BEGIN_SECCERTAPI
 
     Required(emailAddresses) = Certificate::required(__itemImplRef)->copyEmailAddresses();
@@ -569,7 +600,7 @@ SecCertificateCopyEmailAddresses(SecCertificateRef certificate, CFArrayRef *emai
 OSStatus
 SecCertificateCopyFieldValues(SecCertificateRef certificate, const CSSM_OID *field, CSSM_DATA_PTR **fieldValues)
 {
-    // This macro converts a new-style SecCertificateRef to an old-style ItemImpl
+    // This macro creates an ItemImpl certificate if it does not exist
     BEGIN_SECCERTAPI
 
     Required(fieldValues) = Certificate::required(__itemImplRef)->copyFieldValues(Required(field));
@@ -581,7 +612,7 @@ SecCertificateCopyFieldValues(SecCertificateRef certificate, const CSSM_OID *fie
 OSStatus
 SecCertificateReleaseFieldValues(SecCertificateRef certificate, const CSSM_OID *field, CSSM_DATA_PTR *fieldValues)
 {
-    // This macro converts a new-style SecCertificateRef to an old-style ItemImpl
+    // This macro creates an ItemImpl certificate if it does not exist
     BEGIN_SECCERTAPI
 
     Certificate::required(__itemImplRef)->releaseFieldValues(Required(field), fieldValues);
@@ -593,7 +624,7 @@ SecCertificateReleaseFieldValues(SecCertificateRef certificate, const CSSM_OID *
 OSStatus
 SecCertificateCopyFirstFieldValue(SecCertificateRef certificate, const CSSM_OID *field, CSSM_DATA_PTR *fieldValue)
 {
-    // This macro converts a new-style SecCertificateRef to an old-style ItemImpl
+    // This macro creates an ItemImpl certificate if it does not exist
     BEGIN_SECCERTAPI
 
     Required(fieldValue) = Certificate::required(__itemImplRef)->copyFirstFieldValue(Required(field));
@@ -605,7 +636,7 @@ SecCertificateCopyFirstFieldValue(SecCertificateRef certificate, const CSSM_OID 
 OSStatus
 SecCertificateReleaseFirstFieldValue(SecCertificateRef certificate, const CSSM_OID *field, CSSM_DATA_PTR fieldValue)
 {
-    // This macro converts a new-style SecCertificateRef to an old-style ItemImpl
+    // This macro creates an ItemImpl certificate if it does not exist
     BEGIN_SECCERTAPI
 
     Certificate::required(__itemImplRef)->releaseFieldValue(Required(field), fieldValue);
@@ -833,12 +864,21 @@ SecCertificateCopyPreference(
 	*certificate = (SecCertificateRef)certItemRef;
 
 #if SECTRUST_OSX
+	if (certItemRef && (CFGetTypeID(certItemRef) == SecIdentityGetTypeID())) {
+		// SecKeychainItemCopyFromPersistentReference handed out an identity reference
+		*certificate = NULL;
+		status = SecIdentityCopyCertificate((SecIdentityRef)certItemRef, certificate);
+		CFRelease(certItemRef);
+		return status;
+	}
+#if 0  /* SecKeychainItemCopyFromPersistentReference now does this work for us */
 	// convert ItemImpl-based SecCertificateRef to new-world version before returning
 	CssmData certData = Certificate::required(*certificate)->data();
 	CFRef<CFDataRef> cfData(CFDataCreate(NULL, certData.Data, certData.Length));
 	SecCertificateRef tmpRef = *certificate;
 	*certificate = SecCertificateCreateWithData(NULL, cfData);
 	CFRelease(tmpRef);
+#endif
 #endif
 
     END_SECAPI
@@ -950,7 +990,7 @@ OSStatus SecCertificateSetPreference(
 		return SecCertificateDeletePreferenceItemWithNameAndKeyUsage(NULL, name, keyUsage);
 	}
 
-    // This macro converts a new-style SecCertificateRef to an old-style ItemImpl
+    // This macro creates an ItemImpl certificate if it does not exist
     BEGIN_SECCERTAPI
 
 	// determine the account attribute
@@ -1064,9 +1104,21 @@ CFDictionaryRef SecCertificateCopyValues(SecCertificateRef certificate, CFArrayR
 {
 	CFDictionaryRef result = NULL;
 	OSStatus __secapiresult;
+	SecCertificateRef tmpcert = NULL;
+#if SECTRUST_OSX
+	// convert input to a new-style certificate reference if necessary,
+	// since the implementation of CertificateValues calls SecCertificate API functions
+	// which now assume a unified certificate reference.
+	if (SecCertificateIsItemImplInstance(certificate)) {
+		tmpcert = SecCertificateCreateFromItemImplInstance(certificate);
+	}
+#endif
+	if (certificate && !tmpcert) {
+		tmpcert = (SecCertificateRef) CFRetain(certificate);
+	}
 	try
 	{
-		CertificateValues cv(certificate);
+		CertificateValues cv(tmpcert);
 		result = cv.copyFieldValues(keys,error);
 		__secapiresult=0;
 	}
@@ -1074,6 +1126,7 @@ CFDictionaryRef SecCertificateCopyValues(SecCertificateRef certificate, CFArrayR
 	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
 	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; }
 	catch (...) { __secapiresult=errSecInternalComponent; }
+	if (tmpcert) { CFRelease(tmpcert); }
 	return result;
 }
 
@@ -1185,6 +1238,26 @@ CFDataRef SecCertificateCopySubjectSequence(SecCertificateRef certificate)
 	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; }
 	catch (...) { __secapiresult=errSecInternalComponent; }
 	return result;
+}
+#endif
+
+#if !SECTRUST_OSX
+CFDictionaryRef SecCertificateCopyAttributeDictionary(SecCertificateRef certificate)
+{
+    CFDictionaryRef result = NULL;
+    OSStatus status;
+    try
+    {
+        CertificateValues cv(certificate);
+        result = cv.copyAttributeDictionary(NULL);
+        status=0;
+    }
+    catch (const MacOSError &err) { status=err.osStatus(); }
+    catch (const CommonError &err) { status=SecKeychainErrFromOSStatus(err.osStatus()); }
+    catch (const std::bad_alloc &) { status=errSecAllocate; }
+    catch (...) { status=errSecInternalComponent; }
+
+    return result;
 }
 #endif
 

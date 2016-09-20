@@ -23,6 +23,7 @@
 #define Debugger_h
 
 #include "Breakpoint.h"
+#include "CallData.h"
 #include "DebuggerCallFrame.h"
 #include "DebuggerPrimitives.h"
 #include "JSCJSValue.h"
@@ -44,10 +45,12 @@ typedef ExecState CallFrame;
 
 class JS_EXPORT_PRIVATE Debugger {
 public:
-    Debugger(bool isInWorkerThread = false);
+    Debugger(VM&);
     virtual ~Debugger();
 
-    JSC::DebuggerCallFrame* currentDebuggerCallFrame() const;
+    VM& vm() { return m_vm; }
+
+    JSC::DebuggerCallFrame* currentDebuggerCallFrame();
     bool hasHandlerForExceptionCallback() const
     {
         ASSERT(m_reasonForPause == PausedForException);
@@ -59,7 +62,8 @@ public:
         return m_currentException;
     }
 
-    bool needsExceptionCallbacks() const { return m_pauseOnExceptionsState != DontPauseOnExceptions; }
+    bool needsExceptionCallbacks() const { return m_breakpointsActivated && m_pauseOnExceptionsState != DontPauseOnExceptions; }
+    bool isInteractivelyDebugging() const { return m_breakpointsActivated; }
 
     enum ReasonForDetach {
         TerminatingDebuggingSession,
@@ -72,9 +76,9 @@ public:
     BreakpointID setBreakpoint(Breakpoint, unsigned& actualLine, unsigned& actualColumn);
     void removeBreakpoint(BreakpointID);
     void clearBreakpoints();
-    void setBreakpointsActivated(bool);
     void activateBreakpoints() { setBreakpointsActivated(true); }
     void deactivateBreakpoints() { setBreakpointsActivated(false); }
+    bool breakpointsActive() const { return m_breakpointsActivated; }
 
     enum PauseOnExceptionsState {
         DontPauseOnExceptions,
@@ -121,9 +125,23 @@ public:
     void didExecuteProgram(CallFrame*);
     void didReachBreakpoint(CallFrame*);
 
-    void recompileAllJSFunctions(VM*);
+    virtual void recompileAllJSFunctions();
 
     void registerCodeBlock(CodeBlock*);
+
+    class ProfilingClient {
+    public:
+        virtual ~ProfilingClient() { }
+        virtual bool isAlreadyProfiling() const = 0;
+        virtual double willEvaluateScript() = 0;
+        virtual void didEvaluateScript(double startTime, ProfilingReason) = 0;
+    };
+
+    void setProfilingClient(ProfilingClient*);
+    bool hasProfilingClient() const { return m_profilingClient != nullptr; }
+    bool isAlreadyProfiling() const { return m_profilingClient && m_profilingClient->isAlreadyProfiling(); }
+    double willEvaluateScript();
+    void didEvaluateScript(double startTime, ProfilingReason);
 
 protected:
     virtual bool needPauseHandling(JSGlobalObject*) { return false; }
@@ -182,15 +200,14 @@ private:
         BreakpointDisabled,
         BreakpointEnabled
     };
+    void setBreakpointsActivated(bool);
     void toggleBreakpoint(CodeBlock*, Breakpoint&, BreakpointState);
     void applyBreakpoints(CodeBlock*);
     void toggleBreakpoint(Breakpoint&, BreakpointState);
 
     void clearDebuggerRequests(JSGlobalObject*);
 
-    template<typename Functor> inline void forEachCodeBlock(Functor&);
-
-    VM* m_vm;
+    VM& m_vm;
     HashSet<JSGlobalObject*> m_globalObjects;
 
     PauseOnExceptionsState m_pauseOnExceptionsState;
@@ -198,7 +215,6 @@ private:
     bool m_isPaused : 1;
     bool m_breakpointsActivated : 1;
     bool m_hasHandlerForExceptionCallback : 1;
-    bool m_isInWorkerThread : 1;
     bool m_suppressAllPauses : 1;
     unsigned m_steppingMode : 1; // SteppingMode
 
@@ -215,6 +231,8 @@ private:
     SourceIDToBreakpointsMap m_sourceIDToBreakpoints;
 
     RefPtr<JSC::DebuggerCallFrame> m_currentDebuggerCallFrame;
+
+    ProfilingClient* m_profilingClient { nullptr };
 
     friend class DebuggerPausedScope;
     friend class TemporaryPausedState;

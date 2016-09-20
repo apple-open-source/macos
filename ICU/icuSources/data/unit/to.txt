@@ -1,13 +1,13 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/to.xml
 // *
 // ***************************************************************************
 to{
-    Version{"2.1.12.94"}
+    Version{"2.1.23.79"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -40,6 +40,10 @@ to{
             radian{
                 dnam{"lētiani"}
                 other{"lētiani ʻe {0}"}
+            }
+            revolution{
+                dnam{"takai"}
+                other{"takai ʻe {0}"}
             }
         }
         area{
@@ -83,14 +87,24 @@ to{
         compound{
             per{"{0} ʻi he {1}"}
         }
+        concentr{
+            karat{
+                dnam{"kalati"}
+                other{"kalati ʻe {0}"}
+            }
+        }
         consumption{
+            liter-per-100kilometers{
+                dnam{"lita he kilomita ʻe 100"}
+                other{"lita ʻe {0} he kilomita ʻe 100"}
+            }
             liter-per-kilometer{
                 dnam{"lita he kilomita"}
-                other{"lita he kilomita ʻe {0}"}
+                other{"lita ʻe {0} he kilomita"}
             }
             mile-per-gallon{
                 dnam{"maile he kālani"}
-                other{"maile he kālani ʻe {0}"}
+                other{"maile ʻe {0} he kālani"}
             }
         }
         digital{
@@ -415,12 +429,6 @@ to{
                 other{"pāuni he ʻinisi sikuea ʻe {0}"}
             }
         }
-        proportion{
-            karat{
-                dnam{"kalati"}
-                other{"kalati ʻe {0}"}
-            }
-        }
         speed{
             kilometer-per-hour{
                 dnam{"kilomita he houa"}
@@ -568,6 +576,10 @@ to{
                 dnam{"lēt"}
                 other{"{0} lēt"}
             }
+            revolution{
+                dnam{"tak"}
+                other{"{0} tak"}
+            }
         }
         area{
             acre{
@@ -610,7 +622,17 @@ to{
         compound{
             per{"{0}/{1}"}
         }
+        concentr{
+            karat{
+                dnam{"kt"}
+                other{"{0} kt"}
+            }
+        }
         consumption{
+            liter-per-100kilometers{
+                dnam{"l/100km"}
+                other{"{0} l/100km"}
+            }
             liter-per-kilometer{
                 dnam{"l/km"}
                 other{"{0} l/km"}
@@ -634,8 +656,8 @@ to{
                 other{"{0} Gb"}
             }
             gigabyte{
-                dnam{"GB"}
-                other{"{0} GB"}
+                dnam{"kikapaiti"}
+                other{"KP ʻe {0}"}
             }
             kilobit{
                 dnam{"kb"}
@@ -735,7 +757,7 @@ to{
             }
             joule{
                 dnam{"J"}
-                other{"J ʻe {0}"}
+                other{"{0} J"}
             }
             kilocalorie{
                 dnam{"kkal"}
@@ -942,12 +964,6 @@ to{
                 other{"{0} pā/in²"}
             }
         }
-        proportion{
-            karat{
-                dnam{"kt"}
-                other{"{0} kt"}
-            }
-        }
         speed{
             kilometer-per-hour{
                 dnam{"km/h"}
@@ -1095,6 +1111,10 @@ to{
                 dnam{"lēt"}
                 other{"lēt ʻe {0}"}
             }
+            revolution{
+                dnam{"tak"}
+                other{"tak ʻe {0}"}
+            }
         }
         area{
             acre{
@@ -1111,23 +1131,23 @@ to{
             }
             square-foot{
                 dnam{"ft²"}
-                other{"sk ft² ʻe {0}"}
+                other{"ft² ʻe {0}"}
             }
             square-inch{
                 dnam{"in²"}
-                other{"sk in² ʻe {0}"}
+                other{"in² ʻe {0}"}
             }
             square-kilometer{
                 dnam{"km²"}
-                other{"sk km² ʻe {0}"}
+                other{"km² ʻe {0}"}
             }
             square-meter{
                 dnam{"mita sikuea ʻe"}
-                other{"sk m² ʻe {0}"}
+                other{"m² ʻe {0}"}
             }
             square-mile{
                 dnam{"maile sikuea ʻe"}
-                other{"sk mi² ʻe {0}"}
+                other{"mi² ʻe {0}"}
             }
             square-yard{
                 dnam{"it²"}
@@ -1137,14 +1157,24 @@ to{
         compound{
             per{"{0}/{1}"}
         }
+        concentr{
+            karat{
+                dnam{"kt"}
+                other{"kt ʻe {0}"}
+            }
+        }
         consumption{
+            liter-per-100kilometers{
+                dnam{"l/100km"}
+                other{"l ʻe {0}/100km"}
+            }
             liter-per-kilometer{
                 dnam{"l/km"}
-                other{"l/km ʻe {0}"}
+                other{"l ʻe {0}/km"}
             }
             mile-per-gallon{
                 dnam{"mi/kā"}
-                other{"mi/kā ʻe {0}"}
+                other{"mi ʻe {0}/kā"}
             }
         }
         digital{
@@ -1157,12 +1187,12 @@ to{
                 other{"paiti ʻe {0}"}
             }
             gigabit{
-                dnam{"Gb"}
+                dnam{"kikapiti"}
                 other{"Gb ʻe {0}"}
             }
             gigabyte{
                 dnam{"kikapaiti"}
-                other{"KP ʻe {0}"}
+                other{"GB ʻe {0}"}
             }
             kilobit{
                 dnam{"kilopiti"}
@@ -1467,12 +1497,6 @@ to{
             pound-per-square-inch{
                 dnam{"pā/in²"}
                 other{"pā/in² ʻe {0}"}
-            }
-        }
-        proportion{
-            karat{
-                dnam{"kt"}
-                other{"kt ʻe {0}"}
             }
         }
         speed{

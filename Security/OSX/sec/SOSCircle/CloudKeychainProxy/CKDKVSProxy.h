@@ -70,10 +70,11 @@
 @property (atomic) bool syncTimerScheduled;
 @property (atomic) dispatch_time_t deadline;
 @property (atomic) dispatch_time_t lastSyncTime;
+
+@property (atomic) dispatch_queue_t ckdkvsproxy_queue;
 @property (atomic) dispatch_queue_t calloutQueue;
 @property (atomic) dispatch_queue_t freshParamsQueue;
 
-@property (atomic) dispatch_queue_t ckdkvsproxy_queue;
 @property (atomic) dispatch_source_t penaltyTimer;
 @property (atomic) bool penaltyTimerScheduled;
 @property (retain, atomic) NSMutableDictionary *monitor;
@@ -91,6 +92,8 @@
 - (void)requestSynchronization:(bool)force;
 - (void)waitForSynchronization:(NSArray *)keys handler:(void (^)(NSDictionary *values, NSError *err))handler;
 - (void)clearStore;
+- (void)recordWriteToKVS:(NSDictionary *)values;
+- (NSDictionary*)recordHaltedValuesAndReturnValuesToSafelyWrite:(NSDictionary *)values;
 - (void)setObjectsFromDictionary:(NSDictionary *)values;
 - (void)removeObjectForKey:(NSString *)keyToRemove;
 - (void)processAllItems;
@@ -113,16 +116,11 @@
 
 - (void)registerKeys: (NSDictionary*)keys;
 
-- (NSDictionary *)localNotification:(NSDictionary *)localNotificationDict outFlags:(int64_t *)outFlags;
-
 - (void)processKeyChangedEvent:(NSDictionary *)keysChangedInCloud;
 - (NSMutableDictionary *)copyValues:(NSSet *)keysOfInterest;
 
 - (void) doAfterFlush: (dispatch_block_t) block;
 - (void) calloutWith: (void(^)(NSSet *pending, bool syncWithPeersPending, bool ensurePeerRegistration, dispatch_queue_t queue, void(^done)(NSSet *handledKeys, bool handledSyncWithPeers, bool handledEnsurePeerRegistration))) callout;
 - (void) sendKeysCallout: (NSSet *(^)(NSSet* pending, NSError **error)) handleKeys;
-
-- (void)recordWriteToKVS:(NSDictionary *)values;
-- (NSDictionary*)recordHaltedValuesAndReturnValuesToSafelyWrite:(NSDictionary *)values;
 
 @end

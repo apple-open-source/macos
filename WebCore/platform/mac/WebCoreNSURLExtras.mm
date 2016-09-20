@@ -32,6 +32,7 @@
 #import "WebCoreNSURLExtras.h"
 #import "WebCoreSystemInterface.h"
 #import <functional>
+#import <wtf/HexNumber.h>
 #import <wtf/ObjcRuntimeExtras.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/Vector.h>
@@ -453,7 +454,7 @@ static BOOL allCharactersAllowedByTLDRules(const UChar* buffer, int32_t length)
 // Return value of nil means no mapping is necessary.
 // If makeString is NO, then return value is either nil or self to indicate mapping is necessary.
 // If makeString is YES, then return value is either nil or the mapped string.
-static NSString *mapHostNameWithRange(NSString *string, NSRange range, BOOL encode, BOOL makeString)
+static NSString *mapHostNameWithRange(NSString *string, NSRange range, BOOL encode, BOOL makeString, BOOL *error)
 {
     if (range.length > HOST_NAME_BUFFER_LENGTH)
         return nil;
@@ -476,10 +477,12 @@ static NSString *mapHostNameWithRange(NSString *string, NSRange range, BOOL enco
     int length = range.length;
     [string getCharacters:sourceBuffer range:range];
     
-    UErrorCode error = U_ZERO_ERROR;
-    int32_t numCharactersConverted = (encode ? uidna_IDNToASCII : uidna_IDNToUnicode)(sourceBuffer, length, destinationBuffer, HOST_NAME_BUFFER_LENGTH, UIDNA_ALLOW_UNASSIGNED, NULL, &error);
-    if (error != U_ZERO_ERROR)
+    UErrorCode uerror = U_ZERO_ERROR;
+    int32_t numCharactersConverted = (encode ? uidna_IDNToASCII : uidna_IDNToUnicode)(sourceBuffer, length, destinationBuffer, HOST_NAME_BUFFER_LENGTH, UIDNA_ALLOW_UNASSIGNED, NULL, &uerror);
+    if (U_FAILURE(uerror)) {
+        *error = YES;
         return nil;
+    }
     
     if (numCharactersConverted == length && !memcmp(sourceBuffer, destinationBuffer, length * sizeof(UChar)))
         return nil;
@@ -487,52 +490,71 @@ static NSString *mapHostNameWithRange(NSString *string, NSRange range, BOOL enco
     if (!encode && !allCharactersInIDNScriptWhiteList(destinationBuffer, numCharactersConverted) && !allCharactersAllowedByTLDRules(destinationBuffer, numCharactersConverted))
         return nil;
     
-    return makeString ? (NSString *)[NSString stringWithCharacters:destinationBuffer length:numCharactersConverted] : string;
+    return makeString ? [NSString stringWithCharacters:destinationBuffer length:numCharactersConverted] : string;
 }
 
-BOOL hostNameNeedsDecodingWithRange(NSString *string, NSRange range)
+BOOL hostNameNeedsDecodingWithRange(NSString *string, NSRange range, BOOL *error)
 {
-     return mapHostNameWithRange(string, range, NO, NO) != nil;
+    return mapHostNameWithRange(string, range, NO, NO, error) != nil;
 }
  
-BOOL hostNameNeedsEncodingWithRange(NSString *string, NSRange range)
+BOOL hostNameNeedsEncodingWithRange(NSString *string, NSRange range, BOOL *error)
 {
-     return mapHostNameWithRange(string, range, YES,  NO) != nil;
+    return mapHostNameWithRange(string, range, YES,  NO, error) != nil;
 }
 
 NSString *decodeHostNameWithRange(NSString *string, NSRange range)
 {
-    return mapHostNameWithRange(string, range, NO, YES);
+    BOOL error = NO;
+    NSString *host = mapHostNameWithRange(string, range, NO, YES, &error);
+    if (error)
+        return nil;
+    return !host ? string : host;
 }
 
 NSString *encodeHostNameWithRange(NSString *string, NSRange range)
 {
-    return mapHostNameWithRange(string, range, YES, YES);
+    BOOL error = NO;
+    NSString *host = mapHostNameWithRange(string, range, YES, YES, &error);
+    if (error)
+        return nil;
+    return !host ? string : host;
 }
 
 NSString *decodeHostName(NSString *string)
 {
-    NSString *name = mapHostNameWithRange(string, NSMakeRange(0, [string length]), NO, YES);
-    return !name ? string : name;
+    BOOL error = NO;
+    NSString *host = mapHostNameWithRange(string, NSMakeRange(0, [string length]), NO, YES, &error);
+    if (error)
+        return nil;
+    return !host ? string : host;
 }
 
 NSString *encodeHostName(NSString *string)
 {
-    NSString *name =  mapHostNameWithRange(string, NSMakeRange(0, [string length]), YES, YES);
-    return !name ? string : name;
+    BOOL error = NO;
+    NSString *host = mapHostNameWithRange(string, NSMakeRange(0, [string length]), YES, YES, &error);
+    if (error)
+        return nil;
+    return !host ? string : host;
 }
 
 static void collectRangesThatNeedMapping(NSString *string, NSRange range, void *context, BOOL encode)
 {
-    BOOL needsMapping = encode ? hostNameNeedsEncodingWithRange(string, range) : hostNameNeedsDecodingWithRange(string, range);
-    if (!needsMapping)
+    // Generally, we want to optimize for the case where there is one host name that does not need mapping.
+    // Therefore, we use nil to indicate no mapping here and an empty array to indicate error.
+
+    BOOL error = NO;
+    BOOL needsMapping = encode ? hostNameNeedsEncodingWithRange(string, range, &error) : hostNameNeedsDecodingWithRange(string, range, &error);
+    if (!error && !needsMapping)
         return;
     
     NSMutableArray **array = (NSMutableArray **)context;
     if (!*array)
         *array = [[NSMutableArray alloc] init];
     
-    [*array addObject:[NSValue valueWithRange:range]];
+    if (!error)
+        [*array addObject:[NSValue valueWithRange:range]];
 }
 
 static void collectRangesThatNeedEncoding(NSString *string, NSRange range, void *context)
@@ -681,6 +703,9 @@ static NSString *mapHostNames(NSString *string, BOOL encode)
     applyHostNameFunctionToURLString(string, f, &hostNameRanges);
     if (!hostNameRanges)
         return string;
+
+    if (![hostNameRanges count])
+        return nil;
     
     // Do the mapping.
     NSMutableString *mutableCopy = [string mutableCopy];
@@ -692,34 +717,6 @@ static NSString *mapHostNames(NSString *string, BOOL encode)
     }
     [hostNameRanges release];
     return [mutableCopy autorelease];
-}
-
-static BOOL isHexDigit(char c)
-{
-    return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f');
-}
-
-static char hexDigit(int i)
-{
-    if (i < 0 || i > 16)
-        return '0';
-
-    return (i >= 10) ? i - 10 + 'A' : i += '0'; 
-}
-
-static int hexDigitValue(char c)
-{
-    if (c >= '0' && c <= '9')
-        return c - '0';
-
-    if (c >= 'A' && c <= 'F')
-        return c - 'A' + 10;
-
-    if (c >= 'a' && c <= 'f')
-        return c - 'a' + 10;
-
-    LOG_ERROR("illegal hex digit");
-    return 0;
 }
 
 static NSString *stringByTrimmingWhitespace(NSString *string)
@@ -747,9 +744,9 @@ NSURL *URLByTruncatingOneCharacterBeforeComponent(NSURL *URL, CFURLComponentType
     } else
         urlBytes = buffer;
         
-    NSURL *result = (NSURL *)CFMakeCollectable(CFURLCreateWithBytes(NULL, urlBytes, fragRg.location - 1, kCFStringEncodingUTF8, NULL));
+    NSURL *result = (NSURL *)CFURLCreateWithBytes(NULL, urlBytes, fragRg.location - 1, kCFStringEncodingUTF8, NULL);
     if (!result)
-        result = (NSURL *)CFMakeCollectable(CFURLCreateWithBytes(NULL, urlBytes, fragRg.location - 1, kCFStringEncodingISOLatin1, NULL));
+        result = (NSURL *)CFURLCreateWithBytes(NULL, urlBytes, fragRg.location - 1, kCFStringEncodingISOLatin1, NULL);
         
     if (urlBytes != buffer)
         free(urlBytes);
@@ -787,24 +784,18 @@ NSURL *URLWithData(NSData *data, NSURL *baseURL)
             result = CFBridgingRelease(CFURLCreateAbsoluteURLWithBytes(NULL, bytes, length, kCFStringEncodingISOLatin1, (CFURLRef)baseURL, YES));
     } else
         result = [NSURL URLWithString:@""];
-                
+
     return result;
 }
-
-NSURL *URLWithUserTypedString(NSString *string, NSURL *URL)
+static NSData *dataWithUserTypedString(NSString *string)
 {
-    if (!string)
-        return nil;
-
-    string = mapHostNames(stringByTrimmingWhitespace(string), YES);
-    
     NSData *userTypedData = [string dataUsingEncoding:NSUTF8StringEncoding];
     ASSERT(userTypedData);
     
     const UInt8* inBytes = static_cast<const UInt8 *>([userTypedData bytes]);
     int inLength = [userTypedData length];
     if (!inLength)
-        return [NSURL URLWithString:@""];
+        return nil;
     
     char* outBytes = static_cast<char *>(malloc(inLength * 3)); // large enough to %-escape every character
     char* p = outBytes;
@@ -813,8 +804,8 @@ NSURL *URLWithUserTypedString(NSString *string, NSURL *URL)
         UInt8 c = inBytes[i];
         if (c <= 0x20 || c >= 0x7f) {
             *p++ = '%';
-            *p++ = hexDigit(c >> 4);
-            *p++ = hexDigit(c & 0xf);
+            *p++ = uncheckedHexDigit(c >> 4);
+            *p++ = uncheckedHexDigit(c & 0xf);
             outLength += 3;
         } else {
             *p++ = c;
@@ -822,8 +813,39 @@ NSURL *URLWithUserTypedString(NSString *string, NSURL *URL)
         }
     }
     
-    NSData *data = [NSData dataWithBytesNoCopy:outBytes length:outLength]; // adopts outBytes
+    return [NSData dataWithBytesNoCopy:outBytes length:outLength]; // adopts outBytes
+}
+
+NSURL *URLWithUserTypedString(NSString *string, NSURL *URL)
+{
+    if (!string)
+        return nil;
+
+    string = mapHostNames(stringByTrimmingWhitespace(string), YES);
+    if (!string)
+        return nil;
+
+    NSData *data = dataWithUserTypedString(string);
+    if (!data)
+        return [NSURL URLWithString:@""];
+
     return URLWithData(data, URL);
+}
+
+NSURL *URLWithUserTypedStringDeprecated(NSString *string, NSURL *URL)
+{
+    if (!string)
+        return nil;
+
+    NSURL *result = URLWithUserTypedString(string, URL);
+    if (!result) {
+        NSData *resultData = dataWithUserTypedString(string);
+        if (!resultData)
+            return [NSURL URLWithString:@""];
+        result = URLWithData(resultData, URL);
+    }
+
+    return result;
 }
 
 static BOOL hasQuestionMarkOnlyQueryString(NSURL *URL)
@@ -877,8 +899,8 @@ NSData *dataForURLComponentType(NSURL *URL, CFURLComponentType componentType)
         if (c <= 0x20 || c >= 0x7f) {
             char escaped[3];
             escaped[0] = '%';
-            escaped[1] = hexDigit(c >> 4);
-            escaped[2] = hexDigit(c & 0xf);
+            escaped[1] = uncheckedHexDigit(c >> 4);
+            escaped[2] = uncheckedHexDigit(c & 0xf);
             [resultData appendBytes:escaped length:3];    
         } else {
             char b[1];
@@ -918,9 +940,9 @@ static NSURL *URLByRemovingComponentAndSubsequentCharacter(NSURL *URL, CFURLComp
         
     memmove(urlBytes + range.location, urlBytes + range.location + range.length, numBytes - range.location + range.length);
     
-    NSURL *result = (NSURL *)CFMakeCollectable(CFURLCreateWithBytes(NULL, urlBytes, numBytes - range.length, kCFStringEncodingUTF8, NULL));
+    NSURL *result = (NSURL *)CFURLCreateWithBytes(NULL, urlBytes, numBytes - range.length, kCFStringEncodingUTF8, NULL);
     if (!result)
-        result = (NSURL *)CFMakeCollectable(CFURLCreateWithBytes(NULL, urlBytes, numBytes - range.length, kCFStringEncodingISOLatin1, NULL));
+        result = (NSURL *)CFURLCreateWithBytes(NULL, urlBytes, numBytes - range.length, kCFStringEncodingISOLatin1, NULL);
                 
     return result ? [result autorelease] : URL;
 }
@@ -989,8 +1011,8 @@ static CFStringRef createStringWithEscapedUnsafeCharacters(CFStringRef string)
             
             for (CFIndex j = 0; j < offset; ++j) {
                 outBuffer.append('%');
-                outBuffer.append(hexDigit(utf8Buffer[j] >> 4));
-                outBuffer.append(hexDigit(utf8Buffer[j] & 0xf));
+                outBuffer.append(uncheckedHexDigit(utf8Buffer[j] >> 4));
+                outBuffer.append(uncheckedHexDigit(utf8Buffer[j] & 0xf));
             }
         } else {
             UChar utf16Buffer[2];
@@ -1022,7 +1044,7 @@ NSString *userVisibleString(NSURL *URL)
         unsigned char c = p[i];
         // unescape escape sequences that indicate bytes greater than 0x7f
         if (c == '%' && (i + 1 < length && isHexDigit(p[i + 1])) && i + 2 < length && isHexDigit(p[i + 2])) {
-            unsigned char u = (hexDigitValue(p[i + 1]) << 4) | hexDigitValue(p[i + 2]);
+            unsigned char u = (uncheckedHexDigitValue(p[i + 1]) << 4) | uncheckedHexDigitValue(p[i + 2]);
             if (u > 0x7f) {
                 // unescape
                 *q++ = u;
@@ -1059,8 +1081,8 @@ NSString *userVisibleString(NSURL *URL)
             unsigned char c = *p;
             if (c > 0x7f) {
                 *q++ = '%';
-                *q++ = hexDigit(c >> 4);
-                *q++ = hexDigit(c & 0xf);
+                *q++ = uncheckedHexDigit(c >> 4);
+                *q++ = uncheckedHexDigit(c & 0xf);
             } else
                 *q++ = *p;
             p++;
@@ -1071,8 +1093,13 @@ NSString *userVisibleString(NSURL *URL)
     
     free(after);
     
-    if (mayNeedHostNameDecoding)
-        result = mapHostNames(result, NO);
+    if (mayNeedHostNameDecoding) {
+        // FIXME: Is it good to ignore the failure of mapHostNames and keep result intact?
+        NSString *mappedResult = mapHostNames(result, NO);
+        if (mappedResult)
+            result = mappedResult;
+    }
+
     result = [result precomposedStringWithCanonicalMapping];
     return CFBridgingRelease(createStringWithEscapedUnsafeCharacters((CFStringRef)result));
 }
@@ -1098,7 +1125,7 @@ BOOL isUserVisibleURL(NSString *string)
             valid = NO;
             break;
         } else if (c == '%' && (i + 1 < length && isHexDigit(p[i + 1])) && i + 2 < length && isHexDigit(p[i + 2])) {
-            unsigned char u = (hexDigitValue(p[i + 1]) << 4) | hexDigitValue(p[i + 2]);
+            unsigned char u = (uncheckedHexDigitValue(p[i + 1]) << 4) | uncheckedHexDigitValue(p[i + 2]);
             if (u > 0x7f) {
                 valid = NO;
                 break;

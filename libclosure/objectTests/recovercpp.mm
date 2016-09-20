@@ -7,7 +7,6 @@
 // TEST_CONFIG rdar://6214670
 // TEST_CFLAGS -framework Foundation
 
-#import <objc/objc-auto.h>
 #import <Foundation/Foundation.h>
 #import <Block.h>
 #import "test.h"
@@ -17,10 +16,6 @@ int destructors = 0;
 
 
 #import <Block_private.h>
-
-void hack(void *block) {
-    printf("Block_dump says: %s\n", _Block_dump(block));
-}
 
 #define CONST const
 
@@ -84,8 +79,6 @@ void testRoutine() {
     for (int i = 0; i < 10; ++i)
         Block_release(b);
 #endif
-    //hack(^{ printf("my copy of one is %d\n", one.version()); });
-    //hack(b);
     [b release];
 }
 
@@ -94,7 +87,6 @@ int main() {
     //testGC();
     for (int i = 0; i < 200; ++i)   // do enough to trigger TLC if GC is on
         testRoutine();
-    objc_collect(OBJC_EXHAUSTIVE_COLLECTION | OBJC_WAIT_UNTIL_DONE);
     [pool drain];
 
     if (constructors != destructors) {

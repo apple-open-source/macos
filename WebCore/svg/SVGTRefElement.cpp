@@ -53,7 +53,7 @@ Ref<SVGTRefElement> SVGTRefElement::create(const QualifiedName& tagName, Documen
     return element;
 }
 
-class SVGTRefTargetEventListener : public EventListener {
+class SVGTRefTargetEventListener final : public EventListener {
 public:
     static Ref<SVGTRefTargetEventListener> create(SVGTRefElement& trefElement)
     {
@@ -65,15 +65,15 @@ public:
         return listener->type() == SVGTRefTargetEventListenerType ? static_cast<const SVGTRefTargetEventListener*>(listener) : nullptr;
     }
 
-    void attach(PassRefPtr<Element> target);
+    void attach(RefPtr<Element>&& target);
     void detach();
     bool isAttached() const { return m_target.get(); }
 
 private:
     explicit SVGTRefTargetEventListener(SVGTRefElement& trefElement);
 
-    virtual void handleEvent(ScriptExecutionContext*, Event*) override;
-    virtual bool operator==(const EventListener&) override;
+    void handleEvent(ScriptExecutionContext*, Event*) override;
+    bool operator==(const EventListener&) const override;
 
     SVGTRefElement& m_trefElement;
     RefPtr<Element> m_target;
@@ -86,15 +86,15 @@ SVGTRefTargetEventListener::SVGTRefTargetEventListener(SVGTRefElement& trefEleme
 {
 }
 
-void SVGTRefTargetEventListener::attach(PassRefPtr<Element> target)
+void SVGTRefTargetEventListener::attach(RefPtr<Element>&& target)
 {
     ASSERT(!isAttached());
     ASSERT(target.get());
     ASSERT(target->inDocument());
 
-    target->addEventListener(eventNames().DOMSubtreeModifiedEvent, this, false);
-    target->addEventListener(eventNames().DOMNodeRemovedFromDocumentEvent, this, false);
-    m_target = target;
+    target->addEventListener(eventNames().DOMSubtreeModifiedEvent, *this, false);
+    target->addEventListener(eventNames().DOMNodeRemovedFromDocumentEvent, *this, false);
+    m_target = WTFMove(target);
 }
 
 void SVGTRefTargetEventListener::detach()
@@ -102,12 +102,12 @@ void SVGTRefTargetEventListener::detach()
     if (!isAttached())
         return;
 
-    m_target->removeEventListener(eventNames().DOMSubtreeModifiedEvent, this, false);
-    m_target->removeEventListener(eventNames().DOMNodeRemovedFromDocumentEvent, this, false);
+    m_target->removeEventListener(eventNames().DOMSubtreeModifiedEvent, *this, false);
+    m_target->removeEventListener(eventNames().DOMNodeRemovedFromDocumentEvent, *this, false);
     m_target = nullptr;
 }
 
-bool SVGTRefTargetEventListener::operator==(const EventListener& listener)
+bool SVGTRefTargetEventListener::operator==(const EventListener& listener) const
 {
     if (const SVGTRefTargetEventListener* targetListener = SVGTRefTargetEventListener::cast(&listener))
         return &m_trefElement == &targetListener->m_trefElement;
@@ -194,9 +194,9 @@ void SVGTRefElement::svgAttributeChanged(const QualifiedName& attrName)
     SVGTextPositioningElement::svgAttributeChanged(attrName);
 }
 
-RenderPtr<RenderElement> SVGTRefElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
+RenderPtr<RenderElement> SVGTRefElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
 {
-    return createRenderer<RenderSVGInline>(*this, WTF::move(style));
+    return createRenderer<RenderSVGInline>(*this, WTFMove(style));
 }
 
 bool SVGTRefElement::childShouldCreateRenderer(const Node& child) const
@@ -249,7 +249,7 @@ void SVGTRefElement::buildPendingResource()
     // expects every element instance to have an associated shadow tree element - which is not the
     // case when we land here from SVGUseElement::buildShadowTree().
     if (!isInShadowTree())
-        m_targetListener->attach(target);
+        m_targetListener->attach(target.copyRef());
 
     updateReferencedText(target.get());
 }

@@ -41,7 +41,7 @@ namespace WebCore {
 using namespace HTMLNames;
 
 HTMLAppletElement::HTMLAppletElement(const QualifiedName& tagName, Document& document, bool createdByParser)
-    : HTMLPlugInImageElement(tagName, document, createdByParser, ShouldNotPreferPlugInsForImages)
+    : HTMLPlugInImageElement(tagName, document, createdByParser)
 {
     ASSERT(hasTagName(appletTag));
 
@@ -70,17 +70,17 @@ void HTMLAppletElement::parseAttribute(const QualifiedName& name, const AtomicSt
 
 bool HTMLAppletElement::rendererIsNeeded(const RenderStyle& style)
 {
-    if (!fastHasAttribute(codeAttr))
+    if (!hasAttributeWithoutSynchronization(codeAttr))
         return false;
     return HTMLPlugInImageElement::rendererIsNeeded(style);
 }
 
-RenderPtr<RenderElement> HTMLAppletElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
+RenderPtr<RenderElement> HTMLAppletElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
 {
     if (!canEmbedJava())
-        return RenderElement::createFor(*this, WTF::move(style));
+        return RenderElement::createFor(*this, WTFMove(style));
 
-    return RenderEmbeddedObject::createForApplet(*this, WTF::move(style));
+    return RenderEmbeddedObject::createForApplet(*this, WTFMove(style));
 }
 
 RenderWidget* HTMLAppletElement::renderWidgetLoadingPlugin() const
@@ -125,9 +125,9 @@ void HTMLAppletElement::updateWidget(PluginCreationOption pluginCreationOption)
     Vector<String> paramValues;
 
     paramNames.append("code");
-    paramValues.append(fastGetAttribute(codeAttr).string());
+    paramValues.append(attributeWithoutSynchronization(codeAttr).string());
 
-    const AtomicString& codeBase = fastGetAttribute(codebaseAttr);
+    const AtomicString& codeBase = attributeWithoutSynchronization(codebaseAttr);
     if (!codeBase.isNull()) {
         paramNames.append(ASCIILiteral("codeBase"));
         paramValues.append(codeBase.string());
@@ -139,7 +139,7 @@ void HTMLAppletElement::updateWidget(PluginCreationOption pluginCreationOption)
         paramValues.append(name.string());
     }
 
-    const AtomicString& archive = fastGetAttribute(archiveAttr);
+    const AtomicString& archive = attributeWithoutSynchronization(archiveAttr);
     if (!archive.isNull()) {
         paramNames.append(ASCIILiteral("archive"));
         paramValues.append(archive.string());
@@ -148,7 +148,7 @@ void HTMLAppletElement::updateWidget(PluginCreationOption pluginCreationOption)
     paramNames.append(ASCIILiteral("baseURL"));
     paramValues.append(document().baseURL().string());
 
-    const AtomicString& mayScript = fastGetAttribute(mayscriptAttr);
+    const AtomicString& mayScript = attributeWithoutSynchronization(mayscriptAttr);
     if (!mayScript.isNull()) {
         paramNames.append(ASCIILiteral("mayScript"));
         paramValues.append(mayScript.string());

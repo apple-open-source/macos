@@ -56,6 +56,8 @@
 #include <dt_string.h>
 #include <dt_provider.h>
 
+#include <TargetConditionals.h>
+
 void dtrace_update_kernel_symbols(dtrace_hdl_t* dtp);
 
 /*
@@ -425,8 +427,10 @@ static const dt_ident_t _dtrace_globals[] = {
 	DT_ATTR_STABCMN, DT_VERS_1_0, &dt_idops_type, "string" },
 { "machtimestamp", DT_IDENT_SCALAR, 0, DIF_VAR_MACHTIMESTAMP,
 	DT_ATTR_STABCMN, DT_VERS_1_7, &dt_idops_type, "uint64_t" },
-{ "core_profile", DT_IDENT_FUNC, 0, DIF_SUBR_COREPROFILE, DT_ATTR_EVOLCMN, DT_VERS_1_6_2,
-	&dt_idops_func, "uint32_t(uint64_t, [uint64_t], [uint64_t], [uint64_t], [uint64_t], [uint64_t], [uint64_t])"},
+{ "kdebug_trace", DT_IDENT_FUNC, 0, DIF_SUBR_KDEBUG_TRACE, DT_ATTR_EVOLCMN, DT_VERS_1_6_2,
+	&dt_idops_func, "void(uint32_t, [uint64_t], [uint64_t], [uint64_t], [uint64_t])"},
+{ "kdebug_trace_string", DT_IDENT_FUNC, 0, DIF_SUBR_KDEBUG_TRACE_STRING, DT_ATTR_EVOLCMN, DT_VERS_1_6_2,
+	&dt_idops_func, "uint64_t(uint32_t, uint64_t, char*)"},
 { "vm_kernel_addrperm", DT_IDENT_FUNC, 0, DIF_SUBR_VM_KERNEL_ADDRPERM,
 	DT_ATTR_STABCMN, DT_VERS_1_8,
 	&dt_idops_func, "void* (void*)" },
@@ -698,6 +702,8 @@ int _dtrace_argmax = 32;	/* default maximum number of probe arguments */
 
 int _dtrace_debug = 0;		/* debug messages enabled (off) */
 int _dtrace_mangled = 0;	/* enabled mangled names for C++ fns (off) */
+int _dtrace_error = 1;		/* error messages enabled (on */
+int _dtrace_disallow_dsym = 0;		/* dsym disabled */
 
 const char *const _dtrace_version = DT_VERS_STRING; /* API version string */
 int _dtrace_rdvers = RD_VERSION; /* rtld_db feature version */
@@ -975,13 +981,17 @@ alloc:
 	if (dt_cpp_add_arg(dtp, "-E") == NULL ||
 	    dt_cpp_add_arg(dtp, "-xc") == NULL ||
 	    dt_cpp_add_arg(dtp, "-U__GNUC__") == NULL ||
-	    dt_cpp_add_arg(dtp, "-include") == NULL ||
-	    dt_cpp_add_arg(dtp, "/usr/lib/dtrace/dt_cpp.h") == NULL ||
 	    dt_cpp_add_arg(dtp, "-D__APPLE__") == NULL ||
 	    dt_cpp_add_arg(dtp, "-D__SUNW_D=1") == NULL ||
 	    dt_cpp_add_arg(dtp, isadef) == NULL ||
 	    dt_cpp_add_arg(dtp, utsdef) == NULL)
 		return (set_open_errno(dtp, errp, EDT_NOMEM));
+
+#if TARGET_OS_MAC && !TARGET_OS_EMBEDDED
+	if (dt_cpp_add_arg(dtp, "-include") == NULL ||
+	    dt_cpp_add_arg(dtp, "/usr/lib/dtrace/dt_cpp.h") == NULL)
+		return (set_open_errno(dtp, errp, EDT_NOMEM));
+#endif
 
 	if (flags & DTRACE_O_NODEV)
 		bcopy(&_dtrace_conf, &dtp->dt_conf, sizeof (_dtrace_conf));

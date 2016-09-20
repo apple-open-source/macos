@@ -11,6 +11,10 @@
 /* CHU audio/decoder? */
 /* #undef AUDIO_CHU */
 
+/* Support NTP Autokey protocol? */
+/* #undef AUTOKEY */
+//#define AUTOKEY 1
+
 /* Declare char *sys_errlist array */
 /* #undef CHAR_SYS_ERRLIST */
 
@@ -269,6 +273,12 @@
 /* What is the fallback value for HZ? */
 #define DEFAULT_HZ 100
 
+/* Default number of megabytes for RLIMIT_MEMLOCK */
+#define DFLT_RLIMIT_MEMLOCK 32
+
+/* Default number of 4k pages for RLIMIT_STACK */
+#define DFLT_RLIMIT_STACK 50
+
 /* Directory separator character, usually / or \\ */
 #define DIR_SEP '/'
 
@@ -280,6 +290,12 @@
 
 /* The number of minutes in a DST adjustment */
 #define DSTMINUTES 60
+
+/* number of args to el_init() */
+#define EL_INIT_ARGS 4
+
+/* What is getsockname()'s socklen type? */
+#define GETSOCKNAME_SOCKLEN_TYPE socklen_t
 
 /* fopen(3) accepts a 'b' in the mode flag */
 #define FOPEN_BINARY_FLAG "b"
@@ -299,8 +315,17 @@
 /* Do we have a routing socket (struct rt_msghdr)? */
 #define HAS_ROUTING_SOCKET 1
 
+/* Define to 1 if you have `alloca', as a function or macro. */
+#define HAVE_ALLOCA 1
+
+/* Define to 1 if you have the `arc4random_buf' function. */
+#define HAVE_ARC4RANDOM_BUF 1
+
 /* Define to 1 if you have the <arpa/nameser.h> header file. */
 #define HAVE_ARPA_NAMESER_H 1
+
+/* Define to 1 if you have the `atomic_thread_fence' function. */
+#define HAVE_ATOMIC_THREAD_FENCE 1
 
 /* Do we have audio support? */
 /* #undef HAVE_AUDIO */
@@ -310,6 +335,9 @@
 
 /* Define to 1 if you have the `canonicalize_file_name' function. */
 /* #undef HAVE_CANONICALIZE_FILE_NAME */
+
+/* Define to 1 if you have the `chmod' function. */
+#define HAVE_CHMOD 1
 
 /* Do we have the CIOGETEV ioctl (SunOS, Linux)? */
 /* #undef HAVE_CIOGETEV */
@@ -325,6 +353,10 @@
 
 /* Define this if /dev/zero is readable device */
 #define HAVE_DEV_ZERO 1
+
+/* Define to 1 if you have the declaration of `strerror_r', and to 0 if you
+   don't. */
+#define HAVE_DECL_STRERROR_R 1
 
 /* Define to 1 if you have the <dirent.h> header file, and it defines `DIR'.
    */
@@ -345,14 +377,26 @@
 /* Define to 1 if you have the <errno.h> header file. */
 #define HAVE_ERRNO_H 1
 
+/* Define to 1 if you have the `fchmod' function. */
+#define HAVE_FCHMOD 1
+
 /* Define to 1 if you have the <fcntl.h> header file. */
 #define HAVE_FCNTL_H 1
 
 /* Define to 1 if you have the `finite' function. */
 #define HAVE_FINITE 1
 
+/* Define to 1 if you have the `fnmatch' function. */
+#define HAVE_FNMATCH 1
+
+/* Define to 1 if you have the <fnmatch.h> header file. */
+#define HAVE_FNMATCH_H 1
+
 /* Define to 1 if you have the `fork' function. */
 #define HAVE_FORK 1
+
+/* Define to 1 if you have the `fstat' function. */
+#define HAVE_FSTAT 1
 
 /* Define to 1 if you have the `getbootfile' function. */
 /* #undef HAVE_GETBOOTFILE */
@@ -393,6 +437,9 @@
 
 /* have iflist_sysctl? */
 #define HAVE_IFLIST_SYSCTL 1
+
+/* Define to 1 if you have the `if_nametoindex' function. */
+#define HAVE_IF_NAMETOINDEX 1
 
 /* inline keyword or macro available */
 #define HAVE_INLINE 1
@@ -463,6 +510,9 @@
 /* Do we have Linux capabilities? */
 /* #undef HAVE_LINUX_CAPABILITIES */
 
+/* Define to 1 if the system has the type `long long'. */
+#define HAVE_LONG_LONG 1
+
 /* Define to 1 if you have the <machine/inline.h> header file. */
 /* #undef HAVE_MACHINE_INLINE_H */
 
@@ -505,6 +555,9 @@
 /* Define to 1 if you have the `mmap' function. */
 #define HAVE_MMAP 1
 
+/* Define to 1 if you have the `nanosleep' function. */
+#define HAVE_NANOSLEEP 1
+
 /* Define to 1 if you have the <ndir.h> header file, and it defines `DIR'. */
 /* #undef HAVE_NDIR_H */
 
@@ -520,6 +573,9 @@
 /* Define to 1 if you have the <netinet/in_systm.h> header file. */
 #define HAVE_NETINET_IN_SYSTM_H 1
 
+/* Define to 1 if you have the <netinet/in_var.h> header file. */
+#define HAVE_NETINET_IN_VAR_H 1
+
 /* Define to 1 if you have the <netinet/ip.h> header file. */
 #define HAVE_NETINET_IP_H 1
 
@@ -534,6 +590,9 @@
 
 /* Define to 1 if you have the <net/if.h> header file. */
 #define HAVE_NET_IF_H 1
+
+/* Define to 1 if you have the <net/if_var.h> header file. */
+#define HAVE_NET_IF_VAR_H 1
 
 /* Define to 1 if you have the <net/route.h> header file. */
 #define HAVE_NET_ROUTE_H 1
@@ -568,6 +627,39 @@
 /* Do we have the PPS API per the Draft RFC? */
 /* #undef HAVE_PPSAPI */
 
+/* define to pthreads API spec revision */
+#define HAVE_PTHREADS 10
+
+/* define if you have pthread_detach function */
+#define HAVE_PTHREAD_DETACH 1
+
+/* Define to 1 if you have the `pthread_getconcurrency' function. */
+#define HAVE_PTHREAD_GETCONCURRENCY 1
+
+/* Define to 1 if you have the <pthread.h> header file. */
+#define HAVE_PTHREAD_H 1
+
+/* Define to 1 if you have the `pthread_kill' function. */
+#define HAVE_PTHREAD_KILL 1
+
+/* Define to 1 if you have the `pthread_kill_other_threads_np' function. */
+/* #undef HAVE_PTHREAD_KILL_OTHER_THREADS_NP */
+
+/* define if you have pthread_rwlock_destroy function */
+#define HAVE_PTHREAD_RWLOCK_DESTROY 1
+
+/* Define to 1 if you have the `pthread_setconcurrency' function. */
+#define HAVE_PTHREAD_SETCONCURRENCY 1
+
+/* Define to 1 if you have the `pthread_yield' function. */
+/* #undef HAVE_PTHREAD_YIELD */
+
+/* Define to 1 if you have the <pth.h> header file. */
+/* #undef HAVE_PTH_H */
+
+/* Define to 1 if the system has the type `ptrdiff_t'. */
+#define HAVE_PTRDIFF_T 1
+
 /* Define to 1 if you have the `pututline' function. */
 /* #undef HAVE_PUTUTLINE */
 
@@ -578,6 +670,9 @@
 /* #undef HAVE_READLINE_H */
 
 #if !TARGET_OS_EMBEDDED
+
+#define HAVE_READLINE_HISTORY 1
+
 /* Define if your readline library has \`add_history' */
 /*#define HAVE_READLINE_HISTORY 1*/
 
@@ -601,7 +696,7 @@
 #define HAVE_RESOLV_H 1
 
 /* Define to 1 if you have the `res_init' function. */
-#define HAVE_RES_INIT 1
+/*#undef HAVE_RES_INIT */
 
 /* Do we have Linux routing socket? */
 /* #undef HAVE_RTNETLINK */
@@ -620,6 +715,12 @@
 
 /* Define to 1 if you have the `sched_setscheduler' function. */
 /* #undef HAVE_SCHED_SETSCHEDULER */
+
+/* Define to 1 if you have the `sched_yield' function. */
+#define HAVE_SCHED_YIELD 1
+
+/* Define to 1 if you have the <semaphore.h> header file. */
+#define HAVE_SEMAPHORE_H 1
 
 /* Define to 1 if you have the <setjmp.h> header file. */
 #define HAVE_SETJMP_H 1
@@ -672,11 +773,20 @@
 /* Define to 1 if you have the `snprintf' function. */
 #define HAVE_SNPRINTF 1
 
+/* Define to 1 if you have the `socketpair' function. */
+#define HAVE_SOCKETPAIR 1
+
 /* Are Solaris privileges available? */
 /* #undef HAVE_SOLARIS_PRIVS */
 
 /* Define to 1 if you have the <stdarg.h> header file. */
 #define HAVE_STDARG_H 1
+
+/* Define to 1 if you have the <stdatomic.h> header file. */
+#define HAVE_STDATOMIC_H 1
+
+/* Define to 1 if you have the <stdbool.h> header file. */
+#define HAVE_STDBOOL_H 1
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #define HAVE_STDINT_H 1
@@ -708,11 +818,20 @@
 /* Define to 1 if you have the `strrchr' function. */
 #define HAVE_STRRCHR 1
 
+/* Define to 1 if you have the `strlcat' function. */
+#define HAVE_STRLCAT 1
+
+/* Define to 1 if you have the `strlcpy' function. */
+#define HAVE_STRLCPY 1
+
 /* Define to 1 if you have the `strsignal' function. */
 #define HAVE_STRSIGNAL 1
 
 /* Define to 1 if you have the `strstr' function. */
 #define HAVE_STRSTR 1
+
+/* Define to 1 if you have the `strtoll' function. */
+#define HAVE_STRTOLL 1
 
 /* Do we have struct ntptimeval? */
 /* #undef HAVE_STRUCT_NTPTIMEVAL */
@@ -743,6 +862,8 @@
 
 /* Define to 1 if you have the <sysexits.h> header file. */
 #define HAVE_SYSEXITS_H 1
+
+#define HAVE_SYSLOG_FACILITYNAMES 1
 
 /* Define to 1 if you have the <sys/audioio.h> header file. */
 /* #undef HAVE_SYS_AUDIOIO_H */
@@ -914,6 +1035,9 @@
 /* Define to 1 if you have the <timex.h> header file. */
 /* #undef HAVE_TIMEX_H */
 
+/* Define to 1 if you have the <time.h> header file. */
+#define HAVE_TIME_H 1
+
 /* Do we have the TIOCGPPSEV ioctl (Solaris)? */
 /* #undef HAVE_TIOCGPPSEV */
 
@@ -953,6 +1077,9 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #define HAVE_UNISTD_H 1
 
+/* Define to 1 if the system has the type `unsigned long long int'. */
+#define HAVE_UNSIGNED_LONG_LONG_INT 1
+
 /* Define to 1 if you have the `updwtmp' function. */
 /* #undef HAVE_UPDWTMP */
 
@@ -976,6 +1103,12 @@
 
 /* Define to 1 if you have the `vfork' function. */
 #define HAVE_VFORK 1
+
+/* define if select implicitly yields */
+#define HAVE_YIELDING_SELECT 1
+
+/* Define to 1 if you have the `_exit' function. */
+#define HAVE__EXIT 1
 
 /* Define to 1 if you have the <vfork.h> header file. */
 /* #undef HAVE_VFORK_H */
@@ -1012,6 +1145,17 @@
 
 /* Define to 1 if you have the `__adjtimex' function. */
 /* #undef HAVE___ADJTIMEX */
+
+/* defined if C compiler supports __attribute__((...)) */
+#define HAVE___ATTRIBUTE__ 1
+
+
+        /* define away __attribute__() if unsupported */
+        #ifndef HAVE___ATTRIBUTE__
+        # define __attribute__(x) /* empty */
+        #endif
+        #define ISC_PLATFORM_NORETURN_PRE
+        #define ISC_PLATFORM_NORETURN_POST __attribute__((__noreturn__))
 
 /* Define to 1 if you have the `__ntp_gettime' function. */
 /* #undef HAVE___NTP_GETTIME */
@@ -1061,16 +1205,16 @@
 
 #define __APPLE_USE_RFC_3542 1
 /* have struct in6_pktinfo? */
-#define ISC_PLATFORM_HAVEIN6PKTINFO /**/
+#define ISC_PLATFORM_HAVEIN6PKTINFO 1
 
 /* have IPv6? */
-#define ISC_PLATFORM_HAVEIPV6 /**/
+#define ISC_PLATFORM_HAVEIPV6 1
 
 /* struct sockaddr has sa_len? */
-#define ISC_PLATFORM_HAVESALEN /**/
+#define ISC_PLATFORM_HAVESALEN 1
 
 /* have sin6_scope_id? */
-#define ISC_PLATFORM_HAVESCOPEID /**/
+#define ISC_PLATFORM_HAVESCOPEID 1
 
 /* missing in6addr_any? */
 /* #undef ISC_PLATFORM_NEEDIN6ADDRANY */
@@ -1104,6 +1248,9 @@
 
 /* What is the name of TICK in the kernel? */
 #define K_TICK_NAME "_tick"
+
+/* define to 1 if library is thread safe */
+#define LDAP_API_FEATURE_X_OPENLDAP_THREAD_SAFE 1
 
 /* Should we align with the NIST lockclock scheme? */
 /* #undef LOCKCLOCK */
@@ -1172,7 +1319,7 @@
 #define ONCORE_SHMEM_STATUS 1
 
 /* Use OpenSSL? */
-/* #undef OPENSSL */
+//#define OPENSSL 1
 
 /* Should we open the broadcast socket? */
 #define OPEN_BCAST_SOCKET 1
@@ -1197,7 +1344,7 @@
 #define PACKAGE_NAME "ntp"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "ntp 4.2.6"
+#define PACKAGE_STRING "ntp 4.2.8p5"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "ntp"
@@ -1206,7 +1353,7 @@
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "4.2.6"
+#define PACKAGE_VERSION "4.2.8p5"
 
 /* Do we have the ppsclock streams module? */
 /* #undef PPS */
@@ -1226,6 +1373,9 @@
 /* Should we not IGNPAR (Linux)? */
 /* #undef RAWDCF_NO_IGNPAR */
 
+/* enable thread safety */
+#define REENTRANT 1
+
 /* Basic refclock support? */
 #define REFCLOCK 1
 
@@ -1244,8 +1394,16 @@
 /* Do we want the SCO clock hacks? */
 /* #undef SCO5_CLOCK */
 
+/* The size of `char *', as computed by sizeof. */
+#define SIZEOF_CHAR_P 8
+
 /* The size of `int', as computed by sizeof. */
 #define SIZEOF_INT 4
+
+#define SIZEOF_LONG 8
+
+/* The size of `long long', as computed by sizeof. */
+#define SIZEOF_LONG_LONG 8
 
 /* The size of `short', as computed by sizeof. */
 #define SIZEOF_SHORT 2
@@ -1253,7 +1411,8 @@
 /* The size of `signed char', as computed by sizeof. */
 #define SIZEOF_SIGNED_CHAR 1
 
-#define SIZEOF_TIME_T (sizeof(time_t))
+//#define SIZEOF_TIME_T (sizeof(time_t))
+#define SIZEOF_TIME_T 8
 
 /* Does SIOCGIFCONF return size in the buffer? */
 /* #undef SIZE_RETURNED_IN_BUFFER */
@@ -1271,7 +1430,7 @@
 /* #undef STEP_SLEW */
 
 /* canonical system (cpu-vendor-os) of where we should run */
-#define STR_SYSTEM "i686-apple-darwin10.0"
+#define STR_SYSTEM ""
 
 /* Buggy syscall() (Solaris2.4)? */
 /* #undef SYSCALL_BUG */
@@ -1281,6 +1440,12 @@
 
 /* Do we need to #define _SVID3 when we #include <termios.h>? */
 /* #undef TERMIOS_NEEDS__SVID3 */
+
+/* enable thread safety */
+#define THREADSAFE 1
+
+/* enable thread safety */
+#define THREAD_SAFE 1
 
 /* Is K_TICKADJ_NAME in nanoseconds? */
 /* #undef TICKADJ_NANO */
@@ -1341,7 +1506,7 @@ typedef unsigned int	uintptr_t;
 /* #undef USE_UDP_SIGPOLL */
 
 /* Version number of package */
-#define VERSION "4.2.6"
+#define VERSION "4.2.8p5"
 
 /* configure --enable-ipv6 */
 #define WANT_IPV6 /**/
@@ -1361,6 +1526,9 @@ typedef unsigned int	uintptr_t;
 # endif
 #endif
 
+/* routine worker child proc uses to exit. */
+#define WORKER_CHILD_EXIT exit
+
 /* Define to 1 if on MINIX. */
 /* #undef _MINIX */
 
@@ -1370,6 +1538,18 @@ typedef unsigned int	uintptr_t;
 
 /* Define to 1 if you need to in order for `stat' and other things to work. */
 /* #undef _POSIX_SOURCE */
+
+/* enable thread safety */
+#define _REENTRANT 1
+
+/* enable thread safety */
+#define _SGI_MP_SOURCE 1
+
+/* enable thread safety */
+#define _THREADSAFE 1
+
+/* enable thread safety */
+#define _THREAD_SAFE 1
 
 /* Define to 1 if type `char' is unsigned and you are not using gcc.  */
 #ifndef __CHAR_UNSIGNED__
@@ -1408,3 +1588,7 @@ typedef unsigned int	uintptr_t;
 
 /* Does the compiler like "volatile"? */
 /* #undef volatile */
+
+#define POSIX_SHELL "/bin/sh"
+
+#define DYNAMIC_INTERLEAVE 0

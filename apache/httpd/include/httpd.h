@@ -481,7 +481,7 @@ AP_DECLARE(const char *) ap_get_server_built(void);
  * When adding a new code here add it to status_lines as well.
  * A future version should dynamically generate the apr_table_t at startup.
  */
-#define RESPONSE_CODES 83
+#define RESPONSE_CODES 103
 
 #define HTTP_CONTINUE                        100
 #define HTTP_SWITCHING_PROTOCOLS             101
@@ -530,6 +530,7 @@ AP_DECLARE(const char *) ap_get_server_built(void);
 #define HTTP_PRECONDITION_REQUIRED           428
 #define HTTP_TOO_MANY_REQUESTS               429
 #define HTTP_REQUEST_HEADER_FIELDS_TOO_LARGE 431
+#define HTTP_UNAVAILABLE_FOR_LEGAL_REASONS   451
 #define HTTP_INTERNAL_SERVER_ERROR           500
 #define HTTP_NOT_IMPLEMENTED                 501
 #define HTTP_BAD_GATEWAY                     502
@@ -1046,6 +1047,15 @@ struct request_rec {
     apr_table_t *trailers_in;
     /** MIME trailer environment from the response */
     apr_table_t *trailers_out;
+
+    /** Originator's DNS name, if known.  NULL if DNS hasn't been checked,
+     *  "" if it has and no address was found.  N.B. Only access this though
+     *  ap_get_useragent_host() */
+    char *useragent_host;
+    /** have we done double-reverse DNS? -1 yes/failure, 0 not yet,
+     *  1 yes/success
+     */
+    int double_reverse;
 };
 
 /**
@@ -1494,6 +1504,25 @@ AP_DECLARE(char *) ap_getword_conf(apr_pool_t *p, const char **line);
 AP_DECLARE(char *) ap_getword_conf_nc(apr_pool_t *p, char **line);
 
 /**
+ * Get the second word in the string paying attention to quoting,
+ * with {...} supported as well as "..." and '...'
+ * @param p The pool to allocate from
+ * @param line The line to traverse
+ * @return A copy of the string
+ */
+AP_DECLARE(char *) ap_getword_conf2(apr_pool_t *p, const char **line);
+
+/**
+ * Get the second word in the string paying attention to quoting,
+ * with {...} supported as well as "..." and '...'
+ * @param p The pool to allocate from
+ * @param line The line to traverse
+ * @return A copy of the string
+ * @note The same as ap_getword_conf2(), except it doesn't use const char **.
+ */
+AP_DECLARE(char *) ap_getword_conf2_nc(apr_pool_t *p, char **line);
+
+/**
  * Check a string for any config define or environment variable construct
  * and replace each of them by the value of that variable, if it exists.
  * The default syntax of the constructs is ${ENV} but can be changed by
@@ -1813,7 +1842,7 @@ AP_DECLARE(int) ap_os_is_path_absolute(apr_pool_t *p, const char *dir);
 AP_DECLARE(int) ap_is_matchexp(const char *str);
 
 /**
- * Determine if a string matches a patterm containing the wildcards '?' or '*'
+ * Determine if a string matches a pattern containing the wildcards '?' or '*'
  * @param str The string to check
  * @param expected The pattern to match against
  * @return 0 if the two strings match, 1 otherwise
@@ -1821,7 +1850,7 @@ AP_DECLARE(int) ap_is_matchexp(const char *str);
 AP_DECLARE(int) ap_strcmp_match(const char *str, const char *expected);
 
 /**
- * Determine if a string matches a patterm containing the wildcards '?' or '*',
+ * Determine if a string matches a pattern containing the wildcards '?' or '*',
  * ignoring case
  * @param str The string to check
  * @param expected The pattern to match against
@@ -2311,6 +2340,34 @@ AP_DECLARE(int) ap_array_str_index(const apr_array_header_t *array,
  */
 AP_DECLARE(int) ap_array_str_contains(const apr_array_header_t *array, 
                                       const char *s);
+
+/**
+ * Perform a case-insensitive comparison of two strings @a atr1 and @a atr2,
+ * treating upper and lower case values of the 26 standard C/POSIX alphabetic
+ * characters as equivalent. Extended latin characters outside of this set
+ * are treated as unique octets, irrespective of the current locale.
+ *
+ * Returns in integer greater than, equal to, or less than 0,
+ * according to whether @a str1 is considered greater than, equal to,
+ * or less than @a str2.
+ *
+ * @note Same code as apr_cstr_casecmp, which arrives in APR 1.6
+ */
+AP_DECLARE(int) ap_cstr_casecmp(const char *s1, const char *s2);
+
+/**
+ * Perform a case-insensitive comparison of two strings @a atr1 and @a atr2,
+ * treating upper and lower case values of the 26 standard C/POSIX alphabetic
+ * characters as equivalent. Extended latin characters outside of this set
+ * are treated as unique octets, irrespective of the current locale.
+ *
+ * Returns in integer greater than, equal to, or less than 0,
+ * according to whether @a str1 is considered greater than, equal to,
+ * or less than @a str2.
+ *
+ * @note Same code as apr_cstr_casecmpn, which arrives in APR 1.6
+ */
+AP_DECLARE(int) ap_cstr_casecmpn(const char *s1, const char *s2, apr_size_t n);
 
 #ifdef __cplusplus
 }

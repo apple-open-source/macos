@@ -1,10 +1,10 @@
 " Vim syntax file
 " Language:	po (gettext)
 " Maintainer:	Dwayne Bailey <dwayne@translate.org.za>
-" Last Change:	2008 Sep 17
+" Last Change:	2015 Jun 07
 " Contributors: Dwayne Bailey (Most advanced syntax highlighting)
 "               Leonardo Fontenelle (Spell checking)
-"               SungHyun Nam <goweol@gmail.com> (Original maintainer)
+"               Nam SungHyun <namsh@kldp.org> (Original maintainer)
 
 " For version 5.x: Clear all syntax items
 " For version 6.x: Quit when a syntax file was already loaded
@@ -13,6 +13,8 @@ if version < 600
 elseif exists("b:current_syntax")
   finish
 endif
+let s:keepcpo= &cpo
+set cpo&vim
 
 syn sync minlines=10
 
@@ -39,7 +41,7 @@ syn region poStringSTR	start=+"+ skip=+\\\\\|\\"+ end=+"+ contained
                             \ contains=@Spell,poSpecial,poFormat,poHeaderItem,poCommentKDEError,poHeaderUndefined,poPluralKDEError,poMsguniqError,poKDEdesktopFile,poHtml,poAcceleratorStr,poHtmlNot,poVariable
 
 " Header and Copyright
-syn match     poHeaderItem "\(Project-Id-Version\|Report-Msgid-Bugs-To\|POT-Creation-Date\|PO-Revision-Date\|Last-Translator\|Language-Team\|MIME-Version\|Content-Type\|Content-Transfer-Encoding\|Plural-Forms\|X-Generator\): " contained
+syn match     poHeaderItem "\(Project-Id-Version\|Report-Msgid-Bugs-To\|POT-Creation-Date\|PO-Revision-Date\|Last-Translator\|Language-Team\|Language\|MIME-Version\|Content-Type\|Content-Transfer-Encoding\|Plural-Forms\|X-Generator\): " contained
 syn match     poHeaderUndefined "\(PACKAGE VERSION\|YEAR-MO-DA HO:MI+ZONE\|FULL NAME <EMAIL@ADDRESS>\|LANGUAGE <LL@li.org>\|CHARSET\|ENCODING\|INTEGER\|EXPRESSION\)" contained
 syn match     poCopyrightUnset "SOME DESCRIPTIVE TITLE\|FIRST AUTHOR <EMAIL@ADDRESS>, YEAR\|Copyright (C) YEAR Free Software Foundation, Inc\|YEAR THE PACKAGE\'S COPYRIGHT HOLDER\|PACKAGE" contained
 
@@ -50,6 +52,9 @@ syn match     poCommentTranslator "^# .*$" contains=poCopyrightUnset
 syn match     poCommentAutomatic "^#\..*$" 
 syn match     poCommentSources	"^#:.*$"
 syn match     poCommentFlags "^#,.*$" contains=poFlagFuzzy
+syn match     poDiffOld '\(^#| "[^{]*+}\|{+[^}]*+}\|{+[^}]*\|"$\)' contained
+syn match     poDiffNew '\(^#| "[^{]*-}\|{-[^}]*-}\|{-[^}]*\|"$\)' contained
+syn match     poCommentDiff "^#|.*$" contains=poDiffOld,poDiffNew
 
 " Translations (also includes header fields as they appear in a translation msgstr)
 syn region poCommentKDE	  start=+"_: +ms=s+1 end="\\n" end="\"\n^msgstr"me=s-1 contained
@@ -92,8 +97,11 @@ if version >= 508 || !exists("did_po_syn_inits")
   HiLink poCommentAutomatic  Comment
   HiLink poCommentTranslator Comment
   HiLink poCommentFlags      Special
+  HiLink poCommentDiff       Comment
   HiLink poCopyrightUnset    Todo
   HiLink poFlagFuzzy         Todo
+  HiLink poDiffOld           Todo
+  HiLink poDiffNew          Special
   HiLink poObsolete         Comment
 
   HiLink poStatementMsgid   Statement
@@ -131,5 +139,8 @@ if version >= 508 || !exists("did_po_syn_inits")
 endif
 
 let b:current_syntax = "po"
+
+let &cpo = s:keepcpo
+unlet s:keepcpo
 
 " vim:set ts=8 sts=2 sw=2 noet:

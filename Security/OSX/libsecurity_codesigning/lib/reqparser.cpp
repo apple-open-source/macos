@@ -30,6 +30,7 @@
 #include "codesigning_dtrace.h"
 #include <CoreFoundation/CoreFoundation.h>
 #include <security_utilities/osxcode.h>
+#include <security_utilities/logging.h>
 
 namespace Security {
 namespace CodeSigning {
@@ -61,6 +62,7 @@ PluginHost::PluginHost()
 			}
 				
 	// can't load plugin - fail
+    Syslog::warning("code signing problem: unable to load csparser plug-in");
 	MacOSError::throwMe(errSecCSInternalError);
 }
 

@@ -217,9 +217,7 @@ static int SecTaskLoadEntitlements(SecTaskRef task, CFErrorRef *error)
 	}
 	if (errno != ERANGE) {
 		// ERANGE means "your buffer is too small, it now tells you how much you need
-		// Everything else is a real error, so yell
-		syslog(LOG_NOTICE, "SecTaskLoadEntitlements failed error=%d", errno);	// to ease diagnostics
-		// EINVAL is what the kernel says for unsigned code, so we'll have to let that pass
+		// EINVAL is what the kernel says for unsigned code AND broken code, so we'll have to let that pass
 		if (errno == EINVAL) {
 			task->entitlementsLoaded = true;
 			return 0;
@@ -314,3 +312,55 @@ Boolean SecTaskEntitlementsValidated(SecTaskRef task) {
     int rc = csops_task(task, CS_OPS_STATUS, &csflags, sizeof(csflags));
     return rc != -1 && ((csflags & mask) == mask);
 }
+
+CFStringRef
+SecTaskCopySigningIdentifier(SecTaskRef task, CFErrorRef *error)
+{
+    CFStringRef signingId = NULL;
+    char *data = NULL;
+    struct csheader header;
+    uint32_t bufferlen;
+    int ret;
+
+    ret = csops_task(task, CS_OPS_IDENTITY, &header, sizeof(header));
+    if (ret != -1 || errno != ERANGE)
+        return NULL;
+
+    bufferlen = ntohl(header.length);
+    /* check for insane values */
+    if (bufferlen > 1024 * 1024 || bufferlen < 8) {
+        ret = EINVAL;
+        goto out;
+    }
+    data = malloc(bufferlen + 1);
+    if (data == NULL) {
+        ret = ENOMEM;
+        goto out;
+    }
+    ret = csops_task(task, CS_OPS_IDENTITY, data, bufferlen);
+    if (ret) {
+        ret = errno;
+        goto out;
+    }
+    data[bufferlen] = '\0';
+
+    signingId = CFStringCreateWithCString(NULL, data + 8, kCFStringEncodingUTF8);
+
+out:
+    if (data)
+        free(data);
+    if (ret && error)
+        *error = CFErrorCreate(NULL, kCFErrorDomainPOSIX, ret, NULL);
+
+    return signingId;
+}
+
+uint32_t
+SecTaskGetCodeSignStatus(SecTaskRef task)
+{
+    uint32_t flags = 0;
+    if (csops_task(task, CS_OPS_STATUS, &flags, sizeof(flags)) != 0)
+        return 0;
+    return flags;
+}
+

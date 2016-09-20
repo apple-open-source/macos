@@ -407,6 +407,13 @@ mathevall(char *s, enum prec_type prec_tp, char **ep)
     stack[0].val.type = MN_INTEGER;
     stack[0].val.u.l = 0;
     mathparse(prec_tp == MPREC_TOP ? TOPPREC : ARGPREC);
+    /*
+     * Internally, we parse the contents of parentheses at top
+     * precedence... so we can return a parenthesis here if
+     * there are too many at the end.
+     */
+    if (mtok == M_OUTPAR && !errflag)
+	zerr("bad math expression: unexpected ')'");
     *ep = ptr;
     DPUTS(!errflag && sp > 0,
 	  "BUG: math: wallabies roaming too freely in outback");
@@ -528,7 +535,7 @@ lexconstant(void)
 	for (ptr2 = ptr; ptr2 < nptr; ptr2++) {
 	    if (*ptr2 == '_') {
 		int len = nptr - ptr;
-		ptr = strdup(ptr);
+		ptr = ztrdup(ptr);
 		for (ptr2 = ptr; len; len--) {
 		    if (*ptr2 == '_')
 			chuck(ptr2);
@@ -791,7 +798,7 @@ zzlex(void)
 
 		    ptr++;
 		    if (!*ptr) {
-			zerr("character missing after ##");
+			zerr("bad math expression: character missing after ##");
 			return EOI;
 		    }
 		    ptr = getkeystring(ptr, NULL, GETKEYS_MATH, &v);
@@ -886,7 +893,6 @@ getcvar(char *s)
     return mn;
 }
 
-
 /**/
 static mnumber
 setmathvar(struct mathvalue *mvp, mnumber v)
@@ -914,7 +920,7 @@ setmathvar(struct mathvalue *mvp, mnumber v)
 	mvp->pval = NULL;
     }
     if (!mvp->lval) {
-	zerr("lvalue required");
+	zerr("bad math expression: lvalue required");
 	v.type = MN_INTEGER;
 	v.u.l = 0;
 	return v;
@@ -1256,7 +1262,7 @@ op(int what)
 			/* Error if (-num ** b) and b is not an integer */
 			double tst = (double)(zlong)b.u.d;
 			if (tst != b.u.d) {
-			    zerr("imaginary power");
+			    zerr("bad math expression: imaginary power");
 			    return;
 			}
 		    }
@@ -1338,7 +1344,7 @@ op(int what)
 	push(((a.type & MN_FLOAT) ? a.u.d : a.u.l) ? b : c, NULL, 0);
 	break;
     case COLON:
-	zerr("':' without '?'");
+	zerr("bad math expression: ':' without '?'");
 	break;
     case PREPLUS:
 	if (spval->type & MN_FLOAT)
@@ -1355,7 +1361,7 @@ op(int what)
 	setmathvar(stack + sp, *spval);
 	break;
     default:
-	zerr("out of integers");
+	zerr("bad math expression: out of integers");
 	return;
     }
 }
@@ -1525,7 +1531,7 @@ mathparse(int pc)
 	    mathparse(TOPPREC);
 	    if (mtok != M_OUTPAR) {
 		if (!errflag)
-		    zerr("')' expected");
+		    zerr("bad math expression: ')' expected");
 		return;
 	    }
 	    break;
@@ -1543,7 +1549,7 @@ mathparse(int pc)
 		noeval--;
 	    if (mtok != COLON) {
 		if (!errflag)
-		    zerr("':' expected");
+		    zerr("bad math expression: ':' expected");
 		return;
 	    }
 	    if (q)

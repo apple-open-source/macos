@@ -4,19 +4,17 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2010-08-18</string>
+		<string>2015-10-23</string>
 		<key>OpenSourceLicense</key>
 		<string>Uganda</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>vim.txt</string>
 		<key>OpenSourceProject</key>
 		<string>vim</string>
-		<key>OpenSourceSHA1</key>
-		<string>46faa96c5fab639899b1c655c23d8755b62f036f</string>
-		<key>OpenSourceURL</key>
-		<string>ftp://ftp.vim.org/pub/vim/unix/vim-7.3.tar.bz2</string>
+		<key>OpenSourceSCM</key>
+		<string>git clone https://github.com/vim/vim; git checkout 60cce2fb736c8ff6fdb9603f502d3c15f1f7a25d</string>
 		<key>OpenSourceVersion</key>
-		<string>7.3</string>
+		<string>7.4.898</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.vim.org/</string>
 	</dict>

@@ -138,11 +138,11 @@ namespace JSC {
 
         ARMBuffer& buffer() { return m_buffer; }
 
-        static RegisterID firstRegister() { return ARMRegisters::r0; }
-        static RegisterID lastRegister() { return ARMRegisters::r15; }
+        static constexpr RegisterID firstRegister() { return ARMRegisters::r0; }
+        static constexpr RegisterID lastRegister() { return ARMRegisters::r15; }
 
-        static FPRegisterID firstFPRegister() { return ARMRegisters::d0; }
-        static FPRegisterID lastFPRegister() { return ARMRegisters::d31; }
+        static constexpr FPRegisterID firstFPRegister() { return ARMRegisters::d0; }
+        static constexpr FPRegisterID lastFPRegister() { return ARMRegisters::d31; }
 
         // ARM conditional constants
         typedef enum {
@@ -706,6 +706,18 @@ namespace JSC {
             m_buffer.putInt(NOP);
         }
 
+        static void fillNops(void* base, size_t size, bool isCopyingToExecutableMemory)
+        {
+            UNUSED_PARAM(isCopyingToExecutableMemory);
+            RELEASE_ASSERT(!(size % sizeof(int32_t)));
+
+            int32_t* ptr = static_cast<int32_t*>(base);
+            const size_t num32s = size / sizeof(int32_t);
+            const int32_t insn = NOP;
+            for (size_t i = 0; i < num32s; i++)
+                *ptr++ = insn;
+        }
+
         void dmbSY()
         {
             m_buffer.putInt(DMB_SY);
@@ -1091,7 +1103,7 @@ namespace JSC {
             return AL | B | (offset & BranchOffsetMask);
         }
 
-#if OS(LINUX) && COMPILER(GCC)
+#if OS(LINUX) && COMPILER(GCC_OR_CLANG)
         static inline void linuxPageFlush(uintptr_t begin, uintptr_t end)
         {
             asm volatile(
@@ -1111,7 +1123,7 @@ namespace JSC {
 
         static void cacheFlush(void* code, size_t size)
         {
-#if OS(LINUX) && COMPILER(GCC)
+#if OS(LINUX) && COMPILER(GCC_OR_CLANG)
             size_t page = pageSize();
             uintptr_t current = reinterpret_cast<uintptr_t>(code);
             uintptr_t end = current + size;

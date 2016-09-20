@@ -1,4 +1,4 @@
-.TH "ZSHPARAM" "1" "May 31, 2015" "zsh 5\&.0\&.8"
+.TH "ZSHPARAM" "1" "December 2, 2015" "zsh 5\&.2"
 .SH "NAME"
 zshparam \- zsh parameters
 .\" Yodl file: Zsh/params.yo
@@ -51,7 +51,7 @@ When the integer attribute, \fB\-i\fP, or a floating point attribute, \fB\-E\fP
 or \fB\-F\fP, is set for \fIname\fP, the \fIvalue\fP is subject to arithmetic
 evaluation\&.  Furthermore, by replacing `\fB=\fP\&' with `\fB+=\fP', a parameter
 can be incremented or appended to\&.  See the section `Array Parameters\&' and
-\fIArithmetic Evaluation\fP (in \fIzshexpn\fP(1))
+\fIArithmetic Evaluation\fP (in \fIzshmisc\fP(1))
 for additional forms of assignment\&.
 .PP
 Note that assignment may implicitly change the attributes of a parameter\&.
@@ -89,6 +89,11 @@ the syntax:
 \fIname\fP\fB+=(\fP\fIvalue\fP \&.\&.\&.\fB)\fP
 .fi
 .RE
+.PP
+Within the parentheses on the right hand side of either form of the
+assignment, newlines and semicolons are treated the same as white space,
+separating individual \fIvalue\fPs\&.  Any consecutive sequence of such
+characters has the same effect\&.
 .PP
 Ordinary array parameters may also be explicitly declared with:
 
@@ -425,9 +430,7 @@ elements, use the append syntax:
 .PP
 .RS
 .nf
-\fB
-   aa+=(\&'key with "*strange*" characters' 'value string')
-\fP
+\fBaa+=(\&'key with "*strange*" characters' 'value string')\fP
 .fi
 .RE
 .PP
@@ -795,7 +798,13 @@ the documentation for the builtin \fBtypeset\fP in
 Incremented by one each time a new shell is started\&.
 .TP
 \fBsignals\fP
-An array containing the names of the signals\&.
+An array containing the names of the signals\&.  Note that with
+the standard zsh numbering of array indices, where the first element
+has index 1, the signals are offset by 1 from the signal number
+used by the operating system\&.  For example, on typical Unix\-like systems
+\fBHUP\fP is signal number 1, but is referred to as \fB$signals[2]\fP\&.  This
+is because of \fBEXIT\fP at position 1 in the array, which is used
+internally by zsh but is not known to the operating system\&.
 .TP
 \fBTRY_BLOCK_ERROR\fP <S>
 In an \fBalways\fP block, indicates whether the preceding list of code
@@ -1662,6 +1671,26 @@ precedence over the \fBNOBEEP\fP option\&.
 \fBZDOTDIR\fP
 The directory to search for shell startup files (\&.zshrc, etc),
 if not \fB$HOME\fP\&.
+.TP
+\fBzle_bracketed_paste\fP
+Many terminal emulators have a feature that allows applications to
+identify when text is pasted into the terminal rather than being typed
+normally\&. For ZLE, this means that special characters such as tabs
+and newlines can be inserted instead of invoking editor commands\&.
+Furthermore, pasted text forms a single undo event and if the region is
+active, pasted text will replace the region\&.
+.RS
+.PP
+This two\-element array contains the terminal escape sequences for
+enabling and disabling the feature\&. These escape sequences are used to
+enable bracketed paste when ZLE is active and disable it at other times\&.
+Unsetting the parameter has the effect of ensuring that bracketed paste
+remains disabled\&.
+.RE
+.TP
+\fBzle_highlight\fP
+An array describing contexts in which ZLE should highlight the input text\&.
+See \fICharacter Highlighting\fP in \fIzshzle\fP(1)\&.
 .TP
 \fBZLE_LINE_ABORTED\fP
 This parameter is set by the line editor when an error occurs\&.  It

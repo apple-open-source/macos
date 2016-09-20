@@ -28,6 +28,7 @@
 
 #include "Event.h"
 #include "EventTarget.h"
+#include "ScriptExecutionContext.h"
 #include "Timer.h"
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
@@ -36,7 +37,6 @@ namespace WebCore {
 
 GenericEventQueue::GenericEventQueue(EventTarget& owner)
     : m_owner(owner)
-    , m_weakPtrFactory(this)
     , m_isClosed(false)
 {
 }
@@ -45,52 +45,20 @@ GenericEventQueue::~GenericEventQueue()
 {
 }
 
-void GenericEventQueue::enqueueEvent(PassRefPtr<Event> event)
+void GenericEventQueue::enqueueEvent(RefPtr<Event>&& event)
 {
     if (m_isClosed)
         return;
 
     if (event->target() == &m_owner)
-        event->setTarget(0);
+        event->setTarget(nullptr);
 
-    m_pendingEvents.append(event);
+    m_pendingEvents.append(WTFMove(event));
 
     if (m_isSuspended)
         return;
 
-    pendingQueues().append(m_weakPtrFactory.createWeakPtr());
-    if (!sharedTimer().isActive())
-        sharedTimer().startOneShot(0);
-}
-
-Timer& GenericEventQueue::sharedTimer()
-{
-    ASSERT(isMainThread());
-    static NeverDestroyed<Timer> timer(GenericEventQueue::sharedTimerFired);
-    return timer.get();
-}
-
-void GenericEventQueue::sharedTimerFired()
-{
-    ASSERT(!sharedTimer().isActive());
-    ASSERT(!pendingQueues().isEmpty());
-
-    while (!pendingQueues().isEmpty()) {
-        WeakPtr<GenericEventQueue> queue = pendingQueues().takeFirst();
-        if (!queue)
-            continue;
-        queue->dispatchOneEvent();
-    }
-
-    if (sharedTimer().isActive())
-        sharedTimer().stop();
-}
-
-Deque<WeakPtr<GenericEventQueue>>& GenericEventQueue::pendingQueues()
-{
-    ASSERT(isMainThread());
-    static NeverDestroyed<Deque<WeakPtr<GenericEventQueue>>> queues;
-    return queues.get();
+    m_taskQueue.enqueueTask(std::bind(&GenericEventQueue::dispatchOneEvent, this));
 }
 
 void GenericEventQueue::dispatchOneEvent()
@@ -100,20 +68,20 @@ void GenericEventQueue::dispatchOneEvent()
     Ref<EventTarget> protect(m_owner);
     RefPtr<Event> event = m_pendingEvents.takeFirst();
     EventTarget& target = event->target() ? *event->target() : m_owner;
-    target.dispatchEvent(event.release());
+    target.dispatchEvent(*event);
 }
 
 void GenericEventQueue::close()
 {
     m_isClosed = true;
 
-    m_weakPtrFactory.revokeAll();
+    m_taskQueue.close();
     m_pendingEvents.clear();
 }
 
 void GenericEventQueue::cancelAllEvents()
 {
-    m_weakPtrFactory.revokeAll();
+    m_taskQueue.cancelAllTasks();
     m_pendingEvents.clear();
 }
 
@@ -126,7 +94,7 @@ void GenericEventQueue::suspend()
 {
     ASSERT(!m_isSuspended);
     m_isSuspended = true;
-    m_weakPtrFactory.revokeAll();
+    m_taskQueue.cancelAllTasks();
 }
 
 void GenericEventQueue::resume()
@@ -140,10 +108,7 @@ void GenericEventQueue::resume()
         return;
 
     for (unsigned i = 0; i < m_pendingEvents.size(); ++i)
-        pendingQueues().append(m_weakPtrFactory.createWeakPtr());
-
-    if (!sharedTimer().isActive())
-        sharedTimer().startOneShot(0);
+        m_taskQueue.enqueueTask(std::bind(&GenericEventQueue::dispatchOneEvent, this));
 }
 
 }

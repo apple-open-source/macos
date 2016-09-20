@@ -39,6 +39,12 @@
 
 #include <corecrypto/ccdigest.h>
 
+#if __has_feature(objc_arc)
+#define __SECBRIDGE  __bridge
+#else
+#define __SECBRIDGE
+#endif
+
 //
 // Convenience routines.
 //
@@ -145,7 +151,7 @@ CFGiblisGetSingleton(CFTypeID, gibliClassName##GetTypeID, typeID, (^{ \
 #define CFTypeAllocate(classType, internalType, allocator) \
     CFTypeAllocateWithSpace(classType, sizeof(internalType) - sizeof(CFRuntimeBase), allocator)
 
-
+#define SECWRAPPER_SENTINEL __attribute__((__sentinel__))
 
 __BEGIN_DECLS
 
@@ -159,12 +165,56 @@ void withStringOfAbsoluteTime(CFAbsoluteTime at, void (^action)(CFStringRef decr
 
 static void apply_block_1(const void *value, void *context)
 {
-    return ((void (^)(const void *value))context)(value);
+    ((__SECBRIDGE void (^)(const void *value))context)(value);
 }
 
 static void apply_block_2(const void *key, const void *value, void *context)
 {
-    return ((void (^)(const void *key, const void *value))context)(key, value);
+    ((__SECBRIDGE void (^)(const void *key, const void *value))context)(key, value);
+}
+
+//
+// MARK: Type checking
+//
+
+static inline bool isArray(CFTypeRef cfType) {
+    return cfType && CFGetTypeID(cfType) == CFArrayGetTypeID();
+}
+
+static inline bool isSet(CFTypeRef cfType) {
+    return cfType && CFGetTypeID(cfType) == CFSetGetTypeID();
+}
+
+static inline bool isData(CFTypeRef cfType) {
+    return cfType && CFGetTypeID(cfType) == CFDataGetTypeID();
+}
+
+static inline bool isDate(CFTypeRef cfType) {
+    return cfType && CFGetTypeID(cfType) == CFDateGetTypeID();
+}
+
+static inline bool isDictionary(CFTypeRef cfType) {
+    return cfType && CFGetTypeID(cfType) == CFDictionaryGetTypeID();
+}
+
+static inline bool isNumber(CFTypeRef cfType) {
+    return cfType && CFGetTypeID(cfType) == CFNumberGetTypeID();
+}
+
+static inline bool isNumberOfType(CFTypeRef cfType, CFNumberType number) {
+    return isNumber(cfType) && CFNumberGetType((CFNumberRef)cfType) == number;
+}
+
+static inline bool isString(CFTypeRef cfType) {
+    return cfType && CFGetTypeID(cfType) == CFStringGetTypeID();
+}
+
+static inline bool isBoolean(CFTypeRef cfType) {
+    return cfType && CFGetTypeID(cfType) == CFBooleanGetTypeID();
+}
+
+static inline bool isNull(CFTypeRef cfType) {
+    return cfType && CFGetTypeID(cfType) == CFNullGetTypeID();
 }
 
 //
@@ -275,6 +325,8 @@ static inline CFDataRef CFDataCreateCopyFromRange(CFAllocatorRef allocator, CFDa
 
 CFDataRef CFDataCreateWithRandomBytes(size_t len);
 
+CFDataRef CFDataCreateWithInitializer(CFAllocatorRef allocator, CFIndex size, bool (^operation)(size_t size, uint8_t *buffer));
+
 static inline uint8_t* CFDataIncreaseLengthAndGetMutableBytes(CFMutableDataRef data, CFIndex extraLength)
 {
     CFIndex startOffset = CFDataGetLength(data);
@@ -323,10 +375,30 @@ static inline CFDataRef CFDataCreateCopyFromPositions(CFAllocatorRef allocator, 
     return CFDataCreateCopyFromRange(allocator, source, CFRangeMake(start, end - start));
 }
 
+static inline int nibletToByte(char niblet) {
+    if(niblet >= '0' && niblet <= '9') return niblet - '0';
+    if(niblet >= 'a' && niblet <= 'f') return niblet - 'a' + 10;
+    if(niblet >= 'A' && niblet <= 'F') return niblet - 'A' + 10;
+    return 0;
+}
+
+static inline CFDataRef CFDataCreateFromHexString(CFAllocatorRef allocator, CFStringRef sourceHex) {
+    CFIndex sourceLen = CFStringGetLength(sourceHex);
+    if((sourceLen % 2) != 0) return NULL;
+    const char *src = CFStringGetCStringPtr(sourceHex, kCFStringEncodingUTF8);
+    UInt8 bytes[sourceLen/2];
+    for(int i = 0; i < sourceLen; i+=2) {
+        bytes[i/2] = (UInt8) (nibletToByte(src[i]) * 16 + nibletToByte(src[i+1]));
+    }
+    return CFDataCreate(allocator, bytes, sourceLen/2);
+}
+
 
 //
 // MARK: CFString Helpers
 //
+
+CFComparisonResult CFStringCompareSafe(const void *val1, const void *val2, void *context);
 
 //
 // Turn a CFString into an allocated UTF8-encoded C string.
@@ -395,7 +467,7 @@ static inline CF_RETURNS_RETAINED CFStringRef CFDataCopyHexString(CFDataRef data
 }
 
 static inline void CFDataPerformWithHexString(CFDataRef data, void (^operation)(CFStringRef dataString)) {
-    CFStringRef hexString = CFDataCopyHexString(data);
+    CFStringRef hexString = data ? CFDataCopyHexString(data) : CFSTR("(null)");
     operation(hexString);
     CFRelease(hexString);
 }
@@ -421,6 +493,12 @@ static inline void CFStringWriteToFileWithNewline(CFStringRef inStr, FILE* file)
 {
     CFStringWriteToFile(inStr, file);
     fputc('\n', file);
+}
+
+static inline CFStringRef CFStringCreateTruncatedCopy(CFStringRef s, CFIndex len) {
+    if(!s) return NULL;
+    if(len >= CFStringGetLength(s)) return CFStringCreateCopy(kCFAllocatorDefault, s);
+    return CFStringCreateWithSubstring(kCFAllocatorDefault, s, CFRangeMake(0, len));
 }
 
 //
@@ -458,10 +536,14 @@ static inline CFIndex CFArrayRemoveAllValue(CFMutableArrayRef array, const void*
     return numberRemoved;
 }
 
+static inline void CFArrayAppendAll(CFMutableArrayRef array, CFArrayRef arrayToAppend) {
+    CFArrayAppendArray(array, arrayToAppend, CFRangeMake(0, CFArrayGetCount(arrayToAppend)));
+}
+
 #define CFArrayForEachC(array, value) for (CFIndex _aCount = CFArrayGetCount(array), _aIX = 0;value = (__typeof__(value))(_aIX < _aCount ? CFArrayGetValueAtIndex(array, _aIX) : 0), _aIX < _aCount; ++_aIX)
 
 static inline void CFArrayForEach(CFArrayRef array, void (^operation)(const void *value)) {
-    CFArrayApplyFunction(array, CFRangeMake(0, CFArrayGetCount(array)), apply_block_1, operation);
+    CFArrayApplyFunction(array, CFRangeMake(0, CFArrayGetCount(array)), apply_block_1, (__SECBRIDGE void *)operation);
 }
 
 static inline void CFArrayForEachReverse(CFArrayRef array, void (^operation)(const void *value)) {
@@ -562,7 +644,7 @@ static inline CFMutableArrayRef CFArrayCreateMutableForCFTypes(CFAllocatorRef al
     return CFArrayCreateMutable(allocator, 0, &kCFTypeArrayCallBacks);
 }
 
-static inline CFArrayRef CFArrayCreateForCFTypes(CFAllocatorRef allocator, ...)
+static inline CFArrayRef SECWRAPPER_SENTINEL CFArrayCreateForCFTypes(CFAllocatorRef allocator, ...)
 {
     va_list args;
     va_start(args, allocator);
@@ -606,7 +688,7 @@ static inline CFDictionaryRef CFDictionaryCreateCountedForCFTypesV(CFAllocatorRe
                               &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 }
 
-static inline CFDictionaryRef CFDictionaryCreateForCFTypes(CFAllocatorRef allocator, ...)
+static inline CFDictionaryRef SECWRAPPER_SENTINEL CFDictionaryCreateForCFTypes(CFAllocatorRef allocator, ...)
 {
     va_list args;
     va_start(args, allocator);
@@ -638,7 +720,7 @@ static inline CFMutableDictionaryRef CFDictionaryCreateMutableForCFTypes(CFAlloc
     return CFDictionaryCreateMutable(allocator, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 }
 
-static inline CFMutableDictionaryRef CFDictionaryCreateMutableForCFTypesWith(CFAllocatorRef allocator, ...)
+static inline CFMutableDictionaryRef SECWRAPPER_SENTINEL CFDictionaryCreateMutableForCFTypesWith(CFAllocatorRef allocator, ...)
 {
     CFMutableDictionaryRef result = CFDictionaryCreateMutableForCFTypes(allocator);
 
@@ -664,8 +746,12 @@ static inline CFMutableSetRef CFSetCreateMutableForCFTypes(CFAllocatorRef alloca
     return CFSetCreateMutable(allocator, 0, &kCFTypeSetCallBacks);
 }
 
+static inline bool CFSetIsEmpty(CFSetRef set) {
+    return CFSetGetCount(set) == 0;
+}
+
 static inline void CFSetForEach(CFSetRef set, void (^operation)(const void *value)) {
-    CFSetApplyFunction(set, apply_block_1, operation);
+    CFSetApplyFunction(set, apply_block_1, (__SECBRIDGE void *)operation);
 }
 
 static inline void CFSetUnion(CFMutableSetRef set, CFSetRef unionWith) {
@@ -707,6 +793,18 @@ static inline CFMutableArrayRef CFSetCopyValues(CFSetRef set) {
     return values;
 }
 
+static inline bool CFSetIntersectionIsEmpty(CFSetRef set1, CFSetRef set2) {
+    __block bool intersectionIsEmpty = true;
+    CFSetForEach(set1, ^(const void *value) {
+        intersectionIsEmpty &= !CFSetContainsValue(set2, value);
+    });
+    return intersectionIsEmpty;
+}
+
+static inline bool CFSetIntersects(CFSetRef set1, CFSetRef set2) {
+    return !CFSetIntersectionIsEmpty(set1, set2);
+}
+
 static inline CFMutableSetRef CFSetCreateIntersection(CFAllocatorRef allocator, CFSetRef a, CFSetRef b) {
     CFMutableSetRef result = CFSetCreateMutableCopy(allocator, 0, a);
 
@@ -734,13 +832,20 @@ static inline void CFSetTransferObject(CFTypeRef object, CFMutableSetRef from, C
     CFSetRemoveValue(from, object);
 }
 
+//
+// MARK: CFStringXxx Helpers
+//
+
+void CFStringArrayPerfromWithDelimeterWithDescription(CFArrayRef strings, CFStringRef start, CFStringRef end, void (^action)(CFStringRef description));
+void CFStringArrayPerfromWithDescription(CFArrayRef strings, void (^action)(CFStringRef description));
+void CFStringSetPerformWithDescription(CFSetRef set, void (^action)(CFStringRef description));
 
 //
 // MARK: CFDictionary Helpers
 //
 
 static inline void CFDictionaryForEach(CFDictionaryRef dictionary, void (^operation)(const void *key, const void *value)) {
-    CFDictionaryApplyFunction(dictionary, apply_block_2, operation);
+    CFDictionaryApplyFunction(dictionary, apply_block_2, (__SECBRIDGE void *)operation);
 }
 
 CFStringRef CFDictionaryCopyCompactDescription(CFDictionaryRef dictionary);
@@ -831,51 +936,6 @@ static inline CFDateRef CFDateCreateForGregorianZuluDay(CFAllocatorRef allocator
     return CFDateCreate(allocator, CFAbsoluteTimeForGregorianZuluDay(year, month, day));
 }
 
-
-//
-// MARK: Type checking
-//
-
-static inline bool isArray(CFTypeRef cfType) {
-    return cfType && CFGetTypeID(cfType) == CFArrayGetTypeID();
-}
-
-static inline bool isSet(CFTypeRef cfType) {
-    return cfType && CFGetTypeID(cfType) == CFSetGetTypeID();
-}
-
-static inline bool isData(CFTypeRef cfType) {
-    return cfType && CFGetTypeID(cfType) == CFDataGetTypeID();
-}
-
-static inline bool isDate(CFTypeRef cfType) {
-    return cfType && CFGetTypeID(cfType) == CFDateGetTypeID();
-}
-
-static inline bool isDictionary(CFTypeRef cfType) {
-    return cfType && CFGetTypeID(cfType) == CFDictionaryGetTypeID();
-}
-
-static inline bool isNumber(CFTypeRef cfType) {
-    return cfType && CFGetTypeID(cfType) == CFNumberGetTypeID();
-}
-
-static inline bool isNumberOfType(CFTypeRef cfType, CFNumberType number) {
-    return isNumber(cfType) && CFNumberGetType((CFNumberRef)cfType) == number;
-}
-
-static inline bool isString(CFTypeRef cfType) {
-    return cfType && CFGetTypeID(cfType) == CFStringGetTypeID();
-}
-
-static inline bool isBoolean(CFTypeRef cfType) {
-    return cfType && CFGetTypeID(cfType) == CFBooleanGetTypeID();
-}
-
-static inline bool isNull(CFTypeRef cfType) {
-    return cfType && CFGetTypeID(cfType) == CFNullGetTypeID();
-}
-
 //
 // MARK: PropertyList Helpers
 //
@@ -904,7 +964,7 @@ static inline CF_RETURNS_RETAINED CFPropertyListRef CFPropertyListReadFromFile(C
     CFErrorRef error = NULL;
     CFBooleanRef isRegularFile;
     if (!CFURLCopyResourcePropertyForKey(file, kCFURLIsRegularFileKey, &isRegularFile, &error)) {
-        secdebug("plist", "file %@: %@", file, error);
+        secinfo("plist", "file %@: %@", file, error);
     } else if (CFBooleanGetValue(isRegularFile)) {
         CFReadStreamRef readStream = CFReadStreamCreateWithFile(kCFAllocatorDefault, file);
         if (readStream) {
@@ -922,11 +982,6 @@ static inline CF_RETURNS_RETAINED CFPropertyListRef CFPropertyListReadFromFile(C
     
     return result;
 }
-
-//
-// MARK: Custom Allocator for Sensitive Data
-//
-CFAllocatorRef CFAllocatorSensitive(void);
 
 __END_DECLS
 

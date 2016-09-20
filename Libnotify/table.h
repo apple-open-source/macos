@@ -53,33 +53,10 @@ extern void _nc_table_traverse_end(table_t *tin, void *ttin);
 extern void _nc_table_free(table_t *tin);
 
 extern list_t *_nc_list_new(void *d);
-
-extern void _nc_list_free(list_t *l);
 extern void _nc_list_free_list(list_t *l);
-
-extern list_t *_nc_list_prev(list_t *l);
 extern list_t *_nc_list_next(list_t *l);
-
-extern void _nc_list_set_next(list_t *l, list_t *n);
-extern void _nc_list_set_prev(list_t *l, list_t *p);
-
-extern list_t *_nc_list_head(list_t *l);
-extern list_t *_nc_list_tail(list_t *l);
-
 extern list_t *_nc_list_prepend(list_t *l, list_t *n);
-extern list_t *_nc_list_append(list_t *l, list_t *n);
-
 extern list_t *_nc_list_concat(list_t *a, list_t *b);
-
 extern void *_nc_list_data(list_t *l);
-extern void _nc_list_set_data(list_t *l, void *d);
-
-extern list_t *_nc_list_find(list_t *l, void *d);
-extern list_t *_nc_list_delete(list_t *l, void *d);
-
-extern list_t * _nc_list_reverse(list_t *l);
-extern uint32_t _nc_list_count(list_t *l);
-extern list_t *_nc_list_extract(list_t *n);
-extern list_t *_nc_list_chop(list_t *l);
 
 #endif /* _NOTIFY_TABLE_H_ */

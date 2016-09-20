@@ -24,7 +24,7 @@ std::string StringFromCFString(CFStringRef theString)
 	CFStringGetCString(theString, buffer, maxLength, 0);
 	
 	string result(buffer);
-	delete [] buffer;
+	delete[] buffer;
 	return result;
 }
 

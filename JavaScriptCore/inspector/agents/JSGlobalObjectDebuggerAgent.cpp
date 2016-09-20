@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,21 +38,10 @@ using namespace JSC;
 
 namespace Inspector {
 
-JSGlobalObjectDebuggerAgent::JSGlobalObjectDebuggerAgent(InjectedScriptManager* injectedScriptManager, JSC::JSGlobalObject& globalObject, InspectorConsoleAgent* consoleAgent)
-    : InspectorDebuggerAgent(injectedScriptManager)
-    , m_scriptDebugServer(globalObject)
+JSGlobalObjectDebuggerAgent::JSGlobalObjectDebuggerAgent(JSAgentContext& context, InspectorConsoleAgent* consoleAgent)
+    : InspectorDebuggerAgent(context)
     , m_consoleAgent(consoleAgent)
 {
-}
-
-void JSGlobalObjectDebuggerAgent::startListeningScriptDebugServer()
-{
-    scriptDebugServer().addListener(this);
-}
-
-void JSGlobalObjectDebuggerAgent::stopListeningScriptDebugServer(bool isBeingDestroyed)
-{
-    scriptDebugServer().removeListener(this, isBeingDestroyed);
 }
 
 InjectedScript JSGlobalObjectDebuggerAgent::injectedScriptForEval(ErrorString& error, const int* executionContextId)
@@ -62,13 +51,13 @@ InjectedScript JSGlobalObjectDebuggerAgent::injectedScriptForEval(ErrorString& e
         return InjectedScript();
     }
 
-    ExecState* exec = m_scriptDebugServer.globalObject().globalExec();
-    return injectedScriptManager()->injectedScriptFor(exec);
+    ExecState* exec = static_cast<JSGlobalObjectScriptDebugServer&>(scriptDebugServer()).globalObject().globalExec();
+    return injectedScriptManager().injectedScriptFor(exec);
 }
 
-void JSGlobalObjectDebuggerAgent::breakpointActionLog(JSC::ExecState* exec, const String& message)
+void JSGlobalObjectDebuggerAgent::breakpointActionLog(JSC::ExecState& state, const String& message)
 {
-    m_consoleAgent->addMessageToConsole(std::make_unique<ConsoleMessage>(MessageSource::JS, MessageType::Log, MessageLevel::Log, message, createScriptCallStack(exec, ScriptCallStack::maxCallStackSizeToCapture), 0));
+    m_consoleAgent->addMessageToConsole(std::make_unique<ConsoleMessage>(MessageSource::JS, MessageType::Log, MessageLevel::Log, message, createScriptCallStack(&state, ScriptCallStack::maxCallStackSizeToCapture), 0));
 }
 
 } // namespace Inspector

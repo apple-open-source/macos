@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2009, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -72,6 +72,21 @@ void PropertyDescriptor::setUndefined()
     m_attributes = ReadOnly | DontDelete | DontEnum;
 }
 
+GetterSetter* PropertyDescriptor::slowGetterSetter(ExecState* exec)
+{
+    VM& vm = exec->vm();
+    JSGlobalObject* globalObject = exec->lexicalGlobalObject();
+    GetterSetter* getterSetter = GetterSetter::create(vm, globalObject);
+    if (exec->hadException())
+        return nullptr;
+    if (m_getter && !m_getter.isUndefined())
+        getterSetter->setGetter(vm, globalObject, jsCast<JSObject*>(m_getter));
+    if (m_setter && !m_setter.isUndefined())
+        getterSetter->setSetter(vm, globalObject, jsCast<JSObject*>(m_setter));
+
+    return getterSetter;
+}
+
 JSValue PropertyDescriptor::getter() const
 {
     ASSERT(isAccessorDescriptor());
@@ -99,7 +114,6 @@ JSObject* PropertyDescriptor::setterObject() const
 void PropertyDescriptor::setDescriptor(JSValue value, unsigned attributes)
 {
     ASSERT(value);
-    ASSERT(value.isGetterSetter() == !!(attributes & Accessor));
 
     m_attributes = attributes;
     if (value.isGetterSetter()) {
@@ -232,7 +246,7 @@ unsigned PropertyDescriptor::attributesOverridingCurrent(const PropertyDescripto
         overrideMask |= DontDelete;
     if (isAccessorDescriptor())
         overrideMask |= Accessor;
-    return (m_attributes & overrideMask) | (currentAttributes & ~overrideMask);
+    return (m_attributes & overrideMask) | (currentAttributes & ~overrideMask & ~CustomAccessor);
 }
 
 }

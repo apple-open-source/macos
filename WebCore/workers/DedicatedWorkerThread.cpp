@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -29,7 +30,6 @@
  */
 
 #include "config.h"
-
 #include "DedicatedWorkerThread.h"
 
 #include "DedicatedWorkerGlobalScope.h"
@@ -38,13 +38,8 @@
 
 namespace WebCore {
 
-Ref<DedicatedWorkerThread> DedicatedWorkerThread::create(const URL& scriptURL, const String& userAgent, const String& sourceCode, WorkerLoaderProxy& workerLoaderProxy, WorkerObjectProxy& workerObjectProxy, WorkerThreadStartMode startMode, const String& contentSecurityPolicy, ContentSecurityPolicy::HeaderType contentSecurityPolicyType, const SecurityOrigin* topOrigin)
-{
-    return adoptRef(*new DedicatedWorkerThread(scriptURL, userAgent, sourceCode, workerLoaderProxy, workerObjectProxy, startMode, contentSecurityPolicy, contentSecurityPolicyType, topOrigin));
-}
-
-DedicatedWorkerThread::DedicatedWorkerThread(const URL& url, const String& userAgent, const String& sourceCode, WorkerLoaderProxy& workerLoaderProxy, WorkerObjectProxy& workerObjectProxy, WorkerThreadStartMode startMode, const String& contentSecurityPolicy, ContentSecurityPolicy::HeaderType contentSecurityPolicyType, const SecurityOrigin* topOrigin)
-    : WorkerThread(url, userAgent, sourceCode, workerLoaderProxy, workerObjectProxy, startMode, contentSecurityPolicy, contentSecurityPolicyType, topOrigin)
+DedicatedWorkerThread::DedicatedWorkerThread(const URL& url, const String& userAgent, const String& sourceCode, WorkerLoaderProxy& workerLoaderProxy, WorkerObjectProxy& workerObjectProxy, WorkerThreadStartMode startMode, const ContentSecurityPolicyResponseHeaders& contentSecurityPolicyResponseHeaders, bool shouldBypassMainWorldContentSecurityPolicy, const SecurityOrigin* topOrigin, IDBClient::IDBConnectionProxy* connectionProxy, SocketProvider* socketProvider)
+    : WorkerThread(url, userAgent, sourceCode, workerLoaderProxy, workerObjectProxy, startMode, contentSecurityPolicyResponseHeaders, shouldBypassMainWorldContentSecurityPolicy, topOrigin, connectionProxy, socketProvider)
     , m_workerObjectProxy(workerObjectProxy)
 {
 }
@@ -53,9 +48,9 @@ DedicatedWorkerThread::~DedicatedWorkerThread()
 {
 }
 
-Ref<WorkerGlobalScope> DedicatedWorkerThread::createWorkerGlobalScope(const URL& url, const String& userAgent, const String& contentSecurityPolicy, ContentSecurityPolicy::HeaderType contentSecurityPolicyType, PassRefPtr<SecurityOrigin> topOrigin)
+Ref<WorkerGlobalScope> DedicatedWorkerThread::createWorkerGlobalScope(const URL& url, const String& userAgent, const ContentSecurityPolicyResponseHeaders& contentSecurityPolicyResponseHeaders, bool shouldBypassMainWorldContentSecurityPolicy, PassRefPtr<SecurityOrigin> topOrigin)
 {
-    return DedicatedWorkerGlobalScope::create(url, userAgent, *this, contentSecurityPolicy, contentSecurityPolicyType, topOrigin);
+    return DedicatedWorkerGlobalScope::create(url, userAgent, *this, contentSecurityPolicyResponseHeaders, shouldBypassMainWorldContentSecurityPolicy, topOrigin, idbConnectionProxy(), socketProvider());
 }
 
 void DedicatedWorkerThread::runEventLoop()

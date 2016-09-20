@@ -44,11 +44,12 @@ using namespace WebCore;
 
 namespace WebKit {
 
+#if USE(COORDINATED_GRAPHICS_MULTIPROCESS)
 void WebPage::findZoomableAreaForPoint(const IntPoint& point, const IntSize& area)
 {
     UNUSED_PARAM(area);
     Frame* mainframe = m_mainFrame->coreFrame();
-    HitTestResult result = mainframe->eventHandler().hitTestResultAtPoint(mainframe->view()->windowToContents(point), HitTestRequest::ReadOnly | HitTestRequest::Active | HitTestRequest::IgnoreClipping | HitTestRequest::DisallowShadowContent);
+    HitTestResult result = mainframe->eventHandler().hitTestResultAtPoint(mainframe->view()->windowToContents(point), HitTestRequest::ReadOnly | HitTestRequest::Active | HitTestRequest::IgnoreClipping | HitTestRequest::DisallowUserAgentShadowContent);
 
     Node* node = result.innerNode();
 
@@ -84,6 +85,7 @@ void WebPage::findZoomableAreaForPoint(const IntPoint& point, const IntSize& are
 
     send(Messages::WebPageProxy::DidFindZoomableArea(point, zoomableArea));
 }
+#endif
 
 } // namespace WebKit
 

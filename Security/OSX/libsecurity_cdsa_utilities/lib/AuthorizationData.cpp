@@ -104,25 +104,6 @@ AuthValueVector::operator = (const AuthorizationValueVector& valueVector)
     return *this;
 }
 
-void
-AuthValueVector::copy(AuthorizationValueVector **data, size_t *length) const
-{
-    AuthorizationValueVector valueVector;
-    valueVector.count = (UInt32)size();
-    valueVector.values = new AuthorizationValue[valueVector.count];
-    int i = 0;
-	for (const_iterator it = begin(); it != end(); ++it, ++i)
-    {
-		(*it)->fillInAuthorizationValue(valueVector.values[i]);
-	}
-
-	DataWalkers::Copier<AuthorizationValueVector> flatValueVector(&valueVector);
-	*length = flatValueVector.length();
-	*data = flatValueVector.keep();
-
-	delete[] valueVector.values;
-}
-
 AuthItem::AuthItem(const AuthorizationItem &item) :
     mFlags(item.flags),
     mOwnsName(true),
@@ -206,36 +187,14 @@ AuthItem::operator = (const AuthItem &other)
     return *this;
 }
 
-void
-AuthItem::fillInAuthorizationItem(AuthorizationItem &item)
-{
-    item.name = mName;
-    item.valueLength = mValue.length;
-    item.value = mValue.data;
-    item.flags = mFlags;
-}
-
-bool 
-AuthItem::getBool(bool &value)
-{
-	if (mValue.length == sizeof(bool))
-	{
-		bool *tmpValue = (bool *)mValue.data;
-		
-		if (tmpValue)
-		{
-			value = *tmpValue;
-			return true;
-		}
-	}
-	
-	return false;
-}
-
 bool
 AuthItem::getString(string &value)
 {
-    	value = string(static_cast<char*>(mValue.data), mValue.length);
+	// if terminating NUL is included, ignore it
+	size_t len = mValue.length;
+	if (len > 0 && (static_cast<char*>(mValue.data)[len - 1] == 0))
+		--len;
+	value = string(static_cast<char*>(mValue.data), len);
 	return true;
 }
 
@@ -258,14 +217,11 @@ AuthItemRef::AuthItemRef(AuthorizationString name, AuthorizationValue value, Aut
 // AuthItemSet
 //
 AuthItemSet::AuthItemSet()
-: firstItemName(NULL)
 {
 }
 
 AuthItemSet::~AuthItemSet()
 {
-	if (NULL != firstItemName)
-		free(firstItemName);
 }
 
 AuthItemSet &
@@ -284,21 +240,13 @@ AuthItemSet::operator=(const AuthItemSet& itemSet)
 {
 	std::set<AuthItemRef>::operator=(itemSet);	
 	
-	if (this != &itemSet) {
-		duplicate(itemSet);
-	}
-	
 	return *this;
 }
 
 AuthItemSet::AuthItemSet(const AuthorizationItemSet *itemSet)
-: firstItemName(NULL)
 {
 	if (NULL != itemSet && NULL != itemSet->items)
 	{
-		if (0 < itemSet->count && NULL != itemSet->items[0].name)
-			firstItemName = strdup(itemSet->items[0].name);
-
 		for (unsigned int i=0; i < itemSet->count; i++)
 			insert(AuthItemRef(itemSet->items[i]));
 	}
@@ -307,46 +255,6 @@ AuthItemSet::AuthItemSet(const AuthorizationItemSet *itemSet)
 AuthItemSet::AuthItemSet(const AuthItemSet& itemSet)
 : std::set<AuthItemRef>(itemSet)
 {
-	duplicate(itemSet);
-}
-
-void
-AuthItemSet::duplicate(const AuthItemSet& itemSet)
-{
-	if (itemSet.firstItemName != NULL)
-		firstItemName = strdup(itemSet.firstItemName);
-	else
-		firstItemName = NULL;	
-}
-	
-void
-AuthItemSet::copy(AuthorizationItemSet *&data, size_t &length, Allocator &alloc) const
-{
-    AuthorizationItemSet itemSet;
-    itemSet.count = (UInt32)size();
-    itemSet.items = new AuthorizationItem[itemSet.count];
-    int i = 0;
-    for (const_iterator it = begin(); it != end(); ++it, ++i)
-    {
-        (*it)->fillInAuthorizationItem(itemSet.items[i]);
-    }
-
-	DataWalkers::Copier<AuthorizationItemSet> flatItemSet(&itemSet, alloc);
-	length = flatItemSet.length();
-		
-	data = flatItemSet.keep();
-	// else flatItemSet disappears again
-
-    delete[] itemSet.items;
-}
-
-AuthorizationItemSet *
-AuthItemSet::copy() const
-{
-	AuthorizationItemSet *aCopy;
-	size_t aLength;
-	copy(aCopy, aLength);
-	return aCopy;
 }
 
 AuthItem *

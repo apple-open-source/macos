@@ -30,8 +30,7 @@
 class CppGeneratorTemplates:
 
     HeaderPrelude = (
-    """#ifndef ${headerGuardString}
-#define ${headerGuardString}
+    """#pragma once
 
 ${includes}
 
@@ -40,9 +39,7 @@ namespace Inspector {
 ${typedefs}""")
 
     HeaderPostlude = (
-    """} // namespace Inspector
-
-#endif // !defined(${headerGuardString})""")
+    """} // namespace Inspector""")
 
     ImplementationPrelude = (
     """#include "config.h"
@@ -57,8 +54,7 @@ namespace Inspector {""")
 """)
 
     AlternateDispatchersHeaderPrelude = (
-    """#ifndef ${headerGuardString}
-#define ${headerGuardString}
+    """#pragma once
 
 #if ENABLE(INSPECTOR_ALTERNATE_DISPATCHERS)
 
@@ -68,7 +64,7 @@ namespace Inspector {
 
 class AlternateBackendDispatcher {
 public:
-    void setBackendDispatcher(RefPtr<BackendDispatcher>&& dispatcher) { m_backendDispatcher = WTF::move(dispatcher); }
+    void setBackendDispatcher(RefPtr<BackendDispatcher>&& dispatcher) { m_backendDispatcher = WTFMove(dispatcher); }
     BackendDispatcher* backendDispatcher() const { return m_backendDispatcher.get(); }
 private:
     RefPtr<BackendDispatcher> m_backendDispatcher;
@@ -78,9 +74,7 @@ private:
     AlternateDispatchersHeaderPostlude = (
     """} // namespace Inspector
 
-#endif // ENABLE(INSPECTOR_ALTERNATE_DISPATCHERS)
-
-#endif // !defined(${headerGuardString})""")
+#endif // ENABLE(INSPECTOR_ALTERNATE_DISPATCHERS)""")
 
     AlternateBackendDispatcherHeaderDomainHandlerInterfaceDeclaration = (
     """class Alternate${domainName}BackendDispatcher : public AlternateBackendDispatcher {
@@ -100,19 +94,21 @@ protected:
     BackendDispatcherHeaderDomainDispatcherDeclaration = (
     """${classAndExportMacro} ${domainName}BackendDispatcher final : public SupplementalBackendDispatcher {
 public:
-    static Ref<${domainName}BackendDispatcher> create(BackendDispatcher*, ${domainName}BackendDispatcherHandler*);
-    virtual void dispatch(long requestId, const String& method, Ref<InspectorObject>&& message) override;
+    static Ref<${domainName}BackendDispatcher> create(BackendDispatcher&, ${domainName}BackendDispatcherHandler*);
+    void dispatch(long requestId, const String& method, Ref<InspectorObject>&& message) override;
 ${commandDeclarations}
 private:
     ${domainName}BackendDispatcher(BackendDispatcher&, ${domainName}BackendDispatcherHandler*);
-    ${domainName}BackendDispatcherHandler* m_agent;
-#if ENABLE(INSPECTOR_ALTERNATE_DISPATCHERS)
+    ${domainName}BackendDispatcherHandler* m_agent { nullptr };
+};""")
+
+    BackendDispatcherHeaderDomainDispatcherAlternatesDeclaration = (
+    """#if ENABLE(INSPECTOR_ALTERNATE_DISPATCHERS)
 public:
     void setAlternateDispatcher(Alternate${domainName}BackendDispatcher* alternateDispatcher) { m_alternateDispatcher = alternateDispatcher; }
 private:
-    Alternate${domainName}BackendDispatcher* m_alternateDispatcher;
-#endif
-};""")
+    Alternate${domainName}BackendDispatcher* m_alternateDispatcher { nullptr };
+#endif""")
 
     BackendDispatcherHeaderAsyncCommandDeclaration = (
     """    ${classAndExportMacro} ${callbackName} : public BackendDispatcher::CallbackBase {
@@ -164,21 +160,18 @@ ${dispatchCases}
         return;
     }
 
-    ((*this).*findResult->value)(requestId, WTF::move(parameters));
+    ((*this).*findResult->value)(requestId, WTFMove(parameters));
 }""")
 
     BackendDispatcherImplementationDomainConstructor = (
-    """Ref<${domainName}BackendDispatcher> ${domainName}BackendDispatcher::create(BackendDispatcher* backendDispatcher, ${domainName}BackendDispatcherHandler* agent)
+    """Ref<${domainName}BackendDispatcher> ${domainName}BackendDispatcher::create(BackendDispatcher& backendDispatcher, ${domainName}BackendDispatcherHandler* agent)
 {
-    return adoptRef(*new ${domainName}BackendDispatcher(*backendDispatcher, agent));
+    return adoptRef(*new ${domainName}BackendDispatcher(backendDispatcher, agent));
 }
 
 ${domainName}BackendDispatcher::${domainName}BackendDispatcher(BackendDispatcher& backendDispatcher, ${domainName}BackendDispatcherHandler* agent)
     : SupplementalBackendDispatcher(backendDispatcher)
     , m_agent(agent)
-#if ENABLE(INSPECTOR_ALTERNATE_DISPATCHERS)
-    , m_alternateDispatcher(nullptr)
-#endif
 {
     m_backendDispatcher->registerDispatcherForDomain(ASCIILiteral("${domainName}"), this);
 }""")
@@ -192,22 +185,22 @@ ${domainName}BackendDispatcher::${domainName}BackendDispatcher(BackendDispatcher
 """)
 
     BackendDispatcherImplementationAsyncCommand = (
-"""${domainName}BackendDispatcherHandler::${callbackName}::${callbackName}(Ref<BackendDispatcher>&& backendDispatcher, int id) : BackendDispatcher::CallbackBase(WTF::move(backendDispatcher), id) { }
+"""${domainName}BackendDispatcherHandler::${callbackName}::${callbackName}(Ref<BackendDispatcher>&& backendDispatcher, int id) : BackendDispatcher::CallbackBase(WTFMove(backendDispatcher), id) { }
 
 void ${domainName}BackendDispatcherHandler::${callbackName}::sendSuccess(${formalParameters})
 {
     Ref<InspectorObject> jsonMessage = InspectorObject::create();
 ${outParameterAssignments}
-    CallbackBase::sendSuccess(WTF::move(jsonMessage));
+    CallbackBase::sendSuccess(WTFMove(jsonMessage));
 }""")
 
     FrontendDispatcherDomainDispatcherDeclaration = (
 """${classAndExportMacro} ${domainName}FrontendDispatcher {
 public:
-    ${domainName}FrontendDispatcher(FrontendChannel* frontendChannel) : m_frontendChannel(frontendChannel) { }
+    ${domainName}FrontendDispatcher(FrontendRouter& frontendRouter) : m_frontendRouter(frontendRouter) { }
 ${eventDeclarations}
 private:
-    FrontendChannel* m_frontendChannel;
+    FrontendRouter& m_frontendRouter;
 };""")
 
     ProtocolObjectBuilderDeclarationPrelude = (
@@ -222,7 +215,7 @@ private:
         }
 
         Builder(Ref</*${objectType}*/InspectorObject>&& object)
-            : m_result(WTF::move(object))
+            : m_result(WTFMove(object))
         {
             COMPILE_ASSERT(STATE == NoFieldsSet, builder_created_in_non_init_state);
         }
@@ -237,7 +230,7 @@ private:
             COMPILE_ASSERT(sizeof(${objectType}) == sizeof(InspectorObject), cannot_cast);
 
             Ref<InspectorObject> result = m_result.releaseNonNull();
-            return WTF::move(*reinterpret_cast<Ref<${objectType}>*>(&result));
+            return WTFMove(*reinterpret_cast<Ref<${objectType}>*>(&result));
         }
     };
 

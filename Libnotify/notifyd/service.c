@@ -98,7 +98,7 @@ service_open_path(const char *name, const char *path, uid_t uid, gid_t gid)
 		return NOTIFY_STATUS_OK;
 	}
 
-	node = path_node_create(path, uid, gid, PATH_NODE_ALL, dispatch_get_main_queue());
+	node = path_node_create(path, getpid(), uid, gid, PATH_NODE_ALL, dispatch_get_main_queue());
 	if (node == NULL) return NOTIFY_STATUS_FAILED;
 	
 	node->contextp = strdup(name);
@@ -158,7 +158,7 @@ service_open_path_private(const char *name, client_t *c, const char *path, uid_t
 
 	if (flags == 0) flags = PATH_NODE_ALL;
 
-	node = path_node_create(path, uid, gid, flags, dispatch_get_main_queue());
+	node = path_node_create(path, c->pid, uid, gid, flags, dispatch_get_main_queue());
 	if (node == NULL) return NOTIFY_STATUS_FAILED;
 	
 	node->context64 = c->client_id;
@@ -333,7 +333,7 @@ service_open_timer(const char *name, const char *args)
 		}
 		case TIME_EVENT_CAL:
 		{
-			timer = timer_calendar(s, f, d, e, dispatch_get_main_queue());
+			timer = timer_calendar(s, f, e, d, dispatch_get_main_queue());
 			break;
 		}
 		default:
@@ -416,7 +416,7 @@ service_open_timer_private(const char *name, client_t *c, const char *args)
 		}
 		case TIME_EVENT_CAL:
 		{
-			timer = timer_calendar(s, f, d, e, dispatch_get_main_queue());
+			timer = timer_calendar(s, f, e, d, dispatch_get_main_queue());
 			break;
 		}
 		default:

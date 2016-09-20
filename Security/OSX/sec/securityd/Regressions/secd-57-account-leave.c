@@ -91,12 +91,12 @@ static void tests(void)
     ok(SOSAccountAssertUserCredentialsAndUpdate(david_account, cfaccount, cfpassword, &error), "Credential setting (%@)", error);
     CFReleaseNull(error);
     
-    ok(SOSAccountResetToOffering(alice_account , &error), "Reset to offering (%@)", error);
+    ok(SOSAccountResetToOffering_wTxn(alice_account , &error), "Reset to offering (%@)", error);
     CFReleaseNull(error);
     
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, david_account, NULL), 2, "updates");
 
-    ok(SOSAccountJoinCircles(bob_account , &error), "Bob Applies (%@)", error);
+    ok(SOSAccountJoinCircles_wTxn(bob_account , &error), "Bob Applies (%@)", error);
     CFReleaseNull(error);
     
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, david_account, NULL), 2, "updates");
@@ -140,7 +140,7 @@ static void tests(void)
     ok(SOSAccountTryUserCredentials(alice_account, cfaccount, cfpassword, &error), "Credential setting (%@)", error);
     CFReleaseNull(error);
     
-    ok(SOSAccountJoinCircles(alice_account , &error), "Alice re-applies (%@)", error);
+    ok(SOSAccountJoinCircles_wTxn(alice_account , &error), "Alice re-applies (%@)", error);
     CFReleaseNull(error);
     
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, david_account, NULL), 2, "updates");
@@ -169,7 +169,7 @@ static void tests(void)
     accounts_agree("Alice rejoined", bob_account, alice_account);
     accounts_agree_internal("Alice rejoined, carole noticed", bob_account, carole_account, false);
     
-    ok(SOSAccountJoinCircles(carole_account ,  &error), "Carole applies (%@)", error);
+    ok(SOSAccountJoinCircles_wTxn(carole_account ,  &error), "Carole applies (%@)", error);
     CFReleaseNull(error);
     
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, david_account, NULL), 2, "updates");
@@ -215,7 +215,7 @@ static void tests(void)
     is(countPeers(david_account), 1, "david sees 1 peers");
     is(countActivePeers(david_account), 4, "david sees 4 active peers");
     
-    ok(SOSAccountJoinCircles(david_account , &error), "David applies (%@)", error);
+    ok(SOSAccountJoinCircles_wTxn(david_account , &error), "David applies (%@)", error);
     CFReleaseNull(error);
     is(countPeers(david_account), 1, "david sees 1 peers");
     is(countActivePeers(david_account), 4, "david sees 4 active peers");
@@ -243,7 +243,7 @@ static void tests(void)
     ok(SOSAccountLeaveCircle(bob_account, &error), "bob Leaves w/o credentials (%@)", error);
     CFReleaseNull(error);
 
-    ok(!SOSAccountIsInCircle(bob_account, &error), "bob know's he's out (%@)", error);
+    ok(!SOSAccountIsInCircle(bob_account, &error), "bob knows he's out (%@)", error);
     CFReleaseNull(error);
     
     CFReleaseNull(bob_account);

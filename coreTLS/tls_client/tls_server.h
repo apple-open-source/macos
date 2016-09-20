@@ -16,6 +16,7 @@
 typedef struct {
     const char *hostname;
     int port;
+    const char *config;
     int protocol_min;
     int protocol_max;
     const uint16_t *ciphersuites;
@@ -36,6 +37,7 @@ typedef struct {
     bool use_kext;
     bool dtls;
     bool verbose;
+    bool allow_ext_master_secret;
 } tls_server_params;
 
 

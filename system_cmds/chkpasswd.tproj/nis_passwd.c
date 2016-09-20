@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
@@ -10,7 +10,7 @@
  * except in compliance with the License.  Please obtain a copy of the
  * License at http://www.apple.com/publicsource and read it before using
  * this file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -18,10 +18,10 @@
  * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
  * License for the specific language governing rights and limitations
  * under the License."
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
-/* 
+/*
  * Copyright (c) 1998 by Apple Computer, Inc.
  * Portions Copyright (c) 1988 by Sun Microsystems, Inc.
  * Portions Copyright (c) 1988 The Regents of the University of California.
@@ -69,9 +69,9 @@
 #include <string.h>
 #include <pwd.h>
 #include <netinet/in.h>
-#include <rpc/types.h>
-#include <rpc/xdr.h>
 #include <rpc/rpc.h>
+#include <rpc/xdr.h>
+#include <rpc/pmap_clnt.h>
 #include <rpcsvc/yp_prot.h>
 #include <rpcsvc/ypclnt.h>
 #include <rpcsvc/yppasswd.h>
@@ -80,13 +80,13 @@
 #include <sys/file.h>
 #include <errno.h>
 
-extern int getrpcport(char *, int, int, int);
-extern void checkpasswd(char *, char *);
+#include "passwd.h"
 
 static struct passwd *ypgetpwnam(char *name, char *domain);
 
-int nis_check_passwd(char *uname, char *domain)
-{	
+int
+nis_check_passwd(char *uname, char *domain)
+{
 	int port;
 	char *master;
 	struct passwd *pwd;
@@ -99,13 +99,13 @@ int nis_check_passwd(char *uname, char *domain)
 			exit(1);
 		}
 	}
-	
+
 	if (yp_master(domain, "passwd.byname", &master) != 0)
 	{
 		(void)fprintf(stderr, "can't get master for passwd file\n");
 		exit(1);
 	}
-	
+
 	port = getrpcport(master, YPPASSWDPROG, YPPASSWDPROC_UPDATE,
 		IPPROTO_UDP);
 	if (port == 0)
@@ -127,11 +127,11 @@ int nis_check_passwd(char *uname, char *domain)
 		(void)fprintf(stderr, "user %s not found\n", uname);
 		exit(1);
 	}
-	
+
 	checkpasswd(uname, pwd->pw_passwd);
 	return(0);
 }
-		
+
 static char *
 pwskip(register char *p)
 {
@@ -142,7 +142,7 @@ pwskip(register char *p)
 	return (p);
 }
 
-struct passwd *
+static struct passwd *
 interpret(struct passwd *pwent, char *line)
 {
 	register char	*p = line;
@@ -182,7 +182,6 @@ interpret(struct passwd *pwent, char *line)
 	return (pwent);
 }
 
-
 static struct passwd *
 ypgetpwnam(char *nam, char *domain)
 {
@@ -191,7 +190,7 @@ ypgetpwnam(char *nam, char *domain)
 	int reason, vallen;
 	static char *__yplin = NULL;
 
-	reason = yp_match(domain, "passwd.byname", nam, strlen(nam),
+	reason = yp_match(domain, "passwd.byname", nam, (int)strlen(nam),
 	    &val, &vallen);
 	switch(reason) {
 	case 0:

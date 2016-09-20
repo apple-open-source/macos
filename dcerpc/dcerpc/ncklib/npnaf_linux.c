@@ -412,6 +412,8 @@ PRIVATE void rpc__np_get_broadcast
 **
 **--
 **/
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PRIVATE boolean32 rpc__np_is_local_network
 (
     rpc_addr_p_t rpc_addr,
@@ -486,3 +488,4 @@ PRIVATE boolean32 rpc__np_is_local_addr
 
     return true;
 }
+#endif

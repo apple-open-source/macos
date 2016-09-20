@@ -28,6 +28,7 @@
 
 #include "AXTextStateChangeIntent.h"
 #include "EditingStyle.h"
+#include "Element.h"
 #include "IntRect.h"
 #include "LayoutRect.h"
 #include "Range.h"
@@ -71,7 +72,7 @@ protected:
     void clearCaretRect();
     bool updateCaretRect(Document*, const VisiblePosition& caretPosition);
     bool shouldRepaintCaret(const RenderView*, bool isContentEditable) const;
-    void paintCaret(Node*, GraphicsContext*, const LayoutPoint&, const LayoutRect& clipRect) const;
+    void paintCaret(Node*, GraphicsContext&, const LayoutPoint&, const LayoutRect& clipRect) const;
 
     const LayoutRect& localCaretRectWithoutUpdate() const { return m_caretLocalRect; }
 
@@ -95,7 +96,7 @@ public:
     DragCaretController();
 
     RenderBlock* caretRenderer() const;
-    void paintDragCaret(Frame*, GraphicsContext*, const LayoutPoint&, const LayoutRect& clipRect) const;
+    void paintDragCaret(Frame*, GraphicsContext&, const LayoutPoint&, const LayoutRect& clipRect) const;
 
     bool isContentEditable() const { return m_position.rootEditableElement(); }
     bool isContentRichlyEditable() const;
@@ -185,7 +186,7 @@ public:
     bool isCaretOrRange() const { return m_selection.isCaretOrRange(); }
     bool isAll(EditingBoundaryCrossingRule rule = CannotCrossEditingBoundary) const { return m_selection.isAll(rule); }
     
-    PassRefPtr<Range> toNormalizedRange() const { return m_selection.toNormalizedRange(); }
+    RefPtr<Range> toNormalizedRange() const { return m_selection.toNormalizedRange(); }
 
     void debugRenderer(RenderObject*, bool selected) const;
 
@@ -193,7 +194,7 @@ public:
     void textWasReplaced(CharacterData*, unsigned offset, unsigned oldLength, unsigned newLength);
 
     void setCaretVisible(bool caretIsVisible) { setCaretVisibility(caretIsVisible ? Visible : Hidden); }
-    void paintCaret(GraphicsContext*, const LayoutPoint&, const LayoutRect& clipRect);
+    void paintCaret(GraphicsContext&, const LayoutPoint&, const LayoutRect& clipRect);
 
     // Used to suspend caret blinking while the mouse is down.
     void setCaretBlinkingSuspended(bool suspended) { m_isCaretBlinkingSuspended = suspended; }
@@ -230,7 +231,7 @@ public:
     WEBCORE_EXPORT bool selectionAtWordStart() const;
     WEBCORE_EXPORT PassRefPtr<Range> rangeByMovingCurrentSelection(int amount) const;
     WEBCORE_EXPORT PassRefPtr<Range> rangeByExtendingCurrentSelection(int amount) const;
-    WEBCORE_EXPORT void selectRangeOnElement(unsigned location, unsigned length, Node*);
+    WEBCORE_EXPORT void selectRangeOnElement(unsigned location, unsigned length, Node&);
     WEBCORE_EXPORT void clearCurrentSelection();
     void setCaretBlinks(bool caretBlinks = true);
     WEBCORE_EXPORT void setCaretColor(const Color&);
@@ -262,10 +263,11 @@ public:
 
     enum class TextRectangleHeight { TextHeight, SelectionHeight };
     WEBCORE_EXPORT void getClippedVisibleTextRectangles(Vector<FloatRect>&, TextRectangleHeight = TextRectangleHeight::SelectionHeight) const;
+    WEBCORE_EXPORT void getTextRectangles(Vector<FloatRect>&, TextRectangleHeight = TextRectangleHeight::SelectionHeight) const;
 
     WEBCORE_EXPORT HTMLFormElement* currentForm() const;
 
-    WEBCORE_EXPORT void revealSelection(const ScrollAlignment& = ScrollAlignment::alignCenterIfNeeded, RevealExtentOption = DoNotRevealExtent);
+    WEBCORE_EXPORT void revealSelection(SelectionRevealMode = SelectionRevealMode::Reveal, const ScrollAlignment& = ScrollAlignment::alignCenterIfNeeded, RevealExtentOption = DoNotRevealExtent);
     WEBCORE_EXPORT void setSelectionFromNone();
 
     bool shouldShowBlockCursor() const { return m_shouldShowBlockCursor; }
@@ -290,12 +292,12 @@ private:
 
     VisiblePosition modifyExtendingRight(TextGranularity);
     VisiblePosition modifyExtendingForward(TextGranularity);
-    VisiblePosition modifyMovingRight(TextGranularity);
-    VisiblePosition modifyMovingForward(TextGranularity);
+    VisiblePosition modifyMovingRight(TextGranularity, bool* reachedBoundary = nullptr);
+    VisiblePosition modifyMovingForward(TextGranularity, bool* reachedBoundary = nullptr);
     VisiblePosition modifyExtendingLeft(TextGranularity);
     VisiblePosition modifyExtendingBackward(TextGranularity);
-    VisiblePosition modifyMovingLeft(TextGranularity);
-    VisiblePosition modifyMovingBackward(TextGranularity);
+    VisiblePosition modifyMovingLeft(TextGranularity, bool* reachedBoundary = nullptr);
+    VisiblePosition modifyMovingBackward(TextGranularity, bool* reachedBoundary = nullptr);
 
     LayoutUnit lineDirectionPointForBlockDirectionNavigation(EPositionType);
 
@@ -349,7 +351,7 @@ private:
     bool m_updateAppearanceEnabled : 1;
     bool m_caretBlinks : 1;
     Color m_caretColor;
-    int m_scrollingSuppressCount;
+    int m_scrollingSuppressCount { 0 };
 #endif
 };
 

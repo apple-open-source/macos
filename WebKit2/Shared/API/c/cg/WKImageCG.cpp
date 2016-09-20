@@ -50,13 +50,13 @@ WKImageRef WKImageCreateFromCGImage(CGImageRef imageRef, WKImageOptions options)
         return 0;
     
     IntSize imageSize(CGImageGetWidth(imageRef), CGImageGetHeight(imageRef));
-    RefPtr<WebImage> webImage = WebImage::create(imageSize, toImageOptions(options));
+    auto webImage = WebImage::create(imageSize, toImageOptions(options));
     if (!webImage->bitmap())
         return 0;
 
     auto graphicsContext = webImage->bitmap()->createGraphicsContext();
     FloatRect rect(FloatPoint(0, 0), imageSize);
     graphicsContext->clearRect(rect);
-    graphicsContext->drawNativeImage(imageRef, imageSize, WebCore::ColorSpaceDeviceRGB, rect, rect);
-    return toAPI(webImage.release().leakRef());
+    graphicsContext->drawNativeImage(imageRef, imageSize, rect, rect);
+    return toAPI(webImage.leakRef());
 }

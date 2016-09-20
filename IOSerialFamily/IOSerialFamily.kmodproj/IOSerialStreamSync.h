@@ -249,7 +249,7 @@ public:
 
     /*	Internal for IOSerialDriver only */
     virtual bool init(OSDictionary *dictionary = 0, void *refCon = 0);
-    virtual bool attach(IOService *provider);
+    virtual bool attach(IOService *provider) APPLE_KEXT_OVERRIDE;
     void *getRefCon() const { return fRefCon; }
 
 OSMetaClassDeclareReservedUnused(IOSerialStreamSync,  0);

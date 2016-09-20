@@ -551,12 +551,12 @@ KLLastChangedTime(KLTime *outLastChangedTime)
     pthread_mutex_lock(&g_change_time_mutex);
 
     if (g_kl_change_time == 0)
-	g_kl_change_time = ccChangeTime;
+	g_kl_change_time = (KLTime)ccChangeTime;
     
     if (ccChangeTime > g_cc_change_time) {
 
 	if (ccChangeTime > g_kl_change_time)
-	    g_kl_change_time = ccChangeTime;
+	    g_kl_change_time = (KLTime)ccChangeTime;
 	else
 	    g_kl_change_time++;
 
@@ -678,7 +678,7 @@ KLStatus KLTicketStartTime (KLPrincipal        inPrincipal,
     if (ret)
 	return LOG_FAILURE(ret, "fetch tickets failed");
 
-    *outStartTime = creds->times.starttime;
+    *outStartTime = (KLTime)creds->times.starttime;
 
     heim_krb5_free_creds(milcontext, creds);
     return klNoErr;
@@ -701,7 +701,7 @@ KLStatus KLTicketExpirationTime (KLPrincipal        inPrincipal,
     if (ret)
 	return LOG_FAILURE(ret, "fetch tickets failed");
 
-    *outExpirationTime = creds->times.endtime;
+    *outExpirationTime = (KLTime)creds->times.endtime;
 
     heim_krb5_free_creds(milcontext, creds);
     return klNoErr;

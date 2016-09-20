@@ -72,7 +72,8 @@ PKCS5_PBKDF2_HMAC_SHA1(const void * password, size_t password_len,
 		       size_t keylen, void *key)
 {
 #ifdef HAVE_COMMONCRYPTO_COMMONKEYDERIVATION_H
-    if (CCKeyDerivationPBKDF(kCCPBKDF2, password, password_len,
+    if (CCKeyDerivationPBKDF(kCCPBKDF2,
+			     password ? password : "", password_len,
 			     salt, salt_len,
 			     kCCPRFHmacAlgSHA1, iter,
 			     key, keylen) != 0)

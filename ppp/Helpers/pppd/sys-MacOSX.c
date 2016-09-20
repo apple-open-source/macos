@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2003, 2014, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -164,6 +164,7 @@ static int connect_pfppp();
 //static void sys_pidchange(void *arg, int pid);
 static void sys_phasechange(void *arg, uintptr_t phase);
 static void sys_exitnotify(void *arg, uintptr_t exitcode);
+static int publish_interface(void);
 int publish_keyentry(CFStringRef key, CFStringRef entry, CFTypeRef value);
 int publish_dictnumentry(CFStringRef dict, CFStringRef entry, int val);
 int publish_dictstrentry(CFStringRef dict, CFStringRef entry, char *str, int encoding);
@@ -699,6 +700,7 @@ static int commit_publish_dict()
 	/* Publish! */
 	if (publish_dict) {
 		if (ne_is_controller()) {
+			publish_interface();
 			sys_eventnotify((void*)PPP_EVT_REQUEST_INSTALL, override_primary);
 		} else {
 			notice("Committed PPP store\n");
@@ -2800,6 +2802,40 @@ static int update_stateaddr(u_int32_t o, u_int32_t h, u_int32_t m)
 }
 
 /* ----------------------------------------------------------------------------
+ publish if name
+ ----------------------------------------------------------------------------- */
+static int publish_interface(void)
+{
+	CFMutableDictionaryRef ipv4_dict;
+	CFStringRef str;
+	int result = 0;
+
+	// ppp daemons without services are not published in the cache
+	if (cfgCache == NULL)
+		return 0;
+
+	/* create the IPV4 dictionnary */
+	if ((ipv4_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks)) == 0)
+		return 0;
+
+	if ((str = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s"), ifname))) {
+		CFDictionarySetValue(ipv4_dict, kSCPropInterfaceName, str);
+		CFRelease(str);
+	}
+
+	/* update the store now */
+	if ((str = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceidRef, kSCEntNetIPv4))) {
+		if ((result = SCDynamicStoreSetValue(cfgCache, str, ipv4_dict)) == 0)
+			warning("SCDynamicStoreSetValue Ifname %s failed: %s\n", ifname, SCErrorString(SCError()));
+		CFRelease(str);
+	}
+
+	CFRelease(ipv4_dict);
+
+	return result;
+}
+
+/* ----------------------------------------------------------------------------
 publish ip addresses using configd cache mechanism
 use new state information model
 ----------------------------------------------------------------------------- */
@@ -4650,7 +4686,7 @@ ppp_set_nat_port_mapping_callback (DNSServiceRef        sdRef,
 				}
 				if (session->nat_mapping[i].privatePort != privatePort) {
 					info("%s port-mapping for %s inconsistent. is Connected: %d, Previous privatePort: %d, Current privatePort %d\n",
-						 sd_name, if_name, session->nat_mapping[i].privatePort, privatePort);
+						 sd_name, if_name, is_connected, session->nat_mapping[i].privatePort, privatePort);
 					session->nat_mapping[i].privatePort = privatePort;
 				}
 			}

@@ -24,6 +24,8 @@
 #include "evaluationmanager.h"
 #include "policyengine.h"
 #include <security_utilities/cfmunge.h>
+#include <Security/SecEncodeTransform.h>
+#include <Security/SecDigestTransform.h>
 #include <xpc/xpc.h>
 #include <exception>
 #include <vector>
@@ -34,8 +36,49 @@
 namespace Security {
 namespace CodeSigning {
 
+#pragma mark -
 
+static CFStringRef EvaluationTaskCreateKey(CFURLRef path, AuthorityType type)
+{
+    CFErrorRef errors = NULL;
 
+    /* concatenate the type and the path before hashing */
+    string pathString  = std::to_string(type)+cfString(path);
+    CFRef<CFDataRef> data = makeCFData(pathString.c_str(), pathString.size());
+    CFRef<SecGroupTransformRef> group = SecTransformCreateGroupTransform();
+
+    CFRef<SecTransformRef> sha1 = SecDigestTransformCreate(kSecDigestSHA2, 256, &errors);
+    if( errors )
+    {
+        CFError::throwMe();
+    }
+
+    CFRef<SecTransformRef> b64 = SecEncodeTransformCreate(kSecBase64Encoding, &errors);
+    if ( errors )
+    {
+        CFError::throwMe();
+    }
+
+    SecTransformSetAttribute(sha1, kSecTransformInputAttributeName, data, &errors);
+    if ( errors )
+    {
+        CFError::throwMe();
+    }
+
+    SecTransformConnectTransforms(sha1, kSecTransformOutputAttributeName, b64, kSecTransformInputAttributeName, group, &errors);
+    if ( errors )
+    {
+        CFError::throwMe();
+    }
+
+    CFRef<CFDataRef> keyData = (CFDataRef)SecTransformExecute(group, &errors);
+    if ( errors )
+    {
+        CFError::throwMe();
+    }
+
+    return makeCFString(keyData);
+}
 
 #pragma mark - EvaluationTask
 
@@ -56,15 +99,21 @@ public:
 private:
     EvaluationTask(PolicyEngine *engine, CFURLRef path, AuthorityType type);
     virtual ~EvaluationTask();
+
+    // Tasks cannot be copied.
+    EvaluationTask(EvaluationTask const&) = delete;
+    EvaluationTask& operator=(EvaluationTask const&) = delete;
+
     void performEvaluation(SecAssessmentFlags flags, CFDictionaryRef context);
     void waitForCompletion(SecAssessmentFlags flags, CFMutableDictionaryRef result);
+    void kick();
 
     PolicyEngine                      *mPolicyEngine;
     AuthorityType                      mType;
     dispatch_queue_t                   mWorkQueue;
     dispatch_queue_t                   mFeedbackQueue;
     dispatch_semaphore_t               mAssessmentLock;
-    __block dispatch_once_t            mAssessmentKicked;
+    dispatch_once_t                    mAssessmentKicked;
     int32_t                            mReferenceCount;
     int32_t                            mEvalCount;
 // This whole thing is a pre-existing crutch and must be fixed soon.
@@ -199,16 +248,14 @@ void EvaluationTask::performEvaluation(SecAssessmentFlags flags, CFDictionaryRef
             // This whole thing is a crutch and should be handled differently.
             // Maybe by having just one activity that just kicks off all remaining
             // background assessments, CTS determines that it's a good time.
+            
+            // Convert the evaluation path and type to a base64 encoded hash to use as a key
+            // Use that to generate an xpc_activity identifier. This identifier should be smaller
+            // than 128 characters due to rdar://problem/20094806
 
-            // reduce the bundle path name to just the app component and generate an
-            // xpc_activity identifier from it. this identifier should be smaller than
-            // 128 characters due to rdar://problem/20094806
-            string path = cfString(mPath);
-            size_t bundleNamePosition = path.rfind('/');
-            const char *bundleName = "/default";
-            if (bundleNamePosition != string::npos)
-                bundleName = path.c_str() + bundleNamePosition;
-            snprintf(mXpcActivityName, UNOFFICIAL_MAX_XPC_ID_LENGTH, "com.apple.security.assess%s", bundleName);
+            CFCopyRef<CFStringRef> cfKey(EvaluationTaskCreateKey(mPath, mType));
+            string key = cfStringRelease(cfKey);
+            snprintf(mXpcActivityName, UNOFFICIAL_MAX_XPC_ID_LENGTH, "com.apple.security.assess/%s", key.c_str());
 
             // schedule the assessment to be permitted to run (beyond start) -- this
             // will either happen once we're no longer on battery power, or
@@ -222,9 +269,9 @@ void EvaluationTask::performEvaluation(SecAssessmentFlags flags, CFDictionaryRef
             xpc_dictionary_set_bool(criteria, XPC_ACTIVITY_ALLOW_BATTERY, false);
 
             xpc_activity_register(mXpcActivityName, criteria, ^(xpc_activity_t activity) {
-                dispatch_once(&mAssessmentKicked, ^{
-                    dispatch_semaphore_signal(mAssessmentLock);
-                });
+                // We use the Evaluation Manager to get the task, as the task may be gone already
+                // (and with it, its mAssessmentKicked member).
+                EvaluationManager::globalManager()->kickTask(cfKey);
             });
             xpc_release(criteria);
         }
@@ -234,13 +281,15 @@ void EvaluationTask::performEvaluation(SecAssessmentFlags flags, CFDictionaryRef
     // with an existing task has been requested in the foreground, kick it
     // immediately.
     if (!lowPriority) {
-        dispatch_once(&mAssessmentKicked, ^{
-            dispatch_semaphore_signal(mAssessmentLock);
-        });
+        kick();
     }
 }
 
-
+void EvaluationTask::kick() {
+    dispatch_once(&mAssessmentKicked, ^{
+        dispatch_semaphore_signal(mAssessmentLock);
+    });
+}
 
 void EvaluationTask::waitForCompletion(SecAssessmentFlags flags, CFMutableDictionaryRef result)
 {
@@ -319,15 +368,16 @@ EvaluationTask *EvaluationManager::evaluationTask(PolicyEngine *engine, CFURLRef
     __block EvaluationTask *evalTask = NULL;
 
     dispatch_sync(mListLockQueue, ^{
+        CFRef<CFStringRef> key = EvaluationTaskCreateKey(path, type);
         // is path already being evaluated?
         if (!(flags & kSecAssessmentFlagIgnoreActiveAssessments))
-            evalTask = (EvaluationTask *)CFDictionaryGetValue(mCurrentEvaluations.get(), path);
+            evalTask = (EvaluationTask *)CFDictionaryGetValue(mCurrentEvaluations.get(), key.get());
         if (!evalTask) {
             // create a new task for the evaluation
             evalTask = new EvaluationTask(engine, path, type);
             if (flags & kSecAssessmentFlagIgnoreActiveAssessments)
                 evalTask->setUnsharable();
-            CFDictionaryAddValue(mCurrentEvaluations.get(), path, evalTask);
+            CFDictionaryAddValue(mCurrentEvaluations.get(), key.get(), evalTask);
         }
         evalTask->mReferenceCount++;
     });
@@ -354,16 +404,26 @@ void EvaluationManager::finalizeTask(EvaluationTask *task, SecAssessmentFlags fl
 void EvaluationManager::removeTask(EvaluationTask *task)
 {
     dispatch_sync(mListLockQueue, ^{
+        CFRef<CFStringRef> key = EvaluationTaskCreateKey(task->path(), task->type());
         // are we done with this evaluation task?
         if (--task->mReferenceCount == 0) {
             // yes -- remove it from our list and delete the object
-            CFDictionaryRemoveValue(mCurrentEvaluations.get(), task->path());
+            CFDictionaryRemoveValue(mCurrentEvaluations.get(), key.get());
             delete task;
         }
     });
 }
 
-
+void EvaluationManager::kickTask(CFStringRef key)
+{
+    dispatch_sync(mListLockQueue, ^{
+        EvaluationTask *evalTask = (EvaluationTask*)CFDictionaryGetValue(mCurrentEvaluations.get(),
+                                                                         key);
+        if (evalTask != NULL) {
+            evalTask->kick();
+        }
+    });
+}
 
 } // end namespace CodeSigning
 } // end namespace Security

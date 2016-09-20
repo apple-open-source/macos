@@ -37,7 +37,7 @@
 
 #pragma D option quiet
 #pragma D option aggrate=1ms
-#pragma D option switchrate=50ms
+#pragma D option switchrate=5ms
 
 BEGIN
 {
@@ -45,14 +45,14 @@ BEGIN
 	start = timestamp;
 }
 
-tick-100ms
+tick-10ms
 /i < 20/
 {
 	@func[i % 5] = sum(i * 100);
 	i++;
 }
 
-tick-100ms
+tick-10ms
 /i == 10/
 {
 	printf("Normalized data before clear:\n");
@@ -66,7 +66,7 @@ tick-100ms
 	i++
 }
 
-tick-100ms
+tick-10ms
 /i == 20/
 {
 	printf("Final (normalized) aggregation data:\n");

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014, 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -73,7 +73,10 @@ public:
     template<typename T>
     T dynamicCast()
     {
-        return jsDynamicCast<T>(value());
+        JSValue theValue = value();
+        if (!theValue)
+            return nullptr;
+        return jsDynamicCast<T>(theValue);
     }
     template<typename T>
     T cast()
@@ -93,6 +96,8 @@ public:
     
     // The strength of the value itself. The structure is almost always weak.
     ValueStrength strength() const { return m_strength; }
+
+    String tryGetString(Graph&);
     
     void dumpInContext(PrintStream& out, DumpContext* context) const;
     void dump(PrintStream& out) const;

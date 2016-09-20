@@ -26,6 +26,10 @@
 #ifndef GraphicsServicesSPI_h
 #define GraphicsServicesSPI_h
 
+#import <wtf/Platform.h>
+
+#if PLATFORM(IOS)
+
 #if USE(APPLE_INTERNAL_SDK)
 
 #import <GraphicsServices/GraphicsServices.h>
@@ -36,7 +40,10 @@ WTF_EXTERN_C_BEGIN
 
 void GSInitialize(void);
 uint64_t GSCurrentEventTimestamp(void);
+CFStringRef GSSystemRootDirectory(void);
 
 WTF_EXTERN_C_END
+
+#endif
 
 #endif // GraphicsServicesSPI_h

@@ -340,6 +340,16 @@ if test "x${have_libbz2}" = "x1" ; then
 fi
 
 dnl 
+dnl Configure libpthread.
+dnl 
+have_libpthread="1"
+AC_CHECK_HEADERS([pthread.h], , [have_pthread="0"])
+AC_CHECK_LIB([pthread], [pthread_mutex_lock], , [have_pthread="0"])
+if test "x${have_pthread}" = "x1" ; then
+  AC_DEFINE([HAVE_PTHREAD])
+fi
+
+dnl 
 dnl Process .in files.
 dnl 
 AC_SUBST([cfghdrs])

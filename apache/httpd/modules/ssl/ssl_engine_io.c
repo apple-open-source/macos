@@ -29,7 +29,12 @@
                                             -- Unknown    */
 #include "ssl_private.h"
 #include "mod_ssl.h"
+#include "mod_ssl_openssl.h"
 #include "apr_date.h"
+
+APR_IMPLEMENT_OPTIONAL_HOOK_RUN_ALL(ssl, SSL, int, proxy_post_handshake,
+                                    (conn_rec *c,SSL *ssl),
+                                    (c,ssl),OK,DECLINED);
 
 /*  _________________________________________________________________
 **
@@ -217,7 +222,7 @@ static int bio_filter_out_write(BIO *bio, const char *in, int inl)
      * so limit the performance impact to handshake time.
      */
 #if OPENSSL_VERSION_NUMBER < 0x0009080df
-     need_flush = !SSL_is_init_finished(outctx->filter_ctx->pssl)
+     need_flush = !SSL_is_init_finished(outctx->filter_ctx->pssl);
 #else
      need_flush = SSL_in_connect_init(outctx->filter_ctx->pssl);
 #endif
@@ -489,6 +494,12 @@ static int bio_filter_in_read(BIO *bio, char *in, int inlen)
             return -1;
         }
 
+        if (block == APR_BLOCK_READ 
+            && APR_STATUS_IS_TIMEUP(inctx->rc)
+            && APR_BRIGADE_EMPTY(inctx->bb)) {
+            /* don't give up, just return the timeout */
+            return -1;
+        }
         if (inctx->rc != APR_SUCCESS) {
             /* Unexpected errors discard the brigade */
             apr_brigade_cleanup(inctx->bb);
@@ -669,6 +680,10 @@ static apr_status_t ssl_io_input_read(bio_filter_in_ctx_t *inctx,
                         break;
                     }
                     continue;  /* Blocking and nothing yet?  Try again. */
+                }
+                else if (APR_STATUS_IS_TIMEUP(inctx->rc)) {
+                    /* just return it, the calling layer might be fine with it,
+                       and we do not want to bloat the log. */
                 }
                 else {
                     ap_log_cerror(APLOG_MARK, APLOG_INFO, inctx->rc, c, APLOGNO(01991)
@@ -1009,6 +1024,8 @@ static void ssl_filter_io_shutdown(ssl_filter_ctx_t *filter_ctx,
 
     /* and finally log the fact that we've closed the connection */
     if (APLOG_CS_IS_LEVEL(c, mySrvFromConn(c), loglevel)) {
+        /* Intentional no APLOGNO */
+        /* logno provides APLOGNO */
         ap_log_cserror(APLOG_MARK, loglevel, 0, c, mySrvFromConn(c),
                        "%sConnection closed to child %ld with %s shutdown "
                        "(server %s)",
@@ -1075,13 +1092,53 @@ static apr_status_t ssl_io_filter_handshake(ssl_filter_ctx_t *filter_ctx)
     if (sslconn->is_proxy) {
 #ifdef HAVE_TLSEXT
         apr_ipsubnet_t *ip;
+#ifdef HAVE_TLS_ALPN
+        const char *alpn_note;
+#endif
 #endif
         const char *hostname_note = apr_table_get(c->notes,
                                                   "proxy-request-hostname");
         BOOL proxy_ssl_check_peer_ok = TRUE;
+        int post_handshake_rc = OK;
+
         sc = mySrvConfig(server);
 
 #ifdef HAVE_TLSEXT
+#ifdef HAVE_TLS_ALPN
+        alpn_note = apr_table_get(c->notes, "proxy-request-alpn-protos");
+        if (alpn_note) {
+            char *protos, *s, *p, *last;
+            apr_size_t len;
+
+            s = protos = apr_pcalloc(c->pool, strlen(alpn_note)+1);
+            p = apr_pstrdup(c->pool, alpn_note);
+            while ((p = apr_strtok(p, ", ", &last))) {
+                len = last - p - (*last? 1 : 0); 
+                if (len > 255) {
+                    ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c, APLOGNO(03309)
+                                  "ALPN proxy protocol identifier too long: %s",
+                                  p);
+                    ssl_log_ssl_error(SSLLOG_MARK, APLOG_ERR, server);
+                    return APR_EGENERAL;
+                }
+                *s++ = (unsigned char)len;
+                while (len--) {
+                    *s++ = *p++;
+                }
+                p = NULL;
+            }
+            ap_log_cerror(APLOG_MARK, APLOG_TRACE1, 0, c, 
+                          "setting alpn protos from '%s', protolen=%d", 
+                          alpn_note, (int)(s - protos));
+            if (protos != s && SSL_set_alpn_protos(filter_ctx->pssl, 
+                                                   (unsigned char *)protos, 
+                                                   s - protos)) {
+                ap_log_cerror(APLOG_MARK, APLOG_WARNING, 0, c, APLOGNO(03310)
+                              "error setting alpn protos from '%s'", alpn_note);
+                ssl_log_ssl_error(SSLLOG_MARK, APLOG_WARNING, server);
+            }
+        }
+#endif /* defined HAVE_TLS_ALPN */
         /*
          * Enable SNI for backend requests. Make sure we don't do it for
          * pure SSLv3 connections, and also prevent IP addresses
@@ -1132,6 +1189,8 @@ static apr_status_t ssl_io_filter_handshake(ssl_filter_ctx_t *filter_ctx)
             }
         }
         if ((sc->proxy_ssl_check_peer_name != SSL_ENABLED_FALSE) &&
+            ((sc->proxy_ssl_check_peer_cn != SSL_ENABLED_FALSE) ||
+             (sc->proxy_ssl_check_peer_name == SSL_ENABLED_TRUE)) &&
             hostname_note) {
             apr_table_unset(c->notes, "proxy-request-hostname");
             if (!cert
@@ -1143,7 +1202,7 @@ static apr_status_t ssl_io_filter_handshake(ssl_filter_ctx_t *filter_ctx)
                               "for hostname %s", hostname_note);
             }
         }
-        else if ((sc->proxy_ssl_check_peer_cn != SSL_ENABLED_FALSE) &&
+        else if ((sc->proxy_ssl_check_peer_cn == SSL_ENABLED_TRUE) &&
             hostname_note) {
             const char *hostname;
             int match = 0;
@@ -1170,11 +1229,17 @@ static apr_status_t ssl_io_filter_handshake(ssl_filter_ctx_t *filter_ctx)
             }
         }
 
+        if (proxy_ssl_check_peer_ok == TRUE) {
+            /* another chance to fail */
+            post_handshake_rc = ssl_run_proxy_post_handshake(c, filter_ctx->pssl);
+        }
+
         if (cert) {
             X509_free(cert);
         }
 
-        if (proxy_ssl_check_peer_ok != TRUE) {
+        if (proxy_ssl_check_peer_ok != TRUE
+            || (post_handshake_rc != OK && post_handshake_rc != DECLINED)) {
             /* ensure that the SSL structures etc are freed, etc: */
             ssl_filter_io_shutdown(filter_ctx, c, 1);
             apr_table_setn(c->notes, "SSL_connect_rv", "err");
@@ -1326,19 +1391,19 @@ static apr_status_t ssl_io_filter_input(ap_filter_t *f,
     const char *start = inctx->buffer; /* start of block to return */
     apr_size_t len = sizeof(inctx->buffer); /* length of block to return */
     int is_init = (mode == AP_MODE_INIT);
+    apr_bucket *bucket;
 
     if (f->c->aborted) {
         /* XXX: Ok, if we aborted, we ARE at the EOS.  We also have
          * aborted.  This 'double protection' is probably redundant,
          * but also effective against just about anything.
          */
-        apr_bucket *bucket = apr_bucket_eos_create(f->c->bucket_alloc);
+        bucket = apr_bucket_eos_create(f->c->bucket_alloc);
         APR_BRIGADE_INSERT_TAIL(bb, bucket);
         return APR_ECONNABORTED;
     }
 
     if (!inctx->ssl) {
-        apr_bucket *bucket;
         SSLConnRec *sslconn = myConnConfig(f->c);
         if (sslconn->non_ssl_request == NON_SSL_SEND_REQLINE) {
             bucket = HTTP_ON_HTTPS_PORT_BUCKET(f->c->bucket_alloc);
@@ -1433,7 +1498,7 @@ static apr_status_t ssl_io_filter_input(ap_filter_t *f,
 
     /* Create a transient bucket out of the decrypted data. */
     if (len > 0) {
-        apr_bucket *bucket =
+        bucket =
             apr_bucket_transient_create(start, len, f->c->bucket_alloc);
         APR_BRIGADE_INSERT_TAIL(bb, bucket);
     }
@@ -1463,7 +1528,7 @@ struct coalesce_ctx {
 static apr_status_t ssl_io_filter_coalesce(ap_filter_t *f,
                                            apr_bucket_brigade *bb)
 {
-    apr_bucket *e, *last = NULL;
+    apr_bucket *e, *upto;
     apr_size_t bytes = 0;
     struct coalesce_ctx *ctx = f->ctx;
     unsigned count = 0;
@@ -1490,19 +1555,20 @@ static apr_status_t ssl_io_filter_coalesce(ap_filter_t *f,
              && (ctx == NULL
                  || bytes + ctx->bytes + e->length < COALESCE_BYTES);
          e = APR_BUCKET_NEXT(e)) {
-        last = e;
         if (e->length) count++; /* don't count zero-length buckets */
         bytes += e->length;
     }
+    upto = e;
 
     /* Coalesce the prefix, if:
      * a) more than one bucket is found to coalesce, or
      * b) the brigade contains only a single data bucket, or
-     * c)
+     * c) the data bucket is not last but we have buffered data already.
      */
     if (bytes > 0
         && (count > 1
-            || (count == 1 && APR_BUCKET_NEXT(last) == APR_BRIGADE_SENTINEL(bb)))) {
+            || (upto == APR_BRIGADE_SENTINEL(bb))
+            || (ctx && ctx->bytes > 0))) {
         /* If coalescing some bytes, ensure a context has been
          * created. */
         if (!ctx) {
@@ -1519,7 +1585,7 @@ static apr_status_t ssl_io_filter_coalesce(ap_filter_t *f,
          * normal path of sending the buffer + remaining buckets in
          * brigade.  */
         e = APR_BRIGADE_FIRST(bb);
-        while (e != last) {
+        while (e != upto) {
             apr_size_t len;
             const char *data;
             apr_bucket *next;
@@ -1571,8 +1637,6 @@ static apr_status_t ssl_io_filter_coalesce(ap_filter_t *f,
      * the filter stack, first prepending anything that has been
      * coalesced. */
     if (ctx && ctx->bytes) {
-        apr_bucket *e;
-
         ap_log_cerror(APLOG_MARK, APLOG_TRACE4, 0, f->c,
                       "coalesce: passing on %" APR_SIZE_T_FMT " bytes", ctx->bytes);
 
@@ -1789,6 +1853,7 @@ static apr_status_t ssl_io_filter_buffer(ap_filter_t *f,
 {
     struct modssl_buffer_ctx *ctx = f->ctx;
     apr_status_t rv;
+    apr_bucket *e, *d;
 
     ap_log_cerror(APLOG_MARK, APLOG_TRACE4, 0, f->c,
                   "read from buffered SSL brigade, mode %d, "
@@ -1813,8 +1878,6 @@ static apr_status_t ssl_io_filter_buffer(ap_filter_t *f,
     }
 
     if (mode == AP_MODE_READBYTES) {
-        apr_bucket *e;
-
         /* Partition the buffered brigade. */
         rv = apr_brigade_partition(ctx->bb, bytes, &e);
         if (rv && rv != APR_INCOMPLETE) {
@@ -1829,7 +1892,7 @@ static apr_status_t ssl_io_filter_buffer(ap_filter_t *f,
         if (rv == APR_INCOMPLETE) {
             APR_BRIGADE_CONCAT(bb, ctx->bb);
         } else {
-            apr_bucket *d = APR_BRIGADE_FIRST(ctx->bb);
+            d = APR_BRIGADE_FIRST(ctx->bb);
 
             e = APR_BUCKET_PREV(e);
 
@@ -1856,7 +1919,7 @@ static apr_status_t ssl_io_filter_buffer(ap_filter_t *f,
     }
 
     if (APR_BRIGADE_EMPTY(ctx->bb)) {
-        apr_bucket *e = APR_BRIGADE_LAST(bb);
+        e = APR_BRIGADE_LAST(bb);
 
         /* Ensure that the brigade is terminated by an EOS if the
          * buffered request body has been entirely consumed. */

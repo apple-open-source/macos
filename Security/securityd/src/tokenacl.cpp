@@ -54,7 +54,7 @@ void TokenAcl::instantiateAcl()
 	if (token().resetGeneration(mLastReset))
 		return;
 	
-	secdebug("tokenacl", "%p loading ACLs from tokend", this);
+	secinfo("tokenacl", "%p loading ACLs from tokend", this);
 		
 	// read owner
 	AclOwnerPrototype *owner = NULL;

@@ -30,8 +30,6 @@
 
 #include "config.h"
 
-#if ENABLE(TEMPLATE_ELEMENT)
-
 #include "JSHTMLTemplateElement.h"
 
 #include "HTMLTemplateElement.h"
@@ -43,22 +41,15 @@ using namespace JSC;
 
 namespace WebCore {
 
-JSValue JSHTMLTemplateElement::content(ExecState* exec) const
+JSValue JSHTMLTemplateElement::content(ExecState& state) const
 {
-    JSLockHolder lock(exec);
+    JSLockHolder lock(&state);
 
-    DocumentFragment* content = impl().content();
+    auto wrapper = wrap(&state, globalObject(), wrapped().content());
 
-    JSObject* wrapper = getCachedWrapper(globalObject()->world(), content);
-    if (wrapper)
-        return wrapper;
-
-    wrapper = CREATE_DOM_WRAPPER(globalObject(), DocumentFragment, content);
     PrivateName propertyName;
     const_cast<JSHTMLTemplateElement*>(this)->putDirect(globalObject()->vm(), propertyName, wrapper);
     return wrapper;
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(TEMPLATE_ELEMENT)

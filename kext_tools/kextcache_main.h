@@ -48,12 +48,6 @@ enum {
 * Options common to all kext tools are in kext_tools_util.h.
 *******************************************************************************/
 
-/* Mkext-generation flags.
- */
-// kOptNameMkext always represents most recent format supported
-#define kOptNameMkext                   "mkext"
-#define kOptNameMkext1                  "mkext1"
-#define kOptNameMkext2                  "mkext2"
 #define kOptNameSystemMkext             "system-mkext"
 #define kOptNameVolumeRoot              "volume-root"
 
@@ -117,8 +111,6 @@ enum {
 #define kOptKernel                'K'
 #define kOptLocalRoot             'l'
 #define kOptLocalRootAll          'L'
-// kOptMkext always represents most recent format supported
-#define kOptMkext                 'm'
 #define kOptNetworkRoot           'n'
 #define kOptNetworkRootAll        'N'
 // 'q' in kext_tools_util.h
@@ -137,10 +129,6 @@ enum {
 // Do not use -1, that's getopt() end-of-args return value
 // and can cause confusion
 #define kLongOptLongindexHack             (-2)
-#define kLongOptMkext1                    (-3)
-#define kLongOptMkext2                    (-4)
-// kLongOptMkext always represents most recent format supported
-#define kLongOptMkext                     kLongOptMkext2
 #define kLongOptCompressed                (-5)
 #define kLongOptUncompressed              (-6)
 #define kLongOptSymbols                   (-7)
@@ -177,9 +165,6 @@ struct option sOptInfo[] = {
 
     { kOptNameArch,                  required_argument,  NULL,     kOptArch },
 
-    { kOptNameMkext1,                required_argument,  &longopt, kLongOptMkext1 },
-    { kOptNameMkext2,                required_argument,  &longopt, kLongOptMkext2 },
-    { kOptNameMkext,                 required_argument,  NULL,     kOptMkext },
     { kOptNameSystemMkext,           no_argument,        NULL,     kOptSystemMkext },
     { kOptNameVolumeRoot,            required_argument,  &longopt, kLongOptVolumeRoot },
 
@@ -233,14 +218,11 @@ typedef struct {
     Boolean   printTestResults;     // -t
     Boolean   skipAuthentication;   // -z
 
-    CFURLRef  volumeRootURL;        // for mkext/prelinked kernel
-
-    char    * mkextPath;         // mkext option arg
-    int       mkextVersion;      // -mkext1/-mkext2  0 (no mkext, 1 (old format),
-                                    // or 2 (new format)
+    CFURLRef  volumeRootURL;        // for prelinked kernel
 
     char    * prelinkedKernelPath;            // -c option
-    Boolean   needDefaultPrelinkedKernelInfo; // -c option w/o arg; 
+    int       prelinkedKernel_fd;
+    Boolean   needDefaultPrelinkedKernelInfo; // -c option w/o arg;
                                               // prelinkedKernelURL is parent
                                               // directory of final kernelcache
                                               // until we create the cache
@@ -258,7 +240,7 @@ typedef struct {
     BRUpdateOpts_t updateOpts;      // -U, -f, -Installer, ...
 
     char    * kernelPath;    // overriden by -kernel option
-    CFDataRef kernelFile;    // contents of kernelURL
+    int       kernel_fd;     // File Descriptor for kernelPath
     CFURLRef  symbolDirURL;  // -s option;
 
     CFMutableSetRef    kextIDs;          // -b; must release
@@ -315,9 +297,6 @@ ExitStatus updateSystemPlistCaches(KextcacheArgs * toolArgs);
 ExitStatus updateDirectoryCaches(
     KextcacheArgs * toolArgs,
     CFURLRef folderURL);
-ExitStatus createMkext(
-    KextcacheArgs * toolArgs,
-    Boolean       * fatalOut);
 ExitStatus filterKextsForCache(
     KextcacheArgs     * toolArgs,
     CFMutableArrayRef   kextArray,
@@ -341,6 +320,10 @@ ExitStatus getFilePathModTimePlusOne(
     const char        * filePath,
     struct timeval    * origModTime,
     struct timeval      cacheFileTimes[2]);
+ExitStatus getFileDescriptorModTimePlusOne(
+    int               the_fd,
+    struct timeval *  origModTime,
+    struct timeval    cacheFileTimes[2]);
 Boolean kextMatchesLoadedKextInfo(
     KextcacheArgs     * toolArgs,
     OSKextRef           theKext);

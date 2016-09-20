@@ -35,27 +35,27 @@
  */
 
 #pragma D option quiet
-
+#pragma D option statusrate=15ms
 
 BEGIN
 {
-	ptr_orig = &`max_ncpus;
-	ptr_pos = &`max_ncpus+1;
-	ptr_neg = &`max_ncpus-1;
+	ptr_orig = &`real_ncpus;
+	ptr_pos = &`real_ncpus+1;
+	ptr_neg = &`real_ncpus-1;
 
 	ptr_pos_before = ++ptr_orig;
-	ptr_orig = &`max_ncpus;
+	ptr_orig = &`real_ncpus;
 	ptr_neg_before = --ptr_orig;
 
-	ptr_orig = &`max_ncpus;
+	ptr_orig = &`real_ncpus;
 	ptr_pos_after = ptr_orig++;
-	ptr_orig = &`max_ncpus;
+	ptr_orig = &`real_ncpus;
 	ptr_neg_after = ptr_orig--;
-	ptr_orig = &`max_ncpus;
+	ptr_orig = &`real_ncpus;
 
 }
 
-tick-1
+tick-10ms
 /ptr_pos_before  == ptr_pos && ptr_neg_before == ptr_neg &&
 	ptr_pos_after == ptr_orig && ptr_pos_after == ptr_orig/
 {
@@ -63,7 +63,7 @@ tick-1
 }
 
 
-tick-1
+tick-10ms
 /ptr_pos_before  != ptr_pos || ptr_neg_before != ptr_neg ||
 	ptr_pos_after != ptr_orig || ptr_pos_after != ptr_orig/
 {

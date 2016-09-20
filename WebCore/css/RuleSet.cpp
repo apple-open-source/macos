@@ -42,6 +42,7 @@
 #include "StyleRule.h"
 #include "StyleRuleImport.h"
 #include "StyleSheetContents.h"
+#include "ViewportStyleResolver.h"
 
 #if ENABLE(VIDEO_TRACK)
 #include "TextTrackCue.h"
@@ -168,15 +169,12 @@ RuleData::RuleData(StyleRule* rule, unsigned selectorIndex, unsigned position, A
     SelectorFilter::collectIdentifierHashes(selector(), m_descendantSelectorIdentifierHashes, maximumIdentifierCount);
 }
 
-static void collectFeaturesFromRuleData(RuleFeatureSet& features, const RuleData& ruleData)
+RuleSet::RuleSet()
 {
-    bool hasSiblingSelector;
-    features.collectFeaturesFromSelector(*ruleData.selector(), hasSiblingSelector);
+}
 
-    if (hasSiblingSelector)
-        features.siblingRules.append(RuleFeature(ruleData.rule(), ruleData.selectorIndex(), ruleData.hasDocumentSecurityOrigin()));
-    if (ruleData.containsUncommonAttributeSelector())
-        features.uncommonAttributeRules.append(RuleFeature(ruleData.rule(), ruleData.selectorIndex(), ruleData.hasDocumentSecurityOrigin()));
+RuleSet::~RuleSet()
+{
 }
 
 void RuleSet::addToRuleSet(AtomicStringImpl* key, AtomRuleMap& map, const RuleData& ruleData)
@@ -199,7 +197,7 @@ static unsigned rulesCountForName(const RuleSet::AtomRuleMap& map, AtomicStringI
 void RuleSet::addRule(StyleRule* rule, unsigned selectorIndex, AddRuleFlags addRuleFlags)
 {
     RuleData ruleData(rule, selectorIndex, m_ruleCount++, addRuleFlags);
-    collectFeaturesFromRuleData(m_features, ruleData);
+    m_features.collectFeatures(ruleData);
 
     unsigned classBucketSize = 0;
     const CSSSelector* tagSelector = nullptr;
@@ -221,6 +219,8 @@ void RuleSet::addRule(StyleRule* rule, unsigned selectorIndex, AddRuleFlags addR
 #endif
 
         if (selector->isCustomPseudoElement()) {
+            // FIXME: Custom pseudo elements are handled by the shadow tree's selector filter. It doesn't know about the main DOM.
+            ruleData.disableSelectorFiltering();
             addToRuleSet(selector->value().impl(), m_shadowPseudoElementRules, ruleData);
             return;
         }
@@ -258,6 +258,16 @@ void RuleSet::addRule(StyleRule* rule, unsigned selectorIndex, AddRuleFlags addR
             }
         }
 
+        if (selector->match() == CSSSelector::PseudoClass && selector->pseudoClassType() == CSSSelector::PseudoClassHost) {
+            m_hostPseudoClassRules.append(ruleData);
+            return;
+        }
+        if (selector->match() == CSSSelector::PseudoElement && selector->pseudoElementType() == CSSSelector::PseudoElementSlotted) {
+            // ::slotted pseudo elements work accross shadow boundary making filtering difficult.
+            ruleData.disableSelectorFiltering();
+            m_slottedPseudoElementRules.append(ruleData);
+            return;
+        }
         if (selector->relation() != CSSSelector::SubSelector)
             break;
         selector = selector->tagHistory();
@@ -313,7 +323,7 @@ void RuleSet::addRegionRule(StyleRuleRegion* regionRule, bool hasDocumentSecurit
     // Update the "global" rule count so that proper order is maintained
     m_ruleCount = regionRuleSet->m_ruleCount;
 
-    m_regionSelectorsAndRuleSets.append(RuleSetSelectorPair(regionRule->selectorList().first(), WTF::move(regionRuleSet)));
+    m_regionSelectorsAndRuleSets.append(RuleSetSelectorPair(regionRule->selectorList().first(), WTFMove(regionRuleSet)));
 }
 
 void RuleSet::addChildRules(const Vector<RefPtr<StyleRuleBase>>& rules, const MediaQueryEvaluator& medium, StyleResolver* resolver, bool hasDocumentSecurityOrigin, bool isInitiatingElementInUserAgentShadowTree, AddRuleFlags addRuleFlags)
@@ -325,14 +335,14 @@ void RuleSet::addChildRules(const Vector<RefPtr<StyleRuleBase>>& rules, const Me
             addPageRule(downcast<StyleRulePage>(rule.get()));
         else if (is<StyleRuleMedia>(*rule)) {
             auto& mediaRule = downcast<StyleRuleMedia>(*rule);
-            if ((!mediaRule.mediaQueries() || medium.eval(mediaRule.mediaQueries(), resolver)))
+            if ((!mediaRule.mediaQueries() || medium.evaluate(*mediaRule.mediaQueries(), resolver)))
                 addChildRules(mediaRule.childRules(), medium, resolver, hasDocumentSecurityOrigin, isInitiatingElementInUserAgentShadowTree, addRuleFlags);
         } else if (is<StyleRuleFontFace>(*rule) && resolver) {
             // Add this font face to our set.
-            resolver->document().fontSelector().addFontFaceRule(downcast<StyleRuleFontFace>(rule.get()), isInitiatingElementInUserAgentShadowTree);
+            resolver->document().fontSelector().addFontFaceRule(downcast<StyleRuleFontFace>(*rule.get()), isInitiatingElementInUserAgentShadowTree);
             resolver->invalidateMatchedPropertiesCache();
         } else if (is<StyleRuleKeyframes>(*rule) && resolver)
-            resolver->addKeyframeStyle(downcast<StyleRuleKeyframes>(rule.get()));
+            resolver->addKeyframeStyle(downcast<StyleRuleKeyframes>(*rule));
         else if (is<StyleRuleSupports>(*rule) && downcast<StyleRuleSupports>(*rule).conditionIsSupported())
             addChildRules(downcast<StyleRuleSupports>(*rule).childRules(), medium, resolver, hasDocumentSecurityOrigin, isInitiatingElementInUserAgentShadowTree, addRuleFlags);
 #if ENABLE(CSS_REGIONS)
@@ -348,24 +358,20 @@ void RuleSet::addChildRules(const Vector<RefPtr<StyleRuleBase>>& rules, const Me
     }
 }
 
-void RuleSet::addRulesFromSheet(StyleSheetContents* sheet, const MediaQueryEvaluator& medium, StyleResolver* resolver)
+void RuleSet::addRulesFromSheet(StyleSheetContents& sheet, const MediaQueryEvaluator& medium, StyleResolver* resolver)
 {
-    ASSERT(sheet);
-
-    const Vector<RefPtr<StyleRuleImport>>& importRules = sheet->importRules();
-    for (unsigned i = 0; i < importRules.size(); ++i) {
-        StyleRuleImport* importRule = importRules[i].get();
-        if (importRule->styleSheet() && (!importRule->mediaQueries() || medium.eval(importRule->mediaQueries(), resolver)))
-            addRulesFromSheet(importRule->styleSheet(), medium, resolver);
+    for (auto& rule : sheet.importRules()) {
+        if (rule->styleSheet() && (!rule->mediaQueries() || medium.evaluate(*rule->mediaQueries(), resolver)))
+            addRulesFromSheet(*rule->styleSheet(), medium, resolver);
     }
 
-    bool hasDocumentSecurityOrigin = resolver && resolver->document().securityOrigin()->canRequest(sheet->baseURL());
+    bool hasDocumentSecurityOrigin = resolver && resolver->document().securityOrigin()->canRequest(sheet.baseURL());
     AddRuleFlags addRuleFlags = static_cast<AddRuleFlags>((hasDocumentSecurityOrigin ? RuleHasDocumentSecurityOrigin : 0));
 
     // FIXME: Skip Content Security Policy check when stylesheet is in a user agent shadow tree.
     // See <https://bugs.webkit.org/show_bug.cgi?id=146663>.
     bool isInitiatingElementInUserAgentShadowTree = false;
-    addChildRules(sheet->childRules(), medium, resolver, hasDocumentSecurityOrigin, isInitiatingElementInUserAgentShadowTree, addRuleFlags);
+    addChildRules(sheet.childRules(), medium, resolver, hasDocumentSecurityOrigin, isInitiatingElementInUserAgentShadowTree, addRuleFlags);
 
     if (m_autoShrinkToFitEnabled)
         shrinkToFit();
@@ -375,6 +381,29 @@ void RuleSet::addStyleRule(StyleRule* rule, AddRuleFlags addRuleFlags)
 {
     for (size_t selectorIndex = 0; selectorIndex != notFound; selectorIndex = rule->selectorList().indexOfNextSelectorAfter(selectorIndex))
         addRule(rule, selectorIndex, addRuleFlags);
+}
+
+bool RuleSet::hasShadowPseudoElementRules() const
+{
+    if (!m_shadowPseudoElementRules.isEmpty())
+        return true;
+#if ENABLE(VIDEO_TRACK)
+    if (!m_cuePseudoRules.isEmpty())
+        return true;
+#endif
+    return false;
+}
+
+void RuleSet::copyShadowPseudoElementRulesFrom(const RuleSet& other)
+{
+    for (auto& keyValuePair : other.m_shadowPseudoElementRules)
+        m_shadowPseudoElementRules.add(keyValuePair.key, std::make_unique<RuleDataVector>(*keyValuePair.value));
+
+#if ENABLE(VIDEO_TRACK)
+    // FIXME: We probably shouldn't treat WebVTT as author stylable user agent shadow tree.
+    for (auto& cue : other.m_cuePseudoRules)
+        m_cuePseudoRules.append(cue);
+#endif
 }
 
 static inline void shrinkMapVectorsToFit(RuleSet::AtomRuleMap& map)
@@ -394,6 +423,8 @@ void RuleSet::shrinkToFit()
 #if ENABLE(VIDEO_TRACK)
     m_cuePseudoRules.shrinkToFit();
 #endif
+    m_hostPseudoClassRules.shrinkToFit();
+    m_slottedPseudoElementRules.shrinkToFit();
     m_focusPseudoClassRules.shrinkToFit();
     m_universalRules.shrinkToFit();
     m_pageRules.shrinkToFit();

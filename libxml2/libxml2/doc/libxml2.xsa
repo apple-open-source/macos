@@ -8,95 +8,73 @@
   </vendor>
   <product id="libxml2">
     <name>libxml2</name>
-    <version>2.9.1</version>
-    <last-release> Apr 19 2013</last-release>
+    <version>v2.9.3</version>
+    <last-release> Nov 20 2015</last-release>
     <info-url>http://xmlsoft.org/</info-url>
-    <changes>   -  Features:
-    Support for Python3 (Daniel Veillard),
-    Add xmlXPathSetContextNode and xmlXPathNodeEval (Alex Bligh)
+    <changes>   - Security:
+  CVE-2015-8242 Buffer overead with HTML parser in push mode (Hugh Davenport),
+  CVE-2015-7500 Fix memory access error due to incorrect entities boundaries (Daniel Veillard),
+  CVE-2015-7499-2 Detect incoherency on GROW (Daniel Veillard),
+  CVE-2015-7499-1 Add xmlHaltParser() to stop the parser (Daniel Veillard),
+  CVE-2015-5312 Another entity expansion issue (David Drysdale),
+  CVE-2015-7497 Avoid an heap buffer overflow in xmlDictComputeFastQKey (David Drysdale),
+  CVE-2015-7498 Avoid processing entities after encoding conversion failures (Daniel Veillard),
+  CVE-2015-8035 Fix XZ compression support loop (Daniel Veillard),
+  CVE-2015-7942-2 Fix an error in previous Conditional section patch (Daniel Veillard),
+  CVE-2015-7942 Another variation of overflow in Conditional sections (Daniel Veillard),
+  CVE-2015-1819 Enforce the reader to run in constant memory (Daniel Veillard)
+  CVE-2015-7941_2 Cleanup conditional section error handling (Daniel Veillard),
+  CVE-2015-7941_1 Stop parsing on entities boundaries errors (Daniel Veillard),
   
-   -  Documentation:
-    Add documentation for xmllint --xpath (Daniel Veillard),
-    Fix the URL of the SAX documentation from James (Daniel Veillard),
-    Fix spelling of "length". (Michael Wood)
+   - Documentation:
+  Correct spelling of "calling" (Alex Henrie),
+  Fix a small error in xmllint --format description (Fabien Degomme),
+  Avoid XSS on the search of xmlsoft.org (Daniel Veillard)
   
-   -  Portability:
-    Fix python bindings with versions older than 2.7 (Daniel Veillard),
-    rebuild docs:Makefile.am (Roumen Petrov),
-    elfgcchack.h after rebuild in doc (Roumen Petrov),
-    elfgcchack for buf module (Roumen Petrov),
-    Fix a uneeded and wrong extra link parameter (Daniel Veillard),
-    Few cleanup patches for Windows (Denis Pauk),
-    Fix rpmbuild --nocheck (Mark Salter),
-    Fix for win32/configure.js and WITH_THREAD_ALLOC (Daniel Richard),
-    Fix Broken multi-arch support in xml2-config (Daniel Veillard),
-    Fix a portability issue for GCC &lt; 3.4.0 (Daniel Veillard),
-    Windows build fixes (Daniel Richard),
-    Fix a thread portability problem (Friedrich Haubensak),
-    Downgrade autoconf requirement to 2.63 (Daniel Veillard)
+   - Portability:
+  threads: use forward declarations only for glibc (Michael Heimpold),
+  Update Win32 configure.js to search for configure.ac (Daniel Veillard)
   
-   -  Bug Fixes:
-    Fix a linking error for python bindings (Daniel Veillard),
-    Fix a couple of return without value (Jüri Aedla),
-    Improve the hashing functions (Daniel Franke),
-    Improve handling of xmlStopParser() (Daniel Veillard),
-    Remove risk of lockup in dictionary initialization (Daniel Veillard),
-    Activate detection of encoding in external subset (Daniel Veillard),
-    Fix an output buffer flushing conversion bug (Mikhail Titov),
-    Fix an old bug in xmlSchemaValidateOneElement (Csaba László),
-    Fix configure cannot remove messages (Gilles Espinasse),
-    fix schema validation in combination with xsi:nil (Daniel Veillard),
-    xmlCtxtReadFile doesn't work with literal IPv6 URLs (Steve Wolf),
-    Fix a few problems with setEntityLoader (Alexey Neyman),
-    Detect excessive entities expansion upon replacement (Daniel Veillard),
-    Fix the flushing out of raw buffers on encoding conversions (Daniel,
-Veillard),
-    Fix some buffer conversion issues (Daniel Veillard),
-    When calling xmlNodeDump make sure we grow the buffer quickly (Daniel,
-Veillard),
-    Fix an error in the progressive DTD parsing code (Dan Winship),
-    xmllint should not load DTD by default when using the reader (Daniel,
-Veillard),
-    Try IBM-037 when looking for EBCDIC handlers (Petr Sumbera),
-    Fix potential out of bound access (Daniel Veillard),
-    Fix large parse of file from memory (Daniel Veillard),
-    Fix a bug in the nsclean option of the parser (Daniel Veillard),
-    Fix a regression in 2.9.0 breaking validation while streaming (Daniel,
-Veillard),
-    Remove potential calls to exit() (Daniel Veillard)
+   - Bug Fixes:
+  Bug on creating new stream from entity (Daniel Veillard),
+  Fix some loop issues embedding NEXT (Daniel Veillard),
+  Do not print error context when there is none (Daniel Veillard),
+  Avoid extra processing of MarkupDecl when EOF (Hugh Davenport),
+  Fix parsing short unclosed comment uninitialized access (Daniel Veillard),
+  Add missing Null check in xmlParseExternalEntityPrivate (Gaurav Gupta),
+  Fix a bug in CData error handling in the push parser (Daniel Veillard),
+  Fix a bug on name parsing at the end of current input buffer (Daniel Veillard),
+  Fix the spurious ID already defined error (Daniel Veillard),
+  Fix previous change to node sort order (Nick Wellnhofer),
+  Fix a self assignment issue raised by clang (Scott Graham),
+  Fail parsing early on if encoding conversion failed (Daniel Veillard),
+  Do not process encoding values if the declaration if broken (Daniel Veillard),
+  Silence clang's -Wunknown-attribute (Michael Catanzaro),
+  xmlMemUsed is not thread-safe (Martin von Gagern),
+  Fix support for except in nameclasses (Daniel Veillard),
+  Fix order of root nodes (Nick Wellnhofer),
+  Allow attributes on descendant-or-self axis (Nick Wellnhofer),
+  Fix the fix to Windows locking (Steve Nairn),
+  Fix timsort invariant loop re: Envisage article (Christopher Swenson),
+  Don't add IDs in xmlSetTreeDoc (Nick Wellnhofer),
+  Account for ID attributes in xmlSetTreeDoc (Nick Wellnhofer),
+  Remove various unused value assignments (Philip Withnall),
+  Fix missing entities after CVE-2014-3660 fix (Daniel Veillard),
+  Revert "Missing initialization for the catalog module" (Daniel Veillard)
   
-   -  Improvements:
-    Regenerated API, and testapi, rebuild documentation (Daniel Veillard),
-    Fix tree iterators broken by 2to3 script (Daniel Veillard),
-    update all tests for Python3 and Python2 (Daniel Veillard),
-    A few more fixes for python 3 affecting libxml2.py (Daniel Veillard),
-    Fix compilation on Python3 (Daniel Veillard),
-    Converting apibuild.py to python3 (Daniel Veillard),
-    First pass at starting porting to python3 (Daniel Veillard),
-    updated configure.in for python3 (Daniel Veillard),
-    Add support for xpathRegisterVariable in Python (Shaun McCance),
-    Added a regression tests from bug 694228 data (Daniel Veillard),
-    Cache presence of '&lt;' in entities content (Daniel Veillard),
-    Avoid extra processing on entities (Daniel Veillard),
-    Python binding for xmlRegisterInputCallback (Alexey Neyman),
-    Python bindings: DOM casts everything to xmlNode (Alexey Neyman),
-    Define LIBXML_THREAD_ALLOC_ENABLED via xmlversion.h (Tim Starling),
-    Adding streaming validation to runtest checks (Daniel Veillard),
-    Add a --pushsmall option to xmllint (Daniel Veillard)
+   - Improvements:
+  Reuse xmlHaltParser() where it makes sense (Daniel Veillard),
+  xmlStopParser reset errNo (Daniel Veillard),
+  Reenable xz support by default (Daniel Veillard),
+  Recover unescaped less-than character in HTML recovery parsing (Daniel Veillard),
+  Allow HTML serializer to output HTML5 DOCTYPE (Shaun McCance),
+  Regression test for bug #695699 (Nick Wellnhofer),
+  Add a couple of XPath tests (Nick Wellnhofer),
+  Add Python 3 rpm subpackage (Tomas Radej),
+  libxml2-config.cmake.in: update include directories (Samuel Martin),
+  Adding example from bugs 738805 to regression tests (Daniel Veillard)
   
-   -  Cleanups:
-    Switched comment in file to UTF-8 encoding (Daniel Veillard),
-    Extend gitignore (Daniel Veillard),
-    Silent the new python test on input (Alexey Neyman),
-    Cleanup of a duplicate test (Daniel Veillard),
-    Cleanup on duplicate test expressions (Daniel Veillard),
-    Fix compiler warning after 153cf15905cf4ec080612ada6703757d10caba1e (Patrick,
-Gansterer),
-    Spec cleanups and a fix for multiarch support (Daniel Veillard),
-    Silence a clang warning (Daniel Veillard),
-    Cleanup the Copyright to be pure MIT Licence wording (Daniel Veillard),
-    rand_seed should be static in dict.c (Wouter Van Rooy),
-    Fix typos in parser comments (Jan Pokorný)
+   - Cleanups:
   
 
 </changes>

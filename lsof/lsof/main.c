@@ -34,7 +34,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: main.c,v 1.55 2011/09/07 19:13:49 abe Exp $";
+static char *rcsid = "$Id: main.c,v 1.57 2015/07/07 20:16:58 abe Exp $";
 #endif
 
 
@@ -87,7 +87,7 @@ main(argc, argv)
 
 #if	defined(HAS_STRFTIME)
 	char *fmt = (char *)NULL;
-	size_t fmtl;
+	size_t fmtl = (size_t)0;
 #endif	/* defined(HAS_STRFTIME) */
 
 #if	defined(HASZONES)
@@ -112,14 +112,17 @@ main(argc, argv)
 	else
 	    Pn = argv[0];
 /*
- * Close all file descriptors above 2.
+ * Close enough file descriptors above 2 that library functions will have
+ * open descriptors.
  *
  * Make sure stderr, stdout, and stdin are open descriptors.  Open /dev/null
  * for ones that aren't.  Be terse.
  *
  * Make sure umask allows lsof to define its own file permissions.
  */
-	for (i = 3, n = GET_MAX_FD(); i < n; i++)
+	if ((MaxFd = (int) GET_MAX_FD()) < 53)
+	    MaxFd = 53;
+	for (i = 3; i < MaxFd; i++)
 	    (void) close(i);
 	while (((i = open("/dev/null", O_RDWR, 0)) >= 0) && (i < 2))
 	    ;
@@ -154,7 +157,7 @@ main(argc, argv)
  * Create option mask.
  */
 	(void) snpf(options, sizeof(options),
-	    "?a%sbc:%sD:d:%sf:F:g:hi:%s%slL:%s%snNo:Op:Pr:%ss:S:tT:u:UvVwx:%s%s%s",
+	    "?a%sbc:%sD:d:%s%sf:F:g:hi:%s%slL:%s%snNo:Op:Pr:%ss:S:tT:u:UvVwx:%s%s%s",
 
 #if	defined(HAS_AFS) && defined(HASAOPT)
 	    "A:",
@@ -173,6 +176,12 @@ main(argc, argv)
 #else	/* !defined(HASEOPT) */
 	    "",
 #endif	/* defined(HASEOPT) */
+
+#if	defined(HASEPTOPTS)
+	    "E",
+#else	/* !defined(HASEPTOPTS) */
+	    "",
+#endif	/* defined(HASEPTOPTS) */
 
 #if	defined(HASKOPT)
 	    "k:",
@@ -311,15 +320,8 @@ main(argc, argv)
 	    case 'C':
 		Fncache = (GOp == '-') ? 0 : 1;
 		break;
+
 #endif	/* defined(HASNCACHE) */
-
-#if	defined(HASEOPT)
-	    case 'e':
-		if (enter_efsys(GOv, ((GOp == '+') ? 1 : 0)))
-		    err = 1;
-		break;
-#endif	/* defined(HASEOPT) */
-
 	    case 'd':
 		if (GOp == '+') {
 		    if (enter_dir(GOv, 0))
@@ -353,6 +355,20 @@ main(argc, argv)
 
 		}
 		break;
+
+#if	defined(HASEOPT)
+	    case 'e':
+		if (enter_efsys(GOv, ((GOp == '+') ? 1 : 0)))
+		    err = 1;
+		break;
+#endif	/* defined(HASEOPT) */
+
+#if	defined(HASEPTOPTS)
+	    case 'E':
+		FeptE = (GOp == '+') ? 2 : 1;
+		break;
+#endif	/* defined(HASEPTOPTS) */
+
 	    case 'f':
 		if (!GOv || *GOv == '-' || *GOv == '+') {
 		    Ffilesys = (GOp == '+') ? 2 : 1;
@@ -1275,6 +1291,57 @@ main(argc, argv)
 		NcacheReload = 1;
 #endif	/* defined(HASNCACHE) */
 
+#if	defined(HASEPTOPTS)
+	    /*
+	     * If endpoint info has been requested, make sure it is coded for
+	     * printing.
+	     *
+	     * Lf contents must be preserved, since they may point to a
+	     * malloc()'d area, and since Lf is used throughout the print
+	     */
+		if (FeptE) {
+		    lf = Lf;
+
+		/*
+		 * Check the files that have been selected for printing by
+		 * by some selection criterion other than being a pipe.
+		 */
+		    for (i = 0; i < Nlproc; i++) {
+			Lp = (Nlproc > 1) ? slp[i] : &Lproc[i];
+			if (Lp->pss && (Lp->ept & EPT_PIPE))
+			    (void) process_pinfo(0);
+		    }
+		/*
+		 * In a second pass, process unselected endpoint files,
+		 * possibly selecting them for printing.
+		 */
+		    for (i = 0; i < Nlproc; i++) {
+			Lp = (Nlproc > 1) ? slp[i] : &Lproc[i];
+			if (Lp->ept & EPT_PIPE_END)
+			    (void) process_pinfo(1);
+		    }
+
+# if	defined(HASUXSOCKEPT)
+		/*
+		 * Process UNIX socket endpoint files in a similar fashion.
+		 */
+		    for (i = 0; i < Nlproc; i++) {
+			Lp = (Nlproc > 1) ? slp[i] : &Lproc[i];
+			if (Lp->pss && (Lp->ept & EPT_UXS))
+			    (void) process_uxsinfo(0);
+		    }
+		    for (i = 0; i < Nlproc; i++) {
+			Lp = (Nlproc > 1) ? slp[i] : &Lproc[i];
+			if (Lp->ept & EPT_UXS_END) {
+			    (void) process_uxsinfo(1);
+			}
+		    }
+# endif	/* defined(HASUXSOCKEPT) */
+
+		    Lf = lf;
+		}
+#endif	/* defined(HASEPTOPTS) */
+
 	    /*
 	     * Print the selected processes and count them.
 	     *
@@ -1301,6 +1368,11 @@ main(argc, argv)
 	 * If conditional repeat mode is in effect, see if it's time to exit.
 	 */
 	    if (RptTm) {
+
+#if	defined(HASEPTOPTS)
+		(void) clear_pinfo();
+#endif	/* defined(HASEPTOPTS) */
+
 		if (rc) {
 		    if (!n)
 			break;

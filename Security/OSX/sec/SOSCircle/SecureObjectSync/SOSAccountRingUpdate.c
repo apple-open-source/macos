@@ -29,7 +29,7 @@ static inline bool SOSAccountHasLeft(SOSAccountRef account) {
 }
 #endif
 
-static const char *concordstring[] = {
+static const char * __unused concordstring[] = {
     "kSOSConcordanceTrusted",
     "kSOSConcordanceGenOld",     // kSOSErrorReplay
     "kSOSConcordanceNoUserSig",  // kSOSErrorBadSignature
@@ -63,6 +63,8 @@ static bool SOSAccountIsPeerRetired(SOSAccountRef account, CFSetRef peers){
     else
         result = true;
     
+    CFReleaseNull(peerInfos);
+    
     return result;
 }
 
@@ -93,45 +95,47 @@ static bool SOSAccountBackupSliceKeyBagNeedsFix(SOSAccountRef account, SOSBackup
 }
 
 
+typedef enum {
+    accept,
+    countersign,
+    leave,
+    revert,
+    modify,
+    ignore
+} ringAction_t;
+
+static const char * __unused actionstring[] = {
+    "accept", "countersign", "leave", "revert", "modify", "ignore",
+};
+
 bool SOSAccountHandleUpdateRing(SOSAccountRef account, SOSRingRef prospectiveRing, bool writeUpdate, CFErrorRef *error) {
     bool success = true;
     bool haveOldRing = true;
-    const char *localRemote = writeUpdate ? "local": "remote";
+    const char * __unused localRemote = writeUpdate ? "local": "remote";
     SOSFullPeerInfoRef fpi = account->my_identity;
     SOSPeerInfoRef     pi = SOSFullPeerInfoGetPeerInfo(fpi);
     CFStringRef        peerID = SOSPeerInfoGetPeerID(pi);
     bool               peerActive = (fpi && pi && peerID && SOSAccountIsInCircle(account, NULL));
     
 
-    secnotice("signing", "start:[%s] %@", localRemote, prospectiveRing);
+    secdebug("ringSigning", "start:[%s] %@", localRemote, prospectiveRing);
 
     require_quiet(SOSAccountHasPublicKey(account, error), errOut);
 
     require_action_quiet(prospectiveRing, errOut,
                          SOSCreateError(kSOSErrorIncompatibleCircle, CFSTR("No Ring to work with"), NULL, error));
 
+    require_action_quiet(SOSRingIsStable(prospectiveRing), errOut, SOSCreateError(kSOSErrorIncompatibleCircle, CFSTR("You give rings a bad name"), NULL, error));
+
     // We should at least have a sane ring system in the account object
     require_quiet(SOSAccountCheckForRings(account, error), errOut);
 
     CFStringRef ringName = SOSRingGetName(prospectiveRing);
-    SOSRingRef oldRing = SOSAccountGetRing(account, ringName, NULL);
+    SOSRingRef oldRing = SOSAccountCopyRing(account, ringName, NULL);
 
     SOSTransportCircleRef transport = account->circle_transport;
     
     SOSRingRef newRing = CFRetainSafe(prospectiveRing); // TODO:  SOSAccountCloneRingWithRetirement(account, prospectiveRing, error);
-
-    typedef enum {
-        accept,
-        countersign,
-        leave,
-        revert,
-        modify,
-        ignore
-    } ringAction_t;
-
-    static const char *actionstring[] = {
-        "accept", "countersign", "leave", "revert", "modify", "ignore",
-    };
 
     ringAction_t ringAction = ignore;
 
@@ -154,7 +158,7 @@ bool SOSAccountHandleUpdateRing(SOSAccountRef account, SOSRingRef prospectiveRin
 #endif
 
     if (!oldRing) {
-        oldRing = newRing;
+        oldRing = CFRetainSafe(newRing);
     }
 
     SOSConcordanceStatus concstat = SOSRingConcordanceTrust(fpi, peers, oldRing, newRing, oldKey, account->user_public, peerID, error);
@@ -182,7 +186,7 @@ bool SOSAccountHandleUpdateRing(SOSAccountRef account, SOSRingRef prospectiveRin
         case kSOSConcordanceNoPeerSig:
             ringAction = accept; // We might like this one eventually but don't countersign.
             concStr = CFSTR("No trusted peer signature");
-            secerror("##### No trusted peer signature found, accepting hoping for concordance later %@", newRing);
+            secnotice("signing", "##### No trusted peer signature found, accepting hoping for concordance later %@", newRing);
             break;
         case kSOSConcordanceNoPeer:
             ringAction = leave;
@@ -208,7 +212,9 @@ bool SOSAccountHandleUpdateRing(SOSAccountRef account, SOSRingRef prospectiveRin
             break;
     }
 
-    secnotice("signing", "Decided on action [%s] based on concordance state [%s] and [%s] circle.", actionstring[ringAction], concordstring[concstat], userTrustedoldRing ? "trusted" : "untrusted");
+    (void)concStr;
+    
+    secdebug("ringSigning", "Decided on action [%s] based on concordance state [%s] and [%s] circle.", actionstring[ringAction], concordstring[concstat], userTrustedoldRing ? "trusted" : "untrusted");
 
     SOSRingRef ringToPush = NULL;
     bool iWasInOldRing = peerID && SOSRingHasPeerID(oldRing, peerID);
@@ -221,7 +227,7 @@ bool SOSAccountHandleUpdateRing(SOSAccountRef account, SOSRingRef prospectiveRin
             SOSBackupSliceKeyBagRef bskb = SOSRingCopyBackupSliceKeyBag(newRing, &localError);
 
             if(!bskb) {
-                secnotice("signing", "Backup ring with no backup slice keybag (%@)", localError);
+                secnotice("ringSigning", "Backup ring with no backup slice keybag (%@)", localError);
             } else if (SOSAccountBackupSliceKeyBagNeedsFix(account, bskb)) {
                 ringAction = modify;
             }
@@ -231,7 +237,7 @@ bool SOSAccountHandleUpdateRing(SOSAccountRef account, SOSRingRef prospectiveRin
 
         if (ringAction == modify) {
             CFErrorRef updateError = NULL;
-            CFDictionarySetValue(account->trusted_rings, ringName, newRing);
+            SOSAccountSetRing(account, newRing, ringName, error);
 
             if(SOSAccountUpdateOurPeerInBackup(account, newRing, &updateError)) {
                 secdebug("signing", "Modified backup ring to include us");
@@ -253,13 +259,12 @@ bool SOSAccountHandleUpdateRing(SOSAccountRef account, SOSRingRef prospectiveRin
             if (sosAccountLeaveRing(account, newRing, error)) {
                 ringToPush = newRing;
             } else {
-                secnotice("signing", "Can't leave ring %@", oldRing);
+                secdebug("ringSigning", "Can't leave ring %@", oldRing);
                 success = false;
             }
             ringAction = accept;
         } else {
             // We are not in this ring, but we need to update account with it, since we got it from cloud
-            secnotice("signing", "We are not in this ring, but we need to update account with it");
             ringAction = accept;
         }
     }
@@ -267,21 +272,20 @@ bool SOSAccountHandleUpdateRing(SOSAccountRef account, SOSRingRef prospectiveRin
     if (ringAction == countersign) {
         if (iAmInNewRing) {
             if (SOSRingPeerTrusted(newRing, fpi, NULL)) {
-                secinfo("signing", "Already concur with: %@", newRing);
+                secdebug("ringSigning", "Already concur with: %@", newRing);
             } else {
                 CFErrorRef signingError = NULL;
 
                 if (fpi && SOSRingConcordanceSign(newRing, fpi, &signingError)) {
                     ringToPush = newRing;
-                    secinfo("signing", "Concurred with: %@", newRing);
                 } else {
-                    secerror("Failed to concurrence sign, error: %@  Old: %@ New: %@", signingError, oldRing, newRing);
+                    secerror("Failed to concordance sign, error: %@  Old: %@ New: %@", signingError, oldRing, newRing);
                     success = false;
                 }
                 CFReleaseSafe(signingError);
             }
         } else {
-            secnotice("signing", "Not countersigning, not in ring: %@", newRing);
+            secdebug("ringSigning", "Not countersigning, not in ring: %@", newRing);
         }
         ringAction = accept;
     }
@@ -299,11 +303,7 @@ bool SOSAccountHandleUpdateRing(SOSAccountRef account, SOSRingRef prospectiveRin
             SOSRingRemoveRejection(newRing, peerID);
         }
 
-        CFRetainSafe(oldRing);
-        CFDictionarySetValue(account->trusted_rings, ringName, newRing);
-        // TODO: Why was this?  SOSAccountSetPreviousPublic(account);
-
-        secnotice("signing", "%@, Accepting ring: %@", concStr, newRing);
+        SOSAccountSetRing(account, newRing, ringName, error);
 
         if (pi && account->user_public_trusted
             && SOSRingHasApplicant(oldRing, peerID)
@@ -321,13 +321,12 @@ bool SOSAccountHandleUpdateRing(SOSAccountRef account, SOSRingRef prospectiveRin
             SOSAccountCleanupRetirementTickets(account, RETIREMENT_FINALIZATION_SECONDS, NULL);
         }
 
-        CFReleaseNull(oldRing);
 
         account->circle_rings_retirements_need_attention = true;
 
         if (writeUpdate)
             ringToPush = newRing;
-        SOSUpdateKeyInterest(account);
+        account->key_interests_need_updating = true;
     }
 
     /*
@@ -338,16 +337,16 @@ bool SOSAccountHandleUpdateRing(SOSAccountRef account, SOSRingRef prospectiveRin
 
     if (ringAction == revert) {
         if(haveOldRing && peerActive && SOSRingHasPeerID(oldRing, peerID)) {
-            secnotice("signing", "%@, Rejecting: %@ re-publishing %@", concStr, newRing, oldRing);
+            secdebug("ringSigning", "%@, Rejecting: %@ re-publishing %@", concStr, newRing, oldRing);
             ringToPush = oldRing;
         } else {
-            secnotice("canary", "%@, Rejecting: %@ Have no old circle - would reset", concStr, newRing);
+            secdebug("ringSigning", "%@, Rejecting: %@ Have no old circle - would reset", concStr, newRing);
         }
     }
 
 
     if (ringToPush != NULL) {
-        secnotice("signing", "Pushing:[%s] %@", localRemote, ringToPush);
+        secdebug("ringSigning", "Pushing:[%s] %@", localRemote, ringToPush);
         CFDataRef ringData = SOSRingCopyEncodedData(ringToPush, error);
         if (ringData) {
             success &= SOSTransportCircleRingPostRing(transport, SOSRingGetName(ringToPush), ringData, error);
@@ -356,7 +355,7 @@ bool SOSAccountHandleUpdateRing(SOSAccountRef account, SOSRingRef prospectiveRin
         }
         CFReleaseNull(ringData);
     }
-
+    CFReleaseNull(oldRing);
     CFReleaseSafe(newRing);
     return success;
 errOut:

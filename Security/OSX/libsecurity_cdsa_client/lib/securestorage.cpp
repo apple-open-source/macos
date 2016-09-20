@@ -129,8 +129,16 @@ SSDbImpl::open()
 	DbImpl::open();
 }
 
-SSDbUniqueRecord
+DbUniqueRecord
 SSDbImpl::insert(CSSM_DB_RECORDTYPE recordType,
+                 const CSSM_DB_RECORD_ATTRIBUTE_DATA *attributes,
+                 const CSSM_DATA *data)
+{
+    return DbImpl::insert(recordType, attributes, data);
+}
+
+SSDbUniqueRecord
+SSDbImpl::ssInsert(CSSM_DB_RECORDTYPE recordType,
 				 const CSSM_DB_RECORD_ATTRIBUTE_DATA *attributes,
 				 const CSSM_DATA *data,
 				 const CSSM_RESOURCE_CONTROL_CONTEXT *rc)
@@ -148,7 +156,7 @@ SSDbImpl::insert(CSSM_DB_RECORDTYPE recordType,
 	const CSSM_ACCESS_CREDENTIALS *cred = rc ? rc->AccessCred : NULL;
 	try
 	{
-		return insert(recordType, attributes, data, group, cred);
+		SSDbUniqueRecord ssdbur = ssInsert(recordType, attributes, data, group, cred);
 		if (autoCommit)
 		{
 			// autoCommit was on so commit now that we are done and turn
@@ -157,6 +165,7 @@ SSDbImpl::insert(CSSM_DB_RECORDTYPE recordType,
 			CSSM_DL_PassThrough(dldbh, CSSM_APPLEFILEDL_TOGGLE_AUTOCOMMIT,
 				reinterpret_cast<const void *>(autoCommit), NULL);
 		}
+        return ssdbur;
 	}
 	catch(...)
 	{
@@ -171,13 +180,10 @@ SSDbImpl::insert(CSSM_DB_RECORDTYPE recordType,
 		}
 		throw;
 	}
-
-	// keep the compiler happy -- this path is NEVER taken
-	CssmError::throwMe(0);
 }
 
 SSDbUniqueRecord
-SSDbImpl::insert(CSSM_DB_RECORDTYPE recordType,
+SSDbImpl::ssInsert(CSSM_DB_RECORDTYPE recordType,
 				 const CSSM_DB_RECORD_ATTRIBUTE_DATA *attributes,
 				 const CSSM_DATA *data, const SSGroup &group,
 				 const CSSM_ACCESS_CREDENTIALS *cred)

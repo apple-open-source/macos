@@ -46,7 +46,7 @@ const ClassInfo StringConstructor::s_info = { "Function", &InternalFunction::s_i
 @begin stringConstructorTable
   fromCharCode          stringFromCharCode         DontEnum|Function 1
   fromCodePoint         stringFromCodePoint        DontEnum|Function 1
-  raw                   stringRaw                  DontEnum|Function 1
+  raw                   JSBuiltin                  DontEnum|Function 1
 @end
 */
 
@@ -64,21 +64,16 @@ void StringConstructor::finishCreation(VM& vm, StringPrototype* stringPrototype)
     putDirectWithoutTransition(vm, vm.propertyNames->length, jsNumber(1), ReadOnly | DontEnum | DontDelete);
 }
 
-bool StringConstructor::getOwnPropertySlot(JSObject* object, ExecState* exec, PropertyName propertyName, PropertySlot &slot)
-{
-    return getStaticFunctionSlot<InternalFunction>(exec, stringConstructorTable, jsCast<StringConstructor*>(object), propertyName, slot);
-}
-
 // ------------------------------ Functions --------------------------------
 
 static NEVER_INLINE JSValue stringFromCharCodeSlowCase(ExecState* exec)
 {
     unsigned length = exec->argumentCount();
     UChar* buf;
-    PassRefPtr<StringImpl> impl = StringImpl::createUninitialized(length, buf);
+    auto impl = StringImpl::createUninitialized(length, buf);
     for (unsigned i = 0; i < length; ++i)
         buf[i] = static_cast<UChar>(exec->uncheckedArgument(i).toUInt32(exec));
-    return jsString(exec, impl);
+    return jsString(exec, WTFMove(impl));
 }
 
 static EncodedJSValue JSC_HOST_CALL stringFromCharCode(ExecState* exec)
@@ -125,16 +120,19 @@ static EncodedJSValue JSC_HOST_CALL constructWithStringConstructor(ExecState* ex
     JSGlobalObject* globalObject = asInternalFunction(exec->callee())->globalObject();
     VM& vm = exec->vm();
 
-    if (!exec->argumentCount())
-        return JSValue::encode(StringObject::create(vm, globalObject->stringObjectStructure()));
+    Structure* structure = InternalFunction::createSubclassStructure(exec, exec->newTarget(), globalObject->stringObjectStructure());
+    if (exec->hadException())
+        return JSValue::encode(JSValue());
 
-    return JSValue::encode(StringObject::create(vm, globalObject->stringObjectStructure(), exec->uncheckedArgument(0).toString(exec)));
+    if (!exec->argumentCount())
+        return JSValue::encode(StringObject::create(vm, structure));
+    return JSValue::encode(StringObject::create(vm, structure, exec->uncheckedArgument(0).toString(exec)));
 }
 
 ConstructType StringConstructor::getConstructData(JSCell*, ConstructData& constructData)
 {
     constructData.native.function = constructWithStringConstructor;
-    return ConstructTypeHost;
+    return ConstructType::Host;
 }
 
 JSCell* stringConstructor(ExecState* exec, JSValue argument)
@@ -154,7 +152,7 @@ static EncodedJSValue JSC_HOST_CALL callStringConstructor(ExecState* exec)
 CallType StringConstructor::getCallData(JSCell*, CallData& callData)
 {
     callData.native.function = callStringConstructor;
-    return CallTypeHost;
+    return CallType::Host;
 }
 
 } // namespace JSC

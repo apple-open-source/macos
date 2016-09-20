@@ -377,7 +377,7 @@ kevt_stats(uint32_t off __unused, char *name, int af __unused)
 {
 	static struct kevtstat pkevtstat;
 	struct kevtstat kevtstat;
-	size_t len = sizeof(struct kctlstat);
+	size_t len = sizeof(struct kevtstat);
 	const char *mibvar = "net.systm.kevt.stats";
 	
 	if (sysctlbyname(mibvar, &kevtstat, &len, 0, 0) < 0) {

@@ -37,13 +37,13 @@ struct SVGPropertyTraits<ChannelSelectorType> {
         case CHANNEL_UNKNOWN:
             return emptyString();
         case CHANNEL_R:
-            return "R";
+            return ASCIILiteral("R");
         case CHANNEL_G:
-            return "G";
+            return ASCIILiteral("G");
         case CHANNEL_B:
-            return "B";
+            return ASCIILiteral("B");
         case CHANNEL_A:
-            return "A";
+            return ASCIILiteral("A");
         }
 
         ASSERT_NOT_REACHED();
@@ -73,10 +73,10 @@ public:
 private:
     SVGFEDisplacementMapElement(const QualifiedName& tagName, Document&);
     
-    virtual void parseAttribute(const QualifiedName&, const AtomicString&) override;
-    virtual bool setFilterEffectAttribute(FilterEffect*, const QualifiedName& attrName) override;
-    virtual void svgAttributeChanged(const QualifiedName&) override;
-    virtual RefPtr<FilterEffect> build(SVGFilterBuilder*, Filter&) override;
+    void parseAttribute(const QualifiedName&, const AtomicString&) override;
+    bool setFilterEffectAttribute(FilterEffect*, const QualifiedName& attrName) override;
+    void svgAttributeChanged(const QualifiedName&) override;
+    RefPtr<FilterEffect> build(SVGFilterBuilder*, Filter&) override;
 
     BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGFEDisplacementMapElement)
         DECLARE_ANIMATED_STRING(In1, in1)

@@ -1,3 +1,0 @@
-The tlsnke kext is build as part of the coreTLS project.
-Only an helper library and test app are left here.
-THe tlsnke.h header is also copied here, as it is not exported by coreTLS.

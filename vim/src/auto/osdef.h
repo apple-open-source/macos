@@ -19,7 +19,7 @@
 #endif
 #ifdef HAVE_FSEEKO
 #endif
-#ifdef HAVE_FTELLO
+#ifdef HAVE_FSEEKO
 #endif
 #ifndef ferror	/* let me say it again: "macros should never have prototypes" */
 #endif

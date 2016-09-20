@@ -133,7 +133,7 @@ enum {
     
     kIOPCIConfiguratorAER            = 0x00000008,
     kIOPCIConfiguratorWakeToOff      = 0x00000010,
-    //        = 0x00000020,
+    kIOPCIConfiguratorDeviceMap      = 0x00000020,
 
     kIOPCIConfiguratorLogSaveRestore = 0x00000040,
     kIOPCIConfiguratorDeferHotPlug   = 0x00000080,
@@ -217,14 +217,25 @@ enum {
 };
 
 // value of supportsHotPlug
-enum {
-    kPCIStatic                  = 0,
-    kPCILinkChange              = 1,
-    kPCIHotPlug                 = 2,
-    kPCIHotPlugRoot             = 3,
-    kPCIHotPlugTunnel           = 4,
-    kPCIHotPlugTunnelRoot       = 5,
-    kPCIHotPlugTunnelRootParent = 6,
+enum
+{
+    kPCIHPTypeMask              = 0xf0,
+
+    kPCIHPRoot                  = 0x01,
+    kPCIHPRootParent            = 0x02,
+
+    kPCIStatic                  = 0x00,
+    kPCIStaticTunnel            = kPCIStatic | 0x01,
+    kPCIStaticShared            = kPCIStatic | 0x02,
+
+    kPCILinkChange              = 0x10,
+
+    kPCIHotPlug                 = 0x20,
+    kPCIHotPlugRoot             = kPCIHotPlug | kPCIHPRoot,
+
+    kPCIHotPlugTunnel           = 0x30,
+    kPCIHotPlugTunnelRoot       = kPCIHotPlugTunnel | kPCIHPRoot,
+    kPCIHotPlugTunnelRootParent = kPCIHotPlugTunnel | kPCIHPRootParent,
 };
 
 #define kPCIBridgeMaxCount  256

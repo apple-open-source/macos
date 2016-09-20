@@ -16,17 +16,7 @@
 #ifndef __mod_h2__h2_response__
 #define __mod_h2__h2_response__
 
-struct h2_request;
-struct h2_push;
-
-typedef struct h2_response {
-    int stream_id;
-    int rst_error;
-    int http_status;
-    apr_off_t content_length;
-    apr_table_t *headers;
-    apr_table_t *trailers;
-} h2_response;
+#include "h2.h"
 
 /**
  * Create the response from the status and parsed header lines.
@@ -40,6 +30,7 @@ h2_response *h2_response_create(int stream_id,
                                 int rst_error,
                                 int http_status,
                                 apr_array_header_t *hlines,
+                                apr_table_t *notes,
                                 apr_pool_t *pool);
 
 /**

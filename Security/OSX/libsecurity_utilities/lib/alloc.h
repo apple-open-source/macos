@@ -74,8 +74,13 @@ public:
 	// All right, if you *really* have to have calloc...
 	void *calloc(size_t size, size_t count) throw(std::bad_alloc)
 	{
-		void *addr = malloc(size * count);
-		memset(addr, 0, size * count);
+        size_t bytes = 0;
+        if(__builtin_mul_overflow(size, count, &bytes)) {
+            // Multiplication overflowed.
+            throw std::bad_alloc();
+        }
+		void *addr = malloc(bytes);
+		memset(addr, 0, bytes);
 		return addr;
 	}
 	

@@ -26,7 +26,7 @@
 #import "config.h"
 #import "NetworkProcess.h"
 
-#if PLATFORM(MAC) && ENABLE(NETWORK_PROCESS)
+#if PLATFORM(MAC)
 
 #import "NetworkCache.h"
 #import "NetworkProcessCreationParameters.h"
@@ -36,6 +36,7 @@
 #import "SandboxInitializationParameters.h"
 #import "SecItemShim.h"
 #import "StringUtilities.h"
+#import <WebCore/CFNetworkSPI.h>
 #import <WebCore/CertificateInfo.h>
 #import <WebCore/FileSystem.h>
 #import <WebCore/LocalizedStrings.h>
@@ -46,10 +47,6 @@
 #import <wtf/text/WTFString.h>
 
 using namespace WebCore;
-
-@interface NSURLRequest (Details) 
-+ (void)setAllowsSpecificHTTPSCertificate:(NSArray *)allow forHost:(NSString *)host;
-@end
 
 namespace WebKit {
 
@@ -95,7 +92,7 @@ static void overrideSystemProxies(const String& httpProxy, const String& httpsPr
     }
 
     if ([proxySettings count] > 0)
-        WKCFNetworkSetOverrideSystemProxySettings((CFDictionaryRef)proxySettings);
+        _CFNetworkSetOverrideSystemProxySettings((CFDictionaryRef)proxySettings);
 }
 
 void NetworkProcess::platformInitializeNetworkProcess(const NetworkProcessCreationParameters& parameters)
@@ -144,4 +141,4 @@ void NetworkProcess::platformTerminate()
 
 } // namespace WebKit
 
-#endif // PLATFORM(MAC) && ENABLE(NETWORK_PROCESS)
+#endif // PLATFORM(MAC)

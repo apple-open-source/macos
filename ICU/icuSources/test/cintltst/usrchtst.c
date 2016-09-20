@@ -1,5 +1,5 @@
 /********************************************************************
- * Copyright (c) 2001-2011,2015 International Business Machines 
+ * Copyright (c) 2001-2016 International Business Machines
  * Corporation and others. All Rights Reserved.
  ********************************************************************
  * File usrchtst.c
@@ -2604,8 +2604,8 @@ static void TestStrengthIdentical(void)
     
     UChar pattern[] = {0x05E9, 0x0591, 0x05E9};
     UChar text[]    = {0x05E9, 0x0592, 0x05E9};
-    int32_t pLen = sizeof (pattern) / sizeof(pattern[0]);
-    int32_t tLen = sizeof(text) / sizeof (text[0]);
+    int32_t pLen = UPRV_LENGTHOF(pattern);
+    int32_t tLen = UPRV_LENGTHOF(text);
     int32_t expectedPos = 0;
     int32_t expectedLen = 3;
 
@@ -2656,12 +2656,11 @@ static void TestStrengthIdentical(void)
 * TestUsingSearchCollator
 */
 
-#define ARRAY_LENGTH(array) (sizeof(array)/sizeof(array[0]))
-
 typedef struct {
     const UChar *   pattern;
     const int32_t * offsets;
     int32_t         offsetsLen;
+    const int32_t * matchLens;
 } PatternAndOffsets;
 
 static const UChar scKoText[] = {
@@ -2693,13 +2692,13 @@ static const int32_t scKoSrchOff23[] = { 5, 21, 25 };
 static const int32_t scKoSrchOff45[] = { 7, 30     };
 
 static const PatternAndOffsets scKoSrchPatternsOffsets[] = {
-    { scKoPat0, scKoSrchOff01, ARRAY_LENGTH(scKoSrchOff01) },
-    { scKoPat1, scKoSrchOff01, ARRAY_LENGTH(scKoSrchOff01) },
-    { scKoPat2, scKoSrchOff23, ARRAY_LENGTH(scKoSrchOff23) },
-    { scKoPat3, scKoSrchOff23, ARRAY_LENGTH(scKoSrchOff23) },
-    { scKoPat4, scKoSrchOff45, ARRAY_LENGTH(scKoSrchOff45) },
-    { scKoPat5, scKoSrchOff45, ARRAY_LENGTH(scKoSrchOff45) },
-    { NULL,     NULL,          0                           }
+    { scKoPat0, scKoSrchOff01, UPRV_LENGTHOF(scKoSrchOff01), NULL },
+    { scKoPat1, scKoSrchOff01, UPRV_LENGTHOF(scKoSrchOff01), NULL },
+    { scKoPat2, scKoSrchOff23, UPRV_LENGTHOF(scKoSrchOff23), NULL },
+    { scKoPat3, scKoSrchOff23, UPRV_LENGTHOF(scKoSrchOff23), NULL },
+    { scKoPat4, scKoSrchOff45, UPRV_LENGTHOF(scKoSrchOff45), NULL },
+    { scKoPat5, scKoSrchOff45, UPRV_LENGTHOF(scKoSrchOff45), NULL },
+    { NULL,     NULL,          0,                            NULL }
 };
 
 static const int32_t scKoStndOff01[] = { 3,  9 };
@@ -2708,13 +2707,94 @@ static const int32_t scKoStndOff3[]  = { 25    };
 static const int32_t scKoStndOff45[] = { 7, 30 };
 
 static const PatternAndOffsets scKoStndPatternsOffsets[] = {
-    { scKoPat0, scKoStndOff01, ARRAY_LENGTH(scKoStndOff01) },
-    { scKoPat1, scKoStndOff01, ARRAY_LENGTH(scKoStndOff01) },
-    { scKoPat2, scKoStndOff2,  ARRAY_LENGTH(scKoStndOff2)  },
-    { scKoPat3, scKoStndOff3,  ARRAY_LENGTH(scKoStndOff3)  },
-    { scKoPat4, scKoStndOff45, ARRAY_LENGTH(scKoStndOff45) },
-    { scKoPat5, scKoStndOff45, ARRAY_LENGTH(scKoStndOff45) },
-    { NULL,     NULL,          0                           }
+    { scKoPat0, scKoStndOff01, UPRV_LENGTHOF(scKoStndOff01), NULL },
+    { scKoPat1, scKoStndOff01, UPRV_LENGTHOF(scKoStndOff01), NULL },
+    { scKoPat2, scKoStndOff2,  UPRV_LENGTHOF(scKoStndOff2),  NULL  },
+    { scKoPat3, scKoStndOff3,  UPRV_LENGTHOF(scKoStndOff3),  NULL  },
+    { scKoPat4, scKoStndOff45, UPRV_LENGTHOF(scKoStndOff45), NULL },
+    { scKoPat5, scKoStndOff45, UPRV_LENGTHOF(scKoStndOff45), NULL },
+    { NULL,     NULL,          0,                            NULL }
+};
+
+static const UChar scJaText[] = {
+/*00*/ 0x304D,0x305F,0x0020,0x30AD,0x30BF,0x0020, /* kita, hiragana and katakana */
+/*06*/ 0x304D,0x3060,0x0020,0x30AD,0x30C0,0x0020, /* kida, hiragana and katakana */
+/*12*/ 0x306F,0x306D,0x0020,0x30CF,0x30CD,0x0020, /* hane, hiragana and katakana */
+/*18*/ 0x3070,0x306D,0x0020,0x30D0,0x30CD,0x0020, /* bane, hiragana and katakana */
+/*24*/ 0x3071,0x306D,0x0020,0x30D1,0x30CD,0x0020, /* pane, hiragana and katakana */
+/*30*/ 0
+};
+
+static const UChar scJaPatH0[] = { 0x304D,0x305F,0 }; /* kita, hiragana */
+static const UChar scJaPatK0[] = { 0x30AD,0x30BF,0 }; /* kita, katakana */
+static const UChar scJaPatH1[] = { 0x304D,0x3060,0 }; /* kida, hiragana */
+static const UChar scJaPatK1[] = { 0x30AD,0x30C0,0 }; /* kida, katakana */
+static const UChar scJaPatH2[] = { 0x306F,0x306D,0 }; /* hane, hiragana */
+static const UChar scJaPatK2[] = { 0x30CF,0x30CD,0 }; /* hane, katakana */
+static const UChar scJaPatH3[] = { 0x3070,0x306D,0 }; /* bane, hiragana */
+static const UChar scJaPatK3[] = { 0x30D0,0x30CD,0 }; /* bane, katakana */
+static const UChar scJaPatH4[] = { 0x3071,0x306D,0 }; /* pane, hiragana */
+static const UChar scJaPatK4[] = { 0x30D1,0x30CD,0 }; /* pane, katakana */
+
+static const int32_t scJaStndOff01[]  = { 0, 3, 6, 9 };
+static const int32_t scJaStndOff234[] = { 12, 15, 18, 21, 24, 27 };
+
+static const int32_t scJaSrchOff0[]  = { 0, 3 };
+static const int32_t scJaSrchOff1[]  = { 6, 9 };
+static const int32_t scJaSrchOff2[]  = { 12, 15 };
+static const int32_t scJaSrchOff3[]  = { 18, 21 };
+static const int32_t scJaSrchOff4[]  = { 24, 27 };
+
+static const PatternAndOffsets scJaStndPatternsOffsets[] = {
+    { scJaPatH0, scJaStndOff01,  UPRV_LENGTHOF(scJaStndOff01),  NULL },
+    { scJaPatK0, scJaStndOff01,  UPRV_LENGTHOF(scJaStndOff01),  NULL },
+    { scJaPatH1, scJaStndOff01,  UPRV_LENGTHOF(scJaStndOff01),  NULL },
+    { scJaPatK1, scJaStndOff01,  UPRV_LENGTHOF(scJaStndOff01),  NULL },
+    { scJaPatH2, scJaStndOff234, UPRV_LENGTHOF(scJaStndOff234), NULL },
+    { scJaPatK2, scJaStndOff234, UPRV_LENGTHOF(scJaStndOff234), NULL },
+    { scJaPatH3, scJaStndOff234, UPRV_LENGTHOF(scJaStndOff234), NULL },
+    { scJaPatK3, scJaStndOff234, UPRV_LENGTHOF(scJaStndOff234), NULL },
+    { scJaPatH4, scJaStndOff234, UPRV_LENGTHOF(scJaStndOff234), NULL },
+    { scJaPatK4, scJaStndOff234, UPRV_LENGTHOF(scJaStndOff234), NULL },
+    { NULL,      NULL,           0,                             NULL }
+};
+
+static const PatternAndOffsets scJaSrchPatternsOffsets[] = {
+    { scJaPatH0, scJaSrchOff0,   UPRV_LENGTHOF(scJaSrchOff0), NULL },
+    { scJaPatK0, scJaSrchOff0,   UPRV_LENGTHOF(scJaSrchOff0), NULL },
+    { scJaPatH1, scJaSrchOff1,   UPRV_LENGTHOF(scJaSrchOff1), NULL },
+    { scJaPatK1, scJaSrchOff1,   UPRV_LENGTHOF(scJaSrchOff1), NULL },
+    { scJaPatH2, scJaSrchOff2,   UPRV_LENGTHOF(scJaSrchOff2), NULL },
+    { scJaPatK2, scJaSrchOff2,   UPRV_LENGTHOF(scJaSrchOff2), NULL },
+    { scJaPatH3, scJaSrchOff3,   UPRV_LENGTHOF(scJaSrchOff3), NULL },
+    { scJaPatK3, scJaSrchOff3,   UPRV_LENGTHOF(scJaSrchOff3), NULL },
+    { scJaPatH4, scJaSrchOff4,   UPRV_LENGTHOF(scJaSrchOff4), NULL },
+    { scJaPatK4, scJaSrchOff4,   UPRV_LENGTHOF(scJaSrchOff4), NULL },
+    { NULL,      NULL,           0,                           NULL }
+};
+
+static const UChar scModsText[] = {
+/*00*/ 0x0020,0xD83D,0xDC4D,
+/*03*/ 0x0020,0xD83D,0xDC4D,0xD83C,0xDFFC,
+/*08*/ 0x0020,0xD83D,0xDC4D,0xD83C,0xDFFF,
+/*13*/ 0x0020,0xD83D,0xDC4D,0x0300,
+/*17*/ 0x0020,0
+};
+
+static const UChar scMods0[] = { 0xD83D,0xDC4D,0 }; /* hand with no mods */
+static const UChar scMods1[] = { 0xD83D,0xDC4D,0xD83C,0xDFFC,0 }; /* hand with fitz 3 */
+static const UChar scMods2[] = { 0xD83D,0xDC4D,0xD83C,0xDFFF,0 }; /* hand with fitz 6 */
+static const UChar scMods3[] = { 0xD83D,0xDC4D,0x0300,0 }; /* hand with grave */
+
+static const int32_t scMods012[]  = { 1, 4, 9, 14 };
+static const int32_t scModsLens012[]  = { 2, 4, 4, 3 };
+
+static const PatternAndOffsets scModsPatternsOffsets[] = {
+    { scMods0,   scMods012,      UPRV_LENGTHOF(scMods012), scModsLens012 },
+    { scMods1,   scMods012,      UPRV_LENGTHOF(scMods012), scModsLens012 },
+    { scMods2,   scMods012,      UPRV_LENGTHOF(scMods012), scModsLens012 },
+    { scMods3,   scMods012,      UPRV_LENGTHOF(scMods012), scModsLens012 },
+    { NULL,      NULL,           0,                        NULL }
 };
 
 typedef struct {
@@ -2727,6 +2807,11 @@ static const TUSCItem tuscItems[] = {
     { "root",                  scKoText, scKoStndPatternsOffsets },
     { "root@collation=search", scKoText, scKoSrchPatternsOffsets },
     { "ko@collation=search",   scKoText, scKoSrchPatternsOffsets },
+    { "root@colStrength=primary",                  scJaText, scJaStndPatternsOffsets },
+    { "root@collation=search;colStrength=primary", scJaText, scJaSrchPatternsOffsets },
+    { "ja@colStrength=primary",                    scJaText, scJaStndPatternsOffsets },
+    { "ja@collation=search;colStrength=primary",   scJaText, scJaSrchPatternsOffsets },
+    { "root@collation=search;colStrength=primary", scModsText, scModsPatternsOffsets },
     { NULL,                    NULL,     NULL                    }
 };
 
@@ -2743,35 +2828,49 @@ static void TestUsingSearchCollator(void)
             if ( U_SUCCESS(status) ) {
                 const PatternAndOffsets * patternsOffsetsPtr;
                 for ( patternsOffsetsPtr = tuscItemPtr->patternsAndOffsets; patternsOffsetsPtr->pattern != NULL; patternsOffsetsPtr++) {
-                    usearch_setPattern(usrch, patternsOffsetsPtr->pattern, -1, &status);
+                    int32_t patLen = u_strlen(patternsOffsetsPtr->pattern);
+                    usearch_setPattern(usrch, patternsOffsetsPtr->pattern, patLen, &status);
                     if ( U_SUCCESS(status) ) {
                         int32_t offset;
                         const int32_t * nextOffsetPtr;
                         const int32_t * limitOffsetPtr;
+                        const int32_t * nextMatchLenPtr;
 
                         usearch_reset(usrch);
                         nextOffsetPtr = patternsOffsetsPtr->offsets;
                         limitOffsetPtr = patternsOffsetsPtr->offsets + patternsOffsetsPtr->offsetsLen;
+                        nextMatchLenPtr = patternsOffsetsPtr->matchLens;
                         while (TRUE) {
                             offset = usearch_next(usrch, &status);
                             if ( U_FAILURE(status) || offset == USEARCH_DONE ) {
                                 break;
                             }
                             if ( nextOffsetPtr < limitOffsetPtr ) {
-                                 if (offset != *nextOffsetPtr) {
-                                     log_err("error, locale %s, expected usearch_next %d, got %d\n", tuscItemPtr->locale, *nextOffsetPtr, offset);
-                                     nextOffsetPtr = limitOffsetPtr;
-                                     break;
-                                 }
-                                 nextOffsetPtr++;
+                                if (offset != *nextOffsetPtr) {
+                                    log_err("error, locale %s, patn (%d) %04X %04X..., expected usearch_next %d, got %d\n",
+                                             tuscItemPtr->locale, patLen, patternsOffsetsPtr->pattern[0], patternsOffsetsPtr->pattern[1], *nextOffsetPtr, offset);
+                                    nextOffsetPtr = limitOffsetPtr;
+                                    break;
+                                } else  if (nextMatchLenPtr != NULL) {
+                                    int32_t matchLen = usearch_getMatchedLength(usrch);
+                                    if (matchLen != *nextMatchLenPtr) {
+                                        log_err("error, locale %s, patn (%d) %04X %04X..., offset %d, expected matchLen %d, got %d\n",
+                                                tuscItemPtr->locale, patLen, patternsOffsetsPtr->pattern[0], patternsOffsetsPtr->pattern[1], offset, *nextMatchLenPtr, matchLen);
+                                    }
+                                    nextMatchLenPtr++;
+                                }
+                                nextOffsetPtr++;
                             } else {
-                                log_err("error, locale %s, usearch_next returned more matches than expected\n", tuscItemPtr->locale );
+                                log_err("error, locale %s, patn (%d) %04X %04X..., usearch_next returned more matches than expected\n",
+                                        tuscItemPtr->locale, patLen, patternsOffsetsPtr->pattern[0], patternsOffsetsPtr->pattern[1] );
                             }
                         }
                         if ( U_FAILURE(status) ) {
-                            log_err("error, locale %s, usearch_next failed: %s\n", tuscItemPtr->locale, u_errorName(status) );
+                            log_err("error, locale %s, patn (%d) %04X %04X..., usearch_next failed: %s\n",
+                                    tuscItemPtr->locale, patLen, patternsOffsetsPtr->pattern[0], patternsOffsetsPtr->pattern[1], u_errorName(status) );
                         } else if ( nextOffsetPtr < limitOffsetPtr ) {
-                            log_err("error, locale %s, usearch_next returned fewer matches than expected\n", tuscItemPtr->locale );
+                            log_err("error, locale %s, patn (%d) %04X %04X..., usearch_next returned fewer matches than expected\n",
+                                    tuscItemPtr->locale, patLen, patternsOffsetsPtr->pattern[0], patternsOffsetsPtr->pattern[1] );
                         }
 
                         status = U_ZERO_ERROR;
@@ -2786,22 +2885,27 @@ static void TestUsingSearchCollator(void)
                             if ( nextOffsetPtr > limitOffsetPtr ) {
                                 nextOffsetPtr--;
                                 if (offset != *nextOffsetPtr) {
-                                     log_err("error, locale %s, expected usearch_previous %d, got %d\n", tuscItemPtr->locale, *nextOffsetPtr, offset);
-                                     nextOffsetPtr = limitOffsetPtr;
-                                      break;
+                                    log_err("error, locale %s, patn (%d) %04X %04X..., expected usearch_previous %d, got %d\n",
+                                            tuscItemPtr->locale, patLen, patternsOffsetsPtr->pattern[0], patternsOffsetsPtr->pattern[1], *nextOffsetPtr, offset);
+                                    nextOffsetPtr = limitOffsetPtr;
+                                    break;
                                 }
                             } else {
-                                log_err("error, locale %s, usearch_previous returned more matches than expected\n", tuscItemPtr->locale );
+                                log_err("error, locale %s, patn (%d) %04X %04X..., usearch_previous returned more matches than expected\n",
+                                        tuscItemPtr->locale, patLen, patternsOffsetsPtr->pattern[0], patternsOffsetsPtr->pattern[1] );
                             }
                         }
                         if ( U_FAILURE(status) ) {
-                            log_err("error, locale %s, usearch_previous failed: %s\n", tuscItemPtr->locale, u_errorName(status) );
+                            log_err("error, locale %s, patn (%d) %04X %04X..., usearch_previous failed: %s\n", 
+                                    tuscItemPtr->locale, patLen, patternsOffsetsPtr->pattern[0], patternsOffsetsPtr->pattern[1], u_errorName(status) );
                         } else if ( nextOffsetPtr > limitOffsetPtr ) {
-                            log_err("error, locale %s, usearch_previous returned fewer matches than expected\n", tuscItemPtr->locale );
+                            log_err("error, locale %s, patn (%d) %04X %04X..., usearch_previous returned fewer matches than expected\n",
+                                    tuscItemPtr->locale, patLen, patternsOffsetsPtr->pattern[0], patternsOffsetsPtr->pattern[1] );
                         }
 
                     } else {
-                        log_err("error, locale %s, usearch_setPattern failed: %s\n", tuscItemPtr->locale, u_errorName(status) );
+                        log_err("error, locale %s, usearch_setPattern failed: %s\n",
+                                tuscItemPtr->locale, u_errorName(status) );
                     }
                 }
                 usearch_close(usrch);
@@ -2898,8 +3002,8 @@ static void TestPCEBuffer_100df(void) {
     { 0x0020, 0x0020, 0x00df, 0x0020, 0x0041, 0x00df, 0x0020, 0x0061, 0x00df, 0x0020, 0x00c5, 0x00df, 0x0020, 0x212b, 0x00df, 0x0020, 0x0041, 0x030a, 0x00df, 0x0020, 0x00e5, 0x00df, 0x0020, 0x0061, 0x02da, 0x00df, 0x0020, 0x0061, 0x030a, 0x00df, 0x0020, 0xd8fa, 0xdeae, 0x00df, 0x0020, 0x2027, 0x00df }; /* 38 cp, 9 of them unpaired surrogates */
   UChar source[] = 
     { 0x0020, 0x0020, 0x00df, 0x0020, 0x0041, 0x00df, 0x0020, 0x0061, 0x00df, 0x0020, 0x00c5, 0x00df, 0x0020, 0x212b, 0x00df, 0x0020, 0x0041, 0x030a, 0x00df, 0x0020, 0x00e5, 0x00df, 0x0020, 0x0061, 0x02da, 0x00df, 0x0020, 0x0061, 0x030a, 0x00df, 0x0020, 0xd8fa, 0xdeae, 0x00df, 0x0020, 0x2027, 0x00df };
-  uint32_t searchLen = sizeof(search)/sizeof(UChar);
-  uint32_t sourceLen = sizeof(source)/sizeof(UChar);
+  uint32_t searchLen = UPRV_LENGTHOF(search);
+  uint32_t sourceLen = UPRV_LENGTHOF(source);
   TestPCEBuffer_with(search,searchLen,source,sourceLen);
  }
 
@@ -2909,8 +3013,8 @@ static void TestPCEBuffer_2surr(void) {
     { 0x0020, 0x0020, 0xdfff, 0x0020, 0x0041, 0xdfff, 0x0020, 0x0061, 0xdfff, 0x0020, 0x00c5, 0xdfff, 0x0020, 0x212b, 0xdfff, 0x0020, 0x0041, 0x030a, 0xdfff, 0x0020, 0x00e5, 0xdfff, 0x0020, 0x0061, 0x02da, 0xdfff, 0x0020, 0x0061, 0x030a, 0xdfff, 0x0020, 0xd8fa, 0xdeae, 0xdfff, 0x0020, 0x2027, 0xdfff }; /* 38 cp, 9 of them unpaired surrogates */
   UChar source[] = 
     { 0x0020, 0x0020, 0xdfff, 0x0020, 0x0041, 0xdfff, 0x0020, 0x0061, 0xdfff, 0x0020, 0x00c5, 0xdfff, 0x0020, 0x212b, 0xdfff, 0x0020, 0x0041, 0x030a, 0xdfff, 0x0020, 0x00e5, 0xdfff, 0x0020, 0x0061, 0x02da, 0xdfff, 0x0020, 0x0061, 0x030a, 0xdfff, 0x0020, 0xd8fa, 0xdeae, 0xdfff, 0x0020, 0x2027, 0xdfff };
-  uint32_t searchLen = sizeof(search)/sizeof(UChar);
-  uint32_t sourceLen = sizeof(source)/sizeof(UChar);
+  uint32_t searchLen = UPRV_LENGTHOF(search);
+  uint32_t sourceLen = UPRV_LENGTHOF(source);
   TestPCEBuffer_with(search,searchLen,source,sourceLen);
 }
 
@@ -2929,8 +3033,8 @@ static void TestMatchFollowedByIgnorables(void) {
     int32_t matchLength = 0;
     const int32_t expectedMatchLength = 1;
 
-    searchLen = sizeof(search)/sizeof(UChar);
-    sourceLen = sizeof(source)/sizeof(UChar);
+    searchLen = UPRV_LENGTHOF(search);
+    sourceLen = UPRV_LENGTHOF(source);
 
     coll = ucol_openFromShortString("LHR_AN_CX_EX_FX_HX_NX_S3",
                                     FALSE,
@@ -2987,7 +3091,7 @@ static void TestMatchFollowedByIgnorables(void) {
     ucol_close(coll);
 }
 
-static void TestIndicPrefixMatch(void) // <rdar://problem/18063262>
+static void TestIndicPrefixMatch(void)
 {
     int count = 0;
     UErrorCode status = U_ZERO_ERROR;

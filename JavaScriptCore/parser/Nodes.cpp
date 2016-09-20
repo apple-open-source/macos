@@ -1,7 +1,7 @@
 /*
 *  Copyright (C) 1999-2002 Harri Porten (porten@kde.org)
 *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
-*  Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2013 Apple Inc. All rights reserved.
+*  Copyright (C) 2003-2009, 2013, 2016 Apple Inc. All rights reserved.
 *  Copyright (C) 2007 Cameron Zwarich (cwzwarich@uwaterloo.ca)
 *  Copyright (C) 2007 Maks Orlovich
 *  Copyright (C) 2007 Eric Seidel <eric@webkit.org>
@@ -32,14 +32,12 @@
 #include "JIT.h"
 #include "JSFunction.h"
 #include "JSGlobalObject.h"
-#include "JSNameScope.h"
 #include "LabelScope.h"
 #include "Lexer.h"
 #include "JSCInlines.h"
 #include "Parser.h"
 #include "PropertyNameArray.h"
 #include "RegExpObject.h"
-#include "SamplingTool.h"
 #include <wtf/Assertions.h>
 #include <wtf/RefCountedLeakCounter.h>
 #include <wtf/Threading.h>
@@ -89,25 +87,27 @@ ScopeNode::ScopeNode(ParserArena& parserArena, const JSTokenLocation& startLocat
     , m_startStartOffset(startLocation.startOffset)
     , m_startLineStartOffset(startLocation.lineStartOffset)
     , m_features(inStrictContext ? StrictModeFeature : NoFeatures)
+    , m_innerArrowFunctionCodeFeatures(NoInnerArrowFunctionFeatures)
     , m_numConstants(0)
     , m_statements(0)
 {
 }
 
-ScopeNode::ScopeNode(ParserArena& parserArena, const JSTokenLocation& startLocation, const JSTokenLocation& endLocation, const SourceCode& source, SourceElements* children, VarStack& varStack, FunctionStack& funcStack, IdentifierSet& capturedVariables, CodeFeatures features, int numConstants)
+ScopeNode::ScopeNode(ParserArena& parserArena, const JSTokenLocation& startLocation, const JSTokenLocation& endLocation, const SourceCode& source, SourceElements* children, VariableEnvironment& varEnvironment, FunctionStack&& funcStack, VariableEnvironment& lexicalVariables, UniquedStringImplPtrSet&& sloppyModeHoistedFunctions, CodeFeatures features, InnerArrowFunctionCodeFeatures innerArrowFunctionCodeFeatures, int numConstants)
     : StatementNode(endLocation)
     , ParserArenaRoot(parserArena)
+    , VariableEnvironmentNode(lexicalVariables, WTFMove(funcStack))
     , m_startLineNumber(startLocation.line)
     , m_startStartOffset(startLocation.startOffset)
     , m_startLineStartOffset(startLocation.lineStartOffset)
     , m_features(features)
+    , m_innerArrowFunctionCodeFeatures(innerArrowFunctionCodeFeatures)
     , m_source(source)
+    , m_sloppyModeHoistedFunctions(WTFMove(sloppyModeHoistedFunctions))
     , m_numConstants(numConstants)
     , m_statements(children)
 {
-    m_varStack.swap(varStack);
-    m_functionStack.swap(funcStack);
-    m_capturedVariables.swap(capturedVariables);
+    m_varDeclarations.swap(varEnvironment);
 }
 
 StatementNode* ScopeNode::singleStatement() const
@@ -117,83 +117,63 @@ StatementNode* ScopeNode::singleStatement() const
 
 // ------------------------------ ProgramNode -----------------------------
 
-ProgramNode::ProgramNode(ParserArena& parserArena, const JSTokenLocation& startLocation, const JSTokenLocation& endLocation, unsigned startColumn, unsigned endColumn, SourceElements* children, VarStack& varStack, FunctionStack& funcStack, IdentifierSet& capturedVariables, const SourceCode& source, CodeFeatures features, int numConstants)
-    : ScopeNode(parserArena, startLocation, endLocation, source, children, varStack, funcStack, capturedVariables, features, numConstants)
+ProgramNode::ProgramNode(ParserArena& parserArena, const JSTokenLocation& startLocation, const JSTokenLocation& endLocation, unsigned startColumn, unsigned endColumn, SourceElements* children, VariableEnvironment& varEnvironment, FunctionStack&& funcStack, VariableEnvironment& lexicalVariables, UniquedStringImplPtrSet&& sloppyModeHoistedFunctions, FunctionParameters*, const SourceCode& source, CodeFeatures features, InnerArrowFunctionCodeFeatures innerArrowFunctionCodeFeatures, int numConstants)
+    : ScopeNode(parserArena, startLocation, endLocation, source, children, varEnvironment, WTFMove(funcStack), lexicalVariables, WTFMove(sloppyModeHoistedFunctions), features, innerArrowFunctionCodeFeatures, numConstants)
     , m_startColumn(startColumn)
     , m_endColumn(endColumn)
 {
 }
 
-void ProgramNode::setClosedVariables(Vector<RefPtr<UniquedStringImpl>>&& closedVariables)
-{
-    m_closedVariables = WTF::move(closedVariables);
-}
+// ------------------------------ ModuleProgramNode -----------------------------
 
-// ------------------------------ EvalNode -----------------------------
-
-EvalNode::EvalNode(ParserArena& parserArena, const JSTokenLocation& startLocation, const JSTokenLocation& endLocation, unsigned, unsigned endColumn, SourceElements* children, VarStack& varStack, FunctionStack& funcStack, IdentifierSet& capturedVariables, const SourceCode& source, CodeFeatures features, int numConstants)
-    : ScopeNode(parserArena, startLocation, endLocation, source, children, varStack, funcStack, capturedVariables, features, numConstants)
+ModuleProgramNode::ModuleProgramNode(ParserArena& parserArena, const JSTokenLocation& startLocation, const JSTokenLocation& endLocation, unsigned startColumn, unsigned endColumn, SourceElements* children, VariableEnvironment& varEnvironment, FunctionStack&& funcStack, VariableEnvironment& lexicalVariables, UniquedStringImplPtrSet&& sloppyModeHoistedFunctions, FunctionParameters*, const SourceCode& source, CodeFeatures features, InnerArrowFunctionCodeFeatures innerArrowFunctionCodeFeatures, int numConstants)
+    : ScopeNode(parserArena, startLocation, endLocation, source, children, varEnvironment, WTFMove(funcStack), lexicalVariables, WTFMove(sloppyModeHoistedFunctions), features, innerArrowFunctionCodeFeatures, numConstants)
+    , m_startColumn(startColumn)
     , m_endColumn(endColumn)
 {
 }
 
-// ------------------------------ FunctionBodyNode -----------------------------
+// ------------------------------ EvalNode -----------------------------
 
-Ref<FunctionParameters> FunctionParameters::create(ParameterNode* firstParameter)
+EvalNode::EvalNode(ParserArena& parserArena, const JSTokenLocation& startLocation, const JSTokenLocation& endLocation, unsigned, unsigned endColumn, SourceElements* children, VariableEnvironment& varEnvironment, FunctionStack&& funcStack, VariableEnvironment& lexicalVariables, UniquedStringImplPtrSet&& sloppyModeHoistedFunctions, FunctionParameters*, const SourceCode& source, CodeFeatures features, InnerArrowFunctionCodeFeatures innerArrowFunctionCodeFeatures, int numConstants)
+    : ScopeNode(parserArena, startLocation, endLocation, source, children, varEnvironment, WTFMove(funcStack), lexicalVariables, WTFMove(sloppyModeHoistedFunctions), features, innerArrowFunctionCodeFeatures, numConstants)
+    , m_endColumn(endColumn)
 {
-    unsigned parameterCount = 0;
-    for (ParameterNode* parameter = firstParameter; parameter; parameter = parameter->nextParam())
-        ++parameterCount;
-
-    size_t objectSize = sizeof(FunctionParameters) - sizeof(void*) + sizeof(DestructuringPatternNode*) * parameterCount;
-    void* slot = fastMalloc(objectSize);
-    return adoptRef(*new (slot) FunctionParameters(firstParameter, parameterCount));
 }
 
-FunctionParameters::FunctionParameters(ParameterNode* firstParameter, unsigned size)
-    : m_size(size)
-{
-    unsigned i = 0;
-    for (ParameterNode* parameter = firstParameter; parameter; parameter = parameter->nextParam()) {
-        auto pattern = parameter->pattern();
-        pattern->ref();
-        patterns()[i++] = pattern;
-    }
-}
+// ------------------------------ FunctionMetadataNode -----------------------------
 
-FunctionParameters::~FunctionParameters()
-{
-    for (unsigned i = 0; i < m_size; ++i)
-        patterns()[i]->deref();
-}
-
-FunctionBodyNode::FunctionBodyNode(
+FunctionMetadataNode::FunctionMetadataNode(
     ParserArena&, const JSTokenLocation& startLocation, 
     const JSTokenLocation& endLocation, unsigned startColumn, unsigned endColumn, 
-    int functionKeywordStart, int functionNameStart, int parametersStart,
-    bool isInStrictContext, ConstructorKind constructorKind)
-        : StatementNode(endLocation)
+    int functionKeywordStart, int functionNameStart, int parametersStart, bool isInStrictContext, 
+    ConstructorKind constructorKind, SuperBinding superBinding, unsigned parameterCount, SourceParseMode mode, bool isArrowFunctionBodyExpression)
+        : Node(endLocation)
         , m_startColumn(startColumn)
         , m_endColumn(endColumn)
         , m_functionKeywordStart(functionKeywordStart)
         , m_functionNameStart(functionNameStart)
         , m_parametersStart(parametersStart)
         , m_startStartOffset(startLocation.startOffset)
+        , m_parameterCount(parameterCount)
+        , m_parseMode(mode)
         , m_isInStrictContext(isInStrictContext)
+        , m_superBinding(static_cast<unsigned>(superBinding))
         , m_constructorKind(static_cast<unsigned>(constructorKind))
+        , m_isArrowFunctionBodyExpression(isArrowFunctionBodyExpression)
 {
+    ASSERT(m_superBinding == static_cast<unsigned>(superBinding));
     ASSERT(m_constructorKind == static_cast<unsigned>(constructorKind));
 }
 
-void FunctionBodyNode::finishParsing(const SourceCode& source, ParameterNode* firstParameter, const Identifier& ident, enum FunctionMode functionMode)
+void FunctionMetadataNode::finishParsing(const SourceCode& source, const Identifier& ident, FunctionMode functionMode)
 {
     m_source = source;
-    m_parameters = FunctionParameters::create(firstParameter);
     m_ident = ident;
     m_functionMode = functionMode;
 }
 
-void FunctionBodyNode::setEndPosition(JSTextPosition position)
+void FunctionMetadataNode::setEndPosition(JSTextPosition position)
 {
     m_lastLine = position.line;
     m_endColumn = position.offset - position.lineStartOffset;
@@ -201,19 +181,42 @@ void FunctionBodyNode::setEndPosition(JSTextPosition position)
 
 // ------------------------------ FunctionNode -----------------------------
 
-FunctionNode::FunctionNode(ParserArena& parserArena, const JSTokenLocation& startLocation, const JSTokenLocation& endLocation, unsigned startColumn, unsigned endColumn, SourceElements* children, VarStack& varStack, FunctionStack& funcStack, IdentifierSet& capturedVariables, const SourceCode& sourceCode, CodeFeatures features, int numConstants)
-    : ScopeNode(parserArena, startLocation, endLocation, sourceCode, children, varStack, funcStack, capturedVariables, features, numConstants)
+FunctionNode::FunctionNode(ParserArena& parserArena, const JSTokenLocation& startLocation, const JSTokenLocation& endLocation, unsigned startColumn, unsigned endColumn, SourceElements* children, VariableEnvironment& varEnvironment, FunctionStack&& funcStack, VariableEnvironment& lexicalVariables, UniquedStringImplPtrSet&& sloppyModeHoistedFunctions, FunctionParameters* parameters, const SourceCode& sourceCode, CodeFeatures features, InnerArrowFunctionCodeFeatures innerArrowFunctionCodeFeatures, int numConstants)
+    : ScopeNode(parserArena, startLocation, endLocation, sourceCode, children, varEnvironment, WTFMove(funcStack), lexicalVariables, WTFMove(sloppyModeHoistedFunctions), features, innerArrowFunctionCodeFeatures, numConstants)
+    , m_parameters(parameters)
     , m_startColumn(startColumn)
     , m_endColumn(endColumn)
 {
 }
 
-void FunctionNode::finishParsing(PassRefPtr<FunctionParameters> parameters, const Identifier& ident, enum FunctionMode functionMode)
+void FunctionNode::finishParsing(const Identifier& ident, FunctionMode functionMode)
 {
     ASSERT(!source().isNull());
-    m_parameters = parameters;
     m_ident = ident;
     m_functionMode = functionMode;
+}
+
+bool PropertyListNode::hasStaticallyNamedProperty(const Identifier& propName)
+{
+    PropertyListNode* list = this;
+    while (list) {
+        const Identifier* currentNodeName = list->m_node->name();
+        if (currentNodeName && *currentNodeName == propName)
+            return true;
+        list = list->m_next;
+    }
+    return false;
+}
+
+VariableEnvironmentNode::VariableEnvironmentNode(VariableEnvironment& lexicalVariables)
+{
+    m_lexicalVariables.swap(lexicalVariables);
+}
+
+VariableEnvironmentNode::VariableEnvironmentNode(VariableEnvironment& lexicalVariables, FunctionStack&& functionStack)
+{
+    m_lexicalVariables.swap(lexicalVariables);
+    m_functionStack = WTFMove(functionStack);
 }
 
 } // namespace JSC

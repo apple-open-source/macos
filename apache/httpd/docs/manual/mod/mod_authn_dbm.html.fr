@@ -19,7 +19,7 @@
 <div id="page-header">
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p>
 <p class="apache">Serveur Apache HTTP Version 2.4</p>
-<img alt="" src="../images/feather.gif" /></div>
+<img alt="" src="../images/feather.png" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
 <a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">Serveur HTTP</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.4</a> &gt; <a href="./">Modules</a></div>
@@ -55,7 +55,7 @@ d'Apache</td></tr></table>
 <li><img alt="" src="../images/down.gif" /> <a href="#authdbmtype">AuthDBMType</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#authdbmuserfile">AuthDBMUserFile</a></li>
 </ul>
-<h3>Voir aussi</h3>
+<h3>Traitement des bugs</h3><ul class="seealso"><li><a href="https://www.apache.org/dist/httpd/CHANGES_2.4">Journal des modifications de httpd</a></li><li><a href="https://bz.apache.org/bugzilla/buglist.cgi?bug_status=__open__&amp;list_id=144532&amp;product=Apache%20httpd-2&amp;query_format=specific&amp;order=changeddate%20DESC%2Cpriority%2Cbug_severity&amp;component=mod_authn_dbm">Problèmes connus</a></li><li><a href="https://bz.apache.org/bugzilla/enter_bug.cgi?product=Apache%20httpd-2&amp;component=mod_authn_dbm">Signaler un bug</a></li></ul><h3>Voir aussi</h3>
 <ul class="seealso">
 <li><code class="directive"><a href="../mod/mod_authn_core.html#authname">AuthName</a></code></li>
 <li><code class="directive"><a href="../mod/mod_authn_core.html#authtype">AuthType</a></code></li>
@@ -69,7 +69,7 @@ d'Apache</td></tr></table>
 <li><code class="program"><a href="../programs/htdbm.html">htdbm</a></code></li>
 <li><a href="../misc/password_encryptions.html">Formats de mots de
 passe</a></li>
-</ul><ul class="seealso"><li><a href="#comments_section">Commentaires</a></li></ul></div>
+<li><a href="#comments_section">Commentaires</a></li></ul></div>
 
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="authdbmtype" id="authdbmtype">Directive</a> <a name="AuthDBMType" id="AuthDBMType">AuthDBMType</a></h2>
@@ -86,7 +86,13 @@ stocker les mots de passe</td></tr>
     <p>Cette directive permet de définir le type de fichier de base de
     données utilisé pour stocker les mots de passe. Le type de base de
     données par défaut est défini à la compilation. La liste des autres
-    types de bases de données disponibles dépend aussi de la <a href="../install.html#dbm">configuration de la compilation</a>.</p>
+    types de bases de données disponibles dépend aussi de la <a href="../programs/configure.html#options">configuration de la
+    compilation</a>.</p>
+
+    <p>Par exemple, pour activer le support de Berkeley DB (correspondant au
+    type <code>db</code>), il faut ajouter l'option
+    <code>--with-berkeley-db</code> à la ligne de commande configure de httpd
+    pour générer le DSO approprié.</p>
 
     <p>Il est impératif que le programme que vous utilisez pour créer
     vos fichiers de mots de passe soit configuré pour utiliser le même
@@ -173,7 +179,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_authn_dbm.ht
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

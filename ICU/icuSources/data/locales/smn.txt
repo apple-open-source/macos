@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/smn.xml
@@ -84,7 +84,7 @@ smn{
             }
         }
     }
-    Version{"2.1.8.11"}
+    Version{"2.1.19.14"}
     calendar{
         gregorian{
             dayNames{
@@ -154,6 +154,12 @@ smn{
                         "2. niälj.",
                         "3. niälj.",
                         "4. niälj.",
+                    }
+                    wide{
+                        "1. niäljádâs",
+                        "2. niäljádâs",
+                        "3. niäljádâs",
+                        "4. niäljádâs",
                     }
                 }
                 stand-alone{

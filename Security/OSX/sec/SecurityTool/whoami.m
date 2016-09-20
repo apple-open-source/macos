@@ -41,8 +41,8 @@ command_whoami(__unused int argc, __unused char * const * argv)
     @autoreleasepool {
         CFErrorRef error = NULL;
         NSDictionary *dict = NULL;
-        
-        dict = [(__bridge NSDictionary *)_SecSecuritydCopyWhoAmI(&error) autorelease];
+
+        dict = CFBridgingRelease(_SecSecuritydCopyWhoAmI(&error));
         if (dict) {
             puts([[NSString stringWithFormat:@"the server thinks we are:\n%@\n", dict] UTF8String]);
         } else {

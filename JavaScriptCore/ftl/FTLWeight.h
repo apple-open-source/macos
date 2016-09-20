@@ -28,6 +28,7 @@
 
 #if ENABLE(FTL_JIT)
 
+#include "B3FrequencyClass.h"
 #include <wtf/MathExtras.h>
 #include <wtf/StdLibExtras.h>
 
@@ -49,18 +50,8 @@ public:
     bool operator!() const { return !isSet(); }
     
     float value() const { return m_value; }
-    
-    unsigned scaleToTotal(double total) const
-    {
-        // LLVM accepts 32-bit unsigned branch weights but in dumps it might display them
-        // as signed values. We don't need all 32 bits, so we just use the 31 bits.
-        double result = static_cast<double>(m_value) * INT_MAX / total;
-        if (result < 0)
-            return 0;
-        if (result > INT_MAX)
-            return INT_MAX;
-        return static_cast<unsigned>(result);
-    }
+
+    B3::FrequencyClass frequencyClass() const { return value() ? B3::FrequencyClass::Normal : B3::FrequencyClass::Rare; }
     
     // Inverse weight for a two-target branch.
     Weight inverse() const

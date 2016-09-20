@@ -43,10 +43,8 @@
 #include "WKGeometry.h"
 #include "WKNumber.h"
 #include "WKPageGroup.h"
-#include "WKPopupItem.h"
 #include "WKString.h"
 #include "WKView.h"
-#include "WKViewEfl.h"
 #include "WebImage.h"
 #include "WebPageGroup.h"
 #include "WebPageProxy.h"
@@ -62,6 +60,7 @@
 #include "ewk_popup_menu_private.h"
 #include "ewk_security_origin_private.h"
 #include "ewk_settings_private.h"
+#include "ewk_view_configuration_private.h"
 #include "ewk_window_features_private.h"
 #include <Ecore_Evas.h>
 #include <Edje.h>
@@ -251,14 +250,14 @@ template <>
 void EwkViewEventHandler<EVAS_CALLBACK_SHOW>::handleEvent(void* data, Evas*, Evas_Object*, void*)
 {
     Ewk_View_Smart_Data* smartData = static_cast<Ewk_View_Smart_Data*>(data);
-    WKViewSetIsVisible(toEwkView(smartData)->wkView(), true);
+    toEwkView(smartData)->setVisible(true);
 }
 
 template <>
 void EwkViewEventHandler<EVAS_CALLBACK_HIDE>::handleEvent(void* data, Evas*, Evas_Object*, void*)
 {
     Ewk_View_Smart_Data* smartData = static_cast<Ewk_View_Smart_Data*>(data);
-    WKViewSetIsVisible(toEwkView(smartData)->wkView(), false);
+    toEwkView(smartData)->setVisible(false);
 }
 
 typedef HashMap<WKPageRef, Evas_Object*> WKPageToEvasObjectMap;
@@ -271,7 +270,7 @@ static inline WKPageToEvasObjectMap& wkPageToEvasObjectMap()
 
 // EwkView implementation.
 
-EwkView::EwkView(WKViewRef view, Evas_Object* evasObject)
+EwkView::EwkView(WebView* view, Evas_Object* evasObject)
     : m_webView(view)
     , m_evasObject(evasObject)
     , m_context(EwkContext::findOrCreateWrapper(WKPageGetContext(wkPage())))
@@ -309,13 +308,19 @@ EwkView::EwkView(WKViewRef view, Evas_Object* evasObject)
     ASSERT(m_evasObject);
     ASSERT(m_context);
 
-    // FIXME: Remove when possible.
-    static_cast<WebViewEfl*>(webView())->setEwkView(this);
+    m_webView->setEwkView(this);
 
     // FIXME: Consider it to move into EvasGLContext.
     m_evasGL = evas_gl_new(evas_object_evas_get(m_evasObject));
-    if (m_evasGL)
-        m_evasGLContext = EvasGLContext::create(m_evasGL);
+    if (m_evasGL) {
+        Evas_GL_Context* context = evas_gl_context_create(m_evasGL, 0);
+        if (!context) {
+            WARN("Failed to create Evas_GL_Context. EwkView is not created.");
+            return;
+        }
+
+        m_evasGLContext = std::make_unique<EvasGLContext>(m_evasGL, context);
+    }
 
     if (!m_evasGLContext) {
         WARN("Failed to create Evas_GL, falling back to software mode.");
@@ -323,20 +328,11 @@ EwkView::EwkView(WKViewRef view, Evas_Object* evasObject)
     }
 
     m_pendingSurfaceResize = m_isAccelerated;
-    WKViewInitialize(wkView());
+
+    // FIXME: It should be moved to some better place to create an inactive ewk_view.
+    m_webView->setActive(true);
 
     m_pageUIClient = std::make_unique<PageUIClientEfl>(this);
-
-    WKPageGroupRef wkPageGroup = WKPageGetPageGroup(wkPage());
-    WKPreferencesRef wkPreferences = WKPageGroupGetPreferences(wkPageGroup);
-    WKPreferencesSetWebGLEnabled(wkPreferences, true);
-    WKPreferencesSetFullScreenEnabled(wkPreferences, true);
-    WKPreferencesSetWebAudioEnabled(wkPreferences, true);
-    WKPreferencesSetOfflineWebApplicationCacheEnabled(wkPreferences, true);
-#if ENABLE(SPELLCHECK)
-    WKPreferencesSetAsynchronousSpellCheckingEnabled(wkPreferences, true);
-#endif
-    WKPreferencesSetInteractiveFormValidationEnabled(wkPreferences, true);
 
     WKPageSetBackgroundExtendsBeyondPage(wkPage(), true);
 
@@ -359,7 +355,7 @@ EwkView::~EwkView()
         evas_gl_free(m_evasGL);
 }
 
-EwkView* EwkView::create(WKViewRef webView, Evas* canvas, Evas_Smart* smart)
+EwkView* EwkView::create(WebView* webView, Evas* canvas, Evas_Smart* smart)
 {
     EINA_SAFETY_ON_NULL_RETURN_VAL(canvas, nullptr);
 
@@ -424,7 +420,7 @@ Evas_Object* EwkView::toEvasObject(WKPageRef page)
 
 WKPageRef EwkView::wkPage() const
 {
-    return WKViewGetPage(wkView());
+    return m_webView->pageRef();
 }
 
 #ifdef HAVE_ECORE_X
@@ -454,10 +450,9 @@ void EwkView::setCursor(const Cursor& cursor)
         if (cursorImage == m_cursorIdentifier.image)
             return;
 
-        IntPoint hotSpot;
-        cursorImage->getHotSpot(hotSpot);
-
-        Ecore_X_Cursor customCursor = createCustomCursor(window, cursorImage, IntSize(cursorImage->size()), hotSpot);
+        
+        Optional<IntPoint> hotSpot = cursorImage->hotSpot();
+        Ecore_X_Cursor customCursor = createCustomCursor(window, cursorImage, IntSize(cursorImage->size()), hotSpot ? hotSpot.value() : IntPoint());
         if (!customCursor)
             return;
 
@@ -485,13 +480,23 @@ void EwkView::setCursor(const Cursor& cursor)
 #endif
 }
 
+bool EwkView::isVisible() const
+{
+    return m_webView->isVisible();
+}
+
+void EwkView::setVisible(bool visible)
+{
+    m_webView->setVisible(visible);
+}
+
 void EwkView::setDeviceScaleFactor(float scale)
 {
-    const WKSize& deviceSize = WKViewGetSize(wkView());
+    const IntSize& size = deviceSize();
     WKPageSetCustomBackingScaleFactor(wkPage(), scale);
 
     // Update internal viewport size after device-scale change.
-    WKViewSetSize(wkView(), deviceSize);
+    m_webView->setSize(size);
 }
 
 float EwkView::deviceScaleFactor() const
@@ -543,7 +548,7 @@ inline IntSize EwkView::size() const
 
 inline IntSize EwkView::deviceSize() const
 {
-    return toIntSize(WKViewGetSize(wkView()));
+    return m_webView->size();
 }
 
 void EwkView::displayTimerFired()
@@ -565,14 +570,15 @@ void EwkView::displayTimerFired()
         if (!surface)
             return;
 
-        WKViewPaintToCairoSurface(wkView(), surface.get());
+        m_webView->paintToCairoSurface(surface.get());
+
         evas_object_image_data_update_add(sd->image, 0, 0, sd->view.w, sd->view.h);
         return;
     }
 
     evas_gl_make_current(m_evasGL, m_evasGLSurface->surface(), m_evasGLContext->context());
 
-    WKViewPaintToCurrentGLContext(wkView());
+    m_webView->paintToCurrentGLContext();
 
     // sd->image should be updated from (0,0) when using the evasGL for graphics backend.
     evas_object_image_data_update_add(sd->image, 0, 0, sd->view.w, sd->view.h);
@@ -589,7 +595,7 @@ void EwkView::scheduleUpdateDisplay()
 
 void EwkView::setViewportPosition(const FloatPoint& contentsPosition)
 {
-    WKViewSetContentPosition(wkView(), WKPointMake(contentsPosition.x(), contentsPosition.y()));
+    m_webView->setContentPosition(contentsPosition);
     m_pageViewportController.didChangeContentsVisibility(contentsPosition, m_pageViewportController.currentScale());
 }
 
@@ -623,6 +629,11 @@ void EwkView::exitFullScreen()
         ecore_evas_fullscreen_set(ecoreEvas, false);
     }
 }
+
+bool EwkView::requestExitFullScreen()
+{
+    return m_webView->requestExitFullScreen();
+}
 #endif
 
 WKRect EwkView::windowGeometry() const
@@ -648,6 +659,11 @@ void EwkView::setWindowGeometry(const WKRect& rect)
     }
 }
 
+IntSize EwkView::contentsSize() const
+{
+    return m_webView->contentsSize();
+}
+
 const char* EwkView::title() const
 {
     m_title = WKEinaSharedString(AdoptWK, WKPageCopyTitle(wkPage()));
@@ -671,11 +687,8 @@ const char* EwkView::themePath() const
 
 void EwkView::setThemePath(const char* theme)
 {
-    if (m_theme != theme) {
-        m_theme = theme;
-        WKRetainPtr<WKStringRef> wkTheme = adoptWK(WKStringCreateWithUTF8CString(theme));
-        WKViewSetThemePath(wkView(), wkTheme.get());
-    }
+    m_theme = theme;
+    m_webView->setThemePath(String::fromUTF8(m_theme, m_theme.length()));
 }
 
 void EwkView::setCustomTextEncodingName(const char* customEncoding)
@@ -777,7 +790,7 @@ void EwkView::feedTouchEvent(Ewk_Touch_Event_Type type, const Eina_List* points,
     }
     WKRetainPtr<WKArrayRef> wkTouchPoints(AdoptWK, WKArrayCreateAdoptingValues(touchPoints.get(), length));
 
-    WKViewSendTouchEvent(wkView(), adoptWK(WKTouchEventCreate(static_cast<WKEventType>(type), wkTouchPoints.get(), toWKEventModifiers(modifiers), ecore_time_get())).get());
+    m_webView->sendTouchEvent(EwkTouchEvent::create(static_cast<WKEventType>(type), wkTouchPoints.get(), toWKEventModifiers(modifiers), ecore_time_get()).get());
 }
 
 void EwkView::setTouchEventsEnabled(bool enabled)
@@ -838,7 +851,16 @@ bool EwkView::createGLSurface()
     };
 
     // Recreate to current size: Replaces if non-null, and frees existing surface after (OwnPtr).
-    m_evasGLSurface = EvasGLSurface::create(m_evasGL, &evasGLConfig, deviceSize());
+    IntSize size= deviceSize();
+    if (size.width() && size.height()) {
+        Evas_GL_Surface* surface = nullptr;
+        surface = evas_gl_surface_create(m_evasGL, &evasGLConfig, size.width(), size.height());
+        if (!surface)
+            return false;
+
+        m_evasGLSurface = std::make_unique<EvasGLSurface>(m_evasGL, surface);
+    }
+
     if (!m_evasGLSurface)
         return false;
 
@@ -850,8 +872,8 @@ bool EwkView::createGLSurface()
 
     Evas_GL_API* gl = evas_gl_api_get(m_evasGL);
 
-    WKPoint boundsEnd = WKViewUserViewportToScene(wkView(), WKPointMake(deviceSize().width(), deviceSize().height()));
-    gl->glViewport(0, 0, boundsEnd.x, boundsEnd.y);
+    IntPoint boundsEnd = m_webView->userViewportToScene(IntPoint(size.width(), size.height()));
+    gl->glViewport(0, 0, boundsEnd.x(), boundsEnd.y());
     gl->glClearColor(1.0, 1.0, 1.0, 0);
     gl->glClear(GL_COLOR_BUFFER_BIT);
 
@@ -924,9 +946,9 @@ void EwkView::showContextMenu(WKPoint position, WKArrayRef items)
 
     m_contextMenu = EwkContextMenu::create(this, items);
 
-    position = WKViewContentsToUserViewport(wkView(), position);
+    IntPoint result = m_webView->contentsToUserViewport(toIntPoint(position));
 
-    sd->api->context_menu_show(sd, position.x, position.y, m_contextMenu.get());
+    sd->api->context_menu_show(sd, result.x(), result.y(), m_contextMenu.get());
 }
 
 void EwkView::hideContextMenu()
@@ -943,12 +965,12 @@ void EwkView::hideContextMenu()
     m_contextMenu = nullptr;
 }
 
-void EwkView::requestPopupMenu(WKPopupMenuListenerRef popupMenuListener, const WKRect& rect, WKPopupItemTextDirection textDirection, double pageScaleFactor, WKArrayRef items, int32_t selectedIndex)
+void EwkView::requestPopupMenu(WebPopupMenuProxyEfl* popupMenuProxy, const WebCore::IntRect& rect, WebCore::TextDirection textDirection, double pageScaleFactor, const Vector<WebPopupItem>& items, int32_t selectedIndex)
 {
     Ewk_View_Smart_Data* sd = smartData();
     ASSERT(sd->api);
 
-    ASSERT(popupMenuListener);
+    ASSERT(popupMenuProxy);
 
     if (!sd->api->popup_menu_show)
         return;
@@ -956,18 +978,18 @@ void EwkView::requestPopupMenu(WKPopupMenuListenerRef popupMenuListener, const W
     if (m_popupMenu)
         closePopupMenu();
 
-    m_popupMenu = std::make_unique<EwkPopupMenu>(this, popupMenuListener, items, selectedIndex);
+    m_popupMenu = std::make_unique<EwkPopupMenu>(popupMenuProxy, items, selectedIndex);
 
-    WKPoint popupMenuPosition = WKViewContentsToUserViewport(wkView(), rect.origin);
+    IntPoint popupMenuPosition = m_webView->contentsToUserViewport(rect.location());
 
     Eina_Rectangle einaRect;
-    EINA_RECTANGLE_SET(&einaRect, popupMenuPosition.x, popupMenuPosition.y, rect.size.width, rect.size.height);
+    EINA_RECTANGLE_SET(&einaRect, popupMenuPosition.x(), popupMenuPosition.y(), rect.width(), rect.height());
 
     switch (textDirection) {
-    case kWKPopupItemTextDirectionRTL:
+    case WebCore::TextDirection::RTL:
         sd->api->popup_menu_show(sd, einaRect, EWK_TEXT_DIRECTION_RIGHT_TO_LEFT, pageScaleFactor, m_popupMenu.get());
         break;
-    case EWK_TEXT_DIRECTION_LEFT_TO_RIGHT:
+    case WebCore::TextDirection::LTR:
         sd->api->popup_menu_show(sd, einaRect, EWK_TEXT_DIRECTION_LEFT_TO_RIGHT, pageScaleFactor, m_popupMenu.get());
         break;
     }
@@ -1034,6 +1056,21 @@ WKEinaSharedString EwkView::requestJSPromptPopup(const WKEinaSharedString& messa
 
 /**
  * @internal
+ * Calls a smart member function for javascript beforeUnloadConfirm() and returns a value from the function. Returns true by default.
+ */
+bool EwkView::requestJSBeforeUnloadConfirmPopup(const WKEinaSharedString& message)
+{
+    Ewk_View_Smart_Data* sd = smartData();
+    ASSERT(sd->api);
+
+    if (!sd->api->run_javascript_before_unload_confirm)
+        return true;
+
+    return sd->api->run_javascript_before_unload_confirm(sd, message);
+}
+
+/**
+ * @internal
  * Calls exceeded_database_quota callback or falls back to default behavior returns default database quota.
  */
 unsigned long long EwkView::informDatabaseQuotaReached(const String& databaseName, const String& displayName, unsigned long long currentQuota, unsigned long long currentOriginUsage, unsigned long long currentDatabaseUsage, unsigned long long expectedUsage)
@@ -1050,7 +1087,7 @@ unsigned long long EwkView::informDatabaseQuotaReached(const String& databaseNam
 
 WebView* EwkView::webView()
 {
-    return toImpl(m_webView.get());
+    return m_webView.get();
 }
 
 /**
@@ -1101,9 +1138,13 @@ WKPageRef EwkView::createNewPage(PassRefPtr<EwkUrlRequest>, WKDictionaryRef wind
     if (!sd->api->window_create)
         return 0;
 
+    WKPageRef wkPageRef = wkPage();
     RefPtr<EwkWindowFeatures> ewkWindowFeatures = EwkWindowFeatures::create(windowFeatures, this);
+    WKRetainPtr<WKPageConfigurationRef> configuration = adoptWK(WKPageCopyPageConfiguration(wkPageRef));
+    WKPageConfigurationSetRelatedPage(configuration.get(), wkPageRef);
+    Ref<EwkViewConfiguration> ewkViewConfiguration = EwkViewConfiguration::create(configuration.get());
 
-    Evas_Object* newEwkView = sd->api->window_create(sd, ewkWindowFeatures.get());
+    Evas_Object* newEwkView = sd->api->window_create(sd, &ewkViewConfiguration.get(), ewkWindowFeatures.get());
     if (!newEwkView)
         return 0;
 
@@ -1215,7 +1256,7 @@ void EwkView::handleEvasObjectCalculate(Evas_Object* evasObject)
         smartData->view.x = x;
         smartData->view.y = y;
         evas_object_move(smartData->image, x, y);
-        WKViewSetUserViewportTranslation(self->wkView(), x, y);
+        self->webView()->setUserViewportTranslation(x, y);
     }
 
     if (smartData->changed.size) {
@@ -1223,7 +1264,7 @@ void EwkView::handleEvasObjectCalculate(Evas_Object* evasObject)
         smartData->view.w = width;
         smartData->view.h = height;
 
-        WKViewSetSize(self->wkView(), WKSizeMake(width, height));
+        self->webView()->setSize(IntSize(width, height));
         if (WKPageUseFixedLayout(self->wkPage()))
             self->pageViewportController().didChangeViewportSize(self->size());
 
@@ -1254,21 +1295,21 @@ void EwkView::handleEvasObjectColorSet(Evas_Object* evasObject, int red, int gre
     Ewk_View_Smart_Data* smartData = toSmartData(evasObject);
     ASSERT(smartData);
 
-    int backgroundAlpha;
-    WKViewGetBackgroundColor(toEwkView(smartData)->wkView(), nullptr, nullptr, nullptr, &backgroundAlpha);
-    evas_object_image_alpha_set(smartData->image, alpha < 255 || backgroundAlpha < 255);
+    Color backgroundColor = toEwkView(smartData)->webView()->viewBackgroundColor();
+
+    evas_object_image_alpha_set(smartData->image, alpha < 255 || backgroundColor.alpha() < 255);
     parentSmartClass.color_set(evasObject, red, green, blue, alpha);
 }
 
 Eina_Bool EwkView::handleEwkViewFocusIn(Ewk_View_Smart_Data* smartData)
 {
-    WKViewSetIsFocused(toEwkView(smartData)->wkView(), true);
+    toEwkView(smartData)->webView()->setFocused(true);
     return true;
 }
 
 Eina_Bool EwkView::handleEwkViewFocusOut(Ewk_View_Smart_Data* smartData)
 {
-    WKViewSetIsFocused(toEwkView(smartData)->wkView(), false);
+    toEwkView(smartData)->webView()->setFocused(true);
     return true;
 }
 
@@ -1341,7 +1382,7 @@ void EwkView::feedTouchEvents(Ewk_Touch_Event_Type type, double timestamp)
     }
     WKRetainPtr<WKArrayRef> wkTouchPoints(AdoptWK, WKArrayCreateAdoptingValues(touchPoints.get(), length));
 
-    WKViewSendTouchEvent(wkView(), adoptWK(WKTouchEventCreate(static_cast<WKEventType>(type), wkTouchPoints.get(), toWKEventModifiers(evas_key_modifier_get(sd->base.evas)), timestamp)).get());
+    m_webView->sendTouchEvent(EwkTouchEvent::create(static_cast<WKEventType>(type), wkTouchPoints.get(), toWKEventModifiers(evas_key_modifier_get(sd->base.evas)), timestamp).get());
 }
 
 void EwkView::handleMouseDownForTouch(void*, Evas*, Evas_Object* ewkView, void* eventInfo)
@@ -1386,7 +1427,7 @@ void EwkView::handleFaviconChanged(const char* pageURL, void* eventInfo)
 PassRefPtr<cairo_surface_t> EwkView::takeSnapshot()
 {
     // Suspend all animations before taking the snapshot.
-    WKViewSuspendActiveDOMObjectsAndAnimations(wkView());
+    m_webView->suspendActiveDOMObjectsAndAnimations();
 
     // Wait for the pending repaint events to be processed.
     while (m_displayTimer.isActive())
@@ -1396,14 +1437,14 @@ PassRefPtr<cairo_surface_t> EwkView::takeSnapshot()
     if (m_isAccelerated) {
         RefPtr<cairo_surface_t> snapshot = getImageSurfaceFromFrameBuffer(0, 0, sd->view.w, sd->view.h);
         // Resume all animations.
-        WKViewResumeActiveDOMObjectsAndAnimations(wkView());
+        m_webView->resumeActiveDOMObjectsAndAnimations();
 
         return snapshot.release();
     }
 
     RefPtr<cairo_surface_t> snapshot = createSurfaceForImage(sd->image);
     // Resume all animations.
-    WKViewResumeActiveDOMObjectsAndAnimations(wkView());
+    m_webView->resumeActiveDOMObjectsAndAnimations();
 
     return snapshot.release();
 }
@@ -1417,31 +1458,30 @@ void EwkView::didFindZoomableArea(const WKPoint& point, const WKRect& area)
 
 bool EwkView::scrollBy(const IntSize& offset)
 {
-    WKPoint oldPosition = WKViewGetContentPosition(wkView());
-    float contentScale = WKViewGetContentScaleFactor(wkView());
+    const FloatPoint oldPosition = m_webView->contentPosition();
+    float contentScale = m_webView->contentScaleFactor();
 
     float effectiveScale = contentScale * deviceScaleFactor();
-    FloatPoint newPosition(oldPosition.x + offset.width() / effectiveScale, oldPosition.y + offset.height() / effectiveScale);
+    FloatPoint newPosition(oldPosition.x() + offset.width() / effectiveScale, oldPosition.y() + offset.height() / effectiveScale);
 
     // Update new position to the PageViewportController.
     newPosition = m_pageViewportController.boundContentsPositionAtScale(newPosition, contentScale);
     m_pageViewportController.didChangeContentsVisibility(newPosition, contentScale);
 
     // Update new position to the WKView.
-    WKPoint position = WKPointMake(newPosition.x(), newPosition.y());
-    WKViewSetContentPosition(wkView(), position);
+    m_webView->setContentPosition(newPosition);
 
     // If the page position has not changed, notify the caller using the return value.
-    return !(oldPosition == position);
+    return !(oldPosition == newPosition);
 }
 
 void EwkView::setBackgroundColor(int red, int green, int blue, int alpha)
 {
     if (red == 255 && green == 255 && blue == 255 && alpha == 255) {
-        WKViewSetDrawsBackground(wkView(), true);
+        m_webView->setDrawsBackground(true);
         WKPageSetBackgroundExtendsBeyondPage(wkPage(), true);
     } else {
-        WKViewSetDrawsBackground(wkView(), false);
+        m_webView->setDrawsBackground(false);
         WKPageSetBackgroundExtendsBeyondPage(wkPage(), false);
     }
 
@@ -1450,7 +1490,12 @@ void EwkView::setBackgroundColor(int red, int green, int blue, int alpha)
     evas_object_color_get(image, nullptr, nullptr, nullptr, &objectAlpha);
     evas_object_image_alpha_set(image, alpha < 255 || objectAlpha < 255);
 
-    WKViewSetBackgroundColor(wkView(), red, green, blue, alpha);
+    m_webView->setViewBackgroundColor(WebCore::Color(red, green, blue, alpha));
+}
+
+Color EwkView::backgroundColor()
+{
+    return m_webView->viewBackgroundColor();
 }
 
 Evas_Smart_Class EwkView::parentSmartClass = EVAS_SMART_CLASS_INIT_NULL;

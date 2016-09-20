@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007, 2010-2012  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: netaddr.c,v 1.38 2007/06/18 23:47:44 tbox Exp $ */
+/* $Id$ */
 
 /*! \file */
 
@@ -31,6 +31,7 @@
 #include <isc/sockaddr.h>
 #include <isc/string.h>
 #include <isc/util.h>
+#include "ntp_stdlib.h"		/* NTP change for strlcpy, strlcat */
 
 isc_boolean_t
 isc_netaddr_equal(const isc_netaddr_t *a, const isc_netaddr_t *b) {
@@ -69,10 +70,10 @@ isc_boolean_t
 isc_netaddr_eqprefix(const isc_netaddr_t *a, const isc_netaddr_t *b,
 		     unsigned int prefixlen)
 {
-	const unsigned char *pa, *pb;
-	unsigned int ipabytes; /* Length of whole IP address in bytes */
-	unsigned int nbytes;   /* Number of significant whole bytes */
-	unsigned int nbits;    /* Number of significant leftover bits */
+	const unsigned char *pa = NULL, *pb = NULL;
+	unsigned int ipabytes = 0; /* Length of whole IP address in bytes */
+	unsigned int nbytes;       /* Number of significant whole bytes */
+	unsigned int nbits;        /* Number of significant leftover bits */
 
 	REQUIRE(a != NULL && b != NULL);
 
@@ -94,8 +95,6 @@ isc_netaddr_eqprefix(const isc_netaddr_t *a, const isc_netaddr_t *b,
 		ipabytes = 16;
 		break;
 	default:
-		pa = pb = NULL; /* Avoid silly compiler warning. */
-		ipabytes = 0; /* Ditto. */
 		return (ISC_FALSE);
 	}
 
@@ -160,7 +159,7 @@ isc_netaddr_totext(const isc_netaddr_t *netaddr, isc_buffer_t *target) {
 	if (r == NULL)
 		return (ISC_R_FAILURE);
 
-	alen = strlen(abuf);
+	alen = (unsigned int)strlen(abuf); /* no overflow possible */
 	INSIST(alen < sizeof(abuf));
 
 	zlen = 0;
@@ -188,6 +187,9 @@ isc_netaddr_format(const isc_netaddr_t *na, char *array, unsigned int size) {
 	isc_buffer_init(&buf, array, size);
 	result = isc_netaddr_totext(na, &buf);
 
+	if (size == 0)
+		return;
+
 	/*
 	 * Null terminate.
 	 */
@@ -200,9 +202,10 @@ isc_netaddr_format(const isc_netaddr_t *na, char *array, unsigned int size) {
 
 	if (result != ISC_R_SUCCESS) {
 		snprintf(array, size,
+			 "<%s %u>",
 			 isc_msgcat_get(isc_msgcat, ISC_MSGSET_NETADDR,
 					ISC_MSG_UNKNOWNADDR,
-					"<unknown address, family %u>"),
+					"unknown address, family"),
 			 na->family);
 		array[size - 1] = '\0';
 	}
@@ -211,8 +214,8 @@ isc_netaddr_format(const isc_netaddr_t *na, char *array, unsigned int size) {
 
 isc_result_t
 isc_netaddr_prefixok(const isc_netaddr_t *na, unsigned int prefixlen) {
-	static const unsigned char zeros[16];
-	unsigned int nbits, nbytes, ipbytes;
+	static const unsigned char zeros[16] = { 0 };
+	unsigned int nbits, nbytes, ipbytes = 0;
 	const unsigned char *p;
 
 	switch (na->family) {
@@ -229,7 +232,6 @@ isc_netaddr_prefixok(const isc_netaddr_t *na, unsigned int prefixlen) {
 			return (ISC_R_RANGE);
 		break;
 	default:
-		ipbytes = 0;
 		return (ISC_R_NOTIMPLEMENTED);
 	}
 	nbytes = prefixlen / 8;
@@ -246,7 +248,7 @@ isc_netaddr_prefixok(const isc_netaddr_t *na, unsigned int prefixlen) {
 
 isc_result_t
 isc_netaddr_masktoprefixlen(const isc_netaddr_t *s, unsigned int *lenp) {
-	unsigned int nbits, nbytes, ipbytes, i;
+	unsigned int nbits = 0, nbytes = 0, ipbytes = 0, i;
 	const unsigned char *p;
 
 	switch (s->family) {
@@ -259,10 +261,8 @@ isc_netaddr_masktoprefixlen(const isc_netaddr_t *s, unsigned int *lenp) {
 		ipbytes = 16;
 		break;
 	default:
-		ipbytes = 0;
 		return (ISC_R_NOTIMPLEMENTED);
 	}
-	nbytes = nbits = 0;
 	for (i = 0; i < ipbytes; i++) {
 		if (p[i] != 0xFF)
 			break;
@@ -303,18 +303,18 @@ isc_netaddr_fromin6(isc_netaddr_t *netaddr, const struct in6_addr *ina6) {
 isc_result_t
 isc_netaddr_frompath(isc_netaddr_t *netaddr, const char *path) {
 #ifdef ISC_PLATFORM_HAVESYSUNH
-        if (strlen(path) > sizeof(netaddr->type.un) - 1)
-                return (ISC_R_NOSPACE);
+	if (strlen(path) > sizeof(netaddr->type.un) - 1)
+		return (ISC_R_NOSPACE);
 
         memset(netaddr, 0, sizeof(*netaddr));
         netaddr->family = AF_UNIX;
-        strcpy(netaddr->type.un, path);
+	strlcpy(netaddr->type.un, path, sizeof(netaddr->type.un));
         netaddr->zone = 0;
         return (ISC_R_SUCCESS);
 #else 
 	UNUSED(netaddr);
 	UNUSED(path);
-        return (ISC_R_NOTIMPLEMENTED);
+	return (ISC_R_NOTIMPLEMENTED);
 #endif
 }
 

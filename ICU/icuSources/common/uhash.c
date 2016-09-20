@@ -1,6 +1,6 @@
 /*
 ******************************************************************************
-*   Copyright (C) 1997-2014, International Business Machines
+*   Copyright (C) 1997-2016, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 ******************************************************************************
 *   Date        Name        Description
@@ -77,14 +77,14 @@
  * prime number while being less than a power of two.
  */
 static const int32_t PRIMES[] = {
-    13, 31, 61, 127, 251, 509, 1021, 2039, 4093, 8191, 16381, 32749,
+    7, 13, 31, 61, 127, 251, 509, 1021, 2039, 4093, 8191, 16381, 32749,
     65521, 131071, 262139, 524287, 1048573, 2097143, 4194301, 8388593,
     16777213, 33554393, 67108859, 134217689, 268435399, 536870909,
     1073741789, 2147483647 /*, 4294967291 */
 };
 
-#define PRIMES_LENGTH (sizeof(PRIMES) / sizeof(PRIMES[0]))
-#define DEFAULT_PRIME_INDEX 3
+#define PRIMES_LENGTH UPRV_LENGTHOF(PRIMES)
+#define DEFAULT_PRIME_INDEX 4
 
 /* These ratios are tuned to the PRIMES array such that a resize
  * places the table back into the zone of non-resizing.  That is,
@@ -566,6 +566,23 @@ uhash_init(UHashtable *fillinResult,
            UErrorCode *status) {
 
     return _uhash_init(fillinResult, keyHash, keyComp, valueComp, DEFAULT_PRIME_INDEX, status);
+}
+
+U_CAPI UHashtable* U_EXPORT2
+uhash_initSize(UHashtable *fillinResult,
+               UHashFunction *keyHash, 
+               UKeyComparator *keyComp,
+               UValueComparator *valueComp,
+               int32_t size,
+               UErrorCode *status) {
+
+    /* Find the smallest index i for which PRIMES[i] >= size. */
+    int32_t i = 0;
+    while (i<(PRIMES_LENGTH-1) && PRIMES[i]<size) {
+        ++i;
+    }
+
+    return _uhash_init(fillinResult, keyHash, keyComp, valueComp, i, status);
 }
 
 U_CAPI void U_EXPORT2

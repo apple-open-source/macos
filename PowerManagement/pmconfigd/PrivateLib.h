@@ -82,6 +82,25 @@
 #define kIOPMDebugLogWakeRequests           0x08
 #define kIOPMDebugLogUserActivity           0x10
 #define kIOPMDebugEnableSpindumpOnFullwake  0x20
+#define kIOPMDebugLogAssertionActivity      0x40
+#define kIOPMDebugLogAssertionNameChange    0x80
+
+
+#define INFO_LOG(fmt, args...) \
+{ \
+    os_log(OS_LOG_DEFAULT, fmt, ##args); \
+}
+#define DEBUG_LOG(fmt, args...) \
+{ \
+    os_log_debug(OS_LOG_DEFAULT, fmt, ##args); \
+}
+
+#define ERROR_LOG(fmt, args...) \
+{  \
+    os_log_error(OS_LOG_DEFAULT, fmt, ##args); \
+}
+
+
 
 
 /*****************************************************************************/
@@ -144,6 +163,7 @@ struct IOPMBattery {
     uint32_t                     rawExternalConnected:1;
     uint32_t                     externalChargeCapable:1;
     uint32_t                     isCharging:1;
+    uint32_t                     showChargingUI:1;
     uint32_t                     isPresent:1;
     uint32_t                     markedDeclining:1;
     uint32_t                     isTimeRemainingUnknown:1;
@@ -389,13 +409,8 @@ __private_extern__ void                 logASLSleepPreventers(int preventerType)
  */
 #define kAppResponseLogThresholdMS              250
 
-// Dictionary lives as a setting in com.apple.PowerManagement.plist
-// The keys to this dictionary are for Date & for UUID
-#define kPMSettingsCachedUUIDKey                "LastSleepUUID"
-#define kPMSettingsDictionaryDateKey            "Date"
-#define kPMSettingsDictionaryUUIDKey            "UUID"
-
 __private_extern__ aslmsg               new_msg_pmset_log(void);
+__private_extern__ bool                 isA_installEnvironment(void);
 
 __private_extern__ IOPMBattery          **_batteries(void);
 __private_extern__ IOPMBattery          *_newBatteryFound(io_registry_entry_t);
@@ -461,6 +476,7 @@ __private_extern__ IOReturn getNvramArgInt(char *key, int *value);
 __private_extern__ IOReturn getNvramArgStr(char *key, char *buf, size_t bufSize);
 
 __private_extern__ uint64_t             getMonotonicTime( );
+__private_extern__ uint64_t             monotonicTS2Secs(uint64_t tsc);
 __private_extern__ void                 incrementSleepCnt();
 #endif
 

@@ -1,6 +1,4 @@
 /*
- * "$Id: util.h 11560 2014-02-06 20:10:19Z msweet $"
- *
  * Mini-daemon utility definitions for CUPS.
  *
  * Copyright 2007-2014 by Apple Inc.
@@ -65,7 +63,3 @@ extern void		cupsdSendIPPTrailer(void);
 #  endif /* __cplusplus */
 
 #endif /* !_CUPSD_UTIL_H_ */
-
-/*
- * End of "$Id: util.h 11560 2014-02-06 20:10:19Z msweet $".
- */

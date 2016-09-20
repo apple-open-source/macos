@@ -37,11 +37,10 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-RenderButton::RenderButton(HTMLFormControlElement& element, Ref<RenderStyle>&& style)
-    : RenderFlexibleBox(element, WTF::move(style))
+RenderButton::RenderButton(HTMLFormControlElement& element, RenderStyle&& style)
+    : RenderFlexibleBox(element, WTFMove(style))
     , m_buttonText(0)
     , m_inner(0)
-    , m_default(false)
 {
 }
 
@@ -61,7 +60,7 @@ bool RenderButton::canBeSelectionLeaf() const
 
 bool RenderButton::hasLineIfEmpty() const
 {
-    return formControlElement().toInputElement();
+    return is<HTMLInputElement>(formControlElement());
 }
 
 void RenderButton::addChild(RenderObject* newChild, RenderObject* beforeChild)
@@ -70,7 +69,7 @@ void RenderButton::addChild(RenderObject* newChild, RenderObject* beforeChild)
         // Create an anonymous block.
         ASSERT(!firstChild());
         m_inner = createAnonymousBlock(style().display());
-        setupInnerStyle(&m_inner->style());
+        setupInnerStyle(&m_inner->mutableStyle());
         RenderFlexibleBox::addChild(m_inner);
     }
     
@@ -98,9 +97,9 @@ void RenderButton::styleWillChange(StyleDifference diff, const RenderStyle& newS
         // it right below. Here we change it back to 0 to avoid getting a spurious layout hint
         // because of the difference. Same goes for the other properties.
         // FIXME: Make this hack unnecessary.
-        m_inner->style().setFlexGrow(newStyle.initialFlexGrow());
-        m_inner->style().setMarginTop(newStyle.initialMargin());
-        m_inner->style().setMarginBottom(newStyle.initialMargin());
+        m_inner->mutableStyle().setFlexGrow(newStyle.initialFlexGrow());
+        m_inner->mutableStyle().setMarginTop(newStyle.initialMargin());
+        m_inner->mutableStyle().setMarginBottom(newStyle.initialMargin());
     }
     RenderBlock::styleWillChange(diff, newStyle);
 }
@@ -110,28 +109,11 @@ void RenderButton::styleDidChange(StyleDifference diff, const RenderStyle* oldSt
     RenderBlock::styleDidChange(diff, oldStyle);
 
     if (m_inner) // RenderBlock handled updating the anonymous block's style.
-        setupInnerStyle(&m_inner->style());
-
-    if (!m_default && theme().isDefault(*this)) {
-        if (theme().defaultButtonHasAnimation()) {
-            if (!m_timer)
-                m_timer = std::make_unique<Timer>(*this, &RenderButton::timerFired);
-            m_timer->startRepeating(0.03);
-        }
-        m_default = true;
-    } else if (m_default && !theme().isDefault(*this)) {
-        m_default = false;
-        m_timer = nullptr;
-    }
+        setupInnerStyle(&m_inner->mutableStyle());
 }
 
 void RenderButton::setupInnerStyle(RenderStyle* innerStyle) 
 {
-    ASSERT(style().hasPseudoStyle(FIRST_LETTER) || innerStyle->refCount() == 1);
-    // RenderBlock::createAnonymousBlock creates a new RenderStyle, so this is
-    // safe to modify.
-    // FIXME: I don't see how the comment above is accurate when this is called
-    // from the RenderButton::styleDidChange function.
     innerStyle->setFlexGrow(1.0f);
     // Use margin:auto instead of align-items:center to get safe centering, i.e.
     // when the content overflows, treat it the same as align-items: flex-start.
@@ -186,25 +168,13 @@ LayoutRect RenderButton::controlClipRect(const LayoutPoint& additionalOffset) co
     return LayoutRect(additionalOffset.x() + borderLeft(), additionalOffset.y() + borderTop(), width() - borderLeft() - borderRight(), height() - borderTop() - borderBottom());
 }
 
-void RenderButton::timerFired()
-{
-    // FIXME Bug 25110: Ideally we would stop our timer when our Document
-    // enters the page cache. But we currently have no way of being notified
-    // when that happens, so we'll just ignore the timer firing as long as
-    // we're in the cache.
-    if (document().inPageCache())
-        return;
-
-    repaint();
-}
-
 #if PLATFORM(IOS)
 void RenderButton::layout()
 {
     RenderFlexibleBox::layout();
 
     // FIXME: We should not be adjusting styles during layout. See <rdar://problem/7675493>.
-    RenderThemeIOS::adjustRoundBorderRadius(style(), *this);
+    RenderThemeIOS::adjustRoundBorderRadius(mutableStyle(), *this);
 }
 #endif
 

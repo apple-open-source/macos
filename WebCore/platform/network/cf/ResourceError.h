@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef ResourceError_h
-#define ResourceError_h
+#pragma once
 
 #include "ResourceErrorBase.h"
 
@@ -45,13 +44,14 @@ namespace WebCore {
 
 class ResourceError : public ResourceErrorBase {
 public:
-    ResourceError()
-        : m_dataIsUpToDate(true)
+    ResourceError(Type type = Type::Null)
+        : ResourceErrorBase(type)
+        , m_dataIsUpToDate(true)
     {
     }
 
-    ResourceError(const String& domain, int errorCode, const String& failingURL, const String& localizedDescription)
-        : ResourceErrorBase(domain, errorCode, failingURL, localizedDescription)
+    ResourceError(const String& domain, int errorCode, const URL& failingURL, const String& localizedDescription, Type type = Type::General)
+        : ResourceErrorBase(domain, errorCode, failingURL, localizedDescription, type)
         , m_dataIsUpToDate(true)
     {
     }
@@ -63,7 +63,7 @@ public:
 
 #if USE(CFNETWORK)
 #if PLATFORM(WIN)
-    ResourceError(const String& domain, int errorCode, const String& failingURL, const String& localizedDescription, CFDataRef certificate);
+    ResourceError(const String& domain, int errorCode, const URL& failingURL, const String& localizedDescription, CFDataRef certificate);
     PCCERT_CONTEXT certificate() const;
     void setCertificate(CFDataRef);
 #endif
@@ -84,7 +84,9 @@ private:
     friend class ResourceErrorBase;
 
     void platformLazyInit();
-    void platformCopy(ResourceError&) const;
+
+    void doPlatformIsolatedCopy(const ResourceError&);
+
     bool m_dataIsUpToDate;
 #if USE(CFNETWORK)
     mutable RetainPtr<CFErrorRef> m_platformError;
@@ -100,5 +102,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // ResourceError_h

@@ -1,4 +1,4 @@
-*usr_41.txt*	For Vim version 7.3.  Last change: 2010 Jul 20
+*usr_41.txt*	For Vim version 7.4.  Last change: 2014 Aug 16
 
 		     VIM USER MANUAL - by Bram Moolenaar
 
@@ -313,7 +313,7 @@ The usual precedence is used.  Example: >
 	:echo 10 + 5 * 2
 <	20 ~
 
-Grouping is done with braces.  No surprises here.  Example: >
+Grouping is done with parentheses.  No surprises here.  Example: >
 
 	:echo (10 + 5) * 2
 <	30 ~
@@ -537,7 +537,7 @@ way.  A few examples will be given in this section.  You can find the whole
 list here: |functions|.
 
 A function is called with the ":call" command.  The parameters are passed in
-between braces, separated by commas.  Example: >
+between parentheses separated by commas.  Example: >
 
 	:call search("Date: ", "W")
 
@@ -595,13 +595,17 @@ String manipulation:					*string-functions*
 	matchlist()		like matchstr() and also return submatches
 	stridx()		first index of a short string in a long string
 	strridx()		last index of a short string in a long string
-	strlen()		length of a string
+	strlen()		length of a string in bytes
+	strchars()		length of a string in characters
+	strwidth()		size of string when displayed
+	strdisplaywidth()	size of string when displayed, deals with tabs
 	substitute()		substitute a pattern match with a string
-	submatch()		get a specific match in a ":substitute"
+	submatch()		get a specific match in ":s" and substitute()
 	strpart()		get part of a string
 	expand()		expand special keywords
 	iconv()			convert text from one encoding to another
 	byteidx()		byte index of a character in a string
+	byteidxcomp()		like byteidx() but count composing characters
 	repeat()		repeat a string multiple times
 	eval()			evaluate a string expression
 
@@ -619,6 +623,7 @@ List manipulation:					*list-functions*
 	map()			change each List item
 	sort()			sort a List
 	reverse()		reverse the order of a List
+	uniq()			remove copies of repeated adjacent items
 	split()			split a String into a List
 	join()			join List items into a String
 	range()			return a List with a sequence of numbers
@@ -656,12 +661,29 @@ Floating point computation:				*float-functions*
 	ceil()			round up
 	floor()			round down
 	trunc()			remove value after decimal point
+	fmod()			remainder of division
+	exp()			exponential
+	log()			natural logarithm (logarithm to base e)
 	log10()			logarithm to base 10
 	pow()			value of x to the exponent y
 	sqrt()			square root
 	sin()			sine
 	cos()			cosine
+	tan()			tangent
+	asin()			arc sine
+	acos()			arc cosine
 	atan()			arc tangent
+	atan2()			arc tangent
+	sinh()			hyperbolic sine
+	cosh()			hyperbolic cosine
+	tanh()			hyperbolic tangent
+
+Other computation:					*bitwise-function*
+	and()			bitwise AND
+	invert()		bitwise invert
+	or()			bitwise OR
+	xor()			bitwise XOR
+	sha256()		SHA-256 hash
 
 Variables:						*var-functions*
 	type()			type of a variable
@@ -684,11 +706,16 @@ Cursor and mark position:		*cursor-functions* *mark-functions*
 	wincol()		window column number of the cursor
 	winline()		window line number of the cursor
 	cursor()		position the cursor at a line/column
+	screencol()		get screen column of the cursor
+	screenrow()		get screen row of the cursor
+	getcurpos()		get position of the cursor
 	getpos()		get position of cursor, mark, etc.
 	setpos()		set position of cursor, mark, etc.
 	byte2line()		get line number at a specific byte count
 	line2byte()		byte count at a specific line
 	diff_filler()		get the number of filler lines above a line
+	screenattr()		get attribute at a screen line/row
+	screenchar()		get character code at a screen line/row
 
 Working with text in the current buffer:		*text-functions*
 	getline()		get a line or list of lines from the buffer
@@ -716,6 +743,7 @@ System functions and manipulation of files:
 	pathshorten()		shorten directory names in a path
 	simplify()		simplify a path without changing its meaning
 	executable()		check if an executable program exists
+	exepath()		full path of an executable program
 	filereadable()		check if a file can be read
 	filewritable()		check if a file can be written to
 	getfperm()		get the permissions of a file
@@ -728,7 +756,8 @@ System functions and manipulation of files:
 	mkdir()			create a new directory
 	delete()		delete a file
 	rename()		rename a file
-	system()		get the result of a shell command
+	system()		get the result of a shell command as a string
+	systemlist()		get the result of a shell command as a list
 	hostname()		name of the system
 	readfile()		read a file into a List of lines
 	writefile()		write a List of lines into a file
@@ -744,6 +773,7 @@ Date and Time:				*date-functions* *time-functions*
 Buffers, windows and the argument list:
 	argc()			number of entries in the argument list
 	argidx()		current position in the argument list
+	arglistid()		get id of the argument list
 	argv()			get one entry from the argument list
 	bufexists()		check if a buffer exists
 	buflisted()		check if a buffer exists and is listed
@@ -763,6 +793,7 @@ Command line:					*command-line-functions*
 	getcmdpos()		get position of the cursor in the command line
 	setcmdpos()		set position of the cursor in the command line
 	getcmdtype()		return the current command-line type
+	getcmdwintype()		return the current command-line window type
 
 Quickfix and location lists:			*quickfix-functions*
 	getqflist()		list of quickfix errors
@@ -793,8 +824,11 @@ Syntax and highlighting:	  *syntax-functions* *highlighting-functions*
 	synID()			get syntax ID at a specific position
 	synIDattr()		get a specific attribute of a syntax ID
 	synIDtrans()		get translated syntax ID
+	synstack()		get list of syntax IDs at a specific position
+	synconcealed()		get info about concealing
 	diff_hlID()		get highlight ID for diff mode at a position
 	matchadd()		define a pattern to highlight (a "match")
+	matchaddpos()		define a list of positions to highlight
 	matcharg()		get info about |:match| arguments
 	matchdelete()		delete a match defined by |matchadd()| or a
 				|:match| command
@@ -848,12 +882,15 @@ Window size and position:			*window-size-functions*
 	winsaveview()		get view of current window
 	winrestview()		restore saved view of current window
 
-Various:					*various-functions*
-	mode()			get current editing mode
-	visualmode()		last visual mode used
+Mappings:				    *mapping-functions*
 	hasmapto()		check if a mapping exists
 	mapcheck()		check if a matching mapping exists
 	maparg()		get rhs of a mapping
+	wildmenumode()		check if the wildmode is active
+
+Various:					*various-functions*
+	mode()			get current editing mode
+	visualmode()		last visual mode used
 	exists()		check if a variable, function, etc. exists
 	has()			check if a feature is supported in Vim
 	changenr()		return number of most recent change
@@ -865,14 +902,22 @@ Various:					*various-functions*
 	libcall()		call a function in an external library
 	libcallnr()		idem, returning a number
 
+	undofile()		get the name of the undo file
+	undotree()		return the state of the undo tree
+
 	getreg()		get contents of a register
 	getregtype()		get type of a register
 	setreg()		set contents and type of a register
 
+	shiftwidth()		effective value of 'shiftwidth'
+
 	taglist()		get list of matching tags
 	tagfiles()		get a list of tags files
 
+	luaeval()		evaluate Lua expression
 	mzeval()		evaluate |MzScheme| expression
+	py3eval()		evaluate Python expression (|+python3|)
+	pyeval()		evaluate Python expression (|+python|)
 
 ==============================================================================
 *41.7*	Defining a function
@@ -1015,7 +1060,7 @@ so on.  The variable "a:0" contains the number of extra arguments.
 
 	:function Show(start, ...)
 	:  echohl Title
-	:  echo "Show is " . a:start
+	:  echo "start is " . a:start
 	:  echohl None
 	:  let index = 1
 	:  while index <= a:0
@@ -1283,7 +1328,7 @@ local variable will then refer to that Dictionary.
 
 	split(a:line)
 
-The split() function takes a string, chops it into white separated words
+The split() function takes a string, chops it into whitespace separated words
 and returns a list with these words.  Thus in the example it returns: >
 
 	:echo split('three two five one')
@@ -1400,7 +1445,7 @@ Let's start with an example: >
 
 The ":read" command will fail if the file does not exist.  Instead of
 generating an error message, this code catches the error and gives the user a
-nice message instead.
+nice message.
 
 For the commands in between ":try" and ":endtry" errors are turned into
 exceptions.  An exception is a string.  In the case of an error the string
@@ -1477,7 +1522,7 @@ escaped by a "\" (backslash)  as in the following example: >
 
 	:set tags=my\ nice\ file
 
-The same example written as >
+The same example written as: >
 
 	:set tags=my nice file
 
@@ -1566,7 +1611,7 @@ Here the comment part will be ignored.  However, Vim will try to unmap
 
 RESTORING THE VIEW
 
-Sometimes you want to make a change and go back to where cursor was.
+Sometimes you want to make a change and go back to where the cursor was.
 Restoring the relative position would also be nice, so that the same line
 appears at the top of the window.
    This example yanks the current line, puts it above the first line in the
@@ -1666,7 +1711,7 @@ in your plugin file!
 HEADER
 
 You will probably add new corrections to the plugin and soon have several
-versions laying around.  And when distributing this file, people will want to
+versions lying around.  And when distributing this file, people will want to
 know who wrote this wonderful plugin and where they can send remarks.
 Therefore, put a header at the top of your plugin: >
 
@@ -1695,6 +1740,7 @@ make the script work for most people.  It is done like this: >
  12	set cpo&vim
  ..
  42	let &cpo = s:save_cpo
+ 43	unlet s:save_cpo
 
 We first store the old value of 'cpoptions' in the s:save_cpo variable.  At
 the end of the plugin this value is restored.
@@ -1941,6 +1987,7 @@ Here is the resulting complete example: >
  40	endif
  41
  42	let &cpo = s:save_cpo
+ 43	unlet s:save_cpo
 
 Line 33 wasn't explained yet.  It applies the new correction to the word under
 the cursor.  The |:normal| command is used to use the new abbreviation.  Note
@@ -2095,7 +2142,7 @@ and that is not what a filetype plugin should do.
 When an option has a value that is a list of flags or items, consider using
 "+=" and "-=" to keep the existing value.  Be aware that the user may have
 changed an option value already.  First resetting to the default value and
-then changing it often a good idea.  Example: >
+then changing it is often a good idea.  Example: >
 
 	:setlocal formatoptions& formatoptions+=ro
 

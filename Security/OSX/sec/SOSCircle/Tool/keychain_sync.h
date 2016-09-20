@@ -73,7 +73,7 @@ SECURITY_COMMAND(
 	"    -k     pend all registered kvs keys\n"
 	"    -C     clear all values from KVS\n"
 	"    -D     [itemName]  dump contents of KVS\n"
-	"    -W     itemNames  sync and dump\n"
+	"    -W     sync and dump\n"
 	"\n"
 	"Misc\n"
 	"    -v     [enable|disable|query:viewname] enable, disable, or query my PeerInfo's view set\n"

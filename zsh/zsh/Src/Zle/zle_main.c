@@ -933,7 +933,7 @@ getfullchar(int do_keytmout)
     int inchar = getbyte((long)do_keytmout, NULL);
 
 #ifdef MULTIBYTE_SUPPORT
-    return getrestchar(inchar);
+    return getrestchar(inchar, NULL, NULL);
 #else
     return inchar;
 #endif
@@ -951,7 +951,7 @@ getfullchar(int do_keytmout)
 
 /**/
 mod_export ZLE_INT_T
-getrestchar(int inchar)
+getrestchar(int inchar, char *outstr, int *outcount)
 {
     char c = inchar;
     wchar_t outchar;
@@ -965,6 +965,8 @@ getrestchar(int inchar)
      */
     lastchar_wide_valid = 1;
 
+    if (outcount)
+	*outcount = 0;
     if (inchar == EOF) {
 	/* End of input, so reset the shift state. */
 	memset(&mbs, 0, sizeof mbs);
@@ -1013,6 +1015,10 @@ getrestchar(int inchar)
 		return lastchar_wide = WEOF;
 	}
 	c = inchar;
+	if (outstr) {
+	    *outstr++ = c;
+	    (*outcount)++;
+	}
     }
     return lastchar_wide = (ZLE_INT_T)outchar;
 }
@@ -1119,7 +1125,7 @@ zlecore(void)
 char *
 zleread(char **lp, char **rp, int flags, int context, char *init, char *finish)
 {
-    char *s;
+    char *s, **bracket;
     int old_errno = errno;
     int tmout = getiparam("TMOUT");
 
@@ -1206,6 +1212,7 @@ zleread(char **lp, char **rp, int flags, int context, char *init, char *finish)
 	    histline = stackhist;
 	    stackhist = -1;
 	}
+	handleundo();
     }
     /*
      * If main is linked to the viins keymap, we need to register
@@ -1248,6 +1255,9 @@ zleread(char **lp, char **rp, int flags, int context, char *init, char *finish)
 
     zlecallhook(init, NULL);
 
+    if ((bracket = getaparam("zle_bracketed_paste")) && arrlen(bracket) == 2)
+	fputs(*bracket, shout);
+
     zrefresh();
 
     zlecore();
@@ -1256,6 +1266,9 @@ zleread(char **lp, char **rp, int flags, int context, char *init, char *finish)
 	setsparam((zlecontext == ZLCON_VARED) ?
 		  "ZLE_VARED_ABORTED" :
 		  "ZLE_LINE_ABORTED", zlegetline(NULL, NULL));
+
+    if ((bracket = getaparam("zle_bracketed_paste")) && arrlen(bracket) == 2)
+	fputs(bracket[1], shout);
 
     if (done && !exit_pending && !errflag)
 	zlecallhook(finish, NULL);
@@ -1269,7 +1282,7 @@ zleread(char **lp, char **rp, int flags, int context, char *init, char *finish)
     alarm(0);
 
     freeundo();
-    if (eofsent || errflag) {
+    if (eofsent || errflag || exit_pending) {
 	s = NULL;
     } else {
 	zleline[zlell++] = ZWC('\n');
@@ -1389,7 +1402,8 @@ execzlefunc(Thingy func, char **args, int set_bindk)
 	    opts[XTRACE] = oxt;
 	    sfcontext = osc;
 	    endparamscope();
-	    lastcmd = 0;
+	    lastcmd = w->flags;
+	    w->flags = 0;
 	    r = 1;
 	    redup(osi, 0);
 	}
@@ -1858,7 +1872,7 @@ trashzle(void)
 	    clearflag = listshown = 0;
 	}
 	if (postedit)
-	    fprintf(shout, "%s", postedit);
+	    fprintf(shout, "%s", unmeta(postedit));
 	fflush(shout);
 	resetneeded = 1;
 	if (!(zlereadflags & ZLRF_NOSETTY))
@@ -1968,7 +1982,7 @@ zle_main_entry(int cmd, va_list ap)
 static struct builtin bintab[] = {
     BUILTIN("bindkey", 0, bin_bindkey, 0, -1, 0, "evaM:ldDANmrsLRp", NULL),
     BUILTIN("vared",   0, bin_vared,   1,  1, 0, "aAcef:hi:M:m:p:r:t:", NULL),
-    BUILTIN("zle",     0, bin_zle,     0, -1, 0, "aAcCDFgGIKlLmMNrRTUw", NULL),
+    BUILTIN("zle",     0, bin_zle,     0, -1, 0, "aAcCDfFgGIKlLmMNrRTUw", NULL),
 };
 
 /* The order of the entries in this table has to match the *HOOK
@@ -1986,8 +2000,6 @@ mod_export struct hookdef zlehooks[] = {
     HOOKDEF("after_complete", NULL, 0),
     /* ACCEPTCOMPHOOK */
     HOOKDEF("accept_completion", NULL, 0),
-    /* REVERSEMENUHOOK */
-    HOOKDEF("reverse_menu", NULL, 0),
     /* INVALIDATELISTHOOK */
     HOOKDEF("invalidate_list", NULL, 0),
 };
@@ -2004,6 +2016,8 @@ static struct features module_features = {
 int
 setup_(UNUSED(Module m))
 {
+    char **bpaste;
+
     /* Set up editor entry points */
     zle_entry_ptr = zle_main_entry;
     zle_load_state = 1;
@@ -2027,6 +2041,12 @@ setup_(UNUSED(Module m))
     hascompwidgets = 0;
 
     clwords = (char **) zshcalloc((clwsize = 16) * sizeof(char *));
+
+    bpaste = zshcalloc(3*sizeof(char *));
+    bpaste[0] = ztrdup("\033[?2004h");
+    bpaste[1] = ztrdup("\033[?2004l");
+    /* Intended to be global, no WARNCREATEGLOBAL check. */
+    assignaparam("zle_bracketed_paste", bpaste, 0);
 
     return 0;
 }

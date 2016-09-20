@@ -1,11 +1,11 @@
-#include <assert.h>
 #include <pthread.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdbool.h>
 #include <errno.h>
+
+#include <darwintest.h>
 
 struct context {
 	pthread_mutex_t mutex;
@@ -13,7 +13,7 @@ struct context {
 	long count;
 };
 
-void *test_thread(void *ptr) {
+static void *test_thread(void *ptr) {
 	int res;
 	long old;
 	struct context *context = ptr;
@@ -22,66 +22,61 @@ void *test_thread(void *ptr) {
 	char *str;
 
 	do {
-		bool try = i & 1;
+		bool try = i++ & 1;
 
-		switch (i++ & 1) {
-			case 0:
-				str = "pthread_mutex_lock";
-				res = pthread_mutex_lock(&context->mutex);
-				break;
-			case 1:
-				str = "pthread_mutex_trylock";
-				res = pthread_mutex_trylock(&context->mutex);
-				break;
+		if (!try){
+			str = "pthread_mutex_lock";
+			res = pthread_mutex_lock(&context->mutex);
+		} else {
+			str = "pthread_mutex_trylock";
+			res = pthread_mutex_trylock(&context->mutex);
 		}
 		if (res != 0) {
 			if (try && res == EBUSY) {
 				continue;
 			}
-			fprintf(stderr, "[%ld] %s: %s\n", context->count, str, strerror(res));
-			abort();
+			T_ASSERT_POSIX_ZERO(res, "[%ld] %s", context->count, str);
 		}
 		
 		old = __sync_fetch_and_or(&context->value, 1);
 		if ((old & 1) != 0) {
-			fprintf(stderr, "[%ld] OR %lx\n", context->count, old);
-			abort();
+			T_FAIL("[%ld] OR %lx\n", context->count, old);
 		}
 
 		old = __sync_fetch_and_and(&context->value, 0);
 		if ((old & 1) == 0) {
-			fprintf(stderr, "[%ld] AND %lx\n", context->count, old);
-			abort();
+			T_FAIL("[%ld] AND %lx\n", context->count, old);
 		}
 	
 		res = pthread_mutex_unlock(&context->mutex);
 		if (res) {
-			fprintf(stderr, "[%ld] pthread_mutex_lock: %s\n", context->count, strerror(res));
-			abort();
+			T_ASSERT_POSIX_ZERO(res, "[%ld] pthread_mutex_lock", context->count);
 		}
 	} while (__sync_fetch_and_sub(&context->count, 1) > 0);
-	exit(0);
+
+	T_PASS("thread completed successfully");
+
+	return NULL;
 }
 
-int main(int argc, char *argv[])
+T_DECL(mutex, "pthread_mutex",
+	T_META_ALL_VALID_ARCHS(YES))
 {
 	struct context context = {
 		.mutex = PTHREAD_MUTEX_INITIALIZER,
 		.value = 0,
-		.count = 5000000,
+		.count = 1000000,
 	};
 	int i;
 	int res;
-	int threads = 16;
+	int threads = 8;
 	pthread_t p[threads];
 	for (i = 0; i < threads; ++i) {
 		res = pthread_create(&p[i], NULL, test_thread, &context);
-		assert(res == 0);
+		T_ASSERT_POSIX_ZERO(res, "pthread_create()");
 	}
 	for (i = 0; i < threads; ++i) {
 		res = pthread_join(p[i], NULL);
-		assert(res == 0);
+		T_ASSERT_POSIX_ZERO(res, "pthread_join()");
 	}
-	
-	return 0;
 }

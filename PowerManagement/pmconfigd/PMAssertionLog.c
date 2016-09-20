@@ -69,6 +69,7 @@ static  uint32_t        gActivityLogCnt = 0;  // Has to be explicity enabled on 
 #endif
 
 
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 __private_extern__ bool isDisplayAsleep( );
 
 static void logAssertionActivity(assertLogAction  action,
@@ -132,6 +133,13 @@ static void logAssertionActivity(assertLogAction  action,
             return;
         }
         actionStr = CFSTR(kPMASLAssertionActionTurnOff);
+        break;
+
+    case kANameChangeLog:
+        if (!(gDebugFlags & kIOPMDebugLogAssertionNameChange)) {
+            return;
+        }
+        actionStr = CFSTR(kPMASLAssertionActionNameChange);
         break;
 
     default:
@@ -311,6 +319,8 @@ static void logAssertionToASL(assertLogAction  action,
     assertionType_t         *assertType = NULL;
 
 
+    assertionTypeCString[0] = assertionNameCString[0] =
+        aslAssertionId[0] = proc_name_buf[0] = aslMessageString[0] =  0;
     if (assertion->state & kAssertionSkipLogging) return;
 
     if (!(gDebugFlags & kIOPMDebugLogAssertionSynchronous)) {
@@ -374,6 +384,12 @@ static void logAssertionToASL(assertLogAction  action,
         break;
     case kASummaryLog:
         assertionAction = kPMASLAssertionActionSummary;
+        break;
+    case kANameChangeLog:
+        if (!(gDebugFlags & kIOPMDebugLogAssertionNameChange)) {
+            return;
+        }
+        assertionAction = kPMASLAssertionActionNameChange;
         break;
     default:
         return;
@@ -451,6 +467,10 @@ static void logAssertionToASL(assertLogAction  action,
     asl_send(NULL, m);
     asl_free(m);
 
+    if (isA_installEnvironment()) {
+        syslog(LOG_INFO | LOG_INSTALL, "Assertion %s. Type:%s Name:\'%s\' Id:%s Process:%s %s\n",
+                assertionAction, assertionTypeCString, assertionNameCString, aslAssertionId, proc_name_buf, aslMessageString);
+    }
 }
 
 
@@ -489,6 +509,7 @@ void logASLAssertionsAggregate( )
     m = new_msg_pmset_log();
     asl_set(m, ASL_KEY_MSG, aslMessageString);
     asl_set(m, kPMASLActionKey, kPMASLAssertionActionSummary);
+    asl_set(m, kPMASLDomainKey, kPMASLDomainPMAssertions);
     asl_send(NULL, m);
     asl_free(m);
     //
@@ -770,6 +791,61 @@ int qcompare(const void *p1, const void*p2)
 
 }
 
+IOReturn copyAssertionActivityAggregate(CFDictionaryRef *data)
+{
+    ProcessInfo             **procs = NULL;
+    CFMutableDictionaryRef  samples = NULL;
+    struct aggregateStats   aggStats;
+    IOReturn rc;
+    CFIndex                 j, cnt;
+
+
+
+    memset(&aggStats, 0, sizeof(aggStats));
+
+    if (gActivityAggCnt == 0) {
+        asl_log(0,0,ASL_LEVEL_ERR,
+                "gActivityAggCnt = 0; IOPMCopyAssertionActivityAggregate()"
+                " called without w/o IOPMSetAssertionActivityAggregate(true)?!\n");
+        rc = kIOReturnNotOpen;
+        goto exit;
+    }
+    aggStats.curTime = getMonotonicTime();
+
+    cnt = CFDictionaryGetCount(gProcessDict);
+    procs = malloc(cnt*(sizeof(ProcessInfo *)));
+    if (!procs)  {
+        rc = kIOReturnNoMemory;
+        goto exit;
+    }
+
+    memset(procs, 0, cnt*(sizeof(procs)));
+    CFDictionaryGetKeysAndValues(gProcessDict, NULL, (const void **)procs);
+
+    // Sort this array of ProcessInfo structs to return in same order every time.
+    // This is to overcome the limitation in IOReporting(see 16270424)
+    qsort(procs, cnt, sizeof(procs), qcompare);
+
+    for (j = 0; (j < cnt) && (procs[j]); j++) {
+        updateProcAssertionStats(procs[j], &aggStats);
+    }
+
+    samples = IOReportCreateSamplesRaw(aggStats.legend, aggStats.reportBufs, NULL);
+    free(procs);
+
+    *data = samples;
+    rc = kIOReturnSuccess;
+exit:
+    if (aggStats.legend) {
+        CFRelease(aggStats.legend);
+    }
+    if (aggStats.reportBufs) {
+        CFRelease(aggStats.reportBufs);
+    }
+    return rc;
+
+}
+
 /*
  * This MIG call will return
  * CFArrayRef  procNames : Array of process names for which stats are accumulated
@@ -789,48 +865,15 @@ kern_return_t _io_pm_assertion_activity_aggregate (
                                              mach_msg_type_number_t   *statsSize,
                                              int                      *rc)
 {
-    CFIndex                 j, cnt;
     CFDataRef               serializedArray = NULL;
-    ProcessInfo             **procs = NULL;
-    CFMutableDictionaryRef  samples = NULL;
-    struct aggregateStats   aggStats;
+    CFDictionaryRef         samples = NULL;
 
-    memset(&aggStats, 0, sizeof(aggStats));
     *statsSize = 0;
-    *rc = kIOReturnError;
-
-    if (gActivityAggCnt == 0) {
-        asl_log(0,0,ASL_LEVEL_ERR,
-                "gActivityAggCnt = 0; IOPMCopyAssertionActivityAggregate()"
-                " called without w/o IOPMSetAssertionActivityAggregate(true)?!\n");
-        // sleep(30);  // spindump -> look for IOPMCopyAssertionActivityAggregate()
-        *rc = kIOReturnNotOpen;
-        goto exit;
-    }
-    aggStats.curTime = getMonotonicTime();
-
-    cnt = CFDictionaryGetCount(gProcessDict);
-    procs = malloc(cnt*(sizeof(procs)));
-    if (!procs)  {
-        *rc = kIOReturnNoMemory;
+    *rc = copyAssertionActivityAggregate(&samples);
+    if (*rc != kIOReturnSuccess) {
         goto exit;
     }
 
-    memset(procs, 0, cnt*(sizeof(procs)));
-    CFDictionaryGetKeysAndValues(gProcessDict, NULL, (const void **)procs);
-
-    // Sort this array of ProcessInfo structs to return in same order every time.
-    // This is to overcome the limitation in IOReporting(see 16270424)
-    qsort(procs, cnt, sizeof(procs), qcompare);
-
-    for (j = 0; (j < cnt) && (procs[j]); j++) {
-        updateProcAssertionStats(procs[j], &aggStats);
-    }
-
-    samples = IOReportCreateSamplesRaw(aggStats.legend, aggStats.reportBufs, NULL);
-    free(procs);
-
-    *rc = kIOReturnSuccess;
 
     if (samples == 0) {
         /* No data collected */
@@ -844,6 +887,13 @@ kern_return_t _io_pm_assertion_activity_aggregate (
         *statsSize = (mach_msg_type_number_t)CFDataGetLength(serializedArray);
         vm_allocate(mach_task_self(), (vm_address_t *)statsData, *statsSize, TRUE);
         memcpy((void*)*statsData, CFDataGetBytePtr(serializedArray), *statsSize);
+
+#if TARGET_OS_EMBEDDED
+        // Clear up statsbuf of the dead processes after getting stats data for powerlog
+        if (auditTokenHasEntitlement(token, CFSTR("com.apple.private.iokit.powerlogging")))  {
+            releaseStatsBufForDeadProcs();
+        }
+#endif
     }
     else  {
         *rc = kIOReturnInternalError;
@@ -853,13 +903,9 @@ kern_return_t _io_pm_assertion_activity_aggregate (
 exit:
     if (samples)
         CFRelease(samples);
-    if (aggStats.legend)
-        CFRelease(aggStats.legend);
     if (serializedArray)
         CFRelease(serializedArray);
 
-    if (aggStats.reportBufs)
-        CFRelease(aggStats.reportBufs);
 
     return KERN_SUCCESS;
 }

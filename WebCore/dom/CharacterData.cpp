@@ -23,6 +23,7 @@
 #include "CharacterData.h"
 
 #include "ElementTraversal.h"
+#include "EventNames.h"
 #include "ExceptionCode.h"
 #include "FrameSelection.h"
 #include "InspectorInstrumentation.h"
@@ -32,18 +33,18 @@
 #include "ProcessingInstruction.h"
 #include "RenderText.h"
 #include "StyleInheritedData.h"
-#include "TextBreakIterator.h"
 #include <wtf/Ref.h>
+#include <wtf/text/TextBreakIterator.h>
 
 namespace WebCore {
 
-void CharacterData::setData(const String& data, ExceptionCode&)
+void CharacterData::setData(const String& data)
 {
     const String& nonNullData = !data.isNull() ? data : emptyString();
     if (m_data == nonNullData)
         return;
 
-    Ref<CharacterData> protect(*this);
+    Ref<CharacterData> protectedThis(*this);
 
     unsigned oldLength = length();
 
@@ -88,8 +89,8 @@ unsigned CharacterData::parserAppendData(const String& string, unsigned offset, 
         m_data.append(string.characters16() + offset, characterLengthLimit);
 
     ASSERT(!renderer() || is<Text>(*this));
-    if (is<Text>(*this))
-        Style::updateTextRendererAfterContentChange(downcast<Text>(*this), oldLength, 0);
+    if (is<Text>(*this) && parentNode())
+        downcast<Text>(*this).updateRendererAfterContentChange(oldLength, 0);
 
     document().incDOMTreeVersion();
     // We don't call dispatchModifiedEvent here because we don't want the
@@ -107,7 +108,7 @@ unsigned CharacterData::parserAppendData(const String& string, unsigned offset, 
     return characterLengthLimit;
 }
 
-void CharacterData::appendData(const String& data, ExceptionCode&)
+void CharacterData::appendData(const String& data)
 {
     String newStr = m_data;
     newStr.append(data);
@@ -137,18 +138,14 @@ void CharacterData::deleteData(unsigned offset, unsigned count, ExceptionCode& e
     if (ec)
         return;
 
-    unsigned realCount;
-    if (offset + count > length())
-        realCount = length() - offset;
-    else
-        realCount = count;
+    count = std::min(count, length() - offset);
 
     String newStr = m_data;
-    newStr.remove(offset, realCount);
+    newStr.remove(offset, count);
 
     setDataAndUpdate(newStr, offset, count, 0);
 
-    document().textRemoved(this, offset, realCount);
+    document().textRemoved(this, offset, count);
 }
 
 void CharacterData::replaceData(unsigned offset, unsigned count, const String& data, ExceptionCode& ec)
@@ -157,20 +154,16 @@ void CharacterData::replaceData(unsigned offset, unsigned count, const String& d
     if (ec)
         return;
 
-    unsigned realCount;
-    if (offset + count > length())
-        realCount = length() - offset;
-    else
-        realCount = count;
+    count = std::min(count, length() - offset);
 
     String newStr = m_data;
-    newStr.remove(offset, realCount);
+    newStr.remove(offset, count);
     newStr.insert(data, offset);
 
     setDataAndUpdate(newStr, offset, count, data.length());
 
     // update the markers for spell checking and grammar checking
-    document().textRemoved(this, offset, realCount);
+    document().textRemoved(this, offset, count);
     document().textInserted(this, offset, data.length());
 }
 
@@ -184,9 +177,9 @@ bool CharacterData::containsOnlyWhitespace() const
     return m_data.containsOnlyWhitespace();
 }
 
-void CharacterData::setNodeValue(const String& nodeValue, ExceptionCode& ec)
+void CharacterData::setNodeValue(const String& nodeValue, ExceptionCode&)
 {
-    setData(nodeValue, ec);
+    setData(nodeValue);
 }
 
 void CharacterData::setDataAndUpdate(const String& newData, unsigned offsetOfReplacedData, unsigned oldLength, unsigned newLength)
@@ -195,8 +188,8 @@ void CharacterData::setDataAndUpdate(const String& newData, unsigned offsetOfRep
     m_data = newData;
 
     ASSERT(!renderer() || is<Text>(*this));
-    if (is<Text>(*this))
-        Style::updateTextRendererAfterContentChange(downcast<Text>(*this), offsetOfReplacedData, oldLength);
+    if (is<Text>(*this) && parentNode())
+        downcast<Text>(*this).updateRendererAfterContentChange(offsetOfReplacedData, oldLength);
 
     if (is<ProcessingInstruction>(*this))
         downcast<ProcessingInstruction>(*this).checkStyleSheet();

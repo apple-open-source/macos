@@ -29,10 +29,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SocketStreamHandle_h
-#define SocketStreamHandle_h
+#pragma once
 
-#include "AuthenticationClient.h"
+#include "SessionID.h"
 #include "SocketStreamHandleBase.h"
 #include <wtf/RetainPtr.h>
 #include <wtf/ThreadSafeRefCounted.h>
@@ -47,20 +46,17 @@ class NetworkingContext;
 class ProtectionSpace;
 class SocketStreamHandleClient;
 
-class SocketStreamHandle : public ThreadSafeRefCounted<SocketStreamHandle>, public SocketStreamHandleBase, public AuthenticationClient {
+class SocketStreamHandle : public ThreadSafeRefCounted<SocketStreamHandle>, public SocketStreamHandleBase {
 public:
-    static PassRefPtr<SocketStreamHandle> create(const URL& url, SocketStreamHandleClient* client, NetworkingContext& networkingContext) { return adoptRef(new SocketStreamHandle(url, client, networkingContext)); }
+    static Ref<SocketStreamHandle> create(const URL& url, SocketStreamHandleClient& client, NetworkingContext& networkingContext, SessionID sessionID) { return adoptRef(*new SocketStreamHandle(url, client, networkingContext, sessionID)); }
 
     virtual ~SocketStreamHandle();
-
-    using ThreadSafeRefCounted<SocketStreamHandle>::ref;
-    using ThreadSafeRefCounted<SocketStreamHandle>::deref;
 
 private:
     virtual int platformSend(const char* data, int length);
     virtual void platformClose();
 
-    SocketStreamHandle(const URL&, SocketStreamHandleClient*, NetworkingContext&);
+    WEBCORE_EXPORT SocketStreamHandle(const URL&, SocketStreamHandleClient&, NetworkingContext&, SessionID);
     void createStreams();
     void scheduleStreams();
     void chooseProxy();
@@ -88,16 +84,6 @@ private:
 
     bool getStoredCONNECTProxyCredentials(const ProtectionSpace&, String& login, String& password);
 
-    // No authentication for streams per se, but proxy may ask for credentials.
-    virtual void receivedCredential(const AuthenticationChallenge&, const Credential&);
-    virtual void receivedRequestToContinueWithoutCredential(const AuthenticationChallenge&);
-    virtual void receivedCancellation(const AuthenticationChallenge&);
-    virtual void receivedRequestToPerformDefaultHandling(const AuthenticationChallenge&);
-    virtual void receivedChallengeRejection(const AuthenticationChallenge&);
-
-    virtual void refAuthenticationClient() { ref(); }
-    virtual void derefAuthenticationClient() { deref(); }
-
     enum ConnectingSubstate { New, ExecutingPACFile, WaitingForCredentials, WaitingForConnect, Connected };
     ConnectingSubstate m_connectingSubstate;
 
@@ -117,5 +103,3 @@ private:
 };
 
 }  // namespace WebCore
-
-#endif  // SocketStreamHandle_h

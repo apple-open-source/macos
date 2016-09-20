@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2009-12-31</string>
+	<string>2016-01-16</string>
 	<key>OpenSourceLicense</key>
 	<string>other</string>
 	<key>OpenSourceLicenseFile</key>
@@ -30,16 +30,15 @@
 		<string>fix for NTP bug 2797</string>
 		<string>CVE-2014-9296, a missing 'return'</string>
 		<string>CVE-2013-5211, disable REQ_MON_GETLIST and REQ_MON_GETLIST_1</string>
-		<string>CVE-2015-7871, NAK to the Future: Symmetric association authentication bypass via crypto-NAK</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>ntp</string>
 	<key>OpenSourceSHA1</key>
-	<string>a1f21b23c8c80f35801d59e30ba30779f2025a72</string>
+	<string>7244b0fb66ceb66283480e8f83a4c4a2099f9cd7</string>
 	<key>OpenSourceURL</key>
-	<string>http://archive.ntp.org/ntp4/ntp-4.2/ntp-4.2.6.tar.gz</string>
+	<string>http://archive.ntp.org/ntp4/ntp-4.2/ntp-4.2.8p6.tar.gz</string>
 	<key>OpenSourceVersion</key>
-	<string>4.2.6</string>
+	<string>4.2.8p6</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.ntp.org</string>
 </dict>

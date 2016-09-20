@@ -1,4 +1,4 @@
-*cmdline.txt*   For Vim version 7.3.  Last change: 2010 May 07
+*cmdline.txt*   For Vim version 7.4.  Last change: 2015 Sep 25
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -56,7 +56,7 @@ history tables:
 These are completely separate.  Each history can only be accessed when
 entering the same type of line.
 Use the 'history' option to set the number of lines that are remembered
-(default: 20).
+(default: 50).
 Notes:
 - When you enter a command-line that is exactly the same as an older one, the
   old one is removed (to avoid repeated commands moving older commands out of
@@ -83,9 +83,9 @@ CTRL-V		Insert next non-digit literally.  Up to three digits form the
 CTRL-Q		Same as CTRL-V.  But with some terminals it is used for
 		control flow, it doesn't work then.
 
-							*c_<Left>*
+							*c_<Left>* *c_Left*
 <Left>		cursor left
-							*c_<Right>*
+							*c_<Right>* *c_Right*
 <Right>		cursor right
 							*c_<S-Left>*
 <S-Left> or <C-Left>					*c_<C-Left>*
@@ -93,18 +93,18 @@ CTRL-Q		Same as CTRL-V.  But with some terminals it is used for
 							*c_<S-Right>*
 <S-Right> or <C-Right>					*c_<C-Right>*
 		cursor one WORD right
-CTRL-B or <Home>					*c_CTRL-B* *c_<Home>*
+CTRL-B or <Home>				*c_CTRL-B* *c_<Home>* *c_Home*
 		cursor to beginning of command-line
-CTRL-E or <End>						*c_CTRL-E* *c_<End>*
+CTRL-E or <End>					*c_CTRL-E* *c_<End>* *c_End*
 		cursor to end of command-line
 
 							*c_<LeftMouse>*
 <LeftMouse>	Move the cursor to the position of the mouse click.
 
-CTRL-H							*c_<BS>* *c_CTRL-H*
+CTRL-H						*c_<BS>* *c_CTRL-H* *c_BS*
 <BS>		Delete the character in front of the cursor (see |:fixdel| if
 		your <BS> key does not do what you want).
-							*c_<Del>*
+							*c_<Del>* *c_Del*
 <Del>		Delete the character under the cursor (at end of line:
 		character before the cursor) (see |:fixdel| if your <Del>
 		key does not do what you want).
@@ -118,7 +118,7 @@ CTRL-U		Remove all characters between the cursor position and
 		preferred behavior, add the following to your .vimrc: >
 			:cnoremap <C-U> <C-E><C-U>
 <
-							*c_<Insert>*
+						*c_<Insert>* *c_Insert*
 <Insert>	Toggle between insert and overstrike.  {not in Vi}
 
 {char1} <BS> {char2}	or				*c_digraph*
@@ -217,16 +217,16 @@ CTRL-\ e {expr}						*c_CTRL-\_e*
 			   :return cmd
 			:endfunc
 <		This doesn't work recursively, thus not when already editing
-		an expression.
+		an expression.  But it is possible to use in a mapping.
 
 							*c_CTRL-Y*
 CTRL-Y		When there is a modeless selection, copy the selection into
 		the clipboard. |modeless-selection|
 		If there is no selection CTRL-Y is inserted as a character.
 
-CTRL-J						*c_CTRL-J* *c_<NL>* *c_<CR>*
+CTRL-J					*c_CTRL-J* *c_<NL>* *c_<CR>* *c_CR*
 <CR> or <NL>	start entered command
-							*c_<Esc>*
+							*c_<Esc>* *c_Esc*
 <Esc>		When typed and 'x' not present in 'cpoptions', quit
 		Command-line mode without executing.  In macros or when 'x'
 		present in 'cpoptions', start entered command.
@@ -235,12 +235,12 @@ CTRL-J						*c_CTRL-J* *c_<NL>* *c_<CR>*
 							*c_CTRL-C*
 CTRL-C		quit command-line without executing
 
-							*c_<Up>*
+							*c_<Up>* *c_Up*
 <Up>		recall older command-line from history, whose beginning
 		matches the current command-line (see below).
 		{not available when compiled without the |+cmdline_hist|
 		feature}
-							*c_<Down>*
+							*c_<Down>* *c_Down*
 <Down>		recall more recent command-line from history, whose beginning
 		matches the current command-line (see below).
 		{not available when compiled without the |+cmdline_hist|
@@ -330,12 +330,12 @@ terminals)
 
 :his[tory] [{name}] [{first}][, [{last}]]
 		List the contents of history {name} which can be:
-		c[md]	 or :	command-line history
-		s[earch] or /	search string history
-		e[xpr]	 or =	expression register history
-		i[nput]	 or @	input line history
-		d[ebug]	 or >	debug command history
-		a[ll]		all of the above
+		c[md]	 or :		command-line history
+		s[earch] or / or ?	search string history
+		e[xpr]	 or =		expression register history
+		i[nput]	 or @		input line history
+		d[ebug]	 or >		debug command history
+		a[ll]			all of the above
 		{not in Vi}
 
 		If the numbers {first} and/or {last} are given, the respective
@@ -356,6 +356,10 @@ terminals)
 		List the recent five entries from all histories: >
 			:history all -5,
 
+:keepp[atterns] {command}			*:keepp* *:keeppatterns*
+		Execute {command}, without adding anything to the search
+		history
+
 ==============================================================================
 2. Command-line completion				*cmdline-completion*
 
@@ -372,10 +376,10 @@ word before the cursor.  This is available for:
 - Mappings: Only after a ":map" or similar command.
 - Variable and function names: Only after a ":if", ":call" or similar command.
 
-When Vim was compiled with the |+cmdline_compl| feature disabled, only file
-names, directories and help items can be completed.  The number of help item
-matches is limited (currently to 300) to avoid a long delay when there are
-very many matches.
+When Vim was compiled without the |+cmdline_compl| feature only file names,
+directories and help items can be completed.  The number of help item matches
+is limited (currently to 300) to avoid a long delay when there are very many
+matches.
 
 These are the commands that can be used:
 
@@ -423,7 +427,10 @@ CTRL-L		A match is done on the pattern in front of the cursor.  If
 
 The 'wildchar' option defaults to <Tab> (CTRL-E when in Vi compatible mode; in
 a previous version <Esc> was used).  In the pattern standard wildcards '*' and
-'?' are accepted.  '*' matches any string, '?' matches exactly one character.
+'?' are accepted when matching file names.  '*' matches any string, '?'
+matches exactly one character.
+
+The 'wildignorecase' option can be set to ignore case in filenames.
 
 If you like tcsh's autolist completion, you can use this mapping:
 	:cnoremap X <C-L><C-D>
@@ -504,6 +511,8 @@ followed by another Vim command:
     :argdo
     :autocmd
     :bufdo
+    :cdo
+    :cfdo
     :command
     :cscope
     :debug
@@ -514,6 +523,8 @@ followed by another Vim command:
     :help
     :helpfind
     :lcscope
+    :ldo
+    :lfdo
     :make
     :normal
     :perl
@@ -590,6 +601,7 @@ starts editing the three files "foo bar", "goes to" and "school ".
 When you want to use the special characters '"' or '|' in a command, or want
 to use '%' or '#' in a file name, precede them with a backslash.  The
 backslash is not required in a range and in the ":substitute" command.
+See also |`=|.
 
 							*:_!*
 The '!' (bang) character after an Ex command makes the command behave in a
@@ -711,10 +723,15 @@ three lines: >
 Visual Mode and Range					*v_:*
 
 {Visual}:	Starts a command-line with the Visual selected lines as a
-		range.  The code ":'<,'>" is used for this range, which makes
+		range.  The code `:'<,'>` is used for this range, which makes
 		it possible to select a similar line from the command-line
 		history for repeating a command on different Visually selected
 		lines.
+		When Visual mode was already ended, a short way to use the
+		Visual area for a range is `:*`.  This requires that "*" does
+		not appear in 'cpo', see |cpo-star|.  Otherwise you will have
+		to type `:'<,'>`
+
 
 ==============================================================================
 5. Ex command-line flags				*ex-flags*
@@ -737,15 +754,16 @@ to insert special things while typing you can use the CTRL-R command.  For
 example, "%" stands for the current file name, while CTRL-R % inserts the
 current file name right away.  See |c_CTRL-R|.
 
-Note: If you want to avoid the special characters in a Vim script you may want
-to use |fnameescape()|.
+Note:  If you want to avoid the effects of special characters in a Vim script
+you may want to use |fnameescape()|.  Also see |`=|.
 
 
 In Ex commands, at places where a file name can be used, the following
 characters have a special meaning.  These can also be used in the expression
-function expand() |expand()|.
+function |expand()|.
 	%	Is replaced with the current file name.		  *:_%* *c_%*
 	#	Is replaced with the alternate file name.	  *:_#* *c_#*
+		This is remembered for every window.
 	#n	(where n is a number) is replaced with		  *:_#0* *:_#n*
 		the file name of buffer n.  "#0" is the same as "#".     *c_#n*
 	##	Is replaced with all names in the argument list	  *:_##* *c_##*
@@ -777,38 +795,43 @@ it, no matter how many backslashes.
 	   #			alternate.file
 	   \#			#
 	   \\#			\#
+Also see |`=|.
 
 			       *:<cword>* *:<cWORD>* *:<cfile>* *<cfile>*
 			       *:<sfile>* *<sfile>* *:<afile>* *<afile>*
 			       *:<abuf>* *<abuf>* *:<amatch>* *<amatch>*
-			       *E495* *E496* *E497* *E498* *E499* *E500*
+			       *<slnum>* *E495* *E496* *E497* *E499* *E500*
 Note: these are typed literally, they are not special keys!
 	<cword>    is replaced with the word under the cursor (like |star|)
 	<cWORD>    is replaced with the WORD under the cursor (see |WORD|)
 	<cfile>    is replaced with the path name under the cursor (like what
 		   |gf| uses)
-	<afile>    when executing autocommands, is replaced with the file name
-		   for a file read or write
-	<abuf>     when executing autocommands, is replaced with the currently
+	<afile>    When executing autocommands, is replaced with the file name
+		   for a file read or write.
+	<abuf>     When executing autocommands, is replaced with the currently
 		   effective buffer number (for ":r file" and ":so file" it is
 		   the current buffer, the file being read/sourced is not in a
 		   buffer).
-	<amatch>   when executing autocommands, is replaced with the match for
+	<amatch>   When executing autocommands, is replaced with the match for
 		   which this autocommand was executed.  It differs from
 		   <afile> only when the file name isn't used to match with
 		   (for FileType, Syntax and SpellFileMissing events).
-	<sfile>    when executing a ":source" command, is replaced with the
-		   file name of the sourced file;
-		   when executing a function, is replaced with
-		   "function {function-name}"; function call nesting is
-		   indicated like this:
-		   "function {function-name1}..{function-name2}".  Note that
-		   filename-modifiers are useless when <sfile> is used inside
-		   a function.
+	<sfile>    When executing a ":source" command, is replaced with the
+		   file name of the sourced file.  *E498*
+		   When executing a function, is replaced with:
+		   "function {function-name}[{lnum}]"
+		   function call nesting is indicated like this:
+		   "function {function-name1}[{lnum}]..{function-name2}[{lnum}]"
+		   Note that filename-modifiers are useless when <sfile> is
+		   used inside a function.
+	<slnum>	   When executing a ":source" command, is replaced with the
+	           line number.  *E842*
+		   When executing a function it's the line number relative to
+		   the start of the function.
 
 							 *filename-modifiers*
-	 *:_%:* *::8* *::p* *::.* *::~* *::h* *::t* *::r* *::e* *::s* *::gs*
-	        *%:8* *%:p* *%:.* *%:~* *%:h* *%:t* *%:r* *%:e* *%:s* *%:gs*
+*:_%:* *::8* *::p* *::.* *::~* *::h* *::t* *::r* *::e* *::s* *::gs* *::S*
+     *%:8* *%:p* *%:.* *%:~* *%:h* *%:t* *%:r* *%:e* *%:s* *%:gs* *%:S*
 The file name modifiers can be used after "%", "#", "#n", "<cfile>", "<sfile>",
 "<afile>" or "<abuf>".  They are also used with the |fnamemodify()| function.
 These are not available when Vim has been compiled without the |+modify_fname|
@@ -819,10 +842,11 @@ These modifiers can be given, in this order:
 		the home directory.  If the name is a directory a path
 		separator is added at the end.  For a file name that does not
 		exist and does not have an absolute path the result is
-		unpredictable.
+		unpredictable.  On MS-Windows an 8.3 filename is expanded to
+		the long name.
 	:8	Converts the path to 8.3 short format (currently only on
-		win32).  Will act on as much of a path that is an existing
-		path.
+		MS-Windows).  Will act on as much of a path that is an
+		existing path.
 	:~	Reduce file name to be relative to the home directory, if
 		possible.  File name is unmodified if it is not below the home
 		directory.
@@ -860,8 +884,12 @@ These modifiers can be given, in this order:
 		After this, the previous modifiers can be used again.  For
 		example ":p", to make a full path after the substitution.
 	:gs?pat?sub?
-		Substitute all occurrences of "path" with "sub".  Otherwise
+		Substitute all occurrences of "pat" with "sub".  Otherwise
 		this works like ":s".
+	:S	Escape special characters for use with a shell command (see
+		|shellescape()|). Must be the last one. Examples: >
+		    :!dir <cfile>:S
+		    :call system('chmod +w -- ' . expand('%:S'))
 
 Examples, when the file name is "src/version.c", current dir
 "/home/mool/vim": >
@@ -911,9 +939,8 @@ name).  This is included for backwards compatibility with version 3.0, the
 
 Note: Where a file name is expected wildcards expansion is done.  On Unix the
 shell is used for this, unless it can be done internally (for speed).
-Backticks also work, like in >
+Unless in |restricted-mode|, backticks work also, like in >
 	:n `echo *.c`
-(backtick expansion is not possible in |restricted-mode|)
 But expansion is only done if there are any wildcards before expanding the
 '%', '#', etc..  This avoids expanding wildcards inside a file name.  If you
 want to expand the result of <cfile>, add a wildcard character to it.
@@ -924,6 +951,7 @@ Examples: (alternate file name is "?readme?")
 	:e #.*		:e {files matching "?readme?.*"}
 	:cd <cfile>	:cd {file name under cursor}
 	:cd <cfile>*	:cd {file name under cursor plus "*" and then expanded}
+Also see |`=|.
 
 When the expanded argument contains a "!" and it is used for a shell command
 (":!cmd", ":r !cmd" or ":w !cmd"), the "!" is escaped with a backslash to
@@ -950,8 +978,10 @@ for the file "$home" in the root directory.  A few examples:
 	/\$home		file "$home" in root directory
 	\\$home		file "\\", followed by expanded $home
 
+Also see |`=|.
+
 ==============================================================================
-6. Command-line window				*cmdline-window* *cmdwin*
+7. Command-line window				*cmdline-window* *cmdwin*
 							*command-line-window*
 In the command-line window the command line can be edited just like editing
 text in any window.  It is a special kind of window, because you cannot leave
@@ -1061,6 +1091,9 @@ While in the command-line window you cannot use the mouse to put the cursor in
 another window, or drag statuslines of other windows.  You can drag the
 statusline of the command-line window itself and the statusline above it.
 Thus you can resize the command-line window, but not others.
+
+The |getcmdwintype()| function returns the type of the command-line being
+edited as described in |cmdwin-char|.
 
 
 AUTOCOMMANDS

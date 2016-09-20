@@ -57,11 +57,7 @@ tDirStatus dsauth_get_search_node_ref(tDirReference dirRef, UInt32 index,
         error("DS plugin: Could not allocate tDataBuffer\n");
         goto cleanup;
     }
-    if ((searchNodeNameDataListPtr = dsDataListAllocate(dirRef)) == 0) {
-        error("DS plugin: Could not allocate tDataList\n");
-        goto cleanup;
-    }
-        
+
     // find authentication search node(s)
     if ((dsResult = dsFindDirNodes(dirRef, searchNodeDataBufferPtr, 0, eDSAuthenticationSearchNodeName, 
                                                                 &outNodeCount, &continueData)) == eDSNoErr) {
@@ -82,8 +78,10 @@ tDirStatus dsauth_get_search_node_ref(tDirReference dirRef, UInt32 index,
 cleanup:
     if (searchNodeDataBufferPtr)
         dsDataBufferDeAllocate(dirRef, searchNodeDataBufferPtr);
-    if (searchNodeNameDataListPtr)
+    if (searchNodeNameDataListPtr) {
         dsDataListDeallocate(dirRef, searchNodeNameDataListPtr);
+        free(searchNodeNameDataListPtr);
+    }
     
     return dsResult;
 }
@@ -205,12 +203,18 @@ cleanup:
 		dsReleaseContinueData(searchNodeRef, continueData);
     if (userRcdDataBufferPtr)
         dsDataBufferDeAllocate(dirRef, userRcdDataBufferPtr);
-    if (recordNameDataListPtr)
+    if (recordNameDataListPtr) {
         dsDataListDeallocate(dirRef, recordNameDataListPtr);
-    if (recordTypeDataListPtr)
+        free(recordNameDataListPtr);
+    }
+    if (recordTypeDataListPtr) {
         dsDataListDeallocate(dirRef, recordTypeDataListPtr); 
-    if (attrTypeDataListPtr)
+        free(recordTypeDataListPtr);
+    }
+    if (attrTypeDataListPtr) {
         dsDataListDeallocate(dirRef, attrTypeDataListPtr); 
+        free(attrTypeDataListPtr);
+    }
         
     return dsResult;
     

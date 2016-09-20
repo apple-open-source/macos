@@ -136,13 +136,13 @@ public:
 	std::string signatureSource();
  	virtual CFDataRef component(CodeDirectory::SpecialSlot slot, OSStatus fail = errSecCSSignatureFailed);
  	virtual CFDictionaryRef infoDictionary();
+	CFDictionaryRef diskRepInformation();
 
 	CFDictionaryRef entitlements();
+	CFDataRef copyComponent(CodeDirectory::SpecialSlot slot, CFDataRef hash);
 
 	CFDictionaryRef resourceDictionary(bool check = true);
 	CFURLRef resourceBase();
-	CFDataRef resource(std::string path);
-	CFDataRef resource(std::string path, ValidationContext &ctx);
 	void validateResource(CFDictionaryRef files, std::string path, bool isSymlink, ValidationContext &ctx, SecCSFlags flags, uint32_t version);
 	void validateSymlinkResource(std::string fullpath, std::string seal, ValidationContext &ctx, SecCSFlags flags);
 
@@ -177,6 +177,8 @@ public:
 	void validateExecutable();
 	void validateNestedCode(CFURLRef path, const ResourceSeal &seal, SecCSFlags flags, bool isFramework);
 	
+	void validatePlainMemoryResource(string path, CFDataRef fileData, SecCSFlags flags);
+	
 	const Requirements *internalRequirements();
 	const Requirement *internalRequirement(SecRequirementType type);
 	const Requirement *designatedRequirement();
@@ -193,7 +195,7 @@ public:
 	
 	CFDictionaryRef signingInformation(SecCSFlags flags); // omnibus information-gathering API (creates new dictionary)
 
-	static bool isAppleDeveloperCert(CFArrayRef certs); // determines if this is an apple developer certificate for libraray validation
+	static bool isAppleDeveloperCert(CFArrayRef certs); // determines if this is an apple developer certificate for library validation
 
 public:
 	void staticValidate(SecCSFlags flags, const SecRequirement *req);
@@ -207,6 +209,9 @@ protected:
 	CFDictionaryRef getDictionary(CodeDirectory::SpecialSlot slot, bool check = true); // component value as a dictionary
 	bool verifySignature();
 	CFArrayRef verificationPolicies();
+	
+	// load preferred rules/files dictionaries (cached therein)
+	bool loadResources(CFDictionaryRef& rules, CFDictionaryRef& files, uint32_t& version);
 
 	static void checkOptionalResource(CFTypeRef key, CFTypeRef value, void *context);
 	bool hasWeakResourceRules(CFDictionaryRef rulesDict, uint32_t version, CFArrayRef allowedOmissions);

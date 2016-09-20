@@ -30,7 +30,7 @@
 #include <Security/SecTrustSettings.h>
 #include <Security/cssmapple.h>
 #include <Security/oidsalg.h>
-#include <security_cdsa_utils/cuFileIo.h>
+#include <utilities/fileIo.h>
 #include <security_cdsa_utils/cuPem.h>
 
 static int indentSize = 0;
@@ -355,18 +355,18 @@ int readCertFile(
 	SecCertificateRef *certRef)
 {
 	unsigned char *cp = NULL;
-	unsigned len = 0;
+	size_t len = 0;
 	CSSM_DATA certData;
 	OSStatus ortn;
 	unsigned char *decoded = NULL;
 	unsigned decodedLen = 0;
 
-	if(readFile(fileName, &cp, &len)) {
+	if(readFileSizet(fileName, &cp, &len)) {
 		printf("***Error reading file %s\n", fileName);
 		return -1;
 	}
-	if(isPem(cp, len)) {
-		if(pemDecode(cp, len, &decoded, &decodedLen)) {
+	if(isPem(cp, (unsigned) len)) {
+		if(pemDecode(cp, (unsigned) len, &decoded, &decodedLen)) {
 			fprintf(stderr, "Error decoding cert file %s\n", fileName);
 			return -1;
 		}
@@ -409,9 +409,6 @@ const CSSM_OID *policyStringToOid(
 	else if(!strcmp(policy, "IPSec")) {
 		return &CSSMOID_APPLE_TP_IP_SEC;
 	}
-	else if(!strcmp(policy, "iChat")) {
-		return &CSSMOID_APPLE_TP_ICHAT;
-	}
 	else if(!strcmp(policy, "basic")) {
 		return &CSSMOID_APPLE_X509_BASIC;
 	}
@@ -420,12 +417,6 @@ const CSSM_OID *policyStringToOid(
 	}
 	else if(!strcmp(policy, "pkgSign")) {
 		return &CSSMOID_APPLE_TP_PACKAGE_SIGNING;
-	}
-	else if(!strcmp(policy, "pkinitClient")) {
-		return &CSSMOID_APPLE_TP_PKINIT_CLIENT;
-	}
-	else if(!strcmp(policy, "pkinitServer")) {
-		return &CSSMOID_APPLE_TP_PKINIT_SERVER;
 	}
 	else if(!strcmp(policy, "eap")) {
 		return &CSSMOID_APPLE_TP_EAP;

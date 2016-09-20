@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2008, 2011, 2012, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008, 2011, 2012, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -41,7 +41,7 @@ __SCDynamicStoreNotifyValue(SCDynamicStoreRef store, CFStringRef key, Boolean in
 	int				sc_status	= kSCStatusOK;
 	CFDataRef			value;
 
-	SC_trace(_configd_trace, "%s : %5d : %@\n",
+	SC_trace("%s : %5d : %@",
 		 internal ? "*notify" : "notify ",
 		 storePrivate->server,
 		 key);

@@ -514,7 +514,7 @@ main(int argc, char * argv[])
 		  printed = FALSE;
 	      }
 	  }
-	  if (printed == FALSE) {
+	  if (!printed) {
 	      print_data((void *)CFDataGetBytePtr(option), len);
 	  }
 	  if (serviceID)
@@ -598,8 +598,7 @@ main(int argc, char * argv[])
 	  }
 	  app_id = CFStringCreateWithFormat(NULL, NULL,
 					    CFSTR("%s"), argv[2]);
-	  if (DHCPClientPreferencesSetApplicationOptions(app_id, options,
-							 count) == FALSE) {
+	  if (!DHCPClientPreferencesSetApplicationOptions(app_id, options, count) {
 	      printf("operation failed\n");
 	  }
 	  if (options) {

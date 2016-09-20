@@ -259,9 +259,9 @@ SecCode *SecCode::autoLocateGuest(CFDictionaryRef attributes, SecCSFlags flags)
 	if (CFDictionaryGetCount(attributes) == 0)
 		return KernelCode::active()->retain();
 	
-	// main logic: we need a pid, and we'll take a canonical guest id as an option
-	int pid = 0;
-	if (!cfscan(attributes, "{%O=%d}", kSecGuestAttributePid, &pid))
+	// main logic: we need a pid or audit trailer; everything else goes to the guests
+	if (CFDictionaryGetValue(attributes, kSecGuestAttributePid) == NULL
+		&& CFDictionaryGetValue(attributes, kSecGuestAttributeAudit) == NULL)
 		CSError::throwMe(errSecCSUnsupportedGuestAttributes, kSecCFErrorGuestAttributes, attributes);
 	if (SecCode *process =
 			KernelCode::active()->locateGuest(attributes)) {
@@ -271,6 +271,7 @@ SecCode *SecCode::autoLocateGuest(CFDictionaryRef attributes, SecCSFlags flags)
 			// might be a code host. Let's find out
 			CFRef<CFMutableDictionaryRef> rest = makeCFMutableDictionary(attributes);
 			CFDictionaryRemoveValue(rest, kSecGuestAttributePid);
+			CFDictionaryRemoveValue(rest, kSecGuestAttributeAudit);
 			if (SecCode *guest = code->locateGuest(rest))
 				return guest;
 		}

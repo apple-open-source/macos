@@ -26,7 +26,7 @@ EXTRA_DIST = 						\
 	add-duration.1.out add-duration.1.xml add-duration.1.xsl \
 	add-duration.2.out add-duration.2.xml add-duration.2.xsl \
 	sum.1.out	sum.1.xml	sum.1.xsl	\
-	sum.2.out	sum.2.xml	sum.2.xsl	\
+	sum.2.out	sum.2.xml	sum.2.xsl	sum.2.err	\
 	difference.1.out difference.1.xml difference.1.xsl	\
 	difference.2.out difference.2.xml difference.2.xsl	\
 	duration.1.out	duration.1.xml	duration.1.xsl	\

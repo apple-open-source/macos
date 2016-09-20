@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -59,7 +59,6 @@
 #include <netinet/udp.h>
 #include <netinet/bootp.h>
 #include <netinet/if_ether.h>
-#include <syslog.h>
 #include <arpa/inet.h>
 #include <net/if_arp.h>
 #include <mach/boolean.h>
@@ -2043,10 +2042,10 @@ bsdp_request(request_t * request, dhcp_msgtype_t dhcpmsg,
 		  /* pad out to BOOTP-sized packet */
 		  size = sizeof(struct bootp);
 	      }
-	      if (bootp_transmit(bootp_socket, transmit_buffer, 
+	      if (bootp_transmit(bootp_socket, transmit_buffer,
 				 if_name(request->if_p),
-				 rq->dp_htype, NULL, 0, 
-				 rq->dp_ciaddr, 
+				 rq->dp_htype, NULL,
+				 rq->dp_ciaddr,
 				 if_inet_addr(request->if_p),
 				 reply_port, IPPORT_BOOTPS,
 				 reply, size) < 0) {

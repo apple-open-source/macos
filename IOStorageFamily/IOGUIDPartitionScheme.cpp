@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -156,6 +156,9 @@ bool IOGUIDPartitionScheme::start(IOService * provider)
 
     partitionIterator->release();
 
+    // set partition scheme to be valid
+    _partitionSchemeState |= kIOPartitionScheme_partition_valid;
+
     return true;
 }
 
@@ -200,6 +203,10 @@ IOReturn IOGUIDPartitionScheme::requestProbe(IOOptionBits options)
     SInt32  score         = 0;
 
     // Scan the provider media for partitions.
+    if ( ( _partitionSchemeState & kIOPartitionScheme_partition_valid ) == 0 )
+    {
+        return kIOReturnError;
+    }
 
     partitionsNew = scan( &score );
 
@@ -377,8 +384,13 @@ OSSet * IOGUIDPartitionScheme::scan(SInt32 * score)
     // Allocate a buffer large enough to hold one map, rounded to a media block.
 
     buffer->release();
+    buffer = 0;
 
+    // In case gptCount * gptSize + mediaBlockSize exceed UInt32, the IORound will
+    // return 0.
     bufferSize = IORound(gptCount * gptSize, mediaBlockSize);
+    if ( bufferSize == 0 )  goto scanErr;
+
     buffer     = IOBufferMemoryDescriptor::withCapacity(
                                            /* capacity      */ bufferSize,
                                            /* withDirection */ kIODirectionIn );

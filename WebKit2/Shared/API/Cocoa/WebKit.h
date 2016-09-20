@@ -32,7 +32,11 @@
 #import <WebKit/WKNavigationAction.h>
 #import <WebKit/WKNavigationDelegate.h>
 #import <WebKit/WKNavigationResponse.h>
+#import <WebKit/WKOpenPanelParameters.h>
 #import <WebKit/WKPreferences.h>
+#import <WebKit/WKPreviewActionItem.h>
+#import <WebKit/WKPreviewActionItemIdentifiers.h>
+#import <WebKit/WKPreviewElementInfo.h>
 #import <WebKit/WKProcessPool.h>
 #import <WebKit/WKScriptMessage.h>
 #import <WebKit/WKScriptMessageHandler.h>

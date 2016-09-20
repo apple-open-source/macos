@@ -40,7 +40,20 @@ class KeyItem : public ItemImpl
 {
 	NOCOPY(KeyItem)
 public:
-	SECCFFUNCTIONS(KeyItem, SecKeyRef, errSecInvalidItemRef, gTypes().KeyItem)
+	SECCFFUNCTIONS_BASE(KeyItem, SecKeyRef)
+
+    // SecKeyRef is now provided by iOS implementation, so we have to hack standard accessors normally defined by
+    // SECCFUNCTIONS macro to retarget SecKeyRef to foreign object instead of normal way through SecCFObject.
+    static KeyItem *required(SecKeyRef ptr);
+    static KeyItem *optional(SecKeyRef ptr);
+    operator CFTypeRef() const throw();
+    static SecCFObject *fromSecKeyRef(CFTypeRef ref);
+    void attachSecKeyRef() const;
+    void initializeWithSecKeyRef(SecKeyRef ref);
+
+private:
+    // This weak backpointer to owning SecKeyRef instance (which is created by iOS SecKey code).
+    mutable SecKeyRef mWeakSecKeyRef;
 
 	// db item constructor
 private:
@@ -68,8 +81,13 @@ public:
 	CssmClient::Key &key();
 	CssmClient::CSP csp();
 
+    // Returns the header of the unverified key (without checking integrity). This will skip ACL checks, but don't trust the data very much.
+    // Can't return a reference, because maybe the unverified key will get released upon return.
+    CssmKey::Header unverifiedKeyHeader();
+
 	const CSSM_X509_ALGORITHM_IDENTIFIER& algorithmIdentifier();
 	unsigned int strengthInBits(const CSSM_X509_ALGORITHM_IDENTIFIER *algid);
+    CssmClient::Key publicKey();
 
 	const AccessCredentials *getCredentials(
 		CSSM_ACL_AUTHORIZATION_TAG operation,
@@ -119,28 +137,38 @@ public:
 
 	virtual const CssmData &itemID();
 	
-	void RawSign(SecPadding padding, CSSM_DATA dataToSign, const AccessCredentials *credentials, CSSM_DATA& signedData);
-	void RawVerify(SecPadding padding, CSSM_DATA dataToVerify, const AccessCredentials *credentials, CSSM_DATA signature);
-	void Encrypt(SecPadding padding, CSSM_DATA dataToEncrypt, const AccessCredentials *credentials, CSSM_DATA& encryptedData);
-	void Decrypt(SecPadding padding, CSSM_DATA dataToEncrypt, const AccessCredentials *credentials, CSSM_DATA& encryptedData);
-	
 	virtual CFHashCode hash();
 
     virtual void setIntegrity(bool force = false);
     virtual bool checkIntegrity();
+
+    // Call this function to remove the integrity and partition_id ACLs from
+    // this item. You're not supposed to be able to do this, so force the issue
+    // by providing credentials to this keychain.
+    virtual void removeIntegrity(const AccessCredentials *cred);
 
     static void modifyUniqueId(Keychain keychain, SSDb ssDb, DbUniqueRecord& uniqueId, DbAttributes& newDbAttributes, CSSM_DB_RECORDTYPE recordType);
 
 protected:
 	virtual PrimaryKey add(Keychain &keychain);
 private:
+    CssmClient::Key unverifiedKey();
+
 	CssmClient::Key mKey;
 	const CSSM_X509_ALGORITHM_IDENTIFIER *algid;
 	CssmAutoData mPubKeyHash;
+    CssmClient::Key mPublicKey;
 };
 
 } // end namespace KeychainCore
 
 } // end namespace Security
+
+struct OpaqueSecKeyRef {
+    CFRuntimeBase _base;
+    const SecKeyDescriptor *key_class;
+    SecKeyRef cdsaKey;
+    Security::KeychainCore::KeyItem *key;
+};
 
 #endif // !_SECURITY_KEYITEM_H_

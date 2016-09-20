@@ -1681,7 +1681,8 @@ INTERNAL void rpc__auth_info_cache_remove
 **
 **--
 **/
-
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PUBLIC void rpc_server_inq_call_attributes
 (
     rpc_binding_handle_t    binding_h,
@@ -1746,7 +1747,7 @@ PUBLIC void rpc_server_inq_call_attributes
 
     *st = rpc_s_ok;
 }
-
+#endif
 
 /*
 **++

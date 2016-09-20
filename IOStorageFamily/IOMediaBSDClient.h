@@ -83,7 +83,7 @@ protected:
      * Free all of this object's outstanding resources.
      */
 
-    virtual void free();
+    virtual void free() APPLE_KEXT_OVERRIDE;
 
 public:
 
@@ -93,25 +93,25 @@ public:
      * method serves simply as a convenience to subclass developers.
      */
 
-    virtual IOMedia * getProvider() const;
+    virtual IOMedia * getProvider() const APPLE_KEXT_OVERRIDE;
 
     /*
      * Initialize this object's minimal state.
      */
 
-    virtual bool init(OSDictionary * properties  = 0);
+    virtual bool init(OSDictionary * properties  = 0) APPLE_KEXT_OVERRIDE;
 
     /*
      * This method is called once we have been attached to the provider object.
      */
 
-    virtual bool start(IOService * provider);
+    virtual bool start(IOService * provider) APPLE_KEXT_OVERRIDE;
 
     /*
      * This method is called when we are to terminate from the provider object.
      */
 
-    virtual bool terminate(IOOptionBits options);
+    virtual bool terminate(IOOptionBits options) APPLE_KEXT_OVERRIDE;
 
     /*
      * Process a foreign ioctl.

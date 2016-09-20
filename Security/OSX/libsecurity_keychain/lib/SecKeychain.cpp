@@ -35,6 +35,9 @@
 #include <security_cdsa_utilities/Schema.h>
 #include <security_cdsa_client/mdsclient.h>
 #include <pwd.h>
+#include <Security/AuthorizationTagsPriv.h>
+#include <Security/Authorization.h>
+#include "TokenLogin.h"
 
 OSStatus
 SecKeychainMDSInstall()
@@ -96,7 +99,7 @@ SecKeychainOpenWithGuid(const CSSM_GUID *guid, uint32 subserviceId, uint32 subse
 	DLDbIdentifier dLDbIdentifier(ssuid, dbName, dbLocation);
 	
 	// make a keychain from the supplied info
-	RequiredParam(keychain) = globals().storageManager.makeKeychain(dLDbIdentifier, false)->handle ();
+	RequiredParam(keychain) = globals().storageManager.makeKeychain(dLDbIdentifier, false, false)->handle ();
 
 	END_SECAPI
 }
@@ -109,7 +112,7 @@ SecKeychainCreate(const char *pathName, UInt32 passwordLength, const void *passw
     BEGIN_SECAPI
     
     KCThrowParamErrIf_(!pathName);
-	Keychain keychain = globals().storageManager.make(pathName);
+	Keychain keychain = globals().storageManager.make(pathName, true, true);
 
 	// @@@ the call to StorageManager::make above leaves keychain the the cache.
 	// If the create below fails we should probably remove it.
@@ -246,7 +249,7 @@ OSStatus SecKeychainResetLogin(UInt32 passwordLength, const void* password, Bool
 			globals().storageManager.resetKeychain(resetSearchList);
 
 			// Create the login keychain without UI
-			globals().storageManager.login((UInt32)userName.length(), userName.c_str(), passwordLength, password);
+			globals().storageManager.login((UInt32)userName.length(), userName.c_str(), passwordLength, password, true);
 			
 			// Set it as the default
 			Keychain keychain = globals().storageManager.loginKeychain();
@@ -256,7 +259,7 @@ OSStatus SecKeychainResetLogin(UInt32 passwordLength, const void* password, Bool
 		{
 			// Create the login keychain, prompting for password
 			// (implicitly calls resetKeychain, login, and defaultKeychain)
-			globals().storageManager.makeLoginAuthUI(NULL);
+			globals().storageManager.makeLoginAuthUI(NULL, true);
 		}
 
 		// Post a "list changed" event after a reset, so apps can refresh their list.
@@ -416,6 +419,35 @@ SecKeychainGetKeychainVersion(SecKeychainRef keychainRef, UInt32* version)
     RequiredParam(version);
 
     *version = Keychain::optional(keychainRef)->database()->dbBlobVersion();
+
+    END_SECAPI
+}
+
+OSStatus
+SecKeychainAttemptMigrationWithMasterKey(SecKeychainRef keychain, UInt32 version, const char* masterKeyFilename)
+{
+    BEGIN_SECAPI
+
+    RequiredParam(masterKeyFilename);
+    Keychain kc = Keychain::optional(keychain);
+
+    SecurityServer::SystemKeychainKey keychainKey(masterKeyFilename);
+    if(keychainKey.valid()) {
+        // We've managed to read the key; now, create credentials using it
+        string path = kc->name();
+
+        CssmClient::Key keychainMasterKey(kc->csp(), keychainKey.key(), true);
+        CssmClient::AclFactory::MasterKeyUnlockCredentials creds(keychainMasterKey, Allocator::standard(Allocator::sensitive));
+
+        // Attempt the migrate, using our master key as the ACL override
+        bool result = kc->keychainMigration(path, kc->database()->dbBlobVersion(), path, version, creds.getAccessCredentials());
+        if(!result) {
+            return errSecBadReq;
+        }
+        return (kc->database()->dbBlobVersion() == version ? errSecSuccess : errSecBadReq);
+    } else {
+        return errSecBadReq;
+    }
 
     END_SECAPI
 }
@@ -627,9 +659,13 @@ SecKeychainFindInternetPassword(CFTypeRef keychainOrArray, UInt32 serverNameLeng
 	{
 		CssmDataContainer outData;
 		item->getData(outData);
-		*passwordLength=(UInt32)outData.length();
+		if (passwordLength) {
+			*passwordLength=(UInt32)outData.length();
+		}
 		outData.Length=0;
-		*passwordData=outData.data();
+		if (passwordData) {
+			*passwordData=outData.data();
+		}
 		outData.Data=NULL;
 	}
 
@@ -726,9 +762,13 @@ SecKeychainFindGenericPassword(CFTypeRef keychainOrArray, UInt32 serviceNameLeng
 	{
 		CssmDataContainer outData;
 		item->getData(outData);
-		*passwordLength=(UInt32)outData.length();
+		if (passwordLength) {
+			*passwordLength=(UInt32)outData.length();
+		}
 		outData.Length=0;
-		*passwordData=outData.data();
+		if (passwordData) {
+			*passwordData=outData.data();
+		}
 		outData.Data=NULL;
 	}
 
@@ -845,7 +885,7 @@ SecKeychainLogin(UInt32 nameLength, const void* name, UInt32 passwordLength, con
 	try
 	{
 		if (password) {
-            globals().storageManager.login(nameLength, name,  passwordLength, password);
+            globals().storageManager.login(nameLength, name,  passwordLength, password, false);
         } else {
             globals().storageManager.stashLogin();
         }
@@ -1187,9 +1227,9 @@ static OSStatus SecKeychainGetMasterKey(SecKeychainRef userKeychainRef, CFDataRe
     cred += TypedList(alloc, CSSM_SAMPLE_TYPE_KEYCHAIN_LOCK,
                       new(alloc) ListElement(CSSM_SAMPLE_TYPE_PASSWORD),
                       new(alloc) ListElement(StringData(passphrase)));
-	db->accessCredentials(&cred);
-    
-    CSSM_DL_DB_HANDLE dlDb = db->handle();
+	db->authenticate(CSSM_DB_ACCESS_READ, &cred);
+
+	CSSM_DL_DB_HANDLE dlDb = db->handle();
 	CssmData dlDbData = CssmData::wrap(dlDb);
 	CssmKey refKey;
 	KeySpec spec(CSSM_KEYUSE_ANY,
@@ -1208,6 +1248,81 @@ static OSStatus SecKeychainGetMasterKey(SecKeychainRef userKeychainRef, CFDataRe
     END_SECAPI
 }
 
+static const char     *kAutologinPWFilePath = "/etc/kcpassword";
+static const uint32_t kObfuscatedPasswordSizeMultiple = 12;
+static const uint32_t buffer_size = 512;
+static const uint8_t  kObfuscationKey[] = {0x7d, 0x89, 0x52, 0x23, 0xd2, 0xbc, 0xdd, 0xea, 0xa3, 0xb9, 0x1f};
+
+static void obfuscate(void *buffer, size_t bufferLength)
+{
+	uint8_t       *pBuf = (uint8_t *) buffer;
+	const uint8_t *pKey = kObfuscationKey, *eKey = pKey + sizeof( kObfuscationKey );
+
+	while (bufferLength--) {
+		*pBuf = *pBuf ^ *pKey;
+		++pKey;
+		++pBuf;
+		if (pKey == eKey)
+			pKey = kObfuscationKey;
+	}
+}
+
+static bool _SASetAutologinPW(CFStringRef inAutologinPW)
+{
+	bool    result = false;
+	struct stat sb;
+
+	// Delete the kcpassword file if it exists already
+	if (stat(kAutologinPWFilePath, &sb) == 0)
+		unlink( kAutologinPWFilePath );
+
+    // NIL incoming password ==> clear auto login password (above) without setting a new one. In other words: turn auto login off.
+    if (inAutologinPW != NULL) {
+		char buffer[buffer_size];
+		const char *pwAsUTF8String = CFStringGetCStringPtr(inAutologinPW, kCFStringEncodingUTF8);
+		if (pwAsUTF8String == NULL) {
+			if (CFStringGetCString(inAutologinPW, buffer, buffer_size, kCFStringEncodingUTF8)) pwAsUTF8String = buffer;
+		}
+
+		if (pwAsUTF8String != NULL) {
+			size_t pwLength = strlen(pwAsUTF8String) + 1;
+			size_t obfuscatedPWLength;
+			char *obfuscatedPWBuffer;
+
+			// The size of the obfuscated password should be the smallest multiple of
+			// kObfuscatedPasswordSizeMultiple greater than or equal to pwLength.
+			obfuscatedPWLength = (((pwLength - 1) / kObfuscatedPasswordSizeMultiple) + 1) * kObfuscatedPasswordSizeMultiple;
+			obfuscatedPWBuffer = (char *) malloc(obfuscatedPWLength);
+
+			// Copy the password (including null terminator) to beginning of obfuscatedPWBuffer
+			bcopy(pwAsUTF8String, obfuscatedPWBuffer, pwLength);
+
+			// Pad remainder of obfuscatedPWBuffer with random bytes
+			{
+				char *p;
+				char *endOfBuffer = obfuscatedPWBuffer + obfuscatedPWLength;
+
+				for (p = obfuscatedPWBuffer + pwLength; p < endOfBuffer; ++p)
+					*p = random() & 0x000000FF;
+			}
+
+			obfuscate(obfuscatedPWBuffer, obfuscatedPWLength);
+
+			int pwFile = open(kAutologinPWFilePath, O_CREAT | O_WRONLY | O_NOFOLLOW, S_IRUSR | S_IWUSR);
+			if (pwFile >= 0) {
+				size_t wrote = write(pwFile, obfuscatedPWBuffer, obfuscatedPWLength);
+				if (wrote == obfuscatedPWLength)
+					result = true;
+				close(pwFile);
+			}
+
+			chmod(kAutologinPWFilePath, S_IRUSR | S_IWUSR);
+			free(obfuscatedPWBuffer);
+		}
+	}
+
+    return result;
+}
 
 OSStatus SecKeychainStoreUnlockKey(SecKeychainRef userKeychainRef, SecKeychainRef systemKeychainRef, CFStringRef username, CFStringRef password) {
     SecTrustedApplicationRef itemPath;
@@ -1215,6 +1330,14 @@ OSStatus SecKeychainStoreUnlockKey(SecKeychainRef userKeychainRef, SecKeychainRe
     
     OSStatus result = errSecParam;
     
+	if (userKeychainRef == NULL) {
+		// We don't have a specific user keychain, fall back
+		if (_SASetAutologinPW(password))
+			result = errSecSuccess;
+
+		return result;
+	}
+
     CFDataRef masterKey = NULL;
     result = SecKeychainGetMasterKey(userKeychainRef, &masterKey, password);
     if (errSecSuccess != result) {
@@ -1223,18 +1346,21 @@ OSStatus SecKeychainStoreUnlockKey(SecKeychainRef userKeychainRef, SecKeychainRe
     
     result = SecKeychainStash();
     if (errSecSuccess != result) {
-        if (NULL != masterKey) CFRelease(masterKey);
+        if (masterKey != NULL) CFRelease(masterKey);
         return result;
     }
     
     CFMutableArrayRef trustedApplications = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-    if ( noErr == SecTrustedApplicationCreateApplicationGroup("com.apple.security.auto-login", NULL, &itemPath) && itemPath  )
+    if (noErr == SecTrustedApplicationCreateApplicationGroup("com.apple.security.auto-login", NULL, &itemPath) && itemPath)
         CFArrayAppendValue(trustedApplications, itemPath);
     
-    if ( trustedApplications && (CFArrayGetCount(trustedApplications) > 0)) {
+    if (trustedApplications && (CFArrayGetCount(trustedApplications) > 0)) {
         if (errSecSuccess == (result = SecAccessCreate(CFSTR("Auto-Login applications"), trustedApplications, &ourAccessRef))) {
+			SecKeychainRef internalSystemKeychainRef = NULL;
             if (NULL == systemKeychainRef) {
-                SecKeychainCopyDomainDefault(kSecPreferencesDomainSystem, &systemKeychainRef);
+				SecKeychainCopyDomainDefault(kSecPreferencesDomainSystem, &internalSystemKeychainRef);
+            } else {
+                internalSystemKeychainRef = systemKeychainRef;
             }
             
             const void *queryKeys[] =   { kSecClass,
@@ -1245,7 +1371,7 @@ OSStatus SecKeychainStoreUnlockKey(SecKeychainRef userKeychainRef, SecKeychainRe
             const void *queryValues[] = { kSecClassGenericPassword,
                 CFSTR("com.apple.loginwindow.auto-login"),
                 username,
-                systemKeychainRef,
+				internalSystemKeychainRef,
             };
             
             const void *updateKeys[] =   { kSecAttrAccess,
@@ -1271,7 +1397,7 @@ OSStatus SecKeychainStoreUnlockKey(SecKeychainRef userKeychainRef, SecKeychainRe
                 const void *addValues[] = { kSecClassGenericPassword,
                     CFSTR("com.apple.loginwindow.auto-login"),
                     username,
-                    systemKeychainRef,
+					internalSystemKeychainRef,
                     ourAccessRef,
                     masterKey,
                 };
@@ -1283,13 +1409,122 @@ OSStatus SecKeychainStoreUnlockKey(SecKeychainRef userKeychainRef, SecKeychainRe
 
             if (NULL != query) CFRelease(query);
             if (NULL != update) CFRelease(update);
+
+			// If the caller wanted us to locate the system keychain reference, it's okay to go ahead and free our magically created one
+			if (systemKeychainRef == NULL) CFRelease(internalSystemKeychainRef);
         }
     }
 
     if (NULL != masterKey) CFRelease(masterKey);
     if (NULL != trustedApplications) CFRelease(trustedApplications);
     if (NULL != ourAccessRef) CFRelease(ourAccessRef);
-    if (NULL != systemKeychainRef) CFRelease(systemKeychainRef);
 
     return result;
 }
+
+OSStatus SecKeychainGetUserPromptAttempts(uint32_t * attempts)
+{
+    BEGIN_SECAPI
+
+    if(attempts) {
+        SecurityServer::ClientSession().getUserPromptAttempts(*attempts);
+    }
+
+    END_SECAPI
+}
+
+OSStatus SecKeychainStoreUnlockKeyWithPubKeyHash(CFDataRef pubKeyHash, CFStringRef tokenID, CFDataRef wrapPubKeyHash,
+                                                 SecKeychainRef userKeychain, CFStringRef password)
+{
+	CFRef<CFStringRef> pwd;
+	OSStatus result;
+
+	if (password == NULL || CFStringGetLength(password) == 0) {
+		AuthorizationRef authorizationRef;
+		result = AuthorizationCreate(NULL, NULL, kAuthorizationFlagDefaults, &authorizationRef);
+		if (result != errAuthorizationSuccess) {
+			secinfo("SecKeychain", "failed to create authorization");
+			return result;
+		}
+
+		AuthorizationItem myItems = {"com.apple.ctk.pair", 0, NULL, 0};
+		AuthorizationRights myRights = {1, &myItems};
+		AuthorizationRights *authorizedRights = NULL;
+
+		char pathName[PATH_MAX];
+		UInt32 pathLength = PATH_MAX;
+		result = SecKeychainGetPath(userKeychain, &pathLength, pathName);
+		if (result != errSecSuccess) {
+			secinfo("SecKeychain", "Failed to get kc path: %d", (int) result);
+			return result;
+		}
+
+		Boolean checkPwd = TRUE;
+		AuthorizationItem envItems[] = {
+			{AGENT_HINT_KEYCHAIN_PATH, pathLength, pathName, 0},
+			{AGENT_HINT_KEYCHAIN_CHECK, sizeof(checkPwd), &checkPwd}
+		};
+
+		AuthorizationEnvironment environment  = {2, envItems};
+		AuthorizationFlags flags = kAuthorizationFlagDefaults | kAuthorizationFlagInteractionAllowed | kAuthorizationFlagExtendRights;
+		result = AuthorizationCopyRights(authorizationRef, &myRights, &environment, flags, &authorizedRights);
+		if (authorizedRights)
+			AuthorizationFreeItemSet(authorizedRights);
+
+		if (result == errAuthorizationSuccess) {
+			AuthorizationItemSet *items;
+			result = AuthorizationCopyInfo(authorizationRef, kAuthorizationEnvironmentPassword, &items);
+			if (result == errAuthorizationSuccess) {
+				if (items->count > 0) {
+					pwd = CFStringCreateWithCString(kCFAllocatorDefault, (const char *)items->items[0].value, kCFStringEncodingUTF8);
+				}
+				AuthorizationFreeItemSet(items);
+			}
+		}
+		AuthorizationFree(authorizationRef, kAuthorizationFlagDefaults);
+		if (result != errAuthorizationSuccess) {
+			secinfo("SecKeychain", "did not get authorization to pair the card");
+			return result;
+		}
+	} else {
+		pwd.take(password);
+	}
+
+	if (!pwd) {
+		secinfo("SecKeychain", "did not get kcpass");
+		return errSecInternalComponent;
+	}
+
+	CFRef<CFDataRef> masterKey;
+	result = SecKeychainGetMasterKey(userKeychain, masterKey.take(), pwd);
+	if (result != errSecSuccess) {
+		secnotice("SecKeychain", "Failed to get master key: %d", (int) result);
+		return result;
+	}
+
+	CFRef<CFDataRef> scBlob;
+	result = TokenLoginGetScBlob(wrapPubKeyHash, tokenID, pwd, scBlob.take());
+	if (result != errSecSuccess) {
+		secnotice("SecKeychain", "Failed to get stash: %d", (int) result);
+		return result;
+	}
+
+	result = TokenLoginCreateLoginData(tokenID, pubKeyHash, wrapPubKeyHash, masterKey, scBlob);
+	if (result != errSecSuccess) {
+		secnotice("SecKeychain", "Failed to create login data: %d", (int) result);
+		return result;
+	}
+
+	secnotice("SecKeychain", "SecKeychainStoreUnlockKeyWithPubKeyHash result %d", (int) result);
+	return result;
+}
+
+OSStatus SecKeychainEraseUnlockKeyWithPubKeyHash(CFDataRef pubKeyHash)
+{
+    OSStatus result = TokenLoginDeleteUnlockData(pubKeyHash);
+    if (result != errSecSuccess) {
+        secnotice("SecKeychain", "Failed to erase stored wrapped unlock key: %d", (int) result);
+    }
+    return result;
+}
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2008, 2013, 2015 Apple Inc. All rights reserved.
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * Redistribution and use in source and binary forms, with or without
@@ -687,6 +687,9 @@ void WebChromeClient::loadIconForFiles(const Vector<WTF::String>& filenames, Web
 
 void WebChromeClient::setCursor(const Cursor& cursor)
 {
+    if (!cursor.platformCursor())
+        return;
+
     HCURSOR platformCursor = cursor.platformCursor()->nativeCursor();
     if (!platformCursor)
         return;
@@ -747,7 +750,7 @@ COMPtr<IWebUIDelegate> WebChromeClient::uiDelegate()
 
 #if ENABLE(VIDEO)
 
-bool WebChromeClient::supportsVideoFullscreen()
+bool WebChromeClient::supportsVideoFullscreen(HTMLMediaElementEnums::VideoFullscreenMode)
 {
     return true;
 }
@@ -780,12 +783,12 @@ bool WebChromeClient::hasOpenedPopup() const
     return false;
 }
 
-PassRefPtr<PopupMenu> WebChromeClient::createPopupMenu(PopupMenuClient* client) const
+RefPtr<PopupMenu> WebChromeClient::createPopupMenu(PopupMenuClient* client) const
 {
     return adoptRef(new PopupMenuWin(client));
 }
 
-PassRefPtr<SearchPopupMenu> WebChromeClient::createSearchPopupMenu(PopupMenuClient* client) const
+RefPtr<SearchPopupMenu> WebChromeClient::createSearchPopupMenu(PopupMenuClient* client) const
 {
     return adoptRef(new SearchPopupMenuWin(client));
 }
@@ -849,4 +852,13 @@ void WebChromeClient::AXFinishFrameLoad()
     m_webView->accessibilityDelegate(&delegate);
     if (delegate)
         delegate->fireFrameLoadFinishedEvents();
+}
+
+bool WebChromeClient::shouldUseTiledBackingForFrameView(const FrameView* frameView) const
+{
+#if !USE(CAIRO)
+    return frameView && frameView->frame().isMainFrame();
+#else
+    return false;
+#endif
 }

@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <security_utilities/cfutilities.h>
 #include <security_utilities/debugging.h>
+#include <security_utilities/logging.h>
 #include "dirscanner.h"
 
 namespace Security {
@@ -69,13 +70,41 @@ void DirScanner::initialize()
 
 struct dirent * DirScanner::getNext()
 {
-	return readdir(this->dp);
+	struct dirent* ent;
+	do {
+		int rc = readdir_r(this->dp, &this->entBuffer, &ent);
+		if (rc)
+			UnixError::throwMe(rc);
+	} while (ent && (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0));
+	return ent;
 }
 
 bool DirScanner::initialized()
 {
 	return this->init;
 }
+	
+void DirScanner::unlink(const struct dirent* ent, int flags)
+{
+	UnixError::check(::unlinkat(dirfd(this->dp), ent->d_name, flags));
+}
+
+bool DirScanner::isRegularFile(dirent* dp)
+{
+	switch (dp->d_type) {
+	case DT_REG:
+		return true;
+	default:
+		return false;
+	case DT_UNKNOWN:
+		{
+			struct stat st;
+			MacOSError::check(::stat((this->path + "/" + dp->d_name).c_str(), &st));
+			return S_ISREG(st.st_mode);
+		}
+	}
+}
+
 
 
 DirValidator::~DirValidator()
@@ -94,11 +123,11 @@ void DirValidator::validate(const string &root, OSStatus error)
 		Rule *rule = NULL;
 		switch (ent->fts_info) {
 		case FTS_F:
-			secdebug("dirval", "file %s", ent->fts_path);
+			secinfo("dirval", "file %s", ent->fts_path);
 			rule = match(relpath, file, executable);
 			break;
 		case FTS_SL: {
-			secdebug("dirval", "symlink %s", ent->fts_path);
+			secinfo("dirval", "symlink %s", ent->fts_path);
 			char target[PATH_MAX];
 			ssize_t len = ::readlink(ent->fts_accpath, target, sizeof(target)-1);
 			if (len < 0)
@@ -108,7 +137,7 @@ void DirValidator::validate(const string &root, OSStatus error)
 			break;
 		}
 		case FTS_D:
-			secdebug("dirval", "entering %s", ent->fts_path);
+			secinfo("dirval", "entering %s", ent->fts_path);
 			if (ent->fts_level == FTS_ROOTLEVEL)
 				continue;	// skip root directory
 			rule = match(relpath, directory, executable);
@@ -116,10 +145,10 @@ void DirValidator::validate(const string &root, OSStatus error)
 				fts_set(fts, ent, FTS_SKIP);	// do not descend
 			break;
 		case FTS_DP:
-			secdebug("dirval", "leaving %s", ent->fts_path);
+			secinfo("dirval", "leaving %s", ent->fts_path);
 			continue;
 		default:
-			secdebug("dirval", "type %d (errno %d): %s", ent->fts_info, ent->fts_errno, ent->fts_path);
+			secinfo("dirval", "type %d (errno %d): %s", ent->fts_info, ent->fts_errno, ent->fts_path);
 			MacOSError::throwMe(error);	 // not a file, symlink, or directory
 		}
 		if (!rule)
@@ -128,7 +157,7 @@ void DirValidator::validate(const string &root, OSStatus error)
 			reqMatched.insert(rule);
 	}
 	if (reqMatched.size() != mRequireCount) {
-		secdebug("dirval", "matched %d of %d required rules", reqMatched.size(), mRequireCount);
+		secinfo("dirval", "matched %lu of %d required rules", reqMatched.size(), mRequireCount);
 		MacOSError::throwMe(error);		 // not all required rules were matched
 	}
 }
@@ -174,16 +203,20 @@ DirValidator::Rule::~Rule()
 
 bool DirValidator::Rule::matchTarget(const char *path, const char *target) const
 {
-	if (!mTargetBlock)
+    if (!mTargetBlock) {
+        Syslog::notice("code signing internal problem: !mTargetBlock");
 		MacOSError::throwMe(errSecCSInternalError);
+    }
 	string pattern = mTargetBlock(path, target);
 	if (pattern.empty())
 		return true;	// always match empty pattern
-	secdebug("dirval", "%s: match target %s against %s", path, target, pattern.c_str());
+	secinfo("dirval", "%s: match target %s against %s", path, target, pattern.c_str());
 	regex_t re;
-	if (::regcomp(&re, pattern.c_str(), REG_EXTENDED | REG_NOSUB))
+    if (::regcomp(&re, pattern.c_str(), REG_EXTENDED | REG_NOSUB)) {
+        Syslog::notice("code signing internal problem: failed to compile internal RE");
 		MacOSError::throwMe(errSecCSInternalError);
-	int rv = ::regexec(&re, target, 0, NULL, 0);
+    }
+    int rv = ::regexec(&re, target, 0, NULL, 0);
 	::regfree(&re);
 	switch (rv) {
 	case 0:
@@ -191,6 +224,7 @@ bool DirValidator::Rule::matchTarget(const char *path, const char *target) const
 	case REG_NOMATCH:
 		return false;
 	default:
+        Syslog::notice("code signing internal error: regexec failed error=%d", rv);
 		MacOSError::throwMe(errSecCSInternalError);
 	}
 }

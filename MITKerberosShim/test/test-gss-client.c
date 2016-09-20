@@ -321,7 +321,7 @@ int main (int argc, const char *argv[])
 
     for (i = 1; (i < argc) && !err; i++) {
         if ((strcmp (argv[i], "--port") == 0) && (i < (argc - 1))) {
-            port = strtol (argv[++i], NULL, 0);
+            port = (int)strtol (argv[++i], NULL, 0);
             if (port == 0) { err = errno; }
         } else if ((strcmp (argv[i], "--server") == 0) && (i < (argc - 1))) {
             server = argv[++i];

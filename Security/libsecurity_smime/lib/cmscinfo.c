@@ -62,6 +62,8 @@ SecCmsContentInfoDestroy(SecCmsContentInfoRef cinfo)
 {
     SECOidTag kind;
 
+    if(!cinfo) return;
+
     kind = SecCmsContentInfoGetContentTypeTag(cinfo);
     switch (kind) {
     case SEC_OID_PKCS7_ENVELOPED_DATA:
@@ -366,14 +368,21 @@ SecCmsContentInfoSetBulkKey(SecCmsContentInfoRef cinfo, SecSymmetricKeyRef bulkk
 #ifdef USE_CDSA_CRYPTO
     const CSSM_KEY *cssmKey = NULL;
 #endif
+    if (!bulkkey || !cinfo) return;
     cinfo->bulkkey = bulkkey;
     CFRetain(cinfo->bulkkey);
 #ifdef USE_CDSA_CRYPTO
     SecKeyGetCSSMKey(cinfo->bulkkey, &cssmKey);
     cinfo->keysize = cssmKey ? cssmKey->KeyHeader.LogicalKeySizeInBits : 0;
 #else
-    /* This cast should be always safe, there should be SecSymmetricKeyRef API to get the size anyway */
-    cinfo->keysize = (int)CFDataGetLength((CFDataRef)bulkkey) * 8;
+    long long bulkKeySize = CFDataGetLength((CFDataRef)bulkkey) * 8;
+    if (bulkKeySize < INT_MAX) {
+        cinfo->keysize = (int)bulkKeySize;
+    } else {
+        CFRelease(cinfo->bulkkey);
+        cinfo->bulkkey = NULL;
+        cinfo->keysize = 0;
+    }
 #endif
 }
 

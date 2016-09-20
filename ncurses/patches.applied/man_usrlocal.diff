@@ -1,0 +1,27 @@
+diff --git a/ncurses/man/term.5 b/ncurses/man/term.5
+index 19af62a..b3b2264 100644
+--- a/ncurses/man/term.5
++++ b/ncurses/man/term.5
+@@ -265,6 +265,8 @@ Some limitations: total compiled entries cannot exceed 4096 bytes.
+ The name field cannot exceed 128 bytes.
+ .SH FILES
+ \*d/*/*	compiled terminal capability data base
++.TP 5
++/usr/local/share/terminfo/*/* fallback compiled terminal capability data base
+ .SH SEE ALSO
+ \fBcurses\fR(3X), \fBterminfo\fR(\*n).
+ .SH AUTHORS
+diff --git a/ncurses/man/term.7 b/ncurses/man/term.7
+index 7eda6fb..feb5906 100644
+--- a/ncurses/man/term.7
++++ b/ncurses/man/term.7
+@@ -189,6 +189,9 @@ should be unique within the first 14 characters.
+ \*d/?/*
+ compiled terminal capability data base
+ .TP 5
++/usr/local/share/terminfo/?/*
++fallback compiled terminal capability data base
++.TP 5
+ /etc/inittab
+ tty line initialization (AT&T-like UNIXes)
+ .TP 5

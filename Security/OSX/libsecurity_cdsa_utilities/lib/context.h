@@ -244,7 +244,7 @@ void walk(Action &operate, CSSM_CONTEXT_ATTRIBUTE &attr)
 		case CSSM_ATTRIBUTE_DATA_UINT32:
 			break;
 		default:
-			secdebug("walkers", "invalid attribute (%ux) in context", (unsigned)attr.AttributeType);
+			secinfo("walkers", "invalid attribute (%ux) in context", (unsigned)attr.AttributeType);
 			break;
 		}
 }

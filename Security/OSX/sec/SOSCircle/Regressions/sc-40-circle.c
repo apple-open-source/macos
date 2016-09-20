@@ -51,15 +51,15 @@ static int kTestGenerationCount = 2;
 static void test_generation(void)
 {
     SOSGenCountRef generation = SOSGenerationCreate();
-    SOSGenCountRef olderGeneration = SOSGenerationCreateWithBaseline(generation);
-    SOSGenCountRef evenOlderGeneration = SOSGenerationCreateWithBaseline(olderGeneration);
+    SOSGenCountRef newerGeneration = SOSGenerationCreateWithBaseline(generation);
+    SOSGenCountRef evenNewerGeneration = SOSGenerationCreateWithBaseline(newerGeneration);
 
-    ok(SOSGenerationIsOlder(olderGeneration, generation), "should be older");
-    ok(SOSGenerationIsOlder(evenOlderGeneration, olderGeneration), "should be older");
+    ok(SOSGenerationIsOlder(generation, newerGeneration), "should be older");
+    ok(SOSGenerationIsOlder(newerGeneration, evenNewerGeneration), "should be older");
 
     CFReleaseNull(generation);
-    CFReleaseNull(olderGeneration);
-    CFReleaseNull(evenOlderGeneration);
+    CFReleaseNull(newerGeneration);
+    CFReleaseNull(evenNewerGeneration);
 }
 
 
@@ -121,7 +121,7 @@ static void tests(void)
     
     ok(inflated, "inflated");
     ok(CFEqualSafe(inflated, circle), "Compares");
-    
+    CFReleaseNull(inflated);
     
     ok(SOSCircleRemovePeer(circle, user_privkey, peer_a_full_info, SOSFullPeerInfoGetPeerInfo(peer_a_full_info), NULL));
     ok(SOSCircleCountPeers(circle) == 0, "Peer count");
@@ -162,6 +162,9 @@ static void tests(void)
     CFReleaseNull(peer_b_full_info);
     CFReleaseNull(peer_c_full_info);
     CFReleaseNull(peer_d_full_info);
+
+    CFReleaseNull(user_privkey);
+    CFReleaseNull(circle);
 }
 
 int sc_40_circle(int argc, char *const *argv)

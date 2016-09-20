@@ -7,6 +7,7 @@
  */
 
 #include "libxslt/libxslt.h"
+#include "libxslt/xsltconfig.h"
 #include "libexslt/exslt.h"
 #include <stdio.h>
 #ifdef HAVE_STRING_H
@@ -57,7 +58,6 @@
 #if defined(_MSC_VER) || defined(__MINGW32__)
 #include <winsock2.h>
 #define gettimeofday(p1,p2)
-#define snprintf _snprintf
 #endif /* _MS_VER */
 #else /* WIN32 */
 #if defined(HAVE_SYS_TIME_H)
@@ -138,7 +138,7 @@ xmlExternalEntityLoader defaultEntityLoader = NULL;
 static xmlParserInputPtr
 xsltprocExternalEntityLoader(const char *URL, const char *ID,
 			     xmlParserCtxtPtr ctxt) {
-    xmlParserInputPtr ret;
+    xmlParserInputPtr ret = NULL;
     warningSAXFunc warning = NULL;
 
     int i;
@@ -180,7 +180,8 @@ xsltprocExternalEntityLoader(const char *URL, const char *ID,
 	newURL = xmlStrcat(newURL, (const xmlChar *) "/");
 	newURL = xmlStrcat(newURL, (const xmlChar *) lastsegment);
 	if (newURL != NULL) {
-	    ret = defaultEntityLoader((const char *)newURL, ID, ctxt);
+	    if (defaultEntityLoader != NULL)
+		ret = defaultEntityLoader((const char *)newURL, ID, ctxt);
 	    if (ret != NULL) {
 		if (warning != NULL)
 		    ctxt->sax->warning = warning;
@@ -236,6 +237,8 @@ my_gettimeofday(struct timeval *tvp, void *tzp)
 #endif /* HAVE_SYS_TIMEB_H */
 #endif /* !HAVE_GETTIMEOFDAY */
 
+static void endTimer(const char *format, ...) LIBXSLT_ATTR_FORMAT(1,2);
+
 #if defined(HAVE_GETTIMEOFDAY)
 static struct timeval begin, endtime;
 /*
@@ -264,7 +267,10 @@ static void endTimer(const char *format, ...)
 #error "endTimer required stdarg functions"
 #endif
     va_start(ap, format);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     vfprintf(stderr,format,ap);
+#pragma clang diagnostic pop
     va_end(ap);
 
     fprintf(stderr, " took %ld ms\n", msec);
@@ -284,7 +290,7 @@ static void startTimer(void)
 {
     begin=clock();
 }
-static void endTimer(char *format, ...)
+static void endTimer(const char *format, ...)
 {
     long msec;
     va_list ap;
@@ -296,7 +302,10 @@ static void endTimer(char *format, ...)
 #error "endTimer required stdarg functions"
 #endif
     va_start(ap, format);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     vfprintf(stderr,format,ap);
+#pragma clang diagnostic pop
     va_end(ap);
     fprintf(stderr, " took %ld ms\n", msec);
 }
@@ -310,16 +319,19 @@ static void startTimer(void)
    * Do nothing
    */
 }
-static void endTimer(char *format, ...)
+static void endTimer(const char *format, ...)
 {
   /*
    * We cannot do anything because we don't have a timing function
    */
 #ifdef HAVE_STDARG_H
     va_start(ap, format);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     vfprintf(stderr,format,ap);
+#pragma clang diagnostic pop
     va_end(ap);
-    fprintf(stderr, " was not timed\n", msec);
+    fprintf(stderr, " was not timed\n");
 #else
   /* We don't have gettimeofday, time or stdarg.h, what crazy world is
    * this ?!
@@ -514,11 +526,13 @@ static void usage(const char *name) {
     printf("\t--maxdepth val : increase the maximum depth (default %d)\n", xsltMaxDepth);
     printf("\t--maxvars val : increase the maximum variables (default %d)\n", xsltMaxVars);
     printf("\t--maxparserdepth val : increase the maximum parser depth\n");
+    printf("\t--seed-rand val : initialize pseudo random number generator with specific seed\n");
 #ifdef LIBXML_HTML_ENABLED
     printf("\t--html: the input document is(are) an HTML file(s)\n");
 #endif
     printf("\t--encoding: the input document character encoding\n");
     printf("\t--param name value : pass a (parameter,value) pair\n");
+    printf("\t       name is a QName or a string of the form {URI}NCName.\n");
     printf("\t       value is an UTF8 XPath expression.\n");
     printf("\t       string values must be quoted like \"'string'\"\n or");
     printf("\t       use stringparam to avoid it\n");
@@ -556,7 +570,12 @@ main(int argc, char **argv)
         return (1);
     }
 
+    srand(time(NULL));
     xmlInitMemory();
+
+#if defined(_MSC_VER) && _MSC_VER < 1900
+    _set_output_format(_TWO_DIGIT_EXPONENT);
+#endif
 
     LIBXML_TEST_VERSION
 
@@ -728,6 +747,11 @@ main(int argc, char **argv)
             int value;
 
             i++;
+            if (i == argc) {
+                fprintf(stderr, "XSLT maxdepth value not specified!\n");
+                return (2);
+            }
+
             if (sscanf(argv[i], "%d", &value) == 1) {
                 if (value > 0)
                     xsltMaxDepth = value;
@@ -746,9 +770,23 @@ main(int argc, char **argv)
             int value;
 
             i++;
+            if (i == argc) {
+                fprintf(stderr, "XML maxparserdepth value not specified!\n");
+                return (2);
+            }
+
             if (sscanf(argv[i], "%d", &value) == 1) {
                 if (value > 0)
                     xmlParserMaxDepth = value;
+            }
+        } else if ((!strcmp(argv[i], "-seed-rand")) ||
+                   (!strcmp(argv[i], "--seed-rand"))) {
+            int value;
+
+            i++;
+            if (sscanf(argv[i], "%d", &value) == 1) {
+                if (value > 0)
+                    srand(value);
             }
         } else if ((!strcmp(argv[i],"-dumpextensions"))||
 			(!strcmp(argv[i],"--dumpextensions"))) {
@@ -782,8 +820,16 @@ main(int argc, char **argv)
             (!strcmp(argv[i], "--maxdepth"))) {
             i++;
             continue;
+        } else if ((!strcmp(argv[i], "-maxvars")) ||
+            (!strcmp(argv[i], "--maxvars"))) {
+            i++;
+            continue;
         } else if ((!strcmp(argv[i], "-maxparserdepth")) ||
             (!strcmp(argv[i], "--maxparserdepth"))) {
+            i++;
+            continue;
+        } else if ((!strcmp(argv[i], "-seed-rand")) ||
+            (!strcmp(argv[i], "--seed-rand"))) {
             i++;
             continue;
         } else if ((!strcmp(argv[i], "-o")) ||

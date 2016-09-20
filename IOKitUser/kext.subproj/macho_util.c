@@ -1165,6 +1165,10 @@ boolean_t macho_trim_linkedit(
         goto finish;
     }
 
+#if SPLIT_KEXTS
+    // TODO - get rid of LC_SEGMENT_SPLIT_INFO and related data in __LINKEDIT segment?
+#endif
+
     /* find any LINKEDIT-related load commands */
 
     for (i = 0; i < ncmds; ++i, src += cmdsize) {
@@ -1301,6 +1305,7 @@ boolean_t macho_trim_linkedit(
 
     result = TRUE;
 finish:
+    
     if (swap) macho_unswap(macho);
     return result;
 }

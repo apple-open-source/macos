@@ -49,6 +49,16 @@ OSStatus SecTaskValidateForRequirement(SecTaskRef task, CFStringRef requirement)
 */
 Boolean SecTaskEntitlementsValidated(SecTaskRef task);
 
+
+/*!
+  @function SecTaskGetCodeSignStatus
+  @abstract Get code signing flags
+  @param task A previously created SecTask object
+*/
+
+uint32_t
+SecTaskGetCodeSignStatus(SecTaskRef task);
+
 #if defined(__cplusplus)
 }
 #endif

@@ -30,7 +30,7 @@
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <asl.h>
+#include <os/log.h>
 
 #include <xpc/xpc.h>
 
@@ -65,7 +65,7 @@ callback(xpc_object_t disk)
     CFURLRef url;
     size_t len;
     
-    asl_log(NULL, NULL, ASL_LEVEL_DEBUG, "DiskUnmountWatcher: %s", __func__);
+    os_log(OS_LOG_DEFAULT, "DiskUnmountWatcher: %s", __func__);
     
     xpc_object_t desc = xpc_dictionary_get_value(disk, "Description");
     if (desc == NULL)
@@ -97,7 +97,7 @@ callback(xpc_object_t disk)
     free(str);
     
     ident = CFStringCreateWithCString(NULL, str2, kCFStringEncodingUTF8);
-    asl_log(NULL, NULL, ASL_LEVEL_DEBUG, "DiskUnmountWatcher: %s find and release %s", __func__, str2);
+    os_log(OS_LOG_DEFAULT, "DiskUnmountWatcher: %s find and release %s", __func__, str2);
     free(str2);
     if (ident) {
         NAHFindByLabelAndRelease(ident);
@@ -111,14 +111,14 @@ out:
 int
 main(int argc, char **argv)
 {
-    asl_log(NULL, NULL, ASL_LEVEL_DEBUG, "DiskUnmountWatcher: %s", __func__);
+    os_log(OS_LOG_DEFAULT, "DiskUnmountWatcher: %s", __func__);
     
     xpc_set_event_stream_handler("com.apple.diskarbitration", dispatch_get_main_queue(),
                                  ^(xpc_object_t disk) {
                                      callback(disk);
                                  });
     
-    asl_log(NULL, NULL, ASL_LEVEL_DEBUG, "DiskUnmountWatcher: %s", __func__);
+    os_log(OS_LOG_DEFAULT, "DiskUnmountWatcher: %s", __func__);
 
     dispatch_main();
     

@@ -24,6 +24,9 @@
 
 /* Begin PBXBuildFile section */
 		4491DFC71CE67BD500002B02 /* libxml.h in Headers */ = {isa = PBXBuildFile; fileRef = 4491DFC61CE67BB100002B02 /* libxml.h */; };
+		449B1EF41C4ED0AC00D3BA34 /* liblzma.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 449B1EF31C4ED0AC00D3BA34 /* liblzma.dylib */; };
+		44EBC8611C4EDE4900D4BD8E /* xzlib.h in Headers */ = {isa = PBXBuildFile; fileRef = 44B1E3291C4EDAD10064124E /* xzlib.h */; };
+		44EBC8621C4EDE5C00D4BD8E /* xzlib.c in Sources */ = {isa = PBXBuildFile; fileRef = 44B1E3281C4EDAA40064124E /* xzlib.c */; };
 		5D0359B91677F7FC00B6692E /* buf.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D0359B81677F7FC00B6692E /* buf.c */; };
 		5D58B01614F81A8D00BE69D8 /* c14n.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFCE14F81A8D00BE69D8 /* c14n.c */; };
 		5D58B01714F81A8D00BE69D8 /* catalog.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFCF14F81A8D00BE69D8 /* catalog.c */; };
@@ -237,6 +240,9 @@
 
 /* Begin PBXFileReference section */
 		4491DFC61CE67BB100002B02 /* libxml.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = libxml.h; path = libxml2/libxml.h; sourceTree = SOURCE_ROOT; };
+		449B1EF31C4ED0AC00D3BA34 /* liblzma.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = liblzma.dylib; path = /usr/lib/liblzma.dylib; sourceTree = "<absolute>"; };
+		44B1E3281C4EDAA40064124E /* xzlib.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xzlib.c; sourceTree = "<group>"; };
+		44B1E3291C4EDAD10064124E /* xzlib.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xzlib.h; path = libxml2/xzlib.h; sourceTree = SOURCE_ROOT; };
 		5D0359B81677F7FC00B6692E /* buf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = buf.c; sourceTree = "<group>"; };
 		5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libxml2.2.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		5D58AF6A14F816DF00BE69D8 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
@@ -356,8 +362,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				5D58B06714F824C400BE69D8 /* libz.dylib in Frameworks */,
 				5D58B06514F824A500BE69D8 /* libicucore.dylib in Frameworks */,
+				449B1EF41C4ED0AC00D3BA34 /* liblzma.dylib in Frameworks */,
+				5D58B06714F824C400BE69D8 /* libz.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -413,6 +420,7 @@
 				5D58AF5D14F815F500BE69D8 /* Products */,
 			);
 			sourceTree = "<group>";
+			tabWidth = 8;
 		};
 		5D58AF5D14F815F500BE69D8 /* Products */ = {
 			isa = PBXGroup;
@@ -484,6 +492,7 @@
 				5D58B01314F81A8D00BE69D8 /* xmlwriter.c */,
 				5D58B01414F81A8D00BE69D8 /* xpath.c */,
 				5D58B01514F81A8D00BE69D8 /* xpointer.c */,
+				44B1E3281C4EDAA40064124E /* xzlib.c */,
 			);
 			name = Source;
 			path = libxml2;
@@ -503,6 +512,7 @@
 			isa = PBXGroup;
 			children = (
 				5D58B06414F824A500BE69D8 /* libicucore.dylib */,
+				449B1EF31C4ED0AC00D3BA34 /* liblzma.dylib */,
 				5D58B06614F824C400BE69D8 /* libz.dylib */,
 			);
 			name = "Linked Libraries";
@@ -558,6 +568,7 @@
 				5D58B09714F8261200BE69D8 /* xpath.h */,
 				5D58B09814F8261200BE69D8 /* xpathInternals.h */,
 				5D58B09914F8261200BE69D8 /* xpointer.h */,
+				44B1E3291C4EDAD10064124E /* xzlib.h */,
 			);
 			name = Headers;
 			path = libxml2/include;
@@ -629,6 +640,7 @@
 				5D58B0C514F8261200BE69D8 /* xpath.h in Headers */,
 				5D58B0C614F8261200BE69D8 /* xpathInternals.h in Headers */,
 				5D58B0C714F8261200BE69D8 /* xpointer.h in Headers */,
+				44EBC8611C4EDE4900D4BD8E /* xzlib.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -760,6 +772,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5D0359B91677F7FC00B6692E /* buf.c in Sources */,
 				5D58B01614F81A8D00BE69D8 /* c14n.c in Sources */,
 				5D58B01714F81A8D00BE69D8 /* catalog.c in Sources */,
 				5D58B01814F81A8D00BE69D8 /* chvalid.c in Sources */,
@@ -803,7 +816,7 @@
 				5D58B05B14F81A8D00BE69D8 /* xmlwriter.c in Sources */,
 				5D58B05C14F81A8D00BE69D8 /* xpath.c in Sources */,
 				5D58B05D14F81A8D00BE69D8 /* xpointer.c in Sources */,
-				5D0359B91677F7FC00B6692E /* buf.c in Sources */,
+				44EBC8621C4EDE5C00D4BD8E /* xzlib.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

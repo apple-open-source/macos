@@ -436,7 +436,7 @@ static int extract(const char *filename, int arglen, char *args[]) {
 			} else {
 				const char *prop = NULL;
 				int deferred = 0;
-				if( xar_prop_get(f, "type", &prop) == 0 ) {
+				if( xar_prop_get(f, "type", &prop) == 0 && prop != NULL ) {
 					if( strcmp(prop, "directory") == 0 ) {
 						struct lnode *tmpl = calloc(sizeof(struct lnode),1);
 						tmpl->str = (char *)f;
@@ -648,7 +648,7 @@ static int dump_header(const char *filename) {
 #else
 	case XAR_CKSUM_MD5: printf("(unsupported (MD5))\n");
             break;
-#endif XAR_SUPPORT_MD5
+#endif // XAR_SUPPORT_MD5
 	default: printf("(unknown)\n");
 	         break;
 	};

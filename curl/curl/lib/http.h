@@ -11,7 +11,7 @@
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
- * are also available at http://curl.haxx.se/docs/copyright.html.
+ * are also available at https://curl.haxx.se/docs/copyright.html.
  *
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
@@ -163,6 +163,7 @@ struct HTTP {
   Curl_send_buffer *header_recvbuf;
   size_t nread_header_recvbuf; /* number of bytes in header_recvbuf fed into
                                   upper layer */
+  Curl_send_buffer *trailer_recvbuf;
   int status_code; /* HTTP status code */
   const uint8_t *pausedata; /* pointer to data received in on_data_chunk */
   size_t pauselen; /* the number of bytes left in data */
@@ -176,6 +177,10 @@ struct HTTP {
   const uint8_t *upload_mem; /* points to a buffer to read from */
   size_t upload_len; /* size of the buffer 'upload_mem' points to */
   curl_off_t upload_left; /* number of bytes left to upload */
+
+  char **push_headers;       /* allocated array */
+  size_t push_headers_used;  /* number of entries filled in */
+  size_t push_headers_alloc; /* number of entries allocated */
 #endif
 };
 
@@ -209,9 +214,9 @@ struct http_conn {
      them for both cases. */
   int32_t pause_stream_id; /* stream ID which paused
                               nghttp2_session_mem_recv */
+  size_t drain_total; /* sum of all stream's UrlState.drain */
 
   /* this is a hash of all individual streams (SessionHandle structs) */
-  struct curl_hash streamsh;
   struct h2settings settings;
 #else
   int unused; /* prevent a compiler warning */

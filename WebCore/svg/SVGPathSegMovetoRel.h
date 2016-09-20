@@ -26,21 +26,21 @@
 
 namespace WebCore {
 
-class SVGPathSegMovetoRel : public SVGPathSegSingleCoordinate {
+class SVGPathSegMovetoRel final : public SVGPathSegSingleCoordinate {
 public:
-    static Ref<SVGPathSegMovetoRel> create(SVGPathElement* element, SVGPathSegRole role, float x, float y)
+    static Ref<SVGPathSegMovetoRel> create(const SVGPathElement& element, SVGPathSegRole role, float x, float y)
     {
         return adoptRef(*new SVGPathSegMovetoRel(element, role, x, y));
     }
 
 private:
-    SVGPathSegMovetoRel(SVGPathElement* element, SVGPathSegRole role, float x, float y)
+    SVGPathSegMovetoRel(const SVGPathElement& element, SVGPathSegRole role, float x, float y)
         : SVGPathSegSingleCoordinate(element, role, x, y)
     {
     }
 
-    virtual unsigned short pathSegType() const override { return PATHSEG_MOVETO_REL; }
-    virtual String pathSegTypeAsLetter() const override { return "m"; }
+    unsigned short pathSegType() const override { return PATHSEG_MOVETO_REL; }
+    String pathSegTypeAsLetter() const override { return "m"; }
 };
 
 } // namespace WebCore

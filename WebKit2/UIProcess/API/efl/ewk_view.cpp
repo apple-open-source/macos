@@ -20,27 +20,28 @@
 
 #include "config.h"
 #include "ewk_view.h"
-#include "ewk_view_private.h"
 
+#include "APIPageConfiguration.h"
 #include "EwkView.h"
 #include "WebInspectorProxy.h"
 #include "ewk_back_forward_list_private.h"
 #include "ewk_context_private.h"
 #include "ewk_main_private.h"
 #include "ewk_page_group_private.h"
+#include "ewk_view_configuration_private.h"
+#include "ewk_view_private.h"
 #include <JavaScriptCore/JSRetainPtr.h>
 #include <WebKit/WKAPICast.h>
 #include <WebKit/WKData.h>
 #include <WebKit/WKEinaSharedString.h>
 #include <WebKit/WKFindOptions.h>
 #include <WebKit/WKInspector.h>
-#include <WebKit/WKPageGroup.h>
+#include <WebKit/WKPageConfigurationRef.h>
 #include <WebKit/WKRetainPtr.h>
 #include <WebKit/WKSerializedScriptValue.h>
 #include <WebKit/WKString.h>
 #include <WebKit/WKURL.h>
 #include <WebKit/WKView.h>
-#include <WebKit/WKViewEfl.h>
 #include <wtf/text/CString.h>
 
 #if HAVE(ACCESSIBILITY)
@@ -78,15 +79,15 @@ Eina_Bool ewk_view_smart_class_set(Ewk_View_Smart_Class* api)
     return EwkView::initSmartClassInterface(*api);
 }
 
-Evas_Object* EWKViewCreate(WKContextRef context, WKPageGroupRef pageGroup, Evas* canvas, Evas_Smart* smart)
+Evas_Object* EWKViewCreate(WKPageConfigurationRef pageConfiguration, Evas* canvas, Evas_Smart* smart)
 {
     if (!EwkMain::singleton().isInitialized()) {
         EINA_LOG_CRIT("EWebKit has not been initialized. You must call ewk_init() before creating view.");
         return nullptr;
     }
 
-    WKRetainPtr<WKViewRef> wkView = adoptWK(WKViewCreate(context, pageGroup));
-    if (EwkView* ewkView = EwkView::create(wkView.get(), canvas, smart))
+    RefPtr<WebView> webView = WebView::create(*toImpl(pageConfiguration));
+    if (EwkView* ewkView = EwkView::create(webView.get(), canvas, smart))
         return ewkView->evasObject();
 
     return nullptr;
@@ -96,7 +97,7 @@ WKViewRef EWKViewGetWKView(Evas_Object* ewkView)
 {
     EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, nullptr);
 
-    return impl->wkView();
+    return toAPI(impl->webView());
 }
 
 Evas_Object* ewk_view_smart_add(Evas* canvas, Evas_Smart* smart, Ewk_Context* context, Ewk_Page_Group* pageGroup)
@@ -109,7 +110,28 @@ Evas_Object* ewk_view_smart_add(Evas* canvas, Evas_Smart* smart, Ewk_Context* co
     EINA_SAFETY_ON_NULL_RETURN_VAL(ewkPageGroup, nullptr);
     EINA_SAFETY_ON_NULL_RETURN_VAL(ewkPageGroup->wkPageGroup(), nullptr);
 
-    return EWKViewCreate(ewkContext->wkContext(), ewkPageGroup->wkPageGroup(), canvas, smart);
+    WKRetainPtr<WKPageConfigurationRef> pageConfiguration = adoptWK(WKPageConfigurationCreate());
+    WKPageConfigurationSetContext(pageConfiguration.get(), ewkContext->wkContext());
+    WKPageConfigurationSetPageGroup(pageConfiguration.get(), ewkPageGroup->wkPageGroup());
+
+    return EWKViewCreate(pageConfiguration.get(), canvas, smart);
+}
+
+Evas_Object* ewk_view_add_with_configuration(Evas* canvas, Evas_Smart* smart, Ewk_View_Configuration* configuration)
+{
+    if (!configuration)
+        configuration = ewk_view_configuration_new();
+
+    EwkViewConfiguration* ewkViewConfiguration = ewk_object_cast<EwkViewConfiguration*>(configuration);
+
+    WKContextRef context = WKPageConfigurationGetContext(ewkViewConfiguration->wkPageConfiguration());
+    if (!context) {
+        EwkContext* ewkContext = ewk_object_cast<EwkContext*>(ewk_context_default_get());
+        context = ewkContext->wkContext();
+        WKPageConfigurationSetContext(ewkViewConfiguration->wkPageConfiguration(), context);
+    }
+
+    return EWKViewCreate(ewkViewConfiguration->wkPageConfiguration(), canvas, smart);
 }
 
 Evas_Object* ewk_view_add(Evas* canvas)
@@ -123,7 +145,18 @@ Evas_Object* ewk_view_add_with_context(Evas* canvas, Ewk_Context* context)
     EINA_SAFETY_ON_NULL_RETURN_VAL(ewkContext, nullptr);
     EINA_SAFETY_ON_NULL_RETURN_VAL(ewkContext->wkContext(), nullptr);
 
-    return EWKViewCreate(ewkContext->wkContext(), 0, canvas, 0);
+    WKRetainPtr<WKPageConfigurationRef> pageConfiguration = adoptWK(WKPageConfigurationCreate());
+    WKPageConfigurationSetContext(pageConfiguration.get(), ewkContext->wkContext());
+
+    return EWKViewCreate(pageConfiguration.get(), canvas, 0);
+}
+
+void ewk_view_try_close(Evas_Object* ewkView)
+{
+    EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl);
+
+    if (WKPageTryClose(impl->wkPage()))
+        impl->close();
 }
 
 Ewk_Context* ewk_view_context_get(const Evas_Object* ewkView)
@@ -585,7 +618,7 @@ Eina_Bool ewk_view_fullscreen_exit(Evas_Object* ewkView)
 #if ENABLE(FULLSCREEN_API)
     EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, false);
 
-    return WKViewExitFullScreen(impl->wkView());
+    return impl->requestExitFullScreen();
 #else
     UNUSED_PARAM(ewkView);
     return false;
@@ -644,7 +677,7 @@ Eina_Bool ewk_view_page_contents_get(const Evas_Object* ewkView, Ewk_Page_Conten
 
     switch (context->type) {
     case EWK_PAGE_CONTENTS_TYPE_MHTML:
-        WKPageGetContentsAsMHTMLData(impl->wkPage(), false, context, ewkViewPageContentsAsMHTMLCallback);
+        WKPageGetContentsAsMHTMLData(impl->wkPage(), context, ewkViewPageContentsAsMHTMLCallback);
         break;
     case EWK_PAGE_CONTENTS_TYPE_STRING:
         WKPageGetContentsAsString(impl->wkPage(), context, ewkViewPageContentsAsStringCallback);
@@ -710,7 +743,7 @@ Eina_Bool ewk_view_layout_fixed_set(Evas_Object* ewkView, Eina_Bool enabled)
 {
     EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, false);
 
-    WKPageSetUseFixedLayout(WKViewGetPage(impl->wkView()), enabled);
+    WKPageSetUseFixedLayout(impl->wkPage(), enabled);
 
     return true;
 }
@@ -719,21 +752,21 @@ Eina_Bool ewk_view_layout_fixed_get(const Evas_Object* ewkView)
 {
     EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl, false);
 
-    return WKPageUseFixedLayout(WKViewGetPage(impl->wkView()));
+    return WKPageUseFixedLayout(impl->wkPage());
 }
 
 void ewk_view_layout_fixed_size_set(const Evas_Object* ewkView, Evas_Coord width, Evas_Coord height)
 {
     EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl);
 
-    WKPageSetFixedLayoutSize(WKViewGetPage(impl->wkView()), WKSizeMake(width, height));
+    WKPageSetFixedLayoutSize(impl->wkPage(), WKSizeMake(width, height));
 }
 
 void ewk_view_layout_fixed_size_get(const Evas_Object* ewkView, Evas_Coord* width, Evas_Coord* height)
 {
     EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl);
 
-    WKSize size = WKPageFixedLayoutSize(WKViewGetPage(impl->wkView()));
+    WKSize size = WKPageFixedLayoutSize(impl->wkPage());
 
     if (width)
         *width = size.width;
@@ -757,7 +790,16 @@ void ewk_view_bg_color_get(const Evas_Object* ewkView, int* red, int* green, int
 {
     EWK_VIEW_IMPL_GET_OR_RETURN(ewkView, impl);
 
-    WKViewGetBackgroundColor(impl->wkView(), red, green, blue, alpha);
+    WebCore::Color backgroundColor = impl->backgroundColor();
+
+    if (red)
+        *red = backgroundColor.red();
+    if (green)
+        *green = backgroundColor.green();
+    if (blue)
+        *blue = backgroundColor.blue();
+    if (alpha)
+        *alpha = backgroundColor.alpha();
 }
 
 Eina_Bool ewk_view_contents_size_get(const Evas_Object* ewkView, Evas_Coord* width, Evas_Coord* height)
@@ -773,11 +815,11 @@ Eina_Bool ewk_view_contents_size_get(const Evas_Object* ewkView, Evas_Coord* wid
         return false;
     }
 
-    WKSize contentsSize = WKViewGetContentsSize(impl->wkView());
+    WebCore::IntSize size = impl->contentsSize();
     if (width)
-        *width = contentsSize.width;
+        *width = size.width();
     if (height)
-        *height = contentsSize.height;
+        *height = size.height();
 
     return true;
 }

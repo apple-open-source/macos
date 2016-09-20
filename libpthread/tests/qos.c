@@ -23,7 +23,7 @@
 	(((i) == THREAD_QOS_UNSPECIFIED)        ?  QOS_CLASS_UNSPECIFIED     :       \
 	 ((i)  == THREAD_QOS_USER_INTERACTIVE)   ? QOS_CLASS_USER_INTERACTIVE :       \
 	 ((i)  == THREAD_QOS_USER_INITIATED)     ? QOS_CLASS_USER_INITIATED   :       \
-	 ((i)  == THREAD_QOS_LEGACY)             ? QOS_CLASS_LEGACY           :       \
+	 ((i)  == THREAD_QOS_LEGACY)             ? QOS_CLASS_DEFAULT          :       \
 	 ((i)  == THREAD_QOS_UTILITY)            ? QOS_CLASS_UTILITY          :       \
 	 ((i)  == THREAD_QOS_BACKGROUND)         ? QOS_CLASS_BACKGROUND       :       \
 	 ((i)  == THREAD_QOS_MAINTENANCE)        ? QOS_CLASS_MAINTENANCE      :       \

@@ -1,0 +1,13 @@
+--- config_h.SH.orig	2015-08-17 15:13:24.000000000 -0700
++++ config_h.SH	2015-08-17 15:13:32.000000000 -0700
+@@ -41,10 +41,6 @@
+  */
+ 
+ /* Package name      : $package
+- * Source directory  : $src
+- * Configuration time: $cf_time
+- * Configured by     : $cf_by
+- * Target system     : $myuname
+  */
+ 
+ #ifndef _config_h_

@@ -35,6 +35,11 @@
 
 #include <IOKit/graphics/IOGraphicsInterfaceTypes.h>
 
+// <rdar://problem/23764215> IOGraphics: IOGraphicsInterface.h: "C" linkage not enforced.
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define kIOGraphicsAcceleratorTypeID                    \
         (CFUUIDGetConstantUUIDWithBytes(NULL,           \
                                 0xAC, 0xCF, 0x00, 0x00, \
@@ -147,6 +152,11 @@ typedef struct IOGraphicsAcceleratorInterfaceStruct {
 /* Helper function for plugin use */
 IOReturn IOAccelFindAccelerator( io_service_t framebuffer,
                                  io_service_t * pAccelerator, UInt32 * pFramebufferIndex );
+
+
+#ifdef __cplusplus
+    }
+#endif
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 

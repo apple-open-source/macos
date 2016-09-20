@@ -17,10 +17,7 @@
 
 /*
 TEST_BUILD_OUTPUT
-.*orbars.c: In function '.*__main_block_invoke_1.*':
-.*orbars.c:32: error: expected (primary-)?expression before '\|' token
-OR
-.*orbars.c:32:(41|60): error: expected expression
+.*orbars.c:29:\d+: error: expected expression
 END
 */
 

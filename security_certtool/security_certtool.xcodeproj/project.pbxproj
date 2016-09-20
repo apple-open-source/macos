@@ -183,6 +183,7 @@
 			baseConfigurationReference = 18A25C28147539CB004F59F8 /* debug.xcconfig */;
 			buildSettings = {
 				INSTALL_PATH = /usr/bin;
+				SDKROOT = macosx.internal;
 			};
 			name = Debug;
 		};
@@ -191,6 +192,7 @@
 			baseConfigurationReference = 18A25C2A147539CB004F59F8 /* release.xcconfig */;
 			buildSettings = {
 				INSTALL_PATH = /usr/bin;
+				SDKROOT = macosx.internal;
 			};
 			name = Release;
 		};

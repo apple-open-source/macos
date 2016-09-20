@@ -43,14 +43,14 @@ public:
     explicit DOMWindowNotifications(DOMWindow*);
     virtual ~DOMWindowNotifications();
 
-    static NotificationCenter* webkitNotifications(DOMWindow*);
+    static NotificationCenter* webkitNotifications(DOMWindow&);
     static DOMWindowNotifications* from(DOMWindow*);
 
-    virtual void disconnectFrameForPageCache() override;
-    virtual void reconnectFrameFromPageCache(Frame*) override;
-    virtual void willDestroyGlobalObjectInCachedFrame() override;
-    virtual void willDestroyGlobalObjectInFrame() override;
-    virtual void willDetachGlobalObjectFromFrame() override;
+    void disconnectFrameForDocumentSuspension() override;
+    void reconnectFrameFromDocumentSuspension(Frame*) override;
+    void willDestroyGlobalObjectInCachedFrame() override;
+    void willDestroyGlobalObjectInFrame() override;
+    void willDetachGlobalObjectFromFrame() override;
 
 private:
     NotificationCenter* webkitNotifications();

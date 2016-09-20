@@ -118,12 +118,12 @@ static void tests(void)
         ok(SOSAccountAssertUserCredentialsAndUpdate(carole_account,  cfaccount, cfpassword, &error), "carole credential setting (%@)", error);
         CFReleaseNull(error);
 
-        ok(SOSAccountResetToOffering(alice_account , &error), "Reset to offering (%@)", error);
+        ok(SOSAccountResetToOffering_wTxn(alice_account , &error), "Reset to offering (%@)", error);
         CFReleaseNull(error);
 
         return 2;
     }, ^{
-        ok(SOSAccountJoinCircles(bob_account , &error), "Bob Applies (%@)", error);
+        ok(SOSAccountJoinCircles_wTxn(bob_account , &error), "Bob Applies (%@)", error);
         CFReleaseNull(error);
 
         return 2;
@@ -184,7 +184,7 @@ static void tests(void)
         ok(!SOSAccountIsInCircle(alice_resurrected, &error), "Ressurrected not in circle: %@", error);
         CFReleaseNull(error);
 
-        ok(SOSAccountJoinCircles(alice_resurrected, &error), "Risen-alice Applies (%@)", error);
+        ok(SOSAccountJoinCircles_wTxn(alice_resurrected, &error), "Risen-alice Applies (%@)", error);
         CFReleaseNull(error);
         return 2;
     }, ^{

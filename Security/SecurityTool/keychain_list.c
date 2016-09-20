@@ -26,7 +26,7 @@
 #include "keychain_list.h"
 
 #include "keychain_utilities.h"
-#include "security.h"
+#include "security_tool.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -37,7 +37,7 @@
 
 // SecKeychainCopyLogin
 #include <Security/SecKeychainPriv.h>
-
+#include <Security/SecItem.h>
 
 typedef enum
 {
@@ -105,7 +105,7 @@ parse_domain(const char *name, SecPreferencesDomain *domain)
 	return 0;
 }
 
-const char *
+static const char *
 domain2str(SecPreferencesDomain domain)
 {
 	switch (domain)
@@ -121,6 +121,45 @@ domain2str(SecPreferencesDomain domain)
 	default:
 		return "unknown";
 	}
+}
+
+static void
+keychain_ctk_list_item(CFTypeRef item)
+{
+    char buf[128] = { 0 };
+
+    CFTypeID tid = CFGetTypeID(item);
+    if (tid == CFDictionaryGetTypeID()) {
+        CFStringRef tkid = CFDictionaryGetValue((CFDictionaryRef)item, CFSTR("tkid"));
+        if (CFStringGetCString(tkid, buf, sizeof(buf), kCFStringEncodingUTF8)) {
+            fprintf(stdout, "%s\n", buf);
+        }
+    } else {
+        fprintf(stderr, "Unexpected item.");
+    }
+}
+
+static void
+keychain_ctk_list_items(CFArrayRef items)
+{
+    CFMutableSetRef displayedItemsRef = CFSetCreateMutable(kCFAllocatorDefault, CFArrayGetCount(items), &kCFTypeSetCallBacks);
+
+    for (CFIndex i = 0; i < CFArrayGetCount(items); i++) {
+        CFDictionaryRef item = CFArrayGetValueAtIndex(items, i);
+
+        if (CFGetTypeID(item) == CFDictionaryGetTypeID()) {
+            CFStringRef tkid = CFDictionaryGetValue((CFDictionaryRef)item, CFSTR("tkid"));
+
+            if (tkid && !CFSetContainsValue(displayedItemsRef, tkid)) {
+                keychain_ctk_list_item(CFArrayGetValueAtIndex(items, i));
+                CFSetAddValue(displayedItemsRef, tkid);
+            }
+        } else {
+            keychain_ctk_list_item(item);
+        }
+    }
+
+    CFRelease(displayedItemsRef);
 }
 
 int
@@ -213,24 +252,24 @@ keychain_list(int argc, char * const *argv)
 		else
 			searchList = (CFArrayRef)CFRetain(keychainOrArray);
 
-		if (use_domain)
-		{
-			status = SecKeychainSetDomainSearchList(domain, searchList);
-			if (status)
-			{
-				sec_error("SecKeychainSetDomainSearchList %s: %s", domain2str(domain), sec_errstr(status));
-				result = 1;
-			}
-		}
-		else
-		{
-			status = SecKeychainSetSearchList(searchList);
-			if (status)
-			{
-				sec_perror("SecKeychainSetSearchList", status);
-				result = 1;
-			}
-		}
+        if (use_domain)
+        {
+            status = SecKeychainSetDomainSearchList(domain, searchList);
+            if (status)
+            {
+                sec_error("SecKeychainSetDomainSearchList %s: %s", domain2str(domain), sec_errstr(status));
+                result = 1;
+            }
+        }
+        else
+        {
+            status = SecKeychainSetSearchList(searchList);
+            if (status)
+            {
+                sec_perror("SecKeychainSetSearchList", status);
+                result = 1;
+            }
+        }
 		break;
 	}
 
@@ -240,6 +279,60 @@ keychain_list(int argc, char * const *argv)
 		CFRelease(searchList);
 
 	return result;
+}
+
+int
+ctk_list(int argc, char * const *argv)
+{
+    OSStatus stat = errSecSuccess;
+    CFDictionaryRef query = NULL;
+    CFTypeRef result = NULL;
+
+    const void *keys[] = {
+        kSecClass,
+        kSecMatchLimit,
+        kSecAttrAccessGroup,
+        kSecReturnAttributes
+    };
+
+    const void *values[] = {
+        kSecClassIdentity,
+        kSecMatchLimitAll,
+        kSecAttrAccessGroupToken,
+        kCFBooleanTrue
+    };
+
+    query = CFDictionaryCreate(kCFAllocatorDefault,
+                               keys,
+                               values,
+                               sizeof(values) / sizeof(values[0]),
+                               &kCFTypeDictionaryKeyCallBacks,
+                               &kCFTypeDictionaryValueCallBacks);
+
+    stat = SecItemCopyMatching(query, (CFTypeRef *)&result);
+    if(stat) {
+        sec_error("SecItemCopyMatching: %x (%d) - %s",
+                  stat, stat, sec_errstr(stat));
+        goto cleanup;
+    }
+
+
+    if (CFGetTypeID(result) == CFArrayGetTypeID()) {
+        keychain_ctk_list_items((CFArrayRef)result);
+    } else {
+        keychain_ctk_list_item(result);
+    }
+
+cleanup:
+    if(query) {
+        CFRelease(query);
+    }
+
+    if(result) {
+        CFRelease(result);
+    }
+    
+    return stat;
 }
 
 int

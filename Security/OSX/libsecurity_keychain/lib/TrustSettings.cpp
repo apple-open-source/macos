@@ -40,6 +40,7 @@
 #include <security_utilities/logging.h>
 #include <security_utilities/cfutilities.h>
 #include <security_utilities/alloc.h>
+#include <Security/Authorization.h>
 #include <Security/cssmapplePriv.h>
 #include <Security/oidscert.h>
 #include <Security/SecCertificatePriv.h>
@@ -48,11 +49,17 @@
 #include <security_ocspd/ocspdClient.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <assert.h>
-#include <Security/Authorization.h>
+#include <dispatch/dispatch.h>
 #include <sys/stat.h>
+#include <syslog.h>
 
-#define trustSettingsDbg(args...)		secdebug("trustSettings", ## args)
-#define trustSettingsEvalDbg(args...)	secdebug("trustSettingsEval", ## args)
+#if 0
+#define trustSettingsDbg(args...)		syslog(LOG_ERR, ## args)
+#define trustSettingsEvalDbg(args...)	syslog(LOG_ERR, ## args)
+#else
+#define trustSettingsDbg(args...)		secinfo("trustSettings", ## args)
+#define trustSettingsEvalDbg(args...)	secinfo("trustSettingsEval", ## args)
+#endif
 
 /*
  * Common error return for "malformed TrustSettings record"
@@ -108,7 +115,7 @@ static bool tsCheckApp(
 		OSStatus ortn;
 		ortn = SecTrustedApplicationCreateWithExternalRepresentation(certApp, &appRef);
 		if(ortn) {
-			trustSettingsDbg("tsCheckApp: bad trustedApp data\n");
+			trustSettingsDbg("tsCheckApp: bad trustedApp data");
 			return false;
 		}
 		ortn = SecTrustedApplicationValidateWithPath(appRef, NULL);
@@ -803,17 +810,23 @@ void TrustSettings::findQualifiedCerts(
 	KCCursor cursor(keychains, CSSM_DL_DB_RECORD_X509_CERTIFICATE, NULL);
 	Item certItem;
 	bool found;
+	unsigned int total=0, entries=0, qualified=0;
 	do {
 		found = cursor->next(certItem);
 		if(!found) {
 			break;
 		}
+		++total;
 	#if !SECTRUST_OSX
 		CFRef<SecCertificateRef> certRef((SecCertificateRef)certItem->handle());
 	#else
 		/* must convert to unified SecCertificateRef */
 		SecPointer<Certificate> certificate(static_cast<Certificate *>(&*certItem));
-		CssmData certCssmData = certificate->data();
+        CssmData certCssmData;
+        try {
+            certCssmData = certificate->data();
+        }
+        catch (...) {}
 		if (!(certCssmData.Data && certCssmData.Length)) {
 			continue;
 		}
@@ -826,6 +839,7 @@ void TrustSettings::findQualifiedCerts(
 		if(certDict == NULL) {
 			continue;
 		}
+		++entries;
 
 		if(!findAll) {
 			/* qualify */
@@ -834,6 +848,7 @@ void TrustSettings::findQualifiedCerts(
 				continue;
 			}
 		}
+		++qualified;
 
 		/* see if we already have this one - get in CFData form */
 		CSSM_DATA certData;
@@ -843,7 +858,7 @@ void TrustSettings::findQualifiedCerts(
 			continue;
 		}
 		CFRef<CFDataRef> cfData(CFDataCreate(NULL, certData.Data, certData.Length));
-		CFDataRef cfd = cfData;
+		CFDataRef cfd = cfData.get();
 		if(CFSetContainsValue(certSet, cfd)) {
 			trustSettingsEvalDbg("findQualifiedCerts: dup cert");
 			continue;
@@ -855,6 +870,9 @@ void TrustSettings::findQualifiedCerts(
 			CFArrayAppendValue(certArray, certRef);
 		}
 	} while(found);
+
+	trustSettingsEvalDbg("findQualifiedCerts: examined %d certs, qualified %d of %d",
+		total, qualified, entries);
 }
 
 /*
@@ -893,7 +911,8 @@ CFArrayRef TrustSettings::copyTrustSettings(
 		/* already validated... */
 		assert(CFGetTypeID(diskTsDict) == CFDictionaryGetTypeID());
 
-		CFDataRef   certPolicy = (CFDataRef)  CFDictionaryGetValue(diskTsDict, kSecTrustSettingsPolicy);
+		CFTypeRef   certPolicy = (CFTypeRef)  CFDictionaryGetValue(diskTsDict, kSecTrustSettingsPolicy);
+		CFStringRef	policyName = (CFStringRef)CFDictionaryGetValue(diskTsDict, kSecTrustSettingsPolicyName);
 		CFDataRef   certApp    = (CFDataRef)  CFDictionaryGetValue(diskTsDict, kSecTrustSettingsApplication);
 		CFStringRef policyStr  = (CFStringRef)CFDictionaryGetValue(diskTsDict, kSecTrustSettingsPolicyString);
 		CFNumberRef allowedErr = (CFNumberRef)CFDictionaryGetValue(diskTsDict, kSecTrustSettingsAllowedError);
@@ -915,17 +934,33 @@ CFArrayRef TrustSettings::copyTrustSettings(
 			&kCFTypeDictionaryValueCallBacks));
 
 		if(certPolicy != NULL) {
-			/* convert OID as CFDataRef to SecPolicyRef */
 			SecPolicyRef policyRef = NULL;
-			CSSM_OID policyOid = { CFDataGetLength(certPolicy),
-				(uint8 *)CFDataGetBytePtr(certPolicy) };
-			OSStatus ortn = SecPolicyCopy(CSSM_CERT_X_509v3, &policyOid, &policyRef);
-			if(ortn) {
-				trustSettingsDbg("copyTrustSettings: OID conversion error");
-				abort("Bad Policy OID in trusted root list", errSecInvalidTrustedRootRecord);
+			if (CFDataGetTypeID() == CFGetTypeID(certPolicy)) {
+				/* convert OID as CFDataRef to SecPolicyRef */
+				CSSM_OID policyOid = { CFDataGetLength((CFDataRef)certPolicy),
+					(uint8 *)CFDataGetBytePtr((CFDataRef)certPolicy) };
+				OSStatus ortn = SecPolicyCopy(CSSM_CERT_X_509v3, &policyOid, &policyRef);
+				if(ortn) {
+					trustSettingsDbg("copyTrustSettings: OID conversion error");
+					abort("Bad Policy OID in trusted root list", errSecInvalidTrustedRootRecord);
+				}
+			} else if (CFStringGetTypeID() == CFGetTypeID(certPolicy)) {
+				policyRef = SecPolicyCreateWithProperties(certPolicy, NULL);
 			}
-			CFDictionaryAddValue(outTsDict, kSecTrustSettingsPolicy, policyRef);
-			CFRelease(policyRef);			// owned by dictionary
+			if (policyRef) {
+				CFDictionaryAddValue(outTsDict, kSecTrustSettingsPolicy, policyRef);
+				CFRelease(policyRef);			// owned by dictionary
+			}
+		}
+
+		if (policyName != NULL) {
+			/*
+			 * copy, since policyName is in our mutable dictionary and could change out from
+			 * under the caller
+			 */
+			CFStringRef str = CFStringCreateCopy(NULL, policyName);
+			CFDictionaryAddValue(outTsDict, kSecTrustSettingsPolicyName, str);
+			CFRelease(str);			// owned by dictionary
 		}
 
 		if(certApp != NULL) {
@@ -1135,7 +1170,7 @@ CFDictionaryRef TrustSettings::findDictionaryForCert(
 		return NULL;
 	}
 
-	return findDictionaryForCertHash(static_cast<CFStringRef>(certHashStr));
+	return findDictionaryForCertHash(static_cast<CFStringRef>(certHashStr.get()));
 }
 
 /*
@@ -1163,15 +1198,11 @@ CFArrayRef TrustSettings::validateApiTrustSettings(
 	CFArrayRef tmpInArray = NULL;
 
 	if(trustSettingsDictOrArray == NULL) {
-#if SECTRUST_OSX
-#warning STU: temporarily unblocking build
-#else
 		/* trivial case, only valid for roots */
 		if(!isSelfSigned) {
 			trustSettingsDbg("validateApiUsageConstraints: !isSelfSigned, no settings");
 			MacOSError::throwMe(errSecParam);
 		}
-#endif
 		return CFArrayCreate(NULL, NULL, 0, &kCFTypeArrayCallBacks);
 	}
 	else if(CFGetTypeID(trustSettingsDictOrArray) == CFDictionaryGetTypeID()) {
@@ -1198,7 +1229,8 @@ CFArrayRef TrustSettings::validateApiTrustSettings(
 
 	/* convert */
 	for(CFIndex dex=0; dex<numSpecs; dex++) {
-		CFDataRef   oidData = NULL;
+		CFTypeRef   oidData = NULL;
+		CFStringRef policyName = NULL;
 		CFDataRef   appData = NULL;
 		CFStringRef policyStr = NULL;
 		CFNumberRef allowedErr = NULL;
@@ -1224,11 +1256,18 @@ CFArrayRef TrustSettings::validateApiTrustSettings(
 				break;
 			}
 			ortn = SecPolicyGetOID(certPolicy, &oid);
-			if(ortn) {
+			if (ortn) {
+				/* newer policies don't have CSSM OIDs but they do have string OIDs */
+				oidData = CFRetain(SecPolicyGetOidString(certPolicy));
+			} else {
+				oidData = CFDataCreate(NULL, oid.Data, oid.Length);
+			}
+
+			if (!oidData) {
 				trustSettingsDbg("validateAppPolicyArray: SecPolicyGetOID error");
 				break;
 			}
-			oidData = CFDataCreate(NULL, oid.Data, oid.Length);
+			policyName = SecPolicyGetName(certPolicy);
 		}
 
 		/* application - optional */
@@ -1292,6 +1331,10 @@ CFArrayRef TrustSettings::validateApiTrustSettings(
 			CFDictionaryAddValue(outDict, kSecTrustSettingsPolicy, oidData);
 			CFRelease(oidData);			// owned by dictionary
 		}
+		if(policyName) {
+			CFDictionaryAddValue(outDict, kSecTrustSettingsPolicyName, policyName);
+			/* still owned by ucDict */
+		}
 		if(appData) {
 			CFDictionaryAddValue(outDict, kSecTrustSettingsApplication, appData);
 			CFRelease(appData);			// owned by dictionary
@@ -1303,10 +1346,9 @@ CFArrayRef TrustSettings::validateApiTrustSettings(
 		if(allowedErr) {
 			CFDictionaryAddValue(outDict, kSecTrustSettingsAllowedError, allowedErr);
 		}
-#if SECTRUST_OSX
-#warning STU: temporarily unblocking build
+
 		ortn = errSecSuccess;
-#else
+
 		if(resultType) {
 			/* let's be really picky on this one */
 			switch(result) {
@@ -1346,7 +1388,7 @@ CFArrayRef TrustSettings::validateApiTrustSettings(
 				break;
 			}
 		}
-#endif
+
 		if(keyUsage) {
 			CFDictionaryAddValue(outDict, kSecTrustSettingsKeyUsage, keyUsage);
 		}

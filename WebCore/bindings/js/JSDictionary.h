@@ -33,6 +33,7 @@
 #include <runtime/JSCInlines.h>
 #include <runtime/Uint8Array.h>
 #include <wtf/Forward.h>
+#include <wtf/Optional.h>
 
 namespace Deprecated {
 class ScriptValue;
@@ -47,12 +48,16 @@ class DOMError;
 class DOMWindow;
 class EventTarget;
 class Gamepad;
+class FetchHeaders;
 class MediaKeyError;
 class MediaStream;
 class MediaStreamTrack;
+class RTCRtpReceiver;
+class RTCRtpTransceiver;
 class Node;
 class SerializedScriptValue;
 class Storage;
+class TouchList;
 class TrackBase;
 class VoidCallback;
 
@@ -99,12 +104,27 @@ private:
     GetPropertyResult tryGetPropertyAndResult(const char* propertyName, T* context, void (*setter)(T* context, const Result&)) const;
     GetPropertyResult tryGetProperty(const char* propertyName, JSC::JSValue&) const;
 
+    template <typename T>
+    static void convertValue(JSC::ExecState* execState, JSC::JSValue value, Optional<T>& result)
+    {
+        if (value.isUndefinedOrNull()) {
+            result = Nullopt;
+            return;
+        }
+
+        T actualResult;
+        convertValue(execState, value, actualResult);
+        result = actualResult;
+    }
+    
     static void convertValue(JSC::ExecState*, JSC::JSValue, bool& result);
     static void convertValue(JSC::ExecState*, JSC::JSValue, int& result);
+    static void convertValue(JSC::ExecState*, JSC::JSValue, long int& result);
     static void convertValue(JSC::ExecState*, JSC::JSValue, unsigned& result);
     static void convertValue(JSC::ExecState*, JSC::JSValue, unsigned short& result);
     static void convertValue(JSC::ExecState*, JSC::JSValue, unsigned long& result);
     static void convertValue(JSC::ExecState*, JSC::JSValue, unsigned long long& result);
+    static void convertValue(JSC::ExecState*, JSC::JSValue, long long& result);
     static void convertValue(JSC::ExecState*, JSC::JSValue, double& result);
     static void convertValue(JSC::ExecState*, JSC::JSValue, Dictionary& result);
     static void convertValue(JSC::ExecState*, JSC::JSValue, String& result);
@@ -125,9 +145,17 @@ private:
 #if ENABLE(ENCRYPTED_MEDIA)
     static void convertValue(JSC::ExecState*, JSC::JSValue, RefPtr<MediaKeyError>& result);
 #endif
+#if ENABLE(FETCH_API)
+    static void convertValue(JSC::ExecState*, JSC::JSValue, RefPtr<FetchHeaders>& result);
+#endif
 #if ENABLE(MEDIA_STREAM)
     static void convertValue(JSC::ExecState*, JSC::JSValue, RefPtr<MediaStream>& result);
     static void convertValue(JSC::ExecState*, JSC::JSValue, RefPtr<MediaStreamTrack>& result);
+#endif
+#if ENABLE(WEB_RTC)
+    static void convertValue(JSC::ExecState*, JSC::JSValue, RefPtr<RTCRtpReceiver>& result);
+    static void convertValue(JSC::ExecState*, JSC::JSValue, RefPtr<RTCRtpTransceiver>& result);
+    static void convertValue(JSC::ExecState*, JSC::JSValue, Vector<RefPtr<MediaStream>>& result);
 #endif
 #if ENABLE(FONT_LOAD_EVENTS)
     static void convertValue(JSC::ExecState*, JSC::JSValue, RefPtr<CSSFontFaceRule>& result);
@@ -138,6 +166,9 @@ private:
     static void convertValue(JSC::ExecState*, JSC::JSValue, RefPtr<Gamepad>&);
 #endif
     static void convertValue(JSC::ExecState*, JSC::JSValue, JSC::JSFunction*&);
+#if ENABLE(IOS_TOUCH_EVENTS) || ENABLE(TOUCH_EVENTS)
+    static void convertValue(JSC::ExecState*, JSC::JSValue, RefPtr<TouchList>&);
+#endif
 
     JSC::ExecState* m_exec;
     JSC::Strong<JSC::JSObject> m_initializerObject;
@@ -159,6 +190,12 @@ template <typename Result>
 bool JSDictionary::get(const char* propertyName, Result& finalResult) const
 {
     return tryGetPropertyAndResult(propertyName, &finalResult, IdentitySetter<Result>::identitySetter) == PropertyFound;
+}
+
+template <>
+inline bool JSDictionary::get(const char* propertyName, JSC::JSValue& finalResult) const
+{
+    return tryGetProperty(propertyName, finalResult) == PropertyFound;
 }
 
 template <typename T, typename Result>

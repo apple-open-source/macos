@@ -11,7 +11,7 @@ entryPoint(CommonEC,"Elliptic Curve Cryptography")
 
 static int kTestTestCount = 9;
 
-int CommonEC(int argc, char *const *argv) {
+int CommonEC(int __unused argc, char *const * __unused argv) {
 	CCCryptorStatus retval;
     size_t keysize;
     CCECCryptorRef publicKey, privateKey;

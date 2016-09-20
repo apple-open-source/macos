@@ -422,8 +422,9 @@ xar_file_t xar_underbar_check(xar_t x, xar_file_t f, const char* file, void *con
 		
 		nonunderbar = bname+2;
 		tmp2 = strdup(file);
-		dname = dirname(tmp2);
+		dname = xar_safe_dirname(tmp2);
 		asprintf(&nupath, "%s/%s", dname, nonunderbar);
+		free(dname);
 		free(tmp2);
 
 		/* if there is no file that the ._ corresponds to, archive
@@ -484,13 +485,14 @@ static int32_t underbar_archive(xar_t x, xar_file_t f, const char* file, void *c
 	
 	tmp = strdup(file);
 	tmp2 = strdup(file);
-	dname = dirname(tmp2);
+	dname = xar_safe_dirname(tmp2);
 	bname = basename(tmp);
 
 	memset(underbarname, 0, sizeof(underbarname));
 	snprintf(underbarname, sizeof(underbarname)-1, "%s/._%s", dname, bname);
 	free(tmp);
 	free(tmp2);
+	free(dname);
 	
 	if( stat(underbarname, &sb) != 0 )
 		return 0;
@@ -604,13 +606,14 @@ static int32_t underbar_extract(xar_t x, xar_file_t f, const char* file, void *c
 
 	tmp = strdup(file);
 	tmp2 = strdup(file);
-	dname = dirname(tmp2);
+	dname = xar_safe_dirname(tmp2);
 	bname = basename(tmp);
 
 	memset(underbarname, 0, sizeof(underbarname));
 	snprintf(underbarname, sizeof(underbarname)-1, "%s/._%s", dname, bname);
 	free(tmp);
 	free(tmp2);
+	free(dname);
 
 	DARWINATTR_CONTEXT(context)->fd = open(underbarname, O_RDWR | O_CREAT | O_TRUNC, 0);
 	if( DARWINATTR_CONTEXT(context)->fd < 0 )
@@ -712,11 +715,13 @@ static int32_t stragglers_extract(xar_t x, xar_file_t f, const char* file, void 
 		strptime(tmpc, "%FT%T", &tm);
 		ts.tv_sec = timegm(&tm);
 		xar_prop_get(f, "FinderCreateTime/nanoseconds", &tmpc);
-		ts.tv_nsec = strtol(tmpc, NULL, 10);
-		memset(&attrs, 0, sizeof(attrs));
-		attrs.bitmapcount = ATTR_BIT_MAP_COUNT;
-		attrs.commonattr = ATTR_CMN_CRTIME;
-		setattrlist(file, &attrs, &ts, sizeof(ts), 0);
+		if( tmpc ) {
+			ts.tv_nsec = strtol(tmpc, NULL, 10);
+			memset(&attrs, 0, sizeof(attrs));
+			attrs.bitmapcount = ATTR_BIT_MAP_COUNT;
+			attrs.commonattr = ATTR_CMN_CRTIME;
+			setattrlist(file, &attrs, &ts, sizeof(ts), 0);
+		}
 	}
 
 #endif

@@ -44,6 +44,7 @@ public:
     // FIXME: Use RenderElement* instead of RenderObject* once we upstream iOS's DOMUIKitExtensions.{h, mm}.
     LayoutRect computeRect(RenderObject*) const;
     Path computePath(RenderObject*) const;
+    Path computePathForFocusRing(const LayoutSize& elementSize) const;
 
     // The parent map's image.
     HTMLImageElement* imageElement() const;
@@ -51,14 +52,14 @@ public:
 private:
     HTMLAreaElement(const QualifiedName&, Document&);
 
-    virtual void parseAttribute(const QualifiedName&, const AtomicString&) override;
-    virtual bool supportsFocus() const override;
-    virtual String target() const override;
-    virtual bool isKeyboardFocusable(KeyboardEvent*) const override;
-    virtual bool isMouseFocusable() const override;
-    virtual bool isFocusable() const override;
-    virtual void updateFocusAppearance(bool /*restorePreviousSelection*/) override;
-    virtual void setFocus(bool) override;
+    void parseAttribute(const QualifiedName&, const AtomicString&) final;
+    bool supportsFocus() const final;
+    String target() const final;
+    bool isKeyboardFocusable(KeyboardEvent*) const final;
+    bool isMouseFocusable() const final;
+    bool isFocusable() const final;
+    void updateFocusAppearance(SelectionRestorationMode, SelectionRevealMode) final;
+    void setFocus(bool) final;
 
     enum Shape { Default, Poly, Rect, Circle, Unknown };
     Path getRegion(const LayoutSize&) const;

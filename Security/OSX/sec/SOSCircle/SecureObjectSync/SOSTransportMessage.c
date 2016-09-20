@@ -93,9 +93,9 @@ bool SOSTransportMessageHandlePeerMessage(SOSTransportMessageRef transport, CFSt
     __block bool result = true;
     __block bool somethingChanged = false;
     SOSEngineRef engine = SOSTransportMessageGetEngine(transport);
-    result &= SOSEngineWithPeerID(engine, peerID, error, ^(SOSPeerRef peer, SOSDataSourceRef dataSource, SOSTransactionRef txn, bool *shouldSave) {
+    result &= SOSEngineWithPeerID(engine, peerID, error, ^(SOSPeerRef peer, SOSCoderRef coder, SOSDataSourceRef dataSource, SOSTransactionRef txn, bool *shouldSave) {
         CFDataRef decodedMessage = NULL;
-        enum SOSCoderUnwrapStatus uwstatus = SOSPeerHandleCoderMessage(peer, peerID, codedMessage, &decodedMessage, shouldSave, error);
+        enum SOSCoderUnwrapStatus uwstatus = SOSPeerHandleCoderMessage(peer, coder, peerID, codedMessage, &decodedMessage, shouldSave, error);
         if (uwstatus == SOSCoderUnwrapDecoded) {
             SOSMessageRef message =  NULL;
             if (decodedMessage && CFDataGetLength(decodedMessage)) {
@@ -124,11 +124,11 @@ bool SOSTransportMessageSendMessageIfNeeded(SOSTransportMessageRef transport, CF
     __block bool ok = true;
     SOSEngineRef engine = SOSTransportMessageGetEngine(transport);
 
-    ok &= SOSEngineForPeerID(engine, peer_id, error, ^(SOSPeerRef peer) {
+    ok &= SOSEngineForPeerID(engine, peer_id, error, ^(SOSTransactionRef txn, SOSPeerRef peer, SOSCoderRef coder) {
         // Now under engine lock do stuff
         CFDataRef message_to_send = NULL;
         SOSEnginePeerMessageSentBlock sent = NULL;
-        ok = SOSPeerCoderSendMessageIfNeeded(engine, peer, &message_to_send, circle_id, peer_id, &sent, error);
+        ok = SOSPeerCoderSendMessageIfNeeded(engine, txn, peer, coder, &message_to_send, circle_id, peer_id, &sent, error);
         if (message_to_send) {
             CFDictionaryRef peer_dict = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
                                                                      peer_id, message_to_send,

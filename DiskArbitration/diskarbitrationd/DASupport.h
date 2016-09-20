@@ -75,7 +75,11 @@ extern void DAPreferenceListRefresh( void );
 
 enum
 {
+///w:23678897:start
+    _kDAUnitStateHasAPFS = 0x00000010,
+///w:23678897:stop
     kDAUnitStateCommandActive    = 0x00000001,
+    kDAUnitStateHasQuiesced      = 0x00000002,
     kDAUnitStateStagedUnreadable = 0x00010000
 };
 

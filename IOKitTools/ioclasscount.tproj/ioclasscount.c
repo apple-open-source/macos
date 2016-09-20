@@ -25,7 +25,10 @@ cc ioclasscount.c -o /tmp/ioclasscount -Wall -isysroot /Applications/Xcode.app/C
  */
 
 #include <sysexits.h>
+#include <sys/param.h>
+#include <sys/sysctl.h>
 #include <getopt.h>
+#include <libproc.h>
 #include <malloc/malloc.h>
 #include <mach/mach_vm.h>
 #include <CoreFoundation/CoreFoundation.h>
@@ -129,59 +132,182 @@ finish:
 
 /*********************************************************************
 *********************************************************************/
+
+static bool
+StringForUUID(const CFUUIDBytes * uuidBytes, char * string, size_t size)
+{
+    CFUUIDRef   uuid  = 0;
+    CFStringRef cfstr = 0;
+    bool        ok    = false;
+
+    if (uuidBytes) uuid = CFUUIDCreateFromUUIDBytes(NULL, *uuidBytes);
+    if (uuid)
+    {
+        cfstr = CFUUIDCreateString(kCFAllocatorDefault, uuid);
+        CFRelease(uuid);
+    }
+    if (cfstr)
+    {
+        ok = CFStringGetCString(cfstr, string, size, kCFStringEncodingUTF8);
+        CFRelease(cfstr);
+    }
+    return (ok);
+}
+
 static void
-ProcessBacktraces(void * output, size_t outputSize)
+GetBacktraceSymbols(CSSymbolicatorRef symbolicator, uint64_t addr,
+                const char ** pModuleName, const char ** pSymbolName, uint64_t * pOffset)
+{
+    static char         unknownKernel[38];
+    static char         unknownKernelSymbol[38];
+    static char         _module[38];
+    const char        * symbolName;
+    CSSymbolOwnerRef    owner;
+    CSSymbolRef         symbol;
+    CSRange             range;
+
+    owner = CSSymbolicatorGetSymbolOwnerWithAddressAtTime(symbolicator, addr, kCSNow);
+    if (CSIsNull(owner))
+    {
+        if (!unknownKernel[0])
+        {
+            size_t uuidSize = sizeof(unknownKernel);
+            if (sysctlbyname("kern.uuid", unknownKernel, &uuidSize, NULL, 0)) snprintf(unknownKernel, sizeof(unknownKernel), "unknown kernel");
+            snprintf(unknownKernelSymbol, sizeof(unknownKernelSymbol), "kernel");
+        }
+        *pModuleName = unknownKernel;
+        *pSymbolName = unknownKernelSymbol;
+        *pOffset = 0;
+    }
+    else
+    {
+        *pModuleName = CSSymbolOwnerGetName(owner);
+        symbol       = CSSymbolOwnerGetSymbolWithAddress(owner, addr);
+        if (!CSIsNull(symbol) && (symbolName = CSSymbolGetName(symbol)))
+        {
+            range        = CSSymbolGetRange(symbol);
+            *pSymbolName = symbolName;
+            *pOffset     = addr - range.location;
+        }
+        else
+        {
+            if (StringForUUID(CSSymbolOwnerGetCFUUIDBytes(owner), _module, sizeof(_module))) *pModuleName = _module;
+            symbolName   = CSSymbolOwnerGetName(owner);
+            *pSymbolName = symbolName;
+            *pOffset     = addr - CSSymbolOwnerGetBaseAddress(owner);
+        }
+    }
+}
+
+/*********************************************************************
+*********************************************************************/
+static void
+ProcessBacktraces(void * output, size_t outputSize, pid_t pid, const char * aggregate)
 {
     struct IOTrackingCallSiteInfo * sites;
     struct IOTrackingCallSiteInfo * site;
-    uint32_t                        num, idx, btIdx;
+    uint32_t                        num, idx, printIdx, j, btIdx, userBT, numBTs;
+    uint64_t                        offset, total;
     const char                    * fileName;
-    CSSymbolicatorRef               sym;
-    CSSymbolRef                     symbol;
     const char                    * symbolName;
-    CSSymbolOwnerRef                owner;
+    const char                    * moduleName;
+    CSSymbolicatorRef               sym[2];
     CSSourceInfoRef                 sourceInfo;
-    CSRange                         range;
+    char                            procname[(2*MAXCOMLEN)+1];
+    bool                            search, found;
+    char                            line[1024];
 
-    sym = CSSymbolicatorCreateWithMachKernel();
+    sym[0] = CSSymbolicatorCreateWithMachKernel();
 
     sites = (typeof(sites)) output;
     num   = (uint32_t)(outputSize / sizeof(sites[0]));
-
-    for (idx = 0; idx < num; idx++)
+    total = 0;
+    for (printIdx = idx = 0; idx < num; idx++)
     {
-	site = &sites[idx];
-	printf("\n0x%lx bytes (0x%lx + 0x%lx), %d call%s, [%d]\n",
-	    site->size[0] + site->size[1], 
-	    site->size[0], site->size[1], 
-	    site->count, (site->count != 1) ? "s" : "", idx);
-	uintptr_t * bt = &site->bt[0];
-	for (btIdx = 0; btIdx < kIOTrackingCallSiteBTs; btIdx++)
+	search = (aggregate != 0);
+	found  = false;
+	do 
 	{
-	    mach_vm_address_t addr = bt[btIdx];
-
-	    if (!addr) break;
-	
-	    symbol = CSSymbolicatorGetSymbolWithAddressAtTime(sym, addr, kCSNow);
-	    owner  = CSSymbolGetSymbolOwner(symbol);
-
-	    printf("%2d %-24s      0x%llx ", btIdx, CSSymbolOwnerGetName(owner), addr);
-
-	    symbolName = CSSymbolGetName(symbol);
-	    if (symbolName)
+	    site = &sites[idx];
+	    if (!search)
 	    {
-		range = CSSymbolGetRange(symbol);
-		printf("%s + 0x%llx", symbolName, addr - range.location);
+		if (site->address)
+		{
+		    proc_name(site->addressPID, &procname[0], sizeof(procname));
+		    printf("\n[0x%qx, 0x%qx] %s(%d) [%d]\n",
+			site->address, site->size[0] + site->size[1],
+			procname, site->addressPID, printIdx++);
+		}
+		else
+		{
+		    printf("\n0x%qx bytes (0x%qx + 0x%qx), %d call%s [%d]\n",
+			site->size[0] + site->size[1],
+			site->size[0], site->size[1],
+			site->count, (site->count != 1) ? "s" : "", printIdx++);
+		}
+		total += site->size[0] + site->size[1];
 	    }
-	    else {}
 
-	    sourceInfo = CSSymbolicatorGetSourceInfoWithAddressAtTime(sym, addr, kCSNow);
-	    fileName = CSSourceInfoGetPath(sourceInfo);
-	    if (fileName) printf(" (%s:%d)", fileName, CSSourceInfoGetLineNumber(sourceInfo));
+	    numBTs = 1;
+	    if (site->btPID)
+	    {
+		proc_name(site->btPID, &procname[0], sizeof(procname));
+		sym[1] = CSSymbolicatorCreateWithPid(site->btPID);
+		numBTs = 2;
+	    }
 
-	    printf("\n");
+	    for (userBT = 0, btIdx = 0; userBT < numBTs; userBT++)
+	    {
+		if (userBT && !search) printf("<%s(%d)>\n", procname, site->btPID);
+
+		for (j = 0; j < kIOTrackingCallSiteBTs; j++, btIdx++)
+		{
+		    mach_vm_address_t addr = site->bt[userBT][j];
+
+		    if (!addr) break;
+                    GetBacktraceSymbols(sym[userBT], addr, &moduleName, &symbolName, &offset);
+		    snprintf(line, sizeof(line), "%2d %-36s    %#018llx ", btIdx, moduleName, addr);
+		    if (!search) printf("%s", line);
+		    else
+		    {
+		    	found = (NULL != strnstr(line, aggregate, sizeof(line)));
+		    	if (found) break;
+		    }
+		    if (offset) snprintf(line, sizeof(line), "%s + 0x%llx", symbolName, offset);
+		    else        snprintf(line, sizeof(line), "%s", symbolName);
+		    if (!search) printf("%s", line);
+		    else
+		    {
+		    	found = (NULL != strnstr(line, aggregate, sizeof(line)));
+		    	if (found) break;
+		    }
+
+		    sourceInfo = CSSymbolicatorGetSourceInfoWithAddressAtTime(sym[userBT], addr, kCSNow);
+		    fileName = CSSourceInfoGetPath(sourceInfo);
+		    if (fileName)
+		    {
+			snprintf(line, sizeof(line), " (%s:%d)", fileName, CSSourceInfoGetLineNumber(sourceInfo));
+			if (!search) printf("%s", line);
+			else
+			{
+			    found = (NULL != strnstr(line, aggregate, sizeof(line)));
+			    if (found) break;
+			}
+		    }
+
+		    if (!search) printf("\n");
+		}
+		if (found) break;
+	    }
+	    if (numBTs == 2) CSRelease(sym[1]);
+	    if (!found || !search) break;
+	    search = false;
 	}
+	while (true);
     }
+    printf("\n0x%qx bytes total\n", total);
+
+    CSRelease(sym[0]);
 }
 
 /*********************************************************************
@@ -189,7 +315,7 @@ ProcessBacktraces(void * output, size_t outputSize)
 void usage(void)
 {
     printf("usage: ioclasscount [--track] [--leaks] [--reset] [--start] [--stop]\n");
-    printf("                    [--exclude] [--print] [--size=BYTES] [--capsize=BYTES]\n");
+    printf("                    [--exclude] [--maps=PID] [--size=BYTES] [--capsize=BYTES]\n");
     printf("                    [classname] [...] \n");
 }
 
@@ -210,21 +336,26 @@ int main(int argc, char ** argv)
     int                    c;
     int                    command;
     int                    exclude;
+    pid_t                  pid;
     size_t                 size;
     size_t                 len;
+    const char           * aggregate;
 
-    command = kIOTrackingInvalid;
-    exclude = false;
-    size    = 0;
+    command   = kIOTrackingInvalid;
+    exclude   = false;
+    size      = 0;
+    pid       = 0;
+    aggregate = NULL;
     
     /*static*/ struct option longopts[] = {
 	{ "track",   no_argument,       &command,  kIOTrackingGetTracking },
 	{ "reset",   no_argument,       &command,  kIOTrackingResetTracking },
 	{ "start",   no_argument,       &command,  kIOTrackingStartCapture },
 	{ "stop",    no_argument,       &command,  kIOTrackingStopCapture },
-        { "print",   no_argument,       &command,  kIOTrackingPrintTracking },
         { "leaks",   no_argument,       &command,  kIOTrackingLeaks },
 	{ "exclude", no_argument,       &exclude,  true },
+	{ "site",    required_argument, NULL,      't' },
+	{ "maps",    required_argument, NULL,      'm' },
 	{ "size",    required_argument, NULL,      's' },
 	{ "capsize", required_argument, NULL,      'c' },
 	{ NULL,      0,                 NULL,      0 }
@@ -235,8 +366,10 @@ int main(int argc, char ** argv)
 	if (!c) continue;
 	switch (c)
 	{
-	    case 's': size = strtol(optarg, NULL, 0); break;
-	    case 'c': size = strtol(optarg, NULL, 0); command = kIOTrackingSetMinCaptureSize; break;
+	    case 's': size      = strtol(optarg, NULL, 0); break;
+	    case 't': aggregate = optarg; break;
+	    case 'c': size      = strtol(optarg, NULL, 0); command = kIOTrackingSetMinCaptureSize; break;
+	    case 'm': pid       = (pid_t) strtol(optarg, NULL, 0); command = kIOTrackingGetMappings; break;
 	    default:
 		usage();
 		exit(1);
@@ -249,7 +382,7 @@ int main(int argc, char ** argv)
 	io_connect_t connect;
 	IOReturn     err;
 	uint32_t     idx;
-        const char * name;    
+        const char * name;
 	char       * next;
 	void       * output;
 	size_t       outputSize;
@@ -287,9 +420,12 @@ int main(int argc, char ** argv)
 
 	output = NULL;
 	outputSize = 0;
-	if ((kIOTrackingGetTracking == command) || (kIOTrackingLeaks == command)) outputSize = kIOConnectMethodVarOutputSize;
+	if ((kIOTrackingGetTracking == command)
+	 || (kIOTrackingLeaks       == command)
+	 || (kIOTrackingGetMappings == command)) outputSize = kIOConnectMethodVarOutputSize;
 
-	params->size = size;
+	params->size  = size;
+	params->value = pid;
 	if (exclude) params->options |= kIOTrackingExcludeNames;
 
 	err = IOConnectCallMethod(connect, command,
@@ -304,9 +440,9 @@ int main(int argc, char ** argv)
 	    exit(1);
 	}
 
-	if ((kIOTrackingGetTracking == command) || (kIOTrackingLeaks == command))
+	if (outputSize)
         {
-            ProcessBacktraces(output, outputSize);
+            ProcessBacktraces(output, outputSize, pid, aggregate);
         }
 
 	free(params);

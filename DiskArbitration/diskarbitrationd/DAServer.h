@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,6 +38,7 @@ extern void _DAMediaDisappearedCallback( void * context, io_iterator_t notificat
 extern void _DAServerCallback( CFMachPortRef port, void * message, CFIndex messageSize, void * info );
 extern void _DAVolumeMountedCallback( CFMachPortRef port, void * message, CFIndex messageSize, void * info );
 extern void _DAVolumeUnmountedCallback( CFMachPortRef port, void * message, CFIndex messageSize, void * info );
+extern void _DAVolumeUpdatedCallback( CFMachPortRef port, void * message, CFIndex messageSize, void * info );
 
 extern CFRunLoopSourceRef DAServerCreateRunLoopSource( CFAllocatorRef allocator, CFIndex order );
 

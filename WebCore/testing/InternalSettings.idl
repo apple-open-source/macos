@@ -26,7 +26,8 @@
 
 [
     NoInterfaceObject,
-    JSGenerateToJSObject
+    JSGenerateToJSObject,
+    ExportMacro=WEBCORE_TESTSUPPORT_EXPORT,
 ] interface InternalSettings : InternalSettingsGenerated {
     [RaisesException] void setTouchEventEmulationEnabled(boolean enabled);
 
@@ -39,13 +40,11 @@
     [RaisesException] void setFantasyFontFamily(DOMString family, DOMString script);
     [RaisesException] void setPictographFontFamily(DOMString family, DOMString script);
     [RaisesException] void setFontFallbackPrefersPictographs(boolean preferPictographs);
+    [RaisesException] void setWebFontsAlwaysFallBack(boolean enable);
 
     [RaisesException] void setTextAutosizingEnabled(boolean enabled);
     [RaisesException] void setTextAutosizingWindowSizeOverride(long width, long height);
     [RaisesException] void setTextAutosizingFontScaleFactor(unrestricted float fontScaleFactor);
-
-    // Features
-    [RaisesException] void setCSSShapesEnabled(boolean enabled);
 
     // Media
     [RaisesException] void setCanStartMedia(boolean enabled);
@@ -54,7 +53,7 @@
     [RaisesException] void setDefaultVideoPosterURL(DOMString poster);
     [RaisesException] void setTimeWithoutMouseMovementBeforeHidingControls(unrestricted double time);
     [RaisesException] void setMediaTypeOverride(DOMString mediaTypeOverride);
-    void setWirelessPlaybackDisabled(boolean available);
+    void setAllowsAirPlayForMediaPlayback(boolean available);
 
     [RaisesException] void setForcePendingWebGLPolicy(boolean forced);
 
@@ -64,15 +63,27 @@
     [RaisesException] void setEditingBehavior(DOMString behavior);
     [RaisesException] void setShouldConvertPositionStyleOnCopy(boolean convert);
     void setLangAttributeAwareFormControlUIEnabled(boolean enabled);
+    [RaisesException] void setPreferMIMETypeForImages(boolean preferMimeTypeForImage);
 
     // Other switches
     [RaisesException] void setStorageBlockingPolicy(DOMString policy);
     [RaisesException] void setImagesEnabled(boolean enabled);
+    [RaisesException] void setCachedPDFImageEnabled(boolean enabled);
     [RaisesException] void setUseLegacyBackgroundSizeShorthandBehavior(boolean enabled);
     [RaisesException] void setAutoscrollForDragAndDropEnabled(boolean enabled);
     [RaisesException] void setBackgroundShouldExtendBeyondPage(boolean hasExtendedBackground);
     [RaisesException] void setScrollingTreeIncludesFrames(boolean enabled);
 
     [RaisesException] void setMinimumTimerInterval(unrestricted double intervalInSeconds);
+    [RaisesException] void setAllowsInlineMediaPlayback(boolean allows);
+    [RaisesException] void setAllowsInlineMediaPlaybackAfterFullscreen(boolean allows);
+    [RaisesException] void setInlineMediaPlaybackRequiresPlaysInlineAttribute(boolean requires);
+
+    [RaisesException] void setIndexedDBWorkersEnabled(boolean requires);
+
+    [RaisesException] DOMString userInterfaceDirectionPolicy();
+    [RaisesException] void setUserInterfaceDirectionPolicy(DOMString policy);
+    [RaisesException] DOMString systemLayoutDirection();
+    [RaisesException] void setSystemLayoutDirection(DOMString direction);
 };
 

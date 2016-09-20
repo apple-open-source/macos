@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/root.xml
@@ -123,6 +123,7 @@ root{
         FJD{"$"}
         FKP{"£"}
         GBP{"£"}
+        GEL{"₾"}
         GIP{"£"}
         GNF{"FG"}
         GTQ{"Q"}
@@ -165,6 +166,7 @@ root{
         PKR{"Rs"}
         PLN{"zł"}
         PYG{"₲"}
+        RUB{"₽"}
         RUR{"р."}
         RWF{"RF"}
         SBD{"$"}
@@ -179,7 +181,7 @@ root{
         TOP{"T$"}
         TRY{"₺"}
         TTD{"$"}
-        TWD{"NT$"}
+        TWD{"$"}
         UAH{"₴"}
         USD{"$"}
         UYU{"$"}
@@ -190,13 +192,12 @@ root{
         ZMW{"ZK"}
     }
     Currencies%variant{
-        RUB{"₽"}
         TRY{"TL"}
     }
     CurrencyUnitPatterns{
         other{"{0} {1}"}
     }
-    Version{"2.1.12.90"}
+    Version{"2.1.22.93"}
     currencySpacing{
         afterCurrency{
             currencyMatch{"[:^S:]"}

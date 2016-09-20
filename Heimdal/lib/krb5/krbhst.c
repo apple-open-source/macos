@@ -234,7 +234,10 @@ state_append_hosts(struct _krb5_srv_query_ctx *query)
 		     query->array[n]->priority,
 		     query->array[n]->weight);
 
-	append_host_hostinfo(query->context, query->handle, query->array[n]->hostinfo);
+	if (n < query->context->max_srv_entries) {
+	    append_host_hostinfo(query->context, query->handle, query->array[n]->hostinfo);
+	    query->array[n]->hostinfo = NULL;
+	}
     }
 }
 
@@ -378,6 +381,7 @@ static void
 srv_release(void *ctx)
 {
     struct srv_reply *reply = ctx;
+    struct krb5_krbhst_info *hi;
     if (!reply->flags.getAddrDone)
 	_krb5_debugx(NULL, 10, "srv_release w/o getAddrDone set");
     if (reply->sema)
@@ -388,6 +392,13 @@ srv_release(void *ctx)
     }
     if (reply->hostname)
 	free(reply->hostname);
+
+    hi = reply->hostinfo;
+    while (hi) {
+	struct krb5_krbhst_info *next = hi->next;
+	_krb5_free_krbhst_info(hi);
+	hi = next;
+    }
 }
 
 static void
@@ -437,85 +448,90 @@ dns_getaddrinfo_callback(DNSServiceRef sdRef,
     struct _krb5_srv_query_ctx *query = srv_reply->query;
     struct addrinfo *ai = NULL;
     char host[NI_MAXHOST];
-    int error;
+    int failure = 0, error;
 
     if (srv_reply->flags.getAddrDone) {
 	return;
     }
 
     /*
-     * We get called twice, once for each address family, so we need
-     * to keep track of successful lookups and failures.
+     * We get called at least twice, once for each address family, so
+     * we need to keep track of successful lookups and no such record.
      *
      * The failure to find a name arrive in the form of a
-     * kDNSServiceErr_NoError, all other failure are treated as hard
-     * failures and the connection is directly aborted.
+     * kDNSServiceErr_NoSuchRecord, all other failure are treated as
+     * hard failures and the connection is directly aborted.
      */
 
-    if (errorCode != kDNSServiceErr_NoError) {
-	if (errorCode == kDNSServiceErr_NoSuchRecord) {
-	    if (address->sa_family == AF_INET)
-		srv_reply->flags.failedIPv4 = 1;
-	    else if (address->sa_family == AF_INET6)
-		srv_reply->flags.failedIPv6 = 1;
-	    else
-		flags = 0; /* other values are undefined on failure */
-
-	    _krb5_debugx(query->context, 10, "SRV callback: getaddrinfo no such record for af = %d", (int)address->sa_family);
-	} else {
-	    _krb5_debugx(query->context, 10, "SRV callback: getaddrinfo error: %d", (int)errorCode);
-	    flags = 0; /* other values are undefined on failure */
-	}
-	goto end;
-    }
-
-    _krb5_debugx(query->context, 10, "DNS getaddrinfo callback on: %s for af = %d", hostname, (int)address->sa_family);
-
-
-    if (address->sa_family == AF_INET)
-	srv_reply->flags.recvIPv4 = 1;
-    else if (address->sa_family == AF_INET6)
-	srv_reply->flags.recvIPv6 = 1;
-
-
-    /* Now this is silly, go get from a sockaddr to a addrinfo, bounce though getaddrinfo/getnameinfo */
-    error = getnameinfo(address, (socklen_t)rk_socket_addr_size(address), host, sizeof(host), NULL, 0, NI_NUMERICHOST);
-    if (error == 0) {
-	struct addrinfo hints;
-	char portname[NI_MAXSERV];
-
-	_krb5_debugx(query->context, 10, " SRV getaddrinfo: domain: %s addr: %s:%d", query->domain, host, srv_reply->port);
-
-	snprintf(portname, sizeof(portname), "%d", srv_reply->port);
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = address->sa_family;
-	hints.ai_flags = AI_NUMERICHOST | AI_NUMERICSERV;
+    switch (errorCode) {
+    case kDNSServiceErr_NoSuchRecord:
+	if (address->sa_family == AF_INET)
+	    srv_reply->flags.noIPv4 = 1;
+	else if (address->sa_family == AF_INET6)
+	    srv_reply->flags.noIPv6 = 1;
+	else
+	    failure = 1; /* other values are undefined, this will end the processing */
 	
-	error = getaddrinfo(host, portname, &hints, &ai);
-	if (error) {
-	    _krb5_debugx(query->context, 10, " SRV getaddrinfo: failed to parse host: [%s]:%s error: %d", host, portname, error);
-	    goto end;
+	_krb5_debugx(query->context, 10, "SRV callback: getaddrinfo no such record for af = %d", (int)address->sa_family);
+	break;
+
+    case kDNSServiceErr_NoError:
+
+	_krb5_debugx(query->context, 10, "DNS getaddrinfo callback on: %s for af = %d", hostname, (int)address->sa_family);
+
+	if (address->sa_family == AF_INET)
+	    srv_reply->flags.recvIPv4 = 1;
+	else if (address->sa_family == AF_INET6)
+	    srv_reply->flags.recvIPv6 = 1;
+	else
+	    failure = 1;
+	
+	
+	/* Now this is silly, go get from a sockaddr to a addrinfo, bounce though getaddrinfo/getnameinfo */
+	error = getnameinfo(address, (socklen_t)rk_socket_addr_size(address), host, sizeof(host), NULL, 0, NI_NUMERICHOST);
+	if (error == 0) {
+	    struct addrinfo hints;
+	    char portname[NI_MAXSERV];
+
+	    _krb5_debugx(query->context, 10, " SRV getaddrinfo: domain: %s addr: %s:%d", query->domain, host, srv_reply->port);
+	    
+	    snprintf(portname, sizeof(portname), "%d", srv_reply->port);
+	    memset(&hints, 0, sizeof(hints));
+	    hints.ai_family = address->sa_family;
+	    hints.ai_flags = AI_NUMERICHOST | AI_NUMERICSERV;
+	
+	    error = getaddrinfo(host, portname, &hints, &ai);
+	    if (error)
+		_krb5_debugx(query->context, 10, " SRV getaddrinfo: failed to parse host: [%s]:%s error: %d", host, portname, error);
 	}
+	
+	if (ai) {
+	    _krb5_debugx(query->context, 10, " Adding srv-addrinfo host: %s:%d", hostname, srv_reply->port);
+	    add_hostinfo(srv_reply, hostname, ai, "srv-addrinfo", query);
+	}
+	break;
+
+    default:
+	/* all other failures are hard stop failure */
+	_krb5_debugx(query->context, 10, "SRV callback: getaddrinfo error: %d", (int)errorCode);
+	failure = 1; /* other values are undefined on failure */
+	break;
     }
 
-    _krb5_debugx(query->context, 10, " Adding srv-addrinfo host: %s:%d", hostname, srv_reply->port);
-    add_hostinfo(srv_reply, hostname, ai, "srv-addrinfo", query);
-
-end:
     _krb5_debugx(query->context, 10, " SRV getaddrinfo end");
 
     /*
-     * Also keep a hard stop in we missed a signal
+     * Stop processing requests when we have:
+     * - both IPv4 and IPv6 answers and no pending packets.
+     * - hard stop in case of a failure
      */
 
-    if ((srv_reply->flags.failedIPv4 || srv_reply->flags.recvIPv4) &&
-	(srv_reply->flags.failedIPv6 || srv_reply->flags.recvIPv6))
+    if (failure ||
+	((srv_reply->flags.noIPv4 || srv_reply->flags.recvIPv4) &&
+	 (srv_reply->flags.noIPv6 || srv_reply->flags.recvIPv6) &&
+	 (flags & kDNSServiceFlagsMoreComing) == 0))
     {
-	flags = 0;
-    }
-
-    if ((flags & kDNSServiceFlagsMoreComing) == 0) {
-	_krb5_debugx(query->context, 10, " DNS getaddrinfo done: %s", srv_reply->hostname);
+	_krb5_debugx(query->context, 10, " DNS getaddrinfo done: %s %s", srv_reply->hostname, failure ? "failed" : "success");
 	srv_reply->flags.getAddrDone = true;
 	heim_sema_signal(srv_reply->sema);
 	heim_release(srv_reply);
@@ -1574,7 +1590,7 @@ kdc_get_next(krb5_context context,
 	}
 	if(kd->sitename && (kd->flags & KD_SITE_SRV_TCP) == 0) {
 	    srv_get_hosts(context, kd, kd->sitename, "tcp", "kerberos");
-	    kd->flags |= KD_SRV_TCP;
+	    kd->flags |= KD_SITE_SRV_TCP;
 	    if(get_next(kd, host))
 		return 0;
 	}

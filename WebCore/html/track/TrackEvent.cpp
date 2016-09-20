@@ -33,12 +33,9 @@
 
 namespace WebCore {
 
-TrackEventInit::TrackEventInit()
-{
-}
-
-
-TrackEvent::TrackEvent()
+TrackEvent::TrackEvent(const AtomicString& type, bool canBubble, bool cancelable, Ref<TrackBase>&& track)
+    : Event(type, canBubble, cancelable)
+    , m_track(WTFMove(track))
 {
 }
 

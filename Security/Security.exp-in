@@ -66,6 +66,7 @@ _SSLInternalSetMasterSecretFunction
 _SSLInternalSetSessionTicket
 _SSLInternal_PRF
 _SSLRead
+_SSLReHandshake
 _SSLSetNPNData
 _SSLSetNPNFunc
 _SSLGetNPNData
@@ -96,11 +97,9 @@ _SSLSetPeerDomainName
 _SSLSetPeerID
 _SSLSetSessionCacheTimeout
 _SSLWrite
-_SSLSetSessionStrengthPolicy
 _SSLSetDHEEnabled
 _SSLGetDHEEnabled
 _SSLSetSessionConfig
-_SSLGetSessionConfig
 
 _kSSLSessionConfig_default
 _kSSLSessionConfig_ATSv1
@@ -111,7 +110,7 @@ _kSSLSessionConfig_RC4_fallback
 _kSSLSessionConfig_TLSv1_fallback
 _kSSLSessionConfig_TLSv1_RC4_fallback
 _kSSLSessionConfig_legacy_DHE
-
+_kSSLSessionConfig_anonymous
 
 /* Those are deprecated */
 __SSLCopyPeerCertificates
@@ -167,6 +166,7 @@ _SecTaskCopyValueForEntitlement
 _SecTaskCopyValuesForEntitlements
 _SecTaskCreateFromSelf
 _SecTaskCreateWithAuditToken
+_SecTaskGetCodeSignStatus
 _SecTaskGetTypeID
 __NtlmCreateClientResponse
 _kSecAsn1OCSPBasicResponseTemplate
@@ -198,4 +198,10 @@ _SecSMIMEFindBulkAlgForRecipients
 
 //Localization
 _SecFrameworkCopyLocalizedString
+
+//
+// utilities
+//
+_readFileSizet
+_writeFileSizet
 

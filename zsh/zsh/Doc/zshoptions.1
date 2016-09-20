@@ -1,4 +1,4 @@
-.TH "ZSHOPTIONS" "1" "May 31, 2015" "zsh 5\&.0\&.8"
+.TH "ZSHOPTIONS" "1" "December 2, 2015" "zsh 5\&.2"
 .SH "NAME"
 zshoptions \- zsh options
 .\" Yodl file: Zsh/options.yo
@@ -87,7 +87,7 @@ This also has the effect of \fBCHASE_DOTS\fP, i\&.e\&. a `\fB\&.\&.\fP\&' path s
 will be treated as referring to the physical parent, even if the preceding
 path segment is a symbolic link\&.
 .TP
-\fBPOSIX_CD\fP
+\fBPOSIX_CD\fP <K> <S>
 Modifies the behaviour of \fBcd\fP, \fBchdir\fP and \fBpushd\fP commands
 to make them more compatible with the POSIX standard\&. The behaviour with
 the option unset is described in the documentation for the \fBcd\fP
@@ -319,6 +319,15 @@ will be an array or a scalar\&.
 \fBGLOB_DOTS\fP (\fB\-4\fP)
 Do not require a leading `\fB\&.\fP\&' in a filename to be matched explicitly\&.
 .TP
+\fBGLOB_STAR_SHORT\fP
+When this option is set and the default zsh\-style globbing is in
+effect, the pattern `\fB**/*\fP\&' can be abbreviated to `\fB**\fP' and the
+pattern `\fB***/*\fP\&' can be abbreviated to \fB***\fP\&.  Hence `\fB**\&.c\fP'
+finds a file ending in \fB\&.c\fP in any subdirectory, and `\fB***\&.c\fP\&' does
+the same while also following symbolic links\&.  A \fB/\fP immediately
+after the `\fB**\fP\&' or `\fB***\fP' forces the pattern to be treated as the
+unabbreviated form\&.
+.TP
 \fBGLOB_SUBST\fP <C> <K> <S>
 Treat any characters resulting from parameter expansion as being
 eligible for filename expansion and filename generation, and any
@@ -392,7 +401,7 @@ assignments will not undergo word splitting\&.
 Append a trailing `\fB/\fP\&' to all directory
 names resulting from filename generation (globbing)\&.
 .TP
-\fBMULTIBYTE\fP <C> <K> <Z>
+\fBMULTIBYTE\fP <D>
 Respect multibyte characters when found in strings\&.
 When this option is set, strings are examined using the
 system library to determine how many bytes form a character, depending
@@ -401,10 +410,8 @@ pattern matching, parameter values and various delimiters\&.
 .RS
 .PP
 The option is on by default if the shell was compiled with
-\fBMULTIBYTE_SUPPORT\fP except in \fBsh\fP emulation; otherwise it is off by
-default and has no effect if turned on\&.  The mode is off in \fBsh\fP
-emulation for compatibility but for interactive use may need to be
-turned on if the terminal interprets multibyte characters\&.
+\fBMULTIBYTE_SUPPORT\fP; otherwise it is off by default and has no effect
+if turned on\&.
 .PP
 If the option is off a single byte is always treated as a single
 character\&.  This setting is designed purely for examining strings
@@ -466,7 +473,8 @@ Otherwise they are treated as an error\&.
 .TP
 \fBWARN_CREATE_GLOBAL\fP
 Print a warning message when a global parameter is created in a function
-by an assignment\&.  This often indicates that a parameter has not been
+by an assignment or in math context\&.
+This often indicates that a parameter has not been
 declared local when it should have been\&.  Parameters explicitly declared
 global from within a function using \fBtypeset \-g\fP do not cause a warning\&.
 Note that there is no warning when a local parameter is assigned to in
@@ -694,10 +702,14 @@ being sourced\&.
 Expand aliases\&.
 .TP
 \fBCLOBBER\fP (\fB+C\fP, ksh: \fB+C\fP) <D>
-Allows `\fB>\fP\&' redirection to truncate existing files,
-and `\fB>>\fP\&' to create files\&.
-Otherwise `\fB>!\fP\&' or `\fB>|\fP' must be used to truncate a file,
-and `\fB>>!\fP\&' or `\fB>>|\fP' to create a file\&.
+Allows `\fB>\fP\&' redirection to truncate existing files\&.
+Otherwise `\fB>!\fP\&' or `\fB>|\fP' must be used to truncate a file\&.
+.RS
+.PP
+If the option is not set, and the option \fBAPPEND_CREATE\fP is also
+not set, `\fB>>!\fP\&' or `\fB>>|\fP' must be used to create a file\&.
+If either option is set, `\fB>>\fP\&' may be used\&.
+.RE
 .TP
 \fBCORRECT\fP (\fB\-0\fP)
 Try to correct the spelling of commands\&.
@@ -968,7 +980,7 @@ like C and other programming languages;
 the section ARITHMETIC EVALUATION in \fIzshmisc\fP(1)
 has an explicit list\&.
 .TP
-\fBDEBUG_BEFORE_CMD\fP
+\fBDEBUG_BEFORE_CMD\fP <D>
 Run the \fBDEBUG\fP trap before each command; otherwise it is run after
 each command\&.  Setting this option mimics the behaviour of ksh 93; with
 the option unset the behaviour is that of ksh 88\&.
@@ -1131,6 +1143,16 @@ the section EXPANSION OF PROMPT SEQUENCES in \fIzshmisc\fP(1)\&.
 .PD 0
 .TP
 .PD
+\fBAPPEND_CREATE\fP <K> <S>
+This option only applies when \fBNO_CLOBBER\fP (\-\fBC\fP) is in effect\&.
+.RS
+.PP
+If this option is not set, the shell will report an error when a
+append redirection (\fB>>\fP) is used on a file that does not already
+exists (the traditional zsh behaviour of \fBNO_CLOBBER\fP)\&.  If the option
+is set, no error is reported (POSIX behaviour)\&.
+.RE
+.TP
 \fBBASH_REMATCH\fP
 When set, matches performed with the \fB=~\fP operator will set the
 \fBBASH_REMATCH\fP array variable, instead of the default \fBMATCH\fP and
@@ -1200,12 +1222,20 @@ Alters the way options settings are printed: instead of separate lists of
 set and unset options, all options are shown, marked `on\&' if
 they are in the non\-default state, `off\&' otherwise\&.
 .TP
-\fBKSH_TYPESET\fP <K>
+\fBKSH_TYPESET\fP
+This option is now obsolete: a better appropximation to the behaviour of
+other shells is obtained with the reserved word interface to
+\fBdeclare\fP, \fBexport\fP, \fBfloat\fP, \fBinteger\fP, \fBlocal\fP, \fBreadonly\fP
+and \fBtypeset\fP\&.  Note that the option is only applied when the reserved
+word interface is \fInot\fP in use\&.
+.RS
+.PP
 Alters the way arguments to the \fBtypeset\fP family of commands, including
 \fBdeclare\fP, \fBexport\fP, \fBfloat\fP, \fBinteger\fP, \fBlocal\fP and
 \fBreadonly\fP, are processed\&.  Without this option, zsh will perform normal
 word splitting after command and parameter expansion in arguments of an
 assignment; with it, word splitting does not take place in those cases\&.
+.RE
 .TP
 \fBKSH_ZERO_SUBSCRIPT\fP
 Treat use of a subscript of value zero in array or string expressions as a
@@ -1323,7 +1353,7 @@ of shell parameters and modules)\&.
 In addition, setting this option limits the effect of parameter
 substitution with no braces, so that the expression \fB$#\fP is treated as
 the parameter \fB$#\fP even if followed by a valid parameter name\&.
-When it is unset, zsh allows expresions of the form \fB$#\fP\fIname\fP
+When it is unset, zsh allows expressions of the form \fB$#\fP\fIname\fP
 to refer to the length of \fB$\fP\fIname\fP, even for special variables,
 for example in expressions such as \fB$#\-\fP and \fB$#*\fP\&.
 .PP

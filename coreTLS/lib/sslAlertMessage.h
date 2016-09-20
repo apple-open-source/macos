@@ -63,9 +63,10 @@ typedef enum
 	SSL_AlertProtocolVersion = 70,
 	SSL_AlertInsufficientSecurity = 71,
 	SSL_AlertInternalError = 80,
+    SSL_AlertInappropriateFallback = 86,    /* RFC 7507 */
 	SSL_AlertUserCancelled = 90,
 	SSL_AlertNoRenegotiation = 100,
-	SSL_AlertUnsupportedExtension = 110     /* TLS 1.2 */
+	SSL_AlertUnsupportedExtension = 110,    /* TLS 1.2 */
 } AlertDescription;
 
 int SSLProcessAlert(

@@ -22,7 +22,7 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/lib/libc_r/man/pthread_rwlock_rdlock.3,v 1.4 2001/10/01 16:09:09 ru Exp $
+.\" $FreeBSD$
 .\"
 .Dd August 4, 1998
 .Dt PTHREAD_RWLOCK_RDLOCK 3
@@ -34,22 +34,19 @@
 .Sh SYNOPSIS
 .In pthread.h
 .Ft int
-.Fo pthread_rwlock_rdlock
-.Fa "pthread_rwlock_t *rwlock"
-.Fc
+.Fn pthread_rwlock_rdlock "pthread_rwlock_t *lock"
 .Ft int
-.Fo pthread_rwlock_tryrdlock
-.Fa "pthread_rwlock_t *rwlock"
-.Fc
+.Fn pthread_rwlock_tryrdlock "pthread_rwlock_t *lock"
 .Sh DESCRIPTION
 The
 .Fn pthread_rwlock_rdlock
 function acquires a read lock on
-.Fa rwlock ,
+.Fa lock
 provided that
-.Fa rwlock
+.Fa lock
 is not presently held for writing and no writer threads are
-presently blocked on the lock.  If the read lock cannot be
+presently blocked on the lock.
+If the read lock cannot be
 immediately acquired, the calling thread blocks until it can
 acquire the lock.
 .Pp
@@ -59,7 +56,8 @@ function performs the same action, but does not block if the lock
 cannot be immediately obtained (i.e., the lock is held for writing
 or there are waiting writers).
 .Pp
-A thread may hold multiple concurrent read locks.  If so,
+A thread may hold multiple concurrent read locks.
+If so,
 .Fn pthread_rwlock_unlock
 must be called once for each lock obtained.
 .Pp
@@ -73,7 +71,41 @@ If successful, the
 and
 .Fn pthread_rwlock_tryrdlock
 functions will return zero.
-Otherwise, an error number will be returned to indicate the error.
+Otherwise an error number will be returned
+to indicate the error.
+.Sh ERRORS
+The
+.Fn pthread_rwlock_tryrdlock
+function will fail if:
+.Bl -tag -width Er
+.It Bq Er EBUSY
+The lock could not be acquired because a writer holds the lock or
+was blocked on it.
+.El
+.Pp
+The
+.Fn pthread_rwlock_rdlock
+and
+.Fn pthread_rwlock_tryrdlock
+functions may fail if:
+.Bl -tag -width Er
+.It Bq Er EAGAIN
+The lock could not be acquired because the maximum number of read locks
+against
+.Fa lock
+has been exceeded.
+.It Bq Er EDEADLK
+The current thread already owns
+.Fa lock
+for writing.
+.It Bq Er EINVAL
+The value specified by
+.Fa lock
+is invalid.
+.It Bq Er ENOMEM
+Insufficient memory exists to initialize the lock (applies to
+statically initialized locks only).
+.El
 .Sh SEE ALSO
 .Xr pthread_rwlock_init 3 ,
 .Xr pthread_rwlock_trywrlock 3 ,
@@ -86,39 +118,6 @@ and
 .Fn pthread_rwlock_tryrdlock
 functions are expected to conform to
 .St -susv2 .
-.Sh ERRORS
-The
-.Fn pthread_rwlock_tryrdlock
-function will fail if:
-.Bl -tag -width Er
-.It Bq Er EBUSY
-The lock could not be acquired, because a writer holds the lock or
-was blocked on it.
-.El
-.Pp
-The
-.Fn pthread_rwlock_rdlock
-and
-.Fn pthread_rwlock_tryrdlock
-functions may fail if:
-.Bl -tag -width Er
-.It Bq Er EAGAIN
-The lock could not be acquired, because the maximum number of read locks
-against
-.Fa lock
-has been exceeded.
-.It Bq Er EDEADLK
-The current thread already owns
-.Fa rwlock
-for writing.
-.It Bq Er EINVAL
-The value specified by
-.Fa rwlock
-is invalid.
-.It Bq Er ENOMEM
-Insufficient memory exists to initialize the lock (applies to
-statically initialized locks only).
-.El
 .Sh HISTORY
 The
 .Fn pthread_rwlock_rdlock

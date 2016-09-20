@@ -26,23 +26,29 @@
 #ifndef Logging_h
 #define Logging_h
 
+#include <functional>
 #include <wtf/Assertions.h>
 #include <wtf/Forward.h>
 
-#if !LOG_DISABLED
+namespace WebCore {
+
+#if LOG_DISABLED
+
+#define LOG_RESULT(channel, function) ((void)0)
+#define LOG_WITH_STREAM(channel, commands) ((void)0)
+
+#else
 
 #ifndef LOG_CHANNEL_PREFIX
 #define LOG_CHANNEL_PREFIX Log
 #endif
 
-namespace WebCore {
-
 #define WEBCORE_LOG_CHANNELS(M) \
     M(Animations) \
     M(Archives) \
-    M(BackForward) \
     M(Compositing) \
     M(ContentFiltering) \
+    M(DisplayLists) \
     M(DOMTimers) \
     M(Editing) \
     M(Events) \
@@ -53,7 +59,9 @@ namespace WebCore {
     M(Gamepad) \
     M(History) \
     M(IconDatabase) \
-    M(LiveConnect) \
+    M(Images) \
+    M(IndexedDB) \
+    M(Layout) \
     M(Loading) \
     M(Media) \
     M(MediaSource) \
@@ -69,15 +77,18 @@ namespace WebCore {
     M(RemoteInspector) \
     M(ResourceLoading) \
     M(SQLDatabase) \
+    M(SVG) \
     M(Services) \
     M(Scrolling) \
     M(SpellingAndGrammar) \
     M(StorageAPI) \
+    M(TextAutosizing) \
     M(Threading) \
     M(WebAudio) \
     M(WebGL) \
     M(WebReplay) \
     M(WheelEventTestTriggers) \
+    M(ResourceLoadObserver) \
 
 #define DECLARE_LOG_CHANNEL(name) \
     WEBCORE_EXPORT extern WTFLogChannel JOIN_LOG_CHANNEL_WITH_PREFIX(LOG_CHANNEL_PREFIX, name);
@@ -86,11 +97,27 @@ WEBCORE_LOG_CHANNELS(DECLARE_LOG_CHANNEL)
 
 #undef DECLARE_LOG_CHANNEL
 
-    String logLevelString();
-    bool isLogChannelEnabled(const String& name);
-    WEBCORE_EXPORT void initializeLoggingChannelsIfNecessary();
-}
+String logLevelString();
+bool isLogChannelEnabled(const String& name);
+WEBCORE_EXPORT void setLogChannelToAccumulate(const String& name);
+WEBCORE_EXPORT void initializeLoggingChannelsIfNecessary();
+#ifndef NDEBUG
+void registerNotifyCallback(const String& notifyID, std::function<void()> callback);
+#endif
+
+void logFunctionResult(WTFLogChannel*, std::function<const char*()>);
+
+#define LOG_RESULT(channel, function) logFunctionResult(&JOIN_LOG_CHANNEL_WITH_PREFIX(LOG_CHANNEL_PREFIX, channel), function)
+
+#define LOG_WITH_STREAM(channel, commands) logFunctionResult(&JOIN_LOG_CHANNEL_WITH_PREFIX(LOG_CHANNEL_PREFIX, channel), \
+    [&]() { \
+        TextStream stream(TextStream::LineMode::SingleLine); \
+        commands; \
+        return stream.release().utf8().data(); \
+    });
 
 #endif // !LOG_DISABLED
+
+} // namespace WebCore
 
 #endif // Logging_h

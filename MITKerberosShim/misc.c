@@ -193,7 +193,7 @@ krb5_error_code
 mshim_hdata2mdata(const krb5_data *h, mit_krb5_data *m)
 {
     m->magic = MIT_KV5M_DATA;
-    m->length = h->length;
+    m->length = (unsigned int)h->length;
     m->data = mshim_malloc(h->length);
     memcpy(m->data, h->data, h->length);
     return 0;
@@ -214,7 +214,7 @@ mshim_hkeyblock2mkeyblock(const krb5_keyblock *h, mit_krb5_keyblock *m)
 {
     m->magic = MIT_KV5M_KEYBLOCK;
     m->enctype = h->keytype;
-    m->length = h->keyvalue.length;
+    m->length = (unsigned int)h->keyvalue.length;
     m->contents = mshim_malloc(h->keyvalue.length);
     memcpy(m->contents, h->keyvalue.data, h->keyvalue.length);
 }
@@ -325,10 +325,10 @@ mshim_hcred2mcred(krb5_context context, krb5_creds *h, mit_krb5_creds *m)
 
     mshim_hdata2mdata(&h->ticket, &m->ticket);
 
-    m->times.authtime = h->times.authtime;
-    m->times.starttime = h->times.starttime;
-    m->times.endtime = h->times.endtime;
-    m->times.renew_till = h->times.renew_till;
+    m->times.authtime = (mit_krb5_timestamp)h->times.authtime;
+    m->times.starttime = (mit_krb5_timestamp)h->times.starttime;
+    m->times.endtime = (mit_krb5_timestamp)h->times.endtime;
+    m->times.renew_till = (mit_krb5_timestamp)h->times.renew_till;
 
     m->ticket_flags = 0;
     if (h->flags.b.forwardable)
@@ -366,7 +366,7 @@ mshim_haprepencpart2maprepencpart(const krb5_ap_rep_enc_part *h,
 				  mit_krb5_ap_rep_enc_part *m)
 {
     m->magic = MIT_KV5M_AP_REP_ENC_PART;
-    m->ctime = h->ctime;
+    m->ctime = (mit_krb5_timestamp)h->ctime;
     m->cusec = h->cusec;
 
     if (h->subkey) {
@@ -384,7 +384,7 @@ mshim_haprepencpart2maprepencpart(const krb5_ap_rep_enc_part *h,
 void
 mshim_hreplay2mreplay(const krb5_replay_data *h, mit_krb5_replay_data *m)
 {
-    m->timestamp = h->timestamp;
+    m->timestamp = (mit_krb5_timestamp)h->timestamp;
     m->usec = h->usec;
     m->seq = h->seq;
 }
@@ -419,10 +419,10 @@ mshim_herror2merror(krb5_context context, const krb5_error *h, mit_krb5_error *m
 
     m->magic = MIT_KV5M_ERROR;
     if (h->ctime)
-	m->ctime = *h->ctime;
+        m->ctime = (mit_krb5_timestamp)*h->ctime;
     if (h->cusec)
 	m->cusec = *h->cusec;
-    m->stime = h->stime;
+    m->stime = (mit_krb5_timestamp)h->stime;
     m->susec = h->susec;
 #if 0
     m->client = mshim_hprinc2mprinc(context, h->client);
@@ -432,7 +432,7 @@ mshim_herror2merror(krb5_context context, const krb5_error *h, mit_krb5_error *m
     if (h->e_text) {
 	m->text.magic = MIT_KV5M_DATA;
 	m->text.data = strdup(*(h->e_text));
-	m->text.length = strlen(*(h->e_text));
+	m->text.length = (unsigned int)strlen(*(h->e_text));
     }
     if (h->e_data)
 	mshim_hdata2mdata(h->e_data, &m->e_data);
@@ -625,7 +625,7 @@ krb5_us_timeofday(mit_krb5_context context,
     int32_t usec;
     LOG_ENTRY();
     heim_krb5_us_timeofday((krb5_context)context, &sec, &usec);
-    *outsec = sec;
+    *outsec = (mit_krb5_timestamp)sec;
     *outusec = usec;
     return 0;
 }
@@ -637,7 +637,7 @@ krb5_timeofday(mit_krb5_context context,
     krb5_timestamp ts;
     LOG_ENTRY();
     heim_krb5_timeofday((krb5_context)context, &ts);
-    *out = ts;
+    *out = (mit_krb5_timestamp)ts;
     return 0;
 }
 
@@ -716,7 +716,7 @@ krb5_os_localaddr(mit_krb5_context context, mit_krb5_address ***addresses)
     for (i = 0; i < addrs.len; i++) {
 	a[i] = calloc(1, sizeof(mit_krb5_address));
 	a[i]->addrtype = addrs.val[i].addr_type;
-	a[i]->length = addrs.val[i].address.length;
+	a[i]->length = (unsigned int)addrs.val[i].address.length;
 	a[i]->contents = mshim_malloc(addrs.val[i].address.length);
 	memcpy(a[i]->contents, addrs.val[i].address.data, addrs.val[i].address.length);
     }
@@ -736,7 +736,7 @@ krb5_string_to_deltat(char *str, mit_krb5_deltat *t)
     ret = heim_krb5_string_to_deltat(str, &ht);
     if (ret)
 	return ret;
-    *t = ht;
+    *t = (mit_krb5_deltat)ht;
     return 0;
 }
 

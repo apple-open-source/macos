@@ -1,12 +1,7 @@
 keymgr
 quarantine
 system_containermanager
-system_coreservices
-system_coretls
-system_network
 system_networkextension
 system_secinit
-system_sim_trace
-system_trace
-unc
+system_symptoms
 vminterpose

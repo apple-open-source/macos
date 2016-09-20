@@ -124,9 +124,7 @@ mClientSession(session.clientSession())
 		attributes.add(KeySchema::Unwrap,
 					   header.useFor(CSSM_KEYUSE_ANY | CSSM_KEYUSE_UNWRAP));
 
-		// @@@ Fixme
-		mUniqueId = inSSDatabase->insert(mRecordType, &attributes, &blob,
-										 true);
+		mUniqueId = inSSDatabase->ssInsert(mRecordType, &attributes, &blob);
 	}
 
 	header.cspGuid(session.plugin.myGuid()); // Set the csp guid to me.
@@ -290,7 +288,7 @@ SSKey::keyHandle()
 			clientSession().decodeKey(mUniqueId->database().dbHandle(), blob,
 									  dummyHeader);
 
-        secdebugfunc("SecAccessReference", "decoded a new key into handle %d [reference %d]", mKeyHandle, keyReference());
+        secinfo("SecAccessReference", "decoded a new key into handle %d [reference %ld]", mKeyHandle, keyReference());
 
 		// @@@ Check decoded header against returned header
 	}
@@ -336,7 +334,7 @@ SSKey::didChangeAcl()
 {
 	if (mUniqueId == true)
 	{
-	    secdebug("keyacl", "SSKey::didChangeAcl() keyHandle: %lu updating DL entry", (unsigned long)mKeyHandle);
+	    secinfo("keyacl", "SSKey::didChangeAcl() keyHandle: %lu updating DL entry", (unsigned long)mKeyHandle);
 		// The key is persistent, make the change on disk.
 		CssmDataContainer keyBlob(mAllocator);
 		clientSession().encodeKey(keyHandle(), keyBlob);
@@ -344,6 +342,6 @@ SSKey::didChangeAcl()
 	}
 	else
 	{
-	    secdebug("keyacl", "SSKey::didChangeAcl() keyHandle: %lu transient key no update done", (unsigned long)mKeyHandle);
+	    secinfo("keyacl", "SSKey::didChangeAcl() keyHandle: %lu transient key no update done", (unsigned long)mKeyHandle);
 	}
 }

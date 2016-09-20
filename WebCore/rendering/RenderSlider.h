@@ -33,7 +33,7 @@ class RenderSlider final : public RenderFlexibleBox {
 public:
     static const int defaultTrackLength;
 
-    RenderSlider(HTMLInputElement&, Ref<RenderStyle>&&);
+    RenderSlider(HTMLInputElement&, RenderStyle&&);
     virtual ~RenderSlider();
 
     HTMLInputElement& element() const;
@@ -41,14 +41,16 @@ public:
     bool inDragMode() const;
 
 private:
-    virtual const char* renderName() const override { return "RenderSlider"; }
-    virtual bool isSlider() const override { return true; }
+    const char* renderName() const override { return "RenderSlider"; }
+    bool isSlider() const override { return true; }
 
-    virtual int baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const override;
-    virtual void computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const override;
-    virtual void computePreferredLogicalWidths() override;
-    virtual bool requiresForcedStyleRecalcPropagation() const override { return true; }
-    virtual void layout() override;
+    int baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const override;
+    void computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const override;
+    void computePreferredLogicalWidths() override;
+    bool requiresForcedStyleRecalcPropagation() const override { return true; }
+    void layout() override;
+
+    bool isFlexibleBoxImpl() const override { return true; }
 };
 
 } // namespace WebCore

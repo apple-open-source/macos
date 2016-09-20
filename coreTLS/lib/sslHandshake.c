@@ -85,8 +85,9 @@ SSLUpdateHandshakeMacs(const tls_buffer *messageData, tls_handshake_t ctx)
     bool do_sha1 = false;
     bool do_sha256 = false;
     bool do_sha384 = false;
+    bool do_sha512 = false;
 
-    //TODO: We can stop updating the unecessary hashes once the CertVerify message is processed in case where we do Client Side Auth, or .
+    //TODO: We can stop updating the unecessary hashes once the CertVerify message is processed in case where we do Client Side Auth.
 
     if(ctx->negProtocolVersion == tls_protocol_version_Undertermined)
     {
@@ -98,12 +99,12 @@ SSLUpdateHandshakeMacs(const tls_buffer *messageData, tls_handshake_t ctx)
            : ctx->maxProtocolVersion >= tls_protocol_version_TLS_1_2)
         {
             // We wil need those too, unless we are sure we wont end up doing TLS 1.2
-            do_sha256 = do_sha384 = true;
+            do_sha256 = do_sha384 = do_sha512 = true;
         }
     } else {
         // we know which version we use at this point
         if(sslVersionIsLikeTls12(ctx)) {
-            do_sha1 = do_sha256 = do_sha384 = true;
+            do_sha1 = do_sha256 = do_sha384 = do_sha512 = true;
         } else {
             do_md5 = do_sha1 = true;
         }
@@ -119,7 +120,10 @@ SSLUpdateHandshakeMacs(const tls_buffer *messageData, tls_handshake_t ctx)
         (err = SSLHashSHA256.update(&ctx->sha256State, messageData)) != 0)
         goto done;
     if (do_sha384 &&
-        (err = SSLHashSHA384.update(&ctx->sha512State, messageData)) != 0)
+        (err = SSLHashSHA384.update(&ctx->sha384State, messageData)) != 0)
+        goto done;
+    if (do_sha512 &&
+        (err = SSLHashSHA512.update(&ctx->sha512State, messageData)) != 0)
         goto done;
 
     sslLogNegotiateDebug("%s protocol: %02X max: %02X cipher: %02X%s%s%s%s",
@@ -130,7 +134,8 @@ SSLUpdateHandshakeMacs(const tls_buffer *messageData, tls_handshake_t ctx)
                          do_md5 ? " md5" : "",
                          do_sha1 ? " sha1" : "",
                          do_sha256 ? " sha256" : "",
-                         do_sha384 ? " sha384" : "");
+                         do_sha384 ? " sha384" : "",
+                         do_sha512 ? " sha512" : "");
 done:
     return err;
 }
@@ -711,6 +716,14 @@ SSLAdvanceHandshake(SSLHandshakeType processed, tls_handshake_t ctx)
             sslReadReady(ctx, false);
             sslWriteReady(ctx, false);
 
+            if(ctx->tls_fallback_scsv && (ctx->isDTLS
+                                          ? ctx->maxProtocolVersion < ctx->clientReqProtocol
+                                          : ctx->maxProtocolVersion > ctx->clientReqProtocol))
+            {
+                SSLFatalSessionAlert(SSL_AlertInappropriateFallback, ctx);
+                return errSSLPeerProtocolVersion;
+            }
+
             if((ctx->isDTLS) && (ctx->cookieVerified==false))
             {   /* Send Hello Verify Request */
                 if((err=SSLPrepareAndQueueMessage(SSLEncodeServerHelloVerifyRequest, tls_record_type_Handshake, ctx)) !=0 )
@@ -746,7 +759,9 @@ SSLAdvanceHandshake(SSLHandshakeType processed, tls_handshake_t ctx)
                     }
                     ctx->sessionMatch = true;
 
-                } else {
+                } else if (err == errSSLFatalAlert) {
+                    return err;
+                }else {
                     sslLogResumSessDebug("FAILED TO RESUME TLS server-side session");
                 }
             }
@@ -811,13 +826,8 @@ SSLAdvanceHandshake(SSLHandshakeType processed, tls_handshake_t ctx)
 #endif	/* APPLE_DH */
                     break;
                 case SSL_RSA:
-                case SSL_DH_DSS:
-                case SSL_DH_RSA:
-                case SSL_DHE_DSS:
                 case SSL_DHE_RSA:
-                case SSL_ECDH_ECDSA:
                 case SSL_ECDHE_ECDSA:
-                case SSL_ECDH_RSA:
                 case SSL_ECDHE_RSA:
 					if(ctx->localCert == NULL) {
 						/* no cert but configured for, and negotiated, a
@@ -849,7 +859,7 @@ SSLAdvanceHandshake(SSLHandshakeType processed, tls_handshake_t ctx)
 				switch(ctx->selectedCipherSpecParams.keyExchangeMethod) {
 					case SSL_DH_anon:
 					case SSL_DHE_RSA:
-					case SSL_DHE_DSS:
+                    case SSL_ECDH_anon:
                     case SSL_ECDHE_RSA:
                     case SSL_ECDHE_ECDSA:
 						doServerKeyExch = true;
@@ -925,13 +935,12 @@ SSLAdvanceHandshake(SSLHandshakeType processed, tls_handshake_t ctx)
             	/* these require a key exchange message */
             	case SSL_NULL_auth:
                 case SSL_DH_anon:
+                case SSL_ECDH_anon:
                     SSLChangeHdskState(ctx, SSL_HdskStateKeyExchange);
                     break;
                 case SSL_RSA:
                 case SSL_DHE_RSA:
-				case SSL_ECDH_ECDSA:
 				case SSL_ECDHE_ECDSA:
-				case SSL_ECDH_RSA:
 				case SSL_ECDHE_RSA:
                     SSLChangeHdskState(ctx, SSL_HdskStateCert);
                     break;
@@ -951,15 +960,9 @@ SSLAdvanceHandshake(SSLHandshakeType processed, tls_handshake_t ctx)
                 switch (ctx->selectedCipherSpecParams.keyExchangeMethod)
                 {
                     case SSL_RSA:
-                    case SSL_DH_DSS:
-                    case SSL_DH_RSA:
-					case SSL_ECDH_ECDSA:
-					case SSL_ECDH_RSA:
                         SSLChangeHdskState(ctx, SSL_HdskStateHelloDone);
                         break;
-                    case SSL_DHE_DSS:
                     case SSL_DHE_RSA:
-                    case SSL_Fortezza:
 					case SSL_ECDHE_ECDSA:
 					case SSL_ECDHE_RSA:
                         SSLChangeHdskState(ctx, SSL_HdskStateKeyExchange);
@@ -1023,13 +1026,30 @@ SSLAdvanceHandshake(SSLHandshakeType processed, tls_handshake_t ctx)
                 }
                 return err;
             }
-			if (ctx->clientCertState == kSSLClientCertRequested) {
-				/*
-				 * Server wants a client authentication cert - do
-				 * we have one?
-				 */
+            if (ctx->clientCertState == kSSLClientCertRequested) {
+                /*
+                 * Server wants a client authentication cert.
+                 * If we have one, we send it even if it does not match one of
+                 * the requested types.
+                 */
 
-                if (ctx->localCert != 0) {
+                if (ctx->localCert == 0 || ctx->signingPrivKeyRef==NULL) {
+                    ctx->negAuthType = tls_client_auth_type_None;
+                } else {
+                    switch(ctx->signingPrivKeyRef->desc.type) {
+                        case tls_private_key_type_ecdsa:
+                            ctx->negAuthType = tls_client_auth_type_ECDSASign;
+                            break;
+                        case tls_private_key_type_rsa:
+                            ctx->negAuthType = tls_client_auth_type_RSASign;
+                            break;
+                        default:
+                            ctx->negAuthType = tls_client_auth_type_None;
+                            break;
+                    }
+                }
+
+                if (ctx->negAuthType != tls_client_auth_type_None) {
 					if ((err = SSLPrepareAndQueueMessage(SSLEncodeCertificate, tls_record_type_Handshake,
 							ctx)) != 0) {
 						return err;
@@ -1065,18 +1085,11 @@ SSLAdvanceHandshake(SSLHandshakeType processed, tls_handshake_t ctx)
                 return err;
 			}
             if (ctx->certSent) {
-				/* Not all client auth mechanisms require a cert verify message */
-				switch(ctx->negAuthType) {
-					case tls_client_auth_type_RSASign:
-					case tls_client_auth_type_ECDSASign:
-						if ((err = SSLPrepareAndQueueMessage(SSLEncodeCertificateVerify, tls_record_type_Handshake,
-								ctx)) != 0) {
-							return err;
-						}
-						break;
-					default:
-						break;
-				}
+                /* All client auth mechanisms we support do require a cert verify message */
+                if ((err = SSLPrepareAndQueueMessage(SSLEncodeCertificateVerify, tls_record_type_Handshake,
+                        ctx)) != 0) {
+                    return err;
+                }
 			}
             if ((err = SSLPrepareAndQueueMessage(SSLEncodeChangeCipherSpec, tls_record_type_ChangeCipher,
 					ctx)) != 0) {
@@ -1178,7 +1191,7 @@ SSLAdvanceHandshake(SSLHandshakeType processed, tls_handshake_t ctx)
                     tls_metric_client_finished(ctx);
                 }
             }
-            if (ctx->allowResumption && (ctx->sessionID.data || ctx->sessionTicket.data)) {
+            if (ctx->allowResumption && (!ctx->sessionMatch || ctx->sessionTicket.data)) {  // Only store the session if this is not resumed or if we have a new ticket from the server
                 SSLAddSessionData(ctx);
 			}
             break;

@@ -31,22 +31,16 @@
 namespace WebCore {
 
 struct WebGLContextEventInit : public EventInit {
-    WebGLContextEventInit();
-
     String statusMessage;
 };
 
 class WebGLContextEvent final : public Event {
 public:
-    static Ref<WebGLContextEvent> create()
-    {
-        return adoptRef(*new WebGLContextEvent);
-    }
     static Ref<WebGLContextEvent> create(const AtomicString& type, bool canBubble, bool cancelable, const String& statusMessage)
     {
         return adoptRef(*new WebGLContextEvent(type, canBubble, cancelable, statusMessage));
     }
-    static Ref<WebGLContextEvent> create(const AtomicString& type, const WebGLContextEventInit& initializer)
+    static Ref<WebGLContextEvent> createForBindings(const AtomicString& type, const WebGLContextEventInit& initializer)
     {
         return adoptRef(*new WebGLContextEvent(type, initializer));
     }
@@ -54,10 +48,9 @@ public:
 
     const String& statusMessage() const { return m_statusMessage; }
 
-    virtual EventInterface eventInterface() const override;
+    EventInterface eventInterface() const override;
 
 private:
-    WebGLContextEvent();
     WebGLContextEvent(const AtomicString& type, bool canBubble, bool cancelable, const String& statusMessage);
     WebGLContextEvent(const AtomicString&, const WebGLContextEventInit&);
 

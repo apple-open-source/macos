@@ -6,15 +6,15 @@
 		<key>OpenSourceProject</key>
 		<string>apr</string>
 		<key>OpenSourceVersion</key>
-		<string>1.4.8</string>
+		<string>1.5.2</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://apr.apache.org/</string>
 		<key>OpenSourceURL</key>
-		<string>http://apache.org/dist/apr/apr-1.4.8.tar.bz2</string>
+		<string>http://apache.org/dist/apr/apr-1.5.2.tar.bz2</string>
 		<key>OpenSourceSHA1</key>
-		<string>2dce90291b6d4072a6e47d096f5c81ae1ce76f9f</string>
+		<string>6d757fcf7c687fc300c1066076f2e8380ff8cbc0</string>
 		<key>OpenSourceImportDate</key>
-		<string>2013-08-21</string>
+		<string>2016-04-15</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>libtool -arch fixes (4386677).</string>
@@ -29,15 +29,15 @@
 		<key>OpenSourceProject</key>
 		<string>apr-util</string>
 		<key>OpenSourceVersion</key>
-		<string>1.5.2</string>
+		<string>1.5.4</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://apr.apache.org/</string>
 		<key>OpenSourceURL</key>
-		<string>http://apache.org/dist/apr/apr-util-1.5.2.tar.bz2</string>
+		<string>http://apache.org/dist/apr/apr-util-1.5.4.tar.bz2</string>
 		<key>OpenSourceSHA1</key>
-		<string>67139f51ee6c484f3f1b7b3edc0b00dae3640b0a</string>
+		<string>b00038b5081472ed094ced28bcbf2b5bb56c589d</string>
 		<key>OpenSourceImportDate</key>
-		<string>2013-08-21</string>
+		<string>2016-04-15</string>
 		<key>OpenSourceLicense</key>
 		<string>Apache</string>
 		<key>OpenSourceLicenseFile</key>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006, 2008, 2011, 2013-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2008, 2011, 2013-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -41,13 +41,13 @@ __SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key, CFDataRef *v
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 	CFDictionaryRef			dict;
 
-	SC_trace(_configd_trace, "%s : %5d : %@\n",
+	SC_trace("%s : %5d : %@",
 		 internal ? "*copy  " : "copy   ",
 		 storePrivate->server,
 		 key);
 
 	dict = CFDictionaryGetValue(storeData, key);
-	if ((dict == NULL) || (CFDictionaryContainsKey(dict, kSCDData) == FALSE)) {
+	if ((dict == NULL) || !CFDictionaryContainsKey(dict, kSCDData)) {
 		/* key doesn't exist (or data never defined) */
 		return kSCStatusNoKey;
 	}
@@ -184,7 +184,7 @@ __SCDynamicStoreCopyMultiple(SCDynamicStoreRef store, CFArrayRef keys, CFArrayRe
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 	addSpecific			myContext;
 
-	SC_trace(_configd_trace, "copy m  : %5d : %ld keys, %ld patterns\n",
+	SC_trace("copy m  : %5d : %ld keys, %ld patterns",
 		 storePrivate->server,
 		 keys     ? CFArrayGetCount(keys)     : 0,
 		 patterns ? CFArrayGetCount(patterns) : 0);

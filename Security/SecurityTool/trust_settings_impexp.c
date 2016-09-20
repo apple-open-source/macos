@@ -24,14 +24,14 @@
  */
 
 #include "trust_settings_impexp.h"
-#include "security.h"
+#include "security_tool.h"
 #include <Security/Security.h>
 #include <Security/SecTrustSettings.h>
 #include <errno.h>
 #include <unistd.h>
 #include <security_cdsa_utils/cuFileIo.h>
 #include <CoreFoundation/CoreFoundation.h>
-#include <security_cdsa_utils/cuFileIo.h>
+#include <utilities/fileIo.h>
 
 extern int trust_settings_export(int argc, char * const *argv)
 {
@@ -73,7 +73,7 @@ extern int trust_settings_export(int argc, char * const *argv)
 		cssmPerror("SecTrustSettingsCreateExternalRepresentation", ortn);
 		return 1;
 	}
-	len = CFDataGetLength(settings);
+	len = (unsigned) CFDataGetLength(settings);
 	rtn = writeFile(settingsFile, CFDataGetBytePtr(settings), len);
 	if(rtn) {
 		fprintf(stderr, "Error (%d) writing %s.\n", rtn, settingsFile);
@@ -93,7 +93,7 @@ extern int trust_settings_import(int argc, char * const *argv)
 	int arg;
 	char *settingsFile = NULL;
 	unsigned char *settingsData = NULL;
-	unsigned settingsLen = 0;
+	size_t settingsLen = 0;
 	CFDataRef settings = NULL;
 	SecTrustSettingsDomain domain = kSecTrustSettingsDomainUser;
 	int rtn;
@@ -117,7 +117,7 @@ extern int trust_settings_import(int argc, char * const *argv)
 		return 2;
 	}
 	settingsFile = argv[optind];
-	rtn = readFile(settingsFile, &settingsData, &settingsLen);
+	rtn = readFileSizet(settingsFile, &settingsData, &settingsLen);
 	if(rtn) {
 		fprintf(stderr, "Error (%d) reading %s.\n", rtn, settingsFile);
 		return 1;

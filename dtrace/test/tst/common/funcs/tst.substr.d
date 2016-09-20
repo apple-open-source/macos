@@ -28,6 +28,7 @@
 
 #pragma D option quiet
 #pragma D option strsize=32
+#pragma D option statusrate=100ms
 
 struct {
 	int index;

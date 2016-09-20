@@ -29,57 +29,16 @@
 
 #if ENABLE(INDEXED_DATABASE)
 
-#include "JSIDBObjectStore.h"
-
-#include "IDBBindingUtilities.h"
-#include "IDBKeyPath.h"
-#include "IDBObjectStore.h"
 #include "JSDOMBinding.h"
-#include "JSIDBIndex.h"
-#include <runtime/Error.h>
-#include <runtime/JSString.h>
+#include "JSIDBObjectStore.h"
 
 using namespace JSC;
 
 namespace WebCore {
 
-JSValue JSIDBObjectStore::createIndex(ExecState* exec)
+void JSIDBObjectStore::visitAdditionalChildren(SlotVisitor& visitor)
 {
-    ScriptExecutionContext* context = jsCast<JSDOMGlobalObject*>(exec->lexicalGlobalObject())->scriptExecutionContext();
-    if (!context)
-        return exec->vm().throwException(exec, createReferenceError(exec, "IDBObjectStore script execution context is unavailable"));
-
-    if (exec->argumentCount() < 2)
-        return exec->vm().throwException(exec, createNotEnoughArgumentsError(exec));
-
-    String name = exec->argument(0).toString(exec)->value(exec);
-    if (exec->hadException())
-        return jsUndefined();
-
-    IDBKeyPath keyPath = idbKeyPathFromValue(exec, exec->argument(1));
-    if (exec->hadException())
-        return jsUndefined();
-
-    JSValue optionsValue = exec->argument(2);
-    if (!optionsValue.isUndefinedOrNull() && !optionsValue.isObject())
-        return throwTypeError(exec, "Not an object.");
-
-    bool unique = false;
-    bool multiEntry = false;
-    if (!optionsValue.isUndefinedOrNull()) {
-        unique = optionsValue.get(exec, Identifier::fromString(exec, "unique")).toBoolean(exec);
-        if (exec->hadException())
-            return jsUndefined();
-
-        multiEntry = optionsValue.get(exec, Identifier::fromString(exec, "multiEntry")).toBoolean(exec);
-        if (exec->hadException())
-            return jsUndefined();
-    }
-
-    ExceptionCode ec = 0;
-    JSValue result = toJS(exec, globalObject(), impl().createIndex(context, name, keyPath, unique, multiEntry, ec).get());
-    setDOMException(exec, ec);
-    return result;
+    static_cast<IDBObjectStore&>(wrapped()).visitReferencedIndexes(visitor);
 }
 
 }

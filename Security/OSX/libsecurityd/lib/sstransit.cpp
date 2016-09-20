@@ -77,7 +77,7 @@ DatabaseAccessCredentials::DatabaseAccessCredentials(const AccessCredentials *cr
 				sample.checkProper();
 				if (sample.type() == CSSM_SAMPLE_TYPE_SYMMETRIC_KEY || 
 					sample.type() == CSSM_SAMPLE_TYPE_ASYMMETRIC_KEY) {
-					secdebug("SSclient", "key sample encountered");
+					secinfo("SSclient", "key sample encountered");
 					// proper form is sample[1] = DATA:CSPHandle, sample[2] = DATA:CSSM_KEY,
 					// sample[3] = auxiliary data (not changed)
 					if (sample.length() != 4
@@ -95,7 +95,7 @@ DatabaseAccessCredentials::DatabaseAccessCredentials(const AccessCredentials *cr
 				sample.checkProper();
 				if (sample.type() == CSSM_SAMPLE_TYPE_SYMMETRIC_KEY || 
 					sample.type() == CSSM_SAMPLE_TYPE_ASYMMETRIC_KEY) {
-					secdebug("SSclient", "key sample encountered");
+					secinfo("SSclient", "key sample encountered");
 					// proper form is sample[1] = DATA:CSPHandle, sample[2] = DATA:CSSM_KEY
 					if (sample.length() != 3
 						|| sample[1].type() != CSSM_LIST_ELEMENT_DATUM
@@ -132,7 +132,7 @@ void DatabaseAccessCredentials::mapKeySample(CssmData &cspHandleData, CssmKey &k
 		assert(sizeof(CSSM_CSP_HANDLE) >= sizeof(KeyHandle));	// future insurance
 		cspHandle = ssKey;
         cspHandleData.length(sizeof(KeyHandle));
-		secdebug("SSclient", "key sample mapped to key 0x%x", ssKey);
+		secinfo("SSclient", "key sample mapped to key 0x%x", ssKey);
 		return;
 	case CSSMERR_CSP_INVALID_PASSTHROUGH_ID:
 		return;		// CSP didn't understand the callback; leave the sample alone

@@ -123,7 +123,7 @@ kbdint_alloc(const char *devs)
 			    strlen(devices[i]->name));
 		}
 		buffer_append(&b, "\0", 1);
-		kbdintctxt->devices = xstrdup((const char *)buffer_ptr(&b));
+		kbdintctxt->devices = xstrdup(buffer_ptr(&b));
 		buffer_free(&b);
 	} else {
 		kbdintctxt->devices = xstrdup(devs);
@@ -132,7 +132,6 @@ kbdint_alloc(const char *devs)
 	kbdintctxt->ctxt = NULL;
 	kbdintctxt->device = NULL;
 	kbdintctxt->nreq = 0;
-	kbdintctxt->devices_done = 0;
 
 	return kbdintctxt;
 }

@@ -26,6 +26,7 @@
 #ifndef CredentialBase_h
 #define CredentialBase_h
 
+#include "PlatformExportMacros.h"
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -50,7 +51,7 @@ public:
 
     bool encodingRequiresPlatformData() const { return false; }
 
-    static bool compare(const Credential&, const Credential&);
+    WEBCORE_EXPORT static bool compare(const Credential&, const Credential&);
 
 protected:
     WEBCORE_EXPORT CredentialBase();

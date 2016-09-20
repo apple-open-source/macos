@@ -37,11 +37,11 @@ public:
     static const char* const s_name;
     static const CryptoAlgorithmIdentifier s_identifier = CryptoAlgorithmIdentifier::SHA_512;
 
-    static std::unique_ptr<CryptoAlgorithm> create();
+    static Ref<CryptoAlgorithm> create();
 
-    virtual CryptoAlgorithmIdentifier identifier() const override;
+    CryptoAlgorithmIdentifier identifier() const override;
 
-    virtual void digest(const CryptoAlgorithmParameters&, const CryptoOperationData&, VectorCallback, VoidCallback failureCallback, ExceptionCode&) override;
+    void digest(const CryptoAlgorithmParameters&, const CryptoOperationData&, VectorCallback&&, VoidCallback&& failureCallback, ExceptionCode&) override;
 
 private:
     CryptoAlgorithmSHA512();

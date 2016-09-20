@@ -116,7 +116,7 @@ OSStatus HIDProcessReportItem(HIDReportDescriptor *ptDescriptor, HIDPreparsedDat
 		// (Don't allow shifting into sign bit.)
 		SInt32 posSize = (ptReportItem->globals.reportSize >= 32) ? 
 						31 : ptReportItem->globals.reportSize;
-		SInt32 realMax = (1<<posSize) - 1;
+		SInt32 realMax = (SInt32) ((1ull<<posSize) - 1);
 		
 		if (ptReportItem->globals.logicalMinimum > realMax)
 		{

@@ -28,8 +28,10 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
+
 #ifndef lint
-static const char copyright[] =
+__unused static const char copyright[] =
 "@(#) Copyright (c) 1980, 1986, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
@@ -38,7 +40,7 @@ static const char copyright[] =
 #if 0
 static char sccsid[] = "@(#)reboot.c	8.1 (Berkeley) 6/5/93";
 #endif
-static const char rcsid[] =
+__unused static const char rcsid[] =
   "$FreeBSD: src/sbin/reboot/reboot.c,v 1.17 2002/10/06 16:24:36 thomas Exp $";
 #endif /* not lint */
 
@@ -262,7 +264,7 @@ main(int argc, char *argv[])
 
 #ifdef __APPLE__
 	// launchd(8) handles reboot.  This call returns NULL on success.
-	exit(reboot2(howto) == NULL ? EXIT_SUCCESS : EXIT_FAILURE);
+	exit(reboot3(howto) == 0 ? EXIT_SUCCESS : EXIT_FAILURE);
 #else /* __APPLE__ */
 	reboot(howto);
 	/* FALLTHROUGH */
@@ -276,7 +278,7 @@ restart:
 }
 
 void
-usage()
+usage(void)
 {
 #ifndef __APPLE__
 	(void)fprintf(stderr, "usage: %s [-dnpq] [-k kernel]\n",
@@ -288,7 +290,7 @@ usage()
 }
 
 u_int
-get_pageins()
+get_pageins(void)
 {
 	u_int pageins;
 	size_t len;
@@ -310,7 +312,7 @@ get_pageins()
  * contact kextd to lock for reboot
  */
 int
-reserve_reboot()
+reserve_reboot(void)
 {
 	int rval = ELAST + 1;
 	kern_return_t macherr = KERN_FAILURE;
@@ -353,7 +355,7 @@ finish:
 			warnx("WARNING: couldn't lock kext manager for reboot: %s",
 					mach_error_string(macherr));
 		rval = 0;
-	} 
+	}
 	// unless we got the lock, clean up our port
 	if (busyStatus != 0 && myport != MACH_PORT_NULL)
 		mach_port_mod_refs(tport, myport, MACH_PORT_RIGHT_RECEIVE, -1);

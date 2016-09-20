@@ -1,4 +1,4 @@
-/* 
+/*
  *  panic.c - terminate fast in case of error
  *  Copyright (C) 1993  Thomas Koenig
  *

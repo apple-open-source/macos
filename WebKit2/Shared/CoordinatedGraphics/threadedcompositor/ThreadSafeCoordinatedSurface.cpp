@@ -37,17 +37,14 @@ namespace WebKit {
 
 Ref<ThreadSafeCoordinatedSurface> ThreadSafeCoordinatedSurface::create(const IntSize& size, CoordinatedSurface::Flags flags)
 {
-    return adoptRef(*new ThreadSafeCoordinatedSurface(size, flags, ImageBuffer::create(size)));
-}
-
-Ref<ThreadSafeCoordinatedSurface> ThreadSafeCoordinatedSurface::create(const IntSize& size, CoordinatedSurface::Flags flags, std::unique_ptr<ImageBuffer> buffer)
-{
-    return adoptRef(*new ThreadSafeCoordinatedSurface(size, flags, WTF::move(buffer)));
+    // Making an unconditionally unaccelerated buffer here is OK because this code
+    // isn't used by any platforms that respect the accelerated bit.
+    return adoptRef(*new ThreadSafeCoordinatedSurface(size, flags, ImageBuffer::create(size, Unaccelerated)));
 }
 
 ThreadSafeCoordinatedSurface::ThreadSafeCoordinatedSurface(const IntSize& size, CoordinatedSurface::Flags flags, std::unique_ptr<ImageBuffer> buffer)
     : CoordinatedSurface(size, flags)
-    , m_imageBuffer(WTF::move(buffer))
+    , m_imageBuffer(WTFMove(buffer))
 {
 }
 
@@ -55,35 +52,31 @@ ThreadSafeCoordinatedSurface::~ThreadSafeCoordinatedSurface()
 {
 }
 
-void ThreadSafeCoordinatedSurface::paintToSurface(const IntRect& rect, CoordinatedSurface::Client* client)
+void ThreadSafeCoordinatedSurface::paintToSurface(const IntRect& rect, CoordinatedSurface::Client& client)
 {
-    ASSERT(client);
-
-    GraphicsContext* context = beginPaint(rect);
-    client->paintToSurfaceContext(context);
+    GraphicsContext& context = beginPaint(rect);
+    client.paintToSurfaceContext(context);
     endPaint();
 }
 
-GraphicsContext* ThreadSafeCoordinatedSurface::beginPaint(const IntRect& rect)
+GraphicsContext& ThreadSafeCoordinatedSurface::beginPaint(const IntRect& rect)
 {
     ASSERT(m_imageBuffer);
-    GraphicsContext* graphicsContext = m_imageBuffer->context();
-    graphicsContext->save();
-    graphicsContext->clip(rect);
-    graphicsContext->translate(rect.x(), rect.y());
+    GraphicsContext& graphicsContext = m_imageBuffer->context();
+    graphicsContext.save();
+    graphicsContext.clip(rect);
+    graphicsContext.translate(rect.x(), rect.y());
     return graphicsContext;
 }
 
 void ThreadSafeCoordinatedSurface::endPaint()
 {
     ASSERT(m_imageBuffer);
-    m_imageBuffer->context()->restore();
+    m_imageBuffer->context().restore();
 }
 
-void ThreadSafeCoordinatedSurface::copyToTexture(PassRefPtr<BitmapTexture> passTexture, const IntRect& target, const IntPoint& sourceOffset)
+void ThreadSafeCoordinatedSurface::copyToTexture(RefPtr<BitmapTexture> texture, const IntRect& target, const IntPoint& sourceOffset)
 {
-    RefPtr<BitmapTexture> texture(passTexture);
-
     ASSERT(m_imageBuffer);
     RefPtr<Image> image = m_imageBuffer->copyImage(DontCopyBackingStore);
     texture->updateContents(image.get(), target, sourceOffset, BitmapTexture::UpdateCanModifyOriginalImageData);

@@ -38,7 +38,6 @@
 
 #if PLATFORM(COCOA)
 #include "LayerHostingContext.h"
-#include "WebHitTestResult.h"
 
 OBJC_CLASS NSDictionary;
 OBJC_CLASS NSObject;
@@ -126,16 +125,16 @@ public:
 
     // Tells the plug-in to paint itself into the given graphics context. The passed-in context and
     // dirty rect are in window coordinates. The context is saved/restored by the caller.
-    virtual void paint(WebCore::GraphicsContext*, const WebCore::IntRect& dirtyRect) = 0;
+    virtual void paint(WebCore::GraphicsContext&, const WebCore::IntRect& dirtyRect) = 0;
 
     // Invalidate native tintable controls. The passed-in context is in window coordinates.
-    virtual void updateControlTints(WebCore::GraphicsContext*);
+    virtual void updateControlTints(WebCore::GraphicsContext&);
 
     // Returns whether the plug-in supports snapshotting or not.
     virtual bool supportsSnapshotting() const = 0;
 
     // Tells the plug-in to draw itself into a bitmap, and return that.
-    virtual PassRefPtr<ShareableBitmap> snapshot() = 0;
+    virtual RefPtr<ShareableBitmap> snapshot() = 0;
 
 #if PLATFORM(COCOA)
     // If a plug-in is using the Core Animation drawing model, this returns its plug-in layer.
@@ -223,10 +222,10 @@ public:
 
     // Ask the plug-in whether it wants URLs and files dragged onto it to cause navigation.
     virtual bool shouldAllowNavigationFromDrags() = 0;
-    
+
     // Ask the plug-in whether it wants to override full-page zoom.
-    virtual bool handlesPageScaleFactor() = 0;
-    
+    virtual bool handlesPageScaleFactor() const = 0;
+
     // Tells the plug-in about focus changes.
     virtual void setFocus(bool) = 0;
 
@@ -286,7 +285,7 @@ public:
 
     virtual bool shouldAlwaysAutoStart() const { return false; }
 
-    virtual PassRefPtr<WebCore::SharedBuffer> liveResourceData() const = 0;
+    virtual RefPtr<WebCore::SharedBuffer> liveResourceData() const = 0;
 
     virtual bool performDictionaryLookupAtLocation(const WebCore::FloatPoint&) = 0;
 
@@ -297,6 +296,12 @@ public:
     virtual WebCore::AudioHardwareActivityType audioHardwareActivity() const { return WebCore::AudioHardwareActivityType::Unknown; }
 
     virtual void mutedStateChanged(bool) { }
+
+    virtual bool canCreateTransientPaintingSnapshot() const { return true; }
+
+    virtual bool requiresUnifiedScaleFactor() const { return false; }
+
+    virtual void willDetatchRenderer() { }
 
 protected:
     Plugin(PluginType);

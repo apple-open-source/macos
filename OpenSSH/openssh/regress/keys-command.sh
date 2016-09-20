@@ -19,13 +19,7 @@ expected_key_fp=`$SSHKEYGEN -lf $OBJ/rsa.pub | awk '{ print $2 }'`
 
 # Establish a AuthorizedKeysCommand in /var/run where it will have
 # acceptable directory permissions.
-# Apple:
-# On OS X Mavricks, /var/run is writable by group daemon
-# which is not allowed by sshd for AuthorizedKeysCommand
-# so use /var/ssh-test
-$SUDO mkdir -m 0755 /var/ssh-test
-
-KEY_COMMAND="/var/ssh-test/keycommand_${LOGNAME}"
+KEY_COMMAND="/var/run/keycommand_${LOGNAME}"
 cat << _EOF | $SUDO sh -c "rm -f '$KEY_COMMAND' ; cat > '$KEY_COMMAND'"
 #!/bin/sh
 echo args: "\$@" >> $OBJ/keys-command-args
@@ -41,6 +35,12 @@ fi
 exec cat "$OBJ/authorized_keys_${LOGNAME}"
 _EOF
 $SUDO chmod 0755 "$KEY_COMMAND"
+
+if ! $OBJ/check-perm -m keys-command $KEY_COMMAND ; then
+	echo "skipping: $KEY_COMMAND is unsuitable as AuthorizedKeysCommand"
+	$SUDO rm -f $KEY_COMMAND
+	exit 0
+fi
 
 if [ -x $KEY_COMMAND ]; then
 	cp $OBJ/sshd_proxy $OBJ/sshd_proxy.bak
@@ -80,5 +80,3 @@ else
 fi
 
 $SUDO rm -f $KEY_COMMAND
-#Apple:
-$SUDO rm -rf /var/ssh-test

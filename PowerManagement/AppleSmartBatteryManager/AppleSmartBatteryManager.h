@@ -29,9 +29,6 @@
 #include "AppleSmartBattery.h"
 #include "AppleSmartBatteryManagerUserClient.h"
 
-
-void BattLog(const char *fmt, ...);
-
 class AppleSmartBattery;
 class AppleSmartBatteryManagerUserClient;
 
@@ -59,6 +56,27 @@ enum {
 
 #define MAX_SMBUS_DATA_SIZE     32
 
+extern uint32_t gBMDebugFlags;
+enum {
+    BM_LOG_LEVEL1 = 0x00000001,     // basic logging for completions and errors
+    BM_LOG_LEVEL2 = 0x00000002,     // log individual transactions
+};
+
+#define BM_LOG1(fmt, args...)           \
+{                                       \
+    if (gBMDebugFlags & BM_LOG_LEVEL1)  \
+        IOLog(fmt, ## args);            \
+}
+
+#define BM_LOG2(fmt, args...)           \
+{                                       \
+    if (gBMDebugFlags & BM_LOG_LEVEL2)  \
+        IOLog(fmt, ## args);            \
+}
+
+#define BM_ERRLOG(fmt, args...)         \
+    IOLog(fmt, ##args);
+
 // * WriteBlock note
 // rdar://5433060
 // For block writes, clients always increment inByteCount +1 
@@ -76,7 +94,7 @@ typedef struct {
 typedef struct {
     uint32_t        status;
     uint32_t        outByteCount;
-    uint32_t        outBuf[MAX_SMBUS_DATA_SIZE];
+    uint8_t        outBuf[MAX_SMBUS_DATA_SIZE];
 } EXSMBUSOutputStruct;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -133,6 +151,9 @@ private:
 
     // transactionCompletion is the guts of the state machine
     bool    transactionCompletion(void *ref, IOSMBusTransaction *transaction);
+    
+    IOReturn setOverrideCapacity(uint16_t level);
+    IOReturn switchToTrueCapacity(void);
 
 private:
     IOSMBusTransaction          fTransaction;

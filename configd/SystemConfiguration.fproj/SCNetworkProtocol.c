@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2004-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2008, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -31,10 +31,7 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
-#include <SystemConfiguration/SystemConfiguration.h>
 #include "SCNetworkConfigurationInternal.h"
-#include <SystemConfiguration/SCValidation.h>
-#include <SystemConfiguration/SCPrivate.h>
 
 #include <pthread.h>
 
@@ -45,9 +42,6 @@ static Boolean		__SCNetworkProtocolEqual		(CFTypeRef cf1, CFTypeRef cf2);
 static CFHashCode	__SCNetworkProtocolHash			(CFTypeRef cf);
 
 
-#if	!TARGET_OS_IPHONE
-const CFStringRef kSCNetworkProtocolTypeAppleTalk       = CFSTR("AppleTalk");
-#endif	// !TARGET_OS_IPHONE
 const CFStringRef kSCNetworkProtocolTypeDNS		= CFSTR("DNS");
 const CFStringRef kSCNetworkProtocolTypeIPv4		= CFSTR("IPv4");
 const CFStringRef kSCNetworkProtocolTypeIPv6		= CFSTR("IPv6");
@@ -169,7 +163,8 @@ __SCNetworkProtocolCreatePrivate(CFAllocatorRef		allocator,
 		return NULL;
 	}
 
-	protocolPrivate->entityID       = CFStringCreateCopy(NULL, entityID);
+	/* initialize non-zero/NULL members */
+	protocolPrivate->entityID	= CFStringCreateCopy(NULL, entityID);
 	protocolPrivate->service	= CFRetain(service);
 
 	return protocolPrivate;
@@ -181,9 +176,6 @@ __SCNetworkProtocolIsValidType(CFStringRef protocolType)
 {
 	int				i;
 	static const CFStringRef	*valid_types[]   = {
-#if	!TARGET_OS_IPHONE
-		&kSCNetworkProtocolTypeAppleTalk,
-#endif	// !TARGET_OS_IPHONE
 		&kSCNetworkProtocolTypeDNS,
 		&kSCNetworkProtocolTypeIPv4,
 		&kSCNetworkProtocolTypeIPv6,
@@ -312,6 +304,12 @@ SCNetworkProtocolSetConfiguration(SCNetworkProtocolRef protocol, CFDictionaryRef
 	ok = __setPrefsConfiguration(servicePrivate->prefs, path, config, TRUE);
 	CFRelease(path);
 
+	if (ok) {
+		SC_log(LOG_DEBUG, "SCNetworkProtocolSetConfiguration(): %@ --> %@",
+		       protocol,
+		       config != NULL ? config : (CFDictionaryRef)CFSTR("NULL"));
+	}
+
 	return ok;
 }
 
@@ -332,6 +330,12 @@ SCNetworkProtocolSetEnabled(SCNetworkProtocolRef protocol, Boolean enabled)
 	path = copyProtocolConfigurationPath(protocolPrivate);
 	ok = __setPrefsEnabled(servicePrivate->prefs, path, enabled);
 	CFRelease(path);
+
+	if (ok) {
+		SC_log(LOG_DEBUG, "SCNetworkProtocolSetEnabled(): %@ -> %s",
+		       protocol,
+		       enabled ? "Enabled" : "Disabled");
+	}
 
 	return ok;
 }

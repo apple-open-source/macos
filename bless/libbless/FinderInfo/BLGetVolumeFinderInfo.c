@@ -33,6 +33,7 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <unistd.h>
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/attr.h>
 
@@ -45,7 +46,7 @@ struct volinfobuf {
 }; 
 
 
-int BLGetVolumeFinderInfo(BLContextPtr context, const char * mountpoint, uint32_t * words) {
+int BLGetVolumeFinderInfo(BLContextPtr context, const char *mountpoint, uint32_t *words) {
     int err, i;
     struct volinfobuf vinfo;
     struct attrlist alist;
@@ -60,9 +61,10 @@ int BLGetVolumeFinderInfo(BLContextPtr context, const char * mountpoint, uint32_
     alist.forkattr = 0;
     
     err = getattrlist(mountpoint, &alist, &vinfo, sizeof(vinfo), 0);
-    if(err) {
-      contextprintf(context, kBLLogLevelError,  "Can't get volume information for %s\n", mountpoint );
-      return 1;
+    if (err) {
+		int rval = errno;
+		contextprintf(context, kBLLogLevelError,  "Can't get volume information for %s\n", mountpoint );
+		return rval;
     }
 
     /* Finder info words are just opaque and in big-endian format on disk

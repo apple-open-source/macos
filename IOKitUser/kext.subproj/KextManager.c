@@ -313,6 +313,7 @@ void _removePrivateKextInfo(
 {
     CFMutableDictionaryRef kextInfo = (CFMutableDictionaryRef)vValue;
     CFDictionaryRemoveValue(kextInfo, CFSTR("OSBundleMachOHeaders"));
+    CFDictionaryRemoveValue(kextInfo, CFSTR("OSBundleLogStrings"));
     return;
 }
 

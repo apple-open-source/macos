@@ -27,6 +27,7 @@
 #ifndef InspectorBackendDispatcher_h
 #define InspectorBackendDispatcher_h
 
+#include "InspectorFrontendRouter.h"
 #include "InspectorProtocolTypes.h"
 #include <wtf/Optional.h>
 #include <wtf/RefCounted.h>
@@ -35,23 +36,21 @@
 namespace Inspector {
 
 class BackendDispatcher;
-class FrontendChannel;
 
 typedef String ErrorString;
 
-class SupplementalBackendDispatcher : public RefCounted<SupplementalBackendDispatcher> {
+class JS_EXPORT_PRIVATE SupplementalBackendDispatcher : public RefCounted<SupplementalBackendDispatcher> {
 public:
-    SupplementalBackendDispatcher(BackendDispatcher& backendDispatcher)
-        : m_backendDispatcher(backendDispatcher) { }
-    virtual ~SupplementalBackendDispatcher() { }
+    SupplementalBackendDispatcher(BackendDispatcher&);
+    virtual ~SupplementalBackendDispatcher();
     virtual void dispatch(long requestId, const String& method, Ref<InspectorObject>&& message) = 0;
 protected:
     Ref<BackendDispatcher> m_backendDispatcher;
 };
 
-class BackendDispatcher : public RefCounted<BackendDispatcher> {
+class JS_EXPORT_PRIVATE BackendDispatcher : public RefCounted<BackendDispatcher> {
 public:
-    JS_EXPORT_PRIVATE static Ref<BackendDispatcher> create(FrontendChannel*);
+    static Ref<BackendDispatcher> create(Ref<FrontendRouter>&&);
 
     class JS_EXPORT_PRIVATE CallbackBase : public RefCounted<CallbackBase> {
     public:
@@ -69,8 +68,7 @@ public:
         bool m_alreadySent { false };
     };
 
-    void clearFrontend() { m_frontendChannel = nullptr; }
-    bool isActive() const { return !!m_frontendChannel; }
+    bool isActive() const;
 
     bool hasProtocolErrors() const { return m_protocolErrors.size() > 0; }
 
@@ -84,15 +82,16 @@ public:
     };
 
     void registerDispatcherForDomain(const String& domain, SupplementalBackendDispatcher*);
-    JS_EXPORT_PRIVATE void dispatch(const String& message);
+    void dispatch(const String& message);
 
-    JS_EXPORT_PRIVATE void sendResponse(long requestId, RefPtr<InspectorObject>&& result);
-    JS_EXPORT_PRIVATE void sendPendingErrors();
+    void sendResponse(long requestId, RefPtr<InspectorObject>&& result);
+    void sendPendingErrors();
 
     void reportProtocolError(CommonErrorCode, const String& errorMessage);
-    JS_EXPORT_PRIVATE void reportProtocolError(Optional<long> relatedRequestId, CommonErrorCode, const String& errorMessage);
+    void reportProtocolError(Optional<long> relatedRequestId, CommonErrorCode, const String& errorMessage);
 
     template<typename T>
+    WTF_HIDDEN_DECLARATION
     T getPropertyValue(InspectorObject*, const String& name, bool* out_optionalValueFound, T defaultValue, std::function<bool(InspectorValue&, T&)>, const char* typeName);
 
     int getInteger(InspectorObject*, const String& name, bool* valueFound);
@@ -104,12 +103,9 @@ public:
     RefPtr<InspectorArray> getArray(InspectorObject*, const String& name, bool* valueFound);
 
 private:
-    BackendDispatcher(FrontendChannel* channel)
-        : m_frontendChannel(channel)
-    {
-    }
+    BackendDispatcher(Ref<FrontendRouter>&&);
 
-    FrontendChannel* m_frontendChannel;
+    Ref<FrontendRouter> m_frontendRouter;
     HashMap<String, SupplementalBackendDispatcher*> m_dispatchers;
 
     // Protocol errors reported for the top-level request being processed.

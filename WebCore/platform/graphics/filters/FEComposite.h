@@ -36,7 +36,8 @@ enum CompositeOperationType {
     FECOMPOSITE_OPERATOR_OUT        = 3,
     FECOMPOSITE_OPERATOR_ATOP       = 4,
     FECOMPOSITE_OPERATOR_XOR        = 5,
-    FECOMPOSITE_OPERATOR_ARITHMETIC = 6
+    FECOMPOSITE_OPERATOR_ARITHMETIC = 6,
+    FECOMPOSITE_OPERATOR_LIGHTER    = 7
 };
 
 class FEComposite : public FilterEffect {
@@ -58,17 +59,17 @@ public:
     float k4() const;
     bool setK4(float);
 
-    virtual void correctFilterResultIfNeeded() override;
+    void correctFilterResultIfNeeded() override;
 
-    virtual void platformApplySoftware() override;
-    virtual void dump() override;
+    void platformApplySoftware() override;
+    void dump() override;
     
-    virtual void determineAbsolutePaintRect() override;
+    void determineAbsolutePaintRect() override;
 
-    virtual TextStream& externalRepresentation(TextStream&, int indention) const override;
+    TextStream& externalRepresentation(TextStream&, int indention) const override;
 
 protected:
-    virtual bool requiresValidPreMultipliedPixels() override { return m_type != FECOMPOSITE_OPERATOR_ARITHMETIC; }
+    bool requiresValidPreMultipliedPixels() override { return m_type != FECOMPOSITE_OPERATOR_ARITHMETIC; }
 
 private:
     FEComposite(Filter&, const CompositeOperationType&, float, float, float, float);

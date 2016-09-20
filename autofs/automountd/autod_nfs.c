@@ -509,14 +509,13 @@ enum_servers(struct mapent *me, char *preferred)
 			continue;
 		if (self_check(m1->mfs_host) ||
 		    strcmp(m1->mfs_host, preferred) == 0) {
+			if (trace > 2)
+				trace_prt(1, "	enum_servers: pref/self found, %s\n", m1->mfs_host);
 			p = add_mfs(m1, DIST_SELF, &mfs_head, &mfs_tail);
 			if (!p)
 				return (NULL);
 		}
 	}
-	if (trace > 2 && m1)
-		trace_prt(1, "	enum_servers: pref/self found, %s\n",
-			m1->mfs_host);
 
 	/*
 	 * look for entries on this subnet
@@ -1186,7 +1185,7 @@ pingnfs(
 	rpcvers_t vers_to_try;	/* to try different versions against host */
 	const char *hostname = hostpart;
 	char *hostcopy = NULL;
-	char *pathcopy;
+	char *pathcopy = NULL;
 	struct timeval tv = {10, 0};
 
 	if (path != NULL && strcmp(hostname, "nfs") == 0 &&
@@ -1248,7 +1247,19 @@ pingnfs(
 		if (versmin == NFS_VER4) {
 			if (versp) {
 				*versp = versmax - 1;
+				if ( path != NULL && path == pathcopy) {
+					free(pathcopy);
+				}
+				if (hostname != NULL && hostname == hostcopy) {
+					free(hostcopy);
+				}
 				return (RPC_SUCCESS);
+			}
+			if (path != NULL && path == pathcopy) {
+				free(pathcopy);
+			}
+			if (hostname != NULL && hostname == hostcopy) {
+				free(hostcopy);
 			}
 			return (RPC_PROGUNAVAIL);
 		} else {

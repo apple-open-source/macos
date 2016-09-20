@@ -34,6 +34,7 @@
 #include <sys/resource.h>
 #include <IOKit/kext/OSKext.h>
 #include <IOKit/kext/OSKextPrivate.h>
+#include <sandbox/rootless.h>
 
 #include "kext_tools_util.h"
 
@@ -203,7 +204,7 @@ ExitStatus writeToFile(
         if (bytesWritten < 0) {
             OSKextLog(/* kext */ NULL,
                       kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-                      "Write failed - %s", strerror(errno));
+                      "Write failed %d - %s", errno, strerror(errno));
             goto finish;
         }
         totalBytesWritten += bytesWritten;
@@ -840,6 +841,29 @@ finish:
 /*******************************************************************************
  *******************************************************************************/
 ExitStatus
+getFileDescriptorTimes(
+                 int                the_fd,
+                 struct timeval     cacheFileTimes[2])
+{
+    struct stat         statBuffer;
+    ExitStatus          result          = EX_SOFTWARE;
+    
+    result = fstat(the_fd, &statBuffer);
+    if (result != EX_OK) {
+        goto finish;
+    }
+    
+    TIMESPEC_TO_TIMEVAL(&cacheFileTimes[0], &statBuffer.st_atimespec);
+    TIMESPEC_TO_TIMEVAL(&cacheFileTimes[1], &statBuffer.st_mtimespec);
+    
+    result = EX_OK;
+finish:
+    return result;
+}
+
+/*******************************************************************************
+ *******************************************************************************/
+ExitStatus
 getFilePathTimes(
                  const char        * filePath,
                  struct timeval      cacheFileTimes[2])
@@ -969,6 +993,29 @@ finish:
 
 /*******************************************************************************
  *******************************************************************************/
+int getFileDevAndInoWith_fd(int the_fd, dev_t * the_dev_t, ino_t * the_ino_t)
+{
+    int             my_result = -1;
+    struct stat     my_stat_buf;
+   
+    if (fstat(the_fd, &my_stat_buf) == 0) {
+        if (the_dev_t) {
+            *the_dev_t = my_stat_buf.st_dev;
+        }
+        if (the_ino_t) {
+            *the_ino_t = my_stat_buf.st_ino;
+        }
+        my_result = 0;
+    }
+    else {
+        my_result = errno;
+    }
+    
+    return(my_result);
+}
+
+/*******************************************************************************
+ *******************************************************************************/
 int getFileDevAndIno(const char * thePath, dev_t * the_dev_t, ino_t * the_ino_t)
 {
     int             my_result = -1;
@@ -1028,6 +1075,26 @@ Boolean isSameFileDevAndIno(int the_fd,
             /* special case where thePath did not exist so it still should not
              * exist
              */
+            my_result = TRUE;
+        }
+    }
+    
+    return(my_result);
+}
+
+
+/*******************************************************************************
+ *******************************************************************************/
+Boolean isSameFileDevAndInoWith_fd(int      the_fd,
+                                   dev_t    the_dev_t,
+                                   ino_t    the_ino_t)
+{
+    Boolean         my_result = FALSE;
+    struct stat     my_stat_buf;
+    
+    if (fstat(the_fd, &my_stat_buf) == 0) {
+        if (the_dev_t == my_stat_buf.st_dev &&
+            the_ino_t == my_stat_buf.st_ino) {
             my_result = TRUE;
         }
     }
@@ -1413,6 +1480,7 @@ CFDictionaryRef copyBootCachesDictForURL(CFURLRef theVolRootURL)
     CFStringRef             myPath = NULL;              // must release
     CFURLRef                myURL = NULL;               // must release
     CFDictionaryRef         myBootCachesPlist = NULL;   // do not release
+    char *                  myCString = NULL;           // must free
     
     if (theVolRootURL) {
         myVolRoot = CFURLCopyFileSystemPath(theVolRootURL,
@@ -1434,6 +1502,18 @@ CFDictionaryRef copyBootCachesDictForURL(CFURLRef theVolRootURL)
                                            kCFStringEncodingUTF8 );
     }
     if (myPath == NULL) {
+        goto finish;
+    }
+    
+    myCString = createUTF8CStringForCFString(myPath);
+    if (myCString == NULL) {
+        goto finish;
+    }
+    if (rootless_check_trusted(myCString) != 0) {
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogErrorLevel  | kOSKextLogGeneralFlag,
+                  "Untrusted file '%s' cannot be used",
+                  myCString);
         goto finish;
     }
     
@@ -1477,7 +1557,8 @@ finish:
     SAFE_RELEASE(myURL);
     SAFE_RELEASE(myPath);
     SAFE_RELEASE(myVolRoot);
-    
+    SAFE_FREE(myCString);
+
     return(myBootCachesPlist);
 }
 #endif   // !TARGET_OS_EMBEDDED

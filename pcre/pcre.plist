@@ -18,5 +18,9 @@
 	<string>BSD</string>
 	<key>OpenSourceLicenseFile</key>
 	<string>pcre.txt</string>
+	<key>OpenSourceModifications</key>
+	<array>
+	    <string>CVE-2015-5073</string>
+	</array>
 </dict>
 </plist>

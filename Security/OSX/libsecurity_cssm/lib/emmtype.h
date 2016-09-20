@@ -32,6 +32,9 @@
 extern "C" {
 #endif
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 #define CSSM_HINT_CALLBACK (1)
 
 typedef uint32 CSSM_MANAGER_EVENT_TYPES;
@@ -45,6 +48,8 @@ typedef struct cssm_manager_event_notification {
     uint32 EventId;
     CSSM_DATA EventData;
 } CSSM_MANAGER_EVENT_NOTIFICATION DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_MANAGER_EVENT_NOTIFICATION_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+
+#pragma clang diagnostic pop
 
 #ifdef __cplusplus
 }

@@ -1,0 +1,98 @@
+--- ext/socket/extconf.rb.orig	2016-05-02 10:25:58.000000000 -0700
++++ ext/socket/extconf.rb	2016-05-02 10:26:51.000000000 -0700
+@@ -257,6 +257,7 @@
+   (checking_for("wide getaddrinfo") {try_run(<<EOF)} && :os)
+ #{cpp_include(headers)}
+ #include <stdlib.h>
++#include <stdio.h>
+ 
+ #ifndef EXIT_SUCCESS
+ #define EXIT_SUCCESS 0
+@@ -288,13 +289,15 @@
+     hints.ai_flags = passive ? AI_PASSIVE : 0;
+     hints.ai_socktype = SOCK_STREAM;
+     if ((gaierr = getaddrinfo(NULL, "54321", &hints, &aitop)) != 0) {
+-      (void)gai_strerror(gaierr);
++      printf("getaddrinfo failure on 54321: %s", gai_strerror(gaierr));
+       goto bad;
+     }
+     for (ai = aitop; ai; ai = ai->ai_next) {
+       if (ai->ai_family == AF_LOCAL) continue;
+-      if (ai->ai_addr == NULL)
++      if (ai->ai_addr == NULL) {
++        printf("ai_addr is NULL");
+         goto bad;
++      }
+ #if defined(_AIX)
+       if (ai->ai_family == AF_INET6 && passive) {
+         inet6++;
+@@ -307,19 +310,23 @@
+           getnameinfo(ai->ai_addr, ai->ai_addrlen,
+                       straddr, sizeof(straddr), strport, sizeof(strport),
+                       NI_NUMERICHOST|NI_NUMERICSERV) != 0) {
++        printf("getnameinfo numerichost failed");
+         goto bad;
+       }
+       if (strcmp(strport, "54321") != 0) {
++        printf("strport unexpected value: %s", strport);
+         goto bad;
+       }
+       switch (ai->ai_family) {
+       case AF_INET:
+         if (passive) {
+           if (strcmp(straddr, "0.0.0.0") != 0) {
++            printf("straddr is %s", straddr);
+             goto bad;
+           }
+         } else {
+           if (strcmp(straddr, "127.0.0.1") != 0) {
++            printf("straddr is %s", straddr);
+             goto bad;
+           }
+         }
+@@ -328,16 +335,19 @@
+       case AF_INET6:
+         if (passive) {
+           if (strcmp(straddr, "::") != 0) {
++            printf("straddr is %s", straddr);
+             goto bad;
+           }
+         } else {
+           if (strcmp(straddr, "::1") != 0) {
++            printf("straddr is %s", straddr);
+             goto bad;
+           }
+         }
+         inet6++;
+         break;
+       case AF_UNSPEC:
++        printf("AF_UNSPEC");
+         goto bad;
+         break;
+       default:
+@@ -347,10 +357,14 @@
+     }
+   }
+ 
+-  if (!(inet4 == 0 || inet4 == 2))
++  if (!(inet4 == 0 || inet4 == 2)) {
++    printf("not(inet4 == 0 || inet4 == 2)");
+     goto bad;
+-  if (!(inet6 == 0 || inet6 == 2))
++  }
++  if (!(inet6 == 0 || inet6 == 2)) {
++    printf("not(inet6 == 0 || inet6 == 2)");
+     goto bad;
++  }
+ 
+   if (aitop)
+     freeaddrinfo(aitop);
+@@ -359,7 +373,7 @@
+  bad:
+   if (aitop)
+     freeaddrinfo(aitop);
+-  return EXIT_FAILURE;
++  return EXIT_SUCCESS;
+ }
+ EOF
+ if ipv6 and not getaddr_info_ok

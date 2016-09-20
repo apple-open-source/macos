@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2015 The PHP Group                                |
+   | Copyright (c) 1997-2016 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -39,16 +39,6 @@
 
 #include "php.h"
 #include "ext/standard/file.h"
-
-#ifdef HAVE_STDINT_H
-# include <stdint.h>
-#endif
-#ifdef HAVE_INTTYPES_H
-# include <inttypes.h>
-#endif
-#ifdef PHP_WIN32
-# include "win32/php_stdint.h"
-#endif
 
 #if HAVE_EXIF
 
@@ -2623,6 +2613,7 @@ static int exif_process_user_comment(image_info_type *ImageInfo, char **pszInfoP
 	*pszEncoding = NULL;
 	/* Copy the comment */
 	if (ByteCount>=8) {
+		const zend_encoding *from, *to;
 		if (!memcmp(szValuePtr, "UNICODE\0", 8)) {
 			*pszEncoding = estrdup((const char*)szValuePtr);
 			szValuePtr = szValuePtr+8;
@@ -2643,14 +2634,16 @@ static int exif_process_user_comment(image_info_type *ImageInfo, char **pszInfoP
 			} else {
 				decode = ImageInfo->decode_unicode_le;
 			}
+			to = zend_multibyte_fetch_encoding(ImageInfo->encode_unicode TSRMLS_CC);
+			from = zend_multibyte_fetch_encoding(decode TSRMLS_CC);
 			/* XXX this will fail again if encoding_converter returns on error something different than SIZE_MAX   */
-			if (zend_multibyte_encoding_converter(
+			if (!to || !from || zend_multibyte_encoding_converter(
 					(unsigned char**)pszInfoPtr,
 					&len,
 					(unsigned char*)szValuePtr,
 					ByteCount,
-					zend_multibyte_fetch_encoding(ImageInfo->encode_unicode TSRMLS_CC),
-					zend_multibyte_fetch_encoding(decode TSRMLS_CC)
+					to,
+					from
 					TSRMLS_CC) == (size_t)-1) {
 				len = exif_process_string_raw(pszInfoPtr, szValuePtr, ByteCount);
 			}
@@ -2665,13 +2658,15 @@ static int exif_process_user_comment(image_info_type *ImageInfo, char **pszInfoP
 			szValuePtr = szValuePtr+8;
 			ByteCount -= 8;
 			/* XXX this will fail again if encoding_converter returns on error something different than SIZE_MAX   */
-			if (zend_multibyte_encoding_converter(
+			to = zend_multibyte_fetch_encoding(ImageInfo->encode_jis TSRMLS_CC);
+			from = zend_multibyte_fetch_encoding(ImageInfo->motorola_intel ? ImageInfo->decode_jis_be : ImageInfo->decode_jis_le TSRMLS_CC);
+			if (!to || !from || zend_multibyte_encoding_converter(
 					(unsigned char**)pszInfoPtr,
 					&len,
 					(unsigned char*)szValuePtr,
 					ByteCount,
-					zend_multibyte_fetch_encoding(ImageInfo->encode_jis TSRMLS_CC),
-					zend_multibyte_fetch_encoding(ImageInfo->motorola_intel ? ImageInfo->decode_jis_be : ImageInfo->decode_jis_le TSRMLS_CC)
+					to,
+					from
 					TSRMLS_CC) == (size_t)-1) {
 				len = exif_process_string_raw(pszInfoPtr, szValuePtr, ByteCount);
 			}
@@ -2742,6 +2737,12 @@ static int exif_process_IFD_in_MAKERNOTE(image_info_type *ImageInfo, char * valu
 		break;
 	}
 
+	if (maker_note->offset >= value_len) {
+		/* Do not go past the value end */
+		exif_error_docref("exif_read_data#error_ifd" EXIFERR_CC, ImageInfo, E_WARNING, "IFD data too short: 0x%04X offset 0x%04X", value_len, maker_note->offset);
+		return FALSE;
+	}
+
 	dir_start = value_ptr + maker_note->offset;
 
 #ifdef EXIF_DEBUG
@@ -2770,10 +2771,19 @@ static int exif_process_IFD_in_MAKERNOTE(image_info_type *ImageInfo, char * valu
 			offset_base = value_ptr;
 			break;
 		case MN_OFFSET_GUESS:
+			if (maker_note->offset + 10 + 4 >= value_len) {
+				/* Can not read dir_start+10 since it's beyond value end */
+				exif_error_docref("exif_read_data#error_ifd" EXIFERR_CC, ImageInfo, E_WARNING, "IFD data too short: 0x%04X", value_len);
+				return FALSE;
+			}
 			offset_diff = 2 + NumDirEntries*12 + 4 - php_ifd_get32u(dir_start+10, ImageInfo->motorola_intel);
 #ifdef EXIF_DEBUG
 			exif_error_docref(NULL EXIFERR_CC, ImageInfo, E_NOTICE, "Using automatic offset correction: 0x%04X", ((int)dir_start-(int)offset_base+maker_note->offset+displacement) + offset_diff);
 #endif
+			if (offset_diff < 0 || offset_diff >= value_len ) {
+				exif_error_docref("exif_read_data#error_ifd" EXIFERR_CC, ImageInfo, E_WARNING, "IFD data bad offset: 0x%04X length 0x%04X", offset_diff, value_len);
+				return FALSE;
+			}
 			offset_base = value_ptr + offset_diff;
 			break;
 		default:
@@ -2782,7 +2792,7 @@ static int exif_process_IFD_in_MAKERNOTE(image_info_type *ImageInfo, char * valu
 	}
 
 	if ((2+NumDirEntries*12) > value_len) {
-		exif_error_docref("exif_read_data#error_ifd" EXIFERR_CC, ImageInfo, E_WARNING, "Illegal IFD size: 2 + x%04X*12 = x%04X > x%04X", NumDirEntries, 2+NumDirEntries*12, value_len);
+		exif_error_docref("exif_read_data#error_ifd" EXIFERR_CC, ImageInfo, E_WARNING, "Illegal IFD size: 2 + 0x%04X*12 = 0x%04X > 0x%04X", NumDirEntries, 2+NumDirEntries*12, value_len);
 		return FALSE;
 	}
 
@@ -2888,11 +2898,11 @@ static int exif_process_IFD_TAG(image_info_type *ImageInfo, char *dir_entry, cha
 			}
 
 			fpos = php_stream_tell(ImageInfo->infile);
-			php_stream_seek(ImageInfo->infile, offset_val, SEEK_SET);
+			php_stream_seek(ImageInfo->infile, displacement+offset_val, SEEK_SET);
 			fgot = php_stream_tell(ImageInfo->infile);
-			if (fgot!=offset_val) {
+			if (fgot!=displacement+offset_val) {
 				EFREE_IF(outside);
-				exif_error_docref(NULL EXIFERR_CC, ImageInfo, E_WARNING, "Wrong file pointer: 0x%08X != 0x%08X", fgot, offset_val);
+				exif_error_docref(NULL EXIFERR_CC, ImageInfo, E_WARNING, "Wrong file pointer: 0x%08X != 0x%08X", fgot, displacement+offset_val);
 				return FALSE;
 			}
 			fgot = php_stream_read(ImageInfo->infile, value_ptr, byte_count);
@@ -3068,7 +3078,10 @@ static int exif_process_IFD_TAG(image_info_type *ImageInfo, char *dir_entry, cha
 				break;
 
 			case TAG_MAKER_NOTE:
-				exif_process_IFD_in_MAKERNOTE(ImageInfo, value_ptr, byte_count, offset_base, IFDlength, displacement TSRMLS_CC);
+				if (!exif_process_IFD_in_MAKERNOTE(ImageInfo, value_ptr, byte_count, offset_base, IFDlength, displacement TSRMLS_CC)) {
+					EFREE_IF(outside);
+					return FALSE;
+				}
 				break;
 
 			case TAG_EXIF_IFD_POINTER:

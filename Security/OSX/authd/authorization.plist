@@ -495,6 +495,22 @@ See remaining rules for examples.
 			<key>rule</key>
 			<string>entitled-session-owner-or-authenticate-session-owner</string>
 		</dict>
+		<key>com.apple.ctk.pair</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+			<key>rule</key>
+			<string>kcunlock</string>
+		</dict>
+		<key>com.apple.ctkbind.admin</key>
+		<dict>
+			<key>class</key>
+			<string>user</string>
+			<key>group</key>
+			<string>admin</string>
+			<key>shared</key>
+			<false/>
+		</dict>
 		<key>com.apple.pf.rule</key>
 		<dict>
 			<key>authenticate-user</key>
@@ -828,8 +844,9 @@ See remaining rules for examples.
 			<array>
 				<string>loginKC:queryCreate</string>
 				<string>loginKC:showPasswordUI</string>
-				<string>authinternal</string>
 			</array>
+			<key>version</key>
+			<integer>1</integer>
 			<key>session-owner</key>
 			<true/>
 			<key>shared</key>
@@ -870,10 +887,11 @@ See remaining rules for examples.
 				<string>HomeDirMechanism:login,privileged</string>
 				<string>HomeDirMechanism:status</string>
 				<string>MCXMechanism:login</string>
+				<string>CryptoTokenKit:login</string>
 				<string>loginwindow:done</string>
 			</array>
 			<key>version</key>
-			<integer>3</integer>
+			<integer>4</integer>
 		</dict>
 		<key>system.login.fus</key>
 		<dict>
@@ -1468,6 +1486,28 @@ See remaining rules for examples.
 		    <key>rule</key>
 		    <string>authenticate-session-owner</string>
 		</dict>		
+		<key>system.localauthentication.ui</key>
+		<dict>
+			<key>class</key>
+			<string>evaluate-mechanisms</string>
+			<key>comment</key>
+			<string>Used by LocalAuthentication to display its UI.</string>
+			<key>mechanisms</key>
+			<array>
+				<string>LocalAuthentication:UI</string>
+			</array>
+		</dict>
+		<key>system.preferences.continuity</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+			<key>comment</key>
+			<string>Used by Password And Continuity PrefPane to request the user's password.</string>
+			<key>rule</key>
+			<array>
+				<string>authenticate-staff-extract-context</string>
+			</array>
+		</dict>
 	</dict>
 	<key>rules</key>
 	<dict>
@@ -1520,6 +1560,20 @@ See remaining rules for examples.
 				<string>PKINITMechanism:auth,privileged</string>
 			</array>
 		</dict>
+		<key>kcunlock</key>
+		<dict>
+			<key>class</key>
+			<string>evaluate-mechanisms</string>
+			<key>extract-password</key>
+			<true/>
+			<key>mechanisms</key>
+			<array>
+				<string>builtin:unlock-keychain</string>
+				<string>builtin:kc-verify,privileged</string>
+			</array>
+			<key>version</key>
+			<integer>1</integer>
+		</dict>		    
 		<key>authenticate-admin</key>
 		<dict>
 			<key>class</key>
@@ -1557,12 +1611,16 @@ See remaining rules for examples.
 			<string>Authenticate as an administrator + allow password extraction.</string>
 			<key>extract-password</key>
 			<true/>
+			<key>password-only</key>
+			<true/>
 			<key>group</key>
 			<string>admin</string>
 			<key>require-apple-signed</key>
 			<true/>
 			<key>timeout</key>
 			<integer>0</integer>
+			<key>version</key>
+			<integer>1</integer>
 		</dict>
 		<key>authenticate-staff-extract</key>
 		<dict>
@@ -1572,12 +1630,28 @@ See remaining rules for examples.
 			<string>Authenticate as group staff + allow password to be extracted.</string>
 			<key>extract-password</key>
 			<true/>
+			<key>password-only</key>
+			<true/>
 			<key>group</key>
 			<string>staff</string>
 			<key>require-apple-signed</key>
 			<true/>
 			<key>timeout</key>
 			<integer>0</integer>
+			<key>version</key>
+			<integer>1</integer>
+		</dict>
+		<key>authenticate-staff-extract-context</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+			<key>k-of-n</key>
+			<integer>2</integer>
+			<key>rule</key>
+			<array>
+				<string>authenticate-staff-extract</string>
+				<string>localauthentication-context</string>
+			</array>
 		</dict>
 		<key>authenticate-admin-or-staff-extract</key>
 		<dict>
@@ -1924,6 +1998,17 @@ See remaining rules for examples.
 			<true/>
 			<key>shared</key>
 			<false/>
+		</dict>
+		<key>localauthentication-context</key>
+		<dict>
+			<key>class</key>
+			<string>evaluate-mechanisms</string>
+			<key>comment</key>
+			<string>Used by LocalAuthentication to pass externalized context.</string>
+			<key>mechanisms</key>
+			<array>
+				<string>LocalAuthentication:context</string>
+			</array>
 		</dict>
 	</dict>
 </dict>

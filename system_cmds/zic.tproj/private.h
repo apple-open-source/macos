@@ -104,11 +104,11 @@ static const char	privatehid[] = "@(#)private.h	7.53";
 /*
 ** Private function declarations.
 */
-char *	icalloc P((int nelem, int elsize));
+char *	icalloc P((size_t nelem, size_t elsize));
 char *	icatalloc P((char * old, const char * new));
 char *	icpyalloc P((const char * string));
-char *	imalloc P((int n));
-void *	irealloc P((void * pointer, int size));
+char *	imalloc P((size_t n));
+void *	irealloc P((void * pointer, size_t size));
 void	icfree P((char * pointer));
 void	ifree P((char * pointer));
 char *	scheck P((const char *string, const char *format));

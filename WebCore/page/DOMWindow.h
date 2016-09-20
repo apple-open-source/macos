@@ -27,6 +27,7 @@
 #ifndef DOMWindow_h
 #define DOMWindow_h
 
+#include "Base64Utilities.h"
 #include "ContextDestructionObserver.h"
 #include "EventTarget.h"
 #include "FrameDestructionObserver.h"
@@ -34,6 +35,8 @@
 #include "Supplementable.h"
 #include <functional>
 #include <memory>
+#include <wtf/HashSet.h>
+#include <wtf/Optional.h>
 #include <wtf/WeakPtr.h>
 
 namespace Inspector {
@@ -49,7 +52,6 @@ namespace WebCore {
     class DOMApplicationCache;
     class DOMSelection;
     class DOMURL;
-    class DOMWindowCSS;
     class DOMWindowProperty;
     class DOMWrapperWorld;
     class Database;
@@ -97,6 +99,7 @@ namespace WebCore {
         , public EventTargetWithInlineData
         , public ContextDestructionObserver
         , public FrameDestructionObserver
+        , public Base64Utilities
         , public Supplementable<DOMWindow> {
     public:
         static Ref<DOMWindow> create(Document* document) { return adoptRef(*new DOMWindow(document)); }
@@ -111,19 +114,19 @@ namespace WebCore {
         // the network load. See also SecurityContext::isSecureTransitionTo.
         void didSecureTransitionTo(Document*);
 
-        virtual EventTargetInterface eventTargetInterface() const override { return DOMWindowEventTargetInterfaceType; }
-        virtual ScriptExecutionContext* scriptExecutionContext() const override { return ContextDestructionObserver::scriptExecutionContext(); }
+        EventTargetInterface eventTargetInterface() const override { return DOMWindowEventTargetInterfaceType; }
+        ScriptExecutionContext* scriptExecutionContext() const override { return ContextDestructionObserver::scriptExecutionContext(); }
 
-        virtual DOMWindow* toDOMWindow() override;
+        DOMWindow* toDOMWindow() override;
 
         void registerProperty(DOMWindowProperty*);
         void unregisterProperty(DOMWindowProperty*);
 
-        void resetUnlessSuspendedForPageCache();
-        void suspendForPageCache();
-        void resumeFromPageCache();
+        void resetUnlessSuspendedForDocumentSuspension();
+        void suspendForDocumentSuspension();
+        void resumeFromDocumentSuspension();
 
-        PassRefPtr<MediaQueryList> matchMedia(const String&);
+        RefPtr<MediaQueryList> matchMedia(const String&);
 
         WEBCORE_EXPORT unsigned pendingUnloadEventListeners() const;
 
@@ -135,7 +138,7 @@ namespace WebCore {
         bool allowPopUp(); // Call on first window, not target window.
         static bool allowPopUp(Frame* firstFrame);
         static bool canShowModalDialog(const Frame*);
-        static bool canShowModalDialogNow(const Frame*);
+        WEBCORE_EXPORT void setCanShowModalDialogOverride(bool);
 
         // DOM Level 0
 
@@ -152,20 +155,22 @@ namespace WebCore {
         Navigator* clientInformation() const { return navigator(); }
 
         Location* location() const;
-        void setLocation(const String& location, DOMWindow& activeWindow, DOMWindow& firstWindow,
+        void setLocation(DOMWindow& activeWindow, DOMWindow& firstWindow, const String& location,
             SetLocationLocking = LockHistoryBasedOnGestureState);
 
         DOMSelection* getSelection();
 
         Element* frameElement() const;
 
-        void focus(ScriptExecutionContext* = nullptr);
+        WEBCORE_EXPORT void focus(bool allowFocus = false);
+        void focus(DOMWindow& callerWindow);
         void blur();
-        WEBCORE_EXPORT void close(ScriptExecutionContext* = nullptr);
+        WEBCORE_EXPORT void close();
+        void close(Document&);
         void print();
         void stop();
 
-        WEBCORE_EXPORT PassRefPtr<DOMWindow> open(const String& urlString, const AtomicString& frameName, const String& windowFeaturesString,
+        WEBCORE_EXPORT RefPtr<DOMWindow> open(const String& urlString, const AtomicString& frameName, const String& windowFeaturesString,
             DOMWindow& activeWindow, DOMWindow& firstWindow);
 
         void showModalDialog(const String& urlString, const String& dialogFeaturesString, DOMWindow& activeWindow, DOMWindow& firstWindow, std::function<void (DOMWindow&)> prepareDialogFunction);
@@ -173,8 +178,6 @@ namespace WebCore {
         void alert(const String& message);
         bool confirm(const String& message);
         String prompt(const String& message, const String& defaultValue);
-        String btoa(const String& stringToEncode, ExceptionCode&);
-        String atob(const String& encodedString, ExceptionCode&);
 
         bool find(const String&, bool caseSensitive, bool backwards, bool wrap, bool wholeWord, bool searchInFrames, bool showDialog) const;
 
@@ -221,19 +224,19 @@ namespace WebCore {
 
         // CSSOM View Module
 
-        PassRefPtr<StyleMedia> styleMedia() const;
+        RefPtr<StyleMedia> styleMedia() const;
 
         // DOM Level 2 Style Interface
 
-        PassRefPtr<CSSStyleDeclaration> getComputedStyle(Element*, const String& pseudoElt) const;
+        RefPtr<CSSStyleDeclaration> getComputedStyle(Element*, const String& pseudoElt) const;
 
         // WebKit extensions
 
-        PassRefPtr<CSSRuleList> getMatchedCSSRules(Element*, const String& pseudoElt, bool authorOnly = true) const;
+        RefPtr<CSSRuleList> getMatchedCSSRules(Element*, const String& pseudoElt, bool authorOnly = true) const;
         double devicePixelRatio() const;
 
-        PassRefPtr<WebKitPoint> webkitConvertPointFromPageToNode(Node*, const WebKitPoint*) const;
-        PassRefPtr<WebKitPoint> webkitConvertPointFromNodeToPage(Node*, const WebKitPoint*) const;
+        RefPtr<WebKitPoint> webkitConvertPointFromPageToNode(Node*, const WebKitPoint*) const;
+        RefPtr<WebKitPoint> webkitConvertPointFromNodeToPage(Node*, const WebKitPoint*) const;
 
         PageConsoleClient* console() const;
 
@@ -244,11 +247,17 @@ namespace WebCore {
         // Needed for Objective-C bindings (see bug 28774).
         void postMessage(PassRefPtr<SerializedScriptValue> message, MessagePort*, const String& targetOrigin, DOMWindow& source, ExceptionCode&);
         void postMessageTimerFired(PostMessageTimer&);
-        void dispatchMessageEventWithOriginCheck(SecurityOrigin* intendedTargetOrigin, PassRefPtr<Event>, PassRefPtr<Inspector::ScriptCallStack>);
+        void dispatchMessageEventWithOriginCheck(SecurityOrigin* intendedTargetOrigin, Event&, PassRefPtr<Inspector::ScriptCallStack>);
 
-        void scrollBy(int x, int y) const;
-        void scrollTo(int x, int y) const;
-        void scroll(int x, int y) const { scrollTo(x, y); }
+        struct ScrollToOptions {
+            Optional<double> left;
+            Optional<double> top;
+        };
+
+        void scrollBy(const ScrollToOptions&) const;
+        void scrollBy(double x, double y) const;
+        void scrollTo(const ScrollToOptions&) const;
+        void scrollTo(double x, double y) const;
 
         void moveBy(float x, float y) const;
         void moveTo(float x, float y) const;
@@ -269,16 +278,14 @@ namespace WebCore {
         void cancelAnimationFrame(int id);
 #endif
 
-        DOMWindowCSS* css();
-
         // Events
         // EventTarget API
-        virtual bool addEventListener(const AtomicString& eventType, PassRefPtr<EventListener>, bool useCapture) override;
-        virtual bool removeEventListener(const AtomicString& eventType, EventListener*, bool useCapture) override;
-        virtual void removeAllEventListeners() override;
+        bool addEventListener(const AtomicString& eventType, Ref<EventListener>&&, const AddEventListenerOptions&) override;
+        bool removeEventListener(const AtomicString& eventType, EventListener&, const ListenerOptions&) override;
+        void removeAllEventListeners() override;
 
         using EventTarget::dispatchEvent;
-        bool dispatchEvent(PassRefPtr<Event> prpEvent, PassRefPtr<EventTarget> prpTarget);
+        bool dispatchEvent(Event&, EventTarget*);
 
         void dispatchLoadEvent();
 
@@ -309,6 +316,7 @@ namespace WebCore {
 #if ENABLE(WEB_TIMING)
         Performance* performance() const;
 #endif
+        double nowTimestamp() const;
 
 #if PLATFORM(IOS)
         void incrementScrollEventListenersCount();
@@ -347,11 +355,11 @@ namespace WebCore {
         Page* page();
         bool allowedToChangeWindowGeometry() const;
 
-        virtual void frameDestroyed() override;
-        virtual void willDetachPage() override;
+        void frameDestroyed() override;
+        void willDetachPage() override;
 
-        virtual void refEventTarget() override { ref(); }
-        virtual void derefEventTarget() override { deref(); }
+        void refEventTarget() override { ref(); }
+        void derefEventTarget() override { deref(); }
 
         static RefPtr<Frame> createWindow(const String& urlString, const AtomicString& frameName, const WindowFeatures&, DOMWindow& activeWindow, Frame& firstFrame, Frame& openerFrame, std::function<void (DOMWindow&)> prepareDialogFunction = nullptr);
         bool isInsecureScriptAccess(DOMWindow& activeWindow, const String& urlString);
@@ -369,7 +377,8 @@ namespace WebCore {
 #endif
 
         bool m_shouldPrintWhenFinishedLoading;
-        bool m_suspendedForPageCache;
+        bool m_suspendedForDocumentSuspension;
+        Optional<bool> m_canShowModalDialogOverride;
 
         HashSet<DOMWindowProperty*> m_properties;
 
@@ -412,8 +421,6 @@ namespace WebCore {
 #if ENABLE(WEB_TIMING)
         mutable RefPtr<Performance> m_performance;
 #endif
-
-        mutable RefPtr<DOMWindowCSS> m_css;
 
 #if ENABLE(USER_MESSAGE_HANDLERS)
         mutable RefPtr<WebKitNamespace> m_webkitNamespace;

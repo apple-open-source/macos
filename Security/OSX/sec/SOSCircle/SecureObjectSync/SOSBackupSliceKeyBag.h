@@ -51,6 +51,9 @@ bool SOSBSKBIsDirect(SOSBackupSliceKeyBagRef backupSliceKeyBag);
 
 CFSetRef SOSBSKBGetPeers(SOSBackupSliceKeyBagRef backupSliceKeyBag);
 
+int SOSBSKBCountPeers(SOSBackupSliceKeyBagRef backupSliceKeyBag);
+
+bool SOSBSKBPeerIsInKeyBag(SOSBackupSliceKeyBagRef backupSliceKeyBag, SOSPeerInfoRef pi);
 
 // Keybag fetching
 CFDataRef SOSBSKBCopyAKSBag(SOSBackupSliceKeyBagRef backupSliceKeyBag, CFErrorRef* error);

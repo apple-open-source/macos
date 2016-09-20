@@ -50,7 +50,7 @@ public:
     StyleCachedImageSet* cachedImageSet(CachedResourceLoader&, const ResourceLoaderOptions&);
 
     // Returns a StyleCachedImageSet if the best fit image has been cached already, otherwise a StylePendingImage.
-    StyleImage* cachedOrPendingImageSet(Document&);
+    StyleImage* cachedOrPendingImageSet(const Document&);
 
     String customCSSText() const;
 
@@ -63,7 +63,7 @@ public:
 
     bool traverseSubresources(const std::function<bool (const CachedResource&)>& handler) const;
 
-    PassRefPtr<CSSImageSetValue> cloneForCSSOM() const;
+    Ref<CSSImageSetValue> cloneForCSSOM() const;
 
 protected:
     ImageWithScale bestImageForScaleFactor();

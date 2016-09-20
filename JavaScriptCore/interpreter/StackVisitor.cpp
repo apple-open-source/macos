@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,9 +26,10 @@
 #include "config.h"
 #include "StackVisitor.h"
 
-#include "CallFrameInlines.h"
 #include "ClonedArguments.h"
+#include "DebuggerPrimitives.h"
 #include "Executable.h"
+#include "InlineCallFrame.h"
 #include "Interpreter.h"
 #include "JSCInlines.h"
 #include <wtf/DataLog.h>
@@ -42,6 +43,11 @@ StackVisitor::StackVisitor(CallFrame* startFrame)
     if (startFrame) {
         m_frame.m_VMEntryFrame = startFrame->vm().topVMEntryFrame;
         topFrame = startFrame->vm().topCallFrame;
+        
+        if (topFrame && static_cast<void*>(m_frame.m_VMEntryFrame) == static_cast<void*>(topFrame)) {
+            topFrame = vmEntryRecord(m_frame.m_VMEntryFrame)->m_prevTopCallFrame;
+            m_frame.m_VMEntryFrame = vmEntryRecord(m_frame.m_VMEntryFrame)->m_prevTopVMEntryFrame;
+        }
     } else {
         m_frame.m_VMEntryFrame = 0;
         topFrame = 0;
@@ -56,16 +62,37 @@ StackVisitor::StackVisitor(CallFrame* startFrame)
 
 void StackVisitor::gotoNextFrame()
 {
+    m_frame.m_index++;
 #if ENABLE(DFG_JIT)
     if (m_frame.isInlinedFrame()) {
         InlineCallFrame* inlineCallFrame = m_frame.inlineCallFrame();
-        CodeOrigin* callerCodeOrigin = &inlineCallFrame->caller;
-        readInlinedFrame(m_frame.callFrame(), callerCodeOrigin);
+        CodeOrigin* callerCodeOrigin = inlineCallFrame->getCallerSkippingTailCalls();
+        if (!callerCodeOrigin) {
+            while (inlineCallFrame) {
+                readInlinedFrame(m_frame.callFrame(), &inlineCallFrame->directCaller);
+                inlineCallFrame = m_frame.inlineCallFrame();
+            }
+            m_frame.m_VMEntryFrame = m_frame.m_CallerVMEntryFrame;
+            readFrame(m_frame.callerFrame());
+        } else
+            readInlinedFrame(m_frame.callFrame(), callerCodeOrigin);
         return;
     }
 #endif // ENABLE(DFG_JIT)
     m_frame.m_VMEntryFrame = m_frame.m_CallerVMEntryFrame;
     readFrame(m_frame.callerFrame());
+}
+
+void StackVisitor::unwindToMachineCodeBlockFrame()
+{
+#if ENABLE(DFG_JIT)
+    if (m_frame.isInlinedFrame()) {
+        CodeOrigin codeOrigin = m_frame.inlineCallFrame()->directCaller;
+        while (codeOrigin.inlineCallFrame)
+            codeOrigin = codeOrigin.inlineCallFrame->directCaller;
+        readNonInlinedFrame(m_frame.callFrame(), &codeOrigin);
+    }
+#endif
 }
 
 void StackVisitor::readFrame(CallFrame* callFrame)
@@ -94,7 +121,7 @@ void StackVisitor::readFrame(CallFrame* callFrame)
         return;
     }
 
-    unsigned index = callFrame->locationAsCodeOriginIndex();
+    CallSiteIndex index = callFrame->callSiteIndex();
     ASSERT(codeBlock->canGetCodeOrigin(index));
     if (!codeBlock->canGetCodeOrigin(index)) {
         // See assertion above. In release builds, we try to protect ourselves
@@ -124,7 +151,7 @@ void StackVisitor::readNonInlinedFrame(CallFrame* callFrame, CodeOrigin* codeOri
     m_frame.m_codeBlock = callFrame->codeBlock();
     m_frame.m_bytecodeOffset = !m_frame.codeBlock() ? 0
         : codeOrigin ? codeOrigin->bytecodeIndex
-        : callFrame->locationAsBytecodeOffset();
+        : callFrame->bytecodeOffset();
 #if ENABLE(DFG_JIT)
     m_frame.m_inlineCallFrame = 0;
 #endif
@@ -153,7 +180,7 @@ void StackVisitor::readInlinedFrame(CallFrame* callFrame, CodeOrigin* codeOrigin
             m_frame.m_argumentCountIncludingThis = callFrame->r(inlineCallFrame->argumentCountRegister.offset()).unboxedInt32();
         else
             m_frame.m_argumentCountIncludingThis = inlineCallFrame->arguments.size();
-        m_frame.m_codeBlock = inlineCallFrame->baselineCodeBlock();
+        m_frame.m_codeBlock = inlineCallFrame->baselineCodeBlock.get();
         m_frame.m_bytecodeOffset = codeOrigin->bytecodeIndex;
 
         JSFunction* callee = inlineCallFrame->calleeForCallFrame(callFrame);
@@ -180,6 +207,8 @@ StackVisitor::Frame::CodeType StackVisitor::Frame::codeType() const
     switch (codeBlock()->codeType()) {
     case EvalCode:
         return CodeType::Eval;
+    case ModuleCode:
+        return CodeType::Module;
     case FunctionCode:
         return CodeType::Function;
     case GlobalCode:
@@ -189,7 +218,7 @@ StackVisitor::Frame::CodeType StackVisitor::Frame::codeType() const
     return CodeType::Global;
 }
 
-String StackVisitor::Frame::functionName()
+String StackVisitor::Frame::functionName() const
 {
     String traceLine;
     JSObject* callee = this->callee();
@@ -198,12 +227,15 @@ String StackVisitor::Frame::functionName()
     case CodeType::Eval:
         traceLine = ASCIILiteral("eval code");
         break;
+    case CodeType::Module:
+        traceLine = ASCIILiteral("module code");
+        break;
     case CodeType::Native:
         if (callee)
-            traceLine = getCalculatedDisplayName(callFrame(), callee).impl();
+            traceLine = getCalculatedDisplayName(callFrame()->vm(), callee).impl();
         break;
     case CodeType::Function:
-        traceLine = getCalculatedDisplayName(callFrame(), callee).impl();
+        traceLine = getCalculatedDisplayName(callFrame()->vm(), callee).impl();
         break;
     case CodeType::Global:
         traceLine = ASCIILiteral("global code");
@@ -212,15 +244,16 @@ String StackVisitor::Frame::functionName()
     return traceLine.isNull() ? emptyString() : traceLine;
 }
 
-String StackVisitor::Frame::sourceURL()
+String StackVisitor::Frame::sourceURL() const
 {
     String traceLine;
 
     switch (codeType()) {
     case CodeType::Eval:
+    case CodeType::Module:
     case CodeType::Function:
     case CodeType::Global: {
-        String sourceURL = codeBlock()->ownerExecutable()->sourceURL();
+        String sourceURL = codeBlock()->ownerScriptExecutable()->sourceURL();
         if (!sourceURL.isEmpty())
             traceLine = sourceURL.impl();
         break;
@@ -232,7 +265,7 @@ String StackVisitor::Frame::sourceURL()
     return traceLine.isNull() ? emptyString() : traceLine;
 }
 
-String StackVisitor::Frame::toString()
+String StackVisitor::Frame::toString() const
 {
     StringBuilder traceBuild;
     String functionName = this->functionName();
@@ -255,13 +288,20 @@ String StackVisitor::Frame::toString()
     return traceBuild.toString().impl();
 }
 
+intptr_t StackVisitor::Frame::sourceID()
+{
+    if (CodeBlock* codeBlock = this->codeBlock())
+        return codeBlock->ownerScriptExecutable()->sourceID();
+    return noSourceID;
+}
+
 ClonedArguments* StackVisitor::Frame::createArguments()
 {
     ASSERT(m_callFrame);
     CallFrame* physicalFrame = m_callFrame;
     ClonedArguments* arguments;
     ArgumentsMode mode;
-    if (Options::enableFunctionDotArguments())
+    if (Options::useFunctionDotArguments())
         mode = ArgumentsMode::Cloned;
     else
         mode = ArgumentsMode::FakeValues;
@@ -275,7 +315,7 @@ ClonedArguments* StackVisitor::Frame::createArguments()
     return arguments;
 }
 
-void StackVisitor::Frame::computeLineAndColumn(unsigned& line, unsigned& column)
+void StackVisitor::Frame::computeLineAndColumn(unsigned& line, unsigned& column) const
 {
     CodeBlock* codeBlock = this->codeBlock();
     if (!codeBlock) {
@@ -291,14 +331,14 @@ void StackVisitor::Frame::computeLineAndColumn(unsigned& line, unsigned& column)
     unsigned divotColumn = 0;
     retrieveExpressionInfo(divot, unusedStartOffset, unusedEndOffset, divotLine, divotColumn);
 
-    line = divotLine + codeBlock->ownerExecutable()->firstLine();
+    line = divotLine + codeBlock->ownerScriptExecutable()->firstLine();
     column = divotColumn + (divotLine ? 1 : codeBlock->firstLineColumnOffset());
 
-    if (codeBlock->ownerExecutable()->hasOverrideLineNumber())
-        line = codeBlock->ownerExecutable()->overrideLineNumber();
+    if (codeBlock->ownerScriptExecutable()->hasOverrideLineNumber())
+        line = codeBlock->ownerScriptExecutable()->overrideLineNumber();
 }
 
-void StackVisitor::Frame::retrieveExpressionInfo(int& divot, int& startOffset, int& endOffset, unsigned& line, unsigned& column)
+void StackVisitor::Frame::retrieveExpressionInfo(int& divot, int& startOffset, int& endOffset, unsigned& line, unsigned& column) const
 {
     CodeBlock* codeBlock = this->codeBlock();
     codeBlock->unlinkedCodeBlock()->expressionRangeForBytecodeOffset(bytecodeOffset(), divot, startOffset, endOffset, line, column);
@@ -313,46 +353,22 @@ void StackVisitor::Frame::setToEnd()
 #endif
 }
 
-static void printIndents(int levels)
+void StackVisitor::Frame::dump(PrintStream& out, Indenter indent) const
 {
-    while (levels--)
-        dataLogFString("   ");
+    dump(out, indent, [] (PrintStream&) { });
 }
 
-template<typename... Types>
-void log(unsigned indent, const Types&... values)
-{
-    printIndents(indent);
-    dataLog(values...);
-}
-
-template<typename... Types>
-void logF(unsigned indent, const char* format, const Types&... values)
-{
-    printIndents(indent);
-
-#if COMPILER(CLANG) || COMPILER(GCC)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-nonliteral"
-#pragma GCC diagnostic ignored "-Wmissing-format-attribute"
-#endif
-
-    dataLogF(format, values...);
-
-#if COMPILER(CLANG) || COMPILER(GCC)
-#pragma GCC diagnostic pop
-#endif
-}
-
-void StackVisitor::Frame::print(int indent)
+void StackVisitor::Frame::dump(PrintStream& out, Indenter indent, std::function<void(PrintStream&)> prefix) const
 {
     if (!this->callFrame()) {
-        log(indent, "frame 0x0\n");
+        out.print(indent, "frame 0x0\n");
         return;
     }
 
     CodeBlock* codeBlock = this->codeBlock();
-    logF(indent, "frame %p {\n", this->callFrame());
+    out.print(indent);
+    prefix(out);
+    out.print("frame ", RawPointer(this->callFrame()), " {\n");
 
     {
         indent++;
@@ -361,43 +377,46 @@ void StackVisitor::Frame::print(int indent)
         CallFrame* callerFrame = this->callerFrame();
         void* returnPC = callFrame->hasReturnPC() ? callFrame->returnPC().value() : nullptr;
 
-        log(indent, "name: ", functionName(), "\n");
-        log(indent, "sourceURL: ", sourceURL(), "\n");
+        out.print(indent, "name: ", functionName(), "\n");
+        out.print(indent, "sourceURL: ", sourceURL(), "\n");
 
         bool isInlined = false;
 #if ENABLE(DFG_JIT)
         isInlined = isInlinedFrame();
-        log(indent, "isInlinedFrame: ", isInlinedFrame(), "\n");
+        out.print(indent, "isInlinedFrame: ", isInlinedFrame(), "\n");
         if (isInlinedFrame())
-            logF(indent, "InlineCallFrame: %p\n", m_inlineCallFrame);
+            out.print(indent, "InlineCallFrame: ", RawPointer(m_inlineCallFrame), "\n");
 #endif
 
-        logF(indent, "callee: %p\n", callee());
-        logF(indent, "returnPC: %p\n", returnPC);
-        logF(indent, "callerFrame: %p\n", callerFrame);
-        unsigned locationRawBits = callFrame->locationAsRawBits();
-        logF(indent, "rawLocationBits: %u 0x%x\n", locationRawBits, locationRawBits);
-        logF(indent, "codeBlock: %p ", codeBlock);
+        out.print(indent, "callee: ", RawPointer(callee()), "\n");
+        out.print(indent, "returnPC: ", RawPointer(returnPC), "\n");
+        out.print(indent, "callerFrame: ", RawPointer(callerFrame), "\n");
+        unsigned locationRawBits = callFrame->callSiteAsRawBits();
+        out.print(indent, "rawLocationBits: ", static_cast<uintptr_t>(locationRawBits),
+            " ", RawPointer(reinterpret_cast<void*>(locationRawBits)), "\n");
+        out.print(indent, "codeBlock: ", RawPointer(codeBlock));
         if (codeBlock)
-            dataLog(*codeBlock);
-        dataLog("\n");
+            out.print(*codeBlock);
+        out.print("\n");
         if (codeBlock && !isInlined) {
             indent++;
 
-            if (callFrame->hasLocationAsBytecodeOffset()) {
-                unsigned bytecodeOffset = callFrame->locationAsBytecodeOffset();
-                log(indent, "bytecodeOffset: ", bytecodeOffset, " of ", codeBlock->instructions().size(), "\n");
+            if (callFrame->callSiteBitsAreBytecodeOffset()) {
+                unsigned bytecodeOffset = callFrame->bytecodeOffset();
+                out.print(indent, "bytecodeOffset: ", bytecodeOffset, " of ", codeBlock->instructions().size(), "\n");
 #if ENABLE(DFG_JIT)
             } else {
-                log(indent, "hasCodeOrigins: ", codeBlock->hasCodeOrigins(), "\n");
+                out.print(indent, "hasCodeOrigins: ", codeBlock->hasCodeOrigins(), "\n");
                 if (codeBlock->hasCodeOrigins()) {
-                    unsigned codeOriginIndex = callFrame->locationAsCodeOriginIndex();
-                    log(indent, "codeOriginIndex: ", codeOriginIndex, " of ", codeBlock->codeOrigins().size(), "\n");
+                    CallSiteIndex callSiteIndex = callFrame->callSiteIndex();
+                    out.print(indent, "callSiteIndex: ", callSiteIndex.bits(), " of ", codeBlock->codeOrigins().size(), "\n");
 
                     JITCode::JITType jitType = codeBlock->jitType();
                     if (jitType != JITCode::FTLJIT) {
                         JITCode* jitCode = codeBlock->jitCode().get();
-                        logF(indent, "jitCode: %p start %p end %p\n", jitCode, jitCode->start(), jitCode->end());
+                        out.print(indent, "jitCode: ", RawPointer(jitCode),
+                            " start ", RawPointer(jitCode->start()),
+                            " end ", RawPointer(jitCode->end()), "\n");
                     }
                 }
 #endif
@@ -405,14 +424,15 @@ void StackVisitor::Frame::print(int indent)
             unsigned line = 0;
             unsigned column = 0;
             computeLineAndColumn(line, column);
-            log(indent, "line: ", line, "\n");
-            log(indent, "column: ", column, "\n");
+            out.print(indent, "line: ", line, "\n");
+            out.print(indent, "column: ", column, "\n");
 
             indent--;
         }
+        out.print(indent, "vmEntryFrame: ", RawPointer(vmEntryFrame()), "\n");
         indent--;
     }
-    log(indent, "}\n");
+    out.print(indent, "}\n");
 }
 
 } // namespace JSC

@@ -29,7 +29,6 @@
  */
 
 #include "config.h"
-
 #include "JSMutationObserver.h"
 
 #include "ExceptionCode.h"
@@ -43,19 +42,19 @@ using namespace JSC;
 
 namespace WebCore {
 
-EncodedJSValue JSC_HOST_CALL constructJSMutationObserver(ExecState* exec)
+EncodedJSValue JSC_HOST_CALL constructJSMutationObserver(ExecState& exec)
 {
-    if (exec->argumentCount() < 1)
-        return throwVMError(exec, createNotEnoughArgumentsError(exec));
+    if (exec.argumentCount() < 1)
+        return throwVMError(&exec, createNotEnoughArgumentsError(&exec));
 
-    JSObject* object = exec->argument(0).getObject();
+    JSObject* object = exec.uncheckedArgument(0).getObject();
     CallData callData;
-    if (!object || object->methodTable()->getCallData(object, callData) == CallTypeNone)
-        return throwVMError(exec, createTypeError(exec, "Callback argument must be a function"));
+    if (!object || object->methodTable()->getCallData(object, callData) == CallType::None)
+        return throwVMTypeError(&exec, ASCIILiteral("Callback argument must be a function"));
 
-    DOMConstructorObject* jsConstructor = jsCast<DOMConstructorObject*>(exec->callee());
-    RefPtr<JSMutationCallback> callback = JSMutationCallback::create(object, jsConstructor->globalObject());
-    JSObject* jsObserver = asObject(toJS(exec, jsConstructor->globalObject(), MutationObserver::create(callback.release())));
+    DOMConstructorObject* jsConstructor = jsCast<DOMConstructorObject*>(exec.callee());
+    auto callback = JSMutationCallback::create(object, jsConstructor->globalObject());
+    JSObject* jsObserver = asObject(toJSNewlyCreated(&exec, jsConstructor->globalObject(), MutationObserver::create(WTFMove(callback))));
     PrivateName propertyName;
     jsObserver->putDirect(jsConstructor->globalObject()->vm(), propertyName, object);
     return JSValue::encode(jsObserver);
@@ -63,10 +62,8 @@ EncodedJSValue JSC_HOST_CALL constructJSMutationObserver(ExecState* exec)
 
 bool JSMutationObserverOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown> handle, void*, SlotVisitor& visitor)
 {
-    MutationObserver& observer = jsCast<JSMutationObserver*>(handle.slot()->asCell())->impl();
-    auto observedNodes = observer.getObservedNodes();
-    for (auto it = observedNodes.begin(), end = observedNodes.end(); it != end; ++it) {
-        if (visitor.containsOpaqueRoot(root(*it)))
+    for (auto* node : jsCast<JSMutationObserver*>(handle.slot()->asCell())->wrapped().observedNodes()) {
+        if (visitor.containsOpaqueRoot(root(node)))
             return true;
     }
     return false;

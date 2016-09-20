@@ -281,37 +281,37 @@ parse_term_expression(const char **ptr)
 		case TOK_DIR:
 			term_node = alloc_node(lex_token.id);
 			get_token(ptr);
-            
+			
 			if (lex_token.id == TOK_EQ || lex_token.id == TOK_NEQ)
 				term_node->op = lex_token.id;
 			else {
 				warnx("cannot parse operator at: %s", *ptr);
-				term_node = NULL;
 				goto fail;
-            }
+			}
 			get_token(ptr);
 			if (lex_token.id != TOK_STR) {
 				warnx("missig comparison string at: %s", *ptr);
 				goto fail;
-            }
+			}
 			/*
 			 * TBD
 			 * For TOK_SVC and TOK_DIR restrict to meaningful values
 			 */
 			
 			term_node->str = strdup(lex_token.label);
-
+			
 			if (term_node->id == TOK_PID || term_node->id == TOK_EPID)
 				term_node->num = atoi(term_node->str);
 			break;
-		
+			
 		default:
 			warnx("cannot parse term at: %s", *ptr);
 			break;
 	}
 	return (term_node);
 fail:
-	free_node(term_node);
+	if (term_node != NULL)
+		free_node(term_node);
 	return (NULL);
 }
 

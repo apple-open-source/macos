@@ -1,5 +1,5 @@
 /********************************************************************
- * Copyright (c) 2011-2014, International Business Machines Corporation
+ * Copyright (c) 2011-2016, International Business Machines Corporation
  * and others. All Rights Reserved.
  ********************************************************************/
 /* C API TEST FOR DATE INTERVAL FORMAT */
@@ -17,8 +17,6 @@
 
 static void TestDateIntervalFormat(void);
 static void TestFPos_SkelWithSeconds(void);
-
-#define LEN(a) (sizeof(a)/sizeof(a[0]))
 
 void addDateIntervalFormatTest(TestNode** root);
 
@@ -42,6 +40,7 @@ typedef struct {
     const char * locale;
     const char * skeleton;
     const char * tzid;
+    UDateIntervalFormatAttributeValue minimizeType;
     const UDate  from;
     const UDate  to;
     const char * resultExpected;
@@ -49,15 +48,34 @@ typedef struct {
 
 /* Just a small set of tests for now, the real functionality is tested in the C++ tests */
 static const DateIntervalFormatTestItem testItems[] = {
-    { "en", "MMMdHHmm", tzUSPacific, Date201103021030, Date201103021030 + 7.0*_HOUR,  "Mar 2, 10:30 - 17:30" },
-    { "en", "MMMdHHmm", tzAsiaTokyo, Date201103021030, Date201103021030 + 7.0*_HOUR,  "Mar 3, 03:30 - 10:30" },
-    { "en", "yMMMEd",   tzUSPacific, Date201009270800, Date201009270800 + 12.0*_HOUR, "Mon, Sep 27, 2010" },
-    { "en", "yMMMEd",   tzUSPacific, Date201009270800, Date201009270800 + 31.0*_DAY,  "Mon, Sep 27 - Thu, Oct 28, 2010" },
-    { "en", "yMMMEd",   tzUSPacific, Date201009270800, Date201009270800 + 410.0*_DAY, "Mon, Sep 27, 2010 - Fri, Nov 11, 2011" },
-    { "de", "Hm",       tzUSPacific, Date201009270800, Date201009270800 + 12.0*_HOUR, "08:00\\u201320:00" },
-    { "de", "Hm",       tzUSPacific, Date201009270800, Date201009270800 + 31.0*_DAY,  "27.9.2010, 08:00 \\u2013 28.10.2010, 08:00" },
-    { "ja", "MMMd",     tzUSPacific, Date201009270800, Date201009270800 + 1.0*_DAY,   "9\\u670827\\u65E5\\uFF5E28\\u65E5" },
-    { NULL, NULL,       NULL,        0,                0,                             NULL }
+    { "en", "MMMdHHmm", tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201103021030, Date201103021030 + 7.0*_HOUR,  "Mar 2, 10:30 - 17:30" },
+    { "en", "MMMdHHmm", tzAsiaTokyo, UDTITVFMT_MINIMIZE_NONE,            Date201103021030, Date201103021030 + 7.0*_HOUR,  "Mar 3, 03:30 - 10:30" },
+    { "en", "yMMMEd",   tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201009270800, Date201009270800 + 12.0*_HOUR, "Mon, Sep 27, 2010" },
+    { "en", "yMMMEd",   tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201009270800, Date201009270800 + 31.0*_DAY,  "Mon, Sep 27 - Thu, Oct 28, 2010" },
+    { "en", "yMMMEd",   tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201009270800, Date201009270800 + 410.0*_DAY, "Mon, Sep 27, 2010 - Fri, Nov 11, 2011" },
+    { "de", "Hm",       tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201009270800, Date201009270800 + 12.0*_HOUR, "08:00\\u201320:00 Uhr" },
+    { "de", "Hm",       tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201009270800, Date201009270800 + 31.0*_DAY,  "27.9.2010, 08:00 \\u2013 28.10.2010, 08:00" },
+    { "ja", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201009270800, Date201009270800 + 1.0*_DAY,   "9\\u670827\\u65E5\\uFF5E28\\u65E5" },
+    { "en", "jm",       tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201103021030, Date201103021030 + 1.0*_HOUR,  "10:30 AM - 11:30 AM" },
+    { "en", "jm",       tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201103021030, Date201103021030 + 12.0*_HOUR, "10:30 AM - 10:30 PM" },
+    { "it", "yMMMMd",   tzUSPacific, UDTITVFMT_MINIMIZE_NONE,            Date201103021030, Date201103021030 + 15.0*_DAY,  "2\\u201317 marzo 2011" },
+    // Apple-specific
+    { "en", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 6.0*_DAY,   "Sep 27 - 3" },
+    { "en", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 32.0*_DAY,  "Sep 27 - Oct 29" },
+    { "fr", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 6.0*_DAY,   "27\\u20133 oct." },
+    { "fr", "MMMd",     tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_MONTHS, Date201009270800, Date201009270800 + 32.0*_DAY,  "27 sept. \\u2013 29 oct." },
+    { "en", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800, Date201009270800 + 10.0*_HOUR, "Sep 27, 8:00 AM - 6:00 PM" },
+    { "en", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800, Date201009270800 + 17.0*_HOUR, "Sep 27, 8:00 AM - Sep 28, 1:00 AM" },
+    { "en", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, "Sep 27, 8:00 PM - 1:00 AM" },
+    { "en", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800 + 12.0*_HOUR, Date201009270800 + 26.0*_HOUR, "Sep 27, 8:00 PM - Sep 28, 10:00 AM" },
+    { "en", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800 + 12.0*_HOUR, Date201009270800 + 35.0*_HOUR, "Sep 27, 8:00 PM - Sep 28, 7:00 PM" },
+    { "fr", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800, Date201009270800 + 10.0*_HOUR, "27 sept. \\u00E0 08:00 \\u2013 18:00" },
+    { "fr", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800, Date201009270800 + 17.0*_HOUR, "27 sept. \\u00E0 08:00 \\u2013 28 sept. \\u00E0 01:00" },
+    { "fr", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, "27 sept. \\u00E0 20:00 \\u2013 01:00" },
+    { "fr", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800 + 12.0*_HOUR, Date201009270800 + 26.0*_HOUR, "27 sept. \\u00E0 20:00 \\u2013 28 sept. \\u00E0 10:00" },
+    { "fr", "MMMdjmm",  tzUSPacific, UDTITVFMT_MINIMIZE_ADJACENT_DAYS,   Date201009270800 + 12.0*_HOUR, Date201009270800 + 35.0*_HOUR, "27 sept. \\u00E0 20:00 \\u2013 28 sept. \\u00E0 19:00" },
+
+   { NULL, NULL,       NULL,        UDTITVFMT_MINIMIZE_NONE,            0,                0,                             NULL }
 };
 
 enum {
@@ -91,6 +109,11 @@ static void TestDateIntervalFormat()
         if ( U_SUCCESS(status) ) {
             UChar result[kFormatBufLen];
             UChar resultExpected[kFormatBufLen];
+            udtitvfmt_setAttribute(udtitvfmt, UDTITVFMT_MINIMIZE_TYPE, testItemPtr->minimizeType, &status);
+            if ( U_FAILURE(status) ) {
+                log_err("FAIL: udtitvfmt_setAttribute for locale %s, skeleton %s, tzid %s, minimizeType %d: %s\n",
+                        testItemPtr->locale, testItemPtr->skeleton, tzidForLog, (int)testItemPtr->minimizeType, myErrorName(status) );
+            }
             int32_t fmtLen = udtitvfmt_format(udtitvfmt, testItemPtr->from, testItemPtr->to, result, kFormatBufLen, NULL, &status);
             if (fmtLen >= kFormatBufLen) {
                 result[kFormatBufLen-1] = 0;
@@ -99,13 +122,24 @@ static void TestDateIntervalFormat()
                 u_unescape(testItemPtr->resultExpected, resultExpected, kFormatBufLen);
                 if ( u_strcmp(result, resultExpected) != 0 ) {
                     char bcharBuf[kFormatBufLen];
-                    log_err("ERROR: udtitvfmt_format for locale %s, skeleton %s, tzid %s, from %.1f, to %.1f: expect %s, get %s\n",
-                             testItemPtr->locale, testItemPtr->skeleton, tzidForLog, testItemPtr->from, testItemPtr->to,
-                             testItemPtr->resultExpected, u_austrcpy(bcharBuf,result) );
+#if 0
+                    log_err("ERROR: udtitvfmt_format for locale %s, skeleton %s, tzid %s, minimizeType %d, from %.1f, to %.1f: expect %s, get %s\n",
+                             testItemPtr->locale, testItemPtr->skeleton, tzidForLog, (int)testItemPtr->minimizeType,
+                             testItemPtr->from, testItemPtr->to, testItemPtr->resultExpected, u_austrcpy(bcharBuf,result) );
+#else
+                    // Apple-specific version
+                    char bexpbuf[kFormatBufLen];
+                    u_strToUTF8(bexpbuf, kFormatBufLen, NULL, resultExpected, -1, &status);
+                    u_strToUTF8(bcharBuf, kFormatBufLen, NULL, result, fmtLen, &status);
+                    log_err("ERROR: udtitvfmt_format for locale %s, skeleton %s, tzid %s, minimizeType %d, from %.1f, to %.1f: expect %s, get %s\n",
+                             testItemPtr->locale, testItemPtr->skeleton, tzidForLog, (int)testItemPtr->minimizeType,
+                             testItemPtr->from, testItemPtr->to, bexpbuf, bcharBuf );
+#endif
                 }
             } else {
-                log_err("FAIL: udtitvfmt_format for locale %s, skeleton %s, tzid %s, from %.1f, to %.1f: %s\n",
-                        testItemPtr->locale, testItemPtr->skeleton, tzidForLog, testItemPtr->from, testItemPtr->to, myErrorName(status) );
+                log_err("FAIL: udtitvfmt_format for locale %s, skeleton %s, tzid %s, minimizeType %d, from %.1f, to %.1f: %s\n",
+                        testItemPtr->locale, testItemPtr->skeleton, tzidForLog, (int)testItemPtr->minimizeType,
+                        testItemPtr->from, testItemPtr->to, myErrorName(status) );
             }
             udtitvfmt_close(udtitvfmt);
         } else {
@@ -136,7 +170,7 @@ static const double deltas[] = {
 	8640000000.0, // 100 days
 	-1.0
 };
-enum { kNumDeltas = sizeof(deltas)/sizeof(deltas[0]) - 1 };
+enum { kNumDeltas = UPRV_LENGTHOF(deltas) - 1 };
 
 typedef struct {
     int32_t posBegin;

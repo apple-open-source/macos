@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -253,6 +253,9 @@ S_build_interface_list(interface_list_t * interfaces)
 		      uint64_t	eflags;
 
 		      eflags = S_get_eflags(s, name);
+		      if ((eflags & IFEF_EXPENSIVE) != 0) {
+			  entry->type_flags |= kInterfaceTypeFlagIsExpensive;
+		      }
 		      if (S_ifmediareq_get_is_wireless(&ifmr)) {
 			  entry->type_flags |= kInterfaceTypeFlagIsWireless;
 			  if ((eflags & IFEF_AWDL) != 0) {
@@ -691,6 +694,12 @@ if_is_tethered(interface_t * if_p)
     return ((if_p->type_flags & kInterfaceTypeFlagIsTethered) != 0);
 }
 
+boolean_t
+if_is_expensive(interface_t * if_p)
+{
+    return ((if_p->type_flags & kInterfaceTypeFlagIsExpensive) != 0);
+}
+
 int
 if_link_index(interface_t * if_p)
 {
@@ -791,6 +800,8 @@ if_link_status_update(interface_t * if_p)
 
     s = socket(AF_INET, SOCK_DGRAM, 0);
     if (s >= 0) {
+	uint16_t	eflags;
+
 	if (S_get_ifmediareq(s, if_name(if_p), &ifmr) == FALSE) {
 	    if (errno != ENXIO && errno != EPWROFF && errno != EINVAL) {
 		IPConfigLogFL(LOG_NOTICE,
@@ -800,6 +811,13 @@ if_link_status_update(interface_t * if_p)
 	}
 	else {
 	    if_p->link_status = S_ifmediareq_get_link_status(&ifmr);
+	}
+	eflags = S_get_eflags(s, if_name(if_p));
+	if ((eflags & IFEF_EXPENSIVE) != 0) {
+	    if_p->type_flags |= kInterfaceTypeFlagIsExpensive;
+	}
+	else {
+	    if_p->type_flags &= ~kInterfaceTypeFlagIsExpensive;
 	}
 	close(s);
     }
@@ -879,6 +897,9 @@ ifl_print(interface_list_t * list_p)
 	    }
 	    if (if_is_tethered(if_p)) {
 		printf(" [tethered]");
+	    }
+	    if (if_is_expensive(if_p)) {
+		printf(" [expensive]");
 	    }
 	    printf("\n");
 	}

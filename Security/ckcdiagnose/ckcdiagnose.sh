@@ -13,7 +13,7 @@ HOSTNAME=$(hostname -s)
 NOW=$(date "+%Y%m%d%H%M%S")
 
 case $PRODUCT_NAME in
-    "Mac OS X")
+    *"OS X")
         PROD=OSX
         secd=secd
         secexec=security2
@@ -82,8 +82,9 @@ fi
 for class in genp inet cert keys; do
     for sync in 0 1; do
         for tomb in 0 1; do
-            echo class=${class},sync=${sync},tomb=${tomb}: >> $OUTPUT/keychain-state.log
-            ${secexec} item -q class=${class},sync=${sync},tomb=${tomb} | grep '^acct'|wc -l 2>&1 >> $OUTPUT/keychain-state.log
+
+            echo class=${class},sync=${sync},tomb=${tomb},u_AuthUI=u_AuthUIS: >> $OUTPUT/keychain-state.log
+            ${secexec} item -q class=${class},sync=${sync},tomb=${tomb},u_AuthUI=u_AuthUIS | grep '^acct'|wc -l 2>&1 >> $OUTPUT/keychain-state.log
         done
     done
 done
@@ -95,7 +96,12 @@ if (( ! $SHORT )); then
 fi
 
 (( $SHORT )) || (sbdtool status > $OUTPUT/sbdtool_status.log 2>&1)
+
+if [ "$PROD" == "OSX" ]; then
 (( $SHORT )) || plutil -p $HOME/Library/SyncedPreferences/com.apple.sbd.plist > $OUTPUT/sbd_kvs.txt
+elif [ "$PROD" == "IOS" ]; then
+(( $SHORT )) || plutil -p /var/mobile/Library/SyncedPreferences/com.apple.sbd.plist > $OUTPUT/sbd_kvs.txt
+fi
 
 $syd status > $OUTPUT/syd_status.txt 2>&1
 $syd lastrequest > $OUTPUT/syd_lastrequest.txt 2>&1

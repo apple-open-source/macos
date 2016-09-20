@@ -29,6 +29,7 @@
 #include "FloatConversion.h"
 #include "SVGNames.h"
 #include "SVGParserUtilities.h"
+#include "TextStream.h"
 #include <wtf/MathExtras.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/StringView.h>
@@ -281,7 +282,7 @@ void SVGLength::convertToSpecifiedUnits(unsigned short type, const SVGLengthCont
     m_unit = originalUnitAndType;
 }
 
-SVGLength SVGLength::fromCSSPrimitiveValue(CSSPrimitiveValue& value)
+SVGLength SVGLength::fromCSSPrimitiveValue(const CSSPrimitiveValue& value)
 {
     SVGLengthType svgType;
     switch (value.primitiveType()) {
@@ -407,6 +408,12 @@ SVGLengthMode SVGLength::lengthModeForAnimatedLengthAttribute(const QualifiedNam
         return s_lengthModeMap.get().get(attrName);
     
     return LengthModeOther;
+}
+
+TextStream& operator<<(TextStream& ts, const SVGLength& length)
+{
+    ts << length.valueAsString();
+    return ts;
 }
 
 }

@@ -1,4 +1,4 @@
-/* $OpenBSD: channels.c,v 1.347 2015/07/01 02:26:31 djm Exp $ */
+/* $OpenBSD: channels.c,v 1.349 2016/02/05 13:28:19 naddy Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -662,7 +662,7 @@ channel_open_message(void)
 		case SSH_CHANNEL_INPUT_DRAINING:
 		case SSH_CHANNEL_OUTPUT_DRAINING:
 			snprintf(buf, sizeof buf,
-			    "  #%d %.300s (t%d r%d i%d/%d o%d/%d fd %d/%d cc %d)\r\n",
+			    "  #%d %.300s (t%d r%d i%u/%d o%u/%d fd %d/%d cc %d)\r\n",
 			    c->self, c->remote_name,
 			    c->type, c->remote_id,
 			    c->istate, buffer_len(&c->input),
@@ -863,7 +863,7 @@ channel_pre_open(Channel *c, fd_set *readset, fd_set *writeset)
 		}
 	}
 	/** XXX check close conditions, too */
-	if (compat20 && c->efd != -1 && 
+	if (compat20 && c->efd != -1 &&
 	    !(c->istate == CHAN_INPUT_CLOSED && c->ostate == CHAN_OUTPUT_CLOSED)) {
 		if (c->extended_usage == CHAN_EXTENDED_WRITE &&
 		    buffer_len(&c->extended) > 0)
@@ -1896,13 +1896,13 @@ read_mux(Channel *c, u_int need)
 	if (buffer_len(&c->input) < need) {
 		rlen = need - buffer_len(&c->input);
 		len = read(c->rfd, buf, MIN(rlen, CHAN_RBUF));
+		if (len < 0 && (errno == EINTR || errno == EAGAIN))
+			return buffer_len(&c->input);
 		if (len <= 0) {
-			if (errno != EINTR && errno != EAGAIN) {
-				debug2("channel %d: ctl read<=0 rfd %d len %d",
-				    c->self, c->rfd, len);
-				chan_read_failed(c);
-				return 0;
-			}
+			debug2("channel %d: ctl read<=0 rfd %d len %d",
+			    c->self, c->rfd, len);
+			chan_read_failed(c);
+			return 0;
 		} else
 			buffer_append(&c->input, buf, len);
 	}
@@ -2731,7 +2731,7 @@ channel_input_status_confirm(int type, u_int32_t seq, void *ctxt)
 	if ((c = channel_lookup(id)) == NULL) {
 		logit("channel_input_status_confirm: %d: unknown", id);
 		return 0;
-	}	
+	}
 	if ((cc = TAILQ_FIRST(&c->status_confirms)) == NULL)
 		return 0;
 	cc->cb(type, c, cc->ctx);
@@ -3419,7 +3419,7 @@ channel_request_rforward_cancel_streamlocal(const char *path)
 
 	return 0;
 }
- 
+
 /*
  * Request cancellation of remote forwarding of a connection from local side.
  */
@@ -3522,7 +3522,7 @@ channel_update_permitted_opens(int idx, int newport)
 	    permitted_opens[idx].host_to_connect,
 	    permitted_opens[idx].port_to_connect);
 	if (newport >= 0)  {
-		permitted_opens[idx].listen_port = 
+		permitted_opens[idx].listen_port =
 		    (datafellows & SSH_BUG_DYNAMIC_RPORT) ? 0 : newport;
 	} else {
 		permitted_opens[idx].listen_port = 0;
@@ -3924,7 +3924,7 @@ x11_create_display_inet(int x11_display_offset, int x11_use_localhost,
 				if ((errno != EINVAL) && (errno != EAFNOSUPPORT)
 #ifdef EPFNOSUPPORT
 				    && (errno != EPFNOSUPPORT)
-#endif 
+#endif
 				    ) {
 					error("socket: %.100s", strerror(errno));
 					freeaddrinfo(aitop);
@@ -4037,7 +4037,7 @@ x11_connect_display(void)
 	 * connection to the real X server.
 	 */
 
-#ifdef __APPLE__
+#ifdef __APPLE_DISPLAY_VAR__
 	/* Check if the display is a path to a socket (as set by launchd). */
 	{
 		char path[PATH_MAX];

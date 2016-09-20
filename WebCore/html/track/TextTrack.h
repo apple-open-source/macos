@@ -24,8 +24,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TextTrack_h
-#define TextTrack_h
+#pragma once
 
 #if ENABLE(VIDEO_TRACK)
 
@@ -33,22 +32,15 @@
 #include "TextTrackCue.h"
 #include "TrackBase.h"
 #include "VTTCue.h"
-#include <wtf/RefCounted.h>
 #include <wtf/text/WTFString.h>
-
-#if USE(PLATFORM_TEXT_TRACK_MENU)
-#include "PlatformTextTrack.h"
-#endif
 
 namespace WebCore {
 
 class ScriptExecutionContext;
 class TextTrack;
 class TextTrackCueList;
-#if ENABLE(WEBVTT_REGIONS)
 class VTTRegion;
 class VTTRegionList;
-#endif
 
 class TextTrackClient {
 public:
@@ -61,11 +53,7 @@ public:
     virtual void textTrackRemoveCue(TextTrack*, PassRefPtr<TextTrackCue>) = 0;
 };
 
-class TextTrack : public TrackBase, public EventTargetWithInlineData
-#if USE(PLATFORM_TEXT_TRACK_MENU)
-    , public PlatformTextTrackClient
-#endif
-    {
+class TextTrack : public TrackBase, public EventTargetWithInlineData {
 public:
     static Ref<TextTrack> create(ScriptExecutionContext* context, TextTrackClient* client, const AtomicString& kind, const AtomicString& id, const AtomicString& label, const AtomicString& language)
     {
@@ -73,31 +61,34 @@ public:
     }
     virtual ~TextTrack();
 
-    virtual EventTargetInterface eventTargetInterface() const override final { return TextTrackEventTargetInterfaceType; }
-    virtual ScriptExecutionContext* scriptExecutionContext() const override final { return m_scriptExecutionContext; }
+    EventTargetInterface eventTargetInterface() const final { return TextTrackEventTargetInterfaceType; }
+    ScriptExecutionContext* scriptExecutionContext() const final { return m_scriptExecutionContext; }
 
     static TextTrack* captionMenuOffItem();
     static TextTrack* captionMenuAutomaticItem();
 
     static const AtomicString& subtitlesKeyword();
-    static const AtomicString& captionsKeyword();
-    static const AtomicString& descriptionsKeyword();
-    static const AtomicString& chaptersKeyword();
-    static const AtomicString& metadataKeyword();
-    static const AtomicString& forcedKeyword();
-    virtual const AtomicString& defaultKindKeyword() const override { return subtitlesKeyword(); }
     static bool isValidKindKeyword(const AtomicString&);
 
     static const AtomicString& disabledKeyword();
     static const AtomicString& hiddenKeyword();
     static const AtomicString& showingKeyword();
 
-    virtual void setKind(const AtomicString&) override;
+    enum class Kind { Subtitles, Captions, Descriptions, Chapters, Metadata, Forced };
+    Kind kind() const;
+    void setKind(Kind);
+
+    Kind kindForBindings() const;
+    void setKindForBindings(Kind);
+
+    const AtomicString& kindKeyword() const;
+    void setKindKeywordIgnoringASCIICase(StringView);
 
     virtual AtomicString inBandMetadataTrackDispatchType() const { return emptyString(); }
 
-    AtomicString mode() const { return m_mode; }
-    virtual void setMode(const AtomicString&);
+    enum class Mode { Disabled, Hidden, Showing };
+    Mode mode() const;
+    virtual void setMode(Mode);
 
     enum ReadinessState { NotLoaded = 0, Loading = 1, Loaded = 2, FailedToLoad = 3 };
     ReadinessState readinessState() const { return m_readinessState; }
@@ -106,7 +97,7 @@ public:
     TextTrackCueList* cues();
     TextTrackCueList* activeCues() const;
 
-    virtual void clearClient() override { m_client = 0; }
+    void clearClient() override { m_client = nullptr; }
     TextTrackClient* client() { return m_client; }
 
     void addCue(PassRefPtr<TextTrackCue>, ExceptionCode&);
@@ -114,11 +105,9 @@ public:
 
     bool hasCue(TextTrackCue*, TextTrackCue::CueMatchRules = TextTrackCue::MatchAllFields);
 
-#if ENABLE(VIDEO_TRACK) && ENABLE(WEBVTT_REGIONS)
     VTTRegionList* regions();
     void addRegion(PassRefPtr<VTTRegion>);
     void removeRegion(VTTRegion*, ExceptionCode&);
-#endif
 
     void cueWillChange(TextTrackCue*);
     void cueDidChange(TextTrackCue*);
@@ -146,12 +135,8 @@ public:
 
     void removeAllCues();
 
-#if USE(PLATFORM_TEXT_TRACK_MENU)
-    PassRefPtr<PlatformTextTrack> platformTextTrack();
-#endif
-
 #if ENABLE(MEDIA_SOURCE)
-    virtual void setLanguage(const AtomicString&) override;
+    void setLanguage(const AtomicString&) override;
 #endif
 
     virtual bool isInband() const { return false; }
@@ -167,43 +152,65 @@ protected:
     RefPtr<TextTrackCueList> m_cues;
 
 private:
-    virtual bool isValidKind(const AtomicString&) const override;
+    bool enabled() const override;
 
-    virtual bool enabled() const override;
+    void refEventTarget() final { ref(); }
+    void derefEventTarget() final { deref(); }
 
-    virtual void refEventTarget() override final { ref(); }
-    virtual void derefEventTarget() override final { deref(); }
-
-#if ENABLE(VIDEO_TRACK) && ENABLE(WEBVTT_REGIONS)
-    VTTRegionList* ensureVTTRegionList();
+    VTTRegionList& ensureVTTRegionList();
     RefPtr<VTTRegionList> m_regions;
-#endif
 
-#if USE(PLATFORM_TEXT_TRACK_MENU)
-    virtual TextTrack* publicTrack() override { return this; }
-
-    RefPtr<PlatformTextTrack> m_platformTextTrack;
-#endif
-
-    TextTrackCueList* ensureTextTrackCueList();
+    TextTrackCueList& ensureTextTrackCueList();
 
     ScriptExecutionContext* m_scriptExecutionContext;
-    AtomicString m_mode;
+    Mode m_mode { Mode::Disabled };
+    Kind m_kind { Kind::Subtitles };
     TextTrackClient* m_client;
     TextTrackType m_trackType;
-    ReadinessState m_readinessState;
+    ReadinessState m_readinessState { NotLoaded };
     int m_trackIndex;
     int m_renderedTrackIndex;
-    bool m_hasBeenConfigured;
+    bool m_hasBeenConfigured { false };
 };
 
-inline TextTrack* toTextTrack(TrackBase* track)
+inline auto TextTrack::mode() const -> Mode
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(track->type() == TrackBase::TextTrack);
-    return static_cast<TextTrack*>(track);
+    return m_mode;
 }
+
+inline auto TextTrack::kind() const -> Kind
+{
+    return m_kind;
+}
+
+inline auto TextTrack::kindForBindings() const -> Kind
+{
+    return kind();
+}
+
+#if !ENABLE(MEDIA_SOURCE)
+
+inline void TextTrack::setKindForBindings(Kind)
+{
+    // FIXME: We are using kindForBindings only to implement this empty function, preserving the
+    // behavior of doing nothing when trying to set the kind, originally implemented in a custom setter.
+    // Once we no longer need this special case, we should remove kindForBindings and setKindForBindings.
+}
+
+#else
+
+inline void TextTrack::setKindForBindings(Kind kind)
+{
+    setKind(kind);
+}
+
+#endif
+
 
 } // namespace WebCore
 
-#endif
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::TextTrack)
+    static bool isType(const WebCore::TrackBase& track) { return track.type() == WebCore::TrackBase::TextTrack; }
+SPECIALIZE_TYPE_TRAITS_END()
+
 #endif

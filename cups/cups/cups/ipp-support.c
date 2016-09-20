@@ -1,6 +1,4 @@
 /*
- * "$Id: ipp-support.c 12669 2015-05-27 19:42:43Z msweet $"
- *
  * Internet Printing Protocol support functions for CUPS.
  *
  * Copyright 2007-2014 by Apple Inc.
@@ -78,7 +76,8 @@ static const char * const ipp_status_oks[] =	/* "OK" status codes */
 		  "client-error-account-info-needed",
 		  "client-error-account-closed",
 		  "client-error-account-limit-reached",
-		  "client-error-account-authorization-failed"
+		  "client-error-account-authorization-failed",
+		  "client-error-not-fetchable"
 		},
 		* const ipp_status_480s[] =	/* Vendor client errors */
 		{
@@ -246,7 +245,8 @@ static const char * const ipp_std_ops[] =
 		},
 		* const ipp_cups_ops2[] =
 		{
-		  "CUPS-Get-Document"
+		  "CUPS-Get-Document",
+		  "CUPS-Create-Local-Printer"
 		},
 		* const ipp_tag_names[] =
 		{			/* Value/group tag names */
@@ -608,7 +608,7 @@ static size_t	ipp_col_string(ipp_t *col, char *buffer, size_t bufsize);
  * trailing nul. The buffer pointer can be NULL to get the required length,
  * just like (v)snprintf.
  *
- * @since CUPS 1.6/OS X 10.8@
+ * @since CUPS 1.6/macOS 10.8@
  */
 
 size_t					/* O - Number of bytes less nul */
@@ -839,7 +839,7 @@ ippAttributeString(
  * "attribute-name")@ will return a non-NULL pointer.  The array must be freed
  * using the @code cupsArrayDelete@ function.
  *
- * @since CUPS 1.7/OS X 10.9@
+ * @since CUPS 1.7/macOS 10.9@
  */
 
 cups_array_t *				/* O - CUPS array or @code NULL@ if all */
@@ -1559,10 +1559,12 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "printer-get-attributes-supported",
     "printer-icc-profiles",
     "printer-icons",
+    "printer-id",               	/* CUPS extension */
     "printer-info",
     "printer-input-tray",		/* IPP JPS3 */
     "printer-is-accepting-jobs",
     "printer-is-shared",		/* CUPS extension */
+    "printer-is-temporary",		/* CUPS extension */
     "printer-kind",			/* IPP Paid Printing */
     "printer-location",
     "printer-make-and-model",
@@ -1577,6 +1579,7 @@ ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
     "printer-organization",
     "printer-organizational-unit",
     "printer-output-tray",		/* IPP JPS3 */
+    "printer-queue-id",			/* CUPS extension */
     "printer-settable-attributes-supported",
     "printer-state",
     "printer-state-change-date-time",
@@ -1986,7 +1989,7 @@ ippErrorString(ipp_status_t error)	/* I - Error status */
 /*
  * 'ippErrorValue()' - Return a status code for the given name.
  *
- * @since CUPS 1.2/OS X 10.5@
+ * @since CUPS 1.2/macOS 10.5@
  */
 
 ipp_status_t				/* O - IPP status code */
@@ -2028,7 +2031,7 @@ ippErrorValue(const char *name)		/* I - Name */
 /*
  * 'ippOpString()' - Return a name for the given operation id.
  *
- * @since CUPS 1.2/OS X 10.5@
+ * @since CUPS 1.2/macOS 10.5@
  */
 
 const char *				/* O - Name */
@@ -2047,8 +2050,8 @@ ippOpString(ipp_op_t op)		/* I - Operation ID */
     return ("windows-ext");
   else if (op >= IPP_OP_CUPS_GET_DEFAULT && op <= IPP_OP_CUPS_GET_PPD)
     return (ipp_cups_ops[op - IPP_OP_CUPS_GET_DEFAULT]);
-  else if (op == IPP_OP_CUPS_GET_DOCUMENT)
-    return (ipp_cups_ops2[0]);
+  else if (op >= IPP_OP_CUPS_GET_DOCUMENT && op <= IPP_OP_CUPS_CREATE_LOCAL_PRINTER)
+    return (ipp_cups_ops2[op - IPP_OP_CUPS_GET_DOCUMENT]);
 
  /*
   * No, build an "0xxxxx" operation string...
@@ -2063,7 +2066,7 @@ ippOpString(ipp_op_t op)		/* I - Operation ID */
 /*
  * 'ippOpValue()' - Return an operation id for the given name.
  *
- * @since CUPS 1.2/OS X 10.5@
+ * @since CUPS 1.2/macOS 10.5@
  */
 
 ipp_op_t				/* O - Operation ID */
@@ -2161,7 +2164,7 @@ ippStateString(ipp_state_t state)	/* I - State value */
  *
  * The returned names are defined in RFC 2911 and 3382.
  *
- * @since CUPS 1.4/OS X 10.6@
+ * @since CUPS 1.4/macOS 10.6@
  */
 
 const char *				/* O - Tag name */
@@ -2181,7 +2184,7 @@ ippTagString(ipp_tag_t tag)		/* I - Tag value */
  *
  * The tag names are defined in RFC 2911 and 3382.
  *
- * @since CUPS 1.4/OS X 10.6@
+ * @since CUPS 1.4/macOS 10.6@
  */
 
 ipp_tag_t				/* O - Tag value */
@@ -2282,8 +2285,3 @@ ipp_col_string(ipp_t  *col,		/* I - Collection attribute */
 
   return ((size_t)(bufptr - buffer));
 }
-
-
-/*
- * End of "$Id: ipp-support.c 12669 2015-05-27 19:42:43Z msweet $".
- */

@@ -40,7 +40,7 @@ typedef struct MILTER {
     const char *(*mail_event) (struct MILTER *, const char **, ARGV *);
     const char *(*rcpt_event) (struct MILTER *, const char **, ARGV *);
     const char *(*data_event) (struct MILTER *, ARGV *);
-    const char *(*message) (struct MILTER *, VSTREAM *, off_t, ARGV *, ARGV *);
+    const char *(*message) (struct MILTER *, VSTREAM *, off_t, ARGV *, ARGV *, ARGV *);
     const char *(*unknown_event) (struct MILTER *, const char *, ARGV *);
     const char *(*other_event) (struct MILTER *);
     void    (*abort) (struct MILTER *);
@@ -85,6 +85,11 @@ extern int milter_macros_scan(ATTR_SCAN_MASTER_FN, VSTREAM *, int, void *);
 #define MILTER_MACROS_ALLOC_EMPTY	2	/* mystrdup(""); */
 
  /*
+  * Helper to parse list of name=value default macro settings.
+  */
+extern struct HTABLE *milter_macro_defaults_create(const char *);
+
+ /*
   * A bunch of Milters.
   */
 typedef const char *(*MILTER_MAC_LOOKUP_FN) (const char *, void *);
@@ -101,6 +106,7 @@ typedef struct MILTERS {
     MILTER_MAC_LOOKUP_FN mac_lookup;
     void   *mac_context;		/* macro lookup context */
     struct MILTER_MACROS *macros;
+    struct HTABLE *macro_defaults;
     void   *chg_context;		/* context for queue file changes */
     MILTER_ADD_HEADER_FN add_header;
     MILTER_EDIT_HEADER_FN upd_header;
@@ -116,14 +122,16 @@ typedef struct MILTERS {
 #define milter_create(milter_names, conn_timeout, cmd_timeout, msg_timeout, \
 			protocol, def_action, conn_macros, helo_macros, \
 			mail_macros, rcpt_macros, data_macros, eoh_macros, \
-			eod_macros, unk_macros) \
+			eod_macros, unk_macros, macro_deflts) \
 	milter_new(milter_names, conn_timeout, cmd_timeout, msg_timeout, \
 		    protocol, def_action, milter_macros_create(conn_macros, \
 		    helo_macros, mail_macros, rcpt_macros, data_macros, \
-		    eoh_macros, eod_macros, unk_macros))
+		    eoh_macros, eod_macros, unk_macros), \
+		    milter_macro_defaults_create(macro_deflts))
 
 extern MILTERS *milter_new(const char *, int, int, int, const char *,
-			           const char *, MILTER_MACROS *);
+			           const char *, MILTER_MACROS *,
+			           struct HTABLE *);
 extern void milter_macro_callback(MILTERS *, MILTER_MAC_LOOKUP_FN, void *);
 extern void milter_edit_callback(MILTERS *milters, MILTER_ADD_HEADER_FN,
 		               MILTER_EDIT_HEADER_FN, MILTER_EDIT_HEADER_FN,
@@ -136,7 +144,7 @@ extern const char *milter_helo_event(MILTERS *, const char *, int);
 extern const char *milter_mail_event(MILTERS *, const char **);
 extern const char *milter_rcpt_event(MILTERS *, int, const char **);
 extern const char *milter_data_event(MILTERS *);
-extern const char *milter_message(MILTERS *, VSTREAM *, off_t);
+extern const char *milter_message(MILTERS *, VSTREAM *, off_t, ARGV *);
 extern const char *milter_unknown_event(MILTERS *, const char *);
 extern const char *milter_other_event(MILTERS *);
 extern void milter_abort(MILTERS *);
@@ -201,6 +209,11 @@ extern void milter_free(MILTERS *);
 /*	IBM T.J. Watson Research
 /*	P.O. Box 704
 /*	Yorktown Heights, NY 10598, USA
+/*
+/*	Wietse Venema
+/*	Google, Inc.
+/*	111 8th Avenue
+/*	New York, NY 10011, USA
 /*--*/
 
 #endif

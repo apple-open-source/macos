@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2003-2016 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nikolas Zimmermann <zimmermann@kde.org>
  *
  * This library is free software; you can redistribute it and/or
@@ -31,6 +31,7 @@
 #include "CrossOriginAccessControl.h"
 #include "CurrentScriptIncrementer.h"
 #include "Event.h"
+#include "EventNames.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "HTMLNames.h"
@@ -57,7 +58,6 @@ namespace WebCore {
 
 ScriptElement::ScriptElement(Element& element, bool parserInserted, bool alreadyStarted)
     : m_element(element)
-    , m_cachedScript(0)
     , m_startLineNumber(WTF::OrdinalNumber::beforeFirst())
     , m_parserInserted(parserInserted)
     , m_isExternalScript(false)
@@ -119,25 +119,25 @@ static bool isLegacySupportedJavaScriptLanguage(const String& language)
     // We want to accept all the values that either of these browsers accept, but not other values.
 
     // FIXME: This function is not HTML5 compliant. These belong in the MIME registry as "text/javascript<version>" entries.
-    typedef HashSet<String, CaseFoldingHash> LanguageSet;
-    DEPRECATED_DEFINE_STATIC_LOCAL(LanguageSet, languages, ());
-    if (languages.isEmpty()) {
-        languages.add("javascript");
-        languages.add("javascript");
-        languages.add("javascript1.0");
-        languages.add("javascript1.1");
-        languages.add("javascript1.2");
-        languages.add("javascript1.3");
-        languages.add("javascript1.4");
-        languages.add("javascript1.5");
-        languages.add("javascript1.6");
-        languages.add("javascript1.7");
-        languages.add("livescript");
-        languages.add("ecmascript");
-        languages.add("jscript");
+    typedef HashSet<String, ASCIICaseInsensitiveHash> LanguageSet;
+    static NeverDestroyed<LanguageSet> languages;
+    if (languages.get().isEmpty()) {
+        languages.get().add("javascript");
+        languages.get().add("javascript");
+        languages.get().add("javascript1.0");
+        languages.get().add("javascript1.1");
+        languages.get().add("javascript1.2");
+        languages.get().add("javascript1.3");
+        languages.get().add("javascript1.4");
+        languages.get().add("javascript1.5");
+        languages.get().add("javascript1.6");
+        languages.get().add("javascript1.7");
+        languages.get().add("livescript");
+        languages.get().add("ecmascript");
+        languages.get().add("jscript");
     }
 
-    return languages.contains(language);
+    return languages.get().contains(language);
 }
 
 void ScriptElement::dispatchErrorEvent()
@@ -150,16 +150,20 @@ bool ScriptElement::isScriptTypeSupported(LegacyTypeSupport supportLegacyTypes) 
     // FIXME: isLegacySupportedJavaScriptLanguage() is not valid HTML5. It is used here to maintain backwards compatibility with existing layout tests. The specific violations are:
     // - Allowing type=javascript. type= should only support MIME types, such as text/javascript.
     // - Allowing a different set of languages for language= and type=. language= supports Javascript 1.1 and 1.4-1.6, but type= does not.
-
     String type = typeAttributeValue();
     String language = languageAttributeValue();
-    if (type.isEmpty() && language.isEmpty())
-        return true; // Assume text/javascript.
     if (type.isEmpty()) {
-        type = "text/" + language.lower();
-        if (MIMETypeRegistry::isSupportedJavaScriptMIMEType(type) || isLegacySupportedJavaScriptLanguage(language))
+        if (language.isEmpty())
+            return true; // Assume text/javascript.
+        if (MIMETypeRegistry::isSupportedJavaScriptMIMEType("text/" + language))
             return true;
-    } else if (MIMETypeRegistry::isSupportedJavaScriptMIMEType(type.stripWhiteSpace().lower()) || (supportLegacyTypes == AllowLegacyTypeInTypeAttribute && isLegacySupportedJavaScriptLanguage(type)))
+        if (isLegacySupportedJavaScriptLanguage(language))
+            return true;
+        return false;
+    }
+    if (MIMETypeRegistry::isSupportedJavaScriptMIMEType(type.stripWhiteSpace()))
+        return true;
+    if (supportLegacyTypes == AllowLegacyTypeInTypeAttribute && isLegacySupportedJavaScriptLanguage(type))
         return true;
     return false;
 }
@@ -255,16 +259,20 @@ bool ScriptElement::requestScript(const String& sourceUrl)
 
     ASSERT(!m_cachedScript);
     if (!stripLeadingAndTrailingHTMLSpaces(sourceUrl).isEmpty()) {
+        bool hasKnownNonce = m_element.document().contentSecurityPolicy()->allowScriptWithNonce(m_element.attributeWithoutSynchronization(HTMLNames::nonceAttr), m_element.isInUserAgentShadowTree());
         ResourceLoaderOptions options = CachedResourceLoader::defaultCachedResourceOptions();
-        options.setContentSecurityPolicyImposition(m_element.isInUserAgentShadowTree() ? ContentSecurityPolicyImposition::SkipPolicyCheck : ContentSecurityPolicyImposition::DoPolicyCheck);
+        options.setContentSecurityPolicyImposition(hasKnownNonce ? ContentSecurityPolicyImposition::SkipPolicyCheck : ContentSecurityPolicyImposition::DoPolicyCheck);
 
         CachedResourceRequest request(ResourceRequest(m_element.document().completeURL(sourceUrl)), options);
 
-        String crossOriginMode = m_element.fastGetAttribute(HTMLNames::crossoriginAttr);
+        m_element.document().contentSecurityPolicy()->upgradeInsecureRequestIfNeeded(request.mutableResourceRequest(), ContentSecurityPolicy::InsecureRequestType::Load);
+
+        String crossOriginMode = m_element.attributeWithoutSynchronization(HTMLNames::crossoriginAttr);
         if (!crossOriginMode.isNull()) {
             m_requestUsesAccessControl = true;
-            StoredCredentials allowCredentials = equalIgnoringCase(crossOriginMode, "use-credentials") ? AllowStoredCredentials : DoNotAllowStoredCredentials;
-            updateRequestForAccessControl(request.mutableResourceRequest(), m_element.document().securityOrigin(), allowCredentials);
+            StoredCredentials allowCredentials = equalLettersIgnoringASCIICase(crossOriginMode, "use-credentials") ? AllowStoredCredentials : DoNotAllowStoredCredentials;
+            ASSERT(m_element.document().securityOrigin());
+            updateRequestForAccessControl(request.mutableResourceRequest(), *m_element.document().securityOrigin(), allowCredentials);
         }
         request.setCharset(scriptCharset());
         request.setInitiator(&element());
@@ -273,11 +281,12 @@ bool ScriptElement::requestScript(const String& sourceUrl)
         m_isExternalScript = true;
     }
 
-    if (m_cachedScript) {
+    if (m_cachedScript)
         return true;
-    }
 
-    dispatchErrorEvent();
+    callOnMainThread([this, element = Ref<Element>(m_element)] {
+        dispatchErrorEvent();
+    });
     return false;
 }
 
@@ -288,8 +297,13 @@ void ScriptElement::executeScript(const ScriptSourceCode& sourceCode)
     if (sourceCode.isEmpty())
         return;
 
-    if (!m_isExternalScript && !m_element.document().contentSecurityPolicy()->allowInlineScript(m_element.document().url(), m_startLineNumber, m_element.isInUserAgentShadowTree()))
-        return;
+    if (!m_isExternalScript) {
+        ASSERT(m_element.document().contentSecurityPolicy());
+        const ContentSecurityPolicy& contentSecurityPolicy = *m_element.document().contentSecurityPolicy();
+        bool hasKnownNonce = contentSecurityPolicy.allowScriptWithNonce(m_element.attributeWithoutSynchronization(HTMLNames::nonceAttr), m_element.isInUserAgentShadowTree());
+        if (!contentSecurityPolicy.allowInlineScript(m_element.document().url(), m_startLineNumber, sourceCode.source().toStringWithoutCopying(), hasKnownNonce))
+            return;
+    }
 
 #if ENABLE(NOSNIFF)
     if (m_isExternalScript && m_cachedScript && !m_cachedScript->mimeTypeAllowedByNosniff()) {
@@ -301,7 +315,7 @@ void ScriptElement::executeScript(const ScriptSourceCode& sourceCode)
     Ref<Document> document(m_element.document());
     if (Frame* frame = document->frame()) {
         IgnoreDestructiveWriteCountIncrementer ignoreDesctructiveWriteCountIncrementer(m_isExternalScript ? document.ptr() : nullptr);
-        CurrentScriptIncrementer currentScriptIncrementer(document, &m_element);
+        CurrentScriptIncrementer currentScriptIncrementer(document, m_element);
 
         // Create a script from the script element node, using the script
         // block's source and the script block's type.
@@ -315,7 +329,7 @@ void ScriptElement::stopLoadRequest()
     if (m_cachedScript) {
         if (!m_willBeParserExecuted)
             m_cachedScript->removeClient(this);
-        m_cachedScript = 0;
+        m_cachedScript = nullptr;
     }
 }
 
@@ -346,7 +360,7 @@ void ScriptElement::notifyFinished(CachedResource* resource)
 
     if (m_requestUsesAccessControl && !m_cachedScript->passesSameOriginPolicyCheck(*m_element.document().securityOrigin())) {
         dispatchErrorEvent();
-        DEPRECATED_DEFINE_STATIC_LOCAL(String, consoleMessage, (ASCIILiteral("Cross-origin script load denied by Cross-Origin Resource Sharing policy.")));
+        static NeverDestroyed<String> consoleMessage(ASCIILiteral("Cross-origin script load denied by Cross-Origin Resource Sharing policy."));
         m_element.document().addConsoleMessage(MessageSource::JS, MessageLevel::Error, consoleMessage);
         return;
     }
@@ -356,7 +370,7 @@ void ScriptElement::notifyFinished(CachedResource* resource)
     else
         m_element.document().scriptRunner()->notifyScriptReady(this, ScriptRunner::ASYNC_EXECUTION);
 
-    m_cachedScript = 0;
+    m_cachedScript = nullptr;
 }
 
 bool ScriptElement::ignoresLoadRequest() const
@@ -368,13 +382,13 @@ bool ScriptElement::isScriptForEventSupported() const
 {
     String eventAttribute = eventAttributeValue();
     String forAttribute = forAttributeValue();
-    if (!eventAttribute.isEmpty() && !forAttribute.isEmpty()) {
-        forAttribute = forAttribute.stripWhiteSpace();
-        if (!equalIgnoringCase(forAttribute, "window"))
+    if (!eventAttribute.isNull() && !forAttribute.isNull()) {
+        forAttribute = stripLeadingAndTrailingHTMLSpaces(forAttribute);
+        if (!equalLettersIgnoringASCIICase(forAttribute, "window"))
             return false;
 
-        eventAttribute = eventAttribute.stripWhiteSpace();
-        if (!equalIgnoringCase(eventAttribute, "onload") && !equalIgnoringCase(eventAttribute, "onload()"))
+        eventAttribute = stripLeadingAndTrailingHTMLSpaces(eventAttribute);
+        if (!equalLettersIgnoringASCIICase(eventAttribute, "onload") && !equalLettersIgnoringASCIICase(eventAttribute, "onload()"))
             return false;
     }
     return true;
@@ -382,7 +396,10 @@ bool ScriptElement::isScriptForEventSupported() const
 
 String ScriptElement::scriptContent() const
 {
-    return TextNodeTraversal::contentsAsString(m_element);
+    StringBuilder result;
+    for (auto* text = TextNodeTraversal::firstChild(m_element); text; text = TextNodeTraversal::nextSibling(*text))
+        result.append(text->data());
+    return result.toString();
 }
 
 ScriptElement* toScriptElementIfPossible(Element* element)

@@ -7,7 +7,7 @@ Project               = gnutar
 UserType              = Administrator
 ToolType              = Commands
 Extra_Configure_Flags = --program-prefix=gnu --includedir=/usr/local/include
-Extra_CC_Flags        = -mdynamic-no-pic
+Extra_CC_Flags        = -mdynamic-no-pic -D_FORTIFY_SOURCE=0
 GnuAfterInstall       = remove-junk install-symlink install-plist
 
 Install_Prefix  = /usr/local

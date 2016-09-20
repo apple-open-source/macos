@@ -9,7 +9,6 @@
 #import <stdio.h>
 #import <stdlib.h>
 #import <dispatch/dispatch.h>
-#import <objc/objc-auto.h>
 #import "test.h"
 
 int main () {

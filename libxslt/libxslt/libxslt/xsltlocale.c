@@ -166,7 +166,7 @@ xsltNewLocale(const xmlChar *languageTag) {
     xmlChar       localeName[XSLTMAX_LANGTAGLEN+1];
     xmlChar       *q = localeName;
     const xmlChar *p = languageTag;
-    int           i, llen;
+    size_t        i, llen;
     const xmlChar *region = NULL;
 
     if (languageTag == NULL) goto end;
@@ -177,8 +177,9 @@ xsltNewLocale(const xmlChar *languageTag) {
 	*q++ = TOLOWER(*p++);
     if (i == 0) goto end;
 
-    llen = i;
     *q++ = '-';
+    llen = q - localeName;
+
     if (*p) { /*if country tag is given*/
 	if (*p++ != '-') goto end;
 
@@ -187,6 +188,8 @@ xsltNewLocale(const xmlChar *languageTag) {
 	if (i == 0 || *p) goto end;
 
 	*q = '\0';
+	llen = q - localeName;
+
 	locale = xslt_locale_WINAPI(localeName);
 	if (locale != (xsltLocale)0) goto end;
     }
@@ -194,8 +197,10 @@ xsltNewLocale(const xmlChar *languageTag) {
     region = xsltDefaultRegion(localeName);
     if (region == NULL) goto end;
 
-    strcpy(localeName + llen + 1, region);
-    locale = xslt_locale_WINAPI(localeName);
+    if (strlen(region) <= (XSLTMAX_LANGTAGLEN - llen)) {
+        strncpy(q, region, ((XSLTMAX_LANGTAGLEN + 1) - llen));
+        locale = xslt_locale_WINAPI(localeName);
+    }
 end:
     return(locale);
 }

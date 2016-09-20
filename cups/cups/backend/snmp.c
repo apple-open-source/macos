@@ -1,6 +1,4 @@
 /*
- * "$Id: snmp.c 11645 2014-02-27 16:35:53Z msweet $"
- *
  * SNMP discovery backend for CUPS.
  *
  * Copyright 2007-2014 by Apple Inc.
@@ -1361,8 +1359,3 @@ update_cache(snmp_cache_t *device,	/* I - Device */
 
   list_device(device);
 }
-
-
-/*
- * End of "$Id: snmp.c 11645 2014-02-27 16:35:53Z msweet $".
- */

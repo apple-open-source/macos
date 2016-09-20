@@ -25,7 +25,9 @@
 #ifndef TimingFunction_h
 #define TimingFunction_h
 
+#include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
+#include <wtf/RefPtr.h>
 
 namespace WebCore {
 
@@ -35,7 +37,7 @@ public:
     virtual PassRefPtr<TimingFunction> clone() const = 0;
 
     enum TimingFunctionType {
-        LinearFunction, CubicBezierFunction, StepsFunction
+        LinearFunction, CubicBezierFunction, StepsFunction, SpringFunction
     };
     
     virtual ~TimingFunction() { }
@@ -45,6 +47,7 @@ public:
     bool isLinearTimingFunction() const { return m_type == LinearFunction; }
     bool isCubicBezierTimingFunction() const { return m_type == CubicBezierFunction; }
     bool isStepsTimingFunction() const { return m_type == StepsFunction; }
+    bool isSpringTimingFunction() const { return m_type == SpringFunction; }
     
     virtual bool operator==(const TimingFunction& other) = 0;
 
@@ -57,7 +60,7 @@ protected:
     TimingFunctionType m_type;
 };
 
-class LinearTimingFunction : public TimingFunction {
+class LinearTimingFunction final : public TimingFunction {
 public:
     static PassRefPtr<LinearTimingFunction> create()
     {
@@ -66,7 +69,7 @@ public:
     
     virtual ~LinearTimingFunction() { }
     
-    virtual bool operator==(const TimingFunction& other) override
+    bool operator==(const TimingFunction& other) override
     {
         return other.isLinearTimingFunction();
     }
@@ -77,13 +80,13 @@ private:
     {
     }
 
-    virtual PassRefPtr<TimingFunction> clone() const override
+    PassRefPtr<TimingFunction> clone() const override
     {
         return adoptRef(new LinearTimingFunction);
     }
 };
 
-class CubicBezierTimingFunction : public TimingFunction {
+class CubicBezierTimingFunction final : public TimingFunction {
 public:
     enum TimingFunctionPreset {
         Ease,
@@ -122,7 +125,7 @@ public:
 
     virtual ~CubicBezierTimingFunction() { }
     
-    virtual bool operator==(const TimingFunction& other) override
+    bool operator==(const TimingFunction& other) override
     {
         if (other.isCubicBezierTimingFunction()) {
             const CubicBezierTimingFunction* ctf = static_cast<const CubicBezierTimingFunction*>(&other);
@@ -172,7 +175,7 @@ private:
     {
     }
 
-    virtual PassRefPtr<TimingFunction> clone() const override
+    PassRefPtr<TimingFunction> clone() const override
     {
         return adoptRef(new CubicBezierTimingFunction(m_timingFunctionPreset, m_x1, m_y1, m_x2, m_y2));
     }
@@ -184,7 +187,7 @@ private:
     TimingFunctionPreset m_timingFunctionPreset;
 };
 
-class StepsTimingFunction : public TimingFunction {
+class StepsTimingFunction final : public TimingFunction {
 public:
     
     static PassRefPtr<StepsTimingFunction> create(int steps, bool stepAtStart)
@@ -198,7 +201,7 @@ public:
     
     virtual ~StepsTimingFunction() { }
     
-    virtual bool operator==(const TimingFunction& other) override
+    bool operator==(const TimingFunction& other) override
     {
         if (other.isStepsTimingFunction()) {
             const StepsTimingFunction* stf = static_cast<const StepsTimingFunction*>(&other);
@@ -221,7 +224,7 @@ private:
     {
     }
 
-    virtual PassRefPtr<TimingFunction> clone() const override
+    PassRefPtr<TimingFunction> clone() const override
     {
         return adoptRef(new StepsTimingFunction(m_steps, m_stepAtStart));
     }
@@ -229,6 +232,66 @@ private:
     int m_steps;
     bool m_stepAtStart;
 };
+
+class SpringTimingFunction final : public TimingFunction {
+public:
+    static Ref<SpringTimingFunction> create(double mass, double stiffness, double damping, double initialVelocity)
+    {
+        return adoptRef(*new SpringTimingFunction(mass, stiffness, damping, initialVelocity));
+    }
+
+    static Ref<SpringTimingFunction> create()
+    {
+        // This create() function should only be used by the argument decoders, and it is expected that
+        // real values will be filled in using setValues().
+        return create(0, 0, 0, 0);
+    }
+    
+    bool operator==(const TimingFunction& other) override
+    {
+        if (other.isSpringTimingFunction()) {
+            const SpringTimingFunction& otherString = *static_cast<const SpringTimingFunction*>(&other);
+            return m_mass == otherString.m_mass && m_stiffness == otherString.m_stiffness && m_damping == otherString.m_damping && m_initialVelocity == otherString.m_initialVelocity;
+        }
+        return false;
+    }
+
+    double mass() const { return m_mass; }
+    double stiffness() const { return m_stiffness; }
+    double damping() const { return m_damping; }
+    double initialVelocity() const { return m_initialVelocity; }
+    
+    void setValues(double mass, double stiffness, double damping, double initialVelocity)
+    {
+        m_mass = mass;
+        m_stiffness = stiffness;
+        m_damping = damping;
+        m_initialVelocity = initialVelocity;
+    }
+
+private:
+    explicit SpringTimingFunction(double mass, double stiffness, double damping, double initialVelocity)
+        : TimingFunction(SpringFunction)
+        , m_mass(mass)
+        , m_stiffness(stiffness)
+        , m_damping(damping)
+        , m_initialVelocity(initialVelocity)
+    {
+    }
+
+    PassRefPtr<TimingFunction> clone() const override
+    {
+        return adoptRef(new SpringTimingFunction(m_mass, m_stiffness, m_damping, m_initialVelocity));
+    }
+
+    double m_mass;
+    double m_stiffness;
+    double m_damping;
+    double m_initialVelocity;
+};
+
+class TextStream;
+WEBCORE_EXPORT TextStream& operator<<(TextStream&, const TimingFunction&);
 
 } // namespace WebCore
 

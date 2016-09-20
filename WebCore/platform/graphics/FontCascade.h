@@ -33,6 +33,7 @@
 #include "TextFlags.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
+#include <wtf/Optional.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/unicode/CharacterNames.h>
 
@@ -114,14 +115,9 @@ public:
 class FontCascade {
 public:
     WEBCORE_EXPORT FontCascade();
-    WEBCORE_EXPORT FontCascade(const FontDescription&, float letterSpacing, float wordSpacing);
+    WEBCORE_EXPORT FontCascade(const FontCascadeDescription&, float letterSpacing, float wordSpacing);
     // This constructor is only used if the platform wants to start with a native font.
     WEBCORE_EXPORT FontCascade(const FontPlatformData&, FontSmoothingMode = AutoSmoothing);
-
-    // FIXME: We should make this constructor platform-independent.
-#if PLATFORM(IOS)
-    FontCascade(const FontPlatformData&, PassRefPtr<FontSelector>);
-#endif
 
     FontCascade(const FontCascade&);
     WEBCORE_EXPORT FontCascade& operator=(const FontCascade&);
@@ -129,22 +125,21 @@ public:
     WEBCORE_EXPORT bool operator==(const FontCascade& other) const;
     bool operator!=(const FontCascade& other) const { return !(*this == other); }
 
-    const FontDescription& fontDescription() const { return m_fontDescription; }
+    const FontCascadeDescription& fontDescription() const { return m_fontDescription; }
 
     int pixelSize() const { return fontDescription().computedPixelSize(); }
     float size() const { return fontDescription().computedSize(); }
 
-    void update(PassRefPtr<FontSelector>) const;
+    void update(RefPtr<FontSelector>&&) const;
 
     enum CustomFontNotReadyAction { DoNotPaintIfFontNotReady, UseFallbackIfFontNotReady };
-    WEBCORE_EXPORT float drawText(GraphicsContext*, const TextRun&, const FloatPoint&, int from = 0, int to = -1, CustomFontNotReadyAction = DoNotPaintIfFontNotReady) const;
-    void drawGlyphs(GraphicsContext*, const Font*, const GlyphBuffer&, int from, int numGlyphs, const FloatPoint&) const;
-    void drawEmphasisMarks(GraphicsContext*, const TextRun&, const AtomicString& mark, const FloatPoint&, int from = 0, int to = -1) const;
+    WEBCORE_EXPORT float drawText(GraphicsContext&, const TextRun&, const FloatPoint&, int from = 0, int to = -1, CustomFontNotReadyAction = DoNotPaintIfFontNotReady) const;
+    static void drawGlyphs(GraphicsContext&, const Font&, const GlyphBuffer&, int from, int numGlyphs, const FloatPoint&, FontSmoothingMode);
+    void drawEmphasisMarks(GraphicsContext&, const TextRun&, const AtomicString& mark, const FloatPoint&, int from = 0, int to = -1) const;
 
     DashArray dashesForIntersectionsWithRect(const TextRun&, const FloatPoint& textOrigin, const FloatRect& lineExtents) const;
 
     WEBCORE_EXPORT float width(const TextRun&, HashSet<const Font*>* fallbackFonts = 0, GlyphOverflow* = 0) const;
-    float width(const TextRun&, int& charsConsumed, String& glyphName) const;
 
     std::unique_ptr<TextLayout, TextLayoutDeleter> createLayout(RenderText&, float xPos, bool collapseWhiteSpace) const;
     static float width(TextLayout&, unsigned from, unsigned len, HashSet<const Font*>* fallbackFonts = 0);
@@ -191,11 +186,7 @@ public:
     GlyphData glyphDataForCharacter(UChar32, bool mirror, FontVariant = AutoVariant) const;
     
 #if PLATFORM(COCOA)
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000)
     const Font* fontForCombiningCharacterSequence(const UChar*, size_t length) const;
-#else
-    const Font* fontForCombiningCharacterSequence(const UChar*, size_t length, FontVariant) const;
-#endif
 #endif
 
     static bool isCJKIdeograph(UChar32);
@@ -212,9 +203,6 @@ public:
     static bool leadingExpansionOpportunity(const StringView&, TextDirection);
     static bool trailingExpansionOpportunity(const StringView&, TextDirection);
 
-    WEBCORE_EXPORT static void setAntialiasedFontDilationEnabled(bool);
-    WEBCORE_EXPORT static bool antialiasedFontDilationEnabled();
-
     WEBCORE_EXPORT static void setShouldUseSmoothing(bool);
     WEBCORE_EXPORT static bool shouldUseSmoothing();
 
@@ -230,25 +218,24 @@ public:
 private:
     enum ForTextEmphasisOrNot { NotForTextEmphasis, ForTextEmphasis };
 
+    float glyphBufferForTextRun(CodePath, const TextRun&, int from, int to, GlyphBuffer&) const;
     // Returns the initial in-stream advance.
     float getGlyphsAndAdvancesForSimpleText(const TextRun&, int from, int to, GlyphBuffer&, ForTextEmphasisOrNot = NotForTextEmphasis) const;
-    float drawSimpleText(GraphicsContext*, const TextRun&, const FloatPoint&, int from, int to) const;
-    void drawEmphasisMarksForSimpleText(GraphicsContext*, const TextRun&, const AtomicString& mark, const FloatPoint&, int from, int to) const;
-    void drawGlyphBuffer(GraphicsContext*, const TextRun&, const GlyphBuffer&, FloatPoint&) const;
-    void drawEmphasisMarks(GraphicsContext*, const TextRun&, const GlyphBuffer&, const AtomicString&, const FloatPoint&) const;
+    void drawEmphasisMarksForSimpleText(GraphicsContext&, const TextRun&, const AtomicString& mark, const FloatPoint&, int from, int to) const;
+    void drawGlyphBuffer(GraphicsContext&, const GlyphBuffer&, FloatPoint&) const;
+    void drawEmphasisMarks(GraphicsContext&, const GlyphBuffer&, const AtomicString&, const FloatPoint&) const;
     float floatWidthForSimpleText(const TextRun&, HashSet<const Font*>* fallbackFonts = 0, GlyphOverflow* = 0) const;
     int offsetForPositionForSimpleText(const TextRun&, float position, bool includePartialGlyphs) const;
     void adjustSelectionRectForSimpleText(const TextRun&, LayoutRect& selectionRect, int from, int to) const;
 
-    bool getEmphasisMarkGlyphData(const AtomicString&, GlyphData&) const;
+    Optional<GlyphData> getEmphasisMarkGlyphData(const AtomicString&) const;
 
     static bool canReturnFallbackFontsForComplexText();
     static bool canExpandAroundIdeographsInComplexText();
 
     // Returns the initial in-stream advance.
     float getGlyphsAndAdvancesForComplexText(const TextRun&, int from, int to, GlyphBuffer&, ForTextEmphasisOrNot = NotForTextEmphasis) const;
-    float drawComplexText(GraphicsContext*, const TextRun&, const FloatPoint&, int from, int to) const;
-    void drawEmphasisMarksForComplexText(GraphicsContext*, const TextRun&, const AtomicString& mark, const FloatPoint&, int from, int to) const;
+    void drawEmphasisMarksForComplexText(GraphicsContext&, const TextRun&, const AtomicString& mark, const FloatPoint&, int from, int to) const;
     float floatWidthForComplexText(const TextRun&, HashSet<const Font*>* fallbackFonts = 0, GlyphOverflow* = 0) const;
     int offsetForPositionForComplexText(const TextRun&, float position, bool includePartialGlyphs) const;
     void adjustSelectionRectForComplexText(const TextRun&, LayoutRect& selectionRect, int from, int to) const;
@@ -257,7 +244,6 @@ private:
     static std::pair<unsigned, bool> expansionOpportunityCountInternal(const UChar*, size_t length, TextDirection, ExpansionBehavior);
 
     friend struct WidthIterator;
-    friend class SVGTextRunRenderingContext;
 
 public:
 #if ENABLE(IOS_TEXT_AUTOSIZING)
@@ -273,12 +259,6 @@ public:
     WEBCORE_EXPORT static void setCodePath(CodePath);
     static CodePath codePath();
     static CodePath s_codePath;
-
-    static const uint8_t s_roundingHackCharacterTable[256];
-    static bool isRoundingHackCharacter(UChar32 c)
-    {
-        return !(c & ~0xFF) && s_roundingHackCharacterTable[c];
-    }
 
     FontSelector* fontSelector() const;
     static bool treatAsSpace(UChar c) { return c == ' ' || c == '\t' || c == '\n' || c == noBreakSpace; }
@@ -341,7 +321,7 @@ private:
         return advancedTextRenderingMode();
     }
 
-    FontDescription m_fontDescription;
+    FontCascadeDescription m_fontDescription;
     mutable RefPtr<FontCascadeFonts> m_fonts;
     WeakPtrFactory<FontCascade> m_weakPtrFactory;
     float m_letterSpacing;
@@ -376,7 +356,7 @@ inline bool FontCascade::isFixedPitch() const
 
 inline FontSelector* FontCascade::fontSelector() const
 {
-    return m_fonts ? m_fonts->fontSelector() : 0;
+    return m_fonts ? m_fonts->fontSelector() : nullptr;
 }
 
 inline float FontCascade::tabWidth(const Font& font, unsigned tabSize, float position) const

@@ -38,11 +38,6 @@
 #include "WebCoreSystemInterface.h"
 #endif
 
-// We would like a better value for a maximum time_t,
-// but there is no way to do that in C with any certainty.
-// INT_MAX should work well enough for our purposes.
-#define MAX_TIME_T ((time_t)INT_MAX)    
-
 namespace WebCore {
 
 static CFStringRef const commonHeaderFields[] = {
@@ -91,8 +86,6 @@ void ResourceResponse::platformLazyInit(InitLevel initLevel)
 
         CFHTTPMessageRef httpResponse = CFURLResponseGetHTTPResponse(m_cfResponse.get());
         if (httpResponse) {
-            RetainPtr<CFStringRef> messageString = adoptCF(CFHTTPMessageCopyVersion(httpResponse));
-            m_httpVersion = String(messageString.get()).upper();
             m_httpStatusCode = CFHTTPMessageGetResponseStatusCode(httpResponse);
             
             if (initLevel < AllFields) {
@@ -110,6 +103,8 @@ void ResourceResponse::platformLazyInit(InitLevel initLevel)
     if (m_initLevel < AllFields && initLevel == AllFields) {
         CFHTTPMessageRef httpResponse = CFURLResponseGetHTTPResponse(m_cfResponse.get());
         if (httpResponse) {
+            m_httpVersion = String(adoptCF(CFHTTPMessageCopyVersion(httpResponse)).get()).convertToASCIIUppercase();
+
             RetainPtr<CFStringRef> statusLine = adoptCF(CFHTTPMessageCopyResponseStatusLine(httpResponse));
             m_httpStatusText = extractReasonPhraseFromHTTPStatusLine(statusLine.get());
 
@@ -121,13 +116,12 @@ void ResourceResponse::platformLazyInit(InitLevel initLevel)
     m_initLevel = initLevel;
 }
 
+#if !PLATFORM(COCOA)
 CertificateInfo ResourceResponse::platformCertificateInfo() const
 {
-#if PLATFORM(COCOA)
-    return CertificateInfo(adoptCF(wkCopyNSURLResponseCertificateChain(nsURLResponse())));
-#endif
-    return CertificateInfo();
+    return { };
 }
+#endif
 
 String ResourceResponse::platformSuggestedFilename() const
 {

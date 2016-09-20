@@ -24,7 +24,7 @@
 
 #include "config.h"
 
-#if ENABLE(MEDIA_STREAM)
+#if ENABLE(WEB_RTC)
 
 #include "RTCIceCandidateEvent.h"
 
@@ -33,23 +33,14 @@
 
 namespace WebCore {
 
-Ref<RTCIceCandidateEvent> RTCIceCandidateEvent::create()
+Ref<RTCIceCandidateEvent> RTCIceCandidateEvent::create(bool canBubble, bool cancelable, RefPtr<RTCIceCandidate>&& candidate)
 {
-    return adoptRef(*new RTCIceCandidateEvent);
+    return adoptRef(*new RTCIceCandidateEvent(canBubble, cancelable, WTFMove(candidate)));
 }
 
-Ref<RTCIceCandidateEvent> RTCIceCandidateEvent::create(bool canBubble, bool cancelable, PassRefPtr<RTCIceCandidate> candidate)
-{
-    return adoptRef(*new RTCIceCandidateEvent(canBubble, cancelable, candidate));
-}
-
-RTCIceCandidateEvent::RTCIceCandidateEvent()
-{
-}
-
-RTCIceCandidateEvent::RTCIceCandidateEvent(bool canBubble, bool cancelable, PassRefPtr<RTCIceCandidate> candidate)
+RTCIceCandidateEvent::RTCIceCandidateEvent(bool canBubble, bool cancelable, RefPtr<RTCIceCandidate>&& candidate)
     : Event(eventNames().icecandidateEvent, canBubble, cancelable)
-    , m_candidate(candidate)
+    , m_candidate(WTFMove(candidate))
 {
 }
 
@@ -69,5 +60,5 @@ EventInterface RTCIceCandidateEvent::eventInterface() const
 
 } // namespace WebCore
 
-#endif // ENABLE(MEDIA_STREAM)
+#endif // ENABLE(WEB_RTC)
 

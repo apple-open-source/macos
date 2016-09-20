@@ -1,5 +1,5 @@
-/* 
- * Copyright (c) 1998-2008 Apple Inc.  All rights reserved.
+/*
+ * Copyright (c) 1998-2016 Apple Inc.  All rights reserved.
  * Portions Copyright (c) 1988 by Sun Microsystems, Inc.
  * Portions Copyright (c) 1988 The Regents of the University of California.
  * All rights reserved.
@@ -32,7 +32,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
- 
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -52,14 +52,17 @@
 
 #include <OpenDirectory/OpenDirectory.h>
 
+#include "passwd.h"
+
 //-------------------------------------------------------------------------------------
 //	od_check_passwd
 //-------------------------------------------------------------------------------------
 
-int od_check_passwd(const char *uname, const char *domain)
+int
+od_check_passwd(const char *uname, const char *domain)
 {
 	int	authenticated = 0;
-	
+
 	ODSessionRef	session = NULL;
 	ODNodeRef		node = NULL;
 	ODRecordRef		rec = NULL;
@@ -92,7 +95,7 @@ int od_check_passwd(const char *uname, const char *domain)
 			}
 		}
 	}
-	
+
 	if (!authenticated) {
 		fprintf(stderr, "Sorry\n");
 		exit(1);
@@ -100,9 +103,3 @@ int od_check_passwd(const char *uname, const char *domain)
 
 	return 0;
 }
-
-
-
-
- 
- 

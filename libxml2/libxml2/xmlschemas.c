@@ -617,7 +617,7 @@ struct _xmlSchemaParserCtxt {
     xmlAutomataStatePtr end;
     xmlAutomataStatePtr state;
 
-    xmlDictPtr dict;		/* dictionnary for interned string names */
+    xmlDictPtr dict;		/* dictionary for interned string names */
     xmlSchemaTypePtr ctxtType; /* The current context simple/complex type */
     int options;
     xmlSchemaValidCtxtPtr vctxt;
@@ -24252,6 +24252,7 @@ xmlSchemaValidateFacets(xmlSchemaAbstractCtxtPtr actxt,
 	else
 	    goto pattern_and_enum;
     }
+
     /*
     * Whitespace handling is only of importance for string-based
     * types.
@@ -24262,14 +24263,13 @@ xmlSchemaValidateFacets(xmlSchemaAbstractCtxtPtr actxt,
 	ws = xmlSchemaGetWhiteSpaceFacetValue(type);
     } else
 	ws = XML_SCHEMA_WHITESPACE_COLLAPSE;
+
     /*
     * If the value was not computed (for string or
     * anySimpleType based types), then use the provided
     * type.
     */
-    if (val == NULL)
-	valType = valType;
-    else
+    if (val != NULL)
 	valType = xmlSchemaGetValType(val);
 
     ret = 0;
@@ -25612,7 +25612,7 @@ xmlSchemaVAttributesComplex(xmlSchemaValidCtxtPtr vctxt)
 		    if (xmlNewProp(defAttrOwnerElem,
 			iattr->localName, value) == NULL) {
 			VERROR_INT("xmlSchemaVAttributesComplex",
-			    "callling xmlNewProp()");
+			    "calling xmlNewProp()");
 			if (normValue != NULL)
 			    xmlFree(normValue);
 			goto internal_error;
@@ -27448,10 +27448,17 @@ xmlSchemaSAXHandleStartElementNs(void *ctx,
 
         for (j = 0, i = 0; i < nb_attributes; i++, j += 5) {
 	    /*
-	    * Duplicate the value.
+	    * Duplicate the value, changing any &#38; to a literal ampersand.
+	    *
+	    * libxml2 differs from normal SAX here in that it escapes all ampersands
+	    * as &#38; instead of delivering the raw converted string. Changing the
+	    * behavior at this point would break applications that use this API, so
+	    * we are forced to work around it. There is no danger of accidentally
+	    * decoding some entity other than &#38; in this step because without
+	    * unescaped ampersands there can be no other entities in the string.
 	    */
-	    value = xmlStrndup(attributes[j+3],
-		attributes[j+4] - attributes[j+3]);
+	    value = xmlStringLenDecodeEntities(vctxt->parserCtxt, attributes[j+3],
+		attributes[j+4] - attributes[j+3], XML_SUBSTITUTE_REF, 0, 0, 0);
 	    /*
 	    * TODO: Set the node line.
 	    */

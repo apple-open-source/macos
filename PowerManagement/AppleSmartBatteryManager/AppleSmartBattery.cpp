@@ -188,7 +188,7 @@ bool AppleSmartBattery::start(IOService *provider)
 {
     IORegistryEntry *p = NULL;
 
-    BattLog("AppleSmartBattery loading...\n");
+    BM_LOG1("AppleSmartBattery loading...\n");
 
     fProvider = OSDynamicCast(AppleSmartBatteryManager, provider);
 
@@ -210,6 +210,7 @@ bool AppleSmartBattery::start(IOService *provider)
     fCellVoltages           = NULL;
     fSystemSleeping         = false;
     fPowerServiceToAck      = NULL;
+    fCapacityOverride       = false;
 
     fIncompleteReadRetries = kIncompleteReadRetryMax;
 
@@ -258,7 +259,7 @@ bool AppleSmartBattery::start(IOService *provider)
     // zero out battery state with argument (do_update == true)
     clearBatteryState(false);
 
-    BattLog("AppleSmartBattery::start(). Initiating a full poll.\n");
+    BM_LOG1("AppleSmartBattery::start(). Initiating a full poll.\n");
 
     // Kick off the 30 second timer and do an initial poll
     pollBatteryState(kBoot);
@@ -453,9 +454,10 @@ void AppleSmartBattery::logReadError(
 
     if (!error_type) return;
 
-    BattLog("SmartBatteryManager Error: %s (%d)\n", error_type, additional_error);
+    BM_LOG1("SmartBatteryManager Error: %s (%d)\n", error_type, additional_error);
+
     if (t) {
-        BattLog("\tCorresponding transaction addr=0x%02x cmd=0x%02x status=0x%02x\n",
+        BM_LOG2("\tCorresponding transaction addr=0x%02x cmd=0x%02x status=0x%02x\n",
                                             t->address, t->command, t->status);
     }
 
@@ -496,26 +498,13 @@ IOReturn AppleSmartBattery::handleSystemSleepWake(
             ret = (kBatteryReadAllTimeout * 1000);
         }
     }
-    else // System Wake
-    {
-        fPowerServiceToAck = powerService;
-        fPowerServiceToAck->retain();
+    else if (fPollRequestedInSleep) {
         pollBatteryState(kFull);
-
-        if (fPollingNow)
-        {
-            // Transaction started, wait for completion.
-            ret = (kBatteryReadAllTimeout * 1000);
-        }
-        else if (fPowerServiceToAck)
-        {
-            fPowerServiceToAck->release();
-            fPowerServiceToAck = 0;
-        }
     }
+    fPollRequestedInSleep = false;
 
-    BattLog("SmartBattery: handleSystemSleepWake(%d) = %u\n",
-        isSystemSleep, (uint32_t) ret);
+    BM_LOG1("SmartBattery: handleSystemSleepWake(%d) = %u\n", isSystemSleep, (uint32_t) ret);
+
     return ret;
 }
 
@@ -532,6 +521,8 @@ void AppleSmartBattery::acknowledgeSystemSleepWake(void)
         fPowerServiceToAck->acknowledgeSetPowerState();
         fPowerServiceToAck->release();
         fPowerServiceToAck = 0;
+
+        BM_LOG1("SmartBattery: final acknowledge of wake after reading all regs\n");
     }
 }
 
@@ -549,7 +540,7 @@ bool AppleSmartBattery::pollBatteryState(int type)
        has grabbed exclusive access
      */
     if (fStalledByUserClient) {
-        BattLog("AppleSmartBattery::pollBatteryState was stalled by an exclusive user client.\n");
+        BM_ERRLOG("AppleSmartBattery::pollBatteryState was stalled by an exclusive user client.\n");
         return false;
     }
 
@@ -563,7 +554,8 @@ bool AppleSmartBattery::pollBatteryState(int type)
         /* We're already in the middle of a poll for a superset of 
          * the requested battery data.
          */
-         BattLog("AppleSmartBattery::pollBatteryState already polling (%d <= %d)\n", fMachinePath, type);
+        BM_ERRLOG("AppleSmartBattery::pollBatteryState already polling (%d <= %d)\n", fMachinePath, type);
+
         return true;
     }
 
@@ -592,6 +584,8 @@ bool AppleSmartBattery::pollBatteryState(int type)
 
 void AppleSmartBattery::handleBatteryInserted(void)
 {
+    BM_LOG1("SmartBattery: battery inserted!\n");
+
     clearBatteryState(false);
     pollBatteryState(kBoot);
     return;
@@ -607,6 +601,9 @@ void AppleSmartBattery::handleBatteryRemoved(void)
     }
 
     clearBatteryState(true);
+
+    BM_LOG1("SmartBattery: battery removed\n");
+
     acknowledgeSystemSleepWake();
     return;
 }
@@ -625,6 +622,21 @@ void AppleSmartBattery::handleChargeInhibited(bool charge_state)
     fChargeInhibited = charge_state;
     // And kick off a re-poll using this new information
     pollBatteryState(kFull);
+}
+
+void AppleSmartBattery::handleSetOverrideCapacity(uint16_t value)
+{
+    if (!fCapacityOverride)
+        fCapacityOverride = true;
+    
+    setCurrentCapacity(value);
+}
+
+void AppleSmartBattery::handleSwitchToTrueCapacity(void)
+{
+    fCapacityOverride = false;
+    pollBatteryState(kUserVis);
+    return;
 }
 
 // One "wait interval" is 100ms
@@ -758,6 +770,8 @@ bool AppleSmartBattery::transactionCompletion_shouldAbortTransactions(IOSMBusTra
      */
     if (fSystemSleeping)
     {
+        BM_ERRLOG("Aborting transactions as system is sleeping\n");
+        fPollRequestedInSleep = true;
         return true;
     }
 
@@ -766,6 +780,7 @@ bool AppleSmartBattery::transactionCompletion_shouldAbortTransactions(IOSMBusTra
      */
     if (fStalledByUserClient)
     {
+        BM_ERRLOG("Aborting transactions due to exclusive access request\n");
         return true;
     }
 
@@ -780,6 +795,7 @@ bool AppleSmartBattery::transactionCompletion_shouldAbortTransactions(IOSMBusTra
         fCancelPolling = false;
         if (transaction)
         {
+            BM_ERRLOG("Aborting transactions due to request to cancel polling\n");
             return true;
         }
     }
@@ -817,7 +833,7 @@ uint32_t AppleSmartBattery::transactionCompletion_requiresRetryGetMicroSec(IOSMB
     if (kIOSMBusStatusOK == transaction_status)
     {
         if (0 != fRetryAttempts) {
-            BattLog("SmartBattery: retry %d succeeded!\n", fRetryAttempts);
+            BM_LOG1("SmartBattery: retry %d succeeded!\n", fRetryAttempts);
 
             fRetryAttempts = 0;
             transaction_needs_retry = false;    /* potentially overridden below */
@@ -850,7 +866,7 @@ uint32_t AppleSmartBattery::transactionCompletion_requiresRetryGetMicroSec(IOSMB
         // Too many consecutive failures to read this entry. Give up, and
         // go on to attempt a read on the next element in the state machine.
 
-        BattLog("SmartBattery: Giving up on (0x%02x, 0x%02x) after %d retries.\n",
+        BM_LOG1("SmartBattery: Giving up on (0x%02x, 0x%02x) after %d retries.\n",
                 transaction->address, transaction->command, fRetryAttempts);
 
         logReadError(kErrorRetryAttemptsExceeded, transaction_status, transaction);
@@ -925,8 +941,13 @@ void AppleSmartBattery::handlePollingFinished(bool visitedEntirePath)
                 acAttach_ts = 0;
             }
         }
+        BM_ERRLOG("SmartBattery: finished polling type %d\n", fMachinePath);
+
         updateStatus();
+    } else {
+        BM_ERRLOG("SmartBattery: abort polling\n");
     }
+
 
     fPollingNow = false;
     
@@ -996,8 +1017,8 @@ bool AppleSmartBattery::transactionCompletion(
     OSNumber        *num = NULL;
     
 
-    if (transaction) {
-        BattLog("transaction state = 0x%02x; status = 0x%02x; prot = 0x%02x; word = 0x%04x; %d us\n",
+    if (transaction) { 
+        BM_LOG2("transaction state = 0x%02x; status = 0x%02x; prot = 0x%02x; word = 0x%04x\n",
                 next_state, transaction->status, transaction->protocol,
                 (transaction->receiveData[1] << 8) | transaction->receiveData[0]);
     }
@@ -1029,7 +1050,7 @@ bool AppleSmartBattery::transactionCompletion(
                 IOSleep(delay_for / 1000); // milliseconds
             }
             
-            BattLog("SmartBattery: 0x%02x failed with 0x%02x; retry attempt %d of %d\n",
+            BM_LOG1("SmartBattery: 0x%02x failed with 0x%02x; retry attempt %d of %d\n",
                     transaction->command, transaction_status, fRetryAttempts, kRetryAttempts);
             
             // Kick off the same transaction that just failed
@@ -1202,7 +1223,9 @@ bool AppleSmartBattery::transactionCompletion(
     case kBRemainingCapacityCmd:
 
         fRemainingCapacity = val16;
-        setCurrentCapacity(val16);
+
+        if (!fCapacityOverride)
+            setCurrentCapacity(val16);
 
         if (!fPermanentFailure && (0 == fRemainingCapacity))
         {
@@ -1294,7 +1317,7 @@ bool AppleSmartBattery::transactionCompletion(
         break;
 
     default:
-        BattLog("SmartBattery: Error state %x not expected\n", next_state);
+        BM_ERRLOG("SmartBattery: Error state %x not expected\n", next_state);
     }
 
 exit:

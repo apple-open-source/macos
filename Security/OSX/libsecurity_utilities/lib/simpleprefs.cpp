@@ -39,7 +39,7 @@
 #include <CoreFoundation/CFPropertyList.h>
 #include <sys/stat.h>
 
-#define prefsDebug(args...)		secdebug("simpleprefs", ## args)
+#define prefsDebug(args...)		secinfo("simpleprefs", ## args)
 
 #define kSecUserPrefsDir			"Library/Preferences"		/* relative to $HOME */
 #define kSecSystemPrefsDir			"/Library/Preferences"

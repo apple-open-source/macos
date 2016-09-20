@@ -153,7 +153,7 @@ private:
 class UidGuard {
 public:
 	UidGuard() : mPrevious(-1) { }
-	UidGuard(uid_t uid) : mPrevious(-1) { seteuid(uid); }
+	UidGuard(uid_t uid) : mPrevious(-1) { (void)seteuid(uid); }
 	~UidGuard()
 	{
 		if (active())

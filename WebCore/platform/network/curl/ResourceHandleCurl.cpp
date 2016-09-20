@@ -40,11 +40,6 @@
 #include "ResourceHandleManager.h"
 #include "SSLHandle.h"
 
-#if PLATFORM(WIN) && USE(CF)
-#include <wtf/PassRefPtr.h>
-#include <wtf/RetainPtr.h>
-#endif
-
 namespace WebCore {
 
 class WebCoreSynchronousLoader : public ResourceHandleClient {
@@ -122,7 +117,7 @@ void ResourceHandle::cancel()
 
 void ResourceHandle::setHostAllowsAnyHTTPSCertificate(const String& host)
 {
-    allowsAnyHTTPSCertificateHosts(host.lower());
+    allowsAnyHTTPSCertificateHosts(host);
 }
 
 void ResourceHandle::setClientCertificateInfo(const String& host, const String& certificate, const String& key)
@@ -134,18 +129,11 @@ void ResourceHandle::setClientCertificateInfo(const String& host, const String& 
 }
 
 #if PLATFORM(WIN) && USE(CF)
-// FIXME:  The CFDataRef will need to be something else when
-// building without 
-static HashMap<String, RetainPtr<CFDataRef> >& clientCerts()
+
+void ResourceHandle::setClientCertificate(const String&, CFDataRef)
 {
-    static HashMap<String, RetainPtr<CFDataRef> > certs;
-    return certs;
 }
 
-void ResourceHandle::setClientCertificate(const String& host, CFDataRef cert)
-{
-    clientCerts().set(host.lower(), cert);
-}
 #endif
 
 void ResourceHandle::platformSetDefersLoading(bool defers)
@@ -261,7 +249,7 @@ void ResourceHandle::receivedRequestToContinueWithoutCredential(const Authentica
     if (challenge != d->m_currentWebChallenge)
         return;
 
-    String userpass = "";
+    String userpass = emptyString();
     curl_easy_setopt(d->m_handle, CURLOPT_USERPWD, userpass.utf8().data());
 
     clearAuthentication();

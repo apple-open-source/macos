@@ -39,8 +39,8 @@ public:
 private:
     HTMLParamElement(const QualifiedName&, Document&);
 
-    virtual bool isURLAttribute(const Attribute&) const override;
-    virtual void addSubresourceAttributeURLs(ListHashSet<URL>&) const override;
+    bool isURLAttribute(const Attribute&) const final;
+    void addSubresourceAttributeURLs(ListHashSet<URL>&) const final;
 };
 
 } // namespace WebCore

@@ -1,6 +1,4 @@
 //
-// "$Id: ppdpo.cxx 12669 2015-05-27 19:42:43Z msweet $"
-//
 // PPD file message catalog program for the CUPS PPD Compiler.
 //
 // Copyright 2007-2015 by Apple Inc.
@@ -255,8 +253,3 @@ usage(void)
 
   exit(1);
 }
-
-
-//
-// End of "$Id: ppdpo.cxx 12669 2015-05-27 19:42:43Z msweet $".
-//

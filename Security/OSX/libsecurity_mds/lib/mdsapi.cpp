@@ -37,7 +37,7 @@
 #include <security_utilities/globalizer.h>
 #include <security_utilities/threading.h>
 
-#define MSApiDebug(args...)	secdebug("MDS_API", ## args)
+#define MSApiDebug(args...)	secinfo("MDS_API", ## args)
 
 /* Protects access to AppleDataBase */
 ModuleNexus<Mutex> adbMutex;

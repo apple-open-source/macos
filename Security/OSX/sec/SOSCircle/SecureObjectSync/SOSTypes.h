@@ -39,10 +39,11 @@ typedef enum SyncWithAllPeersReason {
 } SyncWithAllPeersReason;
 
 typedef enum HandleIDSMessageReason {
-    kHandleIDSMessageOtherFail = 0,
+    kHandleIDSMessageDontHandle = 0,
     kHandleIDSMessageNotReady,
     kHandleIDSMessageSuccess,
     kHandleIDSMessageLocked,
+    kHandleIDSmessageDeviceIDMismatch
 } HandleIDSMessageReason;
 
 

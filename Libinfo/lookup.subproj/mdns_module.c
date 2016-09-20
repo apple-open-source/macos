@@ -372,6 +372,7 @@ _mdns_hostent_append_addr(mdns_hostent_t *h, const uint8_t *addr, uint32_t len)
 	if (h->host.h_addr_list == NULL)
 	{
 		h->addr_count = 0;
+		free(buf);
 		return -1;
 	}
 
@@ -1459,6 +1460,7 @@ _mdns_query_callback(DNSServiceRef sdRef, DNSServiceFlags flags, uint32_t ifInde
 				if (rdlen < sizeof(mdns_rr_srv_t))
 				{
 					malformed = 1;
+					free(srv);
 					break;
 				}
 
@@ -1470,6 +1472,7 @@ _mdns_query_callback(DNSServiceRef sdRef, DNSServiceFlags flags, uint32_t ifInde
 				if (srv->srv.target == NULL)
 				{
 					malformed = 1;
+					free(srv);
 					break;
 				}
 

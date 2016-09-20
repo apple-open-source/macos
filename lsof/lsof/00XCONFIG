@@ -150,11 +150,26 @@ LSOF_HOST       may be used to specify a value in lsof's -v output
 		default: the dialect's host name application -- e.g.,
 			 hostname or uname -n
 
-LSOF_INCLUDE    is the path to the standard header files.  You may
-		need to specify it if you want Configure to test
-		header files in a tree different from /usr/include,
-		and you want to compile lsof from the header files
-		in that different tree.
+LSOF_INCLUDE    is the path to a tree of header files that is an exact
+		image of the the standard header file tree for the
+		target dialect.  You may need to specify it if you
+		want Configure to test header files in a tree different
+		from /usr/include and compile its test programs with
+		header files from that tree, then you want to compile
+		lsof from the header files in that different, duplicate
+		image tree.
+
+		Note: LSOF_INCLUDE should contain a single path
+		without any option flags, such as -I.  It is always
+		supplied to the compiler in CFLAGS following the -I
+		option flag.  If you want to specify other include
+		paths, use LSOF_OPINC.
+
+		ADDITIONAL NOTE: all the header files that lsof's
+		Configure tests for optional features and uses to
+		compile test programs must be in LSOF_CONFIGURE.
+		They can't be scattered in the other include path
+		that LSOF_OPINC names.
 
 LSOF_LOGNAME    may be used to specify a value in lsof's -v output
 		other than the one in the LOGNAME environment
@@ -174,6 +189,19 @@ LSOF_MKC        may be used to specify an alternate method of
 		directory.  See 00PORTING for more information.
 
 		default: ln -s
+
+LSOF_OPINC	may be used to specify other include file search
+		paths.  Each must be preceded by the compiler's -I
+		option file and, if there are muliple paths, they
+		must be separated by spaces and the entire set must
+		be enclosed in double quote marks -- e.g.,
+
+		LSOF_OPINC="-I/path1 -I/path2 ..."
+
+		The optional include paths thus specified will be
+		appended to LSOF_INCLUDE and whatever special
+		include paths the lsof Configure script finds
+		necessary.
 
 LSOF_RANLIB	may be used to specify an alternate command for the
 		randomizing of the lsof library.
@@ -700,4 +728,4 @@ UW_HAS_NSC		If this environment variable has a value of "Y" or "y",
 			default: tested via /bin/node_self
 
 Vic Abell <abe@purdue.edu>
-September 27, 2011
+October 13, 2014

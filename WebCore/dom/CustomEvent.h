@@ -33,8 +33,6 @@
 namespace WebCore {
 
 struct CustomEventInit : public EventInit {
-    CustomEventInit();
-
     Deprecated::ScriptValue detail;
 };
 
@@ -42,29 +40,29 @@ class CustomEvent final : public Event {
 public:
     virtual ~CustomEvent();
 
-    static Ref<CustomEvent> create()
+    static Ref<CustomEvent> createForBindings()
     {
         return adoptRef(*new CustomEvent);
     }
 
-    static Ref<CustomEvent> create(const AtomicString& type, const CustomEventInit& initializer)
+    static Ref<CustomEvent> createForBindings(const AtomicString& type, const CustomEventInit& initializer)
     {
         return adoptRef(*new CustomEvent(type, initializer));
     }
 
-    void initCustomEvent(const AtomicString& type, bool canBubble, bool cancelable, const Deprecated::ScriptValue& detail);
+    void initCustomEvent(JSC::ExecState&, const AtomicString& type, bool canBubble, bool cancelable, JSC::JSValue detail = JSC::JSValue::JSUndefined);
 
-    virtual EventInterface eventInterface() const override;
+    EventInterface eventInterface() const override;
 
-    const Deprecated::ScriptValue& detail() const { return m_detail; }
+    JSC::JSValue detail() const { return m_detail.jsValue(); }
     
-    RefPtr<SerializedScriptValue> trySerializeDetail(JSC::ExecState*);
+    RefPtr<SerializedScriptValue> trySerializeDetail(JSC::ExecState&);
 
 private:
     CustomEvent();
     CustomEvent(const AtomicString& type, const CustomEventInit& initializer);
 
-    Deprecated::ScriptValue m_detail;
+    Deprecated::ScriptValue m_detail; // FIXME: Why is it OK to use a strong reference here? What prevents a reference cycle?
     RefPtr<SerializedScriptValue> m_serializedDetail;
     bool m_triedToSerialize { false };
 };

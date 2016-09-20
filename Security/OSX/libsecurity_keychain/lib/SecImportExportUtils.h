@@ -69,8 +69,8 @@ extern const char *impExpExtItemTypeStr(SecExternalItemType itemType);
 
 #endif  /* NDEBUG */
 
-#define SecImpExpDbg(args...)	secdebug("SecImpExp", ## args)
-#define SecImpInferDbg(args...)	secdebug("SecImpInfer", ## args)
+#define SecImpExpDbg(args...)	secinfo("SecImpExp", ## args)
+#define SecImpInferDbg(args...)	secinfo("SecImpInfer", ## args)
 
 /* 
  * Parse file extension and attempt to map it to format and type. Returns true 

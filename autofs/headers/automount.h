@@ -297,7 +297,7 @@ extern int getword(char *, char *, char **, char **, char, int);
 extern int get_retry(const char *);
 extern int str_opt(struct mnttab *, char *, char **);
 extern void dirinit(char *, char *, char *, int, char **, char ***);
-extern void pr_msg(const char *, ...) __printflike(1, 2);
+extern void pr_msg(int, const char *, ...) __printflike(2, 3);
 extern void trace_prt(int, char *, ...) __printflike(2, 3);
 extern void free_action_list_fields(action_list *);
 

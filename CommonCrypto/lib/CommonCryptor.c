@@ -222,7 +222,7 @@ static inline CCCryptorStatus ccInitCryptor(CCCryptor *ref, const void *key, uns
         CC_XZEROMEM(defaultIV, blocksize);
         iv = defaultIV;
     }
-    
+     
     CCOperation op = ref->op;
     
     // This will create both sides of the context/mode pairs for now.
@@ -445,8 +445,8 @@ CCCryptorStatus CCCryptorCreateWithMode(
 	const void 		*key,			/* raw key material */
 	size_t 			keyLength,	
 	const void 		*tweak,			/* raw tweak material */
-	size_t 			tweakLength,	
-	int				numRounds,		/* 0 == default */
+	size_t 			 __unused tweakLength,	
+	int				 __unused numRounds,		/* 0 == default */
 	CCModeOptions 	options,
 	CCCryptorRef	*cryptorRef)	/* RETURNED */
 {

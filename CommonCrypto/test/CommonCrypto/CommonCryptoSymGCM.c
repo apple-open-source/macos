@@ -43,7 +43,7 @@ entryPoint(CommonCryptoSymGCM,"CommonCrypto Symmetric GCM Testing")
 
 static int kTestTestCount = 16;
 
-int CommonCryptoSymGCM(int argc, char *const *argv) {
+int CommonCryptoSymGCM(int __unused argc, char *const * __unused argv) {
 	char *keyStr;
 	char *iv;
 	char *plainText;
@@ -172,7 +172,9 @@ int CommonCryptoSymGCM(int argc, char *const *argv) {
     accum += retval;
 
     /* testcase #8 - #1 with NULL IV and AAD */
-    
+    // this test case is not valid under new corecrypto AESGCM
+    // IV cannot be empty
+    /*
     keyStr =     "00000000000000000000000000000000";
     adata =      "";
     iv =         "";
@@ -186,7 +188,7 @@ int CommonCryptoSymGCM(int argc, char *const *argv) {
     retval = CCCryptorGCMDiscreetTestCase(keyStr, iv, adata, tag, alg, cipherText, plainText);
     ok(retval == 0, "AES-GCM Testcase 8.2");
     accum += retval;
-
+    */
 
     return accum != 0;
 }

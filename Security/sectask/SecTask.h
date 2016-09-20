@@ -26,10 +26,9 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <mach/message.h>
+#include <sys/cdefs.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 /*!
     @typedef SecTaskRef
@@ -105,8 +104,14 @@ CFDictionaryRef SecTaskCopyValuesForEntitlements(SecTaskRef task, CFArrayRef ent
 */
 CFStringRef SecTaskCopySigningIdentifier(SecTaskRef task, CFErrorRef *error);
 
-#if defined(__cplusplus)
-}
-#endif
+/*!
+    @function SecTaskGetCodeSignStatus
+    @abstract Return the code sign status flags
+    @param task A previously created SecTask object
+*/
+
+uint32_t SecTaskGetCodeSignStatus(SecTaskRef task);
+
+__END_DECLS
 
 #endif /* !_SECURITY_SECTASK_H_ */

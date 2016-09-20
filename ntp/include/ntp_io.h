@@ -1,13 +1,12 @@
 #ifndef NTP_IO_H
 #define NTP_IO_H
+
+#include "ntp_workimpl.h"
+
 /*
  * POSIX says use <fnct.h> to get O_* symbols and 
  * SEEK_SET symbol form <unistd.h>.
  */
-#ifdef HAVE_CONFIG_H
-# include <config.h>
-#endif
-
 #include <sys/types.h>
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
@@ -31,13 +30,17 @@
 #include <isc/boolean.h>
 #include <isc/netaddr.h>
 
-#if HAVE_NETINET_IN_H && HAVE_NETINET_IP_H
-#include <netinet/in.h>
-# if HAVE_NETINET_IN_SYSTM_H
+#if defined(HAVE_NETINET_IN_H) && defined(HAVE_NETINET_IP_H)
+# include <netinet/in.h>
+# ifdef HAVE_NETINET_IN_SYSTM_H
 #  include <netinet/in_systm.h>
 # endif
-#include <netinet/ip.h>
+# include <netinet/ip.h>
 #endif
+
+#include "libntp.h"	/* This needs Something above for GETDTABLESIZE */
+
+#include "ntp_keyacc.h"
 
 /*
  * Define FNDELAY and FASYNC using O_NONBLOCK and O_ASYNC if we need
@@ -69,7 +72,6 @@ typedef enum {
 	MATCH_IFADDR
 } nic_rule_match;
 
-
 /*
  * NIC rule actions
  */
@@ -80,10 +82,18 @@ typedef enum {
 } nic_rule_action;
 
 
+extern int	qos;
+SOCKET		move_fd(SOCKET fd);
 isc_boolean_t	get_broadcastclient_flag(void);
-isc_boolean_t	is_ip_address(const char *, isc_netaddr_t *);
 extern void	sau_from_netaddr(sockaddr_u *, const isc_netaddr_t *);
-extern void add_nic_rule(nic_rule_match match_type, const char *if_name,
-			 int prefixlen, nic_rule_action action);
+extern void	add_nic_rule(nic_rule_match match_type,
+			     const char *if_name, int prefixlen,
+			     nic_rule_action action);
+#ifndef HAVE_IO_COMPLETION_PORT
+extern	void	maintain_activefds(int fd, int closing);
+#else
+#define		maintain_activefds(f, c)	do {} while (0)
+#endif
+
 
 #endif	/* NTP_IO_H */

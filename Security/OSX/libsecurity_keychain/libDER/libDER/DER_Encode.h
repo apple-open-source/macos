@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2007,2011,2013-2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2005-2016 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,11 +30,9 @@
 #ifndef	_DER_ENCODE_H_
 #define _DER_ENCODE_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <libDER/libDER.h>
+
+__BEGIN_DECLS
 
 /*
  * Max size of an encoded item given its length.
@@ -116,9 +114,6 @@ DERSize DERLengthOfEncodedSequence(
 	const DERItemSpec	*itemSpecs);
 
 
-#ifdef __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif	/* _DER_ENCODE_H_ */
-

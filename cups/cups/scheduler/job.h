@@ -1,6 +1,4 @@
 /*
- * "$Id: job.h 12669 2015-05-27 19:42:43Z msweet $"
- *
  * Print job definitions for the CUPS scheduler.
  *
  * Copyright 2007-2015 by Apple Inc.
@@ -177,8 +175,3 @@ extern void		cupsdStopAllJobs(cupsd_jobaction_t action,
 extern int		cupsdTimeoutJob(cupsd_job_t *job);
 extern void		cupsdUnloadCompletedJobs(void);
 extern void		cupsdUpdateJobs(void);
-
-
-/*
- * End of "$Id: job.h 12669 2015-05-27 19:42:43Z msweet $".
- */

@@ -31,8 +31,6 @@
 #ifndef HTMLTemplateElement_h
 #define HTMLTemplateElement_h
 
-#if ENABLE(TEMPLATE_ELEMENT)
-
 #include "HTMLElement.h"
 
 namespace WebCore {
@@ -45,19 +43,17 @@ public:
     static Ref<HTMLTemplateElement> create(const QualifiedName&, Document&);
     virtual ~HTMLTemplateElement();
 
-    DocumentFragment* content() const;
+    DocumentFragment& content() const;
 
 private:
     HTMLTemplateElement(const QualifiedName&, Document&);
 
-    virtual RefPtr<Node> cloneNodeInternal(Document&, CloningOperation) override;
-    virtual void didMoveToNewDocument(Document* oldDocument) override;
+    Ref<Node> cloneNodeInternal(Document&, CloningOperation) final;
+    void didMoveToNewDocument(Document* oldDocument) final;
 
     mutable RefPtr<TemplateContentDocumentFragment> m_content;
 };
 
 } // namespace WebCore
-
-#endif // ENABLE(TEMPLATE_ELEMENT)
 
 #endif // HTMLTemplateElement_h

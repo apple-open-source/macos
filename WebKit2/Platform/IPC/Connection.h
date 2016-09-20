@@ -34,21 +34,22 @@
 #include "MessageReceiver.h"
 #include "ProcessType.h"
 #include <atomic>
-#include <condition_variable>
+#include <wtf/Condition.h>
 #include <wtf/Deque.h>
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
+#include <wtf/Lock.h>
 #include <wtf/WorkQueue.h>
 #include <wtf/text/CString.h>
 
-#if OS(DARWIN)
+#if OS(DARWIN) && !USE(UNIX_DOMAIN_SOCKETS)
 #include <mach/mach_port.h>
 #include <wtf/OSObjectPtr.h>
 #include <wtf/spi/darwin/XPCSPI.h>
 #endif
 
-#if PLATFORM(GTK) || PLATFORM(EFL)
-#include "PlatformProcessIdentifier.h"
+#if PLATFORM(GTK)
+#include "GSocketMonitor.h"
 #endif
 
 namespace IPC {
@@ -64,9 +65,7 @@ enum MessageSendFlags {
 enum SyncMessageSendFlags {
     // Use this to inform that this sync call will suspend this process until the user responds with input.
     InformPlatformProcessWillSuspend = 1 << 0,
-    // Some platform accessibility clients can't suspend gracefully and need to spin the run loop so WebProcess doesn't hang.
-    // FIXME (126021): Remove when no platforms need to support this.
-    SpinRunLoopWhileWaitingForReply = 1 << 1,
+    UseFullySynchronousModeForTesting = 1 << 1,
 };
 
 enum WaitForMessageFlags {
@@ -98,32 +97,7 @@ public:
     class WorkQueueMessageReceiver : public MessageReceiver, public ThreadSafeRefCounted<WorkQueueMessageReceiver> {
     };
 
-#if OS(DARWIN)
-    struct Identifier {
-        Identifier()
-            : port(MACH_PORT_NULL)
-        {
-        }
-
-        Identifier(mach_port_t port)
-            : port(port)
-        {
-        }
-
-        Identifier(mach_port_t port, OSObjectPtr<xpc_connection_t> xpcConnection)
-            : port(port)
-            , xpcConnection(WTF::move(xpcConnection))
-        {
-        }
-
-        mach_port_t port;
-        OSObjectPtr<xpc_connection_t> xpcConnection;
-    };
-    static bool identifierIsNull(Identifier identifier) { return identifier.port == MACH_PORT_NULL; }
-    xpc_connection_t xpcConnection() const { return m_xpcConnection.get(); }
-    bool getAuditToken(audit_token_t&);
-    pid_t remoteProcessID() const;
-#elif USE(UNIX_DOMAIN_SOCKETS)
+#if USE(UNIX_DOMAIN_SOCKETS)
     typedef int Identifier;
     static bool identifierIsNull(Identifier identifier) { return identifier == -1; }
 
@@ -138,6 +112,31 @@ public:
     };
 
     static Connection::SocketPair createPlatformConnection(unsigned options = SetCloexecOnClient | SetCloexecOnServer);
+#elif OS(DARWIN)
+    struct Identifier {
+        Identifier()
+            : port(MACH_PORT_NULL)
+        {
+        }
+
+        Identifier(mach_port_t port)
+            : port(port)
+        {
+        }
+
+        Identifier(mach_port_t port, OSObjectPtr<xpc_connection_t> xpcConnection)
+            : port(port)
+            , xpcConnection(WTFMove(xpcConnection))
+        {
+        }
+
+        mach_port_t port;
+        OSObjectPtr<xpc_connection_t> xpcConnection;
+    };
+    static bool identifierIsNull(Identifier identifier) { return identifier.port == MACH_PORT_NULL; }
+    xpc_connection_t xpcConnection() const { return m_xpcConnection.get(); }
+    bool getAuditToken(audit_token_t&);
+    pid_t remoteProcessID() const;
 #endif
 
     static Ref<Connection> createServerConnection(Identifier, Client&);
@@ -204,6 +203,10 @@ public:
     void uninstallIncomingSyncMessageCallback(uint64_t);
     bool hasIncomingSyncMessage();
 
+    void allowFullySynchronousModeForTesting() { m_fullySynchronousModeIsAllowedForTesting = true; }
+
+    void ignoreTimeoutsForTesting() { m_ignoreTimeoutsForTesting = true; }
+
 private:
     Connection(Identifier, bool isServer, Client&);
     void platformInitialize(Identifier);
@@ -238,6 +241,8 @@ private:
 
     void willSendSyncMessage(unsigned syncSendFlags);
     void didReceiveSyncReply(unsigned syncSendFlags);
+
+    std::chrono::milliseconds timeoutRespectingIgnoreTimeoutsForTesting(std::chrono::milliseconds) const;
     
     Client* m_client;
     bool m_isServer;
@@ -255,18 +260,21 @@ private:
     unsigned m_inSendSyncCount;
     unsigned m_inDispatchMessageCount;
     unsigned m_inDispatchMessageMarkedDispatchWhenWaitingForSyncReplyCount;
+    unsigned m_inDispatchMessageMarkedToUseFullySynchronousModeForTesting { 0 };
+    bool m_fullySynchronousModeIsAllowedForTesting { false };
+    bool m_ignoreTimeoutsForTesting { false };
     bool m_didReceiveInvalidMessage;
 
     // Incoming messages.
-    std::mutex m_incomingMessagesMutex;
+    Lock m_incomingMessagesMutex;
     Deque<std::unique_ptr<MessageDecoder>> m_incomingMessages;
 
     // Outgoing messages.
-    std::mutex m_outgoingMessagesMutex;
+    Lock m_outgoingMessagesMutex;
     Deque<std::unique_ptr<MessageEncoder>> m_outgoingMessages;
     
-    std::condition_variable m_waitForMessageCondition;
-    std::mutex m_waitForMessageMutex;
+    Condition m_waitForMessageCondition;
+    Lock m_waitForMessageMutex;
 
     WaitForMessageState* m_waitingForMessage;
 
@@ -298,7 +306,7 @@ private:
     class SyncMessageState;
     friend class SyncMessageState;
 
-    Mutex m_syncReplyStateMutex;
+    Lock m_syncReplyStateMutex;
     bool m_shouldWaitForSyncReplies;
     Vector<PendingSyncReply> m_pendingSyncReplies;
 
@@ -306,7 +314,7 @@ private:
     typedef HashMap<uint64_t, SecondaryThreadPendingSyncReply*> SecondaryThreadPendingSyncReplyMap;
     SecondaryThreadPendingSyncReplyMap m_secondaryThreadPendingSyncReplyMap;
 
-    std::mutex m_incomingSyncMessageCallbackMutex;
+    Lock m_incomingSyncMessageCallbackMutex;
     HashMap<uint64_t, std::function<void ()>> m_incomingSyncMessageCallbacks;
     RefPtr<WorkQueue> m_incomingSyncMessageCallbackQueue;
     uint64_t m_nextIncomingSyncMessageCallbackID { 0 };
@@ -316,7 +324,18 @@ private:
     bool m_shouldBoostMainThreadOnSyncMessage { false };
 #endif
 
-#if OS(DARWIN)
+#if USE(UNIX_DOMAIN_SOCKETS)
+    // Called on the connection queue.
+    void readyReadHandler();
+    bool processMessage();
+
+    Vector<uint8_t> m_readBuffer;
+    Vector<int> m_fileDescriptors;
+    int m_socketDescriptor;
+#if PLATFORM(GTK)
+    GSocketMonitor m_socketMonitor;
+#endif
+#elif OS(DARWIN)
     // Called on the connection queue.
     void receiveSourceEventHandler();
     void initializeDeadNameSource();
@@ -337,17 +356,6 @@ private:
 #endif
 
     OSObjectPtr<xpc_connection_t> m_xpcConnection;
-
-#elif USE(UNIX_DOMAIN_SOCKETS)
-    // Called on the connection queue.
-    void readyReadHandler();
-    bool processMessage();
-
-    Vector<uint8_t> m_readBuffer;
-    size_t m_readBufferSize;
-    Vector<int> m_fileDescriptors;
-    size_t m_fileDescriptorsSize;
-    int m_socketDescriptor;
 #endif
 };
 
@@ -358,7 +366,7 @@ template<typename T> bool Connection::send(T&& message, uint64_t destinationID, 
     auto encoder = std::make_unique<MessageEncoder>(T::receiverName(), T::name(), destinationID);
     encoder->encode(message.arguments());
     
-    return sendMessage(WTF::move(encoder), messageSendFlags);
+    return sendMessage(WTFMove(encoder), messageSendFlags);
 }
 
 template<typename T> bool Connection::sendSync(T&& message, typename T::Reply&& reply, uint64_t destinationID, std::chrono::milliseconds timeout, unsigned syncSendFlags)
@@ -367,12 +375,17 @@ template<typename T> bool Connection::sendSync(T&& message, typename T::Reply&& 
 
     uint64_t syncRequestID = 0;
     std::unique_ptr<MessageEncoder> encoder = createSyncMessageEncoder(T::receiverName(), T::name(), destinationID, syncRequestID);
-    
+
+    if (syncSendFlags & SyncMessageSendFlags::UseFullySynchronousModeForTesting) {
+        encoder->setFullySynchronousModeForTesting();
+        m_fullySynchronousModeIsAllowedForTesting = true;
+    }
+
     // Encode the rest of the input arguments.
     encoder->encode(message.arguments());
 
     // Now send the message and wait for a reply.
-    std::unique_ptr<MessageDecoder> replyDecoder = sendSyncMessage(syncRequestID, WTF::move(encoder), timeout, syncSendFlags);
+    std::unique_ptr<MessageDecoder> replyDecoder = sendSyncMessage(syncRequestID, WTFMove(encoder), timeout, syncSendFlags);
     if (!replyDecoder)
         return false;
 

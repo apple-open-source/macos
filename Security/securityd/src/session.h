@@ -30,9 +30,9 @@
 
 #include "structure.h"
 #include "acls.h"
-#include "authority.h"
 #include "authhost.h"
 #include <Security/AuthSession.h>
+#include <security_utilities/casts.h>
 #include <security_utilities/ccaudit.h>
 #include <security_cdsa_utilities/handletemplates_defs.h>
 #include <security_cdsa_utilities/u32handleobject.h>
@@ -80,7 +80,7 @@ public:
     static const SessionAttributeBits settableAttributes =
         sessionHasGraphicAccess | sessionHasTTY | sessionIsRemote | AU_SESSION_FLAG_HAS_AUTHENTICATED;
 
-    SessionAttributeBits attributes() const			{ updateAudit(); return mAudit.ai_flags; }
+    SessionAttributeBits attributes() const			{ updateAudit(); return int_cast<au_asflgs_t,SessionAttributeBits>(mAudit.ai_flags); }
     bool attribute(SessionAttributeBits bits) const	{ return attributes() & bits; }
 	void setAttributes(SessionAttributeBits bits);
 	
@@ -88,54 +88,11 @@ public:
 
 	virtual uid_t originatorUid();
 
-	virtual CFDataRef copyUserPrefs() = 0;
-
 	static const char kUsername[];
     static const char kRealname[];
     
-public:
-	const CredentialSet &authCredentials() const	{ return mSessionCreds; }
-
-    //
-    // For external Authorization clients
-    //
-	OSStatus authCreate(const AuthItemSet &rights, const AuthItemSet &environment,
-		AuthorizationFlags flags, AuthorizationBlob &newHandle, const audit_token_t &auditToken);
-	void authFree(const AuthorizationBlob &auth, AuthorizationFlags flags);
-	static OSStatus authGetRights(const AuthorizationBlob &auth,
-		const AuthItemSet &requestedRights, const AuthItemSet &environment,
-		AuthorizationFlags flags, AuthItemSet &grantedRights);
-	OSStatus authGetInfo(const AuthorizationBlob &auth, const char *tag, AuthItemSet &contextInfo);
-    
-	OSStatus authExternalize(const AuthorizationBlob &auth, AuthorizationExternalForm &extForm);
-	OSStatus authInternalize(const AuthorizationExternalForm &extForm, AuthorizationBlob &auth);
-
-	OSStatus authorizationdbGet(AuthorizationString inRightName, CFDictionaryRef *rightDict);
-	OSStatus authorizationdbSet(const AuthorizationBlob &authBlob, AuthorizationString inRightName, CFDictionaryRef rightDict);
-	OSStatus authorizationdbRemove(const AuthorizationBlob &authBlob, AuthorizationString inRightName);
-    
-    //
-    // Authorization methods for securityd's internal use
-    //
-    OSStatus authCheckRight(string &rightName, Connection &connection, bool allowUI);
-    // authCheckRight() with exception-handling and Boolean return semantics
-    bool isRightAuthorized(string &rightName, Connection &connection, bool allowUI);
-
 protected:
 	void updateAudit() const;
-
-private:
-    struct AuthorizationExternalBlob {
-        AuthorizationBlob blob;
-		uint32_t session;
-    };
-	
-protected:
-    static AuthorizationToken &authorization(const AuthorizationBlob &blob);
-	OSStatus authGetRights(AuthorizationToken &auth,
-		const AuthItemSet &requestedRights, const AuthItemSet &environment,
-		AuthorizationFlags flags, AuthItemSet &grantedRights);
-	void mergeCredentials(CredentialSet &creds);
 
 public:
     void invalidateSessionAuthHosts();      // invalidate auth hosts in this session
@@ -144,20 +101,13 @@ public:
 	static void processSystemSleep();
 	void processLockAll();
 
-	RefPointer<AuthHostInstance> authhost(const AuthHostType hostType = securityAgent, const bool restart = false);
+	RefPointer<AuthHostInstance> authhost(const bool restart = false);
 
 protected:
  	mutable CommonCriteria::AuditInfo mAudit;
 	
-	mutable Mutex mCredsLock;				// lock for mSessionCreds
-	CredentialSet mSessionCreds;			// shared session authorization credentials
-
 	mutable Mutex mAuthHostLock;
 	AuthHostInstance *mSecurityAgent;
-	AuthHostInstance *mAuthHost;
-    
-	CFRef<CFDataRef> mSessionAgentPrefs;
-    Credential mOriginatorCredential;
 	
 	void kill();
 
@@ -202,24 +152,6 @@ SessionType &Session::find(SecuritySessionId id)
 class RootSession : public Session {
 public:
     RootSession(uint64_t attributes, Server &server);
-	
-	CFDataRef copyUserPrefs()           { return NULL; }
-};
-
-
-//
-// A DynamicSession object represents a session that is dynamically constructed
-// when we first encounter it. These sessions are actually created in client
-// space using the audit session APIs.
-// We tear down a DynamicSession when the system reports (via kevents) that the
-// kernel audit session object has been destroyed.
-//
-class DynamicSession : private ReceivePort, public Session {
-public:
-    DynamicSession(const CommonCriteria::AuditInfo &audit);
-
-	void setUserPrefs(CFDataRef userPrefsDict);
-	CFDataRef copyUserPrefs();
 };
 
 

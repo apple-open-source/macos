@@ -186,14 +186,14 @@ WebInspector.CSSStyleDeclaration = class CSSStyleDeclaration extends WebInspecto
         if (this._text === text)
             return;
 
-        var trimmedText = text.trim();
+        let trimmedText = WebInspector.CSSStyleDeclarationTextEditor.PrefixWhitespace + text.trim();
         if (this._text === trimmedText)
             return;
 
-        if (!trimmedText.length || this._type === WebInspector.CSSStyleDeclaration.Type.Inline)
+        if (trimmedText === WebInspector.CSSStyleDeclarationTextEditor.PrefixWhitespace || this._type === WebInspector.CSSStyleDeclaration.Type.Inline)
             text = trimmedText;
 
-        var modified = text !== this._initialText;
+        let modified = text !== this._initialText;
         if (modified !== this._hasModifiedInitialText) {
             this._hasModifiedInitialText = modified;
             this.dispatchEventToListeners(WebInspector.CSSStyleDeclaration.Event.InitialTextModified);
@@ -303,16 +303,16 @@ WebInspector.CSSStyleDeclaration = class CSSStyleDeclaration extends WebInspecto
     generateCSSRuleString()
     {
         // FIXME: <rdar://problem/10593948> Provide a way to change the tab width in the Web Inspector
-        var indentation = "    ";
-        var styleText = "";
-        var mediaList = this.mediaList;
-        var mediaQueriesCount = mediaList.length;
-        for (var i = mediaQueriesCount - 1; i >= 0; --i)
+        const indentation = "    ";
+        let styleText = "";
+        let mediaList = this.mediaList;
+        let mediaQueriesCount = mediaList.length;
+        for (let i = mediaQueriesCount - 1; i >= 0; --i)
             styleText += indentation.repeat(mediaQueriesCount - i - 1) + "@media " + mediaList[i].text + " {\n";
 
         styleText += indentation.repeat(mediaQueriesCount) + this.selectorText + " {\n";
 
-        for (var property of this._properties) {
+        for (let property of this._properties) {
             if (property.anonymous)
                 continue;
 
@@ -324,12 +324,22 @@ WebInspector.CSSStyleDeclaration = class CSSStyleDeclaration extends WebInspecto
             styleText += "\n";
         }
 
-        for (var i = mediaQueriesCount; i > 0; --i)
+        for (let i = mediaQueriesCount; i > 0; --i)
             styleText += indentation.repeat(i) + "}\n";
 
         styleText += "}";
 
         return styleText;
+    }
+
+    isInspectorRule()
+    {
+        return this._ownerRule && this._ownerRule.type === WebInspector.CSSStyleSheet.Type.Inspector;
+    }
+
+    hasProperties()
+    {
+        return !!this._properties.length;
     }
 
     // Protected

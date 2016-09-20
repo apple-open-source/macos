@@ -341,7 +341,7 @@ do_authloop(Authctxt *authctxt)
 			    "configuration", authctxt->user);
 			len = buffer_len(&loginmsg);
 			buffer_append(&loginmsg, "\0", 1);
-			msg = (char *)buffer_ptr(&loginmsg);
+			msg = buffer_ptr(&loginmsg);
 			/* strip trailing newlines */
 			if (len > 0)
 				while (len > 0 && msg[--len] == '\n')

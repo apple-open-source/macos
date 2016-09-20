@@ -19,7 +19,7 @@
 <div id="page-header">
 <p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p>
 <p class="apache">Apache HTTP Sunucusu Sürüm 2.4</p>
-<img alt="" src="../images/feather.gif" /></div>
+<img alt="" src="../images/feather.png" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
 <a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Sunucusu</a> &gt; <a href="http://httpd.apache.org/docs/">Belgeleme</a> &gt; <a href="../">Sürüm 2.4</a> &gt; <a href="./">Modüller</a></div>
@@ -61,7 +61,9 @@
 <li><img alt="" src="../images/down.gif" /> <a href="#threadsperchild">ThreadsPerChild</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#threadstacksize">ThreadStackSize</a></li>
 </ul>
-<ul class="seealso"><li><a href="#comments_section">Yorum</a></li></ul></div>
+<h3>Bugfix checklist</h3><ul class="seealso"><li><a href="https://www.apache.org/dist/httpd/CHANGES_2.4">httpd changelog</a></li><li><a href="https://bz.apache.org/bugzilla/buglist.cgi?bug_status=__open__&amp;list_id=144532&amp;product=Apache%20httpd-2&amp;query_format=specific&amp;order=changeddate%20DESC%2Cpriority%2Cbug_severity&amp;component=mpm_common">Known issues</a></li><li><a href="https://bz.apache.org/bugzilla/enter_bug.cgi?product=Apache%20httpd-2&amp;component=mpm_common">Report a bug</a></li></ul><h3>Ayrıca bakınız:</h3>
+<ul class="seealso">
+<li><a href="#comments_section">Yorum</a></li></ul></div>
 
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="CoreDumpDirectory" id="CoreDumpDirectory">CoreDumpDirectory</a> <a name="coredumpdirectory" id="coredumpdirectory">Yönergesi</a></h2>
@@ -72,7 +74,7 @@
 <tr><th><a href="directive-dict.html#Default">Öntanımlı:</a></th><td><code>Öntanımlı değer için aşağıdaki açıklamaya bakınız</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Bağlam:</a></th><td>sunucu geneli</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>MPM</td></tr>
-<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code></td></tr>
+<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code></td></tr>
 </table>
     <p>Bu yönerge <code>core</code> dosyasını dökümlemek üzere Apache httpd’nin
       geçmeye çalışacağı dizini belirler. Eğer işletim sisteminiz, çöken bir
@@ -129,7 +131,7 @@
 <tr><th><a href="directive-dict.html#Default">Öntanımlı:</a></th><td><code>EnableExceptionHook Off</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Bağlam:</a></th><td>sunucu geneli</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>MPM</td></tr>
-<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code></td></tr>
+<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code></td></tr>
 </table>
     <p>Güvenlik sebebiyle bu yönerge sadece Apache
       <code>--enable-exception-hook</code> seçeneği ile yapılandırılmışsa
@@ -151,7 +153,7 @@
 <tr><th><a href="directive-dict.html#Default">Öntanımlı:</a></th><td><code>GracefulShutdownTimeout 0</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Bağlam:</a></th><td>sunucu geneli</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>MPM</td></tr>
-<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/prefork.html">prefork</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code>, <code class="module"><a href="../mod/event.html">event</a></code></td></tr>
+<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code></td></tr>
 <tr><th><a href="directive-dict.html#Compatibility">Uyumluluk:</a></th><td>Sürüm 2.2 ve sonrasında mevcuttur</td></tr>
 </table>
     <p><code class="directive">GracefulShutdownTimeout</code> yönergesi, sunucuya
@@ -171,7 +173,7 @@
   [<var>protokol</var>]</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Bağlam:</a></th><td>sunucu geneli</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>MPM</td></tr>
-<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/mpm_netware.html">mpm_netware</a></code>, <code class="module"><a href="../mod/mpm_winnt.html">mpm_winnt</a></code>, <code class="module"><a href="../mod/mpmt_os2.html">mpmt_os2</a></code>, <code class="module"><a href="../mod/perchild.html">perchild</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code>, <code class="module"><a href="../mod/event.html">event</a></code></td></tr>
+<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code>, <code class="module"><a href="../mod/mpm_winnt.html">mpm_winnt</a></code>, <code class="module"><a href="../mod/mpm_netware.html">mpm_netware</a></code>, <code class="module"><a href="../mod/mpmt_os2.html">mpmt_os2</a></code></td></tr>
 <tr><th><a href="directive-dict.html#Compatibility">Uyumluluk:</a></th><td><var>protokol</var> değiştirgesi 2.1.5 sürümünde
     eklenmiştir.</td></tr>
 </table>
@@ -253,7 +255,7 @@ açıklaması</a></li>
 <tr><th><a href="directive-dict.html#Default">Öntanımlı:</a></th><td><code>ListenBacklog 511</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Bağlam:</a></th><td>sunucu geneli</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>MPM</td></tr>
-<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/mpm_netware.html">mpm_netware</a></code>, <code class="module"><a href="../mod/mpm_winnt.html">mpm_winnt</a></code>, <code class="module"><a href="../mod/mpmt_os2.html">mpmt_os2</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code></td></tr>
+<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code>, <code class="module"><a href="../mod/mpm_winnt.html">mpm_winnt</a></code>, <code class="module"><a href="../mod/mpm_netware.html">mpm_netware</a></code>, <code class="module"><a href="../mod/mpmt_os2.html">mpmt_os2</a></code></td></tr>
 </table>
     <p>Bekleyen bağlantılar kuyruğunun azami uzunluğu. Genellikle bu ayar ne
       gerekir ne de istenir. Ancak bazı sistemlerde TCP SYN yüklenme
@@ -276,7 +278,7 @@ açıklaması</a></li>
 <tr><th><a href="directive-dict.html#Default">Öntanımlı:</a></th><td><code>ListenCoresBucketsRatio 0 (iptal)</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Bağlam:</a></th><td>sunucu geneli</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>MPM</td></tr>
-<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code></td></tr>
+<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code></td></tr>
 <tr><th><a href="directive-dict.html#Compatibility">Uyumluluk:</a></th><td>Apache HTTP Server 2.4.17 ve sonrasında,
  <code>SO_REUSEPORT</code> soket seçeneğini destekleyen bir Linux çekirdeğinin
  varlığında ve yeni bağlantıların bunu kullanan dinleme süreçlerinin (veya
@@ -313,7 +315,7 @@ açıklaması</a></li>
 <tr><th><a href="directive-dict.html#Default">Öntanımlı:</a></th><td><code>MaxConnectionsPerChild 0</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Bağlam:</a></th><td>sunucu geneli</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>MPM</td></tr>
-<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/mpm_netware.html">mpm_netware</a></code>, <code class="module"><a href="../mod/mpmt_os2.html">mpmt_os2</a></code>, <code class="module"><a href="../mod/mpm_winnt.html">mpm_winnt</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code></td></tr>
+<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code>, <code class="module"><a href="../mod/mpm_winnt.html">mpm_winnt</a></code>, <code class="module"><a href="../mod/mpm_netware.html">mpm_netware</a></code>, <code class="module"><a href="../mod/mpmt_os2.html">mpmt_os2</a></code></td></tr>
 <tr><th><a href="directive-dict.html#Compatibility">Uyumluluk:</a></th><td>Apache HTTP Sunucusunun 2.3.9 ve sonraki sürümlerinde
     kullanılabilmektedir. Eski isim <code>MaxRequestsPerChild</code> hala
     desteklenmektedir.</td></tr>
@@ -338,7 +340,7 @@ açıklaması</a></li>
 <tr><th><a href="directive-dict.html#Default">Öntanımlı:</a></th><td><code>MaxMemFree 2048</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Bağlam:</a></th><td>sunucu geneli</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>MPM</td></tr>
-<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/mpm_netware.html">mpm_netware</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code>, <code class="module"><a href="../mod/mpm_winnt.html">mpm_winnt</a></code></td></tr>
+<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code>, <code class="module"><a href="../mod/mpm_winnt.html">mpm_winnt</a></code>, <code class="module"><a href="../mod/mpm_netware.html">mpm_netware</a></code></td></tr>
 </table>
     <p><code class="directive">MaxMemFree</code> yönergesi, <code>free()</code>
       çağrılmaksızın her bellek ayırıcının ayırmasına izin verilen azami
@@ -355,7 +357,7 @@ açıklaması</a></li>
 <tr><th><a href="directive-dict.html#Default">Öntanımlı:</a></th><td><code>Ayrıntılar için aşağıdaki açıklamaya bakınız.</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Bağlam:</a></th><td>sunucu geneli</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>MPM</td></tr>
-<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code></td></tr>
+<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code></td></tr>
 </table>
     <p><code class="directive">MaxRequestWorkers</code> yönergesi aynı anda işleme
       sokulacak bağlantı sayısını sınırlamak için kullanılır. <code class="directive">MaxRequestWorkers</code> bağlantı isteğinden fazlası geldiği
@@ -391,15 +393,16 @@ açıklaması</a></li>
 <tr><th><a href="directive-dict.html#Default">Öntanımlı:</a></th><td><code>Ayrıntılar için aşağıdaki açıklamaya bakınız.</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Bağlam:</a></th><td>sunucu geneli</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>MPM</td></tr>
-<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/mpm_netware.html">mpm_netware</a></code>, <code class="module"><a href="../mod/mpmt_os2.html">mpmt_os2</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code></td></tr>
+<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code>, <code class="module"><a href="../mod/mpm_netware.html">mpm_netware</a></code>, <code class="module"><a href="../mod/mpmt_os2.html">mpmt_os2</a></code></td></tr>
 </table>
     <p>Boştaki azami evre sayısı. Her MPM bu yönerge karşısında farklı
       davranır.</p>
 
-    <p><code class="module"><a href="../mod/worker.html">worker</a></code> için <code>MaxSpareThreads 250</code>
-      öntanımlıdır. Bu MPM boştaki evreleri sunucu genelinde izler. Eğer
-      sunucuda çok fazla boşta evre varsa, sunucu boştaki evrelerin sayısı bu
-      sınırın altına inene kadar çocuk süreçleri öldürür.</p>
+    <p><code class="module"><a href="../mod/worker.html">worker</a></code> ve <code class="module"><a href="../mod/event.html">event</a></code> için
+      <code>MaxSpareThreads 250</code> öntanımlıdır. Bu MPM'ler boştaki
+      evreleri sunucu genelinde izler. Eğer sunucuda çok fazla boşta evre
+      varsa, sunucu boştaki evrelerin sayısı bu sınırın altına inene kadar
+      çocuk süreçleri öldürür.</p>
 
     <p><code class="module"><a href="../mod/mpm_netware.html">mpm_netware</a></code> için <code>MaxSpareThreads 100</code>
       öntanımlıdır. Bu MPM tek bir süreç olarak çalıştığından boştaki evre
@@ -417,7 +420,8 @@ açıklaması</a></li>
         <li><code class="module"><a href="../mod/mpm_netware.html">mpm_netware</a></code> modülü, değerin <code class="directive"><a href="#minsparethreads">MinSpareThreads</a></code> değerinden küçük
           olmasını gerektirir.</li>
 
-        <li><code class="module"><a href="../mod/worker.html">worker</a></code> için değer, <code class="directive"><a href="#minsparethreads">MinSpareThreads</a></code>
+        <li><code class="module"><a href="../mod/worker.html">worker</a></code> ve <code class="module"><a href="../mod/event.html">event</a></code> için değer,
+          <code class="directive"><a href="#minsparethreads">MinSpareThreads</a></code>
           ve <code class="directive"><a href="#threadsperchild">ThreadsPerChild</a></code>
           toplamına eşit veya büyük olmak zorundadır.</li>
       </ul>
@@ -439,16 +443,16 @@ açıklaması</a></li>
 <tr><th><a href="directive-dict.html#Default">Öntanımlı:</a></th><td><code>Ayrıntılar için aşağıdaki açıklamaya bakınız.</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Bağlam:</a></th><td>sunucu geneli</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>MPM</td></tr>
-<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/mpm_netware.html">mpm_netware</a></code>, <code class="module"><a href="../mod/mpmt_os2.html">mpmt_os2</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code></td></tr>
+<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code>, <code class="module"><a href="../mod/mpm_netware.html">mpm_netware</a></code>, <code class="module"><a href="../mod/mpmt_os2.html">mpmt_os2</a></code></td></tr>
 </table>
     <p>İsteklerin ani artışında devreye girecek boştaki evrelerin asgari
       sayısı. Her MPM bu yönerge karşısında farklı davranır.</p>
 
-    <p><code class="module"><a href="../mod/worker.html">worker</a></code> modülü için <code>MinSpareThreads
-      75</code> öntanımlıdır ve bu modül boştaki evreleri sunucu genelinde
-      izler. Eğer sunucuda boştaki evre sayısı yetersizse, sunucu, boştaki
-      evrelerin sayısı bu sınırın üstüne çıkana kadar çocuk süreç
-      oluşturur.</p>
+    <p><code class="module"><a href="../mod/worker.html">worker</a></code> ve <code class="module"><a href="../mod/event.html">event</a></code> modülü için
+      <code>MinSpareThreads 75</code> öntanımlıdır ve bu modül boştaki evreleri
+      sunucu genelinde izler. Eğer sunucuda boştaki evre sayısı yetersizse,
+      sunucu, boştaki evrelerin sayısı bu sınırın üstüne çıkana kadar çocuk
+      süreç oluşturur.</p>
 
     <p><code class="module"><a href="../mod/mpm_netware.html">mpm_netware</a></code> için <code>MinSpareThreads 10</code>
       öntanımlıdır ve tek süreç kendisi olduğundan izleme sunucu genelinde
@@ -474,7 +478,7 @@ açıklaması</a></li>
 <tr><th><a href="directive-dict.html#Default">Öntanımlı:</a></th><td><code>PidFile logs/httpd.pid</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Bağlam:</a></th><td>sunucu geneli</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>MPM</td></tr>
-<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/mpm_winnt.html">mpm_winnt</a></code>, <code class="module"><a href="../mod/mpmt_os2.html">mpmt_os2</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code></td></tr>
+<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code>, <code class="module"><a href="../mod/mpm_winnt.html">mpm_winnt</a></code>, <code class="module"><a href="../mod/mpmt_os2.html">mpmt_os2</a></code></td></tr>
 </table>
     <p><code class="directive">PidFile</code> yönergesi, sunucunun artalan sürecinin
       süreç kimliğinin kaydedileceği dosyayı belirler. Dosya ismi mutlak dosya
@@ -507,7 +511,7 @@ açıklaması</a></li>
 <tr><th><a href="directive-dict.html#Default">Öntanımlı:</a></th><td><code>ReceiveBufferSize 0</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Bağlam:</a></th><td>sunucu geneli</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>MPM</td></tr>
-<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/mpm_netware.html">mpm_netware</a></code>, <code class="module"><a href="../mod/mpm_winnt.html">mpm_winnt</a></code>, <code class="module"><a href="../mod/mpmt_os2.html">mpmt_os2</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code></td></tr>
+<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code>, <code class="module"><a href="../mod/mpm_winnt.html">mpm_winnt</a></code>, <code class="module"><a href="../mod/mpm_netware.html">mpm_netware</a></code>, <code class="module"><a href="../mod/mpmt_os2.html">mpmt_os2</a></code></td></tr>
 </table>
     <p>Sunucunun TCP alım tamponu boyunu <var>bayt-sayısı</var> ile belirtilen
       bayta ayarlar.</p>
@@ -526,7 +530,7 @@ açıklaması</a></li>
 <tr><th><a href="directive-dict.html#Default">Öntanımlı:</a></th><td><code>ScoreBoardFile logs/apache_runtime_status</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Bağlam:</a></th><td>sunucu geneli</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>MPM</td></tr>
-<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/mpm_winnt.html">mpm_winnt</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code></td></tr>
+<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code>, <code class="module"><a href="../mod/mpm_winnt.html">mpm_winnt</a></code></td></tr>
 </table>
     <p>Apache HTTP Sunucusu ana ve çocuk süreçler arasında iletişim için bir
       çetele tutar.
@@ -562,7 +566,7 @@ açıklaması</a></li>
 <tr><th><a href="directive-dict.html#Default">Öntanımlı:</a></th><td><code>SendBufferSize 0</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Bağlam:</a></th><td>sunucu geneli</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>MPM</td></tr>
-<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/mpm_netware.html">mpm_netware</a></code>, <code class="module"><a href="../mod/mpm_winnt.html">mpm_winnt</a></code>, <code class="module"><a href="../mod/mpmt_os2.html">mpmt_os2</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code></td></tr>
+<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code>, <code class="module"><a href="../mod/mpm_winnt.html">mpm_winnt</a></code>, <code class="module"><a href="../mod/mpm_netware.html">mpm_netware</a></code>, <code class="module"><a href="../mod/mpmt_os2.html">mpmt_os2</a></code></td></tr>
 </table>
     <p>Sunucu TCP gönderim tamponu boyunu <var>bayt-sayısı</var> ile
       belirtilen bayta ayarlayacaktır. Yüksek hızlı yüksek yataklık süreli
@@ -592,11 +596,12 @@ açıklaması</a></li>
 <tr><th><a href="directive-dict.html#Default">Öntanımlı:</a></th><td><code>Ayrıntılar için aşağıdaki açıklamaya bakınız.</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Bağlam:</a></th><td>sunucu geneli</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>MPM</td></tr>
-<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code></td></tr>
+<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code></td></tr>
 </table>
     <p><code class="module"><a href="../mod/prefork.html">prefork</a></code> modülü söz konusu olduğunda bu yönerge, Apache
       httpd sürecinin ömrü boyunca <code class="directive"><a href="#maxrequestworkers">MaxRequestWorkers</a></code> yönergesine atanabilecek
-      azami değeri belirler. <code class="module"><a href="../mod/worker.html">worker</a></code> modülü sözkonusu
+      azami değeri belirler. <code class="module"><a href="../mod/worker.html">worker</a></code> ve <code class="module"><a href="../mod/event.html">event</a></code>
+      modülü sözkonusu
       olduğunda ise, Apache httpd sürecinin ömrü boyunca <code class="directive"><a href="#maxrequestworkers">MaxRequestWorkers</a></code> yönergesine
       atanabilecek  azami değeri <code class="directive"><a href="#threadlimit">ThreadLimit</a></code> ile birlikte belirler. Bu yönergeyi bir yeniden
       başlatma sırasında değiştirirseniz bu değişiklik yok sayılır fakat
@@ -615,7 +620,8 @@ açıklaması</a></li>
       <code class="directive"><a href="#maxrequestworkers">MaxRequestWorkers</a></code> için atamak
       istediğiniz değerden fazlasını atamayınız.</p>
 
-    <p><code class="module"><a href="../mod/worker.html">worker</a></code> modülü söz konusu olduğunda bu yönergeyi
+    <p><code class="module"><a href="../mod/worker.html">worker</a></code> ve <code class="module"><a href="../mod/event.html">event</a></code> modülü söz konusu
+      olduğunda bu yönergeyi
       <code class="directive"><a href="#maxrequestworkers">MaxRequestWorkers</a></code> ve
       <code class="directive"><a href="#threadsperchild">ThreadsPerChild</a></code> ayarları 16
       sunucu sürecinden (16 öntanımlıdır) fazlasını gerektiriyorsa
@@ -646,7 +652,7 @@ açıklaması</a></li>
 <tr><th><a href="directive-dict.html#Default">Öntanımlı:</a></th><td><code>Ayrıntılar için aşağıdaki açıklamaya bakınız.</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Bağlam:</a></th><td>sunucu geneli</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>MPM</td></tr>
-<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/mpmt_os2.html">mpmt_os2</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code></td></tr>
+<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code>, <code class="module"><a href="../mod/mpmt_os2.html">mpmt_os2</a></code></td></tr>
 </table>
     <p><code class="directive">StartServers</code> yönergesi, sunucunun başlatılması
       sırasında oluşturulan çocuk süreçlerin sayısını belirler. Süreç sayısı
@@ -659,8 +665,8 @@ açıklaması</a></li>
       bakınız.)</p>
 
     <p>Öntanımlı değer MPM’den MPM’e fark eder. Öntanımlı değer
-      <code class="module"><a href="../mod/worker.html">worker</a></code> için <code>3</code> iken
-      <code class="module"><a href="../mod/prefork.html">prefork</a></code> için <code>5</code>,
+      <code class="module"><a href="../mod/worker.html">worker</a></code> ve <code class="module"><a href="../mod/event.html">event</a></code> için <code>3</code>
+      iken <code class="module"><a href="../mod/prefork.html">prefork</a></code> için <code>5</code>,
       <code class="module"><a href="../mod/mpmt_os2.html">mpmt_os2</a></code> için <code>2</code>'dir.</p>
 
 </div>
@@ -699,7 +705,7 @@ açıklaması</a></li>
 <tr><th><a href="directive-dict.html#Default">Öntanımlı:</a></th><td><code>Ayrıntılar için aşağıdaki açıklamaya bakınız.</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Bağlam:</a></th><td>sunucu geneli</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>MPM</td></tr>
-<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/mpm_winnt.html">mpm_winnt</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code></td></tr>
+<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code>, <code class="module"><a href="../mod/mpm_winnt.html">mpm_winnt</a></code></td></tr>
 </table>
     <p>Bu yönerge, Apache httpd sürecinin ömrü boyunca <code class="directive"><a href="#threadsperchild">ThreadsPerChild</a></code> yönergesine
       atanabilecek azami değeri belirler. Bu yönergeyi bir yeniden başlatma
@@ -739,7 +745,7 @@ açıklaması</a></li>
 <tr><th><a href="directive-dict.html#Default">Öntanımlı:</a></th><td><code>Ayrıntılar için aşağıdaki açıklamaya bakınız.</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Bağlam:</a></th><td>sunucu geneli</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>MPM</td></tr>
-<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/mpm_winnt.html">mpm_winnt</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code></td></tr>
+<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code>, <code class="module"><a href="../mod/mpm_winnt.html">mpm_winnt</a></code></td></tr>
 </table>
     <p>Bu yönerge, her çocuk süreç tarafından oluşturulan evrelerin sayısını
       belirler. Çocuk süreçler bu evreleri başlatıldıklarında oluştururlar ve
@@ -765,7 +771,7 @@ açıklaması</a></li>
   değişir.</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Bağlam:</a></th><td>sunucu geneli</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>MPM</td></tr>
-<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/mpm_netware.html">mpm_netware</a></code>, <code class="module"><a href="../mod/mpmt_os2.html">mpmt_os2</a></code>, <code class="module"><a href="../mod/mpm_winnt.html">mpm_winnt</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code>, <code class="module"><a href="../mod/event.html">event</a></code></td></tr>
+<tr><th><a href="directive-dict.html#Module">Modül:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code>, <code class="module"><a href="../mod/mpm_winnt.html">mpm_winnt</a></code>, <code class="module"><a href="../mod/mpm_netware.html">mpm_netware</a></code>, <code class="module"><a href="../mod/mpmt_os2.html">mpmt_os2</a></code></td></tr>
 <tr><th><a href="directive-dict.html#Compatibility">Uyumluluk:</a></th><td>Apache HTTP Sunucusu 2.1 ve sonrasında
     kullanılabilir.</td></tr>
 </table>
@@ -837,7 +843,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mpm_common.html'
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2015 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="apache">Copyright 2016 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
 <p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -29,10 +29,24 @@
 
 #include "HTMLConstructionSite.h"
 #include "HTMLParserOptions.h"
+#include <wtf/text/StringBuilder.h>
+#include <wtf/text/TextPosition.h>
 
 namespace WebCore {
 
+class JSCustomElementInterface;
 class HTMLDocumentParser;
+
+#if ENABLE(CUSTOM_ELEMENTS)
+struct CustomElementConstructionData {
+    CustomElementConstructionData(Ref<JSCustomElementInterface>&&, const AtomicString& name, const Vector<Attribute>&);
+    ~CustomElementConstructionData();
+
+    Ref<JSCustomElementInterface> elementInterface;
+    AtomicString name;
+    Vector<Attribute> attributes;
+};
+#endif
 
 class HTMLTreeBuilder {
     WTF_MAKE_FAST_ALLOCATED;
@@ -47,10 +61,16 @@ public:
 
     void constructTree(AtomicHTMLToken&);
 
-    bool hasParserBlockingScript() const;
+    bool isParsingTemplateContents() const;
+    bool hasParserBlockingScriptWork() const;
 
     // Must be called to take the parser-blocking script before calling the parser again.
     RefPtr<Element> takeScriptToProcess(TextPosition& scriptStartPosition);
+
+#if ENABLE(CUSTOM_ELEMENTS)
+    std::unique_ptr<CustomElementConstructionData> takeCustomElementConstructionData() { return WTFMove(m_customElementToConstruct); }
+    void didCreateCustomOrCallbackElement(Ref<Element>&&, CustomElementConstructionData&);
+#endif
 
     // Done, close any open tags, etc.
     void finished();
@@ -67,9 +87,7 @@ private:
         InHead,
         InHeadNoscript,
         AfterHead,
-#if ENABLE(TEMPLATE_ELEMENT)
         TemplateContents,
-#endif
         InBody,
         Text,
         InTable,
@@ -88,7 +106,6 @@ private:
         AfterAfterFrameset,
     };
 
-    bool isParsingTemplateContents() const;
     bool isParsingFragmentOrTemplateContents() const;
 
 #if ENABLE(TELEPHONE_NUMBER_DETECTION) && PLATFORM(IOS)
@@ -163,11 +180,11 @@ private:
 
     void resetInsertionModeAppropriately();
 
-#if ENABLE(TEMPLATE_ELEMENT)
+    void insertGenericHTMLElement(AtomicHTMLToken&);
+
     void processTemplateStartTag(AtomicHTMLToken&);
     bool processTemplateEndTag(AtomicHTMLToken&);
     bool processEndOfFileForInTemplateContents(AtomicHTMLToken&);
-#endif
 
     class FragmentParsingContext {
     public:
@@ -192,15 +209,17 @@ private:
     // https://html.spec.whatwg.org/multipage/syntax.html#the-insertion-mode
     InsertionMode m_insertionMode { InsertionMode::Initial };
     InsertionMode m_originalInsertionMode { InsertionMode::Initial };
-#if ENABLE(TEMPLATE_ELEMENT)
     Vector<InsertionMode, 1> m_templateInsertionModes;
-#endif
 
     // https://html.spec.whatwg.org/multipage/syntax.html#concept-pending-table-char-tokens
     StringBuilder m_pendingTableCharacters;
 
     RefPtr<Element> m_scriptToProcess; // <script> tag which needs processing before resuming the parser.
     TextPosition m_scriptToProcessStartPosition; // Starting line number of the script tag needing processing.
+
+#if ENABLE(CUSTOM_ELEMENTS)
+    std::unique_ptr<CustomElementConstructionData> m_customElementToConstruct;
+#endif
 
     bool m_shouldSkipLeadingNewline { false };
 
@@ -233,10 +252,15 @@ inline bool HTMLTreeBuilder::isParsingFragment() const
     return !!m_fragmentContext.fragment();
 }
 
-inline bool HTMLTreeBuilder::hasParserBlockingScript() const
+inline bool HTMLTreeBuilder::hasParserBlockingScriptWork() const
 {
     ASSERT(!m_destroyed);
-    return !!m_scriptToProcess;
+#if ENABLE(CUSTOM_ELEMENTS)
+    ASSERT(!(m_scriptToProcess && m_customElementToConstruct));
+    return m_scriptToProcess || m_customElementToConstruct;
+#else
+    return m_scriptToProcess;
+#endif
 }
 
 inline DocumentFragment* HTMLTreeBuilder::FragmentParsingContext::fragment() const

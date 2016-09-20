@@ -28,11 +28,11 @@
 #include <Security/AuthorizationPriv.h>
 
 #include "authz.h"
-#include "security.h"
+#include "security_tool.h"
 
 // AEWP?
 
-AuthorizationRef
+static AuthorizationRef
 read_auth_ref_from_stdin()
 {
 	AuthorizationRef auth_ref = NULL;
@@ -55,7 +55,7 @@ read_auth_ref_from_stdin()
 	return auth_ref;
 }
 
-int
+static int
 write_auth_ref_to_stdout(AuthorizationRef auth_ref)
 {
 	AuthorizationExternalForm extform;
@@ -76,7 +76,7 @@ write_auth_ref_to_stdout(AuthorizationRef auth_ref)
 	return -1;
 }
 
-void
+static void
 write_dict_to_stdout(CFDictionaryRef dict)
 {
 	if (!dict)
@@ -91,10 +91,10 @@ write_dict_to_stdout(CFDictionaryRef dict)
 	CFRelease(right_definition_xml);
 }
 
-CFDictionaryRef
+static CFDictionaryRef
 read_dict_from_stdin()
 {
-	int bytes_read = 0;
+	size_t bytes_read = 0;
 	uint8_t buffer[4096];
 	CFMutableDataRef data = CFDataCreateMutable(kCFAllocatorDefault, 0);
 	CFErrorRef err = NULL;
@@ -127,7 +127,7 @@ read_dict_from_stdin()
 	return right_dict;
 }
 
-CFPropertyListRef
+static CFPropertyListRef
 read_plist_from_file(CFStringRef filePath)
 {
 	CFTypeRef         property = NULL;
@@ -186,7 +186,7 @@ bail:
 	return propertyList;
 }
 
-Boolean
+static Boolean
 write_plist_to_file(CFPropertyListRef propertyList, CFStringRef filePath)
 {
 	CFTypeRef   property = NULL;
@@ -704,7 +704,7 @@ execute_with_privileges(int argc, char * const *argv)
 
 	if (!status)
 	{
-		int bytes_read = 0;
+		ssize_t bytes_read = 0;
 		uint8_t buffer[4096];
 
 		while ((bytes_read = read(STDIN_FILENO, &buffer, sizeof(buffer))))

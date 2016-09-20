@@ -44,7 +44,6 @@ if.1
 jobid.1
 jobs.1
 limit.1
-log.1
 logout.1
 ls-F.1
 notify.1

@@ -45,9 +45,12 @@ typedef uint32_t WKCacheModel;
 
 // Context Client
 typedef void (*WKContextPlugInAutoStartOriginHashesChangedCallback)(WKContextRef context, const void *clientInfo);
-typedef void (*WKContextNetworkProcessDidCrashCallback)(WKContextRef context, const void *clientInfo);
 typedef void (*WKContextPlugInInformationBecameAvailableCallback)(WKContextRef context, WKArrayRef plugIn, const void *clientInfo);
 typedef WKDataRef (*WKContextCopyWebCryptoMasterKeyCallback)(WKContextRef context, const void *clientInfo);
+
+typedef void (*WKContextChildProcessDidCrashCallback)(WKContextRef context, const void *clientInfo);
+typedef WKContextChildProcessDidCrashCallback WKContextNetworkProcessDidCrashCallback;
+typedef WKContextChildProcessDidCrashCallback WKContextDatabaseProcessDidCrashCallback;
 
 typedef struct WKContextClientBase {
     int                                                                 version;
@@ -75,17 +78,22 @@ typedef struct WKContextClientV1 {
     WKContextCopyWebCryptoMasterKeyCallback                             copyWebCryptoMasterKey;
 } WKContextClientV1;
 
-enum { kWKContextClientCurrentVersion WK_ENUM_DEPRECATED("Use an explicit version number instead") = 1 };
-typedef struct WKContextClient {
-    int                                                                 version;
-    const void *                                                        clientInfo;
+typedef struct WKContextClientV2 {
+    WKContextClientBase                                                 base;
 
     // Version 0.
     WKContextPlugInAutoStartOriginHashesChangedCallback                 plugInAutoStartOriginHashesChanged;
     WKContextNetworkProcessDidCrashCallback                             networkProcessDidCrash;
     WKContextPlugInInformationBecameAvailableCallback                   plugInInformationBecameAvailable;
-} WKContextClient WK_C_DEPRECATED("Use an explicit versioned struct instead");
 
+    // Version 1.
+    WKContextCopyWebCryptoMasterKeyCallback                             copyWebCryptoMasterKey;
+
+    // Version 2.
+    WKContextDatabaseProcessDidCrashCallback                            databaseProcessDidCrash;
+} WKContextClientV2;
+
+// FIXME: Remove these once support for Mavericks has been dropped.
 enum {
     kWKProcessModelSharedSecondaryProcess = 0,
     kWKProcessModelMultipleSecondaryProcesses = 1
@@ -122,8 +130,9 @@ WK_EXPORT void WKContextClearVisitedLinks(WKContextRef contextRef);
 WK_EXPORT void WKContextSetCacheModel(WKContextRef context, WKCacheModel cacheModel);
 WK_EXPORT WKCacheModel WKContextGetCacheModel(WKContextRef context);
 
-WK_EXPORT void WKContextSetProcessModel(WKContextRef context, WKProcessModel processModel);
-WK_EXPORT WKProcessModel WKContextGetProcessModel(WKContextRef context);
+// FIXME: Move these to WKDeprecatedFunctions.cpp once support for Mavericks has been dropped.
+WK_EXPORT void WKContextSetProcessModel(WKContextRef, WKProcessModel);
+WK_EXPORT WKProcessModel WKContextGetProcessModel(WKContextRef);
 
 WK_EXPORT void WKContextSetMaximumNumberOfProcesses(WKContextRef context, unsigned numberOfProcesses);
 WK_EXPORT unsigned WKContextGetMaximumNumberOfProcesses(WKContextRef context);
@@ -136,15 +145,12 @@ WK_EXPORT WKWebsiteDataStoreRef WKContextGetWebsiteDataStore(WKContextRef contex
 WK_EXPORT WKApplicationCacheManagerRef WKContextGetApplicationCacheManager(WKContextRef context);
 WK_EXPORT WKBatteryManagerRef WKContextGetBatteryManager(WKContextRef context);
 WK_EXPORT WKCookieManagerRef WKContextGetCookieManager(WKContextRef context);
-WK_EXPORT WKDatabaseManagerRef WKContextGetDatabaseManager(WKContextRef context);
 WK_EXPORT WKGeolocationManagerRef WKContextGetGeolocationManager(WKContextRef context);
 WK_EXPORT WKIconDatabaseRef WKContextGetIconDatabase(WKContextRef context);
 WK_EXPORT WKKeyValueStorageManagerRef WKContextGetKeyValueStorageManager(WKContextRef context);
-WK_EXPORT WKMediaCacheManagerRef WKContextGetMediaCacheManager(WKContextRef context);
+WK_EXPORT WKMediaSessionFocusManagerRef WKContextGetMediaSessionFocusManager(WKContextRef context);
 WK_EXPORT WKNotificationManagerRef WKContextGetNotificationManager(WKContextRef context);
-WK_EXPORT WKPluginSiteDataManagerRef WKContextGetPluginSiteDataManager(WKContextRef context);
 WK_EXPORT WKResourceCacheManagerRef WKContextGetResourceCacheManager(WKContextRef context);
-WK_EXPORT WKOriginDataManagerRef WKContextGetOriginDataManager(WKContextRef context);
 
 typedef void (*WKContextGetStatisticsFunction)(WKDictionaryRef statistics, WKErrorRef error, void* functionContext);
 WK_EXPORT void WKContextGetStatistics(WKContextRef context, void* functionContext, WKContextGetStatisticsFunction function);

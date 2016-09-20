@@ -1,8 +1,11 @@
+APR_TOOLCHAIN_PREFIX = $(TOOLCHAIN_INSTALL_DIR)/usr/local
+
 Project               = apr
 UserType              = Administrator
 ToolType              = Commands
 GnuAfterInstall       = install-plist post-install munge-build-files
-Extra_Configure_Flags = --with-installbuilddir=\$${prefix}/share/apr-1/build-1 \
+Extra_Configure_Flags = --bindir=$(APR_TOOLCHAIN_PREFIX)/bin \
+                        --with-installbuilddir=$(APR_TOOLCHAIN_PREFIX)/share/apr-1/build-1 \
                         --enable-dso=dlfcn
 Extra_Environment     = apr_lock_method="USE_FLOCK_SERIALIZE" \
                         ac_cv_func_kqueue="yes" \
@@ -10,6 +13,7 @@ Extra_Environment     = apr_lock_method="USE_FLOCK_SERIALIZE" \
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
+Install_Flags  = DESTDIR=$(DSTROOT)
 Install_Target = install
 
 post-install:
@@ -20,22 +24,20 @@ post-install:
 	$(RM) $(DSTROOT)/usr/lib/libapr-1.a
 
 munge-build-files:
-	ed - $(DSTROOT)/usr/share/apr-1/build-1/apr_rules.mk < $(SRCROOT)/files/fix-apr_rules.mk.ed
-	ed - $(DSTROOT)/usr/share/apr-1/build-1/libtool < $(SRCROOT)/files/fix-libtool.ed
+	ed - $(DSTROOT)$(APR_TOOLCHAIN_PREFIX)/share/apr-1/build-1/apr_rules.mk < $(SRCROOT)/files/fix-apr_rules.mk.ed
+	ed - $(DSTROOT)$(APR_TOOLCHAIN_PREFIX)/share/apr-1/build-1/libtool < $(SRCROOT)/files/fix-libtool.ed
 
 # Automatic Extract & Patch
 AEP_Project    = apr
-AEP_Version    = 1.4.8
+AEP_Version    = 1.5.2
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = configure.diff \
-                 gcc42.diff \
                  PR4905364.diff \
                  legacy-32-bit-inode.diff \
                  apr_proc_spawn.diff \
                  remove-darwin10-hacks.diff \
-                 PR10582643.diff \
                  apr-config.in.diff
 
 # Extract the source.

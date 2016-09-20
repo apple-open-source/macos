@@ -32,7 +32,7 @@
 
 #ifdef	NDEBUG
 /* this actually compiles to nothing */
-#define p12ErrorLog(args...)		secdebug("p12Error", ## args)
+#define p12ErrorLog(args...)		secinfo("p12Error", ## args)
 #define p12LogCssmError(op, err)
 #else
 #define p12ErrorLog(args...)		printf(args)
@@ -40,9 +40,9 @@
 #endif
 
 /* individual debug loggers */
-#define p12DecodeLog(args...)		secdebug("p12Decode", ## args)
-#define p12EncodeLog(args...)		secdebug("p12Encode", ## args)
-#define p12CryptoLog(args...)		secdebug("p12Crypto", ## args)
+#define p12DecodeLog(args...)		secinfo("p12Decode", ## args)
+#define p12EncodeLog(args...)		secinfo("p12Encode", ## args)
+#define p12CryptoLog(args...)		secinfo("p12Crypto", ## args)
 
 #endif	/* _PKCS12_TEMPLATES_H_ */
 

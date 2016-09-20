@@ -396,6 +396,16 @@ gzip_filter_read(struct archive_read_filter *self, const void **p)
 		    __archive_read_filter_ahead(self->upstream, 1, &avail_in);
 		if (state->stream.next_in == NULL)
 			return (ARCHIVE_FATAL);
+
+                // <rdar://problem/27377729> FuzzDragon - 16A256a - SIGSEGV @ libz.1.dylib: inflate + 1839
+                // A malicious header is advertising more bytes than available, resulting in a negative value
+                // for avail_in, which is then converted from ssize_t to unsigned int
+                //
+                // It may be a better fix to modify read_filter_ahead to return NULL when avail_in would be
+                // set to a negative value, but this function is called in many places, and the potential impact
+                // of the change is larger.
+                if (avail_in < 0) return ARCHIVE_FATAL;
+
 		state->stream.avail_in = avail_in;
 
 		/* Decompress and consume some of that data. */

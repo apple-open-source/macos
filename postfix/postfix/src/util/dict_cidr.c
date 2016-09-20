@@ -99,7 +99,7 @@ static void dict_cidr_close(DICT *dict)
     for (entry = dict_cidr->head; entry; entry = next) {
 	next = (DICT_CIDR_ENTRY *) entry->cidr_info.next;
 	myfree(entry->value);
-	myfree((char *) entry);
+	myfree((void *) entry);
     }
     dict_free(dict);
 }
@@ -171,7 +171,8 @@ DICT   *dict_cidr_open(const char *mapname, int open_flags, int dict_flags)
     VSTRING *why = 0;
     DICT_CIDR_ENTRY *rule;
     DICT_CIDR_ENTRY *last_rule = 0;
-    int     lineno = 0;
+    int     last_line = 0;
+    int     lineno;
 
     /*
      * Let the optimizer worry about eliminating redundant code.
@@ -223,7 +224,7 @@ DICT   *dict_cidr_open(const char *mapname, int open_flags, int dict_flags)
     dict_cidr->dict.owner.uid = st.st_uid;
     dict_cidr->dict.owner.status = (st.st_uid != 0);
 
-    while (readlline(line_buffer, map_fp, &lineno)) {
+    while (readllines(line_buffer, map_fp, &last_line, &lineno)) {
 	rule = dict_cidr_parse_rule(vstring_str(line_buffer), why);
 	if (rule == 0) {
 	    msg_warn("cidr map %s, line %d: %s: skipping this rule",

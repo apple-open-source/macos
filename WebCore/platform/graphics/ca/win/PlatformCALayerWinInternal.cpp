@@ -117,6 +117,11 @@ void PlatformCALayerWinInternal::displayCallback(CACFLayerRef caLayer, CGContext
 
 void PlatformCALayerWinInternal::drawRepaintCounters(CACFLayerRef caLayer, CGContextRef context, CGRect layerBounds, int drawCount)
 {
+    // We always update the repaint count, but we do not paint it for layers that
+    // only contain tiled backing layers. Those report their repaint counts themselves.
+    if (!owner() || owner()->usesTiledBackingLayer())
+        return;
+
     CGColorRef backgroundColor = nullptr;
     // Make the background of the counter the same as the border color,
     // unless there is no border, then make it red
@@ -124,7 +129,7 @@ void PlatformCALayerWinInternal::drawRepaintCounters(CACFLayerRef caLayer, CGCon
     if (borderWidth > 0)
         backgroundColor = CACFLayerGetBorderColor(caLayer);
     else
-        backgroundColor = cachedCGColor(Color(255, 0, 0), ColorSpaceDeviceRGB);
+        backgroundColor = cachedCGColor(Color(255, 0, 0));
 
     PlatformCALayer::drawRepaintIndicator(context, owner(), drawCount, backgroundColor);
 }

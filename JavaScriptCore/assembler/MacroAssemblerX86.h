@@ -160,8 +160,8 @@ public:
 
     void store8(TrustedImm32 imm, void* address)
     {
-        ASSERT(-128 <= imm.m_value && imm.m_value < 128);
-        m_assembler.movb_i8m(imm.m_value, address);
+        TrustedImm32 imm8(static_cast<int8_t>(imm.m_value));
+        m_assembler.movb_i8m(imm8.m_value, address);
     }
     
     void moveDoubleToInts(FPRegisterID src, RegisterID dest1, RegisterID dest2)
@@ -171,13 +171,13 @@ public:
         m_assembler.pextrw_irr(2, src, dest2);
         lshift32(TrustedImm32(16), dest1);
         or32(dest1, dest2);
-        movePackedToInt32(src, dest1);
+        moveFloatTo32(src, dest1);
     }
 
     void moveIntsToDouble(RegisterID src1, RegisterID src2, FPRegisterID dest, FPRegisterID scratch)
     {
-        moveInt32ToPacked(src1, dest);
-        moveInt32ToPacked(src2, scratch);
+        move32ToFloat(src1, dest);
+        move32ToFloat(src2, scratch);
         lshiftPacked(TrustedImm32(32), scratch);
         orPacked(scratch, dest);
     }
@@ -237,17 +237,18 @@ public:
     
     Jump branch8(RelationalCondition cond, AbsoluteAddress left, TrustedImm32 right)
     {
-        m_assembler.cmpb_im(right.m_value, left.m_ptr);
+        TrustedImm32 right8(static_cast<int8_t>(right.m_value));
+        m_assembler.cmpb_im(right8.m_value, left.m_ptr);
         return Jump(m_assembler.jCC(x86Condition(cond)));
     }
 
     Jump branchTest8(ResultCondition cond, AbsoluteAddress address, TrustedImm32 mask = TrustedImm32(-1))
     {
-        ASSERT(mask.m_value >= -128 && mask.m_value <= 255);
-        if (mask.m_value == -1)
+        TrustedImm32 mask8(static_cast<int8_t>(mask.m_value));
+        if (mask8.m_value == -1)
             m_assembler.cmpb_im(0, address.m_ptr);
         else
-            m_assembler.testb_im(mask.m_value, address.m_ptr);
+            m_assembler.testb_im(mask8.m_value, address.m_ptr);
         return Jump(m_assembler.jCC(x86Condition(cond)));
     }
 
@@ -345,15 +346,6 @@ public:
         X86Assembler::revertJumpTo_cmpl_im_force32(instructionStart.executableAddress(), initialValue, 0, address.base);
     }
 
-private:
-    friend class LinkBuffer;
-    friend class RepatchBuffer;
-
-    static void linkCall(void* code, Call call, FunctionPtr function)
-    {
-        X86Assembler::linkCall(code, call.m_label, function.value());
-    }
-
     static void repatchCall(CodeLocationCall call, CodeLocationLabel destination)
     {
         X86Assembler::relinkCall(call.dataLocation(), destination.executableAddress());
@@ -362,6 +354,17 @@ private:
     static void repatchCall(CodeLocationCall call, FunctionPtr destination)
     {
         X86Assembler::relinkCall(call.dataLocation(), destination.executableAddress());
+    }
+
+private:
+    friend class LinkBuffer;
+
+    static void linkCall(void* code, Call call, FunctionPtr function)
+    {
+        if (call.isFlagSet(Call::Tail))
+            X86Assembler::linkJump(code, call.m_label, function.value());
+        else
+            X86Assembler::linkCall(code, call.m_label, function.value());
     }
 };
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,6 +38,9 @@
 #include <unistd.h>
 #include <sys/mount.h>
 
+const CFTimeInterval __kDABusyTimerGrace = 1;
+const CFTimeInterval __kDABusyTimerLimit = 1;
+
 static CFRunLoopSourceRef __gDAStageRunLoopSource = NULL;
 
 static void               __DAStageAppeared( DADiskRef disk );
@@ -54,6 +57,30 @@ static void __DAStageProbeCallback( int             status,
                                     CFStringRef     type,
                                     CFUUIDRef       uuid,
                                     void *          context );
+
+static void __DABusyTimerCallback( CFRunLoopTimerRef timer, void * info )
+{
+    DAStageSignal( );
+}
+
+static void __DABusyTimerRefresh( CFAbsoluteTime clock )
+{
+    static CFRunLoopTimerRef timer = NULL;
+
+    if ( timer )
+    {
+        CFRunLoopTimerSetNextFireDate( timer, clock );
+    }
+    else
+    {
+        timer = CFRunLoopTimerCreate( kCFAllocatorDefault, clock, kCFAbsoluteTimeIntervalSince1904, 0, 0, __DABusyTimerCallback, NULL );
+
+        if ( timer )
+        {
+            CFRunLoopAddTimer( CFRunLoopGetCurrent( ), timer, kCFRunLoopDefaultMode );
+        }
+    }
+}
 
 static void __DAStageAppeared( DADiskRef disk )
 {
@@ -72,9 +99,53 @@ static void __DAStageDispatch( void * info )
 {
     static Boolean fresh = FALSE;
 
-    CFIndex count;
-    CFIndex index;
-    Boolean quiet = TRUE;
+    CFAbsoluteTime clock;
+    CFIndex        count;
+    CFIndex        index;
+    Boolean        quiet = TRUE;
+
+    /*
+     * Determine whether a unit has quiesced.  We do not allow I/O Kit to stay busy excessively.
+     */
+
+    clock = kCFAbsoluteTimeIntervalSince1904;
+
+    count = CFArrayGetCount( gDADiskList );
+
+    for ( index = 0; index < count; index++ )
+    {
+        DADiskRef disk;
+
+        disk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
+
+        if ( disk )
+        {
+            CFAbsoluteTime timeout;
+
+            timeout = DADiskGetBusy( disk ) + __kDABusyTimerLimit;
+
+            if ( timeout < CFAbsoluteTimeGetCurrent( ) )
+            {
+                if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWholeKey ) == kCFBooleanTrue )
+                {
+                    DAUnitSetState( disk, kDAUnitStateHasQuiesced, TRUE );
+                }
+            }
+            else
+            {
+                timeout += __kDABusyTimerGrace;
+
+                if ( timeout < clock )
+                {
+                    clock = timeout;
+                }
+
+                quiet = FALSE;
+            }
+        }
+    }
+
+    __DABusyTimerRefresh( clock );
 
     count = CFArrayGetCount( gDADiskList );
 
@@ -683,8 +754,6 @@ static void __DAStageProbeCallback( int             status,
 
                 if ( path )
                 {
-                    _DAMountCreateTrashFolder( disk, path );
-                    
                     DADiskSetBypath( disk, path );
 
                     DADiskSetDescription( disk, kDADiskDescriptionVolumePathKey, path );

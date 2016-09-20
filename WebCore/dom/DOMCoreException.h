@@ -42,7 +42,7 @@ public:
 
     static bool initializeDescription(ExceptionCode, ExceptionCodeDescription*);
 
-private:
+protected:
     explicit DOMCoreException(const ExceptionCodeDescription& description)
         : ExceptionBase(description)
     {

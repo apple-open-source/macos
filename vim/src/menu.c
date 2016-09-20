@@ -1394,7 +1394,8 @@ get_menu_names(xp, idx)
     int		idx;
 {
     static vimmenu_T	*menu = NULL;
-    static char_u	tbuffer[256]; /*hack*/
+#define TBUFFER_LEN 256
+    static char_u	tbuffer[TBUFFER_LEN]; /*hack*/
     char_u		*str;
 #ifdef FEAT_MULTI_LANG
     static  int		should_advance = FALSE;
@@ -1428,11 +1429,11 @@ get_menu_names(xp, idx)
 	{
 #ifdef FEAT_MULTI_LANG
 	    if (should_advance)
-		STRCPY(tbuffer, menu->en_dname);
+		vim_strncpy(tbuffer, menu->en_dname, TBUFFER_LEN - 2);
 	    else
 	    {
 #endif
-		STRCPY(tbuffer, menu->dname);
+		vim_strncpy(tbuffer, menu->dname,  TBUFFER_LEN - 2);
 #ifdef FEAT_MULTI_LANG
 		if (menu->en_dname == NULL)
 		    should_advance = TRUE;
@@ -1512,8 +1513,8 @@ menu_name_equal(name, menu)
 {
 #ifdef FEAT_MULTI_LANG
     if (menu->en_name != NULL
-	    && (menu_namecmp(name,menu->en_name)
-		|| menu_namecmp(name,menu->en_dname)))
+	    && (menu_namecmp(name, menu->en_name)
+		|| menu_namecmp(name, menu->en_dname)))
 	return TRUE;
 #endif
     return menu_namecmp(name, menu->name) || menu_namecmp(name, menu->dname);
@@ -1639,7 +1640,6 @@ get_menu_index(menu, state)
 	idx = MENU_INDEX_INSERT;
     else if (state & CMDLINE)
 	idx = MENU_INDEX_CMDLINE;
-#ifdef FEAT_VISUAL
     else if (VIsual_active)
     {
 	if (VIsual_select)
@@ -1647,7 +1647,6 @@ get_menu_index(menu, state)
 	else
 	    idx = MENU_INDEX_VISUAL;
     }
-#endif
     else if (state == HITRETURN || state == ASKMORE)
 	idx = MENU_INDEX_CMDLINE;
     else if (finish_op)
@@ -1810,14 +1809,12 @@ menu_is_tearoff(name)
     static int
 get_menu_mode()
 {
-#ifdef FEAT_VISUAL
     if (VIsual_active)
     {
 	if (VIsual_select)
 	    return MENU_INDEX_SELECT;
 	return MENU_INDEX_VISUAL;
     }
-#endif
     if (State & INSERT)
 	return MENU_INDEX_INSERT;
     if ((State & CMDLINE) || State == ASKMORE || State == HITRETURN)
@@ -2342,7 +2339,7 @@ gui_find_menu(path_name)
 
 	while (menu != NULL)
 	{
-	    if (STRCMP(name, menu->name) == 0 || STRCMP(name, menu->dname) == 0)
+	    if (menu_name_equal(name, menu))
 	    {
 		if (menu->children == NULL)
 		{

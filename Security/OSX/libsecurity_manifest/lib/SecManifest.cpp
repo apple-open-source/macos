@@ -45,7 +45,7 @@
 
 OSStatus SecManifestGetVersion (UInt32 *version)
 {
-	secdebug ("manifest", "SecManifestGetVersion");
+	secinfo ("manifest", "SecManifestGetVersion");
 	*version = 0x01000000;
 	return errSecSuccess;
 }
@@ -59,7 +59,7 @@ OSStatus SecManifestCreate(SecManifestRef *manifest)
 	Manifest* manifestPtr = new Manifest ();
 	*manifest = (SecManifestRef) manifestPtr;
 	
-	secdebug ("manifest", "SecManifestCreate(%p)", manifest);
+	secinfo ("manifest", "SecManifestCreate(%p)", manifest);
 	
 	API_END
 }
@@ -71,12 +71,14 @@ void SecManifestRelease (SecManifestRef manifest)
 	delete (Manifest*) manifest;
 }
 
-
-
+// On release builds, this function isn't called (due to how secinfo works). Assure the compiler this is okay.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-function"
 static const char* GetDescription (CFTypeRef object)
 {
 	return CFStringGetCStringPtr (CFCopyDescription (object), kCFStringEncodingMacRoman);
 }
+#pragma clang pop
 
 
 
@@ -103,7 +105,7 @@ OSStatus SecManifestVerifySignatureWithPolicy (CFDataRef data,
 {
 	API_BEGIN
 	
-	secdebug ("manifest", "SecManifestVerifySignature (%s, %p, %p, %p, %p)", GetDescription (data), setupCallback, setupContext, evaluateCallback, evaluateContext);
+	secinfo ("manifest", "SecManifestVerifySignature (%s, %p, %p, %p, %p)", GetDescription (data), setupCallback, setupContext, evaluateCallback, evaluateContext);
 	
 	Required (setupCallback);
 	Required (evaluateCallback);
@@ -143,7 +145,7 @@ OSStatus SecManifestCreateSignature(SecManifestRef manifest, UInt32 options, CFD
 {
 	API_BEGIN
 	
-	secdebug ("manifest", "SecManifestCreateSignature(%p, %ul, %p)", manifest, (unsigned int) options, data);
+	secinfo ("manifest", "SecManifestCreateSignature(%p, %ul, %p)", manifest, (unsigned int) options, data);
 	Manifest* manifestPtr = (Manifest*) manifest;
 	
 	if (options != 0)
@@ -170,7 +172,7 @@ OSStatus SecManifestAddObject(SecManifestRef manifest, CFTypeRef object, CFArray
 {
 	API_BEGIN
 
-	secdebug ("manifest", "SecManifestAddObject(%p), %s, %s",
+	secinfo ("manifest", "SecManifestAddObject(%p), %s, %s",
 						  manifest, GetDescription (object),
 						  exceptionList ? GetDescription (exceptionList) : "NULL");
 	
@@ -186,7 +188,7 @@ OSStatus SecManifestCompare(SecManifestRef manifest1, SecManifestRef manifest2, 
 {
 	API_BEGIN
 	
-	secdebug ("manifest", "SecManifestVerify(%p, %p, %d)", manifest1, manifest2, (int) options);
+	secinfo ("manifest", "SecManifestVerify(%p, %p, %d)", manifest1, manifest2, (int) options);
 
 	ManifestInternal &m1 = ((Manifest*) (manifest1))->GetManifestInternal ();
 	ManifestInternal &m2 = ((Manifest*) (manifest2))->GetManifestInternal ();
@@ -202,7 +204,7 @@ OSStatus SecManifestAddSigner(SecManifestRef manifest, SecIdentityRef identity)
 {
 	API_BEGIN
 	
-	secdebug ("manifest", "SecManifestAddSigner(%p, %p)", manifest, identity);
+	secinfo ("manifest", "SecManifestAddSigner(%p, %p)", manifest, identity);
 	Manifest* manifestPtr = (Manifest*) (manifest);
 	
 	// check to see if there is a serializer present

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,6 +38,10 @@
 #include "SoupCookiePersistentStorageType.h"
 #endif
 
+namespace WebCore {
+struct Cookie;
+}
+
 namespace WebKit {
 
 class ChildProcess;
@@ -56,12 +60,13 @@ public:
 
 private:
     // IPC::MessageReceiver
-    virtual void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
+    void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
 
     void getHostnamesWithCookies(uint64_t callbackID);
     void deleteCookiesForHostname(const String&);
     void deleteAllCookies();
     void deleteAllCookiesModifiedSince(std::chrono::system_clock::time_point);
+    void addCookie(const WebCore::Cookie&, const String& hostname);
 
     void platformSetHTTPCookieAcceptPolicy(HTTPCookieAcceptPolicy);
     void getHTTPCookieAcceptPolicy(uint64_t callbackID);

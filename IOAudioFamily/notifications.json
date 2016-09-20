@@ -1,0 +1,9 @@
+{
+    "rules": [{
+        "notifications": [{
+            "address" : "img-audio-checkins@group.apple.com",
+            "prefix" : "[IOAudioFamily]",
+            "includeDiff" : true
+        }]
+    }]
+}

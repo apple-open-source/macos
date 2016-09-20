@@ -38,8 +38,6 @@
 #include "sslMemory.h"
 #include "tlsnke.h"
 
-#include <net/if_utun_crypto_dtls.h>
-
 /*
  Used a registered creator type here - to register for one - go to the
  Apple Developer Connection Datatype Registration page
@@ -174,7 +172,6 @@ struct dtls_ctx {
     struct sockaddr from; /* from address */
     bool has_to;
     struct sockaddr to;   /* to address */
-    struct utun_pcb *utun_ref;     /* utun handle, if bypass is enabled */
     bool wait_for_key;
     tls_record_t ssl_ctx; /* ctx for actual SSL implementation */
     STAILQ_HEAD(, RecQueueItem) in_queue;
@@ -191,23 +188,6 @@ struct dtls_ctx {
 /* Q for incoming data */
 static int tlsnkedev_queue(mbuf_t m);
 #endif
-
-/* Wrappers around utun functions */
-
-/* Send a data packet to utun interface */
-static int utun_data_packet_input(struct utun_pcb *utun_ref, mbuf_t data)
-{
-    tls_printf("tlsnke():%s\n",__FUNCTION__);
-    return utun_pkt_dtls_input(utun_ref, &data, 0);
-}
-
-/* Disable the DTLS bypass in utun - Called by DTLS when socket is clsoed or other error cases */
-static void utun_disable_dtls(struct utun_pcb *utun_ref)
-{
-    tls_printf("tlsnke():%s\n",__FUNCTION__);
-    /* TODO: This is not exported from xnu yet */
-    //utun_ctl_disable_crypto_dtls(utun_ref);
-}
 
 
 /*===== DTLS IO Callbacks =====*/
@@ -289,11 +269,6 @@ static
 void dtls_free_context(dtls_ctx_t dtls_ref)
 {
     /* TODO: LOCK this dtls ref */
-
-    /* Disable bridge to utun if enabled */
-    if(dtls_ref->utun_ref) {
-        utun_disable_dtls(dtls_ref->utun_ref);
-    }
 
     /* TODO: Clear incoming mbuf queue */
     tls_record_destroy(dtls_ref->ssl_ctx);
@@ -511,11 +486,6 @@ tls_detach_fn(void *cookie, socket_t so)
     dtls_ctx_t dtls_ref = (dtls_ctx_t)cookie;
     tls_printf("tlsnke(%p):%s\n", cookie, __FUNCTION__);
 
-    /* disconnect from utun if necessary */
-    if(dtls_ref->utun_ref) {
-        utun_disable_dtls(dtls_ref->utun_ref);
-    }
-
     dtls_free_context(dtls_ref);
 }
 
@@ -573,8 +543,7 @@ tls_data_in_fn(void *cookie, socket_t so, const struct sockaddr *from,
     /* TODO: LOCK ? */
     dtls_ctx_t dtls_ref = (dtls_ctx_t)cookie;
     struct tls_record_hdr *hdr;
-    errno_t err;
-    
+
     tls_printf("tlsnke(%p):%s so=%p, data=%p/l=%d, control=%p/l=%d, from=%p, flags=0x%x\n",
                cookie, __FUNCTION__, so,
                data?*data:(void*)-1, (data && *data)?mbuf_pkthdr_len(*data):-1,
@@ -600,20 +569,7 @@ tls_data_in_fn(void *cookie, socket_t so, const struct sockaddr *from,
             return EJUSTRETURN;
         }
 #endif
-        /* There should never be a case where we have dtls header and no data, but we test that data is non null anyway */
 
-        /* if switch enabled and this is a application data packet, send to utun */
-        if(data && (dtls_ref->utun_ref) && (hdr->content_type==tls_record_type_AppData)) {
-            /* reinject data into utun */
-            tls_printf("tlsnke(%p):%s Sending packet to utun. data=%p\n", cookie, __FUNCTION__, *data);
-            err = utun_data_packet_input(dtls_ref->utun_ref, *data);
-            verify_noerr_action(err, return err);
-            /* no error, lets free the control mbuf... */
-            mbuf_freem(*control);
-            /* ... and swallow */
-            return EJUSTRETURN;
-        }
-        
         /* keep the packet moving up in the stack to userland */
         return 0;
     }
@@ -866,85 +822,6 @@ static const struct sflt_filter tls_sflt_filter_ip4 = {
 	NULL					/* sf_ioctl_func */
 };
 
-
-static caddr_t tls_utun_crypto_kpi_connect_fn(int dtls_handle, struct utun_pcb *utun_ref)
-{
-    dtls_ctx_t dtls_ref;
-
-    tls_printf("tlsnke:%s - handle=%d\n", __FUNCTION__, dtls_handle);
-
-    dtls_ref=get_dtls_context(dtls_handle);
-
-    if(dtls_ref) {
-        dtls_ref->utun_ref = utun_ref;
-    }
-
-    return (caddr_t)dtls_ref;
-}
-
-static errno_t tls_utun_crypto_kpi_send_fn(caddr_t ref, mbuf_t *pkt)
-{
-    dtls_ctx_t dtls_ref = (dtls_ctx_t)ref;
-    mbuf_t control = NULL;
-    struct cmsghdr *cmsg;
-    tls_record_hdr_t hdr;
-    size_t cbuf_len = CMSG_SPACE(sizeof(*hdr));
-    uint8_t cbuf[cbuf_len];
-    errno_t err;
-    int tmp=0;
-
-    check(ref);
-    check(pkt);
-
-    cmsg = (struct cmsghdr *)cbuf;
-    cmsg->cmsg_len = CMSG_LEN(sizeof(*hdr));
-    cmsg->cmsg_level = SOL_SOCKET;
-    cmsg->cmsg_type = SCM_TLS_HEADER;
-
-    hdr = (tls_record_hdr_t) CMSG_DATA(cmsg);
-    hdr->content_type = tls_record_type_AppData;
-    hdr->protocol_version = tls_protocol_version_DTLS_1_0;
-
-    /*
-     Inject the packet that came from utun on top of the socket,
-     the socket filter will see the packet in tls_data_out_fn
-     where we do the decryption
-     TODO: do we need to specify dest address and/or flags ?
-     */
-
-    require_noerr(err=mbuf_allocpacket(M_NOWAIT, cbuf_len, NULL, &control), free_and_fail);
-    require_noerr(err=mbuf_copyback(control, 0, cbuf_len, cbuf, M_NOWAIT), free_and_fail);
-
-    /* TODO: Locking ?? only to get the socket out of the dtls_ref ? */
-    /* sock_inject_data_out will always free the mbufs, so we have a different fail path after that call */
-    require_noerr(err=sock_inject_data_out(dtls_ref->socket, NULL, *pkt, control, 0), just_fail);
-
-    require_noerr(err=sock_setsockopt(dtls_ref->socket, SOL_SOCKET, SO_TLS_SERVICE_WRITE_QUEUE, &tmp, 0), just_fail);
-
-    /* Success */
-    return 0;
-
-/* Fail path before calling sock_inject_data_out */
-free_and_fail:
-    if(control)
-        mbuf_freem(control);
-    if(*pkt)
-        mbuf_freem(*pkt);
-
-/* Fail path after calling sock_inject_data_out */
-just_fail:
-    return err;
-}
-
-static struct utun_crypto_kpi_reg tls_utun_crypto_kpi = {
-    /* Dispatch functions */
-    .crypto_kpi_type = UTUN_CRYPTO_TYPE_DTLS,
-    .crypto_kpi_flags = 0,
-    .crypto_kpi_connect = tls_utun_crypto_kpi_connect_fn,
-    .crypto_kpi_send = tls_utun_crypto_kpi_send_fn
-};
-
-
 #if TLS_TEST
 /* BSD interface for testing only */
 #include <sys/conf.h>
@@ -1141,9 +1018,6 @@ kern_return_t tlsnke_start(kmod_info_t * ki, void *d)
 	verify_action(gOSMallocTag, return KERN_MEMORY_ERROR);
     
     clear_dtls_contexts();
-    
-    retval = utun_ctl_register_dtls(&tls_utun_crypto_kpi);
-    require_noerr(retval, out);
 
     retval = sflt_register(&tls_sflt_filter_ip4, PF_INET, SOCK_DGRAM, IPPROTO_UDP);
 

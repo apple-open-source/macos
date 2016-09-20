@@ -37,6 +37,8 @@
 #include "machorep.h"
 #include <libproc.h>
 #include <sys/codesign.h>
+#include <bsm/libbsm.h>
+#include <security_utilities/cfmunge.h>
 #include <sys/param.h>	// MAXPATHLEN
 
 namespace Security {
@@ -67,33 +69,47 @@ KernelStaticCode::KernelStaticCode()
 
 //
 // Identify our guests (UNIX processes) by attribute.
-// The only supported lookup attribute is currently the pid. (We could support
-// task ports, but those can easily be mapped to pids.)
+// We support either pid or audit token (which contains the pid). If we get both,
+// we record them both and let the kernel sort them out.
 // Note that we don't actually validate the pid here; if it's invalid, we'll notice
 // when we try to ask the kernel about it later.
 //
 SecCode *KernelCode::locateGuest(CFDictionaryRef attributes)
 {
-	if (CFTypeRef attr = CFDictionaryGetValue(attributes, kSecGuestAttributePid)) {
-                RefPointer<PidDiskRep> diskRep = NULL;
-                
-                if (CFGetTypeID(attr) != CFNumberGetTypeID())
-                        MacOSError::throwMe(errSecCSInvalidAttributeValues);
-                
-                pid_t pid = cfNumber<pid_t>(CFNumberRef(attr));
-
-                if (CFDictionaryGetValue(attributes, kSecGuestAttributeDynamicCode) != NULL) {
-                        CFDataRef infoPlist = (CFDataRef)CFDictionaryGetValue(attributes, kSecGuestAttributeDynamicCodeInfoPlist);
-                        if (infoPlist && CFGetTypeID(infoPlist) != CFDataGetTypeID())
-                                MacOSError::throwMe(errSecCSInvalidAttributeValues);
-
-						try {
-	                        diskRep = new PidDiskRep(pid, infoPlist);
-						} catch (...) { }
-                }
-                return (new ProcessCode(cfNumber<pid_t>(CFNumberRef(attr)), diskRep))->retain();
-	} else
+	CFNumberRef pidNumber = NULL;
+	CFDataRef auditData = NULL;
+	cfscan(attributes, "{%O=%NO}", kSecGuestAttributePid, &pidNumber);
+	cfscan(attributes, "{%O=%XO}", kSecGuestAttributeAudit, &auditData);
+	if (pidNumber == NULL && auditData == NULL)
 		MacOSError::throwMe(errSecCSUnsupportedGuestAttributes);
+
+	// Extract information from pid and audit token as presented. We need at least one.
+	// If both are specified, we pass them both to the kernel, which will fail if they
+	// don't agree.
+	if (auditData && CFDataGetLength(auditData) != sizeof(audit_token_t))
+		MacOSError::throwMe(errSecCSInvalidAttributeValues);
+	pid_t pid = 0;
+	audit_token_t* audit = NULL;
+	if (pidNumber)
+		pid = cfNumber<pid_t>(pidNumber);
+	if (auditData)
+		audit = (audit_token_t*)CFDataGetBytePtr(auditData);
+	if (audit && pid == 0)
+		pid = audit_token_to_pid(*audit);
+
+	// handle requests for server-based validation
+	RefPointer<PidDiskRep> diskRep = NULL;
+	if (CFDictionaryGetValue(attributes, kSecGuestAttributeDynamicCode) != NULL) {
+			CFDataRef infoPlist = (CFDataRef)CFDictionaryGetValue(attributes, kSecGuestAttributeDynamicCodeInfoPlist);
+			if (infoPlist && CFGetTypeID(infoPlist) != CFDataGetTypeID())
+					MacOSError::throwMe(errSecCSInvalidAttributeValues);
+
+			try {
+				diskRep = new PidDiskRep(pid, infoPlist);
+			} catch (...) { }
+	}
+	
+	return (new ProcessCode(pid, audit, diskRep))->retain();
 }
 
 
@@ -109,9 +125,10 @@ SecStaticCode *KernelCode::identifyGuest(SecCode *iguest, CFDataRef *cdhash)
                 if (guest->pidBased()) {
                        
                         SecPointer<SecStaticCode> code = new ProcessDynamicCode(guest);
+						guest->pidBased()->setCredentials(code->codeDirectory());
 
                         SHA1::Digest kernelHash;
-                        MacOSError::check(::csops(guest->pid(), CS_OPS_CDHASH, kernelHash, sizeof(kernelHash)));
+                        MacOSError::check(guest->csops(CS_OPS_CDHASH, kernelHash, sizeof(kernelHash)));
                         *cdhash = makeCFData(kernelHash, sizeof(kernelHash));
 
                         return code.yield();
@@ -125,7 +142,7 @@ SecStaticCode *KernelCode::identifyGuest(SecCode *iguest, CFDataRef *cdhash)
 			CODESIGN_GUEST_IDENTIFY_PROCESS(guest, guest->pid(), code);
 			if (cdhash) {
 				SHA1::Digest kernelHash;
-				if (::csops(guest->pid(), CS_OPS_CDHASH, kernelHash, sizeof(kernelHash)) == -1)
+				if (guest->csops(CS_OPS_CDHASH, kernelHash, sizeof(kernelHash)) == -1)
 					switch (errno) {
 					case EBADEXEC:		// means "no CodeDirectory hash for this program"
 						*cdhash = NULL;
@@ -155,7 +172,7 @@ SecCodeStatus KernelCode::getGuestStatus(SecCode *iguest)
 	if (ProcessCode *guest = dynamic_cast<ProcessCode *>(iguest)) {
 		uint32_t pFlags;
 		csops(guest, CS_OPS_STATUS, &pFlags);
-		secdebug("kcode", "guest %p(%d) kernel status 0x%x", guest, guest->pid(), pFlags);
+		secinfo("kcode", "guest %p(%d) kernel status 0x%x", guest, guest->pid(), pFlags);
 		return pFlags;
 	} else
 		MacOSError::throwMe(errSecCSNoSuchCode);
@@ -204,7 +221,7 @@ void KernelCode::identify()
 //
 void KernelCode::csops(ProcessCode *proc, unsigned int op, void *addr, size_t length)
 {
-	if (::csops(proc->pid(), op, addr, length) == -1) {
+	if (proc->csops(op, addr, length) == -1) {
 		switch (errno) {
 		case ESRCH:
 			MacOSError::throwMe(errSecCSNoSuchCode);

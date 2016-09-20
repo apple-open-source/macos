@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2016 Apple Inc. All Rights Reserved.
  * Copyright (C) 2013 Patrick Gansterer <paroga@paroga.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,23 +29,16 @@
 
 #include <chrono>
 #include <memory>
+#include <string.h>
 #include <wtf/Assertions.h>
 #include <wtf/CheckedArithmetic.h>
 
 // This was used to declare and define a static local variable (static T;) so that
-//  it was leaked so that its destructors were not called at exit. Using this
-//  macro also allowed to workaround a compiler bug present in Apple's version of GCC 4.0.1.
-//
+//  it was leaked so that its destructors were not called at exit.
 // Newly written code should use static NeverDestroyed<T> instead.
 #ifndef DEPRECATED_DEFINE_STATIC_LOCAL
-#if COMPILER(GCC) && defined(__APPLE_CC__) && __GNUC__ == 4 && __GNUC_MINOR__ == 0 && __GNUC_PATCHLEVEL__ == 1
-#define DEPRECATED_DEFINE_STATIC_LOCAL(type, name, arguments) \
-    static type* name##Ptr = new type arguments; \
-    type& name = *name##Ptr
-#else
 #define DEPRECATED_DEFINE_STATIC_LOCAL(type, name, arguments) \
     static type& name = *new type arguments
-#endif
 #endif
 
 // Use this macro to declare and define a debug-only global variable that may have a
@@ -78,6 +71,11 @@
 #define STRINGIZE(exp) #exp
 #define STRINGIZE_VALUE_OF(exp) STRINGIZE(exp)
 
+// Make "PRId64" format specifier work for Visual C++ on Windows.
+#if OS(WINDOWS) && !defined(PRId64)
+#define PRId64 "lld"
+#endif
+
 /*
  * The reinterpret_cast<Type1*>([pointer to Type2]) expressions - where
  * sizeof(Type1) > sizeof(Type2) - cause the following warning on ARM with GCC:
@@ -88,7 +86,7 @@
  * - https://bugs.webkit.org/show_bug.cgi?id=38045
  * - http://gcc.gnu.org/bugzilla/show_bug.cgi?id=43976
  */
-#if (CPU(ARM) || CPU(MIPS)) && COMPILER(GCC)
+#if (CPU(ARM) || CPU(MIPS)) && COMPILER(GCC_OR_CLANG)
 template<typename Type>
 inline bool isPointerTypeAlignmentOkay(Type* ptr)
 {
@@ -119,18 +117,11 @@ inline bool isPointerTypeAlignmentOkay(Type*)
 
 namespace WTF {
 
-template<typename T>
-ALWAYS_INLINE typename std::remove_reference<T>::type&& move(T&& value)
-{
-    static_assert(std::is_lvalue_reference<T>::value, "T is not an lvalue reference; move() is unnecessary.");
-
-    using NonRefQualifiedType = typename std::remove_reference<T>::type;
-    static_assert(!std::is_const<NonRefQualifiedType>::value, "T is const qualified.");
-    return std::move(value);
-}
+enum CheckMoveParameterTag { CheckMoveParameter };
 
 static const size_t KB = 1024;
 static const size_t MB = 1024 * 1024;
+static const size_t GB = 1024 * 1024 * 1024;
 
 inline bool isPointerAligned(void* p)
 {
@@ -180,7 +171,7 @@ inline size_t bitCount(uint64_t bits)
 // Macro that returns a compile time constant with the length of an array, but gives an error if passed a non-array.
 template<typename T, size_t Size> char (&ArrayLengthHelperFunction(T (&)[Size]))[Size];
 // GCC needs some help to deduce a 0 length array.
-#if COMPILER(GCC)
+#if COMPILER(GCC_OR_CLANG)
 template<typename T> char (&ArrayLengthHelperFunction(T (&)[0]))[0];
 #endif
 #define WTF_ARRAY_LENGTH(array) sizeof(::WTF::ArrayLengthHelperFunction(array))
@@ -295,6 +286,29 @@ inline void insertIntoBoundedVector(VectorType& vector, size_t size, const Eleme
 // https://bugs.webkit.org/show_bug.cgi?id=131815
 WTF_EXPORT_PRIVATE bool isCompilationThread();
 
+template<typename Func>
+bool isStatelessLambda()
+{
+    return std::is_empty<Func>::value;
+}
+
+template<typename ResultType, typename Func, typename... ArgumentTypes>
+ResultType callStatelessLambda(ArgumentTypes&&... arguments)
+{
+    uint64_t data[(sizeof(Func) + sizeof(uint64_t) - 1) / sizeof(uint64_t)];
+    memset(data, 0, sizeof(data));
+    return (*bitwise_cast<Func*>(data))(std::forward<ArgumentTypes>(arguments)...);
+}
+
+template<typename T, typename U>
+bool checkAndSet(T& left, U right)
+{
+    if (left == right)
+        return false;
+    left = right;
+    return true;
+}
+
 } // namespace WTF
 
 // This version of placement new omits a 0 check.
@@ -305,20 +319,9 @@ inline void* operator new(size_t, NotNullTag, void* location)
     return location;
 }
 
-#if (COMPILER(GCC) && !COMPILER(CLANG) && !GCC_VERSION_AT_LEAST(4, 8, 1))
-
-// Work-around for Pre-C++11 syntax in MSVC 2010, and prior as well as GCC < 4.8.1.
-namespace std {
-    template<class T> struct is_trivially_destructible {
-        static const bool value = std::has_trivial_destructor<T>::value;
-    };
-}
-#endif
-
 // This adds various C++14 features for versions of the STL that may not yet have them.
 namespace std {
-// MSVC 2013 supports std::make_unique already.
-#if !defined(_MSC_VER) || _MSC_VER < 1800
+#if COMPILER(CLANG) && __cplusplus < 201400L
 template<class T> struct _Unique_if {
     typedef unique_ptr<T> _Single_object;
 };
@@ -346,26 +349,6 @@ make_unique(size_t n)
 
 template<class T, class... Args> typename _Unique_if<T>::_Known_bound
 make_unique(Args&&...) = delete;
-#endif
-
-// Compile-time integer sequences
-// http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2013/n3658.html
-// (Note that we only implement index_sequence, and not the more generic integer_sequence).
-template<size_t... indexes> struct index_sequence {
-    static size_t size() { return sizeof...(indexes); }
-};
-
-template<size_t currentIndex, size_t...indexes> struct make_index_sequence_helper;
-
-template<size_t...indexes> struct make_index_sequence_helper<0, indexes...> {
-    typedef std::index_sequence<indexes...> type;
-};
-
-template<size_t currentIndex, size_t...indexes> struct make_index_sequence_helper {
-    typedef typename make_index_sequence_helper<currentIndex - 1, currentIndex - 1, indexes...>::type type;
-};
-
-template<size_t length> struct make_index_sequence : public make_index_sequence_helper<length>::type { };
 
 // std::exchange
 template<class T, class U = T>
@@ -376,39 +359,39 @@ T exchange(T& t, U&& newValue)
 
     return oldValue;
 }
-
-#if COMPILER_SUPPORTS(CXX_USER_LITERALS)
-// These literals are available in C++14, so once we require C++14 compilers we can get rid of them here.
-// (User-literals need to have a leading underscore so we add it here - the "real" literals don't have underscores).
-namespace literals {
-namespace chrono_literals {
-    CONSTEXPR inline chrono::seconds operator"" _s(unsigned long long s)
-    {
-        return chrono::seconds(static_cast<chrono::seconds::rep>(s));
-    }
-
-    CONSTEXPR chrono::milliseconds operator"" _ms(unsigned long long ms)
-    {
-        return chrono::milliseconds(static_cast<chrono::milliseconds::rep>(ms));
-    }
-}
-}
 #endif
+
+template<WTF::CheckMoveParameterTag, typename T>
+ALWAYS_INLINE constexpr typename remove_reference<T>::type&& move(T&& value)
+{
+    static_assert(is_lvalue_reference<T>::value, "T is not an lvalue reference; move() is unnecessary.");
+
+    using NonRefQualifiedType = typename remove_reference<T>::type;
+    static_assert(!is_const<NonRefQualifiedType>::value, "T is const qualified.");
+
+    return move(forward<T>(value));
 }
+
+} // namespace std
+
+#define WTFMove(value) std::move<WTF::CheckMoveParameter>(value)
 
 using WTF::KB;
 using WTF::MB;
-using WTF::isCompilationThread;
-using WTF::insertIntoBoundedVector;
-using WTF::isPointerAligned;
-using WTF::is8ByteAligned;
-using WTF::binarySearch;
-using WTF::tryBinarySearch;
 using WTF::approximateBinarySearch;
+using WTF::binarySearch;
 using WTF::bitwise_cast;
+using WTF::callStatelessLambda;
+using WTF::checkAndSet;
+using WTF::insertIntoBoundedVector;
+using WTF::isCompilationThread;
+using WTF::isPointerAligned;
+using WTF::isStatelessLambda;
+using WTF::is8ByteAligned;
 using WTF::safeCast;
+using WTF::tryBinarySearch;
 
-#if COMPILER_SUPPORTS(CXX_USER_LITERALS)
+#if !COMPILER(CLANG) || __cplusplus >= 201400L
 // We normally don't want to bring in entire std namespaces, but literals are an exception.
 using namespace std::literals::chrono_literals;
 #endif

@@ -72,7 +72,7 @@ Ref<SerializedPlatformRepresentation> SerializedPlatformRepresentationMac::creat
     return adoptRef(*new SerializedPlatformRepresentationMac(nativeValue));
 }
 
-PassRefPtr<ArrayBuffer> SerializedPlatformRepresentationMac::data() const
+RefPtr<ArrayBuffer> SerializedPlatformRepresentationMac::data() const
 {
     return nullptr;
 }
@@ -135,16 +135,16 @@ static JSValue *jsValueWithValueInContext(id value, JSContext *context)
 
     if ([value isKindOfClass:[NSData class]])
         return jsValueWithDataInContext(value, context);
-    
+
     if ([value isKindOfClass:[AVMetadataItem class]])
         return jsValueWithAVMetadataItemInContext(value, context);
-    
+
     return nil;
 }
 
 static JSValue *jsValueWithDataInContext(NSData *data, JSContext *context)
 {
-    RefPtr<ArrayBuffer> dataArray = ArrayBuffer::create([data bytes], [data length]);
+    auto dataArray = ArrayBuffer::tryCreate([data bytes], [data length]);
 
     JSC::ExecState* exec = toJS([context JSGlobalContextRef]);
     JSC::JSValue array = toJS(exec, JSC::jsCast<JSDOMGlobalObject*>(exec->lexicalGlobalObject()), dataArray.get());

@@ -219,20 +219,30 @@ Additional trace codes files specified will still be used.
 .Pp
 Empty the current kernel trace buffer into
 .Ar rawfile
-in a binary format.
+in a binary format.  If
+.Ar rawfile
+is
+.Li - ,
+the file will be written to
+.Xr stdout 4 .
 .\"
 .\"     ## trace -L ##
 .It Fl L Ar rawfile Fl S Ar seconds
 .Pp
 Copy the current trace buffer to
 .Ar rawfile
-and send all future trace events to 
+and send all future trace events to
 .Ar rawfile .
 .Bl -tag -width Ds
 .It Fl S Ar seconds
 After 
 .Ar seconds
-have elapsed, stop recording and exit.
+have elapsed, stop recording and exit.  If
+.Ar rawfile
+is
+.Li - ,
+the file will be written to
+.Xr stdout 4 .
 .El
 .\"
 .\"     ## trace -R ##
@@ -240,7 +250,7 @@ have elapsed, stop recording and exit.
 .Pp
 Read events from
 .Ar rawfile
-and print them in a human-readable format.  
+and print them in a human-readable format.
 .Bl -tag -width " "
 .It Fl F Ar frequency
 If

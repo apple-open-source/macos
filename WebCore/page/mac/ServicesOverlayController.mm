@@ -94,6 +94,9 @@ ServicesOverlayController::Highlight::~Highlight()
 
 void ServicesOverlayController::Highlight::setDDHighlight(DDHighlightRef highlight)
 {
+    if (!DataDetectorsLibrary())
+        return;
+
     if (!m_controller)
         return;
 
@@ -129,6 +132,9 @@ void ServicesOverlayController::Highlight::notifyFlushRequired(const GraphicsLay
 
 void ServicesOverlayController::Highlight::paintContents(const GraphicsLayer*, GraphicsContext& graphicsContext, GraphicsLayerPaintingPhase, const FloatRect&)
 {
+    if (!DataDetectorsLibrary())
+        return;
+
     CGContextRef cgContext = graphicsContext.platformContext();
 
     CGLayerRef highlightLayer = DDHighlightGetLayerWithContext(ddHighlight(), cgContext);
@@ -195,7 +201,7 @@ void ServicesOverlayController::Highlight::didFinishFadeOutAnimation()
 static IntRect textQuadsToBoundingRectForRange(Range& range)
 {
     Vector<FloatQuad> textQuads;
-    range.textQuads(textQuads);
+    range.absoluteTextQuads(textQuads);
     FloatRect boundingRect;
     for (auto& quad : textQuads)
         boundingRect.unite(quad.boundingBox());
@@ -213,13 +219,6 @@ ServicesOverlayController::~ServicesOverlayController()
 {
     for (auto& highlight : m_highlights)
         highlight->invalidate();
-}
-
-void ServicesOverlayController::pageOverlayDestroyed(PageOverlay&)
-{
-    // Before the overlay is destroyed, it should have moved out of the Page,
-    // at which point we already cleared our back pointer.
-    ASSERT(!m_servicesOverlay);
 }
 
 void ServicesOverlayController::willMoveToPage(PageOverlay&, Page* page)
@@ -366,7 +365,6 @@ static void compactRectsWithGapRects(Vector<LayoutRect>& rects, const Vector<Gap
 
 void ServicesOverlayController::selectionRectsDidChange(const Vector<LayoutRect>& rects, const Vector<GapRects>& gapRects, bool isTextOnly)
 {
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED > 1090
     m_currentSelectionRects = rects;
     m_isTextOnly = isTextOnly;
 
@@ -379,19 +377,12 @@ void ServicesOverlayController::selectionRectsDidChange(const Vector<LayoutRect>
 
     LOG(Services, "ServicesOverlayController - Selection rects changed - Now have %lu\n", rects.size());
     invalidateHighlightsOfType(Highlight::SelectionType);
-#else
-    UNUSED_PARAM(rects);
-    UNUSED_PARAM(gapRects);
-    UNUSED_PARAM(isTextOnly);
-#endif
 }
 
 void ServicesOverlayController::selectedTelephoneNumberRangesChanged()
 {
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED > 1090
     LOG(Services, "ServicesOverlayController - Telephone number ranges changed\n");
     invalidateHighlightsOfType(Highlight::TelephoneNumberType);
-#endif
 }
 
 void ServicesOverlayController::invalidateHighlightsOfType(Highlight::Type type)
@@ -433,6 +424,9 @@ void ServicesOverlayController::buildPotentialHighlightsIfNeeded()
 
 bool ServicesOverlayController::mouseIsOverHighlight(Highlight& highlight, bool& mouseIsOverButton) const
 {
+    if (!DataDetectorsLibrary())
+        return false;
+
     Boolean onButton;
     bool hovered = DDHighlightPointIsOnHighlight(highlight.ddHighlight(), (CGPoint)m_mousePosition, &onButton);
     mouseIsOverButton = onButton;
@@ -442,12 +436,12 @@ bool ServicesOverlayController::mouseIsOverHighlight(Highlight& highlight, bool&
 std::chrono::milliseconds ServicesOverlayController::remainingTimeUntilHighlightShouldBeShown(Highlight* highlight) const
 {
     if (!highlight)
-        return std::chrono::milliseconds::zero();
+        return 0ms;
 
-    auto minimumTimeUntilHighlightShouldBeShown = 200_ms;
+    auto minimumTimeUntilHighlightShouldBeShown = 200ms;
     Page* page = m_mainFrame.page();
     if (page && page->focusController().focusedOrMainFrame().selection().selection().isContentEditable())
-        minimumTimeUntilHighlightShouldBeShown = 1000_ms;
+        minimumTimeUntilHighlightShouldBeShown = 1000ms;
 
     bool mousePressed = m_mainFrame.eventHandler().mousePressed();
 
@@ -455,12 +449,12 @@ std::chrono::milliseconds ServicesOverlayController::remainingTimeUntilHighlight
     // by virtue of being expanded to include the entire telephone number. However, we will still avoid highlighting
     // telephone numbers while the mouse is down.
     if (highlight->type() == Highlight::TelephoneNumberType)
-        return mousePressed ? minimumTimeUntilHighlightShouldBeShown : 0_ms;
+        return mousePressed ? minimumTimeUntilHighlightShouldBeShown : 0ms;
 
     auto now = std::chrono::steady_clock::now();
     auto timeSinceLastSelectionChange = now - m_lastSelectionChangeTime;
     auto timeSinceHighlightBecameActive = now - m_nextActiveHighlightChangeTime;
-    auto timeSinceLastMouseUp = mousePressed ? 0_ms : now - m_lastMouseUpTime;
+    auto timeSinceLastMouseUp = mousePressed ? 0ms : now - m_lastMouseUpTime;
 
     auto remainingDelay = minimumTimeUntilHighlightShouldBeShown - std::min(std::min(timeSinceLastSelectionChange, timeSinceHighlightBecameActive), timeSinceLastMouseUp);
     return std::chrono::duration_cast<std::chrono::milliseconds>(remainingDelay);
@@ -626,9 +620,9 @@ void ServicesOverlayController::createOverlayIfNeeded()
     if (!m_mainFrame.settings().serviceControlsEnabled())
         return;
 
-    RefPtr<PageOverlay> overlay = PageOverlay::create(*this, PageOverlay::OverlayType::Document);
-    m_servicesOverlay = overlay.get();
-    m_mainFrame.pageOverlayController().installPageOverlay(overlay.release(), PageOverlay::FadeMode::DoNotFade);
+    auto overlay = PageOverlay::create(*this, PageOverlay::OverlayType::Document);
+    m_servicesOverlay = overlay.ptr();
+    m_mainFrame.pageOverlayController().installPageOverlay(WTFMove(overlay), PageOverlay::FadeMode::DoNotFade);
 }
 
 Vector<RefPtr<Range>> ServicesOverlayController::telephoneNumberRangesForFocusedFrame()
@@ -745,7 +739,7 @@ void ServicesOverlayController::determineActiveHighlight(bool& mouseIsOverActive
             return;
         }
 
-        m_activeHighlight = m_nextActiveHighlight.release();
+        m_activeHighlight = WTFMove(m_nextActiveHighlight);
 
         if (m_activeHighlight) {
             m_servicesOverlay->layer().addChild(m_activeHighlight->layer());

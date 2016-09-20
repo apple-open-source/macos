@@ -52,6 +52,9 @@ struct __SecTask {
      * load, entitlements may legitimately be NULL */
     Boolean entitlementsLoaded;
     CFDictionaryRef entitlements;
+	
+	/* for debugging only, shown by debugDescription */
+	int lastFailure;
 };
 
 static bool check_task(SecTaskRef task) {
@@ -97,7 +100,8 @@ static CFStringRef SecTaskCopyDebugDescription(CFTypeRef cfTask)
         task_name = kp.kp_proc.p_comm;
 #endif
 
-    return CFStringCreateWithFormat(CFGetAllocator(task), NULL, CFSTR("%s[%" PRIdPID "]"), task_name, pid);
+    return CFStringCreateWithFormat(CFGetAllocator(task), NULL, CFSTR("%s[%" PRIdPID "]/%d#%d LF=%d"), task_name, pid,
+									task->entitlementsLoaded, task->entitlements ? (int)CFDictionaryGetCount(task->entitlements) : -1, task->lastFailure);
 }
 
 CFGiblisWithFunctions(SecTask, NULL, NULL, SecTaskFinalize, NULL, NULL, NULL, SecTaskCopyDebugDescription, NULL, NULL, NULL)
@@ -144,16 +148,18 @@ struct csheader {
 static int
 csops_task(SecTaskRef task, int ops, void *blob, size_t size)
 {
+	int rc;
     if (task->pid_self==-1) {
         pid_t pid;
         audit_token_to_au32(task->token, NULL, NULL, NULL, NULL, NULL, &pid, NULL, NULL);
-        return csops_audittoken(pid, ops, blob, size, &task->token);
+        rc = csops_audittoken(pid, ops, blob, size, &task->token);
     }
     else
-        return csops(task->pid_self, ops, blob, size);
+        rc = csops(task->pid_self, ops, blob, size);
+	task->lastFailure = (rc == -1) ? errno : 0;
+	return rc;
 }
 
-/* This may need to be exported at some point */
 CFStringRef
 SecTaskCopySigningIdentifier(SecTaskRef task, CFErrorRef *error)
 {
@@ -196,6 +202,14 @@ SecTaskCopySigningIdentifier(SecTaskRef task, CFErrorRef *error)
         return signingId;
 }
 
+uint32_t
+SecTaskGetCodeSignStatus(SecTaskRef task)
+{
+    uint32_t flags = 0;
+    if (csops_task(task, CS_OPS_STATUS, &flags, sizeof(flags)) != 0)
+        return 0;
+    return flags;
+}
 
 static bool SecTaskLoadEntitlements(SecTaskRef task, CFErrorRef *error)
 {
@@ -217,19 +231,22 @@ static bool SecTaskLoadEntitlements(SecTaskRef task, CFErrorRef *error)
                 syslog(LOG_NOTICE, "Failed to get cs_flags, error=%d", errno);
             }
 
-            syslog(LOG_NOTICE, "SecTaskLoadEntitlements failed error=%d cs_flags=%x, task->pid_self=%d", entitlementErrno, cs_flags, task->pid_self);	// to ease diagnostics
+			if (cs_flags != 0) {	// was signed
+	            syslog(LOG_NOTICE, "SecTaskLoadEntitlements failed error=%d cs_flags=%x, task->pid_self=%d", entitlementErrno, cs_flags, task->pid_self);	// to ease diagnostics
 
-            CFStringRef description = SecTaskCopyDebugDescription(task);
-            char *descriptionBuf = NULL;
-            CFIndex descriptionSize = CFStringGetLength(description) * 4;
-            descriptionBuf = (char *)malloc(descriptionSize);
-            if (!CFStringGetCString(description, descriptionBuf, descriptionSize, kCFStringEncodingUTF8)) {
-                descriptionBuf[0] = 0;
-            }
+				CFStringRef description = SecTaskCopyDebugDescription(task);
+				char *descriptionBuf = NULL;
+				CFIndex descriptionSize = CFStringGetLength(description) * 4;
+				descriptionBuf = (char *)malloc(descriptionSize);
+				if (!CFStringGetCString(description, descriptionBuf, descriptionSize, kCFStringEncodingUTF8)) {
+					descriptionBuf[0] = 0;
+				}
 
-            syslog(LOG_NOTICE, "SecTaskCopyDebugDescription: %s", descriptionBuf);
-            CFRelease(description);
-            free(descriptionBuf);
+				syslog(LOG_NOTICE, "SecTaskCopyDebugDescription: %s", descriptionBuf);
+				CFRelease(description);
+				free(descriptionBuf);
+			}
+			task->lastFailure = entitlementErrno;	// was overwritten by csops_task(CS_OPS_STATUS) above
 
 			// EINVAL is what the kernel says for unsigned code, so we'll have to let that pass
 			if (entitlementErrno == EINVAL) {
@@ -242,7 +259,7 @@ static bool SecTaskLoadEntitlements(SecTaskRef task, CFErrorRef *error)
         bufferlen = ntohl(header.length);
         /* check for insane values */
         if (bufferlen > 1024 * 1024 || bufferlen < 8) {
-            ret = EINVAL;
+            ret = E2BIG;
             goto out;
         }
         buffer = malloc(bufferlen);
@@ -261,7 +278,7 @@ static bool SecTaskLoadEntitlements(SecTaskRef task, CFErrorRef *error)
         CFRelease(data);
 
         if((entitlements==NULL) || (CFGetTypeID(entitlements)!=CFDictionaryGetTypeID())){
-            ret = EINVAL;
+            ret = EDOM;	// don't use EINVAL here; it conflates problems with syscall error returns
             goto out;
         }
     }

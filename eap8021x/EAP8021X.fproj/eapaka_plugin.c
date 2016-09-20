@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -183,6 +183,53 @@ copy_static_identity(CFDictionaryRef properties)
     return (ret_identity);
 }
 
+/**
+ ** Utility Routines
+ **/
+STATIC EAPSIMAKAAttributeType
+S_get_identity_type(CFDictionaryRef dict)
+{
+	CFStringRef			identity_type_str;
+
+	if (dict == NULL) {
+		identity_type_str = NULL;
+	}
+	else {
+		identity_type_str
+		= CFDictionaryGetValue(dict, kEAPClientPropEAPSIMAKAIdentityType);
+		identity_type_str = isA_CFString(identity_type_str);
+	}
+	return (EAPSIMAKAIdentityTypeGetAttributeType(identity_type_str));
+}
+
+static int
+S_get_plist_int(CFDictionaryRef plist, CFStringRef key, int def)
+{
+	CFNumberRef 	n;
+	int			ret = def;
+
+	n = isA_CFNumber(CFDictionaryGetValue(plist, key));
+	if (n != NULL) {
+		if (CFNumberGetValue(n, kCFNumberIntType, &ret) == FALSE) {
+			ret = def;
+		}
+	}
+	return (ret);
+}
+
+static bool
+S_get_plist_bool(CFDictionaryRef plist, CFStringRef key, bool def)
+{
+	CFBooleanRef 	b;
+	bool			ret = def;
+
+	b = isA_CFBoolean(CFDictionaryGetValue(plist, key));
+	if (b != NULL) {
+		ret = CFBooleanGetValue(b);
+	}
+	return (ret);
+}
+
 #if TARGET_OS_EMBEDDED
 STATIC CFStringRef
 copy_pseudonym_identity(CFStringRef pseudonym, CFStringRef realm)
@@ -197,11 +244,16 @@ copy_pseudonym_identity(CFStringRef pseudonym, CFStringRef realm)
 
 STATIC CFStringRef
 create_identity(EAPSIMAKAPersistentStateRef persist,
+		CFDictionaryRef properties,
 		EAPSIMAKAAttributeType requested_type,
 		CFStringRef realm,
-		Boolean * is_reauth_id_p)
+		Boolean * is_reauth_id_p,
+		EAPClientStatus * client_status)
 {
     CFStringRef			ret_identity = NULL;
+    CFDateRef			start_time;
+    CFStringRef			pseudonym = NULL;
+    CFDateRef			now = NULL;
 
     if (is_reauth_id_p != NULL) {
 	*is_reauth_id_p = FALSE;
@@ -209,13 +261,12 @@ create_identity(EAPSIMAKAPersistentStateRef persist,
     if (persist == NULL) {
 	return (NULL);
     }
+    pseudonym = EAPSIMAKAPersistentStateGetPseudonym(persist, &start_time);
     if (requested_type == kAT_ANY_ID_REQ
 	|| requested_type == kAT_FULLAUTH_ID_REQ) {
 	CFStringRef		reauth_id;
-	CFStringRef		pseudonym;
 	
 	reauth_id = EAPSIMAKAPersistentStateGetReauthID(persist);
-	pseudonym = EAPSIMAKAPersistentStateGetPseudonym(persist);
 	if (requested_type == kAT_ANY_ID_REQ && reauth_id != NULL) {
 	    if (is_reauth_id_p != NULL) {
 		*is_reauth_id_p = TRUE;
@@ -227,10 +278,51 @@ create_identity(EAPSIMAKAPersistentStateRef persist,
 	}
     }
     if (ret_identity == NULL) {
+	if (pseudonym != NULL && requested_type == kAT_PERMANENT_ID_REQ) {
+	    /* first see if we are configured to be a conserverative peer */
+	    bool conservative_peer = false;
+	    int  pseudonym_lifetime_hrs;
+
+	    conservative_peer
+		= S_get_plist_bool(properties,
+				   kEAPClientPropEAPSIMAKAConservativePeer,
+				   false);
+	    if (conservative_peer) {
+		pseudonym_lifetime_hrs
+		    = S_get_plist_int(properties,
+				      kEAPClientPropEAPSIMAKAPseudonymIdentityLifetimeHours,
+				      PSEUDONYM_MIN_LIFETIME_HOURS);
+		if (pseudonym_lifetime_hrs < PSEUDONYM_MIN_LIFETIME_HOURS) {
+			pseudonym_lifetime_hrs = PSEUDONYM_MIN_LIFETIME_HOURS;
+		}
+		/* now check if pseudonym is expired */
+		if (start_time != NULL) {
+		    now = CFDateCreate(NULL, CFAbsoluteTimeGetCurrent());
+		    if (now != NULL &&
+			CFDateGetTimeIntervalSinceDate(now, start_time) < (pseudonym_lifetime_hrs * 3600)) {
+		        /* pseudonym is not expired, send an error to the server */
+		        EAPLOG_FL(LOG_NOTICE,
+				  "EAP Peer is in conservative mode and pseudonym is not expired yet.");
+			if (client_status != NULL) {
+			    *client_status = kEAPClientStatusProtocolError;
+			}
+			goto done;
+		    }
+		}
+	    }
+	}
 	/* use permanent id */
 	ret_identity 
 	    = copy_imsi_identity(EAPSIMAKAPersistentStateGetIMSI(persist),
 				 realm);
+    }
+    if (ret_identity == NULL && client_status != NULL) {
+	*client_status = kEAPClientStatusResourceUnavailable;
+    }
+	
+done:
+    if (now != NULL) {
+	CFRelease(now);
     }
     return (ret_identity);
 }
@@ -239,7 +331,8 @@ STATIC CFStringRef
 sim_identity_create(EAPSIMAKAPersistentStateRef persist,
 		    CFDictionaryRef properties,
 		    EAPSIMAKAAttributeType identity_type,
-		    Boolean * is_reauth_id_p)
+		    Boolean * is_reauth_id_p,
+		    EAPClientStatus * client_status)
 {
     CFStringRef		realm = NULL;
     CFStringRef		ret_identity = NULL;
@@ -251,8 +344,8 @@ sim_identity_create(EAPSIMAKAPersistentStateRef persist,
     if (realm == NULL) {
 	realm = SIMCopyRealm();
     }
-    ret_identity = create_identity(persist, identity_type, realm, 
-				   is_reauth_id_p);
+    ret_identity = create_identity(persist, properties, identity_type, realm,
+				   is_reauth_id_p, client_status);
     my_CFRelease(&realm);
     return (ret_identity);
 }
@@ -263,7 +356,8 @@ STATIC CFStringRef
 sim_identity_create(EAPSIMAKAPersistentStateRef persist,
 		    CFDictionaryRef properties,
 		    EAPSIMAKAAttributeType identity_type, 
-		    Boolean * is_reauth_id_p)
+		    Boolean * is_reauth_id_p,
+		    EAPClientStatus * client_status)
 {
     if (is_reauth_id_p != NULL) {
 	*is_reauth_id_p = FALSE;
@@ -271,26 +365,18 @@ sim_identity_create(EAPSIMAKAPersistentStateRef persist,
     return (NULL);
 }
 
-#endif /* TARGET_OS_EMBEDDED */
-
-/**
- ** Utility Routines
- **/
-STATIC EAPSIMAKAAttributeType
-S_get_identity_type(CFDictionaryRef dict)
+STATIC CFStringRef
+copy_pseudonym_identity(CFStringRef pseudonym, CFStringRef realm)
 {
-    CFStringRef			identity_type_str;
-
-    if (dict == NULL) {
-	identity_type_str = NULL;
+    if (realm != NULL) {
+	return (CFStringCreateWithFormat(NULL, NULL,
+					 CFSTR("%@" "@" "%@"),
+					 pseudonym, realm));
     }
-    else {
-	identity_type_str
-	    = CFDictionaryGetValue(dict, kEAPClientPropEAPSIMAKAIdentityType);
-	identity_type_str = isA_CFString(identity_type_str);
-    }
-    return (EAPSIMAKAIdentityTypeGetAttributeType(identity_type_str));
+    return (CFRetain(pseudonym));
 }
+
+#endif /* TARGET_OS_EMBEDDED */
 
 STATIC void
 AKAStaticKeysClear(AKAStaticKeysRef keys)
@@ -514,17 +600,16 @@ eapaka_identity(EAPAKAContextRef context,
     context->last_identity_type = identity_req_type;
     pkt = make_response_packet(context, in_pkt,
 			       kEAPSIMAKAPacketSubtypeAKAIdentity, tb_p);
-    if (context->static_keys.ck != NULL) {
-	identity = copy_static_identity(context->plugin->properties);
-    }
-    else {
-	identity = sim_identity_create(context->persist,
-				       context->plugin->properties,
-				       identity_req_type, &reauth_id_used);
-    }
+    identity = sim_identity_create(context->persist,
+				   context->plugin->properties,
+				   identity_req_type, &reauth_id_used,
+				   client_status);
     if (identity == NULL) {
-	EAPLOG(LOG_NOTICE, "eapaka: can't find SIM identity");
-	*client_status = kEAPClientStatusResourceUnavailable;
+	if (*client_status == kEAPClientStatusResourceUnavailable) {
+	    EAPLOG(LOG_NOTICE, "eapaka: can't find SIM identity");
+	} else if (*client_status == kEAPClientStatusProtocolError) {
+	    EAPLOG(LOG_NOTICE, "eapaka: protocol error.");
+	}
 	pkt = NULL;
 	goto done;
     }
@@ -954,7 +1039,7 @@ eapaka_reauthentication(EAPAKAContextRef context,
 						next_reauth_id);
 	    CFRelease(next_reauth_id);
 	}
-	EAPSIMAKAPersistentStateSetCounter(context->persist, at_counter);
+	EAPSIMAKAPersistentStateSetCounter(context->persist, at_counter + 1);
     }
     
     /* create our response */
@@ -1372,7 +1457,7 @@ eapaka_init(EAPClientPluginDataRef plugin, CFArrayRef * require_props,
 					 CC_SHA1_DIGEST_LENGTH,
 					 imsi, identity_type);
     CFRelease(imsi);
-    if (EAPSIMAKAPersistentStateGetReauthID(context->persist) != NULL) {
+	if (EAPSIMAKAPersistentStateGetReauthID(context->persist) != NULL) {
 	/* now run PRF to generate keying material */
 	fips186_2prf(EAPSIMAKAPersistentStateGetMasterKey(context->persist),
 		     context->key_info.key);
@@ -1490,26 +1575,26 @@ eapaka_user_name_copy(CFDictionaryRef properties)
     EAPSIMAKAAttributeType 	identity_type;
     CFStringRef			imsi;
     EAPSIMAKAPersistentStateRef persist;
-    CFStringRef			ret_identity;
+    CFStringRef			ret_identity = NULL;
 
-    ret_identity = copy_static_identity(properties);
-    if (ret_identity != NULL) {
-	return (ret_identity);
-    }
-    imsi = SIMCopyIMSI();
+    imsi = copy_static_imsi(properties);
     if (imsi == NULL) {
-	return (NULL);
+	imsi = SIMCopyIMSI();
+	if (imsi == NULL) {
+	    goto done;
+	}
     }
     identity_type = S_get_identity_type(properties);
     persist = EAPSIMAKAPersistentStateCreate(kEAPTypeEAPAKA,
 					     CC_SHA1_DIGEST_LENGTH,
 					     imsi, identity_type);
-    CFRelease(imsi);
+    my_CFRelease(&imsi);
     if (persist != NULL) {
-	ret_identity = sim_identity_create(persist, properties, 
-					   identity_type, NULL);
+	ret_identity = sim_identity_create(persist, properties,
+					   identity_type, NULL, NULL);
 	EAPSIMAKAPersistentStateRelease(persist);
     }
+done:
     return (ret_identity);
 }
 
@@ -1531,7 +1616,7 @@ eapaka_copy_identity(EAPClientPluginDataRef plugin)
 	return (copy_static_identity(plugin->properties));
     }
     return (sim_identity_create(context->persist, plugin->properties,
-				kAT_ANY_ID_REQ, NULL));
+				kAT_ANY_ID_REQ, NULL, NULL));
 }
 
 STATIC CFStringRef

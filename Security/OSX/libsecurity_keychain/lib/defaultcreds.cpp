@@ -78,15 +78,15 @@ bool DefaultCredentials::operator () (Db database)
 						keyReferral(**it);
 						break;
 					default:
-						secdebug("kcreferral", "referral type %lu (to %s) not supported",
+						secinfo("kcreferral", "referral type %lu (to %s) not supported",
 							(unsigned long)(*it)->type(), (*it)->dbName().c_str());
 						break;
 					}
 				}
 			}
-			secdebug("kcreferral", "%lu samples generated", (unsigned long)size());
+			secinfo("kcreferral", "%lu samples generated", (unsigned long)size());
 		} catch (...) {
-			secdebug("kcreferral", "exception setting default credentials for %s; using standard value", database->name());
+			secinfo("kcreferral", "exception setting default credentials for %s; using standard value", database->name());
 		}
 		mMade = true;
 	}
@@ -101,7 +101,7 @@ bool DefaultCredentials::operator () (Db database)
 //
 void DefaultCredentials::keyReferral(const UnlockReferralRecord &ref)
 {
-	secdebug("kcreferral", "processing type %ld referral to %s",
+	secinfo("kcreferral", "processing type %ld referral to %s",
 		(long)ref.type(), ref.dbName().c_str());
 	DLDbIdentifier identifier(ref.dbName().c_str(), ref.dbGuid(), ref.dbSSID(), ref.dbSSType());
 
@@ -115,12 +115,12 @@ void DefaultCredentials::keyReferral(const UnlockReferralRecord &ref)
 	
 	// try the entire search list (just in case)
 	try {
-		secdebug("kcreferral", "no joy with %s; trying the entire keychain list for guid %s",
+		secinfo("kcreferral", "no joy with %s; trying the entire keychain list for guid %s",
 			ref.dbName().c_str(), ref.dbGuid().toString().c_str());
 		unlockKey(ref, fallbackSearchList(identifier));
 		return;
 	} catch (...) { }
-	secdebug("kcreferral", "no luck at all; we'll skip this record");
+	secinfo("kcreferral", "no luck at all; we'll skip this record");
 }
 
 
@@ -140,7 +140,7 @@ bool DefaultCredentials::unlockKey(const UnlockReferralRecord &ref, const Keycha
 		
 		Item keyItem;
 		while (cursor->next(keyItem)) {
-			secdebug("kcreferral", "located source key in %s", keyItem->keychain()->name());
+			secinfo("kcreferral", "located source key in %s", keyItem->keychain()->name());
 			
 			// get a reference to the key in the provider keychain
 			CssmClient::Key key = dynamic_cast<KeyItem &>(*keyItem).key();

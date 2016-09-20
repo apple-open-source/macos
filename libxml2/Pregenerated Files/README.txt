@@ -16,19 +16,35 @@ Steps to rebuild files:
    autoheader
    automake --add-missing --force-missing
    autoconf
-   ./configure --prefix=/usr --without-iconv --with-icu --without-lzma --with-zlib
-4. Edit xml2-config to change:
+   ./configure --prefix=/usr --without-iconv --with-icu --without-lzma --without-python --with-zlib
+4. Edit xml2-config.
+   a. Fix prefix value:
 -prefix=/usr
 +prefix=$(xcrun -show-sdk-path)/usr
-5. Copy replacement files into place:
+   b. Remove unnecessary "-L/usr/lib" switches from --libs output:
+            if [ "`uname`" = "Darwin" -a "-L${libdir}" = "-L/usr/lib" ]
+            then
+-               echo -lxml2 -L/usr/lib -lz   -lpthread   -licucore -lm   
++               echo -lxml2 -lz   -lpthread   -licucore -lm   
+            else
+-               echo -L${libdir} -lxml2 -L/usr/lib -lz   -lpthread   -licucore -lm   
++               echo -L${libdir} -lxml2 -lz   -lpthread   -licucore -lm   
+            fi
+        fi
+5. [Optional] Run tests (compare output prior to patch as there is some spew):
+   make -j $(sysctl -n hw.ncpu)
+   make check
+   To run tests with AddressSanitizer enabled, re-run configure with this environment variable:
+     CC="xcrun -sdk macosx.internal cc -fsanitize=address"
+6. Copy replacement files into place:
    cp -p config.h "../Pregenerated Files/"
    cp -p include/libxml/xmlversion.h "../Pregenerated Files/libxml/"
    cp -p xml2-config "../Pregenerated Files/"
-6. Run git-add on changed files (including those in libxml2), and check them in.
+7. Run git-add on changed files (including those in libxml2), and check them in.
    cd ..
    git add "Pregenerated Files/config.h" "Pregenerated Files/libxml/xmlversion.h" "Pregenerated Files/xml2-config"
-   git add config.h.in ...
-7. Run git-commit to commit the updated files.
-8. Clean up the files generated from Step 3.
+8. Update libxml2.plist with libxml2 version, md5 hash, radars to upstream as needed.
+9. Run git-commit to commit the updated files.
+10. Clean up the files generated from Step 3.
    git status --ignored
    git clean --force -d -x

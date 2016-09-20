@@ -30,6 +30,7 @@
 //
 #include "tokencache.h"
 #include <security_utilities/unix++.h>
+#include <security_utilities/casts.h>
 #include <pwd.h>
 #include <grp.h>
 
@@ -56,8 +57,6 @@ static const char tokensDir[] = "tokens";
 
 // relative to token directory (use token->path())
 static const char ssidFile[] = "SSID";
-static const char workDir[] = "work";
-static const char cacheDir[] = "cache";
 
 
 //
@@ -96,7 +95,7 @@ static string getFile(const string &path, const string &defaultValue)
 static void putFile(const string &path, uint32 value)
 {
 	char buffer[64];
-	snprintf(buffer, sizeof(buffer), "%ld\n", value);
+	snprintf(buffer, sizeof(buffer), "%u\n", value);
 	AutoFileDesc(path, O_WRONLY | O_CREAT | O_TRUNC).writeAll(buffer);
 }
 
@@ -135,7 +134,7 @@ TokenCache::TokenCache(const char *where)
 	makedir(path(configDir), O_CREAT, 0700, securityd);
 	makedir(path(tokensDir), O_CREAT, 0711, securityd);
 	
-	mLastSubservice = getFile(path(lastSSIDFile), 1);
+	mLastSubservice = int_cast<ssize_t, uint32>(getFile(path(lastSSIDFile), 1));
 	
 	// identify uid/gid for token daemons
 	struct passwd *pw = getpwnam(TOKEND_UID);
@@ -143,7 +142,7 @@ TokenCache::TokenCache(const char *where)
 	struct group *gr = getgrnam(TOKEND_GID);
 	mTokendGid = gr ? gr->gr_gid : TOKEND_GID_FALLBACK;
 	
-	secdebug("tokencache", "token cache rooted at %s (last ssid=%ld, uid/gid=%d/%d)",
+	secinfo("tokencache", "token cache rooted at %s (last ssid=%u, uid/gid=%d/%d)",
 		root().c_str(), mLastSubservice, mTokendUid, mTokendGid);
 }
 
@@ -188,13 +187,13 @@ TokenCache::Token::Token(TokenCache &c, const string &tokenUid)
 	: Rooted(c.path(string(tokensDir) + "/" + tokenUid)), cache(c)
 {
 	cache.makedir(root(), O_CREAT, 0711, securityd);
-	if (mSubservice = getFile(path(ssidFile), 0)) {
-		secdebug("tokencache", "found token \"%s\" ssid=%ld", tokenUid.c_str(), mSubservice);
+	if ((mSubservice = int_cast<unsigned long, uint32>(getFile(path(ssidFile), 0)))) {
+		secinfo("tokencache", "found token \"%s\" ssid=%u", tokenUid.c_str(), mSubservice);
 		init(existing);
 	} else {
 		mSubservice = cache.allocateSubservice();   // allocate new, unique ssid...
 		putFile(path(ssidFile), mSubservice);			// ... and save it in cache
-		secdebug("tokencache", "new token \"%s\" ssid=%ld", tokenUid.c_str(), mSubservice);
+		secinfo("tokencache", "new token \"%s\" ssid=%u", tokenUid.c_str(), mSubservice);
 		init(created);
 	}
 }
@@ -208,11 +207,11 @@ TokenCache::Token::Token(TokenCache &c)
 {
 	mSubservice = cache.allocateSubservice();	// new, unique id
 	char rootForm[30]; snprintf(rootForm, sizeof(rootForm),
-		"%s/temporary:%ld", tokensDir, mSubservice);
+		"%s/temporary:%u", tokensDir, mSubservice);
 	root(cache.path(rootForm));
 	cache.makedir(root(), O_CREAT | O_EXCL, 0711, securityd);
 	putFile(path(ssidFile), mSubservice);			// ... and save it in cache
-	secdebug("tokencache", "temporary token \"%s\" ssid=%ld", rootForm, mSubservice);
+	secinfo("tokencache", "temporary token \"%s\" ssid=%u", rootForm, mSubservice);
 	init(temporary);
 }
 
@@ -235,7 +234,7 @@ void TokenCache::Token::init(Type type)
 TokenCache::Token::~Token()
 {
 	if (type() == temporary)
-		secdebug("tokencache", "@@@ should delete the cache directory here...");
+		secinfo("tokencache", "@@@ should delete the cache directory here...");
 }
 
 

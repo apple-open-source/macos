@@ -38,6 +38,7 @@
 #import "ResourceResponse.h"
 #import "StringTruncator.h"
 #import "TextRun.h"
+#import <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
@@ -74,7 +75,10 @@ RetainPtr<NSImage> dissolveDragImageToFraction(RetainPtr<NSImage> image, float d
     RetainPtr<NSImage> dissolvedImage = adoptNS([[NSImage alloc] initWithSize:[image.get() size]]);
     
     [dissolvedImage.get() lockFocus];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     [image.get() drawAtPoint:NSZeroPoint fromRect:NSMakeRect(0, 0, [image size].width, [image size].height) operation:NSCompositeCopy fraction:delta];
+#pragma clang diagnostic pop
     [dissolvedImage.get() unlockFocus];
 
     return dissolvedImage;
@@ -87,7 +91,7 @@ RetainPtr<NSImage> createDragImageFromImage(Image* image, ImageOrientationDescri
     if (is<BitmapImage>(*image)) {
         ImageOrientation orientation;
         BitmapImage& bitmapImage = downcast<BitmapImage>(*image);
-        IntSize sizeRespectingOrientation = bitmapImage.sizeRespectingOrientation(description);
+        IntSize sizeRespectingOrientation = bitmapImage.sizeRespectingOrientation();
 
         if (description.respectImageOrientation() == RespectImageOrientation)
             orientation = bitmapImage.orientationForCurrentFrame();
@@ -115,7 +119,10 @@ RetainPtr<NSImage> createDragImageFromImage(Image* image, ImageOrientationDescri
             [cocoaTransform.get() setTransformStruct:*(NSAffineTransformStruct*)&transform];
             [cocoaTransform.get() concat];
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
             [image->getNSImage() drawInRect:destRect fromRect:NSMakeRect(0, 0, size.width(), size.height()) operation:NSCompositeSourceOver fraction:1.0];
+#pragma clang diagnostic pop
             [rotatedDragImage.get() unlockFocus];
 
             return rotatedDragImage;
@@ -159,8 +166,9 @@ const float DragLinkUrlFontSize = 10;
     
 static FontCascade& fontFromNSFont(NSFont *font)
 {
+    ASSERT(font);
     static NSFont *currentFont;
-    DEPRECATED_DEFINE_STATIC_LOCAL(FontCascade, currentRenderer, ());
+    static NeverDestroyed<FontCascade> currentRenderer;
     
     if ([font isEqual:currentFont])
         return currentRenderer;
@@ -168,7 +176,7 @@ static FontCascade& fontFromNSFont(NSFont *font)
         CFRelease(currentFont);
     currentFont = font;
     CFRetain(currentFont);
-    currentRenderer = FontCascade(FontPlatformData(reinterpret_cast<CTFontRef>(font), [font pointSize]));
+    currentRenderer.get() = FontCascade(FontPlatformData(toCTFont(font), [font pointSize]));
     return currentRenderer;
 }
 
@@ -185,15 +193,17 @@ static bool canUseFastRenderer(const UniChar* buffer, unsigned length)
     
 static float widthWithFont(NSString *string, NSFont *font)
 {
+    if (!font)
+        return 0;
+
     unsigned length = [string length];
     Vector<UniChar, 2048> buffer(length);
     
     [string getCharacters:buffer.data()];
     
     if (canUseFastRenderer(buffer.data(), length)) {
-        FontCascade webCoreFont(FontPlatformData(reinterpret_cast<CTFontRef>(font), [font pointSize]));
+        FontCascade webCoreFont(FontPlatformData(toCTFont(font), [font pointSize]));
         TextRun run(StringView(buffer.data(), length));
-        run.disableRoundingHacks();
         return webCoreFont.width(run);
     }
     
@@ -202,6 +212,9 @@ static float widthWithFont(NSString *string, NSFont *font)
     
 static void drawAtPoint(NSString *string, NSPoint point, NSFont *font, NSColor *textColor)
 {
+    if (!font)
+        return;
+
     unsigned length = [string length];
     Vector<UniChar, 2048> buffer(length);
     
@@ -222,19 +235,18 @@ static void drawAtPoint(NSString *string, NSPoint point, NSFont *font, NSColor *
         BOOL flipped = [nsContext isFlipped];
         if (!flipped)
             CGContextScaleCTM(cgContext, 1, -1);
-            
-        FontCascade webCoreFont(FontPlatformData(reinterpret_cast<CTFontRef>(font), [font pointSize]), Antialiased);
+
+        FontCascade webCoreFont(FontPlatformData(toCTFont(font), [font pointSize]), Antialiased);
         TextRun run(StringView(buffer.data(), length));
-        run.disableRoundingHacks();
 
         CGFloat red;
         CGFloat green;
         CGFloat blue;
         CGFloat alpha;
         [[textColor colorUsingColorSpaceName:NSDeviceRGBColorSpace] getRed:&red green:&green blue:&blue alpha:&alpha];
-        graphicsContext.setFillColor(makeRGBA(red * 255, green * 255, blue * 255, alpha * 255), ColorSpaceDeviceRGB);
+        graphicsContext.setFillColor(makeRGBA(red * 255, green * 255, blue * 255, alpha * 255));
         
-        webCoreFont.drawText(&graphicsContext, run, FloatPoint(point.x, (flipped ? point.y : (-1 * point.y))));
+        webCoreFont.drawText(graphicsContext, run, FloatPoint(point.x, (flipped ? point.y : (-1 * point.y))));
         
         if (!flipped)
             CGContextScaleCTM(cgContext, 1, -1);
@@ -276,6 +288,10 @@ DragImageRef createDragImageForLink(URL& url, const String& title, FontRendering
     NSFont *labelFont = [[NSFontManager sharedFontManager] convertFont:[NSFont systemFontOfSize:DragLinkLabelFontsize]
                                                            toHaveTrait:NSBoldFontMask];
     NSFont *urlFont = [NSFont systemFontOfSize:DragLinkUrlFontSize];
+
+    ASSERT(labelFont);
+    ASSERT(urlFont);
+
     NSSize labelSize;
     labelSize.width = widthWithFont(label, labelFont);
     labelSize.height = [labelFont ascender] - [labelFont descender];
@@ -317,16 +333,18 @@ DragImageRef createDragImageForLink(URL& url, const String& title, FontRendering
 
     NSColor *topColor = [NSColor colorWithDeviceWhite:0.0f alpha:0.75f];
     NSColor *bottomColor = [NSColor colorWithDeviceWhite:1.0f alpha:0.5f];
-    if (drawURLString) {
+    if (drawURLString && urlFont) {
         if (clipURLString)
             urlString = StringTruncator::centerTruncate(urlString, imageSize.width - (DragLabelBorderX * 2), fontFromNSFont(urlFont));
 
        drawDoubledAtPoint(urlString, NSMakePoint(DragLabelBorderX, DragLabelBorderY - [urlFont descender]), topColor, bottomColor, urlFont);
     }
 
-    if (clipLabelString)
-        label = StringTruncator::rightTruncate(label, imageSize.width - (DragLabelBorderX * 2), fontFromNSFont(labelFont));
-    drawDoubledAtPoint(label, NSMakePoint(DragLabelBorderX, imageSize.height - LabelBorderYOffset - [labelFont pointSize]), topColor, bottomColor, labelFont);
+    if (labelFont) {
+        if (clipLabelString)
+            label = StringTruncator::rightTruncate(label, imageSize.width - (DragLabelBorderX * 2), fontFromNSFont(labelFont));
+        drawDoubledAtPoint(label, NSMakePoint(DragLabelBorderX, imageSize.height - LabelBorderYOffset - [labelFont pointSize]), topColor, bottomColor, labelFont);
+    }
 
     [dragImage unlockFocus];
 

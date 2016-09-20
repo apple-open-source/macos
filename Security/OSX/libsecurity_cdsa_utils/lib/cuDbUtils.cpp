@@ -189,7 +189,7 @@ CSSM_RETURN cuAddCrlToDb(
 	CSSM_DL_DB_HANDLE	dlDbHand,
 	CSSM_CL_HANDLE		clHand,
 	const CSSM_DATA		*crl,
-	const CSSM_DATA		*URI)		// optional
+	const CSSM_DATA		*URI)
 {
 	CSSM_DB_ATTRIBUTE_DATA			attrs[MAX_CRL_ATTRS];
 	CSSM_DB_RECORD_ATTRIBUTE_DATA	recordAttrs;
@@ -376,7 +376,20 @@ CSSM_RETURN cuAddCrlToDb(
 	attr->NumberOfValues = 1;
 	attr->Value = &nextUpdateData;
 	attr++;
-	
+
+    /* ensure URI string does not contain NULL */
+    attrUri = *URI;
+    if((attrUri.Length != 0) &&
+       (attrUri.Data[attrUri.Length - 1] == 0)) {
+        attrUri.Length--;
+    }
+    attr->Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
+    attr->Info.Label.AttributeName = (char*) "URI";
+    attr->Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
+    attr->NumberOfValues = 1;
+    attr->Value = &attrUri;
+    attr++;
+
 	/* now the optional attributes */
 	if(crlNumberPresent) {
 		attr->Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
@@ -392,20 +405,6 @@ CSSM_RETURN cuAddCrlToDb(
 		attr->Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_UINT32;
 		attr->NumberOfValues = 1;
 		attr->Value = &deltaCrlNumberData;
-		attr++;
-	}
-	if(URI) {
-		/* ensure URI string does not contain NULL */
-		attrUri = *URI;
-		if((attrUri.Length != 0) && 
-		   (attrUri.Data[attrUri.Length - 1] == 0)) {
-			attrUri.Length--;
-		}
-		attr->Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-		attr->Info.Label.AttributeName = (char*) "URI";
-		attr->Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
-		attr->NumberOfValues = 1;
-		attr->Value = &attrUri;
 		attr++;
 	}
 	recordAttrs.DataRecordType = CSSM_DL_DB_RECORD_X509_CRL;

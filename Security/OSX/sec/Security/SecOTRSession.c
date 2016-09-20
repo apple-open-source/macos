@@ -314,6 +314,13 @@ void SecOTRSessionReset(SecOTRSessionRef session)
 }
 
 
+static void SecOTRPIPerformWithSerializationString(SecOTRPublicIdentityRef id, void (^action)(CFStringRef string)) {
+    CFMutableDataRef idData = CFDataCreateMutable(kCFAllocatorDefault, 0);
+    SecOTRPIAppendSerialization(id, idData, NULL);
+    CFDataPerformWithHexString(idData, action);
+    CFReleaseNull(idData);
+}
+
 SecOTRSessionRef SecOTRSessionCreateFromID(CFAllocatorRef allocator,
                                            SecOTRFullIdentityRef myID,
                                            SecOTRPublicIdentityRef theirID)
@@ -323,8 +330,8 @@ SecOTRSessionRef SecOTRSessionCreateFromID(CFAllocatorRef allocator,
     (void)SecOTRGetDefaultsWriteSeconds();
     newID->_queue = dispatch_queue_create("OTRSession", DISPATCH_QUEUE_SERIAL);
 
-    newID->_me = myID;
-    newID->_them = theirID;
+    newID->_me = CFRetainSafe(myID);
+    newID->_them = CFRetainSafe(theirID);
     newID->_receivedDHMessage = NULL;
     newID->_receivedDHKeyMessage = NULL;
     newID->_myKey = NULL;
@@ -344,8 +351,15 @@ SecOTRSessionRef SecOTRSessionCreateFromID(CFAllocatorRef allocator,
     
     SecOTRSessionResetInternal(newID);
 
-    CFRetain(newID->_me);
-    CFRetain(newID->_them);
+    {
+        SecOTRPublicIdentityRef myPublicID = SecOTRPublicIdentityCopyFromPrivate(kCFAllocatorDefault, newID->_me, NULL);
+        SecOTRPIPerformWithSerializationString(myPublicID, ^(CFStringRef myIDString) {
+            SecOTRPIPerformWithSerializationString(newID->_them, ^(CFStringRef theirIDString) {
+                secnotice("otr", "%@ Creating with M: %@, T: %@", newID, myIDString, theirIDString);
+            });
+        });
+        CFReleaseNull(myPublicID);
+    }
 
     return newID;
 }
@@ -757,6 +771,18 @@ abort:
     return result;
 }
 
+
+bool SecOTRSIsForKeys(SecOTRSessionRef session, SecKeyRef myPublic, SecKeyRef theirPublic)
+{
+    __block bool isForKeys = false;
+
+    dispatch_sync(session->_queue, ^{
+        isForKeys = SecOTRFICompareToPublicKey(session->_me, myPublic) &&
+                    SecOTRPICompareToPublicKey(session->_them, theirPublic);
+    });
+
+    return isForKeys;
+}
 
 bool SecOTRSGetIsReadyForMessages(SecOTRSessionRef session)
 {

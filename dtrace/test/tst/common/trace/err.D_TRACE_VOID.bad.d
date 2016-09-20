@@ -35,5 +35,5 @@
 
 BEGIN
 {
-	trace((void)`max_ncpus);
+	trace((void)`real_ncpus);
 }

@@ -1,0 +1,65 @@
+diff -Naur net-snmp-5.6.2.1.orig/agent/mibgroup/host/hr_disk.c net-snmp-5.6.2.1.working/agent/mibgroup/host/hr_disk.c
+--- net-snmp-5.6.2.1.orig/agent/mibgroup/host/hr_disk.c	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.working/agent/mibgroup/host/hr_disk.c	2016-03-18 21:18:56.000000000 -0700
+@@ -928,11 +928,14 @@
+     str_ref = (CFStringRef)
+         CFDictionaryGetValue(desc, kDADiskDescriptionMediaNameKey);
+     if (str_ref) {
+-        strlcpy(string, CFStringGetCStringPtr(str_ref, sys_encoding),
+-                str_len);
+-        DEBUGMSGTL(("verbose:diskmgr:darwin", " name %s\n", string));
+-    }
+-    else {
++    	const char *media_name = CFStringGetCStringPtr(str_ref, sys_encoding);
++    	if (media_name) {
++            strlcpy(string, media_name, str_len);
++       	    DEBUGMSGTL(("verbose:diskmgr:darwin", " name %s\n", string));
++        } else {
++        	strlcpy(string, devfull, str_len);
++        }
++    } else {
+         strlcpy(string, devfull, str_len);
+     }
+     
+@@ -1112,9 +1115,8 @@
+     str_ref = (CFStringRef)
+         CFDictionaryGetValue(desc, kDADiskDescriptionMediaTypeKey);
+     if (str_ref) {
+-        HRD_type = _get_type_value(CFStringGetCStringPtr(str_ref,
+-                                                         sys_encoding));
+-        DEBUGMSGTL(("verbose:diskmgr:darwin", " type %s / %d\n",
++        	HRD_type = _get_type_value(CFStringGetCStringPtr(str_ref, sys_encoding));
++        	DEBUGMSGTL(("verbose:diskmgr:darwin", " type %s / %d\n",
+                     CFStringGetCStringPtr(str_ref, sys_encoding),
+                     HRD_type));
+     }
+@@ -1122,10 +1124,8 @@
+         str_ref = (CFStringRef)
+             CFDictionaryGetValue(desc, kDADiskDescriptionDeviceProtocolKey);
+         if (str_ref) {
+-            HRD_type = 
+-                _get_type_from_protocol(CFStringGetCStringPtr(str_ref,
+-                                                              sys_encoding));
+-            DEBUGMSGTL(("verbose:diskmgr:darwin", " type %s / %d\n",
++            	HRD_type = _get_type_from_protocol(CFStringGetCStringPtr(str_ref, sys_encoding));
++            	DEBUGMSGTL(("verbose:diskmgr:darwin", " type %s / %d\n",
+                         CFStringGetCStringPtr(str_ref, sys_encoding),
+                         HRD_type));
+         }
+@@ -1137,9 +1137,14 @@
+     str_ref = (CFStringRef)
+         CFDictionaryGetValue(desc, kDADiskDescriptionDeviceModelKey);
+     if (str_ref) {
+-        strlcpy(HRD_model, CFStringGetCStringPtr(str_ref, sys_encoding),
++    	const char *model_str = CFStringGetCStringPtr(str_ref, sys_encoding);
++    	if (model_str) {
++            strlcpy(HRD_model, model_str,
+                 sizeof(HRD_model));
+-        DEBUGMSGTL(("verbose:diskmgr:darwin", " model %s\n", HRD_model));
++            DEBUGMSGTL(("verbose:diskmgr:darwin", " model %s\n", HRD_model));
++        }
++        else
++        	HRD_model[0] = 0;
+     }
+     else
+         HRD_model[0] = 0;

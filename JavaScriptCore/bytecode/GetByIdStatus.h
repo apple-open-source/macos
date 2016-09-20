@@ -31,11 +31,13 @@
 #include "ConcurrentJITLock.h"
 #include "ExitingJITType.h"
 #include "GetByIdVariant.h"
-#include "StructureStubInfo.h"
 
 namespace JSC {
 
 class CodeBlock;
+class StructureStubInfo;
+
+typedef HashMap<CodeOrigin, StructureStubInfo*, CodeOriginApproximateHash> StubInfoMap;
 
 class GetByIdStatus {
 public:
@@ -71,7 +73,11 @@ public:
     static GetByIdStatus computeFor(const StructureSet&, UniquedStringImpl* uid);
     
     static GetByIdStatus computeFor(CodeBlock* baselineBlock, CodeBlock* dfgBlock, StubInfoMap& baselineMap, StubInfoMap& dfgMap, CodeOrigin, UniquedStringImpl* uid);
-    
+
+#if ENABLE(DFG_JIT)
+    static GetByIdStatus computeForStubInfo(const ConcurrentJITLocker&, CodeBlock* baselineBlock, StructureStubInfo*, CodeOrigin, UniquedStringImpl* uid);
+#endif
+
     State state() const { return m_state; }
     
     bool isSet() const { return m_state != NoInformation; }
@@ -88,6 +94,9 @@ public:
     
     bool wasSeenInJIT() const { return m_wasSeenInJIT; }
     
+    // Attempts to reduce the set of variants to fit the given structure set. This may be approximate.
+    void filter(const StructureSet&);
+    
     void dump(PrintStream&) const;
     
 private:
@@ -95,7 +104,7 @@ private:
     static bool hasExitSite(const ConcurrentJITLocker&, CodeBlock*, unsigned bytecodeIndex);
 #endif
 #if ENABLE(JIT)
-    static GetByIdStatus computeForStubInfo(
+    static GetByIdStatus computeForStubInfoWithoutExitSiteFeedback(
         const ConcurrentJITLocker&, CodeBlock* profiledBlock, StructureStubInfo*,
         UniquedStringImpl* uid, CallLinkStatus::ExitSiteData);
 #endif

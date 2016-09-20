@@ -1,4 +1,5 @@
-/* $OpenBSD: servconf.c,v 1.274 2015/07/01 02:32:17 djm Exp $ */
+
+/* $OpenBSD: servconf.c,v 1.285 2016/02/17 05:29:04 djm Exp $ */
 /*
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
  *                    All rights reserved
@@ -107,6 +108,7 @@ initialize_server_options(ServerOptions *options)
 	options->hostbased_authentication = -1;
 	options->hostbased_uses_name_from_packet_only = -1;
 	options->hostbased_key_types = NULL;
+	options->hostkeyalgorithms = NULL;
 	options->rsa_authentication = -1;
 	options->pubkey_authentication = -1;
 	options->pubkey_key_types = NULL;
@@ -115,10 +117,8 @@ initialize_server_options(ServerOptions *options)
 	options->kerberos_ticket_cleanup = -1;
 	options->kerberos_get_afs_token = -1;
 	options->gss_authentication=-1;
-	options->gss_keyex = -1;
 	options->gss_cleanup_creds = -1;
 	options->gss_strict_acceptor = -1;
-	options->gss_store_rekey = -1;
 	options->password_authentication = -1;
 	options->kbd_interactive_authentication = -1;
 	options->challenge_response_authentication = -1;
@@ -178,6 +178,20 @@ option_clear_or_none(const char *o)
 	return o == NULL || strcasecmp(o, "none") == 0;
 }
 
+static void
+assemble_algorithms(ServerOptions *o)
+{
+	if (kex_assemble_names(KEX_SERVER_ENCRYPT, &o->ciphers) != 0 ||
+	    kex_assemble_names(KEX_SERVER_MAC, &o->macs) != 0 ||
+	    kex_assemble_names(KEX_SERVER_KEX, &o->kex_algorithms) != 0 ||
+	    kex_assemble_names(KEX_DEFAULT_PK_ALG,
+	    &o->hostkeyalgorithms) != 0 ||
+	    kex_assemble_names(KEX_DEFAULT_PK_ALG,
+	    &o->hostbased_key_types) != 0 ||
+	    kex_assemble_names(KEX_DEFAULT_PK_ALG, &o->pubkey_key_types) != 0)
+		fatal("kex_assemble_names failed");
+}
+
 void
 fill_default_server_options(ServerOptions *options)
 {
@@ -185,7 +199,7 @@ fill_default_server_options(ServerOptions *options)
 
 	/* Portable-specific options */
 	if (options->use_pam == -1)
-		options->use_pam = 1;
+		options->use_pam = 0;
 
 	/* Standard Options */
 	if (options->protocol == SSH_PROTO_UNKNOWN)
@@ -224,7 +238,7 @@ fill_default_server_options(ServerOptions *options)
 	if (options->key_regeneration_time == -1)
 		options->key_regeneration_time = 3600;
 	if (options->permit_root_login == PERMIT_NOT_SET)
-		options->permit_root_login = PERMIT_YES;
+		options->permit_root_login = PERMIT_NO_PASSWD;
 	if (options->ignore_rhosts == -1)
 		options->ignore_rhosts = 1;
 	if (options->ignore_user_known_hosts == -1)
@@ -259,14 +273,10 @@ fill_default_server_options(ServerOptions *options)
 		options->hostbased_authentication = 0;
 	if (options->hostbased_uses_name_from_packet_only == -1)
 		options->hostbased_uses_name_from_packet_only = 0;
-	if (options->hostbased_key_types == NULL)
-		options->hostbased_key_types = xstrdup("*");
 	if (options->rsa_authentication == -1)
 		options->rsa_authentication = 1;
 	if (options->pubkey_authentication == -1)
 		options->pubkey_authentication = 1;
-	if (options->pubkey_key_types == NULL)
-		options->pubkey_key_types = xstrdup("*");
 	if (options->kerberos_authentication == -1)
 		options->kerberos_authentication = 0;
 	if (options->kerberos_or_local_passwd == -1)
@@ -277,16 +287,12 @@ fill_default_server_options(ServerOptions *options)
 		options->kerberos_get_afs_token = 0;
 	if (options->gss_authentication == -1)
 		options->gss_authentication = 0;
-	if (options->gss_keyex == -1)
-		options->gss_keyex = 0;
 	if (options->gss_cleanup_creds == -1)
 		options->gss_cleanup_creds = 1;
 	if (options->gss_strict_acceptor == -1)
 		options->gss_strict_acceptor = 0;
-	if (options->gss_store_rekey == -1)
-		options->gss_store_rekey = 0;
 	if (options->password_authentication == -1)
-		options->password_authentication = 0;
+		options->password_authentication = 1;
 	if (options->kbd_interactive_authentication == -1)
 		options->kbd_interactive_authentication = 0;
 	if (options->challenge_response_authentication == -1)
@@ -347,13 +353,12 @@ fill_default_server_options(ServerOptions *options)
 		options->fwd_opts.streamlocal_bind_unlink = 0;
 	if (options->fingerprint_hash == -1)
 		options->fingerprint_hash = SSH_FP_HASH_DEFAULT;
-	/* Turn privilege separation on by default */
+
+	assemble_algorithms(options);
+
+	/* Turn privilege separation and sandboxing on by default */
 	if (use_privsep == -1)
-#ifdef	__APPLE_SANDBOX_NAMED_EXTERNAL__
 		use_privsep = PRIVSEP_ON;
-#else
-		use_privsep = PRIVSEP_NOSANDBOX;
-#endif
 
 #define CLEAR_ON_NONE(v) \
 	do { \
@@ -368,6 +373,8 @@ fill_default_server_options(ServerOptions *options)
 	CLEAR_ON_NONE(options->trusted_user_ca_keys);
 	CLEAR_ON_NONE(options->revoked_keys_file);
 	CLEAR_ON_NONE(options->authorized_principals_file);
+	CLEAR_ON_NONE(options->adm_forced_command);
+	CLEAR_ON_NONE(options->chroot_directory);
 	for (i = 0; i < options->num_host_key_files; i++)
 		CLEAR_ON_NONE(options->host_key_files[i]);
 	for (i = 0; i < options->num_host_cert_files; i++)
@@ -409,15 +416,12 @@ typedef enum {
 	sXAuthLocation, sSubsystem, sMaxStartups, sMaxAuthTries, sMaxSessions,
 	sBanner, sUseDNS, sHostbasedAuthentication,
 	sHostbasedUsesNameFromPacketOnly, sHostbasedAcceptedKeyTypes,
+	sHostKeyAlgorithms,
 	sClientAliveInterval, sClientAliveCountMax, sAuthorizedKeysFile,
 	sGssAuthentication, sGssCleanupCreds, sGssStrictAcceptor,
-	sGssKeyEx, sGssStoreRekey,
 	sAcceptEnv, sPermitTunnel,
 	sMatch, sPermitOpen, sForceCommand, sChrootDirectory,
 	sUsePrivilegeSeparation, sAllowAgentForwarding,
-#ifdef __APPLE_SACL_DEPRECATED__
-	sSACLSupport,
-#endif
 	sHostCertificate,
 	sRevokedKeys, sTrustedUserCAKeys, sAuthorizedPrincipalsFile,
 	sAuthorizedPrincipalsCommand, sAuthorizedPrincipalsCommandUser,
@@ -463,6 +467,7 @@ static struct {
 	{ "hostbasedauthentication", sHostbasedAuthentication, SSHCFG_ALL },
 	{ "hostbasedusesnamefrompacketonly", sHostbasedUsesNameFromPacketOnly, SSHCFG_ALL },
 	{ "hostbasedacceptedkeytypes", sHostbasedAcceptedKeyTypes, SSHCFG_ALL },
+	{ "hostkeyalgorithms", sHostKeyAlgorithms, SSHCFG_GLOBAL },
 	{ "rsaauthentication", sRSAAuthentication, SSHCFG_ALL },
 	{ "pubkeyauthentication", sPubkeyAuthentication, SSHCFG_ALL },
 	{ "pubkeyacceptedkeytypes", sPubkeyAcceptedKeyTypes, SSHCFG_ALL },
@@ -488,17 +493,11 @@ static struct {
 	{ "gssapiauthentication", sGssAuthentication, SSHCFG_ALL },
 	{ "gssapicleanupcredentials", sGssCleanupCreds, SSHCFG_GLOBAL },
 	{ "gssapistrictacceptorcheck", sGssStrictAcceptor, SSHCFG_GLOBAL },
-	{ "gssapikeyexchange", sGssKeyEx, SSHCFG_GLOBAL },
-	{ "gssapistorecredentialsonrekey", sGssStoreRekey, SSHCFG_GLOBAL },
 #else
 	{ "gssapiauthentication", sUnsupported, SSHCFG_ALL },
 	{ "gssapicleanupcredentials", sUnsupported, SSHCFG_GLOBAL },
 	{ "gssapistrictacceptorcheck", sUnsupported, SSHCFG_GLOBAL },
-	{ "gssapikeyexchange", sUnsupported, SSHCFG_GLOBAL },
-	{ "gssapistorecredentialsonrekey", sUnsupported, SSHCFG_GLOBAL },
 #endif
-	{ "gssusesessionccache", sUnsupported, SSHCFG_GLOBAL },
-	{ "gssapiusesessioncredcache", sUnsupported, SSHCFG_GLOBAL },
 	{ "passwordauthentication", sPasswordAuthentication, SSHCFG_ALL },
 	{ "kbdinteractiveauthentication", sKbdInteractiveAuthentication, SSHCFG_ALL },
 	{ "challengeresponseauthentication", sChallengeResponseAuthentication, SSHCFG_GLOBAL },
@@ -507,7 +506,11 @@ static struct {
 	{ "listenaddress", sListenAddress, SSHCFG_GLOBAL },
 	{ "addressfamily", sAddressFamily, SSHCFG_GLOBAL },
 	{ "printmotd", sPrintMotd, SSHCFG_GLOBAL },
+#ifdef DISABLE_LASTLOG
+	{ "printlastlog", sUnsupported, SSHCFG_GLOBAL },
+#else
 	{ "printlastlog", sPrintLastLog, SSHCFG_GLOBAL },
+#endif
 	{ "ignorerhosts", sIgnoreRhosts, SSHCFG_GLOBAL },
 	{ "ignoreuserknownhosts", sIgnoreUserKnownHosts, SSHCFG_GLOBAL },
 	{ "x11forwarding", sX11Forwarding, SSHCFG_ALL },
@@ -542,9 +545,6 @@ static struct {
 	{ "reversemappingcheck", sDeprecated, SSHCFG_GLOBAL },
 	{ "clientaliveinterval", sClientAliveInterval, SSHCFG_GLOBAL },
 	{ "clientalivecountmax", sClientAliveCountMax, SSHCFG_GLOBAL },
-#ifdef __APPLE_SACL_DEPRECATED__
-	{ "saclsupport", sSACLSupport },
-#endif
 	{ "authorizedkeysfile", sAuthorizedKeysFile, SSHCFG_ALL },
 	{ "authorizedkeysfile2", sDeprecated, SSHCFG_ALL },
 	{ "useprivilegeseparation", sUsePrivilegeSeparation, SSHCFG_GLOBAL},
@@ -614,12 +614,6 @@ derelativise_path(const char *path)
 
 	if (strcasecmp(path, "none") == 0)
 		return xstrdup("none");
-#if __APPLE__
-	// don't expand the xauth_location meta-value "xauth" here; it breaks regress/cfgparse.sh and
-	// would defeat the runtime $PATH-based search for it later on.
-	if (strcasecmp(path, "xauth") == 0)
-		return xstrdup("xauth");
-#endif
 	expanded = tilde_expand_filename(path, getuid());
 	if (*expanded == '/')
 		return expanded;
@@ -768,7 +762,7 @@ match_cfg_line_group(const char *grps, int line, const char *user)
 	if ((pw = getpwnam(user)) == NULL) {
 		debug("Can't match group at line %d because user %.100s does "
 		    "not exist", line, user);
-	} else if (ga_init(pw) == 0) {
+	} else if (ga_init(pw->pw_name, pw->pw_gid) == 0) {
 		debug("Can't Match group because user %.100s not in any group "
 		    "at line %d", user, line);
 	} else if (ga_match_pattern_list(grps) != 1) {
@@ -933,6 +927,7 @@ static const struct multistate multistate_addressfamily[] = {
 };
 static const struct multistate multistate_permitrootlogin[] = {
 	{ "without-password",		PERMIT_NO_PASSWD },
+	{ "prohibit-password",		PERMIT_NO_PASSWD },
 	{ "forced-commands-only",	PERMIT_FORCED_ONLY },
 	{ "yes",			PERMIT_YES },
 	{ "no",				PERMIT_NO },
@@ -1204,12 +1199,16 @@ process_server_config_line(ServerOptions *options, char *line,
 		if (!arg || *arg == '\0')
 			fatal("%s line %d: Missing argument.",
 			    filename, linenum);
-		if (!sshkey_names_valid2(arg, 1))
+		if (!sshkey_names_valid2(*arg == '+' ? arg + 1 : arg, 1))
 			fatal("%s line %d: Bad key types '%s'.",
 			    filename, linenum, arg ? arg : "<NONE>");
 		if (*activep && *charptr == NULL)
 			*charptr = xstrdup(arg);
 		break;
+
+	case sHostKeyAlgorithms:
+		charptr = &options->hostkeyalgorithms;
+		goto parse_keytypes;
 
 	case sRSAAuthentication:
 		intptr = &options->rsa_authentication;
@@ -1243,20 +1242,12 @@ process_server_config_line(ServerOptions *options, char *line,
 		intptr = &options->gss_authentication;
 		goto parse_flag;
 
-	case sGssKeyEx:
-		intptr = &options->gss_keyex;
-		goto parse_flag;
-
 	case sGssCleanupCreds:
 		intptr = &options->gss_cleanup_creds;
 		goto parse_flag;
 
 	case sGssStrictAcceptor:
 		intptr = &options->gss_strict_acceptor;
-		goto parse_flag;
-
-	case sGssStoreRekey:
-		intptr = &options->gss_store_rekey;
 		goto parse_flag;
 
 	case sPasswordAuthentication:
@@ -1295,11 +1286,6 @@ process_server_config_line(ServerOptions *options, char *line,
 		charptr = &options->xauth_location;
 		goto parse_filename;
 
-#ifdef __APPLE_SACL_DEPRECATED__
-	case sSACLSupport:
-		error("Deprecated in favor of SACL enforcement in the PAM stack (/etc/pam.d/sshd). Option has no effect.");
-		goto parse_flag;
-#endif
 	case sPermitTTY:
 		intptr = &options->permit_tty;
 		goto parse_flag;
@@ -1344,16 +1330,12 @@ process_server_config_line(ServerOptions *options, char *line,
 			if (scan_scaled(arg, &val64) == -1)
 				fatal("%.200s line %d: Bad number '%s': %s",
 				    filename, linenum, arg, strerror(errno));
-			/* check for too-large or too-small limits */
-			if (val64 > UINT_MAX)
-				fatal("%.200s line %d: RekeyLimit too large",
-				    filename, linenum);
 			if (val64 != 0 && val64 < 16)
 				fatal("%.200s line %d: RekeyLimit too small",
 				    filename, linenum);
 		}
 		if (*activep && options->rekey_limit == -1)
-			options->rekey_limit = (u_int32_t)val64;
+			options->rekey_limit = val64;
 		if (cp != NULL) { /* optional rekey interval present */
 			if (strcmp(cp, "none") == 0) {
 				(void)strdelim(&cp);	/* discard */
@@ -1466,7 +1448,7 @@ process_server_config_line(ServerOptions *options, char *line,
 		arg = strdelim(&cp);
 		if (!arg || *arg == '\0')
 			fatal("%s line %d: Missing argument.", filename, linenum);
-		if (!ciphers_valid(arg))
+		if (!ciphers_valid(*arg == '+' ? arg + 1 : arg))
 			fatal("%s line %d: Bad SSH2 cipher spec '%s'.",
 			    filename, linenum, arg ? arg : "<NONE>");
 		if (options->ciphers == NULL)
@@ -1477,7 +1459,7 @@ process_server_config_line(ServerOptions *options, char *line,
 		arg = strdelim(&cp);
 		if (!arg || *arg == '\0')
 			fatal("%s line %d: Missing argument.", filename, linenum);
-		if (!mac_valid(arg))
+		if (!mac_valid(*arg == '+' ? arg + 1 : arg))
 			fatal("%s line %d: Bad SSH2 mac spec '%s'.",
 			    filename, linenum, arg ? arg : "<NONE>");
 		if (options->macs == NULL)
@@ -1489,7 +1471,7 @@ process_server_config_line(ServerOptions *options, char *line,
 		if (!arg || *arg == '\0')
 			fatal("%s line %d: Missing argument.",
 			    filename, linenum);
-		if (!kex_names_valid(arg))
+		if (!kex_names_valid(*arg == '+' ? arg + 1 : arg))
 			fatal("%s line %d: Bad SSH2 KexAlgorithms '%s'.",
 			    filename, linenum, arg ? arg : "<NONE>");
 		if (options->kex_algorithms == NULL)
@@ -2040,6 +2022,9 @@ copy_set_server_options(ServerOptions *dst, ServerOptions *src, int preauth)
 	/* See comment in servconf.h */
 	COPY_MATCH_STRING_OPTS();
 
+	/* Arguments that accept '+...' need to be expanded */
+	assemble_algorithms(dst);
+
 	/*
 	 * The only things that should be below this point are string options
 	 * which are only used after authentication.
@@ -2047,8 +2032,17 @@ copy_set_server_options(ServerOptions *dst, ServerOptions *src, int preauth)
 	if (preauth)
 		return;
 
+	/* These options may be "none" to clear a global setting */
 	M_CP_STROPT(adm_forced_command);
+	if (option_clear_or_none(dst->adm_forced_command)) {
+		free(dst->adm_forced_command);
+		dst->adm_forced_command = NULL;
+	}
 	M_CP_STROPT(chroot_directory);
+	if (option_clear_or_none(dst->chroot_directory)) {
+		free(dst->chroot_directory);
+		dst->chroot_directory = NULL;
+	}
 }
 
 #undef M_CP_INTOPT
@@ -2064,7 +2058,7 @@ parse_server_config(ServerOptions *options, const char *filename, Buffer *conf,
 
 	debug2("%s: config %s len %d", __func__, filename, buffer_len(conf));
 
-	obuf = cbuf = xstrdup((const char *)buffer_ptr(conf));
+	obuf = cbuf = xstrdup(buffer_ptr(conf));
 	active = connectinfo ? 0 : 1;
 	linenum = 1;
 	while ((cp = strsep(&cbuf, "\n")) != NULL) {
@@ -2271,10 +2265,7 @@ dump_config(ServerOptions *o)
 #endif
 #ifdef GSSAPI
 	dump_cfg_fmtint(sGssAuthentication, o->gss_authentication);
-	dump_cfg_fmtint(sGssKeyEx, o->gss_keyex);
 	dump_cfg_fmtint(sGssCleanupCreds, o->gss_cleanup_creds);
-	dump_cfg_fmtint(sGssStrictAcceptor, o->gss_strict_acceptor);
-	dump_cfg_fmtint(sGssStoreRekey, o->gss_store_rekey);
 #endif
 	dump_cfg_fmtint(sPasswordAuthentication, o->password_authentication);
 	dump_cfg_fmtint(sKbdInteractiveAuthentication,
@@ -2282,7 +2273,9 @@ dump_config(ServerOptions *o)
 	dump_cfg_fmtint(sChallengeResponseAuthentication,
 	    o->challenge_response_authentication);
 	dump_cfg_fmtint(sPrintMotd, o->print_motd);
+#ifndef DISABLE_LASTLOG
 	dump_cfg_fmtint(sPrintLastLog, o->print_lastlog);
+#endif
 	dump_cfg_fmtint(sX11Forwarding, o->x11_forwarding);
 	dump_cfg_fmtint(sX11UseLocalhost, o->x11_use_localhost);
 	dump_cfg_fmtint(sPermitTTY, o->permit_tty);
@@ -2324,6 +2317,8 @@ dump_config(ServerOptions *o)
 	    o->kex_algorithms ? o->kex_algorithms : KEX_SERVER_KEX);
 	dump_cfg_string(sHostbasedAcceptedKeyTypes, o->hostbased_key_types ?
 	    o->hostbased_key_types : KEX_DEFAULT_PK_ALG);
+	dump_cfg_string(sHostKeyAlgorithms, o->hostkeyalgorithms ?
+	    o->hostkeyalgorithms : KEX_DEFAULT_PK_ALG);
 	dump_cfg_string(sPubkeyAcceptedKeyTypes, o->pubkey_key_types ?
 	    o->pubkey_key_types : KEX_DEFAULT_PK_ALG);
 
@@ -2364,7 +2359,7 @@ dump_config(ServerOptions *o)
 	printf("ipqos %s ", iptos2str(o->ip_qos_interactive));
 	printf("%s\n", iptos2str(o->ip_qos_bulk));
 
-	printf("rekeylimit %lld %d\n", (long long)o->rekey_limit,
+	printf("rekeylimit %llu %d\n", (unsigned long long)o->rekey_limit,
 	    o->rekey_interval);
 
 	channel_print_adm_permitted_opens();

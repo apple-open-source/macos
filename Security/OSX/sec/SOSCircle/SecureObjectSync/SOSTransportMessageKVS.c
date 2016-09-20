@@ -52,14 +52,16 @@ SOSTransportMessageKVSRef SOSTransportMessageKVSCreate(SOSAccountRef account, CF
 bool SOSTransportMessageKVSAppendKeyInterest(SOSTransportMessageKVSRef transport, CFMutableArrayRef alwaysKeys, CFMutableArrayRef afterFirstUnlockKeys, CFMutableArrayRef unlockedKeys, CFErrorRef *localError){
     SOSEngineRef engine = SOSTransportMessageGetEngine((SOSTransportMessageRef)transport);
     require_quiet(engine, fail);
+    
     CFArrayRef peerInfos = SOSAccountCopyPeersToListenTo(SOSTransportMessageGetAccount((SOSTransportMessageRef) transport), localError);
     
     if(peerInfos){
         CFArrayForEach(peerInfos, ^(const void *value) {
             SOSPeerInfoRef peer = (SOSPeerInfoRef)value;
             CFStringRef peerID = SOSPeerInfoGetPeerID(peer);
-            CFStringRef peerMessage = SOSMessageKeyCreateFromPeerToTransport(transport, peerID);
-            CFArrayAppendValue(unlockedKeys, peerMessage);
+            CFStringRef peerMessage = SOSMessageKeyCreateFromPeerToTransport((SOSTransportMessageRef)transport, peerID);
+            if(peerMessage != NULL)
+                CFArrayAppendValue(unlockedKeys, peerMessage);
             CFReleaseNull(peerMessage);
         });
         CFReleaseNull(peerInfos);
@@ -190,11 +192,11 @@ CFDictionaryRef handleMessages(SOSTransportMessageRef transport, CFMutableDictio
     
     if(peerToMessage){
         CFDictionaryForEach(peerToMessage, ^(const void *key, const void *value) {
-            CFStringRef peer_id = (CFStringRef) key;
-            CFDataRef peer_message = (CFDataRef) value;
+            CFStringRef peer_id = asString(key, NULL);
+            CFDataRef peer_message = asData(value, NULL);
             CFErrorRef localError = NULL;
             
-            if (SOSTransportMessageHandlePeerMessage(transport, peer_id, peer_message, &localError)) {
+            if (peer_id && peer_message && SOSTransportMessageHandlePeerMessage(transport, peer_id, peer_message, &localError)) {
                 CFArrayAppendValue(handled_peers, key);
             } else {
                 secnotice("transport", "%@ KVSTransport handle message failed: %@", peer_id, localError);
@@ -218,7 +220,7 @@ static bool sendToPeer(SOSTransportMessageRef transport, CFStringRef circleName,
     if(dsid == NULL)
         dsid = kCFNull;
     
-    CFStringRef message_to_peer_key = SOSMessageKeyCreateFromTransportToPeer(kvsTransport, peerID);
+    CFStringRef message_to_peer_key = SOSMessageKeyCreateFromTransportToPeer((SOSTransportMessageRef)kvsTransport, peerID);
     CFDictionaryRef a_message_to_a_peer = CFDictionaryCreateForCFTypes(NULL, message_to_peer_key, message, kSOSKVSRequiredKey, dsid, NULL);
     
     if (!SOSTransportMessageKVSUpdateKVS(kvsTransport, a_message_to_a_peer, error)) {

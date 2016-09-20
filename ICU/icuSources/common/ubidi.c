@@ -239,6 +239,9 @@ U_CAPI void U_EXPORT2
 ubidi_close(UBiDi *pBiDi) {
     if(pBiDi!=NULL) {
         pBiDi->pParaBiDi=NULL;          /* in case one tries to reuse this block */
+        if(pBiDi->dirInsertMemory!=NULL) {
+            uprv_free(pBiDi->dirInsertMemory);
+        }
         if(pBiDi->dirPropsMemory!=NULL) {
             uprv_free(pBiDi->dirPropsMemory);
         }
@@ -418,6 +421,120 @@ checkParaCount(UBiDi *pBiDi) {
 }
 
 /*
+ * Get the directional properties for the inserted bidi controls.
+ */
+ 
+/* subset of bidi properties, fit in 4 bits */
+enum {                  /*     correspondence to standard class */
+    Insert_none = 0,    /*  0  all others */
+    Insert_L,           /*  1  L =   U_LEFT_TO_RIGHT */
+    Insert_R,           /*  2  R =   U_RIGHT_TO_LEFT */
+    Insert_AL,          /*  3  AL =  U_RIGHT_TO_LEFT_ARABIC */
+    Insert_LRE,         /*  4  LRE = U_LEFT_TO_RIGHT_EMBEDDING */
+    Insert_LRO,         /*  5  LRO = U_LEFT_TO_RIGHT_OVERRIDE */
+    Insert_RLE,         /*  6  RLE = U_RIGHT_TO_LEFT_EMBEDDING */
+    Insert_RLO,         /*  7  RLO = U_RIGHT_TO_LEFT_OVERRIDE */
+    Insert_PDF,         /*  8  PDF = U_POP_DIRECTIONAL_FORMAT */
+    Insert_FSI,         /*  9  FSI = U_FIRST_STRONG_ISOLATE */
+    Insert_LRI,         /* 10  LRI = U_LEFT_TO_RIGHT_ISOLATE */
+    Insert_RLI,         /* 11  RLI = U_RIGHT_TO_LEFT_ISOLATE */
+    Insert_PDI,         /* 12  PDI = U_POP_DIRECTIONAL_ISOLATE */
+    Insert_B,           /* 13  B =   U_BLOCK_SEPARATOR */
+    Insert_S,           /* 14  S =   U_SEGMENT_SEPARATOR */
+    Insert_WS,          /* 15  WS =  U_WHITE_SPACE_NEUTRAL */
+    Insert_count        /* 16 */
+};
+
+/* map standard dir class to special 4-bit insert value (Insert_none as default) */
+static const uint16_t insertDirFromStdDir[dirPropCount] = {
+    Insert_none,    /* L=  U_LEFT_TO_RIGHT              */
+    Insert_none,    /* R=  U_RIGHT_TO_LEFT,             */
+    Insert_none,    /* EN= U_EUROPEAN_NUMBER            */
+    Insert_none,    /* ES= U_EUROPEAN_NUMBER_SEPARATOR  */
+    Insert_none,    /* ET= U_EUROPEAN_NUMBER_TERMINATOR */
+    Insert_none,    /* AN= U_ARABIC_NUMBER              */
+    Insert_none,    /* CS= U_COMMON_NUMBER_SEPARATOR    */
+    Insert_none,    /* B=  U_BLOCK_SEPARATOR            */
+    Insert_none,    /* S=  U_SEGMENT_SEPARATOR          */
+    Insert_none,    /* WS= U_WHITE_SPACE_NEUTRAL        */
+    Insert_none,    /* ON= U_OTHER_NEUTRAL              */
+    Insert_LRE,     /* LRE=U_LEFT_TO_RIGHT_EMBEDDING    */
+    Insert_LRO,     /* LRO=U_LEFT_TO_RIGHT_OVERRIDE     */
+    Insert_none,    /* AL= U_RIGHT_TO_LEFT_ARABIC       */
+    Insert_RLE,     /* RLE=U_RIGHT_TO_LEFT_EMBEDDING    */
+    Insert_RLO,     /* RLO=U_RIGHT_TO_LEFT_OVERRIDE     */
+    Insert_PDF,     /* PDF=U_POP_DIRECTIONAL_FORMAT     */
+    Insert_none,    /* NSM=U_DIR_NON_SPACING_MARK       */
+    Insert_none,    /* BN= U_BOUNDARY_NEUTRAL           */
+    Insert_FSI,     /* FSI=U_FIRST_STRONG_ISOLATE       */
+    Insert_LRI,     /* LRI=U_LEFT_TO_RIGHT_ISOLATE      */
+    Insert_RLI,     /* RLI=U_RIGHT_TO_LEFT_ISOLATE      */
+    Insert_PDI,     /* PDI=U_POP_DIRECTIONAL_ISOLATE    */
+    Insert_none,    /* ENL                              */
+    Insert_none,    /* ENR                              */
+};
+
+/* map special 4-bit insert direction class to standard dir class (ON as default) */
+static const uint8_t stdDirFromInsertDir[Insert_count] = {
+    ON,             /* Insert_none > ON */
+    L,              /* Insert_L         */
+    R,              /* Insert_R         */
+    AL,             /* Insert_AL        */
+    LRE,            /* Insert_LRE       */
+    LRO,            /* Insert_LRO       */
+    RLE,            /* Insert_RLE       */
+    RLO,            /* Insert_RLO       */
+    PDF,            /* Insert_PDF       */
+    FSI,            /* Insert_FSI       */
+    LRI,            /* Insert_LRI       */
+    RLI,            /* Insert_RLI       */
+    PDI,            /* Insert_PDI       */
+    B,              /* Insert_B         */
+    S,              /* Insert_S         */
+    WS,             /* Insert_WS        */
+};
+
+enum { kMaxControlStringLen = 4 };
+
+static UBool
+getDirInsert(UBiDi *pBiDi,
+             const int32_t *offsets, int32_t offsetCount,
+             const int32_t *controlStringIndices,
+             const UChar * const * controlStrings) {
+    int32_t offset, offsetsIndex;
+    uint16_t *dirInsert = pBiDi->dirInsert;
+    /* initialize dirInsert */
+    for (offset = 0; offset < pBiDi->length; offset++) {
+        dirInsert[offset] = 0;
+    }
+    for (offsetsIndex = 0; offsetsIndex < offsetCount; offsetsIndex++) {
+        const UChar * controlString;
+        UChar uchar;
+        int32_t controlStringIndex, dirInsertIndex = 0;
+        uint16_t dirInsertValue = 0;
+        offset = offsets[offsetsIndex];
+        if (offset < 0 || offset >= pBiDi->length) {
+            return FALSE; /* param err in offsets array */
+        }
+        controlStringIndex = (controlStringIndices == NULL)? offsetsIndex: controlStringIndices[offsetsIndex];
+        controlString = controlStrings[controlStringIndex];
+        if (controlString == NULL) {
+            return FALSE; /* param err in controlStrings array */
+        }
+        while ((uchar = *controlString++) != 0) {
+            uint16_t insertValue = (U16_IS_SURROGATE(uchar))? Insert_none:
+                                   insertDirFromStdDir[(uint32_t)ubidi_getCustomizedClass(pBiDi, uchar)];
+            if (dirInsertIndex >= kMaxControlStringLen || insertValue == Insert_none) {
+                return FALSE; /* param err in controlStrings array */
+            }
+            dirInsertValue |= (insertValue << (4 * dirInsertIndex++));
+        }
+        dirInsert[offset] = dirInsertValue;
+    }
+    return TRUE;
+}
+
+/*
  * Get the directional properties for the text, calculate the flags bit-set, and
  * determine the paragraph level if necessary (in pBiDi->paras[i].level).
  * FSI initiators are also resolved and their dirProp replaced with LRI or RLI.
@@ -429,11 +546,14 @@ static UBool
 getDirProps(UBiDi *pBiDi) {
     const UChar *text=pBiDi->text;
     DirProp *dirProps=pBiDi->dirPropsMemory;    /* pBiDi->dirProps is const */
+    uint16_t *dirInsert = pBiDi->dirInsert;     /* may be NULL */
 
     int32_t i=0, originalLength=pBiDi->originalLength;
     Flags flags=0;      /* collect all directionalities in the text */
     UChar32 uchar;
     DirProp dirProp=0, defaultParaLevel=0;  /* initialize to avoid compiler warnings */
+    int32_t dirInsertValue;
+    int8_t  dirInsertIndex; /* position within dirInsertValue, if any */
     UBool isDefaultLevel=IS_DEFAULT_LEVEL(pBiDi->paraLevel);
     /* for inverse BiDi, the default para level is set to RTL if there is a
        strong R or AL character at either end of the text                            */
@@ -462,6 +582,7 @@ getDirProps(UBiDi *pBiDi) {
     /* The following stack contains the position of the initiator of
        each open isolate sequence */
     int32_t isolateStartStack[UBIDI_MAX_EXPLICIT_LEVEL+1];
+    int8_t  isolateStartInsertIndex[UBIDI_MAX_EXPLICIT_LEVEL+1];
     /* The following stack contains the last known state before
        encountering the initiator of an isolate sequence */
     int8_t  previousStateStack[UBIDI_MAX_EXPLICIT_LEVEL+1];
@@ -493,14 +614,28 @@ getDirProps(UBiDi *pBiDi) {
      * the UBIDI_DEFAULT_XXX values are designed so that
      * their bit 0 alone yields the intended default
      */
+    dirInsertValue = 0;
+    dirInsertIndex = -1; /* indicate that we have not checked dirInsert yet */
     for( /* i=0 above */ ; i<originalLength; ) {
-        /* i is incremented by U16_NEXT */
-        U16_NEXT(text, i, originalLength, uchar);
-        flags|=DIRPROP_FLAG(dirProp=(DirProp)ubidi_getCustomizedClass(pBiDi, uchar));
-        dirProps[i-1]=dirProp;
-        if(uchar>0xffff) {  /* set the lead surrogate's property to BN */
-            flags|=DIRPROP_FLAG(BN);
-            dirProps[i-2]=BN;
+        if (dirInsert != NULL && dirInsertIndex < 0) {
+            dirInsertValue = dirInsert[i];
+        }
+        if (dirInsertValue > 0) {
+            dirInsertIndex++;
+            dirProp = (DirProp)stdDirFromInsertDir[dirInsertValue & 0x000F];
+            dirInsertValue >>= 4;
+            flags|=DIRPROP_FLAG(dirProp);
+            uchar = 0;
+        } else {
+            dirInsertIndex = -1;
+            /* i is incremented by U16_NEXT */
+            U16_NEXT(text, i, originalLength, uchar);
+            flags|=DIRPROP_FLAG(dirProp=(DirProp)ubidi_getCustomizedClass(pBiDi, uchar));
+            dirProps[i-1]=dirProp;
+            if(uchar>0xffff) {  /* set the lead surrogate's property to BN */
+                flags|=DIRPROP_FLAG(BN);
+                dirProps[i-2]=BN;
+            }
         }
         if(removeBiDiControls && IS_BIDI_CONTROL_CHAR(uchar))
             controlCount++;
@@ -527,7 +662,12 @@ getDirProps(UBiDi *pBiDi) {
             }
             else if(state==SEEKING_STRONG_FOR_FSI) {
                 if(stackLast<=UBIDI_MAX_EXPLICIT_LEVEL) {
-                    dirProps[isolateStartStack[stackLast]]=RLI;
+                    if (isolateStartInsertIndex[stackLast] < 0) {
+                        dirProps[isolateStartStack[stackLast]]=RLI;
+                    } else {
+                        dirInsert[stackLast] &= ~(0x000F << (4*isolateStartInsertIndex[stackLast]));
+                        dirInsert[stackLast] |= (Insert_RLI << (4*isolateStartInsertIndex[stackLast]));
+                    }
                     flags|=DIRPROP_FLAG(RLI);
                 }
                 state=LOOKING_FOR_PDI;
@@ -540,11 +680,17 @@ getDirProps(UBiDi *pBiDi) {
         if(dirProp>=FSI && dirProp<=RLI) {  /* FSI, LRI or RLI */
             stackLast++;
             if(stackLast<=UBIDI_MAX_EXPLICIT_LEVEL) {
-                isolateStartStack[stackLast]=i-1;
+                isolateStartStack[stackLast]= (dirInsertIndex < 0)? i-1: i /* we have not incremented with U16_NEXT yet */;
+                isolateStartInsertIndex[stackLast] = dirInsertIndex;
                 previousStateStack[stackLast]=state;
             }
             if(dirProp==FSI) {
-                dirProps[i-1]=LRI;      /* default if no strong char */
+                if (dirInsertIndex < 0) {
+                    dirProps[i-1]=LRI;      /* default if no strong char */
+                } else {
+                    dirInsert[i] &= ~(0x000F << (4*dirInsertIndex));
+                    dirInsert[i] |= (Insert_LRI << (4*dirInsertIndex));
+                }
                 state=SEEKING_STRONG_FOR_FSI;
             }
             else
@@ -700,11 +846,10 @@ bracketProcessB(BracketData *bd, UBiDiLevel level) {
 
 /* LRE, LRO, RLE, RLO, PDF */
 static void
-bracketProcessBoundary(BracketData *bd, int32_t lastCcPos,
+bracketProcessBoundary(BracketData *bd, int32_t lastCcPos, DirProp lastCcDirProp,
                        UBiDiLevel contextLevel, UBiDiLevel embeddingLevel) {
     IsoRun *pLastIsoRun=&bd->isoRuns[bd->isoRunLast];
-    DirProp *dirProps=bd->pBiDi->dirProps;
-    if(DIRPROP_FLAG(dirProps[lastCcPos])&MASK_ISO)  /* after an isolate */
+    if(DIRPROP_FLAG(lastCcDirProp)&MASK_ISO)  /* after an isolate */
         return;
     if(NO_OVERRIDE(embeddingLevel)>NO_OVERRIDE(contextLevel))   /* not a PDF */
         contextLevel=embeddingLevel;
@@ -1067,12 +1212,15 @@ directionFromFlags(UBiDi *pBiDi) {
 static UBiDiDirection
 resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
     DirProp *dirProps=pBiDi->dirProps;
+    uint16_t *dirInsert = pBiDi->dirInsert;     /* may be NULL */
     UBiDiLevel *levels=pBiDi->levels;
     const UChar *text=pBiDi->text;
 
     int32_t i=0, length=pBiDi->length;
     Flags flags=pBiDi->flags;       /* collect all directionalities in the text */
     DirProp dirProp;
+    int32_t dirInsertValue;
+    int8_t  dirInsertIndex; /* position within dirInsertValue, if any */
     UBiDiLevel level=GET_PARALEVEL(pBiDi, 0);
     UBiDiDirection direction;
     pBiDi->isolateCount=0;
@@ -1145,6 +1293,7 @@ resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
         UBiDiLevel embeddingLevel=level, newLevel;
         UBiDiLevel previousLevel=level;     /* previous level for regular (not CC) characters */
         int32_t lastCcPos=0;                /* index of last effective LRx,RLx, PDx */
+        DirProp lastCcDirProp=0;            /* dirProp of last effective LRx,RLx, PDx */
 
         /* The following stack remembers the embedding level and the ISOLATE flag of level runs.
            stackLast points to its current entry. */
@@ -1161,8 +1310,20 @@ resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
         /* recalculate the flags */
         flags=0;
 
-        for(i=0; i<length; ++i) {
-            dirProp=dirProps[i];
+        dirInsertValue = 0;
+        dirInsertIndex = -1; /* indicate that we have not checked dirInsert yet */
+        for(i=0; i<length; ) { /* now conditionally increment at end */
+            if (dirInsert != NULL && dirInsertIndex < 0) {
+                dirInsertValue = dirInsert[i];
+            }
+            if (dirInsertValue > 0) {
+                dirInsertIndex++;
+                dirProp = (DirProp)stdDirFromInsertDir[dirInsertValue & 0x000F];
+                dirInsertValue >>= 4;
+            } else {
+                dirInsertIndex = -1;
+                dirProp=dirProps[i];
+            }
             switch(dirProp) {
             case LRE:
             case RLE:
@@ -1180,6 +1341,7 @@ resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
                 if(newLevel<=UBIDI_MAX_EXPLICIT_LEVEL && overflowIsolateCount==0 &&
                                                          overflowEmbeddingCount==0) {
                     lastCcPos=i;
+                    lastCcDirProp = dirProp;
                     embeddingLevel=newLevel;
                     if(dirProp==LRO || dirProp==RLO)
                         embeddingLevel|=UBIDI_LEVEL_OVERRIDE;
@@ -1208,6 +1370,7 @@ resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
                 }
                 if(stackLast>0 && stack[stackLast]<ISOLATE) {   /* not an isolate entry */
                     lastCcPos=i;
+                    lastCcDirProp = dirProp;
                     stackLast--;
                     embeddingLevel=(UBiDiLevel)stack[stackLast];
                 }
@@ -1217,7 +1380,7 @@ resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
                 flags|=(DIRPROP_FLAG(ON)|DIRPROP_FLAG_LR(embeddingLevel));
                 levels[i]=NO_OVERRIDE(embeddingLevel);
                 if(NO_OVERRIDE(embeddingLevel)!=NO_OVERRIDE(previousLevel)) {
-                    bracketProcessBoundary(&bracketData, lastCcPos,
+                    bracketProcessBoundary(&bracketData, lastCcPos, lastCcDirProp,
                                            previousLevel, embeddingLevel);
                     flags|=DIRPROP_FLAG_MULTI_RUNS;
                 }
@@ -1233,6 +1396,7 @@ resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
                                                          overflowEmbeddingCount==0) {
                     flags|=DIRPROP_FLAG(dirProp);
                     lastCcPos=i;
+                    lastCcDirProp = dirProp;
                     validIsolateCount++;
                     if(validIsolateCount>pBiDi->isolateCount)
                         pBiDi->isolateCount=validIsolateCount;
@@ -1244,13 +1408,18 @@ resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
                     bracketProcessLRI_RLI(&bracketData, embeddingLevel);
                 } else {
                     /* make it WS so that it is handled by adjustWSLevels() */
-                    dirProps[i]=WS;
+                    if (dirInsertIndex < 0) {
+                        dirProps[i]=WS;
+                    } else {
+                        dirInsert[i] &= ~(0x000F << (4*dirInsertIndex));
+                        dirInsert[i] |= (Insert_WS << (4*dirInsertIndex));
+                    }
                     overflowIsolateCount++;
                 }
                 break;
             case PDI:
                 if(NO_OVERRIDE(embeddingLevel)!=NO_OVERRIDE(previousLevel)) {
-                    bracketProcessBoundary(&bracketData, lastCcPos,
+                    bracketProcessBoundary(&bracketData, lastCcPos, lastCcDirProp,
                                            previousLevel, embeddingLevel);
                     flags|=DIRPROP_FLAG_MULTI_RUNS;
                 }
@@ -1258,11 +1427,17 @@ resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
                 if(overflowIsolateCount) {
                     overflowIsolateCount--;
                     /* make it WS so that it is handled by adjustWSLevels() */
-                    dirProps[i]=WS;
+                    if (dirInsertIndex < 0) {
+                        dirProps[i]=WS;
+                    } else {
+                        dirInsert[i] &= ~(0x000F << (4*dirInsertIndex));
+                        dirInsert[i] |= (Insert_WS << (4*dirInsertIndex));
+                    }
                 }
                 else if(validIsolateCount) {
                     flags|=DIRPROP_FLAG(PDI);
                     lastCcPos=i;
+                    lastCcDirProp = dirProp;
                     overflowEmbeddingCount=0;
                     while(stack[stackLast]<ISOLATE) /* pop embedding entries */
                         stackLast--;                /* until the last isolate entry */
@@ -1271,7 +1446,12 @@ resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
                     bracketProcessPDI(&bracketData);
                 } else
                     /* make it WS so that it is handled by adjustWSLevels() */
-                    dirProps[i]=WS;
+                    if (dirInsertIndex < 0) {
+                        dirProps[i]=WS;
+                    } else {
+                        dirInsert[i] &= ~(0x000F << (4*dirInsertIndex));
+                        dirInsert[i] |= (Insert_WS << (4*dirInsertIndex));
+                    }
                 embeddingLevel=(UBiDiLevel)stack[stackLast]&~ISOLATE;
                 flags|=(DIRPROP_FLAG(ON)|DIRPROP_FLAG_LR(embeddingLevel));
                 previousLevel=embeddingLevel;
@@ -1300,7 +1480,7 @@ resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
             default:
                 /* all other types are normal characters and get the "real" level */
                 if(NO_OVERRIDE(embeddingLevel)!=NO_OVERRIDE(previousLevel)) {
-                    bracketProcessBoundary(&bracketData, lastCcPos,
+                    bracketProcessBoundary(&bracketData, lastCcPos, lastCcDirProp,
                                            previousLevel, embeddingLevel);
                     flags|=DIRPROP_FLAG_MULTI_RUNS;
                     if(embeddingLevel&UBIDI_LEVEL_OVERRIDE)
@@ -1315,6 +1495,9 @@ resolveExplicitLevels(UBiDi *pBiDi, UErrorCode *pErrorCode) {
                 /* the dirProp may have been changed in bracketProcessChar() */
                 flags|=DIRPROP_FLAG(dirProps[i]);
                 break;
+            }
+            if (dirInsertIndex < 0) {
+                ++i;
             }
         }
         if(flags&MASK_EMBEDDING)
@@ -1802,10 +1985,25 @@ static void
 setLevelsOutsideIsolates(UBiDi *pBiDi, int32_t start, int32_t limit, UBiDiLevel level)
 {
     DirProp *dirProps=pBiDi->dirProps, dirProp;
+    uint16_t *dirInsert = pBiDi->dirInsert;     /* may be NULL */
     UBiDiLevel *levels=pBiDi->levels;
+    int32_t dirInsertValue;
+    int8_t  dirInsertIndex; /* position within dirInsertValue, if any */
     int32_t isolateCount=0, k;
+    dirInsertValue = 0;
+    dirInsertIndex = -1; /* indicate that we have not checked dirInsert yet */
     for(k=start; k<limit; k++) {
-        dirProp=dirProps[k];
+        if (dirInsert != NULL && dirInsertIndex < 0) {
+            dirInsertValue = dirInsert[k];
+        }
+        if (dirInsertValue > 0) {
+            dirInsertIndex++;
+            dirProp = (DirProp)stdDirFromInsertDir[dirInsertValue & 0x000F];
+            dirInsertValue >>= 4;
+        } else {
+            dirInsertIndex = -1;
+            dirProp=dirProps[k];
+        }
         if(dirProp==PDI)
             isolateCount--;
         if(isolateCount==0)
@@ -2101,7 +2299,10 @@ resolveImplicitLevels(UBiDi *pBiDi,
                       int32_t start, int32_t limit,
                       DirProp sor, DirProp eor) {
     const DirProp *dirProps=pBiDi->dirProps;
+    uint16_t *dirInsert = pBiDi->dirInsert;     /* may be NULL */
     DirProp dirProp;
+    int32_t dirInsertValue;
+    int8_t  dirInsertIndex; /* position within dirInsertValue, if any */
     LevState levState;
     int32_t i, start1, start2;
     uint16_t oldStateImp, stateImp, actionImp;
@@ -2138,7 +2339,17 @@ resolveImplicitLevels(UBiDi *pBiDi,
     /* The isolates[] entries contain enough information to
        resume the bidi algorithm in the same state as it was
        when it was interrupted by an isolate sequence. */
-    if(dirProps[start]==PDI  && pBiDi->isolateCount >= 0) {
+    dirInsertValue = 0;
+    if (dirInsert != NULL) {
+        dirInsertValue = dirInsert[start];
+        while (dirInsertValue > 0) {
+            if ((dirInsertValue & 0x000F) == Insert_PDI) {
+                break;
+            }
+            dirInsertValue >>= 4;
+        }
+    }
+    if((dirProps[start]==PDI || dirInsertValue>0) && pBiDi->isolateCount >= 0) {
         levState.startON=pBiDi->isolates[pBiDi->isolateCount].startON;
         start1=pBiDi->isolates[pBiDi->isolateCount].start1;
         stateImp=pBiDi->isolates[pBiDi->isolateCount].stateImp;
@@ -2159,8 +2370,27 @@ resolveImplicitLevels(UBiDi *pBiDi,
     for(i=start; i<=limit; i++) {
         if(i>=limit) {
             int32_t k;
-            for(k=limit-1; k>start&&(DIRPROP_FLAG(dirProps[k])&MASK_BN_EXPLICIT); k--);
-            dirProp=dirProps[k];
+            dirInsertValue = 0;
+            for(k=limit-1; k>start && dirInsertValue <= 0; k--) {
+                dirProp = dirProps[k];
+                if ((DIRPROP_FLAG(dirProp)&MASK_BN_EXPLICIT) == 0) {
+                    break;
+                }
+                dirProp = ON;
+                if (dirInsert != NULL) {
+                    dirInsertValue = dirInsert[k];
+                    while (dirInsertValue > 0) {
+                        dirProp = (DirProp)stdDirFromInsertDir[dirInsertValue & 0x000F];
+                        if ((DIRPROP_FLAG(dirProp)&MASK_BN_EXPLICIT) == 0) {
+                            break;
+                        }
+                        dirInsertValue >>= 4;
+                    }
+                }
+            }
+            if (k == start) {
+                dirProp = dirProps[k];
+            }
             if(dirProp==LRI || dirProp==RLI)
                 break;      /* no forced closing for sequence ending with LRI/RLI */
             gprop=eor;
@@ -2240,8 +2470,27 @@ resolveImplicitLevels(UBiDi *pBiDi,
     }
 
     /* look for the last char not a BN or LRE/RLE/LRO/RLO/PDF */
-    for(i=limit-1; i>start&&(DIRPROP_FLAG(dirProps[i])&MASK_BN_EXPLICIT); i--);
-    dirProp=dirProps[i];
+    dirInsertValue = 0;
+    for(i=limit-1; i>start && dirInsertValue <= 0; i--) {
+        dirProp=dirProps[i];
+        if ((DIRPROP_FLAG(dirProp)&MASK_BN_EXPLICIT) == 0) {
+            break;
+        }
+        dirProp = ON;
+        if (dirInsert != NULL) {
+            dirInsertValue = dirInsert[i];
+            while (dirInsertValue > 0) {
+                dirProp = (DirProp)stdDirFromInsertDir[dirInsertValue & 0x000F];
+                if ((DIRPROP_FLAG(dirProp)&MASK_BN_EXPLICIT) == 0) {
+                    break;
+                }
+                dirInsertValue >>= 4;
+            }
+        }
+    }
+    if (i == start) {
+        dirProp=dirProps[i];
+    }
     if((dirProp==LRI || dirProp==RLI) && limit<pBiDi->length) {
         pBiDi->isolateCount++;
         pBiDi->isolates[pBiDi->isolateCount].stateImp=stateImp;
@@ -2524,17 +2773,69 @@ setParaRunsOnly(UBiDi *pBiDi, const UChar *text, int32_t length,
     pBiDi->reorderingMode=UBIDI_REORDER_RUNS_ONLY;
 }
 
+/* -------------------------------------------------------------------------- */
+/* internal proptotype */
+
+static void
+ubidi_setParaInternal(UBiDi *pBiDi,
+                      const UChar *text, int32_t length,
+                      UBiDiLevel paraLevel,
+                      UBiDiLevel *embeddingLevels,
+                      const int32_t *offsets, int32_t offsetCount,
+                      const int32_t *controlStringIndices,
+                      const UChar * const * controlStrings,
+                      UErrorCode *pErrorCode);
+
 /* ubidi_setPara ------------------------------------------------------------ */
 
 U_CAPI void U_EXPORT2
 ubidi_setPara(UBiDi *pBiDi, const UChar *text, int32_t length,
               UBiDiLevel paraLevel, UBiDiLevel *embeddingLevels,
               UErrorCode *pErrorCode) {
+    RETURN_VOID_IF_NULL_OR_FAILING_ERRCODE(pErrorCode);
+    ubidi_setParaInternal(pBiDi, text, length, paraLevel,
+                          embeddingLevels,
+                          NULL, 0, NULL, NULL,
+                          pErrorCode);
+}
+
+/* ubidi_setParaWithControls ------------------------------------------------ */
+
+U_CAPI void U_EXPORT2
+ubidi_setParaWithControls(UBiDi *pBiDi,
+                          const UChar *text, int32_t length,
+                          UBiDiLevel paraLevel,
+                          const int32_t *offsets, int32_t offsetCount,
+                          const int32_t *controlStringIndices,
+                          const UChar * const * controlStrings,
+                          UErrorCode *pErrorCode) {
+    RETURN_VOID_IF_NULL_OR_FAILING_ERRCODE(pErrorCode);
+    /* check the argument values that are not already checked in ubidi_setParaInternal */
+    if ( offsetCount < 0 || (offsetCount > 0 && (offsets == NULL || controlStrings == NULL)) ) {
+        *pErrorCode=U_ILLEGAL_ARGUMENT_ERROR;
+        return;
+    }
+    ubidi_setParaInternal(pBiDi, text, length, paraLevel,
+                          NULL,
+                          offsets, offsetCount, controlStringIndices, controlStrings,
+                          pErrorCode);
+}
+
+/* ubidi_setParaInternal ---------------------------------------------------- */
+
+void
+ubidi_setParaInternal(UBiDi *pBiDi,
+                      const UChar *text, int32_t length,
+                      UBiDiLevel paraLevel,
+                      UBiDiLevel *embeddingLevels,
+                      const int32_t *offsets, int32_t offsetCount,
+                      const int32_t *controlStringIndices,
+                      const UChar * const * controlStrings,
+                      UErrorCode *pErrorCode) {
     UBiDiDirection direction;
     DirProp *dirProps;
 
-    /* check the argument values */
-    RETURN_VOID_IF_NULL_OR_FAILING_ERRCODE(pErrorCode);
+    /* check the argument values (pErrorCode status alrecy checked before getting here) */
     if(pBiDi==NULL || text==NULL || length<-1 ||
        (paraLevel>UBIDI_MAX_EXPLICIT_LEVEL && paraLevel<UBIDI_DEFAULT_LTR)) {
         *pErrorCode=U_ILLEGAL_ARGUMENT_ERROR;
@@ -2543,6 +2844,9 @@ ubidi_setPara(UBiDi *pBiDi, const UChar *text, int32_t length,
 
     if(length==-1) {
         length=u_strlen(text);
+    }
+    if (offsetCount > 0 && pBiDi->reorderingMode > UBIDI_REORDER_GROUP_NUMBERS_WITH_R) {
+        offsetCount = 0;
     }
 
     /* special treatment for RUNS_ONLY mode */
@@ -2559,6 +2863,7 @@ ubidi_setPara(UBiDi *pBiDi, const UChar *text, int32_t length,
     pBiDi->direction=paraLevel&1;
     pBiDi->paraCount=1;
 
+    pBiDi->dirInsert=NULL;
     pBiDi->dirProps=NULL;
     pBiDi->levels=NULL;
     pBiDi->runs=NULL;
@@ -2594,6 +2899,23 @@ ubidi_setPara(UBiDi *pBiDi, const UChar *text, int32_t length,
         pBiDi->paras=pBiDi->parasMemory;
     else
         pBiDi->paras=pBiDi->simpleParas;
+
+    /*
+     * Get the inserted directional properties
+     * if necessary.
+     */
+    if (offsetCount > 0) {
+        if(getDirInsertMemory(pBiDi, length)) {
+            pBiDi->dirInsert=pBiDi->dirInsertMemory;
+            if(!getDirInsert(pBiDi, offsets, offsetCount, controlStringIndices, controlStrings)) {
+                *pErrorCode=U_ILLEGAL_ARGUMENT_ERROR;
+                return;
+            }
+        } else {
+            *pErrorCode=U_MEMORY_ALLOCATION_ERROR;
+            return;
+        }
+    }
 
     /*
      * Get the directional properties,
@@ -2830,6 +3152,8 @@ ubidi_setPara(UBiDi *pBiDi, const UChar *text, int32_t length,
     }
     setParaSuccess(pBiDi);              /* mark successful setPara */
 }
+
+/* -------------------------------------------------------------------------- */
 
 U_CAPI void U_EXPORT2
 ubidi_orderParagraphsLTR(UBiDi *pBiDi, UBool orderParagraphsLTR) {

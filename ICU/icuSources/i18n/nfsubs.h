@@ -1,6 +1,6 @@
 /*
 ******************************************************************************
-*   Copyright (C) 1997-2014, International Business Machines
+*   Copyright (C) 1997-2015, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 ******************************************************************************
 *   file name:  nfsubs.h
@@ -32,12 +32,11 @@ U_NAMESPACE_BEGIN
 class NFSubstitution : public UObject {
     int32_t pos;
     const NFRuleSet* ruleSet;
-    const DecimalFormat* numberFormat;
+    DecimalFormat* numberFormat;
     
 protected:
     NFSubstitution(int32_t pos,
         const NFRuleSet* ruleSet,
-        const RuleBasedNumberFormat* rbnf,
         const UnicodeString& description,
         UErrorCode& status);
     
@@ -98,6 +97,8 @@ public:
      */
     virtual void toString(UnicodeString& result) const;
     
+    void setDecimalFormatSymbols(const DecimalFormatSymbols &newSymbols, UErrorCode& status);
+
     //-----------------------------------------------------------------------
     // formatting
     //-----------------------------------------------------------------------
@@ -112,7 +113,7 @@ public:
      * rule text begins (this value is added to this substitution's
      * position to determine exactly where to insert the new text)
      */
-    virtual void doSubstitution(int64_t number, UnicodeString& toInsertInto, int32_t pos, UErrorCode& status) const;
+    virtual void doSubstitution(int64_t number, UnicodeString& toInsertInto, int32_t pos, int32_t recursionCount, UErrorCode& status) const;
 
     /**
      * Performs a mathematical operation on the number, formats it using
@@ -124,7 +125,7 @@ public:
      * rule text begins (this value is added to this substitution's
      * position to determine exactly where to insert the new text)
      */
-    virtual void doSubstitution(double number, UnicodeString& toInsertInto, int32_t pos, UErrorCode& status) const;
+    virtual void doSubstitution(double number, UnicodeString& toInsertInto, int32_t pos, int32_t recursionCount, UErrorCode& status) const;
     
 protected:
     /**
@@ -233,14 +234,6 @@ public:
     virtual UChar tokenChar() const = 0;
     
     /**
-     * Returns true if this is a null substitution.  (We didn't do this
-     * with instanceof partially because it causes source files to
-     * proliferate and partially because we have to port this to C++.)
-     * @return true if this object is an instance of NullSubstitution
-     */
-    virtual UBool isNullSubstitution() const;
-    
-    /**
      * Returns true if this is a modulus substitution.  (We didn't do this
      * with instanceof partially because it causes source files to
      * proliferate and partially because we have to port this to C++.)
@@ -249,14 +242,16 @@ public:
     virtual UBool isModulusSubstitution() const;
     
     /**
+     * Apple addition
      * @return true if this is a decimal format-only substitution
      */
     virtual UBool isDecimalFormatSubstitutionOnly() const;
 
     /**
+     * Apple addition, not currently used
      * @return true if this substitution only points to another ruleSet (no numberFormat)
      */
-    virtual UBool isRuleSetSubstitutionOnly() const;
+    //virtual UBool isRuleSetSubstitutionOnly() const;
     
 private:
     NFSubstitution(const NFSubstitution &other); // forbid copying of this class

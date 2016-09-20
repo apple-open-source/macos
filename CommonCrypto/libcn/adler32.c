@@ -29,7 +29,7 @@ static uint64_t
 adler32_setup() { return 0; }
 
 static uint64_t
-adler32_implementation(size_t len, const void *in, uint64_t crc)
+adler32_implementation(size_t len, const void *in, uint64_t __unused crc)
 {
     uint32_t a = 1, b = 0;
     uint8_t *bytes = (uint8_t *) in;
@@ -42,7 +42,7 @@ adler32_implementation(size_t len, const void *in, uint64_t crc)
 }
 
 static uint64_t
-adler32_final(size_t length, uint64_t crc) { return crc; }
+adler32_final(size_t __unused length, uint64_t crc) { return crc; }
 
 
 static uint64_t

@@ -726,7 +726,8 @@ static int lua_request_rec_hook_harness(request_rec *r, const char *name, int ap
                               hook_spec->file_name, hook_spec->function_name, name, rc);
             }
             else { 
-                ap_log_rerror(APLOG_MARK, APLOG_CRIT, 0, r, "Lua hook %s:%s for phase %s did not return a numeric value", 
+                ap_log_rerror(APLOG_MARK, APLOG_CRIT, 0, r, APLOGNO(03017)
+                              "Lua hook %s:%s for phase %s did not return a numeric value",
                               hook_spec->file_name, hook_spec->function_name, name);
                 return HTTP_INTERNAL_SERVER_ERROR;
             }
@@ -1255,7 +1256,8 @@ static int lua_auth_checker_harness_last(request_rec *r)
 }
 static void lua_insert_filter_harness(request_rec *r)
 {
-    /* ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, "LuaHookInsertFilter not yet implemented"); */
+    /* ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r, APLOGNO(03223)
+     *               "LuaHookInsertFilter not yet implemented"); */
 }
 
 static int lua_log_transaction_harness(request_rec *r)

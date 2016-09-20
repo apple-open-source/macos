@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -75,9 +75,10 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 
+#define	SC_LOG_HANDLE	__log_InterfaceNamer()
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCDPlugin.h>
-#include <SystemConfiguration/SCPrivate.h>	// for SCLog(), SCPrint()
+#include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
 
 #include <IOKit/IOKitLib.h>
@@ -207,6 +208,22 @@ static CFArrayRef		S_bonds			= NULL;
 static CFArrayRef		S_bridges		= NULL;
 static CFArrayRef		S_vlans			= NULL;
 
+/*
+ * Logging
+ */
+static os_log_t
+__log_InterfaceNamer()
+{
+    static os_log_t	log = NULL;
+
+    if (log == NULL) {
+	log = os_log_create("com.apple.SystemConfiguration", "InterfaceNamer");
+    }
+
+    return log;
+}
+
+
 static void
 addTimestamp(CFMutableDictionaryRef dict, CFStringRef key)
 {
@@ -248,21 +265,6 @@ if_unit_compare(const void *val1, const void *val2, void *context)
 }
 
 static void
-reportIssue(const char *signature, CFStringRef issue)
-{
-    asl_object_t  m;
-
-    m = asl_new(ASL_TYPE_MSG);
-    asl_set(m, "com.apple.message.domain", "com.apple.SystemConfiguration." MY_PLUGIN_NAME);
-    asl_set(m, "com.apple.message.signature", signature);
-    asl_set(m, "com.apple.message.result", "failure");
-    SCLOG(NULL, m, ~ASL_LEVEL_ERR, CFSTR("%s\n%@"), signature, issue);
-    asl_release(m);
-
-    return;
-}
-
-static void
 writeInterfaceList(CFArrayRef if_list)
 {
     CFArrayRef		cur_list;
@@ -291,7 +293,6 @@ writeInterfaceList(CFArrayRef if_list)
 	// if new hardware
 	if ((old_model != NULL) && (cur_list != NULL)) {
 	    CFStringRef history;
-	    CFStringRef issue;
 
 	    // if interface list was created on other hardware
 	    history = CFStringCreateWithFormat(NULL, NULL,
@@ -301,18 +302,11 @@ writeInterfaceList(CFArrayRef if_list)
 	    SCPreferencesSetValue(prefs, history, cur_list);
 	    CFRelease(history);
 
-	    SC_log(LOG_INFO, "Hardware model changed\n"
-			     "  created on \"%@\"\n"
-			     "  now on     \"%@\"",
-		  old_model,
-		  new_model);
-
-	    issue = CFStringCreateWithFormat(NULL, NULL,
-					     CFSTR("%@ --> %@"),
-					     old_model,
-					     new_model);
-	    reportIssue("Hardware model changed", issue);
-	    CFRelease(issue);
+	    SC_log(LOG_NOTICE, "Hardware model changed\n"
+			       "  created on \"%@\"\n"
+			       "  now on     \"%@\"",
+		   old_model,
+		   new_model);
 	}
 
 	SCPreferencesSetValue(prefs, MODEL, new_model);
@@ -554,17 +548,19 @@ updateVLANInterfaceConfiguration(SCPreferencesRef prefs)
 
 static void
 updateVirtualNetworkInterfaceConfiguration(SCPreferencesRef		prefs,
-					   SCPreferencesNotification   notificationType,
+					   SCPreferencesNotification	notificationType,
 					   void				*info)
 {
-    os_activity_t   activity_id;
+    os_activity_t   activity;
 
     if ((notificationType & kSCPreferencesNotificationApply) != kSCPreferencesNotificationApply) {
 	return;
     }
 
-    activity_id = os_activity_start("check/update virtual network interface configuration",
-				    OS_ACTIVITY_FLAG_DEFAULT);
+    activity = os_activity_create("check/update virtual network interface configuration",
+				  OS_ACTIVITY_CURRENT,
+				  OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
 
     if (prefs == NULL) {
 	// if a new interface has been "named"
@@ -592,7 +588,7 @@ updateVirtualNetworkInterfaceConfiguration(SCPreferencesRef		prefs,
     // we are finished with current prefs, wait for changes
     SCPreferencesSynchronize(prefs);
 
-    os_activity_end(activity_id);
+    os_release(activity);
 
     return;
 }
@@ -1172,14 +1168,7 @@ replaceInterface(SCNetworkInterfaceRef interface)
     insertInterface(S_dblist, interface);
 
     if (n > 1) {
-	CFStringRef	issue;
-
-	issue = CFStringCreateWithFormat(NULL, NULL,
-					 CFSTR("n = %d, %@"),
-					 n,
-					 interface);
-	reportIssue("Multiple interfaces updated", issue);
-	CFRelease(issue);
+	SC_log(LOG_ERR, "Multiple interfaces updated (n = %d, %@)", n, interface);
     }
 
     return;
@@ -1496,7 +1485,6 @@ nameInterfaces(CFMutableArrayRef if_list)
 	SCNetworkInterfaceRef	interface;
 	SCNetworkInterfaceRef	new_interface;
 	CFStringRef		path;
-	CFStringRef		str;
 	CFNumberRef		type;
 	CFNumberRef		unit;
 	CFIndex			where;
@@ -1651,15 +1639,6 @@ nameInterfaces(CFMutableArrayRef if_list)
 
 		displayInterface(interface);
 
-		// report issue w/MessageTracer
-		str = CFStringCreateWithFormat(NULL, NULL,
-					       CFSTR("kr=0x%x, path=%@, unit=%@"),
-					       kr,
-					       path,
-					       unit);
-		reportIssue(signature, str);
-		CFRelease(str);
-
 		if ((dbdict != NULL) && (retries++ < 5)) {
 		    usleep(50 * 1000);	// sleep 50ms between attempts
 		    goto retry;
@@ -1699,7 +1678,7 @@ nameInterfaces(CFMutableArrayRef if_list)
 		}
 
 		new_unit = _SCNetworkInterfaceGetIOInterfaceUnit(new_interface);
-		if (CFEqual(unit, new_unit) == FALSE) {
+		if (!CFEqual(unit, new_unit)) {
 		    SC_log(LOG_INFO, "interface type %@ assigned unit %@ instead of %@",
 			   type, new_unit, unit);
 		}
@@ -1849,7 +1828,7 @@ updateInterfaces()
 		       (n > 1) ? "s" : "");
 	    }
 	    for (i = 0; i < n; i++) {
-		CFDictionaryRef	if_dict;
+		CFDictionaryRef		if_dict;
 		CFStringRef		name;
 		CFNumberRef		type;
 		CFNumberRef		unit;
@@ -1889,11 +1868,13 @@ updateInterfaces()
 static void
 interfaceArrivalCallback(void *refcon, io_iterator_t iter)
 {
-    os_activity_t   activity_id;
-    io_object_t	    obj;
+    os_activity_t	activity;
+    io_object_t		obj;
 
-    activity_id = os_activity_start("process new network interface",
-				    OS_ACTIVITY_FLAG_DEFAULT);
+    activity = os_activity_create("process new network interface",
+				  OS_ACTIVITY_CURRENT,
+				  OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
 
     while ((obj = IOIteratorNext(iter)) != MACH_PORT_NULL) {
 	SCNetworkInterfaceRef	interface;
@@ -1911,7 +1892,7 @@ interfaceArrivalCallback(void *refcon, io_iterator_t iter)
 
     updateInterfaces();
 
-    os_activity_end(activity_id);
+    os_release(activity);
 
     return;
 }
@@ -1928,12 +1909,14 @@ interfaceArrivalCallback(void *refcon, io_iterator_t iter)
 static void
 stackCallback(void *refcon, io_iterator_t iter)
 {
-    os_activity_t	activity_id;
+    os_activity_t	activity;
     kern_return_t	kr;
     io_object_t		stack;
 
-    activity_id = os_activity_start("process IONetworkStack",
-				    OS_ACTIVITY_FLAG_DEFAULT);
+    activity = os_activity_create("process IONetworkStack",
+				  OS_ACTIVITY_CURRENT,
+				  OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
 
     stack = IOIteratorNext(iter);
     if (stack == MACH_PORT_NULL) {
@@ -1970,7 +1953,7 @@ stackCallback(void *refcon, io_iterator_t iter)
 	IOObjectRelease(stack);
     }
 
-    os_activity_end(activity_id);
+    os_release(activity);
 
     return;
 }
@@ -1981,15 +1964,17 @@ quietCallback(void		*refcon,
 	      natural_t		messageType,
 	      void		*messageArgument)
 {
-    os_activity_t	activity_id;
+    os_activity_t	activity;
 
     if (messageArgument != NULL) {
 	// if not yet quiet
 	return;
     }
 
-    activity_id = os_activity_start("process IOKit quiet",
-				    OS_ACTIVITY_FLAG_DEFAULT);
+    activity = os_activity_create("process IOKit quiet",
+				  OS_ACTIVITY_CURRENT,
+				  OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
 
     if (messageType == kIOMessageServiceBusyStateChange) {
 	addTimestamp(S_state, CFSTR("*QUIET*"));
@@ -2022,13 +2007,13 @@ quietCallback(void		*refcon,
 
   done :
 
-    os_activity_end(activity_id);
+    os_release(activity);
 
     return;
 }
 
 static void
-iterateRegistryBusy(io_iterator_t iterator, CFArrayRef nodes, CFMutableStringRef snapshot, int *count)
+iterateRegistryBusy(io_iterator_t iterator, CFArrayRef nodes, int *count)
 {
     kern_return_t	kr  = kIOReturnSuccess;;
     io_object_t		obj;
@@ -2091,18 +2076,17 @@ iterateRegistryBusy(io_iterator_t iterator, CFArrayRef nodes, CFMutableStringRef
 	    CFStringRef	path;
 
 	    if ((*count)++ == 0) {
-		CFStringAppend(snapshot, CFSTR("Busy services :"));
+		SC_log(LOG_ERR, "Busy services :");
 	    }
 
 	    path = CFStringCreateByCombiningStrings(NULL, newNodes, CFSTR("/"));
-	    CFStringAppendFormat(snapshot, NULL,
-				 CFSTR("\n  %@ [%s%s%s%d, %lld ms]"),
-				 path,
-				 (state & kIOServiceRegisteredState) ? "" : "!registered, ",
-				 (state & kIOServiceMatchedState)    ? "" : "!matched, ",
-				 (state & kIOServiceInactiveState)   ? "inactive, " : "",
-				 busy_state,
-				 accumulated_busy_time / kMillisecondScale);
+	    SC_log(LOG_ERR, "  %@ [%s%s%s%d, %lld ms]",
+		   path,
+		   (state & kIOServiceRegisteredState) ? "" : "!registered, ",
+		   (state & kIOServiceMatchedState)    ? "" : "!matched, ",
+		   (state & kIOServiceInactiveState)   ? "inactive, " : "",
+		   busy_state,
+		   accumulated_busy_time / kMillisecondScale);
 	    CFRelease(path);
 	}
 
@@ -2112,7 +2096,7 @@ iterateRegistryBusy(io_iterator_t iterator, CFArrayRef nodes, CFMutableStringRef
 	    goto next;
 	}
 
-	iterateRegistryBusy(iterator, newNodes, snapshot, count);
+	iterateRegistryBusy(iterator, newNodes, count);
 
 	kr = IORegistryIteratorExitEntry(iterator);
 	if (kr != kIOReturnSuccess) {
@@ -2128,15 +2112,12 @@ iterateRegistryBusy(io_iterator_t iterator, CFArrayRef nodes, CFMutableStringRef
     return;
 }
 
-static CF_RETURNS_RETAINED CFStringRef
+static void
 captureBusy()
 {
     int			count		= 0;
     io_iterator_t	iterator	= MACH_PORT_NULL;
     kern_return_t	kr;
-    CFMutableStringRef	snapshot;
-
-    snapshot = CFStringCreateMutable(NULL, 0);
 
     kr = IORegistryCreateIterator(kIOMasterPortDefault,
 				  kIOServicePlane,
@@ -2144,43 +2125,41 @@ captureBusy()
 				  &iterator);
     if (kr != kIOReturnSuccess) {
 	SC_log(LOG_NOTICE, "IORegistryCreateIterator() returned 0x%x", kr);
-	return snapshot;
+	return;
     }
 
-    iterateRegistryBusy(iterator, NULL, snapshot, &count);
+    iterateRegistryBusy(iterator, NULL, &count);
     if (count == 0) {
-	CFStringAppend(snapshot, CFSTR("w/no busy services"));
+	SC_log(LOG_ERR, "w/no busy services");
     }
 
     IOObjectRelease(iterator);
-    return snapshot;
 }
 
 static void
 timerCallback(CFRunLoopTimerRef	timer, void *info)
 {
-    os_activity_t   activity_id;
-    CFStringRef	    snapshot;
+    os_activity_t	activity;
 
-    activity_id = os_activity_start("process IOKit timer",
-				    OS_ACTIVITY_FLAG_DEFAULT);
+    activity = os_activity_create("process IOKit timer",
+				  OS_ACTIVITY_CURRENT,
+				  OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
 
     // We've been waiting for IOKit to quiesce and it just
     // hasn't happenned.  Time to just move on!
     addTimestamp(S_state, CFSTR("*TIMEOUT*"));
 
     // log busy nodes
-    snapshot = captureBusy();
-    SC_log(LOG_ERR, "timed out waiting for IOKit to quiesce\n%@", snapshot);
-    reportIssue("timed out waiting for IOKit to quiesce", snapshot);
-    CFRelease(snapshot);
+    SC_log(LOG_ERR, "timed out waiting for IOKit to quiesce");
+    captureBusy();
 
     quietCallback((void *)S_notify, MACH_PORT_NULL, 0, NULL);
 
     addTimestamp(S_state, CFSTR("*TIMEOUT&NAMED*"));
     updateStore();
 
-    os_activity_end(activity_id);
+    os_release(activity);
 
     return;
 }

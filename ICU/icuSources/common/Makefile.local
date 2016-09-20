@@ -1,16 +1,16 @@
 #******************************************************************************
 #
-#   Copyright (c) 2006-2008,2014 Apple Inc.
+#   Copyright (c) 2006-2008,2014,2016 Apple Inc.
 #   All Rights Reserved.
 #
 #******************************************************************************
 ## Makefile.local for Apple Inc.
 
-ifeq "$(WINDOWS)" "YES"
-else
+#ifeq "$(WINDOWS)" "YES"
+#else
 	OBJECTS += rbtok.o urbtok.o aaplbfct.o ualoc.o
 	
 	STATIC_OBJECT += rbtok.$(STATIC_O) urbtok.$(STATIC_O) aaplbfct.$(STATIC_O) ualoc.$(STATIC_O)
 	
 	DEPS += rbtok.d urbtok.d aaplbfct.d ualoc.d
-endif
+#endif

@@ -17,6 +17,8 @@
 			<string>add macutf8</string>
 			<string>UNIX2003 changes</string>
 			<string>do not inline gperf lookup functions (12056452)</string>
+			<string>lib/loop_wchar.h: 2cf3ee65d04ac4e41e29aa7526361ec3f20f5e29</string>
+			<string>lib/loop_unicode.h: bb8f7987b00e303f690b59eb62c8eede974c2dd1, and supporting lib/converters.h changes. (23050414)
 		</array>	
 		<key>OpenSourceProject</key>
 		<string>libiconv</string>

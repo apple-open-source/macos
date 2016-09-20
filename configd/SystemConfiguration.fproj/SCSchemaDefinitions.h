@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -326,10 +326,6 @@
  *
  *   * RESERVED FOR FUTURE USE *
  *
- * kSCEntNetPPTP Entity Keys
- *
- *   * RESERVED FOR FUTURE USE *
- *
  * kSCEntNetL2TP Entity Keys
  *
  *   kSCPropNetL2TPIPSecSharedSecret                    "IPSecSharedSecret"            CFString
@@ -571,13 +567,6 @@ extern const CFStringRef kSCEntNetAirPort                                   __OS
 #define kSCEntNetAirPort kSCEntNetAirPort
 
 /*!
-  @const kSCEntNetAppleTalk
-  @discussion Value is a CFDictionary
- */
-extern const CFStringRef kSCEntNetAppleTalk                                 __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);
-#define kSCEntNetAppleTalk kSCEntNetAppleTalk
-
-/*!
   @const kSCEntNetDHCP
   @discussion Value is a CFDictionary
  */
@@ -655,13 +644,6 @@ extern const CFStringRef kSCEntNetModem                                     __OS
 #define kSCEntNetModem kSCEntNetModem
 
 /*!
-  @const kSCEntNetNetInfo
-  @discussion Value is a CFDictionary
- */
-extern const CFStringRef kSCEntNetNetInfo                                   __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA);
-#define kSCEntNetNetInfo kSCEntNetNetInfo
-
-/*!
   @const kSCEntNetPPP
   @discussion Value is a CFDictionary
  */
@@ -686,7 +668,7 @@ extern const CFStringRef kSCEntNetPPPSerial                                 __OS
   @const kSCEntNetPPTP
   @discussion Value is a CFDictionary
  */
-extern const CFStringRef kSCEntNetPPTP                                      __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/);
+extern const CFStringRef kSCEntNetPPTP                                      __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_3,__MAC_10_12,__IPHONE_2_0/*SPI*/,__IPHONE_10_0/*SPI*/);
 #define kSCEntNetPPTP kSCEntNetPPTP
 
 /*!
@@ -845,91 +827,6 @@ extern const CFStringRef kSCValNetAirPortJoinModeStrongest                  __OS
  */
 extern const CFStringRef kSCValNetAirPortAuthPasswordEncryptionKeychain     __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_3,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/);
 #define kSCValNetAirPortAuthPasswordEncryptionKeychain kSCValNetAirPortAuthPasswordEncryptionKeychain
-
-/*!
-  @group kSCEntNetAppleTalk Entity Keys
- */
-
-/*!
-  @const kSCPropNetAppleTalkComputerName
-  @discussion Value is a CFString
- */
-extern const CFStringRef kSCPropNetAppleTalkComputerName                    __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);
-#define kSCPropNetAppleTalkComputerName kSCPropNetAppleTalkComputerName
-
-/*!
-  @const kSCPropNetAppleTalkComputerNameEncoding
-  @discussion Value is a CFNumber
- */
-extern const CFStringRef kSCPropNetAppleTalkComputerNameEncoding            __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);
-#define kSCPropNetAppleTalkComputerNameEncoding kSCPropNetAppleTalkComputerNameEncoding
-
-/*!
-  @const kSCPropNetAppleTalkConfigMethod
-  @discussion Value is a CFString
- */
-extern const CFStringRef kSCPropNetAppleTalkConfigMethod                    __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);
-#define kSCPropNetAppleTalkConfigMethod kSCPropNetAppleTalkConfigMethod
-
-/*!
-  @const kSCPropNetAppleTalkDefaultZone
-  @discussion Value is a CFString
- */
-extern const CFStringRef kSCPropNetAppleTalkDefaultZone                     __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);
-#define kSCPropNetAppleTalkDefaultZone kSCPropNetAppleTalkDefaultZone
-
-/*!
-  @const kSCPropNetAppleTalkNetworkID
-  @discussion Value is a CFNumber
- */
-extern const CFStringRef kSCPropNetAppleTalkNetworkID                       __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);
-#define kSCPropNetAppleTalkNetworkID kSCPropNetAppleTalkNetworkID
-
-/*!
-  @const kSCPropNetAppleTalkNetworkRange
-  @discussion Value is a CFArray[CFNumber]
- */
-extern const CFStringRef kSCPropNetAppleTalkNetworkRange                    __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);
-#define kSCPropNetAppleTalkNetworkRange kSCPropNetAppleTalkNetworkRange
-
-/*!
-  @const kSCPropNetAppleTalkNodeID
-  @discussion Value is a CFNumber
- */
-extern const CFStringRef kSCPropNetAppleTalkNodeID                          __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);
-#define kSCPropNetAppleTalkNodeID kSCPropNetAppleTalkNodeID
-
-/*!
-  @const kSCPropNetAppleTalkSeedNetworkRange
-  @discussion Value is a CFArray[CFNumber]
- */
-extern const CFStringRef kSCPropNetAppleTalkSeedNetworkRange                __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);
-#define kSCPropNetAppleTalkSeedNetworkRange kSCPropNetAppleTalkSeedNetworkRange
-
-/*!
-  @const kSCPropNetAppleTalkSeedZones
-  @discussion Value is a CFArray[CFString]
- */
-extern const CFStringRef kSCPropNetAppleTalkSeedZones                       __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);
-#define kSCPropNetAppleTalkSeedZones kSCPropNetAppleTalkSeedZones
-
-/*!
-  @const kSCValNetAppleTalkConfigMethodNode
- */
-extern const CFStringRef kSCValNetAppleTalkConfigMethodNode                 __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);
-#define kSCValNetAppleTalkConfigMethodNode kSCValNetAppleTalkConfigMethodNode
-
-/*!
-  @const kSCValNetAppleTalkConfigMethodRouter
- */
-extern const CFStringRef kSCValNetAppleTalkConfigMethodRouter               __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);
-#define kSCValNetAppleTalkConfigMethodRouter kSCValNetAppleTalkConfigMethodRouter
-
-/*!
-  @const kSCValNetAppleTalkConfigMethodSeedRouter
- */
-extern const CFStringRef kSCValNetAppleTalkConfigMethodSeedRouter           __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);
-#define kSCValNetAppleTalkConfigMethodSeedRouter kSCValNetAppleTalkConfigMethodSeedRouter
 
 /*!
   @group kSCEntNetDNS Entity Keys
@@ -1118,7 +1015,7 @@ extern const CFStringRef kSCValNetInterfaceSubTypePPPSerial                 __OS
 /*!
   @const kSCValNetInterfaceSubTypePPTP
  */
-extern const CFStringRef kSCValNetInterfaceSubTypePPTP                      __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/);
+extern const CFStringRef kSCValNetInterfaceSubTypePPTP                      __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_12,__IPHONE_2_0/*SPI*/,__IPHONE_10_0/*SPI*/);
 #define kSCValNetInterfaceSubTypePPTP kSCValNetInterfaceSubTypePPTP
 
 /*!
@@ -1620,62 +1517,6 @@ extern const CFStringRef kSCValNetModemDialModeWaitForDialTone              __OS
 #define kSCValNetModemDialModeWaitForDialTone kSCValNetModemDialModeWaitForDialTone
 
 /*!
-  @group kSCEntNetNetInfo Entity Keys
- */
-
-/*!
-  @const kSCPropNetNetInfoBindingMethods
-  @discussion Value is a CFString
- */
-extern const CFStringRef kSCPropNetNetInfoBindingMethods                    __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA);
-#define kSCPropNetNetInfoBindingMethods kSCPropNetNetInfoBindingMethods
-
-/*!
-  @const kSCPropNetNetInfoServerAddresses
-  @discussion Value is a CFArray[CFString]
- */
-extern const CFStringRef kSCPropNetNetInfoServerAddresses                   __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA);
-#define kSCPropNetNetInfoServerAddresses kSCPropNetNetInfoServerAddresses
-
-/*!
-  @const kSCPropNetNetInfoServerTags
-  @discussion Value is a CFArray[CFString]
- */
-extern const CFStringRef kSCPropNetNetInfoServerTags                        __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA);
-#define kSCPropNetNetInfoServerTags kSCPropNetNetInfoServerTags
-
-/*!
-  @const kSCPropNetNetInfoBroadcastServerTag
-  @discussion Value is a CFString
- */
-extern const CFStringRef kSCPropNetNetInfoBroadcastServerTag                __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA);
-#define kSCPropNetNetInfoBroadcastServerTag kSCPropNetNetInfoBroadcastServerTag
-
-/*!
-  @const kSCValNetNetInfoBindingMethodsBroadcast
- */
-extern const CFStringRef kSCValNetNetInfoBindingMethodsBroadcast            __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA);
-#define kSCValNetNetInfoBindingMethodsBroadcast kSCValNetNetInfoBindingMethodsBroadcast
-
-/*!
-  @const kSCValNetNetInfoBindingMethodsDHCP
- */
-extern const CFStringRef kSCValNetNetInfoBindingMethodsDHCP                 __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA);
-#define kSCValNetNetInfoBindingMethodsDHCP kSCValNetNetInfoBindingMethodsDHCP
-
-/*!
-  @const kSCValNetNetInfoBindingMethodsManual
- */
-extern const CFStringRef kSCValNetNetInfoBindingMethodsManual               __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA);
-#define kSCValNetNetInfoBindingMethodsManual kSCValNetNetInfoBindingMethodsManual
-
-/*!
-  @const kSCValNetNetInfoDefaultServerTag
- */
-extern const CFStringRef kSCValNetNetInfoDefaultServerTag                   __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_5,__IPHONE_NA,__IPHONE_NA);
-#define kSCValNetNetInfoDefaultServerTag kSCValNetNetInfoDefaultServerTag
-
-/*!
   @group kSCEntNetPPP Entity Keys
  */
 
@@ -2089,10 +1930,6 @@ extern const CFStringRef kSCPropNetPPPLCPTransmitACCM                       __OS
 
 /*!
   @group kSCEntNetPPPSerial Entity Keys
- */
-
-/*!
-  @group kSCEntNetPPTP Entity Keys
  */
 
 /*!

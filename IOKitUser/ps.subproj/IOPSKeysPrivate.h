@@ -54,11 +54,19 @@
 
 #if TARGET_OS_IPHONE
 
-/* kIOPSRawExternalConnectivityKey specifies if device is connected to
- * any external power source. In some cases, kIOPSPowerSourceStateKey may not
+/* kIOPSRawExternalConnectivityKey specifies if device is receiving power from
+ * an external power source. In some cases, kIOPSPowerSourceStateKey may not
  * show the external power source, if that external source is a battery
  */
 #define kIOPSRawExternalConnectivityKey     "Raw External Connected"
+
+/* kIOPSShowChargingUIKey specifies whether the UI should treat the device
+ * as charging or not. This represents whether the device is connected to
+ * any external power source capable of charging the device's battery. This is
+ * differentiated from kIOPSRawExternalConnectivityKey, in that the external
+ * power source may not be currently providing power.
+ */
+#define kIOPSShowChargingUIKey     "Show Charging UI"
 
 
 /*
@@ -128,6 +136,25 @@
  */
 #define kIOPSInvalidProductID                   0xffff
 #define kIOPSInvalidVendorID                    0xffff
+
+/*
+ * kIOPSAccessoryCategoryKey -
+ * Classifies the accessory in to one of the pre-defined categories
+ *
+ * Holds a CFStringRef, with the possible values defined below.
+ */
+#define kIOPSAccessoryCategoryKey       "Accessory Category"
+
+/*
+ * Possible Categories of accessories(kIOPSAccessoryCategoryKey)
+ */
+#define kIOPSAccessoryCategorySpeaker       "Speaker"
+#define kIOPSAccessoryCategoryHeadphone     "Headphone"
+#define kIOPSAccessoryCategoryWatch         "Watch"
+#define kIOPSAccessoryCategoryBatteryCase   "Battery Case"
+#define kIOPSAccessoryCategoryKeyboard      "Keyboard"
+#define kIOPSAccessoryCategoryUnknown       "Unknown"
+
 #endif
 
 /*
@@ -239,14 +266,27 @@
 #define kIOPSAppleBatteryCaseChemIDKey "Battery Case Chem ID"
 
 /*!
- * @define      kAppleBatteryCommandSetCurrentLimitBackOffKey
+ * @define      kIOPSAppleBatteryCaseCommandSetCurrentLimitBackOffKey
  *
  * @abstract    Tell the battery case of a PMU imposed back off in current limit.
  * @discussion
  *              <ul>
  *              <li> The matching argument should be a CFNumber of kCFNumberIntType
  *              <li> specifying the amount the PMU has reduced incoming current limit in mA.
+ *              </ul>
  */
-#define kAppleBatteryCommandSetCurrentLimitBackOffKey "Current Limit Back Off"
+#define kIOPSAppleBatteryCaseCommandSetCurrentLimitBackOffKey "Current Limit Back Off"
+
+/*!
+ * @define      kIOPSAppleBatteryCaseCommandEnableChargingKey
+ *
+ * @abstract    Tell the battery case of whether it should enable its boost to enable charging.
+ * @discussion
+ *              <ul>
+ *              <li>The matching argument should be a CFBooleanRef where kCFBooleanTrue enables charging and
+ *              <li>kCFBooleanFalse diables it.
+ *              </ul>
+ */
+#define kIOPSAppleBatteryCaseCommandEnableChargingKey "Enable Charging"
 
 #endif /* defined(_IOPSKEYSPRIVATE_H_) */

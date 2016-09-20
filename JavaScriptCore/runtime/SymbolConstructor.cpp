@@ -73,11 +73,6 @@ void SymbolConstructor::finishCreation(VM& vm, SymbolPrototype* prototype)
     JSC_COMMON_PRIVATE_IDENTIFIERS_EACH_WELL_KNOWN_SYMBOL(INITIALIZE_WELL_KNOWN_SYMBOLS)
 }
 
-bool SymbolConstructor::getOwnPropertySlot(JSObject* object, ExecState* exec, PropertyName propertyName, PropertySlot &slot)
-{
-    return getStaticFunctionSlot<Base>(exec, symbolConstructorTable, jsCast<SymbolConstructor*>(object), propertyName, slot);
-}
-
 // ------------------------------ Functions ---------------------------
 
 static EncodedJSValue JSC_HOST_CALL callSymbol(ExecState* exec)
@@ -90,13 +85,13 @@ static EncodedJSValue JSC_HOST_CALL callSymbol(ExecState* exec)
 
 ConstructType SymbolConstructor::getConstructData(JSCell*, ConstructData&)
 {
-    return ConstructTypeNone;
+    return ConstructType::None;
 }
 
 CallType SymbolConstructor::getCallData(JSCell*, CallData& callData)
 {
     callData.native.function = callSymbol;
-    return CallTypeHost;
+    return CallType::Host;
 }
 
 EncodedJSValue JSC_HOST_CALL symbolConstructorFor(ExecState* exec)
@@ -111,11 +106,13 @@ EncodedJSValue JSC_HOST_CALL symbolConstructorFor(ExecState* exec)
     return JSValue::encode(Symbol::create(exec->vm(), exec->vm().symbolRegistry().symbolForKey(string)));
 }
 
+const char* SymbolKeyForTypeError = "Symbol.keyFor requires that the first argument be a symbol";
+
 EncodedJSValue JSC_HOST_CALL symbolConstructorKeyFor(ExecState* exec)
 {
     JSValue symbolValue = exec->argument(0);
     if (!symbolValue.isSymbol())
-        return JSValue::encode(throwTypeError(exec));
+        return JSValue::encode(throwTypeError(exec, SymbolKeyForTypeError));
 
     SymbolImpl* uid = asSymbol(symbolValue)->privateName().uid();
     if (!uid->symbolRegistry())

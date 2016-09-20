@@ -6,22 +6,20 @@
 # Use ^X^W to save, ^C to abort.
 # Option -f: edit shell functions.  (Also if called as fned.)
 
-local var opt zed_file_name
+local var opts zed_file_name
 # We do not want timeout while we are editing a file
 integer TMOUT=0 okargs=1 fun bind
+local -a expand
 
-while getopts "fb" opt; do
-  case $opt in
-    (f)
-    fun=1
-    ;;
-
-    (b)
-    bind=1
-    ;;
-  esac
-done
-shift $(( OPTIND - 1 ))
+zparseopts -D -A opts f b x:
+fun=$+opts[-f]
+bind=$+opts[-b]
+if [[ $opts[-x] == <-> ]]; then
+  expand=(-x $opts[-x])
+elif (( $+opts[-x] )); then
+  print -r "Integer expected after -x: $opts[-x]" >&2
+  return 1
+fi
 
 [[ $0 = fned ]] && fun=1
 (( bind )) && okargs=0
@@ -29,8 +27,8 @@ shift $(( OPTIND - 1 ))
 if (( $# != okargs )); then
     echo 'Usage:
 zed filename
-zed -f function
-zed -b'
+zed -f [ -x N ] function
+zed -b' >&2
     return 1
 fi
 
@@ -71,10 +69,10 @@ fi
 setopt localoptions nobanghist
 
 if ((fun)) then
-  var="$(functions $1)"
+  var="$(functions $expand -- $1)"
   # If function is undefined but autoloadable, load it
   if [[ $var = *\#\ undefined* ]] then
-    var="$(autoload +X $1; functions $1)"
+    var="$(autoload +X $1; functions -- $1)"
   elif [[ -z $var ]] then
     var="$1() {
 }"

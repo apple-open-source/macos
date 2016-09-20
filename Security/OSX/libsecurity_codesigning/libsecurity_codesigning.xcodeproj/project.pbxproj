@@ -12,7 +12,7 @@
 			buildConfigurationList = C26AC0EC143BCF01001C98CE /* Build configuration list for PBXAggregateTarget "SystemPolicy" */;
 			buildPhases = (
 				C26AC0F0143BCF18001C98CE /* ShellScript */,
-				C26AC0F4143BD1C4001C98CE /* CopyFiles */,
+				1F9152F01C7255BD009351BD /* ShellScript */,
 				C2F24DFE14BCBBF200309FCD /* ShellScript */,
 				C2578CB11579627200D4FE48 /* CopyFiles */,
 				C25C18CD15CB0C470007A2DE /* CopyFiles */,
@@ -98,7 +98,6 @@
 		C25C18D115CB0FC30007A2DE /* com.apple.gkreport.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = C25C18CF15CB0FA00007A2DE /* com.apple.gkreport.plist */; };
 		C26763D714FD9EBE00A46EDF /* drmaker.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C26763D514FD9EBE00A46EDF /* drmaker.cpp */; };
 		C26763D814FD9EBE00A46EDF /* drmaker.h in Headers */ = {isa = PBXBuildFile; fileRef = C26763D614FD9EBE00A46EDF /* drmaker.h */; };
-		C26AC0F5143BD1C8001C98CE /* SystemPolicy in CopyFiles */ = {isa = PBXBuildFile; fileRef = C26AC0F3143BD1B3001C98CE /* SystemPolicy */; };
 		C26B45C10B8A9C0A003C0ACA /* ucspc in Frameworks */ = {isa = PBXBuildFile; fileRef = C26B45C00B8A9C00003C0ACA /* ucspc */; };
 		C26FF62D0E5B375A00F640A0 /* SecIntegrityLib.h in Headers */ = {isa = PBXBuildFile; fileRef = C2CC31040B8523AD005FA59D /* SecIntegrityLib.h */; settings = {ATTRIBUTES = (); }; };
 		C26FF62E0E5B375A00F640A0 /* SecCodeHostLib.h in Headers */ = {isa = PBXBuildFile; fileRef = C2BC1F340B580DA7003EC9DC /* SecCodeHostLib.h */; settings = {ATTRIBUTES = (); }; };
@@ -134,8 +133,8 @@
 		C2C3BCD30BA1E47E00E869D1 /* singlediskrep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2C3BCD10BA1E47E00E869D1 /* singlediskrep.cpp */; };
 		C2C931B40AB8BA1200F83950 /* SecCodeHost.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2C931B30AB8BA1200F83950 /* SecCodeHost.cpp */; };
 		C2CC310F0B852424005FA59D /* SecIntegrityLib.c in Sources */ = {isa = PBXBuildFile; fileRef = C2CC310E0B852424005FA59D /* SecIntegrityLib.c */; };
-		C2D2967A1BCF16C000B0A29B /* diskimagerep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D296781BCF16C000B0A29B /* diskimagerep.cpp */; settings = {ASSET_TAGS = (); }; };
-		C2D2967B1BCF16C000B0A29B /* diskimagerep.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D296791BCF16C000B0A29B /* diskimagerep.h */; settings = {ASSET_TAGS = (); }; };
+		C2D2967A1BCF16C000B0A29B /* diskimagerep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D296781BCF16C000B0A29B /* diskimagerep.cpp */; };
+		C2D2967B1BCF16C000B0A29B /* diskimagerep.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D296791BCF16C000B0A29B /* diskimagerep.h */; };
 		C2D3833C0A237F47005C63A2 /* bundlediskrep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383120A237F47005C63A2 /* bundlediskrep.cpp */; };
 		C2D3833E0A237F47005C63A2 /* cdbuilder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383140A237F47005C63A2 /* cdbuilder.cpp */; };
 		C2D383400A237F47005C63A2 /* codedirectory.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383160A237F47005C63A2 /* codedirectory.cpp */; };
@@ -152,6 +151,9 @@
 		C2D3835B0A237F47005C63A2 /* StaticCode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383310A237F47005C63A2 /* StaticCode.cpp */; };
 		C2D3835D0A237F47005C63A2 /* reqparser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383330A237F47005C63A2 /* reqparser.cpp */; };
 		C2D383610A237F47005C63A2 /* Requirements.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383370A237F47005C63A2 /* Requirements.cpp */; };
+		C2D6EA3F1C8F5158009B586F /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D6EA3E1C8F5158009B586F /* main.cpp */; };
+		C2D6EA451C8F5257009B586F /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C2D6EA441C8F5257009B586F /* Security.framework */; };
+		C2D6EA481C8F5281009B586F /* libsecurity_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C2D6EA461C8F5265009B586F /* libsecurity_utilities.a */; };
 		C2DC2DCA145F594000AD2A3A /* xar++.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2353410145F1B110073F964 /* xar++.cpp */; };
 		C2DC2DCB145F5CD000AD2A3A /* policyengine.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C27360201432A61900A9A5FF /* policyengine.cpp */; };
 		C2E2873D0B5D8D80009336A0 /* SecCodeHostLib.c in Sources */ = {isa = PBXBuildFile; fileRef = C2E2873C0B5D8D80009336A0 /* SecCodeHostLib.c */; };
@@ -159,6 +161,7 @@
 		C2F4439A14C626D4000A01E6 /* quarantine++.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2F4439814C626D4000A01E6 /* quarantine++.cpp */; };
 		C2F4439B14C626D4000A01E6 /* quarantine++.h in Headers */ = {isa = PBXBuildFile; fileRef = C2F4439914C626D4000A01E6 /* quarantine++.h */; };
 		C2F6566E0BCBFB250078779E /* cserror.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2F6566C0BCBFB250078779E /* cserror.cpp */; };
+		DC1418651CCEE2EC00CFD769 /* libutilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DC1418641CCEE2EC00CFD769 /* libutilities.a */; };
 		EB68B111150DAEEA00B4013D /* RequirementLexer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = EB68B10B150DAEBB00B4013D /* RequirementLexer.cpp */; };
 		EB68B112150DAEEA00B4013D /* RequirementParser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = EB68B10D150DAEBB00B4013D /* RequirementParser.cpp */; };
 		EB68B133150DB04400B4013D /* RequirementKeywords.h in Headers */ = {isa = PBXBuildFile; fileRef = EB68B10A150DAEBB00B4013D /* RequirementKeywords.h */; };
@@ -193,7 +196,6 @@
 		EB976FD21684D7C500A68EE6 /* TokenStreamRewriteEngine.cpp in Sources */ = {isa = PBXBuildFile; fileRef = EB976FB41684D77600A68EE6 /* TokenStreamRewriteEngine.cpp */; };
 		EB976FD31684D7C500A68EE6 /* TokenStreamSelector.cpp in Sources */ = {isa = PBXBuildFile; fileRef = EB976FB51684D77600A68EE6 /* TokenStreamSelector.cpp */; };
 		EB976FD41684D7C500A68EE6 /* TreeParser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = EB976FB61684D77600A68EE6 /* TreeParser.cpp */; };
-		EBB9FF7A1682E51300FF9774 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = EBB9FF791682E51300FF9774 /* main.c */; };
 		EBB9FF7F1682E5A200FF9774 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBB9FF7E1682E5A200FF9774 /* CoreFoundation.framework */; };
 		EBB9FFE21682E83600FF9774 /* com.apple.CodeSigningHelper.sb in CopyFiles */ = {isa = PBXBuildFile; fileRef = EBB9FF801682E65700FF9774 /* com.apple.CodeSigningHelper.sb */; };
 		EBDAF04F166D65FA0042CDCE /* piddiskrep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = EBDAF04D166D65FA0042CDCE /* piddiskrep.cpp */; };
@@ -319,16 +321,6 @@
 			dstSubfolderSpec = 0;
 			files = (
 				C25C18D115CB0FC30007A2DE /* com.apple.gkreport.plist in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		C26AC0F4143BD1C4001C98CE /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = private/var/db;
-			dstSubfolderSpec = 0;
-			files = (
-				C26AC0F5143BD1C8001C98CE /* SystemPolicy in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -495,6 +487,9 @@
 		C2D383380A237F47005C63A2 /* Requirements.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Requirements.h; sourceTree = "<group>"; };
 		C2D383390A237F47005C63A2 /* security_codesigning.exp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.exports; path = security_codesigning.exp; sourceTree = "<group>"; };
 		C2D50CDF0E155A4F0059A195 /* CSCommonPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CSCommonPriv.h; sourceTree = "<group>"; };
+		C2D6EA3E1C8F5158009B586F /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
+		C2D6EA441C8F5257009B586F /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = ../../../d/workspaces/Build/Debug/Security.framework; sourceTree = "<group>"; };
+		C2D6EA461C8F5265009B586F /* libsecurity_utilities.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_utilities.a; path = ../../../d/workspaces/Build/Debug/libsecurity_utilities.a; sourceTree = "<group>"; };
 		C2E2873C0B5D8D80009336A0 /* SecCodeHostLib.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = SecCodeHostLib.c; sourceTree = "<group>"; };
 		C2E8AF240DE25CA7000F6D3B /* SecCodePriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecCodePriv.h; sourceTree = "<group>"; };
 		C2E8AF250DE25CA7000F6D3B /* SecRequirementPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecRequirementPriv.h; sourceTree = "<group>"; };
@@ -507,6 +502,7 @@
 		C2F6566C0BCBFB250078779E /* cserror.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cserror.cpp; sourceTree = "<group>"; };
 		C2F6566D0BCBFB250078779E /* cserror.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cserror.h; sourceTree = "<group>"; };
 		CDCBE8941A1A96E8002CB2B7 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.11.Internal.sdk/System/Library/Frameworks/Security.framework; sourceTree = DEVELOPER_DIR; };
+		DC1418641CCEE2EC00CFD769 /* libutilities.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libutilities.a; path = "../../../Users/kmowery/Library/Developer/Xcode/DerivedData/Security-fkwwcnddijtngfaslvsedvgyzbou/Build/Products/Debug/libutilities.a"; sourceTree = "<group>"; };
 		EB68B10A150DAEBB00B4013D /* RequirementKeywords.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RequirementKeywords.h; sourceTree = "<group>"; };
 		EB68B10B150DAEBB00B4013D /* RequirementLexer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = RequirementLexer.cpp; sourceTree = "<group>"; };
 		EB68B10C150DAEBB00B4013D /* RequirementLexer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = RequirementLexer.hpp; sourceTree = "<group>"; };
@@ -638,6 +634,7 @@
 			files = (
 				C200424D15D425D9004AE0A1 /* libsecurity_codesigning.a in Frameworks */,
 				C200424E15D425D9004AE0A1 /* libsecurity_utilities.a in Frameworks */,
+				DC1418651CCEE2EC00CFD769 /* libutilities.a in Frameworks */,
 				7ACF261219958B6F00849B25 /* CoreFoundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -661,6 +658,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C2D6EA481C8F5281009B586F /* libsecurity_utilities.a in Frameworks */,
+				C2D6EA451C8F5257009B586F /* Security.framework in Frameworks */,
 				EBB9FF7F1682E5A200FF9774 /* CoreFoundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -871,8 +870,8 @@
 				C2C3BCD10BA1E47E00E869D1 /* singlediskrep.cpp */,
 				C28342EC0E36719D00E54360 /* detachedrep.h */,
 				C28342EB0E36719D00E54360 /* detachedrep.cpp */,
-				EBDAF04D166D65FA0042CDCE /* piddiskrep.cpp */,
 				EBDAF04E166D65FA0042CDCE /* piddiskrep.h */,
+				EBDAF04D166D65FA0042CDCE /* piddiskrep.cpp */,
 			);
 			name = "Disk Representations";
 			sourceTree = "<group>";
@@ -933,6 +932,9 @@
 		C2CC30EF0B8519CF005FA59D /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				DC1418641CCEE2EC00CFD769 /* libutilities.a */,
+				C2D6EA461C8F5265009B586F /* libsecurity_utilities.a */,
+				C2D6EA441C8F5257009B586F /* Security.framework */,
 				CDCBE8941A1A96E8002CB2B7 /* Security.framework */,
 				C200424915D425B7004AE0A1 /* libsecurity_codesigning.a */,
 				C200424A15D425B7004AE0A1 /* libsecurity_utilities.a */,
@@ -1138,6 +1140,7 @@
 			isa = PBXGroup;
 			children = (
 				EBB9FF791682E51300FF9774 /* main.c */,
+				C2D6EA3E1C8F5158009B586F /* main.cpp */,
 				EBB9FF801682E65700FF9774 /* com.apple.CodeSigningHelper.sb */,
 				EBB9FF731682E51300FF9774 /* Supporting Files */,
 			);
@@ -1325,7 +1328,7 @@
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0700;
+				LastUpgradeCheck = 0800;
 			};
 			buildConfigurationList = C263E67909A2971B000043F1 /* Build configuration list for PBXProject "libsecurity_codesigning" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -1393,12 +1396,38 @@
 			files = (
 			);
 			inputPaths = (
+				"$(SRCROOT)/",
+				"$(SRCROOT)/lib/",
+				"$(SRCROOT)/gke/",
+				"$(SRCROOT)/dtrace/",
+				"$(SRCROOT)/antlr2/",
+				"$(SRCROOT)/antlr2/contrib/",
+				"$(SRCROOT)/antlr2/contrib/bcb4/",
+				"$(SRCROOT)/antlr2/scripts/",
+				"$(SRCROOT)/antlr2/src/",
 			);
 			outputPaths = (
+				"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "ranlib \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"";
+			shellScript = "# with our source directories as input files, Xcode will only re-run this phase if there's been a source change. Also, xcode doesn't believe in recursive directory.\nranlib \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"";
+		};
+		1F9152F01C7255BD009351BD /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+				"$(TEMPDIR)/SystemPolicy",
+			);
+			outputPaths = (
+				"$(DSTROOT)/private/var/db/SystemPolicy",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/bash;
+			shellScript = "cp \"$SCRIPT_INPUT_FILE_0\" \"$SCRIPT_OUTPUT_FILE_0\"\nchmod 600 \"$SCRIPT_OUTPUT_FILE_0\"";
+			showEnvVarsInLog = 0;
 		};
 		C26AC0F0143BCF18001C98CE /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -1478,7 +1507,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/bash;
-			shellScript = "cp \"$SCRIPT_INPUT_FILE_0\" \"$SCRIPT_OUTPUT_FILE_0\"\nchmod 444 \"$SCRIPT_OUTPUT_FILE_0\"";
+			shellScript = "cp \"$SCRIPT_INPUT_FILE_0\" \"$SCRIPT_OUTPUT_FILE_0\"\nchmod 400 \"$SCRIPT_OUTPUT_FILE_0\"";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -1600,7 +1629,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				EBB9FF7A1682E51300FF9774 /* main.c in Sources */,
+				C2D6EA3F1C8F5158009B586F /* main.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1733,14 +1762,23 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 184461A1146E9AD100B12992 /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = lossless;
+				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = "SECTRUST_OSX=1";
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(PROJECT_DIR)/../include",
 					"$(PROJECT_DIR)/../utilities",
@@ -1749,6 +1787,7 @@
 					"$(PROJECT_DIR)/lib",
 					/usr/local/include,
 				);
+				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = "";
 				TEMPDIR = "$(BUILT_PRODUCTS_DIR)/cstemp";
 				WARNING_CFLAGS = (
@@ -1764,14 +1803,22 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 184461A1146E9AD100B12992 /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = "respect-asset-catalog";
+				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = "SECTRUST_OSX=1";
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(PROJECT_DIR)/../include",
 					"$(PROJECT_DIR)/../utilities",
@@ -1901,8 +1948,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
-				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
@@ -1927,6 +1972,7 @@
 				INSTALL_PATH = /System/Library/Frameworks/Security.framework/Versions/A/XPCServices;
 				MACH_O_TYPE = mh_execute;
 				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "${PRODUCT_NAME}";
 				PRODUCT_NAME = "com.apple.$(TARGET_NAME:rfc1034identifier)";
 				SKIP_INSTALL = NO;
 				WRAPPER_EXTENSION = xpc;
@@ -1937,8 +1983,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
-				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
@@ -1956,6 +2000,7 @@
 				INFOPLIST_FILE = "CodeSigningHelper/CodeSigningHelper-Info.plist";
 				INSTALL_PATH = /System/Library/Frameworks/Security.framework/Versions/A/XPCServices;
 				MACH_O_TYPE = mh_execute;
+				PRODUCT_BUNDLE_IDENTIFIER = "${PRODUCT_NAME}";
 				PRODUCT_NAME = "com.apple.$(TARGET_NAME:rfc1034identifier)";
 				SKIP_INSTALL = NO;
 				WRAPPER_EXTENSION = xpc;

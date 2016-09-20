@@ -27,10 +27,11 @@
 #include "HTMLElement.h"
 #include "HTMLNames.h"
 #include "LinkHash.h"
+#include "URLUtils.h"
 
 namespace WebCore {
 
-class RelList;
+class DOMTokenList;
 
 // Link relation bitmask values.
 // FIXME: Uncomment as the various link relations are implemented.
@@ -55,7 +56,7 @@ enum {
 //     RelationUp          = 0x00020000,
 };
 
-class HTMLAnchorElement : public HTMLElement {
+class HTMLAnchorElement : public HTMLElement, public URLUtils<HTMLAnchorElement> {
 public:
     static Ref<HTMLAnchorElement> create(Document&);
     static Ref<HTMLAnchorElement> create(const QualifiedName&, Document&);
@@ -67,27 +68,6 @@ public:
 
     const AtomicString& name() const;
 
-    String hash() const;
-    void setHash(const String&);
-
-    String host() const;
-    void setHost(const String&);
-
-    String hostname() const;
-    void setHostname(const String&);
-
-    String pathname() const;
-    void setPathname(const String&);
-
-    String port() const;
-    void setPort(const String&);
-
-    String protocol() const;
-    void setProtocol(const String&);
-
-    String search() const;
-    void setSearch(const String&);
-
     String origin() const;
 
     String text();
@@ -97,7 +77,7 @@ public:
 
     bool isLiveLink() const;
 
-    virtual bool willRespondToMouseClickEvents() override final;
+    bool willRespondToMouseClickEvents() final;
 
     bool hasRel(uint32_t relation) const;
     
@@ -109,20 +89,20 @@ public:
 protected:
     HTMLAnchorElement(const QualifiedName&, Document&);
 
-    virtual void parseAttribute(const QualifiedName&, const AtomicString&) override;
+    void parseAttribute(const QualifiedName&, const AtomicString&) override;
 
 private:
-    virtual bool supportsFocus() const override;
-    virtual bool isMouseFocusable() const override;
-    virtual bool isKeyboardFocusable(KeyboardEvent*) const override;
-    virtual void defaultEventHandler(Event*) override final;
-    virtual void setActive(bool active = true, bool pause = false) override final;
-    virtual void accessKeyAction(bool sendMouseEvents) override final;
-    virtual bool isURLAttribute(const Attribute&) const override final;
-    virtual bool canStartSelection() const override final;
-    virtual String target() const override;
-    virtual short tabIndex() const override final;
-    virtual bool draggable() const override final;
+    bool supportsFocus() const override;
+    bool isMouseFocusable() const override;
+    bool isKeyboardFocusable(KeyboardEvent*) const override;
+    void defaultEventHandler(Event*) final;
+    void setActive(bool active = true, bool pause = false) final;
+    void accessKeyAction(bool sendMouseEvents) final;
+    bool isURLAttribute(const Attribute&) const final;
+    bool canStartSelection() const final;
+    String target() const override;
+    int tabIndex() const final;
+    bool draggable() const final;
 
     void sendPings(const URL& destinationURL);
 
@@ -145,13 +125,13 @@ private:
     uint32_t m_linkRelations : 30;
     mutable LinkHash m_cachedVisitedLinkHash;
 
-    std::unique_ptr<RelList> m_relList;
+    std::unique_ptr<DOMTokenList> m_relList;
 };
 
 inline LinkHash HTMLAnchorElement::visitedLinkHash() const
 {
     if (!m_cachedVisitedLinkHash)
-        m_cachedVisitedLinkHash = WebCore::visitedLinkHash(document().baseURL(), fastGetAttribute(HTMLNames::hrefAttr));
+        m_cachedVisitedLinkHash = WebCore::visitedLinkHash(document().baseURL(), attributeWithoutSynchronization(HTMLNames::hrefAttr));
     return m_cachedVisitedLinkHash; 
 }
 

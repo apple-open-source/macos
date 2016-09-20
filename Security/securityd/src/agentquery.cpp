@@ -25,7 +25,6 @@
 // passphrases - canonical code to obtain passphrases
 //
 #include "agentquery.h"
-#include "authority.h"
 #include "ccaudit_extensions.h"
 
 #include <Security/AuthorizationTags.h>
@@ -46,7 +45,6 @@
 
 #define SECURITYAGENT_BOOTSTRAP_NAME_BASE               "com.apple.security.agent"
 #define SECURITYAGENT_LOGINWINDOW_BOOTSTRAP_NAME_BASE   "com.apple.security.agent.login"
-#define AUTHORIZATIONHOST_BOOTSTRAP_NAME_BASE           "com.apple.security.authhost"
 
 #define AUTH_XPC_ITEM_NAME  "_item_name"
 #define AUTH_XPC_ITEM_FLAGS "_item_flags"
@@ -77,52 +75,17 @@
 { 0,0,0,0, 0,0,0,0, 0,0,0,0, (unsigned char)((0xff000000 & (sessionid))>>24), (unsigned char)((0x00ff0000 & (sessionid))>>16), (unsigned char)((0x0000ff00 & (sessionid))>>8),  (unsigned char)((0x000000ff & (sessionid))) }
 
 
-// NOSA support functions. This is a test mode where the SecurityAgent
-// is simulated via stdio in the client. Good for running automated tests
-// of client programs. Only available if -DNOSA when compiling.
-
-#if defined(NOSA)
-#include <cstdarg>
-
-static void getNoSA(char *buffer, size_t bufferSize, const char *fmt, ...)
-{
-	// write prompt
-	va_list args;
-	va_start(args, fmt);
-	vfprintf(stdout, fmt, args);
-	va_end(args);
-
-	// read reply
-	memset(buffer, 0, bufferSize);
-	const char *nosa = getenv("NOSA");
-	if (!strcmp(nosa, "-")) {
-		if (fgets(buffer, bufferSize-1, stdin) == NULL)
-			CssmError::throwMe(CSSM_ERRCODE_NO_USER_INTERACTION);
-		buffer[strlen(buffer)-1] = '\0';	// remove trailing newline
-		if (!isatty(fileno(stdin)))
-			printf("%s\n", buffer);			// echo to output if input not terminal
-	} else {
-		strncpy(buffer, nosa, bufferSize-1);
-		printf("%s\n", buffer);
-	}
-	if (buffer[0] == '\0')				// empty input -> cancellation
-		CssmError::throwMe(CSSM_ERRCODE_USER_CANCELED);
-}
-#endif // NOSA
-
-
 // SecurityAgentXPCConnection
 
-SecurityAgentXPCConnection::SecurityAgentXPCConnection(const AuthHostType type, Session &session)
-: mAuthHostType(type),
-mHostInstance(session.authhost(mAuthHostType)),
+SecurityAgentXPCConnection::SecurityAgentXPCConnection(Session &session)
+: mHostInstance(session.authhost()),
 mSession(session),
 mConnection(&Server::connection()),
 mAuditToken(Server::connection().auditToken())
 {
 	// this may take a while
 	Server::active().longTermActivity();
-    secdebug("SecurityAgentConnection", "new SecurityAgentConnection(%p)", this);
+    secnotice("SecurityAgentConnection", "new SecurityAgentConnection(%p)", this);
     mXPCConnection = NULL;
     mNobodyUID = -2;
     struct passwd *pw = getpwnam("nobody");
@@ -133,7 +96,7 @@ mAuditToken(Server::connection().auditToken())
 
 SecurityAgentXPCConnection::~SecurityAgentXPCConnection()
 {
-    secdebug("SecurityAgentConnection", "SecurityAgentConnection(%p) dying", this);
+    secnotice("SecurityAgentConnection", "SecurityAgentConnection(%p) dying", this);
 	mConnection->useAgent(NULL);
 
     // If a connection has been established, we need to tear it down.
@@ -156,7 +119,7 @@ bool SecurityAgentXPCConnection::inDarkWake()
 void
 SecurityAgentXPCConnection::activate(bool ignoreUid)
 {
-    secdebug("SecurityAgentConnection", "activate(%p)", this);
+    secnotice("SecurityAgentConnection", "activate(%p)", this);
 
 	mConnection->useAgent(this);
     if (mXPCConnection != NULL) {
@@ -167,53 +130,39 @@ SecurityAgentXPCConnection::activate(bool ignoreUid)
 	try {
 		uuid_t sessionUUID = UUID_INITIALIZER_FROM_SESSIONID(mSession.sessionId());
 
-        if (mAuthHostType == securityAgent) {
-            // Yes, these need to be throws, as we're still in securityd, and thus still have to do flow control with exceptions.
-            if (!(mSession.attributes() & sessionHasGraphicAccess))
-                CssmError::throwMe(CSSM_ERRCODE_NO_USER_INTERACTION);
-            if (inDarkWake())
-                CssmError::throwMe(CSSM_ERRCODE_IN_DARK_WAKE);
-            uid_t targetUid = mHostInstance->session().originatorUid();
+		// Yes, these need to be throws, as we're still in securityd, and thus still have to do flow control with exceptions.
+		if (!(mSession.attributes() & sessionHasGraphicAccess))
+			CssmError::throwMe(CSSM_ERRCODE_NO_USER_INTERACTION);
+		if (inDarkWake())
+			CssmError::throwMe(CSSM_ERRCODE_IN_DARK_WAKE);
+		uid_t targetUid = mHostInstance->session().originatorUid();
 
-            secdebug("SecurityAgentXPCConnection","Retrieved UID %d for this session", targetUid);
-			if (!ignoreUid && targetUid != 0 && targetUid != mNobodyUID) {
-				mXPCConnection = xpc_connection_create_mach_service(SECURITYAGENT_BOOTSTRAP_NAME_BASE, NULL, 0);
-				xpc_connection_set_target_uid(mXPCConnection, targetUid);
-				secdebug("SecurityAgentXPCConnection", "Creating a standard security agent");
-			} else {
-				mXPCConnection = xpc_connection_create_mach_service(SECURITYAGENT_LOGINWINDOW_BOOTSTRAP_NAME_BASE, NULL, 0);
-				xpc_connection_set_instance(mXPCConnection, sessionUUID);
-				secdebug("SecurityAgentXPCConnection", "Creating a loginwindow security agent");
-            }
-        } else {
-            mXPCConnection = xpc_connection_create_mach_service(AUTHORIZATIONHOST_BOOTSTRAP_NAME_BASE, NULL, 0);
+		secnotice("SecurityAgentXPCConnection","Retrieved UID %d for this session", targetUid);
+		if (!ignoreUid && targetUid != 0 && targetUid != mNobodyUID) {
+			mXPCConnection = xpc_connection_create_mach_service(SECURITYAGENT_BOOTSTRAP_NAME_BASE, NULL, 0);
+			xpc_connection_set_target_uid(mXPCConnection, targetUid);
+			secnotice("SecurityAgentXPCConnection", "Creating a standard security agent");
+		} else {
+			mXPCConnection = xpc_connection_create_mach_service(SECURITYAGENT_LOGINWINDOW_BOOTSTRAP_NAME_BASE, NULL, 0);
 			xpc_connection_set_instance(mXPCConnection, sessionUUID);
-            secdebug("SecurityAgentXPCConnection", "Creating a standard authhost");
-        }
+			secnotice("SecurityAgentXPCConnection", "Creating a loginwindow security agent");
+		}
 
 		xpc_connection_set_event_handler(mXPCConnection, ^(xpc_object_t object) {
 			if (xpc_get_type(object) == XPC_TYPE_ERROR) {
-				secdebug("SecurityAgentXPCConnection", "error during xpc: %s", xpc_dictionary_get_string(object, XPC_ERROR_KEY_DESCRIPTION));
+				secnotice("SecurityAgentXPCConnection", "error during xpc: %s", xpc_dictionary_get_string(object, XPC_ERROR_KEY_DESCRIPTION));
 			}
 		});
 		xpc_connection_resume(mXPCConnection);
-		secdebug("SecurityAgentXPCConnection", "%p activated", this);
+		secnotice("SecurityAgentXPCConnection", "%p activated", this);
 	}
     catch (MacOSError &err) {
 		mConnection->useAgent(NULL);	// guess not
-        Syslog::error("SecurityAgentConnection: error activating %s instance %p",
-                      mAuthHostType == privilegedAuthHost
-                      ? "authorizationhost"
-                      : "SecurityAgent", this);
+        Syslog::error("SecurityAgentConnection: error activating SecurityAgent instance %p", this);
 		throw;
 	}
 
-    secdebug("SecurityAgentXPCConnection", "contact didn't throw (%p)", this);
-}
-
-void
-SecurityAgentXPCConnection::reconnect()
-{
+    secnotice("SecurityAgentXPCConnection", "contact didn't throw (%p)", this);
 }
 
 void
@@ -250,15 +199,15 @@ SecurityAgentXPCQuery::killAllXPCClients()
 }
 
 
-SecurityAgentXPCQuery::SecurityAgentXPCQuery(const AuthHostType type, Session &session)
-: SecurityAgentXPCConnection(type, session), mAgentConnected(false), mTerminateOnSleep(false)
+SecurityAgentXPCQuery::SecurityAgentXPCQuery(Session &session)
+: SecurityAgentXPCConnection(session), mAgentConnected(false), mTerminateOnSleep(false)
 {
-    secdebug("SecurityAgentXPCQuery", "new SecurityAgentXPCQuery(%p)", this);
+    secnotice("SecurityAgentXPCQuery", "new SecurityAgentXPCQuery(%p)", this);
 }
 
 SecurityAgentXPCQuery::~SecurityAgentXPCQuery()
 {
-    secdebug("SecurityAgentXPCQuery", "SecurityAgentXPCQuery(%p) dying", this);
+    secnotice("SecurityAgentXPCQuery", "SecurityAgentXPCQuery(%p) dying", this);
     if (mAgentConnected) {
         this->disconnect();
     }
@@ -267,14 +216,11 @@ SecurityAgentXPCQuery::~SecurityAgentXPCQuery()
 void
 SecurityAgentXPCQuery::inferHints(Process &thisProcess)
 {
-    string guestPath;
-	if (SecCodeRef clientCode = thisProcess.currentGuest())
-		guestPath = codePath(clientCode);
-
     AuthItemSet clientHints;
     SecurityAgent::RequestorType type = SecurityAgent::bundle;
     pid_t clientPid = thisProcess.pid();
     uid_t clientUid = thisProcess.uid();
+    string guestPath = thisProcess.getPath();
 
 	clientHints.insert(AuthItemRef(AGENT_HINT_CLIENT_TYPE, AuthValueOverlay(sizeof(type), &type)));
 	clientHints.insert(AuthItemRef(AGENT_HINT_CLIENT_PATH, AuthValueOverlay(guestPath)));
@@ -386,16 +332,16 @@ SecurityAgentXPCQuery::create(const char *pluginId, const char *mechanismId)
         if (doSwitchAudit) {
             mach_port_name_t jobPort;
             if (0 == audit_session_port(mSession.sessionId(), &jobPort)) {
-                secdebug("SecurityAgentXPCQuery", "attaching an audit session port because the uid was %d", targetUid);
+                secnotice("SecurityAgentXPCQuery", "attaching an audit session port because the uid was %d", targetUid);
                 xpc_dictionary_set_mach_send(requestObject, AUTH_XPC_AUDIT_SESSION_PORT, jobPort);
                 if (mach_port_mod_refs(mach_task_self(), jobPort, MACH_PORT_RIGHT_SEND, -1) != KERN_SUCCESS) {
-                    secdebug("SecurityAgentXPCQuery", "unable to release send right for audit session, leaking");
+                    secnotice("SecurityAgentXPCQuery", "unable to release send right for audit session, leaking");
                 }
             }
         }
 
         if (doSwitchBootstrap) {
-            secdebug("SecurityAgentXPCQuery", "attaching a bootstrap port because the uid was %d", targetUid);
+            secnotice("SecurityAgentXPCQuery", "attaching a bootstrap port because the uid was %d", targetUid);
             MachPlusPlus::Bootstrap processBootstrap = Server::process().taskPort().bootstrap();
             xpc_dictionary_set_mach_send(requestObject, AUTH_XPC_BOOTSTRAP_PORT, processBootstrap);
         }
@@ -408,7 +354,7 @@ SecurityAgentXPCQuery::create(const char *pluginId, const char *mechanismId)
                 if (status == kAuthorizationResultAllow) {
                     mAgentConnected = true;
                 } else {
-                    secdebug("SecurityAgentXPCQuery", "plugin create failed in SecurityAgent");
+                    secnotice("SecurityAgentXPCQuery", "plugin create failed in SecurityAgent");
                     MacOSError::throwMe(errAuthorizationInternal);
                 }
             }
@@ -416,11 +362,11 @@ SecurityAgentXPCQuery::create(const char *pluginId, const char *mechanismId)
             if (XPC_ERROR_CONNECTION_INVALID == object) {
                 // If we get an error before getting the create response, try again without the UID
                 if (ignoreUid) {
-                    secdebug("SecurityAgentXPCQuery", "failed to establish connection, no retries left");
+                    secnotice("SecurityAgentXPCQuery", "failed to establish connection, no retries left");
                     xpc_release(object);
                     MacOSError::throwMe(errAuthorizationInternal);
                 } else {
-                    secdebug("SecurityAgentXPCQuery", "failed to establish connection, retrying with no UID");
+                    secnotice("SecurityAgentXPCQuery", "failed to establish connection, retrying with no UID");
                     ignoreUid = true;
                     xpc_release(mXPCConnection);
                     mXPCConnection = NULL;
@@ -529,33 +475,7 @@ Reason QueryKeychainUse::queryUser (const char *database, const char *descriptio
     Reason reason = SecurityAgent::noReason;
     int retryCount = 0;
 	OSStatus status;
-	AuthValueVector arguments;
 	AuthItemSet hints, context;
-
-#if defined(NOSA)
-	if (getenv("NOSA")) {
-		char answer[maxPassphraseLength+10];
-
-        string applicationPath;
-        AuthItem *applicationPathItem = mClientHints.find(AGENT_HINT_APPLICATION_PATH);
-		if (applicationPathItem)
-		  applicationPathItem->getString(applicationPath);
-
-		getNoSA(answer, sizeof(answer), "Allow %s to do %d on %s in %s? [yn][g]%s ",
-			applicationPath.c_str(), int(action), (description ? description : "[NULL item]"),
-			(database ? database : "[NULL database]"),
-			mPassphraseCheck ? ":passphrase" : "");
-		// turn passphrase (no ':') into y:passphrase
-		if (mPassphraseCheck && !strchr(answer, ':')) {
-			memmove(answer+2, answer, strlen(answer)+1);
-			memcpy(answer, "y:", 2);
-		}
-
-		allow = answer[0] == 'y';
-		remember = answer[1] == 'g';
-		return SecurityAgent::noReason;
-	}
-#endif
 
 	// prepopulate with client hints
 	hints.insert(mClientHints.begin(), mClientHints.end());
@@ -620,50 +540,6 @@ Reason QueryKeychainUse::queryUser (const char *database, const char *descriptio
 	return reason;
 }
 
-//
-// Perform code signature ACL access adjustment dialogs
-//
-bool QueryCodeCheck::operator () (const char *aclPath)
-{
-	OSStatus status;
-	AuthValueVector arguments;
-	AuthItemSet hints, context;
-
-#if defined(NOSA)
-	if (getenv("NOSA")) {
-		char answer[10];
-
-        string applicationPath;
-        AuthItem *applicationPathItem = mClientHints.find(AGENT_HINT_APPLICATION_PATH);
-		if (applicationPathItem)
-		  applicationPathItem->getString(applicationPath);
-
-		getNoSA(answer, sizeof(answer),
-				"Allow %s to match an ACL for %s [yn][g]? ",
-				applicationPath.c_str(), aclPath ? aclPath : "(unknown)");
-		allow = answer[0] == 'y';
-		remember = answer[1] == 'g';
-		return;
-	}
-#endif
-
-	// prepopulate with client hints
-	hints.insert(mClientHints.begin(), mClientHints.end());
-
-	hints.insert(AuthItemRef(AGENT_HINT_APPLICATION_PATH, AuthValueOverlay((uint32_t)strlen(aclPath), const_cast<char*>(aclPath))));
-
-	create("builtin", "code-identity");
-
-    setInput(hints, context);
-	status = invoke();
-
-    checkResult();
-
-//	MacOSError::check(status);
-
-    return kAuthorizationResultAllow == mLastResult;
-}
-
 
 //
 // Obtain passphrases and submit them to the accept() method until it is accepted
@@ -674,20 +550,9 @@ Reason QueryOld::query()
 {
 	Reason reason = SecurityAgent::noReason;
 	OSStatus status;
-	AuthValueVector arguments;
 	AuthItemSet hints, context;
 	CssmAutoData passphrase(Allocator::standard(Allocator::sensitive));
 	int retryCount = 0;
-
-#if defined(NOSA)
-    // return the passphrase
-	if (getenv("NOSA")) {
-        char passphrase_[maxPassphraseLength];
-		getNoSA(passphrase, maxPassphraseLength, "Unlock %s [<CR> to cancel]: ", database.dbName());
-	passphrase.copy(passphrase_, strlen(passphrase_));
-    	return database.decode(passphrase) ? SecurityAgent::noReason : SecurityAgent::invalidPassphrase;
-	}
-#endif
 
 	// prepopulate with client hints
 
@@ -780,7 +645,6 @@ Reason QueryKeybagPassphrase::query()
 {
 	Reason reason = SecurityAgent::noReason;
 	OSStatus status;
-	AuthValueVector arguments;
 	AuthItemSet hints, context;
 	CssmAutoData passphrase(Allocator::standard(Allocator::sensitive));
 	int retryCount = 0;
@@ -843,7 +707,6 @@ Reason QueryKeybagNewPassphrase::query(CssmOwnedData &oldPassphrase, CssmOwnedDa
     CssmAutoData oldPass(Allocator::standard(Allocator::sensitive));
     Reason reason = SecurityAgent::noReason;
 	OSStatus status;
-	AuthValueVector arguments;
 	AuthItemSet hints, context;
 	int retryCount = 0;
 
@@ -935,20 +798,9 @@ Reason QueryNewPassphrase::query()
 	CssmAutoData oldPassphrase(Allocator::standard(Allocator::sensitive));
 
     OSStatus status;
-	AuthValueVector arguments;
 	AuthItemSet hints, context;
 
 	int retryCount = 0;
-
-#if defined(NOSA)
-	if (getenv("NOSA")) {
-        char passphrase_[maxPassphraseLength];
-		getNoSA(passphrase_, maxPassphraseLength,
-			"New passphrase for %s (reason %d) [<CR> to cancel]: ",
-			database.dbName(), reason);
-		return SecurityAgent::noReason;
-	}
-#endif
 
 	// prepopulate with client hints
 	hints.insert(mClientHints.begin(), mClientHints.end());
@@ -1063,15 +915,7 @@ Reason QueryGenericPassphrase::query(const CssmData *prompt, bool verify,
 {
     Reason reason = SecurityAgent::noReason;
     OSStatus status;    // not really used; remove?
-    AuthValueVector arguments;
     AuthItemSet hints, context;
-
-#if defined(NOSA)
-    if (getenv("NOSA")) {
-		// FIXME  3690984
-		return SecurityAgent::noReason;
-    }
-#endif
 
     hints.insert(mClientHints.begin(), mClientHints.end());
     hints.insert(AuthItemRef(AGENT_HINT_CUSTOM_PROMPT, AuthValueOverlay(prompt ? (UInt32)prompt->length() : 0, prompt ? prompt->data() : NULL)));
@@ -1082,8 +926,6 @@ Reason QueryGenericPassphrase::query(const CssmData *prompt, bool verify,
     if (false == verify) {  // import
 		create("builtin", "generic-unlock");
     } else {		// verify passphrase (export)
-					// new-passphrase-generic works with the pre-4 June 2004 agent;
-					// generic-new-passphrase is required for the new agent
 		create("builtin", "generic-new-passphrase");
     }
 
@@ -1116,15 +958,7 @@ Reason QueryDBBlobSecret::query(DbHandle *dbHandleArray, uint8 dbHandleArrayCoun
     Reason reason = SecurityAgent::noReason;
 	CssmAutoData passphrase(Allocator::standard(Allocator::sensitive));
     OSStatus status;    // not really used; remove?
-    AuthValueVector arguments;
     AuthItemSet hints/*NUKEME*/, context;
-
-#if defined(NOSA)
-    if (getenv("NOSA")) {
-		// FIXME  akin to 3690984
-		return SecurityAgent::noReason;
-    }
-#endif
 
 	hints.insert(mClientHints.begin(), mClientHints.end());
 	create("builtin", "generic-unlock-kcblob");
@@ -1169,7 +1003,7 @@ Reason QueryDBBlobSecret::accept(CssmManagedData &passphrase,
 		try
 		{
 			RefPointer<KeychainDatabase> dbToUnlock = Server::keychain(*currHdl);
-			dbToUnlock->unlockDb(passphrase);
+			dbToUnlock->unlockDb(passphrase, false);
 			authenticated = true;
 			*dbHandleAuthenticated = *currHdl; // return the DbHandle that 'passphrase' authenticated with.
 		}
@@ -1190,39 +1024,12 @@ QueryKeychainAuth::operator () (const char *database, const char *description, A
 {
     Reason reason = SecurityAgent::noReason;
     AuthItemSet hints, context;
-	AuthValueVector arguments;
 	int retryCount = 0;
 	string username;
 	string password;
 
     using CommonCriteria::Securityd::KeychainAuthLogger;
     KeychainAuthLogger logger(mAuditToken, AUE_ssauthint, database, description);
-
-#if defined(NOSA)
-    /* XXX/gh  probably not complete; stolen verbatim from rogue-app query */
-    if (getenv("NOSA")) {
-		char answer[maxPassphraseLength+10];
-
-        string applicationPath;
-        AuthItem *applicationPathItem = mClientHints.find(AGENT_HINT_APPLICATION_PATH);
-		if (applicationPathItem)
-		  applicationPathItem->getString(applicationPath);
-
-		getNoSA(answer, sizeof(answer), "Allow %s to do %d on %s in %s? [yn][g]%s ",
-			applicationPath.c_str(), int(action), (description ? description : "[NULL item]"),
-			(database ? database : "[NULL database]"),
-			mPassphraseCheck ? ":passphrase" : "");
-		// turn passphrase (no ':') into y:passphrase
-		if (mPassphraseCheck && !strchr(answer, ':')) {
-			memmove(answer+2, answer, strlen(answer)+1);
-			memcpy(answer, "y:", 2);
-		}
-
-		allow = answer[0] == 'y';
-		remember = answer[1] == 'g';
-		return SecurityAgent::noReason;
-    }
-#endif
 
     hints.insert(mClientHints.begin(), mClientHints.end());
 

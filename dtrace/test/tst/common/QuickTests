@@ -1,5 +1,4 @@
-# perl ../../cmd/scripts/dtest.pl -d /var/tmp/Sandbox/ `grep -v '#' QuickTests `
-# N.B. The shell gets tetchy when the "grep -v" just above returns more than 29K characters or so.
+perf/perf.launchtime.ksh
 begin/tst.begin.d
 begin/tst.multibegin.d
 end/tst.end.d
@@ -11,6 +10,7 @@ error/tst.DTRACEFLT_DIVZERO.d
 error/tst.DTRACEFLT_UNKNOWN.d
 error/tst.error.d
 error/tst.errorend.d
+error/tst.noerror.d
 fbtprovider/tst.basic.d
 fbtprovider/tst.functionentry.d
 fbtprovider/tst.functionreturnvalue.d

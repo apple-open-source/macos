@@ -189,6 +189,25 @@ _SecKeychainRestoreBackupFromFileDescriptor(int fd, CFDataRef backupKeybag, CFDa
     return result;
 }
 
+/*
+ * Current promise is that this is low memory usage, so in the current format, ask securityd
+ * to resolve the item for us.
+ */
+
+CFStringRef
+_SecKeychainCopyKeybagUUIDFromFileDescriptor(int fd, CFErrorRef *error)
+{
+    __block CFStringRef result;
+    os_activity_initiate("_SecKeychainCopyKeybagUUID", OS_ACTIVITY_FLAG_DEFAULT, ^{
+        securityd_send_sync_and_do(sec_keychain_backup_keybag_uuid_id, error, ^bool(xpc_object_t message, CFErrorRef *error) {
+            return SecXPCDictionarySetFileDescriptor(message, kSecXPCKeyFileDescriptor, fd, error);
+        }, ^bool(xpc_object_t response, CFErrorRef *error) {
+            return (result = SecXPCDictionaryCopyString(response, kSecXPCKeyResult, error));
+        });
+    });
+    return result;
+}
+
 
 OSStatus _SecKeychainRestoreBackup(CFDataRef backup, CFDataRef backupKeybag,
                                    CFDataRef password) {

@@ -62,7 +62,7 @@ void SVGAltGlyphElement::setGlyphRef(const AtomicString&, ExceptionCode& ec)
 
 const AtomicString& SVGAltGlyphElement::glyphRef() const
 {
-    return fastGetAttribute(SVGNames::glyphRefAttr);
+    return attributeWithoutSynchronization(SVGNames::glyphRefAttr);
 }
 
 void SVGAltGlyphElement::setFormat(const AtomicString&, ExceptionCode& ec)
@@ -72,7 +72,7 @@ void SVGAltGlyphElement::setFormat(const AtomicString&, ExceptionCode& ec)
 
 const AtomicString& SVGAltGlyphElement::format() const
 {
-    return fastGetAttribute(SVGNames::formatAttr);
+    return attributeWithoutSynchronization(SVGNames::formatAttr);
 }
 
 bool SVGAltGlyphElement::childShouldCreateRenderer(const Node& child) const
@@ -82,9 +82,9 @@ bool SVGAltGlyphElement::childShouldCreateRenderer(const Node& child) const
     return false;
 }
 
-RenderPtr<RenderElement> SVGAltGlyphElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
+RenderPtr<RenderElement> SVGAltGlyphElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
 {
-    return createRenderer<RenderSVGTSpan>(*this, WTF::move(style));
+    return createRenderer<RenderSVGTSpan>(*this, WTFMove(style));
 }
 
 bool SVGAltGlyphElement::hasValidGlyphElements(Vector<String>& glyphNames) const

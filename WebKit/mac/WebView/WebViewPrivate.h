@@ -198,10 +198,8 @@ typedef enum {
 
 @interface WebView (WebPendingPublic)
 
-#if !TARGET_OS_IPHONE
 - (void)scheduleInRunLoop:(NSRunLoop *)runLoop forMode:(NSString *)mode;
 - (void)unscheduleFromRunLoop:(NSRunLoop *)runLoop forMode:(NSString *)mode;
-#endif
 
 - (BOOL)findString:(NSString *)string options:(WebFindOptions)options;
 - (DOMRange *)DOMRangeOfString:(NSString *)string relativeTo:(DOMRange *)previousRange options:(WebFindOptions)options;
@@ -518,9 +516,6 @@ Could be worth adding to the API.
 + (NSString *)_decodeData:(NSData *)data;
 
 + (void)_setAlwaysUsesComplexTextCodePath:(BOOL)f;
-
-+ (void)_setAllowsRoundingHacks:(BOOL)allowsRoundingHacks;
-+ (BOOL)_allowsRoundingHacks;
 
 #if !TARGET_OS_IPHONE
 - (NSCachedURLResponse *)_cachedResponseForURL:(NSURL *)URL;
@@ -853,6 +848,10 @@ Could be worth adding to the API.
 - (CGFloat)_gapBetweenPages;
 - (NSUInteger)_pageCount;
 
+// Whether or not a line grid is enabled by default when paginated via the pagination API.
+- (void)_setPaginationLineGridEnabled:(BOOL)lineGridEnabled;
+- (BOOL)_paginationLineGridEnabled;
+
 #if !TARGET_OS_IPHONE
 - (void)_setCustomBackingScaleFactor:(CGFloat)overrideScaleFactor;
 - (CGFloat)_backingScaleFactor;
@@ -1066,6 +1065,12 @@ Could be worth adding to the API.
 @interface NSObject (WebViewResourceLoadDelegatePrivate)
 // Addresses <rdar://problem/5008925> - SPI for now
 - (NSCachedURLResponse *)webView:(WebView *)sender resource:(id)identifier willCacheResponse:(NSCachedURLResponse *)response fromDataSource:(WebDataSource *)dataSource;
+@end
+
+@interface WebView (WebShowCandidates)
+- (void)showCandidates:(NSArray *)candidates forString:(NSString *)string inRect:(NSRect)rectOfTypedString forSelectedRange:(NSRange)range view:(NSView *)view completionHandler:(void (^)(NSTextCheckingResult *acceptedCandidate))completionBlock;
+- (void)forceRequestCandidatesForTesting;
+- (BOOL)shouldRequestCandidates;
 @end
 
 #ifdef __cplusplus

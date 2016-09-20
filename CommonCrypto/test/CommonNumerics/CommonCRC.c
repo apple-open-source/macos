@@ -44,7 +44,7 @@ doCRC(CNcrc alg, char *data, uint64_t expected)
     return 0;
 }
 
-int CommonCRCTest(int argc, char *const *argv)
+int CommonCRCTest(int __unused argc, char *const * __unused argv)
 {
 	plan_tests(kTestTestCount);
     doCRC(kCN_CRC_32_Adler, "Mark Adler", 0x13070394);

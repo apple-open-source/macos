@@ -57,6 +57,9 @@ Access to internal hash tables via special associative arrays.
 item(tt(zsh/pcre))(
 Interface to the PCRE library.
 )
+item(tt(zsh/param/private))(
+Builtins for managing private-scoped parameters in function context.
+)
 item(tt(zsh/regex))(
 Interface to the POSIX regex library.
 )
@@ -159,10 +162,13 @@ includefile(Zsh/mod_newuser.yo)
 texinode(The zsh/parameter Module)(The zsh/pcre Module)(The zsh/newuser Module)(Zsh Modules)
 sect(The zsh/parameter Module)
 includefile(Zsh/mod_parameter.yo)
-texinode(The zsh/pcre Module)(The zsh/regex Module)(The zsh/parameter Module)(Zsh Modules)
+texinode(The zsh/pcre Module)(The zsh/param/private Module)(The zsh/parameter Module)(Zsh Modules)
 sect(The zsh/pcre Module)
 includefile(Zsh/mod_pcre.yo)
-texinode(The zsh/regex Module)(The zsh/sched Module)(The zsh/pcre Module)(Zsh Modules)
+texinode(The zsh/param/private Module)(The zsh/regex Module)(The zsh/pcre Module)(Zsh Modules)
+sect(The zsh/param/private Module)
+includefile(Zsh/mod_private.yo)
+texinode(The zsh/regex Module)(The zsh/sched Module)(The zsh/param/private Module)(Zsh Modules)
 sect(The zsh/regex Module)
 includefile(Zsh/mod_regex.yo)
 texinode(The zsh/sched Module)(The zsh/net/socket Module)(The zsh/regex Module)(Zsh Modules)

@@ -493,7 +493,7 @@ giant copyGiant(giant x)
 
 unsigned bitlen(giant n) {
     unsigned 	b = GIANT_BITS_PER_DIGIT;
-    giantDigit 	c = 1 << (GIANT_BITS_PER_DIGIT - 1);
+    giantDigit 	c = ((giantDigit)1) << (GIANT_BITS_PER_DIGIT - 1);
     giantDigit 	w;
 
     if (isZero(n)) {
@@ -512,9 +512,9 @@ unsigned bitlen(giant n) {
 
 int bitval(giant n, int pos) {
     int i = abs(pos) >> GIANT_LOG2_BITS_PER_DIGIT;
-    giantDigit c = 1 << (pos & (GIANT_BITS_PER_DIGIT - 1));
+    giantDigit c = ((giantDigit)1) << (pos & (GIANT_BITS_PER_DIGIT - 1));
 
-    return((n->n[i]) & c);
+    return ((0!=((n->n[i]) & c))?1:0);
 }
 
 int gsign(giant g)

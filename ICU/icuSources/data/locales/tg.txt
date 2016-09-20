@@ -1,22 +1,20 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2014 International Business Machines
+// * Copyright (C) 2015 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/tg.xml
 // *
 // ***************************************************************************
-/**
- * ICU <specials> source: <path>/common/main/tg.xml
- */
 tg{
     AuxExemplarCharacters{"[ц щ ы ь]"}
     ExemplarCharacters{"[а б в г ғ д е ё ж з и ӣ й к қ л м н о п р с т у ӯ ф х ҳ ч ҷ ш ъ э ю я]"}
     ExemplarCharactersIndex{"[А Б В Г Ғ Д Е Ж З И Й К Қ Л М Н О П Р С Т У Ф Х Ҳ Ч Ҷ Ш Ъ Э Ю Я]"}
-    LocaleScript{
-        "Cyrl",
+    NumberElements{
+        default{"latn"}
+        native{"latn"}
     }
-    Version{"2.1.7.53"}
+    Version{"2.1.19.94"}
     calendar{
         generic{
             DateTimePatterns{

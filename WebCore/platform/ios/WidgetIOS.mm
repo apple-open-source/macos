@@ -26,7 +26,6 @@
 #import "config.h"
 #import "Widget.h"
 
-#import "BlockExceptions.h"
 #import "Cursor.h"
 #import "Document.h"
 #import "FontCascade.h"
@@ -40,6 +39,7 @@
 #import "WAKWindow.h"
 #import "WebCoreFrameView.h"
 #import "WebCoreView.h"
+#import <wtf/BlockObjCExceptions.h>
 #import <wtf/RetainPtr.h>
 
 @interface NSView (WebSetSelectedMethods)
@@ -141,14 +141,14 @@ NSView* Widget::getOuterView() const
     return view;
 }
 
-void Widget::paint(GraphicsContext* p, const IntRect& r)
+void Widget::paint(GraphicsContext& p, const IntRect& r)
 {
-    if (p->paintingDisabled())
+    if (p.paintingDisabled())
         return;
     
     NSView *view = getOuterView();
 
-    CGContextRef cgContext = p->platformContext();
+    CGContextRef cgContext = p.platformContext();
     CGContextSaveGState(cgContext);
 
     NSRect viewFrame = [view frame];

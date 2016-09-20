@@ -1,4 +1,153 @@
 =================
+WebKitGTK+ 2.13.3
+=================
+
+What's new in WebKitGTK+ 2.13.3?
+
+  - Fix Web Process deadlocks when loading HLS videos.
+  - Make videos work when painted into a canvas when accelerated compositing is enabled.
+  - Fix flickering with animated GIFs.
+  - Fix a Web Process crash when video repaint is requested with GStreamer GL enabled.
+  - Reduce the amount of file descriptors that the Web Process keeps open.
+  - Make memory pressure handler work when cgroups are not available.
+  - Fix several crashes and rendering issues.
+
+=================
+WebKitGTK+ 2.13.2
+=================
+
+What's new in WebKitGTK+ 2.13.2?
+
+  - Properly redraw the web view when reparented in force compositing mode.
+  - Flip the volume control layout in media controls on RTL.
+  - Add support for video orientation to the GStreamer media backend.
+  - Fix several crashes and rendering issues.
+
+=================
+WebKitGTK+ 2.13.1
+=================
+
+What's new in WebKitGTK+ 2.13.1?
+
+  - CSS Grid Layout has been unprefixed and can be enabled as an experimental feature at runtime.
+  - The HTTP disk cache implements speculative resources revalidation.
+  - Add a new WebKitSetting to allow universal access from file URLs.
+  - Fix several crashes and rendering issues.
+
+=================
+WebKitGTK+ 2.11.5
+=================
+
+What's new in WebKitGTK+ 2.11.5?
+
+  - Switch FTL to use B3 backend instead of LLVM.
+  - Add support for windowless NPAPI plugins with no UI in non X11 platforms.
+  - Fix a deadlock in the Web Process when JavaScript garbage collector was running for a web
+    worker thread that made google maps to hang.
+  - Fix a Web Process crash when quickly attempting many DnD operations.
+  - Fix scrollbars rendering with older versions of GTK+.
+  - Fix a crash when creating a WebKitWebView without providing a WebKitWebContext.
+
+=================
+WebKitGTK+ 2.11.4
+=================
+
+What's new in WebKitGTK+ 2.11.4?
+
+  - Prefer to link to LLVM shared libraries when building with FTL enabled.
+  - Fix runtime errors when serializing/deserializing session state.
+  - Fix critical warnings when loading a URL after a session restore.
+  - Fix the build with GTK+ < 3.14.
+  - Fix the build with video support disabled.
+
+=================
+WebKitGTK+ 2.11.3
+=================
+
+What's new in WebKitGTK+ 2.11.3?
+
+  - NetworkProcess is now used unconditionally. The shared secondary process model is now
+    the same as using the multiple process model and setting a process limit of 1.
+  - Disable DNS prefetch when a proxy is configured.
+  - Reduce the maximum simultaneous network connections to match other browsers.
+  - Extend notifications API to notify WebKit when a notification is clicked by the user.
+  - Add new API to save and restore a WebView session.
+  - Add Web Extensions API to be notified about console messages.
+  - Add WebKitURIRequest API to get the HTTP method.
+  - Add API to handle beforeunload events.
+  - Make WebKitWebView always propagate motion-notify-event signal.
+  - Add a way to force accelerating compositing mode at runtime using an environment variable.
+  - Fix input elements and scrollbars rendering with GTK+ 3.19.
+  - Fix a crash in the UI process when the WebView is destroyed while the screensaver DBus proxy
+    is being created.
+  - Fix a WebProcess crash when loading large contents with custom URI schemes API.
+  - Fix UI process crashes related to not having a main resource response when the load is committed
+    for pages restored from the history cache.
+  - Translation updates: French, German, Turkish
+
+=================
+WebKitGTK+ 2.11.2
+=================
+
+What's new in WebKitGTK+ 2.11.2?
+
+  - Enable FTL by default in JavaScriptCore for x86_64.
+  - Improved media backend performance by better handling glib main loop sources.
+  - Fix rendering of lines when using solid colors.
+  - Fix web process crashes due to BadDrawable X errors in accelerated compositing mode.
+  - Translation updates: Italian.
+
+=================
+WebKitGTK+ 2.11.1
+=================
+
+What's new in WebKitGTK+ 2.11.1?
+
+  - Improved general performance by better handling glib main loop sources.
+  - Add autocleanups support to GObjects exposed in public API.
+  - Fixed dashed and dotted border painting.
+  - Upload the accelerated canvas as a texture by copying via GPU directly.
+  - Popup menus no longer use a nested main loop.
+
+=================
+WebKitGTK+  2.9.5
+=================
+
+What's new in WebKitGTK+ 2.9.5?
+
+  - Add API to set the maximum number of web processes per WebKitWebContext.
+  - Add API to allow executing editing commands that require an argument.
+  - Prevent clipboard contents from being lost when web process finishes.
+  - Always allow font matching for strong aliases
+  - Move GStreamer missing plugins installer to the UI process.
+  - Fix empty space in popup menus when first item is selected.
+  - Fix a crash when SoupSession is destroyed in exit handler.
+  - Disable NPAPI plugins when running on Wayland.
+  - Translation updates: Swedish.
+
+=================
+WebKitGTK+  2.9.4
+=================
+
+What's new in WebKitGTK+ 2.9.4?
+
+  - Fix the window size reported when the web view isn't realized yet. This fixes
+    the layout of some websites when opening new tabs in the browser and anchor links
+    when opened in new tabs too.
+  - Add API to be notified about editor state changes.
+  - Add selection-changed signal to the Web Extensions API.
+  - Add initial WebKitWebsiteDataManager API for process configuration options.
+  - Make WebSQL work by using a default quota instead of always failing in openDatabase
+    with DOM Exception 18.
+  - Correctly restore accelerated compositing after a WebProcess crash.
+  - Only enable the input methods filter when there's an editable element focused.
+  - Fix a crash on memory allocation using bmalloc on 32bit systems.
+  - Allow to build with X11 and Wayland targets at the same time.
+  - Fix a crash when spell checker returns no guesses.
+  - Update and optimize some of the web inspector icons.
+  - Translation updates: Swedish.
+
+=================
 WebKitGTK+  2.9.3
 =================
 

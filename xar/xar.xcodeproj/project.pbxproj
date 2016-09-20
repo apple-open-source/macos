@@ -36,8 +36,8 @@
 			buildPhases = (
 			);
 			dependencies = (
+				E9D7864E1D25A366006D5F7D /* PBXTargetDependency */,
 				B41FC13109F6BF6300006FAE /* PBXTargetDependency */,
-				B41FC13509F6BF6300006FAE /* PBXTargetDependency */,
 				B401A30309F6D71800B5C762 /* PBXTargetDependency */,
 			);
 			name = "All libraries";
@@ -62,9 +62,9 @@
 			buildPhases = (
 			);
 			dependencies = (
+				E9D786501D25A4B1006D5F7D /* PBXTargetDependency */,
 				E9D659B01486FFED0089C4DA /* PBXTargetDependency */,
 				E9D659B21486FFED0089C4DA /* PBXTargetDependency */,
-				E9D659B41486FFED0089C4DA /* PBXTargetDependency */,
 				E9D659B61486FFED0089C4DA /* PBXTargetDependency */,
 				E9D659B81486FFED0089C4DA /* PBXTargetDependency */,
 			);
@@ -129,6 +129,8 @@
 		B476FACF0A49E68600BCD61F /* signature.c in Sources */ = {isa = PBXBuildFile; fileRef = B476FACC0A49E68600BCD61F /* signature.c */; };
 		B4772CA30A003F7300E4205C /* xar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B4772CA20A003F6E00E4205C /* xar.h */; };
 		E9C0E6741497DDAB00BF8F0F /* ea.h in Headers */ = {isa = PBXBuildFile; fileRef = E9C0E6731497DDAB00BF8F0F /* ea.h */; };
+		E9D786581D260606006D5F7D /* lzmaxar.c in Sources */ = {isa = PBXBuildFile; fileRef = 98665C700EA83E44008193F1 /* lzmaxar.c */; };
+		E9D7865D1D2606F9006D5F7D /* ea.c in Sources */ = {isa = PBXBuildFile; fileRef = 98665C6E0EA83E36008193F1 /* ea.c */; };
 		EEEFF3E60EFB700A00DBC955 /* xar-sig.c in Sources */ = {isa = PBXBuildFile; fileRef = EEEFF3DC0EFB6FC500DBC955 /* xar-sig.c */; };
 		EEEFF40E0EFB715100DBC955 /* libxar.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = B41FC05F09F6B7C200006FAE /* libxar.1.dylib */; };
 /* End PBXBuildFile section */
@@ -161,13 +163,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = B41FC05E09F6B7C200006FAE;
 			remoteInfo = xarLib;
-		};
-		B41FC13409F6BF6300006FAE /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = B41FC04109F6B74500006FAE /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = B41FC0F309F6BE2F00006FAE;
-			remoteInfo = xarStatic;
 		};
 		E914353F1497E0F6001AA5EF /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -218,13 +213,6 @@
 			remoteGlobalIDString = B41FC0E109F6BD6800006FAE;
 			remoteInfo = xarTool;
 		};
-		E9D659B31486FFED0089C4DA /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = B41FC04109F6B74500006FAE /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = B41FC0F309F6BE2F00006FAE;
-			remoteInfo = xarStatic;
-		};
 		E9D659B51486FFED0089C4DA /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = B41FC04109F6B74500006FAE /* Project object */;
@@ -238,6 +226,20 @@
 			proxyType = 1;
 			remoteGlobalIDString = EEEFF3DF0EFB6FD500DBC955;
 			remoteInfo = xarsig;
+		};
+		E9D7864D1D25A366006D5F7D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B41FC04109F6B74500006FAE /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B41FC0F309F6BE2F00006FAE;
+			remoteInfo = xarStatic;
+		};
+		E9D7864F1D25A4B1006D5F7D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B41FC04109F6B74500006FAE /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B41FC0F309F6BE2F00006FAE;
+			remoteInfo = xarStatic;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -333,7 +335,7 @@
 		B41FC0E209F6BD6800006FAE /* xar */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = xar; sourceTree = BUILT_PRODUCTS_DIR; };
 		B41FC0EA09F6BDD900006FAE /* xar.1 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.man; name = xar.1; path = xar/src/xar.1; sourceTree = "<group>"; };
 		B41FC0EB09F6BDD900006FAE /* xar.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = xar.c; path = xar/src/xar.c; sourceTree = "<group>"; };
-		B41FC0F409F6BE2F00006FAE /* libxar.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libxar.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		B41FC0F409F6BE2F00006FAE /* libxarstatic.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libxarstatic.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		B41FC12409F6BF3300006FAE /* README */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = README; sourceTree = "<group>"; };
 		B41FC12509F6BF3300006FAE /* xar.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = xar.plist; sourceTree = "<group>"; };
 		B41FC12609F6BF3300006FAE /* xar.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = xar.txt; sourceTree = "<group>"; };
@@ -408,7 +410,7 @@
 			children = (
 				B41FC05F09F6B7C200006FAE /* libxar.1.dylib */,
 				B41FC0E209F6BD6800006FAE /* xar */,
-				B41FC0F409F6BE2F00006FAE /* libxar.a */,
+				B41FC0F409F6BE2F00006FAE /* libxarstatic.a */,
 				EEEFF3E00EFB6FD500DBC955 /* xarsig */,
 			);
 			name = Products;
@@ -576,7 +578,7 @@
 			);
 			name = xarStatic;
 			productName = xarStatic;
-			productReference = B41FC0F409F6BE2F00006FAE /* libxar.a */;
+			productReference = B41FC0F409F6BE2F00006FAE /* libxarstatic.a */;
 			productType = "com.apple.product-type.library.static";
 		};
 		EEEFF3DF0EFB6FD500DBC955 /* xarsig */ = {
@@ -602,7 +604,7 @@
 		B41FC04109F6B74500006FAE /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0500;
+				LastUpgradeCheck = 0800;
 			};
 			buildConfigurationList = B41FC04209F6B74500006FAE /* Build configuration list for PBXProject "xar" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -714,6 +716,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E9D7865D1D2606F9006D5F7D /* ea.c in Sources */,
+				E9D786581D260606006D5F7D /* lzmaxar.c in Sources */,
 				B41FC0F809F6BE9100006FAE /* archive.c in Sources */,
 				B41FC0F909F6BE9100006FAE /* arcmod.c in Sources */,
 				B41FC0FA09F6BE9100006FAE /* b64.c in Sources */,
@@ -768,11 +772,6 @@
 			target = B41FC05E09F6B7C200006FAE /* xarLib */;
 			targetProxy = B41FC13009F6BF6300006FAE /* PBXContainerItemProxy */;
 		};
-		B41FC13509F6BF6300006FAE /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = B41FC0F309F6BE2F00006FAE /* xarStatic */;
-			targetProxy = B41FC13409F6BF6300006FAE /* PBXContainerItemProxy */;
-		};
 		E91435401497E0F6001AA5EF /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = B41FC04F09F6B76200006FAE /* configure */;
@@ -808,11 +807,6 @@
 			target = B41FC0E109F6BD6800006FAE /* xarTool */;
 			targetProxy = E9D659B11486FFED0089C4DA /* PBXContainerItemProxy */;
 		};
-		E9D659B41486FFED0089C4DA /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = B41FC0F309F6BE2F00006FAE /* xarStatic */;
-			targetProxy = E9D659B31486FFED0089C4DA /* PBXContainerItemProxy */;
-		};
 		E9D659B61486FFED0089C4DA /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = B41FC12109F6BEF900006FAE /* OpenSource */;
@@ -822,6 +816,16 @@
 			isa = PBXTargetDependency;
 			target = EEEFF3DF0EFB6FD500DBC955 /* xarsig */;
 			targetProxy = E9D659B71486FFED0089C4DA /* PBXContainerItemProxy */;
+		};
+		E9D7864E1D25A366006D5F7D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B41FC0F309F6BE2F00006FAE /* xarStatic */;
+			targetProxy = E9D7864D1D25A366006D5F7D /* PBXContainerItemProxy */;
+		};
+		E9D786501D25A4B1006D5F7D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B41FC0F309F6BE2F00006FAE /* xarStatic */;
+			targetProxy = E9D7864F1D25A4B1006D5F7D /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -833,8 +837,9 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DYLIB_COMPATIBILITY_VERSION = 1.0;
 				DYLIB_CURRENT_VERSION = 1.3;
-				GCC_GENERATE_TEST_COVERAGE_FILES = YES;
-				GCC_INSTRUMENT_PROGRAM_FLOW_ARCS = YES;
+				ENABLE_TESTABILITY = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx.internal;
 				STRIP_STYLE = debugging;
 				VALID_ARCHS = "i386 x86_64";
 				VERSIONING_SYSTEM = "apple-generic";
@@ -848,6 +853,7 @@
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DYLIB_COMPATIBILITY_VERSION = 1.0;
 				DYLIB_CURRENT_VERSION = 1.3;
+				SDKROOT = macosx.internal;
 				VALID_ARCHS = "i386 x86_64";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
@@ -878,6 +884,7 @@
 		B41FC06209F6B7C300006FAE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				EXECUTABLE_PREFIX = lib;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -890,6 +897,10 @@
 					"$(TARGET_BUILD_DIR)/include",
 				);
 				INSTALL_PATH = /usr/lib;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/usr/lib/system",
+				);
 				PREBINDING = NO;
 				PRODUCT_NAME = xar.1;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -900,6 +911,7 @@
 		B41FC06309F6B7C300006FAE /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				EXECUTABLE_PREFIX = lib;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -910,6 +922,10 @@
 					"$(TARGET_BUILD_DIR)/include",
 				);
 				INSTALL_PATH = /usr/lib;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/usr/lib/system",
+				);
 				PREBINDING = NO;
 				PRODUCT_NAME = xar.1;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -920,7 +936,6 @@
 		B41FC0E709F6BD8C00006FAE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -941,7 +956,6 @@
 		B41FC0E809F6BD8C00006FAE /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
@@ -960,6 +974,7 @@
 		B41FC0F609F6BE7F00006FAE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -971,8 +986,9 @@
 					"$(TARGET_BUILD_DIR)/include",
 				);
 				INSTALL_PATH = /usr/local/lib;
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
 				PREBINDING = NO;
-				PRODUCT_NAME = xar;
+				PRODUCT_NAME = xarstatic;
 				VERSIONING_SYSTEM = "apple-generic";
 				ZERO_LINK = YES;
 			};
@@ -981,6 +997,7 @@
 		B41FC0F709F6BE7F00006FAE /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
@@ -990,8 +1007,9 @@
 					"$(TARGET_BUILD_DIR)/include",
 				);
 				INSTALL_PATH = /usr/local/lib;
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
 				PREBINDING = NO;
-				PRODUCT_NAME = xar;
+				PRODUCT_NAME = xarstatic;
 				VERSIONING_SYSTEM = "apple-generic";
 				ZERO_LINK = NO;
 			};
@@ -1071,7 +1089,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -1089,7 +1106,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;

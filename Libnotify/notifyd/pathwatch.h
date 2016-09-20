@@ -64,6 +64,7 @@ typedef struct
 {
 	char *path;
 	size_t plen;
+	pid_t pid;
 	uid_t uid;
 	gid_t gid;
 	uint32_t pname_count;
@@ -78,7 +79,7 @@ typedef struct
 	uint32_t refcount;
 } path_node_t;
 
-path_node_t *path_node_create(const char *path, uid_t uid, gid_t gid, uint32_t mask, dispatch_queue_t queue);
+path_node_t *path_node_create(const char *path, pid_t pid, uid_t uid, gid_t gid, uint32_t mask, dispatch_queue_t queue);
 void path_node_close(path_node_t *pnode);
 
 #endif /* _PATHWATCH_H_ */

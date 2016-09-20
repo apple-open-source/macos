@@ -86,7 +86,7 @@ void CFAutoPort::enable()
 		}
 		CFRunLoopAddSource(CFRunLoopGetCurrent(), mSource, kCFRunLoopCommonModes);
 		mEnabled = true;
-		secdebug("autoport", "%p enabled", this);
+		secinfo("autoport", "%p enabled", this);
 	}
 }
 
@@ -100,7 +100,7 @@ void CFAutoPort::disable()
 	if (mEnabled) {
 		CFRunLoopRemoveSource(CFRunLoopGetCurrent(), mSource, kCFRunLoopCommonModes);
 		mEnabled = false;
-		secdebug("autoport", "%p disabled", this);
+		secinfo("autoport", "%p disabled", this);
 	}
 }
 
@@ -114,13 +114,13 @@ static int gNumTimesCalled = 0;
 void CFAutoPort::cfCallback(CFMachPortRef cfPort, void *msg, CFIndex size, void *context)
 {
 	++gNumTimesCalled;
-	secdebug("adhoc", "Callback was called %d times.", gNumTimesCalled);
+	secinfo("adhoc", "Callback was called %d times.", gNumTimesCalled);
 
 	Message message(msg, (mach_msg_size_t)size);
 	try {
 		reinterpret_cast<CFAutoPort *>(context)->receive(message);
 	} catch (...) {
-		secdebug("autoport", "%p receive handler failed with exception", context);
+		secinfo("autoport", "%p receive handler failed with exception", context);
 	}
 }
 

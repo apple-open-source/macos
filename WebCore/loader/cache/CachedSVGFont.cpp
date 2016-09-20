@@ -31,17 +31,14 @@
 
 #include "FontDescription.h"
 #include "FontPlatformData.h"
+#include "NoEventDispatchAssertion.h"
 #include "SVGDocument.h"
-#include "SVGFontData.h"
 #include "SVGFontElement.h"
 #include "SVGFontFaceElement.h"
 #include "SharedBuffer.h"
 #include "TextResourceDecoder.h"
 #include "TypedElementDescendantIterator.h"
-
-#if ENABLE(SVG_OTF_CONVERTER)
 #include "SVGToOTFFontConversion.h"
-#endif
 
 namespace WebCore {
 
@@ -51,18 +48,10 @@ CachedSVGFont::CachedSVGFont(const ResourceRequest& resourceRequest, SessionID s
 {
 }
 
-RefPtr<Font> CachedSVGFont::createFont(const FontDescription& fontDescription, const AtomicString& remoteURI, bool syntheticBold, bool syntheticItalic, bool externalSVG, const FontFeatureSettings& fontFaceFeatures, const FontVariantSettings& fontFaceVariantSettings)
+RefPtr<Font> CachedSVGFont::createFont(const FontDescription& fontDescription, const AtomicString& remoteURI, bool syntheticBold, bool syntheticItalic, const FontFeatureSettings& fontFaceFeatures, const FontVariantSettings& fontFaceVariantSettings)
 {
-#if ENABLE(SVG_OTF_CONVERTER)
-    if (!externalSVG || firstFontFace(remoteURI))
-        return CachedFont::createFont(fontDescription, remoteURI, syntheticBold, syntheticItalic, externalSVG, fontFaceFeatures, fontFaceVariantSettings);
-#else
-    if (!externalSVG)
-        return CachedFont::createFont(fontDescription, remoteURI, syntheticBold, syntheticItalic, externalSVG, fontFaceFeatures, fontFaceVariantSettings);
-
-    if (SVGFontFaceElement* firstFontFace = this->firstFontFace(remoteURI))
-        return Font::create(std::make_unique<SVGFontData>(firstFontFace), fontDescription.computedPixelSize(), syntheticBold, syntheticItalic);
-#endif
+    if (firstFontFace(remoteURI))
+        return CachedFont::createFont(fontDescription, remoteURI, syntheticBold, syntheticItalic, fontFaceFeatures, fontFaceVariantSettings);
     return nullptr;
 }
 
@@ -73,35 +62,35 @@ FontPlatformData CachedSVGFont::platformDataFromCustomData(const FontDescription
     return CachedFont::platformDataFromCustomData(fontDescription, bold, italic, fontFaceFeatures, fontFaceVariantSettings);
 }
 
-bool CachedSVGFont::ensureCustomFontData(bool externalSVG, const AtomicString& remoteURI)
+bool CachedSVGFont::ensureCustomFontData(const AtomicString& remoteURI)
 {
-    if (!externalSVG)
-        return CachedFont::ensureCustomFontData(externalSVG, remoteURI);
-
     if (!m_externalSVGDocument && !errorOccurred() && !isLoading() && m_data) {
+        // We may get here during render tree updates when events are forbidden.
+        // Frameless document can't run scripts or call back to the client so this is safe.
+        auto count = NoEventDispatchAssertion::dropTemporarily();
+
         m_externalSVGDocument = SVGDocument::create(nullptr, URL());
         RefPtr<TextResourceDecoder> decoder = TextResourceDecoder::create("application/xml");
         m_externalSVGDocument->setContent(decoder->decodeAndFlush(m_data->data(), m_data->size()));
-#if !ENABLE(SVG_OTF_CONVERTER)
+
+        NoEventDispatchAssertion::restoreDropped(count);
+
         if (decoder->sawError())
             m_externalSVGDocument = nullptr;
-#else
-        if (decoder->sawError())
-            m_externalSVGDocument = nullptr;
-        else
+        if (m_externalSVGDocument)
             maybeInitializeExternalSVGFontElement(remoteURI);
         if (!m_externalSVGFontElement)
             return false;
-        Vector<char> convertedFont = convertSVGToOTFFont(*m_externalSVGFontElement);
-        m_convertedFont = SharedBuffer::adoptVector(convertedFont);
-#endif
+        if (auto convertedFont = convertSVGToOTFFont(*m_externalSVGFontElement))
+            m_convertedFont = SharedBuffer::adoptVector(convertedFont.value());
+        else {
+            m_externalSVGDocument = nullptr;
+            m_externalSVGFontElement = nullptr;
+            return false;
+        }
     }
 
-#if !ENABLE(SVG_OTF_CONVERTER)
-    return m_externalSVGDocument;
-#else
     return m_externalSVGDocument && CachedFont::ensureCustomFontData(m_convertedFont.get());
-#endif
 }
 
 SVGFontElement* CachedSVGFont::getSVGFontById(const String& fontName) const

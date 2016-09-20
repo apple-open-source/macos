@@ -28,8 +28,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MediaSource_h
-#define MediaSource_h
+#pragma once
 
 #if ENABLE(MEDIA_SOURCE)
 
@@ -49,7 +48,7 @@ namespace WebCore {
 
 class GenericEventQueue;
 
-class MediaSource : public MediaSourcePrivateClient, public ActiveDOMObject, public EventTargetWithInlineData, public ScriptWrappable, public URLRegistrable {
+class MediaSource : public MediaSourcePrivateClient, public ActiveDOMObject, public EventTargetWithInlineData, public URLRegistrable {
 public:
     static void setRegistry(URLRegistry*);
     static MediaSource* lookup(const String& url) { return s_registry ? static_cast<MediaSource*>(s_registry->lookup(url)) : 0; }
@@ -67,14 +66,16 @@ public:
     bool isOpen() const;
     bool isClosed() const;
     bool isEnded() const;
-    void sourceBufferDidChangeAcitveState(SourceBuffer*, bool);
-    void streamEndedWithError(const AtomicString& error, ExceptionCode&);
+    void sourceBufferDidChangeActiveState(SourceBuffer&, bool);
+
+    enum class EndOfStreamError { Network, Decode };
+    void streamEndedWithError(Optional<EndOfStreamError>);
 
     // MediaSourcePrivateClient
-    virtual void setPrivateAndOpen(Ref<MediaSourcePrivate>&&) override;
-    virtual MediaTime duration() const override;
-    virtual std::unique_ptr<PlatformTimeRanges> buffered() const override;
-    virtual void seekToTime(const MediaTime&) override;
+    void setPrivateAndOpen(Ref<MediaSourcePrivate>&&) override;
+    MediaTime duration() const override;
+    std::unique_ptr<PlatformTimeRanges> buffered() const override;
+    void seekToTime(const MediaTime&) override;
 
     bool attachToElement(HTMLMediaElement*);
     void close();
@@ -87,8 +88,7 @@ public:
     MediaTime currentTime() const;
     const AtomicString& readyState() const { return m_readyState; }
     void setReadyState(const AtomicString&);
-    void endOfStream(ExceptionCode&);
-    void endOfStream(const AtomicString& error, ExceptionCode&);
+    void endOfStream(Optional<EndOfStreamError>, ExceptionCode&);
 
     HTMLMediaElement* mediaElement() const { return m_mediaElement; }
 
@@ -96,17 +96,17 @@ public:
     SourceBufferList* sourceBuffers() { return m_sourceBuffers.get(); }
     SourceBufferList* activeSourceBuffers() { return m_activeSourceBuffers.get(); }
     SourceBuffer* addSourceBuffer(const String& type, ExceptionCode&);
-    void removeSourceBuffer(SourceBuffer*, ExceptionCode&);
+    void removeSourceBuffer(SourceBuffer&, ExceptionCode&);
     static bool isTypeSupported(const String& type);
 
     // EventTarget interface
-    virtual ScriptExecutionContext* scriptExecutionContext() const override final;
-    virtual void refEventTarget() override final { ref(); }
-    virtual void derefEventTarget() override final { deref(); }
-    virtual EventTargetInterface eventTargetInterface() const override;
+    ScriptExecutionContext* scriptExecutionContext() const final;
+    void refEventTarget() final { ref(); }
+    void derefEventTarget() final { deref(); }
+    EventTargetInterface eventTargetInterface() const override;
 
     // URLRegistrable interface
-    virtual URLRegistry& registry() const override;
+    URLRegistry& registry() const override;
 
     using RefCounted<MediaSourcePrivateClient>::ref;
     using RefCounted<MediaSourcePrivateClient>::deref;
@@ -119,7 +119,7 @@ protected:
 
     // ActiveDOMObject API.
     void stop() override;
-    bool canSuspendForPageCache() const override;
+    bool canSuspendForDocumentSuspension() const override;
     const char* activeDOMObjectName() const override;
 
     void onReadyStateChange(const AtomicString& oldState, const AtomicString& newState);
@@ -136,6 +136,7 @@ protected:
     RefPtr<MediaSourcePrivate> m_private;
     RefPtr<SourceBufferList> m_sourceBuffers;
     RefPtr<SourceBufferList> m_activeSourceBuffers;
+    mutable std::unique_ptr<PlatformTimeRanges> m_buffered;
     HTMLMediaElement* m_mediaElement;
     MediaTime m_duration;
     MediaTime m_pendingSeekTime;
@@ -144,7 +145,5 @@ protected:
 };
 
 }
-
-#endif
 
 #endif

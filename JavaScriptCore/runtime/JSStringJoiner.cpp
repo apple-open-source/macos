@@ -30,6 +30,10 @@
 
 namespace JSC {
 
+JSStringJoiner::~JSStringJoiner()
+{
+}
+
 template<typename CharacterType>
 static inline void appendStringToData(CharacterType*& data, StringView string)
 {
@@ -44,7 +48,7 @@ static inline String joinStrings(const Vector<StringViewWithUnderlyingString>& s
 
     CharacterType* data;
     String result = StringImpl::tryCreateUninitialized(joinedLength, data);
-    if (result.isNull())
+    if (UNLIKELY(result.isNull()))
         return result;
 
     appendStringToData(data, strings[0].view);
@@ -113,7 +117,7 @@ JSValue JSStringJoiner::join(ExecState& state)
     if (result.isNull())
         return throwOutOfMemoryError(&state);
 
-    return jsString(&state, WTF::move(result));
+    return jsString(&state, WTFMove(result));
 }
 
 }

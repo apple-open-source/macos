@@ -122,13 +122,15 @@ session_get_key(session_t session)
 session_id_t
 session_get_id(session_t session)
 {
-    return session ? session->auditinfo.ai_asid : -1;
+    assert(session); // marked non-null
+    return session->auditinfo.ai_asid;
 }
 
 uid_t
 session_get_uid(session_t session)
 {
-    return session ? session->auditinfo.ai_auid : (uid_t)-2;
+    assert(session); // marked non-null
+    return session->auditinfo.ai_auid;
 }
 
 CFIndex

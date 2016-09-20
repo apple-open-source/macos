@@ -38,9 +38,9 @@ class CachedSVGFont final : public CachedFont {
 public:
     CachedSVGFont(const ResourceRequest&, SessionID);
 
-    virtual bool ensureCustomFontData(bool externalSVG, const AtomicString& remoteURI) override;
+    bool ensureCustomFontData(const AtomicString& remoteURI) override;
     
-    virtual RefPtr<Font> createFont(const FontDescription&, const AtomicString& remoteURI, bool syntheticBold, bool syntheticItalic, bool externalSVG, const FontFeatureSettings&, const FontVariantSettings&) override;
+    RefPtr<Font> createFont(const FontDescription&, const AtomicString& remoteURI, bool syntheticBold, bool syntheticItalic, const FontFeatureSettings&, const FontVariantSettings&) override;
 
 private:
     FontPlatformData platformDataFromCustomData(const FontDescription&, bool bold, bool italic, const FontFeatureSettings&, const FontVariantSettings&);
@@ -50,9 +50,7 @@ private:
     SVGFontElement* maybeInitializeExternalSVGFontElement(const AtomicString& remoteURI);
     SVGFontFaceElement* firstFontFace(const AtomicString& remoteURI);
 
-#if ENABLE(SVG_OTF_CONVERTER)
     RefPtr<SharedBuffer> m_convertedFont;
-#endif
     RefPtr<SVGDocument> m_externalSVGDocument;
     SVGFontElement* m_externalSVGFontElement;
 };

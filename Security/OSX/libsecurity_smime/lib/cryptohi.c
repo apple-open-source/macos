@@ -43,6 +43,18 @@
 #include <Security/SecKeyPriv.h>
 #include <Security/cssmapple.h>
 
+#if !USE_CDSA_CRYPTO
+#include <Security/SecItem.h>
+#endif
+
+#ifdef	NDEBUG
+#define CSSM_PERROR(f, r)
+#define dprintf(args...)
+#else
+#define CSSM_PERROR(f, r)   cssmPerror(f, r)
+#define dprintf(args...)    fprintf(stderr, args)
+#endif
+
 static CSSM_CSP_HANDLE gCsp = 0;
 static char gCssmInitialized = 0;
 
@@ -92,6 +104,63 @@ loser:
     return gCsp;
 }
 
+OSStatus cmsNullWrapKey(SecKeyRef refKey,
+                               CSSM_KEY_PTR rawKey)
+{
+    CSSM_DATA descData = {0, 0};
+    CSSM_RETURN crtn;
+    CSSM_CC_HANDLE ccHand;
+    CSSM_ACCESS_CREDENTIALS creds;
+    CSSM_CSP_HANDLE refCspHand = CSSM_INVALID_HANDLE;
+    const CSSM_KEY *cssmKey = NULL;
+    uint32 keyAttr;
+
+    memset(&creds, 0, sizeof(CSSM_ACCESS_CREDENTIALS));
+    memset(rawKey, 0, sizeof(CSSM_KEY));
+
+    crtn = SecKeyGetCSSMKey(refKey, &cssmKey);
+    if(crtn) {
+        CSSM_PERROR("SecKeyGetCSSMKey", crtn);
+        goto loser;
+    }
+    crtn = SecKeyGetCSPHandle(refKey, &refCspHand);
+    if(crtn) {
+        CSSM_PERROR("SecKeyGetCSPHandle", crtn);
+        goto loser;
+    }
+
+    crtn = CSSM_CSP_CreateSymmetricContext(refCspHand,
+                                           CSSM_ALGID_NONE,
+                                           CSSM_ALGMODE_NONE,
+                                           &creds,
+                                           NULL,			// unwrappingKey
+                                           NULL,			// initVector
+                                           CSSM_PADDING_NONE,
+                                           0,				// Params
+                                           &ccHand);
+    if(crtn) {
+        CSSM_PERROR("CSSM_CSP_CreateSymmetricContext", crtn);
+        return crtn;
+    }
+
+    keyAttr = rawKey->KeyHeader.KeyAttr;
+    keyAttr &= ~(CSSM_KEYATTR_ALWAYS_SENSITIVE | CSSM_KEYATTR_NEVER_EXTRACTABLE |
+                 CSSM_KEYATTR_MODIFIABLE);
+    keyAttr |= CSSM_KEYATTR_RETURN_DATA | CSSM_KEYATTR_EXTRACTABLE;
+    crtn = CSSM_WrapKey(ccHand,
+                        &creds,
+                        cssmKey,
+                        &descData,
+                        rawKey);
+    if(crtn != CSSM_OK) {
+        CSSM_PERROR("CSSM_WrapKey", crtn);
+    }
+    CSSM_DeleteContext(ccHand);
+
+loser:
+    return crtn;
+}
+
 CSSM_ALGORITHMS
 SECOID_FindyCssmAlgorithmByTag(SECOidTag algTag)
 {
@@ -99,140 +168,263 @@ SECOID_FindyCssmAlgorithmByTag(SECOidTag algTag)
     return oidData ? oidData->cssmAlgorithm : CSSM_ALGID_NONE;
 }
 
-static SECStatus SEC_CssmRtnToSECStatus(CSSM_RETURN rv)
-{
-    CSSM_RETURN crtn = CSSM_ERRCODE(rv);
-    switch(crtn) {
-	case CSSM_ERRCODE_USER_CANCELED:
-	case CSSM_ERRCODE_OPERATION_AUTH_DENIED:
-	case CSSM_ERRCODE_OBJECT_USE_AUTH_DENIED:
-	    return SEC_ERROR_USER_CANCELLED;
-	case CSSM_ERRCODE_NO_USER_INTERACTION:
-	    return SEC_ERROR_NO_USER_INTERACTION;
-	case CSSMERR_CSP_KEY_USAGE_INCORRECT:
-	    return SEC_ERROR_INADEQUATE_KEY_USAGE;
-	default:
-	    fprintf(stderr, "CSSM_SignData returned: %08X\n", (uint32_t)rv);
-	    return SEC_ERROR_LIBRARY_FAILURE;
+
+static void SEC_PrintCFError(CFErrorRef CF_RELEASES_ARGUMENT error) {
+    if (error) {
+    CFStringRef errorDesc = CFErrorCopyDescription(error);
+    fprintf(stderr, "SecKey API returned: %ld, %s", CFErrorGetCode(error),
+            errorDesc ? CFStringGetCStringPtr(errorDesc, kCFStringEncodingUTF8) : "");
+    CFRelease(error);
+    if (errorDesc) { CFRelease(errorDesc); }
     }
+
+}
+
+/* The new SecKey API has made this very painful */
+static SecKeyAlgorithm SECOID_FindSecKeyAlgorithmByTags(SECOidTag sigAlgTag, SECOidTag digAlgTag, bool isDigest) {
+    switch(sigAlgTag) {
+        case(SEC_OID_PKCS1_MD5_WITH_RSA_ENCRYPTION):
+            if (digAlgTag == SEC_OID_MD5) {
+                return ((isDigest) ? kSecKeyAlgorithmRSASignatureDigestPKCS1v15MD5 :
+                        kSecKeyAlgorithmRSASignatureMessagePKCS1v15MD5);
+            }
+            break;
+        case(SEC_OID_PKCS1_SHA1_WITH_RSA_ENCRYPTION):
+            if (digAlgTag == SEC_OID_SHA1) {
+                return ((isDigest) ? kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA1
+                        : kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA1);
+            }
+            break;
+        case(SEC_OID_PKCS1_SHA256_WITH_RSA_ENCRYPTION):
+            if (digAlgTag == SEC_OID_SHA256) {
+                return ((isDigest) ? kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA256
+                        : kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA256);
+            }
+            break;
+        case(SEC_OID_PKCS1_SHA384_WITH_RSA_ENCRYPTION):
+            if (digAlgTag == SEC_OID_SHA384) {
+                return ((isDigest) ? kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA384
+                        : kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA384);
+            }
+            break;
+        case(SEC_OID_PKCS1_SHA512_WITH_RSA_ENCRYPTION):
+            if (digAlgTag == SEC_OID_SHA512) {
+                return ((isDigest) ? kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA512
+                        : kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA512);
+            }
+            break;
+        case(SEC_OID_PKCS1_RSA_ENCRYPTION):
+            switch (digAlgTag) {
+                case (SEC_OID_MD5):
+                    return ((isDigest) ? kSecKeyAlgorithmRSASignatureDigestPKCS1v15MD5 :
+                            kSecKeyAlgorithmRSASignatureMessagePKCS1v15MD5);
+                case(SEC_OID_SHA1):
+                    return ((isDigest) ? kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA1
+                            : kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA1);
+                case(SEC_OID_SHA256):
+                    return ((isDigest) ? kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA256
+                            : kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA256);
+                case(SEC_OID_SHA384):
+                    return ((isDigest) ? kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA384
+                            : kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA384);
+                case(SEC_OID_SHA512):
+                    return ((isDigest) ? kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA512
+                            : kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA512);
+                default:
+                    return NULL;
+            }
+        case(SEC_OID_ECDSA_WithSHA1):
+            if (digAlgTag == SEC_OID_SHA1) {
+                return ((isDigest) ? kSecKeyAlgorithmECDSASignatureDigestX962
+                        : kSecKeyAlgorithmECDSASignatureMessageX962SHA1);
+            }
+            break;
+        case(SEC_OID_ECDSA_WITH_SHA256):
+            if (digAlgTag == SEC_OID_SHA256) {
+                return ((isDigest) ? kSecKeyAlgorithmECDSASignatureDigestX962
+                        : kSecKeyAlgorithmECDSASignatureMessageX962SHA256);
+            }
+            break;
+        case(SEC_OID_ECDSA_WITH_SHA384):
+            if (digAlgTag == SEC_OID_SHA384) {
+                return ((isDigest) ? kSecKeyAlgorithmECDSASignatureDigestX962
+                        : kSecKeyAlgorithmECDSASignatureMessageX962SHA384);
+            }
+            break;
+        case(SEC_OID_ECDSA_WITH_SHA512):
+            if (digAlgTag == SEC_OID_SHA512) {
+                return ((isDigest) ? kSecKeyAlgorithmECDSASignatureDigestX962
+                        : kSecKeyAlgorithmECDSASignatureMessageX962SHA512);
+            }
+            break;
+        case(SEC_OID_EC_PUBLIC_KEY):
+        case(SEC_OID_SECP_256_R1):
+        case(SEC_OID_SECP_384_R1):
+        case(SEC_OID_SECP_521_R1):
+            switch (digAlgTag) {
+                case(SEC_OID_SHA1):
+                    return ((isDigest) ? kSecKeyAlgorithmECDSASignatureDigestX962
+                            : kSecKeyAlgorithmECDSASignatureMessageX962SHA1);
+                case(SEC_OID_SHA256):
+                    return ((isDigest) ? kSecKeyAlgorithmECDSASignatureDigestX962
+                            : kSecKeyAlgorithmECDSASignatureMessageX962SHA256);
+                case(SEC_OID_SHA384):
+                    return ((isDigest) ? kSecKeyAlgorithmECDSASignatureDigestX962
+                            : kSecKeyAlgorithmECDSASignatureMessageX962SHA384);
+                case(SEC_OID_SHA512):
+                    return ((isDigest) ? kSecKeyAlgorithmECDSASignatureDigestX962
+                            : kSecKeyAlgorithmECDSASignatureMessageX962SHA512);
+                default:
+                    return NULL;
+            }
+        default:
+            return NULL;
+    }
+    return NULL;
+}
+
+CFStringRef SECOID_CopyKeyTypeByTag(SECOidTag tag) {
+    CFStringRef keyType = NULL;
+
+    switch(tag) {
+        case(SEC_OID_RC2_CBC):
+        case(SEC_OID_CMS_RC2_KEY_WRAP):
+            keyType = kSecAttrKeyTypeRC2;
+            break;
+        case(SEC_OID_RC4):
+            keyType = kSecAttrKeyTypeRC4;
+            break;
+        case(SEC_OID_DES_ECB):
+        case(SEC_OID_DES_CBC):
+        case(SEC_OID_DES_OFB):
+        case(SEC_OID_DES_CFB):
+            keyType = kSecAttrKeyTypeDES;
+            break;
+        case(SEC_OID_DES_EDE):
+        case(SEC_OID_DES_EDE3_CBC):
+        case(SEC_OID_CMS_3DES_KEY_WRAP):
+            keyType = kSecAttrKeyType3DES;
+            break;
+        case(SEC_OID_AES_128_ECB):
+        case(SEC_OID_AES_128_CBC):
+        case(SEC_OID_AES_192_ECB):
+        case(SEC_OID_AES_192_CBC):
+        case(SEC_OID_AES_256_ECB):
+        case(SEC_OID_AES_256_CBC):
+        case(SEC_OID_AES_128_KEY_WRAP):
+        case(SEC_OID_AES_192_KEY_WRAP):
+        case(SEC_OID_AES_256_KEY_WRAP):
+            keyType = kSecAttrKeyTypeAES;
+            break;
+        default:
+            keyType = NULL;
+    }
+
+    return keyType;
+}
+
+static SECStatus SGN_SignAll(uint8_t *buf, size_t len,
+                             SecPrivateKeyRef pk, SECItem *resultSignature,
+                             SECOidTag digAlgTag, SECOidTag sigAlgTag,
+                             bool isDigest) {
+    OSStatus rv  = SECFailure;
+    CFDataRef signature = NULL, dataToSign = NULL;
+    CFErrorRef error = NULL;
+    SecKeyAlgorithm keyAlg = NULL;
+
+    keyAlg = SECOID_FindSecKeyAlgorithmByTags(sigAlgTag, digAlgTag, isDigest);
+
+    /* we no longer support signing with MD5 */
+    if (keyAlg == kSecKeyAlgorithmRSASignatureMessagePKCS1v15MD5 ||
+        keyAlg == kSecKeyAlgorithmRSASignatureDigestPKCS1v15MD5) {
+        fprintf(stderr, "CMS signature failed: MD5 algorithm is disallowed for generating signatures.");
+        rv = SEC_ERROR_INVALID_ALGORITHM;
+        goto out;
+    }
+
+    if (keyAlg == NULL) {
+        rv = SEC_ERROR_INVALID_ALGORITHM;
+        goto out;
+    }
+
+    dataToSign = CFDataCreate(NULL, buf, len);
+    if (!dataToSign) {
+        goto out;
+    }
+
+    signature = SecKeyCreateSignature(pk, keyAlg, dataToSign, &error);
+    if (!signature) {
+        goto out;
+    }
+
+    CFIndex signatureLength = CFDataGetLength(signature);
+    if (signatureLength < 0 || signatureLength > 1024) {
+        goto out;
+    }
+    resultSignature->Data = (uint8_t *)malloc(signatureLength);
+    if (!resultSignature->Data) {
+        goto out;
+    }
+
+    memcpy(resultSignature->Data, CFDataGetBytePtr(signature), signatureLength);
+    resultSignature->Length = signatureLength;
+    rv = SECSuccess;
+
+out:
+    if (signature) { CFRelease(signature); }
+    if (dataToSign) {CFRelease(dataToSign); }
+    SEC_PrintCFError(error);
+    if (rv) {
+        PORT_SetError(rv);
+    }
+    return rv;
 }
 
 SECStatus
 SEC_SignData(SECItem *result, unsigned char *buf, int len,
 	    SecPrivateKeyRef pk, SECOidTag digAlgTag, SECOidTag sigAlgTag)
 {
-    const CSSM_ACCESS_CREDENTIALS *accessCred;
-    CSSM_ALGORITHMS algorithm;
-    CSSM_CC_HANDLE cc = 0;
-    CSSM_CSP_HANDLE csp;
-    OSStatus rv;
-    CSSM_DATA dataBuf = { (uint32)len, (uint8 *)buf };
-    CSSM_DATA sig = {};
-    const CSSM_KEY *key;
-
-    algorithm = SECOID_FindyCssmAlgorithmByTag(SecCmsUtilMakeSignatureAlgorithm(digAlgTag, sigAlgTag));
-    if (!algorithm)
-    {
-        PORT_SetError(SEC_ERROR_INVALID_ALGORITHM);
-	rv = SECFailure;
-	goto loser;
-    }
-
-    rv = SecKeyGetCSPHandle(pk, &csp);
-    if (rv) {
-        PORT_SetError(SEC_ERROR_BAD_KEY);
-	goto loser;
-    }
-    rv = SecKeyGetCSSMKey(pk, &key);
-    if (rv) {
-        PORT_SetError(SEC_ERROR_BAD_KEY);
-	goto loser;
-    }
-    rv = SecKeyGetCredentials(pk, CSSM_ACL_AUTHORIZATION_SIGN, kSecCredentialTypeDefault, &accessCred);
-    if (rv) {
-        PORT_SetError(SEC_ERROR_BAD_KEY);
-	goto loser;
-    }
-
-    rv = CSSM_CSP_CreateSignatureContext(csp, algorithm, accessCred, key, &cc);
-    if (rv) {
-        PORT_SetError(SEC_ERROR_NO_MEMORY);
-    	goto loser;
-    }
-
-    rv = CSSM_SignData(cc, &dataBuf, 1, CSSM_ALGID_NONE, &sig);
-    if (rv) {
-        SECErrorCodes code = SEC_CssmRtnToSECStatus(rv);
-        PORT_SetError(code);
-	goto loser;
-    }
-
-    result->Length = sig.Length;
-    result->Data = sig.Data;
-
-loser:
-    if (cc)
-	CSSM_DeleteContext(cc);
-
-    return rv;
+    return SGN_SignAll(buf, len, pk, result, digAlgTag, sigAlgTag, false);
 }
 
 SECStatus
 SGN_Digest(SecPrivateKeyRef pk, SECOidTag digAlgTag, SECOidTag sigAlgTag, SECItem *result, SECItem *digest)
 {
-    const CSSM_ACCESS_CREDENTIALS *accessCred;
-    CSSM_ALGORITHMS digalg, sigalg;
-    CSSM_CC_HANDLE cc = 0;
-    CSSM_CSP_HANDLE csp;
-    const CSSM_KEY *key;
-    CSSM_DATA sig = {};
-    OSStatus rv;
+    return SGN_SignAll(digest->Data, digest->Length, pk, result, digAlgTag, sigAlgTag, true);
+}
 
-    digalg = SECOID_FindyCssmAlgorithmByTag(digAlgTag);
-    sigalg = SECOID_FindyCssmAlgorithmByTag(sigAlgTag);
-    if (!digalg || !sigalg)
-    {
-        PORT_SetError(SEC_ERROR_INVALID_ALGORITHM);
-	rv = SECFailure;
-	goto loser;
+static SECStatus VFY_VerifyAll(uint8_t *buf, size_t len,
+                     SecPublicKeyRef pk, SECItem *sig,
+                     SECOidTag digAlgTag, SECOidTag sigAlgTag,
+                     bool isDigest) {
+    OSStatus rv = SECFailure;
+    CFDataRef signature = NULL, data = NULL;
+    CFErrorRef error = NULL;
+    SecKeyAlgorithm keyAlg = NULL;
+
+    signature = CFDataCreate(NULL, sig->Data, sig->Length);
+    data = CFDataCreate(NULL, buf, len);
+    if (!signature || !data) {
+        goto out;
     }
 
-    rv = SecKeyGetCSPHandle(pk, &csp);
+    keyAlg = SECOID_FindSecKeyAlgorithmByTags(sigAlgTag, digAlgTag, isDigest);
+    if (keyAlg == NULL) {
+        rv = SEC_ERROR_INVALID_ALGORITHM;
+        goto out;
+    }
+
+    if(SecKeyVerifySignature(pk, keyAlg, data, signature, &error)) {
+        rv = SECSuccess;
+    }
+
+out:
+    if (signature) { CFRelease(signature); }
+    if (data) { CFRelease(data); }
+    SEC_PrintCFError(error);
     if (rv) {
-        PORT_SetError(SEC_ERROR_BAD_KEY);
-	goto loser;
+        PORT_SetError(rv);
     }
-    rv = SecKeyGetCSSMKey(pk, &key);
-    if (rv) {
-        PORT_SetError(SEC_ERROR_BAD_KEY);
-	goto loser;
-    }
-    rv = SecKeyGetCredentials(pk, CSSM_ACL_AUTHORIZATION_SIGN, kSecCredentialTypeDefault, &accessCred);
-    if (rv) {
-        PORT_SetError(SEC_ERROR_BAD_KEY);
-	goto loser;
-    }
-
-    rv = CSSM_CSP_CreateSignatureContext(csp, sigalg, accessCred, key, &cc);
-    if (rv) {
-        PORT_SetError(SEC_ERROR_NO_MEMORY);
-	goto loser;
-    }
-
-    rv = CSSM_SignData(cc, digest, 1, digalg, &sig);
-    if (rv) {
-        SECErrorCodes code = SEC_CssmRtnToSECStatus(rv);
-        PORT_SetError(code);
-	goto loser;
-    }
-
-    result->Length = sig.Length;
-    result->Data = sig.Data;
-
-loser:
-    if (cc)
-	CSSM_DeleteContext(cc);
-
     return rv;
 }
 
@@ -241,78 +433,16 @@ VFY_VerifyData(unsigned char *buf, int len,
 		SecPublicKeyRef pk, SECItem *sig,
 		SECOidTag digAlgTag, SECOidTag sigAlgTag, void *wincx)
 {
-    SECOidTag algTag;
-    CSSM_ALGORITHMS algorithm;
-    CSSM_CC_HANDLE cc = 0;
-    CSSM_CSP_HANDLE csp;
-    OSStatus rv = SECFailure;
-    CSSM_DATA dataBuf = { (uint32)len, (uint8 *)buf };
-    const CSSM_KEY *key;
-
-    algTag = SecCmsUtilMakeSignatureAlgorithm(digAlgTag, sigAlgTag);
-    algorithm = SECOID_FindyCssmAlgorithmByTag(algTag);
-    if (!algorithm)
-    {
-	rv = algTag == SEC_OID_UNKNOWN ? SecCmsVSSignatureAlgorithmUnknown : SecCmsVSSignatureAlgorithmUnsupported;
-	goto loser;
-    }
-
-    rv = SecKeyGetCSPHandle(pk, &csp);
-    if (rv)
-	goto loser;
-    rv = SecKeyGetCSSMKey(pk, &key);
-    if (rv)
-	goto loser;
-
-    rv = CSSM_CSP_CreateSignatureContext(csp, algorithm, NULL, key, &cc);
-    if (rv)
-	goto loser;
-
-    rv = CSSM_VerifyData(cc, &dataBuf, 1, CSSM_ALGID_NONE, sig);
-
-loser:
-    if (cc)
-	CSSM_DeleteContext(cc);
-
-    return rv;
+    return VFY_VerifyAll(buf, len, pk, sig,
+                         digAlgTag, sigAlgTag, false);
 }
 
 SECStatus
 VFY_VerifyDigest(SECItem *digest, SecPublicKeyRef pk,
 		SECItem *sig, SECOidTag digAlgTag, SECOidTag sigAlgTag, void *wincx)
 {
-    CSSM_ALGORITHMS sigalg, digalg;
-    CSSM_CC_HANDLE cc = 0;
-    CSSM_CSP_HANDLE csp;
-    const CSSM_KEY *key;
-    OSStatus rv;
-
-    digalg = SECOID_FindyCssmAlgorithmByTag(digAlgTag);
-    sigalg = SECOID_FindyCssmAlgorithmByTag(sigAlgTag);
-    if (!digalg || !sigalg)
-    {
-	rv = digAlgTag == SEC_OID_UNKNOWN  || sigAlgTag == SEC_OID_UNKNOWN ? SecCmsVSSignatureAlgorithmUnknown : SecCmsVSSignatureAlgorithmUnsupported;
-	goto loser;
-    }
-
-    rv = SecKeyGetCSPHandle(pk, &csp);
-    if (rv)
-	goto loser;
-    rv = SecKeyGetCSSMKey(pk, &key);
-    if (rv)
-	goto loser;
-
-    rv = CSSM_CSP_CreateSignatureContext(csp, sigalg, NULL, key, &cc);
-    if (rv)
-	goto loser;
-
-    rv = CSSM_VerifyData(cc, digest, 1, digalg, sig);
-
-loser:
-    if (cc)
-	CSSM_DeleteContext(cc);
-
-    return rv;
+    return VFY_VerifyAll(digest->Data, digest->Length, pk, sig,
+                         digAlgTag, sigAlgTag, true);
 }
 
 SECStatus
@@ -320,233 +450,61 @@ WRAP_PubWrapSymKey(SecPublicKeyRef publickey,
 		   SecSymmetricKeyRef bulkkey,
 		   CSSM_DATA_PTR encKey)
 {
-    CSSM_WRAP_KEY wrappedKey = {};
-    //CSSM_WRAP_KEY wrappedPk = {}
-    //CSSM_KEY upk = {};
-    CSSM_CC_HANDLE cc = 0;
-    CSSM_CSP_HANDLE pkCsp, bkCsp;
-    const CSSM_KEY *pk, *bk, *pubkey;
     OSStatus rv;
-    CSSM_ACCESS_CREDENTIALS accessCred = {};
+    CSSM_KEY bk;
 
-    rv = SecKeyGetCSPHandle(publickey, &pkCsp);
-    if (rv)
-	goto loser;
-    rv = SecKeyGetCSSMKey(publickey, &pk);
-    if (rv)
-	goto loser;
-
-    rv = SecKeyGetCSPHandle(bulkkey, &bkCsp);
-    if (rv)
-	goto loser;
-    rv = SecKeyGetCSSMKey(bulkkey, &bk);
-    if (rv)
-	goto loser;
-
-#if 1
-    pubkey = pk;
-#else
-    /* We need to get the publickey out of it's pkCsp and into the bkCsp so we can operate with it. */
-
-    /* Make a NULL wrap symmetric context to extract the public key from pkCsp. */
-    rv = CSSM_CSP_CreateSymmetricContext(pkCsp,
-	    CSSM_ALGID_NONE,
-	    CSSM_MODE_NONE,
-	    NULL, /* accessCred */
-	    NULL, /* key */
-	    NULL, /* iv */
-	    CSSM_PADDING_NONE,
-	    NULL, /* reserved */
-	    &cc);
-    if (rv)
-	goto loser;
-    rv = CSSM_WrapKey(cc,
-	    NULL /* accessCred */,
-	    pk,
-	    NULL /* descriptiveData */,
-	    &wrappedPk);
-    CSSM_DeleteContext(cc);
-    cc = 0;
-
-    /* Make a NULL unwrap symmetric context to import the public key into bkCsp. */
-    rv = CSSM_CSP_CreateSymmetricContext(bkCsp,
-	    CSSM_ALGID_NONE,
-	    CSSM_MODE_NONE,
-	    NULL, /* accessCred */
-	    NULL, /* key */
-	    NULL, /* iv */
-	    CSSM_PADDING_NONE,
-	    NULL, /* reserved */
-	    &cc);
-    if (rv)
-	goto loser;
-    rv = CSSM_UnwrapKey(cc, NULL, &wrappedPk, usage, attr, NULL /* label */, NULL /* rcc */, &upk, NULL /* descriptiveData */);
-    CSSM_DeleteContext(cc);
-    cc = 0;
-
-    pubkey  = &upk;
-#endif
-
-    rv = CSSM_CSP_CreateAsymmetricContext(bkCsp,
-	    pubkey->KeyHeader.AlgorithmId,
-	    &accessCred,
-	    pubkey,
-	    CSSM_PADDING_PKCS1,
-	    &cc);
-    if (rv)
-	goto loser;
-
-    {
-	/* Set the wrapped key format to indicate we want just the raw bits encrypted. */
-	CSSM_CONTEXT_ATTRIBUTE contextAttribute = { CSSM_ATTRIBUTE_WRAPPED_KEY_FORMAT, sizeof(uint32) };
-	contextAttribute.Attribute.Uint32 = CSSM_KEYBLOB_WRAPPED_FORMAT_PKCS7;
-	rv = CSSM_UpdateContextAttributes(cc, 1, &contextAttribute);
-	if (rv)
-	    goto loser;
+    rv = cmsNullWrapKey(bulkkey, &bk);
+    if (rv) {
+        return rv;
     }
 
-    {
-	/* Set the mode to CSSM_ALGMODE_PKCS1_EME_V15. */
-	CSSM_CONTEXT_ATTRIBUTE contextAttribute = { CSSM_ATTRIBUTE_MODE, sizeof(uint32) };
-	contextAttribute.Attribute.Uint32 = CSSM_ALGMODE_NONE; /* CSSM_ALGMODE_PKCS1_EME_V15 */
-	rv = CSSM_UpdateContextAttributes(cc, 1, &contextAttribute);
-	if (rv)
-	    goto loser;
-    }
-
-    {
-	// @@@ Stick in an empty initVector to work around a csp bug.
-	CSSM_DATA initVector = {};
-	CSSM_CONTEXT_ATTRIBUTE contextAttribute = { CSSM_ATTRIBUTE_INIT_VECTOR, sizeof(CSSM_DATA_PTR) };
-	contextAttribute.Attribute.Data = &initVector;
-	rv = CSSM_UpdateContextAttributes(cc, 1, &contextAttribute);
-	if (rv)
-	    goto loser;
-    }
-
-    rv = CSSM_WrapKey(cc,
-	    &accessCred,
-	    bk,
-	    NULL, /* descriptiveData */
-	    &wrappedKey);
-    if (rv)
-	goto loser;
-
-    // @@@ Fix leaks!
-    if (encKey->Length < wrappedKey.KeyData.Length)
-	abort();
-    encKey->Length = wrappedKey.KeyData.Length;
-    memcpy(encKey->Data, wrappedKey.KeyData.Data, encKey->Length);
-    CSSM_FreeKey(bkCsp, NULL /* credentials */, &wrappedKey, FALSE);
-
-loser:
-    if (cc)
-	CSSM_DeleteContext(cc);
-
-    return rv;
+    return SecKeyEncrypt(publickey, kSecPaddingPKCS1,
+                         bk.KeyData.Data, bk.KeyData.Length,
+                         encKey->Data, &encKey->Length);
 }
+
 
 SecSymmetricKeyRef
 WRAP_PubUnwrapSymKey(SecPrivateKeyRef privkey, CSSM_DATA_PTR encKey, SECOidTag bulkalgtag)
 {
-    SecSymmetricKeyRef bulkkey = NULL;
-    CSSM_WRAP_KEY wrappedKey = {};
-    CSSM_CC_HANDLE cc = 0;
-    CSSM_CSP_HANDLE pkCsp;
-    const CSSM_KEY *pk;
-    CSSM_KEY unwrappedKey = {};
-    const CSSM_ACCESS_CREDENTIALS *accessCred;
-    CSSM_DATA descriptiveData = {};
-    CSSM_ALGORITHMS bulkalg;
-    OSStatus rv;
+    CFDataRef encryptedKey = NULL, bulkkey = NULL;
+    CFMutableDictionaryRef keyparams = NULL;
+    CFStringRef keyType = NULL;
+    CFErrorRef error = NULL;
+    SecSymmetricKeyRef bk = NULL;
 
-    rv = SecKeyGetCSPHandle(privkey, &pkCsp);
-    if (rv)
-	goto loser;
-    rv = SecKeyGetCSSMKey(privkey, &pk);
-    if (rv)
-	goto loser;
-    rv = SecKeyGetCredentials(privkey,
-	    CSSM_ACL_AUTHORIZATION_DECRYPT, /* @@@ Should be UNWRAP */
-	    kSecCredentialTypeDefault,
-	    &accessCred);
-    if (rv)
-	goto loser;
-
-    bulkalg = SECOID_FindyCssmAlgorithmByTag(bulkalgtag);
-    if (!bulkalg)
-    {
-	rv = SEC_ERROR_INVALID_ALGORITHM;
-	goto loser;
+    /* decrypt the key */
+    encryptedKey = CFDataCreate(NULL, encKey->Data, encKey->Length);
+    if (!encryptedKey) {
+        goto out;
     }
 
-    rv = CSSM_CSP_CreateAsymmetricContext(pkCsp,
-	    pk->KeyHeader.AlgorithmId,
-	    accessCred,
-	    pk,
-	    CSSM_PADDING_PKCS1,
-	    &cc);
-    if (rv)
-	goto loser;
-
-    {
-	// @@@ Stick in an empty initvector to work around a csp bug.
-	CSSM_DATA initVector = {};
-	CSSM_CONTEXT_ATTRIBUTE contextAttribute = { CSSM_ATTRIBUTE_INIT_VECTOR, sizeof(CSSM_DATA_PTR) };
-	contextAttribute.Attribute.Data = &initVector;
-	rv = CSSM_UpdateContextAttributes(cc, 1, &contextAttribute);
-	if (rv)
-	    goto loser;
+    bulkkey = SecKeyCreateDecryptedData(privkey, kSecKeyAlgorithmRSAEncryptionPKCS1, encryptedKey, &error);
+    if (!bulkkey) {
+        goto out;
     }
 
-    wrappedKey.KeyHeader.HeaderVersion = CSSM_KEYHEADER_VERSION;
-    wrappedKey.KeyHeader.BlobType = CSSM_KEYBLOB_WRAPPED;
-    wrappedKey.KeyHeader.Format = CSSM_KEYBLOB_WRAPPED_FORMAT_PKCS7;
-    wrappedKey.KeyHeader.AlgorithmId = bulkalg;
-    wrappedKey.KeyHeader.KeyClass = CSSM_KEYCLASS_SESSION_KEY;
-    wrappedKey.KeyHeader.WrapAlgorithmId = pk->KeyHeader.AlgorithmId;
-    wrappedKey.KeyHeader.WrapMode = CSSM_ALGMODE_NONE; /* CSSM_ALGMODE_PKCS1_EME_V15 */
-    wrappedKey.KeyData = *encKey;
-
-    rv = CSSM_UnwrapKey(cc,
-	    NULL, /* publicKey */
-	    &wrappedKey,
-	    CSSM_KEYUSE_DECRYPT,
-	    CSSM_KEYATTR_EXTRACTABLE /* | CSSM_KEYATTR_RETURN_DATA */,
-	    NULL, /* keyLabel */
-	    NULL, /* rcc */
-	    &unwrappedKey,
-	    &descriptiveData);
-    if (rv) {
-        SECErrorCodes code;
-        if (CSSM_ERRCODE(rv) == CSSM_ERRCODE_USER_CANCELED
-            || CSSM_ERRCODE(rv) == CSSM_ERRCODE_OPERATION_AUTH_DENIED
-	    || CSSM_ERRCODE(rv) == CSSM_ERRCODE_OBJECT_USE_AUTH_DENIED)
-            code = SEC_ERROR_USER_CANCELLED;
-        else if (CSSM_ERRCODE(rv) == CSSM_ERRCODE_NO_USER_INTERACTION
-                 || rv == CSSMERR_CSP_KEY_USAGE_INCORRECT)
-            code = SEC_ERROR_INADEQUATE_KEY_USAGE;
-        else
-	{
-	    fprintf(stderr, "CSSM_UnwrapKey returned: %08X\n", (uint32_t)rv);
-            code = SEC_ERROR_LIBRARY_FAILURE;
-	}
-
-        PORT_SetError(code);
-	goto loser;
+    /* create the SecSymmetricKeyRef */
+    keyType = SECOID_CopyKeyTypeByTag(bulkalgtag);
+    if (!keyType) {
+        goto out;
     }
 
-    // @@@ Export this key from the csp/dl and import it to the standard csp
-    rv = SecKeyCreateWithCSSMKey(&unwrappedKey, &bulkkey);
-    if (rv)
-	goto loser;
+    keyparams = CFDictionaryCreateMutable(NULL, 1,
+                                          &kCFTypeDictionaryKeyCallBacks,
+                                          &kCFTypeDictionaryValueCallBacks);
+    if (!keyparams) {
+        goto out;
+    }
 
-loser:
-    if (rv)
-	PORT_SetError(rv);
+    CFDictionaryAddValue(keyparams, kSecAttrKeyType, keyType);
+    bk = SecKeyCreateFromData(keyparams, bulkkey, NULL);
 
-    if (cc)
-	CSSM_DeleteContext(cc);
-
-    return bulkkey;
+out:
+    if (encryptedKey) { CFRelease(encryptedKey); }
+    if (bulkkey) { CFRelease(bulkkey); }
+    if (keyparams) { CFRelease(keyparams); }
+    if (keyType) { CFRelease(keyType); }
+    SEC_PrintCFError(error);
+    return bk;
 }

@@ -108,8 +108,8 @@ void SVGAnimateMotionElement::parseAttribute(const QualifiedName& name, const At
     
 SVGAnimateMotionElement::RotateMode SVGAnimateMotionElement::rotateMode() const
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, autoVal, ("auto", AtomicString::ConstructFromLiteral));
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, autoReverse, ("auto-reverse", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<const AtomicString> autoVal("auto", AtomicString::ConstructFromLiteral);
+    static NeverDestroyed<const AtomicString> autoReverse("auto-reverse", AtomicString::ConstructFromLiteral);
     const AtomicString& rotate = getAttribute(SVGNames::rotateAttr);
     if (rotate == autoVal)
         return RotateAuto;
@@ -132,7 +132,7 @@ void SVGAnimateMotionElement::updateAnimationPath()
         }
     }
 
-    if (!foundMPath && fastHasAttribute(SVGNames::pathAttr))
+    if (!foundMPath && hasAttributeWithoutSynchronization(SVGNames::pathAttr))
         m_animationPath = m_path;
 
     updateAnimationMode();

@@ -28,7 +28,7 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/lib/libc_r/man/pthread_key_create.3,v 1.6.2.4 2001/08/17 15:42:51 ru Exp $
+.\" $FreeBSD$
 .\"
 .Dd April 4, 1996
 .Dt PTHREAD_KEY_CREATE 3
@@ -37,20 +37,17 @@
 .Nm pthread_key_create
 .Nd thread-specific data key creation
 .Sh SYNOPSIS
-.Fd #include <pthread.h>
+.In pthread.h
 .Ft int
-.Fo pthread_key_create
-.Fa "pthread_key_t *key"
-.Fa "void (*destructor)(void *)"
-.Fc
+.Fn pthread_key_create "pthread_key_t *key" "void (*destructor)(void *)"
 .Sh DESCRIPTION
 The
 .Fn pthread_key_create
-function creates a thread-specific data key
-that is visible to all threads in the process.
+function creates a thread-specific data key visible to all threads in the
+process.
 Key values provided by
 .Fn pthread_key_create
-are opaque objects, used to locate thread-specific data.
+are opaque objects used to locate thread-specific data.
 Although the same
 key value may be used by different threads, the values bound to the key
 by
@@ -64,11 +61,13 @@ Upon thread creation, the value NULL is associated with all
 defined keys in the new thread.
 .Pp
 An optional destructor function may be associated with each key value.
-If a key value has a non-NULL destructor function pointer, and the thread has
-a non-NULL value associated with the key at the time of thread exit, then the
-key value is set to NULL and the destructor function is called with the
-previous key value as its argument.
-The order of destructor calls at thread exit is unspecified.
+At
+thread exit, if a key value has a non-NULL destructor pointer, and the
+thread has a non-NULL value associated with the key, the function pointed
+to is called with the current associated value as its sole argument.
+The
+order of destructor calls is unspecified if more than one destructor exists
+for a thread when it exits.
 .Pp
 If, after all the destructors have been called for all non-NULL values
 with associated destructors, there are still some non-NULL values with
@@ -83,11 +82,12 @@ If successful, the
 function will store the newly created key value at the location specified by
 .Fa key
 and returns zero.
-Otherwise, an error number will be returned to indicate
+Otherwise an error number will be returned to indicate
 the error.
 .Sh ERRORS
+The
 .Fn pthread_key_create
-will fail if:
+function will fail if:
 .Bl -tag -width Er
 .It Bq Er EAGAIN
 The system lacked the necessary resources to create another thread-specific
@@ -101,6 +101,7 @@ Insufficient memory exists to create the key.
 .Xr pthread_key_delete 3 ,
 .Xr pthread_setspecific 3
 .Sh STANDARDS
+The
 .Fn pthread_key_create
-conforms to
+function conforms to
 .St -p1003.1-96 .

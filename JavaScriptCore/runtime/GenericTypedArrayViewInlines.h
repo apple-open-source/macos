@@ -42,10 +42,10 @@ GenericTypedArrayView<Adaptor>::GenericTypedArrayView(
 template<typename Adaptor>
 RefPtr<GenericTypedArrayView<Adaptor>> GenericTypedArrayView<Adaptor>::create(unsigned length)
 {
-    RefPtr<ArrayBuffer> buffer = ArrayBuffer::create(length, sizeof(typename Adaptor::Type));
+    auto buffer = ArrayBuffer::tryCreate(length, sizeof(typename Adaptor::Type));
     if (!buffer)
         return nullptr;
-    return create(buffer.release(), 0, length);
+    return create(WTFMove(buffer), 0, length);
 }
 
 template<typename Adaptor>
@@ -67,7 +67,7 @@ RefPtr<GenericTypedArrayView<Adaptor>> GenericTypedArrayView<Adaptor>::create(
         return nullptr;
     }
     
-    return adoptRef(new GenericTypedArrayView(buffer.release(), byteOffset, length));
+    return adoptRef(new GenericTypedArrayView(WTFMove(buffer), byteOffset, length));
 }
 
 template<typename Adaptor>
@@ -75,10 +75,10 @@ RefPtr<GenericTypedArrayView<Adaptor>>
 GenericTypedArrayView<Adaptor>::createUninitialized(unsigned length)
 {
     RefPtr<ArrayBuffer> buffer =
-        ArrayBuffer::createUninitialized(length, sizeof(typename Adaptor::Type));
+        ArrayBuffer::tryCreateUninitialized(length, sizeof(typename Adaptor::Type));
     if (!buffer)
         return nullptr;
-    return create(buffer.release(), 0, length);
+    return create(WTFMove(buffer), 0, length);
 }
 
 template<typename Adaptor>

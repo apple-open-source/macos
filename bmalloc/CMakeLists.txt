@@ -1,3 +1,5 @@
+set_property(DIRECTORY . PROPERTY FOLDER "bmalloc")
+
 set(bmalloc_INCLUDE_DIRECTORIES
     "${BMALLOC_DIR}"
 )
@@ -7,16 +9,24 @@ set(bmalloc_SOURCES
     bmalloc/Cache.cpp
     bmalloc/Deallocator.cpp
     bmalloc/Environment.cpp
-    bmalloc/FreeList.cpp
     bmalloc/Heap.cpp
+    bmalloc/Logging.cpp
     bmalloc/ObjectType.cpp
-    bmalloc/SegregatedFreeList.cpp
     bmalloc/StaticMutex.cpp
     bmalloc/VMHeap.cpp
+    bmalloc/XLargeMap.cpp
     bmalloc/mbmalloc.cpp
 )
 
-WEBKIT_INCLUDE_CONFIG_FILES_IF_EXISTS()
+if (CMAKE_SYSTEM_NAME MATCHES "Darwin")
+    list(APPEND bmalloc_SOURCES
+        bmalloc/Zone.cpp
+    )
+endif ()
+
+set(bmalloc_LIBRARIES
+    ${CMAKE_DL_LIBS}
+)
 
 WEBKIT_WRAP_SOURCELIST(${bmalloc_SOURCES})
 include_directories(${bmalloc_INCLUDE_DIRECTORIES})

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007-2009  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007, 2008  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: interfaceiter.c,v 1.44.120.2 2009/02/16 23:47:15 tbox Exp $ */
+/* $Id: interfaceiter.c,v 1.45 2008/12/01 03:51:47 marka Exp $ */
 
 /*! \file */
 
@@ -51,6 +51,10 @@
 #endif
 #include <net/if.h>
 
+#ifdef HAVE_LINUX_IF_ADDR_H
+# include <linux/if_addr.h>
+#endif
+
 /* Common utility functions */
 
 /*%
@@ -80,11 +84,11 @@ get_addr(unsigned int family, isc_netaddr_t *dst, struct sockaddr *src,
 	switch (family) {
 	case AF_INET:
 		memcpy(&dst->type.in,
-		       &((struct sockaddr_in *) src)->sin_addr,
+		       &((struct sockaddr_in *)(void *)src)->sin_addr,
 		       sizeof(struct in_addr));
 		break;
 	case AF_INET6:
-		sa6 = (struct sockaddr_in6 *)src;
+		sa6 = (struct sockaddr_in6 *)(void *)src;
 		memcpy(&dst->type.in6, &sa6->sin6_addr,
 		       sizeof(struct in6_addr));
 #ifdef ISC_PLATFORM_HAVESCOPEID
@@ -186,7 +190,8 @@ linux_if_inet6_current(isc_interfaceiter_t *iter) {
 	char address[33];
 	char name[IF_NAMESIZE+1];
 	struct in6_addr addr6;
-	int ifindex, prefix, flag3, flag4;
+	unsigned int ifindex;
+	int prefix, scope, flags;
 	int res;
 	unsigned int i;
 
@@ -200,7 +205,7 @@ linux_if_inet6_current(isc_interfaceiter_t *iter) {
 	}
 
 	res = sscanf(iter->entry, "%32[a-f0-9] %x %x %x %x %16s\n",
-		     address, &ifindex, &prefix, &flag3, &flag4, name);
+		     address, &ifindex, &prefix, &scope, &flags, name);
 	if (res != 6) {
 		isc_log_write(isc_lctx, ISC_LOGCATEGORY_GENERAL,
 			      ISC_LOGMODULE_INTERFACE, ISC_LOG_ERROR,
@@ -214,6 +219,15 @@ linux_if_inet6_current(isc_interfaceiter_t *iter) {
 			      "/proc/net/if_inet6:strlen(%s) != 32", address);
 		return (ISC_R_FAILURE);
 	}
+	/*
+	** Ignore DAD addresses --
+	** we can't bind to them until they are resolved
+	*/
+#ifdef IFA_F_TENTATIVE
+	if (flags & IFA_F_TENTATIVE)
+		return (ISC_R_IGNORE);
+#endif
+
 	for (i = 0; i < 16; i++) {
 		unsigned char byte;
 		static const char hex[] = "0123456789abcdef";
@@ -224,6 +238,7 @@ linux_if_inet6_current(isc_interfaceiter_t *iter) {
 	iter->current.af = AF_INET6;
 	iter->current.flags = INTERFACE_F_UP;
 	isc_netaddr_fromin6(&iter->current.address, &addr6);
+	iter->current.ifindex = ifindex;
 	if (isc_netaddr_islinklocal(&iter->current.address)) {
 		isc_netaddr_setzone(&iter->current.address,
 				    (isc_uint32_t)ifindex);

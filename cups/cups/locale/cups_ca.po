@@ -32,7 +32,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: CUPS 1.4.6\n"
 "Report-Msgid-Bugs-To: http://www.cups.org/str.php\n"
-"POT-Creation-Date: 2015-07-20 14:24-0400\n"
+"POT-Creation-Date: 2016-06-24 11:07-0400\n"
 "PO-Revision-Date: 2012-09-29 11:21+0200\n"
 "Last-Translator: Àngel Mompó <mecatxis@gmail.com>\n"
 "Language-Team: Catalan <ca@dodds.net>\n"
@@ -100,10 +100,6 @@ msgstr "\tFormularis admesos:"
 #, c-format
 msgid "\tInterface: %s.ppd"
 msgstr "\tInterfície: %s.ppd"
-
-#, c-format
-msgid "\tInterface: %s/interfaces/%s"
-msgstr "\tInterfície: %s/interfícies/%s"
 
 #, c-format
 msgid "\tInterface: %s/ppd/%s.ppd"
@@ -982,8 +978,8 @@ msgstr ""
 msgid "  --host regex            Match hostname to regular expression."
 msgstr ""
 
-msgid "  --lf                    End lines with LF (UNIX/Linux/OS X)."
-msgstr "  --lf                    Final de línia amb LF (UNIX/Linux/OS X)."
+msgid "  --lf                    End lines with LF (UNIX/Linux/macOS)."
+msgstr ""
 
 msgid "  --list-filters          List filters that will be used."
 msgstr ""
@@ -1128,9 +1124,6 @@ msgid "  -X                      Produce XML plist instead of plain text."
 msgstr ""
 "  -X                      Retorna els plist en XML en comptes de text pla."
 
-msgid "  -a                      Browse for all services."
-msgstr ""
-
 msgid "  -a                      Export all printers."
 msgstr "  -a                      Exporta totes les impressores."
 
@@ -1146,9 +1139,6 @@ msgstr ""
 msgid "  -c cupsd.conf           Set cupsd.conf file to use."
 msgstr ""
 "  -c cupsd.conf           Estableix el fitxer cupsd.conf que cal fer servir."
-
-msgid "  -d domain               Browse/resolve in specified domain."
-msgstr ""
 
 msgid "  -d name=value           Set named variable to value."
 msgstr "  -d nom=valor           Estableix la variable indicada al valor."
@@ -1255,9 +1245,6 @@ msgstr ""
 msgid "  -p filename.ppd         Set PPD file."
 msgstr "  -p nomfitxer.ppd         Estableix el fitxer PPD."
 
-msgid "  -p program              Run specified program for each service."
-msgstr ""
-
 msgid "  -q                      Quietly report match via exit code."
 msgstr ""
 
@@ -1271,6 +1258,9 @@ msgid "  -r                      Use 'relaxed' open mode."
 msgstr "  -r                      Fa servir el mode obert «relaxat»."
 
 msgid "  -s                      Print service name if true."
+msgstr ""
+
+msgid "  -s cups-files.conf      Set cups-files.conf file to use."
 msgstr ""
 
 msgid "  -t                      Produce a test report."
@@ -1287,9 +1277,6 @@ msgstr ""
 
 msgid "  -t title                Set title."
 msgstr "  -t títol                Estableix el títol."
-
-msgid "  -t type                 Browse/resolve with specified type."
-msgstr ""
 
 msgid "  -u                      Remove the PPD file when finished."
 msgstr "  -u                      Elimina el fitxer PPD quan ha acabat."
@@ -1676,6 +1663,10 @@ msgstr ""
 "l'identificador de la feina."
 
 #, c-format
+msgid "%s: Error - copies must be 1 or more."
+msgstr ""
+
+#, c-format
 msgid "%s: Error - expected character set after \"-S\" option."
 msgstr ""
 "%s: error - s'esperava un conjunt de caràcters després de l'opció «-S»."
@@ -1882,6 +1873,10 @@ msgstr "%s: no es pot llegir la base de dades MIME de «%s» o «%s»."
 
 #, c-format
 msgid "%s: Unable to resolve \"%s\"."
+msgstr ""
+
+#, c-format
+msgid "%s: Unknown argument \"%s\"."
 msgstr ""
 
 #, c-format
@@ -2172,6 +2167,18 @@ msgstr "2"
 msgid "2 inches/sec."
 msgstr "2 polzades/seg."
 
+msgid "2-Hole Punch (Landscape)"
+msgstr ""
+
+msgid "2-Hole Punch (Portrait)"
+msgstr ""
+
+msgid "2-Hole Punch (Reverse Landscape)"
+msgstr ""
+
+msgid "2-Hole Punch (Reverse Portrait)"
+msgstr ""
+
 msgid "2-Sided Printing"
 msgstr "Impressió a doble cara"
 
@@ -2286,6 +2293,18 @@ msgstr "3 polzades/seg."
 msgid "3 x 5"
 msgstr "3 x 5"
 
+msgid "3-Hole Punch (Landscape)"
+msgstr ""
+
+msgid "3-Hole Punch (Portrait)"
+msgstr ""
+
+msgid "3-Hole Punch (Reverse Landscape)"
+msgstr ""
+
+msgid "3-Hole Punch (Reverse Portrait)"
+msgstr ""
+
 msgid "3.00x1.00\""
 msgstr "3.00x1.00\""
 
@@ -2351,6 +2370,18 @@ msgstr "4"
 
 msgid "4 inches/sec."
 msgstr "4 polzades/seg."
+
+msgid "4-Hole Punch (Landscape)"
+msgstr ""
+
+msgid "4-Hole Punch (Portrait)"
+msgstr ""
+
+msgid "4-Hole Punch (Reverse Landscape)"
+msgstr ""
+
+msgid "4-Hole Punch (Reverse Portrait)"
+msgstr ""
 
 msgid "4.00x1.00\""
 msgstr "4.00x1.00\""
@@ -2652,6 +2683,9 @@ msgstr "Accepta feines"
 msgid "Accepted"
 msgstr "Acceptada"
 
+msgid "Accordian Fold"
+msgstr ""
+
 msgid "Add Class"
 msgstr "Afegeix una classe"
 
@@ -2666,6 +2700,12 @@ msgstr "Adreça"
 
 msgid "Administration"
 msgstr "Administració"
+
+msgid "Alternate"
+msgstr ""
+
+msgid "Alternate Roll"
+msgstr ""
 
 msgid "Always"
 msgstr "Sempre"
@@ -2682,8 +2722,19 @@ msgstr ""
 "S'ha intentat posar l'estat de la impressora %s a un valor incorrecte %d."
 
 #, c-format
+msgid "Attribute \"%s\" is in the wrong group."
+msgstr ""
+
+#, c-format
+msgid "Attribute \"%s\" is the wrong value type."
+msgstr ""
+
+#, c-format
 msgid "Attribute groups are out of order (%x < %x)."
 msgstr "Grups d'atribut desordenats (%x < %x)."
+
+msgid "Automatic"
+msgstr ""
 
 msgid "B0"
 msgstr "B0"
@@ -2739,6 +2790,9 @@ msgstr "La OrderDependency és incorrecta"
 
 msgid "Bad PPD cache file."
 msgstr "El fitxer PPD de memòria cau és incorrecte."
+
+msgid "Bad PPD file."
+msgstr ""
 
 msgid "Bad Request"
 msgstr "La petició és incorrecta"
@@ -2865,18 +2919,45 @@ msgstr "El valor de la cadena és incorrecte"
 msgid "Bad/empty URI"
 msgstr ""
 
+msgid "Bale"
+msgstr ""
+
 msgid "Banners"
 msgstr "Bàners"
 
+msgid "Bind"
+msgstr ""
+
+msgid "Bind (Landscape)"
+msgstr ""
+
+msgid "Bind (Portrait)"
+msgstr ""
+
+msgid "Bind (Reverse Landscape)"
+msgstr ""
+
+msgid "Bind (Reverse Portrait)"
+msgstr ""
+
 msgid "Bond Paper"
 msgstr "Paper de valors"
+
+msgid "Booklet Maker"
+msgstr ""
 
 #, c-format
 msgid "Boolean expected for waiteof option \"%s\"."
 msgstr "S'esperava un booleà per l'opció waiteof «%s»."
 
+msgid "Bottom"
+msgstr ""
+
 msgid "Buffer overflow detected, aborting."
 msgstr "S'ha detectat un desbordament la memòria cau. S'interromp."
+
+msgid "CD/DVD/Bluray"
+msgstr ""
 
 msgid "CMYK"
 msgstr "CMYK"
@@ -2893,11 +2974,20 @@ msgstr "Cancel·la la subscripció RSS"
 msgid "Canceling print job."
 msgstr "Es cancel·la feina."
 
+msgid "Cannot change printer-is-shared for remote queues."
+msgstr ""
+
 msgid "Cannot share a remote Kerberized printer."
 msgstr "No es pot compartir una impressora remota sobre Kerberos."
 
+msgid "Cardstock"
+msgstr ""
+
 msgid "Cassette"
 msgstr "Classet"
+
+msgid "Center"
+msgstr ""
 
 msgid "Change Settings"
 msgstr "Canvia la configuració"
@@ -2914,6 +3004,9 @@ msgstr "Neteja els capçals de la impressora"
 
 msgid "Close-Job doesn't support the job-uri attribute."
 msgstr "Close-Job no permet l'ús de l'atribut job-uri."
+
+msgid "Coat"
+msgstr ""
 
 msgid "Color"
 msgstr "Color"
@@ -2951,6 +3044,9 @@ msgstr "El fitxer de control s'ha enviat correctament."
 msgid "Copying print data."
 msgstr "Es copien les dades d'impressió."
 
+msgid "Cover"
+msgstr ""
+
 msgid "Created"
 msgstr "Creat"
 
@@ -2965,6 +3061,9 @@ msgstr "CustominTearInterval"
 
 msgid "Cut"
 msgstr "Tall"
+
+msgid "Cut Media"
+msgstr ""
 
 msgid "Cutter"
 msgstr "Ganiveta"
@@ -3033,9 +3132,30 @@ msgstr "El directori «%s» té els permisos correctes (0%o/uid=%d/gid=%d)."
 msgid "Disabled"
 msgstr "Desabilitat"
 
+msgid "Disc"
+msgstr ""
+
 #, c-format
 msgid "Document #%d does not exist in job #%d."
 msgstr "No s'ha trobat el document #%d a la feina #%d."
+
+msgid "Double Gate Fold"
+msgstr ""
+
+msgid "Double Staple (Landscape)"
+msgstr ""
+
+msgid "Double Staple (Portrait)"
+msgstr ""
+
+msgid "Double Staple (Reverse Landscape)"
+msgstr ""
+
+msgid "Double Staple (Reverse Portrait)"
+msgstr ""
+
+msgid "Draft"
+msgstr ""
 
 msgid "Duplexer"
 msgstr "Unitat d'impressió a dues cares"
@@ -3075,8 +3195,11 @@ msgstr ""
 "l'autenticació Kerberos, assegureu-vos de tenir un tiquet Kerberos que sigui "
 "vàlid."
 
-msgid "Envelope #10 "
-msgstr "Sobre #10"
+msgid "Envelope"
+msgstr ""
+
+msgid "Envelope #10"
+msgstr ""
 
 msgid "Envelope #11"
 msgstr "Sobre #11"
@@ -3165,8 +3288,8 @@ msgstr "Sobre Kaku3 costat llarg"
 msgid "Envelope Monarch"
 msgstr "Sobre monarch"
 
-msgid "Envelope PRC1 "
-msgstr "Sobre PRC1"
+msgid "Envelope PRC1"
+msgstr ""
 
 msgid "Envelope PRC1 Long Edge"
 msgstr "Sobre PRC1 costat llarg"
@@ -3306,6 +3429,9 @@ msgstr "Paper continu legal alemany"
 msgid "Fanfold US"
 msgstr "Paper continu americà"
 
+msgid "Fast Grayscale"
+msgstr ""
+
 #, c-format
 msgid "File \"%s\" contains a relative path."
 msgstr "El fitxer «%s» conté un camí relatiu."
@@ -3326,8 +3452,8 @@ msgstr "El fitxer «%s» no està disponible: %s"
 msgid "File \"%s\" permissions OK (0%o/uid=%d/gid=%d)."
 msgstr "El fitxer «%s» té els permisos correctes (0%o/uid=%d/gid=%d)."
 
-msgid "File Folder "
-msgstr "Carpeta d'arxivador "
+msgid "File Folder"
+msgstr ""
 
 #, c-format
 msgid ""
@@ -3339,11 +3465,20 @@ msgstr ""
 msgid "Finished page %d."
 msgstr "S'ha acabat la pàgina %d."
 
+msgid "Finishing"
+msgstr ""
+
+msgid "Fold"
+msgstr ""
+
 msgid "Folio"
 msgstr "Foli"
 
 msgid "Forbidden"
 msgstr "Prohibit"
+
+msgid "Gate Fold"
+msgstr ""
 
 msgid "General"
 msgstr "General"
@@ -3357,6 +3492,9 @@ msgstr "La Get-Response-PDU fa servir una longitud indefinida"
 msgid "Glossy Paper"
 msgstr "Paper fotogràfic"
 
+msgid "Glossy Photo"
+msgstr ""
+
 msgid "Got a printer-uri attribute but no job-id."
 msgstr "S'ha obtingut l'atribut printer-uri però no el job-id."
 
@@ -3366,11 +3504,29 @@ msgstr "Escala de grisos"
 msgid "HP"
 msgstr "HP"
 
+msgid "Hagaki"
+msgstr ""
+
+msgid "Half Fold"
+msgstr ""
+
+msgid "Half Z Fold"
+msgstr ""
+
 msgid "Hanging Folder"
 msgstr "Carpeta per penjar"
 
+msgid "Hash buffer too small."
+msgstr ""
+
 msgid "Help file not in index."
 msgstr "El fitxer d'ajuda no és a l'índex."
+
+msgid "High"
+msgstr ""
+
+msgid "High-Gloss Photo"
+msgstr ""
 
 msgid "IPP 1setOf attribute with incompatible value tags."
 msgstr ""
@@ -3495,6 +3651,9 @@ msgstr ""
 msgid "Invalid media size."
 msgstr "Mida del suport no vàlida."
 
+msgid "Invalid ppd-name value."
+msgstr ""
+
 #, c-format
 msgid "Invalid printer command \"%s\"."
 msgstr "La comanda de la impressora «%s» no és vàlida."
@@ -3607,14 +3766,23 @@ msgstr "Les subscripcions a les feines no es poden renovar."
 msgid "Jobs"
 msgstr "Feines"
 
+msgid "Jog"
+msgstr ""
+
 msgid "LPD/LPR Host or Printer"
 msgstr "Amfitrió o impressora LPD/LPR"
+
+msgid "Label"
+msgstr ""
 
 msgid "Label Printer"
 msgstr "Impressora d'etiquetes"
 
 msgid "Label Top"
 msgstr "Capçalera de l'etiqueta"
+
+msgid "Laminate"
+msgstr ""
 
 #, c-format
 msgid "Language \"%s\" not supported."
@@ -3623,14 +3791,29 @@ msgstr "L'idioma «%s» no està disponible."
 msgid "Large Address"
 msgstr "Adreça gran"
 
+msgid "Large Capacity"
+msgstr ""
+
 msgid "LaserJet Series PCL 4/5"
 msgstr "Sèrie Laser Jet PCL 4/5"
+
+msgid "Left"
+msgstr ""
+
+msgid "Left Gate Fold"
+msgstr ""
+
+msgid "Letter Fold"
+msgstr ""
 
 msgid "Letter Oversize"
 msgstr "Carta gran"
 
 msgid "Letter Oversize Long Edge"
 msgstr "Carta americà gran costat llarg"
+
+msgid "Letterhead"
+msgstr ""
 
 msgid "Light"
 msgstr "Lluminós"
@@ -3644,14 +3827,29 @@ msgstr "Llista les impressores disponibles"
 msgid "Load paper."
 msgstr ""
 
+msgid "Local printer created."
+msgstr ""
+
 msgid "Long-Edge (Portrait)"
 msgstr "Costat-llarg (vertical)"
 
 msgid "Looking for printer..."
 msgstr ""
 
+msgid "Main"
+msgstr ""
+
+msgid "Main Roll"
+msgstr ""
+
+msgid "Manual"
+msgstr ""
+
 msgid "Manual Feed"
 msgstr "Alimentació manual"
+
+msgid "Matte Photo"
+msgstr ""
 
 msgid "Media Size"
 msgstr "Mida del paper"
@@ -3670,6 +3868,9 @@ msgstr "Mitjà"
 
 msgid "Memory allocation error"
 msgstr "S'ha produït un error d'ubicació de memòria"
+
+msgid "Middle"
+msgstr ""
 
 msgid "Missing CloseGroup"
 msgstr "Falta el CloseGroup"
@@ -3707,6 +3908,10 @@ msgstr "Falta l'opció keyword"
 
 msgid "Missing requesting-user-name attribute."
 msgstr "Falta l'atribut requesting-user-name."
+
+#, c-format
+msgid "Missing required attribute \"%s\"."
+msgstr ""
 
 msgid "Missing required attributes."
 msgstr "Falten alguns atributs necessaris."
@@ -3760,6 +3965,9 @@ msgstr "Mou la feina"
 msgid "Moved Permanently"
 msgstr "S'ha mogut de manera permanent"
 
+msgid "Multipurpose"
+msgstr ""
+
 msgid "NULL PPD file pointer"
 msgstr "Punter del fitxer PPD NUL"
 
@@ -3777,6 +3985,9 @@ msgstr "No"
 
 msgid "No Content"
 msgstr "No hi ha contingut"
+
+msgid "No Finishing"
+msgstr ""
 
 msgid "No PPD name"
 msgstr "El PPD no té nom"
@@ -3919,6 +4130,9 @@ msgstr "Oki"
 msgid "Online Help"
 msgstr "Ajuda en línia"
 
+msgid "Only local users can create a local printer."
+msgstr ""
+
 #, c-format
 msgid "Open of %s failed: %s"
 msgstr "No s'ha pogut obrir %s: %s"
@@ -3941,6 +4155,9 @@ msgstr "Opcions instal·lades"
 
 msgid "Options:"
 msgstr "Opcions:"
+
+msgid "Other"
+msgstr ""
 
 msgid "Out of date PPD cache file."
 msgstr "El fitxer de memòria cau del PPD no està actualitzat."
@@ -4002,6 +4219,9 @@ msgstr ""
 msgid "Paper tray is missing."
 msgstr ""
 
+msgid "Parallel Fold"
+msgstr ""
+
 msgid "ParamCustominCutInterval"
 msgstr "ParamCustominCutInterval"
 
@@ -4046,14 +4266,17 @@ msgstr "Impressora PostScript"
 msgid "Postcard"
 msgstr "Postal"
 
-msgid "Postcard Double "
-msgstr "Postal doble"
+msgid "Postcard Double"
+msgstr ""
 
 msgid "Postcard Double Long Edge"
 msgstr "Postal doble costat llarg"
 
 msgid "Postcard Long Edge"
 msgstr "Postal costat llarg"
+
+msgid "Poster Fold"
+msgstr ""
 
 msgid "Preparing to print."
 msgstr ""
@@ -4066,6 +4289,9 @@ msgstr "Feina d'impressió:"
 
 msgid "Print Mode"
 msgstr "Mode d'impressió"
+
+msgid "Print Quality"
+msgstr ""
 
 msgid "Print Rate"
 msgstr "Ritme d'impressió"
@@ -4095,6 +4321,10 @@ msgid "Print job too large."
 msgstr "La feina d'impressió és massa llarga."
 
 msgid "Print job was not accepted."
+msgstr ""
+
+#, c-format
+msgid "Printer \"%s\" already exists."
 msgstr ""
 
 msgid "Printer Added"
@@ -4131,6 +4361,9 @@ msgstr "Impressores"
 msgid "Printing page %d, %u%% complete."
 msgstr ""
 
+msgid "Punch"
+msgstr ""
+
 msgid "Quarto"
 msgstr "Quart"
 
@@ -4140,6 +4373,9 @@ msgstr "S'ha assolit el límit de la quota."
 msgid "Rank    Owner   Job     File(s)                         Total Size"
 msgstr ""
 "Rang    Propietari   Feina     Fitxer(s)                         Mida total"
+
+msgid "Rear"
+msgstr ""
 
 msgid "Reject Jobs"
 msgstr "Rebutja feines"
@@ -4173,6 +4409,42 @@ msgstr "Remitent"
 msgid "Rewind"
 msgstr "Rebobina"
 
+msgid "Right"
+msgstr ""
+
+msgid "Right Gate Fold"
+msgstr ""
+
+msgid "Roll 1"
+msgstr ""
+
+msgid "Roll 10"
+msgstr ""
+
+msgid "Roll 2"
+msgstr ""
+
+msgid "Roll 3"
+msgstr ""
+
+msgid "Roll 4"
+msgstr ""
+
+msgid "Roll 5"
+msgstr ""
+
+msgid "Roll 6"
+msgstr ""
+
+msgid "Roll 7"
+msgstr ""
+
+msgid "Roll 8"
+msgstr ""
+
+msgid "Roll 9"
+msgstr ""
+
 #, c-format
 msgid "Running command: %s %s -N -A %s -c '%s'"
 msgstr "S'està executant l'ordre: %s %s -N -A %s -c «%s»"
@@ -4183,8 +4455,20 @@ msgstr "SEQUENCE té una longitud indefinida"
 msgid "SSL/TLS Negotiation Error"
 msgstr "S'ha produït un error mentre es negociava el SSL/TLS"
 
+msgid "Saddle Stitch"
+msgstr ""
+
+msgid "Satin Photo"
+msgstr ""
+
 msgid "See Other"
 msgstr "Vegeu altres"
+
+msgid "See remote printer."
+msgstr ""
+
+msgid "Semi-Gloss Photo"
+msgstr ""
 
 msgid "Sending data to printer."
 msgstr "S'envien les dades a la impressora."
@@ -4228,6 +4512,33 @@ msgstr "Adreça de lliurament"
 msgid "Short-Edge (Landscape)"
 msgstr "Costat curt (horitzontal)"
 
+msgid "Side"
+msgstr ""
+
+msgid "Single Punch (Landscape)"
+msgstr ""
+
+msgid "Single Punch (Portrait)"
+msgstr ""
+
+msgid "Single Punch (Reverse Landscape)"
+msgstr ""
+
+msgid "Single Punch (Reverse Portrait)"
+msgstr ""
+
+msgid "Single Staple (Landscape)"
+msgstr ""
+
+msgid "Single Staple (Portrait)"
+msgstr ""
+
+msgid "Single Staple (Reverse Landscape)"
+msgstr ""
+
+msgid "Single Staple (Reverse Portrait)"
+msgstr ""
+
 msgid "Special Paper"
 msgstr "Paper especial"
 
@@ -4237,6 +4548,24 @@ msgstr "S'està posant a la cua la feina. S'ha completat el %.0f%%."
 
 msgid "Standard"
 msgstr "Estàndard"
+
+msgid "Staple"
+msgstr ""
+
+msgid "Staple Edge"
+msgstr ""
+
+msgid "Staple Edge (Landscape)"
+msgstr ""
+
+msgid "Staple Edge (Portrait)"
+msgstr ""
+
+msgid "Staple Edge (Reverse Landscape)"
+msgstr ""
+
+msgid "Staple Edge (Reverse Portrait)"
+msgstr ""
 
 #. TRANSLATORS: Banner/cover sheet before the print job.
 msgid "Starting Banner"
@@ -4480,6 +4809,9 @@ msgstr "Hi ha massa valors de job-sheets (%d > 2)."
 msgid "Too many printer-state-reasons values (%d > %d)."
 msgstr "Hi ha massa valors de printer-state-reasons (%d > %d)."
 
+msgid "Top"
+msgstr ""
+
 msgid "Transparency"
 msgstr "Transparència"
 
@@ -4489,14 +4821,74 @@ msgstr "Safata"
 msgid "Tray 1"
 msgstr "Safata 1"
 
+msgid "Tray 10"
+msgstr ""
+
+msgid "Tray 11"
+msgstr ""
+
+msgid "Tray 12"
+msgstr ""
+
+msgid "Tray 13"
+msgstr ""
+
+msgid "Tray 14"
+msgstr ""
+
+msgid "Tray 15"
+msgstr ""
+
+msgid "Tray 16"
+msgstr ""
+
+msgid "Tray 17"
+msgstr ""
+
+msgid "Tray 18"
+msgstr ""
+
+msgid "Tray 19"
+msgstr ""
+
 msgid "Tray 2"
 msgstr "Safata 2"
+
+msgid "Tray 20"
+msgstr ""
 
 msgid "Tray 3"
 msgstr "Safata 3"
 
 msgid "Tray 4"
 msgstr "Safata 4"
+
+msgid "Tray 5"
+msgstr ""
+
+msgid "Tray 6"
+msgstr ""
+
+msgid "Tray 7"
+msgstr ""
+
+msgid "Tray 8"
+msgstr ""
+
+msgid "Tray 9"
+msgstr ""
+
+msgid "Triple Staple (Landscape)"
+msgstr ""
+
+msgid "Triple Staple (Portrait)"
+msgstr ""
+
+msgid "Triple Staple (Reverse Landscape)"
+msgstr ""
+
+msgid "Triple Staple (Reverse Portrait)"
+msgstr ""
 
 msgid "URI Too Long"
 msgstr "L'URI és massa llarg"
@@ -4627,12 +5019,11 @@ msgid "Unable to copy Windows 9x printer driver files (%d)."
 msgstr ""
 "No es poden copiar els fitxers del controlador d'impressora Windows 9x (%d)."
 
-#, c-format
-msgid "Unable to copy interface script - %s"
-msgstr "No es pot copiar l'script de la interfície - %s"
-
 msgid "Unable to create printer-uri"
 msgstr "No es pot crear el printer-uri"
+
+msgid "Unable to create printer."
+msgstr ""
 
 msgid "Unable to create server credentials."
 msgstr ""
@@ -4861,6 +5252,9 @@ msgstr "Ordre desconegut del fitxer: «%s»."
 msgid "Unknown format character: \"%c\"."
 msgstr "Format del caràcter desconegut: «%c»."
 
+msgid "Unknown hash algorithm."
+msgstr ""
+
 msgid "Unknown media size name."
 msgstr "El nom de la mida del suport no és conegut."
 
@@ -5005,13 +5399,6 @@ msgstr ""
 "Sintaxi: cupstestppd [opcions] nomfitxer1.ppd[.gz] [... nomfitxerN.ppd[.gz]]"
 
 msgid ""
-"Usage: ippdiscover [options] -a\n"
-"       ippdiscover [options] \"service name\"\n"
-"\n"
-"Options:"
-msgstr ""
-
-msgid ""
 "Usage: ippfind [options] regtype[,subtype][.domain.] ... [expression]\n"
 "       ippfind [options] name[.regtype[.domain.]] ... [expression]\n"
 "       ippfind --help\n"
@@ -5095,6 +5482,9 @@ msgid ""
 msgstr ""
 "Heu d'accedir a aquesta pagina a través de la URL <A HREF=\"https://%s:%d%s"
 "\">https://%s:%d%s</A>."
+
+msgid "Z Fold"
+msgstr ""
 
 msgid "ZPL Label Printer"
 msgstr "Impressora d'etiquetes ZPL"
@@ -5321,8 +5711,9 @@ msgstr "Falta l'atribut de job-printer-uri."
 msgid "lpadmin: Class name can only contain printable characters."
 msgstr "lpadmin: el nom de la classe només pot tenir caràcters imprimibles."
 
-msgid "lpadmin: Expected PPD after \"-P\" option."
-msgstr "lpadmin: s'esperava un PPD després de l'opció «-P»."
+#, c-format
+msgid "lpadmin: Expected PPD after \"-%c\" option."
+msgstr ""
 
 msgid "lpadmin: Expected allow/deny:userlist after \"-u\" option."
 msgstr "lpadmin: s'esperava allow/deny:llistausuaris després de l'opció «-u»."
@@ -5344,9 +5735,6 @@ msgstr "lpadmin: s'esperava un(s) tipus de fitxer(s) després de l'opció «-I»
 
 msgid "lpadmin: Expected hostname after \"-h\" option."
 msgstr "lpadmin: s'esperava un nom d'amfitrió després de l'opció «-h»."
-
-msgid "lpadmin: Expected interface after \"-i\" option."
-msgstr "lpadmin: s'esperava una interfície després de l'opció «-i»."
 
 msgid "lpadmin: Expected location after \"-L\" option."
 msgstr "lpadmin: s'esperava una ubicació després de l'opció «-L»."
@@ -5473,28 +5861,12 @@ msgid "lpinfo: Expected timeout after \"--timeout\"."
 msgstr "lpinfo: s'esperava un temps d'espera després de «--timeout»."
 
 #, c-format
-msgid "lpinfo: Unknown argument \"%s\"."
-msgstr "lpinfo: l'argument «%s» és desconegut."
-
-#, c-format
-msgid "lpinfo: Unknown option \"%c\"."
-msgstr "lpinfo: l'opció «%c» és desconeguda."
-
-#, c-format
-msgid "lpinfo: Unknown option \"%s\"."
-msgstr "lpinfo: l'opció «%s» és desconeguda."
-
-#, c-format
 msgid "lpmove: Unable to connect to server: %s"
 msgstr "lpmove: no s'ha pogut connectar al servidor: %s"
 
 #, c-format
 msgid "lpmove: Unknown argument \"%s\"."
 msgstr "lpmove: l'argument «%s» és desconegut."
-
-#, c-format
-msgid "lpmove: Unknown option \"%c\"."
-msgstr "lpmove: l'opció «%c» és desconeguda."
 
 msgid "lpoptions: No printers."
 msgstr "lpoptions: no hi ha cap impressora."
@@ -6024,6 +6396,9 @@ msgstr "sense títol"
 msgid "variable-bindings uses indefinite length"
 msgstr "La variable-bindings fa servir una longitud indefinida"
 
+#~ msgid "\tInterface: %s/interfaces/%s"
+#~ msgstr "\tInterfície: %s/interfícies/%s"
+
 #~ msgid ""
 #~ "      **FAIL**  BAD Manufacturer (should be \"Oki\")\n"
 #~ "                REF: Page 211, table D.1."
@@ -6033,6 +6408,9 @@ msgstr "La variable-bindings fa servir una longitud indefinida"
 
 #~ msgid "      **FAIL**  Unable to open PPD file - %s"
 #~ msgstr "      **ERROR**  No es pot obrir el fitxer PPD - %s"
+
+#~ msgid "  --lf                    End lines with LF (UNIX/Linux/OS X)."
+#~ msgstr "  --lf                    Final de línia amb LF (UNIX/Linux/OS X)."
 
 #~ msgid "  -E                      Enable encryption."
 #~ msgstr "  -E                      Habilita el xifrat."
@@ -6130,6 +6508,15 @@ msgstr "La variable-bindings fa servir una longitud indefinida"
 #~ msgid "Enter password:"
 #~ msgstr "Introduïu la contrasenya:"
 
+#~ msgid "Envelope #10 "
+#~ msgstr "Sobre #10"
+
+#~ msgid "Envelope PRC1 "
+#~ msgstr "Sobre PRC1"
+
+#~ msgid "File Folder "
+#~ msgstr "Carpeta d'arxivador "
+
 #~ msgid "File Folder - 9/16 x 3 7/16\""
 #~ msgstr "Carpeta d'arxivador: 9/16 x 3 7/16\""
 
@@ -6174,6 +6561,9 @@ msgstr "La variable-bindings fa servir una longitud indefinida"
 #~ msgid "Output for printer %s/%s is sent to remote printer %s on %s"
 #~ msgstr ""
 #~ "La sortida per la impressora %s/%s s'envia a la impressora remota %s a %s"
+
+#~ msgid "Postcard Double "
+#~ msgstr "Postal doble"
 
 #~ msgid "Print file accepted - job ID %d."
 #~ msgstr "S'ha acceptat el fitxer d'impressió - ID de la feina %d."
@@ -6272,6 +6662,9 @@ msgstr "La variable-bindings fa servir una longitud indefinida"
 #~ msgid "There is a paper jam."
 #~ msgstr "S'ha encallat el paper."
 
+#~ msgid "Unable to copy interface script - %s"
+#~ msgstr "No es pot copiar l'script de la interfície - %s"
+
 #~ msgid "Unable to create compressed print file"
 #~ msgstr "No es pot crear el fitxer d'impressió comprimit"
 
@@ -6351,6 +6744,24 @@ msgstr "La variable-bindings fa servir una longitud indefinida"
 
 #~ msgid "ipptool: Missing version for \"-V\"."
 #~ msgstr "ipptool: falta la versió a «-V»."
+
+#~ msgid "lpadmin: Expected PPD after \"-P\" option."
+#~ msgstr "lpadmin: s'esperava un PPD després de l'opció «-P»."
+
+#~ msgid "lpadmin: Expected interface after \"-i\" option."
+#~ msgstr "lpadmin: s'esperava una interfície després de l'opció «-i»."
+
+#~ msgid "lpinfo: Unknown argument \"%s\"."
+#~ msgstr "lpinfo: l'argument «%s» és desconegut."
+
+#~ msgid "lpinfo: Unknown option \"%c\"."
+#~ msgstr "lpinfo: l'opció «%c» és desconeguda."
+
+#~ msgid "lpinfo: Unknown option \"%s\"."
+#~ msgstr "lpinfo: l'opció «%s» és desconeguda."
+
+#~ msgid "lpmove: Unknown option \"%c\"."
+#~ msgstr "lpmove: l'opció «%c» és desconeguda."
 
 #~ msgid "lppasswd: Only root can add or delete passwords."
 #~ msgstr ""

@@ -45,6 +45,9 @@ struct ChildProcessInitializationParameters {
     String clientIdentifier;
     IPC::Connection::Identifier connectionIdentifier;
     HashMap<String, String> extraInitializationData;
+#if PLATFORM(COCOA)
+    OSObjectPtr<xpc_object_t> priorityBoostMessage;
+#endif
 };
 
 class ChildProcess : protected IPC::Connection::Client, public IPC::MessageSender {
@@ -62,6 +65,7 @@ public:
     void addMessageReceiver(IPC::StringReference messageReceiverName, uint64_t destinationID, IPC::MessageReceiver&);
     void removeMessageReceiver(IPC::StringReference messageReceiverName, uint64_t destinationID);
     void removeMessageReceiver(IPC::StringReference messageReceiverName);
+    void removeMessageReceiver(IPC::MessageReceiver&);
 
     void setProcessSuppressionEnabled(bool);
 
@@ -98,18 +102,19 @@ protected:
     static void stopNSAppRunLoop();
 #endif
 
-    virtual void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
+    void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
 
 private:
     // IPC::MessageSender
-    virtual IPC::Connection* messageSenderConnection() override;
-    virtual uint64_t messageSenderDestinationID() override;
+    IPC::Connection* messageSenderConnection() override;
+    uint64_t messageSenderDestinationID() override;
 
     void shutDown();
 
     void terminationTimerFired();
 
     void platformInitialize();
+    void platformStopRunLoop();
 
     // The timeout, in seconds, before this process will be terminated if termination
     // has been enabled. If the timeout is 0 seconds, the process will be terminated immediately.
@@ -125,6 +130,10 @@ private:
     IPC::MessageReceiverMap m_messageReceiverMap;
 
     UserActivity m_processSuppressionDisabled;
+
+#if PLATFORM(COCOA)
+    OSObjectPtr<xpc_object_t> m_priorityBoostMessage;
+#endif
 };
 
 } // namespace WebKit

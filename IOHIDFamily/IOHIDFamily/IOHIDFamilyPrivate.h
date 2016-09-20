@@ -23,8 +23,10 @@
 #ifndef _IOKIT_HID_IOHIDFAMILYPRIVATE_H
 #define _IOKIT_HID_IOHIDFAMILYPRIVATE_H
 
+#ifdef KERNEL
 #include "IOHIDKeys.h"
 #include "IOHIDDevice.h"
+#endif
 
 __BEGIN_DECLS
 
@@ -81,6 +83,7 @@ enum {
     kgestM90ISOKbd          = 44      /* (44) Apple M90 Wireless (ISO) Keyboard */
 };
 
+#ifdef KERNEL
 bool CompareProperty(IOService * owner, OSDictionary * matching, const char * key, SInt32 * score, SInt32 increment = 0);
 bool CompareDeviceUsage( IOService * owner, OSDictionary * matching, SInt32 * score, SInt32 increment = 0);
 bool CompareDeviceUsagePairs(IOService * owner, OSDictionary * matching, SInt32 * score, SInt32 increment = 0);
@@ -98,6 +101,7 @@ void IOHIDSystemActivityTickle(SInt32 nxEventType, IOService *sender);
 void handle_stackshot_keychord(uint32_t keycode);
 
 #define NX_HARDWARE_TICKLE  (NX_LASTEVENT+1)
+#endif
 
 __END_DECLS
 

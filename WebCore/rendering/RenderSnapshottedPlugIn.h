@@ -36,7 +36,7 @@ class HTMLPlugInImageElement;
 
 class RenderSnapshottedPlugIn final : public RenderEmbeddedObject {
 public:
-    RenderSnapshottedPlugIn(HTMLPlugInImageElement&, Ref<RenderStyle>&&);
+    RenderSnapshottedPlugIn(HTMLPlugInImageElement&, RenderStyle&&);
     virtual ~RenderSnapshottedPlugIn();
 
     HTMLPlugInImageElement& plugInImageElement() const;
@@ -47,17 +47,17 @@ public:
 
 private:
     void frameOwnerElement() const = delete;
-    virtual const char* renderName() const override { return "RenderSnapshottedPlugIn"; }
+    const char* renderName() const override { return "RenderSnapshottedPlugIn"; }
 
-    virtual CursorDirective getCursor(const LayoutPoint&, Cursor&) const override;
-    virtual bool isSnapshottedPlugIn() const override { return true; }
-    virtual void paint(PaintInfo&, const LayoutPoint&) override;
+    CursorDirective getCursor(const LayoutPoint&, Cursor&) const override;
+    bool isSnapshottedPlugIn() const override { return true; }
+    void paint(PaintInfo&, const LayoutPoint&) override;
     
-    virtual bool canHaveWidget() const override { return false; }
+    bool canHaveWidget() const override { return false; }
 
     void paintSnapshot(PaintInfo&, const LayoutPoint&);
 
-    virtual void layout() override;
+    void layout() override;
 
     std::unique_ptr<RenderImageResource> m_snapshotResource;
     bool m_isPotentialMouseActivation;

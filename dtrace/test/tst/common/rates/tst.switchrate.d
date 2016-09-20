@@ -43,7 +43,7 @@
  * (regrettably) may be scheduling sensitive -- but it should only fail on
  * the most pathological systems.
  */
-#pragma D option bufsize=40
+#pragma D option bufsize=400
 #pragma D option switchrate=10msec
 #pragma D option quiet
 

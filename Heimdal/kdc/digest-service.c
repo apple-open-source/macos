@@ -283,8 +283,10 @@ kdc_authenticate(void *ctx,
 		 void *response_ctx,
 		 void (response)(void *, const NTLMReply *ntp))
 {
-    krb5_principal client = NULL;
+    struct ntlm_buf targetinfo, answer;
     unsigned char sessionkey[16];
+    unsigned char ntlmv2[16];
+    krb5_principal client = NULL;
     krb5_data sessionkeydata;
     char *user_name = NULL;
     hdb_entry_ex *user = NULL;
@@ -357,9 +359,19 @@ kdc_authenticate(void *ctx,
     kdc_log(context, config, 2,
 	    "digest-request: found user, processing ntlm request");
     
-    if (ntq->ntChallengeResponse.length != 24) {
-	struct ntlm_buf targetinfo, answer;
-	unsigned char ntlmv2[16];
+    /*
+     * Reject NT and LM authentications (NTLMv1)
+     */
+
+    if (ntq->ntChallengeResponse.length == 24 || ntq->ntChallengeResponse.length == 0) {
+	kdc_log(context, config, 0,
+		"digest-request: user %s\\%s is doing an NTLMv1 (%s) request, no support",
+		ntp.domain, ntp.user,
+		derive_version_ntq(ntq));
+	goto failed;
+    }
+
+    {
 	
 	ntlm_version = "ntlmv2";
 	
@@ -423,80 +435,6 @@ kdc_authenticate(void *ctx,
 
 	ntp.targetinfo.data = targetinfo.data;
 	ntp.targetinfo.length = targetinfo.length;
-	
-    } else {
-	struct ntlm_buf answer;
-	uint8_t challenge[8];
-	uint8_t usk[16];
-	CCDigestRef digest;
-	
-	ntlm_version = "ntlmv1";
-	
-	if (!gss_mo_get(GSS_NTLM_MECHANISM, GSS_C_NTLM_V1, NULL)) {
-	    kdc_log(context, config, 2, "NTLMv1 disabled");
-	    ret = HNTLM_ERR_NOT_CONFIGURED;
-	    goto failed;
-	}
-	
-	if (ntq->lmchallenge.length != 8) {
-	    ret = HNTLM_ERR_INVALID_CHALLANGE;
-	    goto failed;
-	}
-	
-	if (ntq->ntlmFlags & NTLM_NEG_NTLM2_SESSION) {
-	    unsigned char sessionhash[CC_MD5_DIGEST_LENGTH];
-	    
-	    /* the first first 8 bytes is the challenge, what is the other 16 bytes ? */
-	    if (ntq->lmChallengeResponse.length != 24) {
-		ret = HNTLM_ERR_INVALID_LMv2_RESPONSE;
-		goto failed;
-	    }
-	    
-	    digest = CCDigestCreate(kCCDigestMD5);
-	    CCDigestUpdate(digest, ntq->lmchallenge.data, 8);
-	    CCDigestUpdate(digest, ntq->lmChallengeResponse.data, 8);
-	    CCDigestFinal(digest, sessionhash);
-	    CCDigestDestroy(digest);
-	    memcpy(challenge, sessionhash, sizeof(challenge));
-	} else {
-	    memcpy(challenge, ntq->lmchallenge.data, ntq->lmchallenge.length);
-	}
-	
-	ret = heim_ntlm_calculate_ntlm1(key->key.keyvalue.data,
-					key->key.keyvalue.length,
-					challenge, &answer);
-	if (ret)
-	    goto failed;
-	
-	if (ntq->ntChallengeResponse.length != answer.length ||
-	    memcmp(ntq->ntChallengeResponse.data, answer.data, answer.length) != 0) {
-	    free(answer.data);
-	    kdc_log(context, config, 2,
-		    "digest-request: verify ntlm1 hash failed");
-	    ret = HNTLM_ERR_INVALID_NTv1_ANSWER;
-	    goto failed;
-	}
-	free(answer.data);
-	
-	digest = CCDigestCreate(kCCDigestMD4);
-	CCDigestUpdate(digest,
-		       key->key.keyvalue.data,
-		       key->key.keyvalue.length);
-	CCDigestFinal(digest, usk);
-	CCDigestDestroy(digest);
-	
-	
-	if ((ntq->ntlmFlags & NTLM_NEG_NTLM2_SESSION) != 0) {
-	    CCHmacContext hc;
-	    
-	    CCHmacInit(&hc, kCCHmacAlgMD5, usk, sizeof(usk));
-	    CCHmacUpdate(&hc, ntq->lmchallenge.data, 8);
-	    CCHmacUpdate(&hc, ntq->lmChallengeResponse.data, 8);
-	    CCHmacFinal(&hc, sessionkey);
-	    memset(&hc, 0, sizeof(hc));
-	} else {
-	    memcpy(sessionkey, usk, sizeof(sessionkey));
-	}
     }
     
     if (ntq->ntlmFlags & NTLM_NEG_KEYEX) {
@@ -682,7 +620,7 @@ od_flags(krb5_context context, void *ctx)
 	    node = (ODNodeRef)CFArrayGetValueAtIndex(subnodes, n);
 
 	    name = ODNodeGetName(node);
-	    if (name && !CFStringHasPrefix(name, CFSTR("/LDAPv3/"))) {
+	    if (name && CFStringHasPrefix(name, CFSTR("/LDAPv3/"))) {
 		kdc_log(context, config, 2, "digest-request: have /LDAPv3/ nodes with signing");
 		haveLDAPSessionKeySupport = 1;
 		break;
@@ -826,8 +764,7 @@ od_authenticate(void *ctx,
      * No ntlmv2 session key or keyex for OD.
      */
     ntp.ntlmFlags = ntq->ntlmFlags;
-    ntp.ntlmFlags &= ~(NTLM_NEG_KEYEX|NTLM_NEG_NTLM2_SESSION);
-    
+
     /*
      * If the NTLMv2 session key is supported, it is returned in the
      * output buffer
@@ -851,8 +788,32 @@ od_authenticate(void *ctx,
      * If no session key was passed back, strip of SIGN/SEAL
      */
 
-    if (ntp.sessionkey == NULL || ntp.sessionkey->length == 0)
+    if (ntp.sessionkey == NULL || ntp.sessionkey->length == 0) {
 	ntp.ntlmFlags &= ~(NTLM_NEG_SIGN|NTLM_NEG_SEAL|NTLM_NEG_ALWAYS_SIGN);
+    } else {
+
+	if (ntq->ntlmFlags & NTLM_NEG_KEYEX) {
+	    struct ntlm_buf base, enc, sess;
+
+	    base.data = ntp.sessionkey->data;
+	    base.length = ntp.sessionkey->length;
+	    enc.data = ntq->encryptedSessionKey.data;
+	    enc.length = ntq->encryptedSessionKey.length;
+
+	    ret = heim_ntlm_keyex_unwrap(&base, &enc, &sess);
+	    if (ret != 0)
+		goto out;
+	    if (sess.length != ntp.sessionkey->length) {
+		heim_ntlm_free_buf(&sess);
+		ret = HNTLM_ERR_INVALID_SESSIONKEY;
+		goto out;
+	    }
+	    memcpy(ntp.sessionkey->data, sess.data, ntp.sessionkey->length);
+	    heim_ntlm_free_buf(&sess);
+	}
+
+    }
+
 
 
     ntp.user = ntq->loginUserName;
@@ -1741,6 +1702,8 @@ main(int argc, char **argv)
 	krb5_err(context, 1, ret, "krb5_kdc_default_config");
 
     kdc_openlog(context, "digest-service", config);
+
+    krb5_enctype_enable(context, ETYPE_ARCFOUR_HMAC_MD5);
 
     ret = krb5_kdc_set_dbinfo(context, config);
     if (ret)

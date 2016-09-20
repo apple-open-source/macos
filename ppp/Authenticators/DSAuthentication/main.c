@@ -738,6 +738,7 @@ static int dsauth_find_user_node(tDirReference dirRef, char *user_name, tDirNode
             if ((userPathDataListPtr = dsBuildFromPath(dirRef, userNodePath->fAttributeValueData.fBufferData, "/"))) {
                 dsResult = dsOpenDirNode(dirRef, userPathDataListPtr, user_node);
                 dsDataListDeallocate(dirRef, userPathDataListPtr);
+                free(userPathDataListPtr);
             }
             if (dsResult == eDSNoErr)
                 dsResult = dsauth_get_user_attr(dirRef, searchNodeRef, user_name, kDSNAttrRecordName, recordNameAttr);

@@ -53,6 +53,9 @@
 
 __BEGIN_DECLS
 
+CF_ASSUME_NONNULL_BEGIN
+CF_IMPLICIT_BRIDGING_ENABLED
+
 /*!
  @enum IOHIDManagerOptions
  @abstract Various options that can be supplied to IOHIDManager functions.
@@ -64,17 +67,17 @@ __BEGIN_DECLS
  @const kIOHIDManagerOptionDoNotSaveProperties This constant can be supplied to @link IOHIDManagerCreate @/link when you want to 
  use the persistent property store but do not want to add to it.
  */
-typedef enum {
+typedef CF_OPTIONS(uint32_t, IOHIDManagerOptions) {
     kIOHIDManagerOptionNone = 0x0,
     kIOHIDManagerOptionUsePersistentProperties = 0x1,
     kIOHIDManagerOptionDoNotLoadProperties = 0x2,
     kIOHIDManagerOptionDoNotSaveProperties = 0x4,
-} IOHIDManagerOptions;
+};
 
 /*! @typedef IOHIDManagerRef
 	@abstract This is the type of a reference to the IOHIDManager.
 */
-typedef struct __IOHIDManager * IOHIDManagerRef;
+typedef struct CF_BRIDGED_TYPE(id) __IOHIDManager * IOHIDManagerRef;
 
 /*!
 	@function   IOHIDManagerGetTypeID
@@ -97,7 +100,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 */
 CF_EXPORT 
 IOHIDManagerRef IOHIDManagerCreate(     
-                                CFAllocatorRef                  allocator,
+                                CFAllocatorRef _Nullable        allocator,
                                 IOOptionBits                    options)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
                                 
@@ -142,7 +145,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
     @result     Returns CFTypeRef containing the property.
 */
 CF_EXPORT
-CFTypeRef IOHIDManagerGetProperty(
+CFTypeRef _Nullable IOHIDManagerGetProperty(
                                 IOHIDManagerRef                 manager,
                                 CFStringRef                     key)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
@@ -218,7 +221,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 CF_EXPORT
 void IOHIDManagerSetDeviceMatching(
                                 IOHIDManagerRef                 manager,
-                                CFDictionaryRef                 matching)
+                                CFDictionaryRef _Nullable       matching)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
                                 
 /*! @function   IOHIDManagerSetDeviceMatchingMultiple
@@ -233,7 +236,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 CF_EXPORT
 void IOHIDManagerSetDeviceMatchingMultiple(
                                 IOHIDManagerRef                 manager,
-                                CFArrayRef                      multiple)
+                                CFArrayRef _Nullable            multiple)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
                                 
 /*! @function   IOHIDManagerCopyDevices
@@ -242,7 +245,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
     @result     CFSetRef containing IOHIDDeviceRefs.
 */
 CF_EXPORT
-CFSetRef IOHIDManagerCopyDevices(
+CFSetRef _Nullable IOHIDManagerCopyDevices(
                                 IOHIDManagerRef                 manager)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
@@ -258,7 +261,7 @@ CF_EXPORT
 void IOHIDManagerRegisterDeviceMatchingCallback(
                                 IOHIDManagerRef                 manager,
                                 IOHIDDeviceCallback             callback,
-                                void *                          context)
+                                void * _Nullable                context)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*! @function   IOHIDManagerRegisterDeviceRemovalCallback
@@ -274,7 +277,7 @@ CF_EXPORT
 void IOHIDManagerRegisterDeviceRemovalCallback(
                                 IOHIDManagerRef                 manager,
                                 IOHIDDeviceCallback             callback,
-                                void *                          context)
+                                void * _Nullable                context)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*! @function   IOHIDManagerRegisterInputReportCallback
@@ -289,7 +292,7 @@ CF_EXPORT
 void IOHIDManagerRegisterInputReportCallback( 
                                     IOHIDManagerRef             manager,
                                     IOHIDReportCallback         callback,
-                                    void *                      context)
+                                    void * _Nullable            context)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
                                                                     
 /*! @function   IOHIDManagerRegisterInputValueCallback
@@ -306,7 +309,7 @@ CF_EXPORT
 void IOHIDManagerRegisterInputValueCallback( 
                                 IOHIDManagerRef                 manager,
                                 IOHIDValueCallback              callback,
-                                void *                          context)
+                                void * _Nullable                context)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*! @function   IOHIDManagerSetInputValueMatching
@@ -325,7 +328,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 CF_EXPORT
 void IOHIDManagerSetInputValueMatching(
                                 IOHIDManagerRef                 manager,
-                                CFDictionaryRef                 matching)
+                                CFDictionaryRef _Nullable       matching)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*! @function   IOHIDManagerSetInputValueMatchingMultiple
@@ -342,7 +345,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 CF_EXPORT
 void IOHIDManagerSetInputValueMatchingMultiple(
                                                IOHIDManagerRef                 manager,
-                                               CFArrayRef                      multiple)
+                                               CFArrayRef _Nullable            multiple)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*!
@@ -365,6 +368,8 @@ void IOHIDManagerSaveToPropertyDomain(IOHIDManagerRef                 manager,
 AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 
+CF_IMPLICIT_BRIDGING_DISABLED
+CF_ASSUME_NONNULL_END
 
 __END_DECLS
 

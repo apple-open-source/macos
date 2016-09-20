@@ -38,7 +38,7 @@ public:
     static void setCookieAcceptPolicyForAllContexts(WebKitCookieStorageAcceptPolicy);
 #endif
     static void setPrivateBrowsingStorageSessionIdentifierBase(const String&);
-    static void ensurePrivateBrowsingSession();
+    static WebCore::NetworkStorageSession& ensurePrivateBrowsingSession();
     static void destroyPrivateBrowsingSession();
 
 private:
@@ -47,10 +47,8 @@ private:
     {
     }
 
-    virtual WebCore::ResourceError blockedError(const WebCore::ResourceRequest&) const override;
-#if USE(CFNETWORK)
-    virtual WebCore::NetworkStorageSession& storageSession() const override;
-#endif
+    WebCore::ResourceError blockedError(const WebCore::ResourceRequest&) const override;
+    WebCore::NetworkStorageSession& storageSession() const override;
 };
 
 #endif

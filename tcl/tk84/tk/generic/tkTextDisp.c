@@ -279,7 +279,7 @@ typedef struct TextDInfo {
 
 typedef struct CharInfo {
     int numBytes;		/* Number of bytes to display. */
-    char chars[4];		/* UTF characters to display.  Actual size
+    char chars[1];		/* UTF characters to display.  Actual size
 				 * will be numBytes, not 4.  THIS MUST BE
 				 * THE LAST FIELD IN THE STRUCTURE. */
 } CharInfo;
@@ -4582,8 +4582,7 @@ TkTextCharLayoutProc(textPtr, indexPtr, segPtr, byteOffset, maxX, maxBytes,
     chunkPtr->minHeight = 0;
     chunkPtr->width = nextX - chunkPtr->x;
     chunkPtr->breakIndex = -1;
-    ciPtr = (CharInfo *) ckalloc((unsigned)
-	    (sizeof(CharInfo) - 3 + bytesThatFit));
+    ciPtr = (CharInfo *) ckalloc((unsigned) bytesThatFit + Tk_Offset(CharInfo, chars) + 1);
     chunkPtr->clientData = (ClientData) ciPtr;
     ciPtr->numBytes = bytesThatFit;
     strncpy(ciPtr->chars, p, (size_t) bytesThatFit);

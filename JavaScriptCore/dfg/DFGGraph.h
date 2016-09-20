@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,17 +33,14 @@
 #include "CodeBlock.h"
 #include "DFGArgumentPosition.h"
 #include "DFGBasicBlock.h"
-#include "DFGDominators.h"
 #include "DFGFrozenValue.h"
 #include "DFGLongLivedState.h"
-#include "DFGNaturalLoops.h"
 #include "DFGNode.h"
 #include "DFGNodeAllocator.h"
 #include "DFGPlan.h"
-#include "DFGPrePostNumbering.h"
+#include "DFGPropertyTypeKey.h"
 #include "DFGScannable.h"
 #include "FullBytecodeLiveness.h"
-#include "JSStack.h"
 #include "MethodOfGettingAValueProfile.h"
 #include <unordered_map>
 #include <wtf/BitVector.h>
@@ -57,6 +54,14 @@ class CodeBlock;
 class ExecState;
 
 namespace DFG {
+
+class BackwardsCFG;
+class BackwardsDominators;
+class CFG;
+class ControlEquivalenceAnalysis;
+class Dominators;
+class NaturalLoops;
+class PrePostNumbering;
 
 #define DFG_NODE_DO_TO_CHILDREN(graph, node, thingToDo) do {            \
         Node* _node = (node);                                           \
@@ -210,7 +215,7 @@ public:
 
     // Dump the code origin of the given node as a diff from the code origin of the
     // preceding node. Returns true if anything was printed.
-    bool dumpCodeOrigin(PrintStream&, const char* prefix, Node* previousNode, Node* currentNode, DumpContext*);
+    bool dumpCodeOrigin(PrintStream&, const char* prefix, Node*& previousNode, Node* currentNode, DumpContext*);
 
     AddSpeculationMode addSpeculationMode(Node* add, bool leftShouldSpeculateInt32, bool rightShouldSpeculateInt32, PredictionPass pass)
     {
@@ -260,7 +265,7 @@ public:
         return addSpeculationMode(add, pass) != DontSpeculateInt32;
     }
     
-    bool addShouldSpeculateMachineInt(Node* add)
+    bool addShouldSpeculateAnyInt(Node* add)
     {
         if (!enableInt52())
             return false;
@@ -268,56 +273,54 @@ public:
         Node* left = add->child1().node();
         Node* right = add->child2().node();
 
-        bool speculation = Node::shouldSpeculateMachineInt(left, right);
+        bool speculation = Node::shouldSpeculateAnyInt(left, right);
         return speculation && !hasExitSite(add, Int52Overflow);
     }
     
-    bool mulShouldSpeculateInt32(Node* mul, PredictionPass pass)
+    bool binaryArithShouldSpeculateInt32(Node* node, PredictionPass pass)
     {
-        ASSERT(mul->op() == ArithMul);
-        
-        Node* left = mul->child1().node();
-        Node* right = mul->child2().node();
+        Node* left = node->child1().node();
+        Node* right = node->child2().node();
         
         return Node::shouldSpeculateInt32OrBooleanForArithmetic(left, right)
-            && mul->canSpeculateInt32(mul->sourceFor(pass));
+            && node->canSpeculateInt32(node->sourceFor(pass));
     }
     
-    bool mulShouldSpeculateMachineInt(Node* mul, PredictionPass pass)
+    bool binaryArithShouldSpeculateAnyInt(Node* node, PredictionPass pass)
     {
-        ASSERT(mul->op() == ArithMul);
-        
         if (!enableInt52())
             return false;
         
-        Node* left = mul->child1().node();
-        Node* right = mul->child2().node();
+        Node* left = node->child1().node();
+        Node* right = node->child2().node();
 
-        return Node::shouldSpeculateMachineInt(left, right)
-            && mul->canSpeculateInt52(pass)
-            && !hasExitSite(mul, Int52Overflow);
+        return Node::shouldSpeculateAnyInt(left, right)
+            && node->canSpeculateInt52(pass)
+            && !hasExitSite(node, Int52Overflow);
     }
     
-    bool negateShouldSpeculateInt32(Node* negate, PredictionPass pass)
+    bool unaryArithShouldSpeculateInt32(Node* node, PredictionPass pass)
     {
-        ASSERT(negate->op() == ArithNegate);
-        return negate->child1()->shouldSpeculateInt32OrBooleanForArithmetic()
-            && negate->canSpeculateInt32(pass);
+        return node->child1()->shouldSpeculateInt32OrBooleanForArithmetic()
+            && node->canSpeculateInt32(pass);
     }
     
-    bool negateShouldSpeculateMachineInt(Node* negate, PredictionPass pass)
+    bool unaryArithShouldSpeculateAnyInt(Node* node, PredictionPass pass)
     {
-        ASSERT(negate->op() == ArithNegate);
         if (!enableInt52())
             return false;
-        return negate->child1()->shouldSpeculateMachineInt()
-            && !hasExitSite(negate, Int52Overflow)
-            && negate->canSpeculateInt52(pass);
+        return node->child1()->shouldSpeculateAnyInt()
+            && node->canSpeculateInt52(pass)
+            && !hasExitSite(node, Int52Overflow);
     }
+
+    bool canOptimizeStringObjectAccess(const CodeOrigin&);
+
+    bool getRegExpPrototypeProperty(JSObject* regExpPrototype, Structure* regExpPrototypeStructure, UniquedStringImpl* uid, JSValue& returnJSValue);
 
     bool roundShouldSpeculateInt32(Node* arithRound, PredictionPass pass)
     {
-        ASSERT(arithRound->op() == ArithRound);
+        ASSERT(arithRound->op() == ArithRound || arithRound->op() == ArithFloor || arithRound->op() == ArithCeil || arithRound->op() == ArithTrunc);
         return arithRound->canSpeculateInt32(pass) && !hasExitSite(arithRound->origin.semantic, Overflow) && !hasExitSite(arithRound->origin.semantic, NegativeZero);
     }
     
@@ -325,7 +328,6 @@ public:
     
     StructureSet* addStructureSet(const StructureSet& structureSet)
     {
-        ASSERT(structureSet.size());
         for (Structure* structure : structureSet)
             registerStructure(structure);
         m_structureSet.append(structureSet);
@@ -346,9 +348,9 @@ public:
     ScriptExecutable* executableFor(InlineCallFrame* inlineCallFrame)
     {
         if (!inlineCallFrame)
-            return m_codeBlock->ownerExecutable();
+            return m_codeBlock->ownerScriptExecutable();
         
-        return inlineCallFrame->executable.get();
+        return inlineCallFrame->baselineCodeBlock->ownerScriptExecutable();
     }
     
     ScriptExecutable* executableFor(const CodeOrigin& codeOrigin)
@@ -368,21 +370,11 @@ public:
         return baselineCodeBlockForOriginAndBaselineCodeBlock(codeOrigin, m_profiledBlock);
     }
     
-    SymbolTable* symbolTableFor(InlineCallFrame* inlineCallFrame)
-    {
-        return baselineCodeBlockFor(inlineCallFrame)->symbolTable();
-    }
-    
-    SymbolTable* symbolTableFor(const CodeOrigin& codeOrigin)
-    {
-        return symbolTableFor(codeOrigin.inlineCallFrame);
-    }
-    
     bool isStrictModeFor(CodeOrigin codeOrigin)
     {
         if (!codeOrigin.inlineCallFrame)
             return m_codeBlock->isStrictMode();
-        return jsCast<FunctionExecutable*>(codeOrigin.inlineCallFrame->executable.get())->isStrictMode();
+        return codeOrigin.inlineCallFrame->isStrictMode();
     }
     
     ECMAMode ecmaModeFor(CodeOrigin codeOrigin)
@@ -410,27 +402,6 @@ public:
         return hasExitSite(node->origin.semantic, exitKind);
     }
     
-    VirtualRegister activationRegister()
-    {
-        return m_profiledBlock->activationRegister();
-    }
-    
-    VirtualRegister uncheckedActivationRegister()
-    {
-        return m_profiledBlock->uncheckedActivationRegister();
-    }
-    
-    VirtualRegister machineActivationRegister()
-    {
-        return m_profiledBlock->activationRegister();
-    }
-    
-    VirtualRegister uncheckedMachineActivationRegister()
-    {
-        return m_profiledBlock->uncheckedActivationRegister();
-    }
-    
-    ValueProfile* valueProfileFor(Node*);
     MethodOfGettingAValueProfile methodOfGettingAValueProfileFor(Node*);
     
     BlockIndex numBlocks() const { return m_blocks.size(); }
@@ -678,6 +649,37 @@ public:
     DesiredIdentifiers& identifiers() { return m_plan.identifiers; }
     DesiredWatchpoints& watchpoints() { return m_plan.watchpoints; }
     
+    // Returns false if the key is already invalid or unwatchable. If this is a Presence condition,
+    // this also makes it cheap to query if the condition holds. Also makes sure that the GC knows
+    // what's going on.
+    bool watchCondition(const ObjectPropertyCondition&);
+    bool watchConditions(const ObjectPropertyConditionSet&);
+
+    // Checks if it's known that loading from the given object at the given offset is fine. This is
+    // computed by tracking which conditions we track with watchCondition().
+    bool isSafeToLoad(JSObject* base, PropertyOffset);
+
+    void registerInferredType(const InferredType::Descriptor& type)
+    {
+        if (type.structure())
+            registerStructure(type.structure());
+    }
+
+    // Tells us what inferred type we are able to prove the property to have now and in the future.
+    InferredType::Descriptor inferredTypeFor(const PropertyTypeKey&);
+    InferredType::Descriptor inferredTypeForProperty(Structure* structure, UniquedStringImpl* uid)
+    {
+        return inferredTypeFor(PropertyTypeKey(structure, uid));
+    }
+
+    AbstractValue inferredValueForProperty(
+        const StructureSet& base, UniquedStringImpl* uid, StructureClobberState = StructuresAreWatched);
+
+    // This uses either constant property inference or property type inference to derive a good abstract
+    // value for some property accessed with the given abstract value base.
+    AbstractValue inferredValueForProperty(
+        const AbstractValue& base, UniquedStringImpl* uid, PropertyOffset, StructureClobberState);
+    
     FullBytecodeLiveness& livenessFor(CodeBlock*);
     FullBytecodeLiveness& livenessFor(InlineCallFrame*);
     
@@ -697,22 +699,24 @@ public:
         // call, both callee and caller will see the variables live.
         VirtualRegister exclusionStart;
         VirtualRegister exclusionEnd;
+
+        CodeOrigin* codeOriginPtr = &codeOrigin;
         
         for (;;) {
-            InlineCallFrame* inlineCallFrame = codeOrigin.inlineCallFrame;
+            InlineCallFrame* inlineCallFrame = codeOriginPtr->inlineCallFrame;
             VirtualRegister stackOffset(inlineCallFrame ? inlineCallFrame->stackOffset : 0);
             
             if (inlineCallFrame) {
                 if (inlineCallFrame->isClosureCall)
-                    functor(stackOffset + JSStack::Callee);
+                    functor(stackOffset + CallFrameSlot::callee);
                 if (inlineCallFrame->isVarargs())
-                    functor(stackOffset + JSStack::ArgumentCount);
+                    functor(stackOffset + CallFrameSlot::argumentCount);
             }
             
             CodeBlock* codeBlock = baselineCodeBlockFor(inlineCallFrame);
             FullBytecodeLiveness& fullLiveness = livenessFor(codeBlock);
-            const FastBitVector& liveness = fullLiveness.getLiveness(codeOrigin.bytecodeIndex);
-            for (unsigned relativeLocal = codeBlock->m_numCalleeRegisters; relativeLocal--;) {
+            const FastBitVector& liveness = fullLiveness.getLiveness(codeOriginPtr->bytecodeIndex);
+            for (unsigned relativeLocal = codeBlock->m_numCalleeLocals; relativeLocal--;) {
                 VirtualRegister reg = stackOffset + virtualRegisterForLocal(relativeLocal);
                 
                 // Don't report if our callee already reported.
@@ -738,7 +742,11 @@ public:
             for (VirtualRegister reg = exclusionStart; reg < exclusionEnd; reg += 1)
                 functor(reg);
             
-            codeOrigin = inlineCallFrame->caller;
+            codeOriginPtr = inlineCallFrame->getCallerSkippingTailCalls();
+
+            // The first inline call frame could be an inline tail call
+            if (!codeOriginPtr)
+                break;
         }
     }
     
@@ -780,7 +788,7 @@ public:
     
     void registerFrozenValues();
     
-    virtual void visitChildren(SlotVisitor&) override;
+    void visitChildren(SlotVisitor&) override;
     
     NO_RETURN_DUE_TO_CRASH void handleAssertionFailure(
         std::nullptr_t, const char* file, int line, const char* function,
@@ -793,6 +801,18 @@ public:
         const char* assertion);
 
     bool hasDebuggerEnabled() const { return m_hasDebuggerEnabled; }
+
+    Dominators& ensureDominators();
+    PrePostNumbering& ensurePrePostNumbering();
+    NaturalLoops& ensureNaturalLoops();
+    BackwardsCFG& ensureBackwardsCFG();
+    BackwardsDominators& ensureBackwardsDominators();
+    ControlEquivalenceAnalysis& ensureControlEquivalenceAnalysis();
+
+    // This function only makes sense to call after bytecode parsing
+    // because it queries the m_hasExceptionHandlers boolean whose value
+    // is only fully determined after bytcode parsing.
+    bool willCatchExceptionInMachineFrame(CodeOrigin, CodeOrigin& opCatchOriginOut, HandlerInfo*& catchHandlerOut);
 
     VM& m_vm;
     Plan& m_plan;
@@ -854,15 +874,25 @@ public:
     Bag<CallVarargsData> m_callVarargsData;
     Bag<LoadVarargsData> m_loadVarargsData;
     Bag<StackAccessData> m_stackAccessData;
+    Bag<LazyJSValue> m_lazyJSValues;
     Vector<InlineVariableData, 4> m_inlineVariableData;
     HashMap<CodeBlock*, std::unique_ptr<FullBytecodeLiveness>> m_bytecodeLiveness;
     HashMap<CodeBlock*, std::unique_ptr<BytecodeKills>> m_bytecodeKills;
-    Dominators m_dominators;
-    PrePostNumbering m_prePostNumbering;
-    NaturalLoops m_naturalLoops;
+    HashSet<std::pair<JSObject*, PropertyOffset>> m_safeToLoad;
+    HashMap<PropertyTypeKey, InferredType::Descriptor> m_inferredTypes;
+    std::unique_ptr<Dominators> m_dominators;
+    std::unique_ptr<PrePostNumbering> m_prePostNumbering;
+    std::unique_ptr<NaturalLoops> m_naturalLoops;
+    std::unique_ptr<CFG> m_cfg;
+    std::unique_ptr<BackwardsCFG> m_backwardsCFG;
+    std::unique_ptr<BackwardsDominators> m_backwardsDominators;
+    std::unique_ptr<ControlEquivalenceAnalysis> m_controlEquivalenceAnalysis;
     unsigned m_localVars;
     unsigned m_nextMachineLocal;
     unsigned m_parameterSlots;
+    
+    HashSet<String> m_localStrings;
+    HashMap<const StringImpl*, String> m_copiedStrings;
 
 #if USE(JSVALUE32_64)
     std::unordered_map<int64_t, double*> m_doubleConstantsMap;
@@ -876,8 +906,11 @@ public:
     PlanStage m_planStage { PlanStage::Initial };
     RefCountState m_refCountState;
     bool m_hasDebuggerEnabled;
+    bool m_hasExceptionHandlers { false };
 private:
-    
+
+    bool isStringPrototypeMethodSane(JSGlobalObject*, UniquedStringImpl*);
+
     void handleSuccessor(Vector<BasicBlock*, 16>& worklist, BasicBlock*, BasicBlock* successor);
     
     AddSpeculationMode addImmediateShouldSpeculateInt32(Node* add, bool variableShouldSpeculateInt32, Node* operand, Node*immediate, RareCaseProfilingSource source)

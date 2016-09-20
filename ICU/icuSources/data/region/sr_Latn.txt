@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/sr_Latn.xml
@@ -47,7 +47,6 @@ sr_Latn{
         AI{"Angvila"}
         AL{"Albanija"}
         AM{"Jermenija"}
-        AN{"Holandski Antili"}
         AO{"Angola"}
         AQ{"Antarktik"}
         AR{"Argentina"}
@@ -79,7 +78,7 @@ sr_Latn{
         BY{"Belorusija"}
         BZ{"Belize"}
         CA{"Kanada"}
-        CC{"Kokos (Keling) Ostrva"}
+        CC{"Kokosova (Kilingova) Ostrva"}
         CD{"Kongo - Kinšasa"}
         CF{"Centralnoafrička Republika"}
         CG{"Kongo - Brazavil"}
@@ -139,7 +138,7 @@ sr_Latn{
         GU{"Guam"}
         GW{"Gvineja-Bisao"}
         GY{"Gvajana"}
-        HK{"Hong Kong S. A. R. Kina"}
+        HK{"SAR Hongkong (Kina)"}
         HM{"Ostrva Herd i Mekdonald"}
         HN{"Honduras"}
         HR{"Hrvatska"}
@@ -208,7 +207,7 @@ sr_Latn{
         NA{"Namibija"}
         NC{"Nova Kaledonija"}
         NE{"Niger"}
-        NF{"Norfolk Ostrvo"}
+        NF{"Ostrvo Norfok"}
         NG{"Nigerija"}
         NI{"Nikaragva"}
         NL{"Holandija"}
@@ -313,5 +312,5 @@ sr_Latn{
         FK{"Foklandska (Malvinska) ostrva"}
         MK{"Makedonija (BJRM)"}
     }
-    Version{"2.1.13.24"}
+    Version{"2.1.24.17"}
 }

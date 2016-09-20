@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,6 +38,9 @@
 #include "UserContentTypes.h"
 #include "UserStyleSheet.h"
 #include "UserStyleSheetTypes.h"
+#include <runtime/JSCellInlines.h>
+#include <runtime/StructureInlines.h>
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
@@ -213,12 +216,12 @@ Vector<RefPtr<TextTrack>> CaptionUserPreferences::sortedTrackListForMenu(TextTra
 
     for (unsigned i = 0, length = trackList->length(); i < length; ++i) {
         TextTrack* track = trackList->item(i);
-        const AtomicString& kind = track->kind();
-        if (kind == TextTrack::captionsKeyword() || kind == TextTrack::descriptionsKeyword() || kind == TextTrack::subtitlesKeyword())
+        auto kind = track->kind();
+        if (kind == TextTrack::Kind::Captions || kind == TextTrack::Kind::Descriptions || kind == TextTrack::Kind::Subtitles)
             tracksForMenu.append(track);
     }
 
-    std::sort(tracksForMenu.begin(), tracksForMenu.end(), [](const RefPtr<TextTrack>& a, const RefPtr<TextTrack>& b) {
+    std::sort(tracksForMenu.begin(), tracksForMenu.end(), [](auto& a, auto& b) {
         return codePointCompare(trackDisplayName(a.get()), trackDisplayName(b.get())) < 0;
     });
 
@@ -253,7 +256,7 @@ Vector<RefPtr<AudioTrack>> CaptionUserPreferences::sortedTrackListForMenu(AudioT
         tracksForMenu.append(track);
     }
 
-    std::sort(tracksForMenu.begin(), tracksForMenu.end(), [](const RefPtr<AudioTrack>& a, const RefPtr<AudioTrack>& b) {
+    std::sort(tracksForMenu.begin(), tracksForMenu.end(), [](auto& a, auto& b) {
         return codePointCompare(trackDisplayName(a.get()), trackDisplayName(b.get())) < 0;
     });
 
@@ -262,7 +265,7 @@ Vector<RefPtr<AudioTrack>> CaptionUserPreferences::sortedTrackListForMenu(AudioT
 
 int CaptionUserPreferences::textTrackSelectionScore(TextTrack* track, HTMLMediaElement*) const
 {
-    if (track->kind() != TextTrack::captionsKeyword() && track->kind() != TextTrack::subtitlesKeyword())
+    if (track->kind() != TextTrack::Kind::Captions && track->kind() != TextTrack::Kind::Subtitles)
         return 0;
     
     if (!userPrefersSubtitles() && !userPrefersCaptions())
@@ -290,30 +293,14 @@ int CaptionUserPreferences::textTrackLanguageSelectionScore(TextTrack* track, co
 void CaptionUserPreferences::setCaptionsStyleSheetOverride(const String& override)
 {
     m_captionsStyleSheetOverride = override;
-    updateCaptionStyleSheetOveride();
+    updateCaptionStyleSheetOverride();
 }
 
-void CaptionUserPreferences::updateCaptionStyleSheetOveride()
+void CaptionUserPreferences::updateCaptionStyleSheetOverride()
 {
-    // Identify our override style sheet with a unique URL - a new scheme and a UUID.
-    DEPRECATED_DEFINE_STATIC_LOCAL(URL, captionsStyleSheetURL, (ParsedURLString, "user-captions-override:01F6AF12-C3B0-4F70-AF5E-A3E00234DC23"));
-
-    auto& pages = m_pageGroup.pages();
-    for (auto& page : pages) {
-        if (auto* pageUserContentController = page->userContentController())
-            pageUserContentController->removeUserStyleSheet(mainThreadNormalWorld(), captionsStyleSheetURL);
-    }
-
     String captionsOverrideStyleSheet = captionsStyleSheetOverride();
-    if (captionsOverrideStyleSheet.isEmpty())
-        return;
-
-    for (auto& page : pages) {
-        if (auto* pageUserContentController = page->userContentController()) {
-            auto userStyleSheet = std::make_unique<UserStyleSheet>(captionsOverrideStyleSheet, captionsStyleSheetURL, Vector<String>(), Vector<String>(), InjectInAllFrames, UserStyleAuthorLevel);
-            pageUserContentController->addUserStyleSheet(mainThreadNormalWorld(), WTF::move(userStyleSheet), InjectInExistingDocuments);
-        }
-    }
+    for (auto& page : m_pageGroup.pages())
+        page->setCaptionUserPreferencesStyleSheet(captionsOverrideStyleSheet);
 }
 
 String CaptionUserPreferences::primaryAudioTrackLanguageOverride() const

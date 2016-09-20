@@ -32,55 +32,56 @@
 #include "utilities/debugging.h"
 #include "utilities/debugging_test.h"
 
+#if USINGOLDLOGGING
 #define kTestCount (39)
 
 static void
 tests(void) {
-    ok(IsScopeActive(ASL_LEVEL_ERR, NULL), "Errors are active by default");
+    ok(IsScopeActive(SECLOG_LEVEL_ERR, NULL), "Errors are active by default");
 
-    ok(!IsScopeActive(ASL_LEVEL_INFO, CFSTR("testscope")), "scope is off");
+    ok(!IsScopeActive(SECLOG_LEVEL_INFO, CFSTR("testscope")), "scope is off");
 
     ApplyScopeListForIDC("-first", kScopeIDXPC);
 
-    ok(IsScopeActive(ASL_LEVEL_INFO, CFSTR("testscope")), "scope is on");
-    ok(!IsScopeActive(ASL_LEVEL_INFO, CFSTR("first")), "scope is off");
+    ok(IsScopeActive(SECLOG_LEVEL_INFO, CFSTR("testscope")), "scope is on");
+    ok(!IsScopeActive(SECLOG_LEVEL_INFO, CFSTR("first")), "scope is off");
 
     ApplyScopeListForIDC("first", kScopeIDXPC);
 
-    ok(IsScopeActive(ASL_LEVEL_INFO, CFSTR("first")), "scope is on");
-    ok(!IsScopeActive(ASL_LEVEL_INFO, CFSTR("testscope")), "scope is off");
+    ok(IsScopeActive(SECLOG_LEVEL_INFO, CFSTR("first")), "scope is on");
+    ok(!IsScopeActive(SECLOG_LEVEL_INFO, CFSTR("testscope")), "scope is off");
 
     ApplyScopeListForIDC("testscope, bar, baz,frog", kScopeIDXPC);
 
-    ok(IsScopeActive(ASL_LEVEL_INFO, CFSTR("testscope")), "scope is on");
-    ok(IsScopeActive(ASL_LEVEL_INFO, CFSTR("bar")), "scope is on");
-    ok(IsScopeActive(ASL_LEVEL_INFO, CFSTR("baz")), "scope is on");
-    ok(IsScopeActive(ASL_LEVEL_INFO, CFSTR("frog")), "scope is on");
-    ok(!IsScopeActive(ASL_LEVEL_INFO, CFSTR("bonzo")), "scope is off");
-    ok(!IsScopeActive(ASL_LEVEL_INFO, CFSTR("nothing")), "scope is off");
+    ok(IsScopeActive(SECLOG_LEVEL_INFO, CFSTR("testscope")), "scope is on");
+    ok(IsScopeActive(SECLOG_LEVEL_INFO, CFSTR("bar")), "scope is on");
+    ok(IsScopeActive(SECLOG_LEVEL_INFO, CFSTR("baz")), "scope is on");
+    ok(IsScopeActive(SECLOG_LEVEL_INFO, CFSTR("frog")), "scope is on");
+    ok(!IsScopeActive(SECLOG_LEVEL_INFO, CFSTR("bonzo")), "scope is off");
+    ok(!IsScopeActive(SECLOG_LEVEL_INFO, CFSTR("nothing")), "scope is off");
 
     ApplyScopeListForID(CFSTR("-bonzo, boy"), kScopeIDDefaults);
 
-    ok(IsScopeActive(ASL_LEVEL_INFO, CFSTR("testscope")), "scope is on");
-    ok(IsScopeActive(ASL_LEVEL_INFO, CFSTR("bar")), "scope is on");
-    ok(IsScopeActive(ASL_LEVEL_INFO, CFSTR("baz")), "scope is on");
-    ok(IsScopeActive(ASL_LEVEL_INFO, CFSTR("frog")), "scope is on");
-    ok(!IsScopeActive(ASL_LEVEL_INFO, CFSTR("bonzo")), "scope is off");
-    ok(IsScopeActive(ASL_LEVEL_INFO, CFSTR("nothing")), "scope is on");
+    ok(IsScopeActive(SECLOG_LEVEL_INFO, CFSTR("testscope")), "scope is on");
+    ok(IsScopeActive(SECLOG_LEVEL_INFO, CFSTR("bar")), "scope is on");
+    ok(IsScopeActive(SECLOG_LEVEL_INFO, CFSTR("baz")), "scope is on");
+    ok(IsScopeActive(SECLOG_LEVEL_INFO, CFSTR("frog")), "scope is on");
+    ok(!IsScopeActive(SECLOG_LEVEL_INFO, CFSTR("bonzo")), "scope is off");
+    ok(IsScopeActive(SECLOG_LEVEL_INFO, CFSTR("nothing")), "scope is on");
 
     ApplyScopeListForID(CFSTR(""), kScopeIDDefaults);
 
-    ok(IsScopeActive(ASL_LEVEL_INFO, CFSTR("testscope")), "scope is on");
-    ok(IsScopeActive(ASL_LEVEL_INFO, CFSTR("bar")), "scope is on");
-    ok(IsScopeActive(ASL_LEVEL_INFO, CFSTR("baz")), "scope is on");
-    ok(IsScopeActive(ASL_LEVEL_INFO, CFSTR("frog")), "scope is on");
-    ok(!IsScopeActive(ASL_LEVEL_INFO, CFSTR("bonzo")), "scope is off");
-    ok(!IsScopeActive(ASL_LEVEL_INFO, CFSTR("nothing")), "scope is on");
+    ok(IsScopeActive(SECLOG_LEVEL_INFO, CFSTR("testscope")), "scope is on");
+    ok(IsScopeActive(SECLOG_LEVEL_INFO, CFSTR("bar")), "scope is on");
+    ok(IsScopeActive(SECLOG_LEVEL_INFO, CFSTR("baz")), "scope is on");
+    ok(IsScopeActive(SECLOG_LEVEL_INFO, CFSTR("frog")), "scope is on");
+    ok(!IsScopeActive(SECLOG_LEVEL_INFO, CFSTR("bonzo")), "scope is off");
+    ok(!IsScopeActive(SECLOG_LEVEL_INFO, CFSTR("nothing")), "scope is on");
 
-    int value = ASL_LEVEL_NOTICE;
+    int value = SECLOG_LEVEL_NOTICE;
     CFNumberRef noticeNumber = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &value);
 
-    value = ASL_LEVEL_INFO;
+    value = SECLOG_LEVEL_INFO;
     CFNumberRef infoNumber = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &value);
 
     CFDictionaryRef settings_dictionary = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
@@ -92,25 +93,25 @@ tests(void) {
 
     ApplyScopeDictionaryForID(settings_dictionary, kScopeIDXPC);
 
-    ok(!IsScopeActive(ASL_LEVEL_INFO, CFSTR("testscope")), "scope is off");
-    ok(!IsScopeActive(ASL_LEVEL_INFO, CFSTR("bar")), "scope is off");
-    ok(IsScopeActive(ASL_LEVEL_INFO, CFSTR("baz")), "scope is on");
+    ok(!IsScopeActive(SECLOG_LEVEL_INFO, CFSTR("testscope")), "scope is off");
+    ok(!IsScopeActive(SECLOG_LEVEL_INFO, CFSTR("bar")), "scope is off");
+    ok(IsScopeActive(SECLOG_LEVEL_INFO, CFSTR("baz")), "scope is on");
 
-    ok(!IsScopeActive(ASL_LEVEL_NOTICE, CFSTR("testscope")), "scope is off");
-    ok(IsScopeActive(ASL_LEVEL_NOTICE, CFSTR("bar")), "scope is on");
-    ok(!IsScopeActive(ASL_LEVEL_NOTICE, CFSTR("baz")), "scope is off");
+    ok(!IsScopeActive(SECLOG_LEVEL_NOTICE, CFSTR("testscope")), "scope is off");
+    ok(IsScopeActive(SECLOG_LEVEL_NOTICE, CFSTR("bar")), "scope is on");
+    ok(!IsScopeActive(SECLOG_LEVEL_NOTICE, CFSTR("baz")), "scope is off");
 
-    ok(!IsScopeActive(ASL_LEVEL_WARNING, CFSTR("testscope")), "scope is off");
-    ok(IsScopeActive(ASL_LEVEL_WARNING, CFSTR("bar")), "scope is on");
-    ok(IsScopeActive(ASL_LEVEL_WARNING, CFSTR("baz")), "scope is on");
+    ok(!IsScopeActive(SECLOG_LEVEL_WARNING, CFSTR("testscope")), "scope is off");
+    ok(IsScopeActive(SECLOG_LEVEL_WARNING, CFSTR("bar")), "scope is on");
+    ok(IsScopeActive(SECLOG_LEVEL_WARNING, CFSTR("baz")), "scope is on");
 
-    ok(IsScopeActive(ASL_LEVEL_DEBUG, CFSTR("testscope")), "scope is on");
-    ok(IsScopeActive(ASL_LEVEL_DEBUG, CFSTR("bar")), "scope is on");
-    ok(!IsScopeActive(ASL_LEVEL_DEBUG, CFSTR("baz")), "scope is off");
+    ok(IsScopeActive(SECLOG_LEVEL_DEBUG, CFSTR("testscope")), "scope is on");
+    ok(IsScopeActive(SECLOG_LEVEL_DEBUG, CFSTR("bar")), "scope is on");
+    ok(!IsScopeActive(SECLOG_LEVEL_DEBUG, CFSTR("baz")), "scope is off");
 
-    ok(!IsScopeActive(ASL_LEVEL_ALERT, CFSTR("testscope")), "scope is off");
-    ok(!IsScopeActive(ASL_LEVEL_ALERT, CFSTR("bar")), "scope is off");
-    ok(!IsScopeActive(ASL_LEVEL_ALERT, CFSTR("baz")), "scope is off");
+    ok(!IsScopeActive(SECLOG_LEVEL_ALERT, CFSTR("testscope")), "scope is off");
+    ok(!IsScopeActive(SECLOG_LEVEL_ALERT, CFSTR("bar")), "scope is off");
+    ok(!IsScopeActive(SECLOG_LEVEL_ALERT, CFSTR("baz")), "scope is off");
 
     CFReleaseSafe(noticeNumber);
     CFReleaseSafe(infoNumber);
@@ -130,10 +131,10 @@ tests(void) {
 static void
 testLog()
 {
-    int value = ASL_LEVEL_NOTICE;
+    int value = SECLOG_LEVEL_NOTICE;
     CFNumberRef noticeNumber = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &value);
 
-    value = ASL_LEVEL_INFO;
+    value = SECLOG_LEVEL_INFO;
     CFNumberRef infoNumber = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &value);
 
     CFDictionaryRef settings_dictionary = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
@@ -171,11 +172,11 @@ testLog()
 
     called = false; CFReleaseNull(scope); CFReleaseNull(message); CFReleaseNull(file); CFReleaseNull(function); level = -1; line = 0;
 
-    secdebug("bar", "Get this!");
+    secinfo("bar", "Get this!");
 
 #if !defined(NDEBUG)
     is(called, true, "Handler called");
-    is(level, ASL_LEVEL_DEBUG, "level");
+    is(level, SECLOG_LEVEL_DEBUG, "level");
     eq_cf(scope, CFSTR("bar"), "Scope");
     eq_cf(message, CFSTR("Get this!"), "message");
     eq_cf(function, CFSTR("testLog"), "function");
@@ -186,18 +187,20 @@ testLog()
     called = false;
     CFReleaseNull(scope);
     CFReleaseNull(message);
+    CFReleaseNull(file);
     CFReleaseNull(function);
 
     secnotice("bunz", "Get this, too!");
 
     is(called, true, "Handler called");
-    is(level, ASL_LEVEL_NOTICE, "level");
+    is(level, SECLOG_LEVEL_NOTICE, "level");
     eq_cf(scope, CFSTR("bunz"), "Scope");
     eq_cf(message, CFSTR("Get this, too!"), "message");
     eq_cf(function, CFSTR("testLog"), "function");
 
     CFReleaseNull(scope);
     CFReleaseNull(message);
+    CFReleaseNull(file);
     CFReleaseNull(function);
 
     remove_security_log_handler(verify);
@@ -212,12 +215,19 @@ testLog()
 
     CFReleaseSafe(result);
 }
+#endif
+
 
 int
 su_07_debugging(int argc, char *const *argv) {
+#if USINGOLDLOGGING
     plan_tests(kTestCount + kTestLogCount);
     tests();
     testLog();
+#else
+    plan_tests(1);
+    ok(1, "Using os_log");
+#endif
 
     return 0;
 }

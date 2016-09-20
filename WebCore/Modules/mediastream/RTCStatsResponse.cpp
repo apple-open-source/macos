@@ -24,9 +24,10 @@
 
 #include "config.h"
 
-#if ENABLE(MEDIA_STREAM)
+#if ENABLE(WEB_RTC)
 
 #include "RTCStatsResponse.h"
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
@@ -39,16 +40,17 @@ RTCStatsResponse::RTCStatsResponse()
 {
 }
 
-PassRefPtr<RTCStatsReport> RTCStatsResponse::namedItem(const AtomicString& name)
+RefPtr<RTCStatsReport> RTCStatsResponse::namedItem(const AtomicString& name)
 {
     if (m_idmap.find(name) != m_idmap.end())
         return m_result[m_idmap.get(name)];
     return nullptr;
 }
 
-bool RTCStatsResponse::canGetItemsForName(const AtomicString& name)
+Vector<AtomicString> WebCore::RTCStatsResponse::supportedPropertyNames()
 {
-    return m_idmap.contains(name);
+    // FIXME: Should be implemented.
+    return Vector<AtomicString>();
 }
 
 size_t RTCStatsResponse::addReport(String id, String type, double timestamp)
@@ -66,4 +68,4 @@ void RTCStatsResponse::addStatistic(size_t report, String name, String value)
 
 } // namespace WebCore
 
-#endif // ENABLE(MEDIA_STREAM)
+#endif // ENABLE(WEB_RTC)

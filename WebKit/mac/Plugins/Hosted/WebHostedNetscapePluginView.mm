@@ -76,7 +76,6 @@ extern "C" {
     WTF::initializeMainThreadToProcessMainThread();
     RunLoop::initializeMainRunLoop();
 #endif
-    WebCoreObjCFinalizeOnMainThread(self);
     WKSendUserChangeNotifications();
 }
 
@@ -444,7 +443,10 @@ extern "C" {
 {
     if (_cachedSnapshot) {
         NSRect sourceRect = { NSZeroPoint, [_cachedSnapshot.get() size] };
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         [_cachedSnapshot.get() drawInRect:[self bounds] fromRect:sourceRect operation:NSCompositeSourceOver fraction:1];
+#pragma clang diagnostic pop
         return;
     }
 
@@ -511,30 +513,6 @@ extern "C" {
     
     if (HostedNetscapePluginStream* manualStream = _proxy->manualStream())
         manualStream->didFinishLoading(0);
-}
-
-- (void)_webPluginContainerCancelCheckIfAllowedToLoadRequest:(id)webPluginContainerCheck
-{
-    ASSERT([webPluginContainerCheck isKindOfClass:[WebPluginContainerCheck class]]);
-    
-    id contextInfo = [webPluginContainerCheck contextInfo];
-    ASSERT([contextInfo isKindOfClass:[NSNumber class]]);
-
-    if (!_proxy)
-        return;
-
-    uint32_t checkID = [(NSNumber *)contextInfo unsignedIntValue];
-    _proxy->cancelCheckIfAllowedToLoadURL(checkID);
-}
-
-- (void)_containerCheckResult:(PolicyAction)policy contextInfo:(id)contextInfo
-{
-    ASSERT([contextInfo isKindOfClass:[NSNumber class]]);
-    if (!_proxy)
-        return;
-
-    uint32_t checkID = [(NSNumber *)contextInfo unsignedIntValue];
-    _proxy->checkIfAllowedToLoadURLResult(checkID, (policy == PolicyUse));
 }
 
 - (void)webFrame:(WebFrame *)webFrame didFinishLoadWithReason:(NPReason)reason

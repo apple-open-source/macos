@@ -11,7 +11,7 @@
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
- * are also available at http://curl.haxx.se/docs/copyright.html.
+ * are also available at https://curl.haxx.se/docs/copyright.html.
  *
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
@@ -86,6 +86,10 @@ struct Curl_multi {
   /* callback function and user data pointer for the *socket() API */
   curl_socket_callback socket_cb;
   void *socket_userp;
+
+  /* callback function and user data pointer for server push */
+  curl_push_callback push_cb;
+  void *push_userp;
 
   /* Hostname cache */
   struct curl_hash hostcache;

@@ -169,7 +169,7 @@ _pthread_cond_check_init_slow(_pthread_cond *cond, bool *inited)
 {
 	int res = EINVAL;
 	if (cond->sig == _PTHREAD_COND_SIG_init) {
-		LOCK(cond->lock);
+		_PTHREAD_LOCK(cond->lock);
 		if (cond->sig == _PTHREAD_COND_SIG_init) {
 			res = _pthread_cond_init(cond, NULL, 0);
 			if (inited) {
@@ -178,7 +178,7 @@ _pthread_cond_check_init_slow(_pthread_cond *cond, bool *inited)
 		} else if (cond->sig == _PTHREAD_COND_SIG) {
 			res = 0;
 		}
-		UNLOCK(cond->lock);
+		_PTHREAD_UNLOCK(cond->lock);
 	} else if (cond->sig == _PTHREAD_COND_SIG) {
 		res = 0;
 	}
@@ -201,7 +201,7 @@ pthread_cond_destroy(pthread_cond_t *ocond)
 	_pthread_cond *cond = (_pthread_cond *)ocond;
 	int res = EINVAL;
 	if (cond->sig == _PTHREAD_COND_SIG) {
-		LOCK(cond->lock);
+		_PTHREAD_LOCK(cond->lock);
 
 		uint64_t oldval64, newval64;
 		uint32_t lcntval, ucntval, scntval;
@@ -234,7 +234,7 @@ pthread_cond_destroy(pthread_cond_t *ocond)
 		cond->sig = _PTHREAD_NO_SIG;
 		res = 0;
 		
-		UNLOCK(cond->lock);
+		_PTHREAD_UNLOCK(cond->lock);
 
 		if (needclearpre) {
 			(void)__psynch_cvclrprepost(cond, lcntval, ucntval, scntval, 0, lcntval, flags);
@@ -579,9 +579,9 @@ _pthread_cond_cleanup(void *arg)
 	pthread_t thread = pthread_self();
 	int thcanceled = 0;
 
-	LOCK(thread->lock);
+	_PTHREAD_LOCK(thread->lock);
 	thcanceled = (thread->detached & _PTHREAD_WASCANCEL);
-	UNLOCK(thread->lock);
+	_PTHREAD_UNLOCK(thread->lock);
 
 	if (thcanceled == 0) {
 		return;
@@ -700,6 +700,6 @@ pthread_cond_init(pthread_cond_t *ocond, const pthread_condattr_t *attr)
 #endif /* __DARWIN_UNIX03 */
 
 	_pthread_cond *cond = (_pthread_cond *)ocond;
-	LOCK_INIT(cond->lock);
+	_PTHREAD_LOCK_INIT(cond->lock);
 	return _pthread_cond_init(cond, attr, conforming);
 }

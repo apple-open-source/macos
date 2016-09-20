@@ -2623,7 +2623,8 @@ PUBLIC boolean32 rpc_binding_handle_equal
 **
 **--
 **/
-
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PUBLIC void rpc_binding_server_to_client
 (
     rpc_binding_handle_t    src_binding_h,
@@ -2634,7 +2635,8 @@ PUBLIC void rpc_binding_server_to_client
     rpc_binding_server_from_client (src_binding_h, dst_binding_h, status);
     return;
 }
-
+#endif
+
 /*
 **++
 **
@@ -3100,6 +3102,8 @@ PRIVATE void rpc__binding_set_prot_version(
 **
 **--
 */
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PUBLIC void rpc_binding_create(
     rpc_binding_handle_template_t       *template,
     rpc_binding_handle_security_t       *security,
@@ -3189,3 +3193,4 @@ PUBLIC void rpc_binding_create(
 
     return;
 }
+#endif

@@ -23,6 +23,7 @@ use strict;
 use File::Basename;
 use Getopt::Long;
 use Cwd;
+use Config;
 
 my $defines;
 my $preprocessor;
@@ -49,9 +50,19 @@ die('Must specify an output file using --workerGlobalScopeConstructorsFile.') un
 die('Must specify an output file using --dedicatedWorkerGlobalScopeConstructorsFile.') unless defined($dedicatedWorkerGlobalScopeConstructorsFile);
 die('Must specify the file listing all IDLs using --idlFilesList.') unless defined($idlFilesList);
 
+$supplementalDependencyFile = CygwinPathIfNeeded($supplementalDependencyFile);
+$windowConstructorsFile = CygwinPathIfNeeded($windowConstructorsFile);
+$workerGlobalScopeConstructorsFile = CygwinPathIfNeeded($workerGlobalScopeConstructorsFile);
+$dedicatedWorkerGlobalScopeConstructorsFile = CygwinPathIfNeeded($dedicatedWorkerGlobalScopeConstructorsFile);
+$supplementalMakefileDeps = CygwinPathIfNeeded($supplementalMakefileDeps);
+
 open FH, "< $idlFilesList" or die "Cannot open $idlFilesList\n";
-my @idlFiles = <FH>;
-chomp(@idlFiles);
+my @idlFilesIn = <FH>;
+chomp(@idlFilesIn);
+my @idlFiles = ();
+foreach (@idlFilesIn) {
+    push @idlFiles, CygwinPathIfNeeded($_);
+}
 close FH;
 
 my %interfaceNameToIdlFile;
@@ -66,7 +77,7 @@ my $dedicatedWorkerGlobalScopeConstructorsCode = "";
 my %idlFileHash = map { $_, 1 } @idlFiles;
 
 # Populate $idlFileToInterfaceName and $interfaceNameToIdlFile.
-foreach my $idlFile (keys %idlFileHash) {
+foreach my $idlFile (sort keys %idlFileHash) {
     my $fullPath = Cwd::realpath($idlFile);
     my $interfaceName = fileparse(basename($idlFile), ".idl");
     $idlFileToInterfaceName{$fullPath} = $interfaceName;
@@ -95,15 +106,30 @@ foreach my $idlFile (sort keys %idlFileHash) {
             $supplementalDependencies{$implementedIdlFile} = [$interfaceName];
         }
     }
-    # Handle [NoInterfaceObject].
-    unless (isCallbackInterfaceFromIDL($idlFileContents)) {
-        my $extendedAttributes = getInterfaceExtendedAttributesFromIDL($idlFileContents);
-        unless ($extendedAttributes->{"NoInterfaceObject"}) {
-            my @globalContexts = split("&", $extendedAttributes->{"GlobalContext"} || "DOMWindow");
+
+    # For every interface that is exposed in a given ECMAScript global environment and:
+    # - is a callback interface that has constants declared on it, or
+    # - is a non-callback interface that is not declared with the [NoInterfaceObject] extended attribute, a corresponding
+    #   property must exist on the ECMAScript environment's global object.
+    # See https://heycam.github.io/webidl/#es-interfaces
+    my $extendedAttributes = getInterfaceExtendedAttributesFromIDL($idlFileContents);
+    unless ($extendedAttributes->{"NoInterfaceObject"}) {
+        if (!isCallbackInterfaceFromIDL($idlFileContents) || interfaceHasConstantAttribute($idlFileContents)) {
+            my $exposedAttribute = $extendedAttributes->{"Exposed"} || "Window";
+            $exposedAttribute = substr($exposedAttribute, 1, -1) if substr($exposedAttribute, 0, 1) eq "(";
+            my @globalContexts = split(",", $exposedAttribute);
             my $attributeCode = GenerateConstructorAttribute($interfaceName, $extendedAttributes);
-            $windowConstructorsCode .= $attributeCode if grep(/^DOMWindow$/, @globalContexts);
-            $workerGlobalScopeConstructorsCode .= $attributeCode if grep(/^WorkerGlobalScope$/, @globalContexts);
-            $dedicatedWorkerGlobalScopeConstructorsCode .= $attributeCode if grep(/^DedicatedWorkerGlobalScope$/, @globalContexts);
+            foreach my $globalContext (@globalContexts) {
+                if ($globalContext eq "Window") {
+                    $windowConstructorsCode .= $attributeCode;
+                } elsif ($globalContext eq "Worker") {
+                    $workerGlobalScopeConstructorsCode .= $attributeCode;
+                } elsif ($globalContext eq "DedicatedWorker") {
+                    $dedicatedWorkerGlobalScopeConstructorsCode .= $attributeCode;
+                } else {
+                    die "Unsupported global context '$globalContext' used in [Exposed] at $idlFile";
+                }
+            }
         }
     }
     $supplementals{$fullPath} = [];
@@ -115,7 +141,7 @@ GeneratePartialInterface("WorkerGlobalScope", $workerGlobalScopeConstructorsCode
 GeneratePartialInterface("DedicatedWorkerGlobalScope", $dedicatedWorkerGlobalScopeConstructorsCode, $dedicatedWorkerGlobalScopeConstructorsFile);
 
 # Resolves partial interfaces and implements dependencies.
-foreach my $idlFile (keys %supplementalDependencies) {
+foreach my $idlFile (sort keys %supplementalDependencies) {
     my $baseFiles = $supplementalDependencies{$idlFile};
     foreach my $baseFile (@{$baseFiles}) {
         my $targetIdlFile = $interfaceNameToIdlFile{$baseFile};
@@ -159,6 +185,21 @@ if ($supplementalMakefileDeps) {
     WriteFileIfChanged($supplementalMakefileDeps, $makefileDeps);
 }
 
+my $cygwinPathAdded;
+sub CygwinPathIfNeeded
+{
+    my $path = shift;
+    if ($path && $Config{osname} eq "cygwin") {
+        if (not $cygwinPathAdded) {
+            $ENV{PATH} = "$ENV{PATH}:/cygdrive/c/cygwin/bin";
+            $cygwinPathAdded = 1; 
+        }
+        chomp($path = `cygpath -u '$path'`);
+        $path =~ s/[\r\n]//;
+    }
+    return $path;
+}
+
 sub WriteFileIfChanged
 {
     my $fileName = shift;
@@ -196,8 +237,8 @@ sub GenerateConstructorAttribute
 
     my $code = "    ";
     my @extendedAttributesList;
-    foreach my $attributeName (keys %{$extendedAttributes}) {
-      next unless ($attributeName eq "Conditional" || $attributeName eq "EnabledAtRuntime" || $attributeName eq "EnabledBySetting");
+    foreach my $attributeName (sort keys %{$extendedAttributes}) {
+      next unless ($attributeName eq "Conditional" || $attributeName eq "EnabledAtRuntime" || $attributeName eq "EnabledBySetting" || $attributeName eq "PrivateIdentifier" || $attributeName eq "PublicIdentifier");
       my $extendedAttribute = $attributeName;
       $extendedAttribute .= "=" . $extendedAttributes->{$attributeName} unless $extendedAttributes->{$attributeName} eq "VALUE_IS_MISSING";
       push(@extendedAttributesList, $extendedAttribute);
@@ -277,8 +318,13 @@ sub getInterfaceExtendedAttributesFromIDL
 
     my $extendedAttributes = {};
 
-    if ($fileContents =~ /\[(.*)\]\s+(interface|exception)\s+(\w+)/gs) {
-        my @parts = split(',', $1);
+    # Remove comments from fileContents before processing.
+    # FIX: Preference to use Regex::Common::comment, however it is not available on
+    # all build systems.
+    $fileContents =~ s/(?:(?:(?:\/\/)(?:[^\n]*)(?:\n))|(?:(?:\/\*)(?:(?:[^\*]+|\*(?!\/))*)(?:\*\/)))//g;
+
+    if ($fileContents =~ /\[(.*)\]\s+(callback interface|interface|exception)\s+(\w+)/gs) {
+        my @parts = split(m/,(?![^()]*\))/, $1);
         foreach my $part (@parts) {
             my @keyValue = split('=', $part);
             my $key = trim($keyValue[0]);
@@ -290,4 +336,11 @@ sub getInterfaceExtendedAttributesFromIDL
     }
 
     return $extendedAttributes;
+}
+
+sub interfaceHasConstantAttribute
+{
+    my $fileContents = shift;
+
+    return $fileContents =~ /\s+const[\s\w]+=\s+[\w]+;/gs;
 }

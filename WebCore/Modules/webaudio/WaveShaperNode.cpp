@@ -28,15 +28,16 @@
 
 #include "WaveShaperNode.h"
 
+#include "AudioContext.h"
 #include "ExceptionCode.h"
 #include <wtf/MainThread.h>
 
 namespace WebCore {
 
-WaveShaperNode::WaveShaperNode(AudioContext* context)
-    : AudioBasicProcessorNode(context, context->sampleRate())
+WaveShaperNode::WaveShaperNode(AudioContext& context)
+    : AudioBasicProcessorNode(context, context.sampleRate())
 {
-    m_processor = std::make_unique<WaveShaperProcessor>(context->sampleRate(), 1);
+    m_processor = std::make_unique<WaveShaperProcessor>(context.sampleRate(), 1);
     setNodeType(NodeTypeWaveShaper);
 
     initialize();
@@ -53,36 +54,41 @@ Float32Array* WaveShaperNode::curve()
     return waveShaperProcessor()->curve();
 }
 
-void WaveShaperNode::setOversample(const String& type, ExceptionCode& ec)
+static inline WaveShaperProcessor::OverSampleType processorType(WaveShaperNode::OverSampleType type)
+{
+    switch (type) {
+    case WaveShaperNode::OverSampleType::None:
+        return WaveShaperProcessor::OverSampleNone;
+    case WaveShaperNode::OverSampleType::_2x:
+        return WaveShaperProcessor::OverSample2x;
+    case WaveShaperNode::OverSampleType::_4x:
+        return WaveShaperProcessor::OverSample4x;
+    }
+    ASSERT_NOT_REACHED();
+    return WaveShaperProcessor::OverSampleNone;
+}
+
+void WaveShaperNode::setOversample(OverSampleType type)
 {
     ASSERT(isMainThread());
 
     // Synchronize with any graph changes or changes to channel configuration.
-    AudioContext::AutoLocker contextLocker(*context());
-
-    if (type == "none")
-        waveShaperProcessor()->setOversample(WaveShaperProcessor::OverSampleNone);
-    else if (type == "2x")
-        waveShaperProcessor()->setOversample(WaveShaperProcessor::OverSample2x);
-    else if (type == "4x")
-        waveShaperProcessor()->setOversample(WaveShaperProcessor::OverSample4x);
-    else
-        ec = INVALID_STATE_ERR;
+    AudioContext::AutoLocker contextLocker(context());
+    waveShaperProcessor()->setOversample(processorType(type));
 }
 
-String WaveShaperNode::oversample() const
+auto WaveShaperNode::oversample() const -> OverSampleType
 {
     switch (const_cast<WaveShaperNode*>(this)->waveShaperProcessor()->oversample()) {
     case WaveShaperProcessor::OverSampleNone:
-        return "none";
+        return OverSampleType::None;
     case WaveShaperProcessor::OverSample2x:
-        return "2x";
+        return OverSampleType::_2x;
     case WaveShaperProcessor::OverSample4x:
-        return "4x";
-    default:
-        ASSERT_NOT_REACHED();
-        return "none";
+        return OverSampleType::_4x;
     }
+    ASSERT_NOT_REACHED();
+    return OverSampleType::None;
 }
 
 } // namespace WebCore

@@ -1,6 +1,4 @@
 dnl
-dnl "$Id: cups-compiler.m4 12755 2015-06-24 19:39:26Z msweet $"
-dnl
 dnl Compiler stuff for CUPS.
 dnl
 dnl Copyright 2007-2014 by Apple Inc.
@@ -244,7 +242,3 @@ case $uname in
 		OPTIM="$OPTIM -D_GNU_SOURCE"
 		;;
 esac
-
-dnl
-dnl End of "$Id: cups-compiler.m4 12755 2015-06-24 19:39:26Z msweet $".
-dnl

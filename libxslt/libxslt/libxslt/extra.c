@@ -266,7 +266,7 @@ xsltFunctionLocalTime(xmlXPathParserContextPtr ctxt, int nargs) {
                                        /*  0123456789 12345 */
 
     strncpy(result, str, 20);
-    strcpy(result+20, "???");          /* tzname doesn't work, fake it */
+    strncpy(result+20, "???", 4);      /* tzname doesn't work, fake it */
     strncpy(result+23, str+19, 5);
 
     /* Ok, now result contains the string I want to send back. */

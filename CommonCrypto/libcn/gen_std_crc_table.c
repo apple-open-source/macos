@@ -29,7 +29,7 @@
 #include <string.h>
 
 static inline uint64_t
-cm_tab(crcDescriptorPtr crcdesc, char index)
+cm_tab(crcDescriptorPtr crcdesc, uint8_t index)
 {
     uint64_t retval;
     const crcModelParms *desc = &crcdesc->def.parms;
@@ -51,13 +51,15 @@ gen_std_crc_table(crcInfoPtr crc)
 {
     size_t width = crc->descriptor->def.parms.width;
     if((crc->table.bytes = malloc(width * 256)) == NULL) return -1;
-    for(int i=0; i<256; i++)
+    for(int i=0; i<256; i++){
+        uint8_t c8 = i&0xFF;
         switch (width) {
-            case 1: crc->table.bytes[i] = (uint8_t) cm_tab(crc->descriptor, i); break;
-            case 2: crc->table.b16[i] = (uint16_t) cm_tab(crc->descriptor, i); break;
-            case 4: crc->table.b32[i] = (uint32_t) cm_tab(crc->descriptor, i); break;
-            case 8: crc->table.b64[i] = (uint64_t) cm_tab(crc->descriptor, i); break;
+            case 1: crc->table.bytes[i] = (uint8_t) cm_tab(crc->descriptor, c8); break;
+            case 2: crc->table.b16[i] = (uint16_t) cm_tab(crc->descriptor, c8); break;
+            case 4: crc->table.b32[i] = (uint32_t) cm_tab(crc->descriptor, c8); break;
+            case 8: crc->table.b64[i] = (uint64_t) cm_tab(crc->descriptor, c8); break;
         }
+    }
     return 0;
 }
 

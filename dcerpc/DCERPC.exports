@@ -79,7 +79,7 @@ _dcethread_use_error_e
 _rpc__dbg_set_switches
 
 _rpc_binding_copy
-_rpc_binding_create
+# _rpc_binding_create
 _rpc_binding_free
 _rpc_binding_from_string_binding
 _rpc_binding_handle_copy
@@ -94,15 +94,15 @@ _rpc_binding_inq_security_context
 _rpc_binding_inq_transport_info
 _rpc_binding_reset
 _rpc_binding_server_from_client
-_rpc_binding_server_to_client
+# _rpc_binding_server_to_client
 _rpc_binding_set_auth_info
 _rpc_binding_set_object
-_rpc_binding_set_transport_info
-_rpc_binding_to_epmap
+# _rpc_binding_set_transport_info
+# _rpc_binding_to_epmap
 _rpc_binding_to_string_binding
 _rpc_binding_vector_free
-_rpc_call_block_until_free
-_rpc_call_cancel
+# _rpc_call_block_until_free
+# _rpc_call_cancel
 _rpc_call_did_mgr_execute
 _rpc_call_end
 _rpc_call_receive
@@ -117,7 +117,7 @@ _rpc_call_transmit_fault
 # _rpc_cs_eval_with_universal
 # _rpc_cs_eval_without_universal
 _rpc_ep_register
-_rpc_ep_register_no_replace
+# _rpc_ep_register_no_replace
 _rpc_ep_resolve_binding
 _rpc_ep_unregister
 _rpc_if_id_vector_free
@@ -126,8 +126,8 @@ _rpc_impersonate_named_pipe_client
 _rpc_mgmt_ep_elt_inq_begin
 _rpc_mgmt_ep_elt_inq_done
 _rpc_mgmt_ep_elt_inq_next
-_rpc_mgmt_ep_unregister
-_rpc_mgmt_get_max_concurrency
+# _rpc_mgmt_ep_unregister
+# _rpc_mgmt_get_max_concurrency
 _rpc_mgmt_inq_com_timeout
 _rpc_mgmt_inq_dflt_authn_level
 _rpc_mgmt_inq_dflt_protect_level
@@ -140,10 +140,10 @@ _rpc_mgmt_is_server_listening
 _rpc_mgmt_set_authorization_fn
 _rpc_mgmt_set_cancel_timeout
 _rpc_mgmt_set_com_timeout
-_rpc_mgmt_set_max_concurrency
-_rpc_mgmt_set_server_com_timeout
+# _rpc_mgmt_set_max_concurrency
+# _rpc_mgmt_set_server_com_timeout
 _rpc_mgmt_set_server_idle_timeout
-_rpc_mgmt_set_server_stack_size
+# _rpc_mgmt_set_server_stack_size
 _rpc_mgmt_stats_vector_free
 _rpc_mgmt_stop_server_listening
 _rpc_network_close
@@ -212,15 +212,15 @@ _rpc_revert_to_self
 _rpc_server_create_thread_pool
 _rpc_server_free_thread_pool
 _rpc_server_inq_bindings
-_rpc_server_inq_call_attributes
-_rpc_server_inq_if
+# _rpc_server_inq_call_attributes
+# _rpc_server_inq_if
 _rpc_server_listen
 _rpc_server_register_auth_info
 _rpc_server_register_if
-_rpc_server_register_if_2
-_rpc_server_register_if_ex
+# _rpc_server_register_if_2
+# _rpc_server_register_if_ex
 _rpc_server_set_thread_pool_fn
-_rpc_server_set_thread_pool_qlen
+# _rpc_server_set_thread_pool_qlen
 _rpc_server_unregister_if
 _rpc_server_use_all_protseqs
 _rpc_server_use_all_protseqs_if
@@ -228,13 +228,13 @@ _rpc_server_use_protseq
 _rpc_server_use_protseq_ep
 _rpc_server_use_protseq_if
 _rpc_server_use_protseq_socket
-_rpc_sm_get_thread_handle
-_rpc_sm_set_thread_handle
+# _rpc_sm_get_thread_handle
+# _rpc_sm_set_thread_handle
 _rpc_ss_Z_values_from_bounds
 _rpc_ss_allocate
 _rpc_ss_arm_switch_value
 _rpc_ss_arm_switch_value
-_rpc_ss_bind_authn_client
+# _rpc_ss_bind_authn_client
 _rpc_ss_bug_1_thru_31
 _rpc_ss_build_bounds_list
 _rpc_ss_build_bounds_list_2
@@ -249,7 +249,7 @@ _rpc_ss_client_is_set_up
 _rpc_ss_client_free
 _rpc_ss_create_support_ptrs
 _rpc_ss_ctx_client_ref_count_d_2
-_rpc_ss_ctx_client_ref_count_dec
+# _rpc_ss_ctx_client_ref_count_dec
 _rpc_ss_ctx_client_ref_count_i_2
 _rpc_ss_ctx_client_ref_count_inc
 _rpc_ss_destroy_client_context
@@ -278,7 +278,7 @@ _rpc_ss_init_context_once
 _rpc_ss_init_marsh_state
 _rpc_ss_init_node_table
 _rpc_ss_init_server_once
-_rpc_ss_initialize_callee_pipe
+# _rpc_ss_initialize_callee_pipe
 _rpc_ss_lookup_node_by_num
 _rpc_ss_lookup_pointer_to_node
 _rpc_ss_m_uuid
@@ -382,8 +382,8 @@ _rpc_string_binding_compose
 _rpc_string_binding_parse
 _rpc_string_free
 _rpc_tower_to_binding
-_rpc_tower_vector_free
-_rpc_tower_vector_from_binding
+# _rpc_tower_vector_free
+# _rpc_tower_vector_from_binding
 _rpc_util_strcvt
 _rpc_x_access_control_info_inv
 _rpc_x_assoc_grp_max_exceeded

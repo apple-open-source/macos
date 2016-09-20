@@ -21,14 +21,13 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef DOMWindowWebDatabase_h
 #define DOMWindowWebDatabase_h
 
 #include "ExceptionCode.h"
-#include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/text/WTFString.h>
@@ -42,11 +41,10 @@ class Frame;
 
 class DOMWindowWebDatabase {
 public:
-    static RefPtr<Database> openDatabase(DOMWindow*, const String& name, const String& version, const String& displayName, unsigned long estimatedSize, PassRefPtr<DatabaseCallback> creationCallback, ExceptionCode&);
+    static RefPtr<Database> openDatabase(DOMWindow&, const String& name, const String& version, const String& displayName, unsigned long estimatedSize, RefPtr<DatabaseCallback>&& creationCallback, ExceptionCode&);
 
-private:
-    DOMWindowWebDatabase() { };
-    ~DOMWindowWebDatabase() { };
+    DOMWindowWebDatabase() = delete;
+    ~DOMWindowWebDatabase() = delete;
 };
 
 } // namespace WebCore

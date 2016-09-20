@@ -743,7 +743,7 @@ IOReturn IOHIDUPSClass::sendCommand(CFDictionaryRef command)
     CFStringRef	*	keys		= NULL;
     CFMutableDataRef	data		= NULL;
     CFTypeRef		type		= NULL;
-    SInt32		value;
+    SInt32		value           = 0;
     IOReturn		ret 		= kIOReturnSuccess;
     
     if ( !command || (((count = CFDictionaryGetCount(command)) <= 0)))
@@ -789,7 +789,8 @@ IOReturn IOHIDUPSClass::sendCommand(CFDictionaryRef command)
         }
         else if (CFEqual(CFSTR(kIOPSCommandSetCurrentLimitKey), keys[i]) ||
                  CFEqual(CFSTR(kIOPSCommandSetRequiredVoltageKey), keys[i]) ||
-                 CFEqual(CFSTR(kIOPSCommandSendCurrentStateOfCharge), keys[i]))
+                 CFEqual(CFSTR(kIOPSCommandSendCurrentStateOfCharge), keys[i]) ||
+                 CFEqual(CFSTR(kIOPSAppleBatteryCaseCommandEnableChargingKey), keys[i]))
         {
             CFNumberGetValue((CFNumberRef)values[i], kCFNumberSInt32Type, &value);
         }
@@ -1019,6 +1020,16 @@ bool IOHIDUPSClass::findElements()
                     if ( newElement.isDesiredType )
                     {
                         psKey 			= CFSTR(kIOPSCommandEnableAudibleAlarmKey);
+                        newElement.shouldPoll	= false;
+                        newElement.isCommand	= true;
+                    }
+                    break;
+                case kHIDUsage_PD_Used:
+                    newElement.isDesiredType =
+                    (( newElement.type == kIOHIDElementTypeFeature) || ( newElement.type == kIOHIDElementTypeOutput));
+                    if ( newElement.isDesiredType )
+                    {
+                        psKey 			= CFSTR(kIOPSAppleBatteryCaseCommandEnableChargingKey);
                         newElement.shouldPoll	= false;
                         newElement.isCommand	= true;
                     }

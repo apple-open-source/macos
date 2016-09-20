@@ -41,9 +41,10 @@ public:
     static std::unique_ptr<GLTransportSurface> createTransportSurface(const IntSize&, SurfaceAttributes);
     static std::unique_ptr<GLTransportSurfaceClient> createTransportSurfaceClient(const PlatformBufferHandle, const IntSize&, bool);
     virtual ~EGLTransportSurface();
-    virtual PlatformSurfaceConfig configuration() override;
-    virtual void destroy() override;
-    virtual GLPlatformSurface::SurfaceAttributes attributes() const override;
+    PlatformSurfaceConfig configuration() override;
+    void destroy() override;
+    GLPlatformSurface::SurfaceAttributes attributes() const override;
+    bool isCurrentDrawable() const override;
 
 protected:
     EGLTransportSurface(const IntSize&, SurfaceAttributes);
@@ -54,9 +55,10 @@ class EGLOffScreenSurface : public GLPlatformSurface {
 public:
     static std::unique_ptr<GLPlatformSurface> createOffScreenSurface(SurfaceAttributes);
     virtual ~EGLOffScreenSurface();
-    virtual PlatformSurfaceConfig configuration() override;
-    virtual void destroy() override;
-    virtual GLPlatformSurface::SurfaceAttributes attributes() const override;
+    PlatformSurfaceConfig configuration() override;
+    void destroy() override;
+    GLPlatformSurface::SurfaceAttributes attributes() const override;
+    bool isCurrentDrawable() const override;
 
 protected:
     EGLOffScreenSurface(SurfaceAttributes);

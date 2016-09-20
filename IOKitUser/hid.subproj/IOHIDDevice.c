@@ -36,7 +36,6 @@
 #include <IOKit/hid/IOHIDKeys.h>
 #include <asl.h>
 #include <AssertMacros.h>
-#include <syslog.h>
 #include "IOHIDDevicePlugIn.h"
 #include "IOHIDDevice.h"
 #include "IOHIDQueue.h"
@@ -444,12 +443,15 @@ IOHIDDeviceRef IOHIDDeviceCreate(
     IOHIDDeviceTimeStampedDeviceInterface **   deviceTimeStampedInterface     = NULL;
     IOHIDDeviceRef                  device              = NULL;
     SInt32                          score               = 0;
-    
+    HRESULT                         result;
+
     require_noerr(IOObjectRetain(service), retain_fail);
     require_noerr(IOCreatePlugInInterfaceForService(service, kIOHIDDeviceTypeID, kIOCFPlugInInterfaceID, &plugInInterface, &score), plugin_fail);
     require_noerr((*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOHIDDeviceDeviceInterfaceID), (LPVOID)&deviceInterface), query_fail);
-    check_noerr((*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOHIDDeviceDeviceInterfaceID2), (LPVOID)&deviceTimeStampedInterface));
-    
+    result = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOHIDDeviceDeviceInterfaceID2), (LPVOID)&deviceTimeStampedInterface);
+    if (result != S_OK) {
+        deviceTimeStampedInterface = NULL;
+    }
     device = __IOHIDDeviceCreate(allocator, NULL);
     require(device, create_fail);
         
@@ -699,12 +701,13 @@ void IOHIDDeviceScheduleWithRunLoop(
                             (CFRunLoopTimerRef)device->asyncEventSource, 
                             device->runLoopMode);
 
-    if ( device->notificationPort )
-        CFRunLoopAddSource(
-                device->runLoop, 
-                IONotificationPortGetRunLoopSource(device->notificationPort), 
-                device->runLoopMode);
-                
+    if ( device->notificationPort ) {
+        CFRunLoopSourceRef source = IONotificationPortGetRunLoopSource(device->notificationPort);
+        if (source) {
+            CFRunLoopAddSource(device->runLoop, source, device->runLoopMode);
+        }
+    }
+    
     // Default queue has already been created, so go ahead and schedule it
     if ( device->queue ) {
         IOHIDQueueScheduleWithRunLoop(  device->queue, 
@@ -735,11 +738,11 @@ void IOHIDDeviceUnscheduleFromRunLoop(
                                           device->runLoopMode);
         }
       
-        if ( device->notificationPort ) {        
-            CFRunLoopRemoveSource(
-                device->runLoop, 
-                IONotificationPortGetRunLoopSource(device->notificationPort), 
-                device->runLoopMode);
+        if ( device->notificationPort ) {
+            CFRunLoopSourceRef source = IONotificationPortGetRunLoopSource(device->notificationPort);
+            if (source) {
+                CFRunLoopRemoveSource(device->runLoop, source, device->runLoopMode);
+            }
         }
         
         if (device->asyncEventSource) {
@@ -769,7 +772,7 @@ void IOHIDDeviceRegisterRemovalCallback(
     
     CFRetain(device);   
     if (!context)
-        _IOHIDLog(ASL_LEVEL_WARNING, "%s called with a null context\n", __func__);
+        os_log(_IOHIDLog(), "called with a null context");
     
     if (!device->removalCallbackSet) {
         device->removalCallbackSet = CFSetCreateMutable(NULL, 0, &__callbackBaseSetCallbacks);
@@ -933,7 +936,7 @@ void IOHIDDeviceRegisterInputValueCallback(
 
     CFRetain(device);
     if (!context)
-        _IOHIDLog(ASL_LEVEL_WARNING, "%s called with a null context\n", __func__);
+        os_log(_IOHIDLog(), "called with a null context");
     
     if (!device->inputValueCallbackSet) {
         device->inputValueCallbackSet = CFSetCreateMutable(NULL, 0, &__callbackBaseSetCallbacks);
@@ -1675,7 +1678,7 @@ void __IOHIDDeviceRegisterInputReportCallback(IOHIDDeviceRef                    
     CFRetain(device);
     
     if (!context)
-        _IOHIDLog(ASL_LEVEL_WARNING, "%s called with a null context\n", __func__);
+        os_log(_IOHIDLog(), "called with a null context");
     
     if (!device->inputReportCallbackSet) {
         device->inputReportCallbackSet = CFSetCreateMutable(NULL, 0, &__callbackBaseSetCallbacks);

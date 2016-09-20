@@ -391,6 +391,7 @@ archive_read_format_tar_read_header(struct archive_read *a,
 	struct tar *tar;
 	struct sparse_block *sp;
 	const char *p;
+	const wchar_t *wp;
 	int r;
 	size_t l;
 
@@ -424,17 +425,23 @@ archive_read_format_tar_read_header(struct archive_read *a,
 		    != ARCHIVE_OK)
 			return (ARCHIVE_FATAL);
 
-	if (r == ARCHIVE_OK) {
+	if (r == ARCHIVE_OK && archive_entry_filetype(entry) == AE_IFREG) {
 		/*
 		 * "Regular" entry with trailing '/' is really
 		 * directory: This is needed for certain old tar
 		 * variants and even for some broken newer ones.
 		 */
-		p = archive_entry_pathname(entry);
-		l = strlen(p);
-		if (archive_entry_filetype(entry) == AE_IFREG
-		    && p[l-1] == '/')
-			archive_entry_set_filetype(entry, AE_IFDIR);
+		if ((wp = archive_entry_pathname_w(entry)) != NULL) {
+			l = wcslen(wp);
+			if (l > 0 && wp[l - 1] == L'/') {
+				archive_entry_set_filetype(entry, AE_IFDIR);
+			}
+		} else if ((p = archive_entry_pathname(entry)) != NULL) {
+			l = strlen(p);
+			if (l > 0 && p[l - 1] == '/') {
+				archive_entry_set_filetype(entry, AE_IFDIR);
+			}
+		}
 	}
 	return (r);
 }

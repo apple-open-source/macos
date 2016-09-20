@@ -31,23 +31,25 @@ namespace WebCore {
 
 class SVGPolyElement : public SVGGraphicsElement, public SVGExternalResourcesRequired {
 public:
-    SVGListPropertyTearOff<SVGPointList>* points();
-    SVGListPropertyTearOff<SVGPointList>* animatedPoints();
+    RefPtr<SVGListPropertyTearOff<SVGPointList>> points();
+    RefPtr<SVGListPropertyTearOff<SVGPointList>> animatedPoints();
 
     SVGPointList& pointList() const { return m_points.value; }
 
     static const SVGPropertyInfo* pointsPropertyInfo();
 
+    size_t approximateMemoryCost() const override;
+
 protected:
     SVGPolyElement(const QualifiedName&, Document&);
 
 private:
-    virtual bool isValid() const override { return SVGTests::isValid(); }
+    bool isValid() const override { return SVGTests::isValid(); }
 
-    virtual void parseAttribute(const QualifiedName&, const AtomicString&) override; 
-    virtual void svgAttributeChanged(const QualifiedName&) override;
+    void parseAttribute(const QualifiedName&, const AtomicString&) override; 
+    void svgAttributeChanged(const QualifiedName&) override;
 
-    virtual bool supportsMarkers() const override { return true; }
+    bool supportsMarkers() const override { return true; }
 
     // Custom 'points' property
     static void synchronizePoints(SVGElement* contextElement);

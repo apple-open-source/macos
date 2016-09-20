@@ -34,6 +34,7 @@
 
 #include <corecrypto/ccsha1.h>
 #include <CoreFoundation/CFError.h>
+#include <sys/types.h>
 
 __BEGIN_DECLS
 
@@ -47,6 +48,8 @@ extern CFStringRef kSOSDigestVectorErrorDomain;
 #define SOSDigestSize ((size_t)CCSHA1_OUTPUT_SIZE)
 
 #define SOSDigestVectorInit { .digest = NULL, .count = 0, .capacity = 0, .unsorted = false }
+
+typedef uint8_t (*SOSDigestVectorDigestPtr)[SOSDigestSize];
 
 struct SOSDigestVector {
     uint8_t (*digest)[SOSDigestSize];
@@ -67,7 +70,6 @@ size_t SOSDigestVectorIndexOf(struct SOSDigestVector *dv, const uint8_t *digest)
 size_t SOSDigestVectorIndexOfSorted(const struct SOSDigestVector *dv, const uint8_t *digest);
 bool SOSDigestVectorContains(struct SOSDigestVector *dv, const uint8_t *digest);
 bool SOSDigestVectorContainsSorted(const struct SOSDigestVector *dv, const uint8_t *digest);
-void SOSDigestVectorReplaceAtIndex(struct SOSDigestVector *dv, size_t ix, const uint8_t *digest);
 void SOSDigestVectorFree(struct SOSDigestVector *dv);
 
 void SOSDigestVectorApply(struct SOSDigestVector *dv, SOSDigestVectorApplyBlock with);

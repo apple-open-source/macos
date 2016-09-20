@@ -5,8 +5,8 @@ Zip: <http://www.info-zip.org/Zip.html>
 UnZip: <http://www.info-zip.org/UnZip.html>
 
 Currently, this project tracks:
-Zip 2.32 (released 20 June 2005)
-UnZip 5.52 (released 27 February 2005)
+Zip 3.0 (released 5 June 2008)
+UnZip 6.0 (released 20 April 2009)
 
 Imports should commit the new tarball, and change the makefiles
 as appropriate.

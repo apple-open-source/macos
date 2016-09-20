@@ -31,10 +31,12 @@
 
 /*! A WKBackForwardListItem object represents a webpage in the back-forward list of a web view.
  */
-WK_ASSUME_NONNULL_BEGIN
+NS_ASSUME_NONNULL_BEGIN
 
-WK_CLASS_AVAILABLE(10_10, 8_0)
+WK_CLASS_AVAILABLE(macosx(10.10), ios(8.0))
 @interface WKBackForwardListItem : NSObject
+
+- (instancetype)init NS_UNAVAILABLE;
 
 /*! @abstract The URL of the webpage represented by this item.
  */
@@ -42,7 +44,7 @@ WK_CLASS_AVAILABLE(10_10, 8_0)
 
 /*! @abstract The title of the webpage represented by this item.
  */
-@property (WK_NULLABLE_PROPERTY readonly, copy) NSString *title;
+@property (nullable, readonly, copy) NSString *title;
 
 /*! @abstract The URL of the initial request that created this item.
  */
@@ -50,6 +52,6 @@ WK_CLASS_AVAILABLE(10_10, 8_0)
 
 @end
 
-WK_ASSUME_NONNULL_END
+NS_ASSUME_NONNULL_END
 
 #endif

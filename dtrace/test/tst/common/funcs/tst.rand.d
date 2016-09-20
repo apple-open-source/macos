@@ -39,14 +39,14 @@ BEGIN
 	i = 0;
 }
 
-tick-1
+tick-10msec
 /i != 10/
 {
 	i++;
 	trace(rand());
 }
 
-tick-1
+tick-10msec
 /i == 10/
 {
 	exit(0);

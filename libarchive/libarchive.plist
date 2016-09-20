@@ -20,6 +20,11 @@
 		<string>Added tar --disable-copyfile option.</string>
 		<string>Changed -f behavior; no longer use _PATH_DEFTAPE (6236525).</string>
 		<string>archive_read_support_compression_compress.c: 22872683</string>
+		<string>tar/read.c: 20749385</string>
+		<string>cpio/cpio.c: fix strftime crash on NULL (23383941)</string>
+		<string>libarchive/archive_read_support_format_tar.c: upstream fixes for 23383941</string>
+		<string>libarchive/archive_read_support_format_zip.c: 23383941</string>
+		<string>libarchive/archive_read_support_compression_uu.c: 24686424</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>

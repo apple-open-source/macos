@@ -25,19 +25,19 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecCertificatePriv.h>
-#include <Security/SecCertificateInternal.h>
 #include <Security/SecItem.h>
 #include <Security/SecItemPriv.h>
 #include <Security/SecIdentityPriv.h>
 #include <Security/SecIdentity.h>
 #include <Security/SecPolicy.h>
 #include <Security/SecPolicyPriv.h>
-#include <Security/SecPolicyInternal.h>
+#include <Security/SecTrust.h>
+#include <Security/SecTrustPriv.h>
 #include <utilities/SecCFRelease.h>
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "Security_regressions.h"
+#include "shared_regressions.h"
 
 //#if defined(NO_SERVER) && NO_SERVER == 1
 
@@ -487,6 +487,7 @@ static void test_pcs_escrow_with_anchor_roots(CFArrayRef anchors)
 	SecTrustResultType trustResult = kSecTrustResultUnspecified;
 	SecPolicyRef policy = NULL;
 	CFArrayRef certs = NULL;
+	CFDateRef date = NULL;
 	SecTrustRef trust = NULL;
 
 	isnt(leafCert = SecCertificateCreateWithBytes(NULL, kPCSEscrowLeafCert, sizeof(kPCSEscrowLeafCert)),
@@ -498,7 +499,11 @@ static void test_pcs_escrow_with_anchor_roots(CFArrayRef anchors)
 		NULL, "could not create PCS Escrow policy for GM PCS Escrow Leaf cert");
 
 	ok_status(SecTrustCreateWithCertificates(certs, policy, &trust),
-        "could not create trust for PCS escrow service test GM PCS Escrow Leaf cert");
+		"could not create trust for PCS escrow service test GM PCS Escrow Leaf cert");
+
+	/* Set explicit verify date: Mar 18 2016. */
+	isnt(date = CFDateCreate(NULL, 480000000.0), NULL, "create verify date");
+	ok_status(SecTrustSetVerifyDate(trust, date), "set date");
 
 	SecTrustSetAnchorCertificates(trust, anchors);
 
@@ -507,6 +512,7 @@ static void test_pcs_escrow_with_anchor_roots(CFArrayRef anchors)
 	is_status(trustResult, kSecTrustResultUnspecified,
 		"trust is not kSecTrustResultUnspecified for GM PCS Escrow Leaf cert");
 
+	CFReleaseSafe(date);
 	CFReleaseSafe(trust);
 	CFReleaseSafe(policy);
 	CFReleaseSafe(certs);
@@ -565,7 +571,7 @@ int si_71_mobile_store_policy(int argc, char *const *argv)
 {
 //#if defined(NO_SERVER) && NO_SERVER == 1
 
-	plan_tests(20);
+	plan_tests(22);
 
 	tests();
 

@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/bo.xml
@@ -38,14 +38,14 @@ bo{
             }
         }
     }
-    Version{"2.1.6.69"}
+    Version{"2.1.23.7"}
     calendar{
         generic{
             DateTimePatterns{
-                "HH:mm:ss zzzz",
-                "HH:mm:ss z",
-                "HH:mm:ss",
-                "HH:mm",
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
                 {
                     "G y MMMM d, EEEE",
                     "tibt",
@@ -69,8 +69,9 @@ bo{
                 "{1} {0}",
             }
             availableFormats{
-                yMMMMd{"སྤྱི་ལོ་y MMMMའི་ཚེས་d"}
-                yMMMd{"y ལོའི་MMMཚེས་d"}
+                yMMMMd{"G སྤྱི་ལོ་y MMMMའི་ཚེས་d"}
+                yMMMd{"G y ལོའི་MMMཚེས་d"}
+                yyyyMMMd{"G y ལོའི་MMMཚེས་d"}
             }
         }
         gregorian{
@@ -78,11 +79,15 @@ bo{
                 "སྔ་དྲོ་",
                 "ཕྱི་དྲོ་",
             }
+            AmPmMarkersAbbr{
+                "སྔ་དྲོ་",
+                "ཕྱི་དྲོ་",
+            }
             DateTimePatterns{
-                "HH:mm:ss zzzz",
-                "HH:mm:ss z",
-                "HH:mm:ss",
-                "HH:mm",
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
                 {
                     "y MMMMའི་ཚེས་d, EEEE",
                     "tibt",
@@ -111,7 +116,7 @@ bo{
                 MMMMEd{"MMMMའི་ཚེས་d, E"}
                 MMMMd{"MMMMའི་ཚེས་d"}
                 MMMd{"MMMཚེས་d"}
-                yMMMM{"y LLLL"}
+                yMMM{"y LLL"}
                 yMMMMd{"སྤྱི་ལོ་y MMMMའི་ཚེས་d"}
                 yMMMd{"y ལོའི་MMMཚེས་d"}
             }
@@ -129,11 +134,11 @@ bo{
                     narrow{
                         "ཉི",
                         "ཟླ",
-                        "མི",
-                        "ལྷ",
-                        "ཕུ",
-                        "པ",
-                        "སྤེ",
+                        "མིག",
+                        "ལྷག",
+                        "ཕུར",
+                        "སངས",
+                        "སྤེན",
                     }
                     wide{
                         "གཟའ་ཉི་མ་",
@@ -158,11 +163,11 @@ bo{
                     narrow{
                         "ཉི",
                         "ཟླ",
-                        "མི",
-                        "ལྷ",
-                        "ཕུ",
-                        "པ",
-                        "སྤེ",
+                        "མིག",
+                        "ལྷག",
+                        "ཕུར",
+                        "སངས",
+                        "སྤེན",
                     }
                     wide{
                         "གཟའ་ཉི་མ་",
@@ -177,8 +182,8 @@ bo{
             }
             eras{
                 abbreviated{
-                    "སྤྱི་ལོ་སྔོན།",
-                    "སྤྱི་ལོ།",
+                    "སྤྱི་ལོ་སྔོན་",
+                    "སྤྱི་ལོ་",
                 }
             }
             monthNames{
@@ -213,20 +218,6 @@ bo{
                     }
                 }
                 stand-alone{
-                    abbreviated{
-                        "ཟླ་༡",
-                        "ཟླ་༢",
-                        "ཟླ་༣",
-                        "ཟླ་༤",
-                        "ཟླ་༥",
-                        "ཟླ་༦",
-                        "ཟླ་༧",
-                        "ཟླ་༨",
-                        "ཟླ་༩",
-                        "ཟླ་༡༠",
-                        "ཟླ་༡༡",
-                        "ཟླ་༡༢",
-                    }
                     wide{
                         "ཟླ་བ་དང་པོ་",
                         "ཟླ་བ་གཉིས་པ་",
@@ -243,6 +234,36 @@ bo{
                     }
                 }
             }
+            quarters{
+                format{
+                    abbreviated{
+                        "དུས་ཚིགས་དང་པོ།",
+                        "དུས་ཚིགས་གཉིས་པ།",
+                        "དུས་ཚིགས་གསུམ་པ།",
+                        "དུས་ཚིགས་བཞི་པ།",
+                    }
+                    wide{
+                        "དུས་ཚིགས་དང་པོ།",
+                        "དུས་ཚིགས་གཉིས་པ།",
+                        "དུས་ཚིགས་གསུམ་པ།",
+                        "དུས་ཚིགས་བཞི་པ།",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "དུས་ཚིགས་དང་པོ།",
+                        "དུས་ཚིགས་གཉིས་པ།",
+                        "དུས་ཚིགས་གསུམ་པ།",
+                        "དུས་ཚིགས་བཞི་པ།",
+                    }
+                    wide{
+                        "དུས་ཚིགས་དང་པོ།",
+                        "དུས་ཚིགས་གཉིས་པ།",
+                        "དུས་ཚིགས་གསུམ་པ།",
+                        "དུས་ཚིགས་བཞི་པ།",
+                    }
+                }
+            }
         }
     }
     fields{
@@ -250,14 +271,14 @@ bo{
             dn{"ཉིན།"}
             relative{
                 "-1"{"ཁས་ས་"}
-                "-2"{"ཁས་ཉིན་ཀ་"}
+                "-2"{"ཁས་ཉིན་"}
                 "0"{"དེ་རིང་"}
                 "1"{"སང་ཉིན་"}
-                "2"{"གནངས་ཉིན་ཀ་"}
+                "2"{"གནངས་ཉིན་"}
             }
         }
         hour{
-            dn{"ཆུ་ཙོ་"}
+            dn{"ཆུ་ཚོད་"}
         }
         minute{
             dn{"སྐར་མ།"}

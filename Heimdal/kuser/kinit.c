@@ -817,12 +817,6 @@ main (int argc, char **argv)
     bindtextdomain ("heimdal_kuser", HEIMDAL_LOCALEDIR);
     textdomain("heimdal_kuser");
 
-    ret = krb5_init_context (&context);
-    if (ret == KRB5_CONFIG_BADFORMAT)
-	errx (1, "krb5_init_context failed to parse configuration file");
-    else if (ret)
-	errx(1, "krb5_init_context failed: %d", ret);
-
     if(getarg(args, sizeof(args) / sizeof(args[0]), argc, argv, &optidx))
 	usage(1);
 
@@ -839,6 +833,12 @@ main (int argc, char **argv)
 
     if (!home_directory_flag)
 	krb5_set_home_dir_access(NULL, FALSE);
+
+    ret = krb5_init_context (&context);
+    if (ret == KRB5_CONFIG_BADFORMAT)
+	errx (1, "krb5_init_context failed to parse configuration file");
+    else if (ret)
+	errx(1, "krb5_init_context failed: %d", ret);
 
     if (enterprise_flag)
 	parseflags |= KRB5_PRINCIPAL_PARSE_ENTERPRISE;

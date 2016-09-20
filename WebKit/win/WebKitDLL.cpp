@@ -26,6 +26,10 @@
 #define DEPRECATED_EXPORT_SYMBOLS 1
 #include "WebKitDLL.h"
 
+#if USE(CG)
+#include <CoreGraphics/CoreGraphics.h>
+#endif
+
 #include "ForEachCoClass.h"
 #include "resource.h"
 #include "WebKit.h"
@@ -68,14 +72,6 @@ STDAPI_(BOOL) DllMain( HMODULE hModule, DWORD  ul_reason_for_call, LPVOID /*lpRe
 {
     switch (ul_reason_for_call) {
         case DLL_PROCESS_ATTACH:
-#if defined(_M_X64) || defined(__x86_64__)
-            // The VS2013 runtime has a bug where it mis-detects AVX-capable processors
-            // if the feature has been disabled in firmware. This causes us to crash
-            // in some of the math functions. For now, we disable those optimizations
-            // because Microsoft is not going to fix the problem in VS2013.
-            // FIXME: http://webkit.org/b/141449: Remove this workaround when we switch to VS2015+.
-            _set_FMA3_enable(0);
-#endif
             gLockCount = gClassCount = 0;
             gInstance = hModule;
             WebCore::setInstanceHandle(hModule);
@@ -93,7 +89,8 @@ STDAPI_(BOOL) DllMain( HMODULE hModule, DWORD  ul_reason_for_call, LPVOID /*lpRe
     return FALSE;
 }
 
-STDAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID* ppv)
+_Check_return_
+STDAPI DllGetClassObject(_In_ REFCLSID rclsid, _In_ REFIID riid, _Outptr_ LPVOID* ppv)
 {
     bool found = false;
     for (size_t i = 0; i < WTF_ARRAY_LENGTH(gRegCLSIDs); ++i) {
@@ -156,6 +153,7 @@ void shutDownWebKit()
 }
 
 //FIXME: We should consider moving this to a new file for cross-project functionality
+WEBKIT_API PassRefPtr<WebCore::SharedBuffer> loadResourceIntoBuffer(const char* name);
 PassRefPtr<WebCore::SharedBuffer> loadResourceIntoBuffer(const char* name)
 {
     int idr;

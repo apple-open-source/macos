@@ -46,7 +46,7 @@
 @interface AVPlayerController : UIResponder
 @end
 
-@interface AVPlayerController (Details)
+@interface AVPlayerController ()
 typedef NS_ENUM(NSInteger, AVPlayerControllerStatus) {
     AVPlayerControllerStatusUnknown = 0,
     AVPlayerControllerStatusReadyToPlay = 2,
@@ -74,7 +74,7 @@ typedef NS_ENUM(NSInteger, AVPlayerControllerExternalPlaybackType) {
 - (void)stopRoutingVideoToPictureInPicturePlayerLayerView;
 @end
 
-@protocol AVPlayerViewControllerDelegate <NSObject>
+@protocol AVPlayerViewControllerDelegate_WebKitOnly <AVPlayerViewControllerDelegate>
 @optional
 typedef NS_ENUM(NSInteger, AVPlayerViewControllerExitFullScreenReason) {
     AVPlayerViewControllerExitFullScreenReasonDoneButtonTapped,
@@ -84,10 +84,9 @@ typedef NS_ENUM(NSInteger, AVPlayerViewControllerExitFullScreenReason) {
     AVPlayerViewControllerExitFullScreenReasonPictureInPictureStarted
 };
 - (BOOL)playerViewController:(AVPlayerViewController *)playerViewController shouldExitFullScreenWithReason:(AVPlayerViewControllerExitFullScreenReason)reason;
-- (void)playerViewController:(AVPlayerViewController *)playerViewController restoreUserInterfaceForPictureInPictureStopWithCompletionHandler:(void (^)(BOOL restored))completionHandler;
 @end
 
-@interface AVPlayerViewController (Details)
+@interface AVPlayerViewController ()
 - (instancetype)initWithPlayerLayerView:(__AVPlayerLayerView *)playerLayerView;
 - (void)enterFullScreenAnimated:(BOOL)animated completionHandler:(void (^)(BOOL success, NSError *))completionHandler;
 - (void)exitFullScreenAnimated:(BOOL)animated completionHandler:(void (^)(BOOL success, NSError *))completionHandler;
@@ -96,29 +95,12 @@ typedef NS_ENUM(NSInteger, AVPlayerViewControllerExitFullScreenReason) {
 - (void)startPictureInPicture;
 - (void)stopPictureInPicture;
 
-@property (nonatomic) BOOL allowsPictureInPicturePlayback;
 @property (nonatomic, strong) AVPlayerController *playerController;
-@property (nonatomic, weak) id <AVPlayerViewControllerDelegate> delegate;
+@property (nonatomic, readonly, getter=isPictureInPictureActive) BOOL pictureInPictureActive;
+@property (nonatomic, readonly) BOOL pictureInPictureWasStartedWhenEnteringBackground;
 @end
 
 #endif // USE(APPLE_INTERNAL_SDK)
-
-#if USE(APPLE_INTERNAL_SDK) && __IPHONE_OS_VERSION_MIN_REQUIRED < 90000
-
-#import <AVKit/AVValueTiming.h>
-
-#else
-
-@interface AVValueTiming : NSObject <NSCoding, NSCopying, NSMutableCopying>
-@end
-
-@interface AVValueTiming (Details)
-+ (AVValueTiming *)valueTimingWithAnchorValue:(double)anchorValue anchorTimeStamp:(NSTimeInterval)timeStamp rate:(double)rate;
-@property (NS_NONATOMIC_IOSONLY, readonly) double currentValue;
-@end
-
-#endif
-
 #endif // PLATFORM(IOS)
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS)
@@ -146,6 +128,14 @@ NS_CLASS_AVAILABLE_MAC(10_11)
 @end
 
 
-#endif
+#endif // USE(APPLE_INTERNAL_SDK)
 
-#endif
+#endif // ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS)
+
+@interface AVValueTiming : NSObject <NSCoding, NSCopying, NSMutableCopying> 
+@end
+
+@interface AVValueTiming ()
++ (AVValueTiming *)valueTimingWithAnchorValue:(double)anchorValue anchorTimeStamp:(NSTimeInterval)timeStamp rate:(double)rate;
+@property (NS_NONATOMIC_IOSONLY, readonly) double currentValue;
+@end

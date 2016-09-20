@@ -28,12 +28,30 @@
 #include "WebPreferences.h"
 
 #include <WebCore/NotImplemented.h>
+#include <WebCore/PlatformDisplay.h>
 
 namespace WebKit {
 
 void WebPreferences::platformInitializeStore()
 {
-    notImplemented();
+#if PLATFORM(WAYLAND)
+    if (WebCore::PlatformDisplay::sharedDisplay().type() == WebCore::PlatformDisplay::Type::Wayland) {
+        // FIXME: Accelerated compositing under Wayland is not yet supported.
+        // https://bugs.webkit.org/show_bug.cgi?id=115803
+        setAcceleratedCompositingEnabled(false);
+    }
+#endif
+#if USE(COORDINATED_GRAPHICS_THREADED)
+    setForceCompositingMode(true);
+#endif
+#if !ENABLE(OPENGL)
+    setAcceleratedCompositingEnabled(false);
+#else
+    if (getenv("WEBKIT_FORCE_COMPOSITING_MODE"))
+        setForceCompositingMode(true);
+    if (getenv("WEBKIT_DISABLE_COMPOSITING_MODE"))
+        setAcceleratedCompositingEnabled(false);
+#endif
 }
 
 void WebPreferences::platformUpdateStringValueForKey(const String&, const String&)

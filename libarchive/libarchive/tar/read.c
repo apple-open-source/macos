@@ -260,6 +260,8 @@ read_archive(struct bsdtar *bsdtar, char mode)
 		if (r == ARCHIVE_RETRY) {
 			/* Retryable error: try again */
 			lafe_warnc(0, "Retrying...");
+			/* 20749385: return non-zero exit code anyway */
+			bsdtar->return_value = 1;
 			continue;
 		}
 		if (r == ARCHIVE_FATAL)
@@ -364,7 +366,8 @@ read_archive(struct bsdtar *bsdtar, char mode)
 				r = archive_read_data_into_fd(a, 1);
 			else {
 				/* do this even if disable_copyfile is set, because it can get blown away by its associated real file */
-				if (strncmp(basename((char *)archive_entry_pathname(entry)), "._", 2) == 0) {
+				char *bname = basename((char *)archive_entry_pathname(entry));
+				if (bname != NULL && strncmp(bname, "._", 2) == 0) {
 					cle = calloc(1, sizeof(struct copyfile_list_entry_t));
 					cle->src = strdup(archive_entry_pathname(entry));
 					asprintf(&cle->tmp, "%s.XXXXXX", cle->src);

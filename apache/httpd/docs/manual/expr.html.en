@@ -18,7 +18,7 @@
 <body id="manual-page"><div id="page-header">
 <p class="menu"><a href="./mod/">Modules</a> | <a href="./mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">Glossary</a> | <a href="./sitemap.html">Sitemap</a></p>
 <p class="apache">Apache HTTP Server Version 2.4</p>
-<img alt="" src="./images/feather.gif" /></div>
+<img alt="" src="./images/feather.png" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="./images/left.gif" /></a></div>
 <div id="path">
 <a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="./">Version 2.4</a></div><div id="page-content"><div id="preamble"><h1>Expressions in Apache HTTP Server</h1>
@@ -46,7 +46,7 @@
 <li><img alt="" src="./images/down.gif" /> <a href="#other">Other</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#sslrequire">Comparison with SSLRequire</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#compatibility">Version History</a></li>
-</ul><h3>See also</h3><ul class="seealso"><li><code class="directive"><a href="./mod/core.html#if">&lt;If&gt;</a></code></li><li><code class="directive"><a href="./mod/core.html#elseif">&lt;ElseIf&gt;</a></code></li><li><code class="directive"><a href="./mod/core.html#else">&lt;Else&gt;</a></code></li><li><code class="directive"><a href="./mod/core.html#errordocument">&lt;ErrorDocument&gt;</a></code></li><li><code class="directive"><a href="./mod/mod_auth_basic.html#authbasicfake">AuthBasicFake</a></code></li><li><code class="directive"><a href="./mod/mod_auth_form.html#authformloginrequiredlocation">AuthFormLoginRequiredLocation</a></code></li><li><code class="directive"><a href="./mod/mod_auth_form.html#authformloginsuccesslocation">AuthFormLoginSuccessLocation</a></code></li><li><code class="directive"><a href="./mod/mod_auth_form.html#authformlogoutlocation">AuthFormLogoutLocation</a></code></li><li><code class="directive"><a href="./mod/mod_rewrite.html#rewritecond">RewriteCond</a></code></li><li><code class="directive"><a href="./mod/mod_setenvif.html#setenvifexpr">SetEnvIfExpr</a></code></li><li><code class="directive"><a href="./mod/mod_headers.html#header">Header</a></code></li><li><code class="directive"><a href="./mod/mod_headers.html#requestheader">RequestHeader</a></code></li><li><code class="directive"><a href="./mod/mod_filter.html#filterprovider">FilterProvider</a></code></li><li><a href="mod/mod_authz_core.html#reqexpr">Require expr</a></li><li><a href="mod/mod_authnz_ldap.html#requser">Require ldap-user</a></li><li><a href="mod/mod_authnz_ldap.html#reqgroup">Require ldap-group</a></li><li><a href="mod/mod_authnz_ldap.html#reqdn">Require ldap-dn</a></li><li><a href="mod/mod_authnz_ldap.html#reqattribute">Require ldap-attribute</a></li><li><a href="mod/mod_authnz_ldap.html#reqfilter">Require ldap-filter</a></li><li><a href="mod/mod_authz_dbd.html#reqgroup">Require dbd-group</a></li><li><a href="mod/mod_authz_dbm.html#reqgroup">Require dbm-group</a></li><li><a href="mod/mod_authz_groupfile.html#reqgroup">Require group</a></li><li><a href="mod/mod_authz_host.html#reqhost">Require host</a></li><li><code class="directive"><a href="./mod/mod_ssl.html#sslrequire">SSLRequire</a></code></li><li><code class="directive"><a href="./mod/mod_log_debug.html#logmessage">LogMessage</a></code></li><li><code class="module"><a href="./mod/mod_include.html">mod_include</a></code></li></ul><ul class="seealso"><li><a href="#comments_section">Comments</a></li></ul></div>
+</ul><h3>See also</h3><ul class="seealso"><li><code class="directive"><a href="./mod/core.html#if">&lt;If&gt;</a></code></li><li><code class="directive"><a href="./mod/core.html#elseif">&lt;ElseIf&gt;</a></code></li><li><code class="directive"><a href="./mod/core.html#else">&lt;Else&gt;</a></code></li><li><code class="directive"><a href="./mod/core.html#errordocument">ErrorDocument</a></code></li><li><code class="directive"><a href="./mod/mod_alias.html#alias">Alias</a></code></li><li><code class="directive"><a href="./mod/mod_alias.html#scriptalias">ScriptAlias</a></code></li><li><code class="directive"><a href="./mod/mod_alias.html#redirect">Redirect</a></code></li><li><code class="directive"><a href="./mod/mod_auth_basic.html#authbasicfake">AuthBasicFake</a></code></li><li><code class="directive"><a href="./mod/mod_auth_form.html#authformloginrequiredlocation">AuthFormLoginRequiredLocation</a></code></li><li><code class="directive"><a href="./mod/mod_auth_form.html#authformloginsuccesslocation">AuthFormLoginSuccessLocation</a></code></li><li><code class="directive"><a href="./mod/mod_auth_form.html#authformlogoutlocation">AuthFormLogoutLocation</a></code></li><li><code class="directive"><a href="./mod/mod_rewrite.html#rewritecond">RewriteCond</a></code></li><li><code class="directive"><a href="./mod/mod_setenvif.html#setenvifexpr">SetEnvIfExpr</a></code></li><li><code class="directive"><a href="./mod/mod_headers.html#header">Header</a></code></li><li><code class="directive"><a href="./mod/mod_headers.html#requestheader">RequestHeader</a></code></li><li><code class="directive"><a href="./mod/mod_filter.html#filterprovider">FilterProvider</a></code></li><li><a href="mod/mod_authz_core.html#reqexpr">Require expr</a></li><li><a href="mod/mod_authnz_ldap.html#requser">Require ldap-user</a></li><li><a href="mod/mod_authnz_ldap.html#reqgroup">Require ldap-group</a></li><li><a href="mod/mod_authnz_ldap.html#reqdn">Require ldap-dn</a></li><li><a href="mod/mod_authnz_ldap.html#reqattribute">Require ldap-attribute</a></li><li><a href="mod/mod_authnz_ldap.html#reqfilter">Require ldap-filter</a></li><li><a href="mod/mod_authz_dbd.html#reqgroup">Require dbd-group</a></li><li><a href="mod/mod_authz_dbm.html#reqgroup">Require dbm-group</a></li><li><a href="mod/mod_authz_groupfile.html#reqgroup">Require group</a></li><li><a href="mod/mod_authz_host.html#reqhost">Require host</a></li><li><code class="directive"><a href="./mod/mod_ssl.html#sslrequire">SSLRequire</a></code></li><li><code class="directive"><a href="./mod/mod_log_debug.html#logmessage">LogMessage</a></code></li><li><code class="module"><a href="./mod/mod_include.html">mod_include</a></code></li><li><a href="#comments_section">Comments</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="grammar" id="grammar">Grammar in Backus-Naur Form notation</a></h2>
@@ -224,26 +224,29 @@ listfunction ::= listfuncname "<strong>(</strong>" word "<strong>)</strong>"</pr
 <tr><td><code>HANDLER</code></td>
         <td>The name of the <a href="handler.html">handler</a> creating
             the response</td></tr>
-<tr class="odd"><td><code>HTTPS</code></td>
+<tr class="odd"><td><code>HTTP2</code></td>
+        <td>"<code>on</code>" if the request uses http/2,
+            "<code>off</code>" otherwise</td></tr>
+<tr><td><code>HTTPS</code></td>
         <td>"<code>on</code>" if the request uses https,
             "<code>off</code>" otherwise</td></tr>
-<tr><td><code>IPV6</code></td>
+<tr class="odd"><td><code>IPV6</code></td>
         <td>"<code>on</code>" if the connection uses IPv6,
             "<code>off</code>" otherwise</td></tr>
-<tr class="odd"><td><code>REQUEST_STATUS</code></td>
+<tr><td><code>REQUEST_STATUS</code></td>
         <td>The HTTP error status of the request (not available during <code class="directive">&lt;If &gt;</code>)</td></tr>
-<tr><td><code>REQUEST_LOG_ID</code></td>
+<tr class="odd"><td><code>REQUEST_LOG_ID</code></td>
         <td>The error log id of the request (see
             <code class="directive"><a href="./mod/core.html#errorlogformat">ErrorLogFormat</a></code>)</td></tr>
-<tr class="odd"><td><code>CONN_LOG_ID</code></td>
+<tr><td><code>CONN_LOG_ID</code></td>
         <td>The error log id of the connection (see
             <code class="directive"><a href="./mod/core.html#errorlogformat">ErrorLogFormat</a></code>)</td></tr>
-<tr><td><code>CONN_REMOTE_ADDR</code></td>
+<tr class="odd"><td><code>CONN_REMOTE_ADDR</code></td>
         <td>The peer IP address of the connection (see the
             <code class="module"><a href="./mod/mod_remoteip.html">mod_remoteip</a></code> module)</td></tr>
-<tr class="odd"><td><code>CONTEXT_PREFIX</code></td>
+<tr><td><code>CONTEXT_PREFIX</code></td>
         <td /></tr>
-<tr><td><code>CONTEXT_DOCUMENT_ROOT</code></td>
+<tr class="odd"><td><code>CONTEXT_DOCUMENT_ROOT</code></td>
         <td /></tr>
 </table>
 
@@ -525,16 +528,21 @@ listfunction ::= listfuncname "<strong>(</strong>" word "<strong>)</strong>"</pr
 &lt;/If&gt;
 &lt;/Directory&gt;
 
-# Function examples in boolean context
+# Check against the client IP
+&lt;If "-R '192.168.1.0/24'"&gt;
+    Header set matched true
+&lt;/If&gt;
+
+# Function example in boolean context
 &lt;If "md5('foo') == 'acbd18db4cc2f85cedef654fccc4a4d8'"&gt;
   Header set checksum-matched true
 &lt;/If&gt;
-&lt;If "md5('foo') == replace('md5:XXXd18db4cc2f85cedef654fccc4a4d8', 'md5:XXX', 'acb')&gt;
-  Header set checksum-matched-2 true
-&lt;/If&gt;
 
 # Function example in string context
-Header set foo-checksum "expr=%{md5:foo}"</pre>
+Header set foo-checksum "expr=%{md5:foo}"
+
+# This delays the evaluation of the condition clause compared to &lt;If&gt;
+Header always set CustomHeader my-value "expr=%{REQUEST_URI} =~ m#^/special_path.php$#"</pre>
 
 </div><div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
@@ -601,7 +609,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/expr.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">Modules</a> | <a href="./mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">Glossary</a> | <a href="./sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

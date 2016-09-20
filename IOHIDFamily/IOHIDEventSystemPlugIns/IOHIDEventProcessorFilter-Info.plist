@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>CFPlugInFactories</key>
+	<dict>
+		<key>7DCF18B5-07BE-4FF5-87CF-44B3C17C9216</key>
+		<string>IOHIDEventProcessorFactory</string>
+	</dict>
+	<key>CFPlugInTypes</key>
+	<dict>
+		<key>6B0340D3-5798-4064-AA17-9204C7B06FFD</key>
+		<string>7DCF18B5-07BE-4FF5-87CF-44B3C17C9216</string>
+	</dict>
+	<key>CFPlugInDynamicRegistration</key>
+	<string>NO</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright © 2013 Apple Inc. All rights reserved.</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.hid.${PRODUCT_NAME:rfc1034identifier}</string>
+</dict>
+</plist>

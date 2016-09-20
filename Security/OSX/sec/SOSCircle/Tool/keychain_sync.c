@@ -57,7 +57,10 @@
 
 #include "keychain_sync.h"
 #include "keychain_log.h"
+#include "syncbackup.h"
+
 #include "secToolFileIO.h"
+#include "secViewDisplay.h"
 
 #include <Security/SecPasswordGenerate.h>
 
@@ -224,12 +227,8 @@ static void dumpCircleInfo()
 static bool enableDefaultViews()
 {
     bool result = false;
-    CFMutableSetRef viewsToEnable = CFSetCreateMutable(NULL, 0, NULL);
+    CFMutableSetRef viewsToEnable = SOSViewCopyViewSet(kViewSetV0);
     CFMutableSetRef viewsToDisable = CFSetCreateMutable(NULL, 0, NULL);
-    CFSetAddValue(viewsToEnable, (void*)kSOSViewWiFi);
-    CFSetAddValue(viewsToEnable, (void*)kSOSViewAutofillPasswords);
-    CFSetAddValue(viewsToEnable, (void*)kSOSViewSafariCreditCards);
-    CFSetAddValue(viewsToEnable, (void*)kSOSViewOtherSyncable);
     
     result = SOSCCViewSet(viewsToEnable, viewsToDisable);
     CFRelease(viewsToEnable);
@@ -531,20 +530,9 @@ static bool dumpKVS(char *itemName, CFErrorRef *err)
     return true;
 }
 
-static bool syncAndWait(char *itemName, CFErrorRef *err)
+static bool syncAndWait(CFErrorRef *err)
 {
-    CFArrayRef keysToGet = NULL;
     __block CFTypeRef objects = NULL;
-    if (!itemName)
-    {
-        fprintf(errFile, "No item keys supplied\n");
-        return false;
-    }
-
-    CFStringRef itemStr = CFStringCreateWithCString(kCFAllocatorDefault, itemName, kCFStringEncodingUTF8);
-    fprintf(outFile, "Retrieving %s from KVS\n", itemName);
-    keysToGet = CFArrayCreateForCFTypes(kCFAllocatorDefault, itemStr, NULL);
-    CFReleaseSafe(itemStr);
 
     dispatch_queue_t generalq = dispatch_queue_create("general", DISPATCH_QUEUE_SERIAL);
 
@@ -557,167 +545,20 @@ static bool syncAndWait(char *itemName, CFErrorRef *err)
         secinfo("sync", "SOSCloudKeychainSynchronizeAndWait returned: %@", returnedValues);
         if (error)
             secerror("SOSCloudKeychainSynchronizeAndWait returned error: %@", error);
-        objects = returnedValues;
-        if (objects)
-            CFRetain(objects);
+        objects = CFRetainSafe(returnedValues);
+
         secinfo("sync", "SOSCloudKeychainGetObjectsFromCloud block exit: %@", objects);
         dispatch_semaphore_signal(waitSemaphore);
     };
 
-    SOSCloudKeychainSynchronizeAndWait(keysToGet, generalq, replyBlock);
+    SOSCloudKeychainSynchronizeAndWait(generalq, replyBlock);
 
 	dispatch_semaphore_wait(waitSemaphore, finishTime);
 	dispatch_release(waitSemaphore);
 
-    CFReleaseSafe(keysToGet);
     dumpKVS(NULL, NULL);
     fprintf(outFile, "\n");
     return false;
-}
-
-static struct foo {
-    const char *name;
-    const CFStringRef *viewspec;
-} string2View[] = {
-    {
-        "keychain", &kSOSViewKeychainV0
-    }, {
-        "masterkey", &kSOSViewPCSMasterKey,
-    }, {
-        "iclouddrive", &kSOSViewPCSiCloudDrive,
-    }, {
-        "photos", &kSOSViewPCSPhotos,
-    }, {
-        "escrow", &kSOSViewPCSEscrow,
-    }, {
-        "fde", &kSOSViewPCSFDE,
-    }, {
-        "maildrop", &kSOSViewPCSMailDrop,
-    }, {
-        "icloudbackup", &kSOSViewPCSiCloudBackup,
-    }, {
-        "notes", &kSOSViewPCSNotes,
-    }, {
-        "imessage", &kSOSViewPCSiMessage,
-    }, {
-        "feldspar", &kSOSViewPCSFeldspar,
-    }, {
-        "appletv", &kSOSViewAppleTV,
-    }, {
-        "homekit", &kSOSViewHomeKit,
-    }, {
-        "wifi", &kSOSViewWiFi,
-    }, {
-        "passwords", &kSOSViewAutofillPasswords,
-    }, {
-        "creditcards", &kSOSViewSafariCreditCards,
-    }, {
-        "icloudidentity", &kSOSViewiCloudIdentity,
-    }, {
-        "othersyncable", &kSOSViewOtherSyncable,
-    }
-};
-
-static CFStringRef convertStringToView(char *viewname) {
-    unsigned n;
-
-    for (n = 0; n < sizeof(string2View)/sizeof(string2View[0]); n++) {
-        if (strcmp(string2View[n].name, viewname) == 0)
-            return *string2View[n].viewspec;
-    }
-    
-    // Leak this, since it's a getter.
-    return CFStringCreateWithCString(kCFAllocatorDefault, viewname, kCFStringEncodingUTF8);
-}
-
-static CFStringRef convertViewReturnCodeToString(SOSViewActionCode ac) {
-    CFStringRef retval = NULL;
-    switch(ac) {
-        case kSOSCCGeneralViewError:
-            retval = CFSTR("General Error"); break;
-        case kSOSCCViewMember:
-            retval = CFSTR("Is Member of View"); break;
-        case kSOSCCViewNotMember:
-            retval = CFSTR("Is Not Member of View"); break;
-        case kSOSCCViewNotQualified:
-            retval = CFSTR("Is not qualified for View"); break;
-        case kSOSCCNoSuchView:
-            retval = CFSTR("No Such View"); break;
-    }
-    return retval;
-}
-
-static bool viewcmd(char *itemName, CFErrorRef *err) {
-    char *cmd, *viewname;
-    SOSViewActionCode ac = kSOSCCViewQuery;
-    CFStringRef viewspec;
-    
-    viewname = strchr(itemName, ':');
-    if(viewname == NULL) return false;
-    *viewname = 0;
-    viewname++;
-    cmd = itemName;
-
-    if(strcmp(cmd, "enable") == 0) {
-        ac = kSOSCCViewEnable;
-    } else if(strcmp(cmd, "disable") == 0) {
-        ac = kSOSCCViewDisable;
-    } else if(strcmp(cmd, "query") == 0) {
-        ac = kSOSCCViewQuery;
-    } else {
-        return false;
-    }
-    
-    if(strchr(viewname, ',') == NULL) { // original single value version
-        viewspec = convertStringToView(viewname);
-        if(!viewspec) return false;
-        
-        SOSViewResultCode rc = SOSCCView(viewspec, ac, err);
-        CFStringRef resultString = convertViewReturnCodeToString(rc);
-        
-        printmsg(CFSTR("View Result: %@ : %@\n"), resultString, viewspec);
-        return true;
-    }
-    
-    if(ac == kSOSCCViewQuery) return false;
-    
-    // new multi-view version
-    char *viewlist = strdup(viewname);
-    char *token;
-    char *tofree = viewlist;
-    CFMutableSetRef viewSet = CFSetCreateMutable(NULL, 0, &kCFCopyStringSetCallBacks);
-    
-    while ((token = strsep(&viewlist, ",")) != NULL) {
-        CFStringRef resultString = convertStringToView(token);
-        CFSetAddValue(viewSet, resultString);
-    }
-    
-    printmsg(CFSTR("viewSet provided is %@\n"), viewSet);
-    
-    free(tofree);
-    
-    bool retcode;
-    if(ac == kSOSCCViewEnable) retcode = SOSCCViewSet(viewSet, NULL);
-    else retcode = SOSCCViewSet(NULL, viewSet);
-    
-    fprintf(outFile, "SOSCCViewSet returned %s\n", (retcode)? "true": "false");
-    
-    return true;
-}
-
-static bool listviewcmd(CFErrorRef *err) {
-    unsigned n;
-
-    for (n = 0; n < sizeof(string2View)/sizeof(string2View[0]); n++) {
-        CFStringRef viewspec = *string2View[n].viewspec;
-
-        SOSViewResultCode rc = SOSCCView(viewspec, kSOSCCViewQuery, err);
-        CFStringRef resultString = convertViewReturnCodeToString(rc);
-
-        printmsg(CFSTR("View Result: %@ : %@\n"), resultString, viewspec);
-    };
-
-    return true;
 }
 
 static CFStringRef convertStringToProperty(char *propertyname) {
@@ -824,17 +665,19 @@ static bool dumpMyPeer(CFErrorRef *error) {
         CFMutableSetRef views = SOSPeerInfoV2DictionaryCopySet(myPeer, sViewsKey);
         CFStringRef serialNumber = SOSPeerInfoV2DictionaryCopyString(myPeer, sSerialNumberKey);
         CFBooleanRef preferIDS = SOSPeerInfoV2DictionaryCopyBoolean(myPeer, sPreferIDS);
+        CFBooleanRef preferIDSFragmentation = SOSPeerInfoV2DictionaryCopyBoolean(myPeer, sPreferIDSFragmentation);
         CFStringRef transportType = SOSPeerInfoV2DictionaryCopyString(myPeer, sTransportType);
         CFStringRef idsDeviceID = SOSPeerInfoV2DictionaryCopyString(myPeer, sDeviceID);
         CFMutableSetRef properties = SOSPeerInfoV2DictionaryCopySet(myPeer, sSecurityPropertiesKey);
         
-        printmsg(CFSTR("Serial#: %@   PrefIDS#: %@   transportType#: %@   idsDeviceID#: %@\n"),
-                 serialNumber, preferIDS, transportType, idsDeviceID);
+        printmsg(CFSTR("Serial#: %@   PrefIDS#: %@   PrefFragmentation#: %@   transportType#: %@   idsDeviceID#: %@\n"),
+                 serialNumber, preferIDS, preferIDSFragmentation, transportType, idsDeviceID);
         dumpStringSet(CFSTR("             Views: "), views);
         dumpStringSet(CFSTR("SecurityProperties: "), properties);
         
         CFReleaseSafe(serialNumber);
         CFReleaseSafe(preferIDS);
+        CFReleaseSafe(preferIDSFragmentation);
         CFReleaseSafe(views);
         CFReleaseSafe(transportType);
         CFReleaseSafe(idsDeviceID);
@@ -897,6 +740,7 @@ static bool clientViewStatus(CFErrorRef *error) {
     prClientViewState("AppleTV", SOSCCIsAppleTVSyncing());
     prClientViewState("HomeKit", SOSCCIsHomeKitSyncing());
     prClientViewState("Wifi", SOSCCIsWiFiSyncing());
+    prClientViewState("AlwaysOnNoInitialSync", SOSCCIsContinuityUnlockSyncing());
     return false;
 }
 
@@ -976,7 +820,7 @@ keychain_sync(int argc, char * const *argv)
 	 "    -k     pend all registered kvs keys"
 	 "    -C     clear all values from KVS"
 	 "    -D     [itemName]  dump contents of KVS"
-	 "    -W     itemNames  sync and dump"
+     "    -W     sync and dump"
 	 "
 	 "Misc"
 	 "    -v     [enable|disable|query:viewname] enable, disable, or query my PeerInfo's view set"
@@ -997,7 +841,7 @@ keychain_sync(int argc, char * const *argv)
     bool hadError = false;
     setOutputTo(NULL, NULL);
 
-    while ((ch = getopt(argc, argv, "ab:deg:hikl:mopq:rsSv:w:x:zA:B:MNJCDEF:HG:ILOP:RT:UW:X:VY01234")) != -1)
+    while ((ch = getopt(argc, argv, "ab:deg:hikl:mopq:rsSv:w:x:zA:B:MNJCDEF:HG:ILOP:RT:UWX:VY01234")) != -1)
         switch  (ch) {
 		case 'l':
 		{
@@ -1363,7 +1207,7 @@ keychain_sync(int argc, char * const *argv)
 			break;
 
 		case 'W':
-			hadError = syncAndWait(optarg, &error);
+			hadError = syncAndWait(&error);
 			break;
 
 		case 'v':

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,6 +28,8 @@
 #include "FrameLoader.h"
 #include "PluginDatabase.h"
 #include "WebFrameNetworkingContext.h"
+#include "WebResourceLoadScheduler.h"
+#include <WebCore/BlobRegistryImpl.h>
 #include <WebCore/Page.h>
 #include <WebCore/PageGroup.h>
 #include <WebCore/PlatformCookieJar.h>
@@ -54,7 +56,7 @@ CookiesStrategy* WebPlatformStrategies::createCookiesStrategy()
 
 LoaderStrategy* WebPlatformStrategies::createLoaderStrategy()
 {
-    return this;
+    return new WebResourceLoadScheduler;
 }
 
 PasteboardStrategy* WebPlatformStrategies::createPasteboardStrategy()
@@ -65,6 +67,11 @@ PasteboardStrategy* WebPlatformStrategies::createPasteboardStrategy()
 PluginStrategy* WebPlatformStrategies::createPluginStrategy()
 {
     return this;
+}
+
+BlobRegistry* WebPlatformStrategies::createBlobRegistry()
+{
+    return new BlobRegistryImpl;
 }
 
 String WebPlatformStrategies::cookiesForDOM(const NetworkStorageSession& session, const URL& firstParty, const URL& url)
@@ -87,6 +94,12 @@ String WebPlatformStrategies::cookieRequestHeaderFieldValue(const NetworkStorage
     return WebCore::cookieRequestHeaderFieldValue(session, firstParty, url);
 }
 
+String WebPlatformStrategies::cookieRequestHeaderFieldValue(WebCore::SessionID sessionID, const URL& firstParty, const URL& url)
+{
+    auto& session = sessionID.isEphemeral() ? WebFrameNetworkingContext::ensurePrivateBrowsingSession() : NetworkStorageSession::defaultStorageSession();
+    return WebCore::cookieRequestHeaderFieldValue(session, firstParty, url);
+}
+
 bool WebPlatformStrategies::getRawCookies(const NetworkStorageSession& session, const URL& firstParty, const URL& url, Vector<Cookie>& rawCookies)
 {
     return WebCore::getRawCookies(session, firstParty, url, rawCookies);
@@ -95,6 +108,11 @@ bool WebPlatformStrategies::getRawCookies(const NetworkStorageSession& session, 
 void WebPlatformStrategies::deleteCookie(const NetworkStorageSession& session, const URL& url, const String& cookieName)
 {
     WebCore::deleteCookie(session, url, cookieName);
+}
+
+void WebPlatformStrategies::addCookie(const NetworkStorageSession& session, const URL& url, const Cookie& cookie)
+{
+    WebCore::addCookie(session, url, cookie);
 }
 
 void WebPlatformStrategies::refreshPlugins()

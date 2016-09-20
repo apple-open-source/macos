@@ -32,4 +32,5 @@ ONE_TEST(ssl_52_noconn)
 ONE_TEST(ssl_53_clientauth)
 ONE_TEST(ssl_54_dhe)
 ONE_TEST(ssl_55_sessioncache)
+ONE_TEST(ssl_56_renegotiate)
 

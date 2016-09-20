@@ -34,7 +34,9 @@
 #include "DFGNodeFlags.h"
 #include "DFGStructureAbstractValue.h"
 #include "DFGStructureClobberState.h"
+#include "InferredType.h"
 #include "JSCell.h"
+#include "ResultType.h"
 #include "SpeculatedType.h"
 #include "DumpContext.h"
 #include "StructureSet.h"
@@ -214,7 +216,10 @@ struct AbstractValue {
         m_value = JSValue();
         checkConsistency();
     }
-    
+
+    void set(Graph&, const InferredType::Descriptor&);
+    void set(Graph&, const InferredType::Descriptor&, StructureClobberState);
+
     void fixTypeForRepresentation(Graph&, NodeFlags representation, Node* = nullptr);
     void fixTypeForRepresentation(Graph&, Node*);
     
@@ -280,17 +285,27 @@ struct AbstractValue {
     {
         return !(m_type & ~desiredType);
     }
+
+    bool isType(Graph&, const InferredType::Descriptor&) const;
+
+    // Filters the value using the given structure set. If the admittedTypes argument is not passed, this
+    // implicitly filters by the types implied by the structure set, which are usually a subset of
+    // SpecCell. Hence, after this call, the value will no longer have any non-cell members. But, you can
+    // use admittedTypes to preserve some non-cell types. Note that it's wrong for admittedTypes to overlap
+    // with SpecCell.
+    FiltrationResult filter(Graph&, const StructureSet&, SpeculatedType admittedTypes = SpecNone);
     
-    FiltrationResult filter(Graph&, const StructureSet&);
     FiltrationResult filterArrayModes(ArrayModes);
     FiltrationResult filter(SpeculatedType);
     FiltrationResult filterByValue(const FrozenValue& value);
     FiltrationResult filter(const AbstractValue&);
+
+    FiltrationResult filter(Graph&, const InferredType::Descriptor&);
     
     FiltrationResult changeStructure(Graph&, const StructureSet&);
     
     bool contains(Structure*) const;
-    
+
     bool validate(JSValue value) const
     {
         if (isHeapTop())
@@ -330,7 +345,9 @@ struct AbstractValue {
     void checkConsistency() const;
     void assertIsRegistered(Graph&) const;
 #endif
-    
+
+    ResultType resultType() const;
+
     void dumpInContext(PrintStream&, DumpContext*) const;
     void dump(PrintStream&) const;
     
@@ -359,7 +376,7 @@ struct AbstractValue {
     // abstract value that consists of the union of the set of all non-cell values
     // and the set of cell values that have the given structure. This abstract
     // value is then the intersection of the m_structure and the set of values
-    // whose type is m_type. So, for example if m_type is SpecFinal|SpecInt32 and
+    // whose type is m_type. So, for example if m_type is SpecFinal|SpecInt32Only and
     // m_structure is [0x12345] then this abstract value corresponds to the set of
     // all integers unified with the set of all objects with structure 0x12345.
     SpeculatedType m_type;
@@ -402,12 +419,12 @@ private:
         if (isHeapTop())
             return true;
         
-        // Constant folding always represents Int52's in a double (i.e. Int52AsDouble).
-        // So speculationFromValue(value) for an Int52 value will return Int52AsDouble,
+        // Constant folding always represents Int52's in a double (i.e. AnyIntAsDouble).
+        // So speculationFromValue(value) for an Int52 value will return AnyIntAsDouble,
         // and that's fine - the type validates just fine.
         SpeculatedType type = m_type;
-        if (type & SpecInt52)
-            type |= SpecInt52AsDouble;
+        if (type & SpecInt52Only)
+            type |= SpecAnyIntAsDouble;
         
         if (mergeSpeculations(type, speculationFromValue(value)) != type)
             return false;

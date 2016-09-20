@@ -31,6 +31,8 @@
 #ifndef _SECURITY_SECCERTIFICATE_H_
 #define _SECURITY_SECCERTIFICATE_H_
 
+#define _SECURITY_VERSION_GREATER_THAN_57610_
+
 #include <CoreFoundation/CFBase.h>
 #include <CoreFoundation/CFArray.h>
 #include <CoreFoundation/CFData.h>
@@ -102,7 +104,7 @@ OSStatus SecCertificateCreateFromData(const CSSM_DATA *data, CSSM_CERT_TYPE type
 	@function SecCertificateCreateWithData
 	@abstract Create a certificate reference given its DER representation as a CFData.
     @param allocator CFAllocator to allocate the certificate data. Pass NULL to use the default allocator.
-    @param certificate DER encoded X.509 certificate.
+    @param data DER encoded X.509 certificate.
 	@result On return, a reference to the certificate. Returns NULL if the passed-in data is not a valid DER-encoded X.509 certificate.
 */
 __nullable
@@ -306,6 +308,39 @@ OSStatus SecCertificateSetPreference(SecCertificateRef certificate, CFStringRef 
 */
 OSStatus SecCertificateSetPreferred(SecCertificateRef __nullable certificate, CFStringRef name, CFArrayRef __nullable keyUsage)
 	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+
+/*!
+ @typedef SecKeyUsage
+ @abstract Flags to indicate key usages in the KeyUsage extension of a certificate
+ @constant kSecKeyUsageUnspecified No KeyUsage extension in certificate.
+ @constant kSecKeyUsageDigitalSignature DigitalSignature bit set in KeyUsage extension.
+ @constant kSecKeyUsageNonRepudiation NonRepudiation bit set in KeyUsage extension.
+ @constant kSecKeyUsageContentCommitment ContentCommitment bit set in KeyUsage extension.
+ @constant kSecKeyUsageKeyEncipherment KeyEncipherment bit set in KeyUsage extension.
+ @constant kSecKeyUsageDataEncipherment DataEncipherment bit set in KeyUsage extension.
+ @constant kSecKeyUsageKeyAgreement KeyAgreement bit set in KeyUsage extension.
+ @constant kSecKeyUsageKeyCertSign KeyCertSign bit set in KeyUsage extension.
+ @constant kSecKeyUsageCRLSign CRLSign bit set in KeyUsage extension.
+ @constant kSecKeyUsageEncipherOnly EncipherOnly bit set in KeyUsage extension.
+ @constant kSecKeyUsageDecipherOnly DecipherOnly bit set in KeyUsage extension.
+ @constant kSecKeyUsageCritical KeyUsage extension is marked critical.
+ @constant kSecKeyUsageAll For masking purposes, all SecKeyUsage values.
+ */
+typedef CF_OPTIONS(uint32_t, SecKeyUsage) {
+    kSecKeyUsageUnspecified      = 0,
+    kSecKeyUsageDigitalSignature = 1 << 0,
+    kSecKeyUsageNonRepudiation   = 1 << 1,
+    kSecKeyUsageContentCommitment= 1 << 1,
+    kSecKeyUsageKeyEncipherment  = 1 << 2,
+    kSecKeyUsageDataEncipherment = 1 << 3,
+    kSecKeyUsageKeyAgreement     = 1 << 4,
+    kSecKeyUsageKeyCertSign      = 1 << 5,
+    kSecKeyUsageCRLSign          = 1 << 6,
+    kSecKeyUsageEncipherOnly     = 1 << 7,
+    kSecKeyUsageDecipherOnly     = 1 << 8,
+    kSecKeyUsageCritical         = 1 << 31,
+    kSecKeyUsageAll              = 0x7FFFFFFF
+};
 
 /*!
  @enum kSecPropertyKey

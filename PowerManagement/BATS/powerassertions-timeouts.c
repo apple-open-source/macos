@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <notify.h>
 #include <stdio.h>
+#include "PMtests.h"
 
 /***
 
@@ -36,6 +37,7 @@ CFStringRef SystemTimeoutActions[] = {
 };
 
 static int kActionsCount = sizeof(SystemTimeoutActions)/sizeof(CFStringRef);
+int gFailCnt = 0, gPassCnt = 0;
 
 
 typedef struct {
@@ -60,10 +62,11 @@ static void inspect_results_delayed(void);
 int main(int argc, char *argv[])
 {
 
-    printf("Executing powerassertions-timeouts: schedule and verify timeouts & their effects.\n");
-    printf("Performing %d assert & wait for timeout cycles across all TimeoutActions.\n", DO_ITERATIONS);
-    printf("Assertions will timeout after %0.02fs\n", kMyTimeoutInterval);
-    printf("Test tool will check for timeouts after %0.02fs\n", (CFTimeInterval)kMyWaitForJudgement);
+    START_TEST("Test Assertion timeouts\n");
+    LOG("Executing powerassertions-timeouts: schedule and verify timeouts & their effects.\n");
+    LOG("Performing %d assert & wait for timeout cycles across all TimeoutActions.\n", DO_ITERATIONS);
+    LOG("Assertions will timeout after %0.02fs\n", kMyTimeoutInterval);
+    LOG("Test tool will check for timeouts after %0.02fs\n", (CFTimeInterval)kMyWaitForJudgement);
 
 
     install_notify_listeners();
@@ -83,18 +86,19 @@ static void install_notify_listeners(void)
 
     dispatch_queue_t        handlerq = dispatch_get_main_queue();
 
+    START_TEST_CASE("Register for assertion change notifications\n");
 
     ret = IOPMAssertionNotify(kIOPMAssertionsAnyChangedNotifyString, kIOPMNotifyRegister);
     if (kIOReturnSuccess != ret) {
-        printf("anychange error 0x%08x\n",ret);
+        LOG("anychange error 0x%08x\n",ret);
     }
     ret = IOPMAssertionNotify(kIOPMAssertionsChangedNotifyString, kIOPMNotifyRegister);
     if (kIOReturnSuccess != ret) {
-        printf("changed error 0x%08x\n",ret);
+        LOG("changed error 0x%08x\n",ret);
     }
     ret = IOPMAssertionNotify(kIOPMAssertionTimedOutNotifyString, kIOPMNotifyRegister);
     if (kIOReturnSuccess != ret) {
-        printf("timedout error 0x%08x\n",ret);
+        LOG("timedout error 0x%08x\n",ret);
     }
 
 
@@ -103,14 +107,16 @@ static void install_notify_listeners(void)
                                       handlerq,
                                       ^(int x){ result.timeouts++; });
     if (status != NOTIFY_STATUS_OK) {
-        printf("[FAIL] %s:%d Notify status %d on XXX\n", __FILE__, __LINE__, status);
+        FAIL("%s:%d Notify status %d on XXX\n", __FILE__, __LINE__, status);
+        return;
     }
     status = notify_register_dispatch(kIOPMAssertionsAnyChangedNotifyString,
                                       &notifyxx,
                                       handlerq,
                                       ^(int x){ result.any++; });
     if (status != NOTIFY_STATUS_OK) {
-        printf("[FAIL] Notify status %d on YYY\n", status);
+        FAIL("Notify status %d on YYY\n", status);
+        return;
     }
 
     status = notify_register_dispatch(kIOPMAssertionsChangedNotifyString,
@@ -118,8 +124,10 @@ static void install_notify_listeners(void)
                                       handlerq,
                                       ^(int x) { result.systemwide++; });
     if (status != NOTIFY_STATUS_OK) {
-        printf("[FAIL] Notify status %d on ZZZ\n", status);
+        FAIL("Notify status %d on ZZZ\n", status);
+        return;
     }
+    PASS("Register for assertion change notifications\n");
 }
 
 
@@ -133,6 +141,7 @@ static void create_assertions(void)
            int                     i = 0;
            int                     j = 0;
            char                    failureString[200];
+           START_TEST_CASE("Create assertions\n");
 
            for (i=0; i<DO_ITERATIONS; i++)
            {
@@ -161,7 +170,7 @@ static void create_assertions(void)
 
 
                    if(kIOReturnSuccess != ret) {
-                       printf("[FAIL] CREATION: Error 0x%08x from IOPMAssertionCreateWithDescription(%s)\n", ret,
+                       FAIL("CREATION: Error 0x%08x from IOPMAssertionCreateWithDescription(%s)\n", ret,
                        failureString);
                        break;
                    }
@@ -169,6 +178,8 @@ static void create_assertions(void)
                    CFRelease(name);
                }
            }
+
+           PASS("Create assertions\n");
        });
 }
 
@@ -191,18 +202,21 @@ static void inspect_results_delayed(void)
   ^{
       int exitStatus = 0;
 
-      printf("Created a total of %d assertions.\n", result.fCount);
-      printf("- AssertionTimeout notify fired %d times\n", result.timeouts);
-      printf("- AssertionOverallChange notify fired %d times\n", result.systemwide);
-      printf("- AssertionAnyChange notify fired %d times\n", result.any);
+      START_TEST_CASE("Check assertion notifications and timeouts\n");
+      LOG("Created a total of %d assertions.\n", result.fCount);
+      LOG("- AssertionTimeout notify fired %d times\n", result.timeouts);
+      LOG("- AssertionOverallChange notify fired %d times\n", result.systemwide);
+      LOG("- AssertionAnyChange notify fired %d times\n", result.any);
 
       if (result.timeouts == 0) {
-          printf("[FAIL] AssertionTimeout didn't fire at all. Fired=%d; assertions timed out=%d.\n",
+          FAIL("AssertionTimeout didn't fire at all. Fired=%d; assertions timed out=%d.\n",
           result.timeouts, result.fCount);
+          return;
       }
 
       if (result.any == 0) {
-          printf("[FAIL]  AssertionAnyChange didn't fire at all. fired=%d; assertions that timed out=%d.\n",  result.any, result.fCount);
+          FAIL("AssertionAnyChange didn't fire at all. fired=%d; assertions that timed out=%d.\n",  result.any, result.fCount);
+          return;
       }
 
 
@@ -228,16 +242,18 @@ static void inspect_results_delayed(void)
 
               if (!(timeoutDateKey && startDateKey))
               {
-                  printf("[FAIL] The dictionary for assertion %d doesn't contain start and timeout dates.\n", result.followers[k].id);
+                  FAIL("The dictionary for assertion %d doesn't contain start and timeout dates.\n", result.followers[k].id);
                   CFShow(asrt);
+                  return;
               } else {
                   aliveInterval = CFDateGetTimeIntervalSinceDate(timeoutDateKey, startDateKey);
 
                   if ((aliveInterval <= (kMyTimeoutInterval - 1.0))
                       || (aliveInterval >= (kMyTimeoutInterval + 1.0)))
                   {
-                      printf("[FAIL] Assertion %d timed out at an incorrect time: timeout=%0.02f actual=%0.02f\n",
+                      FAIL("Assertion %d timed out at an incorrect time: timeout=%0.02f actual=%0.02f\n",
                              result.followers[k].id, kMyTimeoutInterval, aliveInterval);
+                      return;
                   }
               }
 
@@ -248,13 +264,15 @@ static void inspect_results_delayed(void)
           if (asrt && CFEqual(kIOPMAssertionTimeoutActionRelease, usedAction)) {
               if (!timeoutDateKey)
               {
-                  printf("[FAIL] CLEANUP: Assertion %d doesn't have TimedOutDateKey for action %s\n",
+                  FAIL("CLEANUP: Assertion %d doesn't have TimedOutDateKey for action %s\n",
                          k, actionStr);
+                  return;
                   }
               }
           }
 
-      printf("[PASS] Created a bunch of assertions that successfully timed out.\n");
+      PASS("Check assertion notifications and timeouts\n");
+      SUMMARY("Test Assertion timeouts");
       exit(exitStatus);
       });
 

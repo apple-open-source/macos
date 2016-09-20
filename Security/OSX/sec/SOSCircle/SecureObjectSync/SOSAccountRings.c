@@ -28,6 +28,7 @@ const CFStringRef kSOSRingCreditCards           = CFSTR("Ring-CreditCards");
 const CFStringRef kSOSRingiCloudIdentity        = CFSTR("Ring-iCloudIdentity");
 const CFStringRef kSOSRingOtherSyncable         = CFSTR("Ring-OtherSyncable");
 
+const CFStringRef kSOSRingKey                   = CFSTR("trusted_rings");
 
 static CFSetRef allCurrentRings(void) {
     static dispatch_once_t dot;
@@ -69,63 +70,130 @@ static ringDefPtr getRingDef(CFStringRef ringName) {
     retval.ringType = kSOSRingEntropyKeyed;
 
 
-    if(CFEqual(ringName, kSOSRingKeychainV0) == 0) {
-    } else if(CFEqual(ringName, kSOSRingPCSHyperion) == 0) {
-    } else if(CFEqual(ringName, kSOSRingPCSBladerunner) == 0) {
-    } else if(CFEqual(ringName, kSOSRingKeychainV0) == 0) {
-    } else if(CFEqual(ringName, kSOSRingKeychainV0) == 0) {
-    } else if(CFEqual(ringName, kSOSRingKeychainV0) == 0) {
-    } else if(CFEqual(ringName, kSOSRingKeychainV0) == 0) {
-    } else if(CFEqual(ringName, kSOSRingCircleV2) == 0) {
+    if(CFSetContainsValue(allCurrentRings(), ringName)) {
         retval.ringType = kSOSRingBase;
         retval.dropWhenLeaving = false;
-    } else return NULL;
+    } else {
+        retval.ringType = kSOSRingBackup;
+        retval.dropWhenLeaving = false;
+    }
     return &retval;
 }
-
-#if 0
-static bool isRingKnown(CFStringRef ringname) {
-    if(getRingDef(ringname) != NULL) return true;
-    secnotice("rings","Not a known ring");
-    return false;
-}
-#endif
-
-static inline void SOSAccountRingForEach(void (^action)(CFStringRef ringname)) {
-    CFSetRef allRings = allCurrentRings();
-    CFSetForEach(allRings, ^(const void *value) {
-        CFStringRef ringName = (CFStringRef) value;
-            action(ringName);
-    });
-}
-
 
 __unused static inline void SOSAccountRingForEachRingMatching(SOSAccountRef a, void (^action)(SOSRingRef ring), bool (^condition)(SOSRingRef ring)) {
     CFSetRef allRings = allCurrentRings();
     CFSetForEach(allRings, ^(const void *value) {
         CFStringRef ringName = (CFStringRef) value;
-        SOSRingRef ring = SOSAccountGetRing(a, ringName, NULL);
-        if (condition(ring))
+        SOSRingRef ring = SOSAccountCopyRing(a, ringName, NULL);
+        if (condition(ring)) {
             action(ring);
+        }
+        CFReleaseNull(ring);
     });
 }
 
-CFMutableDictionaryRef SOSAccountGetRings(SOSAccountRef a, CFErrorRef *error){
-    return a->trusted_rings;
+void SOSAccountAddRingDictionary(SOSAccountRef a) {
+    if(a->expansion) {
+        if(!CFDictionaryGetValue(a->expansion, kSOSRingKey)) {
+            CFMutableDictionaryRef rings = CFDictionaryCreateMutableForCFTypes(NULL);
+            CFDictionarySetValue(a->expansion, kSOSRingKey, rings);
+            CFReleaseNull(rings);
+        }
+    }
+}
+
+static CFMutableDictionaryRef SOSAccountGetRings(SOSAccountRef a, CFErrorRef *error){
+    CFMutableDictionaryRef rings = (CFMutableDictionaryRef) CFDictionaryGetValue(a->expansion, kSOSRingKey);
+    if(!rings) {
+        SOSAccountAddRingDictionary(a);
+        rings = SOSAccountGetRings(a, error);
+    }
+    return rings;
+}
+
+static void SOSAccountSetRings(SOSAccountRef a, CFMutableDictionaryRef newrings){
+    CFDictionarySetValue(a->expansion, newrings, kSOSRingKey);
+}
+
+bool SOSAccountForEachRing(SOSAccountRef account, SOSRingRef (^action)(CFStringRef name, SOSRingRef ring)) {
+    bool retval = false;
+    __block bool changed = false;
+    CFMutableDictionaryRef rings = SOSAccountGetRings(account, NULL);
+    CFMutableDictionaryRef ringscopy = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
+    require_quiet(rings, errOut);
+    require_quiet(ringscopy, errOut);
+    CFDictionaryForEach(rings, ^(const void *key, const void *value) {
+        CFStringRef ringname = (CFStringRef) key;
+        CFDataRef   ringder = CFDataCreateCopy(kCFAllocatorDefault, (CFDataRef) value);
+        CFDictionaryAddValue(ringscopy, key, ringder);
+        SOSRingRef  ring = SOSRingCreateFromData(NULL, ringder);
+        SOSRingRef  newring = action(ringname, ring);
+        if(newring) {
+            CFDataRef   newringder = SOSRingCopyEncodedData(newring, NULL);
+            CFDictionaryReplaceValue(ringscopy, key, newringder);
+            CFReleaseNull(newringder);
+            changed = true;
+        }
+        CFReleaseNull(ring);
+        CFReleaseNull(ringder);
+        CFReleaseNull(newring);
+    });
+    if(changed) {
+        SOSAccountSetRings(account, ringscopy);
+    }
+    retval = true;
+errOut:
+    CFReleaseNull(ringscopy);
+    return retval;
 }
 
 CFMutableDictionaryRef SOSAccountGetBackups(SOSAccountRef a, CFErrorRef *error){
     return a->backups;
 }
 
-SOSRingRef SOSAccountGetRing(SOSAccountRef a, CFStringRef ringName, CFErrorRef *error) {
-    CFTypeRef entry = CFDictionaryGetValue(a->trusted_rings, ringName);
-    require_action_quiet(entry, fail,
-                         SOSCreateError(kSOSErrorNoRing, CFSTR("No Ring found"), NULL, error));
-    return (SOSRingRef) entry;
+SOSRingRef SOSAccountCopyRing(SOSAccountRef a, CFStringRef ringName, CFErrorRef *error) {
+    CFMutableDictionaryRef rings = SOSAccountGetRings(a, error);
+    require_action_quiet(rings, errOut, SOSCreateError(kSOSErrorNoRing, CFSTR("No Rings found"), NULL, error));
+    CFTypeRef ringder = CFDictionaryGetValue(rings, ringName);
+    require_action_quiet(ringder, errOut, SOSCreateError(kSOSErrorNoRing, CFSTR("No Ring found"), NULL, error));
+    SOSRingRef ring = SOSRingCreateFromData(NULL, ringder);
+    return (SOSRingRef) ring;
 
-fail:
+errOut:
     return NULL;
+}
+
+bool SOSAccountSetRing(SOSAccountRef a, SOSRingRef addRing, CFStringRef ringName, CFErrorRef *error) {
+    require_quiet(addRing, errOut);
+    CFMutableDictionaryRef rings = SOSAccountGetRings(a, error);
+    require_action_quiet(rings, errOut, SOSCreateError(kSOSErrorNoRing, CFSTR("No Rings found"), NULL, error));
+    CFDataRef ringder = SOSRingCopyEncodedData(addRing, error);
+    require_quiet(ringder, errOut);
+    CFDictionarySetValue(rings, ringName, ringder);
+    CFReleaseNull(ringder);
+    return true;
+errOut:
+    return false;
+}
+
+void SOSAccountRemoveRing(SOSAccountRef a, CFStringRef ringName) {
+    CFMutableDictionaryRef rings = SOSAccountGetRings(a, NULL);
+    require_quiet(rings, fail);
+    CFDictionaryRemoveValue(rings, ringName);
+fail:
+    return;
+}
+
+
+SOSRingRef SOSAccountCopyRingNamed(SOSAccountRef a, CFStringRef ringName, CFErrorRef *error) {
+    SOSRingRef found = SOSAccountCopyRing(a, ringName, error);
+    if (isSOSRing(found)) return found;
+    if (found) {
+        secerror("Non ring in ring table: %@, purging!", found);
+        SOSAccountRemoveRing(a, ringName);
+    }
+    found = NULL;
+    return found;
 }
 
 CFStringRef SOSAccountGetMyPeerID(SOSAccountRef a) {
@@ -146,35 +214,23 @@ SOSRingRef SOSAccountRingCreateForName(SOSAccountRef a, CFStringRef ringName, CF
 }
 
 bool SOSAccountCheckForRings(SOSAccountRef a, CFErrorRef *error) {
-    bool retval = isDictionary(a->trusted_rings);
-    if(!retval) SOSCreateError(kSOSErrorNotReady, CFSTR("Rings not present"), NULL, error);
-    return retval;
-}
-
-bool SOSAccountEnsureRings(SOSAccountRef a, CFErrorRef *error) {
-    bool status = false;
-
-    if(!a->trusted_rings) {
-        a->trusted_rings = CFDictionaryCreateMutableForCFTypes(NULL);
-    }
-
-    require_quiet(SOSAccountEnsureFullPeerAvailable(a, error), errOut);
-
-    SOSAccountRingForEach(^(CFStringRef ringname) {
-        SOSRingRef ring = SOSAccountGetRing(a, ringname, NULL);
-        if(!ring) {
-            ring = SOSAccountRingCreateForName(a, ringname, error);
-            if(ring) {
-                CFDictionaryAddValue(a->trusted_rings, ringname, ring);
-                SOSUpdateKeyInterest(a);
+    __block bool retval = true;
+    CFMutableDictionaryRef rings = SOSAccountGetRings(a, error);
+    if(rings && isDictionary(rings)) {
+        SOSAccountForEachRing(a, ^SOSRingRef(CFStringRef ringname, SOSRingRef ring) {
+            if(retval == true) {
+                if(!SOSRingIsStable(ring)) {
+                    retval = false;
+                    secnotice("ring", "Ring %@ not stable", ringname);
+                }
             }
-            CFReleaseNull(ring);
-        }
-    });
-
-    status = true;
-errOut:
-    return status;
+            return NULL;
+        });
+    } else {
+        SOSCreateError(kSOSErrorNotReady, CFSTR("Rings not present"), NULL, error);
+        retval = false;
+    }
+    return retval;
 }
 
 bool SOSAccountUpdateRingFromRemote(SOSAccountRef account, SOSRingRef newRing, CFErrorRef *error) {
@@ -188,11 +244,8 @@ bool SOSAccountUpdateRing(SOSAccountRef account, SOSRingRef newRing, CFErrorRef 
 bool SOSAccountModifyRing(SOSAccountRef account, CFStringRef ringName, CFErrorRef* error, bool (^action)(SOSRingRef ring)) {
     bool success = false;
 
-    SOSRingRef ring = SOSAccountGetRing(account, ringName, error);
+    SOSRingRef ring = SOSAccountCopyRing(account, ringName, error);
     require_action_quiet(ring, fail, SOSErrorCreate(kSOSErrorNoRing, error, NULL, CFSTR("No Ring to get peer key from")));
-
-    ring = SOSRingCopyRing(ring, error);
-    require_quiet(ring, fail);
 
     success = true;
     require_quiet(action(ring), fail);
@@ -204,31 +257,32 @@ fail:
     return success;
 }
 
-CFDataRef SOSAccountRingGetPayload(SOSAccountRef account, CFStringRef ringName, CFErrorRef *error) {
-    SOSRingRef ring = SOSAccountGetRing(account, ringName, error);
-    return SOSRingGetPayload(ring, error);
+CFDataRef SOSAccountRingCopyPayload(SOSAccountRef account, CFStringRef ringName, CFErrorRef *error) {
+    SOSRingRef ring = SOSAccountCopyRing(account, ringName, error);
+    CFDataRef payload = SOSRingGetPayload(ring, error);
+    CFDataRef retval = CFDataCreateCopy(kCFAllocatorDefault, payload);
+    CFReleaseNull(ring);
+    return retval;
 }
 
 SOSRingRef SOSAccountRingCopyWithPayload(SOSAccountRef account, CFStringRef ringName, CFDataRef payload, CFErrorRef *error) {
-    SOSRingRef ring = SOSAccountGetRing(account, ringName, error);
+    SOSRingRef ring = SOSAccountCopyRing(account, ringName, error);
     require_quiet(ring, errOut);
-    SOSRingRef new = SOSRingCopyRing(ring, error);
-    require_quiet(new, errOut);
     CFDataRef oldpayload = SOSRingGetPayload(ring, error);
     require_quiet(!CFEqualSafe(oldpayload, payload), errOut);
-    require_quiet(SOSRingSetPayload(new, NULL, payload, account->my_identity, error), errOut);
-
+    require_quiet(SOSRingSetPayload(ring, NULL, payload, account->my_identity, error), errOut);
 errOut:
-    return NULL;
+    return ring;
 }
 
 bool SOSAccountResetRing(SOSAccountRef account, CFStringRef ringName, CFErrorRef *error) {
     bool retval = false;
-    SOSRingRef ring = SOSAccountGetRing(account, ringName, error);
+    SOSRingRef ring = SOSAccountCopyRing(account, ringName, error);
     SOSRingRef newring = SOSRingCreate(ringName, NULL, SOSRingGetType(ring), error);
     SOSRingGenerationCreateWithBaseline(newring, ring);
     SOSBackupRingSetViews(newring, account->my_identity, SOSBackupRingGetViews(ring, NULL), error);
     require_quiet(newring, errOut);
+    CFReleaseNull(ring);
     retval = SOSAccountUpdateRing(account, newring, error);
 errOut:
     CFReleaseNull(newring);
@@ -237,10 +291,21 @@ errOut:
 
 bool SOSAccountResetAllRings(SOSAccountRef account, CFErrorRef *error) {
     __block bool retval = true;
-    CFDictionaryForEach(account->trusted_rings, ^(const void *key, const void *value) {
-        CFStringRef ringName = (CFStringRef) key;
+    CFMutableSetRef ringList = CFSetCreateMutableForCFTypes(kCFAllocatorDefault);
+    require_quiet(ringList, errOut);
+    
+    SOSAccountForEachRing(account, ^SOSRingRef(CFStringRef name, SOSRingRef ring) {
+        CFSetAddValue(ringList, name);
+        return NULL; // just using this to grab names.
+    });
+    
+    CFSetForEach(ringList, ^(const void *value) {
+        CFStringRef ringName = (CFStringRef) value;
         retval = retval && SOSAccountResetRing(account, ringName, error);
     });
+    
+errOut:
+    CFReleaseNull(ringList);
     return retval;
 }
 

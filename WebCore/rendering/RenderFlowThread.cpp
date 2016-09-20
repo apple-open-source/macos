@@ -52,8 +52,8 @@
 
 namespace WebCore {
 
-RenderFlowThread::RenderFlowThread(Document& document, Ref<RenderStyle>&& style)
-    : RenderBlockFlow(document, WTF::move(style))
+RenderFlowThread::RenderFlowThread(Document& document, RenderStyle&& style)
+    : RenderBlockFlow(document, WTFMove(style))
     , m_previousRegionCount(0)
     , m_autoLogicalHeightRegionsCount(0)
     , m_currentRegionMaintainer(nullptr)
@@ -69,18 +69,18 @@ RenderFlowThread::RenderFlowThread(Document& document, Ref<RenderStyle>&& style)
     setFlowThreadState(InsideOutOfFlowThread);
 }
 
-Ref<RenderStyle> RenderFlowThread::createFlowThreadStyle(RenderStyle* parentStyle)
+RenderStyle RenderFlowThread::createFlowThreadStyle(const RenderStyle* parentStyle)
 {
     auto newStyle = RenderStyle::create();
-    newStyle.get().inheritFrom(parentStyle);
-    newStyle.get().setDisplay(BLOCK);
-    newStyle.get().setPosition(AbsolutePosition);
-    newStyle.get().setZIndex(0);
-    newStyle.get().setLeft(Length(0, Fixed));
-    newStyle.get().setTop(Length(0, Fixed));
-    newStyle.get().setWidth(Length(100, Percent));
-    newStyle.get().setHeight(Length(100, Percent));
-    newStyle.get().fontCascade().update(nullptr);
+    newStyle.inheritFrom(parentStyle);
+    newStyle.setDisplay(BLOCK);
+    newStyle.setPosition(AbsolutePosition);
+    newStyle.setZIndex(0);
+    newStyle.setLeft(Length(0, Fixed));
+    newStyle.setTop(Length(0, Fixed));
+    newStyle.setWidth(Length(100, Percent));
+    newStyle.setHeight(Length(100, Percent));
+    newStyle.fontCascade().update(nullptr);
     return newStyle;
 }
 
@@ -106,7 +106,7 @@ void RenderFlowThread::removeRegionFromThread(RenderRegion* renderRegion)
     m_regionList.remove(renderRegion);
 }
 
-void RenderFlowThread::invalidateRegions()
+void RenderFlowThread::invalidateRegions(MarkingBehavior markingParents)
 {
     ASSERT(!inFinalLayoutPhase());
 
@@ -125,7 +125,7 @@ void RenderFlowThread::invalidateRegions()
     if (m_lineToRegionMap)
         m_lineToRegionMap->clear();
     m_layersToRegionMappingsDirty = true;
-    setNeedsLayout();
+    setNeedsLayout(markingParents);
 
     m_regionsInvalidated = true;
 }
@@ -383,7 +383,7 @@ void RenderFlowThread::repaintRectangleInRegions(const LayoutRect& repaintRect) 
     if (!shouldRepaint(repaintRect) || !hasValidRegionInfo())
         return;
 
-    LayoutStateDisabler layoutStateDisabler(&view()); // We can't use layout state to repaint, since the regions are somewhere else.
+    LayoutStateDisabler layoutStateDisabler(view()); // We can't use layout state to repaint, since the regions are somewhere else.
 
     for (auto& region : m_regionList)
         region->repaintFlowThreadContent(repaintRect);
@@ -443,7 +443,7 @@ LayoutPoint RenderFlowThread::adjustedPositionRelativeToOffsetParent(const Rende
         // and if so, drop the object's top position (which was computed relative to its containing block
         // and is no longer valid) and recompute it using the region in which it flows as reference.
         bool wasComputedRelativeToOtherRegion = false;
-        while (objContainingBlock && !objContainingBlock->isRenderNamedFlowThread()) {
+        while (objContainingBlock && !is<RenderView>(*objContainingBlock) && !objContainingBlock->isRenderNamedFlowThread()) {
             // Check if this object is in a different region.
             RenderRegion* parentStartRegion = nullptr;
             RenderRegion* parentEndRegion = nullptr;
@@ -1094,7 +1094,7 @@ bool RenderFlowThread::addForcedRegionBreak(const RenderBlock* block, LayoutUnit
         hasComputedAutoHeight = true;
 
         // Compute the region height pretending that the offsetBreakInCurrentRegion is the logicalHeight for the auto-height region.
-        LayoutUnit regionComputedAutoHeight = namedFlowFragment.constrainContentBoxLogicalHeightByMinMax(offsetBreakInCurrentRegion, -1);
+        LayoutUnit regionComputedAutoHeight = namedFlowFragment.constrainContentBoxLogicalHeightByMinMax(offsetBreakInCurrentRegion, Nullopt);
 
         // The new height of this region needs to be smaller than the initial value, the max height. A forced break is the only way to change the initial
         // height of an auto-height region besides content ending.
@@ -1225,7 +1225,7 @@ LayoutUnit RenderFlowThread::offsetFromLogicalTopOfFirstRegion(const RenderBlock
 
     // As a last resort, take the slow path.
     LayoutRect blockRect(0, 0, currentBlock->width(), currentBlock->height());
-    while (currentBlock && !currentBlock->isRenderFlowThread()) {
+    while (currentBlock && !is<RenderView>(*currentBlock) && !currentBlock->isRenderFlowThread()) {
         RenderBlock* containerBlock = currentBlock->containingBlock();
         ASSERT(containerBlock);
         if (!containerBlock)

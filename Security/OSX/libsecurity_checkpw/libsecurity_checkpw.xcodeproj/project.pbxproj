@@ -12,7 +12,6 @@
 		1C6C402A1121FC0C00031CDE /* libsecurity_checkpw.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CA1FEBE052A3C8100F22E42 /* libsecurity_checkpw.a */; };
 		1CB7B4C411065DDB003458C5 /* libsecurity_checkpw.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CA1FEBE052A3C8100F22E42 /* libsecurity_checkpw.a */; };
 		1CD90B71110111A4008DD07F /* test-checkpw.c in Sources */ = {isa = PBXBuildFile; fileRef = 1CD90B631101115E008DD07F /* test-checkpw.c */; };
-		1CD90B90110112DD008DD07F /* libpam.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CD90B8F110112DD008DD07F /* libpam.dylib */; };
 		1CD90BA2110113AE008DD07F /* libpam.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CD90B8F110112DD008DD07F /* libpam.dylib */; };
 		4CCF8664052A491D00F2E8D8 /* checkpw.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CCF8662052A491D00F2E8D8 /* checkpw.c */; };
 		4CF36F400581369C00834D11 /* checkpw.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CCF8663052A491D00F2E8D8 /* checkpw.h */; settings = {ATTRIBUTES = (); }; };
@@ -74,7 +73,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1CD90B90110112DD008DD07F /* libpam.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -205,7 +203,7 @@
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0700;
+				LastUpgradeCheck = 0800;
 			};
 			buildConfigurationList = C27AD3160987FCDE001272E0 /* Build configuration list for PBXProject "libsecurity_checkpw" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -332,12 +330,21 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1844616D146E966100B12992 /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = lossless;
+				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				ONLY_ACTIVE_ARCH = YES;
 			};
 			name = Debug;
 		};
@@ -345,12 +352,19 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1844616D146E966100B12992 /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = "respect-asset-catalog";
+				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
 			};
 			name = Release;
 		};

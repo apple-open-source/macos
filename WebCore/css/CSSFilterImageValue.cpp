@@ -65,7 +65,7 @@ FloatSize CSSFilterImageValue::fixedSize(const RenderElement* renderer)
     ResourceLoaderOptions options = CachedResourceLoader::defaultCachedResourceOptions();
 
     CachedResourceLoader& cachedResourceLoader = renderer->document().cachedResourceLoader();
-    CachedImage* cachedImage = cachedImageForCSSValue(m_imageValue.get(), cachedResourceLoader, options);
+    CachedImage* cachedImage = cachedImageForCSSValue(m_imageValue, cachedResourceLoader, options);
 
     if (!cachedImage)
         return FloatSize();
@@ -73,9 +73,9 @@ FloatSize CSSFilterImageValue::fixedSize(const RenderElement* renderer)
     return cachedImage->imageForRenderer(renderer)->size();
 }
 
-bool CSSFilterImageValue::isPending() const
+bool CSSFilterImageValue::isPending()
 {
-    return CSSImageGeneratorValue::subimageIsPending(m_imageValue.get());
+    return CSSImageGeneratorValue::subimageIsPending(m_imageValue);
 }
 
 bool CSSFilterImageValue::knownToBeOpaque(const RenderElement*) const
@@ -87,7 +87,7 @@ void CSSFilterImageValue::loadSubimages(CachedResourceLoader& cachedResourceLoad
 {
     CachedResourceHandle<CachedImage> oldCachedImage = m_cachedImage;
 
-    m_cachedImage = CSSImageGeneratorValue::cachedImageForCSSValue(m_imageValue.get(), cachedResourceLoader, options);
+    m_cachedImage = CSSImageGeneratorValue::cachedImageForCSSValue(m_imageValue, cachedResourceLoader, options);
 
     if (m_cachedImage != oldCachedImage) {
         if (oldCachedImage)
@@ -99,7 +99,7 @@ void CSSFilterImageValue::loadSubimages(CachedResourceLoader& cachedResourceLoad
     m_filterSubimageObserver.setReady(true);
 }
 
-PassRefPtr<Image> CSSFilterImageValue::image(RenderElement* renderer, const FloatSize& size)
+RefPtr<Image> CSSFilterImageValue::image(RenderElement* renderer, const FloatSize& size)
 {
     if (size.isEmpty())
         return nullptr;
@@ -109,7 +109,7 @@ PassRefPtr<Image> CSSFilterImageValue::image(RenderElement* renderer, const Floa
     ResourceLoaderOptions options = CachedResourceLoader::defaultCachedResourceOptions();
 
     CachedResourceLoader& cachedResourceLoader = renderer->document().cachedResourceLoader();
-    CachedImage* cachedImage = cachedImageForCSSValue(m_imageValue.get(), cachedResourceLoader, options);
+    CachedImage* cachedImage = cachedImageForCSSValue(m_imageValue, cachedResourceLoader, options);
 
     if (!cachedImage)
         return Image::nullImage();
@@ -120,22 +120,23 @@ PassRefPtr<Image> CSSFilterImageValue::image(RenderElement* renderer, const Floa
         return Image::nullImage();
 
     // Transform Image into ImageBuffer.
-    std::unique_ptr<ImageBuffer> texture = ImageBuffer::create(size);
+    // FIXME (149424): This buffer should not be unconditionally unaccelerated.
+    std::unique_ptr<ImageBuffer> texture = ImageBuffer::create(size, Unaccelerated);
     if (!texture)
         return Image::nullImage();
-    texture->context()->drawImage(image, ColorSpaceDeviceRGB, IntPoint());
+
+    FloatRect imageRect = FloatRect(FloatPoint(), size);
+    texture->context().drawImage(*image, imageRect);
 
     RefPtr<FilterEffectRenderer> filterRenderer = FilterEffectRenderer::create();
-    filterRenderer->setSourceImage(WTF::move(texture));
-    filterRenderer->setSourceImageRect(FloatRect(FloatPoint(), size));
-    filterRenderer->setFilterRegion(FloatRect(FloatPoint(), size));
+    filterRenderer->setSourceImage(WTFMove(texture));
+    filterRenderer->setSourceImageRect(imageRect);
+    filterRenderer->setFilterRegion(imageRect);
     if (!filterRenderer->build(renderer, m_filterOperations, FilterFunction))
         return Image::nullImage();
     filterRenderer->apply();
 
-    m_generatedImage = filterRenderer->output()->copyImage();
-
-    return m_generatedImage.release();
+    return filterRenderer->output()->copyImage();
 }
 
 void CSSFilterImageValue::filterImageChanged(const IntRect&)
@@ -147,8 +148,7 @@ void CSSFilterImageValue::filterImageChanged(const IntRect&)
 void CSSFilterImageValue::createFilterOperations(StyleResolver* resolver)
 {
     m_filterOperations.clear();
-    if (m_filterValue)
-        resolver->createFilterOperations(*m_filterValue, m_filterOperations);
+    resolver->createFilterOperations(m_filterValue, m_filterOperations);
 }
 
 void CSSFilterImageValue::FilterSubimageObserverProxy::imageChanged(CachedImage*, const IntRect* rect)
@@ -166,12 +166,12 @@ bool CSSFilterImageValue::traverseSubresources(const std::function<bool (const C
 
 bool CSSFilterImageValue::equals(const CSSFilterImageValue& other) const
 {
-    return equalInputImages(other) && compareCSSValuePtr(m_filterValue, other.m_filterValue);
+    return equalInputImages(other) && compareCSSValue(m_filterValue, other.m_filterValue);
 }
 
 bool CSSFilterImageValue::equalInputImages(const CSSFilterImageValue& other) const
 {
-    return compareCSSValuePtr(m_imageValue, other.m_imageValue);
+    return compareCSSValue(m_imageValue, other.m_imageValue);
 }
 
 } // namespace WebCore

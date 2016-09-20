@@ -1,4 +1,6 @@
+#include <config.h>
 #include "utilities.h"
+#include <assert.h>
 
 /* Display a NTP packet in hex with leading address offset 
  * e.g. offset: value, 0: ff 1: fe ... 255: 00
@@ -31,21 +33,12 @@ pkt_output (
 /* Output a long floating point value in hex in the style described above 
  */
 void
-l_fp_output (
-		l_fp *ts,
-		FILE *output
-	    )
+l_fp_output(
+	l_fp *	ts,
+	FILE *	output
+	)
 {
-	register int a;
-
-	fprintf(output, HLINE);
-
-	for(a=0; a<8; a++) 
-		fprintf(output, "%i: %x \t", a, ((unsigned char *) ts)[a]);
-
-	fprintf(output, "\n");
-	fprintf(output, HLINE);
-
+	fprintf(output, "%s\n", prettydate(ts));
 }
 
 /* Output a long floating point value in binary in the style described above
@@ -110,16 +103,17 @@ l_fp_output_dec (
  */
 char *
 addrinfo_to_str (
-		struct addrinfo *addr
-		)
+	const struct addrinfo *addr
+	)
 {
-	char *buf = (char *) emalloc(sizeof(char) * INET6_ADDRSTRLEN);
+	sockaddr_u	s;
+	
+	ZERO(s);
+	memcpy(&s, addr->ai_addr, min(sizeof(s), addr->ai_addrlen));
 
-	getnameinfo(addr->ai_addr, addr->ai_addrlen, buf, 
-			INET6_ADDRSTRLEN, NULL, 0, NI_NUMERICHOST);
-
-	return buf;
+	return ss_to_str(&s);
 }
+
 
 /* Convert a sockaddr_u to a string containing the address in
  * style of inet_ntoa
@@ -127,50 +121,91 @@ addrinfo_to_str (
  * in that case.
  */
 char *
-ss_to_str (
-		sockaddr_u *saddr
-		)
+ss_to_str(
+	sockaddr_u *saddr
+	)
 {
-	char *buf = (char *) emalloc(sizeof(char) * INET6_ADDRSTRLEN);
-
-	getnameinfo(&saddr->sa, SOCKLEN(saddr), buf,
-			INET6_ADDRSTRLEN, NULL, 0, NI_NUMERICHOST);
-
-
-	return buf;
+	return estrdup(stoa(saddr));
 }
 
-/* Converts a struct tv to a date string
+
+/*
+ * Converts a struct tv to a date string
  */
 char *
-tv_to_str (
-		struct timeval *tv
-	  )
+tv_to_str(
+	const struct timeval *tv
+	)
 {
-	static const char *month_names[] = {
-		"Jan", "Feb", "Mar", "Apr", "May", "Jun",
-		"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-	};
+	const size_t bufsize = 48;
+	char *buf;
+	time_t gmt_time, local_time;
+	struct tm *p_tm_local, *tmp_tm;
+	int hh, mm, lto;
 
-	char *buf = (char *) emalloc(sizeof(char) * 48);
-	time_t cur_time = time(NULL);
-	struct tm *tm_ptr;
+	/*
+	 * convert to struct tm in UTC, then intentionally feed
+	 * that tm to mktime() which expects local time input, to
+	 * derive the offset from UTC to local time.
+	 */
+	gmt_time = tv->tv_sec;
+	tmp_tm = gmtime(&gmt_time);
+	tmp_tm->tm_isdst = -1;
+	local_time = mktime(tmp_tm);
+	p_tm_local = localtime(&gmt_time);
 
-	tm_ptr = localtime(&cur_time);
+	/* Local timezone offsets should never cause an overflow.  Yeah. */
+	lto = difftime(local_time, gmt_time);
+	lto /= 60;
+	hh = lto / 60;
+	mm = abs(lto % 60);
 
-
-	snprintf(buf, 48, "%i %s %.2d %.2d:%.2d:%.2d.%.3d", 
-			tm_ptr->tm_year + 1900,
-			month_names[tm_ptr->tm_mon],
-			tm_ptr->tm_mday,
-			tm_ptr->tm_hour,
-			tm_ptr->tm_min,
-			tm_ptr->tm_sec,
-			(int)tv->tv_usec);
+	buf = emalloc(bufsize);
+	snprintf(buf, bufsize,
+		 "%d-%.2d-%.2d %.2d:%.2d:%.2d.%.6d (%+03d%02d)",
+		 p_tm_local->tm_year + 1900,
+		 p_tm_local->tm_mon + 1,
+		 p_tm_local->tm_mday,
+		 p_tm_local->tm_hour,
+		 p_tm_local->tm_min,
+		 p_tm_local->tm_sec,
+		 (int)tv->tv_usec,
+		 hh,
+		 mm);
 
 	return buf;
 }
 
 
+/*
+ *
+ * hostnameaddr()
+ *
+ * Formats the hostname and resulting numeric IP address into a string,
+ * avoiding duplication if the "hostname" was in fact a numeric address.
+ *
+ */
+const char *
+hostnameaddr(
+	const char *		hostname,
+	const sockaddr_u *	addr
+	)
+{
+	const char *	addrtxt;
+	char *		result;
+	int		cnt;
 
-		
+	addrtxt = stoa(addr);
+	LIB_GETBUF(result);
+	if (strcmp(hostname, addrtxt))
+		cnt = snprintf(result, LIB_BUFLENGTH, "%s %s",
+			       hostname, addrtxt);
+	else
+		cnt = snprintf(result, LIB_BUFLENGTH, "%s", addrtxt);
+	if (cnt >= LIB_BUFLENGTH)
+		snprintf(result, LIB_BUFLENGTH,
+			 "hostnameaddr ERROR have %d (%d needed)",
+			 LIB_BUFLENGTH, cnt + 1);
+
+	return result;
+}

@@ -168,18 +168,14 @@ using namespace WebCore;
     if (!NP_Initialize || !NP_GetEntryPoints || !NP_Shutdown)
         return NO;
 
-#if COMPILER(CLANG)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#endif
     // Plugins (at least QT) require that you call UseResFile on the resource file before loading it.
     resourceRef = [self openResourceFile];
     if (resourceRef != -1) {
         UseResFile(resourceRef);
     }
-#if COMPILER(CLANG)
 #pragma clang diagnostic pop
-#endif
 
     browserFuncs.version = NP_VERSION_MINOR;
     browserFuncs.size = sizeof(NPNetscapeFuncs);
@@ -258,11 +254,6 @@ using namespace WebCore;
 
     pluginSize = pluginFuncs.size;
     pluginVersion = pluginFuncs.version;
-
-    if (pluginFuncs.javaClass)
-        LOG(LiveConnect, "%@:  mach-o entry point for NPP_GetJavaClass = %p", (NSString *)[self pluginInfo].name, pluginFuncs.javaClass);
-    else
-        LOG(LiveConnect, "%@:  no entry point for NPP_GetJavaClass", (NSString *)[self pluginInfo].name);
 
 #if !LOG_DISABLED
     currentTime = CFAbsoluteTimeGetCurrent();

@@ -80,7 +80,7 @@ static struct {
 	uintptr_t destructor;
 } _pthread_keys[_INTERNAL_POSIX_THREAD_KEYS_END];
 
-static pthread_lock_t tsd_lock = LOCK_INITIALIZER;
+static _pthread_lock tsd_lock = _PTHREAD_LOCK_INITIALIZER;
 
 // The pthread_tsd destruction order can be reverted to the old (pre-10.11) order
 // by setting this environment variable.
@@ -133,7 +133,7 @@ pthread_key_create(pthread_key_t *key, void (*destructor)(void *))
 	int res = EAGAIN; // Returns EAGAIN if key cannot be allocated.
 	pthread_key_t k;
 
-	LOCK(tsd_lock);
+	_PTHREAD_LOCK(tsd_lock);
 	for (k = __pthread_tsd_start; k < __pthread_tsd_end; k++) {
 		if (_pthread_key_set_destructor(k, destructor)) {
 			*key = k;
@@ -141,7 +141,7 @@ pthread_key_create(pthread_key_t *key, void (*destructor)(void *))
 			break;
 		}
 	}
-	UNLOCK(tsd_lock);
+	_PTHREAD_UNLOCK(tsd_lock);
 
 	return res;
 }
@@ -151,20 +151,20 @@ pthread_key_delete(pthread_key_t key)
 {
 	int res = EINVAL; // Returns EINVAL if key is not allocated.
 
-	LOCK(tsd_lock);
+	_PTHREAD_LOCK(tsd_lock);
 	if (key >= __pthread_tsd_start && key < __pthread_tsd_end) {
 		if (_pthread_key_unset_destructor(key)) {
 			struct _pthread *p;
-			LOCK(_pthread_list_lock);
+			_PTHREAD_LOCK(_pthread_list_lock);
 			TAILQ_FOREACH(p, &__pthread_head, plist) {
 				// No lock for word-sized write.
 				p->tsd[key] = 0;
 			}
-			UNLOCK(_pthread_list_lock);
+			_PTHREAD_UNLOCK(_pthread_list_lock);
 			res = 0;
 		}
 	}
-	UNLOCK(tsd_lock);
+	_PTHREAD_UNLOCK(tsd_lock);
 
 	return res;
 }
@@ -191,6 +191,21 @@ pthread_setspecific(pthread_key_t key, const void *value)
 				self->max_tsd_key = (int)key;
 			}
 		}
+	}
+#endif // !VARIANT_DYLD
+
+	return res;
+}
+
+int
+_pthread_setspecific_static(pthread_key_t key, void *value)
+{
+	int res = EINVAL;
+
+#if !VARIANT_DYLD
+	if (key < __pthread_tsd_start) {
+		_pthread_setspecific_direct(key, value);
+		res = 0;
 	}
 #endif // !VARIANT_DYLD
 
@@ -230,7 +245,7 @@ _pthread_tsd_cleanup_new(pthread_t self)
 {
 	int j;
 
-	// clean up all keys except the garbage collection key
+	// clean up all keys
 	for (j = 0; j < PTHREAD_DESTRUCTOR_ITERATIONS; j++) {
 		pthread_key_t k;
 		for (k = __pthread_tsd_start; k <= self->max_tsd_key; k++) {
@@ -238,23 +253,11 @@ _pthread_tsd_cleanup_new(pthread_t self)
 		}
 
 		for (k = __pthread_tsd_first; k <= __pthread_tsd_max; k++) {
-			if (k >= __PTK_FRAMEWORK_GC_KEY0 && k <= __PTK_FRAMEWORK_GC_KEY9) {
-				// GC must be cleaned up last
-				continue;
-			}
 			_pthread_tsd_cleanup_key(self, k);
 		}
 	}
 
 	self->max_tsd_key = 0;
-
-	// clean up all the GC keys
-	for (j = 0; j < PTHREAD_DESTRUCTOR_ITERATIONS; j++) {
-		pthread_key_t k;
-		for (k = __PTK_FRAMEWORK_GC_KEY0; k <= __PTK_FRAMEWORK_GC_KEY9; k++) {
-			_pthread_tsd_cleanup_key(self, k);
-		}
-	}
 }
 
 static void
@@ -339,12 +342,12 @@ pthread_key_init_np(int key, void (*destructor)(void *))
 {
 	int res = EINVAL; // Returns EINVAL if key is out of range.
 	if (key >= __pthread_tsd_first && key < __pthread_tsd_start) {
-		LOCK(tsd_lock);
+		_PTHREAD_LOCK(tsd_lock);
 		_pthread_key_set_destructor(key, destructor);
 		if (key > __pthread_tsd_max) {
 			__pthread_tsd_max = key;
 		}
-		UNLOCK(tsd_lock);
+		_PTHREAD_UNLOCK(tsd_lock);
 		res = 0;
 	}
 	return res;

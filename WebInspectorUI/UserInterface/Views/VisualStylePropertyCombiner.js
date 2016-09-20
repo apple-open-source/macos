@@ -25,7 +25,7 @@
 
 WebInspector.VisualStylePropertyCombiner = class VisualStylePropertyCombiner extends WebInspector.Object
 {
-    constructor(propertyName, propertyEditors)
+    constructor(propertyName, propertyEditors, spreadNumberValues)
     {
         super();
 
@@ -33,8 +33,9 @@ WebInspector.VisualStylePropertyCombiner = class VisualStylePropertyCombiner ext
         this._propertyName = propertyName;
         this._propertyMissing = false;
         this._propertyEditors = propertyEditors || [];
+        this._spreadNumberValues = !!spreadNumberValues && this._propertyEditors.length >= 4;
 
-        for (var editor of this._propertyEditors) {
+        for (let editor of this._propertyEditors) {
             editor.addEventListener(WebInspector.VisualStylePropertyEditor.Event.ValueDidChange, this._handlePropertyEditorValueChanged, this);
             editor.suppressStyleTextUpdate = true;
         }
@@ -51,16 +52,16 @@ WebInspector.VisualStylePropertyCombiner = class VisualStylePropertyCombiner ext
 
     get synthesizedValue()
     {
-        var value = "";
-        var oneEditorHasValue = false;
-        for (var editor of this._propertyEditors) {
-            var editorValue = editor.synthesizedValue;
+        let value = "";
+        let oneEditorHasValue = false;
+        for (let editor of this._propertyEditors) {
+            let editorValue = editor.synthesizedValue;
             if (editorValue && editorValue.length)
                 oneEditorHasValue = true;
             else if (editor.optionalProperty)
                 continue;
 
-            if (editor.masterProperty && editor.valueIsSupportedKeyword()) {
+            if (editor.masterProperty && editor.valueIsSupportedKeyword(editor.value)) {
                 this._markEditors(editor, true);
                 return editorValue;
             }
@@ -97,8 +98,8 @@ WebInspector.VisualStylePropertyCombiner = class VisualStylePropertyCombiner ext
         if (!this._style || !this._valueRegExp)
             return;
 
-        var property = this._style.propertyForName(this._propertyName, true);
-        var propertyMissing = !property;
+        let property = this._style.propertyForName(this._propertyName, true);
+        let propertyMissing = !property;
         if (propertyMissing && this._style.nodeStyles)
             property = this._style.nodeStyles.computedStyle.propertyForName(this._propertyName);
 
@@ -114,29 +115,53 @@ WebInspector.VisualStylePropertyCombiner = class VisualStylePropertyCombiner ext
         if (styleText === this.synthesizedValue)
             return;
 
-        for (var editor of this._propertyEditors)
+        for (let editor of this._propertyEditors)
             editor[WebInspector.VisualStylePropertyCombiner.EditorUpdatedSymbol] = false;
 
+        function updateEditor(editor, value) {
+            let updatedValues = editor.getValuesFromText(value || "", propertyMissing);
+            if (!updatedValues)
+                return;
+
+            editor.updateEditorValues(updatedValues);
+            editor[WebInspector.VisualStylePropertyCombiner.EditorUpdatedSymbol] = true;
+        }
+
+        if (this._spreadNumberValues) {
+            let numberValues = styleText.match(/\d+[\w%]*/g);
+            let count = numberValues && numberValues.length;
+            if (count === 1) {
+                for (let editor of this._propertyEditors)
+                    updateEditor(editor, numberValues[0]);
+            } else if (count === 2) {
+                for (let i = 0; i < count; ++i) {
+                    updateEditor(this._propertyEditors[i], numberValues[i]);
+                    updateEditor(this._propertyEditors[i + 2], numberValues[i]);
+                }
+            } else if (count === 3) {
+                updateEditor(this._propertyEditors[0], numberValues[0]);
+                updateEditor(this._propertyEditors[1], numberValues[1]);
+                updateEditor(this._propertyEditors[2], numberValues[2]);
+                updateEditor(this._propertyEditors[3], numberValues[1]);
+            }
+        }
+
         function updateCompatibleEditor(value) {
-            for (var editor of this._propertyEditors) {
+            for (let editor of this._propertyEditors) {
                 if (value && !editor.valueIsCompatible(value) || editor[WebInspector.VisualStylePropertyCombiner.EditorUpdatedSymbol])
                     continue;
 
                 if (this._currentValueIsKeyword && editor.disabled)
                     continue;
 
-                var updatedValues = editor.getValuesFromText(value || "", propertyMissing);
-                if (updatedValues)
-                    editor.updateEditorValues(updatedValues);
-                editor[WebInspector.VisualStylePropertyCombiner.EditorUpdatedSymbol] = true;
-
+                updateEditor(editor, value);
                 if (value)
                     return;
             }
         }
 
-        var matches = styleText.match(this._valueRegExp);
-        for (var i = 0; i < this._propertyEditors.length; ++i)
+        let matches = styleText.match(this._valueRegExp);
+        for (let i = 0; i < this._propertyEditors.length; ++i)
             updateCompatibleEditor.call(this, matches && matches[i]);
     }
 
@@ -156,7 +181,7 @@ WebInspector.VisualStylePropertyCombiner = class VisualStylePropertyCombiner ext
     _markEditors(ignoredEditor, disabled)
     {
         this._currentValueIsKeyword = disabled || false;
-        for (var editor of this._propertyEditors) {
+        for (let editor of this._propertyEditors) {
             if (ignoredEditor && editor === ignoredEditor)
                 continue;
 
@@ -167,7 +192,7 @@ WebInspector.VisualStylePropertyCombiner = class VisualStylePropertyCombiner ext
     _handlePropertyEditorValueChanged()
     {
         this._ignoreNextUpdate = true;
-        var value = this.synthesizedValue;
+        let value = this.synthesizedValue;
         if (this._style)
             this._style.text = this.modifyPropertyText(this._style.text, value);
 

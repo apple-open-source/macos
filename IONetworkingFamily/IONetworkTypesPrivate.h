@@ -25,6 +25,8 @@
 
 #ifdef KERNEL
 
+#include <net/kpi_interface.h>
+
 /*! @defined kIONetworkNotificationBPFTapStateChange
     @discussion Notification indicates the BPF tap on the network
     interface was enabled or disabled.
@@ -67,12 +69,13 @@ struct IONetworkInterfaceLoggingParameters
 // See IONetworkInterface::setInterfaceSubType()
 // Must mirror the IFNET_SUBFAMILY_* enums.
 enum {
-    kIONetworkInterfaceSubTypeNone          = 0,
-    kIONetworkInterfaceSubTypeUSB           = 1,
-    kIONetworkInterfaceSubTypeBluetooth     = 2,
-    kIONetworkInterfaceSubTypeWiFi          = 3,
-    kIONetworkInterfaceSubTypeThunderbolt   = 4,
-    kIONetworkInterfaceSubTypeReserved      = 5
+    kIONetworkInterfaceSubTypeNone          = IFNET_SUBFAMILY_ANY,
+    kIONetworkInterfaceSubTypeUSB           = IFNET_SUBFAMILY_USB,
+    kIONetworkInterfaceSubTypeBluetooth     = IFNET_SUBFAMILY_BLUETOOTH,
+    kIONetworkInterfaceSubTypeWiFi          = IFNET_SUBFAMILY_WIFI,
+    kIONetworkInterfaceSubTypeThunderbolt   = IFNET_SUBFAMILY_THUNDERBOLT,
+    kIONetworkInterfaceSubTypeInternalCoProc = IFNET_SUBFAMILY_INTCOPROC,
+    kIONetworkInterfaceSubTypeReserved      = IFNET_SUBFAMILY_RESERVED,
 };
 
 struct IONetworkInterfaceAddressChangeParameters

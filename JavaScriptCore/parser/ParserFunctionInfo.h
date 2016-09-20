@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,35 +28,26 @@
 
 namespace JSC {
 
-#if ENABLE(ES6_ARROWFUNCTION_SYNTAX)
-enum FunctionBodyType { ArrowFunctionBodyExpression, ArrowFunctionBodyBlock, StandardFunctionBodyBlock };
-#endif
-
 template <class TreeBuilder>
 struct ParserFunctionInfo {
     const Identifier* name = 0;
-    typename TreeBuilder::FormalParameterList parameters = 0;
     typename TreeBuilder::FunctionBody body = 0;
-    unsigned startFunctionOffset = 0;
-    unsigned endFunctionOffset = 0;
-    int bodyStartLine = 0;
-    int bodyEndLine = 0;
-    unsigned bodyStartColumn = 0;
-#if ENABLE(ES6_ARROWFUNCTION_SYNTAX)
-    unsigned arrowFunctionOffset = 0;
-    unsigned arrowFunctionNextTockenEndOffset = 0;
-    bool isArrowFunction { false };
-    bool isEndByTerminator { false };
-    FunctionBodyType functionBodyType { StandardFunctionBodyBlock };
-#endif
+    unsigned parameterCount = 0;
+    unsigned startOffset = 0;
+    unsigned endOffset = 0;
+    int startLine = 0;
+    int endLine = 0;
+    unsigned parametersStartColumn = 0;
 };
 
-#if ENABLE(ES6_CLASS_SYNTAX)
 template <class TreeBuilder>
 struct ParserClassInfo {
-    const Identifier* className = 0;
+    const Identifier* className { nullptr };
+    unsigned startOffset { 0 };
+    unsigned endOffset { 0 };
+    int startLine { 0 };
+    unsigned startColumn { 0 };
 };
-#endif
 
 }
 

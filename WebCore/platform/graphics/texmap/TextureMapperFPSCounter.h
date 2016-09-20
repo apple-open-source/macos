@@ -22,7 +22,6 @@
 #ifndef TextureMapperFPSCounter_h
 #define TextureMapperFPSCounter_h
 
-#if USE(TEXTURE_MAPPER)
 #include "FloatPoint.h"
 #include "TransformationMatrix.h"
 #include <wtf/Noncopyable.h>
@@ -35,7 +34,7 @@ class TextureMapperFPSCounter {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     TextureMapperFPSCounter();
-    void updateFPSAndDisplay(TextureMapper*, const FloatPoint& = FloatPoint::zero(), const TransformationMatrix& = TransformationMatrix());
+    void updateFPSAndDisplay(TextureMapper&, const FloatPoint& = FloatPoint::zero(), const TransformationMatrix& = TransformationMatrix());
 
 private:
     bool m_isShowingFPS;
@@ -47,8 +46,4 @@ private:
 
 } // namespace WebCore
 
-#endif // USE(TEXTURE_MAPPER)
-
 #endif // TextureMapperFPSCounter_h
-
-

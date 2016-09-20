@@ -27,7 +27,6 @@
 
 #include "AudioBuffer.h"
 #include "Event.h"
-#include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
@@ -36,8 +35,15 @@ class AudioBuffer;
     
 class AudioProcessingEvent : public Event {
 public:
-    static Ref<AudioProcessingEvent> create();
-    static Ref<AudioProcessingEvent> create(PassRefPtr<AudioBuffer> inputBuffer, PassRefPtr<AudioBuffer> outputBuffer, double playbackTime);
+    static Ref<AudioProcessingEvent> create(RefPtr<AudioBuffer>&& inputBuffer, RefPtr<AudioBuffer>&& outputBuffer, double playbackTime)
+    {
+        return adoptRef(*new AudioProcessingEvent(WTFMove(inputBuffer), WTFMove(outputBuffer), playbackTime));
+    }
+
+    static Ref<AudioProcessingEvent> createForBindings()
+    {
+        return adoptRef(*new AudioProcessingEvent);
+    }
     
     virtual ~AudioProcessingEvent();
 
@@ -45,11 +51,11 @@ public:
     AudioBuffer* outputBuffer() { return m_outputBuffer.get(); }
     double playbackTime() const { return m_playbackTime; }
 
-    virtual EventInterface eventInterface() const override;
+    EventInterface eventInterface() const override;
 
 private:
     AudioProcessingEvent();
-    AudioProcessingEvent(PassRefPtr<AudioBuffer> inputBuffer, PassRefPtr<AudioBuffer> outputBuffer, double playbackTime);
+    AudioProcessingEvent(RefPtr<AudioBuffer>&& inputBuffer, RefPtr<AudioBuffer>&& outputBuffer, double playbackTime);
 
     RefPtr<AudioBuffer> m_inputBuffer;
     RefPtr<AudioBuffer> m_outputBuffer;

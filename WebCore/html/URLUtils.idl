@@ -32,14 +32,13 @@ interface URLUtils {
 
     readonly attribute DOMString origin;
 
-    [TreatNullAs=NullString] attribute DOMString protocol;
-    [TreatNullAs=NullString] attribute DOMString username;
-    [TreatNullAs=NullString] attribute DOMString password;
-    [TreatNullAs=NullString] attribute DOMString host;
-    [TreatNullAs=NullString] attribute DOMString hostname;
-    [TreatNullAs=NullString] attribute DOMString port;
-    [TreatNullAs=NullString] attribute DOMString pathname;
-    [TreatNullAs=NullString] attribute DOMString search;
-    //    attribute URLSearchParams? searchParams;
-    [TreatNullAs=NullString] attribute DOMString hash;
+    attribute DOMString protocol;
+    attribute DOMString username;
+    attribute DOMString password;
+    attribute DOMString host;
+    attribute DOMString hostname;
+    attribute DOMString port;
+    attribute DOMString pathname;
+    attribute DOMString hash;
+    attribute DOMString search;
 };

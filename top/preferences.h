@@ -87,8 +87,8 @@ void top_prefs_set_samples(int s);
 int top_prefs_get_nprocs(void);
 void top_prefs_set_nprocs(int n);
 
-void top_prefs_set_pid(pid_t pid);
-bool top_prefs_get_pid(pid_t *pidptr);
+void top_prefs_add_pid(pid_t pid);
+bool top_prefs_want_pid(pid_t pid);
 
 /* Returns true if the signal string is invalid. */ 
 bool top_prefs_set_signal_string(char *s);

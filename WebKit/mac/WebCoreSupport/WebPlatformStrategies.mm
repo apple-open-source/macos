@@ -28,7 +28,8 @@
 #import "WebFrameNetworkingContext.h"
 #import "WebPluginDatabase.h"
 #import "WebPluginPackage.h"
-#import <WebCore/BlockExceptions.h>
+#import "WebResourceLoadScheduler.h"
+#import <WebCore/BlobRegistryImpl.h>
 #import <WebCore/Color.h>
 #import <WebCore/MainFrame.h>
 #import <WebCore/Page.h>
@@ -38,6 +39,7 @@
 #import <WebCore/SharedBuffer.h>
 #import <WebCore/SubframeLoader.h>
 #import <WebKitSystemInterface.h>
+#import <wtf/BlockObjCExceptions.h>
 #import <wtf/NeverDestroyed.h>
 
 using namespace WebCore;
@@ -62,7 +64,7 @@ CookiesStrategy* WebPlatformStrategies::createCookiesStrategy()
 
 LoaderStrategy* WebPlatformStrategies::createLoaderStrategy()
 {
-    return this;
+    return new WebResourceLoadScheduler;
 }
 
 PasteboardStrategy* WebPlatformStrategies::createPasteboardStrategy()
@@ -73,6 +75,11 @@ PasteboardStrategy* WebPlatformStrategies::createPasteboardStrategy()
 PluginStrategy* WebPlatformStrategies::createPluginStrategy()
 {
     return this;
+}
+
+BlobRegistry* WebPlatformStrategies::createBlobRegistry()
+{
+    return new WebCore::BlobRegistryImpl;
 }
 
 String WebPlatformStrategies::cookiesForDOM(const NetworkStorageSession& session, const URL& firstParty, const URL& url)
@@ -95,6 +102,12 @@ String WebPlatformStrategies::cookieRequestHeaderFieldValue(const NetworkStorage
     return WebCore::cookieRequestHeaderFieldValue(session, firstParty, url);
 }
 
+String WebPlatformStrategies::cookieRequestHeaderFieldValue(SessionID sessionID, const URL& firstParty, const URL& url)
+{
+    auto& session = sessionID.isEphemeral() ? WebFrameNetworkingContext::ensurePrivateBrowsingSession() : NetworkStorageSession::defaultStorageSession();
+    return WebCore::cookieRequestHeaderFieldValue(session, firstParty, url);
+}
+
 bool WebPlatformStrategies::getRawCookies(const NetworkStorageSession& session, const URL& firstParty, const URL& url, Vector<Cookie>& rawCookies)
 {
     return WebCore::getRawCookies(session, firstParty, url, rawCookies);
@@ -103,6 +116,11 @@ bool WebPlatformStrategies::getRawCookies(const NetworkStorageSession& session, 
 void WebPlatformStrategies::deleteCookie(const NetworkStorageSession& session, const URL& url, const String& cookieName)
 {
     WebCore::deleteCookie(session, url, cookieName);
+}
+
+void WebPlatformStrategies::addCookie(const NetworkStorageSession& session, const URL& url, const Cookie& cookie)
+{
+    WebCore::addCookie(session, url, cookie);
 }
 
 void WebPlatformStrategies::refreshPlugins()
@@ -115,7 +133,7 @@ void WebPlatformStrategies::getPluginInfo(const Page* page, Vector<PluginInfo>& 
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
 
     // WebKit1 has no application plug-ins, so we don't need to add them here.
-    if (!page->mainFrame().loader().subframeLoader().allowPlugins(NotAboutToInstantiatePlugin))
+    if (!page->mainFrame().loader().subframeLoader().allowPlugins())
         return;
 
     NSArray* pluginsArray = [[WebPluginDatabase sharedDatabase] plugins];
@@ -148,7 +166,7 @@ void WebPlatformStrategies::getTypes(Vector<String>& types, const String& pasteb
     PlatformPasteboard(pasteboardName).getTypes(types);
 }
 
-PassRefPtr<SharedBuffer> WebPlatformStrategies::bufferForType(const String& pasteboardType, const String& pasteboardName)
+RefPtr<SharedBuffer> WebPlatformStrategies::bufferForType(const String& pasteboardType, const String& pasteboardName)
 {
     return PlatformPasteboard(pasteboardName).bufferForType(pasteboardType);
 }
@@ -198,7 +216,7 @@ long WebPlatformStrategies::setTypes(const Vector<String>& pasteboardTypes, cons
     return PlatformPasteboard(pasteboardName).setTypes(pasteboardTypes);
 }
 
-long WebPlatformStrategies::setBufferForType(PassRefPtr<SharedBuffer> buffer, const String& pasteboardType, const String& pasteboardName)
+long WebPlatformStrategies::setBufferForType(SharedBuffer* buffer, const String& pasteboardType, const String& pasteboardName)
 {
     return PlatformPasteboard(pasteboardName).setBufferForType(buffer, pasteboardType);
 }
@@ -234,7 +252,7 @@ int WebPlatformStrategies::getPasteboardItemsCount()
     return PlatformPasteboard().count();
 }
 
-PassRefPtr<WebCore::SharedBuffer> WebPlatformStrategies::readBufferFromPasteboard(int index, const String& type)
+RefPtr<WebCore::SharedBuffer> WebPlatformStrategies::readBufferFromPasteboard(int index, const String& type)
 {
     return PlatformPasteboard().readBuffer(index, type);
 }

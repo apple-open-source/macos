@@ -329,6 +329,8 @@ SecCmsSignerInfoSign(SecCmsSignerInfoRef signerinfo, SecAsn1Item * digest, SecAs
 
     poolp = signerinfo->signedData->contentInfo.cmsg->poolp;
 
+    SecAsn1AlgId _algID;
+
     switch (signerinfo->signerIdentifier.identifierType) {
     case SecCmsSignerIDIssuerSN:
         privkey = signerinfo->signingKey;
@@ -340,7 +342,7 @@ SecCmsSignerInfoSign(SecCmsSignerInfoRef signerinfo, SecAsn1Item * digest, SecAs
 	    goto loser;
         }
 #else
-        SecAsn1AlgId _algID = SecCertificateGetPublicKeyAlgorithmID(cert);
+        _algID = SecCertificateGetPublicKeyAlgorithmID(cert);
         algID = &_algID;
 #endif
         break;
@@ -371,6 +373,13 @@ SecCmsSignerInfoSign(SecCmsSignerInfoRef signerinfo, SecAsn1Item * digest, SecAs
     }
     digestalgtag = SecCmsSignerInfoGetDigestAlgTag(signerinfo);
     pubkAlgTag = SECOID_GetAlgorithmTag(algID);
+
+    /* we no longer support signing with MD5 */
+    if (digestalgtag == SEC_OID_MD5) {
+        PORT_SetError(SEC_ERROR_INVALID_ALGORITHM);
+        goto loser;
+    }
+
 #if USE_CDSA_CRYPTO
     if (signerinfo->signerIdentifier.identifierType == SecCmsSignerIDSubjectKeyID) {
       SECOID_DestroyAlgorithmID(&freeAlgID, PR_FALSE);

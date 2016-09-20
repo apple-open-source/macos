@@ -66,7 +66,7 @@ static inline ContextMap& contextMap()
 
 EwkContext::EwkContext(WKContextRef context, const String& extensionsPath)
     : m_context(context)
-    , m_databaseManager(std::make_unique<EwkDatabaseManager>(WKContextGetDatabaseManager(context)))
+    , m_databaseManager(std::make_unique<EwkDatabaseManager>())
     , m_storageManager(std::make_unique<EwkStorageManager>(WKContextGetKeyValueStorageManager(context)))
 #if ENABLE(BATTERY_STATUS)
     , m_batteryProvider(BatteryProvider::create(context))
@@ -77,6 +77,10 @@ EwkContext::EwkContext(WKContextRef context, const String& extensionsPath)
     , m_jsGlobalContext(nullptr)
     , m_extensionsPath(extensionsPath)
 {
+    // EwkContext make the context with the legacy options, it set the maximum process count to 1.
+    // m_processCount also set to 1 to align with the ProcessPoolConfiguration.
+    m_processCountLimit = 1;
+    
     ContextMap::AddResult result = contextMap().add(context, this);
     ASSERT_UNUSED(result, result.isNewEntry);
 
@@ -257,46 +261,18 @@ Ewk_Cache_Model EwkContext::cacheModel() const
     return static_cast<Ewk_Cache_Model>(WKContextGetCacheModel(m_context.get()));
 }
 
-inline WKProcessModel toWKProcessModel(Ewk_Process_Model processModel)
+void EwkContext::setProcessCountLimit(unsigned count)
 {
-    switch (processModel) {
-    case EWK_PROCESS_MODEL_SHARED_SECONDARY:
-        return kWKProcessModelSharedSecondaryProcess;
-    case EWK_PROCESS_MODEL_MULTIPLE_SECONDARY:
-        return kWKProcessModelMultipleSecondaryProcesses;
-    }
-    ASSERT_NOT_REACHED();
-
-    return kWKProcessModelSharedSecondaryProcess;
-}
-
-void EwkContext::setProcessModel(Ewk_Process_Model processModel)
-{
-    WKProcessModel newWKProcessModel = toWKProcessModel(processModel);
-
-    if (WKContextGetProcessModel(m_context.get()) == newWKProcessModel)
+    if (m_processCountLimit == count)
         return;
-
-    WKContextSetUsesNetworkProcess(m_context.get(), newWKProcessModel == kWKProcessModelMultipleSecondaryProcesses);
-    WKContextSetProcessModel(m_context.get(), newWKProcessModel);
+    
+    m_processCountLimit = count;
+    WKContextSetMaximumNumberOfProcesses(m_context.get(), m_processCountLimit);
 }
 
-inline Ewk_Process_Model toEwkProcessModel(WKProcessModel processModel)
+unsigned EwkContext::processCountLimit() const
 {
-    switch (processModel) {
-    case kWKProcessModelSharedSecondaryProcess:
-        return EWK_PROCESS_MODEL_SHARED_SECONDARY;
-    case kWKProcessModelMultipleSecondaryProcesses:
-        return EWK_PROCESS_MODEL_MULTIPLE_SECONDARY;
-    }
-    ASSERT_NOT_REACHED();
-
-    return EWK_PROCESS_MODEL_SHARED_SECONDARY;
-}
-
-Ewk_Process_Model EwkContext::processModel() const
-{
-    return toEwkProcessModel(WKContextGetProcessModel(m_context.get()));
+    return m_processCountLimit;
 }
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
@@ -311,7 +287,6 @@ void EwkContext::clearResourceCache()
 {
     WKResourceCacheManagerClearCacheForAllOrigins(WKContextGetResourceCacheManager(m_context.get()), WKResourceCachesToClearAll);
 }
-
 
 JSGlobalContextRef EwkContext::jsGlobalContext()
 {
@@ -568,33 +543,6 @@ void ewk_context_message_from_extensions_callback_set(Ewk_Context* ewkContext, E
     impl->setMessageFromExtensionCallback(callback, userData);
 }
 
-Eina_Bool ewk_context_process_model_set(Ewk_Context* ewkContext, Ewk_Process_Model processModel)
-{
-#if ENABLE(NETWORK_PROCESS)
-    EWK_OBJ_GET_IMPL_OR_RETURN(EwkContext, ewkContext, impl, false);
-
-    impl->setProcessModel(processModel);
-
-    return true;
-#else
-    UNUSED_PARAM(ewkContext);
-    UNUSED_PARAM(processModel);
-    return false;
-#endif
-}
-
-Ewk_Process_Model ewk_context_process_model_get(const Ewk_Context* ewkContext)
-{
-#if ENABLE(NETWORK_PROCESS)
-    EWK_OBJ_GET_IMPL_OR_RETURN(const EwkContext, ewkContext, impl, EWK_PROCESS_MODEL_SHARED_SECONDARY);
-
-    return impl->processModel();
-#else
-    UNUSED_PARAM(ewkContext);
-    return EWK_PROCESS_MODEL_SHARED_SECONDARY;
-#endif
-}
-
 Ewk_TLS_Error_Policy ewk_context_tls_error_policy_get(const Ewk_Context* context)
 {
     EWK_OBJ_GET_IMPL_OR_RETURN(const EwkContext, context, impl, EWK_TLS_ERROR_POLICY_FAIL);
@@ -615,7 +563,7 @@ void ewk_context_preferred_languages_set(Eina_List* languages)
         Eina_List* l;
         void* data;
         EINA_LIST_FOREACH(languages, l, data)
-            preferredLanguages.append(String::fromUTF8(static_cast<char*>(data)).lower().replace("_", "-"));
+            preferredLanguages.append(String::fromUTF8(static_cast<char*>(data)).convertToASCIILowercase().replace("_", "-"));
     }
 
     WebCore::overrideUserPreferredLanguages(preferredLanguages);
@@ -627,4 +575,19 @@ void ewk_context_tls_certificate_for_host_allow(Ewk_Context* context, const char
     EWK_OBJ_GET_IMPL_OR_RETURN(const EwkContext, context, impl);
 
     impl->allowSpecificHTTPSCertificateForHost(pem, host);
+}
+
+Eina_Bool ewk_context_web_process_count_limit_set(Ewk_Context* context, unsigned count)
+{
+    EWK_OBJ_GET_IMPL_OR_RETURN(EwkContext, context, impl, false);
+
+    impl->setProcessCountLimit(count);
+    return true;
+}
+
+unsigned ewk_context_web_process_count_limit_get(const Ewk_Context* context)
+{
+    EWK_OBJ_GET_IMPL_OR_RETURN(const EwkContext, context, impl, 0);
+    
+    return impl->processCountLimit();
 }

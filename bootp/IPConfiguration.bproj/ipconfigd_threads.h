@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -73,34 +73,6 @@ typedef enum {
     IFEventID_last_e,
 } IFEventID_t;
 
-static __inline__ const char * 
-IFEventID_names(IFEventID_t evid)
-{
-    static const char * names[] = {
-	"START",
-	"STOP",
-	"TIMEOUT",
-	"LINK STATUS CHANGED",
-	"LINK TIMER EXPIRED",
-	"DATA",
-	"ARP",
-	"CHANGE",
-	"RENEW",
-	"ARP COLLISION",
-	"SLEEP",
-	"WAKE",
-	"POWER OFF",
-	"GET DHCP INFO",
-	"GET DHCPv6 INFO",
-	"IPv6 INTERFACE ADDRESS CHANGED",
-	"BSSID CHANGED",
-    };
-    if (evid < IFEventID_start_e || evid >= IFEventID_last_e) {
-	return ("<unknown event>");
-    }
-    return (names[evid]);
-}
-
 typedef struct ServiceInfo * ServiceRef;
 typedef ipconfig_status_t (IPConfigFunc)
 (ServiceRef service_p, 
@@ -109,7 +81,7 @@ typedef ipconfig_status_t (IPConfigFunc)
 typedef IPConfigFunc * IPConfigFuncRef;
 
 typedef struct {
-    ipconfig_method_data_t *	method_data;
+    ipconfig_method_data_t	method_data;
     boolean_t			needs_stop;
 } change_event_data_t;
 
@@ -118,17 +90,18 @@ typedef struct {
     void *			hwaddr;
     int				hwlen;
     boolean_t			is_sleep_proxy;
+    struct in_addr		sleep_proxy_ip;
+    CFDataRef			opt_record;
 } arp_collision_data_t;
 
 typedef enum {
-    /* Bit fields */
-    kWakeFlagsSSIDChanged	= 0x1,
-    kWakeFlagsBSSIDChanged	= 0x2,
-} WakeFlags;
+    kLinkFlagsSSIDChanged	= 0x1,
+    kLinkFlagsBSSIDChanged	= 0x2,
+} LinkFlags;
 
 typedef struct {
-    WakeFlags			flags;
-} wake_data_t;
+    LinkFlags			flags;
+} link_event_data, *link_event_data_t;
 
 /*
  * Function: ip_valid
@@ -310,6 +283,9 @@ void
 ServiceReportIPv6AddressConflict(ServiceRef service_p,
 				 const struct in6_addr * addr_p);
 #endif /* TARGET_OS_EMBEDDED */
+
+void
+ServiceGenerateFailureSymptom(ServiceRef service_p);
 
 void
 service_publish_failure(ServiceRef service_p, ipconfig_status_t status);

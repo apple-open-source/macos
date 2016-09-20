@@ -42,6 +42,7 @@
 #include "HTMLNames.h"
 #include "InspectorHistory.h"
 #include "Node.h"
+#include "XMLDocument.h"
 #include "XMLDocumentParser.h"
 
 #include <wtf/Deque.h>
@@ -88,9 +89,9 @@ void DOMPatchSupport::patchDocument(const String& markup)
     if (m_document->isHTMLDocument())
         newDocument = HTMLDocument::create(nullptr, URL());
     else if (m_document->isXHTMLDocument())
-        newDocument = HTMLDocument::createXHTML(nullptr, URL());
+        newDocument = XMLDocument::createXHTML(nullptr, URL());
     else if (m_document->isSVGDocument())
-        newDocument = Document::create(nullptr, URL());
+        newDocument = XMLDocument::create(nullptr, URL());
 
     ASSERT(newDocument);
     RefPtr<DocumentParser> parser;
@@ -135,14 +136,13 @@ Node* DOMPatchSupport::patchNode(Node& node, const String& markup, ExceptionCode
         oldList.append(createDigest(child, nullptr));
 
     // Compose the new list.
-    String markupCopy = markup.lower();
     Vector<std::unique_ptr<Digest>> newList;
     for (Node* child = parentNode->firstChild(); child != &node; child = child->nextSibling())
         newList.append(createDigest(child, nullptr));
     for (Node* child = fragment->firstChild(); child; child = child->nextSibling()) {
-        if (child->hasTagName(headTag) && !child->firstChild() && markupCopy.find("</head>") == notFound)
+        if (child->hasTagName(headTag) && !child->firstChild() && !markup.containsIgnoringASCIICase("</head>"))
             continue; // HTML5 parser inserts empty <head> tag whenever it parses <body>
-        if (child->hasTagName(bodyTag) && !child->firstChild() && markupCopy.find("</body>") == notFound)
+        if (child->hasTagName(bodyTag) && !child->firstChild() && !markup.containsIgnoringASCIICase("</body>"))
             continue; // HTML5 parser inserts empty <body> tag whenever it parses </head>
         newList.append(createDigest(child, &m_unusedNodesMap));
     }
@@ -152,7 +152,7 @@ Node* DOMPatchSupport::patchNode(Node& node, const String& markup, ExceptionCode
     if (!innerPatchChildren(parentNode, oldList, newList, ec)) {
         // Fall back to total replace.
         ec = 0;
-        if (!m_domEditor->replaceChild(parentNode, fragment.release(), &node, ec))
+        if (!m_domEditor->replaceChild(*parentNode, *fragment, node, ec))
             return nullptr;
     }
     return previousSibling ? previousSibling->nextSibling() : parentNode->firstChild();
@@ -167,7 +167,7 @@ bool DOMPatchSupport::innerPatchNode(Digest* oldDigest, Digest* newDigest, Excep
     Node* newNode = newDigest->m_node;
 
     if (newNode->nodeType() != oldNode->nodeType() || newNode->nodeName() != oldNode->nodeName())
-        return m_domEditor->replaceChild(oldNode->parentNode(), newNode, oldNode, ec);
+        return m_domEditor->replaceChild(*oldNode->parentNode(), *newNode, *oldNode, ec);
 
     if (oldNode->nodeValue() != newNode->nodeValue()) {
         if (!m_domEditor->setNodeValue(oldNode, newNode->nodeValue(), ec))
@@ -210,14 +210,14 @@ DOMPatchSupport::diff(const Vector<std::unique_ptr<Digest>>& oldList, const Vect
     ResultMap newMap(newList.size());
     ResultMap oldMap(oldList.size());
 
-    for (size_t i = 0; i < oldMap.size(); ++i) {
-        oldMap[i].first = nullptr;
-        oldMap[i].second = 0;
+    for (auto& result : oldMap) {
+        result.first = nullptr;
+        result.second = 0;
     }
 
-    for (size_t i = 0; i < newMap.size(); ++i) {
-        newMap[i].first = nullptr;
-        newMap[i].second = 0;
+    for (auto& result : newMap) {
+        result.first = nullptr;
+        result.second = 0;
     }
 
     // Trim head and tail.
@@ -368,8 +368,8 @@ bool DOMPatchSupport::innerPatchChildren(ContainerNode* parentNode, const Vector
     }
 
     // 2. Patch nodes marked for merge.
-    for (HashMap<Digest*, Digest*>::iterator it = merges.begin(); it != merges.end(); ++it) {
-        if (!innerPatchNode(it->value, it->key, ec))
+    for (auto& merge : merges) {
+        if (!innerPatchNode(merge.value, merge.key, ec))
             return false;
     }
 
@@ -377,7 +377,7 @@ bool DOMPatchSupport::innerPatchChildren(ContainerNode* parentNode, const Vector
     for (size_t i = 0; i < newMap.size(); ++i) {
         if (newMap[i].first || merges.contains(newList[i].get()))
             continue;
-        if (!insertBeforeAndMarkAsUsed(parentNode, newList[i].get(), parentNode->traverseToChildAt(i), ec))
+        if (!insertBeforeAndMarkAsUsed(*parentNode, *newList[i], parentNode->traverseToChildAt(i), ec))
             return false;
     }
 
@@ -392,7 +392,7 @@ bool DOMPatchSupport::innerPatchChildren(ContainerNode* parentNode, const Vector
         if (node->hasTagName(bodyTag) || node->hasTagName(headTag))
             continue; // Never move head or body, move the rest of the nodes around them.
 
-        if (!m_domEditor->insertBefore(parentNode, node.release(), anchorNode, ec))
+        if (!m_domEditor->insertBefore(*parentNode, node.releaseNonNull(), anchorNode, ec))
             return false;
     }
     return true;
@@ -420,7 +420,7 @@ std::unique_ptr<DOMPatchSupport::Digest> DOMPatchSupport::createDigest(Node* nod
             std::unique_ptr<Digest> childInfo = createDigest(child, unusedNodesMap);
             addStringToSHA1(sha1, childInfo->m_sha1);
             child = child->nextSibling();
-            digest->m_children.append(WTF::move(childInfo));
+            digest->m_children.append(WTFMove(childInfo));
         }
         Element* element = downcast<Element>(node);
 
@@ -446,17 +446,19 @@ std::unique_ptr<DOMPatchSupport::Digest> DOMPatchSupport::createDigest(Node* nod
     return digest;
 }
 
-bool DOMPatchSupport::insertBeforeAndMarkAsUsed(ContainerNode* parentNode, Digest* digest, Node* anchor, ExceptionCode& ec)
+bool DOMPatchSupport::insertBeforeAndMarkAsUsed(ContainerNode& parentNode, Digest& digest, Node* anchor, ExceptionCode& ec)
 {
-    bool result = m_domEditor->insertBefore(parentNode, digest->m_node, anchor, ec);
-    markNodeAsUsed(digest);
+    ASSERT(digest.m_node);
+    bool result = m_domEditor->insertBefore(parentNode, *digest.m_node, anchor, ec);
+    markNodeAsUsed(&digest);
     return result;
 }
 
 bool DOMPatchSupport::removeChildAndMoveToNew(Digest* oldDigest, ExceptionCode& ec)
 {
     RefPtr<Node> oldNode = oldDigest->m_node;
-    if (!m_domEditor->removeChild(oldNode->parentNode(), oldNode.get(), ec))
+    ASSERT(oldNode->parentNode());
+    if (!m_domEditor->removeChild(*oldNode->parentNode(), *oldNode, ec))
         return false;
 
     // Diff works within levels. In order not to lose the node identity when user
@@ -468,15 +470,15 @@ bool DOMPatchSupport::removeChildAndMoveToNew(Digest* oldDigest, ExceptionCode& 
     if (it != m_unusedNodesMap.end()) {
         Digest* newDigest = it->value;
         Node* newNode = newDigest->m_node;
-        if (!m_domEditor->replaceChild(newNode->parentNode(), oldNode, newNode, ec))
+        if (!m_domEditor->replaceChild(*newNode->parentNode(), *oldNode, *newNode, ec))
             return false;
         newDigest->m_node = oldNode.get();
         markNodeAsUsed(newDigest);
         return true;
     }
 
-    for (size_t i = 0; i < oldDigest->m_children.size(); ++i) {
-        if (!removeChildAndMoveToNew(oldDigest->m_children[i].get(), ec))
+    for (auto& child : oldDigest->m_children) {
+        if (!removeChildAndMoveToNew(child.get(), ec))
             return false;
     }
     return true;
@@ -489,17 +491,18 @@ void DOMPatchSupport::markNodeAsUsed(Digest* digest)
     while (!queue.isEmpty()) {
         Digest* first = queue.takeFirst();
         m_unusedNodesMap.remove(first->m_sha1);
-        for (size_t i = 0; i < first->m_children.size(); ++i)
-            queue.append(first->m_children[i].get());
+        for (auto& child : first->m_children)
+            queue.append(child.get());
     }
 }
 
 #ifdef DEBUG_DOM_PATCH_SUPPORT
+
 static String nodeName(Node* node)
 {
     if (node->document().isXHTMLDocument())
          return node->nodeName();
-    return node->nodeName().lower();
+    return node->nodeName().convertToASCIILowercase();
 }
 
 void DOMPatchSupport::dumpMap(const ResultMap& map, const String& name)
@@ -508,6 +511,7 @@ void DOMPatchSupport::dumpMap(const ResultMap& map, const String& name)
     for (size_t i = 0; i < map.size(); ++i)
         fprintf(stderr, "%s[%lu]: %s (%p) - [%lu]\n", name.utf8().data(), i, map[i].first ? nodeName(map[i].first->m_node).utf8().data() : "", map[i].first, map[i].second);
 }
+
 #endif
 
 } // namespace WebCore

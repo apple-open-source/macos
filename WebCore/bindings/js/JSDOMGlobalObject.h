@@ -28,7 +28,9 @@
 #define JSDOMGlobalObject_h
 
 #include "PlatformExportMacros.h"
+#include "WebCoreJSBuiltinInternals.h"
 #include <runtime/JSGlobalObject.h>
+#include <runtime/StructureInlines.h>
 
 namespace WebCore {
 
@@ -45,7 +47,7 @@ namespace WebCore {
     protected:
         struct JSDOMGlobalObjectData;
 
-        JSDOMGlobalObject(JSC::VM&, JSC::Structure*, PassRefPtr<DOMWrapperWorld>, const JSC::GlobalObjectMethodTable* = 0);
+        JSDOMGlobalObject(JSC::VM&, JSC::Structure*, Ref<DOMWrapperWorld>&&, const JSC::GlobalObjectMethodTable* = 0);
         static void destroy(JSC::JSCell*);
         void finishCreation(JSC::VM&);
         void finishCreation(JSC::VM&, JSC::JSObject*);
@@ -64,8 +66,10 @@ namespace WebCore {
 
         static void visitChildren(JSC::JSCell*, JSC::SlotVisitor&);
 
-        DOMWrapperWorld& world() { return *m_world; }
+        DOMWrapperWorld& world() { return m_world.get(); }
         bool worldIsNormal() const { return m_worldIsNormal; }
+
+        JSBuiltinInternalFunctions& builtinInternalFunctions() { return m_builtinInternalFunctions; }
 
     protected:
         static const JSC::ClassInfo s_info;
@@ -83,19 +87,25 @@ namespace WebCore {
         JSDOMConstructorMap m_constructors;
 
         Event* m_currentEvent;
-        const RefPtr<DOMWrapperWorld> m_world;
+        Ref<DOMWrapperWorld> m_world;
         bool m_worldIsNormal;
+
+    private:
+        void addBuiltinGlobals(JSC::VM&);
+        friend void JSBuiltinInternalFunctions::initialize(JSDOMGlobalObject&);
+
+        JSBuiltinInternalFunctions m_builtinInternalFunctions;
     };
 
     template<class ConstructorClass>
-    inline JSC::JSObject* getDOMConstructor(JSC::VM& vm, const JSDOMGlobalObject* globalObject)
+    inline JSC::JSObject* getDOMConstructor(JSC::VM& vm, const JSDOMGlobalObject& globalObject)
     {
-        if (JSC::JSObject* constructor = const_cast<JSDOMGlobalObject*>(globalObject)->constructors().get(ConstructorClass::info()).get())
+        if (JSC::JSObject* constructor = const_cast<JSDOMGlobalObject&>(globalObject).constructors().get(ConstructorClass::info()).get())
             return constructor;
-        JSC::JSObject* constructor = ConstructorClass::create(vm, ConstructorClass::createStructure(vm, const_cast<JSDOMGlobalObject*>(globalObject), globalObject->objectPrototype()), const_cast<JSDOMGlobalObject*>(globalObject));
-        ASSERT(!const_cast<JSDOMGlobalObject*>(globalObject)->constructors().contains(ConstructorClass::info()));
+        JSC::JSObject* constructor = ConstructorClass::create(vm, ConstructorClass::createStructure(vm, const_cast<JSDOMGlobalObject&>(globalObject), ConstructorClass::prototypeForStructure(vm, globalObject)), const_cast<JSDOMGlobalObject&>(globalObject));
+        ASSERT(!const_cast<JSDOMGlobalObject&>(globalObject).constructors().contains(ConstructorClass::info()));
         JSC::WriteBarrier<JSC::JSObject> temp;
-        const_cast<JSDOMGlobalObject*>(globalObject)->constructors().add(ConstructorClass::info(), temp).iterator->value.set(vm, globalObject, constructor);
+        const_cast<JSDOMGlobalObject&>(globalObject).constructors().add(ConstructorClass::info(), temp).iterator->value.set(vm, &globalObject, constructor);
         return constructor;
     }
 

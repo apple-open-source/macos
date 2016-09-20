@@ -272,7 +272,6 @@ void top_insert(void *ptr) {
     unsigned long uid = 0;
     int nprocs;
     pid_t pid;
-    bool have_pid = false;
     
     c->reset_insertion(c);
 
@@ -300,14 +299,11 @@ void top_insert(void *ptr) {
     if(0 == nprocs)
 	return;
     
-    have_pid = top_prefs_get_pid(&pid);
-
     for(psample = libtop_piterate(); psample; psample = libtop_piterate()) {
 	if(user && psample->uid != uid)
 	    continue;
 	
-	if(have_pid) {
-	    if(pid != psample->pid)
+	if(!top_prefs_want_pid(psample->pid)) {
 		continue;
 	}
 

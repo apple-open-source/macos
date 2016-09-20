@@ -19,7 +19,7 @@
 <div id="page-header">
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p>
 <p class="apache">Apache HTTP Server Version 2.4</p>
-<img alt="" src="../images/feather.gif" /></div>
+<img alt="" src="../images/feather.png" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
 <a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.4</a> &gt; <a href="./">Modules</a></div>
@@ -60,7 +60,9 @@ more than one multi-processing module (MPM)</td></tr>
 <li><img alt="" src="../images/down.gif" /> <a href="#threadsperchild">ThreadsPerChild</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#threadstacksize">ThreadStackSize</a></li>
 </ul>
-<ul class="seealso"><li><a href="#comments_section">Comments</a></li></ul></div>
+<h3>Bugfix checklist</h3><ul class="seealso"><li><a href="https://www.apache.org/dist/httpd/CHANGES_2.4">httpd changelog</a></li><li><a href="https://bz.apache.org/bugzilla/buglist.cgi?bug_status=__open__&amp;list_id=144532&amp;product=Apache%20httpd-2&amp;query_format=specific&amp;order=changeddate%20DESC%2Cpriority%2Cbug_severity&amp;component=mpm_common">Known issues</a></li><li><a href="https://bz.apache.org/bugzilla/enter_bug.cgi?product=Apache%20httpd-2&amp;component=mpm_common">Report a bug</a></li></ul><h3>See also</h3>
+<ul class="seealso">
+<li><a href="#comments_section">Comments</a></li></ul></div>
 
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="CoreDumpDirectory" id="CoreDumpDirectory">CoreDumpDirectory</a> <a name="coredumpdirectory" id="coredumpdirectory">Directive</a></h2>
@@ -277,6 +279,13 @@ in *BSDs.</td></tr>
     then make each child handle a single bucket (with round-robin distribution
     of the buckets at children creation time).</p>
 
+    <div class="note"><h3>Meaning of "online" CPU core</h3>
+    <p>On Linux (and also BSD) a CPU core can be turned on/off if 
+    <a href="https://www.kernel.org/doc/Documentation/cpu-hotplug.txt">Hotplug</a> 
+    is configured, therefore <code class="directive">ListenCoresBucketsRatio</code> needs to
+    take this parameter into account while calculating the number of buckets to create.</p>
+    </div>
+
     <p><code class="directive">ListenCoresBucketsRatio</code> can improve the
     scalability when accepting new connections is/becomes the bottleneck.
     On systems with a large number of CPU cores, enabling this feature has
@@ -286,7 +295,10 @@ in *BSDs.</td></tr>
     <p>There must be at least twice the number of CPU cores than the
     configured <var>ratio</var> for this to be active. The recommended
     <var>ratio</var> is <code>8</code>, hence at least <code>16</code>
-    cores should be available at runtime when this value is used.</p>
+    cores should be available at runtime when this value is used.
+    The right <var>ratio</var> to obtain maximum performance needs to be calculated
+    for each target system, testing multiple values and observing the variations in your 
+    key performance metrics.</p>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -814,7 +826,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mpm_common.html'
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

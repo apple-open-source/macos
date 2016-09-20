@@ -50,12 +50,6 @@ ServerAuditToken token  : audit_token_t;
         in  profiles    : pointer_t;
         out return_val  : int);
 
-routine io_pm_set_active_profile(
-            server      : mach_port_t;
-ServerAuditToken token  : audit_token_t;
-        in  profiles    : pointer_t;
-        out return_val  : int);
-
 // Scheduled Events
 routine io_pm_schedule_power_event(
             server      : mach_port_t;
@@ -102,6 +96,7 @@ ServerAuditToken token  : audit_token_t;
         in  props       : pointer_t;
         out disableAppSleep: int;
         out enableAppSleep: int;
+        out enTrIntensity: int;
         out return_code : int);
 
 routine io_pm_assertion_retain_release(
@@ -304,3 +299,8 @@ ServerAuditToken token  : audit_token_t;
             out statsData: pointer_t, dealloc;
             out return_code : int);
 
+routine io_pm_set_exception_limits(
+            server      : mach_port_t;
+ServerAuditToken token  : audit_token_t;
+            in  props   : pointer_t;
+            out return_code : int);

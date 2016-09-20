@@ -28,7 +28,7 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/lib/libc_r/man/pthread_self.3,v 1.4.2.4 2001/08/17 15:42:52 ru Exp $
+.\" $FreeBSD$
 .\"
 .Dd April 4, 1996
 .Dt PTHREAD_SELF 3
@@ -37,7 +37,7 @@
 .Nm pthread_self
 .Nd get the calling thread's ID
 .Sh SYNOPSIS
-.Fd #include <pthread.h>
+.In pthread.h
 .Ft pthread_t
 .Fn pthread_self "void"
 .Sh DESCRIPTION
@@ -54,6 +54,7 @@ None.
 .Xr pthread_create 3 ,
 .Xr pthread_equal 3
 .Sh STANDARDS
+The
 .Fn pthread_self
-conforms to
+function conforms to
 .St -p1003.1-96 .

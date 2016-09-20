@@ -36,13 +36,13 @@
 #pragma D option quiet
 #pragma D option statusrate=10ms
 
-fbt::sigprocmask:entry
+fbt::ioctl:entry
 {
-	printf("Entering the sigprocmask function\n");
+	printf("Entering the ioctl function\n");
 }
 
-fbt::sigprocmask:return
+fbt::ioctl:return
 {
-	printf("Returning from sigprocmask function\n");
+	printf("Returning from ioctl function\n");
 	exit(0);
 }

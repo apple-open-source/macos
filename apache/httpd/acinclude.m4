@@ -312,37 +312,39 @@ AC_DEFUN([APACHE_MODULE],[
   AC_ARG_ENABLE(translit($1,_,-),APACHE_HELP_STRING(optname(),$2),force_$1=$enableval,enable_$1=ifelse($5,,maybe-all,$5))
   undefine([optname])dnl
   _apmod_extra_msg=""
-  dnl When --enable-modules=most or --enable-modules=(really)all is set and the
-  dnl module was not explicitly requested, allow a module to disable itself if
+  dnl If the module was not explicitly requested, allow it to disable itself if
   dnl its pre-reqs fail.
   case "$enable_$1" in
     yes|static|shared)
       _apmod_required="yes"
       ;;
     *)
-      case "$module_selection" in
-      reallyall|all|most)
-        _apmod_required="no"
-        ;;
-      *)
-        _apmod_required="yes"
-        ;;
-      esac
+      _apmod_required="no"
+      ;;
   esac
-  if test "$enable_$1" = "static"; then
-    enable_$1=static
+  if test "$enable_$1" = "static" -o "$enable_$1" = "shared"; then
+    :
   elif test "$enable_$1" = "yes"; then
     enable_$1=$module_default
+  elif test "$enable_$1" = "few"; then
+    if test "$module_selection" = "few" -o "$module_selection" = "most" -o \
+            "$module_selection" = "all" -o "$module_selection" = "reallyall"
+    then
+      enable_$1=$module_default
+    else
+      enable_$1=no
+    fi
+    _apmod_extra_msg=" ($module_selection)"
   elif test "$enable_$1" = "most"; then
     if test "$module_selection" = "most" -o "$module_selection" = "all" -o \
             "$module_selection" = "reallyall"
     then
       enable_$1=$module_default
-    elif test "$module_selection" = "few" -o "$module_selection" = "none"; then
+    else
       enable_$1=no
     fi
     _apmod_extra_msg=" ($module_selection)"
-  elif test "$enable_$1" = "maybe-all"; then
+  elif test "$enable_$1" = "all" -o "$enable_$1" = "maybe-all"; then
     if test "$module_selection" = "all" -o "$module_selection" = "reallyall"
     then
       enable_$1=$module_default
@@ -350,23 +352,29 @@ AC_DEFUN([APACHE_MODULE],[
     else
       enable_$1=no
     fi
-  elif test "$enable_$1" = "no" -a "$module_selection" = "reallyall" -a \
-            "$force_$1" != "no" ; then
+  elif test "$enable_$1" = "reallyall" -o "$enable_$1" = "no" ; then
+    if test "$module_selection" = "reallyall" -a "$force_$1" != "no" ; then
       enable_$1=$module_default
       _apmod_extra_msg=" ($module_selection)"
+    else
+      enable_$1=no
+    fi
+  else
+    enable_$1=no
   fi
   if test "$enable_$1" != "no"; then
     dnl If we plan to enable it, allow the module to run some autoconf magic
     dnl that may disable it because of missing dependencies.
     ifelse([$6$7],,:,
            [AC_MSG_RESULT([checking dependencies])
-            ifelse([$7],,:,[if test "$enable_$7" = "no" ; then
+            ifelse([$7],,:,[m4_foreach([prereq],[$7],
+                           [if test "$enable_[]prereq" = "no" ; then
                               enable_$1=no
-                              AC_MSG_WARN("mod_$7 is disabled but required for mod_$1")
-                            elif test "$enable_$1" = "static" && test "$enable_$7" != "static" ; then
-                              enable_$1=no
-                              AC_MSG_WARN("cannot build mod_$1 statically if mod_$7 is built shared")
-                            else])
+                              AC_MSG_WARN("mod_[]prereq is disabled but required for mod_$1")
+                            elif test "$enable_$1" = "static" && test "$enable_[]prereq" != "static" ; then
+                              enable_$1=$enable_[]prereq
+                              AC_MSG_WARN("building mod_$1 shared because mod_[]prereq is built shared")
+                            el])se])
             ifelse([$6],,:,[  $6])
             ifelse([$7],,:,[fi])
             AC_MSG_CHECKING(whether to enable mod_$1)
@@ -388,7 +396,6 @@ AC_DEFUN([APACHE_MODULE],[
       fi
       shared="";;
     *)
-      enable_$1=`echo $enable_$1|sed 's/shared,*//'`
       sharedobjs=yes
       shared=yes
       DSO_MODULES="$DSO_MODULES $1"
@@ -488,6 +495,8 @@ AC_DEFUN([APACHE_CHECK_OPENSSL],[
     ap_openssl_found=""
     ap_openssl_base=""
     ap_openssl_libs=""
+    ap_openssl_mod_cflags=""
+    ap_openssl_mod_ldflags=""
 
     dnl Determine the OpenSSL base directory, if any
     AC_MSG_CHECKING([for user-provided OpenSSL base directory])
@@ -590,9 +599,15 @@ AC_DEFUN([APACHE_CHECK_OPENSSL],[
     CPPFLAGS="$saved_CPPFLAGS"
     LIBS="$saved_LIBS"
     LDFLAGS="$saved_LDFLAGS"
+
+    dnl cache MOD_LDFLAGS, MOD_CFLAGS
+    ap_openssl_mod_cflags=$MOD_CFLAGS
+    ap_openssl_mod_ldflags=$MOD_LDFLAGS
   ])
   if test "x$ac_cv_openssl" = "xyes"; then
     AC_DEFINE(HAVE_OPENSSL, 1, [Define if OpenSSL is available])
+    APR_ADDTO(MOD_LDFLAGS, [$ap_openssl_mod_ldflags])
+    APR_ADDTO(MOD_CFLAGS, [$ap_openssl_mod_cflags])
   fi
 ])
 

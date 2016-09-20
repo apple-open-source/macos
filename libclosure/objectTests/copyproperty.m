@@ -48,7 +48,7 @@ int main() {
     if (localBlock == to.getInt) {
         fail("block property not copied!!");
     }
-    if (!objc_collectingEnabled() && Retained == 0) {
+    if (Retained == 0) {
         fail("didn't copy block import");
     }
 

@@ -37,9 +37,9 @@ public:
     typedef JSDestructibleObject Base;
     static const unsigned StructureFlags = Base::StructureFlags | OverridesGetOwnPropertySlot | OverridesGetPropertyNames | TypeOfShouldCallGetCallData;
 
-    static RuntimeObject* create(VM& vm, Structure* structure, PassRefPtr<Instance> instance)
+    static RuntimeObject* create(VM& vm, Structure* structure, RefPtr<Instance>&& instance)
     {
-        RuntimeObject* object = new (NotNull, allocateCell<RuntimeObject>(vm.heap)) RuntimeObject(vm, structure, instance);
+        RuntimeObject* object = new (NotNull, allocateCell<RuntimeObject>(vm.heap)) RuntimeObject(vm, structure, WTFMove(instance));
         object->finishCreation(vm);
         return object;
     }
@@ -47,7 +47,7 @@ public:
     static void destroy(JSCell*);
 
     static bool getOwnPropertySlot(JSObject*, ExecState*, PropertyName, PropertySlot&);
-    static void put(JSCell*, ExecState*, PropertyName, JSValue, PutPropertySlot&);
+    static bool put(JSCell*, ExecState*, PropertyName, JSValue, PutPropertySlot&);
     static bool deleteProperty(JSCell*, ExecState*, PropertyName);
     static JSValue defaultValue(const JSObject*, ExecState*, PreferredPrimitiveType);
     static CallType getCallData(JSCell*, CallData&);
@@ -74,13 +74,13 @@ public:
     }
 
 protected:
-    RuntimeObject(VM&, Structure*, PassRefPtr<Instance>);
+    RuntimeObject(VM&, Structure*, RefPtr<Instance>&&);
     void finishCreation(VM&);
 
 private:
-    static EncodedJSValue fallbackObjectGetter(ExecState*, JSObject*, EncodedJSValue, PropertyName);
-    static EncodedJSValue fieldGetter(ExecState*, JSObject*, EncodedJSValue, PropertyName);
-    static EncodedJSValue methodGetter(ExecState*, JSObject*, EncodedJSValue, PropertyName);
+    static EncodedJSValue fallbackObjectGetter(ExecState*, EncodedJSValue, PropertyName);
+    static EncodedJSValue fieldGetter(ExecState*, EncodedJSValue, PropertyName);
+    static EncodedJSValue methodGetter(ExecState*, EncodedJSValue, PropertyName);
 
     RefPtr<Instance> m_instance;
 };

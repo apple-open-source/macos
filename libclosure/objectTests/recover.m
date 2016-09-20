@@ -9,7 +9,6 @@
 #import <Foundation/Foundation.h>
 #import <Block.h>
 #import <Block_private.h>
-#import <objc/objc-auto.h>
 #import "test.h"
 
 int recovered = 0;
@@ -18,10 +17,6 @@ int recovered = 0;
 }
 @end
 @implementation TestObject
-- (void)finalize {
-    ++recovered;
-    [super finalize];
-}
 - (void)dealloc {
     ++recovered;
     [super dealloc];
@@ -58,9 +53,6 @@ int main() {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
     for (int i = 0; i < 200; ++i)   // do enough to trigger TLC if GC is on
         testRoutine();
-    if (objc_collectingEnabled()) {
-        objc_collect(OBJC_EXHAUSTIVE_COLLECTION | OBJC_WAIT_UNTIL_DONE);
-    }
     [pool drain];
 
     if (recovered == 0) {

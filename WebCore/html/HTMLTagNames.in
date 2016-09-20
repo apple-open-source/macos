@@ -2,6 +2,7 @@ namespace="HTML"
 namespacePrefix="xhtml"
 namespaceURI="http://www.w3.org/1999/xhtml"
 fallbackInterfaceName="HTMLUnknownElement"
+customElementInterfaceName="HTMLElement"
 
 a interfaceName=HTMLAnchorElement
 abbr interfaceName=HTMLElement
@@ -15,10 +16,10 @@ attachment conditional=ATTACHMENT_ELEMENT, settingsConditional=attachmentElement
 audio wrapperOnlyIfMediaIsAvailable, conditional=VIDEO, constructorNeedsCreatedByParser, customTypeHelper
 b interfaceName=HTMLElement
 base
-basefont interfaceName=HTMLBaseFontElement
+basefont interfaceName=HTMLUnknownElement
 bdi interfaceName=HTMLBDIElement, JSInterfaceName=HTMLElement
 bdo interfaceName=HTMLElement
-bgsound interfaceName=HTMLElement
+bgsound interfaceName=HTMLUnknownElement
 big interfaceName=HTMLElement
 blockquote interfaceName=HTMLQuoteElement
 body
@@ -32,7 +33,7 @@ code interfaceName=HTMLElement
 col interfaceName=HTMLTableColElement
 colgroup interfaceName=HTMLTableColElement
 command interfaceName=HTMLElement
-webkitShadowContent interfaceName=HTMLElement, noConstructor
+data
 datalist interfaceName=HTMLDataListElement, conditional=DATALIST_ELEMENT
 dd interfaceName=HTMLElement
 del interfaceName=HTMLModElement
@@ -112,6 +113,7 @@ samp interfaceName=HTMLElement
 script constructorNeedsCreatedByParser
 section interfaceName=HTMLElement
 select constructorNeedsFormElement
+slot 
 small interfaceName=HTMLElement
 source
 span
@@ -124,12 +126,12 @@ sup interfaceName=HTMLElement
 table
 tbody interfaceName=HTMLTableSectionElement
 td interfaceName=HTMLTableCellElement
-template conditional=TEMPLATE_ELEMENT
+template
 textarea interfaceName=HTMLTextAreaElement, constructorNeedsFormElement
 tfoot interfaceName=HTMLTableSectionElement
 th interfaceName=HTMLTableCellElement
 thead interfaceName=HTMLTableSectionElement
-time interfaceName=HTMLElement
+time
 title
 tr interfaceName=HTMLTableRowElement
 track wrapperOnlyIfMediaIsAvailable, conditional=VIDEO_TRACK

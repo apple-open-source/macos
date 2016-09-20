@@ -40,7 +40,7 @@ WKTypeID WKBundleScriptWorldGetTypeID()
 WKBundleScriptWorldRef WKBundleScriptWorldCreateWorld()
 {
     RefPtr<InjectedBundleScriptWorld> world = InjectedBundleScriptWorld::create();
-    return toAPI(world.release().leakRef());
+    return toAPI(world.leakRef());
 }
 
 WKBundleScriptWorldRef WKBundleScriptWorldNormalWorld()
@@ -51,4 +51,14 @@ WKBundleScriptWorldRef WKBundleScriptWorldNormalWorld()
 void WKBundleScriptWorldClearWrappers(WKBundleScriptWorldRef scriptWorldRef)
 {
     toImpl(scriptWorldRef)->clearWrappers();
+}
+
+void WKBundleScriptWorldMakeAllShadowRootsOpen(WKBundleScriptWorldRef scriptWorldRef)
+{
+    toImpl(scriptWorldRef)->makeAllShadowRootsOpen();
+}
+
+WKStringRef WKBundleScriptWorldCopyName(WKBundleScriptWorldRef scriptWorldRef)
+{
+    return toCopiedAPI(toImpl(scriptWorldRef)->name());
 }

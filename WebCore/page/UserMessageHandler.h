@@ -30,7 +30,6 @@
 
 #include "FrameDestructionObserver.h"
 #include "UserMessageHandlerDescriptor.h"
-#include <bindings/ScriptValue.h>
 
 namespace WebCore {
 
@@ -46,13 +45,13 @@ public:
 
     void postMessage(PassRefPtr<SerializedScriptValue>, ExceptionCode&);
 
-    const AtomicString& name();
-    DOMWrapperWorld& world();
+    UserMessageHandlerDescriptor* descriptor() { return m_descriptor.get(); }
+    void invalidateDescriptor() { m_descriptor = nullptr; }
 
 private:
     UserMessageHandler(Frame&, UserMessageHandlerDescriptor&);
     
-    Ref<UserMessageHandlerDescriptor> m_descriptor;
+    RefPtr<UserMessageHandlerDescriptor> m_descriptor;
 };
 
 } // namespace WebCore

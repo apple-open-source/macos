@@ -56,6 +56,7 @@ static void encode_test(void)
               "Set digest algorithm to SHA256");
 
     /* Load identity and set as signer */
+    unlink(TMP_KEYCHAIN_PATH);
     ok_status(SecKeychainCreate(TMP_KEYCHAIN_PATH, 8, "password", false, NULL, &keychain),
               "Create keychain for identity");
     ok(p12Data = CFDataCreate(NULL, signing_identity_p12, sizeof(signing_identity_p12)),

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,8 +26,6 @@
 #include "config.h"
 #include "JSPromiseDeferred.h"
 
-#if ENABLE(PROMISES)
-
 #include "BuiltinNames.h"
 #include "Error.h"
 #include "Exception.h"
@@ -42,19 +40,26 @@ namespace JSC {
 
 const ClassInfo JSPromiseDeferred::s_info = { "JSPromiseDeferred", 0, 0, CREATE_METHOD_TABLE(JSPromiseDeferred) };
 
+JSValue newPromiseCapability(ExecState* exec, JSGlobalObject* globalObject, JSPromiseConstructor* promiseConstructor)
+{
+    JSFunction* newPromiseCapabilityFunction = globalObject->newPromiseCapabilityFunction();
+    CallData callData;
+    CallType callType = JSC::getCallData(newPromiseCapabilityFunction, callData);
+    ASSERT(callType != CallType::None);
+
+    MarkedArgumentBuffer arguments;
+    arguments.append(promiseConstructor);
+    return call(exec, newPromiseCapabilityFunction, callType, callData, jsUndefined(), arguments);
+}
+
+
 JSPromiseDeferred* JSPromiseDeferred::create(ExecState* exec, JSGlobalObject* globalObject)
 {
     VM& vm = exec->vm();
 
-    JSFunction* newPromiseDeferredFunction = globalObject->newPromiseDeferredFunction();
-    CallData callData;
-    CallType callType = JSC::getCallData(newPromiseDeferredFunction, callData);
-    ASSERT(callType != CallTypeNone);
+    JSValue deferred = newPromiseCapability(exec, globalObject, globalObject->promiseConstructor());
 
-    MarkedArgumentBuffer arguments;
-    JSValue deferred = call(exec, newPromiseDeferredFunction, callType, callData, jsUndefined(), arguments);
-
-    JSValue promise = deferred.get(exec, vm.propertyNames->promisePrivateName);
+    JSValue promise = deferred.get(exec, vm.propertyNames->builtinNames().promisePrivateName());
     ASSERT(promise.inherits(JSPromise::info()));
     JSValue resolve = deferred.get(exec, vm.propertyNames->builtinNames().resolvePrivateName());
     JSValue reject = deferred.get(exec, vm.propertyNames->builtinNames().rejectPrivateName());
@@ -70,8 +75,35 @@ JSPromiseDeferred* JSPromiseDeferred::create(VM& vm, JSObject* promise, JSValue 
 }
 
 JSPromiseDeferred::JSPromiseDeferred(VM& vm)
-    : Base(vm, vm.promiseDeferredStructure.get())
+    : JSPromiseDeferred(vm, vm.promiseDeferredStructure.get())
 {
+}
+
+JSPromiseDeferred::JSPromiseDeferred(VM& vm, Structure* structure)
+    : Base(vm, structure)
+{
+}
+
+static inline void callFunction(ExecState* exec, JSValue function, JSValue value)
+{
+    CallData callData;
+    CallType callType = getCallData(function, callData);
+    ASSERT(callType != CallType::None);
+
+    MarkedArgumentBuffer arguments;
+    arguments.append(value);
+
+    call(exec, function, callType, callData, jsUndefined(), arguments);
+}
+
+void JSPromiseDeferred::resolve(ExecState* exec, JSValue value)
+{
+    callFunction(exec, m_resolve.get(), value);
+}
+
+void JSPromiseDeferred::reject(ExecState* exec, JSValue reason)
+{
+    callFunction(exec, m_reject.get(), reason);
 }
 
 void JSPromiseDeferred::finishCreation(VM& vm, JSObject* promise, JSValue resolve, JSValue reject)
@@ -95,5 +127,3 @@ void JSPromiseDeferred::visitChildren(JSCell* cell, SlotVisitor& visitor)
 }
 
 } // namespace JSC
-
-#endif // ENABLE(PROMISES)

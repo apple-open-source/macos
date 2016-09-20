@@ -111,6 +111,27 @@ struct IOBlockStorageDeviceExtent
 };
 
 /*!
+ * @struct IOBlockStorageProvisionDeviceExtent
+ * @discussion
+ * Extent for provision status.
+ * @field blockStart
+ * Starting block offset for the operation.
+ * @field blockCount
+ * Size of the operation.
+ * @field provisionType
+ * Block provision type, such as mapped, deallocated, or anchared. See
+ * IOStorageProvisionTypes
+ */
+
+struct IOBlockStorageProvisionDeviceExtent
+{
+    UInt64 blockStart;
+    UInt64 blockCount;
+    UInt8  provisionType;
+    UInt8  reserved[7];
+};
+
+/*!
  * @class
  * IOBlockStorageDevice
  * @abstract
@@ -159,11 +180,11 @@ public:
      * 
      * This function is usually not overridden by developers.
      */    
-    virtual bool	init(OSDictionary * properties);
+    virtual bool	init(OSDictionary * properties) APPLE_KEXT_OVERRIDE;
 
-    virtual OSObject *	getProperty(const OSSymbol * key) const;
+    virtual OSObject *	getProperty(const OSSymbol * key) const APPLE_KEXT_OVERRIDE;
 
-    virtual IOReturn	setProperties(OSObject * properties);
+    virtual IOReturn	setProperties(OSObject * properties) APPLE_KEXT_OVERRIDE;
 
     /* --- A subclass must implement the the following methods: --- */
 
@@ -201,9 +222,9 @@ public:
     virtual UInt32	doGetFormatCapacities(UInt64 * capacities,
                                             UInt32   capacitiesMaxCount) const	= 0;
 
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
     virtual IOReturn	doLockUnlockMedia(bool doLock) __attribute__ ((deprecated));
-#endif /* __x86_64__ */
+#endif /* TARGET_OS_OSX && defined(__x86_64__) */
 
     virtual IOReturn	doSynchronizeCache(void) __attribute__ ((deprecated));
 
@@ -264,9 +285,9 @@ public:
      */
     virtual IOReturn	reportEjectability(bool *isEjectable)	= 0;
 
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
     virtual IOReturn	reportLockability(bool *isLockable) __attribute__ ((deprecated));
-#endif /* __x86_64__ */
+#endif /* TARGET_OS_OSX && defined(__x86_64__) */
 
     /*!
      * @function reportMaxValidBlock
@@ -295,10 +316,10 @@ public:
      */
     virtual IOReturn	reportMediaState(bool *mediaPresent,bool *changedState = 0)	= 0;
     
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
     virtual IOReturn	reportPollRequirements(bool *pollRequired,
                                             bool *pollIsExpensive) __attribute__ ((deprecated));
-#endif /* __x86_64__ */
+#endif /* TARGET_OS_OSX && defined(__x86_64__) */
     
     /*!
      * @function reportRemovability
@@ -383,9 +404,9 @@ public:
      */
     virtual IOReturn	requestIdle(void);
 
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
     virtual IOReturn doDiscard(UInt64 block, UInt64 nblks) __attribute__ ((deprecated));
-#endif /* __x86_64__ */
+#endif /* TARGET_OS_OSX && defined(__x86_64__) */
 
     /*!
      * @function doUnmap
@@ -437,10 +458,35 @@ public:
                                       UInt64                      nblks,
                                       IOStorageSynchronizeOptions options = 0); /* 10.11.0 */
 
+    /*!
+     * @function doGetProvisionStatus
+     * @discussion
+     * Get device block provision status
+     * @param block
+     * Block offset of logical extent on the device.
+     * @param nblks
+     * Blocks count of logical extent on the device.
+     * @param extentsCount
+     * Number of extents allocated in extents. On return, this parameter indicate number
+     * of provision extents returned.
+     * @param extents
+     * List of provision extents, block based. See IOStorageProvisionDeviceExtents.
+     * @param options
+     * Options for get provision status. See IOStorageGetProvisionStatusOptions.
+     * @result
+     * Returns the status of the getProvisionStatus.
+     */
+
+    virtual IOReturn doGetProvisionStatus(UInt64                                block,
+                                          UInt64                                nblks,
+                                          UInt32 *                              extentsCount,
+                                          IOBlockStorageProvisionDeviceExtent * extents,
+                                          IOStorageGetProvisionStatusOptions    options = 0); /* 10.12.0 */
+
     OSMetaClassDeclareReservedUsed(IOBlockStorageDevice,  0);
     OSMetaClassDeclareReservedUsed(IOBlockStorageDevice,  1);
     OSMetaClassDeclareReservedUsed(IOBlockStorageDevice,  2);
-    OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  3);
+    OSMetaClassDeclareReservedUsed(IOBlockStorageDevice,  3);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  4);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  5);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  6);

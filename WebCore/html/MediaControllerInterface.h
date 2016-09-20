@@ -42,9 +42,9 @@ public:
     virtual ~MediaControllerInterface() { };
     
     // MediaController IDL:
-    virtual PassRefPtr<TimeRanges> buffered() const = 0;
-    virtual PassRefPtr<TimeRanges> seekable() const = 0;
-    virtual PassRefPtr<TimeRanges> played() = 0;
+    virtual Ref<TimeRanges> buffered() const = 0;
+    virtual Ref<TimeRanges> seekable() const = 0;
+    virtual Ref<TimeRanges> played() = 0;
     
     virtual double duration() const = 0;
     virtual double currentTime() const = 0;
@@ -70,7 +70,7 @@ public:
     virtual ReadyState readyState() const = 0;
 
     // MediaControlElements:
-    virtual bool supportsFullscreen() const = 0;
+    virtual bool supportsFullscreen(HTMLMediaElementEnums::VideoFullscreenMode) const = 0;
     virtual bool isFullscreen() const = 0;
     virtual void enterFullscreen() = 0;
 

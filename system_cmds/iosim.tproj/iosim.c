@@ -15,39 +15,39 @@
 #include <limits.h>
 #include <errno.h>
 
-#define IO_MODE_SEQ 		0
-#define IO_MODE_RANDOM 		1
+#define IO_MODE_SEQ		0
+#define IO_MODE_RANDOM		1
 
-#define WORKLOAD_TYPE_RO 	0
-#define WORKLOAD_TYPE_WO 	1
-#define WORKLOAD_TYPE_RW 	2
+#define WORKLOAD_TYPE_RO	0
+#define WORKLOAD_TYPE_WO	1
+#define WORKLOAD_TYPE_RW	2
 
-#define MAX_THREADS 		1000
-#define MAX_FILENAME 		64
-#define MAX_ITERATIONS 		10000
-#define LATENCY_BIN_SIZE 	500
-#define LATENCY_BINS 		11 	
-#define LOW_LATENCY_BIN_SIZE 	50
-#define LOW_LATENCY_BINS 	11
+#define MAX_THREADS		1000
+#define MAX_FILENAME		64
+#define MAX_ITERATIONS		10000
+#define LATENCY_BIN_SIZE	500
+#define LATENCY_BINS		11
+#define LOW_LATENCY_BIN_SIZE	50
+#define LOW_LATENCY_BINS	11
 #define THROUGHPUT_INTERVAL	5000
-#define DEFAULT_FILE_SIZE 	(262144)
-#define BLOCKSIZE 		1024
-#define MAX_CMD_SIZE 		256
-#define PG_MASK 		~(0xFFF)
+#define DEFAULT_FILE_SIZE	(262144)
+#define BLOCKSIZE		1024
+#define MAX_CMD_SIZE		256
+#define PG_MASK			~(0xFFF)
 
-int burst_count = 10;                	/* Unit: Number ; Desc.: I/O Burst Count */
-int inter_burst_duration = 0; 	 	/* Unit: msecs  ; Desc.: I/O Inter-Burst Duration (-1: Random value [0,100]) */
-int inter_io_delay_ms = 0; 		/* Unit: msecs  ; Desc.: Inter I/O Delay */
-int thread_count = 1;                	/* Unit: Number ; Desc.: Thread Count */
+int burst_count = 10;			/* Unit: Number ; Desc.: I/O Burst Count */
+int inter_burst_duration = 0;		/* Unit: msecs  ; Desc.: I/O Inter-Burst Duration (-1: Random value [0,100]) */
+int inter_io_delay_ms = 0;		/* Unit: msecs  ; Desc.: Inter I/O Delay */
+int thread_count = 1;			/* Unit: Number ; Desc.: Thread Count */
 int workload_type = WORKLOAD_TYPE_RO;	/* Unit: 0/1/2  ; Desc.: Workload Type */
-int io_size = 4096;  	                /* Unit: Bytes  ; Desc.: I/O Unit Size */
-int sync_frequency_ms = 0; 		/* Unit: msecs  ; Desc.: Sync thread frequency (0: Indicates no sync) */
-int io_mode = 0;                     	/* Unit: 0/1	; Desc.: I/O Mode (Seq./Rand.) */
+int io_size = 4096;	                /* Unit: Bytes  ; Desc.: I/O Unit Size */
+int sync_frequency_ms = 0;		/* Unit: msecs  ; Desc.: Sync thread frequency (0: Indicates no sync) */
+int io_mode = 0;			/* Unit: 0/1	; Desc.: I/O Mode (Seq./Rand.) */
 int test_duration = 0;                  /* Unit: secs   ; Desc.: Total Test Duration (0 indicates wait for Ctrl+C signal) */
-int io_tier = 0; 			/* Unit: 0/1/2/3; Desc.: I/O Tier */
-int file_size = DEFAULT_FILE_SIZE; 	/* Unit: pages  ; Desc.: File Size in 4096 byte blocks */
-int cached_io_flag = 0; 		/* Unit: 0/1 	; Desc.: I/O Caching behavior (no-cached/cached) */
-char *user_fname; 
+int io_tier = 0;			/* Unit: 0/1/2/3; Desc.: I/O Tier */
+int file_size = DEFAULT_FILE_SIZE;	/* Unit: pages  ; Desc.: File Size in 4096 byte blocks */
+int cached_io_flag = 0;			/* Unit: 0/1	; Desc.: I/O Caching behavior (no-cached/cached) */
+char *user_fname;
 int user_specified_file = 0;
 
 int64_t total_io_count;
@@ -74,7 +74,8 @@ void print_test_setup(int value, char *option, char *units, char *comment);
 void setup_process_io_policy(int io_tier);
 void print_latency_histogram(int64_t *data, int latency_bins, int latency_bin_size);
 
-void print_usage()
+void
+print_usage(void)
 {
 	printf("Usage: ./iosim [options]\n");
 	printf("Options:\n");
@@ -133,7 +134,7 @@ void print_stats()
 	printf("I/O Statistics:\n");
 
 	printf("Total I/Os      : %lld\n", total_io_count);
-	printf("Avg. Latency    : %.2lf usecs\n", ((double)total_io_time) / ((double)total_io_count));	
+	printf("Avg. Latency    : %.2lf usecs\n", ((double)total_io_time) / ((double)total_io_count));
 
 	printf("Low Latency Histogram: \n");
 	print_latency_histogram(low_latency_histogram, LOW_LATENCY_BINS, LOW_LATENCY_BIN_SIZE);
@@ -141,7 +142,7 @@ void print_stats()
 	print_latency_histogram(latency_histogram, LATENCY_BINS, LATENCY_BIN_SIZE);
 	printf("Burst Avg. Latency Histogram: \n");
 	print_latency_histogram(burst_latency_histogram, LATENCY_BINS, LATENCY_BIN_SIZE);
-	
+
 	printf("Throughput Timeline: \n");
 
 	int64_t max_throughput = 0;
@@ -158,7 +159,6 @@ void print_stats()
 		printf("%.2lf MBps\n", ((double)throughput_histogram[i] / 1048576.0) / ((double)THROUGHPUT_INTERVAL / 1000.0));
 	}
 	printf("\n");
-		
 }
 
 unsigned int find_io_bin(int64_t latency, int latency_bin_size, int latency_bins)
@@ -190,14 +190,14 @@ void perform_io(int fd, char *buf, int size, int type)
 			ret = read(fd, buf, size);
 		else
 			ret = write(fd, buf, size);
-	
+
 		if (ret == 0) {
 			if (lseek(fd, 0, SEEK_SET) < 0) {
 				perror("lseek() to reset file offset to zero failed!\n");
 				goto error;
 			}
 		}
-		
+
 		if (ret < 0) {
 			perror("read/write syscall failed!\n");
 			goto error;
@@ -214,7 +214,7 @@ error:
 
 void *sync_routine(void *arg)
 {
-	while(1) {	
+	while(1) {
 		usleep(sync_frequency_ms * 1000);
 		sync();
 	}
@@ -231,10 +231,10 @@ void *calculate_throughput(void *arg)
 		size = total_io_size - prev_total_io_size;
 		throughput_histogram[throughput_index] = size;
 		prev_total_io_size = total_io_size;
-		throughput_index++;	
+		throughput_index++;
 	}
 	pthread_exit(NULL);
-}	
+}
 
 void *io_routine(void *arg)
 {
@@ -261,7 +261,7 @@ void *io_routine(void *arg)
 	if (fstat(fd, &filestat) < 0) {
 		printf("Error stat()ing file %s!\n", test_filename);
 		exit(1);
-	}	
+	}
 
 	if (filestat.st_size < io_size) {
 		printf("%s: File size (%lld) smaller than I/O size (%d)!\n", test_filename, filestat.st_size, io_size);
@@ -272,7 +272,7 @@ void *io_routine(void *arg)
 		fcntl(fd, F_NOCACHE, 1);
 
 	fcntl(fd, F_RDAHEAD, 0);
-	
+
 	if(!(data = (char *)calloc(io_size, 1))) {
 		perror("Error allocating buffers for I/O!\n");
 		exit(1);
@@ -280,7 +280,6 @@ void *io_routine(void *arg)
 	memset(data, '\0', io_size);
 
 	while(1) {
-		
 		burst_elapsed = 0;
 
 		for(i = 0; i < burst_count; i++) {
@@ -290,7 +289,6 @@ void *io_routine(void *arg)
 					exit(1);
 				}
 			}
-				
 
 			gettimeofday(&start_tv, NULL);
 			perform_io(fd, data, io_size, workload_type);
@@ -303,7 +301,7 @@ void *io_routine(void *arg)
 			OSAtomicIncrement64(&(latency_histogram[find_io_bin(elapsed, LATENCY_BIN_SIZE, LATENCY_BINS)]));
 			OSAtomicIncrement64(&(low_latency_histogram[find_io_bin(elapsed, LOW_LATENCY_BIN_SIZE, LOW_LATENCY_BINS)]));
 			burst_elapsed += elapsed;
-			
+
 			if (inter_io_delay_ms)
 				usleep(inter_io_delay_ms * 1000);
 		}
@@ -423,7 +421,7 @@ int main(int argc, char *argv[])
 			case 'z':
 				file_size = atoi(optarg);
 				validate_option(file_size, 0, INT_MAX, "File Size", "bytes");
-				break; 
+				break;
 			case 'n':
 				user_fname = optarg;
 				user_specified_file = 1;
@@ -453,14 +451,14 @@ int main(int argc, char *argv[])
 	print_test_setup(io_tier, "I/O Tier", "", 0);
 	print_test_setup(cached_io_flag, "I/O Caching", "", "0 indicates non-cached I/Os");
 	print_test_setup(0, "File read-aheads", "", "0 indicates read-aheads disabled");
-	
+
 	printf("**********************************************************\n");
 
 	if (user_specified_file == 0) {
 		char dd_command[MAX_CMD_SIZE];
 		for (i=0; i < thread_count; i++) {
 			snprintf(fname, MAX_FILENAME, "iosim-%d-%d", (int)getpid(), i);
-			snprintf(dd_command, MAX_CMD_SIZE, "dd if=/dev/urandom of=%s bs=4096 count=%d", fname, file_size);  
+			snprintf(dd_command, MAX_CMD_SIZE, "dd if=/dev/urandom of=%s bs=4096 count=%d", fname, file_size);
 			printf("Creating file %s of size %lld...\n", fname, ((int64_t)file_size * 4096));
 			system(dd_command);
 		}
@@ -470,8 +468,8 @@ int main(int argc, char *argv[])
 	system("purge");
 	setup_process_io_policy(io_tier);
 
-	printf("**********************************************************\n");		
-	printf("Creating threads and generating workload...\n");	
+	printf("**********************************************************\n");
+	printf("Creating threads and generating workload...\n");
 
 	signal(SIGINT, signalHandler);
 	signal(SIGALRM, signalHandler);
@@ -497,16 +495,15 @@ int main(int argc, char *argv[])
 
 	/* All threads are now initialized */
 	if (test_duration)
-		alarm(test_duration);	
+		alarm(test_duration);
 
 	for(i=0; i < thread_count; i++)
 		pthread_join(thread_list[i], NULL);
-	
+
 	if (sync_frequency_ms)
 		pthread_join(sync_thread, NULL);
 
 	pthread_join(throughput_thread, NULL);
 
 	pthread_exit(0);
-
 }

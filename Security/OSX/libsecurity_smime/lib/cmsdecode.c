@@ -676,9 +676,16 @@ SecCmsDecoderDestroy(SecCmsDecoderRef p7dcx)
 {
     /* XXXX what about inner decoders? running digests? decryption? */
     /* XXXX there's a leak here! */
-    SecCmsMessageDestroy(p7dcx->cmsg);
-    if (p7dcx->dcx)
+    if (p7dcx->cmsg) {
+        SecCmsMessageDestroy(p7dcx->cmsg);
+    }
+    if (p7dcx->dcx) {
         (void)SEC_ASN1DecoderFinish(p7dcx->dcx);
+    }
+    /* Clear out references */
+    p7dcx->cmsg = NULL;
+    p7dcx->dcx = NULL;
+    p7dcx->childp7dcx = NULL;
     PORT_Free(p7dcx);
 }
 
@@ -696,7 +703,9 @@ SecCmsDecoderFinish(SecCmsDecoderRef p7dcx, SecCmsMessageRef *outMessage)
     if (p7dcx->dcx == NULL || SEC_ASN1DecoderFinish(p7dcx->dcx) != SECSuccess ||
 	nss_cms_after_end(p7dcx) != SECSuccess)
     {
-	SecCmsMessageDestroy(cmsg);	/* needs to get rid of pool if it's ours */
+        if (p7dcx->cmsg) {
+            SecCmsMessageDestroy(cmsg);	/* needs to get rid of pool if it's ours */
+        }
         result = PORT_GetError();
         goto loser;
     }
@@ -705,6 +714,10 @@ SecCmsDecoderFinish(SecCmsDecoderRef p7dcx, SecCmsMessageRef *outMessage)
     result = noErr;
 
 loser:
+    /* Clear out references */
+    p7dcx->cmsg = NULL;
+    p7dcx->dcx = NULL;
+    p7dcx->childp7dcx = NULL;
     PORT_Free(p7dcx);
     return result;
 }

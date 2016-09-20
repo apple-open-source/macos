@@ -1,6 +1,6 @@
 #!/bin/sh
 
-CONFIGD_LAUNCHD_PLIST=${INSTALL_ROOT}/System/Library/LaunchDaemons/${1}
+CONFIGD_LAUNCHD_PLIST=${DSTROOT}/System/Library/LaunchDaemons/${1}
 CONFIGD_PLUGINS=/tmp/plugins.$$
 EMBEDDED_PROJECTS=/tmp/projects.$$
 PLUGIN_MACHSERVICES=/tmp/plugin.$$
@@ -9,8 +9,8 @@ HAVE_CONFIGD_PLUGINS="MISSING"
 HAVE_IPCONFIGURATION="MISSING"
 
 cp /dev/null ${CONFIGD_PLUGINS}
-if [ -d ${INSTALL_ROOT}/System/Library/SystemConfiguration ]; then
-	(cd ${INSTALL_ROOT}/System/Library/SystemConfiguration ; ls -1d *.bundle >> ${CONFIGD_PLUGINS} 2>/dev/null )
+if [ -d ${DSTROOT}/System/Library/SystemConfiguration ]; then
+	(cd ${DSTROOT}/System/Library/SystemConfiguration ; ls -1d *.bundle >> ${CONFIGD_PLUGINS} 2>/dev/null )
 fi
 
 cp /dev/null ${EMBEDDED_PROJECTS}
@@ -41,14 +41,14 @@ do
 	PLUGIN_PLIST=""
 
 #	if [ -z "${PLUGIN_PLIST}" ]; then
-		PLUGIN_INF=${INSTALL_ROOT}/System/Library/SystemConfiguration/${PLUGIN}/Contents/Info.plist
+		PLUGIN_INF=${DSTROOT}/System/Library/SystemConfiguration/${PLUGIN}/Contents/Info.plist
 		if [ -f ${PLUGIN_INF} ]; then
 			PLUGIN_PLIST=${PLUGIN_INF}
 		fi
 #	fi
 
 	if [ -z "${PLUGIN_PLIST}" ]; then
-		PLUGIN_INF=${INSTALL_ROOT}/System/Library/SystemConfiguration/${PLUGIN}/Info.plist
+		PLUGIN_INF=${DSTROOT}/System/Library/SystemConfiguration/${PLUGIN}/Info.plist
 		if [ -f ${PLUGIN_INF} ]; then
 			PLUGIN_PLIST=${PLUGIN_INF}
 		fi

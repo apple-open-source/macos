@@ -25,7 +25,7 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/lib/libc_r/man/pthread_mutex_trylock.3,v 1.5.2.4 2001/08/17 15:42:51 ru Exp $
+.\" $FreeBSD$
 .\"
 .Dd July 30, 1998
 .Dt PTHREAD_MUTEX_TRYLOCK 3
@@ -34,11 +34,9 @@
 .Nm pthread_mutex_trylock
 .Nd attempt to lock a mutex without blocking
 .Sh SYNOPSIS
-.Fd #include <pthread.h>
+.In pthread.h
 .Ft int
-.Fo pthread_mutex_trylock
-.Fa "pthread_mutex_t *mutex"
-.Fc
+.Fn pthread_mutex_trylock "pthread_mutex_t *mutex"
 .Sh DESCRIPTION
 The
 .Fn pthread_mutex_trylock
@@ -50,19 +48,20 @@ will not block waiting for the mutex, but will return an error condition.
 .Sh RETURN VALUES
 If successful,
 .Fn pthread_mutex_trylock
-will return zero.
-Otherwise, an error number will be returned to indicate the error.
+will return zero, otherwise an error number will be returned to
+indicate the error.
 .Sh ERRORS
+The
 .Fn pthread_mutex_trylock
-will fail if:
+function will fail if:
 .Bl -tag -width Er
-.It Bq Er EBUSY
-.Fa Mutex
-is already locked.
 .It Bq Er EINVAL
 The value specified by
 .Fa mutex
 is invalid.
+.It Bq Er EBUSY
+.Fa Mutex
+is already locked.
 .El
 .Sh SEE ALSO
 .Xr pthread_mutex_destroy 3 ,
@@ -70,6 +69,7 @@ is invalid.
 .Xr pthread_mutex_lock 3 ,
 .Xr pthread_mutex_unlock 3
 .Sh STANDARDS
+The
 .Fn pthread_mutex_trylock
-conforms to
+function conforms to
 .St -p1003.1-96 .

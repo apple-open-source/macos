@@ -33,6 +33,7 @@
 
 #import "AXObjectCache.h"
 #import "AccessibilityARIAGridRow.h"
+#import "AccessibilityLabel.h"
 #import "AccessibilityList.h"
 #import "AccessibilityListBox.h"
 #import "AccessibilityRenderObject.h"
@@ -74,6 +75,9 @@
 #import "WebCoreSystemInterface.h"
 #import "htmlediting.h"
 #import <wtf/ObjcRuntimeExtras.h>
+#if ENABLE(TREE_DEBUGGING)
+#import <wtf/text/StringBuilder.h>
+#endif
 
 using namespace WebCore;
 using namespace HTMLNames;
@@ -153,6 +157,14 @@ using namespace HTMLNames;
 #define NSAccessibilityValueAutofilledAttribute @"AXValueAutofilled"
 #endif
 
+#ifndef NSAccessibilityValueAutofillAvailableAttribute
+#define NSAccessibilityValueAutofillAvailableAttribute @"AXValueAutofillAvailable"
+#endif
+
+#ifndef NSAccessibilityValueAutofillTypeAttribute
+#define NSAccessibilityValueAutofillTypeAttribute @"AXValueAutofillType"
+#endif
+
 #ifndef NSAccessibilityLanguageAttribute
 #define NSAccessibilityLanguageAttribute @"AXLanguage"
 #endif
@@ -229,8 +241,45 @@ using namespace HTMLNames;
 #define NSAccessibilityExpandedTextValueAttribute @"AXExpandedTextValue"
 #endif
 
+#ifndef NSAccessibilityIsMultiSelectableAttribute
+#define NSAccessibilityIsMultiSelectableAttribute @"AXIsMultiSelectable"
+#endif
+
+#ifndef NSAccessibilityDocumentURIAttribute
+#define NSAccessibilityDocumentURIAttribute @"AXDocumentURI"
+#endif
+
+#ifndef NSAccessibilityDocumentEncodingAttribute
+#define NSAccessibilityDocumentEncodingAttribute @"AXDocumentEncoding"
+#endif
+
+#ifndef NSAccessibilityAriaControlsAttribute
+#define NSAccessibilityAriaControlsAttribute @"AXARIAControls"
+#endif
+
 #define NSAccessibilityDOMIdentifierAttribute @"AXDOMIdentifier"
 #define NSAccessibilityDOMClassListAttribute @"AXDOMClassList"
+
+#ifndef NSAccessibilityARIACurrentAttribute
+#define NSAccessibilityARIACurrentAttribute @"AXARIACurrent"
+#endif
+
+// Table/grid attributes
+#ifndef NSAccessibilityARIAColumnIndexAttribute
+#define NSAccessibilityARIAColumnIndexAttribute @"AXARIAColumnIndex"
+#endif
+
+#ifndef NSAccessibilityARIARowIndexAttribute
+#define NSAccessibilityARIARowIndexAttribute @"AXARIARowIndex"
+#endif
+
+#ifndef NSAccessibilityARIAColumnCountAttribute
+#define NSAccessibilityARIAColumnCountAttribute @"AXARIAColumnCount"
+#endif
+
+#ifndef NSAccessibilityARIARowCountAttribute
+#define NSAccessibilityARIARowCountAttribute @"AXARIARowCount"
+#endif
 
 // Search
 #ifndef NSAccessibilityImmediateDescendantsOnly
@@ -492,6 +541,18 @@ using namespace HTMLNames;
 #define NSAccessibilityCaretBrowsingEnabledAttribute @"AXCaretBrowsingEnabled"
 #endif
 
+#ifndef NSAccessibilitFocusableAncestorAttribute
+#define NSAccessibilityFocusableAncestorAttribute @"AXFocusableAncestor"
+#endif
+
+#ifndef NSAccessibilityEditableAncestorAttribute
+#define NSAccessibilityEditableAncestorAttribute @"AXEditableAncestor"
+#endif
+
+#ifndef NSAccessibilityHighestEditableAncestorAttribute
+#define NSAccessibilityHighestEditableAncestorAttribute @"AXHighestEditableAncestor"
+#endif
+
 @implementation WebAccessibilityObjectWrapper
 
 - (void)unregisterUniqueIdForUIElement
@@ -668,7 +729,7 @@ static AccessibilitySearchCriteria accessibilitySearchCriteriaForSearchPredicate
     if ([searchTextParameter isKindOfClass:[NSString class]])
         searchText = searchTextParameter;
     
-    AccessibilityObject *startElement = nullptr;
+    AccessibilityObject* startElement = nullptr;
     if ([startElementParameter isKindOfClass:[WebAccessibilityObjectWrapper class]])
         startElement = [startElementParameter accessibilityObject];
     
@@ -742,6 +803,153 @@ static AccessibilitySelectTextCriteria accessibilitySelectTextCriteriaForCriteri
 
 #pragma mark Text Marker helpers
 
+static bool isTextMarkerIgnored(id textMarker)
+{
+    if (!textMarker)
+        return false;
+    
+    TextMarkerData textMarkerData;
+    if (!wkGetBytesFromAXTextMarker(textMarker, &textMarkerData, sizeof(textMarkerData)))
+        return false;
+    
+    return textMarkerData.ignored;
+}
+
+- (AccessibilityObject*)accessibilityObjectForTextMarker:(id)textMarker
+{
+    return accessibilityObjectForTextMarker(m_object->axObjectCache(), textMarker);
+}
+
+static AccessibilityObject* accessibilityObjectForTextMarker(AXObjectCache* cache, id textMarker)
+{
+    if (!textMarker || !cache || isTextMarkerIgnored(textMarker))
+        return nullptr;
+    
+    TextMarkerData textMarkerData;
+    if (!wkGetBytesFromAXTextMarker(textMarker, &textMarkerData, sizeof(textMarkerData)))
+        return nullptr;
+    return cache->accessibilityObjectForTextMarkerData(textMarkerData);
+}
+
+- (id)textMarkerRangeFromRange:(const RefPtr<Range>)range
+{
+    return textMarkerRangeFromRange(m_object->axObjectCache(), range);
+}
+
+static id textMarkerRangeFromRange(AXObjectCache* cache, const RefPtr<Range> range)
+{
+    id startTextMarker = startOrEndTextmarkerForRange(cache, range, true);
+    id endTextMarker = startOrEndTextmarkerForRange(cache, range, false);
+    return textMarkerRangeFromMarkers(startTextMarker, endTextMarker);
+}
+
+- (id)startOrEndTextMarkerForRange:(const RefPtr<Range>)range isStart:(BOOL)isStart
+{
+    return startOrEndTextmarkerForRange(m_object->axObjectCache(), range, isStart);
+}
+
+static id startOrEndTextmarkerForRange(AXObjectCache* cache, RefPtr<Range> range, bool isStart)
+{
+    if (!cache)
+        return nil;
+    
+    TextMarkerData textMarkerData;
+    cache->startOrEndTextMarkerDataForRange(textMarkerData, range, isStart);
+    if (!textMarkerData.axID)
+        return nil;
+    
+    return CFBridgingRelease(wkCreateAXTextMarker(&textMarkerData, sizeof(textMarkerData)));
+}
+
+static id nextTextMarkerForCharacterOffset(AXObjectCache* cache, CharacterOffset& characterOffset)
+{
+    if (!cache)
+        return nil;
+    
+    TextMarkerData textMarkerData;
+    cache->textMarkerDataForNextCharacterOffset(textMarkerData, characterOffset);
+    if (!textMarkerData.axID)
+        return nil;
+    return CFBridgingRelease(wkCreateAXTextMarker(&textMarkerData, sizeof(textMarkerData)));
+}
+
+static id previousTextMarkerForCharacterOffset(AXObjectCache* cache, CharacterOffset& characterOffset)
+{
+    if (!cache)
+        return nil;
+    
+    TextMarkerData textMarkerData;
+    cache->textMarkerDataForPreviousCharacterOffset(textMarkerData, characterOffset);
+    if (!textMarkerData.axID)
+        return nil;
+    return CFBridgingRelease(wkCreateAXTextMarker(&textMarkerData, sizeof(textMarkerData)));
+}
+
+- (id)nextTextMarkerForCharacterOffset:(CharacterOffset&)characterOffset
+{
+    return nextTextMarkerForCharacterOffset(m_object->axObjectCache(), characterOffset);
+}
+
+- (id)previousTextMarkerForCharacterOffset:(CharacterOffset&)characterOffset
+{
+    return previousTextMarkerForCharacterOffset(m_object->axObjectCache(), characterOffset);
+}
+
+- (id)textMarkerForCharacterOffset:(CharacterOffset&)characterOffset
+{
+    return textMarkerForCharacterOffset(m_object->axObjectCache(), characterOffset);
+}
+
+static id textMarkerForCharacterOffset(AXObjectCache* cache, const CharacterOffset& characterOffset)
+{
+    if (!cache)
+        return nil;
+    
+    TextMarkerData textMarkerData;
+    cache->textMarkerDataForCharacterOffset(textMarkerData, characterOffset);
+    if (!textMarkerData.axID && !textMarkerData.ignored)
+        return nil;
+    
+    return CFBridgingRelease(wkCreateAXTextMarker(&textMarkerData, sizeof(textMarkerData)));
+}
+
+- (RefPtr<Range>)rangeForTextMarkerRange:(id)textMarkerRange
+{
+    if (!textMarkerRange)
+        return nullptr;
+    
+    id startTextMarker = AXTextMarkerRangeStart(textMarkerRange);
+    id endTextMarker = AXTextMarkerRangeEnd(textMarkerRange);
+    
+    if (!startTextMarker || !endTextMarker)
+        return nullptr;
+    
+    AXObjectCache* cache = m_object->axObjectCache();
+    if (!cache)
+        return nullptr;
+    
+    CharacterOffset startCharacterOffset = [self characterOffsetForTextMarker:startTextMarker];
+    CharacterOffset endCharacterOffset = [self characterOffsetForTextMarker:endTextMarker];
+    return cache->rangeForUnorderedCharacterOffsets(startCharacterOffset, endCharacterOffset);
+}
+
+static CharacterOffset characterOffsetForTextMarker(AXObjectCache* cache, CFTypeRef textMarker)
+{
+    if (!cache || !textMarker)
+        return CharacterOffset();
+    
+    TextMarkerData textMarkerData;
+    if (!wkGetBytesFromAXTextMarker(textMarker, &textMarkerData, sizeof(textMarkerData)))
+        return CharacterOffset();
+    
+    return cache->characterOffsetForTextMarkerData(textMarkerData);
+}
+
+- (CharacterOffset)characterOffsetForTextMarker:(id)textMarker
+{
+    return characterOffsetForTextMarker(m_object->axObjectCache(), textMarker);
+}
+
 static id textMarkerForVisiblePosition(AXObjectCache* cache, const VisiblePosition& visiblePos)
 {
     ASSERT(cache);
@@ -777,12 +985,12 @@ static VisiblePosition visiblePositionForTextMarker(AXObjectCache* cache, CFType
     return visiblePositionForTextMarker(m_object->axObjectCache(), textMarker);
 }
 
-static VisiblePosition visiblePositionForStartOfTextMarkerRange(AXObjectCache *cache, id textMarkerRange)
+static VisiblePosition visiblePositionForStartOfTextMarkerRange(AXObjectCache* cache, id textMarkerRange)
 {
     return visiblePositionForTextMarker(cache, AXTextMarkerRangeStart(textMarkerRange));
 }
 
-static VisiblePosition visiblePositionForEndOfTextMarkerRange(AXObjectCache *cache, id textMarkerRange)
+static VisiblePosition visiblePositionForEndOfTextMarkerRange(AXObjectCache* cache, id textMarkerRange)
 {
     return visiblePositionForTextMarker(cache, AXTextMarkerRangeEnd(textMarkerRange));
 }
@@ -797,23 +1005,23 @@ static id textMarkerRangeFromMarkers(id textMarker1, id textMarker2)
 
 // When modifying attributed strings, the range can come from a source which may provide faulty information (e.g. the spell checker).
 // To protect against such cases the range should be validated before adding or removing attributes.
-static BOOL AXAttributedStringRangeIsValid(NSAttributedString* attrString, NSRange range)
+static BOOL AXAttributedStringRangeIsValid(NSAttributedString *attrString, NSRange range)
 {
     return (range.location < [attrString length] && NSMaxRange(range) <= [attrString length]);
 }
 
-static void AXAttributeStringSetFont(NSMutableAttributedString* attrString, NSString* attribute, NSFont* font, NSRange range)
+static void AXAttributeStringSetFont(NSMutableAttributedString *attrString, NSString *attribute, CTFontRef font, NSRange range)
 {
     if (!AXAttributedStringRangeIsValid(attrString, range))
         return;
-    
+
     if (font) {
-        NSDictionary* dict = [NSDictionary dictionaryWithObjectsAndKeys:
-                              [font fontName]                             , NSAccessibilityFontNameKey,
-                              [font familyName]                           , NSAccessibilityFontFamilyKey,
-                              [font displayName]                          , NSAccessibilityVisibleNameKey,
-                              [NSNumber numberWithFloat:[font pointSize]] , NSAccessibilityFontSizeKey,
-                              nil];
+        NSDictionary *dict = [NSDictionary dictionaryWithObjectsAndKeys:
+            static_cast<NSString *>(adoptCF(CTFontCopyPostScriptName(font)).get()), NSAccessibilityFontNameKey,
+            static_cast<NSString *>(adoptCF(CTFontCopyFamilyName(font)).get()), NSAccessibilityFontFamilyKey,
+            static_cast<NSString *>(adoptCF(CTFontCopyDisplayName(font)).get()), NSAccessibilityVisibleNameKey,
+            [NSNumber numberWithFloat:CTFontGetSize(font)], NSAccessibilityFontSizeKey,
+            nil];
         
         [attrString addAttribute:attribute value:dict range:range];
     } else
@@ -821,10 +1029,10 @@ static void AXAttributeStringSetFont(NSMutableAttributedString* attrString, NSSt
     
 }
 
-static CGColorRef CreateCGColorIfDifferent(NSColor* nsColor, CGColorRef existingColor)
+static CGColorRef CreateCGColorIfDifferent(NSColor *nsColor, CGColorRef existingColor)
 {
     // get color information assuming NSDeviceRGBColorSpace
-    NSColor* rgbColor = [nsColor colorUsingColorSpaceName:NSDeviceRGBColorSpace];
+    NSColor *rgbColor = [nsColor colorUsingColorSpaceName:NSDeviceRGBColorSpace];
     if (rgbColor == nil)
         rgbColor = [NSColor blackColor];
     CGFloat components[4];
@@ -876,7 +1084,7 @@ static void AXAttributeStringSetStyle(NSMutableAttributedString* attrString, Ren
     const RenderStyle& style = renderer->style();
     
     // set basic font info
-    AXAttributeStringSetFont(attrString, NSAccessibilityFontTextAttribute, style.fontCascade().primaryFont().getNSFont(), range);
+    AXAttributeStringSetFont(attrString, NSAccessibilityFontTextAttribute, style.fontCascade().primaryFont().getCTFont(), range);
     
     // set basic colors
     AXAttributeStringSetColor(attrString, NSAccessibilityForegroundColorTextAttribute, nsColor(style.visitedDependentColor(CSSPropertyColor)), range);
@@ -955,7 +1163,7 @@ static void AXAttributeStringSetSpelling(NSMutableAttributedString* attrString, 
         
         // checkTextOfParagraph is the only spelling/grammar checker implemented in WK1 and WK2
         Vector<TextCheckingResult> results;
-        checkTextOfParagraph(*checker, text, TextCheckingTypeSpelling, results);
+        checkTextOfParagraph(*checker, text, TextCheckingTypeSpelling, results, node->document().frame()->selection().selection());
         
         size_t size = results.size();
         NSNumber* trueValue = [NSNumber numberWithBool:YES];
@@ -1106,35 +1314,24 @@ static NSString* nsStringForReplacedNode(Node* replacedNode)
     if (!m_object)
         return nil;
     
-    // extract the start and end VisiblePosition
-    VisiblePosition startVisiblePosition = visiblePositionForStartOfTextMarkerRange(m_object->axObjectCache(), textMarkerRange);
-    if (startVisiblePosition.isNull())
-        return nil;
-    
-    VisiblePosition endVisiblePosition = visiblePositionForEndOfTextMarkerRange(m_object->axObjectCache(), textMarkerRange);
-    if (endVisiblePosition.isNull())
-        return nil;
-    
-    VisiblePositionRange visiblePositionRange(startVisiblePosition, endVisiblePosition);
-    // iterate over the range to build the AX attributed string
+    RefPtr<Range> range = [self rangeForTextMarkerRange:textMarkerRange];
     NSMutableAttributedString* attrString = [[NSMutableAttributedString alloc] init];
-    TextIterator it(makeRange(startVisiblePosition, endVisiblePosition).get());
+    TextIterator it(range.get());
     while (!it.atEnd()) {
         // locate the node and starting offset for this range
-        int exception = 0;
-        Node* node = it.range()->startContainer(exception);
-        ASSERT(node == it.range()->endContainer(exception));
-        int offset = it.range()->startOffset(exception);
+        Node& node = it.range()->startContainer();
+        ASSERT(&node == &it.range()->endContainer());
+        int offset = it.range()->startOffset();
         
         // non-zero length means textual node, zero length means replaced node (AKA "attachments" in AX)
         if (it.text().length()) {
             // Add the text of the list marker item if necessary.
-            String listMarkerText = m_object->listMarkerTextForNodeAndPosition(node, VisiblePosition(it.range()->startPosition()));
+            String listMarkerText = m_object->listMarkerTextForNodeAndPosition(&node, VisiblePosition(it.range()->startPosition()));
             if (!listMarkerText.isEmpty())
-                AXAttributedStringAppendText(attrString, node, listMarkerText);
-            AXAttributedStringAppendText(attrString, node, it.text());
+                AXAttributedStringAppendText(attrString, &node, listMarkerText);
+            AXAttributedStringAppendText(attrString, &node, it.text());
         } else {
-            Node* replacedNode = node->traverseToChildAt(offset);
+            Node* replacedNode = node.traverseToChildAt(offset);
             NSString *attachmentString = nsStringForReplacedNode(replacedNode);
             if (attachmentString) {
                 NSRange attrStringRange = NSMakeRange([attrString length], [attachmentString length]);
@@ -1156,7 +1353,7 @@ static NSString* nsStringForReplacedNode(Node* replacedNode)
     return [attrString autorelease];
 }
 
-static id textMarkerRangeFromVisiblePositions(AXObjectCache *cache, const VisiblePosition& startPosition, const VisiblePosition& endPosition)
+static id textMarkerRangeFromVisiblePositions(AXObjectCache* cache, const VisiblePosition& startPosition, const VisiblePosition& endPosition)
 {
     id startTextMarker = textMarkerForVisiblePosition(cache, startPosition);
     id endTextMarker = textMarkerForVisiblePosition(cache, endPosition);
@@ -1217,7 +1414,10 @@ static id textMarkerRangeFromVisiblePositions(AXObjectCache *cache, const Visibl
     if (m_object->supportsExpanded())
         [additional addObject:NSAccessibilityExpandedAttribute];
     
-    if (m_object->isScrollbar())
+    if (m_object->isScrollbar()
+        || m_object->isRadioGroup()
+        || m_object->isSplitter()
+        || m_object->isToolbar())
         [additional addObject:NSAccessibilityOrientationAttribute];
     
     if (m_object->supportsARIADragging())
@@ -1333,31 +1533,34 @@ static id textMarkerRangeFromVisiblePositions(AXObjectCache *cache, const Visibl
     NSMutableArray* tempArray;
     if (attributes == nil) {
         attributes = [[NSArray alloc] initWithObjects: NSAccessibilityRoleAttribute,
-                      NSAccessibilitySubroleAttribute,
-                      NSAccessibilityRoleDescriptionAttribute,
-                      NSAccessibilityChildrenAttribute,
-                      NSAccessibilityHelpAttribute,
-                      NSAccessibilityParentAttribute,
-                      NSAccessibilityPositionAttribute,
-                      NSAccessibilitySizeAttribute,
-                      NSAccessibilityTitleAttribute,
-                      NSAccessibilityDescriptionAttribute,
-                      NSAccessibilityValueAttribute,
-                      NSAccessibilityFocusedAttribute,
-                      NSAccessibilityEnabledAttribute,
-                      NSAccessibilityWindowAttribute,
-                      @"AXSelectedTextMarkerRange",
-                      @"AXStartTextMarker",
-                      @"AXEndTextMarker",
-                      @"AXVisited",
-                      NSAccessibilityLinkedUIElementsAttribute,
-                      NSAccessibilitySelectedAttribute,
-                      NSAccessibilityBlockQuoteLevelAttribute,
-                      NSAccessibilityTopLevelUIElementAttribute,
-                      NSAccessibilityLanguageAttribute,
-                      NSAccessibilityDOMIdentifierAttribute,
-                      NSAccessibilityDOMClassListAttribute,
-                      nil];
+            NSAccessibilitySubroleAttribute,
+            NSAccessibilityRoleDescriptionAttribute,
+            NSAccessibilityChildrenAttribute,
+            NSAccessibilityHelpAttribute,
+            NSAccessibilityParentAttribute,
+            NSAccessibilityPositionAttribute,
+            NSAccessibilitySizeAttribute,
+            NSAccessibilityTitleAttribute,
+            NSAccessibilityDescriptionAttribute,
+            NSAccessibilityValueAttribute,
+            NSAccessibilityFocusedAttribute,
+            NSAccessibilityEnabledAttribute,
+            NSAccessibilityWindowAttribute,
+            @"AXSelectedTextMarkerRange",
+            @"AXStartTextMarker",
+            @"AXEndTextMarker",
+            @"AXVisited",
+            NSAccessibilityLinkedUIElementsAttribute,
+            NSAccessibilitySelectedAttribute,
+            NSAccessibilityBlockQuoteLevelAttribute,
+            NSAccessibilityTopLevelUIElementAttribute,
+            NSAccessibilityLanguageAttribute,
+            NSAccessibilityDOMIdentifierAttribute,
+            NSAccessibilityDOMClassListAttribute,
+            NSAccessibilityFocusableAncestorAttribute,
+            NSAccessibilityEditableAncestorAttribute,
+            NSAccessibilityHighestEditableAncestorAttribute,
+            nil];
     }
     if (commonMenuAttrs == nil) {
         commonMenuAttrs = [[NSArray alloc] initWithObjects: NSAccessibilityRoleAttribute,
@@ -1380,6 +1583,10 @@ static id textMarkerRangeFromVisiblePositions(AXObjectCache *cache, const Visibl
         tempArray = [[NSMutableArray alloc] initWithArray:attributes];
         // WebAreas should not expose AXSubrole.
         [tempArray removeObject:NSAccessibilitySubroleAttribute];
+        // WebAreas should not expose ancestor attributes
+        [tempArray removeObject:NSAccessibilityFocusableAncestorAttribute];
+        [tempArray removeObject:NSAccessibilityEditableAncestorAttribute];
+        [tempArray removeObject:NSAccessibilityHighestEditableAncestorAttribute];
         [tempArray addObject:@"AXLinkUIElements"];
         [tempArray addObject:@"AXLoaded"];
         [tempArray addObject:@"AXLayoutCount"];
@@ -1420,6 +1627,7 @@ static id textMarkerRangeFromVisiblePositions(AXObjectCache *cache, const Visibl
         [tempArray addObject:NSAccessibilityAccessKeyAttribute];
         [tempArray addObject:NSAccessibilityRequiredAttribute];
         [tempArray addObject:NSAccessibilityInvalidAttribute];
+        [tempArray addObject:NSAccessibilityOrientationAttribute];
         listBoxAttrs = [[NSArray alloc] initWithArray:tempArray];
         [tempArray release];
     }
@@ -1438,6 +1646,7 @@ static id textMarkerRangeFromVisiblePositions(AXObjectCache *cache, const Visibl
         [tempArray addObject:NSAccessibilitySelectedChildrenAttribute];
         [tempArray addObject:NSAccessibilityVisibleChildrenAttribute];
         [tempArray addObject:NSAccessibilityTitleUIElementAttribute];
+        [tempArray addObject:NSAccessibilityOrientationAttribute];
         menuBarAttrs = [[NSArray alloc] initWithArray:tempArray];
         [tempArray release];
     }
@@ -1446,6 +1655,7 @@ static id textMarkerRangeFromVisiblePositions(AXObjectCache *cache, const Visibl
         [tempArray addObject:NSAccessibilitySelectedChildrenAttribute];
         [tempArray addObject:NSAccessibilityVisibleChildrenAttribute];
         [tempArray addObject:NSAccessibilityTitleUIElementAttribute];
+        [tempArray addObject:NSAccessibilityOrientationAttribute];
         menuAttrs = [[NSArray alloc] initWithArray:tempArray];
         [tempArray release];
     }
@@ -1510,6 +1720,7 @@ static id textMarkerRangeFromVisiblePositions(AXObjectCache *cache, const Visibl
     if (comboBoxAttrs == nil) {
         tempArray = [[NSMutableArray alloc] initWithArray:controlAttrs];
         [tempArray addObject:NSAccessibilityExpandedAttribute];
+        [tempArray addObject:NSAccessibilityOrientationAttribute];
         comboBoxAttrs = [[NSArray alloc] initWithArray:tempArray];
         [tempArray release];
     }
@@ -1525,6 +1736,8 @@ static id textMarkerRangeFromVisiblePositions(AXObjectCache *cache, const Visibl
         [tempArray addObject:NSAccessibilityHeaderAttribute];
         [tempArray addObject:NSAccessibilityColumnCountAttribute];
         [tempArray addObject:NSAccessibilityRowCountAttribute];
+        [tempArray addObject:NSAccessibilityARIAColumnCountAttribute];
+        [tempArray addObject:NSAccessibilityARIARowCountAttribute];
         tableAttrs = [[NSArray alloc] initWithArray:tempArray];
         [tempArray release];
     }
@@ -1549,6 +1762,8 @@ static id textMarkerRangeFromVisiblePositions(AXObjectCache *cache, const Visibl
         [tempArray addObject:NSAccessibilityColumnIndexRangeAttribute];
         [tempArray addObject:NSAccessibilityColumnHeaderUIElementsAttribute];
         [tempArray addObject:NSAccessibilityRowHeaderUIElementsAttribute];
+        [tempArray addObject:NSAccessibilityARIAColumnIndexAttribute];
+        [tempArray addObject:NSAccessibilityARIARowIndexAttribute];
         tableCellAttrs = [[NSArray alloc] initWithArray:tempArray];
         [tempArray release];
     }
@@ -1578,6 +1793,7 @@ static id textMarkerRangeFromVisiblePositions(AXObjectCache *cache, const Visibl
         tempArray = [[NSMutableArray alloc] initWithArray:attributes];
         [tempArray addObject:NSAccessibilityTabsAttribute];
         [tempArray addObject:NSAccessibilityContentsAttribute];
+        [tempArray addObject:NSAccessibilityOrientationAttribute];
         tabListAttrs = [[NSArray alloc] initWithArray:tempArray];
         [tempArray release];
     }
@@ -1586,6 +1802,7 @@ static id textMarkerRangeFromVisiblePositions(AXObjectCache *cache, const Visibl
         [tempArray addObject:NSAccessibilitySelectedRowsAttribute];
         [tempArray addObject:NSAccessibilityRowsAttribute];
         [tempArray addObject:NSAccessibilityColumnsAttribute];
+        [tempArray addObject:NSAccessibilityOrientationAttribute];
         outlineAttrs = [[NSArray alloc] initWithArray:tempArray];
         [tempArray release];
     }
@@ -1680,6 +1897,10 @@ static id textMarkerRangeFromVisiblePositions(AXObjectCache *cache, const Visibl
     NSArray *additionalAttributes = [self additionalAccessibilityAttributeNames];
     if ([additionalAttributes count])
         objectAttributes = [objectAttributes arrayByAddingObjectsFromArray:additionalAttributes];
+    
+    // Only expose AXARIACurrent attribute when the element is set to be current item.
+    if (m_object->ariaCurrentState() != ARIACurrentFalse)
+        objectAttributes = [objectAttributes arrayByAddingObjectsFromArray:@[ NSAccessibilityARIACurrentAttribute ]];
     
     return objectAttributes;
 }
@@ -1928,6 +2149,7 @@ static const AccessibilityRoleMap& createAccessibilityRoleMap()
         { ListBoxRole, NSAccessibilityListRole },
         { ListBoxOptionRole, NSAccessibilityStaticTextRole },
         { CellRole, NSAccessibilityCellRole },
+        { GridCellRole, NSAccessibilityCellRole },
         { TableHeaderContainerRole, NSAccessibilityGroupRole },
         { ColumnHeaderRole, NSAccessibilityCellRole },
         { RowHeaderRole, NSAccessibilityCellRole },
@@ -1936,12 +2158,13 @@ static const AccessibilityRoleMap& createAccessibilityRoleMap()
         { DescriptionListTermRole, NSAccessibilityGroupRole },
         { DescriptionListRole, NSAccessibilityListRole },
         { SliderThumbRole, NSAccessibilityValueIndicatorRole },
-        { LandmarkApplicationRole, NSAccessibilityGroupRole },
+        { WebApplicationRole, NSAccessibilityGroupRole },
         { LandmarkBannerRole, NSAccessibilityGroupRole },
         { LandmarkComplementaryRole, NSAccessibilityGroupRole },
         { LandmarkContentInfoRole, NSAccessibilityGroupRole },
         { LandmarkMainRole, NSAccessibilityGroupRole },
         { LandmarkNavigationRole, NSAccessibilityGroupRole },
+        { LandmarkRegionRole, NSAccessibilityGroupRole },
         { LandmarkSearchRole, NSAccessibilityGroupRole },
         { ApplicationAlertRole, NSAccessibilityGroupRole },
         { ApplicationAlertDialogRole, NSAccessibilityGroupRole },
@@ -1954,7 +2177,6 @@ static const AccessibilityRoleMap& createAccessibilityRoleMap()
         { DocumentArticleRole, NSAccessibilityGroupRole },
         { DocumentMathRole, NSAccessibilityGroupRole },
         { DocumentNoteRole, NSAccessibilityGroupRole },
-        { DocumentRegionRole, NSAccessibilityGroupRole },
         { UserInterfaceTooltipRole, NSAccessibilityGroupRole },
         { TabRole, NSAccessibilityRadioButtonRole },
         { TabListRole, NSAccessibilityTabGroupRole },
@@ -1987,6 +2209,10 @@ static const AccessibilityRoleMap& createAccessibilityRoleMap()
         { RubyTextRole, NSAccessibilityGroupRole },
         { DetailsRole, NSAccessibilityGroupRole },
         { SummaryRole, NSAccessibilityGroupRole },
+        { SVGTextPathRole, NSAccessibilityGroupRole },
+        { SVGTextRole, NSAccessibilityGroupRole },
+        { SVGTSpanRole, NSAccessibilityGroupRole },
+        { InlineRole, NSAccessibilityGroupRole },
     };
     AccessibilityRoleMap& roleMap = *new AccessibilityRoleMap;
     
@@ -2011,6 +2237,16 @@ static NSString* roleValueToNSString(AccessibilityRole value)
         return [[self attachmentView] accessibilityAttributeValue:NSAccessibilityRoleAttribute];
 #pragma clang diagnostic pop
     AccessibilityRole role = m_object->roleValue();
+
+    if (role == LabelRole && is<AccessibilityLabel>(*m_object) && downcast<AccessibilityLabel>(*m_object).containsOnlyStaticText())
+        role = StaticTextRole;
+
+    // The mfenced element creates anonymous RenderMathMLOperators with no RenderText
+    // descendants. Because these anonymous renderers are the only accessible objects
+    // containing the operator, assign StaticTextRole.
+    if (m_object->isAnonymousMathOperator())
+        role = StaticTextRole;
+
     if (role == CanvasRole && m_object->canvasHasFallbackContent())
         role = GroupRole;
     NSString* string = roleValueToNSString(role);
@@ -2067,8 +2303,6 @@ static NSString* roleValueToNSString(AccessibilityRole value)
     
     // ARIA content subroles.
     switch (role) {
-        case LandmarkApplicationRole:
-            return @"AXLandmarkApplication";
         case LandmarkBannerRole:
             return @"AXLandmarkBanner";
         case LandmarkComplementaryRole:
@@ -2081,6 +2315,8 @@ static NSString* roleValueToNSString(AccessibilityRole value)
             return @"AXLandmarkMain";
         case LandmarkNavigationRole:
             return @"AXLandmarkNavigation";
+        case LandmarkRegionRole:
+            return @"AXLandmarkRegion";
         case LandmarkSearchRole:
             return @"AXLandmarkSearch";
         case ApplicationAlertRole:
@@ -2105,8 +2341,6 @@ static NSString* roleValueToNSString(AccessibilityRole value)
             return @"AXDocumentMath";
         case DocumentNoteRole:
             return @"AXDocumentNote";
-        case DocumentRegionRole:
-            return @"AXDocumentRegion";
         case UserInterfaceTooltipRole:
             return @"AXUserInterfaceTooltip";
         case TabPanelRole:
@@ -2117,6 +2351,8 @@ static NSString* roleValueToNSString(AccessibilityRole value)
             return @"AXTerm";
         case DescriptionListDetailRole:
             return @"AXDescription";
+        case WebApplicationRole:
+            return @"AXWebApplication";
             // Default doesn't return anything, so roles defined below can be chosen.
         default:
             break;
@@ -2174,6 +2410,31 @@ static NSString* roleValueToNSString(AccessibilityRole value)
     if (m_object->isSwitch())
         return NSAccessibilitySwitchSubrole;
 
+    if (m_object->isStyleFormatGroup()) {
+        if (Node* node = m_object->node()) {
+            if (node->hasTagName(kbdTag))
+                return @"AXKeyboardInputStyleGroup";
+            if (node->hasTagName(codeTag))
+                return @"AXCodeStyleGroup";
+            if (node->hasTagName(preTag))
+                return @"AXPreformattedStyleGroup";
+            if (node->hasTagName(sampTag))
+                return @"AXSampleStyleGroup";
+            if (node->hasTagName(varTag))
+                return @"AXVariableStyleGroup";
+            if (node->hasTagName(citeTag))
+                return @"AXCiteStyleGroup";
+            if (node->hasTagName(insTag))
+                return @"AXInsertStyleGroup";
+            if (node->hasTagName(delTag))
+                return @"AXDeleteStyleGroup";
+            if (node->hasTagName(supTag))
+                return @"AXSuperscriptStyleGroup";
+            if (node->hasTagName(subTag))
+                return @"AXSubscriptStyleGroup";
+        }
+    }
+    
     // Ruby subroles
     switch (role) {
     case RubyBaseRole:
@@ -2317,6 +2578,9 @@ static NSString* roleValueToNSString(AccessibilityRole value)
 - (id)accessibilityAttributeValue:(NSString*)attributeName
 {
     if (![self updateObjectBackingStore])
+        return nil;
+    
+    if (m_object->isDetachedFromParent())
         return nil;
     
     if ([attributeName isEqualToString: NSAccessibilityRoleAttribute])
@@ -2555,14 +2819,14 @@ static NSString* roleValueToNSString(AccessibilityRole value)
     
     if ([attributeName isEqualToString: NSAccessibilityMinValueAttribute]) {
         // Indeterminate progress indicator should return 0.
-        if (m_object->isProgressIndicator() && !m_object->hasAttribute(aria_valuenowAttr))
+        if (m_object->ariaRoleAttribute() == ProgressIndicatorRole && !m_object->hasAttribute(aria_valuenowAttr))
             return @0;
         return [NSNumber numberWithFloat:m_object->minValueForRange()];
     }
     
     if ([attributeName isEqualToString: NSAccessibilityMaxValueAttribute]) {
         // Indeterminate progress indicator should return 0.
-        if (m_object->isProgressIndicator() && !m_object->hasAttribute(aria_valuenowAttr))
+        if (m_object->ariaRoleAttribute() == ProgressIndicatorRole && !m_object->hasAttribute(aria_valuenowAttr))
             return @0;
         return [NSNumber numberWithFloat:m_object->maxValueForRange()];
     }
@@ -2577,7 +2841,7 @@ static NSString* roleValueToNSString(AccessibilityRole value)
         return [NSNumber numberWithBool: m_object->isEnabled()];
     
     if ([attributeName isEqualToString: NSAccessibilitySizeAttribute]) {
-        IntSize s = m_object->elementRect().pixelSnappedSize();
+        IntSize s = snappedIntRect(m_object->elementRect()).size();
         return [NSValue valueWithSize: NSMakeSize(s.width(), s.height())];
     }
     
@@ -2697,6 +2961,12 @@ static NSString* roleValueToNSString(AccessibilityRole value)
         
         if ([attributeName isEqualToString:NSAccessibilityRowCountAttribute])
             return @(table.rowCount());
+        
+        if ([attributeName isEqualToString:NSAccessibilityARIAColumnCountAttribute])
+            return @(table.ariaColumnCount());
+        
+        if ([attributeName isEqualToString:NSAccessibilityARIARowCountAttribute])
+            return @(table.ariaRowCount());
     }
     
     if (is<AccessibilityTableColumn>(*m_object)) {
@@ -2739,6 +3009,11 @@ static NSString* roleValueToNSString(AccessibilityRole value)
             cell.rowHeaders(rowHeaders);
             return convertToNSArray(rowHeaders);
         }
+        if ([attributeName isEqualToString:NSAccessibilityARIAColumnIndexAttribute])
+            return @(cell.ariaColumnIndex());
+        
+        if ([attributeName isEqualToString:NSAccessibilityARIARowIndexAttribute])
+            return @(cell.ariaRowIndex());
     }
     
     if (m_object->isTree()) {
@@ -2854,6 +3129,26 @@ static NSString* roleValueToNSString(AccessibilityRole value)
     if ([attributeName isEqualToString: NSAccessibilitySelectedAttribute])
         return [NSNumber numberWithBool:m_object->isSelected()];
     
+    if ([attributeName isEqualToString: NSAccessibilityARIACurrentAttribute]) {
+        switch (m_object->ariaCurrentState()) {
+        case ARIACurrentFalse:
+            return @"false";
+        case ARIACurrentPage:
+            return @"page";
+        case ARIACurrentStep:
+            return @"step";
+        case ARIACurrentLocation:
+            return @"location";
+        case ARIACurrentTime:
+            return @"time";
+        case ARIACurrentDate:
+            return @"date";
+        default:
+        case ARIACurrentTrue:
+            return @"true";
+        }
+    }
+    
     if ([attributeName isEqualToString: NSAccessibilityServesAsTitleForUIElementsAttribute] && m_object->isMenuButton()) {
         AccessibilityObject* uiElement = downcast<AccessibilityRenderObject>(*m_object).menuForMenuButton();
         if (uiElement)
@@ -2870,12 +3165,8 @@ static NSString* roleValueToNSString(AccessibilityRole value)
         return nil;
     }
     
-    if ([attributeName isEqualToString:NSAccessibilityValueDescriptionAttribute]) {
-        if (m_object->isMeter())
-            return [self baseAccessibilityTitle];
-        
+    if ([attributeName isEqualToString:NSAccessibilityValueDescriptionAttribute])
         return m_object->valueDescription();
-    }
     
     if ([attributeName isEqualToString:NSAccessibilityOrientationAttribute]) {
         AccessibilityOrientation elementOrientation = m_object->orientation();
@@ -2883,6 +3174,8 @@ static NSString* roleValueToNSString(AccessibilityRole value)
             return NSAccessibilityVerticalOrientationValue;
         if (elementOrientation == AccessibilityOrientationHorizontal)
             return NSAccessibilityHorizontalOrientationValue;
+        if (elementOrientation == AccessibilityOrientationUndefined)
+            return NSAccessibilityUnknownOrientationValue;
         return nil;
     }
     
@@ -2945,6 +3238,20 @@ static NSString* roleValueToNSString(AccessibilityRole value)
     if ([attributeName isEqualToString:NSAccessibilityPlaceholderValueAttribute])
         return m_object->placeholderValue();
 
+    if ([attributeName isEqualToString:NSAccessibilityValueAutofillAvailableAttribute])
+        return @(m_object->isValueAutofillAvailable());
+    
+    if ([attributeName isEqualToString:NSAccessibilityValueAutofillTypeAttribute]) {
+        switch (m_object->valueAutofillButtonType()) {
+        case AutoFillButtonType::None:
+            return @"none";
+        case AutoFillButtonType::Credentials:
+            return @"credentials";
+        case AutoFillButtonType::Contacts:
+            return @"contacts";
+        }
+    }
+    
     if ([attributeName isEqualToString:NSAccessibilityValueAutofilledAttribute])
         return @(m_object->isValueAutofilled());
 
@@ -3038,6 +3345,45 @@ static NSString* roleValueToNSString(AccessibilityRole value)
     if (m_object->isWebArea() && [attributeName isEqualToString:NSAccessibilityCaretBrowsingEnabledAttribute])
         return [NSNumber numberWithBool:m_object->caretBrowsingEnabled()];
     
+    // Multi-selectable
+    if ([attributeName isEqualToString:NSAccessibilityIsMultiSelectableAttribute])
+        return [NSNumber numberWithBool:m_object->isMultiSelectable()];
+    
+    // Document attributes
+    if ([attributeName isEqualToString:NSAccessibilityDocumentURIAttribute]) {
+        if (Document* document = m_object->document())
+            return document->documentURI();
+        return nil;
+    }
+    
+    if ([attributeName isEqualToString:NSAccessibilityDocumentEncodingAttribute]) {
+        if (Document* document = m_object->document())
+            return document->encoding();
+        return nil;
+    }
+    
+    // Aria controls element
+    if ([attributeName isEqualToString:NSAccessibilityAriaControlsAttribute]) {
+        AccessibilityObject::AccessibilityChildrenVector ariaControls;
+        m_object->ariaControlsElements(ariaControls);
+        return convertToNSArray(ariaControls);
+    }
+
+    if ([attributeName isEqualToString:NSAccessibilityFocusableAncestorAttribute]) {
+        AccessibilityObject* object = m_object->focusableAncestor();
+        return object ? object->wrapper() : nil;
+    }
+
+    if ([attributeName isEqualToString:NSAccessibilityEditableAncestorAttribute]) {
+        AccessibilityObject* object = m_object->editableAncestor();
+        return object ? object->wrapper() : nil;
+    }
+
+    if ([attributeName isEqualToString:NSAccessibilityHighestEditableAncestorAttribute]) {
+        AccessibilityObject* object = m_object->highestEditableAncestor();
+        return object ? object->wrapper() : nil;
+    }
+
     return nil;
 }
 
@@ -3320,6 +3666,16 @@ static NSString* roleValueToNSString(AccessibilityRole value)
     m_object->scrollToMakeVisible();
 }
 
+- (void)_accessibilityScrollToMakeVisibleWithSubFocus:(NSRect)rect
+{
+    m_object->scrollToMakeVisibleWithSubFocus(IntRect(rect));
+}
+
+- (void)_accessibilityScrollToGlobalPoint:(NSPoint)point
+{
+    m_object->scrollToGlobalPoint(IntPoint(point));
+}
+
 - (void)accessibilityPerformAction:(NSString*)action
 {
     if (![self updateObjectBackingStore])
@@ -3343,7 +3699,7 @@ static NSString* roleValueToNSString(AccessibilityRole value)
 
 - (void)accessibilitySetValue:(id)value forAttribute:(NSString*)attributeName
 {
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+#if PLATFORM(MAC)
     // In case anything we do by changing values causes an alert or other modal
     // behaviors, we need to return now, so that VoiceOver doesn't hang indefinitely.
     dispatch_async(dispatch_get_main_queue(), ^{
@@ -3491,14 +3847,14 @@ static RenderObject* rendererForView(NSView* view)
 - (NSAttributedString*)doAXAttributedStringForRange:(NSRange)range
 {
     PlainTextRange textRange = PlainTextRange(range.location, range.length);
-    VisiblePositionRange visiblePosRange = m_object->visiblePositionRangeForRange(textRange);
-    return [self doAXAttributedStringForTextMarkerRange:[self textMarkerRangeFromVisiblePositions:visiblePosRange.start endPosition:visiblePosRange.end]];
+    RefPtr<Range> webRange = m_object->rangeForPlainTextRange(textRange);
+    return [self doAXAttributedStringForTextMarkerRange:[self textMarkerRangeFromRange:webRange]];
 }
 
 - (NSRange)_convertToNSRange:(Range*)range
 {
     NSRange result = NSMakeRange(NSNotFound, 0);
-    if (!range || !range->startContainer())
+    if (!range)
         return result;
     
     Document* document = m_object->document();
@@ -3519,8 +3875,13 @@ static RenderObject* rendererForView(NSView* view)
     if (!marker)
         return NSNotFound;
     
-    VisibleSelection selection([self visiblePositionForTextMarker:marker]);
-    return [self _convertToNSRange:selection.toNormalizedRange().get()].location;
+    if (AXObjectCache* cache = m_object->axObjectCache()) {
+        CharacterOffset characterOffset = [self characterOffsetForTextMarker:marker];
+        // Create a collapsed range from the CharacterOffset object.
+        RefPtr<Range> range = cache->rangeForUnorderedCharacterOffsets(characterOffset, characterOffset);
+        return [self _convertToNSRange:range.get()].location;
+    }
+    return NSNotFound;
 }
 
 - (id)_textMarkerForIndex:(NSInteger)textIndex
@@ -3529,12 +3890,15 @@ static RenderObject* rendererForView(NSView* view)
     if (!document)
         return nil;
     
-    PassRefPtr<Range> textRange = TextIterator::rangeFromLocationAndLength(document->documentElement(), textIndex, 0);
+    RefPtr<Range> textRange = TextIterator::rangeFromLocationAndLength(document->documentElement(), textIndex, 0);
     if (!textRange || !textRange->boundaryPointsValid())
         return nil;
     
-    VisiblePosition position(textRange->startPosition());
-    return [self textMarkerForVisiblePosition:position];
+    if (AXObjectCache* cache = m_object->axObjectCache()) {
+        CharacterOffset characterOffset = cache->startOrEndCharacterOffsetForRange(textRange, true);
+        return [self textMarkerForCharacterOffset:characterOffset];
+    }
+    return nil;
 }
 
 // The RTF representation of the text associated with this accessibility object that is
@@ -3622,6 +3986,10 @@ static void formatForDebugger(const VisiblePositionRange& range, char* buffer, u
     if (![self updateObjectBackingStore])
         return nil;
     
+    AXObjectCache* cache = m_object->axObjectCache();
+    if (!cache)
+        return nil;
+    
     // common parameter type check/casting.  Nil checks in handlers catch wrong type case.
     // NOTE: This assumes nil is not a valid parameter, because it is indistinguishable from
     // a parameter of the wrong type.
@@ -3679,11 +4047,13 @@ static void formatForDebugger(const VisiblePositionRange& range, char* buffer, u
     
     if ([attribute isEqualToString:NSAccessibilityEndTextMarkerForBoundsParameterizedAttribute]) {
         IntRect webCoreRect = [self screenToContents:enclosingIntRect(rect)];
-        return [self textMarkerForVisiblePosition:m_object->visiblePositionForBounds(webCoreRect, LastVisiblePositionForBounds)];
+        CharacterOffset characterOffset = cache->characterOffsetForBounds(webCoreRect, false);
+        return [self textMarkerForCharacterOffset:characterOffset];
     }
     if ([attribute isEqualToString:NSAccessibilityStartTextMarkerForBoundsParameterizedAttribute]) {
         IntRect webCoreRect = [self screenToContents:enclosingIntRect(rect)];
-        return [self textMarkerForVisiblePosition:m_object->visiblePositionForBounds(webCoreRect, FirstVisiblePositionForBounds)];
+        CharacterOffset characterOffset = cache->characterOffsetForBounds(webCoreRect, true);
+        return [self textMarkerForCharacterOffset:characterOffset];
     }
     
     if ([attribute isEqualToString:NSAccessibilityLineTextMarkerRangeForTextMarkerParameterizedAttribute]) {
@@ -3704,16 +4074,15 @@ static void formatForDebugger(const VisiblePositionRange& range, char* buffer, u
     }
     
     if ([attribute isEqualToString:@"AXUIElementForTextMarker"]) {
-        VisiblePosition visiblePos = [self visiblePositionForTextMarker:(textMarker)];
-        AccessibilityObject* axObject = m_object->accessibilityObjectForPosition(visiblePos);
+        AccessibilityObject* axObject = [self accessibilityObjectForTextMarker:textMarker];
         if (!axObject)
             return nil;
         return axObject->wrapper();
     }
     
     if ([attribute isEqualToString:@"AXTextMarkerRangeForUIElement"]) {
-        VisiblePositionRange vpRange = uiElement.get()->visiblePositionRange();
-        return [self textMarkerRangeFromVisiblePositions:vpRange.start endPosition:vpRange.end];
+        RefPtr<Range> range = uiElement.get()->elementRange();
+        return [self textMarkerRangeFromRange:range];
     }
     
     if ([attribute isEqualToString:@"AXLineForTextMarker"]) {
@@ -3727,36 +4096,41 @@ static void formatForDebugger(const VisiblePositionRange& range, char* buffer, u
     }
     
     if ([attribute isEqualToString:@"AXStringForTextMarkerRange"]) {
-        VisiblePositionRange visiblePosRange = [self visiblePositionRangeForTextMarkerRange:textMarkerRange];
-        return m_object->stringForVisiblePositionRange(visiblePosRange);
+        RefPtr<Range> range = [self rangeForTextMarkerRange:textMarkerRange];
+        return m_object->stringForRange(range);
     }
     
     if ([attribute isEqualToString:@"AXTextMarkerForPosition"]) {
         IntPoint webCorePoint = IntPoint(point);
-        return pointSet ? [self textMarkerForVisiblePosition:m_object->visiblePositionForPoint(webCorePoint)] : nil;
+        if (!pointSet)
+            return nil;
+        CharacterOffset characterOffset = cache->characterOffsetForPoint(webCorePoint, m_object);
+        return [self textMarkerForCharacterOffset:characterOffset];
     }
     
     if ([attribute isEqualToString:@"AXBoundsForTextMarkerRange"]) {
-        VisiblePositionRange visiblePosRange = [self visiblePositionRangeForTextMarkerRange:textMarkerRange];
-        NSRect rect = m_object->boundsForVisiblePositionRange(visiblePosRange);
+        RefPtr<Range> range = [self rangeForTextMarkerRange:textMarkerRange];
+        NSRect rect = m_object->boundsForRange(range);
         return [NSValue valueWithRect:rect];
     }
     
     if ([attribute isEqualToString:NSAccessibilityBoundsForRangeParameterizedAttribute]) {
-        VisiblePosition start = m_object->visiblePositionForIndex(range.location);
-        VisiblePosition end = m_object->visiblePositionForIndex(range.location+range.length);
+        CharacterOffset start = cache->characterOffsetForIndex(range.location, m_object);
+        CharacterOffset end = cache->characterOffsetForIndex(range.location+range.length, m_object);
         if (start.isNull() || end.isNull())
             return nil;
-        NSRect rect = m_object->boundsForVisiblePositionRange(VisiblePositionRange(start, end));
+        RefPtr<Range> range = cache->rangeForUnorderedCharacterOffsets(start, end);
+        NSRect rect = m_object->boundsForRange(range);
         return [NSValue valueWithRect:rect];
     }
     
     if ([attribute isEqualToString:NSAccessibilityStringForRangeParameterizedAttribute]) {
-        VisiblePosition start = m_object->visiblePositionForIndex(range.location);
-        VisiblePosition end = m_object->visiblePositionForIndex(range.location+range.length);
+        CharacterOffset start = cache->characterOffsetForIndex(range.location, m_object);
+        CharacterOffset end = cache->characterOffsetForIndex(range.location + range.length, m_object);
         if (start.isNull() || end.isNull())
             return nil;
-        return m_object->stringForVisiblePositionRange(VisiblePositionRange(start, end));
+        RefPtr<Range> range = cache->rangeForUnorderedCharacterOffsets(start, end);
+        return m_object->stringForRange(range);
     }
     
     if ([attribute isEqualToString:@"AXAttributedStringForTextMarkerRange"])
@@ -3771,32 +4145,32 @@ static void formatForDebugger(const VisiblePositionRange& range, char* buffer, u
         if (!AXObjectIsTextMarker(textMarker1) || !AXObjectIsTextMarker(textMarker2))
             return nil;
         
-        VisiblePosition visiblePos1 = [self visiblePositionForTextMarker:(textMarker1)];
-        VisiblePosition visiblePos2 = [self visiblePositionForTextMarker:(textMarker2)];
-        VisiblePositionRange vpRange = m_object->visiblePositionRangeForUnorderedPositions(visiblePos1, visiblePos2);
-        return [self textMarkerRangeFromVisiblePositions:vpRange.start endPosition:vpRange.end];
+        CharacterOffset characterOffset1 = [self characterOffsetForTextMarker:textMarker1];
+        CharacterOffset characterOffset2 = [self characterOffsetForTextMarker:textMarker2];
+        RefPtr<Range> range = cache->rangeForUnorderedCharacterOffsets(characterOffset1, characterOffset2);
+        return [self textMarkerRangeFromRange:range];
     }
     
     if ([attribute isEqualToString:@"AXNextTextMarkerForTextMarker"]) {
-        VisiblePosition visiblePos = [self visiblePositionForTextMarker:(textMarker)];
-        return [self textMarkerForVisiblePosition:m_object->nextVisiblePosition(visiblePos)];
+        CharacterOffset characterOffset = [self characterOffsetForTextMarker:textMarker];
+        return [self nextTextMarkerForCharacterOffset:characterOffset];
     }
     
     if ([attribute isEqualToString:@"AXPreviousTextMarkerForTextMarker"]) {
-        VisiblePosition visiblePos = [self visiblePositionForTextMarker:(textMarker)];
-        return [self textMarkerForVisiblePosition:m_object->previousVisiblePosition(visiblePos)];
+        CharacterOffset characterOffset = [self characterOffsetForTextMarker:textMarker];
+        return [self previousTextMarkerForCharacterOffset:characterOffset];
     }
     
     if ([attribute isEqualToString:@"AXLeftWordTextMarkerRangeForTextMarker"]) {
-        VisiblePosition visiblePos = [self visiblePositionForTextMarker:(textMarker)];
-        VisiblePositionRange vpRange = m_object->positionOfLeftWord(visiblePos);
-        return [self textMarkerRangeFromVisiblePositions:vpRange.start endPosition:vpRange.end];
+        CharacterOffset characterOffset = [self characterOffsetForTextMarker:textMarker];
+        RefPtr<Range> range = cache->leftWordRange(characterOffset);
+        return [self textMarkerRangeFromRange:range];
     }
     
     if ([attribute isEqualToString:@"AXRightWordTextMarkerRangeForTextMarker"]) {
-        VisiblePosition visiblePos = [self visiblePositionForTextMarker:(textMarker)];
-        VisiblePositionRange vpRange = m_object->positionOfRightWord(visiblePos);
-        return [self textMarkerRangeFromVisiblePositions:vpRange.start endPosition:vpRange.end];
+        CharacterOffset characterOffset = [self characterOffsetForTextMarker:textMarker];
+        RefPtr<Range> range = cache->rightWordRange(characterOffset);
+        return [self textMarkerRangeFromRange:range];
     }
     
     if ([attribute isEqualToString:@"AXLeftLineTextMarkerRangeForTextMarker"]) {
@@ -3812,25 +4186,27 @@ static void formatForDebugger(const VisiblePositionRange& range, char* buffer, u
     }
     
     if ([attribute isEqualToString:@"AXSentenceTextMarkerRangeForTextMarker"]) {
-        VisiblePosition visiblePos = [self visiblePositionForTextMarker:(textMarker)];
-        VisiblePositionRange vpRange = m_object->sentenceForPosition(visiblePos);
-        return [self textMarkerRangeFromVisiblePositions:vpRange.start endPosition:vpRange.end];
+        CharacterOffset characterOffset = [self characterOffsetForTextMarker:textMarker];
+        RefPtr<Range> range = cache->sentenceForCharacterOffset(characterOffset);
+        return [self textMarkerRangeFromRange:range];
     }
     
     if ([attribute isEqualToString:@"AXParagraphTextMarkerRangeForTextMarker"]) {
-        VisiblePosition visiblePos = [self visiblePositionForTextMarker:(textMarker)];
-        VisiblePositionRange vpRange = m_object->paragraphForPosition(visiblePos);
-        return [self textMarkerRangeFromVisiblePositions:vpRange.start endPosition:vpRange.end];
+        CharacterOffset characterOffset = [self characterOffsetForTextMarker:textMarker];
+        RefPtr<Range> range = cache->paragraphForCharacterOffset(characterOffset);
+        return [self textMarkerRangeFromRange:range];
     }
     
     if ([attribute isEqualToString:@"AXNextWordEndTextMarkerForTextMarker"]) {
-        VisiblePosition visiblePos = [self visiblePositionForTextMarker:(textMarker)];
-        return [self textMarkerForVisiblePosition:m_object->nextWordEnd(visiblePos)];
+        CharacterOffset characterOffset = [self characterOffsetForTextMarker:textMarker];
+        CharacterOffset nextEnd = cache->nextWordEndCharacterOffset(characterOffset);
+        return [self textMarkerForCharacterOffset:nextEnd];
     }
     
     if ([attribute isEqualToString:@"AXPreviousWordStartTextMarkerForTextMarker"]) {
-        VisiblePosition visiblePos = [self visiblePositionForTextMarker:(textMarker)];
-        return [self textMarkerForVisiblePosition:m_object->previousWordStart(visiblePos)];
+        CharacterOffset characterOffset = [self characterOffsetForTextMarker:textMarker];
+        CharacterOffset previousStart = cache->previousWordStartCharacterOffset(characterOffset);
+        return [self textMarkerForCharacterOffset:previousStart];
     }
     
     if ([attribute isEqualToString:@"AXNextLineEndTextMarkerForTextMarker"]) {
@@ -3844,23 +4220,27 @@ static void formatForDebugger(const VisiblePositionRange& range, char* buffer, u
     }
     
     if ([attribute isEqualToString:@"AXNextSentenceEndTextMarkerForTextMarker"]) {
-        VisiblePosition visiblePos = [self visiblePositionForTextMarker:(textMarker)];
-        return [self textMarkerForVisiblePosition:m_object->nextSentenceEndPosition(visiblePos)];
+        CharacterOffset characterOffset = [self characterOffsetForTextMarker:textMarker];
+        CharacterOffset nextEnd = cache->nextSentenceEndCharacterOffset(characterOffset);
+        return [self textMarkerForCharacterOffset:nextEnd];
     }
     
     if ([attribute isEqualToString:@"AXPreviousSentenceStartTextMarkerForTextMarker"]) {
-        VisiblePosition visiblePos = [self visiblePositionForTextMarker:(textMarker)];
-        return [self textMarkerForVisiblePosition:m_object->previousSentenceStartPosition(visiblePos)];
+        CharacterOffset characterOffset = [self characterOffsetForTextMarker:textMarker];
+        CharacterOffset previousStart = cache->previousSentenceStartCharacterOffset(characterOffset);
+        return [self textMarkerForCharacterOffset:previousStart];
     }
     
     if ([attribute isEqualToString:@"AXNextParagraphEndTextMarkerForTextMarker"]) {
-        VisiblePosition visiblePos = [self visiblePositionForTextMarker:(textMarker)];
-        return [self textMarkerForVisiblePosition:m_object->nextParagraphEndPosition(visiblePos)];
+        CharacterOffset characterOffset = [self characterOffsetForTextMarker:textMarker];
+        CharacterOffset nextEnd = cache->nextParagraphEndCharacterOffset(characterOffset);
+        return [self textMarkerForCharacterOffset:nextEnd];
     }
     
     if ([attribute isEqualToString:@"AXPreviousParagraphStartTextMarkerForTextMarker"]) {
-        VisiblePosition visiblePos = [self visiblePositionForTextMarker:(textMarker)];
-        return [self textMarkerForVisiblePosition:m_object->previousParagraphStartPosition(visiblePos)];
+        CharacterOffset characterOffset = [self characterOffsetForTextMarker:textMarker];
+        CharacterOffset previousStart = cache->previousParagraphStartCharacterOffset(characterOffset);
+        return [self textMarkerForCharacterOffset:previousStart];
     }
     
     if ([attribute isEqualToString:@"AXStyleTextMarkerRangeForTextMarker"]) {
@@ -3870,8 +4250,8 @@ static void formatForDebugger(const VisiblePositionRange& range, char* buffer, u
     }
     
     if ([attribute isEqualToString:@"AXLengthForTextMarkerRange"]) {
-        VisiblePositionRange visiblePosRange = [self visiblePositionRangeForTextMarkerRange:textMarkerRange];
-        int length = m_object->lengthForVisiblePositionRange(visiblePosRange);
+        RefPtr<Range> range = [self rangeForTextMarkerRange:textMarkerRange];
+        int length = AXObjectCache::lengthForRange(range.get());
         if (length < 0)
             return nil;
         return [NSNumber numberWithInt:length];
@@ -3879,13 +4259,13 @@ static void formatForDebugger(const VisiblePositionRange& range, char* buffer, u
     
     // Used only by DumpRenderTree (so far).
     if ([attribute isEqualToString:@"AXStartTextMarkerForTextMarkerRange"]) {
-        VisiblePositionRange visiblePosRange = [self visiblePositionRangeForTextMarkerRange:textMarkerRange];
-        return [self textMarkerForVisiblePosition:visiblePosRange.start];
+        RefPtr<Range> range = [self rangeForTextMarkerRange:textMarkerRange];
+        return [self startOrEndTextMarkerForRange:range isStart:YES];
     }
     
     if ([attribute isEqualToString:@"AXEndTextMarkerForTextMarkerRange"]) {
-        VisiblePositionRange visiblePosRange = [self visiblePositionRangeForTextMarkerRange:textMarkerRange];
-        return [self textMarkerForVisiblePosition:visiblePosRange.end];
+        RefPtr<Range> range = [self rangeForTextMarkerRange:textMarkerRange];
+        return [self startOrEndTextMarkerForRange:range isStart:NO];
     }
 
 #if ENABLE(TREE_DEBUGGING)
@@ -3953,7 +4333,7 @@ static void formatForDebugger(const VisiblePositionRange& range, char* buffer, u
             if (!rangeSet)
                 return nil;
             PlainTextRange plainTextRange = PlainTextRange(range.location, range.length);
-            NSRect rect = m_object->doAXBoundsForRange(plainTextRange);
+            NSRect rect = m_object->doAXBoundsForRangeUsingCharacterOffset(plainTextRange);
             return [NSValue valueWithRect:rect];
         }
         

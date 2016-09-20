@@ -1687,7 +1687,7 @@ DbModifier::commit()
         return;
     try
     {
-        secdebugfunc("integrity", "committing to %s", mAtomicFile.path().c_str());
+        secnotice("integrity", "committing to %s", mAtomicFile.path().c_str());
 
 		WriteSection aHeaderSection(Allocator::standard(), size_t(HeaderSize));
 		// Set aHeaderSection to the correct size.
@@ -2550,6 +2550,14 @@ AppleDatabase::passThrough(DbContext &dbContext,
         dbMakeBackup();
         break;
 
+    case CSSM_APPLEFILEDL_MAKE_COPY:
+        dbMakeCopy((const char *) inputParams);
+        break;
+
+    case CSSM_APPLEFILEDL_DELETE_FILE:
+        dbDeleteFile();
+        break;
+
 	case CSSM_APPLECSPDL_DB_RELATION_EXISTS:
 	{
 		CSSM_BOOL returnValue;
@@ -2581,11 +2589,20 @@ AppleDatabase::dbMakeBackup() {
     string filename_temp(filename_temp_cstr);
     filename_temp += "_backup";
 
-    const char * dstFilename = filename_temp.c_str();
     free(filename_temp_cstr);
 
-    if(copyfile(mAtomicFile.path().c_str(), dstFilename, NULL, COPYFILE_ALL) < 0) {
+    dbMakeCopy(filename_temp.c_str());
+}
+
+void
+AppleDatabase::dbMakeCopy(const char* path) {
+    if(copyfile(mAtomicFile.path().c_str(), path, NULL, COPYFILE_UNLINK | COPYFILE_ALL) < 0) {
         UnixError::throwMe(errno);
     }
 }
 
+void AppleDatabase::dbDeleteFile() {
+    if(unlink(mAtomicFile.path().c_str()) < 0) {
+        UnixError::throwMe(errno);
+    }
+}

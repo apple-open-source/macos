@@ -430,6 +430,8 @@ struct IOFramebufferPrivate
     IOIndex                     currentDepth;
 
     int32_t                     lastProcessedChange;
+
+    uint8_t                     wsaaState;
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -1710,6 +1712,11 @@ IOReturn IOFramebuffer::extSetGammaTable(
     UInt32          dataWidth     = args->scalarInput[2];
     IOReturn        err;
     IOByteCount     dataLen;
+
+    // <rdar://problem/23114787> Integer overflow in IOFramebuffer::extSetGammaTable
+    // <rdar://problem/23814363> IOFramebuffer::extSetGammaTable integer overflow when calculating dataLen
+    if ((channelCount > 3) || (dataCount > 1024) || (0 == dataWidth) || (dataWidth > 16))
+        return kIOReturnBadArgument;
 
     if ((err = inst->extEntry(true)))
         return (err);
@@ -3425,6 +3432,12 @@ void IOFramebuffer::transformCursor( StdFBShmem_t * shmem, IOIndex frame )
     sw = shmem->cursorSize[0 != frame].width;
     sh = shmem->cursorSize[0 != frame].height;
 
+    // <rdar://problem/22099296> potential integer overflow in IOFramebuffer::transformCursor
+    if (sw > maxCursorSize.width)
+        sw = maxCursorSize.width;
+    if (sh > maxCursorSize.height)
+        sh = maxCursorSize.height;
+
     if (kIOFBSwapAxes & __private->transform)
     {
         dw = sh;
@@ -4204,7 +4217,7 @@ IOReturn IOFramebuffer::restoreFramebuffer(IOIndex event)
 
 		if (frameBuffer)
 		{
-			if (kIOScreenRestoreStateDark == restoreType)
+            if (kIOScreenRestoreStateDark == restoreType)
 			{
 				volatile unsigned char * line = frameBuffer;
 				for (uint32_t y = 0; y < __private->framebufferHeight; y++)
@@ -6456,7 +6469,9 @@ IOReturn IOFramebuffer::open( void )
                 panic("controller->workES");
 			__private->controller->wl->addEventSource(__private->controller->workES);
 			__private->controller->didWork = true;
-		}
+
+            __private->wsaaState = kIOWSAA_DriverOpen;
+        }
 		if (__private->controller->integrated) setProperty(kIOFBIntegratedKey, kOSBooleanTrue);
 
 		FBLOCK(this);
@@ -6772,7 +6787,6 @@ IOReturn IOFramebuffer::open( void )
 			setAttribute(kIOFBSpeedAttribute, __private->reducedSpeed);
 			__private->controller->powerThread = NULL;
 		}
-		setAttribute(kIOWindowServerActiveAttribute, (uintptr_t) true);
 		FBUNLOCK(this);
 	}
     
@@ -6975,7 +6989,7 @@ void IOFramebuffer::initFB(void)
 		}
 		DEBG1(thisName, " initFB: needsInit %d logo %d\n", 
 				__private->needsInit, logo);
-		if (gIOFBVerboseBoot || (2 != __private->needsInit))
+		if (gIOFBVerboseBoot || ((2 != __private->needsInit) && (!gIOFBBlackBootTheme)))
 		{
 			IOFramebufferBootInitFB(
 				vramMap->getVirtualAddress(), 
@@ -6986,7 +7000,7 @@ void IOFramebuffer::initFB(void)
 		}
 		DEBG1(thisName, " initFB: done\n");
 		bool bootGamma = getProperty(kIOFBBootGammaRestoredKey, gIOServicePlane);
-		if (logo && !bootGamma) updateGammaTable(3, 256, 16, NULL, false);
+		if (logo && !bootGamma && !gIOFBBlackBootTheme) updateGammaTable(3, 256, 16, NULL, false);
 		__private->needsInit = false;
 		setProperty(kIOFBNeedsRefreshKey, (0 == logo));
 		setProperty(kIOFBBootGammaRestoredKey, bootGamma ? gIOFBOne32Data : gIOFBZero32Data);
@@ -6997,9 +7011,18 @@ void IOFramebuffer::initFB(void)
 IOReturn IOFramebuffer::postOpen( void )
 {
 	OSObject * obj;
+    OSBoolean * osb;
+
 	__private->needsInit = true;
 	obj = getProperty(kIOFBNeedsRefreshKey);
-	__private->needsInit += (kOSBooleanFalse == getProperty(kIOFBNeedsRefreshKey));
+    if (NULL != obj)
+    {
+        osb = OSDynamicCast(OSBoolean, obj);
+        if (NULL != osb)
+        {
+            __private->needsInit += osb->isFalse();
+        }
+    }
 	setProperty(kIOFBNeedsRefreshKey, true);
 	initFB();
 
@@ -7188,7 +7211,8 @@ void IOFramebuffer::close( void )       // called by the user client when
     if ((err = extEntrySys(true)))
         return;
 
-	setAttribute(kIOWindowServerActiveAttribute, (uintptr_t) false);
+    setWSAAAttribute(kIOWindowServerActiveAttribute, (uintptr_t) kIOWSAA_Unaccelerated);
+    __private->wsaaState = kIOWSAA_DriverOpen;
 
     if ((this == gIOFBConsoleFramebuffer) && getPowerState())
         getPlatform()->setConsoleInfo( 0, kPEAcquireScreen);
@@ -7722,6 +7746,68 @@ IOReturn IOFramebuffer::extSetMirrorOne(uint32_t value, IOFramebuffer * other)
 	return (err);
 }
 
+IOReturn IOFramebuffer::setWSAAAttribute(IOSelect attribute, uint32_t value)
+{
+    IOReturn    err = kIOReturnSuccess;
+
+    // <rdar://problem/24449391> J94 Fuji- color screen on external while rebooting with MST display attached
+    /* Discussion:
+     Sending the Will/Did change event before kIOWSAA_From_Accelerated forces the IOAcceleratorFamily
+     to issue a flip from the scanout buffer back to the IOFramebuffer owned framebuffer, thus preventing the
+     teardown of a scanout buffer that is in active use since the flip was deferred due to kIOWSAA_From_Accelerated.
+     */
+    switch (value & (~(kIOWSAA_Transactional)))
+    {
+        case kIOWSAA_To_Accelerated:
+        case kIOWSAA_From_Accelerated:
+        case kIOWSAA_Sleep:
+            /* case kIOWSAA_Hibernate: */
+        {
+            // Enter deferred state, then send the deferred event
+            FBLOCK(this);
+            deliverFramebufferNotification(kIOFBNotifyWSAAEnterDefer);
+            FBUNLOCK(this);
+
+            err = setAttribute( attribute, value );
+            // Only save the state if the vendor responded favorably to the attribute.
+            if (kIOReturnSuccess == err)
+            {
+                __private->wsaaState = value;
+            }
+
+            break;
+        }
+        case kIOWSAA_Unaccelerated:
+        case kIOWSAA_Accelerated:
+        {
+            // Send the non-deferred event, then exit deferred state
+            err = setAttribute( attribute, value );
+            // Only save the state if the vendor responded favorably to the attribute.
+            if (kIOReturnSuccess == err)
+            {
+                __private->wsaaState = value;
+            }
+
+            FBLOCK(this);
+            deliverFramebufferNotification(kIOFBNotifyWSAAExitDefer);
+            FBUNLOCK(this);
+
+            break;
+        }
+        case kIOWSAA_DeferStart:
+        case kIOWSAA_DeferEnd:
+        case kIOWSAA_DriverOpen:
+            /* case kIOWSAA_Transactional: */
+        default:
+        {
+            // These attributes require no action be sent to the vendor driver.
+            break;
+        }
+    }
+
+    return (err);
+}
+
 IOReturn IOFramebuffer::extSetAttribute(
         OSObject * target, void * reference, IOExternalMethodArguments * args)
 {
@@ -7729,10 +7815,14 @@ IOReturn IOFramebuffer::extSetAttribute(
     IOSelect        attribute = args->scalarInput[0];
     uint32_t        value     = args->scalarInput[1];
     IOFramebuffer * other     = (IOFramebuffer *) reference;
+    bool            bAllow    = false;
 
     IOReturn    err;
 
-    if ((err = inst->extEntry(false)))
+    if (kIOWindowServerActiveAttribute == attribute)
+        bAllow = true;
+
+    if ((err = inst->extEntry(bAllow)))
         return (err);
     
     switch (attribute)
@@ -7755,6 +7845,9 @@ IOReturn IOFramebuffer::extSetAttribute(
 			err = kIOReturnBadArgument;
 			break;
 
+        case kIOWindowServerActiveAttribute:
+            err = inst->setWSAAAttribute(attribute, value);
+            break;
         default:
             err = inst->setAttribute( attribute, value );
             break;
@@ -8506,6 +8599,14 @@ IOReturn IOFramebuffer::deliverFramebufferNotification(
         case kIOFBNotifyOnlineChange:
             name = "kIOFBNotifyOnlineChange";
             break;
+#if IOFRAMEBUFFER_REV >= 2
+        case kIOFBNotifyWSAAEnterDefer:
+            name = "kIOFBNotifyWSAAEnterDefer";
+            break;
+        case kIOFBNotifyWSAAExitDefer:
+            name = "kIOFBNotifyWSAAExitDefer";
+            break;
+#endif /*IOFRAMEBUFFER_REV >= 2*/
     }
 #endif
     

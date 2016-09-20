@@ -26,11 +26,10 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-typedef struct _CFURLResponse* CFURLResponseRef;
+#include "CFNetworkSPI.h"
 
 #ifdef __OBJC__
 @interface NSURLResponse (Details)
-- (CFURLResponseRef)_CFURLResponse;
 - (void)_setMIMEType:(NSString *)type;
 @end
 
@@ -39,10 +38,10 @@ typedef struct _CFURLResponse* CFURLResponseRef;
 @class NSURLResponse;
 
 namespace WebCore {
-WEBCORE_EXPORT NSURLResponse *synthesizeRedirectResponseIfNecessary(NSURLConnection *, NSURLRequest *newRequest, NSURLResponse *redirectResponse);
+WEBCORE_EXPORT NSURLResponse *synthesizeRedirectResponseIfNecessary(NSURLRequest *currentRequest, NSURLRequest *newRequest, NSURLResponse *redirectResponse);
 }
 #endif // __OBJC__
 
 namespace WebCore {
-void adjustMIMETypeIfNecessary(CFURLResponseRef);
+WEBCORE_EXPORT void adjustMIMETypeIfNecessary(CFURLResponseRef, bool isMainResourceLoad);
 }

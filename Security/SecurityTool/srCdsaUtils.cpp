@@ -262,7 +262,7 @@ CSSM_TP_HANDLE srTpStartup()
  * CSSM_CONTEXT_ATTRIBUTE to the context as specified by AttributeType,
  * AttributeLength, and an untyped pointer.
  */
-CSSM_RETURN srAddContextAttribute(CSSM_CC_HANDLE CCHandle,
+static CSSM_RETURN srAddContextAttribute(CSSM_CC_HANDLE CCHandle,
 	uint32 AttributeType,
 	uint32 AttributeLength,
 	const void *AttributePtr)

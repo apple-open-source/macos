@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2016 Apple Inc. All rights reserved.
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,11 +51,12 @@ class ResourceResponse;
 
 class PolicyChecker {
     WTF_MAKE_NONCOPYABLE(PolicyChecker);
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit PolicyChecker(Frame&);
 
-    void checkNavigationPolicy(const ResourceRequest&, DocumentLoader*, PassRefPtr<FormState>, NavigationPolicyDecisionFunction);
-    void checkNavigationPolicy(const ResourceRequest&, NavigationPolicyDecisionFunction);
+    void checkNavigationPolicy(const ResourceRequest&, bool didReceiveRedirectResponse, DocumentLoader*, PassRefPtr<FormState>, NavigationPolicyDecisionFunction);
+    void checkNavigationPolicy(const ResourceRequest&, bool didReceiveRedirectResponse, NavigationPolicyDecisionFunction);
     void checkNewWindowPolicy(const NavigationAction&, const ResourceRequest&, PassRefPtr<FormState>, const String& frameName, NewWindowPolicyDecisionFunction);
     void checkContentPolicy(const ResourceResponse&, ContentPolicyDecisionFunction);
 
@@ -68,6 +69,8 @@ public:
     FrameLoadType loadType() const { return m_loadType; }
     void setLoadType(FrameLoadType loadType) { m_loadType = loadType; }
 
+    void setSuggestedFilename(const String& suggestedFilename) { m_suggestedFilename = suggestedFilename; }
+
     bool delegateIsDecidingNavigationPolicy() const { return m_delegateIsDecidingNavigationPolicy; }
     bool delegateIsHandlingUnimplementablePolicy() const { return m_delegateIsHandlingUnimplementablePolicy; }
 
@@ -79,7 +82,7 @@ public:
     void continueLoadAfterWillSubmitForm(PolicyAction);
 
 #if ENABLE(CONTENT_FILTERING)
-    void setContentFilterUnblockHandler(ContentFilterUnblockHandler unblockHandler) { m_contentFilterUnblockHandler = WTF::move(unblockHandler); }
+    void setContentFilterUnblockHandler(ContentFilterUnblockHandler unblockHandler) { m_contentFilterUnblockHandler = WTFMove(unblockHandler); }
 #endif
 
 private:
@@ -99,6 +102,7 @@ private:
     // on navigation action delegate callbacks.
     FrameLoadType m_loadType;
     PolicyCallback m_callback;
+    String m_suggestedFilename;
 
 #if ENABLE(CONTENT_FILTERING)
     ContentFilterUnblockHandler m_contentFilterUnblockHandler;

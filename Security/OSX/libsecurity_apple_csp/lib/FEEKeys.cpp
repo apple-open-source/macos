@@ -34,7 +34,7 @@
 #include <assert.h>
 #include <security_utilities/debugging.h>
 
-#define feeKeyDebug(args...)	secdebug("feeKey", ## args)
+#define feeKeyDebug(args...)	secinfo("feeKey", ## args)
 
 /***
  *** FEE-style BinaryKey
@@ -69,7 +69,7 @@ void CryptKit::FEEBinaryKey::generateKeyBlob(
 		CSSM_KEYATTR_FLAGS 	&attrFlags)	/* IN/OUT */
 {
 	unsigned char 	*keyBlob;
-	unsigned 		len;
+	unsigned 		len = 0;
 	feeReturn		frtn = FR_Internal;
 	bool			freeTheKey = false;
 	feePubKey		keyToEncode = mFeeKey;
@@ -243,7 +243,11 @@ void CryptKit::FEEKeyPairGenContext::generate(
 	}
 
 }
-	
+
+void CryptKit::FEEKeyPairGenContext::generate(const Context &context, uint32, CssmData &params, uint32 &attrCount, Context::Attr * &attrs) {
+    CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
+}
+
 // this one is specified in, and called from, AppleKeyPairGenContext
 void CryptKit::FEEKeyPairGenContext::generate(
 	const Context 	&context,

@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: misc.c,v 1.27 2013/01/02 17:14:59 abe Exp $";
+static char *rcsid = "$Id: misc.c,v 1.28 2014/10/13 22:36:20 abe Exp $";
 #endif
 
 
@@ -72,8 +72,6 @@ _PROTOTYPE(static int handleint,(int sig));
 #else	/* !defined(HASINTSIGNAL) */
 _PROTOTYPE(static void handleint,(int sig));
 #endif	/* defined(HASINTSIGNAL) */
-
-_PROTOTYPE(static char *safepup,(unsigned int c, int *cl));
 
 
 /*
@@ -294,14 +292,14 @@ doinchild(fn, fp, rbuf, rbln)
 		 * Begin the child process.
 		 */
 
-		    int fd, nd, r_al, r_rbln;
+		    int fd, r_al, r_rbln;
 		    char r_arg[MAXPATHLEN+1], r_rbuf[MAXPATHLEN+1];
 		    int (*r_fn)();
 		/*
-		 * Close all open file descriptors except Pipes[0] and
+		 * Close sufficient open file descriptors except Pipes[0] and
 		 * Pipes[3].
 		 */
-		    for (fd = 0, nd = GET_MAX_FD(); fd < nd; fd++) {
+		    for (fd = 0; fd < MaxFd; fd++) {
 			if (fd == Pipes[0] || fd == Pipes[3])
 			    continue;
 			(void) close(fd);
@@ -1314,10 +1312,10 @@ readstqinit(addr, buf)
  *	   cl = strlen(printable equivalent)
  */
 
-static char *
+char *
 safepup(c, cl)
 	unsigned int c;			/* unprintable (i.e., !isprint())
-					 * character */
+					 * character  and '\\' */
 	int *cl;			/* returned printable strlen -- NULL if
 					 * no return needed */
 {
@@ -1349,6 +1347,9 @@ safepup(c, cl)
 	    len = 2;
 	} else if (c == 0xff) {
 	    rp = "^?";
+	    len = 2;
+	} else if (c == '\\') {
+	    rp = "\\\\";
 	    len = 2;
 	} else {
 	    (void) snpf(up, sizeof(up), "\\x%02x", (int)(c & 0xff));
@@ -1382,8 +1383,11 @@ safestrlen(sp, flags)
 	c = (flags & 2) ? ' ' : '\0';
 	if (sp) {
 	    for (; *sp; sp++) {
-		if (!isprint((unsigned char)*sp) || *sp == c) {
-		    if (*sp < 0x20 || (unsigned char)*sp == 0xff)
+		if (!isprint((unsigned char)*sp)
+		||  (*sp == '\\') || (*sp == c))
+		{
+		    if ((*sp < 0x20) || ((unsigned char)*sp == 0xff)
+		    ||  (*sp == '\\'))
 			len += 2;		/* length of \. or ^. form */
 		    else
 			len += 4;		/* length of "\x%02x" printf */
@@ -1457,7 +1461,7 @@ safestrprt(sp, fs, flags)
 		lnc = 1;
 #endif	/* defined(HASWIDECHAR) */
 
-		if (isprint((unsigned char)*sp) && *sp != c)
+		if ((*sp != '\\') && isprint((unsigned char)*sp) && *sp != c)
 		    putc((int)(*sp & 0xff), fs);
 		else {
 		    if ((flags & 8) && (*sp == '\n') && !*(sp + 1))
@@ -1506,7 +1510,7 @@ safestrprtn(sp, len, fs, flags)
 	if (sp) {
 	    c = (flags & 2) ? ' ' : '\0';
 	    for (i = 0; i < len && *sp; sp++) {
-		if (isprint((unsigned char)*sp) && *sp != c) {
+		if ((*sp != '\\') && isprint((unsigned char)*sp) && *sp != c) {
 		    putc((int)(*sp & 0xff), fs);
 		    i++;
 		} else {

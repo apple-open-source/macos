@@ -38,47 +38,48 @@
 #include "AudioTrackList.h"
 #include "Event.h"
 #include "HTMLMediaElement.h"
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
 const AtomicString& AudioTrack::alternativeKeyword()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, alternative, ("alternative", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<AtomicString> alternative("alternative", AtomicString::ConstructFromLiteral);
     return alternative;
 }
 
 const AtomicString& AudioTrack::descriptionKeyword()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, description, ("description", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<AtomicString> description("description", AtomicString::ConstructFromLiteral);
     return description;
 }
 
 const AtomicString& AudioTrack::mainKeyword()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, main, ("main", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<AtomicString> main("main", AtomicString::ConstructFromLiteral);
     return main;
 }
 
 const AtomicString& AudioTrack::mainDescKeyword()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, mainDesc, ("main-desc", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<AtomicString> mainDesc("main-desc", AtomicString::ConstructFromLiteral);
     return mainDesc;
 }
 
 const AtomicString& AudioTrack::translationKeyword()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, translation, ("translation", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<AtomicString> translation("translation", AtomicString::ConstructFromLiteral);
     return translation;
 }
 
 const AtomicString& AudioTrack::commentaryKeyword()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, commentary, ("commentary", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<AtomicString> commentary("commentary", AtomicString::ConstructFromLiteral);
     return commentary;
 }
 
 AudioTrack::AudioTrack(AudioTrackClient* client, PassRefPtr<AudioTrackPrivate> trackPrivate)
-    : TrackBase(TrackBase::AudioTrack, trackPrivate->id(), trackPrivate->label(), trackPrivate->language())
+    : MediaTrackBase(MediaTrackBase::AudioTrack, trackPrivate->id(), trackPrivate->label(), trackPrivate->language())
     , m_enabled(trackPrivate->enabled())
     , m_client(client)
     , m_private(trackPrivate)
@@ -89,7 +90,7 @@ AudioTrack::AudioTrack(AudioTrackClient* client, PassRefPtr<AudioTrackPrivate> t
 
 AudioTrack::~AudioTrack()
 {
-    m_private->setClient(0);
+    m_private->setClient(nullptr);
 }
 
 void AudioTrack::setPrivate(PassRefPtr<AudioTrackPrivate> trackPrivate)
@@ -100,7 +101,7 @@ void AudioTrack::setPrivate(PassRefPtr<AudioTrackPrivate> trackPrivate)
     if (m_private == trackPrivate)
         return;
 
-    m_private->setClient(0);
+    m_private->setClient(nullptr);
     m_private = trackPrivate;
     m_private->setClient(this);
 
@@ -110,20 +111,12 @@ void AudioTrack::setPrivate(PassRefPtr<AudioTrackPrivate> trackPrivate)
 
 bool AudioTrack::isValidKind(const AtomicString& value) const
 {
-    if (value == alternativeKeyword())
-        return true;
-    if (value == descriptionKeyword())
-        return true;
-    if (value == mainKeyword())
-        return true;
-    if (value == mainDescKeyword())
-        return true;
-    if (value == translationKeyword())
-        return true;
-    if (value == commentaryKeyword())
-        return true;
-
-    return false;
+    return value == alternativeKeyword()
+        || value == descriptionKeyword()
+        || value == mainKeyword()
+        || value == mainDescKeyword()
+        || value == translationKeyword()
+        || value == commentaryKeyword();
 }
 
 void AudioTrack::setEnabled(const bool enabled)
@@ -174,7 +167,7 @@ void AudioTrack::languageChanged(TrackPrivateBase* trackPrivate, const AtomicStr
 void AudioTrack::willRemove(TrackPrivateBase* trackPrivate)
 {
     ASSERT_UNUSED(trackPrivate, trackPrivate == m_private);
-    mediaElement()->removeAudioTrack(this);
+    mediaElement()->removeAudioTrack(*this);
 }
 
 void AudioTrack::updateKindFromPrivate()

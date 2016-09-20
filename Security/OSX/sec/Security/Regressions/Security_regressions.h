@@ -1,6 +1,10 @@
 /* To add a test:
  1) add it here
  2) Add it as command line argument for SecurityTest.app in the Release and Debug schemes
+ 3) Add any resources your test use to the SecurityTest.app.
+
+ This file contains iOS only tests that are built in libSecurityRegression.a
+ For test shared between OSX and iOS, see shared_regressions.h
  */
 #include <test/testmore.h>
 
@@ -14,32 +18,8 @@ ONE_TEST(si_11_update_data)
 ONE_TEST(si_12_item_stress)
 ONE_TEST(si_13_item_system)
 ONE_TEST(si_14_dateparse)
-ONE_TEST(si_15_certificate)
-ONE_TEST(si_16_ec_certificate)
+ONE_TEST(si_15_delete_access_group)
 ONE_TEST(si_17_item_system_bluetooth)
-ONE_TEST(si_20_sectrust_activation)
-ONE_TEST(si_20_sectrust)
-ONE_TEST(si_21_sectrust_asr)
-ONE_TEST(si_22_sectrust_iap)
-#if !TARGET_OS_WATCH
-ONE_TEST(si_23_sectrust_ocsp)
-#else
-DISABLED_ONE_TEST(si_23_sectrust_ocsp)
-#endif
-ONE_TEST(si_24_sectrust_itms)
-ONE_TEST(si_24_sectrust_nist)
-ONE_TEST(si_24_sectrust_otatasking)
-ONE_TEST(si_24_sectrust_mobileasset)
-ONE_TEST(si_24_sectrust_diginotar)
-ONE_TEST(si_24_sectrust_appleid)
-ONE_TEST(si_24_sectrust_digicert_malaysia)
-ONE_TEST(si_24_sectrust_passbook)
-ONE_TEST(si_25_sectrust_ipsec_eap)
-ONE_TEST(si_25_sectrust_apple_authentication)
-ONE_TEST(si_26_applicationsigning)
-ONE_TEST(si_27_sectrust_exceptions)
-ONE_TEST(si_28_sectrustsettings)
-ONE_TEST(si_29_sectrust_codesigning)
 DISABLED_ONE_TEST(si_30_keychain_upgrade) //obsolete, needs updating
 DISABLED_ONE_TEST(si_31_keychain_bad)
 DISABLED_ONE_TEST(si_31_keychain_unreadable)
@@ -57,48 +37,27 @@ ONE_TEST(si_63_scep)
 ONE_TEST(si_64_ossl_cms)
 ONE_TEST(si_65_cms_cert_policy)
 ONE_TEST(si_66_smime)
-#if !TARGET_OS_WATCH
-ONE_TEST(si_67_sectrust_blacklist)
-#else
-DISABLED_ONE_TEST(si_67_sectrust_blacklist)
-#endif
 ONE_TEST(si_68_secmatchissuer)
 ONE_TEST(si_69_keydesc)
-ONE_TEST(si_70_sectrust_unified)
-ONE_TEST(si_71_mobile_store_policy)
 ONE_TEST(si_72_syncableitems)
 ONE_TEST(si_73_secpasswordgenerate)
 #if TARGET_OS_IPHONE
-ONE_TEST(si_74_OTA_PKI_Signer)
-ONE_TEST(si_75_AppleIDRecordSigning)
 #if TARGET_IPHONE_SIMULATOR
 OFF_ONE_TEST(si_76_shared_credentials)
 #else
 ONE_TEST(si_76_shared_credentials)
 #endif
 ONE_TEST(si_77_SecAccessControl)
-ONE_TEST(si_79_smp_cert_policy)
 #else
-DISABLED_ONE_TEST(si_74_OTA_PKI_Signer)
-DISABLED_ONE_TEST(si_75_AppleIDRecordSigning)
 DISABLED_ONE_TEST(si_76_shared_credentials)
 DISABLED_ONE_TEST(si_77_SecAccessControl)
-DISABLED_ONE_TEST(si_79_smp_cert_policy)
 #endif
 ONE_TEST(si_78_query_attrs)
 ONE_TEST(si_80_empty_data)
-ONE_TEST(si_81_sectrust_server_auth)
-ONE_TEST(si_81_sectrust_appletv)
-ONE_TEST(si_83_seccertificate_sighashalg)
-ONE_TEST(si_84_atv_appsigning)
-ONE_TEST(si_85_sectrust_ssl_policy)
-ONE_TEST(si_86_sectrust_eap_tls)
-ONE_TEST(si_87_sectrust_name_constraints)
-ONE_TEST(si_88_sectrust_vpnprofile)
+ONE_TEST(si_82_token_ag)
 ONE_TEST(si_89_cms_hash_agility)
 ONE_TEST(si_90_emcs)
-ONE_TEST(si_91_sectrust_ast2)
-ONE_TEST(si_92_sectrust_homekit)
+ONE_TEST(si_95_cms_basic)
 
 ONE_TEST(vmdh_40)
 ONE_TEST(vmdh_41_example)

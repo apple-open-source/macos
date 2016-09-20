@@ -65,18 +65,19 @@ void WebCoreAVFResourceLoader::startLoading()
     if (m_resource || !m_parent)
         return;
 
-    URL requestURL = [[m_avRequest.get() request] URL];
+    NSURLRequest *nsRequest = [m_avRequest.get() request];
 
-    // ContentSecurityPolicyImposition::DoPolicyCheck is a placeholder value. It does not affect the request since Content Security Policy does not apply to raw resources.
-    CachedResourceRequest request(ResourceRequest(requestURL), ResourceLoaderOptions(SendCallbacks, DoNotSniffContent, BufferData, DoNotAllowStoredCredentials, DoNotAskClientForCrossOriginCredentials, DoSecurityCheck, UseDefaultOriginRestrictionsForType, DoNotIncludeCertificateInfo, ContentSecurityPolicyImposition::DoPolicyCheck));
-
+    // FIXME: Skip Content Security Policy check if the element that inititated this request
+    // is in a user-agent shadow tree. See <https://bugs.webkit.org/show_bug.cgi?id=155505>.
+    CachedResourceRequest request(nsRequest, ResourceLoaderOptions(SendCallbacks, DoNotSniffContent, BufferData, DoNotAllowStoredCredentials, DoNotAskClientForCrossOriginCredentials, FetchOptions::Credentials::Omit, DoSecurityCheck, FetchOptions::Mode::NoCors, DoNotIncludeCertificateInfo, ContentSecurityPolicyImposition::DoPolicyCheck, DefersLoadingPolicy::AllowDefersLoading, CachingPolicy::DisallowCaching));
     request.mutableResourceRequest().setPriority(ResourceLoadPriority::Low);
-    CachedResourceLoader* loader = m_parent->player()->cachedResourceLoader();
-    m_resource = loader ? loader->requestRawResource(request) : 0;
+    if (auto* loader = m_parent->player()->cachedResourceLoader())
+        m_resource = loader->requestMedia(request);
+
     if (m_resource)
         m_resource->addClient(this);
     else {
-        LOG_ERROR("Failed to start load for media at url %s", requestURL.string().ascii().data());
+        LOG_ERROR("Failed to start load for media at url %s", [[[nsRequest URL] absoluteString] UTF8String]);
         [m_avRequest.get() finishLoadingWithError:0];
     }
 }
@@ -95,14 +96,20 @@ void WebCoreAVFResourceLoader::stopLoading()
 
 void WebCoreAVFResourceLoader::invalidate()
 {
+    if (!m_parent)
+        return;
+
     m_parent = nullptr;
-    stopLoading();
+
+    callOnMainThread([protectedThis = makeRef(*this)] () mutable {
+        protectedThis->stopLoading();
+    });
 }
 
 void WebCoreAVFResourceLoader::responseReceived(CachedResource* resource, const ResourceResponse& response)
 {
+    ASSERT(resource);
     ASSERT(resource == m_resource);
-    UNUSED_PARAM(resource);
 
     int status = response.httpStatusCode();
     if (status && (status < 200 || status > 299)) {
@@ -114,7 +121,9 @@ void WebCoreAVFResourceLoader::responseReceived(CachedResource* resource, const 
         String uti = UTIFromMIMEType(response.mimeType().createCFString().get()).get();
 
         [contentInfo setContentType:uti];
-        [contentInfo setContentLength:response.expectedContentLength()];
+
+        ParsedContentRange& contentRange = resource->response().contentRange();
+        [contentInfo setContentLength:contentRange.isValid() ? contentRange.instanceLength() : response.expectedContentLength()];
         [contentInfo setByteRangeAccessSupported:YES];
 
         if (![m_avRequest dataRequest]) {
@@ -147,6 +156,7 @@ void WebCoreAVFResourceLoader::notifyFinished(CachedResource* resource)
 
 void WebCoreAVFResourceLoader::fulfillRequestWithResource(CachedResource* resource)
 {
+    ASSERT(resource);
     ASSERT(resource == m_resource);
     AVAssetResourceLoadingDataRequest* dataRequest = [m_avRequest dataRequest];
     if (!dataRequest)
@@ -156,6 +166,11 @@ void WebCoreAVFResourceLoader::fulfillRequestWithResource(CachedResource* resour
     if (!data)
         return;
 
+    NSUInteger responseOffset = 0;
+    ParsedContentRange contentRange = resource->response().contentRange();
+    if (contentRange.isValid())
+        responseOffset = static_cast<NSUInteger>(contentRange.firstBytePosition());
+
     // Check for possible unsigned overflow.
     ASSERT([dataRequest currentOffset] >= [dataRequest requestedOffset]);
     ASSERT([dataRequest requestedLength] >= ([dataRequest currentOffset] - [dataRequest requestedOffset]));
@@ -163,11 +178,11 @@ void WebCoreAVFResourceLoader::fulfillRequestWithResource(CachedResource* resour
     NSUInteger remainingLength = [dataRequest requestedLength] - static_cast<NSUInteger>([dataRequest currentOffset] - [dataRequest requestedOffset]);
     do {
         // Check to see if there is any data available in the buffer to fulfill the data request.
-        if (data->size() <= [dataRequest currentOffset])
+        if (data->size() <= [dataRequest currentOffset] - responseOffset)
             return;
 
         const char* someData;
-        NSUInteger receivedLength = data->getSomeData(someData, static_cast<unsigned>([dataRequest currentOffset]));
+        NSUInteger receivedLength = data->getSomeData(someData, static_cast<unsigned>([dataRequest currentOffset] - responseOffset));
 
         // Create an NSData with only as much of the received data as necessary to fulfill the request.
         NSUInteger length = MIN(receivedLength, remainingLength);

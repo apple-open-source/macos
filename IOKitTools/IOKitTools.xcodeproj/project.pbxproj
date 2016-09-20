@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -38,6 +38,7 @@
 		2D7D915D08F4B07A003CF2E8 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 97CF609C05585D4100A48F3A /* IOKit.framework */; };
 		2D7D916308F4B0C2003CF2E8 /* ioalloccount.c in Sources */ = {isa = PBXBuildFile; fileRef = 97CF609205585D4100A48F3A /* ioalloccount.c */; };
 		52D8C8FA19A7E816009D43FB /* CoreSymbolication.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52D8C8F819A7E816009D43FB /* CoreSymbolication.framework */; };
+		7284A2DA1BFE9A7F00EA1F84 /* CoreSymbolication.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52D8C8F819A7E816009D43FB /* CoreSymbolication.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -122,7 +123,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				52D8C8FA19A7E816009D43FB /* CoreSymbolication.framework in Frameworks */,
+				7284A2DA1BFE9A7F00EA1F84 /* CoreSymbolication.framework in Frameworks */,
 				2D7D915C08F4B07A003CF2E8 /* CoreFoundation.framework in Frameworks */,
 				2D7D915D08F4B07A003CF2E8 /* IOKit.framework in Frameworks */,
 			);
@@ -253,9 +254,10 @@
 		97CF60AF05585D4200A48F3A /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				LastUpgradeCheck = 0720;
 			};
 			buildConfigurationList = 2D7D900708F4AE49003CF2E8 /* Build configuration list for PBXProject "IOKitTools" */;
-			compatibilityVersion = "Xcode 2.4";
+			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
@@ -323,11 +325,13 @@
 		2D7D900808F4AE49003CF2E8 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ENABLE_TESTABILITY = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_GROUP = wheel;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
+				ONLY_ACTIVE_ARCH = YES;
 				WARNING_CFLAGS = (
 					"-Wshorten-64-to-32",
 					"-Wall",
@@ -367,6 +371,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				OTHER_CFLAGS = "";
 				PRODUCT_NAME = ioreg;
 				SKIP_INSTALL = NO;
 			};
@@ -383,6 +388,8 @@
 		2D7D915308F4B04A003CF2E8 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "ioclasscount-entitlements.plist";
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -396,6 +403,8 @@
 		2D7D915408F4B04A003CF2E8 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "ioclasscount-entitlements.plist";
+				CODE_SIGN_IDENTITY = "-";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",

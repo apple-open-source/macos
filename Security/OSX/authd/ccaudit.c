@@ -191,6 +191,9 @@ void ccaudit_log_success(ccaudit_t ccaudit, credential_t cred, const char * righ
     _close(ccaudit);
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-parameter"
+
 void ccaudit_log_failure(ccaudit_t ccaudit, const char * credName, const char * right)
 {
 
@@ -201,15 +204,13 @@ void ccaudit_log_failure(ccaudit_t ccaudit, const char * credName, const char * 
     _write(ccaudit, au_to_text(right), "right");
     _write(ccaudit, au_to_arg32(1, "authenticated as ", auth_token_get_uid(ccaudit->auth)), "authenticator");
     
-    if (NULL == credName) {
-        _write(ccaudit, au_to_text("<unknown user>"), "target username");
-    } else {
-        _write(ccaudit, au_to_text(credName), "target username");
-    }
+    _write(ccaudit, au_to_text("<unknown user>"), "target username");
     _write(ccaudit, au_to_return32(EPERM, (uint32_t)errAuthorizationDenied), "return");
     
     _close(ccaudit);
 }
+
+#pragma clang diagnostic pop
 
 void ccaudit_log_mechanism(ccaudit_t ccaudit, const char * right, const char * mech, uint32_t status, const char * interrupted)
 {

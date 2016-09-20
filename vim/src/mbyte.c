@@ -83,10 +83,18 @@
 # ifndef WIN32_LEAN_AND_MEAN
 #  define WIN32_LEAN_AND_MEAN
 # endif
-# include <windows.h>
+# if defined(FEAT_GUI) || defined(FEAT_XCLIPBOARD)
+#  include <X11/Xwindows.h>
+#  define WINBYTE wBYTE
+# else
+#  include <windows.h>
+#  define WINBYTE BYTE
+# endif
 # ifdef WIN32
 #  undef WIN32	    /* Some windows.h define WIN32, we don't want that here. */
 # endif
+#else
+# define WINBYTE BYTE
 #endif
 
 #if (defined(WIN3264) || defined(WIN32UNIX)) && !defined(__MINGW32__)
@@ -132,6 +140,7 @@ static int utf_ptr2cells_len __ARGS((char_u *p, int size));
 static int dbcs_char2cells __ARGS((int c));
 static int dbcs_ptr2cells_len __ARGS((char_u *p, int size));
 static int dbcs_ptr2char __ARGS((char_u *p));
+static int utf_safe_read_char_adv __ARGS((char_u **s, size_t *n));
 
 /*
  * Lookup table to quickly get the length in bytes of a UTF-8 character from
@@ -396,6 +405,7 @@ enc_alias_table[] =
     {"unix-jis",	IDX_EUC_JP},
     {"ujis",		IDX_EUC_JP},
     {"shift-jis",	IDX_SJIS},
+    {"pck",		IDX_SJIS},	/* Sun: PCK */
     {"euckr",		IDX_EUC_KR},
     {"5601",		IDX_EUC_KR},	/* Sun: KS C 5601 */
     {"euccn",		IDX_EUC_CN},
@@ -612,7 +622,7 @@ codepage_invalid:
     enc_dbcs = enc_dbcs_new;
     has_mbyte = (enc_dbcs != 0 || enc_utf8);
 
-#ifdef WIN3264
+#if defined(WIN3264) || defined(FEAT_CYGWIN_WIN32_CLIPBOARD)
     enc_codepage = encname2codepage(p_enc);
     enc_latin9 = (STRCMP(p_enc, "iso-8859-15") == 0);
 #endif
@@ -697,9 +707,9 @@ codepage_invalid:
 	    /* enc_dbcs is set by setting 'fileencoding'.  It becomes a Windows
 	     * CodePage identifier, which we can pass directly in to Windows
 	     * API */
-	    n = IsDBCSLeadByteEx(enc_dbcs, (BYTE)i) ? 2 : 1;
+	    n = IsDBCSLeadByteEx(enc_dbcs, (WINBYTE)i) ? 2 : 1;
 #else
-# if defined(MACOS) || defined(__amigaos4__)
+# if defined(MACOS) || defined(__amigaos4__) || defined(__ANDROID__)
 	    /*
 	     * if mblen() is not available, character which MSB is turned on
 	     * are treated as leading byte character. (note : This assumption
@@ -707,7 +717,7 @@ codepage_invalid:
 	     */
 	    n = (i & 0x80) ? 2 : 1;
 # else
-	    char buf[MB_MAXBYTES];
+	    char buf[MB_MAXBYTES + 1];
 # ifdef X_LOCALE
 #  ifndef mblen
 #   define mblen _Xmblen
@@ -837,6 +847,27 @@ bomb_size()
 }
 
 /*
+ * Remove all BOM from "s" by moving remaining text.
+ */
+    void
+remove_bom(s)
+    char_u *s;
+{
+    if (enc_utf8)
+    {
+	char_u *p = s;
+
+	while ((p = vim_strbyte(p, 0xef)) != NULL)
+	{
+	    if (p[1] == 0xbb && p[2] == 0xbf)
+		STRMOVE(p, p + 3);
+	    else
+		++p;
+	}
+    }
+}
+
+/*
  * Get class of pointer:
  * 0 for blank or NUL
  * 1 for punctuation
@@ -847,11 +878,19 @@ bomb_size()
 mb_get_class(p)
     char_u	*p;
 {
+    return mb_get_class_buf(p, curbuf);
+}
+
+    int
+mb_get_class_buf(p, buf)
+    char_u	*p;
+    buf_T	*buf;
+{
     if (MB_BYTE2LEN(p[0]) == 1)
     {
 	if (p[0] == NUL || vim_iswhite(p[0]))
 	    return 0;
-	if (vim_iswordc(p[0]))
+	if (vim_iswordc_buf(p[0], buf))
 	    return 2;
 	return 1;
     }
@@ -873,7 +912,7 @@ dbcs_class(lead, trail)
 {
     switch (enc_dbcs)
     {
-	/* please add classfy routine for your language in here */
+	/* please add classify routine for your language in here */
 
 	case DBCS_JPNU:	/* ? */
 	case DBCS_JPN:
@@ -917,8 +956,8 @@ dbcs_class(lead, trail)
 		{
 		    case 0x2121: /* ZENKAKU space */
 			return 0;
-		    case 0x2122: /* KU-TEN (Japanese comma) */
-		    case 0x2123: /* TOU-TEN (Japanese period) */
+		    case 0x2122: /* TOU-TEN (Japanese comma) */
+		    case 0x2123: /* KU-TEN (Japanese period) */
 		    case 0x2124: /* ZENKAKU comma */
 		    case 0x2125: /* ZENKAKU period */
 			return 1;
@@ -973,7 +1012,7 @@ dbcs_class(lead, trail)
 		 * 26 : Box Drawings
 		 * 27 : Unit Symbols
 		 * 28 : Circled/Parenthesized Letter
-		 * 29 : Hirigana/Katakana
+		 * 29 : Hiragana/Katakana
 		 * 30 : Cyrillic Letter
 		 */
 
@@ -1024,7 +1063,7 @@ dbcs_class(lead, trail)
 			    return 28;
 		    case 0xAA:
 		    case 0xAB:
-			/* Hirigana/Katakana */
+			/* Hiragana/Katakana */
 			return 29;
 		    case 0xAC:
 			/* Cyrillic Letter */
@@ -1205,20 +1244,17 @@ utf_char2cells(c)
     static struct interval doublewidth[] =
     {
 	{0x1100, 0x115f},
-	{0x11a3, 0x11a7},
-	{0x11fa, 0x11ff},
 	{0x2329, 0x232a},
 	{0x2e80, 0x2e99},
 	{0x2e9b, 0x2ef3},
 	{0x2f00, 0x2fd5},
 	{0x2ff0, 0x2ffb},
-	{0x3000, 0x3029},
-	{0x3030, 0x303e},
+	{0x3000, 0x303e},
 	{0x3041, 0x3096},
-	{0x309b, 0x30ff},
+	{0x3099, 0x30ff},
 	{0x3105, 0x312d},
 	{0x3131, 0x318e},
-	{0x3190, 0x31b7},
+	{0x3190, 0x31ba},
 	{0x31c0, 0x31e3},
 	{0x31f0, 0x321e},
 	{0x3220, 0x3247},
@@ -1228,8 +1264,6 @@ utf_char2cells(c)
 	{0xa490, 0xa4c6},
 	{0xa960, 0xa97c},
 	{0xac00, 0xd7a3},
-	{0xd7b0, 0xd7c6},
-	{0xd7cb, 0xd7fb},
 	{0xf900, 0xfaff},
 	{0xfe10, 0xfe19},
 	{0xfe30, 0xfe52},
@@ -1237,12 +1271,15 @@ utf_char2cells(c)
 	{0xfe68, 0xfe6b},
 	{0xff01, 0xff60},
 	{0xffe0, 0xffe6},
-	{0x1f200, 0x1f200},
-	{0x1f210, 0x1f231},
+	{0x1b000, 0x1b001},
+	{0x1f200, 0x1f202},
+	{0x1f210, 0x1f23a},
 	{0x1f240, 0x1f248},
+	{0x1f250, 0x1f251},
 	{0x20000, 0x2fffd},
 	{0x30000, 0x3fffd}
     };
+
     /* Sorted list of non-overlapping intervals of East Asian Ambiguous
      * characters, generated with ../runtime/tools/unicode.vim. */
     static struct interval ambiguous[] =
@@ -1300,6 +1337,7 @@ utf_char2cells(c)
 	{0x02d8, 0x02db},
 	{0x02dd, 0x02dd},
 	{0x02df, 0x02df},
+	{0x0300, 0x036f},
 	{0x0391, 0x03a1},
 	{0x03a3, 0x03a9},
 	{0x03b1, 0x03c1},
@@ -1410,22 +1448,13 @@ utf_char2cells(c)
 	{0x2b55, 0x2b59},
 	{0x3248, 0x324f},
 	{0xe000, 0xf8ff},
+	{0xfe00, 0xfe0f},
 	{0xfffd, 0xfffd},
 	{0x1f100, 0x1f10a},
 	{0x1f110, 0x1f12d},
-	{0x1f131, 0x1f131},
-	{0x1f13d, 0x1f13d},
-	{0x1f13f, 0x1f13f},
-	{0x1f142, 0x1f142},
-	{0x1f146, 0x1f146},
-	{0x1f14a, 0x1f14e},
-	{0x1f157, 0x1f157},
-	{0x1f15f, 0x1f15f},
-	{0x1f179, 0x1f179},
-	{0x1f17b, 0x1f17c},
-	{0x1f17f, 0x1f17f},
-	{0x1f18a, 0x1f18d},
-	{0x1f190, 0x1f190},
+	{0x1f130, 0x1f169},
+	{0x1f170, 0x1f19a},
+	{0xe0100, 0xe01ef},
 	{0xf0000, 0xffffd},
 	{0x100000, 0x10fffd}
     };
@@ -1701,6 +1730,66 @@ utf_ptr2char(p)
 }
 
 /*
+ * Convert a UTF-8 byte sequence to a wide character.
+ * String is assumed to be terminated by NUL or after "n" bytes, whichever
+ * comes first.
+ * The function is safe in the sense that it never accesses memory beyond the
+ * first "n" bytes of "s".
+ *
+ * On success, returns decoded codepoint, advances "s" to the beginning of
+ * next character and decreases "n" accordingly.
+ *
+ * If end of string was reached, returns 0 and, if "n" > 0, advances "s" past
+ * NUL byte.
+ *
+ * If byte sequence is illegal or incomplete, returns -1 and does not advance
+ * "s".
+ */
+    static int
+utf_safe_read_char_adv(s, n)
+    char_u      **s;
+    size_t      *n;
+{
+    int		c, k;
+
+    if (*n == 0) /* end of buffer */
+	return 0;
+
+    k = utf8len_tab_zero[**s];
+
+    if (k == 1)
+    {
+	/* ASCII character or NUL */
+	(*n)--;
+	return *(*s)++;
+    }
+
+    if ((size_t)k <= *n)
+    {
+	/* We have a multibyte sequence and it isn't truncated by buffer
+	 * limits so utf_ptr2char() is safe to use. Or the first byte is
+	 * illegal (k=0), and it's also safe to use utf_ptr2char(). */
+	c = utf_ptr2char(*s);
+
+	/* On failure, utf_ptr2char() returns the first byte, so here we
+	 * check equality with the first byte. The only non-ASCII character
+	 * which equals the first byte of its own UTF-8 representation is
+	 * U+00C3 (UTF-8: 0xC3 0x83), so need to check that special case too.
+	 * It's safe even if n=1, else we would have k=2 > n. */
+	if (c != (int)(**s) || (c == 0xC3 && (*s)[1] == 0x83))
+	{
+	    /* byte sequence was successfully decoded */
+	    *s += k;
+	    *n -= k;
+	    return c;
+	}
+    }
+
+    /* byte sequence is incomplete or illegal */
+    return -1;
+}
+
+/*
  * Get character at **pp and advance *pp to the next character.
  * Note: composing characters are skipped!
  */
@@ -1871,7 +1960,7 @@ utfc_ptr2char_len(p, pcc, maxlen)
 /*
  * Convert the character at screen position "off" to a sequence of bytes.
  * Includes the composing characters.
- * "buf" must at least have the length MB_MAXBYTES.
+ * "buf" must at least have the length MB_MAXBYTES + 1.
  * Only to be used when ScreenLinesUC[off] != 0.
  * Returns the produced number of bytes.
  */
@@ -2162,10 +2251,10 @@ utf_iscomposing(c)
 	{0x05c4, 0x05c5},
 	{0x05c7, 0x05c7},
 	{0x0610, 0x061a},
-	{0x064b, 0x065e},
+	{0x064b, 0x065f},
 	{0x0670, 0x0670},
 	{0x06d6, 0x06dc},
-	{0x06de, 0x06e4},
+	{0x06df, 0x06e4},
 	{0x06e7, 0x06e8},
 	{0x06ea, 0x06ed},
 	{0x0711, 0x0711},
@@ -2176,10 +2265,11 @@ utf_iscomposing(c)
 	{0x081b, 0x0823},
 	{0x0825, 0x0827},
 	{0x0829, 0x082d},
-	{0x0900, 0x0903},
-	{0x093c, 0x093c},
-	{0x093e, 0x094e},
-	{0x0951, 0x0955},
+	{0x0859, 0x085b},
+	{0x08e3, 0x0903},
+	{0x093a, 0x093c},
+	{0x093e, 0x094f},
+	{0x0951, 0x0957},
 	{0x0962, 0x0963},
 	{0x0981, 0x0983},
 	{0x09bc, 0x09bc},
@@ -2214,20 +2304,20 @@ utf_iscomposing(c)
 	{0x0bc6, 0x0bc8},
 	{0x0bca, 0x0bcd},
 	{0x0bd7, 0x0bd7},
-	{0x0c01, 0x0c03},
+	{0x0c00, 0x0c03},
 	{0x0c3e, 0x0c44},
 	{0x0c46, 0x0c48},
 	{0x0c4a, 0x0c4d},
 	{0x0c55, 0x0c56},
 	{0x0c62, 0x0c63},
-	{0x0c82, 0x0c83},
+	{0x0c81, 0x0c83},
 	{0x0cbc, 0x0cbc},
 	{0x0cbe, 0x0cc4},
 	{0x0cc6, 0x0cc8},
 	{0x0cca, 0x0ccd},
 	{0x0cd5, 0x0cd6},
 	{0x0ce2, 0x0ce3},
-	{0x0d02, 0x0d03},
+	{0x0d01, 0x0d03},
 	{0x0d3e, 0x0d44},
 	{0x0d46, 0x0d48},
 	{0x0d4a, 0x0d4d},
@@ -2253,7 +2343,7 @@ utf_iscomposing(c)
 	{0x0f3e, 0x0f3f},
 	{0x0f71, 0x0f84},
 	{0x0f86, 0x0f87},
-	{0x0f90, 0x0f97},
+	{0x0f8d, 0x0f97},
 	{0x0f99, 0x0fbc},
 	{0x0fc6, 0x0fc6},
 	{0x102b, 0x103e},
@@ -2265,42 +2355,45 @@ utf_iscomposing(c)
 	{0x1082, 0x108d},
 	{0x108f, 0x108f},
 	{0x109a, 0x109d},
-	{0x135f, 0x135f},
+	{0x135d, 0x135f},
 	{0x1712, 0x1714},
 	{0x1732, 0x1734},
 	{0x1752, 0x1753},
 	{0x1772, 0x1773},
-	{0x17b6, 0x17d3},
+	{0x17b4, 0x17d3},
 	{0x17dd, 0x17dd},
 	{0x180b, 0x180d},
 	{0x18a9, 0x18a9},
 	{0x1920, 0x192b},
 	{0x1930, 0x193b},
-	{0x19b0, 0x19c0},
-	{0x19c8, 0x19c9},
 	{0x1a17, 0x1a1b},
 	{0x1a55, 0x1a5e},
 	{0x1a60, 0x1a7c},
 	{0x1a7f, 0x1a7f},
+	{0x1ab0, 0x1abe},
 	{0x1b00, 0x1b04},
 	{0x1b34, 0x1b44},
 	{0x1b6b, 0x1b73},
 	{0x1b80, 0x1b82},
-	{0x1ba1, 0x1baa},
+	{0x1ba1, 0x1bad},
+	{0x1be6, 0x1bf3},
 	{0x1c24, 0x1c37},
 	{0x1cd0, 0x1cd2},
 	{0x1cd4, 0x1ce8},
 	{0x1ced, 0x1ced},
-	{0x1cf2, 0x1cf2},
-	{0x1dc0, 0x1de6},
-	{0x1dfd, 0x1dff},
+	{0x1cf2, 0x1cf4},
+	{0x1cf8, 0x1cf9},
+	{0x1dc0, 0x1df5},
+	{0x1dfc, 0x1dff},
 	{0x20d0, 0x20f0},
 	{0x2cef, 0x2cf1},
+	{0x2d7f, 0x2d7f},
 	{0x2de0, 0x2dff},
 	{0x302a, 0x302f},
 	{0x3099, 0x309a},
 	{0xa66f, 0xa672},
-	{0xa67c, 0xa67d},
+	{0xa674, 0xa67d},
+	{0xa69e, 0xa69f},
 	{0xa6f0, 0xa6f1},
 	{0xa802, 0xa802},
 	{0xa806, 0xa806},
@@ -2313,34 +2406,78 @@ utf_iscomposing(c)
 	{0xa947, 0xa953},
 	{0xa980, 0xa983},
 	{0xa9b3, 0xa9c0},
+	{0xa9e5, 0xa9e5},
 	{0xaa29, 0xaa36},
 	{0xaa43, 0xaa43},
 	{0xaa4c, 0xaa4d},
-	{0xaa7b, 0xaa7b},
+	{0xaa7b, 0xaa7d},
 	{0xaab0, 0xaab0},
 	{0xaab2, 0xaab4},
 	{0xaab7, 0xaab8},
 	{0xaabe, 0xaabf},
 	{0xaac1, 0xaac1},
+	{0xaaeb, 0xaaef},
+	{0xaaf5, 0xaaf6},
 	{0xabe3, 0xabea},
 	{0xabec, 0xabed},
 	{0xfb1e, 0xfb1e},
 	{0xfe00, 0xfe0f},
-	{0xfe20, 0xfe26},
+	{0xfe20, 0xfe2f},
 	{0x101fd, 0x101fd},
+	{0x102e0, 0x102e0},
+	{0x10376, 0x1037a},
 	{0x10a01, 0x10a03},
 	{0x10a05, 0x10a06},
 	{0x10a0c, 0x10a0f},
 	{0x10a38, 0x10a3a},
 	{0x10a3f, 0x10a3f},
-	{0x11080, 0x11082},
+	{0x10ae5, 0x10ae6},
+	{0x11000, 0x11002},
+	{0x11038, 0x11046},
+	{0x1107f, 0x11082},
 	{0x110b0, 0x110ba},
+	{0x11100, 0x11102},
+	{0x11127, 0x11134},
+	{0x11173, 0x11173},
+	{0x11180, 0x11182},
+	{0x111b3, 0x111c0},
+	{0x111ca, 0x111cc},
+	{0x1122c, 0x11237},
+	{0x112df, 0x112ea},
+	{0x11300, 0x11303},
+	{0x1133c, 0x1133c},
+	{0x1133e, 0x11344},
+	{0x11347, 0x11348},
+	{0x1134b, 0x1134d},
+	{0x11357, 0x11357},
+	{0x11362, 0x11363},
+	{0x11366, 0x1136c},
+	{0x11370, 0x11374},
+	{0x114b0, 0x114c3},
+	{0x115af, 0x115b5},
+	{0x115b8, 0x115c0},
+	{0x115dc, 0x115dd},
+	{0x11630, 0x11640},
+	{0x116ab, 0x116b7},
+	{0x1171d, 0x1172b},
+	{0x16af0, 0x16af4},
+	{0x16b30, 0x16b36},
+	{0x16f51, 0x16f7e},
+	{0x16f8f, 0x16f92},
+	{0x1bc9d, 0x1bc9e},
 	{0x1d165, 0x1d169},
 	{0x1d16d, 0x1d172},
 	{0x1d17b, 0x1d182},
 	{0x1d185, 0x1d18b},
 	{0x1d1aa, 0x1d1ad},
 	{0x1d242, 0x1d244},
+	{0x1da00, 0x1da36},
+	{0x1da3b, 0x1da6c},
+	{0x1da75, 0x1da75},
+	{0x1da84, 0x1da84},
+	{0x1da9b, 0x1da9f},
+	{0x1daa1, 0x1daaf},
+	{0x1e8d0, 0x1e8d6},
 	{0xe0100, 0xe01ef}
     };
 
@@ -2387,9 +2524,9 @@ utf_class(c)
     /* sorted list of non-overlapping intervals */
     static struct clinterval
     {
-	unsigned short first;
-	unsigned short last;
-	unsigned short class;
+	unsigned int first;
+	unsigned int last;
+	unsigned int class;
     } classes[] =
     {
 	{0x037e, 0x037e, 1},		/* Greek question mark */
@@ -2439,6 +2576,7 @@ utf_class(c)
 	{0x2900, 0x2998, 1},		/* arrows, brackets, etc. */
 	{0x29d8, 0x29db, 1},
 	{0x29fc, 0x29fd, 1},
+	{0x2e00, 0x2e7f, 1},		/* supplemental punctuation */
 	{0x3000, 0x3000, 0},		/* ideographic space */
 	{0x3001, 0x3020, 1},		/* ideographic punctuation */
 	{0x3030, 0x3030, 1},
@@ -2454,6 +2592,10 @@ utf_class(c)
 	{0xff1a, 0xff20, 1},		/* half/fullwidth ASCII */
 	{0xff3b, 0xff40, 1},		/* half/fullwidth ASCII */
 	{0xff5b, 0xff65, 1},		/* half/fullwidth ASCII */
+	{0x20000, 0x2a6df, 0x4e00},	/* CJK Ideographs */
+	{0x2a700, 0x2b73f, 0x4e00},	/* CJK Ideographs */
+	{0x2b740, 0x2b81f, 0x4e00},	/* CJK Ideographs */
+	{0x2f800, 0x2fa1f, 0x4e00},	/* CJK Ideographs */
     };
     int bot = 0;
     int top = sizeof(classes) / sizeof(struct clinterval) - 1;
@@ -2473,9 +2615,9 @@ utf_class(c)
     while (top >= bot)
     {
 	mid = (bot + top) / 2;
-	if (classes[mid].last < c)
+	if (classes[mid].last < (unsigned int)c)
 	    bot = mid + 1;
-	else if (classes[mid].first > c)
+	else if (classes[mid].first > (unsigned int)c)
 	    top = mid - 1;
 	else
 	    return (int)classes[mid].class;
@@ -2575,6 +2717,7 @@ static convertStruct foldCase[] =
 	{0x345,0x345,-1,116},
 	{0x370,0x372,2,1},
 	{0x376,0x376,-1,1},
+	{0x37f,0x37f,-1,116},
 	{0x386,0x386,-1,38},
 	{0x388,0x38a,1,37},
 	{0x38c,0x38c,-1,64},
@@ -2602,9 +2745,11 @@ static convertStruct foldCase[] =
 	{0x48a,0x4be,2,1},
 	{0x4c0,0x4c0,-1,15},
 	{0x4c1,0x4cd,2,1},
-	{0x4d0,0x524,2,1},
+	{0x4d0,0x52e,2,1},
 	{0x531,0x556,1,48},
 	{0x10a0,0x10c5,1,7264},
+	{0x10c7,0x10cd,6,7264},
+	{0x13f8,0x13fd,1,-8},
 	{0x1e00,0x1e94,2,1},
 	{0x1e9b,0x1e9b,-1,-58},
 	{0x1e9e,0x1e9e,-1,-7615},
@@ -2654,20 +2799,36 @@ static convertStruct foldCase[] =
 	{0x2c7e,0x2c7f,1,-10815},
 	{0x2c80,0x2ce2,2,1},
 	{0x2ceb,0x2ced,2,1},
-	{0xa640,0xa65e,2,1},
-	{0xa662,0xa66c,2,1},
-	{0xa680,0xa696,2,1},
+	{0x2cf2,0xa640,31054,1},
+	{0xa642,0xa66c,2,1},
+	{0xa680,0xa69a,2,1},
 	{0xa722,0xa72e,2,1},
 	{0xa732,0xa76e,2,1},
 	{0xa779,0xa77b,2,1},
 	{0xa77d,0xa77d,-1,-35332},
 	{0xa77e,0xa786,2,1},
 	{0xa78b,0xa78b,-1,1},
+	{0xa78d,0xa78d,-1,-42280},
+	{0xa790,0xa792,2,1},
+	{0xa796,0xa7a8,2,1},
+	{0xa7aa,0xa7aa,-1,-42308},
+	{0xa7ab,0xa7ab,-1,-42319},
+	{0xa7ac,0xa7ac,-1,-42315},
+	{0xa7ad,0xa7ad,-1,-42305},
+	{0xa7b0,0xa7b0,-1,-42258},
+	{0xa7b1,0xa7b1,-1,-42282},
+	{0xa7b2,0xa7b2,-1,-42261},
+	{0xa7b3,0xa7b3,-1,928},
+	{0xa7b4,0xa7b6,2,1},
+	{0xab70,0xabbf,1,-38864},
 	{0xff21,0xff3a,1,32},
-	{0x10400,0x10427,1,40}
+	{0x10400,0x10427,1,40},
+	{0x10c80,0x10cb2,1,64},
+	{0x118a0,0x118bf,1,32}
 };
 
-static int utf_convert(int a, convertStruct table[], int tableSize);
+static int utf_convert __ARGS((int a, convertStruct table[], int tableSize));
+static int utf_strnicmp __ARGS((char_u *s1, char_u *s2, size_t n1, size_t n2));
 
 /*
  * Generic conversion function for case operations.
@@ -2681,19 +2842,22 @@ utf_convert(a, table, tableSize)
     int			tableSize;
 {
     int start, mid, end; /* indices into table */
+    int entries = tableSize / sizeof(convertStruct);
 
     start = 0;
-    end = tableSize / sizeof(convertStruct);
+    end = entries;
     while (start < end)
     {
 	/* need to search further */
-	mid = (end + start) /2;
+	mid = (end + start) / 2;
 	if (table[mid].rangeEnd < a)
 	    start = mid + 1;
 	else
 	    end = mid;
     }
-    if (table[start].rangeStart <= a && a <= table[start].rangeEnd
+    if (start < entries
+	    && table[start].rangeStart <= a
+	    && a <= table[start].rangeEnd
 	    && (a - table[start].rangeStart) % table[start].step == 0)
 	return (a + table[start].offset);
     else
@@ -2708,7 +2872,7 @@ utf_convert(a, table, tableSize)
 utf_fold(a)
     int		a;
 {
-    return utf_convert(a, foldCase, sizeof(foldCase));
+    return utf_convert(a, foldCase, (int)sizeof(foldCase));
 }
 
 static convertStruct toLower[] =
@@ -2777,6 +2941,7 @@ static convertStruct toLower[] =
 	{0x246,0x24e,2,1},
 	{0x370,0x372,2,1},
 	{0x376,0x376,-1,1},
+	{0x37f,0x37f,-1,116},
 	{0x386,0x386,-1,38},
 	{0x388,0x38a,1,37},
 	{0x38c,0x38c,-1,64},
@@ -2796,9 +2961,12 @@ static convertStruct toLower[] =
 	{0x48a,0x4be,2,1},
 	{0x4c0,0x4c0,-1,15},
 	{0x4c1,0x4cd,2,1},
-	{0x4d0,0x524,2,1},
+	{0x4d0,0x52e,2,1},
 	{0x531,0x556,1,48},
 	{0x10a0,0x10c5,1,7264},
+	{0x10c7,0x10cd,6,7264},
+	{0x13a0,0x13ef,1,38864},
+	{0x13f0,0x13f5,1,8},
 	{0x1e00,0x1e94,2,1},
 	{0x1e9e,0x1e9e,-1,-7615},
 	{0x1ea0,0x1efe,2,1},
@@ -2846,17 +3014,31 @@ static convertStruct toLower[] =
 	{0x2c7e,0x2c7f,1,-10815},
 	{0x2c80,0x2ce2,2,1},
 	{0x2ceb,0x2ced,2,1},
-	{0xa640,0xa65e,2,1},
-	{0xa662,0xa66c,2,1},
-	{0xa680,0xa696,2,1},
+	{0x2cf2,0xa640,31054,1},
+	{0xa642,0xa66c,2,1},
+	{0xa680,0xa69a,2,1},
 	{0xa722,0xa72e,2,1},
 	{0xa732,0xa76e,2,1},
 	{0xa779,0xa77b,2,1},
 	{0xa77d,0xa77d,-1,-35332},
 	{0xa77e,0xa786,2,1},
 	{0xa78b,0xa78b,-1,1},
+	{0xa78d,0xa78d,-1,-42280},
+	{0xa790,0xa792,2,1},
+	{0xa796,0xa7a8,2,1},
+	{0xa7aa,0xa7aa,-1,-42308},
+	{0xa7ab,0xa7ab,-1,-42319},
+	{0xa7ac,0xa7ac,-1,-42315},
+	{0xa7ad,0xa7ad,-1,-42305},
+	{0xa7b0,0xa7b0,-1,-42258},
+	{0xa7b1,0xa7b1,-1,-42282},
+	{0xa7b2,0xa7b2,-1,-42261},
+	{0xa7b3,0xa7b3,-1,928},
+	{0xa7b4,0xa7b6,2,1},
 	{0xff21,0xff3a,1,32},
-	{0x10400,0x10427,1,40}
+	{0x10400,0x10427,1,40},
+	{0x10c80,0x10cb2,1,64},
+	{0x118a0,0x118bf,1,32}
 };
 
 static convertStruct toUpper[] =
@@ -2913,22 +3095,30 @@ static convertStruct toUpper[] =
 	{0x256,0x257,1,-205},
 	{0x259,0x259,-1,-202},
 	{0x25b,0x25b,-1,-203},
+	{0x25c,0x25c,-1,42319},
 	{0x260,0x260,-1,-205},
+	{0x261,0x261,-1,42315},
 	{0x263,0x263,-1,-207},
+	{0x265,0x265,-1,42280},
+	{0x266,0x266,-1,42308},
 	{0x268,0x268,-1,-209},
 	{0x269,0x269,-1,-211},
 	{0x26b,0x26b,-1,10743},
+	{0x26c,0x26c,-1,42305},
 	{0x26f,0x26f,-1,-211},
 	{0x271,0x271,-1,10749},
 	{0x272,0x272,-1,-213},
 	{0x275,0x275,-1,-214},
 	{0x27d,0x27d,-1,10727},
 	{0x280,0x283,3,-218},
+	{0x287,0x287,-1,42282},
 	{0x288,0x288,-1,-218},
 	{0x289,0x289,-1,-69},
 	{0x28a,0x28b,1,-217},
 	{0x28c,0x28c,-1,-71},
 	{0x292,0x292,-1,-219},
+	{0x29d,0x29d,-1,42261},
+	{0x29e,0x29e,-1,42258},
 	{0x345,0x345,-1,84},
 	{0x371,0x373,2,-1},
 	{0x377,0x377,-1,-1},
@@ -2949,6 +3139,7 @@ static convertStruct toUpper[] =
 	{0x3f0,0x3f0,-1,-86},
 	{0x3f1,0x3f1,-1,-80},
 	{0x3f2,0x3f2,-1,7},
+	{0x3f3,0x3f3,-1,-116},
 	{0x3f5,0x3f5,-1,-96},
 	{0x3f8,0x3fb,3,-1},
 	{0x430,0x44f,1,-32},
@@ -2957,8 +3148,9 @@ static convertStruct toUpper[] =
 	{0x48b,0x4bf,2,-1},
 	{0x4c2,0x4ce,2,-1},
 	{0x4cf,0x4cf,-1,-15},
-	{0x4d1,0x525,2,-1},
+	{0x4d1,0x52f,2,-1},
 	{0x561,0x586,1,-48},
+	{0x13f8,0x13fd,1,-8},
 	{0x1d79,0x1d79,-1,35332},
 	{0x1d7d,0x1d7d,-1,3814},
 	{0x1e01,0x1e95,2,-1},
@@ -3000,19 +3192,26 @@ static convertStruct toUpper[] =
 	{0x2c73,0x2c76,3,-1},
 	{0x2c81,0x2ce3,2,-1},
 	{0x2cec,0x2cee,2,-1},
+	{0x2cf3,0x2cf3,-1,-1},
 	{0x2d00,0x2d25,1,-7264},
-	{0xa641,0xa65f,2,-1},
-	{0xa663,0xa66d,2,-1},
-	{0xa681,0xa697,2,-1},
+	{0x2d27,0x2d2d,6,-7264},
+	{0xa641,0xa66d,2,-1},
+	{0xa681,0xa69b,2,-1},
 	{0xa723,0xa72f,2,-1},
 	{0xa733,0xa76f,2,-1},
 	{0xa77a,0xa77c,2,-1},
 	{0xa77f,0xa787,2,-1},
-	{0xa78c,0xa78c,-1,-1},
+	{0xa78c,0xa791,5,-1},
+	{0xa793,0xa797,4,-1},
+	{0xa799,0xa7a9,2,-1},
+	{0xa7b5,0xa7b7,2,-1},
+	{0xab53,0xab53,-1,-928},
+	{0xab70,0xabbf,1,-38864},
 	{0xff41,0xff5a,1,-32},
-	{0x10428,0x1044f,1,-40}
+	{0x10428,0x1044f,1,-40},
+	{0x10cc0,0x10cf2,1,-64},
+	{0x118c0,0x118df,1,-32}
 };
-
 /*
  * Return the upper-case equivalent of "a", which is a UCS-4 character.  Use
  * simple case folding.
@@ -3036,14 +3235,15 @@ utf_toupper(a)
 	return TOUPPER_LOC(a);
 
     /* For any other characters use the above mapping table. */
-    return utf_convert(a, toUpper, sizeof(toUpper));
+    return utf_convert(a, toUpper, (int)sizeof(toUpper));
 }
 
     int
 utf_islower(a)
     int		a;
 {
-    return (utf_toupper(a) != a);
+    /* German sharp s is lower case but has no upper case equivalent. */
+    return (utf_toupper(a) != a) || a == 0xdf;
 }
 
 /*
@@ -3069,7 +3269,7 @@ utf_tolower(a)
 	return TOLOWER_LOC(a);
 
     /* For any other characters use the above mapping table. */
-    return utf_convert(a, toLower, sizeof(toLower));
+    return utf_convert(a, toLower, (int)sizeof(toLower));
 }
 
     int
@@ -3079,9 +3279,83 @@ utf_isupper(a)
     return (utf_tolower(a) != a);
 }
 
+    static int
+utf_strnicmp(s1, s2, n1, n2)
+    char_u      *s1, *s2;
+    size_t      n1, n2;
+{
+    int		c1, c2, cdiff;
+    char_u	buffer[6];
+
+    for (;;)
+    {
+	c1 = utf_safe_read_char_adv(&s1, &n1);
+	c2 = utf_safe_read_char_adv(&s2, &n2);
+
+	if (c1 <= 0 || c2 <= 0)
+	    break;
+
+	if (c1 == c2)
+	    continue;
+
+	cdiff = utf_fold(c1) - utf_fold(c2);
+	if (cdiff != 0)
+	    return cdiff;
+    }
+
+    /* some string ended or has an incomplete/illegal character sequence */
+
+    if (c1 == 0 || c2 == 0)
+    {
+	/* some string ended. shorter string is smaller */
+	if (c1 == 0 && c2 == 0)
+	    return 0;
+	return c1 == 0 ? -1 : 1;
+    }
+
+    /* Continue with bytewise comparison to produce some result that
+     * would make comparison operations involving this function transitive.
+     *
+     * If only one string had an error, comparison should be made with
+     * folded version of the other string. In this case it is enough
+     * to fold just one character to determine the result of comparison. */
+
+    if (c1 != -1 && c2 == -1)
+    {
+	n1 = utf_char2bytes(utf_fold(c1), buffer);
+	s1 = buffer;
+    }
+    else if (c2 != -1 && c1 == -1)
+    {
+	n2 = utf_char2bytes(utf_fold(c2), buffer);
+	s2 = buffer;
+    }
+
+    while (n1 > 0 && n2 > 0 && *s1 != NUL && *s2 != NUL)
+    {
+	cdiff = (int)(*s1) - (int)(*s2);
+	if (cdiff != 0)
+	    return cdiff;
+
+	s1++;
+	s2++;
+	n1--;
+	n2--;
+    }
+
+    if (n1 > 0 && *s1 == NUL)
+	n1 = 0;
+    if (n2 > 0 && *s2 == NUL)
+	n2 = 0;
+
+    if (n1 == 0 && n2 == 0)
+	return 0;
+    return n1 == 0 ? -1 : 1;
+}
+
 /*
  * Version of strnicmp() that handles multi-byte characters.
- * Needed for Big5, Sjift-JIS and UTF-8 encoding.  Other DBCS encodings can
+ * Needed for Big5, Shift-JIS and UTF-8 encoding.  Other DBCS encodings can
  * probably use strnicmp(), because there are no ASCII characters in the
  * second byte.
  * Returns zero if s1 and s2 are equal (ignoring case), the difference between
@@ -3092,46 +3366,21 @@ mb_strnicmp(s1, s2, nn)
     char_u	*s1, *s2;
     size_t	nn;
 {
-    int		i, j, l;
+    int		i, l;
     int		cdiff;
-    int		incomplete = FALSE;
     int		n = (int)nn;
 
-    for (i = 0; i < n; i += l)
+    if (enc_utf8)
     {
-	if (s1[i] == NUL && s2[i] == NUL)   /* both strings end */
-	    return 0;
-	if (enc_utf8)
+	return utf_strnicmp(s1, s2, nn, nn);
+    }
+    else
+    {
+	for (i = 0; i < n; i += l)
 	{
-	    l = utf_byte2len(s1[i]);
-	    if (l > n - i)
-	    {
-		l = n - i;		    /* incomplete character */
-		incomplete = TRUE;
-	    }
-	    /* Check directly first, it's faster. */
-	    for (j = 0; j < l; ++j)
-	    {
-		if (s1[i + j] != s2[i + j])
-		    break;
-		if (s1[i + j] == 0)
-		    /* Both stings have the same bytes but are incomplete or
-		     * have illegal bytes, accept them as equal. */
-		    l = j;
-	    }
-	    if (j < l)
-	    {
-		/* If one of the two characters is incomplete return -1. */
-		if (incomplete || i + utf_byte2len(s2[i]) > n)
-		    return -1;
-		cdiff = utf_fold(utf_ptr2char(s1 + i))
-					     - utf_fold(utf_ptr2char(s2 + i));
-		if (cdiff != 0)
-		    return cdiff;
-	    }
-	}
-	else
-	{
+	    if (s1[i] == NUL && s2[i] == NUL)	/* both strings end */
+		return 0;
+
 	    l = (*mb_ptr2len)(s1 + i);
 	    if (l <= 1)
 	    {
@@ -3560,7 +3809,7 @@ dbcs_screen_tail_off(base, p)
     void
 mb_adjust_cursor()
 {
-    mb_adjustpos(&curwin->w_cursor);
+    mb_adjustpos(curbuf, &curwin->w_cursor);
 }
 
 /*
@@ -3568,7 +3817,8 @@ mb_adjust_cursor()
  * If it points to a tail byte it's moved backwards to the head byte.
  */
     void
-mb_adjustpos(lp)
+mb_adjustpos(buf, lp)
+    buf_T	*buf;
     pos_T	*lp;
 {
     char_u	*p;
@@ -3579,7 +3829,7 @@ mb_adjustpos(lp)
 #endif
 	    )
     {
-	p = ml_get(lp->lnum);
+	p = ml_get_buf(buf, lp->lnum, FALSE);
 	lp->col -= (*mb_head_off)(p, p + lp->col);
 #ifdef FEAT_VIRTUALEDIT
 	/* Reset "coladd" when the cursor would be on the right half of a
@@ -3656,13 +3906,15 @@ mb_charlen_len(str, len)
 mb_unescape(pp)
     char_u **pp;
 {
-    static char_u	buf[MB_MAXBYTES + 1];
-    int			n, m = 0;
+    static char_u	buf[6];
+    int			n;
+    int			m = 0;
     char_u		*str = *pp;
 
     /* Must translate K_SPECIAL KS_SPECIAL KE_FILLER to K_SPECIAL and CSI
-     * KS_EXTRA KE_CSI to CSI. */
-    for (n = 0; str[n] != NUL && m <= MB_MAXBYTES; ++n)
+     * KS_EXTRA KE_CSI to CSI.
+     * Maximum length of a utf-8 character is 4 bytes. */
+    for (n = 0; str[n] != NUL && m < 4; ++n)
     {
 	if (str[n] == K_SPECIAL
 		&& str[n + 1] == KS_SPECIAL
@@ -3699,6 +3951,10 @@ mb_unescape(pp)
 	    *pp = str + n + 1;
 	    return buf;
 	}
+
+	/* Bail out quickly for ASCII. */
+	if (buf[0] < 128)
+	    break;
     }
     return NULL;
 }
@@ -3938,7 +4194,7 @@ enc_locale()
     return enc_canonize((char_u *)buf);
 }
 
-#if defined(WIN3264) || defined(PROTO)
+#if defined(WIN3264) || defined(PROTO) || defined(FEAT_CYGWIN_WIN32_CLIPBOARD)
 /*
  * Convert an encoding name to an MS-Windows codepage.
  * Returns zero if no codepage can be figured out.
@@ -3957,7 +4213,7 @@ encname2codepage(name)
 	p += 6;
 
     if (p[0] == 'c' && p[1] == 'p')
-	cp = atoi(p + 2);
+	cp = atoi((char *)p + 2);
     else if ((idx = enc_canon_search(p)) >= 0)
 	cp = enc_canon_table[idx].codepage;
     else
@@ -4126,7 +4382,7 @@ iconv_string(vcp, str, slen, unconvlenp, resultlenp)
 	done = to - (char *)result;
     }
 
-    if (resultlenp != NULL)
+    if (resultlenp != NULL && result != NULL)
 	*resultlenp = (int)(to - (char *)result);
     return result;
 }
@@ -4144,11 +4400,54 @@ static HINSTANCE hMsvcrtDLL = 0;
 
 #  ifndef DYNAMIC_ICONV_DLL
 #   define DYNAMIC_ICONV_DLL "iconv.dll"
-#   define DYNAMIC_ICONV_DLL_ALT "libiconv.dll"
+#   define DYNAMIC_ICONV_DLL_ALT1 "libiconv.dll"
+#   define DYNAMIC_ICONV_DLL_ALT2 "libiconv2.dll"
+#   define DYNAMIC_ICONV_DLL_ALT3 "libiconv-2.dll"
 #  endif
 #  ifndef DYNAMIC_MSVCRT_DLL
 #   define DYNAMIC_MSVCRT_DLL "msvcrt.dll"
 #  endif
+
+/*
+ * Get the address of 'funcname' which is imported by 'hInst' DLL.
+ */
+    static void *
+get_iconv_import_func(HINSTANCE hInst, const char *funcname)
+{
+    PBYTE			pImage = (PBYTE)hInst;
+    PIMAGE_DOS_HEADER		pDOS = (PIMAGE_DOS_HEADER)hInst;
+    PIMAGE_NT_HEADERS		pPE;
+    PIMAGE_IMPORT_DESCRIPTOR	pImpDesc;
+    PIMAGE_THUNK_DATA		pIAT;	    /* Import Address Table */
+    PIMAGE_THUNK_DATA		pINT;	    /* Import Name Table */
+    PIMAGE_IMPORT_BY_NAME	pImpName;
+
+    if (pDOS->e_magic != IMAGE_DOS_SIGNATURE)
+	return NULL;
+    pPE = (PIMAGE_NT_HEADERS)(pImage + pDOS->e_lfanew);
+    if (pPE->Signature != IMAGE_NT_SIGNATURE)
+	return NULL;
+    pImpDesc = (PIMAGE_IMPORT_DESCRIPTOR)(pImage
+	    + pPE->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT]
+							    .VirtualAddress);
+    for (; pImpDesc->FirstThunk; ++pImpDesc)
+    {
+	if (!pImpDesc->OriginalFirstThunk)
+	    continue;
+	pIAT = (PIMAGE_THUNK_DATA)(pImage + pImpDesc->FirstThunk);
+	pINT = (PIMAGE_THUNK_DATA)(pImage + pImpDesc->OriginalFirstThunk);
+	for (; pIAT->u1.Function; ++pIAT, ++pINT)
+	{
+	    if (IMAGE_SNAP_BY_ORDINAL(pINT->u1.Ordinal))
+		continue;
+	    pImpName = (PIMAGE_IMPORT_BY_NAME)(pImage
+					+ (UINT_PTR)(pINT->u1.AddressOfData));
+	    if (strcmp(pImpName->Name, funcname) == 0)
+		return (void *)pIAT->u1.Function;
+	}
+    }
+    return NULL;
+}
 
 /*
  * Try opening the iconv.dll and return TRUE if iconv() can be used.
@@ -4159,11 +4458,18 @@ iconv_enabled(verbose)
 {
     if (hIconvDLL != 0 && hMsvcrtDLL != 0)
 	return TRUE;
-    hIconvDLL = LoadLibrary(DYNAMIC_ICONV_DLL);
-    if (hIconvDLL == 0)		/* sometimes it's called libiconv.dll */
-	hIconvDLL = LoadLibrary(DYNAMIC_ICONV_DLL_ALT);
+
+    /* The iconv DLL file goes under different names, try them all. */
+    hIconvDLL = vimLoadLib(DYNAMIC_ICONV_DLL);
+    if (hIconvDLL == 0)
+	hIconvDLL = vimLoadLib(DYNAMIC_ICONV_DLL_ALT1);
+    if (hIconvDLL == 0)
+	hIconvDLL = vimLoadLib(DYNAMIC_ICONV_DLL_ALT2);
+    if (hIconvDLL == 0)
+	hIconvDLL = vimLoadLib(DYNAMIC_ICONV_DLL_ALT3);
+
     if (hIconvDLL != 0)
-	hMsvcrtDLL = LoadLibrary(DYNAMIC_MSVCRT_DLL);
+	hMsvcrtDLL = vimLoadLib(DYNAMIC_MSVCRT_DLL);
     if (hIconvDLL == 0 || hMsvcrtDLL == 0)
     {
 	/* Only give the message when 'verbose' is set, otherwise it might be
@@ -4183,7 +4489,9 @@ iconv_enabled(verbose)
     iconv_open	= (void *)GetProcAddress(hIconvDLL, "libiconv_open");
     iconv_close	= (void *)GetProcAddress(hIconvDLL, "libiconv_close");
     iconvctl	= (void *)GetProcAddress(hIconvDLL, "libiconvctl");
-    iconv_errno	= (void *)GetProcAddress(hMsvcrtDLL, "_errno");
+    iconv_errno	= get_iconv_import_func(hIconvDLL, "_errno");
+    if (iconv_errno == NULL)
+	iconv_errno = (void *)GetProcAddress(hMsvcrtDLL, "_errno");
     if (iconv == NULL || iconv_open == NULL || iconv_close == NULL
 	    || iconvctl == NULL || iconv_errno == NULL)
     {
@@ -4253,7 +4561,7 @@ im_set_active(int active)
 {
     int was_active;
 
-    was_active = !!im_is_active;
+    was_active = !!im_get_status();
     im_is_active = (active && !p_imdisable);
 
     if (im_is_active != was_active)
@@ -4368,7 +4676,8 @@ im_show_info(void)
     vgetc_busy = TRUE;
     showmode();
     vgetc_busy = old_vgetc_busy;
-    setcursor();
+    if ((State & NORMAL) || (State & INSERT))
+	setcursor();
     out_flush();
 }
 
@@ -4404,7 +4713,7 @@ im_commit_cb(GtkIMContext *context UNUSED,
     }
 
     /* The thing which setting "preedit_start_col" to MAXCOL means that
-     * "preedit_start_col" will be set forcely when calling
+     * "preedit_start_col" will be set forcedly when calling
      * preedit_changed_cb() next time.
      * "preedit_start_col" should not reset with MAXCOL on this part. Vim
      * is simulating the preediting by using add_to_input_str(). when
@@ -4876,44 +5185,28 @@ xim_reset(void)
 {
     if (xic != NULL)
     {
-	/*
-	 * The third-party imhangul module (and maybe others too) ignores
-	 * gtk_im_context_reset() or at least doesn't reset the active state.
-	 * Thus sending imactivatekey would turn it off if it was on before,
-	 * which is clearly not what we want.  Fortunately we can work around
-	 * that for imhangul by sending GDK_Escape, but I don't know if it
-	 * works with all IM modules that support an activation key :/
-	 *
-	 * An alternative approach would be to destroy the IM context and
-	 * recreate it.  But that means loading/unloading the IM module on
-	 * every mode switch, which causes a quite noticeable delay even on
-	 * my rather fast box...
-	 * *
-	 * Moreover, there are some XIM which cannot respond to
-	 * im_synthesize_keypress(). we hope that they reset by
-	 * xim_shutdown().
-	 */
-	if (im_activatekey_keyval != GDK_VoidSymbol && im_is_active)
-	    im_synthesize_keypress(GDK_Escape, 0U);
-
 	gtk_im_context_reset(xic);
-
-	/*
-	 * HACK for Ami: This sequence of function calls makes Ami handle
-	 * the IM reset graciously, without breaking loads of other stuff.
-	 * It seems to force English mode as well, which is exactly what we
-	 * want because it makes the Ami status display work reliably.
-	 */
-	gtk_im_context_set_use_preedit(xic, FALSE);
 
 	if (p_imdisable)
 	    im_shutdown();
 	else
 	{
-	    gtk_im_context_set_use_preedit(xic, TRUE);
 	    xim_set_focus(gui.in_focus);
 
-	    if (im_activatekey_keyval != GDK_VoidSymbol)
+#  ifdef FEAT_EVAL
+	    if (p_imaf[0] != NUL)
+	    {
+		char_u *argv[1];
+
+		if (im_is_active)
+		    argv[0] = (char_u *)"1";
+		else
+		    argv[0] = (char_u *)"0";
+		(void)call_func_retnr(p_imaf, 1, argv, FALSE);
+	    }
+	    else
+#  endif
+		if (im_activatekey_keyval != GDK_VoidSymbol)
 	    {
 		if (im_is_active)
 		{
@@ -5058,6 +5351,10 @@ xim_queue_key_press_event(GdkEventKey *event, int down)
 		/* We had a keypad key, and XIM tried to thieve it */
 		return FALSE;
 
+	    /* This is supposed to fix a problem with iBus, that space
+	     * characters don't work in input mode. */
+	    xim_expected_char = NUL;
+
 	    /* Normal processing */
 	    return imresult;
 	}
@@ -5069,6 +5366,26 @@ xim_queue_key_press_event(GdkEventKey *event, int down)
     int
 im_get_status(void)
 {
+#  ifdef FEAT_EVAL
+    if (p_imsf[0] != NUL)
+    {
+	int is_active;
+
+	/* FIXME: Don't execute user function in unsafe situation. */
+	if (exiting
+#   ifdef FEAT_AUTOCMD
+		|| is_autocmd_blocked()
+#   endif
+		)
+	    return FALSE;
+	/* FIXME: :py print 'xxx' is shown duplicate result.
+	 * Use silent to avoid it. */
+	++msg_silent;
+	is_active = call_func_retnr(p_imsf, 0, NULL, FALSE);
+	--msg_silent;
+	return (is_active > 0);
+    }
+#  endif
     return im_is_active;
 }
 
@@ -5167,15 +5484,15 @@ im_set_position(row, col)
     void
 xim_set_preedit()
 {
-    if (xic == NULL)
-	return;
-
-    xim_set_focus(TRUE);
-
     XVaNestedList attr_list;
     XRectangle spot_area;
     XPoint over_spot;
     int line_space;
+
+    if (xic == NULL)
+	return;
+
+    xim_set_focus(TRUE);
 
     if (!xim_has_focus)
     {
@@ -5554,11 +5871,11 @@ im_get_status()
     void
 xim_set_status_area()
 {
-    if (xic == NULL)
-	return;
-
     XVaNestedList preedit_list = 0, status_list = 0, list = 0;
     XRectangle pre_area, status_area;
+
+    if (xic == NULL)
+	return;
 
     if (input_style & XIMStatusArea)
     {
@@ -6057,8 +6374,23 @@ string_convert_ext(vcp, ptr, lenp, unconvlenp)
 	    if (vcp->vc_cpfrom == 0)
 		tmp_len = utf8_to_utf16(ptr, len, NULL, NULL);
 	    else
-		tmp_len = MultiByteToWideChar(vcp->vc_cpfrom, 0,
-							      ptr, len, 0, 0);
+	    {
+		tmp_len = MultiByteToWideChar(vcp->vc_cpfrom,
+					unconvlenp ? MB_ERR_INVALID_CHARS : 0,
+					ptr, len, 0, 0);
+		if (tmp_len == 0
+			&& GetLastError() == ERROR_NO_UNICODE_TRANSLATION)
+		{
+		    if (lenp != NULL)
+			*lenp = 0;
+		    if (unconvlenp != NULL)
+			*unconvlenp = len;
+		    retval = alloc(1);
+		    if (retval)
+			retval[0] = NUL;
+		    return retval;
+		}
+	    }
 	    tmp = (short_u *)alloc(sizeof(short_u) * tmp_len);
 	    if (tmp == NULL)
 		break;

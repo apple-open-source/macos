@@ -35,6 +35,7 @@ class JSStringJoiner {
 public:
     JSStringJoiner(ExecState&, LChar separator, unsigned stringCount);
     JSStringJoiner(ExecState&, StringView separator, unsigned stringCount);
+    ~JSStringJoiner();
 
     void append(ExecState&, JSValue);
     bool appendWithoutSideEffects(ExecState&, JSValue);
@@ -59,7 +60,7 @@ inline JSStringJoiner::JSStringJoiner(ExecState& state, StringView separator, un
     : m_separator(separator)
     , m_isAll8Bit(m_separator.is8Bit())
 {
-    if (!m_strings.tryReserveCapacity(stringCount))
+    if (UNLIKELY(!m_strings.tryReserveCapacity(stringCount)))
         throwOutOfMemoryError(&state);
 }
 
@@ -67,7 +68,7 @@ inline JSStringJoiner::JSStringJoiner(ExecState& state, LChar separator, unsigne
     : m_singleCharacterSeparator(separator)
     , m_separator { &m_singleCharacterSeparator, 1 }
 {
-    if (!m_strings.tryReserveCapacity(stringCount))
+    if (UNLIKELY(!m_strings.tryReserveCapacity(stringCount)))
         throwOutOfMemoryError(&state);
 }
 
@@ -75,7 +76,7 @@ ALWAYS_INLINE void JSStringJoiner::append(StringViewWithUnderlyingString&& strin
 {
     m_accumulatedStringsLength += string.view.length();
     m_isAll8Bit = m_isAll8Bit && string.view.is8Bit();
-    m_strings.uncheckedAppend(WTF::move(string));
+    m_strings.uncheckedAppend(WTFMove(string));
 }
 
 ALWAYS_INLINE void JSStringJoiner::append8Bit(const String& string)
@@ -112,7 +113,7 @@ ALWAYS_INLINE bool JSStringJoiner::appendWithoutSideEffects(ExecState& state, JS
         if (!value.asCell()->isString())
             return false;
         jsString = asString(value);
-        append(value.toString(&state)->viewWithUnderlyingString(state));
+        append(jsString->viewWithUnderlyingString(state));
         return true;
     }
 

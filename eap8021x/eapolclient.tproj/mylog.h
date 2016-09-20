@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -60,7 +60,7 @@ eapolclient_should_log(uint32_t flags);
 
 #define eapolclient_log(__flags, __format, ...)			\
     if (eapolclient_should_log(__flags))			\
-	EAPLog(LOG_INFO, CFSTR(__format), ## __VA_ARGS__)
+	EAPLOG(LOG_INFO, __format, ## __VA_ARGS__)
 
 #endif /* _S_MYLOG_H */
 

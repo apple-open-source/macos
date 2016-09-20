@@ -24,6 +24,8 @@
  */
 
 #include "config.h"
+
+#if ENABLE(CSS_SHAPES)
 #include "ShapeValue.h"
 
 #include "CachedImage.h"
@@ -39,4 +41,28 @@ bool ShapeValue::isImageValid() const
     return image()->isGeneratedImage();
 }
 
+template <typename T>
+bool pointersOrValuesEqual(T p1, T p2)
+{
+    if (p1 == p2)
+        return true;
+    
+    if (!p1 || !p2)
+        return false;
+    
+    return *p1 == *p2;
+}
+
+bool ShapeValue::operator==(const ShapeValue& other) const
+{
+    if (m_type != other.m_type || m_cssBox != other.m_cssBox)
+        return false;
+
+    return pointersOrValuesEqual(m_shape.get(), other.m_shape.get())
+        && pointersOrValuesEqual(m_image.get(), other.m_image.get());
+}
+
+
 } // namespace WebCore
+
+#endif // ENABLE(CSS_SHAPES)

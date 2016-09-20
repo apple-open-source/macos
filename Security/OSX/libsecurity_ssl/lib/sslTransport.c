@@ -31,12 +31,15 @@
 #include "sslRecord.h"
 #include "sslDebug.h"
 #include "sslCipherSpecs.h"
-#include "sslUtils.h"
 
 #include <assert.h>
 #include <string.h>
 
 #include <utilities/SecIOFormat.h>
+#include <utilities/SecCFWrappers.h>
+
+#include <CommonCrypto/CommonDigest.h>
+#include <Security/SecCertificatePriv.h>
 
 #ifndef	NDEBUG
 static inline void sslIoTrace(
@@ -57,7 +60,6 @@ extern int kSplitDefaultValue;
 
 static OSStatus SSLProcessProtocolMessage(SSLRecord *rec, SSLContext *ctx);
 static OSStatus SSLHandshakeProceed(SSLContext *ctx);
-//static OSStatus SSLInitConnection(SSLContext *ctx);
 
 OSStatus 
 SSLWrite(
@@ -75,7 +77,6 @@ SSLWrite(
     	return errSecParam;
     }
     dataLen = dataLength;
-    processed = 0;        /* Initialize in case we return with errSSLWouldBlock */
     *bytesWritten = 0;
 
     switch(ctx->state) {
@@ -98,7 +99,6 @@ SSLWrite(
 
     /* First, we have to wait until the session is ready to send data,
         so the encryption keys and such have been established. */
-    err = errSecSuccess;
     while (!(ctx->writeCipher_ready))
     {   if ((err = SSLHandshakeProceed(ctx)) != 0)
             goto exit;
@@ -113,7 +113,6 @@ SSLWrite(
     /* Skip empty writes, fragmentation is done at the coreTLS layer */
     if(dataLen) {
         rec.contentType = SSL_RecordTypeAppData;
-        rec.protocolVersion = ctx->negProtocolVersion;
         rec.contents.data = ((uint8_t *)data) + processed;
         rec.contents.length = dataLen;
         if ((err = SSLWriteRecord(rec, ctx)) != 0)
@@ -133,13 +132,14 @@ exit:
         case errSSLUnexpectedRecord:
 		case errSSLServerAuthCompleted: /* == errSSLClientAuthCompleted */
 		case errSSLClientCertRequested:
-		case errSSLClosedGraceful:
-			break;
-		default:
-			sslErrorLog("SSLWrite: going to state errorClose due to err %d\n",
-				(int)err);
-			SSLChangeHdskState(ctx, SSL_HdskStateErrorClose);
-			break;
+        case errSSLClientHelloReceived:
+        case errSSLClosedGraceful:
+            break;
+        default:
+            sslErrorLog("SSLWrite: going to state errorClose due to err %d\n",
+                        (int)err);
+            SSLChangeHdskState(ctx, SSL_HdskStateErrorClose);
+            break;
     }
 abort:
 	sslIoTrace(ctx, "SSLWrite(2)", dataLength, *bytesWritten, err);
@@ -183,25 +183,31 @@ readRetry:
 
     /* First, we have to wait until the session is ready to receive data,
         so the encryption keys and such have been established. */
-    err = errSecSuccess;
     while (ctx->readCipher_ready == 0) {
 		if ((err = SSLHandshakeProceed(ctx)) != 0) {
             goto exit;
 		}
     }
 
+    /* Need this to handle the case were SSLRead returned
+       errSSLClientHelloReceived as readCipher_ready is not set yet in that case */
+    if ((err = tls_handshake_continue(ctx->hdsk)) != 0)
+        return err;
+
     /* Attempt to service the write queue */
     if ((err = SSLServiceWriteQueue(ctx)) != 0) {
 		if (err != errSSLWouldBlock) {
             goto exit;
 		}
-        err = errSecSuccess; /* Write blocking shouldn't stop attempts to read */
     }
 
     remaining = bufSize;
     charPtr = (uint8_t *)data;
+
+    /* If we have data in the buffer, use that first */
     if (ctx->receivedDataBuffer.data)
-    {   count = ctx->receivedDataBuffer.length - ctx->receivedDataPos;
+    {
+        count = ctx->receivedDataBuffer.length - ctx->receivedDataPos;
         if (count > bufSize)
             count = bufSize;
         memcpy(data, ctx->receivedDataBuffer.data + ctx->receivedDataPos, count);
@@ -217,29 +223,27 @@ readRetry:
 
     if (ctx->receivedDataBuffer.data != 0 &&
         ctx->receivedDataPos >= ctx->receivedDataBuffer.length)
-    {   SSLFreeBuffer(&ctx->receivedDataBuffer);
+    {
+        SSLFreeBuffer(&ctx->receivedDataBuffer);
         ctx->receivedDataBuffer.data = 0;
         ctx->receivedDataPos = 0;
     }
 
 	/*
-	 * This while statement causes a hang when using nonblocking low-level I/O!
-    while (remaining > 0 && ctx->state != SSL_HdskStateGracefulClose)
-	 ..what we really have to do is just return as soon as we read one
-	   record. A performance hit in the nonblocking case, but that is
-	   the only way this code can work in both modes...
+     * If we didnt fill up the users buffer, get some more data
 	 */
     if (remaining > 0 && ctx->state != SSL_HdskStateGracefulClose)
-    {   assert(ctx->receivedDataBuffer.data == 0);
+    {
+        assert(ctx->receivedDataBuffer.data == 0);
         if ((err = SSLReadRecord(&rec, ctx)) != 0) {
             goto exit;
         }
         if (rec.contentType == SSL_RecordTypeAppData ||
             rec.contentType == SSL_RecordTypeV2_0)
-        {   if (rec.contents.length <= remaining)
-            {   memcpy(charPtr, rec.contents.data, rec.contents.length);
-                remaining -= rec.contents.length;
-                charPtr += rec.contents.length;
+        {
+            if (rec.contents.length <= remaining)
+            {   /* Copy all we got in the user's buffer */
+                memcpy(charPtr, rec.contents.data, rec.contents.length);
                 *processed += rec.contents.length;
                 {
                     if ((err = SSLFreeRecord(rec, ctx))) {
@@ -248,12 +252,11 @@ readRetry:
                 }
             }
             else
-            {   memcpy(charPtr, rec.contents.data, remaining);
-                charPtr += remaining;
+            {   /* Copy what we can in the user's buffer, keep the rest for next SSLRead. */
+                memcpy(charPtr, rec.contents.data, remaining);
                 *processed += remaining;
                 ctx->receivedDataBuffer = rec.contents;
                 ctx->receivedDataPos = remaining;
-                remaining = 0;
             }
         }
         else {
@@ -262,7 +265,7 @@ readRetry:
                  process the write queue. This replicate exactly the behavior 
                  before the coreTLS adoption */
                 if(err == errSSLClosedGraceful) {
-                    err = SSLClose(ctx);
+                    SSLClose(ctx);
                 } else {
                     goto exit;
                 }
@@ -282,20 +285,21 @@ exit:
 		goto readRetry;
 	}
 	/* shut down on serious errors */
-	switch(err) {
-		case errSecSuccess:
-		case errSSLWouldBlock:
+    switch(err) {
+        case errSecSuccess:
+        case errSSLWouldBlock:
         case errSSLUnexpectedRecord:
-		case errSSLServerAuthCompleted: /* == errSSLClientAuthCompleted */
-		case errSSLClientCertRequested:
-		case errSSLClosedGraceful:
-		case errSSLClosedNoNotify:
-			break;
-		default:
-			sslErrorLog("SSLRead: going to state errorClose due to err %d\n",
-				(int)err);
-			SSLChangeHdskState(ctx, SSL_HdskStateErrorClose);
-			break;
+        case errSSLServerAuthCompleted: /* == errSSLClientAuthCompleted */
+        case errSSLClientCertRequested:
+        case errSSLClientHelloReceived:
+        case errSSLClosedGraceful:
+        case errSSLClosedNoNotify:
+            break;
+        default:
+            sslErrorLog("SSLRead: going to state errorClose due to err %d\n",
+                        (int)err);
+            SSLChangeHdskState(ctx, SSL_HdskStateErrorClose);
+            break;
     }
 abort:
 	sslIoTrace(ctx, "SSLRead returns", dataLength, *processed, err);
@@ -305,6 +309,85 @@ abort:
 #if	SSL_DEBUG
 #include "sslCrypto.h"
 #endif
+
+
+
+static void get_extended_peer_id(SSLContext *ctx, tls_buffer *extended_peer_id)
+{
+    uint8_t md[CC_SHA256_DIGEST_LENGTH];
+    __block CC_SHA256_CTX hash_ctx;
+
+    CC_SHA256_Init(&hash_ctx);
+
+    CC_SHA256_Update(&hash_ctx, &ctx->allowAnyRoot, sizeof(ctx->allowAnyRoot));
+
+#if !TARGET_OS_IPHONE
+    if(ctx->trustedLeafCerts) {
+        CFArrayForEach(ctx->trustedLeafCerts, ^(const void *value) {
+            SecCertificateRef cert = (SecCertificateRef) value;
+            CC_SHA256_Update(&hash_ctx, SecCertificateGetBytePtr(cert), (CC_LONG)SecCertificateGetLength(cert));
+        });
+    }
+#endif
+
+    CC_SHA256_Update(&hash_ctx, &ctx->trustedCertsOnly, sizeof(ctx->trustedCertsOnly));
+
+
+    if(ctx->trustedCerts) {
+        CFArrayForEach(ctx->trustedCerts, ^(const void *value) {
+            SecCertificateRef cert = (SecCertificateRef) value;
+            CC_SHA256_Update(&hash_ctx, SecCertificateGetBytePtr(cert), (CC_LONG)SecCertificateGetLength(cert));
+        });
+    }
+
+    CC_SHA256_Final(md, &hash_ctx);
+
+    extended_peer_id->length = ctx->peerID.length + sizeof(md);
+    extended_peer_id->data = sslMalloc(extended_peer_id->length);
+    memcpy(extended_peer_id->data, ctx->peerID.data, ctx->peerID.length);
+    memcpy(extended_peer_id->data+ctx->peerID.length, md, sizeof(md));
+}
+
+/* Send the initial client hello */
+static OSStatus
+SSLHandshakeStart(SSLContext *ctx)
+{
+    int err;
+    tls_buffer extended_peer_id;
+    get_extended_peer_id(ctx, &extended_peer_id);
+    err = tls_handshake_negotiate(ctx->hdsk, &extended_peer_id);
+    free(extended_peer_id.data);
+    if(err)
+        return err;
+
+    ctx->readCipher_ready = 0;
+    ctx->writeCipher_ready = 0;
+    SSLChangeHdskState(ctx, SSL_HdskStatePending);
+
+    return noErr;
+}
+
+OSStatus
+SSLReHandshake(SSLContext *ctx)
+{
+    if(ctx == NULL) {
+        return errSecParam;
+    }
+
+    if (ctx->state == SSL_HdskStateGracefulClose)
+        return errSSLClosedGraceful;
+    if (ctx->state == SSL_HdskStateErrorClose)
+        return errSSLClosedAbort;
+    if (ctx->state == SSL_HdskStatePending)
+        return errSecBadReq;
+
+    /* If we are the client, we start the negotiation */
+    if(ctx->protocolSide == kSSLClientSide) {
+        return SSLHandshakeStart(ctx);
+    } else {
+        return tls_handshake_request_renegotiation(ctx->hdsk);
+    }
+}
 
 OSStatus
 SSLHandshake(SSLContext *ctx)
@@ -319,8 +402,6 @@ SSLHandshake(SSLContext *ctx)
     if (ctx->state == SSL_HdskStateErrorClose)
         return errSSLClosedAbort;
 
-    err = errSecSuccess;
-
     if(ctx->isDTLS && ctx->timeout_deadline) {
         CFAbsoluteTime current = CFAbsoluteTimeGetCurrent();
 
@@ -333,12 +414,23 @@ SSLHandshake(SSLContext *ctx)
         }
     }
 
-    while (ctx->readCipher_ready == 0 || ctx->writeCipher_ready == 0)
-    {
+    /* Initial Client Hello */
+    if(ctx->state==SSL_HdskStateUninit) {
+        /* If we are the client, we start the negotiation */
+        if(ctx->protocolSide == kSSLClientSide) {
+            err = SSLHandshakeStart(ctx);
+            if(err) {
+                return err;
+            }
+        }
+        SSLChangeHdskState(ctx, SSL_HdskStatePending);
+    }
+
+    do {
         err = SSLHandshakeProceed(ctx);
         if((err != 0) && (err != errSSLUnexpectedRecord))
             return err;
-    }
+    } while (ctx->readCipher_ready == 0 || ctx->writeCipher_ready == 0);
 
 	/* one more flush at completion of successful handshake */
     if ((err = SSLServiceWriteQueue(ctx)) != 0) {
@@ -391,10 +483,10 @@ static void ad_log_SecureTransport_early_fail(long signature)
 
         CFStringRef key = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("com.apple.SecureTransport.early_fail.%ld"), signature);
 
-        if(key)
+        if(key) {
             gADClientAddValueForScalarKey(key, 1);
-
-        CFRelease(key);
+            CFRelease(key);
+        }
     }
 }
 
@@ -431,21 +523,11 @@ static void log_SecureTransport_early_fail(long signature)
 #endif
 }
 
+
 static OSStatus
 SSLHandshakeProceed(SSLContext *ctx)
 {
     OSStatus  err;
-
-
-    if(ctx->state==SSL_HdskStateUninit) {
-        /* If we are the client, we start the negotiation */
-        if(ctx->protocolSide == kSSLClientSide) {
-            err = tls_handshake_negotiate(ctx->hdsk, &ctx->peerID);
-            if(err)
-                return err;
-        }
-        SSLChangeHdskState(ctx, SSL_HdskStatePending);
-    }
 
     if ((err = tls_handshake_continue(ctx->hdsk)) != 0)
         return err;

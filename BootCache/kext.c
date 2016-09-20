@@ -122,22 +122,6 @@ static int BC_chit_prelogin_timeout_seconds = 3600;
  */
 static int BC_history_timeout = 240 * 100;
 
-/*
- * Trace macros
- */
-#ifndef DBG_BOOTCACHE
-#define DBG_BOOTCACHE	7
-#endif
-
-#define	DBG_BC_TAG					(1 << 0)
-#define	DBG_BC_BATCH				(1 << 1)
-
-#define DBG_BC_IO_HIT				(1 << 2)
-#define DBG_BC_IO_HIT_STALLED		(1 << 3)
-#define DBG_BC_IO_MISS				(1 << 4)
-#define DBG_BC_IO_MISS_CUT_THROUGH	(1 << 5)
-#define DBG_BC_PLAYBACK_IO			(1 << 6)
-
 static int dbg_tag_count = 0;
 
 #ifdef BC_DEBUG
@@ -202,7 +186,23 @@ extern void Debugger(char *);
 
 #include <pexpert/pexpert.h>
 
-#include "BootCache.h"
+#include "BootCache_private.h"
+
+/*
+ * Trace macros
+ */
+#ifndef DBG_BOOTCACHE
+#define DBG_BOOTCACHE	7
+#endif
+
+#define	DBG_BC_TAG					(1 << 0)
+#define	DBG_BC_BATCH				(1 << 1)
+
+#define DBG_BC_IO_HIT				(1 << 2)
+#define DBG_BC_IO_HIT_STALLED		(1 << 3)
+#define DBG_BC_IO_MISS				(1 << 4)
+#define DBG_BC_IO_MISS_CUT_THROUGH	(1 << 5)
+#define DBG_BC_PLAYBACK_IO			(1 << 6)
 
 #ifdef BC_DEBUG
 static struct timeval debug_starttime;
@@ -283,7 +283,7 @@ struct BC_cache_disk {
  * Structures for history recording *
  ************************************/
 
-/* see BC_history_entry and BC_history_mount in BootCache.h */
+/* see BC_history_entry and BC_history_mount in BootCache_private.h */
 
 /*
  * Wrapper around BC_history_mount so we
@@ -2387,7 +2387,8 @@ bypass:
 		
 		char procname[MAXCOMLEN+1];
 		proc_selfname(procname, sizeof(procname));
-		if (0 == strncmp(procname, "securityd", strlen("securityd"))) {
+		if ((0 == strncmp(procname, "securityd", strlen("securityd"))) ||
+			(0 == strncmp(procname, "kextd", strlen("kextd")))) {
 			BC_ADD_STAT(strategy_nonthrottled, 1);
 			return 0;
 		}

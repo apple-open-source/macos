@@ -56,6 +56,7 @@
 #include <arpa/inet.h>
 #include <net/if_types.h>
 #include <net/if_dl.h>
+#include "ipconfigd_globals.h"
 #include "DHCPv6.h"
 #include "DHCPv6Socket.h"
 #include "DHCPv6Options.h"
@@ -66,7 +67,6 @@
 #include "interfaces.h"
 #include "FDSet.h"
 #include "dynarray.h"
-#include "ipconfigd_globals.h"
 #include "symbol_scope.h"
 #include "timer.h"
 #include "IPv6Sock_Compat.h"
@@ -261,7 +261,7 @@ DHCPv6SocketDemux(int if_index, const DHCPv6PacketRef pkt, int pkt_len)
 	    if (data.options != NULL) {
 		DHCPv6OptionListPrintToString(str, data.options);
 	    }
-	    my_log(~LOG_DEBUG, "[%s] Receive %@", 
+	    my_log(~LOG_INFO, "[%s] Receive %@",
 		   if_name(DHCPv6SocketGetInterface(client)), str);
 	    CFRelease(str);
 	}
@@ -570,7 +570,7 @@ DHCPv6SocketTransmit(DHCPv6SocketRef sock,
 	    DHCPv6OptionListPrintToString(str, options);
 	    DHCPv6OptionListRelease(&options);
 	}
-	my_log(~LOG_DEBUG, "[%s] Transmit %@", if_name(sock->if_p), str);
+	my_log(~LOG_INFO, "[%s] Transmit %@", if_name(sock->if_p), str);
 	CFRelease(str);
     }
     else {

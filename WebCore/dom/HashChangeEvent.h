@@ -27,27 +27,23 @@
 namespace WebCore {
 
 struct HashChangeEventInit : public EventInit {
-    HashChangeEventInit()
-    {
-    };
-
     String oldURL;
     String newURL;
 };
 
 class HashChangeEvent final : public Event {
 public:
-    static Ref<HashChangeEvent> create()
-    {
-        return adoptRef(*new HashChangeEvent);
-    }
-
     static Ref<HashChangeEvent> create(const String& oldURL, const String& newURL)
     {
         return adoptRef(*new HashChangeEvent(oldURL, newURL));
     }
 
-    static Ref<HashChangeEvent> create(const AtomicString& type, const HashChangeEventInit& initializer)
+    static Ref<HashChangeEvent> createForBindings()
+    {
+        return adoptRef(*new HashChangeEvent);
+    }
+
+    static Ref<HashChangeEvent> createForBindings(const AtomicString& type, const HashChangeEventInit& initializer)
     {
         return adoptRef(*new HashChangeEvent(type, initializer));
     }
@@ -66,7 +62,7 @@ public:
     const String& oldURL() const { return m_oldURL; }
     const String& newURL() const { return m_newURL; }
 
-    virtual EventInterface eventInterface() const override { return HashChangeEventInterfaceType; }
+    EventInterface eventInterface() const override { return HashChangeEventInterfaceType; }
 
 private:
     HashChangeEvent()

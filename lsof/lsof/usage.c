@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1998 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: usage.c,v 1.31 2013/01/02 17:14:59 abe Exp $";
+static char *rcsid = "$Id: usage.c,v 1.32 2014/10/13 22:36:20 abe Exp $";
 #endif
 
 
@@ -386,18 +386,29 @@ usage(xv, fh, version)
 	    (void) fprintf(stderr, " [-A A]");
 #endif	/* defined(HAS_AFS) && defined(HASAOPT) */
 
-	    (void) fprintf(stderr, " [+|-c c] [+|-d s] [+%sD D]",
-
+	    (void) fprintf(stderr, " [+|-c c] [+|-d s] [+%sD D]%s",
 #if	defined(HASDCACHE)
-		"|-"
+		"|-",
 #else	/* !defined(HASDCACHE) */
-		""
+		"",
 #endif	/* defined(HASDCACHE) */
+
+#if	defined(HASEPTOPTS)
+		" [+|-E]"
+#else	/* !defined(HASEPTOPTS) */
+		""
+#endif	/* defined(HASEPTOPTS) */
 
 		);
 
 	    (void) fprintf(stderr,
-		" [+|-f%s%s%s%s%s%s]%s\n [-F [f]] [-g [s]] [-i [i]]",
+		" %s[+|-f%s%s%s%s%s%s]\n [-F [f]] [-g [s]] [-i [i]]",
+
+#if	defined(HASEOPT)
+		"[+|-e s] ",
+#else	/* !defined(HASEOPT) */
+		"",
+#endif	/* defined(HASEOPT) */
 
 #if	defined(HASFSTRUCT)
 		"[",
@@ -426,16 +437,10 @@ usage(xv, fh, version)
 		"n",
 # endif	/* defined(HASNOFSNADDR) */
 
-		"]",
+		"]"
 #else	/* !defined(HASFSTRUCT) */
-		"", "", "", "", "", "",
+		"", "", "", "", "", ""
 #endif	/* defined(HASFSTRUCT) */
-
-#if	defined(HASEOPT)
-		" [+|-e s]"
-#else	/* !defined(HASEOPT) */
-		""
-#endif	/* defined(HASEOPT) */
 
 		);
 
@@ -464,7 +469,7 @@ usage(xv, fh, version)
 #endif	/* !defined(HASNORPC_H) */
 
 	    (void) fprintf(stderr,
-		" [-o [o]] [-p s]\n[+|-r [t]]%s [-S [t]] [-T [t]]",
+		" [-o [o]] [-p s]\n [+|-r [t]]%s [-S [t]] [-T [t]]",
 
 #if	defined(HASTCPUDPSTATE)
 		" [-s [p:s]]"
@@ -601,6 +606,14 @@ usage(xv, fh, version)
 	    col = print_in_col(col, "-- end option scan");
 	    if (col != 1)
 		(void) fprintf(stderr, "\n");
+
+#if	defined(HASEPTOPTS)
+	    (void) fprintf(stderr, "  %-36.36s  %s\n",
+		"-E display endpoint info",
+		"+E display endpoint info and files"
+	    );
+#endif	/* defined(HASEPTOPTS) */
+
 	    (void) fprintf(stderr, "  %-36.36s",
 		"+f|-f  +filesystem or -file names");
 

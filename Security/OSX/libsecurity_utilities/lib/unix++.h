@@ -36,6 +36,7 @@
 #include <sys/uio.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/xattr.h>
 #include <signal.h>
 #include <fcntl.h>
 #include <semaphore.h>
@@ -136,6 +137,8 @@ public:
 	template <class Data>
 	void writeAll(const Data &ds) { writeAll(ds.data(), ds.length()); }
     
+    void truncate(size_t offset);
+    
     // more convenient I/O
     template <class T> size_t read(T &obj) { return read(&obj, sizeof(obj)); }
     template <class T> size_t write(const T &obj) { return write(&obj, sizeof(obj)); }
@@ -201,13 +204,15 @@ public:
 	ssize_t getAttr(const std::string &name, void *value, size_t length,
 		u_int32_t position = 0, int options = 0)
 	{ return getAttr(name.c_str(), value, length, position, options); }
-	ssize_t getAttrLength(const char *name);
-	ssize_t getAttrLength(const std::string &name) { return getAttrLength(name.c_str()); }
+	ssize_t getAttrLength(const char *name, int options = 0);
+	ssize_t getAttrLength(const std::string &name, int options = 0) { return getAttrLength(name.c_str(), options); }
 	// removeAttr ignore missing attributes. Pass XATTR_REPLACE to fail in that case
 	void removeAttr(const char *name, int options = 0);
 	void removeAttr(const std::string &name, int options = 0)
 	{ return removeAttr(name.c_str(), options); }
 	size_t listAttr(char *value, size_t length, int options = 0);
+	
+	bool hasExtendedAttribute(const char *forkname) const;
 	
 	// xattrs with string values (not including trailing null bytes)
 	void setAttr(const std::string &name, const std::string &value, int options = 0);
@@ -248,6 +253,10 @@ private:
 protected:
     bool mAtEnd;			// end-of-data indicator (after zero read)
 };
+
+
+bool filehasExtendedAttribute(const char *path, const char *forkname);
+inline bool filehasExtendedAttribute(const std::string& path, const char *forkname) { return filehasExtendedAttribute(path.c_str(), forkname); }
 
 
 //

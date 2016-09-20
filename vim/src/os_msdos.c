@@ -21,10 +21,12 @@
  * Some functions are also used for Win16 (MS-Windows 3.1).
  */
 
-#include "vimio.h"
 #include "vim.h"
 
-#include <conio.h>
+/* cproto fails on missing include files */
+#ifndef PROTO
+# include <conio.h>
+#endif
 
 /*
  * MS-DOS only code, not used for Win16.
@@ -32,17 +34,19 @@
 #ifndef WIN16
 
 
-#include <bios.h>
-#ifdef DJGPP
-# include <dpmi.h>
-# include <signal.h>
-# include <sys/movedata.h>
-# include <crt0.h>
-# ifdef FEAT_CLIPBOARD
-#  include <sys/segments.h>
+#ifndef PROTO
+# include <bios.h>
+# ifdef DJGPP
+#  include <dpmi.h>
+#  include <signal.h>
+#  include <sys/movedata.h>
+#  include <crt0.h>
+#  ifdef FEAT_CLIPBOARD
+#   include <sys/segments.h>
+#  endif
+# else
+#  include <alloc.h>
 # endif
-#else
-# include <alloc.h>
 #endif
 
 #if defined(DJGPP) || defined(PROTO)
@@ -551,15 +555,15 @@ mch_update_cursor(void)
 #endif
 
 /*
- * Return amount of memory currently available.
+ * Return amount of memory currently available in Kbyte.
  */
     long_u
 mch_avail_mem(int special)
 {
 #ifdef DJGPP
-    return _go32_dpmi_remaining_virtual_memory();
+    return _go32_dpmi_remaining_virtual_memory() >> 10;
 #else
-    return coreleft();
+    return coreleft() >> 10;
 #endif
 }
 
@@ -698,7 +702,7 @@ vim_kbhit(void)
  * If Vim should work over the serial line after a 'ctty com1' we must use
  * kbhit() and getch(). (jw)
  * Usually kbhit() is not used, because then CTRL-C and CTRL-P
- * will be catched by DOS (mool).
+ * will be caught by DOS (mool).
  *
  * return TRUE if a character is available, FALSE otherwise
  */
@@ -967,7 +971,7 @@ got3:			    s += 3;
 }
 
 /*
- * mch_inchar(): low level input funcion.
+ * mch_inchar(): low level input function.
  * Get a characters from the keyboard.
  * If time == 0 do not wait for characters.
  * If time == n wait a short time for characters.
@@ -989,7 +993,7 @@ mch_inchar(
 
     /*
      * if we got a ctrl-C when we were busy, there will be a "^C" somewhere
-     * on the sceen, so we need to redisplay it.
+     * on the screen, so we need to redisplay it.
      */
     if (delayed_redraw)
     {
@@ -1741,7 +1745,7 @@ mch_settmode(int tmode)
 mch_setmouse(int on)
 {
     mouse_active = on;
-    mouse_hidden = TRUE;	/* dont show it until moved */
+    mouse_hidden = TRUE;	/* don't show it until moved */
 }
 #endif
 
@@ -2131,8 +2135,10 @@ mch_rename(const char *OldFile, const char *NewFile)
 
 #undef setlocale
 
-#include <go32.h>
-#include <inlines/ctype.ha>
+#ifndef PROTO
+# include <go32.h>
+# include <inlines/ctype.ha>
+#endif
 #include <locale.h>
 
 #define UPCASE (__dj_ISALNUM | __dj_ISALPHA | __dj_ISGRAPH | __dj_ISPRINT | __dj_ISUPPER)
@@ -2233,7 +2239,7 @@ clip_mch_lose_selection(VimClipboard *cbd)
     void
 clip_mch_request_selection(VimClipboard *cbd)
 {
-    int		type = MCHAR;
+    int		type = MAUTO;
     char_u	*pAllocated = NULL;
     char_u	*pClipText = NULL;
     int		clip_data_format = 0;
@@ -2264,9 +2270,7 @@ clip_mch_request_selection(VimClipboard *cbd)
 		default:
 		case 'L':	type = MLINE;	break;
 		case 'C':	type = MCHAR;	break;
-#ifdef FEAT_VISUAL
 		case 'B':	type = MBLOCK;	break;
-#endif
 	    }
 	}
 
@@ -2281,14 +2285,12 @@ clip_mch_request_selection(VimClipboard *cbd)
 	{
 	    clip_data_format = CF_TEXT;
 	    pClipText = pAllocated;
-	    type = (vim_strchr((char*)pClipText, '\r') != NULL) ? MLINE : MCHAR;
 	}
 
 	else if ((pAllocated = Win16GetClipboardData(CF_OEMTEXT)) != NULL)
 	{
 	    clip_data_format = CF_OEMTEXT;
 	    pClipText = pAllocated;
-	    type = (vim_strchr((char*)pClipText, '\r') != NULL) ? MLINE : MCHAR;
 	}
 
 	/* Did we get anything? */
@@ -2434,7 +2436,7 @@ Win16OpenClipboard(void)
     long    start_time;
     int	    tick_count;
 
-    /* int 02xf, AX = 0x1701 attempts to open the Windows clipboard.  Upon
+    /* int 0x2f, AX = 0x1701 attempts to open the Windows clipboard.  Upon
      * return from the interrupt, if AX is non-zero, the clipboard was
      * successfully opened.  If AX is zero, the clipboard could not be opened
      * because it is currently in use by another process.
@@ -2529,7 +2531,7 @@ Win16EmptyClipboard(void)
 {
     __dpmi_regs  dpmi_regs;
 
-    /* int 02xf, AX = 0x1702 attempts to empty the Windows clipboard.  Upon
+    /* int 0x2f, AX = 0x1702 attempts to empty the Windows clipboard.  Upon
      * return from the interrupt, if AX == 0, the clipboard could not be
      * emptied (for some reason).
      */
@@ -2612,7 +2614,7 @@ Win16GetClipboardData(int clip_data_format)
     case CF_TEXT:		    /* Windows text */
     case CF_OEMTEXT:		    /* DOS (OEM) text */
 
-	/* int 02xf, AX = 0x1704 returns the number of bytes of data currently
+	/* int 0x2f, AX = 0x1704 returns the number of bytes of data currently
 	 * on the Windows clipboard, for the specified format.  Upon return
 	 * from the interrupt, DX:AX = the number of bytes, rounded up to the
 	 * nearest multiple of 32.
@@ -2795,9 +2797,7 @@ Win16SetClipboardData(
 	    default:
 	    case MLINE:	    clip_sel_type = "L";	break;
 	    case MCHAR:	    clip_sel_type = "C";	break;
-#ifdef FEAT_VISUAL
 	    case MBLOCK:    clip_sel_type = "B";	break;
-#endif
 	}
 
 	movedata(
@@ -2816,7 +2816,7 @@ Win16SetClipboardData(
 	clip_data_size);		/* how many bytes to copy */
 
     /* Send data from the DOS transfer buffer to the Windows clipboard.
-     * int 02xf, AX = 0x1703 sends SI:CX bytes of data from the buffer
+     * int 0x2f, AX = 0x1703 sends SI:CX bytes of data from the buffer
      * at ES:BX, to the clipboard.
      */
     dpmi_regs.x.ax = 0x1703;			/* send clipboard data */
@@ -2942,17 +2942,29 @@ mch_isdir(char_u *name)
 
 /*
  * Return 1 if "name" can be executed, 0 if not.
+ * If "use_path" is FALSE only check if "name" is executable.
  * Return -1 if unknown.
  */
     int
-mch_can_exe(name)
+mch_can_exe(name, path, use_path)
     char_u	*name;
+    char_u	**path;
+    int		use_path;
 {
     char	*p;
+    int		mode;
 
+    if (!use_path)
+    {
+	/* TODO: proper check if file is executable. */
+	mode = vim_chmod(name);
+	return mode != -1 && (mode & FA_DIREC) == 0;
+    }
     p = searchpath(name);
     if (p == NULL || mch_isdir(p))
 	return FALSE;
+    if (path != NULL)
+	*path = vim_strsave(p);
     return TRUE;
 }
 

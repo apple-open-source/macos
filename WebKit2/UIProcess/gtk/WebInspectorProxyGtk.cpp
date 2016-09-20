@@ -31,6 +31,7 @@
 
 #include "WebKitWebViewBasePrivate.h"
 #include "WebPageGroup.h"
+#include "WebProcessPool.h"
 #include "WebProcessProxy.h"
 #include <WebCore/FileSystem.h>
 #include <WebCore/GtkUtilities.h>
@@ -73,11 +74,15 @@ WebPageProxy* WebInspectorProxy::platformCreateInspectorPage()
     preferences->setDeveloperExtrasEnabled(true);
     preferences->setLogsPageMessagesToSystemConsoleEnabled(true);
 #endif
-    preferences->setAllowFileAccessFromFileURLs(true);
     preferences->setJavaScriptRuntimeFlags({
     });
     RefPtr<WebPageGroup> pageGroup = WebPageGroup::create(inspectorPageGroupIdentifier(), false, false);
-    m_inspectorView = GTK_WIDGET(webkitWebViewBaseCreate(&inspectorProcessPool(), preferences.get(), pageGroup.get(), nullptr, nullptr));
+
+    auto pageConfiguration = API::PageConfiguration::create();
+    pageConfiguration->setProcessPool(&inspectorProcessPool(inspectionLevel()));
+    pageConfiguration->setPreferences(preferences.get());
+    pageConfiguration->setPageGroup(pageGroup.get());
+    m_inspectorView = GTK_WIDGET(webkitWebViewBaseCreate(*pageConfiguration.ptr()));
     g_object_add_weak_pointer(G_OBJECT(m_inspectorView), reinterpret_cast<void**>(&m_inspectorView));
 
     WKPageUIClientV2 uiClient = {
@@ -245,17 +250,17 @@ void WebInspectorProxy::platformInspectedURLChanged(const String& url)
         updateInspectorWindowTitle();
 }
 
-String WebInspectorProxy::inspectorPageURL() const
+String WebInspectorProxy::inspectorPageURL()
 {
     return String("resource:///org/webkitgtk/inspector/UserInterface/Main.html");
 }
 
-String WebInspectorProxy::inspectorTestPageURL() const
+String WebInspectorProxy::inspectorTestPageURL()
 {
     return String("resource:///org/webkitgtk/inspector/UserInterface/Test.html");
 }
 
-String WebInspectorProxy::inspectorBaseURL() const
+String WebInspectorProxy::inspectorBaseURL()
 {
     return String("resource:///org/webkitgtk/inspector/UserInterface/");
 }
@@ -306,13 +311,22 @@ void WebInspectorProxy::platformDetach()
 
     GRefPtr<GtkWidget> inspectorView = m_inspectorView;
     if (!m_client.detach(this)) {
-        GtkWidget* parent = gtk_widget_get_parent(m_inspectorView);
-        ASSERT(parent);
-        gtk_container_remove(GTK_CONTAINER(parent), m_inspectorView);
+        // Detach is called when m_isAttached is true, but it could called before
+        // the inspector is opened if the inspector is shown/closed quickly. So,
+        // we might not have a parent yet.
+        if (GtkWidget* parent = gtk_widget_get_parent(m_inspectorView))
+            gtk_container_remove(GTK_CONTAINER(parent), m_inspectorView);
     }
 
-    if (!m_isVisible)
+    // Return early if we are not visible. This means the inspector was closed while attached
+    // and we should not create and show the inspector window.
+    if (!m_isVisible) {
+        // The inspector view will be destroyed, but we don't need to notify the web process to close the
+        // inspector in this case, since it's already closed.
+        g_signal_handlers_disconnect_by_func(m_inspectorView, reinterpret_cast<void*>(inspectorViewDestroyed), this);
+        m_inspectorView = nullptr;
         return;
+    }
 
     createInspectorWindow();
 }
@@ -333,11 +347,6 @@ void WebInspectorProxy::platformSetAttachedWindowWidth(unsigned width)
 
     m_client.didChangeAttachedWidth(this, width);
     webkitWebViewBaseSetInspectorViewSize(WEBKIT_WEB_VIEW_BASE(inspectedPage()->viewWidget()), width);
-}
-
-void WebInspectorProxy::platformSetToolbarHeight(unsigned)
-{
-    notImplemented();
 }
 
 void WebInspectorProxy::platformStartWindowDrag()

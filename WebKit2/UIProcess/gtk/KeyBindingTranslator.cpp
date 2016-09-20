@@ -130,7 +130,7 @@ static const char* const gtkMoveCommands[][4] = {
       "MoveUpAndModifySelection",                       "MoveDownAndModifySelection"                }, // Up/down line
     { "MoveToBeginningOfLine",                          "MoveToEndOfLine",
       "MoveToBeginningOfLineAndModifySelection",        "MoveToEndOfLineAndModifySelection"         }, // Up/down line ends
-    { "MoveParagraphBackward",                          "MoveParagraphForward",
+    { 0,                                                0,
       "MoveParagraphBackwardAndModifySelection",        "MoveParagraphForwardAndModifySelection"    }, // Up/down paragraphs
     { "MoveToBeginningOfParagraph",                     "MoveToEndOfParagraph",
       "MoveToBeginningOfParagraphAndModifySelection",   "MoveToEndOfParagraphAndModifySelection"    }, // Up/down paragraph ends.
@@ -196,7 +196,7 @@ Vector<String> KeyBindingTranslator::commandsForKeyEvent(GdkEventKey* event)
 
     gtk_bindings_activate_event(G_OBJECT(m_nativeWidget.get()), event);
     if (!m_pendingEditorCommands.isEmpty())
-        return WTF::move(m_pendingEditorCommands);
+        return WTFMove(m_pendingEditorCommands);
 
     // Special-case enter keys for we want them to work regardless of modifier.
     if ((event->keyval == GDK_KEY_Return || event->keyval == GDK_KEY_KP_Enter || event->keyval == GDK_KEY_ISO_Enter))

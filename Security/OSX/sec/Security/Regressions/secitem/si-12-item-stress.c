@@ -302,10 +302,10 @@ static void tests(void)
                     CFStringRef accessabilites[] = {
                         kSecAttrAccessibleWhenUnlocked,
                         kSecAttrAccessibleAfterFirstUnlock,
-                        kSecAttrAccessibleAlways,
+                        kSecAttrAccessibleAlwaysPrivate,
                         kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
                         kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
-                        kSecAttrAccessibleAlwaysThisDeviceOnly,
+                        kSecAttrAccessibleAlwaysThisDeviceOnlyPrivate,
                     };
                     value = accessabilites[num % array_size(accessabilites)];
                     break;

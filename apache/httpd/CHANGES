@@ -1,5 +1,412 @@
                                                          -*- coding: utf-8 -*-
 
+Changes with Apache 2.4.23
+
+  *) mod_ssl: reset client-verify state of ssl when aborting renegotiations.
+     [Erki Aring <erki@example.ee>, Stefan Eissing]
+
+  *) mod_sed: Fix 'x' command processing. [Christophe Jaillet]
+
+  *) configure: Fix ./configure edge-case failures around dependencies
+     of mod_proxy_hcheck. [William Rowe, Ruediger Pluem, Jeff Trawick]
+
+Changes with Apache 2.4.22
+
+  *) mod_http2: fix for request abort when connections drops, introduced in
+     1.5.8
+
+Changes with Apache 2.4.21
+
+  *) mod_http2: more rigid error handling in DATA frame assembly, leading
+     to deterministic connection errors if assembly fails.
+     [Stefan Eissing, Pal Nilsen <https://github.com/maedox>]
+
+  *) abs: Include OPENSSL_Applink when compiling on Windows, to resolve
+     failures under Visual Studio 2015 and other mismatched MSVCRT flavors.
+     PR59630 [Jan Ehrhardt <phpdev ehrhardt.nl>]
+
+  *) mod_ssl: Add "no_crl_for_cert_ok" flag to SSLCARevocationCheck directive
+     to opt-in previous behaviour (2.2) with CRLs verification when checking
+     certificate(s) with no corresponding CRL.  [Yann Ylavic]
+
+  *) mpm_event, mpm_worker: Fix computation of MinSpareThreads' lower bound
+     according the number of listeners buckets.  [Yann Ylavic]
+
+  *) Add ap_cstr_casecmp[n]() - placeholder of apr_cstr_casecmp[n] functions
+     for case-insensitive C/POSIX-locale token comparison.
+     [Jim Jagielski, William Rowe, Yann Ylavic, Branko Čibej]
+
+  *) mod_userdir: Constify and save a few bytes in the conf pool when
+     parsing the "UserDir" directive. [Christophe Jaillet]
+
+  *) mod_cache: Fix (max-stale with no '=') and enforce (check
+     integers after '=') Cache-Control header parsing.
+     [Christophe Jaillet]
+
+  *) core: Add -DDUMP_INCLUDES configtest option to show the tree
+     of Included configuration files.
+     [Jacob Champion <champion.pxi gmail.com>]
+
+  *) mod_proxy_fcgi: Avoid passing a filename of proxy:fcgi:// as
+     SCRIPT_FILENAME to a FastCGI server. PR59618.
+     [Jacob Champion <champion.pxi gmail.com>]
+
+  *) mod_dav: Add dav_get_provider_name() function to obtain the name
+     of the provider from mod_dav.
+     [Jari Urpalainen <jari.urpalainen nokia.com>]
+
+  *) mod_proxy_http2: properly care for HTTP2 flow control of the frontend
+     connection is HTTP/1.1. [Patch supplied by Evgeny Kotkov]
+     
+  *) mod_http2: improved cleanup of connection/streams/tasks to always
+     have deterministic order regardless of event initiating it. Addresses
+     reported crashes due to memory read after free issues. 
+     [Stefan Eissing] 
+  
+  *) mod_ssl: Correct the interaction between SSLProxyCheckPeerCN and newer
+     SSLProxyCheckPeerName directives since release 2.4.5, such that disabling
+     either disables both, and that enabling either triggers the new, more
+     comprehensive SSLProxyCheckPeerName behavior. Only a single configuration
+     remains to enable the legacy behavior, which is to explicitly disable
+     SSLProxyCheckPeerName, and enable SSLProxyCheckPeerCN. [William Rowe]
+
+  *) mod_include: add the <!--#comment ...> syntax in order to include comments
+     in a SSI file. [Christophe Jaillet based on a suggestion from Rob]
+
+  *) mod_http2: improved event handling for suspended streams, responses
+     and window updates. [Stefan Eissing] 
+     
+  *) mod_proxy_hcheck: Provide for dynamic background health
+     checks on reverse proxies associated with BalancerMember
+     workers. [Jim Jagielski]
+
+  *) mod_http2: Fix async write issue that led to selection of wrong timeout
+     vs. keepalive timeout selection for idle sessions. [Stefan Eissing]
+     
+  *) mod_http2: checking LimitRequestLine, LimitRequestFields and 
+     LimitRequestFieldSize configurated values for incoming streams. Returning
+     HTTP status 431 for too long/many headers fields and 414 for a too long
+     pseudo header. [Stefan Eissing]
+     
+  *) mod_http2: tracking conn_rec->current_thread on slave connections, so
+     that mod_lua finds the correct one. Fixes PR 59542. [Stefan Eissing]
+     
+  *) mod_proxy_http2: new experimental http2 proxy module for h2: and h2c: proxy
+     urls. Part of the httpd mod_proxy framework, common settings apply.
+     Requests from the same HTTP/2 frontend connection against the same backend
+     are aggregated on a single connection.
+     [Stefan Eissing]
+  
+  *) mod_http2: slave connections have conn_rec->aborted flag set when a stream
+     has been reset by the client. [Stefan Eissing]
+
+  *) mod_http2: merge of some 2.4.x adaptions re filters on slave connections.
+     Small fixes in bucket beams when forwarding file buckets. Output handling
+     on master connection uses less FLUSH and passes automatically when more
+     than half of H2StreamMaxMemSize bytes have accumulated.
+     Workaround for http: when forwarding partial file buckets to keep the
+     output filter from closing these too early. [Stefan Eissing]
+
+  *) mod_http2: elimination of fixed master connection buffer for TLS 
+     connections. New scratch bucket handling optimized for TLS write sizes. 
+     File bucket data read directly into scratch buffers, avoiding one
+     copy. Non-TLS connections continue to pass buckets unchanged to the core
+     filters to allow sendfile() usage. [Stefan Eissing]
+
+  *) mod_http2/mod_proxy_http2: h2_request.c is no longer shared between these
+     modules. This simplifies building on platforms such as Windows, as module
+     reference used in logging is now clear. [Stefan Eissing]
+
+  *) Scoreboard: Fix a regression in 2.4.20 that causes wrong request data
+     to be displayed on the status page. PR 59333. [Yann Ylavic, William Rowe]
+
+  *) mod_http2: fixed a bug that caused mod_proxy_http2 to be called for window
+     updates on requests it had already reported done. Added synchronization
+     on early connection/stream close that lets ongoing requests safely drain
+     their input filters.
+     [Stefan Eissing]
+
+  *) mod_http2: scoreboard updates that summarize the h2 session (and replace
+     the last request information) will only happen when the session is idle or 
+     in shutdown/done phase. [Stefan Eissing]
+
+  *) mod_http2: new "bucket beam" technology to transport buckets across
+     threads without buffer copy. Delaying response start until flush or
+     enough body data has been accumulated. Overall significantly smaller
+     memory footprint. [Stefan Eissing]
+
+  *) core: New CGIVar directive can configure REQUEST_URI to represent the
+     current URI being processed instead of always the original request.
+     [Jeff Trawick]
+
+  *) scoreboard/status: Restore behavior of showing workers' previous Client,
+     VHost and Request values when idle, like in 2.4.18 and earlier. 
+
+  *) mod_http2: r->protocol changed to "HTTP/2.0" (was "HTTP/2") as this will
+     give expected syntax in CGI's SERVER_PROTOCOL is more compatible with
+     existing major/minor handling. Fixes PR 59313.
+
+  *) mod_http2: disabling mmap for file buckets transport due to segmenation
+     faults when files change on the fly.
+
+Changes with Apache 2.4.20
+
+  *) SECURITY: CVE-2016-1546 (cve.mitre.org)     
+     mod_http2: restricting number of concurrent stream workers per connection
+     if client is slow. 
+
+  *) core: Do not read .htaccess if AllowOverride and AllowOverrideList
+     are "None". PR 58528.
+     [Michael Schlenker <msc contact.de, Ruediger Pluem, Daniel Ruggeri]
+
+  *) mod_proxy_express: Fix possible use of DB handle after close.  PR 59230.
+     [Petr <pgajdos suse.cz>]
+
+  *) core/util_script: relax alphanumeric filter of enviroment variable names
+     on Windows to allow '(' and ')' for passing PROGRAMFILES(X86) et.al.
+     unadulterated in 64 bit versions of Windows. PR 46751.
+     [John <john leineweb de>]
+
+  *) mod_http2: incrementing keepalives on each request started so that logging
+     %k gives increasing numbers per master http2 connection. 
+     New documented variables in env, usable in custom log formats: H2_PUSH,
+     H2_PUSHED, H2_PUSHED_ON, H2_STREAM_ID and H2_STREAM_TAG.
+     [Stefan Eissing]
+
+  *) mod_http2: more efficient passing of response bodies with less contention
+     and file bucket forwarding. [Stefan Eissing]
+
+  *) mod_http2: fix for missing score board updates on request count, fix for
+     memory leak on slave connection reuse. [Stefan Eissing]
+
+  *) mod_http2: Fix build on Windows from dsp files.
+     [Stefan Eissing] 
+     
+Changes with Apache 2.4.19
+
+  *) mod_include: Add variable DOCUMENT_ARGS, with the arguments to the
+     request for the SSI document.  [Jeff Trawick]
+
+  *) mod_authz_host: Add a new "forward-dns" authorization type, not relying on
+     reverse DNS lookups.  [Fabien]
+
+  *) mod_proxy_http2: new experimental http2 proxy module for h2: and h2c: proxy
+     urls. Uses backend connections for concurrent requests if frontend 
+     connection is http2 as well.
+     [Stefan Eissing]
+  
+  *) mod_ssl: Add hooks to allow other modules to perform processing at
+     several stages of initialization and connection handling.  See
+     mod_ssl_openssl.h.  [Jeff Trawick]
+
+  *) mod_http2: disabling PUSH when client sends GOAWAY. Slave connections are 
+     reused for several requests, improved performance and better memory use. 
+     [Stefan Eissing]  
+
+  *) mod_rewrite: Don't implicitly URL-escape the original query string
+     when no substitution has changed it (like PR50447 but server context)
+     [Evgeny Kotkov <evgeny.kotkov visualsvn.com>]
+
+  *) mod_http2: fixes problem with wrong lifetime of file buckets on main
+     connection. [Stefan Eissing]
+
+  *) mod_http2: fixes incorrect denial of requests without :authority header.
+     [Stefan Eissing]
+
+  *) mod_reqtimeout: Prevent long response times from triggering a timeout once
+     the request has been fully read.  PR 59045.  [Yann Ylavic]
+
+  *) ap_expr: expression support for variable HTTP2=on|off. [Stefan Eissing]
+
+  *) mod_http2: give control to async mpm for keepalive timeouts only when
+     no streams are open and even if only after 1 sec delay. Under load, event
+     mpm discards connections otherwise too quickly. [Stefan Eissing]
+
+  *) mod_ssl: Don't lose track of the SSL context if an unlikely failure occurs
+     in ssl_init_ssl_connection().  [Graham Leggett]
+
+  *) mod_rewrite: Add QSL|qslast flag to allow rewrites to files with
+     literal question marks in their names. PR 58777. [Eric Covener]
+
+  *) event: use pre_connection hook to properly initialize connection state for
+     slave connections. use protocol_switch hook to initialize server config
+     early based on SNI selected vhost. 
+     [Stefan Eissing]
+
+  *) hostname: Test and log useragent_host per-request across various modules,
+     including the scoreboard, expression and rewrite engines, setenvif,
+     authz_host, access_compat, custom logging, ssl and REMOTE_HOST variables.
+     PR55348  [William Rowe]
+
+  *) core: Track the useragent_host per-request when mod_remoteip or similar
+     modules track a per-request useragent_ip.  Modules should be updated
+     to inquire for ap_get_useragent_host() in place of ap_get_remote_host().
+     [William Rowe]
+
+  *) core: fix a bug in <UnDefine ...> directive processing. When used, the last
+     <Define...>'ed variable was also withdrawn. PR 59019
+     [Christophe Jaillet]
+
+  *) mod_http2: Accept-Encoding is, when present on the initiating request, 
+     added to push promises. This lets compressed content work in pushes.
+     by the client. [Stefan Eissing]
+
+  *) mod_http2: fixed possible read after free when streams were cancelled early
+     by the client. [Stefan Eissing]
+
+  *) mod_http2: fixed possible deadlock during connection shutdown. Thanks to 
+     @FrankStolle for reporting and getting the necessary data.
+     [Stefan Eissing]
+
+  *) mod_http2: fixed apr_uint64_t formatting in a log statement to user proper 
+     APR def, thanks to @Sp1l.
+
+  *) mod_http2: number of worker threads allowed to a connection is adjusting 
+     dynamically. Starting with 4, the number is doubled when streams can be 
+     served without block on http/2 connection flow. The number is halfed, when
+     the server has to wait on client flow control grants. 
+     This can happen with a maximum frequency of 5 times per second. 
+     When a connection occupies too many workers, repeatable requests 
+     (GET/HEAD/OPTIONS) are cancelled and placed back in the queue. Should that 
+     not suffice and a stream is busy longer than the server timeout, the 
+     connection will be aborted with error code ENHANCE_YOUR_CALM.
+     This does *not* limit the number of streams a client may open, rather the
+     number of server threads a connection might use.
+     [Stefan Eissing]
+
+  *) mod_http2: allowing link header to specify multiple "rel" values, 
+     space-separated inside a quoted string. Prohibiting push when Link 
+     parameter "nopush" is present.
+     [Stefan Eissing]
+
+  *) mod_http2: reworked connection state handling. Idle connections accept a
+     GOAWAY from the client without further reply. Otherwise the
+     module makes a best effort to send one last GOAWAY to the client.
+
+  *) mod_http2: the values from standard directives Timeout and KeepAliveTimeout
+     properly are applied to http/2 connections.
+     [Stefan Eissing]
+
+  *) mod_http2: idle connections are returned to async mpms. new hook
+     "pre_close_connection" used to send GOAWAY frame when not already done.
+     Setting event mpm server config "by hand" for the main connection to
+     the correct negotiated server.
+     [Stefan Eissing]
+
+  *) mod_http2: keep-alive blocking reads are done with 1 second timeouts to
+     check for MPM stopping. Will announce early GOAWAY and finish processing
+     open streams, then close.
+     [Stefan Eissing]
+
+  *) mod_http2: bytes read/written on slave connections are reported via the
+     optional mod_logio functions. Fixes PR 58871.
+
+  *) prefork: Initialize the POD when running in ONE_PROCESS (or -X) mode to
+     avoid a crash.  [Jan Kaluza, Yann Ylavic]
+
+  *) mod_ssl: When SSLVerify is disabled (NONE), don't force a renegotiation if
+     the SSLVerifyDepth applied with the default/handshaken vhost differs from
+     the one applicable with the finally selected vhost.  [Yann Ylavic]
+
+  *) core: Ensure that httpd exits with an error status when the MPM fails
+     to run.  [Yann Ylavic]
+
+  *) mod_ssl: Fix a possible memory leak on restart for custom [EC]DH params.
+     [Jan Kaluza, Yann Ylavic]
+
+  *) mod_ssl: Add SSLOCSPProxyURL to add the possibility to do all queries
+     to OCSP responders through a HTTP proxy. [Ruediger Pluem]
+
+  *) mod_proxy: Play/restore the TLS-SNI on new backend connections which
+     had to be issued because the remote closed the previous/reusable one
+     during idle (keep-alive) time.  [Yann Ylavic]
+
+  *) mod_cache_socache: Fix a possible cached entity body corruption when it
+     is received from an origin server in multiple batches and forwarded by
+     mod_proxy.  [Yann Ylavic]
+
+  *) core: Add expression support to SetHandler.
+     [Eric Covener]
+
+  *) mod_remoteip: Prevent an external proxy from presenting an internal
+     proxy. PR 55962. [Mike Rumph]
+
+  *) core: Prevent a server crash in case of an invalid CONNECT request with
+     a custom error page for status code 400 that uses server side includes.
+     PR 58929 [Ruediger Pluem]
+
+  *) mod_ssl: handle TIMEOUT on empty SSL input as non-fatal, returning 
+     APR_TIMEUP and preserving connection state for later retry.
+     [Stefan Eissing]
+
+  *) mod_ssl: Save some TLS record (application data) fragmentations by
+     including the last and subsequent suitable buckets when coalescing.
+     [Yann Ylavic]
+
+  *) mod_proxy_fcgi: Suppress HTTP error 503 and message 01075, 
+     "Error dispatching request", when the cause appears to be 
+     due to the client closing the connection. 
+     PR58118.  [Tobias Adolph <adolph lrz.de>]
+
+  *) mod_cgid: Message AH02550, failure to flush a response to the client,
+     is now logged at TRACE1 level to match the underlying core output filter
+     severity.  [Eric Covener]
+
+  *) mime.types: add common extension "m4a" for MPEG 4 Audio.
+     PR 57895 [Dylan Millikin <dylan.millikin gmail.com>]
+
+  *) Added many log numbers to log statements that had none.
+     [Rainer Jung]
+
+  *) mod_log_config: Add GlobalLog to allow a globally defined log to
+     be inherited by virtual hosts that define a CustomLog.
+     [Edward Lu]
+
+  *) mod_http2: connections how keep a "push diary" where hashes of already
+     pushed resources are kept. See directive H2PushDiarySize for managing this.
+     Push diaries can be initialized by clients via the "Cache-Digest" request
+     header. This carries a base64url encoded. compressed Golomb set as described
+     in https://datatracker.ietf.org/doc/draft-kazuho-h2-cache-digest/
+     Introduced a status handler for HTTP/2 connections, giving various counters
+     and statistics about the current connection, plus its cache digest value
+     in a JSON record. Not a replacement for more HTTP/2 in the server status. 
+     Configured as
+     <Location "/http2-status">
+         SetHandler http2-status
+     </Location>
+     [Stefan Eissing]
+
+  *) mod_http2: Fixed flushing of last GOAWAY frame. Previously, that frame
+     did not always reach the client, causing some to fail the next request.
+     Fixed calculation of last stream id accepted as described in rfc7540. 
+     Reading in KEEPALIVE state now correctly shown in scoreboard. 
+     Fixed possible race in connection shutdown after review by Ylavic. 
+     Fixed segfault on connection shutdown, callback ran into a semi dismantled session. 
+     [Stefan Eissing]
+
+  *) mod_http2: Added support for experimental accept-push-policy draft
+     (https://tools.ietf.org/html/draft-ruellan-http-accept-push-policy-00). Clients
+     may now influence server pushes by sending accept-push-policy headers.
+     [Stefan Eissing]
+
+  *) mod_http2: new r->subprocess_env variables HTTP2 and H2PUSH, set to "on"
+     when available for request.
+     [Stefan Eissing]
+
+  *) mod_http2: fixed bug in input window size calculation by moving chunked
+     request body encoding into later stage of processing. Fixes PR 58825.
+     [Stefan Eissing]
+
+  *) core: new hook "pre_close_connection" which is run before the lingering
+     close of connections is started. This gives protocol handlers one last
+     chance to use a connection before it goes down.
+     [Stefan Eissing]
+
+  *) mod_status/scoreboard: showing connection protocol in new column, new 
+     ap_update_child_status methods for updating server/description. mod_ssl
+     sets vhost negotiated by servername directly.
+     [Stefan Eissing]
+
 Changes with Apache 2.4.18
 
   *) mod_ssl: for all ssl_engine_vars.c lookups, fall back to master connection
@@ -11,10 +418,10 @@ Changes with Apache 2.4.18
      streams with higher cumulative window size. 
      Reducing write frequency unless push promises need to be flushed.
      [Stefan Eissing]
-  
+
   *) mod_http2: required minimum version of libnghttp2 is 1.2.1
      [Stefan Eissing]
-  
+
   *) mod_proxy_fdpass: Fix AH01153 error when using the default configuration.
      In earlier version of httpd, you can explicitelly set the 'flusher' parameter
      to 'flush' as a workaround. (i.e. flusher=flush)
@@ -27,7 +434,7 @@ Changes with Apache 2.4.18
   *) mod_http2: new directive 'H2PushPriority' to allow priority specifications
      on server pushed streams according to their content-type. 
      [Stefan Eissing]
-     
+
   *) mod_http2: fixes crash on connection abort for a busy connection.
      fixes crash on a request that did not produce any response.
      [Stefan Eissing]
@@ -42,22 +449,22 @@ Changes with Apache 2.4.18
   *) mod_http2: new directive 'H2Push' to en-/disable HTTP/2 server
      pushes a server/virtual host. Pushes are initiated by the presence
      of 'Link:' headers with relation 'preload' on a response. [Stefan Eissing]
-     
+
   *) mod_http2: write performance of http2 improved for larger resources,
      especially static files. [Stefan Eissing]
-     
+
   *) core: if the first HTTP/1.1 request on a connection goes to a server that
      prefers different protocols, these protocols are announced in a Upgrade:
      header on the response, mentioning the preferred protocols.
      [Stefan Eissing]
-     
+
   *) mod_http2: new directives 'H2TLSWarmUpSize' and 'H2TLSCoolDownSecs'
      to control TLS record sizes during connection lifetime.
      [Stefan Eissing]
-     
+
   *) mod_http2: new directive 'H2ModernTLSOnly' to enforce security
      requirements of RFC 7540 on TLS connections. [Stefan Eissing]
-     
+
   *) core: add ap_get_protocol_upgrades() to retrieve the list of protocols
      that a client could possibly upgrade to. Use in first request on a 
      connection to announce protocol choices. [Stefan Eissing]
@@ -65,7 +472,7 @@ Changes with Apache 2.4.18
   *) mod_http2: reworked deallocation on connection shutdown and worker
      abort. Separate parent pool for all workers. worker threads are joined
      on planned worker shutdown. [Yann Ylavic, Stefan Eissing]
-     
+
   *) mod_ssl: when receiving requests for other virtual hosts than the handshake
      server, the SSL parameters are checked for equality. With equal 
      configuration, requests are passed for processing. Any change will trigger
@@ -76,6 +483,9 @@ Changes with Apache 2.4.18
      match.
      Renegotiation is 403ed when a master connection is present. Exact reason
      is given additionally in a request note. [Stefan Eissing]
+
+  *) mod_ssl: Make the output filter more friendly with deferred write and
+     response pipelining. [Yann Ylavic, Joe Orton]
 
   *) core: Fix scoreboard crash (SIGBUS) on hardware requiring strict 64bit
      alignment (SPARC64, PPC64).  [Yann Ylavic]
@@ -102,9 +512,6 @@ Changes with Apache 2.4.17
   *) mod_proxy: don't recyle backend announced "Connection: close" connections
      to avoid reusing it should the close be effective after some new request
      is ready to be sent.  [Yann Ylavic]
-
-  *) mod_ssl: Make the output filter more friendly with deferred write and
-     response pipelining. [Yann Ylavic, Joe Orton]
 
   *) mod_substitute: Allow to configure the patterns merge order with the new
      SubstituteInheritBefore on|off directive.  PR 57641
@@ -147,6 +554,11 @@ Changes with Apache 2.4.17
   *) MPMs: Support SO_REUSEPORT to create multiple duplicated listener
      records for scalability. [Yingqi Lu <yingqi.lu@intel.com>,
      Jeff Trawick, Jim Jagielski, Yann Ylavic]
+
+  *) mod_alias: Introduce expression parser support for Alias, ScriptAlias
+     and Redirect. Limit Redirect expressions to directory (Location) context
+     and redirect statuses (implicit or explicit).
+     [Graham Leggett, Yann Ylavic, Ruediger Pluem]
 
   *) mod_proxy: Fix a race condition that caused a failed worker to be retried
      before the retry period is over. [Ruediger Pluem]
@@ -372,7 +784,7 @@ Changes with Apache 2.4.13 (not released)
      'No such file or directory: unable to connect to cgi daemon...' could
      be logged without an actual retry. PR57685. 
      [Edward Lu <Chaosed0 gmail.com>]
-     
+
   *) mod_proxy: Use the original (non absolute) form of the request-line's URI
      for requests embedded in CONNECT payloads used to connect SSL backends via
      a ProxyRemote forward-proxy.  PR 55892.  [Hendrik Harms <hendrik.harms
@@ -469,7 +881,7 @@ Changes with Apache 2.4.12
      (not released).
 
 Changes with Apache 2.4.11 (not released)
-  
+
   *) SECURITY: CVE-2014-3583 (cve.mitre.org)
      mod_proxy_fcgi: Fix a potential crash due to buffer over-read, with 
      response headers' size above 8K.  [Yann Ylavic, Jeff Trawick]
@@ -502,7 +914,7 @@ Changes with Apache 2.4.11 (not released)
   *) mod_proxy_fcgi: Provide some basic alternate options for specifying 
      how PATH_INFO is passed to FastCGI backends by adding significance to
      the value of proxy-fcgi-pathinfo. PR 55329. [Eric Covener]
- 
+
   *) mod_proxy_fcgi: Enable UDS backends configured with SetHandler/RewriteRule
      to opt-in to connection reuse and other Proxy options via explicitly
      declared "proxy workers" (<Proxy unix:... enablereuse=on max=...)
@@ -585,7 +997,7 @@ Changes with Apache 2.4.11 (not released)
 
   *) mod_cache: Avoid a 304 response to an unconditional requst when an AH00752
      CacheLock error occurs during cache revalidation. [Eric Covener]
- 
+
   *) mod_ssl: Move OCSP stapling information from a per-certificate store to
      a per-server hash. PR 54357, PR 56919. [Alex Bligh <alex alex.org.uk>,
      Yann Ylavic, Kaspar Brand]
@@ -607,7 +1019,7 @@ Changes with Apache 2.4.11 (not released)
 
   *) mod_substitute: Fix line length limitation in case of regexp plus flatten.
      [Rainer Jung]
-  
+
   *) mod_proxy: Truncated character worker names are no longer fatal
      errors. PR53218. [Jim Jagielski]
 
@@ -794,7 +1206,7 @@ Changes with Apache 2.4.10
 
   *) mod_alias: Stop setting CONTEXT_PREFIX and CONTEXT_DOCUMENT environment
      variables as a result of AliasMatch. [Eric Covener]
- 
+
   *) mod_cache: Don't add cached/revalidated entity headers to a 304 response.
      PR 55547.  [Yann Ylavic]
 
@@ -898,7 +1310,7 @@ Changes with Apache 2.4.10
      [Daniel Gruno]
 
   *) mod_lua: Add r:wspeek for peeking at WebSocket frames. [Daniel Gruno]
- 
+
   *) mod_lua: Log an error when the initial parsing of a Lua file fails.
      [Daniel Gruno, Felipe Daragon <filipe syhunt com>]
 
@@ -994,7 +1406,7 @@ Changes with Apache 2.4.8 (not released)
   *) mod_lua: Update r:setcookie() to accept a table of options and add domain,
      path and httponly to the list of options available to set.
      PR 56128 [Edward Lu <Chaosed0 gmail com>, Daniel Gruno]
-     
+
   *) mod_lua: Fix r:setcookie() to add, rather than replace,
      the Set-Cookie header. PR56105
      [Kevin J Walters <kjw ms com>, Edward Lu <Chaosed0 gmail com>]
@@ -1059,7 +1471,7 @@ Changes with Apache 2.4.7
      configuration.  [Graham Leggett]
 
   *) APR 1.5.0 or later is now required for the event MPM.
-  
+
   *) slotmem_shm: Error detection. [Jim Jagielski]
 
   *) event: Use skiplist data structure. [Jim Jagielski]
@@ -1076,7 +1488,7 @@ Changes with Apache 2.4.7
   *) mod_proxy_fcgi: Remove 64K limit on encoded length of all envvars.
      An individual envvar with an encoded length of more than 16K will be
      omitted.  [Jeff Trawick]
-  
+
   *) mod_proxy_fcgi: Handle reading protocol data that is split between
      packets.  [Jeff Trawick]
 
@@ -1093,8 +1505,10 @@ Changes with Apache 2.4.7
      (not overridable via SSLCipherSuite). [Kaspar Brand]
 
   *) mod_proxy: Added support for unix domain sockets as the
-     backend server endpoint [Jim Jagielski, Blaise Tarr
-     <blaise tarr gmail com>]
+     backend server endpoint. This also introduces an unintended
+     incompatibility for third party modules using the mod_proxy
+     proxy_worker_shared structure, especially for balancer lbmethod
+     modules. [Jim Jagielski, Blaise Tarr <blaise tarr gmail com>]
 
   *) Add experimental cmake-based build system for Windows.  [Jeff Trawick,
      Tom Donovan]
@@ -1158,7 +1572,7 @@ Changes with Apache 2.4.7
   *) ab: Add a new -l parameter in order not to check the length of the responses.
      This can be usefull with dynamic pages.
      PR9945, PR27888, PR42040 [<ccikrs1 cranbrook edu>]
-     
+
   *) Suppress formatting of startup messages written to the console when
      ErrorLogFormat is used.  [Jeff Trawick]
 
@@ -1595,7 +2009,7 @@ Changes with Apache 2.4.4
 
   *) mod_proxy_balancer: Improve output of balancer-manager (re: Drn,
      Dis, Ign, Stby). PR 52478 [Danijel <dt-ng rbfh de>]
-  
+
   *) configure: Fix processing of --disable-FEATURE for various features.
      [Jeff Trawick]
 
@@ -1670,7 +2084,7 @@ Changes with Apache 2.4.4
 
   *) mod_header: Allow for exposure of loadavg and server load using new 
      format specifiers %l, %i, %b [Jim Jagielski]
-  
+
   *) core: Make ap_regcomp() return AP_REG_ESPACE if out of memory.  Make
      ap_pregcomp() abort if out of memory. This raises the minimum PCRE
      requirement to version 6.0. [Stefan Fritsch]
@@ -1703,7 +2117,7 @@ Changes with Apache 2.4.4
 
   *) mod_ldap: Fix regression in handling "server unavailable" errors on 
      Windows.  PR 54140.  [Eric Covener]
- 
+
   *) syslog logging: Remove stray ", referer" at the end of some messages.
      [Jeff Trawick]
 
@@ -2269,7 +2683,7 @@ Changes with Apache 2.3.15
 
   *) rotatelogs: Add -c option to force logfile creation in every rotation 
      interval, even if empty.  [Jan Kaluža <jkaluza redhat.com>]
- 
+
   *) core: Limit ap_pregsub() to 64K, add ap_pregsub_ex() for longer strings.
      [Stefan Fritsch]
 
@@ -2284,7 +2698,7 @@ Changes with Apache 2.3.15
 
   *) mod_lua: add r:construct_url as a wrapper for ap_construct_url.
      [Eric Covener]
- 
+
   *) mod_remote_ip: Fix configuration of internal proxies. PR 49272.
      [Jim Riggs <jim riggs me>]
 

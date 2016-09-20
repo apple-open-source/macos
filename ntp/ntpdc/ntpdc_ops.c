@@ -31,9 +31,9 @@
 /*
  * utility functions
  */
-static	int	checkitems	(int, FILE *);
-static	int	checkitemsize	(int, int);
-static	int	check1item	(int, FILE *);
+static	int	checkitems	(size_t, FILE *);
+static	int	checkitemsize	(size_t, size_t);
+static	int	check1item	(size_t, FILE *);
 
 /*
  * Declarations for command handlers in here
@@ -86,8 +86,8 @@ static	void	clockstat	(struct parse *, FILE *);
 static	void	fudge		(struct parse *, FILE *);
 static	void	clkbug		(struct parse *, FILE *);
 static	void	kerninfo	(struct parse *, FILE *);
-static  void    get_if_stats    (struct parse *, FILE *);
-static  void    do_if_reload    (struct parse *, FILE *);
+static	void	get_if_stats	(struct parse *, FILE *);
+static	void	do_if_reload	(struct parse *, FILE *);
 
 /*
  * Commands we understand.  Ntpdc imports this.
@@ -144,7 +144,7 @@ struct xcmd opcmds[] = {
 	{ "enable",	set,		{ NTP_STR, OPT|NTP_STR, OPT|NTP_STR, OPT|NTP_STR },
 	  { "auth|bclient|monitor|pll|kernel|stats", "...", "...", "..." },
 	  "set a system flag (auth, bclient, monitor, pll, kernel, stats)" },
-        { "disable",	sys_clear,      { NTP_STR, OPT|NTP_STR, OPT|NTP_STR, OPT|NTP_STR },
+	{ "disable",	sys_clear,	{ NTP_STR, OPT|NTP_STR, OPT|NTP_STR, OPT|NTP_STR },
 	  { "auth|bclient|monitor|pll|kernel|stats", "...", "...", "..." },
 	  "clear a system flag (auth, bclient, monitor, pll, kernel, stats)" },
 	{ "reslist",	reslist,	{OPT|IP_VERSION, NO, NO, NO },
@@ -167,7 +167,7 @@ struct xcmd opcmds[] = {
 	  { "version", "", "", "" },
 	  "display data the server's monitor routines have collected" },
 	{ "reset",	reset,		{ NTP_STR, OPT|NTP_STR, OPT|NTP_STR, OPT|NTP_STR },
-	  { "io|sys|mem|timer|auth|allpeers", "...", "...", "..." },
+	  { "io|sys|mem|timer|auth|ctl|allpeers", "...", "...", "..." },
 	  "reset various subsystem statistics counters" },
 	{ "preset",	preset,		{ NTP_ADD, OPT|NTP_ADD, OPT|NTP_ADD, OPT|NTP_ADD },
 	  { "peer_address", "peer2_addr", "peer3_addr", "peer4_addr" },
@@ -236,7 +236,7 @@ struct xcmd opcmds[] = {
 #ifdef ISC_PLATFORM_HAVESALEN
 #define SET_SS_LEN_IF_PRESENT(psau)				\
 	do {							\
-		(psau)->sas.ss_len = SOCKLEN(psau);		\
+		(psau)->sa.sa_len = SOCKLEN(psau);		\
 	} while (0)
 #else
 #define SET_SS_LEN_IF_PRESENT(psau)	do { } while (0)
@@ -247,7 +247,7 @@ struct xcmd opcmds[] = {
  */
 #define SET_ADDR(address, v6flag, v4addr, v6addr)		\
 do {								\
-	memset(&(address), 0, sizeof(address));			\
+	ZERO(address);						\
 	if (v6flag) {						\
 		AF(&(address)) = AF_INET6;			\
 		SOCK_ADDR6(&(address)) = (v6addr);		\
@@ -265,8 +265,8 @@ do {								\
  */
 #define SET_ADDRS(a1, a2, info, a1prefix, a2prefix)		\
 do {								\
-	memset(&(a1), 0, sizeof(a1));				\
-	memset(&(a2), 0, sizeof(a2));				\
+	ZERO(a1);						\
+	ZERO(a2);						\
 	if ((info)->v6_flag) {					\
 		AF(&(a1)) = AF_INET6;				\
 		AF(&(a2)) = AF_INET6;				\
@@ -284,36 +284,11 @@ do {								\
 
 
 /*
- * SET_ADDRS - setup source and destination addresses for 
- * v4/v6 as needed
- */
-#if 0
-#define SET_ADDR_MASK(address, addrmask, info)			\
-do {								\
-	memset(&(address), 0, sizeof(address));			\
-	memset(&(mask), 0, sizeof(mask));			\
-	if ((info)->v6_flag) {					\
-		AF(&(address)) = AF_INET6;			\
-		AF(&(addrmask)) = AF_INET6;			\
-		SOCK_ADDR6(&(address)) = (info)->addr6;		\
-		SOCK_ADDR6(&(addrmask)) = (info)->mask6;	\
-	} else {						\
-		AF(&(address)) = AF_INET;			\
-		AF(&(addrmask)) = AF_INET;			\
-		NSRCADR(&(address)) = (info)->addr;		\
-		NSRCADR(&(addrmask)) = (info)->mask;		\
-	}							\
-	SET_SS_LEN_IF_PRESENT(&(address));			\
-	SET_SS_LEN_IF_PRESENT(&(addrmask));			\
-} while (0)
-#endif
-
-/*
  * checkitems - utility to print a message if no items were returned
  */
 static int
 checkitems(
-	int items,
+	size_t items,
 	FILE *fp
 	)
 {
@@ -330,14 +305,14 @@ checkitems(
  */
 static int
 checkitemsize(
-	int itemsize,
-	int expected
+	size_t itemsize,
+	size_t expected
 	)
 {
 	if (itemsize != expected) {
 		(void) fprintf(stderr,
-			       "***Incorrect item size returned by remote host (%d should be %d)\n",
-			       itemsize, expected);
+			       "***Incorrect item size returned by remote host (%lu should be %lu)\n",
+			       (u_long)itemsize, (u_long)expected);
 		return 0;
 	}
 	return 1;
@@ -349,7 +324,7 @@ checkitemsize(
  */
 static int
 check1item(
-	int items,
+	size_t items,
 	FILE *fp
 	)
 {
@@ -358,8 +333,8 @@ check1item(
 		return 0;
 	}
 	if (items > 1) {
-		(void) fprintf(fp, "Expected one item in response, got %d\n",
-			       items);
+		(void) fprintf(fp, "Expected one item in response, got %lu\n",
+			       (u_long)items);
 		return 0;
 	}
 	return 1;
@@ -378,8 +353,8 @@ peerlist(
 {
 	struct info_peer_list *plist;
 	sockaddr_u paddr;
-	int items;
-	int itemsize;
+	size_t items;
+	size_t itemsize;
 	int res;
 
 again:
@@ -455,8 +430,8 @@ dopeers(
 	struct info_peer_summary *plist;
 	sockaddr_u dstadr;
 	sockaddr_u srcadr;
-	int items;
-	int itemsize;
+	size_t items;
+	size_t itemsize;
 	int ntp_poll;
 	int res;
 	int c;
@@ -520,7 +495,7 @@ again:
 		    ((pcmd->argval->ival == 6) && (plist->v6_flag != 0)) ||
 		    ((pcmd->argval->ival == 4) && (plist->v6_flag == 0)))
 			(void) fprintf(fp,
-			    "%c%-15.15s %-15.15s %2d %4d  %3o %7.7s %9.9s %7.7s\n",
+			    "%c%-15.15s %-15.15s %2u %4d  %3o %7.7s %9.9s %7.7s\n",
 			    c, nntohost(&srcadr), stoa(&dstadr),
 			    plist->stratum, ntp_poll, plist->reach,
 			    fptoa(NTOHS_FP(plist->delay), 5),
@@ -532,7 +507,7 @@ again:
 }
 
 /* Convert a refid & stratum (in host order) to a string */
-static char*
+static char *
 refid_string(
 	u_int32 refid,
 	int stratum
@@ -541,7 +516,7 @@ refid_string(
 	if (stratum <= 1) {
 		static char junk[5];
 		junk[4] = 0;
-		memmove(junk, (char *)&refid, 4);
+		memcpy(junk, &refid, 4);
 		return junk;
 	}
 
@@ -550,49 +525,58 @@ refid_string(
 
 static void
 print_pflag(
-	    FILE *fp,
-	    u_int32 flags
-	    )
+	FILE *	fp,
+	u_int32	flags
+	)
 {
-     const char *str;
+	static const char none[] = "";
+	static const char comma[] = ",";
+	const char *dlim;
 
-     if (flags == 0) {
-		(void) fprintf(fp, " none\n");
-	} else {
-		str = "";
-		if (flags & INFO_FLAG_SYSPEER) {
-			(void) fprintf(fp, " system_peer");
-			str = ",";
-		}
-		if (flags & INFO_FLAG_CONFIG) {
-			(void) fprintf(fp, "%s config", str);
-			str = ",";
-		}
-		if (flags & INFO_FLAG_REFCLOCK) {
-			(void) fprintf(fp, "%s refclock", str);
-			str = ",";
-		}
-		if (flags & INFO_FLAG_AUTHENABLE) {
-			(void) fprintf(fp, "%s auth", str);
-			str = ",";
-		}
-		if (flags & INFO_FLAG_BCLIENT) {
-			(void) fprintf(fp, "%s bclient", str);
-			str = ",";
-		}
-		if (flags & INFO_FLAG_PREFER) {
-			(void) fprintf(fp, "%s prefer", str);
-			str = ",";
-		}
-		if (flags & INFO_FLAG_IBURST) {
-			(void) fprintf(fp, "%s iburst", str);
-			str = ",";
-		}
-		if (flags & INFO_FLAG_BURST) {
-			(void) fprintf(fp, "%s burst", str);
-		}
-		(void) fprintf(fp, "\n");
+	if (0 == flags) {
+		fprintf(fp, " none\n");
+		return;
 	}
+	dlim = none;
+	if (flags & INFO_FLAG_SYSPEER) {
+		fprintf(fp, " system_peer");
+		dlim = comma;
+	}
+	if (flags & INFO_FLAG_CONFIG) {
+		fprintf(fp, "%s config", dlim);
+		dlim = comma;
+	}
+	if (flags & INFO_FLAG_REFCLOCK) {
+		fprintf(fp, "%s refclock", dlim);
+		dlim = comma;
+	}
+	if (flags & INFO_FLAG_AUTHENABLE) {
+		fprintf(fp, "%s auth", dlim);
+		dlim = comma;
+	}
+	if (flags & INFO_FLAG_PREFER) {
+		fprintf(fp, "%s prefer", dlim);
+		dlim = comma;
+	}
+	if (flags & INFO_FLAG_IBURST) {
+		fprintf(fp, "%s iburst", dlim);
+		dlim = comma;
+	}
+	if (flags & INFO_FLAG_BURST) {
+		fprintf(fp, "%s burst", dlim);
+		dlim = comma;
+	}
+	if (flags & INFO_FLAG_SEL_CANDIDATE) {
+		fprintf(fp, "%s candidate", dlim);
+		dlim = comma;
+	}
+	if (flags & INFO_FLAG_SHORTLIST) {
+		fprintf(fp, "%s shortlist", dlim);
+#ifndef __clang_analyzer__
+		dlim = comma;
+#endif
+	}
+	fprintf(fp, "\n");
 }
 /*
  * printpeer - print detail information for a peer
@@ -697,10 +681,10 @@ showpeer(
 	struct info_peer *pp;
 	/* 4 is the maximum number of peers which will fit in a packet */
 	struct info_peer_list *pl, plist[min(MAXARGS, 4)];
-	int qitemlim;
-	int qitems;
-	int items;
-	int itemsize;
+	size_t qitemlim;
+	size_t qitems;
+	size_t items;
+	size_t itemsize;
 	int res;
 	int sendsize;
 
@@ -727,7 +711,7 @@ again:
 		}
 		pl->port = (u_short)s_port;
 		pl->hmode = pl->flags = 0;
-		pl = (struct info_peer_list *)((char *)pl + sendsize);
+		pl = (void *)((char *)pl + sendsize);
 	}
 
 	res = doquery(impl_ver, REQ_PEER_INFO, 0, qitems,
@@ -740,19 +724,19 @@ again:
 	}
 
 	if (res != 0)
-	    return;
+		return;
 
 	if (!checkitems(items, fp))
-	    return;
+		return;
 
 	if (!checkitemsize(itemsize, sizeof(struct info_peer)) &&
 	    !checkitemsize(itemsize, v4sizeof(struct info_peer)))
-	    return;
+		return;
 
 	while (items-- > 0) {
 		printpeer(pp, fp);
 		if (items > 0)
-		    (void) fprintf(fp, "\n");
+			fprintf(fp, "\n");
 		pp++;
 	}
 }
@@ -771,12 +755,12 @@ peerstats(
 	/* 4 is the maximum number of peers which will fit in a packet */
 	struct info_peer_list *pl, plist[min(MAXARGS, 4)];
 	sockaddr_u src, dst;
-	int qitemlim;
-	int qitems;
-	int items;
-	int itemsize;
+	size_t qitemlim;
+	size_t qitems;
+	size_t items;
+	size_t itemsize;
 	int res;
-	int sendsize;
+	size_t sendsize;
 
 again:
 	if (impl_ver == IMPL_XNTPD)
@@ -784,7 +768,7 @@ again:
 	else
 		sendsize = v4sizeof(struct info_peer_list);
 
-	memset(plist, 0, sizeof(plist));
+	ZERO(plist);
 
 	qitemlim = min(pcmd->nargs, COUNTOF(plist));
 	for (qitems = 0, pl = plist; qitems < qitemlim; qitems++) {
@@ -803,7 +787,7 @@ again:
 		}
 		pl->port = (u_short)s_port;
 		pl->hmode = plist[qitems].flags = 0;
-		pl = (struct info_peer_list *)((char *)pl + sendsize);
+		pl = (void *)((char *)pl + sendsize);
 	}
 
 	res = doquery(impl_ver, REQ_PEER_STATS, 0, qitems,
@@ -817,7 +801,7 @@ again:
 	}
 
 	if (res != 0)
-	    return;
+		return;
 
 	if (!checkitems(items, fp))
 	    return;
@@ -841,40 +825,40 @@ again:
 			NSRCADR(&src) = pp->srcadr;
 		}
 #ifdef ISC_PLATFORM_HAVESALEN
-		src.sas.ss_len = SOCKLEN(&src);
-		dst.sas.ss_len = SOCKLEN(&dst);
+		src.sa.sa_len = SOCKLEN(&src);
+		dst.sa.sa_len = SOCKLEN(&dst);
 #endif
-		(void) fprintf(fp, "remote host:          %s\n",
-			       nntohost(&src));
-		(void) fprintf(fp, "local interface:      %s\n",
-			       stoa(&dst));
-		(void) fprintf(fp, "time last received:   %lds\n",
-			       (long)ntohl(pp->timereceived));
-		(void) fprintf(fp, "time until next send: %lds\n",
-			       (long)ntohl(pp->timetosend));
-		(void) fprintf(fp, "reachability change:  %lds\n",
-			       (long)ntohl(pp->timereachable));
-		(void) fprintf(fp, "packets sent:         %ld\n",
-			       (long)ntohl(pp->sent));
-		(void) fprintf(fp, "packets received:     %ld\n",
-			       (long)ntohl(pp->processed));
-		(void) fprintf(fp, "bad authentication:   %ld\n",
-			       (long)ntohl(pp->badauth));
-		(void) fprintf(fp, "bogus origin:         %ld\n",
-			       (long)ntohl(pp->bogusorg));
-		(void) fprintf(fp, "duplicate:            %ld\n",
-			       (long)ntohl(pp->oldpkt));
-		(void) fprintf(fp, "bad dispersion:       %ld\n",
-			       (long)ntohl(pp->seldisp));
-		(void) fprintf(fp, "bad reference time:   %ld\n",
-			       (long)ntohl(pp->selbroken));
-		(void) fprintf(fp, "candidate order:      %d\n",
-			       (int)pp->candidate);
+		fprintf(fp, "remote host:          %s\n",
+			nntohost(&src));
+		fprintf(fp, "local interface:      %s\n",
+			stoa(&dst));
+		fprintf(fp, "time last received:   %lus\n",
+			(u_long)ntohl(pp->timereceived));
+		fprintf(fp, "time until next send: %lus\n",
+			(u_long)ntohl(pp->timetosend));
+		fprintf(fp, "reachability change:  %lus\n",
+			(u_long)ntohl(pp->timereachable));
+		fprintf(fp, "packets sent:         %lu\n",
+			(u_long)ntohl(pp->sent));
+		fprintf(fp, "packets received:     %lu\n",
+			(u_long)ntohl(pp->processed));
+		fprintf(fp, "bad authentication:   %lu\n",
+			(u_long)ntohl(pp->badauth));
+		fprintf(fp, "bogus origin:         %lu\n",
+			(u_long)ntohl(pp->bogusorg));
+		fprintf(fp, "duplicate:            %lu\n",
+			(u_long)ntohl(pp->oldpkt));
+		fprintf(fp, "bad dispersion:       %lu\n",
+			(u_long)ntohl(pp->seldisp));
+		fprintf(fp, "bad reference time:   %lu\n",
+			(u_long)ntohl(pp->selbroken));
+		fprintf(fp, "candidate order:      %u\n",
+			pp->candidate);
 		if (items > 0)
-		    (void) fprintf(fp, "\n");
-		(void) fprintf(fp, "flags:	");
+			fprintf(fp, "\n");
+		fprintf(fp, "flags:	");
 		print_pflag(fp, ntohs(pp->flags));
-	        pp++;
+		pp++;
 	}
 }
 
@@ -889,8 +873,8 @@ loopinfo(
 	)
 {
 	struct info_loop *il;
-	int items;
-	int itemsize;
+	size_t items;
+	size_t itemsize;
 	int oneline = 0;
 	int res;
 	l_fp tempts;
@@ -964,8 +948,8 @@ sysinfo(
 {
 	struct info_sys *is;
 	sockaddr_u peeraddr;
-	int items;
-	int itemsize;
+	size_t items;
+	size_t itemsize;
 	int res;
 	l_fp tempts;
 
@@ -1053,8 +1037,8 @@ sysstats(
 	)
 {
 	struct info_sys_stats *ss;
-	int items;
-	int itemsize;
+	size_t items;
+	size_t itemsize;
 	int res;
 
 again:
@@ -1079,30 +1063,30 @@ again:
 		checkitemsize(itemsize, sizeof(struct info_sys_stats));
 		return;
 	}
-	fprintf(fp, "time since restart:     %ld\n",
-	       (u_long)ntohl(ss->timeup));
-	fprintf(fp, "time since reset:       %ld\n",
+	fprintf(fp, "time since restart:     %lu\n",
+		(u_long)ntohl(ss->timeup));
+	fprintf(fp, "time since reset:       %lu\n",
 		(u_long)ntohl(ss->timereset));
-        fprintf(fp, "packets received:       %ld\n",
+	fprintf(fp, "packets received:       %lu\n",
 		(u_long)ntohl(ss->received));
-	fprintf(fp, "packets processed:      %ld\n",
+	fprintf(fp, "packets processed:      %lu\n",
 		(u_long)ntohl(ss->processed));
-	fprintf(fp, "current version:        %ld\n",
-	       (u_long)ntohl(ss->newversionpkt));
-	fprintf(fp, "previous version:       %ld\n",
-	       (u_long)ntohl(ss->oldversionpkt));
-	fprintf(fp, "declined:               %ld\n",
-	       (u_long)ntohl(ss->unknownversion));
-	fprintf(fp, "access denied:          %ld\n",
+	fprintf(fp, "current version:        %lu\n",
+		(u_long)ntohl(ss->newversionpkt));
+	fprintf(fp, "previous version:       %lu\n",
+		(u_long)ntohl(ss->oldversionpkt));
+	fprintf(fp, "declined:               %lu\n",
+		(u_long)ntohl(ss->unknownversion));
+	fprintf(fp, "access denied:          %lu\n",
 		(u_long)ntohl(ss->denied));
-	fprintf(fp, "bad length or format:   %ld\n",
-	       (u_long)ntohl(ss->badlength));
-	fprintf(fp, "bad authentication:     %ld\n",
-	       (u_long)ntohl(ss->badauth));
+	fprintf(fp, "bad length or format:   %lu\n",
+		(u_long)ntohl(ss->badlength));
+	fprintf(fp, "bad authentication:     %lu\n",
+		(u_long)ntohl(ss->badauth));
 	if (itemsize != sizeof(struct info_sys_stats))
 	    return;
 	
-	fprintf(fp, "rate exceeded:          %ld\n",
+	fprintf(fp, "rate exceeded:          %lu\n",
 	       (u_long)ntohl(ss->limitrejected));
 }
 
@@ -1119,14 +1103,13 @@ iostats(
 	)
 {
 	struct info_io_stats *io;
-	int items;
-	int itemsize;
+	size_t items;
+	size_t itemsize;
 	int res;
 
 again:
-	res = doquery(impl_ver, REQ_IO_STATS, 0, 0, 0, (char *)NULL,
-		      &items, &itemsize, (void *)&io, 0, 
-		      sizeof(struct info_io_stats));
+	res = doquery(impl_ver, REQ_IO_STATS, 0, 0, 0, NULL, &items,
+		      &itemsize, (void *)&io, 0, sizeof(*io));
 	
 	if (res == INFO_ERR_IMPL && impl_ver == IMPL_XNTPD) {
 		impl_ver = IMPL_XNTPD_OLD;
@@ -1134,38 +1117,38 @@ again:
 	}
 
 	if (res != 0)
-	    return;
+		return;
 
 	if (!check1item(items, fp))
-	    return;
+		return;
 
-	if (!checkitemsize(itemsize, sizeof(struct info_io_stats)))
-	    return;
+	if (!checkitemsize(itemsize, sizeof(*io)))
+		return;
 
-	(void) fprintf(fp, "time since reset:     %ld\n",
-		       (u_long)ntohl(io->timereset));
-	(void) fprintf(fp, "receive buffers:      %d\n",
-		       ntohs(io->totalrecvbufs));
-	(void) fprintf(fp, "free receive buffers: %d\n",
-		       ntohs(io->freerecvbufs));
-	(void) fprintf(fp, "used receive buffers: %d\n",
-		       ntohs(io->fullrecvbufs));
-	(void) fprintf(fp, "low water refills:    %d\n",
-		       ntohs(io->lowwater));
-	(void) fprintf(fp, "dropped packets:      %ld\n",
-		       (u_long)ntohl(io->dropped));
-	(void) fprintf(fp, "ignored packets:      %ld\n",
-		       (u_long)ntohl(io->ignored));
-	(void) fprintf(fp, "received packets:     %ld\n",
-		       (u_long)ntohl(io->received));
-	(void) fprintf(fp, "packets sent:         %ld\n",
-		       (u_long)ntohl(io->sent));
-	(void) fprintf(fp, "packets not sent:     %ld\n",
-		       (u_long)ntohl(io->notsent));
-	(void) fprintf(fp, "interrupts handled:   %ld\n",
-		       (u_long)ntohl(io->interrupts));
-	(void) fprintf(fp, "received by int:      %ld\n",
-		       (u_long)ntohl(io->int_received));
+	fprintf(fp, "time since reset:     %lu\n",
+		(u_long)ntohl(io->timereset));
+	fprintf(fp, "receive buffers:      %u\n",
+		(u_int)ntohs(io->totalrecvbufs));
+	fprintf(fp, "free receive buffers: %u\n",
+		(u_int)ntohs(io->freerecvbufs));
+	fprintf(fp, "used receive buffers: %u\n",
+		(u_int)ntohs(io->fullrecvbufs));
+	fprintf(fp, "low water refills:    %u\n",
+		(u_int)ntohs(io->lowwater));
+	fprintf(fp, "dropped packets:      %lu\n",
+		(u_long)ntohl(io->dropped));
+	fprintf(fp, "ignored packets:      %lu\n",
+		(u_long)ntohl(io->ignored));
+	fprintf(fp, "received packets:     %lu\n",
+		(u_long)ntohl(io->received));
+	fprintf(fp, "packets sent:         %lu\n",
+		(u_long)ntohl(io->sent));
+	fprintf(fp, "packets not sent:     %lu\n",
+		(u_long)ntohl(io->notsent));
+	fprintf(fp, "interrupts handled:   %lu\n",
+		(u_long)ntohl(io->interrupts));
+	fprintf(fp, "received by int:      %lu\n",
+		(u_long)ntohl(io->int_received));
 }
 
 
@@ -1181,14 +1164,13 @@ memstats(
 {
 	struct info_mem_stats *mem;
 	int i;
-	int items;
-	int itemsize;
+	size_t items;
+	size_t itemsize;
 	int res;
 
 again:
-	res = doquery(impl_ver, REQ_MEM_STATS, 0, 0, 0, (char *)NULL,
-		      &items, &itemsize, (void *)&mem, 0, 
-		      sizeof(struct info_mem_stats));
+	res = doquery(impl_ver, REQ_MEM_STATS, 0, 0, 0, NULL, &items,
+		      &itemsize, (void *)&mem, 0, sizeof(*mem));
 	
 	if (res == INFO_ERR_IMPL && impl_ver == IMPL_XNTPD) {
 		impl_ver = IMPL_XNTPD_OLD;
@@ -1196,35 +1178,34 @@ again:
 	}
 
 	if (res != 0)
-	    return;
+		return;
 
 	if (!check1item(items, fp))
-	    return;
+		return;
 
-	if (!checkitemsize(itemsize, sizeof(struct info_mem_stats)))
-	    return;
+	if (!checkitemsize(itemsize, sizeof(*mem)))
+		return;
 
-	(void) fprintf(fp, "time since reset:     %ld\n",
-		       (u_long)ntohl(mem->timereset));
-	(void) fprintf(fp, "total peer memory:    %d\n",
-		       ntohs(mem->totalpeermem));
-	(void) fprintf(fp, "free peer memory:     %d\n",
-		       ntohs(mem->freepeermem));
-	(void) fprintf(fp, "calls to findpeer:    %ld\n",
-		       (u_long)ntohl(mem->findpeer_calls));
-	(void) fprintf(fp, "new peer allocations: %ld\n",
-		       (u_long)ntohl(mem->allocations));
-	(void) fprintf(fp, "peer demobilizations: %ld\n",
-		       (u_long)ntohl(mem->demobilizations));
+	fprintf(fp, "time since reset:     %lu\n",
+		(u_long)ntohl(mem->timereset));
+	fprintf(fp, "total peer memory:    %u\n",
+		(u_int)ntohs(mem->totalpeermem));
+	fprintf(fp, "free peer memory:     %u\n",
+		(u_int)ntohs(mem->freepeermem));
+	fprintf(fp, "calls to findpeer:    %lu\n",
+		(u_long)ntohl(mem->findpeer_calls));
+	fprintf(fp, "new peer allocations: %lu\n",
+		(u_long)ntohl(mem->allocations));
+	fprintf(fp, "peer demobilizations: %lu\n",
+		(u_long)ntohl(mem->demobilizations));
 
-	(void) fprintf(fp, "hash table counts:   ");
+	fprintf(fp, "hash table counts:   ");
 	for (i = 0; i < NTP_HASH_SIZE; i++) {
-		(void) fprintf(fp, "%4d", (int)mem->hashcount[i]);
-		if ((i % 8) == 7 && i != (NTP_HASH_SIZE-1)) {
-			(void) fprintf(fp, "\n                     ");
-		}
+		fprintf(fp, "%4d", (int)mem->hashcount[i]);
+		if ((i % 8) == 7 && i != (NTP_HASH_SIZE-1))
+			fprintf(fp, "\n                     ");
 	}
-	(void) fprintf(fp, "\n");
+	fprintf(fp, "\n");
 }
 
 
@@ -1240,14 +1221,13 @@ timerstats(
 	)
 {
 	struct info_timer_stats *tim;
-	int items;
-	int itemsize;
+	size_t items;
+	size_t itemsize;
 	int res;
 
 again:
-	res = doquery(impl_ver, REQ_TIMER_STATS, 0, 0, 0, (char *)NULL,
-		      &items, &itemsize, (void *)&tim, 0, 
-		      sizeof(struct info_timer_stats));
+	res = doquery(impl_ver, REQ_TIMER_STATS, 0, 0, 0, NULL, &items,
+		      &itemsize, (void *)&tim, 0, sizeof(*tim));
 	
 	if (res == INFO_ERR_IMPL && impl_ver == IMPL_XNTPD) {
 		impl_ver = IMPL_XNTPD_OLD;
@@ -1255,22 +1235,22 @@ again:
 	}
 
 	if (res != 0)
-	    return;
+		return;
 
 	if (!check1item(items, fp))
-	    return;
+		return;
 
-	if (!checkitemsize(itemsize, sizeof(struct info_timer_stats)))
-	    return;
+	if (!checkitemsize(itemsize, sizeof(*tim)))
+		return;
 
-	(void) fprintf(fp, "time since reset:  %ld\n",
-		       (u_long)ntohl(tim->timereset));
-	(void) fprintf(fp, "alarms handled:    %ld\n",
-		       (u_long)ntohl(tim->alarms));
-	(void) fprintf(fp, "alarm overruns:    %ld\n",
-		       (u_long)ntohl(tim->overflows));
-	(void) fprintf(fp, "calls to transmit: %ld\n",
-		       (u_long)ntohl(tim->xmtcalls));
+	fprintf(fp, "time since reset:  %lu\n",
+		(u_long)ntohl(tim->timereset));
+	fprintf(fp, "alarms handled:    %lu\n",
+		(u_long)ntohl(tim->alarms));
+	fprintf(fp, "alarm overruns:    %lu\n",
+		(u_long)ntohl(tim->overflows));
+	fprintf(fp, "calls to transmit: %lu\n",
+		(u_long)ntohl(tim->xmtcalls));
 }
 
 
@@ -1336,9 +1316,9 @@ doconfig(
 	)
 {
 	struct conf_peer cpeer;
-	int items;
-	int itemsize;
-	char *dummy;
+	size_t items;
+	size_t itemsize;
+	const char *dummy;
 	u_long keyid;
 	u_int version;
 	u_char minpoll;
@@ -1348,12 +1328,13 @@ doconfig(
 	int res;
 	int sendsize;
 	int numtyp;
+	long val;
 
 again:
 	keyid = 0;
 	version = 3;
 	flags = 0;
-	res = 0;
+	res = FALSE;
 	cmode = 0;
 	minpoll = NTP_MINDPOLL;
 	maxpoll = NTP_MAXDPOLL;
@@ -1367,86 +1348,84 @@ again:
 		sendsize = v4sizeof(struct conf_peer);
 
 	items = 1;
-	while (pcmd->nargs > items) {
+	while (pcmd->nargs > (size_t)items) {
 		if (STREQ(pcmd->argval[items].string, "prefer"))
-		    flags |= CONF_FLAG_PREFER;
+			flags |= CONF_FLAG_PREFER;
 		else if (STREQ(pcmd->argval[items].string, "burst"))
-		    flags |= CONF_FLAG_BURST;
+			flags |= CONF_FLAG_BURST;
 		else if (STREQ(pcmd->argval[items].string, "iburst"))
-		    flags |= CONF_FLAG_IBURST;
+			flags |= CONF_FLAG_IBURST;
 		else if (!refc && STREQ(pcmd->argval[items].string, "keyid"))
-		    numtyp = 1;
+			numtyp = 1;
 		else if (!refc && STREQ(pcmd->argval[items].string, "version"))
-		    numtyp = 2;
+			numtyp = 2;
 		else if (STREQ(pcmd->argval[items].string, "minpoll"))
-		    numtyp = 3;
+			numtyp = 3;
 		else if (STREQ(pcmd->argval[items].string, "maxpoll"))
-		    numtyp = 4;
+			numtyp = 4;
 		else {
-		        long val;
 			if (!atoint(pcmd->argval[items].string, &val))
-			     numtyp = 0;				  
+				numtyp = 0;
 			switch (numtyp) {
 			case 1:
-			     keyid = val;
-			     numtyp = 2;				  
-			     break;
-			     
+				keyid = val;
+				numtyp = 2;
+				break;
+
 			case 2:
-			     version = (u_int) val;
-			     numtyp = 0;				  
-			     break;
+				version = (u_int)val;
+				numtyp = 0;
+				break;
 
 			case 3:
-			     minpoll = (u_char)val;
-			     numtyp = 0;				  
-			     break;
+				minpoll = (u_char)val;
+				numtyp = 0;
+				break;
 
 			case 4:
-			     maxpoll = (u_char)val;
-			     numtyp = 0;				  
-			     break;
+				maxpoll = (u_char)val;
+				numtyp = 0;
+				break;
 
 			case 5:
-			     cmode = (u_char)val;
-			     numtyp = 0;				  
-			     break;
+				cmode = (u_char)val;
+				numtyp = 0;
+				break;
 
 			default:
-			     (void) fprintf(fp, "*** '%s' not understood\n",
-					    pcmd->argval[items].string);
-			     res++;
-			     numtyp = 0;				  
+				fprintf(fp, "*** '%s' not understood\n",
+					pcmd->argval[items].string);
+				res = TRUE;
+				numtyp = 0;
 			}
 			if (val < 0) {
-			     (void) fprintf(stderr,
-				     "***Value '%s' should be unsigned\n",
-				      pcmd->argval[items].string);
-			     res++;
+				fprintf(stderr,
+					"*** Value '%s' should be unsigned\n",
+					pcmd->argval[items].string);
+				res = TRUE;
 			}
-		   }
-	     items++;
+		}
+		items++;
 	}
 	if (keyid > 0)
-	     flags |= CONF_FLAG_AUTHENABLE;
-	if (version > NTP_VERSION ||
-	    version < NTP_OLDVERSION) {
-	     (void)fprintf(fp, "***invalid version number: %u\n",
-			   version);
-	     res++;
+		flags |= CONF_FLAG_AUTHENABLE;
+	if (version > NTP_VERSION || version < NTP_OLDVERSION) {
+		fprintf(fp, "***invalid version number: %u\n",
+			version);
+		res = TRUE;
 	}
 	if (minpoll < NTP_MINPOLL || minpoll > NTP_MAXPOLL || 
 	    maxpoll < NTP_MINPOLL || maxpoll > NTP_MAXPOLL || 
 	    minpoll > maxpoll) {
-	     (void) fprintf(fp, "***min/max-poll must be within %d..%d\n",
-			    NTP_MINPOLL, NTP_MAXPOLL);
-	     res++;
+		fprintf(fp, "***min/max-poll must be within %d..%d\n",
+			NTP_MINPOLL, NTP_MAXPOLL);
+		res = TRUE;
 	}					
 
 	if (res)
-	    return;
+		return;
 
-	memset(&cpeer, 0, sizeof(cpeer));
+	ZERO(cpeer);
 
 	if (IS_IPV4(&pcmd->argval[0].netnum)) {
 		cpeer.peeraddr = NSRCADR(&pcmd->argval[0].netnum);
@@ -1503,13 +1482,13 @@ unconfig(
 {
 	/* 8 is the maximum number of peers which will fit in a packet */
 	struct conf_unpeer *pl, plist[min(MAXARGS, 8)];
-	int qitemlim;
-	int qitems;
-	int items;
-	int itemsize;
-	char *dummy;
+	size_t qitemlim;
+	size_t qitems;
+	size_t items;
+	size_t itemsize;
+	const char *dummy;
 	int res;
-	int sendsize;
+	size_t sendsize;
 
 again:
 	if (impl_ver == IMPL_XNTPD)
@@ -1533,7 +1512,7 @@ again:
 			    SOCK_ADDR6(&pcmd->argval[qitems].netnum);
 			pl->v6_flag = 1;
 		}
-		pl = (struct conf_unpeer *)((char *)pl + sendsize);
+		pl = (void *)((char *)pl + sendsize);
 	}
 
 	res = doquery(impl_ver, REQ_UNCONFIG, 1, qitems,
@@ -1587,14 +1566,14 @@ doset(
 	)
 {
 	struct conf_sys_flags sys;
-	int items;
-	int itemsize;
-	char *dummy;
+	size_t items;
+	size_t itemsize;
+	const char *dummy;
 	int res;
 
 	sys.flags = 0;
 	res = 0;
-	for (items = 0; items < pcmd->nargs; items++) {
+	for (items = 0; (size_t)items < pcmd->nargs; items++) {
 		if (STREQ(pcmd->argval[items].string, "auth"))
 			sys.flags |= SYS_FLAG_AUTH;
 		else if (STREQ(pcmd->argval[items].string, "bclient"))
@@ -1672,7 +1651,7 @@ static struct resflags resflagsV3[] = {
 	{ "limited",	RES_LIMITED },
 	{ "version",	RES_VERSION },
 	{ "kod",	RES_KOD },
-	{ "timeout",	RES_TIMEOUT },
+	{ "flake",	RES_FLAKE },
 
 	{ "",		0 }
 };
@@ -1680,6 +1659,7 @@ static struct resflags resflagsV3[] = {
 static struct resflags resmflags[] = {
 	{ "ntpport",	RESM_NTPONLY },
 	{ "interface",	RESM_INTERFACE },
+	{ "source",	RESM_SOURCE },
 	{ "",		0 }
 };
 
@@ -1697,12 +1677,12 @@ reslist(
 	struct info_restrict *rl;
 	sockaddr_u resaddr;
 	sockaddr_u maskaddr;
-	int items;
-	int itemsize;
+	size_t items;
+	size_t itemsize;
 	int res;
 	int skip;
-	char *addr;
-	char *mask;
+	const char *addr;
+	const char *mask;
 	struct resflags *rf;
 	u_int32 count;
 	u_short flags;
@@ -1721,19 +1701,19 @@ again:
 	}
 
 	if (res != 0)
-	    return;
+		return;
 
 	if (!checkitems(items, fp))
-	    return;
+		return;
 
 	if (!checkitemsize(itemsize, sizeof(struct info_restrict)) &&
 	    !checkitemsize(itemsize, v4sizeof(struct info_restrict)))
-	    return;
+		return;
 
-	(void) fprintf(fp,
-	       "   address          mask            count        flags\n");
-	(void) fprintf(fp,
-		       "=====================================================================\n");
+	fprintf(fp,
+		"   address          mask            count        flags\n");
+	fprintf(fp,
+		"=====================================================================\n");
 
 	while (items > 0) {
 		SET_ADDRS(resaddr, maskaddr, rl, addr, mask);
@@ -1761,33 +1741,37 @@ again:
 		while (rf->bit != 0) {
 			if (mflags & rf->bit) {
 				if (!res)
-				    (void) strcat(flagstr, comma);
+					strlcat(flagstr, comma,
+						sizeof(flagstr));
 				res = 0;
-				(void) strcat(flagstr, rf->str);
+				strlcat(flagstr, rf->str,
+					sizeof(flagstr));
 			}
 			rf++;
 		}
 
 		rf = (impl_ver == IMPL_XNTPD_OLD)
-		     ? &resflagsV2[0]
-		     : &resflagsV3[0]
-		     ;
+			 ? &resflagsV2[0]
+			 : &resflagsV3[0];
+
 		while (rf->bit != 0) {
 			if (flags & rf->bit) {
 				if (!res)
-				    (void) strcat(flagstr, comma);
+					strlcat(flagstr, comma,
+						sizeof(flagstr));
 				res = 0;
-				(void) strcat(flagstr, rf->str);
+				strlcat(flagstr, rf->str,
+					sizeof(flagstr));
 			}
 			rf++;
 		}
 
 		if (flagstr[0] == '\0')
-		    (void) strcpy(flagstr, "none");
+			strlcpy(flagstr, "none", sizeof(flagstr));
 
 		if (!skip)
-			(void) fprintf(fp, "%-15.15s %-15.15s %9ld  %s\n",
-					addr, mask, (u_long)count, flagstr);
+			fprintf(fp, "%-15.15s %-15.15s %9lu  %s\n",
+				addr, mask, (u_long)count, flagstr);
 		rl++;
 		items--;
 	}
@@ -1845,13 +1829,13 @@ do_restrict(
 	)
 {
 	struct conf_restrict cres;
-	int items;
-	int itemsize;
-	char *dummy;
+	size_t items;
+	size_t itemsize;
+	const char *dummy;
 	u_int32 num;
 	u_long bit;
 	int i;
-	int res;
+	size_t res;
 	int err;
 	int sendsize;
 
@@ -1876,7 +1860,7 @@ again:
 	} else {
 		if (impl_ver == IMPL_XNTPD_OLD) {
 			fprintf(stderr,
-			    "***Server doesn't understand IPv6 addresses\n");
+				"***Server doesn't understand IPv6 addresses\n");
 			return;
 		}
 		cres.addr6 = SOCK_ADDR6(&pcmd->argval[0].netnum);
@@ -1884,7 +1868,7 @@ again:
 	}
 	cres.flags = 0;
 	cres.mflags = 0;
-	err = 0;
+	err = FALSE;
 	for (res = 2; res < pcmd->nargs; res++) {
 		if (STREQ(pcmd->argval[res].string, "ntpport")) {
 			cres.mflags |= RESM_NTPONLY;
@@ -1892,20 +1876,20 @@ again:
 			for (i = 0; resflagsV3[i].bit != 0; i++) {
 				if (STREQ(pcmd->argval[res].string,
 					  resflagsV3[i].str))
-				    break;
+					break;
 			}
 			if (resflagsV3[i].bit != 0) {
 				cres.flags |= resflagsV3[i].bit;
 				if (req_code == REQ_UNRESTRICT) {
-					(void) fprintf(fp,
-						       "Flag %s inappropriate\n",
-						       resflagsV3[i].str);
-					err++;
+					fprintf(fp,
+						"Flag %s inappropriate\n",
+						resflagsV3[i].str);
+					err = TRUE;
 				}
 			} else {
-				(void) fprintf(fp, "Unknown flag %s\n",
-					       pcmd->argval[res].string);
-				err++;
+				fprintf(fp, "Unknown flag %s\n",
+					pcmd->argval[res].string);
+				err = TRUE;
 			}
 		}
 	}
@@ -1922,15 +1906,15 @@ again:
 		} else {
 			num = ntohl(cres.mask);
 			for (bit = 0x80000000; bit != 0; bit >>= 1)
-			    if ((num & bit) == 0)
-				break;
+				if ((num & bit) == 0)
+					break;
 			for ( ; bit != 0; bit >>= 1)
-			    if ((num & bit) != 0)
-				break;
+				if ((num & bit) != 0)
+					break;
 			if (bit != 0) {
-				(void) fprintf(fp, "Invalid mask %s\n",
-					       numtoa(cres.mask));
-				err++;
+				fprintf(fp, "Invalid mask %s\n",
+					numtoa(cres.mask));
+				err = TRUE;
 			}
 		}
 	} else {
@@ -1938,11 +1922,10 @@ again:
 	}
 
 	if (err)
-	    return;
+		return;
 
-	res = doquery(impl_ver, req_code, 1, 1,
-		      sendsize, (char *)&cres, &items,
-		      &itemsize, &dummy, 0, sizeof(struct conf_restrict));
+	res = doquery(impl_ver, req_code, 1, 1, sendsize, (char *)&cres,
+		      &items, &itemsize, &dummy, 0, sizeof(cres));
 	
 	if (res == INFO_ERR_IMPL && impl_ver == IMPL_XNTPD) {
 		impl_ver = IMPL_XNTPD_OLD;
@@ -1965,22 +1948,24 @@ monlist(
 	FILE *fp
 	)
 {
-	char *struct_star;
+	const char *struct_star;
+	const struct info_monitor *ml;
+	const struct info_monitor_1 *m1;
+	const struct old_info_monitor *oml;
 	sockaddr_u addr;
 	sockaddr_u dstadr;
-	int items;
-	int itemsize;
+	size_t items;
+	size_t itemsize;
 	int res;
 	int version = -1;
 
-	if (pcmd->nargs > 0) {
+	if (pcmd->nargs > 0)
 		version = pcmd->argval[0].ival;
-	}
 
 again:
 	res = doquery(impl_ver,
 		      (version == 1 || version == -1) ? REQ_MON_GETLIST_1 :
-		      REQ_MON_GETLIST, 0, 0, 0, (char *)NULL,
+		      REQ_MON_GETLIST, 0, 0, 0, NULL,
 		      &items, &itemsize, &struct_star,
 		      (version < 0) ? (1 << INFO_ERR_REQ) : 0, 
 		      sizeof(struct info_monitor_1));
@@ -1991,85 +1976,86 @@ again:
 	}
 
 	if (res == INFO_ERR_REQ && version < 0) 
-	    res = doquery(impl_ver, REQ_MON_GETLIST, 0, 0, 0, (char *)NULL,
-			  &items, &itemsize, &struct_star, 0, 
-			  sizeof(struct info_monitor));
+		res = doquery(impl_ver, REQ_MON_GETLIST, 0, 0, 0, NULL,
+			      &items, &itemsize, &struct_star, 0,
+			      sizeof(struct info_monitor));
 	
 	if (res != 0)
-	    return;
+		return;
 
 	if (!checkitems(items, fp))
-	    return;
+		return;
 
 	if (itemsize == sizeof(struct info_monitor_1) ||
 	    itemsize == v4sizeof(struct info_monitor_1)) {
-		struct info_monitor_1 *ml = (struct info_monitor_1 *) struct_star;
 
-		(void) fprintf(fp,
-			       "remote address          port local address      count m ver rstr avgint  lstint\n");
-		(void) fprintf(fp,
-			       "===============================================================================\n");
+	    m1 = (const void*)struct_star;
+		fprintf(fp,
+			"remote address          port local address      count m ver rstr avgint  lstint\n");
+		fprintf(fp,
+			"===============================================================================\n");
 		while (items > 0) {
-			SET_ADDRS(dstadr, addr, ml, daddr, addr);
+			SET_ADDRS(dstadr, addr, m1, daddr, addr);
 			if ((pcmd->nargs == 0) ||
-			    ((pcmd->argval->ival == 6) && (ml->v6_flag != 0)) ||
-			    ((pcmd->argval->ival == 4) && (ml->v6_flag == 0)))
-				(void) fprintf(fp, 
-				    "%-22.22s %5d %-15s %8ld %1d %1d %6lx %6lu %7lu\n",
+			    ((pcmd->argval->ival == 6) && (m1->v6_flag != 0)) ||
+			    ((pcmd->argval->ival == 4) && (m1->v6_flag == 0)))
+				fprintf(fp, 
+				    "%-22.22s %5d %-15s %8lu %1u %1u %6lx %6lu %7lu\n",
 				    nntohost(&addr), 
-				    ntohs(ml->port),
+				    ntohs(m1->port),
 				    stoa(&dstadr),
-				    (u_long)ntohl(ml->count),
-				    ml->mode,
-				    ml->version,
-				    (u_long)ntohl(ml->restr),
-				    (u_long)ntohl(ml->lasttime),
-				    (u_long)ntohl(ml->firsttime));
-			ml++;
+				    (u_long)ntohl(m1->count),
+				    m1->mode,
+				    m1->version,
+				    (u_long)ntohl(m1->restr),
+				    (u_long)ntohl(m1->avg_int),
+				    (u_long)ntohl(m1->last_int));
+			m1++;
 			items--;
 		}
 	} else if (itemsize == sizeof(struct info_monitor) ||
 	    itemsize == v4sizeof(struct info_monitor)) {
-		struct info_monitor *ml = (struct info_monitor *) struct_star;
 
-		(void) fprintf(fp,
-			       "     address               port     count mode ver rstr avgint  lstint\n");
-		(void) fprintf(fp,
-			       "===============================================================================\n");
+		ml = (const void *)struct_star;
+		fprintf(fp,
+			"     address               port     count mode ver rstr avgint  lstint\n");
+		fprintf(fp,
+			"===============================================================================\n");
 		while (items > 0) {
 			SET_ADDR(dstadr, ml->v6_flag, ml->addr, ml->addr6);
 			if ((pcmd->nargs == 0) ||
 			    ((pcmd->argval->ival == 6) && (ml->v6_flag != 0)) ||
 			    ((pcmd->argval->ival == 4) && (ml->v6_flag == 0)))
-				(void) fprintf(fp,
-				    "%-25.25s %5d %9ld %4d %2d %9lx %9lu %9lu\n",
+				fprintf(fp,
+				    "%-25.25s %5u %9lu %4u %2u %9lx %9lu %9lu\n",
 				    nntohost(&dstadr),
 				    ntohs(ml->port),
 				    (u_long)ntohl(ml->count),
 				    ml->mode,
 				    ml->version,
 				    (u_long)ntohl(ml->restr),
-				    (u_long)ntohl(ml->lasttime),
-				    (u_long)ntohl(ml->firsttime));
+				    (u_long)ntohl(ml->avg_int),
+				    (u_long)ntohl(ml->last_int));
 			ml++;
 			items--;
 		}
 	} else if (itemsize == sizeof(struct old_info_monitor)) {
-		struct old_info_monitor *oml = (struct old_info_monitor *)struct_star;
-		(void) fprintf(fp,
-			       "     address          port     count  mode version  lasttime firsttime\n");
-		(void) fprintf(fp,
-			       "======================================================================\n");
+
+		oml = (const void *)struct_star;
+		fprintf(fp,
+			"     address          port     count  mode version  lasttime firsttime\n");
+		fprintf(fp,
+			"======================================================================\n");
 		while (items > 0) {
 			SET_ADDR(dstadr, oml->v6_flag, oml->addr, oml->addr6);
-			(void) fprintf(fp, "%-20.20s %5d %9ld %4d   %3d %9lu %9lu\n",
-				       nntohost(&dstadr),
-				       ntohs(oml->port),
-				       (u_long)ntohl(oml->count),
-				       oml->mode,
-				       oml->version,
-				       (u_long)ntohl(oml->lasttime),
-				       (u_long)ntohl(oml->firsttime));
+			fprintf(fp, "%-20.20s %5u %9lu %4u   %3u %9lu %9lu\n",
+				nntohost(&dstadr),
+				ntohs(oml->port),
+				(u_long)ntohl(oml->count),
+				oml->mode,
+				oml->version,
+				(u_long)ntohl(oml->lasttime),
+				(u_long)ntohl(oml->firsttime));
 			oml++;
 			items--;
 		}
@@ -2084,15 +2070,16 @@ again:
  * Mapping between command line strings and stat reset flags
  */
 struct statreset {
-  const char *str;
-	int flag;
+	const char * const	str;
+	const int		flag;
 } sreset[] = {
+	{ "allpeers",	RESET_FLAG_ALLPEERS },
 	{ "io",		RESET_FLAG_IO },
 	{ "sys",	RESET_FLAG_SYS },
 	{ "mem",	RESET_FLAG_MEM },
 	{ "timer",	RESET_FLAG_TIMER },
 	{ "auth",	RESET_FLAG_AUTH },
-	{ "allpeers",	RESET_FLAG_ALLPEERS },
+	{ "ctl",	RESET_FLAG_CTL },
 	{ "",		0 }
 };
 
@@ -2106,11 +2093,11 @@ reset(
 	)
 {
 	struct reset_flags rflags;
-	int items;
-	int itemsize;
-	char *dummy;
+	size_t items;
+	size_t itemsize;
+	const char *dummy;
 	int i;
-	int res;
+	size_t res;
 	int err;
 
 	err = 0;
@@ -2118,11 +2105,11 @@ reset(
 	for (res = 0; res < pcmd->nargs; res++) {
 		for (i = 0; sreset[i].flag != 0; i++) {
 			if (STREQ(pcmd->argval[res].string, sreset[i].str))
-			    break;
+				break;
 		}
 		if (sreset[i].flag == 0) {
-			(void) fprintf(fp, "Flag %s unknown\n",
-				       pcmd->argval[res].string);
+			fprintf(fp, "Flag %s unknown\n",
+				pcmd->argval[res].string);
 			err++;
 		} else {
 			rflags.flags |= sreset[i].flag;
@@ -2163,13 +2150,13 @@ preset(
 {
 	/* 8 is the maximum number of peers which will fit in a packet */
 	struct conf_unpeer *pl, plist[min(MAXARGS, 8)];
-	int qitemlim;
-	int qitems;
-	int items;
-	int itemsize;
-	char *dummy;
+	size_t qitemlim;
+	size_t qitems;
+	size_t items;
+	size_t itemsize;
+	const char *dummy;
 	int res;
-	int sendsize;
+	size_t sendsize;
 
 again:
 	if (impl_ver == IMPL_XNTPD)
@@ -2193,7 +2180,7 @@ again:
 			    SOCK_ADDR6(&pcmd->argval[qitems].netnum);
 			pl->v6_flag = 1;
 		}
-		pl = (struct conf_unpeer *)((char *)pl + sendsize);
+		pl = (void *)((char *)pl + sendsize);
 	}
 
 	res = doquery(impl_ver, REQ_RESET_PEER, 1, qitems,
@@ -2220,9 +2207,9 @@ readkeys(
 	FILE *fp
 	)
 {
-	int items;
-	int itemsize;
-	char *dummy;
+	size_t items;
+	size_t itemsize;
+	const char *dummy;
 	int res;
 
 again:
@@ -2277,10 +2264,10 @@ do_trustkey(
 	)
 {
 	u_long keyids[MAXARGS];
-	int i;
-	int items;
-	int itemsize;
-	char *dummy;
+	size_t i;
+	size_t items;
+	size_t itemsize;
+	const char *dummy;
 	int ritems;
 	int res;
 
@@ -2317,14 +2304,13 @@ authinfo(
 	)
 {
 	struct info_auth *ia;
-	int items;
-	int itemsize;
+	size_t items;
+	size_t itemsize;
 	int res;
 
 again:
-	res = doquery(impl_ver, REQ_AUTHINFO, 0, 0, 0, (char *)NULL,
-		      &items, &itemsize, (void *)&ia, 0, 
-		      sizeof(struct info_auth));
+	res = doquery(impl_ver, REQ_AUTHINFO, 0, 0, 0, NULL, &items,
+		      &itemsize, (void *)&ia, 0, sizeof(*ia));
 	
 	if (res == INFO_ERR_IMPL && impl_ver == IMPL_XNTPD) {
 		impl_ver = IMPL_XNTPD_OLD;
@@ -2332,32 +2318,32 @@ again:
 	}
 
 	if (res != 0)
-	    return;
+		return;
 
 	if (!check1item(items, fp))
-	    return;
+		return;
 
-	if (!checkitemsize(itemsize, sizeof(struct info_auth)))
-	    return;
+	if (!checkitemsize(itemsize, sizeof(*ia)))
+		return;
 
-	(void) fprintf(fp, "time since reset:     %ld\n",
-	    (u_long)ntohl(ia->timereset));
-	(void) fprintf(fp, "stored keys:          %ld\n",
-	    (u_long)ntohl(ia->numkeys));
-	(void) fprintf(fp, "free keys:            %ld\n",
-	    (u_long)ntohl(ia->numfreekeys));
-	(void) fprintf(fp, "key lookups:          %ld\n",
-	    (u_long)ntohl(ia->keylookups));
-	(void) fprintf(fp, "keys not found:       %ld\n",
-	    (u_long)ntohl(ia->keynotfound));
-	(void) fprintf(fp, "uncached keys:        %ld\n",
-	    (u_long)ntohl(ia->keyuncached));
-	(void) fprintf(fp, "encryptions:          %ld\n",
-	    (u_long)ntohl(ia->encryptions));
-	(void) fprintf(fp, "decryptions:          %ld\n",
-	    (u_long)ntohl(ia->decryptions));
-	(void) fprintf(fp, "expired keys:         %ld\n",
-	    (u_long)ntohl(ia->expired));
+	fprintf(fp, "time since reset:     %lu\n",
+		(u_long)ntohl(ia->timereset));
+	fprintf(fp, "stored keys:          %lu\n",
+		(u_long)ntohl(ia->numkeys));
+	fprintf(fp, "free keys:            %lu\n",
+		(u_long)ntohl(ia->numfreekeys));
+	fprintf(fp, "key lookups:          %lu\n",
+		(u_long)ntohl(ia->keylookups));
+	fprintf(fp, "keys not found:       %lu\n",
+		(u_long)ntohl(ia->keynotfound));
+	fprintf(fp, "uncached keys:        %lu\n",
+		(u_long)ntohl(ia->keyuncached));
+	fprintf(fp, "encryptions:          %lu\n",
+		(u_long)ntohl(ia->encryptions));
+	fprintf(fp, "decryptions:          %lu\n",
+		(u_long)ntohl(ia->decryptions));
+	fprintf(fp, "expired keys:         %lu\n",
+		(u_long)ntohl(ia->expired));
 }
 
 
@@ -2372,17 +2358,16 @@ traps(
 	FILE *fp
 	)
 {
-	int i;
+	size_t i;
 	struct info_trap *it;
 	sockaddr_u trap_addr, local_addr;
-	int items;
-	int itemsize;
+	size_t items;
+	size_t itemsize;
 	int res;
 
 again:
-	res = doquery(impl_ver, REQ_TRAPS, 0, 0, 0, (char *)NULL,
-		      &items, &itemsize, (void *)&it, 0, 
-		      sizeof(struct info_trap));
+	res = doquery(impl_ver, REQ_TRAPS, 0, 0, 0, NULL, &items,
+		      &itemsize, (void *)&it, 0, sizeof(*it));
 	
 	if (res == INFO_ERR_IMPL && impl_ver == IMPL_XNTPD) {
 		impl_ver = IMPL_XNTPD_OLD;
@@ -2390,39 +2375,38 @@ again:
 	}
 
 	if (res != 0)
-	    return;
+		return;
 
 	if (!checkitems(items, fp))
-	    return;
+		return;
 
 	if (!checkitemsize(itemsize, sizeof(struct info_trap)) &&
 	    !checkitemsize(itemsize, v4sizeof(struct info_trap)))
-	    return;
+		return;
 
 	for (i = 0; i < items; i++ ) {
-		if (i != 0)
-		    (void) fprintf(fp, "\n");
 		SET_ADDRS(trap_addr, local_addr, it, trap_address, local_address);
-		(void) fprintf(fp, "address %s, port %d\n",
-				stoa(&trap_addr), 
-				ntohs(it->trap_port));
-		(void) fprintf(fp, "interface: %s, ",
-				(it->local_address == 0)
-				? "wildcard"
-				: stoa(&local_addr));
+		fprintf(fp, "%saddress %s, port %d\n",
+			(0 == i)
+			    ? ""
+			    : "\n",
+			stoa(&trap_addr), ntohs(it->trap_port));
+		fprintf(fp, "interface: %s, ",
+			(0 == it->local_address)
+			    ? "wildcard"
+			    : stoa(&local_addr));
 		if (ntohl(it->flags) & TRAP_CONFIGURED)
-		    (void) fprintf(fp, "configured\n");
+			fprintf(fp, "configured\n");
 		else if (ntohl(it->flags) & TRAP_NONPRIO)
-		    (void) fprintf(fp, "low priority\n");
+			fprintf(fp, "low priority\n");
 		else
-		    (void) fprintf(fp, "normal priority\n");
+			fprintf(fp, "normal priority\n");
 		
-		(void) fprintf(fp, "set for %ld secs, last set %ld secs ago\n",
-			       (long)ntohl(it->origtime),
-			       (long)ntohl(it->settime));
-		(void) fprintf(fp, "sequence %d, number of resets %ld\n",
-			       ntohs(it->sequence),
-			       (long)ntohl(it->resets));
+		fprintf(fp, "set for %ld secs, last set %ld secs ago\n",
+			(long)ntohl(it->origtime),
+			(long)ntohl(it->settime));
+		fprintf(fp, "sequence %d, number of resets %ld\n",
+			ntohs(it->sequence), (long)ntohl(it->resets));
 	}
 }
 
@@ -2464,9 +2448,9 @@ do_addclr_trap(
 	)
 {
 	struct conf_trap ctrap;
-	int items;
-	int itemsize;
-	char *dummy;
+	size_t items;
+	size_t itemsize;
+	const char *dummy;
 	int res;
 	int sendsize;
 
@@ -2563,9 +2547,9 @@ do_changekey(
 	)
 {
 	u_long key;
-	int items;
-	int itemsize;
-	char *dummy;
+	size_t items;
+	size_t itemsize;
+	const char *dummy;
 	int res;
 
 
@@ -2599,14 +2583,13 @@ ctlstats(
 	)
 {
 	struct info_control *ic;
-	int items;
-	int itemsize;
+	size_t items;
+	size_t itemsize;
 	int res;
 
 again:
-	res = doquery(impl_ver, REQ_GET_CTLSTATS, 0, 0, 0, (char *)NULL,
-		      &items, &itemsize, (void *)&ic, 0, 
-		      sizeof(struct info_control));
+	res = doquery(impl_ver, REQ_GET_CTLSTATS, 0, 0, 0, NULL, &items,
+		      &itemsize, (void *)&ic, 0, sizeof(*ic));
 	
 	if (res == INFO_ERR_IMPL && impl_ver == IMPL_XNTPD) {
 		impl_ver = IMPL_XNTPD_OLD;
@@ -2614,44 +2597,44 @@ again:
 	}
 
 	if (res != 0)
-	    return;
+		return;
 
 	if (!check1item(items, fp))
-	    return;
+		return;
 
-	if (!checkitemsize(itemsize, sizeof(struct info_control)))
-	    return;
+	if (!checkitemsize(itemsize, sizeof(*ic)))
+		return;
 
-	(void) fprintf(fp, "time since reset:       %ld\n",
-		       (u_long)ntohl(ic->ctltimereset));
-	(void) fprintf(fp, "requests received:      %ld\n",
-		       (u_long)ntohl(ic->numctlreq));
-	(void) fprintf(fp, "responses sent:         %ld\n",
-		       (u_long)ntohl(ic->numctlresponses));
-	(void) fprintf(fp, "fragments sent:         %ld\n",
-		       (u_long)ntohl(ic->numctlfrags));
-	(void) fprintf(fp, "async messages sent:    %ld\n",
-		       (u_long)ntohl(ic->numasyncmsgs));
-	(void) fprintf(fp, "error msgs sent:        %ld\n",
-		       (u_long)ntohl(ic->numctlerrors));
-	(void) fprintf(fp, "total bad pkts:         %ld\n",
-		       (u_long)ntohl(ic->numctlbadpkts));
-	(void) fprintf(fp, "packet too short:       %ld\n",
-		       (u_long)ntohl(ic->numctltooshort));
-	(void) fprintf(fp, "response on input:      %ld\n",
-		       (u_long)ntohl(ic->numctlinputresp));
-	(void) fprintf(fp, "fragment on input:      %ld\n",
-		       (u_long)ntohl(ic->numctlinputfrag));
-	(void) fprintf(fp, "error set on input:     %ld\n",
-		       (u_long)ntohl(ic->numctlinputerr));
-	(void) fprintf(fp, "bad offset on input:    %ld\n",
-		       (u_long)ntohl(ic->numctlbadoffset));
-	(void) fprintf(fp, "bad version packets:    %ld\n",
-		       (u_long)ntohl(ic->numctlbadversion));
-	(void) fprintf(fp, "data in pkt too short:  %ld\n",
-		       (u_long)ntohl(ic->numctldatatooshort));
-	(void) fprintf(fp, "unknown op codes:       %ld\n",
-		       (u_long)ntohl(ic->numctlbadop));
+	fprintf(fp, "time since reset:       %lu\n",
+		(u_long)ntohl(ic->ctltimereset));
+	fprintf(fp, "requests received:      %lu\n",
+		(u_long)ntohl(ic->numctlreq));
+	fprintf(fp, "responses sent:         %lu\n",
+		(u_long)ntohl(ic->numctlresponses));
+	fprintf(fp, "fragments sent:         %lu\n",
+		(u_long)ntohl(ic->numctlfrags));
+	fprintf(fp, "async messages sent:    %lu\n",
+		(u_long)ntohl(ic->numasyncmsgs));
+	fprintf(fp, "error msgs sent:        %lu\n",
+		(u_long)ntohl(ic->numctlerrors));
+	fprintf(fp, "total bad pkts:         %lu\n",
+		(u_long)ntohl(ic->numctlbadpkts));
+	fprintf(fp, "packet too short:       %lu\n",
+		(u_long)ntohl(ic->numctltooshort));
+	fprintf(fp, "response on input:      %lu\n",
+		(u_long)ntohl(ic->numctlinputresp));
+	fprintf(fp, "fragment on input:      %lu\n",
+		(u_long)ntohl(ic->numctlinputfrag));
+	fprintf(fp, "error set on input:     %lu\n",
+		(u_long)ntohl(ic->numctlinputerr));
+	fprintf(fp, "bad offset on input:    %lu\n",
+		(u_long)ntohl(ic->numctlbadoffset));
+	fprintf(fp, "bad version packets:    %lu\n",
+		(u_long)ntohl(ic->numctlbadversion));
+	fprintf(fp, "data in pkt too short:  %lu\n",
+		(u_long)ntohl(ic->numctldatatooshort));
+	fprintf(fp, "unknown op codes:       %lu\n",
+		(u_long)ntohl(ic->numctlbadop));
 }
 
 
@@ -2667,10 +2650,10 @@ clockstat(
 	struct info_clock *cl;
 	/* 8 is the maximum number of clocks which will fit in a packet */
 	u_long clist[min(MAXARGS, 8)];
-	int qitemlim;
-	int qitems;
-	int items;
-	int itemsize;
+	size_t qitemlim;
+	size_t qitems;
+	size_t items;
+	size_t itemsize;
 	int res;
 	l_fp ts;
 	struct clktype *clk;
@@ -2754,9 +2737,9 @@ fudge(
 	)
 {
 	struct conf_fudge fudgedata;
-	int items;
-	int itemsize;
-	char *dummy;
+	size_t items;
+	size_t itemsize;
+	const char *dummy;
 	l_fp ts;
 	int res;
 	long val;
@@ -2765,7 +2748,7 @@ fudge(
 
 
 	err = 0;
-	memset((char *)&fudgedata, 0, sizeof fudgedata);
+	ZERO(fudgedata);
 	fudgedata.clockadr = NSRCADR(&pcmd->argval[0].netnum);
 
 	if (STREQ(pcmd->argval[1].string, "time1")) {
@@ -2841,10 +2824,10 @@ clkbug(
 	/* 8 is the maximum number of clocks which will fit in a packet */
 	u_long clist[min(MAXARGS, 8)];
 	u_int32 ltemp;
-	int qitemlim;
-	int qitems;
-	int items;
-	int itemsize;
+	size_t qitemlim;
+	size_t qitems;
+	size_t items;
+	size_t itemsize;
 	int res;
 	int needsp;
 	l_fp ts;
@@ -2935,8 +2918,8 @@ kerninfo(
 	)
 {
 	struct info_kernel *ik;
-	int items;
-	int itemsize;
+	size_t items;
+	size_t itemsize;
 	int res;
 	unsigned status;
 	double tscale = 1e-6;
@@ -2971,9 +2954,9 @@ again:
 	(void)fprintf(fp, "pll frequency:        %s ppm\n",
 	    fptoa((s_fp)ntohl(ik->freq), 3));
 	(void)fprintf(fp, "maximum error:        %g s\n",
-	    (u_long)ntohl(ik->maxerror) * 1e-6);
+	    (u_long)ntohl(ik->maxerror) * tscale);
 	(void)fprintf(fp, "estimated error:      %g s\n",
-	    (u_long)ntohl(ik->esterror) * 1e-6);
+	    (u_long)ntohl(ik->esterror) * tscale);
 	(void)fprintf(fp, "status:               %04x ", status);
 #ifdef STA_PLL
 	if (status & STA_PLL) (void)fprintf(fp, " pll");
@@ -3059,7 +3042,7 @@ again:
 		      (u_long)ntohl(ik->errcnt));
 }
 
-#define IF_LIST_FMT     "%2d %c %48s %c %c %12.12s %03x %3d %2d %5d %5d %5d %2d %3d %7d\n"
+#define IF_LIST_FMT     "%2d %c %48s %c %c %12.12s %03lx %3lu %2lu %5lu %5lu %5lu %2lu %3lu %7lu\n"
 #define IF_LIST_FMT_STR "%2s %c %48s %c %c %12.12s %3s %3s %2s %5s %5s %5s %2s %3s %7s\n"
 #define IF_LIST_AFMT_STR "     %48s %c\n"
 #define IF_LIST_LABELS  "#", 'A', "Address/Mask/Broadcast", 'T', 'E', "IF name", "Flg", "TL", "#M", "recv", "sent", "drop", "S", "PC", "uptime"
@@ -3069,12 +3052,12 @@ static void
 iflist(
 	FILE *fp,
 	struct info_if_stats *ifs,
-	int items,
-	int itemsize,
+	size_t items,
+	size_t itemsize,
 	int res
 	)
 {
-	static char *actions = "?.+-";
+	static const char *actions = "?.+-";
 	sockaddr_u saddr;
 
 	if (res != 0)
@@ -3098,15 +3081,15 @@ iflist(
 			stoa((&saddr)), 'A',
 			ifs->ignore_packets ? 'D' : 'E',
 			ifs->name,
-			ntohl(ifs->flags),
-			ntohl(ifs->last_ttl),
-			ntohl(ifs->num_mcast),
-			ntohl(ifs->received),
-			ntohl(ifs->sent),
-			ntohl(ifs->notsent),
-			ntohl(ifs->scopeid),
-			ntohl(ifs->peercnt),
-			ntohl(ifs->uptime));
+			(u_long)ntohl(ifs->flags),
+			(u_long)ntohl(ifs->last_ttl),
+			(u_long)ntohl(ifs->num_mcast),
+			(u_long)ntohl(ifs->received),
+			(u_long)ntohl(ifs->sent),
+			(u_long)ntohl(ifs->notsent),
+			(u_long)ntohl(ifs->scopeid),
+			(u_long)ntohl(ifs->peercnt),
+			(u_long)ntohl(ifs->uptime));
 
 		SET_ADDR(saddr, ntohl(ifs->v6_flag), 
 			 ifs->unmask.addr.s_addr, ifs->unmask.addr6);
@@ -3132,8 +3115,8 @@ get_if_stats(
 	)
 {
 	struct info_if_stats *ifs;
-	int items;
-	int itemsize;
+	size_t items;
+	size_t itemsize;
 	int res;
 
 	res = doquery(impl_ver, REQ_IF_STATS, 1, 0, 0, (char *)NULL, &items,
@@ -3150,8 +3133,8 @@ do_if_reload(
 	)
 {
 	struct info_if_stats *ifs;
-	int items;
-	int itemsize;
+	size_t items;
+	size_t itemsize;
 	int res;
 
 	res = doquery(impl_ver, REQ_IF_RELOAD, 1, 0, 0, (char *)NULL, &items,

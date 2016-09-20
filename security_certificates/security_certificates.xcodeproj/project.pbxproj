@@ -49,12 +49,12 @@
 
 /* Begin PBXBuildFile section */
 		0C406A8C1C0FAC930053517B /* TrustedCTLogs.plist in Resources */ = {isa = PBXBuildFile; fileRef = 0C406A8A1C0FA9A20053517B /* TrustedCTLogs.plist */; };
+		0C49815B1CA0989300D96BE8 /* CTWhiteListData.plist in Resources */ = {isa = PBXBuildFile; fileRef = 0C4981571CA0988200D96BE8 /* CTWhiteListData.plist */; };
 		8533E07D1B322F46002A1747 /* Allowed.plist in Resources */ = {isa = PBXBuildFile; fileRef = 8533E07C1B322F46002A1747 /* Allowed.plist */; };
 		BE4DBC631A9401410025962E /* TrustStore.html in Resources */ = {isa = PBXBuildFile; fileRef = BE4DBC621A9401410025962E /* TrustStore.html */; };
 		BE9D63131A73159E0021F0B6 /* Certificates.bundle in CopyFiles */ = {isa = PBXBuildFile; fileRef = BE7F81FB1A3F697800784BBB /* Certificates.bundle */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		BE9D63151A7315BD0021F0B6 /* Certificates.bundle in CopyFiles */ = {isa = PBXBuildFile; fileRef = BE7F81FB1A3F697800784BBB /* Certificates.bundle */; };
 		BED4A7D91A72CF9800C14393 /* EVRoots.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = BED4A7D81A72CF9800C14393 /* EVRoots.plist */; };
-		BED4A7DB1A72CFA700C14393 /* SystemCACertificates.keychain in CopyFiles */ = {isa = PBXBuildFile; fileRef = BED4A7DA1A72CFA700C14393 /* SystemCACertificates.keychain */; };
 		BED4A7DD1A72CFAA00C14393 /* SystemRootCertificates.keychain in CopyFiles */ = {isa = PBXBuildFile; fileRef = BED4A7DC1A72CFAA00C14393 /* SystemRootCertificates.keychain */; };
 		BED4A7DF1A72CFB100C14393 /* SystemTrustSettings.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = BED4A7DE1A72CFB100C14393 /* SystemTrustSettings.plist */; };
 		BED4A7E31A72CFDE00C14393 /* X509Anchors in CopyFiles */ = {isa = PBXBuildFile; fileRef = BED4A7E21A72CFDE00C14393 /* X509Anchors */; };
@@ -162,7 +162,6 @@
 			dstSubfolderSpec = 0;
 			files = (
 				BED4A7D91A72CF9800C14393 /* EVRoots.plist in CopyFiles */,
-				BED4A7DB1A72CFA700C14393 /* SystemCACertificates.keychain in CopyFiles */,
 				BED4A7DD1A72CFAA00C14393 /* SystemRootCertificates.keychain in CopyFiles */,
 				BED4A7DF1A72CFB100C14393 /* SystemTrustSettings.plist in CopyFiles */,
 				BED4A7E31A72CFDE00C14393 /* X509Anchors in CopyFiles */,
@@ -174,6 +173,7 @@
 /* Begin PBXFileReference section */
 		0C406A851C0FA6270053517B /* log_list.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = log_list.json; sourceTree = "<group>"; };
 		0C406A8A1C0FA9A20053517B /* TrustedCTLogs.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = TrustedCTLogs.plist; sourceTree = "<group>"; };
+		0C4981571CA0988200D96BE8 /* CTWhiteListData.plist */ = {isa = PBXFileReference; lastKnownFileType = file; path = CTWhiteListData.plist; sourceTree = "<group>"; };
 		7D6C4B7B19A56E57008147F3 /* security_certificates.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = security_certificates.xcconfig; path = config/security_certificates.xcconfig; sourceTree = "<group>"; };
 		8533E07C1B322F46002A1747 /* Allowed.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = Allowed.plist; sourceTree = "<group>"; };
 		BE43DA441A71C54C000A4297 /* Info-Certificates.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "Info-Certificates.plist"; path = "config/Info-Certificates.plist"; sourceTree = "<group>"; };
@@ -184,7 +184,6 @@
 		BED43DA51A732AFD00A69644 /* README.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = README.txt; sourceTree = "<group>"; };
 		BED43DA61A73361C00A69644 /* AssetVersion.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = AssetVersion.plist; path = config/AssetVersion.plist; sourceTree = "<group>"; };
 		BED4A7D81A72CF9800C14393 /* EVRoots.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = EVRoots.plist; sourceTree = "<group>"; };
-		BED4A7DA1A72CFA700C14393 /* SystemCACertificates.keychain */ = {isa = PBXFileReference; lastKnownFileType = file; path = SystemCACertificates.keychain; sourceTree = "<group>"; };
 		BED4A7DC1A72CFAA00C14393 /* SystemRootCertificates.keychain */ = {isa = PBXFileReference; lastKnownFileType = file; path = SystemRootCertificates.keychain; sourceTree = "<group>"; };
 		BED4A7DE1A72CFB100C14393 /* SystemTrustSettings.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = SystemTrustSettings.plist; sourceTree = "<group>"; };
 		BED4A7E21A72CFDE00C14393 /* X509Anchors */ = {isa = PBXFileReference; lastKnownFileType = text; path = X509Anchors; sourceTree = "<group>"; };
@@ -214,6 +213,7 @@
 		0C406A841C0FA6270053517B /* certificate_transparency */ = {
 			isa = PBXGroup;
 			children = (
+				0C4981571CA0988200D96BE8 /* CTWhiteListData.plist */,
 				0C406A851C0FA6270053517B /* log_list.json */,
 			);
 			path = certificate_transparency;
@@ -285,7 +285,6 @@
 				BED4A7E21A72CFDE00C14393 /* X509Anchors */,
 				BED4A7DE1A72CFB100C14393 /* SystemTrustSettings.plist */,
 				BED4A7DC1A72CFAA00C14393 /* SystemRootCertificates.keychain */,
-				BED4A7DA1A72CFA700C14393 /* SystemCACertificates.keychain */,
 				BED4A7D81A72CF9800C14393 /* EVRoots.plist */,
 			);
 			path = BuiltKeychains;
@@ -424,6 +423,7 @@
 				BED4A8061A72D73A00C14393 /* AppleESCertificates.plist in Resources */,
 				BE4DBC631A9401410025962E /* TrustStore.html in Resources */,
 				0C406A8C1C0FAC930053517B /* TrustedCTLogs.plist in Resources */,
+				0C49815B1CA0989300D96BE8 /* CTWhiteListData.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

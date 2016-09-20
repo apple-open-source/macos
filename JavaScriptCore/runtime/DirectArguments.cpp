@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,6 +26,8 @@
 #include "config.h"
 #include "DirectArguments.h"
 
+#include "CodeBlock.h"
+#include "CopiedBlockInlines.h"
 #include "CopyVisitorInlines.h"
 #include "GenericArgumentsInlines.h"
 #include "JSCInlines.h"
@@ -83,6 +85,13 @@ DirectArguments* DirectArguments::createByCopying(ExecState* exec)
     return result;
 }
 
+size_t DirectArguments::estimatedSize(JSCell* cell)
+{
+    DirectArguments* thisObject = jsCast<DirectArguments*>(cell);
+    size_t overridesSize = thisObject->m_overrides ? thisObject->overridesSize() : 0;
+    return Base::estimatedSize(cell) + overridesSize;
+}
+
 void DirectArguments::visitChildren(JSCell* thisCell, SlotVisitor& visitor)
 {
     DirectArguments* thisObject = static_cast<DirectArguments*>(thisCell);
@@ -106,14 +115,11 @@ void DirectArguments::copyBackingStore(JSCell* thisCell, CopyVisitor& visitor, C
     
     RELEASE_ASSERT(token == DirectArgumentsOverridesCopyToken);
     
-    bool* oldOverrides = thisObject->m_overrides.get();
-    if (!oldOverrides)
-        return;
-    
+    void* oldOverrides = thisObject->m_overrides.get();
     if (visitor.checkIfShouldCopy(oldOverrides)) {
         bool* newOverrides = static_cast<bool*>(visitor.allocateNewSpace(thisObject->overridesSize()));
         memcpy(newOverrides, oldOverrides, thisObject->m_length);
-        thisObject->m_overrides.setWithoutWriteBarrier(newOverrides);
+        thisObject->m_overrides.setWithoutBarrier(newOverrides);
         visitor.didCopy(oldOverrides, thisObject->overridesSize());
     }
 }
@@ -133,9 +139,10 @@ void DirectArguments::overrideThings(VM& vm)
     
     void* backingStore;
     RELEASE_ASSERT(vm.heap.tryAllocateStorage(this, overridesSize(), &backingStore));
-    m_overrides.set(vm, this, static_cast<bool*>(backingStore));
+    bool* overrides = static_cast<bool*>(backingStore);
+    m_overrides.set(vm, this, overrides);
     for (unsigned i = m_length; i--;)
-        m_overrides.get()[i] = false;
+        overrides[i] = false;
 }
 
 void DirectArguments::overrideThingsIfNecessary(VM& vm)

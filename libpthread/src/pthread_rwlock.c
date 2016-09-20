@@ -302,7 +302,7 @@ pthread_rwlock_init(pthread_rwlock_t *orwlock, const pthread_rwlockattr_t *attr)
 	}
 #endif
 	if (res == 0) {
-		LOCK_INIT(rwlock->lock);
+		_PTHREAD_LOCK_INIT(rwlock->lock);
 		res = __pthread_rwlock_init(rwlock, attr);
 	}
 	return res;
@@ -316,13 +316,13 @@ _pthread_rwlock_check_init_slow(pthread_rwlock_t *orwlock)
 	_pthread_rwlock *rwlock = (_pthread_rwlock *)orwlock;
 
 	if (rwlock->sig == _PTHREAD_RWLOCK_SIG_init) {
-		LOCK(rwlock->lock);
+		_PTHREAD_LOCK(rwlock->lock);
 		if (rwlock->sig == _PTHREAD_RWLOCK_SIG_init) {
 			res = __pthread_rwlock_init(rwlock, NULL);
 		} else if (rwlock->sig == _PTHREAD_RWLOCK_SIG){
 			res = 0;
 		}
-		UNLOCK(rwlock->lock);
+		_PTHREAD_UNLOCK(rwlock->lock);
 	} else if (rwlock->sig == _PTHREAD_RWLOCK_SIG){
 		res = 0;
 	}

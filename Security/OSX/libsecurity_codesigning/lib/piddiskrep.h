@@ -50,17 +50,22 @@ public:
         size_t signingLimit();
         std::string format();
         UnixPlusPlus::FileDesc &fd();
-        
+
         std::string recommendedIdentifier(const SigningContext &ctx);
         
         bool supportInfoPlist();
+	
+		void setCredentials(const CodeDirectory* cd);
+
 private:
         const BlobCore *blob() { return (const BlobCore *)mBuffer; }
         void fetchData(void);
         pid_t mPid;
         uint8_t *mBuffer;
+		CFRef<CFDataRef> mInfoPlistHash;
         CFRef<CFDataRef> mInfoPlist;
         CFRef<CFURLRef> mBundleURL;
+		bool mDataFetched;
 };
                 
                 

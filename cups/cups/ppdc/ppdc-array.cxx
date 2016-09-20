@@ -1,6 +1,4 @@
 //
-// "$Id: ppdc-array.cxx 11560 2014-02-06 20:10:19Z msweet $"
-//
 // Array class for the CUPS PPD Compiler.
 //
 // Copyright 2007-2014 by Apple Inc.
@@ -152,8 +150,3 @@ ppdcArray::remove(ppdcShared *d)		// I - Data element
   if (i < count)
     memmove(data + i, data + i + 1, (size_t)(count - i) * sizeof(ppdcShared *));
 }
-
-
-//
-// End of "$Id: ppdc-array.cxx 11560 2014-02-06 20:10:19Z msweet $".
-//

@@ -61,6 +61,7 @@ main(void)
 			error("pcap_activate() of opened pcap_t failed with %s, not PCAP_ERROR_ACTIVATED",
 			    pcap_statustostr(status));
 	}
+    printf("SUCCESS\n");
 	return 0;
 }
 

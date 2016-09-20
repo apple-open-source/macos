@@ -47,7 +47,7 @@
 {
 	NSMutableArray *results = [NSMutableArray new];
 	for (NSString *k in self) {
-		if ([k isEqualToString:kSecValueData]) {
+		if ([k isEqualToString:(__bridge NSString*) kSecValueData]) {
 			[results addObject:[NSString stringWithFormat:@"%@=<not-logged>", [k compactDescription]]];
 			continue;
 		}

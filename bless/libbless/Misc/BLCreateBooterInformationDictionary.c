@@ -65,6 +65,12 @@ static int addDataPartitionInfo(BLContextPtr context, io_service_t dataPartition
                        CFMutableArrayRef booterPartitions,
                        CFMutableArrayRef systemPartitions);      
 
+
+static int addDataPartitionSupportInfo(BLContextPtr context, io_service_t dataPartition, io_service_t partitionMap,
+                       CFMutableArrayRef booterPartitions,
+                       CFMutableArrayRef systemPartitions,
+					   bool simple);
+
 static int addPreferredSystemPartitionInfo(BLContextPtr context,
                                 CFMutableArrayRef systemPartitions,
                                            bool foundPreferred);
@@ -338,17 +344,10 @@ static int addDataPartitionInfo(BLContextPtr context, io_service_t dataPartition
     CFStringRef bsdName;
     kern_return_t   kret;
     io_service_t    parent;
-    uint32_t        partitionID, searchID;
-    CFNumberRef     partitionNum;
-    CFStringRef     content;
-    bool            needsBooter = false;
-    CFNumberRef     neededBooterPartitionNum = NULL;
-    CFStringRef     neededBooterContent = NULL;
-    CFStringRef     neededSystemContent = NULL;
-    
-    io_iterator_t   childIterator;
-    io_service_t    child;
-    
+	bool			simple;
+
+    int ret = 0;
+
     /* don't require this at this point
     kret = IORegistryEntryGetPath(dataPartition, kIODeviceTreePlane, devPath);
 	if(kret != KERN_SUCCESS) {
@@ -364,112 +363,156 @@ static int addDataPartitionInfo(BLContextPtr context, io_service_t dataPartition
         return 1;
     }
 
-    partitionNum = IORegistryEntryCreateCFProperty(dataPartition, CFSTR(kIOMediaPartitionIDKey), kCFAllocatorDefault, 0);
-    if(partitionNum == NULL || (CFGetTypeID(partitionNum) != CFNumberGetTypeID())) {
-        if(partitionNum) CFRelease(partitionNum);
-        CFRelease(bsdName);
-		
-        return 1;
-    }
-    
-    content = (CFStringRef)IORegistryEntryCreateCFProperty(dataPartition, CFSTR(kIOMediaContentKey), kCFAllocatorDefault, 0);
-    if(content == NULL || (CFGetTypeID(content) != CFStringGetTypeID())) {
-        if(content) CFRelease(content);
-		CFRelease(partitionNum);
-		CFRelease(bsdName);
-
-		contextprintf(context, kBLLogLevelError,  "Partition does not have Content key\n" );
-        
-        return 1;
-    }
-    
-    
-    if(!CFNumberGetValue(partitionNum,kCFNumberSInt32Type, &partitionID)) {
-		CFRelease(content);
-		CFRelease(partitionNum);
-		CFRelease(bsdName);
-		
-        contextprintf(context, kBLLogLevelError,  "Could not get Partition ID for service\n" );
-		return 1;        
-    }
-    
     if(!CFArrayContainsValue(dataPartitions,CFRangeMake(0, CFArrayGetCount(dataPartitions)), bsdName)) {
         CFArrayAppendValue(dataPartitions, bsdName);
     }
     CFRelease(bsdName);
-    CFRelease(partitionNum);
-    
-    kret = IORegistryEntryGetParentEntry(dataPartition, kIOServicePlane, &parent);
-    if(kret != KERN_SUCCESS) {
-		CFRelease(content);
 
-        contextprintf(context, kBLLogLevelError,  "Could not get parent path in device plane for service\n" );
-		return 1;
+	if (IOObjectConformsTo(dataPartition, "AppleAPFSVolume")) {
+		// The partition IOMedia is two levels up...
+		kret = IORegistryEntryGetParentEntry(dataPartition, kIOServicePlane, &parent);
+		if (!kret) {
+			io_service_t p = parent;
+			kret = IORegistryEntryGetParentEntry(p, kIOServicePlane, &parent);
+			IOObjectRelease(p);
+			if (!kret) {
+				p = parent;
+				kret = IORegistryEntryGetParentEntry(p, kIOServicePlane, &parent);
+				IOObjectRelease(p);
+			}
+		}
+		if (kret != KERN_SUCCESS) {
+			contextprintf(context, kBLLogLevelError,  "Could not get parent path in service plane for APFS volume\n" );
+			return 1;
+		}
+		simple = false;
+	} else {
+		kret = IORegistryEntryGetParentEntry(dataPartition, kIOServicePlane, &parent);
+		if(kret != KERN_SUCCESS) {
+			contextprintf(context, kBLLogLevelError,  "Could not get parent path in device plane for service\n" );
+			return 1;
+		}
+		simple = true;
+	}
+
+    if (IOObjectConformsTo(parent, kIOPartitionSchemeClass)) {
+        ret = addDataPartitionSupportInfo(context, dataPartition, parent, booterPartitions, systemPartitions, simple);
     }
-    
-#if SUPPORT_APPLE_PARTITION_MAP        
-    if(IOObjectConformsTo(parent, kIOApplePartitionSchemeClass)) {
-        contextprintf(context, kBLLogLevelVerbose,  "APM detected\n" );
-        // from the OS point of view, only it's an HFS or boot partition, it needs a booter
 
-        if(CFEqual(content, CFSTR("Apple_HFS"))  ||
-           CFEqual(content, CFSTR("Apple_HFSX")) ||
-           CFEqual(content, CFSTR("Apple_Boot")) ||
-           CFEqual(content, CFSTR("Apple_Boot_RAID")) ) {
-            needsBooter = false;
-        } else {
-            needsBooter = true;
-            searchID = partitionID - 1;
-            neededBooterContent = CFSTR("Apple_Boot");
-            neededBooterPartitionNum = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &searchID);
-        }
-        
-    } else
+    IOObjectRelease(parent);
+
+    return ret;
+}
+
+static int addDataPartitionSupportInfo(BLContextPtr context, io_service_t dataPartition, io_service_t partScheme,
+                                       CFMutableArrayRef booterPartitions,
+                                       CFMutableArrayRef systemPartitions,
+									   bool simple)
+{
+    kern_return_t   kret;
+    uint32_t        partitionID, searchID;
+    CFNumberRef     partitionNum;
+    CFStringRef     content;
+    bool            needsBooter = false;
+    CFNumberRef     neededBooterPartitionNum = NULL;
+    CFStringRef     neededBooterContent = NULL;
+    CFStringRef     neededSystemContent = NULL;
+    
+    io_iterator_t   childIterator;
+    io_service_t    child;
+
+	if (simple) {
+		// This is a simple partition/filesystem layout.  The dataPartition object
+		// references the actual partition within the scheme.
+		partitionNum = IORegistryEntryCreateCFProperty(dataPartition, CFSTR(kIOMediaPartitionIDKey), kCFAllocatorDefault, 0);
+		if (partitionNum == NULL || (CFGetTypeID(partitionNum) != CFNumberGetTypeID())) {
+			if (partitionNum) CFRelease(partitionNum);
+			
+			return 1;
+		}
+		
+		content = (CFStringRef)IORegistryEntryCreateCFProperty(dataPartition, CFSTR(kIOMediaContentKey), kCFAllocatorDefault, 0);
+		if (content == NULL || (CFGetTypeID(content) != CFStringGetTypeID())) {
+			if (content) CFRelease(content);
+			CFRelease(partitionNum);
+			contextprintf(context, kBLLogLevelError,  "Partition does not have Content key\n" );
+			
+			return 1;
+		}
+		if(!CFNumberGetValue(partitionNum,kCFNumberSInt32Type, &partitionID)) {
+			CFRelease(content);
+			CFRelease(partitionNum);
+			
+			contextprintf(context, kBLLogLevelError,  "Could not get Partition ID for service\n" );
+			return 1;
+		}
+		CFRelease(partitionNum);
+		
+#if SUPPORT_APPLE_PARTITION_MAP
+        if (IOObjectConformsTo(partScheme, kIOApplePartitionSchemeClass)) {
+            contextprintf(context, kBLLogLevelVerbose,  "APM detected\n" );
+            // from the OS point of view, only it's an HFS or boot partition, it needs a booter
+
+            if (CFEqual(content, CFSTR("Apple_HFS"))  ||
+                CFEqual(content, CFSTR("Apple_HFSX")) ||
+                CFEqual(content, CFSTR("Apple_Boot")) ||
+                CFEqual(content, CFSTR("Apple_Boot_RAID")) ) {
+                needsBooter = false;
+            } else {
+                needsBooter = true;
+                searchID = partitionID - 1;
+                neededBooterContent = CFSTR("Apple_Boot");
+                neededBooterPartitionNum = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &searchID);
+            }
+            
+        } else
 #endif // SUPPORT_APPLE_PARTITION_MAP
-	if(IOObjectConformsTo(parent, kIOGUIDPartitionSchemeClass)) {
-        contextprintf(context, kBLLogLevelVerbose,  "GPT detected\n" );
-        
-        // from the OS point of view, only it's an HFS or boot partition, it needs a booter
-        if(CFEqual(content, CFSTR("48465300-0000-11AA-AA11-00306543ECAC"))  ||
-           CFEqual(content, CFSTR("426F6F74-0000-11AA-AA11-00306543ECAC"))) {
-            needsBooter = false;
+        if (IOObjectConformsTo(partScheme, kIOGUIDPartitionSchemeClass)) {
+            contextprintf(context, kBLLogLevelVerbose,  "GPT detected\n" );
+            
+            // from the OS point of view, only it's an HFS or boot partition, it needs a booter
+            if (CFEqual(content, CFSTR("48465300-0000-11AA-AA11-00306543ECAC"))  ||
+                CFEqual(content, CFSTR("426F6F74-0000-11AA-AA11-00306543ECAC"))) {
+                needsBooter = false;
+            } else {
+                needsBooter = true;
+                searchID = partitionID + 1;
+                neededBooterContent = CFSTR("426F6F74-0000-11AA-AA11-00306543ECAC");
+                neededBooterPartitionNum = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &searchID);
+            }
+            
+            neededSystemContent = CFSTR("C12A7328-F81F-11D2-BA4B-00A0C93EC93B");
+            
         } else {
-            needsBooter = true;
-            searchID = partitionID + 1;
-            neededBooterContent = CFSTR("426F6F74-0000-11AA-AA11-00306543ECAC");
-            neededBooterPartitionNum = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &searchID);
+            contextprintf(context, kBLLogLevelVerbose,  "Other partition scheme detected\n" );
         }
         
-        neededSystemContent = CFSTR("C12A7328-F81F-11D2-BA4B-00A0C93EC93B");
-        
-    } else {
-        contextprintf(context, kBLLogLevelVerbose,  "Other partition scheme detected\n" );
-    }
-    
-	CFRelease(content);
+        CFRelease(content);
+	} else {
+		neededSystemContent = CFSTR("C12A7328-F81F-11D2-BA4B-00A0C93EC93B");
+	}
 
-	
-    if(needsBooter) {
+    if (needsBooter) {
         contextprintf(context, kBLLogLevelVerbose,  "Booter partition required at index %u\n", searchID);        
     } else {
         contextprintf(context, kBLLogLevelVerbose,  "No auxiliary booter partition required\n");                
     }
     
-    if(needsBooter || neededSystemContent) {
-        kret = IORegistryEntryGetChildIterator(parent, kIOServicePlane, &childIterator);
+    if (needsBooter || neededSystemContent) {
+        kret = IORegistryEntryGetChildIterator(partScheme, kIOServicePlane, &childIterator);
         if(kret != KERN_SUCCESS) {
             contextprintf(context, kBLLogLevelError,  "Could not get child iterator for parent\n" );
             return 4;
         }
         
-        while((child = IOIteratorNext(childIterator)) != IO_OBJECT_NULL) {
+        while ((child = IOIteratorNext(childIterator)) != IO_OBJECT_NULL) {
             CFStringRef childContent;
             
             childContent = IORegistryEntryCreateCFProperty(child, CFSTR(kIOMediaContentKey), kCFAllocatorDefault, 0);
-            if(childContent && CFGetTypeID(childContent) == CFStringGetTypeID()) {
+            if (childContent && CFGetTypeID(childContent) == CFStringGetTypeID()) {
                 CFStringRef childBSDName;
                 // does it match
-                if(needsBooter && CFEqual(childContent, neededBooterContent)) {
+                if (needsBooter && CFEqual(childContent, neededBooterContent)) {
                     CFNumberRef childPartitionID = IORegistryEntryCreateCFProperty(child, CFSTR(kIOMediaPartitionIDKey), kCFAllocatorDefault, 0);
                     
                     if(childPartitionID && (CFGetTypeID(childPartitionID) == CFNumberGetTypeID()) && CFEqual(childPartitionID, neededBooterPartitionNum)) {
@@ -485,7 +528,7 @@ static int addDataPartitionInfo(BLContextPtr context, io_service_t dataPartition
                             CFRelease(childBSDName);
                         }
                     }
-                } else if(neededSystemContent && CFEqual(childContent, neededSystemContent)) {
+                } else if (neededSystemContent && CFEqual(childContent, neededSystemContent)) {
                     childBSDName = IORegistryEntryCreateCFProperty(child, CFSTR(kIOBSDNameKey), kCFAllocatorDefault, 0);
                     if(childBSDName && (CFGetTypeID(childBSDName) == CFStringGetTypeID())) {
                         if(!CFArrayContainsValue(systemPartitions,CFRangeMake(0, CFArrayGetCount(systemPartitions)), childBSDName)) {
@@ -500,7 +543,7 @@ static int addDataPartitionInfo(BLContextPtr context, io_service_t dataPartition
                 }
             }
             
-            if(childContent) {
+            if (childContent) {
                 CFRelease(childContent);
             }
             
@@ -510,8 +553,6 @@ static int addDataPartitionInfo(BLContextPtr context, io_service_t dataPartition
         IOObjectRelease(childIterator);
         
     }
-    
-    IOObjectRelease(parent);
     
     return 0;
 }

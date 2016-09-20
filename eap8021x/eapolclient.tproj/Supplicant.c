@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -124,6 +124,7 @@ typedef struct {
 
 struct Supplicant_s {
     SupplicantState		state;
+    CFDateRef			start_timestamp;
     TimerRef			timer;
     EAPOLSocket *		sock;
 
@@ -2540,8 +2541,14 @@ Supplicant_report_status(SupplicantRef supp)
     }
     dictInsertGeneration(dict, supp->generation);
     timestamp = CFDateCreate(NULL, CFAbsoluteTimeGetCurrent());
-    CFDictionarySetValue(dict, kEAPOLControlTimestamp, timestamp);
-    my_CFRelease(&timestamp);
+    CFDictionarySetValue(dict, kEAPOLControlLastStatusChangeTimestamp, timestamp);
+    if (supp->state == kSupplicantStateAuthenticated) {
+	if (supp->start_timestamp == NULL) {
+	    supp->start_timestamp = CFRetain(timestamp);
+	}
+	CFDictionarySetValue(dict, kEAPOLControlTimestamp, supp->start_timestamp);
+    }
+    CFRelease(timestamp);
     if (eapolclient_should_log(kLogFlagStatusDetails | kLogFlagBasic)) {
 	int		level;
 	boolean_t	logged = FALSE;
@@ -3801,6 +3808,7 @@ Supplicant_free(SupplicantRef * supp_p)
 	if (supp->password != NULL) {
 	    free(supp->password);
 	}
+	my_CFRelease(&supp->start_timestamp);
 	EAPAcceptTypesFree(&supp->eap_accept);
 	free_last_packet(supp);
 	eap_client_free(supp);

@@ -14,14 +14,14 @@
 
 /*
 TEST_BUILD_OUTPUT
-.*constassign.c:38:12: error: read-only variable is not assignable
-.*constassign.c:39:10: error: read-only variable is not assignable
-OR
-.*constassign.c: In function '.*main.*':
-.*constassign.c:38: error: assignment of read-only variable 'blockA'
-.*constassign.c:39: error: assignment of read-only variable 'fptr'
+.*constassign.c:38:12: error: cannot assign to variable 'blockA' with const-qualified type 'void \(\^const\)\((void)?\)'
+.*constassign.c:37:18: note: .*
+.*constassign.c:39:10: error: cannot assign to variable 'fptr' with const-qualified type 'void \(\*const\)\((void)?\)'
+.*constassign.c:36:18: note: .*
 END
 */
+
+
 
 // shouldn't be able to assign to a const pointer
 // CONFIG error: assignment of read-only

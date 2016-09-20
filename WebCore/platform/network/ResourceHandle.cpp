@@ -34,6 +34,8 @@
 #include "Timer.h"
 #include <algorithm>
 #include <wtf/MainThread.h>
+#include <wtf/NeverDestroyed.h>
+#include <wtf/text/AtomicStringHash.h>
 #include <wtf/text/CString.h>
 
 namespace WebCore {
@@ -48,7 +50,7 @@ static BuiltinResourceHandleConstructorMap& builtinResourceHandleConstructorMap(
 #else
     ASSERT(isMainThread());
 #endif
-    DEPRECATED_DEFINE_STATIC_LOCAL(BuiltinResourceHandleConstructorMap, map, ());
+    static NeverDestroyed<BuiltinResourceHandleConstructorMap> map;
     return map;
 }
 
@@ -61,7 +63,7 @@ typedef HashMap<AtomicString, ResourceHandle::BuiltinSynchronousLoader> BuiltinR
 static BuiltinResourceHandleSynchronousLoaderMap& builtinResourceHandleSynchronousLoaderMap()
 {
     ASSERT(isMainThread());
-    DEPRECATED_DEFINE_STATIC_LOCAL(BuiltinResourceHandleSynchronousLoaderMap, map, ());
+    static NeverDestroyed<BuiltinResourceHandleSynchronousLoaderMap> map;
     return map;
 }
 
@@ -84,22 +86,22 @@ ResourceHandle::ResourceHandle(NetworkingContext* context, const ResourceRequest
     }
 }
 
-PassRefPtr<ResourceHandle> ResourceHandle::create(NetworkingContext* context, const ResourceRequest& request, ResourceHandleClient* client, bool defersLoading, bool shouldContentSniff)
+RefPtr<ResourceHandle> ResourceHandle::create(NetworkingContext* context, const ResourceRequest& request, ResourceHandleClient* client, bool defersLoading, bool shouldContentSniff)
 {
     BuiltinResourceHandleConstructorMap::iterator protocolMapItem = builtinResourceHandleConstructorMap().find(request.url().protocol());
 
     if (protocolMapItem != builtinResourceHandleConstructorMap().end())
         return protocolMapItem->value(request, client);
 
-    RefPtr<ResourceHandle> newHandle(adoptRef(new ResourceHandle(context, request, client, defersLoading, shouldContentSniff)));
+    auto newHandle = adoptRef(*new ResourceHandle(context, request, client, defersLoading, shouldContentSniff));
 
     if (newHandle->d->m_scheduledFailureType != NoFailure)
-        return newHandle.release();
+        return WTFMove(newHandle);
 
     if (newHandle->start())
-        return newHandle.release();
+        return WTFMove(newHandle);
 
-    return 0;
+    return nullptr;
 }
 
 void ResourceHandle::scheduleFailure(FailureType type)
@@ -147,14 +149,14 @@ ResourceHandleClient* ResourceHandle::client() const
     return d->m_client;
 }
 
-void ResourceHandle::setClient(ResourceHandleClient* client)
+void ResourceHandle::clearClient()
 {
-    d->m_client = client;
+    d->m_client = nullptr;
 }
 
 #if !PLATFORM(COCOA) && !USE(CFNETWORK) && !USE(SOUP)
 // ResourceHandle never uses async client calls on these platforms yet.
-void ResourceHandle::continueWillSendRequest(const ResourceRequest&)
+void ResourceHandle::continueWillSendRequest(ResourceRequest&&)
 {
     notImplemented();
 }
@@ -237,6 +239,11 @@ void ResourceHandle::setDefersLoading(bool defers)
     }
 
     platformSetDefersLoading(defers);
+}
+
+bool ResourceHandle::usesAsyncCallbacks() const
+{
+    return d->m_usesAsyncCallbacks;
 }
 
 } // namespace WebCore

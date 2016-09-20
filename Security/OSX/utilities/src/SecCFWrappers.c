@@ -38,6 +38,57 @@ CFGiblisGetSingleton(CFDictionaryRef, SecGetDebugDescriptionFormatOptions, forma
     *formatOption = CFDictionaryCreate(kCFAllocatorDefault, k, v, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 })
 
+//
+// Smart comparitor for strings that matchies sorting functions
+//
+
+CFComparisonResult CFStringCompareSafe(const void *val1, const void *val2, void *context) {
+    if (!isString(val1))
+        return kCFCompareLessThan;
+    if (!isString(val2))
+        return kCFCompareGreaterThan;
+    
+    return CFStringCompare(val1, val2, 0);
+}
+
+void CFStringArrayPerfromWithDelimeterWithDescription(CFArrayRef strings, CFStringRef start, CFStringRef end, void (^action)(CFStringRef description)) {
+    if(!strings) {
+        action(CFSTR("null"));
+    } else {
+        __block CFMutableStringRef description = CFStringCreateMutableCopy(kCFAllocatorDefault, 0, start);
+        __block CFStringRef separator = CFSTR("");
+        
+        CFArrayForEach(strings, ^(const void *value) {
+            CFStringAppendFormat(description, NULL, CFSTR("%@%@"), separator, value);
+            separator = CFSTR(", ");
+        });
+        
+        CFStringAppend(description, end);
+        
+        action(description);
+        
+        CFReleaseNull(description);
+    }
+}
+
+
+void CFStringArrayPerfromWithDescription(CFArrayRef strings, void (^action)(CFStringRef description)) {
+    CFStringArrayPerfromWithDelimeterWithDescription(strings, CFSTR("["), CFSTR("]"), action);
+}
+
+void CFStringSetPerformWithDescription(CFSetRef set, void (^action)(CFStringRef description)) {
+    if(!set) {
+        action(CFSTR("null"));
+    } else {
+        CFMutableArrayRef keys = CFSetCopyValues(set);
+        
+        CFArraySortValues(keys, CFRangeMake(0, CFArrayGetCount(keys)), (CFComparatorFunction)&CFStringCompare, NULL);
+        
+        CFStringArrayPerfromWithDelimeterWithDescription(keys, CFSTR("{("), CFSTR(")}"), action);
+        
+        CFReleaseNull(keys);
+    }
+}
 
 //
 // Global sigleton Zulu time. Must be serialized since it is really a CFMutableCalendarRef
@@ -205,6 +256,16 @@ CFDataRef CFDataCreateWithRandomBytes(size_t len) {
     return retval;
 }
 
+CFDataRef CFDataCreateWithInitializer(CFAllocatorRef allocator, CFIndex size, bool (^operation)(size_t size, uint8_t *buffer)) {
+    __block CFMutableDataRef result = NULL;
+    if(!size) return NULL;
+    if((result = CFDataCreateMutableWithScratch(allocator, size)) == NULL) return NULL;
+    if (!operation(size, CFDataGetMutableBytePtr(result))) CFReleaseNull(result);
+errOut:
+    return result;
+}
+
+
 
 CFGiblisGetSingleton(CFDateFormatterRef, GetShortDateFormatter, sDateFormatter, ^{
     CFLocaleRef locale = CFLocaleCopyCurrent();
@@ -237,45 +298,4 @@ void withStringOfAbsoluteTime(CFAbsoluteTime at, void (^action)(CFStringRef decr
     action(formattedString);
     
     CFReleaseNull(formattedString);
-}
-
-
-//
-// MARK: Custom Sensitive Data Allocator
-//
-#include <malloc/malloc.h>
-static CFStringRef SecCFAllocatorCopyDescription(const void *info) {
-    return CFSTR("Custom CFAllocator for sensitive data");
-}
-
-// primary goal of this allocator is to clear memory when it is deallocated
-static void SecCFAllocatorDeallocate(void *ptr, void *info) {
-    if (!ptr) return;
-    size_t sz = malloc_size(ptr);
-    if(sz) cc_clear(sz, ptr);
-
-    CFAllocatorDeallocate(NULL, ptr);
-}
-
-CFAllocatorRef CFAllocatorSensitive(void) {
-    static dispatch_once_t sOnce = 0;
-    static CFAllocatorRef sAllocator = NULL;
-    dispatch_once(&sOnce, ^{
-        CFAllocatorContext defaultCtx;
-        CFAllocatorGetContext(NULL, &defaultCtx);
-
-        CFAllocatorContext ctx = {0,
-            defaultCtx.info,
-            defaultCtx.retain,
-            defaultCtx.release,
-            SecCFAllocatorCopyDescription,
-            defaultCtx.allocate,
-            defaultCtx.reallocate,
-            SecCFAllocatorDeallocate,
-            defaultCtx.preferredSize};
-
-        sAllocator = CFAllocatorCreate(NULL, &ctx);
-    });
-
-    return sAllocator;
 }

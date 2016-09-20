@@ -416,7 +416,7 @@ OSStatus SecKeychainGetStatus(SecKeychainRef __nullable keychain, SecKeychainSta
 	@function SecKeychainGetPath
 	@abstract Get the path of the specified keychain.
     @param keychain A reference to a keychain.
-    @param ioPathLength On input, a pointer to the size or the buffer pointed to by pathName. On return, the size of the buffer without the zero termination.
+    @param ioPathLength On input, a pointer to the size of the buffer pointed to by pathName. On return, the size of the buffer without the zero termination.
 	@param pathName On return, the POSIX path to the keychain.
     @result A result code.  See "Security Error Codes" (SecBase.h).
 */
@@ -603,7 +603,7 @@ OSStatus SecKeychainGetDLDBHandle(SecKeychainRef __nullable keychain, CSSM_DL_DB
 	@function SecKeychainCopyAccess
 	@abstract Retrieves the access for a keychain. 
 	@param keychain A reference to the keychain from which to copy the access.
-    @param accessRef On return, a pointer to the access reference.
+    @param access On return, a pointer to the access reference.
     @result A result code.  See "Security Error Codes" (SecBase.h).
 */
 OSStatus SecKeychainCopyAccess(SecKeychainRef __nullable keychain, SecAccessRef * __nonnull CF_RETURNS_RETAINED access);
@@ -612,7 +612,7 @@ OSStatus SecKeychainCopyAccess(SecKeychainRef __nullable keychain, SecAccessRef 
 	@function SecKeychainSetAccess
 	@abstract Sets the access for a keychain.
     @param keychain A reference to the keychain for which to set the access.
-    @param accessRef An access reference.
+    @param access An access reference.
     @result A result code.  See "Security Error Codes" (SecBase.h).
 */
 OSStatus SecKeychainSetAccess(SecKeychainRef __nullable keychain, SecAccessRef access);

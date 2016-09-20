@@ -82,7 +82,7 @@ static OSStatus _NtlmGeneratePasswordHashes(
 	NtlmGeneratorRef ntlm,
 	CFStringRef password,
 	CFDataRef* ntlmHash,
-	CFDataRef* lmHash);
+    CFDataRef* lmHash);
 										  
 /*
  * Validate type 2 message sent by the server; return interesting fields. 
@@ -409,7 +409,7 @@ OSStatus NtlmCreateClientResponse(
 	OSStatus result = _NtlmGeneratePasswordHashes(kCFAllocatorDefault, ntlmGen, password, &ntlmHash, &lmHash);
 	
 	if (result == errSecSuccess) {
-		
+
 		result = _NtlmCreateClientResponse(ntlmGen, serverBlob, domain, userName, ntlmHash, lmHash, clientResponse);
 	}
 	
@@ -491,7 +491,7 @@ OSStatus _NtlmCreateClientResponse(
 	/* byte 8: message type */
 	appendUint32(clientBuf, NTLM_MSG_MARKER_TYPE3);
 	
-	/* LM and NTLM responses */
+	/* LMv2 and NTLM responses */
 	if( (targetInfo != NULL) &&							// server is NTLMv2 capable
 	    (targetInfoLen != 0) &&							// ditto
 		(serverFlags & NTLM_NegotiateTargetInfo) &&		// ditto
@@ -541,43 +541,12 @@ OSStatus _NtlmCreateClientResponse(
 			memmove(pwdHash, CFDataGetBytePtr(ntlmHash), sizeof(pwdHash));
 			
 			/* NTLM response: DES with three different keys */
-			ortn = ntlmResponse(pwdHash, sessionHash, ntlmResp);
+			ortn = lmv2Response(pwdHash, sessionHash, ntlmResp);
 			if(ortn) {
 				dprintf("***Error on ntlmResponse (3)\n");
 				goto errOut;
 			}
 			ntlmGen->mNegotiatedVersion = NW_NTLM2;
-		}
-		else if(ntlmGen->mWhich & NW_NTLM1) {
-			/* 
-			 * LM response - the old style 2-DES "password hash" applied
-			 * the the server's challenge 
-			 */
-//			ortn = lmPasswordHash(password, pwdHash);
-//			if(ortn) {
-//				dprintf("***Error on lmPasswordHash\n");
-//				goto errOut;
-//			}
-			memmove(pwdHash, CFDataGetBytePtr(lmHash), sizeof(pwdHash));
-			
-			ortn = ntlmResponse(pwdHash, serverChallenge, lmResp);
-			if(ortn) {
-				dprintf("***Error on ntlmResponse (1)\n");
-				goto errOut;
-			}
-			
-			/*
-			 * NTLM response: md4 password hash, DES with three different keys 
-			 */
-//			ntlmPasswordHash(password, pwdHash);
-			memmove(pwdHash, CFDataGetBytePtr(ntlmHash), sizeof(pwdHash));
-
-			ortn = ntlmResponse(pwdHash, serverChallenge, ntlmResp);
-			if(ortn) {
-				dprintf("***Error on ntlmResponse (2)\n");
-				goto errOut;
-			}
-			ntlmGen->mNegotiatedVersion = NW_NTLM1;
 		}
 		else {
 			dprintf("***NTLM protocol mismatch\n");
@@ -674,7 +643,7 @@ errOut:
 	return ortn;
 }
 	
-/* replacement for NtlmNegotiatedNtlm2: returns NW_NTLM1Only, NW_NTLM2Only,
+/* replacement for NtlmNegotiatedNtlm2: returns NW_NTLM2Only,
  * or NW_NTLMv2Only */
 NLTM_Which NtlmGetNegotiatedVersion(
 	NtlmGeneratorRef	ntlmGen)
@@ -687,20 +656,24 @@ OSStatus _NtlmGeneratePasswordHashes(
 	NtlmGeneratorRef ntlm,
 	CFStringRef password,
 	CFDataRef* ntlmHash,
-	CFDataRef* lmHash)
+    CFDataRef* lmHash)
 {
 	OSStatus result = errSecSuccess;
 	unsigned char hash[NTLM_DIGEST_LENGTH];
 	
-	ntlmPasswordHash(password, hash);
+	result = ntlmPasswordHash(password, hash);
+    if (result)
+        return result;
 	
 	*ntlmHash = CFDataCreate(alloc, hash, sizeof(hash));
-	
-	result = lmPasswordHash(password, hash);
-	
-	if (result == errSecSuccess)
-		*lmHash = CFDataCreate(alloc, hash, sizeof(hash));
-	
+    memset(hash, 0, sizeof(hash));
+    if (*ntlmHash == NULL)
+        result = errSecAllocate;
+
+    static const UInt8 zero[NTLM_DIGEST_LENGTH] = { 0 };
+    *lmHash = CFDataCreate(NULL, zero, sizeof(zero));
+
+
 	return result;
 }
 

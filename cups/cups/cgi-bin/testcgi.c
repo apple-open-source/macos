@@ -1,6 +1,4 @@
 /*
- * "$Id: testcgi.c 11560 2014-02-06 20:10:19Z msweet $"
- *
  * CGI test program for CUPS.
  *
  * Copyright 2007-2014 by Apple Inc.
@@ -62,8 +60,3 @@ main(void)
 
   return (0);
 }
-
-
-/*
- * End of "$Id: testcgi.c 11560 2014-02-06 20:10:19Z msweet $".
- */

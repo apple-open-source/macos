@@ -106,7 +106,7 @@ enum SecFlagEnum {
     kSecLogLevelMask        = (15 <<  0),   // Bits 0-3 contain the log levels 1-15 (since 0 is no flags).
 
     kSecFirstLogLevel    = _SecLogLevel(1), // Lowest log level
-    kSecDebugLogLevel    = _SecLogLevel(1), // log secdebug
+    kSecDebugLogLevel    = _SecLogLevel(1), // log secinfo
     kSecInfoLogLevel     = _SecLogLevel(2), // log info
     kSecNoticeLogLevel   = _SecLogLevel(3), // log notice
     kSecWarningLogLevel  = _SecLogLevel(4), // log warning

@@ -78,21 +78,27 @@ void SmartMagnificationController::handleResetMagnificationGesture(FloatPoint or
     [m_contentView _zoomOutWithOrigin:origin];
 }
 
-void SmartMagnificationController::didCollectGeometryForSmartMagnificationGesture(FloatPoint origin, FloatRect targetRect, FloatRect visibleContentRect, bool isReplacedElement, double viewportMinimumScale, double viewportMaximumScale)
+void SmartMagnificationController::adjustSmartMagnificationTargetRectAndZoomScales(bool addMagnificationPadding, WebCore::FloatRect& targetRect, double& minimumScale, double& maximumScale)
 {
-    if (targetRect.isEmpty()) {
-        // FIXME: If we don't zoom, send the tap along to text selection (see <rdar://problem/6810344>).
-        [m_contentView _zoomOutWithOrigin:origin];
-        return;
-    }
-
-    if (!isReplacedElement) {
+    if (addMagnificationPadding) {
         targetRect.inflateX(smartMagnificationElementPadding * targetRect.width());
         targetRect.inflateY(smartMagnificationElementPadding * targetRect.height());
     }
 
-    double maximumScale = std::min(viewportMaximumScale, smartMagnificationMaximumScale);
-    double minimumScale = std::max(viewportMinimumScale, smartMagnificationMinimumScale);
+    minimumScale = std::max(minimumScale, smartMagnificationMinimumScale);
+    maximumScale = std::min(maximumScale, smartMagnificationMaximumScale);
+}
+
+void SmartMagnificationController::didCollectGeometryForSmartMagnificationGesture(FloatPoint origin, FloatRect targetRect, FloatRect visibleContentRect, bool isReplacedElement, double viewportMinimumScale, double viewportMaximumScale)
+{
+    if (targetRect.isEmpty()) {
+        // FIXME: If we don't zoom, send the tap along to text selection (see <rdar://problem/6810344>).
+        [m_contentView _zoomToInitialScaleWithOrigin:origin];
+        return;
+    }
+    double minimumScale = viewportMinimumScale;
+    double maximumScale = viewportMaximumScale;
+    adjustSmartMagnificationTargetRectAndZoomScales(!isReplacedElement, targetRect, minimumScale, maximumScale);
 
     // FIXME: Check if text selection wants to consume the double tap before we attempt magnification.
 
@@ -113,17 +119,14 @@ void SmartMagnificationController::didCollectGeometryForSmartMagnificationGestur
         return;
 
     // FIXME: If we still don't zoom, send the tap along to text selection (see <rdar://problem/6810344>).
-    [m_contentView _zoomOutWithOrigin:origin];
+    [m_contentView _zoomToInitialScaleWithOrigin:origin];
 }
 
 void SmartMagnificationController::magnify(FloatPoint origin, FloatRect targetRect, FloatRect visibleContentRect, double viewportMinimumScale, double viewportMaximumScale)
 {
-    targetRect.inflateX(smartMagnificationElementPadding * targetRect.width());
-    targetRect.inflateY(smartMagnificationElementPadding * targetRect.height());
-
-    double maximumScale = std::min(viewportMaximumScale, smartMagnificationMaximumScale);
-    double minimumScale = std::max(viewportMinimumScale, smartMagnificationMinimumScale);
-
+    double maximumScale = viewportMaximumScale;
+    double minimumScale = viewportMinimumScale;
+    adjustSmartMagnificationTargetRectAndZoomScales(true, targetRect, minimumScale, maximumScale);
     [m_contentView _zoomToRect:targetRect withOrigin:origin fitEntireRect:NO minimumScale:minimumScale maximumScale:maximumScale minimumScrollDistance:0];
 }
 

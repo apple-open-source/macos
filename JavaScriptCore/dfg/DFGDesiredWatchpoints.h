@@ -30,49 +30,84 @@
 
 #include "CodeOrigin.h"
 #include "DFGCommonData.h"
+#include "DFGDesiredInferredType.h"
 #include "InferredValue.h"
 #include "JSArrayBufferView.h"
+#include "ObjectPropertyCondition.h"
 #include "Watchpoint.h"
-#include <wtf/HashMap.h>
+#include <wtf/CommaPrinter.h>
 #include <wtf/HashSet.h>
-#include <wtf/Noncopyable.h>
-#include <wtf/Vector.h>
 
 namespace JSC { namespace DFG {
 
 class Graph;
 
 template<typename T>
-struct GenericSetAdaptor {
-    static void add(CodeBlock*, T* set, Watchpoint* watchpoint)
+struct SetPointerAdaptor {
+    static void add(CodeBlock* codeBlock, T set, CommonData& common)
     {
-        return set->add(watchpoint);
+        return set->add(common.watchpoints.add(codeBlock));
     }
-    static bool hasBeenInvalidated(T* set) { return set->hasBeenInvalidated(); }
+    static bool hasBeenInvalidated(T set) { return set->hasBeenInvalidated(); }
+    static void dumpInContext(PrintStream& out, T set, DumpContext*)
+    {
+        out.print(RawPointer(set));
+    }
 };
 
 struct InferredValueAdaptor {
-    static void add(CodeBlock*, InferredValue*, Watchpoint*);
+    static void add(CodeBlock*, InferredValue*, CommonData&);
     static bool hasBeenInvalidated(InferredValue* inferredValue)
     {
         return inferredValue->hasBeenInvalidated();
     }
-};
-
-struct ArrayBufferViewWatchpointAdaptor {
-    static void add(CodeBlock*, JSArrayBufferView*, Watchpoint*);
-    static bool hasBeenInvalidated(JSArrayBufferView* view)
+    static void dumpInContext(PrintStream& out, InferredValue* inferredValue, DumpContext*)
     {
-        bool result = !view->length();
-        WTF::loadLoadFence();
-        return result;
+        out.print(RawPointer(inferredValue));
     }
 };
 
-template<typename WatchpointSetType, typename Adaptor = GenericSetAdaptor<WatchpointSetType>>
+struct ArrayBufferViewWatchpointAdaptor {
+    static void add(CodeBlock*, JSArrayBufferView*, CommonData&);
+    static bool hasBeenInvalidated(JSArrayBufferView* view)
+    {
+        return !view->length();
+    }
+    static void dumpInContext(PrintStream& out, JSArrayBufferView* view, DumpContext* context)
+    {
+        out.print(inContext(JSValue(view), context));
+    }
+};
+
+struct AdaptiveStructureWatchpointAdaptor {
+    static void add(CodeBlock*, const ObjectPropertyCondition&, CommonData&);
+    static bool hasBeenInvalidated(const ObjectPropertyCondition& key)
+    {
+        return !key.isWatchable();
+    }
+    static void dumpInContext(
+        PrintStream& out, const ObjectPropertyCondition& key, DumpContext* context)
+    {
+        out.print(inContext(key, context));
+    }
+};
+
+struct InferredTypeAdaptor {
+    static void add(CodeBlock*, const DesiredInferredType&, CommonData&);
+    static bool hasBeenInvalidated(const DesiredInferredType& key)
+    {
+        return !key.isStillValid();
+    }
+    static void dumpInContext(PrintStream& out, const DesiredInferredType& key, DumpContext* context)
+    {
+        out.print(inContext(key, context));
+    }
+};
+
+template<typename WatchpointSetType, typename Adaptor = SetPointerAdaptor<WatchpointSetType>>
 class GenericDesiredWatchpoints {
 #if !ASSERT_DISABLED
-    typedef HashMap<WatchpointSetType*, bool> StateMap;
+    typedef HashMap<WatchpointSetType, bool> StateMap;
 #endif
 public:
     GenericDesiredWatchpoints()
@@ -80,7 +115,7 @@ public:
     {
     }
     
-    void addLazily(WatchpointSetType* set)
+    void addLazily(const WatchpointSetType& set)
     {
         m_sets.add(set);
     }
@@ -89,35 +124,38 @@ public:
     {
         RELEASE_ASSERT(!m_reallyAdded);
         
-        typename HashSet<WatchpointSetType*>::iterator iter = m_sets.begin();
-        typename HashSet<WatchpointSetType*>::iterator end = m_sets.end();
-        for (; iter != end; ++iter) {
-            common.watchpoints.append(CodeBlockJettisoningWatchpoint(codeBlock));
-            Adaptor::add(codeBlock, *iter, &common.watchpoints.last());
-        }
+        for (auto& set : m_sets)
+            Adaptor::add(codeBlock, set, common);
         
         m_reallyAdded = true;
     }
     
     bool areStillValid() const
     {
-        typename HashSet<WatchpointSetType*>::iterator iter = m_sets.begin();
-        typename HashSet<WatchpointSetType*>::iterator end = m_sets.end();
-        for (; iter != end; ++iter) {
-            if (Adaptor::hasBeenInvalidated(*iter))
+        for (auto& set : m_sets) {
+            if (Adaptor::hasBeenInvalidated(set))
                 return false;
         }
         
         return true;
     }
     
-    bool isWatched(WatchpointSetType* set) const
+    bool isWatched(const WatchpointSetType& set) const
     {
         return m_sets.contains(set);
     }
 
+    void dumpInContext(PrintStream& out, DumpContext* context) const
+    {
+        CommaPrinter comma;
+        for (const WatchpointSetType& entry : m_sets) {
+            out.print(comma);
+            Adaptor::dumpInContext(out, entry, context);
+        }
+    }
+
 private:
-    HashSet<WatchpointSetType*> m_sets;
+    HashSet<WatchpointSetType> m_sets;
     bool m_reallyAdded;
 };
 
@@ -130,6 +168,14 @@ public:
     void addLazily(InlineWatchpointSet&);
     void addLazily(InferredValue*);
     void addLazily(JSArrayBufferView*);
+    
+    // It's recommended that you don't call this directly. Use Graph::watchCondition(), which does
+    // the required GC magic as well as some other bookkeeping.
+    void addLazily(const ObjectPropertyCondition&);
+
+    // It's recommended that you don't call this directly. Use Graph::inferredTypeFor(), which does
+    // the required GC magic.
+    void addLazily(const DesiredInferredType&);
     
     bool consider(Structure*);
     
@@ -153,12 +199,25 @@ public:
     {
         return m_bufferViews.isWatched(view);
     }
+    bool isWatched(const ObjectPropertyCondition& key)
+    {
+        return m_adaptiveStructureSets.isWatched(key);
+    }
+    bool isWatched(const DesiredInferredType& key)
+    {
+        return m_inferredTypes.isWatched(key);
+    }
+
+    void dumpInContext(PrintStream&, DumpContext*) const;
+    void dump(PrintStream&) const;
     
 private:
-    GenericDesiredWatchpoints<WatchpointSet> m_sets;
-    GenericDesiredWatchpoints<InlineWatchpointSet> m_inlineSets;
-    GenericDesiredWatchpoints<InferredValue, InferredValueAdaptor> m_inferredValues;
-    GenericDesiredWatchpoints<JSArrayBufferView, ArrayBufferViewWatchpointAdaptor> m_bufferViews;
+    GenericDesiredWatchpoints<WatchpointSet*> m_sets;
+    GenericDesiredWatchpoints<InlineWatchpointSet*> m_inlineSets;
+    GenericDesiredWatchpoints<InferredValue*, InferredValueAdaptor> m_inferredValues;
+    GenericDesiredWatchpoints<JSArrayBufferView*, ArrayBufferViewWatchpointAdaptor> m_bufferViews;
+    GenericDesiredWatchpoints<ObjectPropertyCondition, AdaptiveStructureWatchpointAdaptor> m_adaptiveStructureSets;
+    GenericDesiredWatchpoints<DesiredInferredType, InferredTypeAdaptor> m_inferredTypes;
 };
 
 } } // namespace JSC::DFG

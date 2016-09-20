@@ -86,7 +86,8 @@ compare(char *name __unused, NODE *s, FTSENT *p)
 	off_t len;
 	char *cp;
 	const char *tab = "";
-	char *fflags;
+	char *fflags, *badflags;
+	u_long flags;
 
 	label = 0;
 	switch(s->type) {
@@ -182,18 +183,14 @@ typeerr:		LABEL;
 		    (intmax_t)s->st_size, (intmax_t)p->fts_statp->st_size);
 		tab = "\t";
 	}
-	/*
-	 * XXX
-	 * Catches nano-second differences, but doesn't display them.
-	 */
 	if ((s->flags & F_TIME) &&
 	     ((s->st_mtimespec.tv_sec != p->fts_statp->st_mtimespec.tv_sec) ||
 	     (s->st_mtimespec.tv_nsec != p->fts_statp->st_mtimespec.tv_nsec))) {
 		LABEL;
-		(void)printf("%smodification time expected %.24s ",
-		    tab, ctime(&s->st_mtimespec.tv_sec));
-		(void)printf("found %.24s",
-		    ctime(&p->fts_statp->st_mtimespec.tv_sec));
+		(void)printf("%smodification time expected %.24s.%09ld ",
+		    tab, ctime(&s->st_mtimespec.tv_sec), s->st_mtimespec.tv_nsec);
+		(void)printf("found %.24s.%09ld",
+		    ctime(&p->fts_statp->st_mtimespec.tv_sec), p->fts_statp->st_mtimespec.tv_nsec);
 		if (uflag) {
 			tv[0].tv_sec = s->st_mtimespec.tv_sec;
 			tv[0].tv_usec = s->st_mtimespec.tv_nsec / 1000;
@@ -229,25 +226,35 @@ typeerr:		LABEL;
 			}
 		}
 	}
-	if ((s->flags & F_FLAGS) && s->st_flags != p->fts_statp->st_flags) {
-		LABEL;
-		fflags = flags_to_string(s->st_flags);
-		(void)printf("%sflags expected \"%s\"", tab, fflags);
+	if (s->flags & F_FLAGS) {
+		// There are unpublished flags that should not fail comparison
+		// we convert to string and back to filter them out
+		fflags = badflags = flags_to_string(p->fts_statp->st_flags);
+		if (strcmp("none", fflags) == 0) {
+			flags = 0;
+		} else if (strtofflags(&badflags, &flags, NULL) != 0)
+			errx(1, "invalid flag %s", badflags);
 		free(fflags);
-
-		fflags = flags_to_string(p->fts_statp->st_flags);
-		(void)printf(" found \"%s\"", fflags);
-		free(fflags);
-
-		if (uflag)
-			if (chflags(p->fts_accpath, (u_int)s->st_flags))
-				(void)printf(" not modified: %s\n",
-				    strerror(errno));
-			else
-				(void)printf(" modified\n");
-		else
-			(void)printf("\n");
-		tab = "\t";
+		if (s->st_flags != flags) {
+			LABEL;
+			fflags = flags_to_string(s->st_flags);
+			(void)printf("%sflags expected \"%s\"", tab, fflags);
+			free(fflags);
+			
+			fflags = flags_to_string(flags);
+			(void)printf(" found \"%s\"", fflags);
+			free(fflags);
+			
+			if (uflag)
+				if (chflags(p->fts_accpath, (u_int)s->st_flags))
+					(void)printf(" not modified: %s\n",
+						     strerror(errno));
+				else
+					(void)printf(" modified\n");
+				else
+					(void)printf("\n");
+			tab = "\t";
+		}
 	}
 #ifdef ENABLE_MD5
 	if (s->flags & F_MD5) {
@@ -305,7 +312,7 @@ typeerr:		LABEL;
 #endif /* ENABLE_RMD160 */
 #ifdef ENABLE_SHA256
 	if (s->flags & F_SHA256) {
-		char *new_digest, buf[65];
+		char *new_digest, buf[kSHA256NullTerminatedBuffLen];
 
 		new_digest = SHA256_File(p->fts_accpath, buf);
 		if (!new_digest) {
@@ -328,6 +335,90 @@ typeerr:		LABEL;
 		(void)printf("%slink_ref expected %s found %s\n",
 		      tab, s->slink, cp);
 	}
+	if ((s->flags & F_BTIME) &&
+	    ((s->st_birthtimespec.tv_sec != p->fts_statp->st_birthtimespec.tv_sec) ||
+	     (s->st_birthtimespec.tv_nsec != p->fts_statp->st_birthtimespec.tv_nsec))) {
+		    LABEL;
+		    (void)printf("%sbirth time expected %.24s.%09ld ",
+				 tab, ctime(&s->st_birthtimespec.tv_sec), s->st_birthtimespec.tv_nsec);
+		    (void)printf("found %.24s.%09ld\n",
+				 ctime(&p->fts_statp->st_birthtimespec.tv_sec), p->fts_statp->st_birthtimespec.tv_nsec);
+		    tab = "\t";
+	    }
+	if ((s->flags & F_ATIME) &&
+	    ((s->st_atimespec.tv_sec != p->fts_statp->st_atimespec.tv_sec) ||
+	     (s->st_atimespec.tv_nsec != p->fts_statp->st_atimespec.tv_nsec))) {
+		    LABEL;
+		    (void)printf("%saccess time expected %.24s.%09ld ",
+				 tab, ctime(&s->st_atimespec.tv_sec), s->st_atimespec.tv_nsec);
+		    (void)printf("found %.24s.%09ld\n",
+				 ctime(&p->fts_statp->st_atimespec.tv_sec), p->fts_statp->st_atimespec.tv_nsec);
+		    tab = "\t";
+	    }
+	if ((s->flags & F_CTIME) &&
+	    ((s->st_ctimespec.tv_sec != p->fts_statp->st_ctimespec.tv_sec) ||
+	     (s->st_ctimespec.tv_nsec != p->fts_statp->st_ctimespec.tv_nsec))) {
+		    LABEL;
+		    (void)printf("%smetadata modification time expected %.24s.%09ld ",
+				 tab, ctime(&s->st_ctimespec.tv_sec), s->st_ctimespec.tv_nsec);
+		    (void)printf("found %.24s.%09ld\n",
+				 ctime(&p->fts_statp->st_ctimespec.tv_sec), p->fts_statp->st_ctimespec.tv_nsec);
+		    tab = "\t";
+	    }
+	if (s->flags & F_PTIME) {
+		int supported;
+		struct timespec ptimespec = ptime(p->fts_accpath, &supported);
+		if (!supported) {
+			LABEL;
+			(void)printf("%stime added to parent folder expected %.24s.%09ld found that it is not supported\n",
+				     tab, ctime(&s->st_ptimespec.tv_sec), s->st_ptimespec.tv_nsec);
+			tab = "\t";
+		} else if ((s->st_ptimespec.tv_sec != ptimespec.tv_sec) ||
+		    (s->st_ptimespec.tv_nsec != ptimespec.tv_nsec)) {
+			LABEL;
+			(void)printf("%stime added to parent folder expected %.24s.%09ld ",
+				     tab, ctime(&s->st_ptimespec.tv_sec), s->st_ptimespec.tv_nsec);
+			(void)printf("found %.24s.%09ld\n",
+				     ctime(&ptimespec.tv_sec), ptimespec.tv_nsec);
+			tab = "\t";
+		}
+	}
+	if (s->flags & F_XATTRS) {
+		char *new_digest, buf[kSHA256NullTerminatedBuffLen];
+		new_digest = SHA256_Path_XATTRs(p->fts_accpath, buf);
+		if (!new_digest) {
+			LABEL;
+			printf("%sxattrsdigest missing, expected: %s\n", tab, s->xattrsdigest);
+			tab = "\t";
+		} else if (strcmp(new_digest, s->xattrsdigest)) {
+			LABEL;
+			printf("%sxattrsdigest expected %s found %s\n",
+			       tab, s->xattrsdigest, new_digest);
+			tab = "\t";
+		}
+	}
+	if ((s->flags & F_INODE) &&
+	    (p->fts_statp->st_ino != s->st_ino)) {
+		LABEL;
+		(void)printf("%sinode expected %llu found %llu\n",
+			     tab, s->st_ino, p->fts_ino);
+		tab = "\t";
+	}
+	if (s->flags & F_ACL) {
+		char *new_digest, buf[kSHA256NullTerminatedBuffLen];
+		new_digest = SHA256_Path_ACL(p->fts_accpath, buf);
+		if (!new_digest) {
+			LABEL;
+			printf("%sacldigest missing, expected: %s\n", tab, s->acldigest);
+			tab = "\t";
+		} else if (strcmp(new_digest, s->acldigest)) {
+			LABEL;
+			printf("%sacldigest expected %s found %s\n",
+			       tab, s->acldigest, new_digest);
+			tab = "\t";
+		}
+	}
+	
 	return (label);
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -65,14 +65,34 @@ extern const CFStringRef	kIPConfigurationServiceOptionPerformNUD; /* boolean */
 extern const CFStringRef	kIPConfigurationServiceOptionIPv6Entity; /* dictionary */
 
 /*
+ * kIPConfigurationServiceOptionIPv6LinkLocalAddress (CFStringRef)
+ * - use the specified IPv6 link local address when configuring IPv6
+ */
+extern const CFStringRef	kIPConfigurationServiceOptionIPv6LinkLocalAddress; /* string */
+
+/*
+ * kIPConfigurationServiceOptionEnableDAD (CFBooleanRef, default TRUE)
+ * - specify whether to do DAD (Duplicate Address Detection)
+ */
+extern const CFStringRef	kIPConfigurationServiceOptionEnableDAD; /* boolean */
+
+
+/*
  * Function: IPConfigurationServiceCreate
  *
  * Purpose:
  *   Instantiate a new service over the specified interface that is managed
  *   and maintained by the IPConfiguration server.
  *
- *   Currently only supports creating an IPv6 Automatic service. That service
- *   is ineligible to become primary. The caller is responsible for publishing
+ *   Supports creating an IPv6 Manual or Automatic service, depending on 
+ *   whether or not kIPConfigurationServiceOptionIPv6Entity is specified in the
+ *   'options' dictionary. If the property is missing, an Automatic service
+ *   is created.  If kIPConfigurationServiceOptionIPv6Entity is specified, 
+ *   it must represent a valid Manual or Automatic service, using the IPv6
+ *   schema defined in <SystemConfiguration/SCSchemaDefinitions.h>.
+ *
+ *   The resulting service that gets instantiated is ineligible to become
+ *   primary. The caller is responsible for publishing
  *   the service information to the SCDynamic store when it receives
  *   notifications that the service information is available.
  *

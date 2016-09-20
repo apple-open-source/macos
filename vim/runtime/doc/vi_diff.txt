@@ -1,4 +1,4 @@
-*vi_diff.txt*   For Vim version 7.3.  Last change: 2010 Jul 20
+*vi_diff.txt*   For Vim version 7.4.  Last change: 2013 Aug 22
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -88,8 +88,9 @@ Maximum display width	   Unix and Win32: 1024 characters, otherwise 255
 			   characters
 Maximum lhs of a mapping   50 characters.
 Number of different highlighting types: over 30000
-Range of a Number variable:  -2147483648 to 2147483647 (more on 64 bit
-			   systems)
+Range of a Number variable:  -2147483648 to 2147483647 (might be more on 64
+			   bit systems)
+Maximum length of a line in a tags file: 512 bytes.
 
 Information for undo and text in registers is kept in memory, thus when making
 (big) changes the amount of (virtual) memory available limits the number of
@@ -149,7 +150,7 @@ Support for different systems.
 Multi level undo.					|undo|
 	'u' goes backward in time, 'CTRL-R' goes forward again.  Set option
 	'undolevels' to the number of changes to be remembered (default 1000).
-	Set 'undolevels' to 0 for a vi-compatible one level undo.  Set it to
+	Set 'undolevels' to 0 for a Vi-compatible one level undo.  Set it to
 	-1 for no undo at all.
 	When all changes in a buffer have been undone, the buffer is not
 	considered changed anymore.  You can exit it with :q, without <!>.
@@ -191,7 +192,7 @@ Syntax highlighting.					|:syntax|
 
 Spell checking.						|spell|
 	When the 'spell' option is set Vim will highlight spelling mistakes.
-	About 40 languages are currently supported, selected with the
+	About 50 languages are currently supported, selected with the
 	'spelllang' option.  In source code only comments and strings are
 	checked for spelling.
 
@@ -539,7 +540,7 @@ character (and shows it immediately).
 Added :wnext command.  Same as ":write" followed by ":next".
 
 The ":w!" command always writes, also when the file is write protected.  In Vi
-you would have to do ":!chmod +w %" and ":set noro".
+you would have to do ":!chmod +w %:S" and ":set noro".
 
 When 'tildeop' has been set, "~" is an operator (must be followed by a
 movement command).
@@ -652,7 +653,7 @@ You can backspace, CTRL-U and CTRL-W over line breaks if the 'backspace' (bs)
 option includes "eol".  You can backspace over the start of insert if the
 'backspace' option includes "start".
 
-When the 'paste' option is set, a few option are reset and mapping in insert
+When the 'paste' option is set, a few options are reset and mapping in insert
 mode and abbreviation are disabled.  This allows for pasting text in windowing
 systems without unexpected results.  When the 'paste' option is reset, the old
 option values are restored.
@@ -988,6 +989,8 @@ These are remarks about running the POSIX test suite:
 - vi test 33 sometimes fails for unknown reasons
 - vi test 250 fails; behavior will be changed in a new revision
     http://www.opengroup.org/austin/mailarchives/ag-review/msg01710.html
+    (link no longer works, perhaps it's now:
+    https://www.opengroup.org/sophocles/show_mail.tpl?CALLER=show_archive.tpl&source=L&listname=austin-review-l&id=1711)
 - vi test 310 fails; exit code non-zero when any error occurred?
 - ex test 24 fails because test is wrong.  Changed between SUSv2 and SUSv3.
 - ex tests 47, 48, 49, 72, 73 fail because .exrc file isn't read in silent

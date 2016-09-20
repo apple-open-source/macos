@@ -170,8 +170,6 @@ __BEGIN_DECLS
 #define SEC_SUBJECT_NAME_KEY		SecStringWithDefaultValue("Subject Name", "Certificate", 0, "Subject Name", "")
 #define SEC_ISSUER_NAME_KEY			SecStringWithDefaultValue("Issuer Name", "Certificate", 0, "Issuer Name", "")
 
-//#define SEC_X509_VERSION_KEY		SecStringWithDefaultValue("X.509 version %d %scertificate", "Certificate", 0, "X.509 version %d %scertificate", "")
-//#define SEC_CERTIFICATE_TYPE_KEY	SecStringWithDefaultValue("Certificate Type", "Certificate", 0, "Certificate Type", "")
 #define SEC_CERT_VERSION_VALUE_KEY  SecStringWithDefaultValue("%d", "Certificate", 0, "%d", "format string to turn version number into a string")
 #define SEC_VERSION_KEY             SecStringWithDefaultValue("Version", "Certificate", 0, "Version", "")
 #define SEC_SERIAL_NUMBER_KEY		SecStringWithDefaultValue("Serial Number", "Certificate", 0, "Serial Number", "")
@@ -194,7 +192,7 @@ __BEGIN_DECLS
 #define SEC_CK_PASSWORD_INCORRECT   SecStringWithDefaultValue("Incorrect Password For “%@”", "CloudKeychain", 0, "Incorrect Password For “%@”", "Title for alert when password has been entered incorrectly")
 #define SEC_CK_TRY_AGAIN            SecStringWithDefaultValue("Try Again", "CloudKeychain", 0, "Try Again", "Button for try again after incorrect password")
 #define SEC_CK_ALLOW                SecStringWithDefaultValue("Allow", "CloudKeychain", 0, "Allow", "Allow button")
-#define SEC_CK_DONT_ALLOW           SecStringWithDefaultValue("Don't Allow", "CloudKeychain", 0, "Don't Allow", "Don't Allow button")
+#define SEC_CK_DONT_ALLOW           SecStringWithDefaultValue("Don’t Allow", "CloudKeychain", 0, "Don’t Allow", "Don’t Allow button")
 #define SEC_CK_ICLOUD_PASSWORD      SecStringWithDefaultValue("Password", "CloudKeychain", 0, "password", "Password prompt text")
 
 #define SEC_CK_TID_FUTURE           SecStringWithDefaultValue("the future", "CloudKeychain", 0, "the future", "the future")
@@ -211,7 +209,7 @@ __BEGIN_DECLS
 #define SEC_CK_PWD_REQUIRED_BODY_IOS	SecStringWithDefaultValue("Enter your password in iCloud Settings.", "CloudKeychain", 0, "Enter your password in iCloud Settings.", "iOS alert text when iCloud keychain was disabled or reset")
 #define SEC_CK_CR_REASON_INTERNAL		SecStringWithDefaultValue(" (AppleInternal: departure reason %s)", "CloudKeychain", 0, " (AppleInternal: departure reason %s)", "Display departure reason code on internal devices")
 #define SEC_CK_CONTINUE					SecStringWithDefaultValue("Continue", "CloudKeychain", 0, "Continue", "Button text to continue to iCloud settings (iOS)")
-#define SEC_CK_NOT_NOW					SecStringWithDefaultValue("Not now", "CloudKeychain", 0, "Not now", "Button text to dismiss alert")
+#define SEC_CK_NOT_NOW					SecStringWithDefaultValue("Not Now", "CloudKeychain", 0, "Not Now", "Button text to dismiss alert")
 
 #define SEC_CK_APPROVAL_TITLE_OSX		SecStringWithDefaultValue("Apple ID Sign In Alert", "CloudKeychain", 0, "Apple ID Sign In Alert", "Title for alert when approving another device")
 #define SEC_CK_APPROVAL_BODY_OSX		SecStringWithDefaultValue("“%@” wants to use your iCloud account.", "CloudKeychain", 0, "“%@” wants to use your iCloud account.", "Body text when approving another device")

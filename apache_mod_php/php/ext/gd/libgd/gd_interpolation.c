@@ -1,4 +1,5 @@
 /*
+ * The two pass scaling function is based on:
  * Filtered Image Rescaling
  * Based on Gems III
  *  - Schumacher general filtered image rescaling
@@ -13,6 +14,7 @@
  *
  * 	Initial sources code is avaibable in the Gems Source Code Packages:
  * 	http://www.acm.org/pubs/tog/GraphicsGems/GGemsIII.tar.gz
+ *
  */
 
 /*
@@ -816,10 +818,6 @@ int getPixelInterpolated(gdImagePtr im, const double x, const double y, const in
 		return -1;
 	}
 
-	/* Default to full alpha */
-	if (bgColor == -1) {
-	}
-
 	if (im->interpolation_id == GD_WEIGHTED4) {
 		return getPixelInterpolateWeight(im, x, y, bgColor);
 	}
@@ -881,20 +879,42 @@ int getPixelInterpolated(gdImagePtr im, const double x, const double y, const in
 static inline LineContribType * _gdContributionsAlloc(unsigned int line_length, unsigned int windows_size)
 {
 	unsigned int u = 0;
-    LineContribType *res;
+	LineContribType *res;
+	int overflow_error = 0;
 
 	res = (LineContribType *) gdMalloc(sizeof(LineContribType));
 	if (!res) {
 		return NULL;
 	}
-    res->WindowSize = windows_size;
-    res->LineLength = line_length;
-    res->ContribRow = (ContributionType *) gdMalloc(line_length * sizeof(ContributionType));
-
-    for (u = 0 ; u < line_length ; u++) {
-        res->ContribRow[u].Weights = (double *) gdMalloc(windows_size * sizeof(double));
-    }
-    return res;
+	res->WindowSize = windows_size;
+	res->LineLength = line_length;
+	if (overflow2(line_length, sizeof(ContributionType))) {
+		gdFree(res);
+		return NULL;
+	}
+	res->ContribRow = (ContributionType *) gdMalloc(line_length * sizeof(ContributionType));
+	if (res->ContribRow == NULL) {
+		gdFree(res);
+		return NULL;
+	}
+	for (u = 0 ; u < line_length ; u++) {
+		if (overflow2(windows_size, sizeof(double))) {
+			overflow_error = 1;
+		} else {
+			res->ContribRow[u].Weights = (double *) gdMalloc(windows_size * sizeof(double));
+		}
+		if (overflow_error == 1 || res->ContribRow[u].Weights == NULL) {
+			unsigned int i;
+			u--;
+			for (i=0;i<=u;i++) {
+				gdFree(res->ContribRow[i].Weights);
+			}
+			gdFree(res->ContribRow);
+			gdFree(res);
+			return NULL;
+		}
+	}
+	return res;
 }
 
 static inline void _gdContributionsFree(LineContribType * p)
@@ -909,59 +929,62 @@ static inline void _gdContributionsFree(LineContribType * p)
 
 static inline LineContribType *_gdContributionsCalc(unsigned int line_size, unsigned int src_size, double scale_d,  const interpolation_method pFilter)
 {
-    double width_d;
-    double scale_f_d = 1.0;
-    const double filter_width_d = DEFAULT_BOX_RADIUS;
+	double width_d;
+	double scale_f_d = 1.0;
+	const double filter_width_d = DEFAULT_BOX_RADIUS;
 	int windows_size;
 	unsigned int u;
 	LineContribType *res;
+	int overflow_error = 0;
 
-    if (scale_d < 1.0) {
-        width_d = filter_width_d / scale_d;
-        scale_f_d = scale_d;
-    }  else {
-        width_d= filter_width_d;
-    }
+	if (scale_d < 1.0) {
+		width_d = filter_width_d / scale_d;
+		scale_f_d = scale_d;
+	}  else {
+		width_d= filter_width_d;
+	}
 
-    windows_size = 2 * (int)ceil(width_d) + 1;
-    res = _gdContributionsAlloc(line_size, windows_size);
-
-    for (u = 0; u < line_size; u++) {
-        const double dCenter = (double)u / scale_d;
-        /* get the significant edge points affecting the pixel */
-        register int iLeft = MAX(0, (int)floor (dCenter - width_d));
-        int iRight = MIN((int)ceil(dCenter + width_d), (int)src_size - 1);
-        double dTotalWeight = 0.0;
+	windows_size = 2 * (int)ceil(width_d) + 1;
+	res = _gdContributionsAlloc(line_size, windows_size);
+	if (res == NULL) {
+		return NULL;
+	}
+	for (u = 0; u < line_size; u++) {
+	const double dCenter = (double)u / scale_d;
+	/* get the significant edge points affecting the pixel */
+	register int iLeft = MAX(0, (int)floor (dCenter - width_d));
+	int iRight = MIN((int)ceil(dCenter + width_d), (int)src_size - 1);
+	double dTotalWeight = 0.0;
 		int iSrc;
 
-        /* Cut edge points to fit in filter window in case of spill-off */
-        if (iRight - iLeft + 1 > windows_size)  {
-            if (iLeft < ((int)src_size - 1 / 2))  {
-                iLeft++;
-            } else {
-                iRight--;
-            }
-        }
+	/* Cut edge points to fit in filter window in case of spill-off */
+	if (iRight - iLeft + 1 > windows_size)  {
+		if (iLeft < ((int)src_size - 1 / 2))  {
+			iLeft++;
+		} else {
+			iRight--;
+		}
+	}
 
-        res->ContribRow[u].Left = iLeft;
-        res->ContribRow[u].Right = iRight;
+	res->ContribRow[u].Left = iLeft;
+	res->ContribRow[u].Right = iRight;
 
-        for (iSrc = iLeft; iSrc <= iRight; iSrc++) {
-            dTotalWeight += (res->ContribRow[u].Weights[iSrc-iLeft] =  scale_f_d * (*pFilter)(scale_f_d * (dCenter - (double)iSrc)));
-        }
+	for (iSrc = iLeft; iSrc <= iRight; iSrc++) {
+		dTotalWeight += (res->ContribRow[u].Weights[iSrc-iLeft] =  scale_f_d * (*pFilter)(scale_f_d * (dCenter - (double)iSrc)));
+	}
 
 		if (dTotalWeight < 0.0) {
 			_gdContributionsFree(res);
 			return NULL;
 		}
 
-        if (dTotalWeight > 0.0) {
-            for (iSrc = iLeft; iSrc <= iRight; iSrc++) {
-                res->ContribRow[u].Weights[iSrc-iLeft] /= dTotalWeight;
-            }
-        }
-   }
-   return res;
+	if (dTotalWeight > 0.0) {
+		for (iSrc = iLeft; iSrc <= iRight; iSrc++) {
+			res->ContribRow[u].Weights[iSrc-iLeft] /= dTotalWeight;
+		}
+	}
+	}
+	return res;
 }
 
 static inline void _gdScaleRow(gdImagePtr pSrc,  unsigned int src_width, gdImagePtr dst, unsigned int dst_width, unsigned int row, LineContribType *contrib)
@@ -1049,6 +1072,9 @@ static inline void _gdScaleVert (const gdImagePtr pSrc, const unsigned int src_w
 	}
 
 	contrib = _gdContributionsCalc(dst_height, src_height, (double)(dst_height) / (double)(src_height), pSrc->interpolation);
+	if (contrib == NULL) {
+		return;
+	}
 	/* scale each column */
 	for (u = 0; u < dst_width - 1; u++) {
 		_gdScaleCol(pSrc, src_width, pDst, dst_width, dst_height, u, contrib);
@@ -1060,6 +1086,15 @@ gdImagePtr gdImageScaleTwoPass(const gdImagePtr src, const unsigned int src_widt
 {
 	gdImagePtr tmp_im;
 	gdImagePtr dst;
+
+	if (new_width == 0 || new_height == 0) {
+		return NULL;
+	}
+
+	/* Convert to truecolor if it isn't; this code requires it. */
+	if (!src->trueColor) {
+		gdImagePaletteToTrueColor(src);
+	}
 
 	tmp_im = gdImageCreateTrueColor(new_width, src_height);
 	if (tmp_im == NULL) {
@@ -1083,6 +1118,10 @@ gdImagePtr gdImageScaleTwoPass(const gdImagePtr src, const unsigned int src_widt
 gdImagePtr Scale(const gdImagePtr src, const unsigned int src_width, const unsigned int src_height, const gdImagePtr dst, const unsigned int new_width, const unsigned int new_height)
 {
 	gdImagePtr tmp_im;
+
+	if (new_width == 0 || new_height == 0) {
+		return NULL;
+	}
 
 	tmp_im = gdImageCreateTrueColor(new_width, src_height);
 	if (tmp_im == NULL) {
@@ -1116,6 +1155,10 @@ gdImagePtr gdImageScaleNearestNeighbour(gdImagePtr im, const unsigned int width,
 	unsigned long  dst_offset_x;
 	unsigned long  dst_offset_y = 0;
 	unsigned int i;
+
+	if (new_width == 0 || new_height == 0) {
+		return NULL;
+	}
 
 	dst_img = gdImageCreateTrueColor(new_width, new_height);
 
@@ -1218,11 +1261,21 @@ static gdImagePtr gdImageScaleBilinearPalette(gdImagePtr im, const unsigned int 
 	gdImagePtr new_img;
 	const int transparent = im->transparent;
 
+	if (new_width == 0 || new_height == 0) {
+		return NULL;
+	}
+
 	new_img = gdImageCreateTrueColor(new_width, new_height);
 	if (new_img == NULL) {
 		return NULL;
 	}
-	new_img->transparent = gdTrueColorAlpha(im->red[transparent], im->green[transparent], im->blue[transparent], im->alpha[transparent]);
+
+	if (transparent < 0) {
+		/* uninitialized */
+		new_img->transparent = -1;
+	} else {
+		new_img->transparent = gdTrueColorAlpha(im->red[transparent], im->green[transparent], im->blue[transparent], im->alpha[transparent]);
+	}
 
 	for (i=0; i < _height; i++) {
 		long j;
@@ -1309,6 +1362,10 @@ static gdImagePtr gdImageScaleBilinearTC(gdImagePtr im, const unsigned int new_w
 	int dwSrcTotalOffset;
 	long i;
 	gdImagePtr new_img;
+
+	if (new_width == 0 || new_height == 0) {
+		return NULL;
+	}
 
 	new_img = gdImageCreateTrueColor(new_width, new_height);
 	if (!new_img){
@@ -1408,6 +1465,10 @@ gdImagePtr gdImageScaleBicubicFixed(gdImagePtr src, const unsigned int width, co
 	unsigned int dst_offset_x;
 	unsigned int dst_offset_y = 0;
 	long i;
+
+	if (new_width == 0 || new_height == 0) {
+		return NULL;
+	}
 
 	/* impact perf a bit, but not that much. Implementation for palette
 	   images can be done at a later point.
@@ -1631,7 +1692,11 @@ gdImagePtr gdImageScale(const gdImagePtr src, const unsigned int new_width, cons
 	gdImagePtr im_scaled = NULL;
 
 	if (src == NULL || src->interpolation_id < 0 || src->interpolation_id > GD_METHOD_COUNT) {
-		return 0;
+		return NULL;
+	}
+
+	if (new_width == 0 || new_height == 0) {
+		return NULL;
 	}
 
 	switch (src->interpolation_id) {
@@ -1677,6 +1742,10 @@ gdImagePtr gdImageRotateNearestNeighbour(gdImagePtr src, const float degrees, co
 	unsigned int i;
 	gdImagePtr dst;
 
+	if (new_width == 0 || new_height == 0) {
+		return NULL;
+	}
+
 	dst = gdImageCreateTrueColor(new_width, new_height);
 	if (!dst) {
 		return NULL;
@@ -1711,6 +1780,7 @@ gdImagePtr gdImageRotateNearestNeighbour(gdImagePtr src, const float degrees, co
 gdImagePtr gdImageRotateGeneric(gdImagePtr src, const float degrees, const int bgColor)
 {
 	float _angle = ((float) (-degrees / 180.0f) * (float)M_PI);
+	const int angle_rounded = (int)floor(degrees * 100);
 	const int src_w  = gdImageSX(src);
 	const int src_h = gdImageSY(src);
 	const unsigned int new_width = (unsigned int)(abs((int)(src_w * cos(_angle))) + abs((int)(src_h * sin(_angle))) + 0.5f);
@@ -1732,6 +1802,10 @@ gdImagePtr gdImageRotateGeneric(gdImagePtr src, const float degrees, const int b
 							f_slop_x > f_slop_y ? gd_divfx(f_slop_y, f_slop_x) : gd_divfx(f_slop_x, f_slop_y)
 						: 0;
 
+
+	if (bgColor < 0) {
+		return NULL;
+	}
 
 	dst = gdImageCreateTrueColor(new_width, new_height);
 	if (!dst) {
@@ -2170,10 +2244,13 @@ gdImagePtr gdImageRotateInterpolated(const gdImagePtr src, const float angle, in
 
 	/* no interpolation needed here */
 	switch (angle_rounded) {
-		case 9000:
+		case -27000:
+		case   9000:
 			return gdImageRotate90(src, 0);
-		case 18000:
+		case -18000:
+		case  18000:
 			return gdImageRotate180(src, 0);
+		case -9000:
 		case 27000:
 			return gdImageRotate270(src, 0);
 	}

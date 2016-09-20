@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2008,2010-2011,2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2005-2016 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,11 +30,9 @@
 #ifndef	_DER_DIGEST_H_
 #define _DER_DIGEST_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <libDER/libDER.h>
+
+__BEGIN_DECLS
 
 /* 
  * Create an encoded DigestInfo based on the specified SHA1 digest. 
@@ -87,9 +85,7 @@ DERReturn DEREncodeMDDigestInfo(
 #define DER_MAX_DIGEST_LEN			DER_SHA256_DIGEST_LEN
 #define DER_MAX_ENCODED_INFO_LEN	DER_SHA256_DIGEST_INFO_LEN
 
-#ifdef __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif	/* _DER_DIGEST_H_ */
 

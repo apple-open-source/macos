@@ -38,6 +38,10 @@ __BEGIN_DECLS
 
 #define kSecServerKeychainChangedNotification "com.apple.security.keychainchanged"
 
+/* label when certificate data is joined with key data */
+static const CFStringRef kSecAttrIdentityCertificateData = CFSTR("certdata");
+static const CFStringRef kSecAttrIdentityCertificateTokenID = CFSTR("certtkid");
+
 CF_RETURNS_RETAINED CFDataRef _SecItemMakePersistentRef(CFTypeRef class, sqlite_int64 rowid);
 
 bool _SecItemParsePersistentRef(CFDataRef persistent_ref, CFStringRef *return_class,
@@ -81,6 +85,8 @@ bool SecItemAuthDo(SecCFDictionaryCOW *auth_params, CFErrorRef *error, SecItemAu
 void SecItemAuthCopyParams(SecCFDictionaryCOW *auth_params, SecCFDictionaryCOW *query);
 
 TKTokenRef SecTokenCreate(CFStringRef token_id, CFDictionaryRef auth_params, CFErrorRef *error);
+
+CFDataRef _SecTokenItemCopyValueData(CFDataRef db_value, CFErrorRef *error);
 
 __END_DECLS
 

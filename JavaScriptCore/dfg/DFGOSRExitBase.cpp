@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,6 +31,7 @@
 #include "CodeBlock.h"
 #include "DFGBasicBlock.h"
 #include "DFGNode.h"
+#include "InlineCallFrame.h"
 #include "JSCInlines.h"
 
 namespace JSC { namespace DFG {
@@ -40,8 +41,14 @@ void OSRExitBase::considerAddingAsFrequentExitSiteSlow(CodeBlock* profiledCodeBl
     CodeBlock* sourceProfiledCodeBlock =
         baselineCodeBlockForOriginAndBaselineCodeBlock(
             m_codeOriginForExitProfile, profiledCodeBlock);
-    if (sourceProfiledCodeBlock)
-        sourceProfiledCodeBlock->addFrequentExitSite(FrequentExitSite(m_codeOriginForExitProfile.bytecodeIndex, m_kind, jitType));
+    if (sourceProfiledCodeBlock) {
+        FrequentExitSite site;
+        if (m_wasHoisted)
+            site = FrequentExitSite(HoistingFailed, jitType);
+        else
+            site = FrequentExitSite(m_codeOriginForExitProfile.bytecodeIndex, m_kind, jitType);
+        sourceProfiledCodeBlock->addFrequentExitSite(site);
+    }
 }
 
 } } // namespace JSC::DFG

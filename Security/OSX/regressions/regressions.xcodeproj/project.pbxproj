@@ -156,7 +156,7 @@
 		05441E6008A971C700F0EC5A /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0700;
+				LastUpgradeCheck = 0800;
 			};
 			buildConfigurationList = 4CD81AFC09BE1FD3000A9641 /* Build configuration list for PBXProject "regressions" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -197,19 +197,18 @@
 		792E01860CBC0E6E007C00A0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = lossless;
 				CLANG_STATIC_ANALYZER_MODE = deep;
 				COPY_PHASE_STRIP = NO;
+				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = "DEBUG=1";
-				"GCC_PREPROCESSOR_DEFINITIONS[sdk=iphoneos*]" = (
+				"GCC_PREPROCESSOR_DEFINITIONS[sdk=embedded*]" = (
 					"DEBUG=1",
 					"NO_SERVER=1",
 				);
-				"GCC_PREPROCESSOR_DEFINITIONS[sdk=iphonesimulator*]" = (
-					"DEBUG=1",
-					"NO_SERVER=1",
-				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
@@ -232,13 +231,14 @@
 					"$(PROJECT_DIR)/../libDER",
 					"$(PROJECT_DIR)/..",
 					"$(PROJECT_DIR)",
-					"$(BUILT_PRODUCTS_DIR)$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/include",
+					"$(BUILT_PRODUCTS_DIR)/usr/local/include",
 				);
+				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
 					"-fconstant-cfstrings",
 					"-fno-inline",
 				);
-				"OTHER_LDFLAGS[sdk=iphoneos*][arch=*]" = (
+				"OTHER_LDFLAGS[sdk=embedded*][arch=*]" = (
 					"$(OTHER_LDFLAGS)",
 					"-framework",
 					MobileKeyBag,
@@ -246,7 +246,7 @@
 				RUN_CLANG_STATIC_ANALYZER = YES;
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator";
+				SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator";
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wextra",
@@ -254,6 +254,7 @@
 					"-Wno-missing-field-initializers",
 					"-Wglobal-constructors",
 					"-Wno-deprecated-declarations",
+					"-Wno-four-char-constants",
 					"$(inherited)",
 				);
 			};
@@ -262,11 +263,13 @@
 		792E01870CBC0E6E007C00A0 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = "respect-asset-catalog";
 				CLANG_STATIC_ANALYZER_MODE = deep;
 				COPY_PHASE_STRIP = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_PREPROCESSOR_DEFINITIONS = "NDEBUG=1";
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
@@ -289,13 +292,13 @@
 					"$(PROJECT_DIR)/../libDER",
 					"$(PROJECT_DIR)/..",
 					"$(PROJECT_DIR)",
-					"$(BUILT_PRODUCTS_DIR)$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/include",
+					"$(BUILT_PRODUCTS_DIR)/usr/local/include",
 				);
 				OTHER_CFLAGS = "-fconstant-cfstrings";
 				RUN_CLANG_STATIC_ANALYZER = YES;
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator";
+				SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator";
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wextra",
@@ -303,6 +306,7 @@
 					"-Wno-missing-field-initializers",
 					"-Wglobal-constructors",
 					"-Wno-deprecated-declarations",
+					"-Wno-four-char-constants",
 					"$(inherited)",
 				);
 			};
@@ -312,6 +316,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
+				"HEADER_SEARCH_PATHS[sdk=macosx*]" = (
+					"$(BUILT_PRODUCTS_DIR)",
+					"$(PROJECT_DIR)/../utilities",
+					"$(PROJECT_DIR)",
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -320,6 +329,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
+				"HEADER_SEARCH_PATHS[sdk=macosx*]" = (
+					"$(BUILT_PRODUCTS_DIR)",
+					"$(PROJECT_DIR)/../utilities",
+					"$(PROJECT_DIR)",
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;

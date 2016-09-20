@@ -43,7 +43,6 @@
 #include "ThreadableBlobRegistry.h"
 #include "ThreadableLoader.h"
 #include <runtime/ArrayBuffer.h>
-#include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 #include <wtf/text/Base64.h>
@@ -57,13 +56,10 @@ FileReaderLoader::FileReaderLoader(ReadType readType, FileReaderLoaderClient* cl
     : m_readType(readType)
     , m_client(client)
     , m_isRawDataConverted(false)
-    , m_stringResult("")
+    , m_stringResult(emptyString())
     , m_variableLength(false)
     , m_bytesLoaded(0)
     , m_totalBytes(0)
-    , m_hasRange(false)
-    , m_rangeStart(0)
-    , m_rangeEnd(0)
     , m_errorCode(0)
 {
 }
@@ -75,7 +71,7 @@ FileReaderLoader::~FileReaderLoader()
         ThreadableBlobRegistry::unregisterBlobURL(m_urlForReading);
 }
 
-void FileReaderLoader::start(ScriptExecutionContext* scriptExecutionContext, Blob* blob)
+void FileReaderLoader::start(ScriptExecutionContext* scriptExecutionContext, Blob& blob)
 {
     // The blob is read by routing through the request handling layer given a temporary public url.
     m_urlForReading = BlobURL::createPublicURL(scriptExecutionContext->securityOrigin());
@@ -83,13 +79,11 @@ void FileReaderLoader::start(ScriptExecutionContext* scriptExecutionContext, Blo
         failed(FileError::SECURITY_ERR);
         return;
     }
-    ThreadableBlobRegistry::registerBlobURL(scriptExecutionContext->securityOrigin(), m_urlForReading, blob->url());
+    ThreadableBlobRegistry::registerBlobURL(scriptExecutionContext->securityOrigin(), m_urlForReading, blob.url());
 
     // Construct and load the request.
     ResourceRequest request(m_urlForReading);
     request.setHTTPMethod("GET");
-    if (m_hasRange)
-        request.setHTTPHeaderField(HTTPHeaderName::Range, String::format("bytes=%d-%d", m_rangeStart, m_rangeEnd));
 
     ThreadableLoaderOptions options;
     options.setSendLoadCallbacks(SendCallbacks);
@@ -98,6 +92,7 @@ void FileReaderLoader::start(ScriptExecutionContext* scriptExecutionContext, Blo
     options.preflightPolicy = ConsiderPreflight;
     options.setAllowCredentials(AllowStoredCredentials);
     options.crossOriginRequestPolicy = DenyCrossOriginRequests;
+    options.contentSecurityPolicyEnforcement = ContentSecurityPolicyEnforcement::DoNotEnforce;
 
     if (m_client)
         m_loader = ThreadableLoader::create(scriptExecutionContext, this, request, options);
@@ -126,7 +121,7 @@ void FileReaderLoader::cleanup()
     // If we get any error, we do not need to keep a buffer around.
     if (m_errorCode) {
         m_rawData = nullptr;
-        m_stringResult = "";
+        m_stringResult = emptyString();
     }
 }
 
@@ -142,10 +137,7 @@ void FileReaderLoader::didReceiveResponse(unsigned long, const ResourceResponse&
     // A negative value means that the content length wasn't specified, so the buffer will need to be dynamically grown.
     if (length < 0) {
         m_variableLength = true;
-        if (m_hasRange)
-            length = 1 + m_rangeEnd - m_rangeStart;
-        else
-            length = defaultBufferLength;
+        length = defaultBufferLength;
     }
 
     // Check that we can cast to unsigned since we have to do
@@ -157,7 +149,7 @@ void FileReaderLoader::didReceiveResponse(unsigned long, const ResourceResponse&
     }
 
     ASSERT(!m_rawData);
-    m_rawData = ArrayBuffer::create(static_cast<unsigned>(length), 1);
+    m_rawData = ArrayBuffer::tryCreate(static_cast<unsigned>(length), 1);
 
     if (!m_rawData) {
         failed(FileError::NOT_READABLE_ERR);
@@ -194,7 +186,7 @@ void FileReaderLoader::didReceiveData(const char* data, int dataLength)
                 return;
             }
             newLength = std::max(newLength, m_totalBytes + m_totalBytes / 4 + 1);
-            RefPtr<ArrayBuffer> newData = ArrayBuffer::create(newLength, 1);
+            auto newData = ArrayBuffer::tryCreate(newLength, 1);
             if (!newData) {
                 // Not enough memory.
                 failed(FileError::NOT_READABLE_ERR);
@@ -264,20 +256,20 @@ FileError::ErrorCode FileReaderLoader::httpStatusCodeToErrorCode(int httpStatusC
     }
 }
 
-PassRefPtr<ArrayBuffer> FileReaderLoader::arrayBufferResult() const
+RefPtr<ArrayBuffer> FileReaderLoader::arrayBufferResult() const
 {
     ASSERT(m_readType == ReadAsArrayBuffer);
 
     // If the loading is not started or an error occurs, return an empty result.
     if (!m_rawData || m_errorCode)
-        return 0;
+        return nullptr;
 
     // If completed, we can simply return our buffer.
     if (isCompleted())
         return m_rawData;
 
     // Otherwise, return a copy.
-    return ArrayBuffer::create(m_rawData.get());
+    return ArrayBuffer::create(*m_rawData);
 }
 
 String FileReaderLoader::stringResult()

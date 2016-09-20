@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2010,2012-2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2007-2010,2012-2016 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -81,6 +81,10 @@ struct SecCertificatePath {
 	   FIXME get rid of this since it's a property of the evaluation, not a
 	   static feature of a certificate path? */
 	bool				isAnchored;
+
+	/* Usage constraints derived from trust settings. */
+	CFMutableArrayRef	usageConstraints;
+
 	SecCertificateRef	certificates[];
 };
 
@@ -92,6 +96,7 @@ static void SecCertificatePathDestroy(CFTypeRef cf) {
 	for (ix = 0; ix < certificatePath->count; ++ix) {
 		CFRelease(certificatePath->certificates[ix]);
     }
+    CFRelease(certificatePath->usageConstraints);
 }
 
 static Boolean SecCertificatePathCompare(CFTypeRef cf1, CFTypeRef cf2) {
@@ -104,6 +109,8 @@ static Boolean SecCertificatePathCompare(CFTypeRef cf1, CFTypeRef cf2) {
 		if (!CFEqual(cp1->certificates[ix], cp2->certificates[ix]))
 			return false;
 	}
+	if (!CFEqual(cp1->usageConstraints, cp2->usageConstraints))
+		return false;
 
 	return true;
 }
@@ -116,6 +123,7 @@ static CFHashCode SecCertificatePathHash(CFTypeRef cf) {
 	for (ix = 0; ix < certificatePath->count; ++ix) {
 		hashCode += CFHash(certificatePath->certificates[ix]);
 	}
+	hashCode += CFHash(certificatePath->usageConstraints);
 	return hashCode;
 }
 
@@ -143,7 +151,7 @@ static CFStringRef SecCertificatePathCopyFormatDescription(CFTypeRef cf, CFDicti
 
 /* Create a new certificate path from an old one. */
 SecCertificatePathRef SecCertificatePathCreate(SecCertificatePathRef path,
-	SecCertificateRef certificate) {
+	SecCertificateRef certificate, CFArrayRef usageConstraints) {
     CFAllocatorRef allocator = kCFAllocatorDefault;
 	check(certificate);
 	CFIndex count;
@@ -183,6 +191,22 @@ SecCertificatePathRef SecCertificatePathCreate(SecCertificatePathRef path,
 	result->certificates[count - 1] = certificate;
 	CFRetainSafe(certificate);
 
+	CFArrayRef emptyArray = NULL;
+	if (!usageConstraints) {
+		require_action_quiet(emptyArray = CFArrayCreate(kCFAllocatorDefault, NULL, 0, &kCFTypeArrayCallBacks), exit, CFReleaseNull(result));
+		usageConstraints = emptyArray;
+	}
+	CFMutableArrayRef constraints;
+	if (path) {
+		require_action_quiet(constraints = CFArrayCreateMutableCopy(kCFAllocatorDefault, count, path->usageConstraints), exit, CFReleaseNull(result));
+	} else {
+		require_action_quiet(constraints = CFArrayCreateMutable(kCFAllocatorDefault, count, &kCFTypeArrayCallBacks), exit, CFReleaseNull(result));
+	}
+	CFArrayAppendValue(constraints, usageConstraints);
+	result->usageConstraints = constraints;
+
+exit:
+    CFReleaseSafe(emptyArray);
     return result;
 }
 
@@ -195,6 +219,8 @@ SecCertificatePathRef SecCertificatePathCreateWithXPCArray(xpc_object_t xpc_path
     require_action_quiet(count = xpc_array_get_count(xpc_path), exit, SecError(errSecDecode, error, CFSTR("xpc_path array count == 0")));
     size_t size = sizeof(struct SecCertificatePath) + count * sizeof(SecCertificateRef);
     require_action_quiet(result = (SecCertificatePathRef)_CFRuntimeCreateInstance(kCFAllocatorDefault, SecCertificatePathGetTypeID(), size - sizeof(CFRuntimeBase), 0), exit, SecError(errSecDecode, error, CFSTR("_CFRuntimeCreateInstance returned NULL")));
+    CFMutableArrayRef constraints;
+    require_action_quiet(constraints = CFArrayCreateMutable(kCFAllocatorDefault, count, &kCFTypeArrayCallBacks), exit, SecError(errSecAllocate, error, CFSTR("failed to create constraints")); CFReleaseNull(result));
 
 	result->count = count;
 	result->nextParentSource = 0;
@@ -202,17 +228,66 @@ SecCertificatePathRef SecCertificatePathCreateWithXPCArray(xpc_object_t xpc_path
 	result->selfIssued = -1;
 	result->isSelfSigned = false;
 	result->isAnchored = false;
+	result->usageConstraints = constraints;
+
 	size_t ix;
 	for (ix = 0; ix < count; ++ix) {
         SecCertificateRef certificate = SecCertificateCreateWithXPCArrayAtIndex(xpc_path, ix, error);
         if (certificate) {
             result->certificates[ix] = certificate;
+            CFArrayRef emptyArray;
+            require_action_quiet(emptyArray = CFArrayCreate(kCFAllocatorDefault, NULL, 0, &kCFTypeArrayCallBacks), exit, SecError(errSecAllocate, error, CFSTR("failed to create emptyArray")); CFReleaseNull(result));
+            CFArrayAppendValue(result->usageConstraints, emptyArray);
+            CFRelease(emptyArray);
         } else {
             result->count = ix; // total allocated
             CFReleaseNull(result);
             break;
         }
 	}
+
+exit:
+    return result;
+}
+
+SecCertificatePathRef SecCertificatPathCreateDeserialized(CFArrayRef certificates, CFErrorRef *error) {
+    SecCertificatePathRef result = NULL;
+    require_action_quiet(isArray(certificates), exit,
+                         SecError(errSecParam, error, CFSTR("certificates is not an array")));
+    size_t count = 0;
+    require_action_quiet(count = CFArrayGetCount(certificates), exit,
+                         SecError(errSecDecode, error, CFSTR("certificates array count == 0")));
+    size_t size = sizeof(struct SecCertificatePath) + count * sizeof(SecCertificateRef);
+    require_action_quiet(result = (SecCertificatePathRef)_CFRuntimeCreateInstance(kCFAllocatorDefault, SecCertificatePathGetTypeID(), size - sizeof(CFRuntimeBase), 0), exit,
+                         SecError(errSecDecode, error, CFSTR("_CFRuntimeCreateInstance returned NULL")));
+    CFMutableArrayRef constraints;
+    require_action_quiet(constraints = CFArrayCreateMutable(kCFAllocatorDefault, count, &kCFTypeArrayCallBacks), exit,
+                         SecError(errSecAllocate, error, CFSTR("failed to create constraints")); CFReleaseNull(result));
+
+    result->count = count;
+    result->nextParentSource = 0;
+    result->lastVerifiedSigner = count;
+    result->selfIssued = -1;
+    result->isSelfSigned = false;
+    result->isAnchored = false;
+    result->usageConstraints = constraints;
+
+    size_t ix;
+    for (ix = 0; ix < count; ++ix) {
+        SecCertificateRef certificate = SecCertificateCreateWithData(NULL, CFArrayGetValueAtIndex(certificates, ix));
+        if (certificate) {
+            result->certificates[ix] = certificate;
+            CFArrayRef emptyArray;
+            require_action_quiet(emptyArray = CFArrayCreate(kCFAllocatorDefault, NULL, 0, &kCFTypeArrayCallBacks), exit,
+                                 SecError(errSecAllocate, error, CFSTR("failed to create emptyArray")); CFReleaseNull(result));
+            CFArrayAppendValue(result->usageConstraints, emptyArray);
+            CFRelease(emptyArray);
+        } else {
+            result->count = ix; // total allocated
+            CFReleaseNull(result);
+            break;
+        }
+    }
 
 exit:
     return result;
@@ -244,18 +319,25 @@ SecCertificatePathRef SecCertificatePathCopyFromParent(
 	if (!result)
         return NULL;
 
+	CFMutableArrayRef constraints;
+	require_action_quiet(constraints = CFArrayCreateMutable(kCFAllocatorDefault, count, &kCFTypeArrayCallBacks), exit, CFReleaseNull(result));
+
 	result->count = count;
 	result->nextParentSource = 0;
 	result->lastVerifiedSigner = lastVerifiedSigner;
 	result->selfIssued = selfIssued;
 	result->isSelfSigned = isSelfSigned;
 	result->isAnchored = path->isAnchored;
+	result->usageConstraints = constraints;
 	CFIndex ix;
 	for (ix = 0; ix < count; ++ix) {
-		result->certificates[ix] = path->certificates[ix + skipCount];
+		CFIndex pathIX = ix + skipCount;
+		result->certificates[ix] = path->certificates[pathIX];
 		CFRetain(result->certificates[ix]);
+		CFArrayAppendValue(result->usageConstraints, CFArrayGetValueAtIndex(path->usageConstraints, pathIX));
 	}
 
+exit:
     return result;
 }
 
@@ -288,12 +370,16 @@ SecCertificatePathRef SecCertificatePathCopyAddingLeaf(SecCertificatePathRef pat
 	if (!result)
         return NULL;
 
+	CFMutableArrayRef constraints;
+	require_action_quiet(constraints = CFArrayCreateMutableCopy(kCFAllocatorDefault, count, path->usageConstraints), exit, CFReleaseNull(result));
+
 	result->count = count;
 	result->nextParentSource = 0;
 	result->lastVerifiedSigner = lastVerifiedSigner;
 	result->selfIssued = selfIssued;
 	result->isSelfSigned = isSelfSigned;
 	result->isAnchored = path->isAnchored;
+	result->usageConstraints = constraints;
 	CFIndex ix;
 	for (ix = 1; ix < count; ++ix) {
 		result->certificates[ix] = path->certificates[ix - 1];
@@ -302,6 +388,12 @@ SecCertificatePathRef SecCertificatePathCopyAddingLeaf(SecCertificatePathRef pat
 	result->certificates[0] = leaf;
 	CFRetain(leaf);
 
+	CFArrayRef emptyArray;
+	require_action_quiet(emptyArray = CFArrayCreate(kCFAllocatorDefault, NULL, 0, &kCFTypeArrayCallBacks), exit, CFReleaseNull(result));
+	CFArrayInsertValueAtIndex(result->usageConstraints, 0, emptyArray);
+	CFRelease(emptyArray);
+
+exit:
     return result;
 }
 
@@ -322,6 +414,40 @@ exit:
     return xpc_chain;
 }
 
+/* Create an array of SecCertificateRefs from a certificate path. */
+CFArrayRef SecCertificatePathCopyCertificates(SecCertificatePathRef path, CFErrorRef *error) {
+    CFMutableArrayRef outCerts = NULL;
+    size_t ix, count = path->count;
+    require_action_quiet(outCerts = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks), exit,
+                         SecError(errSecParam, error, CFSTR("CFArray failed to create")));
+    for (ix = 0; ix < count; ++ix) {
+        SecCertificateRef cert = SecCertificatePathGetCertificateAtIndex(path, ix);
+        if (cert) {
+            CFArrayAppendValue(outCerts, cert);
+        }
+   }
+exit:
+    return outCerts;
+}
+
+CFArrayRef SecCertificatePathCreateSerialized(SecCertificatePathRef path, CFErrorRef *error) {
+    CFMutableArrayRef serializedCerts = NULL;
+    require_quiet(path, exit);
+    size_t ix, count = path->count;
+    require_action_quiet(serializedCerts = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks), exit,
+                         SecError(errSecParam, error, CFSTR("CFArray failed to create")));
+    for (ix = 0; ix < count; ++ix) {
+        SecCertificateRef cert = SecCertificatePathGetCertificateAtIndex(path, ix);
+        CFDataRef certData = SecCertificateCopyData(cert);
+        if (certData) {
+            CFArrayAppendValue(serializedCerts, certData);
+            CFRelease(certData);
+        }
+    }
+exit:
+    return serializedCerts;
+}
+
 /* Record the fact that we found our own root cert as our parent
    certificate. */
 void SecCertificatePathSetSelfIssued(
@@ -333,12 +459,41 @@ void SecCertificatePathSetSelfIssued(
 	}
     secdebug("trust", "%@ is self issued", certificatePath);
 	certificatePath->selfIssued = certificatePath->count - 1;
+
+    /* now check that the selfIssued cert was actually self-signed */
+    if (certificatePath->selfIssued >= 0 && !certificatePath->isSelfSigned) {
+        SecCertificateRef cert = certificatePath->certificates[certificatePath->selfIssued];
+        Boolean isSelfSigned = false;
+        OSStatus status = SecCertificateIsSelfSigned(cert, &isSelfSigned);
+        if ((status == errSecSuccess) && isSelfSigned) {
+            certificatePath->isSelfSigned = true;
+        } else {
+            certificatePath->selfIssued = -1;
+        }
+    }
 }
 
 void SecCertificatePathSetIsAnchored(
 	SecCertificatePathRef certificatePath) {
     secdebug("trust", "%@ is anchored", certificatePath);
 	certificatePath->isAnchored = true;
+
+    /* Now check if that anchor (last cert) was actually self-signed.
+     * In the non-anchor case, this is handled by SecCertificatePathSetSelfIssued.
+     * Because anchored chains immediately go into the candidate bucket in the trust
+     * server, we need to ensure that the self-signed/self-issued members are set
+     * for the purposes of scoring. */
+    if (!certificatePath->isSelfSigned && certificatePath->count > 0) {
+        SecCertificateRef cert = certificatePath->certificates[certificatePath->count - 1];
+        Boolean isSelfSigned = false;
+        OSStatus status = SecCertificateIsSelfSigned(cert, &isSelfSigned);
+        if ((status == errSecSuccess) && isSelfSigned) {
+            certificatePath->isSelfSigned = true;
+            if (certificatePath->selfIssued == -1) {
+                certificatePath->selfIssued = certificatePath->count - 1;
+            }
+        }
+    }
 }
 
 /* Return the index of the first non anchor certificate in the chain that is
@@ -408,39 +563,16 @@ SecKeyRef SecCertificatePathCopyPublicKeyAtIndex(
 	SecCertificatePathRef certificatePath, CFIndex ix) {
 	SecCertificateRef certificate =
         SecCertificatePathGetCertificateAtIndex(certificatePath, ix);
-	const DERAlgorithmId *algId =
-		SecCertificateGetPublicKeyAlgorithm(certificate);
-    const DERItem *params = NULL;
-    if (algId->params.length != 0) {
-        params = &algId->params;
-    } else {
-        CFIndex count = certificatePath->count;
-        for (++ix; ix < count; ++ix) {
-            certificate = certificatePath->certificates[ix];
-            const DERAlgorithmId *chain_algId =
-                SecCertificateGetPublicKeyAlgorithm(certificate);
-            if (!DEROidCompare(&algId->oid, &chain_algId->oid)) {
-                /* Algorithm oids differ, params stay NULL. */
-                break;
-            }
-            if (chain_algId->params.length != 0) {
-                params = &chain_algId->params;
-                break;
-            }
-        }
-    }
-	const DERItem *keyData = SecCertificateGetPublicKeyData(certificate);
-    SecAsn1Oid oid1 = { .Data = algId->oid.data, .Length = algId->oid.length };
-    SecAsn1Item params1 = {
-        .Data = params ? params->data : NULL,
-        .Length = params ? params->length : 0
-    };
-    SecAsn1Item keyData1 = {
-        .Data = keyData ? keyData->data : NULL,
-        .Length = keyData ? keyData->length : 0
-    };
-    return SecKeyCreatePublicFromDER(kCFAllocatorDefault, &oid1, &params1,
-        &keyData1);
+#if SECTRUST_OSX
+    return SecCertificateCopyPublicKey_ios(certificate);
+#else
+    return SecCertificateCopyPublicKey(certificate);
+#endif
+}
+
+CFArrayRef SecCertificatePathGetUsageConstraintsAtIndex(
+    SecCertificatePathRef certificatePath, CFIndex ix) {
+    return (CFArrayRef)CFArrayGetValueAtIndex(certificatePath->usageConstraints, ix);
 }
 
 SecPathVerifyStatus SecCertificatePathVerify(
@@ -465,69 +597,110 @@ SecPathVerifyStatus SecCertificatePathVerify(
 		}
 	}
 
-	if (certificatePath->selfIssued >= 0 && !certificatePath->isSelfSigned) {
-		SecKeyRef issuerKey =
-			SecCertificatePathCopyPublicKeyAtIndex(certificatePath,
-				certificatePath->selfIssued);
-		if (!issuerKey) {
-			certificatePath->selfIssued = -1;
-		} else {
-			OSStatus status = SecCertificateIsSignedBy(
-				certificatePath->certificates[certificatePath->selfIssued],
-				issuerKey);
-			CFRelease(issuerKey);
-			if (!status) {
-				certificatePath->isSelfSigned = true;
-			} else {
-				certificatePath->selfIssued = -1;
-			}
-		}
-	}
-
 	return kSecPathVerifySuccess;
+}
+
+static bool SecCertificatePathIsValid(SecCertificatePathRef certificatePath, CFAbsoluteTime verifyTime) {
+    CFIndex ix;
+    for (ix = 0; ix < certificatePath->count; ++ix) {
+        if (!SecCertificateIsValid(certificatePath->certificates[ix],
+                                   verifyTime))
+            return false;
+    }
+    return true;
+}
+
+bool SecCertificatePathHasWeakHash(SecCertificatePathRef certificatePath) {
+    CFIndex ix, count = certificatePath->count;
+
+    if (SecCertificatePathIsAnchored(certificatePath)) {
+        /* For anchored paths, don't check the hash algorithm of the anchored cert,
+         * since we already decided to trust it. */
+        count--;
+    }
+    for (ix = 0; ix < count; ++ix) {
+        SecSignatureHashAlgorithm certAlg = 0;
+        certAlg = SecCertificateGetSignatureHashAlgorithm(certificatePath->certificates[ix]);
+        if (certAlg == kSecSignatureHashAlgorithmUnknown ||
+            certAlg == kSecSignatureHashAlgorithmMD2 ||
+            certAlg == kSecSignatureHashAlgorithmMD4 ||
+            certAlg == kSecSignatureHashAlgorithmMD5 ||
+            certAlg == kSecSignatureHashAlgorithmSHA1) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool SecCertificatePathHasWeakKeySize(SecCertificatePathRef certificatePath) {
+    CFDictionaryRef keySizes = NULL;
+    CFNumberRef rsaSize = NULL, ecSize = NULL;
+    bool result = true;
+
+    /* RSA key sizes are 2048-bit or larger. EC key sizes are P-224 or larger. */
+    require(rsaSize = CFNumberCreateWithCFIndex(NULL, 2048), errOut);
+    require(ecSize = CFNumberCreateWithCFIndex(NULL, 224), errOut);
+    const void *keys[] = { kSecAttrKeyTypeRSA, kSecAttrKeyTypeEC };
+    const void *values[] = { rsaSize, ecSize };
+    require(keySizes = CFDictionaryCreate(NULL, keys, values, 2,
+                                          &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
+
+    CFIndex ix;
+    for (ix = 0; ix < certificatePath->count; ++ix) {
+        if (!SecCertificateIsAtLeastMinKeySize(certificatePath->certificates[ix],
+                                               keySizes)) {
+            result = true;
+            goto errOut;
+        }
+    }
+    result = false;
+
+errOut:
+    CFReleaseSafe(keySizes);
+    CFReleaseSafe(rsaSize);
+    CFReleaseSafe(ecSize);
+    return result;
 }
 
 /* Return a score for this certificate chain. */
 CFIndex SecCertificatePathScore(
 	SecCertificatePathRef certificatePath, CFAbsoluteTime verifyTime) {
 	CFIndex score = 0;
+
+    /* Paths that don't verify score terribly.c */
+    if (certificatePath->lastVerifiedSigner != certificatePath->count - 1) {
+        secdebug("trust", "lvs: %" PRIdCFIndex " count: %" PRIdCFIndex,
+                 certificatePath->lastVerifiedSigner, certificatePath->count);
+        score -= 100000;
+    }
+
 	if (certificatePath->isAnchored) {
 		/* Anchored paths for the win! */
 		score += 10000;
 	}
 
-	/* Score points for each certificate in the chain. */
-	score += 10 * certificatePath->count;
+    if (certificatePath->isSelfSigned && (certificatePath->selfIssued == certificatePath->count - 1)) {
+        /* Chains that terminate in a self-signed certificate are preferred,
+         even if they don't end in an anchor. */
+        score += 1000;
+        /* Shorter chains ending in a self-signed cert are preferred. */
+        score -= 1 * certificatePath->count;
+    } else {
+        /* Longer chains are preferred when the chain doesn't end in a self-signed cert. */
+        score += 1 * certificatePath->count;
+    }
 
-	if (certificatePath->isSelfSigned) {
-		/* If there is a self signed certificate at the end ofthe chain we
-		   count it as an extra certificate.  If there is one in the middle
-		   of the chain we count it for half. */
-		if (certificatePath->selfIssued == certificatePath->count - 1)
-			score += 10;
-		else
-			score += 5;
-	}
+    if (SecCertificatePathIsValid(certificatePath, verifyTime)) {
+        score += 100;
+    }
 
-	/* Paths that don't verify score terribly. */
-	if (certificatePath->lastVerifiedSigner != certificatePath->count - 1) {
-		secdebug("trust", "lvs: %" PRIdCFIndex " count: %" PRIdCFIndex,
-			certificatePath->lastVerifiedSigner, certificatePath->count);
-		score -= 100000;
-	}
+    if (!SecCertificatePathHasWeakHash(certificatePath)) {
+        score += 10;
+    }
 
-	/* Subtract 1 point for each not valid certificate, make sure we
-       subtract less than the amount we add per certificate, since
-       regardless of temporal validity we still prefer longer chains
-       to shorter ones.  This distinction is just to ensure that when
-       everything else is equal we prefer the chain with the most
-       certificates that are valid at the given verifyTime. */
-	CFIndex ix;
-	for (ix = 0; ix < certificatePath->count - 1; ++ix) {
-		if (!SecCertificateIsValid(certificatePath->certificates[ix],
-			verifyTime))
-			score -= 1;
-	}
+    if (!SecCertificatePathHasWeakKeySize(certificatePath)) {
+        score += 10;
+    }
 
 	return score;
 }

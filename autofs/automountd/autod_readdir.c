@@ -450,7 +450,7 @@ create_dirents(struct dir_entry *list, off_t offset, uint32_t rda_count,
 		 * have some entries
 		 */
 		*rddir_entriesCnt = outcount;
-		*rddir_eof = (l == NULL);
+		*rddir_eof = (l->next == NULL);
 		*rddir_entries = outbuf;
 		error = 0;
 	} else {
@@ -722,7 +722,8 @@ build_dir_entry_list(struct rddir_cache *rdcp, struct dir_entry *list)
 			if (rdcp->offtp == NULL)
 				rdcp->offtp = offtp;
 			else
-				last->next = offtp;
+				if (last != NULL)
+					last->next = offtp;
 			last = offtp;
 		}
 		offset++;

@@ -28,6 +28,7 @@
 
 #include "HTTPHeaderNames.h"
 #include "ResourceRequest.h"
+#include <wtf/PointerComparison.h>
 
 namespace WebCore {
 
@@ -48,60 +49,44 @@ inline const ResourceRequest& ResourceRequestBase::asResourceRequest() const
     return *static_cast<const ResourceRequest*>(this);
 }
 
-std::unique_ptr<ResourceRequest> ResourceRequestBase::adopt(std::unique_ptr<CrossThreadResourceRequestData> data)
+ResourceRequest ResourceRequestBase::isolatedCopy() const
 {
-    auto request = std::make_unique<ResourceRequest>();
-    request->setURL(data->url);
-    request->setCachePolicy(data->cachePolicy);
-    request->setTimeoutInterval(data->timeoutInterval);
-    request->setFirstPartyForCookies(data->firstPartyForCookies);
-    request->setHTTPMethod(data->httpMethod);
-    request->setPriority(data->priority);
-    request->setRequester(data->requester);
-
-    request->updateResourceRequest();
-    request->m_httpHeaderFields.adopt(WTF::move(data->httpHeaders));
-
-    size_t encodingCount = data->responseContentDispositionEncodingFallbackArray.size();
-    if (encodingCount > 0) {
-        String encoding1 = data->responseContentDispositionEncodingFallbackArray[0];
-        String encoding2;
-        String encoding3;
-        if (encodingCount > 1) {
-            encoding2 = data->responseContentDispositionEncodingFallbackArray[1];
-            if (encodingCount > 2)
-                encoding3 = data->responseContentDispositionEncodingFallbackArray[2];
-        }
-        ASSERT(encodingCount <= 3);
-        request->setResponseContentDispositionEncodingFallbackArray(encoding1, encoding2, encoding3);
-    }
-    request->setHTTPBody(data->httpBody);
-    request->setAllowCookies(data->allowCookies);
-    request->doPlatformAdopt(WTF::move(data));
+    ResourceRequest request;
+    request.setAsIsolatedCopy(asResourceRequest());
     return request;
 }
 
-std::unique_ptr<CrossThreadResourceRequestData> ResourceRequestBase::copyData() const
+void ResourceRequestBase::setAsIsolatedCopy(const ResourceRequest& other)
 {
-    auto data = std::make_unique<CrossThreadResourceRequestData>();
-    data->url = url().isolatedCopy();
-    data->cachePolicy = m_cachePolicy;
-    data->timeoutInterval = timeoutInterval();
-    data->firstPartyForCookies = firstPartyForCookies().isolatedCopy();
-    data->httpMethod = httpMethod().isolatedCopy();
-    data->httpHeaders = httpHeaderFields().copyData();
-    data->priority = m_priority;
-    data->requester = m_requester;
+    setURL(other.url().isolatedCopy());
+    setCachePolicy(other.cachePolicy());
+    setTimeoutInterval(other.timeoutInterval());
+    setFirstPartyForCookies(other.firstPartyForCookies().isolatedCopy());
+    setHTTPMethod(other.httpMethod().isolatedCopy());
+    setPriority(other.priority());
+    setRequester(other.requester());
 
-    data->responseContentDispositionEncodingFallbackArray.reserveInitialCapacity(m_responseContentDispositionEncodingFallbackArray.size());
-    size_t encodingArraySize = m_responseContentDispositionEncodingFallbackArray.size();
-    for (size_t index = 0; index < encodingArraySize; ++index) {
-        data->responseContentDispositionEncodingFallbackArray.append(m_responseContentDispositionEncodingFallbackArray[index].isolatedCopy());
+    updateResourceRequest();
+    m_httpHeaderFields = other.httpHeaderFields().isolatedCopy();
+
+    size_t encodingCount = other.m_responseContentDispositionEncodingFallbackArray.size();
+    if (encodingCount > 0) {
+        String encoding1 = other.m_responseContentDispositionEncodingFallbackArray[0].isolatedCopy();
+        String encoding2;
+        String encoding3;
+        if (encodingCount > 1) {
+            encoding2 = other.m_responseContentDispositionEncodingFallbackArray[1].isolatedCopy();
+            if (encodingCount > 2)
+                encoding3 = other.m_responseContentDispositionEncodingFallbackArray[2].isolatedCopy();
+        }
+        ASSERT(encodingCount <= 3);
+        setResponseContentDispositionEncodingFallbackArray(encoding1, encoding2, encoding3);
     }
-    if (m_httpBody)
-        data->httpBody = m_httpBody->deepCopy();
-    data->allowCookies = m_allowCookies;
-    return asResourceRequest().doPlatformCopyData(WTF::move(data));
+    if (other.m_httpBody)
+        setHTTPBody(other.m_httpBody->isolatedCopy());
+    setAllowCookies(other.m_allowCookies);
+
+    const_cast<ResourceRequest&>(asResourceRequest()).doPlatformSetAsIsolatedCopy(other);
 }
 
 bool ResourceRequestBase::isEmpty() const
@@ -378,6 +363,16 @@ void ResourceRequestBase::clearHTTPAccept()
         m_platformRequestUpdated = false;
 }
 
+void ResourceRequestBase::clearHTTPAcceptEncoding()
+{
+    updateResourceRequest();
+
+    m_httpHeaderFields.remove(HTTPHeaderName::AcceptEncoding);
+
+    if (url().protocolIsInHTTPFamily())
+        m_platformRequestUpdated = false;
+}
+
 void ResourceRequestBase::setResponseContentDispositionEncodingFallbackArray(const String& encoding1, const String& encoding2, const String& encoding3)
 {
     updateResourceRequest(); 
@@ -402,11 +397,11 @@ FormData* ResourceRequestBase::httpBody() const
     return m_httpBody.get();
 }
 
-void ResourceRequestBase::setHTTPBody(PassRefPtr<FormData> httpBody)
+void ResourceRequestBase::setHTTPBody(RefPtr<FormData>&& httpBody)
 {
     updateResourceRequest();
 
-    m_httpBody = httpBody;
+    m_httpBody = WTFMove(httpBody);
 
     m_resourceRequestBodyUpdated = true;
 
@@ -454,7 +449,7 @@ void ResourceRequestBase::setPriority(ResourceLoadPriority priority)
         m_platformRequestUpdated = false;
 }
 
-void ResourceRequestBase::addHTTPHeaderField(const String& name, const String& value) 
+void ResourceRequestBase::addHTTPHeaderField(HTTPHeaderName name, const String& value)
 {
     updateResourceRequest();
 
@@ -464,11 +459,21 @@ void ResourceRequestBase::addHTTPHeaderField(const String& name, const String& v
         m_platformRequestUpdated = false;
 }
 
+void ResourceRequestBase::addHTTPHeaderField(const String& name, const String& value)
+{
+    updateResourceRequest();
+    
+    m_httpHeaderFields.add(name, value);
+    
+    if (url().protocolIsInHTTPFamily())
+        m_platformRequestUpdated = false;
+}
+    
 void ResourceRequestBase::setHTTPHeaderFields(HTTPHeaderMap headerFields)
 {
     updateResourceRequest();
 
-    m_httpHeaderFields = WTF::move(headerFields);
+    m_httpHeaderFields = WTFMove(headerFields);
 
     if (url().protocolIsInHTTPFamily())
         m_platformRequestUpdated = false;
@@ -500,18 +505,7 @@ bool equalIgnoringHeaderFields(const ResourceRequestBase& a, const ResourceReque
     if (a.requester() != b.requester())
         return false;
 
-    FormData* formDataA = a.httpBody();
-    FormData* formDataB = b.httpBody();
-    
-    if (!formDataA)
-        return !formDataB;
-    if (!formDataB)
-        return !formDataA;
-    
-    if (*formDataA != *formDataB)
-        return false;
-    
-    return true;
+    return arePointingToEqualData(a.httpBody(), b.httpBody());
 }
 
 bool ResourceRequestBase::compare(const ResourceRequest& a, const ResourceRequest& b)
@@ -535,6 +529,8 @@ static const HTTPHeaderName conditionalHeaderNames[] = {
 
 bool ResourceRequestBase::isConditional() const
 {
+    updateResourceRequest();
+
     for (auto headerName : conditionalHeaderNames) {
         if (m_httpHeaderFields.contains(headerName))
             return true;
@@ -545,6 +541,8 @@ bool ResourceRequestBase::isConditional() const
 
 void ResourceRequestBase::makeUnconditional()
 {
+    updateResourceRequest();
+
     for (auto headerName : conditionalHeaderNames)
         m_httpHeaderFields.remove(headerName);
 }

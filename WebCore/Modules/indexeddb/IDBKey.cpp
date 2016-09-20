@@ -38,10 +38,10 @@ IDBKey::~IDBKey()
 
 bool IDBKey::isValid() const
 {
-    if (m_type == InvalidType)
+    if (m_type == KeyType::Invalid)
         return false;
 
-    if (m_type == ArrayType) {
+    if (m_type == KeyType::Array) {
         for (auto& key : m_array) {
             if (!key->isValid())
                 return false;
@@ -51,32 +51,30 @@ bool IDBKey::isValid() const
     return true;
 }
 
-int IDBKey::compare(const IDBKey* other) const
+int IDBKey::compare(const IDBKey& other) const
 {
-    ASSERT(other);
-    if (m_type != other->m_type)
-        return m_type > other->m_type ? -1 : 1;
+    if (m_type != other.m_type)
+        return m_type > other.m_type ? -1 : 1;
 
     switch (m_type) {
-    case ArrayType:
-        for (size_t i = 0; i < m_array.size() && i < other->m_array.size(); ++i) {
-            if (int result = m_array[i]->compare(other->m_array[i].get()))
+    case KeyType::Array:
+        for (size_t i = 0; i < m_array.size() && i < other.m_array.size(); ++i) {
+            if (int result = m_array[i]->compare(*other.m_array[i]))
                 return result;
         }
-        if (m_array.size() < other->m_array.size())
+        if (m_array.size() < other.m_array.size())
             return -1;
-        if (m_array.size() > other->m_array.size())
+        if (m_array.size() > other.m_array.size())
             return 1;
         return 0;
-    case StringType:
-        return -codePointCompare(other->m_string, m_string);
-    case DateType:
-    case NumberType:
-        return (m_number < other->m_number) ? -1 :
-                (m_number > other-> m_number) ? 1 : 0;
-    case InvalidType:
-    case MinType:
-    case MaxType:
+    case KeyType::String:
+        return -codePointCompare(other.m_string, m_string);
+    case KeyType::Date:
+    case KeyType::Number:
+        return (m_number < other.m_number) ? -1 : ((m_number > other. m_number) ? 1 : 0);
+    case KeyType::Invalid:
+    case KeyType::Min:
+    case KeyType::Max:
         ASSERT_NOT_REACHED();
         return 0;
     }
@@ -85,21 +83,17 @@ int IDBKey::compare(const IDBKey* other) const
     return 0;
 }
 
-bool IDBKey::isLessThan(const IDBKey* other) const
+bool IDBKey::isLessThan(const IDBKey& other) const
 {
-    ASSERT(other);
     return compare(other) == -1;
 }
 
-bool IDBKey::isEqual(const IDBKey* other) const
+bool IDBKey::isEqual(const IDBKey& other) const
 {
-    if (!other)
-        return false;
-
     return !compare(other);
 }
 
-#ifndef NDEBUG
+#if !LOG_DISABLED
 String IDBKey::loggingString() const
 {
     return IDBKeyData(this).loggingString();

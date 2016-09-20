@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2007, 2011, 2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2007, 2011, 2013, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -37,19 +37,33 @@
 #include <net/if.h>
 #include <net/if_media.h>
 
-#include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCPrivate.h>
-#include <SystemConfiguration/SCValidation.h>
+#define	SC_LOG_HANDLE	__log_LinkConfiguration()
+#include "SCNetworkConfigurationInternal.h"
 #include <SystemConfiguration/SCDPlugin.h>		// for _SCDPluginExecCommand
 
-#include "SCNetworkConfigurationInternal.h"
+
+static CFMutableDictionaryRef	baseSettings		= NULL;
+static CFStringRef		interfacesKey		= NULL;
+static SCDynamicStoreRef	store			= NULL;
+static CFRunLoopSourceRef	rls			= NULL;
+static CFMutableDictionaryRef	wantSettings		= NULL;
 
 
-static CFMutableDictionaryRef	baseSettings	= NULL;
-static CFStringRef		interfacesKey	= NULL;
-static SCDynamicStoreRef	store		= NULL;
-static CFRunLoopSourceRef	rls		= NULL;
-static CFMutableDictionaryRef	wantSettings	= NULL;
+#pragma mark -
+#pragma mark Logging
+
+
+static os_log_t
+__log_LinkConfiguration()
+{
+	static os_log_t	log	= NULL;
+
+	if (log == NULL) {
+		log = os_log_create("com.apple.SystemConfiguration", "LinkConfiguration");
+	}
+
+	return log;
+}
 
 
 #pragma mark -
@@ -318,12 +332,17 @@ Boolean
 _SCNetworkInterfaceSetMTU(SCNetworkInterfaceRef	interface,
 			  CFDictionaryRef	options)
 {
-	CFStringRef	interfaceName;
-	int		mtu_cur		= -1;
-	int		mtu_max		= -1;
-	int		mtu_min		= -1;
-	int		requested;
-	CFNumberRef	val;
+	CFArrayRef			bridge_members		= NULL;
+	Boolean				bridge_updated		= FALSE;
+	CFStringRef			interfaceName;
+	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)interface;
+	CFStringRef			interfaceType;
+	int				mtu_cur			= -1;
+	int				mtu_max			= -1;
+	int				mtu_min			= -1;
+	Boolean				ok			= TRUE;
+	int				requested;
+	CFNumberRef			val;
 
 	interfaceName = SCNetworkInterfaceGetBSDName(interface);
 	if (interfaceName == NULL) {
@@ -367,6 +386,37 @@ _SCNetworkInterfaceSetMTU(SCNetworkInterfaceRef	interface,
 		return FALSE;
 	}
 
+	interfaceType = SCNetworkInterfaceGetInterfaceType(interface);
+	if (CFEqual(interfaceType, kSCNetworkInterfaceTypeBridge)) {
+		bridge_members = SCBridgeInterfaceGetMemberInterfaces(interface);
+		if ((bridge_members != NULL) && (CFArrayGetCount(bridge_members) == 0)) {
+			/* if no members */
+			bridge_members = NULL;
+		}
+		if (bridge_members != NULL) {
+			SCNetworkInterfaceRef	member0;
+
+			/* temporarily, remove all bridge members */
+			CFRetain(bridge_members);
+			ok = SCBridgeInterfaceSetMemberInterfaces(interface, NULL);
+			if (!ok) {
+				goto done;
+			}
+
+			/* and update the (bridge) configuration */
+			ok = _SCBridgeInterfaceUpdateConfiguration(interfacePrivate->prefs);
+			if (!ok) {
+				goto done;
+			}
+
+			/* switch from updating the MTU of the bridge to the first member */
+			member0 = CFArrayGetValueAtIndex(bridge_members, 0);
+			interfaceName = SCNetworkInterfaceGetBSDName(member0);
+
+			bridge_updated = TRUE;
+		}
+	}
+
 #ifdef	USE_SIOCSIFMTU
 {
 	struct ifreq	ifr;
@@ -380,14 +430,16 @@ _SCNetworkInterfaceSetMTU(SCNetworkInterfaceRef	interface,
 	sock = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sock == -1) {
 		SC_log(LOG_ERR, "socket() failed: %s", strerror(errno));
-		return FALSE;
+		ok = FALSE;
+		goto done;
 	}
 
 	ret = ioctl(sock, SIOCSIFMTU, (caddr_t)&ifr);
 	(void)close(sock);
 	if (ret == -1) {
 		SC_log(LOG_NOTICE, "ioctl(SIOCSIFMTU) failed: %s", strerror(errno));
-		return FALSE;
+		ok = FALSE;
+		goto done;
 	}
 }
 #else	/* !USE_SIOCSIFMTU */
@@ -410,12 +462,26 @@ _SCNetworkInterfaceSetMTU(SCNetworkInterfaceRef	interface,
 	free(ifconfig_argv[3]);
 
 	if (pid <= 0) {
-		return FALSE;
+		ok = FALSE;
+		goto done;
 	}
 }
 #endif	/* !USE_SIOCSIFMTU */
 
-	return TRUE;
+    done :
+
+	if (bridge_members != NULL) {
+		/* restore bridge members */
+		(void) SCBridgeInterfaceSetMemberInterfaces(interface, bridge_members);
+		CFRelease(bridge_members);
+
+		if (bridge_updated) {
+			/* and update the (bridge) configuration */
+			(void) _SCBridgeInterfaceUpdateConfiguration(interfacePrivate->prefs);
+		}
+	}
+
+	return ok;
 }
 
 
@@ -442,7 +508,7 @@ parse_component(CFStringRef key, CFStringRef prefix)
 	CFMutableStringRef	comp;
 	CFRange			range;
 
-	if (CFStringHasPrefix(key, prefix) == FALSE) {
+	if (!CFStringHasPrefix(key, prefix)) {
 		return NULL;
 	}
 	comp = CFStringCreateMutableCopy(NULL, 0, key);
@@ -592,14 +658,16 @@ updateLink(CFStringRef interfaceName, CFDictionaryRef options)
 static void
 linkConfigChangedCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *arg)
 {
-	os_activity_t		activity_id;
+	os_activity_t		activity;
 	CFDictionaryRef		changes;
 	CFIndex			i;
 	CFIndex			n;
 	static CFStringRef	prefix		= NULL;
 
-	activity_id = os_activity_start("processing link configuration changes",
-					OS_ACTIVITY_FLAG_DEFAULT);
+	activity = os_activity_create("processing link configuration changes",
+				      OS_ACTIVITY_CURRENT,
+				      OS_ACTIVITY_FLAG_DEFAULT);
+	os_activity_scope(activity);
 
 	if (prefix == NULL) {
 		prefix = SCDynamicStoreKeyCreate(NULL,
@@ -643,7 +711,7 @@ linkConfigChangedCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void 
 		CFRelease(changes);
 	}
 
-	os_activity_end(activity_id);
+	os_release(activity);
 
 	return;
 }

@@ -1,6 +1,35 @@
+include(platform/GStreamer.cmake)
+include(platform/ImageDecoders.cmake)
+include(platform/Linux.cmake)
+
+if (USE_TEXTURE_MAPPER)
+    include(platform/TextureMapper.cmake)
+endif ()
+
 set(WebCore_OUTPUT_NAME WebCoreGTK)
 
 list(APPEND WebCore_INCLUDE_DIRECTORIES
+    "${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}"
+    "${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/inspector"
+    "${JAVASCRIPTCORE_DIR}"
+    "${JAVASCRIPTCORE_DIR}/ForwardingHeaders"
+    "${JAVASCRIPTCORE_DIR}/API"
+    "${JAVASCRIPTCORE_DIR}/assembler"
+    "${JAVASCRIPTCORE_DIR}/bytecode"
+    "${JAVASCRIPTCORE_DIR}/bytecompiler"
+    "${JAVASCRIPTCORE_DIR}/dfg"
+    "${JAVASCRIPTCORE_DIR}/disassembler"
+    "${JAVASCRIPTCORE_DIR}/heap"
+    "${JAVASCRIPTCORE_DIR}/debugger"
+    "${JAVASCRIPTCORE_DIR}/interpreter"
+    "${JAVASCRIPTCORE_DIR}/jit"
+    "${JAVASCRIPTCORE_DIR}/llint"
+    "${JAVASCRIPTCORE_DIR}/parser"
+    "${JAVASCRIPTCORE_DIR}/profiler"
+    "${JAVASCRIPTCORE_DIR}/runtime"
+    "${JAVASCRIPTCORE_DIR}/yarr"
+    "${THIRDPARTY_DIR}/ANGLE/"
+    "${THIRDPARTY_DIR}/ANGLE/include/KHR"
     "${WEBCORE_DIR}/accessibility/atk"
     "${WEBCORE_DIR}/editing/atk"
     "${WEBCORE_DIR}/page/gtk"
@@ -18,12 +47,12 @@ list(APPEND WebCore_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/platform/graphics/opentype"
     "${WEBCORE_DIR}/platform/graphics/wayland"
     "${WEBCORE_DIR}/platform/graphics/x11"
-    "${WEBCORE_DIR}/platform/linux"
-    "${WEBCORE_DIR}/platform/mediastream/openwebrtc"
+    "${WEBCORE_DIR}/platform/mediastream/gtk"
     "${WEBCORE_DIR}/platform/mock/mediasource"
     "${WEBCORE_DIR}/platform/network/gtk"
     "${WEBCORE_DIR}/platform/network/soup"
     "${WEBCORE_DIR}/platform/text/gtk"
+    "${WTF_DIR}"
 )
 
 list(APPEND WebCore_SOURCES
@@ -45,30 +74,30 @@ list(APPEND WebCore_SOURCES
     accessibility/atk/WebKitAccessibleUtil.cpp
     accessibility/atk/WebKitAccessibleWrapperAtk.cpp
 
-    editing/SmartReplace.cpp
-
     editing/atk/FrameSelectionAtk.cpp
 
     loader/soup/CachedRawResourceSoup.cpp
     loader/soup/SubresourceLoaderSoup.cpp
 
-    platform/PlatformStrategies.cpp
+    platform/KillRingNone.cpp
 
-    platform/audio/gstreamer/AudioDestinationGStreamer.cpp
-    platform/audio/gstreamer/AudioFileReaderGStreamer.cpp
-    platform/audio/gstreamer/AudioSourceProviderGStreamer.cpp
-    platform/audio/gstreamer/FFTFrameGStreamer.cpp
-    platform/audio/gstreamer/WebKitWebAudioSourceGStreamer.cpp
+    platform/audio/glib/AudioBusGLib.cpp
 
-    platform/audio/gtk/AudioBusGtk.cpp
+    platform/crypto/gnutls/CryptoDigestGnuTLS.cpp
 
     platform/geoclue/GeolocationProviderGeoclue1.cpp
     platform/geoclue/GeolocationProviderGeoclue2.cpp
 
+    platform/glib/EventLoopGlib.cpp
+    platform/glib/FileSystemGlib.cpp
+    platform/glib/GamepadsGlib.cpp
+    platform/glib/KeyedDecoderGlib.cpp
+    platform/glib/KeyedEncoderGlib.cpp
+    platform/glib/MainThreadSharedTimerGLib.cpp
+    platform/glib/SharedBufferGlib.cpp
+
     platform/graphics/GLContext.cpp
     platform/graphics/GraphicsContext3DPrivate.cpp
-    platform/graphics/ImageSource.cpp
-    platform/graphics/WOFFFileFormat.cpp
 
     platform/graphics/cairo/BackingStoreBackendCairoImpl.cpp
     platform/graphics/cairo/BackingStoreBackendCairoX11.cpp
@@ -99,22 +128,7 @@ list(APPEND WebCore_SOURCES
 
     platform/graphics/glx/GLContextGLX.cpp
 
-    platform/graphics/gstreamer/AudioTrackPrivateGStreamer.cpp
-    platform/graphics/gstreamer/GRefPtrGStreamer.cpp
-    platform/graphics/gstreamer/GStreamerUtilities.cpp
     platform/graphics/gstreamer/ImageGStreamerCairo.cpp
-    platform/graphics/gstreamer/InbandTextTrackPrivateGStreamer.cpp
-    platform/graphics/gstreamer/MediaPlayerPrivateGStreamer.cpp
-    platform/graphics/gstreamer/MediaPlayerPrivateGStreamerBase.cpp
-    platform/graphics/gstreamer/MediaSourceGStreamer.cpp
-    platform/graphics/gstreamer/SourceBufferPrivateGStreamer.cpp
-    platform/graphics/gstreamer/TextCombinerGStreamer.cpp
-    platform/graphics/gstreamer/TextSinkGStreamer.cpp
-    platform/graphics/gstreamer/TrackPrivateBaseGStreamer.cpp
-    platform/graphics/gstreamer/VideoSinkGStreamer.cpp
-    platform/graphics/gstreamer/VideoTrackPrivateGStreamer.cpp
-    platform/graphics/gstreamer/WebKitMediaSourceGStreamer.cpp
-    platform/graphics/gstreamer/WebKitWebSourceGStreamer.cpp
 
     platform/graphics/harfbuzz/HarfBuzzFace.cpp
     platform/graphics/harfbuzz/HarfBuzzFaceCairo.cpp
@@ -130,40 +144,14 @@ list(APPEND WebCore_SOURCES
     platform/graphics/x11/XUniqueResource.cpp
 
     platform/gtk/ErrorsGtk.cpp
-    platform/gtk/EventLoopGtk.cpp
-    platform/gtk/FileSystemGtk.cpp
-    platform/gtk/GamepadsGtk.cpp
-    platform/gtk/LanguageGtk.cpp
-    platform/gtk/LoggingGtk.cpp
     platform/gtk/MIMETypeRegistryGtk.cpp
-    platform/gtk/SharedBufferGtk.cpp
-    platform/gtk/SharedTimerGtk.cpp
+    platform/gtk/ScrollAnimatorGtk.cpp
     platform/gtk/TemporaryLinkStubs.cpp
     platform/gtk/UserAgentGtk.cpp
 
-    platform/image-decoders/ImageDecoder.cpp
-
-    platform/image-decoders/bmp/BMPImageDecoder.cpp
-    platform/image-decoders/bmp/BMPImageReader.cpp
-
     platform/image-decoders/cairo/ImageDecoderCairo.cpp
 
-    platform/image-decoders/gif/GIFImageDecoder.cpp
-    platform/image-decoders/gif/GIFImageReader.cpp
-
-    platform/image-decoders/ico/ICOImageDecoder.cpp
-
-    platform/image-decoders/jpeg/JPEGImageDecoder.cpp
-
-    platform/image-decoders/png/PNGImageDecoder.cpp
-
-    platform/image-decoders/webp/WEBPImageDecoder.cpp
-
-    platform/linux/GamepadDeviceLinux.cpp
-    platform/linux/MemoryPressureHandlerLinux.cpp
-
-    platform/mediastream/openwebrtc/OpenWebRTCUtilities.cpp
-    platform/mediastream/openwebrtc/RealtimeMediaSourceCenterOwr.cpp
+    platform/mediastream/gtk/SDPProcessorScriptResourceGtk.cpp
 
     platform/network/gtk/CredentialBackingStore.cpp
 
@@ -189,13 +177,14 @@ list(APPEND WebCore_SOURCES
     platform/soup/SharedBufferSoup.cpp
     platform/soup/URLSoup.cpp
 
+    platform/text/Hyphenation.cpp
     platform/text/LocaleICU.cpp
 
     platform/text/enchant/TextCheckerEnchant.cpp
 
-    platform/text/gtk/TextBreakIteratorInternalICUGtk.cpp
-
     platform/text/hyphen/HyphenationLibHyphen.cpp
+
+    platform/unix/LoggingUnix.cpp
 )
 
 list(APPEND WebCorePlatformGTK_SOURCES
@@ -214,8 +203,6 @@ list(APPEND WebCorePlatformGTK_SOURCES
     platform/graphics/gtk/ImageBufferGtk.cpp
     platform/graphics/gtk/ImageGtk.cpp
 
-    platform/gtk/ContextMenuGtk.cpp
-    platform/gtk/ContextMenuItemGtk.cpp
     platform/gtk/CursorGtk.cpp
     platform/gtk/DataObjectGtk.cpp
     platform/gtk/DragDataGtk.cpp
@@ -230,6 +217,7 @@ list(APPEND WebCorePlatformGTK_SOURCES
     platform/gtk/PlatformMouseEventGtk.cpp
     platform/gtk/PlatformScreenGtk.cpp
     platform/gtk/PlatformWheelEventGtk.cpp
+    platform/gtk/RenderThemeGadget.cpp
     platform/gtk/ScrollbarThemeGtk.cpp
     platform/gtk/SoundGtk.cpp
     platform/gtk/WidgetGtk.cpp
@@ -238,7 +226,7 @@ list(APPEND WebCorePlatformGTK_SOURCES
 )
 
 if (USE_GEOCLUE2)
-    list(APPEND WebCore_SOURCES
+    list(APPEND WebCore_DERIVED_SOURCES
         ${DERIVED_SOURCES_WEBCORE_DIR}/Geoclue2Interface.c
     )
     execute_process(COMMAND pkg-config --variable dbus_interface geoclue-2.0 OUTPUT_VARIABLE GEOCLUE_DBUS_INTERFACE)
@@ -260,6 +248,9 @@ set(WebCore_USER_AGENT_SCRIPTS
 
 set(WebCore_USER_AGENT_SCRIPTS_DEPENDENCIES ${WEBCORE_DIR}/platform/gtk/RenderThemeGtk.cpp)
 
+set(WebCore_SDP_PROCESSOR_SCRIPTS ${WEBCORE_DIR}/Modules/mediastream/sdp.js)
+set(WebCore_SDP_PROCESSOR_SCRIPTS_DEPENDENCIES ${WEBCORE_DIR}/platform/mediastream/gtk/SDPProcessorScriptResourceGtk.cpp)
+
 list(APPEND WebCore_LIBRARIES
     ${ATK_LIBRARIES}
     ${CAIRO_LIBRARIES}
@@ -271,24 +262,25 @@ list(APPEND WebCore_LIBRARIES
     ${GLIB_GMODULE_LIBRARIES}
     ${GLIB_GOBJECT_LIBRARIES}
     ${GLIB_LIBRARIES}
+    ${GNUTLS_LIBRARIES}
     ${GUDEV_LIBRARIES}
     ${HARFBUZZ_LIBRARIES}
-    ${JPEG_LIBRARIES}
     ${LIBSECRET_LIBRARIES}
     ${LIBSOUP_LIBRARIES}
     ${LIBXML2_LIBRARIES}
     ${LIBXSLT_LIBRARIES}
     ${HYPHEN_LIBRARIES}
-    ${PNG_LIBRARIES}
     ${SQLITE_LIBRARIES}
-    ${WEBP_LIBRARIES}
     ${X11_X11_LIB}
     ${X11_Xcomposite_LIB}
     ${X11_Xdamage_LIB}
     ${X11_Xrender_LIB}
     ${X11_Xt_LIB}
     ${ZLIB_LIBRARIES}
+    WTF
 )
+
+list(APPEND WebCoreTestSupport_LIBRARIES WTF)
 
 list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
     ${ATK_INCLUDE_DIRS}
@@ -298,6 +290,7 @@ list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
     ${GEOCLUE_INCLUDE_DIRS}
     ${GIO_UNIX_INCLUDE_DIRS}
     ${GLIB_INCLUDE_DIRS}
+    ${GNUTLS_INCLUDE_DIRS}
     ${GUDEV_INCLUDE_DIRS}
     ${HARFBUZZ_INCLUDE_DIRS}
     ${LIBSECRET_INCLUDE_DIRS}
@@ -305,125 +298,8 @@ list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
     ${LIBXML2_INCLUDE_DIR}
     ${LIBXSLT_INCLUDE_DIR}
     ${SQLITE_INCLUDE_DIR}
-    ${WEBP_INCLUDE_DIRS}
     ${ZLIB_INCLUDE_DIRS}
 )
-
-if (ENABLE_VIDEO OR ENABLE_WEB_AUDIO)
-    list(APPEND WebCore_INCLUDE_DIRECTORIES
-        ${WEBCORE_DIR}/platform/graphics/gstreamer
-    )
-
-    list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
-        ${GSTREAMER_INCLUDE_DIRS}
-        ${GSTREAMER_BASE_INCLUDE_DIRS}
-        ${GSTREAMER_APP_INCLUDE_DIRS}
-        ${GSTREAMER_PBUTILS_INCLUDE_DIRS}
-    )
-
-    list(APPEND WebCore_LIBRARIES
-        ${GSTREAMER_APP_LIBRARIES}
-        ${GSTREAMER_BASE_LIBRARIES}
-        ${GSTREAMER_LIBRARIES}
-        ${GSTREAMER_PBUTILS_LIBRARIES}
-        ${GSTREAMER_AUDIO_LIBRARIES}
-    )
-    # Avoiding a GLib deprecation warning due to GStreamer API using deprecated classes.
-    set_source_files_properties(platform/audio/gstreamer/WebKitWebAudioSourceGStreamer.cpp PROPERTIES COMPILE_DEFINITIONS "GLIB_DISABLE_DEPRECATION_WARNINGS=1")
-endif ()
-
-if (ENABLE_VIDEO)
-    list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
-        ${GSTREAMER_TAG_INCLUDE_DIRS}
-        ${GSTREAMER_VIDEO_INCLUDE_DIRS}
-    )
-    list(APPEND WebCore_LIBRARIES
-        ${GSTREAMER_TAG_LIBRARIES}
-        ${GSTREAMER_VIDEO_LIBRARIES}
-    )
-
-    if (USE_GSTREAMER_MPEGTS)
-        list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
-            ${GSTREAMER_MPEGTS_INCLUDE_DIRS}
-        )
-
-        list(APPEND WebCore_LIBRARIES
-            ${GSTREAMER_MPEGTS_LIBRARIES}
-        )
-    endif ()
-
-    if (USE_GSTREAMER_GL)
-        list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
-            ${GSTREAMER_GL_INCLUDE_DIRS}
-        )
-
-        list(APPEND WebCore_LIBRARIES
-            ${GSTREAMER_GL_LIBRARIES}
-        )
-    endif ()
-endif ()
-
-if (ENABLE_WEB_AUDIO)
-    list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
-        ${WEBCORE_DIR}/platform/audio/gstreamer
-        ${GSTREAMER_AUDIO_INCLUDE_DIRS}
-        ${GSTREAMER_FFT_INCLUDE_DIRS}
-    )
-    list(APPEND WebCore_LIBRARIES
-        ${GSTREAMER_FFT_LIBRARIES}
-    )
-endif ()
-
-if (ENABLE_MEDIA_STREAM)
-    list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
-        ${OPENWEBRTC_INCLUDE_DIRS}
-    )
-    list(APPEND WebCore_LIBRARIES
-        ${OPENWEBRTC_LIBRARIES}
-    )
-endif ()
-
-if (USE_TEXTURE_MAPPER)
-    list(APPEND WebCore_INCLUDE_DIRECTORIES
-        "${WEBCORE_DIR}/platform/graphics/texmap"
-    )
-    list(APPEND WebCore_SOURCES
-        platform/graphics/texmap/BitmapTexture.cpp
-        platform/graphics/texmap/BitmapTextureGL.cpp
-        platform/graphics/texmap/BitmapTexturePool.cpp
-        platform/graphics/texmap/GraphicsLayerTextureMapper.cpp
-        platform/graphics/texmap/TextureMapperGL.cpp
-        platform/graphics/texmap/TextureMapperShaderProgram.cpp
-    )
-endif ()
-
-if (ENABLE_THREADED_COMPOSITOR)
-    list(APPEND WebCore_INCLUDE_DIRECTORIES
-        "${WEBCORE_DIR}/page/scrolling/coordinatedgraphics"
-        "${WEBCORE_DIR}/platform/graphics/texmap/coordinated"
-        "${WEBCORE_DIR}/platform/graphics/texmap/threadedcompositor"
-    )
-    list(APPEND WebCore_SOURCES
-        page/scrolling/ScrollingStateStickyNode.cpp
-        page/scrolling/ScrollingThread.cpp
-        page/scrolling/ScrollingTreeNode.cpp
-        page/scrolling/ScrollingTreeScrollingNode.cpp
-
-        page/scrolling/coordinatedgraphics/ScrollingCoordinatorCoordinatedGraphics.cpp
-        page/scrolling/coordinatedgraphics/ScrollingStateNodeCoordinatedGraphics.cpp
-        page/scrolling/coordinatedgraphics/ScrollingStateScrollingNodeCoordinatedGraphics.cpp
-
-        platform/graphics/texmap/coordinated/AreaAllocator.cpp
-        platform/graphics/texmap/coordinated/CompositingCoordinator.cpp
-        platform/graphics/texmap/coordinated/CoordinatedGraphicsLayer.cpp
-        platform/graphics/texmap/coordinated/CoordinatedImageBacking.cpp
-        platform/graphics/texmap/coordinated/CoordinatedSurface.cpp
-        platform/graphics/texmap/coordinated/Tile.cpp
-        platform/graphics/texmap/coordinated/TiledBackingStore.cpp
-        platform/graphics/texmap/coordinated/UpdateAtlas.cpp
-    )
-endif ()
-
 
 if (USE_OPENGL_ES_2)
     list(APPEND WebCore_SOURCES
@@ -467,21 +343,22 @@ if (ENABLE_PLUGIN_PROCESS_GTK2)
     )
 endif ()
 
-# Wayland protocol extension.
-add_custom_command(
-    OUTPUT ${DERIVED_SOURCES_WEBCORE_DIR}/WebKitGtkWaylandClientProtocol.c
-    DEPENDS ${WEBCORE_DIR}/platform/graphics/wayland/WebKitGtkWaylandClientProtocol.xml
-    COMMAND wayland-scanner server-header < ${WEBCORE_DIR}/platform/graphics/wayland/WebKitGtkWaylandClientProtocol.xml > ${DERIVED_SOURCES_WEBCORE_DIR}/WebKitGtkWaylandServerProtocol.h
-    COMMAND wayland-scanner client-header < ${WEBCORE_DIR}/platform/graphics/wayland/WebKitGtkWaylandClientProtocol.xml > ${DERIVED_SOURCES_WEBCORE_DIR}/WebKitGtkWaylandClientProtocol.h
-    COMMAND wayland-scanner code < ${WEBCORE_DIR}/platform/graphics/wayland/WebKitGtkWaylandClientProtocol.xml > ${DERIVED_SOURCES_WEBCORE_DIR}/WebKitGtkWaylandClientProtocol.c
-)
-
 if (ENABLE_WAYLAND_TARGET)
-    list(APPEND WebCorePlatformGTK_SOURCES
+    # Wayland protocol extension.
+    add_custom_command(
+        OUTPUT ${DERIVED_SOURCES_WEBCORE_DIR}/WebKitGtkWaylandClientProtocol.c
+        DEPENDS ${WEBCORE_DIR}/platform/graphics/wayland/WebKitGtkWaylandClientProtocol.xml
+        COMMAND wayland-scanner server-header < ${WEBCORE_DIR}/platform/graphics/wayland/WebKitGtkWaylandClientProtocol.xml > ${DERIVED_SOURCES_WEBCORE_DIR}/WebKitGtkWaylandServerProtocol.h
+        COMMAND wayland-scanner client-header < ${WEBCORE_DIR}/platform/graphics/wayland/WebKitGtkWaylandClientProtocol.xml > ${DERIVED_SOURCES_WEBCORE_DIR}/WebKitGtkWaylandClientProtocol.h
+        COMMAND wayland-scanner code < ${WEBCORE_DIR}/platform/graphics/wayland/WebKitGtkWaylandClientProtocol.xml > ${DERIVED_SOURCES_WEBCORE_DIR}/WebKitGtkWaylandClientProtocol.c
+    )
+
+    list(APPEND WebCore_SOURCES
         platform/graphics/wayland/PlatformDisplayWayland.cpp
         platform/graphics/wayland/WaylandEventSource.cpp
         platform/graphics/wayland/WaylandSurface.cpp
-
+    )
+    list(APPEND WebCore_DERIVED_SOURCES
         ${DERIVED_SOURCES_WEBCORE_DIR}/WebKitGtkWaylandClientProtocol.c
     )
 
@@ -535,6 +412,8 @@ list(APPEND GObjectDOMBindings_SOURCES
     bindings/gobject/WebKitDOMObject.cpp
     bindings/gobject/WebKitDOMPrivate.cpp
     bindings/gobject/WebKitDOMXPathNSResolver.cpp
+    ${DERIVED_SOURCES_GOBJECT_DOM_BINDINGS_DIR}/webkitdomautocleanups.h
+    ${DERIVED_SOURCES_GOBJECT_DOM_BINDINGS_DIR}/webkitdomautocleanups-unstable.h
     ${DERIVED_SOURCES_GOBJECT_DOM_BINDINGS_DIR}/webkitdomdefines.h
     ${DERIVED_SOURCES_GOBJECT_DOM_BINDINGS_DIR}/webkitdomdefines-unstable.h
     ${DERIVED_SOURCES_GOBJECT_DOM_BINDINGS_DIR}/webkitdom.h
@@ -559,7 +438,6 @@ list(APPEND GObjectDOMBindingsStable_IDL_FILES
     dom/DocumentFragment.idl
     dom/DocumentType.idl
     dom/Element.idl
-    dom/EntityReference.idl
     dom/Event.idl
     dom/KeyboardEvent.idl
     dom/MouseEvent.idl
@@ -583,7 +461,6 @@ list(APPEND GObjectDOMBindingsStable_IDL_FILES
     html/HTMLAreaElement.idl
     html/HTMLBRElement.idl
     html/HTMLBaseElement.idl
-    html/HTMLBaseFontElement.idl
     html/HTMLBodyElement.idl
     html/HTMLButtonElement.idl
     html/HTMLCanvasElement.idl
@@ -655,6 +532,7 @@ list(APPEND GObjectDOMBindingsUnstable_IDL_FILES
 
     Modules/mediastream/MediaDevices.idl
     Modules/mediastream/NavigatorMediaDevices.idl
+    Modules/mediastream/MediaTrackSupportedConstraints.idl
 
     Modules/quota/StorageInfo.idl
     Modules/quota/StorageQuota.idl
@@ -667,7 +545,7 @@ list(APPEND GObjectDOMBindingsUnstable_IDL_FILES
 
     Modules/webdatabase/Database.idl
 
-    css/DOMWindowCSS.idl
+    css/DOMCSSNamespace.idl
     css/MediaQueryList.idl
     css/StyleMedia.idl
 
@@ -678,7 +556,6 @@ list(APPEND GObjectDOMBindingsUnstable_IDL_FILES
     dom/Touch.idl
     dom/WebKitNamedFlow.idl
 
-    html/DOMSettableTokenList.idl
     html/DOMTokenList.idl
     html/HTMLDetailsElement.idl
     html/HTMLKeygenElement.idl
@@ -691,7 +568,6 @@ list(APPEND GObjectDOMBindingsUnstable_IDL_FILES
     loader/appcache/DOMApplicationCache.idl
 
     page/BarProp.idl
-    page/DOMSecurityPolicy.idl
     page/DOMSelection.idl
     page/History.idl
     page/Location.idl
@@ -714,6 +590,14 @@ list(APPEND GObjectDOMBindingsUnstable_IDL_FILES
 
     storage/Storage.idl
 )
+
+if (ENABLE_WEB_ANIMATIONS)
+    list(APPEND GObjectDOMBindingsUnstable_IDL_FILES
+        animation/AnimationTimeline.idl
+        animation/DocumentAnimation.idl
+        animation/DocumentTimeline.idl
+    )
+endif ()
 
 if (ENABLE_VIDEO OR ENABLE_WEB_AUDIO)
     list(APPEND GObjectDOMBindingsUnstable_IDL_FILES
@@ -751,6 +635,7 @@ set(GObjectDOMBindings_STATIC_CLASS_LIST Custom Deprecated EventTarget NodeFilte
 
 set(GObjectDOMBindingsStable_CLASS_LIST ${GObjectDOMBindings_STATIC_CLASS_LIST})
 set(GObjectDOMBindingsStable_INSTALLED_HEADERS
+     ${DERIVED_SOURCES_GOBJECT_DOM_BINDINGS_DIR}/webkitdomautocleanups.h
      ${DERIVED_SOURCES_GOBJECT_DOM_BINDINGS_DIR}/webkitdomdefines.h
      ${DERIVED_SOURCES_GOBJECT_DOM_BINDINGS_DIR}/webkitdom.h
      ${WEBCORE_DIR}/bindings/gobject/WebKitDOMCustom.h
@@ -762,6 +647,7 @@ set(GObjectDOMBindingsStable_INSTALLED_HEADERS
 )
 
 set(GObjectDOMBindingsUnstable_INSTALLED_HEADERS
+     ${DERIVED_SOURCES_GOBJECT_DOM_BINDINGS_DIR}/webkitdomautocleanups-unstable.h
      ${DERIVED_SOURCES_GOBJECT_DOM_BINDINGS_DIR}/webkitdomdefines-unstable.h
      ${WEBCORE_DIR}/bindings/gobject/WebKitDOMCustomUnstable.h
 )
@@ -801,6 +687,18 @@ add_custom_command(
     OUTPUT ${DERIVED_SOURCES_GOBJECT_DOM_BINDINGS_DIR}/webkitdom.h
     DEPENDS ${WEBCORE_DIR}/bindings/scripts/gobject-generate-headers.pl
     COMMAND echo ${GObjectDOMBindingsStable_CLASS_LIST} | ${PERL_EXECUTABLE} ${WEBCORE_DIR}/bindings/scripts/gobject-generate-headers.pl gdom > ${DERIVED_SOURCES_GOBJECT_DOM_BINDINGS_DIR}/webkitdom.h
+)
+
+add_custom_command(
+    OUTPUT ${DERIVED_SOURCES_GOBJECT_DOM_BINDINGS_DIR}/webkitdomautocleanups.h
+    DEPENDS ${WEBCORE_DIR}/bindings/scripts/gobject-generate-headers.pl
+    COMMAND echo ${GObjectDOMBindingsStable_CLASS_LIST} | ${PERL_EXECUTABLE} ${WEBCORE_DIR}/bindings/scripts/gobject-generate-headers.pl autocleanups > ${DERIVED_SOURCES_GOBJECT_DOM_BINDINGS_DIR}/webkitdomautocleanups.h
+)
+
+add_custom_command(
+    OUTPUT ${DERIVED_SOURCES_GOBJECT_DOM_BINDINGS_DIR}/webkitdomautocleanups-unstable.h
+    DEPENDS ${WEBCORE_DIR}/bindings/scripts/gobject-generate-headers.pl
+    COMMAND echo ${GObjectDOMBindingsUnstable_CLASS_LIST} | ${PERL_EXECUTABLE} ${WEBCORE_DIR}/bindings/scripts/gobject-generate-headers.pl autocleanups > ${DERIVED_SOURCES_GOBJECT_DOM_BINDINGS_DIR}/webkitdomautocleanups-unstable.h
 )
 
 # Some of the static headers are included by generated public headers with include <webkitdom/WebKitDOMFoo.h>.
@@ -886,6 +784,12 @@ list(REMOVE_ITEM GObjectDOMBindings_GIR_HEADERS
 # Propagate this variable to the parent scope, so that it can be used in other parts of the build.
 set(GObjectDOMBindings_GIR_HEADERS ${GObjectDOMBindings_GIR_HEADERS} PARENT_SCOPE)
 
+if (ENABLE_SMOOTH_SCROLLING)
+    list(APPEND WebCore_SOURCES
+        platform/ScrollAnimationSmooth.cpp
+    )
+endif ()
+
 if (ENABLE_SUBTLE_CRYPTO)
     list(APPEND WebCore_SOURCES
         crypto/CryptoAlgorithm.cpp
@@ -914,7 +818,6 @@ if (ENABLE_SUBTLE_CRYPTO)
         crypto/gnutls/CryptoAlgorithmRSASSA_PKCS1_v1_5GnuTLS.cpp
         crypto/gnutls/CryptoAlgorithmRSA_OAEPGnuTLS.cpp
         crypto/gnutls/CryptoAlgorithmRegistryGnuTLS.cpp
-        crypto/gnutls/CryptoDigestGnuTLS.cpp
         crypto/gnutls/CryptoKeyRSAGnuTLS.cpp
         crypto/gnutls/SerializedCryptoKeyWrapGnuTLS.cpp
 
@@ -923,12 +826,5 @@ if (ENABLE_SUBTLE_CRYPTO)
         crypto/keys/CryptoKeyDataRSAComponents.cpp
         crypto/keys/CryptoKeyHMAC.cpp
         crypto/keys/CryptoKeySerializationRaw.cpp
-    )
-
-    list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
-        ${GNUTLS_INCLUDE_DIRS}
-    )
-    list(APPEND WebCore_LIBRARIES
-        ${GNUTLS_LIBRARIES}
     )
 endif ()

@@ -55,29 +55,43 @@ typedef struct _node {
 	mode_t	st_mode;			/* mode */
 	u_long	st_flags;			/* flags */
 	nlink_t	st_nlink;			/* link count */
+	struct timespec st_birthtimespec;	/* birth time (creation time) */
+	struct timespec st_atimespec;		/* access time */
+	struct timespec st_ctimespec;		/* metadata modification time */
+	struct timespec st_ptimespec;		/* time added to parent folder */
+	char	*xattrsdigest;			/* digest of extended attributes */
+	ino_t	st_ino;				/* inode */
+	char	*acldigest;			/* digest of access control list */
 
-#define	F_CKSUM	0x0001				/* check sum */
-#define	F_DONE	0x0002				/* directory done */
-#define	F_GID	0x0004				/* gid */
-#define	F_GNAME	0x0008				/* group name */
-#define	F_IGN	0x0010				/* ignore */
-#define	F_MAGIC	0x0020				/* name has magic chars */
-#define	F_MODE	0x0040				/* mode */
-#define	F_NLINK	0x0080				/* number of links */
-#define	F_SIZE	0x0100				/* size */
-#define	F_SLINK	0x0200				/* link count */
-#define	F_TIME	0x0400				/* modification time */
-#define	F_TYPE	0x0800				/* file type */
-#define	F_UID	0x1000				/* uid */
-#define	F_UNAME	0x2000				/* user name */
-#define	F_VISIT	0x4000				/* file visited */
-#define F_MD5	0x8000				/* MD5 digest */
-#define F_NOCHANGE 0x10000			/* If owner/mode "wrong", do */
+#define	F_CKSUM		0x00000001		/* check sum */
+#define	F_DONE		0x00000002		/* directory done */
+#define	F_GID		0x00000004		/* gid */
+#define	F_GNAME		0x00000008		/* group name */
+#define	F_IGN		0x00000010		/* ignore */
+#define	F_MAGIC		0x00000020		/* name has magic chars */
+#define	F_MODE		0x00000040		/* mode */
+#define	F_NLINK		0x00000080		/* number of links */
+#define	F_SIZE		0x00000100		/* size */
+#define	F_SLINK		0x00000200		/* The file the symbolic link is expected to reference */
+#define	F_TIME		0x00000400		/* modification time (mtime) */
+#define	F_TYPE		0x00000800		/* file type */
+#define	F_UID		0x00001000		/* uid */
+#define	F_UNAME		0x00002000		/* user name */
+#define	F_VISIT		0x00004000		/* file visited */
+#define F_MD5		0x00008000		/* MD5 digest */
+#define F_NOCHANGE	0x00010000		/* If owner/mode "wrong", do */
 						/* not change */
-#define	F_SHA1	0x20000				/* SHA-1 digest */
-#define	F_RMD160 0x40000			/* RIPEMD160 digest */
-#define	F_FLAGS	0x80000				/* file flags */
-#define	F_SHA256	0x100000				/* SHA-256 digest */
+#define	F_SHA1		0x00020000		/* SHA-1 digest */
+#define	F_RMD160	0x00040000		/* RIPEMD160 digest */
+#define	F_FLAGS		0x00080000		/* file flags */
+#define	F_SHA256	0x00100000		/* SHA-256 digest */
+#define F_BTIME		0x00200000		/* creation time */
+#define F_ATIME		0x00400000		/* access time */
+#define F_CTIME		0x00800000		/* metadata modification time (ctime) */
+#define F_PTIME		0x01000000		/* time added to parent folder */
+#define F_XATTRS	0x02000000		/* digest of extended attributes */
+#define F_INODE		0x04000000		/* inode */
+#define F_ACL		0x08000000		/* digest of access control list */
 	u_int	flags;				/* items set */
 
 #define	F_BLOCK	0x001				/* block special */

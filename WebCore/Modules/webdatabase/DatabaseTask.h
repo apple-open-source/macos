@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2013, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,12 +28,11 @@
 #ifndef DatabaseTask_h
 #define DatabaseTask_h
 
-#include "DatabaseBackend.h"
 #include "DatabaseBasicTypes.h"
 #include "DatabaseError.h"
 #include "SQLTransactionBackend.h"
-#include <wtf/PassRefPtr.h>
-#include <wtf/Threading.h>
+#include <wtf/Condition.h>
+#include <wtf/Lock.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
@@ -59,8 +58,8 @@ public:
 
 private:
     bool m_taskCompleted;
-    Mutex m_synchronousMutex;
-    ThreadCondition m_synchronousCondition;
+    Lock m_synchronousMutex;
+    Condition m_synchronousCondition;
 #ifndef NDEBUG
     bool m_hasCheckedForTermination;
 #endif
@@ -71,25 +70,21 @@ class DatabaseTask {
 public:
     virtual ~DatabaseTask();
 
-#if PLATFORM(IOS)
-    virtual bool shouldPerformWhilePaused() const = 0;
-#endif
-
     void performTask();
 
-    DatabaseBackend* database() const { return m_database; }
+    Database& database() const { return m_database; }
 #ifndef NDEBUG
     bool hasSynchronizer() const { return m_synchronizer; }
     bool hasCheckedForTermination() const { return m_synchronizer->hasCheckedForTermination(); }
 #endif
 
 protected:
-    DatabaseTask(DatabaseBackend*, DatabaseTaskSynchronizer*);
+    DatabaseTask(Database&, DatabaseTaskSynchronizer*);
 
 private:
     virtual void doPerformTask() = 0;
 
-    DatabaseBackend* m_database;
+    Database& m_database;
     DatabaseTaskSynchronizer* m_synchronizer;
 
 #if !LOG_DISABLED
@@ -98,18 +93,14 @@ private:
 #endif
 };
 
-class DatabaseBackend::DatabaseOpenTask : public DatabaseTask {
+class DatabaseOpenTask : public DatabaseTask {
 public:
-    DatabaseOpenTask(DatabaseBackend*, bool setVersionInNewDatabase, DatabaseTaskSynchronizer*, DatabaseError&, String& errorMessage, bool& success);
-
-#if PLATFORM(IOS)
-    virtual bool shouldPerformWhilePaused() const override { return true; }
-#endif
+    DatabaseOpenTask(Database&, bool setVersionInNewDatabase, DatabaseTaskSynchronizer&, DatabaseError&, String& errorMessage, bool& success);
 
 private:
-    virtual void doPerformTask() override;
+    void doPerformTask() override;
 #if !LOG_DISABLED
-    virtual const char* debugTaskName() const override;
+    const char* debugTaskName() const override;
 #endif
 
     bool m_setVersionInNewDatabase;
@@ -118,54 +109,42 @@ private:
     bool& m_success;
 };
 
-class DatabaseBackend::DatabaseCloseTask : public DatabaseTask {
+class DatabaseCloseTask : public DatabaseTask {
 public:
-    DatabaseCloseTask(DatabaseBackend*, DatabaseTaskSynchronizer*);
-
-#if PLATFORM(IOS)
-    virtual bool shouldPerformWhilePaused() const override { return true; }
-#endif
+    DatabaseCloseTask(Database&, DatabaseTaskSynchronizer&);
 
 private:
-    virtual void doPerformTask() override;
+    void doPerformTask() override;
 #if !LOG_DISABLED
-    virtual const char* debugTaskName() const override;
+    const char* debugTaskName() const override;
 #endif
 };
 
-class DatabaseBackend::DatabaseTransactionTask : public DatabaseTask {
+class DatabaseTransactionTask : public DatabaseTask {
 public:
-    explicit DatabaseTransactionTask(PassRefPtr<SQLTransactionBackend>);
+    explicit DatabaseTransactionTask(RefPtr<SQLTransactionBackend>&&);
     virtual ~DatabaseTransactionTask();
-
-#if PLATFORM(IOS)
-    virtual bool shouldPerformWhilePaused() const override;
-#endif
 
     SQLTransactionBackend* transaction() const { return m_transaction.get(); }
 
 private:
-    virtual void doPerformTask() override;
+    void doPerformTask() override;
 #if !LOG_DISABLED
-    virtual const char* debugTaskName() const override;
+    const char* debugTaskName() const override;
 #endif
 
     RefPtr<SQLTransactionBackend> m_transaction;
     bool m_didPerformTask;
 };
 
-class DatabaseBackend::DatabaseTableNamesTask : public DatabaseTask {
+class DatabaseTableNamesTask : public DatabaseTask {
 public:
-    DatabaseTableNamesTask(DatabaseBackend*, DatabaseTaskSynchronizer*, Vector<String>& names);
-
-#if PLATFORM(IOS)
-    virtual bool shouldPerformWhilePaused() const override { return true; }
-#endif
+    DatabaseTableNamesTask(Database&, DatabaseTaskSynchronizer&, Vector<String>& names);
 
 private:
-    virtual void doPerformTask() override;
+    void doPerformTask() override;
 #if !LOG_DISABLED
-    virtual const char* debugTaskName() const override;
+    const char* debugTaskName() const override;
 #endif
 
     Vector<String>& m_tableNames;

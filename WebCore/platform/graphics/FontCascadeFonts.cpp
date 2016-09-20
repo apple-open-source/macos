@@ -35,8 +35,68 @@
 
 namespace WebCore {
 
+class MixedFontGlyphPage {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+    MixedFontGlyphPage(const GlyphPage* initialPage)
+    {
+        if (initialPage) {
+            for (unsigned i = 0; i < GlyphPage::size; ++i)
+                setGlyphDataForIndex(i, initialPage->glyphDataForIndex(i));
+        }
+    }
 
-FontCascadeFonts::FontCascadeFonts(PassRefPtr<FontSelector> fontSelector)
+    GlyphData glyphDataForCharacter(UChar32 c) const
+    {
+        unsigned index = GlyphPage::indexForCharacter(c);
+        ASSERT_WITH_SECURITY_IMPLICATION(index < GlyphPage::size);
+        return { m_glyphs[index], m_fonts[index] };
+    }
+
+    void setGlyphDataForCharacter(UChar32 c, GlyphData glyphData)
+    {
+        setGlyphDataForIndex(GlyphPage::indexForCharacter(c), glyphData);
+    }
+
+private:
+    void setGlyphDataForIndex(unsigned index, const GlyphData& glyphData)
+    {
+        ASSERT_WITH_SECURITY_IMPLICATION(index < GlyphPage::size);
+        m_glyphs[index] = glyphData.glyph;
+        m_fonts[index] = glyphData.font;
+    }
+
+    Glyph m_glyphs[GlyphPage::size] { };
+    const Font* m_fonts[GlyphPage::size] { };
+};
+
+GlyphData FontCascadeFonts::GlyphPageCacheEntry::glyphDataForCharacter(UChar32 character)
+{
+    ASSERT(!(m_singleFont && m_mixedFont));
+    if (m_singleFont)
+        return m_singleFont->glyphDataForCharacter(character);
+    if (m_mixedFont)
+        return m_mixedFont->glyphDataForCharacter(character);
+    return 0;
+}
+
+void FontCascadeFonts::GlyphPageCacheEntry::setGlyphDataForCharacter(UChar32 character, GlyphData glyphData)
+{
+    ASSERT(!glyphDataForCharacter(character).glyph);
+    if (!m_mixedFont) {
+        m_mixedFont = std::make_unique<MixedFontGlyphPage>(m_singleFont.get());
+        m_singleFont = nullptr;
+    }
+    m_mixedFont->setGlyphDataForCharacter(character, glyphData);
+}
+
+void FontCascadeFonts::GlyphPageCacheEntry::setSingleFontPage(RefPtr<GlyphPage>&& page)
+{
+    ASSERT(isNull());
+    m_singleFont = page;
+}
+
+FontCascadeFonts::FontCascadeFonts(RefPtr<FontSelector>&& fontSelector)
     : m_cachedPrimaryFont(nullptr)
     , m_fontSelector(fontSelector)
     , m_fontSelectorVersion(m_fontSelector ? m_fontSelector->version() : 0)
@@ -57,12 +117,12 @@ FontCascadeFonts::~FontCascadeFonts()
 {
 }
 
-void FontCascadeFonts::determinePitch(const FontDescription& description)
+void FontCascadeFonts::determinePitch(const FontCascadeDescription& description)
 {
     auto& primaryRanges = realizeFallbackRangesAt(description, 0);
     unsigned numRanges = primaryRanges.size();
     if (numRanges == 1)
-        m_pitch = primaryRanges.rangeAt(0).font().pitch();
+        m_pitch = primaryRanges.fontForFirstRange().pitch();
     else
         m_pitch = VariablePitch;
 }
@@ -76,7 +136,7 @@ bool FontCascadeFonts::isLoadingCustomFonts() const
     return false;
 }
 
-static FontRanges realizeNextFallback(const FontDescription& description, unsigned& index, FontSelector* fontSelector)
+static FontRanges realizeNextFallback(const FontCascadeDescription& description, unsigned& index, FontSelector* fontSelector)
 {
     ASSERT(index < description.familyCount());
 
@@ -91,15 +151,19 @@ static FontRanges realizeNextFallback(const FontDescription& description, unsign
                 return ranges;
         }
         if (auto font = fontCache.fontForFamily(description, family))
-            return FontRanges(WTF::move(font));
+            return FontRanges(WTFMove(font));
     }
     // We didn't find a font. Try to find a similar font using our own specific knowledge about our platform.
     // For example on OS X, we know to map any families containing the words Arabic, Pashto, or Urdu to the
     // Geeza Pro font.
-    return FontRanges(fontCache.similarFont(description));
+    for (auto& family : description.families()) {
+        if (auto font = fontCache.similarFont(description, family))
+            return FontRanges(WTFMove(font));
+    }
+    return { };
 }
 
-const FontRanges& FontCascadeFonts::realizeFallbackRangesAt(const FontDescription& description, unsigned index)
+const FontRanges& FontCascadeFonts::realizeFallbackRangesAt(const FontCascadeDescription& description, unsigned index)
 {
     if (index < m_realizedFallbackRanges.size())
         return m_realizedFallbackRanges[index];
@@ -221,7 +285,7 @@ static bool shouldIgnoreRotation(UChar32 character)
 #if PLATFORM(COCOA) || USE(CAIRO)
 static GlyphData glyphDataForCJKCharacterWithoutSyntheticItalic(UChar32 character, GlyphData& data)
 {
-    GlyphData nonItalicData = data.font->nonSyntheticItalicFont()->glyphDataForCharacter(character);
+    GlyphData nonItalicData = data.font->nonSyntheticItalicFont().glyphDataForCharacter(character);
     if (nonItalicData.font)
         return nonItalicData;
     return data;
@@ -230,8 +294,8 @@ static GlyphData glyphDataForCJKCharacterWithoutSyntheticItalic(UChar32 characte
     
 static GlyphData glyphDataForNonCJKCharacterWithGlyphOrientation(UChar32 character, NonCJKGlyphOrientation orientation, const GlyphData& data)
 {
-    if (orientation == NonCJKGlyphOrientationUpright || shouldIgnoreRotation(character)) {
-        GlyphData uprightData = data.font->uprightOrientationFont()->glyphDataForCharacter(character);
+    if (orientation == NonCJKGlyphOrientation::Upright || shouldIgnoreRotation(character)) {
+        GlyphData uprightData = data.font->uprightOrientationFont().glyphDataForCharacter(character);
         // If the glyphs are the same, then we know we can just use the horizontal glyph rotated vertically to be upright.
         if (data.glyph == uprightData.glyph)
             return data;
@@ -239,8 +303,8 @@ static GlyphData glyphDataForNonCJKCharacterWithGlyphOrientation(UChar32 charact
         // glyph, so we fall back to the upright data and use the horizontal glyph.
         if (uprightData.font)
             return uprightData;
-    } else if (orientation == NonCJKGlyphOrientationVerticalRight) {
-        GlyphData verticalRightData = data.font->verticalRightOrientationFont()->glyphDataForCharacter(character);
+    } else if (orientation == NonCJKGlyphOrientation::Mixed) {
+        GlyphData verticalRightData = data.font->verticalRightOrientationFont().glyphDataForCharacter(character);
         // If the glyphs are distinct, we will make the assumption that the font has a vertical-right glyph baked
         // into it.
         if (data.glyph != verticalRightData.glyph)
@@ -252,7 +316,7 @@ static GlyphData glyphDataForNonCJKCharacterWithGlyphOrientation(UChar32 charact
     return data;
 }
 
-GlyphData FontCascadeFonts::glyphDataForSystemFallback(UChar32 c, const FontDescription& description, FontVariant variant)
+GlyphData FontCascadeFonts::glyphDataForSystemFallback(UChar32 c, const FontCascadeDescription& description, FontVariant variant)
 {
     // System fallback is character-dependent.
     auto& primaryRanges = realizeFallbackRangesAt(description, 0);
@@ -260,7 +324,7 @@ GlyphData FontCascadeFonts::glyphDataForSystemFallback(UChar32 c, const FontDesc
     if (!originalFont)
         originalFont = &primaryRanges.fontForFirstRange();
 
-    RefPtr<Font> systemFallbackFont = originalFont->systemFallbackFontForCharacter(c, description, m_isForPlatformFont);
+    auto systemFallbackFont = originalFont->systemFallbackFontForCharacter(c, description, m_isForPlatformFont);
     if (!systemFallbackFont)
         return GlyphData();
 
@@ -284,12 +348,12 @@ GlyphData FontCascadeFonts::glyphDataForSystemFallback(UChar32 c, const FontDesc
 
     // Keep the system fallback fonts we use alive.
     if (fallbackGlyphData.glyph)
-        m_systemFallbackFontSet.add(systemFallbackFont.release());
+        m_systemFallbackFontSet.add(WTFMove(systemFallbackFont));
 
     return fallbackGlyphData;
 }
 
-GlyphData FontCascadeFonts::glyphDataForVariant(UChar32 c, const FontDescription& description, FontVariant variant, unsigned fallbackIndex)
+GlyphData FontCascadeFonts::glyphDataForVariant(UChar32 c, const FontCascadeDescription& description, FontVariant variant, unsigned fallbackIndex)
 {
     while (true) {
         auto& fontRanges = realizeFallbackRangesAt(description, fallbackIndex++);
@@ -300,17 +364,15 @@ GlyphData FontCascadeFonts::glyphDataForVariant(UChar32 c, const FontDescription
             continue;
         // The variantFont function should not normally return 0.
         // But if it does, we will just render the capital letter big.
-        RefPtr<Font> variantFont = data.font->variantFont(description, variant);
-        if (!variantFont)
-            return data;
-
-        return variantFont->glyphDataForCharacter(c);
+        if (const Font* variantFont = data.font->variantFont(description, variant))
+            return variantFont->glyphDataForCharacter(c);
+        return data;
     }
 
     return glyphDataForSystemFallback(c, description, variant);
 }
 
-GlyphData FontCascadeFonts::glyphDataForNormalVariant(UChar32 c, const FontDescription& description)
+GlyphData FontCascadeFonts::glyphDataForNormalVariant(UChar32 c, const FontCascadeDescription& description)
 {
     for (unsigned fallbackIndex = 0; ; ++fallbackIndex) {
         auto& fontRanges = realizeFallbackRangesAt(description, fallbackIndex);
@@ -348,20 +410,17 @@ static RefPtr<GlyphPage> glyphPageFromFontRanges(unsigned pageNumber, const Font
         auto& range = fontRanges.rangeAt(i);
         if (range.to()) {
             if (range.from() <= pageRangeFrom && pageRangeTo <= range.to())
-                font = &range.font();
+                font = range.font();
             break;
         }
     }
-    if (!font)
-        return nullptr;
-
-    if (font->platformData().orientation() == Vertical)
+    if (!font || font->platformData().orientation() == Vertical)
         return nullptr;
 
     return const_cast<GlyphPage*>(font->glyphPage(pageNumber));
 }
 
-GlyphData FontCascadeFonts::glyphDataForCharacter(UChar32 c, const FontDescription& description, FontVariant variant)
+GlyphData FontCascadeFonts::glyphDataForCharacter(UChar32 c, const FontCascadeDescription& description, FontVariant variant)
 {
     ASSERT(isMainThread());
     ASSERT(variant != AutoVariant);
@@ -371,20 +430,20 @@ GlyphData FontCascadeFonts::glyphDataForCharacter(UChar32 c, const FontDescripti
 
     const unsigned pageNumber = c / GlyphPage::size;
 
-    RefPtr<GlyphPage>& cachedPage = pageNumber ? m_cachedPages.add(pageNumber, nullptr).iterator->value : m_cachedPageZero;
-    if (!cachedPage)
-        cachedPage = glyphPageFromFontRanges(pageNumber, realizeFallbackRangesAt(description, 0));
+    auto& cacheEntry = pageNumber ? m_cachedPages.add(pageNumber, GlyphPageCacheEntry()).iterator->value : m_cachedPageZero;
 
-    GlyphData glyphData = cachedPage ? cachedPage->glyphDataForCharacter(c) : GlyphData();
+    // Initialize cache with a full page of glyph mappings from a single font.
+    if (cacheEntry.isNull())
+        cacheEntry.setSingleFontPage(glyphPageFromFontRanges(pageNumber, realizeFallbackRangesAt(description, 0)));
+
+    GlyphData glyphData = cacheEntry.glyphDataForCharacter(c);
     if (!glyphData.glyph) {
-        if (!cachedPage)
-            cachedPage = GlyphPage::createForMixedFonts();
-        else if (cachedPage->isImmutable())
-            cachedPage = GlyphPage::createCopyForMixedFonts(*cachedPage);
-
+        // No glyph, resolve per-character.
         glyphData = glyphDataForNormalVariant(c, description);
-        cachedPage->setGlyphDataForCharacter(c, glyphData.glyph, glyphData.font);
+        // Cache the results.
+        cacheEntry.setGlyphDataForCharacter(c, glyphData);
     }
+
     return glyphData;
 }
 
@@ -393,10 +452,10 @@ void FontCascadeFonts::pruneSystemFallbacks()
     if (m_systemFallbackFontSet.isEmpty())
         return;
     // Mutable glyph pages may reference fallback fonts.
-    if (m_cachedPageZero && !m_cachedPageZero->isImmutable())
-        m_cachedPageZero = nullptr;
-    m_cachedPages.removeIf([](decltype(m_cachedPages)::KeyValuePairType& keyAndValue) {
-        return !keyAndValue.value->isImmutable();
+    if (m_cachedPageZero.isMixedFont())
+        m_cachedPageZero = { };
+    m_cachedPages.removeIf([](auto& keyAndValue) {
+        return keyAndValue.value.isMixedFont();
     });
     m_systemFallbackFontSet.clear();
 }

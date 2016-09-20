@@ -52,7 +52,7 @@
 /*	and re-opened after the specified delay, and \fBposttls-finger\fR(1)
 /*	then reports whether the cached TLS session was re-used.
 /*
-/*	When the destination is a load-balancer, it may be distributing
+/*	When the destination is a load balancer, it may be distributing
 /*	load between multiple server caches. Typically, each server returns
 /*	its unique name in its EHLO response. If, upon reconnecting with
 /*	\fB-r\fR, a new server name is detected, another session is cached
@@ -115,6 +115,12 @@
 /* .IP "\fB-h \fIhost_lookup\fR (default: \fBdns\fR)"
 /*	The hostname lookup methods used for the connection.  See the
 /*	documentation of smtp_host_lookup for syntax and semantics.
+/* .IP "\fB-k \fIcertfile\fR (default: \fIkeyfile\fR)\fR"
+/*	File with PEM-encoded TLS client certificate chain. This
+/*	defaults to \fIkeyfile\fR if one is specified.
+/* .IP "\fB-K \fIkeyfile\fR (default: \fIcertfile\fR)"
+/*	File with PEM-encoded TLS client private key.
+/*	This defaults to \fIcertfile\fR if one is specified.
 /* .IP "\fB-l \fIlevel\fR (default: \fBdane\fR or \fBsecure\fR)"
 /*	The security level for the connection, default \fBdane\fR or
 /*	\fBsecure\fR depending on whether DNSSEC is available.  For syntax
@@ -166,7 +172,7 @@
 /* .IP "\fBuntrusted\fR"
 /*	Logs trust chain verification problems.  This is turned on
 /*	automatically at security levels that use peer names signed
-/*	by certificate authorities to validate certificates.  So while
+/*	by Certification Authorities to validate certificates.  So while
 /*	this setting is recognized, you should never need to set it
 /*	explicitly.
 /* .IP "\fBpeercert\fR"
@@ -192,11 +198,16 @@
 /* .IP "\fB-m \fIcount\fR (default: \fB5\fR)"
 /*	When the \fB-r \fIdelay\fR option is specified, the \fB-m\fR option
 /*	determines the maximum number of reconnect attempts to use with
-/*	a server behind a load-balacer, to see whether connection caching
+/*	a server behind a load balancer, to see whether connection caching
 /*	is likely to be effective for this destination.  Some MTAs
 /*	don't expose the underlying server identity in their EHLO
 /*	response; with these servers there will never be more than
 /*	1 reconnection attempt.
+/* .IP "\fB-M \fIinsecure_mx_policy\fR (default: \fBdane\fR)"
+/*	The TLS policy for MX hosts with "secure" TLSA records when the
+/*	nexthop destination security level is \fBdane\fR, but the MX
+/*	record was found via an "insecure" MX lookup.  See the main.cf
+/*	documentation for smtp_tls_insecure_mx_policy for details.
 /* .IP "\fB-o \fIname=value\fR"
 /*	Specify zero or more times to override the value of the main.cf
 /*	parameter \fIname\fR with \fIvalue\fR.  Possible use-cases include
@@ -210,7 +221,7 @@
 /*	SMTP server certificate verification.  By default no CApath is used
 /*	and no public CAs are trusted.
 /* .IP "\fB-r \fIdelay\fR"
-/*	With a cachable TLS session, disconnect and reconnect after \fIdelay\fR
+/*	With a cacheable TLS session, disconnect and reconnect after \fIdelay\fR
 /*	seconds. Report whether the session is re-used. Retry if a new server
 /*	is encountered, up to 5 times or as specified with the \fB-m\fR option.
 /*	By default reconnection is disabled, specify a positive delay to
@@ -226,8 +237,14 @@
 /* .IP "\fB-T \fItimeout\fR (default: \fB30\fR)"
 /*	The SMTP/LMTP command timeout for EHLO/LHLO, STARTTLS and QUIT.
 /* .IP "\fB-v\fR"
-/*	Enable verose Postfix logging.  Specify more than once to increase
+/*	Enable verbose Postfix logging.  Specify more than once to increase
 /*	the level of verbose logging.
+/* .IP "\fB-w\fR"
+/*	Enable outgoing TLS wrapper mode, or SMTPS support.  This is typically
+/*	provided on port 465 by servers that are compatible with the ad-hoc
+/*	SMTP in SSL protocol, rather than the standard STARTTLS protocol.
+/*	The destination \fIdomain\fR:\fIport\fR should of course provide such
+/*	a service.
 /* .IP "[\fBinet:\fR]\fIdomain\fR[:\fIport\fR]"
 /*	Connect via TCP to domain \fIdomain\fR, port \fIport\fR. The default
 /*	port is \fBsmtp\fR (or 24 with LMTP).  With SMTP an MX lookup is
@@ -302,6 +319,10 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#ifdef STRCASECMP_IN_STRINGS_H
+#include <strings.h>
+#endif
+
  /*
   * Utility library.
   */
@@ -323,6 +344,7 @@
 #include <sane_connect.h>
 #include <myaddrinfo.h>
 #include <sock_addr.h>
+#include <midna_domain.h>
 
 #define STR(x)		vstring_str(x)
 
@@ -420,10 +442,13 @@ typedef struct STATE {
     VSTRING *buffer;			/* Response buffer */
     VSTREAM *stream;			/* Open connection */
     int     level;			/* TLS security level */
+    int     wrapper_mode;		/* SMTPS support */
 #ifdef USE_TLS
     char   *mdalg;			/* fingerprint digest algorithm */
     char   *CAfile;			/* Trusted public CAs */
     char   *CApath;			/* Trusted public CAs */
+    char   *certfile;			/* TLS client certificate file */
+    char   *keyfile;			/* TLS client key file */
     ARGV   *match;			/* match arguments */
     int     print_trust;		/* -C option */
     BIO    *tls_bio;			/* BIO wrapper for stdout */
@@ -433,6 +458,7 @@ typedef struct STATE {
     TLS_DANE *ddane;			/* DANE TLSA from DNS */
     char   *grade;			/* Minimum cipher grade */
     char   *protocols;			/* Protocol inclusion/exclusion */
+    int     mxinsec_level;		/* DANE for insecure MX RRs? */
 #endif
     OPTIONS options;			/* JCL */
 } STATE;
@@ -453,7 +479,7 @@ typedef struct {			/* server response */
 
 /* command - send an SMTP command */
 
-static void command(STATE *state, int verbose, char *fmt,...)
+static void PRINTFLIKE(3, 4) command(STATE *state, int verbose, char *fmt,...)
 {
     VSTREAM *stream = state->stream;
     VSTRING *buf;
@@ -497,7 +523,7 @@ static RESPONSE *response(STATE *state, int verbose)
      */
     if (rdata.buf == 0) {
 	rdata.buf = vstring_alloc(100);
-	vstring_ctl(rdata.buf, VSTRING_CTL_MAXLEN, (ssize_t) var_line_limit, 0);
+	vstring_ctl(rdata.buf, CA_VSTRING_CTL_MAXLEN(var_line_limit), 0);
     }
 
     /*
@@ -544,6 +570,33 @@ static char *exception_text(int except)
     default:
 	msg_panic("exception_text: unknown exception %d", except);
     }
+}
+
+/* greeting - read server's 220 greeting */
+
+static int greeting(STATE *state)
+{
+    VSTREAM *stream = state->stream;
+    int     except;
+    RESPONSE *resp;
+
+    /*
+     * Prepare for disaster.
+     */
+    smtp_stream_setup(stream, conn_tmout, 1);
+    if ((except = vstream_setjmp(stream)) != 0) {
+	msg_info("%s while reading server greeting", exception_text(except));
+	return (1);
+    }
+
+    /*
+     * Read and parse the server's SMTP greeting banner.
+     */
+    if (((resp = response(state, 1))->code / 100) != 2) {
+	msg_info("SMTP service not available: %d %s", resp->code, resp->str);
+	return (1);
+    }
+    return (0);
 }
 
 /* ehlo - send EHLO/LHLO */
@@ -646,26 +699,27 @@ static int starttls(STATE *state)
     VSTREAM *stream = state->stream;
     TLS_CLIENT_START_PROPS tls_props;
 
-    /* SMTP stream with deadline timeouts */
-    smtp_stream_setup(stream, smtp_tmout, 1);
-    if ((except = vstream_setjmp(stream)) != 0) {
-	msg_fatal("%s while sending STARTTLS", exception_text(except));
-	return (1);
+    if (state->wrapper_mode == 0) {
+	/* SMTP stream with deadline timeouts */
+	smtp_stream_setup(stream, smtp_tmout, 1);
+	if ((except = vstream_setjmp(stream)) != 0) {
+	    msg_fatal("%s while sending STARTTLS", exception_text(except));
+	    return (1);
+	}
+	command(state, state->pass == 1, "STARTTLS");
+
+	resp = response(state, state->pass == 1);
+	if (resp->code / 100 != 2) {
+	    msg_info("STARTTLS rejected: %d %s", resp->code, resp->str);
+	    return (1);
+	}
+
+	/*
+	 * Discard any plain-text data that may be piggybacked after the
+	 * server's 220 STARTTLS reply. Should we abort the session instead?
+	 */
+	vstream_fpurge(stream, VSTREAM_PURGE_READ);
     }
-    command(state, state->pass == 1, "STARTTLS");
-
-    resp = response(state, state->pass == 1);
-    if (resp->code / 100 != 2) {
-	msg_info("STARTTLS rejected: %d %s", resp->code, resp->str);
-	return (1);
-    }
-
-    /*
-     * Discard any plain-text data that may be piggybacked after the server's
-     * 220 STARTTLS reply. Should we abort the session instead?
-     */
-    vstream_fpurge(stream, VSTREAM_PURGE_READ);
-
 #define ADD_EXCLUDE(vstr, str) \
     do { \
 	if (*(str)) \
@@ -717,6 +771,9 @@ static int starttls(STATE *state)
 	state->stream = 0;
 	return (1);
     }
+    if (state->wrapper_mode && greeting(state) != 0)
+	return (1);
+
     if (state->pass == 1) {
 	ehlo(state);
 	if (!TLS_CERT_IS_PRESENT(state->tls_context))
@@ -742,42 +799,27 @@ static int doproto(STATE *state)
     int     except;
     int     n;
     char   *lines;
-    char   *words;
+    char   *words = 0;
     char   *word;
 
-    /*
-     * Prepare for disaster.
-     */
-    smtp_stream_setup(stream, conn_tmout, 1);
-    if ((except = vstream_setjmp(stream)) != 0)
-	msg_fatal("%s while reading server greeting", exception_text(except));
+    if (!state->wrapper_mode) {
+	if (greeting(state) != 0)
+	    return (1);
+	if ((resp = ehlo(state)) == 0)
+	    return (1);
 
-    /*
-     * Read and parse the server's SMTP greeting banner.
-     */
-    if (((resp = response(state, 1))->code / 100) != 2) {
-	msg_info("SMTP service not available: %d %s", resp->code, resp->str);
-	return (1);
-    }
-
-    /*
-     * Send the standard greeting with our hostname
-     */
-    if ((resp = ehlo(state)) == 0)
-	return (1);
-
-    lines = resp->str;
-    for (n = 0; (words = mystrtok(&lines, "\n")) != 0; ++n) {
-	if ((word = mystrtok(&words, " \t=")) != 0) {
-	    if (n == 0)
-		state->helo = mystrdup(word);
-	    if (strcasecmp(word, "STARTTLS") == 0)
-		break;
+	lines = resp->str;
+	for (n = 0; (words = mystrtok(&lines, "\n")) != 0; ++n) {
+	    if ((word = mystrtok(&words, " \t=")) != 0) {
+		if (n == 0)
+		    state->helo = mystrdup(word);
+		if (strcasecmp(word, "STARTTLS") == 0)
+		    break;
+	    }
 	}
     }
-
 #ifdef USE_TLS
-    if (words && state->tls_ctx)
+    if ((state->wrapper_mode || words) && state->tls_ctx)
 	if (starttls(state))
 	    return (1);
 #endif
@@ -792,7 +834,6 @@ static int doproto(STATE *state)
     }
     command(state, 1, "QUIT");
     (void) response(state, 1);
-
     return (0);
 }
 
@@ -876,7 +917,7 @@ static VSTREAM *connect_unix(STATE *state, const char *path)
     /*
      * Initialize.
      */
-    memset((char *) &sock_un, 0, sizeof(sock_un));
+    memset((void *) &sock_un, 0, sizeof(sock_un));
     sock_un.sun_family = AF_UNIX;
 #ifdef HAS_SUN_LEN
     sock_un.sun_len = len + 1;
@@ -1072,7 +1113,14 @@ static DNS_RR *mx_addr_list(STATE *state, DNS_RR *mx_names)
     static const char *myname = "mx_addr_list";
     DNS_RR *addr_list = 0;
     DNS_RR *rr;
-    int     res_opt = mx_names->dnssec_valid ? RES_USE_DNSSEC : 0;
+    int     res_opt = 0;
+
+    if (mx_names->dnssec_valid)
+	res_opt = RES_USE_DNSSEC;
+#ifdef USE_TLS
+    else if (state->mxinsec_level > TLS_LEV_MAY)
+	res_opt = RES_USE_DNSSEC;
+#endif
 
     for (rr = mx_names; rr; rr = rr->next) {
 	if (rr->type != T_MX)
@@ -1090,6 +1138,7 @@ static DNS_RR *domain_addr(STATE *state, char *domain)
     DNS_RR *mx_names;
     DNS_RR *addr_list = 0;
     int     r = 0;			/* Resolver flags */
+    const char *aname;
 
     dsb_reset(state->why);
 
@@ -1097,13 +1146,26 @@ static DNS_RR *domain_addr(STATE *state, char *domain)
     r |= RES_USE_DNSSEC;
 #endif
 
-    switch (dns_lookup(domain, T_MX, r, &mx_names, (VSTRING *) 0,
+    /*
+     * IDNA support.
+     */
+#ifndef NO_EAI
+    if (!allascii(domain) && (aname = midna_domain_to_ascii(domain)) != 0) {
+	msg_info("%s asciified to %s", domain, aname);
+    } else
+#endif
+	aname = domain;
+
+    switch (dns_lookup(aname, T_MX, r, &mx_names, (VSTRING *) 0,
 		       state->why->reason)) {
     default:
 	dsb_status(state->why, "4.4.3");
 	break;
     case DNS_INVAL:
 	dsb_status(state->why, "5.4.4");
+	break;
+    case DNS_NULLMX:
+	dsb_status(state->why, "5.1.0");
 	break;
     case DNS_FAIL:
 	dsb_status(state->why, "5.4.3");
@@ -1141,6 +1203,7 @@ static DNS_RR *host_addr(STATE *state, const char *host)
     DSN_BUF *why = state->why;
     DNS_RR *addr_list;
     int     res_opt = 0;
+    const char *ahost;
 
     dsb_reset(why);				/* Paranoia */
 
@@ -1148,8 +1211,18 @@ static DNS_RR *host_addr(STATE *state, const char *host)
     res_opt |= RES_USE_DNSSEC;
 #endif
 
+    /*
+     * IDNA support.
+     */
+#ifndef NO_EAI
+    if (!allascii(host) && (ahost = midna_domain_to_ascii(host)) != 0) {
+	msg_info("%s asciified to %s", host, ahost);
+    } else
+#endif
+	ahost = host;
+
 #define PREF0	0
-    addr_list = addr_one(state, (DNS_RR *) 0, host, res_opt, PREF0);
+    addr_list = addr_one(state, (DNS_RR *) 0, ahost, res_opt, PREF0);
     if (addr_list && addr_list->next) {
 	addr_list = dns_rr_shuffle(addr_list);
 	if (inet_proto_info()->ai_family_list[1] != 0)
@@ -1165,8 +1238,9 @@ static int dane_host_level(STATE *state, DNS_RR *addr)
     int     level = state->level;
 
 #ifdef USE_TLS
-    if (level == TLS_LEV_DANE) {
-	if (state->mx == 0 || state->mx->dnssec_valid) {
+    if (TLS_DANE_BASED(level)) {
+	if (state->mx == 0 || state->mx->dnssec_valid ||
+	    state->mxinsec_level > TLS_LEV_MAY) {
 	    if (state->log_mask & (TLS_LOG_CERTMATCH | TLS_LOG_VERBOSE))
 		tls_dane_verbose(1);
 	    else
@@ -1189,7 +1263,7 @@ static int dane_host_level(STATE *state, DNS_RR *addr)
 		level = TLS_LEV_INVALID;
 	    } else if (tls_dane_notfound(state->ddane)
 		       || tls_dane_unusable(state->ddane)) {
-		if (msg_verbose)
+		if (msg_verbose || level == TLS_LEV_DANE_ONLY)
 		    msg_info("no %sTLSA records found, "
 			     "resorting to \"secure\"",
 			     tls_dane_unusable(state->ddane) ?
@@ -1197,13 +1271,23 @@ static int dane_host_level(STATE *state, DNS_RR *addr)
 		level = TLS_LEV_SECURE;
 	    } else if (!TLS_DANE_HASTA(state->ddane)
 		       && !TLS_DANE_HASEE(state->ddane)) {
-		msg_panic("empty DANE match list");
+		msg_panic("DANE activated with no TLSA records to match");
+	    } else if (state->mx && !state->mx->dnssec_valid &&
+		       state->mxinsec_level == TLS_LEV_ENCRYPT) {
+		msg_info("TLSA RRs found, MX RRset insecure: just encrypt");
+		tls_dane_free(state->ddane);
+		state->ddane = 0;
+		level = TLS_LEV_ENCRYPT;
 	    } else {
 		if (state->match)
 		    argv_free(state->match);
 		argv_add(state->match = argv_alloc(2),
 			 state->ddane->base_domain, ARGV_END);
 		if (state->mx) {
+		    if (!state->mx->dnssec_valid) {
+			msg_info("MX RRset insecure: log verified as trusted");
+			level = TLS_LEV_HALF_DANE;
+		    }
 		    if (strcmp(state->mx->qname, state->mx->rname) == 0)
 			argv_add(state->match, state->mx->qname, ARGV_END);
 		    else
@@ -1211,6 +1295,10 @@ static int dane_host_level(STATE *state, DNS_RR *addr)
 				 state->mx->qname, ARGV_END);
 		}
 	    }
+	} else if (state->mx && !state->mx->dnssec_valid &&
+		   state->mxinsec_level == TLS_LEV_MAY) {
+	    msg_info("MX RRset is insecure: try to encrypt");
+	    level = TLS_LEV_MAY;
 	} else {
 	    level = TLS_LEV_SECURE;
 	}
@@ -1387,8 +1475,7 @@ static int finger(STATE *state)
      * never-ending lines of text.
      */
     state->buffer = vstring_alloc(100);
-    vstring_ctl(state->buffer, VSTRING_CTL_MAXLEN,
-		(ssize_t) var_line_limit, 0);
+    vstring_ctl(state->buffer, CA_VSTRING_CTL_MAXLEN(var_line_limit), 0);
     state->why = dsb_create();
 
     if (!(err = connect_dest(state))) {
@@ -1411,7 +1498,7 @@ static int finger(STATE *state)
 	if (cache_enabled && cache_count == 0) {
 	    msg_info("Server declined session caching. Done reconnecting.");
 	    state->reconnect = 0;
-	} else if (cache_hits > 0 && (state->log_mask & TLS_LOG_SESSTKT) != 0) {
+	} else if (cache_hits > 0 && (state->log_mask & TLS_LOG_CACHE) != 0) {
 	    msg_info("Found a previously used server.  Done reconnecting.");
 	    state->reconnect = 0;
 	} else if (state->max_reconnect-- <= 0) {
@@ -1476,6 +1563,8 @@ static void cleanup(STATE *state)
     myfree(state->mdalg);
     myfree(state->CApath);
     myfree(state->CAfile);
+    myfree(state->certfile);
+    myfree(state->keyfile);
     if (state->options.level)
 	myfree(state->options.level);
     myfree(state->options.logopts);
@@ -1506,9 +1595,10 @@ static void usage(void)
 #ifdef USE_TLS
     fprintf(stderr, "usage: %s %s \\\n\t%s \\\n\t%s \\\n\t%s"
 	    " destination [match ...]\n", var_procname,
-	    "[-acCfSv] [-t conn_tmout] [-T cmd_tmout] [-L logopts]",
+	    "[-acCfSvw] [-t conn_tmout] [-T cmd_tmout] [-L logopts]",
 	 "[-h host_lookup] [-l level] [-d mdalg] [-g grade] [-p protocols]",
-	    "[-A tafile] [-F CAfile.pem] [-P CApath/] [-m count] [-r delay]",
+	    "[-A tafile] [-F CAfile.pem] [-P CApath/] "
+	    "[-k certfile [-K keyfile]] [-m count] [-r delay]",
 	    "[-o name=value]");
 #else
     fprintf(stderr, "usage: %s [-acStTv] [-h host_lookup] [-o name=value] destination\n",
@@ -1533,8 +1623,8 @@ static void tls_init(STATE *state)
 			log_level = state->options.logopts,
 			verifydepth = DEF_SMTP_TLS_SCERT_VD,
 			cache_type = "memory",
-			cert_file = "",
-			key_file = "",
+			cert_file = state->certfile,
+			key_file = state->keyfile,
 			dcert_file = "",
 			dkey_file = "",
 			eccert_file = "",
@@ -1569,23 +1659,27 @@ static void parse_options(STATE *state, int argc, char *argv[])
     state->pass = 1;
     state->reconnect = -1;
     state->max_reconnect = 5;
+    state->wrapper_mode = 0;
 #ifdef USE_TLS
     state->protocols = mystrdup("!SSLv2");
     state->grade = mystrdup("medium");
 #endif
-    memset((char *) &state->options, 0, sizeof(state->options));
+    memset((void *) &state->options, 0, sizeof(state->options));
     state->options.host_lookup = mystrdup("dns");
 
 #define OPTS "a:ch:o:St:T:v"
 #ifdef USE_TLS
-#define TLSOPTS "A:Cd:fF:g:l:L:m:p:P:r:"
+#define TLSOPTS "A:Cd:fF:g:k:K:l:L:m:M:p:P:r:w"
 
     state->mdalg = mystrdup("sha1");
     state->CApath = mystrdup("");
     state->CAfile = mystrdup("");
+    state->certfile = mystrdup("");
+    state->keyfile = mystrdup("");
     state->options.tas = argv_alloc(1);
     state->options.logopts = 0;
     state->level = TLS_LEV_DANE;
+    state->mxinsec_level = TLS_LEV_DANE;
 #else
 #define TLSOPTS ""
     state->level = TLS_LEV_NONE;
@@ -1643,6 +1737,22 @@ static void parse_options(STATE *state, int argc, char *argv[])
 	    myfree(state->grade);
 	    state->grade = mystrdup(optarg);
 	    break;
+	case 'k':
+	    myfree(state->certfile);
+	    state->certfile = mystrdup(optarg);
+	    if (!*state->keyfile) {
+		myfree(state->keyfile);
+		state->keyfile = mystrdup(optarg);
+	    }
+	    break;
+	case 'K':
+	    myfree(state->keyfile);
+	    state->keyfile = mystrdup(optarg);
+	    if (!*state->certfile) {
+		myfree(state->certfile);
+		state->certfile = mystrdup(optarg);
+	    }
+	    break;
 	case 'l':
 	    if (state->options.level)
 		myfree(state->options.level);
@@ -1656,6 +1766,16 @@ static void parse_options(STATE *state, int argc, char *argv[])
 	case 'm':
 	    state->max_reconnect = atoi(optarg);
 	    break;
+	case 'M':
+	    switch (state->mxinsec_level = tls_level_lookup(optarg)) {
+	    case TLS_LEV_MAY:
+	    case TLS_LEV_ENCRYPT:
+	    case TLS_LEV_DANE:
+		break;
+	    default:
+		msg_fatal("bad '-M' option value: %s", optarg);
+	    }
+	    break;
 	case 'p':
 	    myfree(state->protocols);
 	    state->protocols = mystrdup(optarg);
@@ -1666,6 +1786,9 @@ static void parse_options(STATE *state, int argc, char *argv[])
 	    break;
 	case 'r':
 	    state->reconnect = atoi(optarg);
+	    break;
+	case 'w':
+	    state->wrapper_mode = 1;
 	    break;
 #endif
 	}
@@ -1700,10 +1823,9 @@ static void parse_options(STATE *state, int argc, char *argv[])
 	state->level = tls_level_lookup(state->options.level);
 
 	switch (state->level) {
-	case TLS_LEV_DANE_ONLY:
-	    state->level = TLS_LEV_DANE;
-	    break;
 	case TLS_LEV_NONE:
+	    if (state->wrapper_mode)
+		msg_fatal("SSL wrapper mode requires that TLS not be disabled");
 	    return;
 	case TLS_LEV_INVALID:
 	    msg_fatal("Invalid TLS level \"%s\"", state->options.level);
@@ -1716,8 +1838,8 @@ static void parse_options(STATE *state, int argc, char *argv[])
      * required for DANE support.
      */
     tls_init(state);
-    if (state->level == TLS_LEV_DANE && !tls_dane_avail()) {
-	msg_warn("The \"dane\" TLS security level is not available");
+    if (TLS_DANE_BASED(state->level) && !tls_dane_avail()) {
+	msg_warn("DANE TLS support is not available, resorting to \"secure\"");
 	state->level = TLS_LEV_SECURE;
     }
     state->tls_bio = 0;
@@ -1755,6 +1877,7 @@ static void parse_match(STATE *state, int argc, char *argv[])
 				    state->mdalg, *argv++, "");
 	break;
     case TLS_LEV_DANE:
+    case TLS_LEV_DANE_ONLY:
 	state->match = argv_alloc(2);
 	argv_add(state->match, "nexthop", "hostname", ARGV_END);
 	break;

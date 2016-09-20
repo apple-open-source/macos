@@ -105,23 +105,23 @@ typedef uint32_t ASL_STATUS;
 #define ASL_PLACE_ARCHIVE_DEFAULT "/var/log/asl.archive"
 #endif
 
-mach_port_t asl_core_get_service_port(int reset) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+mach_port_t asl_core_get_service_port(int reset) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.10,10.12), ios(7.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
-uint32_t asl_core_string_hash(const char *str, uint32_t len) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
-const char *asl_core_error(uint32_t code) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
-const char *asl_core_level_to_string(uint32_t level) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
-uint32_t asl_core_check_access(int32_t msgu, int32_t msgg, int32_t readu, int32_t readg, uint16_t flags) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
-uint64_t asl_core_htonq(uint64_t n) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
-uint64_t asl_core_ntohq(uint64_t n)__OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
-uint64_t asl_core_new_msg_id(uint64_t start) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
-char *asl_core_encode_buffer(const char *in, uint32_t len) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
-int32_t asl_core_decode_buffer(const char *in, char **buf, uint32_t *len) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+uint32_t asl_core_string_hash(const char *str, uint32_t len) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.5,10.12), ios(2.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+const char *asl_core_error(uint32_t code) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.5,10.12), ios(2.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+const char *asl_core_level_to_string(uint32_t level) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.10,10.12), ios(7.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+uint32_t asl_core_check_access(int32_t msgu, int32_t msgg, int32_t readu, int32_t readg, uint16_t flags) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.5,10.12), ios(2.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+uint64_t asl_core_htonq(uint64_t n) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.5,10.12), ios(2.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+uint64_t asl_core_ntohq(uint64_t n)__API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.5,10.12), ios(2.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+uint64_t asl_core_new_msg_id(uint64_t start) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.5,10.12), ios(2.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+char *asl_core_encode_buffer(const char *in, uint32_t len) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.7,10.12), ios(5.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+int32_t asl_core_decode_buffer(const char *in, char **buf, uint32_t *len) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.7,10.12), ios(5.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
-time_t asl_core_parse_time(const char *in, uint32_t *tlen) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
-size_t asl_core_str_to_size(char *s) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0); //TODO: 10_11 & 7_1 or 8_0
-time_t asl_core_str_to_time(char *s, uint32_t def_n) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0); //TODO: 10_11 & 7_1 or 8_0
-void asl_core_time_to_str(time_t s, char *str, size_t len) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0); //TODO: 10_11 & 7_1 or 8_0
+time_t asl_core_parse_time(const char *in, uint32_t *tlen) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.10,10.12), ios(7.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+size_t asl_core_str_to_size(char *s) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.10,10.12), ios(7.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+time_t asl_core_str_to_time(char *s, uint32_t def_n) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.10,10.12), ios(7.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+void asl_core_time_to_str(time_t s, char *str, size_t len) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.10,10.12), ios(7.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
-const char *asl_filesystem_path(uint32_t place) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+const char *asl_filesystem_path(uint32_t place) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.10,10.12), ios(7.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 #endif /* __ASL_CORE_H__ */

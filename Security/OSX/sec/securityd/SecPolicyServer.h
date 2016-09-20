@@ -31,6 +31,7 @@
 #define _SECURITY_SECPOLICYSERVER_H_
 
 #include <Security/SecPolicyInternal.h>
+#include <Security/SecTrustSettings.h>
 
 #include <securityd/policytree.h>
 #include <securityd/SecTrustServer.h>
@@ -56,11 +57,12 @@ struct OpaqueSecPVC {
     void *rvcs;
     unsigned int asyncJobCount;
 
-    bool check_revocation;
+    CFStringRef check_revocation;
     bool response_required;
     bool optionally_ev;
     bool is_ev;
     bool is_ct;
+    bool is_ct_whitelisted;
     bool result;
 };
 
@@ -85,7 +87,7 @@ bool SecPVCSetResultForced(SecPVCRef pvc,
 	CFStringRef key, CFIndex ix, CFTypeRef result, bool force);
 
 /* Enable revocation checking if the rest of the policy checks succeed. */
-void SecPVCSetCheckRevocation(SecPVCRef pvc);
+void SecPVCSetCheckRevocation(SecPVCRef pvc, CFStringRef method);
 
 /* Require a revocation response for the leaf certificate. */
 void SecPVCSetCheckRevocationResponseRequired(SecPVCRef pvc);
@@ -121,8 +123,6 @@ typedef void (*SecPolicyCheckFunction)(SecPVCRef pv, CFStringRef key);
 */
 bool SecPolicyValidate(SecPolicyRef policy, SecPVCRef pvc, CFStringRef key);
 
-CFArrayRef SecPolicyArrayDeserialize(CFArrayRef serializedPolicies);
-
 void SecPolicyServerInitalize(void);
 
 /* True iff certificate could be an extended validation (EV) certificate. */
@@ -130,7 +130,9 @@ bool SecPolicySubscriberCertificateCouldBeEV(SecCertificateRef certificate);
 
 void SecEVPolicyToAnchorDigestsInit(void);
 
-bool SecDNSMatch(CFStringRef hostname, CFStringRef servername);
+SecTrustSettingsResult SecPVCGetTrustSettingsResult(SecPVCRef pvc, SecCertificateRef certificate, CFArrayRef constraints);
+
+bool SecPVCCheckUsageConstraints(SecPVCRef pvc);
 
 __END_DECLS
 

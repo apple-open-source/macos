@@ -22,7 +22,7 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/lib/libc_r/man/pthread_rwlock_destroy.3,v 1.6 2001/10/01 16:09:09 ru Exp $
+.\" $FreeBSD$
 .\"
 .Dd August 4, 1998
 .Dt PTHREAD_RWLOCK_DESTROY 3
@@ -33,9 +33,7 @@
 .Sh SYNOPSIS
 .In pthread.h
 .Ft int
-.Fo pthread_rwlock_destroy
-.Fa "pthread_rwlock_t *rwlock"
-.Fc
+.Fn pthread_rwlock_destroy "pthread_rwlock_t *lock"
 .Sh DESCRIPTION
 The
 .Fn pthread_rwlock_destroy
@@ -45,14 +43,8 @@ function is used to destroy a read/write lock previously created with
 If successful, the
 .Fn pthread_rwlock_destroy
 function will return zero.
-Otherwise, an error number will be returned to indicate the error.
-.Sh SEE ALSO
-.Xr pthread_rwlock_init 3
-.Sh STANDARDS
-The
-.Fn pthread_rwlock_destroy
-function is expected to conform to
-.St -susv2 .
+Otherwise an error number will be returned
+to indicate the error.
 .Sh ERRORS
 The
 .Fn pthread_rwlock_destroy
@@ -68,13 +60,20 @@ function may fail if:
 .Bl -tag -width Er
 .It Bq Er EBUSY
 The system has detected an attempt to destroy the object referenced by
-.Fa rwlock
+.Fa lock
 while it is locked.
 .It Bq Er EINVAL
 The value specified by
-.Fa rwlock
+.Fa lock
 is invalid.
 .El
+.Sh SEE ALSO
+.Xr pthread_rwlock_init 3
+.Sh STANDARDS
+The
+.Fn pthread_rwlock_destroy
+function is expected to conform to
+.St -susv2 .
 .Sh HISTORY
 The
 .Fn pthread_rwlock_destroy

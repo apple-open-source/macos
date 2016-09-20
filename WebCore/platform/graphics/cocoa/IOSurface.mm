@@ -28,22 +28,26 @@
 
 #if USE(IOSURFACE)
 
+#import "CoreGraphicsSPI.h"
 #import "GraphicsContextCG.h"
 #import "IOSurfacePool.h"
 #import "IOSurfaceSPI.h"
+#import "ImageBuffer.h"
+#import "ImageBufferDataCG.h"
 #import "MachSendRight.h"
 #import <wtf/Assertions.h>
+#import <wtf/MathExtras.h>
 
-extern "C" {
-CGContextRef CGIOSurfaceContextCreate(IOSurfaceRef, size_t, size_t, size_t, size_t, CGColorSpaceRef, CGBitmapInfo);
-CGImageRef CGIOSurfaceContextCreateImage(CGContextRef);
-}
+#if PLATFORM(IOS)
+// Move this into the SPI header once it's possible to put inside the APPLE_INTERNAL_SDK block.
+NSString * const WebIOSurfaceAcceleratorUnwireSurfaceKey = @"UnwireSurface";
+#endif
 
 using namespace WebCore;
 
-inline std::unique_ptr<IOSurface> IOSurface::surfaceFromPool(IntSize size, IntSize contextSize, ColorSpace colorSpace)
+inline std::unique_ptr<WebCore::IOSurface> WebCore::IOSurface::surfaceFromPool(IntSize size, IntSize contextSize, CGColorSpaceRef colorSpace, Format pixelFormat)
 {
-    auto cachedSurface = IOSurfacePool::sharedPool().takeSurface(size, colorSpace);
+    auto cachedSurface = IOSurfacePool::sharedPool().takeSurface(size, colorSpace, pixelFormat);
     if (!cachedSurface)
         return nullptr;
 
@@ -51,32 +55,34 @@ inline std::unique_ptr<IOSurface> IOSurface::surfaceFromPool(IntSize size, IntSi
     return cachedSurface;
 }
 
-std::unique_ptr<IOSurface> IOSurface::create(IntSize size, ColorSpace colorSpace)
+std::unique_ptr<WebCore::IOSurface> WebCore::IOSurface::create(IntSize size, CGColorSpaceRef colorSpace, Format pixelFormat)
 {
-    if (auto cachedSurface = surfaceFromPool(size, size, colorSpace))
-        return cachedSurface;
-    return std::unique_ptr<IOSurface>(new IOSurface(size, colorSpace));
+    return IOSurface::create(size, size, colorSpace, pixelFormat);
 }
 
-std::unique_ptr<IOSurface> IOSurface::create(IntSize size, IntSize contextSize, ColorSpace colorSpace)
+std::unique_ptr<WebCore::IOSurface> WebCore::IOSurface::create(IntSize size, IntSize contextSize, CGColorSpaceRef colorSpace, Format pixelFormat)
 {
-    if (auto cachedSurface = surfaceFromPool(size, contextSize, colorSpace))
+    if (auto cachedSurface = surfaceFromPool(size, contextSize, colorSpace, pixelFormat))
         return cachedSurface;
-    return std::unique_ptr<IOSurface>(new IOSurface(size, contextSize, colorSpace));
+    bool success = false;
+    auto surface = std::unique_ptr<IOSurface>(new IOSurface(size, contextSize, colorSpace, pixelFormat, success));
+    if (!success)
+        return nullptr;
+    return surface;
 }
 
-std::unique_ptr<IOSurface> IOSurface::createFromSendRight(const MachSendRight& sendRight, ColorSpace colorSpace)
+std::unique_ptr<WebCore::IOSurface> WebCore::IOSurface::createFromSendRight(const MachSendRight& sendRight, CGColorSpaceRef colorSpace)
 {
     auto surface = adoptCF(IOSurfaceLookupFromMachPort(sendRight.sendRight()));
     return IOSurface::createFromSurface(surface.get(), colorSpace);
 }
 
-std::unique_ptr<IOSurface> IOSurface::createFromSurface(IOSurfaceRef surface, ColorSpace colorSpace)
+std::unique_ptr<WebCore::IOSurface> WebCore::IOSurface::createFromSurface(IOSurfaceRef surface, CGColorSpaceRef colorSpace)
 {
     return std::unique_ptr<IOSurface>(new IOSurface(surface, colorSpace));
 }
 
-std::unique_ptr<IOSurface> IOSurface::createFromImage(CGImageRef image)
+std::unique_ptr<WebCore::IOSurface> WebCore::IOSurface::createFromImage(CGImageRef image)
 {
     if (!image)
         return nullptr;
@@ -84,54 +90,131 @@ std::unique_ptr<IOSurface> IOSurface::createFromImage(CGImageRef image)
     size_t width = CGImageGetWidth(image);
     size_t height = CGImageGetHeight(image);
 
-    auto surface = IOSurface::create(IntSize(width, height), ColorSpaceDeviceRGB);
+    auto surface = IOSurface::create(IntSize(width, height), sRGBColorSpaceRef());
+    if (!surface)
+        return nullptr;
     auto surfaceContext = surface->ensurePlatformContext();
     CGContextDrawImage(surfaceContext, CGRectMake(0, 0, width, height), image);
     CGContextFlush(surfaceContext);
-
     return surface;
 }
 
-IOSurface::IOSurface(IntSize size, ColorSpace colorSpace)
-    : m_colorSpace(colorSpace)
-    , m_size(size)
-    , m_contextSize(size)
+void WebCore::IOSurface::moveToPool(std::unique_ptr<IOSurface>&& surface)
 {
-    unsigned pixelFormat = 'BGRA';
-    unsigned bytesPerElement = 4;
+    IOSurfacePool::sharedPool().addSurface(WTFMove(surface));
+}
+
+std::unique_ptr<WebCore::IOSurface> WebCore::IOSurface::createFromImageBuffer(std::unique_ptr<ImageBuffer> imageBuffer)
+{
+    return WTFMove(imageBuffer->m_data.surface);
+}
+
+static NSDictionary *optionsForBiplanarSurface(IntSize size, unsigned pixelFormat, size_t firstPlaneBytesPerPixel, size_t secondPlaneBytesPerPixel)
+{
     int width = size.width();
     int height = size.height();
 
-    size_t bytesPerRow = IOSurfaceAlignProperty(kIOSurfaceBytesPerRow, width * bytesPerElement);
+    size_t firstPlaneBytesPerRow = IOSurfaceAlignProperty(kIOSurfaceBytesPerRow, width * firstPlaneBytesPerPixel);
+    size_t firstPlaneTotalBytes = IOSurfaceAlignProperty(kIOSurfaceAllocSize, height * firstPlaneBytesPerRow);
+
+    size_t secondPlaneBytesPerRow = IOSurfaceAlignProperty(kIOSurfaceBytesPerRow, width * secondPlaneBytesPerPixel);
+    size_t secondPlaneTotalBytes = IOSurfaceAlignProperty(kIOSurfaceAllocSize, height * secondPlaneBytesPerRow);
+    
+    size_t totalBytes = firstPlaneTotalBytes + secondPlaneTotalBytes;
+    ASSERT(totalBytes);
+
+    NSArray *planeInfo = @[
+        @{
+            (id)kIOSurfacePlaneWidth: @(width),
+            (id)kIOSurfacePlaneHeight: @(height),
+            (id)kIOSurfacePlaneBytesPerRow: @(firstPlaneBytesPerRow),
+            (id)kIOSurfacePlaneOffset: @(0),
+            (id)kIOSurfacePlaneSize: @(firstPlaneTotalBytes)
+        },
+        @{
+            (id)kIOSurfacePlaneWidth: @(width),
+            (id)kIOSurfacePlaneHeight: @(height),
+            (id)kIOSurfacePlaneBytesPerRow: @(secondPlaneBytesPerRow),
+            (id)kIOSurfacePlaneOffset: @(firstPlaneTotalBytes),
+            (id)kIOSurfacePlaneSize: @(secondPlaneTotalBytes)
+        }
+    ];
+
+    return @{
+        (id)kIOSurfaceWidth: @(width),
+        (id)kIOSurfaceHeight: @(height),
+        (id)kIOSurfacePixelFormat: @(pixelFormat),
+        (id)kIOSurfaceAllocSize: @(totalBytes),
+#if PLATFORM(IOS)
+        (id)kIOSurfaceCacheMode: @(kIOMapWriteCombineCache),
+#endif
+        (id)kIOSurfacePlaneInfo: planeInfo,
+    };
+}
+
+static NSDictionary *optionsFor32BitSurface(IntSize size, unsigned pixelFormat)
+{
+    int width = size.width();
+    int height = size.height();
+
+    unsigned bytesPerElement = 4;
+    unsigned bytesPerPixel = 4;
+
+    size_t bytesPerRow = IOSurfaceAlignProperty(kIOSurfaceBytesPerRow, width * bytesPerPixel);
     ASSERT(bytesPerRow);
 
-    m_totalBytes = IOSurfaceAlignProperty(kIOSurfaceAllocSize, height * bytesPerRow);
-    ASSERT(m_totalBytes);
+    size_t totalBytes = IOSurfaceAlignProperty(kIOSurfaceAllocSize, height * bytesPerRow);
+    ASSERT(totalBytes);
 
-    NSDictionary *options = @{
+    return @{
         (id)kIOSurfaceWidth: @(width),
         (id)kIOSurfaceHeight: @(height),
         (id)kIOSurfacePixelFormat: @(pixelFormat),
         (id)kIOSurfaceBytesPerElement: @(bytesPerElement),
         (id)kIOSurfaceBytesPerRow: @(bytesPerRow),
-        (id)kIOSurfaceAllocSize: @(m_totalBytes),
+        (id)kIOSurfaceAllocSize: @(totalBytes),
 #if PLATFORM(IOS)
-        (id)kIOSurfaceCacheMode: @(kIOMapWriteCombineCache)
+        (id)kIOSurfaceCacheMode: @(kIOMapWriteCombineCache),
 #endif
+        (id)kIOSurfaceElementHeight: @(1)
     };
 
-    m_surface = adoptCF(IOSurfaceCreate((CFDictionaryRef)options));
 }
 
-IOSurface::IOSurface(IntSize size, IntSize contextSize, ColorSpace colorSpace)
-    : IOSurface(size, colorSpace)
+WebCore::IOSurface::IOSurface(IntSize size, IntSize contextSize, CGColorSpaceRef colorSpace, Format format, bool& success)
+    : m_colorSpace(colorSpace)
+    , m_size(size)
+    , m_contextSize(contextSize)
 {
+    ASSERT(!success);
     ASSERT(contextSize.width() <= size.width());
     ASSERT(contextSize.height() <= size.height());
-    m_contextSize = contextSize;
+
+    NSDictionary *options;
+
+    switch (format) {
+    case Format::RGBA:
+        options = optionsFor32BitSurface(size, 'BGRA');
+        break;
+    case Format::RGB10:
+        options = optionsFor32BitSurface(size, 'w30r');
+        break;
+    case Format::RGB10A8:
+        options = optionsForBiplanarSurface(size, 'b3a8', 4, 1);
+        break;
+    case Format::YUV422:
+        options = optionsForBiplanarSurface(size, '422f', 1, 1);
+        break;
+    }
+    m_surface = adoptCF(IOSurfaceCreate((CFDictionaryRef)options));
+    success = !!m_surface;
+    if (success)
+        m_totalBytes = IOSurfaceGetAllocSize(m_surface.get());
+    else
+        LOG_ALWAYS_ERROR(true, "Surface creation failed for size: (%d %d) and format: (%d)", size.width(), size.height(), format);
 }
 
-IOSurface::IOSurface(IOSurfaceRef surface, ColorSpace colorSpace)
+WebCore::IOSurface::IOSurface(IOSurfaceRef surface, CGColorSpaceRef colorSpace)
     : m_colorSpace(colorSpace)
     , m_surface(surface)
 {
@@ -139,22 +222,44 @@ IOSurface::IOSurface(IOSurfaceRef surface, ColorSpace colorSpace)
     m_totalBytes = IOSurfaceGetAllocSize(surface);
 }
 
-IntSize IOSurface::maximumSize()
+IntSize WebCore::IOSurface::maximumSize()
 {
-    return IntSize(IOSurfaceGetPropertyMaximum(kIOSurfaceWidth), IOSurfaceGetPropertyMaximum(kIOSurfaceHeight));
+    IntSize maxSize(clampToInteger(IOSurfaceGetPropertyMaximum(kIOSurfaceWidth)), clampToInteger(IOSurfaceGetPropertyMaximum(kIOSurfaceHeight)));
+
+    // Protect against maxSize being { 0, 0 }.
+    const int iOSMaxSurfaceDimensionLowerBound = 1024;
+
+#if PLATFORM(IOS)
+    // Match limits imposed by Core Animation. FIXME: should have API for this <rdar://problem/25454148>
+    const int iOSMaxSurfaceDimension = 8 * 1024;
+#else
+    // IOSurface::maximumSize() can return { INT_MAX, INT_MAX } when hardware acceleration is unavailable.
+    const int iOSMaxSurfaceDimension = 32 * 1024;
+#endif
+
+    return maxSize.constrainedBetween({ iOSMaxSurfaceDimensionLowerBound, iOSMaxSurfaceDimensionLowerBound }, { iOSMaxSurfaceDimension, iOSMaxSurfaceDimension });
 }
 
-MachSendRight IOSurface::createSendRight() const
+MachSendRight WebCore::IOSurface::createSendRight() const
 {
     return MachSendRight::adopt(IOSurfaceCreateMachPort(m_surface.get()));
 }
 
-RetainPtr<CGImageRef> IOSurface::createImage()
+RetainPtr<CGImageRef> WebCore::IOSurface::createImage()
 {
     return adoptCF(CGIOSurfaceContextCreateImage(ensurePlatformContext()));
 }
 
-void IOSurface::setContextSize(IntSize contextSize)
+RetainPtr<CGImageRef> WebCore::IOSurface::sinkIntoImage(std::unique_ptr<IOSurface> surface)
+{
+#if (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 100000) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100)
+    return adoptCF(CGIOSurfaceContextCreateImageReference(surface->ensurePlatformContext()));
+#else
+    return surface->createImage();
+#endif
+}
+
+void WebCore::IOSurface::setContextSize(IntSize contextSize)
 {
     if (contextSize == m_contextSize)
         return;
@@ -165,20 +270,38 @@ void IOSurface::setContextSize(IntSize contextSize)
     m_contextSize = contextSize;
 }
 
-CGContextRef IOSurface::ensurePlatformContext()
+CGContextRef WebCore::IOSurface::ensurePlatformContext()
 {
     if (m_cgContext)
         return m_cgContext.get();
 
     CGBitmapInfo bitmapInfo = kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host;
+
     size_t bitsPerComponent = 8;
     size_t bitsPerPixel = 32;
-    m_cgContext = adoptCF(CGIOSurfaceContextCreate(m_surface.get(), m_contextSize.width(), m_contextSize.height(), bitsPerComponent, bitsPerPixel, cachedCGColorSpace(m_colorSpace), bitmapInfo));
+    
+    switch (format()) {
+    case Format::RGBA:
+        break;
+    case Format::RGB10:
+    case Format::RGB10A8:
+        // A half-float format will be used if CG needs to read back the IOSurface contents,
+        // but for an IOSurface-to-IOSurface copy, there should be no conversion.
+        bitsPerComponent = 16;
+        bitsPerPixel = 64;
+        bitmapInfo = kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder16Host | kCGBitmapFloatComponents;
+        break;
+    case Format::YUV422:
+        ASSERT_NOT_REACHED();
+        break;
+    }
+    
+    m_cgContext = adoptCF(CGIOSurfaceContextCreate(m_surface.get(), m_contextSize.width(), m_contextSize.height(), bitsPerComponent, bitsPerPixel, m_colorSpace.get(), bitmapInfo));
 
     return m_cgContext.get();
 }
 
-GraphicsContext& IOSurface::ensureGraphicsContext()
+GraphicsContext& WebCore::IOSurface::ensureGraphicsContext()
 {
     if (m_graphicsContext)
         return *m_graphicsContext;
@@ -189,7 +312,7 @@ GraphicsContext& IOSurface::ensureGraphicsContext()
     return *m_graphicsContext;
 }
 
-IOSurface::SurfaceState IOSurface::state() const
+WebCore::IOSurface::SurfaceState WebCore::IOSurface::state() const
 {
     uint32_t previousState = 0;
     IOReturn ret = IOSurfaceSetPurgeable(m_surface.get(), kIOSurfacePurgeableKeepCurrent, &previousState);
@@ -197,7 +320,7 @@ IOSurface::SurfaceState IOSurface::state() const
     return previousState == kIOSurfacePurgeableEmpty ? IOSurface::SurfaceState::Empty : IOSurface::SurfaceState::Valid;
 }
 
-bool IOSurface::isVolatile() const
+bool WebCore::IOSurface::isVolatile() const
 {
     uint32_t previousState = 0;
     IOReturn ret = IOSurfaceSetPurgeable(m_surface.get(), kIOSurfacePurgeableKeepCurrent, &previousState);
@@ -205,7 +328,7 @@ bool IOSurface::isVolatile() const
     return previousState != kIOSurfacePurgeableNonVolatile;
 }
 
-IOSurface::SurfaceState IOSurface::setIsVolatile(bool isVolatile)
+WebCore::IOSurface::SurfaceState WebCore::IOSurface::setIsVolatile(bool isVolatile)
 {
     uint32_t previousState = 0;
     IOReturn ret = IOSurfaceSetPurgeable(m_surface.get(), isVolatile ? kIOSurfacePurgeableVolatile : kIOSurfacePurgeableNonVolatile, &previousState);
@@ -217,15 +340,83 @@ IOSurface::SurfaceState IOSurface::setIsVolatile(bool isVolatile)
     return IOSurface::SurfaceState::Valid;
 }
 
-bool IOSurface::isInUse() const
+WebCore::IOSurface::Format WebCore::IOSurface::format() const
+{
+    unsigned pixelFormat = IOSurfaceGetPixelFormat(m_surface.get());
+    if (pixelFormat == 'BGRA')
+        return Format::RGBA;
+
+    if (pixelFormat == 'w30r')
+        return Format::RGB10;
+
+    if (pixelFormat == 'b3a8')
+        return Format::RGB10A8;
+
+    if (pixelFormat == '422f')
+        return Format::YUV422;
+
+    ASSERT_NOT_REACHED();
+    return Format::RGBA;
+}
+
+bool WebCore::IOSurface::isInUse() const
 {
     return IOSurfaceIsInUse(m_surface.get());
 }
 
-void IOSurface::releaseGraphicsContext()
+void WebCore::IOSurface::releaseGraphicsContext()
 {
     m_graphicsContext = nullptr;
     m_cgContext = nullptr;
 }
+
+#if PLATFORM(IOS)
+bool WebCore::IOSurface::allowConversionFromFormatToFormat(Format sourceFormat, Format destFormat)
+{
+    if ((sourceFormat == Format::RGB10 || sourceFormat == Format::RGB10A8) && destFormat == Format::YUV422)
+        return false;
+
+    return true;
+}
+
+void WebCore::IOSurface::convertToFormat(std::unique_ptr<WebCore::IOSurface>&& inSurface, Format format, std::function<void(std::unique_ptr<WebCore::IOSurface>)> callback)
+{
+    static IOSurfaceAcceleratorRef accelerator;
+    if (!accelerator) {
+        IOSurfaceAcceleratorCreate(nullptr, nullptr, &accelerator);
+
+        auto runLoopSource = IOSurfaceAcceleratorGetRunLoopSource(accelerator);
+        CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, kCFRunLoopDefaultMode);
+    }
+
+    if (inSurface->format() == format) {
+        callback(WTFMove(inSurface));
+        return;
+    }
+
+    auto destinationSurface = IOSurface::create(inSurface->size(), inSurface->colorSpace(), format);
+    if (!destinationSurface) {
+        callback(nullptr);
+        return;
+    }
+
+    IOSurfaceRef destinationIOSurfaceRef = destinationSurface->surface();
+    IOSurfaceAcceleratorCompletion completion;
+    completion.completionRefCon = new std::function<void(std::unique_ptr<WebCore::IOSurface>)> (WTFMove(callback));
+    completion.completionRefCon2 = destinationSurface.release();
+    completion.completionCallback = [](void *completionRefCon, IOReturn, void * completionRefCon2) {
+        auto* callback = static_cast<std::function<void(std::unique_ptr<WebCore::IOSurface>)>*>(completionRefCon);
+        auto destinationSurface = std::unique_ptr<WebCore::IOSurface>(static_cast<WebCore::IOSurface*>(completionRefCon2));
+        
+        (*callback)(WTFMove(destinationSurface));
+        delete callback;
+    };
+
+    NSDictionary *options = @{ WebIOSurfaceAcceleratorUnwireSurfaceKey : @YES };
+
+    IOReturn ret = IOSurfaceAcceleratorTransformSurface(accelerator, inSurface->surface(), destinationIOSurfaceRef, (CFDictionaryRef)options, nullptr, &completion, nullptr, nullptr);
+    ASSERT_UNUSED(ret, ret == kIOReturnSuccess);
+}
+#endif // PLATFORM(IOS)
 
 #endif // USE(IOSURFACE)

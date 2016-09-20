@@ -52,6 +52,7 @@
 #include "filetree.h"
 #include "hash.h"
 
+
 typedef int (*read_callback)(xar_t, xar_file_t, void *, size_t, void *context);
 typedef int (*write_callback)(xar_t, xar_file_t, void *, size_t, void *context);
 

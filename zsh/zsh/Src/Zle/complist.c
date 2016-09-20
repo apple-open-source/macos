@@ -499,7 +499,7 @@ filecol(char *col)
  */
 
 static void
-getcols()
+getcols(void)
 {
     char *s;
     int i, l;
@@ -507,8 +507,8 @@ getcols()
     max_caplen = lr_caplen = 0;
     mcolors.flags = 0;
     queue_signals();
-    if (!(s = getsparam("ZLS_COLORS")) &&
-	!(s = getsparam("ZLS_COLOURS"))) {
+    if (!(s = getsparam_u("ZLS_COLORS")) &&
+	!(s = getsparam_u("ZLS_COLOURS"))) {
 	for (i = 0; i < NUM_COLS; i++)
 	    mcolors.files[i] = filecol("");
 	mcolors.pats = NULL;
@@ -602,7 +602,7 @@ zcoff(void)
 
 
 static void
-initiscol()
+initiscol(void)
 {
     int i;
 
@@ -728,7 +728,7 @@ clnicezputs(int do_colors, char *s, int ml)
     if (do_colors)
 	initiscol();
 
-    mb_metacharinit();
+    mb_charinit();
     while (umleft > 0) {
 	size_t cnt = eol ? MB_INVALID : mbrtowc(&cc, uptr, umleft, &mbs);
 
@@ -868,7 +868,7 @@ putmatchcol(char *group, char *n)
 	nrefs = MAX_POS - 1;
 
 	if ((!pc->prog || !group || pattry(pc->prog, group)) &&
-	    pattryrefs(pc->pat, n, -1, -1, 0, &nrefs, begpos, endpos)) {
+	    pattryrefs(pc->pat, n, -1, -1, NULL, 0, &nrefs, begpos, endpos)) {
 	    if (pc->cols[1]) {
 		patcols = pc->cols;
 
@@ -900,7 +900,8 @@ putfilecol(char *group, char *filename, mode_t m, int special)
 	nrefs = MAX_POS - 1;
 
 	if ((!pc->prog || !group || pattry(pc->prog, group)) &&
-	    pattryrefs(pc->pat, filename, -1, -1, 0, &nrefs, begpos, endpos)) {
+	    pattryrefs(pc->pat, filename, -1, -1, NULL,
+		       0, &nrefs, begpos, endpos)) {
 	    if (pc->cols[1]) {
 		patcols = pc->cols;
 
@@ -1908,7 +1909,7 @@ singlecalc(int *cp, int l, int *lcp)
 }
 
 static void
-singledraw()
+singledraw(void)
 {
     Cmgroup g;
     int mc1, mc2, ml1, ml2, md1, md2, mcc1, mcc2, lc1, lc2, t1, t2;
@@ -2071,6 +2072,7 @@ complistmatches(UNUSED(Hookdef dummy), Chdata dat)
 	memset(mgtab, 0, i * sizeof(Cmgroup));
 	mlastcols = mcols = zterm_columns;
 	mlastlines = mlines = listdat.nlines;
+	mmtabp = 0;
     }
     last_cap = (char *) zhalloc(max_caplen + 1);
     *last_cap = '\0';
@@ -2269,41 +2271,16 @@ msearchpop(int *backp)
 }
 
 static Cmatch **
-msearch(Cmatch **ptr, int ins, int back, int rep, int *wrapp)
+msearch(Cmatch **ptr, char *ins, int back, int rep, int *wrapp)
 {
-#ifdef MULTIBYTE_SUPPORT
-    /* MB_CUR_MAX may not be constant */
-    VARARR(char, s, MB_CUR_MAX+1);
-#else
-    char s[2];
-#endif
     Cmatch **p, *l = NULL, m;
     int x = mcol, y = mline;
     int ex, ey, wrap = 0, owrap = (msearchstate & MS_WRAPPED);
 
     msearchpush(ptr, back);
 
-    if (ins) {
-#ifdef MULTIBYTE_SUPPORT
-	if (lastchar_wide_valid)
-	{
-	    mbstate_t mbs;
-	    int len;
-
-	    memset(&mbs, 0, sizeof(mbs));
-	    len = wcrtomb(s, lastchar_wide, &mbs);
-	    if (len < 0)
-		len = 0;
-	    s[len] = '\0';
-	} else
-#endif
-	{
-	    s[0] = lastchar;
-	    s[1] = '\0';
-	}
-
-        msearchstr = dyncat(msearchstr, s);
-    }
+    if (ins)
+        msearchstr = dyncat(msearchstr, ins);
     if (back) {
         ex = mcols - 1;
         ey = -1;
@@ -2410,7 +2387,7 @@ domenuselect(Hookdef dummy, Chdata dat)
      * to be metafied locally in a couple of places.
      * It's horrifically difficult to work out where the line
      * is metafied, so I've resorted to the following.
-     * Unfortunately we need to unmetatfy in zrefresh() when
+     * Unfortunately we need to unmetafy in zrefresh() when
      * we want to display something.  Maybe this function can
      * be done better.
      */
@@ -2587,6 +2564,8 @@ domenuselect(Hookdef dummy, Chdata dat)
 	}
 	p = mmtabp;
 	pg = mgtabp;
+	if (!p) /* selected match not in display, find line */
+	    continue;
 	minfo.cur = *p;
 	minfo.group = *pg;
 	if (setwish)
@@ -2603,6 +2582,7 @@ domenuselect(Hookdef dummy, Chdata dat)
     getk:
 
     	if (!do_last_key) {
+	    zmult = 1;
 	    cmd = getkeycmd();
 	    if (mtab_been_reallocated) {
 		do_last_key = 1;
@@ -2680,7 +2660,7 @@ domenuselect(Hookdef dummy, Chdata dat)
 	    s->nbrbeg = nbrbeg;
 	    s->nbrend = nbrend;
 	    s->nmatches = nmatches;
-	    s->origline = origline;
+	    s->origline = dupstring(origline);
 	    s->origcs = origcs;
 	    s->origll = origll;
             s->status = dupstring(status);
@@ -2811,7 +2791,7 @@ domenuselect(Hookdef dummy, Chdata dat)
 	    s->nbrbeg = nbrbeg;
 	    s->nbrend = nbrend;
 	    s->nmatches = nmatches;
-	    s->origline = origline;
+	    s->origline = dupstring(origline);
 	    s->origcs = origcs;
 	    s->origll = origll;
             s->status = dupstring(status);
@@ -3273,38 +3253,74 @@ domenuselect(Hookdef dummy, Chdata dat)
                    cmd == Th(z_historyincrementalsearchbackward) ||
                    ((mode == MM_FSEARCH || mode == MM_BSEARCH) &&
                     (cmd == Th(z_selfinsert) ||
-                     cmd == Th(z_selfinsertunmeta)))) {
+                     cmd == Th(z_selfinsertunmeta) ||
+		     cmd == Th(z_bracketedpaste)))) {
             Cmatch **np, **op = p;
             int was = (mode == MM_FSEARCH || mode == MM_BSEARCH);
-            int ins = (cmd == Th(z_selfinsert) || cmd == Th(z_selfinsertunmeta));
+            int ins = (cmd == Th(z_selfinsert) || cmd == Th(z_selfinsertunmeta) ||
+		cmd == Th(z_bracketedpaste));
             int back = (cmd == Th(z_historyincrementalsearchbackward));
             int wrap;
 
             do {
+		char *toins = NULL;
+#ifdef MULTIBYTE_SUPPORT
+		/* MB_CUR_MAX may not be constant */
+		VARARR(char, insert, MB_CUR_MAX+1);
+#else
+		char insert[2];
+#endif
                 if (was) {
                     p += wishcol - mcol;
                     mcol = wishcol;
                 }
                 if (!ins) {
                     if (was) {
-                        if (!*msearchstr && lastsearch) {
+                        if (!*msearchstr && lastsearch &&
+			    back == (mode == MM_BSEARCH)) {
                             msearchstr = dupstring(lastsearch);
                             mode = 0;
                         }
                     } else {
                         msearchstr = "";
                         msearchstack = NULL;
+			msearchstate = MS_OK;
                     }
-                }
-                if (cmd == Th(z_selfinsertunmeta)) {
-		    fixunmeta();
-                }
+                } else {
+		    if (cmd == Th(z_selfinsertunmeta)) {
+			fixunmeta();
+		    }
+		    if (cmd == Th(z_bracketedpaste)) {
+			toins = bracketedstring();
+		    } else {
+			toins = insert;
+#ifdef MULTIBYTE_SUPPORT
+			if (lastchar_wide_valid)
+			{
+			    mbstate_t mbs;
+			    int len;
+
+			    memset(&mbs, 0, sizeof(mbs));
+			    len = wcrtomb(toins, lastchar_wide, &mbs);
+			    if (len < 0)
+				len = 0;
+			    insert[len] = '\0';
+			} else
+#endif
+			{
+			    insert[0] = lastchar;
+			    insert[1] = '\0';
+			}
+		    }
+		}
                 wrap = 0;
-                np = msearch(p, ins, (ins ? (mode == MM_BSEARCH) : back),
+                np = msearch(p, toins, (ins ? (mode == MM_BSEARCH) : back),
                              (was && !ins), &wrap);
 
                 if (!ins)
                     mode = (back ? MM_BSEARCH : MM_FSEARCH);
+		else if (cmd == Th(z_bracketedpaste))
+		    free(toins);
 
                 if (*msearchstr) {
                     zsfree(lastsearch);

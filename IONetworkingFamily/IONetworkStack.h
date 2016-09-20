@@ -51,6 +51,7 @@ protected:
     IOLock *            _stateLock;
     thread_call_t       _asyncThread;
     const OSSymbol *    _noBSDAttachSymbol;
+    IONotifier *        _sleepWakeNotifier;
 
     static SInt32       orderNetworkInterfaces(
                             const OSMetaClassBase * obj1,
@@ -92,8 +93,14 @@ protected:
                             uint32_t             unit,
                             bool                 isUnitFixed );
 
+    static IOReturn     handleSystemSleep(
+                            void * target, void * refCon,
+                            UInt32 messageType, IOService * provider,
+                            void * messageArgument, vm_size_t argSize );
+
 public:
     virtual bool        start( IOService * provider );
+    virtual void        stop( IOService * provider );
     virtual bool        didTerminate( IOService *, IOOptionBits, bool * );
     virtual IOReturn    setProperties( OSObject * properties );
 };

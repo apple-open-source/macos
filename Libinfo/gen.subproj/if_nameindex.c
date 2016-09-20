@@ -78,7 +78,7 @@ if_nameindex(void)
 {
 	struct ifaddrs *ifaddrs, *ifa;
 	unsigned int ni;
-	int nbytes;
+	size_t nbytes;
 	struct if_nameindex *ifni, *ifni2;
 	char *cp;
 

@@ -33,6 +33,7 @@ import <Security/Authorization.h>;
 import "DAServer.defs.h";
 
 type ___caddr_t                   = c_string [*:1024]   ctype : caddr_t;
+type ___path_t                    = c_string [*:4096]   ctype : ___path_t;
 type ___pid_t                     = int32_t             ctype : pid_t;
 type ___uid_t                     = int32_t             ctype : uid_t;
 type ___vm_address_t              = array [] of char    ctype : vm_address_t;
@@ -117,3 +118,7 @@ simpleroutine _DAServerSessionSetClientPort( _session : mach_port_t;
 simpleroutine _DAServerSessionUnregisterCallback( _session : mach_port_t;
                                                   _address : mach_vm_offset_t;
                                                   _context : mach_vm_offset_t );
+
+routine _DAServermkdir( _session : mach_port_t;
+                        _path    : ___path_t;
+         ServerSecToken _token   : security_token_t );

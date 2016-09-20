@@ -1,6 +1,4 @@
 /*
- * "$Id: file-private.h 11645 2014-02-27 16:35:53Z msweet $"
- *
  * Private file definitions for CUPS.
  *
  * Since stdio files max out at 256 files on many systems, we have to
@@ -133,7 +131,3 @@ extern void			_cupsFileCheckFilter(void *context,
 #  endif /* __cplusplus */
 
 #endif /* !_CUPS_FILE_PRIVATE_H_ */
-
-/*
- * End of "$Id: file-private.h 11645 2014-02-27 16:35:53Z msweet $".
- */

@@ -51,7 +51,7 @@
 
 #include "SecdTestKeychainUtilities.h"
 
-static int kTestTestCount = 324;
+static int kTestTestCount = 326;
 
 static void tests(void)
 {
@@ -79,12 +79,14 @@ static void tests(void)
     is(error ? CFErrorGetCode(error) : 0, kSOSErrorWrongPassword, "Expected SOSErrorWrongPassword");
     CFReleaseNull(error);
     
-    ok(SOSAccountResetToOffering(alice_account, &error), "Reset to offering (%@)", error);
+    ok(SOSAccountResetToOffering_wTxn(alice_account, &error), "Reset to offering (%@)", error);
     CFReleaseNull(error);
     
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 2, "updates");
 
-    ok(SOSAccountJoinCircles(bob_account, &error), "Bob Applies (%@)", error);
+    ok(SOSAccountHasCompletedInitialSync(alice_account), "Alice thinks she's completed initial sync");
+
+    ok(SOSAccountJoinCircles_wTxn(bob_account, &error), "Bob Applies (%@)", error);
     CFReleaseNull(error);
     
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 2, "updates");
@@ -105,7 +107,9 @@ static void tests(void)
     CFArrayRef peers = SOSAccountCopyPeers(alice_account, &error);
     ok(peers && CFArrayGetCount(peers) == 2, "See two peers %@ (%@)", peers, error);
     CFReleaseNull(peers);
-    
+
+    ok(!SOSAccountHasCompletedInitialSync(bob_account), "Bob thinks he hasn't completed initial sync");
+
     CFDictionaryRef alice_new_gestalt = SOSCreatePeerGestaltFromName(CFSTR("Alice, but different"));
 
     ok(SOSAccountUpdateGestalt(alice_account, alice_new_gestalt), "Update gestalt %@ (%@)", alice_account, error);
@@ -127,7 +131,7 @@ static void tests(void)
     ok(peers && CFArrayGetCount(peers) == 1, "See one peer %@ (%@)", peers, error);
     CFReleaseNull(peers);
     
-    ok(SOSAccountJoinCircles(alice_account, &error), "Alice re-applies (%@)", error);
+    ok(SOSAccountJoinCircles_wTxn(alice_account, &error), "Alice re-applies (%@)", error);
     CFReleaseNull(error);
     
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 2, "updates");
@@ -148,7 +152,7 @@ static void tests(void)
     
     ok(SOSAccountLeaveCircle(alice_account, &error), "Alice Leaves (%@)", error);
     CFReleaseNull(error);
-    ok(SOSAccountJoinCircles(alice_account, &error), "Alice re-applies (%@)", error);
+    ok(SOSAccountJoinCircles_wTxn(alice_account, &error), "Alice re-applies (%@)", error);
     CFReleaseNull(error);
     
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 2, "updates");
@@ -226,7 +230,7 @@ static void tests(void)
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 2, "updates");
     accounts_agree("Alice and Bob see Alice out of circle", bob_account, alice_account);
     
-    ok(SOSAccountJoinCircles(alice_account, &error), "Alice re-applies (%@)", error);
+    ok(SOSAccountJoinCircles_wTxn(alice_account, &error), "Alice re-applies (%@)", error);
     CFReleaseNull(error);
     
     ok(SOSAccountLeaveCircle(alice_account, &error), "Alice leaves while applying  (%@)", error);
@@ -237,7 +241,7 @@ static void tests(void)
     is(SOSAccountGetCircleStatus(alice_account, &error), kSOSCCNotInCircle, "Alice isn't applying any more");
     accounts_agree("Alice leaves & some fancy concordance stuff happens", bob_account, alice_account);
     
-    ok(SOSAccountJoinCircles(alice_account, &error), "Alice re-applies (%@)", error);
+    ok(SOSAccountJoinCircles_wTxn(alice_account, &error), "Alice re-applies (%@)", error);
     CFReleaseNull(error);
     
     FeedChangesTo(changes, bob_account); // Bob sees Alice reapply.
@@ -259,21 +263,21 @@ static void tests(void)
 
     ok(SOSAccountAssertUserCredentialsAndUpdate(carol_account, cfaccount, cfpassword, &error), "Credential setting (%@)", error);
     CFReleaseNull(cfpassword);
-    ok(SOSAccountJoinCircles(carol_account, &error), "Carol Applies (%@)", error);
+    ok(SOSAccountJoinCircles_wTxn(carol_account, &error), "Carol Applies (%@)", error);
     CFReleaseNull(error);
 
     CFMutableDictionaryRef dropped_changes = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
     FillChanges(dropped_changes, carol_account);
     CFReleaseNull(dropped_changes);
 
-    ok(SOSAccountResetToOffering(carol_account, &error), "Reset to offering (%@)", error);
+    ok(SOSAccountResetToOffering_wTxn(carol_account, &error), "Reset to offering (%@)", error);
     CFReleaseNull(error);
     
     is(ProcessChangesUntilNoChange(changes, bob_account, carol_account,  NULL), 2, "updates");
     accounts_agree("13889901", carol_account, bob_account);
     is(SOSAccountGetLastDepartureReason(bob_account, &error), kSOSMembershipRevoked, "Bob affirms he hasn't left.");
     
-    ok(SOSAccountJoinCircles(bob_account, &error), "Bob ReApplies (%@)", error);
+    ok(SOSAccountJoinCircles_wTxn(bob_account, &error), "Bob ReApplies (%@)", error);
     is(ProcessChangesUntilNoChange(changes, bob_account, carol_account, NULL), 2, "updates");
     {
         CFArrayRef applicants = SOSAccountCopyApplicants(carol_account, &error);
@@ -290,11 +294,11 @@ static void tests(void)
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 1, "Reset propogation");
 
     // Test multiple removal, including our own departure via that API
-    ok(SOSAccountResetToOffering(alice_account, NULL), "Reset to offering");
+    ok(SOSAccountResetToOffering_wTxn(alice_account, NULL), "Reset to offering");
 
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 2, "Reset propogation");
 
-    ok(SOSAccountJoinCircles(bob_account, NULL), "bob joins again");
+    ok(SOSAccountJoinCircles_wTxn(bob_account, NULL), "bob joins again");
 
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 2, "Bob request");
 
@@ -309,7 +313,7 @@ static void tests(void)
 
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 3, "carol request");
 
-    ok(SOSAccountJoinCircles(carol_account, NULL), "carol joins again");
+    ok(SOSAccountJoinCircles_wTxn(carol_account, NULL), "carol joins again");
 
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 2, "carol request");
 

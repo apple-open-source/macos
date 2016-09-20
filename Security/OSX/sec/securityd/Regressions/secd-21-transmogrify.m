@@ -113,8 +113,8 @@ secd_21_transmogrify(int argc, char *const *argv)
 
     ok(isDictionary(result), "found item");
     if (isDictionary(result)) {
-        NSData *data = ((NSDictionary *)result)[@"musr"];
-        ok([data isEqual:(id)SecMUSRGetSystemKeychainUUID()], "item is system keychain");
+        NSData *data = ((__bridge NSDictionary *)result)[@"musr"];
+        ok([data isEqual:(__bridge id)SecMUSRGetSystemKeychainUUID()], "item is system keychain");
     } else {
         ok(0, "returned item is: %@", result);
     }
@@ -124,7 +124,7 @@ secd_21_transmogrify(int argc, char *const *argv)
      * Check sync bubble
      */
 
-    res = _SecItemAdd((CFDictionaryRef)@{
+    res = _SecItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass :  (id)kSecClassGenericPassword,
         (id)kSecAttrAccessGroup : @"com.apple.ProtectedCloudStorage",
         (id)kSecAttrAccessible : (id)kSecAttrAccessibleAfterFirstUnlock,
@@ -132,7 +132,7 @@ secd_21_transmogrify(int argc, char *const *argv)
     }, &client, NULL, NULL);
     is(res, true, "SecItemAdd(user)");
 
-    res = _SecItemCopyMatching((CFDictionaryRef)@{
+    res = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
          (id)kSecClass :  (id)kSecClassGenericPassword,
          (id)kSecAttrAccount :  @"pcs-label-me",
          (id)kSecReturnAttributes : (id)kCFBooleanTrue,
@@ -142,7 +142,7 @@ secd_21_transmogrify(int argc, char *const *argv)
     ok(isDictionary(result), "result is dictionary");
 
     /* Check that data are in 502 active user keychain */
-    ok (CFEqualSafe(((__bridge NSDictionary *)result)[@"musr"], musr), "not in msr 502");
+    ok (CFEqualSafe(((__bridge CFDataRef)((__bridge NSDictionary *)result)[@"musr"]), musr), "not in msr 502");
 
     CFReleaseNull(result);
 
@@ -156,7 +156,7 @@ secd_21_transmogrify(int argc, char *const *argv)
      * first check normal keychain
      */
 
-    res = _SecItemCopyMatching((CFDictionaryRef)@{
+    res = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
         (id)kSecClass :  (id)kSecClassGenericPassword,
         (id)kSecAttrAccount :  @"pcs-label-me",
         (id)kSecReturnAttributes : (id)kCFBooleanTrue,
@@ -172,7 +172,7 @@ secd_21_transmogrify(int argc, char *const *argv)
      * then syncbubble keychain
      */
 
-    res = _SecItemCopyMatching((CFDictionaryRef)@{
+    res = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
         (id)kSecClass :  (id)kSecClassGenericPassword,
         (id)kSecAttrAccount :  @"pcs-label-me",
         (id)kSecReturnAttributes : (id)kCFBooleanTrue,
@@ -185,7 +185,7 @@ secd_21_transmogrify(int argc, char *const *argv)
 
     SecSecuritySetMusrMode(false, 501, -1);
 
-    SecAccessGroupsSetCurrent((__bridge CFArrayRef)currentACL);
+    SecAccessGroupsSetCurrent(currentACL);
 
     CFRelease(musr);
 #else

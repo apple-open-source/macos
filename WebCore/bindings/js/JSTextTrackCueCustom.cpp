@@ -41,7 +41,7 @@ namespace WebCore {
 bool JSTextTrackCueOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown> handle, void*, SlotVisitor& visitor)
 {
     JSTextTrackCue* jsTextTrackCue = jsCast<JSTextTrackCue*>(handle.slot()->asCell());
-    TextTrackCue& textTrackCue = jsTextTrackCue->impl();
+    TextTrackCue& textTrackCue = jsTextTrackCue->wrapped();
 
     // If the cue is firing event listeners, its wrapper is reachable because
     // the wrapper is responsible for marking those event listeners.
@@ -59,32 +59,29 @@ bool JSTextTrackCueOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown> h
     return visitor.containsOpaqueRoot(root(textTrackCue.track()));
 }
 
-JSValue toJS(ExecState*, JSDOMGlobalObject* globalObject, TextTrackCue* cue)
+JSValue toJSNewlyCreated(ExecState*, JSDOMGlobalObject* globalObject, Ref<TextTrackCue>&& cue)
 {
-    if (!cue)
-        return jsNull();
-
-    JSObject* wrapper = getCachedWrapper(globalObject->world(), cue);
-
-    if (wrapper)
-        return wrapper;
-
     // This switch will make more sense once we support DataCue
     switch (cue->cueType()) {
     case TextTrackCue::Data:
-        return CREATE_DOM_WRAPPER(globalObject, DataCue, cue);
+        return CREATE_DOM_WRAPPER(globalObject, DataCue, WTFMove(cue));
     case TextTrackCue::WebVTT:
     case TextTrackCue::Generic:
-        return CREATE_DOM_WRAPPER(globalObject, VTTCue, cue);
+        return CREATE_DOM_WRAPPER(globalObject, VTTCue, WTFMove(cue));
     default:
         ASSERT_NOT_REACHED();
         return jsNull();
     }
 }
 
+JSValue toJS(ExecState* state, JSDOMGlobalObject* globalObject, TextTrackCue& cue)
+{
+    return wrap(state, globalObject, cue);
+}
+
 void JSTextTrackCue::visitAdditionalChildren(SlotVisitor& visitor)
 {
-    if (TextTrack* textTrack = impl().track())
+    if (TextTrack* textTrack = wrapped().track())
         visitor.addOpaqueRoot(root(textTrack));
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -61,15 +61,26 @@
 #include <notify.h>
 #include <sys/sysctl.h>
 #include <sys/kern_event.h>
-
-// from ip_fw2.c
-#define KEV_LOG_SUBCLASS	10
+#include <network/config.h>
 
 static dispatch_queue_t			S_kev_queue;
 static dispatch_source_t		S_kev_source;
-__private_extern__ Boolean		network_changed	= FALSE;
-__private_extern__ SCDynamicStoreRef	store		= NULL;
-__private_extern__ Boolean		_verbose	= FALSE;
+__private_extern__ Boolean		network_changed		= FALSE;
+__private_extern__ SCDynamicStoreRef	store			= NULL;
+__private_extern__ Boolean		_verbose		= FALSE;
+
+
+__private_extern__ os_log_t
+__log_KernelEventMonitor()
+{
+    static os_log_t	log	= NULL;
+
+    if (log == NULL) {
+	log = os_log_create("com.apple.SystemConfiguration", "KernelEventMonitor");
+    }
+
+    return log;
+}
 
 
 #define MESSAGES_MAX			100
@@ -358,11 +369,11 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 					break;
 				}
 				default :
-					handled = FALSE;
 					break;
 			}
 			break;
 		}
+
 		case KEV_INET6_SUBCLASS : {
 			struct kev_in6_data * ev;
 
@@ -395,11 +406,11 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 					break;
 
 				default :
-					handled = FALSE;
 					break;
 			}
 			break;
 		}
+
 		case KEV_DL_SUBCLASS : {
 			struct net_event_data * ev;
 
@@ -535,57 +546,67 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 								     issues->modid,
 								     DLIL_MODIDLEN,
 								     issues->info,
-								     (bcmp(issues->info, info_zero, DLIL_MODIDLEN) != 0)
-									?DLIL_MODARGLEN
-									:0);
+								     (bcmp(issues->info, info_zero, DLIL_MODARGLEN) != 0)
+									? DLIL_MODARGLEN
+									: 0);
 					break;
 				}
 #endif	// KEV_DL_ISSUES
 
-				case KEV_DL_SIFFLAGS :
-				case KEV_DL_SIFMETRICS :
-				case KEV_DL_SIFMTU :
-				case KEV_DL_SIFPHYS :
-				case KEV_DL_SIFMEDIA :
-				case KEV_DL_SIFGENERIC :
-				case KEV_DL_ADDMULTI :
-				case KEV_DL_DELMULTI :
-				case KEV_DL_LINK_ADDRESS_CHANGED :
-				case KEV_DL_WAKEFLAGS_CHANGED :
-#ifdef  KEV_DL_IFCAP_CHANGED
-				case KEV_DL_IFCAP_CHANGED :
-#endif	// KEV_DL_IFCAP_CHANGED
-					break;
-
 				default :
-					handled = FALSE;
 					break;
 			}
 			break;
 		}
+
+#ifdef	KEV_NETPOLICY_SUBCLASS
+		case KEV_NETPOLICY_SUBCLASS : {
+		    break;
+		}
+#endif	// KEV_NETPOLICY_SUBCLASS
+
+#ifdef	KEV_SOCKET_SUBCLASS
+		case KEV_SOCKET_SUBCLASS : {
+		    break;
+		}
+#endif	// KEV_SOCKET_SUBCLASS
+
 #ifdef	KEV_ND6_SUBCLASS
 		case KEV_ND6_SUBCLASS : {
-			switch (ev_msg->event_code) {
-				case KEV_KEV_ND6_RA :
-					break;
-
-				default :
-					handled = FALSE;
-					break;
-			}
 			break;
 		}
 #endif	// KEV_ND6_SUBCLASS
+
+#ifdef	KEV_NECP_SUBCLASS
+		case KEV_NECP_SUBCLASS : {
+		    break;
+		}
+#endif	// KEV_NECP_SUBCLASS
+
+#ifdef	KEV_NETAGENT_SUBCLASS
+		case KEV_NETAGENT_SUBCLASS : {
+		    break;
+		}
+#endif	// KEV_NETAGENT_SUBCLASS
+
+#ifdef	KEV_LOG_SUBCLASS
 		case KEV_LOG_SUBCLASS : {
 			break;
 		}
+#endif	// KEV_LOG_SUBCLASS
+
+#ifdef	KEV_NETEVENT_SUBCLASS
+		case KEV_NETEVENT_SUBCLASS : {
+			break;
+		}
+#endif	// KEV_NETEVENT_SUBCLASS
+
 		default :
-			handled = FALSE;
 			break;
 	}
 
 	if (!handled) {
-		logEvent(CFSTR("New Apple network subclass"), ev_msg);
+		logEvent(CFSTR("Error processing (Apple network subclass)"), ev_msg);
 	}
 	return;
 }
@@ -621,21 +642,12 @@ eventCallback(int so)
 					case KEV_NETWORK_CLASS :
 						processEvent_Apple_Network(ev_msg);
 						break;
-					case KEV_IOKIT_CLASS :
-					case KEV_SYSTEM_CLASS :
-					case KEV_APPLESHARE_CLASS :
-					case KEV_FIREWALL_CLASS :
-					case KEV_IEEE80211_CLASS :
-						break;
+
 					default :
-						/* unrecognized (Apple) event class */
-						logEvent(CFSTR("New (Apple) class"), ev_msg);
 						break;
 				}
 				break;
 			default :
-				/* unrecognized vendor code */
-				logEvent(CFSTR("New vendor"), ev_msg);
 				break;
 		}
 		offset += ev_msg->total_size;
@@ -651,8 +663,24 @@ eventCallback(int so)
 }
 
 
+__private_extern__ void
+config_new_interface(const char * ifname)
+{
+	xpc_object_t if_list;
+
+	if (ifname == NULL) {
+		network_config_check_interface_settings(NULL);
+		return;
+	}
+	if_list = xpc_array_create(NULL, 0);
+	xpc_array_set_string(if_list, XPC_ARRAY_APPEND, ifname);
+	network_config_check_interface_settings(if_list);
+	xpc_release(if_list);
+	return;
+}
+
 static void
-update_interfaces(const char * msg, Boolean ipv4_ipv6_too)
+update_interfaces(const char * msg, Boolean first_time)
 {
 	Boolean			added = FALSE;
 	struct ifaddrs *	ifap = NULL;
@@ -676,6 +704,9 @@ update_interfaces(const char * msg, Boolean ipv4_ipv6_too)
 		if (interfaceListAddInterface(ifList, scan->ifa_name)) {
 			messages_add_msg_with_arg(msg, scan->ifa_name);
 			added = TRUE;
+			if (!first_time) {
+				config_new_interface(scan->ifa_name);
+			}
 		}
 	}
 
@@ -686,7 +717,7 @@ update_interfaces(const char * msg, Boolean ipv4_ipv6_too)
 	CFRelease(ifList);
 
 	/* update IPv4/IPv6 addresses that are already assigned */
-	if (ipv4_ipv6_too) {
+	if (first_time) {
 		ipv4_interface_update(ifap, NULL);
 		interface_update_ipv6(ifap, NULL);
 	}
@@ -694,6 +725,10 @@ update_interfaces(const char * msg, Boolean ipv4_ipv6_too)
 	freeifaddrs(ifap);
 
  done:
+	if (first_time) {
+		/* tell networkd to get the interface list itself */
+		config_new_interface(NULL);
+	}
 	return;
 }
 
@@ -713,43 +748,21 @@ schedule_timer(void)
 	return;
 }
 
-static boolean_t
-kernel_events_lost(void)
-{
-	boolean_t		events_lost = FALSE;
-	struct kevtstat 	kevtstat;
-	size_t 			len = sizeof(kevtstat);
-	const char *		mibvar = "net.systm.kevt.stats";
-	static u_int64_t	old_kes_nomem;
-
-	if (sysctlbyname(mibvar, &kevtstat, &len, 0, 0) < 0) {
-		SC_log(LOG_NOTICE, "sysctl(%s) failed, %s",
-		       mibvar, strerror(errno));
-	}
-	else if (old_kes_nomem != kevtstat.kes_nomem) {
-		SC_log(LOG_NOTICE, "KernelEventMonitor: lost kernel event");
-		old_kes_nomem = kevtstat.kes_nomem;
-		events_lost = TRUE;
-	}
-	return (events_lost);
-}
-
 static void
 check_for_new_interfaces(void * context)
 {
 	static int	count;
+	char		msg[32];
 
 	count++;
-	if (kernel_events_lost()) {
-		char		msg[32];
 
-		snprintf(msg, sizeof(msg), "timeout %d (of %d)", count, MAX_TIMER_COUNT);
-		cache_open();
-		update_interfaces(msg, FALSE);
-		cache_write(store);
-		cache_close();
-		messages_post();
-	}
+	/* update KEV driven content in case a message got dropped */
+	snprintf(msg, sizeof(msg), "update %d (of %d)", count, MAX_TIMER_COUNT);
+	cache_open();
+	update_interfaces(msg, FALSE);
+	cache_write(store);
+	cache_close();
+	messages_post();
 
 	/* schedule the next timer, if needed */
 	if (count < MAX_TIMER_COUNT) {
@@ -871,11 +884,13 @@ load_KernelEventMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 		close(so);
 	});
 	dispatch_source_set_event_handler(S_kev_source, ^{
-		os_activity_t		activity_id;
-		Boolean	ok;
+		os_activity_t	activity;
+		Boolean		ok;
 
-		activity_id = os_activity_start("processing network kernel events",
-						OS_ACTIVITY_FLAG_DEFAULT);
+		activity = os_activity_create("processing network kernel events",
+					      OS_ACTIVITY_CURRENT,
+					      OS_ACTIVITY_FLAG_DEFAULT);
+		os_activity_scope(activity);
 
 		ok = eventCallback(so);
 		if (!ok) {
@@ -883,7 +898,7 @@ load_KernelEventMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 			dispatch_source_cancel(S_kev_source);
 		}
 
-		os_activity_end(activity_id);
+		os_release(activity);
 	});
 	// NOTE: dispatch_resume() will be called in prime()
 

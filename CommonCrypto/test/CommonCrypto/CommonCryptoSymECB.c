@@ -39,7 +39,7 @@ entryPoint(CommonCryptoSymECB,"CommonCrypto Symmetric ECB Testing")
 
 static int kTestTestCount = 4;
 
-int CommonCryptoSymECB(int argc, char *const *argv) {
+int CommonCryptoSymECB(int __unused argc, char *const * __unused argv) {
 	char *keyStr;
 	char *iv;
 	char *plainText;

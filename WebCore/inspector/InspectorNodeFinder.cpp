@@ -38,6 +38,7 @@
 #include "HTMLFrameOwnerElement.h"
 #include "NodeList.h"
 #include "NodeTraversal.h"
+#include "XPathNSResolver.h"
 #include "XPathResult.h"
 
 namespace WebCore {
@@ -113,7 +114,7 @@ bool InspectorNodeFinder::matchesElement(const Element& element)
 {
     String nodeName = element.nodeName();
     if ((!m_startTagFound && !m_endTagFound && (nodeName.findIgnoringCase(m_tagNameQuery) != notFound))
-        || (m_startTagFound && m_endTagFound && equalIgnoringCase(nodeName, m_tagNameQuery))
+        || (m_startTagFound && m_endTagFound && equalIgnoringASCIICase(nodeName, m_tagNameQuery))
         || (m_startTagFound && !m_endTagFound && nodeName.startsWith(m_tagNameQuery, false))
         || (!m_startTagFound && m_endTagFound && nodeName.endsWith(m_tagNameQuery, false)))
         return true;

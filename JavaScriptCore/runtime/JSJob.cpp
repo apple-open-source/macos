@@ -50,7 +50,7 @@ public:
     }
 
 private:
-    virtual void run(ExecState*) override;
+    void run(ExecState*) override;
 
     Strong<Unknown> m_job;
     Strong<JSArray> m_arguments;
@@ -65,12 +65,13 @@ void JSJobMicrotask::run(ExecState* exec)
 {
     CallData handlerCallData;
     CallType handlerCallType = getCallData(m_job.get(), handlerCallData);
-    ASSERT(handlerCallType != CallTypeNone);
+    ASSERT(handlerCallType != CallType::None);
 
     MarkedArgumentBuffer handlerArguments;
     for (unsigned index = 0, length = m_arguments->length(); index < length; ++index)
         handlerArguments.append(m_arguments->JSArray::get(exec, index));
-    call(exec, m_job.get(), handlerCallType, handlerCallData, jsUndefined(), handlerArguments);
+    profiledCall(exec, ProfilingReason::Microtask, m_job.get(), handlerCallType, handlerCallData, jsUndefined(), handlerArguments);
+    exec->vm().clearException();
 }
 
 } // namespace JSC

@@ -30,6 +30,8 @@
 #ifndef ExportMacros_h
 #define ExportMacros_h
 
+#include <wtf/Platform.h>
+
 // Different platforms have different defaults for symbol visibility. Usually
 // the compiler and the linker just take care of it. However for references to
 // runtime routines from JIT stubs, it matters to be able to declare a symbol as
@@ -87,13 +89,13 @@
 
 #else // !USE(EXPORT_MACROS)
 
-#if OS(WINDOWS) && !COMPILER(GCC)
+#if OS(WINDOWS) && !COMPILER(GCC_OR_CLANG)
 #if defined(BUILDING_WTF) || defined(STATICALLY_LINKED_WITH_WTF)
 #define WTF_EXPORTDATA __declspec(dllexport)
 #else
 #define WTF_EXPORTDATA __declspec(dllimport)
 #endif
-#else // !OS(WINDOWS) || COMPILER(GCC)
+#else // !OS(WINDOWS) || COMPILER(GCC_OR_CLANG)
 #define WTF_EXPORTDATA
 #endif
 

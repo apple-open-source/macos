@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2008, 2011, 2012, 2014, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008, 2011, 2012, 2014-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -49,7 +49,7 @@ __SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFDataRef val
 	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 	CFStringRef			storeSessionKey;
 
-	SC_trace(_configd_trace, "%s%s : %5d : %@\n",
+	SC_trace("%s%s : %5d : %@",
 		 internal ? "*set " : "set  ",
 		 storePrivate->useSessionKeys ? "t " : "  ",
 		 storePrivate->server,
@@ -324,7 +324,7 @@ __SCDynamicStoreSetMultiple(SCDynamicStoreRef store, CFDictionaryRef keysToSet, 
 	int				sc_status	= kSCStatusOK;
 	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 
-	SC_trace(_configd_trace, "set m   : %5d : %ld set, %ld remove, %ld notify\n",
+	SC_trace("set m   : %5d : %ld set, %ld remove, %ld notify",
 		 storePrivate->server,
 		 keysToSet    ? CFDictionaryGetCount(keysToSet)    : 0,
 		 keysToRemove ? CFArrayGetCount     (keysToRemove) : 0,

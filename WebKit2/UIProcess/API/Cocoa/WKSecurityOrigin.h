@@ -34,12 +34,12 @@
  it does not uniquely identify a security origin across multiple delegate method
  calls.
  */
-WK_ASSUME_NONNULL_BEGIN
+NS_ASSUME_NONNULL_BEGIN
 
-WK_CLASS_AVAILABLE(WK_MAC_TBA, WK_IOS_TBA)
+WK_CLASS_AVAILABLE(macosx(10.11), ios(9.0))
 @interface WKSecurityOrigin : NSObject
 
-- (instancetype)init WK_UNAVAILABLE;
+- (instancetype)init NS_UNAVAILABLE;
 
 /*! @abstract The security origin's protocol.
  */
@@ -55,6 +55,6 @@ WK_CLASS_AVAILABLE(WK_MAC_TBA, WK_IOS_TBA)
 
 @end
 
-WK_ASSUME_NONNULL_END
+NS_ASSUME_NONNULL_END
 
 #endif

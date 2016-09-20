@@ -65,7 +65,7 @@ getMemoryPattern() {
 
 static const int kTestTestCount = 1;
 
-int CommonBigDigest(int argc, char *const *argv)
+int CommonBigDigest(int __unused argc, char *const * __unused argv)
 {
     plan_tests(kTestTestCount);
     uint8_t *memptr = getMemoryPattern();

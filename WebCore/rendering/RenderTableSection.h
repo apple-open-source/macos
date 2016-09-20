@@ -55,20 +55,20 @@ public:
 
 class RenderTableSection final : public RenderBox {
 public:
-    RenderTableSection(Element&, Ref<RenderStyle>&&);
-    RenderTableSection(Document&, Ref<RenderStyle>&&);
+    RenderTableSection(Element&, RenderStyle&&);
+    RenderTableSection(Document&, RenderStyle&&);
     virtual ~RenderTableSection();
 
     RenderTableRow* firstRow() const;
     RenderTableRow* lastRow() const;
 
-    virtual void addChild(RenderObject* child, RenderObject* beforeChild = 0) override;
+    void addChild(RenderObject* child, RenderObject* beforeChild = 0) override;
 
-    virtual Optional<int> firstLineBaseline() const override;
+    Optional<int> firstLineBaseline() const override;
 
     void addCell(RenderTableCell*, RenderTableRow* row);
 
-    int calcRowLogicalHeight();
+    LayoutUnit calcRowLogicalHeight();
     void layoutRows();
     void computeOverflowFromCells();
 
@@ -107,21 +107,21 @@ public:
     void appendColumn(unsigned pos);
     void splitColumn(unsigned pos, unsigned first);
 
-    int calcOuterBorderBefore() const;
-    int calcOuterBorderAfter() const;
-    int calcOuterBorderStart() const;
-    int calcOuterBorderEnd() const;
+    LayoutUnit calcOuterBorderBefore() const;
+    LayoutUnit calcOuterBorderAfter() const;
+    LayoutUnit calcOuterBorderStart() const;
+    LayoutUnit calcOuterBorderEnd() const;
     void recalcOuterBorder();
 
-    int outerBorderBefore() const { return m_outerBorderBefore; }
-    int outerBorderAfter() const { return m_outerBorderAfter; }
-    int outerBorderStart() const { return m_outerBorderStart; }
-    int outerBorderEnd() const { return m_outerBorderEnd; }
+    LayoutUnit outerBorderBefore() const { return m_outerBorderBefore; }
+    LayoutUnit outerBorderAfter() const { return m_outerBorderAfter; }
+    LayoutUnit outerBorderStart() const { return m_outerBorderStart; }
+    LayoutUnit outerBorderEnd() const { return m_outerBorderEnd; }
 
-    int outerBorderLeft(const RenderStyle* styleForCellFlow) const;
-    int outerBorderRight(const RenderStyle* styleForCellFlow) const;
-    int outerBorderTop(const RenderStyle* styleForCellFlow) const;
-    int outerBorderBottom(const RenderStyle* styleForCellFlow) const;
+    LayoutUnit outerBorderLeft(const RenderStyle* styleForCellFlow) const;
+    LayoutUnit outerBorderRight(const RenderStyle* styleForCellFlow) const;
+    LayoutUnit outerBorderTop(const RenderStyle* styleForCellFlow) const;
+    LayoutUnit outerBorderBottom(const RenderStyle* styleForCellFlow) const;
 
     unsigned numRows() const;
     unsigned numColumns() const;
@@ -141,15 +141,15 @@ public:
 
     // distributeExtraLogicalHeightToRows methods return the *consumed* extra logical height.
     // FIXME: We may want to introduce a structure holding the in-flux layout information.
-    int distributeExtraLogicalHeightToRows(int extraLogicalHeight);
+    LayoutUnit distributeExtraLogicalHeightToRows(LayoutUnit extraLogicalHeight);
 
     static RenderTableSection* createAnonymousWithParentRenderer(const RenderObject*);
-    virtual RenderBox* createAnonymousBoxWithSameTypeAs(const RenderObject* parent) const override { return createAnonymousWithParentRenderer(parent); }
+    RenderBox* createAnonymousBoxWithSameTypeAs(const RenderObject* parent) const override { return createAnonymousWithParentRenderer(parent); }
     
-    virtual void paint(PaintInfo&, const LayoutPoint&) override;
+    void paint(PaintInfo&, const LayoutPoint&) override;
 
 protected:
-    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle) override;
+    void styleDidChange(StyleDifference, const RenderStyle* oldStyle) override;
 
 private:
     enum ShouldIncludeAllIntersectingCells {
@@ -157,35 +157,35 @@ private:
         DoNotIncludeAllIntersectingCells
     };
 
-    virtual const char* renderName() const override { return (isAnonymous() || isPseudoElement()) ? "RenderTableSection (anonymous)" : "RenderTableSection"; }
+    const char* renderName() const override { return (isAnonymous() || isPseudoElement()) ? "RenderTableSection (anonymous)" : "RenderTableSection"; }
 
-    virtual bool canHaveChildren() const override { return true; }
+    bool canHaveChildren() const override { return true; }
 
-    virtual bool isTableSection() const override { return true; }
+    bool isTableSection() const override { return true; }
 
-    virtual void willBeRemovedFromTree() override;
+    void willBeRemovedFromTree() override;
 
-    virtual void layout() override;
+    void layout() override;
 
     void paintCell(RenderTableCell*, PaintInfo&, const LayoutPoint&);
-    virtual void paintObject(PaintInfo&, const LayoutPoint&) override;
+    void paintObject(PaintInfo&, const LayoutPoint&) override;
     void paintRowGroupBorder(const PaintInfo&, bool antialias, LayoutRect, BoxSide, CSSPropertyID borderColor, EBorderStyle, EBorderStyle tableBorderStyle);
     void paintRowGroupBorderIfRequired(const PaintInfo&, const LayoutPoint& paintOffset, unsigned row, unsigned col, BoxSide, RenderTableCell* = 0);
-    int offsetLeftForRowGroupBorder(RenderTableCell*, const LayoutRect& rowGroupRect, unsigned row);
+    LayoutUnit offsetLeftForRowGroupBorder(RenderTableCell*, const LayoutRect& rowGroupRect, unsigned row);
 
-    int offsetTopForRowGroupBorder(RenderTableCell*, BoxSide borderSide, unsigned row);
-    int verticalRowGroupBorderHeight(RenderTableCell*, const LayoutRect& rowGroupRect, unsigned row);
-    int horizontalRowGroupBorderWidth(RenderTableCell*, const LayoutRect& rowGroupRect, unsigned row, unsigned column);
+    LayoutUnit offsetTopForRowGroupBorder(RenderTableCell*, BoxSide borderSide, unsigned row);
+    LayoutUnit verticalRowGroupBorderHeight(RenderTableCell*, const LayoutRect& rowGroupRect, unsigned row);
+    LayoutUnit horizontalRowGroupBorderWidth(RenderTableCell*, const LayoutRect& rowGroupRect, unsigned row, unsigned column);
 
-    virtual void imageChanged(WrappedImagePtr, const IntRect* = 0) override;
+    void imageChanged(WrappedImagePtr, const IntRect* = 0) override;
 
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction) override;
+    bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction) override;
 
     void ensureRows(unsigned);
 
-    void distributeExtraLogicalHeightToPercentRows(int& extraLogicalHeight, int totalPercent);
-    void distributeExtraLogicalHeightToAutoRows(int& extraLogicalHeight, unsigned autoRowsCount);
-    void distributeRemainingExtraLogicalHeight(int& extraLogicalHeight);
+    void distributeExtraLogicalHeightToPercentRows(LayoutUnit& extraLogicalHeight, int totalPercent);
+    void distributeExtraLogicalHeightToAutoRows(LayoutUnit& extraLogicalHeight, unsigned autoRowsCount);
+    void distributeRemainingExtraLogicalHeight(LayoutUnit& extraLogicalHeight);
 
     bool hasOverflowingCell() const { return m_overflowingCells.size() || m_forceSlowPaintPathWithOverflowingCell; }
     void computeOverflowFromCells(unsigned totalRows, unsigned nEffCols);
@@ -214,16 +214,16 @@ private:
     void lastChild() const = delete;
 
     Vector<RowStruct> m_grid;
-    Vector<int> m_rowPos;
+    Vector<LayoutUnit> m_rowPos;
 
     // the current insertion position
     unsigned m_cCol { 0 };
     unsigned m_cRow  { 0 };
 
-    int m_outerBorderStart  { 0 };
-    int m_outerBorderEnd  { 0 };
-    int m_outerBorderBefore  { 0 };
-    int m_outerBorderAfter  { 0 };
+    LayoutUnit m_outerBorderStart;
+    LayoutUnit m_outerBorderEnd;
+    LayoutUnit m_outerBorderBefore;
+    LayoutUnit m_outerBorderAfter;
 
     bool m_needsCellRecalc  { false };
 
@@ -279,28 +279,28 @@ inline RenderTableRow* RenderTableSection::rowRendererAt(unsigned row) const
     return m_grid[row].rowRenderer;
 }
 
-inline int RenderTableSection::outerBorderLeft(const RenderStyle* styleForCellFlow) const
+inline LayoutUnit RenderTableSection::outerBorderLeft(const RenderStyle* styleForCellFlow) const
 {
     if (styleForCellFlow->isHorizontalWritingMode())
         return styleForCellFlow->isLeftToRightDirection() ? outerBorderStart() : outerBorderEnd();
     return styleForCellFlow->isFlippedBlocksWritingMode() ? outerBorderAfter() : outerBorderBefore();
 }
 
-inline int RenderTableSection::outerBorderRight(const RenderStyle* styleForCellFlow) const
+inline LayoutUnit RenderTableSection::outerBorderRight(const RenderStyle* styleForCellFlow) const
 {
     if (styleForCellFlow->isHorizontalWritingMode())
         return styleForCellFlow->isLeftToRightDirection() ? outerBorderEnd() : outerBorderStart();
     return styleForCellFlow->isFlippedBlocksWritingMode() ? outerBorderBefore() : outerBorderAfter();
 }
 
-inline int RenderTableSection::outerBorderTop(const RenderStyle* styleForCellFlow) const
+inline LayoutUnit RenderTableSection::outerBorderTop(const RenderStyle* styleForCellFlow) const
 {
     if (styleForCellFlow->isHorizontalWritingMode())
         return styleForCellFlow->isFlippedBlocksWritingMode() ? outerBorderAfter() : outerBorderBefore();
     return styleForCellFlow->isLeftToRightDirection() ? outerBorderStart() : outerBorderEnd();
 }
 
-inline int RenderTableSection::outerBorderBottom(const RenderStyle* styleForCellFlow) const
+inline LayoutUnit RenderTableSection::outerBorderBottom(const RenderStyle* styleForCellFlow) const
 {
     if (styleForCellFlow->isHorizontalWritingMode())
         return styleForCellFlow->isFlippedBlocksWritingMode() ? outerBorderBefore() : outerBorderAfter();

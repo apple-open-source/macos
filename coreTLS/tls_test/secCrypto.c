@@ -53,6 +53,8 @@
 
 #endif
 
+#include <tls_helpers.h>
+
 
 #define test_printf(x...)
 //#define test_printf printf
@@ -60,40 +62,54 @@
 SSLCertificate server_cert;
 tls_private_key_t server_key;
 
-#include <Security/oidsalg.h>
-
-/* Private Key operations */
-static
-SecAsn1Oid oidForSSLHash(tls_hash_algorithm hash)
-{
-    switch (hash) {
-        case tls_hash_algorithm_SHA1:
-            return CSSMOID_SHA1WithRSA;
-        case tls_hash_algorithm_SHA256:
-            return CSSMOID_SHA256WithRSA;
-        case tls_hash_algorithm_SHA384:
-            return CSSMOID_SHA384WithRSA;
-        default:
-            break;
-    }
-    // Internal error
-    assert(0);
-    // This guarantee failure down the line
-    return CSSMOID_MD5WithRSA;
-}
-
 static
 int mySSLPrivKeyRSA_sign(void *key, tls_hash_algorithm hash, const uint8_t *plaintext, size_t plaintextLen, uint8_t *sig, size_t *sigLen)
 {
     SecKeyRef keyRef = key;
-
-    if(hash == tls_hash_algorithm_None) {
-        return SecKeyRawSign(keyRef, kSecPaddingPKCS1, plaintext, plaintextLen, sig, sigLen);
-    } else {
-        SecAsn1AlgId  algId;
-        algId.algorithm = oidForSSLHash(hash);
-        return SecKeySignDigest(keyRef, &algId, plaintext, plaintextLen, sig, sigLen);
+    SecKeyAlgorithm algo;
+    switch (hash) {
+        case tls_hash_algorithm_None:
+            return SecKeyRawSign(keyRef, kSecPaddingPKCS1, plaintext, plaintextLen, sig, sigLen);
+        case tls_hash_algorithm_SHA1:
+            algo = kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA1;
+            break;
+        case tls_hash_algorithm_SHA256:
+            algo = kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA256;
+            break;
+        case tls_hash_algorithm_SHA384:
+            algo = kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA384;
+            break;
+        case tls_hash_algorithm_SHA512:
+            algo = kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA512;
+            break;
+        default:
+            /* Unsupported hash - Internal error */
+            return errSSLInternal;
     }
+
+    int err = errSSLInternal;
+    CFDataRef signature = NULL;
+    CFDataRef data = NULL;
+
+    data = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, plaintext, plaintextLen, kCFAllocatorNull);
+    require(data, errOut);
+    signature = SecKeyCreateSignature(keyRef, algo, data , NULL);
+    require(signature, errOut);
+
+    CFIndex len = CFDataGetLength(signature);
+    const uint8_t *p = CFDataGetBytePtr(signature);
+
+    require(p, errOut);
+    require(len>=*sigLen, errOut);
+
+    memcpy(sig, p, len);
+    *sigLen = len;
+    err = noErr;
+
+errOut:
+    CFReleaseSafe(data);
+    CFReleaseSafe(signature);
+    return err;
 }
 
 static
@@ -272,123 +288,36 @@ out:
     return err;
 }
 
-/* Create SecTrustRef */
-int tls_create_peer_trust(tls_handshake_t hdsk, SecTrustRef *trustRef)
+int tls_evaluate_trust(tls_handshake_t hdsk, bool server)
 {
     int err;
-    const SSLCertificate *cert;
-
-    require_action(trustRef, out, err=errSecParam);
-
-    cert = tls_handshake_get_peer_certificates(hdsk);
-
-    return tls_create_trust_from_certs(cert, trustRef);
-out:
-
-    return err;
-}
-
-
-/* Extract the pubkey from a cert chain, and send it to the tls_handshake context */
-int tls_set_peer_pubkey(tls_handshake_t hdsk, SecTrustRef trustRef)
-{
-    int err;
-    CFIndex algId;
-    SecKeyRef pubkey = NULL;
-    CFDataRef modulus = NULL;
-    CFDataRef exponent = NULL;
-    CFDataRef ecpubdata = NULL;
-
-    require_action((pubkey = SecTrustCopyPublicKey(trustRef)), errOut, err=-9808); // errSSLBadCert
-
-#if TARGET_OS_IPHONE
-	algId = SecKeyGetAlgorithmID(pubkey);
-#else
-	algId = SecKeyGetAlgorithmId(pubkey);
-#endif
-
-    err = -9809; //errSSLCrypto;
-
-    switch(algId) {
-        case kSecRSAAlgorithmID:
-        {
-            require((modulus = SecKeyCopyModulus(pubkey)), errOut);
-            require((exponent = SecKeyCopyExponent(pubkey)), errOut);
-
-            tls_buffer mod;
-            tls_buffer exp;
-
-            mod.data = (uint8_t *)CFDataGetBytePtr(modulus);
-            mod.length = CFDataGetLength(modulus);
-
-            exp.data = (uint8_t *)CFDataGetBytePtr(exponent);
-            exp.length = CFDataGetLength(exponent);
-
-            err = tls_handshake_set_peer_rsa_public_key(hdsk, &mod, &exp);
-            break;
-        }
-        case kSecECDSAAlgorithmID:
-        {
-            tls_named_curve curve = (tls_named_curve)SecECKeyGetNamedCurve(pubkey);
-            require((ecpubdata = SecECKeyCopyPublicBits(pubkey)), errOut);
-
-            tls_buffer pubdata;
-            pubdata.data = (uint8_t *)CFDataGetBytePtr(ecpubdata);
-            pubdata.length = CFDataGetLength(ecpubdata);
-
-            err = tls_handshake_set_peer_ec_public_key(hdsk, curve, &pubdata);
-
-            break;
-        }
-        default:
-            break;
-    }
-
-errOut:
-    CFReleaseSafe(pubkey);
-    CFReleaseSafe(modulus);
-    CFReleaseSafe(exponent);
-    CFReleaseSafe(ecpubdata);
-
-    return err;
-}
-
-int tls_evaluate_trust(tls_handshake_t hdsk, SecTrustRef trustRef)
-{
-    int err;
-    const tls_buffer *ocsp_response;
-    CFDataRef ocsp_data = NULL;
     CFDictionaryRef trust_results = NULL;
     CFArrayRef trust_properties = NULL;
     SecTrustResultType trust_result = kSecTrustResultInvalid;
+    SecTrustRef trustRef = NULL;
 
-    ocsp_response = tls_handshake_get_peer_ocsp_response(hdsk);
+    require_noerr((err = tls_helper_create_peer_trust(hdsk, server, &trustRef)), errOut);
 
-    if(ocsp_response) {
-        base64_dump(*ocsp_response, "OCSP RESPONSE");
-        ocsp_data = CFDataCreate(kCFAllocatorDefault, ocsp_response->data, ocsp_response->length);
-        require_noerr((err=SecTrustSetOCSPResponse(trustRef, ocsp_data)), errOut);
+    if(trustRef) {
+        require_noerr((err=SecTrustEvaluate(trustRef, &trust_result)), errOut);
+
+        test_printf("SecTrustEvaluate result: %d\n", trust_result);
+
+        trust_results = SecTrustCopyResult(trustRef);
+        trust_properties = SecTrustCopyProperties(trustRef);
+
+        //CFShow(trust_results);
+        //CFShow(trust_properties);
+
+        /* Pretend it's all OK so we can continue*/
+        tls_handshake_set_peer_trust(hdsk, tls_handshake_trust_ok);
+    } else {
+        test_printf("No trustref (using cert-less ciphersuite maybe?)");
     }
-
-    // SecTrustSetCTData(trsutRef, sct_data);
-
-    require_noerr((err=SecTrustEvaluate(trustRef, &trust_result)), errOut);
-
-    test_printf("SecTrustEvaluate result: %d\n", trust_result);
-
-    trust_results = SecTrustCopyResult(trustRef);
-    trust_properties = SecTrustCopyProperties(trustRef);
-
-    //CFShow(trust_results);
-    //CFShow(trust_properties);
-
-    /* Pretend it's all OK so we can continue*/
-    tls_handshake_set_peer_trust(hdsk, tls_handshake_trust_ok);
 
     err = noErr;
 
 errOut:
-    CFReleaseSafe(ocsp_data);
     CFReleaseSafe(trust_properties);
     CFReleaseSafe(trust_results);
 

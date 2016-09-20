@@ -29,12 +29,12 @@
 #ifndef JSDOMWindowShell_h
 #define JSDOMWindowShell_h
 
+#include "DOMWindow.h"
 #include "JSDOMWindow.h"
 #include <runtime/JSProxy.h>
 
 namespace WebCore {
 
-    class DOMWindow;
     class Frame;
 
     class JSDOMWindowShell : public JSC::JSProxy {
@@ -44,16 +44,16 @@ namespace WebCore {
 
         JSDOMWindow* window() const { return JSC::jsCast<JSDOMWindow*>(target()); }
         void setWindow(JSC::VM&, JSDOMWindow*);
-        void setWindow(PassRefPtr<DOMWindow>);
+        void setWindow(RefPtr<DOMWindow>&&);
 
         DECLARE_INFO;
 
-        DOMWindow& impl() const;
+        DOMWindow& wrapped() const;
 
-        static JSDOMWindowShell* create(JSC::VM& vm, PassRefPtr<DOMWindow> window, JSC::Structure* structure, DOMWrapperWorld& world)
+        static JSDOMWindowShell* create(JSC::VM& vm, RefPtr<DOMWindow>&& window, JSC::Structure* structure, DOMWrapperWorld& world)
         {
             JSDOMWindowShell* shell = new (NotNull, JSC::allocateCell<JSDOMWindowShell>(vm.heap)) JSDOMWindowShell(vm, structure, world);
-            shell->finishCreation(vm, window);
+            shell->finishCreation(vm, WTFMove(window));
             return shell; 
         }
 
@@ -66,7 +66,7 @@ namespace WebCore {
 
     protected:
         JSDOMWindowShell(JSC::VM&, JSC::Structure*, DOMWrapperWorld&);
-        void finishCreation(JSC::VM&, PassRefPtr<DOMWindow>);
+        void finishCreation(JSC::VM&, RefPtr<DOMWindow>&&);
 
         Ref<DOMWrapperWorld> m_world;
     };

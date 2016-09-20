@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -41,7 +41,7 @@
 #include <bsm/libbsm.h>
 #include <sandbox.h>
 
-#if !TARGET_IPHONE_SIMULATOR || (defined(IPHONE_SIMULATOR_HOST_MIN_VERSION_REQUIRED) && (IPHONE_SIMULATOR_HOST_MIN_VERSION_REQUIRED >= 1090))
+#if !TARGET_OS_SIMULATOR || (defined(IPHONE_SIMULATOR_HOST_MIN_VERSION_REQUIRED) && (IPHONE_SIMULATOR_HOST_MIN_VERSION_REQUIRED >= 1090))
 #define HAVE_MACHPORT_GUARDS
 #endif
 
@@ -53,9 +53,6 @@ static int		lastSession	= -1;	/* # of last used session */
 
 /* CFMachPortInvalidation runloop */
 static CFRunLoopRef	sessionRunLoop	= NULL;
-
-/* temp session */
-static serverSessionRef	temp_session	= NULL;
 
 
 __private_extern__
@@ -100,34 +97,36 @@ serverSessionRef
 tempSession(mach_port_t server, CFStringRef name, audit_token_t auditToken)
 {
 	static dispatch_once_t		once;
-	SCDynamicStorePrivateRef	storePrivate;
+	SCDynamicStorePrivateRef	storePrivate;	/* temp session */
+	static serverSession		temp_session;
 
-	if (sessions[0]->key != server) {
+	dispatch_once(&once, ^{
+		temp_session = *sessions[0];	/* use "server" session */
+		temp_session.activity = NULL;
+		(void) __SCDynamicStoreOpen(&temp_session.store, NULL);
+	});
+
+	if (temp_session.key != server) {
 		// if not SCDynamicStore "server" port
 		return NULL;
 	}
 
-	dispatch_once(&once, ^{
-		temp_session = sessions[0];	/* use "server" session */
-		(void) __SCDynamicStoreOpen(&temp_session->store, NULL);
-	});
-
 	/* save audit token, caller entitlements */
-	temp_session->auditToken		= auditToken;
-	temp_session->callerEUID		= 1;		/* not "root" */
-	temp_session->callerRootAccess		= UNKNOWN;
-	if ((temp_session->callerWriteEntitlement != NULL) &&
-	    (temp_session->callerWriteEntitlement != kCFNull)) {
-		CFRelease(temp_session->callerWriteEntitlement);
+	temp_session.auditToken			= auditToken;
+	temp_session.callerEUID			= 1;		/* not "root" */
+	temp_session.callerRootAccess		= UNKNOWN;
+	if ((temp_session.callerWriteEntitlement != NULL) &&
+	    (temp_session.callerWriteEntitlement != kCFNull)) {
+		CFRelease(temp_session.callerWriteEntitlement);
 	}
-	temp_session->callerWriteEntitlement	= kCFNull;	/* UNKNOWN */
+	temp_session.callerWriteEntitlement	= kCFNull;	/* UNKNOWN */
 
 	/* save name */
-	storePrivate = (SCDynamicStorePrivateRef)temp_session->store;
+	storePrivate = (SCDynamicStorePrivateRef)temp_session.store;
 	if (storePrivate->name != NULL) CFRelease(storePrivate->name);
 	storePrivate->name = CFRetain(name);
 
-	return temp_session;
+	return &temp_session;
 }
 
 
@@ -270,13 +269,17 @@ addSession(mach_port_t server, CFStringRef (*copyDescription)(const void *info))
 		}
 	}
 
+	newSession->activity			= os_activity_create("processing SCDynamicStore notification",
+								     OS_ACTIVITY_CURRENT,
+								     OS_ACTIVITY_FLAG_DEFAULT);
+	newSession->callerEUID			= 1;		/* not "root" */
+	newSession->callerRootAccess		= UNKNOWN;
+	newSession->callerWriteEntitlement	= kCFNull;	/* UNKNOWN */
+	newSession->key				= mp;
+//	newSession->serverRunLoopSource		= NULL;
+//	newSession->store			= NULL;
+
 	sessions[n] = newSession;
-	sessions[n]->key			= mp;
-//	sessions[n]->serverRunLoopSource	= NULL;
-//	sessions[n]->store			= NULL;
-	sessions[n]->callerEUID			= 1;		/* not "root" */
-	sessions[n]->callerRootAccess		= UNKNOWN;
-	sessions[n]->callerWriteEntitlement	= kCFNull;	/* UNKNOWN */
 
 	return newSession;
 }
@@ -302,7 +305,7 @@ cleanupSession(mach_port_t server)
 			 * session entry still exists.
 			 */
 
-			SC_trace(_configd_trace, "cleanup : %5d\n", server);
+			SC_trace("cleanup : %5d", server);
 
 			/*
 			 * Close any open connections including cancelling any outstanding
@@ -327,6 +330,13 @@ cleanupSession(mach_port_t server)
 			if ((thisSession->callerWriteEntitlement != NULL) &&
 			    (thisSession->callerWriteEntitlement != kCFNull)) {
 				CFRelease(thisSession->callerWriteEntitlement);
+			}
+
+			/*
+			 * release our per-session activity
+			 */
+			if (thisSession->activity != NULL) {
+				os_release(thisSession->activity);
 			}
 
 			/*
@@ -505,7 +515,7 @@ __private_extern__
 Boolean
 hasRootAccess(serverSessionRef session)
 {
-#if	!TARGET_IPHONE_SIMULATOR
+#if	!TARGET_OS_SIMULATOR
 
 	if (session->callerRootAccess == UNKNOWN) {
 #if     (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) && !TARGET_OS_IPHONE
@@ -526,7 +536,7 @@ hasRootAccess(serverSessionRef session)
 
 	return (session->callerRootAccess == YES) ? TRUE : FALSE;
 
-#else	// !TARGET_IPHONE_SIMULATOR
+#else	// !TARGET_OS_SIMULATOR
 
 	/*
 	 * assume that all processes interacting with
@@ -534,7 +544,7 @@ hasRootAccess(serverSessionRef session)
 	 */
 	return TRUE;
 
-#endif	// !TARGET_IPHONE_SIMULATOR
+#endif	// !TARGET_OS_SIMULATOR
 }
 
 

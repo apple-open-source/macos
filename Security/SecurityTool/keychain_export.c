@@ -25,7 +25,7 @@
 
 #include "keychain_export.h"
 #include "keychain_utilities.h"
-#include "security.h"
+#include "security_tool.h"
 
 #include <errno.h>
 #include <string.h>
@@ -36,6 +36,9 @@
 #include <Security/SecIdentitySearch.h>
 #include <Security/SecKey.h>
 #include <Security/SecCertificate.h>
+#include <Security/SecItem.h>
+#include <Security/SecAccessControl.h>
+#include <Security/SecAccessControlPriv.h>
 #include <security_cdsa_utils/cuFileIo.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <stdio.h>
@@ -152,7 +155,7 @@ static int do_keychain_export(
 	SecKeyImportExportParameters keyParams;
 	CFStringRef	passStr = NULL;
 	CFDataRef outData = NULL;
-	unsigned len;
+	size_t len;
 
 	/* gather items */
 	CFMutableArrayRef exportItems = CFArrayCreateMutable(NULL, 0,
@@ -273,10 +276,10 @@ static int do_keychain_export(
 
 	len = CFDataGetLength(outData);
 	if(fileName) {
-		int rtn = writeFile(fileName, CFDataGetBytePtr(outData), len);
+		int rtn = writeFileSizet(fileName, CFDataGetBytePtr(outData), len);
 		if(rtn == 0) {
 			if(!do_quiet) {
-				fprintf(stderr, "...%u bytes written to %s\n", len, fileName);
+				fprintf(stderr, "...%lu bytes written to %s\n", len, fileName);
 			}
 		}
 		else {
@@ -285,8 +288,8 @@ static int do_keychain_export(
 		}
 	}
 	else {
-		int irtn = write(STDOUT_FILENO, CFDataGetBytePtr(outData), len);
-		if(irtn != (int)len) {
+		size_t irtn = write(STDOUT_FILENO, CFDataGetBytePtr(outData), len);
+		if(irtn != (size_t)len) {
 			perror("write");
 		}
 	}
@@ -438,4 +441,304 @@ keychain_export(int argc, char * const *argv)
 		CFRelease(kcRef);
 	}
 	return result;
+}
+
+typedef struct {
+    CFMutableStringRef str;
+} ctk_dict2str_context;
+
+
+static void
+ctk_obj_to_str(CFTypeRef obj, char *buf, int bufLen, Boolean key);
+
+static void
+ctk_dict2str(const void *key, const void *value, void *context)
+{
+    char keyBuf[64] = { 0 };
+    ctk_obj_to_str(key, keyBuf, sizeof(keyBuf), true);
+
+    char valueBuf[1024] = { 0 };
+    ctk_obj_to_str(value, valueBuf, sizeof(valueBuf), false);
+
+    CFStringRef str = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("\n\t\t\t%s : %s,"), keyBuf, valueBuf);
+    CFStringAppend(((ctk_dict2str_context *)context)->str, str);
+    CFRelease(str);
+}
+
+static void
+ctk_obj_to_str(CFTypeRef obj, char *buf, int bufLen, Boolean key)
+{
+    CFStringRef str = NULL;
+
+    if(CFGetTypeID(obj) == CFStringGetTypeID()) {
+        // CFStringRef - print the string as is (for keys) or quoted (values)
+        str = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, key ? CFSTR("%@") : CFSTR("\"%@\""), obj);
+    } else if(CFGetTypeID(obj) == CFNumberGetTypeID()) {
+        // CFNumber - print the value using current locale
+        CFNumberRef num = (CFNumberRef)obj;
+
+        CFLocaleRef locale = CFLocaleCopyCurrent();
+        CFNumberFormatterRef fmt = CFNumberFormatterCreate(kCFAllocatorDefault, locale, kCFNumberFormatterDecimalStyle);
+        CFRelease(locale);
+        
+        str = CFNumberFormatterCreateStringWithNumber(kCFAllocatorDefault, fmt, num);
+        CFRelease(fmt);
+    } else if(CFGetTypeID(obj) == CFDataGetTypeID()) {
+        // CFData - print the data as <hex bytes>
+        CFDataRef data = (CFDataRef)obj;
+
+        CFMutableStringRef hexStr = CFStringCreateMutable(kCFAllocatorDefault, CFDataGetLength(data) * 3);
+        
+        for(int i = 0; i < CFDataGetLength(data); i++) {
+            CFStringRef hexByte = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%02x "), *(CFDataGetBytePtr(data) + i));
+            CFStringAppend(hexStr, hexByte);
+            CFRelease(hexByte);
+        }
+
+        // Get rid of the last excessive space.
+        if(CFDataGetLength(data)) {
+            CFStringDelete(hexStr, CFRangeMake(CFStringGetLength(hexStr) - 1, 1));
+        }
+
+        str = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<%@>"), hexStr);
+        CFRelease(hexStr);
+    } else if(CFGetTypeID(obj) == CFBooleanGetTypeID()) {
+        // CFBoolean - print true/false
+        CFBooleanRef cfbool = (CFBooleanRef)obj;
+
+        str = CFStringCreateWithCString(kCFAllocatorDefault, CFBooleanGetValue(cfbool) ? "true" : "false", kCFStringEncodingUTF8);
+    } else if(CFGetTypeID(obj) == SecAccessControlGetTypeID()) {
+        // SecAccessControlRef - print the constraints dictionary
+        SecAccessControlRef ac = (SecAccessControlRef)obj;
+
+        CFDictionaryRef constraints = SecAccessControlGetConstraints(ac);
+        CFMutableStringRef constraintsStr = CFStringCreateMutable(kCFAllocatorDefault, 1024);
+        if(constraints && CFDictionaryGetCount(constraints)) {
+            ctk_dict2str_context context;
+            context.str = constraintsStr;
+            CFDictionaryApplyFunction(constraints, ctk_dict2str, &context);
+            CFStringReplace(constraintsStr, CFRangeMake(CFStringGetLength(constraintsStr) - 1, 1), CFSTR("\n\t\t"));
+        }
+
+        CFDictionaryRef protection = SecAccessControlGetProtection(ac);
+        CFMutableStringRef protectionStr = CFStringCreateMutable(kCFAllocatorDefault, 512);
+        if(protection && CFDictionaryGetCount(protection)) {
+            ctk_dict2str_context context;
+            context.str = protectionStr;
+            CFDictionaryApplyFunction(protection, ctk_dict2str, &context);
+            CFStringReplace(protectionStr, CFRangeMake(CFStringGetLength(protectionStr) - 1, 1), CFSTR("\n\t\t"));
+        }
+
+        str = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("constraints: {%@}\n\t\tprotection: {%@}"), constraintsStr, protectionStr);
+        CFRelease(constraintsStr);
+        CFRelease(protectionStr);
+    }
+
+    // Fill the provided buffer with the converted string.
+    if(str) {
+        Boolean success = CFStringGetCString(str, buf, bufLen, kCFStringEncodingUTF8);
+        CFRelease(str);
+
+        if(success) {
+            return;
+        }
+    }
+
+    // Use object description as fallback...
+    CFStringRef description = CFCopyDescription(obj);
+    if(!CFStringGetCString(description, buf, bufLen, kCFStringEncodingUTF8)) {
+        // ...or else we don't know.
+        strncpy(buf, "<?>", bufLen);
+    }
+
+    CFRelease(description);
+}
+
+typedef struct {
+    int i;
+    const char *name;
+} ctk_print_context;
+
+
+static void
+ctk_print_dict(const void *key, const void *value, void *context)
+{
+    char keyBuf[64] = { 0 };
+    ctk_obj_to_str(key, keyBuf, sizeof(keyBuf), true);
+
+    char valueBuf[1024] = { 0 };
+    ctk_obj_to_str(value, valueBuf, sizeof(valueBuf), false);
+
+    printf("\t%s : %s\n", keyBuf, valueBuf);
+}
+
+static void
+ctk_dump_item_header(ctk_print_context *ctx)
+{
+    printf("\n");
+    printf("==== %s #%d\n", ctx->name, ctx->i);
+}
+
+static void
+ctk_dump_item_footer(ctk_print_context *ctx)
+{
+    printf("====\n");
+}
+
+static OSStatus
+ctk_dump_item(CFTypeRef item, ctk_print_context *ctx)
+{
+    OSStatus stat = errSecSuccess;
+
+    CFTypeID tid = CFGetTypeID(item);
+    if(tid == CFDictionaryGetTypeID()) {
+        // We expect a dictionary containing item attributes.
+        ctk_dump_item_header(ctx);
+        CFDictionaryApplyFunction((CFDictionaryRef)item, ctk_print_dict, ctx);
+        ctk_dump_item_footer(ctx);
+    } else {
+        stat = errSecInternalComponent;
+        printf("Unexpected item type ID: %lu\n", tid);
+    }
+
+    return stat;
+}
+
+static OSStatus
+ctk_dump_items(CFArrayRef items, CFTypeRef secClass, const char *name)
+{
+    OSStatus stat = errSecSuccess;
+
+    ctk_print_context ctx = { 1, name };
+
+    for(CFIndex i = 0; i < CFArrayGetCount(items); i++) {
+        CFTypeRef item = CFArrayGetValueAtIndex(items, i);
+        stat = ctk_dump_item(item, &ctx);
+        ctx.i++;
+
+        if(stat) {
+            break;
+        }
+    }
+
+    return stat;
+}
+
+static OSStatus
+ctk_dump(CFTypeRef secClass, const char *name, const char *tid)
+{
+    OSStatus stat = errSecSuccess;
+    CFDictionaryRef query = NULL;
+    CFTypeRef result = NULL;
+
+    const void *keys[] = {
+        kSecClass,
+        kSecMatchLimit,
+        kSecAttrAccessGroup,
+        kSecReturnAttributes,
+    };
+
+    const void *values[] = {
+        secClass,
+        kSecMatchLimitAll,
+        kSecAttrAccessGroupToken,
+        kCFBooleanTrue
+    };
+
+    // Query attributes of items of the requested secClass.
+    query = CFDictionaryCreate(kCFAllocatorDefault,
+                               keys,
+                               values,
+                               sizeof(values) / sizeof(values[0]),
+                               &kCFTypeDictionaryKeyCallBacks,
+                               &kCFTypeDictionaryValueCallBacks);
+
+    if(tid) {
+        CFMutableDictionaryRef updatedQuery = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, CFDictionaryGetCount(query) + 1, query);
+        CFStringRef tidStr = CFStringCreateWithCString(kCFAllocatorDefault, tid, kCFStringEncodingUTF8);
+        CFDictionaryAddValue(updatedQuery, kSecAttrTokenID, tidStr);
+        CFRelease(tidStr);
+
+        CFRelease(query);
+        query = updatedQuery;
+    }
+
+    stat = SecItemCopyMatching(query, (CFTypeRef *)&result);
+    if(stat) {
+        sec_error("SecItemCopyMatching: %x (%d) - %s",
+                  stat, stat, sec_errstr(stat));
+        goto cleanup;
+    }
+
+    // We expect an array of dictionaries containing item attributes as result.
+    if(CFGetTypeID(result) == CFArrayGetTypeID()) {
+        stat = ctk_dump_items((CFArrayRef)result, secClass, name);
+    } else {
+        stat = errSecInternalComponent;
+    }
+
+cleanup:
+    if(query) {
+        CFRelease(query);
+    }
+
+    if(result) {
+        CFRelease(result);
+    }
+    
+    return stat;
+}
+
+int
+ctk_export(int argc, char * const *argv)
+{
+    OSStatus stat = errSecSuccess;
+
+    ItemSpec itemSpec = IS_All;
+    const char *tid = NULL;
+    int ch;
+
+    while ((ch = getopt(argc, argv, "i:t:h")) != -1) {
+        switch  (ch) {
+            case 't':
+                if(!strcmp("certs", optarg)) {
+                    itemSpec = IS_Certs;
+                }
+                else if(!strcmp("privKeys", optarg)) {
+                    itemSpec = IS_PrivKeys;
+                }
+                else if(!strcmp("identities", optarg)) {
+                    itemSpec = IS_Identities;
+                }
+                else if(!strcmp("all", optarg)) {
+                    itemSpec = IS_All;
+                }
+                else {
+                    return 2; /* @@@ Return 2 triggers usage message. */
+                }
+                break;
+            case 'i':
+                tid = optarg;
+                break;
+
+            case '?':
+            default:
+                return 2; /* @@@ Return 2 triggers usage message. */
+        }
+    }
+
+    CFTypeRef classes[] = { kSecClassCertificate, kSecClassKey, kSecClassIdentity };
+    const char* names[] = { "certificate", "private key", "identity" };
+    ItemSpec specs[] = { IS_Certs, IS_PrivKeys, IS_Identities };
+
+    for(int i = 0; i < sizeof(classes)/sizeof(classes[0]); i++) {
+        if(specs[i] == itemSpec || itemSpec == IS_All) {
+            stat = ctk_dump(classes[i], names[i], tid);
+            if(stat) {
+                break;
+            }
+        }
+    }
+
+    return stat;
 }

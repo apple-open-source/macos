@@ -75,7 +75,7 @@ void KCEventNotifier::PostKeychainEvent(SecKeychainEvent whichEvent,
         SecurityServer::ClientSession cs (Allocator::standard(), Allocator::standard());
         cs.postNotification (SecurityServer::kNotificationDomainDatabase, whichEvent, data);
 
-        secdebug("kcnotify", "KCEventNotifier::PostKeychainEvent posted event %u", (unsigned int) whichEvent);
+        secinfo("kcnotify", "KCEventNotifier::PostKeychainEvent posted event %u", (unsigned int) whichEvent);
     }
 
 	free (data.data ());

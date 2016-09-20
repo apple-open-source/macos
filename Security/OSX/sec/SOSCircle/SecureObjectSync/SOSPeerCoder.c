@@ -1,3 +1,26 @@
+/*
+ * Copyright (c) 2012-2016 Apple Inc. All Rights Reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
 #include <Security/SecureObjectSync/SOSPeer.h>
 #include <Security/SecureObjectSync/SOSPeerCoder.h>
 #include <Security/SecureObjectSync/SOSTransportMessage.h>
@@ -11,27 +34,17 @@
 #include <AssertMacros.h>
 #include "SOSInternal.h"
 
-// TODO: This could possibly move to SOSEngine?
-bool SOSPeerCoderInitializeForPeer(SOSEngineRef engine, SOSFullPeerInfoRef myPeerInfo, SOSPeerInfoRef peerInfo, CFErrorRef *error) {
-    __block bool ok = true;
-    ok &= SOSEngineForPeerID(engine, SOSPeerInfoGetPeerID(peerInfo), error, ^(SOSPeerRef peer) {
-        ok = SOSPeerEnsureCoder(peer, myPeerInfo, peerInfo, error);
-    });
-    return ok;
-}
-
 void SOSPeerCoderConsume(SOSEnginePeerMessageSentBlock *sent, bool ok) {
     if (*sent)
         (*sent)(ok);
 }
 
-enum SOSCoderUnwrapStatus SOSPeerHandleCoderMessage(SOSPeerRef peer, CFStringRef peer_id, CFDataRef codedMessage, CFDataRef *decodedMessage, bool *forceSave, CFErrorRef *error) {
+enum SOSCoderUnwrapStatus SOSPeerHandleCoderMessage(SOSPeerRef peer, SOSCoderRef coder, CFStringRef peer_id, CFDataRef codedMessage, CFDataRef *decodedMessage, bool *forceSave, CFErrorRef *error) {
     
     enum SOSCoderUnwrapStatus result = SOSCoderUnwrapError;
     CFMutableDataRef localDecodedMessage = NULL;
     
     SOSCoderStatus coderStatus = kSOSCoderDataReturned;
-    SOSCoderRef coder = SOSPeerGetCoder(peer, error);
     require_action_quiet(coder, xit, secerror("%@ getCoder: %@", peer_id, error ? *error : NULL));
     CFErrorRef localError = NULL;
     if (coder) { 
@@ -64,6 +77,10 @@ enum SOSCoderUnwrapStatus SOSPeerHandleCoderMessage(SOSPeerRef peer, CFStringRef
                 secinfo("engine", "%@ engine stale event ignored", peer_id);
                 result = SOSCoderUnwrapHandled;
                 break;
+            case kSOSCoderForceMessage:
+                SOSPeerSetMustSendMessage(peer, true);
+                result = SOSCoderUnwrapHandled;
+                break;
             case kSOSCoderTooNew:       // We received an event from the future!
                 secnotice("engine", "%@ engine received a message too soon, time to restart", peer_id);
                 SOSCoderReset(coder);
@@ -85,15 +102,14 @@ xit:
     return result;
 }
 
-bool SOSPeerCoderSendMessageIfNeeded(SOSEngineRef engine, SOSPeerRef peer, CFDataRef *message_to_send, CFStringRef circle_id, CFStringRef peer_id, SOSEnginePeerMessageSentBlock *sent, CFErrorRef *error) {
-    SOSCoderRef coder = SOSPeerGetCoder(peer, error);
+bool SOSPeerCoderSendMessageIfNeeded(SOSEngineRef engine, SOSTransactionRef txn, SOSPeerRef peer, SOSCoderRef coder, CFDataRef *message_to_send, CFStringRef circle_id, CFStringRef peer_id, SOSEnginePeerMessageSentBlock *sent, CFErrorRef *error) {
     bool ok = false;
     require_action_quiet(coder, xit, secerror("%@ getCoder: %@", peer_id, error ? *error : NULL));
 
     if (SOSCoderCanWrap(coder)) {
         secinfo("transport", "%@ Coder can wrap, getting message from engine", peer_id);
         CFMutableDataRef codedMessage = NULL;
-        CFDataRef message = SOSEngineCreateMessage_locked(engine, peer, error, sent);
+        CFDataRef message = SOSEngineCreateMessage_locked(engine, txn, peer, error, sent);
         if (!message) {
             secnotice("transport", "%@ SOSEngineCreateMessageToSyncToPeer failed: %@", peer_id, *error);
         } else if (CFDataGetLength(message) || SOSPeerMustSendMessage(peer)) {

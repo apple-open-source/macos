@@ -156,6 +156,114 @@ krb5_fwd_tgt_creds (krb5_context	context,
     return ret;
 }
 
+#define FORWARD_CONFIG_LABEL "_forward"
+
+static krb5_error_code
+_krb5_get_cached_forward_creds(krb5_context context,
+			       krb5_ccache cache,
+			       krb5_const_principal server,
+			       krb5_flags flags,
+			       krb5_creds **creds)
+{
+    krb5_storage *sp = NULL;
+    krb5_error_code ret;
+    krb5_data fdata;
+    uint32_t cflags;
+    time_t now;
+
+    krb5_data_zero(&fdata);
+
+    ret = krb5_cc_get_config(context, cache, server, FORWARD_CONFIG_LABEL, &fdata);
+    if (ret)
+	goto out;
+
+    sp = krb5_storage_from_data(&fdata);
+    if (sp == NULL) {
+	ret = krb5_enomem(context);
+	goto out;
+    }
+
+    ret = krb5_ret_uint32(sp, &cflags);
+    if (ret)
+	goto out;
+
+    if (cflags != flags) {
+	ret = KRB5KRB_AP_ERR_NOT_US;
+	krb5_set_error_message(context, ret, "cached forward credential not same flags");
+	goto out;
+    }
+
+    *creds = calloc(1, sizeof(**creds));
+    if (*creds == NULL) {
+	ret = krb5_enomem(context);
+	goto out;
+    }
+
+    ret = krb5_ret_creds(sp, *creds);
+    if (ret) {
+	krb5_free_creds(context, *creds);
+	*creds = NULL;
+	goto out;
+    }
+
+    now = time(NULL);
+    if ((*creds)->times.endtime < now) {
+	ret = KRB5KRB_AP_ERR_TKT_EXPIRED;
+	krb5_cc_set_config(context, cache, server, FORWARD_CONFIG_LABEL, NULL);
+	krb5_free_creds(context, *creds);
+	*creds = NULL;
+    }
+ out:
+    if (sp)
+	krb5_storage_free(sp);
+    krb5_data_free(&fdata);
+
+    return ret;
+}
+
+static krb5_error_code
+_krb5_store_cached_forward_creds(krb5_context context,
+				 krb5_ccache cache,
+				 krb5_const_principal server,
+				 krb5_flags flags,
+				 krb5_creds *fcreds)
+{
+    krb5_storage *sp = NULL;
+    krb5_error_code ret;
+    krb5_data fdata;
+
+    krb5_data_zero(&fdata);
+
+    sp = krb5_storage_emem();
+    if (sp == NULL) {
+	ret = krb5_enomem(context);
+	goto out;
+    }
+
+    ret = krb5_store_uint32(sp, flags);
+    if (ret)
+	goto out;
+
+    ret = krb5_store_creds(sp, fcreds);
+    if (ret)
+	goto out;
+
+    ret = krb5_storage_to_data(sp, &fdata);
+    if (ret)
+	goto out;
+    
+    ret = krb5_cc_set_config(context, cache, server, FORWARD_CONFIG_LABEL, &fdata);
+    if (ret)
+	goto out;
+
+ out:
+    krb5_data_free(&fdata);
+    if (sp)
+	krb5_storage_free(sp);
+    return ret;
+}
+
+
 /**
  * Gets tickets forwarded to hostname. If the tickets that are
  * forwarded are address-less, the forwarded tickets will also be
@@ -193,7 +301,7 @@ krb5_get_forwarded_creds (krb5_context	    context,
 			  krb5_data         *out_data)
 {
     krb5_error_code ret;
-    krb5_creds *out_creds;
+    krb5_creds *out_creds = NULL;
     krb5_addresses addrs, *paddrs;
     KRB_CRED cred;
     KrbCredInfo *krb_cred_info;
@@ -205,10 +313,16 @@ krb5_get_forwarded_creds (krb5_context	    context,
     krb5_crypto crypto;
     struct addrinfo *ai;
     krb5_creds *ticket;
+    krb5_data cached_data;
+
+    memset (&cred, 0, sizeof(cred));
+    cred.pvno = 5;
+    cred.msg_type = krb_cred;
 
     paddrs = NULL;
     addrs.len = 0;
     addrs.val = NULL;
+    krb5_data_zero(&cached_data);
 
     if (auth_context->keyblock == NULL) {
 	krb5_set_error_message(context, KRB5KDC_ERR_NULL_KEY, N_("auth context is missing session key", ""));
@@ -254,33 +368,51 @@ krb5_get_forwarded_creds (krb5_context	    context,
 	    return ret;
     }
 
-    kdc_flags.b = int2KDCOptions(flags);
-
-    ret = krb5_get_kdc_cred (context,
-			     ccache,
-			     kdc_flags,
-			     paddrs,
-			     NULL,
-			     in_creds,
-			     &out_creds);
-    krb5_free_addresses (context, &addrs);
-    if (ret)
-	return ret;
-
-    memset (&cred, 0, sizeof(cred));
-    cred.pvno = 5;
-    cred.msg_type = krb_cred;
     ALLOC_SEQ(&cred.tickets, 1);
     if (cred.tickets.val == NULL) {
 	ret = ENOMEM;
 	krb5_set_error_message(context, ret, N_("malloc: out of memory", ""));
-	goto out2;
+	return ret;
     }
+
+    /*
+     * Check if we can use cached forwarded tickets
+     */
+
+    if (paddrs == NULL) {
+	ret = _krb5_get_cached_forward_creds(context, ccache, in_creds->server, flags, &out_creds);
+	if (ret)
+	    _krb5_debug(context, 1, ret, "_krb5_get_cached_forward_creds");
+    }
+
+    if (out_creds == NULL) {
+
+	kdc_flags.b = int2KDCOptions(flags);
+
+	ret = krb5_get_kdc_cred (context,
+				 ccache,
+				 kdc_flags,
+				 paddrs,
+				 NULL,
+				 in_creds,
+				 &out_creds);
+	krb5_free_addresses (context, &addrs);
+	if (ret)
+	    goto out3;
+
+	if (paddrs == 0) {
+	    ret = _krb5_store_cached_forward_creds(context, ccache, in_creds->server, flags, out_creds);
+	    if (ret)
+		_krb5_debug(context, 1, ret, "_krb5_store_cached_forward_creds");
+	}
+    }
+
     ret = decode_Ticket(out_creds->ticket.data,
 			out_creds->ticket.length,
-			cred.tickets.val, &len);
+			&cred.tickets.val[0], &len);
     if (ret)
 	goto out3;
+
 
     memset (&enc_krb_cred_part, 0, sizeof(enc_krb_cred_part));
     ALLOC_SEQ(&enc_krb_cred_part.ticket_info, 1);
@@ -444,7 +576,8 @@ krb5_get_forwarded_creds (krb5_context	    context,
     free_EncKrbCredPart(&enc_krb_cred_part);
  out3:
     free_KRB_CRED(&cred);
- out2:
-    krb5_free_creds (context, out_creds);
+
+    if (out_creds)
+	krb5_free_creds (context, out_creds);
     return ret;
 }

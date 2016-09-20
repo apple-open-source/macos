@@ -34,6 +34,8 @@
 #include <IOKit/hidsystem/IOLLEvent.h>
 #endif /*!TARGET_OS_EMBEDDED*/
 
+#define ALIGNED_DATA_SIZE(data_size,align_size) ((((data_size - 1) / align_size) + 1) * align_size)
+
 typedef struct IOHIDEventData IOHIDEventData;
 
 class IOHIDEvent: public OSObject
@@ -86,14 +88,32 @@ public:
                                         UInt32                  usage,
                                         Boolean                 down,
                                         IOOptionBits            options = 0);
-                                        
+    
+    static IOHIDEvent *     keyboardEvent(
+                                        AbsoluteTime            timeStamp,
+                                        UInt32                  usagePage,
+                                        UInt32                  usage,
+                                        Boolean                 down,
+                                        UInt8                   pressCount,
+                                        Boolean                 longPress,
+                                        UInt8                   clickSpeed,
+                                        IOOptionBits            options = 0);
+
+    
     static IOHIDEvent *     translationEvent (
                                         AbsoluteTime            timeStamp,
                                         IOFixed                 x,
                                         IOFixed                 y,
                                         IOFixed                 z,
                                         IOOptionBits            options = 0);
-                                        
+
+    static IOHIDEvent *     scrollEventWithFixed (
+                                        AbsoluteTime            timeStamp,
+                                        IOFixed                 x,
+                                        IOFixed                 y,
+                                        IOFixed                 z,
+                                        IOOptionBits            options = 0);
+  
     static IOHIDEvent *     scrollEvent (
                                         AbsoluteTime            timeStamp,
                                         SInt32                  x,
@@ -160,7 +180,7 @@ public:
                                         UInt32                  channel3    = 0,
                                         IOOptionBits            options     = 0);
 
-    static IOHIDEvent *  ambientLightSensorEvent(
+    static IOHIDEvent *     ambientLightSensorEvent(
                                         AbsoluteTime            timeStamp,
                                         UInt32                  level,
                                         UInt8                   colorSpace,
@@ -180,6 +200,16 @@ public:
                                         IOFixed                 temperature,
                                         IOOptionBits            options = 0);
 
+
+    static IOHIDEvent *     relativePointerEventWithFixed(
+                                        AbsoluteTime            timeStamp,
+                                        IOFixed                 x,
+                                        IOFixed                 y,
+                                        IOFixed                 z,
+                                        UInt32                  buttonState,
+                                        UInt32                  oldButtonState = 0,
+                                        IOOptionBits            options = 0);
+
     static IOHIDEvent *     relativePointerEvent(
                                         AbsoluteTime            timeStamp,
                                         SInt32                  x,
@@ -189,6 +219,15 @@ public:
                                         UInt32                  oldButtonState = 0,
                                         IOOptionBits            options = 0);
 
+    static IOHIDEvent *     absolutePointerEvent(
+                                        AbsoluteTime            timeStamp,
+                                        IOFixed                 x,
+                                        IOFixed                 y,
+                                        IOFixed                 z,
+                                        UInt32                  buttonState,
+                                        UInt32                  oldButtonState = 0,
+                                        IOOptionBits            options = 0);
+    
     static IOHIDEvent *     multiAxisPointerEvent(
                                         AbsoluteTime            timeStamp,
                                         IOFixed                 x,
@@ -321,7 +360,9 @@ public:
                                         IOOptionBits            options = 0);
 
     static IOHIDEvent *     biometricEvent(AbsoluteTime timeStamp, IOFixed level, IOHIDBiometricEventType eventType, IOOptionBits options=0);
-
+    
+    static IOHIDEvent *     biometricEvent(AbsoluteTime timeStamp, IOFixed level, IOHIDBiometricEventType eventType, UInt32 usagePage, UInt32 usage, UInt8 tapCount, IOOptionBits options=0);
+    
     static IOHIDEvent *     atmosphericPressureEvent(AbsoluteTime timeStamp, IOFixed level, UInt32 sequence=0, IOOptionBits options=0);
 
     static IOHIDEvent *     unicodeEvent(AbsoluteTime timeStamp, UInt8 * payload, UInt32 length, IOHIDUnicodeEncodingType encoding, IOFixed quality, IOOptionBits options);
@@ -359,6 +400,10 @@ public:
                                         IOFixed                         joystickZ,
                                         IOFixed                         joystickRz,
                                         IOOptionBits                    options = 0);
+
+    static IOHIDEvent *     humidityEvent(AbsoluteTime timeStamp, IOFixed rh, UInt32 sequence=0, IOOptionBits options=0);
+
+    static IOHIDEvent *     brightnessEvent(AbsoluteTime timeStamp, IOFixed currentBrightness, IOFixed targetBrightness, UInt64 transitionTime, IOOptionBits options = 0);
 
     virtual void            appendChild(IOHIDEvent *childEvent);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,6 +45,7 @@
 #include "EAPKeychainUtil.h"
 #include "EAPLog.h"
 #include "EAPSIMAKAPersistentState.h"
+#include "EAPOLSIMPrefsManage.h"
 
 #define kEAPSIMAKAPrefsChangedNotification		\
     "com.apple.network.eapclient.eapsimaka.prefs"
@@ -56,6 +57,9 @@ typedef Boolean
 STATIC void
 IMSIListRemoveMatches(EAPType type, IMSIMatchFuncRef iter,
 		      const void * context);
+
+STATIC void
+EAPSIMAKAPersistentStatePurgePrefs(void);
 
 STATIC Boolean
 prefs_did_change(uint32_t * gen_p)
@@ -246,16 +250,20 @@ ProtoInfoNotifyChange(ProtoInfoRef proto_info)
  **/
 
 STATIC CFStringRef kPrefsPseudonym = CFSTR("Pseudonym"); /* string */
+STATIC CFStringRef kPrefsPseudonymStartTime = CFSTR("PseudonymStartTime"); /* date */
 STATIC CFStringRef kPrefsReauthCounter = CFSTR("ReauthCounter"); /* number */
 STATIC CFStringRef kPrefsReauthID = CFSTR("ReauthID"); 	/* string */
 STATIC CFStringRef kPrefsSSID = CFSTR("SSID"); 		/* string */
+STATIC CFStringRef kPrefsGenID = CFSTR("GenerationID"); 		/* number */
 
 struct EAPSIMAKAPersistentState {
     EAPType			type;
     EAPSIMAKAAttributeType 	identity_type;
     CFStringRef			imsi;
+    uint32_t			generation_id;
     uint16_t			counter;
     CFStringRef			pseudonym;
+    CFDateRef		pseudonym_start_time;
     CFStringRef			reauth_id;
     ProtoInfoRef		proto_info;
     int				master_key_size;
@@ -287,8 +295,11 @@ EAPSIMAKAPersistentStateGetIMSI(EAPSIMAKAPersistentStateRef persist)
 }
 
 PRIVATE_EXTERN CFStringRef
-EAPSIMAKAPersistentStateGetPseudonym(EAPSIMAKAPersistentStateRef persist)
+EAPSIMAKAPersistentStateGetPseudonym(EAPSIMAKAPersistentStateRef persist, CFDateRef * start_time)
 {
+    if (start_time != NULL) {
+	*start_time = persist->pseudonym_start_time;
+    }
     return (persist->pseudonym);
 }
 
@@ -359,11 +370,15 @@ EAPSIMAKAPersistentStateCreate(EAPType type, int master_key_size,
     persist->proto_info = proto_info;
     persist->master_key_size = master_key_size;
     persist->identity_type = identity_type;
+    persist->generation_id = EAPOLSIMGenerationGet();
+
 
     /* retrieve stored information if it's required */
     if (identity_type != kAT_PERMANENT_ID_REQ) {
 	CFPropertyListRef	info;
 	CFStringRef		pseudonym = NULL;
+	uint32_t		mobile_gen_id;
+	CFNumberRef		num_gen_id = NULL;
 
 	ProtoInfoChangedCheck(proto_info);
 	info = CFPreferencesCopyValue(imsi,
@@ -372,7 +387,30 @@ EAPSIMAKAPersistentStateCreate(EAPType type, int master_key_size,
 				      kCFPreferencesAnyHost);
 	if (isA_CFDictionary(info) != NULL) {
 	    CFDictionaryRef	dict = (CFDictionaryRef)info;
-	    
+
+	    num_gen_id = isA_CFNumber(CFDictionaryGetValue(dict,
+							   kPrefsGenID));
+	    if (num_gen_id != NULL) {
+		CFNumberGetValue(num_gen_id, kCFNumberSInt32Type,
+				 (void *)&mobile_gen_id);
+	    } else {
+		mobile_gen_id = 0;
+	    }
+	    /* Before using stored information determine whether generation id
+	     * is okay to use it. Rules for using stored info are:
+	     * 1. if generation id in SC prefs matches with one in mobile prefs
+	     *    then SIM was not removed since last usage of stored info,
+	     *	  so it's okay to use the stored info.
+	     * 2. if generation id in SC prefs does *NOT* match with the one in
+	     *    mobile prefs then delete the stored info and continue the connection
+	     *    without the stored info.
+	     */
+	    if (persist->generation_id != mobile_gen_id) {
+		/* wipe out the stored info */
+		my_CFRelease(&info);
+		EAPSIMAKAPersistentStatePurgePrefs();
+		goto done;
+	    }
 	    pseudonym
 		= isA_CFString(CFDictionaryGetValue(dict, kPrefsPseudonym));
 	    if (pseudonym == NULL) {
@@ -380,6 +418,11 @@ EAPSIMAKAPersistentStateCreate(EAPType type, int master_key_size,
 		pseudonym
 		    = isA_CFString(CFDictionaryGetValue(dict,
 							CFSTR("PseudonymID")));
+	    }
+	    if (pseudonym != NULL) {
+		persist->pseudonym_start_time
+		= CFDictionaryGetValue(dict,
+				       kPrefsPseudonymStartTime);
 	    }
 	    if (identity_type == kAT_ANY_ID_REQ) {
 		CFNumberRef		counter;
@@ -450,12 +493,22 @@ EAPSIMAKAPersistentStateSave(EAPSIMAKAPersistentStateRef persist,
     IMSIListRemoveMatches(persist->type, IMSIDoesNotMatch, persist->imsi);
 
     /* Pseudonym */
-    if (EAPSIMAKAPersistentStateGetPseudonym(persist) != NULL) {
+    if (EAPSIMAKAPersistentStateGetPseudonym(persist, NULL) != NULL) {
+	CFDateRef pseudonym_start_time = NULL;
+
 	info = CFDictionaryCreateMutable(NULL, 0,
 					 &kCFTypeDictionaryKeyCallBacks,
 					 &kCFTypeDictionaryValueCallBacks);
+	/* pseudonym */
 	CFDictionarySetValue(info, kPrefsPseudonym,
-			     EAPSIMAKAPersistentStateGetPseudonym(persist));
+			     EAPSIMAKAPersistentStateGetPseudonym(persist, NULL));
+
+	/* pseudonym expiry time */
+	pseudonym_start_time = CFDateCreate(NULL, CFAbsoluteTimeGetCurrent());
+	if (pseudonym_start_time != NULL) {
+	    CFDictionarySetValue(info, kPrefsPseudonymStartTime, pseudonym_start_time);
+	    CFRelease(pseudonym_start_time);
+	}
     }
 
     if (EAPSIMAKAPersistentStateGetReauthID(persist) != NULL
@@ -490,7 +543,13 @@ EAPSIMAKAPersistentStateSave(EAPSIMAKAPersistentStateRef persist,
 
     /* SSID */
     if (info != NULL && ssid != NULL) {
+	CFNumberRef generation_id = NULL;
+
 	CFDictionarySetValue(info, kPrefsSSID, ssid);
+	generation_id = CFNumberCreate(NULL, kCFNumberSInt32Type,
+									   (const void *)&persist->generation_id);
+	CFDictionarySetValue(info, kPrefsGenID, generation_id);
+	CFRelease(generation_id);
     }
     ProtoInfoChangedCheck(persist->proto_info);
     CFPreferencesSetValue(persist->imsi, info,
@@ -592,6 +651,21 @@ EAPSIMAKAPersistentStateForgetSSID(CFStringRef ssid)
 {
     IMSIListRemoveMatches(kEAPTypeEAPSIM, IMSIMatchesSSID, ssid);
     IMSIListRemoveMatches(kEAPTypeEAPAKA, IMSIMatchesSSID, ssid);
+    return;
+}
+
+STATIC Boolean
+IMSIMatchesEverything(CFStringRef imsi, CFDictionaryRef info,
+				const void * context)
+{
+    return TRUE;
+}
+
+STATIC void
+EAPSIMAKAPersistentStatePurgePrefs(void)
+{
+    IMSIListRemoveMatches(kEAPTypeEAPSIM, IMSIMatchesEverything, NULL);
+    IMSIListRemoveMatches(kEAPTypeEAPAKA, IMSIMatchesEverything, NULL);
     return;
 }
 

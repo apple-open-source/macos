@@ -1,6 +1,4 @@
 /*
- * "$Id: backend-private.h 11560 2014-02-06 20:10:19Z msweet $"
- *
  * Backend support definitions for CUPS.
  *
  * Copyright 2007-2014 by Apple Inc.
@@ -331,8 +329,3 @@ extern int		backendWaitLoop(int snmp_fd, http_addr_t *addr,
 }
 #  endif /* __cplusplus */
 #endif /* !_CUPS_BACKEND_PRIVATE_H_ */
-
-
-/*
- * End of "$Id: backend-private.h 11560 2014-02-06 20:10:19Z msweet $".
- */

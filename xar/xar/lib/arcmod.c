@@ -107,8 +107,8 @@ int32_t xar_arcmod_extract(xar_t x, xar_file_t f, const char *file, char *buffer
 }
 
 
-int32_t xar_arcmod_verify(xar_t x, xar_file_t f){
-	return xar_data_verify(x,f);
+int32_t xar_arcmod_verify(xar_t x, xar_file_t f, xar_progress_callback p){
+	return xar_data_verify(x,f, p);
 }
 
 /* xar_check_prop

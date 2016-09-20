@@ -40,17 +40,15 @@ static char sccsid[] = "@(#)date.c	8.2 (Berkeley) 4/28/95";
 #endif
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/bin/date/date.c,v 1.47 2005/01/10 08:39:21 imp Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/param.h>
 #include <sys/time.h>
+#include <sys/stat.h>
 
 #include <ctype.h>
 #include <err.h>
 #include <locale.h>
-#ifndef __APPLE__
-#include <libutil.h>
-#endif /* !__APPLE__ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -60,7 +58,6 @@ __FBSDID("$FreeBSD: src/bin/date/date.c,v 1.47 2005/01/10 08:39:21 imp Exp $");
 
 #ifdef __APPLE__
 #include <get_compat.h>
-#include <util.h>
 #else
 #define COMPAT_MODE(a,b) (1)
 #endif /* __APPLE__ */
@@ -72,20 +69,26 @@ __FBSDID("$FreeBSD: src/bin/date/date.c,v 1.47 2005/01/10 08:39:21 imp Exp $");
 #define	TM_YEAR_BASE	1900
 #endif
 
+#ifdef __APPLE__
+#define st_mtim st_mtimespec
+#endif
+
 static time_t tval;
 int retval;
-int unix2003_std = 0;	/* to determine legacy vs std mode */
+static int unix2003_std;	/* to determine legacy vs std mode */
 
 static void setthetime(const char *, const char *, int, int);
 static void badformat(void);
 static void usage(void);
+
+static const char *rfc2822_format = "%a, %d %b %Y %T %z";
 
 int
 main(int argc, char *argv[])
 {
 	struct timezone tz;
 	int ch, rflag;
-	int jflag, nflag;
+	int jflag, nflag, Rflag;
 	const char *format;
 	char buf[1024];
 	char *endptr, *fmt;
@@ -94,6 +97,7 @@ main(int argc, char *argv[])
 	struct vary *v;
 	const struct vary *badv;
 	struct tm lt;
+	struct stat sb;
 
 	unix2003_std = COMPAT_MODE("bin/date", "unix2003");	/* Determine the STD */
 
@@ -102,9 +106,9 @@ main(int argc, char *argv[])
 	(void) setlocale(LC_TIME, "");
 	tz.tz_dsttime = tz.tz_minuteswest = 0;
 	rflag = 0;
-	jflag = nflag = 0;
+	jflag = nflag = Rflag = 0;
 	set_timezone = 0;
-	while ((ch = getopt(argc, argv, "d:f:jnr:t:uv:")) != -1)
+	while ((ch = getopt(argc, argv, "d:f:jnRr:t:uv:")) != -1)
 		switch((char)ch) {
 		case 'd':		/* daylight savings time */
 			tz.tz_dsttime = strtol(optarg, &endptr, 10) ? 1 : 0;
@@ -121,11 +125,18 @@ main(int argc, char *argv[])
 		case 'n':		/* don't set network */
 			nflag = 1;
 			break;
+		case 'R':		/* RFC 2822 datetime format */
+			Rflag = 1;
+			break;
 		case 'r':		/* user specified seconds */
 			rflag = 1;
 			tval = strtoq(optarg, &tmp, 0);
-			if (*tmp != 0)
-				usage();
+			if (*tmp != 0) {
+				if (stat(optarg, &sb) == 0)
+					tval = sb.st_mtim.tv_sec;
+				else
+					usage();
+			}
 			break;
 		case 't':		/* minutes west of UTC */
 					/* error check; don't allow "PST" */
@@ -150,13 +161,16 @@ main(int argc, char *argv[])
 	 * If -d or -t, set the timezone or daylight savings time; this
 	 * doesn't belong here; the kernel should not know about either.
 	 */
-	if (set_timezone && settimeofday((struct timeval *)NULL, &tz))
+	if (set_timezone && settimeofday(NULL, &tz) != 0)
 		err(1, "settimeofday (timezone)");
 
 	if (!rflag && time(&tval) == -1)
 		err(1, "time");
 
 	format = "%+";
+
+	if (Rflag)
+		format = rfc2822_format;
 
 	/* allow the operands in any order */
 	if (*argv && **argv == '+') {
@@ -191,6 +205,14 @@ main(int argc, char *argv[])
 		usage();
 	}
 	vary_destroy(v);
+
+	if (format == rfc2822_format)
+		/*
+		 * When using RFC 2822 datetime format, don't honor the
+		 * locale.
+		 */
+		setlocale(LC_TIME, "C");
+
 	(void)strftime(buf, sizeof(buf), format, &lt);
 	(void)printf("%s\n", buf);
 	if (fflush(stdout))
@@ -211,13 +233,17 @@ main(int argc, char *argv[])
 static void
 setthetime(const char *fmt, const char *p, int jflag, int nflag)
 {
+	struct utmpx utx;
 	struct tm *lt;
+	struct timeval tv;
 	const char *dot, *t;
 	int century;
 	size_t length;
 
+	lt = localtime(&tval);
+	lt->tm_isdst = -1;		/* divine correct DST */
+
 	if (fmt != NULL) {
-		lt = localtime(&tval);
 		t = strptime(p, fmt, lt);
 		if (t == NULL) {
 			fprintf(stderr, "Failed conversion of ``%s''"
@@ -237,8 +263,6 @@ setthetime(const char *fmt, const char *p, int jflag, int nflag)
 			}
 			badformat();
 		}
-
-		lt = localtime(&tval);
 
 		if (dot != NULL) {			/* .ss */
 			dot++; /* *dot++ = '\0'; */
@@ -294,9 +318,6 @@ setthetime(const char *fmt, const char *p, int jflag, int nflag)
 		}
 	}
 
-	/* Let mktime() decide whether summer time is in effect. */
-	lt->tm_isdst = -1;
-
 	/* convert broken-down time to GMT clock time */
 	if ((tval = mktime(lt)) == -1)
 		errx(1, "nonexistent time");
@@ -304,17 +325,16 @@ setthetime(const char *fmt, const char *p, int jflag, int nflag)
 	if (!jflag) {
 		/* set the time */
 		if (nflag || netsettime(tval)) {
-			struct utmpx ut;
-			bzero(&ut, sizeof(ut));
-			ut.ut_type = OLD_TIME;
-			(void)gettimeofday(&ut.ut_tv, NULL);
-			pututxline(&ut);
-			ut.ut_tv.tv_sec = tval;
-			ut.ut_tv.tv_usec = 0;
-			if (settimeofday(&ut.ut_tv, NULL))
+			utx.ut_type = OLD_TIME;
+			(void)gettimeofday(&utx.ut_tv, NULL);
+			pututxline(&utx);
+			tv.tv_sec = tval;
+			tv.tv_usec = 0;
+			if (settimeofday(&tv, NULL) != 0)
 				err(1, "settimeofday (timeval)");
-			ut.ut_type = NEW_TIME;
-			pututxline(&ut);
+			utx.ut_type = NEW_TIME;
+			(void)gettimeofday(&utx.ut_tv, NULL);
+			pututxline(&utx);
 		}
 
 		if ((p = getlogin()) == NULL)
@@ -334,9 +354,10 @@ static void
 usage(void)
 {
 	(void)fprintf(stderr, "%s\n%s\n",
-	    "usage: date [-jnu] [-d dst] [-r seconds] [-t west] "
+	    "usage: date [-jnRu] [-d dst] [-r seconds] [-t west] "
 	    "[-v[+|-]val[ymwdHMS]] ... ",
-		unix2003_std ? "            "
+	    unix2003_std ?
+	    "            "
 	    "[-f fmt date | [[[mm]dd]HH]MM[[cc]yy][.ss]] [+format]" :
 	    "            "
 	    "[-f fmt date | [[[[[cc]yy]mm]dd]HH]MM[.ss]] [+format]");

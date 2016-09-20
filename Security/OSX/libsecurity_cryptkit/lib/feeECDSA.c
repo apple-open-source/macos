@@ -460,7 +460,10 @@ feeReturn feeECDSAVerify(const unsigned char *sigData,
      * Verify that c and d are within [1,group_order-1]
      */
     if((gcompg(cp->cOrderPlus, c) != 1) || (gcompg(cp->cOrderPlus, d) != 1) ||
-       isZero(c) || isZero(d)) {
+       isZero(c) || isZero(d))
+    {
+        returnGiant(c);
+        returnGiant(d);
         return FR_InvalidSignature;
     }
 

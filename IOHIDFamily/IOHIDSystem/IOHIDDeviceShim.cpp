@@ -29,16 +29,25 @@
 
 OSDefineMetaClassAndAbstractStructors( IOHIDDeviceShim, IOHIDDevice )
 
+bool IOHIDDeviceShim::initWithParameters(UInt32 location, boolean_t allowVirtualProvider)
+{
+    bool result = initWithLocation(location);
+    if (result) {
+        _allowVirtualProvider = allowVirtualProvider;
+    }
+    return result;
+}
+
 bool IOHIDDeviceShim::initWithLocation(UInt32 location)
 {
     if (!super::init())
         return false;
 
-    _device 	= 0;
+    _device     = 0;
     _hiDevice 	= 0;
     _transport  = kIOHIDTransportNone;
     _location   = location;
-
+    _allowVirtualProvider = false;
     return true;
 }
 
@@ -51,9 +60,9 @@ bool IOHIDDeviceShim::handleStart( IOService * provider )
 
     if ((_hiDevice = OSDynamicCast(IOHIDevice, provider)))
     {
-        if (_hiDevice->getProperty(kIOHIDVirtualHIDevice) == kOSBooleanTrue)
+        if (_allowVirtualProvider == false && _hiDevice->getProperty(kIOHIDVirtualHIDevice) == kOSBooleanTrue) {
             return false;
-
+        }
         device = _hiDevice;
         do {
 			if ((_device = (IOService *)device->metaCast("IOHIDDevice")))

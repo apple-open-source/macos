@@ -26,8 +26,6 @@ int main()
     void* (^local)(void) = ^{ return malloc(sizeof(struct bigbig)); };
     BigStruct_t (^local_stret)(void) = ^{ return *(BigStruct_t *)malloc(sizeof(struct bigbig)); };
 
-    // signatures: emitted by clang, but not llvm-gcc or gcc
-#if __clang__
     testassert(_Block_has_signature(local));
     testassert(_Block_has_signature(global));
     testassert(_Block_has_signature(local_stret));
@@ -41,31 +39,11 @@ int main()
     testassert(0 == strcmp(_Block_signature(global), "^v"P"@?0"));
     testassert(0 == strcmp(_Block_signature(local_stret), "{bigbig=[512i]}"P"@?0"));
     testassert(0 == strcmp(_Block_signature(global_stret), "{bigbig=[512i]}"P"@?0"));
-#else
-    testassert(!_Block_has_signature(local));
-    testassert(!_Block_has_signature(global));
-    testassert(!_Block_has_signature(local_stret));
-    testassert(!_Block_has_signature(global_stret));
-    testassert(!_Block_signature(local));
-    testassert(!_Block_signature(global));
-    testassert(!_Block_signature(local_stret));
-    testassert(!_Block_signature(global_stret));
-#endif
 
-    // stret flag: emitted by clang and llvm-gcc, but not gcc
     testassert(! _Block_use_stret(local));
     testassert(! _Block_use_stret(global));
-#if defined(__clang__)  ||  defined(__llvm__)
-#  if !__clang__
-    testwarn("llvm-gcc rdar://8143947");
-#  else
     testassert(_Block_use_stret(local_stret));
     testassert(_Block_use_stret(global_stret));
-#  endif
-#else
-    testassert(!_Block_use_stret(local_stret));
-    testassert(!_Block_use_stret(global_stret));
-#endif
 
     succeed(__FILE__);
 }

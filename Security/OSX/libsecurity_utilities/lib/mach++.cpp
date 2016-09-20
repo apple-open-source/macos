@@ -41,7 +41,8 @@ namespace MachPlusPlus {
 //
 Error::Error(kern_return_t err) : error(err)
 {
-	SECURITY_EXCEPTION_THROW_MACH(this, err);
+    SECURITY_EXCEPTION_THROW_MACH(this, err);
+    secnotice("security_exception", "mach error: %d", err);
 }
 
 Error::~Error() throw()
@@ -127,9 +128,9 @@ mach_port_t Port::requestNotify(mach_port_t notify, mach_msg_id_t type, mach_por
 	default:						typeName = "???"; break;
 	}
 	if (notify == MACH_PORT_NULL)
-		secdebug("port", "%d cancel notify %s", port(), typeName);
+		secinfo("port", "%d cancel notify %s", port(), typeName);
 	else
-		secdebug("port", "%d request notify %s to %d (sync %d)", port(), typeName, notify, sync);
+		secinfo("port", "%d request notify %s to %d (sync %d)", port(), typeName, notify, sync);
 #endif //!NDEBUG
 
     return previous;
@@ -232,7 +233,7 @@ mach_port_t Bootstrap::checkInOptional(const char *name) const
 
 void Bootstrap::registerAs(mach_port_t port, const char *name) const
 {
-	secdebug("bootstrap", "creating service port %d in %d:%s", port, this->port(), name);
+	secinfo("bootstrap", "creating service port %d in %d:%s", port, this->port(), name);
 	check(::bootstrap_register(mPort, makeName(name), port));
 }
 
@@ -298,13 +299,13 @@ StBootstrap::StBootstrap(const Bootstrap &newBoot, const TaskPort &task)
 {
     mOldBoot = Bootstrap();
     mTask.bootstrap(newBoot);
-    secdebug("StBoot", "bootstrap for %d switched to %d", mTask.port(), newBoot.port());
+    secinfo("StBoot", "bootstrap for %d switched to %d", mTask.port(), newBoot.port());
 }
 
 StBootstrap::~StBootstrap()
 {
     mTask.bootstrap(mOldBoot);
-    secdebug("StBoot", "bootstrap for %d returned to %d", mTask.port(), mOldBoot.port());
+    secinfo("StBoot", "bootstrap for %d returned to %d", mTask.port(), mOldBoot.port());
 }
 
 

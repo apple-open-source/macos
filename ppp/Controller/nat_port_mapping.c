@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2010-2016 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -441,7 +441,7 @@ setPortMappingCallback (DNSServiceRef        sdRef,
 					serv->nat_mapping[i].protocol = protocol;
 				} else if (serv->nat_mapping[i].privatePort != privatePort) {
 					SCLog(TRUE, LOG_INFO, CFSTR("%s port-mapping for %s inconsistent. is Connected: %d, Previous privatePort: %d, Current privatePort %d."),
-						   sd_name, if_name, serv->nat_mapping[i].privatePort, privatePort);
+						   sd_name, if_name, is_connected, serv->nat_mapping[i].privatePort, privatePort);
 					serv->nat_mapping[i].privatePort = privatePort;
 				}
 			}

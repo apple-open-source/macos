@@ -19,7 +19,7 @@ operate.
 By default, the activity monitored includes all system processes except the
 running
 .Nm fs_usage
-process, Terminal, telnetd, sshd, rlogind, tcsh, csh and sh.
+process, Terminal, telnetd, telnet, sshd, rlogind, tcsh, csh, sh, and zsh.
 These defaults can be overridden such that output is limited to include or
 exclude a list of processes specified by the user.
 .Pp
@@ -118,18 +118,6 @@ option has the opposite effect,
 excluding sampled data relating to the given list
 of process IDs or commands.
 .El
-.Pp
-If you set the DYLD_IMAGE_SUFFIX environment variable to
-.Dq Li _debug ,
-then an application will use the debug version of all libraries,
-including the Carbon FileManager.
-See
-.Xr dyld 1 .
-When
-.Nm fs_usage
-is run against a Carbon Application launched in this environment,
-then the high-level Carbon FileManager calls
-will be displayed bracketing the system calls that they are built on.
 .Pp
 The data columns displayed are as follows:
 .Bl -tag -width Ds

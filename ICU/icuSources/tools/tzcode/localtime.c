@@ -1176,7 +1176,10 @@ gmtload(struct state *const sp)
 ** A non-static declaration of tzsetwall in a system header file
 ** may cause a warning about this upcoming static declaration...
 */
+static void tzsetwall(void);
 static
+#else
+void tzsetwall(void);
 #endif /* !defined STD_INSPIRED */
 void
 tzsetwall(void)
@@ -1392,6 +1395,7 @@ gmtime_r(const time_t *const timep, struct tm *tmp)
 }
 
 #ifdef STD_INSPIRED
+struct tm * offtime(const time_t *const timep, const long offset);
 
 struct tm *
 offtime(const time_t *const timep, const long offset)
@@ -1936,6 +1940,7 @@ mktime(struct tm *const tmp)
 }
 
 #ifdef STD_INSPIRED
+time_t timelocal(struct tm *const tmp);
 
 time_t
 timelocal(struct tm *const tmp)
@@ -1945,6 +1950,8 @@ timelocal(struct tm *const tmp)
 	return mktime(tmp);
 }
 
+time_t timegm(struct tm *const tmp);
+
 time_t
 timegm(struct tm *const tmp)
 {
@@ -1952,6 +1959,8 @@ timegm(struct tm *const tmp)
 		tmp->tm_isdst = 0;
 	return time1(tmp, gmtsub, 0L);
 }
+
+time_t timeoff(struct tm *const tmp, const long offset);
 
 time_t
 timeoff(struct tm *const tmp, const long offset)
@@ -2013,12 +2022,16 @@ leapcorr(time_t *timep)
 	return 0;
 }
 
+time_t time2posix(time_t t);
+
 time_t
 time2posix(time_t t)
 {
 	tzset();
 	return t - leapcorr(&t);
 }
+
+time_t posix2time(time_t t);
 
 time_t
 posix2time(time_t t)

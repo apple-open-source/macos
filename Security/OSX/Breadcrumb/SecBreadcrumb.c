@@ -17,7 +17,9 @@ static const int kKeySize = CCAES_KEY_SIZE_128;
 static const int kSaltSize = 20;
 static const int kIterations = 5000;
 static const CFIndex tagLen = 16;
-static const uint8_t BCversion = 1;
+static const CFIndex ivLen = 16;
+static const uint8_t BCversion1 = 1;
+static const uint8_t BCversion2 = 2;
 static const size_t paddingSize = 256;
 static const size_t maxSize = 1024;
 
@@ -30,6 +32,7 @@ SecBreadcrumbCreateFromPassword(CFStringRef inPassword,
     const struct ccmode_ecb *ecb = ccaes_ecb_encrypt_mode();
     const struct ccmode_gcm *gcm = ccaes_gcm_encrypt_mode();
     const struct ccdigest_info *di = ccsha256_di();
+    uint8_t iv[ivLen];
     CFMutableDataRef key, npw;
     CFDataRef pw;
     
@@ -43,7 +46,15 @@ SecBreadcrumbCreateFromPassword(CFStringRef inPassword,
         return false;
     
     CFDataSetLength(key, kKeySize + kSaltSize + 4);
-    CCRandomCopyBytes(kCCRandomDefault, CFDataGetMutableBytePtr(key), CFDataGetLength(key) - 4);
+    if (SecRandomCopyBytes(kSecRandomDefault, CFDataGetLength(key) - 4, CFDataGetMutableBytePtr(key)) != 0) {
+        CFReleaseNull(key);
+        return false;
+    }
+    if (SecRandomCopyBytes(kSecRandomDefault, ivLen, iv) != 0) {
+        CFReleaseNull(key);
+        return false;
+    }
+
     uint32_t size = htonl(kIterations);
     memcpy(CFDataGetMutableBytePtr(key) + kKeySize + kSaltSize, &size, sizeof(size));
     
@@ -66,7 +77,7 @@ SecBreadcrumbCreateFromPassword(CFStringRef inPassword,
     }
 
     CFIndex paddedSize = passwordLength + paddingSize - (passwordLength % paddingSize);
-    const CFIndex outLength = 1 + 4 + paddedSize + tagLen;
+    const CFIndex outLength = 1 + ivLen + 4 + paddedSize + tagLen;
     
     npw = CFDataCreateMutable(NULL, outLength);
     if (npw == NULL) {
@@ -77,10 +88,11 @@ SecBreadcrumbCreateFromPassword(CFStringRef inPassword,
     CFDataSetLength(npw, outLength);
 
     memset(CFDataGetMutableBytePtr(npw), 0, outLength);
-    CFDataGetMutableBytePtr(npw)[0] = BCversion;
+    CFDataGetMutableBytePtr(npw)[0] = BCversion2;
+    memcpy(CFDataGetMutableBytePtr(npw) + 1, iv, ivLen);
     size = htonl(passwordLength);
-    memcpy(CFDataGetMutableBytePtr(npw) + 1, &size, sizeof(size));
-    memcpy(CFDataGetMutableBytePtr(npw) + 5, CFDataGetBytePtr(pw), passwordLength);
+    memcpy(CFDataGetMutableBytePtr(npw) + 1 + ivLen, &size, sizeof(size));
+    memcpy(CFDataGetMutableBytePtr(npw) + 1 + ivLen + 4, CFDataGetBytePtr(pw), passwordLength);
     
     /*
      * Now create a GCM encrypted password using the random key
@@ -88,8 +100,9 @@ SecBreadcrumbCreateFromPassword(CFStringRef inPassword,
     
     ccgcm_ctx_decl(gcm->size, ctx);
     ccgcm_init(gcm, ctx, kKeySize, CFDataGetMutableBytePtr(key));
+    ccgcm_set_iv(gcm, ctx, ivLen, iv);
     ccgcm_gmac(gcm, ctx, 1, CFDataGetMutableBytePtr(npw));
-    ccgcm_update(gcm, ctx, outLength - tagLen - 1, CFDataGetMutableBytePtr(npw) + 1, CFDataGetMutableBytePtr(npw) + 1);
+    ccgcm_update(gcm, ctx, outLength - tagLen - ivLen - 1, CFDataGetMutableBytePtr(npw) + 1 + ivLen, CFDataGetMutableBytePtr(npw) + 1 + ivLen);
     ccgcm_finalize(gcm, ctx, tagLen, CFDataGetMutableBytePtr(npw) + outLength - tagLen);
     ccgcm_ctx_clear(gcm->size, ctx);
     
@@ -138,9 +151,9 @@ SecBreadcrumbCopyPassword(CFStringRef inPassword,
                           CFErrorRef *outError)
 {
     const struct ccmode_ecb *ecb = ccaes_ecb_decrypt_mode();
-    const struct ccmode_gcm *gcm = ccaes_gcm_decrypt_mode();
     const struct ccdigest_info *di = ccsha256_di();
     CFMutableDataRef gcmkey, oldpw;
+    CFIndex outLength;
     CFDataRef pw;
     uint32_t size;
     
@@ -152,11 +165,16 @@ SecBreadcrumbCopyPassword(CFStringRef inPassword,
         return false;
     }
     
-    if (CFDataGetLength(inBreadcrumb) < 1 + 4 + paddingSize + tagLen) {
-        return false;
-    }
-    
-    if (CFDataGetBytePtr(inBreadcrumb)[0] != BCversion) {
+    if (CFDataGetBytePtr(inBreadcrumb)[0] == BCversion1) {
+        if (CFDataGetLength(inBreadcrumb) < 1 + 4 + paddingSize + tagLen)
+            return false;
+
+        outLength = CFDataGetLength(inBreadcrumb) - 1 - tagLen;
+    } else if (CFDataGetBytePtr(inBreadcrumb)[0] == BCversion2) {
+        if (CFDataGetLength(inBreadcrumb) < 1 + ivLen + 4 + paddingSize + tagLen)
+            return false;
+        outLength = CFDataGetLength(inBreadcrumb) - 1 - ivLen - tagLen;
+    } else {
         return false;
     }
     
@@ -165,7 +183,6 @@ SecBreadcrumbCopyPassword(CFStringRef inPassword,
         return false;
     }
     
-    const CFIndex outLength = CFDataGetLength(inBreadcrumb) - 1 - tagLen;
     if ((outLength % 16) != 0 && outLength < 4) {
         CFReleaseNull(gcmkey);
         return false;
@@ -177,7 +194,6 @@ SecBreadcrumbCopyPassword(CFStringRef inPassword,
         return false;
     }
     CFDataSetLength(oldpw, outLength);
-    
 
     /*
      * Create data for password
@@ -220,23 +236,38 @@ SecBreadcrumbCopyPassword(CFStringRef inPassword,
     /*
      * GCM unwrap
      */
-    
+
     uint8_t tag[tagLen];
-    ccgcm_ctx_decl(gcm->size, ctx);
-    
-    ccgcm_init(gcm, ctx, kKeySize, CFDataGetMutableBytePtr(gcmkey));
-    ccgcm_gmac(gcm, ctx, 1, CFDataGetBytePtr(inBreadcrumb));
-    ccgcm_update(gcm, ctx, outLength, CFDataGetBytePtr(inBreadcrumb) + 1, CFDataGetMutableBytePtr(oldpw));
-    ccgcm_finalize(gcm, ctx, tagLen, tag);
-    ccgcm_ctx_clear(gcm->size, ctx);
-    
+
+    if (CFDataGetBytePtr(inBreadcrumb)[0] == BCversion1) {
+        memcpy(tag, CFDataGetBytePtr(inBreadcrumb) + 1 + outLength, tagLen);
+
+        ccgcm_one_shot_legacy(ccaes_gcm_decrypt_mode(), kKeySize,  CFDataGetMutableBytePtr(gcmkey), 0, NULL, 1, CFDataGetBytePtr(inBreadcrumb),
+                              outLength, CFDataGetBytePtr(inBreadcrumb) + 1, CFDataGetMutableBytePtr(oldpw), tagLen, tag);
+        if (memcmp(tag, CFDataGetBytePtr(inBreadcrumb) + 1 + outLength, tagLen) != 0) {
+            CFReleaseNull(oldpw);
+            return false;
+        }
+
+    } else {
+        const uint8_t *iv = CFDataGetBytePtr(inBreadcrumb) + 1;
+        int res;
+        memcpy(tag, CFDataGetBytePtr(inBreadcrumb) + 1 + ivLen + outLength, tagLen);
+
+        res = ccgcm_one_shot(ccaes_gcm_decrypt_mode(), kKeySize, CFDataGetMutableBytePtr(gcmkey),
+                             ivLen, iv,
+                             1, CFDataGetBytePtr(inBreadcrumb),
+                             outLength, CFDataGetBytePtr(inBreadcrumb) + 1 + ivLen, CFDataGetMutableBytePtr(oldpw),
+                             tagLen, tag);
+        if (res) {
+            CFReleaseNull(oldpw);
+            return false;
+        }
+    }
+
     CFReleaseNull(gcmkey);
     
-    if (memcmp(tag, CFDataGetBytePtr(inBreadcrumb) + 1 + outLength, tagLen) != 0) {
-        CFReleaseNull(oldpw);
-        return false;
-    }
-    
+
     memcpy(&size, CFDataGetMutableBytePtr(oldpw), sizeof(size));
     size = ntohl(size);
     if (size > outLength - 4) {

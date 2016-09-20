@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,6 +34,7 @@ extern boolean_t		G_dhcp_success_deconfigures_linklocal;
 extern int			G_dhcp_init_reboot_retry_count;
 extern int			G_dhcp_select_retry_count;
 extern int			G_dhcp_allocate_linklocal_at_retry_count;
+extern int			G_dhcp_generate_failure_symptom_at_retry_count;
 extern int			G_dhcp_router_arp_at_retry_count;
 extern uint16_t			G_server_port;
 extern int			G_gather_secs;

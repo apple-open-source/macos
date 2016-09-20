@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2011-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -28,11 +28,18 @@
 #include <stdio.h>
 #include <sys/socket.h>
 #include <dispatch/dispatch.h>
+#include <os/activity.h>
+#include <os/log.h>
 #include <xpc/xpc.h>
 
 #include "libSystemConfiguration_client.h"
 #include "network_information.h"
-#include "network_information_priv.h"
+#include "network_state_information_priv.h"
+
+#if !TARGET_OS_SIMULATOR
+#include "network_config_agent_info_priv.h"
+#include "configAgentDefines.h"
+#endif // !TARGET_OS_SIMULATOR
 
 static nwi_state_t	G_nwi_state		= NULL;
 static pthread_mutex_t	nwi_store_lock		= PTHREAD_MUTEX_INITIALIZER;
@@ -42,18 +49,35 @@ static pthread_once_t	initialized		= PTHREAD_ONCE_INIT;
 static int		nwi_store_token;
 
 static boolean_t	nwi_store_force_refresh	= FALSE;
+static const char *	client_proc_name = NULL;
 
 #pragma mark -
 #pragma mark Network information [nwi] client support
 
 
-// Note: protected by __nwi_configuration_queue()
+// Note: protected by __nwi_client_queue()
 static int			nwi_active	= 0;
 static libSC_info_client_t	*nwi_client	= NULL;
 
 
+static os_activity_t
+__nwi_client_activity()
+{
+	static os_activity_t	activity;
+	static dispatch_once_t  once;
+
+	dispatch_once(&once, ^{
+		activity = os_activity_create("accessing network information",
+					      OS_ACTIVITY_CURRENT,
+					      OS_ACTIVITY_FLAG_DEFAULT);
+	});
+
+	return activity;
+}
+
+
 static dispatch_queue_t
-__nwi_configuration_queue()
+__nwi_client_queue()
 {
 	static dispatch_once_t  once;
 	static dispatch_queue_t q;
@@ -118,6 +142,53 @@ nwi_state_retain(nwi_state_t state)
 	return;
 }
 
+static void
+_nwi_client_release()
+{
+	// release connection reference on 1-->0 transition
+	dispatch_sync(__nwi_client_queue(), ^{
+		if (--nwi_active == 0) {
+			// if last reference, drop connection
+			libSC_info_client_release(nwi_client);
+			nwi_client = NULL;
+		}
+	});
+}
+
+static void
+_nwi_client_init()
+{
+	dispatch_sync(__nwi_client_queue(), ^{
+		if ((nwi_active++ == 0) || (nwi_client == NULL)) {
+			static dispatch_once_t	once;
+			static const char	*service_name	= NWI_SERVICE_NAME;
+
+			dispatch_once(&once, ^{
+#if	DEBUG
+				const char	*name;
+
+				// get [XPC] service name
+				name = getenv(service_name);
+				if (name != NULL) {
+					service_name = strdup(name);
+				}
+#endif	// DEBUG
+
+				// get process name
+				client_proc_name = getprogname();
+			});
+
+			nwi_client =
+			libSC_info_client_create(__nwi_client_queue(),	// dispatch queue
+						 service_name,			// XPC service name
+						 "Network information");	// service description
+			if (nwi_client == NULL) {
+				--nwi_active;
+			}
+		}
+	});
+}
+
 /*
  * Function: nwi_state_release
  * Purpose:
@@ -131,14 +202,7 @@ nwi_state_release(nwi_state_t state)
 		return;
 	}
 
-	// release connection reference on 1-->0 transition
-	dispatch_sync(__nwi_configuration_queue(), ^{
-		if (--nwi_active == 0) {
-		    // if last reference, drop connection
-		    libSC_info_client_release(nwi_client);
-		    nwi_client = NULL;
-		}
-	    });
+	_nwi_client_release();
 
 	// release nwi_state
 	nwi_state_free(state);
@@ -150,53 +214,34 @@ static nwi_state *
 _nwi_state_copy_data()
 {
 	nwi_state_t		nwi_state	= NULL;
-	static const char	*proc_name	= NULL;
 	xpc_object_t		reqdict;
 	xpc_object_t		reply;
 
-	dispatch_sync(__nwi_configuration_queue(), ^{
-		if ((nwi_active++ == 0) || (nwi_client == NULL)) {
-			static dispatch_once_t	once;
-			static const char	*service_name	= NWI_SERVICE_NAME;
+	if (!libSC_info_available()) {
+		os_log(OS_LOG_DEFAULT, "*** network information requested between fork() and exec()");
+		return NULL;
+	}
 
-			dispatch_once(&once, ^{
-				const char	*name;
-
-				// get [XPC] service name
-				name = getenv(service_name);
-				if ((name != NULL) && (issetugid() == 0)) {
-					service_name = strdup(name);
-				}
-
-				// get process name
-				proc_name = getprogname();
-			});
-
-			nwi_client =
-				libSC_info_client_create(__nwi_configuration_queue(),	// dispatch queue
-							 service_name,			// XPC service name
-							 "Network information");	// service description
-			if (nwi_client == NULL) {
-				--nwi_active;
-			}
-		}
-	});
+	_nwi_client_init();
 
 	if ((nwi_client == NULL) || !nwi_client->active) {
 		// if network information server not available
 		return NULL;
 	}
 
+	// scope NWI activity
+	os_activity_scope(__nwi_client_activity());
+
 	// create message
 	reqdict = xpc_dictionary_create(NULL, NULL, 0);
 
 	// set process name
-	if (proc_name != NULL) {
-		xpc_dictionary_set_string(reqdict, NWI_PROC_NAME, proc_name);
+	if (client_proc_name != NULL) {
+		xpc_dictionary_set_string(reqdict, NWI_PROC_NAME, client_proc_name);
 	}
 
 	// set request
-	xpc_dictionary_set_int64(reqdict, NWI_REQUEST, NWI_REQUEST_COPY);
+	xpc_dictionary_set_int64(reqdict, NWI_REQUEST, NWI_STATE_REQUEST_COPY);
 
 	// send request to the DNS configuration server
 	reply = libSC_send_message_with_reply_sync(nwi_client, reqdict);
@@ -226,6 +271,62 @@ _nwi_state_copy_data()
 	return nwi_state;
 }
 
+#if !TARGET_OS_SIMULATOR
+/*
+ * Function: _nwi_config_agent_copy_data
+ * Purpose:
+ *   Copy the config agent data and the data length.
+ *   Caller must free the buffer.
+ */
+const void *
+_nwi_config_agent_copy_data(const struct netagent *agent, uint64_t *length)
+{
+	const void	*buffer	= NULL;
+	xpc_object_t	reqdict;
+	xpc_object_t	reply;
+
+	if ((agent == NULL) || (length == NULL)) {
+		return NULL;
+	}
+
+	_nwi_client_init();
+
+	// scope NWI activity
+	os_activity_scope(__nwi_client_activity());
+
+	reqdict = xpc_dictionary_create(NULL, NULL, 0);
+
+	xpc_dictionary_set_int64(reqdict, NWI_REQUEST, NWI_CONFIG_AGENT_REQUEST_COPY);
+	if (client_proc_name != NULL) {
+		xpc_dictionary_set_string(reqdict, NWI_PROC_NAME, client_proc_name);
+	}
+
+	xpc_dictionary_set_uuid(reqdict, kConfigAgentAgentUUID, agent->netagent_uuid);
+	xpc_dictionary_set_string(reqdict, kConfigAgentType, agent->netagent_type);
+
+	// send request to the NWI configuration server
+	reply = libSC_send_message_with_reply_sync(nwi_client, reqdict);
+	xpc_release(reqdict);
+
+	if (reply != NULL) {
+		const void	*xpc_buffer	= NULL;
+		unsigned long	len		= 0;
+
+		xpc_buffer = xpc_dictionary_get_data(reply, kConfigAgentAgentData, &len);
+		if ((xpc_buffer != NULL) && (len > 0)) {
+			buffer = malloc(len);
+			*length = len;
+			bcopy((void *)xpc_buffer, (void *)buffer, len);
+		}
+		xpc_release(reply);
+	}
+
+	_nwi_client_release();
+
+	return buffer;
+}
+#endif // !TARGET_OS_SIMULATOR
+
 /*
  * Function: nwi_state_copy
  * Purpose:
@@ -248,7 +349,7 @@ nwi_state_copy(void)
 		int		check = 0;
 		uint32_t	status;
 
-		if (nwi_store_token_valid == FALSE) {
+		if (!nwi_store_token_valid) {
 			/* have to throw cached copy away every time */
 			check = 1;
 		}
@@ -309,7 +410,7 @@ _nwi_state_ack(nwi_state_t state, const char *bundle_id)
 		return;
 	}
 
-	dispatch_sync(__nwi_configuration_queue(), ^{
+	dispatch_sync(__nwi_client_queue(), ^{
 		nwi_active++;	// keep connection active (for the life of the process)
 	});
 
@@ -317,7 +418,7 @@ _nwi_state_ack(nwi_state_t state, const char *bundle_id)
 	reqdict = xpc_dictionary_create(NULL, NULL, 0);
 
 	// set request
-	xpc_dictionary_set_int64(reqdict, NWI_REQUEST, NWI_REQUEST_ACKNOWLEDGE);
+	xpc_dictionary_set_int64(reqdict, NWI_REQUEST, NWI_STATE_REQUEST_ACKNOWLEDGE);
 
 	// set generation
 	xpc_dictionary_set_uint64(reqdict, NWI_GENERATION, state->generation_count);
@@ -699,7 +800,7 @@ nwi_ifstate_get_dns_signature(nwi_ifstate_t ifstate, int * length)
 		return NULL;
 	}
 
-	if (_nwi_ifstate_is_in_list(ifstate, AF_INET) == TRUE) {
+	if (_nwi_ifstate_is_in_list(ifstate, AF_INET)) {
 		signature = v4_signature;
 		*length = v4_signature_len;
 	} else {
@@ -719,7 +820,7 @@ nwi_ifstate_get_dns_signature(nwi_ifstate_t ifstate, int * length)
 
 unsigned int
 nwi_state_get_interface_names(nwi_state_t state,
-			      const char * names[], 
+			      const char * names[],
 			      unsigned int names_count)
 {
 	int		i;
@@ -783,7 +884,7 @@ nwi_ifstate_print(nwi_ifstate_t ifstate)
 	char 			vpn_ntopbuf[INET6_ADDRSTRLEN];
 	const struct sockaddr *	vpn_addr;
 	const char *		vpn_addr_str = NULL;
-	
+
 	address = nwi_ifstate_get_address(ifstate);
 	addr_str = inet_ntop(ifstate->af, address,
 			     addr_ntopbuf, sizeof(addr_ntopbuf));
@@ -847,7 +948,7 @@ nwi_state_print_common(nwi_state_t state, bool diff)
 	unsigned int	count = 0;
 	int		i;
 	nwi_ifstate_t 	scan;
-	
+
 	if (state == NULL) {
 		return;
 	}
@@ -880,7 +981,7 @@ nwi_state_print_common(nwi_state_t state, bool diff)
 		count = nwi_state_get_interface_names(state, NULL, 0);
 		if (count > 0) {
 			const char *	names[count];
-		
+
 			count = nwi_state_get_interface_names(state, names,
 							      count);
 			printf("%d interfaces%s", count,
@@ -938,7 +1039,7 @@ doit(void)
 	old_state = nwi_state_new(NULL, 5);
 	for (int i = 0; i < 5; i++) {
 		char		ifname[IFNAMSIZ];
-		
+
 		snprintf(ifname, sizeof(ifname), "en%d", i);
 		addr.s_addr = htonl((i % 2) ? i : (i + 1));
 		ifstate = nwi_state_add_ifstate(old_state, ifname, AF_INET, 0,
@@ -988,7 +1089,7 @@ doit(void)
 		addr.s_addr = htonl(i);
 		if (i != 3) {
 			ifstate = nwi_state_add_ifstate(new_state,
-							ifname, AF_INET, 
+							ifname, AF_INET,
 							0,
 							i,
 							&addr,
@@ -1002,7 +1103,7 @@ doit(void)
 	diff_state = nwi_state_diff(old_state_copy, new_state);
 	nwi_state_print_diff(diff_state);
 	nwi_state_free(diff_state);
-	
+
 	diff_state = nwi_state_diff(new_state, old_state_copy);
 	nwi_state_print_diff(diff_state);
 	nwi_state_free(diff_state);

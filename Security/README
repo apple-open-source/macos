@@ -34,5 +34,6 @@ libScripts/
 ====
 
 To regenerate strings file run:
-genstrings -o resources/English.lproj -s SecString sec/Security/SecFrameworkStrings.h
+genstrings -u -o resources/English.lproj -s SecString OSX/sec/Security/SecFrameworkStrings.h
+
 in the top level dir.

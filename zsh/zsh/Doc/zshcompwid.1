@@ -1,4 +1,4 @@
-.TH "ZSHCOMPWID" "1" "May 31, 2015" "zsh 5\&.0\&.8"
+.TH "ZSHCOMPWID" "1" "December 2, 2015" "zsh 5\&.2"
 .SH "NAME"
 zshcompwid \- zsh completion widgets
 .\" Yodl file: Zsh/compwid.yo
@@ -700,7 +700,9 @@ format completion lists and to make explanatory string be shown in
 completion lists (since empty matches can be given display strings
 with the \fB\-d\fP option)\&.  And because all but one empty string would
 otherwise be removed, this option implies the \fB\-V\fP and \fB\-2\fP
-options (even if an explicit \fB\-J\fP option is given)\&.
+options (even if an explicit \fB\-J\fP option is given)\&.  This can be
+important to note as it affects the name space into which matches are
+added\&.
 .TP
 .PD 0
 \fB\-\fP
@@ -936,8 +938,8 @@ between substrings matched by \fIlanchor\fP and \fIranchor\fP\&. Unlike
 completion string\&.
 .PP
 The \fBb\fP and \fBB\fP forms are similar to \fBl\fP and \fBL\fP with an empty 
-anchor, but need to match only the beginning of the trial completion
-or the word on the command line, respectively\&.
+anchor, but need to match only the beginning of the word on the command line
+or trial completion, respectively\&.
 .RE
 .TP
 .PD 0
@@ -960,7 +962,7 @@ or the word on the command line, respectively\&.
 As \fBl\fP, \fBL\fP, \fBb\fP and \fBB\fP, with the difference that the command
 line and trial completion patterns are anchored on the right side\&.
 Here an empty \fIranchor\fP and the \fBe\fP and \fBE\fP forms force the
-match to the end of the trial completion or command line string\&.
+match to the end of the command line or trial completion string\&.
 .PP
 Each \fIlpat\fP, \fItpat\fP or \fIanchor\fP is either an empty string or
 consists of a sequence of literal characters (which may be quoted with a

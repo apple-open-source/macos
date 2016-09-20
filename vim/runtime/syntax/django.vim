@@ -1,7 +1,7 @@
 " Vim syntax file
 " Language:	Django template
 " Maintainer:	Dave Hodder <dmh@dmh.org.uk>
-" Last Change:	2010 May 19
+" Last Change:	2014 Jul 13
 
 " For version 5.x: Clear all syntax items
 " For version 6.x: Quit when a syntax file was already loaded
@@ -21,7 +21,7 @@ syn match djangoError "%}\|}}\|#}"
 syn keyword djangoStatement contained autoescape csrf_token empty
 " FIXME ==, !=, <, >, <=, and >= should be djangoStatements:
 " syn keyword djangoStatement contained == != < > <= >=
-syn keyword djangoStatement contained and as block endblock by cycle debug else
+syn keyword djangoStatement contained and as block endblock by cycle debug else elif
 syn keyword djangoStatement contained extends filter endfilter firstof for
 syn keyword djangoStatement contained endfor if endif ifchanged endifchanged
 syn keyword djangoStatement contained ifequal endifequal ifnotequal
@@ -45,7 +45,7 @@ syn keyword djangoFilter contained linebreaks linebreaksbr linenumbers ljust
 syn keyword djangoFilter contained lower make_list phone2numeric pluralize
 syn keyword djangoFilter contained pprint random removetags rjust slice slugify
 syn keyword djangoFilter contained safe safeseq stringformat striptags
-syn keyword djangoFilter contained time timesince timeuntil title
+syn keyword djangoFilter contained time timesince timeuntil title truncatechars
 syn keyword djangoFilter contained truncatewords truncatewords_html unordered_list upper urlencode
 syn keyword djangoFilter contained urlize urlizetrunc wordcount wordwrap yesno
 
@@ -64,7 +64,7 @@ syn region djangoTagBlock start="{%" end="%}" contains=djangoStatement,djangoFil
 syn region djangoVarBlock start="{{" end="}}" contains=djangoFilter,djangoArgument,djangoVarError display
 
 " Django template 'comment' tag and comment block
-syn region djangoComment start="{%\s*comment\s*%}" end="{%\s*endcomment\s*%}" contains=djangoTodo
+syn region djangoComment start="{%\s*comment\(\s\+.\{-}\)\?%}" end="{%\s*endcomment\s*%}" contains=djangoTodo
 syn region djangoComBlock start="{#" end="#}" contains=djangoTodo
 
 " Define the default highlighting.

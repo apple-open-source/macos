@@ -102,8 +102,10 @@ WebInspector.JavaScriptRuntimeCompletionProvider = class JavaScriptRuntimeComple
         var activeCallFrame = WebInspector.debuggerManager.activeCallFrame;
         if (!base && activeCallFrame && !this._alwaysEvaluateInWindowContext)
             activeCallFrame.collectScopeChainVariableNames(receivedPropertyNames.bind(this));
-        else
-            WebInspector.runtimeManager.evaluateInInspectedWindow(base, "completion", true, true, false, false, false, evaluated.bind(this));
+        else {
+            let options = {objectGroup: "completion", includeCommandLineAPI: true, doNotPauseOnExceptionsAndMuteConsole: true, returnByValue: false, generatePreview: false, saveResult: false};
+            WebInspector.runtimeManager.evaluateInInspectedWindow(base, options, evaluated.bind(this));
+        }
 
         function updateLastPropertyNames(propertyNames)
         {
@@ -125,7 +127,7 @@ WebInspector.JavaScriptRuntimeCompletionProvider = class JavaScriptRuntimeComple
                 return;
             }
 
-            function getArrayCompletions(primitiveType)
+            function inspectedPage_evalResult_getArrayCompletions(primitiveType)
             {
                 var array = this;
                 var arrayLength;
@@ -153,7 +155,7 @@ WebInspector.JavaScriptRuntimeCompletionProvider = class JavaScriptRuntimeComple
                 return resultSet;
             }
 
-            function getCompletions(primitiveType)
+            function inspectedPage_evalResult_getCompletions(primitiveType)
             {
                 var object;
                 if (primitiveType === "string")
@@ -182,12 +184,13 @@ WebInspector.JavaScriptRuntimeCompletionProvider = class JavaScriptRuntimeComple
             }
 
             if (result.subtype === "array")
-                result.callFunctionJSON(getArrayCompletions, undefined, receivedArrayPropertyNames.bind(this));
+                result.callFunctionJSON(inspectedPage_evalResult_getArrayCompletions, undefined, receivedArrayPropertyNames.bind(this));
             else if (result.type === "object" || result.type === "function")
-                result.callFunctionJSON(getCompletions, undefined, receivedPropertyNames.bind(this));
-            else if (result.type === "string" || result.type === "number" || result.type === "boolean" || result.type === "symbol")
-                WebInspector.runtimeManager.evaluateInInspectedWindow("(" + getCompletions + ")(\"" + result.type + "\")", "completion", false, true, true, false, false, receivedPropertyNamesFromEvaluate.bind(this));
-            else
+                result.callFunctionJSON(inspectedPage_evalResult_getCompletions, undefined, receivedPropertyNames.bind(this));
+            else if (result.type === "string" || result.type === "number" || result.type === "boolean" || result.type === "symbol") {
+                let options = {objectGroup: "completion", includeCommandLineAPI: false, doNotPauseOnExceptionsAndMuteConsole: true, returnByValue: false, generatePreview: false, saveResult: false};
+                WebInspector.runtimeManager.evaluateInInspectedWindow("(" + inspectedPage_evalResult_getCompletions + ")(\"" + result.type + "\")", options, receivedPropertyNamesFromEvaluate.bind(this));
+            } else
                 console.error("Unknown result type: " + result.type);
         }
 
@@ -263,13 +266,13 @@ WebInspector.JavaScriptRuntimeCompletionProvider = class JavaScriptRuntimeComple
             function compare(a, b)
             {
                 // Try to sort in numerical order first.
-                var numericCompareResult = a - b;
+                let numericCompareResult = a - b;
                 if (!isNaN(numericCompareResult))
                     return numericCompareResult;
 
                 // Sort __defineGetter__, __lookupGetter__, and friends last.
-                var aRareProperty = a.startsWith("__") && a.endsWith("__");
-                var bRareProperty = b.startsWith("__") && b.endsWith("__");
+                let aRareProperty = a.startsWith("__") && a.endsWith("__");
+                let bRareProperty = b.startsWith("__") && b.endsWith("__");
                 if (aRareProperty && !bRareProperty)
                     return 1;
                 if (!aRareProperty && bRareProperty)

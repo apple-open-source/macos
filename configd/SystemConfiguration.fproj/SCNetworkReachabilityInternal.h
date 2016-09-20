@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -33,7 +33,6 @@
 #include <SystemConfiguration/SCPrivate.h>
 #include <dispatch/dispatch.h>
 
-#include <dns_sd.h>
 #include <netdb.h>
 #include <sys/socket.h>
 #include <net/if.h>
@@ -53,6 +52,11 @@ typedef	enum {
 	UNKNOWN
 } lazyBoolean;
 
+typedef enum {
+	ReachabilityRankNone			= 0,
+	ReachabilityRankConnectionRequired	= 1,
+	ReachabilityRankReachable		= 2
+} ReachabilityRankType;
 
 typedef enum {
 	// by-address SCNetworkReachability targets
@@ -127,11 +131,11 @@ __SCNetworkReachabilityCopyFlags(SCNetworkReachabilityFlags flags, CFStringRef p
 {
 	CFMutableStringRef	str	= CFStringCreateMutable(NULL, 0);
 
+	if (prefix != NULL) {
+		CFStringAppend(str, prefix);
+	}
+
 	if (debug) {
-		if (prefix != NULL) {
-			CFStringAppend(str, prefix);
-		}
-		
 		CFStringAppendFormat(str, NULL, CFSTR("0x%08x ("), flags);
 	}
 
@@ -193,6 +197,20 @@ __SCNetworkReachabilityCopyFlags(SCNetworkReachabilityFlags flags, CFStringRef p
 	}
 
 	return str;
+}
+
+static __inline__ ReachabilityRankType
+__SCNetworkReachabilityRank(SCNetworkReachabilityFlags flags)
+{
+	ReachabilityRankType	rank = ReachabilityRankNone;
+
+	if ((flags & kSCNetworkReachabilityFlagsReachable) != 0) {
+		rank = ReachabilityRankReachable;
+		if ((flags & kSCNetworkReachabilityFlagsConnectionRequired) != 0) {
+			rank = ReachabilityRankConnectionRequired;
+		}
+	}
+	return rank;
 }
 
 

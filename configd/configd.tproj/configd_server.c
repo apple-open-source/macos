@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011, 2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011, 2013, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -52,6 +52,7 @@ extern boolean_t		config_server(mach_msg_header_t *, mach_msg_header_t *);
 /* configd server port (for new session requests) */
 static CFMachPortRef		configd_port		= NULL;
 
+
 __private_extern__
 boolean_t
 config_demux(mach_msg_header_t *request, mach_msg_header_t *reply)
@@ -97,16 +98,12 @@ __private_extern__
 void
 configdCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 {
-	os_activity_t		activity_id;
 	mig_reply_error_t *	bufRequest	= msg;
 	uint32_t		bufReply_q[MACH_MSG_BUFFER_SIZE/sizeof(uint32_t)];
 	mig_reply_error_t *	bufReply	= (mig_reply_error_t *)bufReply_q;
 	static CFIndex		bufSize		= 0;
 	mach_msg_return_t	mr;
 	int			options;
-
-	activity_id = os_activity_start("processing SCDynamicStore request",
-					OS_ACTIVITY_FLAG_DEFAULT);
 
 	if (bufSize == 0) {
 		// get max size for MiG reply buffers
@@ -185,8 +182,6 @@ configdCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 	if (bufReply != (mig_reply_error_t *)bufReply_q)
 		CFAllocatorDeallocate(NULL, bufReply);
 
-	os_activity_end(activity_id);
-
 	return;
 }
 
@@ -210,7 +205,7 @@ server_init()
 	kern_return_t 		status;
 
 	service_name = getenv("SCD_SERVER");
-	if (!service_name) {
+	if (service_name == NULL) {
 		service_name = SCD_SERVER;
 	}
 
@@ -296,6 +291,6 @@ server_loop()
 		 * check for, and if necessary, push out change notifications
 		 * to other processes.
 		 */
-		pushNotifications(_configd_trace);
+		pushNotifications();
 	}
 }

@@ -28,6 +28,7 @@
 
 #include <signal.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 /*
  * The canonical name should be 'go' since we prefer symbol names with fewer

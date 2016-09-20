@@ -214,8 +214,8 @@ typedef struct AuthorizationCallbacks {
     /* Read value from context.  AuthorizationValue does not own data. */
     OSStatus (*GetContextValue)(AuthorizationEngineRef inEngine,
         AuthorizationString inKey,
-        AuthorizationContextFlags *outContextFlags,
-        const AuthorizationValue * __nullable * __nonnull outValue);
+        AuthorizationContextFlags * __nullable outContextFlags,
+        const AuthorizationValue * __nullable * __nullable outValue);
 
     /* Write value to context.  AuthorizationValue and data are copied. */
     OSStatus (*SetContextValue)(AuthorizationEngineRef inEngine,
@@ -226,7 +226,7 @@ typedef struct AuthorizationCallbacks {
     /* Read value from hints. AuthorizationValue does not own data. */
     OSStatus (*GetHintValue)(AuthorizationEngineRef inEngine,
         AuthorizationString inKey,
-        const AuthorizationValue * __nullable * __nonnull outValue);
+        const AuthorizationValue * __nullable * __nullable outValue);
 
     /* Write value to hints.  AuthorizationValue and data are copied. */
     OSStatus (*SetHintValue)(AuthorizationEngineRef inEngine,
@@ -239,12 +239,12 @@ typedef struct AuthorizationCallbacks {
 
     /* Read SessionId. */
     OSStatus (*GetSessionId)(AuthorizationEngineRef inEngine,
-        AuthorizationSessionId __nullable * __nonnull outSessionId);
+        AuthorizationSessionId __nullable * __nullable outSessionId);
 
     /* Read value from hints. AuthorizationValue does not own data. */
     OSStatus (*GetImmutableHintValue)(AuthorizationEngineRef inEngine,
         AuthorizationString inKey,
-        const AuthorizationValue * __nullable * __nonnull outValue);
+        const AuthorizationValue * __nullable * __nullable outValue);
 
 } AuthorizationCallbacks;
 

@@ -45,8 +45,6 @@ WebInspector.ScriptTimelineOverviewGraph = class ScriptTimelineOverviewGraph ext
     {
         super.reset();
 
-        this._timelineRecordBarMap = new Map;
-
         this.element.removeChildren();
     }
 
@@ -54,12 +52,15 @@ WebInspector.ScriptTimelineOverviewGraph = class ScriptTimelineOverviewGraph ext
 
     layout()
     {
-        var secondsPerPixel = this.timelineOverview.secondsPerPixel;
-        var recordBarIndex = 0;
+        if (!this.visible)
+            return;
+
+        let secondsPerPixel = this.timelineOverview.secondsPerPixel;
+        let recordBarIndex = 0;
 
         function createBar(records, renderMode)
         {
-            var timelineRecordBar = this._timelineRecordBars[recordBarIndex];
+            let timelineRecordBar = this._timelineRecordBars[recordBarIndex];
             if (!timelineRecordBar)
                 timelineRecordBar = this._timelineRecordBars[recordBarIndex] = new WebInspector.TimelineRecordBar(records, renderMode);
             else {
@@ -72,7 +73,11 @@ WebInspector.ScriptTimelineOverviewGraph = class ScriptTimelineOverviewGraph ext
             ++recordBarIndex;
         }
 
-        WebInspector.TimelineRecordBar.createCombinedBars(this._scriptTimeline.records, secondsPerPixel, this, createBar.bind(this));
+        // Create bars for non-GC records and GC records.
+        let [gcRecords, nonGCRecords] = this._scriptTimeline.records.partition((x) => x.isGarbageCollection());
+        let boundCreateBar = createBar.bind(this);
+        WebInspector.TimelineRecordBar.createCombinedBars(nonGCRecords, secondsPerPixel, this, boundCreateBar);
+        WebInspector.TimelineRecordBar.createCombinedBars(gcRecords, secondsPerPixel, this, boundCreateBar);
 
         // Remove the remaining unused TimelineRecordBars.
         for (; recordBarIndex < this._timelineRecordBars.length; ++recordBarIndex) {

@@ -48,4 +48,16 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_3);
 void notify_set_options(uint32_t opts)
 __OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_6_0);
 
+void _notify_fork_child(void)
+__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_3);
+
+uint32_t notify_peek(int token, uint32_t *val)
+__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_3);
+
+uint32_t notify_monitor_file(int token, char *path, int flags)
+__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_3);
+
+uint32_t notify_get_event(int token, int *ev, char *buf, int *len)
+__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_3);
+
 #endif /* __NOTIFY_PRIVATE_H__ */

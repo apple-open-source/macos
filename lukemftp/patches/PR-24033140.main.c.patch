@@ -1,0 +1,13 @@
+Only in ../tnftp-20070806.mod/src: .main.c.swp
+diff -udr ./src/main.c ../tnftp-20070806.mod/src/main.c
+--- ./src/main.c	2007-08-05 21:33:23.000000000 -0700
++++ ../tnftp-20070806.mod/src/main.c	2016-01-05 12:37:33.000000000 -0800
+@@ -737,7 +737,7 @@
+ 			 * false positive if prog != "ftp", so treat
+ 			 * such commands as invalid.
+ 			 */
+-			if (strchr(margv[0], ':') != NULL ||
++			if (!editing || strchr(margv[0], ':') != NULL ||
+ 			    el_parse(el, margc, (const char **)margv) != 0)
+ #endif /* !NO_EDITCOMPLETE */
+ 				fputs("?Invalid command.\n", ttyout);

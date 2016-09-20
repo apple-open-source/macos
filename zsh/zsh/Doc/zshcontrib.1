@@ -1,4 +1,4 @@
-.TH "ZSHCONTRIB" "1" "May 31, 2015" "zsh 5\&.0\&.8"
+.TH "ZSHCONTRIB" "1" "December 2, 2015" "zsh 5\&.2"
 .SH "NAME"
 zshcontrib \- user contributions to zsh
 .\" Yodl file: Zsh/contrib.yo
@@ -41,7 +41,7 @@ distribution in your home directory, you would use the commands:
 .RS
 .nf
 \fBmkdir ~/zsh_help
-perl ~/zsh\-5\&.0\&.8/Util/helpfiles ~/zsh_help\fP
+perl ~/zsh\-5\&.2/Util/helpfiles ~/zsh_help\fP
 .fi
 .RE
 .PP
@@ -181,7 +181,7 @@ Run \fBzkbd\fP either as an autoloaded function, or as a shell script:
 .PP
 .RS
 .nf
-\fBzsh \-f ~/zsh\-5\&.0\&.8/Functions/Misc/zkbd\fP
+\fBzsh \-f ~/zsh\-5\&.2/Functions/Misc/zkbd\fP
 .fi
 .RE
 .PP
@@ -237,7 +237,7 @@ command and redirect the output into a file:
 .PP
 .RS
 .nf
-\fB\&. ~/zsh\-5\&.0\&.8/Util/reporter > zsh\&.report\fP
+\fB\&. ~/zsh\-5\&.2/Util/reporter > zsh\&.report\fP
 .fi
 .RE
 .PP
@@ -356,9 +356,13 @@ previous working directory from a list maintained automatically\&.  It is
 similar in concept to the directory stack controlled by the \fBpushd\fP,
 \fBpopd\fP and \fBdirs\fP builtins, but is more configurable, and as it stores
 all entries in files it is maintained across sessions and (by default)
-between terminal emulators in the current session\&.  (The \fBpushd\fP
-directory stack is not actually modified or used by \fBcdr\fP unless you
-configure it to do so as described in the configuration section below\&.)
+between terminal emulators in the current session\&.  Duplicates are
+automatically removed, so that the list reflects the single most recent
+use of each directory\&.
+.PP
+Note that the \fBpushd\fP directory stack is not actually modified or used
+by \fBcdr\fP unless you configure it to do so as described in the
+configuration section below\&.
 .PP
 .SS "Installation"
 .PP
@@ -436,6 +440,20 @@ performed\&.  Completion is available\&.  No quoting is necessary (except for
 newlines, where I have in any case no sympathy); directories are in
 unabbreviated from and contain an absolute path, i\&.e\&. they start with \fB/\fP\&.
 Usually the first entry should be left as the current directory\&.
+.TP
+\fB\-p \&'\fP\fIpattern\fP\fB'\fP
+Prunes any items in the directory list that match the given extended glob
+pattern; the pattern needs to be quoted from immediate expansion on the
+command line\&.  The pattern is matched against each completely expanded
+file name in the list; the full string must match, so wildcards at the
+end (e\&.g\&. \fB\&'*removeme*'\fP) are needed to remove entries with a given
+substring\&.
+.RS
+.PP
+If output is to a terminal, then the function will print the new list
+after pruning and prompt for confirmation by the user\&.  This output and
+confirmation step can be skipped by using \fB\-P\fP instead of \fB\-p\fP\&.
+.RE
 .PP
 .SS "Configuration"
 .PP
@@ -626,6 +644,210 @@ like) are saved\&.  Shell functions should use \fBcd \-q\fP or \fBpushd \-q\fP t
 avoid side effects if the change to the directory is to be invisible at the
 command line\&.  See the contents of the function \fBchpwd_recent_dirs\fP for
 more details\&.
+.PP
+.SH "ABBREVIATED DYNAMIC REFERENCES TO DIRECTORIES"
+.PP
+The dynamic directory naming system is described in the subsection
+\fIDynamic named directories\fP of
+the section \fIFilename Expansion\fP in \fIexpn\fP(1)\&.  In this, a reference to
+\fB~[\fP\fI\&.\&.\&.\fP\fB]\fP is expanded by a function found by the hooks
+mechanism\&.
+.PP
+The contributed function \fBzsh_directory_name_generic\fP provides a
+system allowing the user to refer to directories with only a limited
+amount of new code\&.  It supports all three of the standard interfaces
+for directory naming: converting from a name to a directory, converting
+in the reverse direction to find a short name, and completion of names\&.
+.PP
+The main feature of this function is a path\-like syntax,
+combining abbreviations at multiple levels separated by ":"\&.
+As an example, ~[g:p:s] might specify:
+.PD 0
+.TP
+.PD
+\fBg\fP
+The top level directory for your git area\&.  This first component
+has to match, or the function will retrun indicating another
+directory name hook function should be tried\&.
+.TP
+\fBp\fP
+The name of a project within your git area\&.
+.TP
+\fBs\fP
+The source area within that project\&.
+This allows you to collapse references to long hierarchies to a very
+compact form, particularly if the hierarchies are similar across different
+areas of the disk\&.
+.PP
+Name components may be completed: if a description is shown at the top
+of the list of completions, it includes the path to which previous
+components expand, while the description for an individual completion
+shows the path segment it would add\&.  No additional configuration is
+needed for this as the completion system is aware of the dynamic
+directory name mechanism\&.
+.PP
+.SS "Usage"
+.PP
+To use the function, first define a wrapper function for your specific
+case\&.  We\&'ll assume it's to be autoloaded\&.  This can have any name but
+we\&'ll refer to it as zdn_mywrapper\&.  This wrapper function will define
+various variables and then call this function with the same arguments
+that the wrapper function gets\&.  This configuration is described below\&.
+.PP
+Then arrange for the wrapper to be run as a zsh_directory_name hook:
+.PP
+.RS
+.nf
+\fBautoload \-Uz add\-zsh\-hook zsh_diretory_name_generic zdn_mywrapper
+add\-zsh\-hook \-U zsh_directory_name zdn_mywrapper\fP
+.fi
+.RE
+.PP
+.SS "Configuration"
+.PP
+The wrapper function should define a local associative array zdn_top\&.
+Alternatively, this can be set with a style called \fBmapping\fP\&.  The
+context for the style is \fB:zdn:\fP\fIwrapper\-name\fP where
+\fIwrapper\-name\fP is the function calling zsh_directory_name_generic;
+for example:
+.PP
+.RS
+.nf
+\fBzstyle :zdn:zdn_mywrapper: mapping zdn_mywrapper_top\fP
+.fi
+.RE
+.PP
+The keys in this associative array correspond to the first component of
+the name\&.  The values are matching directories\&.  They may have an
+optional suffix with a slash followed by a colon and the name of a
+variable in the same format to give the next component\&.  (The slash
+before the colon is to disambiguate the case where a colon is needed in
+the path for a drive\&.  There is otherwise no syntax for escaping this,
+so path components whose names start with a colon are not supported\&.)  A
+special component \fB:default:\fP specifies a variable in the form
+\fB/:\fP\fIvar\fP (the path section is ignored and so is usually empty)
+that will be used for the next component if no variable is given for the
+path\&.  Variables referred to within \fBzdn_top\fP have the same format as
+\fBzdn_top\fP itself, but contain relative paths\&.
+.PP
+For example,
+.PP
+.RS
+.nf
+\fBlocal \-A zdn_top=(
+  g   ~/git
+  ga  ~/alternate/git
+  gs  /scratch/$USER/git/:second2
+  :default: /:second1
+)\fP
+.fi
+.RE
+.PP
+This specifies the behaviour of a directory referred to as \fB~[g:\&.\&.\&.]\fP
+or \fB~[ga:\&.\&.\&.]\fP or \fB~[gs:\&.\&.\&.]\fP\&.  Later path components are optional;
+in that case \fB~[g]\fP expands to \fB~/git\fP, and so on\&.  \fBgs\fP expands
+to \fB/scratch/$USER/git\fP and uses the associative array \fBsecond2\fP to
+match the second component; \fBg\fP and \fBga\fP use the associative array
+\fBsecond1\fP to match the second component\&.
+.PP
+When expanding a name to a directory, if the first component is not \fBg\fP or
+\fBga\fP or \fBgs\fP, it is not an error; the function simply returns 1 so that a
+later hook function can be tried\&.  However, matching the first component
+commits the function, so if a later component does not match, an error
+is printed (though this still does not stop later hooks from being
+executed)\&.
+.PP
+For components after the first, a relative path is expected, but note that
+multiple levels may still appear\&.  Here is an example of \fBsecond1\fP:
+.PP
+.RS
+.nf
+\fBlocal \-A second1=(
+  p   myproject
+  s   somproject
+  os  otherproject/subproject/:third
+)\fP
+.fi
+.RE
+.PP
+The path as found from \fBzdn_top\fP is extended with the matching
+directory, so \fB~[g:p]\fP becomes \fB~/git/myproject\fP\&.  The slash between
+is added automatically (it\&'s not possible to have a later component
+modify the name of a directory already matched)\&.  Only \fBos\fP specifies
+a variable for a third component, and there\&'s no \fB:default:\fP, so it's
+an error to use a name like \fB~[g:p:x]\fP or \fB~[ga:s:y]\fP because
+there\&'s nowhere to look up the \fBx\fP or \fBy\fP\&.
+.PP
+The associative arrays need to be visible within this function; the
+generic function therefore uses internal variable names beginning
+\fB_zdn_\fP in order to avoid clashes\&.  Note that the variable \fBreply\fP
+needs to be passed back to the shell, so should not be local in the
+calling function\&.
+.PP
+The function does not test whether directories assembled by component
+actually exist; this allows the system to work across automounted
+file systems\&.  The error from the command trying to use a non\-existent
+directory should be sufficient to indicate the problem\&.
+.PP
+.SS "Complete example"
+.PP
+Here is a full fictitious but usable autoloadable definition of the
+example function defined by the code above\&.  So \fB~[gs:p:s]\fP expands
+to \fB/scratch/$USER/git/myscratchproject/top/srcdir\fP (with \fB$USER\fP
+also expanded)\&.
+.PP
+.RS
+.nf
+\fBlocal \-A zdn_top=(
+  g   ~/git
+  ga  ~/alternate/git
+  gs  /scratch/$USER/git/:second2
+  :default: /:second1
+)
+
+local \-A second1=(
+  p   myproject
+  s   somproject
+  os  otherproject/subproject/:third
+)
+
+local \-A second2=(
+  p   myscratchproject
+  s   somescratchproject
+)
+
+local \-A third=(
+  s   top/srcdir
+  d   top/documentation
+)
+
+# autoload not needed if you did this at initialisation\&.\&.\&.
+autoload \-Uz zsh_directory_name_generic
+zsh_directory_name_generic "$@\fP
+.fi
+.RE
+.PP
+It is also possible to use global associative arrays, suitably named,
+and set the style for the context of your wrapper function to
+refer to this\&.  Then your set up code would contain the following:
+.PP
+.RS
+.nf
+\fBtypeset \-A zdn_mywrapper_top=(\&.\&.\&.)
+# \&.\&.\&. and so on for other associative arrays \&.\&.\&.
+zstyle \&':zdn:zdn_mywrapper:' mapping zdn_mywrapper_top
+autoload \-Uz add\-zsh\-hook zsh_directory_name_generic zdn_mywrapper
+add\-zsh\-hook \-U zsh_directory_name zdn_mywrapper\fP
+.fi
+.RE
+.PP
+and the function \fBzdn_mywrapper\fP would contain only the following:
+.PP
+.RS
+.nf
+\fBzsh_directory_name_generic "$@"\fP
+.fi
+.RE
 .PP
 .SH "GATHERING INFORMATION FROM VERSION CONTROL SYSTEMS"
 .PP
@@ -849,7 +1071,7 @@ actionformats styles above, not only by a branch name but also by a
 revision number\&. This style lets you modify how that string should look\&.
 .TP
 \fBnvcsformats\fP
-These "formats" are exported when we didn\&'t detect a version control system
+These "formats" are set when we didn\&'t detect a version control system
 for the current directory or \fBvcs_info\fP was disabled\&. This is useful if
 you want \fBvcs_info\fP to completely take over the generation of your
 prompt\&. You would do something like \fBPS1=\&'${vcs_info_msg_0_}'\fP to
@@ -866,7 +1088,7 @@ behavior using hooks\&.
 .TP
 \fBmax\-exports\fP
 Defines the maximum number of
-\fBvcs_info_msg_*_\fP variables \fBvcs_info\fP will export\&.
+\fBvcs_info_msg_*_\fP variables \fBvcs_info\fP will set\&.
 .TP
 \fBenable\fP
 A list of backends you want to use\&. Checked in the \fB\-init\-\fP context\&. If
@@ -1323,7 +1545,7 @@ otherwise would be something like `svn\&' or `cvs') will be set to
 identifier is the second element\&. \fBvcs_info\fP will have filled in a proper
 value for the "repository\&'s" root directory and the string containing the
 information about quilt\&'s state will be available as the `misc' replacement
-(and \fB%Q\fP for compatibility with `addon\&' mode\&.
+(and \fB%Q\fP for compatibility with `addon\&' mode)\&.
 .PP
 What is left to discuss is how `standalone\&' mode is detected\&. The detection
 itself is a series of searches for directories\&. You can have this detection
@@ -1409,17 +1631,15 @@ All functions named \fBVCS_INFO_*\fP are for internal use only\&.
 .PD 0
 .TP
 .PD
-\fB${vcs_info_msg_\fP\fIN\fP\fB_\fP}Note the trailing underscore.\&')
-(
+\fB${vcs_info_msg_\fP\fIN\fP\fB_}\fP (Note the trailing underscore)
 Where \fIN\fP is an integer, e\&.g\&., \fBvcs_info_msg_0_\fP\&. These variables
 are the storage for the informational message the last \fBvcs_info\fP call
 has assembled\&. These are strongly connected to the \fBformats\fP,
 \fBactionformats\fP and \fBnvcsformats\fP styles described above\&. Those styles
 are lists\&. The first member of that list gets expanded into
 \fB${vcs_info_msg_0_}\fP, the second into \fB${vcs_info_msg_1_}\fP
-and the Nth into \fB${vcs_info_msg_N\-1_}\fP\&. These parameters are
-exported into the environment\&. (See the \fBmax\-exports\fP style above\&.)
-)
+and the Nth into \fB${vcs_info_msg_N\-1_}\fP\&. (See the \fBmax\-exports\fP
+style above\&.)
 .PP
 All variables named \fBVCS_INFO_*\fP are for internal use only\&.
 .PP
@@ -1536,7 +1756,7 @@ When setting \fBret\fP to non\-zero, the string in
 .RE
 .TP
 \fBgen\-applied\-string\fP
-Called in the \fBgit\fP (with \fBstgit\fP or during rebase), and \fBhg\fP
+Called in the \fBgit\fP (with \fBstgit\fP or during rebase or merge), and \fBhg\fP
 (with \fBmq\fP) backends and in \fBquilt\fP support when the \fBapplied\-string\fP
 is generated; the \fBuse\-quilt\fP zstyle must be true for \fBquilt\fP (the \fBmq\fP
 and \fBstgit\fP backends are active by default)\&.
@@ -1832,7 +2052,7 @@ Again, we start off by registering a function:
 .fi
 .RE
 .PP
-And then we define the `\fB+vi\-hgbookmarks\fP function:
+And then we define the `\fB+vi\-hgbookmarks\fP\&' function:
 .RS
 .nf
 \fB
@@ -1859,8 +2079,7 @@ function +vi\-hgbookmarks() {
     # something other than the default zero:
     ret=1
     return 0
-}
-\fP
+}\fP
 .fi
 .RE
 .PP
@@ -2006,7 +2225,9 @@ select\-word\-style bash\fP
 The eight `\fB\-match\fP\&' functions are drop\-in replacements for the
 builtin widgets without the suffix\&.  By default they behave in a similar
 way\&.  However, by the use of styles and the function \fBselect\-word\-style\fP,
-the way words are matched can be altered\&.
+the way words are matched can be altered\&.  For comparison, the widgets
+described in \fIzshzle\fP(1) under Text Objects use fixed definitions of words, compatible
+with the \fBvim\fP editor\&.
 .RS
 .PP
 The simplest way of configuring the functions is to use
@@ -2123,9 +2344,10 @@ matched against each \fIpattern\fP in turn until one matches; if it does,
 the context is extended by a colon and the corresponding \fIsubcontext\fP\&.
 Note that the test is made against the original word on the line, with no
 stripping of quotes\&.  Special handling is done between words: the current
-context is examined and if it contains the string \fBback\fP, the word before
-the cursor is considered, else the word after cursor is considered\&. Some
-examples are given below\&.
+context is examined and if it contains the string \fBbetween\fP the word
+is set to a single space; else if it is contains the string \fBback\fP,
+the word before the cursor is considered, else the word after cursor is
+considered\&. Some examples are given below\&.
 .PP
 The style \fBskip\-whitespace\-first\fP is only used with the
 \fBforward\-word\fP widget\&.  If it is set to true, then \fBforward\-word\fP
@@ -2221,6 +2443,123 @@ extract the command argument around the cursor\&.
 The \fBword\-context\fP style is implemented by the function
 \fBmatch\-word\-context\fP\&.  This should not usually need to be called
 directly\&.
+.RE
+.TP
+bracketed\-paste\-magic
+The \fBbracketed\-paste\fP widget (see subsection Miscellaneous in
+\fIzshzle\fP(1))
+inserts pasted text literally into the editor buffer rather than interpret
+it as keystrokes\&.  This disables some common usages where the self\-insert
+widget is replaced in order to accomplish some extra processing\&.  An
+example is the contributed \fBurl\-quote\-magic\fP widget described below\&.
+.RS
+.PP
+The \fBbracketed\-paste\-magic\fP widget is meant to replace \fBbracketed\-paste\fP
+with a wrapper that re\-enables these self\-insert actions, and other
+actions as selected by zstyles\&.  Therefore this widget is installed with
+
+.RS
+.nf
+\fBautoload \-Uz bracketed\-paste\-magic
+zle \-N bracketed\-paste bracketed\-paste\-magic\fP
+.fi
+.RE
+.PP
+Other than enabling some widget processing, \fBbracketed\-paste\-magic\fP
+attempts to replicate \fBbracketed\-paste\fP as faithfully as possible\&.
+.PP
+The following zstyles may be set to control processing of pasted text\&.
+All are looked up in the context `\fB:bracketed\-paste\-magic\fP\&'\&.
+.PP
+.PD 0
+.TP
+.PD
+\fBactive\-widgets\fP
+A list of patterns matching widget names that should be activated during
+the paste\&.  All other key sequences are processed as self\-insert\-unmeta\&.
+The default is `\fBself\-*\fP\&' so any user\-defined widgets named with that
+prefix are active along with the builtin self\-insert\&.
+.RS
+.PP
+If this style is not set (explicitly deleted) or set to an empty value,
+no widgets are active and the pasted text is inserted literally\&.  If the
+value includes `\fBundefined\-key\fP\&', any unknown sequences are discarded
+from the pasted text\&.
+.RE
+.TP
+\fBinactive\-keys\fP
+The inverse of \fBactive\-widgets\fP, a list of key sequences that always use
+\fBself\-insert\-unmeta\fP even when bound to an active widget\&.  Note that
+this is a list of literal key sequences, not patterns\&.
+.TP
+\fBpaste\-init\fP
+A list of function names, called in widget context (but not as widgets)\&.
+The functions are called in order until one of them returns a non\-zero
+status\&.  The parameter `\fBPASTED\fP\&' contains the initial state of the
+pasted text\&.  All other ZLE parameters such as `\fBBUFFER\fP\&' have their
+normal values and side\-effects, and full history is available, so for
+example \fBpaste\-init\fP functions may move words from \fBBUFFER\fP into
+\fBPASTED\fP to make those words visible to the \fBactive\-widgets\fP\&.
+.RS
+.PP
+A non\-zero return from a \fBpaste\-init\fP function does \fInot\fP prevent the
+paste itself from proceeding\&.
+.PP
+Loading \fBbracketed\-paste\-magic\fP defines \fBbackward\-extend\-paste\fP, a
+helper function for use in \fBpaste\-init\fP\&.
+.PP
+.RS
+.nf
+\fBzstyle :bracketed\-paste\-magic paste\-init \e 
+       backward\-extend\-paste\fP
+.fi
+.RE
+.PP
+When a paste would insert into the middle of a word or append text to a
+word already on the line, \fBbackward\-extend\-paste\fP moves the prefix
+from \fBLBUFFER\fP into \fBPASTED\fP so that the \fBactive\-widgets\fP see the
+full word so far\&.  This may be useful with \fBurl\-quote\-magic\fP\&.
+.RE
+.TP
+\fBpaste\-finish\fP
+Another list of function names called in order until one returns non\-zero\&.
+These functions are called \fIafter\fP the pasted text has been processed
+by the \fBactive\-widgets\fP, but \fIbefore\fP it is inserted into `\fBBUFFER\fP\&'\&.
+ZLE parameters have their normal values and side\-effects\&.
+.RS
+.PP
+A non\-zero return from a \fBpaste\-finish\fP function does \fInot\fP prevent
+the paste itself from proceeding\&.
+.PP
+Loading \fBbracketed\-paste\-magic\fP also defines \fBquote\-paste\fP, a helper
+function for use in \fBpaste\-finish\fP\&.
+.PP
+.RS
+.nf
+\fBzstyle :bracketed\-paste\-magic paste\-finish \e 
+       quote\-paste
+zstyle :bracketed\-paste\-magic:finish quote\-style \e 
+       qqq\fP
+.fi
+.RE
+.PP
+When the pasted text is inserted into \fBBUFFER\fP, it is quoted per the
+\fBquote\-style\fP value\&.  To forcibly turn off the built\-in numeric prefix
+quoting of \fBbracketed\-paste\fP, use:
+.PP
+.RS
+.nf
+\fBzstyle :bracketed\-paste\-magic:finish quote\-style \e 
+       none\fP
+.fi
+.RE
+.RE
+.PP
+\fIImportant:\fP During \fBactive\-widgets\fP processing of the paste (after
+\fBpaste\-init\fP and before \fBpaste\-finish\fP), \fBBUFFER\fP starts empty and
+history is restricted, so cursor motions, etc\&., may not pass outside of
+the pasted content\&.  Text assigned to \fBBUFFER\fP by the active widgets
+is copied back into \fBPASTED\fP before \fBpaste\-finish\fP\&.
 .RE
 .TP
 \fBcopy\-earlier\-word\fP
@@ -2831,7 +3170,10 @@ using a two\-character mnemonic\&.
 \fBnarrow\-to\-region \fP[ \fB\-p\fP \fIpre\fP ] [ \fB\-P\fP \fIpost\fP ]
 .TP
 .PD 0
-\fB                 \fP[ \fB\-S\fP \fIstatepm\fP | \fB\-R\fP \fIstatepm\fP ] [ \fB\-n\fP ] [ \fIstart\fP \fIend\fP ]
+\fB                 \fP[ \fB\-S\fP \fIstatepm\fP | \fB\-R\fP \fIstatepm\fP | [ \fB\-l\fP \fIlbufvar\fP ] [ \fB\-r\fP \fIrbufvar\fP ] ]
+.TP
+.PD 0
+\fB                 \fP[ \fB\-n\fP ] [ \fIstart\fP \fIend\fP ]
 .TP
 .PD
 \fBnarrow\-to\-region\-invisible\fP
@@ -2870,9 +3212,15 @@ parameter, except that parameters beginning with the prefix \fB_ntr_\fP are
 reserved for use within \fBnarrow\-to\-region\fP\&.  Typically the parameter will
 be local to the calling function\&.
 .PP
+The options \fB\-l\fP \fIlbufvar\fP and \fB\-r\fP \fIrbufvar\fP may be used to
+specify parameters where the widget will store the resulting text from
+the operation\&.  The parameter \fIlbufvar\fP will contain \fBLBUFFER\fP
+and \fIrbufvar\fP will contain \fBRBUFFER\fP\&.  Neither of these two options
+may be used with \fB\-S\fP or \fB\-R\fP\&.
+.PP
 \fBnarrow\-to\-region\-invisible\fP is a simple widget which calls
 \fBnarrow\-to\-region\fP with arguments which replace any text outside the
-region with `\fB\&.\&.\&.\fP\&'\&.
+region with `\fB\&.\&.\&.\fP\&'\&.  It does not take any arguments\&.
 .PP
 The display is restored (and the widget returns) upon any zle command
 which would usually cause the line to be accepted or aborted\&.  Hence an
@@ -3147,6 +3495,70 @@ cursor\&.  These two lines are transposed and the cursor moved to the
 start of the previous line\&.  Using a numeric argument less than \-1
 has the effect of moving the line above the cursor up by minus that
 number of lines\&.
+.RE
+.TP
+\fBurl\-quote\-magic\fP
+This widget replaces the built\-in \fBself\-insert\fP to make it easier to
+type URLs as command line arguments\&.  As you type, the input character is
+analyzed and, if it may need quoting, the current word is checked for a
+URI scheme\&.  If one is found and the current word is not already in
+quotes, a backslash is inserted before the input character\&.
+.RS
+.PP
+Styles to control quoting behavior:
+.PP
+.PD 0
+.TP
+.PD
+\fBurl\-metas\fP
+This style is looked up in the context `\fB:url\-quote\-magic:\fP\fIscheme\fP\&'
+(where \fIscheme\fP is that of the current URL, e\&.g\&. "\fBftp\fP")\&.  The value
+is a string listing the characters to be treated as globbing
+metacharacters when appearing in a URL using that scheme\&.  The default is
+to quote all zsh extended globbing characters, excluding \&'\fB<\fP' and
+\&'\fB>\fP' but including braces (as in brace expansion)\&.  See also
+\fBurl\-seps\fP\&.
+.TP
+\fBurl\-seps\fP
+Like \fBurl\-metas\fP, but lists characters that should be considered command
+separators, redirections, history references, etc\&.  The default is to
+quote the standard set of shell separators, excluding those that overlap
+with the extended globbing characters, but including \&'\fB<\fP' and
+\&'\fB>\fP' and the first character of \fB$histchars\fP\&.
+.TP
+\fBurl\-globbers\fP
+This style is looked up in the context `\fB:url\-quote\-magic\fP\&'\&.  The values
+form a list of command names that are expected to do their own globbing
+on the URL string\&.  This implies that they are aliased to use the
+`\fBnoglob\fP\&' modifier\&.  When the first word on the line matches one of the
+values \fIand\fP the URL refers to a local file (see \fBurl\-local\-schema\fP),
+only the \fBurl\-seps\fP characters are quoted; the \fBurl\-metas\fP are left
+alone, allowing them to affect command\-line parsing, completion, etc\&.  The
+default values are a literal `\fBnoglob\fP\&' plus (when the \fBzsh/parameter\fP
+module is available) any commands aliased to the helper function
+`\fBurlglobber\fP\&' or its alias `\fBgloburl\fP'\&.
+.TP
+\fBurl\-local\-schema\fP
+This style is always looked up in the context `\fB:urlglobber\fP\&', even
+though it is used by both url\-quote\-magic and urlglobber\&.  The values form
+a list of URI schema that should be treated as referring to local files by
+their real local path names, as opposed to files which are specified
+relative to a web\-server\-defined document root\&.  The defaults are
+"\fBftp\fP" and "\fBfile\fP"\&.
+.TP
+\fBurl\-other\-schema\fP
+Like \fBurl\-local\-schema\fP, but lists all other URI schema upon which
+\fBurlglobber\fP and \fBurl\-quote\-magic\fP should act\&.  If the URI on the
+command line does not have a scheme appearing either in this list or in
+\fBurl\-local\-schema\fP, it is not magically quoted\&.  The default values are
+"\fBhttp\fP", "\fBhttps\fP", and "\fBftp\fP"\&.  When a scheme appears both here
+and in \fBurl\-local\-schema\fP, it is quoted differently depending on whether
+the command name appears in \fBurl\-globbers\fP\&.
+.PP
+Loading \fBurl\-quote\-magic\fP also defines a helper function `\fBurlglobber\fP\&'
+and aliases `\fBgloburl\fP\&' to `\fBnoglob urlglobber\fP'\&.  This function takes
+a local URL apart, attempts to pattern\-match the local file portion of the
+URL path, and then puts the results back into URL format again\&.
 .RE
 .TP
 \fBwhich\-command\fP
@@ -3961,6 +4373,14 @@ integer arithmetic, which is not how an ordinary desk calculator
 operates\&.  To force floating point operation, pass the option \fB\-f\fP;
 see further notes below\&.
 .PP
+If the file \fB~/\&.zcalcrc\fP exists it will be sourced inside the function
+once it is set up and about to process the command line\&.  This
+can be used, for example, to set shell options; \fBemulate \-L zsh\fP
+and \fBsetopt extendedglob\fP are in effect at this point\&.  Any
+failure to source the file if it exists is treated as fatal\&.
+As with other initialisation files, the directory \fB$ZDOTDIR\fP is used
+instead of \fB$HOME\fP if it is set\&.
+.PP
 The mathematical library \fBzsh/mathfunc\fP will be loaded if it is
 available; see
 the section `The zsh/mathfunc Module\&' in \fIzshmodules\fP(1)\&.  The mathematical functions
@@ -4238,7 +4658,7 @@ set to the ANSI terminal escapes that turn off all attributes and turn on
 bold intensity, respectively\&.
 .RE
 .TP
-\fBfned\fP \fIname\fP
+\fBfned\fP [ \fB\-x\fP \fInum\fP ] \fIname\fP
 Same as \fBzed \-f\fP\&.  This function does not appear in the zsh
 distribution, but can be created by linking \fBzed\fP to the name \fBfned\fP
 in some directory in your \fBfpath\fP\&.
@@ -4457,7 +4877,7 @@ the difference in function between \fBzargs\fP and \fBxargs\fP) or run
 .RE
 .TP
 .PD 0
-\fBzed\fP [ \fB\-f\fP ] \fIname\fP
+\fBzed\fP [ \fB\-f\fP [ \fB\-x\fP \fInum\fP ] ] \fIname\fP
 .TP
 .PD
 \fBzed \-b\fP
@@ -4469,7 +4889,10 @@ If the \fB\-f\fP option is given, the name is taken to be that of
 a function; if the function is marked for autoloading, \fBzed\fP searches
 for it in the \fBfpath\fP and loads it\&.  Note that functions edited this way
 are installed into the current shell, but \fInot\fP written back to the
-autoload file\&.
+autoload file\&.  In this case the \fB\-x\fP option specifies that leading
+tabs indenting the function according to syntax should be converted into
+the given number of spaces; `\fB\-x 2\fP\&' is consistent with the layout
+of functions distributed with the shell\&.
 .PP
 Without \fB\-f\fP, \fIname\fP is the path name of the file to edit, which need
 not exist; it is created on write, if necessary\&.
@@ -4544,7 +4967,12 @@ The pattern is always treated as an \fBEXTENDED_GLOB\fP pattern\&.  Any file
 whose name is not changed by the substitution is simply ignored\&.  Any
 error (a substitution resulted in an empty string, two substitutions gave
 the same result, the destination was an existing regular file and \fB\-f\fP
-was not given) causes the entire function to abort without doing anything\&.
+was not given) causes the entire function to abort without doing
+anything\&.
+.PP
+In addition to pattern replacement, the variable \fB$f\fP can be referrred
+to in the second (replacement) argument\&.  This makes it possible to
+use variable substitution to alter the argument; see examples below\&.
 .PP
 Options:
 .PP
@@ -4623,6 +5051,14 @@ Further examples:
 .PP
 For any file in the current directory with at least one space in the name,
 replace every space by an underscore and display the commands executed\&.
+.PP
+.RS
+.nf
+\fBzmv \-v \&'* *' '${f// /_}'\fP
+.fi
+.RE
+.PP
+This does exactly the same by referring to the file name stored in \fB$f\fP\&.
 .PP
 For more complete examples and other implementation details, see the
 \fBzmv\fP source file, usually located in one of the directories named in

@@ -80,8 +80,6 @@ private:
 	virtual void getHeader(CssmKey::Header &hdr); // get header (only) without mKey
 
 private:
-	CssmKey::Header mHeaderCache; // cached, cleaned blob header cache
-
 	KeyBlob *mBlob;			// key blob encoded by mDatabase
 	bool mValidBlob;		// mBlob is valid key encoding
 };

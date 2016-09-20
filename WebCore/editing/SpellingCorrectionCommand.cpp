@@ -56,11 +56,11 @@ private:
     {
     }
 
-    virtual void doApply() override
+    void doApply() override
     {
     }
 
-    virtual void doUnapply() override
+    void doUnapply() override
     {
         if (!m_hasBeenUndone) {
             frame().editor().unappliedSpellCorrection(startingSelection(), m_corrected, m_correction);
@@ -70,7 +70,7 @@ private:
     }
 
 #ifndef NDEBUG
-    virtual void getNodesInCommand(HashSet<Node*>&) override
+    void getNodesInCommand(HashSet<Node*>&) override
     {
     }
 #endif
@@ -82,7 +82,7 @@ private:
 #endif
 
 SpellingCorrectionCommand::SpellingCorrectionCommand(PassRefPtr<Range> rangeToBeCorrected, const String& correction)
-    : CompositeEditCommand(rangeToBeCorrected->startContainer()->document())
+    : CompositeEditCommand(rangeToBeCorrected->startContainer().document())
     , m_rangeToBeCorrected(rangeToBeCorrected)
     , m_selectionToBeCorrected(*m_rangeToBeCorrected)
     , m_correction(correction)
@@ -101,16 +101,14 @@ void SpellingCorrectionCommand::doApply()
     if (!m_rangeToBeCorrected)
         return;
 
-    RefPtr<DocumentFragment> fragment = createFragmentFromText(*m_rangeToBeCorrected, m_correction);
-    if (!fragment)
-        return;
+    auto fragment = createFragmentFromText(*m_rangeToBeCorrected, m_correction);
 
     applyCommandToComposite(SetSelectionCommand::create(m_selectionToBeCorrected, FrameSelection::defaultSetSelectionOptions() | FrameSelection::SpellCorrectionTriggered));
 #if USE(AUTOCORRECTION_PANEL)
     applyCommandToComposite(SpellingCorrectionRecordUndoCommand::create(document(), m_corrected, m_correction));
 #endif
 
-    applyCommandToComposite(ReplaceSelectionCommand::create(document(), fragment.release(), ReplaceSelectionCommand::MatchStyle, EditActionPaste));
+    applyCommandToComposite(ReplaceSelectionCommand::create(document(), WTFMove(fragment), ReplaceSelectionCommand::MatchStyle, EditActionPaste));
 }
 
 bool SpellingCorrectionCommand::shouldRetainAutocorrectionIndicator() const

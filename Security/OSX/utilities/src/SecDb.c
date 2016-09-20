@@ -29,6 +29,7 @@
 #include <sqlite3_private.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <libgen.h>
+#include <sys/csr.h>
 #include <sys/stat.h>
 #include <AssertMacros.h>
 #include "SecCFWrappers.h"
@@ -45,10 +46,6 @@
 //
 #include <Security/SecureObjectSync/SOSDigestVector.h>
 #include <Security/SecureObjectSync/SOSManifest.h>
-
-#define LOGE(ARG,...) secerror(ARG, ## __VA_ARGS__)
-#define LOGV(ARG,...) secdebug("secdb", ARG, ## __VA_ARGS__)
-#define LOGD(ARG,...) secdebug("secdb", ARG, ## __VA_ARGS__)
 
 #define HAVE_UNLOCK_NOTIFY  0
 
@@ -69,6 +66,7 @@ struct __OpaqueSecDbConnection {
     bool inTransaction;
     SecDbTransactionSource source;
     bool isCorrupted;
+    int maybeCorruptedCode;
     CFErrorRef corruptionError;
     sqlite3 *handle;
     // Pending deletions and additions for the current transaction
@@ -84,14 +82,14 @@ struct __OpaqueSecDb {
 
     CFStringRef db_path;
     dispatch_queue_t queue;
+    dispatch_queue_t commitQueue;
     CFMutableArrayRef connections;
     dispatch_semaphore_t write_semaphore;
     dispatch_semaphore_t read_semaphore;
     bool didFirstOpen;
     bool (^opened)(SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error);
     bool callOpenedHandlerForNextConnection;
-    dispatch_queue_t notifyQueue;
-    SecDBNotifyBlock notifyPhase;
+    CFMutableArrayRef notifyPhase; /* array of SecDBNotifyBlock */
 };
 
 // MARK: Error domains and error helper functions
@@ -100,6 +98,7 @@ CFStringRef kSecDbErrorDomain = CFSTR("com.apple.utilities.sqlite3");
 
 bool SecDbError(int sql_code, CFErrorRef *error, CFStringRef format, ...) {
     if (sql_code == SQLITE_OK) return true;
+
     if (error) {
         va_list args;
         CFIndex code = sql_code;
@@ -108,7 +107,6 @@ bool SecDbError(int sql_code, CFErrorRef *error, CFStringRef format, ...) {
         *error = NULL;
         va_start(args, format);
         SecCFCreateErrorWithFormatAndArguments(code, kSecDbErrorDomain, previousError, error, NULL, format, args);
-        CFReleaseNull(previousError);
         va_end(args);
     }
     return false;
@@ -177,10 +175,12 @@ SecDbDestroy(CFTypeRef value)
     CFReleaseSafe(db->connections);
     CFReleaseSafe(db->db_path);
     dispatch_release(db->queue);
+    dispatch_release(db->commitQueue);
     dispatch_release(db->read_semaphore);
     dispatch_release(db->write_semaphore);
     if (db->opened)
         Block_release(db->opened);
+    CFReleaseNull(db->notifyPhase);
 }
 
 CFGiblisFor(SecDb)
@@ -197,17 +197,24 @@ SecDbCreate(CFStringRef dbName,
     CFStringPerformWithCString(dbName, ^(const char *dbNameStr) {
         db->queue = dispatch_queue_create(dbNameStr, DISPATCH_QUEUE_SERIAL);
     });
+    CFStringRef commitQueueStr = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%@-commit"), dbName);
+    CFStringPerformWithCString(commitQueueStr, ^(const char *cqNameStr) {
+        db->commitQueue = dispatch_queue_create(cqNameStr, DISPATCH_QUEUE_CONCURRENT);
+    });
+    CFReleaseNull(commitQueueStr);
     db->read_semaphore = dispatch_semaphore_create(kSecDbMaxReaders);
     db->write_semaphore = dispatch_semaphore_create(kSecDbMaxWriters);
     db->connections = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
     db->opened = opened ? Block_copy(opened) : NULL;
     if (getenv("__OSINSTALL_ENVIRONMENT") != NULL) {
         // TODO: Move this code out of this layer
-        LOGV("sqlDb: running from installer");
+        secinfo("#SecDB", "SecDB: running from installer");
+
         db->db_path = CFSTR("file::memory:?cache=shared");
     } else {
         db->db_path = CFStringCreateCopy(kCFAllocatorDefault, dbName);
     }
+
 done:
     return db;
 }
@@ -221,42 +228,32 @@ SecDbIdleConnectionCount(SecDbRef db) {
     return count;
 }
 
-void SecDbSetNotifyPhaseBlock(SecDbRef db, dispatch_queue_t queue, SecDBNotifyBlock notifyPhase) {
-    if (db->notifyQueue)
-        dispatch_release(db->notifyQueue);
-    if (db->notifyPhase)
-        Block_release(db->notifyPhase);
-
-    if (queue) {
-        db->notifyQueue = queue;
-        dispatch_retain(db->notifyQueue);
-    } else {
-        db->notifyQueue = NULL;
+void SecDbAddNotifyPhaseBlock(SecDbRef db, SecDBNotifyBlock notifyPhase)
+{
+    SecDBNotifyBlock block = Block_copy(notifyPhase); /* Force the block off the stack */
+    if (db->notifyPhase == NULL) {
+        db->notifyPhase = CFArrayCreateMutableForCFTypes(NULL);
     }
-    if (notifyPhase)
-        db->notifyPhase = Block_copy(notifyPhase);
-    else
-        db->notifyPhase = NULL;
+    CFArrayAppendValue(db->notifyPhase, block);
+    Block_release(block);
 }
 
 static void SecDbNotifyPhase(SecDbConnectionRef dbconn, SecDbTransactionPhase phase) {
     if (CFArrayGetCount(dbconn->changes)) {
         CFArrayRef changes = dbconn->changes;
         dbconn->changes = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
-        if (dbconn->db->notifyPhase)
-            dbconn->db->notifyPhase(dbconn, phase, dbconn->source, changes);
+        if (dbconn->db->notifyPhase) {
+            CFArrayForEach(dbconn->db->notifyPhase, ^(const void *value) {
+                SecDBNotifyBlock notifyBlock = (SecDBNotifyBlock)value;
+                notifyBlock(dbconn, phase, dbconn->source, changes);
+            });
+        }
         CFReleaseSafe(changes);
     }
 }
 
-static void SecDbOnNotifyQueue(SecDbConnectionRef dbconn, void (^perform)()) {
-    if (dbconn->db->notifyQueue) {
-        dispatch_sync(dbconn->db->notifyQueue, ^{
-            perform();
-        });
-    } else {
-        perform();
-    }
+static void SecDbOnNotify(SecDbConnectionRef dbconn, void (^perform)()) {
+    perform();
 }
 
 CFStringRef SecDbGetPath(SecDbRef db) {
@@ -280,7 +277,7 @@ static bool SecDbCheckCorrupted(SecDbConnectionRef dbconn)
         });
     });
     if (error) {
-        LOGV("sqlDb: warning error %@ when running integrity check", error);
+        secinfo("#SecDB", "#SecDB warning error %{public}@ when running integrity check", error);
         CFRelease(error);
     }
     return isCorrupted;
@@ -288,15 +285,16 @@ static bool SecDbCheckCorrupted(SecDbConnectionRef dbconn)
 
 static bool SecDbDidCreateFirstConnection(SecDbConnectionRef dbconn, bool didCreate, CFErrorRef *error)
 {
-    LOGD("sqlDb: starting maintenance");
+    secinfo("#SecDB", "#SecDB starting maintenance");
     bool ok = true;
 
     if (!didCreate && !dbconn->isCorrupted) {
         dbconn->isCorrupted = SecDbCheckCorrupted(dbconn);
-        if (dbconn->isCorrupted)
-            secerror("integrity check=fail");
-        else
-            LOGD("sqlDb: integrity check=pass");
+        if (dbconn->isCorrupted) {
+            secinfo("#SecDB", "#SecDB integrity check=fail");
+        } else {
+            secinfo("#SecDB", "#SecDB starting maintenance");
+        }
     }
 
     if (!dbconn->isCorrupted && dbconn->db->opened) {
@@ -312,7 +310,8 @@ static bool SecDbDidCreateFirstConnection(SecDbConnectionRef dbconn, bool didCre
             *error = localError;
             localError = NULL;
         } else {
-            secerror("opened block failed: error is released and lost");
+            if (localError)
+                secerror("opened block failed: error is released and lost");
             CFReleaseNull(localError);
         }
     }
@@ -321,14 +320,25 @@ static bool SecDbDidCreateFirstConnection(SecDbConnectionRef dbconn, bool didCre
         ok = SecDbHandleCorrupt(dbconn, 0, error);
     }
 
-    LOGD("sqlDb: finished maintenance");
+    secinfo("#SecDB", "#SecDB starting maintenance");
     return ok;
 }
 
 void SecDbCorrupt(SecDbConnectionRef dbconn, CFErrorRef error)
 {
+    CFStringRef str = CFStringCreateWithFormat(NULL, NULL, CFSTR("SecDBCorrupt: %@"), error);
+    if (str) {
+        char buffer[1000] = "?";
+        uint32_t errorCode = 0;
+        CFStringGetCString(str, buffer, sizeof(buffer), kCFStringEncodingUTF8);
+        os_log_fault(logObjForScope("SecEmergency"), "%s", buffer);
+        if (error)
+            errorCode = (uint32_t)CFErrorGetCode(error);
+        __security_simulatecrash(str, __sec_exception_code_CorruptDb(errorCode));
+        CFRelease(str);
+    }
     dbconn->isCorrupted = true;
-    CFAssignRetained(dbconn->corruptionError, error);
+    CFRetainAssign(dbconn->corruptionError, error);
 }
 
 
@@ -365,7 +375,9 @@ static bool SecDbConnectionCheckCode(SecDbConnectionRef dbconn, int code, CFErro
 
     /* If it's already corrupted, don't try to recover */
     if (dbconn->isCorrupted) {
-        CFStringRef reason = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("SQL DB %@ is corrupted already. Not trying to recover"), dbconn->db->db_path);
+        CFStringRef reason = CFStringCreateWithFormat(kCFAllocatorDefault, NULL,
+                                                      CFSTR("SQL DB %@ is corrupted already. Not trying to recover, corrution error was: %d (previously %d)"),
+                                                      dbconn->db->db_path, code, dbconn->maybeCorruptedCode);
         secerror("%@",reason);
         __security_simulatecrash(reason, __sec_exception_code_TwiceCorruptDb(knownDbPathIndex(dbconn)));
         CFReleaseSafe(reason);
@@ -376,6 +388,7 @@ static bool SecDbConnectionCheckCode(SecDbConnectionRef dbconn, int code, CFErro
     if (dbconn->isCorrupted) {
         /* Run integrity check and only make dbconn->isCorrupted true and
            run the corruption handler if the integrity check conclusively fails. */
+        dbconn->maybeCorruptedCode = code;
         dbconn->isCorrupted = SecDbCheckCorrupted(dbconn);
         if (dbconn->isCorrupted) {
             secerror("operation returned code: %d integrity check=fail", code);
@@ -424,7 +437,7 @@ static bool SecDbBusyHandler(SecDbConnectionRef dbconn, CFErrorRef *error) {
 
 static int sleepBackoff[] = { 10, 20, 50, 100, 250 };
 static int sumBackoff[]   = { 10, 30, 80, 180, 430 };
-static int numEntries = sizeof(sleepBackoff)/sizeof(sleepBackoff[0]);
+static int NumberOfSleepBackoff = sizeof(sleepBackoff)/sizeof(sleepBackoff[0]);
 
 // Return true causes the operation to be tried again.
 static bool SecDbWaitIfNeeded(SecDbConnectionRef dbconn, int s3e, sqlite3_stmt *stmt, CFStringRef desc, int nTries, CFErrorRef *error) {
@@ -439,19 +452,19 @@ static bool SecDbWaitIfNeeded(SecDbConnectionRef dbconn, int s3e, sqlite3_stmt *
         _Static_assert(sizeof(sumBackoff) == sizeof(sleepBackoff), "matching arrays not matching");
         _Static_assert(sizeof(sumBackoff[0]) == sizeof(sleepBackoff[0]), "matching arrays not matching");
 
-        if (nTries < numEntries) {
+        if (nTries < NumberOfSleepBackoff) {
             timeout = sleepBackoff[nTries];
             totaltimeout = sumBackoff[nTries];
         } else {
-            timeout = sleepBackoff[numEntries - 1];
-            totaltimeout = sumBackoff[numEntries - 1] + (timeout * (nTries - numEntries));
+            timeout = sleepBackoff[NumberOfSleepBackoff - 1];
+            totaltimeout = sumBackoff[NumberOfSleepBackoff - 1] + (timeout * (nTries - NumberOfSleepBackoff));
         }
         if (totaltimeout < BUSY_TIMEOUT_MS) {
-            LOGE("sqlite busy/locked: %d ntries: %d totaltimeout: %d", s3e, nTries, totaltimeout);
+            secinfo("#SecDB", "sqlite busy/locked: %d ntries: %d totaltimeout: %d", s3e, nTries, totaltimeout);
             sqlite3_sleep(timeout);
             return true;
         } else {
-            LOGE("sqlite busy/locked: too long: %d ms, giving up", totaltimeout);
+            secinfo("#SecDB", "sqlite busy/locked: too long: %d ms, giving up", totaltimeout);
         }
     }
 
@@ -472,11 +485,17 @@ static SecDbStepResult _SecDbStep(SecDbConnectionRef dbconn, sqlite3_stmt *stmt,
     for (;;) {
         s3e = sqlite3_step(stmt);
         if (s3e == SQLITE_ROW) {
-            ntries = 0;
             return kSecDbRowStep;
-        } else if (s3e == SQLITE_DONE)
+        } else if (s3e == SQLITE_DONE) {
+            /*
+             ** ^[SQLITE_DONE] means that the statement has finished executing
+             ** successfully.  sqlite3_step() should not be called again on this virtual
+             ** machine without first calling [] to reset the virtual
+             ** machine back to its initial state.
+             */
+            sqlite3_reset(stmt);
             return kSecDbDoneStep;
-        else if (!SecDbWaitIfNeeded(dbconn, s3e, stmt, CFSTR("step"), ntries, error)) {
+        } else if (!SecDbWaitIfNeeded(dbconn, s3e, stmt, CFSTR("step"), ntries, error)) {
             return kSecDbErrorStep;
         }
         ntries++;
@@ -516,17 +535,24 @@ static bool SecDbBeginTransaction(SecDbConnectionRef dbconn, SecDbTransactionTyp
     CFStringRef query;
     switch (type) {
         case kSecDbImmediateTransactionType:
+            secnoticeq("db", "SecDbBeginTransaction SecDbBeginTransaction %p", dbconn);
             query = CFSTR("BEGIN IMMEDATE");
             break;
         case kSecDbExclusiveRemoteTransactionType:
+            secnoticeq("db", "SecDbBeginTransaction kSecDbExclusiveRemoteTransactionType %p", dbconn);
             dbconn->source = kSecDbSOSTransaction;
+            // FALL THROUGH
         case kSecDbExclusiveTransactionType:
+            if (type==kSecDbExclusiveTransactionType)
+                secnoticeq("db", "SecDbBeginTransaction kSecDbExclusiveTransactionType %p", dbconn);
             query = CFSTR("BEGIN EXCLUSIVE");
             break;
         case kSecDbNormalTransactionType:
+            secnoticeq("db", "SecDbBeginTransaction kSecDbNormalTransactionType %p", dbconn);
             query = CFSTR("BEGIN");
             break;
         default:
+            secnoticeq("db", "SecDbBeginTransaction invalid transaction type %lu", type);
             ok = SecDbError(SQLITE_ERROR, error, CFSTR("invalid transaction type %" PRIu32), type);
             query = NULL;
             break;
@@ -544,19 +570,26 @@ static bool SecDbBeginTransaction(SecDbConnectionRef dbconn, SecDbTransactionTyp
 static bool SecDbEndTransaction(SecDbConnectionRef dbconn, bool commit, CFErrorRef *error)
 {
     __block bool ok = true;
-    SecDbOnNotifyQueue(dbconn, ^{
-        bool commited = false;
+    __block bool commited = false;
+
+    dispatch_block_t notifyAndExec = ^{
         if (commit) {
+            secnoticeq("db", "SecDbEndTransaction kSecDbTransactionWillCommit %p", dbconn);
             SecDbNotifyPhase(dbconn, kSecDbTransactionWillCommit);
             commited = ok = SecDbExec(dbconn, CFSTR("END"), error);
+            secnoticeq("db", "SecDbEndTransaction kSecDbTransactionWillCommit %p (after notify)", dbconn);
         } else {
             ok = SecDbExec(dbconn, CFSTR("ROLLBACK"), error);
             commited = false;
         }
         dbconn->inTransaction = false;
         SecDbNotifyPhase(dbconn, commited ? kSecDbTransactionDidCommit : kSecDbTransactionDidRollback);
+        secnoticeq("db", "SecDbEndTransaction %s %p", commited ? "kSecDbTransactionDidCommit" : "kSecDbTransactionDidRollback", dbconn);
         dbconn->source = kSecDbAPITransaction;
-    });
+    };
+
+    SecDbPerformOnCommitQueue(dbconn, true, notifyAndExec);
+
     return ok;
 }
 
@@ -569,7 +602,7 @@ bool SecDbTransaction(SecDbConnectionRef dbconn, SecDbTransactionType type,
     if (dbconn->inTransaction) {
         transaction(&commit);
         if (!commit) {
-            LOGV("sqlDb: nested transaction asked to not be committed");
+            secinfo("#SecDB", "#SecDB nested transaction asked to not be committed");
         }
     } else {
         ok = SecDbBeginTransaction(dbconn, type, error);
@@ -591,8 +624,10 @@ bool SecDbStep(SecDbConnectionRef dbconn, sqlite3_stmt *stmt, CFErrorRef *error,
     for (;;) {
         switch (_SecDbStep(dbconn, stmt, error)) {
             case kSecDbErrorStep:
+                secdebug("db", "kSecDbErrorStep %@", error?*error:NULL);
                 return false;
             case kSecDbRowStep:
+                secdebug("db", "kSecDbRowStep %@", error?*error:NULL);
                 if (row) {
                     bool stop = false;
                     row(&stop);
@@ -603,6 +638,7 @@ bool SecDbStep(SecDbConnectionRef dbconn, sqlite3_stmt *stmt, CFErrorRef *error,
                 SecDbError(SQLITE_ERROR, error, CFSTR("SecDbStep SQLITE_ROW returned without a row handler"));
                 return false;
             case kSecDbDoneStep:
+                secdebug("db", "kSecDbDoneStep %@", error?*error:NULL);
                 return true;
         }
     }
@@ -654,7 +690,7 @@ static bool SecDbTruncate(SecDbConnectionRef dbconn, CFErrorRef *error)
             }
         });
         if (!ok) {
-            secerror("Failed to delete db handle: %@", error ? *error : NULL);
+            secinfo("#SecDB", "#SecDB Failed to delete db handle: %{public}@", error ? *error : NULL);
             abort();
         }
     }
@@ -664,10 +700,6 @@ static bool SecDbTruncate(SecDbConnectionRef dbconn, CFErrorRef *error)
 
 static bool SecDbHandleCorrupt(SecDbConnectionRef dbconn, int rc, CFErrorRef *error)
 {
-    CFStringRef reason = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("SQL DB %@ is corrupted, trying to recover (rc=%d) %@"), dbconn->db->db_path, rc, dbconn->corruptionError);
-    __security_simulatecrash(reason, __sec_exception_code_CorruptDb(knownDbPathIndex(dbconn), rc));
-    CFReleaseSafe(reason);
-
     // Backup current db.
     __block bool didRename = false;
     CFStringPerformWithCString(dbconn->db->db_path, ^(const char *db_path) {
@@ -686,8 +718,8 @@ static bool SecDbHandleCorrupt(SecDbConnectionRef dbconn, int rc, CFErrorRef *er
             if (error)
                 CFReleaseNull(*error);
 
-            didRename = SecCheckErrno(rename(db_path, buf), error, CFSTR("rename %s %s"), db_path, buf) &&
-                (!dbconn->handle || SecDbError(sqlite3_close(dbconn->handle), error, CFSTR("close"))) &&
+            didRename = (!dbconn->handle || SecDbError(sqlite3_close(dbconn->handle), error, CFSTR("close"))) &&
+                SecCheckErrno(rename(db_path, buf), error, CFSTR("rename %s %s"), db_path, buf) &&
                 SecDbOpenHandle(dbconn, NULL, error);
         }
         if (didRename) {
@@ -716,57 +748,81 @@ static bool SecDbHandleCorrupt(SecDbConnectionRef dbconn, int rc, CFErrorRef *er
 
 static bool SecDbProfileEnabled(void)
 {
-#if 0
     static dispatch_once_t onceToken;
     static bool profile_enabled = false;
-    
-#if DEBUG
-    //sudo defaults write /Library/Preferences/com.apple.security.auth profile -bool true
+
+    // sudo defaults write /Library/Preferences/com.apple.security SQLProfile -bool true
     dispatch_once(&onceToken, ^{
-		CFTypeRef profile = (CFNumberRef)CFPreferencesCopyValue(CFSTR("profile"), CFSTR(SECURITY_AUTH_NAME), kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
-        
-        if (profile && CFGetTypeID(profile) == CFBooleanGetTypeID()) {
+        CFTypeRef profile = NULL;
+
+        if (csr_check(CSR_ALLOW_APPLE_INTERNAL) != 0)
+            return;
+
+        profile = (CFNumberRef)CFPreferencesCopyValue(CFSTR("SQLProfile"), CFSTR("com.apple.security"), kCFPreferencesAnyUser, kCFPreferencesAnyHost);
+
+        if (profile == NULL)
+            return;
+
+        if (CFGetTypeID(profile) == CFBooleanGetTypeID()) {
             profile_enabled = CFBooleanGetValue((CFBooleanRef)profile);
+        } else if (CFGetTypeID(profile) == CFNumberGetTypeID()) {
+            int32_t num = 0;
+            CFNumberGetValue(profile, kCFNumberSInt32Type, &num);
+            profile_enabled = !!num;
         }
         
-        LOGV("sqlDb: sql profile: %s", profile_enabled ? "enabled" : "disabled");
+        secinfo("#SecDB", "sqlDb: sql profile: %{public}s", profile_enabled ? "enabled" : "disabled");
         
         CFReleaseSafe(profile);
     });
-#endif
-    
+
     return profile_enabled;
-#else
-#if DEBUG
-    return true;
-#else
-    return false;
-#endif
-#endif
 }
 
-#if 0
-static void SecDbProfile(void *context __unused, const char *sql, sqlite3_uint64 ns) {
-    LOGV("==\nsqlDb: %s\nTime: %llu ms\n", sql, ns >> 20);
-}
-#else
 static void SecDbProfile(void *context, const char *sql, sqlite3_uint64 ns) {
     sqlite3 *s3h = context;
     int code = sqlite3_extended_errcode(s3h);
     if (code == SQLITE_OK || code == SQLITE_DONE) {
-        secdebug("profile", "==\nsqlDb: %s\nTime: %llu ms\n", sql, ns >> 20);
+        secinfo("#SecDB", "#SecDB sql: %{public}s\nTime: %llu ms", sql, ns >> 20);
     } else {
-        secdebug("profile", "==error[%d]: %s==\nsqlDb: %s\nTime: %llu ms \n", code, sqlite3_errmsg(s3h), sql, ns >> 20);
+        secinfo("#SecDB", "#SecDB error[%d]: %{public}s lDb: %{public}s time: %llu ms", code, sqlite3_errmsg(s3h), sql, ns >> 20);
     }
 }
-#endif
 
 static bool SecDbTraceEnabled(void)
 {
 #if DEBUG
     return true;
 #else
-    return false;
+    static dispatch_once_t onceToken;
+    static bool trace_enabled = false;
+
+    // sudo defaults write /Library/Preferences/com.apple.security SQLTrace -bool true
+    dispatch_once(&onceToken, ^{
+        CFTypeRef trace = NULL;
+
+        if (csr_check(CSR_ALLOW_APPLE_INTERNAL) != 0)
+            return;
+
+        trace = (CFNumberRef)CFPreferencesCopyValue(CFSTR("SQLTrace"), CFSTR("com.apple.security"), kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
+
+        if (trace == NULL)
+            return;
+
+        if (CFGetTypeID(trace) == CFBooleanGetTypeID()) {
+            trace_enabled = CFBooleanGetValue((CFBooleanRef)trace);
+        } else if (CFGetTypeID(trace) == CFNumberGetTypeID()) {
+            int32_t num = 0;
+            CFNumberGetValue(trace, kCFNumberSInt32Type, &num);
+            trace_enabled = !!num;
+        }
+
+        secinfo("#SecDB", "#SecDB sql trace: %{public}s", trace_enabled ? "enabled" : "disabled");
+
+        CFReleaseSafe(trace);
+    });
+
+    return trace_enabled;
 #endif
 }
 
@@ -778,7 +834,7 @@ static void SecDbTrace(void *ctx, const char *trace) {
         queue = dispatch_queue_create("trace_queue", DISPATCH_QUEUE_SERIAL);
     });
     dispatch_sync(queue, ^{
-        __security_debug(CFSTR("trace"), "", "", 0, CFSTR("%s"), trace);
+        secinfo("#SecDB", "#SecDB %{public}s", trace);
     });
 }
 
@@ -834,6 +890,7 @@ SecDbConnectionCreate(SecDbRef db, bool readOnly, CFErrorRef *error)
     dbconn->inTransaction = false;
     dbconn->source = NULL;
     dbconn->isCorrupted = false;
+    dbconn->maybeCorruptedCode = 0;
     dbconn->corruptionError = NULL;
     dbconn->handle = NULL;
     dbconn->changes = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
@@ -854,7 +911,7 @@ static void SecDbConectionSetReadOnly(SecDbConnectionRef dbconn, bool readOnly) 
  go to the start of the queue. */
 SecDbConnectionRef SecDbConnectionAquire(SecDbRef db, bool readOnly, CFErrorRef *error) {
     CFRetain(db);
-    secdebug("dbconn", "acquire %s connection", readOnly ? "ro" : "rw");
+    secinfo("dbconn", "acquire %s connection", readOnly ? "ro" : "rw");
     dispatch_semaphore_wait(readOnly ? db->read_semaphore : db->write_semaphore, DISPATCH_TIME_FOREVER);
     __block SecDbConnectionRef dbconn = NULL;
     __block bool ok = true;
@@ -942,7 +999,7 @@ void SecDbConnectionRelease(SecDbConnectionRef dbconn) {
         return;
     }
     SecDbRef db = dbconn->db;
-    secdebug("dbconn", "release %@", dbconn);
+    secinfo("dbconn", "release %@", dbconn);
     dispatch_sync(db->queue, ^{
         CFIndex count = CFArrayGetCount(db->connections);
         // Add back possible writable dbconn to the pool.
@@ -1002,6 +1059,17 @@ SecDbConnectionDestroy(CFTypeRef value)
 
 }
 
+void SecDbPerformOnCommitQueue(SecDbConnectionRef dbconn, bool barrier, dispatch_block_t perform) {
+    if (barrier) {
+        dispatch_barrier_sync(dbconn->db->commitQueue, ^{
+            perform();
+        });
+    } else {
+        dispatch_sync(dbconn->db->commitQueue, ^{
+            perform();
+        });
+    }
+}
 
 // MARK: -
 // MARK: Bind helpers
@@ -1010,7 +1078,7 @@ SecDbConnectionDestroy(CFTypeRef value)
 bool SecDbBindNull(sqlite3_stmt *stmt, int param, CFErrorRef *error) {
     bool ok = SecDbErrorWithStmt(sqlite3_bind_null(stmt, param),
                                  stmt, error, CFSTR("bind_null[%d]"), param);
-    secdebug("bind", "bind_null[%d]: %@", param, error ? *error : NULL);
+    secinfo("bind", "bind_null[%d]: %@", param, error ? *error : NULL);
     return ok;
 }
 #endif
@@ -1022,7 +1090,7 @@ bool SecDbBindBlob(sqlite3_stmt *stmt, int param, const void *zData, size_t n, v
     }
     bool ok = SecDbErrorWithStmt(sqlite3_bind_blob(stmt, param, zData, (int)n, xDel),
                                  stmt, error, CFSTR("bind_blob[%d]"), param);
-    secdebug("bind", "bind_blob[%d]: %.*s: %@", param, (int)n, zData, error ? *error : NULL);
+    secinfo("bind", "bind_blob[%d]: %.*s: %@", param, (int)n, zData, error ? *error : NULL);
     return ok;
 }
 
@@ -1033,28 +1101,28 @@ bool SecDbBindText(sqlite3_stmt *stmt, int param, const char *zData, size_t n, v
     }
     bool ok = SecDbErrorWithStmt(sqlite3_bind_text(stmt, param, zData, (int)n, xDel), stmt, error,
                                  CFSTR("bind_text[%d]"), param);
-    secdebug("bind", "bind_text[%d]: \"%s\": %@", param, zData, error ? *error : NULL);
+    secinfo("bind", "bind_text[%d]: \"%s\": %@", param, zData, error ? *error : NULL);
     return ok;
 }
 
 bool SecDbBindDouble(sqlite3_stmt *stmt, int param, double value, CFErrorRef *error) {
     bool ok = SecDbErrorWithStmt(sqlite3_bind_double(stmt, param, value), stmt, error,
                                  CFSTR("bind_double[%d]"), param);
-    secdebug("bind", "bind_double[%d]: %f: %@", param, value, error ? *error : NULL);
+    secinfo("bind", "bind_double[%d]: %f: %@", param, value, error ? *error : NULL);
     return ok;
 }
 
 bool SecDbBindInt(sqlite3_stmt *stmt, int param, int value, CFErrorRef *error) {
     bool ok = SecDbErrorWithStmt(sqlite3_bind_int(stmt, param, value), stmt, error,
                                  CFSTR("bind_int[%d]"), param);
-    secdebug("bind", "bind_int[%d]: %d: %@", param, value, error ? *error : NULL);
+    secinfo("bind", "bind_int[%d]: %d: %@", param, value, error ? *error : NULL);
     return ok;
 }
 
 bool SecDbBindInt64(sqlite3_stmt *stmt, int param, sqlite3_int64 value, CFErrorRef *error) {
     bool ok = SecDbErrorWithStmt(sqlite3_bind_int64(stmt, param, value), stmt, error,
                                  CFSTR("bind_int64[%d]"), param);
-    secdebug("bind", "bind_int64[%d]: %lld: %@", param, value, error ? *error : NULL);
+    secinfo("bind", "bind_int64[%d]: %lld: %@", param, value, error ? *error : NULL);
     return ok;
 }
 
@@ -1102,7 +1170,7 @@ bool SecDbBindObject(sqlite3_stmt *stmt, int param, CFTypeRef value, CFErrorRef 
             convertOk = CFNumberGetValue(value, kCFNumberDoubleType, &nval);
             result = SecDbBindDouble(stmt, param, nval, error);
         } else {
-            int nval;
+            SInt32 nval;
             convertOk = CFNumberGetValue(value, kCFNumberSInt32Type, &nval);
             if (convertOk) {
                 result = SecDbBindInt(stmt, param, nval, error);
@@ -1306,7 +1374,7 @@ void SecDbRecordChange(SecDbConnectionRef dbconn, CFTypeRef deleted, CFTypeRef i
             secerror("db %@ changed outside txn", dbconn);
             // Only notify of DidCommit, since WillCommit code assumes
             // we are in a txn.
-            SecDbOnNotifyQueue(dbconn, ^{
+            SecDbOnNotify(dbconn, ^{
                 SecDbNotifyPhase(dbconn, kSecDbTransactionDidCommit);
             });
         }

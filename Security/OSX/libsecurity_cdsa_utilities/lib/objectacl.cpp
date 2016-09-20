@@ -116,7 +116,7 @@ bool ObjectAcl::validates(AclValidationContext &ctx)
     pair<EntryMap::const_iterator, EntryMap::const_iterator> range;
     if (getRange(ctx.s_credTag(), range) == 0) {
         // no such tag
-        secdebugfunc("SecAccess", "no tag for cred tag: \"%s\"", ctx.s_credTag().c_str());
+        secinfo("SecAccess", "no tag for cred tag: \"%s\"", ctx.s_credTag().c_str());
         CssmError::throwMe(CSSM_ERRCODE_ACL_ENTRY_TAG_NOT_FOUND);
     }
     // try each entry in turn
@@ -249,14 +249,14 @@ unsigned int ObjectAcl::getRange(const std::string &tag,
 	pair<EntryMap::const_iterator, EntryMap::const_iterator> &range, bool tolerant /* = false */) const
 {
     if (!tag.empty()) {	// tag restriction in effect
-        secdebugfunc("SecAccess", "looking for ACL entries matching tag: \"%s\"", tag.c_str());
+        secinfo("SecAccess", "looking for ACL entries matching tag: \"%s\"", tag.c_str());
         range = mEntries.equal_range(tag);
         unsigned int count = (unsigned int)mEntries.count(tag);
         if (count == 0 && !tolerant)
             CssmError::throwMe(CSSM_ERRCODE_ACL_ENTRY_TAG_NOT_FOUND);
         return count;
     } else {				// try all tags
-        secdebugfunc("SecAccess", "no tag given; looking for all ACL entries");
+        secinfo("SecAccess", "no tag given; looking for all ACL entries");
         range.first = mEntries.begin();
         range.second = mEntries.end();
         return (unsigned int)mEntries.size();
@@ -283,12 +283,12 @@ void ObjectAcl::cssmGetAcl(const char *tag, uint32 &count, AclEntryInfo * &acls)
     acls = allocator.alloc<AclEntryInfo>(count);
     uint32 n = 0;
 
-    secdebugfunc("SecAccess", "getting the ACL for %p (%d entries) tag: %s", this, count, tag ? tag : "<none>");
+    secinfo("SecAccess", "getting the ACL for %p (%d entries) tag: %s", this, count, tag ? tag : "<none>");
 
     for (EntryMap::const_iterator it = range.first; it != range.second; it++, n++) {
         acls[n].EntryHandle = it->second.handle;
         it->second.toEntryInfo(acls[n].EntryPublicInfo, allocator);
-        secdebugfunc("SecAccess", "found an entry of type %d", acls[n].EntryPublicInfo.TypedSubject.Head->WordID);
+        secinfo("SecAccess", "found an entry of type %d", acls[n].EntryPublicInfo.TypedSubject.Head->WordID);
     }
     count = n;
 }
@@ -307,45 +307,47 @@ void ObjectAcl::cssmChangeAcl(const AclEdit &edit,
     // what is Thy wish, effendi?
     switch (edit.EditMode) {
     case CSSM_ACL_EDIT_MODE_ADD: {
-        secdebugfunc("SecAccess", "adding ACL for %p (%d) while preserving: %s", this, edit.handle(), preserveTag);
+        secinfo("SecAccess", "adding ACL for %p (%ld) while preserving: %s", this, edit.handle(), preserveTag);
 		const AclEntryInput &input = Required(edit.newEntry());
 		if (preserveTag && input.proto().s_tag() == preserveTag)
 			MacOSError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
 		add(input.proto().s_tag(), input.proto());
-        secdebugfunc("SecAccess", "subject type is %d", input.proto().TypedSubject.Head->WordID);
+        secinfo("SecAccess", "subject type is %d", input.proto().TypedSubject.Head->WordID);
 		}
         break;
     case CSSM_ACL_EDIT_MODE_REPLACE: {
-        secdebugfunc("SecAccess", "replacing ACL for %p (%d to %d) while preserving: %s", this, edit.handle(), edit.newEntry(), preserveTag);
+        secinfo("SecAccess", "replacing ACL for %p (%ld to %p) while preserving: %s", this, edit.handle(), edit.newEntry(), preserveTag);
 		// keep the handle, and try for some modicum of atomicity
         EntryMap::iterator it = findEntryHandle(edit.handle());
 		if (preserveTag && it->second.tag == preserveTag)
 			MacOSError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
         AclEntryPrototype proto2;
         it->second.toEntryInfo(proto2, allocator);
-        secdebugfunc("SecAccess", "subject type was %d", proto2.TypedSubject.Head->WordID);
+        secinfo("SecAccess", "subject type was %d", proto2.TypedSubject.Head->WordID);
+        DataWalkers::chunkFree(proto2, allocator);
 
 		AclEntryPrototype proto = Required(edit.newEntry()).proto(); // (bypassing callbacks)
 		add(proto.s_tag(), proto, edit.handle());
-        secdebugfunc("SecAccess", "new subject type is %d", proto.TypedSubject.Head->WordID);
+        secinfo("SecAccess", "new subject type is %d", proto.TypedSubject.Head->WordID);
 		mEntries.erase(it);
         }
         break;
 	case CSSM_ACL_EDIT_MODE_DELETE: {
-        secdebugfunc("SecAccess", "deleting ACL for %p (%d) while preserving: %s", this, edit.handle(), preserveTag);
+        secinfo("SecAccess", "deleting ACL for %p (%ld) while preserving: %s", this, edit.handle(), preserveTag);
 		EntryMap::iterator it = findEntryHandle(edit.handle());
 		if (preserveTag && it->second.tag == preserveTag)
 			MacOSError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
 
         AclEntryPrototype proto;
         it->second.toEntryInfo(proto, allocator);
-        secdebugfunc("SecAccess", "subject type was %d", proto.TypedSubject.Head->WordID);
+        secinfo("SecAccess", "subject type was %d", proto.TypedSubject.Head->WordID);
+        DataWalkers::chunkFree(proto, allocator);
 
         mEntries.erase(it);
         break;
 		}
     default:
-        secdebugfunc("SecAccess", "no idea what this CSSM_ACL_EDIT type is: %d", edit.EditMode);
+        secinfo("SecAccess", "no idea what this CSSM_ACL_EDIT type is: %d", edit.EditMode);
         CssmError::throwMe(CSSM_ERRCODE_INVALID_ACL_EDIT_MODE);
     }
 	
@@ -361,7 +363,7 @@ void ObjectAcl::cssmGetOwner(AclOwnerPrototype &outOwner)
     outOwner.TypedSubject = mOwner.subject->toList(allocator);
     outOwner.Delegate = mOwner.delegate;
 
-    secdebugfunc("SecAccess", "%p: getting the owner ACL: type %d", this, outOwner.TypedSubject.Head->WordID);
+    secinfo("SecAccess", "%p: getting the owner ACL: type %d", this, outOwner.TypedSubject.Head->WordID);
 }
 
 void ObjectAcl::cssmChangeOwner(const AclOwnerPrototype &newOwner,
@@ -377,7 +379,7 @@ void ObjectAcl::cssmChangeOwner(const AclOwnerPrototype &newOwner,
     // okay, replace it
     mOwner = newOwner;
 
-    secdebugfunc("SecAccess", "%p: new owner's type is %d", this, newOwner.subject().Head->WordID);
+    secinfo("SecAccess", "%p: new owner's type is %d", this, newOwner.subject().Head->WordID);
 	
 	changedAcl();
 
@@ -420,7 +422,7 @@ void ObjectAcl::clear()
 {
 	mOwner = OwnerEntry();
 	mEntries.erase(mEntries.begin(), mEntries.end());
-	secdebug("acl", "%p cleared", this);
+	secinfo("acl", "%p cleared", this);
 }
 
 

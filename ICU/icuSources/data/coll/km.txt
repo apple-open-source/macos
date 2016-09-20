@@ -1,18 +1,19 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/collation/km.xml
 // *
 // ***************************************************************************
 km{
-    Version{"2.0.96.14"}
+    Version{"2.1.19.14"}
     collations{
         standard{
             Sequence{
-                "[normalization on][reorder Khmr]"
-                "&[last tertiary ignorable]=឴=឵"
+                "[normalization on]"
+                "[reorder Khmr]"
+                "&[last tertiary ignorable]=\u17b4=\u17b5"
                 "&។ល។<<<៘"
                 "&ៈ<<៎<<៏<<៑<<័<<ៈ<<៝<<់<<៉<<៊<<៍"
                 "&រ<ឫ<ឬ"
@@ -71,7 +72,7 @@ km{
                 "&ឱ<<<ឲ"
                 "&ៅ<ុំ<ំ<ាំ<ះ<ិះ<ុះ<េះ<ោះ"
             }
-            Version{"27.0.1"}
+            Version{"29"}
         }
     }
 }

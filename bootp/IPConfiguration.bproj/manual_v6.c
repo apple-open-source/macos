@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -201,11 +201,11 @@ manual_v6_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
     
     switch (evid) {
     case IFEventID_start_e: {
-	ipconfig_method_data_t *	method_data;
+	ipconfig_method_data_t	method_data;
 
 	my_log(LOG_INFO, "%s %s: starting", ServiceGetMethodString(service_p),
 	       if_name(if_p));
-	method_data = (ipconfig_method_data_t *)event_data;
+	method_data = (ipconfig_method_data_t)event_data;
 	ServiceSetRequestedIPv6Address(service_p,
 				       &method_data->manual_v6.addr,
 				       method_data->manual_v6.prefix_length);
@@ -227,7 +227,7 @@ manual_v6_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	struct in6_addr		addr;
 	change_event_data_t * 	change;
 	int			prefix_length;
-	ipconfig_method_data_t *method_data;
+	ipconfig_method_data_t	method_data;
 
 	ServiceGetRequestedIPv6Address(service_p, &addr, &prefix_length);
 	change = ((change_event_data_t *)event_data);
@@ -238,13 +238,16 @@ manual_v6_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	}
 	break;
     }
+    case IFEventID_wake_e:
     case IFEventID_renew_e:
     case IFEventID_link_status_changed_e: {
 	link_status_t	link_status;
 
 	link_status = service_link_status(service_p);
 	if (link_status.valid == TRUE) {
-	    if (link_status.active == TRUE) {
+	    if (link_status.active == TRUE
+		&& (evid != IFEventID_wake_e
+		    || ServiceIsPublished(service_p) == FALSE)) {
 		manual_v6_start(service_p);
 	    }
 	}

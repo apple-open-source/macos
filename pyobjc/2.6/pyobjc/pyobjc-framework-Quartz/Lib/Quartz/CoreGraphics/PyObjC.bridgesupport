@@ -753,6 +753,10 @@
     <retval already_cfretained='true' type='^{__CFData=}' type64='^{__CFData=}' />
     <arg type='^{CGColorSpace=}' />
   </function>
+  <function name='CGColorSpaceCopyICCData'>
+    <retval already_cfretained='true' type='^{__CFData=}' type64='^{__CFData=}' />
+    <arg type='^{CGColorSpace=}' />
+  </function>
   <function name='CGColorSpaceCreateCalibratedGray'>
     <retval already_cfretained='true' type='^{CGColorSpace=}' />
     <arg type='[3f]' type64='[3d]' />

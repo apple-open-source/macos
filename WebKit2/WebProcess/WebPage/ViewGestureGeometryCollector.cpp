@@ -54,7 +54,6 @@ ViewGestureGeometryCollector::ViewGestureGeometryCollector(WebPage& webPage)
     : m_webPage(webPage)
 #if PLATFORM(MAC)
     , m_renderTreeSizeNotificationThreshold(0)
-    , m_renderTreeSizeNotificationTimer(RunLoop::main(), this, &ViewGestureGeometryCollector::renderTreeSizeNotificationTimerFired)
 #endif
 {
     WebProcess::singleton().addMessageReceiver(Messages::ViewGestureGeometryCollector::messageReceiverName(), m_webPage.pageID(), *this);
@@ -86,39 +85,45 @@ void ViewGestureGeometryCollector::collectGeometryForSmartMagnificationGesture(F
     HitTestResult hitTestResult = HitTestResult(originInContentsSpace);
 
     m_webPage.mainFrameView()->renderView()->hitTest(HitTestRequest(), hitTestResult);
-
-    if (Node* node = hitTestResult.innerNode()) {
-        bool isReplaced;
-        FloatRect renderRect = node->renderRect(&isReplaced);
-
-        if (node->document().isImageDocument()) {
-            if (HTMLImageElement* imageElement = static_cast<ImageDocument&>(node->document()).imageElement()) {
-                if (node != imageElement) {
-                    renderRect = imageElement->renderRect(&isReplaced);
-                    FloatPoint newOrigin = origin;
-                    if (origin.x() < renderRect.x() || origin.x() > renderRect.maxX())
-                        newOrigin.setX(renderRect.x() + renderRect.width() / 2);
-                    if (origin.y() < renderRect.y() || origin.y() > renderRect.maxY())
-                        newOrigin.setY(renderRect.y() + renderRect.height() / 2);
-                    origin = newOrigin;
-                }
-                isReplaced = true;
-            }
-        }
-
-#if PLATFORM(MAC)
-        double viewportMinimumScale = 0;
-        double viewportMaximumScale = std::numeric_limits<double>::max();
-#else
-        double viewportMinimumScale = m_webPage.minimumPageScaleFactor();
-        double viewportMaximumScale = m_webPage.maximumPageScaleFactor();
-#endif
-
-        dispatchDidCollectGeometryForSmartMagnificationGesture(origin, renderRect, visibleContentRect, isReplaced, viewportMinimumScale, viewportMaximumScale);
+    Node* node = hitTestResult.innerNode();
+    if (!node) {
+        dispatchDidCollectGeometryForSmartMagnificationGesture(FloatPoint(), FloatRect(), FloatRect(), false, 0, 0);
         return;
     }
 
-    dispatchDidCollectGeometryForSmartMagnificationGesture(FloatPoint(), FloatRect(), FloatRect(), false, 0, 0);
+    bool isReplaced;
+    FloatRect renderRect;
+    double viewportMinimumScale;
+    double viewportMaximumScale;
+
+    computeZoomInformationForNode(*node, origin, renderRect, isReplaced, viewportMinimumScale, viewportMaximumScale);
+    dispatchDidCollectGeometryForSmartMagnificationGesture(origin, renderRect, visibleContentRect, isReplaced, viewportMinimumScale, viewportMaximumScale);
+}
+
+void ViewGestureGeometryCollector::computeZoomInformationForNode(Node& node, FloatPoint& origin, FloatRect& renderRect, bool& isReplaced, double& viewportMinimumScale, double& viewportMaximumScale)
+{
+    renderRect = node.renderRect(&isReplaced);
+    if (node.document().isImageDocument()) {
+        if (HTMLImageElement* imageElement = static_cast<ImageDocument&>(node.document()).imageElement()) {
+            if (&node != imageElement) {
+                renderRect = imageElement->renderRect(&isReplaced);
+                FloatPoint newOrigin = origin;
+                if (origin.x() < renderRect.x() || origin.x() > renderRect.maxX())
+                    newOrigin.setX(renderRect.x() + renderRect.width() / 2);
+                if (origin.y() < renderRect.y() || origin.y() > renderRect.maxY())
+                    newOrigin.setY(renderRect.y() + renderRect.height() / 2);
+                origin = newOrigin;
+            }
+            isReplaced = true;
+        }
+    }
+#if PLATFORM(MAC)
+    viewportMinimumScale = 0;
+    viewportMaximumScale = std::numeric_limits<double>::max();
+#else
+    viewportMinimumScale = m_webPage.minimumPageScaleFactor();
+    viewportMaximumScale = m_webPage.maximumPageScaleFactor();
+#endif
 }
 
 #if PLATFORM(MAC)
@@ -132,14 +137,9 @@ void ViewGestureGeometryCollector::collectGeometryForMagnificationGesture()
 void ViewGestureGeometryCollector::mainFrameDidLayout()
 {
     if (m_renderTreeSizeNotificationThreshold && m_webPage.renderTreeSize() >= m_renderTreeSizeNotificationThreshold) {
-        m_renderTreeSizeNotificationTimer.startOneShot(0);
+        m_webPage.send(Messages::ViewGestureController::DidHitRenderTreeSizeThreshold());
         m_renderTreeSizeNotificationThreshold = 0;
     }
-}
-
-void ViewGestureGeometryCollector::renderTreeSizeNotificationTimerFired()
-{
-    m_webPage.send(Messages::ViewGestureController::DidHitRenderTreeSizeThreshold());
 }
 #endif
 

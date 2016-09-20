@@ -93,7 +93,7 @@ extern const CFStringRef kSecDigestTypeAttribute;
 /*!
 	@constant kSecDigestLengthAttribute
 		Used with SecTransformGetAttribute to query the length attribute.
-		Returns a CFNumberRef that contains the length.
+		Returns a CFNumberRef that contains the length in bytes.
  */
 extern const CFStringRef kSecDigestLengthAttribute;
 

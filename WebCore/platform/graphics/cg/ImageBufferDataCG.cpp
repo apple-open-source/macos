@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,9 @@
 #include "GraphicsContext.h"
 #include "IntRect.h"
 #include <CoreGraphics/CoreGraphics.h>
+#include <runtime/JSCInlines.h>
+#include <runtime/TypedArrayInlines.h>
+#include <runtime/Uint8ClampedArray.h>
 #include <wtf/Assertions.h>
 
 #if USE(ACCELERATE)
@@ -37,7 +40,6 @@
 
 #if USE(IOSURFACE_CANVAS_BACKING_STORE)
 #include "IOSurface.h"
-#include "IOSurfacePool.h"
 #include "IOSurfaceSPI.h"
 #include <dispatch/dispatch.h>
 #endif
@@ -46,14 +48,6 @@
 #define USE_ARGB32 PLATFORM(IOS)
 
 namespace WebCore {
-
-ImageBufferData::~ImageBufferData()
-{
-#if USE(IOSURFACE_CANVAS_BACKING_STORE)
-    if (surface)
-        IOSurfacePool::sharedPool().addSurface(WTF::move(surface));
-#endif
-}
 
 #if USE(ACCELERATE)
 #if USE_ARGB32 || USE(IOSURFACE_CANVAS_BACKING_STORE)
@@ -70,7 +64,6 @@ static void unpremultiplyBufferData(const vImage_Buffer& src, const vImage_Buffe
     vImagePermuteChannels_ARGB8888(&dest, &dest, map, kvImageNoFlags);
 }
 
-#if !PLATFORM(IOS_SIMULATOR)
 static void premultiplyBufferData(const vImage_Buffer& src, const vImage_Buffer& dest)
 {
     ASSERT(src.data);
@@ -83,7 +76,6 @@ static void premultiplyBufferData(const vImage_Buffer& src, const vImage_Buffer&
     const uint8_t map[4] = { 2, 1, 0, 3 };
     vImagePermuteChannels_ARGB8888(&dest, &dest, map, kvImageNoFlags);
 }
-#endif // !PLATFORM(IOS_SIMULATOR)
 #endif // USE_ARGB32 || USE(IOSURFACE_CANVAS_BACKING_STORE)
 
 #if !PLATFORM(IOS_SIMULATOR)
@@ -104,12 +96,10 @@ RefPtr<Uint8ClampedArray> ImageBufferData::getData(const IntRect& rect, const In
     if (area.hasOverflowed())
         return nullptr;
 
-    RefPtr<Uint8ClampedArray> result = Uint8ClampedArray::createUninitialized(area.unsafeGet());
-    unsigned char* resultData = result->data();
-    if (!resultData) {
-        WTFLogAlways("ImageBufferData: Unable to create buffer. Requested size was %d x %d = %u\n", rect.width(), rect.height(), area.unsafeGet());
+    auto result = Uint8ClampedArray::createUninitialized(area.unsafeGet());
+    unsigned char* resultData = result ? result->data() : nullptr;
+    if (!resultData)
         return nullptr;
-    }
 
     Checked<int> endx = rect.maxX();
     endx *= ceilf(resolutionScale);
@@ -147,7 +137,7 @@ RefPtr<Uint8ClampedArray> ImageBufferData::getData(const IntRect& rect, const In
     Checked<int> height = endy - originy;
     
     if (width.unsafeGet() <= 0 || height.unsafeGet() <= 0)
-        return result.release();
+        return result;
     
     unsigned destBytesPerRow = 4 * rect.width();
     unsigned char* destRows = resultData + desty * destBytesPerRow + destx * 4;
@@ -418,7 +408,7 @@ void ImageBufferData::putData(Uint8ClampedArray*& source, const IntSize& sourceS
             dest.data = destRows;
 
 #if USE_ARGB32
-            unpremultiplyBufferData(src, dest);
+            premultiplyBufferData(src, dest);
 #else
             if (resolutionScale != 1) {
                 affineWarpBufferData(src, dest, resolutionScale);

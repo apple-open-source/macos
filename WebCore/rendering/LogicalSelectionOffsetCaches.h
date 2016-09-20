@@ -38,7 +38,8 @@ public:
         void setBlock(RenderBlock* block, const LogicalSelectionOffsetCaches* cache, bool parentCacheHasFloatsOrFlowThreads = false)
         {
             m_block = block;
-            m_hasFloatsOrFlowThreads = parentCacheHasFloatsOrFlowThreads || m_hasFloatsOrFlowThreads || m_block->containsFloats() || m_block->flowThreadContainingBlock();
+            bool blockHasFloatsOrFlowThreads = m_block ? (m_block->containsFloats() || m_block->flowThreadContainingBlock()) : false;
+            m_hasFloatsOrFlowThreads = parentCacheHasFloatsOrFlowThreads || m_hasFloatsOrFlowThreads || blockHasFloatsOrFlowThreads;
             m_cache = cache;
             m_cachedLogicalLeftSelectionOffset = false;
             m_cachedLogicalRightSelectionOffset = false;
@@ -49,9 +50,9 @@ public:
             ASSERT(m_cache);
             if (m_hasFloatsOrFlowThreads || !m_cachedLogicalLeftSelectionOffset) {
                 m_cachedLogicalLeftSelectionOffset = true;
-                m_logicalLeftSelectionOffset = m_block->logicalLeftSelectionOffset(rootBlock, position, *m_cache);
+                m_logicalLeftSelectionOffset = m_block ? m_block->logicalLeftSelectionOffset(rootBlock, position, *m_cache) : LayoutUnit::fromPixel(0);
             } else
-                ASSERT(m_logicalLeftSelectionOffset == m_block->logicalLeftSelectionOffset(rootBlock, position, *m_cache));
+                ASSERT(m_logicalLeftSelectionOffset == (m_block ? m_block->logicalLeftSelectionOffset(rootBlock, position, *m_cache) : LayoutUnit::fromPixel(0)));
             return m_logicalLeftSelectionOffset;
         }
 
@@ -60,9 +61,9 @@ public:
             ASSERT(m_cache);
             if (m_hasFloatsOrFlowThreads || !m_cachedLogicalRightSelectionOffset) {
                 m_cachedLogicalRightSelectionOffset = true;
-                m_logicalRightSelectionOffset = m_block->logicalRightSelectionOffset(rootBlock, position, *m_cache);
+                m_logicalRightSelectionOffset = m_block ? m_block->logicalRightSelectionOffset(rootBlock, position, *m_cache) : LayoutUnit::fromPixel(0);
             } else
-                ASSERT(m_logicalRightSelectionOffset == m_block->logicalRightSelectionOffset(rootBlock, position, *m_cache));
+                ASSERT(m_logicalRightSelectionOffset == (m_block ? m_block->logicalRightSelectionOffset(rootBlock, position, *m_cache) : LayoutUnit::fromPixel(0)));
             return m_logicalRightSelectionOffset;
         }
 
@@ -88,12 +89,10 @@ public:
         // such that we can remove this assertion.
         ASSERT(rootBlock.isSelectionRoot());
 #endif
-        auto parent = rootBlock.parent();
-
         // LogicalSelectionOffsetCaches should not be used on an orphaned tree.
-        m_containingBlockForFixedPosition.setBlock(containingBlockForFixedPosition(parent), nullptr);
-        m_containingBlockForAbsolutePosition.setBlock(containingBlockForAbsolutePosition(parent), nullptr);
-        m_containingBlockForInflowPosition.setBlock(containingBlockForObjectInFlow(parent), nullptr);
+        m_containingBlockForFixedPosition.setBlock(rootBlock.containingBlockForFixedPosition(), nullptr);
+        m_containingBlockForAbsolutePosition.setBlock(rootBlock.containingBlockForAbsolutePosition(), nullptr);
+        m_containingBlockForInflowPosition.setBlock(rootBlock.containingBlockForObjectInFlow(), nullptr);
     }
 
     LogicalSelectionOffsetCaches(RenderBlock& block, const LogicalSelectionOffsetCaches& cache)

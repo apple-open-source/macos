@@ -212,33 +212,9 @@ public:
 	virtual void dbName(const char *name);
 
     virtual uint32 dbVersion() { return common().dbVersion(); }
-};
 
-
-//
-// This class implements a "system keychain unlock record" store
-//
-class SystemKeychainKey {
-public:
-	SystemKeychainKey(const char *path);
-	~SystemKeychainKey();
-	
-	bool matches(const DbBlob::Signature &signature);
-	CssmKey &key()		{ return mKey; }
-
-private:
-	std::string mPath;					// path to file
-	CssmKey mKey;						// proper CssmKey with data in mBlob
-
-	bool mValid;						// mBlob was validly read from mPath
-	UnlockBlob mBlob;					// contents of mPath as last read
-	
-	Time::Absolute mCachedDate;			// modify date of file when last read
-	Time::Absolute mUpdateThreshold;	// cutoff threshold for checking again
-	
-	static const int checkDelay = 1;	// seconds minimum delay between update checks
-	
-	bool update();
+    // Check if this database is in the middle of a recode/migration
+    virtual bool isRecoding() { return false; }
 };
 
 #endif //_H_DATABASE

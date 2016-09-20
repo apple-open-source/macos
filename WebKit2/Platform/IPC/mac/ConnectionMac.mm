@@ -41,7 +41,8 @@
 #include "ProcessAssertion.h"
 #include <UIKit/UIAccessibility.h>
 
-#if __has_include(<AXRuntime/AXNotificationConstants.h>)
+#if USE(APPLE_INTERNAL_SDK)
+#include <AXRuntime/AXDefines.h>
 #include <AXRuntime/AXNotificationConstants.h>
 #else
 #define kAXPidStatusChangedNotification 0
@@ -49,7 +50,9 @@
 
 #endif
 
-#if __has_include(<HIServices/AccessibilityPriv.h>)
+#if PLATFORM(MAC)
+
+#if USE(APPLE_INTERNAL_SDK)
 #include <HIServices/AccessibilityPriv.h>
 #else
 typedef enum {
@@ -58,9 +61,9 @@ typedef enum {
 } AXSuspendStatus;
 #endif
 
-#if !TARGET_OS_IPHONE && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
 extern "C" AXError _AXUIElementNotifyProcessSuspendStatus(AXSuspendStatus);
-#endif
+
+#endif // PLATFORM(MAC)
 
 namespace IPC {
 
@@ -135,8 +138,6 @@ void Connection::platformInvalidate()
         m_exceptionPort = MACH_PORT_NULL;
     }
 #endif
-
-    m_xpcConnection = nullptr;
 }
     
 void Connection::terminateSoon(double intervalInSeconds)
@@ -192,10 +193,8 @@ bool Connection::open()
         // Create the receive port.
         mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &m_receivePort);
 
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+#if PLATFORM(MAC)
         mach_port_set_attributes(mach_task_self(), m_receivePort, MACH_PORT_DENAP_RECEIVER, (mach_port_info_t)0, 0);
-#elif PLATFORM(MAC)
-        mach_port_set_attributes(mach_task_self(), m_receivePort, MACH_PORT_IMPORTANCE_RECEIVER, (mach_port_info_t)0, 0);
 #endif
 
         m_isConnected = true;
@@ -204,7 +203,7 @@ bool Connection::open()
         auto encoder = std::make_unique<MessageEncoder>("IPC", "InitializeConnection", 0);
         encoder->encode(MachPort(m_receivePort, MACH_MSG_TYPE_MAKE_SEND));
 
-        sendMessage(WTF::move(encoder));
+        sendMessage(WTFMove(encoder));
 
         initializeDeadNameSource();
     }
@@ -227,7 +226,7 @@ bool Connection::open()
         auto encoder = std::make_unique<MessageEncoder>("IPC", "SetExceptionPort", 0);
         encoder->encode(MachPort(m_exceptionPort, MACH_MSG_TYPE_MAKE_SEND));
 
-        sendMessage(WTF::move(encoder));
+        sendMessage(WTFMove(encoder));
     }
 #endif
 
@@ -429,7 +428,7 @@ static std::unique_ptr<MessageDecoder> createMessageDecoder(mach_msg_header_t* h
         uint8_t* messageBody = static_cast<uint8_t*>(descriptor->out_of_line.address);
         size_t messageBodySize = descriptor->out_of_line.size;
 
-        auto decoder = std::make_unique<MessageDecoder>(DataReference(messageBody, messageBodySize), WTF::move(attachments));
+        auto decoder = std::make_unique<MessageDecoder>(DataReference(messageBody, messageBodySize), WTFMove(attachments));
 
         vm_deallocate(mach_task_self(), reinterpret_cast<vm_address_t>(descriptor->out_of_line.address), descriptor->out_of_line.size);
 
@@ -480,6 +479,20 @@ void Connection::receiveSourceEventHandler()
     if (!header)
         return;
 
+    switch (header->msgh_id) {
+    case MACH_NOTIFY_NO_SENDERS:
+        ASSERT(m_isServer);
+        if (!m_sendPort)
+            connectionDidClose();
+        return;
+
+    case MACH_NOTIFY_SEND_ONCE:
+        return;
+
+    default:
+        break;
+    }
+
     std::unique_ptr<MessageDecoder> decoder = createMessageDecoder(header);
     ASSERT(decoder);
 
@@ -501,6 +514,12 @@ void Connection::receiveSourceEventHandler()
         m_sendPort = port.port();
         
         if (m_sendPort) {
+            mach_port_t previousNotificationPort;
+            mach_port_request_notification(mach_task_self(), m_receivePort, MACH_NOTIFY_NO_SENDERS, 0, MACH_PORT_NULL, MACH_MSG_TYPE_MOVE_SEND_ONCE, &previousNotificationPort);
+
+            if (previousNotificationPort != MACH_PORT_NULL)
+                mach_port_deallocate(mach_task_self(), previousNotificationPort);
+
             initializeDeadNameSource();
             dispatch_resume(m_deadNameSource);
         }
@@ -517,13 +536,13 @@ void Connection::receiveSourceEventHandler()
     if (decoder->messageReceiverName() == "IPC" && decoder->messageName() == "SetExceptionPort") {
         if (m_isServer) {
             // Server connections aren't supposed to have their exception ports overriden. Treat this as an invalid message.
-            RefPtr<Connection> protectedThis(this);
-            StringReference messageReceiverName = decoder->messageReceiverName();
-            StringCapture capturedMessageReceiverName(String(messageReceiverName.data(), messageReceiverName.size()));
-            StringReference messageName = decoder->messageName();
-            StringCapture capturedMessageName(String(messageName.data(), messageName.size()));
-            RunLoop::main().dispatch([protectedThis, capturedMessageReceiverName, capturedMessageName] {
-                protectedThis->dispatchDidReceiveInvalidMessage(capturedMessageReceiverName.string().utf8(), capturedMessageName.string().utf8());
+            StringReference messageReceiverNameReference = decoder->messageReceiverName();
+            String messageReceiverName(String(messageReceiverNameReference.data(), messageReceiverNameReference.size()));
+            StringReference messageNameReference = decoder->messageName();
+            String messageName(String(messageNameReference.data(), messageNameReference.size()));
+
+            RunLoop::main().dispatch([protectedThis = makeRef(*this), messageReceiverName = WTFMove(messageReceiverName), messageName = WTFMove(messageName)]() mutable {
+                protectedThis->dispatchDidReceiveInvalidMessage(messageReceiverName.utf8(), messageName.utf8());
             });
             return;
         }
@@ -536,7 +555,7 @@ void Connection::receiveSourceEventHandler()
     }
 #endif
 
-    processIncomingMessage(WTF::move(decoder));
+    processIncomingMessage(WTFMove(decoder));
 }    
 
 #if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED <= 101000
@@ -610,9 +629,9 @@ bool Connection::kill()
     
 static void AccessibilityProcessSuspendedNotification(bool suspended)
 {
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+#if PLATFORM(MAC)
     _AXUIElementNotifyProcessSuspendStatus(suspended ? AXSuspendStatusSuspended : AXSuspendStatusRunning);
-#elif PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 90000
+#elif PLATFORM(IOS)
     UIAccessibilityPostNotification(kAXPidStatusChangedNotification, @{ @"pid" : @(getpid()), @"suspended" : @(suspended) });
 #else
     UNUSED_PARAM(suspended);

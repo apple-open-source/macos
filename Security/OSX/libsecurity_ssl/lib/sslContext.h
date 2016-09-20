@@ -34,6 +34,7 @@
 #include <tls_handshake.h>
 #include <tls_record.h>
 #include <tls_stream_parser.h>
+#include <tls_cache.h>
 
 #ifdef USE_CDSA_CRYPTO
 #include <Security/cssmtype.h>
@@ -86,12 +87,11 @@ struct SSLContext
 	CFRuntimeBase		_base;
     IOContext           ioCtx;
 
-
     const struct SSLRecordFuncs *recFuncs;
     SSLRecordContextRef recCtx;
 
     tls_handshake_t hdsk;
-
+    tls_cache_t cache;
     int readCipher_ready;
     int writeCipher_ready;
 
@@ -123,19 +123,8 @@ struct SSLContext
 
     uint16_t            selectedCipher;		/* currently selected */
 
-
-    tls_private_key_t   signingPrivKeyRef;  /* our private key */
-
-
     /* Server DH Parameters */
     SSLBuffer			dhParamsEncoded;	/* PKCS3 encoded blob - prime + generator */
-
-    /*
-	 * Local and Peer cert chains.
-	 * For both, the root is the last in the chain.
-  	 */
-    SSLCertificate      *localCert;
-    CFArrayRef          peerCert;
 
 	/*
 	 * The arrays we are given via SSLSetCertificate() and SSLSetEncryptionCertificate().
@@ -150,10 +139,12 @@ struct SSLContext
     CFMutableArrayRef   trustedCerts;
     Boolean             trustedCertsOnly;
 
+#if !TARGET_OS_IPHONE
     /*
      * trusted leaf certs as specified in SSLSetTrustedLeafCertificates()
      */
     CFArrayRef			trustedLeafCerts;
+#endif
 
 	Boolean					allowExpiredCerts;
 	Boolean					allowExpiredRoots;
@@ -163,14 +154,11 @@ struct SSLContext
     SSLBuffer			peerID;
     SSLBuffer			resumableSession;       /* We keep a copy for now - but eventually this should go away if we get refcounted SSLBuffers */
 
-
-
     uint16_t            *ecdhCurves;
     unsigned            ecdhNumCurves;
 
 	/* server-side only */
     SSLAuthenticate		clientAuth;				/* kNeverAuthenticate, etc. */
-    //Boolean				tryClientAuth;
 
 	/* client and server */
 	SSLClientCertificateState	clientCertState;
@@ -228,9 +216,6 @@ struct SSLContext
 	/* List of server-specified client auth types */
 	unsigned					numAuthTypes;
 	const tls_client_auth_type *clientAuthTypes;
-
-	/* client auth type actually negotiated */
-	tls_client_auth_type	negAuthType;
 
     /* Timeout for DTLS retransmit */
     CFAbsoluteTime      timeout_deadline;

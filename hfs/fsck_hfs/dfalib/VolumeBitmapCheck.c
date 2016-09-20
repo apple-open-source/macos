@@ -1448,7 +1448,7 @@ BMS_GrowNodePool(void)
 	BMS_Node *nodePool;
 	short i;
 
-	if (gBMS_PoolCount > kBMS_PoolMax)
+	if (gBMS_PoolCount >= kBMS_PoolMax)
 		return;
 
 	nodePool = (BMS_Node *)malloc(sizeof(BMS_Node) * kBMS_NodesPerPool);

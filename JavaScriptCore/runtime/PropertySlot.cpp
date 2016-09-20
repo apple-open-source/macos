@@ -23,6 +23,7 @@
 
 #include "GetterSetter.h"
 #include "JSCJSValueInlines.h"
+#include "JSObject.h"
 
 namespace JSC {
 
@@ -30,6 +31,31 @@ JSValue PropertySlot::functionGetter(ExecState* exec) const
 {
     ASSERT(m_thisValue);
     return callGetter(exec, m_thisValue, m_data.getter.getterSetter);
+}
+
+JSValue PropertySlot::customGetter(ExecState* exec, PropertyName propertyName) const
+{
+    // FIXME: Remove this differences in custom values and custom accessors.
+    // https://bugs.webkit.org/show_bug.cgi?id=158014
+    JSValue thisValue = m_attributes & CustomAccessor ? m_thisValue : JSValue(slotBase());
+    return JSValue::decode(m_data.custom.getValue(exec, JSValue::encode(thisValue), propertyName));
+}
+
+JSValue PropertySlot::getPureResult() const
+{
+    JSValue result;
+    if (isTaintedByProxy())
+        result = jsNull();
+    else if (isCacheableValue())
+        result = JSValue::decode(m_data.value);
+    else if (isCacheableGetter())
+        result = getterSetter();
+    else if (isUnset())
+        result = jsUndefined();
+    else
+        result = jsNull();
+    
+    return result;
 }
 
 } // namespace JSC

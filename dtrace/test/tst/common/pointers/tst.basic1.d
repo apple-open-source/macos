@@ -39,9 +39,9 @@
 
 BEGIN
 {
-	ncpusAddress = &`max_ncpus;
+	ncpusAddress = &`real_ncpus;
 	ncpusValue = *ncpusAddress;
-	printf("Address of max_ncpus: %x\n", (int) ncpusAddress);
-	printf("Value of max_ncpus: %d\n", ncpusValue);
+	printf("Address of real_ncpus: %x\n", (int) ncpusAddress);
+	printf("Value of real_ncpus: %d\n", ncpusValue);
 	exit(0);
 }

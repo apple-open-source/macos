@@ -250,13 +250,6 @@
 			remoteGlobalIDString = 0539107D0A37721E00B9E848;
 			remoteInfo = "Copy Open Source Docs";
 		};
-		182BB344146F10ED000BF1F3 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 18446090146DFBC800B12992 /* libsecurity_cdsa_plugin.xcodeproj */;
-			proxyType = 1;
-			remoteGlobalIDString = C2C38A530535EDE600D7421F;
-			remoteInfo = libsecurity_cdsa_plugin_generate;
-		};
 		18446095146DFBC900B12992 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 18446090146DFBC800B12992 /* libsecurity_cdsa_plugin.xcodeproj */;
@@ -403,9 +396,9 @@
 		C280AE570534BBD900F7E802 /* stack.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = stack.h; sourceTree = "<group>"; };
 		C280AE580534BBD900F7E802 /* x509.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = x509.h; sourceTree = "<group>"; };
 		C280AE590534BBD900F7E802 /* x509_vfy.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = x509_vfy.h; sourceTree = "<group>"; };
-		C280AE5B0534BBD900F7E802 /* opensslAsn1.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = opensslAsn1.cpp; sourceTree = "<group>"; };
+		C280AE5B0534BBD900F7E802 /* opensslAsn1.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = opensslAsn1.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C280AE5C0534BBD900F7E802 /* opensslAsn1.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = opensslAsn1.h; sourceTree = "<group>"; };
-		C280AE5D0534BBD900F7E802 /* opensslUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = opensslUtils.cpp; sourceTree = "<group>"; };
+		C280AE5D0534BBD900F7E802 /* opensslUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = opensslUtils.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C280AE5E0534BBD900F7E802 /* opensslUtils.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = opensslUtils.h; sourceTree = "<group>"; };
 		C280AE620534BBD900F7E802 /* rsa_chk.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = rsa_chk.c; sourceTree = "<group>"; };
 		C280AE630534BBD900F7E802 /* rsa_eay.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = rsa_eay.c; sourceTree = "<group>"; };
@@ -423,7 +416,7 @@
 		C28436FE053488AB000AE0FC /* aescsp.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = aescsp.cpp; sourceTree = "<group>"; };
 		C28436FF053488AB000AE0FC /* aescspi.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = aescspi.h; sourceTree = "<group>"; };
 		C2843700053488AB000AE0FC /* algmaker.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = algmaker.cpp; sourceTree = "<group>"; };
-		C2843701053488AB000AE0FC /* AppleCSP.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleCSP.cpp; sourceTree = "<group>"; };
+		C2843701053488AB000AE0FC /* AppleCSP.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = AppleCSP.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C2843702053488AB000AE0FC /* AppleCSP.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleCSP.h; sourceTree = "<group>"; };
 		C2843703053488AB000AE0FC /* AppleCSPContext.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleCSPContext.cpp; sourceTree = "<group>"; };
 		C2843704053488AB000AE0FC /* AppleCSPContext.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleCSPContext.h; sourceTree = "<group>"; };
@@ -431,15 +424,15 @@
 		C2843706053488AB000AE0FC /* AppleCSPKeys.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleCSPKeys.h; sourceTree = "<group>"; };
 		C2843707053488AB000AE0FC /* AppleCSPPlugin.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleCSPPlugin.cpp; sourceTree = "<group>"; };
 		C2843708053488AB000AE0FC /* AppleCSPSession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleCSPSession.h; sourceTree = "<group>"; };
-		C2843709053488AB000AE0FC /* AppleCSPUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleCSPUtils.cpp; sourceTree = "<group>"; };
+		C2843709053488AB000AE0FC /* AppleCSPUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = AppleCSPUtils.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C284370A053488AB000AE0FC /* AppleCSPUtils.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleCSPUtils.h; sourceTree = "<group>"; };
-		C284370B053488AB000AE0FC /* ascContext.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = ascContext.cpp; sourceTree = "<group>"; };
+		C284370B053488AB000AE0FC /* ascContext.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = ascContext.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C284370C053488AB000AE0FC /* ascContext.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ascContext.h; sourceTree = "<group>"; };
 		C284370D053488AB000AE0FC /* ascFactory.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ascFactory.h; sourceTree = "<group>"; };
 		C284370E053488AB000AE0FC /* bfContext.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = bfContext.cpp; sourceTree = "<group>"; };
 		C284370F053488AB000AE0FC /* bfContext.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = bfContext.h; sourceTree = "<group>"; };
 		C2843710053488AB000AE0FC /* BinaryKey.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = BinaryKey.h; sourceTree = "<group>"; };
-		C2843711053488AB000AE0FC /* BlockCryptor.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = BlockCryptor.cpp; sourceTree = "<group>"; };
+		C2843711053488AB000AE0FC /* BlockCryptor.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = BlockCryptor.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C2843712053488AB000AE0FC /* BlockCryptor.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = BlockCryptor.h; sourceTree = "<group>"; };
 		C2843713053488AB000AE0FC /* boxes-ref.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = "boxes-ref.c"; sourceTree = "<group>"; };
 		C2843714053488AB000AE0FC /* boxes-ref.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = "boxes-ref.h"; sourceTree = "<group>"; };
@@ -450,7 +443,7 @@
 		C2843719053488AB000AE0FC /* bsafeKeyGen.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = bsafeKeyGen.cpp; sourceTree = "<group>"; };
 		C284371A053488AB000AE0FC /* bsafePKCS1.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = bsafePKCS1.cpp; sourceTree = "<group>"; };
 		C284371B053488AB000AE0FC /* bsafePKCS1.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = bsafePKCS1.h; sourceTree = "<group>"; };
-		C284371C053488AB000AE0FC /* bsafeSymmetric.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = bsafeSymmetric.cpp; sourceTree = "<group>"; };
+		C284371C053488AB000AE0FC /* bsafeSymmetric.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = bsafeSymmetric.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C284371D053488AB000AE0FC /* bsobjects.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = bsobjects.h; sourceTree = "<group>"; };
 		C284371E053488AB000AE0FC /* castContext.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = castContext.cpp; sourceTree = "<group>"; };
 		C284371F053488AB000AE0FC /* castContext.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = castContext.h; sourceTree = "<group>"; };
@@ -461,25 +454,25 @@
 		C2843727053488AB000AE0FC /* cspdebugging.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cspdebugging.h; sourceTree = "<group>"; };
 		C2843728053488AB000AE0FC /* cssmplugin.exp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.exports; path = cssmplugin.exp; sourceTree = "<group>"; };
 		C2843729053488AB000AE0FC /* deriveKey.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = deriveKey.cpp; sourceTree = "<group>"; };
-		C284372C053488AB000AE0FC /* desContext.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = desContext.cpp; sourceTree = "<group>"; };
+		C284372C053488AB000AE0FC /* desContext.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = desContext.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C284372D053488AB000AE0FC /* desContext.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = desContext.h; sourceTree = "<group>"; };
 		C284372E053488AB000AE0FC /* DH_csp.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = DH_csp.cpp; sourceTree = "<group>"; };
 		C284372F053488AB000AE0FC /* DH_csp.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DH_csp.h; sourceTree = "<group>"; };
 		C2843730053488AB000AE0FC /* DH_exchange.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = DH_exchange.cpp; sourceTree = "<group>"; };
 		C2843731053488AB000AE0FC /* DH_exchange.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DH_exchange.h; sourceTree = "<group>"; };
-		C2843732053488AB000AE0FC /* DH_keys.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = DH_keys.cpp; sourceTree = "<group>"; };
-		C2843733053488AB000AE0FC /* DH_keys.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DH_keys.h; sourceTree = "<group>"; };
-		C2843734053488AB000AE0FC /* DH_utils.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = DH_utils.cpp; sourceTree = "<group>"; };
+		C2843732053488AB000AE0FC /* DH_keys.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = DH_keys.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
+		C2843733053488AB000AE0FC /* DH_keys.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = DH_keys.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		C2843734053488AB000AE0FC /* DH_utils.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = DH_utils.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C2843735053488AB000AE0FC /* DH_utils.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DH_utils.h; sourceTree = "<group>"; };
 		C2843736053488AB000AE0FC /* DigestContext.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = DigestContext.cpp; sourceTree = "<group>"; };
 		C2843737053488AB000AE0FC /* DigestContext.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DigestContext.h; sourceTree = "<group>"; };
 		C2843738053488AB000AE0FC /* FEEAsymmetricContext.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = FEEAsymmetricContext.cpp; sourceTree = "<group>"; };
 		C2843739053488AB000AE0FC /* FEEAsymmetricContext.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = FEEAsymmetricContext.h; sourceTree = "<group>"; };
-		C284373A053488AB000AE0FC /* FEECSPUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = FEECSPUtils.cpp; sourceTree = "<group>"; };
+		C284373A053488AB000AE0FC /* FEECSPUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = FEECSPUtils.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C284373B053488AB000AE0FC /* FEECSPUtils.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = FEECSPUtils.h; sourceTree = "<group>"; };
-		C284373C053488AB000AE0FC /* FEEKeys.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = FEEKeys.cpp; sourceTree = "<group>"; };
+		C284373C053488AB000AE0FC /* FEEKeys.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = FEEKeys.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C284373D053488AB000AE0FC /* FEEKeys.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = FEEKeys.h; sourceTree = "<group>"; };
-		C284373E053488AB000AE0FC /* FEESignatureObject.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = FEESignatureObject.cpp; sourceTree = "<group>"; };
+		C284373E053488AB000AE0FC /* FEESignatureObject.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = FEESignatureObject.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C284373F053488AB000AE0FC /* FEESignatureObject.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = FEESignatureObject.h; sourceTree = "<group>"; };
 		C2843740053488AB000AE0FC /* gladmanContext.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = gladmanContext.cpp; sourceTree = "<group>"; };
 		C2843741053488AB000AE0FC /* gladmanContext.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = gladmanContext.h; sourceTree = "<group>"; };
@@ -511,19 +504,19 @@
 		C2843760053488AC000AE0FC /* rijndael-alg-ref.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = "rijndael-alg-ref.h"; sourceTree = "<group>"; };
 		C2843761053488AC000AE0FC /* rijndaelApi.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = rijndaelApi.c; sourceTree = "<group>"; };
 		C2843762053488AC000AE0FC /* rijndaelApi.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = rijndaelApi.h; sourceTree = "<group>"; };
-		C2843765053488AC000AE0FC /* RSA_asymmetric.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = RSA_asymmetric.cpp; sourceTree = "<group>"; };
+		C2843765053488AC000AE0FC /* RSA_asymmetric.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = RSA_asymmetric.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C2843766053488AC000AE0FC /* RSA_asymmetric.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = RSA_asymmetric.h; sourceTree = "<group>"; };
 		C2843767053488AC000AE0FC /* RSA_DSA_csp.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = RSA_DSA_csp.cpp; sourceTree = "<group>"; };
 		C2843768053488AC000AE0FC /* RSA_DSA_csp.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = RSA_DSA_csp.h; sourceTree = "<group>"; };
-		C2843769053488AC000AE0FC /* RSA_DSA_keys.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = RSA_DSA_keys.cpp; sourceTree = "<group>"; };
+		C2843769053488AC000AE0FC /* RSA_DSA_keys.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = RSA_DSA_keys.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C284376A053488AC000AE0FC /* RSA_DSA_keys.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = RSA_DSA_keys.h; sourceTree = "<group>"; };
-		C284376B053488AC000AE0FC /* RSA_DSA_signature.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = RSA_DSA_signature.cpp; sourceTree = "<group>"; };
+		C284376B053488AC000AE0FC /* RSA_DSA_signature.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = RSA_DSA_signature.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C284376C053488AC000AE0FC /* RSA_DSA_signature.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = RSA_DSA_signature.h; sourceTree = "<group>"; };
-		C284376D053488AC000AE0FC /* RSA_DSA_utils.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = RSA_DSA_utils.cpp; sourceTree = "<group>"; };
+		C284376D053488AC000AE0FC /* RSA_DSA_utils.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = RSA_DSA_utils.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C284376E053488AC000AE0FC /* RSA_DSA_utils.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = RSA_DSA_utils.h; sourceTree = "<group>"; };
 		C2843771053488AC000AE0FC /* SHA1_MD5_Object.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SHA1_MD5_Object.cpp; sourceTree = "<group>"; };
 		C2843772053488AC000AE0FC /* SHA1_MD5_Object.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SHA1_MD5_Object.h; sourceTree = "<group>"; };
-		C2843775053488AC000AE0FC /* SignatureContext.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SignatureContext.cpp; sourceTree = "<group>"; };
+		C2843775053488AC000AE0FC /* SignatureContext.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = SignatureContext.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C2843776053488AC000AE0FC /* SignatureContext.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SignatureContext.h; sourceTree = "<group>"; };
 		C2843777053488AC000AE0FC /* vRijndael-alg-ref.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = "vRijndael-alg-ref.c"; sourceTree = "<group>"; };
 		C2843778053488AC000AE0FC /* wrapKey.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = wrapKey.cpp; sourceTree = "<group>"; };
@@ -1163,7 +1156,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				182BB345146F10ED000BF1F3 /* PBXTargetDependency */,
 				053910800A37724600B9E848 /* PBXTargetDependency */,
 			);
 			name = libsecurity_apple_csp;
@@ -1178,7 +1170,7 @@
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0700;
+				LastUpgradeCheck = 0800;
 			};
 			buildConfigurationList = C27AD2550987FCDC001272E0 /* Build configuration list for PBXProject "libsecurity_apple_csp" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -1354,11 +1346,6 @@
 			target = 0539107D0A37721E00B9E848 /* Copy Open Source Docs */;
 			targetProxy = 0539107F0A37724600B9E848 /* PBXContainerItemProxy */;
 		};
-		182BB345146F10ED000BF1F3 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			name = libsecurity_cdsa_plugin_generate;
-			targetProxy = 182BB344146F10ED000BF1F3 /* PBXContainerItemProxy */;
-		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -1428,12 +1415,21 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18446067146DE98E00B12992 /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = lossless;
+				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				ONLY_ACTIVE_ARCH = YES;
 			};
 			name = Debug;
 		};
@@ -1441,12 +1437,19 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18446067146DE98E00B12992 /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = "respect-asset-catalog";
+				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
 			};
 			name = Release;
 		};

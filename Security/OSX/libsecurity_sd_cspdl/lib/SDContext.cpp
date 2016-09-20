@@ -31,7 +31,7 @@
 #include "SDKey.h"
 #include <security_utilities/debugging.h>
 
-#define ssCryptDebug(args...)  secdebug("ssCrypt", ## args)
+#define ssCryptDebug(args...)  secinfo("ssCrypt", ## args)
 
 using namespace SecurityServer;
 

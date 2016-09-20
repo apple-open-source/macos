@@ -116,7 +116,7 @@ IOUSBMassStorageClass::SendSCSICommandForCBIProtocol ( SCSITaskIdentifier reques
    	theCBIRequestBlock->cbiDevRequest.bRequest 			= 0;
    	theCBIRequestBlock->cbiDevRequest.wValue			= 0;
 	theCBIRequestBlock->cbiDevRequest.wIndex			= GetInterfaceReference()->GetInterfaceNumber();
-	theCBIRequestBlock->cbiDevRequest.wLength			= 12; //kCommandMaxCDBSize
+	theCBIRequestBlock->cbiDevRequest.wLength			= 12; // Maximum CBI CDB size 12 bytes. No 3TB floppy drives I guess ....
    	theCBIRequestBlock->cbiDevRequest.pData				= &theCBIRequestBlock->cbiCDB;
 
 	// Send the command over the control endpoint
@@ -346,7 +346,7 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 		
 	}
 	
-	if ( (  GetInterfaceReference() == NULL ) || ( fTerminating == true ) )
+	if ( (  GetInterfaceReference ( ) == NULL ) || ( fTerminating == true ) )
 	{
 		// Our interface has been closed, probably because of an
 		// unplug, return an error for the command since there it
@@ -381,22 +381,6 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 		{
 		
    			STATUS_LOG(( 5, "%s[%p]: kCBIExecuteCommand status %x", getName(), this, resultingStatus ));
-			
-#if defined (__i386__) || defined (__x86_64__)
-			// For UHCI.
-			// First check to see if an error occurred on sending the command to the device.
-			if ( resultingStatus == kIOUSBPipeStalled )
-			{
-			
-				status = CBIClearFeatureEndpointStall ( GetControlPipe(), cbiRequestBlock, kCBIClearBulkEndpointComplete );
-				if ( status == kIOReturnSuccess )
-				{
-					commandInProgress = true;
-				}
-				
-				break;
-			}
-#endif
 			
 			// First check to see if an error occurred on the command out
 			if ( resultingStatus != kIOReturnSuccess )

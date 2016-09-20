@@ -249,6 +249,31 @@ bool SecPasswordIsPasswordWeak(CFStringRef passcode)
             free(pin);
             return true; //weak password
         }
+        //check if PIN is a bunch of incrementing numbers
+        for(int i = 0; i < CFStringGetLength(passcode); i++){
+            if(i == CFStringGetLength(passcode)-1){
+                free(pin);
+                return true;
+            }
+            else if ((pin[i] + 1) == pin[i+1])
+                continue;
+            else
+                break;
+        }
+        //check if PIN is a bunch of decrementing numbers
+        for(int i = 0; i < CFStringGetLength(passcode); i++){
+            if(i == CFStringGetLength(passcode)-1){
+                free(pin);
+                return true;
+            }
+            else if ((pin[i]) == (pin[i+1] +1))
+                continue;
+            else if ((i == 0) && (pin[i] == '0') && (pin[i+1] == '9'))
+                continue;
+            else
+                break;
+        }
+
         //not in this list
         for(CFIndex i = 0; i < blacklistLength; i++)
         {
@@ -291,6 +316,8 @@ bool SecPasswordIsPasswordWeak(CFStringRef passcode)
                 return true;
             }
             else if ((pin[i]) == (pin[i+1] +1))
+                continue;
+            else if ((i == 0) && (pin[i] == '0') && (pin[i+1] == '9'))
                 continue;
             else
                 break;
@@ -374,6 +401,8 @@ static bool SecPasswordIsPasscodeIncrementingOrDecrementingDigits(CFStringRef pa
             return true;
         }
         else if ((pin[i]) == (pin[i+1] +1))
+            continue;
+        else if ((i == 0) && (pin[i] == '0') && (pin[i+1] == '9'))
             continue;
         else
             break;
@@ -851,7 +880,6 @@ static CFDictionaryRef passwordGenerateCreateDefaultParametersDictionary(SecPass
 static CFDictionaryRef passwordGenerationCreateParametersDictionary(SecPasswordType type, CFDictionaryRef requirements)
 {
     CFMutableArrayRef requiredCharacterSets = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
-    CFArrayRef requiredCharactersArray = NULL;
     CFNumberRef numReqChars = NULL;
     CFIndex numberOfRequiredRandomCharacters;
     CFStringRef allowedCharacters = NULL, useDefaultPasswordFormat = NULL;
@@ -885,10 +913,11 @@ static CFDictionaryRef passwordGenerationCreateParametersDictionary(SecPasswordT
 
         allowedCharacters = CFSTR("0123456789");
         CFArrayAppendValue(requiredCharacterSets, decimalDigitCharacterSet);
-        requiredCharactersArray = CFArrayCreateCopy(NULL, requiredCharacterSets);
         useDefaultPasswordFormat = CFSTR("false");
     }
     else{
+        CFArrayRef requiredCharactersArray = NULL;
+
         if (minPasswordLength && minPasswordLength > defaultNumberOfRandomCharacters) {
             useDefaultPasswordFormat = CFSTR("false");
             numberOfRequiredRandomCharacters = minPasswordLength;
@@ -901,9 +930,26 @@ static CFDictionaryRef passwordGenerationCreateParametersDictionary(SecPasswordT
             useDefaultPasswordFormat = CFSTR("false");
             numberOfRequiredRandomCharacters = maxPasswordLength;
         }
-        allowedCharacters = (CFStringRef)CFDictionaryGetValue(requirements, kSecPasswordAllowedCharactersKey);
+        allowedCharacters = (CFStringRef)CFRetainSafe(CFDictionaryGetValue(requirements, kSecPasswordAllowedCharactersKey));
         requiredCharactersArray = (CFArrayRef)CFDictionaryGetValue(requirements, kSecPasswordRequiredCharactersKey);
+
+        if (requiredCharactersArray) {
+            for (CFIndex i = 0; i < CFArrayGetCount(requiredCharactersArray); i++){
+                CFCharacterSetRef stringWithRequiredCharacters = CFArrayGetValueAtIndex(requiredCharactersArray, i);
+                if(stringWithRequiredCharacters && CFStringFindCharacterFromSet(allowedCharacters, stringWithRequiredCharacters, CFRangeMake(0, CFStringGetLength(allowedCharacters)), 0, NULL)){
+                    CFArrayAppendValue(requiredCharacterSets, stringWithRequiredCharacters);
+                }
+            }
+        } else{
+            uppercaseLetterCharacterSet = CFCharacterSetGetPredefined(kCFCharacterSetUppercaseLetter);
+            lowercaseLetterCharacterSet = CFCharacterSetGetPredefined(kCFCharacterSetLowercaseLetter);
+            decimalDigitCharacterSet = CFCharacterSetGetPredefined(kCFCharacterSetDecimalDigit);
+            CFArrayAppendValue(requiredCharacterSets, uppercaseLetterCharacterSet);
+            CFArrayAppendValue(requiredCharacterSets, lowercaseLetterCharacterSet);
+            CFArrayAppendValue(requiredCharacterSets, decimalDigitCharacterSet);
+        }
     }
+    
     if(!CFDictionaryGetValueIfPresent(requirements, kSecPasswordDisallowedCharacters, &prohibitedCharacters))
         prohibitedCharacters = NULL;
 
@@ -935,31 +981,15 @@ static CFDictionaryRef passwordGenerationCreateParametersDictionary(SecPasswordT
         if( false == CFStringFindWithOptions(allowedCharacters, CFSTR("-"), CFRangeMake(0, CFStringGetLength(allowedCharacters)), kCFCompareCaseInsensitive, NULL))
             useDefaultPasswordFormat = CFSTR("false");
     } else
-        allowedCharacters = defaultCharacters;
+        allowedCharacters = CFRetainSafe(defaultCharacters);
 
     // In default password format, we use dashes only as separators, not as symbols you can encounter at a random position.
     if (useDefaultPasswordFormat == CFSTR("false")){
         CFMutableStringRef mutatedAllowedCharacters = CFStringCreateMutableCopy(kCFAllocatorDefault, CFStringGetLength(allowedCharacters), allowedCharacters);
         CFStringFindAndReplace (mutatedAllowedCharacters, CFSTR("-"), CFSTR(""), CFRangeMake(0, CFStringGetLength(allowedCharacters)),kCFCompareCaseInsensitive);
-        allowedCharacters = CFStringCreateCopy(kCFAllocatorDefault, mutatedAllowedCharacters);
+        CFReleaseSafe(allowedCharacters);
+        allowedCharacters = mutatedAllowedCharacters;
     }
-
-    if (requiredCharactersArray) {
-        for (CFIndex i = 0; i < CFArrayGetCount(requiredCharactersArray); i++){
-            CFCharacterSetRef stringWithRequiredCharacters = CFArrayGetValueAtIndex(requiredCharactersArray, i);
-            if(stringWithRequiredCharacters && CFStringFindCharacterFromSet(allowedCharacters, stringWithRequiredCharacters, CFRangeMake(0, CFStringGetLength(allowedCharacters)), 0, NULL)){
-                CFArrayAppendValue(requiredCharacterSets, stringWithRequiredCharacters);
-            }
-        }
-    } else{
-        uppercaseLetterCharacterSet = CFCharacterSetGetPredefined(kCFCharacterSetUppercaseLetter);
-        lowercaseLetterCharacterSet = CFCharacterSetGetPredefined(kCFCharacterSetLowercaseLetter);
-        decimalDigitCharacterSet = CFCharacterSetGetPredefined(kCFCharacterSetDecimalDigit);
-        CFArrayAppendValue(requiredCharacterSets, uppercaseLetterCharacterSet);
-        CFArrayAppendValue(requiredCharacterSets, lowercaseLetterCharacterSet);
-        CFArrayAppendValue(requiredCharacterSets, decimalDigitCharacterSet);
-    }
-
 
     if (CFArrayGetCount(requiredCharacterSets) > numberOfRequiredRandomCharacters) {
         CFReleaseNull(requiredCharacterSets);
@@ -1009,7 +1039,7 @@ static CFDictionaryRef passwordGenerationCreateParametersDictionary(SecPasswordT
     CFReleaseNull(allowedCharacters);
     CFReleaseNull(requiredCharacterSets);
 
-    return CFDictionaryCreateCopy(kCFAllocatorDefault, updatedConstraints);
+    return updatedConstraints;
 }
 
 static bool isDictionaryFormattedProperly(SecPasswordType type, CFDictionaryRef passwordRequirements, CFErrorRef *error){
@@ -1289,16 +1319,22 @@ CF_RETURNS_RETAINED CFStringRef SecPasswordGenerate(SecPasswordType type, CFErro
             CFIndex i = 0;
             while( i != requiredCharactersSize){
                 if((i + (CFIndex)groupSize) < requiredCharactersSize){
-                    CFStringAppend(finalPassword, CFStringCreateWithSubstring(kCFAllocatorDefault, randomCharacters, CFRangeMake(i, (CFIndex)groupSize)));
+                    CFStringRef subString = CFStringCreateWithSubstring(kCFAllocatorDefault, randomCharacters, CFRangeMake(i, (CFIndex)groupSize));
+                    CFStringAppend(finalPassword, subString);
                     CFStringAppend(finalPassword, separator);
+                    CFReleaseSafe(subString);
                     i+=groupSize;
                 }
                 else if((i+(CFIndex)groupSize) == requiredCharactersSize){
-                    CFStringAppend(finalPassword, CFStringCreateWithSubstring(kCFAllocatorDefault, randomCharacters, CFRangeMake(i, (CFIndex)groupSize)));
+                    CFStringRef subString = CFStringCreateWithSubstring(kCFAllocatorDefault, randomCharacters, CFRangeMake(i, (CFIndex)groupSize));
+                    CFStringAppend(finalPassword, subString);
+                    CFReleaseSafe(subString);
                     i+=groupSize;
                 }
                 else {
-                    CFStringAppend(finalPassword, CFStringCreateWithSubstring(kCFAllocatorDefault, randomCharacters, CFRangeMake(i, requiredCharactersSize - i)));
+                    CFStringRef subString = CFStringCreateWithSubstring(kCFAllocatorDefault, randomCharacters, CFRangeMake(i, requiredCharactersSize - i));
+                    CFStringAppend(finalPassword, subString);
+                    CFReleaseSafe(subString);
                     i+=(requiredCharactersSize - i);
                 }
             }

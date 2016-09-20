@@ -1,4 +1,4 @@
-/* $OpenBSD: sshconnect1.c,v 1.77 2015/01/14 20:05:27 djm Exp $ */
+/* $OpenBSD: sshconnect1.c,v 1.78 2015/11/15 22:26:49 jcs Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -51,8 +51,6 @@
 #include "auth.h"
 #include "digest.h"
 #include "ssherr.h"
-
-#include "keychain.h"
 
 /* Session id for the current session. */
 u_char session_id[16];
@@ -223,7 +221,7 @@ try_rsa_authentication(int idx)
 {
 	BIGNUM *challenge;
 	Key *public, *private;
-	char buf[300], *passphrase, *comment, *authfile;
+	char buf[300], *passphrase = NULL, *comment, *authfile;
 	int i, perm_ok = 1, type, quit;
 
 	public = options.identity_keys[idx];
@@ -276,10 +274,6 @@ try_rsa_authentication(int idx)
 		snprintf(buf, sizeof(buf),
 		    "Enter passphrase for RSA key '%.100s': ", comment);
 		for (i = 0; i < options.number_of_password_prompts; i++) {
-#ifdef __APPLE_KEYCHAIN__
-			passphrase = keychain_read_passphrase(comment, options.ask_pass_gui);
-			if (passphrase == NULL)
-#endif
 			passphrase = read_passphrase(buf, 0);
 			if (strcmp(passphrase, "") != 0) {
 				private = key_load_private_type(KEY_RSA1,
@@ -289,13 +283,20 @@ try_rsa_authentication(int idx)
 				debug2("no passphrase given, try next key");
 				quit = 1;
 			}
-			explicit_bzero(passphrase, strlen(passphrase));
-			free(passphrase);
 			if (private != NULL || quit)
 				break;
 			debug2("bad passphrase given, try again...");
 		}
 	}
+
+	if (private != NULL)
+		maybe_add_key_to_agent(authfile, private, comment, passphrase);
+
+	if (passphrase != NULL) {
+		explicit_bzero(passphrase, strlen(passphrase));
+		free(passphrase);
+	}
+
 	/* We no longer need the comment. */
 	free(comment);
 

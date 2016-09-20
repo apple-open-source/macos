@@ -34,7 +34,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "Security_regressions.h"
+#include "shared_regressions.h"
 
 /* Set this to 1 to test support for the legacy ecdsa-with-specified
    signature oid. */
@@ -1145,13 +1145,10 @@ static void tests(void)
         "20060303001200", "End_P384_combined_SHA1_cer");
     trust_ok(End_P521_combined_SHA1_cer, RootP256_cer,
         "20060303001200", "End_P521_combined_SHA1_cer");
-    TODO: {
-        todo("ecdsa-with-SHA512 seems to be failing");
-        trust_ok(End_P256_combined_SHA512_cer, RootP256_cer,
-            "20060303001200", "End_P256_combined_SHA512_cer");
-        trust_ok(End_P521_combined_SHA512_cer, RootP256_cer,
-            "20060303001200", "End_P521_combined_SHA512_cer");
-    }
+    trust_ok(End_P256_combined_SHA512_cer, RootP256_cer,
+        "20060303001200", "End_P256_combined_SHA512_cer");
+    trust_ok(End_P521_combined_SHA512_cer, RootP256_cer,
+        "20060303001200", "End_P521_combined_SHA512_cer");
 
     /* Verification of ECC certs created by NSS */
     trust_ok(ECCCA_cer, ECCCA_cer,

@@ -169,6 +169,19 @@ enum ServerReplyOp { SROP_Find, SROP_Add, SROP_Delete };
 
 typedef int (*EndCond) __ARGS((void *));
 
+struct x_cmdqueue
+{
+    char_u		*propInfo;
+    long_u		len;
+    struct x_cmdqueue	*next;
+    struct x_cmdqueue	*prev;
+};
+
+typedef struct x_cmdqueue x_queue_T;
+
+/* dummy node, header for circular queue */
+static x_queue_T head = {NULL, 0, NULL, NULL};
+
 /*
  * Forward declarations for procedures defined later in this file:
  */
@@ -186,6 +199,8 @@ static struct ServerReply *ServerReplyFind __ARGS((Window w, enum ServerReplyOp 
 static int	AppendPropCarefully __ARGS((Display *display, Window window, Atom property, char_u *value, int length));
 static int	x_error_check __ARGS((Display *dpy, XErrorEvent *error_event));
 static int	IsSerialName __ARGS((char_u *name));
+static void	save_in_queue __ARGS((char_u *buf, long_u len));
+static void	server_parse_message __ARGS((Display *dpy, char_u *propInfo, long_u numItems));
 
 /* Private variables for the "server" functionality */
 static Atom	registryProperty = None;
@@ -572,61 +587,55 @@ ServerWait(dpy, w, endCond, endData, localLoop, seconds)
 {
     time_t	    start;
     time_t	    now;
-    time_t	    lastChk = 0;
     XEvent	    event;
-    XPropertyEvent *e = (XPropertyEvent *)&event;
-#   define SEND_MSEC_POLL 50
+
+#define UI_MSEC_DELAY 50
+#define SEND_MSEC_POLL 500
+#ifndef HAVE_SELECT
+    struct pollfd   fds;
+
+    fds.fd = ConnectionNumber(dpy);
+    fds.events = POLLIN;
+#else
+    fd_set	    fds;
+    struct timeval  tv;
+
+    tv.tv_sec = 0;
+    tv.tv_usec =  SEND_MSEC_POLL * 1000;
+    FD_ZERO(&fds);
+    FD_SET(ConnectionNumber(dpy), &fds);
+#endif
 
     time(&start);
-    while (endCond(endData) == 0)
+    while (TRUE)
     {
+	while (XCheckWindowEvent(dpy, commWindow, PropertyChangeMask, &event))
+	    serverEventProc(dpy, &event, 1);
+
+	if (endCond(endData) != 0)
+	    break;
+	if (!WindowValid(dpy, w))
+	    break;
 	time(&now);
 	if (seconds >= 0 && (now - start) >= seconds)
 	    break;
-	if (now != lastChk)
-	{
-	    lastChk = now;
-	    if (!WindowValid(dpy, w))
-		break;
-	    /*
-	     * Sometimes the PropertyChange event doesn't come.
-	     * This can be seen in eg: vim -c 'echo remote_expr("gvim", "3+2")'
-	     */
-	    serverEventProc(dpy, NULL);
-	}
+
+	/* Just look out for the answer without calling back into Vim */
 	if (localLoop)
 	{
-	    /* Just look out for the answer without calling back into Vim */
 #ifndef HAVE_SELECT
-	    struct pollfd   fds;
-
-	    fds.fd = ConnectionNumber(dpy);
-	    fds.events = POLLIN;
 	    if (poll(&fds, 1, SEND_MSEC_POLL) < 0)
 		break;
 #else
-	    fd_set	    fds;
-	    struct timeval  tv;
-
-	    tv.tv_sec = 0;
-	    tv.tv_usec =  SEND_MSEC_POLL * 1000;
-	    FD_ZERO(&fds);
-	    FD_SET(ConnectionNumber(dpy), &fds);
-	    if (select(ConnectionNumber(dpy) + 1, &fds, NULL, NULL, &tv) < 0)
+	    if (select(FD_SETSIZE, &fds, NULL, NULL, &tv) < 0)
 		break;
 #endif
-	    while (XEventsQueued(dpy, QueuedAfterReading) > 0)
-	    {
-		XNextEvent(dpy, &event);
-		if (event.type == PropertyNotify && e->window == commWindow)
-		    serverEventProc(dpy, &event);
-	    }
 	}
 	else
 	{
 	    if (got_int)
 		break;
-	    ui_delay((long)SEND_MSEC_POLL, TRUE);
+	    ui_delay((long)UI_MSEC_DELAY, TRUE);
 	    ui_breakcheck();
 	}
     }
@@ -655,7 +664,6 @@ serverGetVimNames(dpy)
 	if (SendInit(dpy) < 0)
 	    return NULL;
     }
-    ga_init2(&ga, 1, 100);
 
     /*
      * Read the registry property.
@@ -1134,22 +1142,25 @@ GetRegProp(dpy, regPropp, numItemsp, domsg)
     return OK;
 }
 
+
 /*
  * This procedure is invoked by the various X event loops throughout Vims when
  * a property changes on the communication window.  This procedure reads the
- * property and handles command requests and responses.
+ * property and enqueues command requests and responses. If immediate is true,
+ * it runs the event immediatly instead of enqueuing it. Immediate can cause
+ * unintended behavior and should only be used for code that blocks for a
+ * response.
  */
     void
-serverEventProc(dpy, eventPtr)
+serverEventProc(dpy, eventPtr, immediate)
     Display	*dpy;
-    XEvent	*eventPtr;		/* Information about event. */
+    XEvent	*eventPtr;	/* Information about event. */
+    int		immediate;	/* Run event immediately. Should mostly be 0. */
 {
     char_u	*propInfo;
-    char_u	*p;
-    int		result, actualFormat, code;
+    int		result, actualFormat;
     long_u	numItems, bytesAfter;
     Atom	actualType;
-    char_u	*tofree;
 
     if (eventPtr != NULL)
     {
@@ -1175,6 +1186,86 @@ serverEventProc(dpy, eventPtr)
 	    XFree(propInfo);
 	return;
     }
+    if (immediate)
+	server_parse_message(dpy, propInfo, numItems);
+    else
+	save_in_queue(propInfo, numItems);
+}
+
+/*
+ * Saves x clientserver commands in a queue so that they can be called when
+ * vim is idle.
+ */
+    static void
+save_in_queue(propInfo, len)
+    char_u	*propInfo;
+    long_u	len;
+{
+    x_queue_T *node;
+
+    node = (x_queue_T *)alloc(sizeof(x_queue_T));
+    if (node == NULL)
+	return;	    /* out of memory */
+    node->propInfo = propInfo;
+    node->len = len;
+
+    if (head.next == NULL)   /* initialize circular queue */
+    {
+	head.next = &head;
+	head.prev = &head;
+    }
+
+    /* insert node at tail of queue */
+    node->next = &head;
+    node->prev = head.prev;
+    head.prev->next = node;
+    head.prev = node;
+}
+
+/*
+ * Parses queued clientserver messages.
+ */
+    void
+server_parse_messages()
+{
+    x_queue_T	*node;
+
+    if (!X_DISPLAY)
+	return; /* cannot happen? */
+    while (head.next != NULL && head.next != &head)
+    {
+	node = head.next;
+	head.next = node->next;
+	node->next->prev = node->prev;
+	server_parse_message(X_DISPLAY, node->propInfo, node->len);
+	vim_free(node);
+    }
+}
+
+/*
+ * Returns a non-zero value if there are clientserver messages waiting
+ * int the queue.
+ */
+    int
+server_waiting()
+{
+    return head.next != NULL && head.next != &head;
+}
+
+/*
+ * Prases a single clientserver message. A single message may contain multiple
+ * commands.
+ * "propInfo" will be freed.
+ */
+    static void
+server_parse_message(dpy, propInfo, numItems)
+    Display	*dpy;
+    char_u	*propInfo; /* A string containing 0 or more X commands */
+    long_u	numItems;  /* The size of propInfo in bytes. */
+{
+    char_u	*p;
+    int		code;
+    char_u	*tofree;
 
     /*
      * Several commands and results could arrive in the property at
@@ -1198,9 +1289,8 @@ serverEventProc(dpy, eventPtr)
 	if ((*p == 'c' || *p == 'k') && (p[1] == 0))
 	{
 	    Window	resWindow;
-	    char_u	*name, *script, *serial, *end, *res;
+	    char_u	*name, *script, *serial, *end;
 	    Bool	asKeys = *p == 'k';
-	    garray_T	reply;
 	    char_u	*enc;
 
 	    /*
@@ -1256,50 +1346,52 @@ serverEventProc(dpy, eventPtr)
 	    if (script == NULL || name == NULL)
 		continue;
 
-	    /*
-	     * Initialize the result property, so that we're ready at any
-	     * time if we need to return an error.
-	     */
-	    if (resWindow != None)
-	    {
-		ga_init2(&reply, 1, 100);
-#ifdef FEAT_MBYTE
-		ga_grow(&reply, 50 + STRLEN(p_enc));
-		sprintf(reply.ga_data, "%cr%c-E %s%c-s %s%c-r ",
-						   0, 0, p_enc, 0, serial, 0);
-		reply.ga_len = 14 + STRLEN(p_enc) + STRLEN(serial);
-#else
-		ga_grow(&reply, 50);
-		sprintf(reply.ga_data, "%cr%c-s %s%c-r ", 0, 0, serial, 0);
-		reply.ga_len = 10 + STRLEN(serial);
-#endif
-	    }
-	    res = NULL;
 	    if (serverName != NULL && STRICMP(name, serverName) == 0)
 	    {
 		script = serverConvert(enc, script, &tofree);
 		if (asKeys)
 		    server_to_input_buf(script);
 		else
+		{
+		    char_u      *res;
+
 		    res = eval_client_expr_to_string(script);
+		    if (resWindow != None)
+		    {
+			garray_T    reply;
+
+			/* Initialize the result property. */
+			ga_init2(&reply, 1, 100);
+#ifdef FEAT_MBYTE
+			(void)ga_grow(&reply, 50 + STRLEN(p_enc));
+			sprintf(reply.ga_data, "%cr%c-E %s%c-s %s%c-r ",
+						   0, 0, p_enc, 0, serial, 0);
+			reply.ga_len = 14 + STRLEN(p_enc) + STRLEN(serial);
+#else
+			(void)ga_grow(&reply, 50);
+			sprintf(reply.ga_data, "%cr%c-s %s%c-r ",
+							     0, 0, serial, 0);
+			reply.ga_len = 10 + STRLEN(serial);
+#endif
+
+			/* Evaluate the expression and return the result. */
+			if (res != NULL)
+			    ga_concat(&reply, res);
+			else
+			{
+			    ga_concat(&reply, (char_u *)_(e_invexprmsg));
+			    ga_append(&reply, 0);
+			    ga_concat(&reply, (char_u *)"-c 1");
+			}
+			ga_append(&reply, NUL);
+			(void)AppendPropCarefully(dpy, resWindow, commProperty,
+						 reply.ga_data, reply.ga_len);
+			ga_clear(&reply);
+		    }
+		    vim_free(res);
+		}
 		vim_free(tofree);
 	    }
-	    if (resWindow != None)
-	    {
-		if (res != NULL)
-		    ga_concat(&reply, res);
-		else if (asKeys == 0)
-		{
-		    ga_concat(&reply, (char_u *)_(e_invexprmsg));
-		    ga_append(&reply, 0);
-		    ga_concat(&reply, (char_u *)"-c 1");
-		}
-		ga_append(&reply, NUL);
-		(void)AppendPropCarefully(dpy, resWindow, commProperty,
-					   reply.ga_data, reply.ga_len);
-		ga_clear(&reply);
-	    }
-	    vim_free(res);
 	}
 	else if (*p == 'r' && p[1] == 0)
 	{
@@ -1357,15 +1449,10 @@ serverEventProc(dpy, eventPtr)
 		    continue;
 
 		pcPtr->code = code;
-		if (res != NULL)
-		{
-		    res = serverConvert(enc, res, &tofree);
-		    if (tofree == NULL)
-			res = vim_strsave(res);
-		    pcPtr->result = res;
-		}
-		else
-		    pcPtr->result = vim_strsave((char_u *)"");
+		res = serverConvert(enc, res, &tofree);
+		if (tofree == NULL)
+		    res = vim_strsave(res);
+		pcPtr->result = res;
 		break;
 	    }
 	}

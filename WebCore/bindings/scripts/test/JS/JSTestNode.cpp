@@ -23,17 +23,32 @@
 
 #include "ExceptionCode.h"
 #include "JSDOMBinding.h"
-#include "TestNode.h"
+#include "JSDOMConstructor.h"
+#include "JSDOMIterator.h"
+#include "RuntimeEnabledFeatures.h"
+#include "URL.h"
 #include <runtime/Error.h>
+#include <runtime/JSString.h>
 #include <wtf/GetPtr.h>
 
 using namespace JSC;
 
 namespace WebCore {
 
+// Functions
+
+JSC::EncodedJSValue JSC_HOST_CALL jsTestNodePrototypeFunctionSymbolIterator(JSC::ExecState*);
+JSC::EncodedJSValue JSC_HOST_CALL jsTestNodePrototypeFunctionEntries(JSC::ExecState*);
+JSC::EncodedJSValue JSC_HOST_CALL jsTestNodePrototypeFunctionKeys(JSC::ExecState*);
+JSC::EncodedJSValue JSC_HOST_CALL jsTestNodePrototypeFunctionValues(JSC::ExecState*);
+JSC::EncodedJSValue JSC_HOST_CALL jsTestNodePrototypeFunctionForEach(JSC::ExecState*);
+
 // Attributes
 
-JSC::EncodedJSValue jsTestNodeConstructor(JSC::ExecState*, JSC::JSObject*, JSC::EncodedJSValue, JSC::PropertyName);
+JSC::EncodedJSValue jsTestNodeName(JSC::ExecState*, JSC::EncodedJSValue, JSC::PropertyName);
+bool setJSTestNodeName(JSC::ExecState*, JSC::EncodedJSValue, JSC::EncodedJSValue);
+JSC::EncodedJSValue jsTestNodeConstructor(JSC::ExecState*, JSC::EncodedJSValue, JSC::PropertyName);
+bool setJSTestNodeConstructor(JSC::ExecState*, JSC::EncodedJSValue, JSC::EncodedJSValue);
 
 class JSTestNodePrototype : public JSC::JSNonFinalObject {
 public:
@@ -60,63 +75,39 @@ private:
     void finishCreation(JSC::VM&);
 };
 
-class JSTestNodeConstructor : public DOMConstructorObject {
-private:
-    JSTestNodeConstructor(JSC::Structure*, JSDOMGlobalObject*);
-    void finishCreation(JSC::VM&, JSDOMGlobalObject*);
+typedef JSDOMConstructor<JSTestNode> JSTestNodeConstructor;
 
-public:
-    typedef DOMConstructorObject Base;
-    static JSTestNodeConstructor* create(JSC::VM& vm, JSC::Structure* structure, JSDOMGlobalObject* globalObject)
-    {
-        JSTestNodeConstructor* ptr = new (NotNull, JSC::allocateCell<JSTestNodeConstructor>(vm.heap)) JSTestNodeConstructor(structure, globalObject);
-        ptr->finishCreation(vm, globalObject);
-        return ptr;
-    }
-
-    DECLARE_INFO;
-    static JSC::Structure* createStructure(JSC::VM& vm, JSC::JSGlobalObject* globalObject, JSC::JSValue prototype)
-    {
-        return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), info());
-    }
-protected:
-    static JSC::EncodedJSValue JSC_HOST_CALL constructJSTestNode(JSC::ExecState*);
-    static JSC::ConstructType getConstructData(JSC::JSCell*, JSC::ConstructData&);
-};
-
-EncodedJSValue JSC_HOST_CALL JSTestNodeConstructor::constructJSTestNode(ExecState* exec)
+template<> EncodedJSValue JSC_HOST_CALL JSTestNodeConstructor::construct(ExecState* state)
 {
-    auto* castedThis = jsCast<JSTestNodeConstructor*>(exec->callee());
-    RefPtr<TestNode> object = TestNode::create();
-    return JSValue::encode(asObject(toJS(exec, castedThis->globalObject(), object.get())));
+    auto* castedThis = jsCast<JSTestNodeConstructor*>(state->callee());
+    auto object = TestNode::create();
+    return JSValue::encode(asObject(toJSNewlyCreated(state, castedThis->globalObject(), WTFMove(object))));
 }
 
-const ClassInfo JSTestNodeConstructor::s_info = { "TestNodeConstructor", &Base::s_info, 0, CREATE_METHOD_TABLE(JSTestNodeConstructor) };
-
-JSTestNodeConstructor::JSTestNodeConstructor(Structure* structure, JSDOMGlobalObject* globalObject)
-    : DOMConstructorObject(structure, globalObject)
+template<> JSValue JSTestNodeConstructor::prototypeForStructure(JSC::VM& vm, const JSDOMGlobalObject& globalObject)
 {
+    return JSNode::getConstructor(vm, &globalObject);
 }
 
-void JSTestNodeConstructor::finishCreation(VM& vm, JSDOMGlobalObject* globalObject)
+template<> void JSTestNodeConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    Base::finishCreation(vm);
-    ASSERT(inherits(info()));
-    putDirect(vm, vm.propertyNames->prototype, JSTestNode::getPrototype(vm, globalObject), DontDelete | ReadOnly);
-    putDirect(vm, vm.propertyNames->length, jsNumber(0), ReadOnly | DontDelete | DontEnum);
+    putDirect(vm, vm.propertyNames->prototype, JSTestNode::prototype(vm, &globalObject), DontDelete | ReadOnly | DontEnum);
+    putDirect(vm, vm.propertyNames->name, jsNontrivialString(&vm, String(ASCIILiteral("TestNode"))), ReadOnly | DontEnum);
+    putDirect(vm, vm.propertyNames->length, jsNumber(0), ReadOnly | DontEnum);
 }
 
-ConstructType JSTestNodeConstructor::getConstructData(JSCell*, ConstructData& constructData)
-{
-    constructData.native.function = constructJSTestNode;
-    return ConstructTypeHost;
-}
+template<> const ClassInfo JSTestNodeConstructor::s_info = { "TestNode", &Base::s_info, 0, CREATE_METHOD_TABLE(JSTestNodeConstructor) };
 
 /* Hash table for prototype */
 
 static const HashTableValue JSTestNodePrototypeTableValues[] =
 {
-    { "constructor", DontEnum | ReadOnly, NoIntrinsic, (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestNodeConstructor), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(0) },
+    { "constructor", DontEnum, NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestNodeConstructor), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(setJSTestNodeConstructor) } },
+    { "name", CustomAccessor, NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestNodeName), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(setJSTestNodeName) } },
+    { "entries", JSC::Function, NoIntrinsic, { (intptr_t)static_cast<NativeFunction>(jsTestNodePrototypeFunctionEntries), (intptr_t) (0) } },
+    { "keys", JSC::Function, NoIntrinsic, { (intptr_t)static_cast<NativeFunction>(jsTestNodePrototypeFunctionKeys), (intptr_t) (0) } },
+    { "values", JSC::Function, NoIntrinsic, { (intptr_t)static_cast<NativeFunction>(jsTestNodePrototypeFunctionValues), (intptr_t) (0) } },
+    { "forEach", JSC::Function, NoIntrinsic, { (intptr_t)static_cast<NativeFunction>(jsTestNodePrototypeFunctionForEach), (intptr_t) (1) } },
 };
 
 const ClassInfo JSTestNodePrototype::s_info = { "TestNodePrototype", &Base::s_info, 0, CREATE_METHOD_TABLE(JSTestNodePrototype) };
@@ -125,36 +116,137 @@ void JSTestNodePrototype::finishCreation(VM& vm)
 {
     Base::finishCreation(vm);
     reifyStaticProperties(vm, JSTestNodePrototypeTableValues, *this);
+    if (!RuntimeEnabledFeatures::sharedFeatures().domIteratorEnabled()) {
+        Identifier propertyName = Identifier::fromString(&vm, reinterpret_cast<const LChar*>("entries"), strlen("entries"));
+        VM::DeletePropertyModeScope scope(vm, VM::DeletePropertyMode::IgnoreConfigurable);
+        JSObject::deleteProperty(this, globalObject()->globalExec(), propertyName);
+    }
+    if (!RuntimeEnabledFeatures::sharedFeatures().domIteratorEnabled()) {
+        Identifier propertyName = Identifier::fromString(&vm, reinterpret_cast<const LChar*>("keys"), strlen("keys"));
+        VM::DeletePropertyModeScope scope(vm, VM::DeletePropertyMode::IgnoreConfigurable);
+        JSObject::deleteProperty(this, globalObject()->globalExec(), propertyName);
+    }
+    if (!RuntimeEnabledFeatures::sharedFeatures().domIteratorEnabled()) {
+        Identifier propertyName = Identifier::fromString(&vm, reinterpret_cast<const LChar*>("values"), strlen("values"));
+        VM::DeletePropertyModeScope scope(vm, VM::DeletePropertyMode::IgnoreConfigurable);
+        JSObject::deleteProperty(this, globalObject()->globalExec(), propertyName);
+    }
+    if (!RuntimeEnabledFeatures::sharedFeatures().domIteratorEnabled()) {
+        Identifier propertyName = Identifier::fromString(&vm, reinterpret_cast<const LChar*>("forEach"), strlen("forEach"));
+        VM::DeletePropertyModeScope scope(vm, VM::DeletePropertyMode::IgnoreConfigurable);
+        JSObject::deleteProperty(this, globalObject()->globalExec(), propertyName);
+    }
+    if (RuntimeEnabledFeatures::sharedFeatures().domIteratorEnabled()) {
+        putDirect(vm, vm.propertyNames->iteratorSymbol, JSFunction::create(vm, globalObject(), 0, ASCIILiteral("[Symbol.Iterator]"), jsTestNodePrototypeFunctionSymbolIterator), DontEnum);
+    }
 }
 
 const ClassInfo JSTestNode::s_info = { "TestNode", &Base::s_info, 0, CREATE_METHOD_TABLE(JSTestNode) };
 
-JSTestNode::JSTestNode(Structure* structure, JSDOMGlobalObject* globalObject, Ref<TestNode>&& impl)
-    : JSNode(structure, globalObject, WTF::move(impl))
+JSTestNode::JSTestNode(Structure* structure, JSDOMGlobalObject& globalObject, Ref<TestNode>&& impl)
+    : JSNode(structure, globalObject, WTFMove(impl))
 {
 }
 
 JSObject* JSTestNode::createPrototype(VM& vm, JSGlobalObject* globalObject)
 {
-    return JSTestNodePrototype::create(vm, globalObject, JSTestNodePrototype::createStructure(vm, globalObject, JSNode::getPrototype(vm, globalObject)));
+    return JSTestNodePrototype::create(vm, globalObject, JSTestNodePrototype::createStructure(vm, globalObject, JSNode::prototype(vm, globalObject)));
 }
 
-JSObject* JSTestNode::getPrototype(VM& vm, JSGlobalObject* globalObject)
+JSObject* JSTestNode::prototype(VM& vm, JSGlobalObject* globalObject)
 {
     return getDOMPrototype<JSTestNode>(vm, globalObject);
 }
 
-EncodedJSValue jsTestNodeConstructor(ExecState* exec, JSObject* baseValue, EncodedJSValue, PropertyName)
+EncodedJSValue jsTestNodeName(ExecState* state, EncodedJSValue thisValue, PropertyName)
 {
-    JSTestNodePrototype* domObject = jsDynamicCast<JSTestNodePrototype*>(baseValue);
-    if (!domObject)
-        return throwVMTypeError(exec);
-    return JSValue::encode(JSTestNode::getConstructor(exec->vm(), domObject->globalObject()));
+    UNUSED_PARAM(state);
+    UNUSED_PARAM(thisValue);
+    JSValue decodedThisValue = JSValue::decode(thisValue);
+    auto* castedThis = jsDynamicCast<JSTestNode*>(decodedThisValue);
+    if (UNLIKELY(!castedThis)) {
+        return throwGetterTypeError(*state, "TestNode", "name");
+    }
+    auto& impl = castedThis->wrapped();
+    JSValue result = jsStringWithCache(state, impl.name());
+    return JSValue::encode(result);
 }
 
-JSValue JSTestNode::getConstructor(VM& vm, JSGlobalObject* globalObject)
+
+EncodedJSValue jsTestNodeConstructor(ExecState* state, EncodedJSValue thisValue, PropertyName)
 {
-    return getDOMConstructor<JSTestNodeConstructor>(vm, jsCast<JSDOMGlobalObject*>(globalObject));
+    JSTestNodePrototype* domObject = jsDynamicCast<JSTestNodePrototype*>(JSValue::decode(thisValue));
+    if (UNLIKELY(!domObject))
+        return throwVMTypeError(state);
+    return JSValue::encode(JSTestNode::getConstructor(state->vm(), domObject->globalObject()));
+}
+
+bool setJSTestNodeConstructor(ExecState* state, EncodedJSValue thisValue, EncodedJSValue encodedValue)
+{
+    JSValue value = JSValue::decode(encodedValue);
+    JSTestNodePrototype* domObject = jsDynamicCast<JSTestNodePrototype*>(JSValue::decode(thisValue));
+    if (UNLIKELY(!domObject)) {
+        throwVMTypeError(state);
+        return false;
+    }
+    // Shadowing a built-in constructor
+    return domObject->putDirect(state->vm(), state->propertyNames().constructor, value);
+}
+
+bool setJSTestNodeName(ExecState* state, EncodedJSValue thisValue, EncodedJSValue encodedValue)
+{
+    JSValue value = JSValue::decode(encodedValue);
+    UNUSED_PARAM(thisValue);
+    JSTestNode* castedThis = jsDynamicCast<JSTestNode*>(JSValue::decode(thisValue));
+    if (UNLIKELY(!castedThis)) {
+        return throwSetterTypeError(*state, "TestNode", "name");
+    }
+    auto& impl = castedThis->wrapped();
+    auto nativeValue = value.toWTFString(state);
+    if (UNLIKELY(state->hadException()))
+        return false;
+    impl.setName(WTFMove(nativeValue));
+    return true;
+}
+
+
+JSValue JSTestNode::getConstructor(VM& vm, const JSGlobalObject* globalObject)
+{
+    return getDOMConstructor<JSTestNodeConstructor>(vm, *jsCast<const JSDOMGlobalObject*>(globalObject));
+}
+
+using TestNodeIterator = JSDOMIterator<JSTestNode>;
+using TestNodeIteratorPrototype = JSDOMIteratorPrototype<JSTestNode>;
+
+template<>
+const JSC::ClassInfo TestNodeIterator::s_info = { "TestNode Iterator", &Base::s_info, 0, CREATE_METHOD_TABLE(TestNodeIterator) };
+
+template<>
+const JSC::ClassInfo TestNodeIteratorPrototype::s_info = { "TestNode Iterator", &Base::s_info, 0, CREATE_METHOD_TABLE(TestNodeIteratorPrototype) };
+
+JSC::EncodedJSValue JSC_HOST_CALL jsTestNodePrototypeFunctionSymbolIterator(JSC::ExecState* state)
+{
+    return iteratorCreate<JSTestNode>(*state, IterationKind::Value, "[Symbol.Iterator]");
+}
+
+JSC::EncodedJSValue JSC_HOST_CALL jsTestNodePrototypeFunctionEntries(JSC::ExecState* state)
+{
+    return iteratorCreate<JSTestNode>(*state, IterationKind::KeyValue, "entries");
+}
+
+JSC::EncodedJSValue JSC_HOST_CALL jsTestNodePrototypeFunctionKeys(JSC::ExecState* state)
+{
+    return iteratorCreate<JSTestNode>(*state, IterationKind::Key, "keys");
+}
+
+JSC::EncodedJSValue JSC_HOST_CALL jsTestNodePrototypeFunctionValues(JSC::ExecState* state)
+{
+    return iteratorCreate<JSTestNode>(*state, IterationKind::Value, "values");
+}
+
+JSC::EncodedJSValue JSC_HOST_CALL jsTestNodePrototypeFunctionForEach(JSC::ExecState* state)
+{
+    return iteratorForEach<JSTestNode>(*state, "forEach");
 }
 
 void JSTestNode::visitChildren(JSCell* cell, SlotVisitor& visitor)
@@ -162,7 +254,45 @@ void JSTestNode::visitChildren(JSCell* cell, SlotVisitor& visitor)
     auto* thisObject = jsCast<JSTestNode*>(cell);
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
     Base::visitChildren(thisObject, visitor);
-    thisObject->impl().visitJSEventListeners(visitor);
+    thisObject->wrapped().visitJSEventListeners(visitor);
+}
+
+#if ENABLE(BINDING_INTEGRITY)
+#if PLATFORM(WIN)
+#pragma warning(disable: 4483)
+extern "C" { extern void (*const __identifier("??_7TestNode@WebCore@@6B@")[])(); }
+#else
+extern "C" { extern void* _ZTVN7WebCore8TestNodeE[]; }
+#endif
+#endif
+
+JSC::JSValue toJSNewlyCreated(JSC::ExecState*, JSDOMGlobalObject* globalObject, Ref<TestNode>&& impl)
+{
+
+#if ENABLE(BINDING_INTEGRITY)
+    void* actualVTablePointer = *(reinterpret_cast<void**>(impl.ptr()));
+#if PLATFORM(WIN)
+    void* expectedVTablePointer = reinterpret_cast<void*>(__identifier("??_7TestNode@WebCore@@6B@"));
+#else
+    void* expectedVTablePointer = &_ZTVN7WebCore8TestNodeE[2];
+#if COMPILER(CLANG)
+    // If this fails TestNode does not have a vtable, so you need to add the
+    // ImplementationLacksVTable attribute to the interface definition
+    static_assert(__is_polymorphic(TestNode), "TestNode is not polymorphic");
+#endif
+#endif
+    // If you hit this assertion you either have a use after free bug, or
+    // TestNode has subclasses. If TestNode has subclasses that get passed
+    // to toJS() we currently require TestNode you to opt out of binding hardening
+    // by adding the SkipVTableValidation attribute to the interface IDL definition
+    RELEASE_ASSERT(actualVTablePointer == expectedVTablePointer);
+#endif
+    return createWrapper<JSTestNode, TestNode>(globalObject, WTFMove(impl));
+}
+
+JSC::JSValue toJS(JSC::ExecState* state, JSDOMGlobalObject* globalObject, TestNode& impl)
+{
+    return wrap(state, globalObject, impl);
 }
 
 

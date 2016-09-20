@@ -391,7 +391,7 @@ static int ftp_getrc_msg(conn_rec *ftp_ctrl, apr_bucket_brigade *bb, char *msgbu
         return -1;
     }
 /*
-    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, NULL,
+    ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, NULL, APLOGNO(03233)
                  "<%s", response);
 */
     if (!apr_isdigit(response[0]) || !apr_isdigit(response[1]) ||
@@ -2015,7 +2015,6 @@ static int proxy_ftp_handler(request_rec *r, proxy_worker *worker,
 #endif
             /* sanity check */
             if (APR_BRIGADE_EMPTY(bb)) {
-                apr_brigade_cleanup(bb);
                 break;
             }
 

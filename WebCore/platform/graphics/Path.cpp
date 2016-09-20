@@ -34,28 +34,31 @@
 #include "FloatRoundedRect.h"
 #include "PathTraversalState.h"
 #include "RoundedRect.h"
+#include "TextStream.h"
 #include <math.h>
 #include <wtf/MathExtras.h>
 
 namespace WebCore {
 
-static void pathLengthApplierFunction(void* info, const PathElement* element)
-{
-    PathTraversalState& traversalState = *static_cast<PathTraversalState*>(info);
-    traversalState.processPathElement(element);
-}
-
 float Path::length() const
 {
     PathTraversalState traversalState(PathTraversalState::Action::TotalLength);
-    apply(&traversalState, pathLengthApplierFunction);
+
+    apply([&traversalState](const PathElement& element) {
+        traversalState.processPathElement(element);
+    });
+
     return traversalState.totalLength();
 }
 
 PathTraversalState Path::traversalStateAtLength(float length, bool& success) const
 {
     PathTraversalState traversalState(PathTraversalState::Action::VectorAtLength, length);
-    apply(&traversalState, pathLengthApplierFunction);
+
+    apply([&traversalState](const PathElement& element) {
+        traversalState.processPathElement(element);
+    });
+
     success = traversalState.success();
     return traversalState;
 }
@@ -127,43 +130,91 @@ void Path::addRoundedRect(const RoundedRect& r)
     addRoundedRect(FloatRoundedRect(r));
 }
 
-// Approximation of control point positions on a bezier to simulate a quarter of a circle.
-// This is 1-kappa, where kappa = 4 * (sqrt(2) - 1) / 3
-static const float gCircleControlPoint = 0.447715f;
-
 void Path::addBeziersForRoundedRect(const FloatRect& rect, const FloatSize& topLeftRadius, const FloatSize& topRightRadius, const FloatSize& bottomLeftRadius, const FloatSize& bottomRightRadius)
 {
     moveTo(FloatPoint(rect.x() + topLeftRadius.width(), rect.y()));
 
     addLineTo(FloatPoint(rect.maxX() - topRightRadius.width(), rect.y()));
     if (topRightRadius.width() > 0 || topRightRadius.height() > 0)
-        addBezierCurveTo(FloatPoint(rect.maxX() - topRightRadius.width() * gCircleControlPoint, rect.y()),
-            FloatPoint(rect.maxX(), rect.y() + topRightRadius.height() * gCircleControlPoint),
+        addBezierCurveTo(FloatPoint(rect.maxX() - topRightRadius.width() * circleControlPoint(), rect.y()),
+            FloatPoint(rect.maxX(), rect.y() + topRightRadius.height() * circleControlPoint()),
             FloatPoint(rect.maxX(), rect.y() + topRightRadius.height()));
     addLineTo(FloatPoint(rect.maxX(), rect.maxY() - bottomRightRadius.height()));
     if (bottomRightRadius.width() > 0 || bottomRightRadius.height() > 0)
-        addBezierCurveTo(FloatPoint(rect.maxX(), rect.maxY() - bottomRightRadius.height() * gCircleControlPoint),
-            FloatPoint(rect.maxX() - bottomRightRadius.width() * gCircleControlPoint, rect.maxY()),
+        addBezierCurveTo(FloatPoint(rect.maxX(), rect.maxY() - bottomRightRadius.height() * circleControlPoint()),
+            FloatPoint(rect.maxX() - bottomRightRadius.width() * circleControlPoint(), rect.maxY()),
             FloatPoint(rect.maxX() - bottomRightRadius.width(), rect.maxY()));
     addLineTo(FloatPoint(rect.x() + bottomLeftRadius.width(), rect.maxY()));
     if (bottomLeftRadius.width() > 0 || bottomLeftRadius.height() > 0)
-        addBezierCurveTo(FloatPoint(rect.x() + bottomLeftRadius.width() * gCircleControlPoint, rect.maxY()),
-            FloatPoint(rect.x(), rect.maxY() - bottomLeftRadius.height() * gCircleControlPoint),
+        addBezierCurveTo(FloatPoint(rect.x() + bottomLeftRadius.width() * circleControlPoint(), rect.maxY()),
+            FloatPoint(rect.x(), rect.maxY() - bottomLeftRadius.height() * circleControlPoint()),
             FloatPoint(rect.x(), rect.maxY() - bottomLeftRadius.height()));
     addLineTo(FloatPoint(rect.x(), rect.y() + topLeftRadius.height()));
     if (topLeftRadius.width() > 0 || topLeftRadius.height() > 0)
-        addBezierCurveTo(FloatPoint(rect.x(), rect.y() + topLeftRadius.height() * gCircleControlPoint),
-            FloatPoint(rect.x() + topLeftRadius.width() * gCircleControlPoint, rect.y()),
+        addBezierCurveTo(FloatPoint(rect.x(), rect.y() + topLeftRadius.height() * circleControlPoint()),
+            FloatPoint(rect.x() + topLeftRadius.width() * circleControlPoint(), rect.y()),
             FloatPoint(rect.x() + topLeftRadius.width(), rect.y()));
 
     closeSubpath();
 }
 
 #if !USE(CG)
+Path Path::polygonPathFromPoints(const Vector<FloatPoint>& points)
+{
+    Path path;
+    if (points.size() < 2)
+        return path;
+
+    path.moveTo(points[0]);
+    for (size_t i = 1; i < points.size(); ++i)
+        path.addLineTo(points[i]);
+
+    path.closeSubpath();
+    return path;
+}
+
 FloatRect Path::fastBoundingRect() const
 {
     return boundingRect();
 }
 #endif
+
+#ifndef NDEBUG
+void Path::dump() const
+{
+    TextStream stream;
+    stream << *this;
+    WTFLogAlways("%s", stream.release().utf8().data());
+}
+#endif
+
+TextStream& operator<<(TextStream& stream, const Path& path)
+{
+    bool isFirst = true;
+    path.apply([&stream, &isFirst](const PathElement& element) {
+        if (!isFirst)
+            stream << ", ";
+        isFirst = false;
+        switch (element.type) {
+        case PathElementMoveToPoint: // The points member will contain 1 value.
+            stream << "move to " << element.points[0];
+            break;
+        case PathElementAddLineToPoint: // The points member will contain 1 value.
+            stream << "add line to " << element.points[0];
+            break;
+        case PathElementAddQuadCurveToPoint: // The points member will contain 2 values.
+            stream << "add quad curve to " << element.points[0] << " " << element.points[1];
+            break;
+        case PathElementAddCurveToPoint: // The points member will contain 3 values.
+            stream << "add curve to " << element.points[0] << " " << element.points[1] << " " << element.points[2];
+            break;
+        case PathElementCloseSubpath: // The points member will contain no values.
+            stream << "close subpath";
+            break;
+        }
+    });
+    
+    return stream;
+}
 
 }

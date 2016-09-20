@@ -147,7 +147,7 @@ protected:
      * Free all of this object's outstanding resources.
      */
 
-    virtual void free(void);
+    virtual void free(void) APPLE_KEXT_OVERRIDE;
 
     /*
      * Scan the provider media for an Apple partition map.  Returns the set
@@ -202,31 +202,31 @@ public:
      * Initialize this object's minimal state.
      */
 
-    virtual bool init(OSDictionary * properties = 0);
+    virtual bool init(OSDictionary * properties = 0) APPLE_KEXT_OVERRIDE;
 
     /*
      * Determine whether the provider media contains an Apple partition map.
      */
 
-    virtual IOService * probe(IOService * provider, SInt32 * score);
+    virtual IOService * probe(IOService * provider, SInt32 * score) APPLE_KEXT_OVERRIDE;
 
     /*
      * Publish the new media objects which represent our partitions.
      */
 
-    virtual bool start(IOService * provider);
+    virtual bool start(IOService * provider) APPLE_KEXT_OVERRIDE;
 
     /*
      * Clean up after the media objects we published before terminating.
      */
 
-    virtual void stop(IOService * provider);
+    virtual void stop(IOService * provider) APPLE_KEXT_OVERRIDE;
 
     /*
      * Request that the provider media be re-scanned for partitions.
      */
 
-    virtual IOReturn requestProbe(IOOptionBits options);
+    virtual IOReturn requestProbe(IOOptionBits options) APPLE_KEXT_OVERRIDE;
 
     OSMetaClassDeclareReservedUnused(IOApplePartitionScheme,  0);
     OSMetaClassDeclareReservedUnused(IOApplePartitionScheme,  1);

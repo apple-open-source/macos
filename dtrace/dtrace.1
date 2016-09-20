@@ -36,7 +36,8 @@ Due to the kernel facility it uses to operate, the \fIdtrace\fP command requires
 .br
 .P
 Users new to DTrace are encouraged to read:
-\fIHow to Use Oracle Solaris DTrace from Oracle Solaris and OpenSolaris System\fP. Oracle, 2010. Available on the web at http://www.oracle.com/technetwork/server-storage/solaris10/solaris-dtrace-wp-167895.pdf
+\fIHow to Use Oracle Solaris DTrace from Oracle Solaris and OpenSolaris
+System\fP. Oracle, 2010. Available on the web at http://www.oracle.com/technetwork/server-storage/solaris/solaris-dtrace-wp-167895.pdf
 .SH DESCRIPTION
 The \fIdtrace\fP command provides a generic interface to all of the essential services provided by the DTrace facility, including:
 ." If I wanted numbered lists, I'd use .IP n[step] 3 for the first and .IP n+[step] for each other entry
@@ -62,7 +63,9 @@ Set dtrace's target data model. See \fIarch\fR(1) for a list of currently suppor
 Claim anonymous tracing state and display the traced data.  You can combine the \fB\-a\fP option with the \fB\-e\fP option to force \fIdtrace\fP to exit immediately after consuming the anonymous tracing state rather than continuing to wait for new data.
 .TP
 .B \-A
-Generate a plist(5) of directives for anonymous tracing.  If the \fB\-A\fP option is specified, \fIdtrace\fP compiles any D programs specified using the \fB\-s\fP option or on the command-line and constructs a plist(5) of dtrace directives to enable the specified probes for anonymous trcaing and then exits.  By default, \fIdtrace\fP attempts to store the plist to the file /System/Library/Extensions/dtrace_dof.kext/Contents/Info.plist.  This behavior can be modified using the \fB\-o\fP option to specify an alternate output file.
+Generate a plist(5) of directives for anonymous tracing.  If the \fB\-A\fP
+option is specified, \fIdtrace\fP compiles any D programs specified using the
+\fB\-s\fP option or on the command-line and constructs a plist(5) of dtrace directives to enable the specified probes for anonymous tracing and then exits.  By default, \fIdtrace\fP attempts to store the plist to the file /System/Library/Extensions/dtrace_dof.kext/Contents/Info.plist.  This behavior can be modified using the \fB\-o\fP option to specify an alternate output file.
 .TP
 .B \-b
 Set principal trace buffer size.  The trace buffer size can include any of the size suffixes \fBk\fP, \fBm\fP, \fBg\fP, or \fBt\fP.  If the buffer space cannot be allocated, \fIdtrace\fP attempts to reduce the buffer size or exit depending on the setting of the bufresize property.

@@ -33,6 +33,10 @@
 #include <ctkclient.h>
 #include <libaks_acl_cf_keys.h>
 
+#if TKTOKEN_CLIENT_INTERFACE_VERSION <= 1
+#define kTKTokenCreateAttributeAuxParams "auxParams"
+#endif
+
 #include "SecECKey.h"
 #include "SecRSAKey.h"
 #include "SecCTKKeyPriv.h"
@@ -46,6 +50,7 @@ typedef struct {
     CFDataRef objectID;
     SecCFDictionaryCOW auth_params;
     SecCFDictionaryCOW attributes;
+    CFMutableDictionaryRef params;
 } SecCTKKeyData;
 
 static void SecCTKKeyDestroy(SecKeyRef key) {
@@ -55,14 +60,22 @@ static void SecCTKKeyDestroy(SecKeyRef key) {
     CFReleaseSafe(kd->objectID);
     CFReleaseSafe(kd->auth_params.mutable_dictionary);
     CFReleaseSafe(kd->attributes.mutable_dictionary);
+    CFReleaseSafe(kd->params);
 }
 
 static CFIndex SecCTKGetAlgorithmID(SecKeyRef key) {
     SecCTKKeyData *kd = key->key;
-    if (CFEqualSafe(CFDictionaryGetValue(kd->attributes.dictionary, kSecAttrKeyType), kSecAttrKeyTypeEC))
-        return kSecECDSAAlgorithmID;
-    else
-        return kSecRSAAlgorithmID;
+    CFTypeRef type = CFDictionaryGetValue(kd->attributes.dictionary, kSecAttrKeyType);
+    if (type != NULL) {
+        if (CFGetTypeID(type) == CFNumberGetTypeID()) {
+            CFIndex keyType;
+            if (CFNumberGetValue(type, kCFNumberCFIndexType, &keyType) && keyType == 73 /* kSecAttrKeyTypeEC */)
+                return kSecECDSAAlgorithmID;
+        } else if (CFGetTypeID(type) == CFStringGetTypeID() && CFEqual(type, kSecAttrKeyTypeEC)) {
+            return kSecECDSAAlgorithmID;
+        }
+    }
+    return kSecRSAAlgorithmID;
 }
 
 static SecItemAuthResult SecCTKProcessError(CFStringRef operation, TKTokenRef token, CFDataRef object_id, CFArrayRef *ac_pairs, CFErrorRef *error) {
@@ -82,47 +95,48 @@ static SecItemAuthResult SecCTKProcessError(CFStringRef operation, TKTokenRef to
     return kSecItemAuthResultError;
 }
 
-static OSStatus SecCTKKeyRawSign(SecKeyRef key, SecPadding padding,
-                                 const uint8_t *dataToSign, size_t dataToSignLen,
-                                 uint8_t *sig, size_t *sigLen) {
-    OSStatus status = errSecSuccess;
-    CFDataRef digest = CFDataCreateWithBytesNoCopy(NULL, dataToSign, dataToSignLen, kCFAllocatorNull);
+static const CFTypeRef *aclOperations[] = {
+    [kSecKeyOperationTypeSign] = &kAKSKeyOpSign,
+    [kSecKeyOperationTypeDecrypt] = &kAKSKeyOpDecrypt,
+    [kSecKeyOperationTypeKeyExchange] = &kAKSKeyOpComputeKey,
+};
 
+static CFTypeRef SecCTKKeyCopyOperationResult(SecKeyRef key, SecKeyOperationType operation, SecKeyAlgorithm algorithm,
+                                              CFArrayRef algorithms, SecKeyOperationMode mode,
+                                              CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
     SecCTKKeyData *kd = key->key;
-    __block SecCFDictionaryCOW sign_auth_params = { kd->auth_params.dictionary };
+    __block SecCFDictionaryCOW auth_params = { kd->auth_params.dictionary };
     __block TKTokenRef token = CFRetainSafe(kd->token);
+    __block CFTypeRef result = kCFNull;
 
-    status = SecOSStatusWith(^bool(CFErrorRef *error) {
-        return SecItemAuthDo(&sign_auth_params, error, ^SecItemAuthResult(CFDictionaryRef auth_params, CFArrayRef *ac_pairs, CFErrorRef *error) {
-            CFDataRef signature = NULL;
-            SecItemAuthResult auth_result = kSecItemAuthResultOK;
-
-            if (sign_auth_params.mutable_dictionary != NULL) {
-                // auth_params were modified, so reconnect the token in order to update the attributes.
-                TKTokenRef new_token = NULL;
-                require_quiet(new_token = SecTokenCreate(kd->token_id, auth_params, error), out);
-                CFAssignRetained(token, new_token);
+    CFErrorRef localError = NULL;
+    SecItemAuthDo(&auth_params, &localError, ^SecItemAuthResult(CFDictionaryRef ap, CFArrayRef *ac_pairs, CFErrorRef *error) {
+        if (auth_params.mutable_dictionary != NULL || token == NULL || kd->params != NULL) {
+            // token was not connected yet or auth_params were modified, so reconnect the token in order to update the attributes.
+            SecCFDictionaryCOW attributes = { ap };
+            if (kd->params && CFDictionaryGetCount(kd->params) > 0) {
+                CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&attributes), CFSTR(kTKTokenCreateAttributeAuxParams), kd->params);
             }
+            CFAssignRetained(token, SecTokenCreate(kd->token_id, attributes.dictionary, error));
+            CFReleaseSafe(attributes.mutable_dictionary);
+            if (token == NULL) {
+                return kSecItemAuthResultError;
+            }
+        }
 
-            require_action_quiet(signature = TKTokenCopySignature(token, kd->objectID, padding, digest, error), out,
-                                 auth_result = SecCTKProcessError(kAKSKeyOpSign, token, kd->objectID, ac_pairs, error));
-            require_action_quiet((CFIndex)*sigLen >= CFDataGetLength(signature), out,
-                                 SecError(errSecParam, error, CFSTR("signature buffer too small (%ulb required)"),
-                                          (unsigned long)CFDataGetLength(signature)));
-            *sigLen = CFDataGetLength(signature);
-            CFDataGetBytes(signature, CFRangeMake(0, *sigLen), sig);
-            *sigLen = CFDataGetLength(signature);
-
-        out:
-            CFReleaseSafe(signature);
-            return auth_result;
-        });
+#if TKTOKEN_CLIENT_INTERFACE_VERSION >= 1
+        result = TKTokenCopyOperationResult(token, kd->objectID, operation, algorithms, mode, in1, in2, error);
+#else
+        result = TKTokenCopyCryptoResult(token, kd->objectID, operation, (CFIndex)algorithm, in1, in2, error);
+#endif
+        return (result != NULL) ? kSecItemAuthResultOK : SecCTKProcessError(*aclOperations[operation], token,
+                                                                            kd->objectID, ac_pairs, error);
     });
 
-    CFReleaseSafe(sign_auth_params.mutable_dictionary);
-    CFReleaseSafe(digest);
+    CFErrorPropagate(localError, error);
+    CFReleaseSafe(auth_params.mutable_dictionary);
     CFReleaseSafe(token);
-    return status;
+    return result;
 }
 
 static size_t SecCTKKeyBlockSize(SecKeyRef key) {
@@ -213,27 +227,21 @@ out:
     return attrs;
 }
 
-SecKeyDescriptor kSecCTKKeyDescriptor = {
-    kSecKeyDescriptorVersion,
-    "CTKKey",
-    sizeof(SecCTKKeyData),
-    NULL, // SecKeyInit
-    SecCTKKeyDestroy,
-    SecCTKKeyRawSign,
-    NULL, // SecKeyRawVerifyMethod
-    NULL, // SecKeyEncryptMethod
-    NULL, // SecKeyRawDecrypt
-    NULL, // SecKeyComputeMethod
-    SecCTKKeyBlockSize,
-    SecCTKKeyCopyAttributeDictionary,
-    SecCTKKeyCopyKeyDescription,
-    SecCTKGetAlgorithmID,
-    SecCTKKeyCopyPublicOctets,
-    NULL, // SecKeyCopyWrapKey
-    NULL, // SecKeyCopyUnwrapKey
+static SecKeyDescriptor kSecCTKKeyDescriptor = {
+    .version = kSecKeyDescriptorVersion,
+    .name = "CTKKey",
+    .extraBytes = sizeof(SecCTKKeyData),
+
+    .destroy = SecCTKKeyDestroy,
+    .blockSize = SecCTKKeyBlockSize,
+    .copyDictionary = SecCTKKeyCopyAttributeDictionary,
+    .describe = SecCTKKeyCopyKeyDescription,
+    .getAlgorithmID = SecCTKGetAlgorithmID,
+    .copyPublic = SecCTKKeyCopyPublicOctets,
+    .copyOperationResult = SecCTKKeyCopyOperationResult,
 };
 
-SecKeyRef SecKeyCreateCTKKey(CFAllocatorRef allocator, CFDictionaryRef refAttributes) {
+SecKeyRef SecKeyCreateCTKKey(CFAllocatorRef allocator, CFDictionaryRef refAttributes, CFErrorRef *error) {
     SecKeyRef key = SecKeyCreate(allocator, &kSecCTKKeyDescriptor, 0, 0, 0);
     SecCTKKeyData *kd = key->key;
     kd->token = CFRetainSafe(CFDictionaryGetValue(refAttributes, kSecUseToken));
@@ -243,6 +251,9 @@ SecKeyRef SecKeyCreateCTKKey(CFAllocatorRef allocator, CFDictionaryRef refAttrib
     CFDictionaryRemoveValue(SecCFDictionaryCOWGetMutable(&kd->attributes), kSecUseToken);
     CFDictionaryRemoveValue(SecCFDictionaryCOWGetMutable(&kd->attributes), kSecUseTokenObjectID);
     SecItemAuthCopyParams(&kd->auth_params, &kd->attributes);
+    if (CFDictionaryGetValue(kd->attributes.dictionary, kSecAttrIsPrivate) == NULL) {
+        CFDictionarySetValue(SecCFDictionaryCOWGetMutable(&kd->attributes), kSecAttrIsPrivate, kCFBooleanTrue);
+    }
     return key;
 }
 
@@ -294,4 +305,138 @@ out:
     CFReleaseSafe(attrs);
     CFReleaseSafe(publicData);
     return status;
+}
+
+SecKeyRef SecKeyCopyAttestationKey(SecKeyAttestationKeyType keyType, CFErrorRef *error) {
+    if (keyType != kSecKeyAttestationKeyTypeSIK && keyType != kSecKeyAttestationKeyTypeGID) {
+        SecError(errSecParam, error, CFSTR("unexpected attestation key type %u"), (unsigned)keyType);
+        return NULL;
+    }
+
+    // [NSKeyedArchiver archivedDataWithRootObject:[@"com.apple.setoken.sik" dataUsingEncoding:NSUTF8StringEncoding]];
+    static const uint8_t sikObjectIDBytes[] = {
+        0x62, 0x70, 0x6c, 0x69, 0x73, 0x74, 0x30, 0x30, 0xd4, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x14,
+        0x15, 0x58, 0x24, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x58, 0x24, 0x6f, 0x62, 0x6a, 0x65,
+        0x63, 0x74, 0x73, 0x59, 0x24, 0x61, 0x72, 0x63, 0x68, 0x69, 0x76, 0x65, 0x72, 0x54, 0x24, 0x74,
+        0x6f, 0x70, 0x12, 0x00, 0x01, 0x86, 0xa0, 0xa3, 0x07, 0x08, 0x0d, 0x55, 0x24, 0x6e, 0x75, 0x6c,
+        0x6c, 0xd2, 0x09, 0x0a, 0x0b, 0x0c, 0x57, 0x4e, 0x53, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x56, 0x24,
+        0x63, 0x6c, 0x61, 0x73, 0x73, 0x4f, 0x10, 0x15, 0x63, 0x6f, 0x6d, 0x2e, 0x61, 0x70, 0x70, 0x6c,
+        0x65, 0x2e, 0x73, 0x65, 0x74, 0x6f, 0x6b, 0x65, 0x6e, 0x2e, 0x73, 0x69, 0x6b, 0x80, 0x02, 0xd2,
+        0x0e, 0x0f, 0x10, 0x11, 0x5a, 0x24, 0x63, 0x6c, 0x61, 0x73, 0x73, 0x6e, 0x61, 0x6d, 0x65, 0x58,
+        0x24, 0x63, 0x6c, 0x61, 0x73, 0x73, 0x65, 0x73, 0x5d, 0x4e, 0x53, 0x4d, 0x75, 0x74, 0x61, 0x62,
+        0x6c, 0x65, 0x44, 0x61, 0x74, 0x61, 0xa3, 0x10, 0x12, 0x13, 0x56, 0x4e, 0x53, 0x44, 0x61, 0x74,
+        0x61, 0x58, 0x4e, 0x53, 0x4f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x5f, 0x10, 0x0f, 0x4e, 0x53, 0x4b,
+        0x65, 0x79, 0x65, 0x64, 0x41, 0x72, 0x63, 0x68, 0x69, 0x76, 0x65, 0x72, 0xd1, 0x16, 0x17, 0x54,
+        0x72, 0x6f, 0x6f, 0x74, 0x80, 0x01, 0x08, 0x11, 0x1a, 0x23, 0x2d, 0x32, 0x37, 0x3b, 0x41, 0x46,
+        0x4e, 0x55, 0x6d, 0x6f, 0x74, 0x7f, 0x88, 0x96, 0x9a, 0xa1, 0xaa, 0xbc, 0xbf, 0xc4, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x18, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc6
+    };
+
+    // [NSKeyedArchiver archivedDataWithRootObject:[@"com.apple.setoken.gid" dataUsingEncoding:NSUTF8StringEncoding]];
+    static const uint8_t gidObjectIDBytes[] = {
+        0x62, 0x70, 0x6c, 0x69, 0x73, 0x74, 0x30, 0x30, 0xd4, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x14,
+        0x15, 0x58, 0x24, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x58, 0x24, 0x6f, 0x62, 0x6a, 0x65,
+        0x63, 0x74, 0x73, 0x59, 0x24, 0x61, 0x72, 0x63, 0x68, 0x69, 0x76, 0x65, 0x72, 0x54, 0x24, 0x74,
+        0x6f, 0x70, 0x12, 0x00, 0x01, 0x86, 0xa0, 0xa3, 0x07, 0x08, 0x0d, 0x55, 0x24, 0x6e, 0x75, 0x6c,
+        0x6c, 0xd2, 0x09, 0x0a, 0x0b, 0x0c, 0x57, 0x4e, 0x53, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x56, 0x24,
+        0x63, 0x6c, 0x61, 0x73, 0x73, 0x4f, 0x10, 0x15, 0x63, 0x6f, 0x6d, 0x2e, 0x61, 0x70, 0x70, 0x6c,
+        0x65, 0x2e, 0x73, 0x65, 0x74, 0x6f, 0x6b, 0x65, 0x6e, 0x2e, 0x67, 0x69, 0x64, 0x80, 0x02, 0xd2,
+        0x0e, 0x0f, 0x10, 0x11, 0x5a, 0x24, 0x63, 0x6c, 0x61, 0x73, 0x73, 0x6e, 0x61, 0x6d, 0x65, 0x58,
+        0x24, 0x63, 0x6c, 0x61, 0x73, 0x73, 0x65, 0x73, 0x5d, 0x4e, 0x53, 0x4d, 0x75, 0x74, 0x61, 0x62,
+        0x6c, 0x65, 0x44, 0x61, 0x74, 0x61, 0xa3, 0x10, 0x12, 0x13, 0x56, 0x4e, 0x53, 0x44, 0x61, 0x74,
+        0x61, 0x58, 0x4e, 0x53, 0x4f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x5f, 0x10, 0x0f, 0x4e, 0x53, 0x4b,
+        0x65, 0x79, 0x65, 0x64, 0x41, 0x72, 0x63, 0x68, 0x69, 0x76, 0x65, 0x72, 0xd1, 0x16, 0x17, 0x54,
+        0x72, 0x6f, 0x6f, 0x74, 0x80, 0x01, 0x08, 0x11, 0x1a, 0x23, 0x2d, 0x32, 0x37, 0x3b, 0x41, 0x46,
+        0x4e, 0x55, 0x6d, 0x6f, 0x74, 0x7f, 0x88, 0x96, 0x9a, 0xa1, 0xaa, 0xbc, 0xbf, 0xc4, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x18, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc6
+    };
+
+    CFDataRef objectID = (keyType == kSecKeyAttestationKeyTypeSIK) ?
+                         CFDataCreate(kCFAllocatorDefault, sikObjectIDBytes, sizeof(sikObjectIDBytes)) :
+                         CFDataCreate(kCFAllocatorDefault, gidObjectIDBytes, sizeof(gidObjectIDBytes)) ;
+
+    const void *keys[] = { kSecUseToken, kSecUseTokenObjectID, kSecAttrTokenID };
+    const void *values[] = { kCFNull, objectID, CFSTR("com.apple.setoken.attest") };
+
+    CFDictionaryRef attributes = CFDictionaryCreate(kCFAllocatorDefault,
+                                                    keys, values, sizeof(keys) / sizeof(*keys),
+                                                    &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+
+    return SecKeyCreateCTKKey(kCFAllocatorDefault, attributes, error);
+}
+
+CFDataRef SecKeyCreateAttestation(SecKeyRef key, SecKeyRef keyToAttest, CFErrorRef *error) {
+    if (!key || !keyToAttest) {
+        SecError(errSecParam, error, CFSTR("attestation key(s) is NULL"));
+        return NULL;
+    }
+
+    SecCTKKeyData *attestingKeyData = key->key;
+    SecCTKKeyData *keyToAttestData = keyToAttest->key;
+
+    if (key->key_class != &kSecCTKKeyDescriptor) {
+        SecError(errSecUnsupportedOperation, error, CFSTR("attestation not supported by key %@"), key);
+        return NULL;
+    }
+    if (keyToAttest->key_class != &kSecCTKKeyDescriptor || CFEqual(keyToAttestData->token, kCFNull)) {
+        SecError(errSecUnsupportedOperation, error, CFSTR("attestation not supported for key %@"), keyToAttest);
+        return NULL;
+    }
+
+    const void *keys[] = {
+        CFSTR(kTKTokenControlAttribAttestingKey),
+        CFSTR(kTKTokenControlAttribKeyToAttest),
+    };
+    const void *values[] = {
+        attestingKeyData->objectID,
+        keyToAttestData->objectID
+    };
+
+    CFDictionaryRef attributes = NULL;
+    __block CFDictionaryRef outputAttributes = NULL;
+    CFDataRef attestationData = NULL;
+    __block SecCFDictionaryCOW sign_auth_params = { keyToAttestData->auth_params.dictionary };
+
+    attributes = CFDictionaryCreate(kCFAllocatorDefault, keys, values, sizeof(keys) / sizeof(*keys),
+                                    &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+
+    SecItemAuthDo(&sign_auth_params, error, ^SecItemAuthResult(CFDictionaryRef auth_params, CFArrayRef *ac_pairs, CFErrorRef *error) {
+        outputAttributes = TKTokenControl(keyToAttestData->token, attributes, error);
+        return outputAttributes ? kSecItemAuthResultOK : SecCTKProcessError(kAKSKeyOpAttest, keyToAttestData->token, keyToAttestData->objectID, ac_pairs, error);
+    });
+    require(outputAttributes, out);
+
+    attestationData = CFDictionaryGetValue(outputAttributes, CFSTR(kTKTokenControlAttribAttestationData));
+    require_action(attestationData, out, SecError(errSecInternal, error, CFSTR("could not get attestation data")));
+
+    if (CFGetTypeID(attestationData) != CFDataGetTypeID()) {
+        SecError(errSecInternal, error, CFSTR("unexpected attestation object type"));
+        attestationData = NULL;
+    }
+
+    CFRetainSafe(attestationData);
+
+out:
+    CFReleaseSafe(attributes);
+    CFReleaseSafe(outputAttributes);
+    return attestationData;
+}
+
+Boolean SecKeySetParameter(SecKeyRef key, CFStringRef name, CFPropertyListRef value, CFErrorRef *error) {
+    require_action_quiet(key->key_class == &kSecCTKKeyDescriptor, out,
+                         SecError(errSecUnimplemented, error, CFSTR("SecKeySetParameter() not supported for key %@"), key));
+    SecCTKKeyData *kd = key->key;
+    if (kd->params == NULL) {
+        kd->params = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
+    }
+    if (value != NULL) {
+        CFDictionarySetValue(kd->params, name, value);
+    } else {
+        CFDictionaryRemoveValue(kd->params, name);
+    }
+
+out:
+    return TRUE;
 }

@@ -1,6 +1,4 @@
 /*
- * "$Id: usb-libusb.c 12992 2015-11-19 15:19:00Z msweet $"
- *
  * LIBUSB interface code for CUPS.
  *
  * Copyright 2007-2015 by Apple Inc.
@@ -18,6 +16,7 @@
 
 #include <libusb.h>
 #include <cups/cups-private.h>
+#include <cups/ppd-private.h>
 #include <cups/dir.h>
 #include <pthread.h>
 #include <sys/select.h>
@@ -2018,9 +2017,3 @@ soft_reset_printer(
 
   return (errcode);
 }
-
-
-/*
- * End of "$Id: usb-libusb.c 12992 2015-11-19 15:19:00Z msweet $".
- */
-

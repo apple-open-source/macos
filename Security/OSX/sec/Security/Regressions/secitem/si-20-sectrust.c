@@ -5,24 +5,33 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecCertificatePriv.h>
-#include <Security/SecInternal.h>
 #include <Security/SecPolicyPriv.h>
 #include <Security/SecTrustPriv.h>
 #include <Security/SecItem.h>
-#include <ipc/securityd_client.h>
 #include <utilities/array_size.h>
 #include <utilities/SecCFWrappers.h>
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "Security_regressions.h"
+#if TARGET_OS_IPHONE
+#include <Security/SecInternal.h>
+#include <ipc/securityd_client.h>
+#endif
+
+#include "shared_regressions.h"
 #include "si-20-sectrust.h"
 
-/* Test basic add delete update copy matching stuff. */
+/* Test SecTrust API. */
 static void basic_tests(void)
 {
-    SecTrustRef trust;
-	SecCertificateRef cert0, cert1;
+    SecTrustRef trust = NULL;
+    CFArrayRef _anchors = NULL, certs = NULL, anchors = NULL, replacementPolicies;
+	SecCertificateRef cert0 = NULL, cert1 = NULL, _root = NULL, cert_xedge2 = NULL, garthc2 = NULL;
+    SecPolicyRef policy = NULL, replacementPolicy = NULL, replacementPolicy2 = NULL;
+    CFDateRef date = NULL;
+    CFDataRef c0_serial = NULL, serial = NULL;
+    CFDictionaryRef query = NULL;
+
 	isnt(cert0 = SecCertificateCreateWithBytes(NULL, _c0, sizeof(_c0)),
 		NULL, "create cert0");
 	isnt(cert1 = SecCertificateCreateWithBytes(NULL, _c1, sizeof(_c1)),
@@ -31,8 +40,8 @@ static void basic_tests(void)
 		cert0,
 		cert1
 	};
-    SecPolicyRef policy = SecPolicyCreateSSL(false, NULL);
-    CFArrayRef certs = CFArrayCreate(NULL, v_certs,
+    policy = SecPolicyCreateSSL(false, NULL);
+    certs = CFArrayCreate(NULL, v_certs,
 		array_size(v_certs), NULL);
 
     /* SecTrustCreateWithCertificates failures. */
@@ -52,13 +61,14 @@ static void basic_tests(void)
     is(SecTrustGetCertificateAtIndex(trust, 0), cert0, "cert 0 is leaf");
 
 	/* Jul 30 2014. */
-    CFDateRef date = NULL;
     isnt(date = CFDateCreateForGregorianZuluMoment(NULL, 2014, 7, 30, 12, 0, 0),
          NULL, "create verify date");
+    if (!date) { goto errOut; }
     ok_status(SecTrustSetVerifyDate(trust, date), "set date");
 
 	SecTrustResultType trustResult;
 
+#if TARGET_OS_IPHONE
 SKIP: {
 #ifdef NO_SERVER
     skip("Can't fail to connect to securityd in NO_SERVER mode", 4, false);
@@ -74,6 +84,7 @@ SKIP: {
     SecServerSetMachServiceName(NULL);
     // End of Restore OS environment tests
 }
+#endif
 
     ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust");
     is_status(trustResult, kSecTrustResultUnspecified,
@@ -81,24 +92,33 @@ SKIP: {
 
 	is(SecTrustGetCertificateCount(trust), 3, "cert count is 3");
 
-	CFDataRef c0_serial = CFDataCreate(NULL, _c0_serial, sizeof(_c0_serial));
-	CFDataRef serial;
+    if (!cert0) { goto errOut; }
+    c0_serial = CFDataCreate(NULL, _c0_serial, sizeof(_c0_serial));
+#if TARGET_OS_IPHONE
 	ok(serial = SecCertificateCopySerialNumber(cert0), "copy cert0 serial");
+#else
+    CFErrorRef error = NULL;
+    ok(serial = SecCertificateCopySerialNumber(cert0, &error), "copy cert0 serial");
+    CFReleaseNull(error);
+#endif
 	ok(CFEqual(c0_serial, serial), "serial matches");
+    CFReleaseNull(serial);
+    CFReleaseNull(c0_serial);
 
-    CFArrayRef anchors = CFArrayCreate(NULL, (const void **)&cert1, 1, &kCFTypeArrayCallBacks);
+    anchors = CFArrayCreate(NULL, (const void **)&cert1, 1, &kCFTypeArrayCallBacks);
     ok_status(SecTrustSetAnchorCertificates(trust, anchors), "set anchors");
     ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust");
     is_status(trustResult, kSecTrustResultUnspecified,
 		"trust is kSecTrustResultUnspecified");
 	is(SecTrustGetCertificateCount(trust), 2, "cert count is 2");
 
-	CFReleaseSafe(anchors);
+	CFReleaseNull(anchors);
     anchors = CFArrayCreate(NULL, NULL, 0, NULL);
     ok_status(SecTrustSetAnchorCertificates(trust, anchors), "set empty anchors list");
     ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust");
     is_status(trustResult, kSecTrustResultRecoverableTrustFailure,
 		"trust is kSecTrustResultRecoverableTrustFailure");
+    CFReleaseNull(anchors);
 
 	ok_status(SecTrustSetAnchorCertificatesOnly(trust, false), "trust passed in anchors and system anchors");
     ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust");
@@ -111,33 +131,32 @@ SKIP: {
 		"trust is kSecTrustResultRecoverableTrustFailure");
 
     /* Test cert_1 intermediate from the keychain. */
-    CFReleaseSafe(trust);
+    CFReleaseNull(trust);
     ok_status(SecTrustCreateWithCertificates(cert0, policy, &trust),
               "create trust with single cert0");
     ok_status(SecTrustSetVerifyDate(trust, date), "set date");
 
     // Add cert1
-    CFDictionaryRef query = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+    query = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
         kSecClass, kSecClassCertificate, kSecValueRef, cert1, NULL);
     ok_status(SecItemAdd(query, NULL), "add cert1 to keychain");
     ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust");
     // Cleanup added cert1.
     ok_status(SecItemDelete(query), "remove cert1 from keychain");
-    CFReleaseSafe(query);
+    CFReleaseNull(query);
     is_status(trustResult, kSecTrustResultUnspecified,
               "trust is kSecTrustResultUnspecified");
 	is(SecTrustGetCertificateCount(trust), 3, "cert count is 3");
 
     /* Set certs to be the xedge2 leaf. */
-	CFReleaseSafe(certs);
-	const void *cert_xedge2;
+	CFReleaseNull(certs);
 	isnt(cert_xedge2 = SecCertificateCreateWithBytes(NULL, xedge2_certificate,
         sizeof(xedge2_certificate)), NULL, "create cert_xedge2");
-    certs = CFArrayCreate(NULL, &cert_xedge2, 1, NULL);
+    certs = CFArrayCreate(NULL, (const void **)&cert_xedge2, 1, NULL);
 
-	CFReleaseSafe(trust);
-	CFReleaseSafe(policy);
-	CFReleaseSafe(date);
+	CFReleaseNull(trust);
+	CFReleaseNull(policy);
+	CFReleaseNull(date);
     bool server = true;
     policy = SecPolicyCreateSSL(server, CFSTR("xedge2.apple.com"));
     ok_status(SecTrustCreateWithCertificates(certs, policy, &trust),
@@ -146,13 +165,12 @@ SKIP: {
     /* This test uses a cert whose root is no longer in our trust store,
      * so we need to explicitly set it as a trusted anchor
      */
-    SecCertificateRef _root;
     isnt(_root = SecCertificateCreateWithBytes(NULL, entrust1024RootCA, sizeof(entrust1024RootCA)),
          NULL, "create root");
     const void *v_roots[] = { _root };
-    CFArrayRef _anchors;
     isnt(_anchors = CFArrayCreate(NULL, v_roots, array_size(v_roots), NULL),
          NULL, "create anchors");
+    if (!_anchors) { goto errOut; }
     ok_status(SecTrustSetAnchorCertificates(trust, _anchors), "set anchors");
 
     /* Jan 1st 2009. */
@@ -162,8 +180,8 @@ SKIP: {
     is_status(trustResult, kSecTrustResultUnspecified,
 		"trust is kSecTrustResultUnspecified");
 
-	CFReleaseSafe(trust);
-	CFReleaseSafe(policy);
+	CFReleaseNull(trust);
+	CFReleaseNull(policy);
     server = false;
     policy = SecPolicyCreateSSL(server, CFSTR("xedge2.apple.com"));
     ok_status(SecTrustCreateWithCertificates(certs, policy, &trust),
@@ -174,8 +192,8 @@ SKIP: {
     is_status(trustResult, kSecTrustResultRecoverableTrustFailure,
 		"trust is kSecTrustResultRecoverableTrustFailure");
 
-	CFReleaseSafe(trust);
-	CFReleaseSafe(policy);
+	CFReleaseNull(trust);
+	CFReleaseNull(policy);
     server = true;
     policy = SecPolicyCreateIPSec(server, CFSTR("xedge2.apple.com"));
     ok_status(SecTrustCreateWithCertificates(certs, policy, &trust),
@@ -193,32 +211,32 @@ SKIP: {
 		"trust is kSecTrustResultUnspecified");
 #endif
 
-	CFReleaseSafe(trust);
-	CFReleaseSafe(policy);
+	CFReleaseNull(trust);
+	CFReleaseNull(policy);
     server = true;
     policy = SecPolicyCreateSSL(server, CFSTR("nowhere.com"));
     ok_status(SecTrustCreateWithCertificates(certs, policy, &trust),
         "create trust for ssl server nowhere.com");
-    SecPolicyRef replacementPolicy = SecPolicyCreateSSL(server, CFSTR("xedge2.apple.com"));
+    replacementPolicy = SecPolicyCreateSSL(server, CFSTR("xedge2.apple.com"));
     SecTrustSetPolicies(trust, replacementPolicy);
-    CFReleaseSafe(replacementPolicy);
+    CFReleaseNull(replacementPolicy);
     ok_status(SecTrustSetAnchorCertificates(trust, _anchors), "set anchors");
     ok_status(SecTrustSetVerifyDate(trust, date), "set xedge2 trust date to Jan 1st 2009");
     ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate xedge2 trust");
     is_status(trustResult, kSecTrustResultUnspecified,
 		"trust is kSecTrustResultUnspecified");
 
-	CFReleaseSafe(trust);
-	CFReleaseSafe(policy);
+	CFReleaseNull(trust);
+	CFReleaseNull(policy);
     server = true;
     policy = SecPolicyCreateSSL(server, CFSTR("nowhere.com"));
     ok_status(SecTrustCreateWithCertificates(certs, policy, &trust),
         "create trust for ssl server nowhere.com");
-    SecPolicyRef replacementPolicy2 = SecPolicyCreateSSL(server, CFSTR("xedge2.apple.com"));
-    CFArrayRef replacementPolicies = CFArrayCreate(kCFAllocatorDefault, (CFTypeRef*)&replacementPolicy2, 1, &kCFTypeArrayCallBacks);
+    replacementPolicy2 = SecPolicyCreateSSL(server, CFSTR("xedge2.apple.com"));
+    replacementPolicies = CFArrayCreate(kCFAllocatorDefault, (CFTypeRef*)&replacementPolicy2, 1, &kCFTypeArrayCallBacks);
     SecTrustSetPolicies(trust, replacementPolicies);
-    CFReleaseSafe(replacementPolicy2);
-    CFReleaseSafe(replacementPolicies);
+    CFReleaseNull(replacementPolicy2);
+    CFReleaseNull(replacementPolicies);
     ok_status(SecTrustSetAnchorCertificates(trust, _anchors), "set anchors");
     ok_status(SecTrustSetVerifyDate(trust, date), "set xedge2 trust date to Jan 1st 2009");
     ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate xedge2 trust");
@@ -226,15 +244,14 @@ SKIP: {
 		"trust is kSecTrustResultUnspecified");
 
     /* Test self signed ssl cert with cert itself set as anchor. */
-	CFReleaseSafe(trust);
-	CFReleaseSafe(policy);
-	CFReleaseSafe(certs);
-	CFReleaseSafe(date);
-	const void *garthc2;
+	CFReleaseNull(trust);
+	CFReleaseNull(policy);
+	CFReleaseNull(certs);
+	CFReleaseNull(date);
     server = true;
 	isnt(garthc2 = SecCertificateCreateWithBytes(NULL, garthc2_certificate,
         sizeof(garthc2_certificate)), NULL, "create garthc2");
-    certs = CFArrayCreate(NULL, &garthc2, 1, NULL);
+    certs = CFArrayCreate(NULL, (const void **)&garthc2, 1, NULL);
     policy = SecPolicyCreateSSL(server, CFSTR("garthc2.apple.com"));
     ok_status(SecTrustCreateWithCertificates(certs, policy, &trust),
         "create trust for ip server garthc2.apple.com");
@@ -248,20 +265,57 @@ SKIP: {
     is_status(trustResult, kSecTrustResultUnspecified,
 		"trust is kSecTrustResultUnspecified");
 
-	CFReleaseSafe(garthc2);
-	CFReleaseSafe(cert_xedge2);
-	CFReleaseSafe(anchors);
-	CFReleaseSafe(trust);
-	CFReleaseSafe(serial);
-	CFReleaseSafe(c0_serial);
-	CFReleaseSafe(policy);
-	CFReleaseSafe(certs);
-	CFReleaseSafe(cert0);
-	CFReleaseSafe(cert1);
-	CFReleaseSafe(date);
+
+errOut:
+    CFReleaseSafe(garthc2);
+    CFReleaseSafe(cert_xedge2);
+    CFReleaseSafe(anchors);
+    CFReleaseSafe(trust);
+    CFReleaseSafe(serial);
+    CFReleaseSafe(c0_serial);
+    CFReleaseSafe(policy);
+    CFReleaseSafe(certs);
+    CFReleaseSafe(cert0);
+    CFReleaseSafe(cert1);
+    CFReleaseSafe(date);
 
     CFReleaseSafe(_root);
     CFReleaseSafe(_anchors);
+}
+
+static void negative_integer_tests(void)
+{
+    /* Test that we can handle and fix up negative integer value(s) in ECDSA signature */
+    const void *negIntSigLeaf;
+    isnt(negIntSigLeaf = SecCertificateCreateWithBytes(NULL, _leaf_NegativeIntInSig,
+                                                       sizeof(_leaf_NegativeIntInSig)), NULL, "create negIntSigLeaf");
+    CFArrayRef certs = NULL;
+    isnt(certs = CFArrayCreate(NULL, &negIntSigLeaf, 1, NULL), NULL, "failed to create certs array");
+    SecPolicyRef policy = NULL;
+    isnt(policy = SecPolicyCreateiAP(), NULL, "failed to create policy");
+    SecTrustRef trust = NULL;
+    ok_status(SecTrustCreateWithCertificates(certs, policy, &trust),
+              "create trust for negIntSigLeaf");
+
+    const void *rootAACA2;
+    isnt(rootAACA2 = SecCertificateCreateWithBytes(NULL, _root_AACA2,
+                                                   sizeof(_root_AACA2)), NULL, "create rootAACA2");
+    CFArrayRef anchors = NULL;
+    isnt(anchors = CFArrayCreate(NULL, &rootAACA2, 1, NULL), NULL, "failed to create anchors array");
+    if (!anchors) { goto errOut; }
+    ok_status(SecTrustSetAnchorCertificates(trust, anchors), "set anchor certificates");
+
+    SecTrustResultType trustResult;
+    ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust");
+    is_status(trustResult, kSecTrustResultUnspecified, "expected kSecTrustResultUnspecified");
+
+errOut:
+    CFReleaseNull(trust);
+    CFReleaseNull(certs);
+    CFReleaseNull(anchors);
+    CFReleaseNull(negIntSigLeaf);
+    CFReleaseNull(rootAACA2);
+    CFReleaseNull(policy);
 }
 
 static void rsa8k_tests(void)
@@ -284,7 +338,7 @@ static void rsa8k_tests(void)
     SecKeyRef pubkey = SecTrustCopyPublicKey(trust);
     isnt(pubkey, NULL, "pubkey returned");
     
-    CFReleaseSafe(certs);
+    CFReleaseNull(certs);
     CFReleaseNull(prt_forest_fi);
     CFReleaseNull(policy);
     CFReleaseNull(trust);
@@ -310,10 +364,12 @@ static void date_tests(void)
     SecTrustRef trust = NULL;
     SecTrustResultType trustResult;
     ok_status(SecTrustCreateWithCertificates(certs, policy, &trust), "create trust");
+    if (!anchors) { goto errOut; }
     ok_status(SecTrustSetAnchorCertificates(trust, anchors), "set anchors");
 
     /* September 4, 2013 (prior to "notBefore" date of 2 April 2014, should fail) */
     isnt(date = CFDateCreate(NULL, 400000000), NULL, "failed to create date");
+    if (!date) { goto errOut; }
     ok_status(SecTrustSetVerifyDate(trust, date), "set trust date to 23 Sep 2013");
     ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust on 23 Sep 2013");
     is_status(trustResult, kSecTrustResultRecoverableTrustFailure, "expected kSecTrustResultRecoverableTrustFailure");
@@ -321,6 +377,7 @@ static void date_tests(void)
 
     /* January 17, 2016 (recent date within validity period, should succeed) */
     isnt(date = CFDateCreate(NULL, 474747474), NULL, "failed to create date");
+    if (!date) { goto errOut; }
     ok_status(SecTrustSetVerifyDate(trust, date), "set trust date to 17 Jan 2016");
     ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust on 17 Jan 2016");
     is_status(trustResult, kSecTrustResultUnspecified, "expected kSecTrustResultUnspecified");
@@ -328,6 +385,7 @@ static void date_tests(void)
 
     /* December 20, 9999 (far-future date within validity period, should succeed) */
     isnt(date = CFDateCreate(NULL, 252423000000), NULL, "failed to create date");
+    if (!date) { goto errOut; }
     ok_status(SecTrustSetVerifyDate(trust, date), "set trust date to 20 Dec 9999");
     ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust on 20 Dec 9999");
     is_status(trustResult, kSecTrustResultUnspecified, "expected kSecTrustResultUnspecified");
@@ -335,15 +393,17 @@ static void date_tests(void)
 
     /* January 12, 10000 (after the "notAfter" date of 31 Dec 9999, should fail) */
     isnt(date = CFDateCreate(NULL, 252425000000), NULL, "failed to create date");
+    if (!date) { goto errOut; }
     ok_status(SecTrustSetVerifyDate(trust, date), "set trust date to 12 Jan 10000");
     ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust on 12 Jan 10000");
     is_status(trustResult, kSecTrustResultRecoverableTrustFailure, "expected kSecTrustResultRecoverableTrustFailure");
     CFReleaseNull(date);
 
-    CFReleaseSafe(trust);
-    CFReleaseSafe(policy);
-    CFReleaseSafe(anchors);
-    CFReleaseSafe(certs);
+errOut:
+    CFReleaseNull(trust);
+    CFReleaseNull(policy);
+    CFReleaseNull(anchors);
+    CFReleaseNull(certs);
     CFReleaseNull(root);
     CFReleaseNull(leaf);
 }
@@ -375,7 +435,9 @@ static bool test_chain_of_three(uint8_t *cert0, size_t cert0len,
     SecTrustRef trust = NULL;
     SecTrustResultType trustResult;
     ok_status(SecTrustCreateWithCertificates(certs, policy, &trust), "failed to create trust");
+    if (!date) { goto errOut; }
     ok_status(SecTrustSetVerifyDate(trust, date), "failed to set verify date");
+    if (!anchors) { goto errOut; }
     ok_status(SecTrustSetAnchorCertificates(trust, anchors), "failed to set anchors");
 
     ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate chain");
@@ -392,14 +454,15 @@ static bool test_chain_of_three(uint8_t *cert0, size_t cert0len,
         ok = true;
     }
 
-    CFReleaseSafe(secCert0);
-    CFReleaseSafe(secCert1);
-    CFReleaseSafe(secRoot);
-    CFReleaseSafe(certs);
-    CFReleaseSafe(anchors);
-    CFReleaseSafe(date);
-    CFReleaseSafe(policy);
-    CFReleaseSafe(trust);
+errOut:
+    CFReleaseNull(secCert0);
+    CFReleaseNull(secCert1);
+    CFReleaseNull(secRoot);
+    CFReleaseNull(certs);
+    CFReleaseNull(anchors);
+    CFReleaseNull(date);
+    CFReleaseNull(policy);
+    CFReleaseNull(trust);
 
     return ok;
 }
@@ -441,9 +504,14 @@ static void ec_key_size_tests() {
 
 int si_20_sectrust(int argc, char *const *argv)
 {
-	plan_tests(101+8*13);
+#if TARGET_OS_IPHONE
+	plan_tests(101+9+(8*13));
+#else
+    plan_tests(97+9+(8*13));
+#endif
 
 	basic_tests();
+    negative_integer_tests();
     rsa8k_tests();
     date_tests();
     rsa_key_size_tests();

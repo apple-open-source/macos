@@ -51,10 +51,16 @@ struct mbtowc_funcs {
    */
 };
 
+/* Return code if invalid input after a shift sequence of n bytes was read.
+   (xxx_mbtowc) */
+#define RET_SHIFT_ILSEQ(n)  (-1-2*(n))
 /* Return code if invalid. (xxx_mbtowc) */
-#define RET_ILSEQ      -1
+#define RET_ILSEQ           RET_SHIFT_ILSEQ(0)
 /* Return code if only a shift sequence of n bytes was read. (xxx_mbtowc) */
-#define RET_TOOFEW(n)  (-2-(n))
+#define RET_TOOFEW(n)       (-2-2*(n))
+/* Retrieve the n from the encoded RET_... value. */
+#define DECODE_SHIFT_ILSEQ(r)  ((unsigned int)(RET_SHIFT_ILSEQ(0) - (r)) / 2)
+#define DECODE_TOOFEW(r)       ((unsigned int)(RET_TOOFEW(0) - (r)) / 2)
 
 /*
  * Data type for conversion unicode -> multibyte

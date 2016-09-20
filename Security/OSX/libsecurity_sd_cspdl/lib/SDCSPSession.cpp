@@ -337,8 +337,8 @@ SDCSPSession::ObtainPrivateKeyFromPublicKey(const CssmKey &PublicKey,
 
 void
 SDCSPSession::QueryKeySizeInBits(CSSM_CC_HANDLE CCHandle,
-								 const Context &Context,
-								 const CssmKey &Key,
+								 const Context *Context,
+								 const CssmKey *Key,
 								 CSSM_KEY_SIZE &KeySize)
 {
 	unimplemented();
@@ -361,7 +361,7 @@ SDCSPSession::FreeKey(const AccessCredentials *accessCred,
 
 		// Find the key in the map.  Tell tell the key to free itself
 		// (when the auto_ptr deletes the key it removes itself from the map). 
-	    secdebug("freeKey", "CSPDL FreeKey");
+	    secinfo("freeKey", "CSPDL FreeKey");
 		auto_ptr<SDKey> ssKey(&mSDCSPDLSession.find<SDKey>(ioKey));
 		ssKey->free(accessCred, ioKey, deleteKey);
 	}

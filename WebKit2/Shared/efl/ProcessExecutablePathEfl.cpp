@@ -81,12 +81,19 @@ String executablePathOfPluginProcess()
     return webKitPluginProcessName;
 }
 
-#if ENABLE(NETWORK_PROCESS)
 String executablePathOfNetworkProcess()
 {
     static NeverDestroyed<const String> webKitNetworkProcessName(findProcessPath(NETWORKPROCESSNAME));
 
     return webKitNetworkProcessName;
+}
+
+#if ENABLE(DATABASE_PROCESS)
+String executablePathOfDatabaseProcess()
+{
+    static NeverDestroyed<const String> webkitDatabaseProcessName(findProcessPath(DATABASEPROCESSNAME));
+
+    return webkitDatabaseProcessName;
 }
 #endif
 

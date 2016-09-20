@@ -34,6 +34,8 @@ class MapPrototype : public JSNonFinalObject {
 public:
     typedef JSNonFinalObject Base;
 
+    static const unsigned StructureFlags = HasStaticPropertyTable | Base::StructureFlags;
+
     static MapPrototype* create(VM& vm, JSGlobalObject* globalObject, Structure* structure)
     {
         MapPrototype* prototype = new (NotNull, allocateCell<MapPrototype>(vm.heap)) MapPrototype(vm, structure);
@@ -55,6 +57,10 @@ private:
     }
     void finishCreation(VM&, JSGlobalObject*);
 };
+
+EncodedJSValue JSC_HOST_CALL privateFuncIsMap(ExecState*);
+EncodedJSValue JSC_HOST_CALL privateFuncMapIterator(ExecState*);
+EncodedJSValue JSC_HOST_CALL privateFuncMapIteratorNext(ExecState*);
 
 }
 

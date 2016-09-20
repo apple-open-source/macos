@@ -78,18 +78,18 @@ dirinit(char *mntpnt, char *map, char *opts, int direct, char **stack,
 
 	mntpntlen = strlen(mntpnt);
 	if (mntpntlen == 0) {
-		pr_msg("dir is empty string");
+		pr_msg(LOG_WARNING, "dir is empty string");
 		return;
 	}
 	p = mntpnt + (mntpntlen - 1);
 	if (*p == '/')
 		*p = '\0';	/* trim trailing / */
 	if (*mntpnt != '/') {
-		pr_msg("dir %s must start with '/'", mntpnt);
+		pr_msg(LOG_WARNING, "dir %s must start with '/'", mntpnt);
 		return;
 	}
 	if ((p = check_hier(mntpnt)) != NULL) {
-		pr_msg("hierarchical mountpoint: %s and %s",
+		pr_msg(LOG_WARNING, "hierarchical mountpoint: %s and %s",
 			p, mntpnt);
 		return;
 	}
@@ -108,11 +108,16 @@ enter:
 	if (dir == NULL)
 		goto alloc_failed;
 	dir->dir_name = strdup(mntpnt);
-	if (dir->dir_name == NULL)
+	if (dir->dir_name == NULL) {
+		dir->dir_opts = NULL;
+		dir->dir_map = NULL;
 		goto alloc_failed;
+	}
 	dir->dir_map = strdup(map);
-	if (dir->dir_map == NULL)
+	if (dir->dir_map == NULL) {
+		dir->dir_opts = NULL;
 		goto alloc_failed;
+	}
 	dir->dir_opts = strdup(opts);
 	if (dir->dir_opts == NULL)
 		goto alloc_failed;
@@ -143,7 +148,7 @@ alloc_failed:
 			free(dir->dir_name);
 		free(dir);
 	}
-	pr_msg("dirinit: memory allocation failed");
+	pr_msg(LOG_ERR, "dirinit: memory allocation failed");
 }
 
 /*

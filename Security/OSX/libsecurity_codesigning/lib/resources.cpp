@@ -74,7 +74,7 @@ ResourceBuilder::ResourceBuilder(const std::string &root, const std::string &rel
 		UnixError::throwMe();
 	mRelBase = realroot;
 	if (mRoot != mRelBase && mRelBase != mRoot + "/Contents")
-		MacOSError::throwMe(errSecCSInternalError);
+		MacOSError::throwMe(errSecCSBadBundleFormat);
 	const char * paths[2] = { mRoot.c_str(), NULL };
 	mFTS = fts_open((char * const *)paths, FTS_PHYSICAL | FTS_COMFOLLOW | FTS_NOCHDIR, NULL);
 	if (!mFTS)
@@ -152,7 +152,7 @@ void ResourceBuilder::scan(Scanner next)
 		}
 		switch (ent->fts_info) {
 		case FTS_F:
-			secdebug("rdirenum", "file %s", ent->fts_path);
+			secinfo("rdirenum", "file %s", ent->fts_path);
 			GKBIS_Num_files++;
                 
 			// These are checks for the gatekeeper collection
@@ -169,7 +169,7 @@ void ResourceBuilder::scan(Scanner next)
 			break;
 		case FTS_SL:
 			// symlinks cannot ever be nested code, so quietly convert to resource file
-			secdebug("rdirenum", "symlink %s", ent->fts_path);
+			secinfo("rdirenum", "symlink %s", ent->fts_path);
 			GKBIS_Num_symlinks++;
 
 			if (strcasecmp(ent->fts_name, ds_store) == 0)
@@ -180,7 +180,7 @@ void ResourceBuilder::scan(Scanner next)
 					next(ent, rule->flags & ~nested, string(relpath), rule);
 			break;
 		case FTS_D:
-			secdebug("rdirenum", "entering %s", ent->fts_path);
+			secinfo("rdirenum", "entering %s", ent->fts_path);
 			GKBIS_Num_dirs++;
 
 			if (!first) {	// skip root directory (relpath invalid)
@@ -203,15 +203,15 @@ void ResourceBuilder::scan(Scanner next)
 
 			break;
 		case FTS_DP:
-			secdebug("rdirenum", "leaving %s", ent->fts_path);
+			secinfo("rdirenum", "leaving %s", ent->fts_path);
 			break;
 		case FTS_DNR:
-			secdebug("rdirenum", "cannot read directory %s", ent->fts_path);
+			secinfo("rdirenum", "cannot read directory %s", ent->fts_path);
 			if (mCheckUnreadable)
 				MacOSError::throwMe(errSecCSSignatureNotVerifiable);
 			break;
 		default:
-			secdebug("rdirenum", "type %d (errno %d): %s",
+			secinfo("rdirenum", "type %d (errno %d): %s",
 				ent->fts_info, ent->fts_errno, ent->fts_path);
 			if (mCheckUnknownType)
 				MacOSError::throwMe(errSecCSResourceNotSupported);
@@ -248,21 +248,21 @@ bool ResourceBuilder::includes(string path) const
 ResourceBuilder::Rule *ResourceBuilder::findRule(string path) const
 {
 	Rule *bestRule = NULL;
-	secdebug("rscan", "test %s", path.c_str());
+	secinfo("rscan", "test %s", path.c_str());
 	for (Rules::const_iterator it = mRules.begin(); it != mRules.end(); ++it) {
 		Rule *rule = *it;
-		secdebug("rscan", "try %s", rule->source.c_str());
+		secinfo("rscan", "try %s", rule->source.c_str());
 		if (rule->match(path.c_str())) {
-			secdebug("rscan", "match");
+			secinfo("rscan", "match");
 			if (rule->flags & exclusion) {
-				secdebug("rscan", "excluded");
+				secinfo("rscan", "excluded");
 				return rule;
 			}
 			if (!bestRule || rule->weight > bestRule->weight)
 				bestRule = rule;
 		}
 	}
-	secdebug("rscan", "choosing %s (%d,0x%x)",
+	secinfo("rscan", "choosing %s (%d,0x%x)",
 		bestRule ? bestRule->source.c_str() : "NOTHING",
 		bestRule ? bestRule->weight : 0,
 		bestRule ? bestRule->flags : 0);
@@ -288,10 +288,13 @@ CFDataRef ResourceBuilder::hashFile(const char *path, CodeDirectory::HashAlgorit
 //
 // Hash a file to multiple hash types and return a dictionary suitable to form a resource seal
 //
-CFMutableDictionaryRef ResourceBuilder::hashFile(const char *path, CodeDirectory::HashAlgorithms types)
+CFMutableDictionaryRef ResourceBuilder::hashFile(const char *path, CodeDirectory::HashAlgorithms types, bool strictCheck)
 {
 	UnixPlusPlus::AutoFileDesc fd(path);
 	fd.fcntl(F_NOCACHE, true);		// turn off page caching (one-pass)
+	if (strictCheck)
+		if (fd.hasExtendedAttribute(XATTR_RESOURCEFORK_NAME) || fd.hasExtendedAttribute(XATTR_FINDERINFO_NAME))
+			MacOSError::throwMe(errSecCSInvalidAssociatedFileData);
 	CFRef<CFMutableDictionaryRef> result = makeCFMutableDictionary();
 	CFMutableDictionaryRef resultRef = result;
 	CodeDirectory::multipleHashFileData(fd, 0, types, ^(CodeDirectory::HashAlgorithm type, Security::DynamicHash *hasher) {
@@ -325,7 +328,7 @@ ResourceBuilder::Rule::Rule(const std::string &pattern, unsigned w, uint32_t f)
 {
 	if (::regcomp(this, pattern.c_str(), REG_EXTENDED | REG_NOSUB))	//@@@ REG_ICASE?
 		MacOSError::throwMe(errSecCSResourceRulesInvalid);
-	secdebug("csresource", "%p rule %s added (weight %d, flags 0x%x)",
+	secinfo("csresource", "%p rule %s added (weight %d, flags 0x%x)",
 		this, pattern.c_str(), w, f);
 }
 
@@ -352,7 +355,7 @@ std::string ResourceBuilder::escapeRE(const std::string &s)
 	string r;
 	for (string::const_iterator it = s.begin(); it != s.end(); ++it) {
 		char c = *it;
-		if (strchr("\\[]{}().+*?", c))
+		if (strchr("\\[]{}().+*?^$|", c))
 			r.push_back('\\');
 		r.push_back(c);
 	}

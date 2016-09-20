@@ -30,6 +30,8 @@
 
 #if ENABLE(THREADING_GENERIC)
 
+#include <wtf/Condition.h>
+#include <wtf/Lock.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Threading.h>
 
@@ -64,9 +66,9 @@ public:
 
         void waitForFinish();
 
-        static PassRefPtr<ThreadPrivate> create()
+        static Ref<ThreadPrivate> create()
         {
-            return adoptRef(new ThreadPrivate());
+            return adoptRef(*new ThreadPrivate());
         }
 
         static void workerThread(void*);
@@ -76,8 +78,8 @@ public:
         bool m_running;
         ParallelEnvironment* m_parent;
 
-        mutable Mutex m_mutex;
-        ThreadCondition m_threadCondition;
+        mutable Lock m_mutex;
+        Condition m_threadCondition;
 
         ThreadFunction m_threadFunction;
         void* m_parameters;

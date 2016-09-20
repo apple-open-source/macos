@@ -26,7 +26,9 @@
 #include "keychain_import.h"
 #include "keychain_utilities.h"
 #include "access_utils.h"
-#include "security.h"
+#include "security_tool.h"
+
+#include <utilities/fileIo.h>
 
 #include <errno.h>
 #include <unistd.h>
@@ -36,7 +38,6 @@
 #include <Security/SecKey.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecKeychainItemExtendedAttributes.h>
-#include <security_cdsa_utils/cuFileIo.h>
 #include <CoreFoundation/CoreFoundation.h>
 
 // SecTrustedApplicationCreateApplicationGroup
@@ -239,7 +240,7 @@ keychain_import(int argc, char * const *argv)
 	Boolean nonExtractable = FALSE;
 	const char *passphrase = NULL;
 	unsigned char *inFileData = NULL;
-	unsigned inFileLen = 0;
+	size_t inFileLen = 0;
 	CFDataRef inData = NULL;
 	unsigned numExtendedAttributes = 0;
 	char **attrNames = NULL;
@@ -342,8 +343,8 @@ keychain_import(int argc, char * const *argv)
 				result = 2; /* @@@ Return 2 triggers usage message. */
 				goto cleanup;
 			}
-			attrNames  = (char **)realloc(attrNames, numExtendedAttributes * sizeof(char *));
-			attrValues = (char **)realloc(attrValues, numExtendedAttributes * sizeof(char *));
+			attrNames  = (char **)realloc(attrNames, (numExtendedAttributes + 1) * sizeof(char *));
+			attrValues = (char **)realloc(attrValues, (numExtendedAttributes + 1) * sizeof(char *));
 			attrNames[numExtendedAttributes]  = optarg;
 			attrValues[numExtendedAttributes] = argv[optind];
 			numExtendedAttributes++;
@@ -418,7 +419,7 @@ keychain_import(int argc, char * const *argv)
 			return 1;
 		}
 	}
-	if(readFile(inFile, &inFileData, &inFileLen)) {
+	if(readFileSizet(inFile, &inFileData, &inFileLen)) {
 		sec_error("Error reading infile %s: %s", inFile, strerror(errno));
 		result = 1;
 		goto cleanup;
@@ -479,6 +480,15 @@ cleanup:
 	safe_CFRelease(&access);
 	safe_CFRelease(&kcRef);
 	safe_CFRelease(&inData);
+
+    if(attrNames) {
+        free(attrNames);
+        attrNames = NULL;
+    }
+    if(attrValues) {
+        free(attrValues);
+        attrValues = NULL;
+    }
 
 	return result;
 }

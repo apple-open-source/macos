@@ -138,12 +138,12 @@ void SecCodeSigner::sign(SecStaticCode *code, SecCSFlags flags)
 		return;
 	Signer operation(*this, code);
 	if ((flags | mOpFlags) & kSecCSRemoveSignature) {
-		secdebug("signer", "%p will remove signature from %p", this, code);
+		secinfo("signer", "%p will remove signature from %p", this, code);
 		operation.remove(flags);
 	} else {
 		if (!valid())
 			MacOSError::throwMe(errSecCSInvalidObjectRef);
-		secdebug("signer", "%p will sign %p (flags 0x%x)", this, code, flags);
+		secinfo("signer", "%p will sign %p (flags 0x%x)", this, code, flags);
 		operation.sign(flags);
 	}
 	code->resetValidity();

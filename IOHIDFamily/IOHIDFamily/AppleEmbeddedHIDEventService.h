@@ -51,7 +51,7 @@ protected:
     virtual void dispatchPowerEvent(AbsoluteTime timestamp, int64_t measurement, IOHIDPowerType powerType, IOHIDPowerSubType powerSubType = 0, IOOptionBits options=0);
 
     virtual void dispatchVendorDefinedEvent(AbsoluteTime timeStamp, UInt32 usagePage, UInt32 usage, UInt32 version, UInt8 * data, UInt32 length, IOOptionBits options = 0);
-
+    
     virtual void dispatchBiometricEvent(AbsoluteTime timeStamp, IOFixed level, IOHIDBiometricEventType eventType, IOOptionBits options = 0);
 
     virtual void dispatchAtmosphericPressureEvent(AbsoluteTime timeStamp, IOFixed level, UInt32 sequence=0, IOOptionBits options=0);
@@ -64,6 +64,7 @@ protected:
  
     virtual void dispatchAmbientLightSensorEvent(AbsoluteTime timestamp, UInt32 level, IOHIDEventColorSpace colorSpace, IOHIDDouble colorComponent0, IOHIDDouble colorComponent1, IOHIDDouble colorComponent2, IOOptionBits options);
 
+ //   virtual void dispatchBiometricEvent(AbsoluteTime timeStamp, IOFixed level, IOHIDBiometricEventType eventType, UInt32 usagePage, UInt32 usage, UInt8 tapCount = 1, IOOptionBits options = 0);
 };
 
 #endif /* _IOKIT_HID_APPLEEMBEDDEDHIDEVENTSERVICE_H */

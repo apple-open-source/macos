@@ -869,6 +869,8 @@
 /* Begin PBXProject section */
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "openpam" */;
 			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = English;
@@ -1180,7 +1182,7 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"LIB_MAJ=2",
-					"OPENPAM_MODULES_DIR='\"/usr/lib/pam//\"'",
+					"OPENPAM_MODULES_DIR='\"/usr/lib/pam/;/usr/local/lib/pam/\"'",
 					_GNU_SOURCE,
 				);
 				INSTALL_GROUP = wheel;

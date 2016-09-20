@@ -37,7 +37,7 @@
  */
 
 #include "IPConfigurationLog.h"
-#define my_log		IPConfigLog
-#define my_log_fl	IPConfigLogFL
+#define my_log		SC_log
+#define my_log_fl	SC_log
 
 #endif /* _S_MYLOG_H */

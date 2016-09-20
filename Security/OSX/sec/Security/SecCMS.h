@@ -47,8 +47,14 @@ extern const void * kSecCMSAllCerts;
 
 extern const void * kSecCMSEncryptionAlgorithmDESCBC;
 extern const void * kSecCMSEncryptionAlgorithmAESCBC;
-extern const void * kSecCMSHashingAlgorithmMD5;
+extern const void * kSecCMSHashingAlgorithmMD5
+    __IOS_DEPRECATED(__IPHONE_3_1, __IPHONE_10_0, "Disuse this constant in order to upgrade to SHA-1");
 extern const void * kSecCMSCertChainModeNone;
+
+extern const void * kSecCMSHashingAlgorithmSHA1;
+extern const void * kSecCMSHashingAlgorithmSHA256;
+extern const void * kSecCMSHashingAlgorithmSHA384;
+extern const void * kSecCMSHashingAlgorithmSHA512;
 
 /*!
 	@function SecCMSVerifyCopyDataAndAttributes

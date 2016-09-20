@@ -106,8 +106,14 @@ void
 display_sac_line(SecAccessControlRef sac, CFMutableStringRef line)
 {
     CFTypeRef protection = SecAccessControlGetProtection(sac);
-    if (CFStringGetTypeID() == CFGetTypeID(protection))
+    if (CFDictionaryGetTypeID() == CFGetTypeID(protection)) {
+        CFStringRef protectionStr = createStringForOps(protection);
+        CFStringAppend(line, protectionStr);
+        CFRelease(protectionStr);
+    } else if (CFStringGetTypeID() == CFGetTypeID(protection))
         CFStringAppend(line, protection);
+    else
+        CFStringAppend(line, CFSTR("??"));
 
     CFDictionaryRef constraints = SecAccessControlGetConstraints(sac);
     CFStringRef constraintsString = createStringForOps(constraints);

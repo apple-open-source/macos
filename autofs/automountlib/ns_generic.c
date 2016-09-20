@@ -244,7 +244,7 @@ getmapkeys(mapname, list, error, cache_time, stack, stkptr)
 		return (gethostkeys(list, error, cache_time));
 	}
 	if (strcmp(mapname, "-static") == 0) {
-		pr_msg("-static is a collection of direct maps");
+		pr_msg(LOG_ERR, "-static is a collection of direct maps");
 		return (__NSW_UNAVAIL);
 	}
 	if (strcmp(mapname, "-fstab") == 0) {
@@ -261,12 +261,6 @@ getmapkeys(mapname, list, error, cache_time, stack, stkptr)
 			 */
 			success++;
 		}
-
-		/*
-		 * XXX force next name service
-		 */
-		if (ns_err != __NSW_UNAVAIL)
-			ns_err = __NSW_NOTFOUND;
 	}
 	if (success) {
 		/*

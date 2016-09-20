@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -52,6 +52,7 @@
 
 #include <EAP8021X/LinkAddresses.h>
 #include <EAP8021X/EAPClientModule.h>
+#include <EAP8021X/EAPOLClient.h>
 #include <SystemConfiguration/SCPreferences.h>
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>
@@ -170,7 +171,7 @@ check_prefs(SCPreferencesRef prefs)
 }
 
 int
-main(int argc, char * argv[1])
+main(int argc, char * argv[0])
 {
     char			ch;
     CFDictionaryRef		config_dict = NULL;
@@ -185,6 +186,7 @@ main(int argc, char * argv[1])
     int				packet_identifier = BAD_IDENTIFIER;
     SCPreferencesRef		prefs;
     EAPOLSocketSourceRef	source;
+    Boolean			session_was_set;
     SupplicantRef 		supp = NULL;
     bool			u_flag = FALSE;
     uid_t			uid = -1;
@@ -228,7 +230,40 @@ main(int argc, char * argv[1])
     if (gid == -1) {
 	gid = getgid();
     }
-    openlog("eapolclient", LOG_CONS | LOG_PID, LOG_DAEMON);
+
+    /* Initialize logging category for EAPOL Client */
+    EAPLogInit(kEAPLogCategoryClient);
+
+    session_was_set = EAPOLClientEstablishSession(if_name);
+
+    /* if we're root, become the right uid/gid */
+    if ((g_flag || u_flag) && getuid() == 0) {
+	if (g_flag) {
+	    if (setgid(gid) < 0) {
+		EAPLOG_FL(LOG_NOTICE, "setgid(%d) failed, %s", gid,
+			  strerror(errno));
+		log_then_exit(EX_NOPERM);
+	    }
+	}
+	if (u_flag) {
+	    if (setuid(uid) < 0) {
+		EAPLOG_FL(LOG_NOTICE, "setuid(%d) failed, %s", uid,
+			  strerror(errno));
+		log_then_exit(EX_NOPERM);
+	    }
+	}
+    }
+
+    /*
+     * If we needed to establish a user session, exec again
+     * after setting our uid/gid (rdar://problem/26797626)
+     */
+    if (session_was_set) {
+	execv(argv[0], argv);
+	EAPLOG(LOG_ERR, "exec failed, %s", strerror(errno));
+	exit(EX_OSERR);
+    }
+
     prefs = EAPOLControlPrefsInit(CFRunLoopGetCurrent(), check_prefs);
     log_flags = check_prefs_common(prefs, FALSE);
     if (log_flags == 0) {
@@ -259,20 +294,6 @@ main(int argc, char * argv[1])
     if (source == NULL) {
 	EAPLOG_FL(LOG_NOTICE, "EAPOLSocketSourceCreate(%s) failed", if_name);
 	log_then_exit(EX_UNAVAILABLE);
-    }
-    if (g_flag) {
-	if (setgid(gid) < 0) {
-	    EAPLOG_FL(LOG_NOTICE, "setgid(%d) failed, %s", gid,
-		      strerror(errno));
-	    log_then_exit(EX_NOPERM);
-	}
-    }
-    if (u_flag) {
-	if (setuid(uid) < 0) {
-	    EAPLOG_FL(LOG_NOTICE, "setuid(%d) failed, %s", uid,
-		      strerror(errno));
-	    log_then_exit(EX_NOPERM);
-	}
     }
     if (config_file != NULL) {
 	if (control_dict != NULL) {

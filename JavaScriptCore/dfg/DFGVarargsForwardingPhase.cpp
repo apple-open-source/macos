@@ -135,7 +135,9 @@ private:
                 
             case CallVarargs:
             case ConstructVarargs:
-                if (node->child1() == candidate || node->child3() == candidate) {
+            case TailCallVarargs:
+            case TailCallVarargsInlinedCaller:
+                if (node->child1() == candidate || node->child2() == candidate) {
                     if (verbose)
                         dataLog("    Escape at ", node, "\n");
                     return;
@@ -272,17 +274,29 @@ private:
                 break;
                 
             case CallVarargs:
-                if (node->child2() != candidate)
+                if (node->child3() != candidate)
                     break;
                 node->setOpAndDefaultFlags(CallForwardVarargs);
                 break;
                 
             case ConstructVarargs:
-                if (node->child2() != candidate)
+                if (node->child3() != candidate)
                     break;
                 node->setOpAndDefaultFlags(ConstructForwardVarargs);
                 break;
-                
+
+            case TailCallVarargs:
+                if (node->child3() != candidate)
+                    break;
+                node->setOpAndDefaultFlags(TailCallForwardVarargs);
+                break;
+
+            case TailCallVarargsInlinedCaller:
+                if (node->child3() != candidate)
+                    break;
+                node->setOpAndDefaultFlags(TailCallForwardVarargsInlinedCaller);
+                break;
+
             case SetLocal:
                 // This is super odd. We don't have to do anything here, since in DFG IR, the phantom
                 // arguments nodes do produce a JSValue. Also, we know that if this SetLocal referenecs a
@@ -311,7 +325,6 @@ private:
 
 bool performVarargsForwarding(Graph& graph)
 {
-    SamplingRegion samplingRegion("DFG Varargs Forwarding Phase");
     return runPhase<VarargsForwardingPhase>(graph);
 }
 

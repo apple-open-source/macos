@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -494,7 +494,7 @@ stf_configure_address(ServiceRef service_p)
 }
 
 static void
-stf_set_relay(ServiceRef service_p, ipconfig_method_data_stf_t * method_data)
+stf_set_relay(ServiceRef service_p, ipconfig_method_data_stf_t method_data)
 {
     interface_t *	if_p;
     Boolean		publish_new = FALSE;
@@ -578,6 +578,7 @@ stf_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 {
     interface_t *	if_p = service_interface(service_p);
     ipconfig_status_t	status = ipconfig_status_success_e;
+    ipconfig_method_data_t method_data;
     Service_stf_t *	stf = (Service_stf_t *)ServiceGetPrivate(service_p);
 
     switch (evid) {
@@ -603,7 +604,8 @@ stf_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	/* scrub all IP addresses - in case we crashed */
 	stf_remove_all_addresses(service_p);
 	stf_configure_address(service_p);
-	stf_set_relay(service_p, (ipconfig_method_data_stf_t *)event_data);
+	method_data = (ipconfig_method_data_t)event_data;
+	stf_set_relay(service_p, &method_data->stf);
 	break;
     case IFEventID_change_e: {
 	change_event_data_t * change_event;

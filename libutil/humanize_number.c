@@ -133,7 +133,7 @@ humanize_number(char *buf, size_t len, int64_t quotient,
 
 	if (scale & (HN_AUTOSCALE | HN_GETSCALE)) {
 		/* See if there is additional columns can be used. */
-		for (max = 1, i = len - baselen; i-- > 0;)
+		for (max = 1, i = len - baselen; i-- > 0 && max <= (INT64_MAX / 10);)
 			max *= 10;
 
 		/*

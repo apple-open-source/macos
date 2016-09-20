@@ -81,7 +81,7 @@ RenderNamedFlowThread& FlowThreadController::ensureRenderFlowThreadWithName(cons
 
 void FlowThreadController::styleDidChange()
 {
-    RenderStyle& viewStyle = m_view->style();
+    auto& viewStyle = m_view->style();
     for (auto& flowRenderer : *m_renderNamedFlowThreadList)
         flowRenderer->setStyle(RenderFlowThread::createFlowThreadStyle(&viewStyle));
 }
@@ -257,7 +257,7 @@ void FlowThreadController::updateNamedFlowsLayerListsIfNeeded()
         flowRenderer->layer()->updateLayerListsIfNeeded();
 }
 
-static inline bool compareZIndex(RenderLayer* first, RenderLayer* second)
+static inline bool compareZIndexFlowThreadController(RenderLayer* first, RenderLayer* second)
 {
     return first->zIndex() < second->zIndex();
 }
@@ -292,7 +292,7 @@ void FlowThreadController::collectFixedPositionedLayers(Vector<RenderLayer*>& fi
         }
     }
 
-    std::stable_sort(fixedPosLayers.begin(), fixedPosLayers.end(), compareZIndex);
+    std::stable_sort(fixedPosLayers.begin(), fixedPosLayers.end(), compareZIndexFlowThreadController);
 }
 
 #ifndef NDEBUG

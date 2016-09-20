@@ -48,7 +48,7 @@ namespace WebCore {
         /**
          * Re-create selector text from selector's data
          */
-        String selectorText(const String& = "") const;
+        String selectorText(const String& = emptyString()) const;
 
         // checks if the 2 selectors (including sub selectors) agree.
         bool operator==(const CSSSelector&) const;
@@ -112,6 +112,7 @@ namespace WebCore {
             PseudoClassHover,
             PseudoClassDrag,
             PseudoClassFocus,
+            PseudoClassFocusWithin,
             PseudoClassActive,
             PseudoClassChecked,
             PseudoClassEnabled,
@@ -159,6 +160,10 @@ namespace WebCore {
             PseudoClassDir,
             PseudoClassRole,
 #endif
+            PseudoClassHost,
+#if ENABLE(CUSTOM_ELEMENTS)
+            PseudoClassDefined,
+#endif
         };
 
         enum PseudoElementType {
@@ -178,8 +183,13 @@ namespace WebCore {
             PseudoElementScrollbarTrack,
             PseudoElementScrollbarTrackPiece,
             PseudoElementSelection,
+            PseudoElementSlotted,
             PseudoElementUserAgentCustom,
             PseudoElementWebKitCustom,
+
+            // WebKitCustom that appeared in an old prefixed form
+            // and need special handling.
+            PseudoElementWebKitCustomLegacyPrefixed,
         };
 
         enum PagePseudoClassType {
@@ -273,6 +283,7 @@ namespace WebCore {
         bool matchesPseudoElement() const;
         bool isUnknownPseudoElement() const;
         bool isCustomPseudoElement() const;
+        bool isWebKitCustomPseudoElement() const;
         bool isSiblingSelector() const;
         bool isAttributeSelector() const;
 
@@ -398,7 +409,15 @@ inline bool CSSSelector::isUnknownPseudoElement() const
 
 inline bool CSSSelector::isCustomPseudoElement() const
 {
-    return match() == PseudoElement && (pseudoElementType() == PseudoElementUserAgentCustom || pseudoElementType() == PseudoElementWebKitCustom);
+    return match() == PseudoElement
+        && (pseudoElementType() == PseudoElementUserAgentCustom
+            || pseudoElementType() == PseudoElementWebKitCustom
+            || pseudoElementType() == PseudoElementWebKitCustomLegacyPrefixed);
+}
+
+inline bool CSSSelector::isWebKitCustomPseudoElement() const
+{
+    return pseudoElementType() == PseudoElementWebKitCustom || pseudoElementType() == PseudoElementWebKitCustomLegacyPrefixed;
 }
 
 static inline bool pseudoClassIsRelativeToSiblings(CSSSelector::PseudoClassType type)

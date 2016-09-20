@@ -34,6 +34,7 @@
 #include <Security/SecIdentity.h>
 #include <Security/SecItem.h>
 #include <TargetConditionals.h>
+#include <Security/SecItemPriv.h>
 #if TARGET_OS_EMBEDDED
 #include <Security/SecTrustPriv.h>
 #include <Security/SecPolicyPriv.h>
@@ -310,8 +311,16 @@ vchar_t* crypto_cssm_getsign(CFDataRef persistentCertRef, vchar_t* hash)
 
 
 	CFDictionaryRef		persistFind = NULL;
-	const void			*keys_persist[] = { kSecReturnRef, kSecValuePersistentRef, kSecClass};
-	const void			*values_persist[] = { kCFBooleanTrue, persistentCertRef, kSecClassIdentity};
+	const void			*keys_persist[] = { kSecReturnRef, kSecValuePersistentRef, kSecClass,
+#if TARGET_OS_EMBEDDED || TARGET_OS_IPHONE
+							    kSecUseSystemKeychain,
+#endif
+							  };
+	const void			*values_persist[] = { kCFBooleanTrue, persistentCertRef, kSecClassIdentity,
+#if TARGET_OS_EMBEDDED || TARGET_OS_IPHONE
+							      kCFBooleanTrue,
+#endif
+							    };
     
 #define SIG_BUF_SIZE 1024
 	
@@ -378,8 +387,16 @@ vchar_t* crypto_cssm_get_x509cert(CFDataRef persistentCertRef,
 	size_t                  dataLen;
 	CFDataRef               certData = NULL;
 	SecIdentityRef 			identityRef = NULL;
-	const void              *keys_persist[] = { kSecReturnRef, kSecValuePersistentRef, kSecClass };
-	const void              *values_persist[] = { kCFBooleanTrue, persistentCertRef, kSecClassIdentity };
+	const void              *keys_persist[] = { kSecReturnRef, kSecValuePersistentRef, kSecClass,
+#if TARGET_OS_EMBEDDED || TARGET_OS_IPHONE
+						    kSecUseSystemKeychain,
+#endif
+						  };
+	const void              *values_persist[] = { kCFBooleanTrue, persistentCertRef, kSecClassIdentity,
+#if TARGET_OS_EMBEDDED || TARGET_OS_IPHONE
+						      kCFBooleanTrue,
+#endif
+						    };
 	
 	/* find identity by persistent ref */
 	persistFind = CFDictionaryCreate(NULL, keys_persist, values_persist,
@@ -387,7 +404,7 @@ vchar_t* crypto_cssm_get_x509cert(CFDataRef persistentCertRef,
 	if (persistFind == NULL)
 		goto end;
     
-    status = SecItemCopyMatching(persistFind, (CFTypeRef *)&identityRef);
+	status = SecItemCopyMatching(persistFind, (CFTypeRef *)&identityRef);
 	if (status != noErr)
 		goto end;
 

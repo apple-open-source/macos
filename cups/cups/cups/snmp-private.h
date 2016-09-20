@@ -1,6 +1,4 @@
 /*
- * "$Id: snmp-private.h 11560 2014-02-06 20:10:19Z msweet $"
- *
  * Private SNMP definitions for CUPS.
  *
  * Copyright 2007-2014 by Apple Inc.
@@ -139,8 +137,3 @@ extern int		_cupsSNMPWrite(int fd, http_addr_t *address, int version,
 }
 #  endif /* __cplusplus */
 #endif /* !_CUPS_SNMP_PRIVATE_H_ */
-
-
-/*
- * End of "$Id: snmp-private.h 11560 2014-02-06 20:10:19Z msweet $".
- */

@@ -36,13 +36,13 @@
 
 #define ENABLE_WEB_PROCESS_SANDBOX 1
 
-#define ENABLE_NETWORK_PROCESS 1
-
 #define ENABLE_DATABASE_PROCESS 1
 
 #define ENABLE_MEMORY_SAMPLER 1
 
 #define ENABLE_SHAREABLE_RESOURCE 1
+
+#define _WKImmediateActionType _WKImmediateActionType
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreGraphics/CoreGraphics.h>
@@ -51,13 +51,13 @@
 #import <Foundation/Foundation.h>
 #if USE(APPKIT)
 #import <Cocoa/Cocoa.h>
+#import <wtf/mac/AppKitCompatibilityDeclarations.h>
 #endif
 #endif
 
 #endif
 
 #if PLATFORM(GTK)
-#define ENABLE_NETWORK_PROCESS 1
 #define ENABLE_SHAREABLE_RESOURCE 1
 #endif
 

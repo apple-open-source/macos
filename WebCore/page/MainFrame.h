@@ -26,17 +26,18 @@
 #ifndef MainFrame_h
 #define MainFrame_h
 
+#include "EventHandler.h"
 #include "Frame.h"
 #include <wtf/Vector.h>
 
 namespace WebCore {
 
-class DiagnosticLoggingClient;
 class PageConfiguration;
 class PageOverlayController;
+class PaymentCoordinator;
 class ScrollLatchingState;
 class ServicesOverlayController;
-class WheelEventDeltaTracker;
+class WheelEventDeltaFilter;
 
 class MainFrame final : public Frame {
 public:
@@ -47,7 +48,7 @@ public:
     void selfOnlyRef();
     void selfOnlyDeref();
 
-    WheelEventDeltaTracker* wheelEventDeltaTracker() { return m_recentWheelEventDeltaTracker.get(); }
+    WheelEventDeltaFilter* wheelEventDeltaFilter() { return m_recentWheelEventDeltaFilter.get(); }
     PageOverlayController& pageOverlayController() { return *m_pageOverlayController; }
 
 #if PLATFORM(MAC)
@@ -59,9 +60,12 @@ public:
     void pushNewLatchingState();
     void popLatchingState();
     void resetLatchingState();
+    void removeLatchingStateForTarget(Element&);
 #endif // PLATFORM(MAC)
 
-    WEBCORE_EXPORT DiagnosticLoggingClient& diagnosticLoggingClient() const;
+#if ENABLE(APPLE_PAY)
+    PaymentCoordinator& paymentCoordinator() const { return *m_paymentCoordinator; }
+#endif
 
 private:
     MainFrame(Page&, PageConfiguration&);
@@ -77,9 +81,12 @@ private:
 #endif
 #endif
 
-    std::unique_ptr<WheelEventDeltaTracker> m_recentWheelEventDeltaTracker;
+    std::unique_ptr<WheelEventDeltaFilter> m_recentWheelEventDeltaFilter;
     std::unique_ptr<PageOverlayController> m_pageOverlayController;
-    DiagnosticLoggingClient* m_diagnosticLoggingClient;
+
+#if ENABLE(APPLE_PAY)
+    std::unique_ptr<PaymentCoordinator> m_paymentCoordinator;
+#endif
 };
 
 inline bool Frame::isMainFrame() const

@@ -1,8 +1,6 @@
-Index: src/option.c
-===================================================================
---- src/option.c	(revision 57764)
-+++ src/option.c	(working copy)
-@@ -553,8 +553,8 @@
+--- src/option.c.orig	2015-10-29 16:15:52.000000000 -0700
++++ src/option.c	2015-10-29 15:37:09.000000000 -0700
+@@ -561,8 +561,8 @@
  			    (char_u *)&p_ai, PV_AI,
  			    {(char_u *)FALSE, (char_u *)0L} SCRIPTID_INIT},
      {"autoprint",   "ap",   P_BOOL|P_VI_DEF,
@@ -13,16 +11,34 @@ Index: src/option.c
      {"autoread",    "ar",   P_BOOL|P_VI_DEF,
  			    (char_u *)&p_ar, PV_AR,
  			    {(char_u *)FALSE, (char_u *)0L} SCRIPTID_INIT},
-@@ -622,7 +622,7 @@
+@@ -631,7 +631,7 @@
  # endif
  #endif
      {"beautify",    "bf",   P_BOOL|P_VI_DEF,
 -			    (char_u *)NULL, PV_NONE,
 +			    (char_u *)&p_bf, PV_NONE,
  			    {(char_u *)FALSE, (char_u *)0L} SCRIPTID_INIT},
-     {"binary",	    "bin",  P_BOOL|P_VI_DEF|P_RSTAT,
- 			    (char_u *)&p_bin, PV_BIN,
-@@ -2779,7 +2779,7 @@
+     {"belloff",      "bo",  P_STRING|P_VI_DEF|P_COMMA|P_NODUP,
+ 			    (char_u *)&p_bo, PV_NONE,
+@@ -2129,7 +2129,7 @@
+ #endif
+ 			    SCRIPTID_INIT},
+     {"readonly",    "ro",   P_BOOL|P_VI_DEF|P_RSTAT|P_NOGLOB,
+-			    (char_u *)&p_ro, PV_RO,
++			    (char_u *)&readonlymode, PV_RO,
+ 			    {(char_u *)FALSE, (char_u *)0L} SCRIPTID_INIT},
+     {"redraw",	    NULL,   P_BOOL|P_VI_DEF,
+ 			    (char_u *)NULL, PV_NONE,
+@@ -2143,7 +2143,7 @@
+ 			    {(char_u *)2000L, (char_u *)0L} SCRIPTID_INIT},
+     {"regexpengine", "re",  P_NUM|P_VI_DEF,
+ 			    (char_u *)&p_re, PV_NONE,
+-			    {(char_u *)0L, (char_u *)0L} SCRIPTID_INIT},
++			    {(char_u *)1L, (char_u *)0L} SCRIPTID_INIT},
+     {"relativenumber", "rnu", P_BOOL|P_VI_DEF|P_RWIN,
+ 			    (char_u *)VAR_WIN, PV_RNU,
+ 			    {(char_u *)FALSE, (char_u *)0L} SCRIPTID_INIT},
+@@ -2870,7 +2870,7 @@
  #endif
  			    SCRIPTID_INIT},
      {"window",	    "wi",   P_NUM|P_VI_DEF,
@@ -31,7 +47,7 @@ Index: src/option.c
  			    {(char_u *)0L, (char_u *)0L} SCRIPTID_INIT},
      {"winheight",   "wh",   P_NUM|P_VI_DEF,
  #ifdef FEAT_WINDOWS
-@@ -3680,7 +3680,7 @@
+@@ -3775,7 +3775,7 @@
       */
      if (!option_was_set((char_u *)"window"))
  	p_window = Rows - 1;

@@ -20,13 +20,13 @@
 			name = cli_apps;
 			productName = cli_apps;
 		};
-		727C90451B9A38A600D5B754 /* tests */ = {
+		72FA84FB1BD6EAB900A4CC6F /* tests */ = {
 			isa = PBXAggregateTarget;
-			buildConfigurationList = 727C90461B9A38A600D5B754 /* Build configuration list for PBXAggregateTarget "tests" */;
+			buildConfigurationList = 72FA84FC1BD6EAB900A4CC6F /* Build configuration list for PBXAggregateTarget "tests" */;
 			buildPhases = (
 			);
 			dependencies = (
-				727C90491B9A38B500D5B754 /* PBXTargetDependency */,
+				72FA84FF1BD6EC2000A4CC6F /* PBXTargetDependency */,
 			);
 			name = tests;
 			productName = tests;
@@ -40,7 +40,6 @@
 		2D312B7A102CA30200F90022 /* notify_ipc.defs in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B79102CA30200F90022 /* notify_ipc.defs */; settings = {ATTRIBUTES = (Client, ); }; };
 		2D312B7E102CA32500F90022 /* notify_keys.h in Headers */ = {isa = PBXBuildFile; fileRef = 2D312B7C102CA32500F90022 /* notify_keys.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		2D312B7F102CA32500F90022 /* notify.h in Headers */ = {isa = PBXBuildFile; fileRef = 2D312B7D102CA32500F90022 /* notify.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		2D312B82102CA34D00F90022 /* libnotify.h in Headers */ = {isa = PBXBuildFile; fileRef = 2D312B81102CA34D00F90022 /* libnotify.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		2D312B87102CA36C00F90022 /* table.h in Headers */ = {isa = PBXBuildFile; fileRef = 2D312B85102CA36C00F90022 /* table.h */; };
 		2D38AA0A102CD88300D3D622 /* notify.3 in Copy man3 Files */ = {isa = PBXBuildFile; fileRef = 2D312B92102CA38F00F90022 /* notify.3 */; };
 		2D38AA0B102CD89B00D3D622 /* notify_cancel.3 in Copy man3 Files */ = {isa = PBXBuildFile; fileRef = 2D312B88102CA38F00F90022 /* notify_cancel.3 */; };
@@ -85,12 +84,12 @@
 			remoteGlobalIDString = 3FA21ABD148AA8F000099D2F;
 			remoteInfo = notifyutil;
 		};
-		727C90481B9A38B500D5B754 /* PBXContainerItemProxy */ = {
+		72FA84FE1BD6EC2000A4CC6F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = 727C90311B9A372700D5B754 /* Libnotify_tests.xcodeproj */;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 727C90241B9A354000D5B754;
-			remoteInfo = Libnotify_tests;
+			remoteGlobalIDString = 72FA84F61BD6E9DF00A4CC6F;
+			remoteInfo = darwintests;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -206,7 +205,6 @@
 		3FA21AA1148AA7FA00099D2F /* pathwatch.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = pathwatch.h; sourceTree = "<group>"; };
 		3FA21AA2148AA7FA00099D2F /* service.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = service.c; sourceTree = "<group>"; };
 		3FA21AA3148AA7FA00099D2F /* service.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = service.h; sourceTree = "<group>"; };
-		3FA21AA4148AA7FA00099D2F /* table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = table.h; sourceTree = "<group>"; };
 		3FA21AA5148AA7FA00099D2F /* timer.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = timer.c; sourceTree = "<group>"; };
 		3FA21AA6148AA7FA00099D2F /* timer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = timer.h; sourceTree = "<group>"; };
 		3FA21AA8148AA82700099D2F /* notifyutil.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = notifyutil.1; sourceTree = "<group>"; };
@@ -217,7 +215,6 @@
 		3FA21ADF148AACA000099D2F /* notify.conf.MacOSX */ = {isa = PBXFileReference; lastKnownFileType = text; name = notify.conf.MacOSX; path = notifyd/notify.conf.MacOSX; sourceTree = SOURCE_ROOT; };
 		3FD0DBAC148AB12000C50811 /* libbsm.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libbsm.dylib; path = /usr/lib/libbsm.dylib; sourceTree = "<absolute>"; };
 		727C90301B9A372700D5B754 /* dispatch_cancel_in_block.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dispatch_cancel_in_block.c; sourceTree = "<group>"; };
-		727C90311B9A372700D5B754 /* Libnotify_tests.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Libnotify_tests.xcodeproj; sourceTree = "<group>"; };
 		727C90341B9A372700D5B754 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
 		727C90371B9A372700D5B754 /* notify_bench.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_bench.c; sourceTree = "<group>"; };
 		727C90381B9A372700D5B754 /* notify_control.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_control.c; sourceTree = "<group>"; };
@@ -388,7 +385,6 @@
 				3FA21A9F148AA7FA00099D2F /* notifyd.h */,
 				3FA21AA1148AA7FA00099D2F /* pathwatch.h */,
 				3FA21AA3148AA7FA00099D2F /* service.h */,
-				3FA21AA4148AA7FA00099D2F /* table.h */,
 				3FA21AA6148AA7FA00099D2F /* timer.h */,
 			);
 			name = "Private Headers";
@@ -419,7 +415,6 @@
 		727C902F1B9A372700D5B754 /* tests */ = {
 			isa = PBXGroup;
 			children = (
-				727C90311B9A372700D5B754 /* Libnotify_tests.xcodeproj */,
 				727C90341B9A372700D5B754 /* Makefile */,
 				727C90301B9A372700D5B754 /* dispatch_cancel_in_block.c */,
 				727C90371B9A372700D5B754 /* notify_bench.c */,
@@ -429,13 +424,6 @@
 				727C903B1B9A372700D5B754 /* random_test.c */,
 			);
 			path = tests;
-			sourceTree = "<group>";
-		};
-		727C90321B9A372700D5B754 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			name = Products;
 			sourceTree = "<group>";
 		};
 		C6A0FF2B0290797F04C91782 /* Documentation */ = {
@@ -466,7 +454,6 @@
 			files = (
 				2D312B7E102CA32500F90022 /* notify_keys.h in Headers */,
 				2D312B7F102CA32500F90022 /* notify.h in Headers */,
-				2D312B82102CA34D00F90022 /* libnotify.h in Headers */,
 				2D312B87102CA36C00F90022 /* table.h in Headers */,
 				2DCB287210D99ADA00DF3A8D /* notify_private.h in Headers */,
 				FC7B7A53155781930064D203 /* notify_internal.h in Headers */,
@@ -474,6 +461,23 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXHeadersBuildPhase section */
+
+/* Begin PBXLegacyTarget section */
+		72FA84F61BD6E9DF00A4CC6F /* darwintests */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = "$(ACTION)";
+			buildConfigurationList = 72FA84F71BD6E9DF00A4CC6F /* Build configuration list for PBXLegacyTarget "darwintests" */;
+			buildPhases = (
+			);
+			buildToolPath = /usr/bin/make;
+			buildWorkingDirectory = tests;
+			dependencies = (
+			);
+			name = darwintests;
+			passBuildSettingsInEnvironment = 1;
+			productName = darwintests;
+		};
+/* End PBXLegacyTarget section */
 
 /* Begin PBXNativeTarget section */
 		3FA21AAF148AA8E300099D2F /* notifyd */ = {
@@ -540,8 +544,11 @@
 			isa = PBXProject;
 			attributes = {
 				TargetAttributes = {
-					727C90451B9A38A600D5B754 = {
-						CreatedOnToolsVersion = 7.0;
+					72FA84F61BD6E9DF00A4CC6F = {
+						CreatedOnToolsVersion = 7.1;
+					};
+					72FA84FB1BD6EAB900A4CC6F = {
+						CreatedOnToolsVersion = 7.1;
 					};
 				};
 			};
@@ -558,19 +565,14 @@
 			mainGroup = 08FB7794FE84155DC02AAC07 /* Libnotify */;
 			productRefGroup = 08FB7794FE84155DC02AAC07 /* Libnotify */;
 			projectDirPath = "";
-			projectReferences = (
-				{
-					ProductGroup = 727C90321B9A372700D5B754 /* Products */;
-					ProjectRef = 727C90311B9A372700D5B754 /* Libnotify_tests.xcodeproj */;
-				},
-			);
 			projectRoot = "";
 			targets = (
 				D2AAC045055464E500DB518D /* libnotify */,
 				3FA21AAF148AA8E300099D2F /* notifyd */,
 				3FA21ABD148AA8F000099D2F /* notifyutil */,
 				3FA21AC7148AA93000099D2F /* cli_apps */,
-				727C90451B9A38A600D5B754 /* tests */,
+				72FA84F61BD6E9DF00A4CC6F /* darwintests */,
+				72FA84FB1BD6EAB900A4CC6F /* tests */,
 			);
 		};
 /* End PBXProject section */
@@ -684,10 +686,10 @@
 			target = 3FA21ABD148AA8F000099D2F /* notifyutil */;
 			targetProxy = 3FA21ACC148AA94A00099D2F /* PBXContainerItemProxy */;
 		};
-		727C90491B9A38B500D5B754 /* PBXTargetDependency */ = {
+		72FA84FF1BD6EC2000A4CC6F /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			name = Libnotify_tests;
-			targetProxy = 727C90481B9A38B500D5B754 /* PBXContainerItemProxy */;
+			target = 72FA84F61BD6E9DF00A4CC6F /* darwintests */;
+			targetProxy = 72FA84FE1BD6EC2000A4CC6F /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -702,7 +704,18 @@
 		1DEB91F108733DB70010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				APPLY_RULES_IN_COPY_FILES = YES;
+				APPLY_RULES_IN_COPY_FILES = "";
+				CLANG_WARN_ASSIGN_ENUM = YES;
+				CLANG_WARN_NULLABLE_TO_NONNULL_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 			};
 			name = Release;
 		};
@@ -730,10 +743,21 @@
 			};
 			name = Release;
 		};
-		727C90471B9A38A600D5B754 /* Release */ = {
+		72FA84F81BD6E9DF00A4CC6F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SUPPORTED_PLATFORMS = "iphoneos macosx watchos appletvos";
+			};
+			name = Release;
+		};
+		72FA84FD1BD6EAB900A4CC6F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "macosx iphoneos watchos appletvos";
 			};
 			name = Release;
 		};
@@ -780,10 +804,18 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		727C90461B9A38A600D5B754 /* Build configuration list for PBXAggregateTarget "tests" */ = {
+		72FA84F71BD6E9DF00A4CC6F /* Build configuration list for PBXLegacyTarget "darwintests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				727C90471B9A38A600D5B754 /* Release */,
+				72FA84F81BD6E9DF00A4CC6F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		72FA84FC1BD6EAB900A4CC6F /* Build configuration list for PBXAggregateTarget "tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				72FA84FD1BD6EAB900A4CC6F /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

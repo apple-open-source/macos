@@ -1435,11 +1435,14 @@ PRIVATE void rpc__network_inq_prot_version (
         unsigned32                  * /* status */
     );
 
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PRIVATE void rpc__network_pseq_from_pseq_id (
         rpc_protseq_id_t            /* rpc_protseq_id */,
         unsigned_char_p_t           */* protseq */,
         unsigned32                  * /* status */
     );
+#endif
 
 PRIVATE rpc_protocol_id_t rpc__network_pseq_id_from_pseq   (
         unsigned_char_p_t           /* rpc_protseq */,
@@ -1503,11 +1506,14 @@ PRIVATE void rpc__naf_addr_inq_endpoint (
         unsigned32                  * /* status */
     );
 
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PRIVATE void rpc__naf_addr_set_netaddr (
         unsigned_char_p_t           /* netaddr */,
         rpc_addr_p_t                */* rpc_addr */,
         unsigned32                  * /* status */
     );
+#endif
 
 PRIVATE void rpc__naf_addr_inq_netaddr (
         rpc_addr_p_t                /* rpc_addr */,
@@ -1515,6 +1521,8 @@ PRIVATE void rpc__naf_addr_inq_netaddr (
         unsigned32                  * /* status */
     );
 
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PRIVATE void rpc__naf_addr_set_options (
         unsigned_char_p_t           /* network_options */,
         rpc_addr_p_t                */* rpc_addr */,
@@ -1526,6 +1534,7 @@ PRIVATE void rpc__naf_addr_inq_options (
         unsigned_char_t             **/* network_options */,
         unsigned32                  * /* status */
     );
+#endif
 
 PRIVATE void rpc__naf_desc_inq_addr (
         rpc_protseq_id_t            /* protseq_id */,
@@ -1581,17 +1590,23 @@ PRIVATE boolean rpc__naf_addr_compare (
         unsigned32                  * /* status */
     );
 
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PRIVATE void rpc__naf_inq_max_pth_unfrg_tpdu (
         rpc_addr_p_t                /* rpc_addr */,
         unsigned32                  */* max_tpdu */,
         unsigned32                  * /* status */
     );
+#endif
 
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PRIVATE void rpc__naf_inq_max_loc_unfrg_tpdu (
         rpc_protseq_id_t            /* pseq_id */,
         unsigned32                  */* max_tpdu */,
         unsigned32                  * /* status */
     );
+#endif
 
 PRIVATE void rpc__naf_set_pkt_nodelay (
         rpc_socket_t                /* desc */,

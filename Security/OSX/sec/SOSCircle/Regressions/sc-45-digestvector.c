@@ -139,6 +139,15 @@ static void testIntersectUnionDigestVector(void)
     desc = dvCopyString(&dvu);
     ok(CFEqual(CFSTR("abcdefgh"), desc), "uniqued dvu is %@, should be: %@", desc, CFSTR("abcdefgh"));
     CFReleaseNull(desc);
+
+    SOSDigestVectorFree(&dv1);
+    SOSDigestVectorFree(&dv2);
+    SOSDigestVectorFree(&dvu);
+    SOSDigestVectorFree(&dvintersect);
+    SOSDigestVectorFree(&dvunion);
+    SOSDigestVectorFree(&dvdels);
+    SOSDigestVectorFree(&dvadds);
+    SOSDigestVectorFree(&dvpatched);
 }
 
 static void tests(void)

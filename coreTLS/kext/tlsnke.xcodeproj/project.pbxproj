@@ -417,7 +417,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -442,7 +441,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
@@ -470,6 +468,7 @@
 				MODULE_STOP = tlsnke_stop;
 				MODULE_VERSION = 1.0;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
 				WRAPPER_EXTENSION = kext;
 			};
 			name = Debug;
@@ -487,6 +486,7 @@
 				MODULE_STOP = tlsnke_stop;
 				MODULE_VERSION = 1.0;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
 				WRAPPER_EXTENSION = kext;
 			};
 			name = Release;

@@ -23,8 +23,15 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef DataDetectorsSPI_h
+#define DataDetectorsSPI_h
+
+#import <wtf/Platform.h>
+
 #import <WebCore/DataDetectorsCoreSPI.h>
 #import <WebCore/SoftLinking.h>
+
+#if PLATFORM(MAC)
 
 #if USE(APPLE_INTERNAL_SDK)
 
@@ -42,6 +49,8 @@
 @property (retain) __attribute__((NSObject)) DDResultRef mainResult;
 @property (assign) BOOL altMode;
 @property (assign) BOOL immediate;
+
+@property (copy) NSArray *allowedActionUTIs;
 
 - (DDActionContext *)contextForView:(NSView *)view altMode:(BOOL)altMode interactionStartedHandler:(void (^)(void))interactionStartedHandler interactionChangedHandler:(void (^)(void))interactionChangedHandler interactionStoppedHandler:(void (^)(void))interactionStoppedHandler;
 
@@ -90,9 +99,9 @@ typedef NSUInteger DDHighlightStyle;
 
 SOFT_LINK_PRIVATE_FRAMEWORK_OPTIONAL(DataDetectors)
 
-SOFT_LINK_CLASS(DataDetectors, DDAction)
-SOFT_LINK_CLASS(DataDetectors, DDActionContext)
-SOFT_LINK_CLASS(DataDetectors, DDActionsManager)
+SOFT_LINK_CLASS_OPTIONAL(DataDetectors, DDAction)
+SOFT_LINK_CLASS_OPTIONAL(DataDetectors, DDActionContext)
+SOFT_LINK_CLASS_OPTIONAL(DataDetectors, DDActionsManager)
 
 SOFT_LINK_CONSTANT(DataDetectors, DDBinderPhoneNumberKey, CFStringRef)
 
@@ -100,3 +109,7 @@ SOFT_LINK(DataDetectors, DDHighlightCreateWithRectsInVisibleRectWithStyleAndDire
 SOFT_LINK(DataDetectors, DDHighlightGetLayerWithContext, CGLayerRef, (DDHighlightRef highlight, CGContextRef context), (highlight, context))
 SOFT_LINK(DataDetectors, DDHighlightGetBoundingRect, CGRect, (DDHighlightRef highlight), (highlight))
 SOFT_LINK(DataDetectors, DDHighlightPointIsOnHighlight, Boolean, (DDHighlightRef highlight, CGPoint point, Boolean* onButton), (highlight, point, onButton))
+
+#endif
+
+#endif // DataDetectorsSPI_h

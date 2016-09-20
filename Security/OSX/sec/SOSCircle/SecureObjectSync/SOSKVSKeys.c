@@ -67,8 +67,7 @@ static CFStringRef copyStringEndingIn(CFMutableStringRef in, CFStringRef token) 
     return retval;
 }
 
-SOSKVSKeyType SOSKVSKeyGetKeyTypeAndParse(CFStringRef key, CFStringRef *circle, CFStringRef *peerInfo, CFStringRef *ring, CFStringRef *backupName, CFStringRef *from, CFStringRef *to)
-{
+SOSKVSKeyType SOSKVSKeyGetKeyType(CFStringRef key) {
     SOSKVSKeyType retval = kUnknownKey;
     
     if(CFStringHasPrefix(key, sCirclePrefix)) retval = kCircleKey;
@@ -82,8 +81,14 @@ SOSKVSKeyType SOSKVSKeyGetKeyTypeAndParse(CFStringRef key, CFStringRef *circle, 
     else if(CFStringHasPrefix(key, sLastCirclePushedPrefix)) retval = kLastCircleKey;
     else if(CFStringHasPrefix(key, sLastKeyParametersPushedPrefix)) retval = kLastKeyParameterKey;
     else retval = kMessageKey;
+
+    return retval;
+}
+
+bool SOSKVSKeyParse(SOSKVSKeyType keyType, CFStringRef key, CFStringRef *circle, CFStringRef *peerInfo, CFStringRef *ring, CFStringRef *backupName, CFStringRef *from, CFStringRef *to) {
+    bool retval = true;
     
-    switch(retval) {
+    switch(keyType) {
         case kCircleKey:
             if (circle) {
                 CFRange fromRange = CFRangeMake(1, CFStringGetLength(key)-1);
@@ -104,7 +109,7 @@ SOSKVSKeyType SOSKVSKeyGetKeyTypeAndParse(CFStringRef key, CFStringRef *circle, 
                 if (from && mFrom) *from = CFStringCreateCopy(NULL, mFrom);
                 if (to && mTo) *to = CFStringCreateCopy(NULL, mTo);
             } else {
-                retval = kUnknownKey;
+                retval = false;
             }
             CFReleaseNull(mCircle);
             CFReleaseNull(mFrom);
@@ -122,9 +127,8 @@ SOSKVSKeyType SOSKVSKeyGetKeyTypeAndParse(CFStringRef key, CFStringRef *circle, 
                 if (circle) *circle = CFStringCreateCopy(NULL, mCircle);
                 if (from) *from = CFStringCreateCopy(NULL, mPeer);
             } else {
-                retval = kUnknownKey;
+                retval = false;
             }
-            // TODO - Update our circle
             CFReleaseNull(mCircle);
             CFReleaseNull(mPeer);
             CFReleaseNull(keycopy);
@@ -154,19 +158,56 @@ SOSKVSKeyType SOSKVSKeyGetKeyTypeAndParse(CFStringRef key, CFStringRef *circle, 
         case kParametersKey:
         case kInitialSyncKey:
         case kUnknownKey:
+            break;
         case kLastKeyParameterKey:
+            if(from) {
+                CFStringRef mPrefix = NULL;
+                CFStringRef mFrom = NULL;
+                CFMutableStringRef keycopy = CFStringCreateMutableCopy(NULL, 128, key);
+                
+                if( ((mPrefix = copyStringEndingIn(keycopy, sCircleSeparator)) != NULL) &&
+                   ((mFrom = copyStringEndingIn(keycopy, NULL)) != NULL)) {
+                    if (from && mFrom) *from = CFStringCreateCopy(NULL, mFrom);
+                } else {
+                    retval = false;
+                }
+                CFReleaseNull(mPrefix);
+                CFReleaseNull(mFrom);
+                CFReleaseNull(keycopy);
+            }
+            break;
         case kLastCircleKey:
+            if (circle && from) {
+                CFStringRef mCircle = NULL;
+                CFStringRef mFrom = NULL;
+                CFMutableStringRef keycopy = CFStringCreateMutableCopy(NULL, 128, key);
+                
+                if( ((mCircle = copyStringEndingIn(keycopy, sCircleSeparator)) != NULL) &&
+                   ((mFrom = copyStringEndingIn(keycopy, NULL)) != NULL)) {
+                    if (circle && mCircle) *circle = CFStringCreateCopy(NULL, mCircle);
+                    if (from && mFrom) *from = CFStringCreateCopy(NULL, mFrom);
+                } else {
+                    retval = false;
+                }
+                CFReleaseNull(mCircle);
+                CFReleaseNull(mFrom);
+                CFReleaseNull(keycopy);
+            }
+
             break;
     }
+    return retval;
+}
+
+SOSKVSKeyType SOSKVSKeyGetKeyTypeAndParse(CFStringRef key, CFStringRef *circle, CFStringRef *peerInfo, CFStringRef *ring, CFStringRef *backupName, CFStringRef *from, CFStringRef *to)
+{
+    SOSKVSKeyType retval = SOSKVSKeyGetKeyType(key);
+    bool parsed = SOSKVSKeyParse(retval, key, circle, peerInfo, ring, backupName, from, to);
+    if(!parsed) retval = kUnknownKey;
     
     return retval;
 }
 
-
-SOSKVSKeyType SOSKVSKeyGetKeyType(CFStringRef key)
-{
-    return SOSKVSKeyGetKeyTypeAndParse(key, NULL, NULL, NULL, NULL, NULL, NULL);
-}
 
 CFStringRef SOSCircleKeyCreateWithCircle(SOSCircleRef circle, CFErrorRef *error)
 {
@@ -238,7 +279,7 @@ CFStringRef SOSMessageKeyCreateWithCircleNameAndPeerNames(CFStringRef circleName
 CFStringRef SOSMessageKeyCreateWithCircleNameAndTransportType(CFStringRef circleName, CFStringRef transportType)
 {
     return CFStringCreateWithFormat(NULL, NULL, CFSTR("%@%@%@%@%@"),
-                                    circleName, sCircleSeparator, transportType, sFromToSeparator, SOSTransportMessageTypeIDS);
+                                    circleName, sCircleSeparator, transportType, sFromToSeparator, SOSTransportMessageTypeIDSV2);
 }
 
 CFStringRef SOSMessageKeyCreateWithCircleAndPeerNames(SOSCircleRef circle, CFStringRef from_peer_name, CFStringRef to_peer_name)
@@ -251,19 +292,23 @@ CFStringRef SOSMessageKeyCreateWithCircleAndPeerInfos(SOSCircleRef circle, SOSPe
     return SOSMessageKeyCreateWithCircleAndPeerNames(circle, SOSPeerInfoGetPeerID(from_peer), SOSPeerInfoGetPeerID(to_peer));
 }
 
-CFStringRef SOSMessageKeyCreateFromPeerToTransport(SOSTransportMessageKVSRef transport, CFStringRef peer_name) {
+CFStringRef SOSMessageKeyCreateFromPeerToTransport(SOSTransportMessageRef transport, CFStringRef peer_name) {
     CFErrorRef error = NULL;
     SOSEngineRef engine = SOSTransportMessageGetEngine((SOSTransportMessageRef)transport);
     
     CFStringRef circleName = SOSTransportMessageGetCircleName((SOSTransportMessageRef)transport);
     CFStringRef my_id = SOSEngineGetMyID(engine);
-    
+    if(my_id == NULL)
+    {
+        secerror("cannot create message keys, SOSEngineGetMyID returned NULL");
+        return NULL;
+    }
     CFStringRef result = SOSMessageKeyCreateWithCircleNameAndPeerNames(circleName, peer_name, my_id);
     CFReleaseSafe(error);
     return result;
 }
 
-CFStringRef SOSMessageKeyCreateFromTransportToPeer(SOSTransportMessageKVSRef transport, CFStringRef peer_name) {
+CFStringRef SOSMessageKeyCreateFromTransportToPeer(SOSTransportMessageRef transport, CFStringRef peer_name) {
     CFErrorRef error = NULL;
     SOSEngineRef engine = SOSTransportMessageGetEngine((SOSTransportMessageRef)transport);
     

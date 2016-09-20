@@ -107,7 +107,7 @@ bool NPJSObject::hasMethod(NPIdentifier methodName)
     exec->clearException();
 
     CallData callData;
-    return getCallData(value, callData) != CallTypeNone;
+    return getCallData(value, callData) != CallType::None;
 }
 
 bool NPJSObject::invoke(NPIdentifier methodName, const NPVariant* arguments, uint32_t argumentCount, NPVariant* result)
@@ -239,7 +239,7 @@ bool NPJSObject::enumerate(NPIdentifier** identifiers, uint32_t* identifierCount
     
     JSLockHolder lock(exec);
 
-    PropertyNameArray propertyNames(exec);
+    PropertyNameArray propertyNames(exec, PropertyNameMode::Strings);
     m_jsObject->methodTable()->getPropertyNames(m_jsObject.get(), exec, propertyNames, EnumerationMode());
 
     NPIdentifier* nameIdentifiers = npnMemNewArray<NPIdentifier>(propertyNames.size());
@@ -263,7 +263,7 @@ bool NPJSObject::construct(const NPVariant* arguments, uint32_t argumentCount, N
 
     ConstructData constructData;
     ConstructType constructType = getConstructData(m_jsObject.get(), constructData);
-    if (constructType == ConstructTypeNone)
+    if (constructType == ConstructType::None)
         return false;
 
     // Convert the passed in arguments.
@@ -284,7 +284,7 @@ bool NPJSObject::invoke(ExecState* exec, JSGlobalObject* globalObject, JSValue f
 {
     CallData callData;
     CallType callType = getCallData(function, callData);
-    if (callType == CallTypeNone)
+    if (callType == CallType::None)
         return false;
 
     // Convert the passed in arguments.

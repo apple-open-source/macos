@@ -44,8 +44,8 @@ static const CFStringRef __kDADialogTextDeviceUnreadableIgnore     = CFSTR( "Ign
 static const CFStringRef __kDADialogTextDeviceUnreadableInitialize = CFSTR( "Initialize..." );
 
 static const CFStringRef __kDADialogTextDeviceUnrepairable             = CFSTR( "You can still open or copy files on the disk, but you can't save changes to files on the disk. Back up the disk and reformat it as soon as you can." );
-static const CFStringRef __kDADialogTextDeviceUnrepairableHeaderPrefix = CFSTR( "OS X can't repair the disk \"" );
-static const CFStringRef __kDADialogTextDeviceUnrepairableHeaderSuffix = CFSTR( ".\"" );
+static const CFStringRef __kDADialogTextDeviceUnrepairableHeaderPrefix = CFSTR( "macOS can't repair the disk \"" );
+static const CFStringRef __kDADialogTextDeviceUnrepairableHeaderSuffix = CFSTR( "\"." );
 
 void DADialogShowDeviceRemoval( DADiskRef disk )
 {

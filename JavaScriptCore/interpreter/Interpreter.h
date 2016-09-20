@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2013, 2015-2016 Apple Inc. All rights reserved.
  * Copyright (C) 2012 Research In Motion Limited. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,14 +34,17 @@
 #include "JSCJSValue.h"
 #include "JSCell.h"
 #include "JSObject.h"
-#include "JSStack.h"
-#include "LLIntData.h"
 #include "Opcode.h"
 #include "SourceProvider.h"
 #include "StackAlignment.h"
 
 #include <wtf/HashMap.h>
 #include <wtf/text/StringBuilder.h>
+
+#if !ENABLE(JIT)
+#include "CLoopStack.h"
+#endif
+
 
 namespace JSC {
 
@@ -52,11 +55,13 @@ namespace JSC {
     class VM;
     class JSFunction;
     class JSGlobalObject;
+    class JSModuleEnvironment;
+    class JSModuleRecord;
     class LLIntOffsetsExtractor;
     class ProgramExecutable;
+    class ModuleProgramExecutable;
     class Register;
     class JSScope;
-    class SamplingTool;
     struct CallFrameClosure;
     struct HandlerInfo;
     struct Instruction;
@@ -76,28 +81,23 @@ namespace JSC {
     enum StackFrameCodeType {
         StackFrameGlobalCode,
         StackFrameEvalCode,
+        StackFrameModuleCode,
         StackFrameFunctionCode,
         StackFrameNativeCode
     };
 
     struct StackFrame {
         Strong<JSObject> callee;
-        StackFrameCodeType codeType;
-        Strong<ScriptExecutable> executable;
-        Strong<UnlinkedCodeBlock> codeBlock;
-        RefPtr<SourceProvider> code;
-        int lineOffset;
-        unsigned firstLineColumnOffset;
-        unsigned characterOffset;
+        Strong<CodeBlock> codeBlock;
         unsigned bytecodeOffset;
-        String sourceURL;
-        JS_EXPORT_PRIVATE String toString(CallFrame*);
-        String friendlySourceURL() const;
-        String friendlyFunctionName(CallFrame*) const;
-        JS_EXPORT_PRIVATE void computeLineAndColumn(unsigned& line, unsigned& column);
 
-    private:
-        void expressionInfo(int& divot, int& startOffset, int& endOffset, unsigned& line, unsigned& column);
+        bool isNative() const { return !codeBlock; }
+
+        void computeLineAndColumn(unsigned& line, unsigned& column) const;
+        String functionName(VM&) const;
+        intptr_t sourceID() const;
+        String sourceURL() const;
+        String toString(VM&) const;
     };
 
     class SuspendExceptionScope {
@@ -110,7 +110,7 @@ namespace JSC {
         }
         ~SuspendExceptionScope()
         {
-            m_vm->setException(oldException);
+            m_vm->restorePreviousException(oldException);
         }
     private:
         Exception* oldException;
@@ -141,7 +141,7 @@ namespace JSC {
         {
             ASSERT(vm);
             ASSERT(callFrame);
-            ASSERT(callFrame < vm->topVMEntryFrame);
+            ASSERT(reinterpret_cast<void*>(callFrame) < reinterpret_cast<void*>(vm->topVMEntryFrame));
             vm->topCallFrame = callFrame;
         }
     };
@@ -182,9 +182,11 @@ namespace JSC {
         Interpreter(VM &);
         ~Interpreter();
         
-        void initialize(bool canUseJIT);
+        void initialize();
 
-        JSStack& stack() { return m_stack; }
+#if !ENABLE(JIT)
+        CLoopStack& cloopStack() { return m_cloopStack; }
+#endif
         
         Opcode getOpcode(OpcodeID id)
         {
@@ -211,29 +213,25 @@ namespace JSC {
 
         JSValue execute(ProgramExecutable*, CallFrame*, JSObject* thisObj);
         JSValue executeCall(CallFrame*, JSObject* function, CallType, const CallData&, JSValue thisValue, const ArgList&);
-        JSObject* executeConstruct(CallFrame*, JSObject* function, ConstructType, const ConstructData&, const ArgList&);
+        JSObject* executeConstruct(CallFrame*, JSObject* function, ConstructType, const ConstructData&, const ArgList&, JSValue newTarget);
         JSValue execute(EvalExecutable*, CallFrame*, JSValue thisValue, JSScope*);
+        JSValue execute(ModuleProgramExecutable*, CallFrame*, JSModuleEnvironment*);
 
         void getArgumentsData(CallFrame*, JSFunction*&, ptrdiff_t& firstParameterIndex, Register*& argv, int& argc);
         
-        SamplingTool* sampler() { return m_sampler.get(); }
-
         NEVER_INLINE HandlerInfo* unwind(VM&, CallFrame*&, Exception*, UnwindStart);
+        void notifyDebuggerOfExceptionToBeThrown(CallFrame*, Exception*);
         NEVER_INLINE void debug(CallFrame*, DebugHookID);
-        JSString* stackTraceAsString(ExecState*, Vector<StackFrame>);
+        static JSString* stackTraceAsString(VM&, const Vector<StackFrame>&);
 
         static EncodedJSValue JSC_HOST_CALL constructWithErrorConstructor(ExecState*);
         static EncodedJSValue JSC_HOST_CALL callErrorConstructor(ExecState*);
         static EncodedJSValue JSC_HOST_CALL constructWithNativeErrorConstructor(ExecState*);
         static EncodedJSValue JSC_HOST_CALL callNativeErrorConstructor(ExecState*);
 
-        void dumpSampleData(ExecState* exec);
-        void startSampling();
-        void stopSampling();
-
         JS_EXPORT_PRIVATE void dumpCallFrame(CallFrame*);
 
-        void getStackTrace(Vector<StackFrame>& results, size_t maxStackSize = std::numeric_limits<size_t>::max());
+        void getStackTrace(Vector<StackFrame>& results, size_t framesToSkip = 0, size_t maxStackSize = std::numeric_limits<size_t>::max());
 
     private:
         enum ExecutionFlag { Normal, InitializeAndReturn };
@@ -246,14 +244,12 @@ namespace JSC {
 
         void dumpRegisters(CallFrame*);
         
-        bool isCallBytecode(Opcode opcode) { return opcode == getOpcode(op_call) || opcode == getOpcode(op_construct) || opcode == getOpcode(op_call_eval); }
-
-        void enableSampler();
-        int m_sampleEntryDepth;
-        std::unique_ptr<SamplingTool> m_sampler;
+        bool isCallBytecode(Opcode opcode) { return opcode == getOpcode(op_call) || opcode == getOpcode(op_construct) || opcode == getOpcode(op_call_eval) || opcode == getOpcode(op_tail_call); }
 
         VM& m_vm;
-        JSStack m_stack;
+#if !ENABLE(JIT)
+        CLoopStack m_cloopStack;
+#endif
         int m_errorHandlingModeReentry;
         
 #if ENABLE(COMPUTED_GOTO_OPCODES)
@@ -270,18 +266,28 @@ namespace JSC {
 
     inline CallFrame* calleeFrameForVarargs(CallFrame* callFrame, unsigned numUsedStackSlots, unsigned argumentCountIncludingThis)
     {
+        // We want the new frame to be allocated on a stack aligned offset with a stack
+        // aligned size. Align the size here.
+        argumentCountIncludingThis = WTF::roundUpToMultipleOf(
+            stackAlignmentRegisters(),
+            argumentCountIncludingThis + CallFrame::headerSizeInRegisters) - CallFrame::headerSizeInRegisters;
+
+        // Align the frame offset here.
         unsigned paddedCalleeFrameOffset = WTF::roundUpToMultipleOf(
             stackAlignmentRegisters(),
-            numUsedStackSlots + argumentCountIncludingThis + JSStack::CallFrameHeaderSize);
+            numUsedStackSlots + argumentCountIncludingThis + CallFrame::headerSizeInRegisters);
         return CallFrame::create(callFrame->registers() - paddedCalleeFrameOffset);
     }
 
     unsigned sizeOfVarargs(CallFrame* exec, JSValue arguments, uint32_t firstVarArgOffset);
     static const unsigned maxArguments = 0x10000;
-    unsigned sizeFrameForVarargs(CallFrame* exec, JSStack*, JSValue arguments, unsigned numUsedStackSlots, uint32_t firstVarArgOffset);
+    unsigned sizeFrameForVarargs(CallFrame* exec, VM&, JSValue arguments, unsigned numUsedStackSlots, uint32_t firstVarArgOffset);
+    unsigned sizeFrameForForwardArguments(CallFrame* exec, VM&, unsigned numUsedStackSlots);
     void loadVarargs(CallFrame* execCaller, VirtualRegister firstElementDest, JSValue source, uint32_t offset, uint32_t length);
     void setupVarargsFrame(CallFrame* execCaller, CallFrame* execCallee, JSValue arguments, uint32_t firstVarArgOffset, uint32_t length);
     void setupVarargsFrameAndSetThis(CallFrame* execCaller, CallFrame* execCallee, JSValue thisValue, JSValue arguments, uint32_t firstVarArgOffset, uint32_t length);
+    void setupForwardArgumentsFrame(CallFrame* execCaller, CallFrame* execCallee, uint32_t length);
+    void setupForwardArgumentsFrameAndSetThis(CallFrame* execCaller, CallFrame* execCallee, JSValue thisValue, uint32_t length);
     
 } // namespace JSC
 

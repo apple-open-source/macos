@@ -436,6 +436,7 @@ ip6_stats(uint32_t off __unused, char *name, int af __unused)
 	p1a(ip6s_fragtimeout, "\t\t\t%llu dropped after timeout\n");
 	p1a(ip6s_fragoverflow, "\t\t\t%llu exceeded limit\n");
 	p1a(ip6s_reassembled, "\t\t\t%llu reassembled ok\n");
+	p1a(ip6s_atmfrag_rcvd, "\t\t\t%llu atomic fragments received\n");
 	p(ip6s_delivered, "\t\t%llu packet%s for this host\n");
 	p(ip6s_forward, "\t\t%llu packet%s forwarded\n");
 	p(ip6s_cantforward, "\t\t%llu packet%s not forwardable\n");
@@ -616,7 +617,7 @@ ip6_stats(uint32_t off __unused, char *name, int af __unused)
 	for (first = 1, i = 0; i < IP6S_SRCRULE_COUNT; i++) {
 		if (IP6DIFF(ip6s_sources_rule[i]) || 1) {
 			if (first) {
-				printf("\t\tsource addresse selection\n");
+				printf("\t\tsource address selection\n");
 				first = 0;
 			}
 			PRINT_SRCRULESTAT(ip6s_sources_rule[i], i);
@@ -624,8 +625,10 @@ ip6_stats(uint32_t off __unused, char *name, int af __unused)
 	}
 	
 	p(ip6s_dad_collide, "\t\t%llu duplicate address detection collision%s\n");
+	
+	p(ip6s_dad_loopcount, "\t\t%llu duplicate address detection NS loop%s\n");
 
-	p(ip6s_sources_skip_expensive_secondary_if, "\t\t%llu times%s ignored source on secondary expensive I/F\n");
+	p(ip6s_sources_skip_expensive_secondary_if, "\t\t%llu time%s ignored source on secondary expensive I/F\n");
 
 	if (interval > 0) {
 		bcopy(&ip6stat, &pip6stat, len);
@@ -684,6 +687,7 @@ ip6_ifstats(char *ifname)
 	p(ifs6_out_fragcreat, "\t%llu output datagram%s succeeded on fragment\n");
 	p(ifs6_reass_reqd, "\t%llu incoming datagram%s fragmented\n");
 	p(ifs6_reass_ok, "\t%llu datagram%s reassembled\n");
+	p(ifs6_atmfrag_rcvd, "\t%llu atomic fragments%s received\n");
 	p(ifs6_reass_fail, "\t%llu datagram%s failed on reassembling\n");
 	p(ifs6_in_mcast, "\t%llu multicast datagram%s received\n");
 	p(ifs6_out_mcast, "\t%llu multicast datagram%s sent\n");
@@ -1039,6 +1043,7 @@ icmp6_stats(uint32_t off __unused, char *name, int af __unused)
 	p(icp6s_badra, "\t%qu bad router advertisement message%s\n");
 	p(icp6s_badredirect, "\t%qu bad redirect message%s\n");
 	p(icp6s_pmtuchg, "\t%llu path MTU change%s\n");
+	p(icp6s_rfc6980_drop, "\t%qu dropped fragmented NDP message%s\n");
 
 	if (interval > 0)
 		bcopy(&icmp6stat, &picmp6stat, len);
@@ -1145,7 +1150,7 @@ rip6_stats(uint32_t off __unused, char *name, int af __unused)
 #define	p(f, m) if (RIP6DIFF(f) || sflag <= 1) \
     printf(m, (unsigned long long)RIP6DIFF(f), plural(RIP6DIFF(f)))
 	p(rip6s_ipackets, "\t%llu message%s received\n");
-	p(rip6s_isum, "\t%llu checksum calcuration%s on inbound\n");
+	p(rip6s_isum, "\t%llu checksum calculation%s on inbound\n");
 	p(rip6s_badsum, "\t%llu message%s with bad checksum\n");
 	p(rip6s_nosock, "\t%llu message%s dropped due to no socket\n");
 	p(rip6s_nosockmcast,
@@ -1208,7 +1213,7 @@ inet6print(struct in6_addr *in6, int port, char *proto, int numeric)
 	if (!numeric && port)
 		GETSERVBYPORT6(port, proto, sp);
 	if (sp || port == 0)
-		snprintf(cp, sizeof(line) - (cp - line), "%.8s", sp ? sp->s_name : "*");
+		snprintf(cp, sizeof(line) - (cp - line), "%.15s", sp ? sp->s_name : "*");
 	else
 		snprintf(cp, sizeof(line) - (cp - line), "%d", ntohs((u_short)port));
 	width = lflag ? 45 : Aflag ? 18 : 22;

@@ -62,7 +62,7 @@ WebInspector.VisualStyleRelativeNumberSlider = class VisualStyleRelativeNumberSl
         if (isNaN(this._startingValue))
             this._startingValue = parseFloat(this.placeholder) || 0;
 
-        var midpoint = this._scale / 2;
+        let midpoint = this._scale / 2;
         if (this._allowNegativeValues || this._startingValue > midpoint) {
             this._sliderElement.min = -midpoint;
             this._sliderElement.max = midpoint;

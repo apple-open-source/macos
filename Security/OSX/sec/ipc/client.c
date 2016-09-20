@@ -55,12 +55,15 @@ static CFArrayRef SecServerCopyAccessGroups(void) {
                                    CFSTR("test"),
                                    CFSTR("apple"),
                                    CFSTR("lockdown-identities"),
+                                   CFSTR("123456.test.group"),
+                                   CFSTR("123456.test.group2"),
 #else
                                    CFSTR("sync"),
 #endif
                                    CFSTR("com.apple.security.sos"),
                                    CFSTR("com.apple.sbd"),
                                    CFSTR("com.apple.lakitu"),
+                                   kSecAttrAccessGroupToken,
                                    NULL);
 }
 
@@ -174,19 +177,23 @@ static xpc_connection_t trustd_connection(void) {
 #endif
 }
 
-static xpc_connection_t securityd_connection_for_operation(enum SecXPCOperation op) {
-	bool isTrustOp;
+static bool is_trust_operation(enum SecXPCOperation op) {
 	switch (op) {
 		case sec_trust_store_contains_id:
 		case sec_trust_store_set_trust_settings_id:
 		case sec_trust_store_remove_certificate_id:
 		case sec_trust_evaluate_id:
-			isTrustOp = true;
-			break;
+		case sec_trust_store_copy_all_id:
+		case sec_trust_store_copy_usage_constraints_id:
+			return true;
 		default:
-			isTrustOp = false;
 			break;
 	}
+	return false;
+}
+
+static xpc_connection_t securityd_connection_for_operation(enum SecXPCOperation op) {
+	bool isTrustOp = is_trust_operation(op);
 	#if SECTRUST_VERBOSE_DEBUG
     {
         bool sysCtx = securityd_in_system_context();
@@ -228,7 +235,14 @@ securityd_message_with_reply_sync(xpc_object_t message, CFErrorRef *error)
         CFIndex code =  0;
         if (reply == XPC_ERROR_CONNECTION_INTERRUPTED || reply == XPC_ERROR_CONNECTION_INVALID) {
             code = kSecXPCErrorConnectionFailed;
-            seccritical("Failed to talk to secd after %d attempts.", max_tries);
+#if TARGET_OS_IPHONE
+            seccritical("Failed to talk to %s after %d attempts.", "securityd",
+                        max_tries);
+#else
+            seccritical("Failed to talk to %s after %d attempts.",
+                (is_trust_operation((enum SecXPCOperation)operation)) ? "trustd" : "secd",
+                max_tries);
+#endif
         } else if (reply == XPC_ERROR_TERMINATION_IMMINENT)
             code = kSecXPCErrorUnknown;
         else

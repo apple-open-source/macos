@@ -1,24 +1,34 @@
-diff -r -u -N --exclude='*.orig' vim72.orig/src/ex_cmds2.c vim72/src/ex_cmds2.c
---- vim72.orig/src/ex_cmds2.c	2008-07-13 09:18:22.000000000 -0700
-+++ vim72/src/ex_cmds2.c	2008-08-19 01:06:04.000000000 -0700
-@@ -2897,6 +2897,20 @@
+--- src/ex_cmds2.c.orig	2015-10-30 08:32:30.000000000 -0700
++++ src/ex_cmds2.c	2015-10-30 08:25:08.000000000 -0700
+@@ -14,6 +14,10 @@
+ #include "vim.h"
+ #include "version.h"
+ 
++#ifdef __APPLE__
++int mch_am_i_owner(char_u *name);
++#endif
++
+ static void	cmd_source __ARGS((char_u *fname, exarg_T *eap));
+ 
+ #ifdef FEAT_EVAL
+@@ -3170,6 +3174,20 @@
      apply_autocmds(EVENT_SOURCEPRE, fname_exp, fname_exp, FALSE, curbuf);
  #endif
  
 +#ifdef __APPLE__
 +    if(Unix2003_compat) {
-+	int remaining;
-+	char * filepart = strrchr((char *)fname_exp,'/');
-+	if (filepart)	filepart++;
-+	else  		filepart = (char *)fname_exp;
-+	remaining = STRLEN(filepart);
-+	if ((remaining==5) && (STRNCMP(filepart,".exrc",5)==0)) {
-+		/* only check this one file: ex_02 test 72 */
-+		if (mch_am_i_owner((char *)fname_exp)!=OK) goto theend;
-+	}
++      int remaining;
++      char * filepart = strrchr((char *)fname_exp,'/');
++      if (filepart)   filepart++;
++      else            filepart = (char *)fname_exp;
++      remaining = STRLEN(filepart);
++      if ((remaining==5) && (STRNCMP(filepart,".exrc",5)==0)) {
++              /* only check this one file: ex_02 test 72 */
++              if (mch_am_i_owner((char *)fname_exp)!=OK) goto theend;
++      }
 +    }
 +#endif /* __APPLE__ */
 +
- #if defined(WIN32) && defined(FEAT_CSCOPE)
+ #ifdef USE_FOPEN_NOINH
      cookie.fp = fopen_noinh_readbin((char *)fname_exp);
  #else

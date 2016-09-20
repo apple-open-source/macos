@@ -7,6 +7,7 @@
  * Copyright (C) 2008 Nuanti Ltd.
  * Copyright (C) 2009 Appcelerator Inc.
  * Copyright (C) 2009 Brent Fulgham <bfulgham@webkit.org>
+ * Copyright (C) 2010 Patrick Gansterer <paroga@paroga.com>
  * Copyright (C) 2013 Peter Gal <galpeter@inf.u-szeged.hu>, University of Szeged
  * Copyright (C) 2013 Alex Christensen <achristensen@webkit.org>
  * Copyright (C) 2013 University of Szeged
@@ -41,15 +42,21 @@
 
 #include "CredentialStorage.h"
 #include "CurlCacheManager.h"
-#include "DataURL.h"
 #include "HTTPHeaderNames.h"
 #include "HTTPParsers.h"
 #include "MIMETypeRegistry.h"
 #include "MultipartHandle.h"
 #include "ResourceError.h"
 #include "ResourceHandle.h"
+#include "ResourceHandleClient.h"
 #include "ResourceHandleInternal.h"
+#include "ResourceRequest.h"
+#include "ResourceResponse.h"
 #include "SSLHandle.h"
+#include "TextEncoding.h"
+#include <wtf/text/Base64.h>
+#include <wtf/text/CString.h>
+#include <wtf/text/StringView.h>
 
 #if OS(WINDOWS)
 #include "WebCoreBundleWin.h"
@@ -68,16 +75,25 @@
 #if USE(CF)
 #include <wtf/RetainPtr.h>
 #endif
+#include <wtf/Lock.h>
 #include <wtf/Threading.h>
 #include <wtf/Vector.h>
 #include <wtf/text/CString.h>
-
 
 namespace WebCore {
 
 const int selectTimeoutMS = 5;
 const double pollTimeSeconds = 0.05;
-const int maxRunningJobs = 5;
+const int maxRunningJobs = 128;
+
+URL getCurlEffectiveURL(CURL* handle)
+{
+    const char* url;
+    CURLcode err = curl_easy_getinfo(handle, CURLINFO_EFFECTIVE_URL, &url);
+    if (CURLE_OK != err)
+        return URL();
+    return URL(URL(), url);
+}
 
 static const bool ignoreSSLErrors = getenv("WEBKIT_IGNORE_SSL_ERRORS");
 
@@ -133,10 +149,11 @@ static char* cookieJarPath()
 #endif
 }
 
-static Mutex* sharedResourceMutex(curl_lock_data data) {
-    DEPRECATED_DEFINE_STATIC_LOCAL(Mutex, cookieMutex, ());
-    DEPRECATED_DEFINE_STATIC_LOCAL(Mutex, dnsMutex, ());
-    DEPRECATED_DEFINE_STATIC_LOCAL(Mutex, shareMutex, ());
+static Lock* sharedResourceMutex(curl_lock_data data)
+{
+    DEPRECATED_DEFINE_STATIC_LOCAL(Lock, cookieMutex, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(Lock, dnsMutex, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(Lock, shareMutex, ());
 
     switch (data) {
         case CURL_LOCK_DATA_COOKIE:
@@ -190,13 +207,13 @@ static void calculateWebTimingInformations(ResourceHandleInternal* d)
 // cache.
 static void curl_lock_callback(CURL* /* handle */, curl_lock_data data, curl_lock_access /* access */, void* /* userPtr */)
 {
-    if (Mutex* mutex = sharedResourceMutex(data))
+    if (Lock* mutex = sharedResourceMutex(data))
         mutex->lock();
 }
 
 static void curl_unlock_callback(CURL* /* handle */, curl_lock_data data, void* /* userPtr */)
 {
-    if (Mutex* mutex = sharedResourceMutex(data))
+    if (Lock* mutex = sharedResourceMutex(data))
         mutex->unlock();
 }
 
@@ -290,12 +307,11 @@ static void handleLocalReceiveResponse (CURL* handle, ResourceHandle* job, Resou
     // which means the ResourceLoader's response does not contain the URL.
     // Run the code here for local files to resolve the issue.
     // TODO: See if there is a better approach for handling this.
-     const char* hdr;
-     CURLcode err = curl_easy_getinfo(handle, CURLINFO_EFFECTIVE_URL, &hdr);
-     ASSERT_UNUSED(err, CURLE_OK == err);
-     d->m_response.setURL(URL(ParsedURLString, hdr));
+    URL url = getCurlEffectiveURL(handle);
+    ASSERT(url.isValid());
+    d->m_response.setURL(url);
      if (d->client())
-         d->client()->didReceiveResponse(job, d->m_response);
+         d->client()->didReceiveResponse(job, ResourceResponse(d->m_response));
      d->m_response.setResponseFired(true);
 }
 
@@ -366,17 +382,17 @@ static bool isAppendableHeader(const String &key)
         "vary",
         "via",
         "warning",
-        "www-authenticate",
-        0
+        "www-authenticate"
     };
 
     // Custom headers start with 'X-', and need no further checking.
     if (key.startsWith("x-", /* caseSensitive */ false))
         return true;
 
-    for (unsigned i = 0; appendableHeaders[i]; ++i)
-        if (equalIgnoringCase(key, appendableHeaders[i]))
+    for (auto& header : appendableHeaders) {
+        if (equalIgnoringASCIICase(key, header))
             return true;
+    }
 
     return false;
 }
@@ -402,12 +418,9 @@ static bool getProtectionSpace(CURL* h, const ResourceResponse& response, Protec
     if (err != CURLE_OK)
         return false;
 
-    const char* effectiveUrl = 0;
-    err = curl_easy_getinfo(h, CURLINFO_EFFECTIVE_URL, &effectiveUrl);
-    if (err != CURLE_OK)
+    URL url = getCurlEffectiveURL(h);
+    if (!url.isValid())
         return false;
-
-    URL url(ParsedURLString, effectiveUrl);
 
     String host = url.host();
     String protocol = url.protocol();
@@ -480,6 +493,10 @@ static size_t headerCallback(char* ptr, size_t size, size_t nmemb, void* data)
         long httpCode = 0;
         curl_easy_getinfo(h, CURLINFO_RESPONSE_CODE, &httpCode);
 
+        if (!httpCode) {
+            // Comes here when receiving 200 Connection Established. Just return.
+            return totalSize;
+        }
         if (isHttpInfo(httpCode)) {
             // Just return when receiving http info, e.g. HTTP/1.1 100 Continue.
             // If not, the request might be cancelled, because the MIME type will be empty for this response.
@@ -490,12 +507,10 @@ static size_t headerCallback(char* ptr, size_t size, size_t nmemb, void* data)
         curl_easy_getinfo(h, CURLINFO_CONTENT_LENGTH_DOWNLOAD, &contentLength);
         d->m_response.setExpectedContentLength(static_cast<long long int>(contentLength));
 
-        const char* hdr;
-        curl_easy_getinfo(h, CURLINFO_EFFECTIVE_URL, &hdr);
-        d->m_response.setURL(URL(ParsedURLString, hdr));
+        d->m_response.setURL(getCurlEffectiveURL(h));
 
         d->m_response.setHTTPStatusCode(httpCode);
-        d->m_response.setMimeType(extractMIMETypeFromMediaType(d->m_response.httpHeaderField(HTTPHeaderName::ContentType)).lower());
+        d->m_response.setMimeType(extractMIMETypeFromMediaType(d->m_response.httpHeaderField(HTTPHeaderName::ContentType)).convertToASCIILowercase());
         d->m_response.setTextEncodingName(extractCharsetFromMediaType(d->m_response.httpHeaderField(HTTPHeaderName::ContentType)));
 
         if (d->m_response.isMultipart()) {
@@ -513,8 +528,9 @@ static size_t headerCallback(char* ptr, size_t size, size_t nmemb, void* data)
 
                 ResourceRequest redirectedRequest = job->firstRequest();
                 redirectedRequest.setURL(newURL);
+                ResourceResponse response = d->m_response;
                 if (client)
-                    client->willSendRequest(job, redirectedRequest, d->m_response);
+                    client->willSendRequest(job, WTFMove(redirectedRequest), WTFMove(response));
 
                 d->m_firstRequest.setURL(newURL);
 
@@ -542,7 +558,7 @@ static size_t headerCallback(char* ptr, size_t size, size_t nmemb, void* data)
                     }
                 }
             }
-            client->didReceiveResponse(job, d->m_response);
+            client->didReceiveResponse(job, ResourceResponse(d->m_response));
             CurlCacheManager::getInstance().didReceiveResponse(*job, d->m_response);
         }
         d->m_response.setResponseFired(true);
@@ -698,13 +714,12 @@ void ResourceHandleManager::downloadTimerCallback()
                 CurlCacheManager::getInstance().didFinishLoading(*job);
             }
         } else {
-            char* url = 0;
-            curl_easy_getinfo(d->m_handle, CURLINFO_EFFECTIVE_URL, &url);
+            URL url = getCurlEffectiveURL(d->m_handle);
 #ifndef NDEBUG
-            fprintf(stderr, "Curl ERROR for url='%s', error: '%s'\n", url, curl_easy_strerror(msg->data.result));
+            fprintf(stderr, "Curl ERROR for url='%s', error: '%s'\n", url.string().utf8().data(), curl_easy_strerror(msg->data.result));
 #endif
             if (d->client()) {
-                ResourceError resourceError(String(), msg->data.result, String(url), String(curl_easy_strerror(msg->data.result)));
+                ResourceError resourceError(String(), msg->data.result, url, String(curl_easy_strerror(msg->data.result)));
                 resourceError.setSSLErrors(d->m_sslErrors);
                 d->client()->didFail(job, resourceError);
                 CurlCacheManager::getInstance().didFail(*job);
@@ -761,9 +776,10 @@ static inline size_t getFormElementsCount(ResourceHandle* job)
 
     // Resolve the blob elements so the formData can correctly report it's size.
     formData = formData->resolveBlobReferences();
-    job->firstRequest().setHTTPBody(formData);
+    size_t size = formData->elements().size();
+    job->firstRequest().setHTTPBody(WTFMove(formData));
 
-    return formData->elements().size();
+    return size;
 }
 
 static void setupFormData(ResourceHandle* job, CURLoption sizeOption, struct curl_slist** headers)
@@ -896,6 +912,68 @@ bool ResourceHandleManager::startScheduledJobs()
     return started;
 }
 
+static void handleDataURL(ResourceHandle* handle)
+{
+    ASSERT(handle->firstRequest().url().protocolIsData());
+    String url = handle->firstRequest().url().string();
+
+    ASSERT(handle);
+    ASSERT(handle->client());
+
+    int index = url.find(',');
+    if (index == -1) {
+        handle->client()->cannotShowURL(handle);
+        return;
+    }
+
+    String mediaType = url.substring(5, index - 5);
+    String data = url.substring(index + 1);
+
+    bool base64 = mediaType.endsWith(";base64", false);
+    if (base64)
+        mediaType = mediaType.left(mediaType.length() - 7);
+
+    if (mediaType.isEmpty())
+        mediaType = "text/plain";
+
+    String mimeType = extractMIMETypeFromMediaType(mediaType);
+    String charset = extractCharsetFromMediaType(mediaType);
+
+    if (charset.isEmpty())
+        charset = "US-ASCII";
+
+    ResourceResponse response;
+    response.setMimeType(mimeType);
+    response.setTextEncodingName(charset);
+    response.setURL(handle->firstRequest().url());
+
+    if (base64) {
+        data = decodeURLEscapeSequences(data);
+        handle->client()->didReceiveResponse(handle, WTFMove(response));
+
+        // didReceiveResponse might cause the client to be deleted.
+        if (handle->client()) {
+            Vector<char> out;
+            if (base64Decode(data, out, Base64IgnoreSpacesAndNewLines) && out.size() > 0)
+                handle->client()->didReceiveData(handle, out.data(), out.size(), 0);
+        }
+    } else {
+        TextEncoding encoding(charset);
+        data = decodeURLEscapeSequences(data, encoding);
+        handle->client()->didReceiveResponse(handle, WTFMove(response));
+
+        // didReceiveResponse might cause the client to be deleted.
+        if (handle->client()) {
+            CString encodedData = encoding.encode(data, URLEncodedEntitiesForUnencodables);
+            if (encodedData.length())
+                handle->client()->didReceiveData(handle, encodedData.data(), encodedData.length(), 0);
+        }
+    }
+
+    if (handle->client())
+        handle->client()->didFinishLoading(handle, 0);
+}
+
 void ResourceHandleManager::dispatchSynchronousJob(ResourceHandle* job)
 {
     URL kurl = job->firstRequest().url();
@@ -918,12 +996,12 @@ void ResourceHandleManager::dispatchSynchronousJob(ResourceHandle* job)
     CURLcode ret =  curl_easy_perform(handle->m_handle);
 
     if (ret != CURLE_OK) {
-        ResourceError error(String(handle->m_url), ret, String(handle->m_url), String(curl_easy_strerror(ret)));
+        ResourceError error(String(handle->m_url), ret, kurl, String(curl_easy_strerror(ret)));
         error.setSSLErrors(handle->m_sslErrors);
         handle->client()->didFail(job, error);
     } else {
         if (handle->client())
-            handle->client()->didReceiveResponse(job, handle->m_response);
+            handle->client()->didReceiveResponse(job, ResourceResponse(handle->m_response));
     }
 
 #if ENABLE(WEB_TIMING)

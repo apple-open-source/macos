@@ -9,17 +9,19 @@
       /if not defined(XML_DICT_H__)
       /define XML_DICT_H__
 
-      /include "libxmlrpg/xmlversion"
-      /include "libxmlrpg/tree"
-
       * The dictionary.
 
      d xmlDictPtr      s               *   based(######typedef######)
 
+      /include "libxmlrpg/xmlversion"
+      /include "libxmlrpg/xmlTypesC"
+      /include "libxmlrpg/tree"
+
       * Initializer
 
      d xmlInitializeDict...
-     d                 pr            10i 0 extproc('xmlInitializeDict')
+     d                 pr                  extproc('xmlInitializeDict')
+     d                                     like(xmlCint)
 
       * Constructor and destructor.
 
@@ -27,12 +29,14 @@
      d                                     like(xmlDictPtr)
 
      d xmlDictSetLimit...
-     d                 pr            10u 0 extproc('xmlDictSetLimit')           size_t
+     d                 pr                  extproc('xmlDictSetLimit')
+     d                                     like(xmlCsize_t)
      d  dict                               value like(xmlDictPtr)
-     d  limit                        10u 0 value                                size_t
+     d  limit                              value like(xmlCsize_t)
 
      d xmlDictGetUsage...
-     d                 pr            10u 0 extproc('xmlDictGetUsage')           size_t
+     d                 pr                  extproc('xmlDictGetUsage')
+     d                                     like(xmlCsize_t)
      d  dict                               value like(xmlDictPtr)
 
      d xmlDictCreateSub...
@@ -41,7 +45,8 @@
      d  sub                                value like(xmlDictPtr)
 
      d xmlDictReference...
-     d                 pr            10i 0 extproc('xmlDictGetReference')
+     d                 pr                  extproc('xmlDictGetReference')
+     d                                     like(xmlCint)
      d  dict                               value like(xmlDictPtr)
 
      d xmlDictFree     pr                  extproc('xmlDictFree')
@@ -52,23 +57,25 @@
      d xmlDictLookup   pr              *   extproc('xmlDictLookup')             const xmlChar *
      d  dict                               value like(xmlDictPtr)
      d  name                           *   value options(*string)               const xmlChar *
-     d  len                          10i 0 value
+     d  len                                value like(xmlCint)
 
      d xmlDictExists   pr              *   extproc('xmlDictExists')             const xmlChar *
      d  dict                               value like(xmlDictPtr)
      d  name                           *   value options(*string)               const xmlChar *
-     d  len                          10i 0 value
+     d  len                                value like(xmlCint)
 
      d xmlDictQLookup  pr              *   extproc('xmlDictQLookup')            const xmlChar *
      d  dict                               value like(xmlDictPtr)
      d  name                           *   value options(*string)               const xmlChar *
      d  name                           *   value options(*string)               const xmlChar *
 
-     d xmlDictOwns     pr            10i 0 extproc('xmlDictOwns')
+     d xmlDictOwns     pr                  extproc('xmlDictOwns')
+     d                                     like(xmlCint)
      d  dict                               value like(xmlDictPtr)
      d  str                            *   value options(*string)               const xmlChar *
 
-     d xmlDictSize     pr            10i 0 extproc('xmlDictSize')
+     d xmlDictSize     pr                  extproc('xmlDictSize')
+     d                                     like(xmlCint)
      d  dict                               value like(xmlDictPtr)
 
       * Cleanup function

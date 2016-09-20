@@ -45,6 +45,7 @@ __BEGIN_DECLS
 struct __SecPolicy {
     CFRuntimeBase		_base;
     CFStringRef			_oid;
+    CFStringRef		_name;
 	CFDictionaryRef		_options;
 };
 
@@ -54,13 +55,15 @@ struct __SecPolicy {
 	policy.
     @constant kSecPolicyCheckCriticalExtensions Ensure that no certificate in the chain has any critical extensions that we do not understand.
     @constant kSecPolicyCheckIdLinkage Check that all the certificates in the chain that have a SubjectId, match the AuthorityId of the certificate they sign.  This check is optional, in that if either certificate is missing the required extension the check succeeds.
-	@constant kSecPolicyCheckBasicContraints Fails if the basic constraints for the certificate chain are not met, this allows for basic constraints to be non critical and doesn't require every CA certificate to have a basic constraints extension, and allows for leaf certificates to have basic constraints extensions.
+	@constant kSecPolicyCheckBasicConstraints Fails if the basic constraints for the certificate chain are not met, this allows for basic constraints to be non critical and doesn't require every CA certificate to have a basic constraints extension, and allows for leaf certificates to have basic constraints extensions.
 	@constant kSecPolicyCheckExtendedKeyUsage @@@
 	@constant kSecPolicyCheckIdLinkage Fails if the AuthorityKeyID -> SubjectKeyID chaining isn't right.
 	@constant kSecPolicyCheckKeyUsage @@@
 	@constant kSecPolicyCheckWeakIntermediates Fails if any certificates in the chain (other than the leaf and root) have a too small key size.
 	@constant kSecPolicyCheckWeakLeaf Fails if the leaf has a too small key size.
-	@constant kSecPolicyCheckWeakRoot Fails fi the root has a too small key size.
+	@constant kSecPolicyCheckWeakRoot Fails if the root has a too small key size.
+	@constant kSecPolicyCheckKeySize Fails if any certificates in the chain have key size smaller than the policy allows.
+	@constant kSecPolicyCheckSignatureHashAlgorithms Fails if any certificates in the chain use a hash algorithm disallowed by the policy.
 	@constant kSecPolicyCheckNonEmptySubject Perform the following check: RFC 3280, 4.1.2.6, says that an empty subject name can only appear in a leaf cert, and only if subjectAltName is present and marked critical.
 	@constant kSecPolicyCheckQualifiedCertStatements Perform the following check: RFC 3739: if this cert has a Qualified Cert Statements extension, and it's Critical, make sure we understand all of the extension's statementIds.
 	@constant kSecPolicyCheckValidIntermediates Fails if any certificates in the chain are not valid at the verify time other than the leaf and the root.
@@ -68,6 +71,7 @@ struct __SecPolicy {
 	@constant kSecPolicyCheckValidRoot Fails if the root certificate is not valid at the verify time.
 	@constant kSecPolicyCheckAnchorTrusted @@@.
 	@constant kSecPolicyCheckAnchorSHA1 @@@.
+	@constant kSecPolicyCheckAnchorSHA256 @@@.
 	@constant kSecPolicyCheckAnchorApple @@@.
 	@constant kSecPolicyCheckSSLHostname @@@.
 	@constant kSecPolicyCheckEmail @@@.
@@ -78,17 +82,24 @@ struct __SecPolicy {
 	@constant kSecPolicyCheckEAPTrustedServerNames @@@.
 	@constant kSecPolicyCheckBasicCertificateProcessing @@@.
 	@constant kSecPolicyCheckExtendedValidation @@@.
-	@constant kSecPolicyCheckRevocation @@@.
+	@constant kSecPolicyCheckRevocation Perform a revocation check.
+	@constant kSecPolicyCheckRevocationResponseRequired Require positive response for revocation check. Use of thise constant indicates that the policy should "fail closed" in case of missing revocation information.
+	@constant kSecPolicyCheckRevocationOCSP Use OCSP to perform revocation check.
+	@constant kSecPolicyCheckRevocationCRL Use CRL to perform revocation check.
+	@constant kSecPolicyCheckRevocationAny Use any available method (OCSP or CRL) to perform revocation check.
 	@constant kSecPolicyCheckNoNetworkAccess @@@.
     @constant kSecPolicyCheckBlackListedLeaf @@@.
+    @constant kSecPolicyCheckUsageConstraints @@@.
 */
-extern const CFStringRef kSecPolicyCheckBasicContraints;
+extern const CFStringRef kSecPolicyCheckBasicConstraints;
 extern const CFStringRef kSecPolicyCheckCriticalExtensions;
 extern const CFStringRef kSecPolicyCheckExtendedKeyUsage;
 extern const CFStringRef kSecPolicyCheckIdLinkage;
 extern const CFStringRef kSecPolicyCheckWeakIntermediates;
 extern const CFStringRef kSecPolicyCheckWeakLeaf;
 extern const CFStringRef kSecPolicyCheckWeakRoot;
+extern const CFStringRef kSecPolicyCheckKeySize;
+extern const CFStringRef kSecPolicyCheckSignatureHashAlgorithms;
 extern const CFStringRef kSecPolicyCheckKeyUsage;
 extern const CFStringRef kSecPolicyCheckNonEmptySubject;
 extern const CFStringRef kSecPolicyCheckQualifiedCertStatements;
@@ -97,6 +108,7 @@ extern const CFStringRef kSecPolicyCheckValidLeaf;
 extern const CFStringRef kSecPolicyCheckValidRoot;
 extern const CFStringRef kSecPolicyCheckAnchorTrusted;
 extern const CFStringRef kSecPolicyCheckAnchorSHA1;
+extern const CFStringRef kSecPolicyCheckAnchorSHA256;
 extern const CFStringRef kSecPolicyCheckAnchorApple;
 extern const CFStringRef kSecPolicyCheckSSLHostname;
 extern const CFStringRef kSecPolicyCheckEmail;
@@ -114,28 +126,75 @@ extern const CFStringRef kSecPolicyCheckBasicCertificateProcessing;
 extern const CFStringRef kSecPolicyCheckExtendedValidation;
 extern const CFStringRef kSecPolicyCheckRevocation;
 extern const CFStringRef kSecPolicyCheckRevocationResponseRequired;
+extern const CFStringRef kSecPolicyCheckRevocationOCSP;
+extern const CFStringRef kSecPolicyCheckRevocationCRL;
+extern const CFStringRef kSecPolicyCheckRevocationAny;
 extern const CFStringRef kSecPolicyCheckNoNetworkAccess;
 extern const CFStringRef kSecPolicyCheckBlackListedLeaf;
 extern const CFStringRef kSecPolicyCheckBlackListedKey;
 extern const CFStringRef kSecPolicyCheckGrayListedLeaf;
 extern const CFStringRef kSecPolicyCheckLeafMarkerOid;
+extern const CFStringRef kSecPolicyCheckLeafMarkerOidWithoutValueCheck;
 extern const CFStringRef kSecPolicyCheckIntermediateMarkerOid;
 extern const CFStringRef kSecPolicyCheckIntermediateSPKISHA256;
+extern const CFStringRef kSecPolicyCheckIntermediateEKU;
 extern const CFStringRef kSecPolicyCheckGrayListedKey;
 extern const CFStringRef kSecPolicyCheckCertificateTransparency;
+extern const CFStringRef kSecPolicyCheckUsageConstraints;
 
-/*  Special options for checking Apple Anchors */
+/*  Special option for checking Apple Anchors */
 extern const CFStringRef kSecPolicyAppleAnchorIncludeTestRoots;
-extern const CFStringRef kSecPolicyAppleAnchorAllowTestRootsOnProduction;
 
-SecPolicyRef SecPolicyCreate(CFStringRef oid, CFDictionaryRef options);
+SecPolicyRef SecPolicyCreate(CFStringRef oid, CFStringRef name, CFDictionaryRef options);
 
-CFStringRef SecPolicyGetOidString(SecPolicyRef policy);
 CFDictionaryRef SecPolicyGetOptions(SecPolicyRef policy);
 void SecPolicySetOptionsValue(SecPolicyRef policy, CFStringRef key, CFTypeRef value);
 
 xpc_object_t SecPolicyArrayCopyXPCArray(CFArrayRef policies, CFErrorRef *error);
 CFArrayRef SecPolicyXPCArrayCopyArray(xpc_object_t xpc_policies, CFErrorRef *error);
+
+CFArrayRef SecPolicyArrayCreateDeserialized(CFArrayRef serializedPolicies);
+CFArrayRef SecPolicyArrayCreateSerialized(CFArrayRef policies);
+
+/*
+ * MARK: SecPolicyCheckCert functions
+ */
+bool SecPolicyCheckCertKeyUsage(SecCertificateRef cert, CFTypeRef pvcValue);
+bool SecPolicyCheckCertExtendedKeyUsage(SecCertificateRef cert, CFTypeRef pvcValue);
+bool SecPolicyCheckCertSSLHostname(SecCertificateRef cert, CFTypeRef pvcValue);
+bool SecPolicyCheckCertEmail(SecCertificateRef cert, CFTypeRef pvcValue);
+bool SecPolicyCheckCertSubjectCommonNamePrefix(SecCertificateRef cert, CFTypeRef pvcValue);
+bool SecPolicyCheckCertSubjectCommonName(SecCertificateRef cert, CFTypeRef pvcValue);
+bool SecPolicyCheckCertSubjectCommonNameTEST(SecCertificateRef cert, CFTypeRef pvcValue);
+bool SecPolicyCheckCertNotValidBefore(SecCertificateRef cert, CFTypeRef pvcValue);
+bool SecPolicyCheckCertSubjectOrganization(SecCertificateRef cert, CFTypeRef pvcValue);
+bool SecPolicyCheckCertSubjectOrganizationalUnit(SecCertificateRef cert, CFTypeRef pvcValue);
+bool SecPolicyCheckCertEAPTrustedServerNames(SecCertificateRef cert, CFTypeRef pvcValue);
+bool SecPolicyCheckCertLeafMarkerOid(SecCertificateRef cert, CFTypeRef pvcValue);
+bool SecPolicyCheckCertLeafMarkerOidWithoutValueCheck(SecCertificateRef cert, CFTypeRef pvcValue);
+bool SecPolicyCheckCertSignatureHashAlgorithms(SecCertificateRef cert, CFTypeRef pvcValue);
+
+
+/*
+ * MARK: SecLeafPVC functions
+ */
+
+typedef struct OpaqueSecLeafPVC *SecLeafPVCRef;
+
+struct OpaqueSecLeafPVC {
+    SecCertificateRef leaf;
+    CFArrayRef policies;
+    CFAbsoluteTime verifyTime;
+    CFArrayRef details;
+    CFMutableDictionaryRef info;
+    CFDictionaryRef callbacks;
+    CFIndex policyIX;
+    bool result;
+};
+
+void SecLeafPVCInit(SecLeafPVCRef pvc, SecCertificateRef leaf, CFArrayRef policies, CFAbsoluteTime verifyTime);
+void SecLeafPVCDelete(SecLeafPVCRef pvc);
+bool SecLeafPVCLeafChecks(SecLeafPVCRef pvc);
 
 __END_DECLS
 

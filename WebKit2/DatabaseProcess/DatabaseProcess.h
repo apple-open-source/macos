@@ -23,75 +23,93 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef DatabaseProcess_h
-#define DatabaseProcess_h
+#pragma once
 
 #if ENABLE(DATABASE_PROCESS)
 
 #include "ChildProcess.h"
-#include "UniqueIDBDatabaseIdentifier.h"
+#include "SandboxExtension.h"
+#include <WebCore/IDBBackingStore.h>
+#include <WebCore/IDBServer.h>
+#include <WebCore/UniqueIDBDatabase.h>
+#include <wtf/CrossThreadTask.h>
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 class SessionID;
+struct SecurityOriginData;
 }
 
 namespace WebKit {
 
-class AsyncTask;
 class DatabaseToWebProcessConnection;
-class UniqueIDBDatabase;
-
+enum class WebsiteDataType;
 struct DatabaseProcessCreationParameters;
 
-class DatabaseProcess : public ChildProcess {
+class DatabaseProcess : public ChildProcess
+#if ENABLE(INDEXED_DATABASE)
+    , public WebCore::IDBServer::IDBBackingStoreTemporaryFileHandler
+#endif
+{
     WTF_MAKE_NONCOPYABLE(DatabaseProcess);
     friend class NeverDestroyed<DatabaseProcess>;
 public:
     static DatabaseProcess& singleton();
     ~DatabaseProcess();
 
+#if ENABLE(INDEXED_DATABASE)
     const String& indexedDatabaseDirectory() const { return m_indexedDatabaseDirectory; }
-
-    PassRefPtr<UniqueIDBDatabase> getOrCreateUniqueIDBDatabase(const UniqueIDBDatabaseIdentifier&);
-    void removeUniqueIDBDatabase(const UniqueIDBDatabase&);
 
     void ensureIndexedDatabaseRelativePathExists(const String&);
     String absoluteIndexedDatabasePathFromDatabaseRelativePath(const String&);
 
+    WebCore::IDBServer::IDBServer& idbServer();
+#endif
+
     WorkQueue& queue() { return m_queue.get(); }
 
-    void postDatabaseTask(std::unique_ptr<AsyncTask>);
+    void postDatabaseTask(CrossThreadTask&&);
+
+#if ENABLE(INDEXED_DATABASE)
+    // WebCore::IDBServer::IDBBackingStoreFileHandler
+    void prepareForAccessToTemporaryFile(const String& path) final;
+    void accessToTemporaryFileComplete(const String& path) final;
+#endif
+
+    void getSandboxExtensionsForBlobFiles(const Vector<String>& filenames, std::function<void (SandboxExtension::HandleArray&&)> completionHandler);
 
 private:
     DatabaseProcess();
 
     // ChildProcess
-    virtual void initializeProcess(const ChildProcessInitializationParameters&) override;
-    virtual void initializeProcessName(const ChildProcessInitializationParameters&) override;
-    virtual void initializeSandbox(const ChildProcessInitializationParameters&, SandboxInitializationParameters&) override;
-    virtual void initializeConnection(IPC::Connection*) override;
-    virtual bool shouldTerminate() override;
+    void initializeProcess(const ChildProcessInitializationParameters&) override;
+    void initializeProcessName(const ChildProcessInitializationParameters&) override;
+    void initializeSandbox(const ChildProcessInitializationParameters&, SandboxInitializationParameters&) override;
+    void initializeConnection(IPC::Connection*) override;
+    bool shouldTerminate() override;
 
     // IPC::Connection::Client
-    virtual void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
-    virtual void didClose(IPC::Connection&) override;
-    virtual void didReceiveInvalidMessage(IPC::Connection&, IPC::StringReference messageReceiverName, IPC::StringReference messageName) override;
-    virtual IPC::ProcessType localProcessType() override { return IPC::ProcessType::Database; }
-    virtual IPC::ProcessType remoteProcessType() override { return IPC::ProcessType::UI; }
+    void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
+    void didClose(IPC::Connection&) override;
+    void didReceiveInvalidMessage(IPC::Connection&, IPC::StringReference messageReceiverName, IPC::StringReference messageName) override;
+    IPC::ProcessType localProcessType() override { return IPC::ProcessType::Database; }
+    IPC::ProcessType remoteProcessType() override { return IPC::ProcessType::UI; }
     void didReceiveDatabaseProcessMessage(IPC::Connection&, IPC::MessageDecoder&);
 
     // Message Handlers
     void initializeDatabaseProcess(const DatabaseProcessCreationParameters&);
     void createDatabaseToWebProcessConnection();
 
-    void fetchWebsiteData(WebCore::SessionID, uint64_t websiteDataTypes, uint64_t callbackID);
-    void deleteWebsiteData(WebCore::SessionID, uint64_t websiteDataTypes, std::chrono::system_clock::time_point modifiedSince, uint64_t callbackID);
-    void deleteWebsiteDataForOrigins(WebCore::SessionID, uint64_t websiteDataTypes, const Vector<SecurityOriginData>& origins, uint64_t callbackID);
+    void fetchWebsiteData(WebCore::SessionID, OptionSet<WebsiteDataType> websiteDataTypes, uint64_t callbackID);
+    void deleteWebsiteData(WebCore::SessionID, OptionSet<WebsiteDataType> websiteDataTypes, std::chrono::system_clock::time_point modifiedSince, uint64_t callbackID);
+    void deleteWebsiteDataForOrigins(WebCore::SessionID, OptionSet<WebsiteDataType> websiteDataTypes, const Vector<WebCore::SecurityOriginData>& origins, uint64_t callbackID);
+    void grantSandboxExtensionsForBlobs(const Vector<String>& paths, const SandboxExtension::HandleArray&);
 
+    void didGetSandboxExtensionsForBlobFiles(uint64_t requestID, SandboxExtension::HandleArray&&);
+
+#if ENABLE(INDEXED_DATABASE)
     Vector<RefPtr<WebCore::SecurityOrigin>> indexedDatabaseOrigins();
-    void deleteIndexedDatabaseEntriesForOrigins(const Vector<RefPtr<WebCore::SecurityOrigin>>&);
-    void deleteIndexedDatabaseEntriesModifiedSince(std::chrono::system_clock::time_point modifiedSince);
+#endif
 
     // For execution on work queue thread only
     void performNextDatabaseTask();
@@ -101,16 +119,17 @@ private:
 
     Ref<WorkQueue> m_queue;
 
+#if ENABLE(INDEXED_DATABASE)
     String m_indexedDatabaseDirectory;
+    RefPtr<WebCore::IDBServer::IDBServer> m_idbServer;
+#endif
+    HashMap<String, RefPtr<SandboxExtension>> m_blobTemporaryFileSandboxExtensions;
+    HashMap<uint64_t, std::function<void (SandboxExtension::HandleArray&&)>> m_sandboxExtensionForBlobsCompletionHandlers;
 
-    HashMap<UniqueIDBDatabaseIdentifier, RefPtr<UniqueIDBDatabase>> m_idbDatabases;
-
-    Deque<std::unique_ptr<AsyncTask>> m_databaseTasks;
-    Mutex m_databaseTaskMutex;
+    Deque<CrossThreadTask> m_databaseTasks;
+    Lock m_databaseTaskMutex;
 };
 
 } // namespace WebKit
 
 #endif // ENABLE(DATABASE_PROCESS)
-
-#endif // DatabaseProcess_h

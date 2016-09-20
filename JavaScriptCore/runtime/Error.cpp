@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003, 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003-2006, 2008, 2016 Apple Inc. All rights reserved.
  *  Copyright (C) 2007 Eric Seidel (eric@webkit.org)
  *
  *  This library is free software; you can redistribute it and/or
@@ -98,12 +98,6 @@ JSObject* createURIError(ExecState* exec, const String& message, ErrorInstance::
     return ErrorInstance::create(exec, globalObject->vm(), globalObject->URIErrorConstructor()->errorStructure(), message, appender, TypeNothing, true);
 }
 
-JSObject* createOutOfMemoryError(ExecState* exec, ErrorInstance::SourceAppender appender) 
-{
-    return createError(exec, ASCIILiteral("Out of memory"), appender);
-}
-
-
 class FindFirstCallerFrameWithCodeblockFunctor {
 public:
     FindFirstCallerFrameWithCodeblockFunctor(CallFrame* startCallFrame)
@@ -113,7 +107,7 @@ public:
         , m_index(0)
     { }
 
-    StackVisitor::Status operator()(StackVisitor& visitor)
+    StackVisitor::Status operator()(StackVisitor& visitor) const
     {
         if (!m_foundStartCallFrame && (visitor->callFrame() == m_startCallFrame))
             m_foundStartCallFrame = true;
@@ -134,26 +128,25 @@ public:
 
 private:
     CallFrame* m_startCallFrame;
-    CallFrame* m_foundCallFrame;
-    bool m_foundStartCallFrame;
-    unsigned m_index;
+    mutable CallFrame* m_foundCallFrame;
+    mutable bool m_foundStartCallFrame;
+    mutable unsigned m_index;
 };
 
-bool addErrorInfoAndGetBytecodeOffset(ExecState* exec, VM& vm, JSObject* obj, bool useCurrentFrame, CallFrame*& callFrame, unsigned &bytecodeOffset) 
+bool addErrorInfoAndGetBytecodeOffset(ExecState* exec, VM& vm, JSObject* obj, bool useCurrentFrame, CallFrame*& callFrame, unsigned* bytecodeOffset)
 {
     Vector<StackFrame> stackTrace = Vector<StackFrame>();
 
-    if (exec && stackTrace.isEmpty())
-        vm.interpreter->getStackTrace(stackTrace);
-
+    size_t framesToSkip = useCurrentFrame ? 0 : 1;
+    vm.interpreter->getStackTrace(stackTrace, framesToSkip);
     if (!stackTrace.isEmpty()) {
 
         ASSERT(exec == vm.topCallFrame || exec == exec->lexicalGlobalObject()->globalExec() || exec == exec->vmEntryGlobalObject()->globalExec());
 
-        StackFrame* stackFrame;
+        StackFrame* firstNonNativeFrame;
         for (unsigned i = 0 ; i < stackTrace.size(); ++i) {
-            stackFrame = &stackTrace.at(i);
-            if (stackFrame->bytecodeOffset)
+            firstNonNativeFrame = &stackTrace.at(i);
+            if (!firstNonNativeFrame->isNative())
                 break;
         }
 
@@ -162,21 +155,20 @@ bool addErrorInfoAndGetBytecodeOffset(ExecState* exec, VM& vm, JSObject* obj, bo
             vm.topCallFrame->iterate(functor);
             callFrame = functor.foundCallFrame();
             unsigned stackIndex = functor.index();
-            bytecodeOffset = stackTrace.at(stackIndex).bytecodeOffset;
+            *bytecodeOffset = stackTrace.at(stackIndex).bytecodeOffset;
         }
         
         unsigned line;
         unsigned column;
-        stackFrame->computeLineAndColumn(line, column);
+        firstNonNativeFrame->computeLineAndColumn(line, column);
         obj->putDirect(vm, vm.propertyNames->line, jsNumber(line), ReadOnly | DontDelete);
         obj->putDirect(vm, vm.propertyNames->column, jsNumber(column), ReadOnly | DontDelete);
 
-        if (!stackFrame->sourceURL.isEmpty())
-            obj->putDirect(vm, vm.propertyNames->sourceURL, jsString(&vm, stackFrame->sourceURL), ReadOnly | DontDelete);
-    
-        if (!useCurrentFrame)
-            stackTrace.remove(0);
-        obj->putDirect(vm, vm.propertyNames->stack, vm.interpreter->stackTraceAsString(vm.topCallFrame, stackTrace), DontEnum);
+        String frameSourceURL = firstNonNativeFrame->sourceURL();
+        if (!frameSourceURL.isEmpty())
+            obj->putDirect(vm, vm.propertyNames->sourceURL, jsString(&vm, frameSourceURL), ReadOnly | DontDelete);
+
+        obj->putDirect(vm, vm.propertyNames->stack, Interpreter::stackTraceAsString(vm, stackTrace), DontEnum);
 
         return true;
     }
@@ -186,8 +178,7 @@ bool addErrorInfoAndGetBytecodeOffset(ExecState* exec, VM& vm, JSObject* obj, bo
 void addErrorInfo(ExecState* exec, JSObject* obj, bool useCurrentFrame)
 {
     CallFrame* callFrame = nullptr;
-    unsigned bytecodeOffset = 0;
-    addErrorInfoAndGetBytecodeOffset(exec, exec->vm(), obj, useCurrentFrame, callFrame, bytecodeOffset);
+    addErrorInfoAndGetBytecodeOffset(exec, exec->vm(), obj, useCurrentFrame, callFrame);
 }
 
 JSObject* addErrorInfo(CallFrame* callFrame, JSObject* error, int line, const SourceCode& source)
@@ -209,9 +200,24 @@ bool hasErrorInfo(ExecState* exec, JSObject* error)
         || error->hasProperty(exec, Identifier::fromString(exec, sourceURLPropertyName));
 }
 
+JSObject* throwConstructorCannotBeCalledAsFunctionTypeError(ExecState* exec, const char* constructorName)
+{
+    return throwTypeError(exec, makeString("calling ", constructorName, " constructor without new is invalid"));
+}
+
 JSObject* throwTypeError(ExecState* exec)
 {
     return exec->vm().throwException(exec, createTypeError(exec));
+}
+
+JSObject* throwTypeError(ExecState* exec, ASCIILiteral errorMessage)
+{
+    return throwTypeError(exec, String(errorMessage));
+}
+
+JSObject* throwTypeError(ExecState* exec, const String& message)
+{
+    return exec->vm().throwException(exec, createTypeError(exec, message));
 }
 
 JSObject* throwSyntaxError(ExecState* exec)
@@ -219,6 +225,10 @@ JSObject* throwSyntaxError(ExecState* exec)
     return exec->vm().throwException(exec, createSyntaxError(exec, ASCIILiteral("Syntax error")));
 }
 
+JSObject* throwSyntaxError(ExecState* exec, const String& message)
+{
+    return exec->vm().throwException(exec, createSyntaxError(exec, message));
+}
 
 JSObject* createError(ExecState* exec, const String& message)
 {
@@ -267,7 +277,7 @@ JSObject* createURIError(ExecState* exec, const String& message)
 
 JSObject* createOutOfMemoryError(ExecState* exec)
 {
-    return createOutOfMemoryError(exec, nullptr);
+    return createError(exec, ASCIILiteral("Out of memory"), nullptr);
 }
 
 

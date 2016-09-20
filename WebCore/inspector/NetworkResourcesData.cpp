@@ -136,15 +136,15 @@ void NetworkResourcesData::resourceCreated(const String& requestId, const String
     m_requestIdToResourceDataMap.set(requestId, new ResourceData(requestId, loaderId));
 }
 
-static PassRefPtr<TextResourceDecoder> createOtherResourceTextDecoder(const String& mimeType, const String& textEncodingName)
+static RefPtr<TextResourceDecoder> createOtherResourceTextDecoder(const String& mimeType, const String& textEncodingName)
 {
     RefPtr<TextResourceDecoder> decoder;
     if (!textEncodingName.isEmpty())
         decoder = TextResourceDecoder::create("text/plain", textEncodingName);
-    else if (DOMImplementation::isXMLMIMEType(mimeType.lower())) {
+    else if (DOMImplementation::isXMLMIMEType(mimeType)) {
         decoder = TextResourceDecoder::create("application/xml");
         decoder->useLenientXMLDecoding();
-    } else if (equalIgnoringCase(mimeType, "text/html"))
+    } else if (equalLettersIgnoringASCIICase(mimeType, "text/html"))
         decoder = TextResourceDecoder::create("text/html", "UTF-8");
     else if (mimeType == "text/plain")
         decoder = TextResourceDecoder::create("text/plain", "ISO-8859-1");
@@ -190,7 +190,7 @@ void NetworkResourcesData::setResourceContent(const String& requestId, const Str
         return;
     if (ensureFreeSpace(dataLength) && !resourceData->isContentEvicted()) {
         // We can not be sure that we didn't try to save this request data while it was loading, so remove it, if any.
-        if (resourceData->hasContent())
+        if (resourceData->hasContent() || resourceData->hasData())
             m_contentSize -= resourceData->removeContent();
         m_requestIdsDeque.append(requestId);
         resourceData->setContent(content, base64Encoded);
@@ -237,12 +237,12 @@ void NetworkResourcesData::addCachedResource(const String& requestId, CachedReso
     resourceData->setCachedResource(cachedResource);
 }
 
-void NetworkResourcesData::addResourceSharedBuffer(const String& requestId, PassRefPtr<SharedBuffer> buffer, const String& textEncodingName)
+void NetworkResourcesData::addResourceSharedBuffer(const String& requestId, RefPtr<SharedBuffer>&& buffer, const String& textEncodingName)
 {
     ResourceData* resourceData = resourceDataForRequestId(requestId);
     if (!resourceData)
         return;
-    resourceData->setBuffer(buffer);
+    resourceData->setBuffer(WTFMove(buffer));
     resourceData->setTextEncodingName(textEncodingName);
 }
 
@@ -254,13 +254,11 @@ NetworkResourcesData::ResourceData const* NetworkResourcesData::data(const Strin
 Vector<String> NetworkResourcesData::removeCachedResource(CachedResource* cachedResource)
 {
     Vector<String> result;
-    ResourceDataMap::iterator it;
-    ResourceDataMap::iterator end = m_requestIdToResourceDataMap.end();
-    for (it = m_requestIdToResourceDataMap.begin(); it != end; ++it) {
-        ResourceData* resourceData = it->value;
+    for (auto& entry : m_requestIdToResourceDataMap) {
+        ResourceData* resourceData = entry.value;
         if (resourceData->cachedResource() == cachedResource) {
             resourceData->setCachedResource(nullptr);
-            result.append(it->key);
+            result.append(entry.key);
         }
     }
 
@@ -274,17 +272,22 @@ void NetworkResourcesData::clear(const String& preservedLoaderId)
 
     ResourceDataMap preservedMap;
 
-    ResourceDataMap::iterator it;
-    ResourceDataMap::iterator end = m_requestIdToResourceDataMap.end();
-    for (it = m_requestIdToResourceDataMap.begin(); it != end; ++it) {
-        ResourceData* resourceData = it->value;
+    for (auto& entry : m_requestIdToResourceDataMap) {
+        ResourceData* resourceData = entry.value;
         ASSERT(resourceData);
         if (!preservedLoaderId.isNull() && resourceData->loaderId() == preservedLoaderId)
-            preservedMap.set(it->key, it->value);
+            preservedMap.set(entry.key, entry.value);
         else
             delete resourceData;
     }
     m_requestIdToResourceDataMap.swap(preservedMap);
+}
+
+Vector<NetworkResourcesData::ResourceData*> NetworkResourcesData::resources()
+{
+    Vector<NetworkResourcesData::ResourceData*> resources;
+    copyValuesToVector(m_requestIdToResourceDataMap, resources);
+    return resources;
 }
 
 NetworkResourcesData::ResourceData* NetworkResourcesData::resourceDataForRequestId(const String& requestId)

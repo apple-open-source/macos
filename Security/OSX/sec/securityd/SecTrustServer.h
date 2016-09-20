@@ -38,23 +38,6 @@
 
 __BEGIN_DECLS
 
-
-/* args_in keys. */
-#define kSecTrustCertificatesKey "certificates"
-#define kSecTrustAnchorsKey "anchors"
-#define kSecTrustAnchorsOnlyKey "anchorsOnly"
-#define kSecTrustPoliciesKey "policies"
-#define kSecTrustResponsesKey "responses"
-#define kSecTrustSCTsKey "scts"
-#define kSecTrustTrustedLogsKey "trustedLogs"
-#define kSecTrustVerifyDateKey "verifyDate"
-
-/* args_out keys. */
-#define kSecTrustDetailsKey "details"
-#define kSecTrustChainKey "chain"
-#define kSecTrustResultKey "result"
-#define kSecTrustInfoKey "info"
-
 typedef struct SecPathBuilder *SecPathBuilderRef;
 
 /* Completion callback.  You should call SecTrustSessionDestroy from this. */
@@ -65,7 +48,7 @@ typedef void(*SecPathBuilderCompleted)(const void *userData,
 /* Returns a new trust path builder and policy evaluation engine instance. */
 SecPathBuilderRef SecPathBuilderCreate(CFDataRef clientAuditToken,
     CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly,
-    CFArrayRef policies, CFArrayRef ocspResponse,
+    bool keychainsAllowed, CFArrayRef policies, CFArrayRef ocspResponse,
     CFArrayRef signedCertificateTimestamps, CFArrayRef trustedLogs,
     CFAbsoluteTime verifyTime, CFArrayRef accessGroups,
     SecPathBuilderCompleted completed, const void *userData);
@@ -96,12 +79,13 @@ dispatch_queue_t SecPathBuilderGetQueue(SecPathBuilderRef builder);
 CFDataRef SecPathBuilderCopyClientAuditToken(SecPathBuilderRef builder);
 
 /* Evaluate trust and call evaluated when done. */
-void SecTrustServerEvaluateBlock(CFDataRef clientAuditToken, CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, void (^evaluated)(SecTrustResultType tr, CFArrayRef details, CFDictionaryRef info, SecCertificatePathRef chain, CFErrorRef error));
+void SecTrustServerEvaluateBlock(CFDataRef clientAuditToken, CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, void (^evaluated)(SecTrustResultType tr, CFArrayRef details, CFDictionaryRef info, SecCertificatePathRef chain, CFErrorRef error));
 
 /* Synchronously invoke SecTrustServerEvaluateBlock. */
-SecTrustResultType SecTrustServerEvaluate(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef *details, CFDictionaryRef *info, SecCertificatePathRef *chain, CFErrorRef *error);
+SecTrustResultType SecTrustServerEvaluate(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef *details, CFDictionaryRef *info, SecCertificatePathRef *chain, CFErrorRef *error);
 
 void InitializeAnchorTable(void);
+
 
 __END_DECLS
 

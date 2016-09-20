@@ -58,8 +58,8 @@ const int defaultWidthNumChars = 38;
 #endif
 const int buttonShadowHeight = 2;
 
-RenderFileUploadControl::RenderFileUploadControl(HTMLInputElement& input, Ref<RenderStyle>&& style)
-    : RenderBlockFlow(input, WTF::move(style))
+RenderFileUploadControl::RenderFileUploadControl(HTMLInputElement& input, RenderStyle&& style)
+    : RenderBlockFlow(input, WTFMove(style))
     , m_canReceiveDroppedFiles(input.canReceiveDroppedFiles())
 {
 }
@@ -95,13 +95,13 @@ void RenderFileUploadControl::updateFromElement()
 
 static int nodeWidth(Node* node)
 {
-    return (node && node->renderBox()) ? node->renderBox()->pixelSnappedSize().width() : 0;
+    return (node && node->renderBox()) ? roundToInt(node->renderBox()->size().width()) : 0;
 }
 
 #if PLATFORM(IOS)
 static int nodeHeight(Node* node)
 {
-    return (node && node->renderBox()) ? node->renderBox()->pixelSnappedSize().height() : 0;
+    return (node && node->renderBox()) ? roundToInt(node->renderBox()->size().height()) : 0;
 }
 #endif
 
@@ -110,7 +110,7 @@ int RenderFileUploadControl::maxFilenameWidth() const
 #if PLATFORM(IOS)
     int iconWidth = nodeHeight(uploadButton());
 #endif
-    return std::max(0, contentBoxRect().pixelSnappedSize().width() - nodeWidth(uploadButton()) - afterButtonSpacing
+    return std::max(0, snappedIntRect(contentBoxRect()).width() - nodeWidth(uploadButton()) - afterButtonSpacing
         - (inputElement().icon() ? iconWidth + iconFilenameSpacing : 0));
 }
 
@@ -120,21 +120,20 @@ void RenderFileUploadControl::paintObject(PaintInfo& paintInfo, const LayoutPoin
         return;
     
     // Push a clip.
-    GraphicsContextStateSaver stateSaver(*paintInfo.context, false);
+    GraphicsContextStateSaver stateSaver(paintInfo.context(), false);
     if (paintInfo.phase == PaintPhaseForeground || paintInfo.phase == PaintPhaseChildBlockBackgrounds) {
         IntRect clipRect = enclosingIntRect(LayoutRect(paintOffset.x() + borderLeft(), paintOffset.y() + borderTop(),
                          width() - borderLeft() - borderRight(), height() - borderBottom() - borderTop() + buttonShadowHeight));
         if (clipRect.isEmpty())
             return;
         stateSaver.save();
-        paintInfo.context->clip(clipRect);
+        paintInfo.context().clip(clipRect);
     }
 
     if (paintInfo.phase == PaintPhaseForeground) {
         const String& displayedFilename = fileTextValue();
         const FontCascade& font = style().fontCascade();
-        TextRun textRun = constructTextRun(this, font, displayedFilename, style(), AllowTrailingExpansion, RespectDirection | RespectDirectionOverride);
-        textRun.disableRoundingHacks();
+        TextRun textRun = constructTextRun(displayedFilename, style(), AllowTrailingExpansion, RespectDirection | RespectDirectionOverride);
 
 #if PLATFORM(IOS)
         int iconHeight = nodeHeight(uploadButton());
@@ -163,10 +162,10 @@ void RenderFileUploadControl::paintObject(PaintInfo& paintInfo, const LayoutPoin
         else
             textY = baselinePosition(AlphabeticBaseline, true, HorizontalLine, PositionOnContainingLine);
 
-        paintInfo.context->setFillColor(style().visitedDependentColor(CSSPropertyColor), style().colorSpace());
+        paintInfo.context().setFillColor(style().visitedDependentColor(CSSPropertyColor));
         
         // Draw the filename
-        paintInfo.context->drawBidiText(font, textRun, IntPoint(roundToInt(textX), roundToInt(textY)));
+        paintInfo.context().drawBidiText(font, textRun, IntPoint(roundToInt(textX), roundToInt(textY)));
         
         if (inputElement().icon()) {
             // Determine where the icon should be placed
@@ -186,7 +185,7 @@ void RenderFileUploadControl::paintObject(PaintInfo& paintInfo, const LayoutPoin
             }
 #else
             // Draw the file icon
-            inputElement().icon()->paint(*paintInfo.context, IntRect(roundToInt(iconX), roundToInt(iconY), iconWidth, iconHeight));
+            inputElement().icon()->paint(paintInfo.context(), IntRect(roundToInt(iconX), roundToInt(iconY), iconWidth, iconHeight));
 #endif
         }
     }
@@ -203,11 +202,10 @@ void RenderFileUploadControl::computeIntrinsicLogicalWidths(LayoutUnit& minLogic
     const String characterAsString = String(&character, 1);
     const FontCascade& font = style().fontCascade();
     // FIXME: Remove the need for this const_cast by making constructTextRun take a const RenderObject*.
-    RenderFileUploadControl* renderer = const_cast<RenderFileUploadControl*>(this);
-    float minDefaultLabelWidth = defaultWidthNumChars * font.width(constructTextRun(renderer, font, characterAsString, style(), AllowTrailingExpansion));
+    float minDefaultLabelWidth = defaultWidthNumChars * font.width(constructTextRun(characterAsString, style(), AllowTrailingExpansion));
 
     const String label = theme().fileListDefaultLabel(inputElement().multiple());
-    float defaultLabelWidth = font.width(constructTextRun(renderer, font, label, style(), AllowTrailingExpansion));
+    float defaultLabelWidth = font.width(constructTextRun(label, style(), AllowTrailingExpansion));
     if (HTMLInputElement* button = uploadButton())
         if (RenderObject* buttonRenderer = button->renderer())
             defaultLabelWidth += buttonRenderer->maxPreferredLogicalWidth() + afterButtonSpacing;
@@ -271,7 +269,7 @@ String RenderFileUploadControl::fileTextValue() const
     ASSERT(inputElement().files());
 #if PLATFORM(IOS)
     if (inputElement().files()->length())
-        return StringTruncator::rightTruncate(inputElement().displayString(), maxFilenameWidth(), style().fontCascade(), StringTruncator::EnableRoundingHacks);
+        return StringTruncator::rightTruncate(inputElement().displayString(), maxFilenameWidth(), style().fontCascade());
 #endif
     return theme().fileListNameForWidth(inputElement().files(), style().fontCascade(), maxFilenameWidth(), inputElement().multiple());
 }

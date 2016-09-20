@@ -56,6 +56,31 @@ void __security_simulatecrash(CFStringRef reason, uint32_t code)
         __simulate_crash_counter++;
 }
 
+void __security_stackshotreport(CFStringRef reason, uint32_t code)
+{
+    secerror("stackshot report, reason: %@, code=%08x", reason, code);
+#if !TARGET_IPHONE_SIMULATOR
+    // Prototype defined in <CrashReporterSupport/CrashReporterSupport.h>, but objC only.
+    // Soft linking here so we don't link unless we hit this.
+    static BOOL (*__WriteStackshotReport)(void *, mach_exception_data_type_t) = NULL;
+
+    static dispatch_once_t once = 0;
+    dispatch_once(&once, ^{
+        void *image = dlopen("/System/Library/PrivateFrameworks/CrashReporterSupport.framework/CrashReporterSupport", RTLD_NOW);
+        if (image)
+            __WriteStackshotReport = dlsym(image, "WriteStackshotReport");
+    });
+
+    if (__WriteStackshotReport)
+        __WriteStackshotReport((void *)reason, code);
+    else
+        secerror("WriteStackshotReport not available");
+#else
+    secerror("WriteStackshotReport not available in iOS simulator");
+#endif
+}
+
+
 int __security_simulatecrash_enable(bool enable)
 {
     int count = __simulate_crash_counter;

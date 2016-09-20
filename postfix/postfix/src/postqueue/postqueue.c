@@ -4,13 +4,21 @@
 /* SUMMARY
 /*	Postfix queue control
 /* SYNOPSIS
+/* .ti -4
+/*	\fBTo flush the mail queue\fR:
+/*
 /*	\fBpostqueue\fR [\fB-v\fR] [\fB-c \fIconfig_dir\fR] \fB-f\fR
-/* .br
+/*
 /*	\fBpostqueue\fR [\fB-v\fR] [\fB-c \fIconfig_dir\fR] \fB-i \fIqueue_id\fR
-/* .br
-/*	\fBpostqueue\fR [\fB-v\fR] [\fB-c \fIconfig_dir\fR] \fB-p\fR
-/* .br
+/*
 /*	\fBpostqueue\fR [\fB-v\fR] [\fB-c \fIconfig_dir\fR] \fB-s \fIsite\fR
+/*
+/* .ti -4
+/*	\fBTo list the mail queue\fR:
+/*
+/*	\fBpostqueue\fR [\fB-v\fR] [\fB-c \fIconfig_dir\fR] \fB-j\fR
+/*
+/*	\fBpostqueue\fR [\fB-v\fR] [\fB-c \fIconfig_dir\fR] \fB-p\fR
 /* DESCRIPTION
 /*	The \fBpostqueue\fR(1) command implements the Postfix user interface
 /*	for queue management. It implements operations that are
@@ -40,6 +48,14 @@
 /*	command, by contacting the \fBflush\fR(8) server.
 /*
 /*	This feature is available with Postfix version 2.4 and later.
+/* .IP "\fB-j\fR"
+/*	Produce a queue listing in JSON format, based on output
+/*	from the showq(8) daemon.  The result is a stream of zero
+/*	or more JSON objects, one per queue file.  Each object is
+/*	followed by a newline character to support simple streaming
+/*	parsers. See "\fBJSON OBJECT FORMAT\fR" below for details.
+/*
+/*	This feature is available in Postfix 3.1 and later.
 /* .IP \fB-p\fR
 /*	Produce a traditional sendmail-style queue listing.
 /*	This option implements the traditional \fBmailq\fR command,
@@ -72,11 +88,54 @@
 /*	Enable verbose logging for debugging purposes. Multiple \fB-v\fR
 /*	options make the software increasingly verbose. As of Postfix 2.3,
 /*	this option is available for the super-user only.
+/* JSON OBJECT FORMAT
+/* .ad
+/* .fi
+/*	Each JSON object represents one queue file; it is emitted
+/*	as a single text line followed by a newline character.
+/*
+/*	Object members have string values unless indicated otherwise.
+/*	Programs should ignore object members that are not listed
+/*	here; the list of members is expected to grow over time.
+/* .IP \fBqueue_name\fR
+/*	The name of the queue where the message was found.  Note
+/*	that the contents of the mail queue may change while it is
+/*	being listed; some messages may appear more than once, and
+/*	some messages may be missed.
+/* .IP \fBqueue_id\fR
+/*	The queue file name. The queue_id may be reused within a
+/*	Postfix instance unless "enable_long_queue_ids = true" and
+/*	time is monotonic.  Even then, the queue_id is not expected
+/*	to be unique between different Postfix instances.  Management
+/*	tools that require a unique name should combine the queue_id
+/*	with the myhostname setting of the Postfix instance.
+/* .IP \fBarrival_time\fR
+/*	The number of seconds since the start of the UNIX epoch.
+/* .IP \fBmessage_size\fR
+/*	The number of bytes in the message header and body. This
+/*	number does not include message envelope information. It
+/*	is approximately equal to the number of bytes that would
+/*	be transmitted via SMTP including the <CR><LF> line endings.
+/* .IP \fBsender\fR
+/*	The envelope sender address.
+/* .IP \fBrecipients\fR
+/*	An array containing zero or more objects with members:
+/* .RS
+/* .IP \fBaddress\fR
+/*	One recipient address.
+/* .IP \fBdelay_reason\fR
+/*	If present, the reason for delayed delivery.  Delayed
+/*	recipients may have no delay reason, for example, while
+/*	delivery is in progress, or after the system was stopped
+/*	before it could record the reason.
+/* .RE
 /* SECURITY
 /* .ad
 /* .fi
 /*	This program is designed to run with set-group ID privileges, so
 /*	that it can connect to Postfix daemon processes.
+/* STANDARDS
+/*	RFC 7159 (JSON notation)
 /* DIAGNOSTICS
 /*	Problems are logged to \fBsyslogd\fR(8) and to the standard error
 /*	stream.
@@ -161,6 +220,11 @@
 /*	IBM T.J. Watson Research
 /*	P.O. Box 704
 /*	Yorktown Heights, NY 10598, USA
+/*
+/*	Wietse Venema
+/*	Google, Inc.
+/*	111 8th Avenue
+/*	New York, NY 10011, USA
 /*--*/
 
 /* System library. */
@@ -188,6 +252,7 @@
 #include <valid_hostname.h>
 #include <warn_stat.h>
 #include <events.h>
+#include <stringops.h>
 
 /* Global library. */
 
@@ -204,8 +269,11 @@
 #include <user_acl.h>
 #include <valid_mailhost_addr.h>
 #include <mail_dict.h>
+#include <mail_parm_split.h>
 
 /* Application-specific. */
+
+#include <postqueue.h>
 
  /*
   * WARNING WARNING WARNING
@@ -240,6 +308,7 @@
 #define PQ_MODE_FLUSH_QUEUE	2	/* flush queue */
 #define PQ_MODE_FLUSH_SITE	3	/* flush site */
 #define PQ_MODE_FLUSH_FILE	4	/* flush message */
+#define PQ_MODE_JSON_LIST	5	/* JSON-format queue listing */
 
  /*
   * Silly little macros (SLMs).
@@ -260,34 +329,35 @@ static const CONFIG_STR_TABLE str_table[] = {
 
 /* show_queue - show queue status */
 
-static void show_queue(void)
+static void show_queue(int mode)
 {
     const char *errstr;
-    char    buf[VSTREAM_BUFSIZE];
     VSTREAM *showq;
     int     n;
     uid_t   uid = getuid();
 
     if (uid != 0 && uid != var_owner_uid
-	&& (errstr = check_user_acl_byuid(var_showq_acl, uid)) != 0)
+	&& (errstr = check_user_acl_byuid(VAR_SHOWQ_ACL, var_showq_acl,
+					  uid)) != 0)
 	msg_fatal_status(EX_NOPERM,
 		       "User %s(%ld) is not allowed to view the mail queue",
 			 errstr, (long) uid);
 
     /*
-     * Connect to the show queue service. Terminate silently when piping into
-     * a program that terminates early.
+     * Connect to the show queue service.
      */
     if ((showq = mail_connect(MAIL_CLASS_PUBLIC, var_showq_service, BLOCKING)) != 0) {
-	while ((n = vstream_fread(showq, buf, sizeof(buf))) > 0) {
-	    if (vstream_fwrite(VSTREAM_OUT, buf, n) != n
-		|| vstream_fflush(VSTREAM_OUT) != 0) {
-		if (errno == EPIPE)
-		    break;
-		msg_fatal("write error: %m");
-	    }
+	switch (mode) {
+	case PQ_MODE_MAILQ_LIST:
+	    showq_compat(showq);
+	    break;
+	case PQ_MODE_JSON_LIST:
+	    showq_json(showq);
+	    break;
+	default:
+	    msg_panic("show_queue: unknown mode %d", mode);
 	}
-	if (vstream_fclose(showq) && errno != EPIPE)
+	if (vstream_fclose(showq))
 	    msg_warn("close: %m");
     }
 
@@ -306,17 +376,40 @@ static void show_queue(void)
      * directly. Just run the showq program in stand-alone mode.
      */
     else if (geteuid() == 0) {
+	char   *showq_path;
 	ARGV   *argv;
 	int     stat;
 
 	msg_warn("Mail system is down -- accessing queue directly");
+	showq_path = concatenate(var_daemon_dir, "/", var_showq_service,
+				 (char *) 0);
 	argv = argv_alloc(6);
-	argv_add(argv, var_showq_service, "-u", "-S", (char *) 0);
+	argv_add(argv, showq_path, "-u", "-S", (char *) 0);
 	for (n = 0; n < msg_verbose; n++)
 	    argv_add(argv, "-v", (char *) 0);
 	argv_terminate(argv);
-	stat = mail_run_foreground(var_daemon_dir, argv->argv);
+	if ((showq = vstream_popen(O_RDONLY,
+				   CA_VSTREAM_POPEN_ARGV(argv->argv),
+				   CA_VSTREAM_POPEN_END)) == 0) {
+	    stat = -1;
+	} else {
+	    switch (mode) {
+	    case PQ_MODE_MAILQ_LIST:
+		showq_compat(showq);
+		break;
+	    case PQ_MODE_JSON_LIST:
+		showq_json(showq);
+		break;
+	    default:
+		msg_panic("show_queue: unknown mode %d", mode);
+	    }
+	    stat = vstream_pclose(showq);
+	}
 	argv_free(argv);
+	if (stat != 0)
+	    msg_fatal_status(stat < 0 ? EX_OSERR : EX_SOFTWARE,
+			     "Error running %s", showq_path);
+	myfree(showq_path);
     }
 
     /*
@@ -339,7 +432,8 @@ static void flush_queue(void)
     uid_t   uid = getuid();
 
     if (uid != 0 && uid != var_owner_uid
-	&& (errstr = check_user_acl_byuid(var_flush_acl, uid)) != 0)
+	&& (errstr = check_user_acl_byuid(VAR_FLUSH_ACL, var_flush_acl,
+					  uid)) != 0)
 	msg_fatal_status(EX_NOPERM,
 		      "User %s(%ld) is not allowed to flush the mail queue",
 			 errstr, (long) uid);
@@ -365,7 +459,8 @@ static void flush_site(const char *site)
     uid_t   uid = getuid();
 
     if (uid != 0 && uid != var_owner_uid
-	&& (errstr = check_user_acl_byuid(var_flush_acl, uid)) != 0)
+	&& (errstr = check_user_acl_byuid(VAR_FLUSH_ACL, var_flush_acl,
+					  uid)) != 0)
 	msg_fatal_status(EX_NOPERM,
 		      "User %s(%ld) is not allowed to flush the mail queue",
 			 errstr, (long) uid);
@@ -399,7 +494,8 @@ static void flush_file(const char *queue_id)
     uid_t   uid = getuid();
 
     if (uid != 0 && uid != var_owner_uid
-	&& (errstr = check_user_acl_byuid(var_flush_acl, uid)) != 0)
+	&& (errstr = check_user_acl_byuid(VAR_FLUSH_ACL, var_flush_acl,
+					  uid)) != 0)
 	msg_fatal_status(EX_NOPERM,
 		      "User %s(%ld) is not allowed to flush the mail queue",
 			 errstr, (long) uid);
@@ -429,7 +525,7 @@ static void unavailable(void)
 
 static NORETURN usage(void)
 {
-    msg_fatal_status(EX_USAGE, "usage: postqueue -f | postqueue -i queueid | postqueue -p | postqueue -s site");
+    msg_fatal_status(EX_USAGE, "usage: postqueue -f | postqueue -i queueid | postqueue -j | postqueue -p | postqueue -s site");
 }
 
 MAIL_VERSION_STAMP_DECLARE;
@@ -491,7 +587,7 @@ int     main(int argc, char **argv)
      * mail configuration read routine. Don't do complex things until we have
      * completed initializations.
      */
-    while ((c = GETOPT(argc, argv, "c:fi:ps:v")) > 0) {
+    while ((c = GETOPT(argc, argv, "c:fi:jps:v")) > 0) {
 	switch (c) {
 	case 'c':				/* non-default configuration */
 	    if (setenv(CONF_ENV_PATH, optarg, 1) < 0)
@@ -507,6 +603,11 @@ int     main(int argc, char **argv)
 		usage();
 	    mode = PQ_MODE_FLUSH_FILE;
 	    id_to_flush = optarg;
+	    break;
+	case 'j':
+	    if (mode != PQ_MODE_DEFAULT)
+		usage();
+	    mode = PQ_MODE_JSON_LIST;
 	    break;
 	case 'p':				/* traditional mailq */
 	    if (mode != PQ_MODE_DEFAULT)
@@ -534,8 +635,8 @@ int     main(int argc, char **argv)
      * Further initialization...
      */
     mail_conf_read();
-    if (strcmp(var_syslog_name, DEF_SYSLOG_NAME) != 0)
-	msg_syslog_init(mail_task("postqueue"), LOG_PID, LOG_FACILITY);
+    /* Re-evaluate mail_task() after reading main.cf. */
+    msg_syslog_init(mail_task("postqueue"), LOG_PID, LOG_FACILITY);
     mail_dict_init();				/* proxy, sql, ldap */
     get_mail_conf_str_table(str_table);
 
@@ -547,7 +648,7 @@ int     main(int argc, char **argv)
      * directory info when the mail system is down.
      */
     if (geteuid() != 0) {
-	import_env = argv_split(var_import_environ, ", \t\r\n");
+	import_env = mail_parm_split(VAR_IMPORT_ENVIRON, var_import_environ);
 	clean_env(import_env->argv);
 	argv_free(import_env);
     }
@@ -588,7 +689,8 @@ int     main(int argc, char **argv)
 	msg_panic("unknown operation mode: %d", mode);
 	/* NOTREACHED */
     case PQ_MODE_MAILQ_LIST:
-	show_queue();
+    case PQ_MODE_JSON_LIST:
+	show_queue(mode);
 	exit(0);
 	break;
     case PQ_MODE_FLUSH_SITE:

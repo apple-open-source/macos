@@ -94,6 +94,9 @@ fetchData(xpc_connection_t peer, xpc_object_t event)
         pid = (pid_t)xpc_dictionary_get_int64(event, "pid");
         if (pid <= 0)
                 return;
+	
+		size_t iphLength;
+		const void* iphash = xpc_dictionary_get_data(event, "infohash", &iphLength);
 
         xpc_object_t reply = xpc_dictionary_create_reply(event);
         if (reply == NULL)
@@ -130,6 +133,8 @@ fetchData(xpc_connection_t peer, xpc_object_t event)
                 xpc_dictionary_set_string(reply, "error", "can't get content of Info.plist");
                 goto send;
         }
+	
+		... check the "right" hash against iphash/iphLength
 
         xpc_dictionary_set_data(reply, "infoPlist", CFDataGetBytePtr(data), CFDataGetLength(data));
         CFRelease(data);

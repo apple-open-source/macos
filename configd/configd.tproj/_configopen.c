@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2009, 2011, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2009, 2011, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -171,7 +171,7 @@ _configopen(mach_port_t			server,
 			   mySession->serverRunLoopSource,
 			   kCFRunLoopDefaultMode);
 
-	SC_trace(_configd_trace, "open    : %5d : %@\n",
+	SC_trace("open    : %5d : %@",
 		 *newServer,
 		 name);
 

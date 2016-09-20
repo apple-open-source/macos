@@ -1,4 +1,4 @@
-/* $OpenBSD: readconf.c,v 1.237 2015/06/26 05:13:20 djm Exp $ */
+/* $OpenBSD: readconf.c,v 1.250 2016/02/08 23:40:12 djm Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -135,6 +135,7 @@ typedef enum {
 	oPasswordAuthentication, oRSAAuthentication,
 	oChallengeResponseAuthentication, oXAuthLocation,
 	oIdentityFile, oHostName, oPort, oCipher, oRemoteForward, oLocalForward,
+	oCertificateFile, oAddKeysToAgent,
 	oUser, oEscapeChar, oRhostsRSAAuthentication, oProxyCommand,
 	oGlobalKnownHostsFile, oUserKnownHostsFile, oConnectionAttempts,
 	oBatchMode, oCheckHostIP, oStrictHostKeyChecking, oCompression,
@@ -147,21 +148,20 @@ typedef enum {
 	oClearAllForwardings, oNoHostAuthenticationForLocalhost,
 	oEnableSSHKeysign, oRekeyLimit, oVerifyHostKeyDNS, oConnectTimeout,
 	oAddressFamily, oGssAuthentication, oGssDelegateCreds,
-	oGssTrustDns, oGssKeyEx, oGssClientIdentity, oGssRenewalRekey,
-	oGssServerIdentity, 
 	oServerAliveInterval, oServerAliveCountMax, oIdentitiesOnly,
 	oSendEnv, oControlPath, oControlMaster, oControlPersist,
 	oHashKnownHosts,
 	oTunnel, oTunnelDevice, oLocalCommand, oPermitLocalCommand,
 #ifdef __APPLE_KEYCHAIN__
-	oAskPassGUI,
+	oUseKeychain,
 #endif
-	oVisualHostKey, oUseRoaming,
+	oVisualHostKey,
 	oKexAlgorithms, oIPQoS, oRequestTTY, oIgnoreUnknown, oProxyUseFdpass,
 	oCanonicalDomains, oCanonicalizeHostname, oCanonicalizeMaxDots,
 	oCanonicalizeFallbackLocal, oCanonicalizePermittedCNAMEs,
 	oStreamLocalBindMask, oStreamLocalBindUnlink, oRevokedHostKeys,
 	oFingerprintHash, oUpdateHostkeys, oHostbasedKeyTypes,
+	oPubkeyAcceptedKeyTypes,
 	oIgnoredUnknownOption, oDeprecated, oUnsupported
 } OpCodes;
 
@@ -196,25 +196,18 @@ static struct {
 	{ "afstokenpassing", oUnsupported },
 #if defined(GSSAPI)
 	{ "gssapiauthentication", oGssAuthentication },
-	{ "gssapikeyexchange", oGssKeyEx },
 	{ "gssapidelegatecredentials", oGssDelegateCreds },
-	{ "gssapitrustdns", oGssTrustDns },
-	{ "gssapiclientidentity", oGssClientIdentity },
-	{ "gssapiserveridentity", oGssServerIdentity },
-	{ "gssapirenewalforcesrekey", oGssRenewalRekey },
 #else
 	{ "gssapiauthentication", oUnsupported },
-	{ "gssapikeyexchange", oUnsupported },
 	{ "gssapidelegatecredentials", oUnsupported },
-	{ "gssapitrustdns", oUnsupported },
-	{ "gssapiclientidentity", oUnsupported },
-	{ "gssapirenewalforcesrekey", oUnsupported },
 #endif
 	{ "fallbacktorsh", oDeprecated },
 	{ "usersh", oDeprecated },
 	{ "identityfile", oIdentityFile },
 	{ "identityfile2", oIdentityFile },			/* obsolete */
 	{ "identitiesonly", oIdentitiesOnly },
+	{ "certificatefile", oCertificateFile },
+	{ "addkeystoagent", oAddKeysToAgent },
 	{ "hostname", oHostName },
 	{ "hostkeyalias", oHostKeyAlias },
 	{ "proxycommand", oProxyCommand },
@@ -273,9 +266,8 @@ static struct {
 	{ "localcommand", oLocalCommand },
 	{ "permitlocalcommand", oPermitLocalCommand },
 	{ "visualhostkey", oVisualHostKey },
-	{ "useroaming", oUseRoaming },
 #ifdef __APPLE_KEYCHAIN__
-	{ "askpassgui", oAskPassGUI },
+	{ "usekeychain", oUseKeychain},
 #endif
 	{ "kexalgorithms", oKexAlgorithms },
 	{ "ipqos", oIPQoS },
@@ -292,6 +284,7 @@ static struct {
 	{ "fingerprinthash", oFingerprintHash },
 	{ "updatehostkeys", oUpdateHostkeys },
 	{ "hostbasedkeytypes", oHostbasedKeyTypes },
+	{ "pubkeyacceptedkeytypes", oPubkeyAcceptedKeyTypes },
 	{ "ignoreunknown", oIgnoreUnknown },
 
 	{ NULL, oBadOption }
@@ -381,6 +374,30 @@ clear_forwardings(Options *options)
 }
 
 void
+add_certificate_file(Options *options, const char *path, int userprovided)
+{
+	int i;
+
+	if (options->num_certificate_files >= SSH_MAX_CERTIFICATE_FILES)
+		fatal("Too many certificate files specified (max %d)",
+		    SSH_MAX_CERTIFICATE_FILES);
+
+	/* Avoid registering duplicates */
+	for (i = 0; i < options->num_certificate_files; i++) {
+		if (options->certificate_file_userprovided[i] == userprovided &&
+		    strcmp(options->certificate_files[i], path) == 0) {
+			debug2("%s: ignoring duplicate key %s", __func__, path);
+			return;
+		}
+	}
+
+	options->certificate_file_userprovided[options->num_certificate_files] =
+	    userprovided;
+	options->certificate_files[options->num_certificate_files++] =
+	    xstrdup(path);
+}
+
+void
 add_identity_file(Options *options, const char *dir, const char *filename,
     int userprovided)
 {
@@ -431,19 +448,13 @@ default_ssh_port(void)
 static int
 execute_in_shell(const char *cmd)
 {
-	char *shell, *command_string;
+	char *shell;
 	pid_t pid;
 	int devnull, status;
 	extern uid_t original_real_uid;
 
 	if ((shell = getenv("SHELL")) == NULL)
 		shell = _PATH_BSHELL;
-
-	/*
-	 * Use "exec" to avoid "sh -c" processes on some platforms
-	 * (e.g. Solaris)
-	 */
-	xasprintf(&command_string, "exec %s", cmd);
 
 	/* Need this to redirect subprocess stdin/out */
 	if ((devnull = open(_PATH_DEVNULL, O_RDWR)) == -1)
@@ -469,7 +480,7 @@ execute_in_shell(const char *cmd)
 
 		argv[0] = shell;
 		argv[1] = "-c";
-		argv[2] = command_string;
+		argv[2] = xstrdup(cmd);
 		argv[3] = NULL;
 
 		execv(argv[0], argv);
@@ -484,7 +495,6 @@ execute_in_shell(const char *cmd)
 		fatal("%s: fork: %.100s", __func__, strerror(errno));
 
 	close(devnull);
-	free(command_string);
 
 	while (waitpid(pid, &status, 0) == -1) {
 		if (errno != EINTR && errno != EAGAIN)
@@ -517,12 +527,15 @@ match_cfg_line(Options *options, char **condition, struct passwd *pw,
 	 */
 	port = options->port <= 0 ? default_ssh_port() : options->port;
 	ruser = options->user == NULL ? pw->pw_name : options->user;
-	if (options->hostname != NULL) {
+	if (post_canon) {
+		host = xstrdup(options->hostname);
+	} else if (options->hostname != NULL) {
 		/* NB. Please keep in sync with ssh.c:main() */
 		host = percent_expand(options->hostname,
 		    "h", host_arg, (char *)NULL);
-	} else
+	} else {
 		host = xstrdup(host_arg);
+	}
 
 	debug2("checking match for '%s' host %s originally %s",
 	    cp, host, original_host);
@@ -706,6 +719,15 @@ static const struct multistate multistate_yesnoask[] = {
 	{ "yes",			1 },
 	{ "no",				0 },
 	{ "ask",			2 },
+	{ NULL, -1 }
+};
+static const struct multistate multistate_yesnoaskconfirm[] = {
+	{ "true",			1 },
+	{ "false",			0 },
+	{ "yes",			1 },
+	{ "no",				0 },
+	{ "ask",			2 },
+	{ "confirm",			3 },
 	{ NULL, -1 }
 };
 static const struct multistate multistate_addressfamily[] = {
@@ -909,28 +931,8 @@ parse_time:
 		intptr = &options->gss_authentication;
 		goto parse_flag;
 
-	case oGssKeyEx:
-		intptr = &options->gss_keyex;
-		goto parse_flag;
-
 	case oGssDelegateCreds:
 		intptr = &options->gss_deleg_creds;
-		goto parse_flag;
-
-	case oGssTrustDns:
-		intptr = &options->gss_trust_dns;
-		goto parse_flag;
-
-	case oGssClientIdentity:
-		charptr = &options->gss_client_identity;
-		goto parse_string;
-
-	case oGssServerIdentity:
-		charptr = &options->gss_server_identity;
-		goto parse_string;
-
-	case oGssRenewalRekey:
-		intptr = &options->gss_renewal_rekey;
 		goto parse_flag;
 
 	case oBatchMode:
@@ -982,16 +984,12 @@ parse_time:
 			if (scan_scaled(arg, &val64) == -1)
 				fatal("%.200s line %d: Bad number '%s': %s",
 				    filename, linenum, arg, strerror(errno));
-			/* check for too-large or too-small limits */
-			if (val64 > UINT_MAX)
-				fatal("%.200s line %d: RekeyLimit too large",
-				    filename, linenum);
 			if (val64 != 0 && val64 < 16)
 				fatal("%.200s line %d: RekeyLimit too small",
 				    filename, linenum);
 		}
 		if (*activep && options->rekey_limit == -1)
-			options->rekey_limit = (u_int32_t)val64;
+			options->rekey_limit = val64;
 		if (s != NULL) { /* optional rekey interval present */
 			if (strcmp(s, "none") == 0) {
 				(void)strdelim(&s);	/* discard */
@@ -1013,6 +1011,24 @@ parse_time:
 				    filename, linenum, SSH_MAX_IDENTITY_FILES);
 			add_identity_file(options, NULL,
 			    arg, flags & SSHCONF_USERCONF);
+		}
+		break;
+
+	case oCertificateFile:
+		arg = strdelim(&s);
+		if (!arg || *arg == '\0')
+			fatal("%.200s line %d: Missing argument.",
+			    filename, linenum);
+		if (*activep) {
+			intptr = &options->num_certificate_files;
+			if (*intptr >= SSH_MAX_CERTIFICATE_FILES) {
+				fatal("%.200s line %d: Too many certificate "
+				    "files specified (max %d).",
+				    filename, linenum,
+				    SSH_MAX_CERTIFICATE_FILES);
+			}
+			add_certificate_file(options, arg,
+			    flags & SSHCONF_USERCONF);
 		}
 		break;
 
@@ -1121,7 +1137,7 @@ parse_int:
 		arg = strdelim(&s);
 		if (!arg || *arg == '\0')
 			fatal("%.200s line %d: Missing argument.", filename, linenum);
-		if (!ciphers_valid(arg))
+		if (!ciphers_valid(*arg == '+' ? arg + 1 : arg))
 			fatal("%.200s line %d: Bad SSH2 cipher spec '%s'.",
 			    filename, linenum, arg ? arg : "<NONE>");
 		if (*activep && options->ciphers == NULL)
@@ -1132,7 +1148,7 @@ parse_int:
 		arg = strdelim(&s);
 		if (!arg || *arg == '\0')
 			fatal("%.200s line %d: Missing argument.", filename, linenum);
-		if (!mac_valid(arg))
+		if (!mac_valid(*arg == '+' ? arg + 1 : arg))
 			fatal("%.200s line %d: Bad SSH2 Mac spec '%s'.",
 			    filename, linenum, arg ? arg : "<NONE>");
 		if (*activep && options->macs == NULL)
@@ -1144,7 +1160,7 @@ parse_int:
 		if (!arg || *arg == '\0')
 			fatal("%.200s line %d: Missing argument.",
 			    filename, linenum);
-		if (!kex_names_valid(arg))
+		if (!kex_names_valid(*arg == '+' ? arg + 1 : arg))
 			fatal("%.200s line %d: Bad SSH2 KexAlgorithms '%s'.",
 			    filename, linenum, arg ? arg : "<NONE>");
 		if (*activep && options->kex_algorithms == NULL)
@@ -1152,14 +1168,17 @@ parse_int:
 		break;
 
 	case oHostKeyAlgorithms:
+		charptr = &options->hostkeyalgorithms;
+parse_keytypes:
 		arg = strdelim(&s);
 		if (!arg || *arg == '\0')
-			fatal("%.200s line %d: Missing argument.", filename, linenum);
-		if (!sshkey_names_valid2(arg, 1))
-			fatal("%.200s line %d: Bad protocol 2 host key algorithms '%s'.",
-			    filename, linenum, arg ? arg : "<NONE>");
-		if (*activep && options->hostkeyalgorithms == NULL)
-			options->hostkeyalgorithms = xstrdup(arg);
+			fatal("%.200s line %d: Missing argument.",
+			    filename, linenum);
+		if (!sshkey_names_valid2(*arg == '+' ? arg + 1 : arg, 1))
+			fatal("%s line %d: Bad key types '%s'.",
+				filename, linenum, arg ? arg : "<NONE>");
+		if (*activep && *charptr == NULL)
+			*charptr = xstrdup(arg);
 		break;
 
 	case oProtocol:
@@ -1394,8 +1413,8 @@ parse_int:
 		goto parse_flag;
 
 #ifdef __APPLE_KEYCHAIN__
-	case oAskPassGUI:
-		intptr = &options->ask_pass_gui;
+	case oUseKeychain:
+		intptr = &options->use_keychain;
 		goto parse_flag;
 #endif
 
@@ -1415,10 +1434,6 @@ parse_int:
 			options->ip_qos_bulk = value2;
 		}
 		break;
-
-	case oUseRoaming:
-		intptr = &options->use_roaming;
-		goto parse_flag;
 
 	case oRequestTTY:
 		intptr = &options->request_tty;
@@ -1528,16 +1543,16 @@ parse_int:
 
 	case oHostbasedKeyTypes:
 		charptr = &options->hostbased_key_types;
-		arg = strdelim(&s);
-		if (!arg || *arg == '\0')
-			fatal("%.200s line %d: Missing argument.",
-			    filename, linenum);
-		if (!sshkey_names_valid2(arg, 1))
-			fatal("%s line %d: Bad key types '%s'.",
-				filename, linenum, arg ? arg : "<NONE>");
-		if (*activep && *charptr == NULL)
-			*charptr = xstrdup(arg);
-		break;
+		goto parse_keytypes;
+
+	case oPubkeyAcceptedKeyTypes:
+		charptr = &options->pubkey_key_types;
+		goto parse_keytypes;
+
+	case oAddKeysToAgent:
+		intptr = &options->add_keys_to_agent;
+		multistate_ptr = multistate_yesnoaskconfirm;
+		goto parse_multistate;
 
 	case oDeprecated:
 		debug("%s line %d: Deprecated option \"%s\"",
@@ -1644,12 +1659,7 @@ initialize_options(Options * options)
 	options->pubkey_authentication = -1;
 	options->challenge_response_authentication = -1;
 	options->gss_authentication = -1;
-	options->gss_keyex = -1;
 	options->gss_deleg_creds = -1;
-	options->gss_trust_dns = -1;
-	options->gss_renewal_rekey = -1;
-	options->gss_client_identity = NULL;
-	options->gss_server_identity = NULL;
 	options->password_authentication = -1;
 	options->kbd_interactive_authentication = -1;
 	options->kbd_interactive_devices = NULL;
@@ -1673,6 +1683,7 @@ initialize_options(Options * options)
 	options->hostkeyalgorithms = NULL;
 	options->protocol = SSH_PROTO_UNKNOWN;
 	options->num_identity_files = 0;
+	options->num_certificate_files = 0;
 	options->hostname = NULL;
 	options->host_key_alias = NULL;
 	options->proxy_command = NULL;
@@ -1708,10 +1719,10 @@ initialize_options(Options * options)
 	options->tun_remote = -1;
 	options->local_command = NULL;
 	options->permit_local_command = -1;
-	options->use_roaming = 0;
+	options->add_keys_to_agent = -1;
 	options->visual_host_key = -1;
 #ifdef __APPLE_KEYCHAIN__
-	options->ask_pass_gui = -1;
+	options->use_keychain = -1;
 #endif
 	options->ip_qos_interactive = -1;
 	options->ip_qos_bulk = -1;
@@ -1727,6 +1738,7 @@ initialize_options(Options * options)
 	options->fingerprint_hash = -1;
 	options->update_hostkeys = -1;
 	options->hostbased_key_types = NULL;
+	options->pubkey_key_types = NULL;
 }
 
 /*
@@ -1779,14 +1791,8 @@ fill_default_options(Options * options)
 		options->challenge_response_authentication = 1;
 	if (options->gss_authentication == -1)
 		options->gss_authentication = 0;
-	if (options->gss_keyex == -1)
-		options->gss_keyex = 0;
 	if (options->gss_deleg_creds == -1)
 		options->gss_deleg_creds = 0;
-	if (options->gss_trust_dns == -1)
-		options->gss_trust_dns = 0;
-	if (options->gss_renewal_rekey == -1)
-		options->gss_renewal_rekey = 0;
 	if (options->password_authentication == -1)
 		options->password_authentication = 1;
 	if (options->kbd_interactive_authentication == -1)
@@ -1818,12 +1824,11 @@ fill_default_options(Options * options)
 	/* Selected in ssh_login(). */
 	if (options->cipher == -1)
 		options->cipher = SSH_CIPHER_NOT_SET;
-	/* options->ciphers, default set in myproposals.h */
-	/* options->macs, default set in myproposals.h */
-	/* options->kex_algorithms, default set in myproposals.h */
 	/* options->hostkeyalgorithms, default set in myproposals.h */
 	if (options->protocol == SSH_PROTO_UNKNOWN)
 		options->protocol = SSH_PROTO_2;
+	if (options->add_keys_to_agent == -1)
+		options->add_keys_to_agent = 0;
 	if (options->num_identity_files == 0) {
 		if (options->protocol & SSH_PROTO_1) {
 			add_identity_file(options, "~/",
@@ -1892,12 +1897,11 @@ fill_default_options(Options * options)
 		options->tun_remote = SSH_TUNID_ANY;
 	if (options->permit_local_command == -1)
 		options->permit_local_command = 0;
-	options->use_roaming = 0;
 	if (options->visual_host_key == -1)
 		options->visual_host_key = 0;
 #ifdef __APPLE_KEYCHAIN__
-	if (options->ask_pass_gui == -1)
-		options->ask_pass_gui = 1;
+	if (options->use_keychain == -1)
+		options->use_keychain = 1;
 #endif
 	if (options->ip_qos_interactive == -1)
 		options->ip_qos_interactive = IPTOS_LOWDELAY;
@@ -1917,8 +1921,14 @@ fill_default_options(Options * options)
 		options->fingerprint_hash = SSH_FP_HASH_DEFAULT;
 	if (options->update_hostkeys == -1)
 		options->update_hostkeys = 0;
-	if (options->hostbased_key_types == NULL)
-		options->hostbased_key_types = xstrdup("*");
+	if (kex_assemble_names(KEX_CLIENT_ENCRYPT, &options->ciphers) != 0 ||
+	    kex_assemble_names(KEX_CLIENT_MAC, &options->macs) != 0 ||
+	    kex_assemble_names(KEX_CLIENT_KEX, &options->kex_algorithms) != 0 ||
+	    kex_assemble_names(KEX_DEFAULT_PK_ALG,
+	    &options->hostbased_key_types) != 0 ||
+	    kex_assemble_names(KEX_DEFAULT_PK_ALG,
+	    &options->pubkey_key_types) != 0)
+		fatal("%s: kex_assemble_names failed", __func__);
 
 #define CLEAR_ON_NONE(v) \
 	do { \
@@ -2299,6 +2309,10 @@ dump_client_config(Options *o, const char *host)
 	int i;
 	char vbuf[5];
 
+	/* This is normally prepared in ssh_kex2 */
+	if (kex_assemble_names(KEX_DEFAULT_PK_ALG, &o->hostkeyalgorithms) != 0)
+		fatal("%s: kex_assemble_names failed", __func__);
+
 	/* Most interesting options first: user, host, port */
 	dump_cfg_string(oUser, o->user);
 	dump_cfg_string(oHostName, host);
@@ -2359,7 +2373,7 @@ dump_client_config(Options *o, const char *host)
 	dump_cfg_string(oBindAddress, o->bind_address);
 	dump_cfg_string(oCiphers, o->ciphers ? o->ciphers : KEX_CLIENT_ENCRYPT);
 	dump_cfg_string(oControlPath, o->control_path);
-	dump_cfg_string(oHostKeyAlgorithms, o->hostkeyalgorithms ? o->hostkeyalgorithms : KEX_DEFAULT_PK_ALG);
+	dump_cfg_string(oHostKeyAlgorithms, o->hostkeyalgorithms);
 	dump_cfg_string(oHostKeyAlias, o->host_key_alias);
 	dump_cfg_string(oHostbasedKeyTypes, o->hostbased_key_types);
 	dump_cfg_string(oKbdInteractiveDevices, o->kbd_interactive_devices);
@@ -2370,6 +2384,7 @@ dump_client_config(Options *o, const char *host)
 	dump_cfg_string(oPKCS11Provider, o->pkcs11_provider);
 	dump_cfg_string(oPreferredAuthentications, o->preferred_authentications);
 	dump_cfg_string(oProxyCommand, o->proxy_command);
+	dump_cfg_string(oPubkeyAcceptedKeyTypes, o->pubkey_key_types);
 	dump_cfg_string(oRevokedHostKeys, o->revoked_host_keys);
 	dump_cfg_string(oXAuthLocation, o->xauth_location);
 
@@ -2438,8 +2453,8 @@ dump_client_config(Options *o, const char *host)
 	printf("%s\n", iptos2str(o->ip_qos_bulk));
 
 	/* oRekeyLimit */
-	printf("rekeylimit %lld %d\n",
-	    (long long)o->rekey_limit, o->rekey_interval);
+	printf("rekeylimit %llu %d\n",
+	    (unsigned long long)o->rekey_limit, o->rekey_interval);
 
 	/* oStreamLocalBindMask */
 	printf("streamlocalbindmask 0%o\n",

@@ -4,7 +4,7 @@
 
 Project = nfs_fs
 
-inplace:
+coverage inplace:
 	@$(MAKE) all SRCROOT=. OBJROOT=. SYMROOT=. DSTROOT=/
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make

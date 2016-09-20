@@ -259,7 +259,7 @@ OSStatus SecKeychainItemCopyKeychain(SecKeychainItemRef itemRef, SecKeychainRef 
     @result A result code. See "Security Error Codes" (SecBase.h).
 */
 OSStatus SecKeychainItemCreateCopy(SecKeychainItemRef itemRef, SecKeychainRef __nullable destKeychainRef,
-	SecAccessRef initialAccess, SecKeychainItemRef * __nonnull CF_RETURNS_RETAINED itemCopy);
+	SecAccessRef __nullable initialAccess, SecKeychainItemRef * __nonnull CF_RETURNS_RETAINED itemCopy);
 
 /*!
     @function SecKeychainItemCreatePersistentReference

@@ -26,7 +26,7 @@
 #ifndef TimerEventBasedMock_h
 #define TimerEventBasedMock_h
 
-#if ENABLE(MEDIA_STREAM)
+#if ENABLE(WEB_RTC)
 
 #include "Timer.h"
 #include <wtf/PassRefPtr.h>
@@ -66,7 +66,10 @@ public:
         m_timer.startOneShot(0.5);
     }
 
-    virtual ~TimerEvent() { }
+    virtual ~TimerEvent()
+    {
+        m_mock = nullptr;
+    }
 
     void timerFired()
     {
@@ -82,6 +85,6 @@ private:
 
 } // namespace WebCore
 
-#endif // ENABLE(MEDIA_STREAM)
+#endif // ENABLE(WEB_RTC)
 
 #endif // TimerEventBasedMock_h

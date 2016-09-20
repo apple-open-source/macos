@@ -530,6 +530,8 @@ rpc__transport_info_equal(
 		info1->vtbl->transport_info_equal(info1->handle, info2->handle));
 }
 
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 void
 rpc_binding_set_transport_info(
     rpc_binding_handle_t         binding_handle,
@@ -567,6 +569,7 @@ error:
 
     return;
 }
+#endif
 
 void
 rpc_binding_inq_transport_info(

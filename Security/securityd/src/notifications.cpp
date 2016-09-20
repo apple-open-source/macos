@@ -31,6 +31,7 @@
 #include "server.h"
 #include "connection.h"
 #include <securityd_client/ucspNotify.h>
+#include <security_utilities/casts.h>
 
 
 Listener::ListenerMap& Listener::listeners = *(new Listener::ListenerMap);
@@ -49,13 +50,13 @@ Listener::Listener(NotificationDomain dom, NotificationMask evs, mach_port_t por
     StLock<Mutex> _(setLock);
     listeners.insert(ListenerMap::value_type(port, this));
 	
-	secdebug("notify", "%p created for domain 0x%x events 0x%x port %d",
+	secinfo("notify", "%p created for domain 0x%x events 0x%x port %d",
 		this, dom, evs, port);
 }
 
 Listener::~Listener()
 {
-    secdebug("notify", "%p destroyed", this);
+    secinfo("notify", "%p destroyed", this);
 }
 
 
@@ -107,11 +108,11 @@ bool Listener::remove(Port port)
         return false;	// not one of ours
 
 	assert(range.first != listeners.end());
-	secdebug("notify", "remove port %d", port.port());
+	secinfo("notify", "remove port %d", port.port());
 #if !defined(NDEBUG)
     for (Iterator it = range.first; it != range.second; it++) {
 		assert(it->first == port);
-		secdebug("notify", "%p listener removed", it->second.get());
+		secinfo("notify", "%p listener removed", it->second.get());
 	}
 #endif //NDEBUG
     listeners.erase(range.first, range.second);
@@ -127,13 +128,13 @@ Listener::Notification::Notification(NotificationDomain inDomain,
 	NotificationEvent inEvent, uint32 seq, const CssmData &inData)
 	: domain(inDomain), event(inEvent), sequence(seq), data(Allocator::standard(), inData)
 {
-	secdebug("notify", "%p notification created domain 0x%lx event %ld seq %ld",
+	secinfo("notify", "%p notification created domain 0x%x event %d seq %d",
 		this, domain, event, sequence);
 }
 
 Listener::Notification::~Notification()
 {
-	secdebug("notify", "%p notification done domain 0x%lx event %ld seq %ld",
+	secinfo("notify", "%p notification done domain 0x%x event %d seq %d",
 		this, domain, event, sequence);
 }
 
@@ -147,7 +148,7 @@ bool Listener::JitterBuffer::inSequence(Notification *message)
 		mNotifyLast++;			// record next sequence
 		return true;			// go ahead
 	} else {
-		secdebug("notify-jit", "%p out of sequence (last %ld got %ld); buffering",
+		secinfo("notify-jit", "%p out of sequence (last %d got %d); buffering",
 			message, mNotifyLast, message->sequence);
 		mBuffer[message->sequence] = message;	// save for later
 		return false;			// hold your fire
@@ -162,7 +163,7 @@ RefPointer<Listener::Notification> Listener::JitterBuffer::popNotification()
 	else {
 		RefPointer<Notification> result = it->second;	// save value
 		mBuffer.erase(it);		// remove from buffer
-		secdebug("notify-jit", "%p retrieved from jitter buffer", result.get());
+		secinfo("notify-jit", "%p retrieved from jitter buffer", result.get());
 		return result;			// return it
 	}
 }
@@ -179,8 +180,8 @@ SharedMemoryListener::SharedMemoryListener(const char* segmentName, SegmentOffse
 {
 	if (segmentName == NULL)
 	{
-		secdebug("notify", "Attempted to start securityd with a NULL segmentName");
-		exit(1);
+		secerror("Attempted to start securityd with a NULL segmentName");
+        abort();
 	}
 }
 
@@ -193,11 +194,11 @@ const double kServerWait = 0.005; // time in seconds before clients will be noti
 void SharedMemoryListener::notifyMe(Notification* notification)
 {
 	const void* data = notification->data.data();
-	UInt32 length = notification->data.length();
+	size_t length = notification->data.length();
     /* enforce a maximum size of 16k for notifications */
     if (length > 16384) return;
 
-    WriteMessage (notification->domain, notification->event, data, length);
+    WriteMessage (notification->domain, notification->event, data, int_cast<size_t, UInt32>(length));
 
 	if (!mActive)
 	{
@@ -208,7 +209,7 @@ void SharedMemoryListener::notifyMe(Notification* notification)
 
 void SharedMemoryListener::action ()
 {
-	secdebug("notify", "Posted notification to clients.");
+	secinfo("notify", "Posted notification to clients.");
 	notify_post (mSegmentName.c_str ());
 	mActive = false;
 }

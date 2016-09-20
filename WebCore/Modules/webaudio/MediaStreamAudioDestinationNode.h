@@ -30,7 +30,6 @@
 #include "AudioBasicInspectorNode.h"
 #include "AudioBus.h"
 #include "MediaStream.h"
-#include <wtf/PassRefPtr.h>
 
 namespace WebCore {
 
@@ -39,26 +38,26 @@ class MediaStreamAudioSource;
 
 class MediaStreamAudioDestinationNode : public AudioBasicInspectorNode {
 public:
-    static Ref<MediaStreamAudioDestinationNode> create(AudioContext*, size_t numberOfChannels);
+    static Ref<MediaStreamAudioDestinationNode> create(AudioContext&, size_t numberOfChannels);
 
     virtual ~MediaStreamAudioDestinationNode();
 
     MediaStream* stream() { return m_stream.get(); }
 
     // AudioNode.
-    virtual void process(size_t framesToProcess) override;
-    virtual void reset() override;
+    void process(size_t framesToProcess) override;
+    void reset() override;
     
     RealtimeMediaSource* mediaStreamSource();
 
 private:
-    MediaStreamAudioDestinationNode(AudioContext*, size_t numberOfChannels);
+    MediaStreamAudioDestinationNode(AudioContext&, size_t numberOfChannels);
 
-    virtual double tailTime() const override { return 0; }
-    virtual double latencyTime() const override { return 0; }
+    double tailTime() const override { return 0; }
+    double latencyTime() const override { return 0; }
 
     // As an audio source, we will never propagate silence.
-    virtual bool propagatesSilence() const override { return false; }
+    bool propagatesSilence() const override { return false; }
 
     RefPtr<MediaStream> m_stream;
     RefPtr<MediaStreamAudioSource> m_source;

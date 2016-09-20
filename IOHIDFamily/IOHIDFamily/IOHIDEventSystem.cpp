@@ -24,6 +24,7 @@
 
 #include "IOHIDEventSystem.h"
 #include "IOHIDWorkLoop.h"
+#include "IOHIDDebug.h"
 
 
 typedef struct _EventServiceInfo 
@@ -158,7 +159,7 @@ IOReturn IOHIDEventSystem::setProperties( OSObject * properties )
 //====================================================================================================
 bool IOHIDEventSystem::notificationHandler( void * refCon,  IOService * service )
 {
-    IOLog("IOHIDEventSystem::notificationHandler\n");
+    HIDLog("");
 
     _commandGate->runAction((IOCommandGate::Action)refCon, service);
     
@@ -170,7 +171,7 @@ bool IOHIDEventSystem::notificationHandler( void * refCon,  IOService * service 
 //====================================================================================================
 void IOHIDEventSystem::handleServicePublicationGated(IOService * service)
 {
-    IOLog("IOHIDEventSystem::handleServicePublicationGated\n");
+    HIDLog("");
 
     EventServiceInfo    tempEventServiceInfo;
     OSData *            tempData;
@@ -205,7 +206,7 @@ void IOHIDEventSystem::handleServiceTerminationGated(IOService * service)
     OSData *            tempData;
     UInt32              index;
 
-    IOLog("IOHIDEventSystem::handleServiceTerminationGated\n");
+    HIDLog("");
     
     if ( _eventsOpen )
         service->close(this);
@@ -233,7 +234,7 @@ void IOHIDEventSystem::registerEventSource(IOHIDEventService * service)
     OSData *            tempData = NULL;
     UInt32              index;
 
-    IOLog("IOHIDEventSystem::registerEventSource\n");
+    HIDLog("");
 
     for ( index = 0; index<_eventServiceInfoArray->getCount(); index++ )
     {
@@ -260,7 +261,7 @@ void IOHIDEventSystem::handleHIDEvent(
                             IOHIDEvent *                    events,
                             IOOptionBits                    options)
 {
-    IOLog("IOHIDEventSystem::handleHIDEvent\n");
+    HIDLog("");
     
     HIDEventArgs args;
     
@@ -282,34 +283,33 @@ void IOHIDEventSystem::handleHIDEventGated(void * args)
     
     if ( !eventArgsRef->events ) 
     {
-        IOLog("IOHIDEventSystem::handleHIDEventGated: type=%d timestamp=%lld\n", 0, *((UInt64 *)&(eventArgsRef->timeStamp)));
+        HIDLogError("type=%d timestamp=%lld", 0, *((UInt64 *)&(eventArgsRef->timeStamp)));
         return;
     }
     
-    IOLog("IOHIDEventSystem::handleHIDEventGated: eventCount=%d timestamp=%lld\n", eventArgsRef->eventCount, *((UInt64 *)&(eventArgsRef->timeStamp)));
+    HIDLog("eventCount=%d timestamp=%lld", eventArgsRef->eventCount, *((UInt64 *)&(eventArgsRef->timeStamp)));
     for ( UInt32 i=0; i<eventArgsRef->eventCount; i++)
     {
         IOHIDEvent * event = &(eventArgsRef->events[i]);
 
-        IOLog("IOHIDEventSystem::handleHIDEventGated: type=%d", event->type);
+        HIDLog("type=%d", event->type);
         switch ( event->type )
         {
             case kIOHIDKeyboardEvent:
-                IOLog(" usagePage=%x usage=%x value=%d repeat=%d", event->data.keyboard.usagePage, event->data.keyboard.usage, event->data.keyboard.value, event->data.keyboard.repeat);
+                HIDLog(" usagePage=%x usage=%x value=%d repeat=%d", event->data.keyboard.usagePage, event->data.keyboard.usage, event->data.keyboard.value, event->data.keyboard.repeat);
                 break;
                 
             case kIOHIDMouseEvent:
-                IOLog(" buttons=%x dx=%d dy=%d", event->data.mouse.buttons, event->data.mouse.dx, event->data.mouse.dy);
+                HIDLog(" buttons=%x dx=%d dy=%d", event->data.mouse.buttons, event->data.mouse.dx, event->data.mouse.dy);
                 break;
                 
             case kIOHIDScrollEvent:
-                IOLog(" deltaAxis1=%d deltaAxis2=%d deltaAxis3=%d", event->data.scroll.lines.deltaAxis1, event->data.scroll.lines.deltaAxis2, event->data.scroll.lines.deltaAxis3);
+                HIDLog(" deltaAxis1=%d deltaAxis2=%d deltaAxis3=%d", event->data.scroll.lines.deltaAxis1, event->data.scroll.lines.deltaAxis2, event->data.scroll.lines.deltaAxis3);
                 break;
                 
             default:
                 break;
         }
-        IOLog("\n");
     }
     
 }

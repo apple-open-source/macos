@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2002-2015 Apple Inc. All Rights Reserved.
  *
@@ -40,6 +41,7 @@
 
 #define SEC_CONST_DECL(k,v) const CFStringRef k = CFSTR(v);
 
+#if !SECTRUST_OSX
 SEC_CONST_DECL (kSecPolicyAppleX509Basic, "1.2.840.113635.100.1.2");
 SEC_CONST_DECL (kSecPolicyAppleSSL, "1.2.840.113635.100.1.3");
 SEC_CONST_DECL (kSecPolicyAppleSMIME, "1.2.840.113635.100.1.8");
@@ -61,46 +63,36 @@ SEC_CONST_DECL (kSecPolicyAppleEscrowService, "1.2.840.113635.100.1.24");
 SEC_CONST_DECL (kSecPolicyAppleProfileSigner, "1.2.840.113635.100.1.25");
 SEC_CONST_DECL (kSecPolicyAppleQAProfileSigner, "1.2.840.113635.100.1.26");
 SEC_CONST_DECL (kSecPolicyAppleTestMobileStore, "1.2.840.113635.100.1.27");
-#if TARGET_OS_IPHONE
 SEC_CONST_DECL (kSecPolicyAppleOTAPKISigner, "1.2.840.113635.100.1.28");
 SEC_CONST_DECL (kSecPolicyAppleTestOTAPKISigner, "1.2.840.113635.100.1.29");
 /* FIXME: this policy name should be deprecated and replaced with "kSecPolicyAppleIDValidationRecordSigning" */
-SEC_CONST_DECL (kSecPolicyAppleIDValidationRecordSigningPolicy, "1.2.840.113625.100.1.30");
-SEC_CONST_DECL (kSecPolicyAppleSMPEncryption, "1.2.840.113625.100.1.31");
-SEC_CONST_DECL (kSecPolicyAppleTestSMPEncryption, "1.2.840.113625.100.1.32");
-#endif
+SEC_CONST_DECL (kSecPolicyAppleIDValidationRecordSigningPolicy, "1.2.840.113635.100.1.30");
+SEC_CONST_DECL (kSecPolicyAppleSMPEncryption, "1.2.840.113635.100.1.31");
+SEC_CONST_DECL (kSecPolicyAppleTestSMPEncryption, "1.2.840.113635.100.1.32");
 SEC_CONST_DECL (kSecPolicyAppleServerAuthentication, "1.2.840.113635.100.1.33");
 SEC_CONST_DECL (kSecPolicyApplePCSEscrowService, "1.2.840.113635.100.1.34");
-SEC_CONST_DECL (kSecPolicyApplePPQSigning, "1.2.840.113625.100.1.35");
-SEC_CONST_DECL (kSecPolicyAppleTestPPQSigning, "1.2.840.113625.100.1.36");
-SEC_CONST_DECL (kSecPolicyAppleATVAppSigning, "1.2.840.113625.100.1.37");
-SEC_CONST_DECL (kSecPolicyAppleTestATVAppSigning, "1.2.840.113625.100.1.38");
-SEC_CONST_DECL (kSecPolicyApplePayIssuerEncryption, "1.2.840.113625.100.1.39");
-SEC_CONST_DECL (kSecPolicyAppleOSXProvisioningProfileSigning, "1.2.840.113625.100.1.40");
-SEC_CONST_DECL (kSecPolicyAppleAST2DiagnosticsServerAuth, "1.2.840.113625.100.1.42");
+SEC_CONST_DECL (kSecPolicyApplePPQSigning, "1.2.840.113635.100.1.35");
+SEC_CONST_DECL (kSecPolicyAppleTestPPQSigning, "1.2.840.113635.100.1.36");
+SEC_CONST_DECL (kSecPolicyApplePayIssuerEncryption, "1.2.840.113635.100.1.39");
+SEC_CONST_DECL (kSecPolicyAppleOSXProvisioningProfileSigning, "1.2.840.113635.100.1.40");
+SEC_CONST_DECL (kSecPolicyAppleAST2DiagnosticsServerAuth, "1.2.840.113635.100.1.42");
+SEC_CONST_DECL (kSecPolicyAppleEscrowProxyServerAuth, "1.2.840.113635.100.1.43");
+SEC_CONST_DECL (kSecPolicyAppleFMiPServerAuth, "1.2.840.113635.100.1.44");
 
 SEC_CONST_DECL (kSecPolicyOid, "SecPolicyOid");
 SEC_CONST_DECL (kSecPolicyName, "SecPolicyName");
 SEC_CONST_DECL (kSecPolicyClient, "SecPolicyClient");
 SEC_CONST_DECL (kSecPolicyRevocationFlags, "SecPolicyRevocationFlags");
 SEC_CONST_DECL (kSecPolicyTeamIdentifier, "SecPolicyTeamIdentifier");
-
-SEC_CONST_DECL (kSecPolicyKU_DigitalSignature, "CE_KU_DigitalSignature");
-SEC_CONST_DECL (kSecPolicyKU_NonRepudiation, "CE_KU_NonRepudiation");
-SEC_CONST_DECL (kSecPolicyKU_KeyEncipherment, "CE_KU_KeyEncipherment");
-SEC_CONST_DECL (kSecPolicyKU_DataEncipherment, "CE_KU_DataEncipherment");
-SEC_CONST_DECL (kSecPolicyKU_KeyAgreement, "CE_KU_KeyAgreement");
-SEC_CONST_DECL (kSecPolicyKU_KeyCertSign, "CE_KU_KeyCertSign");
-SEC_CONST_DECL (kSecPolicyKU_CRLSign, "CE_KU_CRLSign");
-SEC_CONST_DECL (kSecPolicyKU_EncipherOnly, "CE_KU_EncipherOnly");
-SEC_CONST_DECL (kSecPolicyKU_DecipherOnly, "CE_KU_DecipherOnly");
+#else
+/* Some of these aren't defined in SecPolicy.c, but used here. */
+SEC_CONST_DECL (kSecPolicyAppleiChat, "1.2.840.113635.100.1.12");
+#endif
 
 // Private functions
 
 extern "C" {
-CFArrayRef SecPolicyCopyEscrowRootCertificates(void);
 #if SECTRUST_OSX
-CFStringRef SecPolicyGetOidString(SecPolicyRef policy);
 CFDictionaryRef SecPolicyGetOptions(SecPolicyRef policy);
 void SecPolicySetOptionsValue(SecPolicyRef policy, CFStringRef key, CFTypeRef value);
 #endif
@@ -162,6 +154,34 @@ const oidmap_entry_t oidmap[] = {
 	{ kSecPolicyApplePCSEscrowService, &CSSMOID_APPLE_TP_PCS_ESCROW_SERVICE },
 	{ kSecPolicyAppleOSXProvisioningProfileSigning, &CSSMOID_APPLE_TP_PROVISIONING_PROFILE_SIGNING },
 };
+
+#if SECTRUST_OSX
+const oidmap_entry_t oidmap_priv[] = {
+    { CFSTR("basicX509"), &CSSMOID_APPLE_X509_BASIC },
+    { CFSTR("sslServer"), &CSSMOID_APPLE_TP_SSL },
+    { CFSTR("sslClient"), &CSSMOID_APPLE_TP_SSL },
+    { CFSTR("SMIME"), &CSSMOID_APPLE_TP_SMIME },
+    { CFSTR("eapServer"), &CSSMOID_APPLE_TP_EAP },
+    { CFSTR("eapClient"), &CSSMOID_APPLE_TP_EAP },
+    { CFSTR("AppleSWUpdateSigning"), &CSSMOID_APPLE_TP_SW_UPDATE_SIGNING },
+    { CFSTR("ipsecServer"), &CSSMOID_APPLE_TP_IP_SEC },
+    { CFSTR("ipsecClient"), &CSSMOID_APPLE_TP_IP_SEC },
+    { CFSTR("CodeSigning"), &CSSMOID_APPLE_TP_CODE_SIGNING },
+    { CFSTR("PackageSigning"), &CSSMOID_APPLE_TP_PACKAGE_SIGNING },
+    { CFSTR("AppleIDAuthority"), &CSSMOID_APPLE_TP_APPLEID_SHARING },
+    { CFSTR("MacAppStoreReceipt"), &CSSMOID_APPLE_TP_MACAPPSTORE_RECEIPT },
+    { CFSTR("AppleTimeStamping"), &CSSMOID_APPLE_TP_TIMESTAMPING },
+    { CFSTR("revocation"), &CSSMOID_APPLE_TP_REVOCATION },
+    { CFSTR("ApplePassbook"), &CSSMOID_APPLE_TP_PASSBOOK_SIGNING },
+    { CFSTR("AppleMobileStore"), &CSSMOID_APPLE_TP_MOBILE_STORE },
+    { CFSTR("AppleEscrowService"), &CSSMOID_APPLE_TP_ESCROW_SERVICE },
+    { CFSTR("AppleProfileSigner"), &CSSMOID_APPLE_TP_PROFILE_SIGNING },
+    { CFSTR("AppleQAProfileSigner"), &CSSMOID_APPLE_TP_QA_PROFILE_SIGNING },
+    { CFSTR("AppleTestMobileStore"), &CSSMOID_APPLE_TP_TEST_MOBILE_STORE },
+    { CFSTR("ApplePCSEscrowService"), &CSSMOID_APPLE_TP_PCS_ESCROW_SERVICE },
+    { CFSTR("AppleOSXProvisioningProfileSigning"), &CSSMOID_APPLE_TP_PROVISIONING_PROFILE_SIGNING },
+};
+#endif
 
 //
 // CF boilerplate
@@ -391,7 +411,6 @@ SecPolicySetValue(SecPolicyRef policyRef, const CSSM_DATA *value)
 	OSStatus status = errSecSuccess;
 	CFDataRef data = NULL;
 	CFStringRef name = NULL;
-	CFNumberRef cnum = NULL;
 	CFStringRef oid = (CFStringRef) SecPolicyGetOidString(policyRef);
 	if (!oid) {
 		syslog(LOG_ERR, "SecPolicySetValue: unknown policy OID");
@@ -463,27 +482,27 @@ SecPolicySetValue(SecPolicyRef policyRef, const CSSM_DATA *value)
 		CSSM_APPLE_TP_CRL_OPTIONS *opts = (CSSM_APPLE_TP_CRL_OPTIONS *)value->Data;
 		if (opts->Version == CSSM_APPLE_TP_CRL_OPTS_VERSION) {
 			CSSM_APPLE_TP_CRL_OPT_FLAGS crlFlags = opts->CrlFlags;
-			CFOptionFlags revocationFlags = 0;
 			if ((crlFlags & CSSM_TP_ACTION_FETCH_CRL_FROM_NET) == 0) {
 				/* disable network access */
-				revocationFlags |= kSecRevocationNetworkAccessDisabled;
+				SecPolicySetOptionsValue(policyRef, CFSTR("NoNetworkAccess") /*kSecPolicyCheckNoNetworkAccess*/, kCFBooleanTrue);
 			}
 			if ((crlFlags & CSSM_TP_ACTION_CRL_SUFFICIENT) == 0) {
-				/* if OCSP method is not sufficient, must use CRL */
-				revocationFlags |= (kSecRevocationCRLMethod | kSecRevocationPreferCRL);
+				/* if CRL method is not sufficient, must use OCSP */
+				SecPolicySetOptionsValue(policyRef, CFSTR("Revocation") /*kSecPolicyCheckRevocation*/,
+                                         CFSTR("OCSP")/*kSecPolicyCheckRevocationOCSP*/);
 			} else {
 				/* either method is sufficient */
-				revocationFlags |= kSecRevocationUseAnyAvailableMethod;
+				SecPolicySetOptionsValue(policyRef, CFSTR("Revocation") /*kSecPolicyCheckRevocation*/,
+                                         CFSTR("AnyRevocationMethod") /*kSecPolicyCheckRevocationAny*/);
 			}
+
 			if ((crlFlags & CSSM_TP_ACTION_REQUIRE_CRL_PER_CERT) != 0) {
 				/* require a response */
-				revocationFlags |= kSecRevocationRequirePositiveResponse;
+				SecPolicySetOptionsValue(policyRef,
+										 CFSTR("RevocationResponseRequired") /*kSecPolicyCheckRevocationResponseRequired*/,
+										 kCFBooleanTrue);
 			}
-			cnum = CFNumberCreate(kCFAllocatorDefault, kCFNumberCFIndexType, &revocationFlags);
-			if (cnum) {
-				SecPolicySetOptionsValue(policyRef, kSecPolicyRevocationFlags, cnum);
-			}
-		}
+        }
 	}
 	else {
 		syslog(LOG_ERR, "SecPolicySetValue: unrecognized policy OID");
@@ -491,7 +510,6 @@ SecPolicySetValue(SecPolicyRef policyRef, const CSSM_DATA *value)
 	}
 	if (data) { CFRelease(data); }
 	if (name) { CFRelease(name); }
-	if (cnum) { CFRelease(cnum); }
 	return status;
 #endif
 }
@@ -810,71 +828,84 @@ SecPolicyCreateRevocation(CFOptionFlags revocationFlags)
 }
 #endif
 
-/* OS X only: deprecated SPI entry point */
-/* new in 10.9 ***FIXME*** TO BE REMOVED */
-CFArrayRef SecPolicyCopyEscrowRootCertificates(void)
-{
-	return SecCertificateCopyEscrowRoots(kSecCertificateProductionEscrowRoot);
-}
-
+#if !SECTRUST_OSX
 SecPolicyRef SecPolicyCreateAppleIDSService(CFStringRef hostname)
 {
     return SecPolicyCreateSSL(true, hostname);
 }
+#endif
 
+#if !SECTRUST_OSX
 SecPolicyRef SecPolicyCreateAppleIDSServiceContext(CFStringRef hostname, CFDictionaryRef __unused context)
 {
     return SecPolicyCreateSSL(true, hostname);
 }
+#endif
 
+#if !SECTRUST_OSX
 SecPolicyRef SecPolicyCreateApplePushService(CFStringRef hostname, CFDictionaryRef __unused context)
 {
     return SecPolicyCreateSSL(true, hostname);
 }
+#endif
 
+#if !SECTRUST_OSX
 SecPolicyRef SecPolicyCreateApplePushServiceLegacy(CFStringRef hostname)
 {
     return SecPolicyCreateSSL(true, hostname);
 }
+#endif
 
+#if !SECTRUST_OSX
 SecPolicyRef SecPolicyCreateAppleMMCSService(CFStringRef hostname, CFDictionaryRef __unused context)
 {
     return SecPolicyCreateSSL(true, hostname);
 }
+#endif
 
+#if !SECTRUST_OSX
 SecPolicyRef SecPolicyCreateAppleGSService(CFStringRef hostname, CFDictionaryRef __unused context)
 {
     return SecPolicyCreateSSL(true, hostname);
 }
+#endif
 
+#if !SECTRUST_OSX
 SecPolicyRef SecPolicyCreateApplePPQService(CFStringRef hostname, CFDictionaryRef __unused context)
 {
     return SecPolicyCreateSSL(true, hostname);
 }
+#endif
 
+#if !SECTRUST_OSX
+/* new in 10.11.4 */
 SecPolicyRef SecPolicyCreateAppleAST2Service(CFStringRef hostname, CFDictionaryRef __unused context)
 {
     return SecPolicyCreateSSL(true, hostname);
 }
-
-SecPolicyRef SecPolicyCreateAppleHomeKitServerAuth(CFStringRef hostname)
-{
-    return SecPolicyCreateSSL(true, hostname);
-}
+#endif
 
 #if !SECTRUST_OSX
-/* new in 10.11 */
-SecPolicyRef SecPolicyCreateAppleATVAppSigning(void)
+/* new in 10.12 */
+SecPolicyRef SecPolicyCreateAppleEscrowProxyService(CFStringRef hostname, CFDictionaryRef __unused context)
 {
-    return _SecPolicyCreateWithOID(kSecPolicyAppleX509Basic);
+    return SecPolicyCreateSSL(true, hostname);
 }
 #endif
 
 #if !SECTRUST_OSX
-/* new in 10.11 */
-SecPolicyRef SecPolicyCreateTestAppleATVAppSigning(void)
+/* new in 10.12 */
+SecPolicyRef SecPolicyCreateAppleFMiPService(CFStringRef hostname, CFDictionaryRef __unused context)
 {
-    return _SecPolicyCreateWithOID(kSecPolicyAppleX509Basic);
+    return SecPolicyCreateSSL(true, hostname);
+}
+#endif
+
+#if !SECTRUST_OSX
+/* new in 10.11.4 */
+SecPolicyRef SecPolicyCreateAppleHomeKitServerAuth(CFStringRef hostname)
+{
+    return SecPolicyCreateSSL(true, hostname);
 }
 #endif
 
@@ -969,16 +1000,17 @@ SecPolicyCreateAppleTimeStampingAndRevocationPolicies(CFTypeRef policyOrArray)
     };
 #else
     /* implement with unified SecPolicyRef instances */
-	/* %%% FIXME revisit this since SecPolicyCreateWithOID is OSX-only; */
-	/* should use SecPolicyCreateWithProperties instead */
     SecPolicyRef policy = NULL;
     CFMutableArrayRef resultPolicyArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-    policy = SecPolicyCreateWithOID(kSecPolicyAppleTimeStamping);
+    if (!resultPolicyArray) {
+        return NULL;
+    }
+    policy = SecPolicyCreateWithProperties(kSecPolicyAppleTimeStamping, NULL);
     if (policy) {
         CFArrayAppendValue(resultPolicyArray, policy);
         CFReleaseNull(policy);
     }
-    policy = SecPolicyCreateWithOID(kSecPolicyAppleRevocation);
+    policy = SecPolicyCreateWithProperties(kSecPolicyAppleRevocation, NULL);
     if (policy) {
         CFArrayAppendValue(resultPolicyArray, policy);
         CFReleaseNull(policy);

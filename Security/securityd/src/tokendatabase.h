@@ -77,8 +77,6 @@ public:
 private:
 	std::string mDbName;			// name given during open
 	bool mHasAclState;				// Adornment is carrying active ACL state
-
-	ResetGeneration mResetLevel;	// validity tag
 };
 
 
@@ -140,8 +138,8 @@ protected:
 		
 		Record *commit()	{ database().addReference(*this); return this; }
 		
-		void validate(AclAuthorization auth, const AccessCredentials *cred)
-		{ TokenAcl::validate(auth, cred, &database()); }
+		void validate(AclAuthorization auth, const AccessCredentials *cred, Database *relatedDatabase = NULL)
+        { TokenAcl::validate(auth, cred, relatedDatabase ? relatedDatabase : &database()); }
 		
 		// TokenAcl personality
 		AclKind aclKind() const;
@@ -206,10 +204,10 @@ public:
 		CssmDbRecordAttributeData *inAttributes, mach_msg_type_number_t inAttributesLength,
 		CssmData *data, RefPointer<Key> &key,
 		CssmDbRecordAttributeData * &outAttributes, mach_msg_type_number_t &outAttributesLength);
-	void insertRecord(CSSM_DB_RECORDTYPE recordtype,
+	void tokenInsertRecord(CSSM_DB_RECORDTYPE recordtype,
 		const CssmDbRecordAttributeData *attributes, mach_msg_type_number_t inAttributesLength,
 		const CssmData &data, RefPointer<Database::Record> &record);
-	void modifyRecord(CSSM_DB_RECORDTYPE recordtype, Record *record,
+	void modifyRecord(CSSM_DB_RECORDTYPE recordtype, Database::Record *record,
 		const CssmDbRecordAttributeData *attributes, mach_msg_type_number_t inAttributesLength,
 		const CssmData *data, CSSM_DB_MODIFY_MODE modifyMode);
 	void deleteRecord(Database::Record *record);

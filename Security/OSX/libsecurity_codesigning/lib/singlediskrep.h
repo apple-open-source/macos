@@ -49,7 +49,7 @@ public:
 	CFDataRef identification();								// partial file hash
 	std::string mainExecutablePath();						// base path
 	CFURLRef copyCanonicalPath();							// base path
-	virtual size_t signingLimit();									// size of file
+	size_t signingLimit();									// size of file
 	UnixPlusPlus::FileDesc &fd();							// readable fd for this file
 	void flush();											// close cached fd
 	

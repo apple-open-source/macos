@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,25 +37,20 @@ class JSGlobalObjectDebuggerAgent final : public InspectorDebuggerAgent {
     WTF_MAKE_NONCOPYABLE(JSGlobalObjectDebuggerAgent);
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    JSGlobalObjectDebuggerAgent(InjectedScriptManager*, JSC::JSGlobalObject&, InspectorConsoleAgent*);
+    JSGlobalObjectDebuggerAgent(JSAgentContext&, InspectorConsoleAgent*);
     virtual ~JSGlobalObjectDebuggerAgent() { }
 
-    virtual JSGlobalObjectScriptDebugServer& scriptDebugServer() override { return m_scriptDebugServer; }
+    InjectedScript injectedScriptForEval(ErrorString&, const int* executionContextId) override;
 
-    virtual void startListeningScriptDebugServer() override;
-    virtual void stopListeningScriptDebugServer(bool isBeingDestroyed) override;
-    virtual InjectedScript injectedScriptForEval(ErrorString&, const int* executionContextId) override;
-
-    virtual void breakpointActionLog(JSC::ExecState*, const String&) override;
+    void breakpointActionLog(JSC::ExecState&, const String&) final;
 
     // NOTE: JavaScript inspector does not yet need to mute a console because no messages
     // are sent to the console outside of the API boundary or console object.
-    virtual void muteConsole() override { }
-    virtual void unmuteConsole() override { }
+    void muteConsole() final { }
+    void unmuteConsole() final { }
 
 private:
-    JSGlobalObjectScriptDebugServer m_scriptDebugServer;
-    InspectorConsoleAgent* m_consoleAgent;
+    InspectorConsoleAgent* m_consoleAgent { nullptr };
 };
 
 } // namespace Inspector

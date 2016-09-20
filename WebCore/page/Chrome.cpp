@@ -23,13 +23,13 @@
 #include "Chrome.h"
 
 #include "ChromeClient.h"
-#include "DNS.h"
 #include "Document.h"
 #include "DocumentType.h"
 #include "FileIconLoader.h"
 #include "FileChooser.h"
 #include "FileList.h"
 #include "FloatRect.h"
+#include "FrameLoaderClient.h"
 #include "FrameTree.h"
 #include "Geolocation.h"
 #include "HTMLFormElement.h"
@@ -48,8 +48,10 @@
 #include "Settings.h"
 #include "StorageNamespace.h"
 #include "WindowFeatures.h"
+#include <runtime/VM.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
+#include <wtf/TemporaryChange.h>
 #include <wtf/Vector.h>
 #include <wtf/text/StringBuilder.h>
 
@@ -219,6 +221,10 @@ void Chrome::runModal() const
     // in a way that could interact with this view.
     PageGroupLoadDeferrer deferrer(m_page, false);
 
+    // JavaScript that runs within the nested event loop must not be run in the context of the
+    // script that called showModalDialog. Null out entryScope to break the connection.
+    TemporaryChange<JSC::VMEntryScope*> entryScopeNullifier { m_page.mainFrame().document()->vm().entryScope, nullptr };
+
     TimerBase::fireTimersInNestedEventLoop();
     m_client.runModal();
 }
@@ -350,7 +356,7 @@ void Chrome::setStatusbarText(Frame* frame, const String& status)
 void Chrome::mouseDidMoveOverElement(const HitTestResult& result, unsigned modifierFlags)
 {
     if (result.innerNode() && result.innerNode()->document().isDNSPrefetchEnabled())
-        prefetchDNS(result.absoluteLinkURL().host());
+        m_page.mainFrame().loader().client().prefetchDNS(result.absoluteLinkURL().host());
     m_client.mouseDidMoveOverElement(result, modifierFlags);
 
     InspectorInstrumentation::mouseDidMoveOverElement(m_page, result, modifierFlags);
@@ -548,13 +554,13 @@ bool Chrome::hasOpenedPopup() const
     return m_client.hasOpenedPopup();
 }
 
-PassRefPtr<PopupMenu> Chrome::createPopupMenu(PopupMenuClient* client) const
+RefPtr<PopupMenu> Chrome::createPopupMenu(PopupMenuClient* client) const
 {
     notifyPopupOpeningObservers();
     return m_client.createPopupMenu(client);
 }
 
-PassRefPtr<SearchPopupMenu> Chrome::createSearchPopupMenu(PopupMenuClient* client) const
+RefPtr<SearchPopupMenu> Chrome::createSearchPopupMenu(PopupMenuClient* client) const
 {
     notifyPopupOpeningObservers();
     return m_client.createSearchPopupMenu(client);
@@ -597,21 +603,6 @@ void Chrome::notifyPopupOpeningObservers() const
     const Vector<PopupOpeningObserver*> observers(m_popupOpeningObservers);
     for (auto& observer : observers)
         observer->willOpenPopup();
-}
-
-void Chrome::didBeginTrackingPotentialLongMousePress(const IntPoint& mouseDownPosition, const HitTestResult& hitTestResult)
-{
-    m_client.didBeginTrackingPotentialLongMousePress(mouseDownPosition, hitTestResult);
-}
-
-void Chrome::didRecognizeLongMousePress()
-{
-    m_client.didRecognizeLongMousePress();
-}
-
-void Chrome::didCancelTrackingPotentialLongMousePress()
-{
-    m_client.didCancelTrackingPotentialLongMousePress();
 }
 
 } // namespace WebCore

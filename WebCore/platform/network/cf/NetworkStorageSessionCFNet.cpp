@@ -31,6 +31,9 @@
 #include <wtf/ProcessID.h>
 
 #if PLATFORM(COCOA)
+#include "PublicSuffix.h"
+#include "ResourceRequest.h"
+#include "Settings.h"
 #include "WebCoreSystemInterface.h"
 #else
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
@@ -38,8 +41,9 @@
 
 namespace WebCore {
 
-NetworkStorageSession::NetworkStorageSession(RetainPtr<CFURLStorageSessionRef> platformSession)
-    : m_platformSession(platformSession)
+NetworkStorageSession::NetworkStorageSession(SessionID sessionID, RetainPtr<CFURLStorageSessionRef> platformSession)
+    : m_sessionID(sessionID)
+    , m_platformSession(platformSession)
 {
 }
 
@@ -55,27 +59,27 @@ void NetworkStorageSession::switchToNewTestingSession()
     // Session name should be short enough for shared memory region name to be under the limit, otehrwise sandbox rules won't work (see <rdar://problem/13642852>).
     String sessionName = String::format("WebKit Test-%u", static_cast<uint32_t>(getCurrentProcessID()));
 #if PLATFORM(COCOA)
-    defaultNetworkStorageSession() = std::make_unique<NetworkStorageSession>(adoptCF(wkCreatePrivateStorageSession(sessionName.createCFString().get())));
+    defaultNetworkStorageSession() = std::make_unique<NetworkStorageSession>(SessionID::defaultSessionID(), adoptCF(wkCreatePrivateStorageSession(sessionName.createCFString().get())));
 #else
-    defaultNetworkStorageSession() = std::make_unique<NetworkStorageSession>(adoptCF(wkCreatePrivateStorageSession(sessionName.createCFString().get(), defaultNetworkStorageSession()->platformSession())));
+    defaultNetworkStorageSession() = std::make_unique<NetworkStorageSession>(SessionID::defaultSessionID(), adoptCF(wkCreatePrivateStorageSession(sessionName.createCFString().get(), defaultNetworkStorageSession()->platformSession())));
 #endif
 }
 
 NetworkStorageSession& NetworkStorageSession::defaultStorageSession()
 {
     if (!defaultNetworkStorageSession())
-        defaultNetworkStorageSession() = std::make_unique<NetworkStorageSession>(nullptr);
+        defaultNetworkStorageSession() = std::make_unique<NetworkStorageSession>(SessionID::defaultSessionID(), nullptr);
     return *defaultNetworkStorageSession();
 }
 
-std::unique_ptr<NetworkStorageSession> NetworkStorageSession::createPrivateBrowsingSession(const String& identifierBase)
+std::unique_ptr<NetworkStorageSession> NetworkStorageSession::createPrivateBrowsingSession(SessionID sessionID, const String& identifierBase)
 {
     RetainPtr<CFStringRef> cfIdentifier = String(identifierBase + ".PrivateBrowsing").createCFString();
 
 #if PLATFORM(COCOA)
-    auto session = std::make_unique<NetworkStorageSession>(adoptCF(wkCreatePrivateStorageSession(cfIdentifier.get())));
+    auto session = std::make_unique<NetworkStorageSession>(sessionID, adoptCF(wkCreatePrivateStorageSession(cfIdentifier.get())));
 #else
-    auto session = std::make_unique<NetworkStorageSession>(adoptCF(wkCreatePrivateStorageSession(cfIdentifier.get(), defaultNetworkStorageSession()->platformSession())));
+    auto session = std::make_unique<NetworkStorageSession>(sessionID, adoptCF(wkCreatePrivateStorageSession(cfIdentifier.get(), defaultNetworkStorageSession()->platformSession())));
 #endif
 
     return session;
@@ -84,14 +88,46 @@ std::unique_ptr<NetworkStorageSession> NetworkStorageSession::createPrivateBrows
 RetainPtr<CFHTTPCookieStorageRef> NetworkStorageSession::cookieStorage() const
 {
     if (m_platformSession)
-        return adoptCF(wkCopyHTTPCookieStorage(m_platformSession.get()));
+        return adoptCF(_CFURLStorageSessionCopyCookieStorage(kCFAllocatorDefault, m_platformSession.get()));
 
 #if USE(CFNETWORK)
-    return wkGetDefaultHTTPCookieStorage();
+    return _CFHTTPCookieStorageGetDefault(kCFAllocatorDefault);
 #else
     // When using NSURLConnection, we also use its shared cookie storage.
     return 0;
 #endif
 }
+
+#if PLATFORM(COCOA)
+
+String cookieStoragePartition(const ResourceRequest& request)
+{
+    return cookieStoragePartition(request.firstPartyForCookies(), request.url());
+}
+
+static inline bool hostIsInDomain(StringView host, StringView domain)
+{
+    if (!host.endsWithIgnoringASCIICase(domain))
+        return false;
+
+    ASSERT(host.length() >= domain.length());
+    unsigned suffixOffset = host.length() - domain.length();
+    return suffixOffset == 0 || host[suffixOffset - 1] == '.';
+}
+
+String cookieStoragePartition(const URL& firstPartyForCookies, const URL& resource)
+{
+    if (!Settings::cookieStoragePartitioningEnabled())
+        return emptyString();
+
+    String firstPartyDomain = firstPartyForCookies.host();
+#if ENABLE(PUBLIC_SUFFIX_LIST)
+    firstPartyDomain = topPrivatelyControlledDomain(firstPartyDomain);
+#endif
+    
+    return hostIsInDomain(resource.host(), firstPartyDomain) ? emptyString() : firstPartyDomain;
+}
+
+#endif
 
 }

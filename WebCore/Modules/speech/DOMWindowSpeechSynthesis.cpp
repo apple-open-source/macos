@@ -34,10 +34,9 @@
 #if ENABLE(SPEECH_SYNTHESIS)
 
 #include "DOMWindow.h"
-#include <wtf/PassRefPtr.h>
 
 namespace WebCore {
-    
+
 DOMWindowSpeechSynthesis::DOMWindowSpeechSynthesis(DOMWindow* window)
     : DOMWindowProperty(window->frame())
 {
@@ -59,15 +58,15 @@ DOMWindowSpeechSynthesis* DOMWindowSpeechSynthesis::from(DOMWindow* window)
     if (!supplement) {
         auto newSupplement = std::make_unique<DOMWindowSpeechSynthesis>(window);
         supplement = newSupplement.get();
-        provideTo(window, supplementName(), WTF::move(newSupplement));
+        provideTo(window, supplementName(), WTFMove(newSupplement));
     }
     return supplement;
 }
 
 // static
-SpeechSynthesis* DOMWindowSpeechSynthesis::speechSynthesis(DOMWindow* window)
+SpeechSynthesis* DOMWindowSpeechSynthesis::speechSynthesis(DOMWindow& window)
 {
-    return DOMWindowSpeechSynthesis::from(window)->speechSynthesis();
+    return DOMWindowSpeechSynthesis::from(&window)->speechSynthesis();
 }
 
 SpeechSynthesis* DOMWindowSpeechSynthesis::speechSynthesis()
@@ -76,7 +75,7 @@ SpeechSynthesis* DOMWindowSpeechSynthesis::speechSynthesis()
         m_speechSynthesis = SpeechSynthesis::create();
     return m_speechSynthesis.get();
 }
-    
+
 } // namespace WebCore
 
 #endif // ENABLE(SPEECH_SYNTHESIS)

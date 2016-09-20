@@ -54,7 +54,7 @@ void CoordinatedLayerTreeHostProxy::updateViewport()
 
 void CoordinatedLayerTreeHostProxy::dispatchUpdate(std::function<void()> function)
 {
-    m_scene->appendUpdate(WTF::move(function));
+    m_scene->appendUpdate(WTFMove(function));
 }
 
 void CoordinatedLayerTreeHostProxy::commitCoordinatedGraphicsState(const CoordinatedGraphicsState& graphicsState)
@@ -65,7 +65,7 @@ void CoordinatedLayerTreeHostProxy::commitCoordinatedGraphicsState(const Coordin
     });
 
     updateViewport();
-#if USE(COORDINATED_GRAPHICS)
+#if USE(COORDINATED_GRAPHICS_MULTIPROCESS)
     m_drawingAreaProxy->page().didRenderFrame(graphicsState.contentsSize, graphicsState.coveredRect);
 #endif
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2006, 2009, 2011, 2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -109,7 +109,7 @@ interface_update_status(const char *if_name,
 		CFDictionaryRemoveValue(newDict, kSCPropNetLinkActive);
 	}
 
-	if (attach == TRUE) {
+	if (attach) {
 		/* the interface was attached, remove stale state */
 		CFDictionaryRemoveValue(newDict, kSCPropNetLinkDetaching);
 	}
@@ -131,7 +131,9 @@ interface_update_status(const char *if_name,
 		}
 	} else {
 		/* remove the value */
-		SC_log(LOG_DEBUG, "Update interface link status: %s: <removed>", if_name);
+		if (oldDict != NULL) {
+			SC_log(LOG_DEBUG, "Update interface link status: %s: <removed>", if_name);
+		}
 		cache_SCDynamicStoreRemoveValue(store, key);
 	}
 
@@ -186,7 +188,7 @@ interface_update_quality_metric(const char *if_name,
 		SC_log(LOG_DEBUG, "Update interface link quality: %s: %@", if_name, newDict);
 		cache_SCDynamicStoreSetValue(store, key, newDict);
 	} else {
-		SC_log(LOG_DEBUG, "Update interface link quality: %s: <removed>", if_name);
+		SC_log(LOG_DEBUG, "Update interface link quality: %s: <unknown>", if_name);
 		cache_SCDynamicStoreRemoveValue(store, key);
 	}
 
@@ -350,7 +352,7 @@ link_update_status(const char *if_name, boolean_t attach, boolean_t only_if_diff
 
 	/* get "Link" */
 	bzero((char *)&ifm, sizeof(ifm));
-	(void) strncpy(ifm.ifm_name, if_name, sizeof(ifm.ifm_name));
+	(void) strlcpy(ifm.ifm_name, if_name, sizeof(ifm.ifm_name));
 
 	if (ioctl(sock, SIOCGIFMEDIA, (caddr_t)&ifm) == -1) {
 		/* if media status not available for this interface */
@@ -488,9 +490,9 @@ interfaceListAddInterface(CFMutableArrayRef ifList, const char * if_name)
 	CFStringRef	interface;
 
 	interface = CFStringCreateWithCString(NULL, if_name, kCFStringEncodingMacRoman);
-	if (CFArrayContainsValue(ifList,
-				 CFRangeMake(0, CFArrayGetCount(ifList)),
-				 interface) == FALSE) {
+	if (!CFArrayContainsValue(ifList,
+				  CFRangeMake(0, CFArrayGetCount(ifList)),
+				  interface)) {
 		/* interface was added, prime the link-specific values */
 		added = TRUE;
 		CFArrayAppendValue(ifList, interface);
@@ -538,6 +540,7 @@ link_add(const char *if_name)
 		/* interface was added, update the global list */
 		messages_add_msg_with_arg("link_add", if_name);
 		interfaceListUpdate(ifList);
+		config_new_interface(if_name);
 	}
 	CFRelease(ifList);
 	return;

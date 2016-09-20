@@ -42,7 +42,7 @@ JSValue iteratorNext(ExecState* exec, JSValue iterator, JSValue value)
 
     CallData nextFunctionCallData;
     CallType nextFunctionCallType = getCallData(nextFunction, nextFunctionCallData);
-    if (nextFunctionCallType == CallTypeNone)
+    if (nextFunctionCallType == CallType::None)
         return throwTypeError(exec);
 
     MarkedArgumentBuffer nextFunctionArguments;
@@ -106,7 +106,7 @@ void iteratorClose(ExecState* exec, JSValue iterator)
 
     CallData returnFunctionCallData;
     CallType returnFunctionCallType = getCallData(returnFunction, returnFunctionCallData);
-    if (returnFunctionCallType == CallTypeNone) {
+    if (returnFunctionCallType == CallType::None) {
         if (exception)
             exec->vm().throwException(exec, exception);
         else
@@ -131,11 +131,25 @@ void iteratorClose(ExecState* exec, JSValue iterator)
     }
 }
 
+static const PropertyOffset donePropertyOffset = 0;
+static const PropertyOffset valuePropertyOffset = 1;
+
+Structure* createIteratorResultObjectStructure(VM& vm, JSGlobalObject& globalObject)
+{
+    Structure* iteratorResultStructure = vm.prototypeMap.emptyObjectStructureForPrototype(globalObject.objectPrototype(), JSFinalObject::defaultInlineCapacity());
+    PropertyOffset offset;
+    iteratorResultStructure = Structure::addPropertyTransition(vm, iteratorResultStructure, vm.propertyNames->done, 0, offset);
+    RELEASE_ASSERT(offset == donePropertyOffset);
+    iteratorResultStructure = Structure::addPropertyTransition(vm, iteratorResultStructure, vm.propertyNames->value, 0, offset);
+    RELEASE_ASSERT(offset == valuePropertyOffset);
+    return iteratorResultStructure;
+}
+
 JSObject* createIteratorResultObject(ExecState* exec, JSValue value, bool done)
 {
-    JSObject* resultObject = constructEmptyObject(exec);
-    resultObject->putDirect(exec->vm(), exec->propertyNames().done, jsBoolean(done));
-    resultObject->putDirect(exec->vm(), exec->propertyNames().value, value);
+    JSObject* resultObject = constructEmptyObject(exec, exec->lexicalGlobalObject()->iteratorResultObjectStructure());
+    resultObject->putDirect(exec->vm(), donePropertyOffset, jsBoolean(done));
+    resultObject->putDirect(exec->vm(), valuePropertyOffset, value);
     return resultObject;
 }
 

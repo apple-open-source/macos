@@ -69,13 +69,13 @@ void WKKeyValueStorageManagerGetKeyValueStorageOrigins(WKKeyValueStorageManagerR
         return;
     }
 
-    storageManager->getLocalStorageOrigins([context, callback](HashSet<RefPtr<WebCore::SecurityOrigin>>&& securityOrigins) {
+    storageManager->getLocalStorageOrigins([context, callback](auto&& securityOrigins) {
         Vector<RefPtr<API::Object>> webSecurityOrigins;
         webSecurityOrigins.reserveInitialCapacity(securityOrigins.size());
         for (auto& origin : securityOrigins)
             webSecurityOrigins.uncheckedAppend(API::SecurityOrigin::create(*origin));
 
-        callback(toAPI(API::Array::create(WTF::move(webSecurityOrigins)).ptr()), nullptr, context);
+        callback(toAPI(API::Array::create(WTFMove(webSecurityOrigins)).ptr()), nullptr, context);
     });
 }
 
@@ -89,7 +89,7 @@ void WKKeyValueStorageManagerGetStorageDetailsByOrigin(WKKeyValueStorageManagerR
         return;
     }
 
-    storageManager->getLocalStorageOriginDetails([context, callback](Vector<LocalStorageDatabaseTracker::OriginDetails> storageDetails) {
+    storageManager->getLocalStorageOriginDetails([context, callback](auto storageDetails) {
         HashMap<String, RefPtr<API::Object>> detailsMap;
         Vector<RefPtr<API::Object>> result;
         result.reserveInitialCapacity(storageDetails.size());
@@ -105,10 +105,10 @@ void WKKeyValueStorageManagerGetStorageDetailsByOrigin(WKKeyValueStorageManagerR
             if (originDetails.modificationTime)
                 detailsMap.set(toImpl(WKKeyValueStorageManagerGetModificationTimeKey())->string(), API::Double::create(originDetails.modificationTime.valueOr(0)));
 
-            result.uncheckedAppend(API::Dictionary::create(WTF::move(detailsMap)));
+            result.uncheckedAppend(API::Dictionary::create(WTFMove(detailsMap)));
         }
 
-        callback(toAPI(API::Array::create(WTF::move(result)).ptr()), nullptr, context);
+        callback(toAPI(API::Array::create(WTFMove(result)).ptr()), nullptr, context);
     });
 }
 

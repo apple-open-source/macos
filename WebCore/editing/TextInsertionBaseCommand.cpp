@@ -35,21 +35,21 @@
 
 namespace WebCore {
 
-TextInsertionBaseCommand::TextInsertionBaseCommand(Document& document)
-    : CompositeEditCommand(document)
+TextInsertionBaseCommand::TextInsertionBaseCommand(Document& document, EditAction editingAction)
+    : CompositeEditCommand(document, editingAction)
 {
 }
 
-void TextInsertionBaseCommand::applyTextInsertionCommand(Frame* frame, PassRefPtr<TextInsertionBaseCommand> command, const VisibleSelection& selectionForInsertion, const VisibleSelection& endingSelection)
+void TextInsertionBaseCommand::applyTextInsertionCommand(Frame* frame, TextInsertionBaseCommand& command, const VisibleSelection& selectionForInsertion, const VisibleSelection& endingSelection)
 {
     bool changeSelection = selectionForInsertion != endingSelection;
     if (changeSelection) {
-        command->setStartingSelection(selectionForInsertion);
-        command->setEndingSelection(selectionForInsertion);
+        command.setStartingSelection(selectionForInsertion);
+        command.setEndingSelection(selectionForInsertion);
     }
-    applyCommand(command);
+    applyCommand(&command);
     if (changeSelection) {
-        command->setEndingSelection(endingSelection);
+        command.setEndingSelection(endingSelection);
         frame->selection().setSelection(endingSelection);
     }
 }
@@ -63,9 +63,9 @@ String dispatchBeforeTextInsertedEvent(const String& text, const VisibleSelectio
     if (Node* startNode = selectionForInsertion.start().containerNode()) {
         if (startNode->rootEditableElement()) {
             // Send BeforeTextInsertedEvent. The event handler will update text if necessary.
-            RefPtr<BeforeTextInsertedEvent> evt = BeforeTextInsertedEvent::create(text);
-            startNode->rootEditableElement()->dispatchEvent(evt, IGNORE_EXCEPTION);
-            newText = evt->text();
+            Ref<BeforeTextInsertedEvent> event = BeforeTextInsertedEvent::create(text);
+            startNode->rootEditableElement()->dispatchEvent(event);
+            newText = event->text();
         }
     }
     return newText;
@@ -77,8 +77,8 @@ bool canAppendNewLineFeedToSelection(const VisibleSelection& selection)
     if (!node)
         return false;
     
-    RefPtr<BeforeTextInsertedEvent> event = BeforeTextInsertedEvent::create(String("\n"));
-    node->dispatchEvent(event, IGNORE_EXCEPTION);
+    Ref<BeforeTextInsertedEvent> event = BeforeTextInsertedEvent::create(String("\n"));
+    node->dispatchEvent(event);
     return event->text().length();
 }
 

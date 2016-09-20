@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/to.xml
@@ -46,7 +46,6 @@ to{
         AI{"Anikuila"}
         AL{"ʻAlipania"}
         AM{"ʻĀmenia"}
-        AN{"Anitila fakahōlani"}
         AO{"ʻAngikola"}
         AQ{"ʻAnitātika"}
         AR{"ʻAsenitina"}
@@ -267,7 +266,7 @@ to{
         TH{"Tailani"}
         TJ{"Tasikitani"}
         TK{"Tokelau"}
-        TL{"Timoa Hahake"}
+        TL{"Timoa hahake"}
         TM{"Tūkimenisitani"}
         TN{"Tunīsia"}
         TO{"Tonga"}
@@ -311,5 +310,5 @@ to{
         CG{"Kongo (Lipapilika)"}
         MK{"Masetōnia (FYROM)"}
     }
-    Version{"2.1.12.94"}
+    Version{"2.1.23.79"}
 }

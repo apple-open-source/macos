@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2006-2009,2012 Apple Inc. All Rights Reserved.
- * 
+ * Copyright (c) 2006-2009,2012,2016 Apple Inc. All Rights Reserved.
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 //
@@ -48,9 +48,10 @@ ClientIdentification::ClientIdentification()
 void ClientIdentification::setup(pid_t pid)
 {
 	StLock<Mutex> _(mLock);
-	if (OSStatus rc = SecCodeCreateWithPID(pid, kSecCSDefaultFlags,
-			&mClientProcess.aref()))
-		secdebug("clientid", "could not get code for process %d: OSStatus=%d",
+	StLock<Mutex> __(mValidityCheckLock);
+    OSStatus rc = SecCodeCreateWithPID(pid, kSecCSDefaultFlags, &mClientProcess.aref());
+	if (rc)
+		secinfo("clientid", "could not get code for process %d: OSStatus=%d",
 			pid, int32_t(rc));
 	mGuests.erase(mGuests.begin(), mGuests.end());
 }
@@ -94,7 +95,7 @@ ClientIdentification::GuestState *ClientIdentification::current() const
 		return NULL;
 
 	SecGuestRef guestRef = Server::connection().guestRef();
-	
+
 	// try to deliver an already-cached entry
 	{
 		StLock<Mutex> _(mLock);
@@ -141,6 +142,7 @@ ClientIdentification::GuestState *ClientIdentification::current() const
 std::string ClientIdentification::partitionId() const
 {
 	if (!mGotPartitionId) {
+		StLock<Mutex> _(mValidityCheckLock);
 		mClientPartitionId = partitionIdForProcess(processCode());
 		mGotPartitionId = true;
 	}
@@ -176,7 +178,7 @@ std::string ClientIdentification::partitionIdForProcess(SecStaticCodeRef code)
 			|| noErr != SecRequirementCreateWithString(developmentOrDevIDReq, kSecCSDefaultFlags, &developmentOrDevID))
 			abort();
 	});
-	
+
 	OSStatus rc;
 	switch (rc = SecStaticCodeCheckValidity(code, kSecCSBasicValidateOnly, apple)) {
 	case noErr:
@@ -190,15 +192,14 @@ std::string ClientIdentification::partitionIdForProcess(SecStaticCodeRef code)
 	CFRef<CFDictionaryRef> info;
 	if (OSStatus irc = SecCodeCopySigningInformation(code, kSecCSSigningInformation, &info.aref()))
 		MacOSError::throwMe(irc);
-	
+
 	if (rc == noErr) {
-		// for apple-signed code, take the team id if present, or make it canonical apple
-		if (CFStringRef teamidRef = CFStringRef(CFDictionaryGetValue(info, kSecCodeInfoTeamIdentifier)))
-			return "teamid:" + cfString(teamidRef);
-		else if (CFEqual(CFDictionaryGetValue(info, kSecCodeInfoIdentifier), CFSTR("com.apple.security")))
+        // for apple-signed code, make it canonical apple
+        if (CFEqual(CFDictionaryGetValue(info, kSecCodeInfoIdentifier), CFSTR("com.apple.security"))) {
 			return "apple-tool:";	// take security(1) into a separate partition so it can't automatically peek into Apple's own
-		else
+        } else {
 			return "apple:";
+        }
 	} else if (noErr == SecStaticCodeCheckValidity(code, kSecCSBasicValidateOnly, mas)) {
 		// for MAS-signed code, we take the embedded team identifier (verified by Apple)
 		return "teamid:" + cfString(CFStringRef(CFDictionaryGetValue(info, kSecCodeInfoTeamIdentifier)));
@@ -229,6 +230,7 @@ std::string ClientIdentification::partitionIdForProcess(SecStaticCodeRef code)
 string ClientIdentification::getPath() const
 {
 	assert(mClientProcess);
+	StLock<Mutex> _(mValidityCheckLock);
 	return codePath(currentGuest());
 }
 
@@ -245,35 +247,53 @@ const CssmData ClientIdentification::getHash() const
 		return CssmData();
 }
 
+AclSubject* ClientIdentification::copyAclSubject() const
+{
+	StLock<Mutex> _(mValidityCheckLock);
+	RefPointer<OSXCode> clientXCode = new OSXCodeWrap(currentGuest());
+	return new CodeSignatureAclSubject(OSXVerifier(clientXCode));
+}
+
+OSStatus ClientIdentification::copySigningInfo(SecCSFlags flags,
+	CFDictionaryRef *info) const
+{
+	StLock<Mutex> _(mValidityCheckLock);
+	return SecCodeCopySigningInformation(currentGuest(), flags, info);
+}
+
+OSStatus ClientIdentification::checkValidity(SecCSFlags flags,
+	SecRequirementRef requirement) const
+{
+	// Make sure more than one thread cannot be evaluating this code signature concurrently
+	StLock<Mutex> _(mValidityCheckLock);
+	return SecCodeCheckValidityWithErrors(currentGuest(), flags, requirement, NULL);
+}
+
 const bool ClientIdentification::checkAppleSigned() const
 {
-	if (GuestState *guest = current()) {
-		if (!guest->checkedSignature) {
-            // This is the clownfish supported way to check for a Mac App Store or B&I signed build
-            CFStringRef requirementString = CFSTR("(anchor apple) or (anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.9])");
-            SecRequirementRef  secRequirementRef = NULL;
-            OSStatus status = SecRequirementCreateWithString(requirementString, kSecCSDefaultFlags, &secRequirementRef);
-            if (status == errSecSuccess) {
-                OSStatus status = SecCodeCheckValidity(guest->code, kSecCSDefaultFlags, secRequirementRef);
-                if (status != errSecSuccess) {
-                    secdebug("SecurityAgentXPCQuery", "code requirement check failed (%d)", (int32_t)status);
-                } else {
-                    guest->appleSigned = true;
-                }
-                guest->checkedSignature = true;
-            }
-            CFRelease(secRequirementRef);
+	// This is the clownfish supported way to check for a Mac App Store or B&I signed build
+	static CFStringRef const requirementString = CFSTR("(anchor apple) or (anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.9])");
+	CFRef<SecRequirementRef> secRequirementRef = NULL;
+	OSStatus status = SecRequirementCreateWithString(requirementString, kSecCSDefaultFlags, &secRequirementRef.aref());
+	if (status == errSecSuccess) {
+		status = checkValidity(kSecCSDefaultFlags, secRequirementRef);
+		if (status != errSecSuccess) {
+			secnotice("clientid", "code requirement check failed (%d), client is not Apple-signed", (int32_t)status);
+		} else {
+			return true;
 		}
-		return guest->appleSigned;
-	} else
-		return false;
+	}
+	return false;
 }
 
 
 bool ClientIdentification::hasEntitlement(const char *name) const
 {
 	CFRef<CFDictionaryRef> info;
-	MacOSError::check(SecCodeCopySigningInformation(processCode(), kSecCSDefaultFlags, &info.aref()));
+	{
+		StLock<Mutex> _(mValidityCheckLock);
+		MacOSError::check(SecCodeCopySigningInformation(processCode(), kSecCSDefaultFlags, &info.aref()));
+	}
 	CFCopyRef<CFDictionaryRef> entitlements = (CFDictionaryRef)CFDictionaryGetValue(info, kSecCodeInfoEntitlementsDict);
 	if (entitlements && entitlements.is<CFDictionaryRef>()) {
 		CFTypeRef value = CFDictionaryGetValue(entitlements, CFTempString(name));

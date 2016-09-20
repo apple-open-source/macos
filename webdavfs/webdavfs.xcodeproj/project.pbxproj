@@ -361,10 +361,10 @@
 		5CDFF4820E929F0A00745F9B /* English */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		5CDFF4830E929F0A00745F9B /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		5CDFF4840E929F0A00745F9B /* WebDAV_Mount.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = WebDAV_Mount.c; sourceTree = "<group>"; };
-		7211666A18B5758000ACEC6E /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = webdav_cert_ui.tproj/English.lproj/MainMenu.nib; sourceTree = "<group>"; };
 		7211666F18B5767D00ACEC6E /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = webdav_cert_ui.tproj/English.lproj/MainMenu.nib; sourceTree = SOURCE_ROOT; };
 		7273003018D2670C00D498A8 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.Internal.sdk/System/Library/Frameworks/Security.framework; sourceTree = DEVELOPER_DIR; };
 		7273003218D268B300D498A8 /* AccountsDaemon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AccountsDaemon.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.Internal.sdk/System/Library/PrivateFrameworks/AccountsDaemon.framework; sourceTree = DEVELOPER_DIR; };
+		729D80601C23925E00742FBC /* Base */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = Base; path = webdav_cert_ui.tproj/Base.lproj/MainMenu.nib; sourceTree = "<group>"; };
 		72B01E6B0BC48C5500C182DA /* mount_webdav */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mount_webdav; sourceTree = BUILT_PRODUCTS_DIR; };
 		72B01E7E0BC48C5500C182DA /* Info-webdav_fs_Kernel_Extension.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-webdav_fs_Kernel_Extension.plist"; sourceTree = "<group>"; };
 		72B01E7F0BC48C5500C182DA /* webdav_fs.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = webdav_fs.kext; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -889,6 +889,7 @@
 				Japanese,
 				French,
 				German,
+				Base,
 			);
 			mainGroup = 0352A9FA0043263F11CA2A40 /* webdavfs */;
 			productRefGroup = 0352AA510043263F11CA2A40 /* Products */;
@@ -1146,7 +1147,7 @@
 		7211666918B5758000ACEC6E /* MainMenu.nib */ = {
 			isa = PBXVariantGroup;
 			children = (
-				7211666A18B5758000ACEC6E /* English */,
+				729D80601C23925E00742FBC /* Base */,
 			);
 			name = MainMenu.nib;
 			sourceTree = "<group>";
@@ -1673,6 +1674,382 @@
 			};
 			name = Deployment;
 		};
+		72E6C5B31CFF9D2400046B85 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
+			};
+			name = DebugCoverage;
+		};
+		72E6C5B41CFF9D2400046B85 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = DebugCoverage;
+		};
+		72E6C5B51CFF9D2400046B85 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = DebugCoverage;
+		};
+		72E6C5B61CFF9D2400046B85 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = DebugCoverage;
+		};
+		72E6C5B71CFF9D2400046B85 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = DebugCoverage;
+		};
+		72E6C5B81CFF9D2400046B85 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = DebugCoverage;
+		};
+		72E6C5B91CFF9D2400046B85 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = DebugCoverage;
+		};
+		72E6C5BA1CFF9D2400046B85 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = DebugCoverage;
+		};
+		72E6C5BB1CFF9D2400046B85 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = DebugCoverage;
+		};
+		72E6C5BC1CFF9D2400046B85 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = DebugCoverage;
+		};
+		72E6C5BD1CFF9D2400046B85 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = DebugCoverage;
+		};
+		72E6C5BE1CFF9D2400046B85 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = "";
+			};
+			name = DebugCoverage;
+		};
+		72E6C5BF1CFF9D2400046B85 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 8F096241118A5C2F00C03286 /* webdavfs.xcconfig */;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = /sbin;
+				OTHER_CFLAGS = (
+					"-no-cpp-precomp",
+					"-fprofile-instr-generate",
+					"-fcoverage-mapping",
+					"-fprofile-generate=/Users/Shared/codecoverage/webdavfs/mount_webdav.%p",
+				);
+				OTHER_LDFLAGS = (
+					"-bind_at_load",
+					"-fprofile-instr-generate",
+				);
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = mount_webdav;
+				REZ_EXECUTABLE = YES;
+				SDKROOT = macosx.internal;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wmissing-declarations",
+					"-Wmissing-prototypes",
+					"-Wall",
+					"-W",
+					"-Wcast-qual",
+					"-Wpointer-arith",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = DebugCoverage;
+		};
+		72E6C5C01CFF9D2400046B85 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 8F096241118A5C2F00C03286 /* webdavfs.xcconfig */;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-webdav_fs_Kernel_Extension.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_NAME = com.apple.filesystems.webdav;
+				MODULE_START = webdav_fs_module_start;
+				MODULE_STOP = webdav_fs_module_stop;
+				MODULE_VERSION = "$(WEBDAVFS_KEXT_VERSION)";
+				OTHER_CFLAGS = (
+					"-no-cpp-precomp",
+					"-fno-builtin",
+					"-msoft-float",
+					"-fprofile-instr-generate",
+					"-fcoverage-mapping",
+				);
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = webdav_fs;
+				SDKROOT = macosx.internal;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = DebugCoverage;
+		};
+		72E6C5C11CFF9D2400046B85 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 8F096241118A5C2F00C03286 /* webdavfs.xcconfig */;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-webdav_fs_Bundle.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Filesystems";
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "-no-cpp-precomp";
+				OTHER_LDFLAGS = (
+					"-bundle",
+					"-undefined",
+					suppress,
+				);
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = webdav;
+				SDKROOT = macosx.internal;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = fs;
+				ZERO_LINK = NO;
+			};
+			name = DebugCoverage;
+		};
+		72E6C5C21CFF9D2400046B85 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 8F096241118A5C2F00C03286 /* webdavfs.xcconfig */;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G4;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = webdav_cert_ui.tproj/webdav_cert_ui_Prefix.pch;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				INFOPLIST_FILE = webdav_cert_ui.tproj/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Filesystems/webdav.fs/Contents/Resources";
+				OTHER_CFLAGS = (
+					"-fprofile-instr-generate",
+					"-fcoverage-mapping",
+					"-fprofile-generate=/Users/Shared/codecoverage/webdavfs/webdav_cert_ui.%p",
+				);
+				OTHER_LDFLAGS = (
+					"-framework",
+					Foundation,
+					"-framework",
+					AppKit,
+					"-fprofile-instr-generate",
+				);
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = webdav_cert_ui;
+				SDKROOT = macosx.internal;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = DebugCoverage;
+		};
+		72E6C5C31CFF9D2400046B85 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 8F096241118A5C2F00C03286 /* webdavfs.xcconfig */;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COPY_PHASE_STRIP = YES;
+				DEBUG = "";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/VCXMPP.framework/Versions/A/Frameworks\"";
+				GCC_DYNAMIC_NO_PIC = "";
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_PREPROCESSOR_DEFINITIONS = "";
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_VERSION = "";
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(SDKROOT)/usr/include",
+					"$(SDKROOT)/usr/include/libxml2",
+				);
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/webdav_fs.kext/Contents/Resources";
+				OTHER_CFLAGS = (
+					"-no-cpp-precomp",
+					"-fconstant-cfstrings",
+					"-fprofile-instr-generate",
+					"-fcoverage-mapping",
+					"-fprofile-generate=/Users/Shared/codecoverage/webdavfs/webdavfs_agent.%p",
+				);
+				OTHER_LDFLAGS = (
+					"-bind_at_load",
+					"-lutil",
+					"-fprofile-instr-generate",
+				);
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = webdavfs_agent;
+				REZ_EXECUTABLE = YES;
+				SDKROOT = macosx.internal;
+				SECTORDER_FLAGS = "";
+				USER_HEADER_SEARCH_PATHS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wmissing-declarations",
+					"-Wmissing-prototypes",
+					"-Wall",
+					"-W",
+					"-Wcast-qual",
+					"-Wpointer-arith",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = DebugCoverage;
+		};
+		72E6C5C41CFF9D2400046B85 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 8F096241118A5C2F00C03286 /* webdavfs.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = YES;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = (
+					/System/Library/Frameworks,
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "";
+				GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = "_FORTIFY_SOURCE=2";
+				INFOPLIST_FILE = WebDAVPlugin/Info.plist;
+				INSTALL_PATH = /System/Library/Filesystems/NetFSPlugins/;
+				OTHER_CFLAGS = (
+					"-fstack-protector",
+					"-W",
+					"-Wno-unknown-pragmas",
+					"-Wno-four-char-constants",
+					"-Wmost",
+					"-fprofile-instr-generate",
+					"-fcoverage-mapping",
+				);
+				OTHER_LDFLAGS = "-fprofile-instr-generate";
+				PRODUCT_NAME = http;
+				SDKROOT = macosx.internal;
+				VALID_ARCHS = "i386 x86_64";
+				WRAPPER_EXTENSION = bundle;
+				ZERO_LINK = NO;
+			};
+			name = DebugCoverage;
+		};
+		72E6C5C51CFF9D2400046B85 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 8F096241118A5C2F00C03286 /* webdavfs.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/lib;
+				OTHER_CFLAGS = (
+					"-fprofile-instr-generate",
+					"-fcoverage-mapping",
+				);
+				OTHER_LDFLAGS = "-fprofile-instr-generate";
+				PRODUCT_NAME = webdavlib;
+				SDKROOT = macosx.internal;
+				SKIP_INSTALL = YES;
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
+				ZERO_LINK = NO;
+			};
+			name = DebugCoverage;
+		};
 		8FBFB53D0F868C3B000B3B9B /* Development */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 8F096241118A5C2F00C03286 /* webdavfs.xcconfig */;
@@ -1914,6 +2291,7 @@
 			buildConfigurations = (
 				5CDFF47A0E929DA900745F9B /* Development */,
 				5CDFF47B0E929DA900745F9B /* Deployment */,
+				72E6C5C41CFF9D2400046B85 /* DebugCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -1923,6 +2301,7 @@
 			buildConfigurations = (
 				72B01E690BC48C5500C182DA /* Development */,
 				72B01E6A0BC48C5500C182DA /* Deployment */,
+				72E6C5BF1CFF9D2400046B85 /* DebugCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -1932,6 +2311,7 @@
 			buildConfigurations = (
 				72B01E7C0BC48C5500C182DA /* Development */,
 				72B01E7D0BC48C5500C182DA /* Deployment */,
+				72E6C5C01CFF9D2400046B85 /* DebugCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -1941,6 +2321,7 @@
 			buildConfigurations = (
 				72B01E940BC48C5500C182DA /* Development */,
 				72B01E950BC48C5500C182DA /* Deployment */,
+				72E6C5C11CFF9D2400046B85 /* DebugCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -1950,6 +2331,7 @@
 			buildConfigurations = (
 				72B01EA60BC48C5600C182DA /* Development */,
 				72B01EA70BC48C5600C182DA /* Deployment */,
+				72E6C5C21CFF9D2400046B85 /* DebugCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -1959,6 +2341,7 @@
 			buildConfigurations = (
 				72B01ECB0BC48C5600C182DA /* Development */,
 				72B01ECC0BC48C5600C182DA /* Deployment */,
+				72E6C5C31CFF9D2400046B85 /* DebugCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -1968,6 +2351,7 @@
 			buildConfigurations = (
 				8FBFB53D0F868C3B000B3B9B /* Development */,
 				8FBFB53E0F868C3B000B3B9B /* Deployment */,
+				72E6C5C51CFF9D2400046B85 /* DebugCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -1977,6 +2361,7 @@
 			buildConfigurations = (
 				A4A08D5908FC777000820824 /* Development */,
 				A4A08D5A08FC777000820824 /* Deployment */,
+				72E6C5B31CFF9D2400046B85 /* DebugCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -1986,6 +2371,7 @@
 			buildConfigurations = (
 				E20280EF151183E8005A5B16 /* Development */,
 				E20280F0151183E8005A5B16 /* Deployment */,
+				72E6C5BB1CFF9D2400046B85 /* DebugCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -1995,6 +2381,7 @@
 			buildConfigurations = (
 				E20280F51511840E005A5B16 /* Development */,
 				E20280F61511840E005A5B16 /* Deployment */,
+				72E6C5BC1CFF9D2400046B85 /* DebugCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -2004,6 +2391,7 @@
 			buildConfigurations = (
 				E20280F91511842A005A5B16 /* Development */,
 				E20280FA1511842A005A5B16 /* Deployment */,
+				72E6C5BD1CFF9D2400046B85 /* DebugCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -2013,6 +2401,7 @@
 			buildConfigurations = (
 				E20280FD1511845C005A5B16 /* Development */,
 				E20280FE1511845C005A5B16 /* Deployment */,
+				72E6C5B41CFF9D2400046B85 /* DebugCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -2022,6 +2411,7 @@
 			buildConfigurations = (
 				E202810115118469005A5B16 /* Development */,
 				E202810215118469005A5B16 /* Deployment */,
+				72E6C5B71CFF9D2400046B85 /* DebugCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -2031,6 +2421,7 @@
 			buildConfigurations = (
 				E202810515118479005A5B16 /* Development */,
 				E202810615118479005A5B16 /* Deployment */,
+				72E6C5B61CFF9D2400046B85 /* DebugCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -2040,6 +2431,7 @@
 			buildConfigurations = (
 				E20281091511848C005A5B16 /* Development */,
 				E202810A1511848C005A5B16 /* Deployment */,
+				72E6C5B51CFF9D2400046B85 /* DebugCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -2049,6 +2441,7 @@
 			buildConfigurations = (
 				E284C65314BFAB3C00E07082 /* Development */,
 				E284C65414BFAB3C00E07082 /* Deployment */,
+				72E6C5BA1CFF9D2400046B85 /* DebugCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -2058,6 +2451,7 @@
 			buildConfigurations = (
 				E284C65914BFAB4800E07082 /* Development */,
 				E284C65A14BFAB4800E07082 /* Deployment */,
+				72E6C5B91CFF9D2400046B85 /* DebugCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -2067,6 +2461,7 @@
 			buildConfigurations = (
 				E284C65D14BFAB5200E07082 /* Development */,
 				E284C65E14BFAB5200E07082 /* Deployment */,
+				72E6C5B81CFF9D2400046B85 /* DebugCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -2076,6 +2471,7 @@
 			buildConfigurations = (
 				E284C67B14C0988800E07082 /* Development */,
 				E284C67C14C0988800E07082 /* Deployment */,
+				72E6C5BE1CFF9D2400046B85 /* DebugCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;

@@ -47,14 +47,14 @@
 
 namespace WebCore {
 
-static void drawGlyphsToContext(cairo_t* context, const Font* font, GlyphBufferGlyph* glyphs, int numGlyphs)
+static void drawGlyphsToContext(cairo_t* context, const Font& font, GlyphBufferGlyph* glyphs, int numGlyphs)
 {
     cairo_matrix_t originalTransform;
-    float syntheticBoldOffset = font->syntheticBoldOffset();
+    float syntheticBoldOffset = font.syntheticBoldOffset();
     if (syntheticBoldOffset)
         cairo_get_matrix(context, &originalTransform);
 
-    cairo_set_scaled_font(context, font->platformData().scaledFont());
+    cairo_set_scaled_font(context, font.platformData().scaledFont());
     cairo_show_glyphs(context, glyphs, numGlyphs);
 
     if (syntheticBoldOffset) {
@@ -66,21 +66,21 @@ static void drawGlyphsToContext(cairo_t* context, const Font* font, GlyphBufferG
         cairo_set_matrix(context, &originalTransform);
 }
 
-static void drawGlyphsShadow(GraphicsContext* graphicsContext, const FloatPoint& point, const Font* font, GlyphBufferGlyph* glyphs, int numGlyphs)
+static void drawGlyphsShadow(GraphicsContext& graphicsContext, const FloatPoint& point, const Font& font, GlyphBufferGlyph* glyphs, int numGlyphs)
 {
-    ShadowBlur& shadow = graphicsContext->platformContext()->shadowBlur();
+    ShadowBlur& shadow = graphicsContext.platformContext()->shadowBlur();
 
-    if (!(graphicsContext->textDrawingMode() & TextModeFill) || shadow.type() == ShadowBlur::NoShadow)
+    if (!(graphicsContext.textDrawingMode() & TextModeFill) || shadow.type() == ShadowBlur::NoShadow)
         return;
 
-    if (!graphicsContext->mustUseShadowBlur()) {
+    if (!graphicsContext.mustUseShadowBlur()) {
         // Optimize non-blurry shadows, by just drawing text without the ShadowBlur.
-        cairo_t* context = graphicsContext->platformContext()->cr();
+        cairo_t* context = graphicsContext.platformContext()->cr();
         cairo_save(context);
 
-        FloatSize shadowOffset(graphicsContext->state().shadowOffset);
+        FloatSize shadowOffset(graphicsContext.state().shadowOffset);
         cairo_translate(context, shadowOffset.width(), shadowOffset.height());
-        setSourceRGBAFromColor(context, graphicsContext->state().shadowColor);
+        setSourceRGBAFromColor(context, graphicsContext.state().shadowColor);
         drawGlyphsToContext(context, font, glyphs, numGlyphs);
 
         cairo_restore(context);
@@ -88,7 +88,7 @@ static void drawGlyphsShadow(GraphicsContext* graphicsContext, const FloatPoint&
     }
 
     cairo_text_extents_t extents;
-    cairo_scaled_font_glyph_extents(font->platformData().scaledFont(), glyphs, numGlyphs, &extents);
+    cairo_scaled_font_glyph_extents(font.platformData().scaledFont(), glyphs, numGlyphs, &extents);
     FloatRect fontExtentsRect(point.x() + extents.x_bearing, point.y() + extents.y_bearing, extents.width, extents.height);
 
     if (GraphicsContext* shadowContext = shadow.beginShadowLayer(graphicsContext, fontExtentsRect)) {
@@ -97,10 +97,10 @@ static void drawGlyphsShadow(GraphicsContext* graphicsContext, const FloatPoint&
     }
 }
 
-void FontCascade::drawGlyphs(GraphicsContext* context, const Font* font, const GlyphBuffer& glyphBuffer,
-    int from, int numGlyphs, const FloatPoint& point) const
+void FontCascade::drawGlyphs(GraphicsContext& context, const Font& font, const GlyphBuffer& glyphBuffer,
+    int from, int numGlyphs, const FloatPoint& point, FontSmoothingMode)
 {
-    if (!font->platformData().size())
+    if (!font.platformData().size())
         return;
 
     GlyphBufferGlyph* glyphs = const_cast<GlyphBufferGlyph*>(glyphBuffer.glyphs(from));
@@ -112,14 +112,14 @@ void FontCascade::drawGlyphs(GraphicsContext* context, const Font* font, const G
         offset += glyphBuffer.advanceAt(from + i).width();
     }
 
-    PlatformContextCairo* platformContext = context->platformContext();
+    PlatformContextCairo* platformContext = context.platformContext();
     drawGlyphsShadow(context, point, font, glyphs, numGlyphs);
 
     cairo_t* cr = platformContext->cr();
     cairo_save(cr);
 
-    if (context->textDrawingMode() & TextModeFill) {
-        platformContext->prepareForFilling(context->state(), PlatformContextCairo::AdjustPatternForGlobalAlpha);
+    if (context.textDrawingMode() & TextModeFill) {
+        platformContext->prepareForFilling(context.state(), PlatformContextCairo::AdjustPatternForGlobalAlpha);
         drawGlyphsToContext(cr, font, glyphs, numGlyphs);
     }
 
@@ -127,12 +127,12 @@ void FontCascade::drawGlyphs(GraphicsContext* context, const Font* font, const G
     // twice the size of the width of the text we will not ask cairo to stroke
     // the text as even one single stroke would cover the full wdth of the text.
     //  See https://bugs.webkit.org/show_bug.cgi?id=33759.
-    if (context->textDrawingMode() & TextModeStroke && context->strokeThickness() < 2 * offset) {
-        platformContext->prepareForStroking(context->state());
-        cairo_set_line_width(cr, context->strokeThickness());
+    if (context.textDrawingMode() & TextModeStroke && context.strokeThickness() < 2 * offset) {
+        platformContext->prepareForStroking(context.state());
+        cairo_set_line_width(cr, context.strokeThickness());
 
         // This may disturb the CTM, but we are going to call cairo_restore soon after.
-        cairo_set_scaled_font(cr, font->platformData().scaledFont());
+        cairo_set_scaled_font(cr, font.platformData().scaledFont());
         cairo_glyph_path(cr, glyphs, numGlyphs);
         cairo_stroke(cr);
     }
@@ -174,27 +174,26 @@ static void updateX(GlyphIterationState& state, float x)
 // pseudo-contour and the vertical center of the underline found in GlyphIterationState::centerOfLine.
 // It keeps track of the leftmost and rightmost intersection in  GlyphIterationState::minX and 
 // GlyphIterationState::maxX.
-static void findPathIntersections(void* stateAsVoidPointer, const PathElement* element)
+static void findPathIntersections(GlyphIterationState& state, const PathElement& element)
 {
-    auto& state = *static_cast<GlyphIterationState*>(stateAsVoidPointer);
     bool doIntersection = false;
     FloatPoint point = FloatPoint();
-    switch (element->type) {
+    switch (element.type) {
     case PathElementMoveToPoint:
-        state.startingPoint = element->points[0];
-        state.currentPoint = element->points[0];
+        state.startingPoint = element.points[0];
+        state.currentPoint = element.points[0];
         break;
     case PathElementAddLineToPoint:
         doIntersection = true;
-        point = element->points[0];
+        point = element.points[0];
         break;
     case PathElementAddQuadCurveToPoint:
         doIntersection = true;
-        point = element->points[1];
+        point = element.points[1];
         break;
     case PathElementAddCurveToPoint:
         doIntersection = true;
-        point = element->points[2];
+        point = element.points[2];
         break;
     case PathElementCloseSubpath:
         doIntersection = true;
@@ -221,19 +220,15 @@ public:
         , m_fontData(glyphBuffer.fontAt(m_index))
         , m_translation(AffineTransform().translate(textOrigin.x(), textOrigin.y()))
     {
-        moveToNextValidGlyph();
     }
-private:
-    virtual bool containsMorePaths() override
-    {
-        return m_index != m_glyphBuffer.size();
-    }
-    virtual Path path() override;
-    virtual std::pair<float, float> extents() override;
-    virtual GlyphUnderlineType underlineType() override;
-    virtual void advance() override;
-    void moveToNextValidGlyph();
 
+    bool containsMorePaths() final { return m_index != m_glyphBuffer.size(); }
+    Path path() final;
+    std::pair<float, float> extents() final;
+    GlyphUnderlineType underlineType() final;
+    void advance() final;
+
+private:
     int m_index;
     const TextRun& m_textRun;
     const GlyphBuffer& m_glyphBuffer;
@@ -273,23 +268,13 @@ GlyphToPathTranslator::GlyphUnderlineType CairoGlyphToPathTranslator::underlineT
     return computeUnderlineType(m_textRun, m_glyphBuffer, m_index);
 }
 
-void CairoGlyphToPathTranslator::moveToNextValidGlyph()
-{
-    if (!m_fontData->isSVGFont())
-        return;
-    advance();
-}
-
 void CairoGlyphToPathTranslator::advance()
 {
-    do {
-        GlyphBufferAdvance advance = m_glyphBuffer.advanceAt(m_index);
-        m_translation = m_translation.translate(advance.width(), advance.height());
-        ++m_index;
-        if (m_index >= m_glyphBuffer.size())
-            break;
+    GlyphBufferAdvance advance = m_glyphBuffer.advanceAt(m_index);
+    m_translation = m_translation.translate(advance.width(), advance.height());
+    ++m_index;
+    if (m_index < m_glyphBuffer.size())
         m_fontData = m_glyphBuffer.fontAt(m_index);
-    } while (m_fontData->isSVGFont() && m_index < m_glyphBuffer.size());
 }
 
 DashArray FontCascade::dashesForIntersectionsWithRect(const TextRun& run, const FloatPoint& textOrigin, const FloatRect& lineExtents) const
@@ -309,35 +294,24 @@ DashArray FontCascade::dashesForIntersectionsWithRect(const TextRun& run, const 
         return DashArray();
 
     // FIXME: Handle SVG + non-SVG interleaved runs. https://bugs.webkit.org/show_bug.cgi?id=133778
-    const Font* fontData = glyphBuffer.fontAt(0);
-    std::unique_ptr<GlyphToPathTranslator> translator;
-    bool isSVG = false;
     FloatPoint origin = FloatPoint(textOrigin.x() + deltaX, textOrigin.y());
-    if (!fontData->isSVGFont())
-        translator = std::make_unique<CairoGlyphToPathTranslator>(run, glyphBuffer, origin);
-#if ENABLE(SVG_FONTS)
-    else {
-        TextRun::RenderingContext* renderingContext = run.renderingContext();
-        if (!renderingContext)
-            return DashArray();
-        translator = renderingContext->createGlyphToPathTranslator(*fontData, &run, glyphBuffer, 0, glyphBuffer.size(), origin);
-        isSVG = true;
-    }
-#endif
+    CairoGlyphToPathTranslator translator(run, glyphBuffer, origin);
     DashArray result;
-    for (int index = 0; translator->containsMorePaths(); ++index, translator->advance()) {
+    for (int index = 0; translator.containsMorePaths(); ++index, translator.advance()) {
         float centerOfLine = lineExtents.y() + (lineExtents.height() / 2);
         GlyphIterationState info = GlyphIterationState(FloatPoint(), FloatPoint(), centerOfLine, lineExtents.x() + lineExtents.width(), lineExtents.x());
         const Font* localFontData = glyphBuffer.fontAt(index);
-        if (!localFontData || (!isSVG && localFontData->isSVGFont()) || (isSVG && localFontData != fontData)) {
+        if (!localFontData) {
             // The advances will get all messed up if we do anything other than bail here.
             result.clear();
             break;
         }
-        switch (translator->underlineType()) {
+        switch (translator.underlineType()) {
         case GlyphToPathTranslator::GlyphUnderlineType::SkipDescenders: {
-            Path path = translator->path();
-            path.apply(&info, &findPathIntersections);
+            Path path = translator.path();
+            path.apply([&info](const PathElement& pathElement) {
+                findPathIntersections(info, pathElement);
+            });
             if (info.minX < info.maxX) {
                 result.append(info.minX - lineExtents.x());
                 result.append(info.maxX - lineExtents.x());
@@ -345,7 +319,7 @@ DashArray FontCascade::dashesForIntersectionsWithRect(const TextRun& run, const 
             break;
         }
         case GlyphToPathTranslator::GlyphUnderlineType::SkipGlyph: {
-            std::pair<float, float> extents = translator->extents();
+            std::pair<float, float> extents = translator.extents();
             result.append(extents.first - lineExtents.x());
             result.append(extents.second - lineExtents.x());
             break;

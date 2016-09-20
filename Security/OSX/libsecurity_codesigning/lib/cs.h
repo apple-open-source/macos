@@ -41,6 +41,7 @@
 #include <security_utilities/errors.h>
 #include <security_utilities/sqlite++.h>
 #include <security_utilities/cfutilities.h>
+#include <security_utilities/logging.h>
 
 
 namespace Security {
@@ -92,7 +93,7 @@ OSStatus dbError(const SQLite3::Error &err);
     catch (const SQLite3::Error &err) { return dbError(err); } \
     catch (const CommonError &err) { return SecKeychainErrFromOSStatus(err.osStatus()); } \
     catch (const std::bad_alloc &) { return errSecAllocate; } \
-    catch (...) { return errSecCSInternalError; } \
+    catch (...) { Syslog::notice("unknown exception in CSAPI"); return errSecCSInternalError; } \
 	return errSecSuccess;
 	
 #define END_CSAPI_ERRORS \
@@ -107,7 +108,7 @@ OSStatus dbError(const SQLite3::Error &err);
     catch (const SQLite3::Error &err) { return CSError::cfError(errors, dbError(err)); } \
     catch (const CommonError &err) { return CSError::cfError(errors, SecKeychainErrFromOSStatus(err.osStatus())); } \
     catch (const std::bad_alloc &) { return CSError::cfError(errors, errSecAllocate); } \
-    catch (...) { return CSError::cfError(errors, errSecCSInternalError); } \
+    catch (...) { Syslog::notice("unknown exception in CSAPI"); return CSError::cfError(errors, errSecCSInternalError); } \
 	return errSecSuccess;
 	
 #define END_CSAPI1(bad)    } catch (...) { return bad; }
@@ -125,7 +126,7 @@ OSStatus dbError(const SQLite3::Error &err);
     catch (const SQLite3::Error &err) { CSError::cfError(errors, dbError(err)); } \
     catch (const CommonError &err) { CSError::cfError(errors, SecKeychainErrFromOSStatus(err.osStatus())); } \
     catch (const std::bad_alloc &) { CSError::cfError(errors, errSecAllocate); } \
-    catch (...) { CSError::cfError(errors, errSecCSInternalError); } \
+    catch (...) { Syslog::notice("unknown exception in CSAPI"); CSError::cfError(errors, errSecCSInternalError); } \
 	return bad;
 
 

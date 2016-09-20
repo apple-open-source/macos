@@ -98,6 +98,7 @@ struct krb5_init_creds_context_data {
     struct pa_info_data *ppaid;
 
     struct krb5_fast_state fast_state;
+    krb5_enctype as_enctype;
     krb5_keyblock *as_reply_key;
 
     /* current and available pa mechansm in this exchange */
@@ -145,7 +146,7 @@ default_s2k_func(krb5_context context, krb5_enctype type,
     }
 
     password.data = rk_UNCONST(keyseed);
-    password.length = strlen(keyseed);
+    password.length = keyseed ? strlen(keyseed) : 0;
     if (s2kparms)
 	opaque = *s2kparms;
     else
@@ -153,7 +154,7 @@ default_s2k_func(krb5_context context, krb5_enctype type,
 
     *key = malloc(sizeof(**key));
     if (*key == NULL)
-	return ENOMEM;
+	return krb5_enomem(context);
     ret = krb5_string_to_key_data_salt_opaque(context, type, password,
 					      salt, opaque, *key);
     if (ret) {
@@ -406,6 +407,27 @@ krb5_init_creds_warn_user(krb5_context context,
 	    default:
 		break;
 	    }
+	}
+    }
+
+    if (ctx->prompter &&
+	(ctx->as_enctype == KRB5_ENCTYPE_DES3_CBC_SHA1 || 
+	 ctx->as_enctype == KRB5_ENCTYPE_ARCFOUR_HMAC_MD5)) {
+
+	bool suppress = krb5_config_get_bool_default(context, NULL, false,
+						     "libdefaults",
+						     "suppress_weak_enctype", NULL);
+	if (!suppress) {
+	    char *str = NULL, *p = NULL;
+	    krb5_enctype_to_string(context, ctx->as_enctype, &str);
+
+	    (void)asprintf(&p, "Encryption type %s(%d) used for authentication is weak and will be deprecated",
+			   str ? str : "unknown", ctx->as_enctype);
+	    if (p) {
+		(*ctx->prompter)(context, ctx->prompter_data, NULL, p, 0, NULL);
+		free(p);
+	    }
+	    free(str);
 	}
     }
 
@@ -3559,6 +3581,7 @@ krb5_init_creds_step(krb5_context context,
 			     ctx->pa_used ? ctx->pa_used : "unknown",
 			     !!(ctx->fast_state.flags & KRB5_FAST_AS_REQ));
 
+	    ctx->as_enctype = ctx->fast_state.reply_key->keytype;
 
 	    if (ctx->runflags.allow_save_as_reply_key) {
 		ctx->as_reply_key = ctx->fast_state.reply_key;

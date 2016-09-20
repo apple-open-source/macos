@@ -42,7 +42,6 @@
 		A144B08F0ED72F1A000ED6E1 /* DVFamily.h in Headers */ = {isa = PBXBuildFile; fileRef = 02B83D78FF9D34B211CE206C /* DVFamily.h */; settings = {ATTRIBUTES = (); }; };
 		A144B0900ED72F1A000ED6E1 /* DVLib.h in Headers */ = {isa = PBXBuildFile; fileRef = 8CDC69E501F4F0F904CE206E /* DVLib.h */; };
 		A144B0910ED72F1A000ED6E1 /* IsochronousDataHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C08A46BFF67027911CA29CE /* IsochronousDataHandler.h */; };
-		A144B0930ED72F1A000ED6E1 /* DVFamily.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 02B83D78FF9D34B211CE206C /* DVFamily.h */; };
 		A144B0960ED72F1A000ED6E1 /* DVFamily.c in Sources */ = {isa = PBXBuildFile; fileRef = 13FACEA4FF67164A11CA29CE /* DVFamily.c */; settings = {ATTRIBUTES = (); }; };
 		A144B0970ED72F1A000ED6E1 /* DVLib.c in Sources */ = {isa = PBXBuildFile; fileRef = 8CDC69E301F4EFF304CE206E /* DVLib.c */; };
 		A144B0990ED72F1A000ED6E1 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 038A4B80FFF9353B11CE206D /* IOKit.framework */; };
@@ -50,9 +49,9 @@
 		A144B09B0ED72F1A000ED6E1 /* QuickTime.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02C3D63CFF659AF211CA29CE /* QuickTime.framework */; };
 		A144B09C0ED72F1A000ED6E1 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 08EA7FFBFE8413EDC02AAC07 /* Carbon.framework */; };
 		A144B09D0ED72F1A000ED6E1 /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02C3D64FFF65A66F11CA29CE /* CoreServices.framework */; };
-		A144B0A90ED72F1A000ED6E1 /* IsochronousDataHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C08A46BFF67027911CA29CE /* IsochronousDataHandler.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		A144B0AA0ED72F1A000ED6E1 /* DeviceControl.h in Headers */ = {isa = PBXBuildFile; fileRef = 02C3D649FF65A4E811CA29CE /* DeviceControl.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		A144B0AB0ED72F1A000ED6E1 /* DVComponentGlue.h in Headers */ = {isa = PBXBuildFile; fileRef = A1C4DB0E09D2257E000BCF43 /* DVComponentGlue.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		A144B0A90ED72F1A000ED6E1 /* IsochronousDataHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C08A46BFF67027911CA29CE /* IsochronousDataHandler.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		A144B0AA0ED72F1A000ED6E1 /* DeviceControl.h in Headers */ = {isa = PBXBuildFile; fileRef = 02C3D649FF65A4E811CA29CE /* DeviceControl.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		A144B0AB0ED72F1A000ED6E1 /* DVComponentGlue.h in Headers */ = {isa = PBXBuildFile; fileRef = A1C4DB0E09D2257E000BCF43 /* DVComponentGlue.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A144B0AE0ED72F1A000ED6E1 /* IsochronousDataHandler.i.c in Sources */ = {isa = PBXBuildFile; fileRef = 02C3D632FF6599F211CA29CE /* IsochronousDataHandler.i.c */; settings = {ATTRIBUTES = (); }; };
 		A144B0AF0ED72F1A000ED6E1 /* DeviceControl.i.c in Sources */ = {isa = PBXBuildFile; fileRef = 02C3D62FFF65998A11CA29CE /* DeviceControl.i.c */; };
 		A144B0B00ED72F1A000ED6E1 /* DeviceControlPriv.i.c in Sources */ = {isa = PBXBuildFile; fileRef = 02C3D631FF6599F211CA29CE /* DeviceControlPriv.i.c */; };
@@ -117,7 +116,6 @@
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/DV";
 			dstSubfolderSpec = 0;
 			files = (
-				A144B0930ED72F1A000ED6E1 /* DVFamily.h in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -390,9 +388,9 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A144B0A90ED72F1A000ED6E1 /* IsochronousDataHandler.h in Headers */,
-				A144B0AA0ED72F1A000ED6E1 /* DeviceControl.h in Headers */,
 				A144B0AB0ED72F1A000ED6E1 /* DVComponentGlue.h in Headers */,
+				A144B0AA0ED72F1A000ED6E1 /* DeviceControl.h in Headers */,
+				A144B0A90ED72F1A000ED6E1 /* IsochronousDataHandler.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -626,6 +624,8 @@
 /* Begin PBXProject section */
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = 30FE97250829B43100BB83AB /* Build configuration list for PBXProject "IOFWDVComponents" */;
 			compatibilityVersion = "Xcode 2.4";
 			developmentRegion = English;

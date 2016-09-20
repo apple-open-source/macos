@@ -120,8 +120,11 @@ u_long *objp;
 			}
 			xdr_free((xdrproc_t)xdr_ypresp_all, (char *)&out);
 
-			if (key == NULL || val == NULL)
+			if (key == NULL || val == NULL) {
+				free(key);
+				free(val);
 				return FALSE;
+			}
 
 			r = (*ypresp_allfn)(status, key,
 			    out.ypresp_all_u.val.key.keydat_len, val,

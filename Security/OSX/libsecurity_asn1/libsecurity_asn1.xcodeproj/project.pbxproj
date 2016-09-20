@@ -6,65 +6,150 @@
 	objectVersion = 46;
 	objects = {
 
+/* Begin PBXAggregateTarget section */
+		D46B08791C8FCA5000B5939A /* libASN1Install */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = D46B087C1C8FCA5100B5939A /* Build configuration list for PBXAggregateTarget "libASN1Install" */;
+			buildPhases = (
+				D46B087D1C8FCA5800B5939A /* Copy Static Library File */,
+				D46B087E1C8FCA5B00B5939A /* Copy Headers */,
+			);
+			dependencies = (
+				D46B08A41C8FCBA000B5939A /* PBXTargetDependency */,
+			);
+			name = libASN1Install;
+			productName = libASN1Install;
+		};
+/* End PBXAggregateTarget section */
+
 /* Begin PBXBuildFile section */
-		18312F9714E99A3F00F0BCAC /* SecNssCoder.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C6434290534D3B800F287B2 /* SecNssCoder.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		1885B45314D9BB1A00519375 /* SecNssCoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C6434280534D3B800F287B2 /* SecNssCoder.cpp */; };
 		18B6B2A714DB73A000EDDE5F /* secErrorStr.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C6434270534D3B800F287B2 /* secErrorStr.c */; };
 		4C28246B0F1BC75800CAADEC /* oidsocsp.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C2824670F1BC75800CAADEC /* oidsocsp.c */; };
-		4C28246C0F1BC75800CAADEC /* oidsocsp.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C2824680F1BC75800CAADEC /* oidsocsp.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		795CA8220D38041D00BAE6A2 /* SecAsn1Coder.c in Sources */ = {isa = PBXBuildFile; fileRef = 0545C7B806502D1100543007 /* SecAsn1Coder.c */; };
-		795CA8230D38041D00BAE6A2 /* SecAsn1Coder.h in Headers */ = {isa = PBXBuildFile; fileRef = 0545C7B906502D1100543007 /* SecAsn1Coder.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		795CA8240D38041D00BAE6A2 /* SecAsn1Templates.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C6433F80534D3B800F287B2 /* SecAsn1Templates.c */; };
-		795CA8250D38041D00BAE6A2 /* SecAsn1Templates.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C6433F90534D3B800F287B2 /* SecAsn1Templates.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		795CA8260D38041D00BAE6A2 /* SecAsn1Types.h in Headers */ = {isa = PBXBuildFile; fileRef = 0554F5B609892C980085E7C5 /* SecAsn1Types.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		795CA8270D38041D00BAE6A2 /* certExtensionTemplates.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C6433FA0534D3B800F287B2 /* certExtensionTemplates.c */; };
-		795CA8280D38041D00BAE6A2 /* certExtensionTemplates.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C6433FB0534D3B800F287B2 /* certExtensionTemplates.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		795CA8290D38041D00BAE6A2 /* csrTemplates.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C6433FC0534D3B800F287B2 /* csrTemplates.c */; };
-		795CA82A0D38041D00BAE6A2 /* csrTemplates.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C6433FD0534D3B800F287B2 /* csrTemplates.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		795CA82B0D38041D00BAE6A2 /* keyTemplates.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C6433FE0534D3B800F287B2 /* keyTemplates.c */; };
-		795CA82C0D38041D00BAE6A2 /* keyTemplates.h in Headers */ = {isa = PBXBuildFile; fileRef = 0502B640068A5920006168D5 /* keyTemplates.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		795CA82D0D38041D00BAE6A2 /* nameTemplates.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C6434000534D3B800F287B2 /* nameTemplates.c */; };
-		795CA82E0D38041D00BAE6A2 /* nameTemplates.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C6434010534D3B800F287B2 /* nameTemplates.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		795CA82F0D38041D00BAE6A2 /* nsprPortX.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C6434020534D3B800F287B2 /* nsprPortX.c */; };
 		795CA8300D38041D00BAE6A2 /* nssUtils.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C6434060534D3B800F287B2 /* nssUtils.c */; };
-		795CA8310D38041D00BAE6A2 /* nssUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C6434070534D3B800F287B2 /* nssUtils.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		795CA8320D38041D00BAE6A2 /* ocspTemplates.c in Sources */ = {isa = PBXBuildFile; fileRef = 0502BF9A068B51E3006168D5 /* ocspTemplates.c */; };
-		795CA8330D38041D00BAE6A2 /* ocspTemplates.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C6433FF0534D3B800F287B2 /* ocspTemplates.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		795CA8350D38041D00BAE6A2 /* secasn1d.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C6434210534D3B800F287B2 /* secasn1d.c */; };
 		795CA8360D38041D00BAE6A2 /* secasn1e.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C6434220534D3B800F287B2 /* secasn1e.c */; };
 		795CA8380D38041D00BAE6A2 /* secasn1u.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C6434240534D3B800F287B2 /* secasn1u.c */; };
 		795CA8390D38041D00BAE6A2 /* X509Templates.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C64342D0534D3B800F287B2 /* X509Templates.c */; };
-		795CA83A0D38041D00BAE6A2 /* X509Templates.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C64342E0534D3B800F287B2 /* X509Templates.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		795CA83B0D38041D00BAE6A2 /* osKeyTemplates.c in Sources */ = {isa = PBXBuildFile; fileRef = 0504B16106517A730011D5F5 /* osKeyTemplates.c */; };
-		795CA83C0D38041D00BAE6A2 /* osKeyTemplates.h in Headers */ = {isa = PBXBuildFile; fileRef = 0504B16206517A730011D5F5 /* osKeyTemplates.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		795CAAD10D3BEDBB00BAE6A2 /* pkcs7Templates.c in Sources */ = {isa = PBXBuildFile; fileRef = 795CAACD0D3BEDBB00BAE6A2 /* pkcs7Templates.c */; };
-		795CAAD20D3BEDBB00BAE6A2 /* pkcs7Templates.h in Headers */ = {isa = PBXBuildFile; fileRef = 795CAACE0D3BEDBB00BAE6A2 /* pkcs7Templates.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		795CAAD30D3BEDBB00BAE6A2 /* pkcs12Templates.c in Sources */ = {isa = PBXBuildFile; fileRef = 795CAACF0D3BEDBB00BAE6A2 /* pkcs12Templates.c */; };
-		795CAAD40D3BEDBB00BAE6A2 /* pkcs12Templates.h in Headers */ = {isa = PBXBuildFile; fileRef = 795CAAD00D3BEDBB00BAE6A2 /* pkcs12Templates.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		798B80C10D3E8B6700AC1D04 /* secasn1.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C6434200534D3B800F287B2 /* secasn1.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		798B80E00D3E8BFC00AC1D04 /* secasn1t.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C6434230534D3B800F287B2 /* secasn1t.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		79BDD2D10D60CE82000D84D3 /* plarenas.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C64340C0534D3B800F287B2 /* plarenas.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		79BDD2ED0D60CEF5000D84D3 /* prtypes.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C64341E0534D3B800F287B2 /* prtypes.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		79BDD2F60D60CF24000D84D3 /* prcpucfg.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C64340F0534D3B800F287B2 /* prcpucfg.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		79BDD2FC0D60CF66000D84D3 /* secerr.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C6434260534D3B800F287B2 /* secerr.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		79BDD3020D60CFC9000D84D3 /* protypes.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C64341B0534D3B800F287B2 /* protypes.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		79BDD30C0D60D0E5000D84D3 /* seccomon.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C6434250534D3B800F287B2 /* seccomon.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		79BDD3100D60D116000D84D3 /* plstr.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C64340D0534D3B800F287B2 /* plstr.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		79BDD3110D60D116000D84D3 /* prlog.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C6434170534D3B800F287B2 /* prlog.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		79BDD33F0D60D29A000D84D3 /* prerror.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C6434130534D3B800F287B2 /* prerror.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		79BDD3420D60D2B2000D84D3 /* prerr.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C6434120534D3B800F287B2 /* prerr.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		79BDD3490D60D4A4000D84D3 /* prbit.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C64340E0534D3B800F287B2 /* prbit.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		79BDD34A0D60D4A4000D84D3 /* prmem.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C6434190534D3B800F287B2 /* prmem.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		79EF5A780D3C1984009F5270 /* oidsalg.c in Sources */ = {isa = PBXBuildFile; fileRef = 79EF5A730D3C1984009F5270 /* oidsalg.c */; };
-		79EF5A790D3C1984009F5270 /* oidsalg.h in Headers */ = {isa = PBXBuildFile; fileRef = 79EF5A740D3C1984009F5270 /* oidsalg.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		79EF5A7A0D3C1984009F5270 /* oidsattr.c in Sources */ = {isa = PBXBuildFile; fileRef = 79EF5A750D3C1984009F5270 /* oidsattr.c */; };
-		79EF5A7B0D3C1984009F5270 /* oidsattr.h in Headers */ = {isa = PBXBuildFile; fileRef = 79EF5A760D3C1984009F5270 /* oidsattr.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		79EF5A7C0D3C1984009F5270 /* oidsbase.h in Headers */ = {isa = PBXBuildFile; fileRef = 79EF5A770D3C1984009F5270 /* oidsbase.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		79EF5BA30D3D6EF4009F5270 /* secport.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C64342B0534D3B800F287B2 /* secport.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		79EF5BA50D3D6EF8009F5270 /* secport.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C64342A0534D3B800F287B2 /* secport.c */; };
 		79EF5BC90D3D6F44009F5270 /* plarena.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C64340A0534D3B800F287B2 /* plarena.c */; };
-		79EF5BCA0D3D6F44009F5270 /* plarena.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C64340B0534D3B800F287B2 /* plarena.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		D46B08801C8FCABF00B5939A /* SecAsn1Coder.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 0545C7B906502D1100543007 /* SecAsn1Coder.h */; };
+		D46B08811C8FCABF00B5939A /* SecAsn1Templates.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 4C6433F90534D3B800F287B2 /* SecAsn1Templates.h */; };
+		D46B08821C8FCABF00B5939A /* SecAsn1Types.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 0554F5B609892C980085E7C5 /* SecAsn1Types.h */; };
+		D46B08831C8FCABF00B5939A /* secasn1t.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 4C6434230534D3B800F287B2 /* secasn1t.h */; };
+		D46B08841C8FCAE400B5939A /* certExtensionTemplates.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 4C6433FB0534D3B800F287B2 /* certExtensionTemplates.h */; };
+		D46B08851C8FCAE400B5939A /* csrTemplates.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 4C6433FD0534D3B800F287B2 /* csrTemplates.h */; };
+		D46B08861C8FCAE400B5939A /* keyTemplates.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 0502B640068A5920006168D5 /* keyTemplates.h */; };
+		D46B08871C8FCAE400B5939A /* nameTemplates.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 4C6434010534D3B800F287B2 /* nameTemplates.h */; };
+		D46B08881C8FCAE400B5939A /* pkcs7Templates.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 795CAACE0D3BEDBB00BAE6A2 /* pkcs7Templates.h */; };
+		D46B08891C8FCAE400B5939A /* pkcs12Templates.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 795CAAD00D3BEDBB00BAE6A2 /* pkcs12Templates.h */; };
+		D46B088A1C8FCAE400B5939A /* ocspTemplates.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 4C6433FF0534D3B800F287B2 /* ocspTemplates.h */; };
+		D46B088B1C8FCAE400B5939A /* X509Templates.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 4C64342E0534D3B800F287B2 /* X509Templates.h */; };
+		D46B088C1C8FCAE400B5939A /* osKeyTemplates.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 0504B16206517A730011D5F5 /* osKeyTemplates.h */; };
+		D46B088D1C8FCAF100B5939A /* nssUtils.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 4C6434070534D3B800F287B2 /* nssUtils.h */; };
+		D46B088E1C8FCAFD00B5939A /* oidsalg.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 79EF5A740D3C1984009F5270 /* oidsalg.h */; };
+		D46B088F1C8FCAFD00B5939A /* oidsattr.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 79EF5A760D3C1984009F5270 /* oidsattr.h */; };
+		D46B08901C8FCAFD00B5939A /* oidsbase.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 79EF5A770D3C1984009F5270 /* oidsbase.h */; };
+		D46B08911C8FCAFD00B5939A /* oidsocsp.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 4C2824680F1BC75800CAADEC /* oidsocsp.h */; };
+		D46B08921C8FCB2900B5939A /* prbit.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 4C64340E0534D3B800F287B2 /* prbit.h */; };
+		D46B08931C8FCB2900B5939A /* prcpucfg.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 4C64340F0534D3B800F287B2 /* prcpucfg.h */; };
+		D46B08941C8FCB2900B5939A /* prerr.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 4C6434120534D3B800F287B2 /* prerr.h */; };
+		D46B08951C8FCB2900B5939A /* prerror.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 4C6434130534D3B800F287B2 /* prerror.h */; };
+		D46B08961C8FCB2900B5939A /* prlog.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 4C6434170534D3B800F287B2 /* prlog.h */; };
+		D46B08971C8FCB2900B5939A /* prmem.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 4C6434190534D3B800F287B2 /* prmem.h */; };
+		D46B08981C8FCB2900B5939A /* protypes.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 4C64341B0534D3B800F287B2 /* protypes.h */; };
+		D46B08991C8FCB2900B5939A /* prtypes.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 4C64341E0534D3B800F287B2 /* prtypes.h */; };
+		D46B089A1C8FCB5E00B5939A /* secasn1.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 4C6434200534D3B800F287B2 /* secasn1.h */; };
+		D46B089B1C8FCB5E00B5939A /* seccomon.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 4C6434250534D3B800F287B2 /* seccomon.h */; };
+		D46B089C1C8FCB5E00B5939A /* secerr.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 4C6434260534D3B800F287B2 /* secerr.h */; };
+		D46B089D1C8FCB5E00B5939A /* SecNssCoder.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 4C6434290534D3B800F287B2 /* SecNssCoder.h */; };
+		D46B089E1C8FCB5E00B5939A /* secport.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 4C64342B0534D3B800F287B2 /* secport.h */; };
+		D46B089F1C8FCB8D00B5939A /* plarena.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 4C64340B0534D3B800F287B2 /* plarena.h */; };
+		D46B08A01C8FCB8D00B5939A /* plarenas.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 4C64340C0534D3B800F287B2 /* plarenas.h */; };
+		D46B08A11C8FCB8D00B5939A /* plstr.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 4C64340D0534D3B800F287B2 /* plstr.h */; };
+		D46B08A21C8FCB9A00B5939A /* libASN1.a in Copy Static Library File */ = {isa = PBXBuildFile; fileRef = 795CA7FF0D38013D00BAE6A2 /* libASN1.a */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		D46B08A31C8FCBA000B5939A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9D56980C03E74D6100003D05 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 795CA7FE0D38013D00BAE6A2;
+			remoteInfo = libASN1;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		D46B087D1C8FCA5800B5939A /* Copy Static Library File */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/lib;
+			dstSubfolderSpec = 0;
+			files = (
+				D46B08A21C8FCB9A00B5939A /* libASN1.a in Copy Static Library File */,
+			);
+			name = "Copy Static Library File";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		D46B087E1C8FCA5B00B5939A /* Copy Headers */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/include/security_asn1;
+			dstSubfolderSpec = 0;
+			files = (
+				D46B089F1C8FCB8D00B5939A /* plarena.h in Copy Headers */,
+				D46B08A01C8FCB8D00B5939A /* plarenas.h in Copy Headers */,
+				D46B08A11C8FCB8D00B5939A /* plstr.h in Copy Headers */,
+				D46B089A1C8FCB5E00B5939A /* secasn1.h in Copy Headers */,
+				D46B089B1C8FCB5E00B5939A /* seccomon.h in Copy Headers */,
+				D46B089C1C8FCB5E00B5939A /* secerr.h in Copy Headers */,
+				D46B089D1C8FCB5E00B5939A /* SecNssCoder.h in Copy Headers */,
+				D46B089E1C8FCB5E00B5939A /* secport.h in Copy Headers */,
+				D46B08921C8FCB2900B5939A /* prbit.h in Copy Headers */,
+				D46B08931C8FCB2900B5939A /* prcpucfg.h in Copy Headers */,
+				D46B08941C8FCB2900B5939A /* prerr.h in Copy Headers */,
+				D46B08951C8FCB2900B5939A /* prerror.h in Copy Headers */,
+				D46B08961C8FCB2900B5939A /* prlog.h in Copy Headers */,
+				D46B08971C8FCB2900B5939A /* prmem.h in Copy Headers */,
+				D46B08981C8FCB2900B5939A /* protypes.h in Copy Headers */,
+				D46B08991C8FCB2900B5939A /* prtypes.h in Copy Headers */,
+				D46B088E1C8FCAFD00B5939A /* oidsalg.h in Copy Headers */,
+				D46B088F1C8FCAFD00B5939A /* oidsattr.h in Copy Headers */,
+				D46B08901C8FCAFD00B5939A /* oidsbase.h in Copy Headers */,
+				D46B08911C8FCAFD00B5939A /* oidsocsp.h in Copy Headers */,
+				D46B088D1C8FCAF100B5939A /* nssUtils.h in Copy Headers */,
+				D46B08841C8FCAE400B5939A /* certExtensionTemplates.h in Copy Headers */,
+				D46B08851C8FCAE400B5939A /* csrTemplates.h in Copy Headers */,
+				D46B08861C8FCAE400B5939A /* keyTemplates.h in Copy Headers */,
+				D46B08871C8FCAE400B5939A /* nameTemplates.h in Copy Headers */,
+				D46B08881C8FCAE400B5939A /* pkcs7Templates.h in Copy Headers */,
+				D46B08891C8FCAE400B5939A /* pkcs12Templates.h in Copy Headers */,
+				D46B088A1C8FCAE400B5939A /* ocspTemplates.h in Copy Headers */,
+				D46B088B1C8FCAE400B5939A /* X509Templates.h in Copy Headers */,
+				D46B088C1C8FCAE400B5939A /* osKeyTemplates.h in Copy Headers */,
+				D46B08801C8FCABF00B5939A /* SecAsn1Coder.h in Copy Headers */,
+				D46B08811C8FCABF00B5939A /* SecAsn1Templates.h in Copy Headers */,
+				D46B08821C8FCABF00B5939A /* SecAsn1Types.h in Copy Headers */,
+				D46B08831C8FCABF00B5939A /* secasn1t.h in Copy Headers */,
+			);
+			name = "Copy Headers";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		0502B640068A5920006168D5 /* keyTemplates.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = keyTemplates.h; sourceTree = "<group>"; };
@@ -283,40 +368,6 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				79BDD3490D60D4A4000D84D3 /* prbit.h in Headers */,
-				79BDD34A0D60D4A4000D84D3 /* prmem.h in Headers */,
-				79BDD3100D60D116000D84D3 /* plstr.h in Headers */,
-				79BDD3110D60D116000D84D3 /* prlog.h in Headers */,
-				79BDD30C0D60D0E5000D84D3 /* seccomon.h in Headers */,
-				79BDD3420D60D2B2000D84D3 /* prerr.h in Headers */,
-				79BDD33F0D60D29A000D84D3 /* prerror.h in Headers */,
-				79BDD2FC0D60CF66000D84D3 /* secerr.h in Headers */,
-				79EF5BA30D3D6EF4009F5270 /* secport.h in Headers */,
-				798B80C10D3E8B6700AC1D04 /* secasn1.h in Headers */,
-				798B80E00D3E8BFC00AC1D04 /* secasn1t.h in Headers */,
-				79BDD2F60D60CF24000D84D3 /* prcpucfg.h in Headers */,
-				79BDD2ED0D60CEF5000D84D3 /* prtypes.h in Headers */,
-				79EF5BCA0D3D6F44009F5270 /* plarena.h in Headers */,
-				79BDD3020D60CFC9000D84D3 /* protypes.h in Headers */,
-				79BDD2D10D60CE82000D84D3 /* plarenas.h in Headers */,
-				795CA8230D38041D00BAE6A2 /* SecAsn1Coder.h in Headers */,
-				795CA8250D38041D00BAE6A2 /* SecAsn1Templates.h in Headers */,
-				795CA8260D38041D00BAE6A2 /* SecAsn1Types.h in Headers */,
-				795CA8280D38041D00BAE6A2 /* certExtensionTemplates.h in Headers */,
-				795CA82A0D38041D00BAE6A2 /* csrTemplates.h in Headers */,
-				795CA82C0D38041D00BAE6A2 /* keyTemplates.h in Headers */,
-				795CA82E0D38041D00BAE6A2 /* nameTemplates.h in Headers */,
-				795CA8310D38041D00BAE6A2 /* nssUtils.h in Headers */,
-				795CA8330D38041D00BAE6A2 /* ocspTemplates.h in Headers */,
-				795CA83A0D38041D00BAE6A2 /* X509Templates.h in Headers */,
-				795CA83C0D38041D00BAE6A2 /* osKeyTemplates.h in Headers */,
-				795CAAD20D3BEDBB00BAE6A2 /* pkcs7Templates.h in Headers */,
-				795CAAD40D3BEDBB00BAE6A2 /* pkcs12Templates.h in Headers */,
-				79EF5A790D3C1984009F5270 /* oidsalg.h in Headers */,
-				79EF5A7B0D3C1984009F5270 /* oidsattr.h in Headers */,
-				79EF5A7C0D3C1984009F5270 /* oidsbase.h in Headers */,
-				4C28246C0F1BC75800CAADEC /* oidsocsp.h in Headers */,
-				18312F9714E99A3F00F0BCAC /* SecNssCoder.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -346,7 +397,12 @@
 		9D56980C03E74D6100003D05 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0700;
+				LastUpgradeCheck = 0800;
+				TargetAttributes = {
+					D46B08791C8FCA5000B5939A = {
+						CreatedOnToolsVersion = 7.3;
+					};
+				};
 			};
 			buildConfigurationList = C23B0CEC09A298C500B7FCED /* Build configuration list for PBXProject "libsecurity_asn1" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -364,6 +420,7 @@
 			projectRoot = "";
 			targets = (
 				795CA7FE0D38013D00BAE6A2 /* libASN1 */,
+				D46B08791C8FCA5000B5939A /* libASN1Install */,
 			);
 		};
 /* End PBXProject section */
@@ -401,18 +458,30 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		D46B08A41C8FCBA000B5939A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 795CA7FE0D38013D00BAE6A2 /* libASN1 */;
+			targetProxy = D46B08A31C8FCBA000B5939A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
 		795CA8090D3801A700BAE6A2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18B647F614D9FD4500F538BF /* debug.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = lossless;
 				CLANG_STATIC_ANALYZER_MODE = deep;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				ONLY_ACTIVE_ARCH = YES;
 				RUN_CLANG_STATIC_ANALYZER = YES;
 			};
 			name = Debug;
@@ -430,12 +499,14 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18B647F814D9FD4500F538BF /* release.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = "respect-asset-catalog";
 				CLANG_STATIC_ANALYZER_MODE = deep;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				RUN_CLANG_STATIC_ANALYZER = YES;
 			};
@@ -447,6 +518,20 @@
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				LIBRARY_STYLE = STATIC;
+			};
+			name = Release;
+		};
+		D46B087A1C8FCA5100B5939A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		D46B087B1C8FCA5100B5939A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
 		};
@@ -467,6 +552,15 @@
 			buildConfigurations = (
 				795CA8090D3801A700BAE6A2 /* Debug */,
 				795CA8180D3801A900BAE6A2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D46B087C1C8FCA5100B5939A /* Build configuration list for PBXAggregateTarget "libASN1Install" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D46B087A1C8FCA5100B5939A /* Debug */,
+				D46B087B1C8FCA5100B5939A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

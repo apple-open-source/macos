@@ -38,10 +38,6 @@ int recovered = 0;
 - (id)retain {
     fail("Whoops, retain called!");
 }
-- (void)finalize {
-    ++recovered;
-    [super finalize];
-}
 - (void)dealloc {
     ++recovered;
     [super dealloc];

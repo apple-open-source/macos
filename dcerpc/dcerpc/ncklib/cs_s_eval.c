@@ -161,7 +161,8 @@
 **
 **--
 */
-
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PUBLIC
 void rpc_ns_import_ctx_add_eval
 (
@@ -307,7 +308,7 @@ void rpc_ns_import_ctx_add_eval
 
 	}
 }
-
+#endif
 
 /*
 **++
@@ -346,7 +347,8 @@ void rpc_ns_import_ctx_add_eval
 **
 **--
 */
-
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PUBLIC
 void rpc_cs_eval_with_universal
 (
@@ -588,7 +590,7 @@ void rpc_cs_eval_with_universal
 	rpc_ns_mgmt_free_codesets( &method_p->server, &temp_status);
 	return;
 }
-
+#endif
 
 /*
 **++
@@ -627,7 +629,8 @@ void rpc_cs_eval_with_universal
 **
 **--
 */
-
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PUBLIC
 void rpc_cs_eval_without_universal
 (
@@ -853,7 +856,7 @@ void rpc_cs_eval_without_universal
 	rpc_ns_mgmt_free_codesets( &method_p->server, &temp_status);
 	return;
 }
-
+#endif
 
 /*
 **++
@@ -1076,7 +1079,8 @@ void rpc_cs_binding_set_method
 **
 **--
 */
-
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PUBLIC
 void rpc_cs_binding_set_tags
 (
@@ -1121,7 +1125,7 @@ void rpc_cs_binding_set_tags
         *status = rpc_s_ok;
         return;
 }
-
+#endif
 
 /*
 **++
@@ -1158,7 +1162,8 @@ void rpc_cs_binding_set_tags
 **
 **--
 */
-
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PUBLIC
 void rpc_cs_binding_set_eval
 (
@@ -1182,3 +1187,4 @@ void rpc_cs_binding_set_eval
         *status = rpc_s_ok;
         return;
 }
+#endif

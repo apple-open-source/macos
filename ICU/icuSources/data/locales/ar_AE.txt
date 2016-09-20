@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/ar_AE.xml
@@ -10,7 +10,7 @@ ar_AE{
     NumberElements{
         default{"latn"}
     }
-    Version{"2.1.13.23"}
+    Version{"2.1.19.94"}
     calendar{
         gregorian{
             eras{
@@ -28,7 +28,9 @@ ar_AE{
     fields{
         year{
             relative{
+                "-1"{"السنة الماضية"}
                 "0"{"هذه السنة"}
+                "1"{"السنة التالية"}
             }
         }
     }

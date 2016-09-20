@@ -9,7 +9,7 @@ install -g "$INSTALL_GROUP" \
 	"$DSTROOT"/usr/bin
 
 DESTDIR="$DSTROOT"/usr/share/vim
-RUNTIMEDIR="$DESTDIR"/vim73
+RUNTIMEDIR="$DESTDIR"/vim74
 
 mkdir -p "$RUNTIMEDIR"
 tar -cf - -C "$SRCROOT"/runtime \

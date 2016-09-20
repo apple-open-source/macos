@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -48,10 +48,9 @@
 #include <CoreFoundation/CFData.h>
 #include <Security/SecureTransportPriv.h>
 #include <TargetConditionals.h>
-#if TARGET_OS_EMBEDDED
 #include <Security/SecCertificatePriv.h>
 #include <Security/SecPolicyPriv.h>
-#else /* TARGET_OS_EMBEDDED */
+#if !TARGET_OS_EMBEDDED
 #include <Security/oidsalg.h>
 #include <Security/SecKeychain.h>
 #include <Security/SecPolicySearch.h>
@@ -850,13 +849,9 @@ EAPTLSPacketCopyDescription(EAPTLSPacketRef eaptls_pkt, bool * packet_is_valid)
 OSStatus
 EAPSecPolicyCopy(SecPolicyRef * ret_policy)
 {
-#if TARGET_OS_EMBEDDED
     *ret_policy = SecPolicyCreateEAP(TRUE, NULL);
-#else /* TARGET_OS_EMBEDDED */
-    *ret_policy = SecPolicyCreateWithProperties(kSecPolicyAppleEAP, NULL);
-#endif /* TARGET_OS_EMBEDDED */
     if (*ret_policy != NULL) {
-	return (noErr);
+        return (noErr);
     }
     return (-1);
 }
@@ -1437,176 +1432,6 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
 
 #else /* TARGET_OS_EMBEDDED */
 
-static bool
-cert_list_contains_cert(CFArrayRef list, SecCertificateRef cert)
-{
-    int		count;
-    int		i;
-
-    count = CFArrayGetCount(list);
-    for (i = 0; i < count; i++) {
-	SecCertificateRef	this_cert;
-
-	this_cert = (SecCertificateRef)CFArrayGetValueAtIndex(list, i);
-	if (CFEqual(cert, this_cert)) {
-	    return (TRUE);
-	}
-    }
-    return (FALSE);
-}
-
-static CFArrayRef
-EAPSecTrustCopyCertificateChain(SecTrustRef trust)
-{
-    CFMutableArrayRef	array = NULL;
-    int			count = SecTrustGetCertificateCount(trust);
-    int			i;
-    
-    if (count == 0) {
-	EAPLOG_FL(LOG_NOTICE, "SecTrustGetCertificateCount returned 0");
-	goto done;
-    }
-    array = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks);
-    for (i = 0; i < count; i++) {
-	SecCertificateRef	s;
-	
-	s = SecTrustGetCertificateAtIndex(trust, i);
-	CFArrayAppendValue(array, s);
-    }
- done:
-    return (array);
-}
-
-static bool
-server_cert_chain_is_trusted(SecTrustRef trust, CFArrayRef trusted_certs)
-{
-    CFArrayRef 				cert_chain;
-    int					count;
-    int					i;
-    bool				ret = FALSE;
-
-    cert_chain = EAPSecTrustCopyCertificateChain(trust);
-    if (cert_chain != NULL) {
-	count = CFArrayGetCount(cert_chain);
-    }
-    else {
-	count = 0;
-    }
-    if (count == 0) {
-	EAPLOG_FL(LOG_NOTICE, "failed to get evidence chain");
-	goto done;
-    }
-    for (i = 0; i < count; i++) {
-	SecCertificateRef	cert;
-
-	cert = (SecCertificateRef)CFArrayGetValueAtIndex(cert_chain, i);
-	if (cert_list_contains_cert(trusted_certs, cert)) {
-	    ret = TRUE;
-	    break;
-	}
-    }
-
- done:
-    my_CFRelease(&cert_chain);
-    return (ret);
-}
-
-static bool
-server_name_matches_server_names(CFStringRef name,
-				 CFArrayRef trusted_server_names)
-{
-    int			count;
-    int			i;
-    bool		trusted = FALSE;
-
-    count = CFArrayGetCount(trusted_server_names);
-    for (i = 0; i < count; i++) {
-	CFStringRef	this_name = CFArrayGetValueAtIndex(trusted_server_names,
-							   i);
-	if (CFEqual(name, this_name)) {
-	    trusted = TRUE;
-	    break;
-	}
-	if (CFStringHasPrefix(this_name, CFSTR("*."))) {
-	    bool		match = FALSE;
-	    CFMutableStringRef	suffix;
-
-	    suffix = CFStringCreateMutableCopy(NULL, 0, this_name);
-	    CFStringDelete(suffix, CFRangeMake(0, 1)); /* remove dot */
-	    if (CFStringHasSuffix(name, suffix)) {
-		match = TRUE;
-	    }
-	    CFRelease(suffix);
-	    if (match) {
-		trusted = TRUE;
-		break;
-	    }
-	}
-    }
-    return (trusted);
-}
-
-static bool
-server_cert_matches_server_names(SecCertificateRef cert,
-				 CFArrayRef trusted_server_names)
-{
-    CFDictionaryRef	attrs;
-    bool		match = FALSE;
-    CFStringRef		name;
-
-    attrs = EAPSecCertificateCopyAttributesDictionary(cert);
-    if (attrs == NULL) {
-	goto done;
-    }
-    name = CFDictionaryGetValue(attrs, kEAPSecCertificateAttributeDNSName);
-    if (name != NULL) {
-        match = server_name_matches_server_names(name, trusted_server_names);
-        return match;
-    }
-    name = CFDictionaryGetValue(attrs, kEAPSecCertificateAttributeCommonName);
-    if (name == NULL) {
-	goto done;
-    }
-    match = server_name_matches_server_names(name, trusted_server_names);
-
- done:
-    my_CFRelease(&attrs);
-    return (match);
-}
-
-/*
- * Function: verify_server_certs
- * Purpose:
- *   If the trusted_server_names list is specified, verify that the server
- *   cert name matches.  Similarly, if the trusted_certs list is specified,
- *   make sure that one of the certs in the cert chain in the SecTrust object
- *   is in the trusted_certs list.
- * Notes:
- *   The assumption here is that TrustSettings are already in place, and
- *   we perform additional checks to validate the cert chain on top of that.
- */
-static bool
-verify_server_certs(SecTrustRef trust,
-		    CFArrayRef server_certs,
-		    CFArrayRef trusted_certs,
-		    CFArrayRef trusted_server_names)
-{
-    if (trusted_server_names != NULL) {
-	SecCertificateRef	cert;
-
-	cert = (SecCertificateRef)CFArrayGetValueAtIndex(server_certs, 0);
-	if (server_cert_matches_server_names(cert, trusted_server_names)
-	    == FALSE) {
-	    return (FALSE);
-	}
-    }
-    if (trusted_certs != NULL
-	&& server_cert_chain_is_trusted(trust, trusted_certs) == FALSE) {
-	return (FALSE);
-    }
-    return (TRUE);
-}
-
 EAPClientStatus
 EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties, 
 				   CFArrayRef server_certs, 
@@ -1669,8 +1494,9 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
 	allow_trust_decisions = TRUE;
     }
     client_status = kEAPClientStatusSecurityError;
-    status = EAPSecPolicyCopy(&policy);
-    if (status != noErr) {
+    policy = SecPolicyCreateEAP(TRUE, trusted_server_names);
+    if (policy == NULL) {
+	EAPLOG_FL(LOG_NOTICE, "SecPolicyCreateEAP() failed to create EAP Policy.");
 	goto done;
     }
     status = SecTrustCreateWithCertificates(server_certs, policy, &trust);
@@ -1716,31 +1542,8 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
     is_recoverable = FALSE;
     switch (trust_result) {
     case kSecTrustResultProceed:
-	if (verify_server_certs(trust, server_certs, trusted_certs,
-				trusted_server_names)) {
-	    /* the chain and/or name is valid */
-	    client_status = kEAPClientStatusOK;
-	    break;
-	}
-	is_recoverable = TRUE;
-	break;
     case kSecTrustResultUnspecified:
-	if (profileID != NULL
-	    && (trusted_certs != NULL || trusted_server_names != NULL)) {
-	    /* still need to check server names */
-	    if (trusted_server_names != NULL) {
-		if (verify_server_certs(NULL, server_certs, NULL,
-					trusted_server_names)) {
-		    client_status = kEAPClientStatusOK;
-		    break;
-		}
-	    }
-	    else {
-		client_status = kEAPClientStatusOK;
-		break;
-	    }
-	}
-	is_recoverable = TRUE;
+	client_status = kEAPClientStatusOK;
 	break;
     case kSecTrustResultRecoverableTrustFailure:
 	is_recoverable = TRUE;

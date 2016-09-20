@@ -34,6 +34,7 @@
 #include <IOKit/usb/USB.h>
 #include "IOHIDFamilyTrace.h"
 #include "IOHIDEventTypes.h"
+#include "IOHIDDebug.h"
 
 enum {
     kMouseButtons   = 0x1,
@@ -60,11 +61,6 @@ enum {
 
 #define kHIDUsage_MFiGameController_LED0                0xFF00
 
-#if TARGET_OS_TV
-  #define FULL_DIGITIZER_COLLECTION_SUPPORT               1
-#else
-  #define FULL_DIGITIZER_COLLECTION_SUPPORT               0
-#endif
 
 //===========================================================================
 // EventElementCollection class
@@ -133,8 +129,8 @@ bool EventElementCollection::serialize(OSSerialize * serializer) const
 
 void EventElementCollection::free()
 {
-    OSSafeRelease(collection);
-    OSSafeRelease(elements);
+    OSSafeReleaseNULL(collection);
+    OSSafeReleaseNULL(elements);
     OSObject::free();
 }
 
@@ -215,6 +211,7 @@ OSDefineMetaClassAndStructors( IOHIDEventDriver, IOHIDEventService )
 #define _unicode                        _reserved->unicode
 #define _absoluteAxisRemovalPercentage  _reserved->absoluteAxisRemovalPercentage
 #define _preferredAxisRemovalPercentage _reserved->preferredAxisRemovalPercentage
+#define _lastReportTime                 _reserved->lastReportTime
 
 //====================================================================================================
 // IOHIDEventDriver::init
@@ -278,7 +275,7 @@ bool IOHIDEventDriver::handleStart( IOService * provider )
 
     // Check to see if this is a product of an IOHIDDeviceShim
     while ( NULL != (service = service->getProvider()) ) {
-        if(service->metaCast("IOHIDDeviceShim")) {
+        if(service->metaCast("IOHIDDeviceShim") && !service->metaCast("IOHIDPointingEventDevice") && !service->metaCast("IOHIDKeyboardEventDevice")) {
             return false;
         }
     }
@@ -287,19 +284,36 @@ bool IOHIDEventDriver::handleStart( IOService * provider )
         return false;
 
     UInt32      bootProtocol    = 0;
-    OSNumber *  number          = (OSNumber *)_interface->copyProperty("BootProtocol");
+    OSObject *  obj             = _interface->copyProperty("BootProtocol");
+    OSNumber *  number          = OSDynamicCast(OSNumber, obj);
 
-    if (number)
-        bootProtocol = number->unsigned32BitValue();
+    if (number) {
+      bootProtocol = number->unsigned32BitValue();
+      setProperty("BootProtocol", number);
+    }
+    OSSafeReleaseNULL(obj);
+    
+#if TARGET_OS_EMBEDDED
+    obj = _interface->copyProperty(kIOHIDAuthenticatedDeviceKey);
+    OSBoolean *authenticated = OSDynamicCast(OSBoolean, obj);
+    _authenticatedDevice = (authenticated && authenticated == kOSBooleanTrue);
+    OSSafeReleaseNULL(obj);
+    if ((conformTo(kHIDPage_GenericDesktop, kHIDUsage_GD_GamePad) ||
+        conformTo(kHIDPage_GenericDesktop, kHIDUsage_GD_Joystick)) &&
+        _authenticatedDevice == false) {
+        HIDLogError("Un-authenticated game controller device attached");
+        return false;
+    }
+#else
+    _authenticatedDevice = true;
+#endif
 
-    setProperty("BootProtocol", number);
-    OSSafeReleaseNULL(number);
-
-    number = (OSNumber*)copyProperty(kIOHIDAbsoluteAxisBoundsRemovalPercentage, gIOServicePlane);
-    if ( OSDynamicCast(OSNumber, number) ) {
+    obj = copyProperty(kIOHIDAbsoluteAxisBoundsRemovalPercentage, gIOServicePlane);
+    number = OSDynamicCast(OSNumber, obj);
+    if ( number ) {
         _absoluteAxisRemovalPercentage = number->unsigned32BitValue();
     }
-    OSSafeReleaseNULL(number);
+    OSSafeReleaseNULL(obj);
     
     OSArray *elements = _interface->createMatchingElements();
     bool result = false;
@@ -309,8 +323,13 @@ bool IOHIDEventDriver::handleStart( IOService * provider )
             result = true;
         }
     }
-    OSSafeRelease(elements);
+    OSSafeReleaseNULL(elements);
 
+    OSSerializer * debugStateSerializer = OSSerializer::forTarget(this, OSMemberFunctionCast(OSSerializerCallback, this, &IOHIDEventDriver::serializeDebugState));
+    if (debugStateSerializer) {
+        setProperty("DebugState", debugStateSerializer);
+        debugStateSerializer->release();
+    }
     return result;
 }
 
@@ -541,6 +560,7 @@ bool IOHIDEventDriver::parseElements ( OSArray* elementArray, UInt32 bootProtoco
     setLEDProperties();
     setKeyboardProperties();
     setUnicodeProperties();
+    setAccelerationProperties();
     
 exit:
 
@@ -656,6 +676,7 @@ exit:
 //====================================================================================================
 #define GAME_CONTROLLER_STANDARD_MASK 0x00000F3F
 #define GAME_CONTROLLER_EXTENDED_MASK (0x000270C0 | GAME_CONTROLLER_STANDARD_MASK)
+#define GAME_CONTROLLER_FORM_FITTING_MASK (0x1000000)
 
 void IOHIDEventDriver::processGameControllerElements()
 {
@@ -664,6 +685,7 @@ void IOHIDEventDriver::processGameControllerElements()
     require(_gameController.elements, exit);
     
     _gameController.extended = (_gameController.capable & GAME_CONTROLLER_EXTENDED_MASK) == GAME_CONTROLLER_EXTENDED_MASK;
+    _gameController.formFitting = (_gameController.capable & GAME_CONTROLLER_FORM_FITTING_MASK) == GAME_CONTROLLER_FORM_FITTING_MASK;
     
     for (index=0, count=_gameController.elements->getCount(); index<count; index++) {
         IOHIDElement *  element     = OSDynamicCast(IOHIDElement, _gameController.elements->getObject(index));
@@ -770,7 +792,7 @@ void IOHIDEventDriver::setRelativeProperties()
     setProperty("RelativePointer", properties);
 
 exit:
-    OSSafeRelease(properties);
+    OSSafeReleaseNULL(properties);
 }
 
 //====================================================================================================
@@ -783,14 +805,23 @@ void IOHIDEventDriver::setDigitizerProperties()
     require(properties, exit);
     require(_digitizer.transducers, exit);
 
+#if TARGET_OS_TV
+    _digitizer.collectionDispatch = true;
+#else
+    if (conformTo (kHIDPage_AppleVendor, kHIDUsage_AppleVendor_HIDEventRelay)) {
+        _digitizer.collectionDispatch = true;
+    }
+#endif
+  
     properties->setObject("touchCancelElement", _digitizer.touchCancelElement);
     properties->setObject("Transducers", _digitizer.transducers);
     properties->setObject("DeviceModeElement", _digitizer.deviceModeElement);
+    properties->setObject("collectionDispatch", _digitizer.collectionDispatch ? kOSBooleanTrue : kOSBooleanFalse);
   
     setProperty("Digitizer", properties);
     
 exit:
-    OSSafeRelease(properties);
+    OSSafeReleaseNULL(properties);
 }
 
 //====================================================================================================
@@ -810,7 +841,7 @@ void IOHIDEventDriver::setGameControllerProperties()
     require(number, exit);
 
     properties->setObject("GameControllerCapabilities", number);
-    OSSafeRelease(number);
+    OSSafeReleaseNULL(number);
     
     setProperty("GameControllerPointer", properties);
     
@@ -818,10 +849,14 @@ void IOHIDEventDriver::setGameControllerProperties()
     require(number, exit);
 
     setProperty(kIOHIDGameControllerTypeKey, number);
-    OSSafeRelease(number);
+    OSSafeReleaseNULL(number);
+    
+    if (_gameController.formFitting) {
+        setProperty(kIOHIDGameControllerFormFittingKey, kOSBooleanTrue);
+    }
     
 exit:
-    OSSafeRelease(properties);
+    OSSafeReleaseNULL(properties);
 }
 
 //====================================================================================================
@@ -845,8 +880,8 @@ void IOHIDEventDriver::setMultiAxisProperties()
     setProperty("MultiAxisPointer", properties);
     
 exit:
-    OSSafeRelease(number);
-    OSSafeRelease(properties);
+    OSSafeReleaseNULL(number);
+    OSSafeReleaseNULL(properties);
 }
 
 //====================================================================================================
@@ -864,7 +899,7 @@ void IOHIDEventDriver::setScrollProperties()
     setProperty("Scroll", properties);
     
 exit:
-    OSSafeRelease(properties);
+    OSSafeReleaseNULL(properties);
 }
 
 //====================================================================================================
@@ -882,7 +917,7 @@ void IOHIDEventDriver::setLEDProperties()
     setProperty("LED", properties);
     
 exit:
-    OSSafeRelease(properties);
+    OSSafeReleaseNULL(properties);
 }
 
 //====================================================================================================
@@ -900,7 +935,7 @@ void IOHIDEventDriver::setKeyboardProperties()
     setProperty("Keyboard", properties);
     
 exit:
-    OSSafeRelease(properties);
+    OSSafeReleaseNULL(properties);
 }
 
 //====================================================================================================
@@ -936,8 +971,95 @@ void IOHIDEventDriver::setUnicodeProperties()
     setProperty("Unicode", properties);
     
 exit:
-    OSSafeRelease(serializer);
-    OSSafeRelease(properties);
+    OSSafeReleaseNULL(serializer);
+    OSSafeReleaseNULL(properties);
+}
+
+
+//====================================================================================================
+// IOHIDEventDriver::conformTo
+//====================================================================================================
+bool  IOHIDEventDriver::conformTo (UInt32 usagePage, UInt32 usage) {
+    bool result = false;
+    OSArray     *deviceUsagePairs   = getDeviceUsagePairs();
+    if (deviceUsagePairs && deviceUsagePairs->getCount()) {
+        for (UInt32 index=0; index < deviceUsagePairs->getCount(); index++) {
+            OSDictionary *pair = OSDynamicCast(OSDictionary, deviceUsagePairs->getObject(index));
+            if (pair) {
+                OSNumber *number = OSDynamicCast(OSNumber, pair->getObject(kIOHIDDeviceUsagePageKey));
+                if (number) {
+                    if (usagePage !=  number->unsigned32BitValue()) {
+                        continue;
+                    }
+                }
+                number = OSDynamicCast(OSNumber, pair->getObject(kIOHIDDeviceUsageKey));
+                if (number) {
+                    if (usage == number->unsigned32BitValue()) {
+                        result = true;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    return result;
+}
+
+
+//====================================================================================================
+// IOHIDEventDriver::setAccelerationProperties
+//====================================================================================================
+void IOHIDEventDriver::setAccelerationProperties()
+{
+#if !TARGET_OS_EMBEDDED
+    bool        pointer             = false;
+    OSArray     *deviceUsagePairs   = getDeviceUsagePairs();
+    
+    if (deviceUsagePairs && deviceUsagePairs->getCount()) {
+        for (UInt32 index=0; index < deviceUsagePairs->getCount(); index++) {
+            OSDictionary *pair = OSDynamicCast(OSDictionary, deviceUsagePairs->getObject(index));
+            
+            if (pair) {
+                OSNumber *number = OSDynamicCast(OSNumber, pair->getObject(kIOHIDDeviceUsagePageKey));
+                if (number) {
+                    UInt32 usagePage = number->unsigned32BitValue();
+                    if (usagePage != kHIDPage_GenericDesktop) {
+                        continue;
+                    }
+                }
+                
+                number = OSDynamicCast(OSNumber, pair->getObject(kIOHIDDeviceUsageKey));
+                if (number) {
+                    UInt32 usage = number->unsigned32BitValue();
+                    if (usage == kHIDUsage_GD_Mouse) {
+                        if (!getProperty(kIOHIDPointerAccelerationTypeKey))
+                            setProperty(kIOHIDPointerAccelerationTypeKey, kIOHIDMouseAccelerationType);
+                        
+                        if (_scroll.elements) {
+                            if (!getProperty(kIOHIDScrollAccelerationTypeKey))
+                                setProperty(kIOHIDScrollAccelerationTypeKey, kIOHIDMouseScrollAccelerationKey);
+                        }
+                        
+                        return;
+                    } else if (usage == kHIDUsage_GD_Pointer) {
+                        pointer = true;
+                    }
+                }
+            }
+        }
+        
+        // this is a pointer only device
+        if (pointer) {
+            if (!getProperty(kIOHIDPointerAccelerationTypeKey))
+                setProperty(kIOHIDPointerAccelerationTypeKey, kIOHIDPointerAccelerationKey);
+            
+            if (_scroll.elements) {
+                if (!getProperty(kIOHIDScrollAccelerationTypeKey))
+                    setProperty(kIOHIDScrollAccelerationTypeKey, kIOHIDScrollAccelerationKey);
+            }
+        }
+    }
+#endif /* TARGET_OS_EMBEDDED */
 }
 
 //====================================================================================================
@@ -959,7 +1081,7 @@ bool IOHIDEventDriver::serializeCharacterGestureState(void * , OSSerialize * ser
     result = number->serialize(serializer);
     
 exit:
-    OSSafeRelease(number);
+    OSSafeReleaseNULL(number);
     return result;
 }
 
@@ -1159,6 +1281,8 @@ bool IOHIDEventDriver::parseGameControllerElement(IOHIDElement * element)
     bool   store        = false;
     bool   ret          = false;
     
+    require(_authenticatedDevice, exit);
+    
     if ( !_gameController.elements ) {
         _gameController.elements = OSArray::withCapacity(4);
         require(_gameController.elements, exit);
@@ -1167,6 +1291,7 @@ bool IOHIDEventDriver::parseGameControllerElement(IOHIDElement * element)
     switch ( usagePage ) {
         case kHIDPage_GenericDesktop:
         case kHIDPage_Button:
+        case kHIDPage_Game:
             _gameController.capable |= checkGameControllerElement(element);
             if ( !_gameController.capable )
                 break;
@@ -1611,6 +1736,15 @@ UInt32 IOHIDEventDriver::checkGameControllerElement(IOHIDElement * element)
             offset = 0;
             
             break;
+            
+        case kHIDPage_Game:
+            if (usage == kHIDUsage_Game_GamepadFormFitting) {
+                base = kHIDUsage_Game_GamepadFormFitting;
+                offset = 24;
+            }
+            
+            break;
+            
         default:
             goto exit;
             break;
@@ -1711,7 +1845,9 @@ void IOHIDEventDriver::handleInterruptReport (
 {
     if (!readyForReports() || reportType!= kIOHIDReportTypeInput)
         return;
-    
+  
+    _lastReportTime = timeStamp;
+  
     IOHID_DEBUG(kIOHIDDebugCode_InturruptReport, reportType, reportID, getRegistryEntryID(), 0);
 
     handleBootPointingReport(timeStamp, report, reportID);
@@ -1865,13 +2001,11 @@ void IOHIDEventDriver::handleGameControllerReport(AbsoluteTime timeStamp, UInt32
     
     require_quiet(reportID == _gameController.sendingReportID, exit);
     
-#if TARGET_OS_EMBEDDED
     if ( _gameController.extended ) {
         dispatchExtendedGameControllerEvent(timeStamp, _gameController.dpad.up, _gameController.dpad.down, _gameController.dpad.left, _gameController.dpad.right, _gameController.face.x, _gameController.face.y, _gameController.face.a, _gameController.face.b, _gameController.shoulder.l1, _gameController.shoulder.r1, _gameController.shoulder.l2, _gameController.shoulder.r2, _gameController.joystick.x, _gameController.joystick.y, _gameController.joystick.z, _gameController.joystick.rz);
     } else {
         dispatchStandardGameControllerEvent(timeStamp, _gameController.dpad.up, _gameController.dpad.down, _gameController.dpad.left, _gameController.dpad.right, _gameController.face.x, _gameController.face.y, _gameController.face.a, _gameController.face.b, _gameController.shoulder.l1, _gameController.shoulder.r1);
     }
-#endif /* TARGET_OS_EMBEDDED */
     
 exit:
     return;
@@ -2006,9 +2140,37 @@ void IOHIDEventDriver::handleDigitizerReport(AbsoluteTime timeStamp, UInt32 repo
 {
     UInt32 index, count;
 
+    require_quiet(_digitizer.transducers, exit);
+  
+    if (_digitizer.collectionDispatch) {
+      
+        handleDigitizerCollectionReport (timeStamp, reportID);
+        return;
+    }
+  
+    for (index=0, count = _digitizer.transducers->getCount(); index<count; index++) {
+        DigitizerTransducer * transducer = NULL;
+        
+        transducer = OSDynamicCast(DigitizerTransducer, _digitizer.transducers->getObject(index));
+        if ( !transducer ) {
+            continue;
+        }
 
+        handleDigitizerTransducerReport(transducer, timeStamp, reportID);
+    }
 
-#if FULL_DIGITIZER_COLLECTION_SUPPORT
+exit:
+
+    return;
+}
+
+//====================================================================================================
+// IOHIDEventDriver::handleDigitizerCollectionReport
+//====================================================================================================
+void IOHIDEventDriver::handleDigitizerCollectionReport(AbsoluteTime timeStamp, UInt32 reportID) {
+
+    UInt32 index, count;
+
     IOHIDEvent* collectionEvent = NULL;
     IOHIDEvent* event = NULL;
   
@@ -2017,14 +2179,6 @@ void IOHIDEventDriver::handleDigitizerReport(AbsoluteTime timeStamp, UInt32 repo
     UInt32  mask      = 0;
     UInt32  finger    = 0;
     UInt32  buttons   = 0;
-    IOFixed touch_x   = 0;
-    IOFixed touch_y   = 0;
-    IOFixed touch_z   = 0;
-    IOFixed range_x   = 0;
-    IOFixed range_y   = 0;
-    IOFixed range_z   = 0;
-    int     touchCount= 0;
-    int     rangeCount= 0;
   
     if (_digitizer.touchCancelElement && _digitizer.touchCancelElement->getReportID()==reportID) {
         AbsoluteTime elementTimeStamp =  _digitizer.touchCancelElement->getTimeStamp();
@@ -2033,40 +2187,28 @@ void IOHIDEventDriver::handleDigitizerReport(AbsoluteTime timeStamp, UInt32 repo
           mask |= _digitizer.touchCancelElement->getValue() ? kIOHIDDigitizerEventCancel : 0;
         }
     }
-#endif
 
     require_quiet(_digitizer.transducers, exit);
   
     for (index=0, count = _digitizer.transducers->getCount(); index<count; index++) {
         DigitizerTransducer * transducer = NULL;
-      
+        
         transducer = OSDynamicCast(DigitizerTransducer, _digitizer.transducers->getObject(index));
         if ( !transducer ) {
             continue;
         }
 
-#if FULL_DIGITIZER_COLLECTION_SUPPORT == 0
-        handleDigitizerTransducerReport(transducer, timeStamp, reportID);
-#else     
-        event = handleDigitizerTransducerReport(transducer, timeStamp, reportID);
+        event = createDigitizerTransducerEventForReport(transducer, timeStamp, reportID);
         if (event) {
             if (collectionEvent == NULL) {
                 collectionEvent = IOHIDEvent::digitizerEvent(timeStamp, 0, kIOHIDDigitizerTransducerTypeFinger, false, 0, 0, 0, 0, 0, 0, 0, 0);
                 require_quiet(collectionEvent, exit);
+                collectionEvent->setFixedValue(kIOHIDEventFieldDigitizerX, event->getFixedValue (kIOHIDEventFieldDigitizerX));
+                collectionEvent->setFixedValue(kIOHIDEventFieldDigitizerY, event->getFixedValue (kIOHIDEventFieldDigitizerY));
                 collectionEvent->setIntegerValue(kIOHIDEventFieldDigitizerCollection, TRUE);
             }
-            if (event->getIntegerValue(kIOHIDEventFieldDigitizerTouch)) {
-                touch_x += event->getFixedValue (kIOHIDEventFieldDigitizerX);
-                touch_y += event->getFixedValue (kIOHIDEventFieldDigitizerY);
-                touch_z += event->getFixedValue (kIOHIDEventFieldDigitizerZ);
-                ++touchCount;
-            }
-            if (event->getIntegerValue(kIOHIDEventFieldDigitizerRange)) {
-                range_x += event->getFixedValue (kIOHIDEventFieldDigitizerX);
-                range_y += event->getFixedValue (kIOHIDEventFieldDigitizerY);
-                range_z += event->getFixedValue (kIOHIDEventFieldDigitizerZ);
-                ++rangeCount;
-            }
+            touch |= event->getIntegerValue(kIOHIDEventFieldDigitizerTouch) ? true : false;
+            range |= event->getIntegerValue(kIOHIDEventFieldDigitizerRange) ? true : false;
             mask  |= event->getIntegerValue(kIOHIDEventFieldDigitizerEventMask);
             buttons |= event->getIntegerValue(kIOHIDEventFieldDigitizerButtonMask);
             if (event->getIntegerValue(kIOHIDEventFieldDigitizerType) == kIOHIDDigitizerTransducerTypeFinger) {
@@ -2078,39 +2220,22 @@ void IOHIDEventDriver::handleDigitizerReport(AbsoluteTime timeStamp, UInt32 repo
         }
     }
   
+  
     if (collectionEvent) {
+        collectionEvent->setIntegerValue(kIOHIDEventFieldDigitizerRange, range);
         collectionEvent->setIntegerValue(kIOHIDEventFieldDigitizerEventMask, mask);
-        if (touchCount) {
-            collectionEvent->setFixedValue(kIOHIDEventFieldDigitizerX, IOFixedDivide(touch_x, touchCount << 16));
-            collectionEvent->setFixedValue(kIOHIDEventFieldDigitizerY, IOFixedDivide(touch_y, touchCount << 16));
-            collectionEvent->setFixedValue(kIOHIDEventFieldDigitizerZ, IOFixedDivide(touch_z, touchCount << 16));
-        } else if (rangeCount) {
-            collectionEvent->setFixedValue(kIOHIDEventFieldDigitizerX, IOFixedDivide(range_x, rangeCount << 16));
-            collectionEvent->setFixedValue(kIOHIDEventFieldDigitizerY, IOFixedDivide(range_y, rangeCount << 16));
-            collectionEvent->setFixedValue(kIOHIDEventFieldDigitizerZ, IOFixedDivide(range_z, rangeCount << 16));
-        }
-      
-        if (touchCount) {
-            collectionEvent->setIntegerValue(kIOHIDEventFieldDigitizerTouch, 1);
-        }
-        if (rangeCount) {
-            collectionEvent->setIntegerValue(kIOHIDEventFieldDigitizerRange, 1);
-        }
-      
+        collectionEvent->setIntegerValue(kIOHIDEventFieldDigitizerTouch, touch);
         collectionEvent->setIntegerValue(kIOHIDEventFieldDigitizerButtonMask, buttons);
         if (finger > 1) {
             collectionEvent->getIntegerValue(kIOHIDDigitizerTransducerTypeHand);
         }
-      
         dispatchEvent(collectionEvent);
-#endif  
     }
 
 exit:
-
     return;
 }
-    
+
 //====================================================================================================
 // IOHIDEventDriver::handleDigitizerReport
 //====================================================================================================
@@ -2240,14 +2365,147 @@ IOHIDEvent* IOHIDEventDriver::handleDigitizerTransducerReport(DigitizerTransduce
     
     require(valid, exit);
 
-#if FULL_DIGITIZER_COLLECTION_SUPPORT == 0
     dispatchDigitizerEventWithTiltOrientation(timeStamp, transducerID, transducer->type, inRange, buttonState, X, Y, Z, tipPressure, barrelPressure, twist, tiltX, tiltY, invert ? IOHIDEventService::kDigitizerInvert : 0);
-#else
+
+exit:
+
+    return NULL;
+}
+
+
+//====================================================================================================
+// IOHIDEventDriver::createDigitizerTransducerEventForReport
+//====================================================================================================
+IOHIDEvent* IOHIDEventDriver::createDigitizerTransducerEventForReport(DigitizerTransducer * transducer, AbsoluteTime timeStamp, UInt32 reportID)
 {
+    bool                    handled         = false;
+    UInt32                  elementIndex    = 0;
+    UInt32                  elementCount    = 0;
+    UInt32                  buttonState     = 0;
+    UInt32                  transducerID    = reportID;
+    IOFixed                 X               = 0;
+    IOFixed                 Y               = 0;
+    IOFixed                 Z               = 0;
+    IOFixed                 tipPressure     = 0;
+    IOFixed                 barrelPressure  = 0;
+    IOFixed                 tiltX           = 0;
+    IOFixed                 tiltY           = 0;
+    IOFixed                 twist           = 0;
+    bool                    invert          = false;
+    bool                    inRange         = true;
+    bool                    valid           = true;
     UInt32                  eventMask       = 0;
     UInt32                  eventOptions    = 0;
     UInt32                  touch           = 0;
     IOHIDEvent              *event          = NULL;
+  
+    require_quiet(transducer->elements, exit);
+
+    for (elementIndex=0, elementCount=transducer->elements->getCount(); elementIndex<elementCount; elementIndex++) {
+        IOHIDElement *  element;
+        AbsoluteTime    elementTimeStamp;
+        bool            elementIsCurrent;
+        UInt32          usagePage;
+        UInt32          usage;
+        UInt32          value;
+        
+        element = OSDynamicCast(IOHIDElement, transducer->elements->getObject(elementIndex));
+        if ( !element )
+            continue;
+        
+        elementTimeStamp = element->getTimeStamp();
+        elementIsCurrent = (element->getReportID()==reportID) && (CMP_ABSOLUTETIME(&timeStamp, &elementTimeStamp)==0);
+        
+        usagePage   = element->getUsagePage();
+        usage       = element->getUsage();
+        value       = element->getValue();
+        
+        switch ( usagePage ) {
+            case kHIDPage_GenericDesktop:
+                switch ( usage ) {
+                    case kHIDUsage_GD_X:
+                        X = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        handled    |= elementIsCurrent;
+                        break;
+                    case kHIDUsage_GD_Y:
+                        Y = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        handled    |= elementIsCurrent;
+                        break;
+                    case kHIDUsage_GD_Z:
+                        Z = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        handled    |= elementIsCurrent;
+                        break;
+                }
+                break;
+            case kHIDPage_Button:
+                setButtonState(&buttonState, (usage - 1), value);
+                handled    |= elementIsCurrent;
+                break;
+            case kHIDPage_Digitizer:
+                switch ( usage ) {
+                    case kHIDUsage_Dig_TransducerIndex:
+                    case kHIDUsage_Dig_ContactIdentifier:
+                        transducerID = value;
+                        handled    |= elementIsCurrent;
+                        break;
+                    case kHIDUsage_Dig_Touch:
+                    case kHIDUsage_Dig_TipSwitch:
+                        setButtonState ( &buttonState, 0, value);
+                        handled    |= elementIsCurrent;
+                        break;
+                    case kHIDUsage_Dig_BarrelSwitch:
+                        setButtonState ( &buttonState, 1, value);
+                        handled    |= elementIsCurrent;
+                        break;
+                    case kHIDUsage_Dig_Eraser:
+                        setButtonState ( &buttonState, 2, value);
+                        invert = value != 0;
+                        handled    |= elementIsCurrent;
+                        break;
+                    case kHIDUsage_Dig_InRange:
+                        inRange = value != 0;
+                        handled    |= elementIsCurrent;
+                        break;
+                    case kHIDUsage_Dig_BarrelPressure:
+                        barrelPressure = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        handled    |= elementIsCurrent;
+                        break;
+                    case kHIDUsage_Dig_TipPressure:
+                        tipPressure = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        handled    |= elementIsCurrent;
+                        break;
+                    case kHIDUsage_Dig_XTilt:
+                        tiltX = element->getScaledFixedValue(kIOHIDValueScaleTypePhysical);
+                        handled    |= elementIsCurrent;
+                        break;
+                    case kHIDUsage_Dig_YTilt:
+                        tiltY = element->getScaledFixedValue(kIOHIDValueScaleTypePhysical);
+                        handled    |= elementIsCurrent;
+                        break;
+                    case kHIDUsage_Dig_Twist:
+                        twist = element->getScaledFixedValue(kIOHIDValueScaleTypePhysical);
+                        handled    |= elementIsCurrent;
+                        break;
+                    case kHIDUsage_Dig_Invert:
+                        invert = value != 0;
+                        handled    |= elementIsCurrent;
+                        break;
+                    case kHIDUsage_Dig_Quality:
+                    case kHIDUsage_Dig_DataValid:
+                        if ( value == 0 )
+                            valid = false;
+                        handled    |= elementIsCurrent;
+                    default:
+                        break;
+                }
+                break;
+        }        
+    }
+    
+    require(handled, exit);
+    
+    require(valid, exit);
+
 
     event = IOHIDEvent::digitizerEvent(timeStamp, transducerID, transducer->type, inRange, buttonState, X, Y, Z, tipPressure, barrelPressure, twist, eventOptions);
     require(event, exit);
@@ -2281,8 +2539,6 @@ IOHIDEvent* IOHIDEventDriver::handleDigitizerTransducerReport(DigitizerTransduce
     event->setIntegerValue(kIOHIDEventFieldDigitizerEventMask, eventMask);
 
     return event;
-}
-#endif 
 
 exit:
 
@@ -2294,8 +2550,9 @@ exit:
 //====================================================================================================
 void IOHIDEventDriver::handleScrollReport(AbsoluteTime timeStamp, UInt32 reportID)
 {
-    SInt32      scrollVert  = 0;
-    SInt32      scrollHoriz = 0;
+    IOFixed     scrollVert  = 0;
+    IOFixed     scrollHoriz = 0;
+
     UInt32      index, count;
     
     require_quiet(_scroll.elements, exit);
@@ -2324,10 +2581,10 @@ void IOHIDEventDriver::handleScrollReport(AbsoluteTime timeStamp, UInt32 reportI
                 switch ( usage ) {
                     case kHIDUsage_GD_Wheel:
                     case kHIDUsage_GD_Dial:
-                        scrollVert = (element->getFlags() & kIOHIDElementFlagsWrapMask) ? element->getValue(kIOHIDValueOptionsFlagRelativeSimple) : element->getValue();
+                        scrollVert = ((element->getFlags() & kIOHIDElementFlagsWrapMask) ? element->getValue(kIOHIDValueOptionsFlagRelativeSimple) : element->getValue()) << 16;
                         break;
                     case kHIDUsage_GD_Z:
-                        scrollHoriz = (element->getFlags() & kIOHIDElementFlagsWrapMask) ? element->getValue(kIOHIDValueOptionsFlagRelativeSimple) : element->getValue();
+                        scrollHoriz = ((element->getFlags() & kIOHIDElementFlagsWrapMask) ? element->getValue(kIOHIDValueOptionsFlagRelativeSimple) : element->getValue()) << 16;
                         break;
                     default:
                         break;
@@ -2336,7 +2593,7 @@ void IOHIDEventDriver::handleScrollReport(AbsoluteTime timeStamp, UInt32 reportI
             case kHIDPage_Consumer:
                 switch ( usage ) {
                     case kHIDUsage_Csmr_ACPan:
-                        scrollHoriz = -element->getValue();
+                        scrollHoriz = (-element->getValue()) << 16;
                         break;
                     default:
                         break;
@@ -2348,8 +2605,9 @@ void IOHIDEventDriver::handleScrollReport(AbsoluteTime timeStamp, UInt32 reportI
     }
     
     require(scrollVert || scrollHoriz, exit);
-
-    dispatchScrollWheelEvent(timeStamp, scrollVert, scrollHoriz, 0);
+  
+    dispatchScrollWheelEventWithFixed(timeStamp, scrollVert, scrollHoriz, 0);
+    
 exit:
     return;
 }
@@ -2536,14 +2794,15 @@ exit:
 //====================================================================================================
 IOHIDEvent * IOHIDEventDriver::handleUnicodeGestureCandidateReport(EventElementCollection * candidate, AbsoluteTime timeStamp, UInt32 reportID)
 {
-    IOHIDEvent *        result      = NULL;
-    uint8_t *           payload     = NULL;
-    uint32_t            length      = 0;
-    UnicodeEncodingType encoding    = kUnicodeEncodingTypeUTF16LE;
-    IOFixed             quality     = (1<<16);
-    bool                handled     = false;
+    IOHIDEvent *        result        = NULL;
+    uint8_t *           payload       = NULL;
+    uint32_t            payloadLength = 0;
+    uint32_t            length        = 0;
+    UnicodeEncodingType encoding      = kUnicodeEncodingTypeUTF16LE;
+    IOFixed             quality       = (1<<16);
+    bool                handled       = false;
     uint32_t            index, count;
-    
+    OSData *            payloadData   = NULL;
     require(candidate->elements, exit);
     
     for ( index=0, count=candidate->elements->getCount(); index<count; index++ ) {
@@ -2569,7 +2828,11 @@ IOHIDEvent * IOHIDEventDriver::handleUnicodeGestureCandidateReport(EventElementC
             case kHIDPage_Digitizer:
                 switch ( usage ) {
                     case kHIDUsage_Dig_GestureCharacterData:
-                        payload = (uint8_t*)element->getDataValue()->getBytesNoCopy();
+                        payloadData  = element->getDataValue();
+                        if (payloadData) {
+                            payload = (uint8_t*)payloadData->getBytesNoCopy();
+                            payloadLength = payloadData->getLength ();
+                        }
                         break;
                     case kHIDUsage_Dig_GestureCharacterDataLength:
                         length = element->getValue();
@@ -2608,7 +2871,7 @@ IOHIDEvent * IOHIDEventDriver::handleUnicodeGestureCandidateReport(EventElementC
     
     require(handled, exit);
     
-    result = IOHIDEvent::unicodeEvent(timeStamp, payload, length, encoding, quality, 0);
+    result = IOHIDEvent::unicodeEvent(timeStamp, payload, payloadLength < length ? payloadLength : length, encoding, quality, 0);
 
 exit:
     return result;
@@ -2636,7 +2899,7 @@ IOHIDEvent * IOHIDEventDriver::handleUnicodeGestureCandidateReport(EventElementC
 //====================================================================================================
 // IOHIDEventDriver::setElementValue
 //====================================================================================================
-void IOHIDEventDriver::setElementValue (
+IOReturn IOHIDEventDriver::setElementValue (
                                 UInt32                      usagePage,
                                 UInt32                      usage,
                                 UInt32                      value )
@@ -2666,8 +2929,9 @@ void IOHIDEventDriver::setElementValue (
     
     require(element, exit);
     element->setValue(value);
+    return kIOReturnSuccess;
 exit:
-    return;
+    return kIOReturnUnsupported;
 }
 
 //====================================================================================================
@@ -2703,6 +2967,39 @@ UInt32 IOHIDEventDriver::getElementValue (
 exit:
     return (element) ? element->getValue() : 0;
 }
+
+//====================================================================================================
+// IOHIDEventDriver::serializeDebugState
+//====================================================================================================
+bool   IOHIDEventDriver::serializeDebugState(void * ref, OSSerialize * serializer) {
+    bool          result = false;
+    uint64_t      currentTime,deltaTime;
+    uint64_t      nanoTime;
+    OSNumber      *num;
+    OSDictionary  *debugDict = OSDictionary::withCapacity(4);
+  
+    require(debugDict, exit);
+    clock_get_uptime(&currentTime);
+  
+  
+    if (_lastReportTime) {
+        deltaTime = AbsoluteTime_to_scalar(&currentTime) - AbsoluteTime_to_scalar(&(_lastReportTime));
+
+        absolutetime_to_nanoseconds(deltaTime, &nanoTime);
+        num = OSNumber::withNumber(nanoTime, 64);
+        if (num) {
+            debugDict->setObject("LastReportTime", num);
+            OSSafeReleaseNULL(num);
+        }
+    }
+  
+    result = debugDict->serialize(serializer);
+    debugDict->release();
+
+exit:
+    return result;
+}
+
 
 OSMetaClassDefineReservedUnused(IOHIDEventDriver,  0);
 OSMetaClassDefineReservedUnused(IOHIDEventDriver,  1);

@@ -8,9 +8,9 @@
 
 // rdar://6275956
 
-#import <objc/objc-auto.h>
 #import <Foundation/Foundation.h>
 #import <Block.h>
+#define TEST_CALLS_OPERATOR_NEW
 #import "test.h"
 
 int recovered = 0;
@@ -88,7 +88,6 @@ void testRoutine() {
 int main() {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
     testRoutine();
-    objc_collect(OBJC_EXHAUSTIVE_COLLECTION | OBJC_WAIT_UNTIL_DONE);
     [pool drain];
 
     if (recovered != 1) {

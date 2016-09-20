@@ -41,6 +41,9 @@ class CachedSVGDocument;
 class Element;
 
 class RenderLayer::FilterInfo final : private CachedSVGDocumentClient {
+#if !COMPILER(MSVC)
+    WTF_MAKE_FAST_ALLOCATED;
+#endif
 public:
     static FilterInfo& get(RenderLayer&);
     static FilterInfo* getIfExists(const RenderLayer&);
@@ -60,7 +63,7 @@ public:
     void removeReferenceFilterClients();
 
 private:
-    virtual void notifyFinished(CachedResource*) override;
+    void notifyFinished(CachedResource*) override;
 
     static HashMap<const RenderLayer*, std::unique_ptr<FilterInfo>>& map();
 

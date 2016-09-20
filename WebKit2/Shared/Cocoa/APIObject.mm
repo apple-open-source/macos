@@ -46,6 +46,7 @@
 #import "WKNavigationDataInternal.h"
 #import "WKNavigationInternal.h"
 #import "WKNavigationResponseInternal.h"
+#import "WKOpenPanelParametersInternal.h"
 #import "WKPreferencesInternal.h"
 #import "WKProcessPoolInternal.h"
 #import "WKSecurityOriginInternal.h"
@@ -61,13 +62,18 @@
 #import "WKWebsiteDataRecordInternal.h"
 #import "WKWebsiteDataStoreInternal.h"
 #import "WKWindowFeaturesInternal.h"
+#import "_WKAutomationSessionInternal.h"
 #import "_WKDownloadInternal.h"
+#import "_WKExperimentalFeatureInternal.h"
 #import "_WKFrameHandleInternal.h"
+#import "_WKHitTestResultInternal.h"
 #import "_WKProcessPoolConfigurationInternal.h"
 #import "_WKUserContentExtensionStoreInternal.h"
 #import "_WKUserContentFilterInternal.h"
-#import "_WKVisitedLinkProviderInternal.h"
-#import <objc/objc-auto.h>
+#import "_WKUserContentWorldInternal.h"
+#import "_WKUserInitiatedActionInternal.h"
+#import "_WKUserStyleSheetInternal.h"
+#import "_WKVisitedLinkStoreInternal.h"
 
 namespace API {
 
@@ -96,6 +102,10 @@ void* Object::newObject(size_t size, Type type)
 
     case Type::AuthenticationChallenge:
         wrapper = NSAllocateObject([WKNSURLAuthenticationChallenge self], size, nullptr);
+        break;
+
+    case Type::AutomationSession:
+        wrapper = [_WKAutomationSession alloc];
         break;
 
     case Type::BackForwardList:
@@ -142,6 +152,10 @@ void* Object::newObject(size_t size, Type type)
         wrapper = [_WKDownload alloc];
         break;
 
+    case Type::ExperimentalFeature:
+        wrapper = [_WKExperimentalFeature alloc];
+        break;
+
     case Type::Error:
         wrapper = NSAllocateObject([WKNSError self], size, nullptr);
         break;
@@ -153,6 +167,12 @@ void* Object::newObject(size_t size, Type type)
     case Type::FrameInfo:
         wrapper = [WKFrameInfo alloc];
         break;
+
+#if PLATFORM(MAC)
+    case Type::HitTestResult:
+        wrapper = [_WKHitTestResult alloc];
+        break;
+#endif
 
     case Type::Navigation:
         wrapper = [WKNavigation alloc];
@@ -169,6 +189,12 @@ void* Object::newObject(size_t size, Type type)
     case Type::NavigationResponse:
         wrapper = [WKNavigationResponse alloc];
         break;
+
+#if PLATFORM(MAC)
+    case Type::OpenPanelParameters:
+        wrapper = [WKOpenPanelParameters alloc];
+        break;
+#endif
 
     case Type::PageGroup:
         wrapper = [WKBrowsingContextGroup alloc];
@@ -202,12 +228,24 @@ void* Object::newObject(size_t size, Type type)
         wrapper = [_WKUserContentExtensionStore alloc];
         break;
 
+    case Type::UserContentWorld:
+        wrapper = [_WKUserContentWorld alloc];
+        break;
+
+    case Type::UserInitiatedAction:
+        wrapper = [_WKUserInitiatedAction alloc];
+        break;
+
     case Type::UserScript:
         wrapper = [WKUserScript alloc];
         break;
 
-    case Type::VisitedLinkProvider:
-        wrapper = [_WKVisitedLinkProvider alloc];
+    case Type::UserStyleSheet:
+        wrapper = [_WKUserStyleSheet alloc];
+        break;
+
+    case Type::VisitedLinkStore:
+        wrapper = [_WKVisitedLinkStore alloc];
         break;
 
     case Type::WebsiteDataRecord:
@@ -249,11 +287,6 @@ void* Object::newObject(size_t size, Type type)
 
     Object& object = wrapper._apiObject;
     object.m_wrapper = wrapper;
-
-#if PLATFORM(MAC)
-    if (objc_collectingEnabled())
-        object.ref();
-#endif
 
     return &object;
 }

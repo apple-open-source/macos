@@ -104,7 +104,7 @@ typedef CFOptionFlags SOSDataSourceTransactionType;
 enum SOSDataSourceTransactionPhase {
     kSOSDataSourceTransactionDidRollback = 0,   // A transaction just got rolled back
     kSOSDataSourceTransactionWillCommit,        // A transaction is about to commit.
-    kSOSDataSourceTransactionDidCommit,         // A transnaction sucessfully committed.
+    kSOSDataSourceTransactionDidCommit,         // A transaction sucessfully committed.
 };
 typedef CFOptionFlags SOSDataSourceTransactionPhase;
 
@@ -127,14 +127,16 @@ struct SOSDataSource {
 
     // General SOSDataSource methods
     CFStringRef (*dsGetName)(SOSDataSourceRef ds);
-    void (*dsSetNotifyPhaseBlock)(SOSDataSourceRef ds, dispatch_queue_t queue, SOSDataSourceNotifyBlock notifyBlock);
+    void (*dsAddNotifyPhaseBlock)(SOSDataSourceRef ds, SOSDataSourceNotifyBlock notifyBlock);
     SOSManifestRef (*dsCopyManifestWithViewNameSet)(SOSDataSourceRef ds, CFSetRef viewNameSet, CFErrorRef *error);
-    bool (*dsForEachObject)(SOSDataSourceRef ds, SOSManifestRef manifest, CFErrorRef *error, void (^handleObject)(CFDataRef key, SOSObjectRef object, bool *stop));
-    CFDataRef (*dsCopyStateWithKey)(SOSDataSourceRef ds, CFStringRef key, CFStringRef pdmn, CFErrorRef *error);
+    bool (*dsForEachObject)(SOSDataSourceRef ds, SOSTransactionRef txn, SOSManifestRef manifest, CFErrorRef *error, void (^handleObject)(CFDataRef key, SOSObjectRef object, bool *stop));
+    CFDataRef (*dsCopyStateWithKey)(SOSDataSourceRef ds, CFStringRef key, CFStringRef pdmn, SOSTransactionRef txn, CFErrorRef *error);
     CFDataRef (*dsCopyItemDataWithKeys)(SOSDataSourceRef ds, CFDictionaryRef keys, CFErrorRef *error);
+    bool (*dsDeleteStateWithKey)(SOSDataSourceRef ds, CFStringRef key, CFStringRef pdmn, SOSTransactionRef txn, CFErrorRef *error);
 
-    bool (*dsWith)(SOSDataSourceRef ds, CFErrorRef *error, SOSDataSourceTransactionSource source, void(^transaction)(SOSTransactionRef txn, bool *commit));
+    bool (*dsWith)(SOSDataSourceRef ds, CFErrorRef *error, SOSDataSourceTransactionSource source, bool onCommitQueue, void(^transaction)(SOSTransactionRef txn, bool *commit));
     bool (*dsRelease)(SOSDataSourceRef ds, CFErrorRef *error); // Destructor
+    bool (*dsReadWith)(SOSDataSourceRef ds, CFErrorRef *error, SOSDataSourceTransactionSource source, void(^perform)(SOSTransactionRef txn));
 
     // SOSTransaction methods, writes to a dataSource require a transaction.
     SOSMergeResult (*dsMergeObject)(SOSTransactionRef txn, SOSObjectRef object, SOSObjectRef *createdObject, CFErrorRef *error);
@@ -159,35 +161,51 @@ static inline CFStringRef SOSDataSourceGetName(SOSDataSourceRef ds) {
     return ds->dsGetName(ds);
 }
 
-static inline void SOSDataSourceSetNotifyPhaseBlock(SOSDataSourceRef ds, dispatch_queue_t queue, SOSDataSourceNotifyBlock notifyBlock) {
-    ds->dsSetNotifyPhaseBlock(ds, queue, notifyBlock);
+static inline void SOSDataSourceAddNotifyPhaseBlock(SOSDataSourceRef ds, SOSDataSourceNotifyBlock notifyBlock) {
+    ds->dsAddNotifyPhaseBlock(ds, notifyBlock);
 }
 
 static inline SOSManifestRef SOSDataSourceCopyManifestWithViewNameSet(SOSDataSourceRef ds, CFSetRef viewNameSet, CFErrorRef *error) {
     return ds->dsCopyManifestWithViewNameSet(ds, viewNameSet, error);
 }
 
-static inline bool SOSDataSourceForEachObject(SOSDataSourceRef ds, SOSManifestRef manifest, CFErrorRef *error, void (^handleObject)(CFDataRef digest, SOSObjectRef object, bool *stop)) {
-    return ds->dsForEachObject(ds, manifest, error, handleObject);
+static inline bool SOSDataSourceForEachObject(SOSDataSourceRef ds, SOSTransactionRef txn, SOSManifestRef manifest, CFErrorRef *error, void (^handleObject)(CFDataRef digest, SOSObjectRef object, bool *stop)) {
+    return ds->dsForEachObject(ds, txn, manifest, error, handleObject);
 }
 
 static inline bool SOSDataSourceWith(SOSDataSourceRef ds, CFErrorRef *error,
                                      void(^transaction)(SOSTransactionRef txn, bool *commit)) {
-    return ds->dsWith(ds, error, kSOSDataSourceSOSTransaction, transaction);
+    return ds->dsWith(ds, error, kSOSDataSourceSOSTransaction, false, transaction);
+}
+
+static inline bool SOSDataSourceWithCommitQueue(SOSDataSourceRef ds, CFErrorRef *error,
+                                     void(^transaction)(SOSTransactionRef txn, bool *commit)) {
+    return ds->dsWith(ds, error, kSOSDataSourceSOSTransaction, true, transaction);
 }
 
 static inline bool SOSDataSourceWithAPI(SOSDataSourceRef ds, bool isAPI, CFErrorRef *error,
                                      void(^transaction)(SOSTransactionRef txn, bool *commit)) {
-    return ds->dsWith(ds, error, isAPI ? kSOSDataSourceAPITransaction : kSOSDataSourceSOSTransaction, transaction);
+    return ds->dsWith(ds, error, isAPI ? kSOSDataSourceAPITransaction : kSOSDataSourceSOSTransaction, false, transaction);
 }
 
-static inline CFDataRef SOSDataSourceCopyStateWithKey(SOSDataSourceRef ds, CFStringRef key, CFStringRef pdmn, CFErrorRef *error)
+static inline bool SOSDataSourceReadWithCommitQueue(SOSDataSourceRef ds, CFErrorRef *error,
+                                                void(^perform)(SOSTransactionRef txn)) {
+    return ds->dsReadWith(ds, error, kSOSDataSourceSOSTransaction, perform);
+}
+
+
+static inline CFDataRef SOSDataSourceCopyStateWithKey(SOSDataSourceRef ds, CFStringRef key, CFStringRef pdmn, SOSTransactionRef txn, CFErrorRef *error)
 {
-    return ds->dsCopyStateWithKey(ds, key, pdmn, error);
+    return ds->dsCopyStateWithKey(ds, key, pdmn, txn, error);
 }
 
 static inline CFDataRef SOSDataSourceCopyItemDataWithKeys(SOSDataSourceRef ds, CFDictionaryRef keys, CFErrorRef *error) {
     return ds->dsCopyItemDataWithKeys(ds, keys, error);
+}
+
+static inline bool SOSDataSourceDeleteStateWithKey(SOSDataSourceRef ds, CFStringRef key, CFStringRef pdmn, SOSTransactionRef txn, CFErrorRef *error)
+{
+    return ds->dsDeleteStateWithKey(ds, key, pdmn, txn, error);
 }
 
 static inline bool SOSDataSourceRelease(SOSDataSourceRef ds, CFErrorRef *error) {

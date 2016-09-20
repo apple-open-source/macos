@@ -30,6 +30,8 @@
 #include <typeinfo>
 #include <stdio.h>
 #include <Security/SecBase.h>
+#include <execinfo.h>
+#include <cxxabi.h>
 
 //@@@
 // From cssmapple.h - layering break
@@ -40,13 +42,8 @@
 
 //
 // The base of the exception hierarchy.
-// Note that the debug output here depends on a particular
-// implementation feature of gcc; to wit, that the exception object
-// is created and then copied (at least once) via its copy constructor.
-// If your compiler does not invoke the copy constructor, you won't get
-// debug output, but nothing worse should happen.
 //
-CommonError::CommonError()
+CommonError::CommonError() : whatBuffer("CommonError")
 {
 }
 
@@ -54,17 +51,62 @@ CommonError::CommonError()
 //
 // We strongly encourage catching all exceptions by const reference, so the copy
 // constructor of our exceptions should never be called.
-// We trace a copy to help catch violations of this rule.
 //
 CommonError::CommonError(const CommonError &source)
 {
-	SECURITY_EXCEPTION_COPY(this, &source);
+    strlcpy(whatBuffer, source.whatBuffer, whatBufferSize);
 }
 
 CommonError::~CommonError() throw ()
 {
-	SECURITY_EXCEPTION_HANDLED(this);
 }
+
+void CommonError::LogBacktrace() {
+    // Only do this work if we're actually going to log things
+    if(secinfoenabled("security_exception")) {
+        const size_t maxsize = 32;
+        void* callstack[maxsize];
+
+        int size = backtrace(callstack, maxsize);
+        char** names = backtrace_symbols(callstack, size);
+
+        // C++ symbolicate the callstack
+
+        const char* delim = " ";
+        string build;
+        char * token = NULL;
+        char * line = NULL;
+
+        for(int i = 0; i < size; i++) {
+            build = "";
+
+            line = names[i];
+
+            while((token = strsep(&line, delim))) {
+                if(*token == '\0') {
+                    build += " ";
+                } else {
+                    int status = 0;
+                    char * demangled = abi::__cxa_demangle(token, NULL, NULL, &status);
+                    if(status == 0) {
+                        build += demangled;
+                    } else {
+                        build += token;
+                    }
+                    build += " ";
+
+                    if(demangled) {
+                        free(demangled);
+                    }
+                }
+            }
+
+            secinfo("security_exception", "%s", build.c_str());
+        }
+        free(names);
+    }
+}
+
 
 
 //
@@ -72,16 +114,26 @@ CommonError::~CommonError() throw ()
 //
 UnixError::UnixError() : error(errno)
 {
-	SECURITY_EXCEPTION_THROW_UNIX(this, errno);
+    SECURITY_EXCEPTION_THROW_UNIX(this, errno);
+
+    snprintf(whatBuffer, whatBufferSize, "UNIX errno exception: %d", this->error);
+    secnotice("security_exception", "%s", what());
+    LogBacktrace();
 }
 
 UnixError::UnixError(int err) : error(err)
 {
-	SECURITY_EXCEPTION_THROW_UNIX(this, err);
+    SECURITY_EXCEPTION_THROW_UNIX(this, err);
+
+    snprintf(whatBuffer, whatBufferSize, "UNIX error exception: %d", this->error);
+    secnotice("security_exception", "%s", what());
+    LogBacktrace();
 }
 
 const char *UnixError::what() const throw ()
-{ return "UNIX error exception"; }
+{
+    return whatBuffer;
+}
 
 
 OSStatus UnixError::osStatus() const
@@ -103,11 +155,17 @@ UnixError UnixError::make(int err) { return UnixError(err); }
 //
 MacOSError::MacOSError(int err) : error(err)
 {
-	SECURITY_EXCEPTION_THROW_OSSTATUS(this, err);
+    SECURITY_EXCEPTION_THROW_OSSTATUS(this, err);
+
+    snprintf(whatBuffer, whatBufferSize, "MacOS error: %d", this->error);
+    secnotice("security_exception", "%s", what());
+    LogBacktrace();
 }
 
 const char *MacOSError::what() const throw ()
-{ return "MacOS error"; }
+{
+    return whatBuffer;
+}
 
 OSStatus MacOSError::osStatus() const
 { return error; }
@@ -137,7 +195,9 @@ MacOSError MacOSError::make(int error)
 //
 CFError::CFError()
 {
-	SECURITY_EXCEPTION_THROW_CF(this);
+    SECURITY_EXCEPTION_THROW_CF(this);
+    secnotice("security_exception", "CFError");
+    LogBacktrace();
 }
 
 const char *CFError::what() const throw ()

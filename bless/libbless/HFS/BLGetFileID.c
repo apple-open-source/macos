@@ -32,12 +32,13 @@
  */
 
 #include <unistd.h> 
+#include <errno.h>
 #include <sys/attr.h>
 
 #include "bless.h"
 #include "bless_private.h"
 
-int BLGetFileID(BLContextPtr context, const char * path, uint32_t *folderID) {
+int BLGetFileID(BLContextPtr context, const char *path, uint32_t *folderID) {
 
     int err;
 
@@ -59,7 +60,7 @@ int BLGetFileID(BLContextPtr context, const char * path, uint32_t *folderID) {
 
     err = getattrlist(path, &blist, &attrbuf, sizeof(attrbuf), 0);
     if (err) {
-        return 1;
+        return errno;
     };
 
     /*

@@ -1,7 +1,7 @@
 
 # Darwin libproc-based lsof Makefile
 #
-# $Id: Makefile,v 1.7 2009/03/25 19:21:37 abe Exp $
+# $Id: Makefile,v 1.7 2009/03/25 19:21:37 abe Exp abe $
 
 PROG=	lsof
 
@@ -26,10 +26,12 @@ GRP=    wheel
 HDR=    lsof.h lsof_fields.h dlsof.h machine.h proto.h dproto.h
 
 SRC=    ddev.c dfile.c dmnt.c dproc.c dsock.c dstore.c \
-	arg.c main.c misc.c node.c print.c proc.c store.c usage.c util.c
+	arg.c main.c misc.c node.c print.c proc.c store.c usage.c util.c \
+	dnetpolicy.c dchannel.c dnexus.c
 
 OBJ=	ddev.o dfile.o dmnt.o dproc.o dsock.o dstore.o \
-	arg.o main.o misc.o node.o print.o proc.o store.o usage.o util.o
+	arg.o main.o misc.o node.o print.o proc.o store.o usage.o util.o \
+	dnetpolicy.o dchannel.o dnexus.o
 
 MAN=	lsof.8
 
@@ -152,6 +154,12 @@ dmnt.o:		${HDR} dmnt.c
 dproc.o:	${HDR} dproc.c
 
 dsock.o:	${HDR} dsock.c
+
+dnetpolicy.o:	${HDR} dnetpolicy.c
+
+dnetchannel.o:	${HDR} dnetchannel.c
+
+dnetnexus.o:	${HDR} dnetnexus.c
 
 dstore.o:	${HDR} dstore.c
 

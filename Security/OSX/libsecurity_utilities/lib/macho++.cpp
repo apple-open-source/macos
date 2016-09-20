@@ -140,7 +140,7 @@ void MachOBase::initHeader(const mach_header *header)
 		m64 = true;
 		break;
 	default:
-		secdebug("macho", "%p: unrecognized header magic (%x)", this, mHeader->magic);
+		secinfo("macho", "%p: unrecognized header magic (%x)", this, mHeader->magic);
 		UnixError::throwMe(ENOEXEC);
 	}
 }
@@ -505,7 +505,7 @@ Universal::Universal(FileDesc fd, size_t offset /* = 0 */, size_t length /* = 0 
 			if (last_arch->cputype == (CPU_ARCH_ABI64 | CPU_TYPE_ARM)) {
 				mArchCount++;
 			}
-			secdebug("macho", "%p is a fat file with %d architectures",
+			secinfo("macho", "%p is a fat file with %d architectures",
 				this, mArchCount);
 
 			/* A Mach-O universal file has padding of no more than "page size"
@@ -579,14 +579,14 @@ Universal::Universal(FileDesc fd, size_t offset /* = 0 */, size_t length /* = 0 
 		mArchList = NULL;
 		mArchCount = 0;
 		mThinArch = Architecture(mheader.cputype, mheader.cpusubtype);
-		secdebug("macho", "%p is a thin file (%s)", this, mThinArch.name());
+		secinfo("macho", "%p is a thin file (%s)", this, mThinArch.name());
 		break;
 	case MH_CIGAM:
 	case MH_CIGAM_64:
 		mArchList = NULL;
 		mArchCount = 0;
 		mThinArch = Architecture(flip(mheader.cputype), flip(mheader.cpusubtype));
-		secdebug("macho", "%p is a thin file (%s)", this, mThinArch.name());
+		secinfo("macho", "%p is a thin file (%s)", this, mThinArch.name());
 		break;
 	default:
 		UnixError::throwMe(ENOEXEC);

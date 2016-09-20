@@ -1,6 +1,4 @@
 /*
- * "$Id: testbackend.c 11645 2014-02-27 16:35:53Z msweet $"
- *
  * Backend test program for CUPS.
  *
  * Copyright 2007-2014 by Apple Inc.
@@ -677,8 +675,3 @@ walk_cb(const char *oid,		/* I - OID */
 
   printf("CUPS_SC_CMD_SNMP_WALK %s, %d bytes (%s)\n", oid, datalen, temp);
 }
-
-
-/*
- * End of "$Id: testbackend.c 11645 2014-02-27 16:35:53Z msweet $".
- */

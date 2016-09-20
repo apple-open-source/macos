@@ -272,7 +272,8 @@ If neither
 .Fl P
 or
 .Fl p Ar password
-are specified, the user is prompted for a password on the command line.
+are specified, the user is prompted for a password on the command line. Use
+of the -p option is insecure.
 .El
 .It
 .Nm delete-keychain
@@ -437,7 +438,7 @@ Specify password to be added (legacy option, equivalent to
 .Fl w Ns
 \&)
 .It Fl w Ar password
-Specify password to be added
+Specify password to be added. Put at end of command to be prompted (recommended)
 .It Fl A
 Allow any application to access this item without warning (insecure, not recommended!)
 .It Fl T Ar appPath
@@ -491,7 +492,7 @@ Specify server name (required)
 .It Fl t Ar authenticationType
 Specify authentication type (as a four-character SecAuthenticationType, default is "dflt")
 .It Fl w Ar password
-Specify password to be added
+Specify password to be added. Put at end of command to be prompted (recommended)
 .It Fl A
 Allow any application to access this item without warning (insecure, not recommended!)
 .It Fl T Ar appPath
@@ -1107,7 +1108,7 @@ Add to admin cert store; default is user.
 .It Fl r Ar resultType
 resultType = trustRoot|trustAsRoot|deny|unspecified; default is trustRoot.
 .It Fl p Ar policy
-Specify policy constraint (ssl, smime, codeSign, IPSec, iChat, basic, swUpdate, pkgSign, pkinitClient, pkinitServer, eap).
+Specify policy constraint (ssl, smime, codeSign, IPSec, basic, swUpdate, pkgSign, eap, macappstore, appleID, timestamping).
 .It Fl r Ar resultType
 resultType = trustRoot|trustAsRoot|deny|unspecified; default is trustRoot.
 .It Fl a Ar appPath
@@ -1249,7 +1250,7 @@ Certificate to verify, in DER or PEM format. Can be specified more than once; le
 .It Fl r Ar rootCertFile
 Root certificate, in DER or PEM format. Can be specified more than once. If not specified, the system anchor certificates are used. If one root certificate is specified, and zero (non-root) certificates are specified, the root certificate is verified against itself. 
 .It Fl p Ar policy
-Specify verification policy (ssl, smime, codeSign, IPSec, iChat, basic, swUpdate, pkgSign, pkinitClient, pkinitServer, eap, appleID, macappstore, timestamping). Default is basic.
+Specify verification policy (ssl, smime, codeSign, IPSec, basic, swUpdate, pkgSign, eap, appleID, macappstore, timestamping). Default is basic.
 .It Fl k Ar keychain
 Keychain to search for intermediate certs. Can be specified multiple times. Default is the current user's keychain search list.
 .It Fl d Ar date
@@ -1369,6 +1370,39 @@ Ignore leaks called from
 .El
 .El
 .It
+.Nm smartcards
+.Ar token
+.Op Fl l
+.Op Fl e Ar token
+.Op Fl d Ar token
+.Bl -item -offset -indent
+Enable, disable or list disabled smartcard tokens.
+.It
+Options:
+.Bl -tag -compact -width -indent-indent
+.It Fl l
+List disabled smartcard tokens.
+.It Fl e Ar token
+Enable smartcard token.
+.It Fl d Ar token
+Disable smartcard token.
+.El
+.It
+.Sy To list tokens available in the system
+.It
+.Bl -tag -compact -width -indent
+.It pluginkit -m -p com.apple.ctk-tokens
+.El
+.It
+.Sy Examples
+.It
+.Bl -tag -compact -width -indent
+.It security smartcards token -l
+.It security smartcards token -d com.apple.CryptoTokenKit.pivtoken
+.It security smartcards token -e com.apple.CryptoTokenKit.pivtoken
+.El
+.El
+.It
 .Nm error
 .Op Fl h
 .Op Ar <error code(s)...>
@@ -1406,7 +1440,8 @@ Property list file containing the common keychain search list, which is appended
 .\" List links in ascending order by section, alphabetically within a section.
 .\" Please do not reference files that do not exist without filing a bug report
 .Xr certtool 1 ,
-.Xr leaks 1
+.Xr leaks 1 ,
+.Xr pluginkit 8
 .\" .Xr systemkeychain 8 
 .Sh HISTORY
 .Nm

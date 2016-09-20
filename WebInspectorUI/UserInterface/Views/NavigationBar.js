@@ -42,6 +42,7 @@ WebInspector.NavigationBar = class NavigationBar extends WebInspector.View
         this.element.addEventListener("keydown", this._keyDown.bind(this), false);
         this.element.addEventListener("mousedown", this._mouseDown.bind(this), false);
 
+        this._forceLayout = false;
         this._minimumWidth = NaN;
         this._navigationItems = [];
 
@@ -160,17 +161,29 @@ WebInspector.NavigationBar = class NavigationBar extends WebInspector.View
         return false;
     }
 
+    needsLayout()
+    {
+        this._forceLayout = true;
+
+        super.needsLayout();
+    }
+
     layout()
     {
+        if (this.layoutReason !== WebInspector.View.LayoutReason.Resize && !this._forceLayout)
+            return;
+
+        this._forceLayout = false;
+
         // Remove the collapsed style class to test if the items can fit at full width.
         this.element.classList.remove(WebInspector.NavigationBar.CollapsedStyleClassName);
 
         // Tell each navigation item to update to full width if needed.
-        for (var navigationItem of this._navigationItems)
+        for (let navigationItem of this._navigationItems)
             navigationItem.updateLayout(true);
 
-        var totalItemWidth = 0;
-        for (var navigationItem of this._navigationItems) {
+        let totalItemWidth = 0;
+        for (let navigationItem of this._navigationItems) {
             // Skip flexible space items since they can take up no space at the minimum width.
             if (navigationItem instanceof WebInspector.FlexibleSpaceNavigationItem)
                 continue;
@@ -178,14 +191,14 @@ WebInspector.NavigationBar = class NavigationBar extends WebInspector.View
             totalItemWidth += navigationItem.element.realOffsetWidth;
         }
 
-        var barWidth = this.element.realOffsetWidth;
+        const barWidth = this.element.realOffsetWidth;
 
         // Add the collapsed class back if the items are wider than the bar.
         if (totalItemWidth > barWidth)
             this.element.classList.add(WebInspector.NavigationBar.CollapsedStyleClassName);
 
         // Give each navigation item the opportunity to collapse further.
-        for (var navigationItem of this._navigationItems)
+        for (let navigationItem of this._navigationItems)
             navigationItem.updateLayout(false);
     }
 
@@ -355,18 +368,19 @@ WebInspector.NavigationBar = class NavigationBar extends WebInspector.View
 
     _calculateMinimumWidth()
     {
-        var wasCollapsed = this.element.classList.contains(WebInspector.NavigationBar.CollapsedStyleClassName);
+        const wasCollapsed = this.element.classList.contains(WebInspector.NavigationBar.CollapsedStyleClassName);
 
         // Add the collapsed style class to calculate the width of the items when they are collapsed.
         if (!wasCollapsed)
             this.element.classList.add(WebInspector.NavigationBar.CollapsedStyleClassName);
 
-        var totalItemWidth = 0;
-        for (var i = 0; i < this._navigationItems.length; ++i) {
+        let totalItemWidth = 0;
+        for (let item of this._navigationItems) {
             // Skip flexible space items since they can take up no space at the minimum width.
-            if (this._navigationItems[i] instanceof WebInspector.FlexibleSpaceNavigationItem)
+            if (item instanceof WebInspector.FlexibleSpaceNavigationItem)
                 continue;
-            totalItemWidth += this._navigationItems[i].element.realOffsetWidth;
+
+            totalItemWidth += item.minimumWidth;
         }
 
         // Remove the collapsed style class if we were not collapsed before.

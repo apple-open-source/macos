@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 Google Inc. All rights reserved.
+ * Copyright (C) 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -55,29 +56,30 @@ public:
         virtual void setProperty(const String& name, const String& value);
     };
 
-    WEBCORE_EXPORT InspectorFrontendClientLocal(InspectorController*, Page*, std::unique_ptr<Settings>);
+    WEBCORE_EXPORT InspectorFrontendClientLocal(InspectorController* inspectedPageController, Page* frontendPage, std::unique_ptr<Settings>);
     WEBCORE_EXPORT virtual ~InspectorFrontendClientLocal();
 
-    WEBCORE_EXPORT virtual void windowObjectCleared() override final;
-    WEBCORE_EXPORT virtual void frontendLoaded() override;
+    WEBCORE_EXPORT void windowObjectCleared() final;
+    WEBCORE_EXPORT void frontendLoaded() override;
 
-    virtual void startWindowDrag() override { }
-    WEBCORE_EXPORT virtual void moveWindowBy(float x, float y) override final;
+    void startWindowDrag() override { }
+    WEBCORE_EXPORT void moveWindowBy(float x, float y) final;
 
-    WEBCORE_EXPORT virtual void requestSetDockSide(DockSide) override final;
-    WEBCORE_EXPORT virtual void changeAttachedWindowHeight(unsigned) override final;
-    WEBCORE_EXPORT virtual void changeAttachedWindowWidth(unsigned) override final;
-    WEBCORE_EXPORT virtual void openInNewTab(const String& url) override final;
-    virtual bool canSave()  override { return false; }
-    virtual void save(const String&, const String&, bool, bool) override { }
-    virtual void append(const String&, const String&) override { }
+    WEBCORE_EXPORT void requestSetDockSide(DockSide) final;
+    WEBCORE_EXPORT void changeAttachedWindowHeight(unsigned) final;
+    WEBCORE_EXPORT void changeAttachedWindowWidth(unsigned) final;
+    WEBCORE_EXPORT void openInNewTab(const String& url) final;
+    bool canSave()  override { return false; }
+    void save(const String&, const String&, bool, bool) override { }
+    void append(const String&, const String&) override { }
 
     virtual void attachWindow(DockSide) = 0;
     virtual void detachWindow() = 0;
 
-    WEBCORE_EXPORT virtual void sendMessageToBackend(const String& message) override final;
+    WEBCORE_EXPORT void sendMessageToBackend(const String& message) final;
 
-    WEBCORE_EXPORT virtual bool isUnderTest() override final;
+    WEBCORE_EXPORT bool isUnderTest() final;
+    WEBCORE_EXPORT unsigned inspectionLevel() const final;
 
     WEBCORE_EXPORT bool canAttachWindow();
     WEBCORE_EXPORT void setDockingUnavailable(bool);
@@ -104,6 +106,8 @@ public:
 
     WEBCORE_EXPORT void setAttachedWindow(DockSide);
 
+    WEBCORE_EXPORT Page* inspectedPage() const;
+    Page* frontendPage() const { return m_frontendPage; }
 protected:
     virtual void setAttachedWindowHeight(unsigned) = 0;
     virtual void setAttachedWindowWidth(unsigned) = 0;
@@ -114,15 +118,15 @@ private:
     void evaluateOnLoad(const String& expression);
 
     friend class FrontendMenuProvider;
-    InspectorController* m_inspectorController;
-    Page* m_frontendPage;
+    InspectorController* m_inspectedPageController { nullptr };
+    Page* m_frontendPage { nullptr };
     // TODO(yurys): this ref shouldn't be needed.
     RefPtr<InspectorFrontendHost> m_frontendHost;
     std::unique_ptr<InspectorFrontendClientLocal::Settings> m_settings;
-    bool m_frontendLoaded;
+    bool m_frontendLoaded { false };
     DockSide m_dockSide;
     Vector<String> m_evaluateOnLoad;
-    std::unique_ptr<InspectorBackendDispatchTask> m_dispatchTask;
+    Ref<InspectorBackendDispatchTask> m_dispatchTask;
 };
 
 } // namespace WebCore

@@ -691,6 +691,7 @@
 				EBD3503612F8ED62000C5F2C /* checktrigger */,
 			);
 			sourceTree = "<group>";
+			usesTabs = 1;
 		};
 		C10DA69605E2C6FD000E258E /* autofs_kext */ = {
 			isa = PBXGroup;
@@ -1508,6 +1509,638 @@
 			};
 			name = Release;
 		};
+		C626F0831CEFBFC6004F8D89 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = (
+					"-fprofile-instr-generate",
+					"-fcoverage-mapping",
+				);
+				OTHER_LDFLAGS = "-fprofile-instr-generate";
+				SDKROOT = macosx.internal;
+			};
+			name = DebugCoverage;
+		};
+		C626F0841CEFBFC6004F8D89 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_LDFLAGS = "-fprofile-instr-generate";
+				PRODUCT_NAME = "autofs-package";
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "i386 x86_64";
+			};
+			name = DebugCoverage;
+		};
+		C626F0851CEFBFC6004F8D89 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				EXPORTED_SYMBOLS_FILE = autofs_kext/autofs.exp;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_ALLOW_INCOMPLETE_PROTOCOL = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = autofs_kext/Info.plist;
+				MODULE_NAME = com.apple.filesystems.autofs;
+				MODULE_START = auto_module_start;
+				MODULE_STOP = auto_module_stop;
+				MODULE_VERSION = 1.0.0d1;
+				OTHER_CFLAGS = (
+					"-D__MigKernelSpecificCode",
+					"-D__MigTypeCheck=1",
+					"$(inherited)",
+				);
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = autofs;
+				VALID_ARCHS = "i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wformat=2",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = DebugCoverage;
+		};
+		C626F0861CEFBFC6004F8D89 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNKNOWN_PRAGMAS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /usr/libexec;
+				OTHER_CFLAGS = (
+					"-D_DARWIN_USE_64_BIT_INODE",
+					"-D__MigTypeCheck=1",
+					"-DCODE_COVERAGE=1",
+					"$(inherited)",
+					"-fprofile-generate=/tmp/cc/autofs/autofsd.%p",
+				);
+				OTHER_LDFLAGS = "$(inherited)";
+				PRODUCT_NAME = autofsd;
+				VALID_ARCHS = "i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wformat=2",
+				);
+			};
+			name = DebugCoverage;
+		};
+		C626F0871CEFBFC6004F8D89 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+					"$(SRCROOT)",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = (
+					"-D_DARWIN_USE_64_BIT_INODE",
+					"-D__MigTypeCheck=1",
+					"$(inherited)",
+					"-fprofile-generate=/tmp/cc/autofs/automount.%p",
+				);
+				OTHER_LDFLAGS = (
+					"-lutil",
+					"$(inherited)",
+				);
+				PRODUCT_NAME = automount;
+				VALID_ARCHS = "i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wformat=2",
+					"-Wno-format-nonliteral",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = DebugCoverage;
+		};
+		C626F0881CEFBFC6004F8D89 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2)",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /usr/libexec;
+				OTHER_CFLAGS = (
+					"-D_DARWIN_USE_64_BIT_INODE",
+					"-D__MigTypeCheck=1",
+					"-DCODE_COVERAGE=1",
+					"$(inherited)",
+					"-fprofile-generate=/tmp/cc/autofs/automountd.%p",
+				);
+				OTHER_LDFLAGS = (
+					"-lutil",
+					"$(inherited)",
+				);
+				PRODUCT_NAME = automountd;
+				VALID_ARCHS = "i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wformat=2",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = DebugCoverage;
+		};
+		C626F0891CEFBFC6004F8D89 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386";
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_PROTOTYPE_CONVERSION = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNKNOWN_PRAGMAS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/autofs.kext/Contents/Resources";
+				OTHER_CFLAGS = (
+					"-D_DARWIN_USE_64_BIT_INODE",
+					"-D__MigTypeCheck=1",
+					"$(inherited)",
+					"-fprofile-generate=/tmp/cc/autofs/checktrigger.%p",
+				);
+				PRODUCT_NAME = checktrigger;
+				VALID_ARCHS = "i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wformat=2",
+				);
+			};
+			name = DebugCoverage;
+		};
+		C626F08A1CEFBFC6004F8D89 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386";
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNKNOWN_PRAGMAS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/autofs.kext/Contents/Resources";
+				OTHER_CFLAGS = (
+					"-D_DARWIN_USE_64_BIT_INODE",
+					"-D__MigTypeCheck=1",
+					"$(inherited)",
+					"-fprofile-generate=/tmp/cc/autofs/dumpammap.%p",
+				);
+				PRODUCT_NAME = dumpammap;
+				VALID_ARCHS = "i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wformat=2",
+					"-Wno-format-nonliteral",
+				);
+			};
+			name = DebugCoverage;
+		};
+		C626F08B1CEFBFC6004F8D89 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386";
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_PROTOTYPE_CONVERSION = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNKNOWN_PRAGMAS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/autofs.kext/Contents/Resources";
+				OTHER_CFLAGS = (
+					"-D_DARWIN_USE_64_BIT_INODE",
+					"-D__MigTypeCheck=1",
+					"$(inherited)",
+					"-fprofile-generate=/tmp/cc/autofs/dumpfstab.%p",
+				);
+				PRODUCT_NAME = dumpfstab;
+				VALID_ARCHS = "i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wformat=2",
+				);
+			};
+			name = DebugCoverage;
+		};
+		C626F08C1CEFBFC6004F8D89 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_OPTIMIZATION_LEVEL = 0;
+				PRODUCT_NAME = files;
+				VALID_ARCHS = "i386 x86_64";
+			};
+			name = DebugCoverage;
+		};
+		C626F08D1CEFBFC6004F8D89 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386";
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_PROTOTYPE_CONVERSION = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNKNOWN_PRAGMAS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /usr/local/bin;
+				OTHER_CFLAGS = (
+					"-D_DARWIN_USE_64_BIT_INODE",
+					"-D__MigTypeCheck=1",
+					"$(inherited)",
+					"-fprofile-generate=/tmp/cc/autofs/mount_autofs.%p",
+				);
+				OTHER_LDFLAGS = "$(inherited)";
+				PRODUCT_NAME = mount_autofs;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+				);
+			};
+			name = DebugCoverage;
+		};
+		C626F08E1CEFBFC6004F8D89 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNKNOWN_PRAGMAS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /usr/libexec;
+				OTHER_CFLAGS = (
+					"-D_DARWIN_USE_64_BIT_INODE",
+					"-D__MigTypeCheck=1",
+					"$(inherited)",
+					"-fprofile-generate=/tmp/cc/autofs/mount_url.%p",
+				);
+				OTHER_LDFLAGS = (
+					"-lutil",
+					"$(inherited)",
+				);
+				PRODUCT_NAME = mount_url;
+				VALID_ARCHS = "i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wformat=2",
+				);
+			};
+			name = DebugCoverage;
+		};
+		C626F08F1CEFBFC6004F8D89 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = YES;
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386";
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNKNOWN_PRAGMAS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /usr/libexec;
+				OTHER_CFLAGS = (
+					"-D_DARWIN_USE_64_BIT_INODE",
+					"-D__MigTypeCheck=1",
+					"$(inherited)",
+					"-fprofile-generate=/tmp/cc/autofs/od_user_homes.%p",
+				);
+				PRODUCT_NAME = od_user_homes;
+				VALID_ARCHS = "i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wformat=2",
+				);
+			};
+			name = DebugCoverage;
+		};
+		C626F0901CEFBFC6004F8D89 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386";
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNKNOWN_PRAGMAS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/autofs.kext/Contents/Resources";
+				OTHER_CFLAGS = (
+					"-D_DARWIN_USE_64_BIT_INODE",
+					"-D__MigTypeCheck=1",
+					"$(inherited)",
+					"-fprofile-generate=/tmp/cc/autofs/smbremountserver.%p",
+				);
+				PRODUCT_NAME = smbremountserver;
+				VALID_ARCHS = "i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wformat=2",
+				);
+			};
+			name = DebugCoverage;
+		};
+		C626F0911CEFBFC6004F8D89 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				EXPORTED_SYMBOLS_FILE = triggers_kext/triggers.exp;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_ALLOW_INCOMPLETE_PROTOCOL = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNKNOWN_PRAGMAS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = triggers_kext/Info.plist;
+				MODULE_NAME = com.apple.kext.triggers;
+				MODULE_START = triggers_start;
+				MODULE_STOP = triggers_stop;
+				MODULE_VERSION = 1.0.0d1;
+				OTHER_CFLAGS = (
+					"-D__MigKernelSpecificCode",
+					"-D__MigTypeCheck=1",
+					"$(inherited)",
+				);
+				OTHER_LDFLAGS = "";
+				PRIVATE_HEADERS_FOLDER_PATH = /System/Library/Frameworks/Kernel.framework/Versions/A/PrivateHeaders/Triggers;
+				PRODUCT_NAME = triggers;
+				VALID_ARCHS = "i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wformat=2",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = DebugCoverage;
+		};
+		C626F0921CEFBFC6004F8D89 /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				PRODUCT_NAME = watch_for_automounts;
+			};
+			name = DebugCoverage;
+		};
 		EB0024A909776024002F9164 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1716,6 +2349,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx.internal;
 			};
 			name = Debug;
 		};
@@ -1723,6 +2357,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
+				SDKROOT = macosx.internal;
 			};
 			name = Release;
 		};
@@ -2592,6 +3227,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				727586EA12384EDB00FAFEDE /* Debug */,
+				C626F0901CEFBFC6004F8D89 /* DebugCoverage */,
 				727586EB12384EDB00FAFEDE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -2601,6 +3237,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB0024A909776024002F9164 /* Debug */,
+				C626F0851CEFBFC6004F8D89 /* DebugCoverage */,
 				EB0024AA09776024002F9164 /* Release */,
 			);
 			defaultConfigurationIsVisible = 1;
@@ -2610,6 +3247,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB0024AD09776024002F9164 /* Debug */,
+				C626F08D1CEFBFC6004F8D89 /* DebugCoverage */,
 				EB0024AE09776024002F9164 /* Release */,
 			);
 			defaultConfigurationIsVisible = 1;
@@ -2619,6 +3257,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB0024B509776024002F9164 /* Debug */,
+				C626F0841CEFBFC6004F8D89 /* DebugCoverage */,
 				EB0024B609776024002F9164 /* Release */,
 			);
 			defaultConfigurationIsVisible = 1;
@@ -2628,6 +3267,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB0024B909776024002F9164 /* Debug */,
+				C626F0831CEFBFC6004F8D89 /* DebugCoverage */,
 				EB0024BA09776024002F9164 /* Release */,
 			);
 			defaultConfigurationIsVisible = 1;
@@ -2637,6 +3277,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB275CF40A6879B40087A086 /* Debug */,
+				C626F08C1CEFBFC6004F8D89 /* DebugCoverage */,
 				EB275CF50A6879B40087A086 /* Release */,
 			);
 			defaultConfigurationIsVisible = 1;
@@ -2646,6 +3287,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB2F18D10BDDAED800E29EAE /* Debug */,
+				C626F08E1CEFBFC6004F8D89 /* DebugCoverage */,
 				EB2F18D20BDDAED800E29EAE /* Release */,
 			);
 			defaultConfigurationIsVisible = 1;
@@ -2655,6 +3297,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB3B541F118BD60900494F2B /* Debug */,
+				C626F08A1CEFBFC6004F8D89 /* DebugCoverage */,
 				EB3B5420118BD60900494F2B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -2664,6 +3307,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB3B5430118BD6F900494F2B /* Debug */,
+				C626F08B1CEFBFC6004F8D89 /* DebugCoverage */,
 				EB3B5431118BD6F900494F2B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -2673,6 +3317,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB6CDCDE09D9E73800EA0B49 /* Debug */,
+				C626F0881CEFBFC6004F8D89 /* DebugCoverage */,
 				EB6CDCDF09D9E73800EA0B49 /* Release */,
 			);
 			defaultConfigurationIsVisible = 1;
@@ -2682,6 +3327,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB711C2A123587CB00C115E6 /* Debug */,
+				C626F08F1CEFBFC6004F8D89 /* DebugCoverage */,
 				EB711C2B123587CB00C115E6 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -2691,6 +3337,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB7DD264121B7FCC0035D359 /* Debug */,
+				C626F0921CEFBFC6004F8D89 /* DebugCoverage */,
 				EB7DD265121B7FCC0035D359 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -2700,6 +3347,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBC735F30BC72328002AD444 /* Debug */,
+				C626F0871CEFBFC6004F8D89 /* DebugCoverage */,
 				EBC735F40BC72328002AD444 /* Release */,
 			);
 			defaultConfigurationIsVisible = 1;
@@ -2709,6 +3357,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBD3503812F8ED63000C5F2C /* Debug */,
+				C626F0891CEFBFC6004F8D89 /* DebugCoverage */,
 				EBD3503912F8ED63000C5F2C /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -2718,6 +3367,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBDCE62A0A671EEF0058A293 /* Debug */,
+				C626F0861CEFBFC6004F8D89 /* DebugCoverage */,
 				EBDCE62B0A671EEF0058A293 /* Release */,
 			);
 			defaultConfigurationIsVisible = 1;
@@ -2727,6 +3377,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBE7B73E10F844F300F4474C /* Debug */,
+				C626F0911CEFBFC6004F8D89 /* DebugCoverage */,
 				EBE7B73F10F844F300F4474C /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;

@@ -31,7 +31,7 @@
 //
 // CFSet of PeerInfos by ID.
 //
-const CFSetCallBacks kSOSPeerSetCallbacks;
+extern const CFSetCallBacks kSOSPeerSetCallbacks;
 CFMutableSetRef CFSetCreateMutableForSOSPeerInfosByID(CFAllocatorRef allocator);
 CFMutableSetRef CFSetCreateMutableForSOSPeerInfosByIDWithArray(CFAllocatorRef allocator, CFArrayRef peerInfos);
 

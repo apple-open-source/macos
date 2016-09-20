@@ -23,8 +23,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef IndexedDB_h
-#define IndexedDB_h
+#pragma once
 
 #if ENABLE(INDEXED_DATABASE)
 
@@ -38,6 +37,14 @@ enum class TransactionMode {
     VersionChange = 2,
 };
 const unsigned TransactionModeMaximum = 2;
+
+enum class TransactionState {
+    Active,
+    Inactive,
+    Committing,
+    Aborting,
+    Finished,
+};
 
 enum class CursorDirection {
     Next = 0,
@@ -53,9 +60,42 @@ enum class CursorType {
 };
 const unsigned CursorTypeMaximum = 1;
 
+enum class CursorSource {
+    Index,
+    ObjectStore,
+};
+
 enum class VersionNullness {
     Null,
     NonNull,
+};
+
+enum class ObjectStoreOverwriteMode {
+    Overwrite,
+    OverwriteForCursor,
+    NoOverwrite,
+};
+
+enum class IndexRecordType {
+    Key,
+    Value,
+};
+
+// In order of the least to the highest precedent in terms of sort order.
+enum KeyType {
+    Max = -1,
+    Invalid = 0,
+    Array,
+    String,
+    Date,
+    Number,
+    Min,
+};
+
+enum class RequestType {
+    Open,
+    Delete,
+    Other,
 };
 
 } // namespace IndexedDB
@@ -63,5 +103,3 @@ enum class VersionNullness {
 } // namespace WebCore
 
 #endif // ENABLED(INDEXED_DATABASE)
-
-#endif // IndexedDB_h

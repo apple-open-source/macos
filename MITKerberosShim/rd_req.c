@@ -94,12 +94,12 @@ mshim_hticket2mticket(krb5_context context, krb5_ticket *h, mit_krb5_ticket *m)
     m->enc_part2->transited.tr_contents.data = NULL;
     m->enc_part2->transited.tr_contents.length = 0;
 
-    m->enc_part2->times.authtime = h->ticket.authtime;
+    m->enc_part2->times.authtime = (mit_krb5_timestamp)h->ticket.authtime;
     m->enc_part2->times.starttime =
-	h->ticket.starttime ? *h->ticket.starttime : 0 ;
-    m->enc_part2->times.endtime = h->ticket.endtime;
+	h->ticket.starttime ? (mit_krb5_timestamp)*h->ticket.starttime : 0 ;
+    m->enc_part2->times.endtime = (mit_krb5_timestamp)h->ticket.endtime;
     m->enc_part2->times.renew_till =
-	h->ticket.renew_till ? *h->ticket.renew_till : 0 ;
+	h->ticket.renew_till ? (mit_krb5_timestamp)*h->ticket.renew_till : 0 ;
 
     m->enc_part2->caddrs = NULL;
     m->enc_part2->authorization_data = NULL;
@@ -187,7 +187,7 @@ match_appl_version(const void *ptr, const char *str)
     mit_krb5_data *version = (mit_krb5_data *)ptr;
     version->magic = MIT_KV5M_DATA;
     version->data = strdup(str);
-    version->length = strlen(str);
+    version->length = (unsigned int)strlen(str);
     return 1;
 }
 

@@ -4,21 +4,28 @@
 
 Project = nfsd
 
+CCOVERAGEDIR ?= /tmp/cc/nfs
+
 inplace:
 	@$(MAKE) all SRCROOT=. OBJROOT=. SYMROOT=. DSTROOT=/
 
+coverage:
+	@$(MAKE) inplace CC_COVERAGE_FLAGS="-fprofile-instr-generate -fcoverage-mapping -fprofile-generate=$(CCOVERAGEDIR)/$(Project).%p -O0" LD_COVERAGE_FLAGS="-fprofile-instr-generate"
+
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
-SDKROOT ?= /
+ifndef SDKROOT
+SDKROOT := $(shell xcrun --sdk macosx.internal --show-sdk-path)
+endif
 LOCKDROOT = $(SRCROOT)/../rpc.lockd
 
 WARNING_FLAGS = -Wall -Wextra -Wformat=2 -Wpointer-arith -Wcast-align \
 		-Wwrite-strings -Wno-unknown-pragmas \
 		-Wno-missing-field-initializers -Wno-shadow
 Extra_CC_Flags = $(WARNING_FLAGS) -D_FORTIFY_SOURCE=2 \
-		 -F$(SDKROOT)/System/Library/PrivateFrameworks -I $(SRCROOT) -I $(LOCKDROOT) -I $(OBJROOT) -fPIE
+		 -F$(SDKROOT)/System/Library/PrivateFrameworks -I $(SRCROOT) -I $(LOCKDROOT) -I $(OBJROOT) -fPIE $(CC_COVERAGE_FLAGS)
 Extra_LD_Flags = -Wl,-pie -lutil -framework oncrpc -framework DiskArbitration \
-		  -framework ServiceManagement -framework CoreFoundation
+		  -framework ServiceManagement -framework IOKit -framework CoreFoundation $(LD_COVERAGE_FLAGS)
 
 ifeq "$(RC_TARGET_CONFIG)" "iPhone"
 Extra_CC_Flags += -isysroot $(SDKROOT)
@@ -28,11 +35,12 @@ DST_DIR = $(DSTROOT)/sbin
 LAUNCHD_DIR = $(DSTROOT)/System/Library/LaunchDaemons
 MAN5_DIR = $(DSTROOT)/usr/share/man/man5
 MAN8_DIR = $(DSTROOT)/usr/share/man/man8
+DSYM = $(Project).dSYM
 
 #
 # Standard B&I targets
 #
-all: $(SYMROOT)/nfsd
+all: $(SYMROOT)/$(DSYM)
 
 install:: all
 	install -d -o root -g wheel -m 755 $(DST_DIR)
@@ -47,7 +55,7 @@ install:: all
 	install -c -o root -g wheel -m 444 $(SRCROOT)/netgroup.5 $(MAN5_DIR)
 
 clean::
-	-rm -f *.o nfsd $(MIG_GEN_FILES)
+	-rm -rf *.o nfsd $(MIG_GEN_FILES) $(DSYM)
 
 #
 # Build
@@ -61,7 +69,6 @@ HFILES = common.h pathnames.h
 CFILES = main.c nfsd.c mountd.c
 OFILES = $(CFILES:.c=.o) $(MIG_GEN_CFILES:.c=.o)
 
-	
 $(OFILES:%=$(OBJROOT)/%): $(HFILES:%=$(SRCROOT)/%) $(MIG_GEN_HFILES:%=$(OBJROOT)/%)
 $(OFILES): $(HFILES) $(MIG_GEN_HFILES)
 
@@ -78,3 +85,5 @@ $(MIG_OUT_FILES): $(MIG_DEF_FILES)
 $(SYMROOT)/nfsd: $(addprefix $(OBJROOT)/, $(OFILES))
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
+$(SYMROOT)/$(DSYM): $(SYMROOT)/nfsd
+	$(DSYMUTIL) -o $@ $<

@@ -24,8 +24,8 @@
 
 namespace WebCore {
 
-RenderTableCaption::RenderTableCaption(Element& element, Ref<RenderStyle>&& style)
-    : RenderBlockFlow(element, WTF::move(style))
+RenderTableCaption::RenderTableCaption(Element& element, RenderStyle&& style)
+    : RenderBlockFlow(element, WTFMove(style))
 {
 }
 

@@ -36,15 +36,15 @@ class ImageControlsButtonElementMac final : public HTMLDivElement {
 public:
     virtual ~ImageControlsButtonElementMac();
 
-    static PassRefPtr<ImageControlsButtonElementMac> maybeCreate(Document&);
+    static RefPtr<ImageControlsButtonElementMac> tryCreate(Document&);
 
 private:
     ImageControlsButtonElementMac(Document&);
 
-    virtual void defaultEventHandler(Event*) override;
-    virtual RenderPtr<RenderElement> createElementRenderer(Ref<RenderStyle>&&, const RenderTreePosition&) override;
+    void defaultEventHandler(Event*) override;
+    RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) override;
 
-    virtual bool isImageControlsButtonElement() const override { return true; }
+    bool isImageControlsButtonElement() const override { return true; }
 };
 
 } // namespace WebCore

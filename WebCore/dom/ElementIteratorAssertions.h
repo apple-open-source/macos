@@ -27,14 +27,16 @@
 #define ElementIteratorAssertions_h
 
 #include "Element.h"
+#include "NoEventDispatchAssertion.h"
 
 namespace WebCore {
 
 class ElementIteratorAssertions {
 public:
-    ElementIteratorAssertions(const Element* first = nullptr);
+    ElementIteratorAssertions(const Node* first = nullptr);
     bool domTreeHasMutated() const;
     void dropEventDispatchAssertion();
+    void clear();
 
 private:
     const Document* m_document;
@@ -44,7 +46,7 @@ private:
 
 // FIXME: No real point in doing these as inlines; they are for debugging and we usually turn off inlining in debug builds.
 
-inline ElementIteratorAssertions::ElementIteratorAssertions(const Element* first)
+inline ElementIteratorAssertions::ElementIteratorAssertions(const Node* first)
     : m_document(first ? &first->document() : nullptr)
     , m_initialDOMTreeVersion(first ? m_document->domTreeVersion() : 0)
 {
@@ -61,6 +63,14 @@ inline void ElementIteratorAssertions::dropEventDispatchAssertion()
 {
     m_eventDispatchAssertion = Nullopt;
 }
+
+inline void ElementIteratorAssertions::clear()
+{
+    m_document = nullptr;
+    m_initialDOMTreeVersion = 0;
+    m_eventDispatchAssertion = Nullopt;
+}
+
 
 }
 

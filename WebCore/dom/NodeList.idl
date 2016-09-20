@@ -21,15 +21,12 @@
 [
     CustomIsReachable,
     CustomToJSObject,
-    JSCustomGetOwnPropertySlotAndDescriptor,
     JSCustomHeader,
     SkipVTableValidation,
     ReportExtraMemoryCost,
 ] interface NodeList {
-
     getter Node item(unsigned long index);
-
     readonly attribute unsigned long length;
-
+    [EnabledAtRuntime=DOMIterator] iterable<Node>;
 };
 

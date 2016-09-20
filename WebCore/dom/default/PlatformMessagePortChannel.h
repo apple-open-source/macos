@@ -34,7 +34,6 @@
 #include "MessagePortChannel.h"
 
 #include <wtf/MessageQueue.h>
-#include <wtf/PassRefPtr.h>
 #include <wtf/Threading.h>
 
 namespace WebCore {
@@ -49,10 +48,10 @@ namespace WebCore {
         class EventData {
             WTF_MAKE_NONCOPYABLE(EventData); WTF_MAKE_FAST_ALLOCATED;
         public:
-            EventData(PassRefPtr<SerializedScriptValue> message, std::unique_ptr<MessagePortChannelArray>);
+            EventData(RefPtr<SerializedScriptValue>&& message, std::unique_ptr<MessagePortChannelArray>);
 
-            PassRefPtr<SerializedScriptValue> message() { return m_message; }
-            std::unique_ptr<MessagePortChannelArray> channels() { return WTF::move(m_channels); }
+            RefPtr<SerializedScriptValue> message() { return m_message; }
+            std::unique_ptr<MessagePortChannelArray> channels() { return WTFMove(m_channels); }
 
         private:
             RefPtr<SerializedScriptValue> m_message;
@@ -71,7 +70,7 @@ namespace WebCore {
 
             bool appendAndCheckEmpty(std::unique_ptr<PlatformMessagePortChannel::EventData> message)
             {
-                return m_queue.appendAndCheckEmpty(WTF::move(message));
+                return m_queue.appendAndCheckEmpty(WTFMove(message));
             }
 
             bool isEmpty()
@@ -87,16 +86,16 @@ namespace WebCore {
 
         ~PlatformMessagePortChannel();
 
-        static Ref<PlatformMessagePortChannel> create(PassRefPtr<MessagePortQueue> incoming, PassRefPtr<MessagePortQueue> outgoing);
-        PlatformMessagePortChannel(PassRefPtr<MessagePortQueue> incoming, PassRefPtr<MessagePortQueue> outgoing);
+        static Ref<PlatformMessagePortChannel> create(MessagePortQueue* incoming, MessagePortQueue* outgoing);
+        PlatformMessagePortChannel(MessagePortQueue* incoming, MessagePortQueue* outgoing);
 
-        PassRefPtr<PlatformMessagePortChannel> entangledChannel();
+        RefPtr<PlatformMessagePortChannel> entangledChannel();
 
         void setRemotePort(MessagePort*);
         void closeInternal();
 
-        // Mutex used to ensure exclusive access to the object internals.
-        Mutex m_mutex;
+        // Lock used to ensure exclusive access to the object internals.
+        Lock m_mutex;
 
         // Pointer to our entangled pair - cleared when close() is called.
         RefPtr<PlatformMessagePortChannel> m_entangledChannel;
@@ -106,7 +105,7 @@ namespace WebCore {
         RefPtr<MessagePortQueue> m_outgoingQueue;
 
         // The port we are connected to (the remote port) - this is the port that is notified when new messages arrive.
-        MessagePort* m_remotePort;
+        MessagePort* m_remotePort { nullptr };
     };
 
 } // namespace WebCore

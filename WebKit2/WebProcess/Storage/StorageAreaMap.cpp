@@ -26,7 +26,6 @@
 #include "config.h"
 #include "StorageAreaMap.h"
 
-#include "SecurityOriginData.h"
 #include "StorageAreaImpl.h"
 #include "StorageAreaMapMessages.h"
 #include "StorageManagerMessages.h"
@@ -39,6 +38,7 @@
 #include <WebCore/MainFrame.h>
 #include <WebCore/Page.h>
 #include <WebCore/PageGroup.h>
+#include <WebCore/SecurityOriginData.h>
 #include <WebCore/Storage.h>
 #include <WebCore/StorageEventDispatcher.h>
 #include <WebCore/StorageMap.h>
@@ -55,7 +55,7 @@ static uint64_t generateStorageMapID()
 
 Ref<StorageAreaMap> StorageAreaMap::create(StorageNamespaceImpl* storageNamespace, Ref<WebCore::SecurityOrigin>&& securityOrigin)
 {
-    return adoptRef(*new StorageAreaMap(storageNamespace, WTF::move(securityOrigin)));
+    return adoptRef(*new StorageAreaMap(storageNamespace, WTFMove(securityOrigin)));
 }
 
 StorageAreaMap::StorageAreaMap(StorageNamespaceImpl* storageNamespace, Ref<WebCore::SecurityOrigin>&& securityOrigin)
@@ -64,7 +64,7 @@ StorageAreaMap::StorageAreaMap(StorageNamespaceImpl* storageNamespace, Ref<WebCo
     , m_storageType(storageNamespace->storageType())
     , m_storageNamespaceID(storageNamespace->storageNamespaceID())
     , m_quotaInBytes(storageNamespace->quotaInBytes())
-    , m_securityOrigin(WTF::move(securityOrigin))
+    , m_securityOrigin(WTFMove(securityOrigin))
     , m_currentSeed(0)
     , m_hasPendingClear(false)
     , m_hasPendingGetValues(false)
@@ -262,7 +262,7 @@ void StorageAreaMap::applyChange(const String& key, const String& newValue)
 
     if (!key) {
         // A null key means clear.
-        RefPtr<StorageMap> newStorageMap = StorageMap::create(m_quotaInBytes);
+        auto newStorageMap = StorageMap::create(m_quotaInBytes);
 
         // Any changes that were made locally after the clear must still be kept around in the new map.
         for (auto it = m_pendingValueChanges.begin().keys(), end = m_pendingValueChanges.end().keys(); it != end; ++it) {
@@ -278,7 +278,7 @@ void StorageAreaMap::applyChange(const String& key, const String& newValue)
             newStorageMap->setItemIgnoringQuota(key, oldValue);
         }
 
-        m_storageMap = newStorageMap.release();
+        m_storageMap = WTFMove(newStorageMap);
         return;
     }
 
@@ -344,7 +344,7 @@ void StorageAreaMap::dispatchSessionStorageEvent(uint64_t sourceStorageAreaID, c
         frames.append(frame);
     }
 
-    StorageEventDispatcher::dispatchLocalStorageEventsToFrames(page->group(), frames, key, oldValue, newValue, urlString, m_securityOrigin.ptr());
+    StorageEventDispatcher::dispatchSessionStorageEventsToFrames(*page, frames, key, oldValue, newValue, urlString, m_securityOrigin.ptr());
 }
 
 void StorageAreaMap::dispatchLocalStorageEvent(uint64_t sourceStorageAreaID, const String& key, const String& oldValue, const String& newValue, const String& urlString)

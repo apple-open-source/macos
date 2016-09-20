@@ -127,6 +127,10 @@ int	getaddr(), rtmsg(), x25_makemask();
 int	prefixlen();
 extern	char *iso_ntoa();
 
+static void
+inet_makenetandmask(in_addr_t net, struct sockaddr_in *sin,
+    struct sockaddr_in *sin_mask, in_addr_t bits);
+
 void usage __P((const char *)) __dead2;
 
 void
@@ -414,71 +418,49 @@ routename(sa)
 
 /*
  * Return the name of the network whose address is given.
- * The address is assumed to be that of a net or subnet, not a host.
+ * The address is assumed to be that of a net, not a host.
  */
 const char *
 netname(sa)
 	struct sockaddr *sa;
 {
-	char *cp = 0;
+	char *cp = NULL;
 	static char line[MAXHOSTNAMELEN + 1];
-	struct netent *np = 0;
-	in_addr_t net, mask;
+	struct netent *np = NULL;
 	register in_addr_t i;
-	int subnetshift;
 
 	switch (sa->sa_family) {
 
-	case AF_INET:
-	    {	struct in_addr in;
-		in = ((struct sockaddr_in *)sa)->sin_addr;
+		case AF_INET:
+		   {   struct in_addr in;
+		       in = ((struct sockaddr_in *)sa)->sin_addr;
 
-		i = in.s_addr = ntohl(in.s_addr);
-		if (in.s_addr == 0)
-			cp = "default";
-		else if (!nflag) {
-			if (IN_CLASSA(i)) {
-				mask = IN_CLASSA_NET;
-				subnetshift = 8;
-			} else if (IN_CLASSB(i)) {
-				mask = IN_CLASSB_NET;
-				subnetshift = 8;
-			} else {
-				mask = IN_CLASSC_NET;
-				subnetshift = 4;
-			}
-			/*
-			 * If there are more bits than the standard mask
-			 * would suggest, subnets must be in use.
-			 * Guess at the subnet mask, assuming reasonable
-			 * width subnet fields.
-			 */
-			while (in.s_addr &~ mask)
-				mask = mask >> subnetshift;
-			net = in.s_addr & mask;
-			while ((mask & 1) == 0)
-				mask >>= 1, net >>= 1;
-			np = getnetbyaddr(net, AF_INET);
-			if (np)
-				cp = np->n_name;
-		}
-		if (cp)
-			strncpy(line, cp, sizeof(line));
-		else if ((in.s_addr & 0xffffff) == 0)
-			(void) snprintf(line, sizeof(line), "%u", C(in.s_addr >> 24));
-		else if ((in.s_addr & 0xffff) == 0)
-			(void) snprintf(line, sizeof(line), "%u.%u", C(in.s_addr >> 24),
-			    C(in.s_addr >> 16));
-		else if ((in.s_addr & 0xff) == 0)
-			(void) snprintf(line, sizeof(line), "%u.%u.%u", C(in.s_addr >> 24),
-			    C(in.s_addr >> 16), C(in.s_addr >> 8));
-		else
-			(void) snprintf(line, sizeof(line), "%u.%u.%u.%u", C(in.s_addr >> 24),
-			    C(in.s_addr >> 16), C(in.s_addr >> 8),
-			    C(in.s_addr));
-		break;
-	    }
-
+		       i = in.s_addr = ntohl(in.s_addr);
+		       if (in.s_addr == 0)
+			       cp = "default";
+		       else if (!nflag) {
+			       np = getnetbyaddr(i, AF_INET);
+			       if (np != NULL)
+				       cp = np->n_name;
+		       }
+#define C(x)    (unsigned)((x) & 0xff)
+		       if (cp != NULL)
+			       strncpy(line, cp, sizeof(line));
+		       else if ((in.s_addr & 0xffffff) == 0)
+			       (void) sprintf(line, "%u", C(in.s_addr >> 24));
+		       else if ((in.s_addr & 0xffff) == 0)
+			       (void) sprintf(line, "%u.%u", C(in.s_addr >> 24),
+					       C(in.s_addr >> 16));
+		       else if ((in.s_addr & 0xff) == 0)
+			       (void) sprintf(line, "%u.%u.%u", C(in.s_addr >> 24),
+					       C(in.s_addr >> 16), C(in.s_addr >> 8));
+		       else
+			       (void) sprintf(line, "%u.%u.%u.%u", C(in.s_addr >> 24),
+					       C(in.s_addr >> 16), C(in.s_addr >> 8),
+					       C(in.s_addr));
+#undef C
+		       break;
+		   }
 #ifdef INET6
 	case AF_INET6:
 	{
@@ -787,49 +769,43 @@ newroute(argc, argv)
 	}
 }
 
-void
-inet_makenetandmask(net, sin, bits)
-	in_addr_t net, bits;
-	register struct sockaddr_in *sin;
+static void
+inet_makenetandmask(in_addr_t net, struct sockaddr_in *sin,
+    struct sockaddr_in *sin_mask, in_addr_t bits)
 {
-	in_addr_t addr, mask = 0;
-	register char *cp;
-
+	in_addr_t mask = 0;
+	
 	rtm_addrs |= RTA_NETMASK;
-	if (bits) {
-		addr = net;
-		mask = 0xffffffff << (32 - bits);
-	} else if (net == 0)
-		mask = addr = 0;
-	else if (net < 128) {
-		addr = net << IN_CLASSA_NSHIFT;
-		mask = IN_CLASSA_NET;
-	} else if (net < 65536) {
-		addr = net << IN_CLASSB_NSHIFT;
-		mask = IN_CLASSB_NET;
-	} else if (net < 16777216L) {
-		addr = net << IN_CLASSC_NSHIFT;
-		mask = IN_CLASSC_NET;
-	} else {
-		addr = net;
-		if ((addr & IN_CLASSA_HOST) == 0)
-			mask =  IN_CLASSA_NET;
-		else if ((addr & IN_CLASSB_HOST) == 0)
-			mask =  IN_CLASSB_NET;
-		else if ((addr & IN_CLASSC_HOST) == 0)
-			mask =  IN_CLASSC_NET;
-		else
-			mask = -1;
+	/*
+	 * MSB of net should be meaningful. 0/0 is exception.
+	 */
+	if (net > 0)
+		while ((net & 0xff000000) == 0)
+			net <<= 8;
+
+	/*
+	 * If no /xx was specified we must calculate the
+	 * CIDR address.
+	 */
+	if ((bits == 0) && (net != 0)) {
+		u_long i, j;
+
+		for(i = 0, j = 0xff; i < 4; i++)  {
+			if (net & j) {
+				break;
+			}
+			j <<= 8;
+		}
+		/* i holds the first non zero bit */
+		bits = 32 - (i*8);	
 	}
-	sin->sin_addr.s_addr = htonl(addr);
-	sin = &so_mask.sin;
-	sin->sin_addr.s_addr = htonl(mask);
-	sin->sin_len = 0;
-	sin->sin_family = 0;
-	cp = (char *)(&sin->sin_addr + 1);
-	while (*--cp == 0 && cp > (char *)sin)
-		;
-	sin->sin_len = 1 + cp - (char *)sin;
+	if (bits != 0)
+		mask = 0xffffffff << (32 - bits);
+
+	sin->sin_addr.s_addr = htonl(net);
+	sin_mask->sin_addr.s_addr = htonl(mask);
+	sin_mask->sin_len = sizeof(struct sockaddr_in);
+	sin_mask->sin_family = AF_INET;
 }
 
 #ifdef INET6
@@ -1026,17 +1002,18 @@ getaddr(which, s, hpp)
 	q = strchr(s,'/');
 	if (q && which == RTA_DST) {
 		*q = '\0';
-		if ((val = inet_addr(s)) != INADDR_NONE) {
+		if ((val = inet_network(s)) != INADDR_NONE) {
 			inet_makenetandmask(
-				ntohl(val), &su->sin, strtoul(q+1, 0, 0));
+				val, &su->sin, (struct sockaddr_in *)&so_mask,
+				strtoul(q+1, 0, 0));
 			return (0);
 		}
 		*q = '/';
 	}
 	if ((which != RTA_DST || forcenet == 0) &&
-	    (val = inet_addr(s)) != INADDR_NONE) {
-		su->sin.sin_addr.s_addr = val;
-		if (which != RTA_DST ||
+	    inet_aton(s, &su->sin.sin_addr)) {
+		val = su->sin.sin_addr.s_addr;
+		if (which != RTA_DST || forcehost ||
 		    inet_lnaof(su->sin.sin_addr) != INADDR_ANY)
 			return (1);
 		else {
@@ -1048,7 +1025,7 @@ getaddr(which, s, hpp)
 	    ((val = inet_network(s)) != INADDR_NONE ||
 	    ((np = getnetbyname(s)) != NULL && (val = np->n_net) != 0))) {
 netdone:
-		inet_makenetandmask(val, &su->sin, 0);
+		inet_makenetandmask(val, &su->sin, (struct sockaddr_in *)&so_mask, 0);
 		return (0);
 	}
 	hp = gethostbyname(s);

@@ -30,7 +30,9 @@ repeat cancel
 .Nm
 repeat type weekdays time
 .Nm
-relative wake seconds
+relative
+.Op wake | poweron
+seconds
 .Nm
 .Op touch | sleepnow | displaysleepnow  | lock | boot
 .\.Nm
@@ -318,7 +320,7 @@ pmset allows you to schedule system sleep, shutdown, wakeup and/or power on. "sc
 is for setting up one-time power events, and "repeat" is for setting up daily/weekly 
 power on and power off events. Note that you may only have one pair of repeating events
 scheduled - a "power on" event and a "power off" event. For sleep cycling applications,
-pmset can schedule a "relative" wakeup to occur in seconds from the end of system sleep,
+pmset can schedule a "relative" wakeup or poweron to occur in seconds from the end of system sleep/shutdown,
 but this event cannot be cancelled and is inherently imprecise.
 .Pp
 .Ar type 
@@ -414,7 +416,7 @@ perform an emergency shutdown after 2 minutes of running on UPS battery power.
 .Fl u
 haltafter 2
 .Pp
-Schedules the system to automatically wake from sleep on July 4, 20016, at 8PM.
+Schedules the system to automatically wake from sleep on July 4, 2016, at 8PM.
 .Pp
 .Nm
 schedule wake "07/04/16 20:00:00"

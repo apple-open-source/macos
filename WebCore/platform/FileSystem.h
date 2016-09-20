@@ -32,6 +32,7 @@
 #define FileSystem_h
 
 #include <time.h>
+#include <utility>
 #include <wtf/Forward.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
@@ -127,12 +128,6 @@ enum FileLockMode {
     LockNonBlocking = 4
 };
 
-#if OS(WINDOWS)
-static const char PlatformFilePathSeparator = '\\';
-#else
-static const char PlatformFilePathSeparator = '/';
-#endif
-
 struct FileMetadata;
 
 WEBCORE_EXPORT bool fileExists(const String&);
@@ -145,6 +140,7 @@ WEBCORE_EXPORT bool getFileModificationTime(const String&, time_t& result);
 WEBCORE_EXPORT bool getFileCreationTime(const String&, time_t& result); // Not all platforms store file creation time.
 bool getFileMetadata(const String&, FileMetadata&);
 WEBCORE_EXPORT String pathByAppendingComponent(const String& path, const String& component);
+String lastComponentOfPathIgnoringTrailingSlash(const String& path);
 WEBCORE_EXPORT bool makeAllDirectories(const String& path);
 String homeDirectoryPath();
 WEBCORE_EXPORT String pathGetFileName(const String&);
@@ -158,6 +154,7 @@ bool excludeFromBackup(const String&); // Returns true if successful.
 WEBCORE_EXPORT Vector<String> listDirectory(const String& path, const String& filter = String());
 
 WEBCORE_EXPORT CString fileSystemRepresentation(const String&);
+String stringFromFileSystemRepresentation(const char*);
 
 inline bool isHandleValid(const PlatformFileHandle& handle) { return handle != invalidPlatformFileHandle; }
 
@@ -175,6 +172,14 @@ bool truncateFile(PlatformFileHandle, long long offset);
 WEBCORE_EXPORT int writeToFile(PlatformFileHandle, const char* data, int length);
 // Returns number of bytes actually written if successful, -1 otherwise.
 int readFromFile(PlatformFileHandle, char* data, int length);
+
+// Appends the contents of the file found at 'path' to the open PlatformFileHandle.
+// Returns true if the write was successful, false if it was not.
+bool appendFileContentsToFileHandle(const String& path, PlatformFileHandle&);
+
+// Hard links a file if possible, copies it if not.
+bool hardLinkOrCopyFile(const String& source, const String& destination);
+
 #if USE(FILE_LOCK)
 bool lockFile(PlatformFileHandle, FileLockMode);
 bool unlockFile(PlatformFileHandle);
@@ -185,6 +190,7 @@ bool unloadModule(PlatformModule);
 
 // Encode a string for use within a file name.
 WEBCORE_EXPORT String encodeForFileName(const String&);
+String decodeFromFilename(const String&);
 
 #if USE(CF)
 RetainPtr<CFURLRef> pathAsURL(const String&);

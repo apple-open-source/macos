@@ -75,6 +75,22 @@ enum enctype {
     enc_path, enc_search, enc_user, enc_fpath, enc_parm
 };
 
+typedef enum {
+    NONE, TCP, OPTIONS, HEAD, GET, CPING, PROVIDER, EOT
+} hcmethod_t;
+
+typedef struct {
+    hcmethod_t method;
+    char *name;
+    int implemented;
+} proxy_hcmethods_t;
+
+typedef struct {
+    unsigned int bit;
+    char flag;
+    const char *name;
+} proxy_wstat_t;
+
 #define BALANCER_PREFIX "balancer://"
 
 #if APR_CHARSET_EBCDIC
@@ -139,7 +155,7 @@ typedef struct {
     proxy_worker       *reverse;    /* reverse "module-driven" proxy worker */
     const char *domain;     /* domain name to use in absence of a domain name in the request */
     const char *id;
-    apr_pool_t *pool;       /* Pool used for allocating this struct */
+    apr_pool_t *pool;       /* Pool used for allocating this struct's elements */
     int req;                /* true if proxy requests are enabled */
     int max_balancers;      /* maximum number of allowed balancers */
     int bgrowth;            /* number of post-config balancers can added */
@@ -270,8 +286,11 @@ struct proxy_conn_pool {
     proxy_conn_rec *conn;   /* Single connection for prefork mpm */
 };
 
-/* Keep below in sync with proxy_util.c! */
 /* worker status bits */
+/*
+ * NOTE: Keep up-to-date w/ proxy_wstat_tbl[]
+ * in mod_proxy.c !
+ */
 #define PROXY_WORKER_INITIALIZED    0x0001
 #define PROXY_WORKER_IGNORE_ERRORS  0x0002
 #define PROXY_WORKER_DRAIN          0x0004
@@ -282,6 +301,7 @@ struct proxy_conn_pool {
 #define PROXY_WORKER_IN_ERROR       0x0080
 #define PROXY_WORKER_HOT_STANDBY    0x0100
 #define PROXY_WORKER_FREE           0x0200
+#define PROXY_WORKER_HC_FAIL        0x0400
 
 /* worker status flags */
 #define PROXY_WORKER_INITIALIZED_FLAG    'O'
@@ -294,9 +314,11 @@ struct proxy_conn_pool {
 #define PROXY_WORKER_IN_ERROR_FLAG       'E'
 #define PROXY_WORKER_HOT_STANDBY_FLAG    'H'
 #define PROXY_WORKER_FREE_FLAG           'F'
+#define PROXY_WORKER_HC_FAIL_FLAG        'C'
 
 #define PROXY_WORKER_NOT_USABLE_BITMAP ( PROXY_WORKER_IN_SHUTDOWN | \
-PROXY_WORKER_DISABLED | PROXY_WORKER_STOPPED | PROXY_WORKER_IN_ERROR )
+PROXY_WORKER_DISABLED | PROXY_WORKER_STOPPED | PROXY_WORKER_IN_ERROR | \
+PROXY_WORKER_HC_FAIL )
 
 /* NOTE: these check the shared status */
 #define PROXY_WORKER_IS_INITIALIZED(f)  ( (f)->s->status &  PROXY_WORKER_INITIALIZED )
@@ -310,6 +332,10 @@ PROXY_WORKER_DISABLED | PROXY_WORKER_STOPPED | PROXY_WORKER_IN_ERROR )
 
 #define PROXY_WORKER_IS_GENERIC(f)   ( (f)->s->status &  PROXY_WORKER_GENERIC )
 
+#define PROXY_WORKER_IS_HCFAILED(f)   ( (f)->s->status &  PROXY_WORKER_HC_FAIL )
+
+#define PROXY_WORKER_IS(f, b)   ( (f)->s->status & (b) )
+
 /* default worker retry timeout in seconds */
 #define PROXY_WORKER_DEFAULT_RETRY    60
 
@@ -322,6 +348,11 @@ PROXY_WORKER_DISABLED | PROXY_WORKER_STOPPED | PROXY_WORKER_IN_ERROR )
 #define PROXY_WORKER_MAX_HOSTNAME_SIZE  64
 #define PROXY_BALANCER_MAX_HOSTNAME_SIZE PROXY_WORKER_MAX_HOSTNAME_SIZE
 #define PROXY_BALANCER_MAX_STICKY_SIZE  64
+
+/* RFC-1035 mentions limits of 255 for host-names and 253 for domain-names,
+ * dotted together(?) this would fit the below size (+ trailing NUL).
+ */
+#define PROXY_WORKER_RFC1035_NAME_SIZE  512
 
 #define PROXY_MAX_PROVIDER_NAME_SIZE    16
 
@@ -344,6 +375,7 @@ typedef struct {
 } proxy_hashes ;
 
 /* Runtime worker status informations. Shared in scoreboard */
+/* The addition of member uds_path in 2.4.7 was an incompatible API change. */
 typedef struct {
     char      name[PROXY_WORKER_MAX_NAME_SIZE];
     char      scheme[PROXY_WORKER_MAX_SCHEME_SIZE];   /* scheme to use ajp|http|https */
@@ -398,6 +430,14 @@ typedef struct {
     unsigned int     keepalive_set:1;
     unsigned int     disablereuse_set:1;
     unsigned int     was_malloced:1;
+    char      hcuri[PROXY_WORKER_MAX_ROUTE_SIZE];     /* health check uri */
+    char      hcexpr[PROXY_WORKER_MAX_SCHEME_SIZE];   /* name of condition expr for health check */
+    int             passes;     /* number of successes for check to pass */
+    int             pcount;     /* current count of passes */
+    int             fails;      /* number of failures for check to fail */
+    int             fcount;     /* current count of failures */
+    hcmethod_t      method;     /* method to use for health check */
+    apr_interval_time_t interval;
 } proxy_worker_shared;
 
 #define ALIGNED_PROXY_WORKER_SHARED_SIZE (APR_ALIGN_DEFAULT(sizeof(proxy_worker_shared)))
@@ -412,6 +452,11 @@ struct proxy_worker {
     apr_thread_mutex_t  *tmutex; /* Thread lock for updating address cache */
     void            *context;   /* general purpose storage */
 };
+
+/* default to health check every 30 seconds */
+#define HCHECK_WATHCHDOG_DEFAULT_INTERVAL (30)
+/* The watchdog runs every 2 seconds, which is also the minimal check */
+#define HCHECK_WATHCHDOG_INTERVAL (2)
 
 /*
  * Time to wait (in microseconds) to find out if more data is currently
@@ -502,6 +547,26 @@ struct proxy_balancer_method {
 #define PROXY_DECLARE_NONSTD(type)     __declspec(dllimport) type
 #define PROXY_DECLARE_DATA             __declspec(dllimport)
 #endif
+
+/* Using PROXY_DECLARE_OPTIONAL_HOOK instead of
+ * APR_DECLARE_EXTERNAL_HOOK allows build/make_nw_export.awk
+ * to distinguish between hooks that implement
+ * proxy_hook_xx and proxy_hook_get_xx in mod_proxy.c and
+ * those which don't.
+ */
+#define PROXY_DECLARE_OPTIONAL_HOOK APR_DECLARE_EXTERNAL_HOOK
+
+/* These 2 are in mod_proxy.c */
+extern PROXY_DECLARE_DATA proxy_hcmethods_t proxy_hcmethods[];
+extern PROXY_DECLARE_DATA proxy_wstat_t proxy_wstat_tbl[];
+
+/* Following 4 from health check */
+APR_DECLARE_OPTIONAL_FN(void, hc_show_exprs, (request_rec *));
+APR_DECLARE_OPTIONAL_FN(void, hc_select_exprs, (request_rec *, const char *));
+APR_DECLARE_OPTIONAL_FN(int, hc_valid_expr, (request_rec *, const char *));
+APR_DECLARE_OPTIONAL_FN(const char *, set_worker_hc_param,
+                        (apr_pool_t *, server_rec *, proxy_worker *,
+                         const char *, const char *, void *));
 
 APR_DECLARE_EXTERNAL_HOOK(proxy, PROXY, int, scheme_handler, (request_rec *r,
                           proxy_worker *worker, proxy_server_conf *conf, char *url,
@@ -1014,6 +1079,12 @@ PROXY_DECLARE(int) ap_proxy_pass_brigade(apr_bucket_alloc_t *bucket_alloc,
 APR_DECLARE_OPTIONAL_FN(int, ap_proxy_clear_connection,
         (request_rec *r, apr_table_t *headers));
 
+/**
+ * @param socket        socket to test
+ * @return              TRUE if socket is connected/active
+ */
+PROXY_DECLARE(int) ap_proxy_is_socket_connected(apr_socket_t *socket);
+
 #define PROXY_LBMETHOD "proxylbmethod"
 
 /* The number of dynamic workers that can be added when reconfiguring.
@@ -1035,12 +1106,75 @@ int ap_proxy_lb_workers(void);
 PROXY_DECLARE(apr_port_t) ap_proxy_port_of_scheme(const char *scheme);
 
 /**
+ * Return the name of the health check method (eg: "OPTIONS").
+ * @param method        method enum
+ * @return              name of method
+ */
+PROXY_DECLARE (const char *) ap_proxy_show_hcmethod(hcmethod_t method);
+
+/**
  * Strip a unix domain socket (UDS) prefix from the input URL
  * @param p             pool to allocate result from
  * @param url           a URL potentially prefixed with a UDS path
  * @return              URL with the UDS prefix removed
  */
 PROXY_DECLARE(const char *) ap_proxy_de_socketfy(apr_pool_t *p, const char *url);
+
+/*
+ * Transform buckets from one bucket allocator to another one by creating a
+ * transient bucket for each data bucket and let it use the data read from
+ * the old bucket. Metabuckets are transformed by just recreating them.
+ * Attention: Currently only the following bucket types are handled:
+ *
+ * All data buckets
+ * FLUSH
+ * EOS
+ *
+ * If an other bucket type is found its type is logged as a debug message
+ * and APR_EGENERAL is returned.
+ *
+ * @param r     request_rec of the actual request. Used for logging purposes
+ * @param from  the bucket brigade to take the buckets from
+ * @param to    the bucket brigade to store the transformed buckets
+ * @return      apr_status_t of the operation. Either APR_SUCCESS or
+ *              APR_EGENERAL
+ */
+PROXY_DECLARE(apr_status_t) ap_proxy_buckets_lifetime_transform(request_rec *r,
+                                                      apr_bucket_brigade *from,
+                                                      apr_bucket_brigade *to);
+
+/*
+ * Sends all data that can be read non blocking from the input filter chain of
+ * c_i and send it down the output filter chain of c_o. For reading it uses
+ * the bucket brigade bb_i which should be created from the bucket allocator
+ * associated with c_i. For sending through the output filter chain it uses
+ * the bucket brigade bb_o which should be created from the bucket allocator
+ * associated with c_o. In order to get the buckets from bb_i to bb_o
+ * ap_proxy_buckets_lifetime_transform is used.
+ *
+ * @param r     request_rec of the actual request. Used for logging purposes
+ * @param c_i   inbound connection conn_rec
+ * @param c_o   outbound connection conn_rec
+ * @param bb_i  bucket brigade for pulling data from the inbound connection
+ * @param bb_o  bucket brigade for sending data through the outbound connection
+ * @param name  string for logging from where data was pulled
+ * @param sent  if not NULL will be set to 1 if data was sent through c_o
+ * @param bsize maximum amount of data pulled in one iteration from c_i
+ * @param after if set flush data on c_o only once after the loop
+ * @return      apr_status_t of the operation. Could be any error returned from
+ *              either the input filter chain of c_i or the output filter chain
+ *              of c_o. APR_EPIPE if the outgoing connection was aborted.
+ */
+PROXY_DECLARE(apr_status_t) ap_proxy_transfer_between_connections(
+                                                       request_rec *r,
+                                                       conn_rec *c_i,
+                                                       conn_rec *c_o,
+                                                       apr_bucket_brigade *bb_i,
+                                                       apr_bucket_brigade *bb_o,
+                                                       const char *name,
+                                                       int *sent,
+                                                       apr_off_t bsize,
+                                                       int after);
 
 extern module PROXY_DECLARE_DATA proxy_module;
 

@@ -11,12 +11,17 @@
 extern "C" {
 #endif
 
-int readFile(
+int readFileSizet(
 	const char			*fileName,
 	unsigned char		**bytes,		// mallocd and returned
 	size_t              *numBytes);		// returned
 
 int writeFile(
+              const char			*fileName,
+              const unsigned char	*bytes,
+              unsigned              numBytes);
+
+int writeFileSizet(
 	const char			*fileName,
 	const unsigned char	*bytes,
 	size_t              numBytes);

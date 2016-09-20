@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2003-2005, 2008-2010, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2005, 2008-2010, 2015-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -49,6 +49,22 @@ CF_ASSUME_NONNULL_BEGIN
 		computer.
 		Note that reachability does <i>not</i> guarantee that the data
 		packet will actually be received by the host.
+ 
+		When reachability is used without scheduling updates on a runloop
+		or dispatch queue, the system will not generate DNS traffic and
+		will be optimistic about its reply - it will assume that the target
+		is reachable if there is a default route but a DNS query is
+		needed to learn the address. When scheduled, the first callback
+		will behave like an unscheduled call but subsequent calls will
+		leverage DNS results.
+ 
+		When used on IPv6-only (NAT64+DNS64) networks, reachability checks
+		for IPv4 address literals (either a struct sockaddr_in * or textual
+		representations such as "192.0.2.1") will automatically give the
+		result for the corresponding synthesized IPv6 address.
+		On those networks, creating a CFSocketStream or NSURLSession
+		to that address will send packets but trying to connect using
+		BSD socket APIs will fail.
  */
 
 /*!
@@ -323,12 +339,13 @@ SCNetworkReachabilityUnscheduleFromRunLoop	(
 
 /*!
 	@function SCNetworkReachabilitySetDispatchQueue
-	@discussion Schedules callbacks for the given target on the given
+	@discussion Schedule or unschedule callbacks for the given target on the given
 		dispatch queue.
 	@param target The address or name that is set up for asynchronous
 		notifications.  Must be non-NULL.
-	@param queue A libdispatch queue to run the callback on. Pass NULL to disable notifications, and release queue.
-	@result Returns TRUE if the target is unscheduled successfully;
+	@param queue A libdispatch queue to run the callback on. 
+		Pass NULL to unschedule callbacks.
+	@result Returns TRUE if the target is scheduled or unscheduled successfully;
 		FALSE otherwise.
  */
 Boolean

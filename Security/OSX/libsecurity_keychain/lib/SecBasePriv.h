@@ -78,6 +78,7 @@ enum
     errSecReturnMissingPointer   = priv_errSecParam, // -34014,  /* The caller passed asked for something to be returned but did not pass in a result pointer. */
 	errSecMatchLimitUnsupported  = priv_errSecParam, // -34015,  /* The caller passed in a kSecMatchLimit key to a call which does not support limits. */
 	errSecItemIllegalQuery       = priv_errSecParam, // -34016,  /* The caller passed in a query which contained too many keys. */
+    errSecMissingEntitlement     = -34018,  /* Internal error when a required entitlement isn't present. */
 };
 
 const char *cssmErrorString(CSSM_RETURN error);

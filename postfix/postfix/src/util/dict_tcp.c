@@ -42,7 +42,7 @@
 /* REPLY FORMAT
 /* .ad
 /* .fi
-/*      Replies must be no longer than 4096 characters including the
+/*	Replies must be no longer than 4096 characters including the
 /*	newline terminator, and must have the following form:
 /* .IP "500 SPACE text NEWLINE"
 /*	In case of a lookup request, the requested data does not exist.
@@ -128,8 +128,8 @@ static int dict_tcp_connect(DICT_TCP *dict_tcp)
     }
     dict_tcp->fp = vstream_fdopen(fd, O_RDWR);
     vstream_control(dict_tcp->fp,
-		    VSTREAM_CTL_TIMEOUT, DICT_TCP_TMOUT,
-		    VSTREAM_CTL_END);
+		    CA_VSTREAM_CTL_TIMEOUT(DICT_TCP_TMOUT),
+		    CA_VSTREAM_CTL_END);
 
     /*
      * Allocate per-map I/O buffers on the fly.

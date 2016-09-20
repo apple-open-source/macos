@@ -26,6 +26,7 @@
 #include "Length.h"
 
 #include "CalculationValue.h"
+#include "TextStream.h"
 #include <wtf/ASCIICType.h>
 #include <wtf/HashMap.h>
 #include <wtf/NeverDestroyed.h>
@@ -248,19 +249,7 @@ Length::Length(Ref<CalculationValue>&& value)
     , m_type(Calculated)
     , m_isFloat(false)
 {
-    m_calculationValueHandle = calculationValues().insert(WTF::move(value));
-}
-        
-Length Length::blendMixedTypes(const Length& from, double progress) const
-{
-    if (progress <= 0.0)
-        return from;
-        
-    if (progress >= 1.0)
-        return *this;
-        
-    auto blend = std::make_unique<CalcExpressionBlendLength>(from, *this, progress);
-    return Length(CalculationValue::create(WTF::move(blend), CalculationRangeAll));
+    m_calculationValueHandle = calculationValues().insert(WTFMove(value));
 }
 
 CalculationValue& Length::calculationValue() const
@@ -295,10 +284,101 @@ bool Length::isCalculatedEqual(const Length& other) const
     return calculationValue() == other.calculationValue();
 }
 
+static Length blendMixedTypes(const Length& from, const Length& to, double progress)
+{
+    if (progress <= 0.0)
+        return from;
+        
+    if (progress >= 1.0)
+        return to;
+        
+    auto blend = std::make_unique<CalcExpressionBlendLength>(from, to, progress);
+    return Length(CalculationValue::create(WTFMove(blend), CalculationRangeAll));
+}
+
+Length blend(const Length& from, const Length& to, double progress)
+{
+    if (from.isAuto() || to.isAuto())
+        return to;
+
+    if (from.type() == Calculated || to.type() == Calculated)
+        return blendMixedTypes(from, to, progress);
+
+    if (!from.isZero() && !to.isZero() && from.type() != to.type())
+        return blendMixedTypes(from, to, progress);
+
+    LengthType resultType = to.type();
+    if (to.isZero())
+        resultType = from.type();
+
+    if (resultType == Percent) {
+        float fromPercent = from.isZero() ? 0 : from.percent();
+        float toPercent = to.isZero() ? 0 : to.percent();
+        return Length(WebCore::blend(fromPercent, toPercent, progress), Percent);
+    }
+
+    float fromValue = from.isZero() ? 0 : from.value();
+    float toValue = to.isZero() ? 0 : to.value();
+    return Length(WebCore::blend(fromValue, toValue, progress), resultType);
+}
+
 struct SameSizeAsLength {
     int32_t value;
     int32_t metaData;
 };
 COMPILE_ASSERT(sizeof(Length) == sizeof(SameSizeAsLength), length_should_stay_small);
+
+static TextStream& operator<<(TextStream& ts, LengthType type)
+{
+    switch (type) {
+    case Auto: ts << "auto"; break;
+    case Relative: ts << "relative"; break;
+    case Percent: ts << "percent"; break;
+    case Fixed: ts << "fixed"; break;
+    case Intrinsic: ts << "intrinsic"; break;
+    case MinIntrinsic: ts << "min-intrinsic"; break;
+    case MinContent: ts << "min-content"; break;
+    case MaxContent: ts << "max-content"; break;
+    case FillAvailable: ts << "fill-available"; break;
+    case FitContent: ts << "fit-content"; break;
+    case Calculated: ts << "calc"; break;
+    case Undefined: ts << "undefined"; break;
+    }
+    return ts;
+}
+
+TextStream& operator<<(TextStream& ts, Length length)
+{
+    switch (length.type()) {
+    case Auto:
+    case Undefined:
+        ts << length.type();
+        break;
+    case Fixed:
+        ts << TextStream::FormatNumberRespectingIntegers(length.value()) << "px";
+        break;
+    case Relative:
+    case Intrinsic:
+    case MinIntrinsic:
+    case MinContent:
+    case MaxContent:
+    case FillAvailable:
+    case FitContent:
+        ts << length.type() << " " << TextStream::FormatNumberRespectingIntegers(length.value());
+        break;
+    case Percent:
+        ts << TextStream::FormatNumberRespectingIntegers(length.percent()) << "%";
+        break;
+    case Calculated:
+        // FIXME: dump CalculationValue.
+        ts << "calc(...)";
+        break;
+    }
+    
+    if (length.hasQuirk())
+        ts << " has-quirk";
+
+    return ts;
+}
 
 } // namespace WebCore

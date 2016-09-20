@@ -40,14 +40,14 @@ class LabelableElement : public HTMLElement {
 public:
     virtual ~LabelableElement();
 
-    PassRefPtr<NodeList> labels();
+    RefPtr<NodeList> labels();
     virtual bool supportLabels() const { return false; }
 
 protected:
     LabelableElement(const QualifiedName& tagName, Document&);
 
 private:
-    virtual bool isLabelable() const override final { return true; }
+    bool isLabelable() const final { return true; }
 };
 
 } // namespace WebCore

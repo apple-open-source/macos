@@ -40,7 +40,6 @@
 #include "PageGroup.h"
 #include "ScriptController.h"
 #include <heap/StrongInlines.h>
-#include <profiler/Profile.h>
 #include <runtime/JSLock.h>
 #include <runtime/WeakGCMapInlines.h>
 
@@ -86,7 +85,7 @@ void ScriptCachedFrameData::restore(Frame& frame)
             windowShell->setWindow(window->vm(), window);
         else {
             DOMWindow* domWindow = frame.document()->domWindow();
-            if (&windowShell->window()->impl() == domWindow)
+            if (&windowShell->window()->wrapped() == domWindow)
                 continue;
 
             windowShell->setWindow(domWindow);

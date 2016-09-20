@@ -26,17 +26,12 @@
 #include "config.h"
 #import "PlatformCAFilters.h"
 
-#import "BlockExceptions.h"
 #import "FloatConversion.h"
 #import "LengthFunctions.h" // This is a layering violation.
 #import "PlatformCALayerCocoa.h"
 #import "QuartzCoreSPI.h"
 #import <QuartzCore/QuartzCore.h>
-
-#if ENABLE(FILTERS_LEVEL_2)
-@interface CABackdropLayer : CALayer
-@end
-#endif
+#import <wtf/BlockObjCExceptions.h>
 
 using namespace WebCore;
 
@@ -86,12 +81,7 @@ void PlatformCAFilters::setFiltersOnLayer(PlatformLayer* layer, const FilterOper
             // <rdar://problem/10959969> Handle case where drop-shadow is not the last filter.
             const auto& dropShadowOperation = downcast<DropShadowFilterOperation>(filterOperation);
             [layer setShadowOffset:CGSizeMake(dropShadowOperation.x(), dropShadowOperation.y())];
-
-            CGFloat components[4];
-            dropShadowOperation.color().getRGBA(components[0], components[1], components[2], components[3]);
-            RetainPtr<CGColorSpaceRef> colorSpace = adoptCF(CGColorSpaceCreateDeviceRGB());
-            RetainPtr<CGColorRef> color = adoptCF(CGColorCreate(colorSpace.get(), components));
-            [layer setShadowColor:color.get()];
+            [layer setShadowColor:cachedCGColor(dropShadowOperation.color())];
             [layer setShadowRadius:dropShadowOperation.stdDeviation()];
             [layer setShadowOpacity:1];
             break;

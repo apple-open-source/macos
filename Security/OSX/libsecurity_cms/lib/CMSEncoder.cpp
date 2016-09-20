@@ -444,7 +444,6 @@ static OSStatus cmsSetupForSignedData(
 		numSigners = CFArrayGetCount(cmsEncoder->signers);
 	}
 	CFIndex dex;
-	SecKeychainRef ourKc = NULL;
 	SecCertificateRef ourCert = NULL;
 	SecCmsCertChainMode chainMode = SecCmsCMCertChain;
 
@@ -469,11 +468,6 @@ static OSStatus cmsSetupForSignedData(
 		ortn = SecIdentityCopyCertificate(ourId, &ourCert);
 		if(ortn) {
 			CSSM_PERROR("SecIdentityCopyCertificate", ortn);
-			break;
-		}
-		ortn = SecKeychainItemCopyKeychain((SecKeychainItemRef)ourCert, &ourKc);
-		if(ortn) {
-			CSSM_PERROR("SecKeychainItemCopyKeychain", ortn);
 			break;
 		}
 		signerInfo = SecCmsSignerInfoCreate(cmsEncoder->cmsMsg, ourId, cmsEncoder->digestalgtag);
@@ -502,7 +496,7 @@ static OSStatus cmsSetupForSignedData(
 			}
 		}
 		if(cmsEncoder->signedAttributes & kCMSAttrSmimeEncryptionKeyPrefs) {
-			ortn = SecCmsSignerInfoAddSMIMEEncKeyPrefs(signerInfo, ourCert, ourKc);
+			ortn = SecCmsSignerInfoAddSMIMEEncKeyPrefs(signerInfo, ourCert, NULL);
 			if(ortn) {
 				ortn = cmsRtnToOSStatus(ortn);
 				CSSM_PERROR("SecCmsSignerInfoAddSMIMEEncKeyPrefs", ortn);
@@ -510,7 +504,7 @@ static OSStatus cmsSetupForSignedData(
 			}
 		}
 		if(cmsEncoder->signedAttributes & kCMSAttrSmimeMSEncryptionKeyPrefs) {
-			ortn = SecCmsSignerInfoAddMSSMIMEEncKeyPrefs(signerInfo, ourCert, ourKc);
+			ortn = SecCmsSignerInfoAddMSSMIMEEncKeyPrefs(signerInfo, ourCert, NULL);
 			if(ortn) {
 				ortn = cmsRtnToOSStatus(ortn);
 				CSSM_PERROR("SecCmsSignerInfoAddMSSMIMEEncKeyPrefs", ortn);
@@ -545,13 +539,10 @@ static OSStatus cmsSetupForSignedData(
 			break;
 		}
 
-		CFRELEASE(ourKc);
 		CFRELEASE(ourCert);
-		ourKc = NULL;
 		ourCert = NULL;
 	}
 	if(ortn) {
-		CFRELEASE(ourKc);
 		CFRELEASE(ourCert);
 	}
 	return ortn;

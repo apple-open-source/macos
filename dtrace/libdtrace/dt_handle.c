@@ -225,7 +225,7 @@ dt_handle_err(dtrace_hdl_t *dtp, dtrace_probedata_t *data)
 	if (dtp->dt_errhdlr == NULL)
 		return (dt_set_errno(dtp, EDT_ERRABORT));
 
-	if ((*dtp->dt_errhdlr)(&err, dtp->dt_errarg) == DTRACE_HANDLE_ABORT)
+	if (_dtrace_error && (*dtp->dt_errhdlr)(&err, dtp->dt_errarg) == DTRACE_HANDLE_ABORT)
 		return (dt_set_errno(dtp, EDT_ERRABORT));
 
 	return (0);

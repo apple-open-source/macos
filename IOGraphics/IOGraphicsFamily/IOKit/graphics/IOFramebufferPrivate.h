@@ -290,6 +290,8 @@ public:
     IOReturn setAttributeForConnectionParam(IOIndex connectIndex,
                                             IOSelect attribute, uintptr_t value);
 
+    IOReturn setWSAAAttribute(IOSelect attribute, uint32_t value);
+
 protected:
 
     IOReturn stopDDC1SendCommand(IOIndex bus, IOI2CBusTiming * timing);

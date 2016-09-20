@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2004,2011-2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2002-2004,2011-2016 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -31,17 +31,21 @@
 #include <CoreFoundation/CFArray.h>
 #include <CoreFoundation/CFData.h>
 #include <CoreFoundation/CFDate.h>
+#include <CoreFoundation/CFDictionary.h>
 
 #if defined(__cplusplus)
 extern "C" {
 #endif
 
-typedef uint32_t SecCertificateEscrowRootType;
-enum {
+typedef CF_ENUM(uint32_t, SecCertificateEscrowRootType) {
     kSecCertificateBaselineEscrowRoot = 0,
     kSecCertificateProductionEscrowRoot = 1,
     kSecCertificateBaselinePCSEscrowRoot = 2,
     kSecCertificateProductionPCSEscrowRoot = 3,
+    kSecCertificateBaselineEscrowBackupRoot = 4,        // v100 and v101
+    kSecCertificateProductionEscrowBackupRoot = 5,
+    kSecCertificateBaselineEscrowEnrollmentRoot = 6,    // v101 only
+    kSecCertificateProductionEscrowEnrollmentRoot = 7,
 };
 
 extern const CFStringRef kSecCertificateProductionEscrowKey;
@@ -57,6 +61,9 @@ SecCertificateRef SecCertificateCreateItemImplInstance(SecCertificateRef certifi
 /* Inverse of above; convert legacy Certificate instance to new ref. */
 SecCertificateRef SecCertificateCreateFromItemImplInstance(SecCertificateRef certificate);
 
+/* Convenience function to determine type of certificate instance. */
+Boolean SecCertificateIsItemImplInstance(SecCertificateRef certificate);
+
 
 /* Given a legacy C++ ItemImpl-based Certificate instance obtained with
    SecCertificateCreateItemImplInstance, return its clHandle pointer.
@@ -69,6 +76,12 @@ OSStatus SecCertificateGetCLHandle_legacy(SecCertificateRef certificate, CSSM_CL
 SecCertificateRef SecCertificateCreateWithBytes(CFAllocatorRef allocator,
     const UInt8 *bytes, CFIndex length);
 
+/* Returns a certificate from a pem blob.
+   Return NULL if the passed-in data is not a valid DER-encoded X.509
+   certificate. */
+SecCertificateRef SecCertificateCreateWithPEM(CFAllocatorRef allocator,
+    CFDataRef pem_certificate);
+
 /* Return the length of the DER representation of this certificate. */
 CFIndex SecCertificateGetLength(SecCertificateRef certificate);
 
@@ -78,11 +91,17 @@ const UInt8 *SecCertificateGetBytePtr(SecCertificateRef certificate);
 /* Return the SHA-1 hash of this certificate. */
 CFDataRef SecCertificateGetSHA1Digest(SecCertificateRef certificate);
 
-/* Return the SHA2-256 hash of this certificate. */
+/* Return the SHA-256 hash of this certificate. */
 CFDataRef SecCertificateCopySHA256Digest(SecCertificateRef certificate);
 
 /* Return the SHA-1 hash of the public key in this certificate. */
 CFDataRef SecCertificateCopyPublicKeySHA1Digest(SecCertificateRef certificate);
+
+/* Return the SHA-1 hash of the SubjectPublicKeyInfo sequence in this certificate. */
+CFDataRef SecCertificateCopySubjectPublicKeyInfoSHA1Digest(SecCertificateRef certificate);
+
+/* Return the SHA-256 hash of the SubjectPublicKeyInfo sequence in this certificate. */
+CFDataRef SecCertificateCopySubjectPublicKeyInfoSHA256Digest(SecCertificateRef certificate);
 
 /* Deprecated; use SecCertificateCopyCommonName() instead. */
 OSStatus SecCertificateGetCommonName(SecCertificateRef certificate, CFStringRef *commonName);
@@ -95,9 +114,22 @@ OSStatus SecCertificateGetEmailAddress(SecCertificateRef certificate, CFStringRe
    certificate if any. */
 CFArrayRef SecCertificateCopyDNSNames(SecCertificateRef certificate);
 
+/* Return an array of CFStringRefs representing the NTPrincipalNames in the
+   certificate if any. */
+CFArrayRef SecCertificateCopyNTPrincipalNames(SecCertificateRef certificate);
+
+/* Create a unified SecCertificateRef from a legacy keychain item and its data. */
 SecCertificateRef SecCertificateCreateWithKeychainItem(CFAllocatorRef allocator,
 	CFDataRef der_certificate, CFTypeRef keychainItem);
 
+/* Set a legacy item instance for a unified SecCertificateRef. */
+OSStatus SecCertificateSetKeychainItem(SecCertificateRef certificate,
+	CFTypeRef keychain_item);
+
+/* Return a keychain item reference, given a unified SecCertificateRef.
+   Note: for this function to succeed, the provided certificate must have been
+   created by SecCertificateCreateWithKeychainItem, otherwise NULL is returned.
+ */
 CFTypeRef SecCertificateCopyKeychainItem(SecCertificateRef certificate);
 
 /*!
@@ -109,6 +141,13 @@ CFTypeRef SecCertificateCopyKeychainItem(SecCertificateRef certificate);
 	@result A CFStringRef which the caller should CFRelease() once it's no longer needed.
 */
 CFStringRef SecCertificateCopyIssuerSummary(SecCertificateRef certificate);
+
+/* Return a string formatted according to RFC 2253 representing the complete
+   subject of certificate. */
+CFStringRef SecCertificateCopySubjectString(SecCertificateRef certificate);
+
+CFMutableArrayRef SecCertificateCopySummaryProperties(
+    SecCertificateRef certificate, CFAbsoluteTime verifyTime);
 
 /*
  * Private API to infer a display name for a SecCertificateRef which
@@ -191,6 +230,12 @@ CFDataRef SecCertificateCopyIssuerSequence(SecCertificateRef certificate);
 /* Return the DER encoded subject sequence for the certificate's subject. */
 CFDataRef SecCertificateCopySubjectSequence(SecCertificateRef certificate);
 
+#if (SECTRUST_OSX && TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR))
+CFDataRef SecCertificateGetNormalizedIssuerContent(SecCertificateRef certificate);
+CFDataRef SecCertificateGetNormalizedSubjectContent(SecCertificateRef certificate);
+CFDataRef SecCertificateCopyNormalizedIssuerSequence(SecCertificateRef certificate);
+CFDataRef SecCertificateCopyNormalizedSubjectSequence(SecCertificateRef certificate);
+#endif
 
 /*	Convenience functions for searching.
 */
@@ -266,6 +311,28 @@ OSStatus SecCertificateIsSelfSigned(SecCertificateRef certRef, Boolean *isSelfSi
     __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_9_0);
 
 /*!
+	@function SecCertificateIsSelfSignedCA
+	@abstract Determine if the given certificate is self-signed and has a basic
+	constraints extension indicating it is a certificate authority.
+	@param certificate A certificate reference.
+	@result Returns true if the certificate is self-signed and has a basic
+	constraints extension indicating it is a certificate authority, otherwise false.
+*/
+bool SecCertificateIsSelfSignedCA(SecCertificateRef certificate)
+    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_9_0);
+
+/*!
+	@function SecCertificateIsCA
+	@abstract Determine if the given certificate has a basic
+	constraints extension indicating it is a certificate authority.
+	@param certificate A certificate reference.
+	@result Returns true if the certificate has a basic constraints
+	extension indicating it is a certificate authority, otherwise false.
+*/
+bool SecCertificateIsCA(SecCertificateRef certificate)
+    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_9_0);
+
+/*!
 	@function SecCertificateCopyEscrowRoots
 	@abstract Retrieve the array of valid escrow certificates for a given root type.
 	@param escrowRootType An enumerated type indicating which root type to return.
@@ -274,6 +341,9 @@ OSStatus SecCertificateIsSelfSigned(SecCertificateRef certRef, Boolean *isSelfSi
 CFArrayRef SecCertificateCopyEscrowRoots(SecCertificateEscrowRootType escrowRootType)
     __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 
+/* Return an attribute dictionary used to store this item in a keychain. */
+CFDictionaryRef SecCertificateCopyAttributeDictionary(SecCertificateRef certificate)
+    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
 
 /*
  * Enumerated constants for signature hash algorithms.
@@ -303,6 +373,27 @@ enum {
 SecSignatureHashAlgorithm SecCertificateGetSignatureHashAlgorithm(SecCertificateRef certificate)
     __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
 
+/*!
+    @function SecCertificateCopyProperties
+    @abstract Return a property array for this trust certificate.
+    @param certificate A reference to the certificate to evaluate.
+    @result A property array. It is the caller's responsability to CFRelease
+    the returned array when it is no longer needed.
+    See SecTrustCopySummaryPropertiesAtIndex on how to intepret this array.
+    Unlike that function call this function returns a detailed description
+    of the certificate in question.
+*/
+CFArrayRef SecCertificateCopyProperties(SecCertificateRef certificate);
+
+CFDataRef SecCertificateCopySubjectPublicKeyInfoSHA256Digest(SecCertificateRef certificate);
+
+/* Returns an array of CFDataRefs for all embedded SCTs */
+CFArrayRef SecCertificateCopySignedCertificateTimestamps(SecCertificateRef certificate)
+        __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_9_0);
+
+/* Return the precert TBSCertificate DER data - used for Certificate Transparency */
+CFDataRef SecCertificateCopyPrecertTBS(SecCertificateRef certificate)
+        __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_9_0);
 
 #if defined(__cplusplus)
 }

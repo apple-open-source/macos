@@ -48,7 +48,7 @@ MDSDatabase::~MDSDatabase ()
 DbContext *
 MDSDatabase::makeDbContext (DatabaseSession &inDatabaseSession,
                             CSSM_DB_ACCESS_TYPE inAccessRequest,
-                            const CSSM_ACCESS_CREDENTIALS *inAccessCred,
+                            const AccessCredentials *inAccessCred,
                             const void *inOpenParameters)
 {
     return new DbContext (*this, inDatabaseSession, inAccessRequest,
@@ -75,7 +75,7 @@ MDSDatabase::createRelation(DbContext &dbContext,
 	CSSM_DB_RECORDTYPE inRelationID,
 	const char *inRelationName,
 	uint32 inNumberOfAttributes,
-	const CSSM_DB_SCHEMA_ATTRIBUTE_INFO &inAttributeInfo,
+	const CSSM_DB_SCHEMA_ATTRIBUTE_INFO *inAttributeInfo,
 	uint32 inNumberOfIndexes,
 	const CSSM_DB_SCHEMA_INDEX_INFO &inIndexInfo)
 {
@@ -176,7 +176,7 @@ MDSDatabase::dbCreate (DbContext &inDbContext, const CSSM_DBINFO &inDBInfo,
 
 void
 MDSDatabase::dbDelete (DatabaseSession &inDatabaseSession,
-                       const CSSM_ACCESS_CREDENTIALS *inAccessCred)
+                       const AccessCredentials *inAccessCred)
 {
     CssmError ::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
 }
@@ -184,7 +184,7 @@ MDSDatabase::dbDelete (DatabaseSession &inDatabaseSession,
 void
 MDSDatabase::authenticate(DbContext &dbContext,
                           CSSM_DB_ACCESS_TYPE inAccessRequest,
-                          const CSSM_ACCESS_CREDENTIALS &inAccessCred)
+                          const AccessCredentials &inAccessCred)
 {
     CssmError ::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
 }
@@ -200,7 +200,7 @@ MDSDatabase::getDbAcl(DbContext &dbContext,
 
 void
 MDSDatabase::changeDbAcl(DbContext &dbContext,
-                         const CSSM_ACCESS_CREDENTIALS &inAccessCred,
+                         const AccessCredentials &inAccessCred,
                          const CSSM_ACL_EDIT &inAclEdit)
 {
     CssmError ::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
@@ -214,7 +214,7 @@ MDSDatabase::getDbOwner(DbContext &dbContext, CSSM_ACL_OWNER_PROTOTYPE &outOwner
 
 void
 MDSDatabase::changeDbOwner(DbContext &dbContext,
-                           const CSSM_ACCESS_CREDENTIALS &inAccessCred,
+                           const AccessCredentials &inAccessCred,
                            const CSSM_ACL_OWNER_PROTOTYPE &inNewOwner)
 {
     CssmError ::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);

@@ -433,7 +433,7 @@ krb5_princ_set_realm(krb5_context context,
 /* keep this for compatibility with older code */
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_free_creds_contents (krb5_context context, krb5_creds *c)
-    KRB5_DEPRECATED_FUNCTION("Use X instead")
+    KRB5_DEPRECATED_FUNCTION("Use krb5_free_cred_contents instead")
 {
     return krb5_free_cred_contents (context, c);
 }
@@ -451,7 +451,7 @@ krb5_free_creds_contents (krb5_context context, krb5_creds *c)
 
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_free_error_string(krb5_context context, char *str)
-    KRB5_DEPRECATED_FUNCTION("Use X instead")
+    KRB5_DEPRECATED_FUNCTION("Use krb5_free_error_message instead")
 {
     krb5_free_error_message(context, str);
 }
@@ -472,7 +472,7 @@ krb5_free_error_string(krb5_context context, char *str)
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_set_error_string(krb5_context context, const char *fmt, ...)
     HEIMDAL_PRINTF_ATTRIBUTE((printf, 2, 3))
-    KRB5_DEPRECATED_FUNCTION("Use X instead")
+    KRB5_DEPRECATED_FUNCTION("Use krb5_vset_error_message instead")
 {
     va_list ap;
 
@@ -556,7 +556,7 @@ krb5_get_cred_from_kdc(krb5_context context,
 		       krb5_creds *in_creds,
 		       krb5_creds **out_creds,
 		       krb5_creds ***ret_tgts)
-    KRB5_DEPRECATED_FUNCTION("Use X instead")
+    KRB5_DEPRECATED_FUNCTION("Use krb5_get_cred_from_kdc_opt instead")
 {
     return krb5_get_cred_from_kdc_opt(context, ccache,
 				      in_creds, out_creds, ret_tgts, 0);
@@ -570,7 +570,7 @@ krb5_get_cred_from_kdc(krb5_context context,
 
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_free_unparsed_name(krb5_context context, char *str)
-    KRB5_DEPRECATED_FUNCTION("Use X instead")
+    KRB5_DEPRECATED_FUNCTION("Use krb5_xfree instead")
 {
     krb5_xfree(str);
 }

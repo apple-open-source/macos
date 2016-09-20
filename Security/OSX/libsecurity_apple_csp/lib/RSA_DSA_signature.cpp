@@ -29,7 +29,7 @@
 #include <opensslUtils/opensslUtils.h>
 #include <opensslUtils/opensslAsn1.h>
 
-#define rsaSigDebug(args...) 	secdebug("rsaSig", ## args)
+#define rsaSigDebug(args...) 	secinfo("rsaSig", ## args)
 
 static ModuleNexus<Mutex> gMutex;
 

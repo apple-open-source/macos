@@ -540,7 +540,7 @@ reselectkeymap(void)
 
 /**/
 mod_export int
-bindkey(Keymap km, char *seq, Thingy bind, char *str)
+bindkey(Keymap km, const char *seq, Thingy bind, char *str)
 {
     Key k;
     int f = seq[0] == Meta ? STOUC(seq[1])^32 : STOUC(seq[0]);
@@ -1363,6 +1363,7 @@ default_bindings(void)
     }
     /* escape in operator pending cancels the operation */
     bindkey(oppmap, "\33", refthingy(t_vicmdmode), NULL);
+    bindkey(vismap, "\33", refthingy(t_deactivateregion), NULL);
     bindkey(vismap, "o", refthingy(t_exchangepointandmark), NULL);
     bindkey(vismap, "p", refthingy(t_putreplaceselection), NULL);
     bindkey(vismap, "x", refthingy(t_videlete), NULL);
@@ -1399,6 +1400,11 @@ default_bindings(void)
     bindkey(emap, "\30u",   refthingy(t_undo), NULL);
     bindkey(emap, "\30\30", refthingy(t_exchangepointandmark), NULL);
     bindkey(emap, "\30=",   refthingy(t_whatcursorposition), NULL);
+
+    /* bracketed paste applicable to all keymaps */
+    bindkey(emap, "\33[200~", refthingy(t_bracketedpaste), NULL);
+    bindkey(vmap, "\33[200~", refthingy(t_bracketedpaste), NULL);
+    bindkey(amap, "\33[200~", refthingy(t_bracketedpaste), NULL);
 
     /* emacs mode: ESC sequences, all taken from the meta binding table */
     buf[0] = '\33';
@@ -1495,6 +1501,20 @@ getkeymapcmd(Keymap km, Thingy *funcp, char **strp)
 	     * they wait till a key is pressed for the movement anyway      */
 	    timeout = !(!virangeflag && !region_active && f && f->widget &&
 		    f->widget->flags & ZLE_VIOPER);
+#ifdef MULTIBYTE_SUPPORT
+	    if ((f == Th(z_selfinsert) || f == Th(z_selfinsertunmeta)) &&
+		!lastchar_wide_valid) {
+		int len;
+		VARARR(char, mbc, MB_CUR_MAX);
+		ZLE_INT_T inchar = getrestchar(lastchar, mbc, &len);
+		if (inchar != WEOF && len) {
+		    char *ptr = mbc;
+		    while (len--)
+			addkeybuf(STOUC(*ptr++));
+		    lastlen = keybuflen;
+		}
+	    }
+#endif
 	}
 	if (!ispfx)
 	    break;
@@ -1513,6 +1533,20 @@ getkeymapcmd(Keymap km, Thingy *funcp, char **strp)
     *funcp = func;
     *strp = str;
     return keybuf;
+}
+
+/**/
+static void
+addkeybuf(int c)
+{
+    if(keybuflen + 3 > keybufsz)
+	keybuf = realloc(keybuf, keybufsz *= 2);
+    if(imeta(c)) {
+	keybuf[keybuflen++] = Meta;
+	keybuf[keybuflen++] = c ^ 32;
+    } else
+	keybuf[keybuflen++] = c;
+    keybuf[keybuflen] = 0;
 }
 
 /*
@@ -1536,14 +1570,7 @@ getkeybuf(int w)
 
     if(c < 0)
 	return EOF;
-    if(keybuflen + 3 > keybufsz)
-	keybuf = realloc(keybuf, keybufsz *= 2);
-    if(imeta(c)) {
-	keybuf[keybuflen++] = Meta;
-	keybuf[keybuflen++] = c ^ 32;
-    } else
-	keybuf[keybuflen++] = c;
-    keybuf[keybuflen] = 0;
+    addkeybuf(c);
     return c;
 }
 

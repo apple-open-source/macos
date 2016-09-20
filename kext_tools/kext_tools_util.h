@@ -96,6 +96,7 @@ typedef struct {
 #define kOptNameHelp                    "help"
 #define kOptNameQuiet                   "quiet"
 #define kOptNameVerbose                 "verbose"
+#define kOptNameLayoutMap               "layout"
 
 #define kOptNameLongindexHack           "________"
 
@@ -111,6 +112,7 @@ typedef struct {
 #define kOptHelp             'h'
 #define kOptQuiet            'q'
 #define kOptVerbose          'v'
+#define kOptLayoutMap        'l'
 
 // Long opts always defined in each program to avoid # collisions
 
@@ -197,6 +199,10 @@ ExitStatus getFilePathTimes(
                             const char        * filePath,
                             struct timeval      cacheFileTimes[2]);
 
+ExitStatus getFileDescriptorTimes(
+                                   int the_fd,
+                                   struct timeval   cacheFileTimes[2]);
+
 ExitStatus getParentPathTimes(
                               const char        * thePath,
                               struct timeval      cacheFileTimes[2] );
@@ -215,11 +221,15 @@ void addKextToAlertDict(
 
 char * getPathExtension(const char * pathPtr);
 
+int getFileDevAndInoWith_fd(int the_fd, dev_t * the_dev_t, ino_t * the_ino_t);
 int getFileDevAndIno(const char * thePath, dev_t * the_dev_t, ino_t * the_ino_t);
 Boolean isSameFileDevAndIno(int the_fd,
                             const char * thePath,
                             dev_t the_dev_t,
                             ino_t the_ino_t);
+Boolean isSameFileDevAndInoWith_fd(int      the_fd,
+                                   dev_t    the_dev_t,
+                                   ino_t    the_ino_t);
 
 // bootcaches.plist helpers
 CFDictionaryRef copyBootCachesDictForURL(CFURLRef theVolRootURL);

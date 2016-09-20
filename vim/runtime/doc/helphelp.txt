@@ -1,4 +1,4 @@
-*helphelp.txt*	For Vim version 7.3.  Last change: 2010 Jul 29
+*helphelp.txt*	For Vim version 7.4.  Last change: 2014 Sep 19
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -7,7 +7,7 @@
 Help on help files					*helphelp*
 
 1. Help commands		|online-help|
-2. Translating help files	|help-translated|
+2. Translated help files	|help-translated|
 3. Writing help files		|help-writing|
 
 ==============================================================================
@@ -95,6 +95,9 @@ Help on help files					*helphelp*
 :h[elp]! [subject]	Like ":help", but in non-English help files prefer to
 			find a tag in a file with the same language as the
 			current file.  See |help-translated|.
+
+						 	*:helpc* *:helpclose*
+:helpc[lose]            Close one help window, if there is one.
 
 							*:helpg* *:helpgrep*
 :helpg[rep] {pattern}[@xx]
@@ -188,17 +191,18 @@ command: >
 			Only for backwards compatibility.  It now executes the
 			ToolBar.FindHelp menu entry instead of using a builtin
 			dialog.  {only when compiled with |+GUI_GTK|}
-<			{not in Vi}
+			{not in Vi}
 
 					*:helpt* *:helptags*
 				*E154* *E150* *E151* *E152* *E153* *E670*
 :helpt[ags] [++t] {dir}
 			Generate the help tags file(s) for directory {dir}.
-			All "*.txt" and "*.??x" files in the directory are
-			scanned for a help tag definition in between stars.
-			The "*.??x" files are for translated docs, they
-			generate the "tags-??" file, see |help-translated|.
-			The generated tags files are sorted.
+			All "*.txt" and "*.??x" files in the directory and
+			sub-directories are scanned for a help tag definition
+			in between stars.  The "*.??x" files are for
+			translated docs, they generate the "tags-??" file, see
+			|help-translated|.  The generated tags files are
+			sorted.
 			When there are duplicates an error message is given.
 			An existing tags file is silently overwritten.
 			The optional "++t" argument forces adding the
@@ -218,11 +222,12 @@ files.  Vim will search for all help in "doc" directories in 'runtimepath'.
 This is only available when compiled with the |+multi_lang| feature.
 
 At this moment translations are available for:
-	Chinese - multiple authors
-	French  - translated by David Blanchet
-	Italian - translated by Antonio Colombo
-	Polish  - translated by Mikolaj Machowski
-	Russian - translated by Vassily Ragosin
+	Chinese  - multiple authors
+	French   - translated by David Blanchet
+	Italian  - translated by Antonio Colombo
+	Japanese - multiple authors
+	Polish   - translated by Mikolaj Machowski
+	Russian  - translated by Vassily Ragosin
 See the Vim website to find them: http://www.vim.org/translations.php
 
 A set of translated help files consists of these files:

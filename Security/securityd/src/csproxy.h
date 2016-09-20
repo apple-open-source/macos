@@ -28,11 +28,14 @@
 #ifndef _H_CSPROXY
 #define _H_CSPROXY
 
+#include <security_utilities/casts.h>
 #include <security_utilities/cfutilities.h>
+#include <security_utilities/debugging_internal.h>
 #include <security_cdsa_utilities/handleobject.h>
 #include <security_utilities/mach++.h>
 #include <security_utilities/machserver.h>
 #include <security_cdsa_utilities/cssmdata.h>
+#include <securityd_client/cshosting.h>
 #include <Security/SecCodeHost.h>
 #include <string>
 #include <map>
@@ -75,7 +78,7 @@ public:
 		bool dedicated;				// host is dedicated (and this is the only guest)
 		
 		operator bool() const { return attributes; }  // exists
-		SecGuestRef guestRef() const { return handle(); }
+		SecGuestRef guestRef() const { return int_cast<long, SecGuestRef>(handle()); }
 		void setAttributes(const CssmData &attrData);
 		CFDataRef attrData() const;
 		void setHash(const CssmData &given, bool generate);
@@ -127,5 +130,45 @@ private:
 	GuestMap mGuests;
 };
 
+
+//
+// Proxy implementation of Code Signing Hosting protocol
+//
+#define CSH_ARGS	mach_port_t servicePort, mach_port_t replyPort, OSStatus *rcode
+
+#define DATA_IN(base)	void *base, mach_msg_type_number_t base##Length
+#define DATA_OUT(base)	void **base, mach_msg_type_number_t *base##Length
+#define DATA(base)		CssmData(base, base##Length)
+
+//
+// Find a guest by arbitrary attribute set.
+//
+// This returns an array of canonical guest references describing the path
+// from the host given to the guest found. If the host itself is returned
+// as a guest, this will be an empty array (zero length).
+//
+// The subhost return argument may in the future return the hosting port for
+// a guest who dynamically manages its hosting (thus breaking out of proxy mode),
+// but this is not yet implemented.
+//
+kern_return_t cshosting_server_findGuest(CSH_ARGS, SecGuestRef hostRef,
+                                         DATA_IN(attributes),
+                                         GuestChain *foundGuest, mach_msg_type_number_t *depth, mach_port_t *subhost);
+
+//
+// Retrieve the path to a guest specified by canonical reference.
+//
+kern_return_t cshosting_server_identifyGuest(CSH_ARGS, SecGuestRef guestRef,
+                                             char *path, char *hash, uint32_t *hashLength, DATA_OUT(attributes));
+
+//
+// Retrieve the status word for a guest specified by canonical reference.
+//
+kern_return_t cshosting_server_guestStatus(CSH_ARGS, SecGuestRef guestRef, uint32_t *status);
+
+#undef CSH_ARGS
+#undef DATA_IN
+#undef DATA_OUT
+#undef DATA
 
 #endif //_H_CSPROXY

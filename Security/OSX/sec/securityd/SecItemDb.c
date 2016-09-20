@@ -28,6 +28,7 @@
  */
 
 #include <securityd/SecItemDb.h>
+#include <utilities/SecAKSWrappers.h>
 
 #include <securityd/SecDbKeychainItem.h>
 #include <securityd/SecItemSchema.h>
@@ -41,9 +42,9 @@
 #include <utilities/array_size.h>
 #include <utilities/SecIOFormat.h>
 #include <SecAccessControlPriv.h>
+#include <uuid/uuid.h>
 
-/* label when certificate data is joined with key data */
-#define CERTIFICATE_DATA_COLUMN_LABEL "certdata"
+#define kSecBackupKeybagUUIDKey CFSTR("keybag-uuid")
 
 const SecDbAttr *SecDbAttrWithKey(const SecDbClass *c,
                                   CFTypeRef key,
@@ -155,15 +156,17 @@ static CFDataRef SecPersistentRefCreateWithItem(SecDbItemRef item, CFErrorRef *e
     return NULL;
 }
 
-bool SecItemDbCreateSchema(SecDbConnectionRef dbt, const SecDbSchema *schema, CFErrorRef *error)
+bool SecItemDbCreateSchema(SecDbConnectionRef dbt, const SecDbSchema *schema, bool includeVersion, CFErrorRef *error)
 {
     __block bool ok = true;
     CFMutableStringRef sql = CFStringCreateMutable(kCFAllocatorDefault, 0);
     for (const SecDbClass * const *pclass = schema->classes; *pclass; ++pclass) {
         SecDbAppendCreateTableWithClass(sql, *pclass);
     }
-    // TODO: Use tversion_class to do this.
-    CFStringAppendFormat(sql, NULL, CFSTR("INSERT INTO tversion(version) VALUES(%d);"), schema->version);
+    if (includeVersion) {
+        CFStringAppendFormat(sql, NULL, CFSTR("INSERT INTO tversion(version,minor) VALUES(%d, %d);"),
+                             schema->majorVersion, schema->minorVersion);
+    }
     CFStringPerformWithCString(sql, ^(const char *sql_string) {
         ok = SecDbErrorWithDb(sqlite3_exec(SecDbHandle(dbt), sql_string, NULL, NULL, NULL),
                               SecDbHandle(dbt), error, CFSTR("sqlite3_exec: %s"), sql_string);
@@ -427,9 +430,14 @@ static void s3dl_query_row(sqlite3_stmt *stmt, void *context) {
 
         CFDataRef certData = CFDictionaryGetValue(item, kSecValueData);
         if (certData) {
-            CFDictionarySetValue(key, CFSTR(CERTIFICATE_DATA_COLUMN_LABEL),
-                                 certData);
+            CFDictionarySetValue(key, kSecAttrIdentityCertificateData, certData);
             CFDictionaryRemoveValue(item, kSecValueData);
+        }
+
+        CFDataRef certTokenID = CFDictionaryGetValue(item, kSecAttrTokenID);
+        if (certTokenID) {
+            CFDictionarySetValue(key, kSecAttrIdentityCertificateTokenID, certTokenID);
+            CFDictionaryRemoveValue(item, kSecAttrTokenID);
         }
         CFDictionaryApplyFunction(item, s3dl_merge_into_dict, key);
         CFRelease(item);
@@ -553,13 +561,14 @@ static void SecDbAppendLimit(CFMutableStringRef sql, CFIndex limit) {
 static CFStringRef s3dl_select_sql(Query *q, CFArrayRef accessGroups) {
     CFMutableStringRef sql = CFStringCreateMutable(NULL, 0);
 	if (q->q_class == &identity_class) {
-        CFStringAppendFormat(sql, NULL, CFSTR("SELECT crowid, "
-                                              CERTIFICATE_DATA_COLUMN_LABEL ", rowid,data FROM "
+        CFStringAppendFormat(sql, NULL, CFSTR("SELECT crowid, %@"
+                                              ", rowid,data FROM "
                                               "(SELECT cert.rowid AS crowid, cert.labl AS labl,"
                                               " cert.issr AS issr, cert.slnr AS slnr, cert.skid AS skid,"
-                                              " keys.*,cert.data AS " CERTIFICATE_DATA_COLUMN_LABEL
+                                              " keys.*,cert.data AS %@"
                                               " FROM keys, cert"
-                                              " WHERE keys.priv == 1 AND cert.pkhh == keys.klbl"));
+                                              " WHERE keys.priv == 1 AND cert.pkhh == keys.klbl"),
+                             kSecAttrIdentityCertificateData, kSecAttrIdentityCertificateData);
         SecDbAppendWhereAccessGroups(sql, CFSTR("cert.agrp"), accessGroups, 0);
         /* The next 3 SecDbAppendWhere calls are in the same order as in
          SecDbAppendWhereClause().  This makes sqlBindWhereClause() work,
@@ -754,8 +763,12 @@ s3dl_query(s3dl_handle_row handle_row,
     // update query should superceed the errSecItemNotFound below.
     if (!query_error(q, error))
         ok = false;
-    if (ok && c->found == 0)
+    if (ok && c->found == 0) {
         ok = SecError(errSecItemNotFound, error, CFSTR("no matching items found"));
+        if (q->q_spindump_on_failure) {
+            __security_stackshotreport(CFSTR("ItemNotFound"), __sec_exception_code_LostInMist);
+        }
+    }
 
     return ok;
 }
@@ -1050,8 +1063,24 @@ static bool SecItemIsSystemBound(CFDictionaryRef item, const SecDbClass *cls, bo
         }
     }
 
+    if (multiUser && CFEqual(agrp, CFSTR("appleaccount")) && cls == &genp_class) {
+        static CFStringRef accountServices[] = {
+            CFSTR("com.apple.appleaccount.fmf.token"), /* temporary tokens while accout is being setup */
+            CFSTR("com.apple.appleaccount.fmf.apptoken"),
+            CFSTR("com.apple.appleaccount.fmip.siritoken"),
+            CFSTR("com.apple.appleaccount.cloudkit.token"),
+            NULL
+        };
+        CFStringRef service = CFDictionaryGetValue(item, kSecAttrService);
+
+        if (isString(service) && matchAnyString(service, accountServices)) {
+            secdebug("backup", "found exact sys_bound item: %@", item);
+            return true;
+        }
+    }
+
     if (multiUser && CFEqual(agrp, CFSTR("apple")) && cls == &genp_class) {
-        static CFStringRef acountServices[] = {
+        static CFStringRef accountServices[] = {
             CFSTR("com.apple.account.AppleAccount.token"),
             CFSTR("com.apple.account.AppleAccount.password"),
             CFSTR("com.apple.account.AppleAccount.rpassword"),
@@ -1070,7 +1099,7 @@ static bool SecItemIsSystemBound(CFDictionaryRef item, const SecDbClass *cls, bo
         };
         CFStringRef service = CFDictionaryGetValue(item, kSecAttrService);
 
-        if (isString(service) && matchAnyString(service, acountServices)) {
+        if (isString(service) && matchAnyString(service, accountServices)) {
             secdebug("backup", "found exact sys_bound item: %@", item);
             return true;
         }
@@ -1084,13 +1113,13 @@ static bool SecItemIsSystemBound(CFDictionaryRef item, const SecDbClass *cls, bo
     }
 
     if (multiUser && CFEqual(agrp, CFSTR("ichat")) && cls == &genp_class) {
-        static CFStringRef acountServices[] = {
+        static CFStringRef accountServices[] = {
             CFSTR("ids"),
             NULL
         };
         CFStringRef service = CFDictionaryGetValue(item, kSecAttrService);
 
-        if (isString(service) && matchAnyString(service, acountServices)) {
+        if (isString(service) && matchAnyString(service, accountServices)) {
             secdebug("backup", "found exact sys_bound item: %@", item);
             return true;
         }
@@ -1234,7 +1263,7 @@ static void s3dl_export_row(sqlite3_stmt *stmt, void *context) {
 
                     /* Encode and encrypt the item to the specified keybag. */
                     CFDataRef edata = NULL;
-                    bool encrypted = ks_encrypt_data(c->dest_keybag, access_control, q->q_use_cred_handle, item, auth_attribs, &edata, &q->q_error);
+                    bool encrypted = ks_encrypt_data(c->dest_keybag, access_control, q->q_use_cred_handle, item, auth_attribs, &edata, false, &q->q_error);
                     CFDictionaryRemoveAllValues(item);
                     CFRelease(auth_attribs);
                     if (encrypted) {
@@ -1276,6 +1305,22 @@ static void s3dl_export_row(sqlite3_stmt *stmt, void *context) {
     CFReleaseSafe(access_control);
 }
 
+static CFStringRef
+SecCreateKeybagUUID(keybag_handle_t keybag)
+{
+#if !TARGET_HAS_KEYSTORE
+    return NULL;
+#else
+    char uuidstr[37];
+    uuid_t uuid;
+    if (aks_get_bag_uuid(keybag, uuid) != KERN_SUCCESS)
+        return NULL;
+    uuid_unparse_lower(uuid, uuidstr);
+    return CFStringCreateWithCString(NULL, uuidstr, kCFStringEncodingUTF8);
+#endif
+}
+
+
 CFDictionaryRef
 SecServerCopyKeychainPlist(SecDbConnectionRef dbt,
                            SecurityClient *client,
@@ -1286,20 +1331,26 @@ SecServerCopyKeychainPlist(SecDbConnectionRef dbt,
     CFMutableDictionaryRef keychain;
     keychain = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                          &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    unsigned class_ix;
+    bool inMultiUser = false;
+    CFStringRef keybaguuid = NULL;
+    Query q = { .q_keybag = src_keybag,
+        .q_musrView = NULL
+    };
+
     if (!keychain) {
         if (error && !*error)
             SecError(errSecAllocate, error, CFSTR("Can't create keychain dictionary"));
         goto errOut;
     }
-    unsigned class_ix;
-    bool inMultiUser = false;
-    Query q = { .q_keybag = src_keybag };
+
     q.q_return_type =
         kSecReturnDataMask |
         kSecReturnAttributesMask |
         kSecReturnPersistentRefMask;
     q.q_limit = kSecMatchUnlimited;
     q.q_skip_acl_items = true;
+
 
 #if TARGET_OS_IPHONE
     if (client && client->inMultiUser) {
@@ -1310,6 +1361,10 @@ SecServerCopyKeychainPlist(SecDbConnectionRef dbt,
     {
         q.q_musrView = SecMUSRGetSingleUserKeychainUUID();
         CFRetain(q.q_musrView);
+
+        keybaguuid = SecCreateKeybagUUID(dest_keybag);
+        if (keybaguuid)
+            CFDictionarySetValue(keychain, kSecBackupKeybagUUIDKey, keybaguuid);
     }
 
     /* Get rid of this duplicate. */
@@ -1358,6 +1413,7 @@ SecServerCopyKeychainPlist(SecDbConnectionRef dbt,
 
 errOut:
     CFReleaseNull(q.q_musrView);
+    CFReleaseNull(keybaguuid);
 
     return keychain;
 }
@@ -1398,7 +1454,7 @@ SecServerImportItem(const void *value, void *context)
 
     secdebug("item", "Import Item : %@", dict);
 
-    /* We use the kSecSysBoundItemFilte to indicate that we don't
+    /* We use the kSecSysBoundItemFilter to indicate that we don't
      * preserve rowid's during import.
      */
     if (state->s->filter == kSecBackupableItemFilter) {
@@ -1525,6 +1581,9 @@ static void SecServerImportClass(const void *key, const void *value,
         SecError(errSecParam, &state->error, CFSTR("class name %@ is not a string"), key);
         return;
     }
+    /* ignore the Keybag UUID */
+    if (CFEqual(key, kSecBackupKeybagUUIDKey))
+        return;
     const SecDbClass *class = kc_class_with_name(key);
     if (!class) {
         secwarning("Ignoring unknown key class '%@'", key);
@@ -1554,6 +1613,7 @@ static void SecServerImportClass(const void *key, const void *value,
 bool SecServerImportKeychainInPlist(SecDbConnectionRef dbt, SecurityClient *client,
                                            keybag_handle_t src_keybag, keybag_handle_t dest_keybag,
                                            CFDictionaryRef keychain, enum SecItemFilter filter, CFErrorRef *error) {
+    CFStringRef keybaguuid = NULL;
     bool ok = true;
 
     CFDictionaryRef sys_bound = NULL;
@@ -1563,6 +1623,19 @@ bool SecServerImportKeychainInPlist(SecDbConnectionRef dbt, SecurityClient *clie
         require(sys_bound = SecServerCopyKeychainPlist(dbt, client, KEYBAG_DEVICE,
                                                        KEYBAG_NONE, kSecSysBoundItemFilter,
                                                        error), errOut);
+    }
+
+    /*
+     * Validate the uuid of the source keybag matches what we have in the backup
+     */
+    keybaguuid = SecCreateKeybagUUID(src_keybag);
+    if (keybaguuid) {
+        CFStringRef uuid = CFDictionaryGetValue(keychain, kSecBackupKeybagUUIDKey);
+        if (isString(uuid)) {
+            require_action(CFEqual(keybaguuid, uuid), errOut,
+                           SecError(errSecDecode, error, CFSTR("Keybag UUID (%@) mismatch with backup (%@)"),
+                                    keybaguuid, uuid));
+        }
     }
 
     /* Delete everything in the keychain. */
@@ -1608,8 +1681,18 @@ bool SecServerImportKeychainInPlist(SecDbConnectionRef dbt, SecurityClient *clie
 
 errOut:
     CFReleaseSafe(sys_bound);
+    CFReleaseSafe(keybaguuid);
 
     return ok;
+}
+
+CFStringRef
+SecServerBackupGetKeybagUUID(CFDictionaryRef keychain)
+{
+    CFStringRef uuid = CFDictionaryGetValue(keychain, kSecBackupKeybagUUIDKey);
+    if (!isString(uuid))
+        return NULL;
+    return uuid;
 }
 
 #pragma mark - key rolling support

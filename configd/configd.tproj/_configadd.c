@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003, 2004, 2006, 2008, 2011, 2012, 2014, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2004, 2006, 2008, 2011, 2012, 2014-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -42,8 +42,7 @@ __SCDynamicStoreAddValue(SCDynamicStoreRef store, CFStringRef key, CFDataRef val
 	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 	CFDataRef			tempValue;
 
-	SC_trace(_configd_trace, "%s%s : %5d : %@\n",
-		 "add  ",
+	SC_trace("add  %s : %5d : %@",
 		 storePrivate->useSessionKeys ? "t " : "  ",
 		 storePrivate->server,
 		 key);

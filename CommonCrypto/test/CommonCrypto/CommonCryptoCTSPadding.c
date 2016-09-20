@@ -37,7 +37,7 @@ entryPoint(CommonCryptoCTSPadding,"CommonCrypto CTS Padding Testing")
 
 static int kTestTestCount = 9;
 
-int CommonCryptoCTSPadding(int argc, char *const *argv)
+int CommonCryptoCTSPadding(int __unused argc, char *const * __unused argv)
 {
 	char *keyStr;
 	char *iv;

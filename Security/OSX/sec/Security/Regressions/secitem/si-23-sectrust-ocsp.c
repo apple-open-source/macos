@@ -17,7 +17,7 @@
 #include <unistd.h>
 #include <string.h>
 
-#include "Security_regressions.h"
+#include "shared_regressions.h"
 
 /* subject:/1.3.6.1.4.1.311.60.2.1.3=US/1.3.6.1.4.1.311.60.2.1.2=Delaware/2.5.4.15=V1.0, Clause 5.(b)/serialNumber=3014267/C=US/postalCode=95131-2021/ST=California/L=San Jose/streetAddress=2211 N 1st St/O=PayPal, Inc./OU=Information Systems/CN=www.paypal.com */
 /* issuer :/C=US/O=VeriSign, Inc./OU=VeriSign Trust Network/OU=Terms of use at https://www.verisign.com/rpa (c)06/CN=VeriSign Class 3 Extended Validation SSL SGC CA */
@@ -1206,6 +1206,7 @@ static void test_forced_revocation()
 
     CFDateRef VerifyDate;
     isnt(VerifyDate = CFDateCreate(NULL, 332900000.0), NULL, "Create verify date");
+    if (!VerifyDate) { goto errOut; }
 
     // Standard evaluation should succeed for the given verify date
     {
@@ -1245,6 +1246,7 @@ static void test_forced_revocation()
     }
 
     // Free remaining resources
+errOut:
     CFReleaseSafe(VerifyDate);
     CFReleaseSafe(SMIMEDefaultPolicy);
     CFReleaseSafe(SMIMEDefaultPolicyWithRevocation);

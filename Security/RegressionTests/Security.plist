@@ -4,12 +4,6 @@
 <dict>
 	<key>Project</key>
 	<string>Security</string>
-	<key>TestSpecificLogs</key>
-	<array>
-		<string>/var/log/system.log</string>
-		<string>/var/log/module/com.apple.securityd/.*</string>
-		<string>/var/mobile/Library/Logs/CrashReporter/DiagnosticLogs/.*security.log.*</string>
-	</array>
 	<key>Tests</key>
 	<array>
 		<dict>
@@ -22,7 +16,18 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
+			<string>keystorectl-get-lock-state</string>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/keystorectl</string>
+				<string>get-lock-state</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
 			<string>BackupTest</string>
+			<key>Disabled</key>
+			<true/>
 			<key>Command</key>
 			<array>
 				<string>/AppleInternal/CoreOS/tests/Security/secbackuptest</string>
@@ -34,6 +39,30 @@
 			<key>Command</key>
 			<array>
 				<string>/AppleInternal/CoreOS/tests/Security/secedumodetest</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>secitemstresstest</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/Security/secitemstresstest</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>secitemnotifications</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/Security/secitemnotifications</string>
+			</array>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>secitemfunctionality</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/Security/secitemfunctionality</string>
 			</array>
 		</dict>
 		<dict>

@@ -88,11 +88,11 @@ Plugin *ModuleLoader::operator () (const string &path)
 {
     Plugin * &plugin = mPlugins[path];
     if (!plugin) {
-		secdebug("cssm", "ModuleLoader(): creating plugin %s", path.c_str());
+		secinfo("cssm", "ModuleLoader(): creating plugin %s", path.c_str());
         plugin = new LoadablePlugin(path.c_str());
 	}
 	else {
-		secdebug("cssm", "ModuleLoader(): FOUND plugin %s, isLoaded %s", 
+		secinfo("cssm", "ModuleLoader(): FOUND plugin %s, isLoaded %s", 
 			path.c_str(), plugin->isLoaded() ? "TRUE" : "FALSE");
 		if(!plugin->isLoaded()) {
 			plugin->load();

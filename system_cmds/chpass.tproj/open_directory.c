@@ -24,7 +24,7 @@ setrestricted(CFDictionaryRef attrs)
 	// expressly permitted above
 	// for root, everything is permitted except for the values expressly
 	// restricted above
-		
+
 	for (ep = list; ep->prompt; ep++) {
 		ep->restricted = restrict_by_default;
 		pp = restrict_by_default ? user_allowed : root_restricted;
@@ -34,7 +34,7 @@ setrestricted(CFDictionaryRef attrs)
 				break;
 			}
 		}
-		
+
 		// If not root, then it is only permitted to change the shell
 		// when the original value is one of the approved shells.
 		// Otherwise, the assumption is that root has given this user
@@ -82,10 +82,10 @@ show_error(CFErrorRef error) {
 		}
 		desc = CFErrorCopyFailureReason(error);
 		if (desc) cfprintf(stderr, "  %@", desc);
-		
+
 		desc = CFErrorCopyRecoverySuggestion(error);
 		if (desc) cfprintf(stderr, "  %@", desc);
-		
+
 		fprintf(stderr, "\n");
 	}
 }
@@ -130,11 +130,11 @@ odGetUser(CFStringRef location, CFStringRef authname, CFStringRef user, CFDictio
 		 */
 		if (authname || !master_mode ||
 			(DSPath && CFStringCompareWithOptions(DSPath, CFSTR("/Local/"), CFRangeMake(0, 7), 0) != kCFCompareEqualTo)) {
-			
+
 			CFStringRef password = NULL;
-			
+
 			if (!authname) authname = user;
-			
+
 			password = prompt_passwd(authname);
 			if (!ODRecordSetNodeCredentials(rec, authname, password, &error)) {
 				CFRelease(rec);
@@ -153,9 +153,9 @@ odUpdateUser(ODRecordRef rec, CFDictionaryRef attrs_orig, CFDictionaryRef attrs)
 	CFErrorRef error = NULL;
 	int updated = 0;
 	ENTRY* ep;
-	
+
 	for (ep = list; ep->prompt; ep++) {
-	
+
 		// Nothing to update
 		if (!rec || !attrs_orig || !attrs) break;
 
@@ -165,7 +165,7 @@ odUpdateUser(ODRecordRef rec, CFDictionaryRef attrs_orig, CFDictionaryRef attrs)
 		CFArrayRef values_orig = CFDictionaryGetValue(attrs_orig, *ep->attrName);
 		CFTypeRef value_orig = values_orig && CFArrayGetCount(values_orig) ? CFArrayGetValueAtIndex(values_orig, 0) : NULL;
 		CFTypeRef value = CFDictionaryGetValue(attrs, *ep->attrName);
-		
+
 		// No need to update if both values are the same
 		if (value == value_orig) continue;
 
@@ -174,12 +174,12 @@ odUpdateUser(ODRecordRef rec, CFDictionaryRef attrs_orig, CFDictionaryRef attrs)
 			if (CFGetTypeID(value_orig) == CFStringGetTypeID() &&
 				CFStringCompare(value_orig, value, 0) == kCFCompareEqualTo) continue;
 		}
-		
+
 		// No need to update if empty string replaces NULL
 		if (!value_orig && value) {
 			if (CFStringGetLength(value) == 0) continue;
 		}
-		
+
 		// Needs update
 		if (value) {
 			// if new value is an empty string, send an empty dictionary which will delete the property.

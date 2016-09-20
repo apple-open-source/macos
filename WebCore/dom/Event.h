@@ -36,15 +36,14 @@
 namespace WebCore {
 
 class DataTransfer;
+class EventPath;
 class EventTarget;
 class HTMLIFrameElement;
 
 struct EventInit {
-    EventInit();
-    EventInit(bool bubbles, bool cancelable);
-
-    bool bubbles;
-    bool cancelable;
+    bool bubbles { false };
+    bool cancelable { false };
+    bool composed { false };
 };
 
 enum EventInterface {
@@ -83,16 +82,17 @@ public:
         CHANGE              = 32768
     };
 
-    static Ref<Event> create()
-    {
-        return adoptRef(*new Event);
-    }
     static Ref<Event> create(const AtomicString& type, bool canBubble, bool cancelable)
     {
         return adoptRef(*new Event(type, canBubble, cancelable));
     }
 
-    static Ref<Event> create(const AtomicString& type, const EventInit& initializer)
+    static Ref<Event> createForBindings()
+    {
+        return adoptRef(*new Event);
+    }
+
+    static Ref<Event> createForBindings(const AtomicString& type, const EventInit& initializer)
     {
         return adoptRef(*new Event(type, initializer));
     }
@@ -100,12 +100,13 @@ public:
     virtual ~Event();
 
     void initEvent(const AtomicString& type, bool canBubble, bool cancelable);
+    bool isInitialized() const { return m_isInitialized; }
 
     const AtomicString& type() const { return m_type; }
     void setType(const AtomicString& type) { m_type = type; }
     
     EventTarget* target() const { return m_target.get(); }
-    void setTarget(PassRefPtr<EventTarget>);
+    void setTarget(RefPtr<EventTarget>&&);
 
     EventTarget* currentTarget() const { return m_currentTarget; }
     void setCurrentTarget(EventTarget* currentTarget) { m_currentTarget = currentTarget; }
@@ -115,10 +116,19 @@ public:
 
     bool bubbles() const { return m_canBubble; }
     bool cancelable() const { return m_cancelable; }
+    bool composed() const;
+
     DOMTimeStamp timeStamp() const { return m_createTime; }
+
+    void setEventPath(const EventPath& path) { m_eventPath = &path; }
+    void clearEventPath() { m_eventPath = nullptr; }
+    Vector<EventTarget*> composedPath() const;
 
     void stopPropagation() { m_propagationStopped = true; }
     void stopImmediatePropagation() { m_immediatePropagationStopped = true; }
+
+    bool isTrusted() const { return m_isTrusted; }
+    void setUntrusted() { m_isTrusted = false; }
     
     // IE Extensions
     EventTarget* srcElement() const { return target(); } // MSIE extension - "the object that fired the event"
@@ -126,7 +136,7 @@ public:
     bool legacyReturnValue() const { return !defaultPrevented(); }
     void setLegacyReturnValue(bool returnValue) { setDefaultPrevented(!returnValue); }
 
-    DataTransfer* clipboardData() const { return isClipboardEvent() ? internalDataTransfer() : 0; }
+    DataTransfer* clipboardData() const { return isClipboardEvent() ? internalDataTransfer() : nullptr; }
 
     virtual EventInterface eventInterface() const;
 
@@ -135,6 +145,7 @@ public:
     virtual bool isMouseEvent() const;
     virtual bool isFocusEvent() const;
     virtual bool isKeyboardEvent() const;
+    virtual bool isCompositionEvent() const;
     virtual bool isTouchEvent() const;
 
     // Drag events are a subset of mouse events.
@@ -150,13 +161,17 @@ public:
     virtual bool isTextEvent() const;
     virtual bool isWheelEvent() const;
 
+#if ENABLE(INDEXED_DATABASE)
+    virtual bool isVersionChangeEvent() const { return false; }
+#endif
+
     bool propagationStopped() const { return m_propagationStopped || m_immediatePropagationStopped; }
     bool immediatePropagationStopped() const { return m_immediatePropagationStopped; }
 
     bool defaultPrevented() const { return m_defaultPrevented; }
     void preventDefault()
     {
-        if (m_cancelable)
+        if (m_cancelable && !m_isExecutingPassiveEventListener)
             m_defaultPrevented = true;
     }
     void setDefaultPrevented(bool defaultPrevented) { m_defaultPrevented = defaultPrevented; }
@@ -164,17 +179,19 @@ public:
     bool defaultHandled() const { return m_defaultHandled; }
     void setDefaultHandled() { m_defaultHandled = true; }
 
+    void setInPassiveListener(bool value) { m_isExecutingPassiveEventListener = value; }
+
     bool cancelBubble() const { return m_cancelBubble; }
     void setCancelBubble(bool cancel) { m_cancelBubble = cancel; }
 
     Event* underlyingEvent() const { return m_underlyingEvent.get(); }
-    void setUnderlyingEvent(PassRefPtr<Event>);
+    void setUnderlyingEvent(Event*);
 
     virtual DataTransfer* internalDataTransfer() const { return 0; }
 
     bool isBeingDispatched() const { return eventPhase(); }
 
-    virtual PassRefPtr<Event> cloneFor(HTMLIFrameElement*) const;
+    virtual Ref<Event> cloneFor(HTMLIFrameElement*) const;
 
     virtual EventTarget* relatedTarget() const { return nullptr; }
 
@@ -189,17 +206,23 @@ protected:
 
 private:
     AtomicString m_type;
-    bool m_canBubble;
-    bool m_cancelable;
 
-    bool m_propagationStopped;
-    bool m_immediatePropagationStopped;
-    bool m_defaultPrevented;
-    bool m_defaultHandled;
-    bool m_cancelBubble;
+    bool m_isInitialized { false };
+    bool m_canBubble { false };
+    bool m_cancelable { false };
+    bool m_composed { false };
 
-    unsigned short m_eventPhase;
-    EventTarget* m_currentTarget;
+    bool m_propagationStopped { false };
+    bool m_immediatePropagationStopped { false };
+    bool m_defaultPrevented { false };
+    bool m_defaultHandled { false };
+    bool m_cancelBubble { false };
+    bool m_isTrusted { false };
+    bool m_isExecutingPassiveEventListener { false };
+
+    unsigned short m_eventPhase { 0 };
+    EventTarget* m_currentTarget { nullptr };
+    const EventPath* m_eventPath { nullptr };
     RefPtr<EventTarget> m_target;
     DOMTimeStamp m_createTime;
 

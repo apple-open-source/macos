@@ -52,7 +52,7 @@ static void ConvertUInt64ToBytes (UInt64 length, UInt8* bytes)
 static void WriteLengthAndUpdate (CFMutableDataRef data, UInt64 length, CFIndex location)
 {
 	// back patch the length of the list
-	secdebug ("manifest", "Length was %lld, patched at location %lld", length, (UInt64) location);
+	secinfo ("manifest", "Length was %lld, patched at location %lld", length, (UInt64) location);
 	
 	UInt8 lengthBytes[kLengthLength];
 	ConvertUInt64ToBytes (length, lengthBytes);
@@ -115,7 +115,7 @@ static void WriteFileSystemItemHeader (CFMutableDataRef data, const FileSystemEn
 {
 	// write the name
 	const char* name = fsi->GetName ();
-	secdebug ("manifest", "\tAdding header for %s", name);
+	secinfo ("manifest", "\tAdding header for %s", name);
 	uint16_t len = (uint16_t)strlen (name);
 	AppendUInt16 (data, len);
 	CFDataAppendBytes (data, (UInt8*) name, len);
@@ -148,7 +148,7 @@ AppleManifest::~AppleManifest ()
 
 void AppleManifest::AddDirectoryToManifest (CFMutableDataRef manifest, ManifestDirectoryItem* directory)
 {
-	secdebug ("manifest", "Adding directory %s to manifest", directory->GetName ());
+	secinfo ("manifest", "Adding directory %s to manifest", directory->GetName ());
 	
 	CFIndex currentIndex = GetCurrentLengthAndExtend (manifest);
 	AppendUInt16 (manifest, (UInt16) kManifestDirectoryItemType);
@@ -334,7 +334,7 @@ CFDataRef AppleManifest::Export (ManifestInternal& manifest)
 	// there had better be at least one signer
 	if (mSignerList.size () == 0)
 	{
-		secdebug ("manifest", "No signers found");
+		secinfo ("manifest", "No signers found");
 		MacOSError::throwMe (errSecManifestNoSigners);
 	}
 	
@@ -480,7 +480,7 @@ static void ReconstructFileSystemHeader (uint32& finger, const uint8* data, File
 	name[length] = 0;
 	item->SetName (name);
 	
-	secdebug ("manifest", "    File item name is %s", name);
+	secinfo ("manifest", "    File item name is %s", name);
 
 	finger += length;
 	
@@ -488,9 +488,9 @@ static void ReconstructFileSystemHeader (uint32& finger, const uint8* data, File
 	gid_t gid = (gid_t) ReconstructUInt32 (finger, data);
 	mode_t mode = (mode_t) ReconstructUInt32 (finger, data);
 	
-	secdebug ("manifest", "    File item uid is %d", uid);
-	secdebug ("manifest", "    File item gid is %d", gid);
-	secdebug ("manifest", "    File item mode is %d", mode);
+	secinfo ("manifest", "    File item uid is %d", uid);
+	secinfo ("manifest", "    File item gid is %d", gid);
+	secinfo ("manifest", "    File item mode is %d", mode);
 
 	item->SetUID (uid);
 	item->SetGID (gid);
@@ -511,7 +511,7 @@ static void ParseItemHeader (uint32 &finger, const uint8* data, ManifestItemType
 
 void AppleManifest::ReconstructDataBlob (uint32 &finger, const uint8* data, ManifestDataBlobItem*& item)
 {
-	secdebug ("manifest", "Reconstructing data blob.");
+	secinfo ("manifest", "Reconstructing data blob.");
 	item = new ManifestDataBlobItem ();
 	u_int64_t length = ReconstructUInt64 (finger, data);
 	item->SetLength ((size_t)length);
@@ -524,7 +524,7 @@ void AppleManifest::ReconstructDataBlob (uint32 &finger, const uint8* data, Mani
 void AppleManifest::ReconstructDirectory (uint32 &finger, const uint8* data, ManifestDirectoryItem*& directory)
 {
 	// make the directory
-	secdebug ("manifest", "Reconstructing directory.");
+	secinfo ("manifest", "Reconstructing directory.");
 	directory = new ManifestDirectoryItem ();
 	ReconstructFileSystemHeader (finger, data, directory);
 	
@@ -535,7 +535,7 @@ void AppleManifest::ReconstructDirectory (uint32 &finger, const uint8* data, Man
 
 void AppleManifest::ReconstructFile (uint32& finger, const uint8* data, ManifestFileItem *& file)
 {
-	secdebug ("manifest", "Reconstructing file.");
+	secinfo ("manifest", "Reconstructing file.");
 	// make the file
 	file = new ManifestFileItem ();
 	ReconstructFileSystemHeader (finger, data, file);
@@ -563,7 +563,7 @@ void AppleManifest::ReconstructFile (uint32& finger, const uint8* data, Manifest
 
 void AppleManifest::ReconstructSymLink (uint32& finger, const uint8* data, ManifestSymLinkItem*& file)
 {
-	secdebug ("manifest", "Reconstructing symlink.");
+	secinfo ("manifest", "Reconstructing symlink.");
 	file = new ManifestSymLinkItem ();
 	ReconstructFileSystemHeader (finger, data, file);
 
@@ -575,7 +575,7 @@ void AppleManifest::ReconstructSymLink (uint32& finger, const uint8* data, Manif
 
 void AppleManifest::ReconstructOther (uint32& finger, const uint8* data, ManifestOtherItem*& other)
 {
-	secdebug ("manifest", "Reconstructing other.");
+	secinfo ("manifest", "Reconstructing other.");
 	other = new ManifestOtherItem ();
 	ReconstructFileSystemHeader (finger, data, other);
 }
@@ -585,10 +585,12 @@ void AppleManifest::ReconstructOther (uint32& finger, const uint8* data, Manifes
 void AppleManifest::ReconstructManifestItemList (uint32 &finger, const uint8* data, ManifestItemList &itemList)
 {
 	uint32 start = finger;
-	u_int64_t length = ReconstructUInt64 (finger, data);
-#warning Casting from uint64 to uint32, this is ripe for overflow.
-	uint32 end = (uint32)(start + length);
-	
+	uint64_t length = ReconstructUInt64 (finger, data);
+    uint32 end = (uint32)(start + length);
+
+    if (length > UINT32_MAX || (length + (uint64_t)start) > (uint64_t)UINT32_MAX)
+        MacOSError::throwMe (errSecManifestDamaged);
+
 	while (finger < end)
 	{
 		u_int64_t itemEnd;

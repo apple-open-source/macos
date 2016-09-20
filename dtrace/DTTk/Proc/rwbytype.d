@@ -66,14 +66,14 @@ fbt::VNOP_READ:entry,
 fbt::VNOP_WRITE:entry
 {
 	self->type = xlate <struct vtype2str *>(((struct vnode *)arg0)->v_type)->code;
-	self->size = ((struct uio *)arg1)->uio_resid;
+	self->size = ((struct uio *)arg1)->uio_resid_64;
 	self->uiop = (struct uio *)arg1;
 }
 
 fbt::VNOP_READ:return
 /self->uiop/
 {
-	this->resid = self->uiop->uio_resid;
+	this->resid = self->uiop->uio_resid_64;
 	@bytes[pid, execname, self->type, "R"] = sum(self->size - this->resid);
 	self->type = 0;
 	self->size = 0;
@@ -84,7 +84,7 @@ fbt::VNOP_READ:return
 fbt::VNOP_WRITE:return
 /self->uiop/
 {
-	this->resid = self->uiop->uio_resid;
+	this->resid = self->uiop->uio_resid_64;
 	@bytes[pid, execname, self->type, "W"] = sum(self->size - this->resid);
 	self->type = 0;
 	self->size = 0;

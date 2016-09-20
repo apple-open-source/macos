@@ -19,6 +19,7 @@
 #include <Security/Authorization.h>
 #include <Security/AuthorizationPriv.h>
 #include <Security/AuthorizationTagsPriv.h>
+#include <Security/AuthorizationPlugin.h>
 #include <xpc/private.h>
 #include <dispatch/dispatch.h>
 #include <CoreFoundation/CoreFoundation.h>
@@ -199,7 +200,7 @@ static void _setupAuditSessionMonitor()
                 continue;
             }
             LOGD("server: au_sdev_handle_t event=%i, session=%i", event, aia.ai_asid);
-            if (event == AUE_SESSION_CLOSE) {
+            if (event == AUE_SESSION_END) {
                 dispatch_async(get_server_dispatch_queue(), ^{
                     LOGV("server: session %i destroyed", aia.ai_asid);
                     CFDictionaryRemoveValue(gSessionMap, &aia.ai_asid);
@@ -338,63 +339,59 @@ done:
 void
 server_unregister_connection(connection_t conn)
 {
-    if (conn != NULL) {
-        process_t proc = connection_get_process(conn);
-        
-        dispatch_sync(get_server_dispatch_queue(), ^{
-            CFIndex connectionCount = process_get_connection_count(proc);
-            LOGV("server[%i]: unregistered connection (total=%li)", process_get_pid(proc), connectionCount);
+    assert(conn); // marked non-null
+    process_t proc = connection_get_process(conn);
+    
+    dispatch_sync(get_server_dispatch_queue(), ^{
+        CFIndex connectionCount = process_get_connection_count(proc);
+        LOGV("server[%i]: unregistered connection (total=%li)", process_get_pid(proc), connectionCount);
 
-            if (connectionCount == 1) {
-                CFDictionaryRemoveValue(gProcessMap, process_get_key(proc));
-            }
-            
-            if (CFDictionaryGetCount(gProcessMap) == 0) {
-                xpc_transaction_end();
-                gXPCTransaction = false;
-            }
-        });
-        // move the destruction of the connection/process off the server queue
-        CFRelease(conn);
-    }
+        if (connectionCount == 1) {
+            CFDictionaryRemoveValue(gProcessMap, process_get_key(proc));
+        }
+        
+        if (CFDictionaryGetCount(gProcessMap) == 0) {
+            xpc_transaction_end();
+            gXPCTransaction = false;
+        }
+    });
+    // move the destruction of the connection/process off the server queue
+    CFRelease(conn);
 }
 
 void
 server_register_auth_token(auth_token_t auth)
 {
-    if (auth != NULL) {
-        dispatch_sync(get_server_dispatch_queue(), ^{
-            LOGV("server: registering auth %p", auth);
-            CFDictionarySetValue(gAuthTokenMap, auth_token_get_key(auth), auth);
-            auth_token_set_state(auth, auth_token_state_registered);
-        });
-    }
+    assert(auth); // marked non-null
+    dispatch_sync(get_server_dispatch_queue(), ^{
+        LOGV("server: registering auth %p", auth);
+        CFDictionarySetValue(gAuthTokenMap, auth_token_get_key(auth), auth);
+        auth_token_set_state(auth, auth_token_state_registered);
+    });
 }
 
 void
 server_unregister_auth_token(auth_token_t auth)
 {
-    if (auth != NULL) {
-        AuthorizationBlob blob = *(AuthorizationBlob*)auth_token_get_key(auth);
-        dispatch_async(get_server_dispatch_queue(), ^{
-            LOGV("server: unregistering auth %p", auth);
-            CFDictionaryRemoveValue(gAuthTokenMap, &blob);
-        });
-    }
+    assert(auth);
+    AuthorizationBlob blob = *(AuthorizationBlob*)auth_token_get_key(auth);
+    dispatch_async(get_server_dispatch_queue(), ^{
+        LOGV("server: unregistering auth %p", auth);
+        CFDictionaryRemoveValue(gAuthTokenMap, &blob);
+    });
 }
 
 auth_token_t
 server_find_copy_auth_token(AuthorizationBlob * blob)
 {
+    assert(blob); // marked non-null
     __block auth_token_t auth = NULL;
-    if (blob != NULL) {
-        dispatch_sync(get_server_dispatch_queue(), ^{
-            auth = (auth_token_t)CFDictionaryGetValue(gAuthTokenMap, blob);
-            if (auth) {
-                CFRetain(auth);
-            }
-        });
-    }
+    dispatch_sync(get_server_dispatch_queue(), ^{
+        auth = (auth_token_t)CFDictionaryGetValue(gAuthTokenMap, blob);
+        if (auth) {
+            CFRetain(auth);
+        }
+    });
     return auth;
 }
 
@@ -640,15 +637,14 @@ authorization_copy_info(connection_t conn, xpc_object_t message, xpc_object_t re
     
     tag = xpc_dictionary_get_string(message, AUTH_XPC_TAG);
     LOGV("server[%i]: requested tag: %s", connection_get_pid(conn), tag ? tag : "(all)");
-    if (tag) {
-        size_t len;
-        const void * data = auth_items_get_data(auth_token_get_context(auth), tag, &len);
-        if (data) {
-            auth_items_set_data(items, tag, data, len);
-        }
-    } else {
-        auth_items_copy(items, auth_token_get_context(auth));
-    }
+	if (tag) {
+		size_t len;
+		const void * data = auth_items_get_data_with_flags(auth_token_get_context(auth), tag, &len, kAuthorizationContextFlagExtractable);
+		if (data)
+			auth_items_set_data(items, tag, data, len);
+	} else {
+		auth_items_copy_with_flags(items, auth_token_get_context(auth), kAuthorizationContextFlagExtractable);
+	}
 
 #if DEBUG
     LOGV("server[%i]: Dumping requested AuthRef items", connection_get_pid(conn));
@@ -663,7 +659,7 @@ authorization_copy_info(connection_t conn, xpc_object_t message, xpc_object_t re
 done:
     CFReleaseSafe(items);
     CFReleaseSafe(auth);
-    LOGV("server[%i]: AuthorizationCopyInfo %i", connection_get_pid(conn), status);
+    LOGV("server[%i]: AuthorizationCopyInfo %i", connection_get_pid(conn), (int) status);
     return status;
 }
 
@@ -762,7 +758,7 @@ done:
 static bool _prompt_for_modifications(process_t __unused proc, rule_t __unused rule)
 {
 //    <rdar://problem/13853228> will put back it back at some later date
-//    SecRequirementRef ruleReq = rule_get_requirment(rule);
+//    SecRequirementRef ruleReq = rule_get_requirement(rule);
 //
 //    if (ruleReq && process_verify_requirment(proc, ruleReq)) {
 //        return false;

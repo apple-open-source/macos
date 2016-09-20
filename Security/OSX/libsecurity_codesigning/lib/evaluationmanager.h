@@ -45,6 +45,8 @@ public:
     EvaluationTask *evaluationTask(PolicyEngine *engine, CFURLRef path, AuthorityType type, SecAssessmentFlags flags, CFDictionaryRef context, CFMutableDictionaryRef result);
     void finalizeTask(EvaluationTask *task, SecAssessmentFlags flags, CFMutableDictionaryRef result);
 
+    void kickTask(CFStringRef key);
+
 private:
     CFCopyRef<CFMutableDictionaryRef> mCurrentEvaluations;
 

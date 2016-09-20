@@ -43,7 +43,7 @@
 #endif
 
 #if TARGET_OS_MAC && !TARGET_OS_EMBEDDED && TARGET_HAS_KEYSTORE
-                            // OS X
+// OS X
 const keybag_handle_t keybagHandle = session_keybag_handle;
 #elif TARGET_HAS_KEYSTORE                                                         // iOS, but not simulator
 const keybag_handle_t keybagHandle = device_keybag_handle;
@@ -73,7 +73,7 @@ bool SecAKSLockUserKeybag(uint64_t timeout, CFErrorRef *error){
             secnotice("lockassertions", "Requesting lock assertion for %lld seconds", timeout);
             status = aks_assert_hold(keybagHandle, lockAssertType, timeout);
         }
-        
+
         if (status == kIOReturnSuccess)
             ++count;
     });
@@ -93,7 +93,7 @@ bool SecAKSUnLockUserKeybag(CFErrorRef *error){
             status = aks_assert_drop(keybagHandle, lockAssertType);
         }
     });
-    
+
     return SecKernError(status, error, CFSTR("Kern return error"));
 #endif /* !TARGET_HAS_KEYSTORE */
 }
@@ -106,7 +106,7 @@ bool SecAKSDoWhileUserBagLocked(CFErrorRef *error, dispatch_block_t action)
     return true;
 #else
     // Acquire lock assertion, ref count?
-    
+
     bool status = false;
     uint64_t timeout = 60ull;
     if (SecAKSLockUserKeybag(timeout, error)) {
@@ -116,7 +116,6 @@ bool SecAKSDoWhileUserBagLocked(CFErrorRef *error, dispatch_block_t action)
     return status;
 #endif  /* !TARGET_HAS_KEYSTORE */
 }
-
 CFDataRef SecAKSCopyBackupBagWithSecret(size_t size, uint8_t *secret, CFErrorRef *error) {
 #if !TARGET_HAS_KEYSTORE
     return NULL;

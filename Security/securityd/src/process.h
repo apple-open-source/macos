@@ -82,10 +82,6 @@ public:
     TaskPort taskPort() const	{ return mTaskPort; }
 	bool byteFlipped() const	{ return mByteFlipped; }
 	
-	void addAuthorization(AuthorizationToken *auth);
-	void checkAuthorization(AuthorizationToken *auth);
-	bool removeAuthorization(AuthorizationToken *auth);
-	
 	using PerProcess::kill;
 	void kill();
 	
@@ -113,11 +109,7 @@ private:
     pid_t mPid;							// process id
     uid_t mUid;							// UNIX uid credential
     gid_t mGid;							// primary UNIX gid credential
-	
-	// authorization dictionary
-	typedef multiset<AuthorizationToken *> AuthorizationSet;
-	AuthorizationSet mAuthorizations;	// set of valid authorizations for process
-	
+
 	// canonical local (transient) key store
 	RefPointer<LocalDatabase> mLocalStore;
 };

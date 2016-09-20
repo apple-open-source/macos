@@ -41,11 +41,10 @@ public:
 
     void setCreatedByParser(bool createdByParser) { m_createdByParser = createdByParser; }
 
-    virtual void finishParsingChildren() override;
+    void finishParsingChildren() override;
 
     const String& localHref() const { return m_localHref; }
     StyleSheet* sheet() const { return m_sheet.get(); }
-    void setCSSStyleSheet(PassRefPtr<CSSStyleSheet>);
 
     bool isCSS() const { return m_isCSS; }
 #if ENABLE(XSLT)
@@ -56,23 +55,23 @@ private:
     friend class CharacterData;
     ProcessingInstruction(Document&, const String& target, const String& data);
 
-    virtual String nodeName() const override;
-    virtual NodeType nodeType() const override;
-    virtual RefPtr<Node> cloneNodeInternal(Document&, CloningOperation) override;
+    String nodeName() const override;
+    NodeType nodeType() const override;
+    Ref<Node> cloneNodeInternal(Document&, CloningOperation) override;
 
-    virtual InsertionNotificationRequest insertedInto(ContainerNode&) override;
-    virtual void removedFrom(ContainerNode&) override;
+    InsertionNotificationRequest insertedInto(ContainerNode&) override;
+    void removedFrom(ContainerNode&) override;
 
     void checkStyleSheet();
-    virtual void setCSSStyleSheet(const String& href, const URL& baseURL, const String& charset, const CachedCSSStyleSheet*) override;
+    void setCSSStyleSheet(const String& href, const URL& baseURL, const String& charset, const CachedCSSStyleSheet*) override;
 #if ENABLE(XSLT)
-    virtual void setXSLStyleSheet(const String& href, const URL& baseURL, const String& sheet) override;
+    void setXSLStyleSheet(const String& href, const URL& baseURL, const String& sheet) override;
 #endif
 
     bool isLoading() const;
-    virtual bool sheetLoaded() override;
+    bool sheetLoaded() override;
 
-    virtual void addSubresourceAttributeURLs(ListHashSet<URL>&) const override;
+    void addSubresourceAttributeURLs(ListHashSet<URL>&) const override;
 
     void parseStyleSheet(const String& sheet);
 
@@ -80,14 +79,14 @@ private:
     String m_localHref;
     String m_title;
     String m_media;
-    CachedResourceHandle<CachedResource> m_cachedSheet;
+    CachedResourceHandle<CachedResource> m_cachedSheet { nullptr };
     RefPtr<StyleSheet> m_sheet;
-    bool m_loading;
-    bool m_alternate;
-    bool m_createdByParser;
-    bool m_isCSS;
+    bool m_loading { false };
+    bool m_alternate { false };
+    bool m_createdByParser { false };
+    bool m_isCSS { false };
 #if ENABLE(XSLT)
-    bool m_isXSL;
+    bool m_isXSL { false };
 #endif
 };
 

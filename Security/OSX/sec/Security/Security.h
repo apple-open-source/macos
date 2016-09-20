@@ -32,4 +32,6 @@
 #include <Security/SecRandom.h>
 #include <Security/SecSharedCredential.h>
 #include <Security/SecTrust.h>
-
+#if !TARGET_OS_IPHONE
+#include <Security/AuthSession.h>
+#endif

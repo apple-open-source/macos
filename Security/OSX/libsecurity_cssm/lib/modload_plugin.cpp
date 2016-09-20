@@ -26,6 +26,7 @@
 // modload_plugin - loader interface for dynamically loaded plugin modules
 //
 #include "modload_plugin.h"
+#include <security_cdsa_utilities/cssmerrors.h>
 
 
 namespace Security {
@@ -37,7 +38,11 @@ namespace Security {
 //    
 LoadablePlugin::LoadablePlugin(const char *path) : LoadableBundle(path)
 {
-	secdebug("cssm", "LoadablePlugin(%s)", path);
+	secinfo("cssm", "LoadablePlugin(%s)", path);
+    if (!allowableModulePath(path)) {
+        secinfo("cssm", "LoadablePlugin(): not loaded; plugin in non-standard location: %s", path);
+        CssmError::throwMe(CSSMERR_CSSM_ADDIN_AUTHENTICATE_FAILED);
+    }
     load();
 }
 
@@ -47,7 +52,7 @@ LoadablePlugin::LoadablePlugin(const char *path) : LoadableBundle(path)
 //
 void LoadablePlugin::load()
 {
-	secdebug("cssm", "LoadablePlugin::load() path %s", path().c_str());
+	secinfo("cssm", "LoadablePlugin::load() path %s", path().c_str());
     LoadableBundle::load();
     findFunction(mFunctions.load, "CSSM_SPI_ModuleLoad");
     findFunction(mFunctions.attach, "CSSM_SPI_ModuleAttach");
@@ -57,7 +62,7 @@ void LoadablePlugin::load()
 
 void LoadablePlugin::unload()
 {
-	secdebug("cssm", "LoadablePlugin::unload() path %s", path().c_str());
+	secinfo("cssm", "LoadablePlugin::unload() path %s", path().c_str());
 	/* skipping for workaround for radar 3774226 
     LoadableBundle::unload(); */ 
 }
@@ -76,7 +81,7 @@ CSSM_RETURN LoadablePlugin::load(const CSSM_GUID *CssmGuid,
                              CSSM_SPI_ModuleEventHandler CssmNotifyCallback,
                              void *CssmNotifyCallbackCtx)
 {
-	secdebug("cssm", "LoadablePlugin::load(guid,...) path %s", path().c_str());
+	secinfo("cssm", "LoadablePlugin::load(guid,...) path %s", path().c_str());
 	return mFunctions.load(CssmGuid, ModuleGuid,
 		CssmNotifyCallback, CssmNotifyCallbackCtx);
 }
@@ -86,7 +91,7 @@ CSSM_RETURN LoadablePlugin::unload(const CSSM_GUID *CssmGuid,
                              CSSM_SPI_ModuleEventHandler CssmNotifyCallback,
                              void *CssmNotifyCallbackCtx)
 {
-	secdebug("cssm", "LoadablePlugin::unload(guid,...) path %s", path().c_str());
+	secinfo("cssm", "LoadablePlugin::unload(guid,...) path %s", path().c_str());
 	return mFunctions.unload(CssmGuid, ModuleGuid,
 		CssmNotifyCallback, CssmNotifyCallbackCtx);
 }
@@ -114,5 +119,10 @@ CSSM_RETURN LoadablePlugin::detach(CSSM_MODULE_HANDLE ModuleHandle)
 	return mFunctions.detach(ModuleHandle);
 }
 
+bool LoadablePlugin::allowableModulePath(const char *path) {
+    // True if module path is in default location
+    const char *loadablePrefix="/System/Library/Security/";
+    return (strncmp(loadablePrefix,path,strlen(loadablePrefix)) == 0);
+}
 
 }	// end namespace Security

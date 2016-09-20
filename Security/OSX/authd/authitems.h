@@ -102,7 +102,10 @@ void auth_items_set_data(auth_items_t, const char *key, const void *value, size_
 
 AUTH_WARN_RESULT AUTH_NONNULL_ALL
 const void * auth_items_get_data(auth_items_t, const char *key, size_t * len);
-    
+
+AUTH_WARN_RESULT AUTH_NONNULL_ALL
+const void * auth_items_get_data_with_flags(auth_items_t items, const char *key, size_t *len, uint32_t flags);
+
 AUTH_NONNULL_ALL
 void auth_items_set_bool(auth_items_t, const char *key, bool value);
 

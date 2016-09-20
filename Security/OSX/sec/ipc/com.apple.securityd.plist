@@ -9,7 +9,7 @@
 	<key>EnvironmentVariables</key>
 	<dict>
 		<key>DEBUGSCOPE</key>
-		<string>-policy-node,policy-set,policy,alloc,trust,bind,profile,trace,dbconn,OTR,serverxpc,sqlite3,error_thee_well</string>
+		<string>-policy-node,policy-set,policy,alloc,trust,bind,profile,trace,dbconn,OTR,serverxpc,sqlite3,error_thee_well, ringSigning</string>
 		<key>WAIT4DEBUGGER</key>
 		<string>NO</string>
 	</dict>
@@ -22,14 +22,10 @@
 		<key>com.apple.securityd</key>
 		<true/>
 	</dict>
-	<key>OnDemand</key>
-	<true/>
 	<key>ProgramArguments</key>
 	<array>
 		<string>/usr/libexec/securityd</string>
 	</array>
-	<key>ServiceIPC</key>
-	<true/>
 	<key>Umask</key>
 	<integer>54</integer>
 	<key>UserName</key>

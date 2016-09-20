@@ -1,6 +1,4 @@
 /*
- * "$Id: testipp.c 11934 2014-06-17 18:58:29Z msweet $"
- *
  * IPP test program for CUPS.
  *
  * Copyright 2007-2014 by Apple Inc.
@@ -1048,8 +1046,3 @@ write_cb(_ippdata_t   *data,		/* I - Data */
 
   return ((ssize_t)count);
 }
-
-
-/*
- * End of "$Id: testipp.c 11934 2014-06-17 18:58:29Z msweet $".
- */

@@ -3,6 +3,7 @@
 0755	501	501	private/var/mobile/Applications
 0700	501	501	private/var/mobile/Library
 0700	501	501	private/var/mobile/Library/AddressBook
+0755	501	501	private/var/mobile/Library/Application Support
 0700	501	501	private/var/mobile/Library/Caches
 0700	501	501	private/var/mobile/Library/Cookies
 0755	501	501	private/var/mobile/Library/ExternalAccessory
@@ -24,6 +25,10 @@
 0755	root	wheel	private/var/Managed Preferences
 0755	501	501	private/var/Managed Preferences/mobile
 0755	root	wheel	private/var/preferences
+0755	root	wheel	private/var/preferences/Logging
+0755	root	wheel	private/var/preferences/Logging/Events
+0755	root	wheel	private/var/preferences/Logging/Processes
+0755	root	wheel	private/var/preferences/Logging/Subsystems
 0755	64	wheel	private/var/Keychains
 0755	root	wheel	private/var/MobileDevice
 0755	501	501	private/var/MobileDevice/ProvisioningProfiles

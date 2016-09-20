@@ -34,7 +34,6 @@
 #include "FloatRoundedRect.h"
 #include "FloatSize.h"
 #include "GraphicsLayerClient.h"
-#include "IntRect.h"
 #include "Path.h"
 #include "PlatformLayer.h"
 #include "TransformOperations.h"
@@ -54,6 +53,10 @@ class TextStream;
 class TiledBacking;
 class TimingFunction;
 class TransformationMatrix;
+
+namespace DisplayList {
+typedef unsigned AsTextFlags;
+}
 
 // Base class for animation values (also used for transitions). Here to
 // represent values for properties being animated via the GraphicsLayer,
@@ -96,7 +99,7 @@ public:
     {
     }
 
-    virtual std::unique_ptr<AnimationValue> clone() const override
+    std::unique_ptr<AnimationValue> clone() const override
     {
         return std::make_unique<FloatAnimationValue>(*this);
     }
@@ -123,7 +126,7 @@ public:
     {
     }
 
-    virtual std::unique_ptr<AnimationValue> clone() const override
+    std::unique_ptr<AnimationValue> clone() const override
     {
         return std::make_unique<TransformAnimationValue>(*this);
     }
@@ -151,7 +154,7 @@ public:
     {
     }
 
-    virtual std::unique_ptr<AnimationValue> clone() const override
+    std::unique_ptr<AnimationValue> clone() const override
     {
         return std::make_unique<FilterAnimationValue>(*this);
     }
@@ -343,8 +346,14 @@ public:
     bool contentsAreVisible() const { return m_contentsVisible; }
     virtual void setContentsVisible(bool b) { m_contentsVisible = b; }
 
+    bool userInteractionEnabled() const { return m_userInteractionEnabled; }
+    virtual void setUserInteractionEnabled(bool b) { m_userInteractionEnabled = b; }
+    
     bool acceleratesDrawing() const { return m_acceleratesDrawing; }
     virtual void setAcceleratesDrawing(bool b) { m_acceleratesDrawing = b; }
+
+    bool usesDisplayListDrawing() const { return m_usesDisplayListDrawing; }
+    virtual void setUsesDisplayListDrawing(bool b) { m_usesDisplayListDrawing = b; }
 
     bool needsBackdrop() const { return !m_backdropFilters.isEmpty(); }
 
@@ -371,8 +380,8 @@ public:
     const FilterOperations& backdropFilters() const { return m_backdropFilters; }
     virtual bool setBackdropFilters(const FilterOperations& filters) { m_backdropFilters = filters; return true; }
 
-    virtual void setBackdropFiltersRect(const FloatRect& backdropFiltersRect) { m_backdropFiltersRect = backdropFiltersRect; }
-    FloatRect backdropFiltersRect() const { return m_backdropFiltersRect; }
+    virtual void setBackdropFiltersRect(const FloatRoundedRect& backdropFiltersRect) { m_backdropFiltersRect = backdropFiltersRect; }
+    const FloatRoundedRect& backdropFiltersRect() const { return m_backdropFiltersRect; }
 
 #if ENABLE(CSS_COMPOSITING)
     BlendMode blendMode() const { return m_blendMode; }
@@ -515,6 +524,13 @@ public:
     // pointers for the layers and timing data will be included in the returned string.
     WEBCORE_EXPORT String layerTreeAsText(LayerTreeAsTextBehavior = LayerTreeAsTextBehaviorNormal) const;
 
+    // For testing.
+    WEBCORE_EXPORT virtual String displayListAsText(DisplayList::AsTextFlags) const { return String(); }
+
+    WEBCORE_EXPORT virtual void setIsTrackingDisplayListReplay(bool isTracking) { m_isTrackingDisplayListReplay = isTracking; }
+    WEBCORE_EXPORT virtual bool isTrackingDisplayListReplay() const { return m_isTrackingDisplayListReplay; }
+    WEBCORE_EXPORT virtual String replayDisplayListAsText(DisplayList::AsTextFlags) const { return String(); }
+
     // Return an estimate of the backing store memory cost (in bytes). May be incorrect for tiled layers.
     WEBCORE_EXPORT virtual double backingStoreMemoryEstimate() const;
 
@@ -535,6 +551,7 @@ public:
     virtual bool isGraphicsLayerCA() const { return false; }
     virtual bool isGraphicsLayerCARemote() const { return false; }
     virtual bool isGraphicsLayerTextureMapper() const { return false; }
+    virtual bool isCoordinatedGraphicsLayer() const { return false; }
 
 protected:
     WEBCORE_EXPORT explicit GraphicsLayer(Type, GraphicsLayerClient&);
@@ -607,10 +624,13 @@ protected:
     bool m_drawsContent : 1;
     bool m_contentsVisible : 1;
     bool m_acceleratesDrawing : 1;
+    bool m_usesDisplayListDrawing : 1;
     bool m_appliesPageScale : 1; // Set for the layer which has the page scale applied to it.
     bool m_showDebugBorder : 1;
     bool m_showRepaintCounter : 1;
     bool m_isMaskLayer : 1;
+    bool m_isTrackingDisplayListReplay : 1;
+    bool m_userInteractionEnabled : 1;
     
     GraphicsLayerPaintingPhase m_paintingPhase;
     CompositingCoordinatesOrientation m_contentsOrientation; // affects orientation of layer contents
@@ -630,7 +650,7 @@ protected:
     FloatRoundedRect m_masksToBoundsRect;
     FloatSize m_contentsTilePhase;
     FloatSize m_contentsTileSize;
-    FloatRect m_backdropFiltersRect;
+    FloatRoundedRect m_backdropFiltersRect;
 
     int m_repaintCount;
     CustomAppearance m_customAppearance;
@@ -641,6 +661,9 @@ protected:
 #endif
 };
 
+WEBCORE_EXPORT TextStream& operator<<(TextStream&, const Vector<GraphicsLayer::PlatformLayerID>&);
+WEBCORE_EXPORT TextStream& operator<<(TextStream&, const GraphicsLayer::CustomAppearance&);
+
 } // namespace WebCore
 
 #define SPECIALIZE_TYPE_TRAITS_GRAPHICSLAYER(ToValueTypeName, predicate) \
@@ -648,7 +671,7 @@ SPECIALIZE_TYPE_TRAITS_BEGIN(ToValueTypeName) \
     static bool isType(const WebCore::GraphicsLayer& layer) { return layer.predicate; } \
 SPECIALIZE_TYPE_TRAITS_END()
 
-#ifndef NDEBUG
+#if ENABLE(TREE_DEBUGGING)
 // Outside the WebCore namespace for ease of invocation from gdb.
 void showGraphicsLayerTree(const WebCore::GraphicsLayer* layer);
 #endif

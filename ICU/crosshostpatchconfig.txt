@@ -1,31 +1,15 @@
---- icuSources/common/unicode/uconfig.h	2012-11-06 20:15:02.000000000 -0800
-+++ build/common/unicode/uconfig.h	2012-11-09 02:15:45.000000000 -0800
-@@ -87,7 +87,7 @@
-  * @internal
-  */
- #ifndef U_DISABLE_RENAMING
--#define U_DISABLE_RENAMING 0
-+#define U_DISABLE_RENAMING 1
- #endif
- 
- /**
-@@ -385,7 +385,7 @@
-  * @stable ICU 3.2
-  */
- #ifndef UCONFIG_NO_SERVICE
--#   define UCONFIG_NO_SERVICE 0
-+#   define UCONFIG_NO_SERVICE 1
- #endif
- 
- /**
---- icuSources/common/unicode/utypes.h	2012-02-28 00:12:59.000000000 -0800
-+++ build/common/unicode/utypes.h	2012-11-09 02:16:25.000000000 -0800
-@@ -139,7 +139,7 @@
- #define U_ICUDATA_NAME    "icudt" U_ICU_VERSION_SHORT U_ICUDATA_TYPE_LETTER
- #ifndef U_HIDE_INTERNAL_API
- #define U_USRDATA_NAME    "usrdt" U_ICU_VERSION_SHORT U_ICUDATA_TYPE_LETTER  /**< @internal */
--#define U_USE_USRDATA     1  /**< @internal */
-+#define U_USE_USRDATA     0  /**< @internal */
- #endif  /* U_HIDE_INTERNAL_API */
- 
- /**
+--- ./common/unicode/udata.h	2016-03-29 15:23:07.000000000 -0700
++++ ./common/unicode/udata.h	2016-03-29 16:23:07.000000000 -0700
+@@ -399,10 +399,10 @@
+ typedef enum UDataFileAccess {
+     /** ICU looks for data in single files first, then in packages. (default) @stable ICU 3.4 */
+     UDATA_FILES_FIRST,
++    /** An alias for the default access mode. @stable ICU 3.4 */
++    UDATA_DEFAULT_ACCESS = UDATA_FILES_FIRST,
+     /** ICU only loads data from packages, not from single files. @stable ICU 3.4 */
+     UDATA_ONLY_PACKAGES,
+-    /** An alias for the default access mode. @stable ICU 3.4 */
+-    UDATA_DEFAULT_ACCESS = UDATA_ONLY_PACKAGES,
+     /** ICU loads data from packages first, and only from single files
+         if the data cannot be found in a package. @stable ICU 3.4 */
+     UDATA_PACKAGES_FIRST,

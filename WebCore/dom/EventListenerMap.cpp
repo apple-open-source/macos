@@ -34,7 +34,6 @@
 #include "EventListenerMap.h"
 
 #include "Event.h"
-#include "EventException.h"
 #include "EventTarget.h"
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
@@ -58,8 +57,8 @@ EventListenerMap::EventListenerMap()
 
 bool EventListenerMap::contains(const AtomicString& eventType) const
 {
-    for (unsigned i = 0; i < m_entries.size(); ++i) {
-        if (m_entries[i].first == eventType)
+    for (auto& entry : m_entries) {
+        if (entry.first == eventType)
             return true;
     }
     return false;
@@ -67,11 +66,23 @@ bool EventListenerMap::contains(const AtomicString& eventType) const
 
 bool EventListenerMap::containsCapturing(const AtomicString& eventType) const
 {
-    for (unsigned i = 0; i < m_entries.size(); ++i) {
-        if (m_entries[i].first == eventType) {
-            const EventListenerVector* vector = m_entries[i].second.get();
-            for (unsigned j = 0; j < vector->size(); ++j) {
-                if (vector->at(j).useCapture)
+    for (auto& entry : m_entries) {
+        if (entry.first == eventType) {
+            for (auto& eventListener : *entry.second) {
+                if (eventListener.useCapture)
+                    return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool EventListenerMap::containsActive(const AtomicString& eventType) const
+{
+    for (auto& entry : m_entries) {
+        if (entry.first == eventType) {
+            for (auto& eventListener : *entry.second) {
+                if (!eventListener.isPassive)
                     return true;
             }
         }
@@ -91,15 +102,15 @@ Vector<AtomicString> EventListenerMap::eventTypes() const
     Vector<AtomicString> types;
     types.reserveInitialCapacity(m_entries.size());
 
-    for (unsigned i = 0; i < m_entries.size(); ++i)
-        types.uncheckedAppend(m_entries[i].first);
+    for (auto& entry : m_entries)
+        types.uncheckedAppend(entry.first);
 
     return types;
 }
 
-static bool addListenerToVector(EventListenerVector* vector, PassRefPtr<EventListener> listener, bool useCapture)
+static bool addListenerToVector(EventListenerVector* vector, Ref<EventListener>&& listener, const RegisteredEventListener::Options& options)
 {
-    RegisteredEventListener registeredListener(listener, useCapture);
+    RegisteredEventListener registeredListener(WTFMove(listener), options);
 
     if (vector->find(registeredListener) != notFound)
         return false; // Duplicate listener.
@@ -108,20 +119,20 @@ static bool addListenerToVector(EventListenerVector* vector, PassRefPtr<EventLis
     return true;
 }
 
-bool EventListenerMap::add(const AtomicString& eventType, PassRefPtr<EventListener> listener, bool useCapture)
+bool EventListenerMap::add(const AtomicString& eventType, Ref<EventListener>&& listener, const RegisteredEventListener::Options& options)
 {
     assertNoActiveIterators();
 
-    for (unsigned i = 0; i < m_entries.size(); ++i) {
-        if (m_entries[i].first == eventType)
-            return addListenerToVector(m_entries[i].second.get(), listener, useCapture);
+    for (auto& entry : m_entries) {
+        if (entry.first == eventType)
+            return addListenerToVector(entry.second.get(), WTFMove(listener), options);
     }
 
     m_entries.append(std::make_pair(eventType, std::make_unique<EventListenerVector>()));
-    return addListenerToVector(m_entries.last().second.get(), listener, useCapture);
+    return addListenerToVector(m_entries.last().second.get(), WTFMove(listener), options);
 }
 
-static bool removeListenerFromVector(EventListenerVector* listenerVector, EventListener* listener, bool useCapture, size_t& indexOfRemovedListener)
+static bool removeListenerFromVector(EventListenerVector* listenerVector, EventListener& listener, bool useCapture, size_t& indexOfRemovedListener)
 {
     RegisteredEventListener registeredListener(listener, useCapture);
     indexOfRemovedListener = listenerVector->find(registeredListener);
@@ -131,7 +142,7 @@ static bool removeListenerFromVector(EventListenerVector* listenerVector, EventL
     return true;
 }
 
-bool EventListenerMap::remove(const AtomicString& eventType, EventListener* listener, bool useCapture, size_t& indexOfRemovedListener)
+bool EventListenerMap::remove(const AtomicString& eventType, EventListener& listener, bool useCapture, size_t& indexOfRemovedListener)
 {
     assertNoActiveIterators();
 
@@ -151,9 +162,9 @@ EventListenerVector* EventListenerMap::find(const AtomicString& eventType)
 {
     assertNoActiveIterators();
 
-    for (unsigned i = 0; i < m_entries.size(); ++i) {
-        if (m_entries[i].first == eventType)
-            return m_entries[i].second.get();
+    for (auto& entry : m_entries) {
+        if (entry.first == eventType)
+            return entry.second.get();
     }
 
     return nullptr;
@@ -183,11 +194,11 @@ void EventListenerMap::removeFirstEventListenerCreatedFromMarkup(const AtomicStr
 
 static void copyListenersNotCreatedFromMarkupToTarget(const AtomicString& eventType, EventListenerVector* listenerVector, EventTarget* target)
 {
-    for (size_t i = 0; i < listenerVector->size(); ++i) {
+    for (auto& listener : *listenerVector) {
         // Event listeners created from markup have already been transfered to the shadow tree during cloning.
-        if ((*listenerVector)[i].listener->wasCreatedFromMarkup())
+        if (listener.listener->wasCreatedFromMarkup())
             continue;
-        target->addEventListener(eventType, (*listenerVector)[i].listener, (*listenerVector)[i].useCapture);
+        target->addEventListener(eventType, *listener.listener, listener.useCapture);
     }
 }
 
@@ -195,21 +206,11 @@ void EventListenerMap::copyEventListenersNotCreatedFromMarkupToTarget(EventTarge
 {
     assertNoActiveIterators();
 
-    for (unsigned i = 0; i < m_entries.size(); ++i)
-        copyListenersNotCreatedFromMarkupToTarget(m_entries[i].first, m_entries[i].second.get(), target);
-}
-
-EventListenerIterator::EventListenerIterator()
-    : m_map(0)
-    , m_entryIndex(0)
-    , m_index(0)
-{
+    for (auto& entry : m_entries)
+        copyListenersNotCreatedFromMarkupToTarget(entry.first, entry.second.get(), target);
 }
 
 EventListenerIterator::EventListenerIterator(EventTarget* target)
-    : m_map(0)
-    , m_entryIndex(0)
-    , m_index(0)
 {
     ASSERT(target);
     EventTargetData* data = target->eventTargetData();

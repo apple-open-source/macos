@@ -20,6 +20,12 @@
             "description": "Pseudo element type."
         },
         {
+            "id": "ShadowRootType",
+            "type": "string",
+            "enum": ["user-agent", "open", "closed"],
+            "description": "Shadow root type."
+        },
+        {
             "id": "LiveRegionRelevant",
             "type": "string",
             "enum": ["additions", "removals", "text"],
@@ -46,12 +52,14 @@
                 { "name": "name", "type": "string", "optional": true, "description": "<code>Attr</code>'s name." },
                 { "name": "value", "type": "string", "optional": true, "description": "<code>Attr</code>'s value." },
                 { "name": "pseudoType", "$ref": "PseudoType", "optional": true, "description": "Pseudo element type for this node." },
+                { "name": "shadowRootType", "$ref": "ShadowRootType", "optional": true, "description": "Shadow root type." },
                 { "name": "frameId", "$ref": "Network.FrameId", "optional": true, "description": "Frame ID for frame owner elements." },
                 { "name": "contentDocument", "$ref": "Node", "optional": true, "description": "Content document for frame owner elements." },
                 { "name": "shadowRoots", "type": "array", "optional": true, "items": { "$ref": "Node" }, "description": "Shadow root list for given element host." },
                 { "name": "templateContent", "$ref": "Node", "optional": true, "description": "Content document fragment for template elements" },
                 { "name": "pseudoElements", "type": "array", "items": { "$ref": "Node" }, "optional": true, "description": "Pseudo elements associated with this node." },
-                { "name": "role", "type": "string", "optional": true, "description": "Computed value for first recognized role token, default role per element, or overridden role." }
+                { "name": "role", "type": "string", "optional": true, "description": "Computed value for first recognized role token, default role per element, or overridden role." },
+                { "name": "contentSecurityPolicyHash", "type": "string", "optional": true, "description": "Computed SHA-256 Content Security Policy hash source for given element." }
             ],
             "description": "DOM interaction is implemented in terms of mirror objects that represent the actual DOM nodes. DOMNode is a base node mirror type."
         },
@@ -80,6 +88,7 @@
                 { "name": "checked", "type": "string", "optional": true, "enum": ["true", "false", "mixed"], "description": "Checked state of certain form controls." },
                 { "name": "childNodeIds", "type": "array", "items": { "$ref": "NodeId" }, "optional": true, "description": "Array of <code>DOMNode</code> ids of the accessibility tree children if available." },
                 { "name": "controlledNodeIds", "type": "array", "items": { "$ref": "NodeId" }, "optional": true, "description": "Array of <code>DOMNode</code> ids of any nodes referenced via @aria-controls." },
+                { "name": "current", "type": "string", "optional": true, "enum": ["true", "false", "page", "step", "location", "date", "time"], "description": "Current item within a container or set of related elements." },
                 { "name": "disabled", "type": "boolean", "optional": true, "description": "Disabled state of form controls." },
                 { "name": "exists", "type": "boolean", "description": "Indicates whether there is an existing AX object for the DOM node. If this is false, all the other properties will be default values." },
                 { "name": "expanded", "type": "boolean", "optional": true, "description": "Expanded state." },

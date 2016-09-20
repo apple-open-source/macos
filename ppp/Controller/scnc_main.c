@@ -580,7 +580,6 @@ int init_things()
     
 
 	ipsec_init_things();
-	vpn_init();
 
 	app_layer_init(CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
 
@@ -1533,9 +1532,11 @@ int dispose_service(struct service *serv)
 		serv->flags &= ~FLAG_FREE;
 	}
 
-    
 #if TARGET_OS_EMBEDDED
-	my_CFRelease(&serv->profileIdentifier);
+	// ipsec_dispose_service() already releases the profileIdentifier
+	if (serv->type != TYPE_IPSEC) {
+		my_CFRelease(&serv->profileIdentifier);
+	}
 #endif
 
 	if (serv->flags & FLAG_SETUP_ONDEMAND) {
@@ -2208,37 +2209,8 @@ int ondemand_add_service(struct service *serv, Boolean update_configuration)
 			CFRelease(num);
 		}
 		
-		if (serv->type == TYPE_VPN) {
-			int numPlugins = serv->u.vpn.numPlugins;
-			Boolean hasPlugins = FALSE;
-			if (numPlugins > 0) {
-				CFMutableArrayRef pluginPIDArray = CFArrayCreateMutable(kCFAllocatorDefault, numPlugins, &kCFTypeArrayCallBacks);
-				if (pluginPIDArray) {
-					for (i = 0; i < numPlugins; i++) {
-						uint32_t pid = serv->u.vpn.plugin[i].pid;
-						if (serv->u.vpn.plugin[i].state == VPN_PLUGIN_STATE_NONE || pid <= 0) {
-							continue;
-						}
-						CFNumberRef pidRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &pid);
-						if (pidRef) {
-							CFArrayAppendValue(pluginPIDArray, pidRef);
-							my_CFRelease(&pidRef);
-						}
-					}
-					if (CFArrayGetCount(pluginPIDArray) > 0) {
-						hasPlugins = TRUE;
-						CFDictionarySetValue(new_trigger_dict, kSCNetworkConnectionOnDemandPluginPIDs, pluginPIDArray);
-					}
-					my_CFRelease(&pluginPIDArray);
-					
-				}
-			}
-		
-			if (!hasPlugins && CFDictionaryContainsKey(new_trigger_dict, kSCNetworkConnectionOnDemandPluginPIDs)) {
-				CFDictionaryRemoveValue(new_trigger_dict, kSCNetworkConnectionOnDemandPluginPIDs);
-			}
-		}
-		
+		// ignore legacy TYPE_VPN of plugin VPN setup when NE framework is in use.
+
 		num = CFNumberCreate(NULL, kCFNumberIntType, &serv->ondemand_paused);
 		if (num) {
 			CFDictionarySetValue(new_trigger_dict, kSCPropNetVPNOnDemandSuspended, num);
@@ -2724,15 +2696,7 @@ log_scnc_stop (struct service *serv, pid_t pid, int scnc_reason)
 			SCLog(TRUE, LOG_NOTICE, CFSTR("SCNC: stop%s, type %@, reason %s"), p, serv->subtypeRef, scnc_reason_str);
 		}
 	} else if (serv->type == TYPE_VPN) {
-		const char *status_str = vpn_error_to_string(serv->u.vpn.laststatus);
-		if (status_str) {
-			SCLog(TRUE, LOG_NOTICE, CFSTR("SCNC: stop%s, type %@, reason %s, status %s"), p, serv->subtypeRef, scnc_reason_str, status_str);
-		} else if (serv->u.vpn.laststatus) {
-			SCLog(TRUE, LOG_NOTICE, CFSTR("SCNC: stop%s, type %@, reason %s, status %d"), p, serv->subtypeRef,
-				  scnc_reason_str, serv->u.vpn.laststatus);			
-		} else {
-			SCLog(TRUE, LOG_NOTICE, CFSTR("SCNC: stop%s, type %@, reason %s"), p, serv->subtypeRef, scnc_reason_str);
-		}
+		// ignore legacy TYPE_VPN of plugin VPN setup when NE framework is in use.
 	} else {
 		SCLog(TRUE, LOG_NOTICE, CFSTR("SCNC: stop%s, type %@, reason %s, status Unknown"), p, serv->subtypeRef, scnc_reason_str);	
 	}
@@ -3287,9 +3251,7 @@ void scnc_idle_disconnect (struct service *serv)
 		ipsec_stop(serv, SIGTERM);
 		break;
 	case TYPE_VPN:
-		serv->u.vpn.laststatus = VPN_IDLETIMEOUT_ERROR;
-		serv->u.vpn.disconnect_reason = kVPNValTunnelDisconnectReasonIdleTimeout;
-		vpn_stop(serv);
+		// ignore legacy TYPE_VPN of plugin VPN setup when NE framework is in use.
 		break;
 	}
 }

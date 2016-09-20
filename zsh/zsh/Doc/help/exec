@@ -1,9 +1,9 @@
 exec [ -cl ] [ -a argv0 ] [ command [ arg ... ] ]
-       Replace the current shell with an external command  rather  than
-       forking.   With  -c  clear the environment; with -l prepend - to
-       the argv[0] string of the command executed (to simulate a  login
+       Replace  the  current shell with an external command rather than
+       forking.  With -c clear the environment; with -l  prepend  -  to
+       the  argv[0] string of the command executed (to simulate a login
        shell); with -a argv0 set the argv[0] string of the command exe-
        cuted.  See the section `Precommand Modifiers' in zshmisc(1).
 
-       If command is omitted but any redirections are  specified,  then
+       If  command  is omitted but any redirections are specified, then
        the redirections will take effect in the current shell.

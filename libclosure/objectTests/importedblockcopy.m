@@ -17,7 +17,6 @@
 
 #import <Foundation/Foundation.h>
 #import "Block.h"
-#import <objc/objc-auto.h>
 #import "test.h"
 
 int Allocated = 0;
@@ -30,11 +29,6 @@ int Reclaimed = 0;
 - (void) dealloc {
     ++Reclaimed;
     [super dealloc];
-}
-
-- (void)finalize {
-    ++Reclaimed;
-    [super finalize];
 }
 
 - (id)init {
@@ -70,7 +64,6 @@ int main() {
     for (int i = 0; i < 200; ++i)
         theTest();
     [pool drain];
-    objc_collect(OBJC_EXHAUSTIVE_COLLECTION | OBJC_WAIT_UNTIL_DONE);
 
     if ((Reclaimed+10) <= Allocated) {
         fail("whoops, reclaimed only %d of %d allocated", Reclaimed, Allocated);

@@ -58,7 +58,7 @@ libxml2_la_SOURCES = SAX.c entities.c encoding.c error.c parserInternals.c  \
 		xmlmodule.c schematron.c xzlib.c
 
 DEPS = $(top_builddir)/libxml2.la
-LDADDS = $(STATIC_BINARIES) $(top_builddir)/libxml2.la $(THREAD_LIBS) $(Z_LIBS) $(LZMA_LIBS) $(ICONV_LIBS) $(ICU_LIBS) $(M_LIBS) $(WIN32_EXTRA_LIBADD)
+LDADDS = $(STATIC_BINARIES) $(top_builddir)/libxml2.la $(THREAD_LIBS) $(Z_LIBS) $(LZMA_LIBS) $(ICONV_LIBS) $(M_LIBS) $(WIN32_EXTRA_LIBADD)
 
 
 man_MANS = xml2-config.1 libxml.3
@@ -215,6 +215,10 @@ check-valgrind valgrind: all
 	@echo '## Running the regression tests under Valgrind'
 	@echo '## Go get a cup of coffee it is gonna take a while ...'
 	$(MAKE) CHECKER='valgrind -q' runtests
+
+asan:
+	@echo '## rebuilding for ASAN'
+	./configure CFLAGS="-fsanitize=address,undefined -Wformat -Werror=format-security -Werror=array-bounds -g" CXXFLAGS="-fsanitize=address,undefined -Wformat -Werror=format-security -Werror=array-bounds -g" LDFLAGS="-fsanitize=address,undefined" CC="clang" CXX="clang++" --disable-shared ; OptimOff  ; $(MAKE) clean ; $(MAKE)
 
 testall : tests SVGtests SAXtests
 
@@ -1209,7 +1213,7 @@ EXTRA_DIST = xml2-config.in xml2Conf.sh.in libxml.spec.in libxml2.spec \
 	     check-xsddata-test-suite.py check-xinclude-test-suite.py \
              example/Makefile.am example/gjobread.c example/gjobs.xml \
 	     $(man_MANS) libxml-2.0.pc.in libxml-2.0-uninstalled.pc.in \
-	     libxml2-config.cmake.in \
+	     libxml2-config.cmake.in autogen.sh \
 	     trionan.c trionan.h triostr.c triostr.h trio.c trio.h \
 	     triop.h triodef.h libxml.h elfgcchack.h xzlib.h buf.h \
 	     enc.h save.h testThreadsWin32.c genUnicode.py TODO_SCHEMAS \

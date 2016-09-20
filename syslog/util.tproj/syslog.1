@@ -82,6 +82,10 @@ When invoked with the
 option, 
 .Nm 
 prints a usage message.
+.Pp
+NOTE:  Most system logs have moved to a new logging system.  See
+.Xr log 1
+for more information.
 .Ss SENDING MESSAGES
 The
 .Fl s
@@ -861,11 +865,12 @@ This means that any files currently in use will be checkpointed when the
 .Nm syslog
 command completes.
 .Sh SEE ALSO
-.Xr syslogd 8 ,
+.Xr log 1 ,
 .Xr logger 1 ,
 .Xr asl 3 ,
 .Xr syslog 3 ,
-.Xr asl.conf 5 .
+.Xr asl.conf 5 ,
+.Xr syslogd 8
 .Sh HISTORY
 The
 .Nm

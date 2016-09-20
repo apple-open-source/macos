@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,7 +27,6 @@
 #import "EventHandler.h"
 
 #import "AXObjectCache.h"
-#import "BlockExceptions.h"
 #import "Chrome.h"
 #import "ChromeClient.h"
 #import "FocusController.h"
@@ -42,6 +41,7 @@
 #import "WAKView.h"
 #import "WAKWindow.h"
 #import "WebEvent.h"
+#import <wtf/BlockObjCExceptions.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/Noncopyable.h>
 
@@ -108,8 +108,7 @@ bool EventHandler::wheelEvent(WebEvent *event)
 bool EventHandler::dispatchSimulatedTouchEvent(IntPoint location)
 {
     bool handled = handleTouchEvent(PlatformEventFactory::createPlatformSimulatedTouchEvent(PlatformEvent::TouchStart, location));
-    if (handled)
-        handleTouchEvent(PlatformEventFactory::createPlatformSimulatedTouchEvent(PlatformEvent::TouchEnd, location));
+    handled |= handleTouchEvent(PlatformEventFactory::createPlatformSimulatedTouchEvent(PlatformEvent::TouchEnd, location));
     return handled;
 }
     
@@ -406,7 +405,7 @@ bool EventHandler::passSubframeEventToSubframe(MouseEventWithHitTestResults& eve
     return false;
 }
 
-bool EventHandler::passWheelEventToWidget(const PlatformWheelEvent&, Widget& widget)
+bool EventHandler::widgetDidHandleWheelEvent(const PlatformWheelEvent&, Widget& widget)
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
 

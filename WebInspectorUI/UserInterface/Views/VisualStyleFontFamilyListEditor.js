@@ -70,7 +70,7 @@ WebInspector.VisualStyleFontFamilyListEditor = class VisualStyleFontFamilyListEd
         if (value)
             value = value.replace(this._removeWrappedQuotesRegExp, "");
 
-        var valueElement = super._addCommaSeparatedKeyword(value, index);
+        let valueElement = super._addCommaSeparatedKeyword(value, index);
         valueElement.addEventListener(WebInspector.VisualStyleFontFamilyTreeElement.Event.EditorKeyDown, this._treeElementKeyDown, this);
         valueElement.addEventListener(WebInspector.VisualStyleFontFamilyTreeElement.Event.KeywordChanged, this._treeElementKeywordChanged, this);
         valueElement.addEventListener(WebInspector.VisualStyleFontFamilyTreeElement.Event.EditorBlurred, this._hideCompletions, this);
@@ -79,7 +79,7 @@ WebInspector.VisualStyleFontFamilyListEditor = class VisualStyleFontFamilyListEd
 
     _addEmptyCommaSeparatedKeyword()
     {
-        var newItem = super._addEmptyCommaSeparatedKeyword();
+        let newItem = super._addEmptyCommaSeparatedKeyword();
         newItem.showKeywordEditor();
     }
 
@@ -94,12 +94,12 @@ WebInspector.VisualStyleFontFamilyListEditor = class VisualStyleFontFamilyListEd
         if (!this._completionController.visible)
             return;
 
-        var key = event && event.data && event.data.key;
+        let key = event && event.data && event.data.key;
         if (!key)
             return;
 
         if (key === "Enter" || key === "Tab") {
-            var selectedTreeElement = this._commaSeparatedKeywords.selectedTreeElement;
+            let selectedTreeElement = this._commaSeparatedKeywords.selectedTreeElement;
             if (!selectedTreeElement)
                 return;
 
@@ -129,16 +129,16 @@ WebInspector.VisualStyleFontFamilyListEditor = class VisualStyleFontFamilyListEd
         if (!this.hasCompletions)
             return;
 
-        var result = this._valueDidChange();
+        let result = this._valueDidChange();
         if (!result)
             return;
 
-        var treeElement = this._commaSeparatedKeywords.selectedTreeElement;
+        let treeElement = this._commaSeparatedKeywords.selectedTreeElement;
         if (!treeElement)
             return;
 
         if (this._completionController.update(treeElement.mainTitle)) {
-            var bounds = treeElement.editorBounds(2);
+            let bounds = treeElement.editorBounds(2);
             if (!bounds)
                 return;
 

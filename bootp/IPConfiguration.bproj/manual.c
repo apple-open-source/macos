@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -194,6 +194,10 @@ manual_start(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  if (result->error) {
 	      my_log(LOG_NOTICE, "MANUAL %s: arp probe failed, %s",
 		     if_name(if_p), arp_client_errmsg(manual->arp));
+	      /* hopefully a temporary failure, try again in a bit */
+	      timer_callout_set(manual->timer, ARP_PROBE_FAILURE_RETRY_TIME,
+				(timer_func_t *)manual_start,
+				service_p, IFEventID_start_e, NULL);
 	      break;
 	  }
 	  else {
@@ -271,9 +275,9 @@ manual_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
     manual = (Service_manual_t *)ServiceGetPrivate(service_p);
     switch (evid) {
       case IFEventID_start_e: {
-	  ipconfig_method_data_t * method_data;
+	  ipconfig_method_data_t method_data;
 
-	  method_data = (ipconfig_method_data_t *)event_data;
+	  method_data = (ipconfig_method_data_t)event_data;
 	  if (manual) {
 	      my_log(LOG_INFO, "MANUAL %s: re-entering start state", 
 		     if_name(if_p));
@@ -342,7 +346,7 @@ manual_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
       }
       case IFEventID_change_e: {
 	  change_event_data_t *   	change_event;
-	  ipconfig_method_data_t * 	method_data;
+	  ipconfig_method_data_t 	method_data;
 
 	  if (manual == NULL) {
 	      my_log(LOG_INFO, "MANUAL %s: private data is NULL", 
@@ -405,6 +409,7 @@ manual_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 		 if_name(if_p), msg);
 	  break;
       }
+      case IFEventID_wake_e:
       case IFEventID_renew_e:
       case IFEventID_link_status_changed_e: {
 	  link_status_t		link_status;
@@ -417,13 +422,12 @@ manual_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  }
 	  manual->user_warned = FALSE;
 	  link_status = service_link_status(service_p);
-	  if (link_status.valid == TRUE) {
-	      if (link_status.active == TRUE) {
-		  manual_start(service_p, IFEventID_start_e, NULL);
-	      }
-	      else {
-		  manual_cancel_pending_events(service_p);
-	      }
+	  if (link_status.valid == TRUE && link_status.active == FALSE) {
+	      manual_cancel_pending_events(service_p);
+	  }
+	  else if (evid != IFEventID_wake_e
+		   || ServiceIsPublished(service_p) == FALSE) {
+	      manual_start(service_p, IFEventID_start_e, NULL);
 	  }
 	  break;
       }

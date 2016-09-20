@@ -53,9 +53,9 @@ p.roffit {
 <p class="level0"><a name="NAME"></a><h2 class="nroffsh">NAME</h2>
 <p class="level0">curl_formget - serialize a previously built multipart/formdata HTTP POST chain <a name="SYNOPSIS"></a><h2 class="nroffsh">SYNOPSIS</h2>
 <p class="level0"><pre class="level0">
-<span Class="bold">#include &lt;curl/curl.h&gt;</span> 
+<span class="bold">#include &lt;curl/curl.h&gt;</span> 
 &nbsp;
-void curl_formget(struct curl_httppost * form, void *userp,
+int curl_formget(struct curl_httppost * form, void *userp,
 &nbsp;                 curl_formget_callback append );
 </pre>
 <a name="DESCRIPTION"></a><h2 class="nroffsh">DESCRIPTION</h2>
@@ -84,6 +84,6 @@ void curl_formget(struct curl_httppost * form, void *userp,
 </pre>
 <a name="AVAILABILITY"></a><h2 class="nroffsh">AVAILABILITY</h2>
 <p class="level0">This function was added in libcurl 7.15.5 <a name="SEE"></a><h2 class="nroffsh">SEE ALSO</h2>
-<p class="level0"><a Class="manpage" href="./curl_formadd.html">curl_formadd</a>, <p class="roffit">
+<p class="level0"><a Class="manpage" href="./curl_formadd.html">curl_formadd</a><p class="roffit">
  This HTML page was made with <a href="http://daniel.haxx.se/projects/roffit/">roffit</a>.
 </body></html>

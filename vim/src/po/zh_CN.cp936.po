@@ -435,7 +435,7 @@ msgstr "E109: '?' ºóÈ±ÉÙ ':'"
 msgid "E691: Can only compare List with List"
 msgstr "E691: Ö»ÄÜ±È½Ï List ºÍ List"
 
-msgid "E692: Invalid operation for Lists"
+msgid "E692: Invalid operation for List"
 msgstr "E692: ¶Ô List ÎŞĞ§µÄ²Ù×÷"
 
 msgid "E735: Can only compare Dictionary with Dictionary"
@@ -2016,21 +2016,6 @@ msgid "&Undo"
 msgstr "³·Ïú(&U)"
 
 #, c-format
-msgid "E610: Can't load Zap font '%s'"
-msgstr "E610: ÎŞ·¨¼ÓÔØ Zap ×ÖÌå '%s'"
-
-#, c-format
-msgid "E611: Can't use font %s"
-msgstr "E611: ÎŞ·¨Ê¹ÓÃ×ÖÌå %s"
-
-msgid ""
-"\n"
-"Sending message to terminate child process.\n"
-msgstr ""
-"\n"
-"ÕıÔÚ·¢ËÍÏûÏ¢ÖÕÖ¹×Ó½ø³Ì¡£\n"
-
-#, c-format
 msgid "E671: Cannot find window title \"%s\""
 msgstr "E671: ÕÒ²»µ½´°¿Ú±êÌâ \"%s\""
 
@@ -2911,7 +2896,7 @@ msgid "--remote <files>\tEdit <files> in a Vim server if possible"
 msgstr "--remote <files>\tÈçÓĞ¿ÉÄÜ£¬ÔÚ Vim ·şÎñÆ÷ÉÏ±à¼­ÎÄ¼ş <files>"
 
 msgid "--remote-silent <files>  Same, don't complain if there is no server"
-msgstr "--remote-silent <files>  Í¬ÉÏ£¬ÕÒ²»µ½·şÎñÆ÷Ê±²»±§Ô¹"
+msgstr "--remote-silent <files>  Í¬ÉÏ£¬ÕÒ²»µ½·şÎñÆ÷Ê±»±§Ô¹"
 
 msgid ""
 "--remote-wait <files>  As --remote but wait for files to have been edited"
@@ -4225,9 +4210,6 @@ msgstr "E244: ×Ö·û¼¯ \"%s\" ²»ÄÜ¶ÔÓ¦×ÖÌå\"%s\""
 #, c-format
 msgid "E245: Illegal char '%c' in font name \"%s\""
 msgstr "E245: ²»ÕıÈ·µÄ×Ö·û '%c' ³öÏÖÔÚ×ÖÌåÃû³Æ \"%s\" ÄÚ"
-
-msgid "E366: Invalid 'osfiletype' option - using Text"
-msgstr "E366: ²»ÕıÈ·µÄ 'osfiletype' Ñ¡Ïî - Ê¹ÓÃ´¿ÎÄ×ÖÄ£Ê½"
 
 msgid "Vim: Double signal, exiting\n"
 msgstr "Vim: Ë«ÖØĞÅºÅ£¬ÍË³öÖĞ\n"

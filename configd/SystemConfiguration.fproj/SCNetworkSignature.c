@@ -316,8 +316,7 @@ SCNetworkSignatureCopyActiveIdentifiers(CFAllocatorRef alloc)
 			/* Does this service have a signature? */
 			if (isA_CFDictionary(service_info) != NULL) {
 				network_sig = CFDictionaryGetValue(service_info, kStoreKeyNetworkSignature);
-				if (isA_CFString(network_sig) != NULL
-				    && CFArrayContainsValue(active, range, network_sig) == FALSE) {
+				if (isA_CFString(network_sig) && !CFArrayContainsValue(active, range, network_sig)) {
 					CFArrayAppendValue(active, network_sig);
 					network_sig = NULL;
 					range.length++;
@@ -350,8 +349,7 @@ SCNetworkSignatureCopyActiveIdentifiers(CFAllocatorRef alloc)
 		network_sig = CFDictionaryGetValue(service_dict,
 						   kStoreKeyNetworkSignature);
 		/* Does this service have a signature? */
-		if (isA_CFString(network_sig) != NULL
-		    && CFArrayContainsValue(active, range, network_sig) == FALSE) {
+		if (isA_CFString(network_sig) && !CFArrayContainsValue(active, range, network_sig)) {
 			CFArrayAppendValue(active, network_sig);
 			range.length++;
 			network_sig = NULL;

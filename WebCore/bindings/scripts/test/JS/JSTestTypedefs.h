@@ -18,8 +18,7 @@
     Boston, MA 02110-1301, USA.
 */
 
-#ifndef JSTestTypedefs_h
-#define JSTestTypedefs_h
+#pragma once
 
 #include "JSDOMWrapper.h"
 #include "TestTypedefs.h"
@@ -27,22 +26,20 @@
 
 namespace WebCore {
 
-class JSTestTypedefs : public JSDOMWrapper {
+class JSTestTypedefs : public JSDOMWrapper<TestTypedefs> {
 public:
-    typedef JSDOMWrapper Base;
+    typedef JSDOMWrapper<TestTypedefs> Base;
     static JSTestTypedefs* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, Ref<TestTypedefs>&& impl)
     {
-        JSTestTypedefs* ptr = new (NotNull, JSC::allocateCell<JSTestTypedefs>(globalObject->vm().heap)) JSTestTypedefs(structure, globalObject, WTF::move(impl));
+        JSTestTypedefs* ptr = new (NotNull, JSC::allocateCell<JSTestTypedefs>(globalObject->vm().heap)) JSTestTypedefs(structure, *globalObject, WTFMove(impl));
         ptr->finishCreation(globalObject->vm());
         return ptr;
     }
 
     static JSC::JSObject* createPrototype(JSC::VM&, JSC::JSGlobalObject*);
-    static JSC::JSObject* getPrototype(JSC::VM&, JSC::JSGlobalObject*);
+    static JSC::JSObject* prototype(JSC::VM&, JSC::JSGlobalObject*);
     static TestTypedefs* toWrapped(JSC::JSValue);
-    static bool getOwnPropertySlot(JSC::JSObject*, JSC::ExecState*, JSC::PropertyName, JSC::PropertySlot&);
     static void destroy(JSC::JSCell*);
-    ~JSTestTypedefs();
 
     DECLARE_INFO;
 
@@ -51,16 +48,11 @@ public:
         return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), info());
     }
 
-    static JSC::JSValue getConstructor(JSC::VM&, JSC::JSGlobalObject*);
-    TestTypedefs& impl() const { return *m_impl; }
-    void releaseImpl() { std::exchange(m_impl, nullptr)->deref(); }
-
-private:
-    TestTypedefs* m_impl;
+    static JSC::JSValue getConstructor(JSC::VM&, const JSC::JSGlobalObject*);
 public:
-    static const unsigned StructureFlags = JSC::OverridesGetOwnPropertySlot | Base::StructureFlags;
+    static const unsigned StructureFlags = JSC::HasStaticPropertyTable | Base::StructureFlags;
 protected:
-    JSTestTypedefs(JSC::Structure*, JSDOMGlobalObject*, Ref<TestTypedefs>&&);
+    JSTestTypedefs(JSC::Structure*, JSDOMGlobalObject&, Ref<TestTypedefs>&&);
 
     void finishCreation(JSC::VM& vm)
     {
@@ -82,10 +74,15 @@ inline JSC::WeakHandleOwner* wrapperOwner(DOMWrapperWorld&, TestTypedefs*)
     return &owner.get();
 }
 
-JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, TestTypedefs*);
-inline JSC::JSValue toJS(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, TestTypedefs& impl) { return toJS(exec, globalObject, &impl); }
+inline void* wrapperKey(TestTypedefs* wrappableObject)
+{
+    return wrappableObject;
+}
+
+JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, TestTypedefs&);
+inline JSC::JSValue toJS(JSC::ExecState* state, JSDOMGlobalObject* globalObject, TestTypedefs* impl) { return impl ? toJS(state, globalObject, *impl) : JSC::jsNull(); }
+JSC::JSValue toJSNewlyCreated(JSC::ExecState*, JSDOMGlobalObject*, Ref<TestTypedefs>&&);
+inline JSC::JSValue toJSNewlyCreated(JSC::ExecState* state, JSDOMGlobalObject* globalObject, RefPtr<TestTypedefs>&& impl) { return impl ? toJSNewlyCreated(state, globalObject, impl.releaseNonNull()) : JSC::jsNull(); }
 
 
 } // namespace WebCore
-
-#endif

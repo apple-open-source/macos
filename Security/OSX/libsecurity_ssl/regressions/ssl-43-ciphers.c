@@ -89,10 +89,13 @@
 
  */
 
-#define OPENSSL_SERVER "ariadne.apple.com"
+
+//#define OPENSSL_SERVER "ariadne.apple.com"
+//#define GNUTLS_SERVER "ariadne.apple.com"
 //#define OPENSSL_SERVER "kuip.apple.com"
-#define GNUTLS_SERVER "ariadne.apple.com"
 //#define GNUTLS_SERVER "kuip.apple.com"
+#define OPENSSL_SERVER "192.168.2.1"
+#define GNUTLS_SERVER "192.168.2.1"
 
 static struct {
     const char *host;
@@ -185,26 +188,6 @@ const CipherSuiteName ciphers[] = {
     CIPHER(3, TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,    {0, 0, 0, 0}, false) // Not supported by either gnutls or openssl
 #endif
 
-#if 1
-    /* ECDH_ECDSA cipher suites */
-    CIPHER(1, TLS_ECDH_ECDSA_WITH_RC4_128_SHA,          {4, 0, 0, 1}, false)
-    CIPHER(1, TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA,     {4, 0, 0, 1}, false)
-    CIPHER(1, TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA,      {4, 0, 0, 1}, false)
-    CIPHER(3, TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256,   {0, 0, 0, 1}, false)
-    CIPHER(1, TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA,      {4, 0, 0, 1}, false)
-    CIPHER(3, TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384,   {0, 0, 0, 1}, false)
-#endif
-
-#if 1
-    /* ECDH_RSA cipher suites */
-    CIPHER(1, TLS_ECDH_RSA_WITH_RC4_128_SHA,            {3, 0, 0, 1}, false)
-    CIPHER(1, TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA,       {3, 0, 0, 1}, false)
-    CIPHER(1, TLS_ECDH_RSA_WITH_AES_128_CBC_SHA,        {3, 0, 0, 1}, false)
-    CIPHER(3, TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256,     {0, 0, 0, 1}, false)
-    CIPHER(1, TLS_ECDH_RSA_WITH_AES_256_CBC_SHA,        {3, 0, 0, 1}, false)
-    CIPHER(3, TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384,     {0, 0, 0, 1}, false)
-#endif
-
 #if 0
     CIPHER(1, TLS_PSK_WITH_RC4_128_SHA,                 {1, 1, 0, 0}, true)
     CIPHER(1, TLS_PSK_WITH_3DES_EDE_CBC_SHA,            {1, 1, 0, 0}, true)
@@ -226,12 +209,6 @@ const CipherSuiteName ciphers[] = {
 
     CIPHER(3, TLS_DH_anon_WITH_AES_128_GCM_SHA256,      {1, 1, 0, 0}, true)
     CIPHER(3, TLS_DH_anon_WITH_AES_256_GCM_SHA384,      {1, 0, 0, 0}, true)
-
-    CIPHER(3, TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384,     {3, 0, 0, 0}, false)
-    CIPHER(3, TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256,     {3, 0, 0, 0}, false)
-
-    CIPHER(3, TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256,   {4, 0, 0, 0}, false)
-    CIPHER(3, TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384,   {4, 0, 0, 0}, false)
 
     CIPHER(3, TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,    {1, 1, 0, 0}, false)
     CIPHER(3, TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,    {1, 1, 0, 0}, false)
@@ -505,6 +482,8 @@ static OSStatus securetransport(ssl_test_handle * ssl)
     SSLContextRef ctx = ssl->st;
     SecTrustRef trust = NULL;
     bool got_server_auth = false, got_client_cert_req = false;
+    CFMutableArrayRef peer_cert_array = NULL;
+    CFMutableArrayRef orig_peer_cert_array = NULL;
 
     //uint64_t start = mach_absolute_time();
     do {
@@ -524,8 +503,8 @@ static OSStatus securetransport(ssl_test_handle * ssl)
             CFIndex n_certs = SecTrustGetCertificateCount(trust);
             /*fprintf(stderr, "%ld certs; trust_eval: %d\n", n_certs, trust_result); */
 
-            CFMutableArrayRef peer_cert_array = CFArrayCreateMutable(NULL, n_certs, &kCFTypeArrayCallBacks);
-            CFMutableArrayRef orig_peer_cert_array = CFArrayCreateMutableCopy(NULL, n_certs, ssl->certs);
+            peer_cert_array = CFArrayCreateMutable(NULL, n_certs, &kCFTypeArrayCallBacks);
+            orig_peer_cert_array = CFArrayCreateMutableCopy(NULL, n_certs, ssl->certs);
             while (n_certs--)
                 CFArrayInsertValueAtIndex(peer_cert_array, 0,
                                           SecTrustGetCertificateAtIndex(trust, n_certs));
@@ -539,8 +518,6 @@ static OSStatus securetransport(ssl_test_handle * ssl)
 #if 0
             require(CFEqual(orig_peer_cert_array, peer_cert_array), out);
 #endif
-            CFRelease(orig_peer_cert_array);
-            CFRelease(peer_cert_array);
 
             /*
              CFStringRef cert_name = SecCertificateCopySubjectSummary(cert);
@@ -610,6 +587,8 @@ static OSStatus securetransport(ssl_test_handle * ssl)
 #endif
 
 out:
+    CFReleaseSafe(orig_peer_cert_array);
+    CFReleaseSafe(peer_cert_array);
     SSLClose(ctx);
     SSLDisposeContext(ctx);
     if (trust) CFRelease(trust);
@@ -688,6 +667,7 @@ tests(void)
                 ok(!ok, "Handshake failed: %40s to %s:%d proto=%d", ciphers[i].name, servers[p].host, port, pr);
 
                 close(s);
+                free(client);
 
             } /* SKIP block */
         }

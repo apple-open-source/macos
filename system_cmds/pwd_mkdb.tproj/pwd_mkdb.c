@@ -77,12 +77,12 @@ __unused static const char rcsid[] = "$OpenBSD: pwd_mkdb.c,v 1.36 2003/06/08 21:
 #define	SHADOW_GROUP	"wheel"
 
 HASHINFO openinfo = {
-	4096,		/* bsize */
-	32,		/* ffactor */
-	256,		/* nelem */
-	2048 * 1024,	/* cachesize */
-	NULL,		/* hash() */
-	0		/* lorder */
+	.bsize = 4096,
+	.ffactor = 32,
+	.nelem = 256,
+	.cachesize = 2048 * 1024,
+	.hash = NULL,
+	.lorder = 0
 };
 
 static char *pname;				/* password file name */
@@ -110,7 +110,7 @@ main(int argc, char **argv)
 	struct passwd pwd;
 	struct group *grp;
 	sigset_t set;
-	uid_t olduid;
+	uid_t olduid = UID_MAX;
 	gid_t shadow;
 	int ch, tfd, makeold, secureonly, flags, checkonly;
 	char *username, buf[MAX(MAXPATHLEN, LINE_MAX * 2)];
@@ -150,7 +150,7 @@ main(int argc, char **argv)
 	if (argc != 1 || (makeold && secureonly) ||
 	    (username && (*username == '+' || *username == '-')))
 		usage();
-	
+
 	if ((grp = getgrnam(SHADOW_GROUP)) == NULL)
 		errx(1, "cannot find `%s' in the group database, aborting",
 		    SHADOW_GROUP);
@@ -194,9 +194,9 @@ main(int argc, char **argv)
 
 	/* Tweak openinfo values for large passwd files. */
 	if (st.st_size > (off_t)100*1024)
-		openinfo.cachesize = MIN(st.st_size * 20, (off_t)12*1024*1024);
+		openinfo.cachesize = (u_int)MIN(st.st_size * 20, (off_t)12*1024*1024);
 	if (st.st_size / 128 > openinfo.nelem)
-		openinfo.nelem = st.st_size / 128;
+		openinfo.nelem = (u_int)(st.st_size / 128);
 
         /* If only updating a single record, stash the old uid */
 	if (username) {
@@ -384,11 +384,12 @@ fmt:		errno = EFTYPE;	/* XXX */
 	return (1);
 }
 
-void                    
-cp(char *from, char *to, mode_t mode)              
-{               
+void
+cp(char *from, char *to, mode_t mode)
+{
 	static char buf[MAXBSIZE];
-	int from_fd, rcount, to_fd, wcount;
+	int from_fd, to_fd;
+	ssize_t rcount, wcount;
 
 	if ((from_fd = open(from, O_RDONLY, 0)) < 0)
 		error(from);
@@ -414,8 +415,7 @@ cp(char *from, char *to, mode_t mode)
 }
 
 void
-mv(from, to)
-	char *from, *to;
+mv(char *from, char *to)
 {
 	char buf[MAXPATHLEN * 2];
 
@@ -429,27 +429,23 @@ mv(from, to)
 }
 
 void
-error(name)
-	char *name;
+error(char *name)
 {
-
 	warn("%s", name);
 	cleanup();
 	exit(1);
 }
 
 void
-errorx(name)
-	char *name;
+errorx(char *name)
 {
-
 	warnx("%s", name);
 	cleanup();
 	exit(1);
 }
 
 void
-cleanup()
+cleanup(void)
 {
 	char buf[MAXPATHLEN];
 
@@ -472,7 +468,6 @@ cleanup()
 void
 usage(void)
 {
-
 	(void)fprintf(stderr,
 	    "usage: pwd_mkdb [-c] [-p | -s] [-d basedir] [-u username] file\n");
 	exit(1);

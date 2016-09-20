@@ -13,6 +13,8 @@
 
       /if defined(LIBXML_MODULES_ENABLED)
 
+      /include "libxmlrpg/xmlTypesC"
+
       * xmlModulePtr:
       *
       * A handle to a dynamically loaded module
@@ -24,7 +26,8 @@
       * enumeration of options that can be passed down to xmlModuleOpen()
 
      d xmlModuleOption...
-     d                 s             10i 0 based(######typedef######)           enum
+     d                 s                   based(######typedef######)
+     d                                     like(xmlCenum)
      d  XML_MODULE_LAZY...                                                      Lazy binding
      d                 c                   1
      d  XML_MODULE_LOCAL...                                                     Local binding
@@ -33,18 +36,21 @@
      d xmlModuleOpen   pr                  extproc('xmlModuleOpen')
      d                                     like(xmlModulePtr)
      d  filename                       *   value options(*string)               const char *
-     d  options                      10i 0 value
+     d  options                            value like(xmlCint)
 
      d xmlModuleSymbol...
-     d                 pr            10i 0 extproc('xmlModuleSymbol')
+     d                 pr                  extproc('xmlModuleSymbol')
+     d                                     like(xmlCint)
      d  module                             value like(xmlModulePtr)
      d  name                           *   value options(*string)               const char *
      d  result                         *                                        void *(*)
 
-     d xmlModuleClose  pr            10i 0 extproc('xmlModuleClose')
+     d xmlModuleClose  pr                  extproc('xmlModuleClose')
+     d                                     like(xmlCint)
      d  module                             value like(xmlModulePtr)
 
-     d xmlModuleFree   pr            10i 0 extproc('xmlModuleFree')
+     d xmlModuleFree   pr                  extproc('xmlModuleFree')
+     d                                     like(xmlCint)
      d  module                             value like(xmlModulePtr)
 
       /endif                                                                    LIBXML_MODULES_ENBLD

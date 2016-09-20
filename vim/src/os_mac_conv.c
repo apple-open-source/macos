@@ -14,6 +14,8 @@
  */
 
 #define NO_X11_INCLUDES
+#define BalloonEval int   /* used in header files */
+
 #include "vim.h"
 #ifndef FEAT_GUI_MAC
 # include <CoreServices/CoreServices.h>
@@ -75,7 +77,7 @@ mac_string_convert(ptr, len, lenp, fail_on_error, from_enc, to_enc, unconvlenp)
 	*unconvlenp = 0;
     cfstr = CFStringCreateWithBytes(NULL, ptr, len, from, 0);
 
-    if(cfstr == NULL)
+    if (cfstr == NULL)
 	fprintf(stderr, "Encoding failed\n");
     /* When conversion failed, try excluding bytes from the end, helps when
      * there is an incomplete byte sequence.  Only do up to 6 bytes to avoid

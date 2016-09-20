@@ -29,6 +29,7 @@
 #include <notify.h>
 #include "sscommon.h"
 #include <sys/syslog.h>
+#include <Security/SecBasePriv.h>
 
 using namespace MachPlusPlus;
 
@@ -82,186 +83,94 @@ ModuleNexus<EventListenerList> gEventListeners;
 ModuleNexus<Mutex> gNotificationLock;
 ModuleNexus<SharedMemoryClientMaker> gMemoryClient;
 
-class NotificationPort : public MachPlusPlus::CFAutoPort
-{
-protected:
-	SharedMemoryClient *mClient;
+//
+// Note that once we start notifications, we want receive them forever. Don't have a cancel option.
+//
+static void InitializeNotifications () {
+    static dispatch_queue_t notification_queue = EventListener::getNotificationQueue();
 
-    void ReceiveImplementation(u_int8_t* buffer, SegmentOffsetType length, UnavailableReason ur);
-    static void HandleRunLoopTimer(CFRunLoopTimerRef timer, void* info);
+    // Initialize the memory client
+    gMemoryClient();
 
-public:
-	NotificationPort (mach_port_t port);
-	virtual ~NotificationPort ();
-	virtual void receive(const MachPlusPlus::Message &msg);
-};
+    int out_token;
 
-NotificationPort::NotificationPort (mach_port_t mp) : CFAutoPort (mp)
-{
-	mClient = gMemoryClient ().Client ();
-}
+    notify_handler_t receive = ^(int token){
+        try {
+            SegmentOffsetType length;
+            UnavailableReason ur;
 
+            bool result;
 
-
-NotificationPort::~NotificationPort ()
-{
-}
-
-
-
-void NotificationPort::ReceiveImplementation(u_int8_t* buffer, SegmentOffsetType length, UnavailableReason ur)
-{
-    EventListenerList& eventList = gEventListeners();
-
-	// route the message to its destination
-    u_int32_t* ptr = (u_int32_t*) buffer;
-    
-    // we have a message, do the semantics...
-    SecurityServer::NotificationDomain domain = (SecurityServer::NotificationDomain) OSSwapBigToHostInt32 (*ptr++);
-    SecurityServer::NotificationEvent event = (SecurityServer::NotificationEvent) OSSwapBigToHostInt32 (*ptr++);
-    CssmData data ((u_int8_t*) ptr, buffer + length - (u_int8_t*) ptr);
-
-    EventListenerList::iterator it = eventList.begin ();
-    while (it != eventList.end ())
-    {
-        try
-        {
-            EventPointer ep = *it++;
-            if (ep->GetDomain () == domain &&
-                (ep->GetMask () & (1 << event)) != 0)
+            // Trust the memory client to break our loop here
+            while (true)
             {
-                ep->consume (domain, event, data);
+                u_int8_t *buffer = new u_int8_t[kSharedMemoryPoolSize];
+                {
+                    StLock<Mutex> lock (gNotificationLock ());
+                    result = gMemoryClient().Client()->ReadMessage(buffer, length, ur);
+                    if (!result)
+                    {
+                        delete [] buffer;
+                        return;
+                    }
+                }
+
+                // Send this event off to the listeners
+                {
+                    EventListenerList& eventList = gEventListeners();
+
+                    // route the message to its destination
+                    u_int32_t* ptr = (u_int32_t*) buffer;
+
+                    // we have a message, do the semantics...
+                    SecurityServer::NotificationDomain domain = (SecurityServer::NotificationDomain) OSSwapBigToHostInt32 (*ptr++);
+                    SecurityServer::NotificationEvent event = (SecurityServer::NotificationEvent) OSSwapBigToHostInt32 (*ptr++);
+                    CssmData data ((u_int8_t*) ptr, buffer + length - (u_int8_t*) ptr);
+
+                    EventListenerList::iterator it = eventList.begin ();
+                    while (it != eventList.end ())
+                    {
+                        try
+                        {
+                            EventPointer ep = *it++;
+                            if (ep->GetDomain () == domain &&
+                                    (ep->GetMask () & (1 << event)) != 0)
+                            {
+                                ep->consume (domain, event, data);
+                            }
+                        }
+                        catch (CssmError &e)
+                        {
+                            // If we throw, libnotify will abort the process. Log these...
+                            secerror("Caught CssmError while processing notification: %d %s", e.error, cssmErrorString(e.error));
+                        }
+                    }
+                }
+
+                delete [] buffer;
             }
         }
-        catch (CssmError &e)
-        {
-            if (e.error != CSSM_ERRCODE_INTERNAL_ERROR)
-            {
-                throw;
-            }
+        // If these exceptions propagate, we crash our enclosing app. That's bad. Worse than silently swallowing the error.
+        catch(CssmError &cssme) {
+            secerror("caught CssmError during notification: %d %s", (int) cssme.error, cssmErrorString(cssme.error));
         }
+        catch(UnixError &ue) {
+            secerror("caught UnixError during notification: %d %s", ue.unixError(), ue.what());
+        }
+        catch (MacOSError mose) {
+            secerror("caught MacOSError during notification: %d %s", (int) mose.osStatus(), mose.what());
+        }
+        catch (...) {
+            secerror("cauth unknknown error during notification");
+        }
+    };
+
+    uint32_t status = notify_register_dispatch(GetNotificationName(), &out_token, notification_queue, receive);
+    if(status) {
+        secerror("notify_register_dispatch failed: %d", status);
+        syslog(LOG_ERR, "notify_register_dispatch failed: %d", status);
     }
 }
-
-
-
-typedef void (^NotificationBlock)();
-
-
-
-void NotificationPort::HandleRunLoopTimer(CFRunLoopTimerRef timer, void* info)
-{
-    // reconstruct our context and call it
-    NotificationBlock nb = (NotificationBlock) info;
-    nb();
-    
-    // clean up
-    Block_release(nb);
-    CFRunLoopTimerInvalidate(timer);
-    CFRelease(timer);
-}
-
-
-
-void NotificationPort::receive (const MachPlusPlus::Message &msg)
-{
-    /*
-        Read each notification received and post a timer for each with an expiration of
-        zero.  I'd prefer to use a notification here, but I can't because, according to
-        the documentation, each application may only have one notification center and
-        the main application should have the right to pick the one it needs.
-    */
-    
-    SegmentOffsetType length;
-    UnavailableReason ur;
-
-    bool result;
-
-    while (true)
-    {
-        u_int8_t *buffer = new u_int8_t[kSharedMemoryPoolSize];
-    
-       {
-            StLock<Mutex> lock (gNotificationLock ());
-            result = mClient->ReadMessage(buffer, length, ur);
-            if (!result)
-            {
-                delete [] buffer;
-                return;
-            }
-        }
-
-        // make a block that contains our data
-        NotificationBlock nb =
-            ^{
-                ReceiveImplementation(buffer, length, ur);
-                delete [] buffer;
-            };
-        
-        // keep it in scope
-        nb = Block_copy(nb);
-        
-        // set up to run the next time the run loop fires
-        CFRunLoopTimerContext ctx;
-        memset(&ctx, 0, sizeof(ctx));
-        ctx.info = nb;
-        
-        // make a run loop timer
-        CFRunLoopTimerRef timerRef =
-            CFRunLoopTimerCreate(NULL, CFAbsoluteTimeGetCurrent(), 0,
-                                 0, 0, NotificationPort::HandleRunLoopTimer, &ctx);
-        
-        // install it to be run.
-        CFRunLoopAddTimer(CFRunLoopGetCurrent(), timerRef, kCFRunLoopDefaultMode);
-    }
-}
-
-
-
-class ThreadNotifier
-{
-protected:
-	NotificationPort *mNotificationPort;
-	int mNotifyToken;
-
-public:
-	ThreadNotifier();
-	~ThreadNotifier();
-};
-
-
-
-ThreadNotifier::ThreadNotifier()
-    : mNotificationPort(NULL)
-{
-	mach_port_t mp;
-	if (notify_register_mach_port (GetNotificationName (), &mp, 0, &mNotifyToken) == NOTIFY_STATUS_OK) {
-		mNotificationPort = new NotificationPort (mp);
-		mNotificationPort->enable ();
-	}
-}
-
-
-
-ThreadNotifier::~ThreadNotifier()
-{
-	if (mNotificationPort) {
-		notify_cancel (mNotifyToken);
-		delete mNotificationPort;
-	}
-}
-
-
-
-ModuleNexus<ThreadNexus<ThreadNotifier> > threadInfo;
-
-
-
-static void InitializeNotifications ()
-{
-	threadInfo()(); // cause the notifier for this thread to initialize
-}
-
 
 
 EventListener::EventListener (NotificationDomain domain, NotificationMask eventMask)
@@ -270,7 +179,6 @@ EventListener::EventListener (NotificationDomain domain, NotificationMask eventM
 	// make sure that notifications are turned on.
 	InitializeNotifications ();
 }
-
 
 //
 // StopNotification() is needed on destruction; everyone else cleans up after themselves.
@@ -304,6 +212,16 @@ void EventListener::FinishedInitialization(EventListener *eventListener)
 	gEventListeners().push_back (eventListener);
 }
 
+dispatch_once_t EventListener::queueOnceToken = 0;
+dispatch_queue_t EventListener::notificationQueue = NULL;
+
+dispatch_queue_t EventListener::getNotificationQueue() {
+    dispatch_once(&queueOnceToken, ^{
+        notificationQueue = dispatch_queue_create("com.apple.security.keychain-notification-queue", DISPATCH_QUEUE_SERIAL);
+    });
+
+    return notificationQueue;
+}
 
 
 } // end namespace SecurityServer

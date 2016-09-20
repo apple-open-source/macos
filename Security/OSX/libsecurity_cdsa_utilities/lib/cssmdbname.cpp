@@ -134,6 +134,7 @@ DbName &
 DbName::operator =(const DbName &other)
 {
 	mDbName = other.mDbName;
+    mCanonicalName = other.mCanonicalName;
 	mDbNameValid = other.mDbNameValid;
     if (other.mDbLocation)
     {

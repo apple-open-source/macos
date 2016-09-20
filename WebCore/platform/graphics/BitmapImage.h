@@ -60,22 +60,22 @@ namespace WebCore {
 
 class Timer;
 
+namespace NativeImage {
+    IntSize size(const NativeImagePtr&);
+    bool hasAlpha(const NativeImagePtr&);
+    Color singlePixelSolidColor(const NativeImagePtr&);
+}
+
 // ================================================
 // FrameData Class
 // ================================================
 
 struct FrameData {
-    WTF_MAKE_NONCOPYABLE(FrameData);
 public:
     FrameData()
-        : m_frame(0)
-        , m_orientation(DefaultImageOrientation)
-        , m_subsamplingLevel(0)
-        , m_duration(0)
-        , m_haveMetadata(false)
+        : m_haveMetadata(false)
         , m_isComplete(false)
-        , m_hasAlpha(true) 
-        , m_frameBytes(0)
+        , m_hasAlpha(true)
     {
     }
 
@@ -87,15 +87,17 @@ public:
     // Clear the cached image data on the frame, and (optionally) the metadata.
     // Returns whether there was cached image data to clear.
     bool clear(bool clearMetadata);
+    
+    unsigned usedFrameBytes() const { return m_image ? m_frameBytes : 0; }
 
-    NativeImagePtr m_frame;
-    ImageOrientation m_orientation;
-    SubsamplingLevel m_subsamplingLevel;
-    float m_duration;
+    NativeImagePtr m_image;
+    ImageOrientation m_orientation { DefaultImageOrientation };
+    SubsamplingLevel m_subsamplingLevel { 0 };
+    float m_duration { 0 };
     bool m_haveMetadata : 1;
     bool m_isComplete : 1;
     bool m_hasAlpha : 1;
-    unsigned m_frameBytes;
+    unsigned m_frameBytes { 0 };
 };
 
 // =================================================
@@ -108,87 +110,87 @@ class BitmapImage final : public Image {
     friend class GradientImage;
     friend class GraphicsContext;
 public:
-    static Ref<BitmapImage> create(PassNativeImagePtr nativeImage, ImageObserver* observer = 0)
+    static Ref<BitmapImage> create(NativeImagePtr&& nativeImage, ImageObserver* observer = nullptr)
     {
-        return adoptRef(*new BitmapImage(nativeImage, observer));
+        return adoptRef(*new BitmapImage(WTFMove(nativeImage), observer));
     }
-    static Ref<BitmapImage> create(ImageObserver* observer = 0)
+    static Ref<BitmapImage> create(ImageObserver* observer = nullptr)
     {
         return adoptRef(*new BitmapImage(observer));
     }
 #if PLATFORM(WIN)
-    WEBCORE_EXPORT static PassRefPtr<BitmapImage> create(HBITMAP);
+    WEBCORE_EXPORT static RefPtr<BitmapImage> create(HBITMAP);
 #endif
     virtual ~BitmapImage();
     
-    virtual bool isBitmapImage() const override { return true; }
-
-    virtual bool hasSingleSecurityOrigin() const override;
+    bool hasSingleSecurityOrigin() const override;
 
     // FloatSize due to override.
-    virtual FloatSize size() const override;
-    IntSize sizeRespectingOrientation(ImageOrientationDescription = ImageOrientationDescription()) const;
+    FloatSize size() const override;
+    IntSize sizeRespectingOrientation() const;
 
-    virtual bool getHotSpot(IntPoint&) const override;
+    Optional<IntPoint> hotSpot() const override;
 
     unsigned decodedSize() const { return m_decodedSize; }
 
-    virtual bool dataChanged(bool allDataReceived) override;
-    virtual String filenameExtension() const override;
+    bool dataChanged(bool allDataReceived) override;
+    String filenameExtension() const override;
 
     // It may look unusual that there is no start animation call as public API. This is because
     // we start and stop animating lazily. Animation begins whenever someone draws the image. It will
     // automatically pause once all observers no longer want to render the image anywhere.
-    virtual void stopAnimation() override;
-    virtual void resetAnimation() override;
+    void stopAnimation() override;
+    void resetAnimation() override;
 
-     virtual void drawPattern(GraphicsContext*, const FloatRect& srcRect, const AffineTransform& patternTransform,
-         const FloatPoint& phase, const FloatSize& spacing, ColorSpace styleColorSpace, CompositeOperator, const FloatRect& destRect, BlendMode = BlendModeNormal) override;
+    void drawPattern(GraphicsContext&, const FloatRect& srcRect, const AffineTransform& patternTransform,
+        const FloatPoint& phase, const FloatSize& spacing, CompositeOperator, const FloatRect& destRect, BlendMode = BlendModeNormal) override;
 
     // Accessors for native image formats.
 
 #if USE(APPKIT)
-    virtual NSImage* getNSImage() override;
+    NSImage* getNSImage() override;
 #endif
 
 #if PLATFORM(COCOA)
-    virtual CFDataRef getTIFFRepresentation() override;
+    CFDataRef getTIFFRepresentation() override;
 #endif
 
 #if USE(CG)
-    WEBCORE_EXPORT virtual CGImageRef getCGImageRef() override;
-    virtual CGImageRef getFirstCGImageRefOfSize(const IntSize&) override;
-    virtual RetainPtr<CFArrayRef> getCGImageArray() override;
+    WEBCORE_EXPORT CGImageRef getCGImageRef() override;
+    CGImageRef getFirstCGImageRefOfSize(const IntSize&) override;
+    RetainPtr<CFArrayRef> getCGImageArray() override;
 #endif
 
 #if PLATFORM(WIN)
-    virtual bool getHBITMAP(HBITMAP) override;
-    virtual bool getHBITMAPOfSize(HBITMAP, const IntSize*) override;
+    bool getHBITMAP(HBITMAP) override;
+    bool getHBITMAPOfSize(HBITMAP, const IntSize*) override;
 #endif
 
 #if PLATFORM(GTK)
-    virtual GdkPixbuf* getGdkPixbuf() override;
+    GdkPixbuf* getGdkPixbuf() override;
 #endif
 
 #if PLATFORM(EFL)
-    virtual Evas_Object* getEvasObject(Evas*) override;
+    Evas_Object* getEvasObject(Evas*) override;
 #endif
 
-    virtual PassNativeImagePtr nativeImageForCurrentFrame() override;
-    virtual ImageOrientation orientationForCurrentFrame() override { return frameOrientationAtIndex(currentFrame()); }
+    NativeImagePtr nativeImageForCurrentFrame() override;
+    ImageOrientation orientationForCurrentFrame() override { return frameOrientationAtIndex(currentFrame()); }
 
-    virtual bool currentFrameKnownToBeOpaque() override;
+    bool currentFrameKnownToBeOpaque() override;
 
-    virtual bool isAnimated() override { return m_frameCount > 1; }
+    bool isAnimated() const override { return m_frameCount > 1; }
     
     bool canAnimate();
 
-    bool allowSubsampling() const { return m_allowSubsampling; }
-    void setAllowSubsampling(bool allowSubsampling) { m_allowSubsampling = allowSubsampling; }
+    void setAllowSubsampling(bool allowSubsampling) { m_source.setAllowSubsampling(allowSubsampling); }
+
+    size_t currentFrame() const { return m_currentFrame; }
     
 private:
-    void updateSize(ImageOrientationDescription = ImageOrientationDescription()) const;
-    void determineMinimumSubsamplingLevel() const;
+    bool isBitmapImage() const override { return true; }
+
+    void updateSize() const;
 
 protected:
     enum RepetitionCountStatus {
@@ -197,26 +199,25 @@ protected:
       Certain     // The repetition count is known to be correct.
     };
 
-    WEBCORE_EXPORT BitmapImage(PassNativeImagePtr, ImageObserver* = 0);
-    WEBCORE_EXPORT BitmapImage(ImageObserver* = 0);
+    WEBCORE_EXPORT BitmapImage(NativeImagePtr&&, ImageObserver* = nullptr);
+    WEBCORE_EXPORT BitmapImage(ImageObserver* = nullptr);
 
 #if PLATFORM(WIN)
-    virtual void drawFrameMatchingSourceSize(GraphicsContext*, const FloatRect& dstRect, const IntSize& srcSize, ColorSpace styleColorSpace, CompositeOperator) override;
+    void drawFrameMatchingSourceSize(GraphicsContext&, const FloatRect& dstRect, const IntSize& srcSize, CompositeOperator) override;
 #endif
-    virtual void draw(GraphicsContext*, const FloatRect& dstRect, const FloatRect& srcRect, ColorSpace styleColorSpace, CompositeOperator, BlendMode, ImageOrientationDescription) override;
+    void draw(GraphicsContext&, const FloatRect& dstRect, const FloatRect& srcRect, CompositeOperator, BlendMode, ImageOrientationDescription) override;
 
 #if USE(WINGDI)
-    virtual void drawPattern(GraphicsContext*, const FloatRect& srcRect, const AffineTransform& patternTransform,
-        const FloatPoint& phase, const FloatSize& spacing, ColorSpace styleColorSpace, CompositeOperator, const FloatRect& destRect);
+    virtual void drawPattern(GraphicsContext&, const FloatRect& srcRect, const AffineTransform& patternTransform,
+        const FloatPoint& phase, const FloatSize& spacing, CompositeOperator, const FloatRect& destRect);
 #endif
 
-    size_t currentFrame() const { return m_currentFrame; }
     size_t frameCount();
 
-    PassNativeImagePtr frameAtIndex(size_t, float presentationScaleHint = 1);
-    PassNativeImagePtr copyUnscaledFrameAtIndex(size_t);
+    NativeImagePtr frameImageAtIndex(size_t, float presentationScaleHint = 1);
+    NativeImagePtr copyUnscaledFrameImageAtIndex(size_t);
 
-    bool haveFrameAtIndex(size_t);
+    bool haveFrameImageAtIndex(size_t);
 
     bool frameIsCompleteAtIndex(size_t);
     float frameDurationAtIndex(size_t);
@@ -236,7 +237,7 @@ protected:
     // cache. If |destroyAll| is false, we only delete frames up to the current
     // one; this is used while animating large images to keep memory footprint
     // low without redecoding the whole image on every frame.
-    virtual void destroyDecodedData(bool destroyAll = true) override;
+    void destroyDecodedData(bool destroyAll = true) override;
 
     // If the image is large enough, calls destroyDecodedData() and passes
     // |destroyAll| along.
@@ -260,7 +261,7 @@ protected:
     // Animation.
     int repetitionCount(bool imageKnownToBeComplete);  // |imageKnownToBeComplete| should be set if the caller knows the entire image has been decoded.
     bool shouldAnimate();
-    virtual void startAnimation(CatchUpAnimation = CatchUp) override;
+    void startAnimation(CatchUpAnimation = CatchUp) override;
     void advanceAnimation();
 
     // Function that does the real work of advancing the animation. When
@@ -274,40 +275,30 @@ protected:
     // Handle platform-specific data
     void invalidatePlatformData();
 
-    // Checks to see if the image is a 1x1 solid color. We optimize these images and just do a fill rect instead.
-    // This check should happen regardless whether m_checkedForSolidColor is already set, as the frame may have
-    // changed.
-    void checkForSolidColor();
-
-    virtual bool mayFillWithSolidColor() override;
-    virtual Color solidColor() const override;
+    Color singlePixelSolidColor() override;
 
 #if !ASSERT_DISABLED
-    virtual bool notSolidColor() override;
+    bool notSolidColor() override;
 #endif
 
 private:
-    virtual bool decodedDataIsPurgeable() const override;
     void clearTimer();
     void startTimer(double delay);
+
+    void dump(TextStream&) const override;
 
     ImageSource m_source;
     mutable IntSize m_size; // The size to use for the overall image (will just be the size of the first image).
     mutable IntSize m_sizeRespectingOrientation;
 
-    mutable SubsamplingLevel m_minimumSubsamplingLevel;
-
-    mutable unsigned m_imageOrientation : 4; // ImageOrientationEnum
-    mutable unsigned m_shouldRespectImageOrientation : 1; // RespectImageOrientationEnum
-
-    size_t m_currentFrame; // The index of the current frame of animation.
+    size_t m_currentFrame { 0 }; // The index of the current frame of animation.
     Vector<FrameData, 1> m_frames; // An array of the cached frames of the animation. We have to ref frames to pin them in the cache.
 
     std::unique_ptr<Timer> m_frameTimer;
-    int m_repetitionCount; // How many total animation loops we should do. This will be cAnimationNone if this image type is incapable of animation.
-    RepetitionCountStatus m_repetitionCountStatus;
-    int m_repetitionsComplete;  // How many repetitions we've finished.
-    double m_desiredFrameStartTime;  // The system time at which we hope to see the next call to startAnimation().
+    int m_repetitionCount { cAnimationNone }; // How many total animation loops we should do. This will be cAnimationNone if this image type is incapable of animation.
+    RepetitionCountStatus m_repetitionCountStatus { Unknown };
+    int m_repetitionsComplete { 0 }; // How many repetitions we've finished.
+    double m_desiredFrameStartTime { 0 }; // The system time at which we hope to see the next call to startAnimation().
 
 #if USE(APPKIT)
     mutable RetainPtr<NSImage> m_nsImage; // A cached NSImage of frame 0. Only built lazily if someone actually queries for one.
@@ -316,28 +307,25 @@ private:
     mutable RetainPtr<CFDataRef> m_tiffRep; // Cached TIFF rep for frame 0. Only built lazily if someone queries for one.
 #endif
 
-    Color m_solidColor;  // If we're a 1x1 solid color, this is the color to use to fill.
+    // The value of this data member is a missing value if we haven’t analyzed to check for a solid color or not, but an invalid
+    // color if we have analyzed and decided it’s not a solid color, and a valid color if we have analyzed and decide that the
+    // solid color optimization applies. The analysis, we do, handles only the case of 1x1 solid color images.
+    Optional<Color> m_solidColor;
 
-    unsigned m_decodedSize; // The current size of all decoded frames.
-    mutable unsigned m_decodedPropertiesSize; // The size of data decoded by the source to determine image properties (e.g. size, frame count, etc).
+    unsigned m_decodedSize { 0 }; // The current size of all decoded frames.
+    mutable unsigned m_decodedPropertiesSize { 0 }; // The size of data decoded by the source to determine image properties (e.g. size, frame count, etc).
     size_t m_frameCount;
 
 #if PLATFORM(IOS)
     // FIXME: We should expose a setting to enable/disable progressive loading remove the PLATFORM(IOS)-guard.
-    double m_progressiveLoadChunkTime;
-    uint16_t m_progressiveLoadChunkCount;
+    double m_progressiveLoadChunkTime { 0 };
+    uint16_t m_progressiveLoadChunkCount { 0 };
 #endif
-
-    bool m_allowSubsampling : 1; // Whether we should attempt subsampling if this image is very large.
-    bool m_isSolidColor : 1; // Whether or not we are a 1x1 solid image.
-    bool m_checkedForSolidColor : 1; // Whether we've checked the frame for solid color.
-
     bool m_animationFinished : 1; // Whether or not we've completed the entire animation.
 
     bool m_allDataReceived : 1; // Whether or not we've received all our data.
     mutable bool m_haveSize : 1; // Whether or not our |m_size| member variable has the final overall image size yet.
     bool m_sizeAvailable : 1; // Whether or not we can obtain the size of the first image frame yet from ImageIO.
-    mutable bool m_hasUniformFrameSize : 1;
     mutable bool m_haveFrameCount : 1;
     bool m_animationFinishedWhenCatchingUp : 1;
 

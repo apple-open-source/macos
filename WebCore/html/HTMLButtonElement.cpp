@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2010, 2016 Apple Inc. All rights reserved.
  *           (C) 2006 Alexey Proskuryakov (ap@nypop.com)
  * Copyright (C) 2007 Samuel Weinig (sam@webkit.org)
  *
@@ -53,27 +53,27 @@ Ref<HTMLButtonElement> HTMLButtonElement::create(const QualifiedName& tagName, D
 
 void HTMLButtonElement::setType(const AtomicString& type)
 {
-    setAttribute(typeAttr, type);
+    setAttributeWithoutSynchronization(typeAttr, type);
 }
 
-RenderPtr<RenderElement> HTMLButtonElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
+RenderPtr<RenderElement> HTMLButtonElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
 {
-    return createRenderer<RenderButton>(*this, WTF::move(style));
+    return createRenderer<RenderButton>(*this, WTFMove(style));
 }
 
 const AtomicString& HTMLButtonElement::formControlType() const
 {
     switch (m_type) {
         case SUBMIT: {
-            DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, submit, ("submit", AtomicString::ConstructFromLiteral));
+            static NeverDestroyed<const AtomicString> submit("submit", AtomicString::ConstructFromLiteral);
             return submit;
         }
         case BUTTON: {
-            DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, button, ("button", AtomicString::ConstructFromLiteral));
+            static NeverDestroyed<const AtomicString> button("button", AtomicString::ConstructFromLiteral);
             return button;
         }
         case RESET: {
-            DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, reset, ("reset", AtomicString::ConstructFromLiteral));
+            static NeverDestroyed<const AtomicString> reset("reset", AtomicString::ConstructFromLiteral);
             return reset;
         }
     }
@@ -96,13 +96,18 @@ bool HTMLButtonElement::isPresentationAttribute(const QualifiedName& name) const
 void HTMLButtonElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
     if (name == typeAttr) {
-        if (equalIgnoringCase(value, "reset"))
+        Type oldType = m_type;
+        if (equalLettersIgnoringASCIICase(value, "reset"))
             m_type = RESET;
-        else if (equalIgnoringCase(value, "button"))
+        else if (equalLettersIgnoringASCIICase(value, "button"))
             m_type = BUTTON;
         else
             m_type = SUBMIT;
-        setNeedsWillValidateCheck();
+        if (oldType != m_type) {
+            setNeedsWillValidateCheck();
+            if (form() && (oldType == SUBMIT || m_type == SUBMIT))
+                form()->resetDefaultButton();
+        }
     } else
         HTMLFormControlElement::parseAttribute(name, value);
 }
@@ -164,6 +169,11 @@ bool HTMLButtonElement::isSuccessfulSubmitButton() const
     return m_type == SUBMIT && !isDisabledFormControl();
 }
 
+bool HTMLButtonElement::matchesDefaultPseudoClass() const
+{
+    return isSuccessfulSubmitButton() && form() && form()->defaultButton() == this;
+}
+
 bool HTMLButtonElement::isActivatedSubmit() const
 {
     return m_isActivatedSubmit;
@@ -196,7 +206,7 @@ bool HTMLButtonElement::isURLAttribute(const Attribute& attribute) const
 
 const AtomicString& HTMLButtonElement::value() const
 {
-    return fastGetAttribute(valueAttr);
+    return attributeWithoutSynchronization(valueAttr);
 }
 
 bool HTMLButtonElement::computeWillValidate() const

@@ -4,6 +4,7 @@ $(top_builddir)/xsltproc/xsltproc:
 	@(cd ../../xsltproc ; $(MAKE) xsltproc)
 
 EXTRA_DIST = \
+    evaluate.xml evaluate.xsl evaluate.out \
     module.xml module.xsl module.out \
     list.xml list.xsl list.out
 
@@ -11,7 +12,7 @@ CLEANFILES = .memdump
 
 valgrind:
 	@echo '## Running the regression tests under Valgrind'
-	$(MAKE) CHECKER='valgrind -q' tests
+	$(MAKE) CHECKER='libtool --mode=execute valgrind -q --leak-check=full' tests
 
 test tests: $(top_builddir)/xsltproc/xsltproc
 	@echo '## Running extensions tests'

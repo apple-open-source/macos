@@ -39,24 +39,20 @@ GST_DEBUG_CATEGORY_EXTERN(webkit_media_player_debug);
 
 namespace WebCore {
 
-static GstPadProbeReturn textTrackPrivateEventCallback(GstPad*, GstPadProbeInfo* info, InbandTextTrackPrivateGStreamer* track)
-{
-    GstEvent* event = gst_pad_probe_info_get_event(info);
-    switch (GST_EVENT_TYPE(event)) {
-    case GST_EVENT_STREAM_START:
-        track->streamChanged();
-        break;
-    default:
-        break;
-    }
-    return GST_PAD_PROBE_OK;
-}
-
 InbandTextTrackPrivateGStreamer::InbandTextTrackPrivateGStreamer(gint index, GRefPtr<GstPad> pad)
     : InbandTextTrackPrivate(WebVTT), TrackPrivateBaseGStreamer(this, index, pad)
 {
-    m_eventProbe = gst_pad_add_probe(m_pad.get(), GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM,
-        reinterpret_cast<GstPadProbeCallback>(textTrackPrivateEventCallback), this, 0);
+    m_eventProbe = gst_pad_add_probe(m_pad.get(), GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM, [] (GstPad*, GstPadProbeInfo* info, gpointer userData) -> GstPadProbeReturn {
+        auto* track = static_cast<InbandTextTrackPrivateGStreamer*>(userData);
+        switch (GST_EVENT_TYPE(gst_pad_probe_info_get_event(info))) {
+        case GST_EVENT_STREAM_START:
+            track->streamChanged();
+            break;
+        default:
+            break;
+        }
+        return GST_PAD_PROBE_OK;
+    }, this, nullptr);
 
     notifyTrackOfStreamChanged();
 }
@@ -68,31 +64,35 @@ void InbandTextTrackPrivateGStreamer::disconnect()
 
     gst_pad_remove_probe(m_pad.get(), m_eventProbe);
 
-    m_streamTimerHandler.cancel();
-
     TrackPrivateBaseGStreamer::disconnect();
 }
 
 void InbandTextTrackPrivateGStreamer::handleSample(GRefPtr<GstSample> sample)
 {
-    m_sampleTimerHandler.cancel();
     {
-        MutexLocker lock(m_sampleMutex);
+        LockHolder lock(m_sampleMutex);
         m_pendingSamples.append(sample);
     }
-    m_sampleTimerHandler.schedule("[WebKit] InbandTextTrackPrivateGStreamer::notifyTrackOfSample", std::function<void()>(std::bind(&InbandTextTrackPrivateGStreamer::notifyTrackOfSample, this)));
+
+    RefPtr<InbandTextTrackPrivateGStreamer> protectedThis(this);
+    m_notifier.notify(MainThreadNotification::NewSample, [protectedThis] {
+        protectedThis->notifyTrackOfSample();
+    });
 }
 
 void InbandTextTrackPrivateGStreamer::streamChanged()
 {
-    m_streamTimerHandler.schedule("[WebKit] InbandTextTrackPrivateGStreamer::notifyTrackOfStreamChanged", std::function<void()>(std::bind(&InbandTextTrackPrivateGStreamer::notifyTrackOfStreamChanged, this)));
+    RefPtr<InbandTextTrackPrivateGStreamer> protectedThis(this);
+    m_notifier.notify(MainThreadNotification::StreamChanged, [protectedThis] {
+        protectedThis->notifyTrackOfStreamChanged();
+    });
 }
 
 void InbandTextTrackPrivateGStreamer::notifyTrackOfSample()
 {
     Vector<GRefPtr<GstSample> > samples;
     {
-        MutexLocker lock(m_sampleMutex);
+        LockHolder lock(m_sampleMutex);
         m_pendingSamples.swap(samples);
     }
 
@@ -100,18 +100,18 @@ void InbandTextTrackPrivateGStreamer::notifyTrackOfSample()
         GRefPtr<GstSample> sample = samples[i];
         GstBuffer* buffer = gst_sample_get_buffer(sample.get());
         if (!buffer) {
-            WARN_MEDIA_MESSAGE("Track %d got sample with no buffer.", m_index);
+            GST_WARNING("Track %d got sample with no buffer.", m_index);
             continue;
         }
         GstMapInfo info;
         gboolean ret = gst_buffer_map(buffer, &info, GST_MAP_READ);
         ASSERT(ret);
         if (!ret) {
-            WARN_MEDIA_MESSAGE("Track %d unable to map buffer.", m_index);
+            GST_WARNING("Track %d unable to map buffer.", m_index);
             continue;
         }
 
-        INFO_MEDIA_MESSAGE("Track %d parsing sample: %.*s", m_index, static_cast<int>(info.size),
+        GST_INFO("Track %d parsing sample: %.*s", m_index, static_cast<int>(info.size),
             reinterpret_cast<char*>(info.data));
         client()->parseWebVTTCueData(this, reinterpret_cast<char*>(info.data), info.size);
         gst_buffer_unmap(buffer, &info);
@@ -127,7 +127,7 @@ void InbandTextTrackPrivateGStreamer::notifyTrackOfStreamChanged()
 
     const gchar* streamId;
     gst_event_parse_stream_start(event.get(), &streamId);
-    INFO_MEDIA_MESSAGE("Track %d got stream start for stream %s.", m_index, streamId);
+    GST_INFO("Track %d got stream start for stream %s.", m_index, streamId);
     m_streamId = streamId;
 }
 

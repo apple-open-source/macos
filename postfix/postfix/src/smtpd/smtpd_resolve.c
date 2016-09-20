@@ -16,8 +16,9 @@
 /*	across SMTP sessions (not process life times). Addresses
 /*	are always resolved in local rewriting context.
 /*
-/*	smtpd_resolve_init() initializes the cache and must
-/*	called once before the cache can be used.
+/*	smtpd_resolve_init() initializes the cache and must be
+/*	called before the cache can be used. This function may also
+/*	be called to flush the cache after an address class update.
 /*
 /*	smtpd_resolve_addr() resolves one address or returns
 /*	a known result from cache.
@@ -76,6 +77,7 @@ static void *resolve_pagein(const char *addr, void *unused_context)
 {
     static VSTRING *query;
     RESOLVE_REPLY *reply;
+    char   *tmp;
 
     /*
      * Initialize on the fly.
@@ -94,7 +96,9 @@ static void *resolve_pagein(const char *addr, void *unused_context)
      */
     rewrite_clnt_internal(MAIL_ATTR_RWR_LOCAL, addr, query);
     resolve_clnt_query(STR(query), reply);
-    lowercase(STR(reply->recipient));		/* XXX */
+    tmp = mystrdup(STR(reply->recipient));
+    casefold(reply->recipient, tmp);		/* XXX */
+    myfree(tmp);
 
     /*
      * Save the result.
@@ -118,10 +122,11 @@ void    smtpd_resolve_init(int cache_size)
 {
 
     /*
-     * Sanity check.
+     * Flush a pre-existing cache. The smtpd_check test program requires this
+     * after an address class change.
      */
     if (smtpd_resolve_cache)
-	msg_panic("smtpd_resolve_init: multiple initialization");
+	ctable_free(smtpd_resolve_cache);
 
     /*
      * Initialize the resolved address cache. Note: the cache persists across

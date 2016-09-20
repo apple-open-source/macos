@@ -41,12 +41,15 @@ public:
     }
 
 protected:
-    virtual void draw(GraphicsContext*, const FloatRect& dstRect, const FloatRect& srcRect, ColorSpace styleColorSpace, CompositeOperator, BlendMode, ImageOrientationDescription) override;
-    virtual void drawPattern(GraphicsContext*, const FloatRect& srcRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, ColorSpace styleColorSpace, CompositeOperator, const FloatRect& dstRect, BlendMode) override;
+    void draw(GraphicsContext&, const FloatRect& dstRect, const FloatRect& srcRect, CompositeOperator, BlendMode, ImageOrientationDescription) override;
+    void drawPattern(GraphicsContext&, const FloatRect& srcRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, CompositeOperator, const FloatRect& dstRect, BlendMode) override;
 
     NamedImageGeneratedImage(String name, const FloatSize&);
 
 private:
+    bool isNamedImageGeneratedImage() const override { return true; }
+    void dump(TextStream&) const override;
+
     String m_name;
 };
 

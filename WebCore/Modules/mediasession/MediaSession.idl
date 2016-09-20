@@ -25,16 +25,17 @@
 
 [
     Conditional=MEDIA_SESSION,
-    Constructor(MediaSessionKind kind),
+    CustomConstructor(optional MediaSessionKind kind = "content"),
     ConstructorCallWith=ScriptExecutionContext,
     ImplementationLacksVTable,
+    ExportMacro=WEBCORE_EXPORT,
 ] interface MediaSession {
     readonly attribute MediaSessionKind kind;
     readonly attribute MediaRemoteControls? controls;
 
     void setMetadata(Dictionary metadata);
 
-    void releaseSession();
+    void deactivate();
 };
 
 enum MediaSessionKind {

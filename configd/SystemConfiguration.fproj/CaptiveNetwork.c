@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2010, 2012, 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2009, 2010, 2012, 2013, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,6 +28,7 @@
 #include <dlfcn.h>
 
 #include <SystemConfiguration/CaptiveNetwork.h>
+#include <SystemConfiguration/SCPrivate.h>
 
 
 #pragma mark -
@@ -43,22 +44,14 @@ const CFStringRef kCNNetworkInfoKeyBSSID       = CFSTR("BSSID");
 
 static void *
 __loadCaptiveNetwork(void) {
-	static void *image = NULL;
-	if (NULL == image) {
-		const char	*framework		= "/System/Library/PrivateFrameworks/CaptiveNetwork.framework/CaptiveNetwork";
-		struct stat	statbuf;
-		const char	*suffix			= getenv("DYLD_IMAGE_SUFFIX");
-		char		path[MAXPATHLEN];
+	static void		*image	= NULL;
+	static dispatch_once_t	once;
 
-		strlcpy(path, framework, sizeof(path));
-		if (suffix) strlcat(path, suffix, sizeof(path));
-		if (0 <= stat(path, &statbuf)) {
-			image = dlopen(path, RTLD_LAZY | RTLD_LOCAL);
-		} else {
-			image = dlopen(framework, RTLD_LAZY | RTLD_LOCAL);
-		}
-	}
-	return (void *)image;
+	dispatch_once(&once, ^{
+		image = _SC_dlopen("/System/Library/PrivateFrameworks/CaptiveNetwork.framework/CaptiveNetwork");
+	});
+
+	return image;
 }
 
 

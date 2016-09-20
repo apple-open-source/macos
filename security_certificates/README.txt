@@ -6,14 +6,11 @@ The security_certificates project builds a set of data files into a signed bundl
 
 1. Add (or move) certificate files to the appropriate subdirectory:
 
-    certificates/certs
-        -- intermediate CA certificates, shipped on OS X in the SystemCACertificates keychain; these are not explicitly trusted, and only exist to help complete certificate chains for enterprise customers.
-
     certificates/distrusted
         -- also known as "graylisted" certificates, these are marked explicitly as having no trust, even though they may chain to a trusted root. Evaluation of a distrusted certificate results in a recoverable trust failure; the user must decide whether to trust them for any particular purpose.
 
     certificates/removed
-        -- certificates which have been removed due to expiration or deprecation, and are no longer trusted.
+        -- certificates which have been removed due to expiration or deprecation, and are no longer trusted. (A subdirectory, certificates/removed/intermediates, holds non-root CA certficates which have been removed.)
 
     certificates/revoked
         -- also known as "blocked" certificates, these are marked explicitly as revoked. Evaluation of a revoked certificate should always result in a non-recoverable trust failure.

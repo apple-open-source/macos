@@ -1,6 +1,6 @@
 /* $OpenBSD: ssh-gss.h,v 1.11 2014/02/26 20:28:44 djm Exp $ */
 /*
- * Copyright (c) 2001-2009 Simon Wilkinson. All rights reserved.
+ * Copyright (c) 2001-2003 Simon Wilkinson. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -61,22 +61,10 @@
 
 #define SSH_GSS_OIDTYPE 0x06
 
-#define SSH2_MSG_KEXGSS_INIT                            30
-#define SSH2_MSG_KEXGSS_CONTINUE                        31
-#define SSH2_MSG_KEXGSS_COMPLETE                        32
-#define SSH2_MSG_KEXGSS_HOSTKEY                         33
-#define SSH2_MSG_KEXGSS_ERROR                           34
-#define SSH2_MSG_KEXGSS_GROUPREQ			40
-#define SSH2_MSG_KEXGSS_GROUP				41
-#define KEX_GSS_GRP1_SHA1_ID				"gss-group1-sha1-"
-#define KEX_GSS_GRP14_SHA1_ID				"gss-group14-sha1-"
-#define KEX_GSS_GEX_SHA1_ID				"gss-gex-sha1-"
-
 typedef struct {
 	char *filename;
 	char *envvar;
 	char *envval;
-	struct passwd *owner;
 	void *data;
 } ssh_gssapi_ccache;
 
@@ -84,11 +72,8 @@ typedef struct {
 	gss_buffer_desc displayname;
 	gss_buffer_desc exportedname;
 	gss_cred_id_t creds;
-	gss_name_t name;
 	struct ssh_gssapi_mech_struct *mech;
 	ssh_gssapi_ccache store;
-	int used;
-	int updated;
 } ssh_gssapi_client;
 
 typedef struct ssh_gssapi_mech_struct {
@@ -99,7 +84,6 @@ typedef struct ssh_gssapi_mech_struct {
 	int (*userok) (ssh_gssapi_client *, char *);
 	int (*localname) (ssh_gssapi_client *, char **);
 	void (*storecreds) (ssh_gssapi_client *);
-	int (*updatecreds) (ssh_gssapi_ccache *, ssh_gssapi_client *);
 } ssh_gssapi_mech;
 
 typedef struct {
@@ -110,11 +94,10 @@ typedef struct {
 	gss_OID		oid; /* client */
 	gss_cred_id_t	creds; /* server */
 	gss_name_t	client; /* server */
-	gss_cred_id_t	client_creds; /* both */
+	gss_cred_id_t	client_creds; /* server */
 } Gssctxt;
 
 extern ssh_gssapi_mech *supported_mechs[];
-extern Gssctxt *gss_kex_context;
 
 int  ssh_gssapi_check_oid(Gssctxt *, void *, size_t);
 void ssh_gssapi_set_oid_data(Gssctxt *, void *, size_t);
@@ -136,31 +119,16 @@ void ssh_gssapi_build_ctx(Gssctxt **);
 void ssh_gssapi_delete_ctx(Gssctxt **);
 OM_uint32 ssh_gssapi_sign(Gssctxt *, gss_buffer_t, gss_buffer_t);
 void ssh_gssapi_buildmic(Buffer *, const char *, const char *, const char *);
-int ssh_gssapi_check_mechanism(Gssctxt **, gss_OID, const char *, const char *);
-OM_uint32 ssh_gssapi_client_identity(Gssctxt *, const char *);
-int ssh_gssapi_credentials_updated(Gssctxt *);
+int ssh_gssapi_check_mechanism(Gssctxt **, gss_OID, const char *);
 
 /* In the server */
-typedef int ssh_gssapi_check_fn(Gssctxt **, gss_OID, const char *, 
-    const char *);
-char *ssh_gssapi_client_mechanisms(const char *, const char *);
-char *ssh_gssapi_kex_mechs(gss_OID_set, ssh_gssapi_check_fn *, const char *,
-    const char *);
-gss_OID ssh_gssapi_id_kex(Gssctxt *, char *, int);
-int ssh_gssapi_server_check_mech(Gssctxt **,gss_OID, const char *, 
-    const char *);
 OM_uint32 ssh_gssapi_server_ctx(Gssctxt **, gss_OID);
-int ssh_gssapi_userok(char *name, struct passwd *);
+int ssh_gssapi_userok(char *name);
 OM_uint32 ssh_gssapi_checkmic(Gssctxt *, gss_buffer_t, gss_buffer_t);
 void ssh_gssapi_do_child(char ***, u_int *);
 void ssh_gssapi_cleanup_creds(void);
 void ssh_gssapi_storecreds(void);
-void ssh_gssapi_rekey_creds();
 
-char *ssh_gssapi_server_mechanisms(void);
-int ssh_gssapi_oid_table_ok();
-
-int ssh_gssapi_update_creds(ssh_gssapi_ccache *store);
 #endif /* GSSAPI */
 
 #endif /* _SSH_GSS_H */

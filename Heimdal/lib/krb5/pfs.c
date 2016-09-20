@@ -126,7 +126,7 @@ _krb5_auth_con_setup_pfs(krb5_context context,
 			 krb5_enctype enctype)
 {
     ccec_const_cp_t cp = ccec_cp_256();
-    struct ccrng_state *rng = ccDevRandomGetRngState();
+    struct ccrng_state *rng = ccDRBGGetRngState();
     struct _krb5_pfs_data *pfs = NULL;
 
     _krb5_debugx(context, 20, "Setting up PFS for auth context");

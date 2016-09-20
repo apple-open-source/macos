@@ -48,13 +48,13 @@ namespace WebKit {
 
 PassRefPtr<LocalStorageDatabase> LocalStorageDatabase::create(PassRefPtr<WorkQueue> queue, PassRefPtr<LocalStorageDatabaseTracker> tracker, Ref<SecurityOrigin>&& securityOrigin)
 {
-    return adoptRef(new LocalStorageDatabase(queue, tracker, WTF::move(securityOrigin)));
+    return adoptRef(new LocalStorageDatabase(queue, tracker, WTFMove(securityOrigin)));
 }
 
 LocalStorageDatabase::LocalStorageDatabase(PassRefPtr<WorkQueue> queue, PassRefPtr<LocalStorageDatabaseTracker> tracker, Ref<SecurityOrigin>&& securityOrigin)
     : m_queue(queue)
     , m_tracker(tracker)
-    , m_securityOrigin(WTF::move(securityOrigin))
+    , m_securityOrigin(WTFMove(securityOrigin))
     , m_databasePath(m_tracker->databasePath(m_securityOrigin.ptr()))
     , m_failedToOpenDatabase(false)
     , m_didImportItems(false)
@@ -181,7 +181,10 @@ void LocalStorageDatabase::importItems(StorageMap& storageMap)
 
     int result = query.step();
     while (result == SQLITE_ROW) {
-        items.set(query.getColumnText(0), query.getColumnBlobAsString(1));
+        String key = query.getColumnText(0);
+        String value = query.getColumnBlobAsString(1);
+        if (!key.isNull() && !value.isNull())
+            items.set(key, value);
         result = query.step();
     }
 

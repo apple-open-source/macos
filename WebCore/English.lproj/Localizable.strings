@@ -79,6 +79,9 @@
 /* File Upload single video label */
 "1 Video (file upload on page label for one video)" = "1 Video";
 
+/* Option in segmented control for choosing list type in text editing */
+"1. 2. 3.…" = "1. 2. 3.…";
+
 /* Menu item title for KEYGEN pop-up menu */
 "1024 (Medium Grade)" = "1024 (Medium Grade)";
 
@@ -126,9 +129,6 @@
 
 /* menu item title for phone number */
 "Call Using iPhone:" = "Call Using iPhone:";
-
-/* File Upload alert sheet button string to cancel */
-"Cancel (file upload action sheet)" = "Cancel";
 
 /* Title for Cancel button label in button bar */
 "Cancel button label in button bar" = "Cancel";
@@ -241,8 +241,14 @@
 /* Video Enter Fullscreen context menu item */
 "Enter Full Screen" = "Enter Full Screen";
 
+/* menu item */
+"Enter Picture-in-Picture" = "Enter Picture-in-Picture";
+
 /* Video Exit Fullscreen context menu item */
 "Exit Full Screen" = "Exit Full Screen";
+
+/* menu item */
+"Exit Picture-in-Picture" = "Exit Picture-in-Picture";
 
 /* Default application name for Open With context menu */
 "Finder" = "Finder";
@@ -285,6 +291,12 @@
 
 /* Undo action name */
 "Insert List (Undo action name)" = "Insert List";
+
+/* Option in segmented control for inserting a bulleted list in text editing */
+"Insert a bulleted list" = "Insert a bulleted list";
+
+/* Option in segmented control for inserting a numbered list in text editing */
+"Insert a numbered list" = "Insert a numbered list";
 
 /* Inspect Element context menu item */
 "Inspect Element" = "Inspect Element";
@@ -361,8 +373,14 @@
 /* Empty select list */
 "No Options Select Popover" = "No Options";
 
+/* Accessibility label for not inserting a list in text editing */
+"No list" = "No list";
+
 /* Label for only item in menu that appears when clicking on the search field image, when no searches have been performed */
 "No recent searches" = "No recent searches";
+
+/* Option in segmented control for choosing list type in text editing */
+"None" = "None";
 
 /* WebKitErrorCannotUseRestrictedPort description */
 "Not allowed to use restricted network port" = "Not allowed to use restricted network port";
@@ -499,6 +517,9 @@
 /* Undo action name */
 "Set Writing Direction (Undo action name)" = "Set Writing Direction";
 
+/* Title for Share action button */
+"Share…" = "Share…";
+
 /* Show colors context menu item */
 "Show Colors" = "Show Colors";
 
@@ -594,6 +615,12 @@
 
 /* WebKitErrorCannotShowURL description */
 "The URL can’t be shown" = "The URL can’t be shown";
+
+/* WebKitErrorBlockedByContentBlocker description */
+"The URL was blocked by a content blocker" = "The URL was blocked by a content blocker";
+
+/* WebKitErrorFrameLoadBlockedByContentFilter description */
+"The URL was blocked by a content filter" = "The URL was blocked by a content filter";
 
 /* WKErrorWebViewInvalidated description */
 "The WKWebView was invalidated" = "The WKWebView was invalidated";
@@ -709,17 +736,14 @@
 /* An ARIA accessibility group that acts as an alert. */
 "alert" = "alert";
 
-/* An ARIA accessibility group that acts as an alert dialog. */
-"alert dialog" = "alert dialog";
-
-/* An ARIA accessibility group that acts as an application. */
-"application" = "application";
-
 /* An ARIA accessibility group that acts as a status update. */
 "application status" = "application status";
 
 /* An ARIA accessibility group that acts as an article. */
 "article" = "article";
+
+/* accessibility role description for an attachment element */
+"attachment" = "attachment";
 
 /* accessibility help text for audio element controller */
 "audio element playback controls and status display" = "audio element playback controls and status display";
@@ -757,6 +781,9 @@
 /* HTTP result code string */
 "conflict" = "conflict";
 
+/* Label for the auto fill contacts button inside a text field. */
+"contact info auto fill" = "contact info auto fill";
+
 /* An ARIA accessibility group that contains content. */
 "content information" = "content information";
 
@@ -780,9 +807,6 @@
 
 /* accessibility role description of a description list */
 "description list" = "description list";
-
-/* An ARIA accessibility group that acts as an dialog. */
-"dialog" = "dialog";
 
 /* An ARIA accessibility group that acts as a document. */
 "document" = "document";
@@ -930,6 +954,9 @@
 
 /* HTTP result code string */
 "partial content" = "partial content";
+
+/* Label for the auto fill credentials button inside a text field. */
+"password auto fill" = "password auto fill";
 
 /* Validation message for input form controls requiring a constrained value according to pattern */
 "pattern mismatch" = "pattern mismatch";
@@ -1098,4 +1125,16 @@
 
 /* accessibility label for video element controller */
 "video playback" = "video playback";
+
+/* An ARIA accessibility group that acts as an alert dialog. */
+"web alert dialog" = "web alert dialog";
+
+/* An ARIA accessibility group that acts as an application. */
+"web application" = "web application";
+
+/* An ARIA accessibility group that acts as an dialog. */
+"web dialog" = "web dialog";
+
+/* Option in segmented control for choosing list type in text editing */
+"•" = "•";
 

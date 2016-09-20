@@ -22,7 +22,7 @@
  */
 
 
-#import "SecureObjectSync/SOSCloudCircle.h"
+#import <Security/SecureObjectSync/SOSCloudCircle.h>
 #import <Foundation/Foundation.h>
 
 @interface KDSecCircle : NSObject

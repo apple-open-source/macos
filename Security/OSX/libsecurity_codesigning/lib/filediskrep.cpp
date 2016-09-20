@@ -110,7 +110,7 @@ const Requirements *FileDiskRep::defaultRequirements(const Architecture *, const
 		buffer[length] = '\0';
 		char *cmd = buffer + 2;
 		cmd[strcspn(cmd, " \t\n\r\f")] = '\0';
-		secdebug("filediskrep", "looks like a script for %s", cmd);
+		secinfo("filediskrep", "looks like a script for %s", cmd);
 		if (cmd[1])
 			try {
 				// find path on disk, get designated requirement (if signed)
@@ -125,7 +125,7 @@ const Requirements *FileDiskRep::defaultRequirements(const Architecture *, const
 							return maker.make();
 						}
 			} catch (...) {
-				secdebug("filediskrep", "exception getting host requirement (ignored)");
+				secinfo("filediskrep", "exception getting host requirement (ignored)");
 			}
 	}
 	return NULL;
@@ -136,7 +136,6 @@ string FileDiskRep::format()
 {
 	return "generic";
 }
-
 
 //
 // FileDiskRep::Writers

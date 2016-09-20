@@ -94,11 +94,13 @@ option is given,
 will generate a template string based on the
 .Ar prefix
 and the
+.Dv _CS_DARWIN_USER_TEMP_DIR
+configuration variable if available.
+Fallback locations if
+.Dv _CS_DARWIN_USER_TEMP_DIR
+is not available are
 .Ev TMPDIR
-environment variable if set.
-The default location if
-.Ev TMPDIR
-is not set is
+and
 .Pa /tmp .
 Care should
 be taken to ensure that it is appropriate to use an environment variable
@@ -197,6 +199,7 @@ fi
 .Xr mkdtemp 3 ,
 .Xr mkstemp 3 ,
 .Xr mktemp 3 ,
+.Xr confstr 3 ,
 .Xr environ 7
 .Sh HISTORY
 A

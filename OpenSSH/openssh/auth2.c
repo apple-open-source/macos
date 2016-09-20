@@ -70,7 +70,6 @@ extern Authmethod method_passwd;
 extern Authmethod method_kbdint;
 extern Authmethod method_hostbased;
 #ifdef GSSAPI
-extern Authmethod method_gsskeyex;
 extern Authmethod method_gssapi;
 #endif
 
@@ -78,7 +77,6 @@ Authmethod *authmethods[] = {
 	&method_none,
 	&method_pubkey,
 #ifdef GSSAPI
-	&method_gsskeyex,
 	&method_gssapi,
 #endif
 	&method_passwd,
@@ -331,7 +329,7 @@ userauth_finish(Authctxt *authctxt, int authenticated, const char *method,
 			/* if PAM returned a message, send it to the user */
 			if (buffer_len(&loginmsg) > 0) {
 				buffer_append(&loginmsg, "\0", 1);
-				userauth_send_banner((const char *)buffer_ptr(&loginmsg));
+				userauth_send_banner(buffer_ptr(&loginmsg));
 				packet_write_wait();
 			}
 			fatal("Access denied for user %s by PAM account "
@@ -427,7 +425,7 @@ authmethods_get(Authctxt *authctxt)
 		    strlen(authmethods[i]->name));
 	}
 	buffer_append(&b, "\0", 1);
-	list = xstrdup((const char *)buffer_ptr(&b));
+	list = xstrdup(buffer_ptr(&b));
 	buffer_free(&b);
 	return list;
 }

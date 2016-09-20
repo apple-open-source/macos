@@ -2,11 +2,18 @@
 int search_regcomp __ARGS((char_u *pat, int pat_save, int pat_use, int options, regmmatch_T *regmatch));
 char_u *get_search_pat __ARGS((void));
 char_u *reverse_text __ARGS((char_u *s));
+void save_re_pat __ARGS((int idx, char_u *pat, int magic));
 void save_search_patterns __ARGS((void));
 void restore_search_patterns __ARGS((void));
 void free_search_patterns __ARGS((void));
 int ignorecase __ARGS((char_u *pat));
 int pat_has_uppercase __ARGS((char_u *pat));
+char_u *last_csearch __ARGS((void));
+int last_csearch_forward __ARGS((void));
+int last_csearch_until __ARGS((void));
+void set_last_csearch __ARGS((int c, char_u *s, int len));
+void set_csearch_direction __ARGS((int cdir));
+void set_csearch_until __ARGS((int t_cmd));
 char_u *last_search_pat __ARGS((void));
 void reset_search_dir __ARGS((void));
 void set_last_search_pat __ARGS((char_u *s, int idx, int magic, int setlast));
@@ -32,6 +39,7 @@ int current_block __ARGS((oparg_T *oap, long count, int include, int what, int o
 int current_tagblock __ARGS((oparg_T *oap, long count_arg, int include));
 int current_par __ARGS((oparg_T *oap, long count, int include, int type));
 int current_quote __ARGS((oparg_T *oap, long count, int include, int quotechar));
+int current_search __ARGS((long count, int forward));
 int linewhite __ARGS((linenr_T lnum));
 void find_pattern_in_path __ARGS((char_u *ptr, int dir, int len, int whole, int skip_comments, int type, long count, int action, linenr_T start_lnum, linenr_T end_lnum));
 int read_viminfo_search_pattern __ARGS((vir_T *virp, int force));

@@ -154,7 +154,7 @@ void printGiant(const giant x)
 
 	printf("sign=%d cap=%d n[]=", x->sign, x->capacity);
 	for(i=0; i<abs(x->sign); i++) {
-		printf("%u:", x->n[i]);
+		printf("%lu:", (unsigned long)x->n[i]);
 	}
 	printf("\n");
 }
@@ -165,7 +165,7 @@ void printGiantHex(const giant x)
 
 	printf("sign=%d cap=%d n[]=", x->sign, x->capacity);
 	for(i=0; i<abs(x->sign); i++) {
-		printf("%x:", x->n[i]);
+		printf("%lx:", (unsigned long)x->n[i]);
 	}
 	printf("\n");
 }
@@ -181,7 +181,7 @@ void printGiantExp(const giant x)
 
 	printf("sign=%d cap=%d n[]=", x->sign, x->capacity);
 	for(i=0; i<size; i++) {
-		printf("%u ", x->n[i]);
+		printf("%lu ", (unsigned long)x->n[i]);
 		if(i > 0) {
 			printf("* w^%d ", i);
 		}

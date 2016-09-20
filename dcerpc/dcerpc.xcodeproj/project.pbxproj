@@ -3757,7 +3757,7 @@
 			baseConfigurationReference = DDB66DA2107BE3310095CBC1 /* base_config.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
-				CURRENT_PROJECT_VERSION = 61;
+				CURRENT_PROJECT_VERSION = 63;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				ONLY_ACTIVE_ARCH = NO;
@@ -3771,7 +3771,7 @@
 			baseConfigurationReference = DDB66DA2107BE3310095CBC1 /* base_config.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
-				CURRENT_PROJECT_VERSION = 61;
+				CURRENT_PROJECT_VERSION = 63;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				ONLY_ACTIVE_ARCH = NO;
 				SDKROOT = "";
@@ -3801,12 +3801,23 @@
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 61;
+				DYLIB_CURRENT_VERSION = 63;
 				FRAMEWORK_VERSION = A;
 				INFOPLIST_FILE = "DCERPC-Info.plist";
 				INSTALL_GROUP = "$(GROUP)";
 				INSTALL_OWNER = "$(USER)";
 				PRODUCT_NAME = DCERPC;
+				WARNING_CFLAGS = (
+					"-Wformat=2",
+					"-Wformat-security",
+					"-Wwrite-strings",
+					"-Wcast-align",
+					"-Wpointer-arith",
+					"-Wstrict-prototypes",
+					"-Wbad-function-cast",
+					"-Wextra",
+					"-Wall",
+				);
 			};
 			name = Debug;
 		};
@@ -3816,12 +3827,23 @@
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 61;
+				DYLIB_CURRENT_VERSION = 63;
 				FRAMEWORK_VERSION = A;
 				INFOPLIST_FILE = "DCERPC-Info.plist";
 				INSTALL_GROUP = "$(GROUP)";
 				INSTALL_OWNER = "$(USER)";
 				PRODUCT_NAME = DCERPC;
+				WARNING_CFLAGS = (
+					"-Wformat=2",
+					"-Wformat-security",
+					"-Wwrite-strings",
+					"-Wcast-align",
+					"-Wpointer-arith",
+					"-Wstrict-prototypes",
+					"-Wbad-function-cast",
+					"-Wextra",
+					"-Wall",
+				);
 			};
 			name = Release;
 		};

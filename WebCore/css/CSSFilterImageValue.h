@@ -48,18 +48,18 @@ class CSSFilterImageValue : public CSSImageGeneratorValue {
 public:
     static Ref<CSSFilterImageValue> create(Ref<CSSValue>&& imageValue, Ref<CSSValue>&& filterValue)
     {
-        return adoptRef(*new CSSFilterImageValue(WTF::move(imageValue), WTF::move(filterValue)));
+        return adoptRef(*new CSSFilterImageValue(WTFMove(imageValue), WTFMove(filterValue)));
     }
 
     ~CSSFilterImageValue();
 
     String customCSSText() const;
 
-    PassRefPtr<Image> image(RenderElement*, const FloatSize&);
+    RefPtr<Image> image(RenderElement*, const FloatSize&);
     bool isFixedSize() const { return true; }
     FloatSize fixedSize(const RenderElement*);
 
-    bool isPending() const;
+    bool isPending();
     bool knownToBeOpaque(const RenderElement*) const;
 
     void loadSubimages(CachedResourceLoader&, const ResourceLoaderOptions&);
@@ -80,10 +80,10 @@ public:
     CachedImage* cachedImage() const { return m_cachedImage.get(); }
 
 private:
-    CSSFilterImageValue(PassRefPtr<CSSValue> imageValue, PassRefPtr<CSSValue> filterValue)
+    CSSFilterImageValue(Ref<CSSValue>&& imageValue, Ref<CSSValue>&& filterValue)
         : CSSImageGeneratorValue(FilterImageClass)
-        , m_imageValue(imageValue)
-        , m_filterValue(filterValue)
+        , m_imageValue(WTFMove(imageValue))
+        , m_filterValue(WTFMove(filterValue))
         , m_filterSubimageObserver(this)
     {
     }
@@ -97,7 +97,7 @@ private:
         }
 
         virtual ~FilterSubimageObserverProxy() { }
-        virtual void imageChanged(CachedImage*, const IntRect* = nullptr) override;
+        void imageChanged(CachedImage*, const IntRect* = nullptr) override;
         void setReady(bool ready) { m_ready = ready; }
     private:
         CSSFilterImageValue* m_ownerValue;
@@ -106,13 +106,12 @@ private:
 
     void filterImageChanged(const IntRect&);
 
-    RefPtr<CSSValue> m_imageValue;
-    RefPtr<CSSValue> m_filterValue;
+    Ref<CSSValue> m_imageValue;
+    Ref<CSSValue> m_filterValue;
 
     FilterOperations m_filterOperations;
 
     CachedResourceHandle<CachedImage> m_cachedImage;
-    RefPtr<Image> m_generatedImage;
 
     FilterSubimageObserverProxy m_filterSubimageObserver;
 };

@@ -60,11 +60,6 @@ public:
 
     virtual void doApply() = 0;
 
-    AXTextEditType applyEditType() const;
-    AXTextEditType unapplyEditType() const;
-
-    bool shouldPostAccessibilityNotification() const;
-
 protected:
     explicit EditCommand(Document&, EditAction = EditActionUnspecified);
     EditCommand(Document&, const VisibleSelection&, const VisibleSelection&);
@@ -75,11 +70,14 @@ protected:
     void setStartingSelection(const VisibleSelection&);
     WEBCORE_EXPORT void setEndingSelection(const VisibleSelection&);
 
+    void postTextStateChangeNotification(AXTextEditType, const String&);
+    void postTextStateChangeNotification(AXTextEditType, const String&, const VisiblePosition&);
+
 private:
     Ref<Document> m_document;
     VisibleSelection m_startingSelection;
     VisibleSelection m_endingSelection;
-    CompositeEditCommand* m_parent;
+    CompositeEditCommand* m_parent { nullptr };
     EditAction m_editingAction { EditActionUnspecified };
 };
 
@@ -104,10 +102,8 @@ protected:
     void addNodeAndDescendants(Node*, HashSet<Node*>&);
 #endif
 
-    virtual void notifyAccessibilityForTextChange(Node*, AXTextEditType, const String&, const VisiblePosition&);
-
 private:
-    virtual bool isSimpleEditCommand() const override { return true; }
+    bool isSimpleEditCommand() const override { return true; }
 };
 
 inline SimpleEditCommand* toSimpleEditCommand(EditCommand* command)

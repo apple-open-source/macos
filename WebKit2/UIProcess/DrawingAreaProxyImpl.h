@@ -44,30 +44,32 @@ public:
 
     void paint(BackingStore::PlatformGraphicsContext, const WebCore::IntRect&, WebCore::Region& unpaintedRegion);
 
-    bool isInAcceleratedCompositingMode() const { return !m_layerTreeContext.isEmpty(); }
+    bool isInAcceleratedCompositingMode() const { return alwaysUseCompositing() || !m_layerTreeContext.isEmpty(); }
 
     bool hasReceivedFirstUpdate() const { return m_hasReceivedFirstUpdate; }
 
-#if USE(TEXTURE_MAPPER_GL) && PLATFORM(GTK)
+#if USE(TEXTURE_MAPPER) && PLATFORM(GTK)
     void setNativeSurfaceHandleForCompositing(uint64_t);
+    void destroyNativeSurfaceHandleForCompositing();
 #endif
 
-    void forceResize() { sizeDidChange(); }
+    void dispatchAfterEnsuringDrawing(std::function<void (CallbackBase::Error)>) override;
 
 private:
     // DrawingAreaProxy
-    virtual void sizeDidChange();
-    virtual void deviceScaleFactorDidChange();
+    void sizeDidChange() override;
+    void deviceScaleFactorDidChange() override;
 
-    virtual void setBackingStoreIsDiscardable(bool);
-    virtual void waitForBackingStoreUpdateOnNextPaint();
+    void setBackingStoreIsDiscardable(bool) override;
+    void waitForBackingStoreUpdateOnNextPaint() override;
 
     // IPC message handlers
-    virtual void update(uint64_t backingStoreStateID, const UpdateInfo&);
-    virtual void didUpdateBackingStoreState(uint64_t backingStoreStateID, const UpdateInfo&, const LayerTreeContext&);
-    virtual void enterAcceleratedCompositingMode(uint64_t backingStoreStateID, const LayerTreeContext&);
-    virtual void exitAcceleratedCompositingMode(uint64_t backingStoreStateID, const UpdateInfo&);
-    virtual void updateAcceleratedCompositingMode(uint64_t backingStoreStateID, const LayerTreeContext&);
+    void update(uint64_t backingStoreStateID, const UpdateInfo&) override;
+    void didUpdateBackingStoreState(uint64_t backingStoreStateID, const UpdateInfo&, const LayerTreeContext&) override;
+    void enterAcceleratedCompositingMode(uint64_t backingStoreStateID, const LayerTreeContext&) override;
+    void exitAcceleratedCompositingMode(uint64_t backingStoreStateID, const UpdateInfo&) override;
+    void updateAcceleratedCompositingMode(uint64_t backingStoreStateID, const LayerTreeContext&) override;
+    void willEnterAcceleratedCompositingMode(uint64_t backingStoreStateID) override;
 
     void incorporateUpdate(const UpdateInfo&);
 
@@ -79,6 +81,7 @@ private:
     void enterAcceleratedCompositingMode(const LayerTreeContext&);
     void exitAcceleratedCompositingMode();
     void updateAcceleratedCompositingMode(const LayerTreeContext&);
+    bool alwaysUseCompositing() const;
 
     void discardBackingStoreSoon();
     void discardBackingStore();

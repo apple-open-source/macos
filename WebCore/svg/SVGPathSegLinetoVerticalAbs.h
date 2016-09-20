@@ -26,21 +26,21 @@
 
 namespace WebCore {
 
-class SVGPathSegLinetoVerticalAbs : public SVGPathSegLinetoVertical {
+class SVGPathSegLinetoVerticalAbs final : public SVGPathSegLinetoVertical {
 public:
-    static Ref<SVGPathSegLinetoVerticalAbs> create(SVGPathElement* element, SVGPathSegRole role, float y)
+    static Ref<SVGPathSegLinetoVerticalAbs> create(const SVGPathElement& element, SVGPathSegRole role, float y)
     {
         return adoptRef(*new SVGPathSegLinetoVerticalAbs(element, role, y));
     }
 
 private:
-    SVGPathSegLinetoVerticalAbs(SVGPathElement* element, SVGPathSegRole role, float y)
+    SVGPathSegLinetoVerticalAbs(const SVGPathElement& element, SVGPathSegRole role, float y)
         : SVGPathSegLinetoVertical(element, role, y)
     {
     }
 
-    virtual unsigned short pathSegType() const override { return PATHSEG_LINETO_VERTICAL_ABS; }
-    virtual String pathSegTypeAsLetter() const override { return "V"; }
+    unsigned short pathSegType() const override { return PATHSEG_LINETO_VERTICAL_ABS; }
+    String pathSegTypeAsLetter() const override { return "V"; }
 };
 
 } // namespace WebCore

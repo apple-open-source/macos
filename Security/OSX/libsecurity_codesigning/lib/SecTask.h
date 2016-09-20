@@ -103,6 +103,21 @@ CFTypeRef SecTaskCopyValueForEntitlement(SecTaskRef task, CFStringRef entitlemen
 __nullable
 CFDictionaryRef SecTaskCopyValuesForEntitlements(SecTaskRef task, CFArrayRef entitlements, CFErrorRef *error);
 
+
+   
+/*!
+    @function SecTaskCopySigningIdentifier
+    @abstract Return the value of the codesigning identifier.
+    @param task A previously created SecTask object
+    @param error On a NULL return, this will contain a CFError describing
+    the problem.  This argument may be NULL if the caller is not interested in
+    detailed errors. The caller must CFRelease the returned value.
+ */
+
+__nullable
+CFStringRef
+SecTaskCopySigningIdentifier(SecTaskRef task, CFErrorRef *error);
+
 CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END
 

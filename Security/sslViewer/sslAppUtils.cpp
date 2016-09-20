@@ -795,6 +795,9 @@ CFArrayRef sslKcRefToCertArray(
 }
 #endif
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 OSStatus addTrustedSecCert(
 	SSLContextRef 		ctx,
 	SecCertificateRef 	secCert, 
@@ -820,6 +823,8 @@ OSStatus addTrustedSecCert(
 	CFRelease(array);
 	return ortn;
 }
+
+#pragma clang diagnostic pop
 
 OSStatus sslAddTrustedRoot(
 	SSLContextRef 	ctx,
@@ -1561,3 +1566,44 @@ extern const char *sslCurveString(
 			return unk;
 	}
 }
+
+
+
+
+#include <Security/SecCertificatePriv.h>
+#include <Security/SecKey.h>
+
+SecKeyRef create_private_key_from_der(bool ecdsa, const unsigned char *pkey_der, size_t pkey_der_len)
+{
+    SecKeyRef privKey;
+    CFErrorRef error = NULL;
+    CFDataRef keyData = CFDataCreate(kCFAllocatorDefault, pkey_der, pkey_der_len);
+    CFMutableDictionaryRef parameters = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, NULL, NULL);
+    CFDictionarySetValue(parameters, kSecAttrKeyType, ecdsa?kSecAttrKeyTypeECSECPrimeRandom:kSecAttrKeyTypeRSA);
+    CFDictionarySetValue(parameters, kSecAttrKeyClass, kSecAttrKeyClassPrivate);
+    privKey = SecKeyCreateWithData(keyData, parameters, &error);
+    CFReleaseNull(keyData);
+    CFReleaseNull(parameters);
+    CFReleaseNull(error);
+    return privKey;
+}
+
+CFArrayRef chain_from_der(bool ecdsa, const unsigned char *pkey_der, size_t pkey_der_len, const unsigned char *cert_der, size_t cert_der_len)
+{
+    SecKeyRef pkey = NULL;
+    SecCertificateRef cert = NULL;
+    SecIdentityRef ident = NULL;
+    CFArrayRef items = NULL;
+
+    require(pkey = create_private_key_from_der(ecdsa, pkey_der, pkey_der_len), errOut);
+    require(cert = SecCertificateCreateWithBytes(kCFAllocatorDefault, cert_der, cert_der_len), errOut);
+    require(ident = SecIdentityCreate(kCFAllocatorDefault, cert, pkey), errOut);
+    require(items = CFArrayCreate(kCFAllocatorDefault, (const void **)&ident, 1, &kCFTypeArrayCallBacks), errOut);
+
+errOut:
+    CFReleaseSafe(pkey);
+    CFReleaseSafe(cert);
+    CFReleaseSafe(ident);
+    return items;
+}
+

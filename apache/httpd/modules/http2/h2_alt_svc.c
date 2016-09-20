@@ -41,17 +41,18 @@ void h2_alt_svc_register_hooks(void)
  * - do not percent encode token values
  * - do not use quotation marks
  */
-h2_alt_svc *h2_alt_svc_parse(const char *s, apr_pool_t *pool) {
+h2_alt_svc *h2_alt_svc_parse(const char *s, apr_pool_t *pool)
+{
     const char *sep = ap_strchr_c(s, '=');
     if (sep) {
-        const char *alpn = apr_pstrndup(pool, s, sep - s);
+        const char *alpn = apr_pstrmemdup(pool, s, sep - s);
         const char *host = NULL;
         int port = 0;
         s = sep + 1;
         sep = ap_strchr_c(s, ':');  /* mandatory : */
         if (sep) {
             if (sep != s) {    /* optional host */
-                host = apr_pstrndup(pool, s, sep - s);
+                host = apr_pstrmemdup(pool, s, sep - s);
             }
             s = sep + 1;
             if (*s) {          /* must be a port number */
@@ -73,7 +74,6 @@ h2_alt_svc *h2_alt_svc_parse(const char *s, apr_pool_t *pool) {
 
 static int h2_alt_svc_handler(request_rec *r)
 {
-    h2_ctx *ctx;
     const h2_config *cfg;
     int i;
     
@@ -82,8 +82,7 @@ static int h2_alt_svc_handler(request_rec *r)
         return DECLINED;
     }
     
-    ctx = h2_ctx_rget(r);
-    if (h2_ctx_is_active(ctx) || h2_ctx_is_task(ctx)) {
+    if (h2_ctx_rget(r)) {
         return DECLINED;
     }
     
@@ -103,7 +102,7 @@ static int h2_alt_svc_handler(request_rec *r)
             if (ma >= 0) {
                 svc_ma = apr_psprintf(r->pool, "; ma=%d", ma);
             }
-            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(03043)
                           "h2_alt_svc: announce %s for %s:%d", 
                           (secure? "secure" : "insecure"), 
                           r->hostname, (int)r->server->port);
@@ -122,11 +121,10 @@ static int h2_alt_svc_handler(request_rec *r)
                 }
             }
             if (*alt_svc) {
-                apr_table_set(r->headers_out, "Alt-Svc", alt_svc);
+                apr_table_setn(r->headers_out, "Alt-Svc", alt_svc);
             }
         }
     }
     
     return DECLINED;
 }
-

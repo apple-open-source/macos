@@ -29,28 +29,28 @@
 #if ENABLE(INPUT_TYPE_COLOR)
 #include "WebColorPicker.h"
 #include "WebColorPickerResultListenerProxy.h"
-#include "WebViewEfl.h"
+#include "WebView.h"
 
 namespace WebKit {
 
 class WebColorPickerEfl : public WebColorPicker {
 public:
-    static PassRefPtr<WebColorPickerEfl> create(WebViewEfl* webView, WebColorPicker::Client* client, const WebCore::Color& initialColor)
+    static PassRefPtr<WebColorPickerEfl> create(WebView* webView, WebColorPicker::Client* client, const WebCore::Color& initialColor)
     {
         return adoptRef(new WebColorPickerEfl(webView, client, initialColor));
     }
     ~WebColorPickerEfl() { }
 
-    virtual void endPicker() override;
-    virtual void setSelectedColor(const WebCore::Color&) override;
-    virtual void showColorPicker(const WebCore::Color&) override;
+    void endPicker() override;
+    void setSelectedColor(const WebCore::Color&) override;
+    void showColorPicker(const WebCore::Color&) override;
 
     void didChooseColor(const WebCore::Color&);
 
 private:
-    WebColorPickerEfl(WebViewEfl*, WebColorPicker::Client*, const WebCore::Color&);
+    WebColorPickerEfl(WebView*, WebColorPicker::Client*, const WebCore::Color&);
 
-    WebViewEfl* m_webView;
+    WebView* m_webView;
     RefPtr<WebColorPickerResultListenerProxy> m_colorPickerResultListener;
 };
 

@@ -728,6 +728,8 @@ extern uint_t _dtrace_stkindent;	/* default indent for stack/ustack */
 extern uint_t _dtrace_pidbuckets;	/* number of hash buckets for pids */
 extern uint_t _dtrace_pidlrulim;	/* number of proc handles to cache */
 extern int _dtrace_debug;		/* debugging messages enabled */
+extern int _dtrace_disallow_dsym;	/* dsym symbols disabled */
+extern int _dtrace_error;		/* error messages enabled */
 extern int _dtrace_mangled;		/* enabled mangled names for C++ fns */
 extern size_t _dtrace_bufsize;		/* default dt_buf_create() size */
 extern int _dtrace_argmax;		/* default maximum probe arguments */

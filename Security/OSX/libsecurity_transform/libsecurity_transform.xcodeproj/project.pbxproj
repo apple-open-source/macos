@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		18C5A961148442000010EF34 /* libsecurity_transform.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CA1FEBE052A3C8100F22E42 /* libsecurity_transform.a */; };
-		18C5A964148443F00010EF34 /* SenTestingKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 18C5A963148443F00010EF34 /* SenTestingKit.framework */; };
 		18C5A9661484440D0010EF34 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 18C5A9651484440D0010EF34 /* Foundation.framework */; };
 		4C010B9B121AE9960094CB72 /* speed-test.mm in Sources */ = {isa = PBXBuildFile; fileRef = 4C010B9A121AE9960094CB72 /* speed-test.mm */; };
 		4C010BBB121AECF10094CB72 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D16D6FB114EA1000096BD75 /* Security.framework */; };
@@ -111,7 +110,6 @@
 		18BBC73B1471F6DF00F2B224 /* lib.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = lib.xcconfig; sourceTree = "<group>"; };
 		18BBC73C1471F6DF00F2B224 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
 		18BBC73D1471F6DF00F2B224 /* security.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = security.xcconfig; sourceTree = "<group>"; };
-		18C5A963148443F00010EF34 /* SenTestingKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SenTestingKit.framework; path = Library/Frameworks/SenTestingKit.framework; sourceTree = DEVELOPER_DIR; };
 		18C5A9651484440D0010EF34 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		4C010B87121AE8DF0094CB72 /* input-speed-test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "input-speed-test"; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C010B99121AE9960094CB72 /* speed-test.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "speed-test.h"; path = "misc/speed-test.h"; sourceTree = "<group>"; };
@@ -129,7 +127,7 @@
 		4C6E5965116D4E3E00A70E8F /* misc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = misc.h; sourceTree = "<group>"; };
 		4C73822B112DCC4800EA003B /* SecCustomTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecCustomTransform.h; sourceTree = "<group>"; };
 		4C73822C112DCC4800EA003B /* SecCustomTransform.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = SecCustomTransform.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
-		4C738257112DF65200EA003B /* unit-tests.octest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "unit-tests.octest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		4C738257112DF65200EA003B /* unit-tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "unit-tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C738258112DF65200EA003B /* unit-tests-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "unit-tests-Info.plist"; sourceTree = "<group>"; };
 		4C738260112DF68900EA003B /* custom.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = custom.h; sourceTree = "<group>"; };
 		4CA1FEBE052A3C8100F22E42 /* libsecurity_transform.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libsecurity_transform.a; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -216,7 +214,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				18C5A9661484440D0010EF34 /* Foundation.framework in Frameworks */,
-				18C5A964148443F00010EF34 /* SenTestingKit.framework in Frameworks */,
 				18C5A961148442000010EF34 /* libsecurity_transform.a in Frameworks */,
 				4CD6A669113F41990094F287 /* libz.dylib in Frameworks */,
 				4CC4A8B21264D22300075C8F /* Security.framework in Frameworks */,
@@ -269,7 +266,6 @@
 			isa = PBXGroup;
 			children = (
 				18C5A9651484440D0010EF34 /* Foundation.framework */,
-				18C5A963148443F00010EF34 /* SenTestingKit.framework */,
 				18BBC7381471F6DF00F2B224 /* config */,
 				4C27A37414F2D66C007FCA66 /* libcorecrypto.dylib */,
 				4C010BBE121AED340094CB72 /* libc++.dylib */,
@@ -290,7 +286,7 @@
 			isa = PBXGroup;
 			children = (
 				4CA1FEBE052A3C8100F22E42 /* libsecurity_transform.a */,
-				4C738257112DF65200EA003B /* unit-tests.octest */,
+				4C738257112DF65200EA003B /* unit-tests.xctest */,
 				4CBCBEB61130A2D700CC18E9 /* 100-sha2 */,
 				4C010B87121AE8DF0094CB72 /* input-speed-test */,
 			);
@@ -468,8 +464,8 @@
 			);
 			name = "unit-tests";
 			productName = "unit-tests";
-			productReference = 4C738257112DF65200EA003B /* unit-tests.octest */;
-			productType = "com.apple.product-type.bundle.ocunit-test";
+			productReference = 4C738257112DF65200EA003B /* unit-tests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		4CA1FEBD052A3C8100F22E42 /* libsecurity_transform */ = {
 			isa = PBXNativeTarget;
@@ -511,8 +507,8 @@
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastTestingUpgradeCheck = 0700;
-				LastUpgradeCheck = 0700;
+				LastTestingUpgradeCheck = 0730;
+				LastUpgradeCheck = 0800;
 			};
 			buildConfigurationList = C27AD4040987FCDF001272E0 /* Build configuration list for PBXProject "libsecurity_transform" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -699,8 +695,8 @@
 					"$(inherited)",
 					/usr/lib/system,
 				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yourcompany.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "unit-tests";
-				WRAPPER_EXTENSION = octest;
 			};
 			name = Debug;
 		};
@@ -718,8 +714,8 @@
 					"$(inherited)",
 					/usr/lib/system,
 				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yourcompany.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = "unit-tests";
-				WRAPPER_EXTENSION = octest;
 			};
 			name = Release;
 		};
@@ -806,6 +802,10 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18BBC73A1471F6DF00F2B224 /* debug.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = lossless;
+				ENABLE_TESTABILITY = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx.internal;
 			};
 			name = Debug;
@@ -814,6 +814,8 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18BBC73C1471F6DF00F2B224 /* release.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = "respect-asset-catalog";
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				SDKROOT = macosx.internal;
 			};
 			name = Release;

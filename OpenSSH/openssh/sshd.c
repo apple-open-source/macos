@@ -1,4 +1,4 @@
-/* $OpenBSD: sshd.c,v 1.450 2015/05/24 23:39:16 djm Exp $ */
+/* $OpenBSD: sshd.c,v 1.465 2016/02/15 09:47:49 dtucker Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -95,6 +95,7 @@
 #include "log.h"
 #include "buffer.h"
 #include "misc.h"
+#include "match.h"
 #include "servconf.h"
 #include "uidswap.h"
 #include "compat.h"
@@ -120,14 +121,9 @@
 #include "ssh-gss.h"
 #endif
 #include "monitor_wrap.h"
-#include "roaming.h"
 #include "ssh-sandbox.h"
 #include "version.h"
 #include "ssherr.h"
-
-#ifdef USE_SECURITY_SESSION_API
-#include <Security/AuthSession.h>
-#endif
 
 #ifndef O_NOCTTY
 #define O_NOCTTY	0
@@ -440,7 +436,7 @@ sshd_exchange_identification(int sock_in, int sock_out)
 	    options.version_addendum, newline);
 
 	/* Send our protocol version identification. */
-	if (roaming_atomicio(vwrite, sock_out, server_version_string,
+	if (atomicio(vwrite, sock_out, server_version_string,
 	    strlen(server_version_string))
 	    != strlen(server_version_string)) {
 		logit("Could not write ident string to %s", get_remote_ipaddr());
@@ -450,7 +446,7 @@ sshd_exchange_identification(int sock_in, int sock_out)
 	/* Read other sides version identification. */
 	memset(buf, 0, sizeof(buf));
 	for (i = 0; i < sizeof(buf) - 1; i++) {
-		if (roaming_atomicio(read, sock_in, &buf[i], 1) != 1) {
+		if (atomicio(read, sock_in, &buf[i], 1) != 1) {
 			logit("Did not receive identification string from %s",
 			    get_remote_ipaddr());
 			cleanup_exit(255);
@@ -627,31 +623,31 @@ privsep_preauth_child(void)
 	arc4random_buf(rnd, sizeof(rnd));
 #ifdef WITH_OPENSSL
 	RAND_seed(rnd, sizeof(rnd));
+	if ((RAND_bytes((u_char *)rnd, 1)) != 1)
+		fatal("%s: RAND_bytes failed", __func__);
 #endif
 	explicit_bzero(rnd, sizeof(rnd));
 
 	/* Demote the private keys to public keys. */
 	demote_sensitive_data();
 
-	/* Change our root directory */
-	if (chroot(_PATH_PRIVSEP_CHROOT_DIR) == -1)
-		fatal("chroot(\"%s\"): %s", _PATH_PRIVSEP_CHROOT_DIR,
-		    strerror(errno));
-	if (chdir("/") == -1)
-		fatal("chdir(\"/\"): %s", strerror(errno));
+	/* Demote the child */
+	if (getuid() == 0 || geteuid() == 0) {
+		/* Change our root directory */
+		if (chroot(_PATH_PRIVSEP_CHROOT_DIR) == -1)
+			fatal("chroot(\"%s\"): %s", _PATH_PRIVSEP_CHROOT_DIR,
+			    strerror(errno));
+		if (chdir("/") == -1)
+			fatal("chdir(\"/\"): %s", strerror(errno));
 
-	/* Drop our privileges */
-	debug3("privsep user:group %u:%u", (u_int)privsep_pw->pw_uid,
-	    (u_int)privsep_pw->pw_gid);
-#if 0
-	/* XXX not ready, too heavy after chroot */
-	do_setusercontext(privsep_pw);
-#else
-	gidset[0] = privsep_pw->pw_gid;
-	if (setgroups(1, gidset) < 0)
-		fatal("setgroups: %.100s", strerror(errno));
-	permanently_set_uid(privsep_pw);
-#endif
+		/* Drop our privileges */
+		debug3("privsep user:group %u:%u", (u_int)privsep_pw->pw_uid,
+		    (u_int)privsep_pw->pw_gid);
+		gidset[0] = privsep_pw->pw_gid;
+		if (setgroups(1, gidset) < 0)
+			fatal("setgroups: %.100s", strerror(errno));
+		permanently_set_uid(privsep_pw);
+	}
 }
 
 static int
@@ -723,14 +719,12 @@ privsep_preauth(Authctxt *authctxt)
 		if (box != NULL)
 			ssh_sandbox_child(box);
 #endif
-		if (getuid() == 0 || geteuid() == 0)
-			privsep_preauth_child();
+		privsep_preauth_child();
 		setproctitle("%s", "[net]");
 #ifndef __APPLE_SANDBOX_NAMED_EXTERNAL__
 		if (box != NULL)
 			ssh_sandbox_child(box);
 #endif
-
 		return 0;
 	}
 }
@@ -777,6 +771,8 @@ privsep_postauth(Authctxt *authctxt)
 	arc4random_buf(rnd, sizeof(rnd));
 #ifdef WITH_OPENSSL
 	RAND_seed(rnd, sizeof(rnd));
+	if ((RAND_bytes((u_char *)rnd, 1)) != 1)
+		fatal("%s: RAND_bytes failed", __func__);
 #endif
 	explicit_bzero(rnd, sizeof(rnd));
 
@@ -808,8 +804,15 @@ list_hostkey_types(void)
 		key = sensitive_data.host_keys[i];
 		if (key == NULL)
 			key = sensitive_data.host_pubkeys[i];
-		if (key == NULL)
+		if (key == NULL || key->type == KEY_RSA1)
 			continue;
+		/* Check that the key is accepted in HostkeyAlgorithms */
+		if (match_pattern_list(sshkey_ssh_name(key),
+		    options.hostkeyalgorithms, 0) != 1) {
+			debug3("%s: %s key not permitted by HostkeyAlgorithms",
+			    __func__, sshkey_ssh_name(key));
+			continue;
+		}
 		switch (key->type) {
 		case KEY_RSA:
 		case KEY_DSA:
@@ -819,6 +822,12 @@ list_hostkey_types(void)
 				buffer_append(&b, ",", 1);
 			p = key_ssh_name(key);
 			buffer_append(&b, p, strlen(p));
+
+			/* for RSA we also support SHA2 signatures */
+			if (key->type == KEY_RSA) {
+				p = ",rsa-sha2-512,rsa-sha2-256";
+				buffer_append(&b, p, strlen(p));
+			}
 			break;
 		}
 		/* If the private key has a cert peer, then list that too */
@@ -826,8 +835,6 @@ list_hostkey_types(void)
 		if (key == NULL)
 			continue;
 		switch (key->type) {
-		case KEY_RSA_CERT_V00:
-		case KEY_DSA_CERT_V00:
 		case KEY_RSA_CERT:
 		case KEY_DSA_CERT:
 		case KEY_ECDSA_CERT:
@@ -840,7 +847,7 @@ list_hostkey_types(void)
 		}
 	}
 	buffer_append(&b, "\0", 1);
-	ret = xstrdup((const char *)buffer_ptr(&b));
+	ret = xstrdup(buffer_ptr(&b));
 	buffer_free(&b);
 	debug("list_hostkey_types: %s", ret);
 	return ret;
@@ -854,8 +861,6 @@ get_hostkey_by_type(int type, int nid, int need_private, struct ssh *ssh)
 
 	for (i = 0; i < options.num_host_key_files; i++) {
 		switch (type) {
-		case KEY_RSA_CERT_V00:
-		case KEY_DSA_CERT_V00:
 		case KEY_RSA_CERT:
 		case KEY_DSA_CERT:
 		case KEY_ECDSA_CERT:
@@ -1043,7 +1048,7 @@ send_rexec_state(int fd, Buffer *conf)
 	 *	string rngseed		(only if OpenSSL is not self-seeded)
 	 */
 	buffer_init(&m);
-	buffer_put_cstring(&m, (const char *)buffer_ptr(conf));
+	buffer_put_cstring(&m, buffer_ptr(conf));
 
 #ifdef WITH_SSH1
 	if (sensitive_data.server_key != NULL &&
@@ -1258,9 +1263,8 @@ server_accept_loop(int *sock_in, int *sock_out, int *newsock, int *config_s)
 	for (;;) {
 		if (received_sighup)
 			sighup_restart();
-		if (fdset != NULL)
-			free(fdset);
-		fdset = (fd_set *)xcalloc(howmany(maxfd + 1, NFDBITS),
+		free(fdset);
+		fdset = xcalloc(howmany(maxfd + 1, NFDBITS),
 		    sizeof(fd_mask));
 
 		for (i = 0; i < num_listen_socks; i++)
@@ -1443,6 +1447,8 @@ server_accept_loop(int *sock_in, int *sock_out, int *newsock, int *config_s)
 			arc4random_buf(rnd, sizeof(rnd));
 #ifdef WITH_OPENSSL
 			RAND_seed(rnd, sizeof(rnd));
+			if ((RAND_bytes((u_char *)rnd, 1)) != 1)
+				fatal("%s: RAND_bytes failed", __func__);
 #endif
 			explicit_bzero(rnd, sizeof(rnd));
 		}
@@ -1476,6 +1482,8 @@ main(int ac, char **av)
 	int keytype;
 	Authctxt *authctxt;
 	struct connection_info *connection_info = get_connection_info(0, 0);
+
+	ssh_malloc_init();	/* must be called before any mallocs */
 
 #ifdef HAVE_SECUREWARE
 	(void)set_auth_parameters(ac, av);
@@ -1537,7 +1545,7 @@ main(int ac, char **av)
 			no_daemon_flag = 1;
 			break;
 		case 'E':
-			logfile = xstrdup(optarg);
+			logfile = optarg;
 			/* FALLTHROUGH */
 		case 'e':
 			log_stderr = 1;
@@ -1639,10 +1647,8 @@ main(int ac, char **av)
 #endif
 
 	/* If requested, redirect the logs to the specified logfile. */
-	if (logfile != NULL) {
+	if (logfile != NULL)
 		log_redirect_stderr_to(logfile);
-		free(logfile);
-	}
 	/*
 	 * Force logging to stderr until we have loaded the private host
 	 * key (unless started from inetd)
@@ -1834,13 +1840,10 @@ main(int ac, char **av)
 		logit("Disabling protocol version 1. Could not load host key");
 		options.protocol &= ~SSH_PROTO_1;
 	}
-#ifndef GSSAPI
-	/* The GSSAPI key exchange can run without a host key */
 	if ((options.protocol & SSH_PROTO_2) && !sensitive_data.have_ssh2_key) {
 		logit("Disabling protocol version 2. Could not load host key");
 		options.protocol &= ~SSH_PROTO_2;
 	}
-#endif
 	if (!(options.protocol & (SSH_PROTO_1|SSH_PROTO_2))) {
 		logit("sshd: no hostkeys available -- exiting.");
 		exit(1);
@@ -1892,8 +1895,8 @@ main(int ac, char **av)
 #ifdef WITH_SSH1
 	/* Check certain values for sanity. */
 	if (options.protocol & SSH_PROTO_1) {
-		if (options.server_key_bits < 512 ||
-		    options.server_key_bits > 32768) {
+		if (options.server_key_bits < SSH_RSA_MINIMUM_MODULUS_SIZE ||
+		    options.server_key_bits > OPENSSL_RSA_MAX_MODULUS_BITS) {
 			fprintf(stderr, "Bad server key size.\n");
 			exit(1);
 		}
@@ -1983,15 +1986,8 @@ main(int ac, char **av)
 #ifdef TIOCNOTTY
 		int fd;
 #endif /* TIOCNOTTY */
-#if __APPLE__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#endif
 		if (daemon(0, 0) < 0)
 			fatal("daemon() failed: %.200s", strerror(errno));
-#if __APPLE__
-#pragma clang diagnostic pop
-#endif
 
 		/* Disconnect from the controlling tty. */
 #ifdef TIOCNOTTY
@@ -2162,60 +2158,6 @@ main(int ac, char **av)
 	    remote_ip, remote_port, laddr,  get_local_port());
 	free(laddr);
 
-#ifdef USE_SECURITY_SESSION_API
-	/*
-	 * Create a new security session for use by the new user login if
-	 * the current session is the root session or we are not launched
-	 * by inetd (eg: debugging mode or server mode).  We do not
-	 * necessarily need to create a session if we are launched from
-	 * inetd because Panther xinetd will create a session for us.
-	 *
-	 * The only case where this logic will fail is if there is an
-	 * inetd running in a non-root session which is not creating
-	 * new sessions for us.  Then all the users will end up in the
-	 * same session (bad).
-	 *
-	 * When the client exits, the session will be destroyed for us
-	 * automatically.
-	 *
-	 * We must create the session before any credentials are stored
-	 * (including AFS pags, which happens a few lines below).
-	 */
-	{
-		OSStatus err = 0;
-		SecuritySessionId sid = 0;
-		SessionAttributeBits sattrs = 0;
-
-		err = SessionGetInfo(callerSecuritySession, &sid, &sattrs);
-		if (err)
-			error("SessionGetInfo() failed with error %.8X",
-			    (unsigned) err);
-		else
-			debug("Current Session ID is %.8X / Session Attributes are %.8X",
-			    (unsigned) sid, (unsigned) sattrs);
-
-		if (inetd_flag && !(sattrs & sessionIsRoot))
-			debug("Running in inetd mode in a non-root session... "
-			    "assuming inetd created the session for us.");
-		else {
-			debug("Creating new security session...");
-			err = SessionCreate(0, sessionHasTTY | sessionIsRemote);
-			if (err)
-				error("SessionCreate() failed with error %.8X",
-				    (unsigned) err);
-
-			err = SessionGetInfo(callerSecuritySession, &sid, 
-			    &sattrs);
-			if (err)
-				error("SessionGetInfo() failed with error %.8X",
-				    (unsigned) err);
-			else
-				debug("New Session ID is %.8X / Session Attributes are %.8X",
-				    (unsigned) sid, (unsigned) sattrs);
-		}
-	}
-#endif
-
 	/*
 	 * We don't want to listen forever unless the other side
 	 * successfully authenticates itself.  So we set up an alarm which is
@@ -2297,17 +2239,17 @@ main(int ac, char **av)
 	audit_event(SSH_AUTH_SUCCESS);
 #endif
 
-#ifdef USE_PAM
-	if (options.use_pam) {
-		do_pam_setcred(1);
-		do_pam_session();
-	}
-#endif
 #ifdef GSSAPI
 	if (options.gss_authentication) {
 		temporarily_use_uid(authctxt->pw);
 		ssh_gssapi_storecreds();
 		restore_uid();
+	}
+#endif
+#ifdef USE_PAM
+	if (options.use_pam) {
+		do_pam_setcred(1);
+		do_pam_session();
 	}
 #endif
 
@@ -2578,33 +2520,33 @@ do_ssh1_kex(void)
 
 int
 sshd_hostkey_sign(Key *privkey, Key *pubkey, u_char **signature, size_t *slen,
-    const u_char *data, size_t dlen, u_int flag)
+    const u_char *data, size_t dlen, const char *alg, u_int flag)
 {
 	int r;
 	u_int xxx_slen, xxx_dlen = dlen;
 
 	if (privkey) {
-		if (PRIVSEP(key_sign(privkey, signature, &xxx_slen, data, xxx_dlen) < 0))
+		if (PRIVSEP(key_sign(privkey, signature, &xxx_slen, data, xxx_dlen,
+		    alg) < 0))
 			fatal("%s: key_sign failed", __func__);
 		if (slen)
 			*slen = xxx_slen;
 	} else if (use_privsep) {
-		if (mm_key_sign(pubkey, signature, &xxx_slen, data, xxx_dlen) < 0)
+		if (mm_key_sign(pubkey, signature, &xxx_slen, data, xxx_dlen,
+		    alg) < 0)
 			fatal("%s: pubkey_sign failed", __func__);
 		if (slen)
 			*slen = xxx_slen;
 	} else {
 		if ((r = ssh_agent_sign(auth_sock, pubkey, signature, slen,
-		    data, dlen, datafellows)) != 0)
+		    data, dlen, alg, datafellows)) != 0)
 			fatal("%s: ssh_agent_sign failed: %s",
 			    __func__, ssh_err(r));
 	}
 	return 0;
 }
 
-/*
- * SSH2 key exchange: diffie-hellman-group1-sha1
- */
+/* SSH2 key exchange */
 static void
 do_ssh2_kex(void)
 {
@@ -2612,19 +2554,15 @@ do_ssh2_kex(void)
 	struct kex *kex;
 	int r;
 
-	if (options.ciphers != NULL) {
-		myproposal[PROPOSAL_ENC_ALGS_CTOS] =
-		myproposal[PROPOSAL_ENC_ALGS_STOC] = options.ciphers;
-	}
-	myproposal[PROPOSAL_ENC_ALGS_CTOS] =
-	    compat_cipher_proposal(myproposal[PROPOSAL_ENC_ALGS_CTOS]);
-	myproposal[PROPOSAL_ENC_ALGS_STOC] =
-	    compat_cipher_proposal(myproposal[PROPOSAL_ENC_ALGS_STOC]);
+	myproposal[PROPOSAL_KEX_ALGS] = compat_kex_proposal(
+	    options.kex_algorithms);
+	myproposal[PROPOSAL_ENC_ALGS_CTOS] = compat_cipher_proposal(
+	    options.ciphers);
+	myproposal[PROPOSAL_ENC_ALGS_STOC] = compat_cipher_proposal(
+	    options.ciphers);
+	myproposal[PROPOSAL_MAC_ALGS_CTOS] =
+	    myproposal[PROPOSAL_MAC_ALGS_STOC] = options.macs;
 
-	if (options.macs != NULL) {
-		myproposal[PROPOSAL_MAC_ALGS_CTOS] =
-		myproposal[PROPOSAL_MAC_ALGS_STOC] = options.macs;
-	}
 	if (options.compression == COMP_NONE) {
 		myproposal[PROPOSAL_COMP_ALGS_CTOS] =
 		myproposal[PROPOSAL_COMP_ALGS_STOC] = "none";
@@ -2632,60 +2570,13 @@ do_ssh2_kex(void)
 		myproposal[PROPOSAL_COMP_ALGS_CTOS] =
 		myproposal[PROPOSAL_COMP_ALGS_STOC] = "none,zlib@openssh.com";
 	}
-	if (options.kex_algorithms != NULL)
-		myproposal[PROPOSAL_KEX_ALGS] = options.kex_algorithms;
-
-	myproposal[PROPOSAL_KEX_ALGS] = compat_kex_proposal(
-	    myproposal[PROPOSAL_KEX_ALGS]);
 
 	if (options.rekey_limit || options.rekey_interval)
-		packet_set_rekey_limits((u_int32_t)options.rekey_limit,
+		packet_set_rekey_limits(options.rekey_limit,
 		    (time_t)options.rekey_interval);
 
 	myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS] = compat_pkalg_proposal(
 	    list_hostkey_types());
-
-#ifdef GSSAPI
-	{
-	char *orig;
-	char *gss = NULL;
-	char *newstr = NULL;
-	orig = myproposal[PROPOSAL_KEX_ALGS];
-
-	/* 
-	 * If we don't have a host key, then there's no point advertising
-	 * the other key exchange algorithms
-	 */
-
-	if (strlen(myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS]) == 0)
-		orig = NULL;
-
-	if (options.gss_keyex)
-		gss = ssh_gssapi_server_mechanisms();
-	else
-		gss = NULL;
-
-	if (gss && orig)
-		xasprintf(&newstr, "%s,%s", gss, orig);
-	else if (gss)
-		newstr = gss;
-	else if (orig)
-		newstr = orig;
-
-	/* 
-	 * If we've got GSSAPI mechanisms, then we've got the 'null' host
-	 * key alg, but we can't tell people about it unless its the only
-  	 * host key algorithm we support
-	 */
-	if (gss && (strlen(myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS])) == 0)
-		myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS] = "null";
-
-	if (newstr)
-		myproposal[PROPOSAL_KEX_ALGS] = newstr;
-	else
-		fatal("No supported key exchange algorithms");
-	}
-#endif
 
 	/* start key exchange */
 	if ((r = kex_setup(active_state, myproposal)) != 0)
@@ -2699,13 +2590,6 @@ do_ssh2_kex(void)
 # ifdef OPENSSL_HAS_ECC
 	kex->kex[KEX_ECDH_SHA2] = kexecdh_server;
 # endif
-#endif
-#ifdef GSSAPI
-	if (options.gss_keyex) {
-		kex->kex[KEX_GSS_GRP1_SHA1] = kexgss_server;
-		kex->kex[KEX_GSS_GRP14_SHA1] = kexgss_server;
-		kex->kex[KEX_GSS_GEX_SHA1] = kexgss_server;
-	}
 #endif
 	kex->kex[KEX_C25519_SHA256] = kexc25519_server;
 	kex->server = 1;

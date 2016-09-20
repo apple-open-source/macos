@@ -30,7 +30,85 @@
 #include <Security/SecureObjectSync/SOSAccountPriv.h>
 #include <Security/SecureObjectSync/SOSTransport.h>
 #include <Security/SecureObjectSync/SOSPeerInfoCollections.h>
+
+#include "SOSTestDataSource.h"
+#include "SOSRegressionUtilities.h"
+
 #include "SOSTransportTestTransports.h"
+
+#include <utilities/SecCFWrappers.h>
+
+//
+// Implicit transaction helpers
+//
+
+static inline bool SOSAccountResetToOffering_wTxn(SOSAccountRef account, CFErrorRef* error)
+{
+    __block bool result = false;
+    SOSAccountWithTransactionSync(account, ^(SOSAccountRef account, SOSAccountTransactionRef txn) {
+        result = SOSAccountResetToOffering(txn, error);
+    });
+    return result;
+}
+
+static inline bool SOSAccountJoinCirclesAfterRestore_wTxn(SOSAccountRef account, CFErrorRef* error)
+{
+    __block bool result = false;
+    SOSAccountWithTransactionSync(account, ^(SOSAccountRef account, SOSAccountTransactionRef txn) {
+        result = SOSAccountJoinCirclesAfterRestore(txn, error);
+    });
+    return result;
+}
+
+static inline bool SOSAccountJoinCircles_wTxn(SOSAccountRef account, CFErrorRef* error)
+{
+    __block bool result = false;
+    SOSAccountWithTransactionSync(account, ^(SOSAccountRef account, SOSAccountTransactionRef txn) {
+        result = SOSAccountJoinCircles(txn, error);
+    });
+    return result;
+}
+
+static inline bool SOSAccountCheckHasBeenInSync_wTxn(SOSAccountRef account)
+{
+    return SOSAccountHasCompletedInitialSync(account);
+}
+
+static inline void SOSAccountPeerGotInSync_wTxn(SOSAccountRef account, SOSPeerInfoRef peer)
+{
+    SOSAccountWithTransactionSync(account, ^(SOSAccountRef account, SOSAccountTransactionRef txn) {
+        CFMutableSetRef views = SOSPeerInfoCopyEnabledViews(peer);
+        SOSAccountPeerGotInSync(txn, SOSPeerInfoGetPeerID(peer), views);
+        CFReleaseNull(views);
+    });
+}
+
+static inline bool SOSAccountSetBackupPublicKey_wTxn(SOSAccountRef account, CFDataRef backupKey, CFErrorRef* error)
+{
+    __block bool result = false;
+    SOSAccountWithTransactionSync(account, ^(SOSAccountRef account, SOSAccountTransactionRef txn) {
+        result = SOSAccountSetBackupPublicKey(txn, backupKey, error);
+    });
+    return result;
+}
+
+static inline bool SOSAccountRemoveBackupPublickey_wTxn(SOSAccountRef account, CFErrorRef* error)
+{
+    __block bool result = false;
+    SOSAccountWithTransactionSync(account, ^(SOSAccountRef account, SOSAccountTransactionRef txn) {
+        result = SOSAccountRemoveBackupPublickey(txn, error);
+    });
+    return result;
+}
+
+static inline SOSViewResultCode SOSAccountUpdateView_wTxn(SOSAccountRef account, CFStringRef viewname, SOSViewActionCode actionCode, CFErrorRef *error) {
+    __block SOSViewResultCode result = false;
+    SOSAccountWithTransactionSync(account, ^(SOSAccountRef account, SOSAccountTransactionRef txn) {
+        result = SOSAccountUpdateView(account, viewname, actionCode, error);
+    });
+    return result;
+}
+
 //
 // Account comparison
 //
@@ -320,13 +398,24 @@ static bool FillAllChanges(CFMutableDictionaryRef changes) {
         SOSTransportCircleTestClearChanges(tpt);
     });
     CFArrayForEach(message_transports, ^(const void *value) {
-        SOSTransportMessageTestRef tpt = (SOSTransportMessageTestRef) value;
-        CFDictionaryRemoveValue(SOSTransportMessageTestGetChanges(tpt), kCFNull);
-        if (AddNewChanges(changes, SOSTransportMessageTestGetChanges(tpt), SOSTransportMessageTestGetAccount(tpt))) {
-            changed |= true;
-            CFSetAddValue(changedAccounts, SOSTransportMessageTestGetAccount(tpt));
+        if(SOSTransportMessageGetTransportType((SOSTransportMessageRef)value, NULL) == kKVSTest){
+            SOSTransportMessageTestRef tpt = (SOSTransportMessageTestRef) value;
+            CFDictionaryRemoveValue(SOSTransportMessageTestGetChanges(tpt), kCFNull);
+            if (AddNewChanges(changes, SOSTransportMessageTestGetChanges(tpt), SOSTransportMessageTestGetAccount((SOSTransportMessageRef)tpt))) {
+                changed |= true;
+                CFSetAddValue(changedAccounts, SOSTransportMessageTestGetAccount((SOSTransportMessageRef)tpt));
+            }
+            SOSTransportMessageTestClearChanges(tpt);
         }
-        SOSTransportMessageTestClearChanges(tpt);
+        else if(SOSTransportMessageGetTransportType((SOSTransportMessageRef)value, NULL) == kIDSTest){
+            SOSTransportMessageRef ids = (SOSTransportMessageRef) value;
+            CFDictionaryRemoveValue(SOSTransportMessageIDSTestGetChanges(ids), kCFNull);
+            if (AddNewChanges(changes, SOSTransportMessageIDSTestGetChanges(ids), SOSTransportMessageTestGetAccount(ids))) {
+                changed |= true;
+                CFSetAddValue(changedAccounts, SOSTransportMessageTestGetAccount(ids));
+            }
+            SOSTransportMessageIDSTestClearChanges(ids);
+        }
     });
     
     secnotice("process-changes", "Accounts with change (%@): %@", changed ? CFSTR("YES") : CFSTR("NO"), changedAccounts);
@@ -353,11 +442,21 @@ static void FillChanges(CFMutableDictionaryRef changes, SOSAccountRef forAccount
         }
     });
     CFArrayForEach(message_transports, ^(const void *value) {
-        SOSTransportMessageTestRef tpt = (SOSTransportMessageTestRef) value;
-        if(CFEqualSafe(forAccount, SOSTransportMessageTestGetAccount(tpt))){
-            CFDictionaryRemoveValue(SOSTransportMessageTestGetChanges(tpt), kCFNull);
-            AddNewChanges(changes, SOSTransportMessageTestGetChanges(tpt), SOSTransportMessageTestGetAccount(tpt));
-            SOSTransportMessageTestClearChanges(tpt);
+        if(SOSTransportMessageGetTransportType((SOSTransportMessageRef)value, NULL) == kKVSTest){
+            SOSTransportMessageTestRef tpt = (SOSTransportMessageTestRef) value;
+            if(CFEqualSafe(forAccount, SOSTransportMessageTestGetAccount((SOSTransportMessageRef)tpt))){
+                CFDictionaryRemoveValue(SOSTransportMessageTestGetChanges(tpt), kCFNull);
+                AddNewChanges(changes, SOSTransportMessageTestGetChanges(tpt), SOSTransportMessageTestGetAccount((SOSTransportMessageRef)tpt));
+                SOSTransportMessageTestClearChanges(tpt);
+            }
+        }
+        else{
+            SOSTransportMessageRef tpt = (SOSTransportMessageRef) value;
+            if(CFEqualSafe(forAccount, SOSTransportMessageTestGetAccount((SOSTransportMessageRef)tpt))){
+                CFDictionaryRemoveValue(SOSTransportMessageIDSTestGetChanges(tpt), kCFNull);
+                AddNewChanges(changes, SOSTransportMessageIDSTestGetChanges(tpt), SOSTransportMessageTestGetAccount((SOSTransportMessageRef)tpt));
+                SOSTransportMessageIDSTestClearChanges(tpt);
+            }
         }
     });
 
@@ -394,16 +493,11 @@ static inline void FeedChangesTo(CFMutableDictionaryRef changes, SOSAccountRef a
     CFMutableArrayRef account_pending_keys = (CFMutableArrayRef)CFDictionaryGetValue(changes, account);
 
     if (!isArray(account_pending_keys)) {
-        CFReleaseNull(account_pending_keys);
-
         account_pending_keys = CFDictionaryCopyKeys(full_list);
         CFDictionaryAddValue(changes, account, account_pending_keys);
         CFReleaseSafe(account_pending_keys); // The dictionary keeps it, we don't retain it here.
     }
 
-    CFMutableArrayRef handled = NULL;
-
-    CFErrorRef error = NULL;
     CFMutableDictionaryRef account_pending_messages = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
     CFArrayForEach(account_pending_keys, ^(const void *value) {
         CFDictionaryAddValue(account_pending_messages, value, CFDictionaryGetValue(full_list, value));
@@ -415,8 +509,13 @@ static inline void FeedChangesTo(CFMutableDictionaryRef changes, SOSAccountRef a
         secnotice("changes", "  %@", key);
     });
 
-    ok(handled = SOSTransportDispatchMessages(account, account_pending_messages, &error), "SOSTransportHandleMessages failed (%@)", error);
-    
+    __block CFMutableArrayRef handled = NULL;
+    SOSAccountWithTransactionSync(account, ^(SOSAccountRef account, SOSAccountTransactionRef txn) {
+        __block CFErrorRef error = NULL;
+        ok(handled = SOSTransportDispatchMessages(account, account_pending_messages, &error), "SOSTransportHandleMessages failed (%@)", error);
+        CFReleaseNull(error);
+    });
+
     if (isArray(handled)) {
         CFArrayForEach(handled, ^(const void *value) {
             CFArrayRemoveAllValue(account_pending_keys, value);
@@ -424,7 +523,6 @@ static inline void FeedChangesTo(CFMutableDictionaryRef changes, SOSAccountRef a
     }
     CFReleaseNull(account_pending_messages);
     CFReleaseNull(handled);
-    CFReleaseNull(error);
 }
 
 #define kFeedChangesToMultieTestCountPer 1
@@ -599,6 +697,56 @@ static inline void showActiveValidPeers(SOSAccountRef account) {
         ok(0, "Active Valid Peer %@", pi);
     });
     CFReleaseNull(peers);
+}
+
+#define ok_or_quit(COND,MESSAGE,LABEL) ok(COND, MESSAGE); if(!(COND)) goto LABEL
+
+static inline bool testAccountPersistence(SOSAccountRef account) {
+    SOSDataSourceFactoryRef test_factory = SOSTestDataSourceFactoryCreate();
+    SOSDataSourceRef test_source = SOSTestDataSourceCreate();
+    SOSTestDataSourceFactorySetDataSource(test_factory, CFSTR("TestType"), test_source);
+    CFErrorRef error = NULL;
+    bool retval = false;
+    SOSAccountRef reinflatedAccount = NULL;
+    CFDataRef accountDER = NULL;
+
+    SOSAccountCheckHasBeenInSync_wTxn(account);
+
+    // DER encode account to accountData - this allows checking discreet DER functions
+    size_t size = SOSAccountGetDEREncodedSize(account, &error);
+    CFReleaseNull(error);
+    uint8_t buffer[size];
+    uint8_t* start = SOSAccountEncodeToDER(account, &error, buffer, buffer + sizeof(buffer));
+    CFReleaseNull(error);
+
+    ok_or_quit(start, "successful encoding", errOut);
+    ok_or_quit(start == buffer, "Used whole buffer", errOut);
+
+    accountDER = CFDataCreate(kCFAllocatorDefault, buffer, size);
+    ok_or_quit(accountDER, "Made CFData for Account", errOut);
+
+
+    // Re-inflate to "inflated"
+    reinflatedAccount = SOSAccountCreateFromData(kCFAllocatorDefault, accountDER, test_factory, &error);
+    CFReleaseNull(error);
+    CFReleaseNull(accountDER);
+
+    ok(reinflatedAccount, "inflated");
+    ok(CFEqualSafe(reinflatedAccount, account), "Compares");
+
+    // Repeat through SOSAccountCopyEncodedData() interface - this is the normally called combined interface
+    accountDER = SOSAccountCopyEncodedData(reinflatedAccount, kCFAllocatorDefault, &error);
+    CFReleaseNull(error);
+    CFReleaseNull(reinflatedAccount);
+    reinflatedAccount = SOSAccountCreateFromData(kCFAllocatorDefault, accountDER, test_factory, &error);
+    ok(reinflatedAccount, "inflated2");
+    ok(CFEqual(account, reinflatedAccount), "Compares");
+
+    retval = true;
+errOut:
+    CFReleaseNull(reinflatedAccount);
+    CFReleaseNull(accountDER);
+    return retval;
 }
 
 #endif

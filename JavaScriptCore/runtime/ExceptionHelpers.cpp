@@ -34,7 +34,6 @@
 #include "ErrorHandlingScope.h"
 #include "Exception.h"
 #include "JSGlobalObjectFunctions.h"
-#include "JSNotAnObject.h"
 #include "Interpreter.h"
 #include "Nodes.h"
 #include "JSCInlines.h"
@@ -62,6 +61,9 @@ JSObject* createTerminatedExecutionException(VM* vm)
 
 bool isTerminatedExecutionException(Exception* exception)
 {
+    if (!exception->value().isObject())
+        return false;
+
     return exception->value().inherits(TerminatedExecutionError::info());
 }
 
@@ -73,7 +75,7 @@ JSObject* createStackOverflowError(ExecState* exec)
 JSObject* createUndefinedVariableError(ExecState* exec, const Identifier& ident)
 {
     if (exec->propertyNames().isPrivateName(ident)) {
-        String message(makeString("Can't find private variable: @", exec->propertyNames().getPublicName(ident).string()));
+        String message(makeString("Can't find private variable: @", exec->propertyNames().lookUpPublicName(ident).string()));
         return createReferenceError(exec, message);
     }
     String message(makeString("Can't find variable: ", ident.string()));
@@ -87,7 +89,7 @@ JSString* errorDescriptionForValue(ExecState* exec, JSValue v)
     if (v.isObject()) {
         CallData callData;
         JSObject* object = asObject(v);
-        if (object->methodTable()->getCallData(object, callData) != CallTypeNone)
+        if (object->methodTable()->getCallData(object, callData) != CallType::None)
             return exec->vm().smallStrings.functionString();
         return jsString(exec, JSObject::calculatedClassName(object));
     }
@@ -183,7 +185,7 @@ static String notAFunctionSourceAppender(const String& originalMessage, const St
     if (type == TypeObject)
         builder.appendLiteral("an instance of ");
     builder.append(displayValue);
-    builder.appendLiteral(")");
+    builder.append(')');
 
     return builder.toString();
 }
@@ -206,7 +208,7 @@ static String invalidParameterInSourceAppender(const String& originalMessage, co
     return makeString(rightHandSide, " is not an Object. (evaluating '", sourceText, "')");
 }
 
-static String invalidParameterInstanceofSourceAppender(const String& originalMessage, const String& sourceText, RuntimeType, ErrorInstance::SourceTextWhereErrorOccurred occurrence)
+inline String invalidParameterInstanceofSourceAppender(const String& content, const String& originalMessage, const String& sourceText, RuntimeType, ErrorInstance::SourceTextWhereErrorOccurred occurrence)
 {
     if (occurrence == ErrorInstance::FoundApproximateSource)
         return defaultApproximateSourceError(originalMessage, sourceText);
@@ -219,7 +221,17 @@ static String invalidParameterInstanceofSourceAppender(const String& originalMes
 
     static const unsigned instanceofLength = 10;
     String rightHandSide = sourceText.substring(instanceofIndex + instanceofLength).simplifyWhiteSpace();
-    return makeString(rightHandSide, " is not a function. (evaluating '", sourceText, "')");
+    return makeString(rightHandSide, content, ". (evaluating '", sourceText, "')");
+}
+
+static String invalidParameterInstanceofNotFunctionSourceAppender(const String& originalMessage, const String& sourceText, RuntimeType runtimeType, ErrorInstance::SourceTextWhereErrorOccurred occurrence)
+{
+    return invalidParameterInstanceofSourceAppender(WTF::makeString(" is not a function"), originalMessage, sourceText, runtimeType, occurrence);
+}
+
+static String invalidParameterInstanceofhasInstanceValueNotFunctionSourceAppender(const String& originalMessage, const String& sourceText, RuntimeType runtimeType, ErrorInstance::SourceTextWhereErrorOccurred occurrence)
+{
+    return invalidParameterInstanceofSourceAppender(WTF::makeString("[Symbol.hasInstance] is not a function, undefined, or null"), originalMessage, sourceText, runtimeType, occurrence);
 }
 
 JSObject* createError(ExecState* exec, JSValue value, const String& message, ErrorInstance::SourceAppender appender)
@@ -242,9 +254,14 @@ JSObject* createInvalidInParameterError(ExecState* exec, JSValue value)
     return createError(exec, value, makeString("is not an Object."), invalidParameterInSourceAppender);
 }
 
-JSObject* createInvalidInstanceofParameterError(ExecState* exec, JSValue value)
+JSObject* createInvalidInstanceofParameterErrorNotFunction(ExecState* exec, JSValue value)
 {
-    return createError(exec, value, makeString("is not a function."), invalidParameterInstanceofSourceAppender);
+    return createError(exec, value, makeString(" is not a function"), invalidParameterInstanceofNotFunctionSourceAppender);
+}
+
+JSObject* createInvalidInstanceofParameterErrorhasInstanceValueNotFunction(ExecState* exec, JSValue value)
+{
+    return createError(exec, value, makeString("[Symbol.hasInstance] is not a function, undefined, or null"), invalidParameterInstanceofhasInstanceValueNotFunctionSourceAppender);
 }
 
 JSObject* createNotAConstructorError(ExecState* exec, JSValue value)
@@ -265,6 +282,11 @@ JSObject* createNotAnObjectError(ExecState* exec, JSValue value)
 JSObject* createErrorForInvalidGlobalAssignment(ExecState* exec, const String& propertyName)
 {
     return createReferenceError(exec, makeString("Strict mode forbids implicit creation of global property '", propertyName, '\''));
+}
+
+JSObject* createTDZError(ExecState* exec)
+{
+    return createReferenceError(exec, "Cannot access uninitialized variable.");
 }
 
 JSObject* throwOutOfMemoryError(ExecState* exec)

@@ -22,6 +22,31 @@
 			name = World;
 			productName = World;
 		};
+		D46B07A51C8FB22900B5939A /* libDERInstall */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = D46B07A81C8FB22900B5939A /* Build configuration list for PBXAggregateTarget "libDERInstall" */;
+			buildPhases = (
+				D46B07AB1C8FB23500B5939A /* Copy Static Library File */,
+			);
+			dependencies = (
+				D46B08741C8FC18700B5939A /* PBXTargetDependency */,
+				D46B07FD1C8FBE1900B5939A /* PBXTargetDependency */,
+			);
+			name = libDERInstall;
+			productName = libDERInstall;
+		};
+		D46B07EB1C8FBDC600B5939A /* libDERHeaders */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = D46B07EC1C8FBDC600B5939A /* Build configuration list for PBXAggregateTarget "libDERHeaders" */;
+			buildPhases = (
+				D46B07EF1C8FBDD700B5939A /* Copy Headers */,
+			);
+			dependencies = (
+				D46B07FB1C8FBE0B00B5939A /* PBXTargetDependency */,
+			);
+			name = libDERHeaders;
+			productName = libDERHeaders;
+		};
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
@@ -46,7 +71,7 @@
 		058F15C20922B73F009FA1C5 /* printFields.h in Headers */ = {isa = PBXBuildFile; fileRef = 058F15C00922B73F009FA1C5 /* printFields.h */; };
 		058F15C30922B73F009FA1C5 /* printFields.c in Sources */ = {isa = PBXBuildFile; fileRef = 058F15C10922B73F009FA1C5 /* printFields.c */; };
 		058F163109250D16009FA1C5 /* oids.c in Sources */ = {isa = PBXBuildFile; fileRef = 058F162D09250D0D009FA1C5 /* oids.c */; };
-		058F163209250D17009FA1C5 /* oids.h in Headers */ = {isa = PBXBuildFile; fileRef = 058F162E09250D0D009FA1C5 /* oids.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		058F163209250D17009FA1C5 /* oids.h in Headers */ = {isa = PBXBuildFile; fileRef = 058F162E09250D0D009FA1C5 /* oids.h */; };
 		058F1659092513A7009FA1C5 /* parseCrl.c in Sources */ = {isa = PBXBuildFile; fileRef = 058F1658092513A7009FA1C5 /* parseCrl.c */; };
 		058F16710925230E009FA1C5 /* libDER.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 053BA314091C00BF00A7007A /* libDER.a */; };
 		058F16720925230F009FA1C5 /* libDERUtils.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 053BA46B091FE63E00A7007A /* libDERUtils.a */; };
@@ -57,6 +82,17 @@
 		4C96C8E2113F4232005483E8 /* libDER.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 053BA314091C00BF00A7007A /* libDER.a */; };
 		4C96C8ED113F42D1005483E8 /* libcrypto.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C96C8EC113F42C4005483E8 /* libcrypto.dylib */; };
 		D467903C1B39FDB500D26E2F /* oidsPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = D467903B1B39FDB500D26E2F /* oidsPriv.h */; };
+		D46B07EA1C8FBDAF00B5939A /* libDER.a in Copy Static Library File */ = {isa = PBXBuildFile; fileRef = 053BA314091C00BF00A7007A /* libDER.a */; };
+		D46B07F01C8FBDFC00B5939A /* DER_Keys.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 058ECD340920F5E30050AA30 /* DER_Keys.h */; };
+		D46B07F11C8FBDFC00B5939A /* asn1Types.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 053BA342091C089B00A7007A /* asn1Types.h */; };
+		D46B07F21C8FBDFC00B5939A /* DER_CertCrl.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 053BA398091C258100A7007A /* DER_CertCrl.h */; };
+		D46B07F31C8FBDFC00B5939A /* DER_Decode.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 053BA321091C02B700A7007A /* DER_Decode.h */; };
+		D46B07F41C8FBDFC00B5939A /* DER_Encode.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 0544AE9F0940939C00DD6C0B /* DER_Encode.h */; };
+		D46B07F51C8FBDFC00B5939A /* libDER_config.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 053BA322091C02B700A7007A /* libDER_config.h */; };
+		D46B07F61C8FBDFC00B5939A /* libDER.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 053BA323091C02B700A7007A /* libDER.h */; };
+		D46B07F71C8FBDFC00B5939A /* DER_Digest.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 05E0E40509228A5E005F4693 /* DER_Digest.h */; };
+		D46B07F81C8FBDFC00B5939A /* oids.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 058F162E09250D0D009FA1C5 /* oids.h */; };
+		D46B07F91C8FBDFC00B5939A /* oidsPriv.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = D467903B1B39FDB500D26E2F /* oidsPriv.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -130,7 +166,62 @@
 			remoteGlobalIDString = 053BA313091C00BF00A7007A;
 			remoteInfo = libDER;
 		};
+		D46B07FA1C8FBE0B00B5939A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 053BA30A091C00A400A7007A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 053BA313091C00BF00A7007A;
+			remoteInfo = libDER;
+		};
+		D46B07FC1C8FBE1900B5939A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 053BA30A091C00A400A7007A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D46B07EB1C8FBDC600B5939A;
+			remoteInfo = libDERHeaders;
+		};
+		D46B08731C8FC18700B5939A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 053BA30A091C00A400A7007A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 053BA313091C00BF00A7007A;
+			remoteInfo = libDER;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		D46B07AB1C8FB23500B5939A /* Copy Static Library File */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/lib;
+			dstSubfolderSpec = 0;
+			files = (
+				D46B07EA1C8FBDAF00B5939A /* libDER.a in Copy Static Library File */,
+			);
+			name = "Copy Static Library File";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		D46B07EF1C8FBDD700B5939A /* Copy Headers */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/include/security_libDER/libDER;
+			dstSubfolderSpec = 0;
+			files = (
+				D46B07F01C8FBDFC00B5939A /* DER_Keys.h in Copy Headers */,
+				D46B07F11C8FBDFC00B5939A /* asn1Types.h in Copy Headers */,
+				D46B07F21C8FBDFC00B5939A /* DER_CertCrl.h in Copy Headers */,
+				D46B07F31C8FBDFC00B5939A /* DER_Decode.h in Copy Headers */,
+				D46B07F41C8FBDFC00B5939A /* DER_Encode.h in Copy Headers */,
+				D46B07F51C8FBDFC00B5939A /* libDER_config.h in Copy Headers */,
+				D46B07F61C8FBDFC00B5939A /* libDER.h in Copy Headers */,
+				D46B07F71C8FBDFC00B5939A /* DER_Digest.h in Copy Headers */,
+				D46B07F81C8FBDFC00B5939A /* oids.h in Copy Headers */,
+				D46B07F91C8FBDFC00B5939A /* oidsPriv.h in Copy Headers */,
+			);
+			name = "Copy Headers";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		053BA314091C00BF00A7007A /* libDER.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libDER.a; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -317,16 +408,16 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				053BA325091C02B700A7007A /* libDER_config.h in Headers */,
 				D467903C1B39FDB500D26E2F /* oidsPriv.h in Headers */,
 				053BA326091C02B700A7007A /* libDER.h in Headers */,
-				053BA325091C02B700A7007A /* libDER_config.h in Headers */,
-				058F163209250D17009FA1C5 /* oids.h in Headers */,
 				053BA324091C02B700A7007A /* DER_Decode.h in Headers */,
-				053BA344091C089B00A7007A /* asn1Types.h in Headers */,
 				053BA39A091C258100A7007A /* DER_CertCrl.h in Headers */,
-				058ECD360920F5E30050AA30 /* DER_Keys.h in Headers */,
 				05E0E40709228A5E005F4693 /* DER_Digest.h in Headers */,
 				0544AEA10940939C00DD6C0B /* DER_Encode.h in Headers */,
+				058ECD360920F5E30050AA30 /* DER_Keys.h in Headers */,
+				058F163209250D17009FA1C5 /* oids.h in Headers */,
+				053BA344091C089B00A7007A /* asn1Types.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -436,7 +527,15 @@
 		053BA30A091C00A400A7007A /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0700;
+				LastUpgradeCheck = 0800;
+				TargetAttributes = {
+					D46B07A51C8FB22900B5939A = {
+						CreatedOnToolsVersion = 7.3;
+					};
+					D46B07EB1C8FBDC600B5939A = {
+						CreatedOnToolsVersion = 7.3;
+					};
+				};
 			};
 			buildConfigurationList = 4CD81A7109BE1FD2000A9641 /* Build configuration list for PBXProject "libDER" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -454,6 +553,8 @@
 			projectRoot = "";
 			targets = (
 				053BA30F091C00B100A7007A /* World */,
+				D46B07A51C8FB22900B5939A /* libDERInstall */,
+				D46B07EB1C8FBDC600B5939A /* libDERHeaders */,
 				053BA313091C00BF00A7007A /* libDER */,
 				053BA444091FE58C00A7007A /* parseCert */,
 				053BA46A091FE63E00A7007A /* libDERUtils */,
@@ -565,6 +666,21 @@
 			target = 053BA313091C00BF00A7007A /* libDER */;
 			targetProxy = 4C96C8E0113F4223005483E8 /* PBXContainerItemProxy */;
 		};
+		D46B07FB1C8FBE0B00B5939A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 053BA313091C00BF00A7007A /* libDER */;
+			targetProxy = D46B07FA1C8FBE0B00B5939A /* PBXContainerItemProxy */;
+		};
+		D46B07FD1C8FBE1900B5939A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D46B07EB1C8FBDC600B5939A /* libDERHeaders */;
+			targetProxy = D46B07FC1C8FBE1900B5939A /* PBXContainerItemProxy */;
+		};
+		D46B08741C8FC18700B5939A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 053BA313091C00BF00A7007A /* libDER */;
+			targetProxy = D46B08731C8FC18700B5939A /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -587,7 +703,6 @@
 			baseConfigurationReference = 1828EAA114E334E200BE00C2 /* debug.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
-				SDKROOT = macosx.internal;
 			};
 			name = Debug;
 		};
@@ -596,7 +711,6 @@
 			baseConfigurationReference = 1828EAA314E334E200BE00C2 /* release.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
-				SDKROOT = macosx.internal;
 			};
 			name = Release;
 		};
@@ -605,6 +719,7 @@
 			baseConfigurationReference = 1828EAA114E334E200BE00C2 /* debug.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
+				SDKROOT = macosx.internal;
 			};
 			name = Debug;
 		};
@@ -613,6 +728,7 @@
 			baseConfigurationReference = 1828EAA314E334E200BE00C2 /* release.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
+				SDKROOT = macosx.internal;
 			};
 			name = Release;
 		};
@@ -664,6 +780,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1828EAA214E334E200BE00C2 /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = lossless;
 				CLANG_STATIC_ANALYZER_MODE = deep;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
@@ -673,9 +790,12 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
+				ONLY_ACTIVE_ARCH = YES;
 				RUN_CLANG_STATIC_ANALYZER = YES;
 				SDKROOT = macosx.internal;
 			};
@@ -685,6 +805,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1828EAA214E334E200BE00C2 /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = "respect-asset-catalog";
 				CLANG_STATIC_ANALYZER_MODE = deep;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
@@ -694,11 +815,40 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				RUN_CLANG_STATIC_ANALYZER = YES;
 				SDKROOT = macosx.internal;
+			};
+			name = Release;
+		};
+		D46B07A61C8FB22900B5939A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		D46B07A71C8FB22900B5939A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		D46B07ED1C8FBDC600B5939A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		D46B07EE1C8FBDC600B5939A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
 		};
@@ -764,6 +914,24 @@
 			buildConfigurations = (
 				792E011C0CBC0CE3007C00A0 /* Debug */,
 				792E011D0CBC0CE3007C00A0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D46B07A81C8FB22900B5939A /* Build configuration list for PBXAggregateTarget "libDERInstall" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D46B07A61C8FB22900B5939A /* Debug */,
+				D46B07A71C8FB22900B5939A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D46B07EC1C8FBDC600B5939A /* Build configuration list for PBXAggregateTarget "libDERHeaders" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D46B07ED1C8FBDC600B5939A /* Debug */,
+				D46B07EE1C8FBDC600B5939A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

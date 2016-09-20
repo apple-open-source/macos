@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2015 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2012-2016 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -29,9 +29,10 @@
 #ifndef	_IP_PLUGIN_H
 #define	_IP_PLUGIN_H
 
-#include <netinet/in.h>
-#include <SystemConfiguration/SCPrivate.h>
 #include <net/if.h>
+#include <netinet/in.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <SystemConfiguration/SCPrivate.h>
 
 #ifdef TEST_IPV4_ROUTELIST
 #define TEST_ROUTELIST
@@ -48,14 +49,17 @@
 #define kIsNULL				CFSTR("IsNULL")	/* CFBoolean */
 
 #ifdef TEST_ROUTELIST
-#define my_log(__level, fmt, ...)	SCPrint(TRUE, stdout, CFSTR(fmt "\n"), ## __VA_ARGS__)
+
+#define	my_log(__level, __format, ...)	SCPrint(TRUE, stdout, CFSTR(__format "\n"), ## __VA_ARGS__)
 
 #else /* TEST_ROUTELIST */
 
-#define my_log(__level, fmt, ...)	SCLoggerLog(my_log_get_logger(), __level, CFSTR(fmt), ## __VA_ARGS__)
-SCLoggerRef my_log_get_logger();
+#define	my_log(__level, __format, ...)	SC_log(__level, __format, ## __VA_ARGS__)
 
 #endif /* TEST_ROUTELIST */
+
+os_log_t
+__log_IPMonitor();
 
 boolean_t
 cfstring_to_ip(CFStringRef str, struct in_addr * ip_p);

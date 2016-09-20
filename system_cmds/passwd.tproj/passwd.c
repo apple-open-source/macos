@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 1999-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <TargetConditionals.h>
@@ -70,7 +70,7 @@ getpasswd(char *name, int isroot, int minlen, int mixcase, int nonalpha,
 	}
 	//strcpy(obuf, p);
 	snprintf( obuf, sizeof(obuf), "%s", p );
-	
+
 	tries = 0;
 	nbuf[0] = '\0';
 	for (;;)
@@ -106,12 +106,12 @@ getpasswd(char *name, int isroot, int minlen, int mixcase, int nonalpha,
 		 * An insistent root may override security options.
 		 */
 		if ((isroot == 1) && (tries > 2)) pw_ok = 1;
-	
+
 		/*
 		 * A very insistent user may override security options.
 		 */
 		if (tries > 4) pw_ok = 1;
-	
+
 		if (pw_ok == 0)
 		{
 			if (len < minlen)
@@ -125,7 +125,7 @@ getpasswd(char *name, int isroot, int minlen, int mixcase, int nonalpha,
 
 		//strcpy(nbuf, p);
 		snprintf( nbuf, sizeof(nbuf), "%s", p );
-		
+
 		if (!strcmp(nbuf, getpass("Retype new password:"))) break;
 
 		printf("Mismatch; try again, EOF to quit.\n");
@@ -170,7 +170,7 @@ main(int argc, char *argv[])
 	char* auth = NULL;
 	int infosystem, ch;
 	int free_user = 0;
-	
+
 #ifdef INFO_PAM
 	infosystem = INFO_PAM;
 #else
@@ -243,24 +243,24 @@ main(int argc, char *argv[])
 		 * Verify that the login name exists.
 		 * lukeh 24 Dec 1997
 		 */
-		 
+
 		/* getlogin() is the wrong thing to use here because it returns the wrong user after su */
 		/* sns 5 Jan 2005 */
-		
+
 		struct passwd * userRec = getpwuid(getuid());
 		if (userRec != NULL && userRec->pw_name != NULL) {
 			/* global static mem is volatile; must strdup */
 			user = strdup(userRec->pw_name);
 			free_user = 1;
 		}
-		
+
 		if (user == NULL)
 		{
 			fprintf(stderr, "you don't have a login name\n");
 			exit(1);
 		}
 	}
-	
+
 	switch (infosystem)
 	{
 		case INFO_FILE:
@@ -282,10 +282,9 @@ main(int argc, char *argv[])
 			break;
 #endif
 	}
-	
+
 	if (free_user == 1)
 		free(user);
-	
+
 	exit(0);
 }
-

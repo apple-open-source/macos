@@ -82,13 +82,13 @@ OALCaptureDevice::OALCaptureDevice (const char* 	 inDeviceName, uintptr_t   inSe
 	}
 	catch (OSStatus	result) {
 		if (mRingBuffer) delete (mRingBuffer);
-		if (mBufferData) delete mBufferData;
+		if (mBufferData) free(mBufferData);
 		if (mAudioInputPtrs) delete (mAudioInputPtrs);
 		throw result;
 	}
 	catch (...) {
 		if (mRingBuffer) delete (mRingBuffer);
-		if (mBufferData) delete mBufferData;
+		if (mBufferData) free(mBufferData);
 		if (mAudioInputPtrs) delete (mAudioInputPtrs);
 		throw -1;
 	}
@@ -103,7 +103,7 @@ OALCaptureDevice::~OALCaptureDevice()
 	if (mInputUnit)
 		CloseComponent(mInputUnit);
 	if (mBufferData)
-		delete mBufferData;
+		free(mBufferData);
 	delete mRingBuffer;
 	delete mAudioInputPtrs;
 }

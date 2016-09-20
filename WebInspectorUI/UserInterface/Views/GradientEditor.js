@@ -60,8 +60,8 @@ WebInspector.GradientEditor = class GradientEditor extends WebInspector.Object
 
         this._gradientTypePicker = this._element.appendChild(document.createElement("select"));
         this._gradientTypePicker.classList.add("gradient-type-select");
-        for (var type in this._gradientTypes) {
-            var option = this._gradientTypePicker.appendChild(document.createElement("option"));
+        for (let type in this._gradientTypes) {
+            let option = this._gradientTypePicker.appendChild(document.createElement("option"));
             option.value = type;
             option.text = this._gradientTypes[type].label;
         }
@@ -74,7 +74,7 @@ WebInspector.GradientEditor = class GradientEditor extends WebInspector.Object
         this._colorPicker.colorWheel.dimension = 190;
         this._colorPicker.addEventListener(WebInspector.ColorPicker.Event.ColorChanged, this._colorPickerColorChanged, this);
 
-        var angleLabel = this._element.appendChild(document.createElement("label"));
+        let angleLabel = this._element.appendChild(document.createElement("label"));
         angleLabel.classList.add("gradient-angle");
         angleLabel.append(WebInspector.UIString("Angle"));
 
@@ -82,7 +82,7 @@ WebInspector.GradientEditor = class GradientEditor extends WebInspector.Object
         this._angleInput.type = "text";
         this._angleInput.addEventListener("input", this._angleChanged.bind(this));
 
-        var dragToAdjustController = new WebInspector.DragToAdjustController(this);
+        let dragToAdjustController = new WebInspector.DragToAdjustController(this);
         dragToAdjustController.element = angleLabel;
         dragToAdjustController.enabled = true;
     }
@@ -97,8 +97,8 @@ WebInspector.GradientEditor = class GradientEditor extends WebInspector.Object
         if (!gradient)
             return;
 
-        var isLinear = gradient instanceof WebInspector.LinearGradient;
-        var isRadial = gradient instanceof WebInspector.RadialGradient;
+        const isLinear = gradient instanceof WebInspector.LinearGradient;
+        const isRadial = gradient instanceof WebInspector.RadialGradient;
         console.assert(isLinear || isRadial);
         if (!isLinear && !isRadial)
             return;
@@ -130,7 +130,7 @@ WebInspector.GradientEditor = class GradientEditor extends WebInspector.Object
 
     gradientSliderStopWasSelected(gradientSlider, stop)
     {
-        var selectedStop = gradientSlider.selectedStop;
+        const selectedStop = gradientSlider.selectedStop;
         if (selectedStop && !this._editingColor) {
             this._element.appendChild(this._colorPicker.element);
             this._element.classList.add("editing-color");
@@ -152,11 +152,11 @@ WebInspector.GradientEditor = class GradientEditor extends WebInspector.Object
 
     dragToAdjustControllerWasAdjustedByAmount(dragToAdjustController, amount)
     {
-        var angleInputValue = parseFloat(this._angleInput.value);
+        const angleInputValue = parseFloat(this._angleInput.value);
         if (isNaN(angleInputValue))
             return;
 
-        var angle = angleInputValue + amount;
+        let angle = angleInputValue + amount;
         if (Math.round(angle) !== angle)
             angle = angle.toFixed(1);
 
@@ -168,7 +168,7 @@ WebInspector.GradientEditor = class GradientEditor extends WebInspector.Object
 
     _updateCSSClassForGradientType()
     {
-        var isRadial = this._gradient instanceof WebInspector.RadialGradient;
+        const isRadial = this._gradient instanceof WebInspector.RadialGradient;
         this._element.classList.toggle("radial-gradient", isRadial);
 
         this.dispatchEventToListeners(WebInspector.GradientEditor.Event.ColorPickerToggled);
@@ -176,7 +176,7 @@ WebInspector.GradientEditor = class GradientEditor extends WebInspector.Object
 
     _gradientTypeChanged(event)
     {
-        var descriptor = this._gradientTypes[this._gradientTypePicker.value];
+        const descriptor = this._gradientTypes[this._gradientTypePicker.value];
         if (!(this._gradient instanceof descriptor.type)) {
             if (descriptor.type === WebInspector.LinearGradient) {
                 this._gradient = new WebInspector.LinearGradient(180, this._gradient.stops);
@@ -201,7 +201,7 @@ WebInspector.GradientEditor = class GradientEditor extends WebInspector.Object
 
     _angleChanged(event)
     {
-        var angle = parseFloat(this._angleInput.value) || 0;
+        const angle = parseFloat(this._angleInput.value) || 0;
         if (isNaN(angle))
             return;
 
@@ -211,9 +211,9 @@ WebInspector.GradientEditor = class GradientEditor extends WebInspector.Object
     _angleInputValueDidChange(angle)
     {
         this._gradient.angle = angle;
-        var matches = this._angleInput.value.match(/\u00B0/g);
+        const matches = this._angleInput.value.match(/\u00B0/g);
         if (!matches || matches.length !== 1) {
-            var savedStart = this._angleInput.selectionStart;
+            const savedStart = this._angleInput.selectionStart;
             this._angleInput.value = angle + "\u00B0";
             this._angleInput.selectionStart = savedStart;
             this._angleInput.selectionEnd = savedStart;

@@ -57,6 +57,9 @@ public:
 	
 	IFDUMP(void debugDump() const);
 
+    static uint32_t getPromptAttempts();
+    void addPromptAttempt(); // Use this only if you're going to call validateExplicitly out of the normal call hierarchy
+
 public:
     class Maker : public AclSubject::Maker {
 		friend class KeychainPromptAclSubject;
@@ -71,6 +74,8 @@ public:
     };
     
 private:
+    static uint32_t promptsValidated;
+
 	CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR selector; // selector structure
     string description;				// description blob (string)
 	

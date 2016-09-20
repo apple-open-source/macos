@@ -25,72 +25,74 @@
 .\" OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 .\" EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/lib/libc_r/man/pthread_schedparam.3,v 1.2.2.4 2001/08/17 15:42:52 ru Exp $
-.Dd May 1, 2000
+.\" $FreeBSD$
+.\"
+.Dd October 16, 2006
 .Dt PTHREAD_SCHEDPARAM 3
 .Os
 .Sh NAME
-.Nm pthread_getschedparam ,
-.Nm pthread_setschedparam
+.Nm pthread_setschedparam ,
+.Nm pthread_getschedparam
 .Nd thread scheduling parameter manipulation
 .Sh SYNOPSIS
-.Fd #include <pthread.h>
+.In pthread.h
 .Ft int
-.Fo pthread_getschedparam
-.Fa "pthread_t thread"
-.Fa "int *restrict policy"
-.Fa "struct sched_param *restrict param"
-.Fc
+.Fn pthread_setschedparam "pthread_t thread" "int policy" "const struct sched_param *param"
 .Ft int
-.Fo pthread_setschedparam
-.Fa "pthread_t thread"
-.Fa "int policy"
-.Fa "const struct sched_param *param"
-.Fc
+.Fn pthread_getschedparam "pthread_t thread" "int *policy" "struct sched_param *param"
 .Sh DESCRIPTION
 The
-.Fn pthread_getschedparam
-and
 .Fn pthread_setschedparam
-functions get and set the scheduling parameters of individual threads.
+and
+.Fn pthread_getschedparam
+functions set and get the scheduling parameters of individual threads.
 The scheduling policy for a thread can either be
 .Dv SCHED_FIFO
-(first in, first out) or
+(first in, first out),
 .Dv SCHED_RR
-(round-robin).
-The thread priority (accessed via
+(round-robin), or
+.Dv SCHED_OTHER
+(timesharing).
+Valid thread priorities (accessed via
 .Va param->sched_priority )
-must be at least
-.Dv PTHREAD_MIN_PRIORITY
-and no more than
-.Dv PTHREAD_MAX_PRIORITY .
+must be within the range returned by the
+.Xr sched_get_priority_min 2
+and
+.Xr sched_get_priority_max 2
+system calls.
 .Sh RETURN VALUES
 If successful, these functions return 0.
 Otherwise, an error number is returned to indicate the error.
 .Sh ERRORS
-.Fn pthread_getschedparam
-will fail if:
-.Bl -tag -width Er
-.It Bq Er ESRCH
-Non-existent thread
-.Va thread .
-.El
-.Pp
+The
 .Fn pthread_setschedparam
-will fail if:
+function will fail if:
 .Bl -tag -width Er
 .It Bq Er EINVAL
 Invalid value for
-.Va policy .
+.Fa policy .
 .It Bq Er ENOTSUP
 Invalid value for scheduling parameters.
 .It Bq Er ESRCH
 Non-existent thread
-.Va thread .
+.Fa thread .
 .El
+.Pp
+The
+.Fn pthread_getschedparam
+function will fail if:
+.Bl -tag -width Er
+.It Bq Er ESRCH
+Non-existent thread
+.Fa thread .
+.El
+.Sh SEE ALSO
+.Xr sched_get_priority_max 2 ,
+.Xr sched_get_priority_min 2
 .Sh STANDARDS
+The
 .Fn pthread_setschedparam
 and
 .Fn pthread_getschedparam
-conform to
-.St -susv2
+functions conform to
+.St -susv2 .

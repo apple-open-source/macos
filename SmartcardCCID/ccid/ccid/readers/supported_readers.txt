@@ -1,6 +1,6 @@
 #
 # List of readers supported by the CCID driver
-# Generated: 2015-10-20
+# Generated: 2016-05-19
 #
 # DO NOT EDIT BY HAND
 
@@ -19,6 +19,7 @@
 
 # Alcor Micro
 0x058F:0x9520:Alcor Micro AU9520
+0x058F:0x9540:Alcor Micro AU9560
 
 # Athena
 0x0DC3:0x1004:Athena ASE IIIe
@@ -66,6 +67,7 @@
 
 # Giesecke & Devrient GmbH
 0x1059:0x0017:Giesecke & Devrient GmbH StarSign Crypto USB Token
+0x1059:0x0019:Giesecke & Devrient GmbH StarSign CUT S
 
 # id3 Semiconductors
 0x0B81:0x0200:id3 Semiconductors CL1356T
@@ -127,6 +129,7 @@
 0x072F:0x8201:ACS APG8201 PINhandy 1
 0x072F:0x8202:ACS APG8201 USB Reader
 0x072F:0x90DB:ACS CryptoMate64
+0x072F:0xB000:ACS ACR3901U ICC Reader
 0x072F:0xB100:ACS ACR39U ICC Reader
 
 # AK910
@@ -141,9 +144,18 @@
 0x0A89:0x0030:Aktiv Rutoken ECP
 0x0A89:0x0080:Aktiv PINPad Ex
 0x0A89:0x0081:Aktiv PINPad In
+0x0A89:0x0082:Aktiv Rutoken PINPad 2
 
 # Aktiv Co., ProgramPark
 0x0A89:0x0060:Aktiv Co., ProgramPark Rutoken Magistra
+
+# Aladdin R.D.
+0x24DC:0x0101:Aladdin R.D. JaCarta
+0x24DC:0x0102:Aladdin R.D. JaCarta LT
+0x24DC:0x0201:Aladdin R.D. JCR-770
+0x24DC:0x0401:Aladdin R.D. JC-WebPass (JC600)
+0x24DC:0x0501:Aladdin R.D. JaCarta U2F (JC602)
+0x24DC:0x100F:Aladdin R.D. JaCarta Flash
 
 # Alcor Micro
 0x058F:0x9522:Alcor Micro AU9522
@@ -153,6 +165,8 @@
 
 # Athena
 0x0DC3:0x0900:Athena IDProtect Key v2
+0x0DC3:0x1007:Athena ASEDrive IIIe KB Bio PIV
+0x0DC3:0x1008:Athena ASEDrive IIIe Combo Bio PIV
 
 # ATMEL
 0x03EB:0x6004:ATMEL AT91SO CCID Smart Card Reader
@@ -213,6 +227,7 @@
 0x046A:0x00A3:Cherry Smartcard Keyboard G87-1xx44
 0x046A:0x00A4:Cherry KC 1000 SC Z
 0x046A:0x00A5:Cherry KC 1000 SC/DI Z
+0x046A:0x00A7:Cherry SmartTerminal XX44
 
 # Cherry GmbH
 0x046A:0x005B:Cherry GmbH SmartBoard XX1X
@@ -258,6 +273,9 @@
 # FT
 0x096E:0x080A:FT ePass2003Auto
 
+# Fujitsu
+0x0BF8:0x1024:Fujitsu Smartcard Reader D323
+
 # Fujitsu Siemens Computers
 0x0BF8:0x1005:Fujitsu Siemens Computers SmartCard Keyboard USB 2A
 0x0BF8:0x1006:Fujitsu Siemens Computers SmartCard USB 2A
@@ -267,6 +285,9 @@
 0x0BF8:0x1021:FujitsuTechnologySolutions GmbH Smartcard Keyboard G87-914x
 0x0BF8:0x1022:FujitsuTechnologySolutions GmbH Keyboard KB100 SCR
 0x0BF8:0x1023:FujitsuTechnologySolutions GmbH Keyboard KB100 SCR eSIG
+
+# GEMALTO
+0x08E6:0x3440:GEMALTO CT1100
 
 # Gemalto
 0x08E6:0x2202:Gemalto Gem e-Seal Pro USB Token
@@ -285,9 +306,11 @@
 0x0BDA:0x0169:Generic USB2.0-CRW
 0x048D:0x1366:Generic MultiCard Device
 
+# Generic USB
+0x076B:0x3A21:Generic USB Smart Card Reader
+
 # German Privacy Foundation
 0x20A0:0x4107:German Privacy Foundation Crypto Stick v1.2
-0x20A0:0x4109:German Privacy Foundation Crypto Stick v2.0
 
 # Giesecke & Devrient GmbH
 0x1059:0x000C:Giesecke & Devrient GmbH Star Sign Card Token 350 (ICCD)
@@ -309,14 +332,23 @@
 # Hewlett-Packard
 0x03F0:0x581D:Hewlett-Packard HP lt4112 Gobi 4G Module
 
+# HID
+
 # HID Global
+0x076B:0x3031:HID Global OMNIKEY 3x21 Smart Card Reader
+0x076B:0x5022:HID Global OMNIKEY 5022 Smart Card Reader
 0x076B:0x5400:HID Global veriCLASS Reader
+0x076B:0x6632:HID Global OMNIKEY 6121 Smart Card Reader
 
 # HID OMNIKEY
 0x076B:0x502A:HID OMNIKEY 5025-CL
 0x076B:0x5127:HID OMNIKEY 5127 CK
 0x076B:0x5326:HID OMNIKEY 5326 DFR
 0x076B:0x5427:HID OMNIKEY 5427 CK
+
+# Hitachi, Ltd.
+0x04A4:0x00C7:Hitachi, Ltd. Hitachi Biometric Reader
+0x04A4:0x00D4:Hitachi, Ltd. Hitachi Portable Biometric Reader
 
 # id3 Semiconductors
 0x0B81:0x0220:id3 Semiconductors CL1356A_HID
@@ -366,6 +398,14 @@
 0x2406:0x6303:INSIDE Secure VaultIC 405 Smart Object
 0x2406:0x6305:INSIDE Secure VaultIC 441 Smart Object
 
+# IonIDe
+0x076B:0x3B01:IonIDe Smartcard Reader
+
+# KACST
+0x2A18:0x5000:KACST HSID Reader
+0x2A18:0x5001:KACST HSID Reader Single Storage
+0x2A18:0x5002:KACST HSID Reader Dual Storage
+
 # KEBTechnology
 0x04CC:0x5072:KEBTechnology KONA USB SmartCard
 
@@ -412,6 +452,7 @@
 
 # Nitrokey
 0x20A0:0x4108:Nitrokey Nitrokey Pro
+0x20A0:0x4109:Nitrokey Nitrokey Storage
 0x20A0:0x4211:Nitrokey Nitrokey Start
 0x20A0:0x4230:Nitrokey Nitrokey HSM
 
@@ -522,6 +563,11 @@
 # Teridian Semiconductors
 0x1862:0x0000:Teridian Semiconductors TSC12xxFV.09
 
+# THURSBY SOFTWARE
+0x1976:0x0001:THURSBY SOFTWARE TSS-PK1
+
+# Thursby Software Systems, Inc.
+
 # Tianyu
 0xA625:0x0810:Tianyu Smart Card Reader
 
@@ -593,7 +639,6 @@
 # Aladdin
 
 # Alcor Micro
-0x058F:0x9540:Alcor Micro AU9540
 
 # ATMEL
 0x03EB:0x6016:ATMEL VaultIC460
@@ -632,9 +677,14 @@
 # THRC
 0x062D:0x0001:THRC Smart Card Reader
 
+# VMware
+
 ##########################
 # section: disabled
 ##########################
+
+# DUALi
+#0x1DB2:0x0600:DUALi DE-ABCM6
 
 # jNet Technology inc.
 #0x0483:0x2010:jNet Technology inc. jToken s1
@@ -692,6 +742,9 @@
 #0x058F:0x9520:Akasa AK-CR-03 (Akasa_AK-CR-03.txt)
 #0x058F:0x9520:Alcor Micro SCR001 (Alcor_SCR001.txt)
 
+#0x058F:0x9540:Alcor Micro AU9540 (AU9540.txt)
+#0x058F:0x9540:Alcor Micro AU9560 (AlcorMicro_AU9560.txt)
+
 #0x072F:0x221A:ACS ACR1251 Dual Reader (ACS_ACR1251_Dual_Reader.txt)
 #0x072F:0x221A:ACS ACR1251 Dual Reader (ACS_ACR1251_Dual_Reader.txt_i1)
 
@@ -710,6 +763,9 @@
 #0x076B:0x3021:OMNIKEY AG CardMan 3021 (CardMan3021.txt)
 #0x076B:0x3021:OMNIKEY AG CardMan 3121 (CardMan3121.txt)
 
+#0x076B:0x3A21:Generic USB Smart Card Reader (Generic_USB_Smart_Card_Reader.txt)
+#0x076B:0x3A21:HID AVIATOR Generic (HID_Aviator.txt)
+
 #0x076B:0xA022:Precise Biometrics Sense MC (Precise_Sense_MC.txt)
 #0x076B:0xA022:XIRING Teo (Teo.txt)
 
@@ -718,6 +774,9 @@
 
 #0x08E6:0x3438:Gemalto USB Shell Token V2 (GemPCKey.txt)
 #0x08E6:0x3438:Gemalto IDBridge K30 (Gemalto_IDBridge_K30.txt)
+
+#0x08E6:0x3440:GEMALTO CT1100 (Gemalto_CT1100.txt)
+#0x08E6:0x3440:GEMALTO K1100 (Gemalto_K1100.txt)
 
 #0x08E6:0x3478:Gemalto USB GemPCPinpad SmartCard Reader (GemPCPinpad.txt)
 #0x08E6:0x3478:Gemalto USB GemPCPinpad SmartCard Reader (GemPCPinpadv2.txt)
@@ -735,6 +794,12 @@
 #0x096E:0x060D:Feitian R502 (Feitian_R502.txt_i1)
 #0x096E:0x060D:Feitian R502 (Feitian_R502.txt_i2)
 
+#0x096E:0x0619:FEITIAN iR301 (Feitian_iR301-U_30PIN.txt)
+#0x096E:0x0619:Thursby Software Systems, Inc. TSS-PK8 (Thursby_TSS_PK8.txt)
+
+#0x096E:0x061C:FEITIAN iR301 (Feitian_iR301-U_8PIN.txt)
+#0x096E:0x061C:Thursby Software Systems, Inc. TSS-PK7 (Thursby_TSS_PK7.txt)
+
 #0x0A5C:0x5801:Broadcom Corp 5880 (Broadcom_5880v2.txt)
 #0x0A5C:0x5801:Broadcom Corp 5880 (Broadcom_5880v2.txt_i1)
 
@@ -747,6 +812,9 @@
 
 #0x0B81:0x0200:id3 Semiconductors CL1356T (id3_CL1356T.txt)
 #0x0B81:0x0200:id3 Semiconductors CL1356T5 (id3_CL1356T5.txt)
+
+#0x0E0F:0x0004:VMware Virtual USB CCID (VMware_Virtual_USB_CCID.txt)
+#0x0E0F:0x0004:VMware Virtual USB CCID (VMware_Virtual_USB_CCID2.txt)
 
 #0x0F14:0x0011:XIRING XI-SIGN USB V2 (Xiring_XI-SIGN.txt)
 #0x0F14:0x0011:XIRING XI-SIGN USB V2 (Xiring_XI-SIGN_6000.txt)

@@ -1,15 +1,15 @@
 <manpage>
-	<docdate>March 17, 2011</docdate>
+	<docdate>December 14, 2015</docdate>
 	<doctitle>com.apple.Boot.plist</doctitle>
 	<os>Darwin</os>
 	<section>5</section>
 	<names>
-		<name>com.apple.Boot.plist<desc>Configuration plist for Mac OS X booter</desc></name>
+		<name>com.apple.Boot.plist<desc>Configuration plist for OS X booter</desc></name>
 	</names>
 	<description>
-		<p>The Mac OS X booter (<path>boot.efi</path> on EFI-based Macintosh systems) is responsible for
+		<p>The OS X booter (<path>boot.efi</path> on EFI-based Macintosh systems) is responsible for
 			loading the initial parts of the operating system into memory and executing them. Its default
-			behavior is to start up Mac OS X in graphical mode. However, certain behavior can be
+			behavior is to start up OS X in graphical mode. However, certain behavior can be
 			configured using the <path>com.apple.Boot.plist</path> file, as well as NVRAM variables,
 			EFI boot options, and keyboard "snag keys".
 		</p>
@@ -25,29 +25,11 @@
 				single core system, and "maxmem=1024" to cap available memory to 1024 MB RAM. All desired options
 				should be space-separated within the &lt;string&gt; tag. The default value is the empty string.</dd>
 			
-			<dt><command>MKext Cache</command></dt><dd>[string] This option specifies the mkext file
-				to be loaded, which contains kernel extensions. The path uses backslash ("\") path delimeters.
-				The default value is <path>System\Library\Caches\com.apple.kext.caches\Startup\Extensions.mkext</path>.</dd>
-			
-			<dt><command>Kernel</command></dt><dd>[string] This option specifies the kernel file to
-				be loaded. The path uses backslash ("\") path delimeters. The default
-				value is <path>mach_kernel</path>.</dd>
-			
 			<dt><command>Kernel Cache</command></dt><dd>[string] This option specifies the prelinked
 				kernel file to be loaded, which contains both the kernel and kernel extensions, linked
 				at their final load addresses. The path uses backslash ("\") path delimeters. The
 				default value is calculated programmatically using
-				<path>System\Library\Caches\com.apple.kext.caches\Startup\kernelcache_${ARCH}.${CHECKSUM}</path>
-				as the template, where ${ARCH} is the architecture of the kernel ("i386" or "x86_64") and
-				${CHECKSUM} is a 32-bit hash of characteristics of the boot volume and machine hardware.</dd>
-			
-			<dt><command>Kernel Architecture</command></dt><dd>[string] This option specifies which kernel
-				architecture to use when the kernel file is a universal binary and the hardware supports
-				more than one kernel architecture. It can be either "i386" or "x86_64" to choose the respective
-				slice of the universal binary. If the kernel is not a universal binary, this option has
-				no effect. If the hardware only supports the 32-bit kernel, this option has no effect. The default
-				value is determined programmatically based on the hardware, and whether Mac OS X Server
-				is being used.</dd>
+				<path>System\Library\PrelinkedKernels\prelinkedkernel</path>.</dd>
 			
 			<dt><command>Root UUID</command></dt><dd>[string] This option is rarely used and specifies
 				to the kernel what block device should be probed as the root filesystem ("/"), and is most
@@ -88,20 +70,13 @@
 				<command>Kernel Flags</command>, and causes the system to boot to verbose text logging before
 				starting the graphical user interface.</dd>
 
-                        <dt><command>Command-R</command></dt><dd>Boot in Recovery Mode.  This causes the system to boot into special Recovery System image, which can be used used to restore the system from Time Machine Backup, re-install Mac OS X, or use Disk Utility to repair or erase disks.</dd>
+                        <dt><command>Command-R</command></dt><dd>Boot in Recovery Mode.  This causes the system to boot into special Recovery System image, which can be used used to restore the system from Time Machine Backup, re-install OS X, or use Disk Utility to repair or erase disks.</dd>
 			
-			<dt><command>3 2</command></dt><dd>Boot with the 32-bit kernel. Effectively the same as passing
-				"arch=i386" in <command>Kernel Flags</command>, and causes the system to prefer the 32-bit
-				kernel on systems that would otherwise boot the 64-bit kernel.</dd>
-			
-			<dt><command>6 4</command></dt><dd>Boot with the 64-bit kernel (if supported on this system). Effectively the same as passing
-				"arch=x86_64" in <command>Kernel Flags</command>, and causes the system to prefer the 64-bit
-				kernel on systems that would otherwise boot the 32-bit kernel. If the 64-bit kernel is not supported, the option is ignored.</dd>
 		</dl>
 
 	</description>
 	<environment>
-		<p>The Mac OS X booter can also be controlled by NVRAM variables, which are analogous
+		<p>The OS X booter can also be controlled by NVRAM variables, which are analogous
 			to environment variables. NVRAM variables are key-value pairs. The "boot-args" NVRAM variable
 			can be used to provide additional arguments to the kernel, and will be merged with
 			<command>Kernel Flags</command> in the <path>com.apple.Boot.plist</path> file and

@@ -88,8 +88,7 @@ static OSStatus CustomKeyCompute(SecKeyRef key,
 
 static size_t CustomKeyBlockSize(SecKeyRef key)
 {
-    is(customKey, key, "CustomKeyBlockSize");
-    return 42;
+    return 5;
 }
 
 static CFDictionaryRef CustomKeyCopyAttributeDictionary(SecKeyRef key)
@@ -198,10 +197,10 @@ static void tests(SecKeyDescriptor *descriptor)
     is(customKey, initedCustomKey, "CustomKeyInit got the right key");
 
     SecPadding padding = kSecPaddingPKCS1;
-    const uint8_t *src = NULL;
-    size_t srcLen = 3;
-    uint8_t *dst = NULL;
-    size_t dstLen = 3;
+    const uint8_t *src = (const uint8_t *)"defgh";
+    size_t srcLen = 5;
+    uint8_t dst[5];
+    size_t dstLen = 5;
 
     ok_status(SecKeyDecrypt(customKey, padding, src, srcLen, dst, &dstLen),
         "SecKeyDecrypt");
@@ -211,7 +210,7 @@ static void tests(SecKeyDescriptor *descriptor)
         "SecKeyRawSign");
     ok_status(SecKeyRawVerify(customKey, padding, src, srcLen, dst, dstLen),
         "SecKeyRawVerify");
-    is(SecKeyGetSize(customKey, kSecKeyKeySizeInBits), (size_t)42*8, "SecKeyGetSize");
+    is(SecKeyGetSize(customKey, kSecKeyKeySizeInBits), (size_t)5*8, "SecKeyGetSize");
 
     CFDictionaryRef attrDict = NULL;
     ok(attrDict = SecKeyCopyAttributeDictionary(customKey),
@@ -242,7 +241,7 @@ static void tests(SecKeyDescriptor *descriptor)
 
 int si_40_seckey_custom(int argc, char *const *argv)
 {
-	plan_tests(21 * 4);
+	plan_tests(20 * 4);
 
 	tests(&kCustomKeyDescriptor_version0);
 	tests(&kCustomKeyDescriptor_version1);

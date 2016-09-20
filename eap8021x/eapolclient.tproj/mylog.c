@@ -66,7 +66,6 @@ eapolclient_log_set_flags(uint32_t log_flags, bool log_it)
 	return;
     }
     if (log_flags != 0) {
-	EAPLogSetVerbose(TRUE);
 	if (log_it) {
 	    EAPLOG(LOG_NOTICE, "Verbose mode enabled (LogFlags = 0x%x)",
 		   log_flags);
@@ -76,7 +75,6 @@ eapolclient_log_set_flags(uint32_t log_flags, bool log_it)
 	if (log_it) {
 	    EAPLOG(LOG_NOTICE, "Verbose mode disabled");
 	}
-	EAPLogSetVerbose(FALSE);
     }
     if (log_flags != 0) {
 	S_log_flags = log_flags;

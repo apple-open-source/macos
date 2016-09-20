@@ -27,6 +27,9 @@
 #include "machorep.h"
 #include "StaticCode.h"
 #include "reqmaker.h"
+#include <security_utilities/logging.h>
+#include <security_utilities/cfmunge.h>
+
 
 
 namespace Security {
@@ -105,7 +108,8 @@ Universal *MachORep::mainExecutableImage()
 void MachORep::prepareForSigning(SigningContext &context)
 {
 	if (context.digestAlgorithms().empty()) {
-		MachO *macho = mainExecutableImage()->architecture();
+        auto_ptr<MachO> macho(mainExecutableImage()->architecture());
+
 		if (const version_min_command *version = macho->findMinVersion()) {
 			uint32_t limit = 0;
 			switch (macho->flip(version->cmd)) {
@@ -148,6 +152,12 @@ void MachORep::prepareForSigning(SigningContext &context)
 size_t MachORep::signingBase()
 {
 	return mainExecutableImage()->archOffset();
+}
+	
+size_t MachORep::signingLimit()
+{
+	auto_ptr<MachO> macho(mExecutable->architecture());
+	return macho->signingExtent();
 }
 
 
@@ -223,11 +233,11 @@ CFDataRef MachORep::embeddedComponent(CodeDirectory::SpecialSlot slot)
 				size_t offset = macho->flip(cs->dataoff);
 				size_t length = macho->flip(cs->datasize);
 				if ((mSigningData = EmbeddedSignatureBlob::readBlob(macho->fd(), macho->offset() + offset, length))) {
-					secdebug("machorep", "%zd signing bytes in %d blob(s) from %s(%s)",
+					secinfo("machorep", "%zd signing bytes in %d blob(s) from %s(%s)",
 						mSigningData->length(), mSigningData->count(),
 						mainExecutablePath().c_str(), macho->architecture().name());
 				} else {
-					secdebug("machorep", "failed to read signing bytes from %s(%s)",
+					secinfo("machorep", "failed to read signing bytes from %s(%s)",
 						mainExecutablePath().c_str(), macho->architecture().name());
 					MacOSError::throwMe(errSecCSSignatureInvalid);
 				}
@@ -259,7 +269,7 @@ CFDataRef MachORep::infoPlist()
 			}
 		}
 	} catch (...) {
-		secdebug("machorep", "exception reading embedded Info.plist");
+		secinfo("machorep", "exception reading embedded Info.plist");
 	}
 	return info.yield();
 }
@@ -304,6 +314,30 @@ void MachORep::flush()
 	mSigningData = NULL;
 	SingleDiskRep::flush();
 	mExecutable = new Universal(fd(), offset, length);
+}
+
+CFDictionaryRef MachORep::diskRepInformation()
+{
+    auto_ptr<MachO> macho (mainExecutableImage()->architecture());
+    CFRef<CFDictionaryRef> info;
+
+    if (const version_min_command *version = macho->findMinVersion()) {
+
+        info.take(cfmake<CFMutableDictionaryRef>("{%O = %d,%O = %d,%O = %d}",
+                                              kSecCodeInfoDiskRepOSPlatform, macho->flip(version->cmd),
+                                              kSecCodeInfoDiskRepOSVersionMin, macho->flip(version->version),
+                                              kSecCodeInfoDiskRepOSSDKVersion, macho->flip(version->sdk)));
+
+        if (macho->flip(version->cmd) == LC_VERSION_MIN_MACOSX &&
+            macho->flip(version->sdk) < (10 << 16 | 9 << 8))
+        {
+            info.take(cfmake<CFMutableDictionaryRef>("{+%O, %O = 'OS X SDK version before 10.9 does not support Library Validation'}",
+                                                  info.get(),
+                                                  kSecCodeInfoDiskRepNoLibraryValidation));
+        }
+    }
+
+    return info.yield();
 }
 
 
@@ -359,7 +393,7 @@ Requirement *MachORep::libraryRequirements(const Architecture *arch, const Signi
 			size_t length = macho->flip(ldep->datasize);
 			if (LibraryDependencyBlob *deplist = LibraryDependencyBlob::readBlob(macho->fd(), macho->offset() + offset, length)) {
 				try {
-					secdebug("machorep", "%zd library dependency bytes in %d blob(s) from %s(%s)",
+					secinfo("machorep", "%zd library dependency bytes in %d blob(s) from %s(%s)",
 						deplist->length(), deplist->count(),
 						mainExecutablePath().c_str(), macho->architecture().name());
 					unsigned count = deplist->count();
@@ -378,13 +412,13 @@ Requirement *MachORep::libraryRequirements(const Architecture *arch, const Signi
 								MacOSError::check(SecRequirementCopyData(areq, kSecCSDefaultFlags, &reqData.aref()));
 								req = Requirement::specific((const BlobCore *)CFDataGetBytePtr(reqData));
 							} else {
-								secdebug("machorep", "unexpected blob type 0x%x in slot %d of binary dependencies", dep->magic(), n);
+								secinfo("machorep", "unexpected blob type 0x%x in slot %d of binary dependencies", dep->magic(), n);
 								continue;
 							}
 							chain.add();
 							maker.copy(req);
 						} else
-							secdebug("machorep", "missing DR info for library index %d", n);
+							secinfo("machorep", "missing DR info for library index %d", n);
 					}
 					::free(deplist);
 				} catch (...) {
@@ -414,18 +448,11 @@ size_t MachORep::pageSize(const SigningContext &)
 //
 void MachORep::strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated, SecCSFlags flags)
 {
-	DiskRep::strictValidate(cd, tolerated, flags);
+	SingleDiskRep::strictValidate(cd, tolerated, flags);
 	
 	// if the constructor found suspicious issues, fail a struct validation now
 	if (mExecutable->isSuspicious() && tolerated.find(errSecCSBadMainExecutable) == tolerated.end())
 		MacOSError::throwMe(errSecCSBadMainExecutable);
-	
-	// the signature's code extent must be what we would have picked (no funny hand editing)
-	if (cd) {
-		auto_ptr<MachO> macho(mExecutable->architecture());
-		if (cd->signingLimit() != macho->signingExtent())
-			MacOSError::throwMe(errSecCSSignatureInvalid);
-	}
 }
 
 
@@ -447,6 +474,7 @@ DiskRep::Writer *MachORep::writer()
 void MachORep::Writer::component(CodeDirectory::SpecialSlot slot, CFDataRef data)
 {
 	assert(false);
+    Syslog::notice("code signing internal error: trying to write Mach-O component directly");
 	MacOSError::throwMe(errSecCSInternalError);
 }
 

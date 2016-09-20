@@ -18,8 +18,7 @@
     Boston, MA 02110-1301, USA.
 */
 
-#ifndef JSTestMediaQueryListListener_h
-#define JSTestMediaQueryListListener_h
+#pragma once
 
 #include "JSDOMWrapper.h"
 #include "TestMediaQueryListListener.h"
@@ -27,21 +26,20 @@
 
 namespace WebCore {
 
-class JSTestMediaQueryListListener : public JSDOMWrapper {
+class JSTestMediaQueryListListener : public JSDOMWrapper<TestMediaQueryListListener> {
 public:
-    typedef JSDOMWrapper Base;
+    typedef JSDOMWrapper<TestMediaQueryListListener> Base;
     static JSTestMediaQueryListListener* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, Ref<TestMediaQueryListListener>&& impl)
     {
-        JSTestMediaQueryListListener* ptr = new (NotNull, JSC::allocateCell<JSTestMediaQueryListListener>(globalObject->vm().heap)) JSTestMediaQueryListListener(structure, globalObject, WTF::move(impl));
+        JSTestMediaQueryListListener* ptr = new (NotNull, JSC::allocateCell<JSTestMediaQueryListListener>(globalObject->vm().heap)) JSTestMediaQueryListListener(structure, *globalObject, WTFMove(impl));
         ptr->finishCreation(globalObject->vm());
         return ptr;
     }
 
     static JSC::JSObject* createPrototype(JSC::VM&, JSC::JSGlobalObject*);
-    static JSC::JSObject* getPrototype(JSC::VM&, JSC::JSGlobalObject*);
+    static JSC::JSObject* prototype(JSC::VM&, JSC::JSGlobalObject*);
     static TestMediaQueryListListener* toWrapped(JSC::JSValue);
     static void destroy(JSC::JSCell*);
-    ~JSTestMediaQueryListListener();
 
     DECLARE_INFO;
 
@@ -50,14 +48,9 @@ public:
         return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), info());
     }
 
-    static JSC::JSValue getConstructor(JSC::VM&, JSC::JSGlobalObject*);
-    TestMediaQueryListListener& impl() const { return *m_impl; }
-    void releaseImpl() { std::exchange(m_impl, nullptr)->deref(); }
-
-private:
-    TestMediaQueryListListener* m_impl;
+    static JSC::JSValue getConstructor(JSC::VM&, const JSC::JSGlobalObject*);
 protected:
-    JSTestMediaQueryListListener(JSC::Structure*, JSDOMGlobalObject*, Ref<TestMediaQueryListListener>&&);
+    JSTestMediaQueryListListener(JSC::Structure*, JSDOMGlobalObject&, Ref<TestMediaQueryListListener>&&);
 
     void finishCreation(JSC::VM& vm)
     {
@@ -79,10 +72,15 @@ inline JSC::WeakHandleOwner* wrapperOwner(DOMWrapperWorld&, TestMediaQueryListLi
     return &owner.get();
 }
 
-JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, TestMediaQueryListListener*);
-inline JSC::JSValue toJS(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, TestMediaQueryListListener& impl) { return toJS(exec, globalObject, &impl); }
+inline void* wrapperKey(TestMediaQueryListListener* wrappableObject)
+{
+    return wrappableObject;
+}
+
+JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, TestMediaQueryListListener&);
+inline JSC::JSValue toJS(JSC::ExecState* state, JSDOMGlobalObject* globalObject, TestMediaQueryListListener* impl) { return impl ? toJS(state, globalObject, *impl) : JSC::jsNull(); }
+JSC::JSValue toJSNewlyCreated(JSC::ExecState*, JSDOMGlobalObject*, Ref<TestMediaQueryListListener>&&);
+inline JSC::JSValue toJSNewlyCreated(JSC::ExecState* state, JSDOMGlobalObject* globalObject, RefPtr<TestMediaQueryListListener>&& impl) { return impl ? toJSNewlyCreated(state, globalObject, impl.releaseNonNull()) : JSC::jsNull(); }
 
 
 } // namespace WebCore
-
-#endif

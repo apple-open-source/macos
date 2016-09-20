@@ -71,6 +71,7 @@ packets to network hosts
 .Op Fl h Ar sweepincrsize
 .Op Fl i Ar wait
 .Op Fl k Ar trafficclass
+.Op Fl K Ar netservicetype
 .Op Fl l Ar preload
 .Op Fl M Cm mask | time
 .Op Fl m Ar ttl
@@ -81,6 +82,8 @@ packets to network hosts
 .Op Fl t Ar timeout
 .Op Fl W Ar waittime
 .Op Fl z Ar tos
+.Op Fl Fl apple-connect
+.Op Fl Fl apple-print
 .Ar host
 .Nm
 .Op Fl AaDdfLnoQqRrv
@@ -89,6 +92,7 @@ packets to network hosts
 .Op Fl I Ar iface
 .Op Fl i Ar wait
 .Op Fl k Ar trafficclass
+.Op Fl K Ar netservicetype
 .Op Fl l Ar preload
 .Op Fl M Cm mask | time
 .Op Fl m Ar ttl
@@ -100,6 +104,8 @@ packets to network hosts
 .Op Fl t Ar timeout
 .Op Fl W Ar waittime
 .Op Fl z Ar tos
+.Op Fl Fl apple-connect
+.Op Fl Fl apple-print
 .Ar mcast-group
 .Sh DESCRIPTION
 The
@@ -145,8 +151,10 @@ if other format options are present.
 Bind the socket to interface
 .Ar boundif
 for sending.
+This option is an Apple addition.
 .It Fl C
 Prohibit the socket from using the cellular network interface.
+This option is an Apple addition.
 .It Fl c Ar count
 Stop after sending
 (and receiving)
@@ -212,13 +220,19 @@ values less than 0.1 second.
 This option is incompatible with the
 .Fl f
 option.
-.It Fl k Ar trafficlass
+.It Fl k Ar trafficclass
 Specifies the traffic class to use for sending ICMP packets.
 The supported traffic classes are
 BK_SYS, BK, BE, RD, OAM, AV, RV, VI, VO and CTL.
 By default 
 .Nm
 uses the control traffic class (CTL).
+This option is an Apple addition.
+.It Fl K Ar netservicetype
+Specifies the network service type to use for sending ICMP packets.
+The supported network service type are BK_SYS, BK, BE, RV, AV, RD, OAM, VI, SIG and VO.
+Note this overrides the default traffic class (-k can still be specified after -K to use both).
+This option is an Apple addition.
 .It Fl L
 Suppress loopback of multicast packets.
 This flag only applies if the ping destination is a multicast address.
@@ -355,6 +369,12 @@ If a reply arrives later, the packet is not printed as replied, but
 considered as replied when calculating statistics.
 .It Fl z Ar tos
 Use the specified type of service.
+.It Fl Fl apple-connect
+Connects the socket to the destination address.
+This option is an Apple addition.
+.It Fl Fl apple-print
+Prints the time a packet was received.
+This option is an Apple addition.
 .El
 .Pp
 When using

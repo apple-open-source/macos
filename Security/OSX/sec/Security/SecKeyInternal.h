@@ -36,6 +36,24 @@ __BEGIN_DECLS
 extern struct ccrng_state *ccrng_seckey;
 CFIndex SecKeyGetAlgorithmIdentifier(SecKeyRef key);
 
+enum {
+    // Keep in sync with SecKeyOperationType enum in SecKey.h
+    kSecKeyOperationTypeCount = 5
+};
+
+typedef struct {
+    SecKeyRef key;
+    SecKeyOperationType operation;
+    CFMutableArrayRef algorithm;
+    SecKeyOperationMode mode;
+} SecKeyOperationContext;
+
+typedef CFTypeRef (*SecKeyAlgorithmAdaptor)(SecKeyOperationContext *context, CFTypeRef in1, CFTypeRef in2, CFErrorRef *error);
+
+void SecKeyOperationContextDestroy(SecKeyOperationContext *context);
+CFTypeRef SecKeyRunAlgorithmAndCopyResult(SecKeyOperationContext *context, CFTypeRef in1, CFTypeRef in2, CFErrorRef *error);
+SecKeyAlgorithmAdaptor SecKeyGetAlgorithmAdaptor(SecKeyOperationType operation, SecKeyAlgorithm algorithm);
+
 __END_DECLS
 
 #endif /* !_SECURITY_SECKEYINTERNAL_H_ */

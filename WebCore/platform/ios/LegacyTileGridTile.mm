@@ -33,10 +33,12 @@
 #include "LegacyTileGrid.h"
 #include "LegacyTileLayer.h"
 #include "LegacyTileLayerPool.h"
+#include "PlatformScreen.h"
 #include "QuartzCoreSPI.h"
 #include "WAKWindow.h"
 #include <algorithm>
 #include <functional>
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
@@ -60,6 +62,10 @@ LegacyTileGridTile::LegacyTileGridTile(LegacyTileGrid* tileGrid, const IntRect& 
         m_tileLayer = adoptNS([[LegacyTileLayer alloc] init]);
     }
     LegacyTileLayer* layer = m_tileLayer.get();
+#if PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 90300
+    if (screenSupportsExtendedColor())
+        layer.contentsFormat = kCAContentsFormatRGBA10XR;
+#endif
     [layer setTileGrid:tileGrid];
     [layer setOpaque:m_tileGrid->tileCache().tilesOpaque()];
     [layer setEdgeAntialiasingMask:0];
@@ -117,7 +123,7 @@ void LegacyTileGridTile::showBorder(bool flag)
 {
     LegacyTileLayer* layer = m_tileLayer.get();
     if (flag) {
-        [layer setBorderColor:cachedCGColor(m_tileGrid->tileCache().colorForGridTileBorder(m_tileGrid), ColorSpaceDeviceRGB)];
+        [layer setBorderColor:cachedCGColor(m_tileGrid->tileCache().colorForGridTileBorder(m_tileGrid))];
         [layer setBorderWidth:0.5f];
     } else {
         [layer setBorderColor:nil];

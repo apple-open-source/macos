@@ -58,19 +58,14 @@ void process_logfiles(char *stacksfile, char *logfile)
     struct timeval sleeptime, boottime;
     size_t size;
     bool isAppleOSXWatchdog = false;
+    bool stacksExist = true;
 
 
-    if ((lstat(logfile, &logs) != 0) || !S_ISREG(logs.st_mode))
+    if ((lstat(logfile, &logs) != 0) || !S_ISREG(logs.st_mode) || (logs.st_size == 0))
         return;
 
-    if (lstat(stacksfile, &stacks)) {
-        // For cases where there is no stack file generated
-        snprintf(cmd, sizeof(cmd), "/usr/bin/touch %s", stacksfile);
-        system(cmd);
-    }
-    else if (!S_ISREG(S_IFREG)) {
-        // If file exists, it should be a regular file with no links
-        return;
+    if ((lstat(stacksfile, &stacks) != 0) || !S_ISREG(stacks.st_mode) || (stacks.st_size == 0)) {
+        stacksExist = false;
     }
     
     /*
@@ -81,12 +76,16 @@ void process_logfiles(char *stacksfile, char *logfile)
     
     if (isAppleOSXWatchdog) {
         snprintf(cmd, sizeof(cmd),
-                 "/usr/sbin/spindump -progress_watchdog_stackshot_file %s -progress_watchdog_data_file %s",
-                 stacksfile, logfile);
+                 "/usr/sbin/spindump %s %s -progress_watchdog_data_file %s",
+                 (stacksExist) ? "-progress_watchdog_stackshot_file" : "",
+                 (stacksExist) ? stacksfile : "",
+                 logfile);
     } else {
         snprintf(cmd, sizeof(cmd),
-                 "/usr/sbin/spindump -sleepwakefailure_stackshot_file %s -sleepwakefailure_data_file %s",
-                 stacksfile, logfile);
+                 "/usr/sbin/spindump %s %s -sleepwakefailure_data_file %s",
+                 (stacksExist) ? "-sleepwakefailure_stackshot_file" : "",
+                 (stacksExist) ? stacksfile : "",
+                 logfile);
     }
     
     // Invoke spindump.

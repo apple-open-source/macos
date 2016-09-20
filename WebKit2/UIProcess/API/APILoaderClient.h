@@ -71,12 +71,11 @@ public:
     // FIXME: We should consider removing didFirstVisuallyNonEmptyLayoutForFrame since it is replaced by didLayout.
     virtual void didFirstVisuallyNonEmptyLayoutForFrame(WebKit::WebPageProxy&, WebKit::WebFrameProxy&, API::Object*) { }
 
-    virtual void didRemoveFrameFromHierarchy(WebKit::WebPageProxy&, WebKit::WebFrameProxy&, API::Object*) { }
     virtual void didDisplayInsecureContentForFrame(WebKit::WebPageProxy&, WebKit::WebFrameProxy&, API::Object*) { }
     virtual void didRunInsecureContentForFrame(WebKit::WebPageProxy&, WebKit::WebFrameProxy&, API::Object*) { }
     virtual void didDetectXSSForFrame(WebKit::WebPageProxy&, WebKit::WebFrameProxy&, API::Object*) { }
 
-    virtual void didLayout(WebKit::WebPageProxy&, WebCore::LayoutMilestones, API::Object*) { }
+    virtual void didLayout(WebKit::WebPageProxy&, WebCore::LayoutMilestones) { }
     
     virtual bool canAuthenticateAgainstProtectionSpaceInFrame(WebKit::WebPageProxy&, WebKit::WebFrameProxy&, WebKit::WebProtectionSpace*) { return false; }
     virtual void didReceiveAuthenticationChallengeInFrame(WebKit::WebPageProxy&, WebKit::WebFrameProxy&, WebKit::AuthenticationChallengeProxy*) { }
@@ -85,9 +84,8 @@ public:
     virtual void didChangeProgress(WebKit::WebPageProxy&) { }
     virtual void didFinishProgress(WebKit::WebPageProxy&) { }
 
-    // FIXME: These four functions should not be part of this client.
+    // FIXME: These functions should not be part of this client.
     virtual void processDidBecomeUnresponsive(WebKit::WebPageProxy&) { }
-    virtual void interactionOccurredWhileProcessUnresponsive(WebKit::WebPageProxy&) { }
     virtual void processDidBecomeResponsive(WebKit::WebPageProxy&) { }
     virtual void processDidCrash(WebKit::WebPageProxy&) { }
 
@@ -95,7 +93,7 @@ public:
     virtual bool shouldKeepCurrentBackForwardListItemInList(WebKit::WebPageProxy&, WebKit::WebBackForwardListItem*) { return true; }
     virtual void willGoToBackForwardListItem(WebKit::WebPageProxy&, WebKit::WebBackForwardListItem*, API::Object*) { }
 
-    virtual PassRefPtr<Data> webCryptoMasterKey(WebKit::WebPageProxy&) { return nullptr; }
+    virtual RefPtr<Data> webCryptoMasterKey(WebKit::WebPageProxy&) { return nullptr; }
 
     virtual void didNavigateWithNavigationData(WebKit::WebPageProxy&, const WebKit::WebNavigationDataStore&, WebKit::WebFrameProxy&) { }
     virtual void didPerformClientRedirect(WebKit::WebPageProxy&, const WTF::String&, const WTF::String&, WebKit::WebFrameProxy&) { }

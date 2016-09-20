@@ -37,7 +37,7 @@ Reader::Reader(TokenCache &tc, const PCSC::ReaderState &state)
 {
 	mName = state.name();	// remember separate copy of name
 	mPrintName = mName;		//@@@ how to make this readable? Use IOKit information?
-	secdebug("reader", "%p (%s) new PCSC reader", this, name().c_str());
+	secinfo("reader", "%p (%s) new PCSC reader", this, name().c_str());
 }
 
 Reader::Reader(TokenCache &tc, const string &identifier)
@@ -45,12 +45,12 @@ Reader::Reader(TokenCache &tc, const string &identifier)
 {
 	mName = identifier;
 	mPrintName = mName;
-	secdebug("reader", "%p (%s) new software reader", this, name().c_str());
+	secinfo("reader", "%p (%s) new software reader", this, name().c_str());
 }
 
 Reader::~Reader()
 {
-	secdebug("reader", "%p (%s) destroyed", this, name().c_str());
+	secinfo("reader", "%p (%s) destroyed", this, name().c_str());
 }
 
 
@@ -81,25 +81,27 @@ void Reader::update(const PCSC::ReaderState &state)
 {
 	// set new state
 	unsigned long oldState = mState.state();
+    (void) oldState; // Be okay with not using this.
+
 	mState = state;
 	mState.name(mName.c_str());		// (fix name pointer, unchanged)
 	
 	try {
 		if (state.state(SCARD_STATE_UNAVAILABLE)) {
 			// reader is unusable (probably being removed)
-			secdebug("reader", "%p (%s) unavailable (0x%lx)",
+			secinfo("reader", "%p (%s) unavailable (0x%lx)",
 				this, name().c_str(), state.state());
 			if (mToken)
 				removeToken();
 		} else if (state.state(SCARD_STATE_EMPTY)) {
 			// reader is empty (no token present)
-			secdebug("reader", "%p (%s) empty (0x%lx)",
+			secinfo("reader", "%p (%s) empty (0x%lx)",
 				this, name().c_str(), state.state());
 			if (mToken)
 				removeToken();
 		} else if (state.state(SCARD_STATE_PRESENT)) {
 			// reader has a token inserted
-			secdebug("reader", "%p (%s) card present (0x%lx)",
+			secinfo("reader", "%p (%s) card present (0x%lx)",
 				this, name().c_str(), state.state());
 			//@@@ is this hack worth it (with notifications in)??
 			if (mToken && CssmData(state) != CssmData(pcscState()))
@@ -109,11 +111,11 @@ void Reader::update(const PCSC::ReaderState &state)
 			if (!mToken)
 				insertToken(NULL);
 		} else {
-			secdebug("reader", "%p (%s) unexpected state change (0x%lx to 0x%lx)",
+			secinfo("reader", "%p (%s) unexpected state change (0x%lx to 0x%lx)",
 				this, name().c_str(), oldState, state.state());
 		}
 	} catch (...) {
-		secdebug("reader", "state update exception (ignored)");
+		secinfo("reader", "state update exception (ignored)");
 	}
 }
 
@@ -124,14 +126,14 @@ void Reader::insertToken(TokenDaemon *tokend)
 	token->insert(*this, tokend);
 	mToken = token;
 	addReference(*token);
-	secdebug("reader", "%p (%s) inserted token %p",
+	secinfo("reader", "%p (%s) inserted token %p",
 		this, name().c_str(), mToken);
 }
 
 
 void Reader::removeToken()
 {
-	secdebug("reader", "%p (%s) removing token %p",
+	secinfo("reader", "%p (%s) removing token %p",
 		this, name().c_str(), mToken);
 	assert(mToken);
 	mToken->remove();

@@ -844,7 +844,8 @@ CLEANUP:
 **
 **--
 */
-
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PRIVATE boolean rpc__tower_ref_is_compatible
 (
     rpc_if_rep_p_t          if_spec,
@@ -1011,7 +1012,7 @@ PRIVATE boolean rpc__tower_ref_is_compatible
      */
     return (true);
 }
-
+#endif
 
 /*
 **++

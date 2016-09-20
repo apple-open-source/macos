@@ -37,6 +37,7 @@
 
 
 #pragma D option quiet
+#pragma D option statusrate=1ms
 
 tick-200usec
 {

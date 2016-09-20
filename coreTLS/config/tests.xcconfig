@@ -17,9 +17,7 @@ GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES
 GCC_WARN_ABOUT_RETURN_TYPE = YES
 GCC_WARN_UNUSED_VARIABLE = YES
 
-SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator
-
-GCC_PREPROCESSOR_DEFINITIONS[sdk=iphonesimulator*] = INDIGO=1 $(inherited)
+GCC_PREPROCESSOR_DEFINITIONS[sdk=*simulator*] = INDIGO=1 $(inherited)
 
 // For binaries:
 STRIP_STYLE = all
@@ -28,4 +26,4 @@ DEPLOYMENT_POSTPROCESSING = YES
 
 INSTALL_PATH = /usr/local/bin
 
-OTHER_LDFLAGS_coverage = $(inherited) -fprofile-arcs -ftest-coverage -l$(PROFILING_LIBNAME) -L$(TOOLCHAIN_RT_DIR) -lcoretls_handshake_coverage -lcoretls_record_coverage -lcoretls_stream_parser_coverage -lcoretls_ciphersuites_coverage
+OTHER_LDFLAGS_coverage = $(inherited) -fprofile-arcs -ftest-coverage -lcoretls_handshake_coverage -lcoretls_record_coverage -lcoretls_stream_parser_coverage -lcoretls_ciphersuites_coverage //-l$(PROFILING_LIBNAME) -L$(TOOLCHAIN_RT_DIR) 

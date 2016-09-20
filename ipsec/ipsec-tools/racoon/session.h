@@ -34,7 +34,10 @@
 
 #include "handler.h"
 
+extern int pending_signal_handle;
+
 extern void session (void);
+extern void check_sigreq(void);
 extern RETSIGTYPE signal_handler (int, siginfo_t *, void *);
 extern void check_auto_exit (void);
 extern void dying (void);

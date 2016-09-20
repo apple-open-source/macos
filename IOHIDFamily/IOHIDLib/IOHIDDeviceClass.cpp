@@ -33,16 +33,15 @@
 #include "IOHIDTransactionClass.h"
 #include "IOHIDPrivateKeys.h"
 #include "IOHIDParserPriv.h"
+#include "IOHIDDebug.h"
 
 __BEGIN_DECLS
-#include <asl.h>
 #include <mach/mach.h>
 #include <mach/mach_interface.h>
 #include <IOKit/iokitmig.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/IODataQueueClient.h>
 #include <System/libkern/OSCrossEndian.h>
-#include <syslog.h>
 __END_DECLS
 
 #define connectCheck() do {	    \
@@ -385,10 +384,15 @@ IOReturn IOHIDDeviceClass::start(CFDictionaryRef propertyTable __unused, io_serv
     connectCheck();
 
     fNotifyPort = IONotificationPortCreate(kIOMasterPortDefault);
-
+    if (fNotifyPort == NULL) {
+      return kIOReturnNoMemory;
+    }
     // Per IOKit documentation, this run loop source should not be retained/released
     fNotifyCFSource = IONotificationPortGetRunLoopSource(fNotifyPort);
-    
+    if (fNotifyCFSource == NULL) {
+      return kIOReturnNoMemory;  
+    }
+  
     fRunLoop = CFRunLoopGetMain();
     CFRetain(fRunLoop);
     CFRunLoopAddSource(fRunLoop, fNotifyCFSource, kCFRunLoopDefaultMode);
@@ -463,10 +467,10 @@ IOReturn IOHIDDeviceClass::createSharedMemory(uint64_t generation)
         return kIOReturnSuccess;
         
 #if !__LP64__
-    vm_address_t        address = nil;
+    vm_address_t        address = static_cast<vm_address_t>(nil);
     vm_size_t           size    = 0;
 #else
-    mach_vm_address_t   address = nil;
+    mach_vm_address_t   address = static_cast<mach_vm_address_t>(nil);
     mach_vm_size_t      size    = 0;
 #endif
     IOReturn ret = IOConnectMapMemory (	
@@ -640,7 +644,7 @@ IOReturn IOHIDDeviceClass::getAsyncEventSource(CFTypeRef *source)
                     
         if ( shouldFreeInfo ) {
             // The CFMachPort we got might not work, but we'll proceed with it anyway.
-            asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s received an unexpected reused CFMachPort", __func__);                    
+            HIDLogError("received an unexpected reused CFMachPort");
         }
             
         if (!fAsyncCFMachPort)
@@ -754,7 +758,7 @@ IOReturn IOHIDDeviceClass::getElementValue(IOHIDElementRef element, IOHIDValueRe
     // If the generation is 0, this element has never
     // been processed.  We should query the element
     //  to get the current value.
-    if ((kr == kIOReturnSuccess) && ((options & kHIDGetElementValuePreventPoll) == 0) && ((options & kHIDGetElementValueForcePoll) || ((IOHIDElementGetType(element) == kIOHIDElementTypeFeature) && (generation == 0))))
+    if ((kr == kIOReturnSuccess) && ((options & kHIDGetElementValuePreventPoll) == 0) && ((options & kHIDGetElementValueForcePoll) || ((IOHIDElementGetType(element) == kIOHIDElementTypeFeature))))
     {        
         uint64_t    input = (uint64_t) IOHIDElementGetCookie(element);
         size_t    outputCount = 0;
@@ -830,7 +834,7 @@ IOReturn IOHIDDeviceClass::getCurrentElementValueAndGeneration(IOHIDElementRef e
 
         valueRef = _IOHIDElementGetValue(element);
         
-        if ( !valueRef || (IOHIDValueGetTimeStamp(valueRef) < timeStamp) )
+        if ( !valueRef || (IOHIDValueGetTimeStamp(valueRef) < timeStamp) || (IOHIDElementGetType(element) == kIOHIDElementTypeFeature))
         {
             valueRef = _IOHIDValueCreateWithElementValuePtr(kCFAllocatorDefault, element, elementValue);
 
@@ -1006,7 +1010,7 @@ bool IOHIDDeviceClass::getElementDictIntValue(CFDictionaryRef element, CFStringR
         char buff[64] = "unknown";
         if (key)
             CFStringGetCString(key, buff, 64, kCFStringEncodingUTF8);
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s called with no value for %s\n", __PRETTY_FUNCTION__, buff);
+        HIDLogError("called with no value for %s", buff);
     }
     else {
         if (typeID == CFNumberGetTypeID())
@@ -1783,7 +1787,7 @@ IOReturn IOHIDDeviceClass::buildElements( uint32_t type, CFMutableDataRef * pDat
     // count the number of leaves and allocate
     *buffer = (IOHIDElementStruct*)CFDataGetMutableBytePtr(*pDataRef);
 
-    HIDLog ("IOHIDDeviceClass::buildElements: type=%d *buffer=%4.4x *count=%d size=%d\n", type, *buffer, *count, size);
+    HIDLog ("IOHIDDeviceClass::buildElements: type=%d *buffer=%4.4lx *count=%d size=%lu\n", type, (long unsigned)*buffer, *count, size);
 
     bzero(*buffer, size);
     

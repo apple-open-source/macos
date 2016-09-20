@@ -84,7 +84,7 @@ ServerChild::~ServerChild()
 void ServerChild::parentAction()
 {
 	// wait for either checkin or (premature) death
-	secdebug("serverchild", "%p (pid %d) waiting for checkin", this, pid());
+	secinfo("serverchild", "%p (pid %d) waiting for checkin", this, pid());
 	StLock<Mutex> _(mCheckinLock);
 	while (!ready() && state() == alive)
 		mCheckinCond.wait();
@@ -92,13 +92,11 @@ void ServerChild::parentAction()
 	// so what happened?
 	if (state() == dead) {
 		// our child died
-		secdebug("serverchild", "%p (pid %d) died before checking in", this, pid());
-		SECURITYD_CHILD_STILLBORN(this->pid());
+		secinfo("serverchild", "%p (pid %d) died before checking in", this, pid());
 	} else if (ready()) {
 		// child has checked in and is ready for service
-		secdebug("serverchild", "%p (pid %d) ready for service on port %d",
+		secinfo("serverchild", "%p (pid %d) ready for service on port %d",
 			this, pid(), mServicePort.port());
-		SECURITYD_CHILD_READY(this->pid());
 	} else
 		assert(false);		// how did we ever get here?!
 }
@@ -109,8 +107,7 @@ void ServerChild::parentAction()
 //
 void ServerChild::dying()
 {
-	SECURITYD_CHILD_DYING(this->pid());
-	secdebug("serverchild", "%p is dead; resuming parent thread (if any)", this);
+	secinfo("serverchild", "%p [%d] is dead; resuming parent thread (if any)", this, this->pid());
 	mCheckinCond.signal();
 }
 
@@ -123,15 +120,13 @@ void ServerChild::checkIn(Port servicePort, pid_t pid)
 			StLock<Mutex> _(mCheckinLock);
 			child->mServicePort = servicePort;
 			servicePort.modRefs(MACH_PORT_RIGHT_SEND, +1);	// retain send right
-			secdebug("serverchild", "%p (pid %d) checking in; resuming parent thread",
+			secinfo("serverchild", "%p (pid %d) checking in; resuming parent thread",
 				child, pid);
 		}
-		SECURITYD_CHILD_CHECKIN(pid, servicePort);
 		child->mCheckinCond.signal();
 	} else {
 		// Child has died; is wrong kind; or spurious checkin.
 		// If it was a proper child, death notifications will wake up the parent thread
-		secdebug("serverchild", "pid %d not in child set; checkin ignored", pid);
-		SECURITYD_CHILD_CHECKIN(pid, 0);
+		secinfo("serverchild", "pid %d not in child set; checkin ignored", pid);
 	}
 }

@@ -35,14 +35,13 @@
 
 namespace WebCore {
 
-static String failingURI(SoupURI* soupURI)
+static URL failingURI(SoupURI* soupURI)
 {
     ASSERT(soupURI);
-    GUniquePtr<char> uri(soup_uri_to_string(soupURI, FALSE));
-    return uri.get();
+    return URL(soupURI);
 }
 
-static String failingURI(SoupRequest* request)
+static URL failingURI(SoupRequest* request)
 {
     ASSERT(request);
     return failingURI(soup_request_get_uri(request));
@@ -85,7 +84,7 @@ ResourceError ResourceError::tlsError(SoupRequest* request, unsigned tlsErrors, 
     return resourceError;
 }
 
-ResourceError ResourceError::timeoutError(const String& failingURL)
+ResourceError ResourceError::timeoutError(const URL& failingURL)
 {
     // FIXME: This should probably either be integrated into Errors(Gtk/EFL).h or the
     // networking errors from those files should be moved here.
@@ -93,15 +92,13 @@ ResourceError ResourceError::timeoutError(const String& failingURL)
     // Use the same value as in NSURLError.h
     static const int timeoutError = -1001;
     static const char* const  errorDomain = "WebKitNetworkError";
-    ResourceError error = ResourceError(errorDomain, timeoutError, failingURL, "Request timed out");
-    error.setIsTimeout(true);
-    return error;
+    return ResourceError(errorDomain, timeoutError, failingURL, "Request timed out", ResourceError::Type::Timeout);
 }
 
-void ResourceError::platformCopy(ResourceError& errorCopy) const
+void ResourceError::doPlatformIsolatedCopy(const ResourceError& other)
 {
-    errorCopy.m_certificate = m_certificate;
-    errorCopy.m_tlsErrors = m_tlsErrors;
+    m_certificate = other.m_certificate;
+    m_tlsErrors = other.m_tlsErrors;
 }
 
 bool ResourceError::platformCompare(const ResourceError& a, const ResourceError& b)

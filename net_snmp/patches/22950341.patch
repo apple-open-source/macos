@@ -1,0 +1,13 @@
+diff -Naur net-snmp-5.6.2.1.orig/net-snmp-create-v3-user.in net-snmp-5.6.2.1.work/net-snmp-create-v3-user.in 
+--- net-snmp-5.6.2.1.orig/net-snmp-create-v3-user.in	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.work/net-snmp-create-v3-user.in	2016-03-24 14:43:26.000000000 -0700
+@@ -158,7 +158,7 @@
+     touch $outfile
+ fi
+ echo $line >> $outfile
+-outfile="@datadir@/snmp/snmpd.conf"
++outfile="/etc/snmp/snmpd.conf"
+ line="$token $user"
+ echo "adding the following line to $outfile:"
+ echo "  " $line
+

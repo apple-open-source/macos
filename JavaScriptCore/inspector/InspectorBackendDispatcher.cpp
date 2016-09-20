@@ -27,7 +27,7 @@
 #include "config.h"
 #include "InspectorBackendDispatcher.h"
 
-#include "InspectorFrontendChannel.h"
+#include "InspectorFrontendRouter.h"
 #include "InspectorValues.h"
 #include <wtf/TemporaryChange.h>
 #include <wtf/text/CString.h>
@@ -35,8 +35,17 @@
 
 namespace Inspector {
 
+SupplementalBackendDispatcher::SupplementalBackendDispatcher(BackendDispatcher& backendDispatcher)
+    : m_backendDispatcher(backendDispatcher)
+{
+}
+
+SupplementalBackendDispatcher::~SupplementalBackendDispatcher()
+{
+}
+
 BackendDispatcher::CallbackBase::CallbackBase(Ref<BackendDispatcher>&& backendDispatcher, long requestId)
-    : m_backendDispatcher(WTF::move(backendDispatcher))
+    : m_backendDispatcher(WTFMove(backendDispatcher))
     , m_requestId(requestId)
 {
 }
@@ -66,18 +75,31 @@ void BackendDispatcher::CallbackBase::sendSuccess(RefPtr<InspectorObject>&& part
         return;
 
     m_alreadySent = true;
-    m_backendDispatcher->sendResponse(m_requestId, WTF::move(partialMessage));
+    m_backendDispatcher->sendResponse(m_requestId, WTFMove(partialMessage));
 }
 
-Ref<BackendDispatcher> BackendDispatcher::create(FrontendChannel* frontendChannel)
+BackendDispatcher::BackendDispatcher(Ref<FrontendRouter>&& router)
+    : m_frontendRouter(WTFMove(router))
 {
-    return adoptRef(*new BackendDispatcher(frontendChannel));
+}
+
+Ref<BackendDispatcher> BackendDispatcher::create(Ref<FrontendRouter>&& router)
+{
+    return adoptRef(*new BackendDispatcher(WTFMove(router)));
+}
+
+bool BackendDispatcher::isActive() const
+{
+    return m_frontendRouter->hasFrontends();
 }
 
 void BackendDispatcher::registerDispatcherForDomain(const String& domain, SupplementalBackendDispatcher* dispatcher)
 {
-    auto result = m_dispatchers.add(domain, dispatcher);
-    ASSERT_UNUSED(result, result.isNewEntry);
+    ASSERT_ARG(dispatcher, dispatcher);
+
+    // FIXME: <https://webkit.org/b/148492> Agents should only register with the backend once,
+    // and we should re-add the assertion that only one dispatcher is registered per domain.
+    m_dispatchers.set(domain, dispatcher);
 }
 
 void BackendDispatcher::dispatch(const String& message)
@@ -165,17 +187,14 @@ void BackendDispatcher::dispatch(const String& message)
 
 void BackendDispatcher::sendResponse(long requestId, RefPtr<InspectorObject>&& result)
 {
-    if (!m_frontendChannel)
-        return;
-
     ASSERT(!m_protocolErrors.size());
 
     // The JSON-RPC 2.0 specification requires that the "error" member have the value 'null'
     // if no error occurred during an invocation, but we do not include it at all.
     Ref<InspectorObject> responseMessage = InspectorObject::create();
-    responseMessage->setObject(ASCIILiteral("result"), result);
+    responseMessage->setObject(ASCIILiteral("result"), WTFMove(result));
     responseMessage->setInteger(ASCIILiteral("id"), requestId);
-    m_frontendChannel->sendMessageToFrontend(responseMessage->toJSONString());
+    m_frontendRouter->sendResponse(responseMessage->toJSONString());
 }
 
 void BackendDispatcher::sendPendingErrors()
@@ -190,13 +209,10 @@ void BackendDispatcher::sendPendingErrors()
         -32000, // ServerError
     };
 
-    if (!m_frontendChannel)
-        return;
-    
     // To construct the error object, only use the last error's code and message.
     // Per JSON-RPC 2.0, Section 5.1, the 'data' member may contain nested errors,
     // but only one top-level Error object should be sent per request.
-    CommonErrorCode errorCode;
+    CommonErrorCode errorCode = InternalError;
     String errorMessage;
     Ref<InspectorArray> payload = InspectorArray::create();
     
@@ -210,16 +226,16 @@ void BackendDispatcher::sendPendingErrors()
         Ref<InspectorObject> error = InspectorObject::create();
         error->setInteger(ASCIILiteral("code"), errorCodes[errorCode]);
         error->setString(ASCIILiteral("message"), errorMessage);
-        payload->pushObject(WTF::move(error));
+        payload->pushObject(WTFMove(error));
     }
 
     Ref<InspectorObject> topLevelError = InspectorObject::create();
     topLevelError->setInteger(ASCIILiteral("code"), errorCodes[errorCode]);
     topLevelError->setString(ASCIILiteral("message"), errorMessage);
-    topLevelError->setArray(ASCIILiteral("data"), WTF::move(payload));
+    topLevelError->setArray(ASCIILiteral("data"), WTFMove(payload));
 
     Ref<InspectorObject> message = InspectorObject::create();
-    message->setObject(ASCIILiteral("error"), WTF::move(topLevelError));
+    message->setObject(ASCIILiteral("error"), WTFMove(topLevelError));
     if (m_currentRequestId)
         message->setInteger(ASCIILiteral("id"), m_currentRequestId.value());
     else {
@@ -227,7 +243,7 @@ void BackendDispatcher::sendPendingErrors()
         message->setValue(ASCIILiteral("id"), InspectorValue::null());
     }
 
-    m_frontendChannel->sendMessageToFrontend(message->toJSONString());
+    m_frontendRouter->sendResponse(message->toJSONString());
 
     m_protocolErrors.clear();
     m_currentRequestId = Nullopt;
@@ -285,14 +301,6 @@ T BackendDispatcher::getPropertyValue(InspectorObject* object, const String& nam
 static bool castToInteger(InspectorValue& value, int& result) { return value.asInteger(result); }
 static bool castToNumber(InspectorValue& value, double& result) { return value.asDouble(result); }
 
-#if defined(_MSC_VER) && _MSC_VER <= 1800
-static bool asString(InspectorValue& value, String& output) { return value.asString(output); }
-static bool asBoolean(InspectorValue& value, bool& output) { return value.asBoolean(output); }
-static bool asObject(InspectorValue& value, RefPtr<InspectorObject>& output) { return value.asObject(output); }
-static bool asArray(InspectorValue& value, RefPtr<InspectorArray>& output) { return value.asArray(output); }
-static bool asValue(InspectorValue& value, RefPtr<InspectorValue>& output) { return value.asValue(output); }
-#endif
-
 int BackendDispatcher::getInteger(InspectorObject* object, const String& name, bool* valueFound)
 {
     return getPropertyValue<int>(object, name, valueFound, 0, &castToInteger, "Integer");
@@ -305,47 +313,27 @@ double BackendDispatcher::getDouble(InspectorObject* object, const String& name,
 
 String BackendDispatcher::getString(InspectorObject* object, const String& name, bool* valueFound)
 {
-#if !defined(_MSC_VER) || _MSC_VER > 1800
     return getPropertyValue<String>(object, name, valueFound, "", &InspectorValue::asString, "String");
-#else
-    return getPropertyValue<String>(object, name, valueFound, "", &asString, "String");
-#endif
 }
 
 bool BackendDispatcher::getBoolean(InspectorObject* object, const String& name, bool* valueFound)
 {
-#if !defined(_MSC_VER) || _MSC_VER > 1800
     return getPropertyValue<bool>(object, name, valueFound, false, &InspectorValue::asBoolean, "Boolean");
-#else
-    return getPropertyValue<bool>(object, name, valueFound, false, &asBoolean, "Boolean");
-#endif
 }
 
 RefPtr<InspectorObject> BackendDispatcher::getObject(InspectorObject* object, const String& name, bool* valueFound)
 {
-#if !defined(_MSC_VER) || _MSC_VER > 1800
     return getPropertyValue<RefPtr<InspectorObject>>(object, name, valueFound, nullptr, &InspectorValue::asObject, "Object");
-#else
-    return getPropertyValue<RefPtr<InspectorObject>>(object, name, valueFound, nullptr, &asObject, "Object");
-#endif
 }
 
 RefPtr<InspectorArray> BackendDispatcher::getArray(InspectorObject* object, const String& name, bool* valueFound)
 {
-#if !defined(_MSC_VER) || _MSC_VER > 1800
     return getPropertyValue<RefPtr<InspectorArray>>(object, name, valueFound, nullptr, &InspectorValue::asArray, "Array");
-#else
-    return getPropertyValue<RefPtr<InspectorArray>>(object, name, valueFound, nullptr, &asArray, "Array");
-#endif
 }
 
 RefPtr<InspectorValue> BackendDispatcher::getValue(InspectorObject* object, const String& name, bool* valueFound)
 {
-#if !defined(_MSC_VER) || _MSC_VER > 1800
     return getPropertyValue<RefPtr<InspectorValue>>(object, name, valueFound, nullptr, &InspectorValue::asValue, "Value");
-#else
-    return getPropertyValue<RefPtr<InspectorValue>>(object, name, valueFound, nullptr, &asValue, "Value");
-#endif
 }
 
 } // namespace Inspector

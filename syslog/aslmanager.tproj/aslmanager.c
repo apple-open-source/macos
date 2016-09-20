@@ -139,7 +139,6 @@ cli_main(int argc, char *argv[])
 	asl_out_rule_t *r;
 	asl_out_dst_data_t store, opts, *asl_store_dst = NULL;
 	const char *mname = NULL;
-	char *path = NULL;
 	bool quiet = false;
 	bool cache_delete = false;
 	bool cache_delete_query = false;
@@ -188,6 +187,7 @@ cli_main(int argc, char *argv[])
 
 	if (!quiet)
 	{
+		char *path = NULL;
 		int status = asl_make_database_dir(NULL, NULL);
 		if (status == 0) status = asl_make_database_dir(ASL_INTERNAL_LOGS_DIR, &path);
 		if (status == 0)
@@ -204,6 +204,7 @@ cli_main(int argc, char *argv[])
 				free(str);
 			}
 		}
+		free(path);
 	}
 
 	/* get parameters from asl.conf */
@@ -309,7 +310,7 @@ cli_main(int argc, char *argv[])
 		}
 	}
 
-	if (asl_store_dst->path == NULL) asl_store_dst->path = strdup(PATH_ASL_STORE);
+	if (asl_store_dst != NULL && asl_store_dst->path == NULL) asl_store_dst->path = strdup(PATH_ASL_STORE);
 
 	debug_log(ASL_LEVEL_ERR, "aslmanager starting%s\n", dryrun ? " dryrun" : "");
 

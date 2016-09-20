@@ -58,8 +58,6 @@ class IOGraphicsDevice;
 #include <IOKit/IODataQueue.h>
 #include <IOKit/hidsystem/ev_keymap.h>		/* For NX_NUM_SCANNED_SPECIALKEYS */
 
-#include <IOKit/IOReporter.h>
-
 // The following messages should be unique across the entire system
 #ifndef sub_iokit_hidsystem
 #define sub_iokit_hidsystem                     err_sub(14)
@@ -71,78 +69,6 @@ class IOGraphicsDevice;
 // 4 is used by IOHIDSecurePrompt
 #define kIOHIDSystemActivityTickle              iokit_family_msg(sub_iokit_hidsystem, 5)
 #define kIOHIDSystemUserHidActivity             iokit_family_msg(sub_iokit_hidsystem, 6)
-
-#define kKeyboardChannelID_15_30                IOREPORT_MAKEID('K', '0', '1', '5', '-', '0', '3', '0')
-#define kKeyboardChannelID_30_60                IOREPORT_MAKEID('K', '0', '3', '0', '-', '0', '6', '0')
-#define kKeyboardChannelID_60_120               IOREPORT_MAKEID('K', '0', '6', '0', '-', '1', '2', '0')
-#define kKeyboardChannelID_120_240              IOREPORT_MAKEID('K', '1', '2', '0', '-', '2', '4', '0')
-#define kKeyboardChannelID_240_360              IOREPORT_MAKEID('K', '2', '4', '0', '-', '3', '6', '0')
-#define kKeyboardChannelID_360_480              IOREPORT_MAKEID('K', '3', '6', '0', '-', '4', '8', '0')
-#define kKeyboardChannelID_480_600              IOREPORT_MAKEID('K', '4', '8', '0', '-', '6', '0', '0')
-#define kKeyboardChannelID_600_INF              IOREPORT_MAKEID('K', '6', '0', '0', '-', '<', 'x', '>')
-
-#define kPointingChannelID_15_30                IOREPORT_MAKEID('P', '0', '1', '5', '-', '0', '3', '0')
-#define kPointingChannelID_30_60                IOREPORT_MAKEID('P', '0', '3', '0', '-', '0', '6', '0')
-#define kPointingChannelID_60_120               IOREPORT_MAKEID('P', '0', '6', '0', '-', '1', '2', '0')
-#define kPointingChannelID_120_240              IOREPORT_MAKEID('P', '1', '2', '0', '-', '2', '4', '0')
-#define kPointingChannelID_240_360              IOREPORT_MAKEID('P', '2', '4', '0', '-', '3', '6', '0')
-#define kPointingChannelID_360_480              IOREPORT_MAKEID('P', '3', '6', '0', '-', '4', '8', '0')
-#define kPointingChannelID_480_600              IOREPORT_MAKEID('P', '4', '8', '0', '-', '6', '0', '0')
-#define kPointingChannelID_600_INF              IOREPORT_MAKEID('P', '6', '0', '0', '-', '<', 'x', '>')
-
-#define kCombinedChannelID_15_30                IOREPORT_MAKEID('C', '0', '1', '5', '-', '0', '3', '0')
-#define kCombinedChannelID_30_60                IOREPORT_MAKEID('C', '0', '3', '0', '-', '0', '6', '0')
-#define kCombinedChannelID_60_120               IOREPORT_MAKEID('C', '0', '6', '0', '-', '1', '2', '0')
-#define kCombinedChannelID_120_240              IOREPORT_MAKEID('C', '1', '2', '0', '-', '2', '4', '0')
-#define kCombinedChannelID_240_360              IOREPORT_MAKEID('C', '2', '4', '0', '-', '3', '6', '0')
-#define kCombinedChannelID_360_480              IOREPORT_MAKEID('C', '3', '6', '0', '-', '4', '8', '0')
-#define kCombinedChannelID_480_600              IOREPORT_MAKEID('C', '4', '8', '0', '-', '6', '0', '0')
-#define kCombinedChannelID_600_INF              IOREPORT_MAKEID('C', '6', '0', '0', '-', '<', 'x', '>')
-
-#define kKeyboardTotalChannelID_15_30                IOREPORT_MAKEID('k', '0', '1', '5', '-', '0', '3', '0')
-#define kKeyboardTotalChannelID_30_60                IOREPORT_MAKEID('k', '0', '3', '0', '-', '0', '6', '0')
-#define kKeyboardTotalChannelID_60_120               IOREPORT_MAKEID('k', '0', '6', '0', '-', '1', '2', '0')
-#define kKeyboardTotalChannelID_120_240              IOREPORT_MAKEID('k', '1', '2', '0', '-', '2', '4', '0')
-#define kKeyboardTotalChannelID_240_360              IOREPORT_MAKEID('k', '2', '4', '0', '-', '3', '6', '0')
-#define kKeyboardTotalChannelID_360_480              IOREPORT_MAKEID('k', '3', '6', '0', '-', '4', '8', '0')
-#define kKeyboardTotalChannelID_480_600              IOREPORT_MAKEID('k', '4', '8', '0', '-', '6', '0', '0')
-#define kKeyboardTotalChannelID_600_INF              IOREPORT_MAKEID('k', '6', '0', '0', '-', '<', 'x', '>')
-
-#define kPointingTotalChannelID_15_30                IOREPORT_MAKEID('p', '0', '1', '5', '-', '0', '3', '0')
-#define kPointingTotalChannelID_30_60                IOREPORT_MAKEID('p', '0', '3', '0', '-', '0', '6', '0')
-#define kPointingTotalChannelID_60_120               IOREPORT_MAKEID('p', '0', '6', '0', '-', '1', '2', '0')
-#define kPointingTotalChannelID_120_240              IOREPORT_MAKEID('p', '1', '2', '0', '-', '2', '4', '0')
-#define kPointingTotalChannelID_240_360              IOREPORT_MAKEID('p', '2', '4', '0', '-', '3', '6', '0')
-#define kPointingTotalChannelID_360_480              IOREPORT_MAKEID('p', '3', '6', '0', '-', '4', '8', '0')
-#define kPointingTotalChannelID_480_600              IOREPORT_MAKEID('p', '4', '8', '0', '-', '6', '0', '0')
-#define kPointingTotalChannelID_600_INF              IOREPORT_MAKEID('p', '6', '0', '0', '-', '<', 'x', '>')
-
-#define kCombinedTotalChannelID_15_30                IOREPORT_MAKEID('c', '0', '1', '5', '-', '0', '3', '0')
-#define kCombinedTotalChannelID_30_60                IOREPORT_MAKEID('c', '0', '3', '0', '-', '0', '6', '0')
-#define kCombinedTotalChannelID_60_120               IOREPORT_MAKEID('c', '0', '6', '0', '-', '1', '2', '0')
-#define kCombinedTotalChannelID_120_240              IOREPORT_MAKEID('c', '1', '2', '0', '-', '2', '4', '0')
-#define kCombinedTotalChannelID_240_360              IOREPORT_MAKEID('c', '2', '4', '0', '-', '3', '6', '0')
-#define kCombinedTotalChannelID_360_480              IOREPORT_MAKEID('c', '3', '6', '0', '-', '4', '8', '0')
-#define kCombinedTotalChannelID_480_600              IOREPORT_MAKEID('c', '4', '8', '0', '-', '6', '0', '0')
-#define kCombinedTotalChannelID_600_INF              IOREPORT_MAKEID('c', '6', '0', '0', '-', '<', 'x', '>')
-
-#define kChannelName_15_30              "Idle       15 -  30s"
-#define kChannelName_30_60              "Idle       30 -  60s"
-#define kChannelName_60_120             "Idle       60 - 120s"
-#define kChannelName_120_240            "Idle      120 - 240s"
-#define kChannelName_240_360            "Idle      240 - 360s"
-#define kChannelName_360_480            "Idle      360 - 480s"
-#define kChannelName_480_600            "Idle      480 - 600s"
-#define kChannelName_600_INF            "Idle      600 - ...s"
-
-#define kChannelTotalName_15_30              "Total      15 -  30s"
-#define kChannelTotalName_30_60              "Total      30 -  60s"
-#define kChannelTotalName_60_120             "Total      60 - 120s"
-#define kChannelTotalName_120_240            "Total     120 - 240s"
-#define kChannelTotalName_240_360            "Total     240 - 360s"
-#define kChannelTotalName_360_480            "Total     360 - 480s"
-#define kChannelTotalName_480_600            "Total     480 - 600s"
-#define kChannelTotalName_600_INF            "Total     600 - ...s"
 
 class IOHIDKeyboardDevice;
 class IOHIDPointingDevice;
@@ -158,28 +84,15 @@ class IOHIDSystem : public IOService
 	friend class IOHIDEventSystemUserClient;
 
 private:
-	IOHIDWorkLoop *		workLoop;
-	IOTimerEventSource          *periodicES;
-        IOInterruptEventSource * eventConsumerES;
-        IOInterruptEventSource * keyboardEQES;
-        IOCommandGate *		cmdGate;
-	IOUserClient *		serverConnect;
-	IOUserClient *		paramConnect;
-        IONotifier *		eventPublishNotify;
-        IONotifier *		eventTerminateNotify;
-        IONotifier *		publishNotify;
-        IONotifier *		terminateNotify;
-
-        OSArray *		ioHIDevices;
-    OSSet             * touchEventPosters;
-
-	// Ports on which we hold send rights
-	mach_port_t	eventPort;	// Send msg here when event queue
-					// goes non-empty
-    mach_port_t stackShotPort;
-	mach_port_t	_specialKeyPort[NX_NUM_SCANNED_SPECIALKEYS]; // Special key msgs
-	void		*eventMsg;	// Msg to be sent to Window Server.
-	void		*stackShotMsg;	// Msg to be sent to Stack Shot.
+	IOHIDWorkLoop           *workLoop;
+	IOTimerEventSource      *periodicES;
+    IOInterruptEventSource  *keyboardEQES;
+    IOCommandGate           *cmdGate;
+	IOUserClient            *serverConnect;
+	IOUserClient            *paramConnect;
+    IONotifier              *publishNotify;
+	void                    *eventMsg;	// Msg to be sent to Window Server.
+	void                    *stackShotMsg;	// Msg to be sent to Stack Shot.
 
 	// Shared memory area information
     IOBufferMemoryDescriptor * globalMemory;
@@ -187,21 +100,21 @@ private:
 	vm_size_t	shmem_size;	// size of shared memory
 
 	// Pointers to structures which occupy the shared memory area.
-	volatile void	*evs;		// Pointer to private driver shmem
-	volatile EvGlobals *evg;	// Pointer to EvGlobals (shmem)
+	volatile void       *evs;		// Pointer to private driver shmem
+	volatile EvGlobals  *evg;	// Pointer to EvGlobals (shmem)
 	// Internal variables related to the shared memory area
-	int		lleqSize;	// # of entries in low-level queue
+	int                 lleqSize;	// # of entries in low-level queue
                         // FIXME: why is this ivar lleqSize an ivar? {Dan]
 
 	// Screens list
-	vm_size_t	evScreenSize;	// Byte size of evScreen array
-	void		*evScreen;	// array of screens known to driver
-	volatile void	*lastShmemPtr;	// Pointer used to index thru shmem
+	vm_size_t           evScreenSize;	// Byte size of evScreen array
+	void                *evScreen;	// array of screens known to driver
+	volatile void       *lastShmemPtr;	// Pointer used to index thru shmem
 					// while assigning shared areas to
 					// drivers.
-	int		screens;	// running total of allocated screens
-	UInt32		cursorScreens;	// bit mask of screens with cursor present
-        UInt32		cursorPinScreen;// a screen to pin against
+	int             screens;	// running total of allocated screens
+	UInt32          cursorScreens;	// bit mask of screens with cursor present
+    UInt32          cursorPinScreen;// a screen to pin against
 	IOGBounds		cursorPin;	// Range to which cursor is pinned
 					// while on this screen.
 	IOGBounds		workSpace;	// IOGBounds of full workspace.
@@ -215,7 +128,7 @@ private:
     IOGPoint	clickLoc;       // location of last mouse click
     IOGPoint    clickSpaceThresh;// max mouse delta to be a doubleclick
 
-	int	clickState;	// Current click state
+//	int	clickState;	// Current click state
 
 	bool evOpenCalled;	// Has the driver been opened?
 	bool evInitialized;	// Has the first-open-only initialization run?
@@ -226,8 +139,6 @@ private:
 	bool cursorCoupled;	// cursor positioning on pointer moves ok?
 	bool cursorPinned;	// cursor positioning on pointer moves ok?
 
-	short leftENum;		// Unique ID for last left down event
-	short rightENum;	// Unique ID for last right down event
 
 	// The periodic event mechanism timestamps and state
 	// are recorded here.
@@ -236,61 +147,42 @@ private:
 
     uint64_t lastEventTime;
     uint64_t lastUndimEvent;
+    
+    uint64_t lastSetCursorTime;
+    uint64_t lastShowCursorTime;
+    uint64_t lastHideCursorTime;
+    uint64_t lastChangeCursorTime;
+    uint64_t lastMoveCursorTime;
 
-	// Flag used in scheduling periodic event callbacks
-	bool		needToKickEventConsumer;
-
-        IOService *	displayManager;	// points to display manager
-        IOPMPowerFlags	displayState;
+    IOService       *displayManager;	// points to display manager
+    IOPMPowerFlags	displayState;
 
 
-        IOService *	rootDomain;
-        AbsoluteTime	rootDomainStateChangeDeadline;
-        AbsoluteTime    displayStateChangeDeadline;
-        AbsoluteTime    displaySleepWakeupDeadline;
-        bool  displaySleepDrivenByPM;
+    IOService *	rootDomain;
+    AbsoluteTime    displayStateChangeDeadline;
+    AbsoluteTime    displaySleepWakeupDeadline;
 
-        OSDictionary *  savedParameters;	// keep user settings
+    OSDictionary *  savedParameters;	// keep user settings
 
-        const char *    registryName;		// cache our name
-        UInt32		maxWaitCursorFrame;	// animation frames
+    UInt32		maxWaitCursorFrame;	// animation frames
 	UInt32		firstWaitCursorFrame;	//
 
-        int		cachedEventFlags;
-        OSArray *  cachedButtonStates;
-
-        OSArray * systemInfo;
-
-        IOHIDPointingDevice * _hidPointingDevice;
-        IOHIDKeyboardDevice * _hidKeyboardDevice;
-
-        /* The consumed keys array stores key codes for which a key down event
-         * has been consumed and a corresponding key up event must be consumed
-         * when it arrives.
-         */
-        OSArray * consumedKeys;
+    IOHIDPointingDevice * _hidPointingDevice;
+    IOHIDKeyboardDevice * _hidKeyboardDevice;
 
     OSObject * lastSender;
 
-        UInt32 scrollZoomMask;
 
     bool setParamPropertiesInProgress;
 
     OSSet * dataQueueSet;
+  
 
 private:
-    UInt8 getSubtypeForSender(OSObject * sender);
-    void updateMouseEventForSender(OSObject * sender, NXEventData * evData);
-    void updateMouseMoveEventForSender(OSObject * sender, NXEventData * evData);
-    void updateScrollEventForSender(OSObject * sender, NXEventData * evData);
 
-  inline short getUniqueEventNum();
 
   virtual IOReturn powerStateDidChangeTo( IOPMPowerFlags, unsigned long, IOService * );
-  static IOReturn powerStateHandler( void *target, void *refCon,
-               UInt32 messageType, IOService *service, void *messageArgument, vm_size_t argSize );
  /* Resets */
-  void _resetMouseParameters();
     void    _setScrollCountParameters(OSDictionary *newSettings = NULL);
 
   /* Initialize the shared memory area */
@@ -302,27 +194,17 @@ private:
           /* withData */NXEventData * myData,
           /* sender */  OSObject *    sender   = 0,
           /* pid */     UInt32        extPID   = 0,
-          /* processKEQ*/bool          processKEQ = true);
+          /* processKEQ*/bool         processKEQ = true,
+          /* options*/   UInt32       options    = 0
+                          );
   /* Dispatch mechanisms for screen state changes */
   void evDispatch(
             /* command */ EvCmd evcmd);
-  /* Dispatch mechanism for special key press */
-  void evSpecialKeyMsg(unsigned key,
-               /* direction */ unsigned dir,
-               /* flags */     unsigned f,
-               /* level */     unsigned l);
-  /* Message the event consumer to process posted events */
-  void kickEventConsumer();
-  void sendStackShotMessage(UInt32 flavor);
 
   OSDictionary * createFilteredParamPropertiesForService(IOService * service, OSDictionary * dict);
 
   static void _periodicEvents(IOHIDSystem * self,
                               IOTimerEventSource *timer);
-
-  static void doSpecialKeyMsg(IOHIDSystem * self,
-					struct evioSpecialKeyMsg *msg);
-  static void doKickEventConsumer(IOHIDSystem * self);
 
   static void doProcessKeyboardEQ(IOHIDSystem * self);
   static void processKeyboardEQ(IOHIDSystem * self, AbsoluteTime * deadline = 0);
@@ -332,10 +214,6 @@ private:
   bool genericNotificationHandler(void * ref, IOService * newService, IONotifier * notifier );
 
   static bool handlePublishNotification( void * target, IOService * newService );
-  static bool handlePublishNotificationGated( void * target, IOService * newService );
-
-  static bool handleTerminateNotification( void * target, IOService * service );
-  static bool handleTerminateNotificationGated( void * target, IOService * newService );
 
   static void makeNumberParamProperty( OSDictionary * dict, const char * key,
                             unsigned long long number, unsigned int bits );
@@ -374,33 +252,26 @@ private:
   void enableContinuousCursor();
   void disableContinuousCursor();
   void _onScreenCursorPin();
-  // Claim ownership of event sources.
-  void attachDefaultEventSources();
-  // Give up ownership of event sources.
-  void detachEventSources();
+
   bool registerEventSource(IOService * source);
 
   // Set abs cursor position.
   void setCursorPosition(IOGPoint * newLoc, bool external, OSObject * sender=0);
-  void _setButtonState(int buttons,
-                       /* atTime */ AbsoluteTime ts,
-                       OSObject * sender);
   void _setCursorPosition(bool external = false, bool proximityChange = false, OSObject * sender=0);
 
-    static bool _idleTimeSerializerCallback(void * target, void * ref, OSSerialize *s);
-    static bool _displaySerializerCallback(void * target, void * ref, OSSerialize *s);
+  static bool _idleTimeSerializerCallback(void * target, void * ref, OSSerialize *s);
+  static bool _cursorStateSerializerCallback(void * target, void * ref, OSSerialize *s);
+  static bool _displaySerializerCallback(void * target, void * ref, OSSerialize *s);
 
-  void _postMouseMoveEvent(int		what,
-                           AbsoluteTime	theClock,
-                           OSObject *	sender);
   void createParameters( void );
 
 /* END HISTORICAL NOTE */
-
+  
+//  void updateUnificationFlags ();
+  
 public:
   static IOHIDSystem * instance();     /* Return the current instance of the */
 				       /* EventDriver, or 0 if none. */
-  static void scaleLocationToCurrentScreen(IOGPoint *location, IOGBounds *bounds);
 
   virtual bool init(OSDictionary * properties = 0);
   virtual IOHIDSystem * probe(IOService *    provider,
@@ -429,35 +300,7 @@ public:
   /* Unregister the IODataQueue for the new user events */
   virtual IOReturn unregisterEventQueue(IODataQueue * queue);
 
-  /* Set the port for event available notify msg */
-  virtual void     setEventPort(mach_port_t port);
-
-  /* Set if display sleep is driven by IOPMrootDomain */
-  void setDisplaySleepDrivenByPM(bool val);
-
-  bool initReporters();
-
-    
-  virtual IOReturn configureReport(IOReportChannelList   *channels,
-                                     IOReportConfigureAction action,
-                                     void                  *result,
-                                     void                  *destination);
-    
-  virtual IOReturn updateReport(IOReportChannelList      *channels,
-                                  IOReportUpdateAction      action,
-                                  void                     *result,
-                                  void                     *destination);
-private:
-    static IOReturn doSetEventPort(IOHIDSystem *self, void *port_void, void *arg1, void *arg2, void *arg3);
-    void            setEventPortGated(mach_port_t port);
 public:
-
-  /* Set the port for the special key keypress msg */
-  virtual IOReturn setSpecialKeyPort(
-                     /* keyFlavor */ int         special_key,
-                     /* keyPort */   mach_port_t key_port);
-  virtual mach_port_t specialKeyPort(int special_key);
-
 
   virtual IOReturn newUserClient(task_t         owningTask,
                  /* withToken */ void *         security_id,
@@ -472,34 +315,6 @@ public:
  */
 
 public:
-  /* Mouse event reporting */
-  virtual void relativePointerEvent(int        buttons,
-                       /* deltaX */ int        dx,
-                       /* deltaY */ int        dy,
-                       /* atTime */ AbsoluteTime ts);
-
-  /* Tablet event reporting */
-  virtual void absolutePointerEvent(int        buttons,
-                 /* at */           IOGPoint *    newLoc,
-                 /* withBounds */   IOGBounds *bounds,
-                 /* inProximity */  bool       proximity,
-                 /* withPressure */ int        pressure,
-                 /* withAngle */    int        stylusAngle,
-                 /* atTime */       AbsoluteTime ts);
-
-  /* Mouse scroll wheel event reporting */
-  virtual void scrollWheelEvent(short deltaAxis1,
-                                short deltaAxis2,
-                                short deltaAxis3,
-                                AbsoluteTime ts);
-
-
-  virtual void tabletEvent(NXEventData *tabletData,
-                           AbsoluteTime ts);
-
-  virtual void proximityEvent(NXEventData *proximityData,
-                              AbsoluteTime ts);
-
 /*
  * HISTORICAL NOTE:
  *   The following methods were part of the IOHIKeyboardEvents protocol;
@@ -532,60 +347,6 @@ public:
 
 
 private:
-
-  /*
-   * statics for upstream callouts
-   */
-
-  void _scaleLocationToCurrentScreen(IOFixedPoint64 &location, IOGBounds *bounds);
-
-  static void _relativePointerEvent(IOHIDSystem * self,
-				    int        buttons,
-                       /* deltaX */ int        dx,
-                       /* deltaY */ int        dy,
-                       /* atTime */ AbsoluteTime ts,
-                                    OSObject * sender,
-                                    void *     refcon);
-
-  /* Tablet event reporting */
-  static void _absolutePointerEvent(IOHIDSystem * self,
-				    int        buttons,
-                 /* at */           IOGPoint *    newLoc,
-                 /* withBounds */   IOGBounds *bounds,
-                 /* inProximity */  bool       proximity,
-                 /* withPressure */ int        pressure,
-                 /* withAngle */    int        stylusAngle,
-                 /* atTime */       AbsoluteTime ts,
-                                    OSObject * sender,
-                                    void *     refcon);
-
-  /* Mouse scroll wheel event reporting */
-  static void _scrollWheelEvent(    IOHIDSystem *self,
-                                    short      deltaAxis1,
-                                    short      deltaAxis2,
-                                    short      deltaAxis3,
-                                    IOFixed    fixedDelta1,
-                                    IOFixed    fixedDelta2,
-                                    IOFixed    fixedDelta3,
-                                    SInt32  pointDeltaAxis1,
-                                    SInt32  pointDeltaAxis2,
-                                    SInt32  pointDeltaAxis3,
-                                    UInt32  options,
-                                    AbsoluteTime ts,
-                                    OSObject * sender,
-                                    void *     refcon);
-
-  static void _tabletEvent(         IOHIDSystem *self,
-                                    NXEventData *tabletData,
-                                    AbsoluteTime ts,
-                                    OSObject * sender,
-                                    void *     refcon);
-
-  static void _proximityEvent(      IOHIDSystem *self,
-                                    NXEventData *proximityData,
-                                    AbsoluteTime ts,
-                                    OSObject * sender,
-                                    void *     refcon);
 
   static void _keyboardEvent(       IOHIDSystem * self,
                                     unsigned   eventType,
@@ -686,44 +447,6 @@ public:
 /* END HISTORICAL NOTES */
 
 private:
-void relativePointerEvent(          int        buttons,
-                 /* deltaX */       int        dx,
-                 /* deltaY */       int        dy,
-                 /* atTime */       AbsoluteTime ts,
-                 /* senderID */     OSObject * sender);
-
-  /* Tablet event reporting */
-void absolutePointerEvent(          int        buttons,
-                 /* at */           IOGPoint *    newLoc,
-                 /* withBounds */   IOGBounds *bounds,
-                 /* inProximity */  bool       proximity,
-                 /* withPressure */ int        pressure,
-                 /* withAngle */    int        stylusAngle,
-                 /* atTime */       AbsoluteTime ts,
-                 /* senderID */     OSObject * sender);
-
-  /* Mouse scroll wheel event reporting */
-void scrollWheelEvent(	        short 	       deltaAxis1,
-                                short          deltaAxis2,
-                                short          deltaAxis3,
-                                IOFixed        fixedDelta1,
-                                IOFixed        fixedDelta2,
-                                IOFixed        fixedDelta3,
-                                SInt32         pointDeltaAxis1,
-                                SInt32         pointDeltaAxis2,
-                                SInt32         pointDeltaAxis3,
-                                UInt32         options,
-                                AbsoluteTime   ts,
-                                OSObject *     sender);
-
-void tabletEvent(	NXEventData * tabletData,
-                                AbsoluteTime ts,
-                                OSObject * sender);
-
-void proximityEvent(	NXEventData * proximityData,
-                                AbsoluteTime ts,
-                                OSObject * sender);
-
 void keyboardEvent(unsigned   eventType,
       /* flags */            unsigned   flags,
       /* keyCode */          unsigned   key,
@@ -747,8 +470,6 @@ void keyboardSpecialEvent(   unsigned   eventType,
 
 void updateEventFlags(unsigned flags, OSObject * sender);
 
-bool addConsumedKey(unsigned key);
-bool removeConsumedKey(unsigned key);
 
 /*
  * COMMAND GATE COMPATIBILITY:
@@ -767,12 +488,6 @@ bool removeConsumedKey(unsigned key);
 static	IOReturn	doEvClose (IOHIDSystem *self);
         IOReturn	evCloseGated (void);
 
-static	IOReturn	doSetEventsEnablePre (IOHIDSystem *self, void *p1);
-        IOReturn	setEventsEnablePreGated (void *p1);
-
-static	IOReturn	doSetEventsEnablePost (IOHIDSystem *self, void *p1);
-        IOReturn	setEventsEnablePostGated (void *p1);
-
 static	IOReturn	doUnregisterScreen (IOHIDSystem *self, void * arg0, void *arg1);
         IOReturn	unregisterScreenGated (int index, bool internal);
 
@@ -788,46 +503,6 @@ static	IOReturn	doRegisterEventQueue (IOHIDSystem *self, void * arg0);
 static	IOReturn	doUnregisterEventQueue (IOHIDSystem *self, void * arg0);
         IOReturn	unregisterEventQueueGated (void * p1);
 
-static	IOReturn	doRelativePointerEvent (IOHIDSystem *self, void * args);
-        void		relativePointerEventGated(int buttons,
-                                                    int dx,
-                                                    int dy,
-                                                    SInt64 ts,
-                                                    OSObject * sender);
-
-static	IOReturn	doAbsolutePointerEvent (IOHIDSystem *self, void * args);
-        void 		absolutePointerEventGated (int buttons,
-                                                    IOGPoint *    newLoc,
-                                                    IOGBounds *bounds,
-                                                    bool       proximity,
-                                                    int        pressure,
-                                                    int        stylusAngle,
-                                                    AbsoluteTime ts,
-                                                    OSObject * sender);
-
-static	IOReturn	doScrollWheelEvent(IOHIDSystem *self, void * args);
-        void		scrollWheelEventGated (short deltaAxis1,
-                                                short deltaAxis2,
-                                                short deltaAxis3,
-                                               IOFixed  fixedDelta1,
-                                               IOFixed  fixedDelta2,
-                                               IOFixed  fixedDelta3,
-                                               SInt32   pointDeltaAxis1,
-                                               SInt32   pointDeltaAxis2,
-                                               SInt32   pointDeltaAxis3,
-                                               UInt32   options,
-                                                AbsoluteTime ts,
-                                                OSObject * sender);
-
-static	IOReturn	doTabletEvent (IOHIDSystem *self, void * arg0, void * arg1, void * arg2);
-        void		tabletEventGated (	NXEventData *tabletData,
-                                                AbsoluteTime ts,
-                                                OSObject * sender);
-
-static	IOReturn	doProximityEvent (IOHIDSystem *self, void * arg0, void * arg1, void * arg2);
-        void		proximityEventGated (	NXEventData *proximityData,
-                                                AbsoluteTime ts,
-                                                OSObject * sender);
 
 static	IOReturn	doKeyboardEvent (IOHIDSystem *self, void * args);
         void		keyboardEventGated (unsigned   eventType,
@@ -888,16 +563,10 @@ static	IOReturn	doSetParamPropertiesPost (IOHIDSystem *self, void * arg0);
 
 static	IOReturn	doExtGetStateForSelector (IOHIDSystem *self, void *p1, void *p2);
 static	IOReturn	doExtSetStateForSelector (IOHIDSystem *self, void *p1, void *p2);
-        IOReturn    getCapsLockState(unsigned int *state_O);
-        IOReturn    setCapsLockState(unsigned int state_I);
-        IOReturn    getNumLockState(unsigned int *state_O);
-        IOReturn    setNumLockState(unsigned int state_I);
 
 /* END COMMAND GATE COMPATIBILITY */
 
 public:
-    virtual void setStackShotPort(mach_port_t port);
-
     virtual UInt32 eventFlags();
 
     virtual void dispatchEvent(IOHIDEvent *event, IOOptionBits options=0);
@@ -910,7 +579,6 @@ public:
     static IOReturn getUserHidActivityState(IOHIDSystem *self, void *arg0);
     IOReturn getUserHidActivityStateGated(void *state);
 
-    void updateIdleReporters(uint32_t mask, AbsoluteTime ts);
 };
 
 #endif /* !_IOHIDSYSTEM_H */

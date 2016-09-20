@@ -32,19 +32,20 @@
 #include "RenderElement.h"
 #include "RenderImage.h"
 #include "RenderQuote.h"
+#include "StyleResolver.h"
 
 namespace WebCore {
 
 const QualifiedName& pseudoElementTagName()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(QualifiedName, name, (nullAtom, "<pseudo>", nullAtom));
+    static NeverDestroyed<QualifiedName> name(nullAtom, "<pseudo>", nullAtom);
     return name;
 }
 
 String PseudoElement::pseudoElementNameForEvents(PseudoId pseudoId)
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const String, after, (ASCIILiteral("::after")));
-    DEPRECATED_DEFINE_STATIC_LOCAL(const String, before, (ASCIILiteral("::before")));
+    static NeverDestroyed<const String> after(ASCIILiteral("::after"));
+    static NeverDestroyed<const String> before(ASCIILiteral("::before"));
     switch (pseudoId) {
     case AFTER:
         return after;
@@ -76,9 +77,12 @@ void PseudoElement::clearHostElement()
     m_hostElement = nullptr;
 }
 
-RefPtr<RenderStyle> PseudoElement::customStyleForRenderer(RenderStyle& parentStyle)
+Optional<ElementStyle> PseudoElement::resolveCustomStyle(const RenderStyle& parentStyle, const RenderStyle*)
 {
-    return m_hostElement->renderer()->getCachedPseudoStyle(m_pseudoId, &parentStyle);
+    auto* style = m_hostElement->renderer()->getCachedPseudoStyle(m_pseudoId, &parentStyle);
+    if (!style)
+        return Nullopt;
+    return ElementStyle(RenderStyle::clonePtr(*style));
 }
 
 void PseudoElement::didAttachRenderers()
@@ -118,8 +122,8 @@ void PseudoElement::didRecalcStyle(Style::Change)
         // We only manage the style for the generated content which must be images or text.
         if (!is<RenderImage>(*child) && !is<RenderQuote>(*child))
             continue;
-        Ref<RenderStyle> createdStyle = RenderStyle::createStyleInheritingFromPseudoStyle(renderer.style());
-        downcast<RenderElement>(*child).setStyle(WTF::move(createdStyle));
+        auto createdStyle = RenderStyle::createStyleInheritingFromPseudoStyle(renderer.style());
+        downcast<RenderElement>(*child).setStyle(WTFMove(createdStyle));
     }
 }
 

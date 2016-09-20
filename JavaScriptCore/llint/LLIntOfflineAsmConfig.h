@@ -155,16 +155,16 @@
 #define OFFLINE_ASM_BIG_ENDIAN 0
 #endif
 
+#if ENABLE(LLINT_STATS)
+#define OFFLINE_ASM_COLLECT_STATS 1
+#else
+#define OFFLINE_ASM_COLLECT_STATS 0
+#endif
+
 #if LLINT_EXECUTION_TRACING
 #define OFFLINE_ASM_EXECUTION_TRACING 1
 #else
 #define OFFLINE_ASM_EXECUTION_TRACING 0
-#endif
-
-#if ENABLE(GGC)
-#define OFFLINE_ASM_GGC 1
-#else
-#define OFFLINE_ASM_GGC 0
 #endif
 
 #endif // LLIntOfflineAsmConfig_h

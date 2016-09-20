@@ -60,9 +60,9 @@ ProgressInnerElement::ProgressInnerElement(Document& document)
 {
 }
 
-RenderPtr<RenderElement> ProgressInnerElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
+RenderPtr<RenderElement> ProgressInnerElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
 {
-    return createRenderer<RenderProgress>(*this, WTF::move(style));
+    return createRenderer<RenderProgress>(*this, WTFMove(style));
 }
 
 bool ProgressInnerElement::rendererIsNeeded(const RenderStyle& style)

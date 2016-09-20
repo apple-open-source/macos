@@ -17,7 +17,11 @@ aria-activedescendant
 aria-atomic
 aria-busy
 aria-checked
+aria-colcount
+aria-colindex
+aria-colspan
 aria-controls
+aria-current
 aria-describedby
 aria-disabled
 aria-dropeffect
@@ -33,16 +37,21 @@ aria-labeledby
 aria-labelledby
 aria-level
 aria-live
+aria-modal
 aria-multiline
 aria-multiselectable
 aria-orientation
 aria-owns
+aria-placeholder
 aria-posinset
 aria-pressed
 aria-readonly
 aria-relevant
 aria-required
 aria-roledescription
+aria-rowcount
+aria-rowindex
+aria-rowspan
 aria-selected
 aria-setsize
 aria-sort
@@ -50,6 +59,7 @@ aria-valuemax
 aria-valuemin
 aria-valuenow
 aria-valuetext
+as
 async
 autocomplete
 autofocus
@@ -253,6 +263,7 @@ onstorage
 onsuspend
 onsubmit
 ontimeupdate
+ontouchforcechange
 ontouchstart
 ontouchmove
 ontouchend
@@ -288,6 +299,7 @@ open
 optimum
 pattern
 placeholder
+playsinline
 pluginspage
 pluginurl
 ping
@@ -321,6 +333,7 @@ selected
 shape
 size
 sizes
+slot
 sortable
 sortdirection
 span
@@ -370,3 +383,7 @@ webkit-playsinline
 x-webkit-airplay
 x-webkit-wirelessvideoplaybackdisabled
 x-itunes-inherit-uri-query-component
+
+x-apple-data-detectors
+x-apple-data-detectors-type
+x-apple-data-detectors-result

@@ -137,6 +137,14 @@ extern SECStatus WRAP_PubWrapSymKey(SecPublicKeyRef publickey,
 
 extern SecSymmetricKeyRef WRAP_PubUnwrapSymKey(SecPrivateKeyRef privkey, CSSM_DATA_PTR encKey, SECOidTag bulkalgtag);
 
+CFStringRef SECOID_CopyKeyTypeByTag(SECOidTag tag);
+
+/*
+ * NULL wrap a ref key to raw key in default format.
+ * The utility of this function is that it rescues the actual data content
+ * of the SecSymmetricKeyRef so that we can encrypt it.
+ */
+OSStatus cmsNullWrapKey(SecKeyRef refKey, CSSM_KEY_PTR rawKey);
 
 SEC_END_PROTOS
 

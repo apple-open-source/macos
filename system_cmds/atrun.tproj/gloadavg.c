@@ -1,4 +1,4 @@
-/* 
+/*
  *  gloadavg.c - get load average for Linux
  *  Copyright (C) 1993  Thomas Koenig
  *
@@ -55,7 +55,7 @@ gloadavg(void)
     double result;
 #ifndef __FreeBSD__
     FILE *fp;
-    
+
     if((fp=fopen(PROC_DIR "loadavg","r")) == NULL)
 	result = -1.0;
     else

@@ -28,23 +28,24 @@
 #include "config.h"
 #include "TextChecker.h"
 
-#include "TextBreakIterator.h"
 #include "TextCheckerState.h"
 #include "WebProcessPool.h"
-#include "WebTextChecker.h"
 #include <WebCore/NotImplemented.h>
 #include <WebCore/TextCheckerEnchant.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/text/TextBreakIterator.h>
 
 using namespace WebCore;
 
 namespace WebKit {
 
+#if ENABLE(SPELLCHECK)
 static WebCore::TextCheckerEnchant& enchantTextChecker()
 {
     static NeverDestroyed<WebCore::TextCheckerEnchant> checker;
     return checker;
 }
+#endif
 
 TextCheckerState& checkerState()
 {
@@ -63,41 +64,63 @@ const TextCheckerState& TextChecker::state()
     return checkerState();
 }
 
+#if ENABLE(SPELLCHECK)
 static void updateStateForAllProcessPools()
 {
     for (const auto& processPool : WebProcessPool::allProcessPools())
         processPool->textCheckerStateChanged();
 }
+#endif
 
 bool TextChecker::isContinuousSpellCheckingAllowed()
 {
+#if ENABLE(SPELLCHECK)
     return true;
+#else
+    return false;
+#endif
 }
 
 void TextChecker::setContinuousSpellCheckingEnabled(bool isContinuousSpellCheckingEnabled)
 {
+#if ENABLE(SPELLCHECK)
     if (checkerState().isContinuousSpellCheckingEnabled == isContinuousSpellCheckingEnabled)
         return;
     checkerState().isContinuousSpellCheckingEnabled = isContinuousSpellCheckingEnabled;
     updateStateForAllProcessPools();
+#else
+    UNUSED_PARAM(isContinuousSpellCheckingEnabled);
+#endif
 }
 
 void TextChecker::setGrammarCheckingEnabled(bool isGrammarCheckingEnabled)
 {
+#if ENABLE(SPELLCHECK)
     if (checkerState().isGrammarCheckingEnabled == isGrammarCheckingEnabled)
         return;
     checkerState().isGrammarCheckingEnabled = isGrammarCheckingEnabled;
     updateStateForAllProcessPools();
+#else
+    UNUSED_PARAM(isGrammarCheckingEnabled);
+#endif
 }
 
 void TextChecker::continuousSpellCheckingEnabledStateChanged(bool enabled)
 {
+#if ENABLE(SPELLCHECK)
     checkerState().isContinuousSpellCheckingEnabled = enabled;
+#else
+    UNUSED_PARAM(enabled);
+#endif
 }
 
 void TextChecker::grammarCheckingEnabledStateChanged(bool enabled)
 {
+#if ENABLE(SPELLCHECK)
     checkerState().isGrammarCheckingEnabled = enabled;
+#else
+    UNUSED_PARAM(enabled);
+#endif
 }
 
 int64_t TextChecker::uniqueSpellDocumentTag(WebPageProxy*)
@@ -111,9 +134,15 @@ void TextChecker::closeSpellDocumentWithTag(int64_t /* tag */)
 
 void TextChecker::checkSpellingOfString(int64_t /* spellDocumentTag */, StringView text, int32_t& misspellingLocation, int32_t& misspellingLength)
 {
+#if ENABLE(SPELLCHECK)
     misspellingLocation = -1;
     misspellingLength = 0;
     enchantTextChecker().checkSpellingOfString(text.toStringWithoutCopying(), misspellingLocation, misspellingLength);
+#else
+    UNUSED_PARAM(text);
+    UNUSED_PARAM(misspellingLocation);
+    UNUSED_PARAM(misspellingLength);
+#endif
 }
 
 void TextChecker::checkGrammarOfString(int64_t /* spellDocumentTag */, StringView /* text */, Vector<WebCore::GrammarDetail>& /* grammarDetails */, int32_t& /* badGrammarLocation */, int32_t& /* badGrammarLength */)
@@ -137,23 +166,37 @@ void TextChecker::updateSpellingUIWithGrammarString(int64_t /* spellDocumentTag 
 {
 }
 
-void TextChecker::getGuessesForWord(int64_t /* spellDocumentTag */, const String& word, const String& /* context */, Vector<String>& guesses)
+void TextChecker::getGuessesForWord(int64_t /* spellDocumentTag */, const String& word, const String& /* context */, int32_t /* insertionPoint */, Vector<String>& guesses, bool)
 {
+#if ENABLE(SPELLCHECK)
     guesses = enchantTextChecker().getGuessesForWord(word);
+#else
+    UNUSED_PARAM(word);
+    UNUSED_PARAM(guesses);
+#endif
 }
 
 void TextChecker::learnWord(int64_t /* spellDocumentTag */, const String& word)
 {
+#if ENABLE(SPELLCHECK)
     enchantTextChecker().learnWord(word);
+#else
+    UNUSED_PARAM(word);
+#endif
 }
 
 void TextChecker::ignoreWord(int64_t /* spellDocumentTag */, const String& word)
 {
+#if ENABLE(SPELLCHECK)
     enchantTextChecker().ignoreWord(word);
+#else
+    UNUSED_PARAM(word);
+#endif
 }
 
-void TextChecker::requestCheckingOfString(PassRefPtr<TextCheckerCompletion> completion)
+void TextChecker::requestCheckingOfString(PassRefPtr<TextCheckerCompletion> completion, int32_t insertionPoint)
 {
+#if ENABLE(SPELLCHECK)
     if (!completion)
         return;
 
@@ -161,10 +204,13 @@ void TextChecker::requestCheckingOfString(PassRefPtr<TextCheckerCompletion> comp
     ASSERT(request.sequence() != unrequestedTextCheckingSequence);
     ASSERT(request.mask() != TextCheckingTypeNone);
 
-    completion->didFinishCheckingText(checkTextOfParagraph(completion->spellDocumentTag(), request.text(), request.mask()));
+    completion->didFinishCheckingText(checkTextOfParagraph(completion->spellDocumentTag(), request.text(), insertionPoint, request.mask(), false));
+#else
+    UNUSED_PARAM(completion);
+#endif
 }
 
-#if USE(UNIFIED_TEXT_CHECKING)
+#if USE(UNIFIED_TEXT_CHECKING) && ENABLE(SPELLCHECK)
 static unsigned nextWordOffset(StringView text, unsigned currentOffset)
 {
     // FIXME: avoid creating textIterator object here, it could be passed as a parameter.
@@ -190,9 +236,13 @@ static unsigned nextWordOffset(StringView text, unsigned currentOffset)
 
     return wordOffset;
 }
+#endif
 
-Vector<TextCheckingResult> TextChecker::checkTextOfParagraph(int64_t spellDocumentTag, StringView text, uint64_t checkingTypes)
+#if USE(UNIFIED_TEXT_CHECKING)
+Vector<TextCheckingResult> TextChecker::checkTextOfParagraph(int64_t spellDocumentTag, StringView text, int32_t insertionPoint, uint64_t checkingTypes, bool)
 {
+    UNUSED_PARAM(insertionPoint);
+#if ENABLE(SPELLCHECK)
     if (!(checkingTypes & TextCheckingTypeSpelling))
         return Vector<TextCheckingResult>();
 
@@ -225,17 +275,31 @@ Vector<TextCheckingResult> TextChecker::checkTextOfParagraph(int64_t spellDocume
         offset = nextWordOffset(text.substring(0, lengthStrip), offset);
     }
     return paragraphCheckingResult;
+#else
+    UNUSED_PARAM(spellDocumentTag);
+    UNUSED_PARAM(text);
+    UNUSED_PARAM(checkingTypes);
+    return Vector<TextCheckingResult>();
+#endif // ENABLE(SPELLCHECK)
 }
-#endif
+#endif // USE(UNIFIED_TEXT_CHECKING)
 
 void TextChecker::setSpellCheckingLanguages(const Vector<String>& languages)
 {
+#if ENABLE(SPELLCHECK)
     enchantTextChecker().updateSpellCheckingLanguages(languages);
+#else
+    UNUSED_PARAM(languages);
+#endif
 }
 
 Vector<String> TextChecker::loadedSpellCheckingLanguages()
 {
+#if ENABLE(SPELLCHECK)
     return enchantTextChecker().loadedSpellCheckingLanguages();
+#else
+    return Vector<String>();
+#endif
 }
 
 } // namespace WebKit

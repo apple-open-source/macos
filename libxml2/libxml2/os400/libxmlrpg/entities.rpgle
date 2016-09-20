@@ -10,11 +10,13 @@
       /define XML_ENTITIES_H__
 
       /include "libxmlrpg/xmlversion"
+      /include "libxmlrpg/xmlTypesC"
       /include "libxmlrpg/tree"
 
       * The different valid entity types.
 
-     d xmlEntityType   s             10i 0 based(######typedef######)           enum
+     d xmlEntityType   s                   based(######typedef######)
+     d                                     like(xmlCenum)
      d  XML_INTERNAL_GENERAL_ENTITY...
      d                 c                   1
      d  XML_EXTERNAL_GENERAL_PARSED_ENTITY...
@@ -44,14 +46,14 @@
      d  doc                                like(xmlDocPtr)                      containing document
      d  orig                           *                                        xmlChar *
      d  content                        *                                        xmlChar *
-     d  length                       10i 0                                      content length
+     d  length                             like(xmlCint)                        content length
      d  etype                              like(xmlEntityType)                  The entity type
      d  ExternalID                     *                                        const xmlChar *
      d  SystemlID                      *                                        const xmlChar *
      d  nexte                              like(xmlEntityPtr)                   unused
      d  URI                            *                                        const xmlChar *
-     d  owner                        10i 0                                      Owns children ?
-     d  checked                      10i 0                                      Content checked ?
+     d  owner                              like(xmlCint)                        Owns children ?
+     d  checked                            like(xmlCint)                        Content checked ?
 
       * All entities are stored in an hash table.
       * There is 2 separate hash tables for global and parameter entities.
@@ -71,7 +73,7 @@
      d                                     like(xmlEntityPtr)
      d  doc                                value like(xmlDocPtr)
      d  name                           *   value options(*string)               const xmlChar *
-     d  type                         10i 0 value
+     d  type                               value like(xmlCint)
      d  ExternalID                     *   value options(*string)               const xmlChar *
      d  SystemID                       *   value options(*string)               const xmlChar *
      d  content                        *   value options(*string)               const xmlChar *
@@ -81,7 +83,7 @@
      d                                     like(xmlEntityPtr)
      d  doc                                value like(xmlDocPtr)
      d  name                           *   value options(*string)               const xmlChar *
-     d  type                         10i 0 value
+     d  type                               value like(xmlCint)
      d  ExternalID                     *   value options(*string)               const xmlChar *
      d  SystemID                       *   value options(*string)               const xmlChar *
      d  content                        *   value options(*string)               const xmlChar *
@@ -91,7 +93,7 @@
      d                                     like(xmlEntityPtr)
      d  doc                                value like(xmlDocPtr)
      d  name                           *   value options(*string)               const xmlChar *
-     d  type                         10i 0 value
+     d  type                               value like(xmlCint)
      d  ExternalID                     *   value options(*string)               const xmlChar *
      d  SystemID                       *   value options(*string)               const xmlChar *
      d  content                        *   value options(*string)               const xmlChar *

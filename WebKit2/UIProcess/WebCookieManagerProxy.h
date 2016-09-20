@@ -43,6 +43,9 @@ namespace API {
 class Array;
 }
 
+namespace WebCore {
+struct Cookie;
+}
 
 namespace WebKit {
 
@@ -65,6 +68,7 @@ public:
     void deleteCookiesForHostname(const String& hostname);
     void deleteAllCookies();
     void deleteAllCookiesModifiedSince(std::chrono::system_clock::time_point);
+    void addCookie(const WebCore::Cookie&, const String& hostname);
 
     void setHTTPCookieAcceptPolicy(HTTPCookieAcceptPolicy);
     void getHTTPCookieAcceptPolicy(std::function<void (HTTPCookieAcceptPolicy, CallbackBase::Error)>);
@@ -89,15 +93,14 @@ private:
     void cookiesDidChange();
 
     // WebContextSupplement
-    virtual void processPoolDestroyed() override;
-    virtual void processDidClose(WebProcessProxy*) override;
-    virtual void processDidClose(NetworkProcessProxy*) override;
-    virtual bool shouldTerminate(WebProcessProxy*) const override;
-    virtual void refWebContextSupplement() override;
-    virtual void derefWebContextSupplement() override;
+    void processPoolDestroyed() override;
+    void processDidClose(WebProcessProxy*) override;
+    void processDidClose(NetworkProcessProxy*) override;
+    void refWebContextSupplement() override;
+    void derefWebContextSupplement() override;
 
     // IPC::MessageReceiver
-    virtual void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
+    void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
 
 #if PLATFORM(COCOA)
     void persistHTTPCookieAcceptPolicy(HTTPCookieAcceptPolicy);

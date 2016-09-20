@@ -20,14 +20,13 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef CSSMediaRule_h
-#define CSSMediaRule_h
+#pragma once
 
 #include "CSSGroupingRule.h"
-#include "MediaList.h"
 
 namespace WebCore {
 
+class MediaList;
 class StyleRuleMedia;
 
 class CSSMediaRule final : public CSSGroupingRule {
@@ -36,15 +35,15 @@ public:
 
     virtual ~CSSMediaRule();
 
-    virtual void reattach(StyleRuleBase&) override;
-    virtual String cssText() const override;
+    void reattach(StyleRuleBase&) override;
+    String cssText() const override;
 
     MediaList* media() const;
 
 private:
     CSSMediaRule(StyleRuleMedia&, CSSStyleSheet*);
 
-    virtual CSSRule::Type type() const override { return MEDIA_RULE; }
+    CSSRule::Type type() const override { return MEDIA_RULE; }
 
     MediaQuerySet* mediaQueries() const;
     
@@ -54,5 +53,3 @@ private:
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_CSS_RULE(CSSMediaRule, CSSRule::MEDIA_RULE)
-
-#endif // CSSMediaRule_h

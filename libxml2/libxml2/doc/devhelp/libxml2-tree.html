@@ -409,7 +409,8 @@ The content of this structure is not made public by the API.
     <a name="XML_BUFFER_ALLOC_EXACT">XML_BUFFER_ALLOC_EXACT</a> = 2 /* grow only to the minimal size */
     <a name="XML_BUFFER_ALLOC_IMMUTABLE">XML_BUFFER_ALLOC_IMMUTABLE</a> = 3 /* immutable buffer */
     <a name="XML_BUFFER_ALLOC_IO">XML_BUFFER_ALLOC_IO</a> = 4 /* special allocation scheme used for I/O */
-    <a name="XML_BUFFER_ALLOC_HYBRID">XML_BUFFER_ALLOC_HYBRID</a> = 5 /*  exact up to a threshold, and doubleit thereafter */
+    <a name="XML_BUFFER_ALLOC_HYBRID">XML_BUFFER_ALLOC_HYBRID</a> = 5 /* exact up to a threshold, and doubleit thereafter */
+    <a name="XML_BUFFER_ALLOC_BOUNDED">XML_BUFFER_ALLOC_BOUNDED</a> = 6 /*  limit the upper size of the buffer */
 };
 </pre><p/>
 </div>
@@ -781,7 +782,7 @@ The content of this structure is not made public by the API.
     void *	catalogs	: document's own catalog
     int	recovery	: run in recovery mode
     int	progressive	: is this a progressive parsing
-    <a href="libxml2-dict.html#xmlDictPtr">xmlDictPtr</a>	dict	: dictionnary for the parser
+    <a href="libxml2-dict.html#xmlDictPtr">xmlDictPtr</a>	dict	: dictionary for the parser
     const <a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> * *	atts	: array for the attributes callbacks
     int	maxatts	: the size of the array
     int	docdict	: * pre-interned strings *

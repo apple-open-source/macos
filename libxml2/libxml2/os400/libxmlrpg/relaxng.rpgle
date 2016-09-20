@@ -9,10 +9,12 @@
       /define XML_RELAX_NG__
 
       /include "libxmlrpg/xmlversion"
-      /include "libxmlrpg/hash"
-      /include "libxmlrpg/xmlstring"
 
       /if defined(LIBXML_SCHEMAS_ENABLED)
+
+      /include "libxmlrpg/xmlTypesC"
+      /include "libxmlrpg/hash"
+      /include "libxmlrpg/xmlstring"
 
      d xmlRelaxNGPtr   s               *   based(######typedef######)
 
@@ -51,7 +53,8 @@
       * List of possible Relax NG validation errors
 
      d xmlRelaxNGValidErr...
-     d                 s             10i 0 based(######typedef######)           enum
+     d                 s                   based(######typedef######)
+     d                                     like(xmlCenum)
      d  XML_RELAXNG_OK...
      d                 c                   0
      d  XML_RELAXNG_ERR_MEMORY...
@@ -138,7 +141,8 @@
       * List of possible Relax NG Parser flags
 
      d xmlRelaxNGParserFlag...
-     d                 s             10i 0 based(######typedef######)           enum
+     d                 s                   based(######typedef######)
+     d                                     like(xmlCenum)
      d  XML_RELAXNGP_NONE...
      d                 c                   0
      d  XML_RELAXNGP_FREE_DOC...
@@ -147,7 +151,8 @@
      d                 c                   2
 
      d xmlRelaxNGInitTypes...
-     d                 pr            10i 0 extproc('xmlRelaxNGInitTypes')
+     d                 pr                  extproc('xmlRelaxNGInitTypes')
+     d                                     like(xmlCint)
 
      d xmlRelaxNGCleanupTypes...
      d                 pr                  extproc('xmlRelaxNGCleanupTypes')
@@ -164,7 +169,7 @@
      d                 pr                  extproc('xmlRelaxNGNewMemParserCtxt')
      d                                     like(xmlRelaxNGParserCtxtPtr)
      d  buffer                         *   value options(*string)               const char *
-     d  size                         10i 0 value
+     d  size                               value like(xmlCint)
 
      d xmlRelaxNGNewDocParserCtxt...
      d                 pr                  extproc('xmlRelaxNGNewDocParserCtxt')
@@ -172,9 +177,10 @@
      d  doc                                value like(xmlDocPtr)
 
      d xmlRelaxParserSetFlag...
-     d                 pr            10i 0 extproc('xmlRelaxParserSetFlag')
+     d                 pr                  extproc('xmlRelaxParserSetFlag')
+     d                                     like(xmlCint)
      d  ctxt                               value like(xmlRelaxNGParserCtxtPtr)
-     d  flag                         10i 0 value
+     d  flag                               value like(xmlCint)
 
      d xmlRelaxNGFreeParserCtxt...
      d                 pr                  extproc('xmlRelaxNGFreeParserCtxt')
@@ -190,7 +196,8 @@
      d  ctx                            *   value                                void *
 
      d xmlRelaxNGGetParserErrors...
-     d                 pr            10i 0 extproc('xmlRelaxNGGetParserErrors')
+     d                 pr                  extproc('xmlRelaxNGGetParserErrors')
+     d                                     like(xmlCint)
      d  ctxt                               value like(xmlRelaxNGParserCtxtPtr)
      d  err                                like(xmlRelaxNGValidityErrorFunc)
      d  warn                               like(xmlRelaxNGValidityWarningFunc)
@@ -236,7 +243,8 @@
      d  ctx                            *   value                                void *
 
      d xmlRelaxNGGetValidErrors...
-     d                 pr            10i 0 extproc('xmlRelaxNGGetValidErrors')
+     d                 pr                  extproc('xmlRelaxNGGetValidErrors')
+     d                                     like(xmlCint)
      d  ctxt                               value like(xmlRelaxNGValidCtxtPtr)
      d  err                                like(xmlRelaxNGValidityErrorFunc)
      d  warn                               like(xmlRelaxNGValidityWarningFunc)
@@ -259,36 +267,41 @@
      d  ctxt                               value like(xmlRelaxNGValidCtxtPtr)
 
      d xmlRelaxNGValidateDoc...
-     d                 pr            10i 0 extproc('xmlRelaxNGValidateDoc')
+     d                 pr                  extproc('xmlRelaxNGValidateDoc')
+     d                                     like(xmlCint)
      d  ctxt                               value like(xmlRelaxNGValidCtxtPtr)
      d  doc                                value like(xmlDocPtr)
 
       * Interfaces for progressive validation when possible
 
      d xmlRelaxNGValidatePushElement...
-     d                 pr            10i 0 extproc(
+     d                 pr                  extproc(
      d                                     'xmlRelaxNGValidatePushElement')
+     d                                     like(xmlCint)
      d  ctxt                               value like(xmlRelaxNGValidCtxtPtr)
      d  doc                                value like(xmlDocPtr)
      d  elem                               value like(xmlNodePtr)
 
      d xmlRelaxNGValidatePushCData...
-     d                 pr            10i 0 extproc(
+     d                 pr                  extproc(
      d                                     'xmlRelaxNGValidatePushCData')
+     d                                     like(xmlCint)
      d  ctxt                               value like(xmlRelaxNGValidCtxtPtr)
      d  data                           *   value options(*string)               const xmlChar *
-     d  len                          10i 0 value
+     d  len                                value like(xmlCint)
 
      d xmlRelaxNGValidatePopElement...
-     d                 pr            10i 0 extproc(
+     d                 pr                  extproc(
      d                                     'xmlRelaxNGValidatePopElement')
+     d                                     like(xmlCint)
      d  ctxt                               value like(xmlRelaxNGValidCtxtPtr)
      d  doc                                value like(xmlDocPtr)
      d  elem                               value like(xmlNodePtr)
 
      d xmlRelaxNGValidateFullElement...
-     d                 pr            10i 0 extproc(
+     d                 pr                  extproc(
      d                                     'xmlRelaxNGValidateFullElement')
+     d                                     like(xmlCint)
      d  ctxt                               value like(xmlRelaxNGValidCtxtPtr)
      d  doc                                value like(xmlDocPtr)
      d  elem                               value like(xmlNodePtr)

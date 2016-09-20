@@ -27,6 +27,7 @@
 #include "JSDataViewPrototype.h"
 
 #include "Error.h"
+#include "JSArrayBuffer.h"
 #include "JSDataView.h"
 #include "Lookup.h"
 #include "JSCInlines.h"
@@ -38,22 +39,25 @@ namespace JSC {
 
 /* Source for JSDataViewPrototype.lut.h
 @begin dataViewTable
-  getInt8               dataViewProtoFuncGetInt8             DontEnum|Function       0
-  getUint8              dataViewProtoFuncGetUint8            DontEnum|Function       0
-  getInt16              dataViewProtoFuncGetInt16            DontEnum|Function       0
-  getUint16             dataViewProtoFuncGetUint16           DontEnum|Function       0
-  getInt32              dataViewProtoFuncGetInt32            DontEnum|Function       0
-  getUint32             dataViewProtoFuncGetUint32           DontEnum|Function       0
-  getFloat32            dataViewProtoFuncGetFloat32          DontEnum|Function       0
-  getFloat64            dataViewProtoFuncGetFloat64          DontEnum|Function       0
-  setInt8               dataViewProtoFuncSetInt8             DontEnum|Function       0
-  setUint8              dataViewProtoFuncSetUint8            DontEnum|Function       0
-  setInt16              dataViewProtoFuncSetInt16            DontEnum|Function       0
-  setUint16             dataViewProtoFuncSetUint16           DontEnum|Function       0
-  setInt32              dataViewProtoFuncSetInt32            DontEnum|Function       0
-  setUint32             dataViewProtoFuncSetUint32           DontEnum|Function       0
-  setFloat32            dataViewProtoFuncSetFloat32          DontEnum|Function       0
-  setFloat64            dataViewProtoFuncSetFloat64          DontEnum|Function       0
+  getInt8               dataViewProtoFuncGetInt8             DontEnum|Function       1
+  getUint8              dataViewProtoFuncGetUint8            DontEnum|Function       1
+  getInt16              dataViewProtoFuncGetInt16            DontEnum|Function       1
+  getUint16             dataViewProtoFuncGetUint16           DontEnum|Function       1
+  getInt32              dataViewProtoFuncGetInt32            DontEnum|Function       1
+  getUint32             dataViewProtoFuncGetUint32           DontEnum|Function       1
+  getFloat32            dataViewProtoFuncGetFloat32          DontEnum|Function       1
+  getFloat64            dataViewProtoFuncGetFloat64          DontEnum|Function       1
+  setInt8               dataViewProtoFuncSetInt8             DontEnum|Function       2
+  setUint8              dataViewProtoFuncSetUint8            DontEnum|Function       2
+  setInt16              dataViewProtoFuncSetInt16            DontEnum|Function       2
+  setUint16             dataViewProtoFuncSetUint16           DontEnum|Function       2
+  setInt32              dataViewProtoFuncSetInt32            DontEnum|Function       2
+  setUint32             dataViewProtoFuncSetUint32           DontEnum|Function       2
+  setFloat32            dataViewProtoFuncSetFloat32          DontEnum|Function       2
+  setFloat64            dataViewProtoFuncSetFloat64          DontEnum|Function       2
+  buffer                dataViewProtoGetterBuffer            DontEnum|Accessor       0
+  byteLength            dataViewProtoGetterByteLength        DontEnum|Accessor       0
+  byteOffset            dataViewProtoGetterByteOffset        DontEnum|Accessor       0
 @end
 */
 
@@ -73,6 +77,9 @@ EncodedJSValue JSC_HOST_CALL dataViewProtoFuncSetUint16(ExecState*);
 EncodedJSValue JSC_HOST_CALL dataViewProtoFuncSetUint32(ExecState*);
 EncodedJSValue JSC_HOST_CALL dataViewProtoFuncSetFloat32(ExecState*);
 EncodedJSValue JSC_HOST_CALL dataViewProtoFuncSetFloat64(ExecState*);
+EncodedJSValue JSC_HOST_CALL dataViewProtoGetterBuffer(ExecState*);
+EncodedJSValue JSC_HOST_CALL dataViewProtoGetterByteLength(ExecState*);
+EncodedJSValue JSC_HOST_CALL dataViewProtoGetterByteOffset(ExecState*);
 
 }
 
@@ -99,6 +106,12 @@ JSDataViewPrototype* JSDataViewPrototype::create(VM& vm, Structure* structure)
     return prototype;
 }
 
+void JSDataViewPrototype::finishCreation(JSC::VM& vm)
+{
+    Base::finishCreation(vm);
+    putDirectWithoutTransition(vm, vm.propertyNames->toStringTagSymbol, jsString(&vm, "DataView"), DontEnum | ReadOnly);
+}
+
 Structure* JSDataViewPrototype::createStructure(
     VM& vm, JSGlobalObject* globalObject, JSValue prototype)
 {
@@ -106,23 +119,15 @@ Structure* JSDataViewPrototype::createStructure(
         vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info());
 }
 
-bool JSDataViewPrototype::getOwnPropertySlot(
-    JSObject* object, ExecState* exec, PropertyName propertyName, PropertySlot& slot)
-{
-    return getStaticFunctionSlot<JSObject>(
-        exec, dataViewTable, jsCast<JSDataViewPrototype*>(object),
-        propertyName, slot);
-}
-
 template<typename Adaptor>
-EncodedJSValue ATTR_USED getData(ExecState* exec)
+EncodedJSValue getData(ExecState* exec)
 {
     JSDataView* dataView = jsDynamicCast<JSDataView*>(exec->thisValue());
     if (!dataView)
-        return throwVMError(exec, createTypeError(exec, ASCIILiteral("Receiver of DataView method must be a DataView")));
+        return throwVMTypeError(exec, ASCIILiteral("Receiver of DataView method must be a DataView"));
     
     if (!exec->argumentCount())
-        return throwVMError(exec, createTypeError(exec, ASCIILiteral("Need at least one argument (the byteOffset)")));
+        return throwVMTypeError(exec, ASCIILiteral("Need at least one argument (the byteOffset)"));
     
     unsigned byteOffset = exec->uncheckedArgument(0).toUInt32(exec);
     if (exec->hadException())
@@ -160,14 +165,14 @@ EncodedJSValue ATTR_USED getData(ExecState* exec)
 }
 
 template<typename Adaptor>
-EncodedJSValue ATTR_USED setData(ExecState* exec)
+EncodedJSValue setData(ExecState* exec)
 {
     JSDataView* dataView = jsDynamicCast<JSDataView*>(exec->thisValue());
     if (!dataView)
-        return throwVMError(exec, createTypeError(exec, ASCIILiteral("Receiver of DataView method must be a DataView")));
+        return throwVMTypeError(exec, ASCIILiteral("Receiver of DataView method must be a DataView"));
     
     if (exec->argumentCount() < 2)
-        return throwVMError(exec, createTypeError(exec, ASCIILiteral("Need at least two argument (the byteOffset and value)")));
+        return throwVMTypeError(exec, ASCIILiteral("Need at least two argument (the byteOffset and value)"));
     
     unsigned byteOffset = exec->uncheckedArgument(0).toUInt32(exec);
     if (exec->hadException())
@@ -212,6 +217,33 @@ EncodedJSValue ATTR_USED setData(ExecState* exec)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-prototypes"
 #endif
+
+EncodedJSValue JSC_HOST_CALL dataViewProtoGetterBuffer(ExecState* exec)
+{
+    JSDataView* view = jsDynamicCast<JSDataView*>(exec->thisValue());
+    if (!view)
+        return throwVMTypeError(exec, "DataView.prototype.buffer expects |this| to be a DataView object");
+
+    return JSValue::encode(view->jsBuffer(exec));
+}
+
+EncodedJSValue JSC_HOST_CALL dataViewProtoGetterByteLength(ExecState* exec)
+{
+    JSDataView* view = jsDynamicCast<JSDataView*>(exec->thisValue());
+    if (!view)
+        return throwVMTypeError(exec, "DataView.prototype.buffer expects |this| to be a DataView object");
+
+    return JSValue::encode(jsNumber(view->length()));
+}
+
+EncodedJSValue JSC_HOST_CALL dataViewProtoGetterByteOffset(ExecState* exec)
+{
+    JSDataView* view = jsDynamicCast<JSDataView*>(exec->thisValue());
+    if (!view)
+        return throwVMTypeError(exec, "DataView.prototype.buffer expects |this| to be a DataView object");
+
+    return JSValue::encode(jsNumber(view->byteOffset()));
+}
 
 EncodedJSValue JSC_HOST_CALL dataViewProtoFuncGetInt8(ExecState* exec)
 {

@@ -156,7 +156,7 @@ void ThresholdAclSubject::exportBlob(Writer &pub, Writer &priv)
 
 void ThresholdAclSubject::add(AclSubject *subject, unsigned beforePosition)
 {
-	secdebug("threshacl", "adding subject %p before position %u",
+	secinfo("threshacl", "adding subject %p before position %u",
 		subject, beforePosition);
 	elements.insert(elements.begin() + beforePosition, subject);
 	totalSubjects++;

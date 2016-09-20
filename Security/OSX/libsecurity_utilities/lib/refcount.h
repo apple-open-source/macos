@@ -49,14 +49,15 @@ namespace Security {
 // way to "demand copy" a RefCount subclass. Trust me; it's been tried. Don't.
 //
 
-#if !defined(DEBUG_REFCOUNTS)
-# define DEBUG_REFCOUNTS 1
-#endif
+// Uncomment to debug refcounts
+//# define DEBUG_REFCOUNTS 1
 
 #if DEBUG_REFCOUNTS
-# define RCDEBUG(_kind, _args...)	SECURITY_DEBUG_REFCOUNT_##_kind((void *)this, ##_args)
+# define RCDEBUG_CREATE()   secinfo("refcount", "%p: CREATE", this)
+# define RCDEBUG(_kind, n)  secinfo("refcount", "%p: %s: %d", this, #_kind, n)
 #else
-# define RCDEBUG(kind)	/* nothing */
+# define RCDEBUG_CREATE()         /* nothing */
+# define RCDEBUG(kind, _args...)  /* nothing */
 #endif
 
 
@@ -65,7 +66,7 @@ namespace Security {
 //
 class RefCount {	
 public:
-	RefCount() : mRefCount(0) { RCDEBUG(CREATE); }
+	RefCount() : mRefCount(0) { RCDEBUG_CREATE(); }
 
 protected:
 	template <class T> friend class RefPointer;

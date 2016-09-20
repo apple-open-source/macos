@@ -72,14 +72,17 @@ enum {
 };
 typedef uint32_t BKSProcessAssertionReason;
 
+typedef void (^BKSProcessAssertionInvalidationHandler)(void);
 typedef void (^BKSProcessAssertionAcquisitionHandler)(BOOL acquired);
 
 @interface BKSProcessAssertion : NSObject
 @end
 
-@interface BKSProcessAssertion (Details)
+@interface BKSProcessAssertion ()
 @property (nonatomic, assign) BKSProcessAssertionFlags flags;
 - (id)initWithPID:(pid_t)pid flags:(BKSProcessAssertionFlags)flags reason:(BKSProcessAssertionReason)reason name:(NSString *)name withHandler:(BKSProcessAssertionAcquisitionHandler)handler;
+
+@property (nonatomic, copy) BKSProcessAssertionInvalidationHandler invalidationHandler;
 - (void)invalidate;
 @end
 

@@ -43,13 +43,13 @@ namespace WebCore {
 
 typedef HashMap<String, String> KeyValueMap;
 
-static KeyValueMap retrieveKeyValuePairs(WebCore::SharedBufferChunkReader* buffer)
+static KeyValueMap retrieveKeyValuePairs(WebCore::SharedBufferChunkReader& buffer)
 {
     KeyValueMap keyValuePairs;
     String line;
     String key;
     StringBuilder value;
-    while (!(line = buffer->nextChunkAsUTF8StringWithLatin1Fallback()).isNull()) {
+    while (!(line = buffer.nextChunkAsUTF8StringWithLatin1Fallback()).isNull()) {
         if (line.isEmpty())
             break; // Empty line means end of key/value section.
         if (line[0] == '\t') {
@@ -70,7 +70,7 @@ static KeyValueMap retrieveKeyValuePairs(WebCore::SharedBufferChunkReader* buffe
             // This is not a key value pair, ignore.
             continue;
         }
-        key = line.substring(0, semiColonIndex).lower().stripWhiteSpace();
+        key = line.substring(0, semiColonIndex).convertToASCIILowercase().stripWhiteSpace();
         value.append(line.substring(semiColonIndex + 1));
     }
     // Store the last property if there is one.
@@ -79,9 +79,9 @@ static KeyValueMap retrieveKeyValuePairs(WebCore::SharedBufferChunkReader* buffe
     return keyValuePairs;
 }
 
-PassRefPtr<MIMEHeader> MIMEHeader::parseHeader(SharedBufferChunkReader* buffer)
+RefPtr<MIMEHeader> MIMEHeader::parseHeader(SharedBufferChunkReader& buffer)
 {
-    RefPtr<MIMEHeader> mimeHeader = adoptRef(new MIMEHeader);
+    auto mimeHeader = adoptRef(*new MIMEHeader);
     KeyValueMap keyValuePairs = retrieveKeyValuePairs(buffer);
     KeyValueMap::iterator mimeParametersIterator = keyValuePairs.find("content-type");
     if (mimeParametersIterator != keyValuePairs.end()) {
@@ -94,7 +94,7 @@ PassRefPtr<MIMEHeader> MIMEHeader::parseHeader(SharedBufferChunkReader* buffer)
             mimeHeader->m_endOfPartBoundary = parsedContentType.parameterValueForName("boundary");
             if (mimeHeader->m_endOfPartBoundary.isNull()) {
                 LOG_ERROR("No boundary found in multipart MIME header.");
-                return 0;
+                return nullptr;
             }
             mimeHeader->m_endOfPartBoundary = "--" + mimeHeader->m_endOfPartBoundary;
             mimeHeader->m_endOfDocumentBoundary = mimeHeader->m_endOfPartBoundary + "--";
@@ -109,19 +109,19 @@ PassRefPtr<MIMEHeader> MIMEHeader::parseHeader(SharedBufferChunkReader* buffer)
     if (mimeParametersIterator != keyValuePairs.end())
         mimeHeader->m_contentLocation = mimeParametersIterator->value;
 
-    return mimeHeader.release();
+    return WTFMove(mimeHeader);
 }
 
 MIMEHeader::Encoding MIMEHeader::parseContentTransferEncoding(const String& text)
 {
-    String encoding = text.stripWhiteSpace().lower();
-    if (encoding == "base64")
+    String encoding = text.stripWhiteSpace();
+    if (equalLettersIgnoringASCIICase(encoding, "base64"))
         return Base64;
-    if (encoding == "quoted-printable")
+    if (equalLettersIgnoringASCIICase(encoding, "quoted-printable"))
         return QuotedPrintable;
-    if (encoding == "7bit")
+    if (equalLettersIgnoringASCIICase(encoding, "7bit"))
         return SevenBit;
-    if (encoding == "binary")
+    if (equalLettersIgnoringASCIICase(encoding, "binary"))
         return Binary;
     LOG_ERROR("Unknown encoding '%s' found in MIME header.", text.ascii().data());
     return Unknown;

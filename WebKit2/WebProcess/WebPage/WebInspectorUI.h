@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,21 +26,22 @@
 #ifndef WebInspectorUI_h
 #define WebInspectorUI_h
 
-#include "APIObject.h"
 #include "Connection.h"
-#include <WebCore/InspectorForwarding.h>
+#include "WebInspectorFrontendAPIDispatcher.h"
 #include <WebCore/InspectorFrontendClient.h>
 #include <WebCore/InspectorFrontendHost.h>
+
+namespace WebCore {
+class InspectorController;
+}
 
 namespace WebKit {
 
 class WebPage;
 
-class WebInspectorUI : public API::ObjectImpl<API::Object::Type::BundleInspectorUI>, public IPC::Connection::Client, public WebCore::InspectorFrontendClient {
+class WebInspectorUI : public RefCounted<WebInspectorUI>, public IPC::Connection::Client, public WebCore::InspectorFrontendClient {
 public:
-    static Ref<WebInspectorUI> create(WebPage*);
-
-    WebPage* page() const { return m_page; }
+    static Ref<WebInspectorUI> create(WebPage&);
 
     // Implemented in generated WebInspectorUIMessageReceiver.cpp
     void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
@@ -48,19 +49,23 @@ public:
     // IPC::Connection::Client
     void didClose(IPC::Connection&) override { closeWindow(); }
     void didReceiveInvalidMessage(IPC::Connection&, IPC::StringReference, IPC::StringReference) override { closeWindow(); }
-    virtual IPC::ProcessType localProcessType() override { return IPC::ProcessType::Web; }
-    virtual IPC::ProcessType remoteProcessType() override { return IPC::ProcessType::Web; }
+    IPC::ProcessType localProcessType() override { return IPC::ProcessType::Web; }
+    IPC::ProcessType remoteProcessType() override { return IPC::ProcessType::Web; }
 
     // Called by WebInspectorUI messages
-    void establishConnection(IPC::Attachment connectionIdentifier, uint64_t inspectedPageIdentifier, bool underTest);
+    void establishConnection(IPC::Attachment connectionIdentifier, uint64_t inspectedPageIdentifier, bool underTest, unsigned inspectionLevel);
 
     void showConsole();
     void showResources();
+    void showTimelines();
 
     void showMainResourceForFrame(const String& frameIdentifier);
 
     void startPageProfiling();
     void stopPageProfiling();
+
+    void startElementSelection();
+    void stopElementSelection();
 
     void attachedBottom() { setDockSide(DockSide::Bottom); }
     void attachedRight() { setDockSide(DockSide::Right); }
@@ -68,6 +73,8 @@ public:
 
     void setDockSide(DockSide);
     void setDockingUnavailable(bool);
+
+    void setIsVisible(bool);
 
     void didSave(const String& url);
     void didAppend(const String& url);
@@ -90,8 +97,6 @@ public:
     void changeAttachedWindowHeight(unsigned) override;
     void changeAttachedWindowWidth(unsigned) override;
 
-    void setToolbarHeight(unsigned) override;
-
     void openInNewTab(const String& url) override;
 
     bool canSave() override;
@@ -102,33 +107,34 @@ public:
 
     void sendMessageToBackend(const String&) override;
 
+    void pagePaused() override;
+    void pageUnpaused() override;
+
     bool isUnderTest() override { return m_underTest; }
+    unsigned inspectionLevel() const override { return m_inspectionLevel; }
 
 private:
-    explicit WebInspectorUI(WebPage*);
+    explicit WebInspectorUI(WebPage&);
 
-    void evaluateCommandOnLoad(const String& command, const String& argument = String());
-    void evaluateCommandOnLoad(const String& command, const ASCIILiteral& argument) { evaluateCommandOnLoad(command, String(argument)); }
-    void evaluateCommandOnLoad(const String& command, bool argument);
-    void evaluateExpressionOnLoad(const String& expression);
-    void evaluatePendingExpressions();
-
-    WebPage* m_page;
-
-    RefPtr<IPC::Connection> m_backendConnection;
-    uint64_t m_inspectedPageIdentifier;
-
-    bool m_underTest;
-    bool m_frontendLoaded;
-    Deque<String> m_queue;
-
+    WebPage& m_page;
+    WebInspectorFrontendAPIDispatcher m_frontendAPIDispatcher;
     RefPtr<WebCore::InspectorFrontendHost> m_frontendHost;
+    RefPtr<IPC::Connection> m_backendConnection;
 
-    DockSide m_dockSide;
+    // Keep a pointer to the frontend's inspector controller rather than going through
+    // corePage(), since we may need it after the frontend's page has started destruction.
+    WebCore::InspectorController* m_frontendController { nullptr };
+
+    uint64_t m_inspectedPageIdentifier { 0 };
+    bool m_underTest { false };
+    bool m_dockingUnavailable { false };
+    bool m_isVisible { false };
+    DockSide m_dockSide { DockSide::Undocked };
+    unsigned m_inspectionLevel { 1 };
 
 #if PLATFORM(COCOA)
     mutable String m_localizedStringsURL;
-    mutable bool m_hasLocalizedStringsURL;
+    mutable bool m_hasLocalizedStringsURL { false };
 #endif
 };
 

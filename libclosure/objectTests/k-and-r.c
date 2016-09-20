@@ -4,8 +4,8 @@
  * @APPLE_LLVM_LICENSE_HEADER@
  */
 
-// gcc does not emit this error
-// TEST_CONFIG CC=clang RUN=0
+// TEST_CONFIG RUN=0
+
 
 /*
 TEST_BUILD_OUTPUT

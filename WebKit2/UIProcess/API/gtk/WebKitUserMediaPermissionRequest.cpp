@@ -36,6 +36,9 @@ using namespace WebKit;
  * permission to decide whether WebKit should be allowed to access the user's
  * audio and video source devices when requested throught the getUserMedia API.
  *
+ * When a WebKitUserMediaPermissionRequest is not handled by the user,
+ * it is denied by default.
+ *
  * Since: 2.8
  */
 
@@ -67,7 +70,14 @@ static void webkitUserMediaPermissionRequestAllow(WebKitPermissionRequest* reque
         return;
 
     priv->madeDecision = true;
-    priv->request->allow();
+
+    auto videoDeviceUIDs = priv->request->videoDeviceUIDs();
+    auto audioDeviceUIDs = priv->request->audioDeviceUIDs();
+
+    auto videoDevice = !videoDeviceUIDs.isEmpty() ? videoDeviceUIDs[0] : emptyString();
+    auto audioDevice = !audioDeviceUIDs.isEmpty() ? audioDeviceUIDs[0] : emptyString();
+    
+    priv->request->allow(audioDevice, videoDevice);
 }
 
 static void webkitUserMediaPermissionRequestDeny(WebKitPermissionRequest* request)
@@ -150,36 +160,37 @@ static void webkit_user_media_permission_request_class_init(WebKitUserMediaPermi
     /**
      * WebKitUserPermissionRequest:is-for-audio-device:
      *
-     * Wether the media device to which the permission was requested has a microphone or not.
+     * Whether the media device to which the permission was requested has a microphone or not.
      *
      * Since: 2.8
      */
     g_object_class_install_property(objectClass, PROP_IS_FOR_AUDIO_DEVICE,
         g_param_spec_boolean("is-for-audio-device", _("Is for audio device"),
-            _("Wether the media device to which the permission was requested has a microphone or not."),
+            _("Whether the media device to which the permission was requested has a microphone or not."),
             FALSE,
             WEBKIT_PARAM_READABLE));
 
     /**
      * WebKitUserPermissionRequest:is-for-video-device:
      *
-     * Wether the media device to which the permission was requested has a video capture capability or not.
+     * Whether the media device to which the permission was requested has a video capture capability or not.
      *
      * Since: 2.8
      */
     g_object_class_install_property(objectClass, PROP_IS_FOR_VIDEO_DEVICE,
         g_param_spec_boolean("is-for-video-device", _("Is for video device"),
-            _("Wether the media device to which the permission was requested has a video capture capability or not."),
+            _("Whether the media device to which the permission was requested has a video capture capability or not."),
             FALSE,
             WEBKIT_PARAM_READABLE));
 }
 
-WebKitUserMediaPermissionRequest* webkitUserMediaPermissionRequestCreate(UserMediaPermissionRequestProxy& request, API::SecurityOrigin& securityOrigin)
+WebKitUserMediaPermissionRequest* webkitUserMediaPermissionRequestCreate(UserMediaPermissionRequestProxy& request, API::SecurityOrigin& userMediaDocumentOrigin, API::SecurityOrigin& topLevelDocumentOrigin)
 {
     WebKitUserMediaPermissionRequest* usermediaPermissionRequest = WEBKIT_USER_MEDIA_PERMISSION_REQUEST(g_object_new(WEBKIT_TYPE_USER_MEDIA_PERMISSION_REQUEST, nullptr));
 
-    // FIXME: store SecurityOrigin
-    UNUSED_PARAM(securityOrigin);
+    // FIXME: store SecurityOrigins
+    UNUSED_PARAM(userMediaDocumentOrigin);
+    UNUSED_PARAM(topLevelDocumentOrigin);
 
     usermediaPermissionRequest->priv->request = &request;
     return usermediaPermissionRequest;

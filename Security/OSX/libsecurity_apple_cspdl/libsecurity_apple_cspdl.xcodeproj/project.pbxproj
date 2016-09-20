@@ -29,13 +29,6 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		182BB348146F10F6000BF1F3 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 184460D8146E7DF300B12992 /* libsecurity_cdsa_plugin.xcodeproj */;
-			proxyType = 1;
-			remoteGlobalIDString = C2C38A530535EDE600D7421F;
-			remoteInfo = libsecurity_cdsa_plugin_generate;
-		};
 		184460DD146E7DF300B12992 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 184460D8146E7DF300B12992 /* libsecurity_cdsa_plugin.xcodeproj */;
@@ -60,19 +53,19 @@
 		4C6AA9D10535FDA6006E3284 /* CSPDLDatabase.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CSPDLDatabase.h; sourceTree = "<group>"; };
 		4C6AA9D20535FDA6006E3284 /* CSPDLPlugin.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CSPDLPlugin.cpp; sourceTree = "<group>"; };
 		4C6AA9D30535FDA6006E3284 /* CSPDLPlugin.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CSPDLPlugin.h; sourceTree = "<group>"; };
-		4C6AA9D40535FDA6006E3284 /* SSContext.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SSContext.cpp; sourceTree = "<group>"; };
+		4C6AA9D40535FDA6006E3284 /* SSContext.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = SSContext.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		4C6AA9D50535FDA6006E3284 /* SSContext.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SSContext.h; sourceTree = "<group>"; };
-		4C6AA9D60535FDA6006E3284 /* SSCSPDLSession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SSCSPDLSession.cpp; sourceTree = "<group>"; };
+		4C6AA9D60535FDA6006E3284 /* SSCSPDLSession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = SSCSPDLSession.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		4C6AA9D70535FDA6006E3284 /* SSCSPDLSession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SSCSPDLSession.h; sourceTree = "<group>"; };
-		4C6AA9D80535FDA6006E3284 /* SSCSPSession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SSCSPSession.cpp; sourceTree = "<group>"; };
+		4C6AA9D80535FDA6006E3284 /* SSCSPSession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = SSCSPSession.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		4C6AA9D90535FDA6006E3284 /* SSCSPSession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SSCSPSession.h; sourceTree = "<group>"; };
-		4C6AA9DA0535FDA6006E3284 /* SSDatabase.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SSDatabase.cpp; sourceTree = "<group>"; };
+		4C6AA9DA0535FDA6006E3284 /* SSDatabase.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = SSDatabase.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		4C6AA9DB0535FDA6006E3284 /* SSDatabase.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SSDatabase.h; sourceTree = "<group>"; };
 		4C6AA9DC0535FDA6006E3284 /* SSDLSession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SSDLSession.cpp; sourceTree = "<group>"; };
 		4C6AA9DD0535FDA6006E3284 /* SSDLSession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SSDLSession.h; sourceTree = "<group>"; };
 		4C6AA9DE0535FDA6006E3284 /* SSFactory.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SSFactory.cpp; sourceTree = "<group>"; };
 		4C6AA9DF0535FDA6006E3284 /* SSFactory.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SSFactory.h; sourceTree = "<group>"; };
-		4C6AA9E00535FDA6006E3284 /* SSKey.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SSKey.cpp; sourceTree = "<group>"; };
+		4C6AA9E00535FDA6006E3284 /* SSKey.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = SSKey.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		4C6AA9E10535FDA6006E3284 /* SSKey.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SSKey.h; sourceTree = "<group>"; };
 		4CA1FEBE052A3C8100F22E42 /* libsecurity_apple_cspdl.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libsecurity_apple_cspdl.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		C2196B5C053B598C005808D4 /* AppleCSPDLBuiltin.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleCSPDLBuiltin.cpp; path = lib/AppleCSPDLBuiltin.cpp; sourceTree = "<group>"; };
@@ -199,7 +192,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				182BB349146F10F6000BF1F3 /* PBXTargetDependency */,
 			);
 			name = libsecurity_apple_cspdl;
 			productInstallPath = /usr/local/lib;
@@ -213,7 +205,7 @@
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0700;
+				LastUpgradeCheck = 0800;
 			};
 			buildConfigurationList = C27AD26A0987FCDC001272E0 /* Build configuration list for PBXProject "libsecurity_apple_cspdl" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -271,14 +263,6 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
-/* Begin PBXTargetDependency section */
-		182BB349146F10F6000BF1F3 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			name = libsecurity_cdsa_plugin_generate;
-			targetProxy = 182BB348146F10F6000BF1F3 /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
-
 /* Begin XCBuildConfiguration section */
 		C27AD2640987FCDC001272E0 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -308,6 +292,10 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 184460CD146E7B7B00B12992 /* debug.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = lossless;
+				ENABLE_TESTABILITY = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				ONLY_ACTIVE_ARCH = YES;
 			};
 			name = Debug;
 		};
@@ -315,6 +303,8 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 184460CF146E7B7B00B12992 /* release.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = "respect-asset-catalog";
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 			};
 			name = Release;
 		};

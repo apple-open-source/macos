@@ -27,15 +27,15 @@
 namespace WebCore {
 
 SharedBuffer::SharedBuffer(SoupBuffer* soupBuffer)
-    : m_buffer(adoptRef(new DataBuffer))
+    : m_buffer(*new DataBuffer)
     , m_soupBuffer(soupBuffer)
 {
     ASSERT(soupBuffer);
 }
 
-PassRefPtr<SharedBuffer> SharedBuffer::wrapSoupBuffer(SoupBuffer* soupBuffer)
+Ref<SharedBuffer> SharedBuffer::wrapSoupBuffer(SoupBuffer* soupBuffer)
 {
-    return adoptRef(new SharedBuffer(soupBuffer));
+    return adoptRef(*new SharedBuffer(soupBuffer));
 }
 
 void SharedBuffer::clearPlatformData()
@@ -73,19 +73,20 @@ unsigned SharedBuffer::platformDataSize() const
     return m_soupBuffer->length;
 }
 
-bool SharedBuffer::maybeAppendPlatformData(SharedBuffer*)
+bool SharedBuffer::maybeAppendPlatformData(SharedBuffer&)
 {
     return false;
 }
 
-void SharedBuffer::tryReplaceContentsWithPlatformBuffer(SharedBuffer& newContents)
+bool SharedBuffer::tryReplaceContentsWithPlatformBuffer(SharedBuffer& newContents)
 {
     if (!newContents.hasPlatformData())
-        return;
+        return false;
 
     clear();
     // FIXME: Use GRefPtr instead of GUniquePtr for the SoupBuffer.
     m_soupBuffer.swap(newContents.m_soupBuffer);
+    return true;
 }
 
 } // namespace WebCore

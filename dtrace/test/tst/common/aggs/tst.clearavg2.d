@@ -40,23 +40,23 @@
  */
 
 #pragma D option quiet
-#pragma D option switchrate=50ms
+#pragma D option switchrate=5ms
 #pragma D option aggrate=1ms
 
-tick-100ms
+tick-10ms
 /(x++ % 5) == 0/
 {
 	@time = avg(0);
 }
 
-tick-100ms
+tick-10ms
 /x <= 20/
 {
 	printa(" %@d\n", @time);
 	clear(@time);
 }
 
-tick-100ms
+tick-10ms
 /x > 20/
 {
 	exit(0);

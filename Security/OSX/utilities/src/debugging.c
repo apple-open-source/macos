@@ -45,27 +45,8 @@
 #include <os/log_private.h>
 #include <sqlite3.h>
 
-const uint8_t _os_trace_type_map[8] = {
-    OS_TRACE_TYPE_FAULT,     // ASL_LEVEL_EMERG
-    OS_TRACE_TYPE_FAULT,     // ASL_LEVEL_ALERT
-    OS_TRACE_TYPE_FAULT,     // ASL_LEVEL_CRIT
-    OS_TRACE_TYPE_ERROR,     // ASL_LEVEL_ERR
-    OS_TRACE_TYPE_RELEASE,   // ASL_LEVEL_WARNING
-    OS_TRACE_TYPE_RELEASE,   // ASL_LEVEL_NOTICE
-    OS_TRACE_TYPE_RELEASE,   // ASL_LEVEL_INFO
-    OS_TRACE_TYPE_DEBUG      // ASL_LEVEL_DEBUG
-};
+const char *api_trace = "api_trace";
 
-const char *_asl_string_map[8] = {
-    ASL_STRING_EMERG,     // ASL_LEVEL_EMERG
-    ASL_STRING_ALERT,     // ASL_LEVEL_ALERT
-    ASL_STRING_CRIT,      // ASL_LEVEL_CRIT
-    ASL_STRING_ERR,       // ASL_LEVEL_ERR
-    ASL_STRING_WARNING,   // ASL_LEVEL_WARNING
-    ASL_STRING_NOTICE,    // ASL_LEVEL_NOTICE
-    ASL_STRING_INFO,      // ASL_LEVEL_INFO
-    ASL_STRING_DEBUG      // ASL_LEVEL_DEBUG
-};
 
 const CFStringRef kStringNegate = CFSTR("-");
 const CFStringRef kStringAll = CFSTR("all");
@@ -139,12 +120,6 @@ bool IsScopeActiveC(int level, const char *scope)
     return isActive;
 }
 
-
-
-static CFStringRef copyScopeName(const char *scope, CFIndex scopeLen) {
-	return CFStringCreateWithBytes(kCFAllocatorDefault, (const UInt8 *)scope,
-		scopeLen, kCFStringEncodingUTF8, false);
-}
 
 static CFMutableSetRef CopyScopesFromScopeList(CFStringRef scopes) {
     CFMutableSetRef resultSet = CFSetCreateMutableForCFTypes(kCFAllocatorDefault);
@@ -220,21 +195,21 @@ static void SetNthScopeSet(int nth, CFTypeRef collection)
 
 static int string_to_log_level(CFStringRef string) {
     if (CFEqual(string, CFSTR(ASL_STRING_EMERG)))
-        return ASL_LEVEL_EMERG;
+        return SECLOG_LEVEL_EMERG;
     else if (CFEqual(string, CFSTR(ASL_STRING_ALERT)))
-        return ASL_LEVEL_ALERT;
+        return SECLOG_LEVEL_ALERT;
     else if (CFEqual(string, CFSTR(ASL_STRING_CRIT)))
-        return ASL_LEVEL_CRIT;
+        return SECLOG_LEVEL_CRIT;
     else if (CFEqual(string, CFSTR(ASL_STRING_ERR)))
-        return ASL_LEVEL_ERR;
+        return SECLOG_LEVEL_ERR;
     else if (CFEqual(string, CFSTR(ASL_STRING_WARNING)))
-        return ASL_LEVEL_WARNING;
+        return SECLOG_LEVEL_WARNING;
     else if (CFEqual(string, CFSTR(ASL_STRING_NOTICE)))
-        return ASL_LEVEL_NOTICE;
+        return SECLOG_LEVEL_NOTICE;
     else if (CFEqual(string, CFSTR(ASL_STRING_INFO)))
-        return ASL_LEVEL_INFO;
+        return SECLOG_LEVEL_INFO;
     else if (CFEqual(string, CFSTR(ASL_STRING_DEBUG)))
-        return ASL_LEVEL_DEBUG;
+        return SECLOG_LEVEL_DEBUG;
     else
         return -1;
 }
@@ -339,8 +314,6 @@ void ApplyScopeListForIDC(const char *scopeList, SecDebugScopeID whichID) {
 
 #pragma mark - Log Handlers to catch log information
 
-static CFMutableArrayRef sSecurityLogHandlers;
-
 
 /*
  * Instead of using CFPropertyListReadFromFile we use a
@@ -414,17 +387,6 @@ static void setup_environment_scopes() {
     ApplyScopeListForIDC(cur_scope, kScopeIDEnvironment);
 }
 
-#define XPCSCOPESTRWANT "api,account,accountChange,circle,circleChange,circleCreat,flush,fresh,keygen,signing,talkwithkvs,syncbubble"
-#define XPCSCOPESTRDONTWANT "-event,http,item,keytrace,lockassertions,otr_keysetup,securityd,server,serverxpc,session,sync,titc,transport,trust,updates,xpc"
-static void setup_xpcdefault_scopes() {
-    
-    CFDictionaryRef noticeLogging = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
-                        CFSTR(ASL_STRING_NOTICE), CFSTR(XPCSCOPESTRDONTWANT), NULL);
-    
-    ApplyScopeDictionaryForID(noticeLogging, kScopeIDXPC);
-    
-    CFReleaseNull(noticeLogging);
-}
 
 void __security_debug_init(void) {
     static dispatch_once_t sdOnceToken;
@@ -433,186 +395,146 @@ void __security_debug_init(void) {
         setup_environment_scopes();
         setup_config_settings();
         setup_defaults_settings();
-        //setup_xpcdefault_scopes();
         setup_circle_defaults_settings();
     });
 }
 
-// MARK: Log handler recording (e.g. grabbing security logging and sending it to test results).
-static void clean_aslclient(void *client)
-{
-    asl_close(client);
-}
 
-static aslclient get_aslclient()
-{
-    static dispatch_once_t once;
-    static pthread_key_t asl_client_key;
-    dispatch_once(&once, ^{
-        pthread_key_create(&asl_client_key, clean_aslclient);
-    });
-    aslclient client = pthread_getspecific(asl_client_key);
-    if (!client) {
-        client = asl_open(NULL, "SecLogging", 0);
-        asl_set_filter(client, ASL_FILTER_MASK_UPTO(ASL_LEVEL_DEBUG));
-        pthread_setspecific(asl_client_key, client);
+
+
+static char *copyScopeStr(CFStringRef scope, char *alternative) {
+    char *scopeStr = NULL;
+    if(scope) {
+        scopeStr = CFStringToCString(scope);
+    } else {
+        scopeStr = strdup("noScope");
     }
-
-    return client;
+    return scopeStr;
 }
 
-static CFMutableArrayRef get_log_handlers()
-{
-    static dispatch_once_t handlers_once;
+static os_log_t logObjForCFScope(CFStringRef scope) {
+    static dispatch_once_t onceToken = 0;
+    __block os_log_t retval = OS_LOG_DISABLED;
+    static dispatch_queue_t logObjectQueue = NULL;
+    static CFMutableDictionaryRef scopeMap = NULL;
     
-    dispatch_once(&handlers_once, ^{
-        sSecurityLogHandlers = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
+    if(scope == NULL) scope = CFSTR("logging");
+    
+    dispatch_once(&onceToken, ^{
+        logObjectQueue = dispatch_queue_create("logObjectQueue", DISPATCH_QUEUE_SERIAL);
+        scopeMap = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFCopyStringDictionaryKeyCallBacks, NULL);
+    });
+
+    dispatch_sync(logObjectQueue, ^{
+        retval = (os_log_t) CFDictionaryGetValue(scopeMap, scope);
+        if (retval) return;
         
-        CFArrayAppendValue(sSecurityLogHandlers, ^(int level, CFStringRef scope, const char *function,
-                                                   const char *file, int line, CFStringRef message){
-            CFStringRef logStr = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%@ %s %@\n"), scope ? scope : CFSTR(""), function, message);
-            CFStringPerformWithCString(logStr, ^(const char *logMsg) {
-                aslmsg msg = asl_new(ASL_TYPE_MSG);
-                if (scope) {
-                    CFStringPerformWithCString(scope, ^(const char *scopeStr) {
-                        asl_set(msg, ASL_KEY_FACILITY, scopeStr);
-                    });
-                }
-                asl_log(get_aslclient(), msg, level, "%s", logMsg);
-                asl_free(msg);
-            });
-            CFReleaseSafe(logStr);
+        CFStringPerformWithCString(scope, ^(const char *scopeStr) {
+            CFDictionaryAddValue(scopeMap, scope, os_log_create("com.apple.securityd", scopeStr));
         });
+        retval = (os_log_t) CFDictionaryGetValue(scopeMap, scope);
     });
     
-    return sSecurityLogHandlers;
+    return retval;
 }
 
-static void log_api_trace_v(const char *api, const char *caller_info, CFStringRef format, va_list args)
-{
-    aslmsg msg = asl_new(ASL_TYPE_MSG);
-    asl_set(msg, ASL_KEY_LEVEL, ASL_STRING_DEBUG);
-    CFStringPerformWithCString(kAPIScope, ^(const char *scopeStr) {
-        asl_set(msg, ASL_KEY_FACILITY, scopeStr);
-    });
-    asl_set(msg, "SecAPITrace", api);
-    asl_set(msg, caller_info ? "ENTER" : "RETURN", "");
+static bool loggingEnabled = true;
 
+bool secLogEnabled(void) {
+    return loggingEnabled;
+}
+void secLogDisable(void) {
+    loggingEnabled = false;
+}
+
+void secLogEnable(void) {
+    loggingEnabled = true;
+}
+
+
+os_log_t logObjForScope(const char *scope) {
+    if (!loggingEnabled)
+        return OS_LOG_DISABLED;
+    CFStringRef cfscope = NULL;
+    if(scope) cfscope =  CFStringCreateWithCString(kCFAllocatorDefault, scope, kCFStringEncodingASCII);
+    os_log_t retval = logObjForCFScope(cfscope);
+    CFReleaseNull(cfscope);
+    return retval;
+}
+
+
+
+CFStringRef SecLogAPICreate(bool apiIn, const char *api, CFStringRef format, ... ) {
+    CFMutableStringRef outStr = CFStringCreateMutable(kCFAllocatorDefault, 0);
+
+    char *direction = apiIn ? "ENTER" : "RETURN";
+    va_list args;
+    va_start(args, format);
+
+    CFStringAppend(outStr, CFSTR("SecAPITrace "));
+    CFStringAppendCString(outStr, api, kCFStringEncodingASCII);
+    CFStringAppendCString(outStr, direction, kCFStringEncodingASCII);
+    
     if (format) {
         CFStringRef message = CFStringCreateWithFormatAndArguments(kCFAllocatorDefault, NULL, format, args);
-        CFStringPerformWithCString(message, ^(const char *utf8Str) {
-            asl_set(msg, ASL_KEY_MSG, utf8Str);
-        });
+        CFStringAppend(outStr, message);
         CFReleaseSafe(message);
     }
-
-    if (caller_info) {
-        asl_set(msg, "CALLER", caller_info);
-    }
-
-    asl_send(get_aslclient(), msg);
-    asl_free(msg);
-}
-
-void __security_trace_enter_api(const char *api, CFStringRef format, ...)
-{
-    if (!IsScopeActive(ASL_LEVEL_DEBUG, kAPIScope))
-        return;
-
-	va_list args;
-	va_start(args, format);
-
-    {
-        char stack_info[80];
-        
-        snprintf(stack_info, sizeof(stack_info), "C%p F%p", __builtin_return_address(1), __builtin_frame_address(2));
-
-        log_api_trace_v(api, stack_info, format, args);
-    }
-
-    va_end(args);
-}
-
-void __security_trace_return_api(const char *api, CFStringRef format, ...)
-{
-    if (!IsScopeActive(ASL_LEVEL_DEBUG, kAPIScope))
-        return;
-
-    va_list args;
-    va_start(args, format);
-
-    log_api_trace_v(api, NULL, format, args);
-
-    va_end(args);
-}
-
-
-void add_security_log_handler(security_log_handler handler)
-{
-    CFArrayAppendValue(get_log_handlers(), handler);
-}
-
-void remove_security_log_handler(security_log_handler handler)
-{
-    CFArrayRemoveAllValue(get_log_handlers(), handler);
-}
-
-static void __security_post_msg(int level, CFStringRef scope, const char *function,
-                    const char *file, int line, CFStringRef message)
-{
-    CFArrayForEach(get_log_handlers(), ^(const void *value) {
-        security_log_handler handler = (security_log_handler) value;
-        if (handler) {
-            handler(level, scope, function, file, line, message);
-        }
-    });
-}
-
-static void __security_log_msg_v(int level, CFStringRef scope, const char *function,
-                                 const char *file, int line, CFStringRef format, va_list args)
-{
-    __security_debug_init();
-
-    if (!IsScopeActive(level, scope))
-        return;
-
-    CFStringRef message = CFStringCreateWithFormatAndArguments(kCFAllocatorDefault, NULL, format, args);
-    __security_post_msg(level, scope, function, file, line, message);
-    CFRelease(message);
-
-}
-
-void __security_debug(CFStringRef scope, const char *function,
-                      const char *file, int line, CFStringRef format, ...)
-{
-	va_list args;
-	va_start(args, format);
-
-    __security_log_msg_v(ASL_LEVEL_DEBUG, scope, function, file, line, format, args);
-
-    va_end(args);
-}
-
-static void __os_log_shim(void *addr, int32_t level, CFStringRef format, va_list in_args) {
-    if ((level & 0x7) == level) {
-        va_list args;
-        va_copy(args, in_args);
-        os_log_shim_with_CFString(addr, OS_LOG_DEFAULT, _os_trace_type_map[level], format, args, NULL);
-        va_end(args);
-    }
-}
-
-void __security_log(int level, CFStringRef scope, const char *function,
-    const char *file, int line, CFStringRef format, ...)
-{
-    va_list args;
-    va_start(args, format);
-
-    __os_log_shim(__builtin_return_address(0), level, format, args);
     
-    if (os_log_shim_legacy_logging_enabled()) {
-       __security_log_msg_v(level, scope, function, file, line, format, args);
+    if (apiIn) {
+        char caller_info[80];
+        snprintf(caller_info, sizeof(caller_info), "C%p F%p", __builtin_return_address(1), __builtin_frame_address(2));
+        CFStringAppend(outStr, CFSTR("CALLER "));
+        CFStringAppendCString(outStr, caller_info, kCFStringEncodingASCII);
     }
-
     va_end(args);
+
+    return outStr;
 }
+
+#if TARGET_OS_OSX
+#ifdef NO_OS_LOG
+// Functions for weak-linking os_log functions
+#include <dlfcn.h>
+
+#define weak_log_f(fname, newname, rettype, fallthrough) \
+  rettype newname(log_args) { \
+    static dispatch_once_t onceToken = 0; \
+    static rettype (*newname)(log_args) = NULL; \
+    \
+    dispatch_once(&onceToken, ^{ \
+        void* libtrace = dlopen("/usr/lib/system/libsystem_trace.dylib", RTLD_LAZY | RTLD_LOCAL); \
+        if (libtrace) { \
+            newname = (rettype(*)(log_args)) dlsym(libtrace, #fname); \
+        } \
+    }); \
+    \
+    if(newname) { \
+        return newname(log_argnames); \
+    } \
+    fallthrough;\
+}
+
+#define log_args void *dso, os_log_t log, os_log_type_t type, const char *format, uint8_t *buf, unsigned int size
+#define log_argnames dso, log, type, format, buf, size
+weak_log_f(_os_log_impl, weak_os_log_impl, void, return);
+#undef log_args
+#undef log_argnames
+
+#define log_args const char *subsystem, const char *category
+#define log_argnames subsystem, category
+weak_log_f(os_log_create, weak_os_log_create, os_log_t, return NULL);
+#undef log_args
+#undef log_argnames
+
+#define log_args os_log_t oslog, os_log_type_t type
+#define log_argnames oslog, type
+weak_log_f(os_log_type_enabled, weak_os_log_type_enabled, bool, return false);
+#undef log_args
+#undef log_argnames
+
+#undef weak_log_f
+
+#endif // NO_OS_LOG
+#endif // TARGET_OS_OSX
+

@@ -34,7 +34,6 @@
 #include "Page.h"
 #include "PageConsoleClient.h"
 #include "SecurityOrigin.h"
-#include <profiler/Profile.h>
 #include <runtime/JSLock.h>
 #include <wtf/Ref.h>
 
@@ -77,18 +76,17 @@ String JSCustomXPathNSResolver::lookupNamespaceURI(const String& prefix)
     JSValue function = m_customResolver->get(exec, Identifier::fromString(exec, "lookupNamespaceURI"));
     CallData callData;
     CallType callType = getCallData(function, callData);
-    if (callType == CallTypeNone) {
+    if (callType == CallType::None) {
         callType = m_customResolver->methodTable()->getCallData(m_customResolver.get(), callData);
-        if (callType == CallTypeNone) {
-            // FIXME: <http://webkit.org/b/114312> JSCustomXPathNSResolver::lookupNamespaceURI Console Message should include Line, Column, and SourceURL
-            if (PageConsoleClient* console = m_globalObject->impl().console())
+        if (callType == CallType::None) {
+            if (PageConsoleClient* console = m_globalObject->wrapped().console())
                 console->addMessage(MessageSource::JS, MessageLevel::Error, ASCIILiteral("XPathNSResolver does not have a lookupNamespaceURI method."));
             return String();
         }
         function = m_customResolver.get();
     }
 
-    Ref<JSCustomXPathNSResolver> selfProtector(*this);
+    Ref<JSCustomXPathNSResolver> protectedThis(*this);
 
     MarkedArgumentBuffer args;
     args.append(jsStringWithCache(exec, prefix));

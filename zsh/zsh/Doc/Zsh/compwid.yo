@@ -697,7 +697,9 @@ format completion lists and to make explanatory string be shown in
 completion lists (since empty matches can be given display strings
 with the tt(-d) option).  And because all but one empty string would
 otherwise be removed, this option implies the tt(-V) and tt(-2)
-options (even if an explicit tt(-J) option is given).
+options (even if an explicit tt(-J) option is given).  This can be
+important to note as it affects the name space into which matches are
+added.
 )
 xitem(tt(-))
 item(tt(-)tt(-))(
@@ -897,8 +899,8 @@ var(lanchor), the var(ranchor) only needs to match the trial
 completion string.
 
 The tt(b) and tt(B) forms are similar to tt(l) and tt(L) with an empty 
-anchor, but need to match only the beginning of the trial completion
-or the word on the command line, respectively.
+anchor, but need to match only the beginning of the word on the command line
+or trial completion, respectively.
 )
 xitem(tt(r:)var(lpat)tt(|)var(ranchor)tt(=)var(tpat))
 xitem(tt(R:)var(lpat)tt(|)var(ranchor)tt(=)var(tpat))
@@ -909,7 +911,7 @@ item(tt(E:)var(lpat)tt(=)var(tpat))(
 As tt(l), tt(L), tt(b) and tt(B), with the difference that the command
 line and trial completion patterns are anchored on the right side.
 Here an empty var(ranchor) and the tt(e) and tt(E) forms force the
-match to the end of the trial completion or command line string.
+match to the end of the command line or trial completion string.
 )
 enditem()
 

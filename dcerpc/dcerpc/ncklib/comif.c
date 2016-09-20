@@ -2130,7 +2130,8 @@ PRIVATE void rpc__if_mgmt_inq_if_ids
 **
 **--
 **/
-
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PUBLIC void rpc_server_inq_if
 (
     rpc_if_handle_t             ifspec_h,
@@ -2149,7 +2150,7 @@ PUBLIC void rpc_server_inq_if
                      &ihint, NULL, NULL, mgr_epv,
                      NULL, NULL, NULL, NULL, status);
 }
-
+#endif
 
 /*
 **++
@@ -2196,7 +2197,8 @@ PUBLIC void rpc_server_inq_if
 **
 **--
 **/
-
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PUBLIC void rpc_server_register_if_ex
 (
     rpc_if_handle_t             ifspec_h,
@@ -2215,7 +2217,7 @@ PUBLIC void rpc_server_register_if_ex
         (ifspec_h, mgr_type_uuid, mgr_epv, flags,
          max_calls, -1, if_callback, false, status);
 }
-
+#endif
 
 /*
 **++
@@ -2264,7 +2266,8 @@ PUBLIC void rpc_server_register_if_ex
 **
 **--
 **/
-
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PUBLIC void rpc_server_register_if_2
 (
     rpc_if_handle_t             ifspec_h,
@@ -2284,3 +2287,4 @@ PUBLIC void rpc_server_register_if_2
         (ifspec_h, mgr_type_uuid, mgr_epv, flags,
          max_calls, max_rpc_size, if_callback, false, status);
 }
+#endif

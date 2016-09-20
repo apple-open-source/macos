@@ -30,6 +30,7 @@
 #include "GraphicsContext.h"
 #include "IntRect.h"
 #include <wtf/MathExtras.h>
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
@@ -81,10 +82,15 @@ FloatRect ImageBuffer::clampedRect(const FloatRect& rect)
 }
 
 #if !USE(CG)
+FloatSize ImageBuffer::sizeForDestinationSize(FloatSize size) const
+{
+    return size;
+}
+
 void ImageBuffer::transformColorSpace(ColorSpace srcColorSpace, ColorSpace dstColorSpace)
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(Vector<int>, deviceRgbLUT, ());
-    DEPRECATED_DEFINE_STATIC_LOCAL(Vector<int>, linearRgbLUT, ());
+    static NeverDestroyed<Vector<int>> deviceRgbLUT;
+    static NeverDestroyed<Vector<int>> linearRgbLUT;
 
     if (srcColorSpace == dstColorSpace)
         return;
@@ -95,27 +101,27 @@ void ImageBuffer::transformColorSpace(ColorSpace srcColorSpace, ColorSpace dstCo
         return;
 
     if (dstColorSpace == ColorSpaceLinearRGB) {
-        if (linearRgbLUT.isEmpty()) {
+        if (linearRgbLUT.get().isEmpty()) {
             for (unsigned i = 0; i < 256; i++) {
                 float color = i  / 255.0f;
                 color = (color <= 0.04045f ? color / 12.92f : pow((color + 0.055f) / 1.055f, 2.4f));
                 color = std::max(0.0f, color);
                 color = std::min(1.0f, color);
-                linearRgbLUT.append(static_cast<int>(round(color * 255)));
+                linearRgbLUT.get().append(static_cast<int>(round(color * 255)));
             }
         }
-        platformTransformColorSpace(linearRgbLUT);
+        platformTransformColorSpace(linearRgbLUT.get());
     } else if (dstColorSpace == ColorSpaceDeviceRGB) {
-        if (deviceRgbLUT.isEmpty()) {
+        if (deviceRgbLUT.get().isEmpty()) {
             for (unsigned i = 0; i < 256; i++) {
                 float color = i / 255.0f;
                 color = (powf(color, 1.0f / 2.4f) * 1.055f) - 0.055f;
                 color = std::max(0.0f, color);
                 color = std::min(1.0f, color);
-                deviceRgbLUT.append(static_cast<int>(round(color * 255)));
+                deviceRgbLUT.get().append(static_cast<int>(round(color * 255)));
             }
         }
-        platformTransformColorSpace(deviceRgbLUT);
+        platformTransformColorSpace(deviceRgbLUT.get());
     }
 }
 #endif // USE(CG)
@@ -151,16 +157,56 @@ PlatformLayer* ImageBuffer::platformLayer() const
 {
     return 0;
 }
-#endif
 
-bool ImageBuffer::copyToPlatformTexture(GraphicsContext3D&, Platform3DObject, GC3Denum, bool, bool)
+bool ImageBuffer::copyToPlatformTexture(GraphicsContext3D&, GC3Denum, Platform3DObject, GC3Denum, bool, bool)
 {
     return false;
 }
+#endif
 
-std::unique_ptr<ImageBuffer> ImageBuffer::createCompatibleBuffer(const FloatSize& size, float resolutionScale, ColorSpace colorSpace, const GraphicsContext* context, bool)
+std::unique_ptr<ImageBuffer> ImageBuffer::createCompatibleBuffer(const FloatSize& size, ColorSpace colorSpace, const GraphicsContext& context)
 {
-    return create(size, resolutionScale, colorSpace, context->isAcceleratedContext() ? Accelerated : Unaccelerated);
+    if (size.isEmpty())
+        return nullptr;
+
+    IntSize scaledSize = ImageBuffer::compatibleBufferSize(size, context);
+
+    auto buffer = ImageBuffer::createCompatibleBuffer(scaledSize, 1, colorSpace, context);
+    if (!buffer)
+        return nullptr;
+
+    // Set up a corresponding scale factor on the graphics context.
+    buffer->context().scale(FloatSize(scaledSize.width() / size.width(), scaledSize.height() / size.height()));
+    return buffer;
 }
+
+std::unique_ptr<ImageBuffer> ImageBuffer::createCompatibleBuffer(const FloatSize& size, float resolutionScale, ColorSpace colorSpace, const GraphicsContext& context)
+{
+    return create(size, context.renderingMode(), resolutionScale, colorSpace);
+}
+
+IntSize ImageBuffer::compatibleBufferSize(const FloatSize& size, const GraphicsContext& context)
+{
+    // Enlarge the buffer size if the context's transform is scaling it so we need a higher
+    // resolution than one pixel per unit.
+    return expandedIntSize(size * context.scaleFactor());
+}
+
+bool ImageBuffer::isCompatibleWithContext(const GraphicsContext& context) const
+{
+    return areEssentiallyEqual(context.scaleFactor(), this->context().scaleFactor());
+}
+
+#if !USE(IOSURFACE_CANVAS_BACKING_STORE)
+size_t ImageBuffer::memoryCost() const
+{
+    return 4 * internalSize().width() * internalSize().height();
+}
+
+size_t ImageBuffer::externalMemoryCost() const
+{
+    return 0;
+}
+#endif
 
 }

@@ -19,7 +19,7 @@
 <div id="page-header">
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p>
 <p class="apache">Serveur Apache HTTP Version 2.4</p>
-<img alt="" src="../images/feather.gif" /></div>
+<img alt="" src="../images/feather.png" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
 <a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">Serveur HTTP</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.4</a> &gt; <a href="./">Modules</a></div>
@@ -33,7 +33,7 @@
 <a href="../tr/mod/mod_setenvif.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div>
 <table class="module"><tr><th><a href="module-dict.html#Description">Description:</a></th><td>Permet de définir des variables d'environnement en fonction
-de caractéristiques de la requête</td></tr>
+de certainescaractéristiques de la requête</td></tr>
 <tr><th><a href="module-dict.html#Status">Statut:</a></th><td>Base</td></tr>
 <tr><th><a href="module-dict.html#ModuleIdentifier">Identificateur de Module:</a></th><td>setenvif_module</td></tr>
 <tr><th><a href="module-dict.html#SourceFile">Fichier Source:</a></th><td>mod_setenvif.c</td></tr></table>
@@ -41,9 +41,8 @@ de caractéristiques de la requête</td></tr>
 
 
     <p>Le module <code class="module"><a href="../mod/mod_setenvif.html">mod_setenvif</a></code> vous permet de définir
-    des variables d'environnement internes en fonction du fait que telle ou telle
-    caractéristique de la requête correspond ou non aux expressions
-    rationnelles que vous spécifiez. Ces variables d'environnement
+    des variables d'environnement internes de manière conditionnelle en fonction
+    de critères que vous pouvez spécifier. Ces variables d'environnement
     peuvent être utilisées par d'autres parties du serveur pour prendre
     des décisions quant aux actions à entreprendre, et pour déterminer
     si les scripts CGI et les pages SSI doivent pouvoir y accéder.</p>
@@ -76,11 +75,11 @@ BrowserMatch MSIE !netscape</pre>
 <li><img alt="" src="../images/down.gif" /> <a href="#setenvifexpr">SetEnvIfExpr</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#setenvifnocase">SetEnvIfNoCase</a></li>
 </ul>
-<h3>Voir aussi</h3>
+<h3>Traitement des bugs</h3><ul class="seealso"><li><a href="https://www.apache.org/dist/httpd/CHANGES_2.4">Journal des modifications de httpd</a></li><li><a href="https://bz.apache.org/bugzilla/buglist.cgi?bug_status=__open__&amp;list_id=144532&amp;product=Apache%20httpd-2&amp;query_format=specific&amp;order=changeddate%20DESC%2Cpriority%2Cbug_severity&amp;component=mod_setenvif">Problèmes connus</a></li><li><a href="https://bz.apache.org/bugzilla/enter_bug.cgi?product=Apache%20httpd-2&amp;component=mod_setenvif">Signaler un bug</a></li></ul><h3>Voir aussi</h3>
 <ul class="seealso">
 <li><a href="../env.html">Les variables d'environnement et le
 serveur HTTP Apache</a></li>
-</ul><ul class="seealso"><li><a href="#comments_section">Commentaires</a></li></ul></div>
+<li><a href="#comments_section">Commentaires</a></li></ul></div>
 
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="browsermatch" id="browsermatch">Directive</a> <a name="BrowserMatch" id="BrowserMatch">BrowserMatch</a></h2>
@@ -99,8 +98,8 @@ contenu de l'en-tête HTTP User-Agent</td></tr>
   d'environnement en fonction du contenu de l'en-tête de requête HTTP
   <code>User-Agent</code>. Les deux lignes suivantes produisent le même
   effet :</p>
-<pre class="prettyprint lang-config">BrowserMatchNoCase Robot is_a_robot
-SetEnvIfNoCase User-Agent Robot is_a_robot</pre>
+<pre class="prettyprint lang-config">BrowserMatch Robot is_a_robot
+SetEnvIf User-Agent Robot is_a_robot</pre>
 
 
     <p>Quelques exemples supplémentaires :</p>
@@ -157,7 +156,7 @@ attributs de la requête</td></tr>
     <p>La directive <code class="directive">SetEnvIf</code> permet de définir
     des variables d'environnement en fonction des attributs de la
     requête. L'<em>attribut</em> spécifié comme premier argument peut
-    se présenter sous l'une des quatre formes suivantes :</p>
+    se présenter sous l'une des trois formes suivantes :</p>
 
 <ol>
 <li>Un champ d'en-tête de requête HTTP (voir la <a href="http://www.rfc-editor.org/rfc/rfc2616.txt">RFC2616</a> pour
@@ -235,7 +234,8 @@ peuvent se présenter sous les formes suivantes :</p>
     <code>$1</code>..<code>$9</code> à l'intérieur de
     <code><em>valeur</em></code>, et les remplace par les
     sous-expressions entre parenthèses correspondantes de
-    <var>regex</var>.</p>
+    <var>regex</var>. <code>$0</code> permet d'accéder à l'ensemble de la chaîne
+    qui correspond à ce modèle.</p>
 
 <pre class="prettyprint lang-config">SetEnvIf Request_URI "\.gif$" object_is_image=gif
 SetEnvIf Request_URI "\.jpg$" object_is_image=jpg
@@ -244,6 +244,8 @@ SetEnvIf Request_URI "\.xbm$" object_is_image=xbm
 SetEnvIf Referer www\.mydomain\.example\.com intra_site_referral
     
 SetEnvIf object_is_image xbm XBIT_PROCESSING=1
+
+SetEnvIf Request_URI "\.(.*)$" EXTENSION=$1
     
 SetEnvIf ^TS  ^[a-z]  HAVE_TS</pre>
 
@@ -362,7 +364,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_setenvif.htm
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

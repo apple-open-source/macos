@@ -1,26 +1,26 @@
 /*
- * Copyright (C) 2010 Google Inc. All rights reserved.
+ * Copyright (C) 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
  *
- * 1.  Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- * 2.  Redistributions in binary form must reproduce the above copyright
- *     notice, this list of conditions and the following disclaimer in the
- *     documentation and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS CONTRIBUTORS BE LIABLE FOR ANY
- * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. AND ITS CONTRIBUTORS ``AS IS''
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE INC. OR ITS CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -28,284 +28,58 @@
 
 #if ENABLE(INDEXED_DATABASE)
 
-#include "IDBAny.h"
+#include "ExceptionCode.h"
 #include "IDBBindingUtilities.h"
-#include "IDBCallbacks.h"
-#include "IDBCursorBackend.h"
-#include "IDBKey.h"
+#include "IDBDatabase.h"
+#include "IDBDatabaseException.h"
+#include "IDBGetResult.h"
+#include "IDBIndex.h"
 #include "IDBObjectStore.h"
 #include "IDBRequest.h"
 #include "IDBTransaction.h"
 #include "Logging.h"
 #include "ScriptExecutionContext.h"
-#include <inspector/ScriptCallStack.h>
-#include <limits>
+#include <heap/StrongInlines.h>
+#include <runtime/JSCJSValueInlines.h>
+#include <wtf/NeverDestroyed.h>
+
+using namespace JSC;
 
 namespace WebCore {
 
-Ref<IDBCursor> IDBCursor::create(PassRefPtr<IDBCursorBackend> backend, IndexedDB::CursorDirection direction, IDBRequest* request, IDBAny* source, IDBTransaction* transaction)
-{
-    return adoptRef(*new IDBCursor(backend, direction, request, source, transaction));
-}
-
 const AtomicString& IDBCursor::directionNext()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, next, ("next", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<AtomicString> next("next", AtomicString::ConstructFromLiteral);
     return next;
 }
 
 const AtomicString& IDBCursor::directionNextUnique()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, nextunique, ("nextunique", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<AtomicString> nextunique("nextunique", AtomicString::ConstructFromLiteral);
     return nextunique;
 }
 
 const AtomicString& IDBCursor::directionPrev()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, prev, ("prev", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<AtomicString> prev("prev", AtomicString::ConstructFromLiteral);
     return prev;
 }
 
 const AtomicString& IDBCursor::directionPrevUnique()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, prevunique, ("prevunique", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<AtomicString> prevunique("prevunique", AtomicString::ConstructFromLiteral);
     return prevunique;
-}
-
-
-IDBCursor::IDBCursor(PassRefPtr<IDBCursorBackend> backend, IndexedDB::CursorDirection direction, IDBRequest* request, IDBAny* source, IDBTransaction* transaction)
-    : m_backend(backend)
-    , m_request(request)
-    , m_direction(direction)
-    , m_source(source)
-    , m_transaction(transaction)
-    , m_transactionNotifier(transaction, this)
-    , m_gotValue(false)
-{
-    ASSERT(m_backend);
-    ASSERT(m_request);
-    ASSERT(m_source->type() == IDBAny::IDBObjectStoreType || m_source->type() == IDBAny::IDBIndexType);
-    ASSERT(m_transaction);
-}
-
-IDBCursor::~IDBCursor()
-{
-}
-
-const String& IDBCursor::direction() const
-{
-    LOG(StorageAPI, "IDBCursor::direction");
-    return directionToString(m_direction);
-}
-
-const Deprecated::ScriptValue& IDBCursor::key() const
-{
-    LOG(StorageAPI, "IDBCursor::key");
-    return m_currentKeyValue;
-}
-
-const Deprecated::ScriptValue& IDBCursor::primaryKey() const
-{
-    LOG(StorageAPI, "IDBCursor::primaryKey");
-    return m_currentPrimaryKeyValue;
-}
-
-const Deprecated::ScriptValue& IDBCursor::value() const
-{
-    LOG(StorageAPI, "IDBCursor::value");
-    return m_currentValue;
-}
-
-IDBAny* IDBCursor::source() const
-{
-    return m_source.get();
-}
-
-PassRefPtr<IDBRequest> IDBCursor::update(JSC::ExecState* state, Deprecated::ScriptValue& value, ExceptionCode& ec)
-{
-    LOG(StorageAPI, "IDBCursor::update");
-
-    if (!m_gotValue || isKeyCursor()) {
-        ec = IDBDatabaseException::InvalidStateError;
-        return 0;
-    }
-    if (!m_transaction->isActive()) {
-        ec = IDBDatabaseException::TransactionInactiveError;
-        return 0;
-    }
-    if (m_transaction->isReadOnly()) {
-        ec = IDBDatabaseException::ReadOnlyError;
-        return 0;
-    }
-
-    RefPtr<IDBObjectStore> objectStore = effectiveObjectStore();
-    const IDBKeyPath& keyPath = objectStore->metadata().keyPath;
-    const bool usesInLineKeys = !keyPath.isNull();
-    if (usesInLineKeys) {
-        RefPtr<IDBKey> keyPathKey = createIDBKeyFromScriptValueAndKeyPath(m_request->requestState()->exec(), value, keyPath);
-        if (!keyPathKey || !keyPathKey->isEqual(m_currentPrimaryKey.get())) {
-            ec = IDBDatabaseException::DataError;
-            return 0;
-        }
-    }
-
-    return objectStore->put(IDBDatabaseBackend::CursorUpdate, IDBAny::create(this), state, value, m_currentPrimaryKey, ec);
-}
-
-void IDBCursor::advance(unsigned long count, ExceptionCode& ec)
-{
-    ec = 0;
-    LOG(StorageAPI, "IDBCursor::advance");
-    if (!m_gotValue) {
-        ec = IDBDatabaseException::InvalidStateError;
-        return;
-    }
-
-    if (!m_transaction->isActive()) {
-        ec = IDBDatabaseException::TransactionInactiveError;
-        return;
-    }
-
-    if (!count) {
-        ec = TypeError;
-        return;
-    }
-
-    m_request->setPendingCursor(this);
-    m_gotValue = false;
-    m_backend->advance(count, m_request, ec);
-    ASSERT(!ec);
-}
-
-void IDBCursor::continueFunction(ScriptExecutionContext* context, const Deprecated::ScriptValue& keyValue, ExceptionCode& ec)
-{
-    DOMRequestState requestState(context);
-    RefPtr<IDBKey> key = scriptValueToIDBKey(&requestState, keyValue);
-    continueFunction(key.release(), ec);
-}
-
-void IDBCursor::continueFunction(PassRefPtr<IDBKey> key, ExceptionCode& ec)
-{
-    ec = 0;
-    LOG(StorageAPI, "IDBCursor::continue");
-    if (key && !key->isValid()) {
-        ec = IDBDatabaseException::DataError;
-        return;
-    }
-
-    if (!m_transaction->isActive()) {
-        ec = IDBDatabaseException::TransactionInactiveError;
-        return;
-    }
-
-    if (!m_gotValue) {
-        ec = IDBDatabaseException::InvalidStateError;
-        return;
-    }
-
-    if (key) {
-        ASSERT(m_currentKey);
-        if (m_direction == IndexedDB::CursorDirection::Next || m_direction == IndexedDB::CursorDirection::NextNoDuplicate) {
-            if (!m_currentKey->isLessThan(key.get())) {
-                ec = IDBDatabaseException::DataError;
-                return;
-            }
-        } else {
-            if (!key->isLessThan(m_currentKey.get())) {
-                ec = IDBDatabaseException::DataError;
-                return;
-            }
-        }
-    }
-
-    // FIXME: We're not using the context from when continue was called, which means the callback
-    //        will be on the original context openCursor was called on. Is this right?
-    m_request->setPendingCursor(this);
-    m_gotValue = false;
-    m_backend->continueFunction(key, m_request, ec);
-    ASSERT(!ec);
-}
-
-PassRefPtr<IDBRequest> IDBCursor::deleteFunction(ScriptExecutionContext* context, ExceptionCode& ec)
-{
-    ec = 0;
-    LOG(StorageAPI, "IDBCursor::delete");
-    if (!m_transaction->isActive()) {
-        ec = IDBDatabaseException::TransactionInactiveError;
-        return 0;
-    }
-    if (m_transaction->isReadOnly()) {
-        ec = IDBDatabaseException::ReadOnlyError;
-        return 0;
-    }
-
-    if (!m_gotValue || isKeyCursor()) {
-        ec = IDBDatabaseException::InvalidStateError;
-        return 0;
-    }
-    RefPtr<IDBRequest> request = IDBRequest::create(context, IDBAny::create(this), m_transaction.get());
-    m_backend->deleteFunction(request, ec);
-    ASSERT(!ec);
-    return request.release();
-}
-
-void IDBCursor::postSuccessHandlerCallback()
-{
-    m_backend->postSuccessHandlerCallback();
-}
-
-void IDBCursor::close()
-{
-    m_transactionNotifier.cursorFinished();
-    if (m_request) {
-        m_request->finishCursor();
-        m_request = nullptr;
-    }
-}
-
-void IDBCursor::setValueReady(DOMRequestState* state, PassRefPtr<IDBKey> key, PassRefPtr<IDBKey> primaryKey, Deprecated::ScriptValue& value)
-{
-    m_currentKey = key;
-    m_currentKeyValue = idbKeyToScriptValue(state, m_currentKey);
-
-    m_currentPrimaryKey = primaryKey;
-    m_currentPrimaryKeyValue = idbKeyToScriptValue(state, m_currentPrimaryKey);
-
-    if (!isKeyCursor()) {
-        RefPtr<IDBObjectStore> objectStore = effectiveObjectStore();
-        const IDBObjectStoreMetadata metadata = objectStore->metadata();
-        if (metadata.autoIncrement && !metadata.keyPath.isNull()) {
-#ifndef NDEBUG
-            RefPtr<IDBKey> expectedKey = createIDBKeyFromScriptValueAndKeyPath(m_request->requestState()->exec(), value, metadata.keyPath);
-            ASSERT(!expectedKey || expectedKey->isEqual(m_currentPrimaryKey.get()));
-#endif
-            bool injected = injectIDBKeyIntoScriptValue(m_request->requestState(), m_currentPrimaryKey, value, metadata.keyPath);
-            // FIXME: There is no way to report errors here. Move this into onSuccessWithContinuation so that we can abort the transaction there. See: https://bugs.webkit.org/show_bug.cgi?id=92278
-            ASSERT_UNUSED(injected, injected);
-        }
-    }
-    m_currentValue = value;
-
-    m_gotValue = true;
-}
-
-PassRefPtr<IDBObjectStore> IDBCursor::effectiveObjectStore()
-{
-    if (m_source->type() == IDBAny::IDBObjectStoreType)
-        return m_source->idbObjectStore();
-    RefPtr<IDBIndex> index = m_source->idbIndex();
-    return index->objectStore();
 }
 
 IndexedDB::CursorDirection IDBCursor::stringToDirection(const String& directionString, ExceptionCode& ec)
 {
-    if (directionString == IDBCursor::directionNext())
+    if (directionString == directionNext())
         return IndexedDB::CursorDirection::Next;
-    if (directionString == IDBCursor::directionNextUnique())
+    if (directionString == directionNextUnique())
         return IndexedDB::CursorDirection::NextNoDuplicate;
-    if (directionString == IDBCursor::directionPrev())
+    if (directionString == directionPrev())
         return IndexedDB::CursorDirection::Prev;
-    if (directionString == IDBCursor::directionPrevUnique())
+    if (directionString == directionPrevUnique())
         return IndexedDB::CursorDirection::PrevNoDuplicate;
 
     ec = TypeError;
@@ -316,21 +90,364 @@ const AtomicString& IDBCursor::directionToString(IndexedDB::CursorDirection dire
 {
     switch (direction) {
     case IndexedDB::CursorDirection::Next:
-        return IDBCursor::directionNext();
+        return directionNext();
 
     case IndexedDB::CursorDirection::NextNoDuplicate:
-        return IDBCursor::directionNextUnique();
+        return directionNextUnique();
 
     case IndexedDB::CursorDirection::Prev:
-        return IDBCursor::directionPrev();
+        return directionPrev();
 
     case IndexedDB::CursorDirection::PrevNoDuplicate:
-        return IDBCursor::directionPrevUnique();
+        return directionPrevUnique();
 
     default:
         ASSERT_NOT_REACHED();
-        return IDBCursor::directionNext();
+        return directionNext();
     }
+}
+
+Ref<IDBCursor> IDBCursor::create(IDBTransaction& transaction, IDBIndex& index, const IDBCursorInfo& info)
+{
+    return adoptRef(*new IDBCursor(transaction, index, info));
+}
+
+IDBCursor::IDBCursor(IDBTransaction& transaction, IDBObjectStore& objectStore, const IDBCursorInfo& info)
+    : ActiveDOMObject(transaction.scriptExecutionContext())
+    , m_info(info)
+    , m_objectStore(&objectStore)
+{
+    ASSERT(currentThread() == effectiveObjectStore().modernTransaction().database().originThreadID());
+
+    suspendIfNeeded();
+}
+
+IDBCursor::IDBCursor(IDBTransaction& transaction, IDBIndex& index, const IDBCursorInfo& info)
+    : ActiveDOMObject(transaction.scriptExecutionContext())
+    , m_info(info)
+    , m_index(&index)
+{
+    ASSERT(currentThread() == effectiveObjectStore().modernTransaction().database().originThreadID());
+
+    suspendIfNeeded();
+}
+
+IDBCursor::~IDBCursor()
+{
+    ASSERT(currentThread() == effectiveObjectStore().modernTransaction().database().originThreadID());
+}
+
+bool IDBCursor::sourcesDeleted() const
+{
+    ASSERT(currentThread() == effectiveObjectStore().modernTransaction().database().originThreadID());
+
+    if (m_objectStore)
+        return m_objectStore->isDeleted();
+
+    ASSERT(m_index);
+    return m_index->isDeleted() || m_index->modernObjectStore().isDeleted();
+}
+
+IDBObjectStore& IDBCursor::effectiveObjectStore() const
+{
+    if (m_objectStore)
+        return *m_objectStore;
+
+    ASSERT(m_index);
+    return m_index->modernObjectStore();
+}
+
+IDBTransaction& IDBCursor::transaction() const
+{
+    ASSERT(currentThread() == effectiveObjectStore().modernTransaction().database().originThreadID());
+    return effectiveObjectStore().modernTransaction();
+}
+
+const String& IDBCursor::direction() const
+{
+    ASSERT(currentThread() == effectiveObjectStore().modernTransaction().database().originThreadID());
+    return directionToString(m_info.cursorDirection());
+}
+
+RefPtr<WebCore::IDBRequest> IDBCursor::update(ExecState& exec, JSValue value, ExceptionCodeWithMessage& ec)
+{
+    LOG(IndexedDB, "IDBCursor::update");
+    ASSERT(currentThread() == effectiveObjectStore().modernTransaction().database().originThreadID());
+
+    if (sourcesDeleted()) {
+        ec.code = IDBDatabaseException::InvalidStateError;
+        ec.message = ASCIILiteral("Failed to execute 'update' on 'IDBCursor': The cursor's source or effective object store has been deleted.");
+        return nullptr;
+    }
+
+    if (!transaction().isActive()) {
+        ec.code = IDBDatabaseException::TransactionInactiveError;
+        ec.message = ASCIILiteral("Failed to execute 'update' on 'IDBCursor': The transaction is inactive or finished.");
+        return nullptr;
+    }
+
+    if (transaction().isReadOnly()) {
+        ec.code = IDBDatabaseException::ReadOnlyError;
+        ec.message = ASCIILiteral("Failed to execute 'update' on 'IDBCursor': The record may not be updated inside a read-only transaction.");
+        return nullptr;
+    }
+
+    if (!m_gotValue) {
+        ec.code = IDBDatabaseException::InvalidStateError;
+        ec.message = ASCIILiteral("Failed to execute 'update' on 'IDBCursor': The cursor is being iterated or has iterated past its end.");
+        return nullptr;
+    }
+
+    if (!isKeyCursorWithValue()) {
+        ec.code = IDBDatabaseException::InvalidStateError;
+        ec.message = ASCIILiteral("Failed to execute 'update' on 'IDBCursor': The cursor is a key cursor.");
+        return nullptr;
+    }
+
+    auto& objectStore = effectiveObjectStore();
+    auto& keyPath = objectStore.info().keyPath();
+    const bool usesInLineKeys = !keyPath.isNull();
+    if (usesInLineKeys) {
+        RefPtr<IDBKey> keyPathKey = maybeCreateIDBKeyFromScriptValueAndKeyPath(exec, value, keyPath);
+        IDBKeyData keyPathKeyData(keyPathKey.get());
+        if (!keyPathKey || keyPathKeyData != m_currentPrimaryKeyData) {
+            ec.code = IDBDatabaseException::DataError;
+            ec.message = ASCIILiteral("Failed to execute 'update' on 'IDBCursor': The effective object store of this cursor uses in-line keys and evaluating the key path of the value parameter results in a different value than the cursor's effective key.");
+            return nullptr;
+        }
+    }
+
+    auto request = effectiveObjectStore().putForCursorUpdate(exec, value, m_currentPrimaryKey.get(), ec);
+    if (ec.code)
+        return nullptr;
+
+    ASSERT(request);
+    request->setSource(*this);
+    ++m_outstandingRequestCount;
+
+    return request;
+}
+
+void IDBCursor::advance(unsigned count, ExceptionCodeWithMessage& ec)
+{
+    LOG(IndexedDB, "IDBCursor::advance");
+    ASSERT(currentThread() == effectiveObjectStore().modernTransaction().database().originThreadID());
+
+    if (!m_request) {
+        ec.code = IDBDatabaseException::InvalidStateError;
+        return;
+    }
+    
+    if (!count) {
+        ec.code = TypeError;
+        ec.message = ASCIILiteral("Failed to execute 'advance' on 'IDBCursor': A count argument with value 0 (zero) was supplied, must be greater than 0.");
+        return;
+    }
+
+    if (sourcesDeleted()) {
+        ec.code = IDBDatabaseException::InvalidStateError;
+        ec.message = ASCIILiteral("Failed to execute 'advance' on 'IDBCursor': The cursor's source or effective object store has been deleted.");
+        return;
+    }
+
+    if (!transaction().isActive()) {
+        ec.code = IDBDatabaseException::TransactionInactiveError;
+        ec.message = ASCIILiteral("Failed to execute 'advance' on 'IDBCursor': The transaction is inactive or finished.");
+        return;
+    }
+
+    if (!m_gotValue) {
+        ec.code = IDBDatabaseException::InvalidStateError;
+        ec.message = ASCIILiteral("Failed to execute 'advance' on 'IDBCursor': The cursor is being iterated or has iterated past its end.");
+        return;
+    }
+
+    m_gotValue = false;
+
+    uncheckedIterateCursor(IDBKeyData(), count);
+}
+
+void IDBCursor::continueFunction(ScriptExecutionContext& context, JSValue keyValue, ExceptionCodeWithMessage& ec)
+{
+    auto exec = context.execState();
+    if (!exec) {
+        ec.code = IDBDatabaseException::UnknownError;
+        ec.message = ASCIILiteral("Failed to execute 'continue' on 'IDBCursor': Script execution context does not have an execution state.");
+        return;
+    }
+
+    RefPtr<IDBKey> key;
+    if (!keyValue.isUndefined())
+        key = scriptValueToIDBKey(*exec, keyValue);
+
+    continueFunction(key.get(), ec);
+}
+
+void IDBCursor::continueFunction(const IDBKeyData& key, ExceptionCodeWithMessage& ec)
+{
+    LOG(IndexedDB, "IDBCursor::continueFunction (to key %s)", key.loggingString().utf8().data());
+    ASSERT(currentThread() == effectiveObjectStore().modernTransaction().database().originThreadID());
+
+    if (!m_request) {
+        ec.code = IDBDatabaseException::InvalidStateError;
+        return;
+    }
+
+    if (sourcesDeleted()) {
+        ec.code = IDBDatabaseException::InvalidStateError;
+        ec.message = ASCIILiteral("Failed to execute 'continue' on 'IDBCursor': The cursor's source or effective object store has been deleted.");
+        return;
+    }
+
+    if (!transaction().isActive()) {
+        ec.code = IDBDatabaseException::TransactionInactiveError;
+        ec.message = ASCIILiteral("Failed to execute 'continue' on 'IDBCursor': The transaction is inactive or finished.");
+        return;
+    }
+
+    if (!m_gotValue) {
+        ec.code = IDBDatabaseException::InvalidStateError;
+        ec.message = ASCIILiteral("Failed to execute 'continue' on 'IDBCursor': The cursor is being iterated or has iterated past its end.");
+        return;
+    }
+
+    if (!key.isNull() && !key.isValid()) {
+        ec.code = IDBDatabaseException::DataError;
+        ec.message = ASCIILiteral("Failed to execute 'continue' on 'IDBCursor': The parameter is not a valid key.");
+        return;
+    }
+
+    if (m_info.isDirectionForward()) {
+        if (!key.isNull() && key.compare(m_currentKeyData) <= 0) {
+            ec.code = IDBDatabaseException::DataError;
+            ec.message = ASCIILiteral("Failed to execute 'continue' on 'IDBCursor': The parameter is less than or equal to this cursor's position.");
+            return;
+        }
+    } else if (!key.isNull() && key.compare(m_currentKeyData) >= 0) {
+        ec.code = IDBDatabaseException::DataError;
+        ec.message = ASCIILiteral("Failed to execute 'continue' on 'IDBCursor': The parameter is greater than or equal to this cursor's position.");
+        return;
+    }
+
+    m_gotValue = false;
+
+    uncheckedIterateCursor(key, 0);
+}
+
+void IDBCursor::uncheckedIterateCursor(const IDBKeyData& key, unsigned count)
+{
+    ASSERT(currentThread() == effectiveObjectStore().modernTransaction().database().originThreadID());
+
+    ++m_outstandingRequestCount;
+
+    m_request->willIterateCursor(*this);
+    transaction().iterateCursor(*this, key, count);
+}
+
+RefPtr<WebCore::IDBRequest> IDBCursor::deleteFunction(ScriptExecutionContext& context, ExceptionCodeWithMessage& ec)
+{
+    LOG(IndexedDB, "IDBCursor::deleteFunction");
+    ASSERT(currentThread() == effectiveObjectStore().modernTransaction().database().originThreadID());
+
+    if (sourcesDeleted()) {
+        ec.code = IDBDatabaseException::InvalidStateError;
+        ec.message = ASCIILiteral("Failed to execute 'delete' on 'IDBCursor': The cursor's source or effective object store has been deleted.");
+        return nullptr;
+    }
+
+    if (!transaction().isActive()) {
+        ec.code = IDBDatabaseException::TransactionInactiveError;
+        ec.message = ASCIILiteral("Failed to execute 'delete' on 'IDBCursor': The transaction is inactive or finished.");
+        return nullptr;
+    }
+
+    if (transaction().isReadOnly()) {
+        ec.code = IDBDatabaseException::ReadOnlyError;
+        ec.message = ASCIILiteral("Failed to execute 'delete' on 'IDBCursor': The record may not be deleted inside a read-only transaction.");
+        return nullptr;
+    }
+
+    if (!m_gotValue) {
+        ec.code = IDBDatabaseException::InvalidStateError;
+        ec.message = ASCIILiteral("Failed to execute 'delete' on 'IDBCursor': The cursor is being iterated or has iterated past its end.");
+        return nullptr;
+    }
+
+    if (!isKeyCursorWithValue()) {
+        ec.code = IDBDatabaseException::InvalidStateError;
+        ec.message = ASCIILiteral("Failed to execute 'delete' on 'IDBCursor': The cursor is a key cursor.");
+        return nullptr;
+    }
+
+    auto request = effectiveObjectStore().modernDelete(context, m_currentPrimaryKey.get(), ec);
+    if (ec.code)
+        return nullptr;
+
+    ASSERT(request);
+    request->setSource(*this);
+    ++m_outstandingRequestCount;
+
+    return request;
+}
+
+void IDBCursor::setGetResult(IDBRequest& request, const IDBGetResult& getResult)
+{
+    LOG(IndexedDB, "IDBCursor::setGetResult - current key %s", getResult.keyData().loggingString().substring(0, 100).utf8().data());
+    ASSERT(currentThread() == effectiveObjectStore().modernTransaction().database().originThreadID());
+
+    auto* context = request.scriptExecutionContext();
+    if (!context)
+        return;
+
+    auto* exec = context->execState();
+    if (!exec)
+        return;
+
+    if (!getResult.isDefined()) {
+        m_currentKey = { };
+        m_currentKeyData = { };
+        m_currentPrimaryKey = { };
+        m_currentPrimaryKeyData = { };
+        m_currentValue = { };
+
+        m_gotValue = false;
+        return;
+    }
+
+    auto& vm = context->vm();
+
+    m_currentKey = { vm, idbKeyDataToScriptValue(*exec, getResult.keyData()) };
+    m_currentKeyData = getResult.keyData();
+    m_currentPrimaryKey = { vm, idbKeyDataToScriptValue(*exec, getResult.primaryKeyData()) };
+    m_currentPrimaryKeyData = getResult.primaryKeyData();
+
+    if (isKeyCursorWithValue())
+        m_currentValue = { vm, deserializeIDBValueToJSValue(*exec, getResult.value()) };
+    else
+        m_currentValue = { };
+
+    m_gotValue = true;
+}
+
+const char* IDBCursor::activeDOMObjectName() const
+{
+    return "IDBCursor";
+}
+
+bool IDBCursor::canSuspendForDocumentSuspension() const
+{
+    return false;
+}
+
+bool IDBCursor::hasPendingActivity() const
+{
+    return m_outstandingRequestCount;
+}
+
+void IDBCursor::decrementOutstandingRequestCount()
+{
+    ASSERT(m_outstandingRequestCount);
+    --m_outstandingRequestCount;
 }
 
 } // namespace WebCore

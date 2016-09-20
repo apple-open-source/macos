@@ -36,6 +36,7 @@
 #include "IOHIDKeyboardDevice.h"
 #include "IOHIDFamilyTrace.h"
 #include "ev_private.h"
+#include "IOHIDDebug.h"
 
 //************************************************************************
 // KeyboardReserved
@@ -55,7 +56,7 @@ struct KeyboardReserved
     bool			repeatMode;
     bool            hasSecurePrompt; // deprecated
     IOService *		openClient;
-    IOHIDKeyboardDevice *	keyboardNub;
+    //IOHIDKeyboardDevice *	keyboardNub;
 };
 
 static OSArray  *gKeyboardReservedArray = OSArray::withCapacity(4);
@@ -200,9 +201,9 @@ void IOHIKeyboard::stop(IOService * provider)
 		thread_call_free(tempReservedStruct->repeat_thread_call);
 		tempReservedStruct->repeat_thread_call = NULL;
 
-		if ( tempReservedStruct->keyboardNub )
-			tempReservedStruct->keyboardNub->release();
-		tempReservedStruct->keyboardNub = NULL;
+//		if ( tempReservedStruct->keyboardNub )
+//			tempReservedStruct->keyboardNub->release();
+//		tempReservedStruct->keyboardNub = NULL;
 		
 		RemoveKeyboardReservedStructForService(this);
 	}
@@ -396,13 +397,13 @@ bool IOHIKeyboard::resetKeyboard()
     _deviceType    = deviceType();
     _guid	   = getGUID();
 
-    if (getProperty("HIDKeyboardKeysDefined"))
-    {
-        KeyboardReserved * reservedStruct = GetKeyboardReservedStructEventForService(this);
-        
-        if ( reservedStruct && !reservedStruct->keyboardNub)
-            reservedStruct->keyboardNub = IOHIDKeyboardDevice::newKeyboardDeviceAndStart(this);
-    }
+//    if (getProperty("HIDKeyboardKeysDefined"))
+//    {
+//        KeyboardReserved * reservedStruct = GetKeyboardReservedStructEventForService(this);
+//        
+//        if ( reservedStruct && !reservedStruct->keyboardNub)
+//            reservedStruct->keyboardNub = IOHIDKeyboardDevice::newKeyboardDeviceAndStart(this);
+//    }
 
     IOLockUnlock( _deviceLock);
     return (_keyMap) ? true : false;
@@ -568,7 +569,7 @@ void IOHIKeyboard::keyboardEvent(unsigned eventType,
         }
     }
     else {
-        IOLog("IOHIKeyboard::keyboardEvent original code/set unusually large %02x:%02x\n", origCharCode, origCharSet);
+        HIDLogError("original code/set unusually large %02x:%02x", origCharCode, origCharSet);
     }
 
     _keyboardEvent(	   this,
@@ -724,10 +725,10 @@ void IOHIKeyboard::setAlphaLock(bool val)
     _alphaLock = val;
     setAlphaLockFeedback(val);
 
-    KeyboardReserved *tempReservedStruct = GetKeyboardReservedStructEventForService(this); 
-	
-    if (tempReservedStruct && tempReservedStruct->keyboardNub )
-        tempReservedStruct->keyboardNub->setCapsLockLEDElement(val);
+//    KeyboardReserved *tempReservedStruct = GetKeyboardReservedStructEventForService(this); 
+//	
+//    if (tempReservedStruct && tempReservedStruct->keyboardNub )
+//        tempReservedStruct->keyboardNub->setCapsLockLEDElement(val);
     
 }
 
@@ -744,8 +745,8 @@ void IOHIKeyboard::setNumLock(bool val)
 
     KeyboardReserved *tempReservedStruct = GetKeyboardReservedStructEventForService(this); 
 	
-    if (tempReservedStruct && tempReservedStruct->keyboardNub )
-        tempReservedStruct->keyboardNub->setNumLockLEDElement(val);
+//    if (tempReservedStruct && tempReservedStruct->keyboardNub )
+//        tempReservedStruct->keyboardNub->setNumLockLEDElement(val);
 
 }
 
@@ -781,22 +782,22 @@ void IOHIKeyboard::dispatchKeyboardEvent(unsigned int keyCode,
 
     _lastEventTime = time;
     
-    if (tempReservedStruct)
-    {
-        if (tempReservedStruct->keyboardNub)
-        {
-            // Post the event to the HID Manager
-            tempReservedStruct->keyboardNub->postKeyboardEvent(keyCode, goingDown);
-        }
-        
-        if (tempReservedStruct->isSeized)
-        {
-            IOLockUnlock( _deviceLock);
-            return;
-        }
-        
-        tempReservedStruct->dispatchEventCalled = true;
-    }
+//    if (tempReservedStruct)
+//    {
+//        if (tempReservedStruct->keyboardNub)
+//        {
+//            // Post the event to the HID Manager
+//            tempReservedStruct->keyboardNub->postKeyboardEvent(keyCode, goingDown);
+//        }
+//        
+//        if (tempReservedStruct->isSeized)
+//        {
+//            IOLockUnlock( _deviceLock);
+//            return;
+//        }
+//        
+//        tempReservedStruct->dispatchEventCalled = true;
+//    }
 
     if (_keyMap)  _keyMap->translateKeyCode(keyCode,
 			  /* direction */ goingDown,
@@ -1076,7 +1077,7 @@ void IOHIKeyboard::_updateEventFlags( IOHIKeyboard * self,
 void IOHIKeyboard::clearLastPageAndUsage()
 {
     if (!_lastUsagePage && !_lastUsage)
-        IOLog("IOHIKeyboard::clearLastPageAndUsage called when not set %02x:%02x\n", _lastUsagePage, _lastUsage);
+        HIDLogError("called when not set %02x:%02x", _lastUsagePage, _lastUsage);
     _lastUsagePage = 0;
     _lastUsage = 0;
 }
@@ -1085,7 +1086,7 @@ void IOHIKeyboard::clearLastPageAndUsage()
 void IOHIKeyboard::setLastPageAndUsage(UInt16 usagePage, UInt16 usage)
 {
     if (_lastUsagePage || _lastUsage)
-        IOLog("IOHIKeyboard::setLastPageAndUsage called when already set %02x:%02x\n", _lastUsagePage, _lastUsage);
+        HIDLogError("called when already set %02x:%02x", _lastUsagePage, _lastUsage);
     _lastUsagePage = usagePage;
     _lastUsage = usage;
 }

@@ -13,7 +13,8 @@ GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES;
 LINKER_DISPLAYS_MANGLED_NAMES = YES;
 PREBINDING = NO;
-// WARNING_CFLAGS = -Wall -Wextra -Wcast-qual -Wchar-subscripts -Wextra-tokens -Wformat=2 -Winit-self -Wmissing-format-attribute -Wmissing-noreturn -Wpacked -Wpointer-arith -Wredundant-decls -Wundef -Wwrite-strings;
+// WARNING_CFLAGS = -Wextra -Wcast-qual -Wextra-tokens -Winit-self -Wmissing-noreturn -Wpacked -Wredundant-decls -Wundef;
+WARNING_CFLAGS = -Wall -pedantic -W -Wunused -Wimplicit -Wreturn-type -Wswitch -Wcomment -Wtrigraphs -Wformat -Wchar-subscripts -Wuninitialized -Wparentheses -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes -Wnested-externs -Winline;
 STRIP_INSTALLED_PRODUCT = YES;
 HEADER_SEARCH_PATHS = /usr/include/libxml2 "Pregenerated Files";
 

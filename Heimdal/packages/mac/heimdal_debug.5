@@ -68,13 +68,13 @@ then you can see the syslog output in Console.app or by running
 To enable more extensive debugging logging for each subsystem, use the following commands:
 .Bl -tag -width "XXX" -offset indent
 .It Kerberos Library
-sudo defaults write /Library/Preferences/com.apple.Kerberos logging -dict-add krb5 '0-/ASL:'
+sudo defaults write /Library/Preferences/com.apple.Kerberos logging -dict-add krb5 '0-/OSLOG:normal:'
 .It digest-server
-sudo defaults write /Library/Preferences/com.apple.Kerberos logging -dict-add digest-service '0-/ASL:'
+sudo defaults write /Library/Preferences/com.apple.Kerberos logging -dict-add digest-service '0-/OSLOG:normal:'
 .It kcm
-sudo defaults write /Library/Preferences/com.apple.Kerberos logging -dict-add kcm '0-/ASL:'
+sudo defaults write /Library/Preferences/com.apple.Kerberos logging -dict-add kcm '0-/OSLOG:normal:'
 .It kdc
-sudo defaults write /Library/Preferences/com.apple.Kerberos logging -dict-add kdc '0-/ASL:'
+sudo defaults write /Library/Preferences/com.apple.Kerberos logging -dict-add kdc '0-/OSLOG:normal:'
 .It MIT Kerberos Shim
 defaults write com.apple.MITKerberosShim EnableDebugging -bool true
 .It GSS-API framework logging

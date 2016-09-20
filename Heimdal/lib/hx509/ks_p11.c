@@ -42,6 +42,10 @@
 
 #ifdef HEIM_KS_P11
 
+#if __APPLE__
+#include <sys/codesign.h>
+#endif
+
 #include "pkcs11.h"
 
 struct p11_slot {
@@ -79,9 +83,9 @@ static int p11_get_session(hx509_context,
 			   struct p11_slot *,
 			   hx509_lock,
 			   CK_SESSION_HANDLE *);
-static int p11_put_session(struct p11_module *,
-			   struct p11_slot *,
-			   CK_SESSION_HANDLE);
+static void p11_put_session(struct p11_module *,
+			    struct p11_slot *,
+			    CK_SESSION_HANDLE);
 
 static int p11_list_keys(hx509_context,
 			 struct p11_module *,
@@ -135,7 +139,7 @@ p11_rsa_private_encrypt(int flen,
     CK_SESSION_HANDLE session;
     CK_MECHANISM mechanism;
     CK_ULONG ck_sigsize;
-    int ret;
+    CK_RV ret;
 
     if (padding != RSA_PKCS1_PADDING)
 	return -1;
@@ -161,7 +165,7 @@ p11_rsa_private_encrypt(int flen,
     if (ret != CKR_OK)
 	return -1;
 
-    return ck_sigsize;
+    return (int)ck_sigsize;
 }
 
 static int
@@ -173,7 +177,7 @@ p11_rsa_private_decrypt(int flen, const unsigned char *from, unsigned char *to,
     CK_SESSION_HANDLE session;
     CK_MECHANISM mechanism;
     CK_ULONG ck_sigsize;
-    int ret;
+    CK_RV ret;
 
     if (padding != RSA_PKCS1_PADDING)
 	return -1;
@@ -199,7 +203,7 @@ p11_rsa_private_decrypt(int flen, const unsigned char *from, unsigned char *to,
     if (ret != CKR_OK)
 	return -1;
 
-    return ck_sigsize;
+    return (int)ck_sigsize;
 }
 
 static int
@@ -240,21 +244,21 @@ static int
 p11_mech_info(hx509_context context,
 	      struct p11_module *p,
 	      struct p11_slot *slot,
-	      int num)
+	      CK_ULONG num)
 {
     CK_ULONG i;
-    int ret;
+    CK_RV ret;
 
     ret = P11FUNC(p, GetMechanismList, (slot->id, NULL_PTR, &i));
     if (ret) {
 	hx509_set_error_string(context, 0, HX509_PKCS11_NO_MECH,
 			       "Failed to get mech list count for slot %d",
-			       num);
+			       (int)num);
 	return HX509_PKCS11_NO_MECH;
     }
     if (i == 0) {
 	hx509_set_error_string(context, 0, HX509_PKCS11_NO_MECH,
-			       "no mech supported for slot %d", num);
+			       "no mech supported for slot %d", (int)num);
 	return HX509_PKCS11_NO_MECH;
     }
     slot->mechs.list = calloc(i, sizeof(slot->mechs.list[0]));
@@ -268,7 +272,7 @@ p11_mech_info(hx509_context context,
     if (ret) {
 	hx509_set_error_string(context, 0, HX509_PKCS11_NO_MECH,
 			       "Failed to get mech list for slot %d",
-			       num);
+			       (int)num);
 	return HX509_PKCS11_NO_MECH;
     }
     assert(i == slot->mechs.num);
@@ -292,7 +296,7 @@ p11_mech_info(hx509_context context,
 	if (ret) {
 	    hx509_set_error_string(context, 0, HX509_PKCS11_NO_MECH,
 				   "Failed to get mech info for slot %d",
-				   num);
+				   (int)num);
 	    return HX509_PKCS11_NO_MECH;
 	}
     }
@@ -305,23 +309,24 @@ p11_init_slot(hx509_context context,
 	      struct p11_module *p,
 	      hx509_lock lock,
 	      CK_SLOT_ID id,
-	      int num,
+	      CK_ULONG num,
 	      struct p11_slot *slot)
 {
     CK_SESSION_HANDLE session;
     CK_SLOT_INFO slot_info;
     CK_TOKEN_INFO token_info;
     size_t i;
+    CK_RV rv;
     int ret;
 
     slot->certs = NULL;
     slot->id = id;
 
-    ret = P11FUNC(p, GetSlotInfo, (slot->id, &slot_info));
-    if (ret) {
+    rv = P11FUNC(p, GetSlotInfo, (slot->id, &slot_info));
+    if (rv) {
 	hx509_set_error_string(context, 0, HX509_PKCS11_TOKEN_CONFUSED,
 			       "Failed to init PKCS11 slot %d",
-			       num);
+			       (int)num);
 	return HX509_PKCS11_TOKEN_CONFUSED;
     }
 
@@ -339,12 +344,12 @@ p11_init_slot(hx509_context context,
     if ((slot_info.flags & CKF_TOKEN_PRESENT) == 0)
 	return 0;
 
-    ret = P11FUNC(p, GetTokenInfo, (slot->id, &token_info));
-    if (ret) {
+    rv = P11FUNC(p, GetTokenInfo, (slot->id, &token_info));
+    if (rv) {
 	hx509_set_error_string(context, 0, HX509_PKCS11_NO_TOKEN,
 			       "Failed to init PKCS11 slot %d "
-			       "with error 0x08x",
-			       num, ret);
+			       "with error 0x%08x",
+			       (int)num, (int)rv);
 	return HX509_PKCS11_NO_TOKEN;
     }
     slot->flags |= P11_TOKEN_PRESENT;
@@ -395,7 +400,7 @@ p11_get_session(hx509_context context,
 	    hx509_set_error_string(context, 0, HX509_PKCS11_OPEN_SESSION,
 				   "Failed to OpenSession for slot id %d "
 				   "with error: 0x%08x",
-				   (int)slot->id, ret);
+				   (int)slot->id, (int)ret);
 	return HX509_PKCS11_OPEN_SESSION;
     }
 
@@ -422,6 +427,7 @@ p11_get_session(hx509_context context,
 	char *str;
 
 	if (slot->pin == NULL) {
+	    int ret2;
 
 	    memset(&prompt, 0, sizeof(prompt));
 
@@ -431,15 +437,15 @@ p11_get_session(hx509_context context,
 	    prompt.reply.data = pin;
 	    prompt.reply.length = sizeof(pin);
 
-	    ret = hx509_lock_prompt(lock, &prompt);
-	    if (ret) {
+	    ret2 = hx509_lock_prompt(lock, &prompt);
+	    if (ret2) {
 		free(str);
 		if (context)
-		    hx509_set_error_string(context, 0, ret,
+		    hx509_set_error_string(context, 0, ret2,
 					   "Failed to get pin code for slot "
 					   "id %d with error: %d",
-					   (int)slot->id, ret);
-		return ret;
+					   (int)slot->id, (int)ret2);
+		return ret2;
 	    }
 	    free(str);
 	} else {
@@ -453,7 +459,7 @@ p11_get_session(hx509_context context,
 		hx509_set_error_string(context, 0, HX509_PKCS11_LOGIN,
 				       "Failed to login on slot id %d "
 				       "with error: 0x%08x",
-				       (int)slot->id, ret);
+				       (int)slot->id, (int)ret);
 	    return HX509_PKCS11_LOGIN;
 	} else
 	    slot->flags |= P11_LOGIN_DONE;
@@ -477,7 +483,7 @@ p11_get_session(hx509_context context,
     return 0;
 }
 
-static int
+static void
 p11_put_session(struct p11_module *p,
 		struct p11_slot *slot,
 		CK_SESSION_HANDLE session)
@@ -485,8 +491,6 @@ p11_put_session(struct p11_module *p,
     if ((slot->flags & P11_SESSION_IN_USE) == 0)
 	_hx509_abort("slot not in session");
     slot->flags &= ~P11_SESSION_IN_USE;
-
-    return 0;
 }
 
 static int
@@ -503,15 +507,17 @@ iterate_entries(hx509_context context,
 {
     CK_OBJECT_HANDLE object;
     CK_ULONG object_count;
-    int ret, ret2, i;
+    CK_RV rv;
+    int i, ret = 0;
 
-    ret = P11FUNC(p, FindObjectsInit, (session, search_data, num_search_data));
-    if (ret != CKR_OK) {
+
+    rv = P11FUNC(p, FindObjectsInit, (session, search_data, num_search_data));
+    if (rv != CKR_OK) {
 	return -1;
     }
     while (1) {
-	ret = P11FUNC(p, FindObjects, (session, &object, 1, &object_count));
-	if (ret != CKR_OK) {
+	rv = P11FUNC(p, FindObjects, (session, &object, 1, &object_count));
+	if (rv != CKR_OK) {
 	    return -1;
 	}
 	if (object_count == 0)
@@ -520,9 +526,9 @@ iterate_entries(hx509_context context,
 	for (i = 0; i < num_query; i++)
 	    query[i].pValue = NULL;
 
-	ret = P11FUNC(p, GetAttributeValue,
-		      (session, object, query, num_query));
-	if (ret != CKR_OK) {
+	rv = P11FUNC(p, GetAttributeValue,
+		     (session, object, query, num_query));
+	if (rv != CKR_OK) {
 	    return -1;
 	}
 	for (i = 0; i < num_query; i++) {
@@ -532,9 +538,9 @@ iterate_entries(hx509_context context,
 		goto out;
 	    }
 	}
-	ret = P11FUNC(p, GetAttributeValue,
+	rv = P11FUNC(p, GetAttributeValue,
 		      (session, object, query, num_query));
-	if (ret != CKR_OK) {
+	if (rv != CKR_OK) {
 	    ret = -1;
 	    goto out;
 	}
@@ -557,10 +563,11 @@ iterate_entries(hx509_context context,
 	query[i].pValue = NULL;
     }
 
-    ret2 = P11FUNC(p, FindObjectsFinal, (session));
-    if (ret2 != CKR_OK) {
-	return ret2;
+    rv = P11FUNC(p, FindObjectsFinal, (session));
+    if (rv != CKR_OK) {
+	ret = ENOMEM;
     }
+
 
     return ret;
 }
@@ -574,7 +581,7 @@ getattr_bn(struct p11_module *p,
 {
     CK_ATTRIBUTE query;
     BIGNUM *bn;
-    int ret;
+    CK_RV ret;
 
     query.type = type;
     query.pValue = NULL;
@@ -593,7 +600,7 @@ getattr_bn(struct p11_module *p,
 	free(query.pValue);
 	return NULL;
     }
-    bn = BN_bin2bn(query.pValue, query.ulValueLen, NULL);
+    bn = BN_bin2bn(query.pValue, (int)query.ulValueLen, NULL);
     free(query.pValue);
 
     return bn;
@@ -774,8 +781,9 @@ p11_list_keys(hx509_context context,
 			  search_data, 1,
 			  query_data, 3,
 			  collect_cert, collector);
-    if (ret)
+    if (ret) {
 	goto out;
+    }
 
     ret = _hx509_collector_collect_certs(context, collector, &slot->certs);
 
@@ -808,7 +816,7 @@ p11_module_free(void *ptr)
 	    free(p->slot[i].mechs.list);
 
 	    if (p->slot[i].mechs.infos) {
-		int j;
+		unsigned int j;
 
 		for (j = 0 ; j < p->slot[i].mechs.num ; j++)
 		    free(p->slot[i].mechs.infos[j]);
@@ -833,6 +841,7 @@ p11_init(hx509_context context,
     CK_C_GetFunctionList getFuncs;
     struct p11_module *p;
     char *list, *str;
+    CK_RV ret2;
     int ret;
 
     *data = NULL;
@@ -880,24 +889,24 @@ p11_init(hx509_context context,
 	goto out;
     }
 
-    ret = (*getFuncs)(&p->funcs);
-    if (ret) {
+    ret2 = (*getFuncs)(&p->funcs);
+    if (ret2) {
 	ret = HX509_PKCS11_LOAD;
 	hx509_set_error_string(context, 0, ret,
 			       "C_GetFunctionList failed in %s", list);
 	goto out;
     }
 
-    ret = P11FUNC(p, Initialize, (NULL_PTR));
-    if (ret != CKR_OK) {
+    ret2 = P11FUNC(p, Initialize, (NULL_PTR));
+    if (ret2 != CKR_OK) {
 	ret = HX509_PKCS11_TOKEN_CONFUSED;
 	hx509_set_error_string(context, 0, ret,
 			       "Failed initialize the PKCS11 module");
 	goto out;
     }
 
-    ret = P11FUNC(p, GetSlotList, (FALSE, NULL, &p->num_slots));
-    if (ret) {
+    ret2 = P11FUNC(p, GetSlotList, (FALSE, NULL, &p->num_slots));
+    if (ret2) {
 	ret = HX509_PKCS11_TOKEN_CONFUSED;
 	hx509_set_error_string(context, 0, ret,
 			       "Failed to get number of PKCS11 slots");
@@ -915,7 +924,7 @@ p11_init(hx509_context context,
     {
 	CK_SLOT_ID_PTR slot_ids;
 	int num_tokens = 0;
-	size_t i;
+	CK_ULONG i;
 
 	slot_ids = malloc(p->num_slots * sizeof(*slot_ids));
 	if (slot_ids == NULL) {
@@ -924,8 +933,8 @@ p11_init(hx509_context context,
 	    goto out;
 	}
 
-	ret = P11FUNC(p, GetSlotList, (FALSE, slot_ids, &p->num_slots));
-	if (ret) {
+	ret2 = P11FUNC(p, GetSlotList, (FALSE, slot_ids, &p->num_slots));
+	if (ret2) {
 	    free(slot_ids);
 	    hx509_set_error_string(context, 0, HX509_PKCS11_TOKEN_CONFUSED,
 				   "Failed getting slot-list from "
@@ -943,6 +952,7 @@ p11_init(hx509_context context,
 	    goto out;
 	}
 
+	ret = 0;
 	for (i = 0; i < p->num_slots; i++) {
 	    ret = p11_init_slot(context, p, lock, slot_ids[i], i, &p->slot[i]);
 	    if (ret)
@@ -992,8 +1002,8 @@ p11_iter_start(hx509_context context,
 {
     struct p11_module *p = data;
     struct p11_cursor *c;
-    int ret;
     size_t i;
+    int ret;
 
     c = malloc(sizeof(*c));
     if (c == NULL) {
@@ -1097,13 +1107,13 @@ p11_printinfo(hx509_context context,
     size_t i, j;
 
     _hx509_pi_printf(func, ctx, "pkcs11 driver with %d slot%s",
-		     p->num_slots, p->num_slots > 1 ? "s" : "");
+		     (int)p->num_slots, p->num_slots > 1 ? "s" : "");
 
     for (i = 0; i < p->num_slots; i++) {
 	struct p11_slot *s = &p->slot[i];
 
 	_hx509_pi_printf(func, ctx, "slot %d: id: %d name: %s flags: %08x",
-			 i, (int)s->id, s->name, s->flags);
+			 (int)i, (int)s->id, s->name, s->flags);
 
 	_hx509_pi_printf(func, ctx, "number of supported mechanisms: %lu",
 			 (unsigned long)s->mechs.num);
@@ -1144,7 +1154,7 @@ p11_printinfo(hx509_context context,
 		break;
 	    }
 #undef MECHNAME
-	    unparse_flags(s->mechs.infos[j]->flags, mechflags,
+	    unparse_flags((int)s->mechs.infos[j]->flags, mechflags,
 			  flags, sizeof(flags));
 
 	    _hx509_pi_printf(func, ctx, "  %s: %s", mechname, flags);
@@ -1174,6 +1184,14 @@ void
 _hx509_ks_pkcs11_register(hx509_context context)
 {
 #ifdef HEIM_KS_P11
+#if __APPLE__
+    int flags = 0;
+
+    if (csops(0, CS_OPS_STATUS, &flags, sizeof(flags)) != 0)
+	return;
+    if (flags & CS_RESTRICT)
+	return;
+#endif /* __APPLE__ */
     _hx509_ks_register(context, &keyset_pkcs11);
-#endif
+#endif /* HEIM_KS_P11 */
 }

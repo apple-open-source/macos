@@ -40,6 +40,8 @@
 #include <Security/SecureObjectSync/SOSInternal.h>
 #include <Security/SecureObjectSync/SOSFullPeerInfo.h>
 #include <Security/SecureObjectSync/SOSUserKeygen.h>
+#include <Security/SecureObjectSync/SOSViews.h>
+
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -72,12 +74,36 @@ static void testView(SOSAccountRef account, SOSViewResultCode expected, CFString
     CFReleaseNull(error);
 }
 
-static int kTestTestCount = 21;
+static void testViewLists(void) {
+    CFSetRef allViews = SOSViewCopyViewSet(kViewSetAll);
+    CFSetRef defaultViews = SOSViewCopyViewSet(kViewSetDefault);
+    CFSetRef initialViews = SOSViewCopyViewSet(kViewSetInitial);
+    CFSetRef alwaysOnViews = SOSViewCopyViewSet(kViewSetAlwaysOn);
+    CFSetRef backupRequiredViews = SOSViewCopyViewSet(kViewSetRequiredForBackup);
+    CFSetRef V0Views = SOSViewCopyViewSet(kViewSetV0);
+
+    is(CFSetGetCount(allViews), 22, "make sure count of allViews is correct");
+    is(CFSetGetCount(defaultViews), 18, "make sure count of defaultViews is correct");
+    is(CFSetGetCount(initialViews), 5, "make sure count of initialViews is correct");
+    is(CFSetGetCount(alwaysOnViews), 18, "make sure count of alwaysOnViews is correct");
+    is(CFSetGetCount(backupRequiredViews), 3, "make sure count of backupRequiredViews is correct");
+    is(CFSetGetCount(V0Views), 6, "make sure count of V0Views is correct");
+    
+    CFReleaseNull(allViews);
+    CFReleaseNull(defaultViews);
+    CFReleaseNull(initialViews);
+    CFReleaseNull(alwaysOnViews);
+    CFReleaseNull(backupRequiredViews);
+    CFReleaseNull(V0Views);
+}
+
+static int kTestTestCount = 38;
 static void tests(void)
 {
     CFErrorRef error = NULL;
     CFDataRef cfpassword = CFDataCreate(NULL, (uint8_t *) "FooFooFoo", 10);
     CFStringRef cfaccount = CFSTR("test@test.org");
+    CFSetRef nullSet = CFSetCreateMutableForCFTypes(kCFAllocatorDefault);
     
     SOSDataSourceFactoryRef test_factory = SOSTestDataSourceFactoryCreate();
     SOSDataSourceRef test_source = SOSTestDataSourceCreate();
@@ -89,9 +115,11 @@ static void tests(void)
     CFReleaseNull(error);
     CFReleaseNull(cfpassword);
     
-    ok(SOSAccountJoinCircles(account, &error), "Join circle: %@", error);
+    ok(SOSAccountJoinCircles_wTxn(account, &error), "Join circle: %@", error);
     
     ok(NULL != account, "Created");
+
+    ok(SOSAccountCheckHasBeenInSync_wTxn(account), "In sync already");
 
     testView(account, kSOSCCViewNotMember, kSOSViewKeychainV0, kSOSCCViewQuery, "Expected view capability for kSOSViewKeychain");
     // Default views no longer includes kSOSViewAppleTV
@@ -114,7 +142,27 @@ static void tests(void)
     testView(account, kSOSCCViewMember, kSOSViewPCSiCloudDrive, kSOSCCViewQuery, "Expected view capability for kSOSViewPCSiCloudDrive");
     testView(account, kSOSCCViewNotMember, kSOSViewKeychainV0, kSOSCCViewQuery, "Expected view capability for kSOSViewKeychainV0");
     testView(account, kSOSCCViewMember, kSOSViewAppleTV, kSOSCCViewQuery, "Expected view capability for kSOSViewAppleTV");
+    
+    ok(SOSAccountUpdateViewSets(account, SOSViewsGetV0ViewSet(), nullSet), "Expect not accepting kSOSKeychainV0");
+    testView(account, kSOSCCViewNotMember, kSOSViewKeychainV0, kSOSCCViewQuery, "Expected no addition of kSOSKeychainV0");
 
+    ok(SOSAccountUpdateViewSets(account, SOSViewsGetV0ViewSet(), nullSet), "Expect not accepting kSOSKeychainV0");
+    testView(account, kSOSCCViewNotMember, kSOSViewKeychainV0, kSOSCCViewQuery, "Expected no addition of kSOSKeychainV0");
+
+    SOSPeerInfoRef pi = SOSAccountGetMyPeerInfo(account);
+    ok(pi, "should have the peerInfo");
+    SOSViewResultCode vr = SOSViewsEnable(pi, kSOSViewKeychainV0, NULL);
+    
+    ok(vr == kSOSCCViewMember, "Set Virtual View manually");
+    
+    ok(!SOSAccountUpdateViewSets(account, nullSet, SOSViewsGetV0ViewSet()), "Expect not removing kSOSKeychainV0");
+    testView(account, kSOSCCViewMember, kSOSViewKeychainV0, kSOSCCViewQuery, "Expected kSOSKeychainV0 is still there");
+    
+    ok(!SOSAccountUpdateViewSets(account, nullSet, SOSViewsGetV0ViewSet()), "Expect not removing kSOSKeychainV0");
+    testView(account, kSOSCCViewMember, kSOSViewKeychainV0, kSOSCCViewQuery, "Expected kSOSKeychainV0 is still there");
+   
+    
+    
     CFReleaseNull(account);
     
     SOSDataSourceRelease(test_source, NULL);
@@ -136,6 +184,7 @@ int secd_80_views_basic(int argc, char *const *argv)
     
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
 
+    testViewLists();
     tests();
     
     return 0;

@@ -30,6 +30,11 @@
 /*	IBM T.J. Watson Research
 /*	P.O. Box 704
 /*	Yorktown Heights, NY 10598, USA
+/*
+/*	Wietse Venema
+/*	Google, Inc.
+/*	111 8th Avenue
+/*	New York, NY 10011, USA
 /*--*/
 
 /* System library. */
@@ -136,6 +141,7 @@ static const CONFIG_STR_TABLE pcf_legacy_str_table[] = {
     {"fallback_relay", ""},
     {"authorized_verp_clients", ""},
     {"smtpd_client_connection_limit_exceptions", ""},
+    {"postscreen_dnsbl_ttl", ""},
     0,
 };
 
@@ -223,12 +229,11 @@ static const char *pcf_check_mydomainname(void)
 	return (domain);
 
     /*
-     * Use the hostname when it is not a FQDN ("foo"), or when the hostname
-     * actually is a domain name ("foo.com").
+     * Use a default domain when the hostname is not a FQDN ("foo").
      */
     if (var_myhostname == 0)
 	pcf_get_myhostname();
-    if ((dot = strchr(var_myhostname, '.')) == 0 || strchr(dot + 1, '.') == 0)
+    if ((dot = strchr(var_myhostname, '.')) == 0)
 	return (domain = DEF_MYDOMAIN);
     return (domain = mystrdup(dot + 1));
 }
@@ -238,7 +243,6 @@ static const char *pcf_check_mydomainname(void)
 static const char *pcf_mynetworks(void)
 {
     static const char *networks;
-    INET_PROTO_INFO *proto_info;
     const char *junk;
 
     /*
@@ -250,28 +254,34 @@ static const char *pcf_mynetworks(void)
     if (var_inet_interfaces == 0) {
 	if ((pcf_cmd_mode & PCF_SHOW_DEFS)
 	    || (junk = mail_conf_lookup_eval(VAR_INET_INTERFACES)) == 0)
-	    junk = DEF_INET_INTERFACES;
+	    junk = pcf_expand_parameter_value((VSTRING *) 0, pcf_cmd_mode,
+					      DEF_INET_INTERFACES,
+					      (PCF_MASTER_ENT *) 0);
 	var_inet_interfaces = mystrdup(junk);
     }
     if (var_mynetworks_style == 0) {
 	if ((pcf_cmd_mode & PCF_SHOW_DEFS)
 	    || (junk = mail_conf_lookup_eval(VAR_MYNETWORKS_STYLE)) == 0)
-	    junk = DEF_MYNETWORKS_STYLE;
+	    junk = pcf_expand_parameter_value((VSTRING *) 0, pcf_cmd_mode,
+					      DEF_MYNETWORKS_STYLE,
+					      (PCF_MASTER_ENT *) 0);
 	var_mynetworks_style = mystrdup(junk);
     }
     if (var_inet_protocols == 0) {
 	if ((pcf_cmd_mode & PCF_SHOW_DEFS)
 	    || (junk = mail_conf_lookup_eval(VAR_INET_PROTOCOLS)) == 0)
-	    junk = DEF_INET_PROTOCOLS;
+	    junk = pcf_expand_parameter_value((VSTRING *) 0, pcf_cmd_mode,
+					      DEF_INET_PROTOCOLS,
+					      (PCF_MASTER_ENT *) 0);
 	var_inet_protocols = mystrdup(junk);
-	proto_info = inet_proto_init(VAR_INET_PROTOCOLS, var_inet_protocols);
+	(void) inet_proto_init(VAR_INET_PROTOCOLS, var_inet_protocols);
     }
     return (networks = mystrdup(mynetworks()));
 }
 
 /* pcf_conv_bool_parameter - get boolean parameter string value */
 
-static const char *pcf_conv_bool_parameter(char *ptr)
+static const char *pcf_conv_bool_parameter(void *ptr)
 {
     CONFIG_BOOL_TABLE *cbt = (CONFIG_BOOL_TABLE *) ptr;
 
@@ -280,7 +290,7 @@ static const char *pcf_conv_bool_parameter(char *ptr)
 
 /* pcf_conv_time_parameter - get relative time parameter string value */
 
-static const char *pcf_conv_time_parameter(char *ptr)
+static const char *pcf_conv_time_parameter(void *ptr)
 {
     CONFIG_TIME_TABLE *ctt = (CONFIG_TIME_TABLE *) ptr;
 
@@ -289,7 +299,7 @@ static const char *pcf_conv_time_parameter(char *ptr)
 
 /* pcf_conv_int_parameter - get integer parameter string value */
 
-static const char *pcf_conv_int_parameter(char *ptr)
+static const char *pcf_conv_int_parameter(void *ptr)
 {
     CONFIG_INT_TABLE *cit = (CONFIG_INT_TABLE *) ptr;
 
@@ -298,7 +308,7 @@ static const char *pcf_conv_int_parameter(char *ptr)
 
 /* pcf_conv_str_parameter - get string parameter string value */
 
-static const char *pcf_conv_str_parameter(char *ptr)
+static const char *pcf_conv_str_parameter(void *ptr)
 {
     CONFIG_STR_TABLE *cst = (CONFIG_STR_TABLE *) ptr;
 
@@ -307,7 +317,7 @@ static const char *pcf_conv_str_parameter(char *ptr)
 
 /* pcf_conv_str_fn_parameter - get string-function parameter string value */
 
-static const char *pcf_conv_str_fn_parameter(char *ptr)
+static const char *pcf_conv_str_fn_parameter(void *ptr)
 {
     CONFIG_STR_FN_TABLE *cft = (CONFIG_STR_FN_TABLE *) ptr;
 
@@ -316,7 +326,7 @@ static const char *pcf_conv_str_fn_parameter(char *ptr)
 
 /* pcf_conv_raw_parameter - get raw string parameter string value */
 
-static const char *pcf_conv_raw_parameter(char *ptr)
+static const char *pcf_conv_raw_parameter(void *ptr)
 {
     CONFIG_RAW_TABLE *rst = (CONFIG_RAW_TABLE *) ptr;
 
@@ -325,7 +335,7 @@ static const char *pcf_conv_raw_parameter(char *ptr)
 
 /* pcf_conv_nint_parameter - get new integer parameter string value */
 
-static const char *pcf_conv_nint_parameter(char *ptr)
+static const char *pcf_conv_nint_parameter(void *ptr)
 {
     CONFIG_NINT_TABLE *rst = (CONFIG_NINT_TABLE *) ptr;
 
@@ -334,7 +344,7 @@ static const char *pcf_conv_nint_parameter(char *ptr)
 
 /* pcf_conv_nbool_parameter - get new boolean parameter string value */
 
-static const char *pcf_conv_nbool_parameter(char *ptr)
+static const char *pcf_conv_nbool_parameter(void *ptr)
 {
     CONFIG_NBOOL_TABLE *bst = (CONFIG_NBOOL_TABLE *) ptr;
 
@@ -343,7 +353,7 @@ static const char *pcf_conv_nbool_parameter(char *ptr)
 
 /* pcf_conv_long_parameter - get long parameter string value */
 
-static const char *pcf_conv_long_parameter(char *ptr)
+static const char *pcf_conv_long_parameter(void *ptr)
 {
     CONFIG_LONG_TABLE *clt = (CONFIG_LONG_TABLE *) ptr;
 
@@ -383,39 +393,39 @@ void    pcf_register_builtin_parameters(const char *procname, pid_t pid)
      */
     for (ctt = pcf_time_table; ctt->name; ctt++)
 	PCF_PARAM_TABLE_ENTER(pcf_param_table, ctt->name,
-			      PCF_PARAM_FLAG_BUILTIN, (char *) ctt,
+			      PCF_PARAM_FLAG_BUILTIN, (void *) ctt,
 			      pcf_conv_time_parameter);
     for (cbt = pcf_bool_table; cbt->name; cbt++)
 	PCF_PARAM_TABLE_ENTER(pcf_param_table, cbt->name,
-			      PCF_PARAM_FLAG_BUILTIN, (char *) cbt,
+			      PCF_PARAM_FLAG_BUILTIN, (void *) cbt,
 			      pcf_conv_bool_parameter);
     for (cit = pcf_int_table; cit->name; cit++)
 	PCF_PARAM_TABLE_ENTER(pcf_param_table, cit->name,
-			      PCF_PARAM_FLAG_BUILTIN, (char *) cit,
+			      PCF_PARAM_FLAG_BUILTIN, (void *) cit,
 			      pcf_conv_int_parameter);
     for (cst = pcf_str_table; cst->name; cst++)
 	PCF_PARAM_TABLE_ENTER(pcf_param_table, cst->name,
-			      PCF_PARAM_FLAG_BUILTIN, (char *) cst,
+			      PCF_PARAM_FLAG_BUILTIN, (void *) cst,
 			      pcf_conv_str_parameter);
     for (cft = pcf_str_fn_table; cft->name; cft++)
 	PCF_PARAM_TABLE_ENTER(pcf_param_table, cft->name,
-			      PCF_PARAM_FLAG_BUILTIN, (char *) cft,
+			      PCF_PARAM_FLAG_BUILTIN, (void *) cft,
 			      pcf_conv_str_fn_parameter);
     for (rst = pcf_raw_table; rst->name; rst++)
 	PCF_PARAM_TABLE_ENTER(pcf_param_table, rst->name,
 			      PCF_PARAM_FLAG_BUILTIN | PCF_PARAM_FLAG_RAW,
-			      (char *) rst, pcf_conv_raw_parameter);
+			      (void *) rst, pcf_conv_raw_parameter);
     for (nst = pcf_nint_table; nst->name; nst++)
 	PCF_PARAM_TABLE_ENTER(pcf_param_table, nst->name,
-			      PCF_PARAM_FLAG_BUILTIN, (char *) nst,
+			      PCF_PARAM_FLAG_BUILTIN, (void *) nst,
 			      pcf_conv_nint_parameter);
     for (bst = pcf_nbool_table; bst->name; bst++)
 	PCF_PARAM_TABLE_ENTER(pcf_param_table, bst->name,
-			      PCF_PARAM_FLAG_BUILTIN, (char *) bst,
+			      PCF_PARAM_FLAG_BUILTIN, (void *) bst,
 			      pcf_conv_nbool_parameter);
     for (lst = pcf_long_table; lst->name; lst++)
 	PCF_PARAM_TABLE_ENTER(pcf_param_table, lst->name,
-			      PCF_PARAM_FLAG_BUILTIN, (char *) lst,
+			      PCF_PARAM_FLAG_BUILTIN, (void *) lst,
 			      pcf_conv_long_parameter);
 
     /*
@@ -424,7 +434,7 @@ void    pcf_register_builtin_parameters(const char *procname, pid_t pid)
      */
     for (cst = pcf_legacy_str_table; cst->name; cst++)
 	PCF_PARAM_TABLE_ENTER(pcf_param_table, cst->name,
-			      PCF_PARAM_FLAG_LEGACY, (char *) cst,
+			      PCF_PARAM_FLAG_LEGACY, (void *) cst,
 			      pcf_conv_str_parameter);
 
     /*
@@ -434,9 +444,9 @@ void    pcf_register_builtin_parameters(const char *procname, pid_t pid)
     pcf_adhoc_procname.defval = mystrdup(procname);
     PCF_PARAM_TABLE_ENTER(pcf_param_table, pcf_adhoc_procname.name,
 			  PCF_PARAM_FLAG_BUILTIN | PCF_PARAM_FLAG_READONLY,
-			  (char *) &pcf_adhoc_procname, pcf_conv_str_parameter);
+		      (void *) &pcf_adhoc_procname, pcf_conv_str_parameter);
     pcf_adhoc_pid.defval = pid;
     PCF_PARAM_TABLE_ENTER(pcf_param_table, pcf_adhoc_pid.name,
 			  PCF_PARAM_FLAG_BUILTIN | PCF_PARAM_FLAG_READONLY,
-			  (char *) &pcf_adhoc_pid, pcf_conv_int_parameter);
+			  (void *) &pcf_adhoc_pid, pcf_conv_int_parameter);
 }

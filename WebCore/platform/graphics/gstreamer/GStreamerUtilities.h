@@ -20,22 +20,7 @@
 
 #include <gst/gst.h>
 #include <gst/video/video-format.h>
-
-#define LOG_MEDIA_MESSAGE(...) do { \
-    GST_DEBUG(__VA_ARGS__); \
-    LOG_VERBOSE(Media, __VA_ARGS__); } while (0)
-
-#define ERROR_MEDIA_MESSAGE(...) do { \
-    GST_ERROR(__VA_ARGS__); \
-    LOG_VERBOSE(Media, __VA_ARGS__); } while (0)
-
-#define INFO_MEDIA_MESSAGE(...) do { \
-    GST_INFO(__VA_ARGS__); \
-    LOG_VERBOSE(Media, __VA_ARGS__); } while (0)
-
-#define WARN_MEDIA_MESSAGE(...) do { \
-    GST_WARNING(__VA_ARGS__); \
-    LOG_VERBOSE(Media, __VA_ARGS__); } while (0)
+#include <gst/video/video-info.h>
 
 namespace WebCore {
 
@@ -65,6 +50,7 @@ inline bool webkitGstCheckVersion(guint major, guint minor, guint micro)
 GstPad* webkitGstGhostPadFromStaticTemplate(GstStaticPadTemplate*, const gchar* name, GstPad* target);
 #if ENABLE(VIDEO)
 bool getVideoSizeAndFormatFromCaps(GstCaps*, WebCore::IntSize&, GstVideoFormat&, int& pixelAspectRatioNumerator, int& pixelAspectRatioDenominator, int& stride);
+bool getSampleVideoInfo(GstSample*, GstVideoInfo&);
 #endif
 GstBuffer* createGstBuffer(GstBuffer*);
 GstBuffer* createGstBufferForData(const char* data, int length);
@@ -74,5 +60,5 @@ void unmapGstBuffer(GstBuffer*);
 bool initializeGStreamer();
 unsigned getGstPlayFlag(const char* nick);
 GstClockTime toGstClockTime(float time);
-
+bool gstRegistryHasElementForMediaType(GList* elementFactories, const char* capsString);
 }

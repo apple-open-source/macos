@@ -136,16 +136,18 @@ nfs_principal_get(const char *path, uint32_t flags, void *arg __unused)
 			break;
 		}
 	} else {
-		if (p.nametype)
-			printf("%-48s: %.*s\n", path, p.princlen, p.principal);
-		else {
+		const char *kin = (p.flags & NFS_IOC_INVALID_CRED_FLAG) ? "[kinit needed]" : "";
+
+		if (p.nametype) {
+			printf("%-48s: %.*s %s\n", path, p.princlen, p.principal, kin);
+		} else {
 			if (p.flags & NFS_IOC_NO_CRED_FLAG)
 				printf("%-48s: %s\n", path, "Credentials are not set.");
 			else if (p.princlen)
-				printf("%-48s: Default credential [from %.*s]\n",
-				       path, p.princlen, p.principal);
+				printf("%-48s: Default credential [from %.*s] %s\n",
+				       path, p.princlen, p.principal, kin);
 			else
-				printf("%-48s: Default credential [kinit needed]\n", path);
+				printf("%-48s: Default credential %s\n", path, kin);
 		}
 		if (p.princlen > NFS_PRINCIPAL_MAX_SIZE)
 			printf("\t\tPrincipal name is trunctated by %d bytes.\n",

@@ -1,0 +1,17 @@
+--- ./obj/unzip60/unix/Makefile	2009-01-18 14:41:18.000000000 -0800
++++ macosx_flags	2015-07-22 17:39:31.000000000 -0700
+@@ -872,12 +872,12 @@
+ 
+ # Macintosh MacOS X (Unix-compatible enviroment), using standard compiler
+ macosx:	unix_make
+-	$(MAKE) unzips CFLAGS="-O3 -Wall -DBSD" LF2=""
++	$(MAKE) unzips CFLAGS="-O3 -Wall -DBSD -DLARGE_FILE_SUPPORT -DUNICODE_SUPPORT" LF2=""
+ 	$(STRIP) $(UNZIPS)
+ 
+ # Macintosh MacOS X (Unix-compatible enviroment), using gcc
+ macosx_gcc:	unix_make
+-	$(MAKE) unzips CC=gcc CFLAGS="-O3 -Wall -DBSD" LF2=""
++	$(MAKE) unzips CC=gcc CFLAGS="-O3 -Wall -DBSD -DLARGE_FILE_SUPPORT -DUNICODE_SUPPORT" LF2=""
+ 	$(STRIP) $(UNZIPS)
+ 
+ # Minix 1.5 PC for the 386.  Invoke as is to use default cc, or as "make

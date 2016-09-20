@@ -16,6 +16,7 @@
 typedef struct {
     const char *hostname;
     const char *service; // service string or port number
+    const char *config;
     bool dtls;
     int protocol_min;
     int protocol_max;
@@ -30,6 +31,8 @@ typedef struct {
     const char *alpn_string;
     const char *request;
     unsigned min_dh_size;
+    bool fallback;
+    bool allow_ext_master_secret;
 } tls_client_params;
 
 

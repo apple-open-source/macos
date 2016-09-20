@@ -146,11 +146,6 @@ typedef void *SYMMT_PCI_HANDLE;
 extern u_long current_time;     /* current time(s) */
 
 /*
- * Imported from ntpd module
- */
-extern volatile int debug;               /* global debug flag */
-
-/*
  * VME unit control structure.
  * Changes made to vmeunit structure. Most members are now available in the 
  * new refclockproc structure in ntp_refclock.h - 07/99 - Ganesh Ramasivan
@@ -266,21 +261,21 @@ vme_start(
 	/*
 	 * Allocate unit structure
 	 */
-	vme = (struct vmeunit *)emalloc(sizeof(struct vmeunit));
-	bzero((char *)vme, sizeof(struct vmeunit));
+	vme = emalloc_zero(sizeof(struct vmeunit));
 
 
 	/*
 	 * Set up the structures
 	 */
 	pp = peer->procptr;
-	pp->unitptr = (caddr_t) vme;
+	pp->unitptr = vme;
 	pp->timestarted = current_time;
 
 	pp->io.clock_recv = vme_receive;
-	pp->io.srcclock = (caddr_t)peer;
+	pp->io.srcclock = peer;
 	pp->io.datalen = 0;
 	pp->io.fd = fd_vme;
+	/* shouldn't there be an io_addclock() call? */
 
 	/*
 	 * All done.  Initialize a few random peer variables, then
@@ -309,11 +304,13 @@ vme_shutdown(
 	 * Tell the I/O module to turn us off.  We're history.
 	 */
 	pp = peer->procptr;
-	vme = (struct vmeunit *)pp->unitptr;
+	vme = pp->unitptr;
 	io_closeclock(&pp->io);
 	pp->unitptr = NULL;
-	free(vme);
-	if (tfp_type == 2) bcStopPci(stfp_handle); 
+	if (NULL != vme)
+		free(vme);
+	if (tfp_type == 2)
+		bcStopPci(stfp_handle); 
 }
 
 
@@ -347,7 +344,7 @@ vme_poll(
 	struct tm *tadr;
         
 	pp = peer->procptr;	 
-	vme = (struct vmeunit *)pp->unitptr;        /* Here is the structure */
+	vme = pp->unitptr;        /* Here is the structure */
 
 	tptr = &vme->vmedata; 
 	if ((tptr = get_datumtime(tptr)) == NULL ) {
@@ -368,14 +365,15 @@ vme_poll(
 	  tadr = gmtime(&tloc);
 	  tptr->year = (unsigned short)(tadr->tm_year + 1900);
 
-	sprintf(pp->a_lastcode, 
-		"%3.3d %2.2d:%2.2d:%2.2d.%.6ld %1d",
-		tptr->day, 
-		tptr->hr, 
-		tptr->mn,
-		tptr->sec, 
-		tptr->frac, 
-		tptr->status);
+	snprintf(pp->a_lastcode,
+		 sizeof(pp->a_lastcode),
+		 "%3.3d %2.2d:%2.2d:%2.2d.%.6ld %1d",
+		 tptr->day, 
+		 tptr->hr, 
+		 tptr->mn,
+		 tptr->sec, 
+		 tptr->frac, 
+		 tptr->status);
 
 	pp->lencode = (u_short) strlen(pp->a_lastcode);
 
@@ -451,7 +449,7 @@ get_datumtime(struct vmedate *time_vme)
 			 * the time.
 			 */
 			if(ioctl (fd_vme, SELTIMEFORMAT, TIME_DECIMAL)){	
-					msyslog(LOG_ERR, "Could not set time format\n");
+					msyslog(LOG_ERR, "Could not set time format");
 					return (NULL);	
 			}
 			/* read the time */
@@ -465,37 +463,41 @@ get_datumtime(struct vmedate *time_vme)
 		default:			/* legacy bancomm card */
 
 			if (ioctl(fd_vme, READTIME, &vts)) {
-	    		msyslog(LOG_ERR, "get_datumtime error: %m");
+				msyslog(LOG_ERR,
+					"get_datumtime error: %m");
 				return(NULL);
 			}
 			/* Get day */
-			sprintf(cbuf,"%3.3x", ((vts.btfp_time[ 0 ] & 0x000f) <<8) +
-				((vts.btfp_time[ 1 ] & 0xff00) >> 8));  
+			snprintf(cbuf, sizeof(cbuf), "%3.3x",
+				 ((vts.btfp_time[ 0 ] & 0x000f) << 8) +
+				  ((vts.btfp_time[ 1 ] & 0xff00) >> 8));  
 			time_vme->day = (unsigned short)atoi(cbuf);
 
 			/* Get hour */
-			sprintf(cbuf,"%2.2x", vts.btfp_time[ 1 ] & 0x00ff);
-
+			snprintf(cbuf, sizeof(cbuf), "%2.2x",
+				 vts.btfp_time[ 1 ] & 0x00ff);
 			time_vme->hr = (unsigned short)atoi(cbuf);
 
 			/* Get minutes */
-			sprintf(cbuf,"%2.2x", (vts.btfp_time[ 2 ] & 0xff00) >>8);
+			snprintf(cbuf, sizeof(cbuf), "%2.2x",
+				 (vts.btfp_time[ 2 ] & 0xff00) >> 8);
 			time_vme->mn = (unsigned short)atoi(cbuf);
 
 			/* Get seconds */
-			sprintf(cbuf,"%2.2x", vts.btfp_time[ 2 ] & 0x00ff);
+			snprintf(cbuf, sizeof(cbuf), "%2.2x",
+				 vts.btfp_time[ 2 ] & 0x00ff);
 			time_vme->sec = (unsigned short)atoi(cbuf);
 
 			/* Get microseconds.  Yes, we ignore the 0.1 microsecond digit so
 				 we can use the TVTOTSF function  later on...*/
 
-			sprintf(cbuf,"%4.4x%2.2x", vts.btfp_time[ 3 ],
-			vts.btfp_time[ 4 ]>>8);
-
+			snprintf(cbuf, sizeof(cbuf), "%4.4x%2.2x",
+				 vts.btfp_time[ 3 ],
+				 vts.btfp_time[ 4 ] >> 8);
 			time_vme->frac = (u_long) atoi(cbuf);
 
 			/* Get status bit */
-			time_vme->status = (vts.btfp_time[0] & 0x0010) >>4;
+			time_vme->status = (vts.btfp_time[0] & 0x0010) >> 4;
 
 			break;
 	}

@@ -87,6 +87,7 @@ typedef struct {
 typedef int32_t (*err_handler)(int32_t severit, int32_t instance, xar_errctx_t ctx, void *usrctx);
 /* the signed_data must be allocated durring the callback and will be released by the xar lib after the callback */
 typedef int32_t (*xar_signer_callback)(xar_signature_t sig, void *context, uint8_t *data, uint32_t length, uint8_t **signed_data, uint32_t *signed_len);
+typedef void (*xar_progress_callback)(xar_t x, xar_file_t f, size_t sizeread);
 
 #define READ 0
 #define WRITE 1
@@ -162,7 +163,7 @@ int32_t xar_extract_tostream(xar_stream *stream);
 int32_t xar_extract_tostream_end(xar_stream *stream);
 
 int32_t xar_verify(xar_t x, xar_file_t f);
-
+int32_t xar_verify_progress(xar_t x, xar_file_t f, xar_progress_callback progress);
 
 const char *xar_opt_get(xar_t x, const char *option);
 int32_t xar_opt_set(xar_t x, const char *option, const char *value);

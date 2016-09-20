@@ -32,6 +32,9 @@
 extern "C" {
 #endif
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 /* Data types for Key Recovery SPI */
 
 typedef struct cssm_spi_kr_funcs {
@@ -103,6 +106,8 @@ typedef struct cssm_spi_kr_funcs {
          const void *InputParams,
          void **OutputParams);
 } CSSM_SPI_KR_FUNCS DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_SPI_KR_FUNCS_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+
+#pragma clang diagnostic pop
 
 #ifdef __cplusplus
 }

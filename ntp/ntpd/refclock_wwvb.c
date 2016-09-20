@@ -54,7 +54,7 @@
  *	hh:mm:ss = hours, minutes, seconds
  *	i = synchronization flag (' ' = in synch, '?' = out of synch)
  *
- * The alarm condition is indicated by other than ' ' at a, which occurs
+ * The alarm condition is indicated by other than ' ' at i, which occurs
  * during initial synchronization and when received signal is lost for
  * about ten hours.
  *
@@ -69,7 +69,7 @@
  *	ddd = day of year
  *	hh:mm:ss.fff = hours, minutes, seconds, milliseconds
  *
- * The alarm condition is indicated by other than ' ' at a, which occurs
+ * The alarm condition is indicated by other than ' ' at i, which occurs
  * during initial synchronization and when received signal is lost for
  * about ten hours. The unlock condition is indicated by other than ' '
  * at q.
@@ -120,9 +120,8 @@
 #define	DESCRIPTION	"Spectracom WWVB/GPS Receiver" /* WRU */
 
 #define	LENWWVB0	22	/* format 0 timecode length */
-#define LENWWVB1	22	/* format 1 timecode length */
 #define	LENWWVB2	24	/* format 2 timecode length */
-#define LENWWVB3        29      /* format 3 timecode length */
+#define LENWWVB3	29	/* format 3 timecode length */
 #define MONLIN		15	/* number of monitoring lines */
 
 /*
@@ -136,7 +135,8 @@ struct wwvbunit {
 	int	tcount;		/* timecode sample counter */
 	int	pcount;		/* PPS sample counter */
 #endif /* HAVE_PPSAPI */
-	l_fp	laststamp;	/* last receive timestamp */
+	l_fp	laststamp;	/* last <CR> timestamp */
+	int	prev_eol_cr;	/* was last EOL <CR> (not <LF>)? */
 	u_char	lasthour;	/* last hour (for monitor) */
 	u_char	linect;		/* count ignored lines (for monitor */
 };
@@ -150,7 +150,7 @@ static	void	wwvb_receive	(struct recvbuf *);
 static	void	wwvb_poll	(int, struct peer *);
 static	void	wwvb_timer	(int, struct peer *);
 #ifdef HAVE_PPSAPI
-static	void	wwvb_control	(int, struct refclockstat *,
+static	void	wwvb_control	(int, const struct refclockstat *,
 				 struct refclockstat *, struct peer *);
 #define		WWVB_CONTROL	wwvb_control
 #else
@@ -188,33 +188,34 @@ wwvb_start(
 	/*
 	 * Open serial port. Use CLK line discipline, if available.
 	 */
-	sprintf(device, DEVICE, unit);
-	if (-1 == (fd = refclock_open(device, SPEED232, LDISC_CLK)))
+	snprintf(device, sizeof(device), DEVICE, unit);
+	fd = refclock_open(device, SPEED232, LDISC_CLK);
+	if (fd <= 0)
 		return (0);
 
 	/*
 	 * Allocate and initialize unit structure
 	 */
-	up = (struct wwvbunit *)emalloc(sizeof(struct wwvbunit));
-	memset((char *)up, 0, sizeof(struct wwvbunit));
+	up = emalloc_zero(sizeof(*up));
 	pp = peer->procptr;
-	pp->unitptr = (caddr_t)up;
 	pp->io.clock_recv = wwvb_receive;
-	pp->io.srcclock = (caddr_t)peer;
+	pp->io.srcclock = peer;
 	pp->io.datalen = 0;
 	pp->io.fd = fd;
 	if (!io_addclock(&pp->io)) {
 		close(fd);
+		pp->io.fd = -1;
 		free(up);
 		return (0);
 	}
+	pp->unitptr = up;
 
 	/*
 	 * Initialize miscellaneous variables
 	 */
 	peer->precision = PRECISION;
 	pp->clockdesc = DESCRIPTION;
-	memcpy((char *)&pp->refid, REFID, 4);
+	memcpy(&pp->refid, REFID, 4);
 	return (1);
 }
 
@@ -228,13 +229,15 @@ wwvb_shutdown(
 	struct peer *peer
 	)
 {
-	register struct wwvbunit *up;
-	struct refclockproc *pp;
+	struct refclockproc *	pp;
+	struct wwvbunit *	up;
 
 	pp = peer->procptr;
-	up = (struct wwvbunit *)pp->unitptr;
-	io_closeclock(&pp->io);
-	free(up);
+	up = pp->unitptr;
+	if (-1 != pp->io.fd)
+		io_closeclock(&pp->io);
+	if (NULL != up)
+		free(up);
 }
 
 
@@ -263,9 +266,9 @@ wwvb_receive(
 	/*
 	 * Initialize pointers and read the timecode and timestamp
 	 */
-	peer = (struct peer *)rbufp->recv_srcclock;
+	peer = rbufp->recv_peer;
 	pp = peer->procptr;
-	up = (struct wwvbunit *)pp->unitptr;
+	up = pp->unitptr;
 	temp = refclock_gtlin(rbufp, pp->a_lastcode, BMAX, &trtmp);
 
 	/*
@@ -277,13 +280,37 @@ wwvb_receive(
 	 * reading precision is only to the millisecond. Thus, unless
 	 * you have a PPS gadget and don't have to have the year, format
 	 * 0 provides the lowest jitter.
+	 * Save the timestamp of each <CR> in up->laststamp.  Lines with
+	 * no characters occur for every <LF>, and for some <CR>s when
+	 * format 0 is used. Format 0 starts and ends each cycle with a
+	 * <CR><LF> pair, format 2 starts each cycle with its only pair.
+	 * The preceding <CR> is the on-time character for both formats.
+	 * The timestamp provided with non-empty lines corresponds to
+	 * the <CR> following the timecode, which is ultimately not used
+	 * with format 0 and is used for the following timecode for
+	 * format 2.
 	 */
 	if (temp == 0) {
-		up->laststamp = trtmp;
+		if (up->prev_eol_cr) {
+			DPRINTF(2, ("wwvb: <LF> @ %s\n",
+				    prettydate(&trtmp)));
+		} else {
+			up->laststamp = trtmp;
+			DPRINTF(2, ("wwvb: <CR> @ %s\n", 
+				    prettydate(&trtmp)));
+		}
+		up->prev_eol_cr = !up->prev_eol_cr;
 		return;
 	}
 	pp->lencode = temp;
 	pp->lastrec = up->laststamp;
+	up->laststamp = trtmp;
+	up->prev_eol_cr = TRUE;
+	DPRINTF(2, ("wwvb: code @ %s\n"
+		    "       using %s minus one char\n",
+		    prettydate(&trtmp), prettydate(&pp->lastrec)));
+	if (L_ISZERO(&pp->lastrec))
+		return;
 
 	/*
 	 * We get down to business, check the timecode format and decode
@@ -303,9 +330,11 @@ wwvb_receive(
 		if (sscanf(pp->a_lastcode,
 		    "%c %3d %2d:%2d:%2d%c%cTZ=%2d",
 		    &syncchar, &pp->day, &pp->hour, &pp->minute,
-		    &pp->second, &tmpchar, &dstchar, &tz) == 8)
+		    &pp->second, &tmpchar, &dstchar, &tz) == 8) {
 			pp->nsec = 0;
 			break;
+		}
+		goto bad_format;
 
 	case LENWWVB2:
 
@@ -315,14 +344,19 @@ wwvb_receive(
 		    "%c%c %2d %3d %2d:%2d:%2d.%3ld %c",
 		    &syncchar, &qualchar, &pp->year, &pp->day,
 		    &pp->hour, &pp->minute, &pp->second, &pp->nsec,
-		    &leapchar) == 9)
+		    &leapchar) == 9) {
 			pp->nsec *= 1000000;
 			break;
+		}
+		goto bad_format;
 
 	case LENWWVB3:
 
-	   	/*
+		/*
 		 * Timecode format 3: "0003I yyyymmdd hhmmss+0000SL#"
+		 * WARNING: Undocumented, and the on-time character # is
+		 * not yet handled correctly by this driver.  It may be
+		 * as simple as compensating for an additional 1/960 s.
 		 */
 		if (sscanf(pp->a_lastcode,
 		    "0003%c %4d%2d%2d %2d%2d%2d+0000%c%c",
@@ -333,8 +367,10 @@ wwvb_receive(
 			pp->nsec = 0;
 			break;
 		}
+		goto bad_format;
 
 	default:
+	bad_format:
 
 		/*
 		 * Unknown format: If dumping internal table, record
@@ -359,28 +395,28 @@ wwvb_receive(
 	 */
 	switch (qualchar) {
 
-	    case ' ':
+	case ' ':
 		pp->disp = .001;
 		pp->lastref = pp->lastrec;
 		break;
 
-	    case 'A':
+	case 'A':
 		pp->disp = .01;
 		break;
 
-	    case 'B':
+	case 'B':
 		pp->disp = .1;
 		break;
 
-	    case 'C':
+	case 'C':
 		pp->disp = .5;
 		break;
 
-	    case 'D':
+	case 'D':
 		pp->disp = MAXDISPERSE;
 		break;
 
-	    default:
+	default:
 		pp->disp = MAXDISPERSE;
 		refclock_report(peer, CEVNT_BADREPLY);
 		break;
@@ -419,6 +455,9 @@ wwvb_timer(
 	register struct wwvbunit *up;
 	struct refclockproc *pp;
 	char	pollchar;	/* character sent to clock */
+#ifdef DEBUG
+	l_fp	now;
+#endif
 
 	/*
 	 * Time to poll the clock. The Spectracom clock responds to a
@@ -428,13 +467,18 @@ wwvb_timer(
 	 * the clock; all others just listen in.
 	 */
 	pp = peer->procptr;
-	up = (struct wwvbunit *)pp->unitptr;
+	up = pp->unitptr;
 	if (up->linect > 0)
 		pollchar = 'R';
 	else
 		pollchar = 'T';
 	if (write(pp->io.fd, &pollchar, 1) != 1)
 		refclock_report(peer, CEVNT_FAULT);
+#ifdef DEBUG
+	get_systime(&now);
+	if (debug)
+		printf("%c poll at %s\n", pollchar, prettydate(&now));
+#endif
 #ifdef HAVE_PPSAPI
 	if (up->ppsapi_lit &&
 	    refclock_pps(peer, &up->atom, pp->sloppyclockflag) > 0) {
@@ -463,7 +507,7 @@ wwvb_poll(
 	 * are received, declare a timeout and keep going.
 	 */
 	pp = peer->procptr;
-	up = (struct wwvbunit *)pp->unitptr;
+	up = pp->unitptr;
 	pp->polls++;
 
 	/*
@@ -513,7 +557,7 @@ wwvb_poll(
 static void
 wwvb_control(
 	int unit,
-	struct refclockstat *in_st,
+	const struct refclockstat *in_st,
 	struct refclockstat *out_st,
 	struct peer *peer
 	)
@@ -522,7 +566,7 @@ wwvb_control(
 	struct refclockproc *pp;
 	
 	pp = peer->procptr;
-	up = (struct wwvbunit *)pp->unitptr;
+	up = pp->unitptr;
 
 	if (!(pp->sloppyclockflag & CLK_FLAG1)) {
 		if (!up->ppsapi_tried)
@@ -549,9 +593,8 @@ wwvb_control(
 		return;
 	}
 
-	NLOG(NLOG_CLOCKINFO)
-		msyslog(LOG_WARNING, "%s flag1 1 but PPSAPI fails",
-			refnumtoa(&peer->srcadr));
+	msyslog(LOG_WARNING, "%s flag1 1 but PPSAPI fails",
+		refnumtoa(&peer->srcadr));
 }
 #endif	/* HAVE_PPSAPI */
 

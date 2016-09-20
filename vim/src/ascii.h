@@ -34,10 +34,6 @@
 #define ESC_STR_nc	"\033"
 #define DEL		0x7f
 #define DEL_STR		(char_u *)"\177"
-#define CSI		0x9b	/* Control Sequence Introducer */
-#define CSI_STR		"\233"
-#define DCS		0x90	/* Device Control String */
-#define STERM		0x9c	/* String Terminator */
 
 #define POUND		0xA3
 
@@ -117,13 +113,8 @@
 #define ESC_STR_nc	"\x27"
 #define DEL		0x07
 #define DEL_STR		(char_u *)"\007"
-/* TODO: EBCDIC Code page dependent (here 1047) */
-#define CSI		0x9b	/* Control Sequence Introducer */
-#define CSI_STR		"\233"
-#define DCS		0x90	/* Device Control String */
-#define STERM		0x9c	/* String Terminator */
 
-#define POUND		'£'
+#define POUND		0xB1
 
 #define CTRL_F_STR	"\056"
 #define CTRL_H_STR	"\026"
@@ -173,6 +164,13 @@ extern char MetaCharTable[];
 
 #endif /* defined EBCDIC */
 
+/* TODO: EBCDIC Code page dependent (here 1047) */
+#define CSI		0x9b	/* Control Sequence Introducer */
+#define CSI_STR		"\233"
+#define DCS		0x90	/* Device Control String */
+#define OSC		0x9d	/* Operating System Command */
+#define STERM		0x9c	/* String Terminator */
+
 /*
  * Character that separates dir names in a path.
  * For MS-DOS, WIN32 and OS/2 we use a backslash.  A slash mostly works
@@ -183,11 +181,6 @@ extern char MetaCharTable[];
 # define PATHSEP	psepc
 # define PATHSEPSTR	pseps
 #else
-# ifdef RISCOS
-#  define PATHSEP	'.'
-#  define PATHSEPSTR	"."
-# else
-#  define PATHSEP	'/'
-#  define PATHSEPSTR	"/"
-# endif
+# define PATHSEP	'/'
+# define PATHSEPSTR	"/"
 #endif

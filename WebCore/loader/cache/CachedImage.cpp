@@ -59,7 +59,7 @@ namespace WebCore {
 
 CachedImage::CachedImage(const ResourceRequest& resourceRequest, SessionID sessionID)
     : CachedResource(resourceRequest, ImageResource, sessionID)
-    , m_image(0)
+    , m_image(nullptr)
     , m_isManuallyCached(false)
     , m_shouldPaintBrokenImage(true)
 {
@@ -119,7 +119,7 @@ void CachedImage::didAddClient(CachedResourceClient* client)
 {
     if (m_data && !m_image && !errorOccurred()) {
         createImage();
-        m_image->setData(m_data, true);
+        m_image->setData(m_data.copyRef(), true);
     }
     
     ASSERT(client->resourceClientType() == CachedImageClient::expectedType());
@@ -149,12 +149,12 @@ void CachedImage::switchClientsToRevalidatedResource()
     if (!m_pendingContainerSizeRequests.isEmpty()) {
         // A copy of pending size requests is needed as they are deleted during CachedResource::switchClientsToRevalidateResouce().
         ContainerSizeRequests switchContainerSizeRequests;
-        for (ContainerSizeRequests::iterator it = m_pendingContainerSizeRequests.begin(); it != m_pendingContainerSizeRequests.end(); ++it)
-            switchContainerSizeRequests.set(it->key, it->value);
+        for (auto& request : m_pendingContainerSizeRequests)
+            switchContainerSizeRequests.set(request.key, request.value);
         CachedResource::switchClientsToRevalidatedResource();
         CachedImage& revalidatedCachedImage = downcast<CachedImage>(*resourceToRevalidate());
-        for (ContainerSizeRequests::iterator it = switchContainerSizeRequests.begin(); it != switchContainerSizeRequests.end(); ++it)
-            revalidatedCachedImage.setContainerSizeForRenderer(it->key, it->value.first, it->value.second);
+        for (auto& request : switchContainerSizeRequests)
+            revalidatedCachedImage.setContainerSizeForRenderer(request.key, request.value.first, request.value.second);
         return;
     }
 
@@ -272,22 +272,14 @@ LayoutSize CachedImage::imageSizeForRenderer(const RenderObject* renderer, float
     if (!m_image)
         return LayoutSize();
 
-    LayoutSize imageSize(m_image->size());
+    LayoutSize imageSize;
 
-#if ENABLE(CSS_IMAGE_ORIENTATION)
-    if (renderer && is<BitmapImage>(*m_image)) {
-        ImageOrientationDescription orientationDescription(renderer->shouldRespectImageOrientation(), renderer->style().imageOrientation());
-        if (orientationDescription.respectImageOrientation() == RespectImageOrientation)
-            imageSize = LayoutSize(downcast<BitmapImage>(*m_image).sizeRespectingOrientation(orientationDescription));
-    }
-#else
-    if (is<BitmapImage>(*m_image) && (renderer && renderer->shouldRespectImageOrientation() == RespectImageOrientation))
+    if (is<BitmapImage>(*m_image) && renderer && renderer->shouldRespectImageOrientation() == RespectImageOrientation)
         imageSize = LayoutSize(downcast<BitmapImage>(*m_image).sizeRespectingOrientation());
-#endif // ENABLE(CSS_IMAGE_ORIENTATION)
-
-    else if (is<SVGImage>(*m_image) && sizeType == UsedSize) {
+    else if (is<SVGImage>(*m_image) && sizeType == UsedSize)
         imageSize = LayoutSize(m_svgImageCache->imageSizeForRenderer(renderer));
-    }
+    else
+        imageSize = LayoutSize(m_image->size());
 
     if (multiplier == 1.0f)
         return imageSize;
@@ -342,9 +334,9 @@ inline void CachedImage::createImage()
         m_image = PDFDocumentImage::create(this);
 #endif
     else if (m_response.mimeType() == "image/svg+xml") {
-        RefPtr<SVGImage> svgImage = SVGImage::create(*this, url());
-        m_svgImageCache = std::make_unique<SVGImageCache>(svgImage.get());
-        m_image = svgImage.release();
+        auto svgImage = SVGImage::create(*this, url());
+        m_svgImageCache = std::make_unique<SVGImageCache>(svgImage.ptr());
+        m_image = WTFMove(svgImage);
     } else {
         m_image = BitmapImage::create(this);
         downcast<BitmapImage>(*m_image).setAllowSubsampling(m_loader && m_loader->frameLoader()->frame().settings().imageSubsamplingEnabled());
@@ -353,8 +345,8 @@ inline void CachedImage::createImage()
     if (m_image) {
         // Send queued container size requests.
         if (m_image->usesContainerSize()) {
-            for (ContainerSizeRequests::iterator it = m_pendingContainerSizeRequests.begin(); it != m_pendingContainerSizeRequests.end(); ++it)
-                setContainerSizeForRenderer(it->key, it->value.first, it->value.second);
+            for (auto& request : m_pendingContainerSizeRequests)
+                setContainerSizeForRenderer(request.key, request.value.first, request.value.second);
         }
         m_pendingContainerSizeRequests.clear();
     }
@@ -409,7 +401,7 @@ void CachedImage::addDataBuffer(SharedBuffer& data)
 void CachedImage::addData(const char* data, unsigned length)
 {
     ASSERT(dataBufferingPolicy() == DoNotBufferData);
-    addIncrementalDataBuffer(*SharedBuffer::create(data, length));
+    addIncrementalDataBuffer(SharedBuffer::create(data, length));
     CachedResource::addData(data, length);
 }
 
@@ -419,11 +411,8 @@ void CachedImage::finishLoading(SharedBuffer* data)
     if (!m_image && data)
         createImage();
 
-    if (m_image) {
-        if (m_loader && m_image->isSVGImage())
-            downcast<SVGImage>(*m_image).setDataProtocolLoader(&m_loader->dataProtocolFrameLoader());
+    if (m_image)
         m_image->setData(data, true);
-    }
 
     if (!m_image || m_image->isNull()) {
         // Image decoding failed; the image data is malformed.
@@ -437,6 +426,16 @@ void CachedImage::finishLoading(SharedBuffer* data)
     if (m_image)
         setEncodedSize(m_image->data() ? m_image->data()->size() : 0);
     CachedResource::finishLoading(data);
+}
+
+void CachedImage::didReplaceSharedBufferContents()
+{
+    if (m_image) {
+        // Let the Image know that the SharedBuffer has been rejigged, so it can let go of any references to the heap-allocated resource buffer.
+        // FIXME(rdar://problem/24275617): It would be better if we could somehow tell the Image's decoder to swap in the new contents without destroying anything.
+        m_image->destroyDecodedData(true);
+    }
+    CachedResource::didReplaceSharedBufferContents();
 }
 
 void CachedImage::error(CachedResource::Status status)

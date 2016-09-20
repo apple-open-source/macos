@@ -61,9 +61,18 @@ static piStuff *makeSimplePeer(char *name) {
     return pi;
 }
 
+static void freeSimplePeer(piStuff *pi)
+{
+    CFReleaseSafe(pi->fpi);
+    CFReleaseSafe(pi->signingKey);
+    CFReleaseSafe(pi->resignation_ticket);
+    free(pi);
+}
+
 static inline bool retire_me(piStuff *pi, size_t seconds) {
     return SOSPeerInfoRetireRetirementTicket(seconds, pi->resignation_ticket);
 }
+
 
 static inline bool chkBasicTicket(piStuff *pi) {
     return CFEqual(SOSPeerInfoInspectRetirementTicket(pi->resignation_ticket, NULL), SOSPeerInfoGetPeerID(pi->pi));
@@ -120,8 +129,8 @@ static void tests(void)
     sleep(2);
     ok(retire_me(iPhone, 1), "ticket not valid");
     
-    CFDateRef retdate = NULL;
-    ok((retdate = SOSPeerInfoGetRetirementDate(iPhone->resignation_ticket)) != NULL, "got retirement date %@", retdate);
+    CFDateRef retdate = SOSPeerInfoGetRetirementDate(iPhone->resignation_ticket);
+    ok(retdate != NULL, "got retirement date %@", retdate);
     CFReleaseSafe(retdate);
     
     ok(PeerInfoRoundTrip(iPhone->resignation_ticket), "retirement ticket safely DERs");
@@ -130,6 +139,11 @@ static void tests(void)
     ok((appdate = SOSPeerInfoGetApplicationDate(iPhone->resignation_ticket)) != NULL, "got application date %@", appdate);
     CFReleaseSafe(appdate);
 #endif
+
+    freeSimplePeer(iPhone);
+    freeSimplePeer(iPad);
+    freeSimplePeer(iMac);
+    freeSimplePeer(iDrone);
 }
 
 static int kTestTestCount = 12;

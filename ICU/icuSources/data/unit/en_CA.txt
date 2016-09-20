@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/en_CA.xml
@@ -8,7 +8,32 @@
 // ***************************************************************************
 en_CA{
     %%Parent{"en_001"}
+    Version{"2.1.22.91"}
     unitsNarrow{
+        concentr{
+            milligram-per-deciliter{
+                dnam{"mg/dL"}
+                one{"{0}mg/dL"}
+                other{"{0}mg/dL"}
+            }
+            millimole-per-liter{
+                dnam{"mmol/L"}
+                one{"{0}mmol/L"}
+                other{"{0}mmol/L"}
+            }
+        }
+        consumption{
+            liter-per-100kilometers{
+                dnam{"L/100km"}
+                one{"{0}L/100km"}
+                other{"{0}L/100km"}
+            }
+            liter-per-kilometer{
+                dnam{"L/km"}
+                one{"{0}L/km"}
+                other{"{0}L/km"}
+            }
+        }
         volume{
             centiliter{
                 dnam{"cL"}
@@ -26,9 +51,9 @@ en_CA{
                 other{"{0}hL"}
             }
             liter{
-                dnam{"litre"}
                 one{"{0}L"}
                 other{"{0}L"}
+                per{"{0}/L"}
             }
             megaliter{
                 dnam{"ML"}
@@ -43,6 +68,28 @@ en_CA{
         }
     }
     unitsShort{
+        concentr{
+            milligram-per-deciliter{
+                dnam{"mg/dL"}
+                one{"{0} mg/dL"}
+                other{"{0} mg/dL"}
+            }
+            millimole-per-liter{
+                one{"{0} mmol/L"}
+                other{"{0} mmol/L"}
+            }
+        }
+        consumption{
+            liter-per-100kilometers{
+                dnam{"L/100 km"}
+                one{"{0} L/100 km"}
+                other{"{0} L/100 km"}
+            }
+            liter-per-kilometer{
+                one{"{0} L/km"}
+                other{"{0} L/km"}
+            }
+        }
         volume{
             centiliter{
                 dnam{"cL"}
@@ -60,7 +107,6 @@ en_CA{
                 other{"{0} hL"}
             }
             liter{
-                dnam{"litres"}
                 one{"{0} L"}
                 other{"{0} L"}
             }
@@ -76,5 +122,4 @@ en_CA{
             }
         }
     }
-    Version{"2.1.14.16"}
 }

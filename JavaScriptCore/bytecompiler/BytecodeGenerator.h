@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009, 2012-2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2009, 2012-2016 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Cameron Zwarich <cwzwarich@uwaterloo.ca>
  * Copyright (C) 2012 Igalia, S.L.
  *
@@ -39,6 +39,7 @@
 #include "Interpreter.h"
 #include "ParserError.h"
 #include "RegisterID.h"
+#include "SetForScope.h"
 #include "SymbolTable.h"
 #include "Debugger.h"
 #include "Nodes.h"
@@ -64,19 +65,19 @@ namespace JSC {
         ExpectArrayConstructor
     };
 
+    enum class ThisResolutionType { Local, Scoped };
+    
     class CallArguments {
     public:
         CallArguments(BytecodeGenerator&, ArgumentsNode*, unsigned additionalArguments = 0);
 
         RegisterID* thisRegister() { return m_argv[0].get(); }
         RegisterID* argumentRegister(unsigned i) { return m_argv[i + 1].get(); }
-        unsigned stackOffset() { return -m_argv[0]->index() + JSStack::CallFrameHeaderSize; }
+        unsigned stackOffset() { return -m_argv[0]->index() + CallFrame::headerSizeInRegisters; }
         unsigned argumentCountIncludingThis() { return m_argv.size() - m_padding; }
-        RegisterID* profileHookRegister() { return m_profileHookRegister.get(); }
         ArgumentsNode* argumentsNode() { return m_argumentsNode; }
 
     private:
-        RefPtr<RegisterID> m_profileHookRegister;
         ArgumentsNode* m_argumentsNode;
         Vector<RefPtr<RegisterID>, 8, UnsafeVectorOverflow> m_argv;
         unsigned m_padding;
@@ -91,6 +92,7 @@ namespace JSC {
         unsigned forInContextStackSize;
         unsigned tryContextStackSize;
         unsigned labelScopesSize;
+        unsigned symbolTableStackSize;
         int finallyDepth;
         int dynamicScopeDepth;
     };
@@ -100,7 +102,9 @@ namespace JSC {
         FinallyContext finallyContext;
     };
 
-    class ForInContext {
+    class ForInContext : public RefCounted<ForInContext> {
+        WTF_MAKE_FAST_ALLOCATED;
+        WTF_MAKE_NONCOPYABLE(ForInContext);
     public:
         ForInContext(RegisterID* localRegister)
             : m_localRegister(localRegister)
@@ -174,7 +178,6 @@ namespace JSC {
 
     struct TryData {
         RefPtr<Label> target;
-        unsigned targetScopeDepth;
         HandlerType handlerType;
     };
 
@@ -192,6 +195,8 @@ namespace JSC {
             , m_local(nullptr)
             , m_attributes(0)
             , m_kind(NormalVariable)
+            , m_symbolTableConstantIndex(0) // This is meaningless here for this kind of Variable.
+            , m_isLexicallyScoped(false)
         {
         }
         
@@ -200,22 +205,27 @@ namespace JSC {
             , m_local(nullptr)
             , m_attributes(0)
             , m_kind(NormalVariable) // This is somewhat meaningless here for this kind of Variable.
+            , m_symbolTableConstantIndex(0) // This is meaningless here for this kind of Variable.
+            , m_isLexicallyScoped(false)
         {
         }
 
-        Variable(const Identifier& ident, VarOffset offset, RegisterID* local, unsigned attributes, VariableKind kind)
+        Variable(const Identifier& ident, VarOffset offset, RegisterID* local, unsigned attributes, VariableKind kind, int symbolTableConstantIndex, bool isLexicallyScoped)
             : m_ident(ident)
             , m_offset(offset)
             , m_local(local)
             , m_attributes(attributes)
             , m_kind(kind)
+            , m_symbolTableConstantIndex(symbolTableConstantIndex)
+            , m_isLexicallyScoped(isLexicallyScoped)
         {
         }
 
         // If it's unset, then it is a non-locally-scoped variable. If it is set, then it could be
-        // a stack variable, a scoped variable in the local scope, or a variable captured in the
+        // a stack variable, a scoped variable in a local scope, or a variable captured in the
         // direct arguments object.
         bool isResolved() const { return !!m_offset; }
+        int symbolTableConstantIndex() const { ASSERT(isResolved() && !isSpecial()); return m_symbolTableConstantIndex; }
         
         const Identifier& ident() const { return m_ident; }
         
@@ -225,6 +235,10 @@ namespace JSC {
 
         bool isReadOnly() const { return m_attributes & ReadOnly; }
         bool isSpecial() const { return m_kind != NormalVariable; }
+        bool isConst() const { return isReadOnly() && m_isLexicallyScoped; }
+        void setIsReadOnly() { m_attributes |= ReadOnly; }
+
+        void dump(PrintStream&) const;
 
     private:
         Identifier m_ident;
@@ -232,6 +246,8 @@ namespace JSC {
         RegisterID* m_local;
         unsigned m_attributes;
         VariableKind m_kind;
+        int m_symbolTableConstantIndex;
+        bool m_isLexicallyScoped;
     };
 
     struct TryRange {
@@ -241,11 +257,8 @@ namespace JSC {
     };
 
     enum ProfileTypeBytecodeFlag {
-        ProfileTypeBytecodePutToScope,
-        ProfileTypeBytecodeGetFromScope,
-        ProfileTypeBytecodePutToLocalScope,
-        ProfileTypeBytecodeGetFromLocalScope,
-        ProfileTypeBytecodeHasGlobalID,
+        ProfileTypeBytecodeClosureVar,
+        ProfileTypeBytecodeLocallyResolved,
         ProfileTypeBytecodeDoesNotHaveGlobalID,
         ProfileTypeBytecodeFunctionArgument,
         ProfileTypeBytecodeFunctionReturnStatement
@@ -255,12 +268,12 @@ namespace JSC {
         WTF_MAKE_FAST_ALLOCATED;
         WTF_MAKE_NONCOPYABLE(BytecodeGenerator);
     public:
-        typedef DeclarationStacks::VarStack VarStack;
         typedef DeclarationStacks::FunctionStack FunctionStack;
 
-        BytecodeGenerator(VM&, ProgramNode*, UnlinkedProgramCodeBlock*, DebuggerMode, ProfilerMode);
-        BytecodeGenerator(VM&, FunctionNode*, UnlinkedFunctionCodeBlock*, DebuggerMode, ProfilerMode);
-        BytecodeGenerator(VM&, EvalNode*, UnlinkedEvalCodeBlock*, DebuggerMode, ProfilerMode);
+        BytecodeGenerator(VM&, ProgramNode*, UnlinkedProgramCodeBlock*, DebuggerMode, const VariableEnvironment*);
+        BytecodeGenerator(VM&, FunctionNode*, UnlinkedFunctionCodeBlock*, DebuggerMode, const VariableEnvironment*);
+        BytecodeGenerator(VM&, EvalNode*, UnlinkedEvalCodeBlock*, DebuggerMode, const VariableEnvironment*);
+        BytecodeGenerator(VM&, ModuleProgramNode*, UnlinkedModuleProgramCodeBlock*, DebuggerMode, const VariableEnvironment*);
 
         ~BytecodeGenerator();
         
@@ -269,30 +282,40 @@ namespace JSC {
         const CommonIdentifiers& propertyNames() const { return *m_vm->propertyNames; }
 
         bool isConstructor() const { return m_codeBlock->isConstructor(); }
-#if ENABLE(ES6_CLASS_SYNTAX)
+        DerivedContextType derivedContextType() const { return m_derivedContextType; }
+        bool usesArrowFunction() const { return m_scopeNode->usesArrowFunction(); }
+        bool needsToUpdateArrowFunctionContext() const { return m_needsToUpdateArrowFunctionContext; }
+        bool usesEval() const { return m_scopeNode->usesEval(); }
+        bool usesThis() const { return m_scopeNode->usesThis(); }
         ConstructorKind constructorKind() const { return m_codeBlock->constructorKind(); }
-#else
-        ConstructorKind constructorKind() const { return ConstructorKind::None; }
-#endif
+        SuperBinding superBinding() const { return m_codeBlock->superBinding(); }
 
-        ParserError generate();
+        template<typename... Args>
+        static ParserError generate(VM& vm, Args&& ...args)
+        {
+            DeferGC deferGC(vm.heap);
+            auto bytecodeGenerator = std::make_unique<BytecodeGenerator>(vm, std::forward<Args>(args)...);
+            return bytecodeGenerator->generate(); 
+        }
 
         bool isArgumentNumber(const Identifier&, int);
 
-        Variable variable(const Identifier&);
-        
-        // Ignores the possibility of intervening scopes.
-        Variable variablePerSymbolTable(const Identifier&);
+        Variable variable(const Identifier&, ThisResolutionType = ThisResolutionType::Local);
         
         enum ExistingVariableMode { VerifyExisting, IgnoreExisting };
-        void createVariable(const Identifier&, VarKind, ConstantMode, ExistingVariableMode = VerifyExisting); // Creates the variable, or asserts that the already-created variable is sufficiently compatible.
+        void createVariable(const Identifier&, VarKind, SymbolTable*, ExistingVariableMode = VerifyExisting); // Creates the variable, or asserts that the already-created variable is sufficiently compatible.
         
         // Returns the register storing "this"
         RegisterID* thisRegister() { return &m_thisRegister; }
         RegisterID* argumentsRegister() { return m_argumentsRegister; }
-        RegisterID* newTarget() { return m_newTargetRegister; }
+        RegisterID* newTarget()
+        {
+            return m_newTargetRegister;
+        }
 
         RegisterID* scopeRegister() { return m_scopeRegister; }
+
+        RegisterID* generatorRegister() { return m_generatorRegister; }
 
         // Returns the next available temporary register. Registers returned by
         // newTemporary require a modified form of reference counting: any
@@ -309,6 +332,13 @@ namespace JSC {
         // Functions for handling of dst register
 
         RegisterID* ignoredResult() { return &m_ignoredResultRegister; }
+
+        // This will be allocated in the temporary region of registers, but it will
+        // not be marked as a temporary. This will ensure that finalDestination() does
+        // not overwrite a block scope variable that it mistakes as a temporary. These
+        // registers can be (and are) reclaimed when the lexical scope they belong to
+        // is no longer on the symbol table stack.
+        RegisterID* newBlockScopeVariable();
 
         // Returns a place to write intermediate values of an operation
         // which reuses dst if it is safe to do so.
@@ -330,7 +360,7 @@ namespace JSC {
 
         RegisterID* destinationForAssignResult(RegisterID* dst)
         {
-            if (dst && dst != ignoredResult() && m_codeBlock->needsFullScopeChain())
+            if (dst && dst != ignoredResult())
                 return dst->isTemporary() ? dst : newTemporary();
             return 0;
         }
@@ -346,9 +376,15 @@ namespace JSC {
 
         void emitNode(RegisterID* dst, StatementNode* n)
         {
+            SetForScope<bool> tailPositionPoisoner(m_inTailPosition, false);
+            return emitNodeInTailPosition(dst, n);
+        }
+
+        void emitNodeInTailPosition(RegisterID* dst, StatementNode* n)
+        {
             // Node::emitCode assumes that dst, if provided, is either a local or a referenced temporary.
             ASSERT(!dst || dst == ignoredResult() || !dst->isTemporary() || dst->refCount());
-            if (!m_vm->isSafeToRecurse()) {
+            if (UNLIKELY(!m_vm->isSafeToRecurse())) {
                 emitThrowExpressionTooDeepException();
                 return;
             }
@@ -357,26 +393,42 @@ namespace JSC {
 
         void emitNode(StatementNode* n)
         {
-            emitNode(0, n);
+            emitNode(nullptr, n);
+        }
+
+        void emitNodeInTailPosition(StatementNode* n)
+        {
+            emitNodeInTailPosition(nullptr, n);
         }
 
         RegisterID* emitNode(RegisterID* dst, ExpressionNode* n)
         {
+            SetForScope<bool> tailPositionPoisoner(m_inTailPosition, false);
+            return emitNodeInTailPosition(dst, n);
+        }
+
+        RegisterID* emitNodeInTailPosition(RegisterID* dst, ExpressionNode* n)
+        {
             // Node::emitCode assumes that dst, if provided, is either a local or a referenced temporary.
             ASSERT(!dst || dst == ignoredResult() || !dst->isTemporary() || dst->refCount());
-            if (!m_vm->isSafeToRecurse())
+            if (UNLIKELY(!m_vm->isSafeToRecurse()))
                 return emitThrowExpressionTooDeepException();
             return n->emitBytecode(*this, dst);
         }
 
         RegisterID* emitNode(ExpressionNode* n)
         {
-            return emitNode(0, n);
+            return emitNode(nullptr, n);
+        }
+
+        RegisterID* emitNodeInTailPosition(ExpressionNode* n)
+        {
+            return emitNodeInTailPosition(nullptr, n);
         }
 
         void emitNodeInConditionContext(ExpressionNode* n, Label* trueTarget, Label* falseTarget, FallThroughMode fallThroughMode)
         {
-            if (!m_vm->isSafeToRecurse()) {
+            if (UNLIKELY(!m_vm->isSafeToRecurse())) {
                 emitThrowExpressionTooDeepException();
                 return;
             }
@@ -419,7 +471,7 @@ namespace JSC {
 
         ALWAYS_INLINE bool leftHandSideNeedsCopy(bool rightHasAssignments, bool rightIsPure)
         {
-            return (m_codeType != FunctionCode || m_codeBlock->needsFullScopeChain() || rightHasAssignments) && !rightIsPure;
+            return (m_codeType != FunctionCode || rightHasAssignments) && !rightIsPure;
         }
 
         ALWAYS_INLINE PassRefPtr<RegisterID> emitNodeForLeftHandSide(ExpressionNode* n, bool rightHasAssignments, bool rightIsPure)
@@ -433,10 +485,27 @@ namespace JSC {
             return emitNode(n);
         }
 
+        void hoistSloppyModeFunctionIfNecessary(const Identifier& functionName);
+
+    private:
         void emitTypeProfilerExpressionInfo(const JSTextPosition& startDivot, const JSTextPosition& endDivot);
-        void emitProfileType(RegisterID* registerToProfile, ProfileTypeBytecodeFlag, const Identifier*);
+    public:
+
+        // This doesn't emit expression info. If using this, make sure you shouldn't be emitting text offset.
+        void emitProfileType(RegisterID* registerToProfile, ProfileTypeBytecodeFlag); 
+        // These variables are associated with variables in a program. They could be Locals, LocalClosureVar, or ClosureVar.
+        void emitProfileType(RegisterID* registerToProfile, const Variable&, const JSTextPosition& startDivot, const JSTextPosition& endDivot);
+
+        void emitProfileType(RegisterID* registerToProfile, ProfileTypeBytecodeFlag, const JSTextPosition& startDivot, const JSTextPosition& endDivot);
+        // These are not associated with variables and don't have a global id.
+        void emitProfileType(RegisterID* registerToProfile, const JSTextPosition& startDivot, const JSTextPosition& endDivot);
 
         void emitProfileControlFlow(int);
+        
+        RegisterID* emitLoadArrowFunctionLexicalEnvironment(const Identifier&);
+        RegisterID* ensureThis();
+        void emitLoadThisFromArrowFunctionLexicalEnvironment();
+        RegisterID* emitLoadNewTargetFromArrowFunctionLexicalEnvironment();
 
         RegisterID* emitLoad(RegisterID* dst, bool);
         RegisterID* emitLoad(RegisterID* dst, const Identifier&);
@@ -444,56 +513,75 @@ namespace JSC {
         RegisterID* emitLoadGlobalObject(RegisterID* dst);
 
         RegisterID* emitUnaryOp(OpcodeID, RegisterID* dst, RegisterID* src);
+        RegisterID* emitUnaryOpProfiled(OpcodeID, RegisterID* dst, RegisterID* src);
         RegisterID* emitBinaryOp(OpcodeID, RegisterID* dst, RegisterID* src1, RegisterID* src2, OperandTypes);
         RegisterID* emitEqualityOp(OpcodeID, RegisterID* dst, RegisterID* src1, RegisterID* src2);
         RegisterID* emitUnaryNoDstOp(OpcodeID, RegisterID* src);
 
         RegisterID* emitCreateThis(RegisterID* dst);
         void emitTDZCheck(RegisterID* target);
+        bool needsTDZCheck(const Variable&);
+        void emitTDZCheckIfNecessary(const Variable&, RegisterID* target, RegisterID* scope);
+        void liftTDZCheckIfPossible(const Variable&);
         RegisterID* emitNewObject(RegisterID* dst);
         RegisterID* emitNewArray(RegisterID* dst, ElementNode*, unsigned length); // stops at first elision
+        RegisterID* emitNewArrayWithSize(RegisterID* dst, RegisterID* length);
 
-        RegisterID* emitNewFunction(RegisterID* dst, FunctionBodyNode*);
-        RegisterID* emitNewFunctionInternal(RegisterID* dst, unsigned index);
-        RegisterID* emitNewFunctionExpression(RegisterID* dst, FuncExprNode* func);
-        RegisterID* emitNewDefaultConstructor(RegisterID* dst, ConstructorKind, const Identifier& name);
+        RegisterID* emitNewFunction(RegisterID* dst, FunctionMetadataNode*);
+        RegisterID* emitNewFunctionExpression(RegisterID* dst, FuncExprNode*);
+        RegisterID* emitNewDefaultConstructor(RegisterID* dst, ConstructorKind, const Identifier& name, const Identifier& ecmaName, const SourceCode& classSource);
+        RegisterID* emitNewArrowFunctionExpression(RegisterID*, ArrowFuncExprNode*);
+        RegisterID* emitNewMethodDefinition(RegisterID* dst, MethodDefinitionNode*);
         RegisterID* emitNewRegExp(RegisterID* dst, RegExp*);
+
+        void emitSetFunctionNameIfNeeded(ExpressionNode* valueNode, RegisterID* value, RegisterID* name);
 
         RegisterID* emitMoveLinkTimeConstant(RegisterID* dst, LinkTimeConstant);
         RegisterID* emitMoveEmptyValue(RegisterID* dst);
         RegisterID* emitMove(RegisterID* dst, RegisterID* src);
 
-        RegisterID* emitToNumber(RegisterID* dst, RegisterID* src) { return emitUnaryOp(op_to_number, dst, src); }
+        RegisterID* emitToNumber(RegisterID* dst, RegisterID* src) { return emitUnaryOpProfiled(op_to_number, dst, src); }
         RegisterID* emitToString(RegisterID* dst, RegisterID* src) { return emitUnaryOp(op_to_string, dst, src); }
         RegisterID* emitInc(RegisterID* srcDst);
         RegisterID* emitDec(RegisterID* srcDst);
 
-        void emitCheckHasInstance(RegisterID* dst, RegisterID* value, RegisterID* base, Label* target);
+        RegisterID* emitOverridesHasInstance(RegisterID* dst, RegisterID* constructor, RegisterID* hasInstanceValue);
         RegisterID* emitInstanceOf(RegisterID* dst, RegisterID* value, RegisterID* basePrototype);
+        RegisterID* emitInstanceOfCustom(RegisterID* dst, RegisterID* value, RegisterID* constructor, RegisterID* hasInstanceValue);
         RegisterID* emitTypeOf(RegisterID* dst, RegisterID* src) { return emitUnaryOp(op_typeof, dst, src); }
         RegisterID* emitIn(RegisterID* dst, RegisterID* property, RegisterID* base) { return emitBinaryOp(op_in, dst, property, base, OperandTypes()); }
 
-        RegisterID* emitInitGlobalConst(const Identifier&, RegisterID* value);
-
+        RegisterID* emitTryGetById(RegisterID* dst, RegisterID* base, const Identifier& property);
         RegisterID* emitGetById(RegisterID* dst, RegisterID* base, const Identifier& property);
+        RegisterID* emitGetById(RegisterID* dst, RegisterID* base, RegisterID* thisVal, const Identifier& property);
         RegisterID* emitPutById(RegisterID* base, const Identifier& property, RegisterID* value);
+        RegisterID* emitPutById(RegisterID* base, RegisterID* thisValue, const Identifier& property, RegisterID* value);
         RegisterID* emitDirectPutById(RegisterID* base, const Identifier& property, RegisterID* value, PropertyNode::PutType);
         RegisterID* emitDeleteById(RegisterID* dst, RegisterID* base, const Identifier&);
         RegisterID* emitGetByVal(RegisterID* dst, RegisterID* base, RegisterID* property);
+        RegisterID* emitGetByVal(RegisterID* dst, RegisterID* base, RegisterID* thisValue, RegisterID* property);
         RegisterID* emitGetArgumentByVal(RegisterID* dst, RegisterID* base, RegisterID* property);
         RegisterID* emitPutByVal(RegisterID* base, RegisterID* property, RegisterID* value);
+        RegisterID* emitPutByVal(RegisterID* base, RegisterID* thisValue, RegisterID* property, RegisterID* value);
         RegisterID* emitDirectPutByVal(RegisterID* base, RegisterID* property, RegisterID* value);
         RegisterID* emitDeleteByVal(RegisterID* dst, RegisterID* base, RegisterID* property);
         RegisterID* emitPutByIndex(RegisterID* base, unsigned index, RegisterID* value);
 
-        void emitPutGetterById(RegisterID* base, const Identifier& property, RegisterID* getter);
-        void emitPutSetterById(RegisterID* base, const Identifier& property, RegisterID* setter);
-        void emitPutGetterSetter(RegisterID* base, const Identifier& property, RegisterID* getter, RegisterID* setter);
+        RegisterID* emitAssert(RegisterID* condition, int line);
+
+        void emitPutGetterById(RegisterID* base, const Identifier& property, unsigned propertyDescriptorOptions, RegisterID* getter);
+        void emitPutSetterById(RegisterID* base, const Identifier& property, unsigned propertyDescriptorOptions, RegisterID* setter);
+        void emitPutGetterSetter(RegisterID* base, const Identifier& property, unsigned attributes, RegisterID* getter, RegisterID* setter);
+        void emitPutGetterByVal(RegisterID* base, RegisterID* property, unsigned propertyDescriptorOptions, RegisterID* getter);
+        void emitPutSetterByVal(RegisterID* base, RegisterID* property, unsigned propertyDescriptorOptions, RegisterID* setter);
         
         ExpectedFunction expectedFunctionForIdentifier(const Identifier&);
         RegisterID* emitCall(RegisterID* dst, RegisterID* func, ExpectedFunction, CallArguments&, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd);
+        RegisterID* emitCallInTailPosition(RegisterID* dst, RegisterID* func, ExpectedFunction, CallArguments&, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd);
         RegisterID* emitCallEval(RegisterID* dst, RegisterID* func, CallArguments&, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd);
-        RegisterID* emitCallVarargs(RegisterID* dst, RegisterID* func, RegisterID* thisRegister, RegisterID* arguments, RegisterID* firstFreeRegister, int32_t firstVarArgOffset, RegisterID* profileHookRegister, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd);
+        RegisterID* emitCallVarargs(RegisterID* dst, RegisterID* func, RegisterID* thisRegister, RegisterID* arguments, RegisterID* firstFreeRegister, int32_t firstVarArgOffset, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd);
+        RegisterID* emitCallVarargsInTailPosition(RegisterID* dst, RegisterID* func, RegisterID* thisRegister, RegisterID* arguments, RegisterID* firstFreeRegister, int32_t firstVarArgOffset, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd);
+        RegisterID* emitCallForwardArgumentsInTailPosition(RegisterID* dst, RegisterID* func, RegisterID* thisRegister, RegisterID* firstFreeRegister, int32_t firstVarArgOffset, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd);
 
         enum PropertyDescriptorOption {
             PropertyConfigurable = 1,
@@ -503,11 +591,9 @@ namespace JSC {
         void emitCallDefineProperty(RegisterID* newObj, RegisterID* propertyNameRegister,
             RegisterID* valueRegister, RegisterID* getterRegister, RegisterID* setterRegister, unsigned options, const JSTextPosition&);
 
-        void emitEnumeration(ThrowableExpressionData* enumerationNode, ExpressionNode* subjectNode, const std::function<void(BytecodeGenerator&, RegisterID*)>& callBack);
+        void emitEnumeration(ThrowableExpressionData* enumerationNode, ExpressionNode* subjectNode, const std::function<void(BytecodeGenerator&, RegisterID*)>& callBack, VariableEnvironmentNode* = nullptr, RegisterID* forLoopSymbolTable = nullptr);
 
-#if ENABLE(ES6_TEMPLATE_LITERAL_SYNTAX)
         RegisterID* emitGetTemplateObject(RegisterID* dst, TaggedTemplateNode*);
-#endif
 
         RegisterID* emitReturn(RegisterID* src);
         RegisterID* emitEnd(RegisterID* src) { return emitUnaryNoDstOp(op_end, src); }
@@ -520,7 +606,7 @@ namespace JSC {
         RegisterID* emitResolveConstantLocal(RegisterID* dst, const Variable&);
         RegisterID* emitResolveScope(RegisterID* dst, const Variable&);
         RegisterID* emitGetFromScope(RegisterID* dst, RegisterID* scope, const Variable&, ResolveMode);
-        RegisterID* emitPutToScope(RegisterID* scope, const Variable&, RegisterID* value, ResolveMode);
+        RegisterID* emitPutToScope(RegisterID* scope, const Variable&, RegisterID* value, ResolveMode, InitializationMode);
         RegisterID* initializeVariable(const Variable&, RegisterID* value);
 
         PassRefPtr<Label> emitLabel(Label*);
@@ -531,6 +617,9 @@ namespace JSC {
         PassRefPtr<Label> emitJumpIfNotFunctionCall(RegisterID* cond, Label* target);
         PassRefPtr<Label> emitJumpIfNotFunctionApply(RegisterID* cond, Label* target);
         void emitPopScopes(RegisterID* srcDst, int targetScopeDepth);
+
+        void emitEnter();
+        void emitWatchdog();
 
         RegisterID* emitHasIndexedProperty(RegisterID* dst, RegisterID* base, RegisterID* propertyName);
         RegisterID* emitHasStructureProperty(RegisterID* dst, RegisterID* base, RegisterID* propertyName, RegisterID* enumerator);
@@ -543,13 +632,19 @@ namespace JSC {
         RegisterID* emitEnumeratorGenericPropertyName(RegisterID* dst, RegisterID* enumerator, RegisterID* index);
         RegisterID* emitToIndexString(RegisterID* dst, RegisterID* index);
 
+        RegisterID* emitIsJSArray(RegisterID* dst, RegisterID* src) { return emitUnaryOp(op_is_jsarray, dst, src); }
         RegisterID* emitIsObject(RegisterID* dst, RegisterID* src);
         RegisterID* emitIsUndefined(RegisterID* dst, RegisterID* src);
+        RegisterID* emitIsEmpty(RegisterID* dst, RegisterID* src);
+        void emitRequireObjectCoercible(RegisterID* value, const String& error);
 
         RegisterID* emitIteratorNext(RegisterID* dst, RegisterID* iterator, const ThrowableExpressionData* node);
+        RegisterID* emitIteratorNextWithValue(RegisterID* dst, RegisterID* iterator, RegisterID* value, const ThrowableExpressionData* node);
         void emitIteratorClose(RegisterID* iterator, const ThrowableExpressionData* node);
 
-        void emitReadOnlyExceptionIfNeeded();
+        RegisterID* emitRestParameter(RegisterID* result, unsigned numParametersToSkip);
+
+        bool emitReadOnlyExceptionIfNeeded(const Variable&);
 
         // Start a try block. 'start' must have been emitted.
         TryData* pushTry(Label* start);
@@ -565,17 +660,20 @@ namespace JSC {
         void emitThrowReferenceError(const String& message);
         void emitThrowTypeError(const String& message);
 
-        void emitPushFunctionNameScope(RegisterID* dst, const Identifier& property, RegisterID* value, unsigned attributes);
-        void emitPushCatchScope(RegisterID* dst, const Identifier& property, RegisterID* value, unsigned attributes);
+        void emitPushCatchScope(VariableEnvironment&);
+        void emitPopCatchScope(VariableEnvironment&);
 
         void emitGetScope();
-        RegisterID* emitPushWithScope(RegisterID* dst, RegisterID* scope);
-        void emitPopScope(RegisterID* srcDst);
+        RegisterID* emitPushWithScope(RegisterID* objectScope);
+        void emitPopWithScope();
+        void emitPutThisToArrowFunctionContextScope();
+        void emitPutNewTargetToArrowFunctionContextScope();
+        void emitPutDerivedConstructorToArrowFunctionContextScope();
+        RegisterID* emitLoadDerivedConstructorFromArrowFunctionLexicalEnvironment();
 
         void emitDebugHook(DebugHookID, unsigned line, unsigned charOffset, unsigned lineStart);
 
-        int scopeDepth() { return m_localScopeDepth + m_finallyDepth; }
-        bool hasFinaliser() { return m_finallyDepth != 0; }
+        bool isInFinallyBlock() { return m_finallyDepth > 0; }
 
         void pushFinallyContext(StatementNode* finallyBlock);
         void popFinallyContext();
@@ -594,19 +692,69 @@ namespace JSC {
         void beginSwitch(RegisterID*, SwitchInfo::SwitchType);
         void endSwitch(uint32_t clauseCount, RefPtr<Label>*, ExpressionNode**, Label* defaultLabel, int32_t min, int32_t range);
 
+        void emitYieldPoint(RegisterID*);
+        void emitSave(Label* mergePoint, unsigned liveCalleeLocalsIndex);
+        void emitResume(Label* mergePoint, unsigned liveCalleeLocalsIndex);
+
+        void emitGeneratorStateLabel();
+        void emitGeneratorStateChange(int32_t state);
+        RegisterID* emitYield(RegisterID* argument);
+        RegisterID* emitDelegateYield(RegisterID* argument, ThrowableExpressionData*);
+        void beginGenerator(RegisterID*);
+        void endGenerator(Label* defaultLabel);
+        RegisterID* generatorStateRegister() { return &m_parameters[2]; }
+        RegisterID* generatorValueRegister() { return &m_parameters[3]; }
+        RegisterID* generatorResumeModeRegister() { return &m_parameters[4]; }
+
         CodeType codeType() const { return m_codeType; }
 
-        bool shouldEmitProfileHooks() { return m_shouldEmitProfileHooks; }
         bool shouldEmitDebugHooks() { return m_shouldEmitDebugHooks; }
         
         bool isStrictMode() const { return m_codeBlock->isStrictMode(); }
+
+        SourceParseMode parseMode() const { return m_codeBlock->parseMode(); }
         
         bool isBuiltinFunction() const { return m_isBuiltinFunction; }
 
         OpcodeID lastOpcodeID() const { return m_lastOpcodeID; }
+        
+        bool isDerivedConstructorContext() { return m_derivedContextType == DerivedContextType::DerivedConstructorContext; }
+        bool isDerivedClassContext() { return m_derivedContextType == DerivedContextType::DerivedMethodContext; }
+        bool isArrowFunction() { return m_codeBlock->isArrowFunction(); }
+
+        enum class TDZCheckOptimization { Optimize, DoNotOptimize };
+        enum class NestedScopeType { IsNested, IsNotNested };
+    private:
+        enum class TDZRequirement { UnderTDZ, NotUnderTDZ };
+        enum class ScopeType { CatchScope, LetConstScope, FunctionNameScope };
+        enum class ScopeRegisterType { Var, Block };
+        void pushLexicalScopeInternal(VariableEnvironment&, TDZCheckOptimization, NestedScopeType, RegisterID** constantSymbolTableResult, TDZRequirement, ScopeType, ScopeRegisterType);
+        void initializeBlockScopedFunctions(VariableEnvironment&, FunctionStack&, RegisterID* constantSymbolTable);
+        void popLexicalScopeInternal(VariableEnvironment&);
+        template<typename LookUpVarKindFunctor>
+        bool instantiateLexicalVariables(const VariableEnvironment&, SymbolTable*, ScopeRegisterType, LookUpVarKindFunctor);
+        void emitPrefillStackTDZVariables(const VariableEnvironment&, SymbolTable*);
+        void emitPopScope(RegisterID* dst, RegisterID* scope);
+        RegisterID* emitGetParentScope(RegisterID* dst, RegisterID* scope);
+        void emitPushFunctionNameScope(const Identifier& property, RegisterID* value, bool isCaptured);
+        void emitNewFunctionExpressionCommon(RegisterID*, FunctionMetadataNode*);
+        
+        bool isNewTargetUsedInInnerArrowFunction();
+        bool isSuperUsedInInnerArrowFunction();
+        bool isArgumentsUsedInInnerArrowFunction();
+
+    public:
+        bool isSuperCallUsedInInnerArrowFunction();
+        bool isThisUsedInInnerArrowFunction();
+        void pushLexicalScope(VariableEnvironmentNode*, TDZCheckOptimization, NestedScopeType = NestedScopeType::IsNotNested, RegisterID** constantSymbolTableResult = nullptr, bool shouldInitializeBlockScopedFunctions = true);
+        void popLexicalScope(VariableEnvironmentNode*);
+        void prepareLexicalScopeForNextForLoopIteration(VariableEnvironmentNode*, RegisterID* loopSymbolTable);
+        int labelScopeDepth() const;
 
     private:
-        Variable variableForLocalEntry(const Identifier&, const SymbolTableEntry&);
+        ParserError generate();
+        void reclaimFreeRegisters();
+        Variable variableForLocalEntry(const Identifier&, const SymbolTableEntry&, int symbolTableConstantIndex, bool isLexicallyScoped);
 
         void emitOpcode(OpcodeID);
         UnlinkedArrayAllocationProfile newArrayAllocationProfile();
@@ -625,6 +773,7 @@ namespace JSC {
         ALWAYS_INLINE void rewindBinaryOp();
         ALWAYS_INLINE void rewindUnaryOp();
 
+        void allocateCalleeSaveSpace();
         void allocateAndEmitScope();
         void emitComplexPopScopes(RegisterID*, ControlFlowContext* topScope, ControlFlowContext* bottomScope);
 
@@ -658,9 +807,9 @@ namespace JSC {
         RegisterID& registerFor(VirtualRegister reg)
         {
             if (reg.isLocal())
-                return m_calleeRegisters[reg.toLocal()];
+                return m_calleeLocals[reg.toLocal()];
 
-            if (reg.offset() == JSStack::Callee)
+            if (reg.offset() == CallFrameSlot::callee)
                 return m_calleeRegister;
 
             ASSERT(m_parameters.size());
@@ -675,13 +824,44 @@ namespace JSC {
 
         unsigned addConstantBuffer(unsigned length);
         
-        UnlinkedFunctionExecutable* makeFunction(FunctionBodyNode* body)
+        UnlinkedFunctionExecutable* makeFunction(FunctionMetadataNode* metadata)
         {
-            return UnlinkedFunctionExecutable::create(m_vm, m_scopeNode->source(), body, isBuiltinFunction() ? UnlinkedBuiltinFunction : UnlinkedNormalFunction);
+            DerivedContextType newDerivedContextType = DerivedContextType::None;
+
+            if (metadata->parseMode() == SourceParseMode::ArrowFunctionMode) {
+                if (constructorKind() == ConstructorKind::Derived || isDerivedConstructorContext())
+                    newDerivedContextType = DerivedContextType::DerivedConstructorContext;
+                else if (m_codeBlock->isClassContext() || isDerivedClassContext())
+                    newDerivedContextType = DerivedContextType::DerivedMethodContext;
+            }
+
+            VariableEnvironment variablesUnderTDZ;
+            getVariablesUnderTDZ(variablesUnderTDZ);
+
+            // FIXME: These flags, ParserModes and propagation to XXXCodeBlocks should be reorganized.
+            // https://bugs.webkit.org/show_bug.cgi?id=151547
+            SourceParseMode parseMode = metadata->parseMode();
+            ConstructAbility constructAbility = ConstructAbility::CanConstruct;
+            if (parseMode == SourceParseMode::GetterMode || parseMode == SourceParseMode::SetterMode || parseMode == SourceParseMode::ArrowFunctionMode || parseMode == SourceParseMode::GeneratorWrapperFunctionMode)
+                constructAbility = ConstructAbility::CannotConstruct;
+            else if (parseMode == SourceParseMode::MethodMode && metadata->constructorKind() == ConstructorKind::None)
+                constructAbility = ConstructAbility::CannotConstruct;
+
+            return UnlinkedFunctionExecutable::create(m_vm, m_scopeNode->source(), metadata, isBuiltinFunction() ? UnlinkedBuiltinFunction : UnlinkedNormalFunction, constructAbility, variablesUnderTDZ, newDerivedContextType);
         }
 
-        RegisterID* emitConstructVarargs(RegisterID* dst, RegisterID* func, RegisterID* thisRegister, RegisterID* arguments, RegisterID* firstFreeRegister, int32_t firstVarArgOffset, RegisterID* profileHookRegister, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd);
-        RegisterID* emitCallVarargs(OpcodeID, RegisterID* dst, RegisterID* func, RegisterID* thisRegister, RegisterID* arguments, RegisterID* firstFreeRegister, int32_t firstVarArgOffset, RegisterID* profileHookRegister, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd);
+        void getVariablesUnderTDZ(VariableEnvironment&);
+
+        RegisterID* emitConstructVarargs(RegisterID* dst, RegisterID* func, RegisterID* thisRegister, RegisterID* arguments, RegisterID* firstFreeRegister, int32_t firstVarArgOffset, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd);
+        RegisterID* emitCallVarargs(OpcodeID, RegisterID* dst, RegisterID* func, RegisterID* thisRegister, RegisterID* arguments, RegisterID* firstFreeRegister, int32_t firstVarArgOffset, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd);
+        
+        void emitLogShadowChickenPrologueIfNecessary();
+        void emitLogShadowChickenTailIfNecessary();
+
+        void initializeParameters(FunctionParameters&);
+        void initializeVarLexicalEnvironment(int symbolTableConstantIndex, SymbolTable* functionSymbolTable, bool hasCapturedVariables);
+        void initializeDefaultParameterValuesAndSetupFunctionScopeStack(FunctionParameters&, bool isSimpleParameterList, FunctionNode*, SymbolTable*, int symbolTableConstantIndex, const std::function<bool (UniquedStringImpl*)>& captures, bool shouldCreateArgumentsVariableInParameterScope);
+        void initializeArrowFunctionContextScopeIfNeeded(SymbolTable* functionSymbolTable = nullptr, bool canReuseLexicalEnvironment = false);
 
     public:
         JSString* addStringConstant(const Identifier&);
@@ -689,42 +869,29 @@ namespace JSC {
 
         Vector<UnlinkedInstruction, 0, UnsafeVectorOverflow>& instructions() { return m_instructions; }
 
-        SymbolTable& symbolTable() { return *m_symbolTable; }
-
-        bool shouldOptimizeLocals()
-        {
-            if (m_codeType != FunctionCode)
-                return false;
-
-            if (m_localScopeDepth)
-                return false;
-
-            return true;
-        }
-
-        bool canOptimizeNonLocals()
-        {
-            if (m_localScopeDepth)
-                return false;
-
-            if (m_codeType == EvalCode)
-                return false;
-
-            if (m_codeType == FunctionCode && m_codeBlock->usesEval())
-                return false;
-
-            return true;
-        }
-
         RegisterID* emitThrowExpressionTooDeepException();
 
     private:
         Vector<UnlinkedInstruction, 0, UnsafeVectorOverflow> m_instructions;
 
         bool m_shouldEmitDebugHooks;
-        bool m_shouldEmitProfileHooks;
 
-        SymbolTable* m_symbolTable { nullptr };
+        struct SymbolTableStackEntry {
+            SymbolTable* m_symbolTable;
+            RegisterID* m_scope;
+            bool m_isWithScope;
+            int m_symbolTableConstantIndex;
+        };
+        Vector<SymbolTableStackEntry> m_symbolTableStack;
+        enum class TDZNecessityLevel {
+            NotNeeded,
+            Optimize,
+            DoNotOptimize
+        };
+        typedef HashMap<RefPtr<UniquedStringImpl>, TDZNecessityLevel, IdentifierRepHash> TDZMap;
+        Vector<TDZMap> m_TDZStack;
+        Optional<size_t> m_varScopeSymbolTableIndex;
+        void pushTDZVariables(const VariableEnvironment&, TDZCheckOptimization, TDZRequirement);
 
         ScopeNode* const m_scopeNode;
         Strong<UnlinkedCodeBlock> m_codeBlock;
@@ -736,15 +903,19 @@ namespace JSC {
         RegisterID m_thisRegister;
         RegisterID m_calleeRegister;
         RegisterID* m_scopeRegister { nullptr };
+        RegisterID* m_topMostScope { nullptr };
         RegisterID* m_argumentsRegister { nullptr };
         RegisterID* m_lexicalEnvironmentRegister { nullptr };
+        RegisterID* m_generatorRegister { nullptr };
         RegisterID* m_emptyValueRegister { nullptr };
         RegisterID* m_globalObjectRegister { nullptr };
         RegisterID* m_newTargetRegister { nullptr };
         RegisterID* m_linkTimeConstantRegisters[LinkTimeConstantCount];
+        RegisterID* m_arrowFunctionContextLexicalEnvironmentRegister { nullptr };
 
+        SegmentedVector<RegisterID*, 16> m_localRegistersForCalleeSaveRegisters;
         SegmentedVector<RegisterID, 32> m_constantPoolRegisters;
-        SegmentedVector<RegisterID, 32> m_calleeRegisters;
+        SegmentedVector<RegisterID, 32> m_calleeLocals;
         SegmentedVector<RegisterID, 32> m_parameters;
         SegmentedVector<Label, 32> m_labels;
         LabelScopeStore m_labelScopes;
@@ -752,21 +923,26 @@ namespace JSC {
         int m_localScopeDepth { 0 };
         const CodeType m_codeType;
 
+        int localScopeDepth() const;
+        void pushScopedControlFlowContext();
+        void popScopedControlFlowContext();
+
         Vector<ControlFlowContext, 0, UnsafeVectorOverflow> m_scopeContextStack;
         Vector<SwitchInfo> m_switchContextStack;
-        Vector<std::unique_ptr<ForInContext>> m_forInContextStack;
+        Vector<RefPtr<ForInContext>> m_forInContextStack;
         Vector<TryContext> m_tryContextStack;
-        Vector<std::pair<RefPtr<RegisterID>, const DestructuringPatternNode*>> m_destructuringParameters;
+        Vector<RefPtr<Label>> m_generatorResumeLabels;
         enum FunctionVariableType : uint8_t { NormalFunctionVariable, GlobalFunctionVariable };
-        Vector<std::pair<FunctionBodyNode*, FunctionVariableType>> m_functionsToInitialize;
+        Vector<std::pair<FunctionMetadataNode*, FunctionVariableType>> m_functionsToInitialize;
         bool m_needToInitializeArguments { false };
+        RestParameterNode* m_restParameter { nullptr };
         
         Vector<TryRange> m_tryRanges;
         SegmentedVector<TryData, 8> m_tryData;
 
         int m_nextConstantOffset { 0 };
 
-        typedef HashMap<FunctionBodyNode*, unsigned> FunctionOffsetMap;
+        typedef HashMap<FunctionMetadataNode*, unsigned> FunctionOffsetMap;
         FunctionOffsetMap m_functionOffsets;
         
         // Constant pool
@@ -789,8 +965,18 @@ namespace JSC {
         bool m_usesExceptions { false };
         bool m_expressionTooDeep { false };
         bool m_isBuiltinFunction { false };
+        bool m_usesNonStrictEval { false };
+        bool m_inTailPosition { false };
+        bool m_needsToUpdateArrowFunctionContext;
+        DerivedContextType m_derivedContextType { DerivedContextType::None };
     };
 
 }
+
+namespace WTF {
+
+void printInternal(PrintStream&, JSC::Variable::VariableKind);
+
+} // namespace WTF
 
 #endif // BytecodeGenerator_h

@@ -30,6 +30,7 @@
 #include "DeviceMotionClient.h"
 #include "DeviceMotionData.h"
 #include "DeviceMotionEvent.h"
+#include "EventNames.h"
 #include "Page.h"
 
 namespace WebCore {
@@ -72,7 +73,7 @@ bool DeviceMotionController::hasLastData()
     return deviceMotionClient()->lastMotion();
 }
 
-PassRefPtr<Event> DeviceMotionController::getLastEvent()
+RefPtr<Event> DeviceMotionController::getLastEvent()
 {
     return DeviceMotionEvent::create(eventNames().devicemotionEvent, deviceMotionClient()->lastMotion());
 }

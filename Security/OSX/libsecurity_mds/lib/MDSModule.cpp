@@ -127,7 +127,7 @@ void MDSModule::setDbPath(const char *path)
 
 void MDSModule::setServerMode()
 {
-	secdebug("MDSModule", "setting global server mode");
+	secinfo("MDSModule", "setting global server mode");
 	mServerMode = true;
 }
 

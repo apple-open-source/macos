@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/zh.xml
@@ -46,7 +46,6 @@ zh{
         AI{"安圭拉"}
         AL{"阿尔巴尼亚"}
         AM{"亚美尼亚"}
-        AN{"荷属安的列斯群岛"}
         AO{"安哥拉"}
         AQ{"南极洲"}
         AR{"阿根廷"}
@@ -138,7 +137,7 @@ zh{
         GU{"关岛"}
         GW{"几内亚比绍"}
         GY{"圭亚那"}
-        HK{"中国香港特别行政区"}
+        HK{"香港（中国）"}
         HM{"赫德岛和麦克唐纳群岛"}
         HN{"洪都拉斯"}
         HR{"克罗地亚"}
@@ -192,7 +191,7 @@ zh{
         ML{"马里"}
         MM{"缅甸"}
         MN{"蒙古"}
-        MO{"中国澳门特别行政区"}
+        MO{"澳门（中国）"}
         MP{"北马里亚纳群岛"}
         MQ{"马提尼克"}
         MR{"毛里塔尼亚"}
@@ -313,5 +312,5 @@ zh{
         FK{"福克兰群岛（马尔维纳斯群岛）"}
         MK{"马其顿（前南斯拉夫的马其顿共和国）"}
     }
-    Version{"2.1.12.94"}
+    Version{"2.1.22.93"}
 }

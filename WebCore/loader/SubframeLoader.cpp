@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2016 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  * Copyright (C) 2008 Alp Toker <alp@atoker.com>
@@ -43,7 +43,8 @@
 #include "FrameLoaderClient.h"
 #include "HTMLAppletElement.h"
 #include "HTMLAudioElement.h"
-#include "HTMLFrameElementBase.h"
+#include "HTMLFrameElement.h"
+#include "HTMLIFrameElement.h"
 #include "HTMLNames.h"
 #include "HTMLObjectElement.h"
 #include "MIMETypeRegistry.h"
@@ -84,6 +85,9 @@ bool SubframeLoader::requestFrame(HTMLFrameOwnerElement& ownerElement, const Str
     } else
         url = completeURL(urlString);
 
+    if (shouldConvertInvalidURLsToBlank() && !url.isValid())
+        url = blankURL();
+
     Frame* frame = loadOrRedirectSubframe(ownerElement, url, frameName, lockHistory, lockBackForwardList);
     if (!frame)
         return false;
@@ -94,14 +98,28 @@ bool SubframeLoader::requestFrame(HTMLFrameOwnerElement& ownerElement, const Str
     return true;
 }
     
-bool SubframeLoader::resourceWillUsePlugin(const String& url, const String& mimeType, bool shouldPreferPlugInsForImages)
+bool SubframeLoader::resourceWillUsePlugin(const String& url, const String& mimeType)
 {
     URL completedURL;
     if (!url.isEmpty())
         completedURL = completeURL(url);
 
     bool useFallback;
-    return shouldUsePlugin(completedURL, mimeType, shouldPreferPlugInsForImages, false, useFallback);
+    return shouldUsePlugin(completedURL, mimeType, false, useFallback);
+}
+
+bool SubframeLoader::isPluginContentAllowedByContentSecurityPolicy(HTMLPlugInImageElement& pluginElement, const URL& url, const String& mimeType) const
+{
+    if (!document())
+        return true;
+
+    ASSERT(document()->contentSecurityPolicy());
+    const ContentSecurityPolicy& contentSecurityPolicy = *document()->contentSecurityPolicy();
+
+    String declaredMimeType = document()->isPluginDocument() && document()->ownerElement() ?
+        document()->ownerElement()->attributeWithoutSynchronization(HTMLNames::typeAttr) : pluginElement.attributeWithoutSynchronization(HTMLNames::typeAttr);
+    bool isInUserAgentShadowTree = pluginElement.isInUserAgentShadowTree();
+    return contentSecurityPolicy.allowObjectFromSource(url, isInUserAgentShadowTree) && contentSecurityPolicy.allowPluginType(mimeType, declaredMimeType, url, isInUserAgentShadowTree);
 }
 
 bool SubframeLoader::pluginIsLoadable(HTMLPlugInImageElement& pluginElement, const URL& url, const String& mimeType)
@@ -122,12 +140,7 @@ bool SubframeLoader::pluginIsLoadable(HTMLPlugInImageElement& pluginElement, con
             return false;
         }
 
-        String declaredMimeType = document()->isPluginDocument() && document()->ownerElement() ?
-            document()->ownerElement()->fastGetAttribute(HTMLNames::typeAttr) :
-            pluginElement.fastGetAttribute(HTMLNames::typeAttr);
-        bool isInUserAgentShadowTree = pluginElement.isInUserAgentShadowTree();
-        if (!document()->contentSecurityPolicy()->allowObjectFromSource(url, isInUserAgentShadowTree)
-            || !document()->contentSecurityPolicy()->allowPluginType(mimeType, declaredMimeType, url, isInUserAgentShadowTree)) {
+        if (!isPluginContentAllowedByContentSecurityPolicy(pluginElement, url, mimeType)) {
             RenderEmbeddedObject* renderer = pluginElement.renderEmbeddedObject();
             renderer->setPluginUnavailabilityReason(RenderEmbeddedObject::PluginBlockedByContentSecurityPolicy);
             return false;
@@ -145,7 +158,7 @@ bool SubframeLoader::requestPlugin(HTMLPlugInImageElement& ownerElement, const U
     // Application plug-ins are plug-ins implemented by the user agent, for example Qt plug-ins,
     // as opposed to third-party code such as Flash. The user agent decides whether or not they are
     // permitted, rather than WebKit.
-    if ((!allowPlugins(AboutToInstantiatePlugin) && !MIMETypeRegistry::isApplicationPluginMIMEType(mimeType)))
+    if ((!allowPlugins() && !MIMETypeRegistry::isApplicationPluginMIMEType(mimeType)))
         return false;
 
     if (!pluginIsLoadable(ownerElement, url, mimeType))
@@ -171,11 +184,10 @@ static String findPluginMIMETypeFromURL(Page* page, const String& url)
     Vector<MimeClassInfo> mimes;
     Vector<size_t> mimePluginIndices;
     pluginData.getWebVisibleMimesAndPluginIndices(mimes, mimePluginIndices);
-    for (size_t i = 0; i < mimes.size(); ++i) {
-        const MimeClassInfo& mimeClassInfo = mimes[i];
-        for (size_t j = 0; j < mimeClassInfo.extensions.size(); ++j) {
-            if (equalIgnoringCase(extension, mimeClassInfo.extensions[j]))
-                return mimeClassInfo.type;
+    for (auto& mime : mimes) {
+        for (auto& mimeExtension : mime.extensions) {
+            if (equalIgnoringASCIICase(extension, mimeExtension))
+                return mime.type;
         }
     }
 
@@ -198,7 +210,7 @@ static void logPluginRequest(Page* page, const String& mimeType, const String& u
     String pluginFile = page->pluginData().pluginFileForWebVisibleMimeType(newMIMEType);
     String description = !pluginFile ? newMIMEType : pluginFile;
 
-    DiagnosticLoggingClient& diagnosticLoggingClient = page->mainFrame().diagnosticLoggingClient();
+    DiagnosticLoggingClient& diagnosticLoggingClient = page->diagnosticLoggingClient();
     diagnosticLoggingClient.logDiagnosticMessage(success ? DiagnosticLoggingKeys::pluginLoadedKey() : DiagnosticLoggingKeys::pluginLoadingFailedKey(), description, ShouldSample::No);
 
     if (!page->hasSeenAnyPlugin())
@@ -219,13 +231,21 @@ bool SubframeLoader::requestObject(HTMLPlugInImageElement& ownerElement, const S
     if (!url.isEmpty())
         completedURL = completeURL(url);
 
+    document()->contentSecurityPolicy()->upgradeInsecureRequestIfNeeded(completedURL, ContentSecurityPolicy::InsecureRequestType::Load);
+
     bool hasFallbackContent = is<HTMLObjectElement>(ownerElement) && downcast<HTMLObjectElement>(ownerElement).hasFallbackContent();
 
     bool useFallback;
-    if (shouldUsePlugin(completedURL, mimeType, ownerElement.shouldPreferPlugInsForImages(), hasFallbackContent, useFallback)) {
+    if (shouldUsePlugin(completedURL, mimeType, hasFallbackContent, useFallback)) {
         bool success = requestPlugin(ownerElement, completedURL, mimeType, paramNames, paramValues, useFallback);
         logPluginRequest(document()->page(), mimeType, completedURL, success);
         return success;
+    }
+
+    if (!isPluginContentAllowedByContentSecurityPolicy(ownerElement, completedURL, mimeType)) {
+        RenderEmbeddedObject* renderer = ownerElement.renderEmbeddedObject();
+        renderer->setPluginUnavailabilityReason(RenderEmbeddedObject::PluginBlockedByContentSecurityPolicy);
+        return false;
     }
 
     // If the plug-in element already contains a subframe, loadOrRedirectSubframe will re-use it. Otherwise,
@@ -240,9 +260,9 @@ PassRefPtr<Widget> SubframeLoader::createJavaAppletWidget(const IntSize& size, H
     String codeBaseURLString;
 
     for (size_t i = 0; i < paramNames.size(); ++i) {
-        if (equalIgnoringCase(paramNames[i], "baseurl"))
+        if (equalLettersIgnoringASCIICase(paramNames[i], "baseurl"))
             baseURLString = paramValues[i];
-        else if (equalIgnoringCase(paramNames[i], "codebase"))
+        else if (equalLettersIgnoringASCIICase(paramNames[i], "codebase"))
             codeBaseURLString = paramValues[i];
     }
 
@@ -265,7 +285,7 @@ PassRefPtr<Widget> SubframeLoader::createJavaAppletWidget(const IntSize& size, H
     URL baseURL = completeURL(baseURLString);
 
     RefPtr<Widget> widget;
-    if (allowPlugins(AboutToInstantiatePlugin))
+    if (allowPlugins())
         widget = m_frame.loader().client().createJavaAppletWidget(size, &element, baseURL, paramNames, paramValues);
 
     logPluginRequest(document()->page(), element.serviceType(), String(), widget);
@@ -282,8 +302,11 @@ PassRefPtr<Widget> SubframeLoader::createJavaAppletWidget(const IntSize& size, H
     return widget;
 }
 
-Frame* SubframeLoader::loadOrRedirectSubframe(HTMLFrameOwnerElement& ownerElement, const URL& url, const AtomicString& frameName, LockHistory lockHistory, LockBackForwardList lockBackForwardList)
+Frame* SubframeLoader::loadOrRedirectSubframe(HTMLFrameOwnerElement& ownerElement, const URL& requestUrl, const AtomicString& frameName, LockHistory lockHistory, LockBackForwardList lockBackForwardList)
 {
+    URL url = requestUrl;
+    ownerElement.document().contentSecurityPolicy()->upgradeInsecureRequestIfNeeded(url, ContentSecurityPolicy::InsecureRequestType::Load);
+
     Frame* frame = ownerElement.contentFrame();
     if (frame)
         frame->navigationScheduler().scheduleLocationChange(m_frame.document(), m_frame.document()->securityOrigin(), url, m_frame.loader().outgoingReferrer(), lockHistory, lockBackForwardList);
@@ -320,7 +343,13 @@ Frame* SubframeLoader::loadSubframe(HTMLFrameOwnerElement& ownerElement, const U
         return nullptr;
 
     String referrerToUse = SecurityPolicy::generateReferrerHeader(ownerElement.document().referrerPolicy(), url, referrer);
+
+    // Prevent initial empty document load from triggering load events.
+    m_frame.document()->incrementLoadEventDelayCount();
+
     RefPtr<Frame> frame = m_frame.loader().client().createFrame(url, name, &ownerElement, referrerToUse, allowsScrolling, marginWidth, marginHeight);
+
+    m_frame.document()->decrementLoadEventDelayCount();
 
     if (!frame)  {
         m_frame.loader().checkCallImplicitClose();
@@ -357,30 +386,23 @@ Frame* SubframeLoader::loadSubframe(HTMLFrameOwnerElement& ownerElement, const U
     return frame.get();
 }
 
-bool SubframeLoader::allowPlugins(ReasonForCallingAllowPlugins)
+bool SubframeLoader::allowPlugins()
 {
     return m_frame.settings().arePluginsEnabled();
 }
 
-bool SubframeLoader::shouldUsePlugin(const URL& url, const String& mimeType, bool shouldPreferPlugInsForImages, bool hasFallback, bool& useFallback)
+bool SubframeLoader::shouldUsePlugin(const URL& url, const String& mimeType, bool hasFallback, bool& useFallback)
 {
     if (m_frame.loader().client().shouldAlwaysUsePluginDocument(mimeType)) {
         useFallback = false;
         return true;
     }
 
-    // Allow other plug-ins to win over QuickTime because if the user has installed a plug-in that
-    // can handle TIFF (which QuickTime can also handle) they probably intended to override QT.
-    if (m_frame.page() && (mimeType == "image/tiff" || mimeType == "image/tif" || mimeType == "image/x-tiff")) {
-        String pluginName = m_frame.page()->pluginData().pluginNameForWebVisibleMimeType(mimeType);
-        if (!pluginName.isEmpty() && !pluginName.contains("QuickTime", false)) 
-            return true;
-    }
-        
-    ObjectContentType objectType = m_frame.loader().client().objectContentType(url, mimeType, shouldPreferPlugInsForImages);
+    ObjectContentType objectType = m_frame.loader().client().objectContentType(url, mimeType);
     // If an object's content can't be handled and it has no fallback, let
     // it be handled as a plugin to show the broken plugin icon.
     useFallback = objectType == ObjectContentNone && hasFallback;
+
     return objectType == ObjectContentNone || objectType == ObjectContentNetscapePlugin || objectType == ObjectContentOtherPlugin;
 }
 
@@ -432,6 +454,13 @@ URL SubframeLoader::completeURL(const String& url) const
 {
     ASSERT(m_frame.document());
     return m_frame.document()->completeURL(url);
+}
+
+bool SubframeLoader::shouldConvertInvalidURLsToBlank() const
+{
+    if (Settings* settings = document() ? document()->settings() : nullptr)
+        return settings->shouldConvertInvalidURLsToBlank();
+    return true;
 }
 
 } // namespace WebCore

@@ -1,4 +1,4 @@
-/* $OpenBSD: myproposal.h,v 1.44 2015/05/27 23:51:10 dtucker Exp $ */
+/* $OpenBSD: myproposal.h,v 1.50 2016/02/09 05:30:04 djm Exp $ */
 
 /*
  * Copyright (c) 2000 Markus Friedl.  All rights reserved.
@@ -93,20 +93,17 @@
 
 #define KEX_CLIENT_KEX KEX_COMMON_KEX \
 	"diffie-hellman-group-exchange-sha1," \
-	"diffie-hellman-group14-sha1," \
-	"diffie-hellman-group1-sha1"
+	"diffie-hellman-group14-sha1"
 
 #define	KEX_DEFAULT_PK_ALG	\
 	HOSTKEY_ECDSA_CERT_METHODS \
 	"ssh-ed25519-cert-v01@openssh.com," \
 	"ssh-rsa-cert-v01@openssh.com," \
-	"ssh-dss-cert-v01@openssh.com," \
-	"ssh-rsa-cert-v00@openssh.com," \
-	"ssh-dss-cert-v00@openssh.com," \
 	HOSTKEY_ECDSA_METHODS \
 	"ssh-ed25519," \
-	"ssh-rsa," \
-	"ssh-dss"
+	"rsa-sha2-512," \
+	"rsa-sha2-256," \
+	"ssh-rsa"
 
 /* the actual algorithms */
 
@@ -116,9 +113,7 @@
 	AESGCM_CIPHER_MODES
 
 #define KEX_CLIENT_ENCRYPT KEX_SERVER_ENCRYPT "," \
-	"arcfour256,arcfour128," \
-	"aes128-cbc,3des-cbc,blowfish-cbc,cast128-cbc," \
-	"aes192-cbc,aes256-cbc,arcfour,rijndael-cbc@lysator.liu.se"
+	"aes128-cbc,aes192-cbc,aes256-cbc,3des-cbc"
 
 #define KEX_SERVER_MAC \
 	"umac-64-etm@openssh.com," \
@@ -132,18 +127,9 @@
 	"hmac-sha2-512," \
 	"hmac-sha1"
 
-#define KEX_CLIENT_MAC KEX_SERVER_MAC "," \
-	"hmac-md5-etm@openssh.com," \
-	"hmac-ripemd160-etm@openssh.com," \
-	"hmac-sha1-96-etm@openssh.com," \
-	"hmac-md5-96-etm@openssh.com," \
-	"hmac-md5," \
-	"hmac-ripemd160," \
-	"hmac-ripemd160@openssh.com," \
-	"hmac-sha1-96," \
-	"hmac-md5-96"
+#define KEX_CLIENT_MAC KEX_SERVER_MAC
 
-#else
+#else /* WITH_OPENSSL */
 
 #define KEX_SERVER_KEX		\
 	"curve25519-sha256@libssh.org"

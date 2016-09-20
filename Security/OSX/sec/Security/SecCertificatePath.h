@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2009,2012-2013 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2007-2009,2012-2016 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,13 +45,22 @@ CFTypeID SecCertificatePathGetTypeID(void);
 
 /* Create a new certificate path from an old one. */
 SecCertificatePathRef SecCertificatePathCreate(SecCertificatePathRef path,
-	SecCertificateRef certificate);
+	SecCertificateRef certificate, CFArrayRef usageConstraints);
 
 /* Create a new certificate path from an xpc_array of datas. */
 SecCertificatePathRef SecCertificatePathCreateWithXPCArray(xpc_object_t xpc_path, CFErrorRef *error);
 
+/* Create a new certificate path from a CFArray of datas. */
+SecCertificatePathRef SecCertificatPathCreateDeserialized(CFArrayRef certificates, CFErrorRef *error);
+
 /* Create an array of CFDataRefs from a certificate path. */
 xpc_object_t SecCertificatePathCopyXPCArray(SecCertificatePathRef path, CFErrorRef *error);
+
+/* Create an array of SecCertificateRefs from a certificate path. */
+CFArrayRef SecCertificatePathCopyCertificates(SecCertificatePathRef path, CFErrorRef *error);
+
+/* Create a serialized Certificate Array from a certificate path. */
+CFArrayRef SecCertificatePathCreateSerialized(SecCertificatePathRef path, CFErrorRef *error);
 
 SecCertificatePathRef SecCertificatePathCopyAddingLeaf(SecCertificatePathRef path,
 SecCertificateRef leaf);
@@ -98,6 +107,9 @@ CFIndex SecCertificatePathGetIndexOfCertificate(SecCertificatePathRef path,
 SecCertificateRef SecCertificatePathGetRoot(
 	SecCertificatePathRef certificatePath);
 
+CFArrayRef SecCertificatePathGetUsageConstraintsAtIndex(
+	SecCertificatePathRef certificatePath, CFIndex ix);
+
 SecKeyRef SecCertificatePathCopyPublicKeyAtIndex(
 	SecCertificatePathRef certificatePath, CFIndex ix);
 
@@ -110,6 +122,8 @@ enum {
 
 SecPathVerifyStatus SecCertificatePathVerify(
 	SecCertificatePathRef certificatePath);
+
+bool SecCertificatePathHasWeakHash(SecCertificatePathRef certificatePath);
 
 CFIndex SecCertificatePathScore(SecCertificatePathRef certificatePath,
 	CFAbsoluteTime verifyTime);

@@ -50,8 +50,8 @@
 
 namespace WebCore {
 
-RenderSVGRoot::RenderSVGRoot(SVGSVGElement& element, Ref<RenderStyle>&& style)
-    : RenderReplaced(element, WTF::move(style))
+RenderSVGRoot::RenderSVGRoot(SVGSVGElement& element, RenderStyle&& style)
+    : RenderReplaced(element, WTFMove(style))
     , m_objectBoundingBoxValid(false)
     , m_isLayoutSizeChanged(false)
     , m_needsBoundariesOrTransformUpdate(true)
@@ -165,7 +165,7 @@ void RenderSVGRoot::layout()
     m_resourcesNeedingToInvalidateClients.clear();
 
     // Arbitrary affine transforms are incompatible with LayoutState.
-    LayoutStateDisabler layoutStateDisabler(&view());
+    LayoutStateDisabler layoutStateDisabler(view());
 
     bool needsLayout = selfNeedsLayout();
     LayoutRepainter repainter(*this, checkForRepaintDuringLayout() && needsLayout);
@@ -196,6 +196,7 @@ void RenderSVGRoot::layout()
         m_needsBoundariesOrTransformUpdate = false;
     }
 
+    clearOverflow();
     if (!shouldApplyViewportClip()) {
         FloatRect contentRepaintRect = repaintRectInLocalCoordinates();
         contentRepaintRect = m_localToBorderBoxTransform.mapRect(contentRepaintRect);
@@ -203,7 +204,7 @@ void RenderSVGRoot::layout()
     }
 
     updateLayerTransform();
-    m_hasBoxDecorations = isRoot() ? hasBoxDecorationStyle() : hasBoxDecorations();
+    m_hasBoxDecorations = isDocumentElementRenderer() ? hasVisibleBoxDecorationStyle() : hasVisibleBoxDecorations();
     invalidateBackgroundObscurationStatus();
 
     repainter.repaintAfterLayout();
@@ -219,17 +220,17 @@ bool RenderSVGRoot::shouldApplyViewportClip() const
     return style().overflowX() == OHIDDEN
         || style().overflowX() == OAUTO
         || style().overflowX() == OSCROLL
-        || this->isRoot();
+        || this->isDocumentElementRenderer();
 }
 
 void RenderSVGRoot::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
     // An empty viewport disables rendering.
-    if (pixelSnappedBorderBoxRect().isEmpty())
+    if (borderBoxRect().isEmpty())
         return;
 
     // Don't paint, if the context explicitly disabled it.
-    if (paintInfo.context->paintingDisabled())
+    if (paintInfo.context().paintingDisabled())
         return;
 
     // SVG outlines are painted during PaintPhaseForeground.
@@ -258,18 +259,18 @@ void RenderSVGRoot::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& paint
 
     // Make a copy of the PaintInfo because applyTransform will modify the damage rect.
     PaintInfo childPaintInfo(paintInfo);
-    childPaintInfo.context->save();
+    childPaintInfo.context().save();
 
     // Apply initial viewport clip
     if (shouldApplyViewportClip())
-        childPaintInfo.context->clip(snappedIntRect(overflowClipRect(paintOffset, currentRenderNamedFlowFragment())));
+        childPaintInfo.context().clip(snappedIntRect(overflowClipRect(paintOffset, currentRenderNamedFlowFragment())));
 
     // Convert from container offsets (html renderers) to a relative transform (svg renderers).
     // Transform from our paint container's coordinate system to our local coords.
     IntPoint adjustedPaintOffset = roundedIntPoint(paintOffset);
     childPaintInfo.applyTransform(AffineTransform::translation(adjustedPaintOffset.x(), adjustedPaintOffset.y()) * localToBorderBoxTransform());
 
-    // SVGRenderingContext must be destroyed before we restore the childPaintInfo.context, because a filter may have
+    // SVGRenderingContext must be destroyed before we restore the childPaintInfo.context(), because a filter may have
     // changed the context and it is only reverted when the SVGRenderingContext destructor finishes applying the filter.
     {
         SVGRenderingContext renderingContext;
@@ -286,7 +287,7 @@ void RenderSVGRoot::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& paint
         }
     }
 
-    childPaintInfo.context->restore();
+    childPaintInfo.context().restore();
 }
 
 void RenderSVGRoot::willBeDestroyed()
@@ -301,6 +302,11 @@ void RenderSVGRoot::styleDidChange(StyleDifference diff, const RenderStyle* oldS
 {
     if (diff == StyleDifferenceLayout)
         setNeedsBoundariesUpdate();
+
+    // Box decorations may have appeared/disappeared - recompute status.
+    if (diff == StyleDifferenceRepaint)
+        m_hasBoxDecorations = hasVisibleBoxDecorationStyle();
+
     RenderReplaced::styleDidChange(diff, oldStyle);
     SVGResourcesCache::clientStyleChanged(*this, diff, style());
 }
@@ -325,7 +331,7 @@ void RenderSVGRoot::buildLocalToBorderBoxTransform()
     SVGPoint translate = svgSVGElement().currentTranslate();
     LayoutSize borderAndPadding(borderLeft() + paddingLeft(), borderTop() + paddingTop());
     m_localToBorderBoxTransform = svgSVGElement().viewBoxToViewTransform(contentWidth() / scale, contentHeight() / scale);
-    if (borderAndPadding.isEmpty() && scale == 1 && translate == SVGPoint::zero())
+    if (borderAndPadding.isZero() && scale == 1 && translate == SVGPoint::zero())
         return;
     m_localToBorderBoxTransform = AffineTransform(scale, 0, 0, scale, borderAndPadding.width() + translate.x(), borderAndPadding.height() + translate.y()) * m_localToBorderBoxTransform;
 }
@@ -343,33 +349,40 @@ const AffineTransform& RenderSVGRoot::localToParentTransform() const
 
 LayoutRect RenderSVGRoot::clippedOverflowRectForRepaint(const RenderLayerModelObject* repaintContainer) const
 {
-    return SVGRenderSupport::clippedOverflowRectForRepaint(*this, repaintContainer);
+    if (style().visibility() != VISIBLE && !enclosingLayer()->hasVisibleContent())
+        return LayoutRect();
+
+    FloatRect contentRepaintRect = m_localToBorderBoxTransform.mapRect(repaintRectInLocalCoordinates());
+    contentRepaintRect.intersect(snappedIntRect(borderBoxRect()));
+
+    LayoutRect repaintRect = enclosingLayoutRect(contentRepaintRect);
+    if (m_hasBoxDecorations || hasRenderOverflow())
+        repaintRect.unite(unionRect(localSelectionRect(false), visualOverflowRect()));
+
+    return RenderReplaced::computeRectForRepaint(enclosingIntRect(repaintRect), repaintContainer);
 }
 
-void RenderSVGRoot::computeFloatRectForRepaint(const RenderLayerModelObject* repaintContainer, FloatRect& repaintRect, bool fixed) const
+FloatRect RenderSVGRoot::computeFloatRectForRepaint(const FloatRect& repaintRect, const RenderLayerModelObject* repaintContainer, bool fixed) const
 {
     // Apply our local transforms (except for x/y translation), then our shadow, 
     // and then call RenderBox's method to handle all the normal CSS Box model bits
-    repaintRect = m_localToBorderBoxTransform.mapRect(repaintRect);
+    FloatRect adjustedRect = m_localToBorderBoxTransform.mapRect(repaintRect);
 
     const SVGRenderStyle& svgStyle = style().svgStyle();
     if (const ShadowData* shadow = svgStyle.shadow())
-        shadow->adjustRectForShadow(repaintRect);
+        shadow->adjustRectForShadow(adjustedRect);
 
     // Apply initial viewport clip
     if (shouldApplyViewportClip())
-        repaintRect.intersect(pixelSnappedBorderBoxRect());
+        adjustedRect.intersect(snappedIntRect(borderBoxRect()));
 
     if (m_hasBoxDecorations || hasRenderOverflow()) {
         // The selectionRect can project outside of the overflowRect, so take their union
         // for repainting to avoid selection painting glitches.
         LayoutRect decoratedRepaintRect = unionRect(localSelectionRect(false), visualOverflowRect());
-        repaintRect.unite(decoratedRepaintRect);
+        adjustedRect.unite(decoratedRepaintRect);
     }
-
-    LayoutRect rect = enclosingIntRect(repaintRect);
-    RenderReplaced::computeRectForRepaint(repaintContainer, rect, fixed);
-    repaintRect = rect;
+    return RenderReplaced::computeRectForRepaint(enclosingIntRect(adjustedRect), repaintContainer, {fixed, false});
 }
 
 // This method expects local CSS box coordinates.
@@ -406,7 +419,7 @@ bool RenderSVGRoot::nodeAtPoint(const HitTestRequest& request, HitTestResult& re
     // Only test SVG content if the point is in our content box.
     // FIXME: This should be an intersection when rect-based hit tests are supported by nodeAtFloatPoint.
     if (contentBoxRect().contains(pointInBorderBox)) {
-        FloatPoint localPoint = localToParentTransform().inverse().mapPoint(FloatPoint(pointInParent));
+        FloatPoint localPoint = localToParentTransform().inverse().valueOr(AffineTransform()).mapPoint(FloatPoint(pointInParent));
 
         for (RenderObject* child = lastChild(); child; child = child->previousSibling()) {
             // FIXME: nodeAtFloatPoint() doesn't handle rect-based hit tests yet.
@@ -442,12 +455,10 @@ bool RenderSVGRoot::hasRelativeDimensions() const
 
 void RenderSVGRoot::addResourceForClientInvalidation(RenderSVGResourceContainer* resource)
 {
-    RenderElement* svgRoot = resource->parent();
-    while (svgRoot && !is<RenderSVGRoot>(*svgRoot))
-        svgRoot = svgRoot->parent();
+    RenderSVGRoot* svgRoot = SVGRenderSupport::findTreeRootObject(*resource);
     if (!svgRoot)
         return;
-    downcast<RenderSVGRoot>(*svgRoot).m_resourcesNeedingToInvalidateClients.add(resource);
+    svgRoot->m_resourcesNeedingToInvalidateClients.add(resource);
 }
 
 }

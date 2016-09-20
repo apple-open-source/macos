@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,8 +29,10 @@
 #if PLATFORM(IOS)
 
 #import "APIPageConfiguration.h"
+#import "AccessibilityIOS.h"
 #import "ApplicationStateTracker.h"
 #import "PageClientImplIOS.h"
+#import "PrintInfo.h"
 #import "RemoteLayerTreeDrawingAreaProxy.h"
 #import "RemoteScrollingCoordinatorProxy.h"
 #import "SmartMagnificationController.h"
@@ -44,15 +46,17 @@
 #import "WKWebViewInternal.h"
 #import "WebFrameProxy.h"
 #import "WebKit2Initialize.h"
-#import "WebKitSystemInterfaceIOS.h"
 #import "WebPageGroup.h"
 #import "WebProcessPool.h"
 #import "WebSystemInterface.h"
+#import "_WKFrameHandleInternal.h"
+#import "_WKWebViewPrintFormatterInternal.h"
 #import <CoreGraphics/CoreGraphics.h>
 #import <WebCore/FloatQuad.h>
 #import <WebCore/FrameView.h>
 #import <WebCore/InspectorOverlay.h>
 #import <WebCore/NotImplemented.h>
+#import <WebCore/PlatformScreen.h>
 #import <WebCore/QuartzCoreSPI.h>
 #import <wtf/CurrentTime.h>
 #import <wtf/RetainPtr.h>
@@ -180,15 +184,18 @@ private:
     RetainPtr<NSUndoManager> _undoManager;
 
     std::unique_ptr<ApplicationStateTracker> _applicationStateTracker;
+
+    BOOL _isPrintingToPDF;
+    RetainPtr<CGPDFDocumentRef> _printedDocument;
 }
 
 - (instancetype)_commonInitializationWithProcessPool:(WebKit::WebProcessPool&)processPool configuration:(Ref<API::PageConfiguration>&&)configuration
 {
     ASSERT(_pageClient);
 
-    _page = processPool.createWebPage(*_pageClient, WTF::move(configuration));
+    _page = processPool.createWebPage(*_pageClient, WTFMove(configuration));
     _page->initializeWebPage();
-    _page->setIntrinsicDeviceScaleFactor(WKGetScaleFactorForScreen([UIScreen mainScreen]));
+    _page->setIntrinsicDeviceScaleFactor(screenScaleFactor([UIScreen mainScreen]));
     _page->setUseFixedLayout(true);
     _page->setDelegatesScrolling(true);
 
@@ -229,19 +236,7 @@ private:
     _pageClient = std::make_unique<PageClientImpl>(self, webView);
     _webView = webView;
 
-    return [self _commonInitializationWithProcessPool:processPool configuration:WTF::move(configuration)];
-}
-
-- (instancetype)initWithFrame:(CGRect)frame processPool:(WebKit::WebProcessPool&)processPool configuration:(Ref<API::PageConfiguration>&&)configuration wkView:(WKView *)wkView
-{
-    if (!(self = [super initWithFrame:frame]))
-        return nil;
-
-    InitializeWebKit2();
-
-    _pageClient = std::make_unique<PageClientImpl>(self, wkView);
-
-    return [self _commonInitializationWithProcessPool:processPool configuration:WTF::move(configuration)];
+    return [self _commonInitializationWithProcessPool:processPool configuration:WTFMove(configuration)];
 }
 
 - (void)dealloc
@@ -289,7 +284,7 @@ private:
         return;
 
     ASSERT(!_applicationStateTracker);
-    _applicationStateTracker = std::make_unique<ApplicationStateTracker>(self, @selector(_applicationDidEnterBackground), @selector(_applicationWillEnterForeground));
+    _applicationStateTracker = std::make_unique<ApplicationStateTracker>(self, @selector(_applicationDidEnterBackground), @selector(_applicationDidCreateWindowContext), @selector(_applicationDidFinishSnapshottingAfterEnteringBackground), @selector(_applicationWillEnterForeground));
 }
 
 - (WKBrowsingContextController *)browsingContextController
@@ -367,8 +362,12 @@ private:
 }
 
 - (void)didUpdateVisibleRect:(CGRect)visibleRect unobscuredRect:(CGRect)unobscuredRect unobscuredRectInScrollViewCoordinates:(CGRect)unobscuredRectInScrollViewCoordinates
-    scale:(CGFloat)zoomScale minimumScale:(CGFloat)minimumScale inStableState:(BOOL)isStableState isChangingObscuredInsetsInteractively:(BOOL)isChangingObscuredInsetsInteractively
+    obscuredInset:(CGSize)obscuredInset scale:(CGFloat)zoomScale minimumScale:(CGFloat)minimumScale inStableState:(BOOL)isStableState isChangingObscuredInsetsInteractively:(BOOL)isChangingObscuredInsetsInteractively enclosedInScrollableAncestorView:(BOOL)enclosedInScrollableAncestorView
 {
+    auto drawingArea = _page->drawingArea();
+    if (!drawingArea)
+        return;
+
     double timestamp = monotonicallyIncreasingTime();
     HistoricalVelocityData::VelocityData velocityData;
     if (!isStableState)
@@ -377,16 +376,32 @@ private:
         _historicalKinematicData.clear();
 
     FloatRect fixedPositionRectForLayout = _page->computeCustomFixedPositionRect(unobscuredRect, zoomScale, WebPageProxy::UnobscuredRectConstraint::ConstrainedToDocumentRect);
-    _page->updateVisibleContentRects(visibleRect, unobscuredRect, unobscuredRectInScrollViewCoordinates, fixedPositionRectForLayout,
-        zoomScale, isStableState, isChangingObscuredInsetsInteractively, timestamp, velocityData.horizontalVelocity, velocityData.verticalVelocity, velocityData.scaleChangeRate);
+
+    VisibleContentRectUpdateInfo visibleContentRectUpdateInfo(
+        visibleRect,
+        unobscuredRect,
+        unobscuredRectInScrollViewCoordinates,
+        fixedPositionRectForLayout,
+        WebCore::FloatSize(obscuredInset),
+        zoomScale,
+        isStableState,
+        isChangingObscuredInsetsInteractively,
+        _webView._allowsViewportShrinkToFit,
+        enclosedInScrollableAncestorView,
+        timestamp,
+        velocityData.horizontalVelocity,
+        velocityData.verticalVelocity,
+        velocityData.scaleChangeRate,
+        downcast<RemoteLayerTreeDrawingAreaProxy>(*drawingArea).lastCommittedLayerTreeTransactionID());
+
+    _page->updateVisibleContentRects(visibleContentRectUpdateInfo);
 
     RemoteScrollingCoordinatorProxy* scrollingCoordinator = _page->scrollingCoordinatorProxy();
     FloatRect fixedPositionRect = _page->computeCustomFixedPositionRect(_page->unobscuredContentRect(), zoomScale);
     scrollingCoordinator->viewportChangedViaDelegatedScrolling(scrollingCoordinator->rootScrollingNodeID(), fixedPositionRect, zoomScale);
 
-    if (auto drawingArea = _page->drawingArea())
-        drawingArea->updateDebugIndicator();
-        
+    drawingArea->updateDebugIndicator();
+    
     [self updateFixedClippingView:fixedPositionRect];
 }
 
@@ -431,7 +446,7 @@ private:
 - (void)_updateForScreen:(UIScreen *)screen
 {
     ASSERT(screen);
-    _page->setIntrinsicDeviceScaleFactor(WKGetScaleFactorForScreen(screen));
+    _page->setIntrinsicDeviceScaleFactor(screenScaleFactor(screen));
     [self _accessibilityRegisterUIProcessTokens];
 }
 
@@ -441,19 +456,32 @@ private:
     [self _accessibilityRegisterUIProcessTokens];
 }
 
+static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid, mach_port_t sendPort, NSUUID *uuid)
+{
+    // The accessibility bundle needs to know the uuid, pid and mach_port that this object will refer to.
+    objc_setAssociatedObject(element, (void*)[@"ax-uuid" hash], uuid, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(element, (void*)[@"ax-pid" hash], @(pid), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(element, (void*)[@"ax-machport" hash], @(sendPort), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
 - (void)_accessibilityRegisterUIProcessTokens
 {
-    RetainPtr<CFUUIDRef> uuid = adoptCF(CFUUIDCreate(kCFAllocatorDefault));
-    NSData *remoteElementToken = WKAXRemoteToken(uuid.get());
+    auto uuid = [NSUUID UUID];
+    NSData *remoteElementToken = newAccessibilityRemoteToken(uuid);
 
     // Store information about the WebProcess that can later be retrieved by the iOS Accessibility runtime.
     if (_page->process().state() == WebProcessProxy::State::Running) {
         IPC::Connection* connection = _page->process().connection();
-        WKAXStoreRemoteConnectionInformation(self, _page->process().processIdentifier(), connection->identifier().port, uuid.get());
+        storeAccessibilityRemoteConnectionInformation(self, _page->process().processIdentifier(), connection->identifier().port, uuid);
 
         IPC::DataReference elementToken = IPC::DataReference(reinterpret_cast<const uint8_t*>([remoteElementToken bytes]), [remoteElementToken length]);
         _page->registerUIProcessAccessibilityTokens(elementToken, elementToken);
     }
+}
+
+- (void)_webViewDestroyed
+{
+    _webView = nil;
 }
 
 #pragma mark PageClientImpl methods
@@ -518,6 +546,11 @@ private:
         [self _updateChangedSelection];
 }
 
+- (void)_layerTreeCommitComplete
+{
+    [_webView _layerTreeCommitComplete];
+}
+
 - (void)_setAcceleratedCompositingRootView:(UIView *)rootView
 {
     for (UIView* subview in [_rootContentView subviews])
@@ -552,6 +585,11 @@ private:
     return [_webView _zoomOutWithOrigin:origin animated:YES];
 }
 
+- (void)_zoomToInitialScaleWithOrigin:(CGPoint)origin
+{
+    return [_webView _zoomToInitialScaleWithOrigin:origin animated:YES];
+}
+
 - (void)_applicationWillResignActive:(NSNotification*)notification
 {
     _page->applicationWillResignActive();
@@ -563,17 +601,87 @@ private:
     _page->viewStateDidChange(ViewState::AllFlags & ~ViewState::IsInWindow);
 }
 
+- (void)_applicationDidCreateWindowContext
+{
+    if (auto drawingArea = _page->drawingArea())
+        drawingArea->hideContentUntilAnyUpdate();
+}
+
+- (void)_applicationDidFinishSnapshottingAfterEnteringBackground
+{
+    _page->applicationDidFinishSnapshottingAfterEnteringBackground();
+}
+
 - (void)_applicationWillEnterForeground
 {
     _page->applicationWillEnterForeground();
-    if (auto drawingArea = _page->drawingArea())
-        drawingArea->hideContentUntilAnyUpdate();
     _page->viewStateDidChange(ViewState::AllFlags & ~ViewState::IsInWindow, true, WebPageProxy::ViewStateChangeDispatchMode::Immediate);
 }
 
 - (void)_applicationDidBecomeActive:(NSNotification*)notification
 {
     _page->applicationDidBecomeActive();
+}
+
+@end
+
+#pragma mark Printing
+
+@interface WKContentView (_WKWebViewPrintFormatter) <_WKWebViewPrintProvider>
+@end
+
+@implementation WKContentView (_WKWebViewPrintFormatter)
+
+- (NSUInteger)_wk_pageCountForPrintFormatter:(_WKWebViewPrintFormatter *)printFormatter
+{
+    if (_isPrintingToPDF)
+        return 0;
+
+    uint64_t frameID;
+    if (_WKFrameHandle *handle = printFormatter.frameToPrint)
+        frameID = handle._frameID;
+    else if (auto mainFrame = _page->mainFrame())
+        frameID = mainFrame->frameID();
+    else
+        return 0;
+
+    // The first page can have a smaller content rect than subsequent pages if a top content inset
+    // is specified. Since WebKit requires a uniform content rect for each page during layout, use
+    // the intersection of the first and non-first page rects.
+    // FIXME: Teach WebCore::PrintContext to accept an initial content offset when paginating.
+    CGRect printingRect = CGRectIntersection([printFormatter _pageContentRect:YES], [printFormatter _pageContentRect:NO]);
+    if (CGRectIsEmpty(printingRect))
+        return 0;
+
+    PrintInfo printInfo;
+    printInfo.pageSetupScaleFactor = 1;
+    printInfo.availablePaperWidth = CGRectGetWidth(printingRect);
+    printInfo.availablePaperHeight = CGRectGetHeight(printingRect);
+
+    _isPrintingToPDF = YES;
+    auto retainedSelf = retainPtr(self);
+    return _page->computePagesForPrintingAndDrawToPDF(frameID, printInfo, [retainedSelf](const IPC::DataReference& pdfData, CallbackBase::Error error) {
+        retainedSelf->_isPrintingToPDF = NO;
+        if (error != CallbackBase::Error::None)
+            return;
+
+        auto data = adoptCF(CFDataCreate(kCFAllocatorDefault, pdfData.data(), pdfData.size()));
+        auto dataProvider = adoptCF(CGDataProviderCreateWithCFData(data.get()));
+        retainedSelf->_printedDocument = adoptCF(CGPDFDocumentCreateWithProvider(dataProvider.get()));
+    });
+}
+
+- (CGPDFDocumentRef)_wk_printedDocument
+{
+    if (_isPrintingToPDF) {
+        if (!_page->process().connection()->waitForAndDispatchImmediately<Messages::WebPageProxy::DrawToPDFCallback>(_page->pageID(), std::chrono::milliseconds::max())) {
+            ASSERT_NOT_REACHED();
+            return nullptr;
+        }
+        ASSERT(!_isPrintingToPDF);
+    }
+
+    return _printedDocument.autorelease();
 }
 
 @end

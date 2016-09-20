@@ -40,24 +40,25 @@ public:
     ThemeMac() { }
     virtual ~ThemeMac() { }
     
-    virtual int baselinePositionAdjustment(ControlPart) const override;
+    int baselinePositionAdjustment(ControlPart) const override;
 
-    virtual Optional<FontDescription> controlFont(ControlPart, const FontCascade&, float zoomFactor) const override;
+    Optional<FontCascadeDescription> controlFont(ControlPart, const FontCascade&, float zoomFactor) const override;
     
-    virtual LengthSize controlSize(ControlPart, const FontCascade&, const LengthSize&, float zoomFactor) const override;
-    virtual LengthSize minimumControlSize(ControlPart, const FontCascade&, float zoomFactor) const override;
+    LengthSize controlSize(ControlPart, const FontCascade&, const LengthSize&, float zoomFactor) const override;
+    LengthSize minimumControlSize(ControlPart, const FontCascade&, float zoomFactor) const override;
 
-    virtual LengthBox controlPadding(ControlPart, const FontCascade&, const LengthBox& zoomedBox, float zoomFactor) const override;
-    virtual LengthBox controlBorder(ControlPart, const FontCascade&, const LengthBox& zoomedBox, float zoomFactor) const override;
+    LengthBox controlPadding(ControlPart, const FontCascade&, const LengthBox& zoomedBox, float zoomFactor) const override;
+    LengthBox controlBorder(ControlPart, const FontCascade&, const LengthBox& zoomedBox, float zoomFactor) const override;
 
-    virtual bool controlRequiresPreWhiteSpace(ControlPart part) const override { return part == PushButtonPart; }
+    bool controlRequiresPreWhiteSpace(ControlPart part) const override { return part == PushButtonPart; }
 
-    virtual void paint(ControlPart, ControlStates*, GraphicsContext*, const FloatRect&, float zoomFactor, ScrollView*) override;
-    virtual void inflateControlPaintRect(ControlPart, const ControlStates*, FloatRect&, float zoomFactor) const override;
+    void paint(ControlPart, ControlStates&, GraphicsContext&, const FloatRect&, float zoomFactor, ScrollView*, float deviceScaleFactor, float pageScaleFactor) override;
+    void inflateControlPaintRect(ControlPart, const ControlStates&, FloatRect&, float zoomFactor) const override;
 
     // FIXME: Once RenderThemeMac is converted over to use Theme then this can be internal to ThemeMac.
-    static NSView* ensuredView(ScrollView*, const ControlStates*, bool useUnparentedView = false);
+    static NSView* ensuredView(ScrollView*, const ControlStates&, bool useUnparentedView = false);
     static void setFocusRingClipRect(const FloatRect&);
+    static bool drawCellOrFocusRingWithViewIntoContext(NSCell*, GraphicsContext&, const FloatRect&, NSView*, bool /* drawButtonCell */, bool /* drawFocusRing */, bool /* useImageBuffer */, float /* deviceScaleFactor */);
 };
 
 } // namespace WebCore

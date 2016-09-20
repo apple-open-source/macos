@@ -125,8 +125,8 @@ __BEGIN_DECLS
 		Note: this API has been deprecated but you can
 		      get equivalent results with :
 <pre>
-	SCNetworkReachabiltyRef   target;
-	SCNetworkReachabiltyFlags flags = 0;
+	SCNetworkReachabilityRef   target;
+	SCNetworkReachabilityFlags flags = 0;
 	Boolean                   ok;
 
 	target = SCNetworkReachabilityCreateWithAddress(NULL, address);

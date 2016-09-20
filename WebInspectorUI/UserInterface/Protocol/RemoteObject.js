@@ -416,13 +416,15 @@ WebInspector.RemoteObject = class RemoteObject
         function mycallback(error, result, wasThrown)
         {
             result = result ? WebInspector.RemoteObject.fromPayload(result) : null;
-            callback(error, result, wasThrown);
+
+            if (callback && typeof callback === "function")
+                callback(error, result, wasThrown);
         }
 
         if (args)
             args = args.map(WebInspector.RemoteObject.createCallArgument);
 
-        RuntimeAgent.callFunctionOn(this._objectId, appendWebInspectorSourceURL(functionDeclaration.toString()), args, true, undefined, generatePreview, mycallback);
+        RuntimeAgent.callFunctionOn(this._objectId, appendWebInspectorSourceURL(functionDeclaration.toString()), args, true, undefined, !!generatePreview, mycallback);
     }
 
     callFunctionJSON(functionDeclaration, args, callback)
@@ -511,7 +513,7 @@ WebInspector.RemoteObject = class RemoteObject
             var location = response.location;
             var sourceCode = WebInspector.debuggerManager.scriptForIdentifier(location.scriptId);
 
-            if (!sourceCode || sourceCode.url.startsWith("__WebInspector")) {
+            if (!sourceCode || (!WebInspector.isDebugUIEnabled() && isWebKitInternalScript(sourceCode.sourceURL))) {
                 result.resolve(WebInspector.RemoteObject.SourceCodeLocationPromise.NoSourceFound);
                 return;
             }

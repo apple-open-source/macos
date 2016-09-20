@@ -39,7 +39,7 @@
 #define	DH_MIN_KEY_SIZE			512			/* FIXME */
 #define DH_MAX_KEY_SIZE			2048
 
-#define cspDhDebug(args...)		secdebug("dhDebug", ## args)
+#define cspDhDebug(args...)		secinfo("dhDebug", ## args)
 
 /*
  * Diffie-Hellman version of a BinaryKey.

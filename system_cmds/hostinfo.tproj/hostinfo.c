@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
@@ -10,7 +10,7 @@
  * except in compliance with the License.  Please obtain a copy of the
  * License at http://www.apple.com/publicsource and read it before using
  * this file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -18,10 +18,10 @@
  * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
  * License for the specific language governing rights and limitations
  * under the License."
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
-/* 
+/*
  * Mach Operating System
  * Copyright (c) 1990 Carnegie-Mellon University
  * All rights reserved.  The CMU software License Agreement specifies
@@ -48,13 +48,14 @@ struct host_basic_info	hi;
 kernel_version_t	version;
 int			slots[1024];
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
 	kern_return_t		ret;
 	unsigned int		size, count;
 	char			*cpu_name, *cpu_subname;
 	int			i;
-	int 			mib[2];
+	int			mib[2];
 	size_t			len;
 	uint64_t		memsize;
 	processor_set_name_port_t		default_pset;
@@ -108,7 +109,6 @@ int main(int argc, char *argv[])
 	    exit(EXIT_FAILURE);
 	}
 
-	
 	if (hi.max_cpus > 1)
 		printf("Kernel configured for up to %d processors.\n",
 			hi.max_cpus);
@@ -125,7 +125,7 @@ int main(int argc, char *argv[])
 	printf(" %s (%s)\n", cpu_name, cpu_subname);
 
 	printf("Processor%s active:", (hi.avail_cpus > 1) ? "s" : "");
-	for (i = 0; i < hi.avail_cpus; i++) 
+	for (i = 0; i < hi.avail_cpus; i++)
 		printf(" %d", i);
 	printf("\n");
 
@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
 	else
 	    printf("Primary memory available: %.2f megabytes\n",
 	      (float)memsize/(1024.0*1024.0));
-	
+
 	printf("Default processor set: %d tasks, %d threads, %d processors\n",
 		load_info.task_count, load_info.thread_count, basic_info.processor_count);
 	printf("Load average: %d.%02d, Mach factor: %d.%02d\n",
@@ -146,4 +146,3 @@ int main(int argc, char *argv[])
 
 	exit(0);
 }
-

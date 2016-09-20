@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2006, 2008-2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2004, 2006, 2008-2013, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -31,9 +31,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
-#include <mach/mach.h>
-#include <mach/mach_error.h>
 #include <dispatch/dispatch.h>
+#include <mach/mach.h>
+#include <os/activity.h>
 #include <xpc/xpc.h>
 
 #include "libSystemConfiguration_client.h"
@@ -57,8 +57,24 @@ dns_configuration_notify_key()
 
 
 // Note: protected by __dns_configuration_queue()
-static int			dnsinfo_active	= 0;
-static libSC_info_client_t	*dnsinfo_client	= NULL;
+static int			dnsinfo_active		= 0;
+static libSC_info_client_t	*dnsinfo_client		= NULL;
+
+
+static os_activity_t
+__dns_configuration_activity()
+{
+	static os_activity_t	activity;
+	static dispatch_once_t  once;
+
+	dispatch_once(&once, ^{
+		activity = os_activity_create("accessing DNS configuration",
+					      OS_ACTIVITY_CURRENT,
+					      OS_ACTIVITY_FLAG_DEFAULT);
+	});
+
+	return activity;
+}
 
 
 static dispatch_queue_t
@@ -84,6 +100,11 @@ dns_configuration_copy()
 	static const char	*proc_name	= NULL;
 	xpc_object_t		reqdict;
 	xpc_object_t		reply;
+
+	if (!libSC_info_available()) {
+		os_log(OS_LOG_DEFAULT, "*** DNS configuration requested between fork() and exec()");
+		return NULL;
+	}
 
 	dispatch_sync(__dns_configuration_queue(), ^{
 		if ((dnsinfo_active++ == 0) || (dnsinfo_client == NULL)) {
@@ -119,6 +140,9 @@ dns_configuration_copy()
 		// if DNS configuration server not available
 		return NULL;
 	}
+
+	// scope DNS configuration activity
+	os_activity_scope(__dns_configuration_activity());
 
 	// create message
 	reqdict = xpc_dictionary_create(NULL, NULL, 0);

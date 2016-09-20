@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011, 2013-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011, 2013-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -63,9 +63,6 @@ __private_extern__
 Boolean	_configd_verbose		= FALSE;	/* TRUE if verbose logging enabled */
 
 __private_extern__
-FILE	*_configd_trace			= NULL;		/* non-NULL if tracing enabled */
-
-__private_extern__
 CFMutableSetRef	_plugins_allowed	= NULL;		/* bundle identifiers to allow when loading */
 
 __private_extern__
@@ -105,6 +102,19 @@ usage(const char *prog)
 	SCPrint(TRUE, stderr, CFSTR("\t-t\tload/test the specified plug-in\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t\t  (Note: only the plug-in will be started)\n"));
 	exit (EX_USAGE);
+}
+
+
+__private_extern__ os_log_t
+__configd_SCDynamicStore()
+{
+	static os_log_t	log	= NULL;
+
+	if (log == NULL) {
+		log = os_log_create("com.apple.SystemConfiguration", "SCDynamicStore");
+	}
+
+	return log;
 }
 
 
@@ -195,22 +205,6 @@ init_fds()
 		if (fd > STDERR_FILENO) {
 			(void) close(fd);
 		}
-	}
-
-	return;
-}
-
-
-static void
-set_trace()
-{
-	int	fd;
-
-	/* set _configd_trace */
-	fd = open("/var/log/configd.trace", O_WRONLY|O_APPEND, 0);
-	if (fd != -1) {
-		_configd_trace = fdopen(fd, "a");
-		SC_trace(_configd_trace, "start\n");
 	}
 
 	return;
@@ -338,12 +332,12 @@ main(int argc, char * const argv[])
 //	argv += optind;
 
 	/* check credentials */
-#if	!TARGET_IPHONE_SIMULATOR
+#if	!TARGET_OS_SIMULATOR
 	if (getuid() != 0) {
 		fprintf(stderr, "%s: permission denied.\n", prog);
 		exit (EX_NOPERM);
 	}
-#endif	// !TARGET_IPHONE_SIMULATOR
+#endif	// !TARGET_OS_SIMULATOR
 
 	/* check if we have been started by launchd */
 	vproc_swap_integer(NULL, VPROC_GSK_IS_MANAGED, NULL, &is_launchd_job);
@@ -376,7 +370,7 @@ main(int argc, char * const argv[])
 #endif	// TARGET_OS_EMBEDDED && !defined(DO_NOT_INFORM)
 
 	/* ensure that forked plugins behave */
-	if ((testBundle != NULL) && (getenv("__FORKED_PLUGIN__") != NULL)) {
+	if (testBundle != NULL) {
 		forcePlugin = TRUE;
 	}
 
@@ -423,9 +417,6 @@ main(int argc, char * const argv[])
 	} else {
 		_sc_log = FALSE;	/* redirect SCLog() to stdout/stderr */
 	}
-
-	/* check/enable trace logging */
-	set_trace();
 
 	/* add signal handler to catch a SIGHUP */
 	nact.sa_handler = catcher;

@@ -78,8 +78,8 @@ enum {
 	NW_NTLM2   = 0x00000002,
 	NW_NTLMv2  = 0x00000004,
 
-	// all variants enabled, preferring NTLMv2, then NTLM2, then NTLM1
-	NW_Any     = NW_NTLM1 | NW_NTLM2 | NW_NTLMv2
+	// all variants enabled, preferring NTLMv2, then NTLM2
+	NW_Any     = NW_NTLM2 | NW_NTLMv2
 };
 typedef uint32_t NLTM_Which;
 

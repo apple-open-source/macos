@@ -74,12 +74,12 @@ static void tests(void)
     CFReleaseNull(cfpassword);
     CFReleaseNull(error);
     
-    ok(SOSAccountResetToOffering(alice_account, &error), "Reset to offering (%@)", error);
+    ok(SOSAccountResetToOffering_wTxn(alice_account, &error), "Reset to offering (%@)", error);
     CFReleaseNull(error);
     
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, "updates");
     
-    ok(SOSAccountJoinCircles(bob_account, &error), "Bob Applies (%@)", error);
+    ok(SOSAccountJoinCircles_wTxn(bob_account, &error), "Bob Applies (%@)", error);
     CFReleaseNull(error);
     
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, "updates");
@@ -100,9 +100,9 @@ static void tests(void)
     });
     CFStringAppend(timeDescription, CFSTR("]"));
     
-    uint64_t tries = 5;
+    int tries = 5;
     
-    CFNumberRef attempts = CFNumberCreate(kCFAllocatorDefault, kCFNumberLongLongType, (const void*)&tries);
+    CFNumberRef attempts = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &tries);
     
     CFMutableArrayRef escrowTimeAndTries = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
     CFArrayAppendValue(escrowTimeAndTries, timeDescription);
@@ -131,14 +131,14 @@ static void tests(void)
 
     ok(SOSAccountAddEscrowRecords(bob_account, CFSTR("12345"), escrowRecord, &error), "Adding escrow to Bob's account (%@)", error);
 
-    ok(SOSAccountResetToOffering(alice_account, &error), "Reset to offering (%@)", error);
+    ok(SOSAccountResetToOffering_wTxn(alice_account, &error), "Reset to offering (%@)", error);
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, "updates");
 
     CFDictionaryRef bob_fpi_escrow = SOSPeerInfoCopyEscrowRecord(SOSFullPeerInfoGetPeerInfo(bob_account->my_identity));
     ok(bob_fpi_escrow == NULL, "Bob's FPI escrow should be null");
     CFReleaseNull(bob_fpi_escrow);
 
-    ok(SOSAccountJoinCircles(bob_account, &error), "Bob Applies (%@)", error);
+    ok(SOSAccountJoinCircles_wTxn(bob_account, &error), "Bob Applies (%@)", error);
     bob_fpi_escrow = SOSPeerInfoCopyEscrowRecord(SOSFullPeerInfoGetPeerInfo(bob_account->my_identity));
     ok(CFEqualSafe(CFDictionaryGetValue(bob_fpi_escrow, CFSTR("12345")), escrowRecord), "Bob has escrow records in account (%@)", error);
     CFReleaseNull(bob_fpi_escrow);

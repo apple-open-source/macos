@@ -45,8 +45,17 @@
 
 typedef struct DHCPv6Client * DHCPv6ClientRef;
 
-typedef void (*DHCPv6ClientNotificationCallBack)(void * callback_arg,
-						 DHCPv6ClientRef client);
+typedef enum {
+    kDHCPv6ClientNotificationTypeStatusChanged = 1,
+    kDHCPv6ClientNotificationTypeGenerateSymptom = 2
+} DHCPv6ClientNotificationType;
+
+typedef void
+(*DHCPv6ClientNotificationCallBack)(DHCPv6ClientRef client,
+				    void * callback_arg,
+				    DHCPv6ClientNotificationType type);
+
+
 void
 DHCPv6ClientSetRequestedOptions(uint16_t * requested_options,
 				int requested_options_count);

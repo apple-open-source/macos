@@ -25,7 +25,6 @@
 
 // This all-in-one cpp file cuts down on template bloat to allow us to build our Windows release build.
 
-#include "ColorDistance.cpp"
 #include "SVGAElement.cpp"
 #include "SVGAltGlyphDefElement.cpp"
 #include "SVGAltGlyphElement.cpp"
@@ -98,7 +97,6 @@
 #include "SVGFilterElement.cpp"
 #include "SVGFilterPrimitiveStandardAttributes.cpp"
 #include "SVGFitToViewBox.cpp"
-#include "SVGFontData.cpp"
 #include "SVGFontElement.cpp"
 #include "SVGFontFaceElement.cpp"
 #include "SVGFontFaceFormatElement.cpp"

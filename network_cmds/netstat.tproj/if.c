@@ -115,6 +115,7 @@ static char *qid2str(unsigned int);
 static char *qstate2str(unsigned int);
 static char *tcqslot2str(unsigned int);
 static char *rate2str(long double);
+static char *pri2str(unsigned int i);
 
 #define AVGN_MAX	8
 
@@ -142,6 +143,8 @@ static void print_qfqstats(int slot, struct qfq_classstats *,
     struct queue_stats *);
 static void print_sfbstats(struct sfb_stats *);
 static void update_avg(struct if_ifclassq_stats *, struct queue_stats *);
+static void print_fq_codel_stats(int slot, struct fq_codel_classstats *,
+    struct queue_stats *);
 
 struct queue_stats qstats[IFCQ_SC_MAX];
 
@@ -1064,6 +1067,8 @@ loop:
 				    sum->ift_fb - total->ift_fb);
 		}
 		*total = *sum;
+		
+		free(ifmsuppall);
 	}
 	if (!first)
 		putchar('\n');
@@ -1468,6 +1473,11 @@ loop:
 				print_qfqstats(n, &ifcqs->ifqs_qfq_stats,
 				    &qstats[n]);
 				break;
+			case PKTSCHEDT_FQ_CODEL:
+				print_fq_codel_stats(n,
+				    &ifcqs->ifqs_fq_codel_stats,
+				    &qstats[n]);
+				break;
 			case PKTSCHEDT_NONE:
 			default:
 				break;
@@ -1700,6 +1710,35 @@ print_qfqstats(int slot, struct qfq_classstats *cs, struct queue_stats *qs)
 }
 
 static void
+print_fq_codel_stats(int pri, struct fq_codel_classstats *fqst,
+    struct queue_stats *qs)
+{
+	printf("     [ pri: %s (%d)\tsrv_cl: 0x%x\tquantum: %d\tdrr_max: %d ]\n",
+	    pri2str(fqst->fcls_pri), fqst->fcls_pri,
+	    fqst->fcls_service_class, fqst->fcls_quantum,
+	    fqst->fcls_drr_max);
+	printf("     [ budget: %lld\t\ttarget qdelay: %14s ]\n",
+	    fqst->fcls_budget, nsec_to_str(fqst->fcls_target_qdelay));
+	printf("     [ flow control: %u\tfeedback: %u\tstalls: %u\tfailed: %u ]\n",
+	    fqst->fcls_flow_control, fqst->fcls_flow_feedback,
+	    fqst->fcls_dequeue_stall, fqst->fcls_flow_control_fail);
+	printf("     [ drop overflow: %llu\tearly: %llu\tmemfail: %u\tduprexmt:%u ]\n",
+	    fqst->fcls_drop_overflow, fqst->fcls_drop_early,
+	    fqst->fcls_drop_memfailure, fqst->fcls_dup_rexmts);
+	printf("     [ flows total: %u\tnew: %u\told: %u ]\n",
+	    fqst->fcls_flows_cnt,
+	    fqst->fcls_newflows_cnt, fqst->fcls_oldflows_cnt);
+	printf("     [ queued pkts: %llu\tbytes: %llu ]\n",
+	    fqst->fcls_pkt_cnt, fqst->fcls_byte_cnt);
+	printf("     [ dequeued pkts: %llu\tbytes: %llu ]\n",
+	    fqst->fcls_dequeue, fqst->fcls_dequeue_bytes);
+	printf("     [ throttle on: %u\toff: %u\tdrop: %u ]\n",
+	    fqst->fcls_throttle_on, fqst->fcls_throttle_off,
+	    fqst->fcls_throttle_drops);
+	printf("=====================================================\n");
+}
+
+static void
 print_sfbstats(struct sfb_stats *sfb)
 {
 	struct sfbstats *sp = &sfb->sfbstats;
@@ -1808,6 +1847,10 @@ update_avg(struct if_ifclassq_stats *ifcqs, struct queue_stats *qs)
 		b = ifcqs->ifqs_qfq_stats.xmitcnt.bytes;
 		p = ifcqs->ifqs_qfq_stats.xmitcnt.packets;
 		break;
+	case PKTSCHEDT_FQ_CODEL:
+		b = ifcqs->ifqs_fq_codel_stats.fcls_dequeue_bytes;
+		p = ifcqs->ifqs_fq_codel_stats.fcls_dequeue;
+		break;
 	default:
 		b = 0;
 		p = 0;
@@ -1868,8 +1911,8 @@ qtype2str(classq_type_t t)
 }
 
 #define NSEC_PER_SEC    1000000000      /* nanoseconds per second */
-#define USEC_PER_SEC    1000000		/* nanoseconds per second */
-#define MSEC_PER_SEC    1000		/* nanoseconds per second */
+#define USEC_PER_SEC    1000000		/* microseconds per second */
+#define MSEC_PER_SEC    1000		/* milliseconds per second */
 
 static char *
 nsec_to_str(unsigned long long nsec)
@@ -1922,6 +1965,9 @@ sched2str(unsigned int s)
 		break;
 	case PKTSCHEDT_QFQ:
 		c = "QFQ";
+		break;
+	case PKTSCHEDT_FQ_CODEL:
+		c = "FQ_CODEL";
 		break;
 	default:
 		c = "UNKNOWN";
@@ -2004,6 +2050,48 @@ tcqslot2str(unsigned int s)
 		break;
 	}
 
+	return (c);
+}
+
+static char *
+pri2str(unsigned int i)
+{
+	char *c;
+	switch (i) {
+	case 9:
+		c = "BK_SYS";
+		break;
+	case 8:
+		c = "BK";
+		break;
+	case 7:
+		c = "BE";
+		break;
+	case 6:
+		c = "RD";
+		break;
+	case 5:
+		c = "OAM";
+		break;
+	case 4:
+		c = "AV";
+		break;
+	case 3:
+		c = "RV";
+		break;
+	case 2:
+		c = "VI";
+		break;
+	case 1:
+		c = "VO";
+		break;
+	case 0:
+		c = "CTL";
+		break;
+	default:
+		c = "?";
+		break;
+	}
 	return (c);
 }
 
@@ -2295,8 +2383,8 @@ rem_nstat_src(int fd, nstat_src_ref_t sref)
 	}
 
 	if (remrsp->srcref != sref) {
-		fprintf(stderr, "%s: received invalid srcref, received %u "
-			"expected %u\n", __func__, remrsp->srcref, sref);
+		fprintf(stderr, "%s: received invalid srcref, received %llu "
+			"expected %llu\n", __func__, remrsp->srcref, sref);
 	}
 	return 0;
 }
@@ -2352,7 +2440,7 @@ get_src_decsription(int fd, nstat_src_ref_t srcref,
 	if (drsp->srcref != srcref)
 	{
 		fprintf(stderr, "%s: received message for wrong source, "
-			"received 0x%x expected 0x%x\n",
+			"received 0x%llx expected 0x%llx\n",
 			__func__, drsp->srcref, srcref);
 		return -1;
 	}
@@ -2427,7 +2515,7 @@ print_wifi_status(nstat_ifnet_desc_wifi_status *status)
 static void
 print_cellular_status(nstat_ifnet_desc_cellular_status *status)
 {
-	int tmp;
+	int tmp, tmp_mss;
 #define val(x, f)	\
 	((status->valid_bitmask & NSTAT_IFNET_DESC_CELL_ ## f ## _VALID) ?\
 	 status->x : -1)
@@ -2439,6 +2527,12 @@ print_cellular_status(nstat_ifnet_desc_cellular_status *status)
 	((tmp == NSTAT_IFNET_DESC_CELL_UL_RETXT_LEVEL_MEDIUM) ? "(medium)" : \
 	((tmp == NSTAT_IFNET_DESC_CELL_UL_RETXT_LEVEL_HIGH) ? "(high)" : \
 	"(?)")))))
+#define pretxtm(n, un) \
+	(((tmp_mss = val(n,un)) == -1) ? "(not valid)" : \
+	((tmp_mss == NSTAT_IFNET_DESC_MSS_RECOMMENDED_NONE) ? "(none)" : \
+	((tmp_mss == NSTAT_IFNET_DESC_MSS_RECOMMENDED_MEDIUM) ? "(medium)" : \
+	((tmp_mss == NSTAT_IFNET_DESC_MSS_RECOMMENDED_LOW) ? "(low)" : \
+	"(?)"))))
 
 	printf("\ncellular status:\n");
 	printf(
@@ -2456,7 +2550,8 @@ print_cellular_status(nstat_ifnet_desc_cellular_status *status)
 	    "\t%s:\t%d\n"
 	    "\t%s:\t%d\n"
 	    "\t%s:\t%d\n"
-	    "\t%s:\t%d\n",
+	    "\t%s:\t%d\n"
+	    "\t%s:\t%d %s\n",
 	    parg(link_quality_metric, LINK_QUALITY_METRIC),
 	    parg(ul_effective_bandwidth, UL_EFFECTIVE_BANDWIDTH),
 	    parg(ul_max_bandwidth, UL_MAX_BANDWIDTH),
@@ -2472,7 +2567,9 @@ print_cellular_status(nstat_ifnet_desc_cellular_status *status)
 	    parg(dl_effective_bandwidth, DL_EFFECTIVE_BANDWIDTH),
 	    parg(dl_max_bandwidth, DL_MAX_BANDWIDTH),
 	    parg(config_inactivity_time, CONFIG_INACTIVITY_TIME),
-	    parg(config_backoff_time, CONFIG_BACKOFF_TIME)
+	    parg(config_backoff_time, CONFIG_BACKOFF_TIME),
+	    parg(mss_recommended, MSS_RECOMMENDED),
+	    pretxtm(mss_recommended, MSS_RECOMMENDED)
 	    );
 #undef pretxtl
 #undef parg

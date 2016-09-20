@@ -280,6 +280,7 @@ usage(uint32_t section)
 		fprintf(stderr, "   %c    prefix\n", MOD_PREFIX);
 		fprintf(stderr, "   %c    suffix\n", MOD_SUFFIX);
 		fprintf(stderr, "   %c    numeric comparison\n", MOD_NUMERIC);
+		fprintf(stderr, "\n");
 	}
 
 	if ((section == HELP_ALL) || (section == HELP_STATS))
@@ -289,7 +290,10 @@ usage(uint32_t section)
 		fprintf(stderr, "   -n n     prints stats for just the top n (e.g. top 10) senders\n");
 		fprintf(stderr, "   -d path  reads the ASL database at the given path for statistics\n");
 		fprintf(stderr, "   -v       verbose ([message_count total_data data_average] for 10 minute intervals)\n");
+		fprintf(stderr, "\n");
 	}
+
+	fprintf(stderr, "NOTE:  Most system logs have moved to a new logging system.  See log(1) for more information.\n");
 }
 
 const char *
@@ -2752,6 +2756,8 @@ main(int argc, char *argv[])
 	cmax = 0;
 	notify_file = -1;
 	notify_token = -1;
+
+	fprintf(stderr, "NOTE:  Most system logs have moved to a new logging system.  See log(1) for more information.\n");
 
 	/* set starting point */
 	if (since_boot == 1)

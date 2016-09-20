@@ -49,13 +49,13 @@ public:
     void append(Blob*);
     void append(const String& text, const String& ending);
     void append(JSC::ArrayBuffer*);
-    void append(PassRefPtr<JSC::ArrayBufferView>);
+    void append(RefPtr<JSC::ArrayBufferView>&&);
 
     Vector<BlobPart> finalize();
 
 private:
     Vector<BlobPart> m_items;
-    Vector<char> m_appendableData;
+    Vector<uint8_t> m_appendableData;
 };
 
 } // namespace WebCore

@@ -64,18 +64,15 @@ static inline bool isValidCSSUnitTypeForDoubleConversion(CSSPrimitiveValue::Unit
 {
     switch (unitType) {
     case CSSPrimitiveValue::CSS_CALC:
-    case CSSPrimitiveValue::CSS_CALC_PERCENTAGE_WITH_NUMBER:
     case CSSPrimitiveValue::CSS_CALC_PERCENTAGE_WITH_LENGTH:
+    case CSSPrimitiveValue::CSS_CALC_PERCENTAGE_WITH_NUMBER:
+    case CSSPrimitiveValue::CSS_CHS:
     case CSSPrimitiveValue::CSS_CM:
     case CSSPrimitiveValue::CSS_DEG:
     case CSSPrimitiveValue::CSS_DIMENSION:
-#if ENABLE(CSS_IMAGE_RESOLUTION) || ENABLE(RESOLUTION_MEDIA_QUERY)
-    case CSSPrimitiveValue::CSS_DPPX:
-    case CSSPrimitiveValue::CSS_DPI:
-    case CSSPrimitiveValue::CSS_DPCM:
-#endif
     case CSSPrimitiveValue::CSS_EMS:
     case CSSPrimitiveValue::CSS_EXS:
+    case CSSPrimitiveValue::CSS_FR:
     case CSSPrimitiveValue::CSS_GRAD:
     case CSSPrimitiveValue::CSS_HZ:
     case CSSPrimitiveValue::CSS_IN:
@@ -83,59 +80,134 @@ static inline bool isValidCSSUnitTypeForDoubleConversion(CSSPrimitiveValue::Unit
     case CSSPrimitiveValue::CSS_MM:
     case CSSPrimitiveValue::CSS_MS:
     case CSSPrimitiveValue::CSS_NUMBER:
-    case CSSPrimitiveValue::CSS_PERCENTAGE:
     case CSSPrimitiveValue::CSS_PC:
+    case CSSPrimitiveValue::CSS_PERCENTAGE:
     case CSSPrimitiveValue::CSS_PT:
     case CSSPrimitiveValue::CSS_PX:
     case CSSPrimitiveValue::CSS_RAD:
     case CSSPrimitiveValue::CSS_REMS:
-    case CSSPrimitiveValue::CSS_CHS:
     case CSSPrimitiveValue::CSS_S:
     case CSSPrimitiveValue::CSS_TURN:
-    case CSSPrimitiveValue::CSS_VW:
     case CSSPrimitiveValue::CSS_VH:
-    case CSSPrimitiveValue::CSS_VMIN:
     case CSSPrimitiveValue::CSS_VMAX:
-    case CSSPrimitiveValue::CSS_FR:
+    case CSSPrimitiveValue::CSS_VMIN:
+    case CSSPrimitiveValue::CSS_VW:
         return true;
+    case CSSPrimitiveValue::CSS_DPCM:
+    case CSSPrimitiveValue::CSS_DPI:
+    case CSSPrimitiveValue::CSS_DPPX:
+#if ENABLE(CSS_IMAGE_RESOLUTION) || ENABLE(RESOLUTION_MEDIA_QUERY)
+        return true;
+#else
+        return false;
+#endif
     case CSSPrimitiveValue::CSS_ATTR:
     case CSSPrimitiveValue::CSS_COUNTER:
     case CSSPrimitiveValue::CSS_COUNTER_NAME:
-#if ENABLE(DASHBOARD_SUPPORT)
-    case CSSPrimitiveValue::CSS_DASHBOARD_REGION:
-#endif
-#if !ENABLE(CSS_IMAGE_RESOLUTION) && !ENABLE(RESOLUTION_MEDIA_QUERY)
-    case CSSPrimitiveValue::CSS_DPPX:
-    case CSSPrimitiveValue::CSS_DPI:
-    case CSSPrimitiveValue::CSS_DPCM:
-#endif
+    case CSSPrimitiveValue::CSS_FONT_FAMILY:
     case CSSPrimitiveValue::CSS_IDENT:
-    case CSSPrimitiveValue::CSS_PROPERTY_ID:
-    case CSSPrimitiveValue::CSS_VALUE_ID:
     case CSSPrimitiveValue::CSS_PAIR:
     case CSSPrimitiveValue::CSS_PARSER_HEXCOLOR:
     case CSSPrimitiveValue::CSS_PARSER_IDENTIFIER:
     case CSSPrimitiveValue::CSS_PARSER_INTEGER:
     case CSSPrimitiveValue::CSS_PARSER_OPERATOR:
     case CSSPrimitiveValue::CSS_PARSER_WHITESPACE:
-    case CSSPrimitiveValue::CSS_RECT:
+    case CSSPrimitiveValue::CSS_PROPERTY_ID:
     case CSSPrimitiveValue::CSS_QUAD:
-#if ENABLE(CSS_SCROLL_SNAP)
-    case CSSPrimitiveValue::CSS_LENGTH_REPEAT:
-#endif
+    case CSSPrimitiveValue::CSS_RECT:
     case CSSPrimitiveValue::CSS_RGBCOLOR:
     case CSSPrimitiveValue::CSS_SHAPE:
     case CSSPrimitiveValue::CSS_STRING:
-    case CSSPrimitiveValue::CSS_FONT_FAMILY:
     case CSSPrimitiveValue::CSS_UNICODE_RANGE:
     case CSSPrimitiveValue::CSS_UNKNOWN:
     case CSSPrimitiveValue::CSS_URI:
+    case CSSPrimitiveValue::CSS_VALUE_ID:
+#if ENABLE(CSS_SCROLL_SNAP)
+    case CSSPrimitiveValue::CSS_LENGTH_REPEAT:
+#endif
+#if ENABLE(DASHBOARD_SUPPORT)
+    case CSSPrimitiveValue::CSS_DASHBOARD_REGION:
+#endif
         return false;
     }
 
     ASSERT_NOT_REACHED();
     return false;
 }
+
+#if !ASSERT_DISABLED
+
+static inline bool isStringType(CSSPrimitiveValue::UnitTypes type)
+{
+    switch (type) {
+    case CSSPrimitiveValue::CSS_STRING:
+    case CSSPrimitiveValue::CSS_URI:
+    case CSSPrimitiveValue::CSS_ATTR:
+    case CSSPrimitiveValue::CSS_COUNTER_NAME:
+    case CSSPrimitiveValue::CSS_DIMENSION:
+    case CSSPrimitiveValue::CSS_PARSER_HEXCOLOR:
+    case CSSPrimitiveValue::CSS_PARSER_IDENTIFIER:
+    case CSSPrimitiveValue::CSS_PARSER_WHITESPACE:
+        return true;
+    case CSSPrimitiveValue::CSS_CALC:
+    case CSSPrimitiveValue::CSS_CALC_PERCENTAGE_WITH_LENGTH:
+    case CSSPrimitiveValue::CSS_CALC_PERCENTAGE_WITH_NUMBER:
+    case CSSPrimitiveValue::CSS_CHS:
+    case CSSPrimitiveValue::CSS_CM:
+    case CSSPrimitiveValue::CSS_COUNTER:
+    case CSSPrimitiveValue::CSS_DEG:
+    case CSSPrimitiveValue::CSS_DPCM:
+    case CSSPrimitiveValue::CSS_DPI:
+    case CSSPrimitiveValue::CSS_DPPX:
+    case CSSPrimitiveValue::CSS_EMS:
+    case CSSPrimitiveValue::CSS_EXS:
+    case CSSPrimitiveValue::CSS_FONT_FAMILY:
+    case CSSPrimitiveValue::CSS_FR:
+    case CSSPrimitiveValue::CSS_GRAD:
+    case CSSPrimitiveValue::CSS_HZ:
+    case CSSPrimitiveValue::CSS_IDENT:
+    case CSSPrimitiveValue::CSS_IN:
+    case CSSPrimitiveValue::CSS_KHZ:
+    case CSSPrimitiveValue::CSS_MM:
+    case CSSPrimitiveValue::CSS_MS:
+    case CSSPrimitiveValue::CSS_NUMBER:
+    case CSSPrimitiveValue::CSS_PAIR:
+    case CSSPrimitiveValue::CSS_PARSER_INTEGER:
+    case CSSPrimitiveValue::CSS_PARSER_OPERATOR:
+    case CSSPrimitiveValue::CSS_PC:
+    case CSSPrimitiveValue::CSS_PERCENTAGE:
+    case CSSPrimitiveValue::CSS_PROPERTY_ID:
+    case CSSPrimitiveValue::CSS_PT:
+    case CSSPrimitiveValue::CSS_PX:
+    case CSSPrimitiveValue::CSS_QUAD:
+    case CSSPrimitiveValue::CSS_RAD:
+    case CSSPrimitiveValue::CSS_RECT:
+    case CSSPrimitiveValue::CSS_REMS:
+    case CSSPrimitiveValue::CSS_RGBCOLOR:
+    case CSSPrimitiveValue::CSS_S:
+    case CSSPrimitiveValue::CSS_SHAPE:
+    case CSSPrimitiveValue::CSS_TURN:
+    case CSSPrimitiveValue::CSS_UNICODE_RANGE:
+    case CSSPrimitiveValue::CSS_UNKNOWN:
+    case CSSPrimitiveValue::CSS_VALUE_ID:
+    case CSSPrimitiveValue::CSS_VH:
+    case CSSPrimitiveValue::CSS_VMAX:
+    case CSSPrimitiveValue::CSS_VMIN:
+    case CSSPrimitiveValue::CSS_VW:
+#if ENABLE(DASHBOARD_SUPPORT)
+    case CSSPrimitiveValue::CSS_DASHBOARD_REGION:
+#endif
+#if ENABLE(CSS_SCROLL_SNAP)
+    case CSSPrimitiveValue::CSS_LENGTH_REPEAT:
+#endif
+        return false;
+    }
+
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
+#endif // !ASSERT_DISABLED
 
 CSSPrimitiveValue::UnitCategory CSSPrimitiveValue::unitCategory(CSSPrimitiveValue::UnitTypes type)
 {
@@ -267,11 +339,12 @@ CSSPrimitiveValue::CSSPrimitiveValue(double num, UnitTypes type)
     m_value.num = num;
 }
 
-CSSPrimitiveValue::CSSPrimitiveValue(const String& str, UnitTypes type)
+CSSPrimitiveValue::CSSPrimitiveValue(const String& string, UnitTypes type)
     : CSSValue(PrimitiveClass)
 {
+    ASSERT(isStringType(type));
     m_primitiveUnitType = type;
-    if ((m_value.string = str.impl()))
+    if ((m_value.string = string.impl()))
         m_value.string->ref();
 }
 
@@ -447,13 +520,17 @@ CSSPrimitiveValue::~CSSPrimitiveValue()
 
 void CSSPrimitiveValue::cleanup()
 {
-    switch (static_cast<UnitTypes>(m_primitiveUnitType)) {
+    auto type = static_cast<UnitTypes>(m_primitiveUnitType);
+    switch (type) {
     case CSS_STRING:
     case CSS_URI:
     case CSS_ATTR:
     case CSS_COUNTER_NAME:
+    case CSS_DIMENSION:
     case CSS_PARSER_HEXCOLOR:
+    case CSS_PARSER_IDENTIFIER:
     case CSS_PARSER_WHITESPACE:
+        ASSERT(isStringType(type));
         if (m_value.string)
             m_value.string->deref();
         break;
@@ -526,13 +603,12 @@ void CSSPrimitiveValue::cleanup()
     case CSS_FR:
     case CSS_IDENT:
     case CSS_RGBCOLOR:
-    case CSS_DIMENSION:
     case CSS_UNKNOWN:
     case CSS_UNICODE_RANGE:
     case CSS_PARSER_OPERATOR:
-    case CSS_PARSER_IDENTIFIER:
     case CSS_PROPERTY_ID:
     case CSS_VALUE_ID:
+        ASSERT(!isStringType(type));
         break;
     }
     m_primitiveUnitType = 0;
@@ -940,12 +1016,11 @@ LengthRepeat* CSSPrimitiveValue::getLengthRepeatValue(ExceptionCode& ec) const
 }
 #endif
 
-PassRefPtr<RGBColor> CSSPrimitiveValue::getRGBColorValue(ExceptionCode& ec) const
+RefPtr<RGBColor> CSSPrimitiveValue::getRGBColorValue(ExceptionCode& ec) const
 {
-    ec = 0;
     if (m_primitiveUnitType != CSS_RGBCOLOR) {
         ec = INVALID_ACCESS_ERR;
-        return 0;
+        return nullptr;
     }
 
     // FIMXE: This should not return a new object for each invocation.
@@ -969,14 +1044,14 @@ NEVER_INLINE Ref<StringImpl> CSSPrimitiveValue::formatNumberValue(const char* su
 
     unsigned bufferLength = decimal.bufferLengthForStringDecimal() + suffixLength;
     LChar* buffer;
-    Ref<StringImpl> string = StringImpl::createUninitialized(bufferLength, buffer);
+    auto string = StringImpl::createUninitialized(bufferLength, buffer);
 
     unsigned length = decimal.toStringDecimal(buffer, bufferLength);
 
     for (unsigned i = 0; i < suffixLength; ++i)
         buffer[length + i] = static_cast<LChar>(suffix[i]);
 
-    return WTF::move(string);
+    return string;
 }
 
 template <unsigned characterCount>
@@ -1100,33 +1175,7 @@ ALWAYS_INLINE String CSSPrimitiveValue::formatNumberForCustomCSSText() const
         RGBA32 rgbColor = m_value.rgbcolor;
         if (m_primitiveUnitType == CSS_PARSER_HEXCOLOR)
             Color::parseHexColor(m_value.string, rgbColor);
-        Color color(rgbColor);
-
-        Vector<LChar> result;
-        result.reserveInitialCapacity(32);
-        bool colorHasAlpha = color.hasAlpha();
-        if (colorHasAlpha)
-            result.append("rgba(", 5);
-        else
-            result.append("rgb(", 4);
-
-        appendNumber(result, static_cast<unsigned char>(color.red()));
-        result.append(", ", 2);
-
-        appendNumber(result, static_cast<unsigned char>(color.green()));
-        result.append(", ", 2);
-
-        appendNumber(result, static_cast<unsigned char>(color.blue()));
-        if (colorHasAlpha) {
-            result.append(", ", 2);
-
-            NumberToStringBuffer buffer;
-            const char* alphaString = numberToFixedPrecisionString(color.alpha() / 255.0f, 6, buffer, true);
-            result.append(alphaString, strlen(alphaString));
-        }
-
-        result.append(')');
-        return String::adopt(result);
+        return Color(rgbColor).cssText();
     }
     case CSS_PAIR:
         return getPairValue()->cssText();
@@ -1216,7 +1265,7 @@ void CSSPrimitiveValue::addSubresourceStyleURLs(ListHashSet<URL>& urls, const St
         addSubresourceURL(urls, styleSheet->completeURL(m_value.string));
 }
 
-PassRefPtr<CSSPrimitiveValue> CSSPrimitiveValue::cloneForCSSOM() const
+Ref<CSSPrimitiveValue> CSSPrimitiveValue::cloneForCSSOM() const
 {
     RefPtr<CSSPrimitiveValue> result;
 
@@ -1313,10 +1362,9 @@ PassRefPtr<CSSPrimitiveValue> CSSPrimitiveValue::cloneForCSSOM() const
         ASSERT_NOT_REACHED();
         break;
     }
-    if (result)
-        result->setCSSOMSafe();
 
-    return result;
+    result->setCSSOMSafe();
+    return result.releaseNonNull();
 }
 
 bool CSSPrimitiveValue::equals(const CSSPrimitiveValue& other) const
@@ -1355,13 +1403,13 @@ bool CSSPrimitiveValue::equals(const CSSPrimitiveValue& other) const
     case CSS_VW:
     case CSS_VH:
     case CSS_VMIN:
-    case CSS_DIMENSION:
     case CSS_FR:
         return m_value.num == other.m_value.num;
     case CSS_PROPERTY_ID:
         return propertyName(m_value.propertyID) == propertyName(other.m_value.propertyID);
     case CSS_VALUE_ID:
         return valueName(m_value.valueID) == valueName(other.m_value.valueID);
+    case CSS_DIMENSION:
     case CSS_STRING:
     case CSS_URI:
     case CSS_ATTR:
@@ -1440,7 +1488,6 @@ bool CSSPrimitiveValue::buildParserValue(CSSParserValue* result) const
     case CSS_VW:
     case CSS_VH:
     case CSS_VMIN:
-    case CSS_DIMENSION:
     case CSS_FR:
         result->fValue = m_value.num;
         result->unit = m_primitiveUnitType;
@@ -1454,6 +1501,7 @@ bool CSSPrimitiveValue::buildParserValue(CSSParserValue* result) const
         result->iValue = m_value.parserOperator;
         result->unit = CSSParserValue::Operator;
         break;
+    case CSS_DIMENSION:
     case CSS_STRING:
     case CSS_URI:
     case CSS_ATTR:

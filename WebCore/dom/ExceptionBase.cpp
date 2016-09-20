@@ -36,17 +36,26 @@ namespace WebCore {
 ExceptionBase::ExceptionBase(const ExceptionCodeDescription& description)
     : m_code(description.code)
     , m_name(description.name)
-    , m_description(description.description)
+    , m_message(description.description)
+    , m_typeName(description.typeName)
 {
-    if (description.name)
-        m_message = m_name + ": " + description.typeName + " Exception " + String::number(description.code);
-    else
-        m_message = makeString(description.typeName, " Exception ", String::number(description.code));
 }
 
 String ExceptionBase::toString() const
 {
-    return "Error: " + m_message;
+    if (!m_toString.isEmpty())
+        return m_toString;
+
+    String lastComponent;
+    if (!m_message.isEmpty())
+        lastComponent = makeString(": ", m_message);
+
+    if (m_name.isEmpty())
+        m_toString = makeString(m_typeName, " Exception", m_code ? makeString(" ", String::number(m_code)) : "", lastComponent);
+    else
+        m_toString = makeString(m_name, " (", m_typeName, " Exception", m_code ? makeString(" ", String::number(m_code)) : "", ")", lastComponent);
+
+    return m_toString;
 }
 
 } // namespace WebCore

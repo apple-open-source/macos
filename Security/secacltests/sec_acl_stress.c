@@ -173,7 +173,7 @@ static CFMutableDictionaryRef ItemCreate(int num) {
 static void tests(bool isPasscodeSet)
 {
     for (int num = 0 ; num < 8; ++num) {
-        __block CFTypeRef protection = NULL;
+        __block CFTypeRef protection = kSecAttrAccessibleWhenUnlocked;
         CFMutableDictionaryRef item = ItemCreate(num);
         ItemForEachPKAttr(item, ^(CFStringRef attr, enum ItemAttrType atype) {
             CFTypeRef value = NULL;
@@ -204,10 +204,10 @@ static void tests(bool isPasscodeSet)
                     CFStringRef accessabilites[] = {
                         kSecAttrAccessibleWhenUnlocked,
                         kSecAttrAccessibleAfterFirstUnlock,
-                        kSecAttrAccessibleAlways,
+                        kSecAttrAccessibleAlwaysPrivate,
                         kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
                         kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
-                        kSecAttrAccessibleAlwaysThisDeviceOnly,
+                        kSecAttrAccessibleAlwaysThisDeviceOnlyPrivate,
                     };
                     protection = accessabilites[num % array_size(accessabilites)];
                     break;
@@ -259,6 +259,7 @@ static void tests(bool isPasscodeSet)
         CFDictionarySetValue(item, kSecAttrSynchronizable, kCFBooleanFalse);
 
 #if TARGET_OS_IPHONE && !TARGET_IPHONE_SIMULATOR
+        assert(protection);
         SecAccessControlRef privateKeyUsageAclRef = SecAccessControlCreateWithFlags(kCFAllocatorDefault, protection, kSecAccessControlPrivateKeyUsage, NULL);
         ok(privateKeyUsageAclRef, "Create SecAccessControlRef for kSecAccessControlPrivateKeyUsage");
         CFDictionarySetValue(item, kSecAttrAccessControl, privateKeyUsageAclRef);

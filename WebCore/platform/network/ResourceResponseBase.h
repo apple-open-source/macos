@@ -24,35 +24,50 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef ResourceResponseBase_h
-#define ResourceResponseBase_h
+#pragma once
 
 #include "CacheValidation.h"
 #include "CertificateInfo.h"
 #include "HTTPHeaderMap.h"
+#include "ParsedContentRange.h"
 #include "ResourceLoadTiming.h"
 #include "URL.h"
-
-#if OS(SOLARIS)
-#include <sys/time.h> // For time_t structure.
-#endif
 
 namespace WebCore {
 
 class ResourceResponse;
-struct CrossThreadResourceResponseData;
 
 // Do not use this class directly, use the class ResponseResponse instead
 class ResourceResponseBase {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static std::unique_ptr<ResourceResponse> adopt(std::unique_ptr<CrossThreadResourceResponseData>);
+    enum class Type;
 
-    // Gets a copy of the data suitable for passing to another thread.
-    std::unique_ptr<CrossThreadResourceResponseData> copyData() const;
+    struct CrossThreadData {
+        CrossThreadData(const CrossThreadData&) = delete;
+        CrossThreadData& operator=(const CrossThreadData&) = delete;
+        CrossThreadData() = default;
+        CrossThreadData(CrossThreadData&&) = default;
+
+        URL url;
+        String mimeType;
+        long long expectedContentLength;
+        String textEncodingName;
+        int httpStatusCode;
+        String httpStatusText;
+        String httpVersion;
+        HTTPHeaderMap httpHeaderFields;
+        ResourceLoadTiming resourceLoadTiming;
+        Type type;
+        bool isRedirected;
+    };
+
+    CrossThreadData crossThreadData() const;
+    static ResourceResponse fromCrossThreadData(CrossThreadData&&);
 
     bool isNull() const { return m_isNull; }
     WEBCORE_EXPORT bool isHTTP() const;
+    bool isSuccessful() const;
 
     WEBCORE_EXPORT const URL& url() const;
     WEBCORE_EXPORT void setURL(const URL&);
@@ -68,7 +83,7 @@ public:
 
     WEBCORE_EXPORT int httpStatusCode() const;
     WEBCORE_EXPORT void setHTTPStatusCode(int);
-    
+
     WEBCORE_EXPORT const String& httpStatusText() const;
     WEBCORE_EXPORT void setHTTPStatusText(const String&);
 
@@ -83,6 +98,7 @@ public:
     WEBCORE_EXPORT void setHTTPHeaderField(const String& name, const String& value);
     void setHTTPHeaderField(HTTPHeaderName, const String& value);
 
+    void addHTTPHeaderField(HTTPHeaderName, const String& value);
     void addHTTPHeaderField(const String& name, const String& value);
 
     // Instead of passing a string literal to any of these functions, just use a HTTPHeaderName instead.
@@ -96,8 +112,7 @@ public:
     WEBCORE_EXPORT String suggestedFilename() const;
 
     WEBCORE_EXPORT void includeCertificateInfo() const;
-    bool containsCertificateInfo() const { return m_includesCertificateInfo; }
-    WEBCORE_EXPORT CertificateInfo certificateInfo() const;
+    WEBCORE_EXPORT const Optional<CertificateInfo>& certificateInfo() const { return m_certificateInfo; };
     
     // These functions return parsed values of the corresponding response headers.
     // NaN means that the header was not present or had invalid value.
@@ -110,8 +125,10 @@ public:
     WEBCORE_EXPORT Optional<std::chrono::microseconds> age() const;
     WEBCORE_EXPORT Optional<std::chrono::system_clock::time_point> expires() const;
     WEBCORE_EXPORT Optional<std::chrono::system_clock::time_point> lastModified() const;
+    ParsedContentRange& contentRange() const;
 
-    enum class Source { Unknown, Network, DiskCache, DiskCacheAfterValidation };
+    // This is primarily for testing support. It is not necessarily accurate in all scenarios.
+    enum class Source { Unknown, Network, DiskCache, DiskCacheAfterValidation, MemoryCache, MemoryCacheAfterValidation };
     WEBCORE_EXPORT Source source() const;
     WEBCORE_EXPORT void setSource(Source);
 
@@ -123,6 +140,12 @@ public:
         // average size, mostly due to URL and Header Map strings
         return 1280;
     }
+
+    enum class Type { Basic, Cors, Default, Error, Opaque, Opaqueredirect };
+    Type type() const { return m_type; }
+    void setType(Type type) { m_type = type; }
+    bool isRedirected() const { return m_isRedirected; }
+    void setRedirected(bool isRedirected) { m_isRedirected = isRedirected; }
 
     static bool compare(const ResourceResponse&, const ResourceResponse&);
 
@@ -149,7 +172,6 @@ protected:
     static bool platformCompare(const ResourceResponse&, const ResourceResponse&) { return true; }
 
 private:
-    const ResourceResponse& asResourceResponse() const;
     void parseCacheControlDirectives() const;
     void updateHeaderParsedState(HTTPHeaderName);
 
@@ -164,8 +186,7 @@ protected:
     HTTPHeaderMap m_httpHeaderFields;
     mutable ResourceLoadTiming m_resourceLoadTiming;
 
-    mutable bool m_includesCertificateInfo;
-    mutable CertificateInfo m_certificateInfo;
+    mutable Optional<CertificateInfo> m_certificateInfo;
 
     int m_httpStatusCode;
 
@@ -174,6 +195,7 @@ private:
     mutable Optional<std::chrono::system_clock::time_point> m_date;
     mutable Optional<std::chrono::system_clock::time_point> m_expires;
     mutable Optional<std::chrono::system_clock::time_point> m_lastModified;
+    mutable ParsedContentRange m_contentRange;
     mutable CacheControlDirectives m_cacheControlDirectives;
 
     mutable bool m_haveParsedCacheControlHeader { false };
@@ -181,8 +203,12 @@ private:
     mutable bool m_haveParsedDateHeader { false };
     mutable bool m_haveParsedExpiresHeader { false };
     mutable bool m_haveParsedLastModifiedHeader { false };
+    mutable bool m_haveParsedContentRangeHeader { false };
 
     Source m_source { Source::Unknown };
+
+    Type m_type { Type::Default };
+    bool m_isRedirected { false };
 };
 
 inline bool operator==(const ResourceResponse& a, const ResourceResponse& b) { return ResourceResponseBase::compare(a, b); }
@@ -196,7 +222,7 @@ void ResourceResponseBase::encode(Encoder& encoder) const
         return;
     lazyInit(AllFields);
 
-    encoder << m_url.string();
+    encoder << m_url;
     encoder << m_mimeType;
     encoder << static_cast<int64_t>(m_expectedContentLength);
     encoder << m_textEncodingName;
@@ -205,10 +231,10 @@ void ResourceResponseBase::encode(Encoder& encoder) const
     encoder << m_httpHeaderFields;
     encoder << m_resourceLoadTiming;
     encoder << m_httpStatusCode;
-    encoder << m_includesCertificateInfo;
-    if (m_includesCertificateInfo)
-        encoder << m_certificateInfo;
+    encoder << m_certificateInfo;
     encoder.encodeEnum(m_source);
+    encoder.encodeEnum(m_type);
+    encoder << m_isRedirected;
 }
 
 template<class Decoder>
@@ -221,10 +247,8 @@ bool ResourceResponseBase::decode(Decoder& decoder, ResourceResponseBase& respon
     if (responseIsNull)
         return true;
 
-    String url;
-    if (!decoder.decode(url))
+    if (!decoder.decode(response.m_url))
         return false;
-    response.m_url = URL(URL(), url);
     if (!decoder.decode(response.m_mimeType))
         return false;
     int64_t expectedContentLength;
@@ -243,34 +267,17 @@ bool ResourceResponseBase::decode(Decoder& decoder, ResourceResponseBase& respon
         return false;
     if (!decoder.decode(response.m_httpStatusCode))
         return false;
-    if (!decoder.decode(response.m_includesCertificateInfo))
+    if (!decoder.decode(response.m_certificateInfo))
         return false;
-    if (response.m_includesCertificateInfo) {
-        if (!decoder.decode(response.m_certificateInfo))
-            return false;
-    }
     if (!decoder.decodeEnum(response.m_source))
+        return false;
+    if (!decoder.decodeEnum(response.m_type))
+        return false;
+    if (!decoder.decode(response.m_isRedirected))
         return false;
     response.m_isNull = false;
 
     return true;
 }
 
-struct CrossThreadResourceResponseDataBase {
-    WTF_MAKE_NONCOPYABLE(CrossThreadResourceResponseDataBase); WTF_MAKE_FAST_ALLOCATED;
-public:
-    CrossThreadResourceResponseDataBase() { }
-    URL m_url;
-    String m_mimeType;
-    long long m_expectedContentLength;
-    String m_textEncodingName;
-    int m_httpStatusCode;
-    String m_httpStatusText;
-    String m_httpVersion;
-    std::unique_ptr<CrossThreadHTTPHeaderMapData> m_httpHeaders;
-    ResourceLoadTiming m_resourceLoadTiming;
-};
-
 } // namespace WebCore
-
-#endif // ResourceResponseBase_h

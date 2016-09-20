@@ -27,7 +27,7 @@
  */
 
 #include "LKDC-lookup-plugin.h"
-#include <asl.h>
+#include <os/log.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -67,7 +67,7 @@ debug_(const char *func, const char *fmt, ...)
 	va_end(ap);
 	if ((size_t)n >= endp-p)
 		snprintf(endp-sizeof(ellipsis), sizeof(ellipsis), ellipsis);
-	asl_log(NULL, NULL, ASL_LEVEL_DEBUG, "%s", buf);
+	os_log(OS_LOG_DEFAULT, "%s", buf);
 }
 #else
 #define debug(...)

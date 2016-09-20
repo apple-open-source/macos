@@ -62,10 +62,8 @@ void InPlaceAbstractState::beginBasicBlock(BasicBlock* basicBlock)
     m_variables = basicBlock->valuesAtHead;
     
     if (m_graph.m_form == SSA) {
-        HashMap<Node*, AbstractValue>::iterator iter = basicBlock->ssa->valuesAtHead.begin();
-        HashMap<Node*, AbstractValue>::iterator end = basicBlock->ssa->valuesAtHead.end();
-        for (; iter != end; ++iter)
-            forNode(iter->key) = iter->value;
+        for (auto& entry : basicBlock->ssa->valuesAtHead)
+            forNode(entry.node) = entry.value;
     }
     basicBlock->cfaShouldRevisit = false;
     basicBlock->cfaHasVisited = true;
@@ -84,6 +82,14 @@ static void setLiveValues(HashMap<Node*, AbstractValue>& values, HashSet<Node*>&
     HashSet<Node*>::iterator end = live.end();
     for (; iter != end; ++iter)
         values.add(*iter, AbstractValue());
+}
+
+static void setLiveValues(Vector<BasicBlock::SSAData::NodeAbstractValuePair>& values, HashSet<Node*>& live)
+{
+    values.resize(0);
+    values.reserveCapacity(live.size());
+    for (Node* node : live)
+        values.uncheckedAppend(BasicBlock::SSAData::NodeAbstractValuePair { node, AbstractValue() });
 }
 
 void InPlaceAbstractState::initialize()
@@ -112,7 +118,7 @@ void InPlaceAbstractState::initialize()
         
         switch (format) {
         case FlushedInt32:
-            root->valuesAtHead.argument(i).setType(SpecInt32);
+            root->valuesAtHead.argument(i).setType(SpecInt32Only);
             break;
         case FlushedBoolean:
             root->valuesAtHead.argument(i).setType(SpecBoolean);
@@ -121,7 +127,7 @@ void InPlaceAbstractState::initialize()
             root->valuesAtHead.argument(i).setType(m_graph, SpecCell);
             break;
         case FlushedJSValue:
-            root->valuesAtHead.argument(i).makeHeapTop();
+            root->valuesAtHead.argument(i).makeBytecodeTop();
             break;
         default:
             DFG_CRASH(m_graph, nullptr, "Bad flush format for argument");
@@ -162,7 +168,7 @@ void InPlaceAbstractState::initialize()
     }
 }
 
-bool InPlaceAbstractState::endBasicBlock(MergeMode mergeMode)
+bool InPlaceAbstractState::endBasicBlock()
 {
     ASSERT(m_block);
     
@@ -177,49 +183,40 @@ bool InPlaceAbstractState::endBasicBlock(MergeMode mergeMode)
         return false;
     }
     
-    bool changed = false;
+    bool changed = checkAndSet(block->cfaStructureClobberStateAtTail, m_structureClobberState);
     
-    if ((mergeMode != DontMerge) || !ASSERT_DISABLED) {
-        changed |= checkAndSet(block->cfaStructureClobberStateAtTail, m_structureClobberState);
-    
-        switch (m_graph.m_form) {
-        case ThreadedCPS: {
-            for (size_t argument = 0; argument < block->variablesAtTail.numberOfArguments(); ++argument) {
-                AbstractValue& destination = block->valuesAtTail.argument(argument);
-                changed |= mergeStateAtTail(destination, m_variables.argument(argument), block->variablesAtTail.argument(argument));
-            }
-            
-            for (size_t local = 0; local < block->variablesAtTail.numberOfLocals(); ++local) {
-                AbstractValue& destination = block->valuesAtTail.local(local);
-                changed |= mergeStateAtTail(destination, m_variables.local(local), block->variablesAtTail.local(local));
-            }
-            break;
+    switch (m_graph.m_form) {
+    case ThreadedCPS: {
+        for (size_t argument = 0; argument < block->variablesAtTail.numberOfArguments(); ++argument) {
+            AbstractValue& destination = block->valuesAtTail.argument(argument);
+            changed |= mergeStateAtTail(destination, m_variables.argument(argument), block->variablesAtTail.argument(argument));
         }
-            
-        case SSA: {
-            for (size_t i = 0; i < block->valuesAtTail.size(); ++i)
-                changed |= block->valuesAtTail[i].merge(m_variables[i]);
-            
-            HashSet<Node*>::iterator iter = block->ssa->liveAtTail.begin();
-            HashSet<Node*>::iterator end = block->ssa->liveAtTail.end();
-            for (; iter != end; ++iter) {
-                Node* node = *iter;
-                changed |= block->ssa->valuesAtTail.find(node)->value.merge(forNode(node));
-            }
-            break;
+
+        for (size_t local = 0; local < block->variablesAtTail.numberOfLocals(); ++local) {
+            AbstractValue& destination = block->valuesAtTail.local(local);
+            changed |= mergeStateAtTail(destination, m_variables.local(local), block->variablesAtTail.local(local));
         }
-            
-        default:
-            RELEASE_ASSERT_NOT_REACHED();
-        }
+        break;
     }
-    
-    ASSERT(mergeMode != DontMerge || !changed);
-    
+
+    case SSA: {
+        for (size_t i = 0; i < block->valuesAtTail.size(); ++i)
+            changed |= block->valuesAtTail[i].merge(m_variables[i]);
+
+        HashSet<Node*>::iterator iter = block->ssa->liveAtTail.begin();
+        HashSet<Node*>::iterator end = block->ssa->liveAtTail.end();
+        for (; iter != end; ++iter) {
+            Node* node = *iter;
+            changed |= block->ssa->valuesAtTail.find(node)->value.merge(forNode(node));
+        }
+        break;
+    }
+
+    default:
+        RELEASE_ASSERT_NOT_REACHED();
+    }
+
     reset();
-    
-    if (mergeMode != MergeToSuccessors)
-        return changed;
     
     return mergeToSuccessors(block);
 }
@@ -309,17 +306,16 @@ bool InPlaceAbstractState::merge(BasicBlock* from, BasicBlock* to)
     case SSA: {
         for (size_t i = from->valuesAtTail.size(); i--;)
             changed |= to->valuesAtHead[i].merge(from->valuesAtTail[i]);
-        
-        HashSet<Node*>::iterator iter = to->ssa->liveAtHead.begin();
-        HashSet<Node*>::iterator end = to->ssa->liveAtHead.end();
-        for (; iter != end; ++iter) {
-            Node* node = *iter;
+
+        for (auto& entry : to->ssa->valuesAtHead) {
+            Node* node = entry.node;
             if (verbose)
-                dataLog("      Merging for ", node, ": from ", from->ssa->valuesAtTail.find(node)->value, " to ", to->ssa->valuesAtHead.find(node)->value, "\n");
-            changed |= to->ssa->valuesAtHead.find(node)->value.merge(
+                dataLog("      Merging for ", node, ": from ", from->ssa->valuesAtTail.find(node)->value, " to ", entry.value, "\n");
+            changed |= entry.value.merge(
                 from->ssa->valuesAtTail.find(node)->value);
+
             if (verbose)
-                dataLog("         Result: ", to->ssa->valuesAtHead.find(node)->value, "\n");
+                dataLog("         Result: ", entry.value, "\n");
         }
         break;
     }
@@ -373,6 +369,9 @@ inline bool InPlaceAbstractState::mergeToSuccessors(BasicBlock* basicBlock)
     }
         
     case Return:
+    case TailCall:
+    case TailCallVarargs:
+    case TailCallForwardVarargs:
     case Unreachable:
         ASSERT(basicBlock->cfaBranchDirection == InvalidBranchDirection);
         return false;

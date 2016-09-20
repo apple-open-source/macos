@@ -33,16 +33,14 @@
 #include "MathMLNames.h"
 #include "RenderMathMLBlock.h"
 #include "RenderMathMLFenced.h"
-#include "RenderMathMLFraction.h"
 #include "RenderMathMLMenclose.h"
 #include "RenderMathMLRoot.h"
 #include "RenderMathMLRow.h"
 #include "RenderMathMLScripts.h"
-#include "RenderMathMLSquareRoot.h"
 #include "RenderMathMLUnderOver.h"
 
 namespace WebCore {
-    
+
 using namespace MathMLNames;
 
 MathMLInlineContainerElement::MathMLInlineContainerElement(const QualifiedName& tagName, Document& document)
@@ -57,50 +55,39 @@ Ref<MathMLInlineContainerElement> MathMLInlineContainerElement::create(const Qua
 
 void MathMLInlineContainerElement::childrenChanged(const ChildChange& change)
 {
-    if (renderer()) {
-        if (is<RenderMathMLRow>(*renderer()))
-            downcast<RenderMathMLRow>(*renderer()).updateOperatorProperties();
-        else if (hasTagName(mathTag) || hasTagName(msqrtTag)) {
-            auto* childRenderer = renderer()->firstChild();
-            if (is<RenderMathMLRow>(childRenderer))
-                downcast<RenderMathMLRow>(*childRenderer).updateOperatorProperties();
-        }
-    }
+    // FIXME: Parsing of operator properties should be done in the element classes rather than in the renderer classes.
+    // See https://webkit.org/b/156537
+    if (renderer() && is<RenderMathMLRow>(*renderer()))
+        downcast<RenderMathMLRow>(*renderer()).updateOperatorProperties();
     MathMLElement::childrenChanged(change);
 }
 
-RenderPtr<RenderElement> MathMLInlineContainerElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
+RenderPtr<RenderElement> MathMLInlineContainerElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
 {
-    if (hasTagName(annotation_xmlTag))
-        return createRenderer<RenderMathMLRow>(*this, WTF::move(style));
-    if (hasTagName(merrorTag) || hasTagName(mphantomTag) || hasTagName(mrowTag) || hasTagName(mstyleTag))
-        return createRenderer<RenderMathMLRow>(*this, WTF::move(style));
-    if (hasTagName(msubTag))
-        return createRenderer<RenderMathMLScripts>(*this, WTF::move(style));
-    if (hasTagName(msupTag))
-        return createRenderer<RenderMathMLScripts>(*this, WTF::move(style));
-    if (hasTagName(msubsupTag))
-        return createRenderer<RenderMathMLScripts>(*this, WTF::move(style));
-    if (hasTagName(mmultiscriptsTag))
-        return createRenderer<RenderMathMLScripts>(*this, WTF::move(style));
-    if (hasTagName(moverTag))
-        return createRenderer<RenderMathMLUnderOver>(*this, WTF::move(style));
-    if (hasTagName(munderTag))
-        return createRenderer<RenderMathMLUnderOver>(*this, WTF::move(style));
-    if (hasTagName(munderoverTag))
-        return createRenderer<RenderMathMLUnderOver>(*this, WTF::move(style));
-    if (hasTagName(mfracTag))
-        return createRenderer<RenderMathMLFraction>(*this, WTF::move(style));
-    if (hasTagName(msqrtTag))
-        return createRenderer<RenderMathMLSquareRoot>(*this, WTF::move(style));
-    if (hasTagName(mrootTag))
-        return createRenderer<RenderMathMLRoot>(*this, WTF::move(style));
+    if (hasTagName(annotation_xmlTag) || hasTagName(merrorTag) || hasTagName(mphantomTag) || hasTagName(mrowTag) || hasTagName(mstyleTag))
+        return createRenderer<RenderMathMLRow>(*this, WTFMove(style));
+    if (hasTagName(msubTag) || hasTagName(msupTag) || hasTagName(msubsupTag) || hasTagName(mmultiscriptsTag))
+        return createRenderer<RenderMathMLScripts>(*this, WTFMove(style));
+    if (hasTagName(moverTag) || hasTagName(munderTag) || hasTagName(munderoverTag))
+        return createRenderer<RenderMathMLUnderOver>(*this, WTFMove(style));
+    if (hasTagName(msqrtTag) || hasTagName(mrootTag))
+        return createRenderer<RenderMathMLRoot>(*this, WTFMove(style));
     if (hasTagName(mfencedTag))
-        return createRenderer<RenderMathMLFenced>(*this, WTF::move(style));
+        return createRenderer<RenderMathMLFenced>(*this, WTFMove(style));
     if (hasTagName(mtableTag))
-        return createRenderer<RenderMathMLTable>(*this, WTF::move(style));
+        return createRenderer<RenderMathMLTable>(*this, WTFMove(style));
 
-    return createRenderer<RenderMathMLBlock>(*this, WTF::move(style));
+    return createRenderer<RenderMathMLBlock>(*this, WTFMove(style));
+}
+
+void MathMLInlineContainerElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
+{
+    bool displayStyleAttribute = (name == displaystyleAttr && (hasTagName(mstyleTag) || hasTagName(mtableTag)));
+    bool mathVariantAttribute = (name == mathvariantAttr && (hasTagName(mathTag) || hasTagName(mstyleTag)));
+    if ((displayStyleAttribute || mathVariantAttribute) && renderer())
+        MathMLStyle::resolveMathMLStyleTree(renderer());
+
+    MathMLElement::parseAttribute(name, value);
 }
 
 }

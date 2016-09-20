@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,6 +30,9 @@ typedef struct EAPOLClient_s EAPOLClient, * EAPOLClientRef;
 typedef void (EAPOLClientCallBack) (EAPOLClientRef client, Boolean server_died,
 				    void * context);
 typedef EAPOLClientCallBack * EAPOLClientCallBackRef;
+
+Boolean
+EAPOLClientEstablishSession(const char * interface_name);
 
 EAPOLClientRef
 EAPOLClientAttach(const char * interface_name, EAPOLClientCallBack callback,

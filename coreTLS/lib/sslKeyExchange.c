@@ -32,6 +32,7 @@
 #include "sslUtils.h"
 #include "sslDigests.h"
 #include "sslCrypto.h"
+#include "sslCipherSpecs.h"
 
 #include <assert.h>
 #include <string.h>
@@ -51,10 +52,11 @@
 
 static int SSLGenServerDHParamsAndKey(tls_handshake_t ctx);
 static size_t SSLEncodedDHKeyParamsLen(tls_handshake_t ctx);
-static int SSLEncodeDHKeyParams(tls_handshake_t ctx, uint8_t *charPtr);
+static int SSLEncodeDHKeyParams(tls_handshake_t ctx, uint8_t *p);
 
 static int SSLGenServerECDHParamsAndKey(tls_handshake_t ctx);
-static int SSLEncodeECDHKeyParams(tls_handshake_t ctx, tls_buffer *params);
+static size_t SSLEncodedECDHKeyParamsLen(tls_handshake_t ctx);
+static int SSLEncodeECDHKeyParams(tls_handshake_t ctx, uint8_t *p);
 
 
 // MARK: -
@@ -235,6 +237,9 @@ SSLSignServerKeyExchangeTls12(tls_handshake_t ctx, tls_signature_and_hash_algori
         case tls_hash_algorithm_SHA384:
             hashRef = &SSLHashSHA384;
             break;
+        case tls_hash_algorithm_SHA512:
+            hashRef = &SSLHashSHA512;
+            break;
         default:
             sslErrorLog("SSLVerifySignedServerKeyExchangeTls12: unsupported hash %d\n", sigAlg.hash);
             return errSSLProtocol;
@@ -365,33 +370,43 @@ static
 int FindSigAlg(tls_handshake_t ctx,
                     tls_signature_and_hash_algorithm *alg)
 {
-    unsigned i;
-
     assert(ctx->isServer);
     assert(ctx->negProtocolVersion >= tls_protocol_version_TLS_1_2);
     assert(!ctx->isDTLS);
 
-    if((ctx->numClientSigAlgs==0) ||(ctx->clientSigAlgs==NULL))
+    if((ctx->numPeerSigAlgs==0) ||(ctx->peerSigAlgs==NULL))
         return errSSLInternal;
 
-    switch (ctx->selectedCipherSpecParams.keyExchangeMethod) {
-        case SSL_ECDHE_ECDSA:
-            alg->signature = tls_signature_algorithm_ECDSA;
-            break;
-        case SSL_ECDHE_RSA:
-        case SSL_RSA:
-        case SSL_DHE_RSA:
+    if(ctx->signingPrivKeyRef==NULL) {
+        assert(0);
+        return errSSLInternal; /* A key was not setup, can't proceed */
+    }
+
+    switch(ctx->signingPrivKeyRef->desc.type) {
+        case tls_private_key_type_rsa:
             alg->signature = tls_signature_algorithm_RSA;
             break;
+        case tls_private_key_type_ecdsa:
+            alg->signature = tls_signature_algorithm_ECDSA;
+            if (ctx->negProtocolVersion <= tls_protocol_version_SSL_3) {
+                return errSSLInternal;
+            }
+            break;
         default:
-            return errSSLProtocol;
+            /* shouldn't be here */
+            assert(0);
+            return errSSLInternal;
     }
+
     //Check for matching client signature algorithm and corresponding hash algorithm
-    for(i=0; i<ctx->numClientSigAlgs; i++) {
-        if (alg->signature == ctx->clientSigAlgs[i].signature) {
-            alg->hash = ctx->clientSigAlgs[i].hash;
-            //Let's only support SHA1 and SHA256. SHA384 does not work with 512 bits keys.
-            if((alg->hash==tls_hash_algorithm_SHA1) || (alg->hash==tls_hash_algorithm_SHA256)) {
+    for(int i=0; i<ctx->numLocalSigAlgs; i++) {
+        if (alg->signature != ctx->localSigAlgs[i].signature)
+            continue;
+        alg->hash = ctx->localSigAlgs[i].hash;
+        for(int j=0; j<ctx->numPeerSigAlgs; j++) {
+            if (alg->signature != ctx->peerSigAlgs[j].signature)
+                continue;
+            if(alg->hash == ctx->peerSigAlgs[j].hash) {
                 return errSSLSuccess;
             }
         }
@@ -405,11 +420,11 @@ SSLEncodeSignedServerKeyExchange(tls_buffer *keyExch, tls_handshake_t ctx)
 {   int        err;
     uint8_t         *charPtr;
     size_t          outputLen;
-	bool			isRsa = true;
+    bool			isRsa = true;
     size_t 			maxSigLen;
     size_t	    	actSigLen;
 	tls_buffer		signature;
-    int             head = 4;
+    int             head;
     tls_buffer       exchangeParams;
 
     assert(ctx->isServer);
@@ -417,63 +432,34 @@ SSLEncodeSignedServerKeyExchange(tls_buffer *keyExch, tls_handshake_t ctx)
     exchangeParams.data = 0;
 	signature.data = 0;
 
-
-#if ENABLE_DTLS
-    if(ctx->negProtocolVersion == tls_protocol_version_DTLS_1_0) {
-        head+=8;
-    }
-#endif
-
+    head = SSLHandshakeHeaderSize(ctx);
 
 	/* Set up parameter block to hash ==> exchangeParams */
 	switch(ctx->selectedCipherSpecParams.keyExchangeMethod) {
 #if APPLE_DH
 		case SSL_DHE_RSA:
-		{
-            isRsa = true;
 			/*
 			 * Parameter block = {prime, generator, public key}
 			 * Obtain D-H parameters (if we don't have them) and a key pair.
 			 */
-			err = SSLGenServerDHParamsAndKey(ctx);
-			if(err) {
-				return err;
-			}
-            size_t len = SSLEncodedDHKeyParamsLen(ctx);
-			err = SSLAllocBuffer(&exchangeParams, len);
-			if(err) {
-				goto fail;
-			}
-			err = SSLEncodeDHKeyParams(ctx, exchangeParams.data);
+            require_noerr(err = SSLGenServerDHParamsAndKey(ctx), fail);
+            require_noerr(err = SSLAllocBuffer(&exchangeParams, SSLEncodedDHKeyParamsLen(ctx)), fail);
+            require_noerr(err = SSLEncodeDHKeyParams(ctx, exchangeParams.data), fail);
 			break;
-		}
-
 #endif	/* APPLE_DH */
 #if ALLOW_RSA_SERVER_KEY_EXCHANGE
         case SSL_RSA:
-        {
-            isRsa = true;
-            size_t len = SSLEncodedEphemeralRsaKeyLen(ctx);
-            err = SSLAllocBuffer(&exchangeParams, len);
-            if(err) {
-                goto fail;
-            }
-            err = SSLEncodeEphemeralRsaKey(ctx, exchangeParams.data);
+            require_noerr(err = SSLAllocBuffer(&exchangeParams, SSLEncodedEphemeralRsaKeyLen(ctx)), fail);
+            require_noerr(err = SSLEncodeEphemeralRsaKey(ctx, exchangeParams.data), fail);
             break;
-
-        }
 #endif
-        case SSL_ECDHE_RSA:
-            isRsa = true;
-            require_noerr(err = SSLGenServerECDHParamsAndKey(ctx), fail);
-            require_noerr(err = SSLEncodeECDHKeyParams(ctx, &exchangeParams), fail);
-            break;
         case SSL_ECDHE_ECDSA:
-            isRsa = false;
+            isRsa = false;  // fall through.
+        case SSL_ECDHE_RSA:
             require_noerr(err = SSLGenServerECDHParamsAndKey(ctx), fail);
-            require_noerr(err = SSLEncodeECDHKeyParams(ctx, &exchangeParams), fail);
+            require_noerr(err = SSLAllocBuffer(&exchangeParams, SSLEncodedECDHKeyParamsLen(ctx)), fail);
+            require_noerr(err = SSLEncodeECDHKeyParams(ctx, exchangeParams.data), fail);
             break;
-
 		default:
 			/* shouldn't be here */
 			assert(0);
@@ -657,6 +643,9 @@ SSLVerifySignedServerKeyExchangeTls12(tls_handshake_t ctx, tls_signature_and_has
             break;
         case tls_hash_algorithm_SHA384:
             hashRef = &SSLHashSHA384;
+            break;
+        case tls_hash_algorithm_SHA512:
+            hashRef = &SSLHashSHA512;
             break;
         default:
             sslErrorLog("SSLVerifySignedServerKeyExchangeTls12: unsupported hash %d\n", sigAlg.hash);
@@ -1020,64 +1009,45 @@ SSLEncodedDHKeyParamsLen(tls_handshake_t ctx)
     assert(ctx->isServer);
     assert(ctx->dhContext._full != NULL);
 
-    tls_buffer prime;
-    tls_buffer generator;
-    tls_buffer pubKey;
+    ccdh_const_gp_t gp = ccdh_ctx_gp(ctx->dhContext);
+    cc_size n = ccdh_gp_n(gp);
+    size_t prime_len = ccn_write_uint_size(n, ccdh_gp_prime(gp));
+    size_t generator_len = ccn_write_uint_size(n, ccdh_gp_g(gp));
+    size_t pub_len = ccdh_export_pub_size(ctx->dhContext);
 
-    sslDecodeDhParams(ccdh_ctx_gp(ctx->dhContext._fullt), &prime, &generator);
-    sslDhExportPub(ctx->dhContext, &pubKey);
-
-    size_t len = (2+prime.length+2+generator.length+2+pubKey.length);
-
-    SSLFreeBuffer(&prime);
-    SSLFreeBuffer(&generator);
-    SSLFreeBuffer(&pubKey);
+    size_t len = 2 + prime_len + 2 + generator_len + 2 + pub_len;
 
     return len;
 }
 
 /*
  * Encode DH params and public key, in wire format, in caller-supplied buffer.
+ * Caller supplied buffer size must be the size returned by SSLEncodedDHKeyParamsLen
  */
 static int
-SSLEncodeDHKeyParams(
-	tls_handshake_t ctx,
-	uint8_t *charPtr)
+SSLEncodeDHKeyParams(tls_handshake_t ctx, uint8_t *p)
 {
     assert(ctx->isServer);
-	assert(ctx->dhContext._full != NULL);
+    assert(ctx->dhContext._full != NULL);
 
-    //TODO: These allocations should be optimized out.
-    tls_buffer prime;
-    tls_buffer generator;
-    tls_buffer pubKey;
+    ccdh_const_gp_t gp = ccdh_ctx_gp(ctx->dhContext);
+    cc_size n = ccdh_gp_n(gp);
+    size_t prime_len = ccn_write_uint_size(n, ccdh_gp_prime(gp));
+    size_t generator_len = ccn_write_uint_size(n, ccdh_gp_g(gp));
+    size_t pub_len = ccdh_export_pub_size(ctx->dhContext);
 
-    sslDecodeDhParams(ccdh_ctx_gp(ctx->dhContext._fullt), &prime, &generator);
-    sslDhExportPub(ctx->dhContext, &pubKey);
+    p = SSLEncodeInt(p, prime_len, 2);
+    ccn_write_uint(n, ccdh_gp_prime(gp), prime_len, p);
+    p += prime_len;
 
-	charPtr = SSLEncodeInt(charPtr, prime.length, 2);
-	memcpy(charPtr, prime.data, prime.length);
-	charPtr += prime.length;
+    p = SSLEncodeInt(p, generator_len, 2);
+    ccn_write_uint(n, ccdh_gp_g(gp), generator_len, p);
+    p += generator_len;
 
-	charPtr = SSLEncodeInt(charPtr, generator.length, 2);
-	memcpy(charPtr, generator.data,
-		generator.length);
-	charPtr += generator.length;
+    p = SSLEncodeInt(p, pub_len, 2);
+    ccdh_export_pub(ctx->dhContext, p);
 
-    /* TODO: hum.... sounds like this one should be in the SecDHContext */
-	charPtr = SSLEncodeInt(charPtr, pubKey.length, 2);
-	memcpy(charPtr, pubKey.data, pubKey.length);
-
-	dumpBuf("server prime", &prime);
-	dumpBuf("server generator", &generator);
-	dumpBuf("server pub key", &pubKey);
-
-    //TODO: Those SSL buffers should be optimized out.
-    SSLFreeBuffer(&prime);
-    SSLFreeBuffer(&generator);
-    SSLFreeBuffer(&pubKey);
-
-	return errSSLSuccess;
+    return errSSLSuccess;
 }
 
 /*
@@ -1098,8 +1068,11 @@ SSLDecodeDHKeyParams(
 
 	/* Allow reuse via renegotiation */
 	SSLFreeBuffer(&ctx->dhPeerPublic);
-	
+
 	/* Prime, with a two-byte length */
+    if((*charPtr + 2) > endCp) {
+        return errSSLProtocol;
+    }
 	UInt32 len = SSLDecodeInt(*charPtr, 2);
 	(*charPtr) += 2;
 	if((*charPtr + len) > endCp) {
@@ -1112,6 +1085,9 @@ SSLDecodeDHKeyParams(
 	(*charPtr) += len;
 
 	/* Generator, with a two-byte length */
+    if((*charPtr + 2) > endCp) {
+        return errSSLProtocol;
+    }
 	len = SSLDecodeInt(*charPtr, 2);
 	(*charPtr) += 2;
 	if((*charPtr + len) > endCp) {
@@ -1130,6 +1106,9 @@ SSLDecodeDHKeyParams(
     }
 
 	/* peer public key, with a two-byte length */
+    if((*charPtr + 2) > endCp) {
+        return errSSLProtocol;
+    }
 	len = SSLDecodeInt(*charPtr, 2);
 	(*charPtr) += 2;
 	err = SSLAllocBuffer(&ctx->dhPeerPublic, len);
@@ -1171,9 +1150,7 @@ SSLGenClientDHKeyAndExchange(tls_handshake_t ctx)
     SSLFreeBuffer(&ctx->preMasterSecret);
     require(ctx->dhParams.gp, out);
 
-    /* Note: ccdh_gp_prime_bitlen() does not return actual prime length */
-    /* See: <rdar://problem/21033701> ccdh_gp_prime_bitlen does not return actual bitlen */
-    if(ccn_bitlen(ccdh_gp_n(ctx->dhParams), ccdh_gp_prime(ctx->dhParams))<ctx->dhMinGroupSize) {
+    if(ccdh_gp_prime_bitlen(ctx->dhParams)<ctx->dhMinGroupSize) {
         return errSSLWeakPeerEphemeralDHKey;
     }
 
@@ -1183,34 +1160,51 @@ out:
 	return ortn;
 }
 
-
 static int
 SSLEncodeDHanonServerKeyExchange(tls_buffer *keyExch, tls_handshake_t ctx)
 {
-	int            ortn = errSSLSuccess;
-    int                 head;
+    int head;
+    size_t length;
+    uint8_t *charPtr;
+    int err;
 
 	assert(ctx->negProtocolVersion >= tls_protocol_version_SSL_3);
 	assert(ctx->isServer);
 
-	/*
-	 * Obtain D-H parameters (if we don't have them) and a key pair.
-	 */
-	ortn = SSLGenServerDHParamsAndKey(ctx);
-	if(ortn) {
-		return ortn;
-	}
-
-	size_t length = SSLEncodedDHKeyParamsLen(ctx);
-
     head = SSLHandshakeHeaderSize(ctx);
-	if ((ortn = SSLAllocBuffer(keyExch, length+head)))
-		return ortn;
 
-    uint8_t *charPtr = SSLEncodeHandshakeHeader(ctx, keyExch, SSL_HdskServerKeyExchange, length);
+    switch(ctx->selectedCipherSpecParams.keyExchangeMethod) {
+        case SSL_DH_anon:
+            /*
+             * Parameter block = {prime, generator, public key}
+             * Obtain D-H parameters (if we don't have them) and a key pair.
+             */
+            require_noerr(err = SSLGenServerDHParamsAndKey(ctx), errOut);
+            length = SSLEncodedDHKeyParamsLen(ctx);
+            require_noerr(err = SSLAllocBuffer(keyExch, length+head), errOut);
+            charPtr = SSLEncodeHandshakeHeader(ctx, keyExch, SSL_HdskServerKeyExchange, length);
+            err = SSLEncodeDHKeyParams(ctx, charPtr);
+            break;
+        case SSL_ECDH_anon:
+            require_noerr(err = SSLGenServerECDHParamsAndKey(ctx), errOut);
+            length = SSLEncodedECDHKeyParamsLen(ctx);
+            require_noerr(err = SSLAllocBuffer(keyExch, length+head), errOut);
+            charPtr = SSLEncodeHandshakeHeader(ctx, keyExch, SSL_HdskServerKeyExchange, length);
+            err = SSLEncodeECDHKeyParams(ctx, charPtr);
+            break;
 
-	/* encode prime, generator, our public key */
-	return SSLEncodeDHKeyParams(ctx, charPtr);
+        default:
+            /* shouldn't be here */
+            assert(0);
+            err = errSSLInternal;
+    }
+
+    if(err) {
+        SSLFreeBuffer(keyExch);
+    }
+
+errOut:
+    return err;
 }
 
 static int
@@ -1219,18 +1213,26 @@ SSLDecodeDHanonServerKeyExchange(tls_buffer message, tls_handshake_t ctx)
 	int        err = errSSLSuccess;
 
 	assert(!ctx->isServer);
-    if (message.length < 6) {
-    	sslErrorLog("SSLDecodeDHanonServerKeyExchange error: msg len %u\n",
-    		(unsigned)message.length);
-        return errSSLProtocol;
-    }
     uint8_t *charPtr = message.data;
-	err = SSLDecodeDHKeyParams(ctx, &charPtr, message.length);
+
+    switch(ctx->selectedCipherSpecParams.keyExchangeMethod) {
+        case SSL_DH_anon:
+            err = SSLDecodeDHKeyParams(ctx, &charPtr, message.length);
+            break;
+        case SSL_ECDH_anon:
+            err = SSLDecodeECDHKeyParams(ctx, &charPtr, message.length);
+            break;
+        default:
+            assert(0);
+            err = errSSLInternal;
+    }
+
 	if(err == errSSLSuccess) {
 		if((message.data + message.length) != charPtr) {
 			err = errSSLProtocol;
 		}
 	}
+
 	return err;
 }
 
@@ -1329,8 +1331,6 @@ SSLEncodeDHClientKeyExchange(tls_buffer *keyExchange, tls_handshake_t ctx)
  *      if keyExchangeMethod == SSL_ECDHE_ECDSA or SSL_ECDHE_RSA:
  *			ecdhPeerPublic
  *			ecdhPeerCurve
- *		if keyExchangeMethod == SSL_ECDH_ECDSA or SSL_ECDH_RSA:
- *			peerPubKey, from which we infer ecdhPeerCurve
  *
  * SSLContext members valid on successful return:
  *		ecdhPrivate
@@ -1341,12 +1341,12 @@ static int
 SSLGenClientECDHKeyAndExchange(tls_handshake_t ctx)
 {
 	int             ortn;
-    SSLPubKey       *pubKey = NULL;
     SSLPubKey       ecdhePeerPubKey;
 
     assert(!ctx->isServer);
 
 	switch(ctx->selectedCipherSpecParams.keyExchangeMethod) {
+        case SSL_ECDH_anon:
 		case SSL_ECDHE_ECDSA:
 		case SSL_ECDHE_RSA:
 			/* Server sent us an ephemeral key with peer curve specified */
@@ -1355,60 +1355,26 @@ SSLGenClientECDHKeyAndExchange(tls_handshake_t ctx)
 			   return errSSLProtocol;
 			}
             require_noerr((ortn=sslGetEcPubKeyFromBits(ctx->ecdhPeerCurve, &ctx->ecdhPeerPublic, &ecdhePeerPubKey)), errOut);
-            pubKey = &ecdhePeerPubKey;
             break;
-		case SSL_ECDH_ECDSA:
-		case SSL_ECDH_RSA:
-		{
-			/* No server key exchange; we have to get the curve from the key */
-			if(ctx->peerPubKey.ecc.pub == NULL) {
-			   sslErrorLog("SSLGenClientECDHKeyAndExchange: no peer key\n");
-			   return errSSLInternal;
-			}
-
-            if(ctx->peerPubKey.isRSA) {
-                sslErrorLog("SSLGenClientECDHKeyAndExchange: peer key is RSA?\n");
-                return errSSLProtocol;
-			}
-            pubKey = &ctx->peerPubKey;
-            break;
-		}
 		default:
 			/* shouldn't be here */
 			assert(0);
 			return errSSLInternal;
 	}
 
-    /* Generate our (ephemeral) pair, or extract it from our signing identity */
-	if((ctx->negAuthType == tls_client_auth_type_RSAFixedECDH) ||
-	   (ctx->negAuthType == tls_client_auth_type_ECDSAFixedECDH)) {
-		/*
-		 * Client auth with a fixed ECDH key in the cert. Would need to convert private key
-		 * from SSLPrivKey to ccec_full_ctx. This is not supported and would need support for
-         * ECDH with reference keys.
-		 */
-		assert(ctx->signingPrivKeyRef != NULL);
-#warning TODO: This is Unsupported.
-		sslEcdsaDebug("+++ Extracted ECDH private key");
-        ortn = errSSLUnimplemented;
-        goto errOut;
-        /* TODO */
-	} else {
-		/* generate a new pair, using the curve from the pubkey */
-        sslFree(ctx->ecdhContext._full);
-        require_noerr((ortn = sslEcdhCreateKey(ccec_ctx_cp(pubKey->ecc), &ctx->ecdhContext)), errOut);
-	}
+    /* generate a new pair, using the curve from the pubkey */
+    sslFree(ctx->ecdhContext._full);
+    require_noerr((ortn = sslEcdhCreateKey(ccec_ctx_cp(ecdhePeerPubKey.ecc), &ctx->ecdhContext)), errOut);
 
 	/* do the exchange --> premaster secret */
     SSLFreeBuffer(&ctx->preMasterSecret);
-	require_noerr((ortn = sslEcdhKeyExchange(ctx->ecdhContext, pubKey->ecc._pub, &ctx->preMasterSecret)), errOut);
+	require_noerr((ortn = sslEcdhKeyExchange(ctx->ecdhContext, ecdhePeerPubKey.ecc, &ctx->preMasterSecret)), errOut);
 
     ortn = errSSLSuccess;
 errOut:
-    if(pubKey == &ecdhePeerPubKey) {
-        sslFreePubKey(&ecdhePeerPubKey);
-    }
-	return ortn;
+    sslFreePubKey(&ecdhePeerPubKey);
+
+    return ortn;
 }
 
 static int
@@ -1416,46 +1382,67 @@ SSLGenServerECDHParamsAndKey(tls_handshake_t ctx)
 {
     /*
      * Pick curve from what the cipher suite we are going to pick and what
-     * the client supports via extension, just do P256 for now.
+     * the client supports via extension
      */
     assert(ctx->isServer);
-    ctx->ecdhPeerCurve = tls_curve_secp256r1;
-    ccec_const_cp_t cp = ccec_cp_256();
+    ccec_const_cp_t cp;
+    for(int i = 0; i<ctx->num_ec_curves; i++) {
+        if (tls_handshake_curve_is_supported(ctx->requested_ecdh_curves[i])) {
+            ctx->ecdhPeerCurve = ctx->requested_ecdh_curves[i];
+            break;
+        }
+    }
+    switch(ctx->ecdhPeerCurve) {
+        case tls_curve_secp256r1:
+            cp = ccec_cp_256();
+            break;
+        case tls_curve_secp384r1:
+            cp = ccec_cp_384();
+            break;
+        case tls_curve_secp521r1:
+            cp = ccec_cp_521();
+            break;
+        default:
+            sslEcdsaDebug("+++ SSLGenServerECDHParamsAndKey: Bad curve (%u)\n",
+                          (unsigned)ctx->ecdhPeerCurve);
+            return errSSLProtocol;
+    }
 
     return sslEcdhCreateKey(cp, &ctx->ecdhContext);
 }
 
+/*
+ * size of ECDH param and public key, in wire format
+ */
+static size_t
+SSLEncodedECDHKeyParamsLen(tls_handshake_t ctx)
+{
+    assert(ctx->isServer);
+    assert(ctx->ecdhContext._full != NULL);
+
+    size_t pub_len = ccec_export_pub_size(ctx->ecdhContext);
+    size_t len = 1 + 2 + 1 + pub_len;
+
+    return len;
+}
 
 /*
- * Decode ECDH params and server public key.
+ * Encode ECDH params and public key, in wire format, in caller-supplied buffer.
+ * Caller supplied buffer size must be the size returned by SSLEncodedECDHKeyParamsLen
  */
 static int
-SSLEncodeECDHKeyParams(tls_handshake_t ctx, tls_buffer *keyExchange)
+SSLEncodeECDHKeyParams(tls_handshake_t ctx, uint8_t *p)
 {
-    tls_buffer pubKey = { .length = 0, .data = NULL };
-    int err;
-    /* curve type, curve name, curveSize, curve */
-
     assert(ctx->isServer);
 
-    require_noerr(err = sslEcdhExportPub(ctx->ecdhContext, &pubKey), fail);
-
-    size_t len = 1 + 2 + 1 + pubKey.length;
-
-    require_noerr(err = SSLAllocBuffer(keyExchange, len), fail);
-
-    uint8_t *p = keyExchange->data;
+    size_t pub_len = ccec_export_pub_size(ctx->ecdhContext);
 
     p = SSLEncodeInt(p, SSL_CurveTypeNamed, 1);
     p = SSLEncodeInt(p, ctx->ecdhPeerCurve, 2);
-    p = SSLEncodeInt(p, pubKey.length, 1);
-    memcpy(p, pubKey.data, pubKey.length);
+    p = SSLEncodeInt(p, pub_len, 1);
+    ccec_export_pub(ctx->ecdhContext, p);
 
-
-    err = errSSLSuccess;
-fail:
-    SSLFreeBuffer(&pubKey);
-    return err;
+    return errSSLSuccess;
 }
 
 
@@ -1481,22 +1468,22 @@ SSLDecodeECDHKeyParams(
 	/*** ECParameters - just a curveType and a named curve ***/
 
 	/* 1-byte curveType, we only allow one type */
+    if(*charPtr + 1 > endCp) {
+        return errSSLProtocol;
+    }
 	uint8_t curveType = **charPtr;
+    (*charPtr)++;
 	if(curveType != SSL_CurveTypeNamed) {
 		sslEcdsaDebug("+++ SSLDecodeECDHKeyParams: Bad curveType (%u)\n", (unsigned)curveType);
 		return errSSLProtocol;
 	}
-	(*charPtr)++;
-	if(*charPtr > endCp) {
+
+    /* two-byte curve */
+	if(*charPtr + 2 > endCp) {
 		return errSSLProtocol;
 	}
-
-	/* two-byte curve */
 	ctx->ecdhPeerCurve = SSLDecodeInt(*charPtr, 2);
 	(*charPtr) += 2;
-	if(*charPtr > endCp) {
-		return errSSLProtocol;
-	}
 	switch(ctx->ecdhPeerCurve) {
 		case tls_curve_secp256r1:
 		case tls_curve_secp384r1:
@@ -1518,6 +1505,9 @@ SSLDecodeECDHKeyParams(
 	 * this whole mechanism to a max modulus size of 1020 bits, which I find
 	 * hard to believe...
 	 */
+    if(*charPtr + 1 > endCp) {
+        return errSSLProtocol;
+    }
 	UInt32 len = SSLDecodeInt(*charPtr, 1);
 	(*charPtr)++;
 	if((*charPtr + len) > endCp) {
@@ -1548,29 +1538,9 @@ SSLEncodeECDHClientKeyExchange(tls_buffer *keyExchange, tls_handshake_t ctx)
 
     tls_buffer pubKey = {0,};
 
-	/*
-	 * Per RFC 4492 5.7, if we're doing ECDSA_fixed_ECDH or RSA_fixed_ECDH
-	 * client auth, we still send this message, but it's empty (because the
-	 * server gets our public key from our cert).
-	 */
-	bool emptyMsg = false;
-	switch(ctx->negAuthType) {
-            //TODO: cleanup: this modes are actually not supported
-		case tls_client_auth_type_RSAFixedECDH:
-		case tls_client_auth_type_ECDSAFixedECDH:
-			emptyMsg = true;
-			break;
-		default:
-			break;
-	}
-	if(emptyMsg) {
-		outputLen = 0;
-	}
-	else {
-        assert(ctx->ecdhContext.hdr);
-        sslEcdhExportPub(ctx->ecdhContext, &pubKey);
-		outputLen = pubKey.length + 1;
-	}
+    assert(ctx->ecdhContext.hdr);
+    sslEcdhExportPub(ctx->ecdhContext, &pubKey);
+    outputLen = pubKey.length + 1;
 
 	assert(ctx->negProtocolVersion >= tls_protocol_version_SSL_3);
     head = SSLHandshakeHeaderSize(ctx);
@@ -1578,15 +1548,11 @@ SSLEncodeECDHClientKeyExchange(tls_buffer *keyExchange, tls_handshake_t ctx)
         return err;
 
     uint8_t *charPtr = SSLEncodeHandshakeHeader(ctx, keyExchange, SSL_HdskClientKeyExchange, outputLen);
-	if(emptyMsg) {
-		sslEcdsaDebug("+++ Sending EMPTY ECDH Client Key Exchange");
-	}
-	else {
-		/* just a 1-byte length here... */
-		charPtr = SSLEncodeSize(charPtr, pubKey.length, 1);
-		memcpy(charPtr, pubKey.data, pubKey.length);
-		sslEcdsaDebug("+++ Encoded ECDH Client Key Exchange");
-	}
+
+    /* just a 1-byte length here... */
+    charPtr = SSLEncodeSize(charPtr, pubKey.length, 1);
+    memcpy(charPtr, pubKey.data, pubKey.length);
+    sslEcdsaDebug("+++ Encoded ECDH Client Key Exchange");
 
 	dumpBuf("client pub key", &pubKey);
 	dumpBuf("client premaster", &ctx->preMasterSecret);
@@ -1736,24 +1702,17 @@ SSLEncodeServerKeyExchange(tls_buffer *keyExch, tls_handshake_t ctx)
     
     switch (ctx->selectedCipherSpecParams.keyExchangeMethod)
     {   case SSL_RSA:
-        #if		APPLE_DH
 		case SSL_DHE_RSA:
-		case SSL_DHE_DSS:
-		#endif	/* APPLE_DH */
         case SSL_ECDHE_RSA:
-        case SSL_ECDH_ECDSA:
         case SSL_ECDHE_ECDSA:
-        case SSL_ECDH_RSA:
-        case SSL_ECDH_anon:
            if ((err = SSLEncodeSignedServerKeyExchange(keyExch, ctx)) != 0)
                 return err;
             break;
-        #if		APPLE_DH
         case SSL_DH_anon:
+        case SSL_ECDH_anon:
             if ((err = SSLEncodeDHanonServerKeyExchange(keyExch, ctx)) != 0)
                 return err;
             break;
-        #endif
 
         default:
             return errSSLUnimplemented;
@@ -1768,22 +1727,15 @@ SSLProcessServerKeyExchange(tls_buffer message, tls_handshake_t ctx)
 	int      err;
     
     switch (ctx->selectedCipherSpecParams.keyExchangeMethod) {
-        #if		APPLE_DH
 		case SSL_DHE_RSA:
-		case SSL_DHE_RSA_EXPORT:
-		case SSL_DHE_DSS:
-		case SSL_DHE_DSS_EXPORT:
-		#endif
 		case SSL_ECDHE_ECDSA:
 		case SSL_ECDHE_RSA:
             err = SSLDecodeSignedServerKeyExchange(message, ctx);
             break;
-        #if		APPLE_DH
         case SSL_DH_anon:
-		case SSL_DH_anon_EXPORT:
+        case SSL_ECDH_anon:
             err = SSLDecodeDHanonServerKeyExchange(message, ctx);
             break;
-        #endif
 #warning TODO: TLS_PSK Server Key Exchange missing.
         default:
             err = errSSLUnimplemented;
@@ -1806,15 +1758,12 @@ SSLEncodeKeyExchange(tls_buffer *keyExchange, tls_handshake_t ctx)
 			break;
 #if		APPLE_DH
 		case SSL_DHE_RSA:
-		case SSL_DHE_DSS:
 		case SSL_DH_anon:
 			sslDebugLog("SSLEncodeKeyExchange: DH method\n");
 			err = SSLEncodeDHClientKeyExchange(keyExchange, ctx);
 			break;
 #endif
-		case SSL_ECDH_ECDSA:
 		case SSL_ECDHE_ECDSA:
-		case SSL_ECDH_RSA:
 		case SSL_ECDHE_RSA:
 		case SSL_ECDH_anon:
 			sslDebugLog("SSLEncodeKeyExchange: ECDH method\n");
@@ -1851,6 +1800,7 @@ SSLProcessKeyExchange(tls_buffer keyExchange, tls_handshake_t ctx)
 				return err;
 			break;
 #endif
+        case SSL_ECDH_anon:
         case SSL_ECDHE_RSA:
         case SSL_ECDHE_ECDSA:
             if ((err = SSLDecodeECDHClientKeyExchange(keyExchange, ctx)))

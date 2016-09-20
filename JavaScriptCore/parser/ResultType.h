@@ -29,6 +29,7 @@
 namespace JSC {
 
     struct ResultType {
+    private:
         friend struct OperandTypes;
 
         typedef char Type;
@@ -46,33 +47,34 @@ namespace JSC {
             : m_type(type)
         {
         }
-        
-        bool isInt32()
+
+    public:
+        bool isInt32() const
         {
             return m_type & TypeInt32;
         }
 
-        bool definitelyIsNumber()
+        bool definitelyIsNumber() const
         {
             return (m_type & TypeBits) == TypeMaybeNumber;
         }
         
-        bool definitelyIsString()
+        bool definitelyIsString() const
         {
             return (m_type & TypeBits) == TypeMaybeString;
         }
 
-        bool definitelyIsBoolean()
+        bool definitelyIsBoolean() const
         {
             return (m_type & TypeBits) == TypeMaybeBool;
         }
 
-        bool mightBeNumber()
+        bool mightBeNumber() const
         {
             return m_type & TypeMaybeNumber;
         }
 
-        bool isNotNumber()
+        bool isNotNumber() const
         {
             return !mightBeNumber();
         }

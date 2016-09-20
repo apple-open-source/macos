@@ -40,20 +40,6 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		182BB36B146F126A000BF1F3 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 18446077146DF45600B12992 /* libsecurity_utilities.xcodeproj */;
-			proxyType = 1;
-			remoteGlobalIDString = C2C9C69D0CECBE8400B3FE07;
-			remoteInfo = libsecurity_utilitiesDTrace;
-		};
-		18446071146DEEE300B12992 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = C2C38A530535EDE600D7421F;
-			remoteInfo = generate;
-		};
 		1844607C146DF45600B12992 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 18446077146DF45600B12992 /* libsecurity_utilities.xcodeproj */;
@@ -71,25 +57,25 @@
 		18446077146DF45600B12992 /* libsecurity_utilities.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = libsecurity_utilities.xcodeproj; path = ../libsecurity_utilities/libsecurity_utilities.xcodeproj; sourceTree = "<group>"; };
 		4C34408B0534CC81005148B6 /* Database.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Database.cpp; sourceTree = "<group>"; };
 		4C34408C0534CC81005148B6 /* Database.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Database.h; sourceTree = "<group>"; };
-		4C34408D0534CC81005148B6 /* DatabaseSession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = DatabaseSession.cpp; sourceTree = "<group>"; };
+		4C34408D0534CC81005148B6 /* DatabaseSession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = DatabaseSession.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		4C34408E0534CC81005148B6 /* DatabaseSession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DatabaseSession.h; sourceTree = "<group>"; };
 		4C34408F0534CC82005148B6 /* DbContext.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = DbContext.cpp; sourceTree = "<group>"; };
 		4C3440900534CC82005148B6 /* DbContext.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DbContext.h; sourceTree = "<group>"; };
-		4C52AC740540B25100536F78 /* ACabstractsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ACabstractsession.h; path = derived_src/security_cdsa_plugin/ACabstractsession.h; sourceTree = BUILT_PRODUCTS_DIR; };
-		4C52AC750540B25100536F78 /* CLabstractsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = CLabstractsession.h; path = derived_src/security_cdsa_plugin/CLabstractsession.h; sourceTree = BUILT_PRODUCTS_DIR; };
-		4C52AC760540B25100536F78 /* CSPabstractsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = CSPabstractsession.h; path = derived_src/security_cdsa_plugin/CSPabstractsession.h; sourceTree = BUILT_PRODUCTS_DIR; };
-		4C52AC770540B25100536F78 /* DLabstractsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = DLabstractsession.h; path = derived_src/security_cdsa_plugin/DLabstractsession.h; sourceTree = BUILT_PRODUCTS_DIR; };
-		4C52AC780540B25100536F78 /* TPabstractsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = TPabstractsession.h; path = derived_src/security_cdsa_plugin/TPabstractsession.h; sourceTree = BUILT_PRODUCTS_DIR; };
+		4C52AC740540B25100536F78 /* ACabstractsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ACabstractsession.h; path = lib/ACabstractsession.h; sourceTree = SOURCE_ROOT; };
+		4C52AC750540B25100536F78 /* CLabstractsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = CLabstractsession.h; path = lib/CLabstractsession.h; sourceTree = SOURCE_ROOT; };
+		4C52AC760540B25100536F78 /* CSPabstractsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = CSPabstractsession.h; path = lib/CSPabstractsession.h; sourceTree = SOURCE_ROOT; };
+		4C52AC770540B25100536F78 /* DLabstractsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = DLabstractsession.h; path = lib/DLabstractsession.h; sourceTree = SOURCE_ROOT; };
+		4C52AC780540B25100536F78 /* TPabstractsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = TPabstractsession.h; path = lib/TPabstractsession.h; sourceTree = SOURCE_ROOT; };
 		4CA1FEBE052A3C8100F22E42 /* libsecurity_cdsa_plugin.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libsecurity_cdsa_plugin.a; sourceTree = BUILT_PRODUCTS_DIR; };
-		C2196BDB053B6036005808D4 /* ACabstractsession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = ACabstractsession.cpp; path = derived_src/security_cdsa_plugin/ACabstractsession.cpp; sourceTree = BUILT_PRODUCTS_DIR; };
-		C2196BDC053B6036005808D4 /* CLabstractsession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = CLabstractsession.cpp; path = derived_src/security_cdsa_plugin/CLabstractsession.cpp; sourceTree = BUILT_PRODUCTS_DIR; };
-		C2196BDD053B6036005808D4 /* CSPabstractsession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = CSPabstractsession.cpp; path = derived_src/security_cdsa_plugin/CSPabstractsession.cpp; sourceTree = BUILT_PRODUCTS_DIR; };
-		C2196BDE053B6036005808D4 /* DLabstractsession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = DLabstractsession.cpp; path = derived_src/security_cdsa_plugin/DLabstractsession.cpp; sourceTree = BUILT_PRODUCTS_DIR; };
-		C2196BDF053B6036005808D4 /* TPabstractsession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = TPabstractsession.cpp; path = derived_src/security_cdsa_plugin/TPabstractsession.cpp; sourceTree = BUILT_PRODUCTS_DIR; };
+		C2196BDB053B6036005808D4 /* ACabstractsession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = ACabstractsession.cpp; path = lib/ACabstractsession.cpp; sourceTree = SOURCE_ROOT; };
+		C2196BDC053B6036005808D4 /* CLabstractsession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = CLabstractsession.cpp; path = lib/CLabstractsession.cpp; sourceTree = SOURCE_ROOT; };
+		C2196BDD053B6036005808D4 /* CSPabstractsession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = CSPabstractsession.cpp; path = lib/CSPabstractsession.cpp; sourceTree = SOURCE_ROOT; };
+		C2196BDE053B6036005808D4 /* DLabstractsession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = DLabstractsession.cpp; path = lib/DLabstractsession.cpp; sourceTree = SOURCE_ROOT; };
+		C2196BDF053B6036005808D4 /* TPabstractsession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = TPabstractsession.cpp; path = lib/TPabstractsession.cpp; sourceTree = SOURCE_ROOT; };
 		C2F8455E052CA23100F4D742 /* ACsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ACsession.h; sourceTree = "<group>"; };
 		C2F8455F052CA23100F4D742 /* c++plugin.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = "c++plugin.h"; sourceTree = "<group>"; };
 		C2F84560052CA23100F4D742 /* CLsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CLsession.h; sourceTree = "<group>"; };
-		C2F84561052CA23100F4D742 /* CSPsession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CSPsession.cpp; sourceTree = "<group>"; };
+		C2F84561052CA23100F4D742 /* CSPsession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = CSPsession.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C2F84562052CA23100F4D742 /* CSPsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CSPsession.h; sourceTree = "<group>"; };
 		C2F84563052CA23100F4D742 /* csputilities.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = csputilities.cpp; sourceTree = "<group>"; };
 		C2F84564052CA23100F4D742 /* cssmplugin.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cssmplugin.cpp; sourceTree = "<group>"; };
@@ -158,16 +144,6 @@
 		C2196BD8053B5FFE005808D4 /* derived_src */ = {
 			isa = PBXGroup;
 			children = (
-				C2196BDB053B6036005808D4 /* ACabstractsession.cpp */,
-				C2196BDC053B6036005808D4 /* CLabstractsession.cpp */,
-				C2196BDD053B6036005808D4 /* CSPabstractsession.cpp */,
-				C2196BDE053B6036005808D4 /* DLabstractsession.cpp */,
-				C2196BDF053B6036005808D4 /* TPabstractsession.cpp */,
-				4C52AC740540B25100536F78 /* ACabstractsession.h */,
-				4C52AC750540B25100536F78 /* CLabstractsession.h */,
-				4C52AC760540B25100536F78 /* CSPabstractsession.h */,
-				4C52AC770540B25100536F78 /* DLabstractsession.h */,
-				4C52AC780540B25100536F78 /* TPabstractsession.h */,
 			);
 			path = derived_src;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -198,6 +174,16 @@
 				C2F8456C052CA23100F4D742 /* pluginsession.h */,
 				C2F8456D052CA23100F4D742 /* pluginspi.h */,
 				C2F8456E052CA23100F4D742 /* TPsession.h */,
+				C2196BDB053B6036005808D4 /* ACabstractsession.cpp */,
+				C2196BDC053B6036005808D4 /* CLabstractsession.cpp */,
+				C2196BDD053B6036005808D4 /* CSPabstractsession.cpp */,
+				C2196BDE053B6036005808D4 /* DLabstractsession.cpp */,
+				C2196BDF053B6036005808D4 /* TPabstractsession.cpp */,
+				4C52AC740540B25100536F78 /* ACabstractsession.h */,
+				4C52AC750540B25100536F78 /* CLabstractsession.h */,
+				4C52AC760540B25100536F78 /* CSPabstractsession.h */,
+				4C52AC770540B25100536F78 /* DLabstractsession.h */,
+				4C52AC780540B25100536F78 /* TPabstractsession.h */,
 			);
 			path = lib;
 			sourceTree = "<group>";
@@ -231,24 +217,6 @@
 		};
 /* End PBXHeadersBuildPhase section */
 
-/* Begin PBXLegacyTarget section */
-		C2C38A530535EDE600D7421F /* libsecurity_cdsa_plugin_generate */ = {
-			isa = PBXLegacyTarget;
-			buildArgumentsString = "-f $(PROJECT_DIR)/lib/generator.mk $ACTION";
-			buildConfigurationList = C27AD2DC0987FCDD001272E0 /* Build configuration list for PBXLegacyTarget "libsecurity_cdsa_plugin_generate" */;
-			buildPhases = (
-			);
-			buildToolPath = /usr/bin/gnumake;
-			buildWorkingDirectory = "";
-			dependencies = (
-				182BB36C146F126A000BF1F3 /* PBXTargetDependency */,
-			);
-			name = libsecurity_cdsa_plugin_generate;
-			passBuildSettingsInEnvironment = 1;
-			productName = Generate;
-		};
-/* End PBXLegacyTarget section */
-
 /* Begin PBXNativeTarget section */
 		4CA1FEBD052A3C8100F22E42 /* libsecurity_cdsa_plugin */ = {
 			isa = PBXNativeTarget;
@@ -262,7 +230,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				18446072146DEEE300B12992 /* PBXTargetDependency */,
 			);
 			name = libsecurity_cdsa_plugin;
 			productName = libsecurity_cdsa_plugin;
@@ -275,7 +242,7 @@
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0700;
+				LastUpgradeCheck = 0800;
 			};
 			buildConfigurationList = C27AD2E80987FCDD001272E0 /* Build configuration list for PBXProject "libsecurity_cdsa_plugin" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -296,7 +263,6 @@
 			projectRoot = "";
 			targets = (
 				4CA1FEBD052A3C8100F22E42 /* libsecurity_cdsa_plugin */,
-				C2C38A530535EDE600D7421F /* libsecurity_cdsa_plugin_generate */,
 			);
 		};
 /* End PBXProject section */
@@ -318,12 +284,15 @@
 			files = (
 			);
 			inputPaths = (
+				"$(SRCROOT)/",
+				"$(SRCROOT)/lib/",
 			);
 			outputPaths = (
+				"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "nmedit -p \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"\nranlib \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"";
+			shellScript = "# with our source directories as input files, Xcode will only re-run this phase if there's been a source change\nnmedit -p \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"\nranlib \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -350,38 +319,7 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
-/* Begin PBXTargetDependency section */
-		182BB36C146F126A000BF1F3 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			name = libsecurity_utilitiesDTrace;
-			targetProxy = 182BB36B146F126A000BF1F3 /* PBXContainerItemProxy */;
-		};
-		18446072146DEEE300B12992 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = C2C38A530535EDE600D7421F /* libsecurity_cdsa_plugin_generate */;
-			targetProxy = 18446071146DEEE300B12992 /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
-
 /* Begin XCBuildConfiguration section */
-		C27AD2DD0987FCDD001272E0 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COMBINE_HIDPI_IMAGES = YES;
-				CSSM_HEADERS = "$(PROJECT_DIR)/../libsecurity_cssm/lib";
-				INSTALLHDRS_SCRIPT_PHASE = YES;
-			};
-			name = Debug;
-		};
-		C27AD2DF0987FCDD001272E0 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COMBINE_HIDPI_IMAGES = YES;
-				CSSM_HEADERS = "$(PROJECT_DIR)/../libsecurity_cssm/lib";
-				INSTALLHDRS_SCRIPT_PHASE = YES;
-			};
-			name = Release;
-		};
 		C27AD2E50987FCDD001272E0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1844606E146DEE4400B12992 /* debug.xcconfig */;
@@ -408,12 +346,21 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1844606F146DEE4400B12992 /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = lossless;
+				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				ONLY_ACTIVE_ARCH = YES;
 			};
 			name = Debug;
 		};
@@ -421,27 +368,25 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1844606F146DEE4400B12992 /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = "respect-asset-catalog";
+				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		C27AD2DC0987FCDD001272E0 /* Build configuration list for PBXLegacyTarget "libsecurity_cdsa_plugin_generate" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				C27AD2DD0987FCDD001272E0 /* Debug */,
-				C27AD2DF0987FCDD001272E0 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		C27AD2E40987FCDD001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_cdsa_plugin" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

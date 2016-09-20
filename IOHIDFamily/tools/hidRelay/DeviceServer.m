@@ -151,9 +151,9 @@ static void InputReportCallback(DeviceServer * server, IOReturn result, void * s
                                                     NSLog(@"Matching dictionary received %@\n", object);
                                                     if ( !self->manager ) {
                                                         self->manager = IOHIDManagerCreate(kCFAllocatorDefault, 0);
-                                                        IOHIDManagerRegisterDeviceMatchingCallback(manager, MatchingCallback, (__bridge void *)(self));
-                                                        IOHIDManagerRegisterDeviceRemovalCallback(manager, TerminationCallback, (__bridge void *)(self));
-                                                        IOHIDManagerRegisterInputReportCallback(manager, InputReportCallback, (__bridge void *)(self));
+                                                        IOHIDManagerRegisterDeviceMatchingCallback(manager, (IOHIDDeviceCallback)MatchingCallback, (__bridge void *)(self));
+                                                        IOHIDManagerRegisterDeviceRemovalCallback(manager, (IOHIDDeviceCallback)TerminationCallback, (__bridge void *)(self));
+                                                        IOHIDManagerRegisterInputReportCallback(manager, (IOHIDReportCallback)InputReportCallback, (__bridge void *)(self));
                                                         IOHIDManagerScheduleWithRunLoop(self->manager, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
                                                     }
                                                     IOHIDManagerSetDeviceMatching(self->manager, object);

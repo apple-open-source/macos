@@ -962,7 +962,7 @@ createBootPrefData(struct updatingVol *up, uuid_string_t root_uuid,
     if (!CFEqual(CFDictionaryGetValue(pldict,CFSTR(kRootUUIDKey)), UUIDStr))
         goto finish;
 
-    // if necessary, tell the booter to load <flatTarget>/kernelcache
+    // if necessary, tell the booter to load <flatTarget>/prelinkedkernel
     if (up->flatTarget[0] || up->useOnceDir) {
         char kpath[PATH_MAX] = "";
         /* XX 10561671: basename() unsafe */
@@ -2424,19 +2424,19 @@ ucopyRPS(struct updatingVol *up)
 #if DEV_KERNEL_SUPPORT
     // NOTE - copy_kcsuffix will return ".release" suffix when kcsuffix is
     // "kcsuffix=" or "kcsuffix=release".  Since the "release" kernel and
-    // kernelcache file names do NOT have a suffix the for loop for
+    // prelinkedkernel file names do NOT have a suffix the for loop for
     // extraKernelCachePaths will not match via the CFStringHasSuffix() call and
     // we will drop out of the for loop with copiedPrefKernel == false. This is
-    // by design.  The copy of the release kernelcache will happen lower down.
+    // by design.  The copy of the release prelinkedkernel will happen lower down.
     my_kcsuffix = copy_kcsuffix();
     if (up->caches->extraKernelCachePaths && my_kcsuffix) {
         int     i;
         for (i = 0; i < up->caches->nekcp; i++) {
             cachedPath *curItem = &up->caches->extraKernelCachePaths[i];
             
-            // until 16140679 gets fixed we can only copy 1 kernelcache to
+            // until 16140679 gets fixed we can only copy 1 prelinkedkernel to
             // Apple_Boot partitions.  We use boot-arg kcsuffix to give us a
-            // hint about which kernelcache to copy - 16929470
+            // hint about which prelinkedkernel to copy - 16929470
             CFStringRef tempString;
             Boolean     hasSuffix;
             tempString = CFStringCreateWithCString(NULL,
@@ -2510,6 +2510,13 @@ ucopyRPS(struct updatingVol *up)
             if ((bsderr = writeBootPrefs(up, dstpath))) {
                 rval = bsderr; goto finish;     // error logged by function
             }
+        } else if (curItem == up->caches->erpropcache && up->csfdeprops && up->onAPM == false) {
+
+            // use csfdeprops
+            if ((bsderr = _writeFDEPropsToHelper(up, dstpath))) {                      
+                rval = bsderr; goto finish;     // error logged by function
+            }
+	    
         } else {
             // could deny zero-size cookies, busted Mach-O, etc here
             // scopyitem creates any intermediate directories
@@ -2517,25 +2524,13 @@ ucopyRPS(struct updatingVol *up)
                       "copying %s to %s", srcpath, up->dstdir);
             bsderr=scopyitem(up->caches->cachefd,srcpath,up->curbootfd,dstpath);
             if (bsderr) {
+                rval = bsderr == -1 ? errno : bsderr;
                 // erpropcache, efiloccache are optional
-                if ((curItem == up->caches->erpropcache ||
-                            curItem == up->caches->efiloccache)
-                        && bsderr == -1 && errno == ENOENT) {
-                    ; // no-op to allow real CSFDE data to be written
-                } else {
-                    rval = bsderr == -1 ? errno : bsderr;
+                if ((curItem == up->caches->erpropcache && rval != ENOENT) &&
+                    (curItem == up->caches->efiloccache && rval != ENOENT)) {
                     OSKextLog(0,up->errLogSpec,"Error %d copying %s to %s: %s",
                               rval, srcpath, dstpath, strerror(rval));
                     goto finish;
-                }
-            }
-
-            // having copied any existing file (for HFS conversions),
-            // we now prefer the real data
-            if (up->csfdeprops && curItem == up->caches->erpropcache &&
-                    up->onAPM == false) {
-                if ((bsderr = _writeFDEPropsToHelper(up, dstpath))) {
-                    rval = bsderr; goto finish;     // error logged by function
                 }
             }
         }
@@ -3475,14 +3470,14 @@ finish:
  * copy_kcsuffix() - return the current value of the kcsuffix boot-arg.
  * Caller must release the returned CFStringRef.
  *
- * The kcsuffix value tells us which kernelcache file the booter should use.
+ * The kcsuffix value tells us which prelinkedkernel file the booter should use.
  * "kcsuffix=" is the same as "kcsuffix=release" which means the booter should
- * use "kernelcache" file.  Any other suffix means use "kernelcache" plus the 
- * given suffix with a '.' before the suffix. 
+ * use "prelinkedkernel" file.  Any other suffix means use "prelinkedkernel"
+ * plus the given suffix with a '.' before the suffix.
  * 
  * For example:
  * "kcsuffix=development" means the booter should pick the 
- * "kernelcache.development" file.
+ * "prelinkedkernel.development" file.
  *******************************************************************************/
 CFStringRef copy_kcsuffix(void)
 {
@@ -3562,7 +3557,7 @@ CFStringRef copy_kcsuffix(void)
     SAFE_RELEASE(myStringArray);
     
     if (result == NULL) {
-        // nothing set then let's default to development kernelcache
+        // nothing set then let's default to development prelinkedkernel
         result = CFRetain(CFSTR(".development"));
     }
     

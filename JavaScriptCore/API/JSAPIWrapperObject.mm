@@ -30,19 +30,20 @@
 #include "JSCallbackObject.h"
 #include "JSVirtualMachineInternal.h"
 #include "Structure.h"
+#include <wtf/NeverDestroyed.h>
 
 #if JSC_OBJC_API_ENABLED
 
 class JSAPIWrapperObjectHandleOwner : public JSC::WeakHandleOwner {
 public:
-    virtual void finalize(JSC::Handle<JSC::Unknown>, void*) override;
-    virtual bool isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown>, void* context, JSC::SlotVisitor&) override;
+    void finalize(JSC::Handle<JSC::Unknown>, void*) override;
+    bool isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown>, void* context, JSC::SlotVisitor&) override;
 };
 
 static JSAPIWrapperObjectHandleOwner* jsAPIWrapperObjectHandleOwner()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(JSAPIWrapperObjectHandleOwner, jsWrapperObjectHandleOwner, ());
-    return &jsWrapperObjectHandleOwner;
+    static NeverDestroyed<JSAPIWrapperObjectHandleOwner> jsWrapperObjectHandleOwner;
+    return &jsWrapperObjectHandleOwner.get();
 }
 
 void JSAPIWrapperObjectHandleOwner::finalize(JSC::Handle<JSC::Unknown> handle, void*)

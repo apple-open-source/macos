@@ -29,9 +29,10 @@
 #include <IOKit/hid/IOHIDValue.h>
 #include "IOHIDQueueClass.h"
 #include "IOHIDLibUserClient.h"
+#include <IOKit/hid/IOHIDLibPrivate.h>
+#include "IOHIDDebug.h"
 
 __BEGIN_DECLS
-#include <asl.h>
 #include <IOKit/IODataQueueClient.h>
 #include <mach/mach.h>
 #include <mach/mach_interface.h>
@@ -173,7 +174,7 @@ IOReturn IOHIDQueueClass::getAsyncEventSource(CFTypeRef *source)
                     
         if ( shouldFreeInfo ) {
             // The CFMachPort we got might not work, but we'll proceed with it anyway.
-            asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s received an unexpected reused CFMachPort", __func__);                    
+            HIDLogError("received an unexpected reused CFMachPort");
         }
         
         if (!fCFMachPort)
@@ -471,10 +472,10 @@ IOReturn IOHIDQueueClass::start (IOOptionBits options __unused)
     if ( !fQueueMappedMemory )
     {
 #if !__LP64__
-        vm_address_t        address = nil;
+        vm_address_t        address = static_cast<vm_address_t>(nil);
         vm_size_t           size    = 0;
 #else
-        mach_vm_address_t   address = nil;
+        mach_vm_address_t   address = static_cast<mach_vm_address_t>(nil);
         mach_vm_size_t      size    = 0;
 #endif
 
@@ -544,14 +545,8 @@ IOReturn IOHIDQueueClass::copyNextEventValue (IOHIDValueRef     *pEvent,
     // check size of next entry
     // Make sure that it is not smaller than IOHIDElementValue
     if (entrySize < sizeof(IOHIDElementValue))
-        HIDLog ("IOHIDQueueClass: Queue size mismatch (%ld, %ld)\n", entrySize, sizeof(IOHIDElementValue));
+        HIDLog ("IOHIDQueueClass: Queue size mismatch (%u, %ld)\n", entrySize, sizeof(IOHIDElementValue));
     
-    // dequeue the item
-//    HIDLog ("IOHIDQueueClass::getNextEvent about to dequeue\n");
-    ret = IODataQueueDequeue(fQueueMappedMemory, NULL, &dataSize);
-//    HIDLog ("IODataQueueDequeue result %lx\n", (uint32_t) ret);
-    
-
     // if we got an entry
     if (ret == kIOReturnSuccess && nextEntry)
     {
@@ -562,9 +557,17 @@ IOReturn IOHIDQueueClass::copyNextEventValue (IOHIDValueRef     *pEvent,
             cookie = (IOHIDElementCookie)OSSwapInt32((uint32_t)cookie);
         );
         
-        if ( pEvent )
+        if ( pEvent ) {
             *pEvent = _IOHIDValueCreateWithElementValuePtr(kCFAllocatorDefault, fOwningDevice->getElement(cookie), nextElementValue);
+            if (*pEvent == NULL)
+            {
+              ret = kIOReturnInternalError;
+            }
+        }
     }
+    
+    // dequeue the item
+    ret = IODataQueueDequeue(fQueueMappedMemory, NULL, &dataSize);
     
     return ret;
 }

@@ -33,6 +33,7 @@
 #include "csutilities.h"
 #include "drmaker.h"
 #include <security_utilities/unix++.h>
+#include <security_utilities/logging.h>
 #include <security_utilities/unixchild.h>
 #include <vector>
 
@@ -244,7 +245,7 @@ void MachOEditor::childAction()
 	
 	if (mHelperOverridden)
 		::csops(0, CS_OPS_MARKKILL, NULL, 0);		// force code integrity
-	::seteuid(0);	// activate privilege if caller has it; ignore error if not
+	(void)::seteuid(0);	// activate privilege if caller has it; ignore error if not
 	execv(mHelperPath, (char * const *)&arguments[0]);
 }
 
@@ -275,7 +276,7 @@ void MachOEditor::write(Arch &arch, EmbeddedSignatureBlob *blob)
 		arch.source->writeAll(*blob);
 		::free(blob);		// done with it
 	} else {
-		secdebug("signer", "%p cannot find CODESIGNING section", this);
+		secinfo("signer", "%p cannot find CODESIGNING data in Mach-O", this);
 		MacOSError::throwMe(errSecCSInternalError);
 	}
 }
@@ -301,7 +302,7 @@ void MachOEditor::commit()
 		// perform copy under root or file-owner privileges if available
 		UidGuard guard;
 		if (!guard.seteuid(0))
-			guard.seteuid(st.st_uid);
+			(void)guard.seteuid(st.st_uid);
 		
 		// copy metadata from original file...
 		copy(sourcePath.c_str(), NULL, COPYFILE_SECURITY | COPYFILE_METADATA);
@@ -315,6 +316,7 @@ void MachOEditor::commit()
 		UnixError::check(::rename(tempPath.c_str(), sourcePath.c_str()));
 		mTempMayExist = false;		// we renamed it away
 	}
+	this->writer->flush();
 }
 
 

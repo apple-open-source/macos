@@ -2535,8 +2535,8 @@ static void tests(void)
     int keySize;
     SecCertificateRef recipients[] = { cert, NULL };
     ok_status(SecSMIMEFindBulkAlgForRecipients(recipients, &algorithmTag, &keySize), "get cipher for 512 bit key");
-    is(algorithmTag, (SECOidTag)SEC_OID_DES_CBC, "weak asym, des is okay");
-    is(keySize, 64, "superfluous");
+    is(algorithmTag, (SECOidTag)SEC_OID_DES_EDE3_CBC, "weak asym, 3des for interop");
+    is(keySize, 192, "superfluous");
     recipients[0] = smime_cert;
     ok_status(SecSMIMEFindBulkAlgForRecipients(recipients, &algorithmTag, &keySize), "get cipher for 1024 bit key");
     is(algorithmTag, (SECOidTag)SEC_OID_DES_EDE3_CBC, "okay asym, 3des for interop");

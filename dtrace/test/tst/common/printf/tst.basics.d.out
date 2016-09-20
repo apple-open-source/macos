@@ -1,6 +1,5 @@
 
-%a = mach_kernel`max_ncpus
-%c = a
+c = a
 %d = 97
 %hd = 97
 %hi = 97

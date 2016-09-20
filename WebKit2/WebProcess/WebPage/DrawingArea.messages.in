@@ -29,7 +29,7 @@ messages -> DrawingArea {
     UpdateGeometry(WebCore::IntSize viewSize, WebCore::IntSize layerPosition, bool flushSynchronously, WebCore::MachSendRight fencePort)
     SetDeviceScaleFactor(float deviceScaleFactor)
     SetColorSpace(struct WebKit::ColorSpaceData colorSpace)
-    SetExposedRect(WebCore::FloatRect exposedRect)
+    SetViewExposedRect(Optional<WebCore::FloatRect> viewExposedRect)
 
     AdjustTransientZoom(double scale, WebCore::FloatPoint origin)
     CommitTransientZoom(double scale, WebCore::FloatPoint origin)
@@ -40,7 +40,8 @@ messages -> DrawingArea {
     AddTransactionCallbackID(uint64_t callbackID)
 #endif
 
-#if USE(TEXTURE_MAPPER_GL) && PLATFORM(GTK)
+#if USE(TEXTURE_MAPPER) && PLATFORM(GTK)
     SetNativeSurfaceHandleForCompositing(uint64_t handle)
+    DestroyNativeSurfaceHandleForCompositing() -> (bool handled)
 #endif
 }

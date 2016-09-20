@@ -25,21 +25,19 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecCertificatePriv.h>
-#include <Security/SecCertificateInternal.h>
 #include <Security/SecItem.h>
 #include <Security/SecItemPriv.h>
 #include <Security/SecIdentityPriv.h>
 #include <Security/SecIdentity.h>
 #include <Security/SecPolicy.h>
 #include <Security/SecPolicyPriv.h>
-#include <Security/SecPolicyInternal.h>
+#include <Security/SecTrust.h>
+#include <Security/SecTrustPriv.h>
 #include <Security/SecCMS.h>
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "Security_regressions.h"
-
-#if TARGET_OS_IPHONE
+#include "shared_regressions.h"
 
 #define CFReleaseSafe(CF) { CFTypeRef _cf = (CF); if (_cf) {  CFRelease(_cf); } }
 
@@ -902,7 +900,8 @@ static void test_OTA_PKI()
 		NULL, "Get the Apple PKI Settings Root Certification Authority Cert Data");
 	
 	SecCertificateRef 	apple_pki_settings_root_certificate_authority_cert = NULL;
-	isnt(apple_pki_settings_root_certificate_authority_cert = SecCertificateCreateWithData(kCFAllocatorDefault, apple_pki_settings_root_certificate_authority_cert_data),
+	isnt(apple_pki_settings_root_certificate_authority_cert = SecCertificateCreateWithBytes(kCFAllocatorDefault,
+                                                                kApplePKISettingsRootCACert, sizeof(kApplePKISettingsRootCACert)),
 		NULL, "Get the Apple PKI Settings Root Certification Authority Cert");
     
 	CFArrayRef anchors = CFArrayCreate(kCFAllocatorDefault, (const void **)&apple_pki_settings_root_certificate_authority_cert, 1, &kCFTypeArrayCallBacks);
@@ -1007,4 +1006,3 @@ int si_74_OTA_PKI_Signer(int argc, char *const *argv)
 	return 0;
 }
 
-#endif

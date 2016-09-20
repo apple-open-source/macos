@@ -5083,6 +5083,7 @@ exit:
 
 int network_lock(
 	uid_t uid,					/* -> uid of the user making the request (ignored if refreshing) */
+	int lockscope,				/* -> exclusive == 0 | shared == 1 */
 	int refresh,				/* -> if FALSE, we're getting the lock (for uid); if TRUE, we're refreshing the lock */
 	struct node_entry *node)	/* -> node to get/renew server lock on */
 {
@@ -5096,7 +5097,8 @@ int network_lock(
 	char *urlStr;
 	char* locktokentofree = NULL;
 	uid_t file_locktoken_uid = 0;
-	const UInt8 xmlString[] =
+	UInt8 *xmlString = NULL;
+	const UInt8 xmlStringExclusive[] =
 		"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
 		"<D:lockinfo xmlns:D=\"DAV:\">\n"
 			"<D:lockscope><D:exclusive/></D:lockscope>\n"
@@ -5105,6 +5107,15 @@ int network_lock(
 				"<D:href>http://www.apple.com/webdav_fs/</D:href>\n" /* this used to be "default-owner" instead of the url */
 			"</D:owner>\n"
 		"</D:lockinfo>\n";
+	const UInt8 xmlStringShared[] =
+	"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+	"<D:lockinfo xmlns:D=\"DAV:\">\n"
+	"<D:lockscope><D:shared/></D:lockscope>\n"
+	"<D:locktype><D:write/></D:locktype>\n"
+	"<D:owner>\n"
+	"<D:href>http://www.apple.com/webdav_fs/</D:href>\n" /* this used to be "default-owner" instead of the url */
+	"</D:owner>\n"
+	"</D:lockinfo>\n";
 	/* the 3 headers */
 	CFIndex headerCount = 4;
 	struct HeaderFieldValue headers5[] = {
@@ -5166,6 +5177,11 @@ int network_lock(
 	{
 		lockTokenRef = NULL;
 		/* create a CFDataRef with the xml that is our message body */
+		if (lockscope == 1)
+			xmlString = xmlStringShared;
+		else
+			xmlString = xmlStringExclusive;
+
 		bodyData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, xmlString, strlen((const char *)xmlString), kCFAllocatorNull);
 		require_action(bodyData != NULL, CFDataCreateWithBytesNoCopy, error = EIO);
 		

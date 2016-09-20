@@ -18,7 +18,7 @@
 <body id="module-index"><div id="page-header">
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p>
 <p class="apache">Serveur Apache HTTP Version 2.4</p>
-<img alt="" src="../images/feather.gif" /></div>
+<img alt="" src="../images/feather.png" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
 <a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">Serveur HTTP</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.4</a></div><div id="page-content"><div id="preamble"><h1>Index des modules</h1>
@@ -224,10 +224,14 @@ dynamique inverse de masse</dd>
 à <code class="module"><a href="../mod/mod_proxy.html">mod_proxy</a></code></dd>
 <dt><a href="mod_proxy_ftp.html">mod_proxy_ftp</a></dt><dd>Module fournissant le support FTP à
 <code class="module"><a href="../mod/mod_proxy.html">mod_proxy</a></code></dd>
+<dt><a href="mod_proxy_hcheck.html">mod_proxy_hcheck</a></dt><dd>Dynamic health check of Balancer members (workers) for
+<code class="module"><a href="../mod/mod_proxy.html">mod_proxy</a></code></dd>
 <dt><a href="mod_proxy_html.html">mod_proxy_html</a></dt><dd>Réécrit les liens HTML afin de s'assurer qu'ils soient bien
 adressables depuis les réseaux des clients dans un contexte de
 mandataire.</dd>
 <dt><a href="mod_proxy_http.html">mod_proxy_http</a></dt><dd>Module fournissant le support HTTP à
+<code class="module"><a href="../mod/mod_proxy.html">mod_proxy</a></code></dd>
+<dt><a href="mod_proxy_http2.html">mod_proxy_http2</a></dt><dd>HTTP/2 support module for
 <code class="module"><a href="../mod/mod_proxy.html">mod_proxy</a></code></dd>
 <dt><a href="mod_proxy_scgi.html">mod_proxy_scgi</a></dt><dd>Module fournissant le support de la passerelle SCGI à
 <code class="module"><a href="../mod/mod_proxy.html">mod_proxy</a></code></dd>
@@ -236,7 +240,7 @@ mandataire.</dd>
 <dt><a href="mod_ratelimit.html" id="R" name="R">mod_ratelimit</a></dt><dd>Limitation de la bande passante pour les clients</dd>
 <dt><a href="mod_reflector.html">mod_reflector</a></dt><dd>Réfléchit un corps de requête comme réponse via la pile de
 filtres en sortie.</dd>
-<dt><a href="mod_remoteip.html">mod_remoteip</a></dt><dd>Remplace l'adresse IP et le nom d'hôte apparents du client
+<dt><a href="mod_remoteip.html">mod_remoteip</a></dt><dd>Remplace l'adresse IP du client
 pour la requête par l'adresse IP présentée par un mandataire ou un
 répartiteur de charge via les en-têtes de la requête.
 </dd>
@@ -255,7 +259,7 @@ règles permettant de réécrire les URLs des requêtes
 <dt><a href="mod_session_crypto.html">mod_session_crypto</a></dt><dd>Support du chiffrement des sessions</dd>
 <dt><a href="mod_session_dbd.html">mod_session_dbd</a></dt><dd>Support des session basé sur DBD/SQL</dd>
 <dt><a href="mod_setenvif.html">mod_setenvif</a></dt><dd>Permet de définir des variables d'environnement en fonction
-de caractéristiques de la requête</dd>
+de certainescaractéristiques de la requête</dd>
 <dt><a href="mod_slotmem_plain.html">mod_slotmem_plain</a></dt><dd>Fournisseur de mémoire partagée à base de
 slots.</dd>
 <dt><a href="mod_slotmem_shm.html">mod_slotmem_shm</a></dt><dd>Fournisseur de mémoire partagée basée sur les
@@ -303,7 +307,7 @@ caractères pour les modules de filtrage basés sur libxml2</dd>
 <a href="../tr/mod/" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a> |
 <a href="../zh-cn/mod/" hreflang="zh-cn" rel="alternate" title="Simplified Chinese">&nbsp;zh-cn&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

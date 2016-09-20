@@ -25,6 +25,8 @@
 #include <IOKit/IOReturn.h>
 #include <stdarg.h>
 #include <asl.h>
+#include <mach/mach_time.h>
+
 #include "IOHIDLibPrivate.h"
 #include "IOHIDBase.h"
 
@@ -52,19 +54,67 @@ void _IOHIDCallbackApplier(const void *callback,
         ((IOHIDCallback)callback)((void *)callbackContext, context->result, context->sender);
 }
 
-void _IOHIDLog(int level, const char *format, ...)
+//------------------------------------------------------------------------------
+// _IOHIDLog
+//------------------------------------------------------------------------------
+os_log_t _IOHIDLog(void)
 {
-    aslmsg msg = NULL;
-    
-    if (1) {
-        msg = asl_new(ASL_TYPE_MSG);
-        asl_set(msg, ASL_KEY_FACILITY, "com.apple.iokit.IOHID");
+    static os_log_t log = NULL;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        log = os_log_create("com.apple.iohid", "default");
+    });
+    return log;
+}
+
+//------------------------------------------------------------------------------
+// _IOHIDLogCategory
+//------------------------------------------------------------------------------
+os_log_t _IOHIDLogCategory(IOHIDLogCategory category)
+{
+    assert(category < kIOHIDLogCategoryCount);
+    static os_log_t log[kIOHIDLogCategoryCount];
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        log[kIOHIDLogCategoryDefault]       = os_log_create(kIOHIDLogSubsytem, "default");
+        log[kIOHIDLogCategoryTrace]         = os_log_create(kIOHIDLogSubsytem, "trace");
+        log[kIOHIDLogCategoryProperty]      = os_log_create(kIOHIDLogSubsytem, "property");
+        log[kIOHIDLogCategoryActivity]      = os_log_create(kIOHIDLogSubsytem, "activity");
+    });
+    return log[category];
+}
+
+//------------------------------------------------------------------------------
+// _IOHIDUnitlCopyTimeString
+//------------------------------------------------------------------------------
+CFStringRef _IOHIDCreateTimeString(struct timeval *tv)
+{
+    struct tm tmd;
+    struct tm *local_time;
+    char time_str[32] = { 0, };
+
+    local_time = localtime_r(&tv->tv_sec, &tmd);
+    if (local_time == NULL) {
+        local_time = gmtime_r(&tv->tv_sec, &tmd);
     }
-    va_list ap;
-    va_start(ap, format);
-    asl_vlog(NULL, msg, level, format, ap);
-    va_end(ap);
-    if (msg) {
-        asl_free(msg);
+
+    if (local_time) {
+        strftime(time_str, sizeof(time_str), "%F %H:%M:%S", local_time);
     }
+  
+  
+    CFStringRef time = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%s.%06d"), time_str, tv->tv_usec);
+    return time;
+}
+
+//------------------------------------------------------------------------------
+// _IOHIDGetMonotonicTime (in ns)
+//------------------------------------------------------------------------------
+uint64_t  _IOHIDGetMonotonicTime () {
+    static mach_timebase_info_data_t    timebaseInfo;
+
+    if (timebaseInfo.denom == 0)
+        mach_timebase_info(&timebaseInfo);
+
+    return ((mach_absolute_time( ) * timebaseInfo.numer) / timebaseInfo.denom);
 }

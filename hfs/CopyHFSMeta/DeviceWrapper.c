@@ -96,7 +96,7 @@ SetProgress(struct IOWrapper *context, off_t progr)
 struct IOWrapper *
 InitDeviceWrapper(const char *path, DeviceInfo_t *devp)
 {
-	struct DeviceWrapperContext ctx = { 0 };
+	struct DeviceWrapperContext ctx = { .fd = -1 };
 	struct DeviceWrapperContext *retctx = NULL;
 	IOWrapper_t *retval = NULL;
 	struct stat sb;
@@ -118,8 +118,6 @@ InitDeviceWrapper(const char *path, DeviceInfo_t *devp)
 		warnx("device %s is not a raw device", rawname);
 		goto done;
 	}
-
-	ctx.pathname = strdup(rawname);
 
 	ctx.fd = open(rawname, O_RDWR);
 	if (ctx.fd == -1) {
@@ -161,5 +159,12 @@ InitDeviceWrapper(const char *path, DeviceInfo_t *devp)
 	retval->cleanup = &noClean;
 
 done:
+	if (!retval) {
+		free(ctx.pathname);
+		free(retctx);
+		if (ctx.fd >= 0)
+			close(ctx.fd);
+	}
+
 	return retval;
 }

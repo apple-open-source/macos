@@ -57,7 +57,7 @@
 #include <assert.h>
 #include <Security/SecBase.h>
 
-#define SecPkcs8Dbg(args...)	secdebug("SecPkcs8", ## args)
+#define SecPkcs8Dbg(args...)	secinfo("SecPkcs8", ## args)
 
 #pragma mark --- PKCS5 v1.5 Key Derivation ---
 

@@ -53,7 +53,7 @@ WebInspector.Sidebar = class Sidebar extends WebInspector.View
         this._sidebarPanels = [];
 
         if (sidebarPanels) {
-            for (var sidebarPanel of sidebarPanels)
+            for (let sidebarPanel of sidebarPanels)
                 this.addSidebarPanel(sidebarPanel);
         }
     }
@@ -89,7 +89,7 @@ WebInspector.Sidebar = class Sidebar extends WebInspector.View
         if (!sidebarPanel)
             return null;
 
-        sidebarPanel.willRemove();
+        sidebarPanel.selected = false;
 
         if (sidebarPanel.visible) {
             sidebarPanel.hidden();
@@ -147,6 +147,7 @@ WebInspector.Sidebar = class Sidebar extends WebInspector.View
             if (this._selectedSidebarPanel.visible) {
                 this._selectedSidebarPanel.shown();
                 this._selectedSidebarPanel.visibilityDidChange();
+                this._recalculateWidth(this._selectedSidebarPanel.savedWidth);
             }
         }
 
@@ -157,6 +158,8 @@ WebInspector.Sidebar = class Sidebar extends WebInspector.View
     {
         if (this._navigationBar)
             return Math.max(WebInspector.Sidebar.AbsoluteMinimumWidth, this._navigationBar.minimumWidth);
+        if (this._selectedSidebarPanel)
+            return Math.max(WebInspector.Sidebar.AbsoluteMinimumWidth, this._selectedSidebarPanel.minimumWidth);
         return WebInspector.Sidebar.AbsoluteMinimumWidth;
     }
 
@@ -177,17 +180,7 @@ WebInspector.Sidebar = class Sidebar extends WebInspector.View
         if (newWidth === this.width)
             return;
 
-        newWidth = Math.max(this.minimumWidth, Math.min(newWidth, this.maximumWidth));
-
-        this.element.style.width = newWidth + "px";
-
-        if (!this.collapsed && this._navigationBar)
-            this._navigationBar.needsLayout();
-
-        if (!this.collapsed && this._selectedSidebarPanel)
-            this._selectedSidebarPanel.widthDidChange();
-
-        this.dispatchEventToListeners(WebInspector.Sidebar.Event.WidthDidChange);
+        this._recalculateWidth(newWidth);
     }
 
     get collapsed()
@@ -207,14 +200,13 @@ WebInspector.Sidebar = class Sidebar extends WebInspector.View
             this._navigationBar.needsLayout();
 
         if (this._selectedSidebarPanel) {
-            if (this._selectedSidebarPanel.visible)
+            if (this._selectedSidebarPanel.visible) {
                 this._selectedSidebarPanel.shown();
-            else
+                this._recalculateWidth(this._selectedSidebarPanel.savedWidth);
+            } else
                 this._selectedSidebarPanel.hidden();
 
             this._selectedSidebarPanel.visibilityDidChange();
-
-            this._selectedSidebarPanel.widthDidChange();
         }
 
         this.dispatchEventToListeners(WebInspector.Sidebar.Event.CollapsedStateDidChange);
@@ -270,6 +262,21 @@ WebInspector.Sidebar = class Sidebar extends WebInspector.View
     }
 
     // Private
+
+    _recalculateWidth(newWidth = this.width)
+    {
+        // Need to add 1 because of the 1px border-right.
+        newWidth = Number.constrain(newWidth, this.minimumWidth + 1, this.maximumWidth);
+        this.element.style.width = Math.ceil(newWidth) + "px";
+
+        if (!this.collapsed && this._navigationBar)
+            this._navigationBar.needsLayout();
+
+        if (!this.collapsed && this._selectedSidebarPanel)
+            this._selectedSidebarPanel.updateLayout(WebInspector.View.LayoutReason.Resize);
+
+        this.dispatchEventToListeners(WebInspector.Sidebar.Event.WidthDidChange);
+    }
 
     _navigationItemSelected(event)
     {

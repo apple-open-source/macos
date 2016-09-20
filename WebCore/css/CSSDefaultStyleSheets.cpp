@@ -34,6 +34,13 @@
 #include "HTMLAnchorElement.h"
 #include "HTMLAudioElement.h"
 #include "HTMLBRElement.h"
+#include "HTMLBodyElement.h"
+#include "HTMLDivElement.h"
+#include "HTMLEmbedElement.h"
+#include "HTMLHeadElement.h"
+#include "HTMLHtmlElement.h"
+#include "HTMLObjectElement.h"
+#include "HTMLSpanElement.h"
 #include "MathMLElement.h"
 #include "MediaQueryEvaluator.h"
 #include "Page.h"
@@ -51,6 +58,7 @@ using namespace HTMLNames;
 RuleSet* CSSDefaultStyleSheets::defaultStyle;
 RuleSet* CSSDefaultStyleSheets::defaultQuirksStyle;
 RuleSet* CSSDefaultStyleSheets::defaultPrintStyle;
+unsigned CSSDefaultStyleSheets::defaultStyleVersion;
 
 StyleSheetContents* CSSDefaultStyleSheets::simpleDefaultStyleSheet;
 StyleSheetContents* CSSDefaultStyleSheets::defaultStyleSheet;
@@ -65,7 +73,7 @@ StyleSheetContents* CSSDefaultStyleSheets::imageControlsStyleSheet;
 // FIXME: It would be nice to use some mechanism that guarantees this is in sync with the real UA stylesheet.
 static const char* simpleUserAgentStyleSheet = "html,body,div{display:block}head{display:none}body{margin:8px}div:focus,span:focus,a:focus{outline:auto 5px -webkit-focus-ring-color}a:any-link{color:-webkit-link;text-decoration:underline}a:any-link:active{color:-webkit-activelink}";
 
-static inline bool elementCanUseSimpleDefaultStyle(Element& element)
+static inline bool elementCanUseSimpleDefaultStyle(const Element& element)
 {
     return is<HTMLHtmlElement>(element) || is<HTMLHeadElement>(element)
         || is<HTMLBodyElement>(element) || is<HTMLDivElement>(element)
@@ -97,7 +105,7 @@ static StyleSheetContents* parseUASheet(const char* characters, unsigned size)
     return parseUASheet(String(characters, size));
 }
 
-void CSSDefaultStyleSheets::initDefaultStyle(Element* root)
+void CSSDefaultStyleSheets::initDefaultStyle(const Element* root)
 {
     if (!defaultStyle) {
         if (!root || elementCanUseSimpleDefaultStyle(*root))
@@ -127,13 +135,13 @@ void CSSDefaultStyleSheets::loadFullDefaultStyle()
     // Strict-mode rules.
     String defaultRules = String(htmlUserAgentStyleSheet, sizeof(htmlUserAgentStyleSheet)) + RenderTheme::defaultTheme()->extraDefaultStyleSheet();
     defaultStyleSheet = parseUASheet(defaultRules);
-    defaultStyle->addRulesFromSheet(defaultStyleSheet, screenEval());
-    defaultPrintStyle->addRulesFromSheet(defaultStyleSheet, printEval());
+    defaultStyle->addRulesFromSheet(*defaultStyleSheet, screenEval());
+    defaultPrintStyle->addRulesFromSheet(*defaultStyleSheet, printEval());
 
     // Quirks-mode rules.
     String quirksRules = String(quirksUserAgentStyleSheet, sizeof(quirksUserAgentStyleSheet)) + RenderTheme::defaultTheme()->extraQuirksStyleSheet();
     quirksStyleSheet = parseUASheet(quirksRules);
-    defaultQuirksStyle->addRulesFromSheet(quirksStyleSheet, screenEval());
+    defaultQuirksStyle->addRulesFromSheet(*quirksStyleSheet, screenEval());
 }
 
 void CSSDefaultStyleSheets::loadSimpleDefaultStyle()
@@ -147,16 +155,16 @@ void CSSDefaultStyleSheets::loadSimpleDefaultStyle()
     defaultQuirksStyle = std::make_unique<RuleSet>().release();
 
     simpleDefaultStyleSheet = parseUASheet(simpleUserAgentStyleSheet, strlen(simpleUserAgentStyleSheet));
-    defaultStyle->addRulesFromSheet(simpleDefaultStyleSheet, screenEval());
-
+    defaultStyle->addRulesFromSheet(*simpleDefaultStyleSheet, screenEval());
+    ++defaultStyleVersion;
     // No need to initialize quirks sheet yet as there are no quirk rules for elements allowed in simple default style.
 }
 
-void CSSDefaultStyleSheets::ensureDefaultStyleSheetsForElement(Element& element, bool& changedDefaultStyle)
+void CSSDefaultStyleSheets::ensureDefaultStyleSheetsForElement(const Element& element)
 {
     if (simpleDefaultStyleSheet && !elementCanUseSimpleDefaultStyle(element)) {
         loadFullDefaultStyle();
-        changedDefaultStyle = true;
+        ++defaultStyleVersion;
     }
 
     if (is<HTMLElement>(element)) {
@@ -166,8 +174,8 @@ void CSSDefaultStyleSheets::ensureDefaultStyleSheetsForElement(Element& element,
                 if (plugInsRules.isEmpty())
                     plugInsRules = String(plugInsUserAgentStyleSheet, sizeof(plugInsUserAgentStyleSheet));
                 plugInsStyleSheet = parseUASheet(plugInsRules);
-                defaultStyle->addRulesFromSheet(plugInsStyleSheet, screenEval());
-                changedDefaultStyle = true;
+                defaultStyle->addRulesFromSheet(*plugInsStyleSheet, screenEval());
+                ++defaultStyleVersion;
             }
         }
 #if ENABLE(VIDEO)
@@ -177,9 +185,9 @@ void CSSDefaultStyleSheets::ensureDefaultStyleSheetsForElement(Element& element,
                 if (mediaRules.isEmpty())
                     mediaRules = String(mediaControlsUserAgentStyleSheet, sizeof(mediaControlsUserAgentStyleSheet)) + RenderTheme::themeForPage(element.document().page())->extraMediaControlsStyleSheet();
                 mediaControlsStyleSheet = parseUASheet(mediaRules);
-                defaultStyle->addRulesFromSheet(mediaControlsStyleSheet, screenEval());
-                defaultPrintStyle->addRulesFromSheet(mediaControlsStyleSheet, printEval());
-                changedDefaultStyle = true;
+                defaultStyle->addRulesFromSheet(*mediaControlsStyleSheet, screenEval());
+                defaultPrintStyle->addRulesFromSheet(*mediaControlsStyleSheet, printEval());
+                ++defaultStyleVersion;
             }
         }
 #endif // ENABLE(VIDEO)
@@ -188,9 +196,9 @@ void CSSDefaultStyleSheets::ensureDefaultStyleSheetsForElement(Element& element,
             if (!imageControlsStyleSheet) {
                 String imageControlsRules = RenderTheme::themeForPage(element.document().page())->imageControlsStyleSheet();
                 imageControlsStyleSheet = parseUASheet(imageControlsRules);
-                defaultStyle->addRulesFromSheet(imageControlsStyleSheet, screenEval());
-                defaultPrintStyle->addRulesFromSheet(imageControlsStyleSheet, printEval());
-                changedDefaultStyle = true;
+                defaultStyle->addRulesFromSheet(*imageControlsStyleSheet, screenEval());
+                defaultPrintStyle->addRulesFromSheet(*imageControlsStyleSheet, printEval());
+                ++defaultStyleVersion;
             }
         }
 #endif // ENABLE(SERVICE_CONTROLS)
@@ -198,9 +206,9 @@ void CSSDefaultStyleSheets::ensureDefaultStyleSheetsForElement(Element& element,
         if (!svgStyleSheet) {
             // SVG rules.
             svgStyleSheet = parseUASheet(svgUserAgentStyleSheet, sizeof(svgUserAgentStyleSheet));
-            defaultStyle->addRulesFromSheet(svgStyleSheet, screenEval());
-            defaultPrintStyle->addRulesFromSheet(svgStyleSheet, printEval());
-            changedDefaultStyle = true;
+            defaultStyle->addRulesFromSheet(*svgStyleSheet, screenEval());
+            defaultPrintStyle->addRulesFromSheet(*svgStyleSheet, printEval());
+            ++defaultStyleVersion;
         }
     }
 #if ENABLE(MATHML)
@@ -208,9 +216,9 @@ void CSSDefaultStyleSheets::ensureDefaultStyleSheetsForElement(Element& element,
         if (!mathMLStyleSheet) {
             // MathML rules.
             mathMLStyleSheet = parseUASheet(mathmlUserAgentStyleSheet, sizeof(mathmlUserAgentStyleSheet));
-            defaultStyle->addRulesFromSheet(mathMLStyleSheet, screenEval());
-            defaultPrintStyle->addRulesFromSheet(mathMLStyleSheet, printEval());
-            changedDefaultStyle = true;
+            defaultStyle->addRulesFromSheet(*mathMLStyleSheet, screenEval());
+            defaultPrintStyle->addRulesFromSheet(*mathMLStyleSheet, printEval());
+            ++defaultStyleVersion;
         }
     }
 #endif // ENABLE(MATHML)
@@ -219,9 +227,9 @@ void CSSDefaultStyleSheets::ensureDefaultStyleSheetsForElement(Element& element,
     if (!fullscreenStyleSheet && element.document().webkitIsFullScreen()) {
         String fullscreenRules = String(fullscreenUserAgentStyleSheet, sizeof(fullscreenUserAgentStyleSheet)) + RenderTheme::defaultTheme()->extraFullScreenStyleSheet();
         fullscreenStyleSheet = parseUASheet(fullscreenRules);
-        defaultStyle->addRulesFromSheet(fullscreenStyleSheet, screenEval());
-        defaultQuirksStyle->addRulesFromSheet(fullscreenStyleSheet, screenEval());
-        changedDefaultStyle = true;
+        defaultStyle->addRulesFromSheet(*fullscreenStyleSheet, screenEval());
+        defaultQuirksStyle->addRulesFromSheet(*fullscreenStyleSheet, screenEval());
+        ++defaultStyleVersion;
     }
 #endif // ENABLE(FULLSCREEN_API)
 

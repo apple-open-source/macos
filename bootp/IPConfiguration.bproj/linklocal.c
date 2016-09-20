@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -145,23 +145,6 @@ arp_linklocal_enable(const char * name)
     set_arp_linklocal(name, 1);
 }
 
-static boolean_t
-parent_service_ip_address(ServiceRef service_p, struct in_addr * ret_ip)
-{
-    struct in_addr	addr;
-    ServiceRef 		parent_service_p = service_parent_service(service_p);
-
-    if (parent_service_p == NULL) {
-	return (FALSE);
-    }
-    addr = ServiceGetActiveIPAddress(parent_service_p);
-    if (addr.s_addr == 0) {
-	return (FALSE);
-    }
-    *ret_ip = addr;
-    return (TRUE);
-}
-
 struct in_addr
 S_find_linklocal_address(ServiceRef service_p)
 {
@@ -231,78 +214,6 @@ linklocal_inactive(ServiceRef service_p)
 }
 
 static void
-linklocal_detect_proxy_arp(ServiceRef service_p, IFEventID_t event_id,
-			   void * event_data)
-{
-    interface_t *	  if_p = service_interface(service_p);
-    Service_linklocal_t * linklocal;
-
-    linklocal = (Service_linklocal_t *)ServiceGetPrivate(service_p);
-    switch (event_id) {
-      case IFEventID_start_e: {
-	  struct in_addr	iaddr = { 0 };
-	  struct in_addr	llbroadcast;
-
-	  arp_linklocal_disable(if_name(if_p));
-	  llbroadcast.s_addr = htonl(LINKLOCAL_RANGE_END);
-	  /* clean-up anything that might have come before */
-	  linklocal_cancel_pending_events(service_p);
-	  if (parent_service_ip_address(service_p, &iaddr) == FALSE) {
-	      my_log(LOG_NOTICE, "LINKLOCAL %s: parent has no IP",
-		     if_name(if_p));
-	      break;
-	  }
-	  my_log(LOG_INFO,
-		 "LINKLOCAL %s: ARP Request: Source " IP_FORMAT 
-		 " Target 169.254.255.255", if_name(if_p), IP_LIST(&iaddr));
-	  arp_client_probe(linklocal->arp,
-			   (arp_result_func_t *)linklocal_detect_proxy_arp, 
-			   service_p, (void *)IFEventID_arp_e, iaddr,
-			   llbroadcast);
-	  /* wait for the results */
-	  break;
-      }
-      case IFEventID_arp_e: {
-	  link_status_t		link_status;
-	  arp_result_t *	result = (arp_result_t *)event_data;
-
-	  if (result->error) {
-	      my_log(LOG_INFO, "LINKLOCAL %s: ARP probe failed, %s", 
-		     if_name(if_p),
-		     arp_client_errmsg(linklocal->arp));
-	      break;
-	  }
-	  linklocal_set_needs_attention();
-	  if (result->in_use) {
-	      my_log(LOG_INFO, 
-		     "LINKLOCAL %s: ARP response received for 169.254.255.255" 
-		     " from " EA_FORMAT, 
-		     if_name(if_p), 
-		     EA_LIST(result->addr.target_hardware));
-	      service_publish_failure(service_p, 
-				      ipconfig_status_address_in_use_e);
-	      break;
-	  }
-	  link_status = service_link_status(service_p);
-	  if (link_status.valid == TRUE 
-	      && link_status.active == FALSE) {
-	      linklocal_failed(service_p,
-			       ipconfig_status_media_inactive_e);
-	      break;
-	  }
-	  arp_linklocal_enable(if_name(if_p));
-	  service_publish_failure(service_p, 
-				  ipconfig_status_success_e);
-	  break;
-      }
-      default: {
-	  break;
-      }
-    }
-    return;
-}
-
-static void
 linklocal_allocate(ServiceRef service_p, IFEventID_t event_id,
 		   void * event_data)
 {
@@ -358,8 +269,9 @@ linklocal_allocate(ServiceRef service_p, IFEventID_t event_id,
 	      }
 	      else {
 		  my_log(LOG_INFO, "LINKLOCAL %s: IP address "
-			 IP_FORMAT " is no longer unique", 
-			 if_name(if_p));
+			 IP_FORMAT " is no longer unique",
+			 if_name(if_p),
+		         IP_LIST(&linklocal->probe));
 	      }
 	      if (linklocal->our_ip.s_addr == linklocal->probe.s_addr) {
 		  linklocal->our_ip = G_ip_zeroes;
@@ -434,10 +346,6 @@ linklocal_start(ServiceRef service_p)
     if (linklocal->allocate) {
 	linklocal_allocate(service_p, IFEventID_start_e, NULL);
     }
-    else {
-	linklocal_detect_proxy_arp(service_p,
-				   IFEventID_start_e, NULL);
-    }
     return;
 }
 
@@ -451,7 +359,7 @@ linklocal_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
     linklocal = (Service_linklocal_t *)ServiceGetPrivate(service_p);
     switch (event_id) {
       case IFEventID_start_e: {
-	  ipconfig_method_data_t * method_data;
+	  ipconfig_method_data_t method_data;
 
 	  if (if_flags(if_p) & IFF_LOOPBACK) {
 	      status = ipconfig_status_invalid_operation_e;
@@ -486,12 +394,11 @@ linklocal_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  arp_client_set_probes_are_collisions(linklocal->arp, TRUE);
 	  linklocal->allocate = TRUE;
 
-	  method_data = (ipconfig_method_data_t *)event_data;
+	  method_data = (ipconfig_method_data_t)event_data;
 	  if (method_data != NULL 
 	      && method_data->linklocal.allocate == FALSE) {
-	      /* don't allocate an IP address, just set the subnet */
+	      /* don't allocate an IP address */
 	      linklocal->allocate = FALSE;
-	      linklocal_detect_proxy_arp(service_p, IFEventID_start_e, NULL);
 	      break;
 	  }
 	  linklocal->our_ip = S_find_linklocal_address(service_p);
@@ -532,7 +439,7 @@ linklocal_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
       case IFEventID_change_e: {
 	  boolean_t		  	allocate = TRUE;
 	  change_event_data_t *   	change_event;
-	  ipconfig_method_data_t * 	method_data;
+	  ipconfig_method_data_t 	method_data;
 
 	  change_event = (change_event_data_t *)event_data;
 	  method_data = change_event->method_data;
@@ -549,8 +456,6 @@ linklocal_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	      }
 	      else {
 		  linklocal_failed(service_p, ipconfig_status_success_e);
-		  linklocal_detect_proxy_arp(service_p,
-					     IFEventID_start_e, NULL);
 	      }
 	  }
 	  break;
@@ -576,6 +481,7 @@ linklocal_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  linklocal_allocate(service_p, IFEventID_start_e, NULL);
 	  break;
       }
+      case IFEventID_wake_e:
       case IFEventID_link_status_changed_e: {
 	  link_status_t	   link_status;
 
@@ -583,14 +489,12 @@ linklocal_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	      return (ipconfig_status_internal_error_e);
 	  }
 	  link_status = service_link_status(service_p);
-	  if (link_status.valid == TRUE) {
+	  if (link_status.valid == TRUE && link_status.active == FALSE) {
 	      linklocal_cancel_pending_events(service_p);
-	      if (link_status.active == TRUE) {
-		  linklocal_start(service_p);
-	      }
-	      else {
-		  linklocal->enable_arp_collision_detection = FALSE;
-	      }
+	      linklocal->enable_arp_collision_detection = FALSE;
+	  }
+	  else {
+	      linklocal_start(service_p);
 	  }
 	  break;
       }

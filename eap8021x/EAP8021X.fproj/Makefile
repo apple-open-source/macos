@@ -87,7 +87,7 @@ SIMAccess: SIMAccess.c printdata.c myCFUtil.c EAPSIMAKAUtil.c EAPUtil.c EAPClien
 	xcrun -sdk $(SDK) codesign -s - -f --entitlements ../eapolclient.tproj/entitlements.plist $@
 
 verify_server: EAPTLSUtil.c EAPCertificateUtil.c EAPSecurity.c myCFUtil.c printdata.c EAPUtil.c EAPClientModule.c EAPSIMAKAPersistentState.c EAPKeychainUtil.c EAPLog.c
-	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -DTEST_EAPTLSVerifyServerCertificateChain $(PF_INC) -framework CoreFoundation -framework SystemConfiguration -framework Security -g -o $@ $^
+	$(CC) $(ARCH_FLAGS) $(SCPRIV) -isysroot $(SYSROOT) -DTEST_EAPTLSVerifyServerCertificateChain $(PF_INC) -framework CoreFoundation -framework SystemConfiguration -framework Security -g -o $@ $^
 
 verify_server_name: EAPTLSUtil.c EAPCertificateUtil.c EAPSecurity.c myCFUtil.c printdata.c EAPUtil.c EAPClientModule.c EAPSIMAKAPersistentState.c EAPKeychainUtil.c EAPLog.c
 	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -DTEST_VerifyServerName $(PF_INC) -framework CoreFoundation -framework SystemConfiguration -framework Security -g -o $@ $^

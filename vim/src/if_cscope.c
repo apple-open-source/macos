@@ -13,16 +13,10 @@
 
 #if defined(FEAT_CSCOPE) || defined(PROTO)
 
-#include <string.h>
-#include <errno.h>
-#include <assert.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #if defined(UNIX)
 # include <sys/wait.h>
-#else
-    /* not UNIX, must be WIN32 */
-# include "vimio.h"
 #endif
 #include "if_cscope.h"
 
@@ -545,12 +539,27 @@ cs_add_common(arg1, arg2, flags)
     char	*fname2 = NULL;
     char	*ppath = NULL;
     int		i;
+#ifdef FEAT_MODIFY_FNAME
+    int		len;
+    int		usedlen = 0;
+    char_u	*fbuf = NULL;
+#endif
 
     /* get the filename (arg1), expand it, and try to stat it */
     if ((fname = (char *)alloc(MAXPATHL + 1)) == NULL)
 	goto add_err;
 
     expand_env((char_u *)arg1, (char_u *)fname, MAXPATHL);
+#ifdef FEAT_MODIFY_FNAME
+    len = (int)STRLEN(fname);
+    fbuf = (char_u *)fname;
+    (void)modify_fname((char_u *)":p", &usedlen,
+					      (char_u **)&fname, &fbuf, &len);
+    if (fname == NULL)
+	goto add_err;
+    fname = (char *)vim_strnsave((char_u *)fname, len);
+    vim_free(fbuf);
+#endif
     ret = stat(fname, &statbuf);
     if (ret < 0)
     {
@@ -988,6 +997,15 @@ err_closing:
 	vim_free(ppath);
 
 #if defined(UNIX)
+# if defined(HAVE_SETSID) || defined(HAVE_SETPGID)
+	/* Change our process group to avoid cscope receiving SIGWINCH. */
+#  if defined(HAVE_SETSID)
+	(void)setsid();
+#  else
+	if (setpgid(0, 0) == -1)
+	    PERROR(_("cs_create_connection setpgid failed"));
+#  endif
+# endif
 	if (execl("/bin/sh", "sh", "-c", cmd, (char *)NULL) == -1)
 	    PERROR(_("cs_create_connection exec failed"));
 
@@ -1058,8 +1076,8 @@ err_closing:
 /*
  * PRIVATE: cs_find
  *
- * query cscope using command line interface.  parse the output and use tselect
- * to allow choices.  like Nvi, creates a pipe to send to/from query/cscope.
+ * Query cscope using command line interface.  Parse the output and use tselect
+ * to allow choices.  Like Nvi, creates a pipe to send to/from query/cscope.
  *
  * returns TRUE if we jump to a tag or abort, FALSE if not.
  */
@@ -1113,8 +1131,8 @@ cs_find_common(opt, pat, forceit, verbose, use_ll, cmdline)
     char *pat;
     int forceit;
     int verbose;
-    int	use_ll;
-    char_u *cmdline;
+    int	use_ll UNUSED;
+    char_u *cmdline UNUSED;
 {
     int i;
     char *cmd;
@@ -1196,11 +1214,13 @@ cs_find_common(opt, pat, forceit, verbose, use_ll, cmdline)
 
     nummatches = (int *)alloc(sizeof(int)*csinfo_size);
     if (nummatches == NULL)
+    {
+	vim_free(cmd);
 	return FALSE;
+    }
 
-    /* send query to all open connections, then count the total number
-     * of matches so we can alloc matchesp all in one swell foop
-     */
+    /* Send query to all open connections, then count the total number
+     * of matches so we can alloc all in one swell foop. */
     for (i = 0; i < csinfo_size; i++)
 	nummatches[i] = 0;
     totmatches = 0;
@@ -1252,7 +1272,7 @@ cs_find_common(opt, pat, forceit, verbose, use_ll, cmdline)
     {
 	/* fill error list */
 	FILE	    *f;
-	char_u	    *tmp = vim_tempname('c');
+	char_u	    *tmp = vim_tempname('c', TRUE);
 	qf_info_T   *qi = NULL;
 	win_T	    *wp = NULL;
 
@@ -1272,11 +1292,9 @@ cs_find_common(opt, pat, forceit, verbose, use_ll, cmdline)
 # ifdef FEAT_WINDOWS
 		if (postponed_split != 0)
 		{
-		    win_split(postponed_split > 0 ? postponed_split : 0,
+		    (void)win_split(postponed_split > 0 ? postponed_split : 0,
 						       postponed_split_flags);
-#  ifdef FEAT_SCROLLBIND
-		    curwin->w_p_scb = FALSE;
-#  endif
+		    RESET_BINDING(curwin);
 		    postponed_split = 0;
 		}
 # endif
@@ -1353,7 +1371,7 @@ cs_help(eap)
 		       "       g: Find this definition\n"
 		       "       i: Find files #including this file\n"
 		       "       s: Find this C symbol\n"
-		       "       t: Find assignments to\n"));
+		       "       t: Find this text string\n"));
 
 	cmdp++;
     }
@@ -1420,17 +1438,15 @@ cs_insert_filelist(fname, ppath, flags, sb)
 {
     short	i, j;
 #ifndef UNIX
-    HANDLE	hFile;
     BY_HANDLE_FILE_INFORMATION bhfi;
 
-    vim_memset(&bhfi, 0, sizeof(bhfi));
     /* On windows 9x GetFileInformationByHandle doesn't work, so skip it */
     if (!mch_windows95())
     {
-	hFile = CreateFile(fname, FILE_READ_ATTRIBUTES, 0, NULL, OPEN_EXISTING,
-						 FILE_ATTRIBUTE_NORMAL, NULL);
-	if (hFile == INVALID_HANDLE_VALUE)
+	switch (win32_fileinfo(fname, &bhfi))
 	{
+	case FILEINFO_ENC_FAIL:		/* enc_to_utf16() failed */
+	case FILEINFO_READ_FAIL:	/* CreateFile() failed */
 	    if (p_csverbose)
 	    {
 		char *cant_msg = _("E625: cannot open cscope database: %s");
@@ -1446,15 +1462,12 @@ cs_insert_filelist(fname, ppath, flags, sb)
 		    (void)EMSG2(cant_msg, fname);
 	    }
 	    return -1;
-	}
-	if (!GetFileInformationByHandle(hFile, &bhfi))
-	{
-	    CloseHandle(hFile);
+
+	case FILEINFO_INFO_FAIL:    /* GetFileInformationByHandle() failed */
 	    if (p_csverbose)
 		(void)EMSG(_("E626: cannot get cscope database information"));
 	    return -1;
 	}
-	CloseHandle(hFile);
     }
 #endif
 
@@ -1497,9 +1510,16 @@ cs_insert_filelist(fname, ppath, flags, sb)
 	}
 	else
 	{
+	    csinfo_T *t_csinfo = csinfo;
+
 	    /* Reallocate space for more connections. */
 	    csinfo_size *= 2;
 	    csinfo = vim_realloc(csinfo, sizeof(csinfo_T)*csinfo_size);
+	    if (csinfo == NULL)
+	    {
+		vim_free(t_csinfo);
+		csinfo_size = 0;
+	    }
 	}
 	if (csinfo == NULL)
 	    return -1;
@@ -1664,7 +1684,7 @@ cs_kill_execute(i, cname)
 /*
  * PRIVATE: cs_make_vim_style_matches
  *
- * convert the cscope output into into a ctags style entry (as might be found
+ * convert the cscope output into a ctags style entry (as might be found
  * in a ctags tags file).  there's one catch though: cscope doesn't tell you
  * the type of the tag you are looking for.  for example, in Darren Hiebert's
  * ctags (the one that comes with vim), #define's use a line number to find the
@@ -2049,6 +2069,7 @@ cs_print_tags_priv(matches, cntxts, num_matches)
     int num_matches;
 {
     char	*buf = NULL;
+    char	*t_buf;
     int		bufsize = 0; /* Track available bufsize */
     int		newsize = 0;
     char	*ptag;
@@ -2067,6 +2088,8 @@ cs_print_tags_priv(matches, cntxts, num_matches)
 
     strcpy(tbuf, matches[0]);
     ptag = strtok(tbuf, "\t");
+    if (ptag == NULL)
+	return;
 
     newsize = (int)(strlen(cstag_msg) + strlen(ptag));
     buf = (char *)alloc(newsize);
@@ -2110,9 +2133,13 @@ cs_print_tags_priv(matches, cntxts, num_matches)
 	newsize = (int)(strlen(csfmt_str) + 16 + strlen(lno));
 	if (bufsize < newsize)
 	{
+	    t_buf = buf;
 	    buf = (char *)vim_realloc(buf, newsize);
 	    if (buf == NULL)
+	    {
 		bufsize = 0;
+		vim_free(t_buf);
+	    }
 	    else
 		bufsize = newsize;
 	}
@@ -2133,9 +2160,13 @@ cs_print_tags_priv(matches, cntxts, num_matches)
 
 	if (bufsize < newsize)
 	{
+	    t_buf = buf;
 	    buf = (char *)vim_realloc(buf, newsize);
 	    if (buf == NULL)
+	    {
 		bufsize = 0;
+		vim_free(t_buf);
+	    }
 	    else
 		bufsize = newsize;
 	}
@@ -2474,52 +2505,73 @@ cs_reset(eap)
 /*
  * PRIVATE: cs_resolve_file
  *
- * construct the full pathname to a file found in the cscope database.
+ * Construct the full pathname to a file found in the cscope database.
  * (Prepends ppath, if there is one and if it's not already prepended,
  * otherwise just uses the name found.)
  *
- * we need to prepend the prefix because on some cscope's (e.g., the one that
+ * We need to prepend the prefix because on some cscope's (e.g., the one that
  * ships with Solaris 2.6), the output never has the prefix prepended.
- * contrast this with my development system (Digital Unix), which does.
+ * Contrast this with my development system (Digital Unix), which does.
  */
     static char *
 cs_resolve_file(i, name)
-    int i;
+    int  i;
     char *name;
 {
-    char *fullname;
-    int len;
+    char	*fullname;
+    int		len;
+    char_u	*csdir = NULL;
 
     /*
-     * ppath is freed when we destroy the cscope connection.
-     * fullname is freed after cs_make_vim_style_matches, after it's been
-     * copied into the tag buffer used by vim
+     * Ppath is freed when we destroy the cscope connection.
+     * Fullname is freed after cs_make_vim_style_matches, after it's been
+     * copied into the tag buffer used by Vim.
      */
     len = (int)(strlen(name) + 2);
     if (csinfo[i].ppath != NULL)
 	len += (int)strlen(csinfo[i].ppath);
+    else if (p_csre && csinfo[i].fname != NULL)
+    {
+	/* If 'cscoperelative' is set and ppath is not set, use cscope.out
+	 * path in path resolution. */
+	csdir = alloc(MAXPATHL);
+	if (csdir != NULL)
+	{
+	    vim_strncpy(csdir, (char_u *)csinfo[i].fname,
+		                       gettail((char_u *)csinfo[i].fname)
+						 - (char_u *)csinfo[i].fname);
+	    len += (int)STRLEN(csdir);
+	}
+    }
 
-    if ((fullname = (char *)alloc(len)) == NULL)
-	return NULL;
-
-    /*
-     * note/example: this won't work if the cscope output already starts
+    /* Note/example: this won't work if the cscope output already starts
      * "../.." and the prefix path is also "../..".  if something like this
-     * happens, you are screwed up and need to fix how you're using cscope.
-     */
-    if (csinfo[i].ppath != NULL &&
-	(strncmp(name, csinfo[i].ppath, strlen(csinfo[i].ppath)) != 0) &&
-	(name[0] != '/')
+     * happens, you are screwed up and need to fix how you're using cscope. */
+    if (csinfo[i].ppath != NULL
+	    && (strncmp(name, csinfo[i].ppath, strlen(csinfo[i].ppath)) != 0)
+	    && (name[0] != '/')
 #ifdef WIN32
-	&& name[0] != '\\' && name[1] != ':'
+	    && name[0] != '\\' && name[1] != ':'
 #endif
-	)
-	(void)sprintf(fullname, "%s/%s", csinfo[i].ppath, name);
+       )
+    {
+	if ((fullname = (char *)alloc(len)) != NULL)
+	    (void)sprintf(fullname, "%s/%s", csinfo[i].ppath, name);
+    }
+    else if (csdir != NULL && csinfo[i].fname != NULL && *csdir != NUL)
+    {
+	/* Check for csdir to be non empty to avoid empty path concatenated to
+	 * cscope output. */
+	fullname = (char *)concat_fnames(csdir, (char_u *)name, TRUE);
+    }
     else
-	(void)sprintf(fullname, "%s", name);
+    {
+	fullname = (char *)vim_strsave((char_u *)name);
+    }
 
+    vim_free(csdir);
     return fullname;
-} /* cs_resolve_file */
+}
 
 
 /*

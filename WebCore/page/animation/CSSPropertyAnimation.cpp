@@ -42,6 +42,7 @@
 #include "ClipPathOperation.h"
 #include "FloatConversion.h"
 #include "IdentityTransformOperation.h"
+#include "Logging.h"
 #include "Matrix3DTransformOperation.h"
 #include "MatrixTransformOperation.h"
 #include "RenderBox.h"
@@ -50,10 +51,13 @@
 #include "StyleGeneratedImage.h"
 #include "StylePropertyShorthand.h"
 #include "StyleResolver.h"
+#include "TextStream.h"
 #include <algorithm>
 #include <memory>
 #include <wtf/MathExtras.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/PointerComparison.h>
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
@@ -80,7 +84,7 @@ static inline Color blendFunc(const AnimationBase*, const Color& from, const Col
 
 static inline Length blendFunc(const AnimationBase*, const Length& from, const Length& to, double progress)
 {
-    return to.blend(from, narrowPrecisionToFloat(progress));
+    return blend(from, to, progress);
 }
 
 static inline LengthSize blendFunc(const AnimationBase* anim, const LengthSize& from, const LengthSize& to, double progress)
@@ -116,7 +120,7 @@ static inline std::unique_ptr<ShadowData> blendFunc(const AnimationBase* anim, c
 
 static inline TransformOperations blendFunc(const AnimationBase* animation, const TransformOperations& from, const TransformOperations& to, double progress)
 {
-    if (animation->isTransformFunctionListValid())
+    if (animation->transformFunctionListsMatch())
         return to.blendByMatchingOperations(from, progress);
     return to.blendByUsingMatrixInterpolation(from, progress, is<RenderBox>(*animation->renderer()) ? downcast<RenderBox>(*animation->renderer()).borderBoxRect().size() : LayoutSize());
 }
@@ -225,9 +229,9 @@ static inline PassRefPtr<StyleImage> blendFilter(const AnimationBase* anim, Cach
     auto imageValue = CSSImageValue::create(image->url(), styledImage.get());
     auto filterValue = ComputedStyleExtractor::valueForFilter(anim->renderer()->style(), filterResult, DoNotAdjustPixelValues);
 
-    auto result = CSSFilterImageValue::create(WTF::move(imageValue), WTF::move(filterValue));
+    auto result = CSSFilterImageValue::create(WTFMove(imageValue), WTFMove(filterValue));
     result.get().setFilterOperations(filterResult);
-    return StyleGeneratedImage::create(WTF::move(result));
+    return StyleGeneratedImage::create(WTFMove(result));
 }
 
 static inline EVisibility blendFunc(const AnimationBase* anim, EVisibility from, EVisibility to, double progress)
@@ -255,6 +259,7 @@ static inline SVGLength blendFunc(const AnimationBase*, const SVGLength& from, c
 {
     return to.blend(from, narrowPrecisionToFloat(progress));
 }
+
 static inline Vector<SVGLength> blendFunc(const AnimationBase*, const Vector<SVGLength>& from, const Vector<SVGLength>& to, double progress)
 {
     size_t fromLength = from.size();
@@ -287,10 +292,10 @@ static inline PassRefPtr<StyleImage> crossfadeBlend(const AnimationBase*, StyleC
 
     auto fromImageValue = CSSImageValue::create(fromStyleImage->cachedImage()->url(), fromStyleImage);
     auto toImageValue = CSSImageValue::create(toStyleImage->cachedImage()->url(), toStyleImage);
+    auto percentageValue = CSSPrimitiveValue::create(progress, CSSPrimitiveValue::CSS_NUMBER);
 
-    auto crossfadeValue = CSSCrossfadeValue::create(WTF::move(fromImageValue), WTF::move(toImageValue));
-    crossfadeValue.get().setPercentage(CSSPrimitiveValue::create(progress, CSSPrimitiveValue::CSS_NUMBER));
-    return StyleGeneratedImage::create(WTF::move(crossfadeValue));
+    auto crossfadeValue = CSSCrossfadeValue::create(WTFMove(fromImageValue), WTFMove(toImageValue), WTFMove(percentageValue));
+    return StyleGeneratedImage::create(WTFMove(crossfadeValue));
 }
 
 static inline PassRefPtr<StyleImage> blendFunc(const AnimationBase* anim, StyleImage* from, StyleImage* to, double progress)
@@ -315,8 +320,10 @@ static inline PassRefPtr<StyleImage> blendFunc(const AnimationBase* anim, StyleI
         if (is<CSSCrossfadeValue>(fromGenerated) && is<CSSCrossfadeValue>(toGenerated)) {
             CSSCrossfadeValue& fromCrossfade = downcast<CSSCrossfadeValue>(fromGenerated);
             CSSCrossfadeValue& toCrossfade = downcast<CSSCrossfadeValue>(toGenerated);
-            if (fromCrossfade.equalInputImages(toCrossfade))
-                return StyleGeneratedImage::create(*toCrossfade.blend(fromCrossfade, progress));
+            if (fromCrossfade.equalInputImages(toCrossfade)) {
+                if (auto crossfadeBlend = toCrossfade.blend(fromCrossfade, progress))
+                    return StyleGeneratedImage::create(*crossfadeBlend);
+            }
         }
 
         // FIXME: Add support for animation between two *gradient() functions.
@@ -379,6 +386,10 @@ public:
     virtual bool isShorthandWrapper() const { return false; }
     virtual bool equals(const RenderStyle* a, const RenderStyle* b) const = 0;
     virtual void blend(const AnimationBase*, RenderStyle*, const RenderStyle*, const RenderStyle*, double) const = 0;
+    
+#if !LOG_DISABLED
+    virtual void logBlend(const RenderStyle* a, const RenderStyle* b, const RenderStyle* result, double) const = 0;
+#endif
 
     CSSPropertyID property() const { return m_prop; }
 
@@ -398,16 +409,26 @@ public:
     {
     }
 
-    virtual bool equals(const RenderStyle* a, const RenderStyle* b) const
+    bool equals(const RenderStyle* a, const RenderStyle* b) const override
     {
-        // If the style pointers are the same, don't bother doing the test.
-        // If either is null, return false. If both are null, return true.
-        if ((!a && !b) || a == b)
+        if (a == b)
             return true;
         if (!a || !b)
             return false;
         return (a->*m_getter)() == (b->*m_getter)();
     }
+
+    T value(const RenderStyle* a) const
+    {
+        return (a->*m_getter)();
+    }
+
+#if !LOG_DISABLED
+    void logBlend(const RenderStyle* a, const RenderStyle* b, const RenderStyle* result, double progress) const final
+    {
+        LOG_WITH_STREAM(Animations, stream << "  blending " << getPropertyName(property()) << " from " << value(a) << " to " << value(b) << " at " << TextStream::FormatNumberRespectingIntegers(progress) << " -> " << value(result));
+    }
+#endif
 
 protected:
     T (RenderStyle::*m_getter)() const;
@@ -477,6 +498,24 @@ public:
         : RefCountedPropertyWrapper<ClipPathOperation>(prop, getter, setter)
     {
     }
+
+    bool equals(const RenderStyle* a, const RenderStyle* b) const override
+    {
+        // If the style pointers are the same, don't bother doing the test.
+        // If either is null, return false. If both are null, return true.
+        if (a == b)
+            return true;
+        if (!a || !b)
+            return false;
+
+        ClipPathOperation* clipPathA = (a->*m_getter)();
+        ClipPathOperation* clipPathB = (b->*m_getter)();
+        if (clipPathA == clipPathB)
+            return true;
+        if (!clipPathA || !clipPathB)
+            return false;
+        return *clipPathA == *clipPathB;
+    }
 };
 
 #if ENABLE(CSS_SHAPES)
@@ -486,6 +525,24 @@ public:
     PropertyWrapperShape(CSSPropertyID prop, ShapeValue* (RenderStyle::*getter)() const, void (RenderStyle::*setter)(PassRefPtr<ShapeValue>))
         : RefCountedPropertyWrapper<ShapeValue>(prop, getter, setter)
     {
+    }
+
+    bool equals(const RenderStyle* a, const RenderStyle* b) const override
+    {
+        // If the style pointers are the same, don't bother doing the test.
+        // If either is null, return false. If both are null, return true.
+        if (a == b)
+            return true;
+        if (!a || !b)
+            return false;
+
+        ShapeValue* shapeA = (a->*m_getter)();
+        ShapeValue* shapeB = (b->*m_getter)();
+        if (shapeA == shapeB)
+            return true;
+        if (!shapeA || !shapeB)
+            return false;
+        return *shapeA == *shapeB;
     }
 };
 #endif
@@ -498,10 +555,8 @@ public:
     {
     }
 
-    virtual bool equals(const RenderStyle* a, const RenderStyle* b) const
+    bool equals(const RenderStyle* a, const RenderStyle* b) const override
     {
-       // If the style pointers are the same, don't bother doing the test.
-       // If either is null, return false. If both are null, return true.
        if (a == b)
            return true;
        if (!a || !b)
@@ -509,7 +564,7 @@ public:
 
         StyleImage* imageA = (a->*m_getter)();
         StyleImage* imageB = (b->*m_getter)();
-        return StyleImage::imagesEquivalent(imageA, imageB);
+        return arePointingToEqualData(imageA, imageB);
     }
 };
 
@@ -522,7 +577,7 @@ public:
     {
     }
 
-    virtual void blend(const AnimationBase* anim, RenderStyle* dst, const RenderStyle* a, const RenderStyle* b, double progress) const
+    void blend(const AnimationBase* anim, RenderStyle* dst, const RenderStyle* a, const RenderStyle* b, double progress) const override
     {
         (dst->*m_setter)(blendFunc(anim, (a->*PropertyWrapperGetter<Color>::m_getter)(), (b->*PropertyWrapperGetter<Color>::m_getter)(), progress));
     }
@@ -540,9 +595,9 @@ public:
     {
     }
 
-    virtual bool animationIsAccelerated() const { return true; }
+    bool animationIsAccelerated() const override { return true; }
 
-    virtual void blend(const AnimationBase* anim, RenderStyle* dst, const RenderStyle* a, const RenderStyle* b, double progress) const
+    void blend(const AnimationBase* anim, RenderStyle* dst, const RenderStyle* a, const RenderStyle* b, double progress) const override
     {
         float fromOpacity = a->opacity();
 
@@ -559,9 +614,9 @@ public:
     {
     }
 
-    virtual bool animationIsAccelerated() const { return true; }
+    bool animationIsAccelerated() const override { return true; }
 
-    virtual void blend(const AnimationBase* anim, RenderStyle* dst, const RenderStyle* a, const RenderStyle* b, double progress) const
+    void blend(const AnimationBase* anim, RenderStyle* dst, const RenderStyle* a, const RenderStyle* b, double progress) const override
     {
         dst->setTransform(blendFunc(anim, a->transform(), b->transform(), progress));
     }
@@ -575,9 +630,9 @@ public:
     {
     }
 
-    virtual bool animationIsAccelerated() const { return true; }
+    bool animationIsAccelerated() const override { return true; }
 
-    virtual void blend(const AnimationBase* anim, RenderStyle* dst, const RenderStyle* a, const RenderStyle* b, double progress) const
+    void blend(const AnimationBase* anim, RenderStyle* dst, const RenderStyle* a, const RenderStyle* b, double progress) const override
     {
         dst->setFilter(blendFunc(anim, a->filter(), b->filter(), progress));
     }
@@ -611,19 +666,18 @@ static inline size_t shadowListLength(const ShadowData* shadow)
 
 static inline const ShadowData* shadowForBlending(const ShadowData* srcShadow, const ShadowData* otherShadow)
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(ShadowData, defaultShadowData, (IntPoint(), 0, 0, Normal, false, Color::transparent));
-    DEPRECATED_DEFINE_STATIC_LOCAL(ShadowData, defaultInsetShadowData, (IntPoint(), 0, 0, Inset, false, Color::transparent));
-
-    DEPRECATED_DEFINE_STATIC_LOCAL(ShadowData, defaultWebKitBoxShadowData, (IntPoint(), 0, 0, Normal, true, Color::transparent));
-    DEPRECATED_DEFINE_STATIC_LOCAL(ShadowData, defaultInsetWebKitBoxShadowData, (IntPoint(), 0, 0, Inset, true, Color::transparent));
+    static NeverDestroyed<ShadowData> defaultShadowData(IntPoint(), 0, 0, Normal, false, Color::transparent);
+    static NeverDestroyed<ShadowData> defaultInsetShadowData(IntPoint(), 0, 0, Inset, false, Color::transparent);
+    static NeverDestroyed<ShadowData> defaultWebKitBoxShadowData(IntPoint(), 0, 0, Normal, true, Color::transparent);
+    static NeverDestroyed<ShadowData> defaultInsetWebKitBoxShadowData(IntPoint(), 0, 0, Inset, true, Color::transparent);
 
     if (srcShadow)
         return srcShadow;
 
     if (otherShadow->style() == Inset)
-        return otherShadow->isWebkitBoxShadow() ? &defaultInsetWebKitBoxShadowData : &defaultInsetShadowData;
+        return otherShadow->isWebkitBoxShadow() ? &defaultInsetWebKitBoxShadowData.get() : &defaultInsetShadowData.get();
 
-    return otherShadow->isWebkitBoxShadow() ? &defaultWebKitBoxShadowData : &defaultShadowData;
+    return otherShadow->isWebkitBoxShadow() ? &defaultWebKitBoxShadowData.get() : &defaultShadowData.get();
 }
 
 class PropertyWrapperShadow : public AnimationPropertyWrapperBase {
@@ -636,8 +690,13 @@ public:
     {
     }
 
-    virtual bool equals(const RenderStyle* a, const RenderStyle* b) const
+    bool equals(const RenderStyle* a, const RenderStyle* b) const override
     {
+        if (a == b)
+            return true;
+        if (!a || !b)
+            return false;
+
         const ShadowData* shadowA = (a->*m_getter)();
         const ShadowData* shadowB = (b->*m_getter)();
 
@@ -660,7 +719,7 @@ public:
         return true;
     }
 
-    virtual void blend(const AnimationBase* anim, RenderStyle* dst, const RenderStyle* a, const RenderStyle* b, double progress) const
+    void blend(const AnimationBase* anim, RenderStyle* dst, const RenderStyle* a, const RenderStyle* b, double progress) const override
     {
         const ShadowData* shadowA = (a->*m_getter)();
         const ShadowData* shadowB = (b->*m_getter)();
@@ -676,6 +735,14 @@ public:
         (dst->*m_setter)(blendMismatchedShadowLists(anim, progress, shadowA, shadowB, fromLength, toLength), false);
     }
 
+#if !LOG_DISABLED
+    void logBlend(const RenderStyle*, const RenderStyle*, const RenderStyle*, double progress) const final
+    {
+        // FIXME: better logging.
+        LOG_WITH_STREAM(Animations, stream << "  blending ShadowData at " << TextStream::FormatNumberRespectingIntegers(progress));
+    }
+#endif
+
 private:
     std::unique_ptr<ShadowData> blendSimpleOrMatchedShadowLists(const AnimationBase* anim, double progress, const ShadowData* shadowA, const ShadowData* shadowB) const
     {
@@ -690,9 +757,9 @@ private:
             ShadowData* blendedShadowPtr = blendedShadow.get();
 
             if (!lastShadow)
-                newShadowData = WTF::move(blendedShadow);
+                newShadowData = WTFMove(blendedShadow);
             else
-                lastShadow->setNext(WTF::move(blendedShadow));
+                lastShadow->setNext(WTFMove(blendedShadow));
 
             lastShadow = blendedShadowPtr;
 
@@ -731,8 +798,8 @@ private:
 
             std::unique_ptr<ShadowData> blendedShadow = blendFunc(anim, srcShadow, dstShadow, progress);
             // Insert at the start of the list to preserve the order.
-            blendedShadow->setNext(WTF::move(newShadowData));
-            newShadowData = WTF::move(blendedShadow);
+            blendedShadow->setNext(WTFMove(newShadowData));
+            newShadowData = WTFMove(blendedShadow);
         }
 
         return newShadowData;
@@ -752,10 +819,15 @@ public:
     {
     }
 
-    virtual bool equals(const RenderStyle* a, const RenderStyle* b) const
+    bool equals(const RenderStyle* a, const RenderStyle* b) const override
     {
-        Color fromColor = (a->*m_getter)();
-        Color toColor = (b->*m_getter)();
+        if (a == b)
+            return true;
+        if (!a || !b)
+            return false;
+
+        Color fromColor = value(a);
+        Color toColor = value(b);
 
         if (!fromColor.isValid() && !toColor.isValid())
             return true;
@@ -768,10 +840,10 @@ public:
         return fromColor == toColor;
     }
 
-    virtual void blend(const AnimationBase* anim, RenderStyle* dst, const RenderStyle* a, const RenderStyle* b, double progress) const
+    void blend(const AnimationBase* anim, RenderStyle* dst, const RenderStyle* a, const RenderStyle* b, double progress) const override
     {
-        Color fromColor = (a->*m_getter)();
-        Color toColor = (b->*m_getter)();
+        Color fromColor = value(a);
+        Color toColor = value(b);
 
         if (!fromColor.isValid() && !toColor.isValid())
             return;
@@ -782,6 +854,19 @@ public:
             toColor = b->color();
         (dst->*m_setter)(blendFunc(anim, fromColor, toColor, progress));
     }
+
+    Color value(const RenderStyle* a) const
+    {
+        return (a->*m_getter)();
+    }
+
+#if !LOG_DISABLED
+    void logBlend(const RenderStyle* a, const RenderStyle* b, const RenderStyle* result, double progress) const final
+    {
+        // FIXME: better logging.
+        LOG_WITH_STREAM(Animations, stream << "  blending " << getPropertyName(property()) << " from " << value(a) << " to " << value(b) << " at " << TextStream::FormatNumberRespectingIntegers(progress) << " -> " << value(result));
+    }
+#endif
 
 private:
     Color (RenderStyle::*m_getter)() const;
@@ -807,15 +892,23 @@ public:
         , m_visitedWrapper(std::make_unique<PropertyWrapperMaybeInvalidColor>(prop, visitedGetter, visitedSetter))
     {
     }
-    virtual bool equals(const RenderStyle* a, const RenderStyle* b) const
+    bool equals(const RenderStyle* a, const RenderStyle* b) const override
     {
         return m_wrapper->equals(a, b) && m_visitedWrapper->equals(a, b);
     }
-    virtual void blend(const AnimationBase* anim, RenderStyle* dst, const RenderStyle* a, const RenderStyle* b, double progress) const
+    void blend(const AnimationBase* anim, RenderStyle* dst, const RenderStyle* a, const RenderStyle* b, double progress) const override
     {
         m_wrapper->blend(anim, dst, a, b, progress);
         m_visitedWrapper->blend(anim, dst, a, b, progress);
     }
+
+#if !LOG_DISABLED
+    void logBlend(const RenderStyle* a, const RenderStyle* b, const RenderStyle* result, double progress) const final
+    {
+        m_wrapper->logBlend(a, b, result, progress);
+        m_visitedWrapper->logBlend(a, b, result, progress);
+    }
+#endif
 
 private:
     std::unique_ptr<AnimationPropertyWrapperBase> m_wrapper;
@@ -846,13 +939,11 @@ public:
     {
     }
 
-    virtual bool equals(const FillLayer* a, const FillLayer* b) const
+    bool equals(const FillLayer* a, const FillLayer* b) const override
     {
-       // If the style pointers are the same, don't bother doing the test.
-       // If either is null, return false. If both are null, return true.
-       if ((!a && !b) || a == b)
-           return true;
-       if (!a || !b)
+        if (a == b)
+            return true;
+        if (!a || !b)
             return false;
         return (a->*m_getter)() == (b->*m_getter)();
     }
@@ -907,10 +998,8 @@ public:
     {
     }
 
-    virtual bool equals(const FillLayer* a, const FillLayer* b) const
+    bool equals(const FillLayer* a, const FillLayer* b) const override
     {
-       // If the style pointers are the same, don't bother doing the test.
-       // If either is null, return false. If both are null, return true.
        if (a == b)
            return true;
        if (!a || !b)
@@ -918,7 +1007,7 @@ public:
 
         StyleImage* imageA = (a->*m_getter)();
         StyleImage* imageB = (b->*m_getter)();
-        return StyleImage::imagesEquivalent(imageA, imageB);
+        return arePointingToEqualData(imageA, imageB);
     }
 };
 
@@ -955,8 +1044,13 @@ public:
         }
     }
 
-    virtual bool equals(const RenderStyle* a, const RenderStyle* b) const
+    bool equals(const RenderStyle* a, const RenderStyle* b) const override
     {
+        if (a == b)
+            return true;
+        if (!a || !b)
+            return false;
+
         const FillLayer* fromLayer = (a->*m_layersGetter)();
         const FillLayer* toLayer = (b->*m_layersGetter)();
 
@@ -971,7 +1065,7 @@ public:
         return true;
     }
 
-    virtual void blend(const AnimationBase* anim, RenderStyle* dst, const RenderStyle* a, const RenderStyle* b, double progress) const
+    void blend(const AnimationBase* anim, RenderStyle* dst, const RenderStyle* a, const RenderStyle* b, double progress) const override
     {
         const FillLayer* aLayer = (a->*m_layersGetter)();
         const FillLayer* bLayer = (b->*m_layersGetter)();
@@ -985,6 +1079,14 @@ public:
         }
     }
 
+#if !LOG_DISABLED
+    void logBlend(const RenderStyle*, const RenderStyle*, const RenderStyle*, double progress) const final
+    {
+        // FIXME: better logging.
+        LOG_WITH_STREAM(Animations, stream << "  blending FillLayers at " << TextStream::FormatNumberRespectingIntegers(progress));
+    }
+#endif
+
 private:
     std::unique_ptr<FillLayerAnimationPropertyWrapperBase> m_fillLayerPropertyWrapper;
 
@@ -997,14 +1099,19 @@ class ShorthandPropertyWrapper : public AnimationPropertyWrapperBase {
 public:
     ShorthandPropertyWrapper(CSSPropertyID property, Vector<AnimationPropertyWrapperBase*> longhandWrappers)
         : AnimationPropertyWrapperBase(property)
-        , m_propertyWrappers(WTF::move(longhandWrappers))
+        , m_propertyWrappers(WTFMove(longhandWrappers))
     {
     }
 
-    virtual bool isShorthandWrapper() const { return true; }
+    bool isShorthandWrapper() const override { return true; }
 
-    virtual bool equals(const RenderStyle* a, const RenderStyle* b) const
+    bool equals(const RenderStyle* a, const RenderStyle* b) const override
     {
+        if (a == b)
+            return true;
+        if (!a || !b)
+            return false;
+
         for (auto& wrapper : m_propertyWrappers) {
             if (!wrapper->equals(a, b))
                 return false;
@@ -1012,11 +1119,19 @@ public:
         return true;
     }
 
-    virtual void blend(const AnimationBase* anim, RenderStyle* dst, const RenderStyle* a, const RenderStyle* b, double progress) const
+    void blend(const AnimationBase* anim, RenderStyle* dst, const RenderStyle* a, const RenderStyle* b, double progress) const override
     {
         for (auto& wrapper : m_propertyWrappers)
             wrapper->blend(anim, dst, a, b, progress);
     }
+
+#if !LOG_DISABLED
+    void logBlend(const RenderStyle*, const RenderStyle*, const RenderStyle*, double progress) const final
+    {
+        // FIXME: better logging.
+        LOG_WITH_STREAM(Animations, stream << "  blending shorthand property " << getPropertyName(property()) << " at " << TextStream::FormatNumberRespectingIntegers(progress));
+    }
+#endif
 
     const Vector<AnimationPropertyWrapperBase*>& propertyWrappers() const { return m_propertyWrappers; }
 
@@ -1032,11 +1147,9 @@ public:
     {
     }
 
-    virtual bool equals(const RenderStyle* a, const RenderStyle* b) const
+    bool equals(const RenderStyle* a, const RenderStyle* b) const override
     {
-        // If the style pointers are the same, don't bother doing the test.
-        // If either is null, return false. If both are null, return true.
-        if ((!a && !b) || a == b)
+        if (a == b)
             return true;
         if (!a || !b)
             return false;
@@ -1044,12 +1157,20 @@ public:
         return a->flexBasis() == b->flexBasis() && a->flexGrow() == b->flexGrow() && a->flexShrink() == b->flexShrink();
     }
 
-    virtual void blend(const AnimationBase* anim, RenderStyle* dst, const RenderStyle* a, const RenderStyle* b, double progress) const
+    void blend(const AnimationBase* anim, RenderStyle* dst, const RenderStyle* a, const RenderStyle* b, double progress) const override
     {
         dst->setFlexBasis(blendFunc(anim, a->flexBasis(), b->flexBasis(), progress));
         dst->setFlexGrow(blendFunc(anim, a->flexGrow(), b->flexGrow(), progress));
         dst->setFlexShrink(blendFunc(anim, a->flexShrink(), b->flexShrink(), progress));
     }
+
+#if !LOG_DISABLED
+    void logBlend(const RenderStyle*, const RenderStyle*, const RenderStyle*, double progress) const final
+    {
+        // FIXME: better logging.
+        LOG_WITH_STREAM(Animations, stream << "  blending flex at " << TextStream::FormatNumberRespectingIntegers(progress));
+    }
+#endif
 };
 
 class PropertyWrapperSVGPaint : public AnimationPropertyWrapperBase {
@@ -1063,8 +1184,13 @@ public:
     {
     }
 
-    virtual bool equals(const RenderStyle* a, const RenderStyle* b) const
+    bool equals(const RenderStyle* a, const RenderStyle* b) const override
     {
+        if (a == b)
+            return true;
+        if (!a || !b)
+            return false;
+
         if ((a->*m_paintTypeGetter)() != (b->*m_paintTypeGetter)())
             return false;
 
@@ -1088,7 +1214,7 @@ public:
         return true;
     }
 
-    virtual void blend(const AnimationBase* anim, RenderStyle* dst, const RenderStyle* a, const RenderStyle* b, double progress) const
+    void blend(const AnimationBase* anim, RenderStyle* dst, const RenderStyle* a, const RenderStyle* b, double progress) const override
     {
         if ((a->*m_paintTypeGetter)() != SVGPaint::SVG_PAINTTYPE_RGBCOLOR
             || (b->*m_paintTypeGetter)() != SVGPaint::SVG_PAINTTYPE_RGBCOLOR)
@@ -1106,6 +1232,14 @@ public:
             toColor = Color();
         (dst->*m_setter)(blendFunc(anim, fromColor, toColor, progress));
     }
+
+#if !LOG_DISABLED
+    void logBlend(const RenderStyle*, const RenderStyle*, const RenderStyle*, double progress) const final
+    {
+        // FIXME: better logging.
+        LOG_WITH_STREAM(Animations, stream << "  blending SVGPaint at " << TextStream::FormatNumberRespectingIntegers(progress));
+    }
+#endif
 
 private:
     const SVGPaint::SVGPaintType& (RenderStyle::*m_paintTypeGetter)() const;
@@ -1126,11 +1260,11 @@ public:
     AnimationPropertyWrapperBase* wrapperForProperty(CSSPropertyID propertyID)
     {
         if (propertyID < firstCSSProperty || propertyID > lastCSSProperty)
-            return 0;
+            return nullptr;
 
         unsigned wrapperIndex = indexFromPropertyID(propertyID);
         if (wrapperIndex == cInvalidPropertyWrapperIndex)
-            return 0;
+            return nullptr;
 
         return m_propertyWrappers[wrapperIndex].get();
     }
@@ -1233,14 +1367,14 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         new PropertyWrapper<float>(CSSPropertyColumnGap, &RenderStyle::columnGap, &RenderStyle::setColumnGap),
         new PropertyWrapper<unsigned short>(CSSPropertyColumnCount, &RenderStyle::columnCount, &RenderStyle::setColumnCount),
         new PropertyWrapper<float>(CSSPropertyColumnWidth, &RenderStyle::columnWidth, &RenderStyle::setColumnWidth),
-        new PropertyWrapper<short>(CSSPropertyWebkitBorderHorizontalSpacing, &RenderStyle::horizontalBorderSpacing, &RenderStyle::setHorizontalBorderSpacing),
-        new PropertyWrapper<short>(CSSPropertyWebkitBorderVerticalSpacing, &RenderStyle::verticalBorderSpacing, &RenderStyle::setVerticalBorderSpacing),
+        new PropertyWrapper<float>(CSSPropertyWebkitBorderHorizontalSpacing, &RenderStyle::horizontalBorderSpacing, &RenderStyle::setHorizontalBorderSpacing),
+        new PropertyWrapper<float>(CSSPropertyWebkitBorderVerticalSpacing, &RenderStyle::verticalBorderSpacing, &RenderStyle::setVerticalBorderSpacing),
         new PropertyWrapper<int>(CSSPropertyZIndex, &RenderStyle::zIndex, &RenderStyle::setZIndex),
         new PropertyWrapper<short>(CSSPropertyOrphans, &RenderStyle::orphans, &RenderStyle::setOrphans),
         new PropertyWrapper<short>(CSSPropertyWidows, &RenderStyle::widows, &RenderStyle::setWidows),
         new LengthPropertyWrapper<Length>(CSSPropertyLineHeight, &RenderStyle::specifiedLineHeight, &RenderStyle::setLineHeight),
-        new PropertyWrapper<int>(CSSPropertyOutlineOffset, &RenderStyle::outlineOffset, &RenderStyle::setOutlineOffset),
-        new PropertyWrapper<unsigned short>(CSSPropertyOutlineWidth, &RenderStyle::outlineWidth, &RenderStyle::setOutlineWidth),
+        new PropertyWrapper<float>(CSSPropertyOutlineOffset, &RenderStyle::outlineOffset, &RenderStyle::setOutlineOffset),
+        new PropertyWrapper<float>(CSSPropertyOutlineWidth, &RenderStyle::outlineWidth, &RenderStyle::setOutlineWidth),
         new PropertyWrapper<float>(CSSPropertyLetterSpacing, &RenderStyle::letterSpacing, &RenderStyle::setLetterSpacing),
         new LengthPropertyWrapper<Length>(CSSPropertyWordSpacing, &RenderStyle::wordSpacing, &RenderStyle::setWordSpacing),
         new LengthPropertyWrapper<Length>(CSSPropertyTextIndent, &RenderStyle::textIndent, &RenderStyle::setTextIndent),
@@ -1384,7 +1518,7 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
             longhandWrappers.uncheckedAppend(m_propertyWrappers[wrapperIndex].get());
         }
 
-        m_propertyWrappers.uncheckedAppend(std::make_unique<ShorthandPropertyWrapper>(propertyID, WTF::move(longhandWrappers)));
+        m_propertyWrappers.uncheckedAppend(std::make_unique<ShorthandPropertyWrapper>(propertyID, WTFMove(longhandWrappers)));
         indexFromPropertyID(propertyID) = animatableLonghandPropertiesCount + i;
     }
 }
@@ -1415,9 +1549,11 @@ bool CSSPropertyAnimation::blendProperties(const AnimationBase* anim, CSSPropert
     AnimationPropertyWrapperBase* wrapper = CSSPropertyAnimationWrapperMap::singleton().wrapperForProperty(prop);
     if (wrapper) {
         wrapper->blend(anim, dst, a, b, progress);
+#if !LOG_DISABLED
+        wrapper->logBlend(a, b, dst, progress);
+#endif
         return !wrapper->animationIsAccelerated() || !anim->isAccelerated();
     }
-
     return false;
 }
 

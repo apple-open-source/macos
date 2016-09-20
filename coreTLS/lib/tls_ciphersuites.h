@@ -29,7 +29,6 @@
 #define _TLS_CIPHERSUITES_H_
 
 #include <stdint.h>
-#include "CipherSuite.h"
 #include "tls_types.h"
 
 #ifdef __cplusplus

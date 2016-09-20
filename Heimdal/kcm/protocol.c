@@ -2035,16 +2035,22 @@ kcm_op_do_ntlm(krb5_context context,
     krb5_data type2data, cb, type1data, tempdata;
     krb5_error_code ret;
     uint32_t type1flags, flags = 0;
-    const char *type = "unknown";
     char flagname[256];
     size_t mic_offset = 0;
     static dispatch_once_t once;
+    unsigned char ntlmv2[16];
+    struct ntlm_targetinfo ti;
+    static uint8_t zeros[16] = { 0 };
 
     KCM_LOG_REQUEST(context, client, opcode);
 
     dispatch_once(&once, ^{
 	setup_ntlm_notification();
     });
+
+    /*
+     * Only do NTLMv2
+     */
 
     krb5_data_zero(&cb);
     krb5_data_zero(&type1data);
@@ -2133,147 +2139,97 @@ kcm_op_do_ntlm(krb5_context context,
 	goto error;
     }
 
-    /*
-     * Only do NTLM Version 1 if they force us
+    /* verify infotarget */
+
+    ret = heim_ntlm_decode_targetinfo(&type2.targetinfo, 1, &ti);
+    if (ret)
+	goto error;
+	
+    if (ti.avflags & NTLM_TI_AV_FLAG_GUEST)
+	flags |= KCM_NTLM_FLAG_AV_GUEST;
+
+    if (ti.channel_bindings.data)
+	free(ti.channel_bindings.data);
+    if (ti.targetname)
+	free(ti.targetname);
+
+    /* 
+     * We are going to use MIC, tell server so it can reject the
+     * authenticate if the mic is missing.
      */
-    
-    if (gss_mo_get(GSS_NTLM_MECHANISM, GSS_C_NTLM_FORCE_V1, NULL)) {
-	
-	type = "v1";
+    ti.avflags |= NTLM_TI_AV_FLAG_MIC;
+    ti.targetname = targetname;
 
-	if (type2.flags & NTLM_NEG_NTLM2_SESSION) {
-	    unsigned char nonce[8];
-	    
-	    krb5_generate_random_block(nonce, sizeof(nonce));
-
-	    ret = heim_ntlm_calculate_ntlm2_sess(nonce,
-						 type2.challenge,
-						 c->nthash.data,
-						 &type3.lm,
-						 &type3.ntlm);
-	} else {
-	    ret = heim_ntlm_calculate_ntlm1(c->nthash.data,
-					    c->nthash.length,
-					    type2.challenge,
-					    &type3.ntlm);
-
-	}
-	if (ret)
-	    goto error;
-	
-	if (type3.flags & NTLM_NEG_KEYEX) {
-	    ret = heim_ntlm_build_ntlm1_master(c->nthash.data,
-					       c->nthash.length,
-					       &sessionkey,
-					       &type3.sessionkey);
-	} else {
-	    ret = heim_ntlm_v1_base_session(c->nthash.data, 
-					    c->nthash.length,
-					    &sessionkey);
-	}
-	if (ret)
-	    goto error;
-
+    if (cb.length == 0) {
+	ti.channel_bindings.data = zeros;
+	ti.channel_bindings.length = sizeof(zeros);
     } else {
-	unsigned char ntlmv2[16];
-	struct ntlm_targetinfo ti;
-	static uint8_t zeros[16] = { 0 };
-	
-	type = "v2";
-
-	/* verify infotarget */
-
-	ret = heim_ntlm_decode_targetinfo(&type2.targetinfo, 1, &ti);
-	if (ret)
-	    goto error;
-	
-	if (ti.avflags & NTLM_TI_AV_FLAG_GUEST)
-	    flags |= KCM_NTLM_FLAG_AV_GUEST;
-
-	if (ti.channel_bindings.data)
-	    free(ti.channel_bindings.data);
-	if (ti.targetname)
-	    free(ti.targetname);
-
-	/* 
-	 * We are going to use MIC, tell server so it can reject the
-	 * authenticate if the mic is missing.
-	 */
-	ti.avflags |= NTLM_TI_AV_FLAG_MIC;
-	ti.targetname = targetname;
-
-	if (cb.length == 0) {
-	    ti.channel_bindings.data = zeros;
-	    ti.channel_bindings.length = sizeof(zeros);
-	} else {
-	    kcm_log(10, "using channelbindings of size %lu", (unsigned long)cb.length);
-	    ti.channel_bindings.data = cb.data;
-	    ti.channel_bindings.length = cb.length;
-	}
-
-	ret = heim_ntlm_encode_targetinfo(&ti, TRUE, &tidata);
-
-	ti.targetname = NULL;
-	ti.channel_bindings.data = NULL;
-	ti.channel_bindings.length = 0;
-
-	heim_ntlm_free_targetinfo(&ti);
-	if (ret)
-	    goto error;
-
-	/*
-	 * Prefer NTLM_NEG_EXTENDED_SESSION over NTLM_NEG_LM_KEY as
-	 * decribed in 2.2.2.5.
-	 */
-
-	if (type3.flags & NTLM_NEG_NTLM2_SESSION)
-	    type3.flags &= ~NTLM_NEG_LM_KEY;
-
-	if ((type3.flags & NTLM_NEG_LM_KEY) && 
-	    gss_mo_get(GSS_NTLM_MECHANISM, GSS_C_NTLM_SUPPORT_LM2, NULL)) {
-	    ret = heim_ntlm_calculate_lm2(c->nthash.data,
-					  c->nthash.length,
-					  type3.username,
-					  domain,
-					  type2.challenge,
-					  ntlmv2,
-					  &type3.lm);
-	} else {
-	    type3.lm.data = malloc(24);
-	    if (type3.lm.data == NULL) {
-		ret = ENOMEM;
-	    } else {
-		type3.lm.length = 24;
-		memset(type3.lm.data, 0, type3.lm.length);
-	    }
-	}
-	if (ret)
-	    goto error;
-
-	ret = heim_ntlm_calculate_ntlm2(c->nthash.data,
-					c->nthash.length,
-					type3.username,
-					domain,
-					type2.challenge,
-					&tidata,
-					ntlmv2,
-					&type3.ntlm);
-	if (ret)
-	    goto error;
-	
-	if (type3.flags & NTLM_NEG_KEYEX) {
-	    ret = heim_ntlm_build_ntlm2_master(ntlmv2, sizeof(ntlmv2),
-					       &type3.ntlm,
-					       &sessionkey,
-					       &type3.sessionkey);
-	} else {
-	    ret = heim_ntlm_v2_base_session(ntlmv2, sizeof(ntlmv2), &type3.ntlm, &sessionkey);
-	}
-
-	memset(ntlmv2, 0, sizeof(ntlmv2));
-	if (ret)
-	    goto error;
+	kcm_log(10, "using channelbindings of size %lu", (unsigned long)cb.length);
+	ti.channel_bindings.data = cb.data;
+	ti.channel_bindings.length = cb.length;
     }
+
+    ret = heim_ntlm_encode_targetinfo(&ti, TRUE, &tidata);
+
+    ti.targetname = NULL;
+    ti.channel_bindings.data = NULL;
+    ti.channel_bindings.length = 0;
+
+    heim_ntlm_free_targetinfo(&ti);
+    if (ret)
+	goto error;
+
+    /*
+     * Prefer NTLM_NEG_EXTENDED_SESSION over NTLM_NEG_LM_KEY as
+     * decribed in 2.2.2.5.
+     */
+
+    if (type3.flags & NTLM_NEG_NTLM2_SESSION)
+	type3.flags &= ~NTLM_NEG_LM_KEY;
+
+    if ((type3.flags & NTLM_NEG_LM_KEY) && 
+	gss_mo_get(GSS_NTLM_MECHANISM, GSS_C_NTLM_SUPPORT_LM2, NULL)) {
+	ret = heim_ntlm_calculate_lm2(c->nthash.data,
+				      c->nthash.length,
+				      type3.username,
+				      domain,
+				      type2.challenge,
+				      ntlmv2,
+				      &type3.lm);
+    } else {
+	type3.lm.data = malloc(24);
+	if (type3.lm.data == NULL) {
+	    ret = ENOMEM;
+	} else {
+	    type3.lm.length = 24;
+	    memset(type3.lm.data, 0, type3.lm.length);
+	}
+    }
+    if (ret)
+	goto error;
+
+    ret = heim_ntlm_calculate_ntlm2(c->nthash.data,
+				    c->nthash.length,
+				    type3.username,
+				    domain,
+				    type2.challenge,
+				    &tidata,
+				    ntlmv2,
+				    &type3.ntlm);
+    if (ret)
+	goto error;
+	
+    if (type3.flags & NTLM_NEG_KEYEX) {
+	ret = heim_ntlm_build_ntlm2_master(ntlmv2, sizeof(ntlmv2),
+					   &type3.ntlm,
+					   &sessionkey,
+					   &type3.sessionkey);
+    } else {
+	ret = heim_ntlm_v2_base_session(ntlmv2, sizeof(ntlmv2), &type3.ntlm, &sessionkey);
+    }
+
+    if (ret)
+	goto error;
 
     ret = heim_ntlm_encode_type3(&type3, &ndata, &mic_offset);
     if (ret)
@@ -2317,12 +2273,13 @@ kcm_op_do_ntlm(krb5_context context,
 
     heim_ntlm_unparse_flags(type3.flags, flagname, sizeof(flagname));
 
-    kcm_log(0, "ntlm %s request processed for %s\\%s flags: %s",
-	    type, domain, c->user, flagname);
+    kcm_log(0, "ntlm v2 request processed for %s\\%s flags: %s",
+	    domain, c->user, flagname);
 
  error:
     HEIMDAL_MUTEX_unlock(&cred_mutex);
 
+    memset(ntlmv2, 0, sizeof(ntlmv2));
     krb5_data_free(&cb);
     krb5_data_free(&type1data);
     krb5_data_free(&type2data);

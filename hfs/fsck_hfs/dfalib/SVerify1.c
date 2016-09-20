@@ -4495,6 +4495,7 @@ int journal_replay(const char *block_device)
 
 	retval = getvfsbyname("hfs", &vfc); 
 	if (retval) {
+        close(jfd);
 		goto out;
 	}
 

@@ -14,11 +14,12 @@
 
 (allow file-read* file-write*
        (subpath "/private/var/keybags")
-       (regex #"/Keychains/")
+       (regex #"/Keychains($|/)")
        (subpath "/private/var/db/mds"))
 
 (allow mach-lookup
-       (global-name "com.apple.SecurityServer"))
+       (global-name "com.apple.SecurityServer")
+       (global-name "com.apple.ocspd"))
 
 (allow iokit-open
        (iokit-user-client-class "AppleFDEKeyStoreUserClient")

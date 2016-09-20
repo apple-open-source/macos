@@ -23,12 +23,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef MediaControlsHost_h
-#define MediaControlsHost_h
+#pragma once
 
 #if ENABLE(MEDIA_CONTROLS_SCRIPT)
 
-#include "ScriptState.h"
 #include <bindings/ScriptObject.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
@@ -66,14 +64,18 @@ public:
     void updateTextTrackContainer();
     bool allowsInlineMediaPlayback() const;
     bool supportsFullscreen();
+    bool isVideoLayerInline();
     bool userGestureRequired() const;
+    void setPreparedForInline(bool);
 
     void updateCaptionDisplaySizes();
     void enteredFullscreen();
     void exitedFullscreen();
 
     String externalDeviceDisplayName() const;
-    String externalDeviceType() const;
+
+    enum class DeviceType { None, Airplay, Tvout };
+    DeviceType externalDeviceType() const;
 
     bool controlsDependOnPageScaleFactor() const;
     void setControlsDependOnPageScaleFactor(bool v);
@@ -88,7 +90,5 @@ private:
 };
 
 }
-
-#endif
 
 #endif

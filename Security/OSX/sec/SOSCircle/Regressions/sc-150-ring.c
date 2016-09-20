@@ -142,10 +142,17 @@ static void tests(void)
     CFReleaseNull(ringDER);
     CFReleaseNull(Ring2);
     CFReleaseNull(dev_a_key);
+    CFReleaseNull(dev_b_key);
+    CFReleaseNull(dev_c_key);
     CFReleaseNull(cfpassword);
 
     CFReleaseNull(user_privkey);
     CFReleaseNull(user_pubkey);
+
+    CFReleaseNull(peer_a_full_info);
+    CFReleaseNull(peer_b_full_info);
+    CFReleaseNull(peer_c_full_info);
+    CFReleaseNull(Ring);
 }
 
 int sc_150_Ring(int argc, char *const *argv)

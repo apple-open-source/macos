@@ -42,8 +42,7 @@ int *ptr;
 BEGIN
 {
 	/* Attempt to copy to non-scratch memory */
-
-	bcopy((void *)&`max_ncpus, ptr, sizeof (int));
+	bcopy((void *)&`real_ncpus, ptr, sizeof (int));
 	exit(1);
 }
 

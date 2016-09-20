@@ -30,6 +30,7 @@
 #include <Security/SecAccessControl.h>
 #include <Security/SecAccessControlPriv.h>
 #include <Security/SecItem.h>
+#include <Security/SecItemPriv.h>
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecCFError.h>
 #include <utilities/der_plist.h>
@@ -89,8 +90,7 @@ SecAccessControlRef SecAccessControlCreate(CFAllocatorRef allocator, CFErrorRef 
     access_control->dict = CFDictionaryCreateMutableForCFTypes(allocator);
     return access_control;
 }
-
-#if TARGET_OS_EMBEDDED || TARGET_OS_IPHONE
+#if TARGET_OS_IPHONE || (!RC_HIDE_J79 && !RC_HIDE_J80)
 static CFDataRef _getEmptyData() {
     static CFMutableDataRef emptyData = NULL;
     static dispatch_once_t onceToken;
@@ -115,7 +115,7 @@ SecAccessControlRef SecAccessControlCreateWithFlags(CFAllocatorRef allocator, CF
         goto errOut;
 
     if (flags) {
-#if TARGET_OS_EMBEDDED || TARGET_OS_IPHONE
+#if TARGET_OS_IPHONE || (!RC_HIDE_J79 && !RC_HIDE_J80)
         bool or = (flags & kSecAccessControlOr) ? true : false;
         bool and = (flags & kSecAccessControlAnd) ? true : false;
 
@@ -152,7 +152,7 @@ SecAccessControlRef SecAccessControlCreateWithFlags(CFAllocatorRef allocator, CF
             CFReleaseNull(constraint);
         }
 
-#if TARGET_OS_EMBEDDED || TARGET_OS_IPHONE
+#if TARGET_OS_IPHONE || (!RC_HIDE_J79 && !RC_HIDE_J80)
         if (flags & kSecAccessControlTouchIDAny) {
             require_quiet(constraint = SecAccessConstraintCreateTouchIDAny(allocator, _getEmptyData()), errOut);
             CFArrayAppendValue(constraints, constraint);
@@ -170,11 +170,12 @@ SecAccessControlRef SecAccessControlCreateWithFlags(CFAllocatorRef allocator, CF
         }
 #endif
         CFIndex constraints_count = CFArrayGetCount(constraints);
-#if TARGET_OS_EMBEDDED || TARGET_OS_IPHONE
+#if TARGET_OS_IPHONE || (!RC_HIDE_J79 && !RC_HIDE_J80)
         if (constraints_count > 1) {
             require_quiet(constraint = SecAccessConstraintCreateValueOfKofN(allocator, or?1:constraints_count, constraints, error), errOut);
             if (flags & kSecAccessControlPrivateKeyUsage) {
                 require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpSign, constraint, error), errOut);
+                require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpAttest, kCFBooleanTrue, error), errOut);
             }
             else {
                 require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpDecrypt, constraint, error), errOut);
@@ -185,28 +186,30 @@ SecAccessControlRef SecAccessControlCreateWithFlags(CFAllocatorRef allocator, CF
         } else
 #endif
         if (constraints_count == 1) {
-#if TARGET_OS_EMBEDDED || TARGET_OS_IPHONE
+#if TARGET_OS_IPHONE || (!RC_HIDE_J79 && !RC_HIDE_J80)
             if (flags & kSecAccessControlPrivateKeyUsage) {
                 require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpSign, CFArrayGetValueAtIndex(constraints, 0), error), errOut);
+                require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpAttest, kCFBooleanTrue, error), errOut);
             }
             else {
 #endif
                 require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpDecrypt, CFArrayGetValueAtIndex(constraints, 0), error), errOut);
                 require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpEncrypt, kCFBooleanTrue, error), errOut);
-#if TARGET_OS_EMBEDDED || TARGET_OS_IPHONE
+#if TARGET_OS_IPHONE || (!RC_HIDE_J79 && !RC_HIDE_J80)
             }
 #endif
             require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpDelete, kCFBooleanTrue, error), errOut);
         } else {
-#if TARGET_OS_EMBEDDED || TARGET_OS_IPHONE
+#if TARGET_OS_IPHONE || (!RC_HIDE_J79 && !RC_HIDE_J80)
             if (flags & kSecAccessControlPrivateKeyUsage) {
                 require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpSign, kCFBooleanTrue, error), errOut);
+                require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpAttest, kCFBooleanTrue, error), errOut);
                 require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpDelete, kCFBooleanTrue, error), errOut);
             }
             else {
 #endif
                 require_quiet(SecAccessControlAddConstraintForOperation(access_control, kAKSKeyOpDefaultAcl, kCFBooleanTrue, error), errOut);
-#if TARGET_OS_EMBEDDED || TARGET_OS_IPHONE
+#if TARGET_OS_IPHONE || (!RC_HIDE_J79 && !RC_HIDE_J80)
             }
 #endif
         }
@@ -251,13 +254,15 @@ static bool checkItemInArray(CFTypeRef item, const CFTypeRef *values, CFIndex co
 
 
 bool SecAccessControlSetProtection(SecAccessControlRef access_control, CFTypeRef protection, CFErrorRef *error) {
-    // Verify protection type.
-    CheckItemInArray(protection, ItemArray(kSecAttrAccessibleAlways, kSecAttrAccessibleAfterFirstUnlock,
-                                           kSecAttrAccessibleWhenUnlocked, kSecAttrAccessibleAlwaysThisDeviceOnly,
-                                           kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
-                                           kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-                                           kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly),
-                     "SecAccessControl: invalid protection %@");
+    if (!protection || CFGetTypeID(protection) != CFDictionaryGetTypeID()) {
+        // Verify protection type.
+        CheckItemInArray(protection, ItemArray(kSecAttrAccessibleAlwaysPrivate, kSecAttrAccessibleAfterFirstUnlock,
+                                               kSecAttrAccessibleWhenUnlocked, kSecAttrAccessibleAlwaysThisDeviceOnlyPrivate,
+                                               kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+                                               kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+                                               kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly),
+                         "SecAccessControl: invalid protection %@");
+    }
 
     // Protection valid, use it.
     CFDictionarySetValue(access_control->dict, kSecAccessControlKeyProtection, protection);
@@ -334,8 +339,8 @@ errOut:
 
 bool SecAccessControlAddConstraintForOperation(SecAccessControlRef access_control, CFTypeRef operation, CFTypeRef constraint, CFErrorRef *error) {
     CheckItemInArray(operation, ItemArray(kAKSKeyOpEncrypt, kAKSKeyOpDecrypt,
-#if TARGET_OS_EMBEDDED || TARGET_OS_IPHONE
-                                          kAKSKeyOpSign,
+#if TARGET_OS_IPHONE || (!RC_HIDE_J79 && !RC_HIDE_J80)
+                                          kAKSKeyOpSign, kAKSKeyOpAttest,
 #endif
                                           kAKSKeyOpSync, kAKSKeyOpDefaultAcl, kAKSKeyOpDelete),
                      "SecAccessControl: invalid operation %@");

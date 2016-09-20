@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2014 Gurpreet Kaur (k.gurpreet@samsung.com). All rights reserved.
+ * Copyright (C) 2016 Igalia S.L.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,10 +24,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MathMLMencloseElement_h
-#define MathMLMencloseElement_h
+#pragma once
 
 #if ENABLE(MATHML)
+#include "Element.h"
 #include "MathMLInlineContainerElement.h"
 
 namespace WebCore {
@@ -34,23 +35,34 @@ namespace WebCore {
 class MathMLMencloseElement final: public MathMLInlineContainerElement {
 public:
     static Ref<MathMLMencloseElement> create(const QualifiedName& tagName, Document&);
-    const Vector<String>& notationValues() const { return m_notationValues; }
-    bool isRadical() const { return m_isRadicalValue; }
-    String longDivLeftPadding() const;
-    bool isDefaultLongDiv() const { return !hasAttribute(MathMLNames::notationAttr); }
+
+    enum MencloseNotationFlag {
+        LongDiv = 1 << 1,
+        RoundedBox = 1 << 2,
+        Circle = 1 << 3,
+        Left = 1 << 4,
+        Right = 1 << 5,
+        Top = 1 << 6,
+        Bottom = 1 << 7,
+        UpDiagonalStrike = 1 << 8,
+        DownDiagonalStrike = 1 << 9,
+        VerticalStrike = 1 << 10,
+        HorizontalStrike = 1 << 11,
+        UpDiagonalArrow = 1 << 12, // FIXME: updiagonalarrow is not implemented. See http://wkb.ug/127466
+        PhasorAngle = 1 << 13 // FIXME: phasorangle is not implemented. See http://wkb.ug/127466
+        // We do not implement the Radical notation. Authors should instead use the <msqrt> element.
+    };
+    bool hasNotation(MencloseNotationFlag notationFlag) const { return m_notationFlags & notationFlag; }
 
 private:
     MathMLMencloseElement(const QualifiedName&, Document&);
-    virtual RenderPtr<RenderElement> createElementRenderer(Ref<RenderStyle>&&, const RenderTreePosition&) override;
-    virtual bool isPresentationAttribute(const QualifiedName&) const override;
-    virtual void collectStyleForPresentationAttribute(const QualifiedName&, const AtomicString&, MutableStyleProperties&) override;
-    virtual void finishParsingChildren() override;
-
-    Vector<String> m_notationValues;
-    bool m_isRadicalValue;
+    RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) final;
+    void parseAttribute(const QualifiedName&, const AtomicString&) final;
+    void clearNotations() { m_notationFlags = 0; }
+    void addNotation(MencloseNotationFlag notationFlag) { m_notationFlags |= notationFlag; }
+    unsigned short m_notationFlags;
 };
 
 }
 
 #endif // ENABLE(MATHML)
-#endif // MathMLMencloseElement_h

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2015 The PHP Group                                |
+   | Copyright (c) 1997-2016 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -23,11 +23,6 @@
 /* Synced with php 3.0 revision 1.193 1999-06-16 [ssb] */
 
 #include <stdio.h>
-#ifdef PHP_WIN32
-# include "win32/php_stdint.h"
-#else
-# include <stdint.h>
-#endif
 #include "php.h"
 #include "php_rand.h"
 #include "php_string.h"
@@ -137,6 +132,9 @@ static char *php_bin2hex(const unsigned char *old, const size_t oldlen, size_t *
 	register unsigned char *result = NULL;
 	size_t i, j;
 
+	if (UNEXPECTED(oldlen * 2 * sizeof(char) > INT_MAX)) {
+		zend_error(E_ERROR, "String size overflow");
+	}
 	result = (unsigned char *) safe_emalloc(oldlen, 2 * sizeof(char), 1);
 
 	for (i = j = 0; i < oldlen; i++) {
@@ -2613,6 +2611,7 @@ PHP_FUNCTION(quotemeta)
 	char *p, *q;
 	char c;
 	int  old_len;
+	size_t new_len;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &old, &old_len) == FAILURE) {
 		return;
@@ -2647,8 +2646,13 @@ PHP_FUNCTION(quotemeta)
 		}
 	}
 	*q = 0;
+	new_len = q - str;
+	if (UNEXPECTED(new_len > INT_MAX)) {
+		efree(str);
+		zend_error(E_ERROR, "String size overflow");
+	}
 
-	RETURN_STRINGL(erealloc(str, q - str + 1), q - str, 0);
+	RETURN_STRINGL(erealloc(str, new_len + 1), new_len, 0);
 }
 /* }}} */
 
@@ -3500,7 +3504,7 @@ PHPAPI char *php_addcslashes(const char *str, int length, int *new_length, int s
 	char *source, *target;
 	char *end;
 	char c;
-	int  newlen;
+	size_t  newlen;
 
 	if (!wlength) {
 		wlength = strlen(what);
@@ -3531,11 +3535,15 @@ PHPAPI char *php_addcslashes(const char *str, int length, int *new_length, int s
 	}
 	*target = 0;
 	newlen = target - new_str;
+	if (UNEXPECTED(newlen > INT_MAX)) {
+		efree(new_str);
+		zend_error(E_ERROR, "String size overflow");
+	}
 	if (target - new_str < length * 4) {
 		new_str = erealloc(new_str, newlen + 1);
 	}
 	if (new_length) {
-		*new_length = newlen;
+		*new_length = (int)newlen;
 	}
 	if (should_free) {
 		STR_FREE((char*)str);
@@ -3587,6 +3595,9 @@ PHPAPI char *php_addslashes(char *str, int length, int *new_length, int should_f
 
 	*target = 0;
 	*new_length = target - new_str;
+	if (UNEXPECTED(*new_length < 0)) {
+		zend_error(E_ERROR, "String size overflow");
+	}
 	if (should_free) {
 		STR_FREE(str);
 	}
@@ -3629,6 +3640,9 @@ PHPAPI int php_char_to_str_ex(char *str, uint len, char from, char *to, int to_l
 	}
 
 	Z_STRLEN_P(result) = len + (char_count * (to_len - 1));
+	if (Z_STRLEN_P(result) < 0) {
+		zend_error(E_ERROR, "String size overflow");
+	}
 	Z_STRVAL_P(result) = target = safe_emalloc(char_count, to_len, len + 1);
 	Z_TYPE_P(result) = IS_STRING;
 
@@ -4251,7 +4265,7 @@ PHP_FUNCTION(nl2br)
 {
 	/* in brief this inserts <br /> or <br> before matched regexp \n\r?|\r\n? */
 	char		*tmp, *str;
-	int		new_length;
+	size_t		new_length;
 	char		*end, *target;
 	int		repl_cnt = 0;
 	int		str_len;
@@ -4290,6 +4304,9 @@ PHP_FUNCTION(nl2br)
 		size_t repl_len = is_xhtml ? (sizeof("<br />") - 1) : (sizeof("<br>") - 1);
 
 		new_length = str_len + repl_cnt * repl_len;
+		if (UNEXPECTED(new_length > INT_MAX)) {
+			zend_error(E_ERROR, "String size overflow");
+		}
 		tmp = target = safe_emalloc(repl_cnt, repl_len, str_len + 1);
 	}
 
@@ -4595,6 +4612,7 @@ PHPAPI size_t php_strip_tags_ex(char *rbuf, int len, int *stateptr, char *allow,
 	int br, i=0, depth=0, in_q = 0;
 	int state = 0, pos;
 	char *allow_free = NULL;
+	char is_xml = 0;
 
 	if (stateptr)
 		state = *stateptr;
@@ -4694,7 +4712,10 @@ PHPAPI size_t php_strip_tags_ex(char *rbuf, int len, int *stateptr, char *allow,
 				switch (state) {
 					case 1: /* HTML/XML */
 						lc = '>';
-						in_q = state = 0;
+						if (is_xml && *(p -1) == '-') {
+							break;
+						}
+						in_q = state = is_xml = 0;
 						if (allow) {
 							if (tp - tbuf >= PHP_TAG_BUF_SIZE) {
 								pos = tp - tbuf;
@@ -4823,8 +4844,8 @@ PHPAPI size_t php_strip_tags_ex(char *rbuf, int len, int *stateptr, char *allow,
 				 * state == 2 (PHP). Switch back to HTML.
 				 */
 
-				if (state == 2 && p > buf+2 && strncasecmp(p-2, "xm", 2) == 0) {
-					state = 1;
+				if (state == 2 && p > buf+4 && strncasecmp(p-4, "<?xm", 4) == 0) {
+					state = 1; is_xml=1;
 					break;
 				}
 

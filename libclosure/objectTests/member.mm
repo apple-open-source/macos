@@ -6,7 +6,6 @@
 
 // TEST_CFLAGS -framework Foundation
 
-#import <objc/objc-auto.h>
 #import <Foundation/Foundation.h>
 #import <Block.h>
 #import "test.h"
@@ -81,7 +80,6 @@ void testRoutine() {
 int main() {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
     testRoutine();
-    objc_collect(OBJC_EXHAUSTIVE_COLLECTION|OBJC_WAIT_UNTIL_DONE);
     [pool drain];
 
     if (recovered != 1) {

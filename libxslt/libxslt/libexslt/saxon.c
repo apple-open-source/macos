@@ -101,9 +101,7 @@ exsltSaxonExpressionFunction (xmlXPathParserContextPtr ctxt, int nargs) {
 	 ret = xmlXPathCompile(arg);
 	 if (ret == NULL) {
 	      xmlFree(arg);
-	      xsltGenericError(xsltGenericErrorContext,
-			"{%s}:%s: argument is not an XPath expression\n",
-			ctxt->context->functionURI, ctxt->context->function);
+              xmlXPathSetError(ctxt, XPATH_EXPR_ERROR);
 	      return;
 	 }
 	 xmlHashAddEntry(hash, arg, (void *) ret);
@@ -147,6 +145,10 @@ exsltSaxonEvalFunction (xmlXPathParserContextPtr ctxt, int nargs) {
      expr = (xmlXPathCompExprPtr) xmlXPathPopExternal(ctxt);
 
      ret = xmlXPathCompiledEval(expr, ctxt->context);
+     if (ret == NULL) {
+	  xmlXPathSetError(ctxt, XPATH_EXPR_ERROR);
+	  return;
+     }
 
      valuePush(ctxt, ret);
 }

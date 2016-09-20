@@ -56,7 +56,8 @@ dtrace_subrstr(dtrace_hdl_t *dtp, int subr)
 	case DIF_SUBR_INET_NTOP: return ("inet_ntop");
 	case DIF_SUBR_INET_NTOA: return ("inet_ntoa");
 	case DIF_SUBR_INET_NTOA6: return ("inet_ntoa6");
-	case DIF_SUBR_COREPROFILE: return ("core_profile");
+	case DIF_SUBR_KDEBUG_TRACE: return ("kdebug_trace");
+	case DIF_SUBR_KDEBUG_TRACE_STRING: return ("kdebug_trace_string");
 	default: return ("unknown");
 	}
 }

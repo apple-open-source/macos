@@ -114,6 +114,8 @@ build::
 	(cd $(FIX) && rsync -pt $(VERSIONERFIX) $(DSTROOT)$(VERSIONERDIR)/$(Project)/fix) && \
 	echo DEFAULT = $(DEFAULT) > $(DSTROOT)$(VERSIONVERSIONS) && \
 	for vers in $(KNOWNVERSIONS); do \
+	    mkdir -p $(DSTROOT)/Library/Python/$$vers/site-packages; \
+	    install $(SRCROOT)/$$vers/fix/Extras.pth $(DSTROOT)/Library/Python/$$vers/site-packages/Extras.pth; \
 	    echo $$vers >> $(DSTROOT)$(VERSIONVERSIONS) || exit 1; \
 	done && \
 	for vers in $(VERSIONS); do \

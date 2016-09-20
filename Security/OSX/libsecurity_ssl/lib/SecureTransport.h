@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2002,2005-2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 1999-2002,2005-2016 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -147,6 +147,10 @@ typedef CF_ENUM(int, SSLSessionOption) {
      * Set this option to break from a client hello in order to check for SNI
      */
     kSSLSessionOptionBreakOnClientHello = 7,
+    /*
+     * Set this option to Allow renegotations. False by default.
+     */
+    kSSLSessionOptionAllowRenegotiation = 8,
 
 };
 
@@ -171,13 +175,13 @@ typedef CF_ENUM(int, SSLClientCertificateState) {
 	/*
 	 * Server side: We asked for a cert, client sent one, we validated
 	 *				it OK. App can inspect the cert via
-	 *				SSLGetPeerCertificates().
+	 *				SSLCopyPeerCertificates().
 	 * Client side: server asked for one, we sent it.
 	 */
 	kSSLClientCertSent,
 	/*
 	 * Client sent a cert but failed validation. Server side only.
-	 * Server app can inspect the cert via SSLGetPeerCertificates().
+	 * Server app can inspect the cert via SSLCopyPeerCertificates().
 	 */
 	kSSLClientCertRejected
 } ;
@@ -303,6 +307,31 @@ typedef CF_ENUM(int, SSLConnectionType)
     kSSLDatagramType
 };
 
+/*
+ * Predefined TLS configurations constants
+ */
+
+/* Default configuration - currently same as kSSLSessionConfig_standard */
+extern const CFStringRef kSSLSessionConfig_default;
+/* ATS v1 Config: TLS v1.2, only PFS ciphersuites */
+extern const CFStringRef kSSLSessionConfig_ATSv1;
+/* ATS v1 Config without PFS: TLS v1.2, include non PFS ciphersuites */
+extern const CFStringRef kSSLSessionConfig_ATSv1_noPFS;
+/* TLS v1.2 to TLS v1.0, with default ciphersuites (no RC4) */
+extern const CFStringRef kSSLSessionConfig_standard;
+/* TLS v1.2 to TLS v1.0, with defaults ciphersuites + RC4 */
+extern const CFStringRef kSSLSessionConfig_RC4_fallback;
+/* TLS v1.0 only, with defaults ciphersuites + fallback SCSV */
+extern const CFStringRef kSSLSessionConfig_TLSv1_fallback;
+/* TLS v1.0, with defaults ciphersuites + RC4 + fallback SCSV */
+extern const CFStringRef kSSLSessionConfig_TLSv1_RC4_fallback;
+/* TLS v1.2 to TLS v1.0, defaults + RC4 + DHE ciphersuites */
+extern const CFStringRef kSSLSessionConfig_legacy;
+/* TLS v1.2 to TLS v1.0, defaults + RC4 + DHE ciphersuites */
+extern const CFStringRef kSSLSessionConfig_legacy_DHE;
+/* TLS v1.2, anonymous ciphersuites only */
+extern const CFStringRef kSSLSessionConfig_anonymous;
+
 
 /******************
  *** Public API ***
@@ -410,6 +439,19 @@ SSLSetIOFuncs				(SSLContextRef		context,
 							 SSLWriteFunc		writeFunc)
 	__OSX_AVAILABLE_STARTING(__MAC_10_2, __IPHONE_5_0);
 
+
+/*
+ * Set a predefined configuration for the SSL Session
+ *
+ * This currently affect enabled protocol versions,
+ * enabled ciphersuites, and the kSSLSessionOptionFallback
+ * session option.
+ */
+OSStatus
+SSLSetSessionConfig(SSLContextRef context,
+                    CFStringRef config)
+    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
+
 /*
  * Set the minimum SSL protocol version allowed. Optional.
  * The default is the lower supported protocol.
@@ -444,13 +486,13 @@ SSLGetProtocolVersionMin  (SSLContextRef      context,
  *
  * This can only be called when no session is active.
  *
- * For TLS contexts, legal values for minVersion are :
+ * For TLS contexts, legal values for maxVersion are :
  *		kSSLProtocol3
  * 		kTLSProtocol1
  * 		kTLSProtocol11
  * 		kTLSProtocol12
  *
- * For DTLS contexts, legal values for minVersion are :
+ * For DTLS contexts, legal values for maxVersion are :
  *      kDTLSProtocol1
  */
 OSStatus
@@ -576,7 +618,7 @@ SSLGetProtocolVersion		(SSLContextRef		context,
  */
 OSStatus
 SSLSetCertificate			(SSLContextRef		context,
-							 CFArrayRef			certRefs)
+							 CFArrayRef			_Nullable certRefs)
 	__OSX_AVAILABLE_STARTING(__MAC_10_2, __IPHONE_5_0);
 
 /*
@@ -628,6 +670,25 @@ SSLGetPeerDomainName		(SSLContextRef		context,
 							 char				*peerName,		// returned here
 							 size_t				*peerNameLen)	// IN/OUT
 	__OSX_AVAILABLE_STARTING(__MAC_10_2, __IPHONE_5_0);
+
+
+/*
+ * Determine the buffer size needed for SSLCopyRequestedPeerNameLength().
+ */
+OSStatus
+SSLCopyRequestedPeerName    (SSLContextRef      context,
+                             char               *peerName,
+                             size_t             *peerNameLen)
+    __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
+
+/*
+ * Server Only: obtain the hostname specified by the client in the ServerName extension (SNI)
+ */
+OSStatus
+SSLCopyRequestedPeerNameLength  (SSLContextRef  ctx,
+                                 size_t         *peerNameLen)
+    __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
+
 
 /*
  * Specify the Datagram TLS Hello Cookie.
@@ -717,19 +778,6 @@ SSLGetEnabledCiphers		(SSLContextRef			context,
 							 SSLCipherSuite			*ciphers,		/* RETURNED */
 							 size_t					*numCiphers)	/* IN/OUT */
 	__OSX_AVAILABLE_STARTING(__MAC_10_2, __IPHONE_5_0);
-
-
-/* Deprecated, does nothing */
-typedef CF_ENUM(int, SSLSessionStrengthPolicy)
-{
-    kSSLSessionStrengthPolicyDefault,
-    kSSLSessionStrengthPolicyATSv1,
-    kSSLSessionStrengthPolicyATSv1_noPFS,
-};
-
-OSStatus
-SSLSetSessionStrengthPolicy(SSLContextRef context,
-                            SSLSessionStrengthPolicy policyStrength);
 
 
 #if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
@@ -1297,6 +1345,17 @@ OSStatus SSLGetRsaBlinding			(SSLContextRef			context,
 OSStatus
 SSLHandshake				(SSLContextRef		context)
 	__OSX_AVAILABLE_STARTING(__MAC_10_2, __IPHONE_5_0);
+
+/*
+ * Server Only: Request renegotation.
+ * This will return an error if the server is already renegotiating, or if the session is closed.
+ * After this return without error, the application should call SSLHandshake() and/or SSLRead() as
+ * for the original handshake.
+ */
+OSStatus
+SSLReHandshake				(SSLContextRef		context)
+    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
+
 
 /*
  * Normal application-level read/write. On both of these, a errSSLWouldBlock

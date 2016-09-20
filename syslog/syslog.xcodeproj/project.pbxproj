@@ -54,6 +54,19 @@
 			name = executables;
 			productName = All;
 		};
+		721700891CCABF6F000FC779 /* executables_DaytonaBridge */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 721700921CCABF6F000FC779 /* Build configuration list for PBXAggregateTarget "executables_DaytonaBridge" */;
+			buildPhases = (
+			);
+			dependencies = (
+				7217008A1CCABF6F000FC779 /* PBXTargetDependency */,
+				7217008E1CCABF6F000FC779 /* PBXTargetDependency */,
+				721700901CCABF6F000FC779 /* PBXTargetDependency */,
+			);
+			name = executables_DaytonaBridge;
+			productName = All;
+		};
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
@@ -162,6 +175,27 @@
 			remoteInfo = util;
 		};
 		503A82131098FB9300B0D08A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5039177B109140C30001165E;
+			remoteInfo = syslogd;
+		};
+		7217008B1CCABF6F000FC779 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 505ACB9C108FD16400197086;
+			remoteInfo = aslcommon;
+		};
+		7217008F1CCABF6F000FC779 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 503917C71091413E0001165E;
+			remoteInfo = util;
+		};
+		721700911CCABF6F000FC779 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
 			proxyType = 1;
@@ -718,6 +752,7 @@
 				503917C71091413E0001165E /* util */,
 				5039177B109140C30001165E /* syslogd */,
 				3F6F43C91613922800CA9ADB /* libsystem_asl */,
+				721700891CCABF6F000FC779 /* executables_DaytonaBridge */,
 			);
 		};
 /* End PBXProject section */
@@ -885,6 +920,21 @@
 			target = 5039177B109140C30001165E /* syslogd */;
 			targetProxy = 503A82131098FB9300B0D08A /* PBXContainerItemProxy */;
 		};
+		7217008A1CCABF6F000FC779 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 505ACB9C108FD16400197086 /* aslcommon */;
+			targetProxy = 7217008B1CCABF6F000FC779 /* PBXContainerItemProxy */;
+		};
+		7217008E1CCABF6F000FC779 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 503917C71091413E0001165E /* util */;
+			targetProxy = 7217008F1CCABF6F000FC779 /* PBXContainerItemProxy */;
+		};
+		721700901CCABF6F000FC779 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5039177B109140C30001165E /* syslogd */;
+			targetProxy = 721700911CCABF6F000FC779 /* PBXContainerItemProxy */;
+		};
 		FCF3761910D2EED700C0EC8D /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 505ACB9C108FD16400197086 /* aslcommon */;
@@ -1029,7 +1079,8 @@
 			baseConfigurationReference = 3F6B6314185AF66C00F692C5 /* util.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = util.tproj/entitlements.plist;
+				CODE_SIGN_ENTITLEMENTS = util.tproj/entitlements.plist;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "";
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				DEAD_CODE_STRIPPING = YES;
@@ -1065,6 +1116,17 @@
 				);
 				PRODUCT_NAME = aslcommon;
 				SKIP_INSTALL = YES;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		721700931CCABF6F000FC779 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				PRODUCT_NAME = "$(TARGET_NAME)";
 				ZERO_LINK = NO;
 			};
 			name = Release;
@@ -1148,6 +1210,14 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				505ACB9F108FD16500197086 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		721700921CCABF6F000FC779 /* Build configuration list for PBXAggregateTarget "executables_DaytonaBridge" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				721700931CCABF6F000FC779 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

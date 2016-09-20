@@ -208,7 +208,10 @@ IOReturn IOHIDevice::setParamProperties( OSDictionary * dict )
                             !key->isEqualTo(kIOHIDScrollResetKey) && 
                             !key->isEqualTo(kIOHIDDeviceParametersKey) && 
                             !key->isEqualTo(kIOHIDResetLEDsKey) &&
-                            !key->isEqualTo(kIOUserClientClassKey)) {
+                            !key->isEqualTo(kIOUserClientClassKey) &&
+                            !key->isEqualTo(kIOClassKey) &&
+                            !key->isEqualTo(kIOProviderClassKey) &&
+                            !key->isEqualTo(kIOKitDebugKey)) {
                         OSObject * value = dict->getObject(key);
 
                         deviceParameters->setObject(key, value);

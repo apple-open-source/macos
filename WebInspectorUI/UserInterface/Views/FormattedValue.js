@@ -39,9 +39,7 @@ WebInspector.FormattedValue.createLinkifiedElementString = function(string)
 {
     var span = document.createElement("span");
     span.className = "formatted-string";
-    span.appendChild(document.createTextNode("\""));
-    span.appendChild(WebInspector.linkifyStringAsFragment(string.replace(/"/g, "\\\"")));
-    span.appendChild(document.createTextNode("\""));
+    span.append("\"", WebInspector.linkifyStringAsFragment(string.replace(/\\/g, "\\\\").replace(/"/g, "\\\"")), "\"");
     return span;
 };
 
@@ -90,13 +88,13 @@ WebInspector.FormattedValue.createElementForError = function(object)
         return span;
 
     var sourceLinkWithPrefix = WebInspector.ErrorObjectView.makeSourceLinkWithPrefix(preview.sourceURL, preview.line, preview.column);
-    span.appendChild(sourceLinkWithPrefix);
+    span.append(sourceLinkWithPrefix);
     return span;
 };
 
 WebInspector.FormattedValue.createElementForNodePreview = function(preview)
 {
-    var value = preview.value;
+    var value = preview.value || preview.description;
     var span = document.createElement("span");
     span.className = "formatted-node-preview syntax-highlighted";
 
@@ -129,31 +127,39 @@ WebInspector.FormattedValue.createElementForNodePreview = function(preview)
 
     var tag = document.createElement("span");
     tag.className = "html-tag";
-    tag.appendChild(document.createTextNode("<"));
+    tag.append("<");
 
     var tagName = tag.appendChild(document.createElement("span"));
     tagName.className = "html-tag-name";
     tagName.textContent = matches[1];
 
     if (matches[2]) {
-        tag.appendChild(document.createTextNode(" "));
+        tag.append(" ");
         var attribute = tag.appendChild(document.createElement("span"));
         attribute.className = "html-attribute";
         var attributeName = attribute.appendChild(document.createElement("span"));
         attributeName.className = "html-attribute-name";
         attributeName.textContent = matches[2];
-        attribute.appendChild(document.createTextNode("=\""));
+        attribute.append("=\"");
         var attributeValue = attribute.appendChild(document.createElement("span"));
         attributeValue.className = "html-attribute-value";
         attributeValue.textContent = matches[3];
-        attribute.appendChild(document.createTextNode("\""));
+        attribute.append("\"");
     }
 
-    tag.appendChild(document.createTextNode(">"));
+    tag.append(">");
     span.appendChild(tag);
 
     return span;
 };
+
+WebInspector.FormattedValue.createElementForFunctionWithName = function(description)
+{
+    var span = document.createElement("span");
+    span.classList.add("formatted-function");
+    span.textContent = description.substring(0, description.indexOf("("));
+    return span;
+}
 
 WebInspector.FormattedValue.createElementForTypesAndValue = function(type, subtype, displayString, size, isPreview, hadException)
 {
@@ -209,6 +215,17 @@ WebInspector.FormattedValue.createElementForPropertyPreview = function(propertyP
 {
     return WebInspector.FormattedValue.createElementForTypesAndValue(propertyPreview.type, propertyPreview.subtype, propertyPreview.value, undefined, true, false);
 };
+
+WebInspector.FormattedValue.createObjectPreviewOrFormattedValueForObjectPreview = function(objectPreview, previewViewMode)
+{
+    if (objectPreview.subtype === "node")
+        return WebInspector.FormattedValue.createElementForNodePreview(objectPreview);
+
+    if (objectPreview.type === "function")
+        return WebInspector.FormattedValue.createElementForFunctionWithName(objectPreview.description);
+
+    return new WebInspector.ObjectPreviewView(objectPreview, previewViewMode).element;
+}
 
 WebInspector.FormattedValue.createObjectPreviewOrFormattedValueForRemoteObject = function(object, previewViewMode)
 {

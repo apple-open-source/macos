@@ -286,15 +286,15 @@ static CFDictionaryRef createExtensionToMIMETypeMap()
     return CFDictionaryCreate(kCFAllocatorDefault, (const void**)&keys, (const void**)&values, sizeof(keys)/sizeof(CFStringRef), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 }
 
-void adjustMIMETypeIfNecessary(CFURLResponseRef cfResponse)
+void adjustMIMETypeIfNecessary(CFURLResponseRef cfResponse, bool isMainResourceLoad)
 {
-    RetainPtr<CFStringRef> result = wkGetCFURLResponseMIMEType(cfResponse);
+    UNUSED_PARAM(isMainResourceLoad);
+    RetainPtr<CFStringRef> result = CFURLResponseGetMIMEType(cfResponse);
     RetainPtr<CFStringRef> originalResult = result;
 
     if (!result) {
-        CFURLRef url = wkGetCFURLResponseURL(cfResponse);
-        NSURL *nsURL = (NSURL *)url;
-        if ([nsURL isFileURL]) {
+        auto url = CFURLResponseGetURL(cfResponse);
+        if ([(NSURL *)url isFileURL]) {
             RetainPtr<CFStringRef> extension = adoptCF(CFURLCopyPathExtension(url));
             if (extension) {
                 // <rdar://problem/7007389> CoreTypes UTI map is missing 100+ file extensions that GateKeeper knew about
@@ -321,23 +321,23 @@ void adjustMIMETypeIfNecessary(CFURLResponseRef cfResponse)
     }
 
     if (result != originalResult)
-        wkSetCFURLResponseMIMEType(cfResponse, result.get());
+        CFURLResponseSetMIMEType(cfResponse, result.get());
 }
 #endif
 
 #if !USE(CFNETWORK)
-NSURLResponse *synthesizeRedirectResponseIfNecessary(NSURLConnection *connection, NSURLRequest *newRequest, NSURLResponse *redirectResponse)
+NSURLResponse *synthesizeRedirectResponseIfNecessary(NSURLRequest *currentRequest, NSURLRequest *newRequest, NSURLResponse *redirectResponse)
 {
     if (redirectResponse)
         return redirectResponse;
 
-    if ([[[newRequest URL] scheme] isEqualToString:[[[connection currentRequest] URL] scheme]])
+    if ([[[newRequest URL] scheme] isEqualToString:[[currentRequest URL] scheme]])
         return nil;
 
     // If the new request is a different protocol than the current request, synthesize a redirect response.
     // This is critical for HSTS (<rdar://problem/14241270>).
     NSDictionary *synthesizedResponseHeaderFields = @{ @"Location": [[newRequest URL] absoluteString], @"Cache-Control": @"no-store" };
-    return [[[NSHTTPURLResponse alloc] initWithURL:[[connection currentRequest] URL] statusCode:302 HTTPVersion:(NSString *)kCFHTTPVersion1_1 headerFields:synthesizedResponseHeaderFields] autorelease];
+    return [[[NSHTTPURLResponse alloc] initWithURL:[currentRequest URL] statusCode:302 HTTPVersion:(NSString *)kCFHTTPVersion1_1 headerFields:synthesizedResponseHeaderFields] autorelease];
 }
 #endif
 

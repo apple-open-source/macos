@@ -23,6 +23,7 @@
 
 #include "CachedResourceClient.h"
 #include "CachedResourceHandle.h"
+#include "Timer.h"
 #include <wtf/text/TextPosition.h>
 #include <wtf/text/WTFString.h>
 
@@ -82,7 +83,7 @@ private:
     bool requestScript(const String& sourceUrl);
     void stopLoadRequest();
 
-    virtual void notifyFinished(CachedResource*) override;
+    void notifyFinished(CachedResource*) override;
 
     virtual String sourceAttributeValue() const = 0;
     virtual String charsetAttributeValue() const = 0;
@@ -111,6 +112,7 @@ private:
     String m_fallbackCharacterEncoding;
 };
 
+// FIXME: replace with downcast<ScriptElement>.
 ScriptElement* toScriptElementIfPossible(Element*);
 
 }

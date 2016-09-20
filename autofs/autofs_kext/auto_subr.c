@@ -1511,8 +1511,7 @@ auto_freefnnode(fnnode_t *fnp, int is_symlink)
 	AUTOFS_DPRINT((4, "auto_freefnnode: fnp=%p\n", (void *)fnp));
 
 	assert(fnp->fn_linkcnt == 0);
-	assert(!vnode_isinuse(vp, 1));
-	assert(!vnode_isdir(vp) || fnp->fn_dirents == NULL);
+	assert(is_symlink || fnp->fn_dirents == NULL);
 	assert(fnp->fn_parent == NULL);
 
 	FREE(fnp->fn_name, M_AUTOFS);
@@ -1553,7 +1552,9 @@ auto_disconnect(
 	    "auto_disconnect: dfnp=%p fnp=%p linkcnt=%d\n",
 	    (void *)dfnp, (void *)fnp, fnp->fn_linkcnt));
 
-	assert(lck_rw_held_exclusive(dfnp->fn_rwlock));
+#if 0 /* XXX lck_rw_assert() not exported */
+	lck_rw_assert(dfnp->fn_rwlock, LCK_RW_ASSERT_EXCLUSIVE);
+#endif
 	assert(fnp->fn_linkcnt == 1);
 
 	/*
@@ -1797,7 +1798,9 @@ auto_search(fnnode_t *dfnp, char *name, int namelen)
 		panic("auto_search: dvp=%p not a directory", dvp);
 	}
 
-	assert(lck_rw_held(dfnp->fn_rwlock));
+#if 0 /* XXX lck_rw_assert() not exported */
+	lck_rw_assert(dfnp->fn_rwlock, LCK_RW_ASSERT_HELD);
+#endif
 	for (p = dfnp->fn_dirents; p != NULL; p = p->fn_next) {
 		if (p->fn_namelen == namelen &&
 		    bcmp(p->fn_name, name, namelen) == 0) {

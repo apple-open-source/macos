@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2006, 2007, 2010, 2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2006, 2007, 2010, 2014, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -36,7 +36,6 @@
 #include <sys/param.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFBundlePriv.h>	// for _CFBundleCopyMainBundleExecutableURL
-#include <SystemConfiguration/SCPrivate.h>	// for _SCErrorSet
 #include "dy_framework.h"
 
 #include "SCPreferencesInternal.h"
@@ -192,7 +191,6 @@ _SCSecAccessCreateForExecutables(CFStringRef	label,
 				 CFArrayRef	executableURLs)
 {
 	SecAccessRef			access			= NULL;
-	CFArrayRef			aclList			= NULL;
 	CFIndex				i;
 	CFIndex				n;
 	OSStatus			status;
@@ -240,7 +238,6 @@ _SCSecAccessCreateForExecutables(CFStringRef	label,
 
     done :
 
-	if (aclList != NULL)	CFRelease(aclList);
 	CFRelease(trustedApplications);
 
 	return	access;

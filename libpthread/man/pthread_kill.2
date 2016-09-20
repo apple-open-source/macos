@@ -54,15 +54,16 @@ If successful,
 returns 0.
 Otherwise, an error number is returned.
 .Sh ERRORS
+The
 .Fn pthread_kill
-will fail if:
+function will fail if:
 .Bl -tag -width Er
-.It Bq Er EINVAL
-.Fa sig
-is an invalid or unsupported signal number.
 .It Bq Er ESRCH
 .Fa thread
 is an invalid thread ID.
+.It Bq Er EINVAL
+.Fa sig
+is an invalid or unsupported signal number.
 .El
 .Sh LEGACY SYNOPSIS
 .Fd #include <pthread.h>

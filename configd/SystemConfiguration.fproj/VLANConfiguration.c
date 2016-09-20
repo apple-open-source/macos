@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2013, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -35,11 +35,8 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
 
-#include <SystemConfiguration/SystemConfiguration.h>
 #include "SCNetworkConfigurationInternal.h"
 #include "SCPreferencesInternal.h"
-#include <SystemConfiguration/SCValidation.h>
-#include <SystemConfiguration/SCPrivate.h>
 
 #include <ifaddrs.h>
 #include <pthread.h>
@@ -222,11 +219,9 @@ SCVLANInterfaceCopyAll(SCPreferencesRef prefs)
 	SCPreferencesRef	ni_prefs;
 	CFStringRef		path;
 
-	if ((prefs == NULL) ||
-	    (__SCPreferencesUsingDefaultPrefs(prefs) == TRUE)) {
+	if (__SCPreferencesUsingDefaultPrefs(prefs)) {
 		ni_prefs = NULL;
-	}
-	else {
+	} else {
 		ni_prefs = __SCPreferencesCreateNIPrefsFromPrefs(prefs);
 	}
 	context.vlans = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
@@ -284,7 +279,9 @@ CFArrayRef
 SCVLANInterfaceCopyAvailablePhysicalInterfaces()
 {
 	CFMutableArrayRef	available;
+#if	!TARGET_OS_IPHONE
 	CFArrayRef		bond_interfaces		= NULL;
+#endif	// !TARGET_OS_IPHONE
 	CFArrayRef		bridge_interfaces	= NULL;
 	CFMutableSetRef		excluded		= NULL;
 	CFArrayRef		interfaces;
@@ -320,11 +317,13 @@ SCVLANInterfaceCopyAvailablePhysicalInterfaces()
 		CFRelease(interfaces);
 	}
 
+#if	!TARGET_OS_IPHONE
 	// add bond interfaces
 	if (bond_interfaces != NULL) {
 		addAvailableInterfaces(available, bond_interfaces, NULL);
 		CFRelease(bond_interfaces);
 	}
+#endif	// !TARGET_OS_IPHONE
 
 	// add bridge interfaces
 	if (bridge_interfaces != NULL) {
@@ -451,10 +450,9 @@ SCVLANInterfaceCreate(SCPreferencesRef prefs, SCNetworkInterfaceRef physical, CF
 
 	interfacePrivate = (SCNetworkInterfacePrivateRef)physical;
 	if (!interfacePrivate->supportsVLAN) {
-		if (__SCPreferencesUsingDefaultPrefs(prefs) == FALSE) {
+		if (!__SCPreferencesUsingDefaultPrefs(prefs)) {
 			interfacePrivate->supportsVLAN = TRUE;
-		}
-		else {
+		} else {
 			_SCErrorSet(kSCStatusInvalidArgument);
 			return NULL;
 		}
@@ -631,10 +629,9 @@ SCVLANInterfaceSetPhysicalInterfaceAndTag(SCVLANInterfaceRef vlan, SCNetworkInte
 	prefs = interfacePrivate->prefs;
 
 	if (!interfacePrivate->supportsVLAN) {
-		if (__SCPreferencesUsingDefaultPrefs(prefs) == FALSE) {
+		if (!__SCPreferencesUsingDefaultPrefs(prefs)) {
 			interfacePrivate->supportsVLAN = TRUE;
-		}
-		else {
+		} else {
 			_SCErrorSet(kSCStatusInvalidArgument);
 			return FALSE;
 		}

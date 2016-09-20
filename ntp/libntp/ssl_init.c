@@ -14,21 +14,37 @@
 
 #ifdef OPENSSL
 #include "openssl/err.h"
-#include "openssl/rand.h"
+#include "openssl/evp.h"
 
+void	atexit_ssl_cleanup(void);
 
 int ssl_init_done;
 
 void
 ssl_init(void)
 {
+	init_lib();
+
 	if (ssl_init_done)
 		return;
 
 	ERR_load_crypto_strings();
 	OpenSSL_add_all_algorithms();
+	atexit(&atexit_ssl_cleanup);
 
-	ssl_init_done = 1;
+	ssl_init_done = TRUE;
+}
+
+
+void
+atexit_ssl_cleanup(void)
+{
+	if (!ssl_init_done)
+		return;
+
+	ssl_init_done = FALSE;
+	EVP_cleanup();
+	ERR_free_strings();
 }
 
 
@@ -38,10 +54,10 @@ ssl_check_version(void)
 	if ((SSLeay() ^ OPENSSL_VERSION_NUMBER) & ~0xff0L) {
 		msyslog(LOG_WARNING,
 		    "OpenSSL version mismatch. Built against %lx, you have %lx",
-		    OPENSSL_VERSION_NUMBER, SSLeay());
+		    (u_long)OPENSSL_VERSION_NUMBER, SSLeay());
 		fprintf(stderr,
 		    "OpenSSL version mismatch. Built against %lx, you have %lx\n",
-		    OPENSSL_VERSION_NUMBER, SSLeay());
+		    (u_long)OPENSSL_VERSION_NUMBER, SSLeay());
 	}
 
 	INIT_SSL();
@@ -64,6 +80,7 @@ keytype_from_text(
 	int		key_type;
 	u_int		digest_len;
 #ifdef OPENSSL
+	const u_long	max_digest_len = MAX_MAC_LEN - sizeof(keyid_t);
 	u_char		digest[EVP_MAX_MD_SIZE];
 	char *		upcased;
 	char *		pch;
@@ -77,15 +94,15 @@ keytype_from_text(
 	 */
 	INIT_SSL();
 	LIB_GETBUF(upcased);
-	strncpy(upcased, text, LIB_BUFLENGTH);
+	strlcpy(upcased, text, LIB_BUFLENGTH);
 	for (pch = upcased; '\0' != *pch; pch++)
-		*pch = (char)toupper(*pch);
+		*pch = (char)toupper((unsigned char)*pch);
 	key_type = OBJ_sn2nid(upcased);
 #else
 	key_type = 0;
 #endif
 
-	if (!key_type && 'm' == tolower(text[0]))
+	if (!key_type && 'm' == tolower((unsigned char)text[0]))
 		key_type = NID_md5;
 
 	if (!key_type)
@@ -95,15 +112,15 @@ keytype_from_text(
 #ifdef OPENSSL
 		EVP_DigestInit(&ctx, EVP_get_digestbynid(key_type));
 		EVP_DigestFinal(&ctx, digest, &digest_len);
-		if (digest_len + sizeof(keyid_t) > MAX_MAC_LEN) {
+		if (digest_len > max_digest_len) {
 			fprintf(stderr,
-				"key type %s %u octet digests are too big, max %u\n",
+				"key type %s %u octet digests are too big, max %lu\n",
 				keytype_name(key_type), digest_len,
-				MAX_MAC_LEN - sizeof(keyid_t));
+				max_digest_len);
 			msyslog(LOG_ERR,
-				"key type %s %u octet digests are too big, max %u",
+				"key type %s %u octet digests are too big, max %lu",
 				keytype_name(key_type), digest_len,
-				MAX_MAC_LEN - sizeof(keyid_t));
+				max_digest_len);
 			return 0;
 		}
 #else
@@ -143,3 +160,28 @@ keytype_name(
 	return name;
 }
 
+
+/*
+ * Use getpassphrase() if configure.ac detected it, as Suns that
+ * have it truncate the password in getpass() to 8 characters.
+ */
+#ifdef HAVE_GETPASSPHRASE
+# define	getpass(str)	getpassphrase(str)
+#endif
+
+/*
+ * getpass_keytype() -- shared between ntpq and ntpdc, only vaguely
+ *			related to the rest of ssl_init.c.
+ */
+char *
+getpass_keytype(
+	int	keytype
+	)
+{
+	char	pass_prompt[64 + 11 + 1]; /* 11 for " Password: " */
+
+	snprintf(pass_prompt, sizeof(pass_prompt),
+		 "%.64s Password: ", keytype_name(keytype));
+
+	return getpass(pass_prompt);
+}

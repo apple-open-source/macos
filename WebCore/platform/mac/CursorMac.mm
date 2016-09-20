@@ -26,8 +26,8 @@
 #import "config.h"
 #import "Cursor.h"
 
-#import "BlockExceptions.h"
 #import "WebCoreSystemInterface.h"
+#import <wtf/BlockObjCExceptions.h>
 #import <wtf/StdLibExtras.h>
 
 @interface WebCoreCursorBundle : NSObject { }
@@ -64,7 +64,10 @@ static RetainPtr<NSCursor> createCustomCursor(Image* image, const IntPoint& hotS
         NSRect fromRect = NSMakeRect(0, 0, image->width(), image->height());
 
         [expandedImage lockFocus];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         [nsImage drawInRect:toRect fromRect:fromRect operation:NSCompositeSourceOver fraction:1];
+#pragma clang diagnostic pop
         [expandedImage unlockFocus];
 
         return adoptNS([[NSCursor alloc] initWithImage:expandedImage.get() hotSpot:hotSpot]);
@@ -245,7 +248,9 @@ Cursor::Cursor(const Cursor& other)
     : m_type(other.m_type)
     , m_image(other.m_image)
     , m_hotSpot(other.m_hotSpot)
+#if ENABLE(MOUSE_CURSOR_SCALE)
     , m_imageScaleFactor(other.m_imageScaleFactor)
+#endif
     , m_platformCursor(other.m_platformCursor)
 {
 }
@@ -255,7 +260,9 @@ Cursor& Cursor::operator=(const Cursor& other)
     m_type = other.m_type;
     m_image = other.m_image;
     m_hotSpot = other.m_hotSpot;
+#if ENABLE(MOUSE_CURSOR_SCALE)
     m_imageScaleFactor = other.m_imageScaleFactor;
+#endif
     m_platformCursor = other.m_platformCursor;
     return *this;
 }

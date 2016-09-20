@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 2007-2008,2014, International Business Machines Corporation and
+* Copyright (C) 2007-2016, International Business Machines Corporation and
 * others. All Rights Reserved.
 *******************************************************************************
 *
@@ -17,7 +17,7 @@
  * \file
  * \brief C++ API: Defines macros for interval format implementation
  */
- 
+
 #if !UCONFIG_NO_FORMATTING
 
 #include "unicode/unistr.h"
@@ -30,6 +30,7 @@
 #define RIGHT_CURLY_BRACKET ((UChar)0x007D)
 #define SPACE             ((UChar)0x0020)
 #define EN_DASH           ((UChar)0x2013)
+#define SOLIDUS           ((UChar)0x002F)
 
 #define DIGIT_ZERO        ((UChar)0x0030)
 #define DIGIT_ONE         ((UChar)0x0031)
@@ -61,6 +62,7 @@
 #define LOW_Z             ((UChar)0x007A)
 
 #define CAP_A             ((UChar)0x0041)
+#define CAP_B             ((UChar)0x0042)
 #define CAP_C             ((UChar)0x0043)
 #define CAP_D             ((UChar)0x0044)
 #define CAP_E             ((UChar)0x0045)
@@ -90,5 +92,5 @@
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
 
-#endif 
+#endif
 //eof

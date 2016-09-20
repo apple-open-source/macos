@@ -22,6 +22,7 @@
  */
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 
+#include <CoreFoundation/CFXPCBridge.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <notify.h>
@@ -33,8 +34,15 @@
 #include <dispatch/dispatch.h>
 #include <bsm/libbsm.h>
 #include <libproc.h>
+#include <IOReport.h>
+#include <IOKit/IOReportTypes.h>
 #if !TARGET_OS_SIMULATOR
 #include <energytrace.h>
+#endif
+#include <xpc/private.h>
+#include <xpc/xpc.h>
+#if TARGET_OS_EMBEDDED
+#include <AggregateDictionary/ADClient.h>
 #endif
 
 
@@ -51,18 +59,14 @@
 
 //#include <IOKit/IOReportMacros.h>
 
-#define kIOPMAppName                "Power Management configd plugin"
-#define kIOPMPrefsPath              "com.apple.PowerManagement.xml"
 #define FMMD_WIPE_BOOT_ARG          "fmm-wipe-system-status"
 
 
-#define kMaxAssertions              10240
 
 // CAST_PID_TO_KEY casts a mach_port_t into a void * for CF containers
 #define CAST_PID_TO_KEY(x)          ((void *)(uintptr_t)(x))
 
 #define LEVEL_FOR_BIT(idx)          (getAssertionLevel(idx))
-
 
 
 // Selectors for AppleSmartBatteryManagerUserClient
@@ -79,6 +83,11 @@ typedef enum {
 enum {
     kIOPMSystemActivityAssertionDisabled = 0,
     kIOPMSystemActivityAssertionEnabled  = 1
+};
+
+enum {
+    kIOPMActiveAssertions = 0,
+    kIOPMInactiveAssertions
 };
 
 
@@ -100,7 +109,7 @@ CFDictionaryRef copyRepeatPowerEvents(void);
 
 static void                         sendSmartBatteryCommand(uint32_t which, uint32_t level);
 static void                         sendUserAssertionsToKernel(uint32_t user_assertions);
-static void                         evaluateAssertions(void);
+static void                         evaluateForPSChange(void);
 static void                         HandleProcessExit(pid_t deadPID);
 
 static bool                         callerIsEntitledToAssertion(audit_token_t token,
@@ -112,14 +121,16 @@ __private_extern__ void             logASLAssertionsAggregate( );
 #define                             logASLAssertionsAggregate()
 #endif
 
+static IOReturn                     lookupAssertion(pid_t pid, IOPMAssertionID id, assertion_t **assertion);
 static bool                         propertiesDictRequiresRoot(CFDictionaryRef   props);
 static IOReturn                     doRetain(pid_t pid, IOPMAssertionID id, int *retainCnt);
 static IOReturn                     doRelease(pid_t pid, IOPMAssertionID id, int *retainCnt);
 static IOReturn                     doSetProperties(pid_t pid, 
                                                     IOPMAssertionID id, 
-                                                    CFDictionaryRef props);
+                                                    CFDictionaryRef props,
+                                                    int *enTrIntensity);
 
-static CFArrayRef                   copyPIDAssertionDictionaryFlattened(void);
+static CFArrayRef                   copyPIDAssertionDictionaryFlattened(int state);
 static CFArrayRef                   copyAssertionsByType(CFStringRef type);
 static CFDictionaryRef              copyAggregateValuesDictionary(void);
 
@@ -141,6 +152,11 @@ static void                         handleAssertionTimeout(assertionType_t *asse
 static void                         resetGlobalTimer(assertionType_t *assertType, uint64_t timer);
 static IOReturn                     raiseAssertion(assertion_t *assertion);
 static void                         allocStatsBuf(ProcessInfo *pinfo);
+#if !TARGET_OS_EMBEDDED
+static void                         releaseStatsBufByPid(pid_t p);
+#else
+static CFStringRef                  createExceptionAggdKey(IOPMAssertionException exc, ProcessInfo *pinfo);
+#endif
 
 __private_extern__ bool             isDisplayAsleep( );
 __private_extern__ void             logASLMessageSleepServiceTerminated(int forcedTimeoutCnt);
@@ -158,6 +174,10 @@ assertionEffect_t                   gAssertionEffects[kMaxAssertionEffects];
 uint32_t                            gDisplaySleepTimer = 0;      /* Display Sleep timer value in mins */
 unsigned long                       gIdleSleepTimer = 0;         /* Idle Sleep timer value in mins */
 
+#if TARGET_OS_EMBEDDED
+static dispatch_queue_t             statsOffloader = NULL;
+#endif
+
 extern uint32_t                     gDebugFlags;
 
 /* Number of procs interested in kIOPMAssertionsAnyChangedNotifyString notification */
@@ -169,9 +189,395 @@ static  uint32_t                    gTimeoutChange = 0;
 
 uint32_t                            gActivityAggCnt = 0; // Number of requests received to enable activity aggregation
 
+CFDictionaryRef                     gProcAssertionLimits = NULL;
+dispatch_source_t                   gProcAggregateMonitor = NULL;
+uint64_t                            gProcMonitorFrequency = (2 *3600LL * NSEC_PER_SEC);  // Once every two hours
+CFDictionaryRef                     gProcAggregateBasis = NULL;
+
+dispatch_source_t                   gAggCleanupDispatch = NULL;  // Dispatch to release statsbuf of dead procs
+uint64_t                            gAggCleanupFrequency = (15 * NSEC_PER_SEC);  // Once every 4 hours
+sysQualifier_t                      gSysQualifier;
+
+static CFMutableSetRef              gPendingResponses = NULL;
+static long                         gPendingAckToken = 0;
+static uint32_t                     gSleepBlockers = 0;
+__private_extern__ void             sendSleepNotificationResponse(void *acknowledgementToken, bool allow);
+
+
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
+#pragma mark -
+#pragma mark XPC
+/******************************************************************************
+  * XPC Handlers
+ *****************************************************************************/
+void asyncAssertionCreate(xpc_object_t remoteConnection, xpc_object_t msg)
+{
+
+    audit_token_t       token;
+    pid_t               callerPID = -1;
+    uid_t               callerUID = -1;
+    gid_t               callerGID = -1;
+    int                 enTrIntensity = -1;
+    IOPMAssertionID     assertionId = kIOPMNullAssertionID;
+    ProcessInfo         *pinfo = NULL;
+    IOReturn            return_code;
+    xpc_object_t        msgDictionary;
+    IOPMAssertionID     remoteId = kIOPMNullAssertionID;
+
+    CFNumberRef     numRef = NULL;
+    CFDictionaryRef props = NULL;
+    CFMutableDictionaryRef mutableProps = NULL;
+
+
+    msgDictionary = xpc_dictionary_get_value(msg, kAssertionCreateMsg);
+    if (!msgDictionary) {
+        ERROR_LOG("Failed to retrieve dictionary from Create  message\n");
+        return_code = kIOReturnBadArgument;
+        goto exit;
+    }
+
+    props = (CFMutableDictionaryRef)_CFXPCCreateCFObjectFromXPCMessage(msgDictionary);
+    if (!isA_CFDictionary(props)) {
+        ERROR_LOG("Received unexpected data type for assertion creation\n");
+        return_code = kIOReturnBadArgument;
+        goto exit;
+    }
+
+    xpc_connection_get_audit_token(remoteConnection, &token);
+    callerPID = xpc_connection_get_pid(remoteConnection);
+    callerUID = xpc_connection_get_euid(remoteConnection);
+    callerGID = xpc_connection_get_egid(remoteConnection);
+
+    mutableProps = CFDictionaryCreateMutableCopy(NULL, 0, props);
+    numRef = CFDictionaryGetValue(mutableProps, kIOPMAsyncClientAssertionIdKey);
+    if (isA_CFNumber(numRef))  {
+        CFNumberGetValue(numRef, kCFNumberSInt32Type, &remoteId);
+    }
+
+    if (!callerIsEntitledToAssertion(token, mutableProps))
+    {
+        ERROR_LOG("Process %d is not entitled to create assertion(remoteId:0x%x)\n", 
+                callerPID, remoteId);
+        return_code = kIOReturnNotPrivileged;
+        goto exit;
+    }
+
+
+    // Check for privileges if the assertion requires it.
+    if (propertiesDictRequiresRoot(mutableProps)
+        && ( !(callerIsRoot(callerUID) || callerIsAdmin(callerUID, callerGID))))
+    {
+        return_code = kIOReturnNotPrivileged;
+        goto exit;
+    }
+
+    return_code = doCreate(callerPID, mutableProps, &assertionId, &pinfo, &enTrIntensity);
+
+    pinfo->remoteConnection = xpc_retain(remoteConnection);
+
+    DEBUG_LOG("Created assertion with id 0x%x for remote id 0x%x from pid %d\n",
+            assertionId, remoteId, callerPID);
+exit:
+
+    if (props) {
+        CFRelease(props);
+    }
+    if (mutableProps) {
+        CFRelease(mutableProps);
+    }
+    xpc_object_t reply = xpc_dictionary_create_reply(msg);
+    if (!reply) {
+        // This is fatal...
+        ERROR_LOG("Failed to create the xpc object to send response\n");
+        return;
+    }
+
+    xpc_dictionary_set_uint64(reply, kMsgReturnCode, return_code);
+    xpc_dictionary_set_uint64(reply, kAssertionIdKey, assertionId);
+    xpc_dictionary_set_uint64(reply, kAssertionEnTrIntensityKey, enTrIntensity);
+    xpc_connection_send_message(remoteConnection, reply);
+}
+
+void asyncAssertionRelease(xpc_object_t remoteConnection, xpc_object_t msg)
+{
+    pid_t               callerPID = -1;
+    IOPMAssertionID assertionId;
+    IOReturn rc;
+    int retainCnt;
+
+    assertionId = (IOPMAssertionID)xpc_dictionary_get_uint64(msg, kAssertionReleaseMsg);
+    callerPID = xpc_connection_get_pid(remoteConnection);
+
+    rc = doRelease(callerPID, assertionId, &retainCnt);
+    if (rc != kIOReturnSuccess) {
+        ERROR_LOG("Failed to release assertion id 0x%x (rc:0x%x)\n", assertionId, rc);
+    }
+    else {
+        DEBUG_LOG("Released assertion 0x%x\n", assertionId);
+    }
+}
+
+void asyncAssertionProperties(xpc_object_t remoteConnection, xpc_object_t msg)
+{
+
+    pid_t               callerPID = -1;
+    int                 enTrIntensity = -1;
+    IOPMAssertionID     assertionId = kIOPMNullAssertionID;
+    IOReturn            rc;
+    CFTypeRef           cfObj;
+    xpc_object_t        msgDictionary;
+    CFDictionaryRef     newAssertionProperties = NULL;
+
+    msgDictionary = xpc_dictionary_get_value(msg, kAssertionPropertiesMsg);
+    if (!msgDictionary) {
+        ERROR_LOG("Failed to retrieve dictionary from Properties message\n");
+        rc = kIOReturnBadArgument;
+        goto exit;
+    }
+    newAssertionProperties = _CFXPCCreateCFObjectFromXPCMessage(msgDictionary);
+    if (!isA_CFDictionary(newAssertionProperties)) {
+        ERROR_LOG("Received unexpected data type for assertion creation\n");
+        rc = kIOReturnBadArgument;
+        goto exit;
+    }
+
+    cfObj = CFDictionaryGetValue(newAssertionProperties, kIOPMAssertionIdKey);
+    if (isA_CFNumber(cfObj)) {
+        CFNumberGetValue(cfObj, kCFNumberIntType, &assertionId);
+    }
+    else {
+        ERROR_LOG("Failed to retrieve assertion Id from Properties message\n");
+        rc = kIOReturnBadArgument;
+        goto exit;
+    }
+    callerPID = xpc_connection_get_pid(remoteConnection);
+
+    rc = doSetProperties(callerPID, assertionId, newAssertionProperties, &enTrIntensity);
+
+    DEBUG_LOG("Updated properties for assertion id 0x%x(rc:0x%x)\n", assertionId, rc);
+
+exit:
+
+    if (newAssertionProperties) {
+        CFRelease(newAssertionProperties);
+    }
+
+    if (rc != kIOReturnSuccess) {
+        ERROR_LOG("Failed to change properties for assertion id 0x%x (rc:0x%x)\n", assertionId, rc);
+    }
+}
+
+void releaseConnectionAssertions(xpc_object_t remoteConnection)
+{
+    pid_t deadPID = xpc_connection_get_pid(remoteConnection);
+    ProcessInfo         *pinfo = NULL;
+
+    DEBUG_LOG("Clearing up assertions from pid %d\n", deadPID);
+    pinfo = processInfoGet(deadPID);
+    if (pinfo && pinfo->remoteConnection) {
+        HandleProcessExit(deadPID);
+    }
+}
+
+void sendAssertionTimeoutMsg(assertion_t *assertion)
+{
+    xpc_object_t    msg = NULL;
+    ProcessInfo     *pinfo = assertion->pinfo;
+    CFNumberRef     numRef = NULL;
+    IOPMAssertionID asyncClientID = kIOPMNullAssertionID;
+
+    if (!pinfo->remoteConnection) {
+        return;
+    }
+
+    msg = xpc_dictionary_create(NULL, NULL, 0);
+    if (!msg) {
+        ERROR_LOG("Failed to create xpc msg object for pid %d to notify assertion 0x%x timeout\n", 
+                  pinfo->pid, assertion->assertionId);
+        return;
+    }
+    numRef = CFDictionaryGetValue(assertion->props, kIOPMAsyncClientAssertionIdKey);
+    if (isA_CFNumber(numRef))  {
+        CFNumberGetValue(numRef, kCFNumberSInt32Type, &asyncClientID);
+    }
+    else {
+        ERROR_LOG("Async client id is not found for id 0x%x\n", assertion->assertionId);
+        goto exit;
+    }
+    xpc_dictionary_set_uint64(msg, kAssertionTimeoutMsg, asyncClientID);
+
+    DEBUG_LOG("Sending assertion timeout message for id 0x%x\n", assertion->assertionId);
+
+    xpc_connection_send_message(pinfo->remoteConnection, msg);
+
+exit:
+    xpc_release(msg);
+}
+
+void handleAssertionCheckTimeout(const void *value, void *context)
+{
+    ProcessInfo *pinfo = (ProcessInfo *)value;
+
+    if (!pinfo->proc_exited) {
+        ERROR_LOG("Timed out waiting for assertion check response from pid %d\n",
+                pinfo->pid);
+    }
+    processInfoRelease(pinfo->pid);
+}
+
+
+void sendCheckAssertionsMsg(ProcessInfo *pinfo, void(^responseHandler)(xpc_object_t))
+{
+    xpc_object_t            msg = NULL;
+
+
+    msg = xpc_dictionary_create(NULL, NULL, 0);
+    if (!msg) {
+        ERROR_LOG("Failed to create xpc msg object for pid %d to check assertions\n", pinfo->pid);
+        return;
+    }
+    DEBUG_LOG("Sending assertion check message to pid %d\n", pinfo->pid);
+    xpc_dictionary_set_uint64(msg, kAssertionCheckMsg, 0);
+    xpc_dictionary_set_uint64(msg, kAssertionCheckTokenKey,gPendingAckToken);
+
+    xpc_connection_send_message_with_reply(pinfo->remoteConnection, msg, dispatch_get_main_queue(), responseHandler);
+    xpc_release(msg);
+
+
+}
+
+void processAssertionCheckResp(xpc_object_t reply, pid_t pid)
+{
+    long        token;
+    uint32_t    blockers;
+    ProcessInfo *pinfo;
+
+    token = xpc_dictionary_get_uint64(reply, kAssertionCheckTokenKey);
+    blockers = (uint32_t)xpc_dictionary_get_uint64(reply, kAssertionCheckCountKey);
+
+    if (token != gPendingAckToken) {
+        ERROR_LOG("Unexpected assertion check response from pid %d. token: %ld expected: %ld\n", 
+                  pid, token, gPendingAckToken);
+        return;
+    }
+
+
+    pinfo = processInfoGet(pid);
+    if (!pinfo) {
+        ERROR_LOG("Process for pid %d not found. token: %ld\n", pid, token);
+        return;
+    }
+
+    DEBUG_LOG("Received assertion check response from pid %d with assertion cnt %d\n", pid, blockers);
+
+    CFSetRemoveValue(gPendingResponses, pinfo);
+    processInfoRelease(pinfo->pid);
+
+    long cnt = CFSetGetCount(gPendingResponses);
+    if (cnt == 0) {
+        sendSleepNotificationResponse(gPendingAckToken, gSleepBlockers ? false : true);
+        gPendingAckToken = 0;
+        gSleepBlockers = 0;
+    }
+    else {
+        gSleepBlockers += blockers;
+        DEBUG_LOG("Still waiting for assertion check response from %ld procs\n", cnt);
+    }
+}
+
+
+void checkForAsyncAssertions(void *acknowledgementToken)
+{
+    static dispatch_source_t timer = 0;
+    ProcessInfo **procs = NULL;
+    ProcessInfo *pinfo = NULL;
+
+
+    if (gPendingResponses == NULL) {
+        gPendingResponses = CFSetCreateMutable(0, 0, NULL);
+        if (!gPendingResponses) {
+            ERROR_LOG("Failed to create array for pending responses\n");
+            sendSleepNotificationResponse(acknowledgementToken, true);
+            goto exit;
+        }
+    }
+
+    if ((gPendingAckToken != 0) || (CFSetGetCount(gPendingResponses) != 0)) {
+        ERROR_LOG("Call to check async assertions while previous check is not complete\n");
+        sendSleepNotificationResponse(acknowledgementToken, true);
+        goto exit;
+    }
+
+    long cnt = CFDictionaryGetCount(gProcessDict);
+    procs = malloc(cnt*(sizeof(ProcessInfo *)));
+    if (!procs) {
+        sendSleepNotificationResponse(acknowledgementToken, true);
+        goto exit;
+    }
+
+    gPendingAckToken = acknowledgementToken;
+    gSleepBlockers = 0;
+    CFDictionaryGetKeysAndValues(gProcessDict, NULL, (const void **)procs);
+    for (long j = 0; (j < cnt) && (procs[j] != NULL); j++) {
+        pinfo = procs[j];
+        if ((pinfo->remoteConnection == 0) || (pinfo->proc_exited == 1)) {
+            continue;
+        }
+
+        processInfoRetain(pinfo->pid);
+        CFSetAddValue(gPendingResponses, (const void*)pinfo);
+        sendCheckAssertionsMsg(pinfo, ^(xpc_object_t reply) { processAssertionCheckResp(reply, pinfo->pid); });
+    }
+
+    if (CFSetGetCount(gPendingResponses) == 0) {
+        // There are no processes with xpc connection
+        sendSleepNotificationResponse(acknowledgementToken, true);
+        gPendingAckToken = 0;
+        gSleepBlockers = 0;
+    }
+
+    if (timer == 0) {
+
+        timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
+        dispatch_source_set_event_handler(timer, ^{
+            if (CFSetGetCount(gPendingResponses) == 0) {
+                return;
+            }
+            CFSetApplyFunction(gPendingResponses, handleAssertionCheckTimeout, NULL);
+            CFSetRemoveAllValues(gPendingResponses);
+
+            sendSleepNotificationResponse(acknowledgementToken, true);
+            gPendingAckToken = 0;
+            gSleepBlockers = 0;
+
+        });
+
+        dispatch_source_set_cancel_handler(timer, ^{
+            dispatch_release(timer);
+            timer = NULL;
+        });
+
+
+        dispatch_source_set_timer(timer, dispatch_time(DISPATCH_TIME_NOW, 5LL * NSEC_PER_SEC),
+                DISPATCH_TIME_FOREVER, 0);
+        dispatch_resume(timer);
+    }
+
+
+    dispatch_source_set_timer(timer, dispatch_time(DISPATCH_TIME_NOW, 5LL * NSEC_PER_SEC),
+            DISPATCH_TIME_FOREVER, 0);
+
+exit:
+    if (procs) {
+        free(procs);
+    }
+
+    return;
+}
+
 #pragma mark -
 #pragma mark MIG
-
 /******************************************************************************
  ******************************************************************************
  ******************************************************************************
@@ -273,6 +679,7 @@ kern_return_t _io_pm_assertion_set_properties (
                                                mach_msg_type_number_t propsCnt,
                                                int                 *disableAppSleep,
                                                int                 *enableAppSleep,
+                                               int                 *enTrIntensity,
                                                int                 *return_code) 
 {
     CFDictionaryRef     setProperties = NULL;
@@ -294,7 +701,7 @@ kern_return_t _io_pm_assertion_set_properties (
         goto exit;
     }
 
-    *return_code = doSetProperties(callerPID, assertion_id, setProperties);
+    *return_code = doSetProperties(callerPID, assertion_id, setProperties, enTrIntensity);
 #if !TARGET_OS_EMBEDDED
     if (*return_code == kIOReturnSuccess) {
         updateAppSleepStates(processInfoGet(callerPID), disableAppSleep, enableAppSleep);
@@ -361,7 +768,12 @@ kern_return_t _io_pm_assertion_copy_details (
 
     if (kIOPMAssertionMIGCopyAll == whichData)
     {
-        theCollection = copyPIDAssertionDictionaryFlattened();
+        theCollection = copyPIDAssertionDictionaryFlattened(kIOPMActiveAssertions);
+
+    } else if (kIOPMAssertionMIGCopyInactive == whichData)
+    {
+
+        theCollection = copyPIDAssertionDictionaryFlattened(kIOPMInactiveAssertions);
 
     } else if (kIOPMAssertionMIGCopyOneAssertionProperties == whichData) 
     {
@@ -485,15 +897,32 @@ exit:
 static void setClamshellSleepState(int clamshellSleepState)
 {
     io_connect_t        connect = IO_OBJECT_NULL;
-    const uint64_t      in = (uint64_t)clamshellSleepState;
-    static int          prevState = -1;
+    uint64_t            in;
+    static uint32_t     enableCount = 0;
+    uint32_t            prevCount;
 
-    if ( prevState == clamshellSleepState) return;
-    prevState = clamshellSleepState;
+    // This enable/disable requests comes from multiple assertion types
+    // without any knowledge of requests from other assertion types.
+    // Maintaining a enable/disable count in this function.
+    prevCount = enableCount;
+    if (clamshellSleepState) {
+        enableCount++;
+    }
+    else {
+        if (enableCount) {
+            enableCount--;
+        }
+    }
+
+    if ((prevCount && enableCount) || (!prevCount && !enableCount)) {
+        return;
+    }
 
     if ( (connect = getRootDomainConnect()) == IO_OBJECT_NULL)
         return;
 
+    in = enableCount ? 1 : 0;
+    os_log_debug(OS_LOG_DEFAULT, "Setting ClamshellSleepState to %lld\n", in);
 
     IOConnectCallMethod(connect, kPMSetClamshellSleepState, 
                         &in, 1, 
@@ -634,82 +1063,6 @@ sendSmartBatteryCommand(uint32_t which, uint32_t level)
 }
 
 #endif /* HAVE_SMART_BATTERY */
-
-
-__private_extern__ IOReturn  _IOPMSetActivePowerProfilesRequiresRoot (
-                                                                      CFDictionaryRef which_profile, 
-                                                                      int uid, 
-                                                                      int gid)
-{
-    IOReturn                    ret = kIOReturnError;
-    SCPreferencesRef            energyPrefs = NULL;
-
-    /* Private call for Power Management use only.
-       PM's configd plugin (our daemon-lite) is the only intended caller
-       of _IOPMSetActivePowerProfilesRequiresRoot. configd will call this
-       only when a running process (like BatteryMonitor) calls 
-       IOPMSetActivePowerProfiles() as adimn, root, or console user.
-       configd does the security check there, and then calls _RequiresRoot
-       under configd's own root privileges. Writing out the preferences
-       file using SCPreferences requires root privileges.       
-     */
-
-    if ( (!callerIsRoot(uid) &&
-          !callerIsAdmin(uid, gid) &&
-          !callerIsConsole(uid, gid)) || 
-         ( (-1 == uid) || (-1 == gid) ))
-    {
-        ret = kIOReturnNotPrivileged;
-        goto exit;    
-    }
-
-    if (!which_profile) {
-        // We leave most of the input argument vetting for IOPMSetActivePowerProfiles,
-        // which checks the contents of the dictionary. At this point we assume it
-        // is well formed (and that it exists).
-        ret = kIOReturnBadArgument;
-        goto exit;
-    }
-
-    energyPrefs = SCPreferencesCreate( kCFAllocatorDefault, CFSTR(kIOPMAppName), CFSTR(kIOPMPrefsPath) );
-    if (!energyPrefs) {
-        goto exit;
-    }
-
-    if (!SCPreferencesLock(energyPrefs, true))
-    {  
-        ret = kIOReturnInternalError;
-        goto exit;
-    }
-
-    if (!SCPreferencesSetValue(energyPrefs, CFSTR("ActivePowerProfiles"), which_profile)) {
-        goto exit;
-    }
-
-    if (!SCPreferencesCommitChanges(energyPrefs))
-    {
-        // handle error
-        if (kSCStatusAccessError == SCError()) ret = kIOReturnNotPrivileged;
-        else ret = kIOReturnError;
-        goto exit;
-    }
-
-    if (!SCPreferencesApplyChanges(energyPrefs))
-    {
-        // handle error
-        if (kSCStatusAccessError == SCError()) ret = kIOReturnNotPrivileged;
-        else ret = kIOReturnError;        
-        goto exit;
-    }
-
-    ret = kIOReturnSuccess;
-exit:
-    if (energyPrefs) {
-        SCPreferencesUnlock(energyPrefs);
-        CFRelease(energyPrefs);
-    }
-    return ret;
-}
 
 /*
  * This functions creates assertions required at boot time.
@@ -895,7 +1248,7 @@ __private_extern__ void InternalReleaseAssertion(
 __private_extern__ void InternalEvaluateAssertions(void)
 {
     CFRunLoopPerformBlock(_getPMRunLoop(), kCFRunLoopDefaultMode, ^{
-                          evaluateAssertions();
+                          evaluateForPSChange();
                           });
     CFRunLoopWakeUp(_getPMRunLoop());
 
@@ -932,6 +1285,7 @@ __private_extern__ IOReturn InternalReleaseAssertionSync(IOPMAssertionID outID)
 }
 
 
+#if !TARGET_OS_EMBEDDED
 static IOReturn _localCreateAssertion(CFStringRef type, CFStringRef name, IOPMAssertionID *outID)
 {
     return InternalCreateAssertionWithTimeout(type, name, 0, outID);
@@ -950,7 +1304,7 @@ static IOReturn _enableAssertionForLimitedPower(pid_t pid, IOPMAssertionID id)
     {
         CFDictionarySetValue(dict, kIOPMAssertionAppliesToLimitedPowerKey, kCFBooleanTrue);
 
-        rc = doSetProperties(pid, id, dict);
+        rc = doSetProperties(pid, id, dict, NULL);
 
         CFRelease(dict);
     }
@@ -1144,7 +1498,6 @@ void ioKitStateCallback (
 
 static void _AssertForDeviceEnumeration(CFStringRef wakeType)
 {
-#if !TARGET_OS_EMBEDDED
     IOPMAssertionID     deviceEnumerationAssertion = kIOPMNullAssertionID;
     notifyRegInfo_st    *notifyInfo = NULL;
     devEnumInfo_st *deInfo = NULL;
@@ -1223,8 +1576,8 @@ exit:
         _DeregisterForNotification(notifyInfo);
 
     doRelease(getpid(), deviceEnumerationAssertion, NULL); 
-#endif
 }
+#endif
 
 /*
  * Create assertions for a short period on behalf of other modules/processes. This is to
@@ -1234,6 +1587,7 @@ exit:
  */
 __private_extern__ void _ProxyAssertions(const struct IOPMSystemCapabilityChangeParameters *capArgs)
 {
+#if !TARGET_OS_EMBEDDED
 
     CFStringRef         wakeType = NULL;
     CFStringRef         wakeReason = NULL;
@@ -1286,6 +1640,7 @@ __private_extern__ void _ProxyAssertions(const struct IOPMSystemCapabilityChange
             CFRelease(wakeReason);
     }
 
+#endif
 }
 
 /*
@@ -1335,7 +1690,7 @@ void delayDisplayTurnOff( )
         {
             CFDictionarySetValue(dict, kIOPMAssertionLevelKey, levelNum);
             CFDictionarySetValue(dict, kIOPMAssertionTimeoutKey, Timeout_num);
-            doSetProperties(getpid(), id, dict);
+            doSetProperties(getpid(), id, dict, NULL);
         }
         if (dict) CFRelease(dict);
         if (levelNum) CFRelease(levelNum);
@@ -1376,12 +1731,147 @@ static bool callerIsEntitledToAssertion(
     return caller_is_allowed;
 }
 
+static void checkProcAggregates( )
+{
+    CFDictionaryRef update = NULL;
+    IOReportSampleRef   delta = NULL;
+
+    if (kBatteryPowered != _getPowerSource()) {
+        // Nothing to do when device is on external power source
+        return;
+    }
+    if (gProcAggregateBasis == NULL) {
+        copyAssertionActivityAggregate(&gProcAggregateBasis);
+        return;
+    }
+
+    copyAssertionActivityAggregate(&update);
+    if (!update) {
+        goto exit;
+    }
+
+    delta = IOReportCreateSamplesDelta(gProcAggregateBasis, update, NULL);
+    if (!delta) {
+        goto exit;
+    }
+
+    IOReportIterate(delta, ^(IOReportChannelRef ch) {
+            int64_t     eff1, eff2, eff3;
+            uint64_t pid;
+            ProcessInfo *pinfo = NULL;
+
+            pid = IOReportChannelGetChannelID(ch);
+            eff1 = IOReportArrayGetValueAtIndex(ch, 1); // Idle Sleep
+            eff2 = IOReportArrayGetValueAtIndex(ch, 2); // Demand Sleep
+            eff3 = IOReportArrayGetValueAtIndex(ch, 3); // Display Sleep
+
+
+            pinfo = processInfoGet((pid_t)pid);
+            if (!pinfo) {
+                return kIOReportIterOk;
+            }
+
+            if (pinfo->aggAssertLength == 0) {
+                return kIOReportIterOk;
+            }
+            if (
+                (eff1 >= pinfo->aggAssertLength)
+#if !TARGET_OS_EMBEDDED
+                || (eff2 >= pinfo->aggAssertLength) || (eff3 >= pinfo->aggAssertLength)
+#endif
+                ) {
+
+                int token;
+                uint32_t  status = notify_register_check(kIOPMAssertionExceptionNotifyName, &token);
+                if (status == NOTIFY_STATUS_OK) {
+                    notify_set_state(token, (((uint64_t)kIOPMAssertionAggregateException << 32)) | pid);
+                    notify_post(kIOPMAssertionExceptionNotifyName);
+                    notify_cancel(token);
+                    DEBUG_LOG("Aggregate assertion exception on pid %llu.\n", pid);
+                }
+
+#if TARGET_OS_EMBEDDED
+                if (!pinfo->aggregateExceptionAggdKey) {
+                    pinfo->aggregateExceptionAggdKey = createExceptionAggdKey(kIOPMAssertionAggregateException, pinfo);
+                }
+                if (isA_CFString(pinfo->aggregateExceptionAggdKey)) {
+                    CFStringRef aggdKey = CFRetain(pinfo->aggregateExceptionAggdKey);
+                    dispatch_async(statsOffloader, ^{
+                            ADClientAddValueForScalarKey(aggdKey, 1);
+                            INFO_LOG("Add to aggd string %@ for pid %llu\n", aggdKey, pid);
+                            CFRelease(aggdKey);
+                            });
+                }
+#endif
+           }
+
+            return kIOReportIterOk;
+    });
+exit:
+    if (gProcAggregateBasis) {
+        CFRelease(gProcAggregateBasis);
+    }
+    gProcAggregateBasis = update;
+
+    if (delta) {
+        CFRelease(delta);
+    }
+
+}
+
+static void setProcessAssertionLimits(ProcessInfo *pinfo)
+{
+    CFDictionaryRef defaultLimits, procLimit;
+    CFNumberRef cf_defaultAssertLimit, cf_defaultAggLimit;
+    CFNumberRef cf_assertionLimit, cf_aggAssertionLimit;
+    uint32_t defaultAssertLimit, defaultAggLimit;
+
+    if (!isA_CFDictionary(gProcAssertionLimits) || !isA_CFString(pinfo->name)) {
+        return;
+    }
+
+    defaultAssertLimit = 0;
+    defaultAggLimit = 0;
+
+    defaultLimits = CFDictionaryGetValue(gProcAssertionLimits, kIOPMDefaultLimtsKey);
+    if (isA_CFDictionary(defaultLimits)) {
+        cf_defaultAssertLimit = CFDictionaryGetValue(defaultLimits, kIOPMAssertionDurationLimit);
+        cf_defaultAggLimit = CFDictionaryGetValue(defaultLimits, kIOPMAggregateAssertionLimit);
+        if (isA_CFNumber(cf_defaultAssertLimit)) {
+            CFNumberGetValue(cf_defaultAssertLimit, kCFNumberIntType, &defaultAssertLimit);
+        }
+        if (isA_CFNumber(cf_defaultAggLimit)) {
+            CFNumberGetValue(cf_defaultAggLimit, kCFNumberIntType, &defaultAggLimit);
+        }
+    }
+
+    procLimit = CFDictionaryGetValue(gProcAssertionLimits, pinfo->name);
+    if (isA_CFDictionary(procLimit)) {
+        cf_assertionLimit = CFDictionaryGetValue(procLimit, kIOPMAssertionDurationLimit);
+        cf_aggAssertionLimit = CFDictionaryGetValue(procLimit, kIOPMAggregateAssertionLimit);
+
+        if (isA_CFNumber(cf_assertionLimit)) {
+            CFNumberGetValue(cf_assertionLimit, kCFNumberIntType, &pinfo->maxAssertLength);
+        }
+
+        if (isA_CFNumber(cf_aggAssertionLimit)) {
+            CFNumberGetValue(cf_aggAssertionLimit, kCFNumberIntType, &pinfo->aggAssertLength);
+        }
+    }
+    else {
+        // Set to default values. This will also over-write any previous values
+        pinfo->maxAssertLength = defaultAssertLimit;
+        pinfo->aggAssertLength = defaultAggLimit;
+    }
+}
 
 static ProcessInfo* processInfoCreate(pid_t p)
 {
     ProcessInfo             *proc = NULL;
     char                    name[kProcNameBufLen];
     static  uint32_t        create_seq = 0;
+    int64_t                 offset;
+
 
     if (proc_name(p, name, sizeof(name)) == 0) 
         return NULL;
@@ -1397,12 +1887,25 @@ static ProcessInfo* processInfoCreate(pid_t p)
         return NULL;
     }
 
+#if TARGET_OS_EMBEDDED
+    offset = 30;
+#else
+    offset = 60;
+#endif
     dispatch_source_set_event_handler(proc->disp_src, ^{
                                       HandleProcessExit(p);
                                       // 21904354, clean up any assertions they may have been
                                       // created after receiving the PROC_EXIT notification.
-                                      dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 30 * NSEC_PER_SEC),
-                                                     dispatch_get_main_queue(), ^{ HandleProcessExit(p); });
+                                      dispatch_after(dispatch_time(DISPATCH_TIME_NOW, offset * NSEC_PER_SEC),
+                                                     dispatch_get_main_queue(),
+                                                     ^{ HandleProcessExit(p);
+#if !TARGET_OS_EMBEDDED
+                                                        // On OSX, release the stats buf 60secs later. Any stats
+                                                        // queries within 60secs will get the dead pid's stats also.
+                                                        // On iOS, this is released after powerlog queries the stats.
+                                                        releaseStatsBufByPid(p);
+#endif
+                                                        });
                                       });
 
     dispatch_source_set_cancel_handler(proc->disp_src, ^{
@@ -1412,11 +1915,16 @@ static ProcessInfo* processInfoCreate(pid_t p)
     dispatch_resume(proc->disp_src);
 
     proc->name = CFStringCreateWithCString(0, name, kCFStringEncodingUTF8);
+    if (!isA_CFString(proc->name)) {
+        ERROR_LOG("Failed to create cfstring for pid %d name: %s\n", p, name);
+    }
     proc->pid = p;
     proc->retain_cnt++;
     proc->create_seq = create_seq++;
 
     CFDictionarySetValue(gProcessDict, (uintptr_t)p, (const void *)proc);
+
+    setProcessAssertionLimits(proc);
 
     return proc;
 }
@@ -1477,6 +1985,9 @@ static void processInfoRelease(pid_t p)
 
         dispatch_release(proc->disp_src);
         if (proc->name) CFRelease(proc->name);
+        if (proc->assertionExceptionAggdKey) CFRelease(proc->assertionExceptionAggdKey);
+        if (proc->aggregateExceptionAggdKey) CFRelease(proc->aggregateExceptionAggdKey);
+
         CFDictionaryRemoveValue(gProcessDict, (uintptr_t)p);
         free(proc);
     }
@@ -1485,6 +1996,255 @@ static void processInfoRelease(pid_t p)
     }
     return ;
 }
+
+void handleProcAssertionTimeout(pid_t pid, IOPMAssertionID id)
+{
+    uint32_t status;
+    int token;
+    assertion_t *assertion = NULL;
+
+    ProcessInfo *pinfo = processInfoGet(pid);
+    if (!pinfo || pinfo->proc_exited) {
+        // Make sure the process still exists
+        return;
+    }
+
+    lookupAssertion(pid, id, &assertion);
+    if (!assertion) {
+        return;
+    }
+    status = notify_register_check(kIOPMAssertionExceptionNotifyName, &token);
+    if (status == NOTIFY_STATUS_OK) {
+        notify_set_state(token, (((uint64_t)kIOPMAssertionDurationException << 32)) | pid);
+        notify_post(kIOPMAssertionExceptionNotifyName);
+        notify_cancel(token);
+        DEBUG_LOG("Single assertion exception on pid %d. Assertion details: %@\n", pid, assertion->props);
+    }
+
+#if TARGET_OS_EMBEDDED
+    if (!pinfo->assertionExceptionAggdKey) {
+        pinfo->assertionExceptionAggdKey = createExceptionAggdKey(kIOPMAssertionDurationException, pinfo);
+    }
+    if (isA_CFString(pinfo->assertionExceptionAggdKey)) {
+        CFStringRef aggdKey = CFRetain(pinfo->assertionExceptionAggdKey);
+        dispatch_async(statsOffloader, ^{
+                ADClientAddValueForScalarKey(aggdKey, 1);
+                INFO_LOG("Add to aggd string %@ for pid %d\n", aggdKey, pid);
+                CFRelease(aggdKey);
+                });
+    }
+
+#endif
+
+}
+
+#if TARGET_OS_EMBEDDED
+void checkRestartPreventers()
+{
+    __block int restartPreventers = 0;
+    assertionType_t *assertType = NULL;
+    static int token = 0;
+
+    // only kPreventIdleType, kDeclareSystemActivityType are considered for
+    // device restart prevention
+    int types[] = {kPreventIdleType, kDeclareSystemActivityType};
+    for (int i = 0; i < sizeof(types)/sizeof(types[0]); i++) {
+
+        assertType = &gAssertionTypes[types[i]];
+        applyToAllAssertionsSync(assertType, false, ^(assertion_t *assertion)
+                 {
+                    if (!assertion->allowsDeviceRestart) {
+                        restartPreventers++;
+                    }
+                 });
+    }
+
+    if (!token) {
+        notify_register_check("com.apple.powermanagement.restartpreventers", &token);
+    }
+    if ((restartPreventers && (gSysQualifier.restartPreventers == 0)) ||
+        ((restartPreventers == 0) && gSysQualifier.restartPreventers)) {
+        gSysQualifier.restartPreventers  = restartPreventers;
+        if (token) {
+            notify_set_state(token, gSysQualifier.restartPreventers);
+            notify_post("com.apple.powermanagement.restartpreventers");
+        }
+    }
+}
+#endif
+
+void updateSystemQualifiers(assertion_t *assertion, assertionOps op)
+{
+    int audioExists = (gSysQualifier.audioin+gSysQualifier.audioout) ? 1 : 0;
+    int newAudioExists;
+
+    void (^create)(void) = ^{
+        CFBooleanRef value;
+        CFArrayRef resources = CFDictionaryGetValue(assertion->props, kIOPMAssertionResourcesUsed);
+
+        if (CFDictionaryGetValueIfPresent(assertion->props, kIOPMAssertionAllowsDeviceRestart, (const void **)&value)
+            && (value == kCFBooleanTrue)) {
+            assertion->allowsDeviceRestart = 1;
+        }
+
+        if (isA_CFArray(resources)) {
+            CFIndex count = CFArrayGetCount(resources);
+            for(int i=0; i<count; i++) {
+                CFStringRef name = CFArrayGetValueAtIndex(resources, i);
+                if (isA_CFString(name)) {
+                    if (CFEqual(name, kIOPMAssertionResourceAudioIn) && (assertion->allowsDeviceRestart == 0)) {
+                        assertion->audioin = 1;
+                        gSysQualifier.audioin++;
+                    }
+                    else if (CFEqual(name, kIOPMAssertionResourceAudioOut)) {
+                        assertion->audioout = 1;
+                        gSysQualifier.audioout++;
+                    }
+                    else if (CFEqual(name, kIOPMAssertionResourceGPS)) {
+                        assertion->gps = 1;
+                        gSysQualifier.gps++;
+                    }
+                    else if (CFEqual(name, kIOPMAssertionResourceBaseband)) {
+                        assertion->baseband = 1;
+                        gSysQualifier.baseband++;
+                    }
+                    else if (CFEqual(name, kIOPMAssertionResourceBluetooth)) {
+                        assertion->bluetooth = 1;
+                        gSysQualifier.bluetooth++;
+                    }
+                }
+            }
+        }
+
+
+
+        if (CFDictionaryGetValueIfPresent(assertion->props, kIOPMAssertionActivityBudgeted, (const void **)&value)
+            && (value == kCFBooleanTrue)) {
+            assertion->budgetedActivity = 1;
+            gSysQualifier.budgetedActivity++;
+        }
+    };
+
+    void (^release)() = ^{
+        if (assertion->audioin) {
+            assertion->audioin = 0;
+            if (gSysQualifier.audioin) {
+                gSysQualifier.audioin--;
+            }
+        }
+        if (assertion->audioout) {
+            assertion->audioout = 0;
+            if (gSysQualifier.audioout) {
+                gSysQualifier.audioout--;
+            }
+        }
+        if (assertion->gps) {
+            assertion->gps = 0;
+            if (gSysQualifier.gps) {
+                gSysQualifier.gps--;
+            }
+        }
+        if (assertion->baseband) {
+            assertion->baseband = 0;
+            if (gSysQualifier.baseband) {
+                gSysQualifier.baseband--;
+            }
+        }
+        if (assertion->bluetooth) {
+            assertion->bluetooth = 0;
+            if (gSysQualifier.bluetooth) {
+                gSysQualifier.bluetooth--;
+            }
+        }
+        if (assertion->allowsDeviceRestart) {
+            assertion->allowsDeviceRestart = 0;
+        }
+        if (assertion->budgetedActivity) {
+            assertion->budgetedActivity = 0;
+            if (gSysQualifier.budgetedActivity) {
+                gSysQualifier.budgetedActivity--;
+            }
+        }
+
+    };
+    if (op == kAssertionOpRaise) {
+        create();
+    }
+    else if (op == kAssertionOpRelease){
+        release();
+    }
+    else if (op == kAssertionOpEval) {
+        release();
+        create();
+    }
+
+#if TARGET_OS_EMBEDDED
+    dispatch_async(dispatch_get_main_queue(), ^{ checkRestartPreventers(); });
+#endif
+    newAudioExists = (gSysQualifier.audioin+gSysQualifier.audioout) ? 1 : 0;
+    if (audioExists ^ newAudioExists) {
+        dispatch_async(dispatch_get_main_queue(), ^{ userActiveHandlePowerAssertionsChanged();});
+    }
+}
+
+void stopProcTimer(assertion_t *assertion)
+{
+
+    if (assertion->procTimer && (assertion->state & kAssertionProcTimerActive)) {
+        dispatch_suspend(assertion->procTimer);
+        assertion->state &= ~kAssertionProcTimerActive;
+    }
+}
+
+
+void startProcTimer(assertion_t *assertion)
+{
+    assertionType_t     *assertType = NULL;
+    ProcessInfo *pinfo = NULL;
+    dispatch_source_t disp;
+
+    assertType = &gAssertionTypes[assertion->kassert];
+    if (assertType->effectIdx == kNoEffect) {
+        return;
+    }
+
+    // Account the timers based on the pid creating the assertions
+    pinfo = assertion->pinfo;
+    if (!pinfo || pinfo->maxAssertLength == 0) {
+        return;
+    }
+
+    if (_getPowerSource() != kBatteryPowered) {
+        // Time based assertion validation is done only on battery power
+        return;
+    }
+    if (assertion->timeout) {
+
+        uint64_t currTime = getMonotonicTime();
+        uint64_t deltaSecs = assertion->timeout - currTime;
+        if (deltaSecs <= pinfo->maxAssertLength) {
+            // If assertion timeout is smaller than proc's maxAssertionLength, no need to activate the timer
+            return;
+        }
+    }
+
+    stopProcTimer(assertion);
+    if (assertion->procTimer == 0) {
+        // Saving the dispatch source to local variable 'disp', to make sure the value is
+        // copied into the cancel_handler block. That block gets executed after 'assertion'
+        // is released.
+        disp = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
+        dispatch_source_set_event_handler(disp, ^{ handleProcAssertionTimeout(pinfo->pid, assertion->assertionId);});
+        dispatch_source_set_cancel_handler(disp, ^{ dispatch_release(disp);});
+        assertion->procTimer = disp;
+        dispatch_source_set_timer(assertion->procTimer, dispatch_time(DISPATCH_TIME_NOW, pinfo->maxAssertLength * NSEC_PER_SEC),
+                              DISPATCH_TIME_FOREVER, 0);
+    }
+    dispatch_resume(assertion->procTimer);
+    assertion->state |= kAssertionProcTimerActive;
+
+}
+
 
 #if !TARGET_OS_EMBEDDED
 static void disableAppSleep(ProcessInfo *pinfo)
@@ -1836,7 +2596,7 @@ kern_return_t  _io_pm_declare_user_active (
         CFDictionarySetValue(assertion->props, kIOPMAssertionLevelKey, useLevelOnNum);
         CFRelease(useLevelOnNum);
 
-        *return_code = doSetProperties(callerPID, *assertion_id, assertionProperties);
+        *return_code = doSetProperties(callerPID, *assertion_id, assertionProperties, NULL);
         create_new = false;
     } while (false);
 
@@ -1935,7 +2695,7 @@ kern_return_t  _io_pm_declare_network_client_active (
         CFDictionarySetValue(assertion->props, kIOPMAssertionLevelKey, useLevelOnNum);
         CFRelease(useLevelOnNum);
 
-        *return_code = doSetProperties(callerPID, *assertion_id, assertionProperties);
+        *return_code = doSetProperties(callerPID, *assertion_id, assertionProperties, NULL);
         create_new = false;
     } while (false);
 
@@ -2053,6 +2813,43 @@ static void releaseStatsBuf(ProcessInfo *pinfo)
 
 }
 
+#if !TARGET_OS_EMBEDDED
+static void releaseStatsBufByPid(pid_t p)
+{
+    ProcessInfo *pinfo = processInfoGet(p);
+    if (pinfo == NULL) {
+        return;
+    }
+
+    releaseStatsBuf(pinfo);
+}
+#endif
+
+void releaseStatsBufForDeadProcs( )
+{
+    ProcessInfo **procs = NULL;
+    CFIndex i, cnt;
+
+    if (gAggCleanupDispatch) {
+        dispatch_source_set_timer(gAggCleanupDispatch,
+                dispatch_time(DISPATCH_TIME_NOW, gAggCleanupFrequency),
+                DISPATCH_TIME_FOREVER, 0);
+    }
+    cnt = CFDictionaryGetCount(gProcessDict);
+    procs = malloc(cnt*(sizeof(ProcessInfo *)));
+    if (!procs) {
+        return;
+    }
+    memset(procs, 0, cnt*(sizeof(procs)));
+    CFDictionaryGetKeysAndValues(gProcessDict, NULL, (const void **)procs);
+
+    for (i = 0; i < cnt && procs[i] != NULL; i++) {
+        if (procs[i]->proc_exited) {
+            releaseStatsBuf(procs[i]);
+        }
+    }
+    free(procs);
+}
 
 static void allocStatsBuf(ProcessInfo *pinfo)
 {
@@ -2076,18 +2873,34 @@ static void allocStatsBuf(ProcessInfo *pinfo)
     }
 }
 
-void setAssertionActivityAggregate(int value)
+void setAssertionActivityAggregate(pid_t callerPID, int value)
 {
     kerAssertionType i;
     assertionType_t *assertType = NULL;
     CFIndex j, cnt;
     ProcessInfo **procs = NULL;
+    ProcessInfo *pinfo = NULL;
 
     if (value) {
+        // Hold a reference to callerPID, so that we can reduce gActivityAggCnt when that process dies.
+        if ( !(pinfo = processInfoRetain(callerPID)) ) {
+            pinfo = processInfoCreate(callerPID);
+            if (!pinfo) {
+                return;
+            }
+        }
+        if (pinfo->aggactivity) {
+            // Already subscribed
+            processInfoRelease(callerPID);
+            return;
+        }
         if (gActivityAggCnt++ == 0) {
             cnt = CFDictionaryGetCount(gProcessDict);
-            procs = malloc(cnt*(sizeof(procs)));
-            if (!procs) return;
+            procs = malloc(cnt*(sizeof(ProcessInfo *)));
+            if (!procs) {
+                processInfoRelease(callerPID);
+                return;
+            }
 
             memset(procs, 0, cnt*(sizeof(procs)));
             CFDictionaryGetKeysAndValues(gProcessDict, NULL, (const void **)procs);
@@ -2103,37 +2916,59 @@ void setAssertionActivityAggregate(int value)
                 if (assertType->effectIdx >= kMaxEffectStats)
                     continue;
                 applyToAllAssertionsSync(assertType, false, ^(assertion_t *assertion)
-                                         { 
+                                         {
                                              updateAppStats(assertion, kAssertionOpRaise);
                                          });
 
             }
+            // Set up a timer to frequently clean up the dead procs
+            if (gAggCleanupDispatch == NULL) {
+                gAggCleanupDispatch = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
+                dispatch_source_set_event_handler(gAggCleanupDispatch, ^{ releaseStatsBufForDeadProcs(); });
+                dispatch_source_set_cancel_handler(gAggCleanupDispatch, ^{
+                                                   dispatch_release(gAggCleanupDispatch);
+                                                   gAggCleanupDispatch = NULL;});
+                dispatch_source_set_timer(gAggCleanupDispatch,
+                                          dispatch_time(DISPATCH_TIME_NOW, gAggCleanupFrequency), DISPATCH_TIME_FOREVER, 0);
+                dispatch_resume(gAggCleanupDispatch);
+            }
         }
+        pinfo->aggactivity = true;
     }
-    else if ((gActivityAggCnt) && (--gActivityAggCnt == 0)) {
-        cnt = CFDictionaryGetCount(gProcessDict);
-        procs = malloc(cnt*(sizeof(procs)));
-        if (!procs) return;
-
-        memset(procs, 0, cnt*(sizeof(procs)));
-        CFDictionaryGetKeysAndValues(gProcessDict, NULL, (const void **)procs);
-        for (j = 0; (j < cnt) && (procs[j] != NULL); j++) {
-            releaseStatsBuf(procs[j]);
+    else if (gActivityAggCnt) {
+        if ( (!(pinfo = processInfoGet(callerPID))) || (pinfo->aggactivity == false) ) {
+            return;
         }
-        free(procs);
+        if (--gActivityAggCnt == 0) {
+            cnt = CFDictionaryGetCount(gProcessDict);
+            procs = malloc(cnt*(sizeof(ProcessInfo *)));
+            if (!procs) return;
 
-        for (i=0; i < kIOPMNumAssertionTypes; i++)
-        {
-            assertType = &gAssertionTypes[i]; 
+            memset(procs, 0, cnt*(sizeof(procs)));
+            CFDictionaryGetKeysAndValues(gProcessDict, NULL, (const void **)procs);
+            for (j = 0; (j < cnt) && (procs[j] != NULL); j++) {
+                releaseStatsBuf(procs[j]);
+            }
+            free(procs);
 
-            if (assertType->effectIdx >= kMaxEffectStats)
-                continue;
-            applyToAllAssertionsSync(assertType, true, ^(assertion_t *assertion)
-                                     {
-                                     assertion->state &= ~kAssertionStateAddsToProcStats;
-                                     });
+            for (i=0; i < kIOPMNumAssertionTypes; i++)
+            {
+                assertType = &gAssertionTypes[i];
+
+                if (assertType->effectIdx >= kMaxEffectStats)
+                    continue;
+                applyToAllAssertionsSync(assertType, true, ^(assertion_t *assertion)
+                                         {
+                                         assertion->state &= ~kAssertionStateAddsToProcStats;
+                                         });
+            }
+
+            if (gAggCleanupDispatch) {
+                dispatch_source_cancel(gAggCleanupDispatch);
+            }
         }
-
+        pinfo->aggactivity = false;
+        processInfoRelease(callerPID);
     }
 
 }
@@ -2169,6 +3004,391 @@ kern_return_t  _io_pm_assertion_notify (
 exit:
     return KERN_SUCCESS;
 }
+
+#if TARGET_OS_EMBEDDED
+CFComparisonResult numberCompare (const void *val1, const void *val2, void *context)
+{
+    return CFNumberCompare(val1, val2, NULL);
+}
+
+static CFStringRef createAggdKeyForProcName(CFStringRef procName, IOPMAssertionException exc)
+{
+    CFStringRef aggdKey = NULL;
+    char buf[kProcNameBufLen];
+    char *pname;
+    buf[0] = 0;
+    char *excType;
+    if (exc == kIOPMAssertionDurationException) {
+        excType = "singleassertion";
+    }
+    else {
+        excType = "aggregateassertion";
+    }
+
+    if(CFStringGetCString(procName, buf, sizeof(buf), kCFStringEncodingUTF8)) {
+        // Generate aggd key of format powerd.exception.singleassertion.<procname>
+        // strip "com.apple." at the beginning of process name
+        char *stripStr = "com.apple.";
+        if (strnstr(buf, stripStr, strlen(stripStr)) == buf) {
+            pname = buf + strlen(stripStr);
+        }
+        else {
+            pname = buf;
+        }
+
+        aggdKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("com.apple.powerd.exception.%s.%s"), excType,  pname);
+    }
+
+    return aggdKey;
+}
+
+static CFStringRef createAggdKeyForBucket(int bucketNo, IOPMAssertionException exc)
+{
+    CFStringRef aggdKey = NULL;
+    char *excType;
+    if (exc == kIOPMAssertionDurationException) {
+        excType = "singleassertion";
+    }
+    else {
+        excType = "aggregateassertion";
+    }
+
+    // Generate aggd key of format powerd.exception.singleassertion.bucket<number>
+    aggdKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("com.apple.powerd.exception.%s.bucket%d"), excType, bucketNo);
+    return aggdKey;
+}
+
+static CFStringRef  createExceptionAggdKey(IOPMAssertionException exc, ProcessInfo *pinfo)
+{
+
+    __block uint32_t exceptionBktCnt = 0;
+    __block int limitsBktCnt = 0;
+
+    static exceptionStatsBucket_t       *assertionExceptionBkts = NULL;  // Single assertion exception stats
+    static exceptionStatsBucket_t       *aggregateExceptionBkts = NULL;  // Aggregate assertion exception stats
+    static uint32_t assertionExceptionBktsCnt = 0; // Number of structs in array assertionExceptionBkts
+    static uint32_t aggregateExceptionBktsCnt = 0; // Number of structs in array aggregateExceptionBkts
+    static uint32_t assertionLimitsBktCnt = 0;   // Number of limits based structs in assertionExceptionBkts
+    static uint32_t aggregateLimitsBktCnt = 0;   // Number of limits based structs in aggregateExceptionBkts
+
+    exceptionStatsBucket_t *stats = NULL;
+    CFStringRef aggdKey = NULL;
+    uint32_t    limit;
+
+#define kLimitsBucketCnt    5 // Allow upto 5 buckets based on limits
+
+
+    exceptionStatsBucket_t *(^setBuckets)(IOPMAssertionException) = ^exceptionStatsBucket_t *(IOPMAssertionException exc) {
+        CFDictionaryRef *limitDicts = NULL;
+        exceptionStatsBucket_t * exceptionBkts = NULL;
+        CFIndex cnt;
+        long i;
+        CFStringRef selectProcNames[] = {
+            CFSTR("itunescloudd"), CFSTR("itunesstored"), CFSTR("CommCenter"), CFSTR("iaptransportd"),
+            CFSTR("cloudd"), CFSTR("useractivityd"), CFSTR("sharingd"), CFSTR("com.apple.MobileSMS"),
+            CFSTR("com.apple.WebKit"), CFSTR("softwareupdated"), CFSTR("mdmd"), CFSTR("SpringBoard"),
+            CFSTR("assertiond"), CFSTR("com.apple.Music"), CFSTR("wifid"), CFSTR("mstreamd"), CFSTR("apsd"),
+            CFSTR("callservicesd"), CFSTR("backupd"), CFSTR("mediaserverd"), CFSTR("BTServer"),
+            CFSTR("cloudphotod"), CFSTR("routined"), CFSTR("nfcd"), CFSTR("dataaccessd"),
+            CFSTR("com.apple.ios.StoreKitUIService"), CFSTR("powerd"),
+            CFSTR("locationd"), CFSTR("IMTransferAgent"), CFSTR("com.apple.Bridge"), CFSTR("nsurlsessiond"),
+            CFSTR("profiled"), CFSTR("identityservicesd") };
+
+
+
+        uint32_t selectProcCnt = sizeof(selectProcNames)/sizeof(typeof(selectProcNames[0]));
+
+        if (!isA_CFDictionary(gProcAssertionLimits) || ((cnt = CFDictionaryGetCount(gProcAssertionLimits)) == 0)) {
+            return NULL;
+        }
+        CFMutableArrayRef limits = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
+        if (!limits) {
+            ERROR_LOG("Failed to CFArray to hold limit values\n");
+            return NULL;
+        }
+
+        limitDicts = calloc(cnt, sizeof(CFDictionaryRef));
+        if (!limitDicts) {
+            ERROR_LOG("Failed to calloc %lu bytes\n", cnt * sizeof(CFDictionaryRef));
+            return NULL;
+        }
+        CFDictionaryGetKeysAndValues(gProcAssertionLimits, NULL, (const void **)limitDicts);
+        // Get exception limits
+        for (i = 0; i < cnt; i++) {
+
+            CFTypeRef cf_limit;
+            if (!isA_CFDictionary(limitDicts[i])) {
+                continue;
+            }
+            if (exc == kIOPMAssertionDurationException) {
+                cf_limit  = CFDictionaryGetValue(limitDicts[i], kIOPMAssertionDurationLimit);
+            }
+            else {
+                cf_limit = CFDictionaryGetValue(limitDicts[i], kIOPMAggregateAssertionLimit);
+            }
+            CFArrayAppendValue(limits, cf_limit);
+        }
+        // Sort the array by the value of their limits
+        CFArraySortValues(limits,CFRangeMake(0, CFArrayGetCount(limits)), &numberCompare, NULL);
+        exceptionBktCnt = selectProcCnt + kLimitsBucketCnt;
+        exceptionBkts = calloc(exceptionBktCnt, sizeof(exceptionStatsBucket_t));
+        if (!exceptionBkts) {
+            ERROR_LOG("Failed to malloc size %lu bytes for assertion exception stats\n",
+                    sizeof(exceptionStatsBucket_t) * exceptionBktCnt);
+            CFRelease(limits);
+            free(limitDicts);
+            return NULL;
+        }
+
+        int k = 0;
+        // Set stats structures by process names
+        for (i = 0; i < selectProcCnt && k < exceptionBktCnt; i++, k++) {
+
+            exceptionBkts[k].procName = selectProcNames[i];
+
+        }
+        // Set upto 5 stats structures by the duration limits
+        int prev_num = 0;
+        for (i = CFArrayGetCount(limits) - 1; i >= 0 && k < exceptionBktCnt; i--) {
+            int num = 0;
+
+            CFNumberRef cf_num = CFArrayGetValueAtIndex(limits, i);
+            if (isA_CFNumber(cf_num)) {
+                CFNumberGetValue(cf_num, kCFNumberIntType, &num);
+                if ((i != CFArrayGetCount(limits) - 1) && (num == prev_num)) {
+                    // Ignore duplicate values
+                    continue;
+                }
+                prev_num = num;
+
+                exceptionBkts[k].limit = num;
+                limitsBktCnt++;
+                k++;
+            }
+        }
+
+        int limitBkt = 0;
+        // Initialize all keys with aggd.
+        for (k = 0; k < exceptionBktCnt; k++) {
+            exceptionStatsBucket_t *bucket = &exceptionBkts[k];
+            CFStringRef aggdKey = NULL;
+
+            if (isA_CFString(bucket->procName)) {
+                aggdKey = createAggdKeyForProcName(bucket->procName, exc);
+                DEBUG_LOG("Initialized the aggdKey %@\n", aggdKey);
+            }
+            else if (bucket->limit != 0) {
+                aggdKey = createAggdKeyForBucket(limitsBktCnt-limitBkt-1, exc);
+                DEBUG_LOG("Initialized the aggdKey %@ for limit %lld\n", aggdKey, bucket->limit);
+                limitBkt++;
+            }
+            if (aggdKey) {
+                ADClientAddValueForScalarKey(aggdKey, 0);
+                CFRelease(aggdKey);
+            }
+        }
+        free(limitDicts);
+        CFRelease(limits);
+        return exceptionBkts;
+    };
+
+    if (!gProcAssertionLimits) {
+        return NULL;
+    }
+
+    if (statsOffloader) {
+        // Already initialized and created. We don't expect proc limits to change within a boot session
+        return NULL;
+    }
+
+    statsOffloader = dispatch_queue_create("PM Stats offloader", DISPATCH_QUEUE_SERIAL);
+    if (!statsOffloader) {
+        ERROR_LOG("Failed to create dispatch queue for offloading stats\n");
+        return NULL;
+    }
+
+    if (exc == kIOPMAssertionDurationException) {
+        if (!assertionExceptionBkts) {
+            assertionExceptionBkts = setBuckets(exc);
+            assertionExceptionBktsCnt = exceptionBktCnt;
+            assertionLimitsBktCnt = limitsBktCnt;
+        }
+        if (!assertionExceptionBkts) {
+            return NULL;
+        }
+        stats = assertionExceptionBkts;
+        exceptionBktCnt = assertionExceptionBktsCnt;
+        limitsBktCnt = assertionLimitsBktCnt;
+        limit = pinfo->maxAssertLength;
+    }
+    else if (exc == kIOPMAssertionAggregateException)  {
+        if (!aggregateExceptionBkts) {
+            aggregateExceptionBkts = setBuckets(exc);
+            aggregateExceptionBktsCnt = exceptionBktCnt;
+            aggregateLimitsBktCnt = limitsBktCnt;
+        }
+        if (!aggregateExceptionBkts) {
+            return NULL;
+        }
+        stats = aggregateExceptionBkts;
+        exceptionBktCnt = aggregateExceptionBktsCnt;
+        limitsBktCnt = aggregateLimitsBktCnt;
+        limit = pinfo->aggAssertLength;
+    }
+    else {
+        return NULL;
+    }
+
+    int i;
+    CFStringRef procName = NULL;
+    int bucketNo = -1, limitBkt = 0;
+    for (i = 0; i < exceptionBktCnt; i++) {
+        exceptionStatsBucket_t *bucket = &stats[i];
+
+        if (isA_CFString(bucket->procName) && isA_CFString(pinfo->name) &&
+                (CFStringCompare(bucket->procName, pinfo->name, 0) == kCFCompareEqualTo)) {
+            procName = bucket->procName;
+            break;
+        }
+        else if (bucket->limit != 0) {
+
+            if (bucket->limit <= limit) {
+                bucketNo = limitsBktCnt - limitBkt - 1;
+                break;
+            }
+            limitBkt++;
+        }
+    }
+
+    if (procName) {
+        aggdKey = createAggdKeyForProcName(procName, exc);
+    }
+    else if (bucketNo != -1) {
+        aggdKey = createAggdKeyForBucket(bucketNo, exc);
+    }
+
+
+    // client need to release the aggdKey
+    return aggdKey;
+}
+
+
+#endif
+
+kern_return_t  _io_pm_set_exception_limits (   
+                                            mach_port_t             server  __unused,
+                                            audit_token_t           token,
+                                            vm_offset_t             props,
+                                            mach_msg_type_number_t  propsCnt,
+                                            int                     *return_code)
+{
+    CFDataRef           unfolder = NULL;
+
+    CFDictionaryRef     dict = NULL;
+    ProcessInfo **procs = NULL;
+    CFIndex  cnt;
+
+    // Check the caller's entitlement 
+#if 0
+    if (auditTokenHasEntitlement(token, CFSTR("com.apple.private.iokit.powerlogging")))  {
+        *return_code =  kIOReturnNotPrivileged;
+        goto exit;
+    }
+#endif
+
+    unfolder = CFDataCreateWithBytesNoCopy(0, (const UInt8 *)props, propsCnt, kCFAllocatorNull);
+    if (unfolder) {
+        dict = (CFDictionaryRef)CFPropertyListCreateWithData(0, unfolder,
+                                                             kCFPropertyListMutableContainersAndLeaves,
+                                                             NULL, NULL);
+        CFRelease(unfolder);
+    }
+
+    if (!isA_CFDictionary(dict)) {
+        *return_code = kIOReturnBadArgument;
+        goto exit;
+    }
+
+    cnt = CFDictionaryGetCount(gProcessDict);
+    procs = malloc(cnt*(sizeof(ProcessInfo *)));
+    if (!procs) {
+        goto exit;
+    }
+
+    if (gProcAssertionLimits) {
+        CFRelease(gProcAssertionLimits);
+    }
+
+    gProcAssertionLimits = dict;
+    dict = NULL;
+
+    memset(procs, 0, cnt*(sizeof(procs)));
+    CFDictionaryGetKeysAndValues(gProcessDict, NULL, (const void **)procs);
+    for (int j = 0; (j < cnt) && (procs[j] != NULL); j++) {
+        setProcessAssertionLimits(procs[j]);
+    }
+
+    if (CFDictionaryGetCount(gProcAssertionLimits)) {
+        if (gProcAggregateMonitor == NULL) {
+            gProcAggregateMonitor = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
+
+            dispatch_source_set_event_handler(gProcAggregateMonitor, ^{ checkProcAggregates(); });
+
+            dispatch_source_set_cancel_handler(gProcAggregateMonitor, ^{
+                    dispatch_release(gProcAggregateMonitor);
+                    gProcAggregateMonitor = NULL;
+                    });
+
+            if (_getPowerSource() == kBatteryPowered) {
+                dispatch_source_set_timer(gProcAggregateMonitor,
+                                          dispatch_time(DISPATCH_TIME_NOW, 0), gProcMonitorFrequency, 0);
+            }
+            else {
+                // No need to check aggregate stats periodically when external power source is created
+                dispatch_source_set_timer(gProcAggregateMonitor,
+                                          dispatch_time(DISPATCH_TIME_FOREVER, 0), DISPATCH_TIME_FOREVER, 0);
+            }
+            dispatch_resume(gProcAggregateMonitor);
+
+            // Enable process level assertion aggregate stats
+            setAssertionActivityAggregate(getpid(), 1);
+        }
+
+#if TARGET_OS_EMBEDDED
+        if (procs[0]) {
+            // These calls to createExceptionAggdKey() is just to initialize keys with aggd
+            CFStringRef aggdKey = createExceptionAggdKey(kIOPMAssertionDurationException, procs[0]);
+            if (aggdKey) {
+                CFRelease(aggdKey);
+            }
+            aggdKey = createExceptionAggdKey(kIOPMAssertionAggregateException, procs[0]);
+            if (aggdKey) {
+                CFRelease(aggdKey);
+            }
+
+        }
+#endif
+    }
+    else {
+        // Empty gProcAssertionLimits means cancel all monitoring
+        if (gProcAggregateMonitor) {
+            dispatch_source_cancel(gProcAggregateMonitor);
+            setAssertionActivityAggregate(getpid(), 0);
+            if (gProcAggregateBasis) {
+                CFRelease(gProcAggregateBasis);
+                gProcAggregateBasis = NULL;
+            }
+        }
+    }
+
+    *return_code = kIOReturnSuccess;
+exit:
+    if (procs) { free(procs); }
+    if (dict) { CFRelease(dict); }
+    vm_deallocate(mach_task_self(), props, propsCnt);
+    return KERN_SUCCESS;
+}
+
 
 uint8_t getAssertionLevel(kerAssertionType idx)
 {
@@ -2215,6 +3435,10 @@ void insertActiveAssertion(assertion_t *assertion, assertionType_t *assertType)
 
     updateAppStats(assertion, kAssertionOpRaise);
     schedDisableAppSleep(assertion);
+
+    startProcTimer(assertion);
+    updateSystemQualifiers(assertion, kAssertionOpRaise);
+
 }
 
 void removeActiveAssertion(assertion_t *assertion, assertionType_t *assertType)
@@ -2229,6 +3453,10 @@ void removeActiveAssertion(assertion_t *assertion, assertionType_t *assertType)
 
     updateAppStats(assertion, kAssertionOpRelease);
     schedEnableAppSleep(assertion);
+
+    stopProcTimer(assertion);
+    updateSystemQualifiers(assertion, kAssertionOpRelease);
+
 }
 
 
@@ -2279,6 +3507,18 @@ static void releaseAssertionMemory(assertion_t *assertion, assertLogAction logAc
 
 
     processInfoRelease(assertion->pinfo->pid);
+    if (assertion->causingPinfo) {
+        processInfoRelease(assertion->causingPinfo->pid);
+    }
+    if (assertion->procTimer) {
+        if ((assertion->state & kAssertionProcTimerActive) == 0) {
+            // If procTimer is suspended, resume it to allow its cancellation
+            assertion->state |= kAssertionProcTimerActive;
+            dispatch_resume(assertion->procTimer);
+        }
+        dispatch_source_cancel(assertion->procTimer);
+    }
+    memset(assertion, 0, sizeof(assertion_t));
     free(assertion);
 }
 
@@ -2310,6 +3550,8 @@ void handleAssertionTimeout(assertionType_t *assertType)
 
         updateAppStats(assertion, kAssertionOpRelease);
         schedEnableAppSleep( assertion );
+        stopProcTimer(assertion);
+        updateSystemQualifiers(assertion, kAssertionOpRelease);
 #if !TARGET_OS_SIMULATOR
         entr_act_end(kEnTrCompSysPower, kEnTrActSPPMAssertion,
                      assertion->assertionId, kEnTrQualTimedOut, kEnTrValNone);
@@ -2328,6 +3570,9 @@ void handleAssertionTimeout(assertionType_t *assertType)
         timeoutAction = CFDictionaryGetValue(assertion->props, kIOPMAssertionTimeoutActionKey);
         if (isA_CFString(timeoutAction) && CFEqual(kIOPMAssertionTimeoutActionRelease, timeoutAction))
         { 
+            if (assertion->pinfo->remoteConnection) {
+                sendAssertionTimeoutMsg(assertion);
+            }
             releaseAssertionMemory(assertion, kATimeoutLog);
         }
         else /* Default timeout action is to turn off */
@@ -2379,6 +3624,8 @@ void removeTimedAssertion(assertion_t *assertion, assertionType_t *assertType, b
 
     updateAppStats(assertion, kAssertionOpRelease);
     schedEnableAppSleep(assertion);
+    stopProcTimer(assertion);
+    updateSystemQualifiers(assertion, kAssertionOpRelease);
 
     if (isTheFirstOne && updateTimer) resetAssertionTimer(assertType);
 
@@ -2438,8 +3685,7 @@ static void insertByTimeout(assertion_t *assertion, assertionType_t *assertType)
     if (assertion->timeout > currTime) {
         /* Update timeout time left property */
         timeLeft = (assertion->timeout-currTime);
-        int timeLeft32 = (int)timeLeft;
-        timeLeftCF = CFNumberCreate(0, kCFNumberIntType, &timeLeft32);
+        timeLeftCF = CFNumberCreate(0, kCFNumberLongType, &timeLeft);
 
         if (timeLeftCF) {
             CFDictionarySetValue(assertion->props, kIOPMAssertionTimeoutTimeLeftKey, timeLeftCF);
@@ -2485,6 +3731,8 @@ void insertTimedAssertion(assertion_t *assertion, assertionType_t *assertType, b
 
     updateAppStats(assertion, kAssertionOpRaise);
     schedDisableAppSleep( assertion );
+    startProcTimer(assertion);
+    updateSystemQualifiers(assertion, kAssertionOpRaise);
     /*  
      * If this assertion is not the one with earliest timeout,
      * there is nothing to do.
@@ -2603,10 +3851,15 @@ __private_extern__ void HandleProcessExit(pid_t deadPID)
 
     if ( (pinfo = processInfoGet(deadPID)) ) {
         pinfo->proc_exited = 1;
+        if (pinfo->remoteConnection) {
+            xpc_release(pinfo->remoteConnection);
+            pinfo->remoteConnection = 0;
+        }
     }
     do_assertion_notify(deadPID, kIOPMAssertionsAnyChangedNotifyString, kIOPMNotifyDeRegister);
     do_assertion_notify(deadPID, kIOPMAssertionTimedOutNotifyString, kIOPMNotifyDeRegister);
     do_assertion_notify(deadPID, kIOPMAssertionsChangedNotifyString, kIOPMNotifyDeRegister);
+    setAssertionActivityAggregate(deadPID, 0);
 
     /* Go thru each assertion type and release all assertion from its lists */
     for (i=0; i < kIOPMNumAssertionTypes; i++)
@@ -2749,6 +4002,13 @@ static void forwardPropertiesToAssertion(const void *key, const void *value, voi
         /* Assertion type can't be modified */
         return;
     }
+    else if (CFEqual(key, kIOPMAssertionNameKey)) {
+        assertion->mods |= kAssertionModName;
+    }
+    else if (CFEqual(key, kIOPMAssertionResourcesUsed) ||
+             CFEqual(key, kIOPMAssertionAllowsDeviceRestart))  {
+        assertion->mods |= kAssertionModResources;
+    }
 
     CFDictionarySetValue(assertion->props, key, value);
 
@@ -2757,7 +4017,8 @@ static void forwardPropertiesToAssertion(const void *key, const void *value, voi
 
 static IOReturn doSetProperties(pid_t pid, 
                                 IOPMAssertionID id, 
-                                CFDictionaryRef inProps)
+                                CFDictionaryRef inProps,
+                                int *enTrIntensity)
 {
     assertion_t                 *assertion = NULL;
     assertionType_t             *assertType;
@@ -2780,7 +4041,13 @@ static IOReturn doSetProperties(pid_t pid,
     CFDictionaryApplyFunction(inProps, forwardPropertiesToAssertion,
                               assertion);
 
+    if (enTrIntensity) {
+        *enTrIntensity = assertType->enTrQuality;
+    }
 
+    if (assertion->mods & kAssertionModName) {
+        logAssertionEvent(kANameChangeLog, assertion);
+    }
 
     if (assertion->mods & kAssertionModLevel) 
     {
@@ -2808,6 +4075,7 @@ static IOReturn doSetProperties(pid_t pid,
             /* An inactive assertion is made active now */
             removeInactiveAssertion(assertion, assertType);
             CFDictionaryRemoveValue(assertion->props, kIOPMAssertionTimedOutDateKey);            
+            CFDictionaryRemoveValue(assertion->props, kIOPMAssertionCreateDateKey);
             raiseAssertion(assertion);
             logAssertionEvent(kATurnOnLog, assertion);
         }
@@ -2866,6 +4134,10 @@ static IOReturn doSetProperties(pid_t pid,
         else
             (*assertType->handler)(assertType, kAssertionOpRelease);
 
+    }
+
+    if (assertion->mods & kAssertionModResources) {
+        updateSystemQualifiers(assertion, kAssertionOpEval);
     }
 
     if (gAnyChange) notify_post( kIOPMAssertionsAnyChangedNotifyString );
@@ -2983,6 +4255,14 @@ __private_extern__ bool checkForEntriesByType(kerAssertionType type)
     return false;
 }
 
+/*
+ * Returns true if there are assertions using audio resources
+ */
+__private_extern__ bool checkForAudioType( )
+{
+    return (gSysQualifier.audioin+gSysQualifier.audioout) ? 1 : 0;
+}
+
 /* Disable the specified assertion type */
 __private_extern__ void disableAssertionType(kerAssertionType type)
 {
@@ -3046,6 +4326,7 @@ static inline void updateAggregates(assertionType_t *assertType, bool activesFor
         userActiveHandlePowerAssertionsChanged();
     }
 }
+
 
 static void modifySettings(assertionType_t *assertType, assertionOps op)
 {
@@ -3427,6 +4708,8 @@ void enforceAssertionTypeTimeCap(assertionType_t *assertType)
 
         updateAppStats(assertion, kAssertionOpRelease);
         schedEnableAppSleep( assertion );
+        stopProcTimer(assertion);
+        updateSystemQualifiers(assertion, kAssertionOpRelease);
 
         insertInactiveAssertion(assertion, assertType);
         assertType->forceTimedoutCnt++;
@@ -3528,13 +4811,23 @@ static IOReturn raiseAssertion(assertion_t *assertion)
     }
 
 
-    /* Attach the Create Time */
-    start_date = CFDateCreate(0, CFAbsoluteTimeGetCurrent());
-    if (start_date) {
-        CFDictionarySetValue(assertion->props, kIOPMAssertionCreateDateKey, start_date);
-        CFRelease(start_date);
+    assertion->createTime = 0;
+    if (CFDictionaryGetValueIfPresent(assertion->props, kIOPMAssertionCreateDateKey, (const void **)&start_date) &&
+        isA_CFDate(start_date)) {
+        CFTimeInterval delta = CFAbsoluteTimeGetCurrent() - CFDateGetAbsoluteTime(start_date);
+        if (delta > 0) {
+            assertion->createTime = currTime - delta;
+        }
     }
-    assertion->createTime = currTime;
+    if (!assertion->createTime) {
+        /* Attach the Create Time */
+        start_date = CFDateCreate(0, CFAbsoluteTimeGetCurrent());
+        if (start_date) {
+            CFDictionarySetValue(assertion->props, kIOPMAssertionCreateDateKey, start_date);
+            CFRelease(start_date);
+        }
+        assertion->createTime = currTime;
+    }
 
 
     /* Is level set to 0 */
@@ -3584,7 +4877,7 @@ static IOReturn raiseAssertion(assertion_t *assertion)
             timeout = assertType->autoTimeout;
     }
     if (timeout) {
-        assertion->timeout = (uint64_t)timeout+currTime; // Absolute time at which assertion expires
+        assertion->timeout = (uint64_t)timeout+assertion->createTime; // Absolute time at which assertion expires
         insertTimedAssertion(assertion, assertType, true);
     }
     else {
@@ -3712,8 +5005,11 @@ static void copyAssertion(assertion_t *assertion, CFMutableDictionaryRef asserti
     }
 
     processName = assertion->pinfo->name;
-    if (processName) {
+    if (isA_CFString(processName)) {
         CFDictionarySetValue(assertion->props, kIOPMAssertionProcessNameKey, processName);
+    }
+    else {
+        ERROR_LOG("Process name for pid %d not available\n", assertion->pinfo->pid);
     }
     if (assertion->kassert < kIOPMNumAssertionTypes) {
         CFDictionarySetValue(assertion->props, kIOPMAssertionTrueTypeKey, assertion_types_arr[assertion->kassert]);
@@ -3757,16 +5053,15 @@ static CFArrayRef copyAssertionsByType(CFStringRef assertionType)
 
 }
 
-static CFArrayRef copyPIDAssertionDictionaryFlattened(void)
+static CFArrayRef copyPIDAssertionDictionaryFlattened(int state)
 {
     CFMutableDictionaryRef  assertionsDict = NULL;
     CFMutableArrayRef       returnArray = NULL;
-    CFDictionaryRef         *assertionsDictArr;
+    CFDictionaryRef         *assertionsDictArr = NULL;
     assertionType_t         *assertType = NULL;
     CFIndex                 i, count;
 
 
-    returnArray = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
 
     assertionsDict = CFDictionaryCreateMutable(
                                                kCFAllocatorDefault, 0, 
@@ -3778,24 +5073,36 @@ static CFArrayRef copyPIDAssertionDictionaryFlattened(void)
     {
         if (i == kEnableIdleType) continue;
         assertType = &gAssertionTypes[i]; 
-        applyToAllAssertionsSync(assertType, false, ^(assertion_t *assertion)
+        applyToAllAssertionsSync(assertType, true, ^(assertion_t *assertion)
                                  {
-                                 copyAssertion(assertion, assertionsDict);                    
+                                 if (((assertion->state & kAssertionStateInactive) && (state == kIOPMInactiveAssertions)) ||
+                                    ((!(assertion->state & kAssertionStateInactive)) && (state == kIOPMActiveAssertions))) {
+                                     copyAssertion(assertion, assertionsDict);
+                                 }
                                  });
 
     }
 
     count = CFDictionaryGetCount(assertionsDict);
     assertionsDictArr = (CFDictionaryRef *)malloc(sizeof(CFDictionaryRef)*count); 
+    if (!assertionsDictArr) {
+        goto exit;
+    }
     CFDictionaryGetKeysAndValues(assertionsDict,
                                  NULL, (const void **)assertionsDictArr);
 
+    returnArray = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
     for (i=0; i < count; i++) {
         CFArrayAppendValue(returnArray, assertionsDictArr[i]);
     }
 
-    free(assertionsDictArr);
-    CFRelease(assertionsDict);
+exit:
+    if (assertionsDictArr) {
+        free(assertionsDictArr);
+    }
+    if (assertionsDict) {
+        CFRelease(assertionsDict);
+    }
 
     return returnArray;
 }
@@ -4028,7 +5335,7 @@ __private_extern__ void evalAllInteractivePushAssertions()
                                  if (assertion->timeout > newTimeout) {
                                      assertion->timeout = newTimeout;
 
-                                     timeLeftCF = CFNumberCreate(0, kCFNumberIntType, &assertType->autoTimeout);
+                                     timeLeftCF = CFNumberCreate(0, kCFNumberLongType, &assertType->autoTimeout);
                                      if (timeLeftCF) {
                                          CFDictionarySetValue(assertion->props, kIOPMAssertionTimeoutTimeLeftKey, timeLeftCF);
                                          CFRelease(timeLeftCF);
@@ -4050,7 +5357,7 @@ __private_extern__ void evalAllInteractivePushAssertions()
 
 
 
-static void   evaluateAssertions(void)
+static void   evaluateForPSChange(void)
 {
     int         i, pwrSrc;
     static int  prevPwrSrc = -1;
@@ -4082,16 +5389,36 @@ static void   evaluateAssertions(void)
     for (i=0; i < kIOPMNumAssertionTypes; i++)
     {
         assertType = &gAssertionTypes[i];
-        if (assertType->flags & kAssertionTypeNotValidOnBatt) {
-            applyToAllAssertionsSync(assertType, false, ^(assertion_t *assertion)
-            {
-                if ((pwrSrc == kBatteryPowered) && !(assertion->state & kAssertionStateValidOnBatt)) {
+        applyToAllAssertionsSync(assertType, false, ^(assertion_t *assertion)
+        {
+            if (pwrSrc == kBatteryPowered) {
+                if ((!(assertion->state & kAssertionStateValidOnBatt)) && (assertType->flags & kAssertionTypeNotValidOnBatt)) {
                     updateAppStats(assertion, kAssertionOpRelease);
                 }
-                else if (pwrSrc != kBatteryPowered) {
+                startProcTimer(assertion);
+            }
+            else if (pwrSrc != kBatteryPowered) {
+                if (assertType->flags & kAssertionTypeNotValidOnBatt) {
                     updateAppStats(assertion, kAssertionOpRaise);
                 }
-            });
+                stopProcTimer(assertion);
+            }
+        });
+    }
+    if (gProcAggregateMonitor) {
+        if (pwrSrc == kBatteryPowered) {
+            dispatch_source_set_timer(gProcAggregateMonitor,
+                    dispatch_time(DISPATCH_TIME_NOW, 0), gProcMonitorFrequency, 0);
+        }
+        else {
+            // On external power source, clear any accumulated proc aggregate assertion data
+            // and set the timer not to fire
+            if (gProcAggregateBasis) {
+                CFRelease(gProcAggregateBasis);
+                gProcAggregateBasis = NULL;
+            }
+            dispatch_source_set_timer(gProcAggregateMonitor,
+                    dispatch_time(DISPATCH_TIME_FOREVER, 0), DISPATCH_TIME_FOREVER, 0);
         }
     }
     logASLAssertionsAggregate();
@@ -4199,7 +5526,11 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
         assertType->enTrQuality = kEnTrQualSPKeepDisplayAwake;
 
         assertType->flags |= kAssertionTypePreventAppSleep | kAssertionTypeLogOnCreate;
+#if TARGET_OS_EMBEDDED
+        newEffect = kNoEffect;
+#else
         newEffect = kPrevDisplaySlpEffect;
+#endif
         break;
 
     case kEnableIdleType:
@@ -4219,7 +5550,12 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
         assertType->handler = setKernelAssertions;
         assertType->enTrQuality = kEnTrQualSPKeepSystemAwake | kEnTrQualSPPreventSleepSystem;
 
+#if TARGET_OS_EMBEDDED
+        newEffect = kNoEffect;
+#else
         newEffect = kPrevDemandSlpEffect;
+#endif
+
         break;
 
     case kSRPreventSleepType:
@@ -4230,8 +5566,12 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
         assertType->handler = setKernelAssertions;
         assertType->enTrQuality = kEnTrQualSPKeepSystemAwake | kEnTrQualSPPreventSleepSystem;
 
-        newEffect = kPrevDemandSlpEffect;
 
+#if TARGET_OS_EMBEDDED
+        newEffect = kNoEffect;
+#else
+        newEffect = kPrevDemandSlpEffect;
+#endif
         break;
 
     case kPreventDiskSleepType:
@@ -4271,11 +5611,6 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
         break;
 
     case kPushServiceTaskType:
-#if TARGET_OS_IPHONE
-        assertType->enTrQuality = kEnTrQualNone;
-#else
-        assertType->enTrQuality = kEnTrQualSPKeepSystemAwake;
-#endif
         if ( isA_SleepSrvcWake() && _SS_allowed() ) {
             idxRef = CFNumberCreate(0, kCFNumberIntType, &idx);
             CFDictionarySetValue(gUserAssertionTypesDict, kIOPMAssertionTypeApplePushServiceTask, idxRef);
@@ -4291,6 +5626,12 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
         assertType->flags |= kAssertionTypeGloballyTimed | kAssertionTypePreventAppSleep;
         assertType->handler = setKernelAssertions;
 
+#if TARGET_OS_EMBEDDED
+        assertType->enTrQuality = kEnTrQualNone;
+        newEffect = kNoEffect;
+#else
+        assertType->enTrQuality = kEnTrQualSPKeepSystemAwake;
+#endif
 
         break;
 
@@ -4327,8 +5668,9 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
                 prevBTdisable = false;
             }
         }
-#if TARGET_OS_IPHONE
+#if TARGET_OS_EMBEDDED
         assertType->enTrQuality = kEnTrQualNone;
+        newEffect = kNoEffect;
 #else
         assertType->enTrQuality = kEnTrQualSPKeepSystemAwake;
 #endif
@@ -4361,7 +5703,11 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
         assertType->flags |= kAssertionTypeLogOnCreate;
         assertType->enTrQuality = kEnTrQualSPKeepDisplayAwake;
 
+#if TARGET_OS_EMBEDDED
+        newEffect = kNoEffect;
+#else
         newEffect = kPrevDisplaySlpEffect;
+#endif
         break;
 
     case kNetworkAccessType:
@@ -4382,12 +5728,6 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
 
     case kInteractivePushServiceType:
         newEffect = kNoEffect;
-
-#if TARGET_OS_IPHONE
-        assertType->enTrQuality = kEnTrQualNone;
-#else
-        assertType->enTrQuality = kEnTrQualSPKeepSystemAwake;
-#endif
 
 #if TCPKEEPALIVE
         if (getTCPKeepAliveState(NULL, 0) == kActive) {
@@ -4429,6 +5769,14 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
 #endif
         CFDictionarySetValue(gUserAssertionTypesDict, kIOPMAssertInteractivePushServiceTask, idxRef);
         assertType->entitlement = kIOPMInteractivePushEntitlement;
+
+#if TARGET_OS_EMBEDDED
+        assertType->enTrQuality = kEnTrQualNone;
+        newEffect = kNoEffect;
+#else
+        assertType->enTrQuality = kEnTrQualSPKeepSystemAwake;
+#endif
+
 
         break;
 

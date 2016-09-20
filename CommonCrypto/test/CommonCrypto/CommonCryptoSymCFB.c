@@ -32,7 +32,7 @@ entryPoint(CommonCryptoSymCFB,"CommonCrypto Symmetric CFB Testing")
 #else
 static int kTestTestCount = 7;
 
-int CommonCryptoSymCFB(int argc, char *const *argv)
+int CommonCryptoSymCFB(int __unused argc, char *const * __unused argv)
 {
 	char *keyStr;
 	char *iv;

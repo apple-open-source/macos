@@ -1,5 +1,0 @@
-SAX.setDocumentLocator()
-SAX.startDocument()
-SAX.error: Comment not terminated 
-<!--<!dOctYP
-SAX.endDocument()

@@ -456,7 +456,7 @@ protected:
      * This method's implementation is not typically overridden.
      */
 
-    void free();
+    void free() APPLE_KEXT_OVERRIDE;
 
     /*!
      * @function handleOpen
@@ -486,7 +486,7 @@ protected:
 
     virtual bool handleOpen(IOService *  client,
                             IOOptionBits options,
-                            void *       access);
+                            void *       access) APPLE_KEXT_OVERRIDE;
 
     /*!
      * @function handleIsOpen
@@ -502,7 +502,7 @@ protected:
      * Returns true if the client was (or clients were) open, false otherwise.
      */
 
-    virtual bool handleIsOpen(const IOService * client) const;
+    virtual bool handleIsOpen(const IOService * client) const APPLE_KEXT_OVERRIDE;
 
     /*!
      * @function handleClose
@@ -516,7 +516,7 @@ protected:
      * Options for the close.  Set to zero.
      */
 
-    virtual void handleClose(IOService * client, IOOptionBits options);
+    virtual void handleClose(IOService * client, IOOptionBits options) APPLE_KEXT_OVERRIDE;
 
     /*!
      * @function addToBytesTransferred
@@ -679,11 +679,11 @@ protected:
 
     virtual bool handleStart(IOService * provider);
 
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
     virtual bool handleYield(IOService *  provider,
                              IOOptionBits options  = 0,
                              void *       argument = 0) __attribute__ ((deprecated));
-#endif /* __x86_64__ */
+#endif /* TARGET_OS_OSX && defined(__x86_64__) */
 
     /*!
      * @function getMediaBlockSize
@@ -707,7 +707,7 @@ public:
      * This method's implementation is not typically overridden.
      */
 
-    virtual bool init(OSDictionary * properties = 0);
+    virtual bool init(OSDictionary * properties = 0) APPLE_KEXT_OVERRIDE;
 
     /*
      * This method is called once we have been attached to the provider object.
@@ -715,7 +715,7 @@ public:
      * This method's implementation is not typically overridden.
      */
 
-    virtual bool start(IOService * provider);
+    virtual bool start(IOService * provider) APPLE_KEXT_OVERRIDE;
 
     /*
      * This method is called before we are detached from the provider object.
@@ -723,17 +723,17 @@ public:
      * This method's implementation is not typically overridden.
      */
 
-    virtual void stop(IOService * provider);
+    virtual void stop(IOService * provider) APPLE_KEXT_OVERRIDE;
 
     virtual bool didTerminate(IOService *  provider,
                               IOOptionBits options,
-                              bool *       defer);
+                              bool *       defer) APPLE_KEXT_OVERRIDE;
 
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
     virtual bool yield(IOService *  provider,
                        IOOptionBits options  = 0,
                        void *       argument = 0) __attribute__ ((deprecated));
-#endif /* __x86_64__ */
+#endif /* TARGET_OS_OSX && defined(__x86_64__) */
 
     /*!
      * @function read
@@ -771,7 +771,7 @@ public:
                       UInt64                byteStart,
                       IOMemoryDescriptor *  buffer,
                       IOStorageAttributes * attributes,
-                      IOStorageCompletion * completion);
+                      IOStorageCompletion * completion) APPLE_KEXT_OVERRIDE;
 
     /*!
      * @function write
@@ -809,7 +809,7 @@ public:
                        UInt64                byteStart,
                        IOMemoryDescriptor *  buffer,
                        IOStorageAttributes * attributes,
-                       IOStorageCompletion * completion);
+                       IOStorageCompletion * completion) APPLE_KEXT_OVERRIDE;
 
     /*!
      * @function synchronize
@@ -830,7 +830,7 @@ public:
     virtual IOReturn synchronize(IOService *                 client,
                                  UInt64                      byteStart,
                                  UInt64                      byteCount,
-                                 IOStorageSynchronizeOptions options = 0);
+                                 IOStorageSynchronizeOptions options = 0) APPLE_KEXT_OVERRIDE;
 
     /*!
      * @function unmap
@@ -852,7 +852,33 @@ public:
     virtual IOReturn unmap(IOService *           client,
                            IOStorageExtent *     extents,
                            UInt32                extentsCount,
-                           IOStorageUnmapOptions options = 0);
+                           IOStorageUnmapOptions options = 0) APPLE_KEXT_OVERRIDE;
+
+    /*!
+     * @function getProvisionStatus
+     * @discussion
+     * Get device block provision status
+     * @param client
+     * Client requesting the synchronization.
+     * @param byteStart
+     * Byte offset of logical extent on the device.
+     * @param byteCount
+     * Byte length of logical extent on the device, 0 mean the entire remaining space.
+     * @param extentsCount
+     * Number of extents allocated in extents. On return, this parameter indicate number
+     * of provision extents returned.
+     * @param extents
+     * List of provision extents. See IOStorageProvisionExtents.
+     * @result
+     * Returns the status of the getProvisionStatus.
+     */
+
+    virtual IOReturn getProvisionStatus(IOService *                           client,
+                                        UInt64                                byteStart,
+                                        UInt64                                byteCount,
+                                        UInt32 *                              extentsCount,
+                                        IOStorageProvisionExtent *            extents,
+                                        IOStorageGetProvisionStatusOptions    options = 0) APPLE_KEXT_OVERRIDE;
 
     /*!
      * @function lockPhysicalExtents
@@ -865,7 +891,7 @@ public:
      * Returns true if the lock was successful, false otherwise.
      */
 
-    virtual bool lockPhysicalExtents(IOService * client);
+    virtual bool lockPhysicalExtents(IOService * client) APPLE_KEXT_OVERRIDE;
 
     /*!
      * @function copyPhysicalExtent
@@ -888,7 +914,7 @@ public:
 
     virtual IOStorage * copyPhysicalExtent(IOService * client,
                                            UInt64 *    byteStart,
-                                           UInt64 *    byteCount);
+                                           UInt64 *    byteCount) APPLE_KEXT_OVERRIDE;
 
     /*!
      * @function unlockPhysicalExtents
@@ -899,7 +925,7 @@ public:
      * Client requesting the operation.
      */
 
-    virtual void unlockPhysicalExtents(IOService * client);
+    virtual void unlockPhysicalExtents(IOService * client) APPLE_KEXT_OVERRIDE;
 
     /*!
      * @function setPriority
@@ -921,7 +947,7 @@ public:
     virtual IOReturn setPriority(IOService *       client,
                                  IOStorageExtent * extents,
                                  UInt32            extentsCount,
-                                 IOStoragePriority priority);
+                                 IOStoragePriority priority) APPLE_KEXT_OVERRIDE;
 
     /*!
      * @function ejectMedia
@@ -948,11 +974,11 @@ public:
 
     virtual IOReturn formatMedia(UInt64 byteCapacity);
 
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
     virtual IOReturn lockMedia(bool lock) __attribute__ ((deprecated));
 
     virtual IOReturn pollMedia() __attribute__ ((deprecated));
-#endif /* __x86_64__ */
+#endif /* TARGET_OS_OSX && defined(__x86_64__) */
 
     /*!
      * @function isMediaEjectable
@@ -974,11 +1000,11 @@ public:
 
     virtual bool isMediaRemovable() const;
 
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
     virtual bool isMediaPollExpensive() const __attribute__ ((deprecated));
 
     virtual bool isMediaPollRequired() const __attribute__ ((deprecated));
-#endif /* __x86_64__ */
+#endif /* TARGET_OS_OSX && defined(__x86_64__) */
 
     /*!
      * @function isMediaWritable
@@ -1066,7 +1092,7 @@ public:
      * applicable, that it was successful.
      */
 
-    virtual IOReturn message(UInt32 type, IOService * provider, void * argument);
+    virtual IOReturn message(UInt32 type, IOService * provider, void * argument) APPLE_KEXT_OVERRIDE;
 
     /*
      * Obtain this object's provider.  We override the superclass's method to
@@ -1074,7 +1100,7 @@ public:
      * This method serves simply as a convenience to subclass developers.
      */
 
-    virtual IOBlockStorageDevice * getProvider() const;
+    virtual IOBlockStorageDevice * getProvider() const APPLE_KEXT_OVERRIDE;
 
 protected:
 
@@ -1119,11 +1145,11 @@ protected:
                                          IOReturn status,
                                          UInt64   actualByteCount);
 
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
     virtual void schedulePoller() __attribute__ ((deprecated));
 
     virtual void unschedulePoller() __attribute__ ((deprecated));
-#endif /* __x86_64__ */
+#endif /* TARGET_OS_OSX && defined(__x86_64__) */
 
     /*
      * This method is the power event handler for restarts and shutdowns.
@@ -1220,9 +1246,9 @@ protected:
      */
     virtual IOReturn	acceptNewMedia(void);
     
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
     virtual UInt64	constrainByteCount(UInt64 requestedCount,bool isWrite) __attribute__ ((deprecated));
-#endif /* __x86_64__ */
+#endif /* TARGET_OS_OSX && defined(__x86_64__) */
 
     /*!
      * @function decommissionMedia

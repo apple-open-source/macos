@@ -26,11 +26,12 @@
 #include <Security/SecCertificate.h>
 #include <Security/SecKeyPriv.h>
 #include <Security/SecIdentity.h>
-
+#include <Security/CipherSuite.h>
 #include "appleSession.h"
 #include "secCrypto.h"
 
 #include "tls_regressions.h"
+#include "tls_helpers.h"
 
 #define DEBUG_ONLY __attribute__((unused))
 
@@ -158,10 +159,7 @@ tls_handshake_message_callback(tls_handshake_ctx_t ctx, tls_handshake_message_t 
 
     switch(event) {
         case tls_handshake_message_certificate:
-            /* Always says the cert is ok */
-            require_noerr((err = tls_handshake_set_peer_trust(myCtx->hdsk, tls_handshake_trust_ok)), errOut);
-            require_noerr((err = tls_create_peer_trust(myCtx->hdsk, &trustRef)), errOut);
-            require_noerr((err = tls_set_peer_pubkey(myCtx->hdsk, trustRef)), errOut);
+            require_noerr((err = tls_helper_set_peer_pubkey(myCtx->hdsk)), errOut);
             break;
         case tls_handshake_message_certificate_request:
             myCtx->certificate_requested++;
@@ -186,6 +184,10 @@ tls_handshake_message_callback(tls_handshake_ctx_t ctx, tls_handshake_message_t 
                     test_printf("ALPN Data = %p, %zd\n", npnData->data, npnData->length);
                 }
             }
+            break;
+        case tls_handshake_message_server_hello_done:
+            /* Always says the cert is ok */
+            require_noerr((err = tls_handshake_set_peer_trust(myCtx->hdsk, tls_handshake_trust_ok)), errOut);
             break;
         default:
             break;
@@ -282,42 +284,22 @@ int mySSLRecordSetProtocolVersionFunc(tls_handshake_ctx_t ref,
     return tls_record_set_protocol_version(c->rec, protocolVersion);
 }
 
-
 static int
 tls_handshake_save_session_data_callback(tls_handshake_ctx_t ctx, tls_buffer sessionKey, tls_buffer sessionData)
 {
-    myFilterCtx_t DEBUG_ONLY *myCtx = (myFilterCtx_t *)ctx;
-
-    test_printf("%s:%p\n", __FUNCTION__, myCtx);
-
-    test_printf("key = %s data=[%p,%zd]\n", sessionKey.data, sessionData.data, sessionData.length);
-
-    return sslAddSession(sessionKey, sessionData, 0);
+    return 0;
 }
 
 static int
 tls_handshake_load_session_data_callback(tls_handshake_ctx_t ctx, tls_buffer sessionKey, tls_buffer *sessionData)
 {
-    myFilterCtx_t DEBUG_ONLY *myCtx = (myFilterCtx_t *)ctx;
-
-    test_printf("%s:%p\n", __FUNCTION__, myCtx);
-
-
-    int err = sslGetSession(sessionKey, sessionData);
-
-    test_printf("key = %s data=[%p,%zd], err=%d\n", sessionKey.data, sessionData->data, sessionData->length, err);
-
-    return err;
+    return errSSLSessionNotFound;
 }
 
 static int
 tls_handshake_delete_session_data_callback(tls_handshake_ctx_t ctx, tls_buffer sessionKey)
 {
-    myFilterCtx_t DEBUG_ONLY *myCtx = (myFilterCtx_t *)ctx;
-
-    test_printf("%s:%p\n", __FUNCTION__, myCtx);
-
-    return sslDeleteSession(sessionKey);
+    return 0;
 }
 
 static int
@@ -327,9 +309,8 @@ tls_handshake_delete_all_sessions_callback(tls_handshake_ctx_t ctx)
 
     test_printf("%s:%p\n", __FUNCTION__, myCtx);
 
-    return sslCleanupSession();
+    return -1;
 }
-
 
 static
 tls_handshake_callbacks_t tls_handshake_callbacks = {
@@ -654,8 +635,6 @@ static const CipherSuiteName ciphers[] = {
 #endif
 
 #if 1
-
-#if 1
   /* DHE_RSA ciphers suites */
   CIPHER(SSL_DHE_RSA_WITH_3DES_EDE_CBC_SHA),
   CIPHER(TLS_DHE_RSA_WITH_AES_128_CBC_SHA),
@@ -688,6 +667,7 @@ static const CipherSuiteName ciphers[] = {
 
 #if 1
   /* ECDHE_RSA cipher suites */
+  CIPHER(TLS_ECDHE_RSA_WITH_NULL_SHA),
   CIPHER(TLS_ECDHE_RSA_WITH_RC4_128_SHA),
   CIPHER(TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA),
   CIPHER(TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA),
@@ -696,24 +676,13 @@ static const CipherSuiteName ciphers[] = {
   CIPHER(TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384), // Not supported by either gnutls or openssl
 #endif
 
-#if 0
-  /* ECDH_ECDSA cipher suites */
-  CIPHER(TLS_ECDH_ECDSA_WITH_RC4_128_SHA),
-  CIPHER(TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA),
-  CIPHER(TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA),
-  CIPHER(TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256),
-  CIPHER(TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA),
-  CIPHER(TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384),
-#endif
-
-#if 0
-  /* ECDH_RSA cipher suites */
-  CIPHER(TLS_ECDH_RSA_WITH_RC4_128_SHA),
-  CIPHER(TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA),
-  CIPHER(TLS_ECDH_RSA_WITH_AES_128_CBC_SHA),
-  CIPHER(TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256),
-  CIPHER(TLS_ECDH_RSA_WITH_AES_256_CBC_SHA),
-  CIPHER(TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384),
+#if 1
+  /* ECDH_anon cipher suites */
+  CIPHER(TLS_ECDH_anon_WITH_NULL_SHA),
+  CIPHER(TLS_ECDH_anon_WITH_RC4_128_SHA),
+  CIPHER(TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA),
+  CIPHER(TLS_ECDH_anon_WITH_AES_128_CBC_SHA),
+  CIPHER(TLS_ECDH_anon_WITH_AES_256_CBC_SHA),
 #endif
 
 #if 0
@@ -744,8 +713,6 @@ static const CipherSuiteName ciphers[] = {
   CIPHER(TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256),
   CIPHER(TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384),
 #endif
-#endif
-
 };
 static int nciphers = sizeof(ciphers)/sizeof(ciphers[0]);
 
@@ -852,6 +819,7 @@ uint16_t openssl_supported_ciphers[] =
     TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
 
     /* ECDHE_RSA cipher suites */
+    TLS_ECDHE_RSA_WITH_NULL_SHA,
     TLS_ECDHE_RSA_WITH_RC4_128_SHA,
     TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
     TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
@@ -859,21 +827,12 @@ uint16_t openssl_supported_ciphers[] =
     TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
     TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
 
-    /* ECDH_ECDSA cipher suites */
-    TLS_ECDH_ECDSA_WITH_RC4_128_SHA,
-    TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA,
-    TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA,
-    TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256,
-    TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA,
-    TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384,
-
-    /* ECDH_RSA cipher suites */
-    TLS_ECDH_RSA_WITH_RC4_128_SHA,
-    TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA,
-    TLS_ECDH_RSA_WITH_AES_128_CBC_SHA,
-    TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256,
-    TLS_ECDH_RSA_WITH_AES_256_CBC_SHA,
-    TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384,
+    /* ECDH_anon cipher suites */
+    TLS_ECDH_anon_WITH_NULL_SHA,
+    TLS_ECDH_anon_WITH_RC4_128_SHA,
+    TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA,
+    TLS_ECDH_anon_WITH_AES_128_CBC_SHA,
+    TLS_ECDH_anon_WITH_AES_256_CBC_SHA,
 
     TLS_PSK_WITH_RC4_128_SHA,
     TLS_PSK_WITH_3DES_EDE_CBC_SHA,
@@ -973,16 +932,26 @@ uint16_t gnutls_supported_ciphers[] = {
     TLS_DH_anon_WITH_AES_256_CBC_SHA256,
 
     TLS_ECDHE_ECDSA_WITH_NULL_SHA,
+    TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
     TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA,
     TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
     TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
     TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
     TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384,
 
+    TLS_ECDHE_RSA_WITH_NULL_SHA,
+    TLS_ECDHE_RSA_WITH_RC4_128_SHA,
     TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
     TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
     TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
     TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+    TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384,
+
+    TLS_ECDH_anon_WITH_NULL_SHA,
+    TLS_ECDH_anon_WITH_RC4_128_SHA,
+    TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA,
+    TLS_ECDH_anon_WITH_AES_128_CBC_SHA,
+    TLS_ECDH_anon_WITH_AES_256_CBC_SHA,
 
     TLS_PSK_WITH_RC4_128_SHA,
     TLS_PSK_WITH_3DES_EDE_CBC_SHA,
@@ -992,11 +961,15 @@ uint16_t gnutls_supported_ciphers[] = {
     TLS_PSK_WITH_NULL_SHA256,
 
     TLS_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_RSA_WITH_AES_256_GCM_SHA384,
     TLS_DHE_RSA_WITH_AES_128_GCM_SHA256,
+    TLS_DHE_RSA_WITH_AES_256_GCM_SHA384,
     TLS_DH_anon_WITH_AES_128_GCM_SHA256,
+    TLS_DH_anon_WITH_AES_256_GCM_SHA384,
     TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
     TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
     TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+    TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
 
 
 };
@@ -1078,13 +1051,14 @@ static bool __unused default_supported_unless_ssl3(tls_protocol_version v)
     return v!=tls_protocol_version_SSL_3;
 }
 
-
 //#define OPENSSL_SERVER "ariadne.apple.com"
 //#define GNUTLS_SERVER "ariadne.apple.com"
-#define OPENSSL_SERVER "kuip.apple.com"
-#define GNUTLS_SERVER "kuip.apple.com"
+//#define OPENSSL_SERVER "kuip.apple.com"
+//#define GNUTLS_SERVER "kuip.apple.com"
 //#define OPENSSL_SERVER "localhost"
 //#define GNUTLS_SERVER "localhost"
+#define OPENSSL_SERVER "192.168.2.1"
+#define GNUTLS_SERVER "192.168.2.1"
 
 
 static struct test_server {
@@ -1096,8 +1070,8 @@ static struct test_server {
 } servers[] = {
     { OPENSSL_SERVER, 4001, &client_auth_never, &openssl_rsa_rsa_is_cipher_supported, &default_supported_always}, //openssl s_server w/o client side auth, rsa/rsa
     { OPENSSL_SERVER, 4002, &client_auth_never, &openssl_rsa_ecc_is_cipher_supported, &default_supported_always}, //openssl s_server w/o client side auth, rsa/ecc
-    { OPENSSL_SERVER, 4003, &client_auth_never, &openssl_ecc_rsa_is_cipher_supported, &default_supported_always}, //openssl s_server w/o client side auth, ecc/rsa
-    { OPENSSL_SERVER, 4004, &client_auth_never, &openssl_ecc_ecc_is_cipher_supported, &default_supported_always}, //openssl s_server w/o client side auth, ecc/ecc
+    { OPENSSL_SERVER, 4003, &client_auth_never, &openssl_ecc_rsa_is_cipher_supported, &default_supported_unless_ssl3}, //openssl s_server w/o client side auth, ecc/rsa
+    { OPENSSL_SERVER, 4004, &client_auth_never, &openssl_ecc_ecc_is_cipher_supported, &default_supported_unless_ssl3}, //openssl s_server w/o client side auth, ecc/ecc
     { GNUTLS_SERVER, 5001, &client_auth_never, &gnutls_rsa_rsa_is_cipher_supported, &default_supported_always}, // gnutls-serv w/o client side auth, rsa/rsa,
     { GNUTLS_SERVER, 5002, &client_auth_never, &gnutls_rsa_ecc_is_cipher_supported, &default_supported_always}, // gnutls-serv w/o client side auth, rsa/ecc,
     { GNUTLS_SERVER, 5003, &client_auth_never, &gnutls_ecc_rsa_is_cipher_supported, &default_supported_unless_ssl3}, // gnutls-serv w/o client side auth, ecc/rsa,
@@ -1107,8 +1081,8 @@ static struct test_server {
 
     { OPENSSL_SERVER, 4011, &client_auth_always, &openssl_rsa_rsa_is_cipher_supported, &default_supported_always}, //openssl s_server w/ client side auth
     { OPENSSL_SERVER, 4012, &client_auth_always, &openssl_rsa_ecc_is_cipher_supported, &default_supported_always}, //openssl s_server w/ client side auth, rsa/ecc
-    { OPENSSL_SERVER, 4013, &client_auth_always, &openssl_ecc_rsa_is_cipher_supported, &default_supported_always}, //openssl s_server w/ client side auth, ecc/rsa
-    { OPENSSL_SERVER, 4014, &client_auth_always, &openssl_ecc_ecc_is_cipher_supported, &default_supported_always}, //openssl s_server w/ client side auth, ecc/ecc
+    { OPENSSL_SERVER, 4013, &client_auth_always, &openssl_ecc_rsa_is_cipher_supported, &default_supported_unless_ssl3}, //openssl s_server w/ client side auth, ecc/rsa
+    { OPENSSL_SERVER, 4014, &client_auth_always, &openssl_ecc_ecc_is_cipher_supported, &default_supported_unless_ssl3}, //openssl s_server w/ client side auth, ecc/ecc
     { GNUTLS_SERVER, 5011, &client_auth_always, &gnutls_rsa_rsa_is_cipher_supported, &default_supported_always}, // gnutls-serv w/ client side auth
     { GNUTLS_SERVER, 5012, &client_auth_always, &gnutls_rsa_ecc_is_cipher_supported, &default_supported_always}, // gnutls-serv w/ client side auth, rsa/ecc,
     { GNUTLS_SERVER, 5013, &client_auth_unless_ssl3, &gnutls_ecc_rsa_is_cipher_supported, &default_supported_unless_ssl3}, // gnutls-serv w/ client side auth, ecc/rsa,
@@ -1130,11 +1104,10 @@ int generate_test_cases(void)
 
     tls_test_case test;
 
-
 #if 0
-    for(int p=15; p<=15;p++) {
-        for(int pr=1; pr<=1 ;pr++) {
-            for (int i=23; i<=23; i++) {
+    for(int p=0; p<nservers;p++) {
+        for(int pr=0; pr<nprotos ;pr++) {
+            for (int i=0; i<0; i++) {
 #else
     for (int p=0; p<nservers; p++) {
         for (int pr=0; pr<nprotos; pr++) {
@@ -1147,6 +1120,7 @@ int generate_test_cases(void)
                 memset(&test, 0, sizeof(test));
 
                 test.num_ciphersuites=1;
+                test.allow_resumption=false; // We don't test resumption in this test.
                 test.ciphersuites=&ciphers[i].cipher;
                 test.protocol_max=protos[pr];
                 test.hostname=servers[p].host;
@@ -1182,7 +1156,7 @@ int generate_test_cases(void)
                 test_log_end(err);
             }}
 
-#if 0
+#if 1
 
             /* Connect to server with default ciphersuites */
 
@@ -1305,7 +1279,7 @@ fail:
 
 int tls_03_client(int argc, char * const argv[])
 {
-    plan_tests(2+ nservers*nprotos*(nciphers+1));
+    plan_tests(1 + nservers*nprotos*(nciphers+1));
 
     handshake_client_test();
    // handshake_ecc_test();

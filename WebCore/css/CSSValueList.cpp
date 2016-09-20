@@ -60,7 +60,7 @@ bool CSSValueList::removeAll(CSSValue* value)
     if (!value)
         return false;
 
-    return m_values.removeAllMatching([value] (const Ref<CSSValue>& current) {
+    return m_values.removeAllMatching([value](auto& current) {
         return current->equals(*value);
     }) > 0;
 }
@@ -78,7 +78,7 @@ bool CSSValueList::hasValue(CSSValue* val) const
     return false;
 }
 
-PassRefPtr<CSSValueList> CSSValueList::copy()
+Ref<CSSValueList> CSSValueList::copy()
 {
     RefPtr<CSSValueList> newList;
     switch (m_valueListSeparator) {
@@ -96,7 +96,7 @@ PassRefPtr<CSSValueList> CSSValueList::copy()
     }
     for (auto& value : m_values)
         newList->append(value.get());
-    return newList.release();
+    return newList.releaseNonNull();
 }
 
 String CSSValueList::customCSSText() const
@@ -179,9 +179,9 @@ CSSValueList::CSSValueList(const CSSValueList& cloneFrom)
         m_values.uncheckedAppend(*cloneFrom.m_values[i]->cloneForCSSOM());
 }
 
-PassRefPtr<CSSValueList> CSSValueList::cloneForCSSOM() const
+Ref<CSSValueList> CSSValueList::cloneForCSSOM() const
 {
-    return adoptRef(new CSSValueList(*this));
+    return adoptRef(*new CSSValueList(*this));
 }
 
 
@@ -247,33 +247,45 @@ bool CSSValueList::buildParserValueSubstitutingVariables(CSSParserValue* result,
 
 bool CSSValueList::buildParserValueListSubstitutingVariables(CSSParserValueList* parserList, const CustomPropertyValueMap& customProperties) const
 {
-    for (unsigned i = 0; i < m_values.size(); ++i) {
-        CSSParserValue result;
-        result.id = CSSValueInvalid;
-        switch (m_values[i]->classType()) {
-        case FunctionClass:
-            if (!downcast<CSSFunctionValue>(*m_values[i].ptr()).buildParserValueSubstitutingVariables(&result, customProperties))
+    for (auto& value : m_values) {
+        switch (value.get().classType()) {
+        case FunctionClass: {
+            CSSParserValue result;
+            result.id = CSSValueInvalid;
+            if (!downcast<CSSFunctionValue>(value.get()).buildParserValueSubstitutingVariables(&result, customProperties)) {
+                WebCore::destroy(result);
                 return false;
+            }
             parserList->addValue(result);
             break;
-        case ValueListClass:
-            if (!downcast<CSSValueList>(*m_values[i].ptr()).buildParserValueSubstitutingVariables(&result, customProperties))
+        }
+        case ValueListClass: {
+            CSSParserValue result;
+            result.id = CSSValueInvalid;
+            if (!downcast<CSSValueList>(value.get()).buildParserValueSubstitutingVariables(&result, customProperties)) {
+                WebCore::destroy(result);
                 return false;
+            }
             parserList->addValue(result);
             break;
+        }
         case VariableClass: {
-            if (!downcast<CSSVariableValue>(*m_values[i].ptr()).buildParserValueListSubstitutingVariables(parserList, customProperties))
+            if (!downcast<CSSVariableValue>(value.get()).buildParserValueListSubstitutingVariables(parserList, customProperties))
                 return false;
             break;
         }
-        case PrimitiveClass:
+        case PrimitiveClass: {
             // FIXME: Will have to change this if we start preserving invalid tokens.
-            if (downcast<CSSPrimitiveValue>(*m_values[i].ptr()).buildParserValue(&result))
+            CSSParserValue result;
+            result.id = CSSValueInvalid;
+            if (downcast<CSSPrimitiveValue>(value.get()).buildParserValue(&result))
                 parserList->addValue(result);
+            else
+                WebCore::destroy(result);
             break;
+        }
         default:
             ASSERT_NOT_REACHED();
-            break;
             return false;
         }
     }

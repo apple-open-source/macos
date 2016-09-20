@@ -1,9 +1,11 @@
 Tests for regexp with multi-byte encoding and various magic settings.
 Test matchstr() with a count and multi-byte chars.
+See test99 for exactly the same test with re=2.
 
 STARTTEST
 :so mbyte.vim
 :set nocompatible encoding=utf-8 termencoding=latin1 viminfo+=nviminfo
+:set re=1
 /^1
 /a*b\{2}c\+/e
 x/\Md\*e\{2}f\+/e
@@ -22,17 +24,38 @@ x:" Now search for multi-byte with composing char
 x:" find word by change of word class
 /ち\<カヨ\>は
 x:" Test \%u, [\u] and friends
+:" c
 /\%u20ac
-x/[\u4f7f\u5929]\+
-x/\%U12345678
-x/[\U1234abcd\u1234\uabcd]
-x/\%d21879b
-x:?^1?,$w! test.out
+x:" d
+/[\u4f7f\u5929]\+
+x:" e
+/\%U12345678
+x:" f
+/[\U1234abcd\u1234\uabcd]
+x:" g
+/\%d21879b
+x:" h
+/ [[=A=]]* [[=B=]]* [[=C=]]* [[=D=]]* [[=E=]]* [[=F=]]* [[=G=]]* [[=H=]]* [[=I=]]* [[=J=]]* [[=K=]]* [[=L=]]* [[=M=]]* [[=N=]]* [[=O=]]* [[=P=]]* [[=Q=]]* [[=R=]]* [[=S=]]* [[=T=]]* [[=U=]]* [[=V=]]* [[=W=]]* [[=X=]]* [[=Y=]]* [[=Z=]]*/e
+x:" i
+/ [[=a=]]* [[=b=]]* [[=c=]]* [[=d=]]* [[=e=]]* [[=f=]]* [[=g=]]* [[=h=]]* [[=i=]]* [[=j=]]* [[=k=]]* [[=l=]]* [[=m=]]* [[=n=]]* [[=o=]]* [[=p=]]* [[=q=]]* [[=r=]]* [[=s=]]* [[=t=]]* [[=u=]]* [[=v=]]* [[=w=]]* [[=x=]]* [[=y=]]* [[=z=]]*/e
+x:" j Test backwards search from a multi-byte char
+/x
+x?.
+x:" k
+:let @w=':%s#comb[i]nations#œ̄ṣ́m̥̄ᾱ̆́#g'
+:@w
+:?^1?,$w! test.out
 :e! test.out
 G:put =matchstr(\"אבגד\", \".\", 0, 2) " ב
 :put =matchstr(\"אבגד\", \"..\", 0, 2) " בג
 :put =matchstr(\"אבגד\", \".\", 0, 0) " א
 :put =matchstr(\"אבגד\", \".\", 4, -1) " ג
+:new
+:$put =['dog(a', 'cat(']
+/(/e+
+"ayn:bd!
+:$put =''
+G"ap
 :w!
 :qa!
 ENDTEST
@@ -53,3 +76,7 @@ d 天使x
 e ������y
 f ������z
 g a啷bb
+h AÀÁÂÃÄÅĀĂĄǍǞǠẢ BḂḆ CÇĆĈĊČ DĎĐḊḎḐ EÈÉÊËĒĔĖĘĚẺẼ FḞ GĜĞĠĢǤǦǴḠ HĤĦḢḦḨ IÌÍÎÏĨĪĬĮİǏỈ JĴ KĶǨḰḴ LĹĻĽĿŁḺ MḾṀ NÑŃŅŇṄṈ OÒÓÔÕÖØŌŎŐƠǑǪǬỎ PṔṖ Q RŔŖŘṘṞ SŚŜŞŠṠ TŢŤŦṪṮ UÙÚÛÜŨŪŬŮŰŲƯǓỦ VṼ WŴẀẂẄẆ XẊẌ YÝŶŸẎỲỶỸ ZŹŻŽƵẐẔ
+i aàáâãäåāăąǎǟǡả bḃḇ cçćĉċč dďđḋḏḑ eèéêëēĕėęěẻẽ fḟ gĝğġģǥǧǵḡ hĥħḣḧḩẖ iìíîïĩīĭįǐỉ jĵǰ kķǩḱḵ lĺļľŀłḻ mḿṁ nñńņňŉṅṉ oòóôõöøōŏőơǒǫǭỏ pṕṗ q rŕŗřṙṟ sśŝşšṡ tţťŧṫṯẗ uùúûüũūŭůűųưǔủ vṽ wŵẁẃẅẇẘ xẋẍ yýÿŷẏẙỳỷỹ zźżžƶẑẕ
+j 0123❤x
+k combinations

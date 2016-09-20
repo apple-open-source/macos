@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,8 +45,9 @@ public:
     {
         return adoptRef(*new ContentExtensionStyleSheet(document));
     }
+    virtual ~ContentExtensionStyleSheet();
 
-    void addDisplayNoneSelector(const String& selector, uint32_t selectorID);
+    bool addDisplayNoneSelector(const String& selector, uint32_t selectorID);
 
     CSSStyleSheet& styleSheet() { return m_styleSheet.get(); }
 

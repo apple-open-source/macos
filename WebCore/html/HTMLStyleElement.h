@@ -51,19 +51,19 @@ private:
     HTMLStyleElement(const QualifiedName&, Document&, bool createdByParser);
 
     // overload from HTMLElement
-    virtual void parseAttribute(const QualifiedName&, const AtomicString&) override;
-    virtual InsertionNotificationRequest insertedInto(ContainerNode&) override;
-    virtual void removedFrom(ContainerNode&) override;
-    virtual void childrenChanged(const ChildChange&) override;
+    void parseAttribute(const QualifiedName&, const AtomicString&) final;
+    InsertionNotificationRequest insertedInto(ContainerNode&) final;
+    void removedFrom(ContainerNode&) final;
+    void childrenChanged(const ChildChange&) final;
 
-    virtual void finishParsingChildren() override;
+    void finishParsingChildren() final;
 
     bool isLoading() const { return m_styleSheetOwner.isLoading(); }
-    virtual bool sheetLoaded() override { return m_styleSheetOwner.sheetLoaded(document()); }
-    virtual void notifyLoadedSheetAndAllCriticalSubresources(bool errorOccurred) override;
-    virtual void startLoadingDynamicSheet() override { m_styleSheetOwner.startLoadingDynamicSheet(document()); }
+    bool sheetLoaded() final { return m_styleSheetOwner.sheetLoaded(*this); }
+    void notifyLoadedSheetAndAllCriticalSubresources(bool errorOccurred) final;
+    void startLoadingDynamicSheet() final { m_styleSheetOwner.startLoadingDynamicSheet(*this); }
 
-    virtual void addSubresourceAttributeURLs(ListHashSet<URL>&) const override;
+    void addSubresourceAttributeURLs(ListHashSet<URL>&) const final;
 
     InlineStyleSheetOwner m_styleSheetOwner;
     bool m_firedLoad;

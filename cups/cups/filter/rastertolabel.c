@@ -1,6 +1,4 @@
 /*
- * "$Id: rastertolabel.c 12992 2015-11-19 15:19:00Z msweet $"
- *
  * Label printer filter for CUPS.
  *
  * Copyright 2007-2015 by Apple Inc.
@@ -471,6 +469,13 @@ EndPage(ppd_file_t *ppd,		/* I - PPD file */
 	*/
 
         puts("P1");
+
+       /*
+        * Cut the label as needed...
+        */
+
+      	if (header->CutMedia)
+	  puts("C");
 	break;
 
     case ZEBRA_ZPL :
@@ -602,6 +607,13 @@ EndPage(ppd_file_t *ppd,		/* I - PPD file */
 
         puts("^IDR:CUPS.GRF^FS");
 	puts("^XZ");
+
+       /*
+        * Cut the label as needed...
+        */
+
+      	if (header->CutMedia)
+	  puts("^CN1");
         break;
 
     case ZEBRA_CPCL :
@@ -1264,8 +1276,3 @@ main(int  argc,				/* I - Number of command-line arguments */
   else
     return (0);
 }
-
-
-/*
- * End of "$Id: rastertolabel.c 12992 2015-11-19 15:19:00Z msweet $".
- */

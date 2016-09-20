@@ -672,7 +672,10 @@ config_loop(void)
 	}
 
 	/* get baseline stat values for exports file */
-	stat(exportsfilepath, &st);
+	bzero(&st, sizeof(struct stat));
+	if (stat(exportsfilepath, &st)) {
+		log(LOG_INFO, "can't stat %s %s (%d)", exportsfilepath, strerror(errno), errno);
+	}
 
 	while (!gotterm) {
 
@@ -1079,6 +1082,7 @@ get_pid(const char *path)
 	len = sizeof(pidbuf) - 1;
 	if ((len = read(fd, pidbuf, len)) < 0) {
 		DEBUG(1, "%s: %s (%d)", path, strerror(errno), errno);
+		close(fd);
 		return (0);
 	}
 
@@ -1087,6 +1091,7 @@ get_pid(const char *path)
 	pid = strtol(pidbuf, &pidend, 10);
 	if (!len || (pid < 1)) {
 		DEBUG(1, "%s: bogus pid: %s", path, pidbuf);
+		close(fd);
 		return (0);
 	}
 
@@ -1289,6 +1294,8 @@ safe_exec(char *const argv[], int silent)
 	return (WEXITSTATUS(status));
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 /*
  * functions for managing rquotad
  */
@@ -1408,3 +1415,4 @@ rquotad_stop(void)
 	return (rv);
 }
 
+#pragma clang diagnostic pop

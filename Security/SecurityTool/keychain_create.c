@@ -26,7 +26,7 @@
 #include "keychain_create.h"
 
 #include "readline.h"
-#include "security.h"
+#include "security_tool.h"
 
 #include <pwd.h>
 #include <stdio.h>
@@ -41,7 +41,7 @@ do_create(const char *keychain, const char *password, Boolean do_prompt)
 	SecKeychainRef keychainRef = NULL;
 	OSStatus result;
 
-	result = SecKeychainCreate(keychain, password ? strlen(password) : 0, password, do_prompt, NULL, &keychainRef);
+	result = SecKeychainCreate(keychain, password ? (UInt32) strlen(password) : 0, password, do_prompt, NULL, &keychainRef);
 	if (keychainRef)
 		CFRelease(keychainRef);
 

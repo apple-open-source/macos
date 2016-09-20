@@ -64,13 +64,16 @@ public:
 
     void setAttachedWindowHeight(unsigned);
     void setAttachedWindowWidth(unsigned);
-    void setToolbarHeight(unsigned);
 
     void startWindowDrag();
     void moveWindowBy(float x, float y) const;
 
     String localizedStringsURL();
     String debuggableType();
+    unsigned inspectionLevel();
+
+    String platform();
+    String port();
 
     void copyText(const String& text);
     void killText(const String& text, bool shouldPrependToKillRing, bool shouldStartNewSequence);
@@ -91,9 +94,6 @@ public:
     void unbufferedLog(const String& message);
 
     void beep();
-
-    bool canInspectWorkers();
-    bool canSaveAs();
 
 private:
 #if ENABLE(CONTEXT_MENUS)

@@ -2,4 +2,8 @@
  * version file for ntpq
  */
 #include <config.h>
-const char * Version = "ntpq 4.2.6@1.2089-o Fri May 28 01:21:19 UTC 2010 (1)";
+#ifdef __RC__
+const char * Version = "ntpq 4.2.8p6@1.3265 Fri Feb  5 17:38:24 UTC 2016 (" __RC__ ")";
+#else
+const char * Version = "ntpq 4.2.8p6@1.3265 Fri Feb  5 17:38:24 UTC 2016 (1)";
+#endif

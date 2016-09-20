@@ -30,12 +30,12 @@
 
 #include "NetworkCacheStorage.h"
 #include "ShareableResource.h"
+#include <WebCore/ResourceRequest.h>
 #include <WebCore/ResourceResponse.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
-class ResourceRequest;
 class SharedBuffer;
 }
 
@@ -43,9 +43,12 @@ namespace WebKit {
 namespace NetworkCache {
 
 class Entry {
-    WTF_MAKE_NONCOPYABLE(Entry); WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     Entry(const Key&, const WebCore::ResourceResponse&, RefPtr<WebCore::SharedBuffer>&&, const Vector<std::pair<String, String>>& varyingRequestHeaders);
+    Entry(const Key&, const WebCore::ResourceResponse&, const WebCore::ResourceRequest& redirectRequest, const Vector<std::pair<String, String>>& varyingRequestHeaders);
+    explicit Entry(const Storage::Record&);
+    Entry(const Entry&);
 
     Storage::Record encodeAsStorageRecord() const;
     static std::unique_ptr<Entry> decodeStorageRecord(const Storage::Record&);
@@ -56,19 +59,20 @@ public:
     const Vector<std::pair<String, String>>& varyingRequestHeaders() const { return m_varyingRequestHeaders; }
 
     WebCore::SharedBuffer* buffer() const;
+    const WebCore::ResourceRequest* redirectRequest() const { return m_redirectRequest.get(); }
+
 #if ENABLE(SHAREABLE_RESOURCE)
     ShareableResource::Handle& shareableResourceHandle() const;
 #endif
 
     bool needsValidation() const;
-    void setNeedsValidation();
+    void setNeedsValidation(bool);
 
     const Storage::Record& sourceStorageRecord() const { return m_sourceStorageRecord; }
 
     void asJSON(StringBuilder&, const Storage::RecordInfo&) const;
 
 private:
-    Entry(const Storage::Record&);
     void initializeBufferFromStorageRecord() const;
 #if ENABLE(SHAREABLE_RESOURCE)
     void initializeShareableResourceHandleFromStorageRecord() const;
@@ -79,6 +83,7 @@ private:
     WebCore::ResourceResponse m_response;
     Vector<std::pair<String, String>> m_varyingRequestHeaders;
 
+    std::unique_ptr<WebCore::ResourceRequest> m_redirectRequest;
     mutable RefPtr<WebCore::SharedBuffer> m_buffer;
 #if ENABLE(SHAREABLE_RESOURCE)
     mutable ShareableResource::Handle m_shareableResourceHandle;

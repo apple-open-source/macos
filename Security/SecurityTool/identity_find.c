@@ -26,7 +26,7 @@
 #include "identity_find.h"
 #include "keychain_utilities.h"
 #include "trusted_cert_utils.h"
-#include "security.h"
+#include "security_tool.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -196,7 +196,7 @@ static void printIdentity(SecIdentityRef identity, SecPolicyRef policy, int ordi
 			digest.Data = sha1_hash;
 			if (SecDigestGetData(CSSM_ALGID_SHA1, &digest, &certData) == CSSM_OK) {
 				unsigned int i;
-				uint32 len = digest.Length;
+				size_t len = digest.Length;
 				uint8 *cp = digest.Data;
 				for(i=0; i<len; i++) {
 					fprintf(stdout, "%02X", ((unsigned char *)cp)[i]);
@@ -276,7 +276,7 @@ do_identity_search_with_policy(CFTypeRef keychainOrArray,
 	CSSM_APPLE_TP_SMIME_OPTIONS smimeOpts = {
 		CSSM_APPLE_TP_SMIME_OPTS_VERSION,				// Version
 		ceKeyUsage,										// IntendedUsage
-		name ? strlen(name) : 0,						// SenderEmailLen
+		name ? (uint32) strlen(name) : 0,				// SenderEmailLen
 		name											// SenderEmail
 	};
 	CSSM_DATA smimeValue = { sizeof(smimeOpts), (uint8*)&smimeOpts };
@@ -284,7 +284,7 @@ do_identity_search_with_policy(CFTypeRef keychainOrArray,
 	// set up SSL options with provided data
 	CSSM_APPLE_TP_SSL_OPTIONS sslOpts = {
 		CSSM_APPLE_TP_SSL_OPTS_VERSION,					// Version
-		(name && !client) ? strlen(name) : 0,			// ServerNameLen
+		(name && !client) ? (uint32) strlen(name) : 0,	// ServerNameLen
 		(client) ? NULL : name,							// ServerName
 		(client) ? CSSM_APPLE_TP_SSL_CLIENT : 0			// Flags
 	};

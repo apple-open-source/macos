@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,7 +38,6 @@
 #include "WebConnectionToUIProcess.h"
 #include "WebCookieManager.h"
 #include "WebCoreArgumentCoders.h"
-#include "WebDatabaseManager.h"
 #include "WebFrame.h"
 #include "WebFrameNetworkingContext.h"
 #include "WebPage.h"
@@ -48,6 +47,7 @@
 #include "WebProcess.h"
 #include "WebProcessCreationParameters.h"
 #include "WebProcessPoolMessages.h"
+#include "WebUserContentController.h"
 #include <JavaScriptCore/APICast.h>
 #include <JavaScriptCore/Exception.h>
 #include <JavaScriptCore/JSLock.h>
@@ -66,14 +66,14 @@
 #include <WebCore/PageGroup.h>
 #include <WebCore/PrintContext.h>
 #include <WebCore/ResourceHandle.h>
-#include <WebCore/ResourceLoadScheduler.h>
 #include <WebCore/ScriptController.h>
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/SecurityPolicy.h>
 #include <WebCore/SessionID.h>
 #include <WebCore/Settings.h>
-#include <WebCore/UserContentController.h>
 #include <WebCore/UserGestureIndicator.h>
+#include <WebCore/UserScript.h>
+#include <WebCore/UserStyleSheet.h>
 
 #if ENABLE(CSS_REGIONS) || ENABLE(CSS_COMPOSITING)
 #include <WebCore/RuntimeEnabledFeatures.h>
@@ -90,13 +90,13 @@ namespace WebKit {
 
 PassRefPtr<InjectedBundle> InjectedBundle::create(const WebProcessCreationParameters& parameters, API::Object* initializationUserData)
 {
-    RefPtr<InjectedBundle> bundle = adoptRef(new InjectedBundle(parameters));
+    auto bundle = adoptRef(*new InjectedBundle(parameters));
 
     bundle->m_sandboxExtension = SandboxExtension::create(parameters.injectedBundlePathExtensionHandle);
     if (!bundle->initialize(parameters, initializationUserData))
         return nullptr;
 
-    return bundle.release();
+    return WTFMove(bundle);
 }
 
 InjectedBundle::InjectedBundle(const WebProcessCreationParameters& parameters)
@@ -178,14 +178,40 @@ void InjectedBundle::overrideBoolPreferenceForTestRunner(WebPageGroupProxy* page
         RuntimeEnabledFeatures::sharedFeatures().setAnimationTriggersEnabled(enabled);
 #endif
 
-#if ENABLE(CSS_REGIONS)
-    if (preference == "WebKitCSSRegionsEnabled")
-        RuntimeEnabledFeatures::sharedFeatures().setCSSRegionsEnabled(enabled);
+#if ENABLE(WEB_ANIMATIONS)
+    if (preference == "WebKitWebAnimationsEnabled")
+        RuntimeEnabledFeatures::sharedFeatures().setWebAnimationsEnabled(enabled);
 #endif
 
-#if ENABLE(CSS_COMPOSITING)
-    if (preference == "WebKitCSSCompositingEnabled")
-        RuntimeEnabledFeatures::sharedFeatures().setCSSCompositingEnabled(enabled);
+#if ENABLE(FETCH_API)
+    if (preference == "WebKitFetchAPIEnabled")
+        RuntimeEnabledFeatures::sharedFeatures().setFetchAPIEnabled(enabled);
+#endif
+
+#if ENABLE(DOWNLOAD_ATTRIBUTE)
+    if (preference == "WebKitDownloadAttributeEnabled")
+        RuntimeEnabledFeatures::sharedFeatures().setDownloadAttributeEnabled(enabled);
+#endif
+
+    if (preference == "WebKitShadowDOMEnabled")
+        RuntimeEnabledFeatures::sharedFeatures().setShadowDOMEnabled(enabled);
+
+    if (preference == "WebKitDOMIteratorEnabled")
+        RuntimeEnabledFeatures::sharedFeatures().setDOMIteratorEnabled(enabled);
+
+#if ENABLE(CSS_GRID_LAYOUT)
+    if (preference == "WebKitCSSGridLayoutEnabled")
+        RuntimeEnabledFeatures::sharedFeatures().setCSSGridLayoutEnabled(enabled);
+#endif
+
+#if ENABLE(CUSTOM_ELEMENTS)
+    if (preference == "WebKitCustomElementsEnabled")
+        RuntimeEnabledFeatures::sharedFeatures().setCustomElementsEnabled(enabled);
+#endif
+
+#if ENABLE(WEBGL2)
+    if (preference == "WebKitWebGL2Enabled")
+        RuntimeEnabledFeatures::sharedFeatures().setWebGL2Enabled(enabled);
 #endif
 
     // Map the names used in LayoutTests with the names used in WebCore::Settings and WebPreferencesStore.
@@ -219,9 +245,7 @@ void InjectedBundle::overrideBoolPreferenceForTestRunner(WebPageGroupProxy* page
 
     FOR_EACH_OVERRIDE_BOOL_PREFERENCE(OVERRIDE_PREFERENCE_AND_SET_IN_EXISTING_PAGES)
 
-#if ENABLE(HIDDEN_PAGE_DOM_TIMER_THROTTLING)
     OVERRIDE_PREFERENCE_AND_SET_IN_EXISTING_PAGES(WebKitHiddenPageDOMTimerThrottlingEnabled, HiddenPageDOMTimerThrottlingEnabled, hiddenPageDOMTimerThrottlingEnabled)
-#endif
 
 #undef OVERRIDE_PREFERENCE_AND_SET_IN_EXISTING_PAGES
 #undef FOR_EACH_OVERRIDE_BOOL_PREFERENCE
@@ -282,13 +306,12 @@ void InjectedBundle::setJavaScriptCanAccessClipboard(WebPageGroupProxy* pageGrou
 
 void InjectedBundle::setPrivateBrowsingEnabled(WebPageGroupProxy* pageGroup, bool enabled)
 {
-    // FIXME (NetworkProcess): This test-only function doesn't work with NetworkProcess, <https://bugs.webkit.org/show_bug.cgi?id=115274>.
-#if PLATFORM(COCOA) || USE(CFNETWORK) || USE(SOUP)
-    if (enabled)
+    if (enabled) {
+        WebProcess::singleton().ensureLegacyPrivateBrowsingSessionInNetworkProcess();
         WebFrameNetworkingContext::ensurePrivateBrowsingSession(SessionID::legacyPrivateSessionID());
-    else
+    } else
         SessionTracker::destroySession(SessionID::legacyPrivateSessionID());
-#endif
+
     const HashSet<Page*>& pages = PageGroup::pageGroup(pageGroup->identifier())->pages();
     for (HashSet<Page*>::iterator iter = pages.begin(); iter != pages.end(); ++iter)
         (*iter)->enableLegacyPrivateBrowsing(enabled);
@@ -338,65 +361,6 @@ void InjectedBundle::setAsynchronousSpellCheckingEnabled(WebPageGroupProxy* page
         (*iter)->settings().setAsynchronousSpellCheckingEnabled(enabled);
 }
 
-void InjectedBundle::clearAllDatabases()
-{
-    WebProcess::singleton().supplement<WebDatabaseManager>()->deleteAllDatabases();
-}
-
-void InjectedBundle::setDatabaseQuota(uint64_t quota)
-{
-    // Historically, we've used the following (somewhat non-sensical) string
-    // for the databaseIdentifier of local files.
-    WebProcess::singleton().supplement<WebDatabaseManager>()->setQuotaForOrigin("file__0", quota);
-}
-
-void InjectedBundle::clearApplicationCache()
-{
-    ApplicationCacheStorage::singleton().deleteAllEntries();
-}
-
-void InjectedBundle::clearApplicationCacheForOrigin(const String& originString)
-{
-    ApplicationCacheStorage::singleton().deleteCacheForOrigin(SecurityOrigin::createFromString(originString));
-}
-
-void InjectedBundle::setAppCacheMaximumSize(uint64_t size)
-{
-    ApplicationCacheStorage::singleton().setMaximumSize(size);
-}
-
-uint64_t InjectedBundle::appCacheUsageForOrigin(const String& originString)
-{
-    return ApplicationCacheStorage::singleton().diskUsageForOrigin(SecurityOrigin::createFromString(originString));
-}
-
-void InjectedBundle::setApplicationCacheOriginQuota(const String& originString, uint64_t bytes)
-{
-    Ref<SecurityOrigin> origin = SecurityOrigin::createFromString(originString);
-    ApplicationCacheStorage::singleton().storeUpdatedQuotaForOrigin(origin.ptr(), bytes);
-}
-
-void InjectedBundle::resetApplicationCacheOriginQuota(const String& originString)
-{
-    Ref<SecurityOrigin> origin = SecurityOrigin::createFromString(originString);
-    auto& cacheStorage = ApplicationCacheStorage::singleton();
-    cacheStorage.storeUpdatedQuotaForOrigin(origin.ptr(), cacheStorage.defaultOriginQuota());
-}
-
-PassRefPtr<API::Array> InjectedBundle::originsWithApplicationCache()
-{
-    HashSet<RefPtr<SecurityOrigin>> origins;
-    ApplicationCacheStorage::singleton().getOriginsWithCache(origins);
-
-    Vector<RefPtr<API::Object>> originIdentifiers;
-    originIdentifiers.reserveInitialCapacity(origins.size());
-
-    for (const auto& origin : origins)
-        originIdentifiers.uncheckedAppend(API::String::create(origin->databaseIdentifier()));
-
-    return API::Array::create(WTF::move(originIdentifiers));
-}
-
 int InjectedBundle::numberOfPages(WebFrame* frame, double pageWidthInPixels, double pageHeightInPixels)
 {
     Frame* coreFrame = frame ? frame->coreFrame() : 0;
@@ -407,7 +371,7 @@ int InjectedBundle::numberOfPages(WebFrame* frame, double pageWidthInPixels, dou
     if (!pageHeightInPixels)
         pageHeightInPixels = coreFrame->view()->height();
 
-    return PrintContext::numberOfPages(coreFrame, FloatSize(pageWidthInPixels, pageHeightInPixels));
+    return PrintContext::numberOfPages(*coreFrame, FloatSize(pageWidthInPixels, pageHeightInPixels));
 }
 
 int InjectedBundle::pageNumberForElementById(WebFrame* frame, const String& id, double pageWidthInPixels, double pageHeightInPixels)
@@ -454,39 +418,39 @@ bool InjectedBundle::isProcessingUserGesture()
 void InjectedBundle::addUserScript(WebPageGroupProxy* pageGroup, InjectedBundleScriptWorld* scriptWorld, const String& source, const String& url, API::Array* whitelist, API::Array* blacklist, WebCore::UserScriptInjectionTime injectionTime, WebCore::UserContentInjectedFrames injectedFrames)
 {
     // url is not from URL::string(), i.e. it has not already been parsed by URL, so we have to use the relative URL constructor for URL instead of the ParsedURLStringTag version.
-    auto userScript = std::make_unique<UserScript>(source, URL(URL(), url), whitelist ? whitelist->toStringVector() : Vector<String>(), blacklist ? blacklist->toStringVector() : Vector<String>(), injectionTime, injectedFrames);
+    UserScript userScript{ source, URL(URL(), url), whitelist ? whitelist->toStringVector() : Vector<String>(), blacklist ? blacklist->toStringVector() : Vector<String>(), injectionTime, injectedFrames };
 
-    pageGroup->userContentController().addUserScript(scriptWorld->coreWorld(), WTF::move(userScript));
+    pageGroup->userContentController().addUserScript(*scriptWorld, WTFMove(userScript));
 }
 
 void InjectedBundle::addUserStyleSheet(WebPageGroupProxy* pageGroup, InjectedBundleScriptWorld* scriptWorld, const String& source, const String& url, API::Array* whitelist, API::Array* blacklist, WebCore::UserContentInjectedFrames injectedFrames)
 {
     // url is not from URL::string(), i.e. it has not already been parsed by URL, so we have to use the relative URL constructor for URL instead of the ParsedURLStringTag version.
-    auto userStyleSheet = std::make_unique<UserStyleSheet>(source, URL(URL(), url), whitelist ? whitelist->toStringVector() : Vector<String>(), blacklist ? blacklist->toStringVector() : Vector<String>(), injectedFrames, UserStyleUserLevel);
+    UserStyleSheet userStyleSheet{ source, URL(URL(), url), whitelist ? whitelist->toStringVector() : Vector<String>(), blacklist ? blacklist->toStringVector() : Vector<String>(), injectedFrames, UserStyleUserLevel };
 
-    pageGroup->userContentController().addUserStyleSheet(scriptWorld->coreWorld(), WTF::move(userStyleSheet), InjectInExistingDocuments);
+    pageGroup->userContentController().addUserStyleSheet(*scriptWorld, WTFMove(userStyleSheet));
 }
 
 void InjectedBundle::removeUserScript(WebPageGroupProxy* pageGroup, InjectedBundleScriptWorld* scriptWorld, const String& url)
 {
     // url is not from URL::string(), i.e. it has not already been parsed by URL, so we have to use the relative URL constructor for URL instead of the ParsedURLStringTag version.
-    pageGroup->userContentController().removeUserScript(scriptWorld->coreWorld(), URL(URL(), url));
+    pageGroup->userContentController().removeUserScriptWithURL(*scriptWorld, URL(URL(), url));
 }
 
 void InjectedBundle::removeUserStyleSheet(WebPageGroupProxy* pageGroup, InjectedBundleScriptWorld* scriptWorld, const String& url)
 {
     // url is not from URL::string(), i.e. it has not already been parsed by URL, so we have to use the relative URL constructor for URL instead of the ParsedURLStringTag version.
-    pageGroup->userContentController().removeUserStyleSheet(scriptWorld->coreWorld(), URL(URL(), url));
+    pageGroup->userContentController().removeUserStyleSheetWithURL(*scriptWorld, URL(URL(), url));
 }
 
 void InjectedBundle::removeUserScripts(WebPageGroupProxy* pageGroup, InjectedBundleScriptWorld* scriptWorld)
 {
-    pageGroup->userContentController().removeUserScripts(scriptWorld->coreWorld());
+    pageGroup->userContentController().removeUserScripts(*scriptWorld);
 }
 
 void InjectedBundle::removeUserStyleSheets(WebPageGroupProxy* pageGroup, InjectedBundleScriptWorld* scriptWorld)
 {
-    pageGroup->userContentController().removeUserStyleSheets(scriptWorld->coreWorld());
+    pageGroup->userContentController().removeUserStyleSheets(*scriptWorld);
 }
 
 void InjectedBundle::removeAllUserContent(WebPageGroupProxy* pageGroup)
@@ -613,19 +577,10 @@ void InjectedBundle::setCSSAnimationTriggersEnabled(bool enabled)
 #endif
 }
 
-void InjectedBundle::setCSSRegionsEnabled(bool enabled)
+void InjectedBundle::setWebAnimationsEnabled(bool enabled)
 {
-#if ENABLE(CSS_REGIONS)
-    RuntimeEnabledFeatures::sharedFeatures().setCSSRegionsEnabled(enabled);
-#else
-    UNUSED_PARAM(enabled);
-#endif
-}
-
-void InjectedBundle::setCSSCompositingEnabled(bool enabled)
-{
-#if ENABLE(CSS_COMPOSITING)
-    RuntimeEnabledFeatures::sharedFeatures().setCSSCompositingEnabled(enabled);
+#if ENABLE(WEB_ANIMATIONS)
+    RuntimeEnabledFeatures::sharedFeatures().setWebAnimationsEnabled(enabled);
 #else
     UNUSED_PARAM(enabled);
 #endif

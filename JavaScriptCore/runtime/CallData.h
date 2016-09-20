@@ -41,26 +41,37 @@ class FunctionExecutable;
 class JSObject;
 class JSScope;
 
-enum CallType {
-    CallTypeNone,
-    CallTypeHost,
-    CallTypeJS
+enum class CallType : unsigned {
+    None,
+    Host,
+    JS
 };
 
 typedef EncodedJSValue (JSC_HOST_CALL *NativeFunction)(ExecState*);
 
-union CallData {
-    struct {
-        NativeFunction function;
-    } native;
-    struct {
-        FunctionExecutable* functionExecutable;
-        JSScope* scope;
-    } js;
+struct CallData {
+    union {
+        struct {
+            NativeFunction function;
+        } native;
+        struct {
+            FunctionExecutable* functionExecutable;
+            JSScope* scope;
+        } js;
+    };
+};
+
+enum class ProfilingReason {
+    API,
+    Microtask,
+    Other
 };
 
 JS_EXPORT_PRIVATE JSValue call(ExecState*, JSValue functionObject, CallType, const CallData&, JSValue thisValue, const ArgList&);
 JS_EXPORT_PRIVATE JSValue call(ExecState*, JSValue functionObject, CallType, const CallData&, JSValue thisValue, const ArgList&, NakedPtr<Exception>& returnedException);
+
+JS_EXPORT_PRIVATE JSValue profiledCall(ExecState*, ProfilingReason, JSValue functionObject, CallType, const CallData&, JSValue thisValue, const ArgList&);
+JS_EXPORT_PRIVATE JSValue profiledCall(ExecState*, ProfilingReason, JSValue functionObject, CallType, const CallData&, JSValue thisValue, const ArgList&, NakedPtr<Exception>& returnedException);
 
 } // namespace JSC
 

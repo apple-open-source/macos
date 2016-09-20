@@ -214,7 +214,14 @@ getmapent_od(const char *key, const char *map, struct mapline *ml,
 		nserr = __NSW_NOTFOUND;
 		goto done;
 	}
-	(void) strncpy(ml->linebuf, od_line, LINESZ);
+
+	if (strlcpy(ml->linebuf, od_line, LINESZ) >= LINESZ) {
+		/* we truncated the line, discard it and return not found */
+		nserr = __NSW_NOTFOUND;
+		(void)memset(ml->linebuf, 0, LINESZ);
+		goto done;
+	}
+
 	unquote(ml->linebuf, ml->lineqbuf);
 	nserr = __NSW_SUCCESS;
 done:
@@ -271,7 +278,7 @@ match_callback(CFStringRef key, CFStringRef value, void *udata)
 	 */
 	if (*od_len > LINESZ) {
 		key_str = od_CFStringtoCString(key);
-		pr_msg(
+		pr_msg(LOG_ERR,
 		    "Open Directory map %s, entry for %s"
 		    " is too long %d chars (max %d)",
 		    temp->map, key_str, *od_len, LINESZ);
@@ -280,13 +287,13 @@ match_callback(CFStringRef key, CFStringRef value, void *udata)
 	}
 	*od_line = (char *)malloc(*od_len);
 	if (*od_line == NULL) {
-		pr_msg("match_callback: malloc failed");
+		pr_msg(LOG_ERR, "match_callback: malloc failed");
 		return (OD_CB_ERROR);
 	}
 
 	if (!od_cfstrlcpy(*od_line, value, *od_len)) {
 		key_str = od_CFStringtoCString(key);
-		pr_msg("match_callback: can't get line for %s", key_str);
+		pr_msg(LOG_ERR, "match_callback: can't get line for %s", key_str);
 		free(key_str);
 		free(*od_line);
 		return (OD_CB_ERROR);
@@ -312,7 +319,7 @@ od_match(const char *map, const char *key, char **od_line, int *od_len)
 
 	/* Construct the string value to search for. */
 	if (asprintf(&pattern, "%s,automountMapName=%s", key, map) == -1) {
-		pr_msg("od_match: malloc failed");
+		pr_msg(LOG_ERR, "od_match: malloc failed");
 		ret = __NSW_UNAVAIL;
 		goto done;
 	}
@@ -340,7 +347,7 @@ od_match(const char *map, const char *key, char **od_line, int *od_len)
 
 	if (verbose) {
 		if (ret == __NSW_NOTFOUND)
-			pr_msg("od_search for %s in %s failed", key, map);
+			pr_msg(LOG_ERR, "od_search for %s in %s failed", key, map);
 	}
 
 done:
@@ -458,14 +465,14 @@ mastermap_callback(CFStringRef key, CFStringRef invalue, void *udata)
 		break;
 
 	case MEXPAND_LINE_TOO_LONG:
-		pr_msg(
+		pr_msg( LOG_WARNING,
 		    "%s in Open Directory map: entry too long (max %zu chars)",
 		    dir, sizeof (dir) - 1);
 		free(value_str);
 		return (OD_CB_KEEPGOING);
 
 	case MEXPAND_VARNAME_TOO_LONG:
-		pr_msg(
+		pr_msg(LOG_WARNING,
 		    "%s in Open Directory map: variable name too long",
 		    dir);
 		free(value_str);
@@ -481,13 +488,13 @@ mastermap_callback(CFStringRef key, CFStringRef invalue, void *udata)
 		break;
 
 	case MEXPAND_LINE_TOO_LONG:
-		pr_msg(
+		pr_msg(LOG_WARNING,
 		    "%s in Open Directory map: entry too long (max %zu chars)",
 		    map, sizeof (map) - 1);
 		return (OD_CB_KEEPGOING);
 
 	case MEXPAND_VARNAME_TOO_LONG:
-		pr_msg(
+		pr_msg(LOG_WARNING,
 		    "%s in Open Directory map: variable name too long",
 		    map);
 		return (OD_CB_KEEPGOING);
@@ -518,7 +525,7 @@ mastermap_callback(CFStringRef key, CFStringRef invalue, void *udata)
 		dirinit(dir, pmap, opts, 0, stack, stkptr);
 	} else {
 		/* XXX - this was "dn=" for LDAP; is that the server name? */
-		pr_msg(
+		pr_msg(LOG_WARNING,
 	"Warning: invalid entry for %s in Open Directory ignored.\n",
 		    dir);
 	}
@@ -700,7 +707,7 @@ od_process_record_attributes(ODRecordRef record, callback_fn callback,
 	if (keys == NULL) {
 		if (error != NULL) {
 			errstring = od_get_error_string(error);
-			pr_msg("od_process_record_attributes: can't get kODAttributeTypeRecordName attribute for record: %s",
+			pr_msg(LOG_ERR, "od_process_record_attributes: can't get kODAttributeTypeRecordName attribute for record: %s",
 			    errstring);
 			free(errstring);
 			return (OD_CB_ERROR);
@@ -709,7 +716,7 @@ od_process_record_attributes(ODRecordRef record, callback_fn callback,
 			 * We just reject records missing the attributes
 			 * we need.
 			 */
-			pr_msg("od_process_record_attributes: record has no kODAttributeTypeRecordName attribute");
+			pr_msg(LOG_ERR, "od_process_record_attributes: record has no kODAttributeTypeRecordName attribute");
 			return (OD_CB_REJECTED);
 		}
 	}
@@ -719,7 +726,7 @@ od_process_record_attributes(ODRecordRef record, callback_fn callback,
 		 * we need.
 		 */
 		CFRelease(keys);
-		pr_msg("od_process_record_attributes: record has no kODAttributeTypeRecordName attribute");
+		pr_msg(LOG_ERR, "od_process_record_attributes: record has no kODAttributeTypeRecordName attribute");
 		return (OD_CB_REJECTED);
 	}
 	key = CFArrayGetValueAtIndex(keys, 0);
@@ -730,7 +737,7 @@ od_process_record_attributes(ODRecordRef record, callback_fn callback,
 		CFRelease(keys);
 		if (error != NULL) {
 			errstring = od_get_error_string(error);
-			pr_msg("od_process_record_attributes: can't get kODAttributeTypeAutomountInformation attribute for record: %s",
+			pr_msg(LOG_ERR, "od_process_record_attributes: can't get kODAttributeTypeAutomountInformation attribute for record: %s",
 			    errstring);
 			free(errstring);
 			return (OD_CB_ERROR);
@@ -739,7 +746,7 @@ od_process_record_attributes(ODRecordRef record, callback_fn callback,
 			 * We just reject records missing the attributes
 			 * we need.
 			 */
-			pr_msg("od_process_record_attributes: record has no kODAttributeTypeAutomountInformation attribute");
+			pr_msg(LOG_ERR, "od_process_record_attributes: record has no kODAttributeTypeAutomountInformation attribute");
 			return (OD_CB_REJECTED);
 		}
 	}
@@ -750,7 +757,7 @@ od_process_record_attributes(ODRecordRef record, callback_fn callback,
 		 */
 		CFRelease(values);
 		CFRelease(keys);
-		pr_msg("od_process_record_attributes: record has no kODAttributeTypeRecordName attribute");
+		pr_msg(LOG_ERR, "od_process_record_attributes: record has no kODAttributeTypeRecordName attribute");
 		return (OD_CB_REJECTED);
 	}
 	value = CFArrayGetValueAtIndex(values, 0);
@@ -793,7 +800,7 @@ od_search(CFStringRef attr_to_match, char *value_to_match, callback_fn callback,
 	     kODNodeTypeAuthentication, &error);
 	if (node_ref == NULL) {
 		errstring = od_get_error_string(error);
-		pr_msg("od_search: can't create search node for /Search: %s",
+		pr_msg(LOG_ERR, "od_search: can't create search node for /Search: %s",
 		    errstring);
 		free(errstring);
 		return (__NSW_UNAVAIL);
@@ -806,7 +813,7 @@ od_search(CFStringRef attr_to_match, char *value_to_match, callback_fn callback,
 	    value_to_match, kCFStringEncodingUTF8);
 	if (value_to_match_cfstr == NULL) {
 		CFRelease(node_ref);
-		pr_msg("od_search: can't make CFString from %s",
+		pr_msg(LOG_ERR, "od_search: can't make CFString from %s",
 		    value_to_match);
 		return (__NSW_UNAVAIL);
 	}
@@ -817,7 +824,7 @@ od_search(CFStringRef attr_to_match, char *value_to_match, callback_fn callback,
 	if (attrs == NULL) {
 		CFRelease(value_to_match_cfstr);
 		CFRelease(node_ref);
-		pr_msg("od_search: can't make array of attribute types");
+		pr_msg(LOG_ERR, "od_search: can't make array of attribute types");
 		return (__NSW_UNAVAIL);
 	}
 	error = NULL;
@@ -829,7 +836,7 @@ od_search(CFStringRef attr_to_match, char *value_to_match, callback_fn callback,
 	if (query_ref == NULL) {
 		CFRelease(node_ref);
 		errstring = od_get_error_string(error);
-		pr_msg("od_search: can't create query: %s",
+		pr_msg(LOG_ERR, "od_search: can't create query: %s",
 		    errstring);
 		free(errstring);
 		return (__NSW_UNAVAIL);
@@ -844,7 +851,7 @@ od_search(CFStringRef attr_to_match, char *value_to_match, callback_fn callback,
 		CFRelease(query_ref);
 		CFRelease(node_ref);
 		errstring = od_get_error_string(error);
-		pr_msg("od_search: query failed: %s", errstring);
+		pr_msg(LOG_ERR, "od_search: query failed: %s", errstring);
 		free(errstring);
 		return (__NSW_UNAVAIL);
 	}

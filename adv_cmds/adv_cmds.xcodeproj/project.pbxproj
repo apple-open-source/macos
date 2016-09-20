@@ -1197,6 +1197,8 @@
 /* Begin PBXProject section */
 		FDF276430FC60E9000D7A3C6 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = FDF276460FC60E9000D7A3C6 /* Build configuration list for PBXProject "adv_cmds" */;
 			compatibilityVersion = "Xcode 3.1";
 			developmentRegion = English;
@@ -1528,6 +1530,7 @@
 		FD201DBD14369B0400906237 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = pkill/entitlements.plist;
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -1587,7 +1590,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = ps/entitlements.plist;
 				GCC_PREPROCESSOR_DEFINITIONS = "__FBSDID=__RCSID";
-				INSTALL_MODE_FLAG = "u+sw,go-w,a+rX";
+				"INSTALL_MODE_FLAG[sdk=macosx*]" = "u+sw,go-w,a+rX";
 				INSTALL_PATH = /bin;
 				PRODUCT_NAME = ps;
 				WARNING_CFLAGS = "-Wno-#warnings";

@@ -58,48 +58,45 @@ namespace WebCore {
 
 void JSXMLHttpRequest::visitAdditionalChildren(SlotVisitor& visitor)
 {
-    if (XMLHttpRequestUpload* upload = impl().optionalUpload())
+    if (XMLHttpRequestUpload* upload = wrapped().optionalUpload())
         visitor.addOpaqueRoot(upload);
 
-    if (Document* responseDocument = impl().optionalResponseXML())
+    if (Document* responseDocument = wrapped().optionalResponseXML())
         visitor.addOpaqueRoot(responseDocument);
 
-    if (ArrayBuffer* responseArrayBuffer = impl().optionalResponseArrayBuffer())
+    if (ArrayBuffer* responseArrayBuffer = wrapped().optionalResponseArrayBuffer())
         visitor.addOpaqueRoot(responseArrayBuffer);
 
-    if (Blob* responseBlob = impl().optionalResponseBlob())
+    if (Blob* responseBlob = wrapped().optionalResponseBlob())
         visitor.addOpaqueRoot(responseBlob);
-
-    if (m_response)
-        visitor.append(&m_response);
 }
 
 // Custom functions
-JSValue JSXMLHttpRequest::open(ExecState* exec)
+JSValue JSXMLHttpRequest::open(ExecState& state)
 {
-    if (exec->argumentCount() < 2)
-        return exec->vm().throwException(exec, createNotEnoughArgumentsError(exec));
+    if (state.argumentCount() < 2)
+        return state.vm().throwException(&state, createNotEnoughArgumentsError(&state));
 
-    const URL& url = impl().scriptExecutionContext()->completeURL(exec->uncheckedArgument(1).toString(exec)->value(exec));
-    String method = exec->uncheckedArgument(0).toString(exec)->value(exec);
+    const URL& url = wrapped().scriptExecutionContext()->completeURL(state.uncheckedArgument(1).toString(&state)->value(&state));
+    String method = state.uncheckedArgument(0).toString(&state)->value(&state);
 
     ExceptionCode ec = 0;
-    if (exec->argumentCount() >= 3) {
-        bool async = exec->uncheckedArgument(2).toBoolean(exec);
-        if (!exec->argument(3).isUndefined()) {
-            String user = valueToStringWithNullCheck(exec, exec->uncheckedArgument(3));
+    if (state.argumentCount() >= 3) {
+        bool async = state.uncheckedArgument(2).toBoolean(&state);
+        if (!state.argument(3).isUndefined()) {
+            String user = valueToStringWithNullCheck(&state, state.uncheckedArgument(3));
 
-            if (!exec->argument(4).isUndefined()) {
-                String password = valueToStringWithNullCheck(exec, exec->uncheckedArgument(4));
-                impl().open(method, url, async, user, password, ec);
+            if (!state.argument(4).isUndefined()) {
+                String password = valueToStringWithNullCheck(&state, state.uncheckedArgument(4));
+                wrapped().open(method, url, async, user, password, ec);
             } else
-                impl().open(method, url, async, user, ec);
+                wrapped().open(method, url, async, user, ec);
         } else
-            impl().open(method, url, async, ec);
+            wrapped().open(method, url, async, ec);
     } else
-        impl().open(method, url, ec);
+        wrapped().open(method, url, ec);
 
-    setDOMException(exec, ec);
+    setDOMException(&state, ec);
     return jsUndefined();
 }
 
@@ -116,7 +113,7 @@ public:
     unsigned column() const { return m_column; }
     String url() const { return m_url; }
 
-    StackVisitor::Status operator()(StackVisitor& visitor)
+    StackVisitor::Status operator()(StackVisitor& visitor) const
     {
         if (!m_hasSkippedFirstFrame) {
             m_hasSkippedFirstFrame = true;
@@ -133,98 +130,110 @@ public:
     }
 
 private:
-    bool m_hasSkippedFirstFrame;
-    unsigned m_line;
-    unsigned m_column;
-    String m_url;
+    mutable bool m_hasSkippedFirstFrame;
+    mutable unsigned m_line;
+    mutable unsigned m_column;
+    mutable String m_url;
 };
 
-JSValue JSXMLHttpRequest::send(ExecState* exec)
+JSValue JSXMLHttpRequest::send(ExecState& state)
 {
-    InspectorInstrumentation::willSendXMLHttpRequest(impl().scriptExecutionContext(), impl().url());
+    InspectorInstrumentation::willSendXMLHttpRequest(wrapped().scriptExecutionContext(), wrapped().url());
 
     ExceptionCode ec = 0;
-    JSValue val = exec->argument(0);
+    JSValue val = state.argument(0);
     if (val.isUndefinedOrNull())
-        impl().send(ec);
+        wrapped().send(ec);
     else if (val.inherits(JSDocument::info()))
-        impl().send(JSDocument::toWrapped(val), ec);
+        wrapped().send(JSDocument::toWrapped(val), ec);
     else if (val.inherits(JSBlob::info()))
-        impl().send(JSBlob::toWrapped(val), ec);
+        wrapped().send(JSBlob::toWrapped(val), ec);
     else if (val.inherits(JSDOMFormData::info()))
-        impl().send(JSDOMFormData::toWrapped(val), ec);
+        wrapped().send(JSDOMFormData::toWrapped(val), ec);
     else if (val.inherits(JSArrayBuffer::info()))
-        impl().send(toArrayBuffer(val), ec);
+        wrapped().send(toArrayBuffer(val), ec);
     else if (val.inherits(JSArrayBufferView::info())) {
         RefPtr<ArrayBufferView> view = toArrayBufferView(val);
-        impl().send(view.get(), ec);
+        wrapped().send(view.get(), ec);
     } else
-        impl().send(val.toString(exec)->value(exec), ec);
+        wrapped().send(val.toString(&state)->value(&state), ec);
 
+    // FIXME: This should probably use ShadowChicken so that we get the right frame even when it did
+    // a tail call.
+    // https://bugs.webkit.org/show_bug.cgi?id=155688
     SendFunctor functor;
-    exec->iterate(functor);
-    impl().setLastSendLineAndColumnNumber(functor.line(), functor.column());
-    impl().setLastSendURL(functor.url());
-    setDOMException(exec, ec);
+    state.iterate(functor);
+    wrapped().setLastSendLineAndColumnNumber(functor.line(), functor.column());
+    wrapped().setLastSendURL(functor.url());
+    setDOMException(&state, ec);
     return jsUndefined();
 }
 
-JSValue JSXMLHttpRequest::responseText(ExecState* exec) const
+JSValue JSXMLHttpRequest::responseText(ExecState& state) const
 {
     ExceptionCode ec = 0;
-    String text = impl().responseText(ec);
+    String text = wrapped().responseText(ec);
     if (ec) {
-        setDOMException(exec, ec);
+        setDOMException(&state, ec);
         return jsUndefined();
     }
-    return jsOwnedStringOrNull(exec, text);
+    return jsOwnedStringOrNull(&state, text);
 }
 
-JSValue JSXMLHttpRequest::response(ExecState* exec) const
+JSValue JSXMLHttpRequest::response(ExecState& state) const
 {
     // FIXME: Use CachedAttribute for other types than JSON as well.
-    if (m_response && impl().responseCacheIsValid())
+    if (m_response && wrapped().responseCacheIsValid())
         return m_response.get();
 
-    if (!impl().doneWithoutErrors() && impl().responseTypeCode() > XMLHttpRequest::ResponseTypeText)
+    auto type = wrapped().responseType();
+
+    switch (type) {
+    case XMLHttpRequest::ResponseType::EmptyString:
+    case XMLHttpRequest::ResponseType::Text:
+        return responseText(state);
+    default:
+        break;
+    }
+
+    if (!wrapped().doneWithoutErrors())
         return jsNull();
 
-    switch (impl().responseTypeCode()) {
-    case XMLHttpRequest::ResponseTypeDefault:
-    case XMLHttpRequest::ResponseTypeText:
-        return responseText(exec);
+    switch (type) {
+    case XMLHttpRequest::ResponseType::EmptyString:
+    case XMLHttpRequest::ResponseType::Text:
+        ASSERT_NOT_REACHED();
+        break;
 
-    case XMLHttpRequest::ResponseTypeJSON:
+    case XMLHttpRequest::ResponseType::Json:
         {
-            JSValue value = JSONParse(exec, impl().responseTextIgnoringResponseType());
+            JSValue value = JSONParse(&state, wrapped().responseTextIgnoringResponseType());
             if (!value)
                 value = jsNull();
-            JSXMLHttpRequest* jsRequest = const_cast<JSXMLHttpRequest*>(this);
-            jsRequest->m_response.set(exec->vm(), jsRequest, value);
-
-            impl().didCacheResponseJSON();
-
+            m_response.set(state.vm(), this, value);
+            wrapped().didCacheResponseJSON();
             return value;
         }
 
-    case XMLHttpRequest::ResponseTypeDocument:
+    case XMLHttpRequest::ResponseType::Document:
         {
             ExceptionCode ec = 0;
-            Document* document = impl().responseXML(ec);
+            Document* document = wrapped().responseXML(ec);
             if (ec) {
-                setDOMException(exec, ec);
+                setDOMException(&state, ec);
                 return jsUndefined();
             }
-            return toJS(exec, globalObject(), document);
+            return toJS(&state, globalObject(), document);
         }
 
-    case XMLHttpRequest::ResponseTypeBlob:
-        return toJS(exec, globalObject(), impl().responseBlob());
+    case XMLHttpRequest::ResponseType::Blob:
+        return toJS(&state, globalObject(), wrapped().responseBlob());
 
-    case XMLHttpRequest::ResponseTypeArrayBuffer:
-        return toJS(exec, globalObject(), impl().responseArrayBuffer());
+    case XMLHttpRequest::ResponseType::Arraybuffer:
+        return toJS(&state, globalObject(), wrapped().responseArrayBuffer());
     }
 
+    ASSERT_NOT_REACHED();
     return jsUndefined();
 }
 

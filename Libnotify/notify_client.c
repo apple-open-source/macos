@@ -85,9 +85,6 @@ WEAK_IMPORT_ATTRIBUTE bool _dispatch_is_multithreaded(void);
 
 #define MULTIPLE_REGISTRATION_WARNING_TRIGGER 20
 
-extern uint32_t _notify_lib_peek(notify_state_t *ns, pid_t pid, int token, int *val);
-extern int *_notify_lib_check_addr(notify_state_t *ns, pid_t pid, int token);
-
 #define CLIENT_NAME_TABLE_SIZE 256
 
 #define NID_UNSET 0xffffffffffffffffL
@@ -805,6 +802,7 @@ _notify_lib_init(uint32_t event)
 }
 
 /* Reset all internal state at fork */
+/* Used in Libsystem without header declaration */
 void
 _notify_fork_child(void)
 {
@@ -1025,7 +1023,8 @@ static void
 _notify_lib_regenerate_registration(registration_node_t *r)
 {
 	uint32_t type;
-	int status, new_slot;
+    int status;
+    int new_slot;
 	kern_return_t kstatus;
 	mach_port_t port;
 	uint64_t new_nid;
@@ -1600,279 +1599,7 @@ notify_post(const char *name)
 	return NOTIFY_STATUS_OK;
 }
 
-uint32_t
-notify_set_owner(const char *name, uint32_t uid, uint32_t gid)
-{
-#ifdef DEBUG
-	if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "-> %s\n", __func__);
-#endif
 
-	notify_state_t *ns_self;
-	kern_return_t kstatus;
-	uint32_t status;
-	notify_globals_t globals = _notify_globals();
-
-	if (name == NULL)
-	{
-#ifdef DEBUG
-		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-		return NOTIFY_STATUS_INVALID_NAME;
-	}
-
-	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN))
-	{
-		ns_self = _notify_lib_self_state();
-		if (ns_self == NULL)
-		{
-#ifdef DEBUG
-			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-			return NOTIFY_STATUS_FAILED;
-		}
-
-		status = _notify_lib_set_owner(ns_self, name, uid, gid);
-#ifdef DEBUG
-		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-		return status;
-	}
-
-	if (globals->notify_server_port == MACH_PORT_NULL)
-	{
-		status = _notify_lib_init(EVENT_INIT);
-		if (status != 0)
-		{
-#ifdef DEBUG
-			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-			return NOTIFY_STATUS_FAILED;
-		}
-	}
-
-	kstatus = _notify_server_set_owner(globals->notify_server_port, (caddr_t)name, (mach_msg_type_number_t)strlen(name), uid, gid, (int32_t *)&status);
-	if (kstatus != KERN_SUCCESS)
-	{
-#ifdef DEBUG
-		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-		return NOTIFY_STATUS_FAILED;
-	}
-
-#ifdef DEBUG
-	if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-	return status;
-}
-
-uint32_t
-notify_get_owner(const char *name, uint32_t *uid, uint32_t *gid)
-{
-#ifdef DEBUG
-	if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "-> %s\n", __func__);
-#endif
-
-	notify_state_t *ns_self;
-	kern_return_t kstatus;
-	uint32_t status;
-	notify_globals_t globals = _notify_globals();
-
-	if (name == NULL)
-	{
-#ifdef DEBUG
-		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-		return NOTIFY_STATUS_INVALID_NAME;
-	}
-
-	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN))
-	{
-		ns_self = _notify_lib_self_state();
-		if (ns_self == NULL)
-		{
-#ifdef DEBUG
-			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-			return NOTIFY_STATUS_FAILED;
-		}
-
-		status = _notify_lib_get_owner(ns_self, name, uid, gid);
-#ifdef DEBUG
-		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-		return status;
-	}
-
-	if (globals->notify_server_port == MACH_PORT_NULL)
-	{
-		status = _notify_lib_init(EVENT_INIT);
-		if (status != 0)
-		{
-#ifdef DEBUG
-			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-			return NOTIFY_STATUS_FAILED;
-		}
-	}
-
-	kstatus = _notify_server_get_owner(globals->notify_server_port, (caddr_t)name, (mach_msg_type_number_t)strlen(name), (int32_t *)uid, (int32_t *)gid, (int32_t *)&status);
-	if (kstatus != KERN_SUCCESS)
-	{
-#ifdef DEBUG
-		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-		return NOTIFY_STATUS_FAILED;
-	}
-
-#ifdef DEBUG
-	if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-	return status;
-}
-
-uint32_t
-notify_set_access(const char *name, uint32_t access)
-{
-#ifdef DEBUG
-	if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "-> %s\n", __func__);
-#endif
-
-	notify_state_t *ns_self;
-	kern_return_t kstatus;
-	uint32_t status;
-	notify_globals_t globals = _notify_globals();
-
-	if (name == NULL)
-	{
-#ifdef DEBUG
-		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-		return NOTIFY_STATUS_INVALID_NAME;
-	}
-
-	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN))
-	{
-		ns_self = _notify_lib_self_state();
-		if (ns_self == NULL)
-		{
-#ifdef DEBUG
-			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-			return NOTIFY_STATUS_FAILED;
-		}
-
-		status = _notify_lib_set_access(ns_self, name, access);
-#ifdef DEBUG
-		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-		return status;
-	}
-
-	if (globals->notify_server_port == MACH_PORT_NULL)
-	{
-		status = _notify_lib_init(EVENT_INIT);
-		if (status != 0)
-		{
-#ifdef DEBUG
-			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-			return NOTIFY_STATUS_FAILED;
-		}
-	}
-
-	kstatus = _notify_server_set_access(globals->notify_server_port, (caddr_t)name, (mach_msg_type_number_t)strlen(name), access, (int32_t *)&status);
-	if (kstatus != KERN_SUCCESS)
-	{
-#ifdef DEBUG
-		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-		return NOTIFY_STATUS_FAILED;
-	}
-
-#ifdef DEBUG
-	if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-	return status;
-}
-
-uint32_t
-notify_get_access(const char *name, uint32_t *access)
-{
-#ifdef DEBUG
-	if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "-> %s\n", __func__);
-#endif
-
-	notify_state_t *ns_self;
-	kern_return_t kstatus;
-	uint32_t status;
-	notify_globals_t globals = _notify_globals();
-
-	if (name == NULL)
-	{
-#ifdef DEBUG
-		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-		return NOTIFY_STATUS_INVALID_NAME;
-	}
-
-	if (!strncmp(name, SELF_PREFIX, SELF_PREFIX_LEN))
-	{
-		ns_self = _notify_lib_self_state();
-		if (ns_self == NULL)
-		{
-#ifdef DEBUG
-			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-			return NOTIFY_STATUS_FAILED;
-		}
-
-		status = _notify_lib_get_access(ns_self, name, access);
-#ifdef DEBUG
-		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-		return status;
-	}
-
-	if (globals->notify_server_port == MACH_PORT_NULL)
-	{
-		status = _notify_lib_init(EVENT_INIT);
-		if (status != 0)
-		{
-#ifdef DEBUG
-			if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-			return NOTIFY_STATUS_FAILED;
-		}
-	}
-
-	kstatus = _notify_server_get_access(globals->notify_server_port, (caddr_t)name, (mach_msg_type_number_t)strlen(name), (int32_t *)access, (int32_t *)&status);
-	if (kstatus != KERN_SUCCESS)
-	{
-#ifdef DEBUG
-		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-		return NOTIFY_STATUS_FAILED;
-	}
-
-#ifdef DEBUG
-	if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-	return status;
-}
-
-/* notifyd retains and releases a name when clients register and cancel. */
-uint32_t
-notify_release_name(const char *name)
-{
-#ifdef DEBUG
-	if (_libnotify_debug & DEBUG_API)
-	{
-		_notify_client_log(ASL_LEVEL_NOTICE, "-> %s\n", __func__);
-		_notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 3);
-	}
-#endif
-	return NOTIFY_STATUS_OK;
-}
 
 static void
 _notify_dispatch_local_notification(registration_node_t *r)
@@ -2081,7 +1808,8 @@ notify_register_check(const char *name, int *out_token)
 	kern_return_t kstatus;
 	uint32_t status, token;
 	uint64_t nid;
-	int32_t slot, shmsize;
+    int slot;
+    int32_t shmsize;
 	size_t namelen;
 	uint32_t cid;
 	notify_globals_t globals = _notify_globals();
@@ -2786,36 +2514,6 @@ notify_register_mach_port(const char *name, mach_port_name_t *notify_port, int f
 	return NOTIFY_STATUS_OK;
 }
 
-static char *
-_notify_mk_tmp_path(int tid)
-{
-#if TARGET_OS_EMBEDDED
-	int freetmp = 0;
-	char *path, *tmp = getenv("TMPDIR");
-
-	if (tmp == NULL)
-	{
-		asprintf(&tmp, "/tmp/com.apple.notify.%d", geteuid());
-		mkdir(tmp, 0755);
-		freetmp = 1;
-	}
-
-	if (tmp == NULL) return NULL;
-
-	asprintf(&path, "%s/com.apple.notify.%d.%d", tmp, getpid(), tid);
-	if (freetmp) free(tmp);
-	return path;
-#else
-	char tmp[PATH_MAX], *path;
-
-	if (confstr(_CS_DARWIN_USER_TEMP_DIR, tmp, sizeof(tmp)) <= 0) return NULL;
-#endif
-
-	path = NULL;
-	asprintf(&path, "%s/com.apple.notify.%d.%d", tmp, getpid(), tid);
-	return path;
-}
-
 uint32_t
 notify_register_file_descriptor(const char *name, int *notify_fd, int flags, int *out_token)
 {
@@ -3163,6 +2861,7 @@ release_and_return:
 	return status;
 }
 
+/* Used in Libinfo without header declaration */
 uint32_t
 notify_peek(int token, uint32_t *val)
 {
@@ -3216,46 +2915,7 @@ release_and_return:
 	return status;
 }
 
-int *
-notify_check_addr(int token)
-{
-#ifdef DEBUG
-	if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "-> %s\n", __func__);
-#endif
-
-	registration_node_t *r;
-	int *val = NULL;
-	notify_globals_t globals = _notify_globals();
-
-	regenerate_check();
-
-	r = registration_node_find(token);
-	if (r == NULL)
-	{
-#ifdef DEBUG
-		if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-		return NULL;
-	}
-
-	if (r->flags & NOTIFY_FLAG_SELF)
-	{
-		/* _notify_lib_check_addr returns NOTIFY_STATUS_FAILED if self_state is NULL */
-		val = _notify_lib_check_addr(globals->self_state, NOTIFY_CLIENT_SELF, token);
-		goto release_and_return;
-	}
-
-	if ((r->flags & NOTIFY_TYPE_MEMORY) && (globals->shm_base != NULL)) val = (int *)&(globals->shm_base[r->slot]);
-
-release_and_return:
-
-	registration_node_release(r);
-#ifdef DEBUG
-	if (_libnotify_debug & DEBUG_API) _notify_client_log(ASL_LEVEL_NOTICE, "<- %s [%d]\n", __func__, __LINE__ + 2);
-#endif
-	return val;
-}
-
+/* Used by Libc, cctools, configd, kext_tools, Libnotify, and libresolv without header declaration */
 uint32_t
 notify_monitor_file(int token, char *path, int flags)
 {
@@ -3362,6 +3022,7 @@ notify_monitor_file(int token, char *path, int flags)
 	return NOTIFY_STATUS_OK;
 }
 
+/* Used by kext_tools without header declaration */
 uint32_t
 notify_get_event(int token, int *ev, char *buf, int *len)
 {

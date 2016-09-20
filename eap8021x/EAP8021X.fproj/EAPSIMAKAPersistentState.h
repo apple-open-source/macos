@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,6 +25,7 @@
 #define __EAP8021X_EAPSIMAKAPERSISTENTSTATE_H__
 
 #include <CoreFoundation/CFString.h>
+#include <CoreFoundation/CFDate.h>
 #include "EAPSIMAKA.h"
 
 /* 
@@ -46,7 +47,8 @@ CFStringRef
 EAPSIMAKAPersistentStateGetIMSI(EAPSIMAKAPersistentStateRef persist);
 
 CFStringRef
-EAPSIMAKAPersistentStateGetPseudonym(EAPSIMAKAPersistentStateRef persist);
+EAPSIMAKAPersistentStateGetPseudonym(EAPSIMAKAPersistentStateRef persist, 
+				     CFDateRef * start_time);
 
 void
 EAPSIMAKAPersistentStateSetPseudonym(EAPSIMAKAPersistentStateRef persist,

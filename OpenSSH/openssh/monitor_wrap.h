@@ -1,4 +1,4 @@
-/* $OpenBSD: monitor_wrap.h,v 1.27 2015/05/01 03:23:51 djm Exp $ */
+/* $OpenBSD: monitor_wrap.h,v 1.29 2015/12/04 16:41:28 markus Exp $ */
 
 /*
  * Copyright 2002 Niels Provos <provos@citi.umich.edu>
@@ -40,7 +40,7 @@ struct Authctxt;
 void mm_log_handler(LogLevel, const char *, void *);
 int mm_is_monitor(void);
 DH *mm_choose_dh(int, int, int);
-int mm_key_sign(Key *, u_char **, u_int *, const u_char *, u_int);
+int mm_key_sign(Key *, u_char **, u_int *, const u_char *, u_int, const char *);
 void mm_inform_authserv(char *, char *);
 struct passwd *mm_getpwnamallow(const char *);
 char *mm_auth2_read_banner(void);
@@ -58,10 +58,8 @@ BIGNUM *mm_auth_rsa_generate_challenge(Key *);
 OM_uint32 mm_ssh_gssapi_server_ctx(Gssctxt **, gss_OID);
 OM_uint32 mm_ssh_gssapi_accept_ctx(Gssctxt *,
    gss_buffer_desc *, gss_buffer_desc *, OM_uint32 *);
-int mm_ssh_gssapi_userok(char *user, struct passwd *);
+int mm_ssh_gssapi_userok(char *user);
 OM_uint32 mm_ssh_gssapi_checkmic(Gssctxt *, gss_buffer_t, gss_buffer_t);
-OM_uint32 mm_ssh_gssapi_sign(Gssctxt *, gss_buffer_t, gss_buffer_t);
-int mm_ssh_gssapi_update_creds(ssh_gssapi_ccache *);
 #endif
 
 #ifdef USE_PAM

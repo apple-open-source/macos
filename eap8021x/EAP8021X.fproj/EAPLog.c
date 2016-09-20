@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,48 +36,40 @@
 #include <SystemConfiguration/SCPrivate.h>
 #include "EAPClientPlugin.h"
 #include "symbol_scope.h"
+#include "EAPLog.h"
 
-/*
- * kEAPOLLoggerID
- * - used with SCLoggerCreate to identify which ASL logging module to use
- */
-#define kEAPOLLoggerID		CFSTR("com.apple.networking.eapol")
+STATIC os_log_t S_eap_logger = NULL;
 
-STATIC SCLoggerRef	S_eap_logger;
+#define EAPOL_OS_LOG_SUBSYSTEM	"com.apple.eapol"
 
-STATIC void
-EAPLogInit(void)
+char * const S_eap_os_log_categories[] = {
+	"Controller",
+	"Monitor",
+	"Client",
+	"Framework"
+};
+
+os_log_t
+EAPLogGetLogHandle()
 {
-    STATIC dispatch_once_t	once;
-
-    dispatch_once(&once,
-		  ^{
-		      S_eap_logger = SCLoggerCreate(kEAPOLLoggerID);
-		  });
-    return;
-}
-
-void
-EAPLog(int level, CFStringRef format, ...)
-{
-    va_list	args;
-
-    EAPLogInit();
-    va_start(args, format);
-    SCLoggerVLog(S_eap_logger, level, format, args);
-    va_end(args);
-    return;
-}
-
-void
-EAPLogSetVerbose(bool verbose)
-{
-    SCLoggerFlags	flags = kSCLoggerFlagsDefault;
-
-    EAPLogInit();
-    if (verbose) {
-	flags |= kSCLoggerFlagsFile;
+    if (S_eap_logger == NULL) {
+	EAPLogInit(kEAPLogCategoryFramework);
     }
-    SCLoggerSetFlags(S_eap_logger, flags);
-    return;
+    return S_eap_logger;
+}
+
+#define CHECK_LOG_LEVEL_LIMIT(log_category)				\
+	do {												\
+	if (log_category < kEAPLogCategoryController ||		\
+		log_category > kEAPLogCategoryFramework) {		\
+		return;											\
+	}													\
+	} while(0)
+
+void
+EAPLogInit(EAPLogCategory log_category)
+{
+	CHECK_LOG_LEVEL_LIMIT(log_category);
+	S_eap_logger = os_log_create(EAPOL_OS_LOG_SUBSYSTEM,
+								 S_eap_os_log_categories[log_category]);
 }

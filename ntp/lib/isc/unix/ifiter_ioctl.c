@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: ifiter_ioctl.c,v 1.60.120.2 2009/01/18 23:47:41 tbox Exp $ */
+/* $Id: ifiter_ioctl.c,v 1.62 2009/01/18 23:48:14 tbox Exp $ */
 
 /*! \file
  * \brief
@@ -109,6 +109,25 @@ struct isc_interfaceiter {
 #endif
 #endif
 
+/* Silence a warning when this file is #included */
+int
+isc_ioctl(int fildes, int req, char *arg);
+
+int
+isc_ioctl(int fildes, int req, char *arg) {
+	int trys;
+	int ret;
+
+	for (trys = 0; trys < 3; trys++) {
+		if ((ret = ioctl(fildes, req, arg)) < 0) {
+			if (errno == EINTR)
+				continue;
+		}
+		break;
+	}
+	return (ret);
+}
+
 static isc_result_t
 getbuf4(isc_interfaceiter_t *iter) {
 	char strbuf[ISC_STRERRORSIZE];
@@ -128,7 +147,7 @@ getbuf4(isc_interfaceiter_t *iter) {
 		 * conversion".  It comes from its own macro definition,
 		 * and is really hard to shut up.
 		 */
-		if (ioctl(iter->socket, SIOCGIFCONF, (char *)&iter->ifc)
+		if (isc_ioctl(iter->socket, SIOCGIFCONF, (char *)&iter->ifc)
 		    == -1) {
 			if (errno != EINVAL) {
 				isc__strerror(errno, strbuf, sizeof(strbuf));
@@ -208,7 +227,7 @@ getbuf6(isc_interfaceiter_t *iter) {
 		 * conversion".  It comes from its own macro definition,
 		 * and is really hard to shut up.
 		 */
-		if (ioctl(iter->socket6, SIOCGLIFCONF, (char *)&iter->lifc)
+		if (isc_ioctl(iter->socket6, SIOCGLIFCONF, (char *)&iter->lifc)
 		    == -1) {
 #ifdef __hpux
 			/*
@@ -453,7 +472,7 @@ internal_current4(isc_interfaceiter_t *iter) {
 
 	INSIST( iter->pos < (unsigned int) iter->ifc.ifc_len);
 
-	ifrp = (struct ifreq *)((char *) iter->ifc.ifc_req + iter->pos);
+	ifrp = (void *)((char *) iter->ifc.ifc_req + iter->pos);
 
 	memset(&ifreq, 0, sizeof(ifreq));
 	memcpy(&ifreq, ifrp, sizeof(ifreq));
@@ -502,7 +521,7 @@ internal_current4(isc_interfaceiter_t *iter) {
 	 * conversion.  It comes from its own macro definition,
 	 * and is really hard to shut up.
 	 */
-	if (ioctl(iter->socket, SIOCGIFFLAGS, (char *) &ifreq) < 0) {
+	if (isc_ioctl(iter->socket, SIOCGIFFLAGS, (char *) &ifreq) < 0) {
 		isc__strerror(errno, strbuf, sizeof(strbuf));
 		UNEXPECTED_ERROR(__FILE__, __LINE__,
 				 "%s: getting interface flags: %s",
@@ -538,7 +557,7 @@ internal_current4(isc_interfaceiter_t *iter) {
 	memcpy(&lifreq.lifr_addr, &iter->current.address.type.in6,
 	       sizeof(iter->current.address.type.in6));
 
-	if (ioctl(iter->socket, SIOCGLIFADDR, &lifreq) < 0) {
+	if (isc_ioctl(iter->socket, SIOCGLIFADDR, &lifreq) < 0) {
 		isc__strerror(errno, strbuf, sizeof(strbuf));
 		UNEXPECTED_ERROR(__FILE__, __LINE__,
 				 "%s: getting interface address: %s",
@@ -573,6 +592,9 @@ internal_current4(isc_interfaceiter_t *iter) {
 		}
 		iter->current.netmask.type.in6.s6_addr[i] = (~0 << bits) & 0xff;
 	}
+#ifdef ISC_PLATFORM_HAVEIFNAMETOINDEX
+	iter->current.ifindex = if_nametoindex(iter->current.name);
+#endif
 	return (ISC_R_SUCCESS);
 
  inet:
@@ -588,7 +610,7 @@ internal_current4(isc_interfaceiter_t *iter) {
 		 * conversion.  It comes from its own macro definition,
 		 * and is really hard to shut up.
 		 */
-		if (ioctl(iter->socket, SIOCGIFDSTADDR, (char *)&ifreq)
+		if (isc_ioctl(iter->socket, SIOCGIFDSTADDR, (char *)&ifreq)
 		    < 0) {
 			isc__strerror(errno, strbuf, sizeof(strbuf));
 			UNEXPECTED_ERROR(__FILE__, __LINE__,
@@ -611,7 +633,7 @@ internal_current4(isc_interfaceiter_t *iter) {
 		 * conversion.  It comes from its own macro definition,
 		 * and is really hard to shut up.
 		 */
-		if (ioctl(iter->socket, SIOCGIFBRDADDR, (char *)&ifreq)
+		if (isc_ioctl(iter->socket, SIOCGIFBRDADDR, (char *)&ifreq)
 		    < 0) {
 			isc__strerror(errno, strbuf, sizeof(strbuf));
 			UNEXPECTED_ERROR(__FILE__, __LINE__,
@@ -637,7 +659,7 @@ internal_current4(isc_interfaceiter_t *iter) {
 	 * conversion.  It comes from its own macro definition,
 	 * and is really hard to shut up.
 	 */
-	if (ioctl(iter->socket, SIOCGIFNETMASK, (char *)&ifreq) < 0) {
+	if (isc_ioctl(iter->socket, SIOCGIFNETMASK, (char *)&ifreq) < 0) {
 		isc__strerror(errno, strbuf, sizeof(strbuf));
 		UNEXPECTED_ERROR(__FILE__, __LINE__,
 			isc_msgcat_get(isc_msgcat,
@@ -649,6 +671,9 @@ internal_current4(isc_interfaceiter_t *iter) {
 	}
 	get_addr(family, &iter->current.netmask,
 		 (struct sockaddr *)&ifreq.ifr_addr, ifreq.ifr_name);
+#ifdef ISC_PLATFORM_HAVEIFNAMETOINDEX
+	iter->current.ifindex = if_nametoindex(iter->current.name);
+#endif
 	return (ISC_R_SUCCESS);
 }
 
@@ -666,7 +691,7 @@ internal_current6(isc_interfaceiter_t *iter) {
 		return (iter->result6);
 	REQUIRE(iter->pos6 < (unsigned int) iter->lifc.lifc_len);
 
-	ifrp = (struct LIFREQ *)((char *) iter->lifc.lifc_req + iter->pos6);
+	ifrp = (void *)((char *)iter->lifc.lifc_req + iter->pos6);
 
 	memset(&lifreq, 0, sizeof(lifreq));
 	memcpy(&lifreq, ifrp, sizeof(lifreq));
@@ -689,12 +714,7 @@ internal_current6(isc_interfaceiter_t *iter) {
 	get_addr(family, &iter->current.address,
 		 (struct sockaddr *)&lifreq.lifr_addr, lifreq.lifr_name);
 
-	/*
-	 * NTP local change
-	 * enable_multicast_if() requires scopeid for setsockopt,
-	 * so associate address with their corresponding ifindex.
-	 */
-	if (family == AF_INET6)
+	if (isc_netaddr_islinklocal(&iter->current.address))
 		isc_netaddr_setzone(&iter->current.address, 
 				    (isc_uint32_t)lifreq.lifr_index);
 
@@ -729,7 +749,7 @@ internal_current6(isc_interfaceiter_t *iter) {
 	 * conversion.  It comes from its own macro definition,
 	 * and is really hard to shut up.
 	 */
-	if (ioctl(fd, SIOCGLIFFLAGS, (char *) &lifreq) < 0) {
+	if (isc_ioctl(fd, SIOCGLIFFLAGS, (char *) &lifreq) < 0) {
 		isc__strerror(errno, strbuf, sizeof(strbuf));
 		UNEXPECTED_ERROR(__FILE__, __LINE__,
 				 "%s: getting interface flags: %s",
@@ -768,7 +788,7 @@ internal_current6(isc_interfaceiter_t *iter) {
 		 * conversion.  It comes from its own macro definition,
 		 * and is really hard to shut up.
 		 */
-		if (ioctl(fd, SIOCGLIFDSTADDR, (char *)&lifreq)
+		if (isc_ioctl(fd, SIOCGLIFDSTADDR, (char *)&lifreq)
 		    < 0) {
 			isc__strerror(errno, strbuf, sizeof(strbuf));
 			UNEXPECTED_ERROR(__FILE__, __LINE__,
@@ -793,7 +813,7 @@ internal_current6(isc_interfaceiter_t *iter) {
 		 * conversion.  It comes from its own macro definition,
 		 * and is really hard to shut up.
 		 */
-		if (ioctl(iter->socket, SIOCGLIFBRDADDR, (char *)&lifreq)
+		if (isc_ioctl(iter->socket, SIOCGLIFBRDADDR, (char *)&lifreq)
 		    < 0) {
 			isc__strerror(errno, strbuf, sizeof(strbuf));
 			UNEXPECTED_ERROR(__FILE__, __LINE__,
@@ -833,7 +853,9 @@ internal_current6(isc_interfaceiter_t *iter) {
 			iter->current.netmask.type.in6.s6_addr[i / 8] =
 				(~0 << bits) & 0xff;
 		}
-
+#ifdef ISC_PLATFORM_HAVEIFNAMETOINDEX
+		iter->current.ifindex = if_nametoindex(iter->current.name);
+#endif
 		return (ISC_R_SUCCESS);
 	}
 #endif
@@ -843,7 +865,7 @@ internal_current6(isc_interfaceiter_t *iter) {
 	 * conversion.  It comes from its own macro definition,
 	 * and is really hard to shut up.
 	 */
-	if (ioctl(fd, SIOCGLIFNETMASK, (char *)&lifreq) < 0) {
+	if (isc_ioctl(fd, SIOCGLIFNETMASK, (char *)&lifreq) < 0) {
 		isc__strerror(errno, strbuf, sizeof(strbuf));
 		UNEXPECTED_ERROR(__FILE__, __LINE__,
 				 isc_msgcat_get(isc_msgcat,
@@ -856,6 +878,9 @@ internal_current6(isc_interfaceiter_t *iter) {
 	get_addr(family, &iter->current.netmask,
 		 (struct sockaddr *)&lifreq.lifr_addr, lifreq.lifr_name);
 
+#ifdef ISC_PLATFORM_HAVEIFNAMETOINDEX
+	iter->current.ifindex = if_nametoindex(iter->current.name);
+#endif
 	return (ISC_R_SUCCESS);
 }
 #endif

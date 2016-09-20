@@ -41,6 +41,11 @@
 /*	IBM T.J. Watson Research
 /*	P.O. Box 704
 /*	Yorktown Heights, NY 10598, USA
+/*
+/*	Wietse Venema
+/*	Google, Inc.
+/*	111 8th Avenue
+/*	New York, NY 10011, USA
 /*--*/
 
 /* System library. */
@@ -209,7 +214,7 @@ static void xsasl_dovecot_server_mech_free(XSASL_DCSRV_MECH *mech_list)
     for (mp = mech_list; mp != 0; mp = next) {
 	myfree(mp->mech_name);
 	next = mp->next;
-	myfree((char *) mp);
+	myfree((void *) mp);
     }
 }
 
@@ -254,7 +259,7 @@ static int xsasl_dovecot_server_connect(XSASL_DOVECOT_SERVER_IMPL *xp)
     VSTREAM *sasl_stream;
     char   *line, *cmd, *mech_name;
     unsigned int major_version, minor_version;
-    int     fd, success;
+    int     fd, success, have_mech_line;
     int     sec_props;
     const char *path;
 
@@ -278,9 +283,9 @@ static int xsasl_dovecot_server_connect(XSASL_DOVECOT_SERVER_IMPL *xp)
     }
     sasl_stream = vstream_fdopen(fd, O_RDWR);
     vstream_control(sasl_stream,
-		    VSTREAM_CTL_PATH, xp->socket_path,
-		    VSTREAM_CTL_TIMEOUT, AUTH_TIMEOUT,
-		    VSTREAM_CTL_END);
+		    CA_VSTREAM_CTL_PATH(xp->socket_path),
+		    CA_VSTREAM_CTL_TIMEOUT(AUTH_TIMEOUT),
+		    CA_VSTREAM_CTL_END);
 
     /* XXX Encapsulate for logging. */
     vstream_fprintf(sasl_stream,
@@ -294,6 +299,7 @@ static int xsasl_dovecot_server_connect(XSASL_DOVECOT_SERVER_IMPL *xp)
 	return (-1);
     }
     success = 0;
+    have_mech_line = 0;
     line_str = vstring_alloc(256);
     /* XXX Encapsulate for logging. */
     while (vstring_get_nonl(line_str, sasl_stream) != VSTREAM_EOF) {
@@ -318,6 +324,7 @@ static int xsasl_dovecot_server_connect(XSASL_DOVECOT_SERVER_IMPL *xp)
 	    }
 	} else if (strcmp(cmd, "MECH") == 0 && line != NULL) {
 	    mech_name = line;
+	    have_mech_line = 1;
 	    line = split_at(line, '\t');
 	    if (line != 0) {
 		sec_props =
@@ -331,6 +338,22 @@ static int xsasl_dovecot_server_connect(XSASL_DOVECOT_SERVER_IMPL *xp)
 		sec_props = 0;
 	    xsasl_dovecot_server_mech_append(&xp->mechanism_list, mech_name,
 					     sec_props);
+	} else if (strcmp(cmd, "SPID") == 0) {
+
+	    /*
+	     * Unfortunately the auth protocol handshake wasn't designed well
+	     * to differentiate between auth-client/userdb/master.
+	     * auth-userdb and auth-master send VERSION + SPID lines only and
+	     * nothing afterwards, while auth-client sends VERSION + MECH +
+	     * SPID + CUID + more. The simplest way that we can determine if
+	     * we've connected to the correct socket is to see if MECH line
+	     * exists or not (alternatively we'd have to have a small timeout
+	     * after SPID to see if CUID is sent or not).
+	     */
+	    if (!have_mech_line) {
+		msg_warn("SASL: Connected to wrong auth socket (auth-master instead of auth-client)");
+		break;
+	    }
 	} else if (strcmp(cmd, "DONE") == 0) {
 	    /* Handshake finished. */
 	    success = 1;
@@ -389,7 +412,7 @@ static void xsasl_dovecot_server_done(XSASL_SERVER_IMPL *impl)
 
     xsasl_dovecot_server_disconnect(xp);
     myfree(xp->socket_path);
-    myfree((char *) impl);
+    myfree((void *) impl);
 }
 
 /* xsasl_dovecot_server_create - create server instance */
@@ -400,7 +423,7 @@ static XSASL_SERVER *xsasl_dovecot_server_create(XSASL_SERVER_IMPL *impl,
     const char *myname = "xsasl_dovecot_server_create";
     XSASL_DOVECOT_SERVER *server;
     struct sockaddr_storage ss;
-    struct sockaddr *sa = (struct sockaddr *) & ss;
+    struct sockaddr *sa = (struct sockaddr *) &ss;
     SOCKADDR_SIZE salen;
     MAI_HOSTADDR_STR server_addr;
 
@@ -486,7 +509,7 @@ static void xsasl_dovecot_server_free(XSASL_SERVER *xp)
     myfree(server->service);
     myfree(server->server_addr);
     myfree(server->client_addr);
-    myfree((char *) server);
+    myfree((void *) server);
 }
 
 /* xsasl_dovecot_server_auth_response - encode server first/next response */
@@ -580,7 +603,7 @@ static int xsasl_dovecot_handle_reply(XSASL_DOVECOT_SERVER *server,
     }
 
     vstring_strcpy(reply, "Connection lost to authentication server");
-    return XSASL_AUTH_FAIL;
+    return XSASL_AUTH_TEMP;
 }
 
 /* is_valid_base64 - input sanitized */
@@ -637,7 +660,7 @@ int     xsasl_dovecot_server_first(XSASL_SERVER *xp, const char *sasl_method,
     for (i = 0; i < 2; i++) {
 	if (!server->impl->sasl_stream) {
 	    if (xsasl_dovecot_server_connect(server->impl) < 0)
-		return (0);
+		return XSASL_AUTH_TEMP;
 	}
 	/* send the request */
 	server->last_request_id = ++server->impl->request_id_counter;
@@ -668,7 +691,7 @@ int     xsasl_dovecot_server_first(XSASL_SERVER *xp, const char *sasl_method,
 
 	if (i == 1) {
 	    vstring_strcpy(reply, "Can't connect to authentication server");
-	    return XSASL_AUTH_FAIL;
+	    return XSASL_AUTH_TEMP;
 	}
 
 	/*
@@ -696,7 +719,7 @@ static int xsasl_dovecot_server_next(XSASL_SERVER *xp, const char *request,
 		    "CONT\t%u\t%s\n", server->last_request_id, request);
     if (vstream_fflush(server->impl->sasl_stream) == VSTREAM_EOF) {
 	vstring_strcpy(reply, "Connection lost to authentication server");
-	return XSASL_AUTH_FAIL;
+	return XSASL_AUTH_TEMP;
     }
     return xsasl_dovecot_handle_reply(server, reply);
 }

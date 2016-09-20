@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -35,11 +35,8 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
 
-#include <SystemConfiguration/SystemConfiguration.h>
 #include "SCNetworkConfigurationInternal.h"
 #include "SCPreferencesInternal.h"
-#include <SystemConfiguration/SCValidation.h>
-#include <SystemConfiguration/SCPrivate.h>
 
 #include <ifaddrs.h>
 #include <pthread.h>
@@ -81,7 +78,7 @@ siocgifmedia(int s, const char * ifname, int * status, int * active)
 	*status = 0;
 	*active = 0;
 	bzero(&ifmr, sizeof(ifmr));
-	strncpy(ifmr.ifm_name, ifname, sizeof(ifmr.ifm_name));
+	strlcpy(ifmr.ifm_name, ifname, sizeof(ifmr.ifm_name));
 	if (ioctl(s, SIOCGIFMEDIA, &ifmr) == -1) {
 		return (-1);
 	}
@@ -263,11 +260,9 @@ SCBondInterfaceCopyAll(SCPreferencesRef prefs)
 	SCPreferencesRef	ni_prefs;
 	CFStringRef		path;
 
-	if ((prefs == NULL) ||
-	    (__SCPreferencesUsingDefaultPrefs(prefs) == TRUE)) {
+	if (__SCPreferencesUsingDefaultPrefs(prefs)) {
 		ni_prefs = NULL;
-	}
-	else {
+	} else {
 		ni_prefs = __SCPreferencesCreateNIPrefsFromPrefs(prefs);
 	}
 
@@ -985,7 +980,7 @@ SCBondInterfaceSetMode(SCBondInterfaceRef bond, CFNumberRef mode)
 		return FALSE;
 	}
 
-	if (CFNumberGetValue(mode, kCFNumberIntType, &mode_num) == FALSE) {
+	if (!CFNumberGetValue(mode, kCFNumberIntType, &mode_num)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
 	}
@@ -1149,12 +1144,9 @@ __SCBondStatusCreatePrivate(CFAllocatorRef	allocator,
 		return NULL;
 	}
 
-	/* establish the bond status */
-
+	/* initialize non-zero/NULL members */
 	statusPrivate->bond		 = CFRetain(bond);
 	statusPrivate->status_bond       = CFDictionaryCreateCopy(NULL, status_bond);
-
-	statusPrivate->interfaces        = NULL;
 	statusPrivate->status_interfaces = CFDictionaryCreateCopy(NULL, status_interfaces);
 
 	return (SCBondStatusRef)statusPrivate;
@@ -1404,7 +1396,7 @@ __bond_set_mode(int s, CFStringRef bond_if, CFNumberRef mode)
 {
 	struct if_bond_req	breq;
 	struct ifreq		ifr;
-	int					mode_num;
+	int			mode_num;
 
 	mode_num = IF_BOND_MODE_LACP;
 	if (mode != NULL) {

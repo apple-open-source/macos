@@ -634,6 +634,10 @@ SecCmsSignedDataDecodeAfterEnd(SecCmsSignedDataRef sigd)
     SecCmsSignerInfoRef *signerinfos;
     int i;
 
+    if (!sigd) {
+        return SECFailure;
+    }
+
     signerinfos = sigd->signerInfos;
 
     /* set cmsg and sigd backpointers for all the signerinfos */
@@ -772,16 +776,7 @@ SecCmsSignedDataVerifySignerInfo(SecCmsSignedDataRef sigd, int i,
     contentType = SecCmsContentInfoGetContentTypeOID(cinfo);
 
     /* verify signature */
-#if SECTRUST_OSX
-#warning STU: <rdar://21328501>
-	// timestamp policy is currently unsupported; use codesign policy only
-	#if !NDEBUG
-	syslog(LOG_ERR, "SecCmsSignedDataVerifySignerInfo: using codesign policy without timestamp verification");
-	#endif
-	CFTypeRef timeStampPolicies=SecPolicyCreateWithProperties(kSecPolicyAppleCodeSigning, NULL);
-#else
     CFTypeRef timeStampPolicies=SecPolicyCreateAppleTimeStampingAndRevocationPolicies(policies);
-#endif
     status = SecCmsSignerInfoVerifyWithPolicy(signerinfo, timeStampPolicies, digest, contentType);
     CFReleaseSafe(timeStampPolicies);
 
@@ -790,10 +785,6 @@ SecCmsSignedDataVerifySignerInfo(SecCmsSignedDataRef sigd, int i,
     status2 = SecCmsSignerInfoVerifyCertificate(signerinfo, keychainOrArray,
 	policies, trustRef);
     dprintf("SecCmsSignedDataVerifySignerInfo: status %d status2 %d\n", (int) status, (int)status2);
-    if(status || status2) {
-        syslog(LOG_ERR,"SecCmsSignedDataVerifySignerInfo: status %d status2 %d.", (int) status, (int)status2);
-        syslog(LOG_ERR,"SecCmsSignedDataVerifySignerInfo: verify status %d", signerinfo->verificationStatus);
-    }
     /* The error from SecCmsSignerInfoVerify() supercedes error from SecCmsSignerInfoVerifyCertificate(). */
     if (status)
 	return status;
@@ -969,7 +960,7 @@ SecCmsSignedDataGetDigestByAlgTag(SecCmsSignedDataRef sigd, SECOidTag algtag)
 		return NULL;
 	}
     idx = SecCmsAlgArrayGetIndexByAlgTag(sigd->digestAlgorithms, algtag);
-    return sigd->digests[idx];
+    return (idx >= 0) ? sigd->digests[idx] : NULL;
 }
 
 /*

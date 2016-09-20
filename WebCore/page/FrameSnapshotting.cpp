@@ -32,6 +32,7 @@
 #include "FrameSnapshotting.h"
 
 #include "Document.h"
+#include "FloatRect.h"
 #include "Frame.h"
 #include "FrameSelection.h"
 #include "FrameView.h"
@@ -68,6 +69,12 @@ struct ScopedFramePaintingState {
 
 std::unique_ptr<ImageBuffer> snapshotFrameRect(Frame& frame, const IntRect& imageRect, SnapshotOptions options)
 {
+    Vector<FloatRect> clipRects;
+    return snapshotFrameRectWithClip(frame, imageRect, clipRects, options);
+}
+
+std::unique_ptr<ImageBuffer> snapshotFrameRectWithClip(Frame& frame, const IntRect& imageRect, Vector<FloatRect>& clipRects, SnapshotOptions options)
+{
     if (!frame.page())
         return nullptr;
 
@@ -99,10 +106,17 @@ std::unique_ptr<ImageBuffer> snapshotFrameRect(Frame& frame, const IntRect& imag
     if (frame.settings().delegatesPageScaling())
         scaleFactor *= frame.page()->pageScaleFactor();
 
-    std::unique_ptr<ImageBuffer> buffer = ImageBuffer::create(imageRect.size(), scaleFactor, ColorSpaceDeviceRGB);
+    std::unique_ptr<ImageBuffer> buffer = ImageBuffer::create(imageRect.size(), Unaccelerated, scaleFactor);
     if (!buffer)
         return nullptr;
-    buffer->context()->translate(-imageRect.x(), -imageRect.y());
+    buffer->context().translate(-imageRect.x(), -imageRect.y());
+
+    if (!clipRects.isEmpty()) {
+        Path clipPath;
+        for (auto& rect : clipRects)
+            clipPath.addRect(rect);
+        buffer->context().clipPath(clipPath);
+    }
 
     frame.view()->paintContentsForSnapshot(buffer->context(), imageRect, shouldIncludeSelection, coordinateSpace);
     return buffer;

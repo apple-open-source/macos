@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/es_419.xml
@@ -8,9 +8,17 @@
 // ***************************************************************************
 es_419{
     Currencies{
+        AMD{
+            "AMD",
+            "dram armenio",
+        }
         CAD{
             "CAD",
             "dólar canadiense",
+        }
+        ERN{
+            "ERN",
+            "nafka",
         }
         EUR{
             "EUR",
@@ -30,7 +38,18 @@ es_419{
         }
     }
     Currencies%narrow{
-        EUR{"€"}
+        EGP{"E£"}
+        VEF{"BsF"}
     }
-    Version{"2.1.13.23"}
+    CurrencyPlurals{
+        BGN{
+            one{"lev búlgaro"}
+            other{"leva búlgaros"}
+        }
+        XXX{
+            one{"(unidad de moneda desconocida)"}
+            other{"(moneda desconocida)"}
+        }
+    }
+    Version{"2.1.21.97"}
 }

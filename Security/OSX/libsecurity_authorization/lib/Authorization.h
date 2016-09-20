@@ -158,7 +158,7 @@ typedef const char *AuthorizationString;
 typedef struct {
 	AuthorizationString name;
 	size_t valueLength;
-	void *value;
+	void * __nullable value;
 	UInt32 flags;
 } AuthorizationItem;
 
@@ -172,7 +172,7 @@ typedef struct {
 */
 typedef struct {
 	UInt32 count;
-	AuthorizationItem *items;
+	AuthorizationItem * __nullable items;
 } AuthorizationItemSet;
 
 
@@ -188,9 +188,7 @@ typedef struct {
 	SECURITY NOTE: Applications should take care to not disclose the AuthorizationExternalForm to
 	potential attackers since it would authorize rights to them.
 */
-enum {
-	kAuthorizationExternalFormLength = 32
-};
+static const size_t kAuthorizationExternalFormLength = 32;
 
 typedef struct {
 	char bytes[kAuthorizationExternalFormLength];
@@ -342,7 +340,6 @@ void AuthorizationCopyRightsAsync(AuthorizationRef authorization,
 	
     @param authorization (input) The authorization object on which this operation is performed.
     @param tag (input/optional) An optional string tag specifing which sideband information should be returned.  When NULL is specified all available information is returned.
-    @param flags (input) options specified by the AuthorizationFlags enum.  set all unused bits to zero to allow for future expansion.
     @param info (output) A pointer to a newly allocated AuthorizationInfoSet in which the requested sideband infomation is returned (info should be deallocated by calling AuthorizationFreeItemSet() when it is no longer needed).
 
     @result errAuthorizationSuccess 0 No error.

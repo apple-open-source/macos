@@ -36,8 +36,9 @@
 
 namespace WebCore {
 
+class Document;
 class Frame;
-class ScriptExecutionContext;
+struct ExceptionCodeWithMessage;
 typedef int ExceptionCode;
 
 class History : public ScriptWrappable, public RefCounted<History>, public DOMWindowProperty {
@@ -48,11 +49,11 @@ public:
     PassRefPtr<SerializedScriptValue> state();
     void back();
     void forward();
-    void go(int distance);
+    void go(int);
 
-    void back(ScriptExecutionContext*);
-    void forward(ScriptExecutionContext*);
-    void go(ScriptExecutionContext*, int distance);
+    void back(Document&);
+    void forward(Document&);
+    void go(Document&, int);
 
     bool stateChanged() const;
     bool isSameAsCurrentState(SerializedScriptValue*) const;
@@ -61,7 +62,7 @@ public:
         Push,
         Replace
     };
-    void stateObjectAdded(PassRefPtr<SerializedScriptValue>, const String& title, const String& url, StateObjectType, ExceptionCode&);
+    void stateObjectAdded(PassRefPtr<SerializedScriptValue>, const String& title, const String& url, StateObjectType, ExceptionCodeWithMessage&);
 
 private:
     explicit History(Frame*);

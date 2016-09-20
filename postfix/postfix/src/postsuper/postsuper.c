@@ -251,6 +251,11 @@
 /*	IBM T.J. Watson Research
 /*	P.O. Box 704
 /*	Yorktown Heights, NY 10598, USA
+/*
+/*	Wietse Venema
+/*	Google, Inc.
+/*	111 8th Avenue
+/*	New York, NY 10011, USA
 /*--*/
 
 /* System library. */
@@ -726,7 +731,7 @@ static int fix_queue_id(const char *actual_path, const char *actual_queue,
 
 static void super(const char **queues, int action)
 {
-    ARGV   *hash_queue_names = argv_split(var_hash_queue_names, " \t\r\n,");
+    ARGV   *hash_queue_names = argv_split(var_hash_queue_names, CHARS_COMMA_SP);
     VSTRING *actual_path = vstring_alloc(10);
     VSTRING *wanted_path = vstring_alloc(10);
     struct stat st;
@@ -1223,8 +1228,8 @@ int     main(int argc, char **argv)
      * configuration directory location.
      */
     mail_conf_read();
-    if (strcmp(var_syslog_name, DEF_SYSLOG_NAME) != 0)
-	msg_syslog_init(mail_task(argv[0]), LOG_PID, LOG_FACILITY);
+    /* Re-evaluate mail_task() after reading main.cf. */
+    msg_syslog_init(mail_task(argv[0]), LOG_PID, LOG_FACILITY);
     if (chdir(var_queue_dir))
 	msg_fatal("chdir %s: %m", var_queue_dir);
 

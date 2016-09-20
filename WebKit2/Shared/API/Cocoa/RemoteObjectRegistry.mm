@@ -27,6 +27,7 @@
 #import "RemoteObjectRegistry.h"
 
 #import "MessageSender.h"
+#import "RemoteObjectInvocation.h"
 #import "RemoteObjectRegistryMessages.h"
 #import "UserData.h"
 #import "_WKRemoteObjectRegistryInternal.h"
@@ -43,15 +44,27 @@ RemoteObjectRegistry::~RemoteObjectRegistry()
 {
 }
 
-void RemoteObjectRegistry::sendInvocation(const UserData& userData)
+void RemoteObjectRegistry::sendInvocation(const RemoteObjectInvocation& invocation)
 {
-    m_messageSender.send(Messages::RemoteObjectRegistry::InvokeMethod(userData));
+    m_messageSender.send(Messages::RemoteObjectRegistry::InvokeMethod(invocation));
 }
 
-void RemoteObjectRegistry::invokeMethod(const UserData& invocation)
+void RemoteObjectRegistry::sendReplyBlock(uint64_t replyID, const UserData& blockInvocation)
+{
+    m_messageSender.send(Messages::RemoteObjectRegistry::CallReplyBlock(replyID, blockInvocation));
+}
+
+void RemoteObjectRegistry::invokeMethod(const RemoteObjectInvocation& invocation)
 {
 #if WK_API_ENABLED
     [m_remoteObjectRegistry _invokeMethod:invocation];
+#endif
+}
+
+void RemoteObjectRegistry::callReplyBlock(uint64_t replyID, const UserData& blockInvocation)
+{
+#if WK_API_ENABLED
+    [m_remoteObjectRegistry _callReplyWithID:replyID blockInvocation:blockInvocation];
 #endif
 }
 

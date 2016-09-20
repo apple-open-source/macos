@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2012 Google Inc. All rights reserved.
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,8 +24,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef InternalSettings_h
-#define InternalSettings_h
+#pragma once
 
 // FIXME (121927): This include should not be needed.
 #include <wtf/text/AtomicStringHash.h>
@@ -35,6 +34,8 @@
 #include "IntSize.h"
 #include "InternalSettingsGenerated.h"
 #include "SecurityOrigin.h"
+#include "Settings.h"
+#include "WritingMode.h"
 
 namespace WebCore {
 
@@ -52,7 +53,6 @@ public:
         explicit Backup(Settings&);
         void restoreTo(Settings&);
 
-        bool m_originalCSSShapesEnabled;
         EditingBehaviorType m_originalEditingBehavior;
 
         // Initially empty, only used if changed by a test.
@@ -64,18 +64,24 @@ public:
         ScriptFontFamilyMap m_fantasyFontFamilies;
         ScriptFontFamilyMap m_pictographFontFamilies;
 
-#if ENABLE(TEXT_AUTOSIZING)
+#if ENABLE(TEXT_AUTOSIZING) || ENABLE(IOS_TEXT_AUTOSIZING)
         bool m_originalTextAutosizingEnabled;
         IntSize m_originalTextAutosizingWindowSizeOverride;
+#endif
+
+#if ENABLE(TEXT_AUTOSIZING)
         float m_originalTextAutosizingFontScaleFactor;
 #endif
+
         String m_originalMediaTypeOverride;
         bool m_originalCanvasUsesAcceleratedDrawing;
         bool m_originalMockScrollbarsEnabled;
         bool m_originalUsesOverlayScrollbars;
         bool m_langAttributeAwareFormControlUIEnabled;
         bool m_imagesEnabled;
-        double m_minimumTimerInterval;
+        bool m_preferMIMETypeForImages;
+        bool m_cachedPDFImageEnabled;
+        std::chrono::milliseconds m_minimumTimerInterval;
 #if ENABLE(VIDEO_TRACK)
         bool m_shouldDisplaySubtitles;
         bool m_shouldDisplayCaptions;
@@ -89,6 +95,7 @@ public:
         bool m_pluginReplacementEnabled;
         bool m_shouldConvertPositionStyleOnCopy;
         bool m_fontFallbackPrefersPictographs;
+        bool m_webFontsAlwaysFallBack;
         bool m_backgroundShouldExtendBeyondPage;
         SecurityOrigin::StorageBlockingPolicy m_storageBlockingPolicy;
         bool m_scrollingTreeIncludesFrames;
@@ -98,6 +105,14 @@ public:
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
         bool m_allowsAirPlayForMediaPlayback;
 #endif
+        bool m_allowsInlineMediaPlayback;
+        bool m_allowsInlineMediaPlaybackAfterFullscreen;
+        bool m_inlineMediaPlaybackRequiresPlaysInlineAttribute;
+#if ENABLE(INDEXED_DATABASE_IN_WORKERS)
+        bool m_indexedDBWorkersEnabled;
+#endif
+        UserInterfaceDirectionPolicy m_userInterfaceDirectionPolicy;
+        TextDirection m_systemLayoutDirection;
     };
 
     static Ref<InternalSettings> create(Page* page)
@@ -123,10 +138,11 @@ public:
     void setTextAutosizingWindowSizeOverride(int width, int height, ExceptionCode&);
     void setTextAutosizingFontScaleFactor(float fontScaleFactor, ExceptionCode&);
     void setMediaTypeOverride(const String& mediaType, ExceptionCode&);
-    void setCSSShapesEnabled(bool, ExceptionCode&);
     void setCanStartMedia(bool, ExceptionCode&);
-    void setWirelessPlaybackDisabled(bool);
+    void setAllowsAirPlayForMediaPlayback(bool);
     void setEditingBehavior(const String&, ExceptionCode&);
+    void setPreferMIMETypeForImages(bool, ExceptionCode&);
+    void setCachedPDFImageEnabled(bool, ExceptionCode&);
     void setShouldDisplayTrackKind(const String& kind, bool enabled, ExceptionCode&);
     bool shouldDisplayTrackKind(const String& kind, ExceptionCode&);
     void setStorageBlockingPolicy(const String&, ExceptionCode&);
@@ -139,10 +155,21 @@ public:
     void setUseLegacyBackgroundSizeShorthandBehavior(bool, ExceptionCode&);
     void setAutoscrollForDragAndDropEnabled(bool, ExceptionCode&);
     void setFontFallbackPrefersPictographs(bool, ExceptionCode&);
+    void setWebFontsAlwaysFallBack(bool, ExceptionCode&);
     void setPluginReplacementEnabled(bool);
     void setBackgroundShouldExtendBeyondPage(bool, ExceptionCode&);
     void setShouldConvertPositionStyleOnCopy(bool, ExceptionCode&);
     void setScrollingTreeIncludesFrames(bool, ExceptionCode&);
+    void setAllowsInlineMediaPlayback(bool, ExceptionCode&);
+    void setAllowsInlineMediaPlaybackAfterFullscreen(bool, ExceptionCode&);
+    void setInlineMediaPlaybackRequiresPlaysInlineAttribute(bool, ExceptionCode&);
+    void setIndexedDBWorkersEnabled(bool, ExceptionCode&);
+    String userInterfaceDirectionPolicy(ExceptionCode&);
+    void setUserInterfaceDirectionPolicy(const String& policy, ExceptionCode&);
+    String systemLayoutDirection(ExceptionCode&);
+    void setSystemLayoutDirection(const String& direction, ExceptionCode&);
+
+    static void setAllowsAnySSLCertificate(bool);
 
 private:
     explicit InternalSettings(Page*);
@@ -156,5 +183,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif

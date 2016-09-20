@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006, 2008-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2008-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -40,12 +40,9 @@
 #include <servers/bootstrap.h>
 #include <bootstrap_priv.h>
 
-#include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCPrivate.h>
-#include "SCD.h"
 #include "SCDynamicStoreInternal.h"
 #include "config.h"		/* MiG generated file */
-
+#include "SCD.h"
 
 static CFStringRef		_sc_bundleID	= NULL;
 static pthread_mutex_t		_sc_lock	= PTHREAD_MUTEX_INITIALIZER;
@@ -62,6 +59,19 @@ static const char	*notifyType[] = {
 	"inform w/runLoop",
 	"inform w/dispatch"
 };
+
+
+__private_extern__ os_log_t
+__log_SCDynamicStore()
+{
+	static os_log_t	log	= NULL;
+
+	if (log == NULL) {
+		log = os_log_create("com.apple.SystemConfiguration", "SCDynamicStore");
+	}
+
+	return log;
+}
 
 
 static CFStringRef
@@ -166,6 +176,9 @@ __SCDynamicStoreDeallocate(CFTypeRef cf)
 	if (storePrivate->name != NULL) CFRelease(storePrivate->name);
 	if (storePrivate->options != NULL) CFRelease(storePrivate->options);
 
+	/* release activity tracing */
+	if (storePrivate->activity != NULL) os_release(storePrivate->activity);
+
 	return;
 }
 
@@ -245,20 +258,31 @@ __SCDynamicStoreServerPort(SCDynamicStorePrivateRef storePrivate, kern_return_t 
 
 	server_name = getenv("SCD_SERVER");
 
+#ifndef	DEBUG
+	/*
+	 * only allow the SCDynamicStore server bootstrap name to be changed with
+	 * DEBUG builds.  For RELEASE builds, assume that no server is available.
+	 */
+	if (server_name != NULL) {
+		*status = BOOTSTRAP_UNKNOWN_SERVICE;
+		return MACH_PORT_NULL;
+	}
+#endif	/* DEBUG */
+
 
 	if (server_name == NULL) {
 		server_name = SCD_SERVER;
 	}
 
-#if	defined(BOOTSTRAP_PRIVILEGED_SERVER) && !TARGET_IPHONE_SIMULATOR
+#if	defined(BOOTSTRAP_PRIVILEGED_SERVER) && !TARGET_OS_SIMULATOR
 	*status = bootstrap_look_up2(bootstrap_port,
 				     server_name,
 				     &server,
 				     0,
 				     BOOTSTRAP_PRIVILEGED_SERVER);
-#else	// defined(BOOTSTRAP_PRIVILEGED_SERVER) && !TARGET_IPHONE_SIMULATOR
+#else	// defined(BOOTSTRAP_PRIVILEGED_SERVER) && !TARGET_OS_SIMULATOR
 	*status = bootstrap_look_up(bootstrap_port, server_name, &server);
-#endif	// defined(BOOTSTRAP_PRIVILEGED_SERVER) && !TARGET_IPHONE_SIMULATOR
+#endif	// defined(BOOTSTRAP_PRIVILEGED_SERVER) && !TARGET_OS_SIMULATOR
 
 	switch (*status) {
 		case BOOTSTRAP_SUCCESS :
@@ -294,7 +318,6 @@ __SCDynamicStoreCreatePrivate(CFAllocatorRef		allocator,
 	/* initialize runtime */
 	pthread_once(&initialized, __SCDynamicStoreInitialize);
 
-
 	/* allocate session */
 	size  = sizeof(SCDynamicStorePrivate) - sizeof(CFRuntimeBase);
 	storePrivate = (SCDynamicStorePrivateRef)_CFRuntimeCreateInstance(allocator,
@@ -306,61 +329,30 @@ __SCDynamicStoreCreatePrivate(CFAllocatorRef		allocator,
 		return NULL;
 	}
 
+	/* initialize non-zero/NULL members */
+
 	/* client side of the "configd" session */
 	storePrivate->name				= (name != NULL) ? CFRetain(name) : NULL;
-	storePrivate->options				= NULL;
 
-	/* server side of the "configd" session */
-	storePrivate->server				= MACH_PORT_NULL;
-	storePrivate->serverNullSession			= FALSE;
-
-	/* flags */
-	storePrivate->useSessionKeys			= FALSE;
+	/* "client" activity tracing */
+	storePrivate->activity				= os_activity_create("accessing SCDynamicStore",
+									     OS_ACTIVITY_CURRENT,
+									     OS_ACTIVITY_FLAG_DEFAULT);
 
 	/* Notification status */
 	storePrivate->notifyStatus			= NotifierNotRegistered;
 
 	/* "client" information associated with SCDynamicStoreCreateRunLoopSource() */
-	storePrivate->rlList				= NULL;
-	storePrivate->rls				= NULL;
 	storePrivate->rlsFunction			= callout;
-	storePrivate->rlsContext.info			= NULL;
-	storePrivate->rlsContext.retain			= NULL;
-	storePrivate->rlsContext.release		= NULL;
-	storePrivate->rlsContext.copyDescription	= NULL;
-	if (context) {
+	if (context != NULL) {
 		bcopy(context, &storePrivate->rlsContext, sizeof(SCDynamicStoreContext));
 		if (context->retain != NULL) {
 			storePrivate->rlsContext.info = (void *)(*context->retain)(context->info);
 		}
 	}
-	storePrivate->rlsNotifyPort			= NULL;
-	storePrivate->rlsNotifyRLS			= NULL;
-
-	/* "client" information associated with SCDynamicStoreSetDispatchQueue() */
-	storePrivate->dispatchGroup			= NULL;
-	storePrivate->dispatchQueue			= NULL;
-	storePrivate->dispatchSource			= NULL;
-
-	/* "client" information associated with SCDynamicStoreSetDisconnectCallBack() */
-	storePrivate->disconnectFunction		= NULL;
-	storePrivate->disconnectForceCallBack		= FALSE;
-
-	/* "server" information associated with SCDynamicStoreSetNotificationKeys() */
-	storePrivate->keys				= NULL;
-	storePrivate->patterns				= NULL;
-
-	/* "server" information associated with SCDynamicStoreNotifyMachPort(); */
-	storePrivate->notifyPort			= MACH_PORT_NULL;
-	storePrivate->notifyPortIdentifier		= 0;
 
 	/* "server" information associated with SCDynamicStoreNotifyFileDescriptor(); */
 	storePrivate->notifyFile			= -1;
-	storePrivate->notifyFileIdentifier		= 0;
-
-	/* "server" information associated with SCDynamicStoreNotifySignal(); */
-	storePrivate->notifySignal			= 0;
-	storePrivate->notifySignalTask			= TASK_NULL;
 
 	return storePrivate;
 }
@@ -397,15 +389,16 @@ updateServerPort(SCDynamicStorePrivateRef storePrivate, mach_port_t *server, int
 static Boolean
 __SCDynamicStoreAddSession(SCDynamicStorePrivateRef storePrivate)
 {
-	kern_return_t		kr		= KERN_SUCCESS;
-	CFDataRef		myName;			/* serialized name */
-	xmlData_t		myNameRef;
-	CFIndex			myNameLen;
-	CFDataRef		myOptions	= NULL;	/* serialized options */
-	xmlData_t		myOptionsRef	= NULL;
-	CFIndex			myOptionsLen	= 0;
-	int			sc_status	= kSCStatusFailed;
-	mach_port_t		server;
+	struct os_activity_scope_state_s	activity_state;
+	kern_return_t				kr		= KERN_SUCCESS;
+	CFDataRef				myName;			/* serialized name */
+	xmlData_t				myNameRef;
+	CFIndex					myNameLen;
+	CFDataRef				myOptions	= NULL;	/* serialized options */
+	xmlData_t				myOptionsRef	= NULL;
+	CFIndex					myOptionsLen	= 0;
+	int					sc_status	= kSCStatusFailed;
+	mach_port_t				server;
 
 	if (!_SCSerializeString(storePrivate->name, &myName, (void **)&myNameRef, &myNameLen)) {
 		goto done;
@@ -425,6 +418,8 @@ __SCDynamicStoreAddSession(SCDynamicStorePrivateRef storePrivate)
 
 	updateServerPort(storePrivate, &server, &sc_status);
 
+
+	os_activity_scope_enter(storePrivate->activity, &activity_state);
 
 	while (server != MACH_PORT_NULL) {
 		// if SCDynamicStore server available
@@ -471,6 +466,8 @@ __SCDynamicStoreAddSession(SCDynamicStorePrivateRef storePrivate)
 		updateServerPort(storePrivate, &server, &sc_status);
 	}
 	__MACH_PORT_DEBUG(TRUE, "*** SCDynamicStoreAddSession", storePrivate->server);
+
+	os_activity_scope_leave(&activity_state);
 
 	// clean up
 	CFRelease(myName);
@@ -592,6 +589,7 @@ pushDisconnect(SCDynamicStoreRef store)
 		context_info	= storePrivate->rlsContext.info;
 		context_release	= NULL;
 	}
+	SC_log(LOG_DEBUG, "exec SCDynamicStore disconnect callout");
 	(*disconnectFunction)(store, context_info);
 	if (context_release) {
 		context_release(context_info);
@@ -622,6 +620,7 @@ __SCDynamicStoreReconnectNotifications(SCDynamicStoreRef store)
 			if (storePrivate->rlList != NULL) {
 				rlList = CFArrayCreateCopy(NULL, storePrivate->rlList);
 			}
+			break;
 		case Using_NotifierInformViaDispatch :
 			dispatchQueue = storePrivate->dispatchQueue;
 			if (dispatchQueue != NULL) dispatch_retain(dispatchQueue);

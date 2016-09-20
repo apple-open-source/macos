@@ -26,21 +26,21 @@
 
 namespace WebCore {
 
-class SVGPathSegCurvetoQuadraticRel : public SVGPathSegCurvetoQuadratic {
+class SVGPathSegCurvetoQuadraticRel final : public SVGPathSegCurvetoQuadratic {
 public:
-    static Ref<SVGPathSegCurvetoQuadraticRel> create(SVGPathElement* element, SVGPathSegRole role, float x, float y, float x1, float y1)
+    static Ref<SVGPathSegCurvetoQuadraticRel> create(const SVGPathElement& element, SVGPathSegRole role, float x, float y, float x1, float y1)
     {
         return adoptRef(*new SVGPathSegCurvetoQuadraticRel(element, role, x, y, x1, y1));
     }
 
 private:
-    SVGPathSegCurvetoQuadraticRel(SVGPathElement* element, SVGPathSegRole role, float x, float y, float x1, float y1)
+    SVGPathSegCurvetoQuadraticRel(const SVGPathElement& element, SVGPathSegRole role, float x, float y, float x1, float y1)
         : SVGPathSegCurvetoQuadratic(element, role, x, y, x1, y1)
     {
     }
 
-    virtual unsigned short pathSegType() const override { return PATHSEG_CURVETO_QUADRATIC_REL; }
-    virtual String pathSegTypeAsLetter() const override { return "q"; }
+    unsigned short pathSegType() const override { return PATHSEG_CURVETO_QUADRATIC_REL; }
+    String pathSegTypeAsLetter() const override { return "q"; }
 };
 
 } // namespace WebCore

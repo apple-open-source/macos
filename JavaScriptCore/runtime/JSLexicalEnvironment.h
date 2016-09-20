@@ -39,37 +39,35 @@ namespace JSC {
 class Register;
     
 class JSLexicalEnvironment : public JSEnvironmentRecord {
-private:
+protected:
     JSLexicalEnvironment(VM&, Structure*, JSScope*, SymbolTable*);
     
 public:
     typedef JSEnvironmentRecord Base;
-    static const unsigned StructureFlags = Base::StructureFlags | OverridesGetOwnPropertySlot | OverridesGetPropertyNames;
+    static const unsigned StructureFlags = Base::StructureFlags | OverridesGetOwnPropertySlot | OverridesGetPropertyNames | OverridesToThis;
 
     static JSLexicalEnvironment* create(
-        VM& vm, Structure* structure, JSScope* currentScope, SymbolTable* symbolTable)
+        VM& vm, Structure* structure, JSScope* currentScope, SymbolTable* symbolTable, JSValue initialValue)
     {
         JSLexicalEnvironment* result = 
             new (
                 NotNull,
                 allocateCell<JSLexicalEnvironment>(vm.heap, allocationSize(symbolTable)))
             JSLexicalEnvironment(vm, structure, currentScope, symbolTable);
-        result->finishCreation(vm);
+        result->finishCreation(vm, initialValue);
         return result;
     }
-    
-    static JSLexicalEnvironment* create(VM& vm, CallFrame* callFrame, JSScope* currentScope, CodeBlock* codeBlock)
+
+    static JSLexicalEnvironment* create(VM& vm, JSGlobalObject* globalObject, JSScope* currentScope, SymbolTable* symbolTable, JSValue initialValue)
     {
-        JSGlobalObject* globalObject = callFrame->lexicalGlobalObject();
         Structure* structure = globalObject->activationStructure();
-        SymbolTable* symbolTable = codeBlock->symbolTable();
-        return create(vm, structure, currentScope, symbolTable);
+        return create(vm, structure, currentScope, symbolTable, initialValue);
     }
         
     static bool getOwnPropertySlot(JSObject*, ExecState*, PropertyName, PropertySlot&);
     static void getOwnNonIndexPropertyNames(JSObject*, ExecState*, PropertyNameArray&, EnumerationMode);
 
-    static void put(JSCell*, ExecState*, PropertyName, JSValue, PutPropertySlot&);
+    static bool put(JSCell*, ExecState*, PropertyName, JSValue, PutPropertySlot&);
 
     static bool deleteProperty(JSCell*, ExecState*, PropertyName);
 
@@ -77,14 +75,7 @@ public:
 
     DECLARE_INFO;
 
-    static Structure* createStructure(VM& vm, JSGlobalObject* globalObject) { return Structure::create(vm, globalObject, jsNull(), TypeInfo(ActivationObjectType, StructureFlags), info()); }
-
-private:
-    bool symbolTableGet(PropertyName, PropertySlot&);
-    bool symbolTableGet(PropertyName, PropertyDescriptor&);
-    bool symbolTableGet(PropertyName, PropertySlot&, bool& slotIsWriteable);
-    bool symbolTablePut(ExecState*, PropertyName, JSValue, bool shouldThrow);
-    bool symbolTablePutWithAttributes(VM&, PropertyName, JSValue, unsigned attributes);
+    static Structure* createStructure(VM& vm, JSGlobalObject* globalObject) { return Structure::create(vm, globalObject, jsNull(), TypeInfo(LexicalEnvironmentType, StructureFlags), info()); }
 };
 
 inline JSLexicalEnvironment::JSLexicalEnvironment(VM& vm, Structure* structure, JSScope* currentScope, SymbolTable* symbolTable)
@@ -98,11 +89,6 @@ inline JSLexicalEnvironment* asActivation(JSValue value)
     return jsCast<JSLexicalEnvironment*>(asObject(value));
 }
     
-ALWAYS_INLINE JSLexicalEnvironment* Register::lexicalEnvironment() const
-{
-    return asActivation(jsValue());
-}
-
 } // namespace JSC
 
 #endif // JSLexicalEnvironment_h

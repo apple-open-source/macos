@@ -29,6 +29,7 @@
 #include "APIObject.h"
 #include "MessageReceiver.h"
 #include <wtf/Forward.h>
+#include <wtf/HashCountedSet.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/PassRefPtr.h>
@@ -39,8 +40,10 @@
 
 namespace API {
 class Array;
+class UserContentWorld;
 class UserContentExtension;
 class UserScript;
+class UserStyleSheet;
 }
 
 namespace IPC {
@@ -48,15 +51,13 @@ class DataReference;
 }
 
 namespace WebCore {
-class UserScript;
-class UserStyleSheet;
+struct SecurityOriginData;
 }
 
 namespace WebKit {
 
 class WebProcessProxy;
 class WebScriptMessageHandler;
-struct SecurityOriginData;
 
 class WebUserContentControllerProxy : public API::ObjectImpl<API::Object::Type::UserContentController>, private IPC::MessageReceiver {
 public:
@@ -74,14 +75,22 @@ public:
 
     API::Array& userScripts() { return m_userScripts.get(); }
     void addUserScript(API::UserScript&);
+    void removeUserScript(API::UserScript&);
+    void removeAllUserScripts(API::UserContentWorld&);
     void removeAllUserScripts();
 
-    void addUserStyleSheet(WebCore::UserStyleSheet);
+    API::Array& userStyleSheets() { return m_userStyleSheets.get(); }
+    void addUserStyleSheet(API::UserStyleSheet&);
+    void removeUserStyleSheet(API::UserStyleSheet&);
+    void removeAllUserStyleSheets(API::UserContentWorld&);
     void removeAllUserStyleSheets();
 
+    void removeAllUserContent(API::UserContentWorld&);
+
     // Returns false if there was a name conflict.
-    bool addUserScriptMessageHandler(WebScriptMessageHandler*);
-    void removeUserMessageHandlerForName(const String&);
+    bool addUserScriptMessageHandler(WebScriptMessageHandler&);
+    void removeUserMessageHandlerForName(const String&, API::UserContentWorld&);
+    void removeAllUserMessageHandlers(API::UserContentWorld&);
 
 #if ENABLE(CONTENT_EXTENSIONS)
     void addUserContentExtension(API::UserContentExtension&);
@@ -91,15 +100,21 @@ public:
 
 private:
     // IPC::MessageReceiver.
-    virtual void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
+    void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
 
-    void didPostMessage(IPC::Connection&, uint64_t pageID, uint64_t frameID, const SecurityOriginData&, uint64_t messageHandlerID, const IPC::DataReference&);
+    void didPostMessage(IPC::Connection&, uint64_t pageID, uint64_t frameID, const WebCore::SecurityOriginData&, uint64_t messageHandlerID, const IPC::DataReference&);
+
+    void addUserContentWorldUse(API::UserContentWorld&);
+    void removeUserContentWorldUses(API::UserContentWorld&, unsigned numberOfUsesToRemove);
+    void removeUserContentWorldUses(HashCountedSet<RefPtr<API::UserContentWorld>>&);
+    bool shouldSendRemoveUserContentWorldsMessage(API::UserContentWorld&, unsigned numberOfUsesToRemove);
 
     uint64_t m_identifier;
     HashSet<WebProcessProxy*> m_processes;    
     Ref<API::Array> m_userScripts;
-    Vector<WebCore::UserStyleSheet> m_userStyleSheets;
+    Ref<API::Array> m_userStyleSheets;
     HashMap<uint64_t, RefPtr<WebScriptMessageHandler>> m_scriptMessageHandlers;
+    HashCountedSet<RefPtr<API::UserContentWorld>> m_userContentWorlds;
 
 #if ENABLE(CONTENT_EXTENSIONS)
     HashMap<String, RefPtr<API::UserContentExtension>> m_userContentExtensions;

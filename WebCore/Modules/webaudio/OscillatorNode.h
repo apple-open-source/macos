@@ -28,8 +28,7 @@
 #include "AudioBus.h"
 #include "AudioParam.h"
 #include "AudioScheduledSourceNode.h"
-#include <mutex>
-#include <wtf/PassRefPtr.h>
+#include <wtf/Lock.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
@@ -51,13 +50,13 @@ public:
         CUSTOM = 4
     };
 
-    static Ref<OscillatorNode> create(AudioContext*, float sampleRate);
+    static Ref<OscillatorNode> create(AudioContext&, float sampleRate);
 
     virtual ~OscillatorNode();
     
     // AudioNode
-    virtual void process(size_t framesToProcess) override;
-    virtual void reset() override;
+    void process(size_t framesToProcess) override;
+    void reset() override;
 
     String type() const;
 
@@ -70,15 +69,15 @@ public:
     void setPeriodicWave(PeriodicWave*);
 
 private:
-    OscillatorNode(AudioContext*, float sampleRate);
+    OscillatorNode(AudioContext&, float sampleRate);
 
-    virtual double tailTime() const override { return 0; }
-    virtual double latencyTime() const override { return 0; }
+    double tailTime() const override { return 0; }
+    double latencyTime() const override { return 0; }
 
     // Returns true if there are sample-accurate timeline parameter changes.
     bool calculateSampleAccuratePhaseIncrements(size_t framesToProcess);
 
-    virtual bool propagatesSilence() const override;
+    bool propagatesSilence() const override;
 
     // One of the waveform types defined in the enum.
     unsigned short m_type;
@@ -96,7 +95,7 @@ private:
     double m_virtualReadIndex;
 
     // This synchronizes process().
-    mutable std::mutex m_processMutex;
+    mutable Lock m_processMutex;
 
     // Stores sample-accurate values calculated according to frequency and detune.
     AudioFloatArray m_phaseIncrements;

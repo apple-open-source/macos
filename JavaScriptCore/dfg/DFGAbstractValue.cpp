@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -77,6 +77,8 @@ void AbstractValue::set(Graph& graph, const FrozenValue& value, StructureClobber
 
 void AbstractValue::set(Graph& graph, Structure* structure)
 {
+    RELEASE_ASSERT(structure);
+    
     m_structure = structure;
     m_arrayModes = asArrayModes(structure->indexingType());
     m_type = speculationFromStructure(structure);
@@ -117,6 +119,59 @@ void AbstractValue::setType(Graph& graph, SpeculatedType type)
     checkConsistency();
 }
 
+void AbstractValue::set(Graph& graph, const InferredType::Descriptor& descriptor)
+{
+    switch (descriptor.kind()) {
+    case InferredType::Bottom:
+        clear();
+        return;
+    case InferredType::Boolean:
+        setType(SpecBoolean);
+        return;
+    case InferredType::Other:
+        setType(SpecOther);
+        return;
+    case InferredType::Int32:
+        setType(SpecInt32Only);
+        return;
+    case InferredType::Number:
+        setType(SpecBytecodeNumber);
+        return;
+    case InferredType::String:
+        set(graph, graph.m_vm.stringStructure.get());
+        return;
+    case InferredType::Symbol:
+        set(graph, graph.m_vm.symbolStructure.get());
+        return;
+    case InferredType::ObjectWithStructure:
+        set(graph, descriptor.structure());
+        return;
+    case InferredType::ObjectWithStructureOrOther:
+        set(graph, descriptor.structure());
+        merge(SpecOther);
+        return;
+    case InferredType::Object:
+        setType(graph, SpecObject);
+        return;
+    case InferredType::ObjectOrOther:
+        setType(graph, SpecObject | SpecOther);
+        return;
+    case InferredType::Top:
+        makeHeapTop();
+        return;
+    }
+
+    RELEASE_ASSERT_NOT_REACHED();
+}
+
+void AbstractValue::set(
+    Graph& graph, const InferredType::Descriptor& descriptor, StructureClobberState clobberState)
+{
+    set(graph, descriptor);
+    if (clobberState == StructuresAreClobbered)
+        clobberStructures();
+}
+
 void AbstractValue::fixTypeForRepresentation(Graph& graph, NodeFlags representation, Node* node)
 {
     if (representation == NodeResultDouble) {
@@ -125,23 +180,23 @@ void AbstractValue::fixTypeForRepresentation(Graph& graph, NodeFlags representat
             if (m_value.isInt32())
                 m_value = jsDoubleNumber(m_value.asNumber());
         }
-        if (m_type & SpecMachineInt) {
-            m_type &= ~SpecMachineInt;
-            m_type |= SpecInt52AsDouble;
+        if (m_type & SpecAnyInt) {
+            m_type &= ~SpecAnyInt;
+            m_type |= SpecAnyIntAsDouble;
         }
         if (m_type & ~SpecFullDouble)
             DFG_CRASH(graph, node, toCString("Abstract value ", *this, " for double node has type outside SpecFullDouble.\n").data());
     } else if (representation == NodeResultInt52) {
-        if (m_type & SpecInt52AsDouble) {
-            m_type &= ~SpecInt52AsDouble;
-            m_type |= SpecInt52;
+        if (m_type & SpecAnyIntAsDouble) {
+            m_type &= ~SpecAnyIntAsDouble;
+            m_type |= SpecInt52Only;
         }
-        if (m_type & ~SpecMachineInt)
-            DFG_CRASH(graph, node, toCString("Abstract value ", *this, " for int52 node has type outside SpecMachineInt.\n").data());
+        if (m_type & ~SpecAnyInt)
+            DFG_CRASH(graph, node, toCString("Abstract value ", *this, " for int52 node has type outside SpecAnyInt.\n").data());
     } else {
-        if (m_type & SpecInt52) {
-            m_type &= ~SpecInt52;
-            m_type |= SpecInt52AsDouble;
+        if (m_type & SpecInt52Only) {
+            m_type &= ~SpecInt52Only;
+            m_type |= SpecAnyIntAsDouble;
         }
         if (m_type & ~SpecBytecodeTop)
             DFG_CRASH(graph, node, toCString("Abstract value ", *this, " for value node has type outside SpecBytecodeTop.\n").data());
@@ -189,8 +244,22 @@ bool AbstractValue::mergeOSREntryValue(Graph& graph, JSValue value)
     return oldMe != *this;
 }
 
-FiltrationResult AbstractValue::filter(Graph& graph, const StructureSet& other)
+bool AbstractValue::isType(Graph& graph, const InferredType::Descriptor& inferredType) const
 {
+    AbstractValue typeValue;
+    typeValue.set(graph, inferredType);
+
+    AbstractValue mergedValue = *this;
+    mergedValue.merge(typeValue);
+
+    return mergedValue == typeValue;
+}
+
+FiltrationResult AbstractValue::filter(
+    Graph& graph, const StructureSet& other, SpeculatedType admittedTypes)
+{
+    ASSERT(!(admittedTypes & SpecCell));
+    
     if (isClear())
         return FiltrationOK;
     
@@ -198,7 +267,7 @@ FiltrationResult AbstractValue::filter(Graph& graph, const StructureSet& other)
     // having structures, array modes, or a specific value.
     // https://bugs.webkit.org/show_bug.cgi?id=109663
     
-    m_type &= other.speculationFromStructures();
+    m_type &= other.speculationFromStructures() | admittedTypes;
     m_arrayModes &= other.arrayModesFromStructures();
     m_structure.filter(other);
     
@@ -261,7 +330,7 @@ FiltrationResult AbstractValue::filter(SpeculatedType type)
     // the passed type is Array. At this point we'll have (None, TOP). The best way
     // to ensure that the structure filtering does the right thing is to filter on
     // the new type (None) rather than the one passed (Array).
-    m_structure.filter(type);
+    m_structure.filter(m_type);
     filterArrayModesByType();
     filterValueByType();
     return normalizeClarity();
@@ -313,6 +382,13 @@ FiltrationResult AbstractValue::filter(const AbstractValue& other)
     // We both proved there to be a specific value but they are different.
     clear();
     return Contradiction;
+}
+
+FiltrationResult AbstractValue::filter(Graph& graph, const InferredType::Descriptor& descriptor)
+{
+    AbstractValue filterValue;
+    filterValue.set(graph, descriptor);
+    return filter(filterValue);
 }
 
 void AbstractValue::filterValueByType()
@@ -406,8 +482,8 @@ void AbstractValue::checkConsistency() const
         SpeculatedType type = m_type;
         // This relaxes the assertion below a bit, since we don't know the representation of the
         // node.
-        if (type & SpecInt52)
-            type |= SpecInt52AsDouble;
+        if (type & SpecInt52Only)
+            type |= SpecAnyIntAsDouble;
         ASSERT(mergeSpeculations(type, speculationFromValue(m_value)) == type);
     }
     
@@ -422,6 +498,22 @@ void AbstractValue::assertIsRegistered(Graph& graph) const
     m_structure.assertIsRegistered(graph);
 }
 #endif
+
+ResultType AbstractValue::resultType() const
+{
+    ASSERT(isType(SpecBytecodeTop));
+    if (isType(SpecBoolean))
+        return ResultType::booleanType();
+    if (isType(SpecInt32Only))
+        return ResultType::numberTypeIsInt32();
+    if (isType(SpecBytecodeNumber))
+        return ResultType::numberType();
+    if (isType(SpecString))
+        return ResultType::stringType();
+    if (isType(SpecString | SpecBytecodeNumber))
+        return ResultType::stringOrNumberType();
+    return ResultType::unknownType();
+}
 
 void AbstractValue::dump(PrintStream& out) const
 {

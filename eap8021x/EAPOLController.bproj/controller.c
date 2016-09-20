@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -55,6 +55,9 @@
 #include <CoreFoundation/CFDictionary.h>
 #include <CoreFoundation/CFMachPort.h>
 #include <CoreFoundation/CFRunLoop.h>
+#if TARGET_OS_EMBEDDED
+#include <CoreTelephony/CTServerConnectionPriv.h>
+#endif
 #include <SystemConfiguration/SCDPlugin.h>
 #include <TargetConditionals.h>
 #include <EAP8021X/myCFUtil.h>
@@ -67,12 +70,16 @@
 #include "EAPOLControlPrivate.h"
 #include "EAPOLControlTypesPrivate.h"
 #endif /* ! TARGET_OS_EMBEDDED */
+#if TARGET_OS_EMBEDDED
+#include "EAPOLSIMPrefsManage.h"
+#endif
 #include "ClientControlInterface.h"
 #include "EAPOLControlTypes.h"
 #include "EAPClientProperties.h"
 #include "eapol_socket.h"
 #include "EAPLog.h"
 #include "EAPOLControlPrefs.h"
+#include "EAP.h"
 
 #ifndef kSCEntNetRefreshConfiguration
 #define kSCEntNetRefreshConfiguration	CFSTR("RefreshConfiguration")
@@ -113,6 +120,7 @@ typedef struct eapolClient_s {
     mach_port_t			notify_port;
     mach_port_t			bootstrap;
     mach_port_t			au_session;
+    boolean_t 			ports_provided;
     CFMachPortRef		session_cfport;
     boolean_t			notification_sent;
     boolean_t			retry;
@@ -142,6 +150,8 @@ is_console_user(uid_t check_uid)
 {
     return (TRUE);
 }
+
+static CTServerConnectionRef	S_ct_server_conn = NULL;
 
 #else /* TARGET_OS_EMBEDDED */
 
@@ -408,6 +418,7 @@ eapolClientInvalidate(eapolClientRef client)
     client->notification_sent = FALSE;
     client->console_user = FALSE;
     client->user_input_provided = FALSE;
+    client->ports_provided = FALSE;
 #if ! TARGET_OS_EMBEDDED
     client->packet_identifier = BAD_IDENTIFIER;
 #endif /* ! TARGET_OS_EMBEDDED */
@@ -542,7 +553,6 @@ eapolClientExited(eapolClientRef client, EAPOLControlMode mode)
  ** 802.1X socket monitoring routines
  **/
 
-#include "EAP.h"
 #include "EAPOLUtil.h"
 
 #define ALIGNED_BUF(name, size, type)	type 	name[(size) / (sizeof(type))]
@@ -802,7 +812,7 @@ open_eapol_socket(eapolClientRef client)
 }
 
 static int
-eapolClientStart(eapolClientRef client, uid_t uid, gid_t gid, 
+eapolClientStart(eapolClientRef client, uid_t uid, gid_t gid,
 		 CFDictionaryRef config_dict, mach_port_t bootstrap,
 		 mach_port_t au_session)
 {
@@ -1421,13 +1431,40 @@ ControllerDidUserCancel(if_name_t if_name)
 
 #endif /* ! TARGET_OS_EMBEDDED */
 
+void
+ControllerClientGetSession(pid_t pid, if_name_t if_name,
+			 mach_port_t * bootstrap,
+			 mach_port_t * au_session)
+{
+    eapolClientRef client;
+    
+    *bootstrap = MACH_PORT_NULL;
+    *au_session = MACH_PORT_NULL;
+    client = eapolClientLookupInterface(if_name);
+    if (client == NULL) {
+	goto failed;
+    }
+    if (pid != client->pid) {
+	goto failed;
+    }
+    if (client->session_cfport != NULL) {
+	goto failed;
+    }
+    if (client->ports_provided == FALSE) {
+	*bootstrap = client->bootstrap;
+	*au_session = client->au_session;
+	client->ports_provided = TRUE;
+    }
+
+ failed:
+    return;
+}
+
 int
 ControllerClientAttach(pid_t pid, if_name_t if_name,
 		       mach_port_t notify_port,
 		       mach_port_t * session_port,
-		       CFDictionaryRef * control_dict,
-		       mach_port_t * bootstrap,
-		       mach_port_t * au_session)
+		       CFDictionaryRef * control_dict)
 {
     CFMutableDictionaryRef	dict;
     CFNumberRef			command_cf;
@@ -1491,8 +1528,6 @@ ControllerClientAttach(pid_t pid, if_name_t if_name,
     CFRelease(command_cf);
     *control_dict = dict;
     eapolClientSetState(client, kEAPOLControlStateRunning);
-    *bootstrap = client->bootstrap;
-    *au_session = client->au_session;
 #if ! TARGET_OS_EMBEDDED
     if (client->mode == kEAPOLControlModeLoginWindow) {
 	set_loginwindow_config(client);
@@ -1502,7 +1537,6 @@ ControllerClientAttach(pid_t pid, if_name_t if_name,
  failed:
     (void)mach_port_deallocate(mach_task_self(), notify_port);
     return (result);
-
 }
 
 int
@@ -1633,6 +1667,111 @@ ControllerClientUserCancelled(mach_port_t session_port)
 
 
 #if TARGET_OS_EMBEDDED
+
+static Boolean
+accept_types_valid_aka_or_sim(CFArrayRef accept)
+{
+	CFIndex			count;
+	CFNumberRef		type;
+	int				eap_num;
+
+	if (isA_CFArray(accept) == NULL) {
+		return (FALSE);
+	}
+	count = CFArrayGetCount(accept);
+	if (count == 0) {
+		return (FALSE);
+	}
+	type = CFArrayGetValueAtIndex(accept, 0);
+	if (isA_CFNumber(type) == NULL) {
+		return (FALSE);
+	}
+	/* check if kEAPTypeEAPSIM or kEAPTypeEAPAKA */
+	if (CFNumberGetValue(type, kCFNumberIntType, &eap_num) == TRUE) {
+		if (eap_num == kEAPTypeEAPSIM || eap_num == kEAPTypeEAPAKA) {
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+void
+sim_status_changed(CTServerConnectionRef connection,
+						 CFStringRef notification,
+						 CFDictionaryRef notification_info,
+						 void * info)
+{
+    if (notification == NULL || notification_info == NULL) {
+	return;
+    }
+    if (CFEqual(notification,
+                kCTSIMSupportSIMStatusChangeNotification) == FALSE) {
+	return;
+    }
+    CFStringRef status = (CFStringRef)CFDictionaryGetValue(notification_info,
+                                                           kCTSIMSupportSIMStatus);
+    if (status == NULL) {
+	return;
+    }
+    if (CFEqual(status, kCTSIMSupportSIMStatusNotInserted) == FALSE) {
+	return;
+    }
+    EAPLOG_FL(LOG_INFO, "SIM card ejected");
+	eapolClientRef	client;
+	LIST_FOREACH(client, S_clientHead_p, link) {
+    if (client->state == kEAPOLControlStateStarting ||
+		client->state == kEAPOLControlStateRunning) {
+	CFDictionaryRef cli_config = NULL;
+
+	cli_config = CFDictionaryGetValue(client->config_dict,
+					  kEAPOLControlEAPClientConfiguration);
+	if (isA_CFDictionary(cli_config) != NULL) {
+	    CFArrayRef accept_types = NULL;
+                                                
+	    accept_types = CFDictionaryGetValue(cli_config,
+						kEAPClientPropAcceptEAPTypes);
+	    if (accept_types_valid_aka_or_sim(accept_types) == TRUE) {
+		/* stop the eapolclient */
+		EAPLOG_FL(LOG_NOTICE, "stopping eapolclient.");
+		eapolClientStop(client);
+	    }
+	}
+   }
+   }
+
+   /* increment the geration ID in SC prefs so eapclient would know
+    * that SIM was removed and not to use the stored info.
+    */
+    EAPOLSIMGenerationIncrement();
+}
+
+static void
+register_sim_removal(void)
+{
+    CTError 			cterr;
+    _CTServerConnectionContext	ctx = {	0, NULL, NULL, NULL, NULL };
+
+	S_ct_server_conn = _CTServerConnectionCreate(NULL,
+						 sim_status_changed,
+						 &ctx);
+    if (S_ct_server_conn == NULL) {
+	EAPLOG_FL(LOG_NOTICE,
+		  "_CTServerConnectionCreate failed.");
+	return;
+    }
+    cterr = _CTServerConnectionRegisterForNotification(S_ct_server_conn,
+						       kCTSIMSupportSIMStatusChangeNotification);
+    if (cterr.error) {
+	EAPLOG_FL(LOG_NOTICE,
+		  "_CTServerConnectionRegisterForNotification failed with "
+		  "error: %d", (int)cterr.error);
+	CFRelease(S_ct_server_conn);
+	S_ct_server_conn = NULL;
+    }
+    _CTServerConnectionAddToRunLoop(S_ct_server_conn, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
+    return;
+}
+
 static SCDynamicStoreRef
 dynamic_store_create(void)
 {
@@ -2379,7 +2518,6 @@ check_prefs(SCPreferencesRef prefs)
     uint32_t	log_flags;
 
     log_flags = EAPOLControlPrefsGetLogFlags();
-    EAPLogSetVerbose(log_flags != 0);
     EAPOLControlPrefsSynchronize();
     return;
 }
@@ -2395,7 +2533,10 @@ load(CFBundleRef bundle, Boolean bundleVerbose)
     SCPreferencesRef	prefs;
     CFURLRef		url;
 
-    prefs = EAPOLControlPrefsInit(CFRunLoopGetCurrent(), check_prefs);
+    /* Initialize logging category for EAPOL Controller */
+    EAPLogInit(kEAPLogCategoryController);
+
+	prefs = EAPOLControlPrefsInit(CFRunLoopGetCurrent(), check_prefs);
     check_prefs(prefs);
     /* get a path to eapolclient */
     url = CFBundleCopyResourceURL(bundle, CFSTR("eapolclient"), NULL, NULL);
@@ -2426,6 +2567,9 @@ start(const char *bundleName, const char *bundleDir)
     }
     LIST_INIT(S_clientHead_p);
     S_store = dynamic_store_create();
+#if TARGET_OS_EMBEDDED
+    register_sim_removal();
+#endif
     return;
 }
 

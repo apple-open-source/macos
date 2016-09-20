@@ -54,6 +54,7 @@
 #include "WebRenderObject.h"
 #include <WebCore/AXObjectCache.h>
 #include <WebCore/AccessibilityObject.h>
+#include <WebCore/ApplicationCacheStorage.h>
 #include <WebCore/MainFrame.h>
 #include <WebCore/Page.h>
 #include <WebCore/PageOverlay.h>
@@ -173,7 +174,7 @@ WKBundleFrameRef WKBundlePageGetMainFrame(WKBundlePageRef pageRef)
 void WKBundlePageClickMenuItem(WKBundlePageRef pageRef, WKContextMenuItemRef item)
 {
 #if ENABLE(CONTEXT_MENUS)
-    toImpl(pageRef)->contextMenu()->itemSelected(*toImpl(item)->data());
+    toImpl(pageRef)->contextMenu()->itemSelected(toImpl(item)->data());
 #else
     UNUSED_PARAM(pageRef);
     UNUSED_PARAM(item);
@@ -191,7 +192,7 @@ static PassRefPtr<API::Array> contextMenuItems(const WebContextMenu& contextMenu
     for (const auto& item : items)
         menuItems.uncheckedAppend(WebContextMenuItem::create(item));
 
-    return API::Array::create(WTF::move(menuItems));
+    return API::Array::create(WTFMove(menuItems));
 }
 #endif
 
@@ -220,6 +221,11 @@ WKArrayRef WKBundlePageCopyContextMenuAtPointInWindow(WKBundlePageRef pageRef, W
     UNUSED_PARAM(point);
     return nullptr;
 #endif
+}
+
+void WKBundlePageInsertNewlineInQuotedContent(WKBundlePageRef pageRef)
+{
+    toImpl(pageRef)->insertNewlineInQuotedContent();
 }
 
 void* WKAccessibilityRootObject(WKBundlePageRef pageRef)
@@ -428,7 +434,7 @@ bool WKBundlePageFindString(WKBundlePageRef pageRef, WKStringRef target, WKFindO
 WKImageRef WKBundlePageCreateSnapshotWithOptions(WKBundlePageRef pageRef, WKRect rect, WKSnapshotOptions options)
 {
     RefPtr<WebImage> webImage = toImpl(pageRef)->scaledSnapshotWithOptions(toIntRect(rect), 1, toSnapshotOptions(options));
-    return toAPI(webImage.release().leakRef());
+    return toAPI(webImage.leakRef());
 }
 
 WKImageRef WKBundlePageCreateSnapshotInViewCoordinates(WKBundlePageRef pageRef, WKRect rect, WKImageOptions options)
@@ -436,19 +442,19 @@ WKImageRef WKBundlePageCreateSnapshotInViewCoordinates(WKBundlePageRef pageRef, 
     SnapshotOptions snapshotOptions = snapshotOptionsFromImageOptions(options);
     snapshotOptions |= SnapshotOptionsInViewCoordinates;
     RefPtr<WebImage> webImage = toImpl(pageRef)->scaledSnapshotWithOptions(toIntRect(rect), 1, snapshotOptions);
-    return toAPI(webImage.release().leakRef());
+    return toAPI(webImage.leakRef());
 }
 
 WKImageRef WKBundlePageCreateSnapshotInDocumentCoordinates(WKBundlePageRef pageRef, WKRect rect, WKImageOptions options)
 {
     RefPtr<WebImage> webImage = toImpl(pageRef)->scaledSnapshotWithOptions(toIntRect(rect), 1, snapshotOptionsFromImageOptions(options));
-    return toAPI(webImage.release().leakRef());
+    return toAPI(webImage.leakRef());
 }
 
 WKImageRef WKBundlePageCreateScaledSnapshotInDocumentCoordinates(WKBundlePageRef pageRef, WKRect rect, double scaleFactor, WKImageOptions options)
 {
     RefPtr<WebImage> webImage = toImpl(pageRef)->scaledSnapshotWithOptions(toIntRect(rect), scaleFactor, snapshotOptionsFromImageOptions(options));
-    return toAPI(webImage.release().leakRef());
+    return toAPI(webImage.leakRef());
 }
 
 double WKBundlePageGetBackingScaleFactor(WKBundlePageRef pageRef)
@@ -567,6 +573,11 @@ bool WKBundlePageIsUsingEphemeralSession(WKBundlePageRef pageRef)
     return toImpl(pageRef)->usesEphemeralSession();
 }
 
+bool WKBundlePageIsControlledByAutomation(WKBundlePageRef pageRef)
+{
+    return toImpl(pageRef)->isControlledByAutomation();
+}
+
 #if TARGET_OS_IPHONE
 void WKBundlePageSetUseTestingViewportConfiguration(WKBundlePageRef pageRef, bool useTestingViewportConfiguration)
 {
@@ -605,11 +616,77 @@ void WKBundlePagePostMessage(WKBundlePageRef pageRef, WKStringRef messageNameRef
     toImpl(pageRef)->postMessage(toWTFString(messageNameRef), toImpl(messageBodyRef));
 }
 
-void WKBundlePagePostSynchronousMessage(WKBundlePageRef pageRef, WKStringRef messageNameRef, WKTypeRef messageBodyRef, WKTypeRef* returnDataRef)
+void WKBundlePagePostSynchronousMessageForTesting(WKBundlePageRef pageRef, WKStringRef messageNameRef, WKTypeRef messageBodyRef, WKTypeRef* returnDataRef)
 {
+    WebPage* page = toImpl(pageRef);
+    page->layoutIfNeeded();
+
     RefPtr<API::Object> returnData;
-    toImpl(pageRef)->postSynchronousMessage(toWTFString(messageNameRef), toImpl(messageBodyRef), returnData);
+    page->postSynchronousMessageForTesting(toWTFString(messageNameRef), toImpl(messageBodyRef), returnData);
     if (returnDataRef)
-        *returnDataRef = toAPI(returnData.release().leakRef());
+        *returnDataRef = toAPI(returnData.leakRef());
 }
 
+void WKBundlePageAddUserScript(WKBundlePageRef pageRef, WKStringRef source, _WKUserScriptInjectionTime injectionTime, WKUserContentInjectedFrames injectedFrames)
+{
+    toImpl(pageRef)->addUserScript(toWTFString(source), toUserContentInjectedFrames(injectedFrames), toUserScriptInjectionTime(injectionTime));
+}
+
+void WKBundlePageAddUserStyleSheet(WKBundlePageRef pageRef, WKStringRef source, WKUserContentInjectedFrames injectedFrames)
+{
+    toImpl(pageRef)->addUserStyleSheet(toWTFString(source), toUserContentInjectedFrames(injectedFrames));
+}
+
+void WKBundlePageRemoveAllUserContent(WKBundlePageRef pageRef)
+{
+    toImpl(pageRef)->removeAllUserContent();
+}
+
+WKStringRef WKBundlePageCopyGroupIdentifier(WKBundlePageRef pageRef)
+{
+    return toCopiedAPI(toImpl(pageRef)->pageGroup()->identifier());
+}
+
+void WKBundlePageClearApplicationCache(WKBundlePageRef page)
+{
+    toImpl(page)->corePage()->applicationCacheStorage().deleteAllEntries();
+}
+
+void WKBundlePageClearApplicationCacheForOrigin(WKBundlePageRef page, WKStringRef origin)
+{
+    toImpl(page)->corePage()->applicationCacheStorage().deleteCacheForOrigin(WebCore::SecurityOrigin::createFromString(toImpl(origin)->string()));
+}
+
+void WKBundlePageSetAppCacheMaximumSize(WKBundlePageRef page, uint64_t size)
+{
+    toImpl(page)->corePage()->applicationCacheStorage().setMaximumSize(size);
+}
+
+uint64_t WKBundlePageGetAppCacheUsageForOrigin(WKBundlePageRef page, WKStringRef origin)
+{
+    return toImpl(page)->corePage()->applicationCacheStorage().diskUsageForOrigin(WebCore::SecurityOrigin::createFromString(toImpl(origin)->string()));
+}
+
+void WKBundlePageSetApplicationCacheOriginQuota(WKBundlePageRef page, WKStringRef origin, uint64_t bytes)
+{
+    toImpl(page)->corePage()->applicationCacheStorage().storeUpdatedQuotaForOrigin(WebCore::SecurityOrigin::createFromString(toImpl(origin)->string()).ptr(), bytes);
+}
+
+void WKBundlePageResetApplicationCacheOriginQuota(WKBundlePageRef page, WKStringRef origin)
+{
+    toImpl(page)->corePage()->applicationCacheStorage().storeUpdatedQuotaForOrigin(WebCore::SecurityOrigin::createFromString(toImpl(origin)->string()).ptr(), toImpl(page)->corePage()->applicationCacheStorage().defaultOriginQuota());
+}
+
+WKArrayRef WKBundlePageCopyOriginsWithApplicationCache(WKBundlePageRef page)
+{
+    HashSet<RefPtr<WebCore::SecurityOrigin>> origins;
+    toImpl(page)->corePage()->applicationCacheStorage().getOriginsWithCache(origins);
+
+    Vector<RefPtr<API::Object>> originIdentifiers;
+    originIdentifiers.reserveInitialCapacity(origins.size());
+
+    for (const auto& origin : origins)
+        originIdentifiers.uncheckedAppend(API::String::create(origin->databaseIdentifier()));
+
+    return toAPI(&API::Array::create(WTFMove(originIdentifiers)).leakRef());
+}

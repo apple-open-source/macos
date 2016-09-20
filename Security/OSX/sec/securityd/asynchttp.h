@@ -55,11 +55,11 @@ typedef struct asynchttp_s {
 
 /* Return false if work was scheduled and the callback will be invoked,
    true if it wasn't or the callback was already called. */
-bool asyncHttpPost(CFURLRef cfUrl, CFDataRef postData, asynchttp_t *http);
+bool asyncHttpPost(CFURLRef cfUrl, CFDataRef postData, uint64_t timeout, asynchttp_t *http);
 
 /* Caller owns struct pointed to by http, but is responsible for calling
    asynchttp_free() when it's done with it. */
-bool asynchttp_request(CFHTTPMessageRef request, asynchttp_t *http);
+bool asynchttp_request(CFHTTPMessageRef request, uint64_t timeout, asynchttp_t *http);
 void asynchttp_free(asynchttp_t *http);
 
 /* */

@@ -30,8 +30,8 @@
 
 #include "VisibleContentRectUpdateInfo.h"
 #include <wtf/HashMap.h>
+#include <wtf/Lock.h>
 #include <wtf/Ref.h>
-#include <wtf/SpinLock.h>
 
 namespace WebKit {
 
@@ -45,7 +45,7 @@ public:
 private:
     ViewUpdateDispatcher();
     // IPC::Connection::WorkQueueMessageReceiver.
-    virtual void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
+    void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
 
     void visibleContentRectUpdate(uint64_t pageID, const VisibleContentRectUpdateInfo&);
 
@@ -57,7 +57,7 @@ private:
     };
 
     Ref<WorkQueue> m_queue;
-    SpinLock m_dataMutex;
+    Lock m_dataMutex;
     HashMap<uint64_t, UpdateData> m_latestUpdate;
 };
 

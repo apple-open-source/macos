@@ -334,12 +334,15 @@ void rpc_sm_free
 /*    rpc_sm_get_thread_handle                                                */
 /*                                                                            */
 /******************************************************************************/
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 rpc_ss_thread_handle_t rpc_sm_get_thread_handle
 ( error_status_t *p_st )
 {
     *p_st = error_status_ok;
     return rpc_ss_get_thread_handle();
 }
+#endif
 
 /******************************************************************************/
 /*                                                                            */
@@ -366,6 +369,8 @@ void rpc_sm_set_client_alloc_free
 /*    rpc_sm_set_thread_handle                                                */
 /*                                                                            */
 /******************************************************************************/
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 void rpc_sm_set_thread_handle
 (
     rpc_ss_thread_handle_t thread_handle,
@@ -379,6 +384,7 @@ void rpc_sm_set_thread_handle
         *p_st = rpc_s_no_memory;
     DCETHREAD_ENDTRY
 }
+#endif
 
 /******************************************************************************/
 /*                                                                            */

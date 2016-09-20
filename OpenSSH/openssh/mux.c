@@ -1,4 +1,4 @@
-/* $OpenBSD: mux.c,v 1.53 2015/05/01 04:03:20 djm Exp $ */
+/* $OpenBSD: mux.c,v 1.58 2016/01/13 23:04:47 djm Exp $ */
 /*
  * Copyright (c) 2002-2008 Damien Miller <djm@openbsd.org>
  *
@@ -665,6 +665,8 @@ process_mux_open_fwd(u_int rid, Channel *c, Buffer *m, Buffer *r)
 	u_int lport, cport;
 	int i, ret = 0, freefwd = 1;
 
+	memset(&fwd, 0, sizeof(fwd));
+
 	/* XXX - lport/cport check redundant */
 	if (buffer_get_int_ret(&ftype, m) != 0 ||
 	    (listen_addr = buffer_get_string_ret(m, NULL)) == NULL ||
@@ -831,6 +833,8 @@ process_mux_close_fwd(u_int rid, Channel *c, Buffer *m, Buffer *r)
 	u_int ftype;
 	int i, ret = 0;
 	u_int lport, cport;
+
+	memset(&fwd, 0, sizeof(fwd));
 
 	if (buffer_get_int_ret(&ftype, m) != 0 ||
 	    (listen_addr = buffer_get_string_ret(m, NULL)) == NULL ||
@@ -1350,16 +1354,18 @@ mux_session_confirm(int id, int success, void *arg)
 		char *proto, *data;
 
 		/* Get reasonable local authentication information. */
-		client_x11_get_proto(display, options.xauth_location,
+		if (client_x11_get_proto(display, options.xauth_location,
 		    options.forward_x11_trusted, options.forward_x11_timeout,
-		    &proto, &data);
-		/* Request forwarding with authentication spoofing. */
-		debug("Requesting X11 forwarding with authentication "
-		    "spoofing.");
-		x11_request_forwarding_with_spoofing(id, display, proto,
-		    data, 1);
-		client_expect_confirm(id, "X11 forwarding", CONFIRM_WARN);
-		/* XXX exit_on_forward_failure */
+		    &proto, &data) == 0) {
+			/* Request forwarding with authentication spoofing. */
+			debug("Requesting X11 forwarding with authentication "
+			    "spoofing.");
+			x11_request_forwarding_with_spoofing(id, display, proto,
+			    data, 1);
+			/* XXX exit_on_forward_failure */
+			client_expect_confirm(id, "X11 forwarding",
+			    CONFIRM_WARN);
+		}
 	}
 
 	if (cctx->want_agent_fwd && options.forward_agent) {
@@ -1740,7 +1746,7 @@ mux_client_forward(int fd, int cancel_flag, u_int ftype, struct Forward *fwd)
 		    fwd->connect_host ? fwd->connect_host : "",
 		    fwd->connect_port);
 		if (muxclient_command == SSHMUX_COMMAND_FORWARD)
-			fprintf(stdout, "%u\n", fwd->allocated_port);
+			fprintf(stdout, "%i\n", fwd->allocated_port);
 		break;
 	case MUX_S_PERMISSION_DENIED:
 		e = buffer_get_string(&m, NULL);
@@ -1885,6 +1891,10 @@ mux_client_request_session(int fd)
 	}
 	muxclient_request_id++;
 
+	if (pledge("stdio proc tty", NULL) == -1)
+		fatal("%s pledge(): %s", __func__, strerror(errno));
+	platform_pledge_mux();
+
 	signal(SIGHUP, control_client_sighandler);
 	signal(SIGINT, control_client_sighandler);
 	signal(SIGTERM, control_client_sighandler);
@@ -1991,6 +2001,10 @@ mux_client_request_stdio_fwd(int fd)
 	if (mm_send_fd(fd, STDIN_FILENO) == -1 ||
 	    mm_send_fd(fd, STDOUT_FILENO) == -1)
 		fatal("%s: send fds failed", __func__);
+
+	if (pledge("stdio proc tty", NULL) == -1)
+		fatal("%s pledge(): %s", __func__, strerror(errno));
+	platform_pledge_mux();
 
 	debug3("%s: stdio forward request sent", __func__);
 
@@ -2165,7 +2179,7 @@ muxclient(const char *path)
 	case SSHMUX_COMMAND_ALIVE_CHECK:
 		if ((pid = mux_client_request_alive(sock)) == 0)
 			fatal("%s: master alive check failed", __func__);
-		fprintf(stderr, "Master running (pid=%d)\r\n", pid);
+		fprintf(stderr, "Master running (pid=%u)\r\n", pid);
 		exit(0);
 	case SSHMUX_COMMAND_TERMINATE:
 		mux_client_request_terminate(sock);

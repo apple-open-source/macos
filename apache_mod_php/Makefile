@@ -1,6 +1,6 @@
 #
 # Apple wrapper Makefile for PHP
-# Copyright (c) 2008-2015 Apple Inc. All Rights Reserved.
+# Copyright (c) 2008-2016 Apple Inc. All Rights Reserved.
 ##
 #
 
@@ -25,9 +25,6 @@ SDKROOT = $(shell xcrun --show-sdk-path --sdk macosx.internal)
 SDK = -isysroot $(SDKROOT)
 APXS = $(shell xcrun -find -sdk $(SDKROOT) apxs)
 SDKUSRDIR = $(SDKROOT)$(USRDIR)
-OPENSSL_INCDIR = /usr/local/libressl/include
-OPENSSL_LIBDIR = /usr/lib 
-OPENSSL_DIRS = "$(OPENSSL_INCDIR) $(OPENSSL_LIBDIR)"
 			
 # This allows extra variables to be passed _just_ to configure.
 Extra_Configure_Environment	= CFLAGS="$$RC_CFLAGS -Os -g $(SDK) -I$(SDKROOT)/usr/include -I$(SDKROOT)/usr/include/apache2" \
@@ -47,9 +44,8 @@ Extra_Configure_Flags	= --sysconfdir=$(ETCDIR) \
 			--enable-cli \
 			--with-iconv=$(SDKUSRDIR) \
 			--with-config-file-path=/etc \
-			--with-config-file-scan-dir=/Library/Server/Web/Config/php \
 			--with-libxml-dir=$(SDKUSRDIR) \
-			--with-openssl=$(OPENSSL_DIRS) \
+			--with-openssl=yes \
 			--with-kerberos=$(SDKUSRDIR) \
 			--with-zlib=$(SDKUSRDIR) \
 			--enable-bcmath \
@@ -99,7 +95,8 @@ AEP		= NO
 AEP_LicenseFile	= $(Sources)/LICENSE
 AEP_Patches	=  \
 			MacOSX_build.patch \
-			iconv.patch pear.patch phar.patch
+			iconv.patch pear.patch phar.patch \
+			libressl.patch
 AEP_ConfigDir	= $(ETCDIR)
 AEP_Binaries	= $(shell $(USRSBINDIR)/apxs -q LIBEXECDIR)/*.so $(USRBINDIR)/php $(USRSBINDIR)/php-fpm
 AEP_ManPages	= pear.1 phar.1 phar.phar.1

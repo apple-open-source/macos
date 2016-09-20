@@ -278,13 +278,13 @@ static void tests(void)
     for (int testnumber = 0; testnumber < array_size(test_cases); ++testnumber)
         one_test(test_cases + testnumber, testnumber);
 
-    testWithUnguardedZuluCalendar();
-    testDoWithZulu();
+    // testWithUnguardedZuluCalendar();
+    // testDoWithZulu();
 }
 
 int su_16_cfdate_der(int argc, char *const *argv)
 {
-    plan_tests(kTestCount+2);
+    plan_tests(kTestCount);
     tests();
 
     return 0;

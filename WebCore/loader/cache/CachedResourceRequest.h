@@ -60,9 +60,12 @@ public:
     void setInitiator(PassRefPtr<Element>);
     void setInitiator(const AtomicString& name);
     const AtomicString& initiatorName() const;
+    bool allowsCaching() const { return m_options.cachingPolicy() == CachingPolicy::AllowCaching; }
 
     void setInitiator(DocumentLoader&);
     DocumentLoader* initiatingDocumentLoader() const { return m_initiatingDocumentLoader.get(); }
+
+    void setAsPotentiallyCrossOrigin(const String&, Document&);
 
 private:
     ResourceRequest m_resourceRequest;

@@ -62,7 +62,7 @@ inline double new_double = 2.34567890;
 inline long double new_long_double = 3.567890123;
 */
 
-inline unsigned int * pointer = &`max_ncpus;
+inline unsigned int * pointer = &`real_ncpus;
 inline int result = 3 > 2 ? 3 : 2;
 
 BEGIN

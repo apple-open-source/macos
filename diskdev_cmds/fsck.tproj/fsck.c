@@ -826,9 +826,10 @@ void catchsig(int sig) {
 int fs_checkable(struct fstab *fsp) {
 	
 	/*
-	 * HFS, MSDOS, exfat, and UDF are allowed for now. 
+	 * APFS, HFS, MSDOS, exfat, and UDF are allowed for now.
 	 */
-	if (strcmp(fsp->fs_vfstype, "hfs")	&&
+	if (strcmp(fsp->fs_vfstype, "apfs") &&
+		strcmp(fsp->fs_vfstype, "hfs")	&&
 		strcmp(fsp->fs_vfstype, "msdos") &&
 		strcmp(fsp->fs_vfstype, "exfat") && 
 	    strcmp(fsp->fs_vfstype, "udf"))	{

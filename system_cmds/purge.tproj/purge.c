@@ -22,14 +22,15 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <sys/syscall.h>
 #include <unistd.h>
 #include <stdio.h>
+
+extern int vfs_purge(void);
 
 int
 main(int argc, char **argv)
 {
-	int rv = syscall(SYS_vfs_purge);
+	int rv = vfs_purge();
 
 	if (rv) {
 		perror("Unable to purge disk buffers");

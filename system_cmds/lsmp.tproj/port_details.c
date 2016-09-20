@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-20014 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <libproc.h>
+#include <assert.h>
 #include <mach/mach.h>
 #include <mach/mach_voucher.h>
 #include "common.h"
@@ -82,15 +83,16 @@ static uint8_t voucher_contents[voucher_contents_size];
 
 
 static uint32_t safesize (int len){
-    return (len > 0)? len : 0;
+    return (len > 0) ? len : 0;
 }
 
-void show_recipe_detail(mach_voucher_attr_recipe_t recipe, char *voucher_outstr, uint32_t maxlen) {
+uint32_t show_recipe_detail(mach_voucher_attr_recipe_t recipe, char *voucher_outstr, uint32_t maxlen) {
     uint32_t len = 0;
     len += safesize(snprintf(&voucher_outstr[len], maxlen - len, VOUCHER_DETAIL_PREFIX "Key: %u, ", recipe->key));
     len += safesize(snprintf(&voucher_outstr[len], maxlen - len, "Command: %u, ", recipe->command));
     len += safesize(snprintf(&voucher_outstr[len], maxlen - len, "Previous voucher: 0x%x, ", recipe->previous_voucher));
     len += safesize(snprintf(&voucher_outstr[len], maxlen - len, "Content size: %u\n", recipe->content_size));
+
     switch (recipe->key) {
         case MACH_VOUCHER_ATTR_KEY_ATM:
             len += safesize(snprintf(&voucher_outstr[len], maxlen - len, VOUCHER_DETAIL_PREFIX "ATM ID: %llu\n", *(uint64_t *)(uintptr_t)recipe->content));
@@ -102,10 +104,11 @@ void show_recipe_detail(mach_voucher_attr_recipe_t recipe, char *voucher_outstr,
             len += safesize(snprintf(&voucher_outstr[len], maxlen - len, VOUCHER_DETAIL_PREFIX "RESOURCE ACCOUNTING INFO: %s\n", (char *)recipe->content));
             break;
         default:
-            print_hex_data(&voucher_outstr[len], maxlen - len, VOUCHER_DETAIL_PREFIX, "Recipe Contents", (void *)recipe->content, MIN(recipe->content_size, lsmp_config.voucher_detail_length));
+            len += print_hex_data(&voucher_outstr[len], maxlen - len, VOUCHER_DETAIL_PREFIX, "Recipe Contents", (void *)recipe->content, MIN(recipe->content_size, lsmp_config.voucher_detail_length));
             break;
     }
 
+	return len;
 }
 
 
@@ -144,14 +147,14 @@ char * copy_voucher_detail(mach_port_t task, mach_port_name_t voucher) {
         while (recipe_size > used_size) {
             recipe = (mach_voucher_attr_recipe_t)&voucher_contents[used_size];
             if (recipe->key) {
-                show_recipe_detail(recipe, &voucher_outstr[plen], detail_maxlen - plen);
+                plen += show_recipe_detail(recipe, &voucher_outstr[plen], detail_maxlen - plen);
             }
             used_size += sizeof(mach_voucher_attr_recipe_data_t) + recipe->content_size;
         }
     } else {
         plen += safesize(snprintf(&voucher_outstr[plen], detail_maxlen - plen, VOUCHER_DETAIL_PREFIX "Invalid voucher: 0x%x\n", voucher));
     }
-    
+
     return voucher_outstr;
 }
 
@@ -159,7 +162,7 @@ void get_receive_port_context(task_t taskp, mach_port_name_t portname, mach_port
 	if (context == NULL) {
 		return;
 	}
-    
+
 	kern_return_t ret;
 	ret = mach_port_get_context(taskp, portname, context);
 	if (ret != KERN_SUCCESS) {
@@ -189,7 +192,7 @@ int get_recieve_port_status(task_t taskp, mach_port_name_t portname, mach_port_i
                 mach_error_string(ret));
         return -1;
     }
-    
+
     return 0;
 }
 
@@ -198,7 +201,7 @@ void show_task_mach_ports(my_per_task_info_t *taskinfo, uint32_t taskCount, my_p
     int i, emptycount = 0, portsetcount = 0, sendcount = 0, receivecount = 0, sendoncecount = 0, deadcount = 0, dncount = 0, vouchercount = 0, pid;
     kern_return_t ret;
     pid_for_task(taskinfo->task, &pid);
-    
+
     printf("  name      ipc-object    rights     flags   boost  reqs  recv  send sonce oref  qlimit  msgcount  context            identifier  type\n");
     printf("---------   ----------  ----------  -------- -----  ---- ----- ----- ----- ----  ------  --------  ------------------ ----------- ------------\n");
 	for (i = 0; i < taskinfo->tableCount; i++) {
@@ -209,18 +212,17 @@ void show_task_mach_ports(my_per_task_info_t *taskinfo, uint32_t taskCount, my_p
 		int sendrights = 0;
 		unsigned int kotype = 0;
 		vm_offset_t kobject = (vm_offset_t)0;
-        
+
         /* skip empty slots in the table */
         if ((taskinfo->table[i].iin_type & MACH_PORT_TYPE_ALL_RIGHTS) == 0) {
             emptycount++;
             continue;
         }
-        
-        
+
 		if (taskinfo->table[i].iin_type == MACH_PORT_TYPE_PORT_SET) {
 			mach_port_name_array_t members;
 			mach_msg_type_number_t membersCnt;
-			
+
 			ret = mach_port_get_set_status(taskinfo->task,
 										   taskinfo->table[i].iin_name,
 										   &members, &membersCnt);
@@ -268,7 +270,7 @@ void show_task_mach_ports(my_per_task_info_t *taskinfo, uint32_t taskCount, my_p
 					}
 				}
 			}
-            
+
 			ret = vm_deallocate(mach_task_self(), (vm_address_t)members,
 								membersCnt * sizeof(mach_port_name_t));
 			if (ret != KERN_SUCCESS) {
@@ -279,22 +281,23 @@ void show_task_mach_ports(my_per_task_info_t *taskinfo, uint32_t taskCount, my_p
 			portsetcount++;
 			continue;
 		}
-        
+
 		if (taskinfo->table[i].iin_type & MACH_PORT_TYPE_SEND) {
 			send = TRUE;
 			sendrights = taskinfo->table[i].iin_urefs;
 			sendcount++;
 		}
-		
+
 		if (taskinfo->table[i].iin_type & MACH_PORT_TYPE_DNREQUEST) {
 			dnreq = TRUE;
 			dncount++;
 		}
-        
+
 		if (taskinfo->table[i].iin_type & MACH_PORT_TYPE_RECEIVE) {
 			mach_port_status_t status;
 			mach_port_info_ext_t info;
 			mach_port_context_t context = (mach_port_context_t)0;
+			struct k2n_table_node *k2nnode;
             ret = get_recieve_port_status(taskinfo->task, taskinfo->table[i].iin_name, &info);
             get_receive_port_context(taskinfo->task, taskinfo->table[i].iin_name, &context);
             /* its ok to fail in fetching attributes */
@@ -319,26 +322,31 @@ void show_task_mach_ports(my_per_task_info_t *taskinfo, uint32_t taskCount, my_p
 				   status.mps_msgcount,
 				   (uint64_t)context);
 			receivecount++;
-            
-            
+
 			/* show other rights (in this and other tasks) for the port */
 			for (j = 0; j < taskCount; j++) {
-				for (k = 0; k < allTaskInfos[j].tableCount; k++) {
-					if (allTaskInfos[j].valid == FALSE ||
-						&allTaskInfos[j].table[k] == &taskinfo->table[i] ||
-						allTaskInfos[j].table[k].iin_object != taskinfo->table[i].iin_object)
-						continue;
-                    
-                    printf("                  +     %s  --------        %s%s%s        %5d         <-                                       0x%08x  (%d) %s\n",
-						   (allTaskInfos[j].table[k].iin_type & MACH_PORT_TYPE_SEND_ONCE) ?
-					       "send-once " : "send      ",
-						   (allTaskInfos[j].table[k].iin_type & MACH_PORT_TYPE_DNREQUEST) ? "D" : "-",
-                           "-",
-                           "-",
-                           allTaskInfos[j].table[k].iin_urefs,
-						   allTaskInfos[j].table[k].iin_name,
-						   allTaskInfos[j].pid,
-                           allTaskInfos[j].processName);
+				if (allTaskInfos[j].valid == FALSE)
+					continue;
+
+				k2nnode = k2n_table_lookup(allTaskInfos[j].k2ntable, taskinfo->table[i].iin_object);
+
+				while (k2nnode) {
+					if (k2nnode->info_name != &taskinfo->table[i]) {
+						assert(k2nnode->info_name->iin_object == taskinfo->table[i].iin_object);
+
+						printf("                  +     %s  --------        %s%s%s        %5d         <-                                       0x%08x  (%d) %s\n",
+							   (k2nnode->info_name->iin_type & MACH_PORT_TYPE_SEND_ONCE) ?
+							   "send-once " : "send      ",
+							   (k2nnode->info_name->iin_type & MACH_PORT_TYPE_DNREQUEST) ? "D" : "-",
+							   "-",
+							   "-",
+							   k2nnode->info_name->iin_urefs,
+							   k2nnode->info_name->iin_name,
+							   allTaskInfos[j].pid,
+							   allTaskInfos[j].processName);
+					}
+
+					k2nnode = k2n_table_lookup_next(k2nnode, k2nnode->info_name->iin_name);
 				}
 			}
 			continue;
@@ -352,12 +360,12 @@ void show_task_mach_ports(my_per_task_info_t *taskinfo, uint32_t taskCount, my_p
 			deadcount++;
 			continue;
 		}
-        
+
 		if (taskinfo->table[i].iin_type & MACH_PORT_TYPE_SEND_ONCE) {
 			sendonce = TRUE;
 			sendoncecount++;
 		}
-		
+
 		printf("0x%08x  0x%08x  %s  --------        %s%s%s        %5.0d     ",
 			   taskinfo->table[i].iin_name,
 			   taskinfo->table[i].iin_object,
@@ -366,7 +374,7 @@ void show_task_mach_ports(my_per_task_info_t *taskinfo, uint32_t taskCount, my_p
 			   "-",
 			   "-",
 			   (send) ? sendrights : 0);
-		
+
 		/* converting to kobjects is not always supported */
 		ret = mach_port_kernel_object(taskinfo->task,
 									  taskinfo->table[i].iin_name,
@@ -382,7 +390,7 @@ void show_task_mach_ports(my_per_task_info_t *taskinfo, uint32_t taskCount, my_p
                     printf(" (%d) %s", _found_task->pid, _found_task->processName);
                 }
             }
-            
+
             printf("\n");
             if (kotype == IKOT_VOUCHER) {
                 vouchercount++;
@@ -394,7 +402,7 @@ void show_task_mach_ports(my_per_task_info_t *taskinfo, uint32_t taskCount, my_p
             }
 			continue;
 		}
-        
+
         /* not kobject - find the receive right holder */
         my_per_task_info_t *recv_holder_taskinfo;
         mach_port_name_t recv_name = MACH_PORT_NULL;
@@ -417,7 +425,7 @@ void show_task_mach_ports(my_per_task_info_t *taskinfo, uint32_t taskCount, my_p
 
         } else
 			printf("                                             0x00000000  (-) Unknown Process\n");
- 
+
 	}
 	printf("total     = %d\n", taskinfo->tableCount + taskinfo->treeCount - emptycount);
 	printf("SEND      = %d\n", sendcount);
@@ -426,41 +434,43 @@ void show_task_mach_ports(my_per_task_info_t *taskinfo, uint32_t taskCount, my_p
 	printf("PORT_SET  = %d\n", portsetcount);
 	printf("DEAD_NAME = %d\n", deadcount);
 	printf("DNREQUEST = %d\n", dncount);
-    printf("VOUCHERS  = %d\n", vouchercount);
-    
+	printf("VOUCHERS  = %d\n", vouchercount);
+
 }
 
-void print_hex_data(char *outstr, size_t maxlen, char *prefix, char *desc, void *addr, int len) {
+uint32_t print_hex_data(char *outstr, size_t maxlen, char *prefix, char *desc, void *addr, int len) {
     int i;
     unsigned char buff[17];
     unsigned char *pc = addr;
     uint32_t plen = 0;
-    
+
     if (desc != NULL)
         plen += safesize(snprintf(&outstr[len], maxlen - plen, "%s%s:\n", prefix, desc));
-    
+
     for (i = 0; i < len; i++) {
-        
+
         if ((i % 16) == 0) {
             if (i != 0)
                 plen += safesize(snprintf(&outstr[len], maxlen - plen, "  %s\n", buff));
-            
+
             plen += safesize(snprintf(&outstr[len], maxlen - plen, "%s  %04x ", prefix, i));
         }
-        
+
         plen += safesize(snprintf(&outstr[len], maxlen - plen, " %02x", pc[i]));
-        
+
         if ((pc[i] < 0x20) || (pc[i] > 0x7e))
             buff[i % 16] = '.';
         else
             buff[i % 16] = pc[i];
         buff[(i % 16) + 1] = '\0';
     }
-    
+
     while ((i % 16) != 0) {
         plen += safesize(snprintf(&outstr[len], maxlen - plen, "   "));
         i++;
     }
-    
+
     plen += safesize(snprintf(&outstr[len], maxlen - plen, "  %s\n", buff));
+
+    return plen;
 }

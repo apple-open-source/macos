@@ -1,5 +1,5 @@
 MODULES = \
-    setuptools-1.1.6 \
+    setuptools-18.5 \
     altgraph-0.10.2 \
     modulegraph-0.10.4 \
     macholib-1.5.1 \

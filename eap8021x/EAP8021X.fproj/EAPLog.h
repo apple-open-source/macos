@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,11 +39,18 @@
 #include <SystemConfiguration/SCPrivate.h>
 #include "symbol_scope.h"
 
-void
-EAPLogSetVerbose(bool verbose);
+typedef CF_ENUM(uint32_t, EAPLogCategory) {
+	kEAPLogCategoryController	= 0,
+	kEAPLogCategoryMonitor		= 1,
+	kEAPLogCategoryClient		= 2,
+	kEAPLogCategoryFramework	= 3,
+};
+
+os_log_t
+EAPLogGetLogHandle();
 
 void
-EAPLog(int level, CFStringRef format, ...) CF_FORMAT_FUNCTION(2, 3);
+EAPLogInit(EAPLogCategory log_category);
 
 INLINE const char *
 EAPLogFileName(const char * file)
@@ -60,14 +67,13 @@ EAPLogFileName(const char * file)
     return (ret);
 }
 
-#define EAPLOG(__level, __format, ...)				\
-    EAPLog(__level, CFSTR(__format),				\
-	   ## __VA_ARGS__)
+#define EAPLOG(level, format, ...)											\
+    do {																	\
+		os_log_t log_handle = EAPLogGetLogHandle();					\
+		os_log_type_t __type = _SC_syslog_os_log_mapping(level);			\
+		os_log_with_type(log_handle, __type, format, ## __VA_ARGS__);		\
+	} while (0)
 
-#define EAPLOG_FL(__level, __format, ...)				\
-    EAPLog(__level,							\
-	   CFSTR("[%s:%d] %s(): " __format),				\
-	   EAPLogFileName(__FILE__), __LINE__, __FUNCTION__,		\
-	   ## __VA_ARGS__)
+#define EAPLOG_FL EAPLOG
 
 #endif /* _EAP8021X_EAPLOG_H */

@@ -27,6 +27,10 @@
 #ifndef ResourceLoadTiming_h
 #define ResourceLoadTiming_h
 
+#if PLATFORM(COCOA)
+OBJC_CLASS NSDictionary;
+#endif
+
 namespace WebCore {
     
 class ResourceLoadTiming {
@@ -64,6 +68,12 @@ public:
         secureConnectionStart = other.secureConnectionStart;
         return *this;
     }
+
+    ResourceLoadTiming isolatedCopy() const
+    {
+        // There are currently no members that need isolated copies, so we can use the copy constructor.
+        return *this;
+    }
     
     bool operator==(const ResourceLoadTiming& other) const
     {
@@ -94,6 +104,14 @@ public:
     int secureConnectionStart;
 };
 
+#if PLATFORM(COCOA)
+WEBCORE_EXPORT void copyTimingData(NSDictionary *timingData, ResourceLoadTiming&);
+#endif
+
+#if PLATFORM(COCOA) && !HAVE(TIMINGDATAOPTIONS)
+WEBCORE_EXPORT void setCollectsTimingData();
+#endif
+    
 template<class Encoder>
 void ResourceLoadTiming::encode(Encoder& encoder) const
 {

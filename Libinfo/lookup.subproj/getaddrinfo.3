@@ -393,6 +393,38 @@ and
 .Fa ai_flags
 set to
 .Dv AI_DEFAULT.
+.Pp
+Note that NAT64 address synthesis is always disabled for IPv4 addresses
+in the following ranges:
+0.0.0.0/8,
+127.0.0.0/8,
+169.254.0.0/16,
+192.0.0.0/29,
+192.88.99.0/24,
+224.0.0.0/4, and
+255.255.255.255/32.
+Additionally, NAT64 address synthesis is disabled when the network uses
+the well-known prefix (64:ff9b::/96)
+for IPv4 addresses in the following ranges:
+10.0.0.0/8,
+100.64.0.0/10,
+172.16.0.0/12, and
+192.168.0.0/16.
+.Pp
+Historically, passing a host's own hostname to 
+.Fn getaddrinfo 
+has been a popular 
+technique for determining that host's IP address(es), but this is fragile, 
+and doesn't work reliably in all cases. The appropriate way for software to 
+discover the IP address(es) of the host it is running on is to use 
+.Xr getifaddrs 3 .
+.Pp
+The 
+.Fn getaddrinfo 
+implementations on all versions of OS X and iOS are now, and always have been, 
+thread-safe. Previous versions of this man page incorrectly reported that 
+.Fn getaddrinfo 
+was not thread-safe.
 .Sh RETURN VALUES
 .Fn getaddrinfo
 returns zero on success or one of the error codes listed in

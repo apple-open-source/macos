@@ -58,21 +58,21 @@ DOMWindowIndexedDatabase* DOMWindowIndexedDatabase::from(DOMWindow* window)
     if (!supplement) {
         auto newSupplement = std::make_unique<DOMWindowIndexedDatabase>(window);
         supplement = newSupplement.get();
-        provideTo(window, supplementName(), WTF::move(newSupplement));
+        provideTo(window, supplementName(), WTFMove(newSupplement));
     }
     return supplement;
 }
 
-void DOMWindowIndexedDatabase::disconnectFrameForPageCache()
+void DOMWindowIndexedDatabase::disconnectFrameForDocumentSuspension()
 {
-    m_suspendedIDBFactory = m_idbFactory.release();
-    DOMWindowProperty::disconnectFrameForPageCache();
+    m_suspendedIDBFactory = WTFMove(m_idbFactory);
+    DOMWindowProperty::disconnectFrameForDocumentSuspension();
 }
 
-void DOMWindowIndexedDatabase::reconnectFrameFromPageCache(Frame* frame)
+void DOMWindowIndexedDatabase::reconnectFrameFromDocumentSuspension(Frame* frame)
 {
-    DOMWindowProperty::reconnectFrameFromPageCache(frame);
-    m_idbFactory = m_suspendedIDBFactory.release();
+    DOMWindowProperty::reconnectFrameFromDocumentSuspension(frame);
+    m_idbFactory = WTFMove(m_suspendedIDBFactory);
 }
 
 void DOMWindowIndexedDatabase::willDestroyGlobalObjectInCachedFrame()
@@ -93,9 +93,9 @@ void DOMWindowIndexedDatabase::willDetachGlobalObjectFromFrame()
     DOMWindowProperty::willDetachGlobalObjectFromFrame();
 }
 
-IDBFactory* DOMWindowIndexedDatabase::indexedDB(DOMWindow* window)
+IDBFactory* DOMWindowIndexedDatabase::indexedDB(DOMWindow& window)
 {
-    return from(window)->indexedDB();
+    return from(&window)->indexedDB();
 }
 
 IDBFactory* DOMWindowIndexedDatabase::indexedDB()
@@ -111,8 +111,13 @@ IDBFactory* DOMWindowIndexedDatabase::indexedDB()
     if (!m_window->isCurrentlyDisplayedInFrame())
         return nullptr;
 
-    if (!m_idbFactory)
-        m_idbFactory = IDBFactory::create(page->databaseProvider().idbFactoryBackend());
+    if (!m_idbFactory) {
+        auto* connectionProxy = document->idbConnectionProxy();
+        if (!connectionProxy)
+            return nullptr;
+
+        m_idbFactory = IDBFactory::create(*connectionProxy);
+    }
 
     return m_idbFactory.get();
 }

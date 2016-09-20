@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -66,15 +66,15 @@
 #include <net/if_types.h>
 #include <net/bpf.h>
 #include <CoreFoundation/CFRunLoop.h>
-
-#include "util.h"
 #include <syslog.h>
+
+#include "ipconfigd_globals.h"
+#include "util.h"
 #include "bpflib.h"
 #include "util.h"
 #include "dynarray.h"
 #include "timer.h"
 #include "FDSet.h"
-#include "ipconfigd_globals.h"
 #include "arp_session.h"
 #include "ioregpath.h"
 #include "ipconfigd_threads.h"
@@ -88,7 +88,7 @@ struct firewire_arp {
 };
 
 struct probe_info {
-    struct timeval		retry_interval;
+    CFTimeInterval		retry_interval;
     int				probe_count;
     int				gratuitous_count;
     boolean_t			skip_first;
@@ -98,10 +98,9 @@ struct arp_session {
     int				debug;
     struct probe_info		default_probe_info;
     int				default_detect_count;
-    struct timeval		default_detect_retry;
+    CFTimeInterval		default_detect_retry;
     int				default_conflict_retry_count;
-    struct timeval		default_conflict_delay;
-    struct timeval		default_resolve_retry;
+    CFTimeInterval		default_conflict_delay;
     arp_our_address_func_t *	is_our_address;
     dynarray_t			if_sessions;
 #ifdef TEST_ARP_SESSION
@@ -164,6 +163,7 @@ struct arp_client {
 };
 
 #ifdef TEST_ARP_SESSION
+#undef my_log
 #define my_log		arp_session_log
 static void arp_session_log(int priority, const char * message, ...);
 #define G_IPConfiguration_verbose TRUE
@@ -708,11 +708,11 @@ arp_if_session_read(void * arg1, void * arg2)
 		    if (client->conflict_count
 			<= session->default_conflict_retry_count) {
 			/* schedule another probe cycle */
-			timer_set_relative(client->timer_callout,
-					   session->default_conflict_delay,
-					   (timer_func_t *)
-					   arp_client_probe_start,
-					   client, NULL, NULL);
+			timer_callout_set(client->timer_callout,
+					  session->default_conflict_delay,
+					  (timer_func_t *)
+					  arp_client_probe_start,
+					  client, NULL, NULL);
 			goto next_packet;
 		    }
 		}
@@ -976,6 +976,9 @@ arp_client_transmit(arp_client_t * client, boolean_t send_gratuitous,
 		 if_name(if_session->if_p), strerror(errno), errno);
 	goto failed;
     }
+#ifdef TEST_ARP_SESSION
+    arp_session_log(LOG_INFO, "TX ARP Packet");
+#endif
     return (TRUE);
 
  failed:
@@ -1044,10 +1047,10 @@ arp_client_probe_retransmit(void * arg1, void * arg2, void * arg3)
 		   "arp probes ", if_name(if_session->if_p),
 		   client->try, probe_info->probe_count);
 	}
-        timer_set_relative(client->timer_callout,
-                           probe_info->retry_interval,
-                           (timer_func_t *)arp_client_probe_retransmit,
-                           client, NULL, NULL);
+        timer_callout_set(client->timer_callout,
+			  probe_info->retry_interval,
+			  (timer_func_t *)arp_client_probe_retransmit,
+			  client, NULL, NULL);
         client->probe_info.skip_first = FALSE;
     }
     else {
@@ -1080,14 +1083,10 @@ arp_client_resolve_retransmit(void * arg1, void * arg2, void * arg3)
     }
     client->try++;
     if (arp_client_transmit(client, FALSE, NULL)) {
-	struct timeval	t;
-
-#define ONE_SECOND		1
-	t.tv_sec = ONE_SECOND;
-	t.tv_usec = 0;
-	timer_set_relative(client->timer_callout, t,
-			   (timer_func_t *)arp_client_resolve_retransmit,
-			   client, NULL, NULL);
+#define ARP_RESOLVE_RETRY_INTERVAL		(1.0)
+	timer_callout_set(client->timer_callout, ARP_RESOLVE_RETRY_INTERVAL,
+			  (timer_func_t *)arp_client_resolve_retransmit,
+			  client, NULL, NULL);
     }
     else {
 	/* report back an error to the caller */
@@ -1114,8 +1113,6 @@ arp_client_detect_retransmit(void * arg1, void * arg2, void * arg3)
     boolean_t		keep_going = TRUE;
     arp_session_t *	session = client->if_session->session;
     int			tries_left;
-    struct timeval *	timeout_p;
-    boolean_t 		resolve = (boolean_t) (uintptr_t) arg2;
 
     tries_left = session->default_detect_count - client->try;
     if (tries_left <= 0) {
@@ -1133,13 +1130,20 @@ arp_client_detect_retransmit(void * arg1, void * arg2, void * arg3)
 	}
     }
     if (keep_going) {
-	timeout_p = resolve ? &session->default_resolve_retry :
-		    &session->default_detect_retry;
-			 
-	timer_set_relative(client->timer_callout, *timeout_p, 
+	double		backoff;
+	CFTimeInterval	timeout;
+
+	if (client->try < 2) {
+	    backoff = 1;
+	}
+	else {
+	    backoff = 2 << (client->try - 2);
+	}
+	timeout = session->default_detect_retry * backoff;
+	timer_callout_set(client->timer_callout, timeout,
 			   (timer_func_t *)
 			   arp_client_detect_retransmit,
-			   client, arg2, NULL);
+			   client, NULL, NULL);
     }
     else {
 	/* report back an error to the caller */
@@ -1212,11 +1216,9 @@ arp_session_find_client_with_index(arp_session_t * session, int index)
     return (NULL);
 }
 
-#endif /* TEST_ARP_SESSION */
-
-PRIVATE_EXTERN void
+STATIC void
 arp_client_set_probe_info(arp_client_t * client, 
-			  const struct timeval * retry_interval,
+			  CFTimeInterval * retry_interval,
 			  const int * probe_count, 
 			  const int * gratuitous_count)
 {
@@ -1234,12 +1236,14 @@ arp_client_set_probe_info(arp_client_t * client,
     return;
 }
 
-PRIVATE_EXTERN void 
+STATIC void
 arp_client_restore_default_probe_info(arp_client_t * client)
 {
     client->probe_info = client->if_session->session->default_probe_info;
     return;
 }
+
+#endif /* TEST_ARP_SESSION */
 
 PRIVATE_EXTERN arp_client_t *
 arp_client_init(arp_session_t * session, interface_t * if_p)
@@ -1406,8 +1410,7 @@ arp_client_resolve(arp_client_t * client,
 PRIVATE_EXTERN void
 arp_client_detect(arp_client_t * client,
 		  arp_result_func_t * func, void * arg1, void * arg2,
-		  const arp_address_info_t * list, int list_count,
-		  boolean_t resolve)
+		  const arp_address_info_t * list, int list_count)
 {
     arp_if_session_t * 	if_session = client->if_session;
     int			list_size;
@@ -1432,8 +1435,7 @@ arp_client_detect(arp_client_t * client,
     client->detect_list_count = list_count;
     client->command_status = arp_status_unknown_e;
     client->command = arp_client_command_detect_e;
-    arp_client_detect_retransmit(client, (void *)(uintptr_t)resolve, 
-				 NULL);
+    arp_client_detect_retransmit(client, NULL, NULL);
     return;
 }
 
@@ -1508,8 +1510,7 @@ arp_session_init(arp_our_address_func_t * func,
 	session->default_probe_info.retry_interval = *values->probe_interval;
     }
     else {
-	session->default_probe_info.retry_interval.tv_sec = ARP_RETRY_SECS;
-	session->default_probe_info.retry_interval.tv_usec = ARP_RETRY_USECS;
+	session->default_probe_info.retry_interval = ARP_RETRY_SECS;
     }
     if (values->probe_count != NULL) {
 	session->default_probe_info.probe_count = *values->probe_count;
@@ -1534,15 +1535,7 @@ arp_session_init(arp_our_address_func_t * func,
 	session->default_detect_retry = *values->detect_interval;
     }
     else {
-	session->default_detect_retry.tv_sec = ARP_DETECT_RETRY_SECS;
-	session->default_detect_retry.tv_usec = ARP_DETECT_RETRY_USECS;
-    }
-    if (values->resolve_interval != NULL) {
-	session->default_resolve_retry = *values->resolve_interval;
-    }
-    else {
-	session->default_resolve_retry.tv_sec = ARP_RESOLVE_RETRY_SECS;
-	session->default_resolve_retry.tv_usec = ARP_RESOLVE_RETRY_USECS;
+	session->default_detect_retry = ARP_DETECT_RETRY_SECS;
     }
     if (values->conflict_retry_count != NULL) {
 	session->default_conflict_retry_count = *values->conflict_retry_count;
@@ -1555,10 +1548,7 @@ arp_session_init(arp_our_address_func_t * func,
 	    = *values->conflict_delay_interval;
     }
     else {
-	session->default_conflict_delay.tv_sec
-	    = ARP_CONFLICT_RETRY_DELAY_SECS;
-	session->default_conflict_delay.tv_usec
-	    = ARP_CONFLICT_RETRY_DELAY_USECS;
+	session->default_conflict_delay = ARP_CONFLICT_RETRY_DELAY_SECS;
     }
 #ifdef TEST_ARP_SESSION
     session->next_client_index = 1;
@@ -1755,15 +1745,36 @@ hexstrtobin(const char * str, int * len)
     return (NULL);
 }
 
+struct timeval
+timeval_diff(void)
+{
+    struct timeval 		result;
+    static struct timeval	tvp = {0,0};
+    struct timeval		tv;
+
+    gettimeofday(&tv, 0);
+    if (tvp.tv_sec) {
+	timeval_subtract(tv, tvp, &result);
+    }
+    else {
+	result = tvp;
+    }
+    tvp = tv;
+    return (result);
+}
+
 static void
 arp_session_log(int priority, const char * message, ...)
 {
     va_list 		ap;
+    struct timeval	delta;
 
     if (priority == LOG_INFO) {
 	if (S_arp_session->debug == FALSE)
 	    return;
     }
+    delta = timeval_diff();
+    fprintf(stderr, "%ld.%06d ", delta.tv_sec, delta.tv_usec);
     va_start(ap, message);
     vfprintf(stderr, message, ap);
     fprintf(stderr, "\n");
@@ -1951,7 +1962,7 @@ S_quit(int argc, const char * * argv)
 static boolean_t
 S_new_client(int argc, const char * * argv)
 {
-    arp_client_t *	client;
+    arp_client_t *	client = NULL;
     interface_t *	if_p;
 
     if_p = ifl_find_name(S_interfaces, argv[1]);
@@ -2000,7 +2011,7 @@ get_client_index(const char * arg, int * client_index)
 static boolean_t
 S_do_probe(int argc, const char * * argv)
 {
-    arp_client_t *	client;
+    arp_client_t *	client = NULL;
     int			client_index;
     struct in_addr 	sender_ip;
     struct in_addr     	target_ip;
@@ -2032,7 +2043,7 @@ S_do_probe(int argc, const char * * argv)
 static boolean_t
 S_do_resolve(int argc, const char * * argv)
 {
-    arp_client_t *	client;
+    arp_client_t *	client = NULL;
     int			client_index;
     struct in_addr 	sender_ip;
     struct in_addr     	target_ip;
@@ -2064,7 +2075,7 @@ S_do_resolve(int argc, const char * * argv)
 static boolean_t
 S_do_detect(int argc, const char * * argv)
 {
-    arp_client_t *	client;
+    arp_client_t *	client = NULL;
     int			client_index;
     uint8_t *		hwaddr = NULL;
     int			hwaddr_len;
@@ -2127,7 +2138,7 @@ S_do_detect(int argc, const char * * argv)
 static boolean_t
 S_free_client(int argc, const char * * argv)
 {
-    arp_client_t *	client;
+    arp_client_t *	client = NULL;
     int			client_index;
 
     if (get_client_index(argv[1], &client_index) == FALSE) {
@@ -2147,7 +2158,7 @@ S_free_client(int argc, const char * * argv)
 static boolean_t
 S_cancel_probe(int argc, const char * * argv)
 {
-    arp_client_t *	client;
+    arp_client_t *	client = NULL;
     int			client_index;
 
     if (get_client_index(argv[1], &client_index) == FALSE) {
@@ -2168,7 +2179,7 @@ S_cancel_probe(int argc, const char * * argv)
 static boolean_t
 S_client_params(int argc, const char * * argv)
 {
-    arp_client_t *	client;
+    arp_client_t *	client = NULL;
     int			client_index;
     struct probe_info *	probe_info;
 
@@ -2199,24 +2210,21 @@ S_client_params(int argc, const char * * argv)
     }
     else {
 	char *		endptr;
-	float		interval;
 	int		gratuitous_count = 0;
 	int		probe_count;
-	struct timeval	tv;
+	CFTimeInterval	interval;
 
 	if (argc > 5) {
 	    fprintf(stderr, "Too many parameters specified\n");
 	    client = NULL;
 	    goto done;
 	}
-	interval = strtof(argv[2], &endptr);
+	interval = strtod(argv[2], &endptr);
 	if (endptr == argv[2] || (interval == 0 && errno != 0)) {
 	    fprintf(stderr, "Invalid probe interval specified\n");
 	    client = NULL;
 	    goto done;
 	}
-	tv.tv_sec = (int)interval;
-	tv.tv_usec = (interval - tv.tv_sec) * 1000 * 1000;
 	if (get_int_param(argv[3], &probe_count) == FALSE) {
 	    fprintf(stderr, "Invalid probe count specified\n");
 	    client = NULL;
@@ -2229,13 +2237,12 @@ S_client_params(int argc, const char * * argv)
 		goto done;
 	    }
 	}
-	arp_client_set_probe_info(client, &tv, &probe_count,
+	arp_client_set_probe_info(client, &interval, &probe_count,
 				  &gratuitous_count);
     }
     probe_info = &client->probe_info;
-    printf("Probe interval %d.%06d probes %d gratuitous %d\n",
-	   (int)probe_info->retry_interval.tv_sec, 
-	   (int)probe_info->retry_interval.tv_usec, 
+    printf("Probe interval %g probes %d gratuitous %d\n",
+	   probe_info->retry_interval,
 	   probe_info->probe_count, probe_info->gratuitous_count);
 
  done:

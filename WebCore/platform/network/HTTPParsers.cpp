@@ -33,8 +33,8 @@
 #include "config.h"
 #include "HTTPParsers.h"
 
-#include "ContentSecurityPolicy.h"
 #include <wtf/DateMath.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/WTFString.h>
@@ -102,6 +102,17 @@ static inline bool skipValue(const String& str, unsigned& pos)
     return pos != start;
 }
 
+// See RFC 7230, Section 3.1.2.
+bool isValidReasonPhrase(const String& value)
+{
+    for (unsigned i = 0; i < value.length(); ++i) {
+        UChar c = value[i];
+        if (c == 0x7F || c > 0xFF || (c < 0x20 && c != '\t'))
+            return false;
+    }
+    return true;
+}
+
 // See RFC 7230, Section 3.2.3.
 bool isValidHTTPHeaderValue(const String& value)
 {
@@ -124,8 +135,8 @@ bool isValidHTTPToken(const String& value)
 {
     if (value.isEmpty())
         return false;
-    for (unsigned i = 0; i < value.length(); ++i) {
-        UChar c = value[i];
+    auto valueStringView = StringView(value);
+    for (UChar c : valueStringView.codeUnits()) {
         if (c <= 0x20 || c >= 0x7F
             || c == '(' || c == ')' || c == '<' || c == '>' || c == '@'
             || c == ',' || c == ';' || c == ':' || c == '\\' || c == '"'
@@ -156,7 +167,7 @@ ContentDispositionType contentDispositionType(const String& contentDisposition)
     String dispositionType = parameters[0];
     dispositionType.stripWhiteSpace();
 
-    if (equalIgnoringCase(dispositionType, "inline"))
+    if (equalLettersIgnoringASCIICase(dispositionType, "inline"))
         return ContentDispositionInline;
 
     // Some broken sites just send bogus headers like
@@ -363,31 +374,31 @@ void findCharsetInMediaType(const String& mediaType, unsigned int& charsetPos, u
     }
 }
 
-ContentSecurityPolicy::ReflectedXSSDisposition parseXSSProtectionHeader(const String& header, String& failureReason, unsigned& failurePosition, String& reportURL)
+XSSProtectionDisposition parseXSSProtectionHeader(const String& header, String& failureReason, unsigned& failurePosition, String& reportURL)
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(String, failureReasonInvalidToggle, (ASCIILiteral("expected 0 or 1")));
-    DEPRECATED_DEFINE_STATIC_LOCAL(String, failureReasonInvalidSeparator, (ASCIILiteral("expected semicolon")));
-    DEPRECATED_DEFINE_STATIC_LOCAL(String, failureReasonInvalidEquals, (ASCIILiteral("expected equals sign")));
-    DEPRECATED_DEFINE_STATIC_LOCAL(String, failureReasonInvalidMode, (ASCIILiteral("invalid mode directive")));
-    DEPRECATED_DEFINE_STATIC_LOCAL(String, failureReasonInvalidReport, (ASCIILiteral("invalid report directive")));
-    DEPRECATED_DEFINE_STATIC_LOCAL(String, failureReasonDuplicateMode, (ASCIILiteral("duplicate mode directive")));
-    DEPRECATED_DEFINE_STATIC_LOCAL(String, failureReasonDuplicateReport, (ASCIILiteral("duplicate report directive")));
-    DEPRECATED_DEFINE_STATIC_LOCAL(String, failureReasonInvalidDirective, (ASCIILiteral("unrecognized directive")));
+    static NeverDestroyed<String> failureReasonInvalidToggle(ASCIILiteral("expected 0 or 1"));
+    static NeverDestroyed<String> failureReasonInvalidSeparator(ASCIILiteral("expected semicolon"));
+    static NeverDestroyed<String> failureReasonInvalidEquals(ASCIILiteral("expected equals sign"));
+    static NeverDestroyed<String> failureReasonInvalidMode(ASCIILiteral("invalid mode directive"));
+    static NeverDestroyed<String> failureReasonInvalidReport(ASCIILiteral("invalid report directive"));
+    static NeverDestroyed<String> failureReasonDuplicateMode(ASCIILiteral("duplicate mode directive"));
+    static NeverDestroyed<String> failureReasonDuplicateReport(ASCIILiteral("duplicate report directive"));
+    static NeverDestroyed<String> failureReasonInvalidDirective(ASCIILiteral("unrecognized directive"));
 
     unsigned pos = 0;
 
     if (!skipWhiteSpace(header, pos, false))
-        return ContentSecurityPolicy::ReflectedXSSUnset;
+        return XSSProtectionDisposition::Enabled;
 
     if (header[pos] == '0')
-        return ContentSecurityPolicy::AllowReflectedXSS;
+        return XSSProtectionDisposition::Disabled;
 
     if (header[pos++] != '1') {
         failureReason = failureReasonInvalidToggle;
-        return ContentSecurityPolicy::ReflectedXSSInvalid;
+        return XSSProtectionDisposition::Invalid;
     }
 
-    ContentSecurityPolicy::ReflectedXSSDisposition result = ContentSecurityPolicy::FilterReflectedXSS;
+    XSSProtectionDisposition result = XSSProtectionDisposition::Enabled;
     bool modeDirectiveSeen = false;
     bool reportDirectiveSeen = false;
 
@@ -399,7 +410,7 @@ ContentSecurityPolicy::ReflectedXSSDisposition parseXSSProtectionHeader(const St
         if (header[pos++] != ';') {
             failureReason = failureReasonInvalidSeparator;
             failurePosition = pos;
-            return ContentSecurityPolicy::ReflectedXSSInvalid;
+            return XSSProtectionDisposition::Invalid;
         }
 
         if (!skipWhiteSpace(header, pos, false))
@@ -410,44 +421,44 @@ ContentSecurityPolicy::ReflectedXSSDisposition parseXSSProtectionHeader(const St
             if (modeDirectiveSeen) {
                 failureReason = failureReasonDuplicateMode;
                 failurePosition = pos;
-                return ContentSecurityPolicy::ReflectedXSSInvalid;
+                return XSSProtectionDisposition::Invalid;
             }
             modeDirectiveSeen = true;
             if (!skipEquals(header, pos)) {
                 failureReason = failureReasonInvalidEquals;
                 failurePosition = pos;
-                return ContentSecurityPolicy::ReflectedXSSInvalid;
+                return XSSProtectionDisposition::Invalid;
             }
             if (!skipToken(header, pos, "block")) {
                 failureReason = failureReasonInvalidMode;
                 failurePosition = pos;
-                return ContentSecurityPolicy::ReflectedXSSInvalid;
+                return XSSProtectionDisposition::Invalid;
             }
-            result = ContentSecurityPolicy::BlockReflectedXSS;
+            result = XSSProtectionDisposition::BlockEnabled;
         } else if (skipToken(header, pos, "report")) {
             if (reportDirectiveSeen) {
                 failureReason = failureReasonDuplicateReport;
                 failurePosition = pos;
-                return ContentSecurityPolicy::ReflectedXSSInvalid;
+                return XSSProtectionDisposition::Invalid;
             }
             reportDirectiveSeen = true;
             if (!skipEquals(header, pos)) {
                 failureReason = failureReasonInvalidEquals;
                 failurePosition = pos;
-                return ContentSecurityPolicy::ReflectedXSSInvalid;
+                return XSSProtectionDisposition::Invalid;
             }
             size_t startPos = pos;
             if (!skipValue(header, pos)) {
                 failureReason = failureReasonInvalidReport;
                 failurePosition = pos;
-                return ContentSecurityPolicy::ReflectedXSSInvalid;
+                return XSSProtectionDisposition::Invalid;
             }
             reportURL = header.substring(startPos, pos - startPos);
             failurePosition = startPos; // If later semantic check deems unacceptable.
         } else {
             failureReason = failureReasonInvalidDirective;
             failurePosition = pos;
-            return ContentSecurityPolicy::ReflectedXSSInvalid;
+            return XSSProtectionDisposition::Invalid;
         }
     }
 }
@@ -455,18 +466,19 @@ ContentSecurityPolicy::ReflectedXSSDisposition parseXSSProtectionHeader(const St
 #if ENABLE(NOSNIFF)
 ContentTypeOptionsDisposition parseContentTypeOptionsHeader(const String& header)
 {
-    if (header.stripWhiteSpace().lower() == "nosniff")
+    if (equalLettersIgnoringASCIICase(header.stripWhiteSpace(), "nosniff"))
         return ContentTypeOptionsNosniff;
     return ContentTypeOptionsNone;
 }
 #endif
 
-String extractReasonPhraseFromHTTPStatusLine(const String& statusLine)
+AtomicString extractReasonPhraseFromHTTPStatusLine(const String& statusLine)
 {
-    size_t spacePos = statusLine.find(' ');
+    StringView view = statusLine;
+    size_t spacePos = view.find(' ');
     // Remove status code from the status line.
-    spacePos = statusLine.find(' ', spacePos + 1);
-    return statusLine.substring(spacePos + 1);
+    spacePos = view.find(' ', spacePos + 1);
+    return view.substring(spacePos + 1).toAtomicString();
 }
 
 XFrameOptionsDisposition parseXFrameOptionsHeader(const String& header)
@@ -482,11 +494,11 @@ XFrameOptionsDisposition parseXFrameOptionsHeader(const String& header)
     for (size_t i = 0; i < headers.size(); i++) {
         String currentHeader = headers[i].stripWhiteSpace();
         XFrameOptionsDisposition currentValue = XFrameOptionsNone;
-        if (equalIgnoringCase(currentHeader, "deny"))
+        if (equalLettersIgnoringASCIICase(currentHeader, "deny"))
             currentValue = XFrameOptionsDeny;
-        else if (equalIgnoringCase(currentHeader, "sameorigin"))
+        else if (equalLettersIgnoringASCIICase(currentHeader, "sameorigin"))
             currentValue = XFrameOptionsSameOrigin;
-        else if (equalIgnoringCase(currentHeader, "allowall"))
+        else if (equalLettersIgnoringASCIICase(currentHeader, "allowall"))
             currentValue = XFrameOptionsAllowAll;
         else
             currentValue = XFrameOptionsInvalid;
@@ -582,20 +594,20 @@ size_t parseHTTPRequestLine(const char* data, size_t length, String& failureReas
 
     // Haven't finished header line.
     if (consumedLength == length) {
-        failureReason = "Incomplete Request Line";
+        failureReason = ASCIILiteral("Incomplete Request Line");
         return 0;
     }
 
     // RequestLine does not contain 3 parts.
     if (!space1 || !space2) {
-        failureReason = "Request Line does not appear to contain: <Method> <Url> <HTTPVersion>.";
+        failureReason = ASCIILiteral("Request Line does not appear to contain: <Method> <Url> <HTTPVersion>.");
         return 0;
     }
 
     // The line must end with "\r\n".
     const char* end = p + 1;
     if (*(end - 2) != '\r') {
-        failureReason = "Request line does not end with CRLF";
+        failureReason = ASCIILiteral("Request line does not end with CRLF");
         return 0;
     }
 
@@ -619,14 +631,48 @@ size_t parseHTTPRequestLine(const char* data, size_t length, String& failureReas
     return end - data;
 }
 
-size_t parseHTTPHeader(const char* start, size_t length, String& failureReason, String& nameStr, String& valueStr, bool strict)
+static inline bool isValidHeaderNameCharacter(const char* character)
+{
+    // https://tools.ietf.org/html/rfc7230#section-3.2
+    // A header name should only contain one or more of
+    // alphanumeric or ! # $ % & ' * + - . ^ _ ` | ~
+    if (isASCIIAlphanumeric(*character))
+        return true;
+    switch (*character) {
+    case '!':
+    case '#':
+    case '$':
+    case '%':
+    case '&':
+    case '\'':
+    case '*':
+    case '+':
+    case '-':
+    case '.':
+    case '^':
+    case '_':
+    case '`':
+    case '|':
+    case '~':
+        return true;
+    default:
+        return false;
+    }
+}
+
+size_t parseHTTPHeader(const char* start, size_t length, String& failureReason, StringView& nameStr, String& valueStr, bool strict)
 {
     const char* p = start;
     const char* end = start + length;
 
     Vector<char> name;
     Vector<char> value;
-    nameStr = String();
+
+    bool foundFirstNameChar = false;
+    const char* namePtr;
+    size_t nameSize = 0;
+
+    nameStr = StringView();
     valueStr = String();
 
     for (; p < end; p++) {
@@ -635,18 +681,29 @@ size_t parseHTTPHeader(const char* start, size_t length, String& failureReason, 
             if (name.isEmpty()) {
                 if (p + 1 < end && *(p + 1) == '\n')
                     return (p + 2) - start;
-                failureReason = "CR doesn't follow LF at " + trimInputSample(p, end - p);
+                failureReason = makeString("CR doesn't follow LF in header name at ", trimInputSample(p, end - p));
                 return 0;
             }
-            failureReason = "Unexpected CR in name at " + trimInputSample(name.data(), name.size());
+            failureReason = makeString("Unexpected CR in header name at ", trimInputSample(name.data(), name.size()));
             return 0;
         case '\n':
-            failureReason = "Unexpected LF in name at " + trimInputSample(name.data(), name.size());
+            failureReason = makeString("Unexpected LF in header name at ", trimInputSample(name.data(), name.size()));
             return 0;
         case ':':
             break;
         default:
+            if (!isValidHeaderNameCharacter(p)) {
+                if (name.size() < 1)
+                    failureReason = "Unexpected start character in header name";
+                else
+                    failureReason = makeString("Unexpected character in header name at ", trimInputSample(name.data(), name.size()));
+                return 0;
+            }
             name.append(*p);
+            if (!foundFirstNameChar) {
+                namePtr = p;
+                foundFirstNameChar = true;
+            }
             continue;
         }
         if (*p == ':') {
@@ -654,6 +711,9 @@ size_t parseHTTPHeader(const char* start, size_t length, String& failureReason, 
             break;
         }
     }
+
+    nameSize = name.size();
+    nameStr = StringView(reinterpret_cast<const LChar*>(namePtr), nameSize);
 
     for (; p < end && *p == 0x20; p++) { }
 
@@ -663,7 +723,7 @@ size_t parseHTTPHeader(const char* start, size_t length, String& failureReason, 
             break;
         case '\n':
             if (strict) {
-                failureReason = "Unexpected LF in value at " + trimInputSample(value.data(), value.size());
+                failureReason = makeString("Unexpected LF in header value at ", trimInputSample(value.data(), value.size()));
                 return 0;
             }
             break;
@@ -676,17 +736,12 @@ size_t parseHTTPHeader(const char* start, size_t length, String& failureReason, 
         }
     }
     if (p >= end || (strict && *p != '\n')) {
-        failureReason = "CR doesn't follow LF after value at " + trimInputSample(p, end - p);
+        failureReason = makeString("CR doesn't follow LF after header value at ", trimInputSample(p, end - p));
         return 0;
     }
-    nameStr = String::fromUTF8(name.data(), name.size());
     valueStr = String::fromUTF8(value.data(), value.size());
-    if (nameStr.isNull()) {
-        failureReason = "Invalid UTF-8 sequence in header name";
-        return 0;
-    }
     if (valueStr.isNull()) {
-        failureReason = "Invalid UTF-8 sequence in header value";
+        failureReason = ASCIILiteral("Invalid UTF-8 sequence in header value");
         return 0;
     }
     return p - start;

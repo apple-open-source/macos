@@ -23,7 +23,6 @@ void setGlobalInt(int value) { GlobalInt = value; }
 int main(int argc __unused, char *argv[]) {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
     int y = 0;
-    //gc_block_init();
     // must use x+y to avoid optimization of using a global block
     void (^callSetGlobalInt)(int x) = ^(int x) { setGlobalInt(x + y); };
     // a block be able to be sent a message

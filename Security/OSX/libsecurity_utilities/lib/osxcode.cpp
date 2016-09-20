@@ -59,7 +59,7 @@ RefPointer<OSXCode> OSXCode::main()
 			if (const char *contents = strstr(cpath, "/Contents/MacOS/"))
 				if (contents + 15 == slash)
 					return new Bundle(path.substr(0, contents-cpath).c_str());
-		secdebug("bundle", "OSXCode::main(%s) not recognized as bundle (treating as tool)", cpath);
+		secinfo("bundle", "OSXCode::main(%s) not recognized as bundle (treating as tool)", cpath);
 	}
 	return new ExecutableTool(path.c_str());
 }
@@ -124,7 +124,7 @@ Bundle::Bundle(const char *path, const char *execPath /* = NULL */)
 {
 	if (execPath)						// caller knows that one; set it
 		mExecutablePath = execPath;
-	secdebug("bundle", "%p Bundle from path %s(%s)", this, path, executablePath().c_str());
+	secinfo("bundle", "%p Bundle from path %s(%s)", this, path, executablePath().c_str());
 }
 
 Bundle::Bundle(CFBundleRef bundle, const char *root /* = NULL */)
@@ -133,7 +133,7 @@ Bundle::Bundle(CFBundleRef bundle, const char *root /* = NULL */)
 	assert(bundle);
 	CFRetain(bundle);
 	mPath = root ? root : cfStringRelease(CFBundleCopyBundleURL(mBundle));
-	secdebug("bundle", "%p Bundle from bundle %p(%s)", this, bundle, mPath.c_str());
+	secinfo("bundle", "%p Bundle from bundle %p(%s)", this, bundle, mPath.c_str());
 }
 
 
@@ -156,7 +156,7 @@ string Bundle::executablePath() const
 CFBundleRef Bundle::cfBundle() const
 {
 	if (!mBundle) {
-		secdebug("bundle", "instantiating CFBundle for %s", mPath.c_str());
+		secinfo("bundle", "instantiating CFBundle for %s", mPath.c_str());
 		CFRef<CFURLRef> url = CFURLCreateFromFileSystemRepresentation(NULL,
 			(const UInt8 *)mPath.c_str(), mPath.length(), true);
 		if (!url || !(mBundle = CFBundleCreate(NULL, url)))
@@ -214,12 +214,12 @@ void LoadableBundle::load()
 {
 	if (!CFBundleLoadExecutable(cfBundle()))
 		CFError::throwMe();
-    secdebug("bundle", "%p (%s) loaded", this, path().c_str());
+    secinfo("bundle", "%p (%s) loaded", this, path().c_str());
 }
 
 void LoadableBundle::unload()
 {
-    secdebug("bundle", "%p (%s) unloaded", this, path().c_str());
+    secinfo("bundle", "%p (%s) unloaded", this, path().c_str());
 	CFBundleUnloadExecutable(cfBundle());
 }
 

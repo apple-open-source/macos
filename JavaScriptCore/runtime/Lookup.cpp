@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2008, 2012 Apple Inc. All rights reserved.
+ *  Copyright (C) 2008, 2012, 2015-2016 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -27,74 +27,48 @@
 
 namespace JSC {
 
-void HashTable::createTable() const
+void reifyStaticAccessor(VM& vm, const HashTableValue& value, JSObject& thisObject, PropertyName propertyName)
 {
-    ASSERT(!keys);
-    keys = static_cast<const char**>(fastMalloc(sizeof(char*) * numberOfValues));
-
-    for (int i = 0; i < numberOfValues; ++i) {
-        if (values[i].m_key)
-            keys[i] = values[i].m_key;
-        else
-            keys[i] = 0;
-    }
-}
-
-void HashTable::deleteTable() const
-{
-    if (keys) {
-        fastFree(keys);
-        keys = nullptr;
-    }
-}
-
-void reifyStaticAccessor(VM& vm, const HashTableValue& value, JSObject& thisObj, PropertyName propertyName)
-{
-    JSGlobalObject* globalObject = thisObj.globalObject();
+    JSGlobalObject* globalObject = thisObject.globalObject();
     GetterSetter* accessor = GetterSetter::create(vm, globalObject);
     if (value.accessorGetter()) {
-        RefPtr<StringImpl> getterName = WTF::tryMakeString(ASCIILiteral("get "), String(*propertyName.publicName()));
+        String getterName = WTF::tryMakeString(ASCIILiteral("get "), String(*propertyName.publicName()));
         if (!getterName)
             return;
-        accessor->setGetter(vm, globalObject, JSFunction::create(vm, globalObject, 0, *getterName, value.accessorGetter()));
+        accessor->setGetter(vm, globalObject, value.attributes() & Builtin
+            ? JSFunction::createBuiltinFunction(vm, value.builtinAccessorGetterGenerator()(vm), globalObject, getterName)
+            : JSFunction::create(vm, globalObject, 0, getterName, value.accessorGetter()));
     }
-    thisObj.putDirectNonIndexAccessor(vm, propertyName, accessor, value.attributes());
+    thisObject.putDirectNonIndexAccessor(vm, propertyName, accessor, attributesForStructure(value.attributes()));
 }
 
-bool setUpStaticFunctionSlot(ExecState* exec, const HashTableValue* entry, JSObject* thisObj, PropertyName propertyName, PropertySlot& slot)
+bool setUpStaticFunctionSlot(VM& vm, const HashTableValue* entry, JSObject* thisObject, PropertyName propertyName, PropertySlot& slot)
 {
-    ASSERT(thisObj->globalObject());
-    ASSERT(entry->attributes() & BuiltinOrFunctionOrAccessor);
-    VM& vm = exec->vm();
+    ASSERT(thisObject->globalObject());
+    ASSERT(entry->attributes() & BuiltinOrFunctionOrAccessorOrLazyProperty);
     unsigned attributes;
     bool isAccessor = entry->attributes() & Accessor;
-    PropertyOffset offset = thisObj->getDirectOffset(vm, propertyName, attributes);
+    PropertyOffset offset = thisObject->getDirectOffset(vm, propertyName, attributes);
 
     if (!isValidOffset(offset)) {
         // If a property is ever deleted from an object with a static table, then we reify
         // all static functions at that time - after this we shouldn't be re-adding anything.
-        if (thisObj->staticFunctionsReified())
+        if (thisObject->staticPropertiesReified())
             return false;
 
-        if (entry->attributes() & Builtin)
-            thisObj->putDirectBuiltinFunction(vm, thisObj->globalObject(), propertyName, entry->builtinGenerator()(vm), entry->attributes());
-        else if (entry->attributes() & Function) {
-            thisObj->putDirectNativeFunction(
-                vm, thisObj->globalObject(), propertyName, entry->functionLength(),
-                entry->function(), entry->intrinsic(), entry->attributes());
-        } else {
-            ASSERT(isAccessor);
-            reifyStaticAccessor(vm, *entry, *thisObj, propertyName);
-        }
+        reifyStaticProperty(vm, propertyName, *entry, *thisObject);
 
-        offset = thisObj->getDirectOffset(vm, propertyName, attributes);
-        ASSERT(isValidOffset(offset));
+        offset = thisObject->getDirectOffset(vm, propertyName, attributes);
+        if (!isValidOffset(offset)) {
+            dataLog("Static hashtable initialiation for ", propertyName, " did not produce a property.\n");
+            RELEASE_ASSERT_NOT_REACHED();
+        }
     }
 
     if (isAccessor)
-        slot.setCacheableGetterSlot(thisObj, attributes, jsCast<GetterSetter*>(thisObj->getDirect(offset)), offset);
+        slot.setCacheableGetterSlot(thisObject, attributes, jsCast<GetterSetter*>(thisObject->getDirect(offset)), offset);
     else
-        slot.setValue(thisObj, attributes, thisObj->getDirect(offset), offset);
+        slot.setValue(thisObject, attributes, thisObject->getDirect(offset), offset);
     return true;
 }
 

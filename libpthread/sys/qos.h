@@ -69,9 +69,11 @@
  * results.
  * @discussion Such work is requested to run at a priority below critical user-
  * interactive work, but relatively higher than other work on the system. This
- * is not an energy-efficient QOS class to use for large tasks and the use of
- * this QOS class should be limited to operations where the user is immediately
- * waiting for the results.
+ * is not an energy-efficient QOS class to use for large tasks. Its use
+ * should be limited to operations of short enough duration that the user is
+ * unlikely to switch tasks while waiting for the results. Typical
+ * user-initiated work will have progress indicated by the display of
+ * placeholder content or modal user interface.
  *
  * @constant QOS_CLASS_DEFAULT
  * @abstract A default QOS class used by the system in cases where more specific
@@ -89,8 +91,10 @@
  * immediately waiting for the results.
  * @discussion Such work is requested to run at a priority below critical user-
  * interactive and user-initiated work, but relatively higher than low-level
- * system maintenance tasks. The use of this QOS class indicates the work should
- * be run in an energy and thermally-efficient manner.
+ * system maintenance tasks. The use of this QOS class indicates the work
+ * should be run in an energy and thermally-efficient manner. The progress of
+ * utility work may or may not be indicated to the user, but the effect of such
+ * work is user-visible.
  *
  * @constant QOS_CLASS_BACKGROUND
  * @abstract A QOS class which indicates work performed by this thread was not

@@ -42,16 +42,16 @@ bool ArrayBuffer::transfer(ArrayBufferContents& result)
         return false;
     }
 
-    bool isNeuterable = !m_pinCount;
+    bool isNeuterable = !m_pinCount && !m_locked;
 
-    if (isNeuterable)
-        m_contents.transfer(result);
-    else {
+    if (!isNeuterable) {
         m_contents.copyTo(result);
         if (!result.m_data)
             return false;
+        return true;
     }
 
+    m_contents.transfer(result);
     for (size_t i = numberOfIncomingReferences(); i--;) {
         JSCell* cell = incomingReferenceAt(i);
         if (JSArrayBufferView* view = jsDynamicCast<JSArrayBufferView*>(cell))

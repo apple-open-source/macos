@@ -156,8 +156,10 @@ void TTYKeepAwakePrefsHaveChanged( void )
 {
     CFDictionaryRef     activePMSettings;
     CFNumberRef         systemIdleNum;
+    CFNumberRef         displayIdleNum;
     CFNumberRef         ttysPreventNum;
     int                 systemIdleMinutes;
+    int                 displayIdleMinutes = -1;
     int                 ttysPreventSleep;
 
     /* Re-read the idle sleep timer if settings change */
@@ -165,6 +167,13 @@ void TTYKeepAwakePrefsHaveChanged( void )
     activePMSettings = PMSettings_CopyActivePMSettings();
     if(!activePMSettings) 
         goto finish;
+
+    displayIdleNum = isA_CFNumber(CFDictionaryGetValue(activePMSettings,
+        CFSTR(kIOPMDisplaySleepKey)));
+
+    if (displayIdleNum) {
+        CFNumberGetValue(displayIdleNum, kCFNumberIntType, &displayIdleMinutes);
+    }
 
     systemIdleNum = isA_CFNumber(CFDictionaryGetValue(activePMSettings,
         CFSTR(kIOPMSystemSleepKey)));
@@ -175,6 +184,9 @@ void TTYKeepAwakePrefsHaveChanged( void )
 
     if (0 == systemIdleMinutes) {
         systemIdleMinutes = kUseDefaultMinutesWhenSystemSleepIsNever;
+    }
+    else if ((displayIdleMinutes > 0) && (systemIdleMinutes < displayIdleMinutes)) {
+        systemIdleMinutes = displayIdleMinutes+1;
     }
     
     ttysPreventNum = isA_CFNumber(CFDictionaryGetValue(activePMSettings,

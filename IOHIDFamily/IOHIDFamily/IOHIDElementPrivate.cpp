@@ -29,6 +29,7 @@
 #include "IOHIDEventQueue.h"
 #include "IOHIDParserPriv.h"
 #include "IOHIDPrivateKeys.h"
+#include "IOHIDDebug.h"
 
 #define IsRange() \
             (_usageMin != _usageMax)
@@ -1900,7 +1901,7 @@ OSCollection * IOHIDElementPrivate::copyCollection(OSDictionary * cycleDict)
             OSObject *str = NULL;
             snprintf(buffer, sizeof(buffer), "Attempted to get %s on an element with %d children",
                      kIOHIDElementKey, _childArray->getCount());
-            IOLog("%s\n", buffer);
+            HIDLogError("%s", buffer);
             str = OSString::withCString(buffer);
             if (str) {
                 properties->setObject( kIOHIDElementKey, str );
@@ -2082,7 +2083,7 @@ UInt32 IOHIDElementPrivate::getValue(IOOptionBits options) {
     
     UInt32 newValue = 0;
     
-    if ((_reportBits * _reportCount) < 32) {
+    if ((_reportBits * _reportCount) <= 32) {
         
         newValue = ( options & kIOHIDValueOptionsFlagPrevious ) ? _previousValue : _elementValue->value[0];
 

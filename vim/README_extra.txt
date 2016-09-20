@@ -1,4 +1,4 @@
-README_extra.txt for version 7.3 of Vim: Vi IMproved.
+README_extra.txt for version 7.4 of Vim: Vi IMproved.
 
 These extra files of Vim are for special purposes.  This README explains what
 the files are for.  For general information about Vim, see the "README.txt"
@@ -12,9 +12,6 @@ src/if_sniff.*		Interface to SNiFF.  If you don't know what SNiFF is,
 			this is not for you.
 
 src/os_amiga.*		Files for the Amiga port.
-
-src/gui_riscos.*
-src/os_riscos.*		Files for the RISC OS port.
 
 src/gui_beos.*
 src/os_beos.*		Files for the BeOS port.

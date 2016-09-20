@@ -32,7 +32,7 @@
 #ifndef VTTRegion_h
 #define VTTRegion_h
 
-#if ENABLE(VIDEO_TRACK) && ENABLE(WEBVTT_REGIONS)
+#if ENABLE(VIDEO_TRACK)
 
 #include "ContextDestructionObserver.h"
 #include "Document.h"
@@ -79,7 +79,7 @@ public:
     double viewportAnchorY() const { return m_viewportAnchor.y(); }
     void setViewportAnchorY(double, ExceptionCode&);
 
-    const AtomicString scroll() const;
+    const AtomicString& scroll() const;
     void setScroll(const AtomicString&, ExceptionCode&);
 
     void updateParametersFromRegion(VTTRegion*);
@@ -89,7 +89,7 @@ public:
 
     bool isScrollingRegion() { return m_scroll; }
 
-    PassRefPtr<HTMLDivElement> getDisplayTree();
+    HTMLDivElement& getDisplayTree();
     
     void appendTextTrackCueBox(PassRefPtr<VTTCueBox>);
     void displayLastTextTrackCueBox();

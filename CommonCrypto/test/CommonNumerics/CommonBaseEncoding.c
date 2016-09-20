@@ -155,7 +155,7 @@ doOneShotStyle(CNEncodings encodingStrat, char *input, char *expected)
 
     
 
-int CommonBaseEncoding(int argc, char *const *argv) {
+int CommonBaseEncoding(int __unused argc, char *const * __unused argv) {
     int accum = 0;
     int verbose = 0;
     

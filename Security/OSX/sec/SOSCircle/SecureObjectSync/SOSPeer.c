@@ -27,7 +27,6 @@
  */
 #include <Security/SecureObjectSync/SOSPeer.h>
 
-#include <Security/SecureObjectSync/SOSCoder.h>
 #include <Security/SecureObjectSync/SOSDigestVector.h>
 #include <Security/SecureObjectSync/SOSInternal.h>
 #include <Security/SecureObjectSync/SOSTransport.h>
@@ -77,7 +76,6 @@ static CFStringRef kSOSPeerConfirmedManifestKey = CFSTR("confirmed-manifest");  
 static CFStringRef kSOSPeerProposedManifestKey = CFSTR("pending-manifest"); // array of digests
 static CFStringRef kSOSPeerLocalManifestKey = CFSTR("local-manifest"); // array of digests
 static CFStringRef kSOSPeerVersionKey = CFSTR("vers"); // int
-static CFStringRef kSOSPeerCoderKey = CFSTR("coder"); // der encoded SOSCoder
 
 //
 // SOSPeerMeta keys that can also be used in peerstate...
@@ -310,8 +308,6 @@ static void SOSManifestArrayAppendManifest(CFMutableArrayRef *manifests, SOSMani
 struct __OpaqueSOSPeer {
     CFRuntimeBase _base;
 
-    SOSCoderRef coder;
-    CFDataRef coderData;
     CFStringRef peer_id;
     CFSetRef views;
     CFIndex version;
@@ -364,68 +360,6 @@ static Boolean SOSPeerCompare(CFTypeRef cfA, CFTypeRef cfB)
     return CFStringCompare(SOSPeerGetID(peerA), SOSPeerGetID(peerB), 0) == kCFCompareEqualTo;
 }
 
-// Coder and coderData caching.
-// A Peer has either a coderData or a coder.  Upon serialization the
-// coder will be turned into coderData but the coder will stay instantiated
-// unless the peer is released.
-static void SOSPeerSetCoderData(SOSPeerRef peer, CFDataRef coderData){
-    if (peer->coder) {
-        SOSCoderDispose(peer->coder);
-        peer->coder = NULL;
-    }
-    CFRetainAssign(peer->coderData, coderData);
-}
-
-static bool SOSPeerCopyCoderData(SOSPeerRef peer, CFDataRef *coderData, CFErrorRef *error) {
-    // TODO: We can optionally call SOSPeerSetCoderData here to clear the coder whenever its encoded,
-    // if we assume that coders are written out to disk more often than they are used.
-    bool ok = true;
-    if (peer->coder) {
-#if 1
-        CFErrorRef localError = NULL;
-        ok = *coderData = SOSCoderCopyDER(peer->coder, &localError);
-        if (!ok) {
-            secerror("failed to der encode coder for peer %@, dropping it: %@", peer->peer_id, localError);
-            SOSCoderDispose(peer->coder);
-            peer->coder = NULL;
-            CFErrorPropagate(localError, error);
-        }
-        return ok;
-#else
-        // Alternate always delete in memory coder after der encoding it.
-        CFAssignRetained(peer->coderData, SOSCoderCopyDER(peer->coder, error));
-        ok = peer->coderData;
-        SOSCoderDispose(peer->coder);
-        peer->coder = NULL;
-#endif
-    }
-    *coderData = CFRetainSafe(peer->coderData);
-    return ok;
-}
-
-SOSCoderRef SOSPeerGetCoder(SOSPeerRef peer, CFErrorRef *error) {
-    if (peer->coderData) {
-        peer->coder = SOSCoderCreateFromData(peer->coderData, error);
-        CFReleaseNull(peer->coderData);
-    } else if (!peer->coder) {
-        SOSErrorCreate(kSOSErrorPeerNotFound, error, NULL, CFSTR("No coderData nor coder for peer: %@"), peer->peer_id);
-    }
-    return peer->coder;
-}
-
-bool SOSPeerEnsureCoder(SOSPeerRef peer, SOSFullPeerInfoRef myPeerInfo, SOSPeerInfoRef peerInfo, CFErrorRef *error) {
-    if (!SOSPeerGetCoder(peer, NULL)) {
-        secinfo("peer", "New coder for id %@.", peer->peer_id);
-        CFErrorRef localError = NULL;
-        peer->coder = SOSCoderCreate(peerInfo, myPeerInfo, kCFBooleanFalse, &localError);
-        if (!peer->coder) {
-            secerror("Failed to create coder for %@: %@", peer->peer_id, localError);
-            CFErrorPropagate(localError, error);
-            return false;
-        }
-    }
-    return true;
-}
 
 static bool SOSPeerGetPersistedBoolean(CFDictionaryRef persisted, CFStringRef key) {
     CFBooleanRef boolean = CFDictionaryGetValue(persisted, key);
@@ -579,10 +513,6 @@ bool SOSPeerSetState(SOSPeerRef p, SOSEngineRef engine, CFDictionaryRef state, C
         p->sendObjects = SOSPeerGetPersistedBoolean(state, kSOSPeerSendObjectsKey);
         CFRetainAssign(p->views, SOSPeerGetPersistedViewNameSet(p, state, kSOSPeerViewsKey));
         SOSPeerSetKeyBag(p, SOSPeerGetPersistedData(state, kSOSPeerKeyBagKey));
-        // Don't rollback coder in memory if a transaction is rolled back, since this
-        // might lead to reuse of an IV.
-        if (!p->coder)
-            SOSPeerSetCoderData(p, SOSPeerGetPersistedData(state, kSOSPeerCoderKey));
         CFAssignRetained(p->pendingObjects, SOSEngineCopyPersistedManifest(engine, state, kSOSPeerPendingObjectsKey));
         CFAssignRetained(p->unwantedManifest, SOSEngineCopyPersistedManifest(engine, state, kSOSPeerUnwantedManifestKey));
         CFAssignRetained(p->confirmedManifest, SOSEngineCopyPersistedManifest(engine, state, kSOSPeerConfirmedManifestKey));
@@ -608,16 +538,6 @@ static SOSPeerRef SOSPeerCreate_Internal(SOSEngineRef engine, CFDictionaryRef st
     }
     CFReleaseNull(empty);
     return p;
-}
-
-static bool SOSPeerPersistOptionalCoder(SOSPeerRef peer, CFMutableDictionaryRef persist, CFStringRef key, CFErrorRef *error) {
-    CFDataRef coderData = NULL;
-    bool ok = SOSPeerCopyCoderData(peer, &coderData, error);
-    if (coderData) {
-        CFDictionarySetValue(persist, key, coderData);
-        CFReleaseSafe(coderData);
-    }
-    return ok;
 }
 
 static void SOSPeerPersistBool(CFMutableDictionaryRef persist, CFStringRef key, bool value) {
@@ -684,8 +604,7 @@ CFDictionaryRef SOSPeerCopyState(SOSPeerRef peer, CFErrorRef *error) {
     if (keybag && !CFEqual(peer->peer_id, kSOSViewKeychainV0_tomb))
         SOSPeerPersistOptionalValue(state, kSOSPeerKeyBagKey, keybag);
 
-    if (!SOSPeerPersistOptionalCoder(peer, state, kSOSPeerCoderKey, error)
-        || !SOSPeerPersistOptionalManifest(state, kSOSPeerPendingObjectsKey, peer->pendingObjects, error)
+    if (!SOSPeerPersistOptionalManifest(state, kSOSPeerPendingObjectsKey, peer->pendingObjects, error)
         || !SOSPeerPersistOptionalManifest(state, kSOSPeerUnwantedManifestKey, peer->unwantedManifest, error)
         || !SOSPeerPersistOptionalManifest(state, kSOSPeerConfirmedManifestKey, peer->confirmedManifest, error)
         || !SSOSPeerPersistManifestArray(state, kSOSPeerProposedManifestKey, peer->proposedManifests, error)
@@ -703,7 +622,6 @@ static void SOSPeerDestroy(CFTypeRef cf) {
     SOSPeerRef peer = (SOSPeerRef)cf;
     CFReleaseNull(peer->peer_id);
     CFReleaseNull(peer->views);
-    SOSPeerSetCoderData(peer, NULL);
     CFReleaseNull(peer->pendingObjects);
     CFReleaseNull(peer->unwantedManifest);
     CFReleaseNull(peer->confirmedManifest);

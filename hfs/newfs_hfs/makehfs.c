@@ -49,6 +49,37 @@
 #include <unistd.h>
 #include <wipefs.h>
 
+#include <TargetConditionals.h>
+
+#if TARGET_OS_IPHONE
+
+// CoreServices is not available, so...
+
+/*
+ * Mac OS Finder flags
+ */
+enum {
+    kHasBeenInited  = 0x0100,       /* Files only */
+    /* Clear if the file contains desktop database */
+    /* bit 0x0200 was the letter bit for AOCE, but is now reserved for future use */
+    kHasCustomIcon  = 0x0400,       /* Files and folders */
+    kIsStationery   = 0x0800,       /* Files only */
+    kNameLocked     = 0x1000,       /* Files and folders */
+    kHasBundle      = 0x2000,       /* Files only */
+    kIsInvisible    = 0x4000,       /* Files and folders */
+    kIsAlias        = 0x8000        /* Files only */
+};
+
+enum {
+    kTextEncodingMacUnicode		= 0x7E,
+};
+
+#else // !TARGET_OS_IPHONE
+
+#include <CoreServices/CoreServices.h>
+
+#endif // !TARGET_OS_IPHONE
+
 /*
  * CommonCrypto is meant to be a more stable API than OpenSSL.
  * Defining COMMON_DIGEST_FOR_OPENSSL gives API-compatibility
@@ -144,8 +175,6 @@ static UInt32 UTCToLocal __P((UInt32 utcTime));
 
 static int ConvertUTF8toUnicode __P((const UInt8* source, size_t bufsize,
 		UniChar* unibuf, UInt16 *charcount));
-
-static int getencodinghint(unsigned char *name);
 
 #define VOLUMEUUIDVALUESIZE 2
 typedef union VolumeUUID {
@@ -351,8 +380,6 @@ make_hfsplus(const DriveInfo *driveInfo, hfsparams_t *defaults)
 	header = (HFSPlusVolumeHeader*)malloc((size_t)kBytesPerSector);
 	if (header == NULL)
 		err(1, NULL);
-
-	defaults->encodingHint = getencodinghint(defaults->volumeName);
 
 	/* VH Initialized in native byte order */
 	InitVH(defaults, driveInfo->totalSectors, header);
@@ -685,7 +712,7 @@ InitVH(hfsparams_t *defaults, UInt64 sectors, HFSPlusVolumeHeader *hp)
 	hp->rsrcClumpSize = defaults->rsrcClumpSize;
 	hp->dataClumpSize = defaults->dataClumpSize;
 	hp->nextCatalogID = defaults->nextFreeFileID;
-	hp->encodingsBitmap = 1 | (1 << ENCODING_TO_BIT(defaults->encodingHint));
+	hp->encodingsBitmap = 1;
 
 	/* set up allocation bitmap file */
 	hp->allocationFile.clumpSize = defaults->allocationClumpSize;
@@ -1645,7 +1672,7 @@ InitCatalogRoot_HFSPlus(const hfsparams_t *dp, const HFSPlusVolumeHeader *header
 	cdp->folderID		= SWAP_BE32 (kHFSRootFolderID);
 	cdp->createDate		= SWAP_BE32 (dp->createDate);
 	cdp->contentModDate	= SWAP_BE32 (dp->createDate);
-	cdp->textEncoding	= SWAP_BE32 (dp->encodingHint);
+	cdp->textEncoding	= SWAP_BE32 (kTextEncodingMacUnicode);
 	if (dp->flags & kUseAccessPerms) {
 		cdp->bsdInfo.ownerID  = SWAP_BE32 (dp->owner);
 		cdp->bsdInfo.groupID  = SWAP_BE32 (dp->group);
@@ -1980,33 +2007,6 @@ static UInt32 UTCToLocal(UInt32 utcTime)
         return (localTime);
 }
 
-#define __kCFUserEncodingFileName ("/.CFUserTextEncoding")
-
-static UInt32
-GetDefaultEncoding()
-{
-    struct passwd *passwdp;
-
-    if ((passwdp = getpwuid(0))) { // root account
-        char buffer[MAXPATHLEN + 1];
-        int fd;
-
-        strlcpy(buffer, passwdp->pw_dir, sizeof(buffer));
-        strlcat(buffer, __kCFUserEncodingFileName, sizeof(buffer));
-
-        if ((fd = open(buffer, O_RDONLY, 0)) > 0) {
-            ssize_t readSize;
-
-            readSize = read(fd, buffer, MAXPATHLEN);
-            buffer[(readSize < 0 ? 0 : readSize)] = '\0';
-            close(fd);
-            return strtol(buffer, NULL, 0);
-        }
-    }
-    return 0;
-}
-
-
 static int
 ConvertUTF8toUnicode(const UInt8* source, size_t bufsize, UniChar* unibuf,
 	UInt16 *charcount)
@@ -2065,33 +2065,6 @@ ConvertUTF8toUnicode(const UInt8* source, size_t bufsize, UniChar* unibuf,
 
 	return (0);
 }
-
-/*
- * Derive the encoding hint for the given name.
- */
-static int
-getencodinghint(unsigned char *name)
-{
-        int mib[3];
-        size_t buflen = sizeof(int);
-        struct vfsconf vfc;
-        int hint = 0;
-
-        if (getvfsbyname("hfs", &vfc) < 0)
-		goto error;
-
-        mib[0] = CTL_VFS;
-        mib[1] = vfc.vfc_typenum;
-        mib[2] = HFS_ENCODINGHINT;
- 
-	if (sysctl(mib, 3, &hint, &buflen, name, strlen((char *)name) + 1) < 0)
- 		goto error;
-	return (hint);
-error:
-	hint = GetDefaultEncoding();
-	return (hint);
-}
-
 
 /* Generate Volume UUID - similar to code existing in hfs_util */
 void GenerateVolumeUUID(VolumeUUID *newVolumeID) {

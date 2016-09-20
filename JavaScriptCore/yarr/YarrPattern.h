@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2009, 2013-2014, 2016 Apple Inc. All rights reserved.
  * Copyright (C) 2010 Peter Varga (pvarga@inf.u-szeged.hu), University of Szeged
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,6 +27,7 @@
 #ifndef YarrPattern_h
 #define YarrPattern_h
 
+#include "RegExpKey.h"
 #include <wtf/CheckedArithmetic.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
@@ -37,10 +38,10 @@ namespace JSC { namespace Yarr {
 struct PatternDisjunction;
 
 struct CharacterRange {
-    UChar begin;
-    UChar end;
+    UChar32 begin;
+    UChar32 end;
 
-    CharacterRange(UChar begin, UChar end)
+    CharacterRange(UChar32 begin, UChar32 end)
         : begin(begin)
         , end(end)
     {
@@ -62,9 +63,9 @@ public:
         , m_tableInverted(inverted)
     {
     }
-    Vector<UChar> m_matches;
+    Vector<UChar32> m_matches;
     Vector<CharacterRange> m_ranges;
-    Vector<UChar> m_matchesUnicode;
+    Vector<UChar32> m_matchesUnicode;
     Vector<CharacterRange> m_rangesUnicode;
 
     const char* m_table;
@@ -93,7 +94,7 @@ struct PatternTerm {
     bool m_capture :1;
     bool m_invert :1;
     union {
-        UChar patternCharacter;
+        UChar32 patternCharacter;
         CharacterClass* characterClass;
         unsigned backReferenceSubpatternId;
         struct {
@@ -110,10 +111,10 @@ struct PatternTerm {
     };
     QuantifierType quantityType;
     Checked<unsigned> quantityCount;
-    int inputPosition;
+    unsigned inputPosition;
     unsigned frameLocation;
 
-    PatternTerm(UChar ch)
+    PatternTerm(UChar32 ch)
         : type(PatternTerm::TypePatternCharacter)
         , m_capture(false)
         , m_invert(false)
@@ -286,9 +287,11 @@ std::unique_ptr<CharacterClass> newlineCreate();
 std::unique_ptr<CharacterClass> digitsCreate();
 std::unique_ptr<CharacterClass> spacesCreate();
 std::unique_ptr<CharacterClass> wordcharCreate();
+std::unique_ptr<CharacterClass> wordUnicodeIgnoreCaseCharCreate();
 std::unique_ptr<CharacterClass> nondigitsCreate();
 std::unique_ptr<CharacterClass> nonspacesCreate();
 std::unique_ptr<CharacterClass> nonwordcharCreate();
+std::unique_ptr<CharacterClass> nonwordUnicodeIgnoreCaseCharCreate();
 
 struct TermChain {
     TermChain(PatternTerm term)
@@ -299,8 +302,9 @@ struct TermChain {
     Vector<TermChain> hotTerms;
 };
 
+
 struct YarrPattern {
-    JS_EXPORT_PRIVATE YarrPattern(const String& pattern, bool ignoreCase, bool multiline, const char** error);
+    JS_EXPORT_PRIVATE YarrPattern(const String& pattern, RegExpFlags, const char** error, void* stackLimit = nullptr);
 
     void reset()
     {
@@ -315,9 +319,11 @@ struct YarrPattern {
         digitsCached = 0;
         spacesCached = 0;
         wordcharCached = 0;
+        wordUnicodeIgnoreCaseCharCached = 0;
         nondigitsCached = 0;
         nonspacesCached = 0;
         nonwordcharCached = 0;
+        nonwordUnicodeIgnoreCasecharCached = 0;
 
         m_disjunctions.clear();
         m_userCharacterClasses.clear();
@@ -365,6 +371,14 @@ struct YarrPattern {
         }
         return wordcharCached;
     }
+    CharacterClass* wordUnicodeIgnoreCaseCharCharacterClass()
+    {
+        if (!wordUnicodeIgnoreCaseCharCached) {
+            m_userCharacterClasses.append(wordUnicodeIgnoreCaseCharCreate());
+            wordUnicodeIgnoreCaseCharCached = m_userCharacterClasses.last().get();
+        }
+        return wordUnicodeIgnoreCaseCharCached;
+    }
     CharacterClass* nondigitsCharacterClass()
     {
         if (!nondigitsCached) {
@@ -389,12 +403,24 @@ struct YarrPattern {
         }
         return nonwordcharCached;
     }
+    CharacterClass* nonwordUnicodeIgnoreCaseCharCharacterClass()
+    {
+        if (!nonwordUnicodeIgnoreCasecharCached) {
+            m_userCharacterClasses.append(nonwordUnicodeIgnoreCaseCharCreate());
+            nonwordUnicodeIgnoreCasecharCached = m_userCharacterClasses.last().get();
+        }
+        return nonwordUnicodeIgnoreCasecharCached;
+    }
 
-    bool m_ignoreCase : 1;
-    bool m_multiline : 1;
+    bool ignoreCase() const { return m_flags & FlagIgnoreCase; }
+    bool multiline() const { return m_flags & FlagMultiline; }
+    bool sticky() const { return m_flags & FlagSticky; }
+    bool unicode() const { return m_flags & FlagUnicode; }
+
     bool m_containsBackreferences : 1;
     bool m_containsBOL : 1;
     bool m_containsUnsignedLengthPattern : 1; 
+    RegExpFlags m_flags;
     unsigned m_numSubpatterns;
     unsigned m_maxBackReference;
     PatternDisjunction* m_body;
@@ -402,15 +428,17 @@ struct YarrPattern {
     Vector<std::unique_ptr<CharacterClass>> m_userCharacterClasses;
 
 private:
-    const char* compile(const String& patternString);
+    const char* compile(const String& patternString, void* stackLimit);
 
     CharacterClass* newlineCached;
     CharacterClass* digitsCached;
     CharacterClass* spacesCached;
     CharacterClass* wordcharCached;
+    CharacterClass* wordUnicodeIgnoreCaseCharCached;
     CharacterClass* nondigitsCached;
     CharacterClass* nonspacesCached;
     CharacterClass* nonwordcharCached;
+    CharacterClass* nonwordUnicodeIgnoreCasecharCached;
 };
 
 } } // namespace JSC::Yarr

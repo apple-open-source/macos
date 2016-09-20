@@ -29,10 +29,10 @@
 
 #ifdef	NDEBUG
 /* this actually compiles to nothing */
-#define clErrorLog(args...)		secdebug("clError", ## args)
+#define clErrorLog(args...)		secinfo("clError", ## args)
 #else
 #define clErrorLog(args...)		printf(args)
 #endif
-#define clFieldLog(args...)		secdebug("clField", ## args)
+#define clFieldLog(args...)		secinfo("clField", ## args)
 
 #endif	/* _CLDEBUGGING_H_ */

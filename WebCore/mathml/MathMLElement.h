@@ -25,8 +25,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MathMLElement_h
-#define MathMLElement_h
+#pragma once
 
 #if ENABLE(MATHML)
 
@@ -39,8 +38,8 @@ class MathMLElement : public StyledElement {
 public:
     static Ref<MathMLElement> create(const QualifiedName& tagName, Document&);
 
-    int colSpan() const;
-    int rowSpan() const;
+    unsigned colSpan() const;
+    unsigned rowSpan() const;
 
     bool isMathMLToken() const
     {
@@ -56,21 +55,47 @@ public:
 
     bool hasTagName(const MathMLQualifiedName& name) const { return hasLocalName(name.localName()); }
 
+    // MathML lengths (https://www.w3.org/TR/MathML3/chapter2.html#fund.units)
+    // TeX's Math Unit is used internally for named spaces (1 mu = 1/18 em).
+    // Unitless values are interpreted as a multiple of a reference value.
+    enum class LengthType { Cm, Em, Ex, In, MathUnit, Mm, ParsingFailed, Pc, Percentage, Pt, Px, UnitLess };
+    struct Length {
+        LengthType type { LengthType::ParsingFailed };
+        float value { 0 };
+        bool dirty { true };
+    };
+    static Length parseMathMLLength(const String&);
+
 protected:
     MathMLElement(const QualifiedName& tagName, Document&);
 
-    virtual void parseAttribute(const QualifiedName&, const AtomicString&) override;
-    virtual bool childShouldCreateRenderer(const Node&) const override;
-    virtual void attributeChanged(const QualifiedName&, const AtomicString& oldValue, const AtomicString& newValue, AttributeModificationReason) override;
+    void parseAttribute(const QualifiedName&, const AtomicString&) override;
+    bool childShouldCreateRenderer(const Node&) const override;
+    void attributeChanged(const QualifiedName&, const AtomicString& oldValue, const AtomicString& newValue, AttributeModificationReason) override;
 
-    virtual bool isPresentationAttribute(const QualifiedName&) const override;
-    virtual void collectStyleForPresentationAttribute(const QualifiedName&, const AtomicString&, MutableStyleProperties&) override;
+    bool isPresentationAttribute(const QualifiedName&) const override;
+    void collectStyleForPresentationAttribute(const QualifiedName&, const AtomicString&, MutableStyleProperties&) override;
 
     bool isPhrasingContent(const Node&) const;
     bool isFlowContent(const Node&) const;
 
+    bool willRespondToMouseClickEvents() override;
+    void defaultEventHandler(Event*) override;
+
+    const Length& cachedMathMLLength(const QualifiedName&, Length&);
+
 private:
     virtual void updateSelectedChild() { }
+    static Length parseNumberAndUnit(const StringView&);
+    static Length parseNamedSpace(const StringView&);
+
+    bool canStartSelection() const final;
+    bool isFocusable() const final;
+    bool isKeyboardFocusable(KeyboardEvent*) const final;
+    bool isMouseFocusable() const final;
+    bool isURLAttribute(const Attribute&) const final;
+    bool supportsFocus() const final;
+    int tabIndex() const final;
 };
 
 inline bool Node::hasTagName(const MathMLQualifiedName& name) const
@@ -87,5 +112,3 @@ SPECIALIZE_TYPE_TRAITS_END()
 #include "MathMLElementTypeHelpers.h"
 
 #endif // ENABLE(MATHML)
-
-#endif // MathMLElement_h

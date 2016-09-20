@@ -28,27 +28,24 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/lib/libc_r/man/pthread_join.3,v 1.7.2.4 2001/08/17 15:42:51 ru Exp $
+.\" $FreeBSD$
 .\"
-.Dd April 4, 1996
+.Dd January 23, 2010
 .Dt PTHREAD_JOIN 3
 .Os
 .Sh NAME
 .Nm pthread_join
 .Nd wait for thread termination
 .Sh SYNOPSIS
-.Fd #include <pthread.h>
+.In pthread.h
 .Ft int
-.Fo pthread_join
-.Fa "pthread_t thread"
-.Fa "void **value_ptr"
-.Fc
+.Fn pthread_join "pthread_t thread" "void **value_ptr"
 .Sh DESCRIPTION
 The
 .Fn pthread_join
 function suspends execution of the calling thread until the target
 .Fa thread
-terminates, unless the target
+terminates unless the target
 .Fa thread
 has already terminated.
 .Pp
@@ -65,26 +62,23 @@ When a
 returns successfully, the target thread has been terminated.
 The results
 of multiple simultaneous calls to
-.Fn pthread_join ,
-specifying the same target thread, are undefined.
+.Fn pthread_join
+specifying the same target thread are undefined.
 If the thread calling
 .Fn pthread_join
-is cancelled, the target thread is not detached.
+is cancelled, then the target thread is not detached.
 .Pp
 .Sh RETURN VALUES
-If successful,  the
+If successful, the
 .Fn pthread_join
 function will return zero.
 Otherwise, an error number will be returned to
 indicate the error.
 .Sh ERRORS
+The
 .Fn pthread_join
-will fail if:
+function will fail if:
 .Bl -tag -width Er
-.It Bq Er EDEADLK
-A deadlock was detected or the value of
-.Fa thread
-specifies the calling thread.
 .It Bq Er EINVAL
 The implementation has detected that the value specified by
 .Fa thread
@@ -93,11 +87,16 @@ does not refer to a joinable thread.
 No thread could be found corresponding to that specified by the given
 thread ID,
 .Fa thread .
+.It Bq Er EDEADLK
+A deadlock was detected or the value of
+.Fa thread
+specifies the calling thread.
 .El
 .Sh SEE ALSO
 .Xr wait 2 ,
 .Xr pthread_create 3
 .Sh STANDARDS
+The
 .Fn pthread_join
-conforms to
+function conforms to
 .St -p1003.1-96 .

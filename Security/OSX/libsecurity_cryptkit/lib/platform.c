@@ -28,7 +28,7 @@ void CKRaise(const char *reason) {
 	#if	FEE_DEBUG
 	printf("CryptKit fatal error: %s\n", reason);
 	#endif
-	exit(1);
+    abort();
 }
 
 #import "feeDebug.h"
@@ -83,7 +83,7 @@ void CKRaise(const char *reason) {
 	#if	FEE_DEBUG
 	printf("CryptKit fatal error: %s\n", reason);
 	#endif
-	exit(1);
+    abort();
 }
 
 extern void time(unsigned *tp);
@@ -106,12 +106,19 @@ unsigned createRandomSeed()
  */
 #include <stdlib.h>
 #include <time.h>
+#include <CrashReporterClient.h>
 
 void CKRaise(const char *reason) {
 	#if	FEE_DEBUG
 	printf("CryptKit fatal error: %s\n", reason);
 	#endif
-	exit(1);
+    char * msg = NULL;
+    if(asprintf(&msg, "CryptKit fatal error: %s", reason)) {
+        CRSetCrashLogMessage(msg);
+    } else {
+        CRSetCrashLogMessage("CryptKit fatal error");
+    }
+    abort();
 }
 
 /* for X, this isn't used except for testing when SecurityServer when
@@ -170,7 +177,7 @@ void CKRaise(const char *reason) {
 	#if	FEE_DEBUG
 	printf("CryptKit fatal error: %s\n", reason);
 	#endif
-	exit(1);
+    abort();
 }
 
 #include <sys/types.h>

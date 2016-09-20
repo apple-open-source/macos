@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -37,10 +37,8 @@
 #include <CoreFoundation/CFRuntime.h>
 #include <Security/Security.h>
 #include <Security/SecTask.h>
-#include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCPrivate.h>
-#include <SystemConfiguration/SCValidation.h>
 
+#define SC_LOG_HANDLE	__log_SCHelper()
 #include "SCPreferencesInternal.h"
 #include "SCHelper_client.h"
 #include "helper_types.h"
@@ -116,6 +114,23 @@ static CFMutableSetRef	sessions			= NULL;
 static int		sessions_closed			= 0;	// count of sessions recently closed
 static int		sessions_generation		= 0;
 static pthread_mutex_t	sessions_lock			= PTHREAD_MUTEX_INITIALIZER;
+
+
+#pragma mark -
+#pragma mark Logging
+
+
+static os_log_t
+__log_SCHelper()
+{
+	static os_log_t	log	= NULL;
+
+	if (log == NULL) {
+		log = os_log_create("com.apple.SystemConfiguration", "SCPreferences");
+	}
+
+	return log;
+}
 
 
 #pragma mark -
@@ -230,7 +245,6 @@ __SCHelperSessionSetThreadName(SCHelperSessionRef session)
 	char				*path_s		= NULL;
 	SCHelperSessionPrivateRef	sessionPrivate	= (SCHelperSessionPrivateRef)session;
 
-
 	if (sessionPrivate->mp == NULL) {
 		return;
 	}
@@ -257,7 +271,7 @@ __SCHelperSessionSetThreadName(SCHelperSessionRef session)
 	if (caller != NULL) {
 		snprintf(name, sizeof(name), "SESSION|%p|%s|%s%s",
 			(void *)(uintptr_t)CFMachPortGetPort(sessionPrivate->mp),
-			(caller != NULL) ? caller : "?",
+			caller,
 			(path_s != NULL) ? "*/"   : "",
 			(path   != NULL) ? path   : "?");
 		CFAllocatorDeallocate(NULL, caller);
@@ -499,22 +513,16 @@ __SCHelperSessionCreate(CFAllocatorRef allocator)
 		return NULL;
 	}
 
+	/* initialize non-zero/NULL members */
 	if (pthread_mutex_init(&sessionPrivate->lock, NULL) != 0) {
 		SC_log(LOG_NOTICE, "pthread_mutex_init(): failure to initialize per session lock");
 		CFRelease(sessionPrivate);
 		return NULL;
 	}
-	sessionPrivate->authorization		= NULL;
-	sessionPrivate->use_entitlement		= FALSE;
-	sessionPrivate->port			= MACH_PORT_NULL;
-	sessionPrivate->mp			= NULL;
 	sessionPrivate->callerReadAccess	= UNKNOWN;
 	sessionPrivate->callerWriteAccess	= UNKNOWN;
 	sessionPrivate->isSetChange		= UNKNOWN;
 	sessionPrivate->isVPNChange		= UNKNOWN;
-	sessionPrivate->vpnTypes		= NULL;
-	sessionPrivate->prefs			= NULL;
-	sessionPrivate->backtraces		= NULL;
 
 	// keep track this session
 	pthread_mutex_lock(&sessions_lock);
@@ -682,7 +690,7 @@ do_Auth(SCHelperSessionRef session, void *info, CFDataRef data, uint32_t *status
 #endif
 	Boolean		ok			= FALSE;
 
-	if (_SCUnserialize((CFPropertyListRef*)&authorizationDict, data, NULL, 0) == FALSE) {
+	if (!_SCUnserialize((CFPropertyListRef*)&authorizationDict, data, NULL, 0)) {
 		return FALSE;
 	}
 
@@ -1295,7 +1303,7 @@ do_prefs_Commit(SCHelperSessionRef session, void *info, CFDataRef data, uint32_t
 	savePrefs = prefsPrivate->prefs;
 	saveAccessed = prefsPrivate->accessed;
 	saveChanged = prefsPrivate->changed;
-	
+
 	prefsPrivate->prefs	= CFDictionaryCreateMutableCopy(NULL, 0, prefsData);
 	prefsPrivate->accessed	= TRUE;
 	prefsPrivate->changed	= TRUE;
@@ -1316,7 +1324,7 @@ do_prefs_Commit(SCHelperSessionRef session, void *info, CFDataRef data, uint32_t
 			if (prefsPrivate->prefs != NULL) {
 				CFRelease(prefsPrivate->prefs);
 			}
-			
+
 			prefsPrivate->prefs = savePrefs;
 			prefsPrivate->accessed = saveAccessed;
 			prefsPrivate->changed = saveChanged;
@@ -1925,16 +1933,12 @@ helper_demux(mach_msg_header_t *request, mach_msg_header_t *reply)
 static void
 helperCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 {
-	os_activity_t		activity_id;
 	mig_reply_error_t *	bufRequest	= msg;
 	uint32_t		bufReply_q[MACH_MSG_BUFFER_SIZE/sizeof(uint32_t)];
 	mig_reply_error_t *	bufReply	= (mig_reply_error_t *)bufReply_q;
 	static CFIndex		bufSize		= 0;
 	mach_msg_return_t	mr;
 	int			options;
-
-	activity_id = os_activity_start("processing SCHelper request",
-					OS_ACTIVITY_FLAG_DEFAULT);
 
 	if (bufSize == 0) {
 		// get max size for MiG reply buffers
@@ -2012,8 +2016,6 @@ helperCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 
 	if (bufReply != (mig_reply_error_t *)bufReply_q)
 		CFAllocatorDeallocate(NULL, bufReply);
-
-	os_activity_end(activity_id);
 
 	return;
 }
@@ -2228,8 +2230,6 @@ _helperexec(mach_port_t			server,
 
 			ok = _SCSerializeData(reply, (void **)replyRef, &len);
 			*replyLen = (mach_msg_type_number_t)len;
-			CFRelease(reply);
-			reply = NULL;
 			if (!ok) {
 				*status = SCError();
 				goto done;

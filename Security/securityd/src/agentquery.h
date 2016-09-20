@@ -32,7 +32,6 @@
 #include <security_utilities/ccaudit.h> // some queries do their own authentication
 #include <Security/AuthorizationPlugin.h>
 #include "kcdatabase.h"
-#include "AuthorizationEngine.h"
 #include "authhost.h"
 #include "server.h"
 #include "session.h"
@@ -47,20 +46,16 @@ const uint64_t kMaximumAuthorizationTries = 10000;
 //
 // base for classes talking to com.apple.security.agent and com.apple.security.authhost 
 //
-class SecurityAgentXPCConnection : public SecurityAgentConnectionInterface
+class SecurityAgentXPCConnection
 {
 public:
-    SecurityAgentXPCConnection(const AuthHostType type = securityAgent, Session &session = Server::session());
+    SecurityAgentXPCConnection(Session &session = Server::session());
     virtual ~SecurityAgentXPCConnection();
     virtual void activate(bool ignoreUid);
-    virtual void reconnect();
     virtual void disconnect()  { };
     virtual void terminate();
-    
-    AuthHostType hostType()  { return mAuthHostType; }
-    
+        
 protected:
-    AuthHostType mAuthHostType;
     RefPointer<AuthHostInstance> mHostInstance;
     Session &mSession;
     xpc_connection_t mXPCConnection;
@@ -74,7 +69,7 @@ protected:
 
 
 //
-// The main com.apple.security.agent/com.apple.security.authhost interaction base class
+// The main com.apple.security.agent interaction base class
 //
 class SecurityAgentXPCQuery : public SecurityAgentXPCConnection
 {
@@ -83,7 +78,7 @@ public:
 	
     typedef SecurityAgent::Reason Reason;
 	
-	SecurityAgentXPCQuery(const AuthHostType type = securityAgent, Session &session = Server::session());
+	SecurityAgentXPCQuery(Session &session = Server::session());
 	
     
 	void inferHints(Process &thisProcess);
@@ -127,15 +122,6 @@ public:
 
 private:
     const KeychainDatabase *mPassphraseCheck; // NULL to not check passphrase
-};
-
-
-//
-// Specialized for code signature adjustment queries
-//
-class QueryCodeCheck : public SecurityAgentXPCQuery {
-public:
-    bool operator () (const char *aclPath);
 };
 
 

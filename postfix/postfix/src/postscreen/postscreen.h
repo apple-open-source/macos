@@ -75,6 +75,7 @@ typedef struct {
     time_t  expire_time[PSC_TINDX_COUNT];	/* per-test expiration */
     VSTRING *dnsbl_reply;		/* dnsbl reject text */
     int     dnsbl_score;		/* saved DNSBL score */
+    int     dnsbl_ttl;			/* saved DNSBL TTL */
     const char *dnsbl_name;		/* DNSBL name with largest weight */
     int     dnsbl_index;		/* dnsbl request index */
     const char *rcpt_reply;		/* how to reject recipients */
@@ -372,7 +373,6 @@ extern int psc_pipel_action;		/* PSC_ACT_DROP etc. */
 extern int psc_nsmtp_action;		/* PSC_ACT_DROP etc. */
 extern int psc_barlf_action;		/* PSC_ACT_DROP etc. */
 extern int psc_min_ttl;			/* Update with new tests! */
-extern int psc_max_ttl;			/* Update with new tests! */
 extern STRING_LIST *psc_forbid_cmds;	/* CONNECT GET POST */
 extern int psc_stress_greet_wait;	/* stressed greet wait */
 extern int psc_normal_greet_wait;	/* stressed greet wait */
@@ -480,8 +480,8 @@ const char *psc_maps_find(MAPS *, const char *, int);
   * postscreen_dnsbl.c
   */
 extern void psc_dnsbl_init(void);
-extern int psc_dnsbl_retrieve(const char *, const char **, int);
-extern int psc_dnsbl_request(const char *, void (*) (int, char *), char *);
+extern int psc_dnsbl_retrieve(const char *, const char **, int, int *);
+extern int psc_dnsbl_request(const char *, void (*) (int, void *), void *);
 
  /*
   * postscreen_tests.c
@@ -551,7 +551,7 @@ extern void psc_starttls_open(PSC_STATE *, EVENT_NOTIFY_FN);
   */
 extern VSTRING *psc_expand_filter;
 extern void psc_expand_init(void);
-extern const char *psc_expand_lookup(const char *, int, char *);
+extern const char *psc_expand_lookup(const char *, int, void *);
 
  /*
   * postscreen_endpt.c
@@ -582,4 +582,9 @@ extern void psc_endpt_lookup(VSTREAM *, PSC_ENDPT_LOOKUP_FN);
 /*	IBM T.J. Watson Research
 /*	P.O. Box 704
 /*	Yorktown Heights, NY 10598, USA
+/*
+/*	Wietse Venema
+/*	Google, Inc.
+/*	111 8th Avenue
+/*	New York, NY 10011, USA
 /*--*/

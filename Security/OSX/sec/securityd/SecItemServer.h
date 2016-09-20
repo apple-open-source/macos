@@ -45,10 +45,15 @@ bool _SecItemCopyMatching(CFDictionaryRef query, SecurityClient *client, CFTypeR
 bool _SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate, SecurityClient *client, CFErrorRef *error);
 bool _SecItemDelete(CFDictionaryRef query, SecurityClient *client, CFErrorRef *error);
 bool _SecItemDeleteAll(CFErrorRef *error);
+bool _SecItemServerDeleteAllWithAccessGroups(CFArrayRef accessGroups, SecurityClient *client, CFErrorRef *error);
+
 bool _SecServerRestoreKeychain(CFErrorRef *error);
 bool _SecServerMigrateKeychain(int32_t handle_in, CFDataRef data_in, int32_t *handle_out, CFDataRef *data_out, CFErrorRef *error);
 CFDataRef _SecServerKeychainCreateBackup(SecurityClient *client, CFDataRef keybag, CFDataRef passcode, CFErrorRef *error);
 bool _SecServerKeychainRestore(CFDataRef backup, SecurityClient *client, CFDataRef keybag, CFDataRef passcode, CFErrorRef *error);
+CFStringRef _SecServerBackupCopyUUID(CFDataRef backup, CFErrorRef *error);
+
+bool _SecItemUpdateTokenItems(CFStringRef tokenID, CFArrayRef items, SecurityClient *client, CFErrorRef *error);
 
 CF_RETURNS_RETAINED CFArrayRef _SecServerKeychainSyncUpdateMessage(CFDictionaryRef updates, CFErrorRef *error);
 bool _SecServerKeychainSyncUpdateIDSMessage(CFDictionaryRef updates, CFErrorRef *error);
@@ -71,6 +76,9 @@ bool _SecCopySharedWebCredential(CFDictionaryRef query, SecurityClient *client, 
 void SecItemServerAppendItemDescription(CFMutableStringRef desc, CFDictionaryRef object);
 
 SecDbRef SecKeychainDbCreate(CFStringRef path);
+
+void
+_SecServerDatabaseSetup(void);
 
 
 /* For whitebox testing only */

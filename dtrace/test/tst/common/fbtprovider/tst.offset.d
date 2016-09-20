@@ -41,12 +41,12 @@ BEGIN
 	self->traceme = 1;
 }
 
-fbt::sigprocmask:entry
+fbt::ioctl:entry
 {
 	printf("Entering the function\n");
 }
 
-fbt::sigprocmask:return
+fbt::ioctl:return
 {
 	printf("The offset = %u\n", arg0);
 	exit(0);

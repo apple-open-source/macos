@@ -28,23 +28,18 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/lib/libc_r/man/pthread_create.3,v 1.9.2.4 2001/08/17 15:42:51 ru Exp $
+.\" $FreeBSD$
 .\"
-.Dd April 4, 1996
+.Dd March 15, 2014
 .Dt PTHREAD_CREATE 3
 .Os
 .Sh NAME
 .Nm pthread_create
 .Nd create a new thread
 .Sh SYNOPSIS
-.Fd #include <pthread.h>
+.In pthread.h
 .Ft int
-.Fo pthread_create
-.Fa "pthread_t *restrict thread"
-.Fa "const pthread_attr_t *restrict attr"
-.Fa "void *(*start_routine)(void *)"
-.Fa "void *restrict arg"
-.Fc
+.Fn pthread_create "pthread_t *thread" "const pthread_attr_t *attr" "void *(*start_routine)(void *)" "void *arg"
 .Sh DESCRIPTION
 The
 .Fn pthread_create
@@ -53,24 +48,27 @@ function is used to create a new thread, with attributes specified by
 within a process.
 If
 .Fa attr
-is NULL, the default attributes are used.
+is
+.Dv NULL ,
+the default attributes are used.
 If the attributes specified by
 .Fa attr
 are modified later, the thread's attributes are not affected.
-Upon successful completion,
+Upon
+successful completion
 .Fn pthread_create
 will store the ID of the created thread in the location specified by
 .Fa thread .
 .Pp
-Upon its creation, the thread executes
-.Fa start_routine ,
+The thread is created executing
+.Fa start_routine
 with
 .Fa arg
 as its sole argument.
-If
+If the
 .Fa start_routine
 returns, the effect is as if there was an implicit call to
-.Fn pthread_exit ,
+.Fn pthread_exit
 using the return value of
 .Fa start_routine
 as the exit status.
@@ -80,7 +78,7 @@ was originally invoked differs from this.
 When it returns from
 .Fn main ,
 the effect is as if there was an implicit call to
-.Fn exit ,
+.Fn exit
 using the return value of
 .Fn main
 as the exit status.
@@ -110,19 +108,23 @@ The signal mask is inherited from the creating thread.
 The set of signals pending for the new thread is empty.
 .El
 .Sh RETURN VALUES
-If successful,  the
+If successful, the
 .Fn pthread_create
 function will return zero.
-Otherwise, an error number will be returned to
+Otherwise an error number will be returned to
 indicate the error.
 .Sh ERRORS
+The
 .Fn pthread_create
-will fail if:
+function will fail if:
 .Bl -tag -width Er
 .It Bq Er EAGAIN
 The system lacked the necessary resources to create another thread, or
 the system-imposed limit on the total number of threads in a process
 [PTHREAD_THREADS_MAX] would be exceeded.
+.It Bq Er EPERM
+The caller does not have appropriate permission to set the required scheduling
+parameters or scheduling policy.
 .It Bq Er EINVAL
 The value specified by
 .Fa attr
@@ -130,12 +132,14 @@ is invalid.
 .El
 .Sh SEE ALSO
 .Xr fork 2 ,
+.Xr pthread_attr 3 ,
+.Xr pthread_cancel 3 ,
 .Xr pthread_cleanup_pop 3 ,
 .Xr pthread_cleanup_push 3 ,
-.Xr pthread_detach 3 ,
 .Xr pthread_exit 3 ,
 .Xr pthread_join 3
 .Sh STANDARDS
+The
 .Fn pthread_create
-conforms to
+function conforms to
 .St -p1003.1-96 .

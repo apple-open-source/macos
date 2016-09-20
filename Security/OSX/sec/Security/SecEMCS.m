@@ -21,11 +21,12 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#define __KEYCHAINCORE__
+#define __KEYCHAINCORE__ 1
 
 #include <Foundation/Foundation.h>
 #include <Security/SecBase.h>
 #include <Security/SecBasePriv.h>
+#include <Security/SecCFAllocator.h>
 #include <corecrypto/ccpbkdf2.h>
 #include <corecrypto/ccsha2.h>
 #include <corecrypto/ccaes.h>
@@ -90,7 +91,7 @@ CopyUnwrappedKey(CFDataRef wrappingKey, CFDataRef wrappedKey)
 
     ccecb_init(ecb_mode, key, CFDataGetLength(wrappingKey), CFDataGetBytePtr(wrappingKey));
 
-    unwrappedKey = CFDataCreateMutableWithScratch(CFAllocatorSensitive(), ccwrap_unwrapped_size(CFDataGetLength(wrappedKey)));
+    unwrappedKey = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), ccwrap_unwrapped_size(CFDataGetLength(wrappedKey)));
     require(unwrappedKey, out);
 
     size_t obytes = 0;
@@ -130,7 +131,7 @@ CreateDerivedKey(CFDataRef salt, long iterations, NSString *managedCredential)
     }
 
 
-    CFMutableDataRef key = CFDataCreateMutable(CFAllocatorSensitive(), KEY_LENGTH);
+    CFMutableDataRef key = CFDataCreateMutable(SecCFAllocatorZeroize(), KEY_LENGTH);
     if (key == NULL) {
         memset_s(buffer, strLength, 0, strLength);
         return NULL;
@@ -229,9 +230,9 @@ SecEMCSCreateNewiDMSKey(NSDictionary *options,
         goto out;
 
     if (oldEMCSKey) {
-        localEmcsKey = CFDataCreateMutableCopy(CFAllocatorSensitive(), 0, (__bridge CFDataRef)oldEMCSKey);
+        localEmcsKey = CFDataCreateMutableCopy(SecCFAllocatorZeroize(), 0, (__bridge CFDataRef)oldEMCSKey);
     } else {
-        localEmcsKey = CFDataCreateMutableWithScratch(CFAllocatorSensitive(), KEY_LENGTH);
+        localEmcsKey = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), KEY_LENGTH);
         if (localEmcsKey == NULL)
             goto out;
         if (SecRandomCopyBytes(NULL, CFDataGetLength(localEmcsKey), CFDataGetMutableBytePtr(localEmcsKey)) != 0)

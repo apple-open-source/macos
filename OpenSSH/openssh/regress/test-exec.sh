@@ -73,7 +73,7 @@ SSHADD=ssh-add
 SSHKEYGEN=ssh-keygen
 SSHKEYSCAN=ssh-keyscan
 SFTP=sftp
-SFTPSERVER=/usr/libexec/sftp-server
+SFTPSERVER=/usr/libexec/openssh/sftp-server
 SCP=scp
 
 # Interop testing

@@ -115,6 +115,7 @@ zcond_regex_match(char **a, int id)
 	    } else {
 		zlong offs;
 		char *ptr;
+		int clen, leftlen;
 
 		m = matches;
 		s = metafy(lhstr + m->rm_so, m->rm_eo - m->rm_so, META_DUP);
@@ -123,19 +124,25 @@ zcond_regex_match(char **a, int id)
 		 * Count the characters before the match.
 		 */
 		ptr = lhstr;
+		leftlen = m->rm_so;
 		offs = 0;
-		MB_METACHARINIT();
-		while (ptr < lhstr + m->rm_so) {
+		MB_CHARINIT();
+		while (leftlen) {
 		    offs++;
-		    ptr += MB_METACHARLEN(ptr);
+		    clen = MB_CHARLEN(ptr, leftlen);
+		    ptr += clen;
+		    leftlen -= clen;
 		}
 		setiparam("MBEGIN", offs + !isset(KSHARRAYS));
 		/*
 		 * Add on the characters in the match.
 		 */
-		while (ptr < lhstr + m->rm_eo) {
+		leftlen = m->rm_eo - m->rm_so;
+		while (leftlen) {
 		    offs++;
-		    ptr += MB_METACHARLEN(ptr);
+		    clen = MB_CHARLEN(ptr, leftlen);
+		    ptr += clen;
+		    leftlen -= clen;
 		}
 		setiparam("MEND", offs + !isset(KSHARRAYS) - 1);
 		if (nelem) {
@@ -148,20 +155,31 @@ zcond_regex_match(char **a, int id)
 			 ++n, ++m, ++bptr, ++eptr)
 		    {
 			char buf[DIGBUFSIZE];
+			if (m->rm_so < 0 || m->rm_eo < 0) {
+			    *bptr = ztrdup("-1");
+			    *eptr = ztrdup("-1");
+			    continue;
+			}
 			ptr = lhstr;
+			leftlen = m->rm_so;
 			offs = 0;
 			/* Find the start offset */
-			MB_METACHARINIT();
-			while (ptr < lhstr + m->rm_so) {
+			MB_CHARINIT();
+			while (leftlen) {
 			    offs++;
-			    ptr += MB_METACHARLEN(ptr);
+			    clen = MB_CHARLEN(ptr, leftlen);
+			    ptr += clen;
+			    leftlen -= clen;
 			}
 			convbase(buf, offs + !isset(KSHARRAYS), 10);
 			*bptr = ztrdup(buf);
 			/* Continue to the end offset */
-			while (ptr < lhstr + m->rm_eo) {
+			leftlen = m->rm_eo - m->rm_so;
+			while (leftlen ) {
 			    offs++;
-			    ptr += MB_METACHARLEN(ptr);
+			    clen = MB_CHARLEN(ptr, leftlen);
+			    ptr += clen;
+			    leftlen -= clen;
 			}
 			convbase(buf, offs + !isset(KSHARRAYS) - 1, 10);
 			*eptr = ztrdup(buf);

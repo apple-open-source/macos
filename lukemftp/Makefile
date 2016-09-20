@@ -48,7 +48,8 @@ AEP_Patches    = \
 		PR-7577277.main.c.patch \
 		PR-7577277.util.c.patch \
 		PR-13253996_ftp.c.patch \
-		CVE-2014-8517.diff
+		CVE-2014-8517.diff \
+		PR-24033140.main.c.patch
 
 install_source::
 ifeq ($(AEP),YES)

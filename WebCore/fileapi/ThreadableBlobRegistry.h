@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 Google Inc. All rights reserved.
+ * Copyright (C) 2013, 2014, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -28,8 +29,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ThreadableBlobRegistry_h
-#define ThreadableBlobRegistry_h
+#pragma once
 
 #include <wtf/Forward.h>
 #include <wtf/Vector.h>
@@ -45,6 +45,7 @@ public:
     static void registerFileBlobURL(const URL&, const String& path, const String& contentType);
     static void registerBlobURL(const URL&, Vector<BlobPart> blobParts, const String& contentType);
     static void registerBlobURL(SecurityOrigin*, const URL&, const URL& srcURL);
+    static void registerBlobURLOptionallyFileBacked(const URL&, const URL& srcURL, const String& fileBackedPath, const String& contentType);
     static void registerBlobURLForSlice(const URL& newURL, const URL& srcURL, long long start, long long end);
     static void unregisterBlobURL(const URL&);
 
@@ -52,9 +53,7 @@ public:
 
     // Returns the origin for the given blob URL. This is because we are not able to embed the unique security origin or the origin of file URL
     // in the blob URL.
-    static PassRefPtr<SecurityOrigin> getCachedOrigin(const URL&);
+    static RefPtr<SecurityOrigin> getCachedOrigin(const URL&);
 };
 
 } // namespace WebCore
-
-#endif // ThreadableBlobRegistry_h

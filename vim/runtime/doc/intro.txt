@@ -1,4 +1,4 @@
-*intro.txt*     For Vim version 7.3.  Last change: 2010 Jul 20
+*intro.txt*     For Vim version 7.4.  Last change: 2015 Jan 20
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -135,8 +135,11 @@ http://www.vim.org/maillist.php
 
 Bug reports:				*bugs* *bug-reports* *bugreport.vim*
 
-Send bug reports to: Vim bugs <bugs@vim.org>
-This is not a maillist but the message is redirected to the Vim maintainer.
+Send bug reports to: Vim Developers <vim-dev@vim.org>
+This is a maillist, you need to become a member first and many people will see
+the message.  If you don't want that, e.g. because it is a security issue,
+send it to <bugs@vim.org>, this only goes to the Vim maintainer (that's Bram).
+
 Please be brief; all the time that is spent on answering mail is subtracted
 from the time that is spent on improving Vim!  Always give a reproducible
 example and try to find out which settings or other things influence the
@@ -259,6 +262,7 @@ Vim would never have become what it is now, without the help of these people!
 I wish to thank all the people that sent me bug reports and suggestions.  The
 list is too long to mention them all here.  Vim would not be the same without
 the ideas from all these people: They keep Vim alive!
+*love* *peace* *friendship* *gross-national-happiness*
 
 
 In this documentation there are several references to other versions of Vi:
@@ -300,7 +304,7 @@ and <> are part of what you type, the context should make this clear.
 
 []		Characters in square brackets are optional.
 
-						    *count* *[count]* *E489*
+						    *count* *[count]*
 [count]		An optional number that may precede the command to multiply
 		or iterate the command.  If no number is given, a count of one
 		is used, unless otherwise noted.  Note that in this manual the
@@ -392,6 +396,8 @@ CTRL-{char}	{char} typed as a control character; that is, typing {char}
 							*quotecommandquote*
 "command"	A reference to a command that you can type is enclosed in
 		double quotes.
+`command`	New style command, this distinguishes it from other quoted
+		text and strings.
 
 					*key-notation* *key-codes* *keycodes*
 These names for keys are used in the documentation.  They can also be used
@@ -616,7 +622,6 @@ Replace		 <Esc>	  --	  --	<Insert>	      --      --
 Command-line	 *3	  --	  --	 :start	    --		      --
 Ex		 :vi	  --	  --	 --	    --	      --
 
--  NA
 -- not possible
 
 *1 Go from Normal mode to Insert mode by giving the command "i", "I", "a",
@@ -703,7 +708,7 @@ Lines longer than the window width will wrap, unless the 'wrap' option is off
 (see below).  The 'linebreak' option can be set to wrap at a blank character.
 
 If the window has room after the last line of the buffer, Vim will show '~' in
-the first column of the last lines in the window, like this: >
+the first column of the last lines in the window, like this:
 
 	+-----------------------+
 	|some line		|
@@ -715,7 +720,7 @@ the first column of the last lines in the window, like this: >
 Thus the '~' lines indicate that the end of the buffer was reached.
 
 If the last line in a window doesn't fit, Vim will indicate this with a '@' in
-the first column of the last lines in the window, like this: >
+the first column of the last lines in the window, like this:
 
 	+-----------------------+
 	|first line		|
@@ -730,7 +735,7 @@ window.
 When the "lastline" flag is present in the 'display' option, you will not see
 '@' characters at the left side of window.  If the last line doesn't fit
 completely, only the part that fits is shown, and the last three characters of
-the last line are replaced with "@@@", like this: >
+the last line are replaced with "@@@", like this:
 
 	+-----------------------+
 	|first line		|

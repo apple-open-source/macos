@@ -45,12 +45,12 @@ public:
 private:
     ScrollingTreeFrameScrollingNodeMac(ScrollingTree&, ScrollingNodeID);
 
-    void releaseReferencesToScrollbarPaintersOnTheMainThread();
+    void releaseReferencesToScrollerImpsOnTheMainThread();
 
     // ScrollingTreeNode member functions.
-    virtual void updateBeforeChildren(const ScrollingStateNode&) override;
-    virtual void updateAfterChildren(const ScrollingStateNode&) override;
-    virtual void handleWheelEvent(const PlatformWheelEvent&) override;
+    void updateBeforeChildren(const ScrollingStateNode&) override;
+    void updateAfterChildren(const ScrollingStateNode&) override;
+    void handleWheelEvent(const PlatformWheelEvent&) override;
 
     // ScrollController member functions.
     bool allowsHorizontalStretching(const PlatformWheelEvent&) override;
@@ -60,7 +60,6 @@ private:
     bool canScrollHorizontally() override;
     bool canScrollVertically() override;
     bool shouldRubberBandInDirection(ScrollDirection) override;
-    IntPoint absoluteScrollPosition() override;
     void immediateScrollBy(const FloatSize&) override;
     void immediateScrollByWithoutContentEdgeConstraints(const FloatSize&) override;
     void stopSnapRubberbandTimer() override;
@@ -104,8 +103,8 @@ private:
     RetainPtr<CALayer> m_contentShadowLayer;
     RetainPtr<CALayer> m_headerLayer;
     RetainPtr<CALayer> m_footerLayer;
-    RetainPtr<ScrollbarPainter> m_verticalScrollbarPainter;
-    RetainPtr<ScrollbarPainter> m_horizontalScrollbarPainter;
+    RetainPtr<NSScrollerImp> m_verticalScrollerImp;
+    RetainPtr<NSScrollerImp> m_horizontalScrollerImp;
     FloatPoint m_probableMainThreadScrollPosition;
     bool m_lastScrollHadUnfilledPixels { false };
     bool m_hadFirstUpdate { false };

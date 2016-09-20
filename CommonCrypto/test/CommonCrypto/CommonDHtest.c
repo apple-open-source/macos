@@ -10,7 +10,7 @@ entryPoint(CommonDH,"Diffie-Hellman Key Agreement")
 #include "CommonDH.h"
 static int kTestTestCount = 8;
 
-int CommonDH(int argc, char *const *argv) {
+int CommonDH(int __unused argc, char *const * __unused argv) {
     CCDHRef dh1, dh2;
 
     plan_tests(kTestTestCount);

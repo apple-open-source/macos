@@ -1,9 +1,7 @@
 /*
- * "$Id: pwg-media.c 11934 2014-06-17 18:58:29Z msweet $"
- *
  * PWG media name API implementation for CUPS.
  *
- * Copyright 2009-2014 by Apple Inc.
+ * Copyright 2009-2016 by Apple Inc.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright
@@ -235,7 +233,10 @@ static pwg_media_t const cups_pwg_media[] =
   _PWG_MEDIA_MM("om_folio_210x330mm", "folio", "Folio", 210, 330),
   _PWG_MEDIA_MM("om_folio-sp_215x315mm", NULL, "FolioSP", 215, 315),
   _PWG_MEDIA_MM("om_invite_220x220mm", NULL, "EnvInvite", 220, 220),
-  _PWG_MEDIA_MM("om_small-photo_100x200mm", NULL, "om_wide-photo", 100, 200)
+  _PWG_MEDIA_MM("om_small-photo_100x200mm", NULL, "om_wide-photo", 100, 200),
+
+  /* Disc Sizes */
+  _PWG_MEDIA_MM("disc_standard_40x118mm", NULL, NULL, 118, 118)
 };
 
 
@@ -257,7 +258,7 @@ static pwg_media_t const cups_pwg_media[] =
  * units string is @code NULL@, otherwise inches ("in") or millimeters ("mm")
  * are used.
  *
- * @since CUPS 1.7/OS X 10.9@
+ * @since CUPS 1.7/macOS 10.9@
  */
 
 int					/* O - 1 on success, 0 on failure */
@@ -279,10 +280,7 @@ pwgFormatSizeName(char       *keyword,	/* I - Keyword buffer */
   * Range check input...
   */
 
-  DEBUG_printf(("pwgFormatSize(keyword=%p, keysize=" CUPS_LLFMT
-                ", prefix=\"%s\", name=\"%s\", width=%d, length=%d, "
-                "units=\"%s\")", keyword, CUPS_LLCAST keysize, prefix, name,
-                width, length, units));
+  DEBUG_printf(("pwgFormatSize(keyword=%p, keysize=" CUPS_LLFMT ", prefix=\"%s\", name=\"%s\", width=%d, length=%d, units=\"%s\")", (void *)keyword, CUPS_LLCAST keysize, prefix, name, width, length, units));
 
   if (keyword)
     *keyword = '\0';
@@ -316,6 +314,8 @@ pwgFormatSizeName(char       *keyword,	/* I - Keyword buffer */
   else
     name = usize;
 
+  if (prefix && !strcmp(prefix, "disc"))
+    width = 4000;			/* Disc sizes use hardcoded 40mm inner diameter */
 
   if (!units)
   {
@@ -378,7 +378,7 @@ pwgFormatSizeName(char       *keyword,	/* I - Keyword buffer */
   return (1);
 }
 
-/* For OS X 10.8 and earlier... */
+/* For macOS 10.8 and earlier... */
 void _pwgGenerateSize(char *keyword, size_t keysize, const char *prefix,
 		      const char *name, int width, int length)
 { pwgFormatSizeName(keyword, keysize, prefix, name, width, length, NULL); }
@@ -396,7 +396,7 @@ void _pwgGenerateSize(char *keyword, size_t keysize, const char *prefix,
  * member attribute was specified in the "media-col" Job Template attribute,
  * otherwise it is initialized to 0.
  *
- * @since CUPS 1.7/OS X 10.9@
+ * @since CUPS 1.7/macOS 10.9@
  */
 
 int					/* O - 1 if size was initialized, 0 otherwise */
@@ -560,7 +560,7 @@ pwgInitSize(pwg_size_t *size,		/* I - Size to initialize */
   return (1);
 }
 
-/* For OS X 10.8 and earlier */
+/* For macOS 10.8 and earlier */
 int _pwgInitSize(pwg_size_t *size, ipp_t *job, int *margins_set)
 { return (pwgInitSize(size, job, margins_set)); }
 
@@ -571,7 +571,7 @@ int _pwgInitSize(pwg_size_t *size, ipp_t *job, int *margins_set)
  * The "name" argument specifies the legacy ISO media size name, for example
  * "iso-a4" or "na-letter".
  *
- * @since CUPS 1.7/OS X 10.9@
+ * @since CUPS 1.7/macOS 10.9@
  */
 
 pwg_media_t *				/* O - Matching size or NULL */
@@ -616,10 +616,6 @@ pwgMediaForLegacy(const char *legacy)	/* I - Legacy size name */
   return ((pwg_media_t *)cupsArrayFind(cg->leg_size_lut, &key));
 }
 
-/* For OS X 10.8 and earlier */
-pwg_media_t *_pwgMediaForLegacy(const char *legacy)
-{ return (pwgMediaForLegacy(legacy)); }
-
 
 /*
  * 'pwgMediaForPPD()' - Find a PWG media size by Adobe PPD name.
@@ -633,7 +629,7 @@ pwg_media_t *_pwgMediaForLegacy(const char *legacy)
  * thread.  Custom names can be of the form "Custom.WIDTHxLENGTH[units]" or
  * "WIDTHxLENGTH[units]".
  *
- * @since CUPS 1.7/OS X 10.9@
+ * @since CUPS 1.7/macOS 10.9@
  */
 
 pwg_media_t *				/* O - Matching size or NULL */
@@ -790,10 +786,6 @@ pwgMediaForPPD(const char *ppd)		/* I - PPD size name */
   return (size);
 }
 
-/* For OS X 10.8 and earlier */
-pwg_media_t *_pwgMediaForPPD(const char *ppd)
-{ return (pwgMediaForPPD(ppd)); }
-
 
 /*
  * 'pwgMediaForPWG()' - Find a PWG media size by 5101.1 self-describing name.
@@ -805,7 +797,7 @@ pwg_media_t *_pwgMediaForPPD(const char *ppd)
  * thread-local storage and is overwritten by each call to the function in the
  * thread.
  *
- * @since CUPS 1.7/OS X 10.9@
+ * @since CUPS 1.7/macOS 10.9@
  */
 
 pwg_media_t *				/* O - Matching size or NULL */
@@ -877,6 +869,9 @@ pwgMediaForPWG(const char *pwg)		/* I - PWG size name */
 
       if (ptr)
       {
+        if (!strncmp(pwg, "disc_", 5))
+          w = l;			/* Make the media size OUTERxOUTER */
+
         size         = &(cg->pwg_media);
         size->width  = w;
         size->length = l;
@@ -890,10 +885,6 @@ pwgMediaForPWG(const char *pwg)		/* I - PWG size name */
   return (size);
 }
 
-/* For OS X 10.8 and earlier */
-pwg_media_t *_pwgMediaForPWG(const char *pwg)
-{ return (pwgMediaForPWG(pwg)); }
-
 
 /*
  * 'pwgMediaForSize()' - Get the PWG media size for the given dimensions.
@@ -905,7 +896,7 @@ pwg_media_t *_pwgMediaForPWG(const char *pwg)
  * thread-local storage and is overwritten by each call to the function in the
  * thread.
  *
- * @since CUPS 1.7/OS X 10.9@
+ * @since CUPS 1.7/macOS 10.9@
  */
 
 pwg_media_t *				/* O - PWG media name */
@@ -990,10 +981,6 @@ _pwgMediaNearSize(int width,	        /* I - Width in hundredths of millimeters *
 
   return (&(cg->pwg_media));
 }
-
-/* For OS X 10.8 and earlier */
-pwg_media_t *_pwgMediaForSize(int width, int length)
-{ return (pwgMediaForSize(width, length)); }
 
 
 /*
@@ -1177,8 +1164,3 @@ pwg_scan_measurement(
 
   return (value * numer / denom + fractional * numer / denom / divisor);
 }
-
-
-/*
- * End of "$Id: pwg-media.c 11934 2014-06-17 18:58:29Z msweet $".
- */

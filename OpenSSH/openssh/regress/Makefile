@@ -1,7 +1,4 @@
-#	$OpenBSD: Makefile,v 1.81 2015/05/21 06:44:25 djm Exp $
-
-.OBJDIR=$(OBJ)
-.CURDIR=$(shell pwd)
+#	$OpenBSD: Makefile,v 1.82 2015/09/24 06:16:53 djm Exp $
 
 REGRESS_TARGETS=	unit t1 t2 t3 t4 t5 t6 t7 t8 t9 t10 t11 t12 t-exec
 tests:		prep $(REGRESS_TARGETS)
@@ -38,6 +35,7 @@ LTESTS= 	connect \
 		agent \
 		agent-getpeereid \
 		agent-timeout \
+		agent-ptrace \
 		keyscan \
 		keygen-change \
 		keygen-convert \
@@ -56,13 +54,10 @@ LTESTS= 	connect \
 		multiplex \
 		reexec \
 		brokenkeys \
-		cfgparse \
 		cfgmatch \
 		addrmatch \
 		localcommand \
 		forcecommand \
-		utmpx-osx \
-# Apple:	gssapi \
 		portnum \
 		keytype \
 		kextype \
@@ -78,7 +73,8 @@ LTESTS= 	connect \
 		hostkey-agent \
 		keygen-knownhosts \
 		hostkey-rotate \
-		principals-command
+		principals-command \
+		cert-file
 
 
 #		dhgex \
@@ -195,28 +191,15 @@ t12: $(OBJ)/t12.out
 t-exec:	${LTESTS:=.sh}
 	@if [ "x$?" = "x" ]; then exit 0; fi; \
 	for TEST in ""$?; do \
-		echo "[BEGIN] $${TEST}"; \
-		(env SUDO="${SUDO}" TEST_ENV=${TEST_ENV} ${TEST_SHELL} $(.CURDIR)/test-exec.sh $(.OBJDIR) $(.CURDIR)/$${TEST}); \
-		ret=$$?; \
-		if [[ 0 -eq $${ret} ]]; then \
-			echo "[PASS] $${TEST}"; \
-		else\
-			echo "[FAIL] $${TEST}"; \
-			exit $${ret};\
-		fi;\
+		echo "run test $${TEST}" ... 1>&2; \
+		(env SUDO="${SUDO}" TEST_ENV=${TEST_ENV} ${TEST_SHELL} ${.CURDIR}/test-exec.sh ${.OBJDIR} ${.CURDIR}/$${TEST}) || exit $$?; \
 	done
 
 t-exec-interop:	${INTEROP_TESTS:=.sh}
 	@if [ "x$?" = "x" ]; then exit 0; fi; \
 	for TEST in ""$?; do \
-		echo "[BEGIN] $${TEST}"; \
-		(env SUDO="${SUDO}" TEST_ENV=${TEST_ENV} ${TEST_SHELL} $(.CURDIR)/test-exec.sh $(.OBJDIR) $(.CURDIR)/$${TEST}); \
-		ret=$$?; \
-		if [[ 0 -eq $${ret} ]]; then \
-			echo "[PASS] $${TEST}"; \
-		else\
-			echo "[FAIL] $${TEST}"; \
-		fi;\
+		echo "run test $${TEST}" ... 1>&2; \
+		(env SUDO="${SUDO}" TEST_ENV=${TEST_ENV} ${TEST_SHELL} ${.CURDIR}/test-exec.sh ${.OBJDIR} ${.CURDIR}/$${TEST}) || exit $$?; \
 	done
 
 # Not run by default

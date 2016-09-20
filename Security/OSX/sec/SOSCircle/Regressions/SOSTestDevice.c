@@ -31,6 +31,7 @@
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
 #include <Security/SecureObjectSync/SOSEngine.h>
 #include <Security/SecureObjectSync/SOSPeer.h>
+#include <Security/SecureObjectSync/SOSViews.h>
 #include <Security/SecBase64.h>
 #include <Security/SecItem.h>
 #include <Security/SecItemPriv.h>
@@ -165,9 +166,8 @@ CFSetRef SOSViewsCopyTestV0Default() {
     return CFSetCreate(kCFAllocatorDefault, values, array_size(values), &kCFTypeSetCallBacks);
 }
 
-CFSetRef SOSViewsCopyTestV2Default() {
-    const void *values[] = { kSOSViewWiFi, kSOSViewAutofillPasswords, kSOSViewSafariCreditCards, kSOSViewiCloudIdentity, kSOSViewBackupBagV0, kSOSViewOtherSyncable, kSOSViewPCSMasterKey, kSOSViewPCSiCloudDrive, kSOSViewPCSPhotos, kSOSViewPCSCloudKit, kSOSViewPCSEscrow, kSOSViewPCSFDE, kSOSViewPCSMailDrop, kSOSViewPCSiCloudBackup, kSOSViewPCSNotes, kSOSViewPCSiMessage, kSOSViewPCSFeldspar, kSOSViewAppleTV, kSOSViewHomeKit };
-    return CFSetCreate(kCFAllocatorDefault, values, array_size(values), &kCFTypeSetCallBacks);
+CFSetRef SOSViewsCopyTestV2Default() { // this was originally listing all the views - not just the defaults - but those used to be the default.  So we'll programatically get all - the actual test depends on that.
+    return SOSViewCopyViewSet(kViewSetAll);
 }
 
 SOSTestDeviceRef SOSTestDeviceSetPeerIDs(SOSTestDeviceRef td, CFArrayRef peerIDs, CFIndex version, CFSetRef defaultViews) {
@@ -223,6 +223,14 @@ SOSTestDeviceRef SOSTestDeviceSetMute(SOSTestDeviceRef td, bool mute) {
 bool SOSTestDeviceIsMute(SOSTestDeviceRef td) {
     return td->mute;
 }
+
+bool SOSTestDeviceSetEngineState(SOSTestDeviceRef td, CFDataRef derEngineState) {
+    CFErrorRef localError = NULL;
+    SOSTestEngineSaveWithDER(td->ds->engine, derEngineState, &localError);
+    return true;
+}
+
+
 
 CFDataRef SOSTestDeviceCreateMessage(SOSTestDeviceRef td, CFStringRef peerID) {
     setup("create message");

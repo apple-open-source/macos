@@ -34,6 +34,8 @@ class SetPrototype : public JSNonFinalObject {
 public:
     typedef JSNonFinalObject Base;
 
+    static const unsigned StructureFlags = HasStaticPropertyTable | Base::StructureFlags;
+
     static SetPrototype* create(VM& vm, JSGlobalObject* globalObject, Structure* structure)
     {
         SetPrototype* prototype = new (NotNull, allocateCell<SetPrototype>(vm.heap)) SetPrototype(vm, structure);
@@ -55,6 +57,10 @@ private:
     }
     void finishCreation(VM&, JSGlobalObject*);
 };
+
+EncodedJSValue JSC_HOST_CALL privateFuncIsSet(ExecState*);
+EncodedJSValue JSC_HOST_CALL privateFuncSetIterator(ExecState*);
+EncodedJSValue JSC_HOST_CALL privateFuncSetIteratorNext(ExecState*);
 
 }
 

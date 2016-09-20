@@ -78,7 +78,7 @@ WebInspector.TextResourceContentView = class TextResourceContentView extends Web
     get supplementalRepresentedObjects()
     {
         var objects = WebInspector.probeManager.probeSets.filter(function(probeSet) {
-            return this._resource.url === probeSet.breakpoint.url;
+            return this._resource.contentIdentifier === probeSet.breakpoint.contentIdentifier;
         }, this);
 
         // If the SourceCodeTextEditor has an executionLineNumber, we can assume
@@ -203,7 +203,7 @@ WebInspector.TextResourceContentView = class TextResourceContentView extends Web
     _togglePrettyPrint(event)
     {
         var activated = !this._prettyPrintButtonNavigationItem.activated;
-        this._textEditor.formatted = activated;
+        this._textEditor.updateFormattedState(activated);
     }
 
     _toggleTypeAnnotations(event)

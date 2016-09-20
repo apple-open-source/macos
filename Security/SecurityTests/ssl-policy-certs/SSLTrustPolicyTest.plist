@@ -101,7 +101,7 @@
 		<key>Result</key>
 		<string>kSecTrustResultRecoverableTrustFailure</string>
 		<key>Reason</key>
-		<string>RFC 6125 wildcard rules not yet supported. Public suffixes allowed.</string>
+		<string>rdar://problem/26555272</string>
 	</dict>
 	<key>Test12</key>
 	<dict>
@@ -138,8 +138,6 @@
 		<string>one.bad.apple.com</string>
 		<key>Result</key>
 		<string>kSecTrustResultRecoverableTrustFailure</string>
-		<key>Reason</key>
-		<string>RFC 6125 wildcard rules not yet supported. Multiple wildcarded labels allowed.</string>
 	</dict>
 	<key>Test16</key>
 	<dict>
@@ -175,9 +173,7 @@
 		<key>Hostname</key>
 		<string>test.apple.com.</string>
 		<key>Result</key>
-		<string>kSecTrustResultRecoverableTrustFailure</string>
-		<key>Reason</key>
-		<string>Allowed as a mechanism to force TLS negotiation when session has been cached.</string>
+		<string>kSecTrustResultUnspecified</string>
 	</dict>
 	<key>Test20</key>
 	<dict>
@@ -239,6 +235,105 @@
 		<string>InvalidWildcardTest25Test26</string>
 		<key>Hostname</key>
 		<string>est.apple.com</string>
+		<key>Result</key>
+		<string>kSecTrustResultRecoverableTrustFailure</string>
+	</dict>
+	<key>Test27</key>
+	<dict>
+		<key>Filename</key>
+		<string>InvalidWildcardTest27Test28</string>
+		<key>Hostname</key>
+		<string>test.apple.com</string>
+		<key>Result</key>
+		<string>kSecTrustResultRecoverableTrustFailure</string>
+	</dict>
+	<key>Test28</key>
+	<dict>
+		<key>Filename</key>
+		<string>InvalidWildcardTest27Test28</string>
+		<key>Hostname</key>
+		<string>tes.apple.com</string>
+		<key>Result</key>
+		<string>kSecTrustResultRecoverableTrustFailure</string>
+	</dict>
+	<key>Test29</key>
+	<dict>
+		<key>Filename</key>
+		<string>ValidHostnameTest3</string>
+		<key>Hostname</key>
+		<string>TEST.apple.com</string>
+		<key>Result</key>
+		<string>kSecTrustResultUnspecified</string>
+	</dict>
+	<key>Test30</key>
+	<dict>
+		<key>Filename</key>
+		<string>InvalidWildcardTest30</string>
+		<key>Hostname</key>
+		<string>apple</string>
+		<key>Result</key>
+		<string>kSecTrustResultRecoverableTrustFailure</string>
+	</dict>
+	<key>Test31</key>
+	<dict>
+		<key>Filename</key>
+		<string>InvalidWildcardTest31</string>
+		<key>Hostname</key>
+		<string>apple.com</string>
+		<key>Result</key>
+		<string>kSecTrustResultRecoverableTrustFailure</string>
+	</dict>
+	<key>Test32</key>
+	<dict>
+		<key>Filename</key>
+		<string>InvalidWildcardTest32</string>
+		<key>Hostname</key>
+		<string>test.apple.com</string>
+		<key>Result</key>
+		<string>kSecTrustResultRecoverableTrustFailure</string>
+	</dict>
+	<key>Test33</key>
+	<dict>
+		<key>Filename</key>
+		<string>InvalidWildcardTest33</string>
+		<key>Hostname</key>
+		<string>apple</string>
+		<key>Result</key>
+		<string>kSecTrustResultRecoverableTrustFailure</string>
+	</dict>
+	<key>Test34</key>
+	<dict>
+		<key>Filename</key>
+		<string>InvalidWildcardTest34</string>
+		<key>Hostname</key>
+		<string>apple</string>
+		<key>Result</key>
+		<string>kSecTrustResultRecoverableTrustFailure</string>
+	</dict>
+	<key>Test35</key>
+	<dict>
+		<key>Filename</key>
+		<string>InvalidWildcardTest30</string>
+		<key>Hostname</key>
+		<string>apple.com</string>
+		<key>Result</key>
+		<string>kSecTrustResultRecoverableTrustFailure</string>
+	</dict>
+	<key>Test36</key>
+	<dict>
+		<key>Filename</key>
+		<string>InvalidWildcardTest33</string>
+		<key>Hostname</key>
+		<string>apple.com</string>
+		<key>Result</key>
+		<string>kSecTrustResultRecoverableTrustFailure</string>
+	</dict>
+	<key>Test37</key>
+	<dict>
+		<key>Filename</key>
+		<string>InvalidWildcardTest34</string>
+		<key>Hostname</key>
+		<string>apple.com</string>
 		<key>Result</key>
 		<string>kSecTrustResultRecoverableTrustFailure</string>
 	</dict>

@@ -98,7 +98,7 @@ struct VectorMover<false, T>
     static void move(T* src, T* srcEnd, T* dst)
     {
         while (src != srcEnd) {
-            new (NotNull, dst) T(WTF::move(*src));
+            new (NotNull, dst) T(WTFMove(*src));
             src->~T();
             ++dst;
             ++src;
@@ -113,7 +113,7 @@ struct VectorMover<false, T>
             while (src != srcEnd) {
                 --srcEnd;
                 --dstEnd;
-                new (NotNull, dstEnd) T(WTF::move(*srcEnd));
+                new (NotNull, dstEnd) T(WTFMove(*srcEnd));
                 srcEnd->~T();
             }
         }
@@ -185,7 +185,7 @@ struct VectorFiller<true, T>
     static void uninitializedFill(T* dst, T* dstEnd, const T& val) 
     {
         static_assert(sizeof(T) == 1, "Size of type T should be equal to one!");
-#if COMPILER(GCC) && defined(_FORTIFY_SOURCE)
+#if COMPILER(GCC_OR_CLANG) && defined(_FORTIFY_SOURCE)
         if (!__builtin_constant_p(dstEnd - dst) || (!(dstEnd - dst)))
 #endif
             memset(dst, val, dstEnd - dst);
@@ -538,11 +538,7 @@ private:
     {
         // FIXME: We could make swap part of VectorTypeOperations
         // https://bugs.webkit.org/show_bug.cgi?id=128863
-        
-        if (std::is_pod<T>::value)
-            std::swap(m_inlineBuffer, other.m_inlineBuffer);
-        else
-            swapInlineBuffers(inlineBuffer(), other.inlineBuffer(), mySize, otherSize);
+        swapInlineBuffers(inlineBuffer(), other.inlineBuffer(), mySize, otherSize);
     }
     
     static void swapInlineBuffers(T* left, T* right, size_t leftSize, size_t rightSize)
@@ -702,7 +698,7 @@ public:
     
     T takeLast()
     {
-        T result = WTF::move(last());
+        T result = WTFMove(last());
         removeLast();
         return result;
     }
@@ -725,6 +721,7 @@ public:
 
     void append(ValueType&& value) { append<ValueType>(std::forward<ValueType>(value)); }
     template<typename U> void append(U&&);
+    template<typename... Args> void constructAndAppend(Args&&...);
 
     void uncheckedAppend(ValueType&& value) { uncheckedAppend<ValueType>(std::forward<ValueType>(value)); }
     template<typename U> void uncheckedAppend(U&&);
@@ -787,6 +784,7 @@ private:
     const T* tryExpandCapacity(size_t newMinCapacity, const T*);
     template<typename U> U* expandCapacity(size_t newMinCapacity, U*); 
     template<typename U> void appendSlowCase(U&&);
+    template<typename... Args> void constructAndAppendSlowCase(Args&&...);
 
     void asanSetInitialBufferSizeTo(size_t);
     void asanSetBufferSizeToFullCapacity();
@@ -1214,6 +1212,19 @@ ALWAYS_INLINE void Vector<T, inlineCapacity, OverflowHandler, minCapacity>::appe
     appendSlowCase(std::forward<U>(value));
 }
 
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity> template<typename... Args>
+ALWAYS_INLINE void Vector<T, inlineCapacity, OverflowHandler, minCapacity>::constructAndAppend(Args&&... args)
+{
+    if (size() != capacity()) {
+        asanBufferSizeWillChangeTo(m_size + 1);
+        new (NotNull, end()) T(std::forward<Args>(args)...);
+        ++m_size;
+        return;
+    }
+
+    constructAndAppendSlowCase(std::forward<Args>(args)...);
+}
+
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity> template<typename U>
 void Vector<T, inlineCapacity, OverflowHandler, minCapacity>::appendSlowCase(U&& value)
 {
@@ -1225,6 +1236,19 @@ void Vector<T, inlineCapacity, OverflowHandler, minCapacity>::appendSlowCase(U&&
 
     asanBufferSizeWillChangeTo(m_size + 1);
     new (NotNull, end()) T(std::forward<U>(*ptr));
+    ++m_size;
+}
+
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity> template<typename... Args>
+void Vector<T, inlineCapacity, OverflowHandler, minCapacity>::constructAndAppendSlowCase(Args&&... args)
+{
+    ASSERT(size() == capacity());
+
+    expandCapacity(size() + 1);
+    ASSERT(begin());
+
+    asanBufferSizeWillChangeTo(m_size + 1);
+    new (NotNull, end()) T(std::forward<Args>(args)...);
     ++m_size;
 }
 

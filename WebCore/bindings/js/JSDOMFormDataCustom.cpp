@@ -43,30 +43,30 @@ namespace WebCore {
 
 static HTMLFormElement* toHTMLFormElementOrNull(JSC::JSValue value)
 {
-    return value.inherits(JSHTMLFormElement::info()) ? &jsCast<JSHTMLFormElement*>(asObject(value))->impl() : nullptr;
+    return value.inherits(JSHTMLFormElement::info()) ? &jsCast<JSHTMLFormElement*>(asObject(value))->wrapped() : nullptr;
 }
 
-EncodedJSValue JSC_HOST_CALL constructJSDOMFormData(ExecState* exec)
+EncodedJSValue JSC_HOST_CALL constructJSDOMFormData(ExecState& exec)
 {
-    DOMConstructorObject* jsConstructor = jsCast<DOMConstructorObject*>(exec->callee());
+    DOMConstructorObject* jsConstructor = jsCast<DOMConstructorObject*>(exec.callee());
 
-    HTMLFormElement* form = toHTMLFormElementOrNull(exec->argument(0));
-    RefPtr<DOMFormData> domFormData = DOMFormData::create(form);
-    return JSValue::encode(asObject(toJS(exec, jsConstructor->globalObject(), domFormData.get())));
+    HTMLFormElement* form = toHTMLFormElementOrNull(exec.argument(0));
+    auto domFormData = DOMFormData::create(form);
+    return JSValue::encode(toJSNewlyCreated(&exec, jsConstructor->globalObject(), WTFMove(domFormData)));
 }
 
-JSValue JSDOMFormData::append(ExecState* exec)
+JSValue JSDOMFormData::append(ExecState& exec)
 {
-    if (exec->argumentCount() >= 2) {
-        String name = exec->argument(0).toString(exec)->value(exec);
-        JSValue value = exec->argument(1);
+    if (exec.argumentCount() >= 2) {
+        String name = exec.uncheckedArgument(0).toWTFString(&exec);
+        JSValue value = exec.uncheckedArgument(1);
         if (value.inherits(JSBlob::info())) {
             String filename;
-            if (exec->argumentCount() >= 3 && !exec->argument(2).isUndefinedOrNull())
-                filename = exec->argument(2).toString(exec)->value(exec);
-            impl().append(name, JSBlob::toWrapped(value), filename);
+            if (exec.argumentCount() >= 3 && !exec.uncheckedArgument(2).isUndefinedOrNull())
+                filename = exec.uncheckedArgument(2).toWTFString(&exec);
+            wrapped().append(name, JSBlob::toWrapped(value), filename);
         } else
-            impl().append(name, value.toString(exec)->value(exec));
+            wrapped().append(name, value.toWTFString(&exec));
     }
 
     return jsUndefined();

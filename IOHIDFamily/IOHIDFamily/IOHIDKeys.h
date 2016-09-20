@@ -29,6 +29,7 @@
 #include <IOKit/hidsystem/IOHIDParameter.h>
 #include <IOKit/IOReturn.h>
 #include <IOKit/IOMessage.h>
+#include <IOKit/hid/IOHIDProperties.h>
 
 __BEGIN_DECLS
 
@@ -115,7 +116,7 @@ __BEGIN_DECLS
 #define kIOHIDTransportI2CValue                 "I2C"
 #define kIOHIDTransportSPIValue                 "SPI"
 #define kIOHIDTransportSerialValue              "Serial"
-#define kIOHIDTransportIAPValue                 "IAP"
+#define kIOHIDTransportIAPValue                 "iAP"
 #define kIOHIDTransportAirPlayValue             "AirPlay"
 #define kIOHIDTransportSPUValue                 "SPU"
 
@@ -407,7 +408,60 @@ typedef uint32_t IOHIDValueOptions;
  */
 #define kIOHIDSystemButtonPressedDuringDarkBoot     iokit_family_msg(sub_iokit_hidsystem, 7)
 
+/*!
+ @defined IOHIDKeyboard Keys
+ @abstract Keys that represent parameters of keyboards.
+ @discussion Legacy IOHIDKeyboard keys, formerly in IOHIDPrivateKeys. See IOHIDServiceKeys.h for the new keys.
+ */
+#define kIOHIDKeyboardCapsLockDelay         "CapsLockDelay"
+#define kIOHIDKeyboardEjectDelay            "EjectDelay"
 
+/*!
+ @defined Press count tracking keys
+ @abstract Keys used to set the parameters for press count tracking
+ @discussion CFBoolean value for kIOHIDKeyboardPressCountTrackingEnabledKey is used to turn on the feature or turn it off
+    CFArray value for kIOHIDKeyboardPressCountUsagePairsKey stores 32bit CFNumbers (UsagePage<<16)|Usage designating the keyboard events to process
+    If kIOHIDKeyboardPressCountUsagePairsKey is not set, all keyboard events will be processed
+    kIOHIDKeyboardPressCountTriplePressTimeoutKey and kIOHIDKeybaordPressCountDoublePressTimeoutKey take CFNumberRef values
+    The numbers represent the timeout values for determining the value kIOHIDEventFieldKeyboardPressCount
+    kIOHIDKeyboardLongPressTimeoutKey value is used to determine the timeout for long presses
+ */
+#define kIOHIDKeyboardPressCountTrackingEnabledKey      "PressCountTrackingEnabled"
+#define kIOHIDKeyboardPressCountUsagePairsKey           "PressCountUsagePairs"
+#define kIOHIDKeyboardPressCountTriplePressTimeoutKey   "PressCountTriplePressTimeout"
+#define kIOHIDKeyboardPressCountDoublePressTimeoutKey   "PressCountDoublePressTimeout"
+#define kIOHIDKeyboardLongPressTimeoutKey               "LongPressTimeout"
+
+/*!
+ @defined Tap count tracking keys
+ @abstract Keys used to set the parameters for tap count tracking
+ @discussion CFBoolean value for kIOHIDBiometricTapTrackingEnabledKey is used to turn on the feature or turn it off
+ kIOHIDBiometricDoubleTapTimeoutKey and kIOHIDBiometricTripleTapTimeoutKey take CFNumberRef values
+ The numbers represent the timeout values for determining the value kIOHIDEventFieldBiometricTapCount
+ */
+#define kIOHIDBiometricTapTrackingEnabledKey            "TapTrackingEnabled"
+#define kIOHIDBiometricDoubleTapTimeoutKey              "DoubleTapTimeout"
+#define kIOHIDBiometricTripleTapTimeoutKey              "TripleTapTimeout"
+
+/*!
+    @defined kFnFunctionUsageMapKey
+    @abstract top row key remapping for consumer usages
+    @discussion string of comma separated uint64_t value representing (usagePage<<32) | usage pairs
+ 
+ */
+#define kFnFunctionUsageMapKey      "FnFunctionUsageMap"
+
+/*!
+    @defined kFnKeyboardUsageMapKey
+    @abstract top row key reampping for consumer usages
+    @discussion string of comma separated uint64_t value representing (usagePage<<32) | usage pairs
+ 
+ */
+#define kFnKeyboardUsageMapKey      "FnKeyboardUsageMap"
+
+#define kNumLockKeyboardUsageMapKey "NumLockKeyboardUsageMap"
+
+#define kKeyboardUsageMapKey        "KeyboardUsageMap"
 
 __END_DECLS
 

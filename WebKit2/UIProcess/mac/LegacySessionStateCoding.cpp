@@ -59,6 +59,13 @@ static const CFStringRef sessionHistoryEntryShouldOpenExternalURLsPolicyKey = CF
 // Session history entry data.
 const uint32_t sessionHistoryEntryDataVersion = 2;
 
+// Maximum size for subframe session data.
+#if PLATFORM(IOS)
+static const uint32_t maximumSessionStateDataSize = 2 * 1024 * 1024;
+#else
+static const uint32_t maximumSessionStateDataSize = std::numeric_limits<uint32_t>::max();
+#endif
+
 template<typename T> void isValidEnum(T);
 
 class HistoryEntryDataEncoder {
@@ -186,7 +193,7 @@ public:
     MallocPtr<uint8_t> finishEncoding(size_t& size)
     {
         size = m_bufferSize;
-        return WTF::move(m_buffer);
+        return WTFMove(m_buffer);
     }
 
 private:
@@ -336,8 +343,8 @@ static void encodeFrameStateNode(HistoryEntryDataEncoder& encoder, const FrameSt
 
     encoder << frameState.referrer;
 
-    encoder << frameState.scrollPoint.x();
-    encoder << frameState.scrollPoint.y();
+    encoder << frameState.scrollPosition.x();
+    encoder << frameState.scrollPosition.y();
 
     encoder << frameState.pageScaleFactor;
 
@@ -421,22 +428,36 @@ static RetainPtr<CFDictionaryRef> encodeSessionHistory(const BackForwardListStat
         return createDictionary({ { sessionHistoryVersionKey, sessionHistoryVersionNumber.get() } });
 
     auto entries = adoptCF(CFArrayCreateMutable(kCFAllocatorDefault, backForwardListState.items.size(), &kCFTypeArrayCallBacks));
+    size_t totalDataSize = 0;
 
     for (const auto& item : backForwardListState.items) {
         auto url = item.pageState.mainFrameState.urlString.createCFString();
         auto title = item.pageState.title.createCFString();
         auto originalURL = item.pageState.mainFrameState.originalURLString.createCFString();
-        auto data = encodeSessionHistoryEntryData(item.pageState.mainFrameState);
+        auto data = totalDataSize <= maximumSessionStateDataSize ? encodeSessionHistoryEntryData(item.pageState.mainFrameState) : nullptr;
         auto shouldOpenExternalURLsPolicyValue = static_cast<uint64_t>(item.pageState.shouldOpenExternalURLsPolicy);
         auto shouldOpenExternalURLsPolicy = adoptCF(CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt64Type, &shouldOpenExternalURLsPolicyValue));
 
-        auto entryDictionary = createDictionary({
-            { sessionHistoryEntryURLKey, url.get() },
-            { sessionHistoryEntryTitleKey, title.get() },
-            { sessionHistoryEntryOriginalURLKey, originalURL.get() },
-            { sessionHistoryEntryDataKey, data.get() },
-            { sessionHistoryEntryShouldOpenExternalURLsPolicyKey, shouldOpenExternalURLsPolicy.get() },
-        });
+        RetainPtr<CFDictionaryRef> entryDictionary;
+
+        if (data) {
+            totalDataSize += CFDataGetLength(data.get());
+
+            entryDictionary = createDictionary({
+                { sessionHistoryEntryURLKey, url.get() },
+                { sessionHistoryEntryTitleKey, title.get() },
+                { sessionHistoryEntryOriginalURLKey, originalURL.get() },
+                { sessionHistoryEntryDataKey, data.get() },
+                { sessionHistoryEntryShouldOpenExternalURLsPolicyKey, shouldOpenExternalURLsPolicy.get() },
+            });
+        } else {
+            entryDictionary = createDictionary({
+                { sessionHistoryEntryURLKey, url.get() },
+                { sessionHistoryEntryTitleKey, title.get() },
+                { sessionHistoryEntryOriginalURLKey, originalURL.get() },
+                { sessionHistoryEntryShouldOpenExternalURLsPolicyKey, shouldOpenExternalURLsPolicy.get() },
+            });
+        }
 
         CFArrayAppendValue(entries.get(), entryDictionary.get());
     }
@@ -837,7 +858,7 @@ static void decodeFormData(HistoryEntryDataDecoder& decoder, HTTPBody& formData)
         if (!decoder.isValid())
             return;
 
-        formData.elements.append(WTF::move(formDataElement));
+        formData.elements.append(WTFMove(formDataElement));
     }
 
     bool hasGeneratedFiles;
@@ -862,7 +883,7 @@ static void decodeBackForwardTreeNode(HistoryEntryDataDecoder& decoder, FrameSta
         if (!decoder.isValid())
             return;
 
-        frameState.children.append(WTF::move(childFrameState));
+        frameState.children.append(WTFMove(childFrameState));
     }
 
     decoder >> frameState.documentSequenceNumber;
@@ -877,7 +898,7 @@ static void decodeBackForwardTreeNode(HistoryEntryDataDecoder& decoder, FrameSta
         if (!decoder.isValid())
             return;
 
-        frameState.documentState.append(WTF::move(state));
+        frameState.documentState.append(WTFMove(state));
     }
 
     String formContentType;
@@ -888,24 +909,24 @@ static void decodeBackForwardTreeNode(HistoryEntryDataDecoder& decoder, FrameSta
 
     if (hasFormData) {
         HTTPBody httpBody;
-        httpBody.contentType = WTF::move(formContentType);
+        httpBody.contentType = WTFMove(formContentType);
 
         decodeFormData(decoder, httpBody);
 
-        frameState.httpBody = WTF::move(httpBody);
+        frameState.httpBody = WTFMove(httpBody);
     }
 
     decoder >> frameState.itemSequenceNumber;
 
     decoder >> frameState.referrer;
 
-    int32_t scrollPointX;
-    decoder >> scrollPointX;
+    int32_t scrollPositionX;
+    decoder >> scrollPositionX;
 
-    int32_t scrollPointY;
-    decoder >> scrollPointY;
+    int32_t scrollPositionY;
+    decoder >> scrollPositionY;
 
-    frameState.scrollPoint = WebCore::IntPoint(scrollPointX, scrollPointY);
+    frameState.scrollPosition = WebCore::IntPoint(scrollPositionX, scrollPositionY);
 
     decoder >> frameState.pageScaleFactor;
 
@@ -916,7 +937,7 @@ static void decodeBackForwardTreeNode(HistoryEntryDataDecoder& decoder, FrameSta
         Vector<uint8_t> stateObjectData;
         decoder >> stateObjectData;
 
-        frameState.stateObjectData = WTF::move(stateObjectData);
+        frameState.stateObjectData = WTFMove(stateObjectData);
     }
 
     decoder >> frameState.target;
@@ -1000,7 +1021,7 @@ static bool decodeSessionHistoryEntries(CFArrayRef entriesArray, Vector<BackForw
         if (!decodeSessionHistoryEntry(entryDictionary, entry))
             return false;
 
-        entries.append(WTF::move(entry));
+        entries.append(WTFMove(entry));
     }
 
     return true;
@@ -1101,22 +1122,23 @@ bool decodeLegacySessionState(const uint8_t* bytes, size_t size, SessionState& s
     if (versionNumber != sessionStateDataVersion)
         return false;
 
-    auto sessionStateDictionary = adoptCF(dynamic_cf_cast<CFDictionaryRef>(CFPropertyListCreateWithData(kCFAllocatorDefault, adoptCF(CFDataCreate(kCFAllocatorDefault, bytes + sizeof(uint32_t), size - sizeof(uint32_t))).get(), kCFPropertyListImmutable, nullptr, nullptr)));
+    auto cfPropertyList = adoptCF(CFPropertyListCreateWithData(kCFAllocatorDefault, adoptCF(CFDataCreate(kCFAllocatorDefault, bytes + sizeof(uint32_t), size - sizeof(uint32_t))).get(), kCFPropertyListImmutable, nullptr, nullptr));
+    auto sessionStateDictionary = dynamic_cf_cast<CFDictionaryRef>(cfPropertyList.get());
     if (!sessionStateDictionary)
         return false;
 
-    if (auto backForwardListDictionary = dynamic_cf_cast<CFDictionaryRef>(CFDictionaryGetValue(sessionStateDictionary.get(), sessionHistoryKey))) {
+    if (auto backForwardListDictionary = dynamic_cf_cast<CFDictionaryRef>(CFDictionaryGetValue(sessionStateDictionary, sessionHistoryKey))) {
         if (!decodeSessionHistory(backForwardListDictionary, sessionState.backForwardListState))
             return false;
     }
 
-    if (auto provisionalURLString = dynamic_cf_cast<CFStringRef>(CFDictionaryGetValue(sessionStateDictionary.get(), provisionalURLKey))) {
+    if (auto provisionalURLString = dynamic_cf_cast<CFStringRef>(CFDictionaryGetValue(sessionStateDictionary, provisionalURLKey))) {
         sessionState.provisionalURL = WebCore::URL(WebCore::URL(), provisionalURLString);
         if (!sessionState.provisionalURL.isValid())
             return false;
     }
 
-    if (auto renderTreeSize = dynamic_cf_cast<CFNumberRef>(CFDictionaryGetValue(sessionStateDictionary.get(), renderTreeSizeKey)))
+    if (auto renderTreeSize = dynamic_cf_cast<CFNumberRef>(CFDictionaryGetValue(sessionStateDictionary, renderTreeSizeKey)))
         CFNumberGetValue(renderTreeSize, kCFNumberSInt64Type, &sessionState.renderTreeSize);
     else
         sessionState.renderTreeSize = 0;

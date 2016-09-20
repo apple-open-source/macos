@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/ms.xml
@@ -46,7 +46,6 @@ ms{
         AI{"Anguilla"}
         AL{"Albania"}
         AM{"Armenia"}
-        AN{"Netherlands Antilles"}
         AO{"Angola"}
         AQ{"Antartika"}
         AR{"Argentina"}
@@ -65,7 +64,7 @@ ms{
         BH{"Bahrain"}
         BI{"Burundi"}
         BJ{"Benin"}
-        BL{"Saint Barthélemy"}
+        BL{"Saint Barthelemy"}
         BM{"Bermuda"}
         BN{"Brunei"}
         BO{"Bolivia"}
@@ -102,7 +101,7 @@ ms{
         DJ{"Djibouti"}
         DK{"Denmark"}
         DM{"Dominica"}
-        DO{"Republik Dominica"}
+        DO{"Republik Dominika"}
         DZ{"Algeria"}
         EA{"Ceuta dan Melilla"}
         EC{"Ecuador"}
@@ -300,7 +299,7 @@ ms{
         ZZ{"Wilayah Tidak Diketahui"}
     }
     Countries%short{
-        GB{"GB"}
+        GB{"UK"}
         HK{"Hong Kong"}
         MO{"Macau"}
         PS{"Palestin"}
@@ -314,5 +313,5 @@ ms{
         MK{"Macedonia (FYROM)"}
         TL{"Timor Timur"}
     }
-    Version{"2.1.12.94"}
+    Version{"2.1.24.16"}
 }

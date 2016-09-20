@@ -34,7 +34,7 @@
 
 #define RSA_PUB_EXPONENT	0x10001 	/* recommended by RSA */
 
-#define rsaKeyDebug(args...)	secdebug("rsaKey", ## args)
+#define rsaKeyDebug(args...)	secinfo("rsaKey", ## args)
 
 
 /***
@@ -192,6 +192,10 @@ void RSAKeyPairGenContext::generate(
 		throw;
 	}
 
+}
+
+void RSAKeyPairGenContext::generate(const Context &context, uint32, CssmData &params, uint32 &attrCount, Context::Attr * &attrs) {
+    CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
 }
 	
 // this one is specified in, and called from, AppleKeyPairGenContext

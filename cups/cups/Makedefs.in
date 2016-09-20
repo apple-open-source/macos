@@ -1,6 +1,4 @@
 #
-# "$Id: Makedefs.in 12520 2015-02-17 13:12:58Z msweet $"
-#
 # Common makefile definitions for CUPS.
 #
 # Copyright 2007-2014 by Apple Inc.
@@ -261,8 +259,3 @@ USBQUIRKS	=	@USBQUIRKS@
 	echo -n Compressing $<...
 	$(RM) $@
 	gzip -v9 <$< >$@
-
-
-#
-# End of "$Id: Makedefs.in 12520 2015-02-17 13:12:58Z msweet $"
-#

@@ -39,8 +39,8 @@
 
 BEGIN
 {
-	&`max_ncpus = (unsigned int *) 0x185ede4;
-	printf("Value of max_ncpus: %d\n", `max_ncpus);
+	&`real_ncpus = (unsigned int *) 0x185ede4;
+	printf("Value of real_ncpus: %d\n", `real_ncpus);
 }
 
 ERROR

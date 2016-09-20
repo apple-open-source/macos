@@ -352,6 +352,8 @@ bool                            gMachineStateRevertible = true;
 /************************************************************************************/
 /************************************************************************************/
 
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
 /*
  * PMConnection_prime
  */
@@ -1727,7 +1729,6 @@ void evalForPSChange( )
         gSleepService.capTime = capTimeout;
         setSleepServicesTimeCap(capTimeout);
     }
-#endif
 
     if (pwrSrc == kBatteryPowered)
         return;
@@ -1735,6 +1736,7 @@ void evalForPSChange( )
     if ((pwrSrc == kACPowered) && gApoDispatch ) {
         setAutoPowerOffTimer(false, 0);
     }
+#endif
 }
 
 __private_extern__ void InternalEvalConnections(void)
@@ -1999,7 +2001,9 @@ static void PMConnectionPowerCallBack(
     static bool slp_logd = false;
     static bool s02dw_logd = false;
     static bool slp2dw_logd = false;
+#if !TARGET_OS_EMBEDDED
     CFArrayRef appStats = NULL;
+#endif
     CFStringRef wakeType = CFSTR("");
 
     if(inMessageType == kIOPMMessageLastCallBeforeSleep)
@@ -2333,9 +2337,7 @@ static void PMConnectionPowerCallBack(
         }
 #if !TARGET_OS_EMBEDDED
         SystemLoadSystemPowerStateHasChanged( );
-#endif
 
-#if !TARGET_OS_WATCH
         // Get stats on delays while waking up
         appStats = (CFArrayRef)_copyRootDomainProperty(CFSTR(kIOPMSleepStatisticsAppsKey));
         if (appStats) {
@@ -2348,7 +2350,7 @@ static void PMConnectionPowerCallBack(
     else if (SYSTEM_WILL_WAKE(capArgs) )
     {
 
-#if !TARGET_OS_WATCH
+#if !TARGET_OS_EMBEDDED
         // Get stats on delays while going to sleep
         appStats = (CFArrayRef)_copyRootDomainProperty(CFSTR(kIOPMSleepStatisticsAppsKey));
         if (appStats) {

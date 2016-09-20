@@ -53,6 +53,7 @@
 #include "xar.h"
 #include "filetree.h"
 #include "archive.h"
+#include "util.h"
 #include "b64.h"
 #include "ea.h"
 
@@ -368,13 +369,11 @@ const char *xar_prop_next(xar_iter_t i) {
 
 	if( XAR_PROP(p)->parent ) {
 		char *tmp1, *tmp2;
-		char *dname;
 
 		if( strstr(XAR_ITER(i)->path, "/") ) {
-		tmp1 = tmp2 = XAR_ITER(i)->path;
-		dname = dirname(tmp2);
-		XAR_ITER(i)->path = strdup(dname);
-		free(tmp1);
+			tmp1 = tmp2 = XAR_ITER(i)->path;
+			XAR_ITER(i)->path = xar_safe_dirname(tmp2);
+			free(tmp1);
 		} else {
 			free(XAR_ITER(i)->path);
 			XAR_ITER(i)->path = NULL;
@@ -853,12 +852,10 @@ xar_file_t xar_file_next(xar_iter_t i) {
 
 	if( XAR_FILE(f)->parent ) {
 		char *tmp1, *tmp2;
-		char *dname;
 
 		if( strstr(XAR_ITER(i)->path, "/") ) {
 			tmp1 = tmp2 = XAR_ITER(i)->path;
-			dname = dirname(tmp2);
-			XAR_ITER(i)->path = strdup(dname);
+			XAR_ITER(i)->path = xar_safe_dirname(tmp2);
 			free(tmp1);
 		} else {
 			free(XAR_ITER(i)->path);

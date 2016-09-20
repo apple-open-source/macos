@@ -40,10 +40,10 @@ class VTTCueBox;
 
 class RenderVTTCue final : public RenderBlockFlow {
 public:
-    RenderVTTCue(VTTCueBox&, Ref<RenderStyle>&&);
+    RenderVTTCue(VTTCueBox&, RenderStyle&&);
 
 private:
-    virtual void layout() override;
+    void layout() override;
 
     bool isOutside() const;
     bool rectIsWithinContainer(const IntRect&) const;

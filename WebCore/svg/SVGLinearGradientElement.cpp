@@ -113,9 +113,9 @@ void SVGLinearGradientElement::svgAttributeChanged(const QualifiedName& attrName
         object->setNeedsLayout();
 }
 
-RenderPtr<RenderElement> SVGLinearGradientElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
+RenderPtr<RenderElement> SVGLinearGradientElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
 {
-    return createRenderer<RenderSVGResourceLinearGradient>(*this, WTF::move(style));
+    return createRenderer<RenderSVGResourceLinearGradient>(*this, WTFMove(style));
 }
 
 static void setGradientAttributes(SVGGradientElement& element, LinearGradientAttributes& attributes, bool isLinear = true)

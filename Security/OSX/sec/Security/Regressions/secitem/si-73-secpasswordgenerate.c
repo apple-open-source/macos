@@ -7,13 +7,88 @@
 #include <Security/SecPasswordGenerate.h>
 #include <utilities/SecCFRelease.h>
 #include "Security_regressions.h"
+#include <stdarg.h>
+
+static void test_password_generate(bool ok, SecPasswordType type, int n,...)
+{
+    va_list argp;
+    CFTypeRef key, value;
+    va_start(argp, n);
+    int i;
+
+    CFMutableDictionaryRef passwordRequirements = NULL;
+    CFStringRef password = NULL;
+    CFErrorRef error = NULL;
+
+    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
+
+    for(i=0; i<n; i++) {
+        key = va_arg(argp, CFTypeRef);
+        value = va_arg(argp, CFTypeRef);
+        CFDictionaryAddValue(passwordRequirements, key, value);
+    }
+
+    password = SecPasswordGenerate(type, &error, passwordRequirements);
+
+    if(ok) {
+        isnt(password, NULL);
+        is(error, NULL);
+        if((password==NULL) || (error!=NULL))
+        {
+            printf("Oh no!\n");
+        }
+    } else {
+        is(password, NULL);
+        isnt(error, NULL);
+    }
+
+    CFReleaseSafe(password);
+    CFReleaseSafe(passwordRequirements);
+    CFReleaseSafe(error);
+
+    va_end(argp);
+}
 
 static void tests(void)
 {
     CFErrorRef error = NULL;
     CFStringRef password = NULL;
+
+    //Create dictionary for common required character sets
+    CFCharacterSetRef uppercaseLetterCharacterSet = CFCharacterSetGetPredefined(kCFCharacterSetUppercaseLetter);
+    CFCharacterSetRef lowercaseLetterCharacterSet = CFCharacterSetGetPredefined(kCFCharacterSetLowercaseLetter);
+    CFCharacterSetRef decimalDigitCharacterSet = CFCharacterSetGetPredefined(kCFCharacterSetDecimalDigit);
+
     CFMutableArrayRef requiredCharacterSets = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-    CFMutableDictionaryRef passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
+    CFArrayAppendValue(requiredCharacterSets, uppercaseLetterCharacterSet);
+    CFArrayAppendValue(requiredCharacterSets, lowercaseLetterCharacterSet);
+    CFArrayAppendValue(requiredCharacterSets, decimalDigitCharacterSet);
+
+    //Create common CFNumbers
+    int i2 = 2;
+    int i4 = 4;
+    int i5 = 5;
+    int i6 = 6;
+    int i12 = 12;
+    int i19 = 19;
+    int i20 = 20;
+    int i23 = 23;
+    int i24 = 24;
+    int i32 = 32;
+    int i56 = 56;
+
+    CFNumberRef cf2 = CFNumberCreate(NULL, kCFNumberIntType, &i2);
+    CFNumberRef cf4 = CFNumberCreate(NULL, kCFNumberIntType, &i4);
+    CFNumberRef cf5 = CFNumberCreate(NULL, kCFNumberIntType, &i5);
+    CFNumberRef cf6 = CFNumberCreate(NULL, kCFNumberIntType, &i6);
+    CFNumberRef cf12 = CFNumberCreate(NULL, kCFNumberIntType, &i12);
+    CFNumberRef cf19 = CFNumberCreate(NULL, kCFNumberIntType, &i19);
+    CFNumberRef cf20 = CFNumberCreate(NULL, kCFNumberIntType, &i20);
+    CFNumberRef cf23 = CFNumberCreate(NULL, kCFNumberIntType, &i23);
+    CFNumberRef cf24 = CFNumberCreate(NULL, kCFNumberIntType, &i24);
+    CFNumberRef cf32 = CFNumberCreate(NULL, kCFNumberIntType, &i32);
+    CFNumberRef cf56 = CFNumberCreate(NULL, kCFNumberIntType, &i56);
+
 
     //generates random digit string
     is(true, (password = SecPasswordCreateWithRandomDigits(8, &error)) != NULL) ;
@@ -27,205 +102,69 @@ static void tests(void)
     
     is(true, (password = SecPasswordCreateWithRandomDigits(5, &error)) != NULL) ;
     CFReleaseNull(password);
-    
-    CFCharacterSetRef uppercaseLetterCharacterSet = CFCharacterSetGetPredefined(kCFCharacterSetUppercaseLetter);
-    CFCharacterSetRef lowercaseLetterCharacterSet = CFCharacterSetGetPredefined(kCFCharacterSetLowercaseLetter);
-    CFCharacterSetRef decimalDigitCharacterSet = CFCharacterSetGetPredefined(kCFCharacterSetDecimalDigit);
-    
-    CFArrayAppendValue(requiredCharacterSets, uppercaseLetterCharacterSet);
-    CFArrayAppendValue(requiredCharacterSets, lowercaseLetterCharacterSet);
-    CFArrayAppendValue(requiredCharacterSets, decimalDigitCharacterSet);
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordDefaultForType, CFSTR("true"));
-    
-    //test default PIN
-    password = SecPasswordGenerate(kSecPasswordTypePIN, &error, passwordRequirements);
-    isnt(password, NULL);
-    ok(error == NULL);
-    CFReleaseNull(password);
-    error = NULL;
-    
-    //test default icloud recovery code
-    password = SecPasswordGenerate(kSecPasswordTypeiCloudRecovery, &error, passwordRequirements);
-    isnt(password, NULL);
-    ok(error == NULL);
-    CFReleaseNull(password);
-    error = NULL;
-    
-    //test default wifi
-    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordDefaultForType, CFSTR("true"));
-    password = SecPasswordGenerate(kSecPasswordTypeWifi, &error, passwordRequirements);
-    isnt(password, NULL);
-    ok(error == NULL);
-    CFReleaseNull(password);
-    error = NULL;
-    CFRelease(passwordRequirements);
-    
-    //test default safari
-    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordDefaultForType, CFSTR("true"));
-    password = SecPasswordGenerate(kSecPasswordTypeSafari, &error, passwordRequirements);
-    isnt(password, NULL);
-    ok(error == NULL);
 
-    error = NULL;
-    CFReleaseNull(password);
-    CFRelease(passwordRequirements);
+    //test default PIN
+    test_password_generate(true, kSecPasswordTypePIN, 1,
+                           kSecPasswordDefaultForType, CFSTR("true"));
+
+    //test default icloud recovery code
+    test_password_generate(true, kSecPasswordTypeiCloudRecovery, 1,
+                           kSecPasswordDefaultForType, CFSTR("true"));
+
+    //test default wifi
+    test_password_generate(true, kSecPasswordTypeWifi, 1,
+                           kSecPasswordDefaultForType, CFSTR("true"));
+
+    //test default safari
+    test_password_generate(true, kSecPasswordTypeSafari, 1,
+                           kSecPasswordDefaultForType, CFSTR("true"));
 
     //test icloud recovery code generation
-    password = SecPasswordGenerate(kSecPasswordTypeiCloudRecovery, &error, NULL);
-    isnt(password, NULL);
-    ok(error == NULL);
+    test_password_generate(true, kSecPasswordTypeiCloudRecovery, 1,
+                           kSecPasswordDefaultForType, CFSTR("true"));
 
-    error = NULL;
-    CFReleaseNull(password);
-    
     //dictionary setup
-    int min = 20;
-    int max = 32;
-    
-    CFNumberRef minRef = CFNumberCreate(NULL, kCFNumberIntType, &min);
-    CFNumberRef maxRef = CFNumberCreate(NULL, kCFNumberIntType, &max);
-    
-    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMinLengthKey, minRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMaxLengthKey, maxRef);
-    CFStringRef allowedCharacters = CFSTR("abcdsefw2345");
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordAllowedCharactersKey, allowedCharacters);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordRequiredCharactersKey, requiredCharacterSets);
-    
-    //test wifi code generation
-    //test with min/max in range of default
-    password = SecPasswordGenerate(kSecPasswordTypeWifi, &error, passwordRequirements);
-    isnt(password, NULL);
-    ok(error == NULL);
-
-    error = NULL;
-    CFReleaseNull(password);
-    CFRelease(passwordRequirements);
-    CFRelease(minRef);
-    CFRelease(maxRef);
-    CFRelease(allowedCharacters);
-    
+    test_password_generate(true, kSecPasswordTypeWifi, 4,
+                           kSecPasswordMinLengthKey, cf20,
+                           kSecPasswordMaxLengthKey, cf32,
+                           kSecPasswordAllowedCharactersKey, CFSTR("abcdsefw2345"),
+                           kSecPasswordRequiredCharactersKey, requiredCharacterSets);
 
     //test with max == min
-    min = 24;
-    max = 24;
-    
-    minRef = CFNumberCreate(NULL, kCFNumberIntType, &min);
-    maxRef = CFNumberCreate(NULL, kCFNumberIntType, &max);
-    
-    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMinLengthKey, minRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMaxLengthKey, maxRef);
-    allowedCharacters = CFSTR("abcdsefw2345");
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordAllowedCharactersKey, allowedCharacters);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordRequiredCharactersKey, requiredCharacterSets);
-    password = SecPasswordGenerate(kSecPasswordTypeWifi, &error, passwordRequirements);
-    isnt(password, NULL);
-    ok(error == NULL);
+    test_password_generate(true, kSecPasswordTypeWifi, 4,
+                           kSecPasswordMinLengthKey, cf24,
+                           kSecPasswordMaxLengthKey, cf24,
+                           kSecPasswordAllowedCharactersKey, CFSTR("abcdsefw2345"),
+                           kSecPasswordRequiredCharactersKey, requiredCharacterSets);
 
-    error = NULL;
-    CFReleaseNull(password);
-    CFRelease(passwordRequirements);
-    CFRelease(minRef);
-    CFRelease(maxRef);
-    CFRelease(allowedCharacters);
-    
-    passwordRequirements = NULL;
-    
     //test disallowed characters
-    min = 24;
-    max = 56;
-    
-    minRef = CFNumberCreate(NULL, kCFNumberIntType, &min);
-    maxRef = CFNumberCreate(NULL, kCFNumberIntType, &max);
-    
-    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMinLengthKey, minRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMaxLengthKey, maxRef);
-    allowedCharacters = CFSTR("abcdefghijklmnopqrstuvwxyz0123456789");
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordAllowedCharactersKey, allowedCharacters);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordRequiredCharactersKey, requiredCharacterSets);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordDisallowedCharacters, CFSTR("aidfl"));
+    test_password_generate(true, kSecPasswordTypeWifi, 5,
+                           kSecPasswordMinLengthKey, cf24,
+                           kSecPasswordMaxLengthKey, cf24,
+                           kSecPasswordAllowedCharactersKey, CFSTR("abcdefghijklmnopqrstuvwxyz0123456789"),
+                           kSecPasswordRequiredCharactersKey, requiredCharacterSets,
+                           kSecPasswordDisallowedCharacters, CFSTR("aidfl"));
 
-    password = SecPasswordGenerate(kSecPasswordTypeWifi, &error, passwordRequirements);
-    isnt(password, NULL);
-    ok(error == NULL);
-
-    error = NULL;
-    CFReleaseNull(password);
-    CFRelease(passwordRequirements);
-    CFRelease(minRef);
-    CFRelease(maxRef);
-    CFRelease(allowedCharacters);
-    passwordRequirements = NULL;
 
     //test can't start with characters
-    min = 24;
-    max = 56;
-    
-    minRef = CFNumberCreate(NULL, kCFNumberIntType, &min);
-    maxRef = CFNumberCreate(NULL, kCFNumberIntType, &max);
-    
-    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMinLengthKey, minRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMaxLengthKey, maxRef);
-    allowedCharacters = CFSTR("diujk");
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordAllowedCharactersKey, allowedCharacters);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordRequiredCharactersKey, requiredCharacterSets);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordCantStartWithChars, CFSTR("d"));
-    
-    password = SecPasswordGenerate(kSecPasswordTypeWifi, &error, passwordRequirements);
-    isnt(password, NULL);
-    ok(error == NULL);
-
-    error = NULL;
-    CFReleaseNull(password);
-    CFRelease(passwordRequirements);
-    CFRelease(minRef);
-    CFRelease(maxRef);
-    CFRelease(allowedCharacters);
-    passwordRequirements = NULL;
-   
+    test_password_generate(true, kSecPasswordTypeWifi, 5,
+                           kSecPasswordMinLengthKey, cf24,
+                           kSecPasswordMaxLengthKey, cf56,
+                           kSecPasswordAllowedCharactersKey, CFSTR("diujk"),
+                           kSecPasswordRequiredCharactersKey, requiredCharacterSets,
+                           kSecPasswordCantStartWithChars, CFSTR("d"));
     
     //test can't end with characters
-    min = 24;
-    max = 56;
-    
-    minRef = CFNumberCreate(NULL, kCFNumberIntType, &min);
-    maxRef = CFNumberCreate(NULL, kCFNumberIntType, &max);
-    
-    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMinLengthKey, minRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMaxLengthKey, maxRef);
-    allowedCharacters = CFSTR("diujk89");
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordAllowedCharactersKey, allowedCharacters);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordRequiredCharactersKey, requiredCharacterSets);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordCantEndWithChars, CFSTR("d"));
-    
-    password = SecPasswordGenerate(kSecPasswordTypeWifi, &error, passwordRequirements);
-    isnt(password, NULL);
-    ok(error == NULL);
+    test_password_generate(true, kSecPasswordTypeWifi, 5,
+                           kSecPasswordMinLengthKey, cf24,
+                           kSecPasswordMaxLengthKey, cf56,
+                           kSecPasswordAllowedCharactersKey, CFSTR("diujk89"),
+                           kSecPasswordRequiredCharactersKey, requiredCharacterSets,
+                           kSecPasswordCantEndWithChars, CFSTR("d"));
 
-    error = NULL;
-    CFReleaseNull(password);
-    CFRelease(passwordRequirements);
-    CFRelease(minRef);
-    CFRelease(maxRef);
-    CFRelease(allowedCharacters);
-    passwordRequirements = NULL;
-    
-    
     //test 4 digit pin generation
     for(int i =0 ; i< 100; i++){
-        password = SecPasswordGenerate(kSecPasswordTypePIN, &error, passwordRequirements);
+        password = SecPasswordGenerate(kSecPasswordTypePIN, &error, NULL);
         isnt(password, NULL);
         ok(error == NULL);
 
@@ -234,647 +173,211 @@ static void tests(void)
     }
         
     //test 6 digit pin
-    min = 4;
-    max = 6;
-    
-    minRef = CFNumberCreate(NULL, kCFNumberIntType, &min);
-    maxRef = CFNumberCreate(NULL, kCFNumberIntType, &max);
-    
-    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMinLengthKey, minRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMaxLengthKey, maxRef);
-    password = SecPasswordGenerate(kSecPasswordTypePIN, &error, passwordRequirements);
-    isnt(password, NULL);
-    ok(error == NULL);
-
-    error = NULL;
-    CFReleaseNull(password);
-    CFRelease(minRef);
-    CFRelease(maxRef);
-    CFRelease(passwordRequirements);
-
+    test_password_generate(true, kSecPasswordTypePIN, 2,
+                           kSecPasswordMinLengthKey, cf4,
+                           kSecPasswordMaxLengthKey, cf6);
     //test 5 digit pin
-    min = 4;
-    max = 5;
-    
-    minRef = CFNumberCreate(NULL, kCFNumberIntType, &min);
-    maxRef = CFNumberCreate(NULL, kCFNumberIntType, &max);
-    
-    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMinLengthKey, minRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMaxLengthKey, maxRef);
-    password = SecPasswordGenerate(kSecPasswordTypePIN, &error, passwordRequirements);
-    isnt(password, NULL);
-    ok(error == NULL);
+    test_password_generate(true, kSecPasswordTypePIN, 2,
+                           kSecPasswordMinLengthKey, cf5,
+                           kSecPasswordMaxLengthKey, cf6);
 
-    error = NULL;
-    CFReleaseNull(password);
-    CFRelease(minRef);
-    CFRelease(maxRef);
-    CFRelease(passwordRequirements);
     //test safari password
-    min = 20;
-    max = 32;
-    
-    minRef = CFNumberCreate(NULL, kCFNumberIntType, &min);
-    maxRef = CFNumberCreate(NULL, kCFNumberIntType, &max);
-    
-    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMinLengthKey, minRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMaxLengthKey, maxRef);
-    allowedCharacters = CFSTR("abcdsefw2345");
-    requiredCharacterSets = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-    CFArrayAppendValue(requiredCharacterSets, uppercaseLetterCharacterSet);
-    CFArrayAppendValue(requiredCharacterSets, lowercaseLetterCharacterSet);
-    CFArrayAppendValue(requiredCharacterSets, decimalDigitCharacterSet);
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordAllowedCharactersKey, allowedCharacters);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordRequiredCharactersKey, requiredCharacterSets);
-    
-    password = SecPasswordGenerate(kSecPasswordTypeSafari, &error, passwordRequirements);
-    isnt(password, NULL);
-    ok(error == NULL);
+    test_password_generate(true, kSecPasswordTypeSafari, 4,
+                           kSecPasswordMinLengthKey, cf20,
+                           kSecPasswordMaxLengthKey, cf32,
+                           kSecPasswordAllowedCharactersKey, CFSTR("abcdsefw2345"),
+                           kSecPasswordRequiredCharactersKey, requiredCharacterSets);
 
-    error = NULL;
-    CFReleaseNull(password);
-    CFRelease(passwordRequirements);
-    CFRelease(minRef);
-    CFRelease(maxRef);
-    CFRelease(allowedCharacters);
-    CFRelease(requiredCharacterSets);
-    
     //test flexible group size and number of groups in the password
     //test safari password
-    min = 12;
-    max = 19;
-    int groupSize = 5;
-    int numberOfGroups = 23;
-    
-    CFTypeRef groupSizeRef = CFNumberCreate(NULL, kCFNumberIntType, &groupSize);
-    CFTypeRef numberOfGroupsRef = CFNumberCreate(NULL, kCFNumberIntType, &numberOfGroups);
-    
-    minRef = CFNumberCreate(NULL, kCFNumberIntType, &min);
-    maxRef = CFNumberCreate(NULL, kCFNumberIntType, &max);
-    
-    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMinLengthKey, minRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMaxLengthKey, maxRef);
-    allowedCharacters = CFSTR("abcdsefw2345");
-    requiredCharacterSets = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-    CFArrayAppendValue(requiredCharacterSets, uppercaseLetterCharacterSet);
-    CFArrayAppendValue(requiredCharacterSets, lowercaseLetterCharacterSet);
-    CFArrayAppendValue(requiredCharacterSets, decimalDigitCharacterSet);
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordAllowedCharactersKey, allowedCharacters);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordRequiredCharactersKey, requiredCharacterSets);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordGroupSize, groupSizeRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordNumberOfGroups, numberOfGroupsRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordSeparator, CFSTR("*"));
+    test_password_generate(true, kSecPasswordTypeSafari, 7,
+                           kSecPasswordMinLengthKey, cf12,
+                           kSecPasswordMaxLengthKey, cf19,
+                           kSecPasswordAllowedCharactersKey, CFSTR("abcdsefw2345"),
+                           kSecPasswordRequiredCharactersKey, requiredCharacterSets,
+                           kSecPasswordGroupSize, cf5,
+                           kSecPasswordNumberOfGroups, cf23,
+                           kSecPasswordSeparator, CFSTR("*"));
 
-    password = SecPasswordGenerate(kSecPasswordTypeSafari, &error, passwordRequirements);
-    isnt(password, NULL);
-    ok(error == NULL);
-
-    error = NULL;
-    CFReleaseNull(password);
-    CFRelease(passwordRequirements);
-    CFRelease(minRef);
-    CFRelease(maxRef);
-    CFRelease(allowedCharacters);
-    CFRelease(requiredCharacterSets);
-    
     //test at least N characters 
     //test safari password
-    min = 24;
-    max = 32;
-    int N = 5;
-
-    minRef = CFNumberCreate(NULL, kCFNumberIntType, &min);
-    maxRef = CFNumberCreate(NULL, kCFNumberIntType, &max);
-    CFNumberRef threshold = CFNumberCreate(NULL, kCFNumberIntType, &N);
-    
-    CFStringRef characters = CFSTR("ab");
     CFMutableDictionaryRef atLeast = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    CFDictionaryAddValue(atLeast, kSecPasswordCharacters, characters);
-    CFDictionaryAddValue(atLeast, kSecPasswordCharacterCount, threshold);
-    
-    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMinLengthKey, minRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMaxLengthKey, maxRef);
-    allowedCharacters = CFSTR("abcdsefw2345");
-    requiredCharacterSets = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-    CFArrayAppendValue(requiredCharacterSets, uppercaseLetterCharacterSet);
-    CFArrayAppendValue(requiredCharacterSets, lowercaseLetterCharacterSet);
-    CFArrayAppendValue(requiredCharacterSets, decimalDigitCharacterSet);
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordAllowedCharactersKey, allowedCharacters);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordRequiredCharactersKey, requiredCharacterSets);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordContainsAtLeastNSpecificCharacters, atLeast);
+    CFDictionaryAddValue(atLeast, kSecPasswordCharacters, CFSTR("ab"));
+    CFDictionaryAddValue(atLeast, kSecPasswordCharacterCount, cf5);
 
-    password = SecPasswordGenerate(kSecPasswordTypeSafari, &error, passwordRequirements);
-    isnt(password, NULL);
-    ok(error == NULL);
+    test_password_generate(true, kSecPasswordTypeSafari, 5,
+                           kSecPasswordMinLengthKey, cf12,
+                           kSecPasswordMaxLengthKey, cf19,
+                           kSecPasswordAllowedCharactersKey, CFSTR("abcdsefw2345"),
+                           kSecPasswordRequiredCharactersKey, requiredCharacterSets,
+                           kSecPasswordContainsAtLeastNSpecificCharacters, atLeast);
 
-    error = NULL;
-    CFReleaseNull(password);
-    CFRelease(passwordRequirements);
-    CFRelease(minRef);
-    CFRelease(maxRef);
-    CFRelease(allowedCharacters);
-    CFRelease(requiredCharacterSets);
+    CFReleaseSafe(atLeast);
 
     //test no More than N characters
     //test safari password
-    min = 24;
-    max = 32;
-    N = 5;
-    
-
-    threshold = CFNumberCreate(NULL, kCFNumberIntType, &N);
-    minRef = CFNumberCreate(NULL, kCFNumberIntType, &min);
-    maxRef = CFNumberCreate(NULL, kCFNumberIntType, &max);
-    
     CFMutableDictionaryRef noMoreThan = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    CFStringRef noMore = CFSTR("ab");
-    CFDictionaryAddValue(noMoreThan, kSecPasswordCharacters, noMore);
-    CFDictionaryAddValue(noMoreThan, kSecPasswordCharacterCount, threshold);
-    
-    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMinLengthKey, minRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMaxLengthKey, maxRef);
-    allowedCharacters = CFSTR("abcdsefw2345");
-    requiredCharacterSets = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-    CFArrayAppendValue(requiredCharacterSets, uppercaseLetterCharacterSet);
-    CFArrayAppendValue(requiredCharacterSets, lowercaseLetterCharacterSet);
-    CFArrayAppendValue(requiredCharacterSets, decimalDigitCharacterSet);
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordAllowedCharactersKey, allowedCharacters);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordRequiredCharactersKey, requiredCharacterSets);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordContainsNoMoreThanNSpecificCharacters, noMoreThan);
-    
-    password = SecPasswordGenerate(kSecPasswordTypeSafari, &error, passwordRequirements);
-    isnt(password, NULL);
-    ok(error == NULL);
+    CFDictionaryAddValue(noMoreThan, kSecPasswordCharacters, CFSTR("ab"));
+    CFDictionaryAddValue(noMoreThan, kSecPasswordCharacterCount, cf5);
 
-    error = NULL;
-    CFReleaseNull(password);
-    CFRelease(passwordRequirements);
-    CFRelease(minRef);
-    CFRelease(maxRef);
-    CFRelease(allowedCharacters);
-    CFRelease(requiredCharacterSets);
+    test_password_generate(true, kSecPasswordTypeSafari, 5,
+                           kSecPasswordMinLengthKey, cf12,
+                           kSecPasswordMaxLengthKey, cf19,
+                           kSecPasswordAllowedCharactersKey, CFSTR("abcdsefw2345"),
+                           kSecPasswordRequiredCharactersKey, requiredCharacterSets,
+                           kSecPasswordContainsNoMoreThanNSpecificCharacters, noMoreThan);
+
+    CFReleaseSafe(noMoreThan);
 
     //test identical character threshold
     //test safari password
-    min = 12;
-    max = 19;
-    N = 2;
-    
-    threshold = CFNumberCreate(NULL, kCFNumberIntType, &N);
-    minRef = CFNumberCreate(NULL, kCFNumberIntType, &min);
-    maxRef = CFNumberCreate(NULL, kCFNumberIntType, &max);
-    
-    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMinLengthKey, minRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMaxLengthKey, maxRef);
-    allowedCharacters = CFSTR("abcdsefw2345");
-    requiredCharacterSets = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-    CFArrayAppendValue(requiredCharacterSets, uppercaseLetterCharacterSet);
-    CFArrayAppendValue(requiredCharacterSets, lowercaseLetterCharacterSet);
-    CFArrayAppendValue(requiredCharacterSets, decimalDigitCharacterSet);
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordAllowedCharactersKey, allowedCharacters);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordRequiredCharactersKey, requiredCharacterSets);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordContainsNoMoreThanNConsecutiveIdenticalCharacters, threshold);
-    
-    password = SecPasswordGenerate(kSecPasswordTypeSafari, &error, passwordRequirements);
-    isnt(password, NULL);
-    ok(error == NULL);
+    test_password_generate(true, kSecPasswordTypeSafari, 5,
+                           kSecPasswordMinLengthKey, cf12,
+                           kSecPasswordMaxLengthKey, cf19,
+                           kSecPasswordAllowedCharactersKey, CFSTR("abcdsefw2345"),
+                           kSecPasswordRequiredCharactersKey, requiredCharacterSets,
+                           kSecPasswordContainsNoMoreThanNConsecutiveIdenticalCharacters, cf2);
 
-    error = NULL;
-    CFReleaseNull(password);
-    CFRelease(passwordRequirements);
-    CFRelease(minRef);
-    CFRelease(maxRef);
-    CFRelease(allowedCharacters);
-    CFRelease(requiredCharacterSets);
+
 
 /////////////////now test all the error cases
     //test with no required characters
-    
-    min = 24;
-    max = 32;
-    
-    minRef = CFNumberCreate(NULL, kCFNumberIntType, &min);
-    maxRef = CFNumberCreate(NULL, kCFNumberIntType, &max);
-    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
+    CFMutableArrayRef emptyCharacterSets = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 
-    allowedCharacters = CFSTR("abcdsefw2345");
-    requiredCharacterSets = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    test_password_generate(false, kSecPasswordTypeWifi, 4,
+                           kSecPasswordMinLengthKey, cf24,
+                           kSecPasswordMaxLengthKey, cf32,
+                           kSecPasswordAllowedCharactersKey, CFSTR("abcdsefw2345"),
+                           kSecPasswordRequiredCharactersKey, emptyCharacterSets);
 
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordAllowedCharactersKey, allowedCharacters);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordRequiredCharactersKey, requiredCharacterSets);
-    password = SecPasswordGenerate(kSecPasswordTypeWifi, &error, passwordRequirements);
-    ok(password == NULL);
-    ok(error != NULL);
-
-    CFRelease(error);
-    error = NULL;
-    CFRelease(minRef);
-    CFRelease(maxRef);
-    CFRelease(allowedCharacters);
-    CFRelease(passwordRequirements);
+    CFReleaseSafe(emptyCharacterSets);
 
     //test with no allowed characters
-    min = 24;
-    max = 32;
-    
-    minRef = CFNumberCreate(NULL, kCFNumberIntType, &min);
-    maxRef = CFNumberCreate(NULL, kCFNumberIntType, &max);
-    
-    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMinLengthKey, minRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMaxLengthKey, maxRef);
-    allowedCharacters = CFSTR("");
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordAllowedCharactersKey, allowedCharacters);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordRequiredCharactersKey, requiredCharacterSets);
-    password = SecPasswordGenerate(kSecPasswordTypeWifi, &error, passwordRequirements);
-    ok(password == NULL);
-    ok(error != NULL);
-
-    CFRelease(error);
-    error = NULL;
-    CFRelease(minRef);
-    CFRelease(maxRef);
-    CFRelease(passwordRequirements);
+    test_password_generate(false, kSecPasswordTypeWifi, 4,
+                           kSecPasswordMinLengthKey, cf24,
+                           kSecPasswordMaxLengthKey, cf32,
+                           kSecPasswordAllowedCharactersKey, CFSTR(""),
+                           kSecPasswordRequiredCharactersKey, requiredCharacterSets);
 
     //test with min > max
-    min = 32;
-    max = 20;
-    
-    minRef = CFNumberCreate(NULL, kCFNumberIntType, &min);
-    maxRef = CFNumberCreate(NULL, kCFNumberIntType, &max);
-    
-    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMinLengthKey, minRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMaxLengthKey, maxRef);
-    allowedCharacters = CFSTR("abcdsefw2345");
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordAllowedCharactersKey, allowedCharacters);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordRequiredCharactersKey, requiredCharacterSets);
-    password = SecPasswordGenerate(kSecPasswordTypeWifi, &error, passwordRequirements);
-    ok(password == NULL);
-    ok(error != NULL);
-
-    error = NULL;
-    CFRelease(minRef);
-    CFRelease(maxRef);
-    CFRelease(allowedCharacters);
-    CFRelease(passwordRequirements);
+    test_password_generate(false, kSecPasswordTypeWifi, 4,
+                           kSecPasswordMinLengthKey, cf32,
+                           kSecPasswordMaxLengthKey, cf24,
+                           kSecPasswordAllowedCharactersKey, CFSTR("abcdsefw2345"),
+                           kSecPasswordRequiredCharactersKey, requiredCharacterSets);
 
     //test by ommitting dictionary parameters
     
     //omit max length
-    min = 20;
-    max = 32;
-    
-    minRef = CFNumberCreate(NULL, kCFNumberIntType, &min);
-    maxRef = CFNumberCreate(NULL, kCFNumberIntType, &max);
-    
-    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMinLengthKey, minRef);
-    allowedCharacters = CFSTR("abcdsefw2345");
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordAllowedCharactersKey, allowedCharacters);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordRequiredCharactersKey, requiredCharacterSets);
-    password = SecPasswordGenerate(kSecPasswordTypeWifi, &error, passwordRequirements);
-    ok(password == NULL);
-    ok(error != NULL);
-
-    error = NULL;
-    CFRelease(minRef);
-    CFRelease(maxRef);
-    CFRelease(allowedCharacters);
-    CFRelease(passwordRequirements);
+    test_password_generate(false, kSecPasswordTypeWifi, 3,
+                           kSecPasswordMinLengthKey, cf20,
+                           kSecPasswordAllowedCharactersKey, CFSTR("abcdsefw2345"),
+                           kSecPasswordRequiredCharactersKey, requiredCharacterSets);
 
     //omit min length
-    min = 20;
-    max = 32;
-    
-    minRef = CFNumberCreate(NULL, kCFNumberIntType, &min);
-    maxRef = CFNumberCreate(NULL, kCFNumberIntType, &max);
-    
-    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMaxLengthKey, maxRef);
-    allowedCharacters = CFSTR("abcdsefw2345");
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordAllowedCharactersKey, allowedCharacters);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordRequiredCharactersKey, requiredCharacterSets);
-    password = SecPasswordGenerate(kSecPasswordTypeWifi, &error, passwordRequirements);
-    ok(password == NULL);
-    ok(error != NULL);
-
-    error = NULL;
-    CFRelease(minRef);
-    CFRelease(maxRef);
-    CFRelease(allowedCharacters);
-    CFRelease(passwordRequirements);
+    test_password_generate(false, kSecPasswordTypeWifi, 3,
+                           kSecPasswordMaxLengthKey, cf32,
+                           kSecPasswordAllowedCharactersKey, CFSTR("abcdsefw2345"),
+                           kSecPasswordRequiredCharactersKey, requiredCharacterSets);
 
     //omit allowed characters
-    min = 20;
-    max = 32;
-    
-    minRef = CFNumberCreate(NULL, kCFNumberIntType, &min);
-    maxRef = CFNumberCreate(NULL, kCFNumberIntType, &max);
-    
-    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMinLengthKey, minRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMaxLengthKey, maxRef);
-    allowedCharacters = CFSTR("abcdsefw2345");
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordRequiredCharactersKey, requiredCharacterSets);
-    password = SecPasswordGenerate(kSecPasswordTypeWifi, &error, passwordRequirements);
-    ok(password == NULL);
-    ok(error != NULL);
-
-    error = NULL;
-    CFRelease(minRef);
-    CFRelease(maxRef);
-    CFRelease(allowedCharacters);
-    CFRelease(passwordRequirements);
+    test_password_generate(false, kSecPasswordTypeWifi, 3,
+                           kSecPasswordMinLengthKey, cf20,
+                           kSecPasswordMaxLengthKey, cf32,
+                           kSecPasswordRequiredCharactersKey, requiredCharacterSets);
 
     //omit required characters
-    min = 20;
-    max = 32;
-    
-    minRef = CFNumberCreate(NULL, kCFNumberIntType, &min);
-    maxRef = CFNumberCreate(NULL, kCFNumberIntType, &max);
-    
-    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMinLengthKey, minRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMaxLengthKey, maxRef);
-    allowedCharacters = CFSTR("abcdsefw2345");
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordAllowedCharactersKey, allowedCharacters);
-    password = SecPasswordGenerate(kSecPasswordTypeWifi, &error, passwordRequirements);
-    ok(password == NULL);
-    ok(error != NULL);
-    
-    error = NULL;
-    CFRelease(minRef);
-    CFRelease(maxRef);
-    CFRelease(allowedCharacters);
-    CFRelease(passwordRequirements);
+    test_password_generate(false, kSecPasswordTypeWifi, 3,
+                           kSecPasswordMinLengthKey, cf20,
+                           kSecPasswordMaxLengthKey, cf32,
+                           kSecPasswordAllowedCharactersKey, CFSTR("abcdsefw2345"));
+
 
     //pass in wrong type for min
-    min = 20;
-    max = 32;
-    
-    minRef = CFNumberCreate(NULL, kCFNumberIntType, &min);
-    maxRef = CFNumberCreate(NULL, kCFNumberIntType, &max);
-    
-    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMinLengthKey, allowedCharacters);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMaxLengthKey, maxRef);
-    allowedCharacters = CFSTR("abcdsefw2345");
-    requiredCharacterSets = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-    CFArrayAppendValue(requiredCharacterSets, uppercaseLetterCharacterSet);
-    CFArrayAppendValue(requiredCharacterSets, lowercaseLetterCharacterSet);
-    CFArrayAppendValue(requiredCharacterSets, decimalDigitCharacterSet);
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordAllowedCharactersKey, allowedCharacters);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordRequiredCharactersKey, requiredCharacterSets);
-    
-    password = SecPasswordGenerate(kSecPasswordTypeWifi, &error, passwordRequirements);
-    ok(password == NULL);
-    ok(error != NULL);
+    test_password_generate(false, kSecPasswordTypeWifi, 4,
+                           kSecPasswordMinLengthKey, CFSTR("20"),
+                           kSecPasswordMaxLengthKey, cf32,
+                           kSecPasswordAllowedCharactersKey, CFSTR("abcdsefw2345"),
+                           kSecPasswordRequiredCharactersKey, requiredCharacterSets);
 
-    error = NULL;
-    CFRelease(passwordRequirements);
-    CFRelease(minRef);
-    CFRelease(maxRef);
-    CFRelease(allowedCharacters);
-    
     //pass in wrong type for max
-    min = 20;
-    max = 32;
-    
-    minRef = CFNumberCreate(NULL, kCFNumberIntType, &min);
-    maxRef = CFNumberCreate(NULL, kCFNumberIntType, &max);
-    
-    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMinLengthKey, minRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMaxLengthKey, allowedCharacters);
-    allowedCharacters = CFSTR("abcdsefw2345");
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordAllowedCharactersKey, allowedCharacters);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordRequiredCharactersKey, requiredCharacterSets);
+    test_password_generate(false, kSecPasswordTypeWifi, 4,
+                           kSecPasswordMinLengthKey, cf20,
+                           kSecPasswordMaxLengthKey, CFSTR("32"),
+                           kSecPasswordAllowedCharactersKey, CFSTR("abcdsefw2345"),
+                           kSecPasswordRequiredCharactersKey, requiredCharacterSets);
 
-    password = SecPasswordGenerate(kSecPasswordTypeWifi, &error, passwordRequirements);
-    ok(password == NULL);    
-    ok(error != NULL);
-
-    error = NULL;
-    CFRelease(passwordRequirements);
-    CFRelease(minRef);
-    CFRelease(maxRef);
-    CFRelease(allowedCharacters);
-    
     //pass in wrong type for allowed
-    min = 20;
-    max = 32;
-    
-    minRef = CFNumberCreate(NULL, kCFNumberIntType, &min);
-    maxRef = CFNumberCreate(NULL, kCFNumberIntType, &max);
-    
-    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMinLengthKey, minRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMaxLengthKey, maxRef);
-    allowedCharacters = CFSTR("abcdsefw2345");
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordAllowedCharactersKey, minRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordRequiredCharactersKey, requiredCharacterSets);
+    test_password_generate(false, kSecPasswordTypeWifi, 4,
+                           kSecPasswordMinLengthKey, cf20,
+                           kSecPasswordMaxLengthKey, cf32,
+                           kSecPasswordAllowedCharactersKey, requiredCharacterSets,
+                           kSecPasswordRequiredCharactersKey, requiredCharacterSets);
 
-    password = SecPasswordGenerate(kSecPasswordTypeWifi, &error, passwordRequirements);
-    ok(password == NULL);
-    ok(error != NULL);
-
-    error = NULL;
-    CFRelease(passwordRequirements);
-    CFRelease(minRef);
-    CFRelease(maxRef);
-    CFRelease(allowedCharacters);
-    
     //pass in wrong type for required
-    min = 20;
-    max = 32;
-    
-    minRef = CFNumberCreate(NULL, kCFNumberIntType, &min);
-    maxRef = CFNumberCreate(NULL, kCFNumberIntType, &max);
-    
-    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMinLengthKey, minRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMaxLengthKey, maxRef);
-    allowedCharacters = CFSTR("abcdsefw2345");
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordAllowedCharactersKey, allowedCharacters);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordRequiredCharactersKey, minRef);
-    password = SecPasswordGenerate(kSecPasswordTypeWifi, &error, passwordRequirements);
-    ok(password == NULL);
-    ok(error != NULL);
-
-    error = NULL;
-    CFRelease(passwordRequirements);
-    CFRelease(minRef);
-    CFRelease(maxRef);
-    CFRelease(allowedCharacters);
+    test_password_generate(false, kSecPasswordTypeWifi, 4,
+                           kSecPasswordMinLengthKey, cf20,
+                           kSecPasswordMaxLengthKey, cf32,
+                           kSecPasswordAllowedCharactersKey, CFSTR("abcdsefw2345"),
+                           kSecPasswordRequiredCharactersKey, CFSTR("abcdsefw2345"));
     
     //pass in wrong type for no less than
-    min = 20;
-    max = 32;
-    
-    minRef = CFNumberCreate(NULL, kCFNumberIntType, &min);
-    maxRef = CFNumberCreate(NULL, kCFNumberIntType, &max);
-    
-    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    requiredCharacterSets = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-    CFArrayAppendValue(requiredCharacterSets, uppercaseLetterCharacterSet);
-    CFArrayAppendValue(requiredCharacterSets, lowercaseLetterCharacterSet);
-    CFArrayAppendValue(requiredCharacterSets, decimalDigitCharacterSet);
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordAllowedCharactersKey, allowedCharacters);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordRequiredCharactersKey, requiredCharacterSets);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMinLengthKey, minRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMaxLengthKey, maxRef);
-    allowedCharacters = CFSTR("abcdsefw2345");
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordAllowedCharactersKey, allowedCharacters);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordRequiredCharactersKey, minRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordContainsAtLeastNSpecificCharacters, CFSTR("hehe"));
-    password = SecPasswordGenerate(kSecPasswordTypeWifi, &error, passwordRequirements);
-    ok(password == NULL);
-    ok(error != NULL);
+    test_password_generate(false, kSecPasswordTypeWifi, 5,
+                           kSecPasswordMinLengthKey, cf20,
+                           kSecPasswordMaxLengthKey, cf32,
+                           kSecPasswordAllowedCharactersKey, CFSTR("abcdsefw2345"),
+                           kSecPasswordRequiredCharactersKey, requiredCharacterSets,
+                           kSecPasswordContainsAtLeastNSpecificCharacters, CFSTR("hehe"));
 
-    error = NULL;
-    CFRelease(passwordRequirements);
-    CFRelease(minRef);
-    CFRelease(maxRef);
-    CFRelease(allowedCharacters);
 
     //pass in wrong type for no more than
-    min = 20;
-    max = 32;
-    
-    minRef = CFNumberCreate(NULL, kCFNumberIntType, &min);
-    maxRef = CFNumberCreate(NULL, kCFNumberIntType, &max);
-    
-    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    requiredCharacterSets = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-    CFArrayAppendValue(requiredCharacterSets, uppercaseLetterCharacterSet);
-    CFArrayAppendValue(requiredCharacterSets, lowercaseLetterCharacterSet);
-    CFArrayAppendValue(requiredCharacterSets, decimalDigitCharacterSet);
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordAllowedCharactersKey, allowedCharacters);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordRequiredCharactersKey, requiredCharacterSets);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMinLengthKey, minRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMaxLengthKey, maxRef);
-    allowedCharacters = CFSTR("abcdsefw2345");
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordAllowedCharactersKey, allowedCharacters);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordRequiredCharactersKey, minRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordContainsNoMoreThanNSpecificCharacters, CFSTR("hehe"));
-
-    password = SecPasswordGenerate(kSecPasswordTypeWifi, &error, passwordRequirements);
-    ok(password == NULL);
-    ok(error != NULL);
-
-    error = NULL;
-    CFRelease(passwordRequirements);
-    CFRelease(minRef);
-    CFRelease(maxRef);
-    CFRelease(allowedCharacters);
+    test_password_generate(false, kSecPasswordTypeWifi, 5,
+                           kSecPasswordMinLengthKey, cf20,
+                           kSecPasswordMaxLengthKey, cf32,
+                           kSecPasswordAllowedCharactersKey, CFSTR("abcdsefw2345"),
+                           kSecPasswordRequiredCharactersKey, requiredCharacterSets,
+                           kSecPasswordContainsNoMoreThanNSpecificCharacters, CFSTR("hehe"));
 
     //pass in wrong disallowed characters
-    min = 20;
-    max = 32;
-    
-    minRef = CFNumberCreate(NULL, kCFNumberIntType, &min);
-    maxRef = CFNumberCreate(NULL, kCFNumberIntType, &max);
-    
-    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    requiredCharacterSets = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-    CFArrayAppendValue(requiredCharacterSets, uppercaseLetterCharacterSet);
-    CFArrayAppendValue(requiredCharacterSets, lowercaseLetterCharacterSet);
-    CFArrayAppendValue(requiredCharacterSets, decimalDigitCharacterSet);
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordAllowedCharactersKey, allowedCharacters);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordRequiredCharactersKey, requiredCharacterSets);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMinLengthKey, minRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMaxLengthKey, maxRef);
-    allowedCharacters = CFSTR("abcdsefw2345");
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordAllowedCharactersKey, allowedCharacters);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordRequiredCharactersKey, minRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordDisallowedCharacters, requiredCharacterSets);
-    
-    password = SecPasswordGenerate(kSecPasswordTypeWifi, &error, passwordRequirements);
-    ok(password == NULL);
-    ok(error != NULL);
-    
-    error = NULL;
-    CFRelease(passwordRequirements);
-    CFRelease(minRef);
-    CFRelease(maxRef);
-    CFRelease(allowedCharacters);
+    test_password_generate(false, kSecPasswordTypeWifi, 5,
+                           kSecPasswordMinLengthKey, cf20,
+                           kSecPasswordMaxLengthKey, cf32,
+                           kSecPasswordAllowedCharactersKey, CFSTR("abcdsefw2345"),
+                           kSecPasswordRequiredCharactersKey, requiredCharacterSets,
+                           kSecPasswordDisallowedCharacters, requiredCharacterSets);
     
     //pass in wrong type for no more than's dictionary
-    min = 20;
-    max = 32;
-    
-    minRef = CFNumberCreate(NULL, kCFNumberIntType, &min);
-    maxRef = CFNumberCreate(NULL, kCFNumberIntType, &max);
-    
     CFMutableDictionaryRef wrongCount = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
     CFDictionaryAddValue(wrongCount, kSecPasswordCharacters, CFSTR("lkj"));
     CFDictionaryAddValue(wrongCount, kSecPasswordCharacterCount, CFSTR("sdf"));
-    
-    passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
-    requiredCharacterSets = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-    CFArrayAppendValue(requiredCharacterSets, uppercaseLetterCharacterSet);
-    CFArrayAppendValue(requiredCharacterSets, lowercaseLetterCharacterSet);
-    CFArrayAppendValue(requiredCharacterSets, decimalDigitCharacterSet);
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordAllowedCharactersKey, allowedCharacters);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordRequiredCharactersKey, requiredCharacterSets);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMinLengthKey, minRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordMaxLengthKey, maxRef);
-    allowedCharacters = CFSTR("abcdsefw2345");
-    
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordAllowedCharactersKey, allowedCharacters);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordRequiredCharactersKey, minRef);
-    CFDictionaryAddValue(passwordRequirements, kSecPasswordContainsNoMoreThanNSpecificCharacters, wrongCount);
-    
-    password = SecPasswordGenerate(kSecPasswordTypeWifi, &error, passwordRequirements);
-    ok(password == NULL);
-    ok(error != NULL);
-    
-    error = NULL;
-    CFRelease(wrongCount);
-    CFRelease(passwordRequirements);
-    CFRelease(minRef);
-    CFRelease(maxRef);
-    CFRelease(allowedCharacters);
-    
+
+    test_password_generate(false, kSecPasswordTypeWifi, 5,
+                           kSecPasswordMinLengthKey, cf20,
+                           kSecPasswordMaxLengthKey, cf32,
+                           kSecPasswordAllowedCharactersKey, CFSTR("abcdsefw2345"),
+                           kSecPasswordRequiredCharactersKey, requiredCharacterSets,
+                           kSecPasswordContainsNoMoreThanNSpecificCharacters, wrongCount);
+
+    CFReleaseSafe(wrongCount);
+
+
+    //release CF objects:
+    CFReleaseSafe(cf2);
+    CFReleaseSafe(cf4);
+    CFReleaseSafe(cf5);
+    CFReleaseSafe(cf6);
+    CFReleaseSafe(cf12);
+    CFReleaseSafe(cf19);
+    CFReleaseSafe(cf20);
+    CFReleaseSafe(cf23);
+    CFReleaseSafe(cf24);
+    CFReleaseSafe(cf32);
+    CFReleaseSafe(cf56);
+
+    CFReleaseSafe(requiredCharacterSets);
+
+
+    // Weak Passwords tests
     password = CFSTR("Apple1?");
     isnt(true, SecPasswordIsPasswordWeak(password));
     CFRelease(password);
@@ -1021,12 +524,15 @@ static void tests(void)
     is(true, SecPasswordIsPasswordWeak2(true, CFSTR("525252")));
     is(true, SecPasswordIsPasswordWeak2(false, CFSTR("525252")));
     is(true, SecPasswordIsPasswordWeak2(false, CFSTR("52525")));
-
+    
+    is(true, SecPasswordIsPasswordWeak2(true, CFSTR("098765")));
+    is(true, SecPasswordIsPasswordWeak(CFSTR("0987")));
+    
 }
 
 int si_73_secpasswordgenerate(int argc, char *const *argv)
 {
-	plan_tests(308);
+	plan_tests(310);
 	tests();
     
 	return 0;

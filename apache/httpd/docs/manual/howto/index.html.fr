@@ -18,7 +18,7 @@
 <body id="manual-page" class="no-sidebar"><div id="page-header">
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p>
 <p class="apache">Serveur Apache HTTP Version 2.4</p>
-<img alt="" src="../images/feather.gif" /></div>
+<img alt="" src="../images/feather.png" /></div>
 <div class="up"><a href="../"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
 <a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">Serveur HTTP</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.4</a></div><div id="page-content"><div id="preamble"><h1>How-To / Tutoriels</h1>
@@ -91,6 +91,21 @@
     </dl>
 
     <dl>
+      <dt>HTTP/2 avec httpd</dt>
+      <dd>
+      <p>HTTP/2 est une évolution du protocole de la couche application le plus
+      connu au monde, HTTP. Les efforts se sont concentrés sur une amélioration
+      de l'efficacité de l'utilisation des ressources réseau sans modifier la
+      sémantique de HTTP. Ce guide explique la manière dont HTTP/2 est
+      implémenté dans httpd, donne des conseils pour une configuration de base
+      ainsi qu'une liste de recommandations.
+      </p>
+
+        <p>Voir le <a href="http2.html">guide HTTP/2</a></p>
+      </dd>
+    </dl>
+
+    <dl>
       <dt>Introduction au Inclusions côté Serveur (Server Side Includes
       ou SSI)</dt>
       <dd>
@@ -119,6 +134,20 @@
         <p>Voir <a href="public_html.html">Répertoires web des utilisateurs (<code>public_html</code>)</a></p>
       </dd>
     </dl>
+    <dl>
+      <dt>Mandataires inverses</dt>
+      <dd>
+        <p>Apache httpd possède des fonctionnalités évoluées de serveur
+	mandataire inverse via ses directives <code class="directive"><a href="../mod/mod_proxy.html#proxypass">ProxyPass</a></code> et <code class="directive"><a href="../mod/mod_proxy.html#balancermember">BalancerMember</a></code> qui permettent
+	d'implémenter un système de mandataire inverse sophistiqué garantissant
+	une haute disponibilité, une répartition et une réattribution de charge,
+	un regroupement de serveurs en grappe (clustering) basé sur le cloud et
+	une reconfiguration dynamique à la volée.</p>
+
+        <p>Voir le <a href="reverse_proxy.html" />Guide de configuration des
+	mandataires inverses</p>
+      </dd>
+    </dl>
 
   </div></div>
 <div class="bottomlang">
@@ -128,7 +157,7 @@
 <a href="../ko/howto/" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../zh-cn/howto/" hreflang="zh-cn" rel="alternate" title="Simplified Chinese">&nbsp;zh-cn&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

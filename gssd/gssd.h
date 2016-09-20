@@ -95,3 +95,4 @@ int in_foreground(int);
 extern void set_debug_level(int);
 extern void set_debug_level_init(void (*)(int));
 extern int get_debug_level(void);
+extern int make_lucid_stream(gss_krb5_lucid_context_v1_t *, size_t *, void **);

@@ -31,7 +31,7 @@
 extern "C" {
 #endif
 
-#define IOGRAPHICSTYPES_REV     42
+#define IOGRAPHICSTYPES_REV     44
 
 typedef SInt32  IOIndex;
 typedef UInt32  IOSelect;
@@ -268,6 +268,21 @@ enum {
     kIOClamshellStateAttribute          = 'clam',
 
 	kIOFBDisplayPortTrainingAttribute   = 'dpta',
+};
+
+// values for kIOWindowServerActiveAttribute
+enum {
+    kIOWSAA_Unaccelerated       = 0,    // CPU rendering/access only, no GPU access
+    kIOWSAA_Accelerated         = 1,    // GPU rendering/access only, no CPU mappings
+    kIOWSAA_From_Accelerated    = 2,    // Transitioning from GPU to CPU
+    kIOWSAA_To_Accelerated      = 3,    // Transitioning from CPU to GPU
+    kIOWSAA_Sleep               = 4,
+    kIOWSAA_Hibernate           = kIOWSAA_Sleep,
+    kIOWSAA_DriverOpen          = 5,    // Reserved
+    kIOWSAA_Transactional       = 0x10,  // If this bit is present, transition is to/from transactional operation model.
+    // These attributes are internal
+    kIOWSAA_DeferStart          = 0x100,
+    kIOWSAA_DeferEnd            = 0x200
 };
 
 // values for kIOMirrorAttribute

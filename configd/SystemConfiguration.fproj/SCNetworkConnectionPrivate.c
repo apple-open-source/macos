@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2012, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2012, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -23,8 +23,6 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
-#include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCPrivate.h>		// for SCLog
 #include "SCNetworkConfigurationInternal.h"
 #include <notify.h>
 #include <pthread.h>
@@ -158,6 +156,7 @@ __SCUserPreferencesCreatePrivate(CFAllocatorRef		allocator,
 		return NULL;
 	}
 
+	/* initialize non-zero/NULL members */
 	prefsPrivate->serviceID	= CFStringCreateCopy(NULL, serviceID);
 	prefsPrivate->prefsID	= CFStringCreateCopy(NULL, prefsID);
 

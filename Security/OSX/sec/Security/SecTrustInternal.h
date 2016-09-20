@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2015-2016 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,8 +33,27 @@
 
 __BEGIN_DECLS
 
-#if SECTRUST_OSX
+/* args_in keys. */
+#define kSecTrustCertificatesKey "certificates"
+#define kSecTrustAnchorsKey "anchors"
+#define kSecTrustAnchorsOnlyKey "anchorsOnly"
+#define kSecTrustKeychainsAllowedKey "keychainsAllowed"
+#define kSecTrustPoliciesKey "policies"
+#define kSecTrustResponsesKey "responses"
+#define kSecTrustSCTsKey "scts"
+#define kSecTrustTrustedLogsKey "trustedLogs"
+#define kSecTrustVerifyDateKey "verifyDate"
+#define kSecTrustExceptionsKey "exceptions"
+
+/* args_out keys. */
+#define kSecTrustDetailsKey "details"
+#define kSecTrustChainKey "chain"
+#define kSecTrustResultKey "result"
+#define kSecTrustInfoKey "info"
+
+#if TARGET_OS_MAC && !TARGET_OS_IPHONE
 SecKeyRef SecTrustCopyPublicKey_ios(SecTrustRef trust);
+CFArrayRef SecTrustCopyProperties_ios(SecTrustRef trust);
 #endif
 
 __END_DECLS

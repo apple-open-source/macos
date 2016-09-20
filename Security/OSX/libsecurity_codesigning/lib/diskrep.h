@@ -74,6 +74,7 @@ public:
 	virtual CFArrayRef modifiedFiles();						// list of files modified by signing [main execcutable only]
 	virtual UnixPlusPlus::FileDesc &fd() = 0;				// a cached file descriptor for main executable file
 	virtual void flush();									// flush caches (refetch as needed)
+    virtual CFDictionaryRef diskRepInformation();           // information from diskrep
 
 	// default values for signing operations
 	virtual std::string recommendedIdentifier(const SigningContext &ctx) = 0; // default identifier

@@ -1,24 +1,14 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/fr_GF.xml
 // *
 // ***************************************************************************
 fr_GF{
-    Version{"2.1.6.69"}
+    Version{"2.1.19.14"}
     zoneStrings{
-        "meta:Acre"{
-            sd{"ACST"}
-            sg{"ACT"}
-            ss{"ACT"}
-        }
-        "meta:Amazon"{
-            sd{"AMST"}
-            sg{"AMT"}
-            ss{"AMT"}
-        }
         "meta:Brasilia"{
             sd{"BRST"}
             sg{"BRT"}
@@ -27,14 +17,8 @@ fr_GF{
         "meta:French_Guiana"{
             ss{"GFT"}
         }
-        "meta:Guyana"{
-            ss{"GYT"}
-        }
         "meta:Suriname"{
             ss{"SRT"}
-        }
-        "meta:Venezuela"{
-            ss{"VET"}
         }
     }
 }

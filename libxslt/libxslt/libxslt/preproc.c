@@ -949,6 +949,8 @@ xsltElementComp(xsltStylesheetPtr style, xmlNodePtr inst) {
 #ifdef XSLT_REFACTORED
 		    comp->nsPrefix = prefix;
 		    comp->name = name;
+#else
+                    (void)name; /* Suppress unused variable warning. */
 #endif
 		} else if (prefix != NULL) {
 		    xsltTransformError(NULL, style, inst,
@@ -1074,6 +1076,8 @@ xsltAttributeComp(xsltStylesheetPtr style, xmlNodePtr inst) {
 #ifdef XSLT_REFACTORED
 			comp->nsPrefix = prefix;
 			comp->name = name;
+#else
+                        (void)name; /* Suppress unused variable warning. */
 #endif
 		    } else {
 			xsltTransformError(NULL, style, inst,
@@ -1301,7 +1305,8 @@ xsltGetQNameProperty(xsltStylesheetPtr style, xmlNodePtr inst,
 	    if (prop == NULL) {
 		style->errors++;
 	    } else {
-		*localName = prop;
+		if (localName)
+		    *localName = prop;
 		if (hasProp)
 		    *hasProp = 1;
 		if (URI != NULL) {

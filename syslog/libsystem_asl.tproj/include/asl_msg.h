@@ -109,34 +109,34 @@ __BEGIN_DECLS
 const asl_jump_table_t *asl_msg_jump_table(void);
 
 /* new/retain/release */
-asl_msg_t *asl_msg_new(uint32_t type) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
-asl_msg_t *asl_msg_retain(asl_msg_t *msg) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
-void asl_msg_release(asl_msg_t *msg) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+asl_msg_t *asl_msg_new(uint32_t type) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.7,10.12), ios(4.3,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+asl_msg_t *asl_msg_retain(asl_msg_t *msg) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.7,10.12), ios(4.3,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+void asl_msg_release(asl_msg_t *msg) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.7,10.12), ios(4.3,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
-int asl_msg_set_key_val(asl_msg_t *msg, const char *key, const char *val) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
-int asl_msg_set_key_val_op(asl_msg_t *msg, const char *key, const char *val, uint32_t op) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
-void asl_msg_unset(asl_msg_t *msg, const char *key) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
-void asl_msg_unset_index(asl_msg_t *msg, uint32_t n) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+int asl_msg_set_key_val(asl_msg_t *msg, const char *key, const char *val) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.7,10.12), ios(4.3,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+int asl_msg_set_key_val_op(asl_msg_t *msg, const char *key, const char *val, uint32_t op) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.7,10.12), ios(4.3,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+void asl_msg_unset(asl_msg_t *msg, const char *key) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.7,10.12), ios(4.3,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+void asl_msg_unset_index(asl_msg_t *msg, uint32_t n) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.10,10.12), ios(7.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
-asl_msg_t *asl_msg_copy(asl_msg_t *msg) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
-asl_msg_t *asl_msg_merge(asl_msg_t *target, asl_msg_t *msg) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
+asl_msg_t *asl_msg_copy(asl_msg_t *msg) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.8,10.12), ios(5.1,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+asl_msg_t *asl_msg_merge(asl_msg_t *target, asl_msg_t *msg) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.8,10.12), ios(5.1,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
-int asl_msg_lookup(asl_msg_t *msg, const char *key, const char **valout, uint16_t *opout) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
-uint32_t asl_msg_fetch(asl_msg_t *msg, uint32_t n, const char **keyout, const char **valout, uint16_t *opout) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
-const char *asl_msg_get_val_for_key(asl_msg_t *msg, const char *key) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+int asl_msg_lookup(asl_msg_t *msg, const char *key, const char **valout, uint16_t *opout) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.7,10.12), ios(4.3,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+uint32_t asl_msg_fetch(asl_msg_t *msg, uint32_t n, const char **keyout, const char **valout, uint16_t *opout) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.7,10.12), ios(4.3,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+const char *asl_msg_get_val_for_key(asl_msg_t *msg, const char *key) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.10,10.12), ios(7.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
-uint32_t asl_msg_type(asl_msg_t *msg) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
-uint32_t asl_msg_count(asl_msg_t *msg) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+uint32_t asl_msg_type(asl_msg_t *msg) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.7,10.12), ios(4.3,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+uint32_t asl_msg_count(asl_msg_t *msg) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.7,10.12), ios(4.3,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
-char *asl_msg_to_string(asl_msg_t *in, uint32_t *len) __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
-asl_msg_t *asl_msg_from_string(const char *buf) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_7_0);
+char *asl_msg_to_string(asl_msg_t *in, uint32_t *len) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.4,10.12), ios(2.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+asl_msg_t *asl_msg_from_string(const char *buf) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.8,10.12), ios(7.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
-char *asl_format_message(asl_msg_t *msg, const char *msg_fmt, const char *time_fmt, uint32_t text_encoding, uint32_t *outlen) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+char *asl_format_message(asl_msg_t *msg, const char *msg_fmt, const char *time_fmt, uint32_t text_encoding, uint32_t *outlen) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.5,10.12), ios(2.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
-asl_string_t *asl_msg_to_string_raw(uint32_t encoding, asl_msg_t *msg, const char *tfmt) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
-asl_string_t * asl_string_append_asl_msg(asl_string_t *str, asl_msg_t *msg) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+asl_string_t *asl_msg_to_string_raw(uint32_t encoding, asl_msg_t *msg, const char *tfmt) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.8,10.12), ios(5.1,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+asl_string_t * asl_string_append_asl_msg(asl_string_t *str, asl_msg_t *msg) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.10,10.12), ios(7.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
-int asl_msg_cmp(asl_msg_t *a, asl_msg_t *b) __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_7_0);
+int asl_msg_cmp(asl_msg_t *a, asl_msg_t *b) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.10,10.12), ios(7.0,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 void _asl_log_args_to_xpc(asl_object_t client, asl_object_t msg, xpc_object_t dict); //TODO: ADD AVAILABLITY INFO
 

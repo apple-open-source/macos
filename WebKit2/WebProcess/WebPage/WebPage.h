@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2011, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,14 +23,14 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebPage_h
-#define WebPage_h
+#pragma once
 
 #include "APIInjectedBundleFormClient.h"
 #include "APIInjectedBundlePageContextMenuClient.h"
 #include "APIInjectedBundlePageUIClient.h"
 #include "APIObject.h"
-#include "DictionaryPopupInfo.h"
+#include "Download.h"
+#include "EditingRange.h"
 #include "FindController.h"
 #include "GeolocationPermissionRequestManager.h"
 #include "ImageOptions.h"
@@ -40,7 +40,7 @@
 #include "InjectedBundlePageLoaderClient.h"
 #include "InjectedBundlePagePolicyClient.h"
 #include "InjectedBundlePageResourceLoadClient.h"
-#include "LayerTreeHost.h"
+#include "LayerTreeContext.h"
 #include "MessageReceiver.h"
 #include "MessageSender.h"
 #include "Plugin.h"
@@ -49,6 +49,7 @@
 #include "UserData.h"
 #include "UserMediaPermissionRequestManager.h"
 #include <WebCore/DictationAlternative.h>
+#include <WebCore/DictionaryPopupInfo.h>
 #include <WebCore/DragData.h>
 #include <WebCore/Editor.h>
 #include <WebCore/FrameLoaderTypes.h>
@@ -59,10 +60,14 @@
 #include <WebCore/Page.h>
 #include <WebCore/PageOverlay.h>
 #include <WebCore/PageVisibilityState.h>
+#include <WebCore/PlatformMouseEvent.h>
 #include <WebCore/ScrollTypes.h>
 #include <WebCore/TextChecking.h>
 #include <WebCore/TextIndicator.h>
 #include <WebCore/UserActivity.h>
+#include <WebCore/UserContentTypes.h>
+#include <WebCore/UserInterfaceLayoutDirection.h>
+#include <WebCore/UserScriptTypes.h>
 #include <WebCore/ViewState.h>
 #include <WebCore/ViewportConfiguration.h>
 #include <WebCore/WebCoreKeyboardUIMode.h>
@@ -106,6 +111,7 @@
 #include "ViewGestureGeometryCollector.h"
 #include <wtf/RetainPtr.h>
 OBJC_CLASS CALayer;
+OBJC_CLASS NSArray;
 OBJC_CLASS NSDictionary;
 OBJC_CLASS NSObject;
 OBJC_CLASS WKAccessibilityWebPageObject;
@@ -129,6 +135,7 @@ class HTMLPlugInElement;
 class HTMLPlugInImageElement;
 class IntPoint;
 class KeyboardEvent;
+class MediaPlaybackTargetContext;
 class Page;
 class PrintContext;
 class Range;
@@ -141,8 +148,11 @@ class URL;
 class VisibleSelection;
 struct Highlight;
 struct KeypressCommand;
-struct MediaPlaybackTargetContext;
 struct TextCheckingResult;
+
+#if ENABLE(VIDEO) && USE(GSTREAMER)
+class MediaPlayerRequestInstallMissingPluginsCallback;
+#endif
 }
 
 namespace WebKit {
@@ -171,6 +181,7 @@ class WebNotificationClient;
 class WebOpenPanelResultListener;
 class WebPageGroupProxy;
 class WebPageOverlay;
+class WebPlaybackSessionManager;
 class WebPopupMenu;
 class WebUndoStep;
 class WebUserContentController;
@@ -182,6 +193,7 @@ struct BackForwardListItemState;
 struct EditingRange;
 struct EditorState;
 struct InteractionInformationAtPosition;
+struct LoadParameters;
 struct PrintInfo;
 struct WebPageCreationParameters;
 struct WebPreferencesStore;
@@ -196,7 +208,7 @@ class WebTouchEvent;
 
 class WebPage : public API::ObjectImpl<API::Object::Type::BundlePage>, public IPC::MessageReceiver, public IPC::MessageSender {
 public:
-    static PassRefPtr<WebPage> create(uint64_t pageID, const WebPageCreationParameters&);
+    static Ref<WebPage> create(uint64_t pageID, const WebPageCreationParameters&);
     virtual ~WebPage();
 
     void reinitializeWebPage(const WebPageCreationParameters&);
@@ -235,12 +247,17 @@ public:
     void didFlushLayerTreeAtTime(std::chrono::milliseconds);
 #endif
 
-    WebInspector* inspector();
+    enum class LazyCreationPolicy { UseExistingOnly, CreateIfNeeded };
+
+    WebInspector* inspector(LazyCreationPolicy = LazyCreationPolicy::CreateIfNeeded);
     WebInspectorUI* inspectorUI();
     bool isInspectorPage() { return !!m_inspectorUI; }
 
+#if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
+    WebPlaybackSessionManager& playbackSessionManager();
+    WebVideoFullscreenManager& videoFullscreenManager();
+#endif
 #if PLATFORM(IOS)
-    WebVideoFullscreenManager* videoFullscreenManager();
     void setAllowsMediaDocumentInlinePlayback(bool);
     bool allowsMediaDocumentInlinePlayback() const { return m_allowsMediaDocumentInlinePlayback; }
 #endif
@@ -274,7 +291,13 @@ public:
     void removeWebEditCommand(uint64_t);
     bool isInRedo() const { return m_isInRedo; }
 
+    bool isAlwaysOnLoggingAllowed() const;
     void setActivePopupMenu(WebPopupMenu*);
+
+    void setHiddenPageTimerThrottlingIncreaseLimit(std::chrono::milliseconds limit)
+    {
+        m_page->setTimerAlignmentIntervalIncreaseLimit(limit);
+    }
 
 #if ENABLE(INPUT_TYPE_COLOR)
     WebColorChooser* activeColorChooser() const { return m_activeColorChooser; }
@@ -369,13 +392,10 @@ public:
     double totalScaleFactor() const;
     double viewScaleFactor() const;
     void scaleView(double scale);
-#if PLATFORM(COCOA)
-    void scaleViewAndUpdateGeometryFenced(double scale, WebCore::IntSize viewSize, uint64_t callbackID);
-#endif
 
     void setUseFixedLayout(bool);
     bool useFixedLayout() const { return m_useFixedLayout; }
-    void setFixedLayoutSize(const WebCore::IntSize&);
+    bool setFixedLayoutSize(const WebCore::IntSize&);
     WebCore::IntSize fixedLayoutSize() const;
 
     void listenForLayoutMilestones(uint32_t /* LayoutMilestones */);
@@ -391,11 +411,11 @@ public:
     void setPaginationBehavesLikeColumns(bool);
     void setPageLength(double);
     void setGapBetweenPages(double);
-
+    void setPaginationLineGridEnabled(bool);
+    
     void postInjectedBundleMessage(const String& messageName, const UserData&);
 
     bool drawsBackground() const { return m_drawsBackground; }
-    bool drawsTransparentBackground() const { return m_drawsTransparentBackground; }
 
     void setUnderlayColor(const WebCore::Color& color) { m_underlayColor = color; }
     WebCore::Color underlayColor() const { return m_underlayColor; }
@@ -476,6 +496,10 @@ public:
     UserMediaPermissionRequestManager& userMediaPermissionRequestManager() { return m_userMediaPermissionRequestManager; }
 #endif
 
+    void elementDidFocus(WebCore::Node*);
+    void elementDidBlur(WebCore::Node*);
+    void resetAssistedNodeForFrame(WebFrame*);
+
 #if PLATFORM(IOS)
     WebCore::FloatSize screenSize() const;
     WebCore::FloatSize availableScreenSize() const;
@@ -503,22 +527,21 @@ public:
     void inspectorNodeSearchEndedAtPosition(const WebCore::FloatPoint&);
 
     void blurAssistedNode();
-    void selectWithGesture(const WebCore::IntPoint&, uint32_t granularity, uint32_t gestureType, uint32_t gestureState, uint64_t callbackID);
+    void selectWithGesture(const WebCore::IntPoint&, uint32_t granularity, uint32_t gestureType, uint32_t gestureState, bool isInteractingWithAssistedNode, uint64_t callbackID);
     void updateSelectionWithTouches(const WebCore::IntPoint& point, uint32_t touches, bool baseIsStart, uint64_t callbackID);
     void updateBlockSelectionWithTouch(const WebCore::IntPoint&, uint32_t touch, uint32_t handlePosition);
     void selectWithTwoTouches(const WebCore::IntPoint& from, const WebCore::IntPoint& to, uint32_t gestureType, uint32_t gestureState, uint64_t callbackID);
     void extendSelection(uint32_t granularity);
     void selectWordBackward();
     void moveSelectionByOffset(int32_t offset, uint64_t callbackID);
-    void selectTextWithGranularityAtPoint(const WebCore::IntPoint&, uint32_t granularity, uint64_t callbackID);
-    void selectPositionAtBoundaryWithDirection(const WebCore::IntPoint&, uint32_t granularity, uint32_t direction, uint64_t callbackID);
+    void selectTextWithGranularityAtPoint(const WebCore::IntPoint&, uint32_t granularity, bool isInteractingWithAssistedNode, uint64_t callbackID);
+    void selectPositionAtBoundaryWithDirection(const WebCore::IntPoint&, uint32_t granularity, uint32_t direction, bool isInteractingWithAssistedNode, uint64_t callbackID);
     void moveSelectionAtBoundaryWithDirection(uint32_t granularity, uint32_t direction, uint64_t callbackID);
-    void selectPositionAtPoint(const WebCore::IntPoint&, uint64_t callbackID);
+    void selectPositionAtPoint(const WebCore::IntPoint&, bool isInteractingWithAssistedNode, uint64_t callbackID);
     void beginSelectionInDirection(uint32_t direction, uint64_t callbackID);
-    void updateSelectionWithExtentPoint(const WebCore::IntPoint&, uint64_t callbackID);
+    void updateSelectionWithExtentPoint(const WebCore::IntPoint&, bool isInteractingWithAssistedNode, uint64_t callbackID);
+    void updateSelectionWithExtentPointAndBoundary(const WebCore::IntPoint&, uint32_t granularity, bool isInteractingWithAssistedNode, uint64_t callbackID);
 
-    void elementDidFocus(WebCore::Node*);
-    void elementDidBlur(WebCore::Node*);
     void requestDictationContext(uint64_t callbackID);
     void replaceDictatedText(const String& oldText, const String& newText);
     void replaceSelectedText(const String& oldText, const String& newText);
@@ -536,11 +559,10 @@ public:
     void setAssistedNodeValue(const String&);
     void setAssistedNodeValueAsNumber(double);
     void setAssistedNodeSelectedIndex(uint32_t index, bool allowMultipleSelection);
-    void resetAssistedNodeForFrame(WebFrame*);
     WebCore::IntRect rectForElementAtInteractionLocation();
     void updateSelectionAppearance();
-    void getLookupContextAtPoint(const WebCore::IntPoint, uint64_t callbackID);
-
+    void getSelectionContext(uint64_t callbackID);
+    void handleTwoFingerTapAtPoint(const WebCore::IntPoint&, uint64_t requestID);
 #if ENABLE(IOS_TOUCH_EVENTS)
     void dispatchAsynchronousTouchEvents(const Vector<WebTouchEvent, 1>& queue);
 #endif
@@ -558,10 +580,13 @@ public:
 
     void enableInspectorNodeSearch();
     void disableInspectorNodeSearch();
+    
+    void setForceAlwaysUserScalable(bool);
 #endif
 
     void setLayerTreeStateIsFrozen(bool);
-    bool markLayersVolatileImmediatelyIfPossible();
+    void markLayersVolatile(std::function<void ()> completionHandler = { });
+    void cancelMarkLayersVolatile();
 
     NotificationPermissionRequestManager* notificationPermissionRequestManager();
 
@@ -570,6 +595,10 @@ public:
     void pageDidRequestScroll(const WebCore::IntPoint&);
     void setFixedVisibleContentRect(const WebCore::IntRect&);
     void sendViewportAttributesChanged();
+#endif
+
+#if USE(COORDINATED_GRAPHICS_MULTIPROCESS)
+    void commitPageTransitionViewport();
 #endif
 
 #if ENABLE(CONTEXT_MENUS)
@@ -610,10 +639,6 @@ public:
     void setThemePath(const String&);
 #endif
 
-#if USE(COORDINATED_GRAPHICS_MULTIPROCESS)
-    void commitPageTransitionViewport();
-#endif
-
 #if PLATFORM(GTK)
     void setComposition(const String& text, const Vector<WebCore::CompositionUnderline>& underlines, uint64_t selectionStart, uint64_t selectionEnd, uint64_t replacementRangeStart, uint64_t replacementRangeLength);
     void confirmComposition(const String& text, int64_t selectionStart, int64_t selectionLength);
@@ -636,7 +661,7 @@ public:
     
     void sendComplexTextInputToPlugin(uint64_t pluginComplexTextInputIdentifier, const String& textInput);
 
-    void insertTextAsync(const String& text, const EditingRange& replacementRange, bool registerUndoGroup = false);
+    void insertTextAsync(const String& text, const EditingRange& replacementRange, bool registerUndoGroup = false, uint32_t editingRangeIsRelativeTo = (uint32_t)EditingRangeIsRelativeTo::EditableRoot);
     void getMarkedRangeAsync(uint64_t callbackID);
     void getSelectedRangeAsync(uint64_t callbackID);
     void characterIndexForPointAsync(const WebCore::IntPoint&, uint64_t callbackID);
@@ -648,19 +673,6 @@ public:
     void insertDictatedTextAsync(const String& text, const EditingRange& replacementRange, const Vector<WebCore::DictationAlternative>& dictationAlternativeLocations, bool registerUndoGroup = false);
     void attributedSubstringForCharacterRangeAsync(const EditingRange&, uint64_t callbackID);
     void fontAtSelection(uint64_t callbackID);
-#if !USE(ASYNC_NSTEXTINPUTCLIENT)
-    void insertText(const String& text, const EditingRange& replacementRange, bool& handled, EditorState& newState);
-    void setComposition(const String& text, Vector<WebCore::CompositionUnderline> underlines, const EditingRange& selectionRange, const EditingRange& replacementRange, EditorState& newState);
-    void confirmComposition(EditorState& newState);
-    void insertDictatedText(const String& text, const EditingRange& replacementRange, const Vector<WebCore::DictationAlternative>& dictationAlternativeLocations, bool& handled, EditorState& newState);
-    void getAttributedSubstringFromRange(const EditingRange&, AttributedString&);
-    void getMarkedRange(EditingRange&);
-    void getSelectedRange(EditingRange&);
-    void characterIndexForPoint(const WebCore::IntPoint point, uint64_t& result);
-    void firstRectForCharacterRange(const EditingRange&, WebCore::IntRect& resultRect);
-    void executeKeypressCommands(const Vector<WebCore::KeypressCommand>&, bool& handled, EditorState& newState);
-    void cancelComposition(EditorState& newState);
-#endif
 #endif
 
     void readSelectionFromPasteboard(const WTF::String& pasteboardName, bool& result);
@@ -734,7 +746,7 @@ public:
     void drawPagesToPDF(uint64_t frameID, const PrintInfo&, uint32_t first, uint32_t count, uint64_t callbackID);
     void drawPagesToPDFImpl(uint64_t frameID, const PrintInfo&, uint32_t first, uint32_t count, RetainPtr<CFMutableDataRef>& pdfPageData);
 #if PLATFORM(IOS)
-    void computePagesForPrintingAndStartDrawingToPDF(uint64_t frameID, const PrintInfo&, uint32_t firstPage, PassRefPtr<Messages::WebPage::ComputePagesForPrintingAndStartDrawingToPDF::DelayedReply>);
+    void computePagesForPrintingAndDrawToPDF(uint64_t frameID, const PrintInfo&, uint64_t callbackID, PassRefPtr<Messages::WebPage::ComputePagesForPrintingAndDrawToPDF::DelayedReply>);
 #endif
 #elif PLATFORM(GTK)
     void drawPagesForPrinting(uint64_t frameID, const PrintInfo&, uint64_t callbackID);
@@ -750,6 +762,7 @@ public:
 
 #if ENABLE(MEDIA_SESSION)
     void handleMediaEvent(uint32_t /* WebCore::MediaEventType */);
+    void setVolumeOfMediaElement(double, uint64_t);
 #endif
 
     void updateMainFrameScrollOffsetPinning();
@@ -809,7 +822,8 @@ public:
     void willStartUserTriggeredZooming();
     void applicationWillResignActive();
     void applicationDidEnterBackground(bool isSuspendedUnderLock);
-    void applicationWillEnterForeground();
+    void applicationDidFinishSnapshottingAfterEnteringBackground();
+    void applicationWillEnterForeground(bool isSuspendedUnderLock);
     void applicationDidBecomeActive();
     void zoomToRect(WebCore::FloatRect, double minimumScale, double maximumScale);
     void completePendingSyntheticClickForContentChangeObserver();
@@ -842,6 +856,8 @@ public:
     bool shouldUsePDFPlugin() const;
     bool pdfPluginEnabled() const { return m_pdfPluginEnabled; }
     void setPDFPluginEnabled(bool enabled) { m_pdfPluginEnabled = enabled; }
+
+    NSDictionary *dataDetectionContext() const { return m_dataDetectionContext.get(); }
 #endif
 
     void savePDFToFileInDownloadsFolder(const String& suggestedFilename, const String& originatingURLString, const uint8_t* data, unsigned long size);
@@ -872,6 +888,10 @@ public:
     bool plugInIsPrimarySize(WebCore::HTMLPlugInImageElement& pluginImageElement, unsigned &pluginArea);
 #endif
 
+#if ENABLE(DATA_DETECTION)
+    void setDataDetectionResults(NSArray *);
+#endif
+
     unsigned extendIncrementalRenderingSuppression();
     void stopExtendingIncrementalRenderingSuppression(unsigned token);
     bool shouldExtendIncrementalRenderingSuppression() { return !m_activeRenderingSuppressionTokens.isEmpty(); }
@@ -882,15 +902,11 @@ public:
     WTF::Optional<WebCore::ScrollbarOverlayStyle> scrollbarOverlayStyle() { return m_scrollbarOverlayStyle; }
     void setScrollbarOverlayStyle(WTF::Optional<uint32_t /* WebCore::ScrollbarOverlayStyle */> scrollbarStyle);
 
-    PassRefPtr<WebCore::DocumentLoader> createDocumentLoader(WebCore::Frame&, const WebCore::ResourceRequest&, const WebCore::SubstituteData&);
+    Ref<WebCore::DocumentLoader> createDocumentLoader(WebCore::Frame&, const WebCore::ResourceRequest&, const WebCore::SubstituteData&);
     void updateCachedDocumentLoader(WebDocumentLoader&, WebCore::Frame&);
 
     void getBytecodeProfile(uint64_t callbackID);
     
-    // Some platforms require accessibility-enabled processes to spin the run loop so that the WebProcess doesn't hang.
-    // While this is not ideal, it does not have to be applied to every platform at the moment.
-    static bool synchronousMessagesShouldSpinRunLoop();
-
 #if ENABLE(SERVICE_CONTROLS) || ENABLE(TELEPHONE_NUMBER_DETECTION)
     void handleTelephoneNumberClick(const String& number, const WebCore::IntPoint&);
     void handleSelectionServiceClick(WebCore::FrameSelection&, const Vector<String>& telephoneNumbers, const WebCore::IntPoint&);
@@ -904,18 +920,42 @@ public:
     void setPageActivityState(WebCore::PageActivityState::Flags);
 
     void postMessage(const String& messageName, API::Object* messageBody);
-    void postSynchronousMessage(const String& messageName, API::Object* messageBody, RefPtr<API::Object>& returnData);
+    void postSynchronousMessageForTesting(const String& messageName, API::Object* messageBody, RefPtr<API::Object>& returnData);
 
+#if PLATFORM(GTK)
+    void setInputMethodState(bool);
+#endif
+
+    void imageOrMediaDocumentSizeChanged(const WebCore::IntSize&);
 #if ENABLE(VIDEO)
-    void mediaDocumentNaturalSizeChanged(const WebCore::IntSize&);
+#if USE(GSTREAMER)
+    void requestInstallMissingMediaPlugins(const String& details, const String& description, WebCore::MediaPlayerRequestInstallMissingPluginsCallback&);
+#endif
+#endif
+
+    void addUserScript(const String& source, WebCore::UserContentInjectedFrames, WebCore::UserScriptInjectionTime);
+    void addUserStyleSheet(const String& source, WebCore::UserContentInjectedFrames);
+    void removeAllUserContent();
+
+    void dispatchDidLayout(WebCore::LayoutMilestones);
+
+    void didRestoreScrollPosition();
+
+    bool isControlledByAutomation() const;
+    void setControlledByAutomation(bool);
+
+    void insertNewlineInQuotedContent();
+
+#if USE(OS_STATE)
+    std::chrono::system_clock::time_point loadCommitTime() const { return m_loadCommitTime; }
 #endif
 
 private:
     WebPage(uint64_t pageID, const WebPageCreationParameters&);
 
     // IPC::MessageSender
-    virtual IPC::Connection* messageSenderConnection() override;
-    virtual uint64_t messageSenderDestinationID() override;
+    IPC::Connection* messageSenderConnection() override;
+    uint64_t messageSenderDestinationID() override;
 
     void platformInitialize();
     void platformDetach();
@@ -939,11 +979,13 @@ private:
     void getAssistedNodeInformation(AssistedNodeInformation&);
     void platformInitializeAccessibility();
     void handleSyntheticClick(WebCore::Node* nodeRespondingToClick, const WebCore::FloatPoint& location);
-    void completeSyntheticClick(WebCore::Node* nodeRespondingToClick, const WebCore::FloatPoint& location);
+    void completeSyntheticClick(WebCore::Node* nodeRespondingToClick, const WebCore::FloatPoint& location, WebCore::SyntheticClickType);
     void sendTapHighlightForNodeIfNecessary(uint64_t requestID, WebCore::Node*);
-    void resetTextAutosizingBeforeLayoutIfNeeded(const WebCore::FloatSize& oldSize, const WebCore::FloatSize& newSize);
-    WebCore::VisiblePosition visiblePositionInFocusedNodeForPoint(const WebCore::Frame&, const WebCore::IntPoint&);
-    void volatilityTimerFired();
+    void resetTextAutosizing();
+    WebCore::VisiblePosition visiblePositionInFocusedNodeForPoint(const WebCore::Frame&, const WebCore::IntPoint&, bool isInteractingWithAssistedNode);
+    PassRefPtr<WebCore::Range> rangeForGranularityAtPoint(const WebCore::Frame&, const WebCore::IntPoint&, uint32_t granularity, bool isInteractingWithAssistedNode);
+    bool shouldSwitchToBlockModeForHandle(const WebCore::IntPoint& handlePoint, SelectionHandlePosition);
+    RefPtr<WebCore::Range> switchToBlockSelectionAtPoint(const WebCore::IntPoint&, SelectionHandlePosition);
 #endif
 #if !PLATFORM(COCOA)
     static const char* interpretKeyEvent(const WebCore::KeyboardEvent*);
@@ -954,23 +996,26 @@ private:
     bool executeKeypressCommandsInternal(const Vector<WebCore::KeypressCommand>&, WebCore::KeyboardEvent*);
 #endif
 
+    bool markLayersVolatileImmediatelyIfPossible();
+    void layerVolatilityTimerFired();
+    void callVolatilityCompletionHandlers();
+
     String sourceForFrame(WebFrame*);
 
     void loadDataImpl(uint64_t navigationID, PassRefPtr<WebCore::SharedBuffer>, const String& MIMEType, const String& encodingName, const WebCore::URL& baseURL, const WebCore::URL& failingURL, const UserData&);
-    void loadString(uint64_t navigationID, const String&, const String& MIMEType, const WebCore::URL& baseURL, const WebCore::URL& failingURL, const UserData&);
+    void loadStringImpl(uint64_t navigationID, const String&, const String& MIMEType, const WebCore::URL& baseURL, const WebCore::URL& failingURL, const UserData&);
 
     bool platformHasLocalDataForURL(const WebCore::URL&);
 
     // Actions
     void tryClose();
-    void loadRequest(uint64_t navigationID, const WebCore::ResourceRequest&, const SandboxExtension::Handle&, uint64_t shouldOpenExternalURLsPolicy, const UserData&);
-    void loadData(uint64_t navigationID, const IPC::DataReference&, const String& MIMEType, const String& encodingName, const String& baseURL, const UserData&);
-    void loadHTMLString(uint64_t navigationID, const String& htmlString, const String& baseURL, const UserData&);
-    void loadAlternateHTMLString(const String& htmlString, const String& baseURL, const String& unreachableURL, const String& provisionalLoadErrorURL, const UserData&);
-    void loadPlainTextString(const String&, const UserData&);
-    void loadWebArchiveData(const IPC::DataReference&, const UserData&);
+    void platformDidReceiveLoadParameters(const LoadParameters&);
+    void loadRequest(const LoadParameters&);
+    void loadData(const LoadParameters&);
+    void loadString(const LoadParameters&);
+    void loadAlternateHTMLString(const LoadParameters&);
     void navigateToPDFLinkWithSimulatedClick(const String& url, WebCore::IntPoint documentPoint, WebCore::IntPoint screenPoint);
-    void reload(uint64_t navigationID, bool reloadFromOrigin, const SandboxExtension::Handle&);
+    void reload(uint64_t navigationID, bool reloadFromOrigin, bool contentBlockersEnabled, const SandboxExtension::Handle&);
     void goForward(uint64_t navigationID, uint64_t);
     void goBack(uint64_t navigationID, uint64_t);
     void goToBackForwardItem(uint64_t navigationID, uint64_t);
@@ -979,21 +1024,17 @@ private:
     void updateIsInWindow(bool isInitialState = false);
     void setViewState(WebCore::ViewState::Flags, bool wantsDidUpdateViewState, const Vector<uint64_t>& callbackIDs);
     void validateCommand(const String&, uint64_t);
-    void executeEditCommand(const String&);
+    void executeEditCommand(const String&, const String&);
     void setEditable(bool);
 
     void updateUserActivity();
 
     void mouseEvent(const WebMouseEvent&);
-    void mouseEventSyncForTesting(const WebMouseEvent&, bool&);
-    void wheelEventSyncForTesting(const WebWheelEvent&, bool&);
     void keyEvent(const WebKeyboardEvent&);
-    void keyEventSyncForTesting(const WebKeyboardEvent&, bool&);
 #if ENABLE(IOS_TOUCH_EVENTS)
     void touchEventSync(const WebTouchEvent&, bool& handled);
 #elif ENABLE(TOUCH_EVENTS)
     void touchEvent(const WebTouchEvent&);
-    void touchEventSyncForTesting(const WebTouchEvent&, bool& handled);
 #endif
 #if ENABLE(CONTEXT_MENUS)
     void contextMenuHidden() { m_isShowingContextMenu = false; }
@@ -1004,16 +1045,21 @@ private:
 
     void loadURLInFrame(const String&, uint64_t frameID);
 
+    enum class WasRestoredByAPIRequest { No, Yes };
+    void restoreSessionInternal(const Vector<BackForwardListItemState>&, WasRestoredByAPIRequest);
     void restoreSession(const Vector<BackForwardListItemState>&);
     void didRemoveBackForwardItem(uint64_t);
 
 #if ENABLE(REMOTE_INSPECTOR)
     void setAllowsRemoteInspection(bool);
+    void setRemoteInspectionNameOverride(const String&);
 #endif
 
     void setDrawsBackground(bool);
-    void setDrawsTransparentBackground(bool);
 
+#if PLATFORM(COCOA)
+    void setTopContentInsetFenced(float, IPC::Attachment);
+#endif
     void setTopContentInset(float);
 
     void viewWillStartLiveResize();
@@ -1021,7 +1067,7 @@ private:
 
     void getContentsAsString(uint64_t callbackID);
 #if ENABLE(MHTML)
-    void getContentsAsMHTMLData(uint64_t callbackID, bool useBinaryEncoding);
+    void getContentsAsMHTMLData(uint64_t callbackID);
 #endif
     void getMainResourceDataOfFrame(uint64_t frameID, uint64_t callbackID);
     void getResourceDataFromFrame(uint64_t frameID, const String& resourceURL, uint64_t callbackID);
@@ -1038,7 +1084,7 @@ private:
     void platformPreferencesDidChange(const WebPreferencesStore&);
     void updatePreferences(const WebPreferencesStore&);
 
-    void didReceivePolicyDecision(uint64_t frameID, uint64_t listenerID, uint32_t policyAction, uint64_t navigationID, uint64_t downloadID);
+    void didReceivePolicyDecision(uint64_t frameID, uint64_t listenerID, uint32_t policyAction, uint64_t navigationID, DownloadID);
     void setUserAgent(const String&);
     void setCustomTextEncodingName(const String&);
     void suspendActiveDOMObjectsAndAnimations();
@@ -1048,9 +1094,9 @@ private:
     void performDictionaryLookupAtLocation(const WebCore::FloatPoint&);
     void performDictionaryLookupOfCurrentSelection();
     void performDictionaryLookupForRange(WebCore::Frame*, WebCore::Range&, NSDictionary *options, WebCore::TextIndicatorPresentationTransition);
-    DictionaryPopupInfo dictionaryPopupInfoForRange(WebCore::Frame* frame, WebCore::Range& range, NSDictionary **options, WebCore::TextIndicatorPresentationTransition presentationTransition);
+    WebCore::DictionaryPopupInfo dictionaryPopupInfoForRange(WebCore::Frame*, WebCore::Range&, NSDictionary **options, WebCore::TextIndicatorPresentationTransition);
 #if ENABLE(PDFKIT_PLUGIN)
-    DictionaryPopupInfo dictionaryPopupInfoForSelectionInPDFPlugin(PDFSelection *, PDFPlugin&, NSDictionary **options, WebCore::TextIndicatorPresentationTransition);
+    WebCore::DictionaryPopupInfo dictionaryPopupInfoForSelectionInPDFPlugin(PDFSelection *, PDFPlugin&, NSDictionary **options, WebCore::TextIndicatorPresentationTransition);
 #endif
 
     void windowAndViewFramesChanged(const WebCore::FloatRect& windowFrameInScreenCoordinates, const WebCore::FloatRect& windowFrameInUnflippedScreenCoordinates, const WebCore::FloatRect& viewFrameInWindowCoordinates, const WebCore::FloatPoint& accessibilityViewCoordinates);
@@ -1099,7 +1145,8 @@ private:
     void didReceiveNotificationPermissionDecision(uint64_t notificationID, bool allowed);
 
 #if ENABLE(MEDIA_STREAM)
-    WK_EXPORT void didReceiveUserMediaPermissionDecision(uint64_t userMediaID, bool allowed);
+    void didReceiveUserMediaPermissionDecision(uint64_t userMediaID, bool allowed, const String& audioDeviceUID, const String& videoDeviceUID);
+    void didCompleteUserMediaPermissionCheck(uint64_t userMediaID, const String&, bool allowed);
 #endif
 
     void advanceToNextMisspelling(bool startBeforeSelection);
@@ -1117,20 +1164,18 @@ private:
     void changeSelectedIndex(int32_t index);
     void setCanStartMediaTimerFired();
 
-    bool canHandleUserEvents() const;
-
     static bool platformCanHandleRequest(const WebCore::ResourceRequest&);
 
     static PluginView* focusedPluginViewForFrame(WebCore::Frame&);
     static PluginView* pluginViewForFrame(WebCore::Frame*);
 
-    static PassRefPtr<WebCore::Range> rangeFromEditingRange(WebCore::Frame&, const EditingRange&);
+    static PassRefPtr<WebCore::Range> rangeFromEditingRange(WebCore::Frame&, const EditingRange&, EditingRangeIsRelativeTo = EditingRangeIsRelativeTo::EditableRoot);
 
     void reportUsedFeatures();
 
 #if PLATFORM(MAC)
     void performImmediateActionHitTestAtLocation(WebCore::FloatPoint);
-    PassRefPtr<WebCore::Range> lookupTextAtLocation(WebCore::FloatPoint, NSDictionary **options);
+    RefPtr<WebCore::Range> lookupTextAtLocation(WebCore::FloatPoint, NSDictionary **options);
     void immediateActionDidUpdate();
     void immediateActionDidCancel();
     void immediateActionDidComplete();
@@ -1139,6 +1184,8 @@ private:
     void dataDetectorsDidPresentUI(WebCore::PageOverlay::PageOverlayID);
     void dataDetectorsDidChangeUI(WebCore::PageOverlay::PageOverlayID);
     void dataDetectorsDidHideUI(WebCore::PageOverlay::PageOverlayID);
+
+    void handleAcceptedCandidate(WebCore::TextCheckingResult);
 #endif
 
     void setShouldDispatchFakeMouseMoveEvents(bool dispatch) { m_shouldDispatchFakeMouseMoveEvents = dispatch; }
@@ -1152,9 +1199,15 @@ private:
     void clearWheelEventTestTrigger();
 
     void setShouldScaleViewToFitDocument(bool);
-    void setUserContentExtensionsEnabled(bool);
 
     void pageStoppedScrolling();
+
+#if ENABLE(VIDEO) && USE(GSTREAMER)
+    void didEndRequestInstallMissingMediaPlugins(uint32_t result);
+#endif
+
+    void setResourceCachingDisabled(bool);
+    void setUserInterfaceLayoutDirection(uint32_t);
 
     uint64_t m_pageID;
 
@@ -1177,7 +1230,6 @@ private:
     bool m_useFixedLayout;
 
     bool m_drawsBackground;
-    bool m_drawsTransparentBackground;
 
     WebCore::Color m_underlayColor;
 
@@ -1193,6 +1245,10 @@ private:
     bool m_scrollingPerformanceLoggingEnabled;
 
     bool m_mainFrameIsScrollable;
+
+#if PLATFORM(IOS)
+    bool m_ignoreViewportScalingConstraints { false };
+#endif
 
 #if ENABLE(PRIMARY_SNAPSHOTTED_PLUGIN_HEURISTIC)
     bool m_readyToFindPrimarySnapshottedPlugin;
@@ -1227,6 +1283,8 @@ private:
     RetainPtr<WKAccessibilityWebPageObject> m_mockAccessibilityElement;
 
     ViewGestureGeometryCollector m_viewGestureGeometryCollector;
+
+    RetainPtr<NSDictionary> m_dataDetectionContext;
 
 #elif HAVE(ACCESSIBILITY) && (PLATFORM(GTK) || PLATFORM(EFL))
     GRefPtr<WebPageAccessibilityObject> m_accessibilityObject;
@@ -1265,8 +1323,11 @@ private:
 
     RefPtr<WebInspector> m_inspector;
     RefPtr<WebInspectorUI> m_inspectorUI;
-#if PLATFORM(IOS)
+#if (PLATFORM(IOS) && HAVE(AVKIT)) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
+    RefPtr<WebPlaybackSessionManager> m_playbackSessionManager;
     RefPtr<WebVideoFullscreenManager> m_videoFullscreenManager;
+#endif
+#if PLATFORM(IOS)
     bool m_allowsMediaDocumentInlinePlayback { false };
 #endif
 #if ENABLE(FULLSCREEN_API)
@@ -1282,7 +1343,7 @@ private:
     RefPtr<WebOpenPanelResultListener> m_activeOpenPanelResultListener;
     RefPtr<NotificationPermissionRequestManager> m_notificationPermissionRequestManager;
 
-    RefPtr<WebUserContentController> m_userContentController;
+    Ref<WebUserContentController> m_userContentController;
 
 #if ENABLE(GEOLOCATION)
     GeolocationPermissionRequestManager m_geolocationPermissionRequestManager;
@@ -1327,12 +1388,18 @@ private:
     WebCore::IntSize m_minimumLayoutSize;
     bool m_autoSizingShouldExpandToViewHeight;
 
+    bool m_userIsInteracting;
+    bool m_isAssistingNodeDueToUserInteraction { false };
+    bool m_hasEverFocusedElementDueToUserInteractionSincePageTransition { false };
+
 #if ENABLE(CONTEXT_MENUS)
     bool m_isShowingContextMenu;
 #endif
+
+    RefPtr<WebCore::Node> m_assistedNode;
+    bool m_hasPendingBlurNotification;
     
 #if PLATFORM(IOS)
-    RefPtr<WebCore::Node> m_assistedNode;
     RefPtr<WebCore::Range> m_currentWordRange;
     RefPtr<WebCore::Node> m_interactionNode;
     WebCore::IntPoint m_lastInteractionLocation;
@@ -1351,16 +1418,17 @@ private:
     bool m_scaleWasSetByUIProcess;
     bool m_userHasChangedPageScaleFactor;
     bool m_hasStablePageScaleFactor;
-    bool m_userIsInteracting;
-    bool m_hasFocusedDueToUserInteraction { false };
-    bool m_hasPendingBlurNotification;
     bool m_useTestingViewportConfiguration;
     bool m_isInStableState;
+    bool m_forceAlwaysUserScalable;
     std::chrono::milliseconds m_oldestNonStableUpdateVisibleContentRectsTimestamp;
     std::chrono::milliseconds m_estimatedLatency;
     WebCore::FloatSize m_screenSize;
     WebCore::FloatSize m_availableScreenSize;
     RefPtr<WebCore::Range> m_currentBlockSelection;
+    WebCore::IntRect m_blockRectForTextSelection;
+
+    RefPtr<WebCore::Range> m_initialSelection;
     WebCore::IntSize m_blockSelectionDesiredSize;
     WebCore::FloatSize m_maximumUnobscuredSize;
     int32_t m_deviceOrientation;
@@ -1369,12 +1437,13 @@ private:
     RefPtr<WebCore::Node> m_pendingSyntheticClickNode;
     WebCore::FloatPoint m_pendingSyntheticClickLocation;
     WebCore::FloatRect m_previousExposedContentRect;
-    WebCore::Timer m_volatilityTimer;
 #endif
 
-    WebInspectorClient* m_inspectorClient;
+    WebCore::Timer m_layerVolatilityTimer;
+    Vector<std::function<void ()>> m_markLayersAsVolatileCompletionHandlers;
+    bool m_isSuspendedUnderLock { false };
 
-    HashSet<String, CaseFoldingHash> m_mimeTypesWithCustomContentProviders;
+    HashSet<String, ASCIICaseInsensitiveHash> m_mimeTypesWithCustomContentProviders;
     WebCore::Color m_backgroundColor;
 
     HashSet<unsigned> m_activeRenderingSuppressionTokens;
@@ -1400,8 +1469,21 @@ private:
     bool m_mainFrameProgressCompleted;
     bool m_shouldDispatchFakeMouseMoveEvents;
     bool m_isEditorStateMissingPostLayoutData { false };
+
+#if PLATFORM(GTK)
+    bool m_inputMethodEnabled { false };
+#endif
+
+#if ENABLE(VIDEO) && USE(GSTREAMER)
+    RefPtr<WebCore::MediaPlayerRequestInstallMissingPluginsCallback> m_installMediaPluginsCallback;
+#endif
+
+#if USE(OS_STATE)
+    std::chrono::system_clock::time_point m_loadCommitTime;
+#endif
+
+    WebCore::UserInterfaceLayoutDirection m_userInterfaceLayoutDirection { WebCore::UserInterfaceLayoutDirection::LTR };
 };
 
 } // namespace WebKit
 
-#endif // WebPage_h

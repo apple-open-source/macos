@@ -21,10 +21,10 @@
  *
  * Adapted by rst from original NCSA code by Rob McCool
  *
- * Apache adds some new env vars; REDIRECT_URL and REDIRECT_QUERY_STRING for
- * custom error responses, and DOCUMENT_ROOT because we found it useful.
- * It also adds SERVER_ADMIN - useful for scripts to know who to mail when
- * they fail.
+ * This modules uses a httpd core function (ap_add_common_vars) to add some new env vars, 
+ * like REDIRECT_URL and REDIRECT_QUERY_STRING for custom error responses and DOCUMENT_ROOT.
+ * It also adds SERVER_ADMIN - useful for scripts to know who to mail when they fail.
+ * 
  */
 
 #include "apr.h"
@@ -169,6 +169,8 @@ static int log_scripterror(request_rec *r, cgi_server_conf * conf, int ret,
     char time_str[APR_CTIME_LEN];
     int log_flags = rv ? APLOG_ERR : APLOG_ERR;
 
+    /* Intentional no APLOGNO */
+    /* Callee provides APLOGNO in error text */
     ap_log_rerror(APLOG_MARK, log_flags, rv, r,
                   "%s%s: %s", logno ? logno : "", error, r->filename);
 
@@ -458,6 +460,7 @@ static apr_status_t run_cgi_child(apr_file_t **script_out,
 
         if (rc != APR_SUCCESS) {
             /* Bad things happened. Everyone should have cleaned up. */
+            /* Intentional no APLOGNO */
             ap_log_rerror(APLOG_MARK, APLOG_ERR|APLOG_TOCLIENT, rc, r,
                           "couldn't create child process: %d: %s", rc,
                           apr_filepath_name_get(r->filename));
@@ -797,7 +800,7 @@ static int cgi_handler(request_rec *r)
 /*
     if (!ap_suexec_enabled) {
         if (!ap_can_exec(&r->finfo))
-            return log_scripterror(r, conf, HTTP_FORBIDDEN, 0,
+            return log_scripterror(r, conf, HTTP_FORBIDDEN, 0, APLOGNO(03194)
                                    "file permissions deny server execution");
     }
 
@@ -920,8 +923,6 @@ static int cgi_handler(request_rec *r)
     apr_file_close(script_out);
 
     AP_DEBUG_ASSERT(script_in != NULL);
-
-    apr_brigade_cleanup(bb);
 
 #if APR_FILES_AS_SOCKETS
     apr_file_pipe_timeout_set(script_in, 0);
@@ -1168,8 +1169,8 @@ static apr_status_t handle_exec(include_ctx_t *ctx, ap_filter_t *f,
         ap_log_rerror(APLOG_MARK,
                       (ctx->flags & SSI_FLAG_PRINTING)
                           ? APLOG_ERR : APLOG_WARNING,
-                      0, r, "missing argument for exec element in %s",
-                      r->filename);
+                      0, r, APLOGNO(03195)
+                      "missing argument for exec element in %s", r->filename);
     }
 
     if (!(ctx->flags & SSI_FLAG_PRINTING)) {

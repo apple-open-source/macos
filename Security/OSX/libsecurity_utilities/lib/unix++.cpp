@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001,2003-2004,2011-2012,2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2000-2001,2003-2004,2011-2012,2014-2016 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,6 +27,7 @@
 //
 #include "unix++.h"
 #include <security_utilities/cfutilities.h>
+#include <security_utilities/cfmunge.h>
 #include <security_utilities/memutils.h>
 #include <security_utilities/debugging.h>
 #include <sys/dirent.h>
@@ -34,6 +35,7 @@
 #include <cstdarg>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOKitKeys.h>
+#include <IOKit/IOBSD.h>
 #include <IOKit/storage/IOStorageDeviceCharacteristics.h>
 
 
@@ -57,14 +59,14 @@ void FileDesc::open(const char *path, int flags, mode_t mode)
         }
     }
 	mAtEnd = false;
-    secdebug("unixio", "open(%s,0x%x,0x%x) = %d", path, flags, mode, mFd);
+    secinfo("unixio", "open(%s,0x%x,0x%x) = %d", path, flags, mode, mFd);
 }
 
 void FileDesc::close()
 {
     if (mFd >= 0) {
         checkError(::close(mFd));
-        secdebug("unixio", "close(%d)", mFd);
+        secinfo("unixio", "close(%d)", mFd);
         mFd = invalidFd;
     }
 }
@@ -78,11 +80,11 @@ size_t FileDesc::read(void *addr, size_t length)
     switch (ssize_t rc = ::read(mFd, addr, length)) {
     case 0:		// end-of-source
         if (length == 0) { // check for errors, but don't set mAtEnd unless we have to
-            secdebug("unixio", "%d zero read (ignored)", mFd);
+            secinfo("unixio", "%d zero read (ignored)", mFd);
             return 0;
         }
         mAtEnd = true;
-        secdebug("unixio", "%d end of data", mFd);
+        secinfo("unixio", "%d end of data", mFd);
         return 0;
     case -1:	// error
         if (errno == EAGAIN)
@@ -161,6 +163,12 @@ void FileDesc::writeAll(const void *addr, size_t length)
 }
 
 
+void FileDesc::truncate(size_t offset)
+{
+    UnixError::check(ftruncate(mFd, offset));
+}
+
+
 //
 // Seeking
 //
@@ -195,7 +203,7 @@ void *FileDesc::mmap(int prot, size_t length, int flags, size_t offset, void *ad
 int FileDesc::fcntl(int cmd, void *arg) const
 {
     int rc = ::fcntl(mFd, cmd, arg);
-    secdebug("unixio", "%d fcntl(%d,%p) = %d", mFd, cmd, arg, rc);
+    secinfo("unixio", "%d fcntl(%d,%p) = %d", mFd, cmd, arg, rc);
 	return checkError(rc);
 }
 
@@ -255,7 +263,7 @@ bool FileDesc::tryLock(int type, const Pos &pos)
 
 void FileDesc::LockArgs::debug(int fd, const char *what)
 {
-	secdebug("fdlock", "%d %s %s:%ld(%ld)", fd, what,
+	secinfo("fdlock", "%d %s %s:%ld(%ld)", fd, what,
 		(l_whence == SEEK_SET) ? "ABS" : (l_whence == SEEK_CUR) ? "REL" : "END",
 		long(l_start), long(l_len));
 }
@@ -284,9 +292,9 @@ void FileDesc::setAttr(const char *name, const void *value, size_t length,
 	checkError(::fsetxattr(mFd, name, value, length, position, options));
 }
 
-ssize_t FileDesc::getAttrLength(const char *name)
+ssize_t FileDesc::getAttrLength(const char *name, int options)
 {
-	ssize_t rc = ::fgetxattr(mFd, name, NULL, 0, 0, 0);
+	ssize_t rc = ::fgetxattr(mFd, name, NULL, 0, 0, options);
 	if (rc == -1)
 		switch (errno) {
 		case ENOATTR:
@@ -343,6 +351,36 @@ std::string FileDesc::getAttr(const std::string &name, int options /* = 0 */)
 		return string(buffer, length);
 	else
 		return string();
+}
+
+
+static bool checkFork(ssize_t rc)
+{
+	switch (rc) {
+	case 0:		// empty fork, produced by NFS/AFP et al; ignore
+		return false;
+	default:	// non-empty fork present, fail
+		return true;
+	case -1:	// failed system call; let's see...
+		switch (errno) {
+		case ENOATTR:
+			return false;		// not present, no problem
+		case EPERM:
+			return false;		// HFS+ returns that if we ask for Resource Forks on anything but plain files (e.g. directories)
+		default:
+			UnixError::throwMe();
+		}
+	}
+}
+
+bool filehasExtendedAttribute(const char *path, const char *forkname)
+{
+	return checkFork(::getxattr(path, forkname, NULL, 0, 0, 0));
+}
+
+bool FileDesc::hasExtendedAttribute(const char *forkname) const
+{
+	return checkFork(::fgetxattr(mFd, forkname, NULL, 0, 0, 0));
 }
 
 bool FileDesc::isPlainFile(const std::string &path)
@@ -418,26 +456,23 @@ FILE *FileDesc::fdopen(const char *form)
 static CFDictionaryRef deviceCharacteristics(FileDesc &fd)
 {
 	// get device name
-	AutoFileDesc::UnixStat st;
+	FileDesc::UnixStat st;
 	fd.fstat(st);
-	char buffer[MAXNAMLEN];
-	checkError(::devname_r(st.st_dev, S_IFBLK, buffer, MAXNAMLEN));
-
-	// search in IO Registry for named device
-	CFDictionaryRef matching = IOBSDNameMatching(kIOMasterPortDefault, 0, buffer);
-	if (matching) {
-		// fetch the object with the matching BSD name (consumes reference on matching)
-		io_registry_entry_t entry = IOServiceGetMatchingService(kIOMasterPortDefault, matching);
-		if (entry != IO_OBJECT_NULL) {
-			// get device characteristics
-			CFDictionaryRef characteristics = (CFDictionaryRef)IORegistryEntrySearchCFProperty(entry,
-				kIOServicePlane,
-				CFSTR(kIOPropertyDeviceCharacteristicsKey),
-				NULL,
-				kIORegistryIterateRecursively | kIORegistryIterateParents);
-			IOObjectRelease(entry);
-			return characteristics;
-		}
+	CFTemp<CFDictionaryRef> matching("{%s=%d,%s=%d}",
+		kIOBSDMajorKey, major(st.st_dev),
+		kIOBSDMinorKey, minor(st.st_dev)
+	);
+	// IOServiceGetMatchingService CONSUMES its dictionary argument(!)
+	io_registry_entry_t entry = IOServiceGetMatchingService(kIOMasterPortDefault, matching.yield());
+	if (entry != IO_OBJECT_NULL) {
+		// get device characteristics
+		CFDictionaryRef characteristics = (CFDictionaryRef)IORegistryEntrySearchCFProperty(entry,
+			kIOServicePlane,
+			CFSTR(kIOPropertyDeviceCharacteristicsKey),
+			NULL,
+			kIORegistryIterateRecursively | kIORegistryIterateParents);
+		IOObjectRelease(entry);
+		return characteristics;
 	}
 
 	return NULL;	// unable to get device characteristics
@@ -484,7 +519,7 @@ void makedir(const char *path, int flags, mode_t mode)
 			UnixError::throwMe(EEXIST);
 		if (!S_ISDIR(st.st_mode))
 			UnixError::throwMe(ENOTDIR);
-		secdebug("makedir", "%s exists", path);
+		secinfo("makedir", "%s exists", path);
 		return;
 	}
 
@@ -498,7 +533,7 @@ void makedir(const char *path, int flags, mode_t mode)
 			return;		// fine (race condition, resolved)
 		UnixError::throwMe();
 	}
-	secdebug("makedir", "%s created", path);
+	secinfo("makedir", "%s created", path);
 }
 
 

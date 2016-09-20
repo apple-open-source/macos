@@ -28,6 +28,7 @@
 #include "WKBundleFrame.h"
 #include "WebContextMenuItem.h"
 #include "WebImage.h"
+#include "WebKitConsoleMessagePrivate.h"
 #include "WebKitContextMenuPrivate.h"
 #include "WebKitDOMDocumentPrivate.h"
 #include "WebKitFramePrivate.h"
@@ -36,6 +37,7 @@
 #include "WebKitScriptWorldPrivate.h"
 #include "WebKitURIRequestPrivate.h"
 #include "WebKitURIResponsePrivate.h"
+#include "WebKitWebEditorPrivate.h"
 #include "WebKitWebHitTestResultPrivate.h"
 #include "WebKitWebPagePrivate.h"
 #include "WebProcess.h"
@@ -48,6 +50,7 @@
 #include <glib/gi18n-lib.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/StringBuilder.h>
 
 using namespace WebKit;
 using namespace WebCore;
@@ -56,6 +59,7 @@ enum {
     DOCUMENT_LOADED,
     SEND_REQUEST,
     CONTEXT_MENU,
+    CONSOLE_MESSAGE_SENT,
 
     LAST_SIGNAL
 };
@@ -70,6 +74,8 @@ struct _WebKitWebPagePrivate {
     WebPage* webPage;
 
     CString uri;
+
+    GRefPtr<WebKitWebEditor> webEditor;
 };
 
 static guint signals[LAST_SIGNAL] = { 0, };
@@ -89,7 +95,7 @@ public:
     WebKitFrame* webkitFrame() const { return m_webkitFrame.get(); }
 
 private:
-    virtual void frameDestroyed() override
+    void frameDestroyed() override
     {
         FrameDestructionObserver::frameDestroyed();
         webFrameDestroyed(webkitFrameGetWebFrame(m_webkitFrame.get()));
@@ -114,7 +120,7 @@ static WebKitFrame* webkitFrameGetOrCreate(WebFrame* webFrame)
 
     std::unique_ptr<WebKitFrameWrapper> wrapper = std::make_unique<WebKitFrameWrapper>(*webFrame);
     wrapperPtr = wrapper.get();
-    webFrameMap().set(webFrame, WTF::move(wrapper));
+    webFrameMap().set(webFrame, WTFMove(wrapper));
     return wrapperPtr->webkitFrame();
 }
 
@@ -139,6 +145,12 @@ static void webkitWebPageSetURI(WebKitWebPage* webPage, const CString& uri)
 
     webPage->priv->uri = uri;
     g_object_notify(G_OBJECT(webPage), "uri");
+}
+
+static void webkitWebPageDidSendConsoleMessage(WebKitWebPage* webPage, MessageSource source, MessageLevel level, const String& message, unsigned lineNumber, const String& sourceID)
+{
+    WebKitConsoleMessage consoleMessage(source, level, message, lineNumber, sourceID);
+    g_signal_emit(webPage, signals[CONSOLE_MESSAGE_SENT], 0, &consoleMessage);
 }
 
 static void didStartProvisionalLoadForFrame(WKBundlePageRef, WKBundleFrameRef frame, WKTypeRef*, const void *clientInfo)
@@ -186,7 +198,7 @@ static void didInitiateLoadForResource(WKBundlePageRef page, WKBundleFrameRef fr
     message.set(String::fromUTF8("Frame"), toImpl(frame));
     message.set(String::fromUTF8("Identifier"), API::UInt64::create(identifier));
     message.set(String::fromUTF8("Request"), toImpl(request));
-    WebProcess::singleton().injectedBundle()->postMessage(String::fromUTF8("WebPage.DidInitiateLoadForResource"), API::Dictionary::create(WTF::move(message)).ptr());
+    WebProcess::singleton().injectedBundle()->postMessage(String::fromUTF8("WebPage.DidInitiateLoadForResource"), API::Dictionary::create(WTFMove(message)).ptr());
 }
 
 static WKURLRequestRef willSendRequestForFrame(WKBundlePageRef page, WKBundleFrameRef, uint64_t identifier, WKURLRequestRef wkRequest, WKURLResponseRef wkRedirectResponse, const void* clientInfo)
@@ -211,18 +223,30 @@ static WKURLRequestRef willSendRequestForFrame(WKBundlePageRef page, WKBundleFra
     message.set(String::fromUTF8("Request"), newRequest.ptr());
     if (!redirectResourceResponse.isNull())
         message.set(String::fromUTF8("RedirectResponse"), toImpl(wkRedirectResponse));
-    WebProcess::singleton().injectedBundle()->postMessage(String::fromUTF8("WebPage.DidSendRequestForResource"), API::Dictionary::create(WTF::move(message)).ptr());
+    WebProcess::singleton().injectedBundle()->postMessage(String::fromUTF8("WebPage.DidSendRequestForResource"), API::Dictionary::create(WTFMove(message)).ptr());
 
     return toAPI(&newRequest.leakRef());
 }
 
-static void didReceiveResponseForResource(WKBundlePageRef page, WKBundleFrameRef, uint64_t identifier, WKURLResponseRef response, const void*)
+static void didReceiveResponseForResource(WKBundlePageRef page, WKBundleFrameRef, uint64_t identifier, WKURLResponseRef response, const void* clientInfo)
 {
     API::Dictionary::MapType message;
     message.set(String::fromUTF8("Page"), toImpl(page));
     message.set(String::fromUTF8("Identifier"), API::UInt64::create(identifier));
     message.set(String::fromUTF8("Response"), toImpl(response));
-    WebProcess::singleton().injectedBundle()->postMessage(String::fromUTF8("WebPage.DidReceiveResponseForResource"), API::Dictionary::create(WTF::move(message)).ptr());
+    WebProcess::singleton().injectedBundle()->postMessage(String::fromUTF8("WebPage.DidReceiveResponseForResource"), API::Dictionary::create(WTFMove(message)).ptr());
+
+    // Post on the console as well to be consistent with the inspector.
+    const ResourceResponse& resourceResponse = toImpl(response)->resourceResponse();
+    if (resourceResponse.httpStatusCode() >= 400) {
+        StringBuilder errorMessage;
+        errorMessage.appendLiteral("Failed to load resource: the server responded with a status of ");
+        errorMessage.appendNumber(resourceResponse.httpStatusCode());
+        errorMessage.appendLiteral(" (");
+        errorMessage.append(resourceResponse.httpStatusText());
+        errorMessage.append(')');
+        webkitWebPageDidSendConsoleMessage(WEBKIT_WEB_PAGE(clientInfo), MessageSource::Network, MessageLevel::Error, errorMessage.toString(), 0, resourceResponse.url().string());
+    }
 }
 
 static void didReceiveContentLengthForResource(WKBundlePageRef page, WKBundleFrameRef, uint64_t identifier, uint64_t length, const void*)
@@ -231,7 +255,7 @@ static void didReceiveContentLengthForResource(WKBundlePageRef page, WKBundleFra
     message.set(String::fromUTF8("Page"), toImpl(page));
     message.set(String::fromUTF8("Identifier"), API::UInt64::create(identifier));
     message.set(String::fromUTF8("ContentLength"), API::UInt64::create(length));
-    WebProcess::singleton().injectedBundle()->postMessage(String::fromUTF8("WebPage.DidReceiveContentLengthForResource"), API::Dictionary::create(WTF::move(message)).ptr());
+    WebProcess::singleton().injectedBundle()->postMessage(String::fromUTF8("WebPage.DidReceiveContentLengthForResource"), API::Dictionary::create(WTFMove(message)).ptr());
 }
 
 static void didFinishLoadForResource(WKBundlePageRef page, WKBundleFrameRef, uint64_t identifier, const void*)
@@ -239,16 +263,28 @@ static void didFinishLoadForResource(WKBundlePageRef page, WKBundleFrameRef, uin
     API::Dictionary::MapType message;
     message.set(String::fromUTF8("Page"), toImpl(page));
     message.set(String::fromUTF8("Identifier"), API::UInt64::create(identifier));
-    WebProcess::singleton().injectedBundle()->postMessage(String::fromUTF8("WebPage.DidFinishLoadForResource"), API::Dictionary::create(WTF::move(message)).ptr());
+    WebProcess::singleton().injectedBundle()->postMessage(String::fromUTF8("WebPage.DidFinishLoadForResource"), API::Dictionary::create(WTFMove(message)).ptr());
 }
 
-static void didFailLoadForResource(WKBundlePageRef page, WKBundleFrameRef, uint64_t identifier, WKErrorRef error, const void*)
+static void didFailLoadForResource(WKBundlePageRef page, WKBundleFrameRef, uint64_t identifier, WKErrorRef error, const void* clientInfo)
 {
     API::Dictionary::MapType message;
     message.set(String::fromUTF8("Page"), toImpl(page));
     message.set(String::fromUTF8("Identifier"), API::UInt64::create(identifier));
     message.set(String::fromUTF8("Error"), toImpl(error));
-    WebProcess::singleton().injectedBundle()->postMessage(String::fromUTF8("WebPage.DidFailLoadForResource"), API::Dictionary::create(WTF::move(message)).ptr());
+    WebProcess::singleton().injectedBundle()->postMessage(String::fromUTF8("WebPage.DidFailLoadForResource"), API::Dictionary::create(WTFMove(message)).ptr());
+
+    // Post on the console as well to be consistent with the inspector.
+    const ResourceError& resourceError = toImpl(error)->platformError();
+    if (!resourceError.isCancellation()) {
+        StringBuilder errorMessage;
+        errorMessage.appendLiteral("Failed to load resource");
+        if (!resourceError.localizedDescription().isEmpty()) {
+            errorMessage.appendLiteral(": ");
+            errorMessage.append(resourceError.localizedDescription());
+        }
+        webkitWebPageDidSendConsoleMessage(WEBKIT_WEB_PAGE(clientInfo), MessageSource::Network, MessageLevel::Error, errorMessage.toString(), 0, resourceError.failingURL());
+    }
 }
 
 class PageContextMenuClient final : public API::InjectedBundle::PageContextMenuClient {
@@ -261,7 +297,7 @@ public:
 private:
     bool getCustomMenuFromDefaultItems(WebPage&, const WebCore::HitTestResult& hitTestResult, const Vector<WebCore::ContextMenuItem>& defaultMenu, Vector<WebContextMenuItemData>& newMenu, RefPtr<API::Object>& userData) override
     {
-        GRefPtr<WebKitContextMenu> contextMenu = adoptGRef(webkitContextMenuCreate(defaultMenu));
+        GRefPtr<WebKitContextMenu> contextMenu = adoptGRef(webkitContextMenuCreate(kitItems(defaultMenu)));
         GRefPtr<WebKitWebHitTestResult> webHitTestResult = adoptGRef(webkitWebHitTestResultCreate(hitTestResult));
         gboolean returnValue;
         g_signal_emit(m_webPage, signals[CONTEXT_MENU], 0, contextMenu.get(), webHitTestResult.get(), &returnValue);
@@ -275,6 +311,22 @@ private:
 
         webkitContextMenuPopulate(contextMenu.get(), newMenu);
         return true;
+    }
+
+    WebKitWebPage* m_webPage;
+};
+
+class PageUIClient final : public API::InjectedBundle::PageUIClient {
+public:
+    explicit PageUIClient(WebKitWebPage* webPage)
+        : m_webPage(webPage)
+    {
+    }
+
+private:
+    void willAddMessageToConsole(WebPage*, MessageSource source, MessageLevel level, const String& message, unsigned lineNumber, unsigned /*columnNumber*/, const String& sourceID) override
+    {
+        webkitWebPageDidSendConsoleMessage(m_webPage, source, level, message, lineNumber, sourceID);
     }
 
     WebKitWebPage* m_webPage;
@@ -392,6 +444,32 @@ static void webkit_web_page_class_init(WebKitWebPageClass* klass)
         G_TYPE_BOOLEAN, 2,
         WEBKIT_TYPE_CONTEXT_MENU,
         WEBKIT_TYPE_WEB_HIT_TEST_RESULT);
+
+    /**
+     * WebKitWebPage::console-message-sent:
+     * @web_page: the #WebKitWebPage on which the signal is emitted
+     * @console_message: the #WebKitConsoleMessage
+     *
+     * Emmited when a message is sent to the console. This can be a message
+     * produced by the use of JavaScript console API, a javascript exception,
+     * a security error or other errors, warnings, debug or log messages.
+     * The @console_message contains information of the message.
+     *
+     * Since: 2.12
+     */
+    signals[CONSOLE_MESSAGE_SENT] = g_signal_new(
+        "console-message-sent",
+        G_TYPE_FROM_CLASS(klass),
+        G_SIGNAL_RUN_LAST,
+        0, 0, nullptr,
+        g_cclosure_marshal_VOID__BOXED,
+        G_TYPE_NONE, 1,
+        WEBKIT_TYPE_CONSOLE_MESSAGE | G_SIGNAL_TYPE_STATIC_SCOPE);
+}
+
+WebPage* webkitWebPageGetPage(WebKitWebPage *webPage)
+{
+    return webPage->priv->webPage;
 }
 
 WebKitWebPage* webkitWebPageCreate(WebPage* webPage)
@@ -458,6 +536,7 @@ WebKitWebPage* webkitWebPageCreate(WebPage* webPage)
     WKBundlePageSetResourceLoadClient(toAPI(webPage), &resourceLoadClient.base);
 
     webPage->setInjectedBundleContextMenuClient(std::make_unique<PageContextMenuClient>(page));
+    webPage->setInjectedBundleUIClient(std::make_unique<PageUIClient>(page));
 
     return page;
 }
@@ -500,7 +579,7 @@ void webkitWebPageDidReceiveMessage(WebKitWebPage* page, const String& messageNa
         messageReply.set("Page", webPage);
         messageReply.set("CallbackID", API::UInt64::create(callbackID));
         messageReply.set("Snapshot", snapshotImage);
-        WebProcess::singleton().injectedBundle()->postMessage("WebPage.DidGetSnapshot", API::Dictionary::create(WTF::move(messageReply)).ptr());
+        WebProcess::singleton().injectedBundle()->postMessage("WebPage.DidGetSnapshot", API::Dictionary::create(WTFMove(messageReply)).ptr());
     } else
         ASSERT_NOT_REACHED();
 }
@@ -574,4 +653,24 @@ WebKitFrame* webkit_web_page_get_main_frame(WebKitWebPage* webPage)
     g_return_val_if_fail(WEBKIT_IS_WEB_PAGE(webPage), 0);
 
     return webkitFrameGetOrCreate(webPage->priv->webPage->mainWebFrame());
+}
+
+/**
+ * webkit_web_page_get_editor:
+ * @web_page: a #WebKitWebPage
+ *
+ * Gets the #WebKitWebEditor of a #WebKitWebPage.
+ *
+ * Returns: (transfer none): the #WebKitWebEditor
+ *
+ * Since: 2.10
+ */
+WebKitWebEditor* webkit_web_page_get_editor(WebKitWebPage* webPage)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_PAGE(webPage), nullptr);
+
+    if (!webPage->priv->webEditor)
+        webPage->priv->webEditor = adoptGRef(webkitWebEditorCreate(webPage));
+
+    return webPage->priv->webEditor.get();
 }

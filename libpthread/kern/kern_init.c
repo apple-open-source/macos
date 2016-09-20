@@ -18,8 +18,7 @@ pthread_callbacks_t pthread_kern;
 const struct pthread_functions_s pthread_internal_functions = {
 	.pthread_init = _pthread_init,
 	.fill_procworkqueue = _fill_procworkqueue,
-	.workqueue_init_lock = _workqueue_init_lock,
-	.workqueue_destroy_lock = _workqueue_destroy_lock,
+	.get_pwq_state_kdp = _get_pwq_state_kdp,
 	.workqueue_exit = _workqueue_exit,
 	.workqueue_mark_exiting = _workqueue_mark_exiting,
 	.workqueue_thread_yielded = _workqueue_thread_yielded,
@@ -48,6 +47,7 @@ const struct pthread_functions_s pthread_internal_functions = {
 
 	.workq_reqthreads = _workq_reqthreads,
 	.thread_qos_from_pthread_priority = _thread_qos_from_pthread_priority,
+	.pthread_priority_canonicalize2 = _pthread_priority_canonicalize,
 };
 
 kern_return_t pthread_start(__unused kmod_info_t * ki, __unused void *d)

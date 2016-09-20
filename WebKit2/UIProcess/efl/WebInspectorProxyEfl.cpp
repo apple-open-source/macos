@@ -36,6 +36,7 @@
 #include <WebCore/EflInspectorUtilities.h>
 #include <WebCore/NotImplemented.h>
 #include <WebKit/WKPage.h>
+#include <WebKit/WKPageConfigurationRef.h>
 #include <WebKit/WKPageGroup.h>
 #include <WebKit/WKString.h>
 #include <WebKit/WKViewEfl.h>
@@ -105,11 +106,15 @@ WebPageProxy* WebInspectorProxy::platformCreateInspectorPage()
     if (!m_inspectorWindow)
         return 0;
 
-    WKContextRef wkContext = toAPI(&inspectorProcessPool());
+    WKContextRef wkContext = toAPI(&inspectorProcessPool(inspectionLevel()));
     WKRetainPtr<WKStringRef> wkGroupIdentifier = adoptWK(WKStringCreateWithUTF8CString(inspectorPageGroupIdentifier().utf8().data()));
     WKPageGroupRef wkPageGroup = WKPageGroupCreateWithIdentifier(wkGroupIdentifier.get());
 
-    m_inspectorView = EWKViewCreate(wkContext, wkPageGroup, ecore_evas_get(m_inspectorWindow), /* smart */ 0);
+    WKRetainPtr<WKPageConfigurationRef> wkPageConfiguration = adoptWK(WKPageConfigurationCreate());
+    WKPageConfigurationSetContext(wkPageConfiguration.get(), wkContext);
+    WKPageConfigurationSetPageGroup(wkPageConfiguration.get(), wkPageGroup);
+
+    m_inspectorView = EWKViewCreate(wkPageConfiguration.get(), ecore_evas_get(m_inspectorWindow), /* smart */ 0);
     WKViewRef wkView = EWKViewGetWKView(m_inspectorView);
 
     WKRetainPtr<WKStringRef> wkTheme = adoptWK(WKStringCreateWithUTF8CString(DEFAULT_THEME_DIR "/default.edj"));
@@ -170,27 +175,28 @@ void WebInspectorProxy::platformInspectedURLChanged(const String& url)
     ecore_evas_title_set(m_inspectorWindow, title.utf8().data());
 }
 
-String WebInspectorProxy::inspectorPageURL() const
+String WebInspectorProxy::inspectorPageURL()
 {
     StringBuilder builder;
-    builder.append(inspectorBaseURL());
+    builder.append(WebInspectorProxy::inspectorBaseURL());
     builder.appendLiteral("/Main.html");
-
     return builder.toString();
 }
 
-String WebInspectorProxy::inspectorTestPageURL() const
+String WebInspectorProxy::inspectorTestPageURL()
 {
     StringBuilder builder;
-    builder.append(inspectorBaseURL());
+    builder.append(WebInspectorProxy::inspectorBaseURL());
     builder.appendLiteral("/Test.html");
-
     return builder.toString();
 }
 
-String WebInspectorProxy::inspectorBaseURL() const
+String WebInspectorProxy::inspectorBaseURL()
 {
-    return "file://" + WebCore::inspectorResourcePath();
+    StringBuilder builder;
+    builder.appendLiteral("file://");
+    builder.append(WebCore::inspectorResourcePath());
+    return builder.toString();
 }
 
 unsigned WebInspectorProxy::platformInspectedWindowHeight()
@@ -222,11 +228,6 @@ void WebInspectorProxy::platformSetAttachedWindowHeight(unsigned)
 }
 
 void WebInspectorProxy::platformSetAttachedWindowWidth(unsigned)
-{
-    notImplemented();
-}
-
-void WebInspectorProxy::platformSetToolbarHeight(unsigned)
 {
     notImplemented();
 }

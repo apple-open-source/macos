@@ -18,7 +18,7 @@
 <body id="manual-page"><div id="page-header">
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p>
 <p class="apache">Apache HTTP Server Version 2.4</p>
-<img alt="" src="../images/feather.gif" /></div>
+<img alt="" src="../images/feather.png" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
 <a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.4</a> &gt; <a href="./">Rewrite</a></div><div id="page-content"><div id="preamble"><h1>RewriteRule Flags</h1>
@@ -50,10 +50,11 @@ providing detailed explanations and examples.</p>
 <li><img alt="" src="../images/down.gif" /> <a href="#flag_pt">PT|passthrough</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#flag_qsa">QSA|qsappend</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#flag_qsd">QSD|qsdiscard</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#flag_qsl">QSL|qslast</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#flag_r">R|redirect</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#flag_s">S|skip</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#flag_t">T|type</a></li>
-</ul><h3>See also</h3><ul class="seealso"><li><a href="../mod/mod_rewrite.html">Module documentation</a></li><li><a href="intro.html">mod_rewrite introduction</a></li><li><a href="remapping.html">Redirection and remapping</a></li><li><a href="access.html">Controlling access</a></li><li><a href="vhosts.html">Virtual hosts</a></li><li><a href="proxy.html">Proxying</a></li><li><a href="rewritemap.html">Using RewriteMap</a></li><li><a href="advanced.html">Advanced techniques</a></li><li><a href="avoid.html">When not to use mod_rewrite</a></li></ul><ul class="seealso"><li><a href="#comments_section">Comments</a></li></ul></div>
+</ul><h3>See also</h3><ul class="seealso"><li><a href="../mod/mod_rewrite.html">Module documentation</a></li><li><a href="intro.html">mod_rewrite introduction</a></li><li><a href="remapping.html">Redirection and remapping</a></li><li><a href="access.html">Controlling access</a></li><li><a href="vhosts.html">Virtual hosts</a></li><li><a href="proxy.html">Proxying</a></li><li><a href="rewritemap.html">Using RewriteMap</a></li><li><a href="advanced.html">Advanced techniques</a></li><li><a href="avoid.html">When not to use mod_rewrite</a></li><li><a href="#comments_section">Comments</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="introduction" id="introduction">Introduction</a></h2>
@@ -236,10 +237,9 @@ variables work.</p>
 
 <p>The full syntax for this flag is:</p>
 
-<div class="example"><p><code>
-[E=VAR:VAL]
-[E=!VAR]
-</code></p></div>
+<pre class="prettyprint lang-config">[E=VAR:VAL]
+[E=!VAR]</pre>
+
 
 <p><code>VAL</code> may contain backreferences (<code>$N</code> or
 <code>%N</code>) which are expanded.</p>
@@ -611,6 +611,22 @@ URI.
 
 </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
+<h2><a name="flag_qsl" id="flag_qsl">QSL|qslast</a></h2>
+<p>
+By default, the first (left-most) question mark in the substitution
+delimits the path from the query string.  Using the [QSL] flag instructs
+<code class="directive"><a href="../mod/mod_rewrite.html#rewriterule">RewriteRule</a></code> to instead split
+the two components using the last (right-most) question mark.  </p>
+
+<p>
+This is useful when mapping to files that have literal question marks in 
+their filename.  If no query string is used in the substitution, 
+a question mark can be appended to it in combination with this flag.  </p>
+
+<p> This flag is available in version 2.4.19 and later.</p>
+
+</div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="section">
 <h2><a name="flag_r" id="flag_r">R|redirect</a></h2>
 <p>
 Use of the [R] flag causes a HTTP redirect to be issued to the browser.
@@ -746,7 +762,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/rewrite/flags.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

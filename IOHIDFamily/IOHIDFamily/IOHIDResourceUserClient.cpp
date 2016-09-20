@@ -34,6 +34,7 @@
 
 #include "IOHIDResourceUserClient.h"
 #include <libkern/OSAtomic.h>
+#include "IOHIDDebug.h"
 
 #define kHIDClientTimeoutUS     1000000ULL
 
@@ -93,12 +94,12 @@ bool IOHIDResourceDeviceUserClient::initWithTask(task_t owningTask, void * secur
       char name[255];
       bzero(name, sizeof(name));
       proc_name(proc_pid(process), name, sizeof(name));
-      IOLog("IOHIDResourceDeviceUserClient: %s is not entitled\n", name);
+      HIDLogError("%s is not entitled", name);
       goto exit;
     }
  //   require_noerr_action(clientHasPrivilege(owningTask, kIOClientPrivilegeAdministrator), exit, result=false);
     result = super::initWithTask(owningTask, security_id, type);
-    require_action(result, exit, IOLog("%s failed\n", __FUNCTION__));
+    require_action(result, exit, HIDLogError("failed"));
     
     _pending            = OSSet::withCapacity(4);
     _maxClientTimeoutUS = kHIDClientTimeoutUS;
@@ -136,7 +137,7 @@ bool IOHIDResourceDeviceUserClient::start(IOService * provider)
     
 exit:
     if ( result==false ) {
-        IOLog("%s failed\n", __FUNCTION__);
+        HIDLogError("failed");
         stop(provider);
     }
 
@@ -380,7 +381,7 @@ IOReturn IOHIDResourceDeviceUserClient::createAndStartDevice()
     
 exit:
     if ( result!=kIOReturnSuccess ) {
-        IOLog("%s: result=0x%08x\n", __FUNCTION__, result);
+        HIDLogError("result=0x%08x", result);
         OSSafeReleaseNULL(_device);
     }
 
@@ -428,7 +429,9 @@ IOReturn IOHIDResourceDeviceUserClient::createDevice(IOExternalMethodArguments *
     propertiesData = IOMalloc(propertiesLength);
     require_action(propertiesData, exit, result=kIOReturnNoMemory);
     
+    propertiesDesc->prepare();
     propertiesDesc->readBytes(0, propertiesData, propertiesLength);
+    propertiesDesc->complete();
     
     require_action(strnlen((const char *) propertiesData, propertiesLength) < propertiesLength, exit, result=kIOReturnInternalError);
 
@@ -500,7 +503,7 @@ IOReturn IOHIDResourceDeviceUserClient::handleReport(IOExternalMethodArguments *
     AbsoluteTime timestamp;
     
     if (_device == NULL) {
-        IOLog("%s failed : device is NULL\n", __FUNCTION__);
+        HIDLogError("failed : device is NULL");
         return kIOReturnNotOpen;
     }
 
@@ -509,7 +512,7 @@ IOReturn IOHIDResourceDeviceUserClient::handleReport(IOExternalMethodArguments *
     
     report = createMemoryDescriptorFromInputArguments(arguments);
     if ( !report ) {
-        IOLog("%s failed : could not create descriptor\n", __FUNCTION__);
+        HIDLogError("failed : could not create descriptor");
         return kIOReturnNoMemory;
     }
     
@@ -853,10 +856,15 @@ Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header,
     UInt32              headerSize  = sizeof(IOHIDResourceDataQueueHeader);
     UInt32              reportSize  = report ? (UInt32)report->getLength() : 0;
     UInt32              dataSize    = ALIGNED_DATA_SIZE(headerSize + reportSize, sizeof(uint32_t));
-    const UInt32        head        = dataQueue->head;  // volatile
-    const UInt32        tail        = dataQueue->tail;
+    UInt32              head;
+    UInt32              tail;
+    UInt32              newTail;
     const UInt32        entrySize   = dataSize + DATA_QUEUE_ENTRY_HEADER_SIZE;
     IODataQueueEntry *  entry;
+
+    // Force a single read of head and tail
+    head = __c11_atomic_load((_Atomic UInt32 *)&dataQueue->head, __ATOMIC_RELAXED);
+    tail = __c11_atomic_load((_Atomic UInt32 *)&dataQueue->tail, __ATOMIC_RELAXED);
 
     if ( tail > getQueueSize() || head > getQueueSize() || dataSize < headerSize || entrySize < dataSize)
     {
@@ -881,7 +889,7 @@ Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header,
             // exactly matches the available space at the end of the queue.
             // The tail can range from 0 to getQueueSize() inclusive.
 
-            OSAddAtomic(entrySize, (int32_t *)&dataQueue->tail);
+            newTail = tail + entrySize;
         }
         else if ( head > entrySize )     // Is there enough room at the beginning?
         {
@@ -903,7 +911,7 @@ Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header,
             if ( report )
                 report->readBytes(0, ((UInt8*)&dataQueue->queue->data) + headerSize, reportSize);
    
-            OSCompareAndSwap(dataQueue->tail, entrySize, (int32_t *)&dataQueue->tail);
+            newTail = entrySize;
         }
         else
         {
@@ -925,7 +933,7 @@ Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header,
             if ( report )
                 report->readBytes(0, ((UInt8*)&entry->data) + headerSize, reportSize);
             
-            OSAddAtomic(entrySize, (int32_t *)&dataQueue->tail);
+            newTail = tail + entrySize;
         }
         else
         {
@@ -933,9 +941,12 @@ Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header,
         }
     }
 
+    // Update tail with release barrier
+    __c11_atomic_store((_Atomic UInt32 *)&dataQueue->tail, newTail, __ATOMIC_RELEASE);
+
     // Send notification (via mach message) that data is available if either the
     // queue was empty prior to enqueue() or queue was emptied during enqueue()
-    if ( ( head == tail ) || ( dataQueue->head == tail ) )
+    if ( ( head == tail ) || ( __c11_atomic_load((_Atomic UInt32 *)&dataQueue->head, __ATOMIC_RELAXED) == tail ) )
         sendDataAvailableNotification();
 
     return true;

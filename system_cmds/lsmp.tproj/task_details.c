@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-20014 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -27,8 +27,61 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <libproc.h>
+#include <assert.h>
 
 #include "common.h"
+
+#pragma mark kobject to name hash table implementation
+
+#if (K2N_TABLE_SIZE & (K2N_TABLE_SIZE - 1) != 0)
+#error K2N_TABLE_SIZE must be a power of two
+#endif
+
+#define K2N_TABLE_MASK	(K2N_TABLE_SIZE - 1)
+
+static uint32_t k2n_hash(natural_t kobject) {
+    return (uint64_t)kobject * 2654435761 >> 32;
+}
+
+struct k2n_table_node *k2n_table_lookup_next(struct k2n_table_node *node, natural_t kobject) {
+    while (node) {
+        if (kobject == node->kobject)
+            return node;
+
+        node = node->next;
+    }
+
+    return NULL;
+}
+
+struct k2n_table_node *k2n_table_lookup(struct k2n_table_node **table, natural_t kobject) {
+    uint32_t hv;
+    struct k2n_table_node *node;
+
+    hv = k2n_hash(kobject);
+
+    node = table[hv & K2N_TABLE_MASK];
+
+    return k2n_table_lookup_next(node, kobject);
+}
+
+static void k2n_table_enter(struct k2n_table_node **table, natural_t kobject, ipc_info_name_t *info_name) {
+    uint32_t hv;
+    struct k2n_table_node *node;
+
+    hv = k2n_hash(kobject);
+
+    node = malloc(sizeof (struct k2n_table_node));
+    assert(node);
+
+    node->kobject = kobject;
+    node->info_name = info_name;
+
+    node->next = table[hv & K2N_TABLE_MASK];
+    table[hv & K2N_TABLE_MASK] = node;
+}
+
+#pragma mark -
 
 static my_per_task_info_t NOT_FOUND_TASK_INFO = {
     .task = NULL,
@@ -40,6 +93,7 @@ static my_per_task_info_t NOT_FOUND_TASK_INFO = {
     .tree = NULL,
     .treeCount = 0,
     .valid = FALSE,
+    .k2ntable = {0},
     .processName = "Unknown",
     .exceptionInfo = {0},
     .threadInfos = NULL,
@@ -79,10 +133,11 @@ void deallocate_taskinfo_memory(my_per_task_info_t *data){
 
 kern_return_t collect_per_task_info(my_per_task_info_t *taskinfo, task_t target_task)
 {
+    int i;
     kern_return_t ret = KERN_SUCCESS;
     unsigned int kotype = 0;
     vm_offset_t kobject = (vm_offset_t)0;
-    
+
     taskinfo->task = target_task;
     pid_for_task(target_task, &taskinfo->pid);
 
@@ -156,33 +211,36 @@ kern_return_t collect_per_task_info(my_per_task_info_t *taskinfo, task_t target_
 
     vm_deallocate(mach_task_self(), threadPorts, taskinfo->threadCount * sizeof(thread_act_t));
     threadPorts = NULL;
-    
+
     ret = mach_port_space_info(target_task, &taskinfo->info, &taskinfo->table, &taskinfo->tableCount, &taskinfo->tree, &taskinfo->treeCount);
-    
+
     if (ret != KERN_SUCCESS) {
         fprintf(stderr, "mach_port_space_info() failed: pid:%d error: %s\n",taskinfo->pid, mach_error_string(ret));
         taskinfo->pid = 0;
         return ret;
     }
-    
+
+    bzero(taskinfo->k2ntable, K2N_TABLE_SIZE * sizeof (struct k2n_table_node *));
+    for (i = 0; i < taskinfo->tableCount; i++) {
+        k2n_table_enter(taskinfo->k2ntable, taskinfo->table[i].iin_object, &taskinfo->table[i]);
+    }
+
     proc_pid_to_name(taskinfo->pid, taskinfo->processName);
 
     ret = mach_port_kernel_object(mach_task_self(), taskinfo->task, &kotype, (unsigned *)&kobject);
-    
+
     if (ret == KERN_SUCCESS && kotype == IKOT_TASK) {
         taskinfo->task_kobject = kobject;
         taskinfo->valid = TRUE;
     }
-    
+
     return ret;
 }
-
-
 
 void get_exc_behavior_string(exception_behavior_t b, char *out_string, size_t len)
 {
     out_string[0]='\0';
-    
+
     if (b & MACH_EXCEPTION_CODES)
         strncat(out_string, "MACH +", len);
     switch (b & ~MACH_EXCEPTION_CODES) {
@@ -203,7 +261,7 @@ void get_exc_behavior_string(exception_behavior_t b, char *out_string, size_t le
 void get_exc_mask_string(exception_mask_t m, char *out_string, size_t len)
 {
     out_string[0]='\0';
-    
+
     if (m & (1<<EXC_BAD_ACCESS))
         strncat(out_string, " BAD_ACCESS", len);
     if (m & (1<<EXC_BAD_INSTRUCTION))
@@ -228,7 +286,6 @@ void get_exc_mask_string(exception_mask_t m, char *out_string, size_t len)
         strncat(out_string," RESOURCE", len);
     if (m & (1<<EXC_GUARD))
         strncat(out_string," GUARD", len);
-    
 }
 
 kern_return_t print_task_exception_info(my_per_task_info_t *taskinfo)
@@ -249,9 +306,9 @@ kern_return_t print_task_exception_info(my_per_task_info_t *taskinfo)
             get_exc_mask_string(taskinfo->exceptionInfo.masks[i], mask_string, 200);
             printf("    0x%08x  0x%03x  <%s>           %s  \n" , taskinfo->exceptionInfo.ports[i], taskinfo->exceptionInfo.flavors[i], behavior_string, mask_string);
         }
-        
+
     }
-    
+
     return KERN_SUCCESS;
 }
 
@@ -263,19 +320,19 @@ kern_return_t print_task_threads_special_ports(my_per_task_info_t *taskinfo)
     boolean_t header_required = TRUE;
     boolean_t newline_required = TRUE;
     struct my_per_thread_info * info = NULL;
-    
+
     for (int i = 0; i < threadcount; i++) {
         info = &taskinfo->threadInfos[i];
         if (header_required) {
             printf("Thread_KObject  Thread-ID     Port Description.");
             header_required = FALSE;
         }
-        
+
         if (newline_required) {
             printf("\n");
         }
         newline_required = TRUE;
-        
+
         if (info->th_kobject != 0) {
             /* TODO: Should print tid and stuff */
             printf("0x%08x       ", info->th_kobject);
@@ -359,22 +416,22 @@ my_per_task_info_t * get_taskinfo_by_kobject(natural_t kobj) {
 
 kern_return_t get_taskinfo_of_receiver_by_send_right(ipc_info_name_t *sendright, my_per_task_info_t **out_taskinfo, mach_port_name_t *out_recv_info)
 {
-    kern_return_t retval = KERN_FAILURE;
-    boolean_t found = FALSE;
     *out_taskinfo = &NOT_FOUND_TASK_INFO;
- 
-    for (int j = 0; j < global_taskcount && !found; j++) {
-        for (int k = 0; k < global_taskinfo[j].tableCount && !found; k++) {
-            if ((global_taskinfo[j].table[k].iin_type & MACH_PORT_TYPE_RECEIVE) &&
-                global_taskinfo[j].table[k].iin_object == sendright->iin_object ) {
+    struct k2n_table_node *k2nnode;
+
+    for (int j = 0; j < global_taskcount; j++) {
+        if ((k2nnode = k2n_table_lookup(global_taskinfo[j].k2ntable, sendright->iin_object))) {
+            assert(k2nnode->info_name->iin_object == sendright->iin_object);
+
+            if (k2nnode->info_name->iin_type & MACH_PORT_TYPE_RECEIVE) {
                 *out_taskinfo = &global_taskinfo[j];
-                *out_recv_info = global_taskinfo[j].table[k].iin_name;
-                found = TRUE;
-                retval = KERN_SUCCESS;
+                *out_recv_info = k2nnode->info_name->iin_name;
+                return KERN_SUCCESS;
             }
         }
     }
-    return retval;
+
+    return KERN_FAILURE;
 }
 
 kern_return_t get_ipc_info_from_lsmp_spaceinfo(mach_port_t port_name, ipc_info_name_t *out_sendright){
@@ -399,5 +456,3 @@ kern_return_t get_ipc_info_from_lsmp_spaceinfo(mach_port_t port_name, ipc_info_n
     return retval;
 
 }
-
-

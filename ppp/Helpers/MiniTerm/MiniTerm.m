@@ -23,7 +23,6 @@
 
 
 #import <AppKit/NSTextView.h>
-//#import <Carbon/CarbonPriv.h>
 #import <Carbon/Carbon.h>
 
 #import "MiniTerm.h"

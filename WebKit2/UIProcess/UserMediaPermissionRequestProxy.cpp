@@ -20,31 +20,43 @@
 #include "UserMediaPermissionRequestProxy.h"
 
 #include "UserMediaPermissionRequestManagerProxy.h"
+#include <WebCore/MediaStreamTrackSourcesRequestClient.h>
+#include <WebCore/RealtimeMediaSourceCenter.h>
 #include <wtf/text/StringHash.h>
 
 namespace WebKit {
 
-UserMediaPermissionRequestProxy::UserMediaPermissionRequestProxy(UserMediaPermissionRequestManagerProxy& manager, uint64_t userMediaID, bool requiresAudio, bool requiresVideo)
-    : m_manager(manager)
+UserMediaPermissionRequestProxy::UserMediaPermissionRequestProxy(UserMediaPermissionRequestManagerProxy& manager, uint64_t userMediaID, const Vector<String>& audioDeviceUIDs, const Vector<String>& videoDeviceUIDs)
+    : m_manager(&manager)
     , m_userMediaID(userMediaID)
-    , m_requiresAudio(requiresAudio)
-    , m_requiresVideo(requiresVideo)
+    , m_videoDeviceUIDs(videoDeviceUIDs)
+    , m_audioDeviceUIDs(audioDeviceUIDs)
 {
 }
 
-void UserMediaPermissionRequestProxy::allow()
+void UserMediaPermissionRequestProxy::allow(const String& audioDeviceUID, const String& videoDeviceUID)
 {
-    m_manager.didReceiveUserMediaPermissionDecision(m_userMediaID, true);
+    ASSERT(m_manager);
+    if (!m_manager)
+        return;
+
+    m_manager->didReceiveUserMediaPermissionDecision(m_userMediaID, true, audioDeviceUID, videoDeviceUID);
+    m_manager = nullptr;
 }
 
 void UserMediaPermissionRequestProxy::deny()
 {
-    m_manager.didReceiveUserMediaPermissionDecision(m_userMediaID, false);
+    ASSERT(m_manager);
+    if (!m_manager)
+        return;
+
+    m_manager->didReceiveUserMediaPermissionDecision(m_userMediaID, false, emptyString(), emptyString());
+    m_manager = nullptr;
 }
 
 void UserMediaPermissionRequestProxy::invalidate()
 {
-    m_manager.invalidateRequests();
+    m_manager = nullptr;
 }
 
 } // namespace WebKit

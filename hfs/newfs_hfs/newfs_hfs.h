@@ -23,47 +23,6 @@
  
 #include <CoreFoundation/CFBase.h>
 
-/*
- * Mac OS Finder flags
- */
-enum {
-	kHasBeenInited	= 0x0100,	/* Files only */
-	/* Clear if the file contains desktop database */
-	/* bit 0x0200 was the letter bit for AOCE, but is now reserved for future use */
-	kHasCustomIcon	= 0x0400,	/* Files and folders */
-	kIsStationery	= 0x0800,	/* Files only */
-	kNameLocked	= 0x1000,	/* Files and folders */
-	kHasBundle	= 0x2000,	/* Files only */
-	kIsInvisible	= 0x4000,	/* Files and folders */
-	kIsAlias	= 0x8000	/* Files only */
-};
-
-
-/* Finder types (mostly opaque in our usage) */
-struct FInfo {
-	uint32_t	fileType;	/* The type of the file */
-	uint32_t 	fileCreator;	/* The file's creator */
-	UInt16 		finderFlags;	/* ex: kHasBundle, kIsInvisible... */
-	UInt8 		opaque[6];															/* If set to {0, 0}, the Finder will place the item automatically */
-};
-typedef struct FInfo FInfo;
-
-struct FXInfo {
-	UInt8	opaque[16];
-};
-typedef struct FXInfo FXInfo;
-
-struct DInfo {
-	UInt8	opaque[16];
-};
-typedef struct DInfo DInfo;
-
-struct DXInfo {
-	UInt8	opaque[16];
-};
-typedef struct DXInfo DXInfo;
-
-
 enum {
 	kMinHFSPlusVolumeSize	= (512 * 1024),
 	
@@ -103,13 +62,6 @@ enum {
 #define KD_FIXLENSTR	8
 #define KD_DTDBSTR	9
 #define KD_USEPROC	10
-
-
-enum {
-	kTextEncodingMacRoman = 0L,
-	kTextEncodingMacJapanese = 1
-};
-
 
 /*
  * The following constant sets the default block size.
@@ -242,7 +194,6 @@ struct hfsparams {
 	uint32_t        createDate;             /* in UTC */
 	uint32_t	hfsAlignment;
 	unsigned char	*volumeName;		/* In UTF8, but we need to allocate space for it. */
-	uint32_t	encodingHint;
 	uint32_t 	journaledHFS;
 	uint32_t 	journalSize;
 	uint32_t	journalInfoBlock;

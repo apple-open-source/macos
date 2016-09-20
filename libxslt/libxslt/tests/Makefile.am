@@ -17,7 +17,7 @@ test tests:
 valgrind:
 	@echo '## Running the regression tests under Valgrind'
 	@echo '## Go get a cup of coffee it is gonna take a while ...'
-	$(MAKE) CHECKER='valgrind -q' tests
+	$(MAKE) CHECKER='libtool --mode=execute valgrind -q --leak-check=full' tests
 
 full: tests docbook_tests
 

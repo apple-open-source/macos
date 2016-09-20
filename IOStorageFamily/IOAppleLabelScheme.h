@@ -98,7 +98,7 @@ protected:
      * Free all of this object's outstanding resources.
      */
 
-    virtual void free(void);
+    virtual void free(void) APPLE_KEXT_OVERRIDE;
 
     /*
      * Scan the provider media for an Apple label scheme.
@@ -148,25 +148,25 @@ public:
      * Initialize this object's minimal state.
      */
 
-    virtual bool init(OSDictionary * properties = 0);
+    virtual bool init(OSDictionary * properties = 0) APPLE_KEXT_OVERRIDE;
 
     /*
      * Determine whether the provider media contains an Apple label scheme.
      */
 
-    virtual IOService * probe(IOService * provider, SInt32 * score);
+    virtual IOService * probe(IOService * provider, SInt32 * score) APPLE_KEXT_OVERRIDE;
 
     /*
      * Publish the new media object which represents our content.
      */
 
-    virtual bool start(IOService * provider);
+    virtual bool start(IOService * provider) APPLE_KEXT_OVERRIDE;
 
     /*
      * Clean up after the media object we published before terminating.
      */
 
-    virtual void stop(IOService * provider);
+    virtual void stop(IOService * provider) APPLE_KEXT_OVERRIDE;
 
     OSMetaClassDeclareReservedUnused(IOAppleLabelScheme,  0);
     OSMetaClassDeclareReservedUnused(IOAppleLabelScheme,  1);

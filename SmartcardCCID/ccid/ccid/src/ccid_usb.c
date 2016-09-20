@@ -17,10 +17,6 @@
 	Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-/*
- * $Id$
- */
-
 #define __CCID_USB__
 
 #include <stdio.h>
@@ -178,6 +174,9 @@ static void close_libusb_if_needed(void)
 {
 	int i, to_exit = TRUE;
 
+	if (NULL == ctx)
+		return;
+
 	/* if at least 1 reader is still in use we do not exit libusb */
 	for (i=0; i<CCID_DRIVER_MAX_READERS; i++)
 	{
@@ -218,6 +217,8 @@ status_t OpenUSBByName(unsigned int reader_index, /*@null@*/ char *device)
 	char infofile[FILENAME_MAX];
 #ifndef __APPLE__
 	unsigned int device_vendor, device_product;
+	unsigned int device_bus = 0;
+	unsigned int device_addr = 0;
 #else
 	/* 100 ms delay */
 	struct timespec sleep_time = { 0, 100 * 1000 * 1000 };
@@ -263,9 +264,11 @@ status_t OpenUSBByName(unsigned int reader_index, /*@null@*/ char *device)
 		 */
 		if ((dirname = strstr(device, "libudev:")) != NULL)
 		{
-			/* convert the interface number */
-			interface_number = atoi(dirname + 8 /* "libudev:" */);
-			DEBUG_COMM2("interface_number: %d", interface_number);
+			/* convert the interface number, bus and device ids */
+			if (sscanf(dirname + 8, "%d:/dev/bus/usb/%d/%d", &interface_number, &device_bus, &device_addr) == 3) {
+				DEBUG_COMM2("interface_number: %d", interface_number);
+				DEBUG_COMM3("usb bus/device: %d/%d", device_bus, device_addr);
+			}
 		}
 	}
 #endif
@@ -314,24 +317,13 @@ status_t OpenUSBByName(unsigned int reader_index, /*@null@*/ char *device)
 		}
 	}
 
-#ifdef __APPLE__
-again_libusb:
-#endif
-	cnt = libusb_get_device_list(ctx, &devs);
-	if (cnt < 0)
-	{
-		DEBUG_CRITICAL("libusb_get_device_list() failed\n");
-		return_value = STATUS_UNSUCCESSFUL;
-		goto end1;
-	}
-
 #define GET_KEYS(key, values) \
 	rv = LTPBundleFindValueWithKey(&plist, key, values); \
 	if (rv) \
 	{ \
 		DEBUG_CRITICAL2("Value/Key not defined for " key " in %s", infofile); \
 		return_value = STATUS_UNSUCCESSFUL; \
-		goto end2; \
+		goto end1; \
 	}
 
 	GET_KEYS("ifdVendorID", &ifdVendorID)
@@ -343,6 +335,17 @@ again_libusb:
 		|| (list_size(ifdVendorID) != list_size(ifdFriendlyName)))
 	{
 		DEBUG_CRITICAL2("Error parsing %s", infofile);
+		return_value = STATUS_UNSUCCESSFUL;
+		goto end1;
+	}
+
+#ifdef __APPLE__
+again_libusb:
+#endif
+	cnt = libusb_get_device_list(ctx, &devs);
+	if (cnt < 0)
+	{
+		DEBUG_CRITICAL("libusb_get_device_list() failed\n");
 		return_value = STATUS_UNSUCCESSFUL;
 		goto end1;
 	}
@@ -377,6 +380,16 @@ again_libusb:
 			uint8_t bus_number = libusb_get_bus_number(dev);
 			uint8_t device_address = libusb_get_device_address(dev);
 
+#ifndef __APPLE__
+			if ((device_bus || device_addr)
+				&& ((bus_number != device_bus)
+				|| (device_address != device_addr))) {
+				/* not USB the device we are looking for */
+				continue;
+			}
+#endif
+			DEBUG_COMM3("Try device: %d/%d", bus_number, device_address);
+
 			int r = libusb_get_device_descriptor(dev, &desc);
 			if (r < 0)
 			{
@@ -384,6 +397,8 @@ again_libusb:
 					bus_number, device_address);
 				continue;
 			}
+
+			DEBUG_COMM3("vid/pid : %04X/%04X", desc.idVendor, desc.idProduct);
 
 			if (desc.idVendor == vendorID && desc.idProduct == productID)
 			{
@@ -712,7 +727,9 @@ end:
 			goto again_libusb;
 		}
 #endif
+		/* failed */
 		close_libusb_if_needed();
+
 		if (claim_failed)
 			return STATUS_COMM_ERROR;
 		DEBUG_INFO1("Device not found?");
@@ -730,6 +747,9 @@ end2:
 end1:
 	/* free bundle list */
 	bundleRelease(&plist);
+
+	if (return_value != STATUS_SUCCESS)
+		close_libusb_if_needed();
 
 	return return_value;
 } /* OpenUSBByName */
@@ -883,10 +903,6 @@ status_t CloseUSB(unsigned int reader_index)
 
 		if (usbDevice[reader_index].ccid.sIFD_iManufacturer)
 			free(usbDevice[reader_index].ccid.sIFD_iManufacturer);
-
-		/* reset so that bSeq starts at 0 again */
-		if (DriverOptions & DRIVER_OPTION_RESET_ON_CLOSE)
-			(void)libusb_reset_device(usbDevice[reader_index].dev_handle);
 
 		if (usbDevice[reader_index].ccid.arrayOfSupportedDataRates)
 			free(usbDevice[reader_index].ccid.arrayOfSupportedDataRates);
@@ -1226,7 +1242,8 @@ int InterruptRead(int reader_index, int timeout /* in ms */)
 	ret = libusb_submit_transfer(transfer);
 	if (ret < 0) {
 		libusb_free_transfer(transfer);
-		DEBUG_CRITICAL2("libusb_submit_transfer failed: %d", ret);
+		DEBUG_CRITICAL2("libusb_submit_transfer failed: %s",
+			libusb_error_name(ret));
 		return ret;
 	}
 
@@ -1234,17 +1251,18 @@ int InterruptRead(int reader_index, int timeout /* in ms */)
 
 	while (!completed)
 	{
-		ret = libusb_handle_events(ctx);
+		ret = libusb_handle_events_completed(ctx, &completed);
 		if (ret < 0)
 		{
 			if (ret == LIBUSB_ERROR_INTERRUPTED)
 				continue;
 			libusb_cancel_transfer(transfer);
 			while (!completed)
-				if (libusb_handle_events(ctx) < 0)
+				if (libusb_handle_events_completed(ctx, &completed) < 0)
 					break;
 			libusb_free_transfer(transfer);
-			DEBUG_CRITICAL2("libusb_handle_events failed: %d", ret);
+			DEBUG_CRITICAL2("libusb_handle_events failed: %s",
+				libusb_error_name(ret));
 			return ret;
 		}
 	}
@@ -1360,7 +1378,7 @@ static void *Multi_PollingProc(void *p_ext)
 		completed = 0;
 		while (!completed && !msExt->terminated)
 		{
-			rv = libusb_handle_events(ctx);
+			rv = libusb_handle_events_completed(ctx, &completed);
 			if (rv < 0)
 			{
 				DEBUG_COMM2("libusb_handle_events err %d", rv);
@@ -1372,7 +1390,7 @@ static void *Multi_PollingProc(void *p_ext)
 
 				while (!completed && !msExt->terminated)
 				{
-					if (libusb_handle_events(ctx) < 0)
+					if (libusb_handle_events_completed(ctx, &completed) < 0)
 						break;
 				}
 

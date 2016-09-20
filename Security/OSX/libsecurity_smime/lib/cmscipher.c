@@ -283,6 +283,7 @@ SecCmsCipherContextStart(PRArenaPool *poolp, SecSymmetricKeyRef key, SECAlgorith
 	    newParams = SEC_ASN1EncodeItem (poolp, &algid->parameters, &rc2,
 				sec_rc2cbc_parameter_template);
 	    PORT_Free(rc2.rc2ParameterVersion.Data);
+            rc2.rc2ParameterVersion.Data = NULL;
 	    if (newParams == NULL)
 		goto loser;
 	    break;
@@ -322,10 +323,12 @@ SecCmsCipherContextStart(PRArenaPool *poolp, SecSymmetricKeyRef key, SECAlgorith
 		goto loser;
 	    if (initVector.Length != iv.Length) {
 		PORT_Free(iv.Data);
+                iv.Data = NULL;
 		goto loser;
 	    }
 	    memcpy(initVector.Data, iv.Data, initVector.Length);
 	    PORT_Free(iv.Data);
+            iv.Data = NULL;
 	    break;
 	}
 	case SEC_OID_RC2_CBC:
@@ -340,14 +343,18 @@ SecCmsCipherContextStart(PRArenaPool *poolp, SecSymmetricKeyRef key, SECAlgorith
 
 	    if (initVector.Length != rc2.iv.Length) {
 		PORT_Free(rc2.iv.Data);
+                rc2.iv.Data = NULL;
 		PORT_Free(rc2.rc2ParameterVersion.Data);
+                rc2.rc2ParameterVersion.Data = NULL;
 		goto loser;
 	    }
 	    memcpy(initVector.Data, rc2.iv.Data, initVector.Length);
 	    PORT_Free(rc2.iv.Data);
+            rc2.iv.Data = NULL;
 
 	    ulEffectiveBits = rc2_map(&rc2.rc2ParameterVersion);
 	    PORT_Free(rc2.rc2ParameterVersion.Data);
+            rc2.rc2ParameterVersion.Data = NULL;
 	    if (ulEffectiveBits != cssmKey->KeyHeader.LogicalKeySizeInBits)
 		goto loser;
 	    break;

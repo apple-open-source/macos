@@ -23,10 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NetworkProcess_h
-#define NetworkProcess_h
-
-#if ENABLE(NETWORK_PROCESS)
+#pragma once
 
 #include "CacheModel.h"
 #include "ChildProcess.h"
@@ -37,24 +34,32 @@
 #include <WebCore/SessionID.h>
 #include <memory>
 #include <wtf/Forward.h>
+#include <wtf/Function.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/RetainPtr.h>
 
 #if PLATFORM(IOS)
 #include "WebSQLiteDatabaseTracker.h"
 #endif
 
 namespace WebCore {
+class DownloadID;
 class CertificateInfo;
 class NetworkStorageSession;
+class ProtectionSpace;
 class SecurityOrigin;
+class SessionID;
+struct SecurityOriginData;
 }
 
 namespace WebKit {
 class AuthenticationManager;
 class NetworkConnectionToWebProcess;
 class NetworkProcessSupplement;
+class NetworkResourceLoader;
+enum class WebsiteDataFetchOption;
+enum class WebsiteDataType;
 struct NetworkProcessCreationParameters;
-struct SecurityOriginData;
 
 class NetworkProcess : public ChildProcess, private DownloadManager::Client {
     WTF_MAKE_NONCOPYABLE(NetworkProcess);
@@ -93,12 +98,27 @@ public:
 
 #if USE(CFURLCACHE)
     static Vector<Ref<WebCore::SecurityOrigin>> cfURLCacheOrigins();
-    static void clearCFURLCacheForOrigins(const Vector<SecurityOriginData>&);
+    static void clearCFURLCacheForOrigins(const Vector<WebCore::SecurityOriginData>&);
 #endif
 
 #if PLATFORM(COCOA)
+    RetainPtr<CFDataRef> sourceApplicationAuditData() const;
     void clearHSTSCache(WebCore::NetworkStorageSession&, std::chrono::system_clock::time_point modifiedSince);
 #endif
+
+#if USE(NETWORK_SESSION)
+    void findPendingDownloadLocation(NetworkDataTask&, ResponseCompletionHandler&&, const WebCore::ResourceRequest&);
+#endif
+
+#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
+    void canAuthenticateAgainstProtectionSpace(NetworkResourceLoader&, const WebCore::ProtectionSpace&);
+#endif
+
+    void prefetchDNS(const String&);
+
+    void ensurePrivateBrowsingSession(WebCore::SessionID);
+
+    void grantSandboxExtensionsToDatabaseProcessForBlobs(const Vector<String>& filenames, Function<void ()>&& completionHandler);
 
 private:
     NetworkProcess();
@@ -106,56 +126,70 @@ private:
 
     void platformInitializeNetworkProcess(const NetworkProcessCreationParameters&);
 
-    virtual void terminate() override;
+    void terminate() override;
     void platformTerminate();
 
     void lowMemoryHandler(WebCore::Critical);
     void platformLowMemoryHandler(WebCore::Critical);
 
     // ChildProcess
-    virtual void initializeProcess(const ChildProcessInitializationParameters&) override;
-    virtual void initializeProcessName(const ChildProcessInitializationParameters&) override;
-    virtual void initializeSandbox(const ChildProcessInitializationParameters&, SandboxInitializationParameters&) override;
-    virtual void initializeConnection(IPC::Connection*) override;
-    virtual bool shouldTerminate() override;
+    void initializeProcess(const ChildProcessInitializationParameters&) override;
+    void initializeProcessName(const ChildProcessInitializationParameters&) override;
+    void initializeSandbox(const ChildProcessInitializationParameters&, SandboxInitializationParameters&) override;
+    void initializeConnection(IPC::Connection*) override;
+    bool shouldTerminate() override;
 
     // IPC::Connection::Client
-    virtual void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
-    virtual void didReceiveSyncMessage(IPC::Connection&, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&) override;
-    virtual void didClose(IPC::Connection&) override;
-    virtual void didReceiveInvalidMessage(IPC::Connection&, IPC::StringReference messageReceiverName, IPC::StringReference messageName) override;
-    virtual IPC::ProcessType localProcessType() override { return IPC::ProcessType::Network; }
-    virtual IPC::ProcessType remoteProcessType() override { return IPC::ProcessType::UI; }
+    void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
+    void didReceiveSyncMessage(IPC::Connection&, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&) override;
+    void didClose(IPC::Connection&) override;
+    void didReceiveInvalidMessage(IPC::Connection&, IPC::StringReference messageReceiverName, IPC::StringReference messageName) override;
+    IPC::ProcessType localProcessType() override { return IPC::ProcessType::Network; }
+    IPC::ProcessType remoteProcessType() override { return IPC::ProcessType::UI; }
 
     // DownloadManager::Client
-    virtual void didCreateDownload() override;
-    virtual void didDestroyDownload() override;
-    virtual IPC::Connection* downloadProxyConnection() override;
-    virtual AuthenticationManager& downloadsAuthenticationManager() override;
+    void didCreateDownload() override;
+    void didDestroyDownload() override;
+    IPC::Connection* downloadProxyConnection() override;
+    AuthenticationManager& downloadsAuthenticationManager() override;
+#if USE(NETWORK_SESSION)
+    void pendingDownloadCanceled(DownloadID) override;
+#endif
 
     // Message Handlers
     void didReceiveNetworkProcessMessage(IPC::Connection&, IPC::MessageDecoder&);
     void didReceiveSyncNetworkProcessMessage(IPC::Connection&, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&);
-    void initializeNetworkProcess(const NetworkProcessCreationParameters&);
+    void initializeNetworkProcess(NetworkProcessCreationParameters&&);
     void createNetworkConnectionToWebProcess();
-    void ensurePrivateBrowsingSession(WebCore::SessionID);
     void destroyPrivateBrowsingSession(WebCore::SessionID);
 
-    void fetchWebsiteData(WebCore::SessionID, uint64_t websiteDataTypes, uint64_t callbackID);
-    void deleteWebsiteData(WebCore::SessionID, uint64_t websiteDataTypes, std::chrono::system_clock::time_point modifiedSince, uint64_t callbackID);
-    void deleteWebsiteDataForOrigins(WebCore::SessionID, uint64_t websiteDataTypes, const Vector<SecurityOriginData>& origins, const Vector<String>& cookieHostNames, uint64_t callbackID);
+    void fetchWebsiteData(WebCore::SessionID, OptionSet<WebsiteDataType>, OptionSet<WebsiteDataFetchOption>, uint64_t callbackID);
+    void deleteWebsiteData(WebCore::SessionID, OptionSet<WebsiteDataType>, std::chrono::system_clock::time_point modifiedSince, uint64_t callbackID);
+    void deleteWebsiteDataForOrigins(WebCore::SessionID, OptionSet<WebsiteDataType>, const Vector<WebCore::SecurityOriginData>& origins, const Vector<String>& cookieHostNames, uint64_t callbackID);
+
+    void clearCachedCredentials();
 
     // FIXME: This should take a session ID so we can identify which disk cache to delete.
     void clearDiskCache(std::chrono::system_clock::time_point modifiedSince, std::function<void ()> completionHandler);
 
-    void downloadRequest(uint64_t downloadID, const WebCore::ResourceRequest&);
-    void resumeDownload(uint64_t downloadID, const IPC::DataReference& resumeData, const String& path, const SandboxExtension::Handle&);
-    void cancelDownload(uint64_t downloadID);
+    void downloadRequest(WebCore::SessionID, DownloadID, const WebCore::ResourceRequest&);
+    void resumeDownload(WebCore::SessionID, DownloadID, const IPC::DataReference& resumeData, const String& path, const SandboxExtension::Handle&);
+    void cancelDownload(DownloadID);
+#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
+    void continueCanAuthenticateAgainstProtectionSpace(uint64_t resourceLoadIdentifier, bool canAuthenticate);
+#endif
+#if USE(NETWORK_SESSION)
+    void continueCanAuthenticateAgainstProtectionSpaceDownload(DownloadID, bool canAuthenticate);
+    void continueWillSendRequest(DownloadID, WebCore::ResourceRequest&&);
+    void continueDecidePendingDownloadDestination(DownloadID, String destination, const SandboxExtension::Handle& sandboxExtensionHandle, bool allowOverwrite);
+#endif
     void setCacheModel(uint32_t);
     void allowSpecificHTTPSCertificateForHost(const WebCore::CertificateInfo&, const String& host);
     void setCanHandleHTTPSServerTrustEvaluation(bool);
     void getNetworkProcessStatistics(uint64_t callbackID);
     void clearCacheForAllOrigins(uint32_t cachesToClear);
+
+    void didGrantSandboxExtensionsToDatabaseProcessForBlobs(uint64_t requestID);
 
 #if USE(SOUP)
     void setIgnoreTLSErrors(bool);
@@ -172,11 +206,15 @@ private:
     bool m_hasSetCacheModel;
     CacheModel m_cacheModel;
     int64_t m_diskCacheSizeOverride { -1 };
+    bool m_suppressMemoryPressureHandler { false };
     bool m_diskCacheIsDisabledForTesting;
     bool m_canHandleHTTPSServerTrustEvaluation;
 
     typedef HashMap<const char*, std::unique_ptr<NetworkProcessSupplement>, PtrHash<const char*>> NetworkProcessSupplementMap;
     NetworkProcessSupplementMap m_supplements;
+
+    HashMap<uint64_t, Function<void ()>> m_sandboxExtensionForBlobsCompletionHandlers;
+    HashMap<uint64_t, Ref<NetworkResourceLoader>> m_waitingNetworkResourceLoaders;
 
 #if PLATFORM(COCOA)
     void platformInitializeNetworkProcessCocoa(const NetworkProcessCreationParameters&);
@@ -193,7 +231,3 @@ private:
 };
 
 } // namespace WebKit
-
-#endif // ENABLE(NETWORK_PROCESS)
-
-#endif // NetworkProcess_h

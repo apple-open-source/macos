@@ -66,6 +66,7 @@
 #include <unistd.h> 
 #include <stdlib.h>
 #include <sys/sysctl.h>
+#include <fcntl.h>
 
 #include "fsck_hfs.h"
 
@@ -433,6 +434,22 @@ fsck_printing_thread(void *arg)
     return NULL;
 }
     
+static FILE *
+safely_open_log_file(const char *path)
+{
+    int fd = open(path, O_CREAT | O_APPEND | O_WRONLY | O_NOFOLLOW, 0666);
+    if (fd < 0)
+        return NULL;
+
+    struct stat sb;
+    if (fstat(fd, &sb) || !S_ISREG(sb.st_mode)) {
+        close(fd);
+        errno = EPERM;
+        return NULL;
+    }
+
+    return fdopen(fd, "a");
+}
 
 int was_signaled = 0;
 
@@ -532,7 +549,7 @@ shutdown_logging(void)
 	    }
 
 	    for(i=0; i < 60; i++) {
-		log_file = fopen(fname, "a");
+		log_file = safely_open_log_file(fname);
 		if (log_file) {
 		    fwrite(in_mem_log, cur_in_mem_log - in_mem_log, 1, log_file);
 
@@ -591,7 +608,7 @@ setup_logging(void)
     live_fsck = (int)lflag;
 
     if (log_file == NULL) {
-	log_file = fopen(FSCK_LOG_FILE, "a");
+        log_file = safely_open_log_file(FSCK_LOG_FILE);
 	if (log_file) {
 	    setlinebuf(log_file);
 	} else {
@@ -673,7 +690,12 @@ print_to_mem(int type, int mem_type, const char *fmt, const char *str, va_list a
     if (type == DO_VPRINT) {
 	va_copy(ap_copy, ap);
     }
-    
+	
+	/* Grab the lock only when adding output strings to the in-memory data */
+	if (live_fsck && (mem_type == IN_MEM_OUT)) {
+		pthread_mutex_lock(&mem_buf_lock);
+	}
+	
     if (mem_type == IN_MEM_LOG) {
 	    cur_in_mem = cur_in_mem_log;
 	    in_mem_data = in_mem_log;
@@ -682,11 +704,6 @@ print_to_mem(int type, int mem_type, const char *fmt, const char *str, va_list a
 	    cur_in_mem = cur_in_mem_out;
 	    in_mem_data = in_mem_out;
 	    in_mem_data_size = in_mem_out_size;
-    }
-
-    /* Grab the lock only when adding output strings to the in-memory data */
-    if (live_fsck && (mem_type == IN_MEM_OUT)) {
-	pthread_mutex_lock(&mem_buf_lock);
     }
 	
     size_remaining = in_mem_data_size - (ptrdiff_t)(cur_in_mem - in_mem_data);
@@ -706,13 +723,8 @@ print_to_mem(int type, int mem_type, const char *fmt, const char *str, va_list a
 	}
 	    
 	new_log = realloc(in_mem_data, in_mem_data_size + amt);
-	if (new_log == NULL) {
-	    if (live_fsck && (mem_type == IN_MEM_OUT)) {
-		pthread_cond_signal(&mem_buf_cond);
-		pthread_mutex_unlock(&mem_buf_lock);
-	    }
+	if (new_log == NULL)
 	    goto done;
-	}
 
 	in_mem_data_size += amt;
 	cur_in_mem = new_log + (cur_in_mem - in_mem_data);
@@ -730,11 +742,6 @@ print_to_mem(int type, int mem_type, const char *fmt, const char *str, va_list a
 	cur_in_mem += ret;
     }
 
-    if (live_fsck && (mem_type == IN_MEM_OUT)) {
-	pthread_cond_signal(&mem_buf_cond);
-	pthread_mutex_unlock(&mem_buf_lock);
-    }
-
 done:
 
     if (mem_type == IN_MEM_LOG) {
@@ -746,6 +753,11 @@ done:
 	    in_mem_out = in_mem_data;
 	    in_mem_out_size = in_mem_data_size;
     }
+	
+	if (live_fsck && (mem_type == IN_MEM_OUT)) {
+		pthread_cond_signal(&mem_buf_cond);
+		pthread_mutex_unlock(&mem_buf_lock);
+	}
 
     if (type == DO_VPRINT) {
 	va_end(ap_copy);

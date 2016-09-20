@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2000-2015 Apple Inc. All rights reserved.
+ * Copyright(c) 2000-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -36,24 +36,34 @@
 
 #include <Availability.h>
 #include <TargetConditionals.h>
-#include <sys/cdefs.h>
-#include <dispatch/dispatch.h>
-#include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCValidation.h>
-#include <SystemConfiguration/SCPrivate.h>
-#include "SCPreferencesInternal.h"
-#include "SCHelper_client.h"
-
-#include "dy_framework.h"
-
 #include <fcntl.h>
 #include <pthread.h>
 #include <sandbox.h>
 #include <unistd.h>
 #include <sys/errno.h>
+#include <sys/cdefs.h>
+#include <dispatch/dispatch.h>
+
+#include "SCPreferencesInternal.h"
+#include "SCD.h"
+#include "SCHelper_client.h"
+#include "dy_framework.h"
 
 
 const AuthorizationRef	kSCPreferencesUseEntitlementAuthorization	= (AuthorizationRef)CFSTR("UseEntitlement");
+
+
+__private_extern__ os_log_t
+__log_SCPreferences()
+{
+	static os_log_t	log	= NULL;
+
+	if (log == NULL) {
+		log = os_log_create("com.apple.SystemConfiguration", "SCPreferences");
+	}
+
+	return log;
+}
 
 
 static __inline__ CFTypeRef
@@ -159,6 +169,7 @@ static pthread_once_t initialized	= PTHREAD_ONCE_INIT;
 
 static void
 __SCPreferencesInitialize(void) {
+	/* register with CoreFoundation */
 	__kSCPreferencesTypeID = _CFRuntimeRegisterClass(&__SCPreferencesClass);
 	return;
 }
@@ -183,39 +194,10 @@ __SCPreferencesCreatePrivate(CFAllocatorRef	allocator)
 		return NULL;
 	}
 
+	/* initialize non-zero/NULL members */
 	pthread_mutex_init(&prefsPrivate->lock, NULL);
-
-	prefsPrivate->name				= NULL;
-	prefsPrivate->prefsID				= NULL;
-	prefsPrivate->options				= NULL;
-	prefsPrivate->path				= NULL;
-	prefsPrivate->newPath				= NULL;		// new prefs path
-	prefsPrivate->locked				= FALSE;
 	prefsPrivate->lockFD				= -1;
-	prefsPrivate->lockPath				= NULL;
-	prefsPrivate->signature				= NULL;
-	prefsPrivate->session				= NULL;
-	prefsPrivate->sessionNoO_EXLOCK			= NULL;
-	prefsPrivate->sessionRefcnt			= 0;
-	prefsPrivate->sessionKeyLock			= NULL;
-	prefsPrivate->sessionKeyCommit			= NULL;
-	prefsPrivate->sessionKeyApply			= NULL;
-	prefsPrivate->scheduled				= FALSE;
-	prefsPrivate->rls				= NULL;
-	prefsPrivate->rlsFunction			= NULL;
-	prefsPrivate->rlsContext.info			= NULL;
-	prefsPrivate->rlsContext.retain			= NULL;
-	prefsPrivate->rlsContext.release		= NULL;
-	prefsPrivate->rlsContext.copyDescription	= NULL;
-	prefsPrivate->rlList				= NULL;
-	prefsPrivate->dispatchQueue			= NULL;
-	prefsPrivate->prefs				= NULL;
-	prefsPrivate->accessed				= FALSE;
-	prefsPrivate->changed				= FALSE;
 	prefsPrivate->isRoot				= (geteuid() == 0);
-	prefsPrivate->limit_SCNetworkConfiguration	= FALSE;
-	prefsPrivate->authorizationData			= NULL;
-	prefsPrivate->helper_port			= MACH_PORT_NULL;
 
 	return prefsPrivate;
 }
@@ -608,6 +590,9 @@ __SCPreferencesAccess(SCPreferencesRef	prefs)
 		prefsPrivate->changed = TRUE;
 	}
 
+	SC_log(LOG_DEBUG, "SCPreferences() access: %s",
+	       prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path);
+
 	prefsPrivate->accessed = TRUE;
 	return;
 }
@@ -726,10 +711,10 @@ SCPreferencesCreateWithOptions(CFAllocatorRef	allocator,
 		CFRelease(bundleID);
 
 		if (authorizationDict != NULL) {
-			_SCSerialize((CFPropertyListRef)authorizationDict,
-				     &authorizationData,
-				     NULL,
-				     NULL);
+			(void) _SCSerialize((CFPropertyListRef)authorizationDict,
+					    &authorizationData,
+					    NULL,
+					    NULL);
 			CFRelease(authorizationDict);
 		}
 	}
@@ -795,6 +780,10 @@ prefsNotify(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 	pthread_mutex_unlock(&prefsPrivate->lock);
 
 	if (rlsFunction != NULL) {
+		SC_log(LOG_DEBUG, "exec SCPreferences callout: %s%s%s",
+		       ((notify & kSCPreferencesNotificationCommit) != 0) ? "commit" : "",
+		       ((notify & kSCPreferencesNotificationCommit|kSCPreferencesNotificationApply) != 0) ? ", " : "",
+		       ((notify & kSCPreferencesNotificationApply)  != 0) ? "apply"  : "");
 		(*rlsFunction)(prefs, notify, context_info);
 	}
 
@@ -938,6 +927,7 @@ __SCPreferencesScheduleWithRunLoop(SCPreferencesRef	prefs,
 			if (!ok) {
 				goto done;
 			}
+			assert(prefsPrivate->session != NULL);
 		}
 
 		// add SCDynamicStore "keys"
@@ -1158,6 +1148,9 @@ SCPreferencesSynchronize(SCPreferencesRef prefs)
 		_SCErrorSet(kSCStatusNoPrefsSession);
 		return;
 	}
+
+	SC_log(LOG_DEBUG, "SCPreferences() synchronize: %s",
+	       prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path);
 
 	if (prefsPrivate->authorizationData != NULL) {
 		__SCPreferencesSynchronize_helper(prefs);

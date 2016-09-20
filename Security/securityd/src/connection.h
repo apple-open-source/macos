@@ -39,14 +39,8 @@ using MachPlusPlus::TaskPort;
 
 class Session;
 
-// define the minimum interface Connection requires for classes wanting to 
-// participate in SecurityAgent/authorizationhost IPCs (defined here rather
-// than agentquery.h to avoid circularity in headers)
-class SecurityAgentConnectionInterface
-{
-public:
-    virtual void disconnect() = 0;
-};
+// Forward class declaration (defined in agentquery.h, avoid header circularity)
+class SecurityAgentXPCConnection;
 
 //
 // A Connection object represents an established connection between a client
@@ -79,7 +73,7 @@ public:
 	void endWork(CSSM_RETURN &rcode); // Done with this
 	
 	// notify that a SecurityAgent call may hang the active worker thread for a while
-	void useAgent(SecurityAgentConnectionInterface *client)
+	void useAgent(SecurityAgentXPCConnection *client)
 	{ StLock<Mutex> _(*this); agentWait = client; }
 	
 	// set an overriding CSSM_RETURN to return instead of success
@@ -101,7 +95,7 @@ private:
 		busy,					// a thread is busy servicing us
 		dying					// busy and scheduled to die as soon as possible
 	} state;
-	SecurityAgentConnectionInterface *agentWait;	// SA connection we may be waiting on
+	SecurityAgentXPCConnection *agentWait;	// SA connection we may be waiting on
 };
 
 

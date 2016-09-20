@@ -70,6 +70,7 @@ Chapter 3:  How to get various things to work
 3.25. How do I get coloured prompts on my colour xterm?
 3.26. Why is my output duplicated with `foo 2>&1 >foo.out | bar'?
 3.27. What are these `^' and `~' pattern characters, anyway?
+3.28. How do I edit the input buffer in $EDITOR?
 
 Chapter 4:  The mysteries of completion
 4.1. What is completion?
@@ -249,7 +250,7 @@ To get it to work, retrieve the source distribution (see question
 1.5: What's the latest version?
 
 
-Zsh 5.0.8 is the latest production version.  For details of all the
+Zsh 5.2 is the latest production version.  For details of all the
   changes, see the NEWS file in the source distribution.
 
 A beta of the next version is sometimes available.  Development of zsh is
@@ -736,6 +737,27 @@ There is one other serious problem with aliases: consider
   `/bin/ls', which gets a bit recursive.  This can be avoided if you use
   `function' to define a function, which doesn't expand aliases.  It is
   possible to argue for extra warnings somewhere in this mess.
+
+One workaround for this is to use the "function" keyword instead:
+  
+    alias l='/bin/ls -F'
+    function l { /bin/ls -la "$@" | more }
+  
+  The `l' after `function' is not expanded.  Note you don't need
+  the `()' in this case, although it's harmless.
+
+You need to be careful if you are defining a function with multiple
+  names; most people don't need to do this, so it's an unusual problem,
+  but in case you do you should be aware that in versions of the shell
+  before 5.1 names after the first were expanded:
+  
+    function a b c { ... }
+  
+  Here, `b' and `c', but not `a', have aliases expanded.
+  This oddity was fixed in version 5.1.
+
+The rest of this item assumes you use the (more common,
+  but equivalent) `()' definitions.
 
 Bart Schaefer's rule is:  Define first those aliases you expect to
   use in the body of a function, but define the function first if the
@@ -1686,11 +1708,17 @@ On the majority of modern UNIX systems, cutting text from one window and
      already active, and needs to be turned off when the first command is
      executed.  The shell doesn't even know if the remaining text is input
      to a command or for the shell, so there's simply nothing it can do.
-     However, if you have problems you can trick it: type `{' on a line
+
+However, if you have problems you can trick it: type `{' on a line
      by itself, then paste the input, then type `}' on a line by
      itself.  The shell will not execute anything until the final brace is
      read; all input is read as continuation lines (this may require the
      fixes referred to above in order to be reliable).
+
+As of 5.1, this trick is not necessary on terminal emulators that
+     support the bracketed paste feature (this includes most modern
+     terminal emulators).  See the description of $zle_bracketed_paste
+     in the zshparam manual page for details.
   
 
 
@@ -1910,6 +1938,23 @@ Here are some examples with files to illustrate the points.  We'll
      `(../)#.cvsignore' finds the file .cvsignore if it exists
      in the current directory or any parent.)
   
+
+
+3.28: How do I edit the input buffer in $EDITOR?
+
+
+
+When typing a long command interactively, it's possible to edit it in $EDITOR
+  before execution by using the edit-command-line ZLE widget.  For example,
+  after putting
+  
+    autoload -U edit-command-line; 
+    zle -N edit-command-line; 
+    bindkey '^Fc' edit-command-line;
+  
+  in your ~/.zshrc, typing `^F c' will open the entered-so-far
+  command-line for editing.  The command will not be automatically executed;
+  quitting the editor will only return to zsh's command-line editing mode.
 
 
 Chapter 4: The mysteries of completion

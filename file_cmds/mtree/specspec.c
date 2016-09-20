@@ -68,6 +68,8 @@ shownode(NODE *n, int f, char const *path)
 		printf(" nlink=%d", n->st_nlink);
 	if (f & F_SIZE)
 		printf(" size=%jd", (intmax_t)n->st_size);
+	if (f & F_TIME)
+		printf(" time=%ld.%09ld", n->st_mtimespec.tv_sec, n->st_mtimespec.tv_nsec);
 	if (f & F_UID)
 		printf(" uid=%d", n->st_uid);
 	if (f & F_UNAME) {
@@ -87,6 +89,21 @@ shownode(NODE *n, int f, char const *path)
 		printf(" sha256digest=%s", n->sha256digest);
 	if (f & F_FLAGS)
 		printf(" flags=%s", flags_to_string(n->st_flags));
+	if (f & F_BTIME)
+		printf(" btime=%ld.%09ld", n->st_birthtimespec.tv_sec, n->st_birthtimespec.tv_nsec);
+	if (f & F_ATIME)
+		printf(" atime=%ld.%09ld", n->st_atimespec.tv_sec, n->st_atimespec.tv_nsec);
+	if (f & F_CTIME)
+		printf(" ctime=%ld.%09ld", n->st_ctimespec.tv_sec, n->st_ctimespec.tv_nsec);
+	if (f & F_PTIME)
+		printf(" ptime=%ld.%09ld", n->st_ptimespec.tv_sec, n->st_ptimespec.tv_nsec);
+	if (f & F_XATTRS)
+		printf(" xattrsdigest=%s", n->xattrsdigest);
+	if (f & F_INODE)
+		printf(" inode=%llu", n->st_ino);
+	if (f & F_ACL)
+		printf(" acldigest=%s", n->acldigest);
+	
 	printf("\n");
 }
 
@@ -167,6 +184,21 @@ compare_nodes(NODE *n1, NODE *n2, char const *path)
 		differs |= F_SHA256;
 	if (FF(n1, n2, F_FLAGS, st_flags))
 		differs |= F_FLAGS;
+	if (FM(n1, n2, F_BTIME, st_birthtimespec))
+		differs |= F_BTIME;
+	if (FM(n1, n2, F_ATIME, st_atimespec))
+		differs |= F_ATIME;
+	if (FM(n1, n2, F_CTIME, st_ctimespec))
+		differs |= F_CTIME;
+	if (FM(n1, n2, F_PTIME, st_ptimespec))
+		differs |= F_PTIME;
+	if (FS(n1, n2, F_XATTRS, xattrsdigest))
+		differs |= F_XATTRS;
+	if (FF(n1, n2, F_INODE, st_ino))
+		differs |= F_INODE;
+	if (FS(n1, n2, F_ACL, acldigest))
+		differs |= F_ACL;
+	
 	if (differs) {
 		mismatch(n1, n2, differs, path);
 		return (1);

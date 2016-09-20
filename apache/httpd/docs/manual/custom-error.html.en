@@ -18,7 +18,7 @@
 <body id="manual-page"><div id="page-header">
 <p class="menu"><a href="./mod/">Modules</a> | <a href="./mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">Glossary</a> | <a href="./sitemap.html">Sitemap</a></p>
 <p class="apache">Apache HTTP Server Version 2.4</p>
-<img alt="" src="./images/feather.gif" /></div>
+<img alt="" src="./images/feather.png" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="./images/left.gif" /></a></div>
 <div id="path">
 <a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="./">Version 2.4</a></div><div id="page-content"><div id="preamble"><h1>Custom Error Responses</h1>
@@ -55,7 +55,7 @@
 <li><img alt="" src="./images/down.gif" /> <a href="#variables">Available Variables</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#custom">Customizing Error Responses</a></li>
 <li><img alt="" src="./images/down.gif" /> <a href="#multi-lang">Multi Language Custom Error Documents</a></li>
-</ul><ul class="seealso"><li><a href="#comments_section">Comments</a></li></ul></div>
+</ul><h3>See also</h3><ul class="seealso"><li><a href="#comments_section">Comments</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="./images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="configuration" id="configuration">Configuration</a></h2>
@@ -66,10 +66,10 @@
     if <code class="directive"><a href="./mod/core.html#allowoverride">AllowOverride</a></code> is set to
     FileInfo.</p>
 
-    <pre class="prettyprint lang-config">ErrorDocument 500 "Sorry, our script crashed. Oh dear"<br />
-ErrorDocument 500 /cgi-bin/crash-recover<br />
-ErrorDocument 500 http://error.example.com/server_error.html<br />
-ErrorDocument 404 /errors/not_found.html <br />
+    <pre class="prettyprint lang-config">ErrorDocument 500 "Sorry, our script crashed. Oh dear"
+ErrorDocument 500 /cgi-bin/crash-recover
+ErrorDocument 500 http://error.example.com/server_error.html
+ErrorDocument 404 /errors/not_found.html
 ErrorDocument 401 /subscription/how_to_subscribe.html</pre>
 
 
@@ -155,8 +155,8 @@ ErrorDocument 401 /subscription/how_to_subscribe.html</pre>
       script might include the following:</p>
 
        <pre class="prettyprint lang-perl">...
-print  "Content-type: text/html\n"; <br />
-printf "Status: %s Condition Intercepted\n", $ENV{"REDIRECT_STATUS"}; <br />
+print  "Content-type: text/html\n";
+printf "Status: %s Condition Intercepted\n", $ENV{"REDIRECT_STATUS"};
 ...</pre>
 
 
@@ -182,8 +182,8 @@ printf "Status: %s Condition Intercepted\n", $ENV{"REDIRECT_STATUS"}; <br />
 
     <p>In your server configuration file, you'll see a line such as:</p>
 
-    <pre class="prettyprint lang-config">    # Multi-language error messages<br />
-    #Include conf/extra/httpd-multilang-errordoc.conf</pre>
+    <pre class="prettyprint lang-config"># Multi-language error messages
+#Include conf/extra/httpd-multilang-errordoc.conf</pre>
 
 
     <p>Uncommenting this <code>Include</code> line will enable this
@@ -228,7 +228,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/custom-error.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">Modules</a> | <a href="./mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">Glossary</a> | <a href="./sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

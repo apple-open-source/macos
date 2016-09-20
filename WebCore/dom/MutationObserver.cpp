@@ -35,6 +35,8 @@
 #include "Dictionary.h"
 #include "Document.h"
 #include "ExceptionCode.h"
+#include "HTMLSlotElement.h"
+#include "Microtasks.h"
 #include "MutationCallback.h"
 #include "MutationObserverRegistration.h"
 #include "MutationRecord.h"
@@ -45,14 +47,14 @@ namespace WebCore {
 
 static unsigned s_observerPriority = 0;
 
-Ref<MutationObserver> MutationObserver::create(PassRefPtr<MutationCallback> callback)
+Ref<MutationObserver> MutationObserver::create(Ref<MutationCallback>&& callback)
 {
     ASSERT(isMainThread());
-    return adoptRef(*new MutationObserver(callback));
+    return adoptRef(*new MutationObserver(WTFMove(callback)));
 }
 
-MutationObserver::MutationObserver(PassRefPtr<MutationCallback> callback)
-    : m_callback(callback)
+MutationObserver::MutationObserver(Ref<MutationCallback>&& callback)
+    : m_callback(WTFMove(callback))
     , m_priority(s_observerPriority++)
 {
 }
@@ -70,46 +72,43 @@ bool MutationObserver::validateOptions(MutationObserverOptions options)
         && ((options & CharacterData) || !(options & CharacterDataOldValue));
 }
 
-void MutationObserver::observe(Node* node, const Dictionary& optionsDictionary, ExceptionCode& ec)
+void MutationObserver::observe(Node& node, const Init& init, ExceptionCode& ec)
 {
-    if (!node) {
-        ec = NOT_FOUND_ERR;
-        return;
-    }
-
-    static const struct {
-        const char* name;
-        MutationObserverOptions value;
-    } booleanOptions[] = {
-        { "childList", ChildList },
-        { "attributes", Attributes },
-        { "characterData", CharacterData },
-        { "subtree", Subtree },
-        { "attributeOldValue", AttributeOldValue },
-        { "characterDataOldValue", CharacterDataOldValue }
-    };
     MutationObserverOptions options = 0;
-    for (unsigned i = 0; i < sizeof(booleanOptions) / sizeof(booleanOptions[0]); ++i) {
-        bool value = false;
-        if (optionsDictionary.get(booleanOptions[i].name, value) && value)
-            options |= booleanOptions[i].value;
-    }
+
+    if (init.childList)
+        options |= ChildList;
+    if (init.subtree)
+        options |= Subtree;
+    if (init.attributeOldValue.valueOr(false))
+        options |= AttributeOldValue;
+    if (init.characterDataOldValue.valueOr(false))
+        options |= CharacterDataOldValue;
 
     HashSet<AtomicString> attributeFilter;
-    if (optionsDictionary.get("attributeFilter", attributeFilter))
+    if (init.attributeFilter) {
+        for (auto& value : init.attributeFilter.value())
+            attributeFilter.add(value);
         options |= AttributeFilter;
+    }
+
+    if (init.attributes ? init.attributes.value() : (options & (AttributeFilter | AttributeOldValue)))
+        options |= Attributes;
+
+    if (init.characterData ? init.characterData.value() : (options & CharacterDataOldValue))
+        options |= CharacterData;
 
     if (!validateOptions(options)) {
-        ec = SYNTAX_ERR;
+        ec = TypeError;
         return;
     }
 
-    node->registerMutationObserver(this, options, attributeFilter);
+    node.registerMutationObserver(this, options, attributeFilter);
 }
 
-Vector<RefPtr<MutationRecord>> MutationObserver::takeRecords()
+Vector<Ref<MutationRecord>> MutationObserver::takeRecords()
 {
-    Vector<RefPtr<MutationRecord>> records;
+    Vector<Ref<MutationRecord>> records;
     records.swap(m_records);
     return records;
 }
@@ -122,46 +121,86 @@ void MutationObserver::disconnect()
         MutationObserverRegistration::unregisterAndDelete(registration);
 }
 
-void MutationObserver::observationStarted(MutationObserverRegistration* registration)
+void MutationObserver::observationStarted(MutationObserverRegistration& registration)
 {
-    ASSERT(!m_registrations.contains(registration));
-    m_registrations.add(registration);
+    ASSERT(!m_registrations.contains(&registration));
+    m_registrations.add(&registration);
 }
 
-void MutationObserver::observationEnded(MutationObserverRegistration* registration)
+void MutationObserver::observationEnded(MutationObserverRegistration& registration)
 {
-    ASSERT(m_registrations.contains(registration));
-    m_registrations.remove(registration);
+    ASSERT(m_registrations.contains(&registration));
+    m_registrations.remove(&registration);
 }
 
 typedef HashSet<RefPtr<MutationObserver>> MutationObserverSet;
 
 static MutationObserverSet& activeMutationObservers()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(MutationObserverSet, activeObservers, ());
+    static NeverDestroyed<MutationObserverSet> activeObservers;
     return activeObservers;
 }
 
 static MutationObserverSet& suspendedMutationObservers()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(MutationObserverSet, suspendedObservers, ());
+    static NeverDestroyed<MutationObserverSet> suspendedObservers;
     return suspendedObservers;
 }
 
-void MutationObserver::enqueueMutationRecord(PassRefPtr<MutationRecord> mutation)
+// https://dom.spec.whatwg.org/#signal-slot-list
+static Vector<RefPtr<HTMLSlotElement>>& signalSlotList()
+{
+    static NeverDestroyed<Vector<RefPtr<HTMLSlotElement>>> list;
+    return list;
+}
+
+static bool mutationObserverCompoundMicrotaskQueuedFlag;
+
+class MutationObserverMicrotask final : public Microtask {
+    WTF_MAKE_FAST_ALLOCATED;
+private:
+    Result run() final
+    {
+        MutationObserver::notifyMutationObservers();
+        return Result::Done;
+    }
+};
+
+static void queueMutationObserverCompoundMicrotask()
+{
+    if (mutationObserverCompoundMicrotaskQueuedFlag)
+        return;
+    mutationObserverCompoundMicrotaskQueuedFlag = true;
+    MicrotaskQueue::mainThreadQueue().append(std::make_unique<MutationObserverMicrotask>());
+}
+
+void MutationObserver::enqueueMutationRecord(Ref<MutationRecord>&& mutation)
 {
     ASSERT(isMainThread());
-    m_records.append(mutation);
+    m_records.append(WTFMove(mutation));
     activeMutationObservers().add(this);
+
+    queueMutationObserverCompoundMicrotask();
+}
+
+void MutationObserver::enqueueSlotChangeEvent(HTMLSlotElement& slot)
+{
+    ASSERT(isMainThread());
+    ASSERT(!signalSlotList().contains(&slot));
+    signalSlotList().append(&slot);
+
+    queueMutationObserverCompoundMicrotask();
 }
 
 void MutationObserver::setHasTransientRegistration()
 {
     ASSERT(isMainThread());
     activeMutationObservers().add(this);
+
+    queueMutationObserverCompoundMicrotask();
 }
 
-HashSet<Node*> MutationObserver::getObservedNodes() const
+HashSet<Node*> MutationObserver::observedNodes() const
 {
     HashSet<Node*> observedNodes;
     for (auto* registration : m_registrations)
@@ -171,7 +210,7 @@ HashSet<Node*> MutationObserver::getObservedNodes() const
 
 bool MutationObserver::canDeliver()
 {
-    return !m_callback->scriptExecutionContext()->activeDOMObjectsAreSuspended();
+    return m_callback->canInvokeCallback();
 }
 
 void MutationObserver::deliver()
@@ -185,20 +224,24 @@ void MutationObserver::deliver()
         if (registration->hasTransientRegistrations())
             transientRegistrations.append(registration);
     }
-    for (size_t i = 0; i < transientRegistrations.size(); ++i)
-        transientRegistrations[i]->clearTransientRegistrations();
+    for (auto& registration : transientRegistrations)
+        registration->clearTransientRegistrations();
 
     if (m_records.isEmpty())
         return;
 
-    Vector<RefPtr<MutationRecord>> records;
+    Vector<Ref<MutationRecord>> records;
     records.swap(m_records);
 
     m_callback->call(records, this);
 }
 
-void MutationObserver::deliverAllMutations()
+void MutationObserver::notifyMutationObservers()
 {
+    // https://dom.spec.whatwg.org/#notify-mutation-observers
+    // 1. Unset mutation observer compound microtask queued flag.
+    mutationObserverCompoundMicrotaskQueuedFlag = false;
+
     ASSERT(isMainThread());
     static bool deliveryInProgress = false;
     if (deliveryInProgress)
@@ -208,29 +251,44 @@ void MutationObserver::deliverAllMutations()
     if (!suspendedMutationObservers().isEmpty()) {
         Vector<RefPtr<MutationObserver>> suspended;
         copyToVector(suspendedMutationObservers(), suspended);
-        for (size_t i = 0; i < suspended.size(); ++i) {
-            if (!suspended[i]->canDeliver())
+        for (auto& observer : suspended) {
+            if (!observer->canDeliver())
                 continue;
 
-            suspendedMutationObservers().remove(suspended[i]);
-            activeMutationObservers().add(suspended[i]);
+            suspendedMutationObservers().remove(observer);
+            activeMutationObservers().add(observer);
         }
     }
 
-    while (!activeMutationObservers().isEmpty()) {
-        Vector<RefPtr<MutationObserver>> observers;
-        copyToVector(activeMutationObservers(), observers);
+    while (!activeMutationObservers().isEmpty() || !signalSlotList().isEmpty()) {
+        // 2. Let notify list be a copy of unit of related similar-origin browsing contexts' list of MutationObserver objects.
+        Vector<RefPtr<MutationObserver>> notifyList;
+        copyToVector(activeMutationObservers(), notifyList);
         activeMutationObservers().clear();
-        std::sort(observers.begin(), observers.end(), [](const RefPtr<MutationObserver>& lhs, const RefPtr<MutationObserver>& rhs) {
+        std::sort(notifyList.begin(), notifyList.end(), [](auto& lhs, auto& rhs) {
             return lhs->m_priority < rhs->m_priority;
         });
 
-        for (size_t i = 0; i < observers.size(); ++i) {
-            if (observers[i]->canDeliver())
-                observers[i]->deliver();
-            else
-                suspendedMutationObservers().add(observers[i]);
+        // 3. Let signalList be a copy of unit of related similar-origin browsing contexts' signal slot list.
+        // 4. Empty unit of related similar-origin browsing contexts' signal slot list.
+        Vector<RefPtr<HTMLSlotElement>> slotList;
+        if (!signalSlotList().isEmpty()) {
+            slotList.swap(signalSlotList());
+            for (auto& slot : slotList)
+                slot->didRemoveFromSignalSlotList();
         }
+
+        // 5. For each MutationObserver object mo in notify list, execute a compound microtask subtask
+        for (auto& observer : notifyList) {
+            if (observer->canDeliver())
+                observer->deliver();
+            else
+                suspendedMutationObservers().add(observer);
+        }
+
+        // 6. For each slot slot in signalList, in order, fire an event named slotchange, with its bubbles attribute set to true, at slot.
+        for (auto& slot : slotList)
+            slot->dispatchSlotChangeEvent();
     }
 
     deliveryInProgress = false;

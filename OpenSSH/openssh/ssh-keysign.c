@@ -1,4 +1,4 @@
-/* $OpenBSD: ssh-keysign.c,v 1.48 2015/03/24 20:09:11 markus Exp $ */
+/* $OpenBSD: ssh-keysign.c,v 1.52 2016/02/15 09:47:49 dtucker Exp $ */
 /*
  * Copyright (c) 2002 Markus Friedl.  All rights reserved.
  *
@@ -34,6 +34,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
 
 #ifdef WITH_OPENSSL
 #include <openssl/evp.h>
@@ -58,6 +59,8 @@
 #include "ssherr.h"
 
 struct ssh *active_state = NULL; /* XXX needed for linking */
+
+extern char *__progname;
 
 /* XXX readconf.c needs these */
 uid_t original_real_uid;
@@ -179,6 +182,10 @@ main(int argc, char **argv)
 	u_int32_t rnd[256];
 #endif
 
+	ssh_malloc_init();	/* must be called before any mallocs */
+	if (pledge("stdio rpath getpw dns id", NULL) != 0)
+		fatal("%s: pledge: %s", __progname, strerror(errno));
+
 	/* Ensure that stdin and stdout are connected */
 	if ((fd = open(_PATH_DEVNULL, O_RDWR)) < 2)
 		exit(1);
@@ -187,6 +194,7 @@ main(int argc, char **argv)
 		close(fd);
 
 	i = 0;
+	/* XXX This really needs to read sshd_config for the paths */
 	key_fd[i++] = open(_PATH_HOST_DSA_KEY_FILE, O_RDONLY);
 	key_fd[i++] = open(_PATH_HOST_ECDSA_KEY_FILE, O_RDONLY);
 	key_fd[i++] = open(_PATH_HOST_ED25519_KEY_FILE, O_RDONLY);
@@ -244,23 +252,26 @@ main(int argc, char **argv)
 	if (!found)
 		fatal("no hostkey found");
 
+	if (pledge("stdio dns", NULL) != 0)
+		fatal("%s: pledge: %s", __progname, strerror(errno));
+
 	if ((b = sshbuf_new()) == NULL)
-		fatal("%s: sshbuf_new failed", __func__);
+		fatal("%s: sshbuf_new failed", __progname);
 	if (ssh_msg_recv(STDIN_FILENO, b) < 0)
 		fatal("ssh_msg_recv failed");
 	if ((r = sshbuf_get_u8(b, &rver)) != 0)
-		fatal("%s: buffer error: %s", __func__, ssh_err(r));
+		fatal("%s: buffer error: %s", __progname, ssh_err(r));
 	if (rver != version)
 		fatal("bad version: received %d, expected %d", rver, version);
 	if ((r = sshbuf_get_u32(b, (u_int *)&fd)) != 0)
-		fatal("%s: buffer error: %s", __func__, ssh_err(r));
+		fatal("%s: buffer error: %s", __progname, ssh_err(r));
 	if (fd < 0 || fd == STDIN_FILENO || fd == STDOUT_FILENO)
 		fatal("bad fd");
 	if ((host = get_local_name(fd)) == NULL)
 		fatal("cannot get local name for fd");
 
 	if ((r = sshbuf_get_string(b, &data, &dlen)) != 0)
-		fatal("%s: buffer error: %s", __func__, ssh_err(r));
+		fatal("%s: buffer error: %s", __progname, ssh_err(r));
 	if (valid_request(pw, host, &key, data, dlen) < 0)
 		fatal("not a valid request");
 	free(host);
@@ -276,19 +287,20 @@ main(int argc, char **argv)
 	if (!found) {
 		if ((fp = sshkey_fingerprint(key, options.fingerprint_hash,
 		    SSH_FP_DEFAULT)) == NULL)
-			fatal("%s: sshkey_fingerprint failed", __func__);
+			fatal("%s: sshkey_fingerprint failed", __progname);
 		fatal("no matching hostkey found for key %s %s",
 		    sshkey_type(key), fp ? fp : "");
 	}
 
-	if ((r = sshkey_sign(keys[i], &signature, &slen, data, dlen, 0)) != 0)
+	if ((r = sshkey_sign(keys[i], &signature, &slen, data, dlen, NULL, 0))
+	    != 0)
 		fatal("sshkey_sign failed: %s", ssh_err(r));
 	free(data);
 
 	/* send reply */
 	sshbuf_reset(b);
 	if ((r = sshbuf_put_string(b, signature, slen)) != 0)
-		fatal("%s: buffer error: %s", __func__, ssh_err(r));
+		fatal("%s: buffer error: %s", __progname, ssh_err(r));
 	if (ssh_msg_send(STDOUT_FILENO, version, b) == -1)
 		fatal("ssh_msg_send failed");
 

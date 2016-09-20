@@ -1,14 +1,19 @@
 " Vim syntax file
 " Language:     Subversion (svn) commit file
-" Maintainer:   Dmitry Vasiliev <dima at hlabs dot spb dot ru>
-" URL:          http://www.hlabs.spb.ru/vim/svn.vim
-" Revision:     $Id: svn.vim 683 2008-07-30 11:52:38Z hdima $
+" Maintainer:   Dmitry Vasiliev <dima at hlabs dot org>
+" URL:          https://github.com/hdima/vim-scripts/blob/master/syntax/svn.vim
+" Last Change:  2013-11-08
 " Filenames:    svn-commit*.tmp
-" Version:      1.6
+" Version:      1.10
 
 " Contributors:
-"   Stefano Zacchiroli
+"
+" List of the contributors in alphabetical order:
+"
 "   A. S. Budden
+"   Ingo Karkat
+"   Myk Taylor
+"   Stefano Zacchiroli
 
 " For version 5.x: Clear all syntax items.
 " For version 6.x: Quit when a syntax file was already loaded.
@@ -18,11 +23,19 @@ elseif exists("b:current_syntax")
   finish
 endif
 
-syn region svnRegion    start="^--.*--$" end="\%$" contains=ALL contains=@NoSpell
-syn match svnRemoved    "^D    .*$" contained
-syn match svnAdded      "^A[ M]   .*$" contained
-syn match svnModified   "^M[ M]   .*$" contained
-syn match svnProperty   "^_M   .*$" contained
+syn spell toplevel
+
+syn match svnFirstLine  "\%^.*" nextgroup=svnRegion,svnBlank skipnl
+syn match svnSummary    "^.\{0,50\}" contained containedin=svnFirstLine nextgroup=svnOverflow contains=@Spell
+syn match svnOverflow   ".*" contained contains=@Spell
+syn match svnBlank      "^.*" contained contains=@Spell
+
+syn region svnRegion    end="\%$" matchgroup=svnDelimiter start="^--.*--$" contains=svnRemoved,svnRenamed,svnAdded,svnModified,svnProperty,@NoSpell
+syn match svnRemoved    "^D    .*$" contained contains=@NoSpell
+syn match svnRenamed    "^R[ M][ U][ +] .*$" contained contains=@NoSpell
+syn match svnAdded      "^A[ M][ U][ +] .*$" contained contains=@NoSpell
+syn match svnModified   "^M[ M][ U]  .*$" contained contains=@NoSpell
+syn match svnProperty   "^_M[ U]  .*$" contained contains=@NoSpell
 
 " Synchronization.
 syn sync clear
@@ -39,11 +52,16 @@ if version >= 508 || !exists("did_svn_syn_inits")
     command -nargs=+ HiLink hi def link <args>
   endif
 
+  HiLink svnSummary     Keyword
+  HiLink svnBlank       Error
+
   HiLink svnRegion      Comment
+  HiLink svnDelimiter   NonText
   HiLink svnRemoved     Constant
   HiLink svnAdded       Identifier
   HiLink svnModified    Special
   HiLink svnProperty    Special
+  HiLink svnRenamed     Special
 
   delcommand HiLink
 endif

@@ -39,7 +39,7 @@ namespace WebKit {
 class NetworkServiceInitializerDelegate : public XPCServiceInitializerDelegate {
 public:
     NetworkServiceInitializerDelegate(OSObjectPtr<xpc_connection_t> connection, xpc_object_t initializerMessage)
-        : XPCServiceInitializerDelegate(WTF::move(connection), initializerMessage)
+        : XPCServiceInitializerDelegate(WTFMove(connection), initializerMessage)
     {
     }
 };
@@ -48,23 +48,27 @@ public:
 
 using namespace WebKit;
 
-extern "C" WK_EXPORT void NetworkServiceInitializer(xpc_connection_t connection, xpc_object_t initializerMessage);
+extern "C" WK_EXPORT void NetworkServiceInitializer(xpc_connection_t connection, xpc_object_t initializerMessage, xpc_object_t priorityBoostMessage);
 
-void NetworkServiceInitializer(xpc_connection_t connection, xpc_object_t initializerMessage)
+void NetworkServiceInitializer(xpc_connection_t connection, xpc_object_t initializerMessage, xpc_object_t priorityBoostMessage)
 {
-#if ENABLE(NETWORK_PROCESS)
     // Remove the SecItemShim from the DYLD_INSERT_LIBRARIES environment variable so any processes spawned by
     // the this process don't try to insert the shim and crash.
     EnvironmentUtilities::stripValuesEndingWithString("DYLD_INSERT_LIBRARIES", "/SecItemShim.dylib");
 
 #if HAVE(OS_ACTIVITY)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     os_activity_t activity = os_activity_start("com.apple.WebKit.Networking", OS_ACTIVITY_FLAG_DEFAULT);
+#pragma clang diagnostic pop
 #endif
 
-    XPCServiceInitializer<NetworkProcess, NetworkServiceInitializerDelegate>(adoptOSObject(connection), initializerMessage);
+    XPCServiceInitializer<NetworkProcess, NetworkServiceInitializerDelegate>(adoptOSObject(connection), initializerMessage, priorityBoostMessage);
 
 #if HAVE(OS_ACTIVITY)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     os_activity_end(activity);
-#endif
+#pragma clang diagnostic pop
 #endif
 }

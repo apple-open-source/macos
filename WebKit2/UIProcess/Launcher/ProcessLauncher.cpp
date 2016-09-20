@@ -31,34 +31,25 @@
 
 namespace WebKit {
 
-static WorkQueue& processLauncherWorkQueue()
-{
-
-    static WorkQueue& processLauncherWorkQueue = WorkQueue::create("com.apple.WebKit.ProcessLauncher").leakRef();
-    return processLauncherWorkQueue;
-}
-
 ProcessLauncher::ProcessLauncher(Client* client, const LaunchOptions& launchOptions)
     : m_client(client)
+    , m_weakPtrFactory(this)
     , m_launchOptions(launchOptions)
     , m_processIdentifier(0)
 {
     m_isLaunching = true;
-
-    RefPtr<ProcessLauncher> processLauncher(this);
-    processLauncherWorkQueue().dispatch([processLauncher] {
-        processLauncher->launchProcess();
-    });
+    launchProcess();
 }
 
-void ProcessLauncher::didFinishLaunchingProcess(PlatformProcessIdentifier processIdentifier, IPC::Connection::Identifier identifier)
+void ProcessLauncher::didFinishLaunchingProcess(pid_t processIdentifier, IPC::Connection::Identifier identifier)
 {
     m_processIdentifier = processIdentifier;
     m_isLaunching = false;
     
     if (!m_client) {
         // FIXME: Make Identifier a move-only object and release port rights/connections in the destructor.
-#if OS(DARWIN)
+#if OS(DARWIN) && !PLATFORM(GTK)
+        // FIXME: Should really be something like USE(MACH)
         if (identifier.port)
             mach_port_mod_refs(mach_task_self(), identifier.port, MACH_PORT_RIGHT_RECEIVE, -1);
 #endif
@@ -72,59 +63,6 @@ void ProcessLauncher::invalidate()
 {
     m_client = 0;
     platformInvalidate();
-}
-
-const char* ProcessLauncher::processTypeAsString(ProcessType processType)
-{
-    switch (processType) {
-    case WebProcess:
-        return "webprocess";
-#if ENABLE(NETSCAPE_PLUGIN_API)
-    case PluginProcess:
-        return "pluginprocess";
-#endif
-#if ENABLE(NETWORK_PROCESS)
-    case NetworkProcess:
-        return "networkprocess";
-#endif
-#if ENABLE(DATABASE_PROCESS)
-    case DatabaseProcess:
-        return "databaseprocess";
-#endif
-    }
-
-    ASSERT_NOT_REACHED();
-    return 0;
-}
-
-bool ProcessLauncher::getProcessTypeFromString(const char* string, ProcessType& processType)
-{
-    if (!strcmp(string, "webprocess")) {
-        processType = WebProcess;
-        return true;
-    }
-
-#if ENABLE(NETSCAPE_PLUGIN_API)
-    if (!strcmp(string, "pluginprocess")) {
-        processType = PluginProcess;
-        return true;
-    }
-#endif
-
-#if ENABLE(NETWORK_PROCESS)
-    if (!strcmp(string, "networkprocess")) {
-        processType = NetworkProcess;
-        return true;
-    }
-#endif
-
-#if ENABLE(DATABASE_PROCESS)
-    if (!strcmp(string, "databaseprocess")) {
-        processType = DatabaseProcess;
-        return true;
-    }
-#endif
-    return false;
 }
 
 } // namespace WebKit

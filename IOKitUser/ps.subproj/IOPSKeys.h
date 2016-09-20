@@ -266,13 +266,12 @@
 /*!
  * @define      kIOPSPowerSourceIDKey
  *
- * @abstract    CFNumber key uniquely identifying a UPS attached to the system.
+ * @abstract    CFNumber key uniquely identifying the power source.
  *
  * @discussion
  *              <ul>
- *              <li> Apple UPS power sources will publish this key.
- *              <li> Callers should not set this key; OS X power management will publish this key for UPS's.
- *              <li> Type CFNumber, kCFNumberIntType, uniquely identifying an attached UPS.
+ *              <li> Callers should not set this key; OS X power management will publish this key for all power sources
+ *              <li> Type CFNumber, kCFNumberIntType, uniquely identifying the power source
  *              </ul>
  */
  

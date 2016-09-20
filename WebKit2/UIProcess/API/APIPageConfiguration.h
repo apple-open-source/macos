@@ -32,7 +32,7 @@
 #include <wtf/GetPtr.h>
 
 namespace WebKit {
-class VisitedLinkProvider;
+class VisitedLinkStore;
 class WebPageGroup;
 class WebPageProxy;
 class WebPreferences;
@@ -73,8 +73,8 @@ public:
     WebKit::WebPageProxy* relatedPage();
     void setRelatedPage(WebKit::WebPageProxy*);
 
-    WebKit::VisitedLinkProvider* visitedLinkProvider();
-    void setVisitedLinkProvider(WebKit::VisitedLinkProvider*);
+    WebKit::VisitedLinkStore* visitedLinkStore();
+    void setVisitedLinkStore(WebKit::VisitedLinkStore*);
 
     WebsiteDataStore* websiteDataStore();
     void setWebsiteDataStore(WebsiteDataStore*);
@@ -89,6 +89,8 @@ public:
     bool alwaysRunsAtForegroundPriority() { return m_alwaysRunsAtForegroundPriority; }
     void setAlwaysRunsAtForegroundPriority(bool alwaysRunsAtForegroundPriority) { m_alwaysRunsAtForegroundPriority = alwaysRunsAtForegroundPriority; } 
 #endif
+    bool initialCapitalizationEnabled() { return m_initialCapitalizationEnabled; }
+    void setInitialCapitalizationEnabled(bool initialCapitalizationEnabled) { m_initialCapitalizationEnabled = initialCapitalizationEnabled; }
 
 private:
 
@@ -98,17 +100,18 @@ private:
     RefPtr<WebKit::WebPreferences> m_preferences;
     WebKit::WebPreferencesStore::ValueMap m_preferenceValues;
     RefPtr<WebKit::WebPageProxy> m_relatedPage;
-    RefPtr<WebKit::VisitedLinkProvider> m_visitedLinkProvider;
+    RefPtr<WebKit::VisitedLinkStore> m_visitedLinkStore;
 
     RefPtr<WebsiteDataStore> m_websiteDataStore;
     // FIXME: We currently have to pass the session ID separately here to support the legacy private browsing session.
     // Once we get rid of it we should get rid of this configuration parameter as well.
     WebCore::SessionID m_sessionID;
 
-    bool m_treatsSHA1SignedCertificatesAsInsecure = false;
+    bool m_treatsSHA1SignedCertificatesAsInsecure = true;
 #if PLATFORM(IOS)
     bool m_alwaysRunsAtForegroundPriority = false;
 #endif
+    bool m_initialCapitalizationEnabled = true;
 };
 
 } // namespace API

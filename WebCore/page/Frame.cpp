@@ -5,7 +5,7 @@
  *                     2000 Simon Hausmann <hausmann@kde.org>
  *                     2000 Stefan Schimanski <1Stein@gmx.de>
  *                     2001 George Staikos <staikos@kde.org>
- * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2016 Apple Inc. All rights reserved.
  * Copyright (C) 2005 Alexey Proskuryakov <ap@nypop.com>
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2008 Eric Seidel <eric@webkit.org>
@@ -160,16 +160,15 @@ Frame::Frame(Page& page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient&
     , m_script(std::make_unique<ScriptController>(*this))
     , m_editor(std::make_unique<Editor>(*this))
     , m_selection(std::make_unique<FrameSelection>(this))
-    , m_eventHandler(std::make_unique<EventHandler>(*this))
     , m_animationController(std::make_unique<AnimationController>(*this))
 #if PLATFORM(IOS)
     , m_overflowAutoScrollTimer(*this, &Frame::overflowAutoScrollTimerFired)
     , m_selectionChangeCallbacksDisabled(false)
-    , m_timersPausedCount(0)
 #endif
     , m_pageZoomFactor(parentPageZoomFactor(this))
     , m_textZoomFactor(parentTextZoomFactor(this))
     , m_activeDOMObjectsAndAnimationsSuspendedCount(0)
+    , m_eventHandler(std::make_unique<EventHandler>(*this))
 {
     AtomicString::init();
     HTMLNames::init();
@@ -192,17 +191,10 @@ Frame::Frame(Page& page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient&
     frameCounter.increment();
 #endif
 
-    // FIXME: We should reconcile the iOS and OpenSource code below.
-    Frame* parent = parentFromOwnerElement(ownerElement);
-#if PLATFORM(IOS)
-    // Pause future timers if this frame is created when page is in pending state.
-    if (parent && parent->timersPaused())
-        setTimersPaused(true);
-#else
     // Pause future ActiveDOMObjects if this frame is being created while the page is in a paused state.
+    Frame* parent = parentFromOwnerElement(ownerElement);
     if (parent && parent->activeDOMObjectsAndAnimationsSuspended())
         suspendActiveDOMObjectsAndAnimations();
-#endif
 }
 
 Ref<Frame> Frame::create(Page* page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient* client)
@@ -259,9 +251,11 @@ void Frame::setView(RefPtr<FrameView>&& view)
     if (m_view)
         m_view->unscheduleRelayout();
     
-    eventHandler().clear();
+    // This may be called during destruction, so need to do a null check.
+    if (m_eventHandler)
+        m_eventHandler->clear();
 
-    m_view = WTF::move(view);
+    m_view = WTFMove(view);
 
     // Only one form submission is allowed per view of a part.
     // Since this part may be getting reused as a result of being
@@ -314,7 +308,7 @@ static JSC::Yarr::RegularExpression createRegExpForLabels(const Vector<String>& 
     // REVIEW- version of this call in FrameMac.mm caches based on the NSArray ptrs being
     // the same across calls.  We can't do that.
 
-    DEPRECATED_DEFINE_STATIC_LOCAL(JSC::Yarr::RegularExpression, wordRegExp, ("\\w", TextCaseSensitive));
+    static NeverDestroyed<JSC::Yarr::RegularExpression> wordRegExp("\\w", TextCaseSensitive);
     StringBuilder pattern;
     pattern.append('(');
     unsigned int numLabels = labels.size();
@@ -325,8 +319,8 @@ static JSC::Yarr::RegularExpression createRegExpForLabels(const Vector<String>& 
         bool startsWithWordChar = false;
         bool endsWithWordChar = false;
         if (label.length()) {
-            startsWithWordChar = wordRegExp.match(label.substring(0, 1)) >= 0;
-            endsWithWordChar = wordRegExp.match(label.substring(label.length() - 1, 1)) >= 0;
+            startsWithWordChar = wordRegExp.get().match(label.substring(0, 1)) >= 0;
+            endsWithWordChar = wordRegExp.get().match(label.substring(label.length() - 1, 1)) >= 0;
         }
 
         if (i)
@@ -482,7 +476,7 @@ String Frame::matchLabelsAgainstElement(const Vector<String>& labels, Element* e
     if (!resultFromNameAttribute.isEmpty())
         return resultFromNameAttribute;
     
-    return matchLabelsAgainstString(labels, element->fastGetAttribute(idAttr));
+    return matchLabelsAgainstString(labels, element->attributeWithoutSynchronization(idAttr));
 }
 
 #if PLATFORM(IOS)
@@ -498,25 +492,25 @@ void Frame::scrollOverflowLayer(RenderLayer* layer, const IntRect& visibleRect, 
     if (visibleRect.intersects(exposeRect))
         return;
 
-    int x = layer->scrollXOffset();
+    // FIXME: Why isn't this just calling RenderLayer::scrollRectToVisible()?
+    ScrollOffset scrollOffset = layer->scrollOffset();
     int exposeLeft = exposeRect.x();
     int exposeRight = exposeLeft + exposeRect.width();
     int clientWidth = roundToInt(box->clientWidth());
     if (exposeLeft <= 0)
-        x = std::max(0, x + exposeLeft - clientWidth / 2);
+        scrollOffset.setX(std::max(0, scrollOffset.x() + exposeLeft - clientWidth / 2));
     else if (exposeRight >= clientWidth)
-        x = std::min(box->scrollWidth() - clientWidth, x + clientWidth / 2);
+        scrollOffset.setX(std::min(box->scrollWidth() - clientWidth, scrollOffset.x() + clientWidth / 2));
 
-    int y = layer->scrollYOffset();
     int exposeTop = exposeRect.y();
     int exposeBottom = exposeTop + exposeRect.height();
     int clientHeight = roundToInt(box->clientHeight());
     if (exposeTop <= 0)
-        y = std::max(0, y + exposeTop - clientHeight / 2);
+        scrollOffset.setY(std::max(0, scrollOffset.y() + exposeTop - clientHeight / 2));
     else if (exposeBottom >= clientHeight)
-        y = std::min(box->scrollHeight() - clientHeight, y + clientHeight / 2);
+        scrollOffset.setY(std::min(box->scrollHeight() - clientHeight, scrollOffset.y() + clientHeight / 2));
 
-    layer->scrollToOffset(IntSize(x, y));
+    layer->scrollToOffset(scrollOffset);
     selection().setCaretRectNeedsUpdate();
     selection().updateAppearance();
 }
@@ -610,7 +604,7 @@ int Frame::checkOverflowScroll(OverflowScrollAction action)
     }
 
     if (action == PerformOverflowScroll && (deltaX || deltaY)) {
-        layer->scrollToOffset(IntSize(layer->scrollXOffset() + deltaX, layer->scrollYOffset() + deltaY));
+        layer->scrollToOffset(layer->scrollOffset() + IntSize(deltaX, deltaY));
 
         // Handle making selection.
         VisiblePosition visiblePosition(renderer->positionForPoint(selectionPosition, nullptr));
@@ -697,35 +691,17 @@ void Frame::injectUserScripts(UserScriptInjectionTime injectionTime)
     if (loader().stateMachine().creatingInitialEmptyDocument() && !settings().shouldInjectUserScriptsInInitialEmptyDocument())
         return;
 
-    const auto* userContentController = m_page->userContentController();
-    if (!userContentController)
+    Document* document = this->document();
+    if (!document)
         return;
 
-    // Walk the hashtable. Inject by world.
-    const UserScriptMap* userScripts = userContentController->userScripts();
-    if (!userScripts)
-        return;
+    m_page->userContentProvider().forEachUserScript([&](DOMWrapperWorld& world, const UserScript& script) {
+        if (script.injectedFrames() == InjectInTopFrameOnly && ownerElement())
+            return;
 
-    for (const auto& worldAndUserScript : *userScripts)
-        injectUserScriptsForWorld(*worldAndUserScript.key, *worldAndUserScript.value, injectionTime);
-}
-
-void Frame::injectUserScriptsForWorld(DOMWrapperWorld& world, const UserScriptVector& userScripts, UserScriptInjectionTime injectionTime)
-{
-    if (userScripts.isEmpty())
-        return;
-
-    Document* doc = document();
-    if (!doc)
-        return;
-
-    for (auto& script : userScripts) {
-        if (script->injectedFrames() == InjectInTopFrameOnly && ownerElement())
-            continue;
-
-        if (script->injectionTime() == injectionTime && UserContentURLPattern::matchesPatterns(doc->url(), script->whitelist(), script->blacklist()))
-            m_script->evaluateInWorld(ScriptSourceCode(script->source(), script->url()), world);
-    }
+        if (script.injectionTime() == injectionTime && UserContentURLPattern::matchesPatterns(document->url(), script.whitelist(), script.blacklist()))
+            m_script->evaluateInWorld(ScriptSourceCode(script.source(), script.url()), world);
+    });
 }
 
 RenderView* Frame::contentRenderer() const
@@ -878,7 +854,6 @@ void Frame::createView(const IntSize& viewportSize, const Color& backgroundColor
     bool useFixedLayout, ScrollbarMode horizontalScrollbarMode, bool horizontalLock,
     ScrollbarMode verticalScrollbarMode, bool verticalLock)
 {
-    ASSERT(this);
     ASSERT(m_page);
 
     bool isMainFrame = this->isMainFrame();
@@ -1012,27 +987,31 @@ void Frame::suspendActiveDOMObjectsAndAnimations()
         return;
 
     // FIXME: Suspend/resume calls will not match if the frame is navigated, and gets a new document.
-    if (document()) {
-        document()->suspendScriptedAnimationControllerCallbacks();
-        animation().suspendAnimationsForDocument(document());
-        document()->suspendActiveDOMObjects(ActiveDOMObject::PageWillBeSuspended);
-    }
+    clearTimers(); // Suspends animations and pending relayouts.
+    if (m_doc)
+        m_doc->suspendScheduledTasks(ActiveDOMObject::PageWillBeSuspended);
 }
 
 void Frame::resumeActiveDOMObjectsAndAnimations()
 {
-    ASSERT(activeDOMObjectsAndAnimationsSuspended());
+    if (!activeDOMObjectsAndAnimationsSuspended())
+        return;
 
     m_activeDOMObjectsAndAnimationsSuspendedCount--;
 
     if (activeDOMObjectsAndAnimationsSuspended())
         return;
 
-    if (document()) {
-        document()->resumeActiveDOMObjects(ActiveDOMObject::PageWillBeSuspended);
-        animation().resumeAnimationsForDocument(document());
-        document()->resumeScriptedAnimationControllerCallbacks();
-    }
+    if (!m_doc)
+        return;
+
+    // FIXME: Suspend/resume calls will not match if the frame is navigated, and gets a new document.
+    m_doc->resumeScheduledTasks(ActiveDOMObject::PageWillBeSuspended);
+
+    // Frame::clearTimers() suspended animations and pending relayouts.
+    animation().resumeAnimationsForDocument(m_doc.get());
+    if (m_view)
+        m_view->scheduleRelayout();
 }
 
 void Frame::deviceOrPageScaleFactorChanged()
@@ -1059,6 +1038,11 @@ bool Frame::isURLAllowed(const URL& url) const
         }
     }
     return true;
+}
+
+bool Frame::isAlwaysOnLoggingAllowed() const
+{
+    return page() && page()->isAlwaysOnLoggingAllowed();
 }
 
 } // namespace WebCore

@@ -564,6 +564,14 @@ kextdProcessKernelLoadRequest(CFDictionaryRef   request)
         pgo = CFBooleanGetValue(pgoref);
     }
 
+#if HAVE_DANGERZONE
+    dzRecordKextLoadKernel(osKext);
+    if ( ! dzAllowKextLoad(osKext) ) {
+        OSKextRemoveKextPersonalitiesFromKernel(osKext);
+        goto finish;
+    }
+#endif // HAVE_DANGERZONE
+
     osLoadResult = OSKextLoadWithOptions(osKext,
         /* startExclusion */ kOSKextExcludeNone,
         /* addPersonalitiesExclusion */ kOSKextExcludeAll,
@@ -1259,26 +1267,6 @@ kextdProcessUserLoadRequest(
         goto finish;
     }
   
-    if (__esp_enabled()) {
-        xpc_object_t dict = xpc_dictionary_create(NULL, NULL, 0);
-        if (dict == NULL) {
-            result = kOSKextReturnNotLoadable;
-            goto finish;
-        }
-        xpc_dictionary_set_int64(dict, "euid", remote_euid);
-        xpc_dictionary_set_int64(dict, "pid", remote_pid);
-        if (kextIDString != NULL) {
-            xpc_dictionary_set_string(dict, "kextID", kextIDString);
-        }
-        xpc_dictionary_set_string(dict, "kextPath", kextPathString);
-        int esp_result = __esp_check("kext-load", dict);
-        xpc_release(dict);
-        if (esp_result != 0) {
-            result = kOSKextReturnNotLoadable;
-            goto finish;
-        }
-    }
-    
     /* consult sandboxing system to make sure this is OK
      * <rdar://problem/11015459
      */
@@ -1336,6 +1324,14 @@ kextdProcessUserLoadRequest(
     {
         pgo = CFBooleanGetValue(pgoref);
     }
+
+#if HAVE_DANGERZONE
+    dzRecordKextLoadUser(theKext);
+    if ( ! dzAllowKextLoad(theKext) ) {
+        result = kOSKextReturnNotLoadable;
+        goto finish;
+    }
+#endif // HAVE_DANGERZONE
 
     /* The codepath from this function will do any error logging
      * and cleanup needed.

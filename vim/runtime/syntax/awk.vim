@@ -1,13 +1,15 @@
 " Vim syntax file
 " Language:	awk, nawk, gawk, mawk
-" Maintainer:	Antonio Colombo <azc10@yahoo.com>
-" Last Change:	2005 Mar 16
+" Maintainer:	Antonio Colombo <azc100@gmail.com>
+" Last Change:	2014 Oct 21
 
 " AWK  ref.  is: Alfred V. Aho, Brian W. Kernighan, Peter J. Weinberger
 " The AWK Programming Language, Addison-Wesley, 1988
 
 " GAWK ref. is: Arnold D. Robbins
 " Effective AWK Programming, Third Edition, O'Reilly, 2001
+" Effective AWK Programming, Fourth Edition, O'Reilly, 2015
+" (also available with the gawk source distribution)
 
 " MAWK is a "new awk" meaning it implements AWK ref.
 " mawk conforms to the Posix 1003.2 (draft 11.3)
@@ -25,22 +27,35 @@ elseif exists("b:current_syntax")
   finish
 endif
 
+let s:cpo_save = &cpo
+set cpo&vim
+
 " A bunch of useful Awk keywords
 " AWK  ref. p. 188
 syn keyword awkStatement	break continue delete exit
 syn keyword awkStatement	function getline next
 syn keyword awkStatement	print printf return
-" GAWK ref. p. 117
+" GAWK ref. Chapter 7
 syn keyword awkStatement	nextfile
-" AWK  ref. p. 42, GAWK ref. p. 142-166
-syn keyword awkFunction	atan2 close cos exp fflush int log rand sin sqrt srand
-syn keyword awkFunction	gsub index length match split sprintf sub
-syn keyword awkFunction	substr system
-" GAWK ref. p. 142-166
-syn keyword awkFunction	asort gensub mktime strftime strtonum systime
+"
+" GAWK ref. Chapter 9, Functions
+"
+" Numeric Functions
+syn keyword awkFunction	atan2 cos div exp int log rand sin sqrt srand
+" String Manipulation Functions
+syn keyword awkFunction	asort asort1 gensub gsub index length match 
+syn keyword awkFunction	patsplit split sprintf strtonum sub substr
 syn keyword awkFunction	tolower toupper
-syn keyword awkFunction	and or xor compl lshift rshift
-syn keyword awkFunction	dcgettext bindtextdomain
+" Input Output Functions
+syn keyword awkFunction	close fflush system
+" Time Functions
+syn keyword awkFunction	mktime strftime systime
+" Bit Manipulation Functions
+syn keyword awkFunction	and compl lshift or rshift xor
+" Getting Type Function
+syn keyword awkFunction	isarray
+" String-Translation Functions
+syn keyword awkFunction	bindtextdomain dcgettext dcngetext
 
 syn keyword awkConditional	if else
 syn keyword awkRepeat	while for
@@ -48,13 +63,16 @@ syn keyword awkRepeat	while for
 syn keyword awkTodo		contained TODO
 
 syn keyword awkPatterns	BEGIN END
-" AWK  ref. p. 36
-syn keyword awkVariables	ARGC ARGV FILENAME FNR FS NF NR
-syn keyword awkVariables	OFMT OFS ORS RLENGTH RS RSTART SUBSEP
-" GAWK ref. p. 120-126
-syn keyword awkVariables	ARGIND BINMODE CONVFMT ENVIRON ERRNO
-syn keyword awkVariables	FIELDWIDTHS IGNORECASE LINT PROCINFO
-syn keyword awkVariables	RT RLENGTH TEXTDOMAIN
+
+" GAWK ref. Chapter 7
+" Built-in Variables That Control awk
+syn keyword awkVariables        BINMODE CONVFMT FIELDWIDTHS FPAT FS
+syn keyword awkVariables	IGNORECASE LINT OFMT OFS ORS PREC
+syn keyword awkVariables	ROUNDMODE RS SUBSEP TEXTDOMAIN
+" Built-in Variables That Convey Information
+syn keyword awkVariables	ARGC ARGV ARGIND ENVIRON ERRNO FILENAME
+syn keyword awkVariables	FNR NF FUNCTAB NR PROCINFO RLENGTH RSTART 
+syn keyword awkVariables	RT SYMTAB
 
 syn keyword awkRepeat	do
 
@@ -87,7 +105,7 @@ syn match   awkRegExp	contained "[?.*{}|+]"
 
 " String and Character constants
 " Highlight special characters (those which have a backslash) differently
-syn region  awkString	start=+"+  skip=+\\\\\|\\"+  end=+"+  contains=awkSpecialCharacter,awkSpecialPrintf
+syn region  awkString	start=+"+  skip=+\\\\\|\\"+  end=+"+  contains=@Spell,awkSpecialCharacter,awkSpecialPrintf
 syn match   awkSpecialCharacter contained "\\."
 
 " Some of these combinations may seem weird, but they work.
@@ -112,15 +130,15 @@ syn case match
 "syn match  awkIdentifier	"\<[a-zA-Z_][a-zA-Z0-9_]*\>"
 
 " Arithmetic operators: +, and - take care of ++, and --
-"syn match   awkOperator	"+\|-\|\*\|/\|%\|="
-"syn match   awkOperator	"+=\|-=\|\*=\|/=\|%="
-"syn match   awkOperator	"^\|^="
+syn match   awkOperator	"+\|-\|\*\|/\|%\|="
+syn match   awkOperator	"+=\|-=\|\*=\|/=\|%="
+syn match   awkOperator	"^\|^="
 
 " Comparison expressions.
-"syn match   awkExpression	"==\|>=\|=>\|<=\|=<\|\!="
-"syn match   awkExpression	"\~\|\!\~"
-"syn match   awkExpression	"?\|:"
-"syn keyword awkExpression	in
+syn match   awkExpression	"==\|>=\|=>\|<=\|=<\|\!="
+syn match   awkExpression	"\~\|\!\~"
+syn match   awkExpression	"?\|:"
+syn keyword awkExpression	in
 
 " Boolean Logic (OR, AND, NOT)
 "syn match  awkBoolLogic	"||\|&&\|\!"
@@ -129,7 +147,7 @@ syn case match
 " Put this above those to override them.
 " Put this in a 'match "\<printf\=\>.*;\="' to make it not override
 " less/greater than (most of the time), but it won't work yet because
-" keywords allways have precedence over match & region.
+" keywords always have precedence over match & region.
 " File I/O: (print foo, bar > "filename") & for nawk (getline < "filename")
 "syn match  awkFileIO		contained ">"
 "syn match  awkFileIO		contained "<"
@@ -138,7 +156,7 @@ syn case match
 syn match  awkSemicolon	";"
 syn match  awkComma		","
 
-syn match  awkComment	"#.*" contains=awkTodo
+syn match  awkComment	"#.*" contains=@Spell,awkTodo
 
 syn match  awkLineSkip	"\\$"
 
@@ -155,7 +173,7 @@ syn sync ccomment awkArray maxlines=10
 
 " define the default highlighting
 " For version 5.7 and earlier: only when not done already
-" For version 5.8 and later: only when an item doesn't have highlightling yet
+" For version 5.8 and later: only when an item doesn't have highlighting yet
 if version >= 508 || !exists("did_awk_syn_inits")
   if version < 508
     let did_awk_syn_inits = 1
@@ -184,8 +202,8 @@ if version >= 508 || !exists("did_awk_syn_inits")
   HiLink awkFloat		Float
 
   HiLink awkFileIO		Special
-  "HiLink awkOperator		Special
-  "HiLink awkExpression		Special
+  HiLink awkOperator		Special
+  HiLink awkExpression		Special
   HiLink awkBoolLogic		Special
 
   HiLink awkPatterns		Special
@@ -212,5 +230,8 @@ if version >= 508 || !exists("did_awk_syn_inits")
 endif
 
 let b:current_syntax = "awk"
+
+let &cpo = s:cpo_save
+unlet s:cpo_save
 
 " vim: ts=8

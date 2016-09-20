@@ -70,6 +70,25 @@ function parseSecurityOrigin(securityOrigin)
     return {scheme, host, port};
 }
 
+function parseDataURL(url)
+{
+    if (!url.startsWith("data:"))
+        return null;
+
+    // data:[<media type>][;charset=<character set>][;base64],<data>
+    let match = url.match(/^data:([^;,]*)?(?:;charset=([^;,]*?))?(;base64)?,(.*)$/);
+    if (!match)
+        return null;
+
+    let scheme = "data";
+    let mimeType = match[1] || "text/plain";
+    let charset = match[2] || "US-ASCII";
+    let base64 = !!match[3];
+    let data = decodeURIComponent(match[4]);
+
+    return {scheme, mimeType, charset, base64, data};
+}
+
 function parseURL(url)
 {
     url = url ? url.trim() : "";
@@ -155,7 +174,7 @@ function absoluteURL(partialURL, baseURL)
 
     // A URL that starts with "#" is just a fragment that gets applied to the base URL (replacing the base URL fragment, maintaining the query string).
     if (partialURL[0] === "#") {
-        var queryStringComponent = baseURLComponents.queryString ? "?" + baseURLComponents.queryString : "";
+        let queryStringComponent = baseURLComponents.queryString ? "?" + baseURLComponents.queryString : "";
         return baseURLPrefix + baseURLComponents.path + queryStringComponent + partialURL;
     }
 
@@ -216,27 +235,24 @@ WebInspector.displayNameForURL = function(url, urlComponents)
     return displayName || WebInspector.displayNameForHost(urlComponents.host) || url;
 };
 
-WebInspector.truncateURL = function(url, multiline, dataURIMaxSize)
+WebInspector.truncateURL = function(url, multiline = false, dataURIMaxSize = 6)
 {
     if (!url.startsWith("data:"))
         return url;
 
-    multiline = multiline || false;
-    dataURIMaxSize = dataURIMaxSize || 6;
-
-    var dataIndex = url.indexOf(",") + 1;
-    var header = url.slice(0, dataIndex);
+    const dataIndex = url.indexOf(",") + 1;
+    let header = url.slice(0, dataIndex);
     if (multiline)
         header += "\n";
 
-    var data = url.slice(dataIndex);
+    const data = url.slice(dataIndex);
     if (data.length < dataURIMaxSize)
         return header + data;
 
-    var firstChunk = data.slice(0, Math.ceil(dataURIMaxSize / 2));
-    var ellipsis = "\u2026";
-    var middleChunk = multiline ? `\n${ellipsis}\n` : ellipsis;
-    var lastChunk = data.slice(-Math.floor(dataURIMaxSize / 2));
+    const firstChunk = data.slice(0, Math.ceil(dataURIMaxSize / 2));
+    const ellipsis = "\u2026";
+    const middleChunk = multiline ? `\n${ellipsis}\n` : ellipsis;
+    const lastChunk = data.slice(-Math.floor(dataURIMaxSize / 2));
     return header + firstChunk + middleChunk + lastChunk;
 };
 

@@ -79,10 +79,12 @@ public:
     bool containsUncommonAttributeSelector() const { return m_containsUncommonAttributeSelector; }
     unsigned linkMatchType() const { return m_linkMatchType; }
     bool hasDocumentSecurityOrigin() const { return m_hasDocumentSecurityOrigin; }
-    PropertyWhitelistType propertyWhitelistType(bool isMatchingUARules = false) const { return isMatchingUARules ? PropertyWhitelistNone : static_cast<PropertyWhitelistType>(m_propertyWhitelistType); }
+    PropertyWhitelistType propertyWhitelistType() const { return static_cast<PropertyWhitelistType>(m_propertyWhitelistType); }
     // Try to balance between memory usage (there can be lots of RuleData objects) and good filtering performance.
     static const unsigned maximumIdentifierCount = 4;
     const unsigned* descendantSelectorIdentifierHashes() const { return m_descendantSelectorIdentifierHashes; }
+
+    void disableSelectorFiltering() { m_descendantSelectorIdentifierHashes[0] = 0; }
 
 #if ENABLE(CSS_SELECTOR_JIT)
     SelectorCompilationStatus compilationStatus() const { return m_compilationStatus; }
@@ -147,7 +149,7 @@ class RuleSet {
     WTF_MAKE_NONCOPYABLE(RuleSet); WTF_MAKE_FAST_ALLOCATED;
 public:
     struct RuleSetSelectorPair {
-        RuleSetSelectorPair(const CSSSelector* selector, std::unique_ptr<RuleSet> ruleSet) : selector(selector), ruleSet(WTF::move(ruleSet)) { }
+        RuleSetSelectorPair(const CSSSelector* selector, std::unique_ptr<RuleSet> ruleSet) : selector(selector), ruleSet(WTFMove(ruleSet)) { }
         RuleSetSelectorPair(const RuleSetSelectorPair& pair) : selector(pair.selector), ruleSet(const_cast<RuleSetSelectorPair*>(&pair)->ruleSet.release()) { }
 
         const CSSSelector* selector;
@@ -155,11 +157,12 @@ public:
     };
 
     RuleSet();
+    ~RuleSet();
 
     typedef Vector<RuleData, 1> RuleDataVector;
     typedef HashMap<AtomicStringImpl*, std::unique_ptr<RuleDataVector>> AtomRuleMap;
 
-    void addRulesFromSheet(StyleSheetContents*, const MediaQueryEvaluator&, StyleResolver* = 0);
+    void addRulesFromSheet(StyleSheetContents&, const MediaQueryEvaluator&, StyleResolver* = 0);
 
     void addStyleRule(StyleRule*, AddRuleFlags);
     void addRule(StyleRule*, unsigned selectorIndex, AddRuleFlags);
@@ -171,7 +174,7 @@ public:
 
     const RuleFeatureSet& features() const { return m_features; }
 
-    const RuleDataVector* idRules(AtomicStringImpl* key) const { return m_idRules.get(key); }
+    const RuleDataVector* idRules(AtomicStringImpl& key) const { return m_idRules.get(&key); }
     const RuleDataVector* classRules(AtomicStringImpl* key) const { return m_classRules.get(key); }
     const RuleDataVector* tagRules(AtomicStringImpl* key, bool isHTMLName) const;
     const RuleDataVector* shadowPseudoElementRules(AtomicStringImpl* key) const { return m_shadowPseudoElementRules.get(key); }
@@ -179,6 +182,8 @@ public:
 #if ENABLE(VIDEO_TRACK)
     const RuleDataVector* cuePseudoRules() const { return &m_cuePseudoRules; }
 #endif
+    const RuleDataVector& hostPseudoClassRules() const { return m_hostPseudoClassRules; }
+    const RuleDataVector& slottedPseudoElementRules() const { return m_slottedPseudoElementRules; }
     const RuleDataVector* focusPseudoClassRules() const { return &m_focusPseudoClassRules; }
     const RuleDataVector* universalRules() const { return &m_universalRules; }
 
@@ -187,7 +192,8 @@ public:
 
     unsigned ruleCount() const { return m_ruleCount; }
 
-    bool hasShadowPseudoElementRules() const { return !m_shadowPseudoElementRules.isEmpty(); }
+    bool hasShadowPseudoElementRules() const;
+    void copyShadowPseudoElementRulesFrom(const RuleSet&);
 
 private:
     void addChildRules(const Vector<RefPtr<StyleRuleBase>>&, const MediaQueryEvaluator& medium, StyleResolver*, bool hasDocumentSecurityOrigin, bool isInitiatingElementInUserAgentShadowTree, AddRuleFlags);
@@ -201,20 +207,16 @@ private:
 #if ENABLE(VIDEO_TRACK)
     RuleDataVector m_cuePseudoRules;
 #endif
+    RuleDataVector m_hostPseudoClassRules;
+    RuleDataVector m_slottedPseudoElementRules;
     RuleDataVector m_focusPseudoClassRules;
     RuleDataVector m_universalRules;
     Vector<StyleRulePage*> m_pageRules;
-    unsigned m_ruleCount;
-    bool m_autoShrinkToFitEnabled;
+    unsigned m_ruleCount { 0 };
+    bool m_autoShrinkToFitEnabled { false };
     RuleFeatureSet m_features;
     Vector<RuleSetSelectorPair> m_regionSelectorsAndRuleSets;
 };
-
-inline RuleSet::RuleSet()
-    : m_ruleCount(0)
-    , m_autoShrinkToFitEnabled(true)
-{
-}
 
 inline const RuleSet::RuleDataVector* RuleSet::tagRules(AtomicStringImpl* key, bool isHTMLName) const
 {

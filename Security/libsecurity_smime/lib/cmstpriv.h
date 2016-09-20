@@ -328,7 +328,7 @@ typedef struct SecCmsRecipientEncryptedKeyStr SecCmsRecipientEncryptedKey;
 struct SecCmsKeyAgreeRecipientInfoStr {
     SecAsn1Item				version;
     SecCmsOriginatorIdentifierOrKey	originatorIdentifierOrKey;
-    SecAsn1Item * 				ukm;				/* optional */
+    SecAsn1Item 				ukm;				/* optional */
     SECAlgorithmID			keyEncAlg;
     SecCmsRecipientEncryptedKey **	recipientEncryptedKeys;
 };

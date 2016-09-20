@@ -28,11 +28,6 @@
  * dependent values so we can print the dump file on any architecture.
  */
 
-#ifndef lint
-static const char rcsid[] _U_ =
-    "@(#) $Header: /tcpdump/master/libpcap/savefile.c,v 1.183 2008-12-23 20:13:29 guy Exp $ (LBL)";
-#endif
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -364,11 +359,9 @@ pcap_fopen_offline_internal(FILE *fp, u_int precision,
 				 */
 				goto found;
 		}
-		/*
-		 * That's not a PCAP-NG file
-		 */
-		snprintf(errbuf, PCAP_ERRBUF_SIZE, "unknown file format");
-		goto bad;
+        if (err == 0)
+            snprintf(errbuf, PCAP_ERRBUF_SIZE, "not a pcap-ng file");
+        goto bad;
 	}
 	/*
 	 * Try all file types.
@@ -383,7 +376,6 @@ pcap_fopen_offline_internal(FILE *fp, u_int precision,
 			/*
 			 * Error trying to read the header.
 			 */
-			snprintf(errbuf, PCAP_ERRBUF_SIZE, "unknown file format");
 			goto bad;
 		}
 	}

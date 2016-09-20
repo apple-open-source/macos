@@ -13,7 +13,7 @@
 			buildPhases = (
 			);
 			dependencies = (
-				0CBB16ED187728C500FCF0F7 /* PBXTargetDependency */,
+				0C7020041BFFF4FE006A61C5 /* PBXTargetDependency */,
 			);
 			name = coreTLS_libraries;
 			productName = coreTLS;
@@ -24,11 +24,24 @@
 			buildPhases = (
 			);
 			dependencies = (
-				0C12A7D918688C7200B857BD /* PBXTargetDependency */,
 				0C12A7D718688C6E00B857BD /* PBXTargetDependency */,
+				0C99D6141C447745003A4AF0 /* PBXTargetDependency */,
+				0C12A7D918688C7200B857BD /* PBXTargetDependency */,
 			);
 			name = All;
 			productName = All;
+		};
+		0C701FFD1BFFF4B3006A61C5 /* coreTLS_helpers */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 0C701FFE1BFFF4B3006A61C5 /* Build configuration list for PBXAggregateTarget "coreTLS_helpers" */;
+			buildPhases = (
+			);
+			dependencies = (
+				0C2BCDEE1D0B719400ED7A2F /* PBXTargetDependency */,
+				0C7020061BFFF507006A61C5 /* PBXTargetDependency */,
+			);
+			name = coreTLS_helpers;
+			productName = coreTLS_libsystem;
 		};
 		0C9694FC182C3E52009F4643 /* coreTLS_executables */ = {
 			isa = PBXAggregateTarget;
@@ -75,8 +88,8 @@
 		0C04E99C1892DE6200E49919 /* tls_types_private.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C04E99B1892DE6200E49919 /* tls_types_private.h */; };
 		0C08A3C11857A2FE00DFBA9D /* sslCrypto.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C08A3BF1857A2FE00DFBA9D /* sslCrypto.c */; };
 		0C08A3C21857A2FE00DFBA9D /* sslCrypto.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C08A3C01857A2FE00DFBA9D /* sslCrypto.h */; };
+		0C147A6E1C126CB800495B4C /* tls_helpers_identity.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C147A6D1C126CB800495B4C /* tls_helpers_identity.c */; };
 		0C179B4318C533D0007B09BF /* tls_server.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C179B4118C533D0007B09BF /* tls_server.c */; };
-		0C179B4718C5366D007B09BF /* appleSession.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCB2E9918BBF15D00592893 /* appleSession.c */; };
 		0C179B4818C5366D007B09BF /* secCrypto.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCB2E9718BBF12F00592893 /* secCrypto.c */; };
 		0C179B4918C5366D007B09BF /* sslMemory.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF4260534D89900303760 /* sslMemory.c */; };
 		0C179B4B18C5378E007B09BF /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C6C633715D1BB7100BC68CD /* CoreFoundation.framework */; };
@@ -99,10 +112,14 @@
 		0C27752A188EF9F6000C0442 /* tls_ciphersuites.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF4010534D89900303760 /* tls_ciphersuites.c */; };
 		0C2A501F1815D47300601766 /* tls_ciphersuites.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF4010534D89900303760 /* tls_ciphersuites.c */; };
 		0C2A50291815D47300601766 /* tls_record.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C870BF317B43967008FB2CF /* tls_record.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		0C2BCDEC1D0B718500ED7A2F /* dummy.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CBB16F21877318F00FCF0F7 /* dummy.c */; };
+		0C2BCDEF1D0B71EF00ED7A2F /* libcoretls.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C2BCDEB1D0B716700ED7A2F /* libcoretls.dylib */; };
+		0C2BCDF01D0B71F200ED7A2F /* libcoretls.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C2BCDEB1D0B716700ED7A2F /* libcoretls.dylib */; };
+		0C2BCDF11D0B71F200ED7A2F /* libcoretls.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C2BCDEB1D0B716700ED7A2F /* libcoretls.dylib */; };
+		0C2BCDF41D0B720A00ED7A2F /* libcoretls.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C2BCDEB1D0B716700ED7A2F /* libcoretls.dylib */; };
 		0C417E491B601A3100DE639E /* tls_metrics.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C417E471B601A3100DE639E /* tls_metrics.c */; };
 		0C417E4A1B601A3100DE639E /* tls_metrics.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C417E481B601A3100DE639E /* tls_metrics.h */; };
 		0C6CE0AB1A968F5300BF0994 /* sockets.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCC9A5C18AC27440019EC70 /* sockets.c */; };
-		0C6CE0AD1A968F5300BF0994 /* appleSession.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCB2E9918BBF15D00592893 /* appleSession.c */; };
 		0C6CE0AE1A968F5300BF0994 /* secCrypto.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCB2E9718BBF12F00592893 /* secCrypto.c */; };
 		0C6CE0AF1A968F5300BF0994 /* sslMemory.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF4260534D89900303760 /* sslMemory.c */; };
 		0C6CE0B01A968F5300BF0994 /* tls_server.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C179B4118C533D0007B09BF /* tls_server.c */; };
@@ -113,6 +130,8 @@
 		0C6CE0BE1A968FB500BF0994 /* libcoretls_handshake.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C870BFB17B44328008FB2CF /* libcoretls_handshake.a */; };
 		0C6CE0BF1A968FB500BF0994 /* libcoretls_record.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C870BD917B1A62C008FB2CF /* libcoretls_record.a */; };
 		0C6CE0C01A968FB500BF0994 /* libcoretls_stream_parser.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C03D64317DE8B330087643B /* libcoretls_stream_parser.a */; };
+		0C701FFA1BFFEF1D006A61C5 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C701FF91BFFEF1D006A61C5 /* Security.framework */; };
+		0C701FFC1BFFEF25006A61C5 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C701FFB1BFFEF25006A61C5 /* CoreFoundation.framework */; };
 		0C7272241A15607D000F845B /* tls_stream_parser.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C7272231A15607D000F845B /* tls_stream_parser.c */; };
 		0C7A928819A2B3FA0065A165 /* tls_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 0CCA413C15C75863002AEC4C /* tls_types.h */; };
 		0C7A928919A2B3FB0065A165 /* tls_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 0CCA413C15C75863002AEC4C /* tls_types.h */; };
@@ -130,7 +149,12 @@
 		0C870BEE17B1A851008FB2CF /* sslUtils.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF42F0534D89900303760 /* sslUtils.c */; };
 		0C870BF517B43967008FB2CF /* tls_record.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C870BF317B43967008FB2CF /* tls_record.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		0C870BF617B43967008FB2CF /* tls_record.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C870BF417B43967008FB2CF /* tls_record.c */; };
-		0C966F581B45B9310048ED22 /* tls_04_timing.c in Sources */ = {isa = PBXBuildFile; fileRef = 0C966F571B45B9310048ED22 /* tls_04_timing.c */; };
+		0C99D6181C447CEB003A4AF0 /* sslMemory.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF4260534D89900303760 /* sslMemory.c */; };
+		0C99D6191C4481EE003A4AF0 /* libcoretls_cfhelpers.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 0CA078461BED56CF00D86F70 /* libcoretls_cfhelpers.dylib */; };
+		0C99D61C1C44D9ED003A4AF0 /* libcoretls_cfhelpers.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 0CA078461BED56CF00D86F70 /* libcoretls_cfhelpers.dylib */; };
+		0C99D6201C44D9F4003A4AF0 /* libcoretls_cfhelpers.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 0CA078461BED56CF00D86F70 /* libcoretls_cfhelpers.dylib */; };
+		0CA078A31BED601A00D86F70 /* tls_cache.h in Headers */ = {isa = PBXBuildFile; fileRef = 0CA078A21BED601A00D86F70 /* tls_cache.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		0CA078A91BED633300D86F70 /* appleSession.h in Headers */ = {isa = PBXBuildFile; fileRef = 0CA078A71BED633300D86F70 /* appleSession.h */; };
 		0CA36681182DAE8700EDAEBC /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C03D5E917D7FC1F0087643B /* Security.framework */; };
 		0CA9800517E265AF00205D87 /* tls_record_crypto.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCA414315C75863002AEC4C /* tls_record_crypto.c */; };
 		0CA9800717E3B8F900205D87 /* sslSession.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF42C0534D89900303760 /* sslSession.c */; };
@@ -155,17 +179,19 @@
 		0CCB2E9418BBCB3500592893 /* tls_01_record.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCB2E8D18BBC86200592893 /* tls_01_record.c */; };
 		0CCB2E9618BBCB3500592893 /* tls_03_client.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCB2E8F18BBC86200592893 /* tls_03_client.c */; };
 		0CCB2E9818BBF12F00592893 /* secCrypto.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCB2E9718BBF12F00592893 /* secCrypto.c */; };
-		0CCB2E9B18BBF15D00592893 /* appleSession.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCB2E9918BBF15D00592893 /* appleSession.c */; };
 		0CCB2E9F18BC229200592893 /* tls_02_self.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCB2E9C18BBF8CE00592893 /* tls_02_self.c */; };
 		0CE8868B18C4F51E00C4EF6A /* tls_client.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCC9A4618AC24420019EC70 /* tls_client.c */; };
 		0CE8868D18C4F51E00C4EF6A /* sockets.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCC9A5C18AC27440019EC70 /* sockets.c */; };
 		0CE8869018C4F8EF00C4EF6A /* tls_alloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CE8868F18C4F8EF00C4EF6A /* tls_alloc.c */; };
 		0CE8869118C4F8EF00C4EF6A /* tls_alloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CE8868F18C4F8EF00C4EF6A /* tls_alloc.c */; };
-		0CE8869418C4FBD900C4EF6A /* appleSession.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCB2E9918BBF15D00592893 /* appleSession.c */; };
 		0CE8869518C4FBD900C4EF6A /* secCrypto.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CCB2E9718BBF12F00592893 /* secCrypto.c */; };
 		0CE8869618C4FBF400C4EF6A /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C03D5E917D7FC1F0087643B /* Security.framework */; };
 		0CE8869718C4FBFA00C4EF6A /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C6C633715D1BB7100BC68CD /* CoreFoundation.framework */; };
 		0CE8869818C4FC3700C4EF6A /* sslMemory.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF4260534D89900303760 /* sslMemory.c */; };
+		0CF16DD81C62AB1800490AA2 /* tls_helpers.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CF16DD61C62AB1800490AA2 /* tls_helpers.c */; };
+		0CF16DD91C62AB1800490AA2 /* tls_helpers.h in Headers */ = {isa = PBXBuildFile; fileRef = 0CF16DD71C62AB1800490AA2 /* tls_helpers.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		0CF16DDB1C62AB8D00490AA2 /* tls_cache.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CA078A41BED61B300D86F70 /* tls_cache.c */; };
+		0CF16DDE1C62B84600490AA2 /* appleSession.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CA078A61BED633300D86F70 /* appleSession.c */; };
 		0CF41C2218F87E0200714F55 /* tls_ciphersuites.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAFF4020534D89900303760 /* tls_ciphersuites.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		0CFB7D6318BE62490003E1DC /* google_certs.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CFB7D6218BE62490003E1DC /* google_certs.c */; };
 		0CFBC0CB19A564200003353C /* sslDecode.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CFBC0CA19A564200003353C /* sslDecode.c */; };
@@ -212,6 +238,27 @@
 			remoteGlobalIDString = 0CDF46A014DC794300FFE2FD;
 			remoteInfo = tlssocket;
 		};
+		0C2BCDED1D0B719400ED7A2F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0C2BCDDE1D0B716700ED7A2F;
+			remoteInfo = coretls;
+		};
+		0C7020031BFFF4FE006A61C5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0CBB16E31877286800FCF0F7;
+			remoteInfo = coretls;
+		};
+		0C7020051BFFF507006A61C5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0CA078451BED56CF00D86F70;
+			remoteInfo = coretls_cfhelpers;
+		};
 		0C969500182C3E78009F4643 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
@@ -219,12 +266,12 @@
 			remoteGlobalIDString = 0C7FE2BA17D64AB000793947;
 			remoteInfo = tls_test;
 		};
-		0CBB16EC187728C500FCF0F7 /* PBXContainerItemProxy */ = {
+		0C99D6131C447745003A4AF0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 0CBB16E31877286800FCF0F7;
-			remoteInfo = coretls;
+			remoteGlobalIDString = 0C701FFD1BFFF4B3006A61C5;
+			remoteInfo = coreTLS_helpers;
 		};
 		0CBB171D18776BDA00FCF0F7 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -312,8 +359,9 @@
 		0C04E99B1892DE6200E49919 /* tls_types_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = tls_types_private.h; path = lib/tls_types_private.h; sourceTree = SOURCE_ROOT; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
 		0C08A3BF1857A2FE00DFBA9D /* sslCrypto.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; lineEnding = 0; path = sslCrypto.c; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.c; };
 		0C08A3C01857A2FE00DFBA9D /* sslCrypto.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sslCrypto.h; sourceTree = "<group>"; };
-		0C0E61BC1891BFD1007CD626 /* dylib.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = dylib.xcconfig; sourceTree = "<group>"; };
+		0C0E61BC1891BFD1007CD626 /* system_dylib.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = system_dylib.xcconfig; sourceTree = "<group>"; };
 		0C0E61BD1891BFD1007CD626 /* staticlib.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = staticlib.xcconfig; sourceTree = "<group>"; };
+		0C147A6D1C126CB800495B4C /* tls_helpers_identity.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tls_helpers_identity.c; sourceTree = "<group>"; };
 		0C179B4118C533D0007B09BF /* tls_server.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tls_server.c; sourceTree = "<group>"; };
 		0C179B4218C533D0007B09BF /* tls_server.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tls_server.h; sourceTree = "<group>"; };
 		0C1956DC1BE3DCF800587353 /* tls_metrics_bundles.inc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.pascal; path = tls_metrics_bundles.inc; sourceTree = "<group>"; };
@@ -322,12 +370,14 @@
 		0C2774F21889EE44000C0442 /* tlsnke.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = tlsnke.xcodeproj; path = kext/tlsnke.xcodeproj; sourceTree = "<group>"; };
 		0C2775261889F02D000C0442 /* libcoretls_kext.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libcoretls_kext.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		0C2A502E1815D47300601766 /* libcoretls_ciphersuites.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libcoretls_ciphersuites.a; sourceTree = BUILT_PRODUCTS_DIR; };
-		0C401F021886F559002C969A /* handshake_server_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = handshake_server_test.c; sourceTree = "<group>"; };
+		0C2BCDEB1D0B716700ED7A2F /* libcoretls.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libcoretls.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		0C417E471B601A3100DE639E /* tls_metrics.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tls_metrics.c; sourceTree = "<group>"; };
 		0C417E481B601A3100DE639E /* tls_metrics.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tls_metrics.h; sourceTree = "<group>"; };
 		0C41FED118AC49E20052BCA6 /* sockets.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sockets.h; sourceTree = "<group>"; };
 		0C6C633715D1BB7100BC68CD /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 		0C6CE0B91A968F5300BF0994 /* coretls_server_static */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = coretls_server_static; sourceTree = BUILT_PRODUCTS_DIR; };
+		0C701FF91BFFEF1D006A61C5 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.12.Internal.sdk/System/Library/Frameworks/Security.framework; sourceTree = DEVELOPER_DIR; };
+		0C701FFB1BFFEF25006A61C5 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.12.Internal.sdk/System/Library/Frameworks/CoreFoundation.framework; sourceTree = DEVELOPER_DIR; };
 		0C7272231A15607D000F845B /* tls_stream_parser.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = tls_stream_parser.c; path = lib/tls_stream_parser.c; sourceTree = "<group>"; };
 		0C73C63B1A3B5B6500EE3A07 /* coretls_entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = coretls_entitlements.plist; sourceTree = "<group>"; };
 		0C7FE2BB17D64AB000793947 /* tls_test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = tls_test; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -341,7 +391,12 @@
 		0C870BF317B43967008FB2CF /* tls_record.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = tls_record.h; path = lib/tls_record.h; sourceTree = "<group>"; };
 		0C870BF417B43967008FB2CF /* tls_record.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; lineEnding = 0; name = tls_record.c; path = lib/tls_record.c; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.c; };
 		0C870BFB17B44328008FB2CF /* libcoretls_handshake.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libcoretls_handshake.a; sourceTree = BUILT_PRODUCTS_DIR; };
-		0C966F571B45B9310048ED22 /* tls_04_timing.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tls_04_timing.c; sourceTree = "<group>"; };
+		0CA078461BED56CF00D86F70 /* libcoretls_cfhelpers.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libcoretls_cfhelpers.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		0CA0784F1BED58ED00D86F70 /* dylib.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = dylib.xcconfig; sourceTree = "<group>"; };
+		0CA078A21BED601A00D86F70 /* tls_cache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tls_cache.h; sourceTree = "<group>"; };
+		0CA078A41BED61B300D86F70 /* tls_cache.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tls_cache.c; sourceTree = "<group>"; };
+		0CA078A61BED633300D86F70 /* appleSession.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = appleSession.c; sourceTree = "<group>"; };
+		0CA078A71BED633300D86F70 /* appleSession.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = appleSession.h; sourceTree = "<group>"; };
 		0CBB16E41877286800FCF0F7 /* libsystem_coretls.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libsystem_coretls.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		0CBB16F018772F6400FCF0F7 /* coretls.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; path = coretls.exp; sourceTree = "<group>"; };
 		0CBB16F21877318F00FCF0F7 /* dummy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dummy.c; sourceTree = "<group>"; };
@@ -356,11 +411,6 @@
 		0CCA413F15C75863002AEC4C /* tls_digest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = tls_digest.h; path = lib/tls_digest.h; sourceTree = "<group>"; };
 		0CCA414215C75863002AEC4C /* tls_record_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = tls_record_internal.h; path = lib/tls_record_internal.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
 		0CCA414315C75863002AEC4C /* tls_record_crypto.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; lineEnding = 0; name = tls_record_crypto.c; path = lib/tls_record_crypto.c; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.c; };
-		0CCA42C115C8A34E002AEC4C /* dtlsEchoClient.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = dtlsEchoClient.c; sourceTree = "<group>"; };
-		0CCA42C215C8A34E002AEC4C /* dtlsEchoServer.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = dtlsEchoServer.c; sourceTree = "<group>"; };
-		0CCA42C315C8A34E002AEC4C /* README */ = {isa = PBXFileReference; lastKnownFileType = text; path = README; sourceTree = "<group>"; };
-		0CCA42EA15C8A71A002AEC4C /* sslAppUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; name = sslAppUtils.cpp; path = sslViewer/sslAppUtils.cpp; sourceTree = SOURCE_ROOT; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
-		0CCA42EB15C8A71A002AEC4C /* sslAppUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = sslAppUtils.h; path = sslViewer/sslAppUtils.h; sourceTree = SOURCE_ROOT; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
 		0CCB2E7B18BBC5FF00592893 /* testlist.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = testlist.h; sourceTree = "<group>"; };
 		0CCB2E8018BBC63500592893 /* test-00-test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "test-00-test.c"; sourceTree = "<group>"; };
 		0CCB2E8118BBC63500592893 /* test_regressions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = test_regressions.h; sourceTree = "<group>"; };
@@ -374,8 +424,6 @@
 		0CCB2E8F18BBC86200592893 /* tls_03_client.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tls_03_client.c; sourceTree = "<group>"; };
 		0CCB2E9018BBC86200592893 /* tls_regressions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tls_regressions.h; sourceTree = "<group>"; };
 		0CCB2E9718BBF12F00592893 /* secCrypto.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = secCrypto.c; sourceTree = "<group>"; };
-		0CCB2E9918BBF15D00592893 /* appleSession.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = appleSession.c; sourceTree = "<group>"; };
-		0CCB2E9A18BBF15D00592893 /* appleSession.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = appleSession.h; sourceTree = "<group>"; };
 		0CCB2E9C18BBF8CE00592893 /* tls_02_self.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tls_02_self.c; sourceTree = "<group>"; };
 		0CCC9A4418AC24410019EC70 /* coretls_client */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = coretls_client; sourceTree = BUILT_PRODUCTS_DIR; };
 		0CCC9A4618AC24420019EC70 /* tls_client.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = tls_client.c; sourceTree = "<group>"; };
@@ -384,6 +432,8 @@
 		0CE8868E18C4F58B00C4EF6A /* tls_client.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tls_client.h; sourceTree = "<group>"; };
 		0CE8868F18C4F8EF00C4EF6A /* tls_alloc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tls_alloc.c; sourceTree = "<group>"; };
 		0CE8869218C4F91400C4EF6A /* tls_alloc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tls_alloc.h; sourceTree = "<group>"; };
+		0CF16DD61C62AB1800490AA2 /* tls_helpers.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tls_helpers.c; sourceTree = "<group>"; };
+		0CF16DD71C62AB1800490AA2 /* tls_helpers.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tls_helpers.h; sourceTree = "<group>"; };
 		0CFB7D6218BE62490003E1DC /* google_certs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = google_certs.c; sourceTree = "<group>"; };
 		0CFBC0CA19A564200003353C /* sslDecode.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sslDecode.c; sourceTree = "<group>"; };
 		0CFBC0CF19A564A40003353C /* sslDecode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sslDecode.h; sourceTree = "<group>"; };
@@ -450,6 +500,21 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		0C2BCDE31D0B716700ED7A2F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0C2BCDF31D0B720500ED7A2F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0C2BCDF41D0B720A00ED7A2F /* libcoretls.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		0C6CE0B21A968F5300BF0994 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -467,6 +532,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0C99D6191C4481EE003A4AF0 /* libcoretls_cfhelpers.dylib in Frameworks */,
+				0C2BCDEF1D0B71EF00ED7A2F /* libcoretls.dylib in Frameworks */,
 				0CA36681182DAE8700EDAEBC /* Security.framework in Frameworks */,
 				0C03D5EB17D7FC280087643B /* CoreFoundation.framework in Frameworks */,
 			);
@@ -486,6 +553,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		0CA078431BED56CF00D86F70 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0C701FFC1BFFEF25006A61C5 /* CoreFoundation.framework in Frameworks */,
+				0C701FFA1BFFEF1D006A61C5 /* Security.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		0CBB16E11877286800FCF0F7 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -501,6 +577,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0C99D61C1C44D9ED003A4AF0 /* libcoretls_cfhelpers.dylib in Frameworks */,
+				0C2BCDF01D0B71F200ED7A2F /* libcoretls.dylib in Frameworks */,
 				0CE8869718C4FBFA00C4EF6A /* CoreFoundation.framework in Frameworks */,
 				0CE8869618C4FBF400C4EF6A /* Security.framework in Frameworks */,
 			);
@@ -510,6 +588,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0C99D6201C44D9F4003A4AF0 /* libcoretls_cfhelpers.dylib in Frameworks */,
+				0C2BCDF11D0B71F200ED7A2F /* libcoretls.dylib in Frameworks */,
 				0C179B4C18C53797007B09BF /* Security.framework in Frameworks */,
 				0C179B4B18C5378E007B09BF /* CoreFoundation.framework in Frameworks */,
 			);
@@ -606,12 +686,9 @@
 				0CCB2E8C18BBC86200592893 /* regressions */,
 				0CCB2E7F18BBC63500592893 /* test */,
 				0CCB2E7B18BBC5FF00592893 /* testlist.h */,
-				0CCB2E9918BBF15D00592893 /* appleSession.c */,
-				0CCB2E9A18BBF15D00592893 /* appleSession.h */,
+				0C7FE2BD17D64AB000793947 /* main.c */,
 				0C2456341860A63600BA558D /* secCrypto.h */,
 				0CCB2E9718BBF12F00592893 /* secCrypto.c */,
-				0C7FE2BD17D64AB000793947 /* main.c */,
-				0C401F021886F559002C969A /* handshake_server_test.c */,
 			);
 			path = tls_test;
 			sourceTree = "<group>";
@@ -619,6 +696,7 @@
 		0C870BDF17B1A69D008FB2CF /* coreTLS */ = {
 			isa = PBXGroup;
 			children = (
+				0CA078A11BED5F9700D86F70 /* SessionCache */,
 				0C2A50161815D34A00601766 /* Cipherspecs */,
 				050651E4056A86CF008AD683 /* Handshake */,
 				0CF237EB1804C6E000846A35 /* Record */,
@@ -629,6 +707,39 @@
 			name = coreTLS;
 			sourceTree = "<group>";
 		};
+		0CA0784D1BED574700D86F70 /* coretls_cfhelpers */ = {
+			isa = PBXGroup;
+			children = (
+				0CF16DD71C62AB1800490AA2 /* tls_helpers.h */,
+				0CF16DD61C62AB1800490AA2 /* tls_helpers.c */,
+				0C147A6D1C126CB800495B4C /* tls_helpers_identity.c */,
+			);
+			path = coretls_cfhelpers;
+			sourceTree = "<group>";
+		};
+		0CA0784E1BED576000D86F70 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				0C701FFB1BFFEF25006A61C5 /* CoreFoundation.framework */,
+				0C701FF91BFFEF1D006A61C5 /* Security.framework */,
+				0C6C633715D1BB7100BC68CD /* CoreFoundation.framework */,
+				0C03D5E917D7FC1F0087643B /* Security.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		0CA078A11BED5F9700D86F70 /* SessionCache */ = {
+			isa = PBXGroup;
+			children = (
+				0CA078A21BED601A00D86F70 /* tls_cache.h */,
+				0CA078A41BED61B300D86F70 /* tls_cache.c */,
+				0CA078A71BED633300D86F70 /* appleSession.h */,
+				0CA078A61BED633300D86F70 /* appleSession.c */,
+			);
+			name = SessionCache;
+			path = lib;
+			sourceTree = "<group>";
+		};
 		0CBB16EF18772F1900FCF0F7 /* Parser */ = {
 			isa = PBXGroup;
 			children = (
@@ -636,18 +747,6 @@
 				0C7272231A15607D000F845B /* tls_stream_parser.c */,
 			);
 			name = Parser;
-			sourceTree = "<group>";
-		};
-		0CCA42C015C8A34E002AEC4C /* dtlsEcho */ = {
-			isa = PBXGroup;
-			children = (
-				0CCA42EA15C8A71A002AEC4C /* sslAppUtils.cpp */,
-				0CCA42EB15C8A71A002AEC4C /* sslAppUtils.h */,
-				0CCA42C115C8A34E002AEC4C /* dtlsEchoClient.c */,
-				0CCA42C215C8A34E002AEC4C /* dtlsEchoServer.c */,
-				0CCA42C315C8A34E002AEC4C /* README */,
-			);
-			path = dtlsEcho;
 			sourceTree = "<group>";
 		};
 		0CCB2E7F18BBC63500592893 /* test */ = {
@@ -722,17 +821,16 @@
 			children = (
 				EBE7EB0818E1D0C900284E8E /* README */,
 				0C2774F21889EE44000C0442 /* tlsnke.xcodeproj */,
-				0C03D5E917D7FC1F0087643B /* Security.framework */,
 				0C7FE2C517D64C5100793947 /* libcorecrypto.dylib */,
 				0C7FE2BC17D64AB000793947 /* tls_test */,
 				0C870BDF17B1A69D008FB2CF /* coreTLS */,
-				0C6C633715D1BB7100BC68CD /* CoreFoundation.framework */,
-				0CCA42C015C8A34E002AEC4C /* dtlsEcho */,
 				BE6A959B14E3700A00C158E0 /* config */,
 				4CAFF3FC0534D89900303760 /* lib */,
 				0CCC9A4518AC24420019EC70 /* coretls_tools */,
 				EBEDE80D1A44908B001B7D1F /* coretls_performance */,
+				0CA0784D1BED574700D86F70 /* coretls_cfhelpers */,
 				4CA1FEBF052A3C8100F22E42 /* Products */,
+				0CA0784E1BED576000D86F70 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -750,6 +848,8 @@
 				0CCC9A5918AC24610019EC70 /* coretls_server */,
 				EBEDE80C1A44908B001B7D1F /* coretls_performance */,
 				0C6CE0B91A968F5300BF0994 /* coretls_server_static */,
+				0CA078461BED56CF00D86F70 /* libcoretls_cfhelpers.dylib */,
+				0C2BCDEB1D0B716700ED7A2F /* libcoretls.dylib */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -774,7 +874,8 @@
 				BE6A959F14E3700A00C158E0 /* release.xcconfig */,
 				0C1C92ED15C8AC52007D377B /* kext.xcconfig */,
 				BE6A959E14E3700A00C158E0 /* lib.xcconfig */,
-				0C0E61BC1891BFD1007CD626 /* dylib.xcconfig */,
+				0C0E61BC1891BFD1007CD626 /* system_dylib.xcconfig */,
+				0CA0784F1BED58ED00D86F70 /* dylib.xcconfig */,
 				0C0E61BD1891BFD1007CD626 /* staticlib.xcconfig */,
 				0C85738D15DAB34C0038DFD7 /* tests.xcconfig */,
 			);
@@ -834,6 +935,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		0C2BCDE61D0B716700ED7A2F /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		0C870BD717B1A62C008FB2CF /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -861,10 +969,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		0CA078441BED56CF00D86F70 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0CF16DD91C62AB1800490AA2 /* tls_helpers.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		0CBB16E21877286800FCF0F7 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0CA078A31BED601A00D86F70 /* tls_cache.h in Headers */,
+				0CA078A91BED633300D86F70 /* appleSession.h in Headers */,
 				0C04E99C1892DE6200E49919 /* tls_types_private.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -922,6 +1040,23 @@
 			productName = coreTLS;
 			productReference = 0C2A502E1815D47300601766 /* libcoretls_ciphersuites.a */;
 			productType = "com.apple.product-type.library.static";
+		};
+		0C2BCDDE1D0B716700ED7A2F /* coretls */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0C2BCDE81D0B716700ED7A2F /* Build configuration list for PBXNativeTarget "coretls" */;
+			buildPhases = (
+				0C2BCDDF1D0B716700ED7A2F /* Sources */,
+				0C2BCDE31D0B716700ED7A2F /* Frameworks */,
+				0C2BCDE61D0B716700ED7A2F /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = coretls;
+			productName = coretls_cfhelper;
+			productReference = 0C2BCDEB1D0B716700ED7A2F /* libcoretls.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
 		};
 		0C6CE0A91A968F5300BF0994 /* coretls_server_static */ = {
 			isa = PBXNativeTarget;
@@ -990,9 +1125,26 @@
 			productReference = 0C870BFB17B44328008FB2CF /* libcoretls_handshake.a */;
 			productType = "com.apple.product-type.library.static";
 		};
-		0CBB16E31877286800FCF0F7 /* coretls */ = {
+		0CA078451BED56CF00D86F70 /* coretls_cfhelpers */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 0CBB16E71877286800FCF0F7 /* Build configuration list for PBXNativeTarget "coretls" */;
+			buildConfigurationList = 0CA0784C1BED56CF00D86F70 /* Build configuration list for PBXNativeTarget "coretls_cfhelpers" */;
+			buildPhases = (
+				0CA078421BED56CF00D86F70 /* Sources */,
+				0CA078431BED56CF00D86F70 /* Frameworks */,
+				0CA078441BED56CF00D86F70 /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = coretls_cfhelpers;
+			productName = coretls_cfhelper;
+			productReference = 0CA078461BED56CF00D86F70 /* libcoretls_cfhelpers.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		0CBB16E31877286800FCF0F7 /* coretls_system */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0CBB16E71877286800FCF0F7 /* Build configuration list for PBXNativeTarget "coretls_system" */;
 			buildPhases = (
 				0CBB16E01877286800FCF0F7 /* Sources */,
 				0CBB16E11877286800FCF0F7 /* Frameworks */,
@@ -1006,7 +1158,7 @@
 				0CBB172218776BDA00FCF0F7 /* PBXTargetDependency */,
 				0CBB172418776BDA00FCF0F7 /* PBXTargetDependency */,
 			);
-			name = coretls;
+			name = coretls_system;
 			productName = coretls;
 			productReference = 0CBB16E41877286800FCF0F7 /* libsystem_coretls.dylib */;
 			productType = "com.apple.product-type.library.dynamic";
@@ -1048,6 +1200,7 @@
 			buildConfigurationList = EBEDE8151A44908B001B7D1F /* Build configuration list for PBXNativeTarget "coretls_performance" */;
 			buildPhases = (
 				EBEDE8081A44908B001B7D1F /* Sources */,
+				0C2BCDF31D0B720500ED7A2F /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -1066,6 +1219,12 @@
 			attributes = {
 				LastUpgradeCheck = 0630;
 				TargetAttributes = {
+					0C701FFD1BFFF4B3006A61C5 = {
+						CreatedOnToolsVersion = 7.2;
+					};
+					0CA078451BED56CF00D86F70 = {
+						CreatedOnToolsVersion = 7.2;
+					};
 					EBEDE80B1A44908B001B7D1F = {
 						CreatedOnToolsVersion = 6.3;
 					};
@@ -1089,14 +1248,17 @@
 			);
 			projectRoot = "";
 			targets = (
-				0CBB16E31877286800FCF0F7 /* coretls */,
+				0C2BCDDE1D0B716700ED7A2F /* coretls */,
+				0CBB16E31877286800FCF0F7 /* coretls_system */,
 				0C2A50171815D47300601766 /* coretls_ciphersuites */,
 				0C870BD817B1A62C008FB2CF /* coretls_record */,
 				0C870BFA17B44328008FB2CF /* coretls_handshake */,
 				0C03D64217DE8B330087643B /* coretls_stream_parser */,
 				0C2775111889F02D000C0442 /* coretls_kext */,
+				0CA078451BED56CF00D86F70 /* coretls_cfhelpers */,
 				0C7FE2BA17D64AB000793947 /* tls_test */,
 				0C03D64A17DFD1760087643B /* coreTLS_libraries */,
+				0C701FFD1BFFF4B3006A61C5 /* coreTLS_helpers */,
 				0C9694FC182C3E52009F4643 /* coreTLS_executables */,
 				0CEA77171899A728002792AF /* coreTLS_kexts */,
 				0C12A7D218688C6700B857BD /* All */,
@@ -1168,12 +1330,19 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		0C2BCDDF1D0B716700ED7A2F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0C2BCDEC1D0B718500ED7A2F /* dummy.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		0C6CE0AA1A968F5300BF0994 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				0C6CE0AB1A968F5300BF0994 /* sockets.c in Sources */,
-				0C6CE0AD1A968F5300BF0994 /* appleSession.c in Sources */,
 				0C6CE0AE1A968F5300BF0994 /* secCrypto.c in Sources */,
 				0C6CE0AF1A968F5300BF0994 /* sslMemory.c in Sources */,
 				0C6CE0B01A968F5300BF0994 /* tls_server.c in Sources */,
@@ -1192,7 +1361,6 @@
 				0CFB7D6318BE62490003E1DC /* google_certs.c in Sources */,
 				0CC2CE511C1A18BE001A8C62 /* tls_04_timing.c in Sources */,
 				0C0109FE19E6FEB000EC10BC /* testleaks.c in Sources */,
-				0CCB2E9B18BBF15D00592893 /* appleSession.c in Sources */,
 				0CCB2E8818BBC63500592893 /* test-00-test.c in Sources */,
 				0C1F071E189C5F0500E65030 /* sslMemory.c in Sources */,
 				0CCB2E8918BBC63500592893 /* testenv.c in Sources */,
@@ -1243,11 +1411,23 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		0CA078421BED56CF00D86F70 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0C99D6181C447CEB003A4AF0 /* sslMemory.c in Sources */,
+				0C147A6E1C126CB800495B4C /* tls_helpers_identity.c in Sources */,
+				0CF16DD81C62AB1800490AA2 /* tls_helpers.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		0CBB16E01877286800FCF0F7 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				0CBB16F4187732A100FCF0F7 /* dummy.c in Sources */,
+				0CF16DDB1C62AB8D00490AA2 /* tls_cache.c in Sources */,
+				0CF16DDE1C62B84600490AA2 /* appleSession.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1256,7 +1436,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				0CE8869818C4FC3700C4EF6A /* sslMemory.c in Sources */,
-				0CE8869418C4FBD900C4EF6A /* appleSession.c in Sources */,
 				0CE8869518C4FBD900C4EF6A /* secCrypto.c in Sources */,
 				0CE8868B18C4F51E00C4EF6A /* tls_client.c in Sources */,
 				0CE8869018C4F8EF00C4EF6A /* tls_alloc.c in Sources */,
@@ -1269,7 +1448,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				0C179B4D18C537A0007B09BF /* sockets.c in Sources */,
-				0C179B4718C5366D007B09BF /* appleSession.c in Sources */,
 				0C179B4818C5366D007B09BF /* secCrypto.c in Sources */,
 				3D759E0A1A9EA75C0060A922 /* sslCipherSpecs.c in Sources */,
 				0C179B4918C5366D007B09BF /* sslMemory.c in Sources */,
@@ -1299,15 +1477,30 @@
 			target = 0C9694FC182C3E52009F4643 /* coreTLS_executables */;
 			targetProxy = 0C12A7D818688C7200B857BD /* PBXContainerItemProxy */;
 		};
+		0C2BCDEE1D0B719400ED7A2F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0C2BCDDE1D0B716700ED7A2F /* coretls */;
+			targetProxy = 0C2BCDED1D0B719400ED7A2F /* PBXContainerItemProxy */;
+		};
+		0C7020041BFFF4FE006A61C5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0CBB16E31877286800FCF0F7 /* coretls_system */;
+			targetProxy = 0C7020031BFFF4FE006A61C5 /* PBXContainerItemProxy */;
+		};
+		0C7020061BFFF507006A61C5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0CA078451BED56CF00D86F70 /* coretls_cfhelpers */;
+			targetProxy = 0C7020051BFFF507006A61C5 /* PBXContainerItemProxy */;
+		};
 		0C969501182C3E78009F4643 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 0C7FE2BA17D64AB000793947 /* tls_test */;
 			targetProxy = 0C969500182C3E78009F4643 /* PBXContainerItemProxy */;
 		};
-		0CBB16ED187728C500FCF0F7 /* PBXTargetDependency */ = {
+		0C99D6141C447745003A4AF0 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 0CBB16E31877286800FCF0F7 /* coretls */;
-			targetProxy = 0CBB16EC187728C500FCF0F7 /* PBXContainerItemProxy */;
+			target = 0C701FFD1BFFF4B3006A61C5 /* coreTLS_helpers */;
+			targetProxy = 0C99D6131C447745003A4AF0 /* PBXContainerItemProxy */;
 		};
 		0CBB171E18776BDA00FCF0F7 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1437,6 +1630,34 @@
 			};
 			name = Release;
 		};
+		0C2BCDE91D0B716700ED7A2F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 0CA0784F1BED58ED00D86F70 /* dylib.xcconfig */;
+			buildSettings = {
+				OTHER_LDFLAGS = (
+					"-Xlinker",
+					"-reexported_symbols_list",
+					"-Xlinker",
+					coretls.exp,
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		0C2BCDEA1D0B716700ED7A2F /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 0CA0784F1BED58ED00D86F70 /* dylib.xcconfig */;
+			buildSettings = {
+				OTHER_LDFLAGS = (
+					"-Xlinker",
+					"-reexported_symbols_list",
+					"-Xlinker",
+					coretls.exp,
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 		0C6CE0B71A968F5300BF0994 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 0C85738D15DAB34C0038DFD7 /* tests.xcconfig */;
@@ -1448,6 +1669,20 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 0C85738D15DAB34C0038DFD7 /* tests.xcconfig */;
 			buildSettings = {
+			};
+			name = Release;
+		};
+		0C701FFF1BFFF4B3006A61C5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		0C7020001BFFF4B3006A61C5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
 		};
@@ -1511,9 +1746,23 @@
 			};
 			name = Release;
 		};
+		0CA078471BED56CF00D86F70 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 0CA0784F1BED58ED00D86F70 /* dylib.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		0CA078481BED56CF00D86F70 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 0CA0784F1BED58ED00D86F70 /* dylib.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
 		0CBB16E51877286800FCF0F7 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 0C0E61BC1891BFD1007CD626 /* dylib.xcconfig */;
+			baseConfigurationReference = 0C0E61BC1891BFD1007CD626 /* system_dylib.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				EXPORTED_SYMBOLS_FILE = coretls.exp;
@@ -1528,7 +1777,7 @@
 		};
 		0CBB16E61877286800FCF0F7 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 0C0E61BC1891BFD1007CD626 /* dylib.xcconfig */;
+			baseConfigurationReference = 0C0E61BC1891BFD1007CD626 /* system_dylib.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
 				EXPORTED_SYMBOLS_FILE = coretls.exp;
@@ -1721,11 +1970,29 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		0C2BCDE81D0B716700ED7A2F /* Build configuration list for PBXNativeTarget "coretls" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0C2BCDE91D0B716700ED7A2F /* Debug */,
+				0C2BCDEA1D0B716700ED7A2F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		0C6CE0B61A968F5300BF0994 /* Build configuration list for PBXNativeTarget "coretls_server_static" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				0C6CE0B71A968F5300BF0994 /* Debug */,
 				0C6CE0B81A968F5300BF0994 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		0C701FFE1BFFF4B3006A61C5 /* Build configuration list for PBXAggregateTarget "coreTLS_helpers" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0C701FFF1BFFF4B3006A61C5 /* Debug */,
+				0C7020001BFFF4B3006A61C5 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -1766,7 +2033,16 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		0CBB16E71877286800FCF0F7 /* Build configuration list for PBXNativeTarget "coretls" */ = {
+		0CA0784C1BED56CF00D86F70 /* Build configuration list for PBXNativeTarget "coretls_cfhelpers" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0CA078471BED56CF00D86F70 /* Debug */,
+				0CA078481BED56CF00D86F70 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		0CBB16E71877286800FCF0F7 /* Build configuration list for PBXNativeTarget "coretls_system" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				0CBB16E51877286800FCF0F7 /* Debug */,

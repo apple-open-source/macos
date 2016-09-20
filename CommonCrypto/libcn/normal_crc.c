@@ -36,12 +36,14 @@ crc_normal_init(crcInfoPtr crc)
 
 static inline uint8_t
 crc_table_value8(uint8_t *table, uint8_t p, uint8_t crc) {
-    return table[((crc) ^ p) & 0xff] ^ (crc << 8);
+    uint8_t t = (uint8_t) (crc << 8);
+    return table[((crc) ^ p) & 0xff] ^ t;
 }
 
 static inline uint16_t
 crc_table_value16(uint16_t *table, uint8_t p, uint16_t crc) {
-    return table[((crc>>8) ^ p) & 0xff] ^ (crc << 8);
+    uint16_t t = (uint16_t) (crc << 8);
+    return table[((crc>>8) ^ p) & 0xff] ^ t;
 }
 
 static inline uint32_t

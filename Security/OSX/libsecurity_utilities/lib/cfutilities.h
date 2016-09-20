@@ -412,12 +412,12 @@ inline CFDataRef makeCFData(const void *data, size_t size)
 	
 inline CFDataRef makeCFData(CFDictionaryRef dictionary)
 {
-	return CFPropertyListCreateXMLData(NULL, dictionary);
+    return CFPropertyListCreateData(NULL, dictionary, kCFPropertyListXMLFormat_v1_0, 0, NULL);
 }
 
 inline CFDataRef makeCFData(CFArrayRef array)
 {
-	return CFPropertyListCreateXMLData(NULL, array);
+    return CFPropertyListCreateData(NULL, array, kCFPropertyListXMLFormat_v1_0, 0, NULL);
 }
 
 template <class Data>

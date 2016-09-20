@@ -46,20 +46,13 @@
 #include "archive.h"
 #include "io.h"
 #include "arcmod.h"
+#include "data.h"
 
 #ifndef O_EXLOCK
 #define O_EXLOCK 0
 #endif
 
-struct _data_context{
-	int fd;
-	void *buffer;
-	size_t length;
-	off_t offset;
-	off_t total;
-};
 
-#define DATA_CONTEXT(x) ((struct _data_context*)(x))
 
 int32_t xar_data_read(xar_t x, xar_file_t f, void *inbuf, size_t bsize, void *context) {
 	int32_t r;
@@ -252,13 +245,15 @@ int32_t xar_data_extract(xar_t x, xar_file_t f, const char *file, char *buffer, 
 	return retval;
 }
 
-int32_t xar_data_verify(xar_t x, xar_file_t f)
+int32_t xar_data_verify(xar_t x, xar_file_t f, xar_progress_callback p)
 {
 	const char *opt;
 	struct _data_context context;
 	xar_prop_t tmpp;
 	
 	memset(&context,0,sizeof(struct _data_context));
+	
+	context.progress = p;
 
 	/* Only regular files are copied in and out of the heap here */
 	xar_prop_get(f, "type", &opt);

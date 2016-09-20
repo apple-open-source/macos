@@ -35,7 +35,6 @@
 #include "LinkBuffer.h"
 #include "OperandsInlines.h"
 #include "JSCInlines.h"
-#include "RepatchBuffer.h"
 #include <wtf/StringPrintStream.h>
 
 namespace JSC { namespace DFG {
@@ -71,7 +70,7 @@ void OSRExitCompiler::emitRestoreArguments(const Operands<ValueRecovery>& operan
         
         if (!inlineCallFrame || inlineCallFrame->isClosureCall) {
             m_jit.loadPtr(
-                AssemblyHelpers::addressFor(stackOffset + JSStack::Callee),
+                AssemblyHelpers::addressFor(stackOffset + CallFrameSlot::callee),
                 GPRInfo::regT0);
         } else {
             m_jit.move(
@@ -81,7 +80,7 @@ void OSRExitCompiler::emitRestoreArguments(const Operands<ValueRecovery>& operan
         
         if (!inlineCallFrame || inlineCallFrame->isVarargs()) {
             m_jit.load32(
-                AssemblyHelpers::payloadFor(stackOffset + JSStack::ArgumentCount),
+                AssemblyHelpers::payloadFor(stackOffset + CallFrameSlot::argumentCount),
                 GPRInfo::regT1);
         } else {
             m_jit.move(
@@ -113,13 +112,13 @@ extern "C" {
 
 void compileOSRExit(ExecState* exec)
 {
-    SamplingRegion samplingRegion("DFG OSR Exit Compilation");
+    if (exec->vm().callFrameForCatch)
+        RELEASE_ASSERT(exec->vm().callFrameForCatch == exec);
     
     CodeBlock* codeBlock = exec->codeBlock();
-    
     ASSERT(codeBlock);
     ASSERT(codeBlock->jitType() == JITCode::DFGJIT);
-    
+
     VM* vm = &exec->vm();
     
     // It's sort of preferable that we don't GC while in here. Anyways, doing so wouldn't
@@ -128,6 +127,12 @@ void compileOSRExit(ExecState* exec)
 
     uint32_t exitIndex = vm->osrExitIndex;
     OSRExit& exit = codeBlock->jitCode()->dfg()->osrExit[exitIndex];
+    
+    if (vm->callFrameForCatch)
+        ASSERT(exit.m_kind == GenericUnwind);
+    if (exit.isExceptionHandler())
+        ASSERT(!!vm->exception());
+        
     
     prepareCodeOriginForOSRExit(exec, exit.m_codeOrigin);
     
@@ -143,6 +148,15 @@ void compileOSRExit(ExecState* exec)
         CCallHelpers jit(vm, codeBlock);
         OSRExitCompiler exitCompiler(jit);
 
+        if (exit.m_kind == GenericUnwind) {
+            // We are acting as a defacto op_catch because we arrive here from genericUnwind().
+            // So, we must restore our call frame and stack pointer.
+            jit.restoreCalleeSavesFromVMEntryFrameCalleeSavesBuffer();
+            jit.loadPtr(vm->addressOfCallFrameForCatch(), GPRInfo::callFrameRegister);
+            jit.addPtr(CCallHelpers::TrustedImm32(codeBlock->stackPointerOffset() * sizeof(Register)),
+                GPRInfo::callFrameRegister, CCallHelpers::stackPointerRegister);
+        }
+
         jit.jitAssertHasValidCallFrame();
         
         if (vm->m_perBytecodeProfiler && codeBlock->jitCode()->dfgCommon()->compilation) {
@@ -154,12 +168,12 @@ void compileOSRExit(ExecState* exec)
                 exit.m_kind, exit.m_kind == UncountableInvalidation);
             jit.add64(CCallHelpers::TrustedImm32(1), CCallHelpers::AbsoluteAddress(profilerExit->counterAddress()));
         }
-        
+
         exitCompiler.compileExit(exit, operands, recovery);
         
         LinkBuffer patchBuffer(*vm, jit, codeBlock);
         exit.m_code = FINALIZE_CODE_IF(
-            shouldShowDisassembly() || Options::verboseOSR(),
+            shouldDumpDisassembly() || Options::verboseOSR(),
             patchBuffer,
             ("DFG OSR exit #%u (%s, %s) from %s, with operands = %s",
                 exitIndex, toCString(exit.m_codeOrigin).data(),
@@ -167,10 +181,7 @@ void compileOSRExit(ExecState* exec)
                 toCString(ignoringContext<DumpContext>(operands)).data()));
     }
     
-    {
-        RepatchBuffer repatchBuffer(codeBlock);
-        repatchBuffer.relink(exit.codeLocationForRepatch(codeBlock), CodeLocationLabel(exit.m_code.code()));
-    }
+    MacroAssembler::repatchJump(exit.codeLocationForRepatch(codeBlock), CodeLocationLabel(exit.m_code.code()));
     
     vm->osrExitJumpDestination = exit.m_code.code().executableAddress();
 }

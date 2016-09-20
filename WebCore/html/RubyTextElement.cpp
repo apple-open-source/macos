@@ -45,12 +45,12 @@ Ref<RubyTextElement> RubyTextElement::create(const QualifiedName& tagName, Docum
     return adoptRef(*new RubyTextElement(tagName, document));
 }
 
-RenderPtr<RenderElement> RubyTextElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition& insertionPosition)
+RenderPtr<RenderElement> RubyTextElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition& insertionPosition)
 {
     // RenderRubyText requires its parent to be RenderRubyRun.
-    if (isRuby(insertionPosition.parent()) && style->display() == BLOCK)
-        return createRenderer<RenderRubyText>(*this, WTF::move(style));
-    return HTMLElement::createElementRenderer(WTF::move(style), insertionPosition);
+    if (isRuby(insertionPosition.parent()) && style.display() == BLOCK)
+        return createRenderer<RenderRubyText>(*this, WTFMove(style));
+    return HTMLElement::createElementRenderer(WTFMove(style), insertionPosition);
 }
 
 }

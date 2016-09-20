@@ -85,7 +85,7 @@ public:
 #endif
 
 private:
-    static Ref<TypingCommand> create(Document& document, ETypingCommand command, const String& text = "", Options options = 0, TextGranularity granularity = CharacterGranularity)
+    static Ref<TypingCommand> create(Document& document, ETypingCommand command, const String& text = emptyString(), Options options = 0, TextGranularity granularity = CharacterGranularity)
     {
         return adoptRef(*new TypingCommand(document, command, text, options, granularity, TextCompositionNone));
     }
@@ -102,10 +102,9 @@ private:
     bool isOpenForMoreTyping() const { return m_openForMoreTyping; }
     void closeTyping() { m_openForMoreTyping = false; }
 
-    static PassRefPtr<TypingCommand> lastTypingCommandIfStillOpenForTyping(Frame*);
+    static RefPtr<TypingCommand> lastTypingCommandIfStillOpenForTyping(Frame&);
 
     virtual void doApply();
-    virtual EditAction editingAction() const;
     virtual bool isTypingCommand() const;
     virtual bool preservesTypingStyle() const { return m_preservesTypingStyle; }
     virtual bool shouldRetainAutocorrectionIndicator() const
@@ -123,6 +122,12 @@ private:
     void markMisspellingsAfterTyping(ETypingCommand);
     void typingAddedToOpenCommand(ETypingCommand);
     bool makeEditableRootEmpty();
+
+    void postTextStateChangeNotificationForDeletion(const VisibleSelection&);
+    void insertTextAndNotifyAccessibility(const String &text, bool selectInsertedText);
+    void insertLineBreakAndNotifyAccessibility();
+    void insertParagraphSeparatorInQuotedContentAndNotifyAccessibility();
+    void insertParagraphSeparatorAndNotifyAccessibility();
 
     ETypingCommand m_commandType;
     String m_textToInsert;

@@ -1,9 +1,7 @@
 /*
- * "$Id: rastertopwg.c 12992 2015-11-19 15:19:00Z msweet $"
- *
  * CUPS raster to PWG raster format filter for CUPS.
  *
- * Copyright 2011, 2014-2015 Apple Inc.
+ * Copyright 2011, 2014-2016 Apple Inc.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright law.
@@ -19,6 +17,7 @@
  */
 
 #include <cups/cups-private.h>
+#include <cups/ppd-private.h>
 #include <cups/raster.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -51,8 +50,8 @@ main(int  argc,				/* I - Number of command-line args */
   ppd_file_t		*ppd;		/* PPD file */
   ppd_attr_t		*back;		/* cupsBackSize attribute */
   _ppd_cache_t		*cache;		/* PPD cache */
-  _pwg_size_t		*pwg_size;	/* PWG media size */
-  _pwg_media_t		*pwg_media;	/* PWG media name */
+  pwg_size_t		*pwg_size;	/* PWG media size */
+  pwg_media_t		*pwg_media;	/* PWG media name */
   int	 		num_options;	/* Number of options */
   cups_option_t		*options = NULL;/* Options */
   const char		*val;		/* Option value */
@@ -268,10 +267,8 @@ main(int  argc,				/* I - Number of command-line args */
     }
     else
     {
-      pwg_media = _pwgMediaForSize((int)(2540.0 * inheader.cupsPageSize[0] /
-                                         72.0),
-                                   (int)(2540.0 * inheader.cupsPageSize[1] /
-                                         72.0));
+      pwg_media = pwgMediaForSize((int)(2540.0 * inheader.cupsPageSize[0] / 72.0),
+				  (int)(2540.0 * inheader.cupsPageSize[1] / 72.0));
 
       if (pwg_media)
         strlcpy(outheader.cupsPageSizeName, pwg_media->pwg,
@@ -485,8 +482,3 @@ main(int  argc,				/* I - Number of command-line args */
 
   return (0);
 }
-
-
-/*
- * End of "$Id: rastertopwg.c 12992 2015-11-19 15:19:00Z msweet $".
- */

@@ -52,7 +52,7 @@ public:
     DbContext *
     makeDbContext(DatabaseSession &inDatabaseSession,
 		CSSM_DB_ACCESS_TYPE inAccessRequest,
-		const CSSM_ACCESS_CREDENTIALS *inAccessCred,
+		const AccessCredentials *inAccessCred,
 		const void *inOpenParameters);
 
     virtual void
@@ -67,14 +67,14 @@ public:
 
     virtual void
     dbDelete(DatabaseSession &inDatabaseSession,
-		const CSSM_ACCESS_CREDENTIALS *inAccessCred);
+		const AccessCredentials *inAccessCred);
 
     virtual void
     createRelation (DbContext &dbContext,
                     CSSM_DB_RECORDTYPE inRelationID,
                     const char *inRelationName,
                     uint32 inNumberOfAttributes,
-                    const CSSM_DB_SCHEMA_ATTRIBUTE_INFO &inAttributeInfo,
+                    const CSSM_DB_SCHEMA_ATTRIBUTE_INFO *inAttributeInfo,
                     uint32 inNumberOfIndexes,
                     const CSSM_DB_SCHEMA_INDEX_INFO &inIndexInfo);
 
@@ -84,7 +84,7 @@ public:
     virtual void
     authenticate(DbContext &dbContext,
                  CSSM_DB_ACCESS_TYPE inAccessRequest,
-                 const CSSM_ACCESS_CREDENTIALS &inAccessCred);
+                 const AccessCredentials &inAccessCred);
 
     virtual void
     getDbAcl(DbContext &dbContext,
@@ -94,7 +94,7 @@ public:
 
     virtual void
     changeDbAcl(DbContext &dbContext,
-                const CSSM_ACCESS_CREDENTIALS &inAccessCred,
+                const AccessCredentials &inAccessCred,
                 const CSSM_ACL_EDIT &inAclEdit);
 
     virtual void
@@ -102,7 +102,7 @@ public:
 
     virtual void
     changeDbOwner(DbContext &dbContext,
-                  const CSSM_ACCESS_CREDENTIALS &inAccessCred,
+                  const AccessCredentials &inAccessCred,
                   const CSSM_ACL_OWNER_PROTOTYPE &inNewOwner);
 
     virtual char *

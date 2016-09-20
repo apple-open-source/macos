@@ -44,7 +44,32 @@ Entry::Entry(const Key& key, const WebCore::ResourceResponse& response, RefPtr<W
     , m_timeStamp(std::chrono::system_clock::now())
     , m_response(response)
     , m_varyingRequestHeaders(varyingRequestHeaders)
-    , m_buffer(WTF::move(buffer))
+    , m_buffer(WTFMove(buffer))
+{
+    ASSERT(m_key.type() == "Resource");
+}
+
+Entry::Entry(const Key& key, const WebCore::ResourceResponse& response, const WebCore::ResourceRequest& redirectRequest, const Vector<std::pair<String, String>>& varyingRequestHeaders)
+    : m_key(key)
+    , m_timeStamp(std::chrono::system_clock::now())
+    , m_response(response)
+    , m_varyingRequestHeaders(varyingRequestHeaders)
+{
+    ASSERT(m_key.type() == "Resource");
+    // Redirect body is not needed even if exists.
+
+    m_redirectRequest = std::make_unique<WebCore::ResourceRequest>();
+    m_redirectRequest->setAsIsolatedCopy(redirectRequest);
+    m_redirectRequest->setHTTPBody(nullptr);
+}
+
+Entry::Entry(const Entry& other)
+    : m_key(other.m_key)
+    , m_timeStamp(other.m_timeStamp)
+    , m_response(other.m_response)
+    , m_varyingRequestHeaders(other.m_varyingRequestHeaders)
+    , m_buffer(other.m_buffer)
+    , m_sourceStorageRecord(other.m_sourceStorageRecord)
 {
 }
 
@@ -53,6 +78,7 @@ Entry::Entry(const Storage::Record& storageEntry)
     , m_timeStamp(storageEntry.timeStamp)
     , m_sourceStorageRecord(storageEntry)
 {
+    ASSERT(m_key.type() == "Resource");
 }
 
 Storage::Record Entry::encodeAsStorageRecord() const
@@ -64,6 +90,11 @@ Storage::Record Entry::encodeAsStorageRecord() const
     encoder << hasVaryingRequestHeaders;
     if (hasVaryingRequestHeaders)
         encoder << m_varyingRequestHeaders;
+
+    bool isRedirect = !!m_redirectRequest;
+    encoder << isRedirect;
+    if (isRedirect)
+        m_redirectRequest->encodeWithoutPlatformData(encoder);
 
     encoder.encodeChecksum();
 
@@ -77,7 +108,7 @@ Storage::Record Entry::encodeAsStorageRecord() const
 
 std::unique_ptr<Entry> Entry::decodeStorageRecord(const Storage::Record& storageEntry)
 {
-    std::unique_ptr<Entry> entry(new Entry(storageEntry));
+    auto entry = std::make_unique<Entry>(storageEntry);
 
     Decoder decoder(storageEntry.header.data(), storageEntry.header.size());
     if (!decoder.decode(entry->m_response))
@@ -93,6 +124,16 @@ std::unique_ptr<Entry> Entry::decodeStorageRecord(const Storage::Record& storage
             return nullptr;
     }
 
+    bool isRedirect;
+    if (!decoder.decode(isRedirect))
+        return nullptr;
+
+    if (isRedirect) {
+        entry->m_redirectRequest = std::make_unique<WebCore::ResourceRequest>();
+        if (!entry->m_redirectRequest->decodeWithoutPlatformData(decoder))
+            return nullptr;
+    }
+
     if (!decoder.verifyChecksum()) {
         LOG(NetworkCache, "(NetworkProcess) checksum verification failure\n");
         return nullptr;
@@ -104,12 +145,11 @@ std::unique_ptr<Entry> Entry::decodeStorageRecord(const Storage::Record& storage
 #if ENABLE(SHAREABLE_RESOURCE)
 void Entry::initializeShareableResourceHandleFromStorageRecord() const
 {
-    RefPtr<SharedMemory> sharedMemory = m_sourceStorageRecord.body.tryCreateSharedMemory();
+    auto sharedMemory = m_sourceStorageRecord.body.tryCreateSharedMemory();
     if (!sharedMemory)
         return;
 
-    RefPtr<ShareableResource> shareableResource = ShareableResource::create(sharedMemory.release(), 0, m_sourceStorageRecord.body.size());
-    ASSERT(shareableResource);
+    auto shareableResource = ShareableResource::create(sharedMemory.releaseNonNull(), 0, m_sourceStorageRecord.body.size());
     shareableResource->createHandle(m_shareableResourceHandle);
 }
 #endif
@@ -149,10 +189,9 @@ bool Entry::needsValidation() const
     return m_response.source() == WebCore::ResourceResponse::Source::DiskCacheAfterValidation;
 }
 
-void Entry::setNeedsValidation()
+void Entry::setNeedsValidation(bool value)
 {
-    ASSERT(m_response.source() == WebCore::ResourceResponse::Source::DiskCache);
-    m_response.setSource(WebCore::ResourceResponse::Source::DiskCacheAfterValidation);
+    m_response.setSource(value ? WebCore::ResourceResponse::Source::DiskCacheAfterValidation : WebCore::ResourceResponse::Source::DiskCache);
 }
 
 void Entry::asJSON(StringBuilder& json, const Storage::RecordInfo& info) const

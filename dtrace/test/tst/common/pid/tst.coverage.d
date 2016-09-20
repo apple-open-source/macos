@@ -45,7 +45,7 @@ BEGIN
 pid$1:libsystem_c.dylib:w*:
 {}
 
-profile:::tick-4
+profile:::tick-2
 /timestamp > timeout/
 {
 	exit(0);

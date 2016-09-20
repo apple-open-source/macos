@@ -1,4 +1,4 @@
-/* $OpenBSD: ssh-agent.c,v 1.203 2015/05/15 05:44:21 dtucker Exp $ */
+/* $OpenBSD: ssh-agent.c,v 1.212 2016/02/15 09:47:49 dtucker Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -75,23 +75,17 @@
 # include <util.h>
 #endif
 
-#include "key.h"	/* XXX for typedef */
-#include "buffer.h"	/* XXX for typedef */
-
 #include "xmalloc.h"
 #include "ssh.h"
 #include "rsa.h"
 #include "sshbuf.h"
 #include "sshkey.h"
 #include "authfd.h"
-#include "authfile.h"
 #include "compat.h"
 #include "log.h"
 #include "misc.h"
 #include "digest.h"
 #include "ssherr.h"
-
-#include "keychain.h"
 
 #ifdef ENABLE_PKCS11
 #include "ssh-pkcs11.h"
@@ -377,6 +371,18 @@ process_authentication_challenge1(SocketEntry *e)
 }
 #endif
 
+static char *
+agent_decode_alg(struct sshkey *key, u_int flags)
+{
+	if (key->type == KEY_RSA) {
+		if (flags & SSH_AGENT_RSA_SHA2_256)
+			return "rsa-sha2-256";
+		else if (flags & SSH_AGENT_RSA_SHA2_512)
+			return "rsa-sha2-512";
+	}
+	return NULL;
+}
+
 /* ssh2 only */
 static void
 process_sign_request2(SocketEntry *e)
@@ -398,7 +404,7 @@ process_sign_request2(SocketEntry *e)
 	if (flags & SSH_AGENT_OLD_SIGNATURE)
 		compat = SSH_BUG_SIGBLOB;
 	if ((r = sshkey_from_blob(blob, blen, &key)) != 0) {
-		error("%s: cannot parse key blob: %s", __func__, ssh_err(ok));
+		error("%s: cannot parse key blob: %s", __func__, ssh_err(r));
 		goto send;
 	}
 	if ((id = lookup_identity(key, 2)) == NULL) {
@@ -410,8 +416,8 @@ process_sign_request2(SocketEntry *e)
 		goto send;
 	}
 	if ((r = sshkey_sign(id->key, &signature, &slen,
-	    data, dlen, compat)) != 0) {
-		error("%s: sshkey_sign: %s", __func__, ssh_err(ok));
+	    data, dlen, agent_decode_alg(key, flags), compat)) != 0) {
+		error("%s: sshkey_sign: %s", __func__, ssh_err(r));
 		goto send;
 	}
 	/* Success */
@@ -751,10 +757,6 @@ process_add_smartcard_key(SocketEntry *e)
 	    (r = sshbuf_get_cstring(e->request, &pin, NULL)) != 0)
 		fatal("%s: buffer error: %s", __func__, ssh_err(r));
 
-#ifdef __APPLE__
-	debug("%s: provider: %s", __func__, provider);
-#endif
-
 	while (sshbuf_len(e->request)) {
 		if ((r = sshbuf_get_u8(e->request, &type)) != 0)
 			fatal("%s: buffer error: %s", __func__, ssh_err(r));
@@ -778,9 +780,6 @@ process_add_smartcard_key(SocketEntry *e)
 		death = monotime() + lifetime;
 
 	count = pkcs11_add_provider(provider, pin, &keys);
-#ifdef __APPLE__
-	debug("%s: pkcs11_add_provider(): %d keys", __func__, count);
-#endif
 	for (i = 0; i < count; i++) {
 		k = keys[i];
 		version = k->type == KEY_RSA1 ? 1 : 2;
@@ -843,65 +842,6 @@ process_remove_smartcard_key(SocketEntry *e)
 	send_status(e, success);
 }
 #endif /* ENABLE_PKCS11 */
-
-static int
-add_identity_callback(const char *filename, const char *passphrase)
-{
-	Key *k;
-	int version;
-	Idtab *tab;
-
-	if ((k = key_load_private(filename, passphrase, NULL)) == NULL)
-		return 1;
-	switch (k->type) {
-	case KEY_RSA:
-	case KEY_RSA1:
-		if (RSA_blinding_on(k->rsa, NULL) != 1) {
-			key_free(k);
-			return 1;
-		}
-		break;
-	}
-	version = k->type == KEY_RSA1 ? 1 : 2;
-	tab = idtab_lookup(version);
-	if (lookup_identity(k, version) == NULL) {
-		Identity *id = xcalloc(1, sizeof(Identity));
-		id->key = k;
-		id->comment = xstrdup(filename);
-		if (id->comment == NULL) {
-			key_free(k);
-			return 1;
-		}
-		TAILQ_INSERT_TAIL(&tab->idlist, id, next);
-		tab->nentries++;
-	} else {
-		key_free(k);
-		return 1;
-	}
-
-	return 0;
-}
-
-#ifdef KEYCHAIN
-static void
-process_add_from_keychain(SocketEntry *e)
-{
-	int result;
-	extern void keychain_thread_init();
-
-	result = add_identities_using_keychain(&add_identity_callback);
-
-	/* Start thread to wait for keychain notifications. */
-	keychain_thread_init();
-
-	/* e will be NULL when ssh-agent adds keys on its own at startup */
-	if (e) {
-		buffer_put_int(e->output, 1);
-		buffer_put_char(e->output,
-		    result ? SSH_AGENT_FAILURE : SSH_AGENT_SUCCESS);
-	}
-}
-#endif /* KEYCHAIN */
 
 /* dispatch incoming messages */
 
@@ -997,11 +937,6 @@ process_message(SocketEntry *e)
 		process_remove_smartcard_key(e);
 		break;
 #endif /* ENABLE_PKCS11 */
-#ifdef KEYCHAIN
-	case SSH_AGENTC_ADD_FROM_KEYCHAIN:
-		process_add_from_keychain(e);
-		break;
-#endif /* KEYCHAIN */
 	default:
 		/* Unknown message.  Respond with failure. */
 		error("Unknown message %d", type);
@@ -1272,6 +1207,7 @@ main(int ac, char **av)
 	size_t len;
 	mode_t prev_mask;
 
+	ssh_malloc_init();	/* must be called before any mallocs */
 	/* Ensure that fds 0, 1 and 2 are open or directed to /dev/null */
 	sanitise_stdfd();
 
@@ -1346,11 +1282,7 @@ main(int ac, char **av)
 	ac -= optind;
 	av += optind;
 
-#ifdef __APPPLE_LAUNCHD__
-	if (ac > 0 && (c_flag || k_flag || s_flag || d_flag || D_flag || l_flag))
-#else
 	if (ac > 0 && (c_flag || k_flag || s_flag || d_flag || D_flag))
-#endif
 		usage();
 
 	if (ac == 0 && !c_flag && !s_flag) {
@@ -1406,29 +1338,29 @@ main(int ac, char **av)
 	 * Create socket early so it will exist before command gets run from
 	 * the parent.
 	 */
-#ifdef __APPLE_LAUNCHD__
-	if (l_flag) {
-		int *fds = NULL;
-		size_t count = 0;
-		result = launch_activate_socket("Listeners", &fds, &count);
-		
-		if (result != 0 || fds == NULL || count < 1) {
-			errno = result;
-			perror("launch_activate_socket()");
-			exit(1);
-		}
+ #ifdef __APPLE_LAUNCHD__
+ 	if (l_flag) {
+ 		int *fds = NULL;
+ 		size_t count = 0;
+ 		result = launch_activate_socket("Listeners", &fds, &count);
 
-		size_t i;
-		for (i = 0; i < count; i++) {
-			new_socket(AUTH_SOCKET, fds[i]);
-		}
-		
-		if (fds)
-			free(fds);
+ 		if (result != 0 || fds == NULL || count < 1) {
+ 			errno = result;
+ 			perror("launch_activate_socket()");
+ 			exit(1);
+ 		}
 
-		goto skip2;
-	} else {
-#endif
+ 		size_t i;
+ 		for (i = 0; i < count; i++) {
+ 			new_socket(AUTH_SOCKET, fds[i]);
+ 		}
+
+ 		if (fds)
+ 			free(fds);
+
+ 		goto skip2;
+ 	} else {
+ #endif
 	prev_mask = umask(0177);
 	sock = unix_listener(socket_name, SSH_LISTEN_BACKLOG, 0);
 	if (sock < 0) {
@@ -1436,10 +1368,10 @@ main(int ac, char **av)
 		*socket_name = '\0'; /* Don't unlink any existing file */
 		cleanup_exit(1);
 	}
-	umask(prev_mask);
 #ifdef __APPLE_LAUNCHD__
 	}
 #endif
+	umask(prev_mask);
 
 	/*
 	 * Fork, and have the parent execute the command, if any, or present
@@ -1453,6 +1385,7 @@ main(int ac, char **av)
 		printf(format, SSH_AUTHSOCKET_ENV_NAME, socket_name,
 		    SSH_AUTHSOCKET_ENV_NAME);
 		printf("echo Agent pid %ld;\n", (long)parent_pid);
+		fflush(stdout);
 		goto skip;
 	}
 	pid = fork();
@@ -1516,7 +1449,9 @@ skip:
 	pkcs11_init(0);
 #endif
 	new_socket(AUTH_SOCKET, sock);
+#ifdef __APPLE_LAUNCHD__
 skip2:
+#endif
 	if (ac > 0)
 		parent_alive_interval = 10;
 	idtab_init();
@@ -1526,9 +1461,9 @@ skip2:
 	signal(SIGTERM, cleanup_handler);
 	nalloc = 0;
 
-#ifdef KEYCHAIN
-	process_add_from_keychain(NULL);
-#endif
+	if (pledge("stdio cpath unix id proc exec", NULL) == -1)
+		fatal("%s: pledge: %s", __progname, strerror(errno));
+	platform_pledge_agent();
 
 	while (1) {
 		prepare_select(&readsetp, &writesetp, &max_fd, &nalloc, &tvp);

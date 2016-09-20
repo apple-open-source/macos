@@ -34,6 +34,7 @@
 #include "unicode/ustream.h"
 #include "unicode/putil.h"
 
+#include "cmemory.h"
 #include "uoptions.h"
 
 using namespace std;
@@ -289,7 +290,7 @@ main(int argc, char *argv[]) {
     const char *linesep = NULL;
 
     U_MAIN_INIT_ARGS(argc, argv);
-    argc = u_parseArgs(argc, argv, sizeof(options)/sizeof(options[0]), options);
+    argc = u_parseArgs(argc, argv, UPRV_LENGTHOF(options), options);
 
     if (argc < 0) {
         cerr << "Illegal command line argument(s)" << endl << endl;

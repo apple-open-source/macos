@@ -20,10 +20,10 @@
 #include "vim.h"
 
 static void comp_botline __ARGS((win_T *wp));
+static void redraw_for_cursorline __ARGS((win_T *wp));
 static int scrolljump_value __ARGS((void));
 static int check_top_offset __ARGS((void));
-static void curs_rows __ARGS((win_T *wp, int do_botline));
-static void validate_botline_win __ARGS((win_T *wp));
+static void curs_rows __ARGS((win_T *wp));
 static void validate_cheight __ARGS((void));
 
 typedef struct
@@ -106,6 +106,7 @@ comp_botline(wp)
 #ifdef FEAT_FOLDING
 	    wp->w_cline_folded = folded;
 #endif
+	    redraw_for_cursorline(wp);
 	    wp->w_valid |= (VALID_CROW|VALID_CHEIGHT);
 	}
 	if (done + n > wp->w_height)
@@ -121,6 +122,27 @@ comp_botline(wp)
     wp->w_valid |= VALID_BOTLINE|VALID_BOTLINE_AP;
 
     set_empty_rows(wp, done);
+}
+
+/*
+ * Redraw when w_cline_row changes and 'relativenumber' or 'cursorline' is
+ * set.
+ */
+    static void
+redraw_for_cursorline(wp)
+    win_T *wp;
+{
+    if ((wp->w_p_rnu
+#ifdef FEAT_SYN_HL
+		|| wp->w_p_cul
+#endif
+		)
+	    && (wp->w_valid & VALID_CROW) == 0
+# ifdef FEAT_INS_EXPAND
+	    && !pum_visible()
+# endif
+	    )
+	redraw_win_later(wp, SOME_VALID);
 }
 
 /*
@@ -159,6 +181,18 @@ update_topline()
 
     if (!screen_valid(TRUE))
 	return;
+
+    /* If the window height is zero just use the cursor line. */
+    if (curwin->w_height == 0)
+    {
+	curwin->w_topline = curwin->w_cursor.lnum;
+	curwin->w_botline = curwin->w_topline;
+	curwin->w_valid |= VALID_BOTLINE|VALID_BOTLINE_AP;
+#ifdef FEAT_SCROLLBIND
+	curwin->w_scbind_pos = 1;
+#endif
+	return;
+    }
 
     check_cursor_moved(curwin);
     if (curwin->w_valid & VALID_TOPLINE)
@@ -362,7 +396,7 @@ update_topline()
 #endif
 	    )
     {
-	dollar_vcol = 0;
+	dollar_vcol = -1;
 	if (curwin->w_skipcol != 0)
 	{
 	    curwin->w_skipcol = 0;
@@ -574,17 +608,6 @@ validate_botline()
 }
 
 /*
- * Make sure the value of wp->w_botline is valid.
- */
-    static void
-validate_botline_win(wp)
-    win_T	*wp;
-{
-    if (!(wp->w_valid & VALID_BOTLINE))
-	comp_botline(wp);
-}
-
-/*
  * Mark curwin->w_botline as invalid (because of some change in the buffer).
  */
     void
@@ -643,20 +666,17 @@ validate_cline_row()
     update_topline();
     check_cursor_moved(curwin);
     if (!(curwin->w_valid & VALID_CROW))
-	curs_rows(curwin, FALSE);
+	curs_rows(curwin);
 }
 #endif
 
 /*
  * Compute wp->w_cline_row and wp->w_cline_height, based on the current value
  * of wp->w_topline.
- *
- * Returns OK when cursor is in the window, FAIL when it isn't.
  */
     static void
-curs_rows(wp, do_botline)
+curs_rows(wp)
     win_T	*wp;
-    int		do_botline;		/* also compute w_botline */
 {
     linenr_T	lnum;
     int		i;
@@ -772,11 +792,9 @@ curs_rows(wp, do_botline)
 	}
     }
 
+    redraw_for_cursorline(curwin);
     wp->w_valid |= VALID_CROW|VALID_CHEIGHT;
 
-    /* validate botline too, if update_screen doesn't do it */
-    if (do_botline && all_invalid)
-	validate_botline_win(wp);
 }
 
 /*
@@ -887,7 +905,7 @@ win_col_off(wp)
 	    + (
 # ifdef FEAT_NETBEANS_INTG
 		/* show glyph gutter in netbeans */
-		netbeans_active() ||
+		wp->w_buffer->b_has_sign_column ||
 # endif
 		wp->w_buffer->b_signlist != NULL ? 2 : 0)
 #endif
@@ -926,8 +944,8 @@ curwin_col_off2()
  * Also updates curwin->w_leftcol.
  */
     void
-curs_columns(scroll)
-    int		scroll;		/* when TRUE, may scroll horizontally */
+curs_columns(may_scroll)
+    int		may_scroll;	/* when TRUE, may scroll horizontally */
 {
     int		diff;
     int		extra;		/* offset for first screen line */
@@ -950,7 +968,7 @@ curs_columns(scroll)
      * Next make sure that w_cline_row is valid.
      */
     if (!(curwin->w_valid & VALID_CROW))
-	curs_rows(curwin, FALSE);
+	curs_rows(curwin);
 
     /*
      * Compute the number of virtual columns.
@@ -966,7 +984,7 @@ curs_columns(scroll)
 
     /* remove '$' from change command when cursor moves onto it */
     if (startcol > dollar_vcol)
-	dollar_vcol = 0;
+	dollar_vcol = -1;
 
     extra = curwin_col_off();
     curwin->w_wcol = curwin->w_virtcol + extra;
@@ -1014,7 +1032,7 @@ curs_columns(scroll)
     /* No line wrapping: compute curwin->w_leftcol if scrolling is on and line
      * is not folded.
      * If scrolling is off, curwin->w_leftcol is assumed to be 0 */
-    else if (scroll
+    else if (may_scroll
 #ifdef FEAT_FOLDING
 	    && !curwin->w_cline_folded
 #endif
@@ -1172,22 +1190,15 @@ curs_columns(scroll)
     if (prev_skipcol != curwin->w_skipcol)
 	redraw_later(NOT_VALID);
 
-    /* Redraw when w_row changes and 'relativenumber' is set */
-    if (((curwin->w_valid & VALID_WROW) == 0 && (curwin->w_p_rnu
 #ifdef FEAT_SYN_HL
-	/* or when w_row changes and 'cursorline' is set. */
-						|| curwin->w_p_cul
-#endif
-	))
-#ifdef FEAT_SYN_HL
-	/* or when w_virtcol changes and 'cursorcolumn' is set */
-	|| (curwin->w_p_cuc && (curwin->w_valid & VALID_VIRTCOL) == 0)
-#endif
-	)
+    /* Redraw when w_virtcol changes and 'cursorcolumn' is set */
+    if (curwin->w_p_cuc && (curwin->w_valid & VALID_VIRTCOL) == 0
 # ifdef FEAT_INS_EXPAND
-	    if (!pum_visible())
+	    && !pum_visible()
 # endif
-		redraw_later(SOME_VALID);
+	)
+	redraw_later(SOME_VALID);
+#endif
 
     curwin->w_valid |= VALID_WCOL|VALID_WROW|VALID_VIRTCOL;
 }
@@ -1241,11 +1252,7 @@ scrolldown(line_count, byfold)
 	    }
 	    else
 #endif
-#ifdef FEAT_DIFF
-		done += plines_nofill(curwin->w_topline);
-#else
-		done += plines(curwin->w_topline);
-#endif
+		done += PLINES_NOFILL(curwin->w_topline);
 	}
 	--curwin->w_botline;		/* approximate w_botline */
 	invalidate_botline();
@@ -1501,7 +1508,7 @@ scrolldown_clamp()
 	--curwin->w_topline;
 #endif
 #ifdef FEAT_FOLDING
-	hasFolding(curwin->w_topline, &curwin->w_topline, NULL);
+	(void)hasFolding(curwin->w_topline, &curwin->w_topline, NULL);
 #endif
 	--curwin->w_botline;	    /* approximate w_botline */
 	curwin->w_valid &= ~(VALID_WROW|VALID_CROW|VALID_BOTLINE);
@@ -1598,13 +1605,7 @@ topline_back(lp)
 	    lp->height = 1;
 	else
 #endif
-	{
-#ifdef FEAT_DIFF
-	    lp->height = plines_nofill(lp->lnum);
-#else
-	    lp->height = plines(lp->lnum);
-#endif
-	}
+	    lp->height = PLINES_NOFILL(lp->lnum);
     }
 }
 
@@ -1642,11 +1643,7 @@ botline_forw(lp)
 	else
 #endif
 	{
-#ifdef FEAT_DIFF
-	    lp->height = plines_nofill(lp->lnum);
-#else
-	    lp->height = plines(lp->lnum);
-#endif
+	    lp->height = PLINES_NOFILL(lp->lnum);
 	}
     }
 }
@@ -1721,7 +1718,7 @@ scroll_cursor_top(min_scroll, always)
      * - at least 'scrolloff' lines above and below the cursor
      */
     validate_cheight();
-    used = curwin->w_cline_height;
+    used = curwin->w_cline_height; /* includes filler lines above */
     if (curwin->w_cursor.lnum < curwin->w_topline)
 	scrolled = used;
 
@@ -1740,10 +1737,10 @@ scroll_cursor_top(min_scroll, always)
     new_topline = top + 1;
 
 #ifdef FEAT_DIFF
-    /* count filler lines of the cursor window as context */
-    i = diff_check_fill(curwin, curwin->w_cursor.lnum);
-    used += i;
-    extra += i;
+    /* "used" already contains the number of filler lines above, don't add it
+     * again.
+     * Hide filler lines above cursor line by adding them to "extra". */
+    extra += diff_check_fill(curwin, curwin->w_cursor.lnum);
 #endif
 
     /*
@@ -1758,7 +1755,7 @@ scroll_cursor_top(min_scroll, always)
 	    i = 1;
 	else
 #endif
-	    i = plines(top);
+	    i = PLINES_NOFILL(top);
 	used += i;
 	if (extra + i <= off && bot < curbuf->b_ml.ml_line_count)
 	{
@@ -2101,6 +2098,9 @@ scroll_cursor_halfway(atend)
     int		used;
     lineoff_T	loff;
     lineoff_T	boff;
+#ifdef FEAT_DIFF
+    linenr_T	old_topline = curwin->w_topline;
+#endif
 
     loff.lnum = boff.lnum = curwin->w_cursor.lnum;
 #ifdef FEAT_FOLDING
@@ -2156,6 +2156,8 @@ scroll_cursor_halfway(atend)
 	curwin->w_topline = topline;
 #ifdef FEAT_DIFF
     curwin->w_topfill = topfill;
+    if (old_topline > curwin->w_topline + curwin->w_height)
+	curwin->w_botfill = FALSE;
     check_topfill(curwin, FALSE);
 #endif
     curwin->w_valid &= ~(VALID_WROW|VALID_CROW|VALID_BOTLINE|VALID_BOTLINE_AP);
@@ -2257,11 +2259,8 @@ cursor_correct()
 		++above;
 	    else
 #endif
-#ifndef FEAT_DIFF
-		above += plines(topline);
-#else
-		above += plines_nofill(topline);
-
+		above += PLINES_NOFILL(topline);
+#ifdef FEAT_DIFF
 	    /* Count filler lines below this line as context. */
 	    if (topline < botline)
 		above += diff_check_fill(curwin, topline + 1);
@@ -2492,8 +2491,8 @@ onepage(dir, count)
 		    }
 		    comp_botline(curwin);
 		    curwin->w_cursor.lnum = curwin->w_botline - 1;
-		    curwin->w_valid &= ~(VALID_WCOL|VALID_CHEIGHT|
-			    VALID_WROW|VALID_CROW);
+		    curwin->w_valid &=
+			    ~(VALID_WCOL|VALID_CHEIGHT|VALID_WROW|VALID_CROW);
 		}
 		else
 		{
@@ -2576,7 +2575,7 @@ get_scroll_overlap(lp, dir)
     else
 	topline_back(lp);
     h2 = lp->height;
-    if (h2 + h1 > min_height)
+    if (h2 == MAXCOL || h2 + h1 > min_height)
     {
 	*lp = loff0;	/* no overlap */
 	return;
@@ -2588,7 +2587,7 @@ get_scroll_overlap(lp, dir)
     else
 	topline_back(lp);
     h3 = lp->height;
-    if (h3 + h2 > min_height)
+    if (h3 == MAXCOL || h3 + h2 > min_height)
     {
 	*lp = loff0;	/* no overlap */
 	return;
@@ -2606,7 +2605,7 @@ get_scroll_overlap(lp, dir)
     else
 	topline_back(lp);
     h4 = lp->height;
-    if (h4 + h3 + h2 > min_height || h3 + h2 + h1 > min_height)
+    if (h4 == MAXCOL || h4 + h3 + h2 > min_height || h3 + h2 + h1 > min_height)
 	*lp = loff1;	/* 1 line overlap */
     else
 	*lp = loff2;	/* 2 lines overlap */
@@ -2656,11 +2655,7 @@ halfpage(flag, Prenum)
 	    else
 #endif
 	    {
-#ifdef FEAT_DIFF
-		i = plines_nofill(curwin->w_topline);
-#else
-		i = plines(curwin->w_topline);
-#endif
+		i = PLINES_NOFILL(curwin->w_topline);
 		n -= i;
 		if (n < 0 && scrolled > 0)
 		    break;
@@ -2766,11 +2761,7 @@ halfpage(flag, Prenum)
 	    else
 #endif
 	    {
-#ifdef FEAT_DIFF
-		i = plines_nofill(curwin->w_topline - 1);
-#else
-		i = plines(curwin->w_topline - 1);
-#endif
+		i = PLINES_NOFILL(curwin->w_topline - 1);
 		n -= i;
 		if (n < 0 && scrolled > 0)
 		    break;
@@ -2849,20 +2840,22 @@ halfpage(flag, Prenum)
 do_check_cursorbind()
 {
     linenr_T	line = curwin->w_cursor.lnum;
-    colnr_T	col =  curwin->w_cursor.col;
+    colnr_T	col = curwin->w_cursor.col;
+# ifdef FEAT_VIRTUALEDIT
+    colnr_T	coladd = curwin->w_cursor.coladd;
+# endif
+    colnr_T	curswant = curwin->w_curswant;
+    int		set_curswant = curwin->w_set_curswant;
     win_T	*old_curwin = curwin;
     buf_T	*old_curbuf = curbuf;
-# ifdef FEAT_VISUAL
+    int		restart_edit_save;
     int		old_VIsual_select = VIsual_select;
     int		old_VIsual_active = VIsual_active;
-# endif
 
     /*
      * loop through the cursorbound windows
      */
-# ifdef FEAT_VISUAL
     VIsual_select = VIsual_active = 0;
-# endif
     for (curwin = firstwin; curwin; curwin = curwin->w_next)
     {
 	curbuf = curwin->w_buffer;
@@ -2880,17 +2873,28 @@ do_check_cursorbind()
 # endif
 		curwin->w_cursor.lnum = line;
 	    curwin->w_cursor.col = col;
+# ifdef FEAT_VIRTUALEDIT
+	    curwin->w_cursor.coladd = coladd;
+# endif
+	    curwin->w_curswant = curswant;
+	    curwin->w_set_curswant = set_curswant;
 
-	    /* Make sure the cursor is in a valid position. */
+	    /* Make sure the cursor is in a valid position.  Temporarily set
+	     * "restart_edit" to allow the cursor to be beyond the EOL. */
+	    restart_edit_save = restart_edit;
+	    restart_edit = TRUE;
 	    check_cursor();
+	    restart_edit = restart_edit_save;
 # ifdef FEAT_MBYTE
 	    /* Correct cursor for multi-byte character. */
 	    if (has_mbyte)
 		mb_adjust_cursor();
 # endif
-
 	    redraw_later(VALID);
-	    update_topline();
+
+	    /* Only scroll when 'scrollbind' hasn't done this. */
+	    if (!curwin->w_p_scb)
+		update_topline();
 # ifdef FEAT_WINDOWS
 	    curwin->w_redr_status = TRUE;
 # endif
@@ -2900,10 +2904,8 @@ do_check_cursorbind()
     /*
      * reset current-window
      */
-# ifdef FEAT_VISUAL
     VIsual_select = old_VIsual_select;
     VIsual_active = old_VIsual_active;
-# endif
     curwin = old_curwin;
     curbuf = old_curbuf;
 }

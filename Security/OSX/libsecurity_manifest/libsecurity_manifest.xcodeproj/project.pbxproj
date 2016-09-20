@@ -55,16 +55,16 @@
 		D60C834809F5AD980069DF6D /* SecureDownloadInternal.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SecureDownloadInternal.c; path = lib/SecureDownloadInternal.c; sourceTree = "<group>"; };
 		D60C834909F5AD980069DF6D /* SecureDownloadInternal.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = SecureDownloadInternal.h; path = lib/SecureDownloadInternal.h; sourceTree = "<group>"; };
 		D637ECC205DA85AD0096F1E6 /* Manifest.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = Manifest.cpp; path = lib/Manifest.cpp; sourceTree = "<group>"; };
-		D637ECC305DA85AD0096F1E6 /* SecManifest.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = SecManifest.cpp; path = lib/SecManifest.cpp; sourceTree = "<group>"; };
+		D637ECC305DA85AD0096F1E6 /* SecManifest.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; name = SecManifest.cpp; path = lib/SecManifest.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		D658622605DA860900E7380F /* Manifest.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = Manifest.h; path = lib/Manifest.h; sourceTree = "<group>"; };
 		D658622705DA860900E7380F /* SecManifest.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = SecManifest.h; path = lib/SecManifest.h; sourceTree = "<group>"; };
 		D658622E05DA866200E7380F /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		D658627305DA867300E7380F /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
 		D6C8AFAE05DD2430003DB724 /* libsecurity_manifest.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libsecurity_manifest.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		D6C8AFE005DD2FF8003DB724 /* security_manifest.exp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.exports; name = security_manifest.exp; path = lib/security_manifest.exp; sourceTree = "<group>"; };
-		D6CDE5B805E3DBD9006C8558 /* AppleManifest.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleManifest.cpp; path = lib/AppleManifest.cpp; sourceTree = "<group>"; };
+		D6CDE5B805E3DBD9006C8558 /* AppleManifest.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; name = AppleManifest.cpp; path = lib/AppleManifest.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		D6CDE5B905E3DBD9006C8558 /* AppleManifest.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleManifest.h; path = lib/AppleManifest.h; sourceTree = "<group>"; };
-		D6E7672205F3F8B6007C5669 /* ManifestInternal.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = ManifestInternal.cpp; path = lib/ManifestInternal.cpp; sourceTree = "<group>"; };
+		D6E7672205F3F8B6007C5669 /* ManifestInternal.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; name = ManifestInternal.cpp; path = lib/ManifestInternal.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		D6E7672305F3F8B6007C5669 /* ManifestInternal.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ManifestInternal.h; path = lib/ManifestInternal.h; sourceTree = "<group>"; };
 		D6E7672405F3F8B6007C5669 /* ManifestSigner.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = ManifestSigner.cpp; path = lib/ManifestSigner.cpp; sourceTree = "<group>"; };
 		D6E7672505F3F8B6007C5669 /* ManifestSigner.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ManifestSigner.h; path = lib/ManifestSigner.h; sourceTree = "<group>"; };
@@ -194,7 +194,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				182BB32B146F0F8B000BF1F3 /* PBXTargetDependency */,
 			);
 			name = libsecurity_manifest;
 			productName = libsecurity_manifest;
@@ -207,7 +206,7 @@
 		0867D690FE84028FC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0700;
+				LastUpgradeCheck = 0800;
 			};
 			buildConfigurationList = C27AD39A0987FCDE001272E0 /* Build configuration list for PBXProject "libsecurity_manifest" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -308,12 +307,21 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB31F146F0F07000BF1F3 /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = lossless;
+				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				ONLY_ACTIVE_ARCH = YES;
 			};
 			name = Debug;
 		};
@@ -321,12 +329,19 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB31F146F0F07000BF1F3 /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = "respect-asset-catalog";
+				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
 			};
 			name = Release;
 		};

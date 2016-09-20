@@ -30,6 +30,10 @@
 #include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
 
+#if PLATFORM(COCOA)
+#include <notify.h>
+#endif
+
 #if !LOG_DISABLED
 
 namespace WebCore {
@@ -53,16 +57,48 @@ bool isLogChannelEnabled(const String& name)
     return channel->state != WTFLogChannelOff;
 }
 
+static bool logChannelsNeedInitialization = true;
+
+void setLogChannelToAccumulate(const String& name)
+{
+    WTFLogChannel* channel = WTFLogChannelByName(logChannels, logChannelCount, name.utf8().data());
+    if (!channel)
+        return;
+
+    channel->state = WTFLogChannelOnWithAccumulation;
+    logChannelsNeedInitialization = true;
+}
+
 void initializeLoggingChannelsIfNecessary()
 {
-    static bool haveInitializedLoggingChannels = false;
-    if (haveInitializedLoggingChannels)
+    if (!logChannelsNeedInitialization)
         return;
-    haveInitializedLoggingChannels = true;
+
+    logChannelsNeedInitialization = false;
 
     WTFInitializeLogChannelStatesFromString(logChannels, logChannelCount, logLevelString().utf8().data());
 }
 
+#ifndef NDEBUG
+void registerNotifyCallback(const String& notifyID, std::function<void()> callback)
+{
+#if PLATFORM(COCOA)
+    int token;
+    notify_register_dispatch(notifyID.utf8().data(), &token, dispatch_get_main_queue(), ^(int) {
+        callback();
+    });
+#else
+    UNUSED_PARAM(notifyID);
+    UNUSED_PARAM(callback);
+#endif
 }
+#endif
+
+void logFunctionResult(WTFLogChannel* channel, std::function<const char*()> function)
+{
+    WTFLog(channel, "%s", function());
+}
+
+} // namespace WebCore
 
 #endif // !LOG_DISABLED

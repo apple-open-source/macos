@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef DrawingArea_h
-#define DrawingArea_h
+#pragma once
 
 #include "DrawingAreaInfo.h"
 #include "LayerTreeContext.h"
@@ -32,12 +31,14 @@
 #include <WebCore/FloatRect.h>
 #include <WebCore/IntRect.h>
 #include <WebCore/LayerFlushThrottleState.h>
+#include <WebCore/LayoutMilestones.h>
 #include <WebCore/PlatformScreen.h>
 #include <WebCore/ViewState.h>
 #include <functional>
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/TypeCasts.h>
+#include <wtf/Vector.h>
 
 namespace IPC {
 class Connection;
@@ -87,8 +88,9 @@ public:
     virtual void mainFrameContentSizeChanged(const WebCore::IntSize&) { }
 
 #if PLATFORM(COCOA)
-    virtual void setExposedRect(const WebCore::FloatRect&) = 0;
-    virtual WebCore::FloatRect exposedRect() const = 0;
+    virtual void setViewExposedRect(Optional<WebCore::FloatRect>) = 0;
+    virtual Optional<WebCore::FloatRect> viewExposedRect() const = 0;
+
     virtual void acceleratedAnimationDidStart(uint64_t /*layerID*/, const String& /*key*/, double /*startTime*/) { }
     virtual void acceleratedAnimationDidEnd(uint64_t /*layerID*/, const String& /*key*/) { }
     virtual void addFence(const WebCore::MachSendRight&) { }
@@ -109,7 +111,7 @@ public:
     virtual void scheduleCompositingLayerFlushImmediately() = 0;
 
 #if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
-    virtual RefPtr<WebCore::DisplayRefreshMonitor> createDisplayRefreshMonitor(PlatformDisplayID);
+    virtual RefPtr<WebCore::DisplayRefreshMonitor> createDisplayRefreshMonitor(WebCore::PlatformDisplayID);
 #endif
 
 #if USE(COORDINATED_GRAPHICS_MULTIPROCESS)
@@ -129,12 +131,14 @@ public:
 
     virtual void setShouldScaleViewToFitDocument(bool) { }
 
+    virtual bool dispatchDidLayout(WebCore::LayoutMilestones) { return false; }
+
 #if PLATFORM(COCOA)
     // Used by TiledCoreAnimationDrawingArea.
     virtual void updateGeometry(const WebCore::IntSize& viewSize, const WebCore::IntSize& layerPosition, bool flushSynchronously, const WebCore::MachSendRight& fencePort) { }
-
-    virtual void replyWithFenceAfterNextFlush(uint64_t callbackID) { ASSERT_NOT_REACHED(); }
 #endif
+
+    virtual void layerHostDidFlushLayers() { };
 
 protected:
     DrawingArea(DrawingAreaType, WebPage&);
@@ -142,13 +146,14 @@ protected:
     DrawingAreaType m_type;
     WebPage& m_webPage;
 
-#if USE(TEXTURE_MAPPER_GL) && PLATFORM(GTK)
-    uint64_t m_nativeSurfaceHandleForCompositing;
+#if PLATFORM(GTK) && USE(TEXTURE_MAPPER)
+    uint64_t m_nativeSurfaceHandleForCompositing { 0 };
 #endif
 
 private:
     // IPC::MessageReceiver.
-    virtual void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
+    void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
+    void didReceiveSyncMessage(IPC::Connection&, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&) override;
 
     // Message handlers.
     // FIXME: These should be pure virtual.
@@ -167,8 +172,9 @@ private:
     virtual void addTransactionCallbackID(uint64_t callbackID) { ASSERT_NOT_REACHED(); }
 #endif
 
-#if USE(TEXTURE_MAPPER_GL) && PLATFORM(GTK)
+#if USE(TEXTURE_MAPPER) && PLATFORM(GTK)
     virtual void setNativeSurfaceHandleForCompositing(uint64_t) = 0;
+    virtual void destroyNativeSurfaceHandleForCompositing(bool&) = 0;
 #endif
 };
 
@@ -178,5 +184,3 @@ private:
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::ToValueTypeName) \
     static bool isType(const WebKit::DrawingArea& area) { return area.type() == WebKit::AreaType; } \
 SPECIALIZE_TYPE_TRAITS_END()
-
-#endif // DrawingArea_h

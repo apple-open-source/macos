@@ -29,6 +29,7 @@
 
 #include <functional>
 #include <sqlite3.h>
+#include <wtf/Lock.h>
 #include <wtf/Threading.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
@@ -55,8 +56,6 @@ public:
     WEBCORE_EXPORT bool open(const String& filename, bool forWebSQLDatabase = false);
     bool isOpen() const { return m_db; }
     WEBCORE_EXPORT void close();
-    void interrupt();
-    bool isInterrupted();
 
     void updateLastChangesCount();
 
@@ -69,7 +68,10 @@ public:
     int runIncrementalVacuumCommand();
     
     bool transactionInProgress() const { return m_transactionInProgress; }
-    
+
+    // Aborts the current database operation. This is thread safe.
+    void interrupt();
+
     int64_t lastInsertRowID();
     int lastChanges();
 
@@ -108,7 +110,7 @@ public:
     
     void setAuthorizer(PassRefPtr<DatabaseAuthorizer>);
 
-    Mutex& databaseMutex() { return m_lockingMutex; }
+    Lock& databaseMutex() { return m_lockingMutex; }
     bool isAutoCommitOn() const;
 
     // The SQLite AUTO_VACUUM pragma can be either NONE, FULL, or INCREMENTAL.
@@ -143,25 +145,24 @@ private:
 
     void overrideUnauthorizedFunctions();
 
-    sqlite3* m_db;
-    int m_pageSize;
+    sqlite3* m_db { nullptr };
+    int m_pageSize { -1 };
     
-    bool m_transactionInProgress;
-    bool m_sharable;
+    bool m_transactionInProgress { false };
+    bool m_sharable { false };
     
-    Mutex m_authorizerLock;
+    Lock m_authorizerLock;
     RefPtr<DatabaseAuthorizer> m_authorizer;
 
-    Mutex m_lockingMutex;
-    ThreadIdentifier m_openingThread;
+    Lock m_lockingMutex;
+    ThreadIdentifier m_openingThread { 0 };
 
-    Mutex m_databaseClosingMutex;
-    bool m_interrupted;
+    Lock m_databaseClosingMutex;
 
-    int m_openError;
+    int m_openError { SQLITE_ERROR };
     CString m_openErrorMessage;
 
-    int m_lastChangesCount;
+    int m_lastChangesCount { 0 };
 };
 
 } // namespace WebCore

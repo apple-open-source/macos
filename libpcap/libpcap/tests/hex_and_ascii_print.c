@@ -59,6 +59,6 @@ hex_and_ascii_print(const char *prefix, const void *data,
 				hexbuf[k++] = ' ';
 		}
 		hexbuf[k] = 0;
-		printf("%s%s  %s%s\n", prefix, hexbuf, asciibuf, suffix);
+		printf("%s%s  %s%s", prefix, hexbuf, asciibuf, suffix);
 	}
 }

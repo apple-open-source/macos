@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,8 +30,10 @@
 #include "ArgumentEncoder.h"
 #include <utility>
 #include <wtf/Forward.h>
+#include <wtf/HashCountedSet.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
+#include <wtf/OptionSet.h>
 #include <wtf/Optional.h>
 #include <wtf/Vector.h>
 
@@ -51,6 +53,23 @@ template<typename T> struct SimpleArgumentCoder {
     static bool decode(ArgumentDecoder& decoder, T& t)
     {
         return decoder.decodeFixedLengthData(reinterpret_cast<uint8_t*>(&t), sizeof(T), alignof(T));
+    }
+};
+
+template<typename T> struct ArgumentCoder<OptionSet<T>> {
+    static void encode(ArgumentEncoder& encoder, const OptionSet<T>& optionSet)
+    {
+        encoder << (static_cast<uint64_t>(optionSet.toRaw()));
+    }
+
+    static bool decode(ArgumentDecoder& decoder, OptionSet<T>& optionSet)
+    {
+        uint64_t value;
+        if (!decoder.decode(value))
+            return false;
+
+        optionSet = OptionSet<T>::fromRaw(value);
+        return true;
     }
 };
 
@@ -81,7 +100,7 @@ template<typename T> struct ArgumentCoder<WTF::Optional<T>> {
         if (!decoder.decode(value))
             return false;
 
-        optional = WTF::move(value);
+        optional = WTFMove(value);
         return true;
     }
 };
@@ -169,7 +188,7 @@ template<typename T, size_t inlineCapacity> struct VectorArgumentCoder<false, T,
             if (!decoder.decode(element))
                 return false;
             
-            tmp.append(WTF::move(element));
+            tmp.append(WTFMove(element));
         }
 
         tmp.shrinkToFit();
@@ -278,6 +297,47 @@ template<typename KeyArg, typename HashArg, typename KeyTraitsArg> struct Argume
         }
 
         hashSet.swap(tempHashSet);
+        return true;
+    }
+};
+
+template<typename KeyArg, typename HashArg, typename KeyTraitsArg> struct ArgumentCoder<HashCountedSet<KeyArg, HashArg, KeyTraitsArg>> {
+    typedef HashCountedSet<KeyArg, HashArg, KeyTraitsArg> HashCountedSetType;
+    
+    static void encode(ArgumentEncoder& encoder, const HashCountedSetType& hashCountedSet)
+    {
+        encoder << static_cast<uint64_t>(hashCountedSet.size());
+        
+        for (auto entry : hashCountedSet) {
+            encoder << entry.key;
+            encoder << entry.value;
+        }
+    }
+    
+    static bool decode(ArgumentDecoder& decoder, HashCountedSetType& hashCountedSet)
+    {
+        uint64_t hashCountedSetSize;
+        if (!decoder.decode(hashCountedSetSize))
+            return false;
+        
+        HashCountedSetType tempHashCountedSet;
+        for (uint64_t i = 0; i < hashCountedSetSize; ++i) {
+            KeyArg key;
+            if (!decoder.decode(key))
+                return false;
+            
+            unsigned count;
+            if (!decoder.decode(count))
+                return false;
+            
+            if (!tempHashCountedSet.add(key, count).isNewEntry) {
+                // The hash counted set already has the specified key, bail.
+                decoder.markInvalid();
+                return false;
+            }
+        }
+        
+        hashCountedSet.swap(tempHashCountedSet);
         return true;
     }
 };

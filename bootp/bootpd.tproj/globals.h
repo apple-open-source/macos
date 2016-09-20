@@ -27,7 +27,7 @@
 #include "subnets.h"
 
 extern int		bootp_socket;
-extern int		debug;
+extern bool		debug;
 extern bool		dhcp_ignore_client_identifier;
 extern int		quiet;
 extern unsigned short	server_priority;
@@ -38,5 +38,5 @@ extern SubnetListRef	subnets;
 extern char *		testing_control;
 extern char *		transmit_buffer;
 extern bool		use_open_directory;
-extern int		verbose;
+extern bool		verbose;
 #endif /* _S_GLOBALS_H */

@@ -36,28 +36,16 @@ WebInspector.VisualStyleTimingEditor = class VisualStyleTimingEditor extends Web
         this._customValueOptionElement.text = WebInspector.UIString("Custom");
         this._keywordSelectElement.appendChild(this._customValueOptionElement);
 
-        this._bezierMarkerElement = document.createElement("span");
-        this._bezierMarkerElement.title = WebInspector.UIString("Click to open a cubic-bezier editor");
-        this._bezierMarkerElement.classList.add("bezier-editor");
-        this._bezierMarkerElement.hidden = true;
-        this._bezierMarkerElement.addEventListener("click", this._bezierMarkerClicked.bind(this));
-        this.contentElement.appendChild(this._bezierMarkerElement);
-
-        this._bezierEditor = new WebInspector.BezierEditor;
-        this._bezierEditor.addEventListener(WebInspector.BezierEditor.Event.BezierChanged, this._valueDidChange.bind(this));
-        this._bezierEditor.bezier = WebInspector.CubicBezier.fromString("linear");
+        this._bezierSwatch = new WebInspector.InlineSwatch(WebInspector.InlineSwatch.Type.Bezier);
+        this._bezierSwatch.addEventListener(WebInspector.InlineSwatch.Event.ValueChanged, this._bezierSwatchValueChanged, this);
+        this.contentElement.appendChild(this._bezierSwatch.element);
     }
 
-    // Protected
-
-    parseValue(text)
-    {
-        return /(cubic-bezier\(.+\))/.exec(text);
-    }
+    // Public
 
     get bezierValue()
     {
-        var bezier = this._bezierEditor.bezier;
+        let bezier = this._bezierSwatch.value;
         if (!bezier)
             return null;
 
@@ -66,54 +54,58 @@ WebInspector.VisualStyleTimingEditor = class VisualStyleTimingEditor extends Web
 
     set bezierValue(text)
     {
-        var bezier = WebInspector.CubicBezier.fromString(text);
-        this._bezierEditor.bezier = bezier;
+        let bezier = WebInspector.CubicBezier.fromString(text);
+        this._bezierSwatch.value = bezier;
+    }
+
+    // Protected
+
+    get value()
+    {
+        return this._customValueOptionElement.selected ? this.bezierValue : super.value;
+    }
+
+    set value(value)
+    {
+        this.bezierValue = value;
+        if (this.valueIsSupportedKeyword(value)) {
+            super.value = value;
+            this.contentElement.classList.remove("bezier-value");
+            return;
+        }
+
+        let bezier = this.bezierValue;
+        this._customValueOptionElement.selected = !!bezier;
+        this.contentElement.classList.toggle("bezier-value", !!bezier);
+        this.specialPropertyPlaceholderElement.hidden = !!bezier;
+        if (!bezier)
+            super.value = value;
+    }
+
+    get synthesizedValue()
+    {
+        return this._customValueOptionElement.selected ? this.bezierValue : super.synthesizedValue;
+    }
+
+    parseValue(text)
+    {
+        return /(cubic-bezier\(.+\))/.exec(text);
     }
 
     // Private
 
-    _getValue()
-    {
-        return this._customValueOptionElement.selected ? this.bezierValue : super._getValue();
-    }
-
-    _setValue(value)
-    {
-        this.bezierValue = value;
-        if (this.valueIsSupportedKeyword(value)) {
-            super._setValue(value);
-            this._bezierMarkerElement.hidden = true;
-            return;
-        }
-
-        var bezier = this.bezierValue;
-        this._customValueOptionElement.selected = !!bezier;
-        this._bezierMarkerElement.hidden = !bezier;
-        this.specialPropertyPlaceholderElement.hidden = !!bezier;
-        if (!bezier)
-            super._setValue(value);
-    }
-
-    _generateSynthesizedValue()
-    {
-        return this._customValueOptionElement.selected ? this.bezierValue : super._generateSynthesizedValue();
-    }
-
-    _bezierMarkerClicked()
-    {
-        var bounds = WebInspector.Rect.rectFromClientRect(this._bezierMarkerElement.getBoundingClientRect());
-        this._cubicBezierEditorPopover = new WebInspector.Popover(this);
-        this._cubicBezierEditorPopover.content = this._bezierEditor.element;
-        this._cubicBezierEditorPopover.present(bounds.pad(2), [WebInspector.RectEdge.MIN_X]);
-    }
-
     _handleKeywordChanged()
     {
         super._handleKeywordChanged();
-        var customOptionSelected = this._customValueOptionElement.selected;
-        this._bezierMarkerElement.hidden = !customOptionSelected;
+        let customOptionSelected = this._customValueOptionElement.selected;
+        this.contentElement.classList.toggle("bezier-value", !!customOptionSelected);
         this.specialPropertyPlaceholderElement.hidden = !!customOptionSelected;
         if (customOptionSelected)
             this.bezierValue = "linear";
+    }
+
+    _bezierSwatchValueChanged(event)
+    {
+        this._valueDidChange();
     }
 };

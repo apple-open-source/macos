@@ -34,7 +34,7 @@
  * SECTION: Program Structure/Probe Clauses and Declarations
  *
  */
-
+#pragma D option statusrate=15ms
 
 
 tick-10ms

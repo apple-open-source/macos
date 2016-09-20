@@ -1,28 +1,23 @@
 " Vim syntax file
 " Language:    Lisp
-" Maintainer:  Dr. Charles E. Campbell, Jr. <NdrOchipS@PcampbellAfamily.Mbiz>
-" Last Change: Mar 05, 2009
-" Version:     21
-" URL:	       http://mysite.verizon.net/astronaut/vim/index.html#vimlinks_syntax
+" Maintainer:  Charles E. Campbell <NdrOchipS@PcampbellAfamily.Mbiz>
+" Last Change: Oct 06, 2014
+" Version:     23
+" URL:	       http://www.drchip.org/astronaut/vim/index.html#SYNTAX_LISP
 "
-"  Thanks to F Xavier Noria for a list of 978 Common Lisp symbols
-"  taken from the HyperSpec
+"  Thanks to F Xavier Noria for a list of 978 Common Lisp symbols taken from HyperSpec
 "  Clisp additions courtesy of http://clisp.cvs.sourceforge.net/*checkout*/clisp/clisp/emacs/lisp.vim
 
 " ---------------------------------------------------------------------
 "  Load Once: {{{1
-" For vim-version 5.x: Clear all syntax items
-" For vim-version 6.x: Quit when a syntax file was already loaded
-if version < 600
-  syntax clear
-elseif exists("b:current_syntax")
-  finish
+if exists("b:current_syntax")
+ finish
 endif
 
-if version >= 600
- setlocal iskeyword=38,42,43,45,47-58,60-62,64-90,97-122,_
+if exists("g:lisp_isk")
+ exe "setl isk=".g:lisp_isk
 else
- set iskeyword=38,42,43,45,47-58,60-62,64-90,97-122,_
+ setl isk=38,42,43,45,47-58,60-62,64-90,97-122,_
 endif
 
 if exists("g:lispsyntax_ignorecase") || exists("g:lispsyntax_clisp")
@@ -32,7 +27,7 @@ endif
 " ---------------------------------------------------------------------
 " Clusters: {{{1
 syn cluster			lispAtomCluster		contains=lispAtomBarSymbol,lispAtomList,lispAtomNmbr0,lispComment,lispDecl,lispFunc,lispLeadWhite
-syn cluster			lispBaseListCluster	contains=lispAtom,lispAtomBarSymbol,lispAtomMark,lispBQList,lispBarSymbol,lispComment,lispConcat,lispDecl,lispFunc,lispKey,lispList,lispNumber,lispSpecial,lispSymbol,lispVar,lispLeadWhite
+syn cluster			lispBaseListCluster	contains=lispAtom,lispAtomBarSymbol,lispAtomMark,lispBQList,lispBarSymbol,lispComment,lispConcat,lispDecl,lispFunc,lispKey,lispList,lispNumber,lispEscapeSpecial,lispSymbol,lispVar,lispLeadWhite
 if exists("g:lisp_instring")
  syn cluster			lispListCluster		contains=@lispBaseListCluster,lispString,lispInString,lispInStringString
 else
@@ -68,7 +63,7 @@ syn match lispAtom			"'("me=e-1			contains=lispAtomMark	nextgroup=lispAtomList
 syn match lispAtom			"'[^ \t()]\+"			contains=lispAtomMark
 syn match lispAtomBarSymbol		!'|..\{-}|!			contains=lispAtomMark
 syn region lispAtom			start=+'"+			skip=+\\"+ end=+"+
-syn region lispAtomList			contained			matchgroup=Special start="("	skip="|.\{-}|" matchgroup=Special end=")"	contains=@lispAtomCluster,lispString,lispSpecial
+syn region lispAtomList			contained			matchgroup=Special start="("	skip="|.\{-}|" matchgroup=Special end=")"	contains=@lispAtomCluster,lispString,lispEscapeSpecial
 syn match lispAtomNmbr			contained			"\<\d\+"
 syn match lispLeadWhite			contained			"^\s\+"
 
@@ -537,16 +532,16 @@ endif
 syn match lispNumber		"-\=\(\.\d\+\|\d\+\(\.\d*\)\=\)\([dDeEfFlL][-+]\=\d\+\)\="
 syn match lispNumber		"-\=\(\d\+/\d\+\)"
 
-syn match lispSpecial		"\*\w[a-z_0-9-]*\*"
-syn match lispSpecial		!#|[^()'`,"; \t]\+|#!
-syn match lispSpecial		!#x\x\+!
-syn match lispSpecial		!#o\o\+!
-syn match lispSpecial		!#b[01]\+!
-syn match lispSpecial		!#\\[ -}\~]!
-syn match lispSpecial		!#[':][^()'`,"; \t]\+!
-syn match lispSpecial		!#([^()'`,"; \t]\+)!
-syn match lispSpecial		!#\\\%(Space\|Newline\|Tab\|Page\|Rubout\|Linefeed\|Return\|Backspace\)!
-syn match lispSpecial		"\<+[a-zA-Z_][a-zA-Z_0-9-]*+\>"
+syn match lispEscapeSpecial		"\*\w[a-z_0-9-]*\*"
+syn match lispEscapeSpecial		!#|[^()'`,"; \t]\+|#!
+syn match lispEscapeSpecial		!#x\x\+!
+syn match lispEscapeSpecial		!#o\o\+!
+syn match lispEscapeSpecial		!#b[01]\+!
+syn match lispEscapeSpecial		!#\\[ -}\~]!
+syn match lispEscapeSpecial		!#[':][^()'`,"; \t]\+!
+syn match lispEscapeSpecial		!#([^()'`,"; \t]\+)!
+syn match lispEscapeSpecial		!#\\\%(Space\|Newline\|Tab\|Page\|Rubout\|Linefeed\|Return\|Backspace\)!
+syn match lispEscapeSpecial		"\<+[a-zA-Z_][a-zA-Z_0-9-]*+\>"
 
 syn match lispConcat		"\s\.\s"
 syn match lispParenError	")"
@@ -585,7 +580,7 @@ if version >= 508
   HiLink lispMark		Delimiter
   HiLink lispNumber		Number
   HiLink lispParenError		Error
-  HiLink lispSpecial		Type
+  HiLink lispEscapeSpecial	Type
   HiLink lispString		String
   HiLink lispTodo		Todo
   HiLink lispVar		Statement

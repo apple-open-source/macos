@@ -1,1 +1,0 @@
-Shows how to use WebKit's nightly builds from Python

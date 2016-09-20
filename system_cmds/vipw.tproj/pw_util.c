@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
@@ -10,7 +10,7 @@
  * except in compliance with the License.  Please obtain a copy of the
  * License at http://www.apple.com/publicsource and read it before using
  * this file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -18,7 +18,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
  * License for the specific language governing rights and limitations
  * under the License."
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*-
@@ -87,17 +87,15 @@ extern char *tempname;
 static pid_t editpid = -1;
 static int lockfd;
 
-void
-pw_cont(sig)
-	int sig;
+static void
+pw_cont(int sig)
 {
-
 	if (editpid != -1)
 		kill(editpid, sig);
 }
 
 void
-pw_init()
+pw_init(void)
 {
 	struct rlimit rlim;
 
@@ -127,9 +125,9 @@ pw_init()
 }
 
 int
-pw_lock()
+pw_lock(void)
 {
-	/* 
+	/*
 	 * If the master password file doesn't exist, the system is hosed.
 	 * Might as well try to build one.  Set the close-on-exec bit so
 	 * that users can't get at the encrypted passwords while editing.
@@ -144,13 +142,13 @@ pw_lock()
 }
 
 int
-pw_tmp()
+pw_tmp(void)
 {
 	static char path[MAXPATHLEN] = _PATH_MASTERPASSWD;
 	int fd;
 	char *p;
 
-	if (p = strrchr(path, '/'))
+	if ((p = strrchr(path, '/')))
 		++p;
 	else
 		p = path;
@@ -162,7 +160,7 @@ pw_tmp()
 }
 
 int
-pw_mkdb()
+pw_mkdb(void)
 {
 	int pstat;
 	pid_t pid;
@@ -181,17 +179,16 @@ pw_mkdb()
 }
 
 void
-pw_edit(notsetuid)
-	int notsetuid;
+pw_edit(int notsetuid)
 {
 	int pstat;
 	char *p, *editor;
 
 	if (!(editor = getenv("EDITOR")))
 		editor = _PATH_VI;
-	if (p = strrchr(editor, '/'))
+	if ((p = strrchr(editor, '/')))
 		++p;
-	else 
+	else
 		p = editor;
 
 	if (!(editpid = vfork())) {
@@ -217,7 +214,7 @@ pw_edit(notsetuid)
 }
 
 void
-pw_prompt()
+pw_prompt(void)
 {
 	int c;
 
@@ -231,9 +228,7 @@ pw_prompt()
 }
 
 void
-pw_error(name, err, eval)
-	char *name;
-	int err, eval;
+pw_error(char *name, int err, int eval)
 {
 	if (err)
 		warn("%s", name);

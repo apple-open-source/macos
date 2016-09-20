@@ -19,7 +19,7 @@
 <div id="page-header">
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p>
 <p class="apache">Serveur Apache HTTP Version 2.4</p>
-<img alt="" src="../images/feather.gif" /></div>
+<img alt="" src="../images/feather.png" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
 <a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">Serveur HTTP</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.4</a> &gt; <a href="./">Modules</a></div>
@@ -64,14 +64,15 @@ sécurité</a></li>
 <ul id="toc">
 <li><img alt="" src="../images/down.gif" /> <a href="#bufferedlogs">BufferedLogs</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#customlog">CustomLog</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#globallog">GlobalLog</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#logformat">LogFormat</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#transferlog">TransferLog</a></li>
 </ul>
-<h3>Voir aussi</h3>
+<h3>Traitement des bugs</h3><ul class="seealso"><li><a href="https://www.apache.org/dist/httpd/CHANGES_2.4">Journal des modifications de httpd</a></li><li><a href="https://bz.apache.org/bugzilla/buglist.cgi?bug_status=__open__&amp;list_id=144532&amp;product=Apache%20httpd-2&amp;query_format=specific&amp;order=changeddate%20DESC%2Cpriority%2Cbug_severity&amp;component=mod_log_config">Problèmes connus</a></li><li><a href="https://bz.apache.org/bugzilla/enter_bug.cgi?product=Apache%20httpd-2&amp;component=mod_log_config">Signaler un bug</a></li></ul><h3>Voir aussi</h3>
 <ul class="seealso">
 <li><a href="../logs.html">Les fichiers journaux
 d'Apache</a></li>
-</ul><ul class="seealso"><li><a href="#comments_section">Commentaires</a></li></ul></div>
+<li><a href="#comments_section">Commentaires</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="formats" id="formats">Formats de journaux personnalisés</a></h2>
@@ -510,6 +511,34 @@ CustomLog "referer.log" referer env=!localreferer</pre>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="directive-section"><h2><a name="globallog" id="globallog">Directive</a> <a name="GlobalLog" id="GlobalLog">GlobalLog</a></h2>
+<table class="directive">
+<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Définit le nom et le format du fichier journal</td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>GlobalLog<var>file</var>|<var>pipe</var>
+<var>format</var>|<var>nickname</var>
+[env=[!]<var>environment-variable</var>|
+expr=<var>expression</var>]</code></td></tr>
+<tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>configuration du serveur</td></tr>
+<tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Base</td></tr>
+<tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_log_config</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>Disponible à partir de la version 2.4.19 du serveur HTTP Apache</td></tr>
+</table>
+
+    <p>La directive <code class="directive">GlobalLog</code> permet de spécifier un
+    journal partagé entre le serveur principal et tous les serveurs virtuels
+    définis.</p>
+
+    <p>Elle est identique à la directive <code class="directive">CustomLog</code> à ces
+    différences près : </p>
+    <ul>
+       <li>Elle n'est pas valide dans un contexte de serveur virtuel.</li>
+       <li>A la différence d'une directive <code class="directive">CustomLog</code>
+       définie globalement, elle est prise en compte par les serveurs virtuels
+       qui définissent leur propre directive <code class="directive">CustomLog</code>.</li>
+    </ul>
+
+</div>
+<div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="logformat" id="logformat">Directive</a> <a name="LogFormat" id="LogFormat">LogFormat</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Décrit un format utilisable dans un fichier
@@ -603,7 +632,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_log_config.h
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

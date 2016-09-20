@@ -254,3 +254,33 @@ SOSPeerInfoRef SOSAccountCopyPeerWithID(SOSAccountRef account, CFStringRef peeri
     if(!account->trusted_circle) return NULL;
     return SOSCircleCopyPeerWithID(account->trusted_circle, peerid, error);
 }
+
+CFBooleanRef SOSAccountPeersHaveViewsEnabled(SOSAccountRef account, CFArrayRef viewNames, CFErrorRef *error) {
+    CFBooleanRef result = NULL;
+    CFMutableSetRef viewsRemaining = NULL;
+    CFSetRef viewsToLookFor = NULL;
+
+    require_quiet(SOSAccountHasPublicKey(account, error), done);
+    require_quiet(SOSAccountIsInCircle(account, error), done);
+
+    viewsToLookFor = CFSetCreateCopyOfArrayForCFTypes(viewNames);
+    viewsRemaining = CFSetCreateMutableCopy(kCFAllocatorDefault, 0, viewsToLookFor);
+    CFReleaseNull(viewsToLookFor);
+
+    SOSAccountForEachCirclePeerExceptMe(account, ^(SOSPeerInfoRef peer) {
+        if (SOSPeerInfoApplicationVerify(peer, account->user_public, NULL)) {
+            CFSetRef peerViews = SOSPeerInfoCopyEnabledViews(peer);
+            CFSetSubtract(viewsRemaining, peerViews);
+            CFReleaseNull(peerViews);
+        }
+    });
+
+    result = CFSetIsEmpty(viewsRemaining) ? kCFBooleanTrue : kCFBooleanFalse;
+
+done:
+    CFReleaseNull(viewsToLookFor);
+    CFReleaseNull(viewsRemaining);
+
+    return result;
+}
+

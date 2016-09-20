@@ -70,7 +70,7 @@
 /*
  * KAI          use "bye" command and rename "log" to "watchlog"
  */
-#undef KAI
+#define KAI
 
 /*
  * TESLA	drops DTR on logout. Historical note:

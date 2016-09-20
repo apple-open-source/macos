@@ -46,7 +46,7 @@ public:
     static Ref<StylePendingImage> create(CSSValue* value) { return adoptRef(*new StylePendingImage(value)); }
 
     CSSImageValue* cssImageValue() const { return is<CSSImageValue>(m_value) ? downcast<CSSImageValue>(m_value) : nullptr; }
-    CSSImageGeneratorValue* cssImageGeneratorValue() const { return m_value && m_value->isImageGeneratorValue() ? static_cast<CSSImageGeneratorValue*>(m_value) : nullptr; }
+    CSSImageGeneratorValue* cssImageGeneratorValue() const { return is<CSSImageGeneratorValue>(m_value) ? static_cast<CSSImageGeneratorValue*>(m_value) : nullptr; }
     CSSCursorImageValue* cssCursorImageValue() const { return is<CSSCursorImageValue>(m_value) ? downcast<CSSCursorImageValue>(m_value) : nullptr; }
 
 #if ENABLE(CSS_IMAGE_SET)
@@ -56,26 +56,26 @@ public:
     void detachFromCSSValue() { m_value = nullptr; }
 
 private:
-    virtual WrappedImagePtr data() const override { return const_cast<StylePendingImage*>(this); }
+    WrappedImagePtr data() const override { return const_cast<StylePendingImage*>(this); }
 
-    virtual PassRefPtr<CSSValue> cssValue() const override { return m_value; }
+    PassRefPtr<CSSValue> cssValue() const override { return m_value; }
     
-    virtual FloatSize imageSize(const RenderElement*, float /*multiplier*/) const override { return FloatSize(); }
-    virtual bool imageHasRelativeWidth() const override { return false; }
-    virtual bool imageHasRelativeHeight() const override { return false; }
-    virtual void computeIntrinsicDimensions(const RenderElement*, Length& /* intrinsicWidth */ , Length& /* intrinsicHeight */, FloatSize& /* intrinsicRatio */) override { }
-    virtual bool usesImageContainerSize() const override { return false; }
-    virtual void setContainerSizeForRenderer(const RenderElement*, const FloatSize&, float) override { }
-    virtual void addClient(RenderElement*) override { }
-    virtual void removeClient(RenderElement*) override { }
+    FloatSize imageSize(const RenderElement*, float /*multiplier*/) const override { return FloatSize(); }
+    bool imageHasRelativeWidth() const override { return false; }
+    bool imageHasRelativeHeight() const override { return false; }
+    void computeIntrinsicDimensions(const RenderElement*, Length& /* intrinsicWidth */ , Length& /* intrinsicHeight */, FloatSize& /* intrinsicRatio */) override { }
+    bool usesImageContainerSize() const override { return false; }
+    void setContainerSizeForRenderer(const RenderElement*, const FloatSize&, float) override { }
+    void addClient(RenderElement*) override { }
+    void removeClient(RenderElement*) override { }
 
-    virtual PassRefPtr<Image> image(RenderElement*, const FloatSize&) const override
+    RefPtr<Image> image(RenderElement*, const FloatSize&) const override
     {
         ASSERT_NOT_REACHED();
         return nullptr;
     }
 
-    virtual bool knownToBeOpaque(const RenderElement*) const override { return false; }
+    bool knownToBeOpaque(const RenderElement*) const override { return false; }
     
     StylePendingImage(CSSValue* value)
         : m_value(value)

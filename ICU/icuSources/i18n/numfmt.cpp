@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 1997-2014, International Business Machines Corporation and
+* Copyright (C) 1997-2015, International Business Machines Corporation and
 * others. All Rights Reserved.
 *******************************************************************************
 *
@@ -122,6 +122,7 @@ static const UChar * const gLastResortNumberPatterns[UNUM_FORMAT_STYLE_COUNT] = 
     gLastResortCurrencyPat,  // UNUM_CASH_CURRENCY 
     NULL,  // UNUM_DECIMAL_COMPACT_SHORT
     NULL,  // UNUM_DECIMAL_COMPACT_LONG
+    gLastResortCurrencyPat,  // UNUM_CURRENCY_STANDARD
 };
 
 // Keys used for accessing resource bundles
@@ -150,6 +151,7 @@ static const char *gFormatKeys[UNUM_FORMAT_STYLE_COUNT] = {
     "currencyFormat",  // UNUM_CASH_CURRENCY
     NULL,  // UNUM_DECIMAL_COMPACT_SHORT
     NULL,  // UNUM_DECIMAL_COMPACT_LONG
+    "currencyFormat",  // UNUM_CURRENCY_STANDARD
 };
 
 // Static hashtable cache of NumberingSystem objects used by NumberFormat
@@ -274,7 +276,8 @@ NumberFormat::operator=(const NumberFormat& rhs)
         fMaxFractionDigits = rhs.fMaxFractionDigits;
         fMinFractionDigits = rhs.fMinFractionDigits;
         fParseIntegerOnly = rhs.fParseIntegerOnly;
-        u_strncpy(fCurrency, rhs.fCurrency, 4);
+        u_strncpy(fCurrency, rhs.fCurrency, 3);
+        fCurrency[3] = 0;
         fLenient = rhs.fLenient;
         fCapitalizationContext = rhs.fCapitalizationContext;
     }
@@ -1336,6 +1339,7 @@ NumberFormat::makeInstance(const Locale& desiredLocale,
             case UNUM_CURRENCY_PLURAL:
             case UNUM_CURRENCY_ACCOUNTING:
             case UNUM_CASH_CURRENCY:
+            case UNUM_CURRENCY_STANDARD:
                 f = new Win32NumberFormat(desiredLocale, curr, status);
 
                 if (U_SUCCESS(status)) {
@@ -1420,7 +1424,7 @@ NumberFormat::makeInstance(const Locale& desiredLocale,
         return NULL;
     }
     if(style==UNUM_CURRENCY || style == UNUM_CURRENCY_ISO || style == UNUM_CURRENCY_ACCOUNTING 
-        || style == UNUM_CASH_CURRENCY){
+        || style == UNUM_CASH_CURRENCY || style == UNUM_CURRENCY_STANDARD){
         const UChar* currPattern = symbolsToAdopt->getCurrencyPattern();
         if(currPattern!=NULL){
             pattern.setTo(currPattern, u_strlen(currPattern));

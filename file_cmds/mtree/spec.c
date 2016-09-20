@@ -179,131 +179,189 @@ set(char *t, NODE *ip)
 		if ((value == 0) || (val = strtok(NULL, " \t\n")) == NULL)
 			errx(1, "line %d: missing value", lineno);
 		switch(type) {
-		case F_CKSUM:
-			ip->cksum = strtoul(val, &ep, 10);
-			if (*ep)
-				errx(1, "line %d: invalid checksum %s",
-				lineno, val);
-			break;
-		case F_MD5:
-			ip->md5digest = strdup(val);
-			if(!ip->md5digest)
-				errx(1, "strdup");
-			break;
-		case F_SHA1:
-			ip->sha1digest = strdup(val);
-			if(!ip->sha1digest)
-				errx(1, "strdup");
-			break;
-		case F_SHA256:
-			ip->sha256digest = strdup(val);
-			if(!ip->sha256digest)
-				errx(1, "strdup");
-			break;
-		case F_RMD160:
-			ip->rmd160digest = strdup(val);
-			if(!ip->rmd160digest)
-				errx(1, "strdup");
-			break;
-		case F_FLAGS:
-			if (strcmp("none", val) == 0)
-				ip->st_flags = 0;
-			else if (strtofflags(&val, &ip->st_flags, NULL) != 0)
-				errx(1, "line %d: invalid flag %s",lineno, val);
- 			break;
-		case F_GID:
-			ip->st_gid = (gid_t)strtoul(val, &ep, 10);
-			if (*ep)
-				errx(1, "line %d: invalid gid %s", lineno, val);
-			break;
-		case F_GNAME:
-			if ((gr = getgrnam(val)) == NULL)
-			    errx(1, "line %d: unknown group %s", lineno, val);
-			ip->st_gid = gr->gr_gid;
-			break;
-		case F_IGN:
-			/* just set flag bit */
-			break;
-		case F_MODE:
-			if ((m = setmode(val)) == NULL)
-				errx(1, "line %d: invalid file mode %s",
-				lineno, val);
-			ip->st_mode = getmode(m, 0);
-			free(m);
-			break;
-		case F_NLINK:
-			ip->st_nlink = strtoul(val, &ep, 10);
-			if (*ep)
-				errx(1, "line %d: invalid link count %s",
-				lineno,  val);
-			break;
-		case F_SIZE:
-			ip->st_size = strtoq(val, &ep, 10);
-			if (*ep)
-				errx(1, "line %d: invalid size %s",
-				lineno, val);
-			break;
-		case F_SLINK:
-			ip->slink = malloc(strlen(val) + 1);
-			if (ip->slink == NULL)
-				errx(1, "malloc");
-			if (strunvis(ip->slink, val) == -1)
-				errx(1, "symlink %s is ill-encoded", val);
-			break;
-		case F_TIME:
-			ip->st_mtimespec.tv_sec = strtoul(val, &ep, 10);
-			if (*ep != '.')
-				errx(1, "line %d: invalid time %s",
-				lineno, val);
-			val = ep + 1;
-			ip->st_mtimespec.tv_nsec = strtoul(val, &ep, 10);
-			if (*ep)
-				errx(1, "line %d: invalid time %s",
-				lineno, val);
-			break;
-		case F_TYPE:
-			switch(*val) {
-			case 'b':
-				if (!strcmp(val, "block"))
-					ip->type = F_BLOCK;
+			case F_CKSUM:
+				ip->cksum = strtoul(val, &ep, 10);
+				if (*ep)
+					errx(1, "line %d: invalid checksum %s",
+					     lineno, val);
 				break;
-			case 'c':
-				if (!strcmp(val, "char"))
-					ip->type = F_CHAR;
+			case F_MD5:
+				ip->md5digest = strdup(val);
+				if(!ip->md5digest)
+					errx(1, "strdup");
 				break;
-			case 'd':
-				if (!strcmp(val, "dir"))
-					ip->type = F_DIR;
+			case F_SHA1:
+				ip->sha1digest = strdup(val);
+				if(!ip->sha1digest)
+					errx(1, "strdup");
 				break;
-			case 'f':
-				if (!strcmp(val, "file"))
-					ip->type = F_FILE;
-				if (!strcmp(val, "fifo"))
-					ip->type = F_FIFO;
+			case F_SHA256:
+				ip->sha256digest = strdup(val);
+				if(!ip->sha256digest)
+					errx(1, "strdup");
 				break;
-			case 'l':
-				if (!strcmp(val, "link"))
-					ip->type = F_LINK;
+			case F_RMD160:
+				ip->rmd160digest = strdup(val);
+				if(!ip->rmd160digest)
+					errx(1, "strdup");
 				break;
-			case 's':
-				if (!strcmp(val, "socket"))
-					ip->type = F_SOCK;
+			case F_FLAGS:
+				if (strcmp("none", val) == 0)
+					ip->st_flags = 0;
+				else if (strtofflags(&val, &ip->st_flags, NULL) != 0)
+					errx(1, "line %d: invalid flag %s",lineno, val);
 				break;
-			default:
-				errx(1, "line %d: unknown file type %s",
-				lineno, val);
-			}
-			break;
-		case F_UID:
-			ip->st_uid = (uid_t)strtoul(val, &ep, 10);
-			if (*ep)
-				errx(1, "line %d: invalid uid %s", lineno, val);
-			break;
-		case F_UNAME:
-			if ((pw = getpwnam(val)) == NULL)
-			    errx(1, "line %d: unknown user %s", lineno, val);
-			ip->st_uid = pw->pw_uid;
-			break;
+			case F_GID:
+				ip->st_gid = (gid_t)strtoul(val, &ep, 10);
+				if (*ep)
+					errx(1, "line %d: invalid gid %s", lineno, val);
+				break;
+			case F_GNAME:
+				if ((gr = getgrnam(val)) == NULL)
+					errx(1, "line %d: unknown group %s", lineno, val);
+				ip->st_gid = gr->gr_gid;
+				break;
+			case F_IGN:
+				/* just set flag bit */
+				break;
+			case F_MODE:
+				if ((m = setmode(val)) == NULL)
+					errx(1, "line %d: invalid file mode %s",
+					     lineno, val);
+				ip->st_mode = getmode(m, 0);
+				free(m);
+				break;
+			case F_NLINK:
+				ip->st_nlink = strtoul(val, &ep, 10);
+				if (*ep)
+					errx(1, "line %d: invalid link count %s",
+					     lineno,  val);
+				break;
+			case F_SIZE:
+				ip->st_size = strtoq(val, &ep, 10);
+				if (*ep)
+					errx(1, "line %d: invalid size %s",
+					     lineno, val);
+				break;
+			case F_SLINK:
+				ip->slink = malloc(strlen(val) + 1);
+				if (ip->slink == NULL)
+					errx(1, "malloc");
+				if (strunvis(ip->slink, val) == -1)
+					errx(1, "symlink %s is ill-encoded", val);
+				break;
+			case F_TIME:
+				ip->st_mtimespec.tv_sec = strtoul(val, &ep, 10);
+				if (*ep != '.')
+					errx(1, "line %d: invalid time %s",
+					     lineno, val);
+				val = ep + 1;
+				ip->st_mtimespec.tv_nsec = strtoul(val, &ep, 10);
+				if (*ep)
+					errx(1, "line %d: invalid time %s",
+					     lineno, val);
+				break;
+			case F_TYPE:
+				switch(*val) {
+					case 'b':
+						if (!strcmp(val, "block"))
+							ip->type = F_BLOCK;
+						break;
+					case 'c':
+						if (!strcmp(val, "char"))
+							ip->type = F_CHAR;
+						break;
+					case 'd':
+						if (!strcmp(val, "dir"))
+							ip->type = F_DIR;
+						break;
+					case 'f':
+						if (!strcmp(val, "file"))
+							ip->type = F_FILE;
+						if (!strcmp(val, "fifo"))
+							ip->type = F_FIFO;
+						break;
+					case 'l':
+						if (!strcmp(val, "link"))
+							ip->type = F_LINK;
+						break;
+					case 's':
+						if (!strcmp(val, "socket"))
+							ip->type = F_SOCK;
+						break;
+					default:
+						errx(1, "line %d: unknown file type %s",
+						     lineno, val);
+				}
+				break;
+			case F_UID:
+				ip->st_uid = (uid_t)strtoul(val, &ep, 10);
+				if (*ep)
+					errx(1, "line %d: invalid uid %s", lineno, val);
+				break;
+			case F_UNAME:
+				if ((pw = getpwnam(val)) == NULL)
+					errx(1, "line %d: unknown user %s", lineno, val);
+				ip->st_uid = pw->pw_uid;
+				break;
+			case F_BTIME:
+				ip->st_birthtimespec.tv_sec = strtoul(val, &ep, 10);
+				if (*ep != '.')
+					errx(1, "line %d: invalid time %s",
+					     lineno, val);
+				val = ep + 1;
+				ip->st_birthtimespec.tv_nsec = strtoul(val, &ep, 10);
+				if (*ep)
+					errx(1, "line %d: invalid time %s",
+					     lineno, val);
+				break;
+			case F_ATIME:
+				ip->st_atimespec.tv_sec = strtoul(val, &ep, 10);
+				if (*ep != '.')
+					errx(1, "line %d: invalid time %s",
+					     lineno, val);
+				val = ep + 1;
+				ip->st_atimespec.tv_nsec = strtoul(val, &ep, 10);
+				if (*ep)
+					errx(1, "line %d: invalid time %s",
+					     lineno, val);
+				break;
+			case F_CTIME:
+				ip->st_ctimespec.tv_sec = strtoul(val, &ep, 10);
+				if (*ep != '.')
+					errx(1, "line %d: invalid time %s",
+					     lineno, val);
+				val = ep + 1;
+				ip->st_ctimespec.tv_nsec = strtoul(val, &ep, 10);
+				if (*ep)
+					errx(1, "line %d: invalid time %s",
+					     lineno, val);
+				break;
+			case F_PTIME:
+				ip->st_ptimespec.tv_sec = strtoul(val, &ep, 10);
+				if (*ep != '.')
+					errx(1, "line %d: invalid time %s",
+					     lineno, val);
+				val = ep + 1;
+				ip->st_ptimespec.tv_nsec = strtoul(val, &ep, 10);
+				if (*ep)
+					errx(1, "line %d: invalid time %s",
+					     lineno, val);
+				break;
+			case F_XATTRS:
+				ip->xattrsdigest = strdup(val);
+				if(!ip->xattrsdigest)
+					err(1, "strdup");
+				break;
+			case F_INODE:
+				ip->st_ino = (ino_t)strtoull(val, &ep, 10);
+				if (*ep)
+					errx(1, "line %d: invalid inode %s", lineno, val);
+				break;
+			case F_ACL:
+				ip->acldigest = strdup(val);
+				if(!ip->acldigest)
+					err(1, "strdup");
 		}
 	}
 }

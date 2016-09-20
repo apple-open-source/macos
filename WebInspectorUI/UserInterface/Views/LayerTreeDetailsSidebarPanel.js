@@ -50,8 +50,6 @@ WebInspector.LayerTreeDetailsSidebarPanel = class LayerTreeDetailsSidebarPanel e
 
         console.assert(this.parentSidebar);
 
-        this.needsRefresh();
-
         super.shown();
     }
 
@@ -62,17 +60,6 @@ WebInspector.LayerTreeDetailsSidebarPanel = class LayerTreeDetailsSidebarPanel e
         super.hidden();
     }
 
-    refresh()
-    {
-        if (!this.domNode)
-            return;
-
-        WebInspector.layerTreeManager.layersForNode(this.domNode, function(layerForNode, childLayers) {
-            this._unfilteredChildLayers = childLayers;
-            this._updateDisplayWithLayers(layerForNode, childLayers);
-        }.bind(this));
-    }
-
     // DOMDetailsSidebarPanel Overrides
 
     supportsDOMNode(nodeToInspect)
@@ -80,11 +67,24 @@ WebInspector.LayerTreeDetailsSidebarPanel = class LayerTreeDetailsSidebarPanel e
         return WebInspector.layerTreeManager.supported && nodeToInspect.nodeType() === Node.ELEMENT_NODE;
     }
 
+    // Protected
+
+    layout()
+    {
+        if (!this.domNode)
+            return;
+
+        WebInspector.layerTreeManager.layersForNode(this.domNode, (layerForNode, childLayers) => {
+            this._unfilteredChildLayers = childLayers;
+            this._updateDisplayWithLayers(layerForNode, childLayers);
+        });
+    }
+
     // Private
 
     _layerTreeDidChange(event)
     {
-        this.needsRefresh();
+        this.needsLayout();
     }
 
     _showShadowDOMSettingChanged(event)
@@ -117,7 +117,7 @@ WebInspector.LayerTreeDetailsSidebarPanel = class LayerTreeDetailsSidebarPanel e
 
         this._layerInfoSection = new WebInspector.DetailsSection("layer-info", WebInspector.UIString("Layer Info"), [this._noLayerInformationGroup]);
 
-        this.contentElement.appendChild(this._layerInfoSection.element);
+        this.contentView.element.appendChild(this._layerInfoSection.element);
     }
 
     _buildDataGridSection()
@@ -138,14 +138,15 @@ WebInspector.LayerTreeDetailsSidebarPanel = class LayerTreeDetailsSidebarPanel e
         columns.memory.width = "70px";
 
         this._dataGrid = new WebInspector.DataGrid(columns);
+        this._dataGrid.inline = true;
         this._dataGrid.addEventListener(WebInspector.DataGrid.Event.SortChanged, this._sortDataGrid, this);
         this._dataGrid.addEventListener(WebInspector.DataGrid.Event.SelectedNodeChanged, this._selectedDataGridNodeChanged, this);
 
-        this.sortColumnIdentifier = "memory";
-        this.sortOrder = WebInspector.DataGrid.SortOrder.Descending;
+        this._dataGrid.sortColumnIdentifier = "memory";
+        this._dataGrid.sortOrder = WebInspector.DataGrid.SortOrder.Descending;
+        this._dataGrid.createSettings("layer-tree-details-sidebar-panel");
 
         var element = this._dataGrid.element;
-        element.classList.add("inline");
         element.addEventListener("focus", this._dataGridGainedFocus.bind(this), false);
         element.addEventListener("blur", this._dataGridLostFocus.bind(this), false);
         element.addEventListener("click", this._dataGridWasClicked.bind(this), false);
@@ -154,8 +155,7 @@ WebInspector.LayerTreeDetailsSidebarPanel = class LayerTreeDetailsSidebarPanel e
         var group = new WebInspector.DetailsSectionGroup([this._childLayersRow]);
         var section = new WebInspector.DetailsSection("layer-children", WebInspector.UIString("Child Layers"), [group], null, true);
 
-        var element = this.contentElement.appendChild(section.element);
-        element.classList.add(section.identifier);
+        this.contentView.element.appendChild(section.element);
     }
 
     _buildBottomBar()
@@ -258,11 +258,11 @@ WebInspector.LayerTreeDetailsSidebarPanel = class LayerTreeDetailsSidebarPanel e
 
     _updateDataGrid(layerForNode, childLayers)
     {
-        var dataGrid = this._dataGrid;
-        var mutations = WebInspector.layerTreeManager.layerTreeMutations(this._childLayers, childLayers);
+        let dataGrid = this._dataGrid;
+        let mutations = WebInspector.layerTreeManager.layerTreeMutations(this._childLayers, childLayers);
 
         mutations.removals.forEach(function(layer) {
-            var node = this._dataGridNodesByLayerId.get(layer.layerId);
+            let node = this._dataGridNodesByLayerId.get(layer.layerId);
             if (node) {
                 dataGrid.removeChild(node);
                 this._dataGridNodesByLayerId.delete(layer.layerId);
@@ -270,13 +270,13 @@ WebInspector.LayerTreeDetailsSidebarPanel = class LayerTreeDetailsSidebarPanel e
         }, this);
 
         mutations.additions.forEach(function(layer) {
-            var node = this._dataGridNodeForLayer(layer);
+            let node = this._dataGridNodeForLayer(layer);
             if (node)
                 dataGrid.appendChild(node);
         }, this);
 
         mutations.preserved.forEach(function(layer) {
-            var node = this._dataGridNodesByLayerId.get(layer.layerId);
+            let node = this._dataGridNodesByLayerId.get(layer.layerId);
             if (node)
                 node.layer = layer;
         }, this);
@@ -288,7 +288,7 @@ WebInspector.LayerTreeDetailsSidebarPanel = class LayerTreeDetailsSidebarPanel e
 
     _dataGridNodeForLayer(layer)
     {
-        var node = new WebInspector.LayerTreeDataGridNode(layer);
+        let node = new WebInspector.LayerTreeDataGridNode(layer);
         this._dataGridNodesByLayerId.set(layer.layerId, node);
 
         return node;
@@ -319,10 +319,10 @@ WebInspector.LayerTreeDetailsSidebarPanel = class LayerTreeDetailsSidebarPanel e
         if (!dataGridNode)
             return;
 
-        this._contentForPopover(dataGridNode.layer, function(content) {
+        this._contentForPopover(dataGridNode.layer, (content) => {
             if (dataGridNode === this._dataGrid.selectedNode)
                 this._updatePopoverForSelectedNode(content);
-        }.bind(this));
+        });
     }
 
     _updatePopoverForSelectedNode(content)
@@ -358,7 +358,7 @@ WebInspector.LayerTreeDetailsSidebarPanel = class LayerTreeDetailsSidebarPanel e
 
         var list = content.appendChild(document.createElement("ul"));
 
-        WebInspector.layerTreeManager.reasonsForCompositingLayer(layer, function(compositingReasons) {
+        WebInspector.layerTreeManager.reasonsForCompositingLayer(layer, (compositingReasons) => {
             if (isEmptyObject(compositingReasons)) {
                 callback(content);
                 return;
@@ -367,7 +367,7 @@ WebInspector.LayerTreeDetailsSidebarPanel = class LayerTreeDetailsSidebarPanel e
             this._populateListOfCompositingReasons(list, compositingReasons);
 
             callback(content);
-        }.bind(this));
+        });
 
         return content;
     }

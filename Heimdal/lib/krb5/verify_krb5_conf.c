@@ -406,6 +406,7 @@ struct entry libdefaults_entries[] = {
     { "scan_interfaces", krb5_config_string, check_boolean },
     { "srv_lookup", krb5_config_string, check_boolean },
     { "srv_try_txt", krb5_config_string, check_boolean },
+    { "suppress_weak_enctype", krb5_config_string, check_boolean },
     { "ticket_lifetime", krb5_config_string, check_time },
     { "time_format", krb5_config_string, NULL },
     { "transited_realms_reject", krb5_config_string, NULL },

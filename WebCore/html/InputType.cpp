@@ -38,6 +38,7 @@
 #include "DateTimeInputType.h"
 #include "DateTimeLocalInputType.h"
 #include "EmailInputType.h"
+#include "EventNames.h"
 #include "ExceptionCode.h"
 #include "ExceptionCodePlaceholder.h"
 #include "FileInputType.h"
@@ -69,7 +70,7 @@
 #include "ShadowRoot.h"
 #include "SubmitInputType.h"
 #include "TelephoneInputType.h"
-#include "TextBreakIterator.h"
+#include <wtf/text/TextBreakIterator.h>
 #include "TextInputType.h"
 #include "TimeInputType.h"
 #include "URLInputType.h"
@@ -86,7 +87,7 @@ using namespace HTMLNames;
 typedef bool (RuntimeEnabledFeatures::*InputTypeConditionalFunction)() const;
 typedef const AtomicString& (*InputTypeNameFunction)();
 typedef std::unique_ptr<InputType> (*InputTypeFactoryFunction)(HTMLInputElement&);
-typedef HashMap<AtomicString, InputTypeFactoryFunction, CaseFoldingHash> InputTypeFactoryMap;
+typedef HashMap<AtomicString, InputTypeFactoryFunction, ASCIICaseInsensitiveHash> InputTypeFactoryMap;
 
 template<class T>
 static std::unique_ptr<InputType> createInputType(HTMLInputElement& element)
@@ -140,10 +141,10 @@ static void populateInputTypeFactoryMap(InputTypeFactoryMap& map)
         // No need to register "text" because it is the default type.
     };
 
-    for (unsigned i = 0; i < WTF_ARRAY_LENGTH(inputTypes); ++i) {
-        auto conditionalFunction = inputTypes[i].conditionalFunction;
+    for (auto& inputType : inputTypes) {
+        auto conditionalFunction = inputType.conditionalFunction;
         if (!conditionalFunction || (RuntimeEnabledFeatures::sharedFeatures().*conditionalFunction)())
-            map.add(inputTypes[i].nameFunction(), inputTypes[i].factoryFunction);
+            map.add(inputType.nameFunction(), inputType.factoryFunction);
     }
 }
 
@@ -338,24 +339,30 @@ bool InputType::isInRange(const String& value) const
     if (!isSteppable())
         return false;
 
+    StepRange stepRange(createStepRange(RejectAny));
+    if (!stepRange.hasRangeLimitations())
+        return false;
+    
     const Decimal numericValue = parseToNumberOrNaN(value);
     if (!numericValue.isFinite())
         return true;
 
-    StepRange stepRange(createStepRange(RejectAny));
     return numericValue >= stepRange.minimum() && numericValue <= stepRange.maximum();
 }
 
 bool InputType::isOutOfRange(const String& value) const
 {
-    if (!isSteppable())
+    if (!isSteppable() || value.isEmpty())
+        return false;
+
+    StepRange stepRange(createStepRange(RejectAny));
+    if (!stepRange.hasRangeLimitations())
         return false;
 
     const Decimal numericValue = parseToNumberOrNaN(value);
     if (!numericValue.isFinite())
         return true;
 
-    StepRange stepRange(createStepRange(RejectAny));
     return numericValue < stepRange.minimum() || numericValue > stepRange.maximum();
 }
 
@@ -406,7 +413,7 @@ String InputType::validationMessage() const
         return validationMessagePatternMismatchText();
 
     if (element().tooLong())
-        return validationMessageTooLongText(numGraphemeClusters(value), element().maxLength());
+        return validationMessageTooLongText(numGraphemeClusters(value), element().effectiveMaxLength());
 
     if (!isSteppable())
         return emptyString();
@@ -479,9 +486,9 @@ PassRefPtr<HTMLFormElement> InputType::formForSubmission() const
     return element().form();
 }
 
-RenderPtr<RenderElement> InputType::createInputRenderer(Ref<RenderStyle>&& style)
+RenderPtr<RenderElement> InputType::createInputRenderer(RenderStyle&& style)
 {
-    return RenderPtr<RenderElement>(RenderElement::createFor(element(), WTF::move(style)));
+    return RenderPtr<RenderElement>(RenderElement::createFor(element(), WTFMove(style)));
 }
 
 void InputType::blur()
@@ -874,12 +881,10 @@ bool InputType::isSteppable() const
     return false;
 }
 
-#if ENABLE(INPUT_TYPE_COLOR)
 bool InputType::isColorControl() const
 {
     return false;
 }
-#endif
 
 bool InputType::shouldRespectHeightAndWidthAttributes()
 {
@@ -954,14 +959,19 @@ void InputType::listAttributeTargetChanged()
 {
 }
 
-Decimal InputType::findClosestTickMarkValue(const Decimal&)
+Optional<Decimal> InputType::findClosestTickMarkValue(const Decimal&)
 {
     ASSERT_NOT_REACHED();
-    return Decimal::nan();
+    return Nullopt;
 }
 #endif
 
-bool InputType::supportsIndeterminateAppearance() const
+bool InputType::matchesIndeterminatePseudoClass() const
+{
+    return false;
+}
+
+bool InputType::shouldAppearIndeterminate() const
 {
     return false;
 }
@@ -1008,8 +1018,7 @@ void InputType::applyStep(int count, AnyStepHandling anyStepHandling, TextFieldE
     if (newValue < stepRange.minimum())
         newValue = stepRange.minimum();
 
-    const AtomicString& stepString = element().fastGetAttribute(stepAttr);
-    if (!equalIgnoringCase(stepString, "any"))
+    if (!equalLettersIgnoringASCIICase(element().attributeWithoutSynchronization(stepAttr), "any"))
         newValue = stepRange.alignValueForStep(current, newValue);
 
     if (newValue - stepRange.maximum() > acceptableErrorValue) {
@@ -1064,7 +1073,7 @@ void InputType::stepUpFromRenderer(int n)
     //   * If 0 is in-range, but not matched to step value
     //     - The value should be the larger matched value nearest to 0 if n > 0
     //       e.g. <input type=number min=-100 step=3> -> 2
-    //     - The value should be the smaler matched value nearest to 0 if n < 0
+    //     - The value should be the smaller matched value nearest to 0 if n < 0
     //       e.g. <input type=number min=-100 step=3> -> -1
     //   As for date/datetime-local/month/time/week types, the current value is assumed as "the current local date/time".
     //   As for datetime type, the current value is assumed as "the current date/time in UTC".
@@ -1079,7 +1088,7 @@ void InputType::stepUpFromRenderer(int n)
     // If the current value is not matched to step value:
     // - The value should be the larger matched value nearest to 0 if n > 0
     //   e.g. <input type=number value=3 min=-100 step=3> -> 5
-    // - The value should be the smaler matched value nearest to 0 if n < 0
+    // - The value should be the smaller matched value nearest to 0 if n < 0
     //   e.g. <input type=number value=3 min=-100 step=3> -> 2
     //
     // n is assumed as -n if step < 0.
@@ -1147,6 +1156,15 @@ void InputType::stepUpFromRenderer(int n)
         } else
             applyStep(n, AnyIsDefaultStep, DispatchInputAndChangeEvent, IGNORE_EXCEPTION);
     }
+}
+
+Color InputType::valueAsColor() const
+{
+    return Color::transparent;
+}
+
+void InputType::selectColor(const Color&)
+{
 }
 
 } // namespace WebCore

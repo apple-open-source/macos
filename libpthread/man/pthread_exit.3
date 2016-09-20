@@ -28,20 +28,18 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/lib/libc_r/man/pthread_exit.3,v 1.8.2.6 2001/08/17 15:42:51 ru Exp $
+.\" $FreeBSD$
 .\"
-.Dd April 4, 1996
+.Dd March 15, 2014
 .Dt PTHREAD_EXIT 3
 .Os
 .Sh NAME
 .Nm pthread_exit
 .Nd terminate the calling thread
 .Sh SYNOPSIS
-.Fd #include <pthread.h>
+.In pthread.h
 .Ft void
-.Fo pthread_exit
-.Fa "void *value_ptr"
-.Fc
+.Fn pthread_exit "void *value_ptr"
 .Sh DESCRIPTION
 The
 .Fn pthread_exit
@@ -66,7 +64,8 @@ An implicit call to
 is made when a thread other than the thread in which
 .Fn main
 was first invoked returns from the start routine that was used to create
-it. The function's return value serves as the thread's exit status.
+it.
+The function's return value serves as the thread's exit status.
 .Pp
 The behavior of
 .Fn pthread_exit
@@ -96,9 +95,11 @@ None.
 .Sh SEE ALSO
 .Xr _exit 2 ,
 .Xr exit 3 ,
+.Xr pthread_cancel 3 ,
 .Xr pthread_create 3 ,
 .Xr pthread_join 3
 .Sh STANDARDS
+The
 .Fn pthread_exit
-conforms to
+function conforms to
 .St -p1003.1-96 .

@@ -101,10 +101,10 @@ VSTRING *xtext_quote(VSTRING *quoted, const char *unquoted, const char *special)
 
 VSTRING *xtext_unquote_append(VSTRING *unquoted, const char *quoted)
 {
-    const char *cp;
+    const unsigned char *cp;
     int     ch;
 
-    for (cp = quoted; (ch = *cp) != 0; cp++) {
+    for (cp = (const unsigned char *) quoted; (ch = *cp) != 0; cp++) {
 	if (ch == '+') {
 	    if (ISDIGIT(cp[1]))
 		ch = (cp[1] - '0') << 4;
@@ -134,8 +134,7 @@ VSTRING *xtext_unquote_append(VSTRING *unquoted, const char *quoted)
 VSTRING *xtext_unquote(VSTRING *unquoted, const char *quoted)
 {
     VSTRING_RESET(unquoted);
-    xtext_unquote_append(unquoted, quoted);
-    return (unquoted);
+    return (xtext_unquote_append(unquoted, quoted) ? unquoted : 0);
 }
 
 #ifdef TEST
@@ -164,6 +163,17 @@ int     main(int unused_argc, char **unused_argv)
     VSTRING *quoted = vstring_alloc(100);
     ssize_t len;
 
+    /*
+     * Negative tests.
+     */
+    if (xtext_unquote(unquoted, "++1") != 0)
+	msg_warn("undetected error pattern 1");
+    if (xtext_unquote(unquoted, "+2+") != 0)
+	msg_warn("undetected error pattern 2");
+
+    /*
+     * Positive tests.
+     */
     while ((len = read_buf(VSTREAM_IN, unquoted)) > 0) {
 	xtext_quote(quoted, STR(unquoted), "+=");
 	if (xtext_unquote(unquoted, STR(quoted)) == 0)

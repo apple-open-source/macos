@@ -31,7 +31,6 @@
 #include <sys/types.h>
 
 #include <openssl/evp.h>
-
 #include <signal.h>
 
 #include "sshkey.h"

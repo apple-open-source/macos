@@ -19,7 +19,7 @@
 <div id="page-header">
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p>
 <p class="apache">Apache HTTP Server Version 2.4</p>
-<img alt="" src="../images/feather.gif" /></div>
+<img alt="" src="../images/feather.png" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
 <a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.4</a> &gt; <a href="./">Modules</a></div>
@@ -64,13 +64,13 @@
 <li><img alt="" src="../images/down.gif" /> <a href="#ssiundefinedecho">SSIUndefinedEcho</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#xbithack">XBitHack</a></li>
 </ul>
-<h3>See also</h3>
+<h3>Bugfix checklist</h3><ul class="seealso"><li><a href="https://www.apache.org/dist/httpd/CHANGES_2.4">httpd changelog</a></li><li><a href="https://bz.apache.org/bugzilla/buglist.cgi?bug_status=__open__&amp;list_id=144532&amp;product=Apache%20httpd-2&amp;query_format=specific&amp;order=changeddate%20DESC%2Cpriority%2Cbug_severity&amp;component=mod_include">Known issues</a></li><li><a href="https://bz.apache.org/bugzilla/enter_bug.cgi?product=Apache%20httpd-2&amp;component=mod_include">Report a bug</a></li></ul><h3>See also</h3>
 <ul class="seealso">
 <li><code class="directive"><a href="../mod/core.html#options">Options</a></code></li>
 <li><code class="directive"><a href="../mod/core.html#acceptpathinfo">AcceptPathInfo</a></code></li>
 <li><a href="../filter.html">Filters</a></li>
 <li><a href="../howto/ssi.html">SSI Tutorial</a></li>
-</ul><ul class="seealso"><li><a href="#comments_section">Comments</a></li></ul></div>
+<li><a href="#comments_section">Comments</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="enabling" id="enabling">Enabling Server-Side Includes</a></h2>
@@ -138,6 +138,8 @@ AddOutputFilter INCLUDES .shtml</pre>
 
     <table class="bordered">
     <tr><th>Element</th><th>Description</th></tr>
+    <tr><td><code><a href="#element.comment">comment</a></code></td>
+        <td>SSI comment</td></tr>
     <tr><td><code><a href="#element.config">config</a></code></td>
         <td>configure output formats</td></tr>
     <tr><td><code><a href="#element.echo">echo</a></code></td>
@@ -161,14 +163,24 @@ AddOutputFilter INCLUDES .shtml</pre>
     <code class="module"><a href="../mod/mod_cgi.html">mod_cgi</a></code>, and will only be available if this
     module is loaded.</p>
 
+    <h3><a name="element.comment" id="element.comment">The comment Element</a></h3>
+      <p>This command doesn't output anything. Its only use is to
+      add comments within a file. These comments are not printed.</p>
+
+      <p>This syntax is available in version 2.4.21 and later.</p>
+
+      <div class="example"><p><code>
+      &lt;!--#comment Blah Blah Blah --&gt;
+      </code></p></div>
+     
+
     <h3><a name="element.config" id="element.config">The config Element</a></h3>
       <p>This command controls various aspects of the parsing. The
       valid attributes are:</p>
 
       <dl>
       <dt><code>echomsg</code> (<em>Apache 2.1 and later</em>)</dt>
-      <dd>
-      <p>The value is a message that is sent back to the
+      <dd><p>The value is a message that is sent back to the
       client if the <code><a href="#element.echo">echo</a></code> element
       attempts to echo an undefined variable. This overrides any <code class="directive"><a href="#ssiundefinedecho">SSIUndefinedEcho</a></code> directives.</p>
 
@@ -181,7 +193,7 @@ AddOutputFilter INCLUDES .shtml</pre>
       <dd><p>The value is a message that is sent back to the
       client if an error occurs while parsing the
       document. This overrides any <code class="directive"><a href="#ssierrormsg">SSIErrorMsg</a></code> directives.</p>
-      
+
       <div class="example"><p><code>
        &lt;!--#config errmsg="[Oops, something broke.]" --&gt;
       </code></p></div>
@@ -197,19 +209,19 @@ AddOutputFilter INCLUDES .shtml</pre>
       <div class="example"><p><code>
       &lt;!--#config sizefmt="abbrev" --&gt;
       </code></p></div>
+
       </dd>
 
       <dt><code>timefmt</code></dt>
       <dd><p>The value is a string to be used by the
       <code>strftime(3)</code> library routine when printing
       dates.</p>
-      
+
       <div class="example"><p><code>
       &lt;!--#config timefmt=""%R, %B %d, %Y"" --&gt;
       </code></p></div>
 
       </dd>
-      
       </dl>
      
 
@@ -362,7 +374,7 @@ AddOutputFilter INCLUDES .shtml</pre>
     </code></p></div>
 
     The value of <code>file</code> cannot start with a slash
-    (<code>/</code>), nor can it contain <code>../</code> so as to 
+    (<code>/</code>), nor can it contain <code>../</code> so as to
     refer to a file above the current directory or outside of the
     document root. Attempting to so will result in the error message:
     <code>The given path was above the root path</code>.
@@ -546,6 +558,16 @@ AddOutputFilter INCLUDES .shtml</pre>
       <dt><code>DATE_LOCAL</code></dt>
       <dd>The current date in the local time zone.</dd>
 
+      <dt><code>DOCUMENT_ARGS</code></dt>
+      <dd>This variable contains the query string of the active SSI
+      document, or the empty string if a query string is not
+      included.  For subrequests invoked through the
+      <code>include</code> SSI directive, <code>QUERY_STRING</code>
+      will represent the query string of the subrequest and
+      <code>DOCUMENT_ARGS</code> will represent the query string of
+      the SSI document.  (Available in Apache HTTP Server 2.4.19 and
+      later.)</dd>
+
       <dt><code>DOCUMENT_NAME</code></dt>
       <dd>The filename (excluding directories) of the document
       requested by the user.</dd>
@@ -562,10 +584,13 @@ AddOutputFilter INCLUDES .shtml</pre>
       the user.</dd>
 
       <dt><code>QUERY_STRING_UNESCAPED</code></dt>
-      <dd>If a query string is present, this variable contains the
-      (%-decoded) query string, which is <em>escaped</em> for shell
-      usage (special characters like <code>&amp;</code> etc. are
-      preceded by backslashes).</dd>
+      <dd>If a query string is present in the request for the active
+      SSI document, this variable contains the (%-decoded) query
+      string, which is <em>escaped</em> for shell usage (special
+      characters like <code>&amp;</code> etc. are preceded by
+      backslashes).  It is not set if a query string is not
+      present.  Use <code>DOCUMENT_ARGS</code> if shell escaping
+      is not desired.</dd>
     </dl>
 </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
@@ -972,8 +997,8 @@ server.</td></tr>
     output of a file each processing different commands (possibly at
     different times).</p>
 
-    <pre class="prettyprint lang-config">      SSIStartTag "&lt;%"<br />
-      SSIEndTag   "%&gt;"</pre>
+    <pre class="prettyprint lang-config">SSIStartTag "&lt;%"
+SSIEndTag   "%&gt;"</pre>
 
 
     <p>The example given above, which also specifies a matching
@@ -1107,7 +1132,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_include.html
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

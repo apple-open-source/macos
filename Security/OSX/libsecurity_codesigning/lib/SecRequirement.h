@@ -81,10 +81,6 @@ OSStatus SecRequirementCreateWithData(CFDataRef data, SecCSFlags flags,
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
 	@param requirement On successful return, contains a reference to a SecRequirement
 	object that implements the conditions described in text.
-	@param errors An optional pointer to a CFErrorRef variable. If the call fails
-	(and something other than errSecSuccess is returned), and this argument is non-NULL,
-	a CFErrorRef is stored there further describing the nature and circumstances
-	of the failure. The caller must CFRelease() this error object when done with it.
 	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
 */

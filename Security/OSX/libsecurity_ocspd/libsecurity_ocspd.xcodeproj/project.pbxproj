@@ -52,7 +52,7 @@
 		051BDB6D069B36CD00F9D07E /* mig.mk */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = mig.mk; sourceTree = "<group>"; };
 		051BDB6E069B36CD00F9D07E /* ocspd.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; path = ocspd.defs; sourceTree = "<group>"; };
 		051BDB71069B36EA00F9D07E /* ocspd_client.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = ocspd_client.cpp; path = derived_src/security_ocspd/ocspd_client.cpp; sourceTree = BUILT_PRODUCTS_DIR; };
-		056FCCE6069B389300F710C4 /* ocspdDebug.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ocspdDebug.h; path = common/ocspdDebug.h; sourceTree = SOURCE_ROOT; };
+		056FCCE6069B389300F710C4 /* ocspdDebug.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = ocspdDebug.h; path = common/ocspdDebug.h; sourceTree = SOURCE_ROOT; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
 		056FCCEE069B390A00F710C4 /* ocspd.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ocspd.h; path = derived_src/security_ocspd/ocspd.h; sourceTree = BUILT_PRODUCTS_DIR; };
 		056FCCEF069B390A00F710C4 /* ocspd_server.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = ocspd_server.cpp; path = derived_src/security_ocspd/ocspd_server.cpp; sourceTree = BUILT_PRODUCTS_DIR; };
 		056FCDBE069B429900F710C4 /* ocspdTypes.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ocspdTypes.h; sourceTree = "<group>"; };
@@ -220,7 +220,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				182BB3C3146F1D93000BF1F3 /* PBXTargetDependency */,
 				18446129146E88C600B12992 /* PBXTargetDependency */,
 			);
 			name = libsecurity_ocspd;
@@ -235,7 +234,7 @@
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0700;
+				LastUpgradeCheck = 0800;
 			};
 			buildConfigurationList = C27AD3BA0987FCDF001272E0 /* Build configuration list for PBXProject "libsecurity_ocspd" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -278,12 +277,17 @@
 			files = (
 			);
 			inputPaths = (
+				"$(SRCROOT)/",
+				"$(SRCROOT)/mig/",
+				"$(SRCROOT)/client/",
+				"$(SRCROOT)/common/",
 			);
 			outputPaths = (
+				"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "nmedit -p \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"\nranlib \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"";
+			shellScript = "# with our source directories as input files, Xcode will only re-run this phase if there's been a source change\nnmedit -p \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"\nranlib \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -358,13 +362,22 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1844612D146E894C00B12992 /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = lossless;
+				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				ONLY_ACTIVE_ARCH = YES;
 			};
 			name = Debug;
 		};
@@ -372,13 +385,20 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1844612D146E894C00B12992 /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = "respect-asset-catalog";
+				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
 			};
 			name = Release;
 		};

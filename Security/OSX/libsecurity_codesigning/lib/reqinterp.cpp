@@ -190,7 +190,7 @@ bool Requirement::Interpreter::eval(int depth)
 			}
 		}
 		// unrecognized opcode and no way to interpret it
-		secdebug("csinterp", "opcode 0x%x cannot be handled; aborting", op);
+		secinfo("csinterp", "opcode 0x%x cannot be handled; aborting", op);
 		MacOSError::throwMe(errSecCSUnimplemented);
 	}
 }
@@ -247,13 +247,14 @@ bool Requirement::Interpreter::certFieldValue(const string &key, const Match &ma
 		{ "subject.UID", &CSSMOID_UserID },
 		{ NULL, NULL }
 	};
-	
+
 	// DN-component single-value match
 	for (const CertField *cf = certFields; cf->name; cf++)
 		if (cf->name == key) {
 			CFRef<CFStringRef> value;
-			if (OSStatus rc = SecCertificateCopySubjectComponent(cert, cf->oid, &value.aref())) {
-				secdebug("csinterp", "cert %p lookup for DN.%s failed rc=%d", cert, key.c_str(), (int)rc);
+            OSStatus rc = SecCertificateCopySubjectComponent(cert, cf->oid, &value.aref());
+			if (rc) {
+				secinfo("csinterp", "cert %p lookup for DN.%s failed rc=%d", cert, key.c_str(), (int)rc);
 				return false;
 			}
 			return match(value);
@@ -262,15 +263,16 @@ bool Requirement::Interpreter::certFieldValue(const string &key, const Match &ma
 	// email multi-valued match (any of...)
 	if (key == "email") {
 		CFRef<CFArrayRef> value;
-		if (OSStatus rc = SecCertificateCopyEmailAddresses(cert, &value.aref())) {
-			secdebug("csinterp", "cert %p lookup for email failed rc=%d", cert, (int)rc);
+        OSStatus rc = SecCertificateCopyEmailAddresses(cert, &value.aref());
+		if (rc) {
+			secinfo("csinterp", "cert %p lookup for email failed rc=%d", cert, (int)rc);
 			return false;
 		}
 		return match(value);
 	}
 
 	// unrecognized key. Fail but do not abort to promote backward compatibility down the road
-	secdebug("csinterp", "cert field notation \"%s\" not understood", key.c_str());
+	secinfo("csinterp", "cert field notation \"%s\" not understood", key.c_str());
 	return false;
 }
 
@@ -327,7 +329,9 @@ CFArrayRef Requirement::Interpreter::getAdditionalTrustedAnchors()
         if (!configData)
             return NULL;
 
-        CFRef<CFDictionaryRef> configDict = CFDictionaryRef(IOCFUnserialize((const char *)CFDataGetBytePtr(configData), kCFAllocatorDefault, 0, NULL));
+        CFRef<CFDictionaryRef> configDict = CFDictionaryRef(IOCFUnserializeWithSize((const char *)CFDataGetBytePtr(configData),
+                                                                                    (size_t)CFDataGetLength(configData),
+                                                                                    kCFAllocatorDefault, 0, NULL));
         if (!configDict)
             return NULL;
 

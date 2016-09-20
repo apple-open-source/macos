@@ -16,16 +16,14 @@ ORDER_FILE[sdk=iphoneos*] = $(SDKROOT)/$(APPLE_INTERNAL_DIR)/OrderFiles/libsyste
 
 LINK_WITH_STANDARD_LIBRARIES = NO
 
+SIM_SUFFIX[sdk=*simulator*] = _sim
+
 LIBCOMPILER_RT_LDFLAGS = -lcompiler_rt
 LIBMALLOC_LDFLAGS = -lsystem_malloc
-LIBPLATFORM_LDFLAGS = -lsystem_platform
-LIBPLATFORM_LDFLAGS[sdk=iphonesimulator*] = -lsystem_sim_platform
-LIBPTHREAD_LDFLAGS = -lsystem_pthread
-LIBPTHREAD_LDFLAGS[sdk=iphonesimulator*] = -lsystem_sim_pthread
-LIBSYSCALL_LDFLAGS = -lsystem_kernel
-LIBSYSCALL_LDFLAGS[sdk=iphonesimulator*] = -lsystem_sim_kernel
+LIBPLATFORM_LDFLAGS = -lsystem$(SIM_SUFFIX)_platform
+LIBPTHREAD_LDFLAGS = -lsystem$(SIM_SUFFIX)_pthread
+LIBSYSCALL_LDFLAGS = -lsystem$(SIM_SUFFIX)_kernel
 LIBM_LDFLAGS = -lsystem_m
-LIBM_LDFLAGS[sdk=iphonesimulator*] = -lsystem_sim_m
 LIBDYLD_LDFLAGS = -ldyld
 LIBC_LDFLAGS = -lsystem_c
 LIBDISPATCH_LDFLAGS = -ldispatch
@@ -35,6 +33,6 @@ LIBBLOCKS_LDFLAGS = -lsystem_blocks
 LIBDNSD_LDFLAGS = -lsystem_dnssd
 LIBNOTIFY_LDFLAGS = -lsystem_notify
 LIBXPC_LDFLAGS = -lxpc
-LIBNETWORK_LDFLAGS = -Wl,-upward-lsystem_network
+LIBNETWORK_LDFLAGS = -lsystem_network
 
 OTHER_LDFLAGS = -all_load -umbrella System -L/usr/lib/system $(LIBCOMPILER_RT_LDFLAGS) $(LIBDYLD_LDFLAGS) $(LIBSYSCALL_LDFLAGS) $(LIBMALLOC_LDFLAGS) $(LIBPLATFORM_LDFLAGS) $(LIBPTHREAD_LDFLAGS) $(LIBC_LDFLAGS) $(LIBDISPATCH_LDFLAGS) $(LIBLAUNCH_LDFLAGS) $(LIBASL_LDFLAGS) $(LIBBLOCKS_LDFLAGS) $(LIBDNSD_LDFLAGS) $(LIBNOTIFY_LDFLAGS) $(LIBXPC_LDFLAGS) $(LIBNETWORK_LDFLAGS)

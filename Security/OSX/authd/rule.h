@@ -36,7 +36,8 @@ enum {
     RuleFlagEntitled            = 1 << 5,
     RuleFlagEntitledAndGroup    = 1 << 6,
     RuleFlagRequireAppleSigned  = 1 << 7,
-    RuleFlagVPNEntitledAndGroup = 1 << 8
+    RuleFlagVPNEntitledAndGroup = 1 << 8,
+	RuleFlagPasswordOnly		= 1 << 9
 };
 typedef uint32_t RuleFlags;
 
@@ -114,7 +115,10 @@ bool rule_get_authenticate_user(rule_t);
     
 AUTH_NONNULL_ALL
 bool rule_get_extract_password(rule_t);
-    
+
+AUTH_NONNULL_ALL
+bool rule_get_password_only(rule_t);
+
 AUTH_NONNULL_ALL
 int64_t rule_get_tries(rule_t);
     
@@ -134,10 +138,10 @@ AUTH_NONNULL_ALL
 const char * rule_get_identifier(rule_t);
 
 AUTH_NONNULL_ALL
-CFDataRef rule_get_requirment_data(rule_t);
+CFDataRef rule_get_requirement_data(rule_t);
 
 AUTH_NONNULL_ALL
-SecRequirementRef rule_get_requirment(rule_t);
+SecRequirementRef rule_get_requirement(rule_t);
     
 #if defined(__cplusplus)
 }

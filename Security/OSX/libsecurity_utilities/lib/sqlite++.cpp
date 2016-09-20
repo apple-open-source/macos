@@ -52,9 +52,10 @@ void Error::check(int err)
 Error::Error(Database &db)
 	: error(db.errcode()), message(db.errmsg())
 {
-	SECURITY_EXCEPTION_THROW_SQLITE(this, error, (char*)message.c_str());
+    SECURITY_EXCEPTION_THROW_SQLITE(this, error, (char*)message.c_str());
+    secnotice("security_exception", "sqlite: %d %s",error, (char*)message.c_str());
 }
-	
+
 void Error::throwMe(int err)
 {
 	throw Error(err);

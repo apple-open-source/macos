@@ -1780,6 +1780,7 @@ unlock_partialfilelock(const struct file_lock *fl, int cleanup)
 				 */
 			
 				deallocate_file_lock(releasedfl);
+				releasedfl = NULL;
 			}
 		}
 

@@ -154,12 +154,17 @@ public:
 	void create();
 	void open();
 
-	SSDbUniqueRecord insert(CSSM_DB_RECORDTYPE recordType,
+    // This insert is here to explicitly catch calls to DbImpl's insert. You probably want the ssInsert calls below.
+    DbUniqueRecord insert(CSSM_DB_RECORDTYPE recordType,
+                              const CSSM_DB_RECORD_ATTRIBUTE_DATA *attributes,
+                              const CSSM_DATA *data);
+
+	SSDbUniqueRecord ssInsert(CSSM_DB_RECORDTYPE recordType,
 							const CSSM_DB_RECORD_ATTRIBUTE_DATA *attributes,
 							const CSSM_DATA *data,
 							const CSSM_RESOURCE_CONTROL_CONTEXT *rc = NULL);
 
-	SSDbUniqueRecord insert(CSSM_DB_RECORDTYPE recordType,
+	SSDbUniqueRecord ssInsert(CSSM_DB_RECORDTYPE recordType,
 							const CSSM_DB_RECORD_ATTRIBUTE_DATA *attributes,
 							const CSSM_DATA *data, const SSGroup &group,
 							const CSSM_ACCESS_CREDENTIALS *cred);

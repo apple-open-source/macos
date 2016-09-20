@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -32,11 +32,8 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
 
-#include <SystemConfiguration/SystemConfiguration.h>
 #include "SCNetworkConfigurationInternal.h"
 #include "SCPreferencesInternal.h"
-#include <SystemConfiguration/SCValidation.h>
-#include <SystemConfiguration/SCPrivate.h>
 
 #include <ifaddrs.h>
 #include <pthread.h>
@@ -84,7 +81,7 @@ ifbifconf_copy(int s, const char * ifname)
 	uint32_t		len	= sizeof(struct ifbreq) * 16;
 
 	bzero(&ifd, sizeof(ifd));
-	strncpy(ifd.ifd_name, ifname, sizeof(ifd.ifd_name));
+	strlcpy(ifd.ifd_name, ifname, sizeof(ifd.ifd_name));
 	ifd.ifd_cmd = BRDGGIFS;
 
 	buflen = sizeof(struct ifbifconf) + len;
@@ -249,11 +246,9 @@ SCBridgeInterfaceCopyAll(SCPreferencesRef prefs)
 	SCPreferencesRef	ni_prefs;
 	CFStringRef		path;
 
-	if ((prefs == NULL) ||
-	    (__SCPreferencesUsingDefaultPrefs(prefs) == TRUE)) {
+	if (__SCPreferencesUsingDefaultPrefs(prefs)) {
 		ni_prefs = NULL;
-	}
-	else {
+	} else {
 		ni_prefs = __SCPreferencesCreateNIPrefsFromPrefs(prefs);
 	}
 	context.bridges = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
@@ -961,6 +956,7 @@ __bridge_add_interface(int s, CFStringRef bridge_if, CFStringRef interface_if)
 		return FALSE;
 	}
 
+	SC_log(LOG_INFO, "%@: added bridge member: %@", bridge_if, interface_if);
 	return TRUE;
 }
 
@@ -998,6 +994,41 @@ __bridge_remove_interface(int s, CFStringRef bridge_if, CFStringRef interface_if
 		return FALSE;
 	}
 
+	SC_log(LOG_INFO, "%@: removed bridge member: %@", bridge_if, interface_if);
+	return TRUE;
+}
+
+
+static Boolean
+__bridge_set_mac(int s, CFStringRef bridge_if, CFDataRef macAddr)
+{
+	struct ifreq	ifr;
+
+	bzero(&ifr, sizeof(ifr));
+	(void) _SC_cfstring_to_cstring(bridge_if,
+				       ifr.ifr_name,
+				       sizeof(ifr.ifr_name),
+				       kCFStringEncodingASCII);
+	ifr.ifr_addr.sa_len = CFDataGetLength(macAddr);
+	if (ifr.ifr_addr.sa_len > sizeof(ifr.ifr_addr.sa_data)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		SC_log(LOG_ERR, "%@: maformed MAC address (%d > %lu)",
+		       bridge_if,
+		       ifr.ifr_addr.sa_len,
+		       sizeof(ifr.ifr_addr.sa_data));
+		return FALSE;
+	}
+	CFDataGetBytes(macAddr, CFRangeMake(0, ifr.ifr_addr.sa_len), (UInt8 *)ifr.ifr_addr.sa_data);
+
+	if (ioctl(s, SIOCSIFLLADDR, &ifr) == -1) {
+		_SCErrorSet(errno);
+		SC_log(LOG_ERR, "%@: could not set MAC address: %s",
+		       bridge_if,
+		       strerror(errno));
+		return FALSE;
+	}
+
+	SC_log(LOG_INFO, "%@: updated MAC address: %{ private }@", bridge_if, macAddr);
 	return TRUE;
 }
 #endif	// IFT_BRIDGE
@@ -1030,7 +1061,7 @@ _SCBridgeInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 
 	/*
 	 * remove any no-longer-configured bridge interfaces and
-	 * any devices associated with a bridge that are no longer
+	 * any members associated with a bridge that are no longer
 	 * associated with a bridge.
 	 */
 	for (i = 0; i < nActive; i++) {
@@ -1072,7 +1103,7 @@ _SCBridgeInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 								  CFRangeMake(0, c_count),
 								  a_interface)) {
 						/*
-						 * if this device is no longer part
+						 * if this member is no longer part
 						 * of the bridge.
 						 */
 						if (s == -1) {
@@ -1118,7 +1149,7 @@ _SCBridgeInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 
 	/*
 	 * add any newly-configured bridge interfaces and add any
-	 * devices that should now be associated with the bridge.
+	 * members that should now be associated with the bridge.
 	 */
 	for (i = 0; i < nConfig; i++) {
 		SCBridgeInterfaceRef	c_bridge;
@@ -1127,6 +1158,7 @@ _SCBridgeInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 		CFIndex			c_count;
 		Boolean			found		= FALSE;
 		CFIndex			j;
+		Boolean			setMAC		= FALSE;
 
 		c_bridge            = CFArrayGetValueAtIndex(config, i);
 		c_bridge_if         = SCNetworkInterfaceGetBSDName(c_bridge);
@@ -1146,16 +1178,13 @@ _SCBridgeInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 
 			if (CFEqual(c_bridge_if, a_bridge_if)) {
 				CFIndex	c;
-				Boolean	if_list_change = FALSE;
 
 				found = TRUE;
 
-				if (!_SC_CFEqual(c_bridge_interfaces, a_bridge_interfaces)) {
-					if_list_change = TRUE;
-				}
-				if (!if_list_change) {
+				if (_SC_CFEqual(c_bridge_interfaces, a_bridge_interfaces)) {
 					break;	// if no change
 				}
+
 				if (s == -1) {
 					s = inet_dgram_socket();
 					if (s == -1) {
@@ -1164,13 +1193,10 @@ _SCBridgeInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 						goto done;
 					}
 				}
-				if (!if_list_change) {
-					break; // no if list changes
-				}
 
 				/*
-				 * ensure that the first device of the bridge matches, if
-				 * not then we remove all current devices and add them
+				 * ensure that the first member of the bridge matches, if
+				 * not then we remove all current members and add them
 				 * back in the preferred order.
 				 */
 				if ((c_count > 0) &&
@@ -1196,11 +1222,15 @@ _SCBridgeInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 						}
 					}
 
-					a_count = 0;	// all active devices have been removed
+					a_count = 0;	// all active members have been removed
+				}
+
+				if (a_count == 0) {
+					setMAC = TRUE;
 				}
 
 				/*
-				 * add any devices which are not currently associated
+				 * add any members which are not currently associated
 				 * with the bridge interface.
 				 */
 				for (c = 0; c < c_count; c++) {
@@ -1223,7 +1253,22 @@ _SCBridgeInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 						}
 
 						/*
-						 * if this member interface is not currently part of the bridge.
+						 * if this is the first member interface, set the MAC address
+						 * of the bridge.
+						 */
+						if (setMAC) {
+							CFDataRef	macAddr;
+
+							macAddr = _SCNetworkInterfaceGetHardwareAddress(c_interface);
+							if (!__bridge_set_mac(s, c_bridge_if, macAddr)) {
+								// if bridge MAC could not be set
+								ok = FALSE;
+							}
+							setMAC = FALSE;
+						}
+
+						/*
+						 * add the member interface to the bridge.
 						 */
 						c_interface_if = SCNetworkInterfaceGetBSDName(c_interface);
 						if (!__bridge_add_interface(s, c_bridge_if, c_interface_if)) {
@@ -1258,6 +1303,8 @@ _SCBridgeInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 				continue;
 			}
 
+			setMAC = TRUE;
+
 			/*
 			 * add the member interfaces
 			 */
@@ -1273,6 +1320,24 @@ _SCBridgeInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 					continue;
 				}
 
+				/*
+				 * if this is the first member interface, set the MAC address
+				 * of the bridge.
+				 */
+				if (setMAC) {
+					CFDataRef	macAddr;
+
+					macAddr = _SCNetworkInterfaceGetHardwareAddress(c_interface);
+					if (!__bridge_set_mac(s, c_bridge_if, macAddr)) {
+						// if bridge MAC could not be set
+						ok = FALSE;
+					}
+					setMAC = FALSE;
+				}
+
+				/*
+				 * add the member interface to the bridge.
+				 */
 				c_interface_if = SCNetworkInterfaceGetBSDName(c_interface);
 				if (!__bridge_add_interface(s, c_bridge_if, c_interface_if)) {
 					// if member could not be added
@@ -1280,7 +1345,6 @@ _SCBridgeInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 				}
 			}
 		}
-
 	}
 
     done :

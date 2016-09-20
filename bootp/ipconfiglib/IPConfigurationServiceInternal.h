@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,18 +41,20 @@
 
 #define kIPConfigurationServiceOptions	CFSTR("__IPConfigurationServiceOptions") /* dictionary */
 
+#define _kIPConfigurationServiceOptionClearState	\
+    CFSTR("ClearState")		/* boolean */
+#define _kIPConfigurationServiceOptionEnableDAD	\
+    CFSTR("EnableDAD")		/* boolean */
 #define _kIPConfigurationServiceOptionMonitorPID	\
     CFSTR("MonitorPID") 	/* boolean */
-#define _kIPConfigurationServiceOptionNoPublish	\
-    CFSTR("NoPublish")		/* boolean */
 #define _kIPConfigurationServiceOptionMTU	\
     CFSTR("MTU")		/* number */
+#define _kIPConfigurationServiceOptionNoPublish	\
+    CFSTR("NoPublish")		/* boolean */
 #define _kIPConfigurationServiceOptionPerformNUD	\
     CFSTR("PerformNUD")		/* boolean */
 #define _kIPConfigurationServiceOptionServiceID		\
     CFSTR("ServiceID")		/* string (UUID) */
-#define _kIPConfigurationServiceOptionClearState	\
-    CFSTR("ClearState")		/* boolean */
 
 #define _kIPConfigurationServiceOptionIPv6Entity	\
     CFSTR("IPv6Entity")	/* dictionary */

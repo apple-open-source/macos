@@ -42,13 +42,13 @@ class UndoableStateMark : public InspectorHistory::Action {
 public:
     UndoableStateMark() : InspectorHistory::Action("[UndoableState]") { }
 
-    virtual bool perform(ExceptionCode&) override { return true; }
+    bool perform(ExceptionCode&) override { return true; }
 
-    virtual bool undo(ExceptionCode&) override { return true; }
+    bool undo(ExceptionCode&) override { return true; }
 
-    virtual bool redo(ExceptionCode&) override { return true; }
+    bool redo(ExceptionCode&) override { return true; }
 
-    virtual bool isUndoableStateMark() override { return true; }
+    bool isUndoableStateMark() override { return true; }
 };
 
 }
@@ -73,7 +73,7 @@ bool InspectorHistory::Action::isUndoableStateMark()
 
 String InspectorHistory::Action::mergeId()
 {
-    return "";
+    return emptyString();
 }
 
 void InspectorHistory::Action::merge(std::unique_ptr<Action>)
@@ -90,10 +90,10 @@ bool InspectorHistory::perform(std::unique_ptr<Action> action, ExceptionCode& ec
         return false;
 
     if (!action->mergeId().isEmpty() && m_afterLastActionIndex > 0 && action->mergeId() == m_history[m_afterLastActionIndex - 1]->mergeId())
-        m_history[m_afterLastActionIndex - 1]->merge(WTF::move(action));
+        m_history[m_afterLastActionIndex - 1]->merge(WTFMove(action));
     else {
         m_history.resize(m_afterLastActionIndex);
-        m_history.append(WTF::move(action));
+        m_history.append(WTFMove(action));
         ++m_afterLastActionIndex;
     }
     return true;

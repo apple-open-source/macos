@@ -2030,7 +2030,8 @@ CLEANUP:
 **
 **--
 **/
-
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PUBLIC void rpc_server_set_thread_pool_qlen
 (
     rpc_thread_pool_handle_t phandle,
@@ -2131,7 +2132,7 @@ PUBLIC void rpc_server_set_thread_pool_qlen
 
     RPC_MUTEX_UNLOCK (cthread_mutex);
 }
-
+#endif
 /*
 **++
 **

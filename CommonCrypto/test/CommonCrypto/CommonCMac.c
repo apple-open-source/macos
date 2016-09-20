@@ -85,7 +85,7 @@ CMACTest(char *input, char *keystr, char *expected)
 
 static int kTestTestCount = 5;
 
-int CommonCMac (int argc, char *const *argv) {
+int CommonCMac (int __unused argc, char *const * __unused argv) {
 	char *strvalue, *keyvalue;
 	plan_tests(kTestTestCount*3);
     int accum = 0;

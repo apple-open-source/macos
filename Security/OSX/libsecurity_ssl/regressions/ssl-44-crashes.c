@@ -206,7 +206,7 @@ static void *securetransport_ssl_thread(void *arg)
     unsigned char ibuf[8], obuf[8];
     size_t len;
     if (ssl->is_server) {
-        SecRandomCopyBytes(kSecRandomDefault, sizeof(obuf), obuf);
+        require_action_quiet(errSecSuccess==SecRandomCopyBytes(kSecRandomDefault, sizeof(obuf), obuf), out, ortn = -1);
         require_noerr_quiet(ortn = SSLWrite(ctx, obuf, sizeof(obuf), &len), out);
         require_action_quiet(len == sizeof(obuf), out, ortn = -1);
     } else {
@@ -296,17 +296,9 @@ tests(void)
         pthread_join(client_thread, (void*)&client_err);
         pthread_join(server_thread, (void*)&server_err);
 
-        // errors expected for TARGET_OS_IPHONE implementation
-        int expected_client_error3 = errSSLBadCert;
-        int expected_server_error3 = errSSLClosedGraceful;
-
-        // allow OS X errors if we are not yet using unified SecTrust
-        if (server_err == errSSLProtocol) { expected_server_error3 = errSSLProtocol; }
-        if (client_err == errSSLIllegalParam) { expected_client_error3 = errSSLIllegalParam; }
-
-        ok(server_err==((i==3)?expected_server_error3:0), "Server error = %d (i=%d)", server_err, i);
-        /* tests 0/1 should cause errSSLClosedAbort, 2 should cause errSSLBadRecordMac, 3 should cause errSSLBadCert */
-        ok(client_err==((i==3)?expected_client_error3:(i==2)?errSSLBadRecordMac:errSSLClosedAbort), "Client error = %d (i=%d)", client_err, i);
+        ok(server_err==((i==3)?errSSLPeerCertUnknown:0), "Server error = %d (i=%d)", server_err, i);
+        /* tests 0/1 should cause errSSLClosedAbort, 2 should cause errSSLBadRecordMac, 3 should cause errSSLXCertChainInvalid */
+        ok(client_err==((i==3)?errSSLXCertChainInvalid:(i==2)?errSSLBadRecordMac:errSSLClosedAbort), "Client error = %d (i=%d)", client_err, i);
 
 out:
         free(client);

@@ -35,7 +35,7 @@
 #include "file.h"
 
 #ifndef	lint
-FILE_RCSID("@(#)$File: encoding.c,v 1.4 2009/09/13 19:02:22 christos Exp $")
+FILE_RCSID("@(#)$File: encoding.c,v 1.13 2015/06/04 19:16:28 christos Exp $")
 #endif	/* lint */
 
 #include "magic.h"
@@ -47,6 +47,7 @@ FILE_RCSID("@(#)$File: encoding.c,v 1.4 2009/09/13 19:02:22 christos Exp $")
 private int looks_ascii(const unsigned char *, size_t, unichar *, size_t *);
 private int looks_utf8_with_BOM(const unsigned char *, size_t, unichar *,
     size_t *);
+private int looks_utf7(const unsigned char *, size_t, unichar *, size_t *);
 private int looks_ucs16(const unsigned char *, size_t, unichar *, size_t *);
 private int looks_latin1(const unsigned char *, size_t, unichar *, size_t *);
 private int looks_extended(const unsigned char *, size_t, unichar *, size_t *);
@@ -71,29 +72,38 @@ file_encoding(struct magic_set *ms, const unsigned char *buf, size_t nbytes, uni
 	int rv = 1, ucs_type;
 	unsigned char *nbuf = NULL;
 
-	mlen = (nbytes + 1) * sizeof(nbuf[0]);
-	if ((nbuf = CAST(unsigned char *, calloc((size_t)1, mlen))) == NULL) {
-		file_oomem(ms, mlen);
-		goto done;
-	}
+	*type = "text";
+	*ulen = 0;
+	*code = "unknown";
+	*code_mime = "binary";
+
 	mlen = (nbytes + 1) * sizeof((*ubuf)[0]);
 	if ((*ubuf = CAST(unichar *, calloc((size_t)1, mlen))) == NULL) {
 		file_oomem(ms, mlen);
 		goto done;
 	}
+	mlen = (nbytes + 1) * sizeof(nbuf[0]);
+	if ((nbuf = CAST(unsigned char *, calloc((size_t)1, mlen))) == NULL) {
+		file_oomem(ms, mlen);
+		goto done;
+	}
 
-	*type = "text";
 	if (looks_ascii(buf, nbytes, *ubuf, ulen)) {
-		DPRINTF(("ascii %zu\n", *ulen));
-		*code = "ASCII";
-		*code_mime = "us-ascii";
+		if (looks_utf7(buf, nbytes, *ubuf, ulen) > 0) {
+			DPRINTF(("utf-7 %" SIZE_T_FORMAT "u\n", *ulen));
+			*code = "UTF-7 Unicode";
+			*code_mime = "utf-7";
+		} else {
+			DPRINTF(("ascii %" SIZE_T_FORMAT "u\n", *ulen));
+			*code = "ASCII";
+			*code_mime = "us-ascii";
+		}
 	} else if (looks_utf8_with_BOM(buf, nbytes, *ubuf, ulen) > 0) {
-		DPRINTF(("utf8/bom %zu\n", *ulen));
+		DPRINTF(("utf8/bom %" SIZE_T_FORMAT "u\n", *ulen));
 		*code = "UTF-8 Unicode (with BOM)";
 		*code_mime = "utf-8";
 	} else if (file_looks_utf8(buf, nbytes, *ubuf, ulen) > 1) {
-		DPRINTF(("utf8 %zu\n", *ulen));
-		*code = "UTF-8 Unicode (with BOM)";
+		DPRINTF(("utf8 %" SIZE_T_FORMAT "u\n", *ulen));
 		*code = "UTF-8 Unicode";
 		*code_mime = "utf-8";
 	} else if ((ucs_type = looks_ucs16(buf, nbytes, *ubuf, ulen)) != 0) {
@@ -104,24 +114,25 @@ file_encoding(struct magic_set *ms, const unsigned char *buf, size_t nbytes, uni
 			*code = "Big-endian UTF-16 Unicode";
 			*code_mime = "utf-16be";
 		}
-		DPRINTF(("ucs16 %zu\n", *ulen));
+		DPRINTF(("ucs16 %" SIZE_T_FORMAT "u\n", *ulen));
 	} else if (looks_latin1(buf, nbytes, *ubuf, ulen)) {
-		DPRINTF(("latin1 %zu\n", *ulen));
+		DPRINTF(("latin1 %" SIZE_T_FORMAT "u\n", *ulen));
 		*code = "ISO-8859";
 		*code_mime = "iso-8859-1";
 	} else if (looks_extended(buf, nbytes, *ubuf, ulen)) {
-		DPRINTF(("extended %zu\n", *ulen));
+		DPRINTF(("extended %" SIZE_T_FORMAT "u\n", *ulen));
 		*code = "Non-ISO extended-ASCII";
 		*code_mime = "unknown-8bit";
 	} else {
 		from_ebcdic(buf, nbytes, nbuf);
 
 		if (looks_ascii(nbuf, nbytes, *ubuf, ulen)) {
-			DPRINTF(("ebcdic %zu\n", *ulen));
+			DPRINTF(("ebcdic %" SIZE_T_FORMAT "u\n", *ulen));
 			*code = "EBCDIC";
 			*code_mime = "ebcdic";
 		} else if (looks_latin1(nbuf, nbytes, *ubuf, ulen)) {
-			DPRINTF(("ebcdic/international %zu\n", *ulen));
+			DPRINTF(("ebcdic/international %" SIZE_T_FORMAT "u\n",
+			    *ulen));
 			*code = "International EBCDIC";
 			*code_mime = "ebcdic";
 		} else { /* Doesn't look like text at all */
@@ -132,8 +143,7 @@ file_encoding(struct magic_set *ms, const unsigned char *buf, size_t nbytes, uni
 	}
 
  done:
-	if (nbuf)
-		free(nbuf);
+	free(nbuf);
 
 	return rv;
 }
@@ -196,8 +206,8 @@ file_encoding(struct magic_set *ms, const unsigned char *buf, size_t nbytes, uni
 #define X 3   /* character appears in non-ISO extended ASCII (Mac, IBM PC) */
 
 private char text_chars[256] = {
-	/*                  BEL BS HT LF    FF CR    */
-	F, F, F, F, F, F, F, T, T, T, T, F, T, T, F, F,  /* 0x0X */
+	/*                  BEL BS HT LF VT FF CR    */
+	F, F, F, F, F, F, F, T, T, T, T, T, T, T, F, F,  /* 0x0X */
 	/*                              ESC          */
 	F, F, F, F, F, F, F, F, F, F, F, T, F, F, F, F,  /* 0x1X */
 	T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T,  /* 0x2X */
@@ -364,6 +374,25 @@ looks_utf8_with_BOM(const unsigned char *buf, size_t nbytes, unichar *ubuf,
 {
 	if (nbytes > 3 && buf[0] == 0xef && buf[1] == 0xbb && buf[2] == 0xbf)
 		return file_looks_utf8(buf + 3, nbytes - 3, ubuf, ulen);
+	else
+		return -1;
+}
+
+private int
+looks_utf7(const unsigned char *buf, size_t nbytes, unichar *ubuf, size_t *ulen)
+{
+	if (nbytes > 4 && buf[0] == '+' && buf[1] == '/' && buf[2] == 'v')
+		switch (buf[3]) {
+		case '8':
+		case '9':
+		case '+':
+		case '/':
+			if (ubuf)
+				*ulen = 0;
+			return 1;
+		default:
+			return -1;
+		}
 	else
 		return -1;
 }

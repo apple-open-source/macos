@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2003-2009,2012 Apple Inc. All Rights Reserved.
- * 
+ * Copyright (c) 2003-2009,2012,2016 Apple Inc. All Rights Reserved.
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -68,44 +68,39 @@ CodeSignatures::Identity::~Identity()
 // This ends up getting called when a CodeSignatureAclSubject is validated.
 // The OSXVerifier describes what we require of the client code; the process represents
 // the requesting client; and the context gives us access to the ACL and its environment
-// in case we want to, well, creatively rewrite it for some reason. 
+// in case we want to, well, creatively rewrite it for some reason.
 //
 bool CodeSignatures::verify(Process &process,
 	const OSXVerifier &verifier, const AclValidationContext &context)
 {
-	secdebug("codesign", "start verify");
+	secinfo("codesign", "start verify");
 
 	StLock<Mutex> _(process);
-	SecCodeRef code = process.currentGuest();
-	if (!code) {
-		secdebug("codesign", "no code base: fail");
-		return false;
-	}
 	if (SecRequirementRef requirement = verifier.requirement()) {
 		// If the ACL contains a code signature (requirement), we won't match against unsigned code at all.
 		// The legacy hash is ignored (it's for use by pre-Leopard systems).
-		secdebug("codesign", "CS requirement present; ignoring legacy hashes");
+		secinfo("codesign", "CS requirement present; ignoring legacy hashes");
 		Server::active().longTermActivity();
-		switch (OSStatus rc = SecCodeCheckValidity(code, kSecCSDefaultFlags, requirement)) {
+		switch (OSStatus rc = process.checkValidity(kSecCSDefaultFlags, requirement)) {
 		case noErr:
-			secdebug("codesign", "CS verify passed");
+			secinfo("codesign", "CS verify passed");
 			return true;
 		case errSecCSUnsigned:
-			secdebug("codesign", "CS verify against unsigned binary failed");
+			secinfo("codesign", "CS verify against unsigned binary failed");
 			return false;
 		default:
-			secdebug("codesign", "CS verify failed OSStatus=%d", int32_t(rc));
+			secinfo("codesign", "CS verify failed OSStatus=%d", int32_t(rc));
 			return false;
 		}
 	}
-	switch (matchSignedClientToLegacyACL(process, code, verifier, context)) {
+	switch (matchSignedClientToLegacyACL(process, verifier, context)) {
 	case noErr:						// handled, allow access
 		return true;
  	case errSecCSUnsigned: {		// unsigned client, complete legacy case
- 		secdebug("codesign", "no CS requirement - using legacy hash");
+ 		secinfo("codesign", "no CS requirement - using legacy hash");
 
-		/* 
-		 * We should stop supporting this case for binanaries
+		/*
+		 * We should stop supporting this case for binaries
 		 * built for modern OS/SDK, user should ad-hoc sign
 		 * their binaries in that case.
 		 *
@@ -114,11 +109,11 @@ bool CodeSignatures::verify(Process &process,
 		Identity &clientIdentity = process;
 		try {
 			if (clientIdentity.getHash() == CssmData::wrap(verifier.legacyHash(), SHA1::digestLength)) {
-				secdebug("codesign", "direct match: pass");
+				secinfo("codesign", "direct match: pass");
 				return true;
 			}
 		} catch (...) {
-			secdebug("codesign", "exception getting client code hash: fail");
+			secinfo("codesign", "exception getting client code hash: fail");
 			return false;
 		}
 		return false;
@@ -149,14 +144,14 @@ static string trim(string s, char delimiter)
 static string trim(string s, char delimiter, string suffix)
 {
 	s = trim(s, delimiter);
-	int preLength = s.length() - suffix.length();
+	size_t preLength = s.length() - suffix.length();
 	if (preLength > 0 && s.substr(preLength) == suffix)
 		s = s.substr(0, preLength);
 	return s;
 }
 
 OSStatus CodeSignatures::matchSignedClientToLegacyACL(Process &process,
-	SecCodeRef code, const OSXVerifier &verifier, const AclValidationContext &context)
+	const OSXVerifier &verifier, const AclValidationContext &context)
 {
 	//
 	// Check whether we seem to be matching a legacy .Mac ACL against a member of the .Mac group
@@ -165,8 +160,8 @@ OSStatus CodeSignatures::matchSignedClientToLegacyACL(Process &process,
 		Server::active().longTermActivity();
 		CFRef<SecRequirementRef> dotmac;
 		MacOSError::check(SecRequirementCreateGroup(CFSTR("dot-mac"), NULL, kSecCSDefaultFlags, &dotmac.aref()));
-		if (SecCodeCheckValidity(code, kSecCSDefaultFlags, dotmac) == noErr) {
-			secdebug("codesign", "client is a dot-mac application; update the ACL accordingly");
+		if (process.checkValidity(kSecCSDefaultFlags, dotmac) == noErr) {
+			secinfo("codesign", "client is a dot-mac application; update the ACL accordingly");
 
 			// create a suitable AclSubject (this is the above-the-API-line way)
 			CFRef<CFDataRef> reqdata;
@@ -184,7 +179,7 @@ OSStatus CodeSignatures::matchSignedClientToLegacyACL(Process &process,
 	// Get best names for the ACL (legacy) subject and the (signed) client
 	//
 	CFRef<CFDictionaryRef> info;
-	MacOSError::check(SecCodeCopySigningInformation(code, kSecCSSigningInformation, &info.aref()));
+	MacOSError::check(process.copySigningInfo(kSecCSSigningInformation, &info.aref()));
 	CFStringRef signingIdentity = CFStringRef(CFDictionaryGetValue(info, kSecCodeInfoIdentifier));
 	if (!signingIdentity)		// unsigned
 		return errSecCSUnsigned;
@@ -197,10 +192,10 @@ OSStatus CodeSignatures::matchSignedClientToLegacyACL(Process &process,
 		bundleName = trim(cfString(signingIdentity), '.');
 
 	string aclName = trim(verifier.path(), '/', ".app");	// ACL
-	
-	secdebug("codesign", "matching signed client \"%s\" against legacy ACL \"%s\"",
+
+	secinfo("codesign", "matching signed client \"%s\" against legacy ACL \"%s\"",
 		bundleName.c_str(), aclName.c_str());
-	
+
 	//
 	// Check whether we're matching a signed APPLE application against a legacy ACL by the same name
 	//
@@ -213,30 +208,18 @@ OSStatus CodeSignatures::matchSignedClientToLegacyACL(Process &process,
 		MacOSError::check(SecRequirementCreateWithData(CFTempData(reqData, sizeof(reqData)),
 			kSecCSDefaultFlags, &apple.aref()));
 		Server::active().longTermActivity();
-		switch (OSStatus rc = SecCodeCheckValidity(code, kSecCSDefaultFlags, apple)) {
+		switch (OSStatus rc = process.checkValidity(kSecCSDefaultFlags, apple)) {
 		case noErr:
 			{
-				secdebug("codesign", "withstands strict scrutiny; quietly adding new ACL");
-				RefPointer<OSXCode> wrap = new OSXCodeWrap(code);
-				RefPointer<AclSubject> subject = new CodeSignatureAclSubject(OSXVerifier(wrap));
+				secinfo("codesign", "withstands strict scrutiny; quietly adding new ACL");
+				RefPointer<AclSubject> subject = process.copyAclSubject();
 				SecurityServerAcl::addToStandardACL(context, subject);
 				return noErr;
 			}
 		default:
-			secdebug("codesign", "validation fails with rc=%d, rejecting", int32_t(rc));
+			secinfo("codesign", "validation fails with rc=%d, rejecting", int32_t(rc));
 			return rc;
 		}
-		secdebug("codesign", "does not withstand strict scrutiny; ask the user");
-		QueryCodeCheck query;
-		query.inferHints(process);
-		if (!query(verifier.path().c_str())) {
-			secdebug("codesign", "user declined equivalence: cancel the access");
-			CssmError::throwMe(CSSM_ERRCODE_USER_CANCELED);
-		}
-		RefPointer<OSXCode> wrap = new OSXCodeWrap(code);
-		RefPointer<AclSubject> subject = new CodeSignatureAclSubject(OSXVerifier(wrap));
-		SecurityServerAcl::addToStandardACL(context, subject);
-		return noErr;
 	}
 
 	// not close enough to even ask - this can't match

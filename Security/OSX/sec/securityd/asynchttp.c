@@ -47,8 +47,6 @@
 #define PRIstatus "ld"
 #endif
 
-#define ocspdErrorLog(args...)     asl_log(NULL, NULL, ASL_LEVEL_ERR, ## args)
-
 /* POST method has Content-Type header line equal to
    "application/ocsp-request" */
 static CFStringRef kContentType		= CFSTR("Content-Type");
@@ -69,7 +67,7 @@ static CFStringRef copyParseMaxAge(CFStringRef cacheControlHeader) {
     /* The format of the cache control header is a comma-separated list, but
        each list element could be a key-value pair, with the value quoted and
        possibly containing a comma. */
-    CFStringInlineBuffer inlineBuf;
+    CFStringInlineBuffer inlineBuf = {};
     CFRange componentRange;
     CFIndex length = CFStringGetLength(cacheControlHeader);
     bool done = false;
@@ -236,11 +234,11 @@ static void handle_server_response(CFReadStreamRef stream,
             stream, error.domain, (long) error.error);
 
         if (error.domain == kCFStreamErrorDomainPOSIX) {
-            ocspdErrorLog("CFReadStream posix: %s", strerror(error.error));
+            secerror("CFReadStream posix: %s", strerror(error.error));
         } else if (error.domain == kCFStreamErrorDomainMacOSStatus) {
-            ocspdErrorLog("CFReadStream osstatus: %"PRIstatus, error.error);
+            secerror("CFReadStream osstatus: %"PRIstatus, error.error);
         } else {
-            ocspdErrorLog("CFReadStream domain: %ld error: %"PRIstatus,
+            secerror("CFReadStream domain: %ld error: %"PRIstatus,
                 error.domain, error.error);
         }
         asynchttp_complete(http);
@@ -257,7 +255,7 @@ static void handle_server_response(CFReadStreamRef stream,
         break;
     }
     default:
-        ocspdErrorLog("handle_server_response unexpected event type: %lu",
+        secerror("handle_server_response unexpected event type: %lu",
             type);
         break;
     }
@@ -315,7 +313,7 @@ errOut:
 }
 
 bool asyncHttpPost(CFURLRef responder, CFDataRef requestData /* , bool force_nocache */ ,
-    asynchttp_t *http) {
+    uint64_t timeout, asynchttp_t *http) {
     bool result = true; /* True, we didn't schedule any work. */
 	/* resources to release on exit */
     CFURLRef getURL = NULL;
@@ -376,7 +374,7 @@ bool asyncHttpPost(CFURLRef responder, CFDataRef requestData /* , bool force_noc
     }
 #endif
 
-    result = asynchttp_request(NULL, http);
+    result = asynchttp_request(NULL, timeout, http);
 
 errOut:
     CFReleaseSafe(getURL);
@@ -407,7 +405,7 @@ void asynchttp_free(asynchttp_t *http) {
 }
 
 /* Return true, iff we didn't schedule any work, return false if we did. */
-bool asynchttp_request(CFHTTPMessageRef request, asynchttp_t *http) {
+bool asynchttp_request(CFHTTPMessageRef request, uint64_t timeout, asynchttp_t *http) {
     secdebug("http", "request %@", request);
     if (request) {
         http->request = request;
@@ -424,7 +422,11 @@ bool asynchttp_request(CFHTTPMessageRef request, asynchttp_t *http) {
         asynchttp_timer_proc(http);
     });
     // Set the timer's fire time to now + STREAM_TIMEOUT seconds with a .5 second fuzz factor.
-    dispatch_source_set_timer(http->timer, dispatch_time(DISPATCH_TIME_NOW, STREAM_TIMEOUT),
+    uint64_t stream_timeout = timeout;
+    if (timeout == 0) {
+        stream_timeout = STREAM_TIMEOUT;
+    }
+    dispatch_source_set_timer(http->timer, dispatch_time(DISPATCH_TIME_NOW, stream_timeout),
                               DISPATCH_TIME_FOREVER, (int64_t)(500 * NSEC_PER_MSEC));
     dispatch_resume(http->timer);
 

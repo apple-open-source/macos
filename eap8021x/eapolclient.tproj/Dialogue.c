@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -160,7 +160,7 @@ copy_localized_string(CFBundleRef bundle, CFStringRef ethernet_str,
 static CFStringRef
 copy_localized_title(CFBundleRef bundle, CFTypeRef ssid)
 {
-#define kAirPort8021XTitleFormat  CFSTR("Authenticating to network \"%@\"")
+#define kAirPort8021XTitleFormat  CFSTR("Authenticating to network “%@”")
 #define kEthernet8021XTitle	  CFSTR("Authenticating to 802.1X network")
 
     return (copy_localized_string(bundle,

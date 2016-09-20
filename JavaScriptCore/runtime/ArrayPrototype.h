@@ -26,12 +26,20 @@
 
 namespace JSC {
 
+class ArrayPrototypeAdaptiveInferredPropertyWatchpoint;
+
 class ArrayPrototype : public JSArray {
 private:
     ArrayPrototype(VM&, Structure*);
 
 public:
     typedef JSArray Base;
+
+    enum class SpeciesWatchpointStatus {
+        Uninitialized,
+        Initialized,
+        Fired
+    };
 
     static ArrayPrototype* create(VM&, JSGlobalObject*, Structure*);
         
@@ -42,11 +50,28 @@ public:
         return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info(), ArrayClass);
     }
 
+    SpeciesWatchpointStatus speciesWatchpointStatus() const { return m_speciesWatchpointStatus; }
+    SpeciesWatchpointStatus attemptToInitializeSpeciesWatchpoint(ExecState*);
+
+    static const bool needsDestruction = false;
+    // We don't need destruction since we use a finalizer.
+    static void destroy(JSC::JSCell*);
+
 protected:
     void finishCreation(VM&, JSGlobalObject*);
+
+private:
+    // This bit is set if any user modifies the constructor property Array.prototype. This is used to optimize species creation for JSArrays.
+    friend ArrayPrototypeAdaptiveInferredPropertyWatchpoint;
+    std::unique_ptr<ArrayPrototypeAdaptiveInferredPropertyWatchpoint> m_constructorWatchpoint;
+    std::unique_ptr<ArrayPrototypeAdaptiveInferredPropertyWatchpoint> m_constructorSpeciesWatchpoint;
+    SpeciesWatchpointStatus m_speciesWatchpointStatus { SpeciesWatchpointStatus::Uninitialized };
 };
 
+EncodedJSValue JSC_HOST_CALL arrayProtoFuncToString(ExecState*);
 EncodedJSValue JSC_HOST_CALL arrayProtoFuncValues(ExecState*);
+EncodedJSValue JSC_HOST_CALL arrayProtoPrivateFuncConcatMemcpy(ExecState*);
+EncodedJSValue JSC_HOST_CALL arrayProtoPrivateFuncAppendMemcpy(ExecState*);
 
 } // namespace JSC
 

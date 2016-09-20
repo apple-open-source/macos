@@ -25,6 +25,7 @@
 
 #include "CSSHelper.h"
 #include "ElementIterator.h"
+#include "EventNames.h"
 #include "FrameSelection.h"
 #include "MainFrame.h"
 #include "RenderSVGResource.h"
@@ -64,11 +65,11 @@ inline SVGSVGElement::SVGSVGElement(const QualifiedName& tagName, Document& docu
     , m_y(LengthModeHeight)
     , m_width(LengthModeWidth, ASCIILiteral("100%"))
     , m_height(LengthModeHeight, ASCIILiteral("100%"))
-    , m_timeContainer(RefPtr<SMILTimeContainer>(SMILTimeContainer::create(this)).releaseNonNull())
+    , m_timeContainer(SMILTimeContainer::create(this))
 {
     ASSERT(hasTagName(SVGNames::svgTag));
     registerAnimatedPropertiesForSVGSVGElement();
-    document.registerForPageCacheSuspensionCallbacks(this);
+    document.registerForDocumentSuspensionCallbacks(this);
 }
 
 Ref<SVGSVGElement> SVGSVGElement::create(const QualifiedName& tagName, Document& document)
@@ -85,40 +86,40 @@ SVGSVGElement::~SVGSVGElement()
 {
     if (m_viewSpec)
         m_viewSpec->resetContextElement();
-    document().unregisterForPageCacheSuspensionCallbacks(this);
+    document().unregisterForDocumentSuspensionCallbacks(this);
     document().accessSVGExtensions().removeTimeContainer(this);
 }
 
 void SVGSVGElement::didMoveToNewDocument(Document* oldDocument)
 {
     if (oldDocument)
-        oldDocument->unregisterForPageCacheSuspensionCallbacks(this);
-    document().registerForPageCacheSuspensionCallbacks(this);
+        oldDocument->unregisterForDocumentSuspensionCallbacks(this);
+    document().registerForDocumentSuspensionCallbacks(this);
     SVGGraphicsElement::didMoveToNewDocument(oldDocument);
 }
 
 const AtomicString& SVGSVGElement::contentScriptType() const
 {
     static NeverDestroyed<AtomicString> defaultScriptType { "text/ecmascript" };
-    const AtomicString& type = fastGetAttribute(SVGNames::contentScriptTypeAttr);
+    const AtomicString& type = attributeWithoutSynchronization(SVGNames::contentScriptTypeAttr);
     return type.isNull() ? defaultScriptType.get() : type;
 }
 
 void SVGSVGElement::setContentScriptType(const AtomicString& type)
 {
-    setAttribute(SVGNames::contentScriptTypeAttr, type);
+    setAttributeWithoutSynchronization(SVGNames::contentScriptTypeAttr, type);
 }
 
 const AtomicString& SVGSVGElement::contentStyleType() const
 {
     static NeverDestroyed<AtomicString> defaultStyleType { "text/css" };
-    const AtomicString& type = fastGetAttribute(SVGNames::contentStyleTypeAttr);
+    const AtomicString& type = attributeWithoutSynchronization(SVGNames::contentStyleTypeAttr);
     return type.isNull() ? defaultStyleType.get() : type;
 }
 
 void SVGSVGElement::setContentStyleType(const AtomicString& type)
 {
-    setAttribute(SVGNames::contentStyleTypeAttr, type);
+    setAttributeWithoutSynchronization(SVGNames::contentStyleTypeAttr, type);
 }
 
 FloatRect SVGSVGElement::viewport() const
@@ -315,7 +316,7 @@ Ref<NodeList> SVGSVGElement::collectIntersectionOrEnclosureList(const FloatRect&
         if (checkFunction(&element, rect))
             elements.append(element);
     }
-    return RefPtr<NodeList>(StaticElementList::adopt(elements)).releaseNonNull();
+    return StaticElementList::create(WTFMove(elements));
 }
 
 Ref<NodeList> SVGSVGElement::getIntersectionList(const FloatRect& rect, SVGElement* referenceElement)
@@ -416,9 +417,9 @@ AffineTransform SVGSVGElement::localCoordinateSpaceTransform(SVGLocatable::CTMSc
 
             // Respect scroll offset.
             if (FrameView* view = document().view()) {
-                LayoutSize scrollOffset = view->scrollOffset();
-                scrollOffset.scale(zoomFactor);
-                transform.translate(-scrollOffset.width(), -scrollOffset.height());
+                LayoutPoint scrollPosition = view->scrollPosition();
+                scrollPosition.scale(zoomFactor, zoomFactor);
+                transform.translate(-scrollPosition.x(), -scrollPosition.y());
             }
         }
     }
@@ -439,11 +440,11 @@ bool SVGSVGElement::rendererIsNeeded(const RenderStyle& style)
     return StyledElement::rendererIsNeeded(style);
 }
 
-RenderPtr<RenderElement> SVGSVGElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
+RenderPtr<RenderElement> SVGSVGElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
 {
     if (isOutermostSVGSVGElement())
-        return createRenderer<RenderSVGRoot>(*this, WTF::move(style));
-    return createRenderer<RenderSVGViewportContainer>(*this, WTF::move(style));
+        return createRenderer<RenderSVGRoot>(*this, WTFMove(style));
+    return createRenderer<RenderSVGViewportContainer>(*this, WTFMove(style));
 }
 
 Node::InsertionNotificationRequest SVGSVGElement::insertedInto(ContainerNode& rootParent)
@@ -658,12 +659,12 @@ void SVGSVGElement::inheritViewAttributes(const SVGViewElement& viewElement)
         view.setZoomAndPanBaseValue(zoomAndPan());
 }
 
-void SVGSVGElement::documentWillSuspendForPageCache()
+void SVGSVGElement::prepareForDocumentSuspension()
 {
     pauseAnimations();
 }
 
-void SVGSVGElement::documentDidResumeFromPageCache()
+void SVGSVGElement::resumeFromDocumentSuspension()
 {
     unpauseAnimations();
 }
@@ -672,11 +673,14 @@ void SVGSVGElement::documentDidResumeFromPageCache()
 // See http://www.w3.org/TR/SVG11/struct.html#InterfaceSVGSVGElement
 Element* SVGSVGElement::getElementById(const AtomicString& id)
 {
+    if (id.isNull())
+        return nullptr;
+
     Element* element = treeScope().getElementById(id);
     if (element && element->isDescendantOf(this))
         return element;
     if (treeScope().containsMultipleElementsWithId(id)) {
-        for (auto element : *treeScope().getAllElementsById(id)) {
+        for (auto* element : *treeScope().getAllElementsById(id)) {
             if (element->isDescendantOf(this))
                 return element;
         }

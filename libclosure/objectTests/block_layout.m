@@ -8,10 +8,7 @@
     Created by Patrick Beard on 3 Sep 2010
 */
 
-// rdar://problem/8389489 rdar://problem/8389489 need Block layout accessor
-// TEST_CONFIG MEM=gc
 // TEST_CFLAGS -framework Foundation
-// TEST_DISABLED
 
 #import <Foundation/Foundation.h>
 #import <Block.h>
@@ -24,16 +21,31 @@ int main (int argc, char const* argv[]) {
     NSAutoreleasePool *pool = [NSAutoreleasePool new];
     
     NSObject *o = [NSObject new];
-    NSString *s = [NSString stringWithFormat:@"argc = arg, argv = %p", argc, argv];
+    NSString *s = [NSString stringWithFormat:@"argc = %d, argv = %p", argc, argv];
 
     dispatch_block_t block = ^{
         NSLog(@"o = %@", o);
         NSLog(@"s = %@", s);
     };
+
+        
+    const char *layout = _Block_extended_layout(block);
+    testprintf("layout %p\n", layout);
+    assert (layout == (void*)0x200);
+
+    const char *gclayout = _Block_layout(block);
+    testprintf("GC layout %p\n", gclayout);
+    assert (gclayout == NULL);
+
     block = [block copy];
     
-    const char *layout = _Block_layout(block);
-    assert (layout != NULL);
+    layout = _Block_extended_layout(block);
+    testprintf("layout %p\n", layout);
+    assert (layout == (void*)0x200);
+
+    gclayout = _Block_layout(block);
+    testprintf("GC layout %p\n", gclayout);
+    assert (gclayout == NULL);
     
     block();
     [block release];

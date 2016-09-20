@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2007 Eric Seidel <eric@webkit.org>
  * Copyright (C) Research In Motion Limited 2010. All rights reserved.
+ * Copyright (C) 2015 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -28,38 +29,35 @@ namespace WebCore {
 
 class PathTraversalState;
 
-class SVGPathTraversalStateBuilder : public SVGPathConsumer {
+class SVGPathTraversalStateBuilder final : public SVGPathConsumer {
 public:
-    SVGPathTraversalStateBuilder();
+    SVGPathTraversalStateBuilder(PathTraversalState&, float desiredLength = 0);
 
-    unsigned pathSegmentIndex() { return m_segmentIndex; }
-    float totalLength();
-    SVGPoint currentPoint();
+    unsigned pathSegmentIndex() const { return m_segmentIndex; }
+    float totalLength() const;
+    SVGPoint currentPoint() const;
 
-    void setCurrentTraversalState(PathTraversalState* traversalState) { m_traversalState = traversalState; }
-    void setDesiredLength(float);
-    virtual void incrementPathSegmentCount() override { ++m_segmentIndex; }
-    virtual bool continueConsuming() override;
-    virtual void cleanup() override { m_traversalState = nullptr, m_segmentIndex = 0; }
+    void incrementPathSegmentCount() override { ++m_segmentIndex; }
+    bool continueConsuming() override;
 
 private:
     // Used in UnalteredParsing/NormalizedParsing modes.
-    virtual void moveTo(const FloatPoint&, bool closed, PathCoordinateMode) override;
-    virtual void lineTo(const FloatPoint&, PathCoordinateMode) override;
-    virtual void curveToCubic(const FloatPoint&, const FloatPoint&, const FloatPoint&, PathCoordinateMode) override;
-    virtual void closePath() override;
+    void moveTo(const FloatPoint&, bool closed, PathCoordinateMode) override;
+    void lineTo(const FloatPoint&, PathCoordinateMode) override;
+    void curveToCubic(const FloatPoint&, const FloatPoint&, const FloatPoint&, PathCoordinateMode) override;
+    void closePath() override;
 
 private:
     // Not used for PathTraversalState.
-    virtual void lineToHorizontal(float, PathCoordinateMode) override { ASSERT_NOT_REACHED(); }
-    virtual void lineToVertical(float, PathCoordinateMode) override { ASSERT_NOT_REACHED(); }
-    virtual void curveToCubicSmooth(const FloatPoint&, const FloatPoint&, PathCoordinateMode) override { ASSERT_NOT_REACHED(); }
-    virtual void curveToQuadratic(const FloatPoint&, const FloatPoint&, PathCoordinateMode) override { ASSERT_NOT_REACHED(); }
-    virtual void curveToQuadraticSmooth(const FloatPoint&, PathCoordinateMode) override { ASSERT_NOT_REACHED(); }
-    virtual void arcTo(float, float, float, bool, bool, const FloatPoint&, PathCoordinateMode) override { ASSERT_NOT_REACHED(); }
+    void lineToHorizontal(float, PathCoordinateMode) override { ASSERT_NOT_REACHED(); }
+    void lineToVertical(float, PathCoordinateMode) override { ASSERT_NOT_REACHED(); }
+    void curveToCubicSmooth(const FloatPoint&, const FloatPoint&, PathCoordinateMode) override { ASSERT_NOT_REACHED(); }
+    void curveToQuadratic(const FloatPoint&, const FloatPoint&, PathCoordinateMode) override { ASSERT_NOT_REACHED(); }
+    void curveToQuadraticSmooth(const FloatPoint&, PathCoordinateMode) override { ASSERT_NOT_REACHED(); }
+    void arcTo(float, float, float, bool, bool, const FloatPoint&, PathCoordinateMode) override { ASSERT_NOT_REACHED(); }
 
-    PathTraversalState* m_traversalState;
-    unsigned m_segmentIndex;
+    PathTraversalState& m_traversalState;
+    unsigned m_segmentIndex { 0 };
 };
 
 } // namespace WebCore

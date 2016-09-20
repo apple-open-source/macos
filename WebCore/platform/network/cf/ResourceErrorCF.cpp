@@ -40,17 +40,17 @@
 namespace WebCore {
 
 ResourceError::ResourceError(CFErrorRef cfError)
-    : m_dataIsUpToDate(false)
+    : ResourceErrorBase(Type::Null)
+    , m_dataIsUpToDate(false)
     , m_platformError(cfError)
 {
-    m_isNull = !cfError;
-    if (!m_isNull)
-        m_isTimeout = CFErrorGetCode(m_platformError.get()) == kCFURLErrorTimedOut;
+    if (cfError)
+        setType((CFErrorGetCode(m_platformError.get()) == kCFURLErrorTimedOut) ? Type::Timeout : Type::General);
 }
 
 #if PLATFORM(WIN)
-ResourceError::ResourceError(const String& domain, int errorCode, const String& failingURL, const String& localizedDescription, CFDataRef certificate)
-    : ResourceErrorBase(domain, errorCode, failingURL, localizedDescription)
+ResourceError::ResourceError(const String& domain, int errorCode, const URL& failingURL, const String& localizedDescription, CFDataRef certificate)
+    : ResourceErrorBase(domain, errorCode, failingURL, localizedDescription, Type::General)
     , m_dataIsUpToDate(true)
     , m_certificate(certificate)
 {
@@ -101,17 +101,12 @@ void ResourceError::platformLazyInit()
     if (userInfo.get()) {
         CFStringRef failingURLString = (CFStringRef) CFDictionaryGetValue(userInfo.get(), failingURLStringKey);
         if (failingURLString)
-            m_failingURL = String(failingURLString);
+            m_failingURL = URL(URL(), failingURLString);
         else {
             CFURLRef failingURL = (CFURLRef) CFDictionaryGetValue(userInfo.get(), failingURLKey);
             if (failingURL) {
-                RetainPtr<CFURLRef> absoluteURLRef = adoptCF(CFURLCopyAbsoluteURL(failingURL));
-                if (absoluteURLRef.get()) {
-                    // FIXME: CFURLGetString returns a normalized URL which is different from what is actually used by CFNetwork.
-                    // We should use CFURLGetBytes instead.
-                    failingURLString = CFURLGetString(absoluteURLRef.get());
-                    m_failingURL = String(failingURLString);
-                }
+                if (RetainPtr<CFURLRef> absoluteURLRef = adoptCF(CFURLCopyAbsoluteURL(failingURL)))
+                    m_failingURL = URL(absoluteURLRef.get());
             }
         }
         m_localizedDescription = (CFStringRef) CFDictionaryGetValue(userInfo.get(), kCFErrorLocalizedDescriptionKey);
@@ -124,12 +119,13 @@ void ResourceError::platformLazyInit()
     m_dataIsUpToDate = true;
 }
 
-void ResourceError::platformCopy(ResourceError& errorCopy) const
+
+void ResourceError::doPlatformIsolatedCopy(const ResourceError& other)
 {
 #if PLATFORM(WIN)
-    errorCopy.m_certificate = m_certificate;
+    m_certificate = other.m_certificate;
 #else
-    UNUSED_PARAM(errorCopy);
+    UNUSED_PARAM(other);
 #endif
 }
 
@@ -140,7 +136,7 @@ bool ResourceError::platformCompare(const ResourceError& a, const ResourceError&
 
 CFErrorRef ResourceError::cfError() const
 {
-    if (m_isNull) {
+    if (isNull()) {
         ASSERT(!m_platformError);
         return 0;
     }
@@ -152,12 +148,9 @@ CFErrorRef ResourceError::cfError() const
             CFDictionarySetValue(userInfo.get(), kCFErrorLocalizedDescriptionKey, m_localizedDescription.createCFString().get());
 
         if (!m_failingURL.isEmpty()) {
-            RetainPtr<CFStringRef> failingURLString = m_failingURL.createCFString();
+            RetainPtr<CFStringRef> failingURLString = m_failingURL.string().createCFString();
             CFDictionarySetValue(userInfo.get(), failingURLStringKey, failingURLString.get());
-            // FIXEME: We normally create a CFURL from a string by using URL::createCFURL, which handles
-            // cases correctly that CFURLCreateWithString handles incorrectly.
-            RetainPtr<CFURLRef> url = adoptCF(CFURLCreateWithString(0, failingURLString.get(), 0));
-            if (url)
+            if (RetainPtr<CFURLRef> url = m_failingURL.createCFURL())
                 CFDictionarySetValue(userInfo.get(), failingURLKey, url.get());
         }
 
@@ -179,9 +172,9 @@ ResourceError::operator CFErrorRef() const
 
 // FIXME: Once <rdar://problem/5050841> is fixed we can remove this constructor.
 ResourceError::ResourceError(CFStreamError error)
-    : m_dataIsUpToDate(true)
+    : ResourceErrorBase(Type::General)
+    , m_dataIsUpToDate(true)
 {
-    m_isNull = false;
     m_errorCode = error.error;
 
     switch(error.domain) {

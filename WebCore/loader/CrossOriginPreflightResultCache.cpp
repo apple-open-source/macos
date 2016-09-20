@@ -37,8 +37,8 @@
 namespace WebCore {
 
 // These values are at the discretion of the user agent.
-static const auto defaultPreflightCacheTimeout = std::chrono::seconds(5);
-static const auto maxPreflightCacheTimeout = std::chrono::seconds(600); // Should be short enough to minimize the risk of using a poisoned cache after switching to a secure network.
+static const auto defaultPreflightCacheTimeout = 5s;
+static const auto maxPreflightCacheTimeout = 600s; // Should be short enough to minimize the risk of using a poisoned cache after switching to a secure network.
 
 CrossOriginPreflightResultCache::CrossOriginPreflightResultCache()
 {
@@ -162,7 +162,7 @@ CrossOriginPreflightResultCache& CrossOriginPreflightResultCache::singleton()
 void CrossOriginPreflightResultCache::appendEntry(const String& origin, const URL& url, std::unique_ptr<CrossOriginPreflightResultCacheItem> preflightResult)
 {
     ASSERT(isMainThread());
-    m_preflightHashMap.set(std::make_pair(origin, url), WTF::move(preflightResult));
+    m_preflightHashMap.set(std::make_pair(origin, url), WTFMove(preflightResult));
 }
 
 bool CrossOriginPreflightResultCache::canSkipPreflight(const String& origin, const URL& url, StoredCredentials includeCredentials, const String& method, const HTTPHeaderMap& requestHeaders)

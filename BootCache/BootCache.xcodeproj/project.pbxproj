@@ -26,7 +26,7 @@
 		720C345D13441CDA00304FF8 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72565F281331B3C8008CA43A /* CoreFoundation.framework */; };
 		721C4960134D6EF800F70C2B /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 721C495F134D6EF800F70C2B /* IOKit.framework */; };
 		7220D94B126FF071009A4724 /* libBootCache.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 72B84538126FE81E009E3486 /* libBootCache.a */; };
-		7220D9C31270B271009A4724 /* BootCache.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 9F30F63B01B745E90ECA2C3D /* BootCache.h */; };
+		7220D9C31270B271009A4724 /* BootCache_private.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 9F30F63B01B745E90ECA2C3D /* BootCache_private.h */; };
 		7223F8DC13AA82C3006C4DB0 /* RootExtra.logical_playlist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7223F8DA13AA82A8006C4DB0 /* RootExtra.logical_playlist */; };
 		7246077413A9820F00DDF965 /* Root.logical_playlist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7246077213A9818100DDF965 /* Root.logical_playlist */; };
 		7246077513A9821200DDF965 /* Login.logical_playlist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7246076F13A9812600DDF965 /* Login.logical_playlist */; };
@@ -35,12 +35,12 @@
 		72A2930C14C9001B0080F826 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72A2930B14C9001B0080F826 /* Foundation.framework */; };
 		72A7851314D8ACFD00157467 /* libCoreStorage.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 72A7851214D8ACFD00157467 /* libCoreStorage.dylib */; };
 		72B0D74D1166A66F00EAA900 /* BootCacheControl.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72B0D72D11669ED300EAA900 /* BootCacheControl.8 */; };
-		72B8453E126FEBD0009E3486 /* BootCache.h in Headers */ = {isa = PBXBuildFile; fileRef = 9F30F63B01B745E90ECA2C3D /* BootCache.h */; };
+		72B8453E126FEBD0009E3486 /* BootCache_private.h in Headers */ = {isa = PBXBuildFile; fileRef = 9F30F63B01B745E90ECA2C3D /* BootCache_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		72B8453F126FEBD4009E3486 /* library.c in Sources */ = {isa = PBXBuildFile; fileRef = 9F47C34001F78EE30ECA2C3D /* library.c */; };
-		89F2557E0DAABEAD00CA7984 /* BootCache.h in Headers */ = {isa = PBXBuildFile; fileRef = 9F30F63B01B745E90ECA2C3D /* BootCache.h */; settings = {ATTRIBUTES = (); }; };
+		89F2557E0DAABEAD00CA7984 /* BootCache_private.h in Headers */ = {isa = PBXBuildFile; fileRef = 9F30F63B01B745E90ECA2C3D /* BootCache_private.h */; settings = {ATTRIBUTES = (); }; };
 		89F255820DAABEAD00CA7984 /* kext.c in Sources */ = {isa = PBXBuildFile; fileRef = 9F30F63A01B745E90ECA2C3D /* kext.c */; };
 		89F255830DAABEAD00CA7984 /* kext_glue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 9FF22D1E026652BA0ECA2C3D /* kext_glue.cpp */; };
-		89F255930DAABEAD00CA7984 /* BootCache.h in Headers */ = {isa = PBXBuildFile; fileRef = 9F30F63B01B745E90ECA2C3D /* BootCache.h */; };
+		89F255930DAABEAD00CA7984 /* BootCache_private.h in Headers */ = {isa = PBXBuildFile; fileRef = 9F30F63B01B745E90ECA2C3D /* BootCache_private.h */; };
 		89F255950DAABEAD00CA7984 /* control.c in Sources */ = {isa = PBXBuildFile; fileRef = 9F67ED4101B842340ECA2C3D /* control.c */; };
 /* End PBXBuildFile section */
 
@@ -75,7 +75,7 @@
 			dstPath = /usr/local/include/;
 			dstSubfolderSpec = 0;
 			files = (
-				7220D9C31270B271009A4724 /* BootCache.h in CopyFiles */,
+				7220D9C31270B271009A4724 /* BootCache_private.h in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -121,7 +121,7 @@
 		89F255900DAABEAD00CA7984 /* BootCache.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BootCache.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		89F255A00DAABEAD00CA7984 /* BootCacheControl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = BootCacheControl; sourceTree = BUILT_PRODUCTS_DIR; };
 		9F30F63A01B745E90ECA2C3D /* kext.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = kext.c; sourceTree = "<group>"; };
-		9F30F63B01B745E90ECA2C3D /* BootCache.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = BootCache.h; sourceTree = "<group>"; };
+		9F30F63B01B745E90ECA2C3D /* BootCache_private.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = BootCache_private.h; sourceTree = "<group>"; };
 		9F47C34001F78EE30ECA2C3D /* library.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = library.c; sourceTree = "<group>"; };
 		9F67ED4101B842340ECA2C3D /* control.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = control.c; sourceTree = "<group>"; };
 		9FF22D1E026652BA0ECA2C3D /* kext_glue.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = kext_glue.cpp; sourceTree = "<group>"; };
@@ -198,7 +198,7 @@
 		247142CAFF3F8F9811CA285C /* Source */ = {
 			isa = PBXGroup;
 			children = (
-				9F30F63B01B745E90ECA2C3D /* BootCache.h */,
+				9F30F63B01B745E90ECA2C3D /* BootCache_private.h */,
 				9F30F63A01B745E90ECA2C3D /* kext.c */,
 				9F67ED4101B842340ECA2C3D /* control.c */,
 				9F47C34001F78EE30ECA2C3D /* library.c */,
@@ -234,7 +234,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				72B8453E126FEBD0009E3486 /* BootCache.h in Headers */,
+				72B8453E126FEBD0009E3486 /* BootCache_private.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -242,7 +242,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				89F2557E0DAABEAD00CA7984 /* BootCache.h in Headers */,
+				89F2557E0DAABEAD00CA7984 /* BootCache_private.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -250,7 +250,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				89F255930DAABEAD00CA7984 /* BootCache.h in Headers */,
+				89F255930DAABEAD00CA7984 /* BootCache_private.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -389,7 +389,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "mv $INSTALL_ROOT/usr/local/include/BootCache.h $INSTALL_ROOT/usr/local/include/libBootCache_priv.h";
+			shellScript = "ln -s BootCache_private.h ${DSTROOT}/usr/local/include/libBootCache_priv.h";
 			showEnvVarsInLog = 0;
 		};
 		89F2557B0DAABEAD00CA7984 /* ShellScript */ = {

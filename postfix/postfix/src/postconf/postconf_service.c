@@ -28,6 +28,11 @@
 /*	IBM T.J. Watson Research
 /*	P.O. Box 704
 /*	Yorktown Heights, NY 10598, USA
+/*
+/*	Wietse Venema
+/*	Google, Inc.
+/*	111 8th Avenue
+/*	New York, NY 10011, USA
 /*--*/
 
 /* System library. */
@@ -78,9 +83,9 @@ typedef struct {
 
 /* pcf_convert_service_parameter - get service parameter string value */
 
-static const char *pcf_convert_service_parameter(char *ptr)
+static const char *pcf_convert_service_parameter(void *ptr)
 {
-    return (STR(vstring_sprintf(pcf_param_string_buf, "$%s", ptr)));
+    return (STR(vstring_sprintf(pcf_param_string_buf, "$%s", (char *) ptr)));
 }
 
 /* pcf_register_service_parameter - add service parameter name and default */
@@ -105,7 +110,7 @@ static void pcf_register_service_parameter(const char *service,
 	PCF_PARAM_CLASS_OVERRIDE(node, PCF_PARAM_FLAG_SERVICE);
     } else {
 	PCF_PARAM_TABLE_ENTER(pcf_param_table, name, PCF_PARAM_FLAG_SERVICE,
-			  (char *) defparam, pcf_convert_service_parameter);
+			  (void *) defparam, pcf_convert_service_parameter);
     }
     myfree(name);
 }
@@ -134,6 +139,7 @@ void    pcf_register_service_parameters(void)
 	_CONC_NEG_FDBACK, VAR_CONC_NEG_FDBACK,
 	_CONC_COHORT_LIM, VAR_CONC_COHORT_LIM,
 	_DEST_RATE_DELAY, VAR_DEST_RATE_DELAY,
+	_XPORT_RATE_DELAY, VAR_XPORT_RATE_DELAY,
 	0,
     };
     static const PCF_STRING_NV spawn_params[] = {

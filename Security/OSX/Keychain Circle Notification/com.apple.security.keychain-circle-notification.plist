@@ -5,11 +5,13 @@
 	<key>Label</key>
 	<string>com.apple.security.keychain-circle-notification</string>
 	<key>RunAtLoad</key>
-	<true/>
+	<false/>
 	<key>KeepAlive</key>
 	<false/>
-	<key>ProcessType</key>
-	<string>Background</string>
+	<key>EnablePressuredExit</key>
+	<true/>
+	<key>LimitLoadToSessionType</key>
+	<string>Aqua</string>
 	<key>LaunchEvents</key>
 	<dict>
 		<key>com.apple.notifyd.matching</key>

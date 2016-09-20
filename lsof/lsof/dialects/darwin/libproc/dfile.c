@@ -36,7 +36,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 2005-2007 Apple Inc. and Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: dfile.c,v 1.8 2012/04/10 16:41:04 abe Exp $";
+static char *rcsid = "$Id: dfile.c,v 1.8 2012/04/10 16:41:04 abe Exp abe $";
 #endif
 
 
@@ -75,11 +75,12 @@ enter_file_info(pfi)
 	    Lf->ffg = (long)pfi->fi_openflags;
 	    Lf->fsv |= FSV_FG;
 
-#ifdef		PROC_FP_GUARDED
+#if	defined(PROC_FP_GUARDED)
 	    if (pfi->fi_status & PROC_FP_GUARDED) {
 		Lf->guardflags = pfi->fi_guardflags;
 	    }
-#endif		/* PROC_FP_GUARDED */
+#endif	/* defined(PROC_FP_GUARDED) */
+
 	}
 	Lf->pof = (long)pfi->fi_status;
 }
@@ -117,12 +118,16 @@ enter_vnode_info(vip)
 	    cp = "BLK";
 	    Ntype = N_BLK;
 	    break;
-	case S_IFREG:
-	    cp = "REG";
-	    Ntype = N_REGLR;
-	    break;
+
+#if	defined(S_IFLNK)
 	case S_IFLNK:
 	    cp = "LINK";
+	    Ntype = N_REGLR;
+	    break;
+#endif	/* defined(S_IFLNK) */
+
+	case S_IFREG:
+	    cp = "REG";
 	    Ntype = N_REGLR;
 	    break;
 	default:
@@ -261,25 +266,27 @@ print_nm(lf)
 
 	printname(0);
 
-#ifdef		PROC_PIDLISTFILEPORTS
-	if (lf->fileport) extra++;
-#endif		/* PROC_PIDLISTFILEPORTS */
-#ifdef		PROC_FP_GUARDED
-	if (lf->guardflags) extra++;
-#endif		/* PROC_FP_GUARDED */
+#if	defined(PROC_PIDLISTFILEPORTS)
+	if (lf->fileport)
+	    extra++;
+#endif	/* defined(PROC_PIDLISTFILEPORTS) */
+
+#if	defined(PROC_FP_GUARDED)
+	if (lf->guardflags)
+	    extra++;
+#endif	/* defined(PROC_FP_GUARDED) */
 
 	if (extra)
 	    (void) printf(" (");
 
-#ifdef		PROC_PIDLISTFILEPORTS
+#if	defined(PROC_PIDLISTFILEPORTS)
 	if (lf->fileport)
 	    (void) printf("fileport=0x%04x", lf->fileport);
-#endif		/* PROC_PIDLISTFILEPORTS */
+#endif	/* defined(PROC_PIDLISTFILEPORTS) */
 
+#if	defined(PROC_FP_GUARDED)
 	if (extra > 1)
-	    (void) printf(",");
-
-#ifdef		PROC_FP_GUARDED
+	    putchar(',');
 	if (lf->guardflags) {
 	    struct pff_tab *tp;
 	    long gf;
@@ -306,12 +313,12 @@ print_nm(lf)
 	    if (gf || FsvFlagX)
 		(void) printf("0x%lx", gf);
 	}
-#endif		/* PROC_FP_GUARDED */
+#endif	/* defined(PROC_FP_GUARDED) */
 
 	if (extra)
-	    (void) printf(")");
-
-	putchar('\n');
+	    (void) printf(")\n");
+	else
+	    putchar('\n');
 }
 
 

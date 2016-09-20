@@ -32,7 +32,7 @@
 # elif defined(HAVE_CRYPTO_SHA2_H)
 #  include <crypto/sha2.h>
 # endif
-#endif /* HAVE_SHA256_UPDATE */
+#endif
 
 const EVP_MD *evp_ssh_sha256(void);
 

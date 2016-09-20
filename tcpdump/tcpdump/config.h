@@ -163,6 +163,8 @@
 /* Define to 1 if you have the <pcap/usb.h> header file. */
 #define HAVE_PCAP_USB_H 1
 
+#define HAVE_PCAP_SET_IMMEDIATE_MODE 1
+
 /* Define to 1 if you have the `pfopen' function. */
 /* #undef HAVE_PFOPEN */
 
@@ -254,7 +256,7 @@
 /* #undef NETINET_ETHER_H_DECLARES_ETHER_NTOHOST */
 
 /* Define to 1 if netinet/if_ether.h declares `ether_ntohost' */
-#define NETINET_IF_ETHER_H_DECLARES_ETHER_NTOHOST 
+#define NETINET_IF_ETHER_H_DECLARES_ETHER_NTOHOST
 
 /* Define to the address where bug reports for this package should be sent. */
 #define PACKAGE_BUGREPORT ""
@@ -275,7 +277,7 @@
 #define RETSIGTYPE void
 
 /* return value of signal handlers */
-#define RETSIGVAL 
+#define RETSIGVAL
 
 /* Define to 1 if you have the ANSI C header files. */
 #define STDC_HEADERS 1

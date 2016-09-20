@@ -30,7 +30,7 @@
 #include <security_cryptkit/feeFunctions.h>
 #include <security_cryptkit/feePublicKey.h>
 
-#define feeMiscDebug(args...)	secdebug("feeMisc", ## args)
+#define feeMiscDebug(args...)	secinfo("feeMisc", ## args)
 
 /* Given a FEE error, throw appropriate CssmError */
 void CryptKit::throwCryptKit(

@@ -70,6 +70,21 @@ avoided further changes to our workflow.
    a commit to the master repository. Don't create a separate change for
    this: amend the existing commit in your local repository.
 
+   Several developers use scripts to automate part or all of the ChangeLog
+   workflow:
+
+     Subject: helper script for making ChangeLog entries
+     X-Seq: 33835, 33872, 34912
+     http://www.zsh.org/mla/workers/2014/msg01622.html
+     http://www.zsh.org/mla/workers/2014/msg01659.html
+     -> https://github.com/ft/zsh-am
+     http://www.zsh.org/mla/workers/2015/msg00836.html
+     -> https://github.com/danielshahaf/zsh-dev
+
+     Subject: Re: _git commit object name completion
+     X-Seq: 35414
+     http://www.zsh.org/mla/workers/2015/msg01338.html
+
  * Do not merge your private feature branches onto the master branch: a
    linear history without merge commits is simpler to follow (and to
    bisect).
@@ -488,7 +503,9 @@ arguments are:
   - the options the builtin accepts, given as a string containing the
     option characters (the above example makes the builtin accept the
     options `f', `l', `a', `g', and `s').  Passing NULL here disables
-    all flag handling, i.e. even "--".
+    all flag handling, i.e. even "--".  Each option letter may be
+    followed by one of ":" (argument must follow), "::" (optional
+    argument may follow), or ":%" (optional numeric argument).
   - and finally a optional string containing option characters that
     will always be reported as set when calling the C-function (this,
     too, can be used when using one C-function to implement multiple
@@ -738,7 +755,7 @@ the other things that can be defined by modules:
 
   /**/
   int
-  boot_foo(Module m)
+  boot_(Module m)
   {
     int ret;
 
@@ -748,7 +765,7 @@ the other things that can be defined by modules:
   ...
   /**/
   int
-  cleanup_foo(Module m)
+  cleanup_(Module m)
   {
     deletehookdefs(m->nam, foohooks, sizeof(foohooks)/sizeof(*foohooks));
     ...
@@ -789,14 +806,37 @@ The definition is simple:
   };
 
 The macro `WRAPDEF(...)' gets the C-function as its only argument.
-This function should be defined like:
+The `boot_()' function must install wrappers by calling `addwrapper()'
+like so:
+
+  /**/
+  int
+  boot_(Module m)
+  {
+    int ret;
+
+    ret = addwrapper(m, wrapper);
+    ...
+  }
+
+The `cleanup_()' function should then remove the wrappers again:
+
+  /**/
+  int
+  cleanup_(Module m)
+  {
+    deletewrapper(m, wrapper);
+    ...
+  }
+
+The wrapper function should be defined like:
 
   /**/
   static int
-  ex_wrapper(List list, FuncWrap w, char *name)
+  ex_wrapper(Eprog prog, FuncWrap w, char *name)
   {
     ...
-    runshfunc(list, w, name);
+    runshfunc(prog, w, name);
     ...
     return 0;
   }
@@ -815,11 +855,11 @@ finished:
 
   /**/
   static int
-  ex_wrapper(List list, FuncWrap w, char *name)
+  ex_wrapper(Eprog prog, FuncWrap w, char *name)
   {
     if (wrapper_need_to_run) {
       ...
-      runshfunc(list, w, name);
+      runshfunc(prog, w, name);
       ...
       return 0;
     }
@@ -906,6 +946,9 @@ Documentation
   All the above should appear on their own, separated by newlines from the
   surrounding text.  No extra newlines after the opening or before the
   closing parenthesis are required.
+
+A syntax highlighting file for Vim is included, just source tt(Doc/Zsh/.vimrc)
+before editing one of the Doc/Zsh/*.yo files.
 
 Module names
 ------------

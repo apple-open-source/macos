@@ -195,21 +195,6 @@ static void cloudkeychainproxy_peer_dictionary_handler(const xpc_connection_t pe
         
         secdebug(PROXYXPCSCOPE, "RegisterKeys message sent");
     }
-    else if (operation && !strcmp(operation, kOperationUILocalNotification))
-    {
-        xpc_object_t xLocalNotificationDict = xpc_dictionary_get_value(event, kMessageKeyValue);
-        //        describeXPCObject("xLocalNotificationDict: ", xLocalNotificationDict);
-        NSDictionary *localNotificationDict = (__bridge_transfer NSDictionary *)(_CFXPCCreateCFObjectFromXPCObject(xLocalNotificationDict));
-        int64_t outFlags = 0;
-        id object = [[UbiqitousKVSProxy sharedKVSProxy] localNotification:localNotificationDict outFlags:&outFlags];
-        secdebug(PROXYXPCSCOPE, "Result from [[UbiqitousKVSProxy sharedKVSProxy] localNotification:]: %@", object);
-        xpc_object_t xobject = object ? _CFXPCCreateXPCObjectFromCFObject((__bridge CFTypeRef)(object)) : xpc_null_create();
-        xpc_object_t replyMessage = xpc_dictionary_create_reply(event);
-        xpc_dictionary_set_int64(xobject, kMessageKeyNotificationFlags, outFlags);
-        xpc_dictionary_set_value(replyMessage, kMessageKeyValue, xobject);
-        xpc_connection_send_message(peer, replyMessage);
-        secdebug(PROXYXPCSCOPE, "localNotification reply sent");
-    }
     else if (operation && !strcmp(operation, kOperationRequestSyncWithAllPeers))
     {
         [[UbiqitousKVSProxy sharedKVSProxy] requestSyncWithAllPeers];

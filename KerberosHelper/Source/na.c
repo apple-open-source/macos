@@ -44,7 +44,7 @@
 #include <CoreServices/CoreServices.h>
 #include <CoreServices/CoreServicesPriv.h>
 
-#include <asl.h>
+#include <os/log.h>
 
 #include "DeconstructServiceName.h"
 #include "utils.h"
@@ -124,9 +124,6 @@ struct NAHData {
     CFMutableArrayRef selections;
 };
 
-static void nalog(int level, CFStringRef fmt, ...)
-    __attribute__((format(CFString, 2, 3)));
-
 #define CFRELEASE(x) do { if ((x)) { CFRelease((x)); (x) = NULL; } } while(0)
 
 /*
@@ -194,25 +191,15 @@ cf2cstring(CFStringRef inString)
  *
  */
 
-static void
-nalog(int level, CFStringRef fmt, ...)
+static os_log_t
+na_get_oslog(void)
 {
-    CFStringRef str;
-    va_list ap;
-    char *s;
-
-    va_start(ap, fmt);
-    str = CFStringCreateWithFormatAndArguments(NULL, 0, fmt, ap);
-    va_end(ap);
-
-    if (str == NULL)
-	return;
-
-    if (__KRBCreateUTF8StringFromCFString (str, &s) == 0) {
-	asl_log(NULL, NULL, level, "%s", s);
-	__KRBReleaseUTF8String(s);
-    }
-    CFRelease(str);
+    static dispatch_once_t onceToken;
+    static os_log_t log;
+    dispatch_once(&onceToken, ^{
+        log = os_log_create("com.apple.KerberosHelper", "KerberosHelper");
+    });
+    return log;
 }
 
 static void
@@ -274,8 +261,8 @@ updateError(CFAllocatorRef alloc, CFErrorRef *error, CFIndex errorcode, CFString
 	*error = NULL;
 	return false;
     }
-    
-    nalog(ASL_LEVEL_DEBUG, CFSTR("NAH: error: %@"), values[0]);
+
+    os_log(na_get_oslog(), "NAH: error: %@", values[0]);
 
     *error = CFErrorCreateWithUserInfoKeysAndValues(alloc, kNAHErrorDomain, errorcode,
 						    (const void * const *)keys,
@@ -542,7 +529,7 @@ addSelection(NAHRef na,
 
     matching = (flags & FORCE_ADD) || (na->specificname == NULL) || CFStringHasPrefix(client, na->specificname);
 
-    nalog(ASL_LEVEL_DEBUG, CFSTR("addSelection: %@ (%d) %@ %@ %s %s"),
+    os_log(na_get_oslog(), "addSelection: %@ (%d) %@ %@ %s %s",
 	  mech2name(mech), (int)mech, client, server, (flags & USE_SPNEGO) ? "SPNEGO" : "raw",
 	  matching ? "matching" : "no-matching");
     
@@ -614,7 +601,7 @@ findUsername(CFAllocatorRef alloc, NAHRef na, CFDictionaryRef info)
 		CFRetain(na->specificname);
 	    }
 
-	    nalog(ASL_LEVEL_DEBUG, CFSTR("NAH: specific name is: %@ foo"), na->specificname);
+	    os_log(na_get_oslog(), "NAH: specific name is: %@ foo", na->specificname);
 
 	    return true;
 	}
@@ -651,7 +638,7 @@ have_lkdcish_hostname(NAHRef na, bool localIsLKDC)
 	CFRELEASE(btmmDomainData);
 	if (btmmDomain) {
 	    CFStringTrim(btmmDomain, CFSTR("."));
-	    nalog(ASL_LEVEL_DEBUG, CFSTR("using BTMM domain %@"), btmmDomain);
+	    os_log(na_get_oslog(), "using BTMM domain %@", btmmDomain);
 	}
     }
     
@@ -875,12 +862,12 @@ use_existing_principals(NAHRef na, int only_lkdc, unsigned long flags)
 	    server = CFStringCreateWithFormat(na->alloc, NULL, CFSTR("%@/%s@%s"),
 					      na->service, client->realm, client->realm);
 
-	    nalog(ASL_LEVEL_DEBUG, CFSTR("Adding existing LKDC cache: %@ -> %@"), u, server);
+	    os_log(na_get_oslog(), "Adding existing LKDC cache: %@ -> %@", u, server);
 
 	} else {
 	    server = CFStringCreateWithFormat(na->alloc, NULL, CFSTR("%@/%@@%s"), na->service, na->hostname,
 					      krb5_principal_get_realm(na->context, client));
-	    nalog(ASL_LEVEL_DEBUG, CFSTR("Adding existing cache: %@ -> %@"), u, server);
+	    os_log(na_get_oslog(), "Adding existing cache: %@ -> %@", u, server);
 	}
 	krb5_free_principal(na->context, client);
 
@@ -1033,7 +1020,7 @@ guess_kerberos(NAHRef na)
 	haveMech(na, kGSSAPIMechKerberosMicrosoftOID) ||
 	haveMech(na, kGSSAPIMechPKU2UOID);
 
-    nalog(ASL_LEVEL_DEBUG, CFSTR("NAHCreate-krb: have_kerberos=%s try_iakerb_with_lkdc=%s try-wkdc=%s use-spnego=%s"),
+    os_log(na_get_oslog(), "NAHCreate-krb: have_kerberos=%s try_iakerb_with_lkdc=%s try-wkdc=%s use-spnego=%s",
 	  have_kerberos ? "yes" : "no",
 	  try_iakerb_with_lkdc ? "yes" : "no",
 	  try_wlkdc ? "yes" : "no",
@@ -1225,7 +1212,7 @@ addSecItem(CFMutableArrayRef certs, CFTypeRef item)
 	CFArrayAppendValue(certs, item);
     } else {
 	CFStringRef desc = CFCopyDescription(item);
-	nalog(ASL_LEVEL_DEBUG, CFSTR("unknown type of certificates: %@"), desc);
+	os_log(na_get_oslog(), "unknown type of certificates: %@", desc);
 	CFRELEASE(desc);
     }
 }
@@ -1257,7 +1244,7 @@ NAHCreate(CFAllocatorRef alloc,
 	nah_vnc_support_iakerb = CFPreferencesGetAppBooleanValue(CFSTR("VNCSupportIAKerb"), CFSTR("com.apple.NetworkAuthenticationHelper"), &have_key);
     });
 
-    nalog(ASL_LEVEL_DEBUG, CFSTR("NAHCreate: hostname=%@ service=%@"), hostname, service);
+    os_log(na_get_oslog(), "NAHCreate: hostname=%@ service=%@", hostname, service);
     
     /* first undo the damage BrowserServices have done to the hostname */
 
@@ -1279,11 +1266,11 @@ NAHCreate(CFAllocatorRef alloc,
     }
     CFStringTrim(na->hostname, CFSTR("."));
 
-    nalog(ASL_LEVEL_DEBUG, CFSTR("NAHCreate: will use hostname=%@"), na->hostname);
+    os_log(na_get_oslog(), "NAHCreate: will use hostname=%@", na->hostname);
 
     na->service = CFRetain(service);
 
-    nalog(ASL_LEVEL_DEBUG, CFSTR("NAHCreate: will use service=%@"), na->service);
+    os_log(na_get_oslog(), "NAHCreate: will use service=%@", na->service);
 
 
     if (!findUsername(alloc, na, info)) {
@@ -1291,14 +1278,14 @@ NAHCreate(CFAllocatorRef alloc,
 	return NULL;
     }
 
-    nalog(ASL_LEVEL_DEBUG, CFSTR("NAHCreate: username=%@ username %s"), na->username, na->specificname ? 
+    os_log(na_get_oslog(), "NAHCreate: username=%@ username %s", na->username, na->specificname ?
 	  "given" : "generated");
 
 
     if (info) {
 	na->password = CFDictionaryGetValue(info, kNAHPassword);
 	if (na->password) {
-	    nalog(ASL_LEVEL_DEBUG, CFSTR("NAHCreate: password"));
+	    os_log(na_get_oslog(), "NAHCreate: password");
 	    CFRetain(na->password);
 	}
     }
@@ -1320,7 +1307,7 @@ NAHCreate(CFAllocatorRef alloc,
 		CFRetain(na->servermechs);
 	    na->spnegoServerName = CFDictionaryGetValue(nti, kSPNEGONegTokenInitHintsHostname);
 	    if (na->spnegoServerName) {
-		nalog(ASL_LEVEL_DEBUG, CFSTR("NAHCreate: SPNEGO hints name %@"), na->spnegoServerName);
+		os_log(na_get_oslog(), "NAHCreate: SPNEGO hints name %@", na->spnegoServerName);
 		CFRetain(na->spnegoServerName);
 	    }
 	}
@@ -1329,7 +1316,7 @@ NAHCreate(CFAllocatorRef alloc,
 	if (certs) {
 	    CFMutableArrayRef a = CFArrayCreateMutable(na->alloc, 0, &kCFTypeArrayCallBacks);
 
-	    nalog(ASL_LEVEL_DEBUG, CFSTR("NAHCreate: certs %@"), certs);
+	    os_log(na_get_oslog(), "NAHCreate: certs %@", certs);
 
 	    addSecItem(a, certs);
 	    
@@ -1337,7 +1324,7 @@ NAHCreate(CFAllocatorRef alloc,
 		na->x509identities = a;
 	    } else {
 		CFRelease(a);
-		nalog(ASL_LEVEL_DEBUG, CFSTR("NAHCreate: we got no certs"));
+		os_log(na_get_oslog(), "NAHCreate: we got no certs");
 	    }
 	}
     }
@@ -1437,7 +1424,7 @@ acquire_kerberos(NAHRef na,
 
     memset(&cred, 0, sizeof(cred));
 
-    nalog(ASL_LEVEL_DEBUG, CFSTR("acquire_kerberos: %@ with pw:%s cert:%s"),
+    os_log(na_get_oslog(), "acquire_kerberos: %@ with pw:%s cert:%s",
 	  selection->client,
 	  password ? "yes" : "no",
 	  cert ? "yes" : "no");
@@ -1463,7 +1450,7 @@ acquire_kerberos(NAHRef na,
 
     ret = krb5_unparse_name(na->context, client, &str);
     if (ret == 0) {
-	nalog(ASL_LEVEL_DEBUG, CFSTR("acquire_kerberos: trying with %s as client principal"), str);
+	os_log(na_get_oslog(), "acquire_kerberos: trying with %s as client principal", str);
 	free(str);
     }
 
@@ -1575,7 +1562,7 @@ acquire_kerberos(NAHRef na,
 	    goto out;
 	}
 
-	nalog(ASL_LEVEL_DEBUG, CFSTR("acquire_kerberos: got %@ as client principal"), newclient);
+	os_log(na_get_oslog(), "acquire_kerberos: got %@ as client principal", newclient);
 
 	if (CFStringCompare(newclient, selection->client, 0) != kCFCompareEqualTo) {
 
@@ -1614,7 +1601,7 @@ acquire_kerberos(NAHRef na,
 	      selection->client, ret, e);
 	krb5_free_error_message(na->context, e);
     } else {
-	nalog(ASL_LEVEL_DEBUG, CFSTR("acquire_kerberos successful"));
+	os_log(na_get_oslog(), "acquire_kerberos successful");
     }
 
     if (opt)
@@ -1705,18 +1692,18 @@ NAHSelectionAcquireCredential(NAHSelectionRef selection,
 
     if (selection->mech == GSS_KERBEROS) {
 
-	nalog(ASL_LEVEL_DEBUG, CFSTR("NAHSelectionAcquireCredential: kerberos client: %@ (server %@)"),
+	os_log(na_get_oslog(), "NAHSelectionAcquireCredential: kerberos client: %@ (server %@)",
 	      selection->client, selection->server);
 
 	/* if we already have a cache, skip acquire unless force */
 	if (selection->ccache) {
-	    nalog(ASL_LEVEL_DEBUG, CFSTR("have ccache"));
+	    os_log(na_get_oslog(), "have ccache");
 	    KRBCredChangeReferenceCount(selection->client, 1, 1);
 	    return true;
 	}
 
 	if (selection->na->password == NULL && selection->certificate == NULL) {
-	    nalog(ASL_LEVEL_DEBUG, CFSTR("krb5: no password or cert, punting"));
+	    os_log(na_get_oslog(), "krb5: no password or cert, punting");
 	    CFRelease(selection->na);
 	    return false;
 	}
@@ -1731,7 +1718,7 @@ NAHSelectionAcquireCredential(NAHSelectionRef selection,
 
 	CFRelease(selection->na);
 	if (ret && error && *error)
-	    nalog(ASL_LEVEL_NOTICE, CFSTR("NAHSelectionAcquireCredential %@"), *error);
+	    os_log(na_get_oslog(), "NAHSelectionAcquireCredential %@", *error);
 
 	return (ret == 0) ? true : false;
 
@@ -1744,7 +1731,7 @@ NAHSelectionAcquireCredential(NAHSelectionRef selection,
 	dispatch_semaphore_t s;
 	char *str;
 
-	nalog(ASL_LEVEL_DEBUG, CFSTR("NAHSelectionAcquireCredential: ntlm"));
+	os_log(na_get_oslog(), "NAHSelectionAcquireCredential: ntlm");
 
 	if (selection->have_cred) {
 	    CFRelease(selection->na);
@@ -1820,7 +1807,7 @@ NAHSelectionAcquireCredential(NAHSelectionRef selection,
 	    dispatch_semaphore_wait(s, DISPATCH_TIME_FOREVER);
 
 	    if (error && *error)
-		nalog(ASL_LEVEL_NOTICE, CFSTR("NAHSelectionAcquireCredential ntlm %@"), *error);
+		os_log(na_get_oslog(), "NAHSelectionAcquireCredential ntlm %@", *error);
 
 	} else {
 	    updateError(NULL, error, major, CFSTR("Failed to acquire NTLM credentials"));
@@ -1839,17 +1826,17 @@ NAHSelectionAcquireCredential(NAHSelectionRef selection,
 	OM_uint32 major, minor, junk;
 	gss_cred_id_t cred;
 
-	nalog(ASL_LEVEL_DEBUG, CFSTR("NAHSelectionAcquireCredential: iakerb %@"), selection->client);
+	os_log(na_get_oslog(), "NAHSelectionAcquireCredential: iakerb %@", selection->client);
 
 	if (selection->have_cred) {
-	    nalog(ASL_LEVEL_DEBUG, CFSTR("NAHSelectionAcquireCredential: already have cred, why iakerb then ?"));
+	    os_log(na_get_oslog(), "NAHSelectionAcquireCredential: already have cred, why iakerb then ?");
 	    CFRelease(selection->na);
 	    return false;
 	}
 
 
 	if (selection->na->password == NULL && selection->certificate == NULL) {
-	    nalog(ASL_LEVEL_DEBUG, CFSTR("NAHSelectionAcquireCredential: no password nor cert"));
+	    os_log(na_get_oslog(), "NAHSelectionAcquireCredential: no password nor cert");
 	    CFRelease(selection->na);
 	    return false;
 	}
@@ -1891,7 +1878,7 @@ NAHSelectionAcquireCredential(NAHSelectionRef selection,
 	gss_release_name(&junk, &name);
 	if (major) {
 	    if (error && *error)
-		nalog(ASL_LEVEL_NOTICE, CFSTR("NAHSelectionAcquireCredential iakerb %@"), *error);
+		os_log(na_get_oslog(), "NAHSelectionAcquireCredential iakerb %@", *error);
 	    CFRelease(selection->na);
 	    return false;
 	}
@@ -1904,7 +1891,7 @@ NAHSelectionAcquireCredential(NAHSelectionRef selection,
 
 	    major = gss_inquire_cred_by_oid(&minor, cred, GSS_C_NT_UUID, &dataset);
 	    if (major || dataset->count != 1) {
-		nalog(ASL_LEVEL_DEBUG, CFSTR("NAHSelectionAcquireCredential: failed with no uuid"));
+		os_log(na_get_oslog(), "NAHSelectionAcquireCredential: failed with no uuid");
 		gss_release_buffer_set(&junk, &dataset);
 		CFRelease(selection->na);
 		return false;
@@ -1918,7 +1905,7 @@ NAHSelectionAcquireCredential(NAHSelectionRef selection,
 	    }
 	    gss_release_buffer_set(&junk, &dataset);
 	}
-	nalog(ASL_LEVEL_NOTICE, CFSTR("NAHSelectionAcquireCredential complete: iakerb %@ - %@: %@"), selection->client, selection->inferredLabel, cred);
+	os_log(na_get_oslog(), "NAHSelectionAcquireCredential complete: iakerb %@ - %@: %@", selection->client, selection->inferredLabel, cred);
 
 	gss_release_cred(&junk, &cred);
 
@@ -1926,7 +1913,7 @@ NAHSelectionAcquireCredential(NAHSelectionRef selection,
 	
 	return true;
     } else {
-	nalog(ASL_LEVEL_DEBUG, CFSTR("NAHSelectionAcquireCredential: unknown"));
+	os_log(na_get_oslog(), "NAHSelectionAcquireCredential: unknown");
     }
 
     return false;
@@ -2067,7 +2054,7 @@ CredChange(CFStringRef referenceKey, int count, const char *label)
     if (referenceKey == NULL)
 	return false;
 
-    nalog(ASL_LEVEL_DEBUG, CFSTR("NAHCredChange: %@ count: %d label: %s"),
+    os_log(na_get_oslog(), "NAHCredChange: %@ count: %d label: %s",
 	  referenceKey, count, label ? label : "<nolabel>");
 
     if (CFStringHasPrefix(referenceKey, CFSTR("krb5:"))) {
@@ -2114,7 +2101,7 @@ CredChange(CFStringRef referenceKey, int count, const char *label)
 
 	maj_stat = gss_import_name(&min_stat, &gbuf, nametype, &gname);
 	if (maj_stat != GSS_S_COMPLETE) {
-	    nalog(ASL_LEVEL_DEBUG, CFSTR("ChangeCred: name not importable %s/%s"), n, mechname);
+	    os_log(na_get_oslog(), "ChangeCred: name not importable %s/%s", n, mechname);
 	    free(n);
 	    return false;
 	}
@@ -2123,7 +2110,7 @@ CredChange(CFStringRef referenceKey, int count, const char *label)
 	gss_release_name(&min_stat, &gname);
 
 	if (maj_stat != GSS_S_COMPLETE) {
-	    nalog(ASL_LEVEL_DEBUG, CFSTR("ChangeCred: cred name %s/%s not found"), n, mechname);
+	    os_log(na_get_oslog(), "ChangeCred: cred name %s/%s not found", n, mechname);
 	    free(n);
 	    return false;
 	}
@@ -2192,7 +2179,7 @@ NAHAddReferenceAndLabel(NAHSelectionRef selection,
     if (ref == NULL)
 	return false;
 
-    nalog(ASL_LEVEL_DEBUG, CFSTR("NAHAddReferenceAndLabel: %@ label: %@"), ref, identifier);
+    os_log(na_get_oslog(), "NAHAddReferenceAndLabel: %@ label: %@", ref, identifier);
 
     ident = NAHCreateRefLabelFromIdentifier(identifier);
     if (ident == NULL) {
@@ -2243,7 +2230,7 @@ NAHFindByLabelAndRelease(CFStringRef identifier)
     OM_uint32 junk;
     char *str;
 
-    nalog(ASL_LEVEL_DEBUG, CFSTR("NAHFindByLabelAndRelease: looking for label %@"), identifier);
+    os_log(na_get_oslog(), "NAHFindByLabelAndRelease: looking for label %@", identifier);
 
     str = NAHCreateRefLabelFromIdentifier(identifier);
     if (str == NULL)
@@ -2270,7 +2257,7 @@ NAHFindByLabelAndRelease(CFStringRef identifier)
 	    maj_stat = gss_cred_label_get(&min_stat, cred, str, &buffer);
 	    gss_release_buffer(&min_stat, &buffer);
 	    if (maj_stat == GSS_S_COMPLETE) {
-		nalog(ASL_LEVEL_DEBUG, CFSTR("NAHFindByLabelAndRelease: found credential unholding"));
+		os_log(na_get_oslog(), "NAHFindByLabelAndRelease: found credential unholding");
 		gss_cred_label_set(&min_stat, cred, str, NULL);
 		gss_cred_unhold(&min_stat, cred);
 	    }

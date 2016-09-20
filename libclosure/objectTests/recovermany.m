@@ -8,7 +8,6 @@
 
 #import <Foundation/Foundation.h>
 #import <Block.h>
-#import <objc/objc-auto.h>
 #import "test.h"
 
 int recovered = 0;
@@ -17,10 +16,6 @@ int recovered = 0;
 }
 @end
 @implementation TestObject
-- (void)finalize {
-    ++recovered;
-    [super finalize];
-}
 - (void)dealloc {
     ++recovered;
     [super dealloc];
@@ -52,27 +47,13 @@ void testRoutine() {
     // block_byref_release needed under non-GC to get rid of testobject
 }
     
-void testGC() {
-    if (!objc_collectingEnabled()) return;
-    recovered = 0;
-    for (int i = 0; i < 200; ++i)
-        [[TestObject alloc] init];
-    objc_collect(OBJC_EXHAUSTIVE_COLLECTION | OBJC_WAIT_UNTIL_DONE);
-
-    if (recovered != 200) {
-        fail("only recovered %d of 200\n", recovered);
-    }
-}
-    
 
 int main() {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-    testGC();
 
     recovered = 0;
     for (int i = 0; i < 200; ++i)   // do enough to trigger TLC if GC is on
         testRoutine();
-    objc_collect(OBJC_EXHAUSTIVE_COLLECTION | OBJC_WAIT_UNTIL_DONE);
     [pool drain];
 
     if (recovered == 0) {

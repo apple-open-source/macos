@@ -1,4 +1,4 @@
-*gui.txt*       For Vim version 7.3.  Last change: 2010 May 14
+*gui.txt*       For Vim version 7.4.  Last change: 2014 Mar 08
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -93,10 +93,16 @@ and initialize other things that you may want to set up differently from the
 terminal version.
 
 Recommended place for your personal GUI initializations:
-	Unix		    $HOME/.gvimrc
-	OS/2		    $HOME/.gvimrc or $VIM/.gvimrc
-	MS-DOS and Win32    $HOME/_gvimrc or $VIM/_gvimrc
-	Amiga		    s:.gvimrc or $VIM/.gvimrc
+	Unix		    $HOME/.gvimrc or $HOME/.vim/gvimrc
+	OS/2		    $HOME/.gvimrc, $HOME/vimfiles/gvimrc
+			    or $VIM/.gvimrc
+	MS-DOS and Win32    $HOME/_gvimrc, $HOME/vimfiles/gvimrc
+			    or $VIM/_gvimrc
+	Amiga		    s:.gvimrc, home:.gvimrc, home:vimfiles:gvimrc
+			    or $VIM/.gvimrc
+
+The personal initialization files are searched in the order specified above
+and only the first one that is found is read.
 
 There are a number of options which only have meaning in the GUI version of
 Vim.  These are 'guicursor', 'guifont', 'guipty' and 'guioptions'.  They are
@@ -127,6 +133,7 @@ task bar with the 'guiheadroom' option.
 :winp[os]
 		Display current position of the top left corner of the GUI vim
 		window in pixels.  Does not work in all versions.
+		Also see |getwinposx()| and |getwinposy()|.
 
 :winp[os] {X} {Y}							*E466*
 		Put the GUI vim window at the given {X} and {Y} coordinates.
@@ -145,8 +152,20 @@ task bar with the 'guiheadroom' option.
 		option.
 
 If you are running the X Window System, you can get information about the
-window Vim is running in with this command: >
+window Vim is running in with these commands: >
 	:!xwininfo -id $WINDOWID
+	:!xprop -id $WINDOWID
+	:execute '!xwininfo -id ' . v:windowid
+	:execute '!xprop -id ' . v:windowid
+<
+							*gui-IME* *iBus*
+Input methods for international characters in X that rely on the XIM
+framework, most notably iBus, have been known to produce undesirable results
+in gVim. These may include an inability to enter spaces, or long delays
+between typing a character and it being recognized by the application.
+
+One workaround that has been successful, for unknown reasons, is to prevent
+gvim from forking into the background by starting it with the |-f| argument.
 
 ==============================================================================
 2. Scrollbars						*gui-scrollbars*
@@ -156,26 +175,26 @@ configure which ones appear with the 'guioptions' option.
 
 The interface looks like this (with ":set guioptions=mlrb"):
 
-		       +------------------------------+
-		       | File  Edit		 Help | <- Menu bar (m)
-		       +-+--------------------------+-+
-		       |^|			    |^|
-		       |#| Text area.		    |#|
-		       | |			    | |
-		       |v|__________________________|v|
- Normal status line -> |-+ File.c	       5,2  +-|
- between Vim windows   |^|""""""""""""""""""""""""""|^|
-		       | |			    | |
-		       | | Another file buffer.     | |
-		       | |			    | |
-		       |#|			    |#|
- Left scrollbar (l) -> |#|			    |#| <- Right
-		       |#|			    |#|    scrollbar (r)
-		       | |			    | |
-		       |v|			    |v|
-		       +-+--------------------------+-+
-		       | |< ####		   >| | <- Bottom
-		       +-+--------------------------+-+    scrollbar (b)
+		       +------------------------------+ `
+		       | File  Edit		 Help | <- Menu bar (m) `
+		       +-+--------------------------+-+ `
+		       |^|			    |^| `
+		       |#| Text area.		    |#| `
+		       | |			    | | `
+		       |v|__________________________|v| `
+ Normal status line -> |-+ File.c	       5,2  +-| `
+ between Vim windows   |^|""""""""""""""""""""""""""|^| `
+		       | |			    | | `
+		       | | Another file buffer.     | | `
+		       | |			    | | `
+		       |#|			    |#| `
+ Left scrollbar (l) -> |#|			    |#| <- Right `
+		       |#|			    |#|    scrollbar (r) `
+		       | |			    | | `
+		       |v|			    |v| `
+		       +-+--------------------------+-+ `
+		       | |< ####		   >| | <- Bottom `
+		       +-+--------------------------+-+    scrollbar (b) `
 
 Any of the scrollbar or menu components may be turned off by not putting the
 appropriate letter in the 'guioptions' string.  The bottom scrollbar is

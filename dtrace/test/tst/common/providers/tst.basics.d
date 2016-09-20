@@ -37,20 +37,21 @@
  */
 
 #pragma D option quiet
+#pragma D option statusrate=50ms
 
 BEGIN
 {
 	i = 0;
 }
 
-profile:::tick-1sec
+profile:::tick-10ms
 /i < 3/
 {
 	i++;
 	trace(i);
 }
 
-profile:::tick-1sec
+profile:::tick-10ms
 /i == 3/
 {
 	exit(0);

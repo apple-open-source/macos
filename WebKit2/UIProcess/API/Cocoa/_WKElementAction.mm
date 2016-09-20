@@ -33,6 +33,7 @@
 #import "GestureTypes.h"
 #import "WKActionSheetAssistant.h"
 #import "WKContentViewInteraction.h"
+#import "WeakObjCPtr.h"
 #import "_WKActivatedElementInfoInternal.h"
 #import <WebCore/LocalizedStrings.h>
 #import <WebCore/SoftLinking.h>
@@ -51,7 +52,7 @@ typedef void (^WKElementActionHandlerInternal)(WKActionSheetAssistant *, _WKActi
     RetainPtr<NSString> _title;
     WKElementActionHandlerInternal _actionHandler;
     WKElementActionDismissalHandler _dismissalHandler;
-    __weak WKActionSheetAssistant *_defaultActionSheetAssistant;
+    WebKit::WeakObjCPtr<WKActionSheetAssistant> _defaultActionSheetAssistant;
 }
 
 - (id)_initWithTitle:(NSString *)title actionHandler:(WKElementActionHandlerInternal)handler type:(_WKElementActionType)type assistant:(WKActionSheetAssistant *)assistant
@@ -127,6 +128,12 @@ static void addToReadingList(NSURL *targetURL, NSString *title)
         };
         break;
 #endif
+    case _WKElementActionTypeShare:
+        title = WEB_UI_STRING("Share…", "Title for Share action button");
+        handler = ^(WKActionSheetAssistant *assistant, _WKActivatedElementInfo *actionInfo) {
+            [assistant.delegate actionSheetAssistant:assistant shareElementWithURL:actionInfo.URL rect:actionInfo.boundingRect];
+        };
+        break;
     default:
         [NSException raise:NSInvalidArgumentException format:@"There is no standard web element action of type %ld.", (long)type];
         return nil;
@@ -162,7 +169,7 @@ static void addToReadingList(NSURL *targetURL, NSString *title)
 
 - (void)runActionWithElementInfo:(_WKActivatedElementInfo *)info
 {
-    [self _runActionWithElementInfo:info forActionSheetAssistant:_defaultActionSheetAssistant];
+    [self _runActionWithElementInfo:info forActionSheetAssistant:_defaultActionSheetAssistant.get().get()];
 }
 
 @end

@@ -11,11 +11,9 @@ static void tests(void)
 
     @autoreleasepool {
         NSDictionary *idmsData = SecEMCSCreateNewiDMSKey(NULL, NULL, @"1234", NULL, NULL);
-        [idmsData autorelease];
         ok(idmsData);
 
         NSData *emcsKey = SecEMCSCreateDerivedEMCSKey(idmsData, @"1234", NULL);
-        [emcsKey autorelease];
         ok(emcsKey, "emcs key");
 
         /*
@@ -23,10 +21,8 @@ static void tests(void)
          */
 
         NSDictionary *newIdmsData = SecEMCSCreateNewiDMSKey(NULL, emcsKey, @"4321", NULL, NULL);
-        [newIdmsData autorelease];
 
         NSData *newEmcsKey = SecEMCSCreateDerivedEMCSKey(newIdmsData, @"4321", NULL);
-        [newEmcsKey autorelease];
         ok(newEmcsKey, "new emcs key");
 
         ok([newEmcsKey isEqualToData:emcsKey], "key same");
@@ -44,8 +40,6 @@ static void tests(void)
         ok(data, "KDF1");
 
         ok([data isEqualToData:[NSData dataWithBytes:"\xa4\x42\x8b\xb0\xb8\x20\xdb\xfa\x58\x84\xab\xe3\x52\x93\xeb\x10" length:16]], "same");
-
-        [data release];
 
         data = SecEMCSCreateDerivedEMCSKey(fakeIdmsData, @"4321", NULL);
         ok(!data, "KFD2");

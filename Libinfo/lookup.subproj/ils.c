@@ -41,7 +41,7 @@
 
 /* GLOBAL */
 
-#if __ARM_ARCH_7K__ && __BIGGEST_ALIGNMENT__ > 4
+#if __ARM_ARCH_7K__ || __ARM64_ARCH_8_32__
 static const uint32_t align_32[] = { 0, 1, 2, 0, 4, 0, 0, 0, 8 };
 #else
 static const uint32_t align_32[] = { 0, 1, 2, 0, 4, 0, 0, 0, 4 };

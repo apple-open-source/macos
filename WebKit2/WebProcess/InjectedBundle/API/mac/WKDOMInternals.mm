@@ -76,13 +76,10 @@ static Class WKDOMNodeClass(WebCore::Node* impl)
         return [WKDOMText class];
     case WebCore::Node::ATTRIBUTE_NODE:
     case WebCore::Node::CDATA_SECTION_NODE:
-    case WebCore::Node::ENTITY_REFERENCE_NODE:
-    case WebCore::Node::ENTITY_NODE:
     case WebCore::Node::PROCESSING_INSTRUCTION_NODE:
     case WebCore::Node::COMMENT_NODE:
     case WebCore::Node::DOCUMENT_TYPE_NODE:
     case WebCore::Node::DOCUMENT_FRAGMENT_NODE:
-    case WebCore::Node::XPATH_NAMESPACE_NODE:
         return [WKDOMNode class];
     }
     ASSERT_NOT_REACHED();

@@ -42,8 +42,6 @@ static void tests(void)
     SOSFullPeerInfoRef fpi = SOSCreateFullPeerInfoFromName(CFSTR("Test Peer"), &signingKey, NULL);
     SOSPeerInfoRef pi = SOSFullPeerInfoGetPeerInfo(fpi);
     unsigned long count;
-
-    CFRetainSafe(pi);
     
     ok(NULL != pi, "info creation");
     size_t size = SOSPeerInfoGetDEREncodedSize(pi, NULL);
@@ -75,7 +73,7 @@ static void tests(void)
     
 errOut:
     CFReleaseNull(signingKey);
-    CFReleaseNull(pi);
+    CFReleaseNull(fpi);
 }
 
 int sc_31_peerinfo(int argc, char *const *argv)

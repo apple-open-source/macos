@@ -23,14 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebProcessLauncher_h
-#define WebProcessLauncher_h
+#pragma once
 
 #include "Connection.h"
-#include "PlatformProcessIdentifier.h"
 #include <wtf/HashMap.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Threading.h>
+#include <wtf/WeakPtr.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/text/WTFString.h>
 
@@ -45,32 +44,24 @@ public:
         virtual void didFinishLaunching(ProcessLauncher*, IPC::Connection::Identifier) = 0;
     };
     
-    enum ProcessType {
-        WebProcess,
+    enum class ProcessType {
+        Web,
 #if ENABLE(NETSCAPE_PLUGIN_API)
-        PluginProcess,
+        Plugin32,
+        Plugin64,
 #endif
-#if ENABLE(NETWORK_PROCESS)
-        NetworkProcess,
-#endif
+        Network,
 #if ENABLE(DATABASE_PROCESS)
-        DatabaseProcess,
+        Database,
 #endif
     };
 
     struct LaunchOptions {
         ProcessType processType;
         HashMap<String, String> extraInitializationData;
-#if OS(DARWIN)
-        static const cpu_type_t MatchCurrentArchitecture = 0;
-        cpu_type_t architecture;
-        bool executableHeap;
-        bool useXPC;
-#endif
-#if PLATFORM(EFL) || PLATFORM(GTK)
-#ifndef NDEBUG
+
+#if (PLATFORM(EFL) || PLATFORM(GTK)) && !defined(NDEBUG)
         String processCmdPrefix;
-#endif
 #endif
     };
 
@@ -80,29 +71,25 @@ public:
     }
 
     bool isLaunching() const { return m_isLaunching; }
-    PlatformProcessIdentifier processIdentifier() const { return m_processIdentifier; }
+    pid_t processIdentifier() const { return m_processIdentifier; }
 
     void terminateProcess();
     void invalidate();
-
-    static bool getProcessTypeFromString(const char*, ProcessType&);
-    static const char* processTypeAsString(ProcessType);
 
 private:
     ProcessLauncher(Client*, const LaunchOptions& launchOptions);
 
     void launchProcess();
-    void didFinishLaunchingProcess(PlatformProcessIdentifier, IPC::Connection::Identifier);
+    void didFinishLaunchingProcess(pid_t, IPC::Connection::Identifier);
 
     void platformInvalidate();
 
     Client* m_client;
 
+    WeakPtrFactory<ProcessLauncher> m_weakPtrFactory;
     const LaunchOptions m_launchOptions;
     bool m_isLaunching;
-    PlatformProcessIdentifier m_processIdentifier;
+    pid_t m_processIdentifier;
 };
 
 } // namespace WebKit
-
-#endif // WebProcessLauncher_h

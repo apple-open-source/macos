@@ -196,7 +196,7 @@ void __IOMIGMachPortSourceCallback(void * info)
     __IOMIGMachPortPortCallback(migPort->port, msg, msg->msgh_size, migPort);
 
 inner_exit:
-    CFAllocatorDeallocate(kCFAllocatorSystemDefault, msg);
+    CFAllocatorDeallocate(CFGetAllocator(migPort), msg);
     CFRelease(migPort);
 }
 
@@ -220,9 +220,9 @@ void IOMIGMachPortScheduleWithDispatchQueue(IOMIGMachPortRef migPort, dispatch_q
 
         dispatch_set_context(migPort->dispatchSource, migPort);
         dispatch_source_set_event_handler_f(migPort->dispatchSource, __IOMIGMachPortSourceCallback);
+        dispatch_resume(migPort->dispatchSource);
     }
     
-    dispatch_resume(migPort->dispatchSource);
     
 exit:
     return;
@@ -459,7 +459,7 @@ void IOMIGMachPortCacheAdd(mach_port_t port, CFTypeRef server)
 {
     pthread_mutex_lock(&__ioPortCacheLock);
 
-    CFDictionarySetValue(__ioPortCache, (void *)port, server);
+    CFDictionarySetValue(__ioPortCache, (void *)(uintptr_t)port, server);
     
     pthread_mutex_unlock(&__ioPortCacheLock);
 }
@@ -471,7 +471,7 @@ void IOMIGMachPortCacheRemove(mach_port_t port)
 {
     pthread_mutex_lock(&__ioPortCacheLock);
     
-    CFDictionaryRemoveValue(__ioPortCache, (void *)port);
+    CFDictionaryRemoveValue(__ioPortCache, (void *)(uintptr_t)port);
     
     pthread_mutex_unlock(&__ioPortCacheLock);
 }
@@ -485,7 +485,7 @@ CFTypeRef IOMIGMachPortCacheCopy(mach_port_t port)
     
     pthread_mutex_lock(&__ioPortCacheLock);
     
-    server = (CFTypeRef)CFDictionaryGetValue(__ioPortCache, (void *)port);
+    server = (CFTypeRef)CFDictionaryGetValue(__ioPortCache, (void *)(uintptr_t)port);
     if ( server ) CFRetain(server);
     
     pthread_mutex_unlock(&__ioPortCacheLock);

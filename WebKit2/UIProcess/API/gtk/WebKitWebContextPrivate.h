@@ -33,7 +33,7 @@
 #include "WebProcessPool.h"
 #include "WebSoupCustomProtocolRequestManager.h"
 
-WebKit::WebProcessPool* webkitWebContextGetContext(WebKitWebContext*);
+WebKit::WebProcessPool* webkitWebContextGetProcessPool(WebKitWebContext*);
 WebKitDownload* webkitWebContextGetOrCreateDownload(WebKit::DownloadProxy*);
 WebKitDownload* webkitWebContextStartDownload(WebKitWebContext*, const char* uri, WebKit::WebPageProxy*);
 void webkitWebContextRemoveDownload(WebKit::DownloadProxy*);
@@ -42,6 +42,7 @@ WebKit::WebSoupCustomProtocolRequestManager* webkitWebContextGetRequestManager(W
 void webkitWebContextStartLoadingCustomProtocol(WebKitWebContext*, uint64_t customProtocolID, API::URLRequest*);
 void webkitWebContextStopLoadingCustomProtocol(WebKitWebContext*, uint64_t customProtocolID);
 void webkitWebContextDidFinishLoadingCustomProtocol(WebKitWebContext*, uint64_t customProtocolID);
+bool webkitWebContextIsLoadingCustomProtocol(WebKitWebContext*, uint64_t customProtocolID);
 void webkitWebContextCreatePageForWebView(WebKitWebContext*, WebKitWebView*, WebKitUserContentManager*, WebKitWebView*);
 void webkitWebContextWebViewDestroyed(WebKitWebContext*, WebKitWebView*);
 WebKitWebView* webkitWebContextGetWebViewForPage(WebKitWebContext*, WebKit::WebPageProxy*);

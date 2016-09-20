@@ -31,16 +31,13 @@
 #import "AuthenticationChallenge.h"
 #import "AuthenticationMac.h"
 #import "Logging.h"
+#import "NSURLRequestSPI.h"
 #import "ResourceHandle.h"
 #import "ResourceHandleClient.h"
 #import "ResourceRequest.h"
 #import "ResourceResponse.h"
 #import "SharedBuffer.h"
 #import "WebCoreURLResponse.h"
-
-@interface NSURLRequest (Details)
-- (id)_propertyForKey:(NSString *)key;
-@end
 
 using namespace WebCore;
 
@@ -57,7 +54,7 @@ using namespace WebCore;
 
 - (void)detachHandle
 {
-    m_handle = 0;
+    m_handle = nullptr;
 }
 
 - (NSURLRequest *)connection:(NSURLConnection *)connection willSendRequest:(NSURLRequest *)newRequest redirectResponse:(NSURLResponse *)redirectResponse
@@ -67,7 +64,7 @@ using namespace WebCore;
     if (!m_handle)
         return nil;
 
-    redirectResponse = synthesizeRedirectResponseIfNecessary(connection, newRequest, redirectResponse);
+    redirectResponse = synthesizeRedirectResponseIfNecessary([connection currentRequest], newRequest, redirectResponse);
     
     // See <rdar://problem/5380697>. This is a workaround for a behavior change in CFNetwork where willSendRequest gets called more often.
     if (!redirectResponse)
@@ -80,11 +77,7 @@ using namespace WebCore;
         LOG(Network, "Handle %p delegate connection:%p willSendRequest:%@ redirectResponse:non-HTTP", m_handle, connection, [newRequest description]); 
 #endif
 
-    ResourceRequest request = newRequest;
-
-    m_handle->willSendRequest(request, redirectResponse);
-
-    return request.nsURLRequest(UpdateHTTPBody);
+    return m_handle->willSendRequest(newRequest, redirectResponse).nsURLRequest(UpdateHTTPBody);
 }
 
 - (BOOL)connectionShouldUseCredentialStorage:(NSURLConnection *)connection
@@ -116,19 +109,6 @@ using namespace WebCore;
     m_handle->didReceiveAuthenticationChallenge(core(challenge));
 }
 
-- (void)connection:(NSURLConnection *)connection didCancelAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge
-{
-    // FIXME: We probably don't need to implement this (see <rdar://problem/8960124>).
-
-    UNUSED_PARAM(connection);
-
-    LOG(Network, "Handle %p delegate connection:%p didCancelAuthenticationChallenge:%p", m_handle, connection, challenge);
-
-    if (!m_handle)
-        return;
-    m_handle->didCancelAuthenticationChallenge(core(challenge));
-}
-
 #if USE(PROTECTION_SPACE_AUTH_CALLBACK)
 - (BOOL)connection:(NSURLConnection *)connection canAuthenticateAgainstProtectionSpace:(NSURLProtectionSpace *)protectionSpace
 {
@@ -145,10 +125,6 @@ using namespace WebCore;
 
 - (void)connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)r
 {
-#if !PLATFORM(IOS)
-    UNUSED_PARAM(connection);
-#endif
-
     LOG(Network, "Handle %p delegate connection:%p didReceiveResponse:%p (HTTP status %d, reported MIMEType '%s')", m_handle, connection, r, [r respondsToSelector:@selector(statusCode)] ? [(id)r statusCode] : 0, [[r MIMEType] UTF8String]);
 
     if (!m_handle || !m_handle->client())
@@ -156,8 +132,10 @@ using namespace WebCore;
 
     // Avoid MIME type sniffing if the response comes back as 304 Not Modified.
     int statusCode = [r respondsToSelector:@selector(statusCode)] ? [(id)r statusCode] : 0;
-    if (statusCode != 304)
-        adjustMIMETypeIfNecessary([r _CFURLResponse]);
+    if (statusCode != 304) {
+        bool isMainResourceLoad = m_handle->firstRequest().requester() == ResourceRequest::Requester::Main;
+        adjustMIMETypeIfNecessary([r _CFURLResponse], isMainResourceLoad);
+    }
 
 #if !PLATFORM(IOS)
     if ([m_handle->firstRequest().nsURLRequest(DoNotUpdateHTTPBody) _propertyForKey:@"ForceHTMLMIMEType"])
@@ -171,13 +149,14 @@ using namespace WebCore;
 #endif
     
     ResourceResponse resourceResponse(r);
+    resourceResponse.setSource(ResourceResponse::Source::Network);
 #if ENABLE(WEB_TIMING)
     ResourceHandle::getConnectionTimingData(connection, resourceResponse.resourceLoadTiming());
 #else
     UNUSED_PARAM(connection);
 #endif
     
-    m_handle->client()->didReceiveResponse(m_handle, resourceResponse);
+    m_handle->client()->didReceiveResponse(m_handle, WTFMove(resourceResponse));
 }
 
 #if USE(NETWORK_CFDATA_ARRAY_CALLBACK)

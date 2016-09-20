@@ -114,7 +114,8 @@ struct interval {
 
 static time_t offset, shuttime;
 #ifdef __APPLE__
-static int dohalt, doreboot, doups, killflg, mbuflen, oflag;
+static int dohalt, doreboot, doups, killflg, oflag;
+static size_t mbuflen;
 #else
 static int dohalt, dopower, doreboot, killflg, mbuflen, oflag;
 #endif
@@ -135,7 +136,7 @@ void getoffset(char *);
 void loop(void);
 void nolog(void);
 void timeout(int);
-void timewarn(int);
+void timewarn(time_t);
 void usage(const char *);
 #ifdef __APPLE__
 int audit_shutdown(int);
@@ -149,7 +150,8 @@ main(int argc, char **argv)
 {
 	char *p, *endp;
 	struct passwd *pw;
-	int arglen, ch, len, readstdin;
+	size_t arglen;
+	int ch, len, readstdin;
 
 #ifndef DEBUG
 	if (geteuid())
@@ -219,7 +221,7 @@ main(int argc, char **argv)
 
 	if (!(dohalt || doreboot || dosleep || killflg))
 		usage("-h, -r, -s, or -k is required");
-		
+
 	if (doups && !dohalt)
 		usage("-u requires -h");
 #endif /* !__APPLE__ */
@@ -244,7 +246,7 @@ main(int argc, char **argv)
 		p = mbuf;
 		endp = mbuf + sizeof(mbuf) - 2;
 		for (;;) {
-			if (!fgets(p, endp - p + 1, stdin))
+			if (!fgets(p, (int)(endp - p + 1), stdin))
 				break;
 			for (; *p &&  p < endp; ++p);
 			if (p == endp) {
@@ -298,7 +300,7 @@ main(int argc, char **argv)
 }
 
 void
-loop()
+loop(void)
 {
 	struct interval *tp;
 	u_int sltime;
@@ -320,8 +322,8 @@ loop()
 		 * Warn now, if going to sleep more than a fifth of
 		 * the next wait time.
 		 */
-		if ((sltime = offset - tp->timeleft)) {
-			if (sltime > (u_int)(tp->timetowait / 5))
+		if ((sltime = (u_int)(offset - tp->timeleft))) {
+			if (sltime > (tp->timetowait / 5))
 				timewarn(offset);
 			(void)sleep(sltime);
 		}
@@ -351,7 +353,7 @@ static const char *restricted_environ[] = {
 };
 
 void
-timewarn(int timeleft)
+timewarn(time_t timeleft)
 {
 	static int first;
 	static char hostname[MAXHOSTNAMELEN + 1];
@@ -380,7 +382,7 @@ timewarn(int timeleft)
 		(void)fprintf(pf, "System going down at %5.5s\n\n",
 		    ctime(&shuttime) + 11);
 	else if (timeleft > 59)
-		(void)fprintf(pf, "System going down in %d minute%s\n\n",
+		(void)fprintf(pf, "System going down in %ld minute%s\n\n",
 		    timeleft / 60, (timeleft > 60) ? "s" : "");
 	else if (timeleft)
 		(void)fprintf(pf, "System going down in 30 seconds\n\n");
@@ -427,7 +429,7 @@ die_you_gravy_sucking_pig_dog()
 
 	syslog(LOG_NOTICE, "%s%s by %s: %s",
 #ifndef __APPLE__
-	    doreboot ? "reboot" : dohalt ? "halt" : dopower ? "power-down" : 
+	    doreboot ? "reboot" : dohalt ? "halt" : dopower ? "power-down" :
 #else
 	    doreboot ? "reboot" : dohalt ? "halt" : dosleep ? "sleep" :
 #endif
@@ -475,7 +477,7 @@ die_you_gravy_sucking_pig_dog()
 	} else {
 		int howto = 0;
 
-#if defined(__APPLE__) 
+#if defined(__APPLE__)
 		{
 			struct utmpx utx;
 			bzero(&utx, sizeof(utx));
@@ -495,7 +497,7 @@ die_you_gravy_sucking_pig_dog()
 		if (nosync) howto |= RB_NOSYNC;
 
 		// launchd(8) handles reboot.  This call returns NULL on success.
-		if (reboot2(howto)) {
+		if (reboot3(howto)) {
 			syslog(LOG_ERR, "shutdown: launchd reboot failed.");
 		}
 	}
@@ -507,7 +509,7 @@ die_you_gravy_sucking_pig_dog()
 			      SIGTERM);			/* single-user */
 	} else {
 		if (doreboot) {
-			execle(_PATH_REBOOT, "reboot", "-l", nosync, 
+			execle(_PATH_REBOOT, "reboot", "-l", nosync,
 				(char *)NULL, empty_environ);
 			syslog(LOG_ERR, "shutdown: can't exec %s: %m.",
 				_PATH_REBOOT);
@@ -620,7 +622,7 @@ getoffset(char *timearg)
 
 #define	NOMSG	"\n\nNO LOGINS: System going down at "
 void
-nolog()
+nolog(void)
 {
 	int logfd;
 	char *ct;
@@ -650,7 +652,7 @@ finish(int signo __unused)
 }
 
 void
-badtime()
+badtime(void)
 {
 	errx(1, "bad time format");
 }
@@ -676,8 +678,9 @@ usage(const char *cp)
  * header
  * subject
  * return
- */  
-int audit_shutdown(int exitstatus)
+ */
+int
+audit_shutdown(int exitstatus)
 {
 	int aufd;
 	token_t *tok;
@@ -693,7 +696,7 @@ int audit_shutdown(int exitstatus)
 
 	if((aufd = au_open()) == -1) {
 		fprintf(stderr, "shutdown: Audit Error: au_open() failed\n");
-		exit(1);      
+		exit(1);
 	}
 
 	/* The subject that performed the operation */
@@ -725,7 +728,7 @@ int audit_shutdown(int exitstatus)
  * contact kextd to lock for reboot
  */
 int
-reserve_reboot()
+reserve_reboot(void)
 {
     int rval = ELAST + 1;
     kern_return_t macherr = KERN_FAILURE;
@@ -776,4 +779,3 @@ finish:
     return rval;
 }
 #endif /* __APPLE__ */
-

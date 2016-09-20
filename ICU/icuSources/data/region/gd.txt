@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/gd.xml
@@ -46,7 +46,6 @@ gd{
         AI{"Anguilla"}
         AL{"Albàinia"}
         AM{"Airmeinia"}
-        AN{"Eileanan Aintilia nan Tìrean Ìsle"}
         AO{"Angòla"}
         AQ{"An Antartaig"}
         AR{"An Argantain"}
@@ -190,7 +189,7 @@ gd{
         MH{"Eileanan Mharshall"}
         MK{"A’ Mhasadon"}
         ML{"Màili"}
-        MM{"Miànmar (Burma)"}
+        MM{"Miànmar"}
         MN{"Dùthaich nam Mongol"}
         MO{"Macàthu SAR na Sìne"}
         MP{"Na h-Eileanan Mairianach a Tuath"}
@@ -278,7 +277,7 @@ gd{
         TZ{"An Tansan"}
         UA{"An Ucràin"}
         UG{"Uganda"}
-        UM{"Meanbh-Eileanan Iomallach nan Stàitean Aonaichte"}
+        UM{"Meanbh-Eileanan Iomallach nan SA"}
         US{"Na Stàitean Aonaichte"}
         UY{"Uruguaidh"}
         UZ{"Usbagastàn"}
@@ -307,12 +306,12 @@ gd{
         US{"SA"}
     }
     Countries%variant{
-        CD{"A’ Chongo (Poblachd Dheamocratach)"}
+        CD{"A’ Chongo (PDC)"}
         CG{"A’ Chongo (Poblachd)"}
         CI{"An Costa Ìbhri"}
         FK{"Na h-Eileanan Fàclannach (Islas Malvinas)"}
         MK{"A’ Mhasadon (FYROM)"}
         TL{"Tìomor an Ear"}
     }
-    Version{"2.1.12.94"}
+    Version{"2.1.22.93"}
 }

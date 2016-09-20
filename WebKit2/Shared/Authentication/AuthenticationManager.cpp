@@ -30,16 +30,14 @@
 #include "ChildProcess.h"
 #include "Download.h"
 #include "DownloadProxyMessages.h"
+#include "NetworkProcessProxyMessages.h"
+#include "PendingDownload.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebFrame.h"
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
 #include <WebCore/AuthenticationChallenge.h>
 #include <WebCore/AuthenticationClient.h>
-
-#if ENABLE(NETWORK_PROCESS)
-#include "NetworkProcessProxyMessages.h"
-#endif
 
 using namespace WebCore;
 
@@ -70,23 +68,22 @@ AuthenticationManager::AuthenticationManager(ChildProcess* process)
     m_process->addMessageReceiver(Messages::AuthenticationManager::messageReceiverName(), *this);
 }
 
-uint64_t AuthenticationManager::addChallengeToChallengeMap(const WebCore::AuthenticationChallenge& authenticationChallenge)
+uint64_t AuthenticationManager::addChallengeToChallengeMap(Challenge&& challenge)
 {
     ASSERT(RunLoop::isMain());
 
     uint64_t challengeID = generateAuthenticationChallengeID();
-    m_challenges.set(challengeID, authenticationChallenge);
+    m_challenges.set(challengeID, WTFMove(challenge));
     return challengeID;
 }
 
-bool AuthenticationManager::shouldCoalesceChallenge(uint64_t challengeID, const AuthenticationChallenge& challenge) const
+bool AuthenticationManager::shouldCoalesceChallenge(uint64_t pageID, uint64_t challengeID, const AuthenticationChallenge& challenge) const
 {
     if (!canCoalesceChallenge(challenge))
         return false;
 
-    auto end =  m_challenges.end();
-    for (auto it = m_challenges.begin(); it != end; ++it) {
-        if (it->key != challengeID && ProtectionSpace::compare(challenge.protectionSpace(), it->value.protectionSpace()))
+    for (auto& item : m_challenges) {
+        if (item.key != challengeID && item.value.pageID == pageID && ProtectionSpace::compare(challenge.protectionSpace(), item.value.challenge.protectionSpace()))
             return true;
     }
     return false;
@@ -94,19 +91,20 @@ bool AuthenticationManager::shouldCoalesceChallenge(uint64_t challengeID, const 
 
 Vector<uint64_t> AuthenticationManager::coalesceChallengesMatching(uint64_t challengeID) const
 {
-    AuthenticationChallenge challenge = m_challenges.get(challengeID);
-    ASSERT(!challenge.isNull());
+    auto iterator = m_challenges.find(challengeID);
+    ASSERT(iterator != m_challenges.end());
+
+    auto& challenge = iterator->value;
 
     Vector<uint64_t> challengesToCoalesce;
     challengesToCoalesce.append(challengeID);
 
-    if (!canCoalesceChallenge(challenge))
+    if (!canCoalesceChallenge(challenge.challenge))
         return challengesToCoalesce;
 
-    auto end = m_challenges.end();
-    for (auto it = m_challenges.begin(); it != end; ++it) {
-        if (it->key != challengeID && ProtectionSpace::compare(challenge.protectionSpace(), it->value.protectionSpace()))
-            challengesToCoalesce.append(it->key);
+    for (auto& item : m_challenges) {
+        if (item.key != challengeID && item.value.pageID == challenge.pageID && ProtectionSpace::compare(challenge.challenge.protectionSpace(), item.value.challenge.protectionSpace()))
+            challengesToCoalesce.append(item.key);
     }
 
     return challengesToCoalesce;
@@ -117,41 +115,82 @@ void AuthenticationManager::didReceiveAuthenticationChallenge(WebFrame* frame, c
     ASSERT(frame);
     ASSERT(frame->page());
 
-    uint64_t challengeID = addChallengeToChallengeMap(authenticationChallenge);
+    auto pageID = frame->page()->pageID();
+    uint64_t challengeID = addChallengeToChallengeMap({pageID, authenticationChallenge
+#if USE(NETWORK_SESSION)
+        , { }
+#endif
+    });
 
-    // Coalesce challenges in the same protection space.
-    if (shouldCoalesceChallenge(challengeID, authenticationChallenge))
+    // Coalesce challenges in the same protection space and in the same page.
+    if (shouldCoalesceChallenge(pageID, challengeID, authenticationChallenge))
         return;
     
     m_process->send(Messages::WebPageProxy::DidReceiveAuthenticationChallenge(frame->frameID(), authenticationChallenge, challengeID), frame->page()->pageID());
 }
 
-#if ENABLE(NETWORK_PROCESS)
+#if USE(NETWORK_SESSION)
+void AuthenticationManager::didReceiveAuthenticationChallenge(uint64_t pageID, uint64_t frameID, const AuthenticationChallenge& authenticationChallenge, ChallengeCompletionHandler&& completionHandler)
+{
+    ASSERT(pageID);
+    ASSERT(frameID);
+
+    uint64_t challengeID = addChallengeToChallengeMap({ pageID, authenticationChallenge, WTFMove(completionHandler) });
+
+    // Coalesce challenges in the same protection space and in the same page.
+    if (shouldCoalesceChallenge(pageID, challengeID, authenticationChallenge))
+        return;
+    
+    m_process->send(Messages::NetworkProcessProxy::DidReceiveAuthenticationChallenge(pageID, frameID, authenticationChallenge, challengeID));
+}
+
+void AuthenticationManager::didReceiveAuthenticationChallenge(PendingDownload& pendingDownload, const WebCore::AuthenticationChallenge& authenticationChallenge, ChallengeCompletionHandler&& completionHandler)
+{
+    uint64_t dummyPageID = 0;
+    uint64_t challengeID = addChallengeToChallengeMap({ dummyPageID, authenticationChallenge, WTFMove(completionHandler) });
+    
+    // Coalesce challenges in the same protection space and in the same page.
+    if (shouldCoalesceChallenge(dummyPageID, challengeID, authenticationChallenge))
+        return;
+    
+    pendingDownload.send(Messages::DownloadProxy::DidReceiveAuthenticationChallenge(authenticationChallenge, challengeID));
+}
+#endif
 void AuthenticationManager::didReceiveAuthenticationChallenge(uint64_t pageID, uint64_t frameID, const AuthenticationChallenge& authenticationChallenge)
 {
     ASSERT(pageID);
     ASSERT(frameID);
 
-    uint64_t challengeID = addChallengeToChallengeMap(authenticationChallenge);
-    if (shouldCoalesceChallenge(challengeID, authenticationChallenge))
+    uint64_t challengeID = addChallengeToChallengeMap({pageID, authenticationChallenge
+#if USE(NETWORK_SESSION)
+        , { }
+#endif
+    });
+
+    // Coalesce challenges in the same protection space and in the same page.
+    if (shouldCoalesceChallenge(pageID, challengeID, authenticationChallenge))
         return;
     
-    m_process->send(Messages::NetworkProcessProxy::DidReceiveAuthenticationChallenge(pageID, frameID, authenticationChallenge, addChallengeToChallengeMap(authenticationChallenge)));
+    m_process->send(Messages::NetworkProcessProxy::DidReceiveAuthenticationChallenge(pageID, frameID, authenticationChallenge, challengeID));
+}
+
+#if !USE(NETWORK_SESSION)
+void AuthenticationManager::didReceiveAuthenticationChallenge(Download& download, const AuthenticationChallenge& authenticationChallenge)
+{
+    uint64_t dummyPageID = 0;
+    uint64_t challengeID = addChallengeToChallengeMap({dummyPageID, authenticationChallenge});
+
+    // Coalesce challenges in the same protection space and in the same page.
+    if (shouldCoalesceChallenge(dummyPageID, challengeID, authenticationChallenge))
+        return;
+
+    download.send(Messages::DownloadProxy::DidReceiveAuthenticationChallenge(authenticationChallenge, challengeID));
 }
 #endif
 
-void AuthenticationManager::didReceiveAuthenticationChallenge(Download* download, const AuthenticationChallenge& authenticationChallenge)
-{
-    uint64_t challengeID = addChallengeToChallengeMap(authenticationChallenge);
-    if (shouldCoalesceChallenge(challengeID, authenticationChallenge))
-        return;
-
-    download->send(Messages::DownloadProxy::DidReceiveAuthenticationChallenge(authenticationChallenge, addChallengeToChallengeMap(authenticationChallenge)));
-}
-
 // Currently, only Mac knows how to respond to authentication challenges with certificate info.
 #if !HAVE(SEC_IDENTITY)
-bool AuthenticationManager::tryUseCertificateInfoForChallenge(const WebCore::AuthenticationChallenge&, const CertificateInfo&)
+bool AuthenticationManager::tryUseCertificateInfoForChallenge(const WebCore::AuthenticationChallenge&, const CertificateInfo&, const ChallengeCompletionHandler&)
 {
     return false;
 }
@@ -167,21 +206,33 @@ void AuthenticationManager::useCredentialForChallenge(uint64_t challengeID, cons
 
 void AuthenticationManager::useCredentialForSingleChallenge(uint64_t challengeID, const Credential& credential, const CertificateInfo& certificateInfo)
 {
-    AuthenticationChallenge challenge = m_challenges.take(challengeID);
-    ASSERT(!challenge.isNull());
+    auto challenge = m_challenges.take(challengeID);
+    ASSERT(!challenge.challenge.isNull());
+
+#if USE(NETWORK_SESSION)
+    auto completionHandler = WTFMove(challenge.completionHandler);
+#else
+    ChallengeCompletionHandler completionHandler = nullptr;
+#endif
     
-    if (tryUseCertificateInfoForChallenge(challenge, certificateInfo))
+    if (tryUseCertificateInfoForChallenge(challenge.challenge, certificateInfo, completionHandler))
         return;
-    
-    AuthenticationClient* coreClient = challenge.authenticationClient();
-    if (!coreClient) {
-        // FIXME: The authentication client is null for downloads, but it can also be null for canceled loads.
-        // We should not call Download::receivedCredential in the latter case.
-        Download::receivedCredential(challenge, credential);
+
+    AuthenticationClient* coreClient = challenge.challenge.authenticationClient();
+#if USE(NETWORK_SESSION)
+    // If there is a completion handler, then there is no AuthenticationClient.
+    // FIXME: Remove the use of AuthenticationClient in WebKit2 once NETWORK_SESSION is used for all loads.
+    if (completionHandler) {
+        ASSERT(!coreClient);
+        completionHandler(AuthenticationChallengeDisposition::UseCredential, credential);
         return;
     }
+#endif
 
-    coreClient->receivedCredential(challenge, credential);
+    if (coreClient)
+        coreClient->receivedCredential(challenge.challenge, credential);
+    else
+        receivedCredential(challenge.challenge, credential);
 }
 
 void AuthenticationManager::continueWithoutCredentialForChallenge(uint64_t challengeID)
@@ -194,17 +245,22 @@ void AuthenticationManager::continueWithoutCredentialForChallenge(uint64_t chall
 
 void AuthenticationManager::continueWithoutCredentialForSingleChallenge(uint64_t challengeID)
 {
-    AuthenticationChallenge challenge = m_challenges.take(challengeID);
-    ASSERT(!challenge.isNull());
-    AuthenticationClient* coreClient = challenge.authenticationClient();
-    if (!coreClient) {
-        // FIXME: The authentication client is null for downloads, but it can also be null for canceled loads.
-        // We should not call Download::receivedCredential in the latter case.
-        Download::receivedRequestToContinueWithoutCredential(challenge);
+    auto challenge = m_challenges.take(challengeID);
+    ASSERT(!challenge.challenge.isNull());
+
+    AuthenticationClient* coreClient = challenge.challenge.authenticationClient();
+#if USE(NETWORK_SESSION)
+    if (challenge.completionHandler) {
+        ASSERT(!coreClient);
+        challenge.completionHandler(AuthenticationChallengeDisposition::UseCredential, Credential());
         return;
     }
+#endif
 
-    coreClient->receivedRequestToContinueWithoutCredential(challenge);
+    if (coreClient)
+        coreClient->receivedRequestToContinueWithoutCredential(challenge.challenge);
+    else
+        receivedRequestToContinueWithoutCredential(challenge.challenge);
 }
 
 void AuthenticationManager::cancelChallenge(uint64_t challengeID)
@@ -217,17 +273,22 @@ void AuthenticationManager::cancelChallenge(uint64_t challengeID)
 
 void AuthenticationManager::cancelSingleChallenge(uint64_t challengeID)
 {
-    AuthenticationChallenge challenge = m_challenges.take(challengeID);
-    ASSERT(!challenge.isNull());
-    AuthenticationClient* coreClient = challenge.authenticationClient();
-    if (!coreClient) {
-        // FIXME: The authentication client is null for downloads, but it can also be null for canceled loads.
-        // We should not call Download::receivedCredential in the latter case.
-        Download::receivedCancellation(challenge);
+    auto challenge = m_challenges.take(challengeID);
+    ASSERT(!challenge.challenge.isNull());
+
+    AuthenticationClient* coreClient = challenge.challenge.authenticationClient();
+#if USE(NETWORK_SESSION)
+    if (challenge.completionHandler) {
+        ASSERT(!coreClient);
+        challenge.completionHandler(AuthenticationChallengeDisposition::Cancel, Credential());
         return;
     }
+#endif
 
-    coreClient->receivedCancellation(challenge);
+    if (coreClient)
+        coreClient->receivedCancellation(challenge.challenge);
+    else
+        receivedCancellation(challenge.challenge);
 }
 
 void AuthenticationManager::performDefaultHandling(uint64_t challengeID)
@@ -240,17 +301,22 @@ void AuthenticationManager::performDefaultHandling(uint64_t challengeID)
 
 void AuthenticationManager::performDefaultHandlingForSingleChallenge(uint64_t challengeID)
 {
-    AuthenticationChallenge challenge = m_challenges.take(challengeID);
-    ASSERT(!challenge.isNull());
-    AuthenticationClient* coreClient = challenge.authenticationClient();
-    if (!coreClient) {
-        // FIXME: The authentication client is null for downloads, but it can also be null for canceled loads.
-        // We should not call Download::receivedCredential in the latter case.
-        Download::receivedRequestToPerformDefaultHandling(challenge);
+    auto challenge = m_challenges.take(challengeID);
+    ASSERT(!challenge.challenge.isNull());
+
+    AuthenticationClient* coreClient = challenge.challenge.authenticationClient();
+#if USE(NETWORK_SESSION)
+    if (challenge.completionHandler) {
+        ASSERT(!coreClient);
+        challenge.completionHandler(AuthenticationChallengeDisposition::PerformDefaultHandling, Credential());
         return;
     }
+#endif
 
-    coreClient->receivedRequestToPerformDefaultHandling(challenge);
+    if (coreClient)
+        coreClient->receivedRequestToPerformDefaultHandling(challenge.challenge);
+    else
+        receivedRequestToPerformDefaultHandling(challenge.challenge);
 }
 
 void AuthenticationManager::rejectProtectionSpaceAndContinue(uint64_t challengeID)
@@ -263,17 +329,22 @@ void AuthenticationManager::rejectProtectionSpaceAndContinue(uint64_t challengeI
 
 void AuthenticationManager::rejectProtectionSpaceAndContinueForSingleChallenge(uint64_t challengeID)
 {
-    AuthenticationChallenge challenge = m_challenges.take(challengeID);
-    ASSERT(!challenge.isNull());
-    AuthenticationClient* coreClient = challenge.authenticationClient();
-    if (!coreClient) {
-        // FIXME: The authentication client is null for downloads, but it can also be null for canceled loads.
-        // We should not call Download::receivedCredential in the latter case.
-        Download::receivedChallengeRejection(challenge);
+    auto challenge = m_challenges.take(challengeID);
+    ASSERT(!challenge.challenge.isNull());
+
+    AuthenticationClient* coreClient = challenge.challenge.authenticationClient();
+#if USE(NETWORK_SESSION)
+    if (challenge.completionHandler) {
+        ASSERT(!coreClient);
+        challenge.completionHandler(AuthenticationChallengeDisposition::RejectProtectionSpace, Credential());
         return;
     }
+#endif
 
-    coreClient->receivedChallengeRejection(challenge);
+    if (coreClient)
+        coreClient->receivedChallengeRejection(challenge.challenge);
+    else
+        receivedChallengeRejection(challenge.challenge);
 }
 
 } // namespace WebKit

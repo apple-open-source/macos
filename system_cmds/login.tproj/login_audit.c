@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2005 Apple Computer, Inc.
- * All rights reserved.
+ * Copyright (c) 2005-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_BSD_LICENSE_HEADER_START@
  *
@@ -73,7 +72,7 @@ au_login_success(int fflag)
 	long au_cond;
 
 	/* Determine whether auditing is enabled. */
- 	if (auditon(A_GETCOND, &au_cond, sizeof(long)) < 0) {
+	if (auditon(A_GETCOND, &au_cond, sizeof(long)) < 0) {
 		if (errno == ENOSYS)
 			return;
 		errx(1, "login: Could not determine audit condition");
@@ -102,7 +101,7 @@ au_login_success(int fflag)
 
 	if (setaudit_addr(&auinfo, sizeof(auinfo)) < 0)
 		err(1, "login: setaudit_addr failed");
-	
+
 	char *session = NULL;
 	asprintf(&session, "%x", auinfo.ai_asid);
 	if (NULL == session) {
@@ -110,7 +109,7 @@ au_login_success(int fflag)
 	}
 	setenv("SECURITYSESSIONID", session, 1);
 	free(session);
-	
+
 	/* If we are not auditing, don't cut an audit record; just return. */
 	if (au_cond == AUC_NOAUDIT)
 		return;
@@ -146,7 +145,7 @@ au_login_fail(const char *errmsg, int na)
 	pid_t pid = getpid();
 
 	/* If we are not auditing, don't cut an audit record; just return. */
- 	if (auditon(A_GETCOND, &au_cond, sizeof(long)) < 0) {
+	if (auditon(A_GETCOND, &au_cond, sizeof(long)) < 0) {
 		if (errno == ENOSYS)
 			return;
 		errx(1, "login: Could not determine audit condition");
@@ -203,7 +202,7 @@ audit_logout(void)
 	long au_cond;
 
 	/* If we are not auditing, don't cut an audit record; just return. */
- 	if (auditon(A_GETCOND, &au_cond, sizeof(long)) < 0) {
+	if (auditon(A_GETCOND, &au_cond, sizeof(long)) < 0) {
 		if (errno == ENOSYS)
 			return;
 		errx(1, "login: Could not determine audit condition");

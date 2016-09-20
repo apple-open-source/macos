@@ -10,6 +10,10 @@
 #include <libkern/OSAtomic.h>
 #include <dispatch/dispatch.h>
 
+#include <darwintest.h>
+
+#define NUM_THREADS 8
+
 struct context {
 	pthread_cond_t cond;
 	pthread_mutex_t mutex;
@@ -17,21 +21,18 @@ struct context {
 	long count;
 };
 
-void *wait_thread(void *ptr) {
+static void *wait_thread(void *ptr) {
 	int res;
 	struct context *context = ptr;
-
-	int i = 0;
-	char *str;
 
 	bool loop = true;
 	while (loop) {
 		struct timespec ts;
 		struct timeval tv;
 		gettimeofday(&tv, NULL);
-		uint64_t ns = tv.tv_usec * NSEC_PER_USEC + context->udelay * NSEC_PER_USEC;
-		ts.tv_nsec = ns >= NSEC_PER_SEC ? ns % NSEC_PER_SEC : ns;
-		ts.tv_sec = tv.tv_sec + (ns >= NSEC_PER_SEC ? ns / NSEC_PER_SEC : 0);
+		tv.tv_sec += (tv.tv_usec + context->udelay) / (__typeof(tv.tv_sec)) USEC_PER_SEC;
+		tv.tv_usec = (tv.tv_usec + context->udelay) % (__typeof(tv.tv_usec)) USEC_PER_SEC;
+		TIMEVAL_TO_TIMESPEC(&tv, &ts);
 
 		res = pthread_mutex_lock(&context->mutex);
 		if (res) {
@@ -60,56 +61,49 @@ void *wait_thread(void *ptr) {
 	return NULL;
 }
 
-int main(int argc, char *argv[])
+T_DECL(cond_timedwait_timeout, "pthread_cond_timedwait() timeout")
 {
-	const int threads = 8;
+	// This testcase launches 8 threads that all perform timed wait on the same
+	// conditional variable that is not being signaled in a loop. Ater the total
+	// of 8000 timeouts all threads finish and the testcase prints out the
+	// expected time (5[ms]*8000[timeouts]/8[threads]=5s) vs elapsed time.
 	struct context context = {
 		.cond = PTHREAD_COND_INITIALIZER,
 		.mutex = PTHREAD_MUTEX_INITIALIZER,
 		.udelay = 5000,
 		.count = 8000,
 	};
-	int i;
-	int res;
 
-	uint64_t uexpected = (context.udelay * context.count) / threads;
-	printf("waittime expected: %llu us\n", uexpected); 
+	long uexpected = (context.udelay * context.count) / NUM_THREADS;
+	T_LOG("waittime expected: %ld us", uexpected);
 	struct timeval start, end;
 	gettimeofday(&start, NULL);
 
-	pthread_t p[threads];
-	for (i = 0; i < threads; ++i) {
-		res = pthread_create(&p[i], NULL, wait_thread, &context);
-		assert(res == 0);
+	pthread_t p[NUM_THREADS];
+	for (int i = 0; i < NUM_THREADS; ++i) {
+		T_ASSERT_POSIX_ZERO(pthread_create(&p[i], NULL, wait_thread, &context),
+							"pthread_create");
 	}
 
-	usleep(uexpected);
+	usleep((useconds_t) uexpected);
 	bool loop = true;
 	while (loop) {
-		res = pthread_mutex_lock(&context.mutex);
-		if (res) {
-			fprintf(stderr, "[%ld] pthread_mutex_lock: %s\n", context.count, strerror(res));
-			abort();
-		}
+		T_ASSERT_POSIX_ZERO(pthread_mutex_lock(&context.mutex),
+							"pthread_mutex_lock");
 		if (context.count <= 0) {
 			loop = false;
 		}
-		res = pthread_mutex_unlock(&context.mutex);
-		if (res) {
-			fprintf(stderr, "[%ld] pthread_mutex_unlock: %s\n", context.count, strerror(res));
-			abort();
-		}
+		T_ASSERT_POSIX_ZERO(pthread_mutex_unlock(&context.mutex),
+							"pthread_mutex_unlock");
 	}
 
-	for (i = 0; i < threads; ++i) {
-		res = pthread_join(p[i], NULL);
-		assert(res == 0);
+	for (int i = 0; i < NUM_THREADS; ++i) {
+		T_ASSERT_POSIX_ZERO(pthread_join(p[i], NULL), "pthread_join");
 	}
 
 	gettimeofday(&end, NULL);
-	uint64_t uelapsed = (end.tv_sec * USEC_PER_SEC + end.tv_usec) -
-			(start.tv_sec * USEC_PER_SEC + start.tv_usec);
-	printf("waittime actual:   %llu us\n", uelapsed);
-
-	return 0;
+	uint64_t uelapsed =
+			((uint64_t) end.tv_sec * USEC_PER_SEC + (uint64_t) end.tv_usec) -
+			((uint64_t) start.tv_sec * USEC_PER_SEC + (uint64_t) start.tv_usec);
+	T_LOG("waittime actual:   %llu us", uelapsed);
 }

@@ -1,0 +1,26 @@
+
+#define VIEWHINTEXPORT(VIEWNAME) _kSecAttrViewHint##VIEWNAME
+#define VIEWEXPORT(VIEWNAME) _kSOSView##VIEWNAME
+
+// Synthesized views - no viewhint
+VIEWEXPORT(KeychainV0)
+
+// Can we get rid of this?  There's no ViewHint
+//VIEWEXPORT(PCSFeldspar)
+
+// This only exists as a viewhint
+//VIEWHINTEXPORT(Thumper)
+
+// Views with ViewHints
+#undef DOVIEWMACRO
+#define DOVIEWMACRO(VIEWNAME, DEFSTRING, CMDSTRING, DEFAULTSETTING, INITIALSYNCSETTING, ALWAYSONSETTING, BACKUPSETTING, V0SETTING) _kSOSView##VIEWNAME
+#include "Security/SecureObjectSync/ViewList.list"
+
+// V0 Subviews don't have view hints, they use queries
+#undef DOVIEWMACRO
+#define DO_EXPORT_(VIEWNAME) _kSecAttrViewHint##VIEWNAME
+#define DO_EXPORT_V(VIEWNAME)
+#define DOVIEWMACRO(VIEWNAME, DEFSTRING, CMDSTRING, DEFAULTSETTING, INITIALSYNCSETTING, ALWAYSONSETTING, BACKUPSETTING, V0SETTING) DO_EXPORT_##V0SETTING(VIEWNAME)
+#include "Security/SecureObjectSync/ViewList.list"
+#undef DOVIEWMACRO
+

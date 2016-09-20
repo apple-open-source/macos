@@ -3664,7 +3664,7 @@ KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_free_creds_contents (
 	krb5_context context,
 	krb5_creds *c)
-     KRB5_DEPRECATED_FUNCTION("Use X instead");
+     KRB5_DEPRECATED_FUNCTION("Use krb5_free_cred_contents instead");
 
 /**
  * Free krb5_data (and its content).

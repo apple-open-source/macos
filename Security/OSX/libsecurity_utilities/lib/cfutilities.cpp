@@ -261,7 +261,7 @@ CFDataRef cfLoadFile(CFURLRef url)
 		&data, NULL, NULL, &error)) {
 		return data;
 	} else {
-		secdebug("cfloadfile", "failed to fetch %s error=%d", cfString(url).c_str(), int(error));
+		secinfo("cfloadfile", "failed to fetch %s error=%d", cfString(url).c_str(), int(error));
 		return NULL;
 	}
 }

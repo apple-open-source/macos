@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -290,7 +290,7 @@ bootp_arp_probe(ServiceRef service_p,  IFEventID_t evid, void * event_data)
 	  /* ALIGN: saved.pkt is uint32_t aligned, cast ok */
 	  struct bootp *	reply = (struct bootp *)(void *)bootp->saved.pkt;
 
-	  my_log(LOG_INFO, "BOOTP %s: ended at %d", if_name(if_p), 
+	  my_log(LOG_INFO, "BOOTP %s: ended at %ld", if_name(if_p),
 		 timer_current_secs() - bootp->start_secs);
 	  (void)service_disable_autoaddr(service_p);
 	  bootp_client_disable_receive(bootp->client);
@@ -408,7 +408,7 @@ bootp_request(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  /* wait for responses */
 	  tv.tv_sec = bootp->wait_secs;
 	  tv.tv_usec = (suseconds_t)random_range(0, USECS_PER_SEC - 1);
-	  my_log(LOG_INFO, "BOOTP %s: waiting at %d for %d.%06d", 
+	  my_log(LOG_INFO, "BOOTP %s: waiting at %ld for %ld.%06d",
 		 if_name(if_p), 
 		 timer_current_secs() - bootp->start_secs,
 		 tv.tv_sec, tv.tv_usec);
@@ -455,7 +455,7 @@ bootp_request(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	      if (bootp->gathering == FALSE) {
 		  struct timeval t = {0,0};
 		  t.tv_sec = G_gather_secs;
-		  my_log(LOG_INFO, "BOOTP %s: gathering began at %d", 
+		  my_log(LOG_INFO, "BOOTP %s: gathering began at %ld",
 			 if_name(if_p), 
 			 timer_current_secs() - bootp->start_secs);
 		  bootp->gathering = TRUE;
@@ -602,36 +602,35 @@ bootp_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 		       msg);
 	  break;
       }
+      case IFEventID_wake_e:
       case IFEventID_renew_e:
       case IFEventID_link_status_changed_e: {
-	  link_status_t	link_status;
-	  void *	network_changed = event_data;
+	  link_event_data_t	link_event = (link_event_data_t)event_data;
+	  link_status_t		link_status;
 
 	  if (bootp == NULL) {
 	      status = ipconfig_status_internal_error_e;
 	      break;
 	  }
-	  if (network_changed != NULL) {
+	  if ((link_event->flags & kLinkFlagsSSIDChanged) != 0) {
 	      /* switched networks, remove IP address to avoid IP collisions */
 	      (void)service_remove_address(service_p);
 	  }
 	  link_status = service_link_status(service_p);
-	  if (link_status.valid == TRUE) {
-	      if (link_status.active == TRUE) {
-		  /* confirm an address, get a new one, or timeout */
-		  bootp->user_warned = FALSE;
-		  if (bootp->try != 1) {
-		      bootp_request(service_p, IFEventID_start_e, NULL);
-		  }
-	      }
-	      else {
-		  /* ensure that we'll retry if the link goes back up */
-		  bootp->try = 0;
+	  if (link_status.valid == TRUE && link_status.active == FALSE) {
+	      /* ensure that we'll retry when the link goes back up */
+	      bootp->try = 0;
 
-		  /* disallow collision detection while disconnected */
-		  bootp->enable_arp_collision_detection = FALSE;
+	      /* disallow collision detection while disconnected */
+	      bootp->enable_arp_collision_detection = FALSE;
 
-		  S_cancel_pending_events(service_p);
+	      S_cancel_pending_events(service_p);
+	  }
+	  else {
+	      /* confirm an address, get a new one, or timeout */
+	      bootp->user_warned = FALSE;
+	      if (bootp->try != 1) {
+		  bootp_request(service_p, IFEventID_start_e, NULL);
 	      }
 	  }
 	  break;

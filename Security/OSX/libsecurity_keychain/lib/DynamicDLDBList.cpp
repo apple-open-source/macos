@@ -140,7 +140,7 @@ DynamicDLDBList::_load()
 		if (serviceMask & CSSM_SERVICE_DL)
 		{
 			string moduleID = (*commonIt)->moduleID();
-			secdebug("dynamic", "Loading dynamic %sDL module: %s",
+			secinfo("dynamic", "Loading dynamic %sDL module: %s",
 				(serviceMask & CSSM_SERVICE_CSP) ? "CSP/" : "", moduleID.c_str());
 
 			/* Register module for callbacks and load it. */
@@ -160,7 +160,7 @@ DynamicDLDBList::_load()
 				bool hasCSP = csp.find(MDSClient::Attribute("ModuleID") == moduleID
 					&& MDSClient::Attribute("SSID") == subserviceID) != csp.end();
 
-				secdebug("dynamic", "Adding databases from %sDL SSID %lu module: %s",
+				secinfo("dynamic", "Adding databases from %sDL SSID %lu module: %s",
 						hasCSP ? "CSP/" : "", (unsigned long)subserviceID, moduleID.c_str());
 				list_changed |= _add(moduleGuid, subserviceID,
                                      hasCSP ? CSSM_SERVICE_CSP | CSSM_SERVICE_DL : CSSM_SERVICE_DL);
@@ -190,7 +190,7 @@ void
 DynamicDLDBList::callback(const Guid &guid, uint32 subserviceID,
 	CSSM_SERVICE_TYPE subserviceType, CSSM_MODULE_EVENT eventType)
 {
-	secdebug("event", "Received callback from guid: %s ssid: %lu type: %lu event: %lu",
+	secinfo("event", "Received callback from guid: %s ssid: %lu type: %lu event: %lu",
  			guid.toString().c_str(), (unsigned long)subserviceID, (unsigned long)subserviceType, (unsigned long)eventType);
 
 	StLock<Mutex>_(mMutex);
@@ -202,14 +202,14 @@ DynamicDLDBList::callback(const Guid &guid, uint32 subserviceID,
 		if (eventType == CSSM_NOTIFY_INSERT)
 		{
 			/* A DL or CSP/DL was inserted. */
-			secdebug("dynamic", "%sDL module: %s SSID: %lu inserted",
+			secinfo("dynamic", "%sDL module: %s SSID: %lu inserted",
 				(subserviceType & CSSM_SERVICE_CSP) ? "CSP/" : "", guid.toString().c_str(), (unsigned long)subserviceID);
 			list_changed = _add(guid, subserviceID, subserviceType);
 		}
 		else if (eventType == CSSM_NOTIFY_REMOVE)
 		{
 			/* A DL or CSP/DL was removed. */
-			secdebug("dynamic", "%sDL module: %s SSID: %lu removed",
+			secinfo("dynamic", "%sDL module: %s SSID: %lu removed",
 				(subserviceType & CSSM_SERVICE_CSP) ? "CSP/" : "", guid.toString().c_str(), (unsigned long)subserviceID);
 			list_changed = _remove(guid, subserviceID, subserviceType);
 		}

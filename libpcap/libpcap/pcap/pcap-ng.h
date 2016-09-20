@@ -28,6 +28,8 @@
 
 #ifdef PRIVATE
 
+#include <uuid/uuid.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -281,6 +283,7 @@ struct pcapng_process_information_fields {
 
 #define PCAPNG_PIB_NAME			2	/* UTF-8 string with name of process */
 #define PCAPNG_PIB_PATH			3	/* UTF-8 string with path of process */
+#define PCAPNG_PIB_UUID			4	/* 16 bytes of the process UUID */
 
 /*
  * Process Information Block
@@ -338,17 +341,25 @@ typedef struct pcapng_block * pcapng_block_t;
  * Allocate an internalized pcap-ng block data structure.
  * This allocate a work buffer of the given size to 
  * hold raw data block content.
- * The size should be large enough to hold the largest 
+ * The size should be large enough to hold the largest
  * expected block size.
+ * If the given size is greater than the value returned by
+ * pcap_ng_block_size_max() the allocation fails and NULL
+ * is returned.
  */
 pcapng_block_t pcap_ng_block_alloc(size_t );
-	
+
+/*
+ * Returns the maximum size that can be passed to pcap_ng_block_alloc().
+ */
+size_t pcap_ng_block_size_max(void);
+
 /*
  * To intialize or reuse a existing internalized pcap-ng block.
  * Re-using pcapng_block_t is more efficient than using  
  * pcap_ng_block_alloc() for each block. 
  */
-int pcap_ng_block_reset(pcapng_block_t , bpf_u_int32 );
+int pcap_ng_block_reset(pcapng_block_t, bpf_u_int32 );
 
 /*
  * Free the memory associated internalized pcap-ng block
@@ -363,7 +374,7 @@ bpf_u_int32 pcap_ng_dump_block(pcap_dumper_t *, pcapng_block_t);
 /*
  * Write a internalized pcap-ng block into a memory buffer
  */
-bpf_u_int32 pcap_ng_externalize_block(void *, size_t , pcapng_block_t );
+bpf_u_int32 pcap_ng_externalize_block(void *, size_t, pcapng_block_t );
 
 /*
  * To allocate or initialize a raw block read from pcap-ng file
@@ -392,7 +403,7 @@ struct pcapng_os_event_fields *pcap_ng_get_os_event_fields(pcapng_block_t );
 /*
  * Set the packet data to the passed buffer by copying into the internal block buffer
  */
-bpf_u_int32 pcap_ng_block_packet_copy_data(pcapng_block_t , const void *, bpf_u_int32 );
+bpf_u_int32 pcap_ng_block_packet_copy_data(pcapng_block_t, const void *, bpf_u_int32 );
 	
 /*
  * Set the packet data by referencing an external buffer.
@@ -417,9 +428,9 @@ int pcap_ng_block_does_support_data(pcapng_block_t);
 /*
  * Add a option with the given code and value
  */
-int pcap_ng_block_add_option_with_value(pcapng_block_t , u_short ,
-										const void *, u_short );
-int	pcap_ng_block_add_option_with_string(pcapng_block_t , u_short , const char *);
+int pcap_ng_block_add_option_with_value(pcapng_block_t, u_short, const void *, u_short );
+int pcap_ng_block_add_option_with_string(pcapng_block_t, u_short, const char *);
+int pcap_ng_block_add_option_with_uuid(pcapng_block_t, u_short, uuid_t);
 
 /*
  * To access option of an internalized block

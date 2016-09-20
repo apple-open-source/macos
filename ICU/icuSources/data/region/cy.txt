@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/cy.xml
@@ -20,7 +20,7 @@ cy{
         017{"Canol Affrica"}
         018{"Deheudir Affrica"}
         019{"Yr Amerig"}
-        021{"America i’r Gogledd o Mecsico"}
+        021{"America i’r Gogledd o Fecsico"}
         029{"Y Caribî"}
         030{"Dwyrain Asia"}
         034{"De Asia"}
@@ -46,7 +46,6 @@ cy{
         AI{"Anguilla"}
         AL{"Albania"}
         AM{"Armenia"}
-        AN{"Ynysoedd Caribî yr Iseldiroedd"}
         AO{"Angola"}
         AQ{"Antarctica"}
         AR{"Yr Ariannin"}
@@ -117,7 +116,7 @@ cy{
         FJ{"Fiji"}
         FK{"Ynysoedd y Falkland/Malvinas"}
         FM{"Micronesia"}
-        FO{"Føroyar"}
+        FO{"Ynysoedd Ffaro"}
         FR{"Ffrainc"}
         GA{"Gabon"}
         GB{"Y Deyrnas Unedig"}
@@ -221,7 +220,7 @@ cy{
         PE{"Periw"}
         PF{"Polynesia Ffrengig"}
         PG{"Papua Guinea Newydd"}
-        PH{"Pilipinas"}
+        PH{"Y Philipinau"}
         PK{"Pakistan"}
         PL{"Gwlad Pwyl"}
         PM{"Saint-Pierre-et-Miquelon"}
@@ -250,7 +249,7 @@ cy{
         SK{"Slofacia"}
         SL{"Sierra Leone"}
         SM{"San Marino"}
-        SN{"Sénégal"}
+        SN{"Senegal"}
         SO{"Somalia"}
         SR{"Suriname"}
         SS{"De Swdan"}
@@ -309,9 +308,10 @@ cy{
     Countries%variant{
         CD{"y Congo (G.Dd.C.)"}
         CG{"Y Congo (Gweriniaeth)"}
+        CI{"Arfordir Ifori"}
         FK{"Ynysoedd y Falkland (Ynysoedd y Malfinas)"}
         MK{"Macedonia (CWIM)"}
         TL{"Dwyrain Timor"}
     }
-    Version{"2.1.10.93"}
+    Version{"2.1.22.93"}
 }

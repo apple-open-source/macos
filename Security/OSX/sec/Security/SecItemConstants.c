@@ -108,6 +108,10 @@ SEC_CONST_DECL (kSecAttrSynchronizable, "sync");
 SEC_CONST_DECL (kSecAttrTombstone, "tomb");
 SEC_CONST_DECL (kSecAttrMultiUser, "musr");
 SEC_CONST_DECL (kSecAttrNoLegacy, "nleg");
+SEC_CONST_DECL (kSecAttrTokenOID, "toid");
+
+/* Predefined access groups constants */
+SEC_CONST_DECL (kSecAttrAccessGroupToken, "com.apple.token");
 
 /* Search Constants */
 SEC_CONST_DECL (kSecMatchPolicy, "m_Policy");
@@ -154,6 +158,9 @@ SEC_CONST_DECL (kSecAttrAccessibleWhenUnlockedThisDeviceOnly, "aku");
 SEC_CONST_DECL (kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly, "cku");
 SEC_CONST_DECL (kSecAttrAccessibleAlwaysThisDeviceOnly, "dku");
 SEC_CONST_DECL (kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly, "akpu");
+/* kSecAttrAccessible Value Constants (Private). */
+SEC_CONST_DECL (kSecAttrAccessibleAlwaysPrivate, "dk");
+SEC_CONST_DECL (kSecAttrAccessibleAlwaysThisDeviceOnlyPrivate, "dku");
 
 /* kSecAttrProtocol Value Constants. */
 SEC_CONST_DECL (kSecAttrProtocolFTP, "ftp ");
@@ -210,6 +217,7 @@ SEC_CONST_DECL (kSecAttrKeyClassSymmetric, "2");
 /* kSecAttrKeyType Value Constants.  Based on CSSM_ALGORITHMS. */
 SEC_CONST_DECL (kSecAttrKeyTypeRSA, "42");
 SEC_CONST_DECL (kSecAttrKeyTypeEC, "73");  /* rdar://10755886 */
+SEC_CONST_DECL (kSecAttrKeyTypeECSECPrimeRandom, "73");
 
 /* kSecAttrSynchronizable Value Constants. */
 SEC_CONST_DECL (kSecAttrSynchronizableAny, "syna");
@@ -238,18 +246,10 @@ SEC_CONST_DECL (kSecAttrTokenIDSecureEnclave, "com.apple.setoken");
 
 /*  View Hint Constants */
 
-SEC_CONST_DECL (kSecAttrViewHintPCSMasterKey, "PCS-MasterKey");
-SEC_CONST_DECL (kSecAttrViewHintPCSiCloudDrive, "PCS-iCloudDrive");
-SEC_CONST_DECL (kSecAttrViewHintPCSPhotos, "PCS-Photos");
-SEC_CONST_DECL (kSecAttrViewHintPCSCloudKit, "PCS-CloudKit");
-SEC_CONST_DECL (kSecAttrViewHintPCSEscrow, "PCS-Escrow");
-SEC_CONST_DECL (kSecAttrViewHintPCSFDE, "PCS-FDE");
-SEC_CONST_DECL (kSecAttrViewHintPCSMailDrop, "PCS-Maildrop");
-SEC_CONST_DECL (kSecAttrViewHintPCSiCloudBackup, "PCS-Backup");
-SEC_CONST_DECL (kSecAttrViewHintPCSNotes, "PCS-Notes");
-SEC_CONST_DECL (kSecAttrViewHintPCSiMessage, "PCS-iMessage");
-SEC_CONST_DECL (kSecAttrViewHintPCSFeldspar, "PCS-Feldspar");
+#undef DOVIEWMACRO
+#define DO_SEC_CONST_DECL_(VIEWNAME, DEFSTRING) const CFTypeRef kSecAttrViewHint##VIEWNAME = CFSTR(DEFSTRING);
+#define DO_SEC_CONST_DECL_V(VIEWNAME, DEFSTRING)
 
-SEC_CONST_DECL (kSecAttrViewHintAppleTV, "AppleTV");
-SEC_CONST_DECL (kSecAttrViewHintHomeKit, "HomeKit");
-SEC_CONST_DECL (kSecAttrViewHintThumper, "Thumper");
+#define DOVIEWMACRO(VIEWNAME, DEFSTRING, CMDSTRING, DEFAULTSETTING, INITIALSYNCSETTING, ALWAYSONSETTING, BACKUPSETTING, V0SETTING) DO_SEC_CONST_DECL_##V0SETTING(VIEWNAME, DEFSTRING)
+#include "Security/SecureObjectSync/ViewList.list"
+#undef DOVIEWMACRO

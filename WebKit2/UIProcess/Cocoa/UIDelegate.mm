@@ -30,15 +30,19 @@
 
 #import "CompletionHandlerCallChecker.h"
 #import "NavigationActionData.h"
-#import "SecurityOriginData.h"
 #import "WKFrameInfoInternal.h"
 #import "WKNavigationActionInternal.h"
+#import "WKOpenPanelParametersInternal.h"
 #import "WKSecurityOriginInternal.h"
+#import "WKUIDelegatePrivate.h"
 #import "WKWebViewConfigurationInternal.h"
 #import "WKWebViewInternal.h"
 #import "WKWindowFeaturesInternal.h"
-#import "WKUIDelegatePrivate.h"
+#import "WebOpenPanelResultListenerProxy.h"
+#import "WebProcessProxy.h"
+#import "_WKContextMenuElementInfo.h"
 #import "_WKFrameHandleInternal.h"
+#import <WebCore/SecurityOriginData.h>
 #import <WebCore/URL.h>
 
 namespace WebKit {
@@ -51,6 +55,13 @@ UIDelegate::UIDelegate(WKWebView *webView)
 UIDelegate::~UIDelegate()
 {
 }
+
+#if ENABLE(CONTEXT_MENUS)
+std::unique_ptr<API::ContextMenuClient> UIDelegate::createContextMenuClient()
+{
+    return std::make_unique<ContextMenuClient>(*this);
+}
+#endif
 
 std::unique_ptr<API::UIClient> UIDelegate::createUIClient()
 {
@@ -70,6 +81,11 @@ void UIDelegate::setDelegate(id <WKUIDelegate> delegate)
     m_delegateMethods.webViewRunJavaScriptAlertPanelWithMessageInitiatedByFrameCompletionHandler = [delegate respondsToSelector:@selector(webView:runJavaScriptAlertPanelWithMessage:initiatedByFrame:completionHandler:)];
     m_delegateMethods.webViewRunJavaScriptConfirmPanelWithMessageInitiatedByFrameCompletionHandler = [delegate respondsToSelector:@selector(webView:runJavaScriptConfirmPanelWithMessage:initiatedByFrame:completionHandler:)];
     m_delegateMethods.webViewRunJavaScriptTextInputPanelWithPromptDefaultTextInitiatedByFrameCompletionHandler = [delegate respondsToSelector:@selector(webView:runJavaScriptTextInputPanelWithPrompt:defaultText:initiatedByFrame:completionHandler:)];
+
+#if PLATFORM(MAC)
+    m_delegateMethods.webViewRunOpenPanelWithParametersInitiatedByFrameCompletionHandler = [delegate respondsToSelector:@selector(webView:runOpenPanelWithParameters:initiatedByFrame:completionHandler:)];
+#endif
+
     m_delegateMethods.webViewDecideDatabaseQuotaForSecurityOriginCurrentQuotaCurrentOriginUsageCurrentDatabaseUsageExpectedUsageDecisionHandler = [delegate respondsToSelector:@selector(_webView:decideDatabaseQuotaForSecurityOrigin:currentQuota:currentOriginUsage:currentDatabaseUsage:expectedUsage:decisionHandler:)];
     m_delegateMethods.webViewDecideWebApplicationCacheQuotaForSecurityOriginCurrentQuotaTotalBytesNeeded = [delegate respondsToSelector:@selector(_webView:decideWebApplicationCacheQuotaForSecurityOrigin:currentQuota:totalBytesNeeded:decisionHandler:)];
     m_delegateMethods.webViewPrintFrame = [delegate respondsToSelector:@selector(_webView:printFrame:)];
@@ -84,11 +100,44 @@ void UIDelegate::setDelegate(id <WKUIDelegate> delegate)
 #endif
     m_delegateMethods.webViewActionsForElementDefaultActions = [delegate respondsToSelector:@selector(_webView:actionsForElement:defaultActions:)];
     m_delegateMethods.webViewDidNotHandleTapAsClickAtPoint = [delegate respondsToSelector:@selector(_webView:didNotHandleTapAsClickAtPoint:)];
+    m_delegateMethods.presentingViewControllerForWebView = [delegate respondsToSelector:@selector(_presentingViewControllerForWebView:)];
 #endif
-#if ENABLE(VIDEO)
-    m_delegateMethods.webViewMediaDocumentNaturalSizeChanged = [delegate respondsToSelector:@selector(_webView:mediaDocumentNaturalSizeChanged:)];
+    m_delegateMethods.dataDetectionContextForWebView = [delegate respondsToSelector:@selector(_dataDetectionContextForWebView:)];
+    m_delegateMethods.webViewImageOrMediaDocumentSizeChanged = [delegate respondsToSelector:@selector(_webView:imageOrMediaDocumentSizeChanged:)];
+
+#if ENABLE(CONTEXT_MENUS)
+    m_delegateMethods.webViewContextMenuForElement = [delegate respondsToSelector:@selector(_webView:contextMenu:forElement:)];
+    m_delegateMethods.webViewContextMenuForElementUserInfo = [delegate respondsToSelector:@selector(_webView:contextMenu:forElement:userInfo:)];
 #endif
 }
+
+#if ENABLE(CONTEXT_MENUS)
+UIDelegate::ContextMenuClient::ContextMenuClient(UIDelegate& uiDelegate)
+    : m_uiDelegate(uiDelegate)
+{
+}
+
+UIDelegate::ContextMenuClient::~ContextMenuClient()
+{
+}
+
+RetainPtr<NSMenu> UIDelegate::ContextMenuClient::menuFromProposedMenu(WebKit::WebPageProxy&, NSMenu *menu, const WebKit::WebHitTestResultData&, API::Object* userInfo)
+{
+    if (!m_uiDelegate.m_delegateMethods.webViewContextMenuForElement && !m_uiDelegate.m_delegateMethods.webViewContextMenuForElementUserInfo)
+        return menu;
+
+    auto delegate = m_uiDelegate.m_delegate.get();
+    if (!delegate)
+        return menu;
+
+    auto contextMenuElementInfo = adoptNS([[_WKContextMenuElementInfo alloc] init]);
+
+    if (m_uiDelegate.m_delegateMethods.webViewContextMenuForElement)
+        return [(id <WKUIDelegatePrivate>)delegate _webView:m_uiDelegate.m_webView contextMenu:menu forElement:contextMenuElementInfo.get()];
+
+    return [(id <WKUIDelegatePrivate>)delegate _webView:m_uiDelegate.m_webView contextMenu:menu forElement:contextMenuElementInfo.get() userInfo:static_cast<id <NSSecureCoding>>(userInfo->wrapper())];
+}
+#endif
 
 UIDelegate::UIClient::UIClient(UIDelegate& uiDelegate)
     : m_uiDelegate(uiDelegate)
@@ -99,7 +148,7 @@ UIDelegate::UIClient::~UIClient()
 {
 }
 
-PassRefPtr<WebKit::WebPageProxy> UIDelegate::UIClient::createNewPage(WebKit::WebPageProxy*, WebKit::WebFrameProxy* initiatingFrame, const WebKit::SecurityOriginData& securityOriginData, const WebCore::ResourceRequest& request, const WebCore::WindowFeatures& windowFeatures, const WebKit::NavigationActionData& navigationActionData)
+PassRefPtr<WebKit::WebPageProxy> UIDelegate::UIClient::createNewPage(WebKit::WebPageProxy* page, WebKit::WebFrameProxy* initiatingFrame, const WebCore::SecurityOriginData& securityOriginData, const WebCore::ResourceRequest& request, const WebCore::WindowFeatures& windowFeatures, const WebKit::NavigationActionData& navigationActionData)
 {
     if (!m_uiDelegate.m_delegateMethods.webViewCreateWebViewWithConfigurationForNavigationActionWindowFeatures)
         return nullptr;
@@ -113,12 +162,13 @@ PassRefPtr<WebKit::WebPageProxy> UIDelegate::UIClient::createNewPage(WebKit::Web
 
     auto sourceFrameInfo = API::FrameInfo::create(*initiatingFrame, securityOriginData.securityOrigin());
 
-    bool shouldOpenAppLinks = !protocolHostAndPortAreEqual(WebCore::URL(WebCore::ParsedURLString, initiatingFrame->url()), request.url());
-    auto apiNavigationAction = API::NavigationAction::create(navigationActionData, sourceFrameInfo.ptr(), nullptr, request, WebCore::URL(), shouldOpenAppLinks);
+    auto userInitiatedActivity = page->process().userInitiatedActivity(navigationActionData.userGestureTokenIdentifier);
+    bool shouldOpenAppLinks = !hostsAreEqual(WebCore::URL(WebCore::ParsedURLString, initiatingFrame->url()), request.url());
+    auto apiNavigationAction = API::NavigationAction::create(navigationActionData, sourceFrameInfo.ptr(), nullptr, request, WebCore::URL(), shouldOpenAppLinks, userInitiatedActivity);
 
     auto apiWindowFeatures = API::WindowFeatures::create(windowFeatures);
 
-    RetainPtr<WKWebView> webView = [delegate.get() webView:m_uiDelegate.m_webView createWebViewWithConfiguration:configuration.get() forNavigationAction:wrapper(apiNavigationAction) windowFeatures:wrapper(apiWindowFeatures)];
+    RetainPtr<WKWebView> webView = [delegate webView:m_uiDelegate.m_webView createWebViewWithConfiguration:configuration.get() forNavigationAction:wrapper(apiNavigationAction) windowFeatures:wrapper(apiWindowFeatures)];
 
     if (!webView)
         return nullptr;
@@ -129,7 +179,7 @@ PassRefPtr<WebKit::WebPageProxy> UIDelegate::UIClient::createNewPage(WebKit::Web
     return webView->_page.get();
 }
 
-void UIDelegate::UIClient::runJavaScriptAlert(WebKit::WebPageProxy*, const WTF::String& message, WebKit::WebFrameProxy* webFrameProxy, const WebKit::SecurityOriginData& securityOriginData, std::function<void ()> completionHandler)
+void UIDelegate::UIClient::runJavaScriptAlert(WebKit::WebPageProxy*, const WTF::String& message, WebKit::WebFrameProxy* webFrameProxy, const WebCore::SecurityOriginData& securityOriginData, std::function<void ()> completionHandler)
 {
     if (!m_uiDelegate.m_delegateMethods.webViewRunJavaScriptAlertPanelWithMessageInitiatedByFrameCompletionHandler) {
         completionHandler();
@@ -149,7 +199,7 @@ void UIDelegate::UIClient::runJavaScriptAlert(WebKit::WebPageProxy*, const WTF::
     }];
 }
 
-void UIDelegate::UIClient::runJavaScriptConfirm(WebKit::WebPageProxy*, const WTF::String& message, WebKit::WebFrameProxy* webFrameProxy, const WebKit::SecurityOriginData& securityOriginData, std::function<void (bool)> completionHandler)
+void UIDelegate::UIClient::runJavaScriptConfirm(WebKit::WebPageProxy*, const WTF::String& message, WebKit::WebFrameProxy* webFrameProxy, const WebCore::SecurityOriginData& securityOriginData, std::function<void (bool)> completionHandler)
 {
     if (!m_uiDelegate.m_delegateMethods.webViewRunJavaScriptConfirmPanelWithMessageInitiatedByFrameCompletionHandler) {
         completionHandler(false);
@@ -169,7 +219,7 @@ void UIDelegate::UIClient::runJavaScriptConfirm(WebKit::WebPageProxy*, const WTF
     }];
 }
 
-void UIDelegate::UIClient::runJavaScriptPrompt(WebKit::WebPageProxy*, const WTF::String& message, const WTF::String& defaultValue, WebKit::WebFrameProxy* webFrameProxy, const WebKit::SecurityOriginData& securityOriginData, std::function<void (const WTF::String&)> completionHandler)
+void UIDelegate::UIClient::runJavaScriptPrompt(WebKit::WebPageProxy*, const WTF::String& message, const WTF::String& defaultValue, WebKit::WebFrameProxy* webFrameProxy, const WebCore::SecurityOriginData& securityOriginData, std::function<void (const WTF::String&)> completionHandler)
 {
     if (!m_uiDelegate.m_delegateMethods.webViewRunJavaScriptTextInputPanelWithPromptDefaultTextInitiatedByFrameCompletionHandler) {
         completionHandler(String());
@@ -192,7 +242,11 @@ void UIDelegate::UIClient::runJavaScriptPrompt(WebKit::WebPageProxy*, const WTF:
 void UIDelegate::UIClient::exceededDatabaseQuota(WebPageProxy*, WebFrameProxy*, API::SecurityOrigin* securityOrigin, const WTF::String& databaseName, const WTF::String& displayName, unsigned long long currentQuota, unsigned long long currentOriginUsage, unsigned long long currentUsage, unsigned long long expectedUsage, std::function<void (unsigned long long)> completionHandler)
 {
     if (!m_uiDelegate.m_delegateMethods.webViewDecideDatabaseQuotaForSecurityOriginCurrentQuotaCurrentOriginUsageCurrentDatabaseUsageExpectedUsageDecisionHandler) {
-        completionHandler(currentQuota);
+
+        // Use 50 MB as the default database quota.
+        unsigned long long defaultPerOriginDatabaseQuota = 50 * 1024 * 1024;
+
+        completionHandler(defaultPerOriginDatabaseQuota);
         return;
     }
 
@@ -209,6 +263,40 @@ void UIDelegate::UIClient::exceededDatabaseQuota(WebPageProxy*, WebFrameProxy*, 
         completionHandler(newQuota);
     }];
 }
+
+#if PLATFORM(MAC)
+bool UIDelegate::UIClient::runOpenPanel(WebPageProxy*, WebFrameProxy* webFrameProxy, const WebCore::SecurityOriginData& securityOriginData, API::OpenPanelParameters* openPanelParameters, WebOpenPanelResultListenerProxy* listener)
+{
+    if (!m_uiDelegate.m_delegateMethods.webViewRunOpenPanelWithParametersInitiatedByFrameCompletionHandler)
+        return false;
+
+    auto delegate = m_uiDelegate.m_delegate.get();
+    if (!delegate)
+        return false;
+
+    auto frame = API::FrameInfo::create(*webFrameProxy, securityOriginData.securityOrigin());
+    RefPtr<WebOpenPanelResultListenerProxy> resultListener = listener;
+
+    RefPtr<CompletionHandlerCallChecker> checker = CompletionHandlerCallChecker::create(delegate.get(), @selector(webView:runOpenPanelWithParameters:initiatedByFrame:completionHandler:));
+
+    [delegate webView:m_uiDelegate.m_webView runOpenPanelWithParameters:wrapper(*openPanelParameters) initiatedByFrame:wrapper(frame) completionHandler:[checker, resultListener](NSArray *URLs) {
+        checker->didCallCompletionHandler();
+
+        if (!URLs) {
+            resultListener->cancel();
+            return;
+        }
+
+        Vector<String> filenames;
+        for (NSURL *url in URLs)
+            filenames.append(url.fileSystemRepresentation);
+
+        resultListener->chooseFiles(filenames);
+    }];
+
+    return true;
+}
+#endif
 
 void UIDelegate::UIClient::reachedApplicationCacheOriginQuota(WebPageProxy*, const WebCore::SecurityOrigin& securityOrigin, uint64_t currentQuota, uint64_t totalBytesNeeded, std::function<void (unsigned long long)> completionHandler)
 {
@@ -321,7 +409,7 @@ bool UIDelegate::UIClient::shouldIncludeAppLinkActionsForElement(_WKActivatedEle
 RetainPtr<NSArray> UIDelegate::UIClient::actionsForElement(_WKActivatedElementInfo *elementInfo, RetainPtr<NSArray> defaultActions)
 {
     if (!m_uiDelegate.m_delegateMethods.webViewActionsForElementDefaultActions)
-        return WTF::move(defaultActions);
+        return defaultActions;
 
     auto delegate = m_uiDelegate.m_delegate.get();
     if (!delegate)
@@ -341,21 +429,44 @@ void UIDelegate::UIClient::didNotHandleTapAsClick(const WebCore::IntPoint& point
 
     [static_cast<id <WKUIDelegatePrivate>>(delegate) _webView:m_uiDelegate.m_webView didNotHandleTapAsClickAtPoint:point];
 }
+
+UIViewController *UIDelegate::UIClient::presentingViewController()
+{
+    if (!m_uiDelegate.m_delegateMethods.presentingViewControllerForWebView)
+        return nullptr;
+
+    auto delegate = m_uiDelegate.m_delegate.get();
+    if (!delegate)
+        return nullptr;
+
+    return [static_cast<id <WKUIDelegatePrivate>>(delegate) _presentingViewControllerForWebView:m_uiDelegate.m_webView];
+}
+
 #endif
 
-#if ENABLE(VIDEO)
-void UIDelegate::UIClient::mediaDocumentNaturalSizeChanged(const WebCore::IntSize& newSize)
+NSDictionary *UIDelegate::UIClient::dataDetectionContext()
 {
-    if (!m_uiDelegate.m_delegateMethods.webViewMediaDocumentNaturalSizeChanged)
+    if (!m_uiDelegate.m_delegateMethods.dataDetectionContextForWebView)
+        return nullptr;
+
+    auto delegate = m_uiDelegate.m_delegate.get();
+    if (!delegate)
+        return nullptr;
+
+    return [static_cast<id <WKUIDelegatePrivate>>(delegate) _dataDetectionContextForWebView:m_uiDelegate.m_webView];
+}
+
+void UIDelegate::UIClient::imageOrMediaDocumentSizeChanged(const WebCore::IntSize& newSize)
+{
+    if (!m_uiDelegate.m_delegateMethods.webViewImageOrMediaDocumentSizeChanged)
         return;
 
     auto delegate = m_uiDelegate.m_delegate.get();
     if (!delegate)
         return;
 
-    [static_cast<id <WKUIDelegatePrivate>>(delegate) _webView:m_uiDelegate.m_webView mediaDocumentNaturalSizeChanged:newSize];
+    [static_cast<id <WKUIDelegatePrivate>>(delegate) _webView:m_uiDelegate.m_webView imageOrMediaDocumentSizeChanged:newSize];
 }
-#endif
 
 } // namespace WebKit
 

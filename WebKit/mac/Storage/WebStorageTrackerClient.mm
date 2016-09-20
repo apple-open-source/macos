@@ -48,14 +48,6 @@ WebStorageTrackerClient::~WebStorageTrackerClient()
 {
 }
 
-void WebStorageTrackerClient::dispatchDidModifyOriginOnMainThread(void* context)
-{
-    ASSERT(isMainThread());
-    // adoptRef is balanced by leakRef in dispatchDidModifyOrigin.
-    RefPtr<SecurityOrigin> origin = adoptRef(static_cast<SecurityOrigin*>(context));
-    WebStorageTrackerClient::sharedWebStorageTrackerClient()->dispatchDidModifyOrigin(origin.get());
-}
-
 void WebStorageTrackerClient::dispatchDidModifyOrigin(PassRefPtr<SecurityOrigin> origin)
 {
     RetainPtr<WebSecurityOrigin> webSecurityOrigin = adoptNS([[WebSecurityOrigin alloc] _initWithWebCoreSecurityOrigin:origin.get()]);
@@ -66,15 +58,16 @@ void WebStorageTrackerClient::dispatchDidModifyOrigin(PassRefPtr<SecurityOrigin>
 
 void WebStorageTrackerClient::dispatchDidModifyOrigin(const String& originIdentifier)
 {
-    RefPtr<SecurityOrigin> origin = SecurityOrigin::createFromDatabaseIdentifier(originIdentifier);
+    auto origin = SecurityOrigin::createFromDatabaseIdentifier(originIdentifier);
 
-    if (!isMainThread()) {
-        // leakRef is balanced by adoptRef in dispatchDidModifyOriginOnMainThread.
-        callOnMainThread(dispatchDidModifyOriginOnMainThread, origin.leakRef());
+    if (isMainThread()) {
+        dispatchDidModifyOrigin(WTFMove(origin));
         return;
     }
 
-    dispatchDidModifyOrigin(origin);
+    callOnMainThread([origin = WTFMove(origin)]() mutable {
+        WebStorageTrackerClient::sharedWebStorageTrackerClient()->dispatchDidModifyOrigin(WTFMove(origin));
+    });
 }
 
 void WebStorageTrackerClient::didFinishLoadingOrigins()

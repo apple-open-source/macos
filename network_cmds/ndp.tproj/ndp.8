@@ -170,12 +170,15 @@ another device on the network is using the same link-local address.
 the interface is enabled to proxy neighbor discovery for global scope prefixes
 matching those on link at other interfaces.
 .It Xo
-.Ic ignore_na
-.Xc
-ignore neighbor advertisements received on this interface.
-.It Xo
 .Ic insecure
 do not use cryptographically generated addresses (CGA) on this interface.
+.Xc
+.It Xo
+.Ic replicated
+Address autoconfiguration proceeds under the assumption that interface
+configuration is replicated by a sleep proxy at another node on the link.
+Disables optimistic DAD and sends unsolicited NA with O=1 when DAD completes.
+Ignores DAD failures from other hardware addresses.
 .Xc
 .El
 .It Fl l

@@ -36,9 +36,7 @@
 /* include defintion of DERSize and DERByte */
 #include "libDER/oids.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 /*
  * Basic data types: unsigned 8-bit integer, unsigned 32-bit integer
@@ -74,9 +72,8 @@ typedef uint16_t DERShort;
 #ifndef DER_TAG_SIZE
 /* Iff DER_MULTIBYTE_TAGS is 1 this is the sizeof(DERTag) in bytes. Note that
    tags are still encoded and decoded from a minimally encoded DER
-   represantation.  This value determines how big each DERItemSpecs is, we
-   choose 2 since that makes DERItemSpecs 8 bytes wide.  */
-#define DER_TAG_SIZE            2
+   represantation.  This value maintains compatibility with libImg4Decode/Encode.  */
+#define DER_TAG_SIZE            8
 #endif
 
 
@@ -108,8 +105,6 @@ typedef uint64_t DERTag;
 typedef DERByte DERTag;
 #endif /* !DER_MULTIBYTE_TAGS */
 
-#ifdef __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif	/* _LIB_DER_CONFIG_H_ */

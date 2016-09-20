@@ -305,7 +305,7 @@ static void item_with_application_password(uint32_t *item_num)
 
     // Update test item by adding ACL with application password flag.
     CFMutableDictionaryRef update = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
-    aclRef = SecAccessControlCreateWithFlags(kCFAllocatorDefault, kSecAttrAccessibleAlways, kSecAccessControlApplicationPassword, NULL);
+    aclRef = SecAccessControlCreateWithFlags(kCFAllocatorDefault, kSecAttrAccessibleAlwaysPrivate, kSecAccessControlApplicationPassword, NULL);
     CFDictionarySetValue(update, kSecAttrAccessControl, aclRef);
     set_app_password(acmContext);
     CFDictionarySetValue(item, kSecUseCredentialReference, credRefData);
@@ -332,7 +332,7 @@ static void item_with_application_password(uint32_t *item_num)
 
     CFReleaseSafe(aclRef);
     // Update item with ACL without application password.
-    aclRef = SecAccessControlCreateWithFlags(kCFAllocatorDefault, kSecAttrAccessibleAlways, 0, NULL);
+    aclRef = SecAccessControlCreateWithFlags(kCFAllocatorDefault, kSecAttrAccessibleAlwaysPrivate, 0, NULL);
     CFDictionarySetValue(update, kSecAttrAccessControl, aclRef);
 
     LASetErrorCodeBlock(okBlock);

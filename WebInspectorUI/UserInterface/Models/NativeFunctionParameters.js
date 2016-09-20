@@ -129,6 +129,24 @@ WebInspector.NativeConstructorFunctionParameters = {
         __proto__: null,
     },
 
+    Reflect: {
+        apply: "target, thisArgument, argumentsList",
+        construct: "target, argumentsList, [newTarget=target]",
+        defineProperty: "target, propertyKey, attributes",
+        deleteProperty: "target, propertyKey",
+        enumerate: "target",
+        get: "target, propertyKey, [receiver]",
+        getOwnPropertyDescriptor: "target, propertyKey",
+        getPrototypeOf: "target",
+        has: "target, propertyKey",
+        isExtensible: "target",
+        ownKeys: "target",
+        preventExtensions: "target",
+        set: "target, propertyKey, value, [receiver]",
+        setPrototypeOf: "target, prototype",
+        __proto__: null,
+    },
+
     String: {
         fromCharCode: "...codeUnits",
         fromCodePoint: "...codePoints",
@@ -139,6 +157,30 @@ WebInspector.NativeConstructorFunctionParameters = {
     Symbol: {
         for: "key",
         keyFor: "symbol",
+        __proto__: null,
+    },
+
+    Console: {
+        assert: "condition, [message], [...values]",
+        count: "[label]",
+        debug: "message, [...values]",
+        dir: "object",
+        dirxml: "object",
+        error: "message, [...values]",
+        group: "[name]",
+        groupCollapsed: "[name]",
+        groupEnd: "[name]",
+        info: "message, [...values]",
+        log: "message, [...values]",
+        profile: "name",
+        profileEnd: "name",
+        table: "data, [columns]",
+        takeHeapSnapshot: "[label]",
+        time: "name = \"default\"",
+        timeEnd: "name = \"default\"",
+        timeStamp: "[label]",
+        trace: "message, [...values]",
+        warn: "message, [...values]",
         __proto__: null,
     },
 
@@ -342,6 +384,13 @@ WebInspector.NativePrototypeFunctionParameters = {
     Promise: {
         catch: "rejectionHandler",
         then: "resolvedHandler, rejectionHandler",
+        __proto__: null,
+    },
+
+    Generator: {
+        next: "value",
+        return: "value",
+        throw: "exception",
         __proto__: null,
     },
 
@@ -789,10 +838,11 @@ WebInspector.NativePrototypeFunctionParameters = {
         __proto__: null,
     },
 
-    FontLoader: {
-        checkFont: "font, [text]",
-        loadFont: "params",
-        notifyWhenFontsReady: "callback",
+    FontFaceSet: {
+        add: "font",
+        check: "font, [text=\" \"]",
+        delete: "font",
+        load: "font, [text=\" \"]",
         __proto__: null,
     },
 
@@ -903,6 +953,11 @@ WebInspector.NativePrototypeFunctionParameters = {
         item: "index",
         namedItem: "[name]",
         setCustomValidity: "error",
+        __proto__: null,
+    },
+
+    HTMLSlotElement: {
+        assignedNodes: "[options]",
         __proto__: null,
     },
 
@@ -1101,7 +1156,7 @@ WebInspector.NativePrototypeFunctionParameters = {
     },
 
     Navigator: {
-        webkitGetUserMedia: "options, successCallback, [errorCallback]",
+        webkitGetUserMedia: "options, successCallback, errorCallback",
         __proto__: null,
     },
 
@@ -1259,6 +1314,13 @@ WebInspector.NativePrototypeFunctionParameters = {
         cancel: "reason",
         pipeThrough: "dest, options",
         pipeTo: "streams, options",
+        __proto__: null,
+    },
+
+    WritableStream: {
+        abort: "reason",
+        close: "",
+        write: "chunk",
         __proto__: null,
     },
 
@@ -2086,24 +2148,27 @@ WebInspector.NativePrototypeFunctionParameters = {
         updateIce: "configuration",
         __proto__: null,
     },
-};
 
-(function() {
-    var EventTarget = {
+    EventTarget: {
         addEventListener: "type, listener, [useCapture=false]",
         removeEventListener: "type, listener, [useCapture=false]",
         dispatchEvent: "event",
-    };
+        __proto__: null,
+    },
+};
 
+(function() {
+    // COMPATIBILITY (iOS 9): EventTarget properties were on instances, now there
+    // is an actual EventTarget prototype in the chain.
+    var EventTarget = WebInspector.NativePrototypeFunctionParameters.EventTarget;
     var eventTargetTypes = [
         "Node", "Window",
-        "AudioNode", "AudioTrackList", "DOMApplicationCache", "FileReader", "FontLoader",
+        "AudioNode", "AudioTrackList", "DOMApplicationCache", "FileReader",
         "MediaController", "MediaStreamTrack", "MessagePort", "Notification", "RTCDTMFSender",
         "SpeechSynthesisUtterance", "TextTrack", "TextTrackCue", "TextTrackList",
         "VideoTrackList", "WebKitMediaKeySession", "WebKitNamedFlow", "WebSocket",
         "WorkerGlobalScope", "XMLHttpRequest", "webkitMediaStream", "webkitRTCPeerConnection"
     ];
-
     for (var type of eventTargetTypes)
         Object.assign(WebInspector.NativePrototypeFunctionParameters[type], EventTarget);
 
@@ -2132,4 +2197,9 @@ WebInspector.NativePrototypeFunctionParameters = {
     Object.assign(WebInspector.NativePrototypeFunctionParameters.Element, ParentNode);
     Object.assign(WebInspector.NativePrototypeFunctionParameters.Document, ParentNode);
     Object.assign(WebInspector.NativePrototypeFunctionParameters.DocumentFragment, ParentNode);
+
+    // COMPATIBILITY (iOS 9): window.console used to be a Console object instance,
+    // now it is just a namespace object on the global object.
+    WebInspector.NativePrototypeFunctionParameters.Console = WebInspector.NativeConstructorFunctionParameters.Console;
+
 })();

@@ -1,4 +1,4 @@
-/* $OpenBSD: monitor_wrap.c,v 1.85 2015/05/01 03:23:51 djm Exp $ */
+/* $OpenBSD: monitor_wrap.c,v 1.87 2016/01/14 16:17:40 markus Exp $ */
 /*
  * Copyright 2002 Niels Provos <provos@citi.umich.edu>
  * Copyright 2002 Markus Friedl <markus@openbsd.org>
@@ -80,7 +80,6 @@
 #include "channels.h"
 #include "session.h"
 #include "servconf.h"
-#include "roaming.h"
 
 #include "ssherr.h"
 
@@ -218,7 +217,7 @@ mm_choose_dh(int min, int nbits, int max)
 
 int
 mm_key_sign(Key *key, u_char **sigp, u_int *lenp,
-    const u_char *data, u_int datalen)
+    const u_char *data, u_int datalen, const char *hostkey_alg)
 {
 	struct kex *kex = *pmonitor->m_pkex;
 	Buffer m;
@@ -228,6 +227,7 @@ mm_key_sign(Key *key, u_char **sigp, u_int *lenp,
 	buffer_init(&m);
 	buffer_put_int(&m, kex->host_key_index(key, 0, active_state));
 	buffer_put_string(&m, data, datalen);
+	buffer_put_cstring(&m, hostkey_alg);
 
 	mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_SIGN, &m);
 
@@ -1068,7 +1068,7 @@ mm_ssh_gssapi_checkmic(Gssctxt *ctx, gss_buffer_t gssbuf, gss_buffer_t gssmic)
 }
 
 int
-mm_ssh_gssapi_userok(char *user, struct passwd *pw)
+mm_ssh_gssapi_userok(char *user)
 {
 	Buffer m;
 	int authenticated = 0;
@@ -1085,50 +1085,5 @@ mm_ssh_gssapi_userok(char *user, struct passwd *pw)
 	debug3("%s: user %sauthenticated",__func__, authenticated ? "" : "not ");
 	return (authenticated);
 }
-
-OM_uint32
-mm_ssh_gssapi_sign(Gssctxt *ctx, gss_buffer_desc *data, gss_buffer_desc *hash)
-{
-	Buffer m;
-	OM_uint32 major;
-	u_int len;
-
-	buffer_init(&m);
-	buffer_put_string(&m, data->value, data->length);
-
-	mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_GSSSIGN, &m);
-	mm_request_receive_expect(pmonitor->m_recvfd, MONITOR_ANS_GSSSIGN, &m);
-
-	major = buffer_get_int(&m);
-	hash->value = buffer_get_string(&m, &len);
-	hash->length = len;
-
-	buffer_free(&m);
-
-	return(major);
-}
-
-int
-mm_ssh_gssapi_update_creds(ssh_gssapi_ccache *store)
-{
-	Buffer m;
-	int ok;
-
-	buffer_init(&m);
-
-	buffer_put_cstring(&m, store->filename ? store->filename : "");
-	buffer_put_cstring(&m, store->envvar ? store->envvar : "");
-	buffer_put_cstring(&m, store->envval ? store->envval : "");
-	
-	mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_GSSUPCREDS, &m);
-	mm_request_receive_expect(pmonitor->m_recvfd, MONITOR_ANS_GSSUPCREDS, &m);
-
-	ok = buffer_get_int(&m);
-
-	buffer_free(&m);
-	
-	return (ok);
-}
-
 #endif /* GSSAPI */
 

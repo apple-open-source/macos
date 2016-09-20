@@ -1079,9 +1079,15 @@ main() { return sizeof(ino_t) < 8; }
 fi
 AH_TEMPLATE([ZLONG_IS_LONG_LONG],
 [Define to 1 if the zlong type uses long long int.])
+AH_TEMPLATE([ZLONG_IS_LONG_64],
+[Define to 1 if the zlong type uses 64-bit long int.])
 if test "$zsh_cv_64_bit_type" = "long long"; then
   dnl Remember this so we can get (s)printf output right.
   AC_DEFINE(ZLONG_IS_LONG_LONG)
+else
+  if test "$zsh_cv_64_bit_type" = "long"; then
+      AC_DEFINE(ZLONG_IS_LONG_64)
+  fi
 fi
 
 dnl We'll blithely assume (f)printf supports the same types as sprintf.
@@ -2526,7 +2532,7 @@ dnl these is by defining _GNU_SOURCE.
 dnl -------
 AH_TEMPLATE([USE_DEV_PTMX],
 [Define to 1 if all the kit for using /dev/ptmx for ptys is available.])
-if test x$ac_cv_have_dev_ptmx = xyes && \
+if test x$ac_cv_have_dev_ptmx = xyes -o x$ac_cv_func_posix_openpt = xyes && \
    test x$ac_cv_func_grantpt = xyes && \
    test x$ac_cv_func_unlockpt = xyes && \
    test x$ac_cv_func_ptsname = xyes; then

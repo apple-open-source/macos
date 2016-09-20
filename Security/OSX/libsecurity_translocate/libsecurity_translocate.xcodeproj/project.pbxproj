@@ -1,0 +1,383 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		1F2D0DD71CBC7294007390C6 /* SecTranslocateXPCServer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1F2D0DD51CBC7294007390C6 /* SecTranslocateXPCServer.cpp */; };
+		1F2D0DD81CBC7294007390C6 /* SecTranslocateXPCServer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 1F2D0DD61CBC7294007390C6 /* SecTranslocateXPCServer.hpp */; };
+		1F50781B1CB47EA500A017CD /* SecTranslocateUtilities.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1F5078191CB47EA500A017CD /* SecTranslocateUtilities.cpp */; };
+		1F50781C1CB47EA500A017CD /* SecTranslocateUtilities.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 1F50781A1CB47EA500A017CD /* SecTranslocateUtilities.hpp */; };
+		1F5078221CB5769200A017CD /* SecTranslocateServer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 1F50781E1CB5747100A017CD /* SecTranslocateServer.hpp */; };
+		1F5A5D481CB5D8CF009BDA30 /* SecTranslocateLSNotification.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1F5A5D461CB5D8CF009BDA30 /* SecTranslocateLSNotification.cpp */; };
+		1F5A5D491CB5D8CF009BDA30 /* SecTranslocateLSNotification.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 1F5A5D471CB5D8CF009BDA30 /* SecTranslocateLSNotification.hpp */; };
+		1F77EB011CBB15B7006E0E7E /* SecTranslocateDANotification.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1FB9D34D1CBB0E7C00374EF3 /* SecTranslocateDANotification.cpp */; };
+		1F975A3E1CBD5613003EF8F6 /* SecTranslocateClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1F975A3C1CBD5613003EF8F6 /* SecTranslocateClient.cpp */; };
+		1F975A3F1CBD5613003EF8F6 /* SecTranslocateClient.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 1F975A3D1CBD5613003EF8F6 /* SecTranslocateClient.hpp */; };
+		1FB9D3501CBB0E7C00374EF3 /* SecTranslocateDANotification.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 1FB9D34E1CBB0E7C00374EF3 /* SecTranslocateDANotification.hpp */; };
+		1FC462B81C498980001E4B1F /* SecTranslocate.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1FC462B71C49897F001E4B1F /* SecTranslocate.cpp */; };
+		1FC462BA1C498991001E4B1F /* SecTranslocate.h in Headers */ = {isa = PBXBuildFile; fileRef = 1FC462B91C498991001E4B1F /* SecTranslocate.h */; };
+		1FC4A6151CBDA7B900390630 /* SecTranslocateInterface.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1FC4A6141CBDA7B900390630 /* SecTranslocateInterface.cpp */; };
+		1FC4A6161CBDC5C300390630 /* SecTranslocateServer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1F50781D1CB5747100A017CD /* SecTranslocateServer.cpp */; };
+		1FD0FA551CBC4A8C0037CB0E /* SecTranslocateInterface.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 1FD0FA541CBC4A8C0037CB0E /* SecTranslocateInterface.hpp */; };
+		1FEFBDB01CB6D2AD00FAC2A1 /* SecTranslocateShared.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1F5A5D431CB58E97009BDA30 /* SecTranslocateShared.cpp */; };
+		1FEFBDB11CB6D2BC00FAC2A1 /* SecTranslocateShared.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 1F5A5D421CB58E97009BDA30 /* SecTranslocateShared.hpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		1F2D0DD51CBC7294007390C6 /* SecTranslocateXPCServer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = SecTranslocateXPCServer.cpp; path = lib/SecTranslocateXPCServer.cpp; sourceTree = SOURCE_ROOT; };
+		1F2D0DD61CBC7294007390C6 /* SecTranslocateXPCServer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = SecTranslocateXPCServer.hpp; path = lib/SecTranslocateXPCServer.hpp; sourceTree = SOURCE_ROOT; };
+		1F5078191CB47EA500A017CD /* SecTranslocateUtilities.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = SecTranslocateUtilities.cpp; path = lib/SecTranslocateUtilities.cpp; sourceTree = SOURCE_ROOT; };
+		1F50781A1CB47EA500A017CD /* SecTranslocateUtilities.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = SecTranslocateUtilities.hpp; path = lib/SecTranslocateUtilities.hpp; sourceTree = SOURCE_ROOT; };
+		1F50781D1CB5747100A017CD /* SecTranslocateServer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = SecTranslocateServer.cpp; path = lib/SecTranslocateServer.cpp; sourceTree = SOURCE_ROOT; };
+		1F50781E1CB5747100A017CD /* SecTranslocateServer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = SecTranslocateServer.hpp; path = lib/SecTranslocateServer.hpp; sourceTree = SOURCE_ROOT; };
+		1F5A5D421CB58E97009BDA30 /* SecTranslocateShared.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = SecTranslocateShared.hpp; path = lib/SecTranslocateShared.hpp; sourceTree = SOURCE_ROOT; };
+		1F5A5D431CB58E97009BDA30 /* SecTranslocateShared.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = SecTranslocateShared.cpp; path = lib/SecTranslocateShared.cpp; sourceTree = SOURCE_ROOT; };
+		1F5A5D461CB5D8CF009BDA30 /* SecTranslocateLSNotification.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = SecTranslocateLSNotification.cpp; path = lib/SecTranslocateLSNotification.cpp; sourceTree = SOURCE_ROOT; };
+		1F5A5D471CB5D8CF009BDA30 /* SecTranslocateLSNotification.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = SecTranslocateLSNotification.hpp; path = lib/SecTranslocateLSNotification.hpp; sourceTree = SOURCE_ROOT; };
+		1F975A3C1CBD5613003EF8F6 /* SecTranslocateClient.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = SecTranslocateClient.cpp; path = lib/SecTranslocateClient.cpp; sourceTree = SOURCE_ROOT; };
+		1F975A3D1CBD5613003EF8F6 /* SecTranslocateClient.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = SecTranslocateClient.hpp; path = lib/SecTranslocateClient.hpp; sourceTree = SOURCE_ROOT; };
+		1FAA71431C10D8E000EAAE3E /* libsecurity_translocate.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libsecurity_translocate.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		1FB9D34D1CBB0E7C00374EF3 /* SecTranslocateDANotification.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = SecTranslocateDANotification.cpp; path = lib/SecTranslocateDANotification.cpp; sourceTree = SOURCE_ROOT; };
+		1FB9D34E1CBB0E7C00374EF3 /* SecTranslocateDANotification.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = SecTranslocateDANotification.hpp; path = lib/SecTranslocateDANotification.hpp; sourceTree = SOURCE_ROOT; };
+		1FC462B71C49897F001E4B1F /* SecTranslocate.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = SecTranslocate.cpp; path = lib/SecTranslocate.cpp; sourceTree = SOURCE_ROOT; };
+		1FC462B91C498991001E4B1F /* SecTranslocate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SecTranslocate.h; path = lib/SecTranslocate.h; sourceTree = SOURCE_ROOT; };
+		1FC4A6141CBDA7B900390630 /* SecTranslocateInterface.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = SecTranslocateInterface.cpp; path = lib/SecTranslocateInterface.cpp; sourceTree = SOURCE_ROOT; };
+		1FD0FA541CBC4A8C0037CB0E /* SecTranslocateInterface.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = SecTranslocateInterface.hpp; path = lib/SecTranslocateInterface.hpp; sourceTree = SOURCE_ROOT; };
+		1FDA9ABE1C449C880083929D /* security_translocate.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; name = security_translocate.exp; path = lib/security_translocate.exp; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		1FAA71401C10D8E000EAAE3E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		1FAA713A1C10D8E000EAAE3E = {
+			isa = PBXGroup;
+			children = (
+				1FAA71451C10D8E000EAAE3E /* lib */,
+				1FAA71441C10D8E000EAAE3E /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		1FAA71441C10D8E000EAAE3E /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				1FAA71431C10D8E000EAAE3E /* libsecurity_translocate.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		1FAA71451C10D8E000EAAE3E /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				1F975A3C1CBD5613003EF8F6 /* SecTranslocateClient.cpp */,
+				1F975A3D1CBD5613003EF8F6 /* SecTranslocateClient.hpp */,
+				1F2D0DD51CBC7294007390C6 /* SecTranslocateXPCServer.cpp */,
+				1F2D0DD61CBC7294007390C6 /* SecTranslocateXPCServer.hpp */,
+				1FD0FA541CBC4A8C0037CB0E /* SecTranslocateInterface.hpp */,
+				1FB9D34D1CBB0E7C00374EF3 /* SecTranslocateDANotification.cpp */,
+				1FB9D34E1CBB0E7C00374EF3 /* SecTranslocateDANotification.hpp */,
+				1F5A5D461CB5D8CF009BDA30 /* SecTranslocateLSNotification.cpp */,
+				1F5A5D471CB5D8CF009BDA30 /* SecTranslocateLSNotification.hpp */,
+				1F5A5D421CB58E97009BDA30 /* SecTranslocateShared.hpp */,
+				1F5A5D431CB58E97009BDA30 /* SecTranslocateShared.cpp */,
+				1F50781D1CB5747100A017CD /* SecTranslocateServer.cpp */,
+				1F50781E1CB5747100A017CD /* SecTranslocateServer.hpp */,
+				1FC462B91C498991001E4B1F /* SecTranslocate.h */,
+				1FC462B71C49897F001E4B1F /* SecTranslocate.cpp */,
+				1FDA9ABE1C449C880083929D /* security_translocate.exp */,
+				1F5078191CB47EA500A017CD /* SecTranslocateUtilities.cpp */,
+				1F50781A1CB47EA500A017CD /* SecTranslocateUtilities.hpp */,
+				1FC4A6141CBDA7B900390630 /* SecTranslocateInterface.cpp */,
+			);
+			name = lib;
+			path = libsecurity_translocate;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		1FAA71411C10D8E000EAAE3E /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1FC462BA1C498991001E4B1F /* SecTranslocate.h in Headers */,
+				1FD0FA551CBC4A8C0037CB0E /* SecTranslocateInterface.hpp in Headers */,
+				1F975A3F1CBD5613003EF8F6 /* SecTranslocateClient.hpp in Headers */,
+				1F5078221CB5769200A017CD /* SecTranslocateServer.hpp in Headers */,
+				1FB9D3501CBB0E7C00374EF3 /* SecTranslocateDANotification.hpp in Headers */,
+				1F5A5D491CB5D8CF009BDA30 /* SecTranslocateLSNotification.hpp in Headers */,
+				1FEFBDB11CB6D2BC00FAC2A1 /* SecTranslocateShared.hpp in Headers */,
+				1F2D0DD81CBC7294007390C6 /* SecTranslocateXPCServer.hpp in Headers */,
+				1F50781C1CB47EA500A017CD /* SecTranslocateUtilities.hpp in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		1FAA71421C10D8E000EAAE3E /* libsecurity_translocate */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1FAA714C1C10D8E000EAAE3E /* Build configuration list for PBXNativeTarget "libsecurity_translocate" */;
+			buildPhases = (
+				1FAA713F1C10D8E000EAAE3E /* Sources */,
+				1FAA71401C10D8E000EAAE3E /* Frameworks */,
+				1FAA71411C10D8E000EAAE3E /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libsecurity_translocate;
+			productName = libsecurity_translocate;
+			productReference = 1FAA71431C10D8E000EAAE3E /* libsecurity_translocate.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		1FAA713B1C10D8E000EAAE3E /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0800;
+				ORGANIZATIONNAME = Apple;
+				TargetAttributes = {
+					1FAA71421C10D8E000EAAE3E = {
+						CreatedOnToolsVersion = 7.2;
+					};
+				};
+			};
+			buildConfigurationList = 1FAA713E1C10D8E000EAAE3E /* Build configuration list for PBXProject "libsecurity_translocate" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 1FAA713A1C10D8E000EAAE3E;
+			productRefGroup = 1FAA71441C10D8E000EAAE3E /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				1FAA71421C10D8E000EAAE3E /* libsecurity_translocate */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		1FAA713F1C10D8E000EAAE3E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1FC4A6161CBDC5C300390630 /* SecTranslocateServer.cpp in Sources */,
+				1F2D0DD71CBC7294007390C6 /* SecTranslocateXPCServer.cpp in Sources */,
+				1FC462B81C498980001E4B1F /* SecTranslocate.cpp in Sources */,
+				1F77EB011CBB15B7006E0E7E /* SecTranslocateDANotification.cpp in Sources */,
+				1F975A3E1CBD5613003EF8F6 /* SecTranslocateClient.cpp in Sources */,
+				1F5A5D481CB5D8CF009BDA30 /* SecTranslocateLSNotification.cpp in Sources */,
+				1FEFBDB01CB6D2AD00FAC2A1 /* SecTranslocateShared.cpp in Sources */,
+				1FC4A6151CBDA7B900390630 /* SecTranslocateInterface.cpp in Sources */,
+				1F50781B1CB47EA500A017CD /* SecTranslocateUtilities.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		1FAA714A1C10D8E000EAAE3E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.11;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx.internal;
+			};
+			name = Debug;
+		};
+		1FAA714B1C10D8E000EAAE3E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.11;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = macosx.internal;
+			};
+			name = Release;
+		};
+		1FAA714D1C10D8E000EAAE3E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = YES;
+				"ARCHS[sdk=macosx*]" = "$(ARCHS_STANDARD_32_64_BIT)";
+				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
+				CLANG_CXX_LIBRARY = "compiler-default";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = NO;
+				CLANG_WARN_BOOL_CONVERSION = NO;
+				CODE_SIGN_IDENTITY = "";
+				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = NO;
+				EXECUTABLE_PREFIX = "";
+				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+					"$(PROJECT_DIR)/../include",
+					"$(BUILT_PRODUCTS_DIR)/derived_src",
+					"$(PROJECT_DIR)/../utilities/",
+				);
+				ONLY_ACTIVE_ARCH = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/security_translocate;
+				SDKROOT = macosx.internal;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Debug;
+		};
+		1FAA714E1C10D8E000EAAE3E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = YES;
+				"ARCHS[sdk=macosx*]" = "$(ARCHS_STANDARD_32_64_BIT)";
+				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
+				CLANG_CXX_LIBRARY = "compiler-default";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = NO;
+				CLANG_WARN_BOOL_CONVERSION = NO;
+				CODE_SIGN_IDENTITY = "";
+				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = NO;
+				EXECUTABLE_PREFIX = "";
+				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_PREPROCESSOR_DEFINITIONS = "NDEBUG=1";
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+					"$(PROJECT_DIR)/../include",
+					"$(BUILT_PRODUCTS_DIR)/derived_src",
+					"$(PROJECT_DIR)/../utilities/",
+				);
+				ONLY_ACTIVE_ARCH = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/security_translocate;
+				SDKROOT = macosx.internal;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1FAA713E1C10D8E000EAAE3E /* Build configuration list for PBXProject "libsecurity_translocate" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1FAA714A1C10D8E000EAAE3E /* Debug */,
+				1FAA714B1C10D8E000EAAE3E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1FAA714C1C10D8E000EAAE3E /* Build configuration list for PBXNativeTarget "libsecurity_translocate" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1FAA714D1C10D8E000EAAE3E /* Debug */,
+				1FAA714E1C10D8E000EAAE3E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 1FAA713B1C10D8E000EAAE3E /* Project object */;
+}

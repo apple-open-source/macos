@@ -39,43 +39,31 @@ FontPlatformData FontCustomPlatformData::fontPlatformData(const FontDescription&
     int size = fontDescription.computedPixelSize();
     FontOrientation orientation = fontDescription.orientation();
     FontWidthVariant widthVariant = fontDescription.widthVariant();
-#if CORETEXT_WEB_FONTS
     RetainPtr<CTFontRef> font = adoptCF(CTFontCreateWithFontDescriptor(m_fontDescriptor.get(), size, nullptr));
-    font = applyFontFeatureSettings(font.get(), &fontFaceFeatures, &fontFaceVariantSettings, fontDescription.featureSettings(), fontDescription.variantSettings());
-    return FontPlatformData(font.get(), size, bold, italic, orientation, widthVariant);
-#else
-    UNUSED_PARAM(fontFaceFeatures);
-    UNUSED_PARAM(fontFaceVariantSettings);
-    return FontPlatformData(m_cgFont.get(), size, bold, italic, orientation, widthVariant);
-#endif
+    font = preparePlatformFont(font.get(), fontDescription.textRenderingMode(), &fontFaceFeatures, &fontFaceVariantSettings, fontDescription.featureSettings(), fontDescription.variantSettings());
+    ASSERT(font);
+    return FontPlatformData(font.get(), size, bold, italic, orientation, widthVariant, fontDescription.textRenderingMode());
 }
 
 std::unique_ptr<FontCustomPlatformData> createFontCustomPlatformData(SharedBuffer& buffer)
 {
     RetainPtr<CFDataRef> bufferData = buffer.createCFData();
 
-#if CORETEXT_WEB_FONTS
     RetainPtr<CTFontDescriptorRef> fontDescriptor = adoptCF(CTFontManagerCreateFontDescriptorFromData(bufferData.get()));
     if (!fontDescriptor)
         return nullptr;
 
     return std::make_unique<FontCustomPlatformData>(fontDescriptor.get());
-
-#else
-
-    RetainPtr<CGDataProviderRef> dataProvider = adoptCF(CGDataProviderCreateWithCFData(bufferData.get()));
-
-    RetainPtr<CGFontRef> cgFontRef = adoptCF(CGFontCreateWithDataProvider(dataProvider.get()));
-    if (!cgFontRef)
-        return nullptr;
-
-    return std::make_unique<FontCustomPlatformData>(cgFontRef.get());
-#endif
 }
 
 bool FontCustomPlatformData::supportsFormat(const String& format)
 {
-    return equalIgnoringCase(format, "truetype") || equalIgnoringCase(format, "opentype") || equalIgnoringCase(format, "woff");
+    return equalLettersIgnoringASCIICase(format, "truetype")
+        || equalLettersIgnoringASCIICase(format, "opentype")
+#if (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 100000) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200)
+        || equalLettersIgnoringASCIICase(format, "woff2")
+#endif
+        || equalLettersIgnoringASCIICase(format, "woff");
 }
 
 }

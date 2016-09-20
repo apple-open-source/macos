@@ -35,7 +35,7 @@
  */
 
 #pragma D option quiet
-
+#pragma D option statusrate=15ms
 
 BEGIN
 {
@@ -54,7 +54,7 @@ BEGIN
 
 }
 
-tick-1
+tick-10ms
 /int_pos_before  == int_pos && int_neg_before == int_neg &&
 	int_pos_after == int_orig && int_pos_after == int_orig/
 {
@@ -62,7 +62,7 @@ tick-1
 }
 
 
-tick-1
+tick-10ms
 /int_pos_before  != int_pos || int_neg_before != int_neg ||
 	int_pos_after != int_orig || int_pos_after != int_orig/
 {

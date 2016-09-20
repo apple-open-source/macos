@@ -30,7 +30,8 @@ WebInspector.RulesStyleDetailsPanel = class RulesStyleDetailsPanel extends WebIn
         super(delegate, "rules", "rules", WebInspector.UIString("Styles \u2014 Rules"));
 
         this._sections = [];
-        this._previousFocusedSection = null;
+        this._inspectorSection = null;
+        this._isInspectorSectionPendingFocus = false;
         this._ruleMediaAndInherticanceList = [];
         this._propertyToSelectAndHighlight = null;
 
@@ -144,8 +145,6 @@ WebInspector.RulesStyleDetailsPanel = class RulesStyleDetailsPanel extends WebIn
         function appendStyleSection(style)
         {
             var section = style.__rulesSection;
-            if (section && section.focused && !this._previousFocusedSection)
-                this._previousFocusedSection = section;
 
             if (!section) {
                 section = new WebInspector.CSSStyleDeclarationSection(this, style);
@@ -153,10 +152,8 @@ WebInspector.RulesStyleDetailsPanel = class RulesStyleDetailsPanel extends WebIn
             } else
                 section.refresh();
 
-            if (this._focusNextNewInspectorRule && style.ownerRule && style.ownerRule.type === WebInspector.CSSStyleSheet.Type.Inspector) {
-                this._previousFocusedSection = section;
-                delete this._focusNextNewInspectorRule;
-            }
+            if (this._isInspectorSectionPendingFocus && style.isInspectorRule())
+                this._inspectorSection = section;
 
             // Reset lastInGroup in case the order/grouping changed.
             section.lastInGroup = false;
@@ -205,13 +202,10 @@ WebInspector.RulesStyleDetailsPanel = class RulesStyleDetailsPanel extends WebIn
 
                     var mediaLabel = document.createElement("div");
                     mediaLabel.className = "label";
-                    mediaLabel.appendChild(prefixElement);
-                    mediaLabel.appendChild(document.createTextNode(media.text));
+                    mediaLabel.append(prefixElement, media.text);
 
-                    if (media.sourceCodeLocation) {
-                        mediaLabel.appendChild(document.createTextNode(" \u2014 "));
-                        mediaLabel.appendChild(WebInspector.createSourceCodeLocationLink(media.sourceCodeLocation, true));
-                    }
+                    if (media.sourceCodeLocation)
+                        mediaLabel.append(" \u2014 ", WebInspector.createSourceCodeLocationLink(media.sourceCodeLocation, true));
 
                     newDOMFragment.appendChild(mediaLabel);
 
@@ -228,8 +222,7 @@ WebInspector.RulesStyleDetailsPanel = class RulesStyleDetailsPanel extends WebIn
 
                     var mediaLabel = document.createElement("div");
                     mediaLabel.className = "label";
-                    mediaLabel.appendChild(prefixElement);
-                    mediaLabel.appendChild(document.createTextNode("all"));
+                    mediaLabel.append(prefixElement, "all");
 
                     newDOMFragment.appendChild(mediaLabel);
                     hasMediaOrInherited.push(mediaLabel);
@@ -315,12 +308,16 @@ WebInspector.RulesStyleDetailsPanel = class RulesStyleDetailsPanel extends WebIn
         return false;
     }
 
-    cssStyleDeclarationSectionEditorFocused(ignoredSection)
+    cssStyleDeclarationSectionEditorFocused(focusedSection)
     {
-        for (var section of this._sections) {
-            if (section !== ignoredSection)
+        for (let section of this._sections) {
+            if (section !== focusedSection)
                 section.clearSelection();
         }
+    }
+
+    cssStyleDeclarationSectionBlurActiveEditor()
+    {
     }
 
     cssStyleDeclarationSectionEditorNextRule(currentSection)
@@ -381,18 +378,44 @@ WebInspector.RulesStyleDetailsPanel = class RulesStyleDetailsPanel extends WebIn
         this.element.classList.toggle("filter-non-matching", !matchFound);
     }
 
-    cssStyleDeclarationSectionFocusNextNewInspectorRule()
-    {
-        this._focusNextNewInspectorRule = true;
-    }
-
     newRuleButtonClicked()
     {
         if (this.nodeStyles.node.isInShadowTree())
             return;
 
-        this._focusNextNewInspectorRule = true;
-        this.nodeStyles.addRule();
+        for (let existingRule of this.nodeStyles.rulesForSelector()) {
+            if (this.focusEmptySectionWithStyle(existingRule.style))
+                return;
+        }
+
+        this._isInspectorSectionPendingFocus = true;
+        let newInspectorRuleSelector = this.nodeStyles.node.appropriateSelectorFor(true);
+        this.nodeStyles.addRule(newInspectorRuleSelector);
+    }
+
+    sectionForStyle(style)
+    {
+        if (style.__rulesSection)
+            return style.__rulesSection;
+
+        for (let section of this._sections) {
+            if (section.style === style)
+                return section;
+        }
+        return null;
+    }
+
+    focusEmptySectionWithStyle(style)
+    {
+        if (style.hasProperties())
+            return false;
+
+        let section = this.sectionForStyle(style);
+        if (!section)
+            return false;
+
+        section.focus();
+        return true;
     }
 
     // Protected
@@ -420,7 +443,7 @@ WebInspector.RulesStyleDetailsPanel = class RulesStyleDetailsPanel extends WebIn
             delete this._sections[i].style.__rulesSection;
     }
 
-    widthDidChange()
+    sizeDidChange()
     {
         for (var i = 0; i < this._sections.length; ++i)
             this._sections[i].updateLayout();
@@ -429,15 +452,19 @@ WebInspector.RulesStyleDetailsPanel = class RulesStyleDetailsPanel extends WebIn
     nodeStylesRefreshed(event)
     {
         super.nodeStylesRefreshed(event);
-        
+
         if (this._propertyToSelectAndHighlight) {
             this.scrollToSectionAndHighlightProperty(this._propertyToSelectAndHighlight);
             this._propertyToSelectAndHighlight = null;
         }
 
-        if (this._previousFocusedSection && this._visible) {
-            this._previousFocusedSection.focus();
-            this._previousFocusedSection = null;
+        if (this._isInspectorSectionPendingFocus) {
+            this._isInspectorSectionPendingFocus = false;
+
+            if (this._inspectorSection) {
+                this._inspectorSection.focus();
+                this._inspectorSection = null;
+            }
         }
     }
 

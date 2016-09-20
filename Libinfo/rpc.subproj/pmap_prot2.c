@@ -121,7 +121,7 @@ xdr_pmaplist(xdrs, rp)
 	register struct pmaplist **next = NULL;
 
 	while (TRUE) {
-		more_elements = (bool_t)(*rp != NULL);
+		more_elements = (bool_t)(!(rp == NULL || *rp == NULL));
 		if (! xdr_bool(xdrs, &more_elements))
 			return (FALSE);
 		if (! more_elements)
@@ -132,7 +132,7 @@ xdr_pmaplist(xdrs, rp)
 		 * before we free the current object ...
 		 */
 		if (freeing)
-			next = &((*rp)->pml_next); 
+			next = &((*rp)->pml_next);
 		if (! xdr_reference(xdrs, (caddr_t *)rp, (u_int)sizeof(struct pmaplist), (xdrproc_t)xdr_pmap))
 			return (FALSE);
 		rp = (freeing) ? next : &((*rp)->pml_next);

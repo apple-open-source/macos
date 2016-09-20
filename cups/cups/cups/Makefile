@@ -1,9 +1,7 @@
 #
-# "$Id: Makefile 12992 2015-11-19 15:19:00Z msweet $"
-#
 # API library Makefile for CUPS.
 #
-# Copyright 2007-2014 by Apple Inc.
+# Copyright 2007-2016 by Apple Inc.
 # Copyright 1997-2006 by Easy Software Products, all rights reserved.
 #
 # These coded instructions, statements, and computer programs are the
@@ -32,25 +30,22 @@ OPTIONS	=	-D_CUPS_NO_DEPRECATED=1 -D_PPD_DEPRECATED=""
 LIBOBJS	=	\
 		adminutil.o \
 		array.o \
-		attr.o \
 		auth.o \
 		backchannel.o \
 		backend.o \
-		conflicts.o \
-		custom.o \
 		debug.o \
 		dest.o \
 		dest-job.o \
 		dest-localization.o \
 		dest-options.o \
 		dir.o \
-		emit.o \
 		encode.o \
 		file.o \
 		getdevices.o \
 		getifaddrs.o \
 		getputfile.o \
 		globals.o \
+		hash.o \
 		http.o \
 		http-addr.o \
 		http-addrlist.o \
@@ -59,15 +54,20 @@ LIBOBJS	=	\
 		ipp-support.o \
 		langprintf.o \
 		language.o \
-		localize.o \
-		mark.o \
 		md5.o \
 		md5passwd.o \
 		notify.o \
 		options.o \
-		page.o \
 		ppd.o \
+		ppd-attr.o \
 		ppd-cache.o \
+		ppd-conflicts.o \
+		ppd-custom.o \
+		ppd-emit.o \
+		ppd-localize.o \
+		ppd-mark.o \
+		ppd-page.o \
+		ppd-util.o \
 		pwg-media.o \
 		request.o \
 		sidechannel.o \
@@ -320,13 +320,14 @@ libcups.so.2:	$(LIBOBJS)
 
 libcups.2.dylib:	$(LIBOBJS) $(LIBCUPSORDER)
 	echo Creating export list for $@...
-	nm $(LIBOBJS) 2>/dev/null | grep "T _" | awk '{print $$3}' | \
-		grep -v -e '^(_cupsConnect|_cupsCharset|_cupsEncodingName|_cupsSetDefaults|_cupsSetHTTPError|_cupsUserDefault|_httpWait)$$' | \
+	nm -gm $(LIBOBJS) 2>/dev/null | grep "__text" | grep -v weak | \
+		awk '{print $$NF}' | \
+		grep -v -E -e '^(_cupsConnect|_cupsCharset|_cupsEncodingName|_cupsSetDefaults|_cupsSetHTTPError|_cupsUserDefault)$$' | \
 		sort >t.exp
 	echo Linking $@...
 	$(DSO) $(ARCHFLAGS) $(DSOFLAGS) -o $@ \
 		-install_name $(libdir)/$@ \
-		-current_version 2.11.0 \
+		-current_version 2.12.0 \
 		-compatibility_version 2.0.0 \
 		-exported_symbols_list t.exp \
 		$(LIBOBJS) $(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) \
@@ -342,7 +343,7 @@ libcups.2.dylib:	$(LIBOBJS) $(LIBCUPSORDER)
 libcups.la:    $(LIBOBJS)
 	echo Linking $@...
 	$(CC) $(ARCHFLAGS) $(DSOFLAGS) -o $@ $(LIBOBJS:.o=.lo) \
-		-rpath $(LIBDIR) -version-info 2:11 $(LIBGSSAPI) $(SSLLIBS) \
+		-rpath $(LIBDIR) -version-info 2:12 $(LIBGSSAPI) $(SSLLIBS) \
 		$(DNSSDLIBS) $(COMMONLIBS) $(LIBZ)
 
 
@@ -563,6 +564,13 @@ apihelp:
 		--css ../doc/cups-printable.css \
 		--header api-overview.header --intro api-overview.shtml \
 		>../doc/help/api-overview.html
+	mxmldoc --section "Programming" --title "Administration APIs" \
+		--css ../doc/cups-printable.css \
+		--header api-admin.header --intro api-admin.shtml \
+		api-admin.xml \
+		adminutil.c adminutil.h getdevices.c >../doc/help/api-admin.html
+	mxmldoc --tokens help/api-admin.html api-admin.xml >../doc/help/api-admin.tokens
+	$(RM) api-admin.xml
 	mxmldoc --section "Programming" --title "Array API" \
 		--css ../doc/cups-printable.css \
 		--header api-array.header --intro api-array.shtml \
@@ -589,9 +597,7 @@ apihelp:
 	mxmldoc --section "Programming" --title "PPD API (DEPRECATED)" \
 		--css ../doc/cups-printable.css \
 		--header api-ppd.header --intro api-ppd.shtml \
-		api-ppd.xml \
-		ppd.h attr.c conflicts.c custom.c emit.c localize.c mark.c page.c \
-		ppd.c >../doc/help/api-ppd.html
+		api-ppd.xml ppd.h ppd-*.c >../doc/help/api-ppd.html
 	mxmldoc --tokens help/api-ppd.html api-ppd.xml >../doc/help/api-ppd.tokens
 	$(RM) api-ppd.xml
 	mxmldoc --section "Programming" --title "HTTP and IPP APIs" \
@@ -613,50 +619,6 @@ apihelp:
 	mxmldoc --tokens help/api-filter.html api-filter.xml >../doc/help/api-filter.tokens
 	$(RM) api-filter.xml
 
-framedhelp:
-	echo Generating CUPS API help files...
-	mxmldoc --framed api-overview \
-		--section "Programming" \
-		--title "Introduction to CUPS Programming" \
-		--css ../doc/cups-printable.css \
-		--header api-overview.header --intro api-overview.shtml
-	mxmldoc --framed api-array \
-		--section "Programming" --title "Array API" \
-		--css ../doc/cups-printable.css \
-		--header api-array.header --intro api-array.shtml \
-		array.h array.c
-	mxmldoc --framed api-cups \
-		--section "Programming" --title "CUPS API" \
-		--css ../doc/cups-printable.css \
-		--header api-cups.header --intro api-cups.shtml \
-		cups.h adminutil.c dest*.c language.c notify.c \
-		options.c tempfile.c usersys.c \
-		util.c
-	mxmldoc --framed api-filedir \
-		--section "Programming" --title "File and Directory APIs" \
-		--css ../doc/cups-printable.css \
-		--header api-filedir.header --intro api-filedir.shtml \
-		file.h file.c dir.h dir.c
-	mxmldoc --framed api-ppd \
-		--section "Programming" --title "PPD API (DEPRECATED)" \
-		--css ../doc/cups-printable.css \
-		--header api-ppd.header --intro api-ppd.shtml \
-		ppd.h attr.c conflicts.c custom.c emit.c localize.c mark.c \
-		page.c ppd.c
-	mxmldoc --framed api-httpipp \
-		--section "Programming" --title "HTTP and IPP APIs" \
-		--css ../doc/cups-printable.css \
-		--header api-httpipp.header --intro api-httpipp.shtml \
-		http.h ipp.h auth.c getdevices.c getputfile.c encode.c \
-		http.c http-addr.c http-support.c ipp.c ipp-support.c \
-		md5passwd.c request.c
-	mxmldoc --framed api-filter \
-		--section "Programming" \
-		--title "Filter and Backend Programming" \
-		--css ../doc/cups-printable.css \
-		--header api-filter.header --intro api-filter.shtml \
-		backchannel.c backend.h backend.c sidechannel.c sidechannel.h
-
 
 #
 # Lines of code computation...
@@ -675,8 +637,3 @@ sloc:
 
 include Dependencies
 tls.o: tls-darwin.c tls-gnutls.c tls-sspi.c
-
-
-#
-# End of "$Id: Makefile 12992 2015-11-19 15:19:00Z msweet $".
-#

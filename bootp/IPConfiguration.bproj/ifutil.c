@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -345,6 +345,9 @@ count_prefix_bits(void * val, int size)
     return (plen);
 }
 
+STATIC void
+set_sockaddr_in6(struct sockaddr_in6 * sin6_p, const struct in6_addr * addr);
+
 PRIVATE_EXTERN int
 inet6_dgram_socket()
 {
@@ -372,28 +375,42 @@ siocprotodetach_in6(int s, const char * name)
 }
 
 STATIC int
-siocll_start(int s, const char * name)
+siocll_start(int s, const char * name, const struct in6_addr * v6_ll)
 {
     struct in6_aliasreq		ifra_in6;
 
     bzero(&ifra_in6, sizeof(ifra_in6));
     strncpy(ifra_in6.ifra_name, name, sizeof(ifra_in6.ifra_name));
+    if (v6_ll != NULL) {
+	char 		ntopbuf[INET6_ADDRSTRLEN];
+
+	/* our address */
+	set_sockaddr_in6(&ifra_in6.ifra_addr, v6_ll);
+
+	inet_ntop(AF_INET6, v6_ll, ntopbuf, sizeof(ntopbuf));
+	my_log(LOG_INFO, "ioctl(%s, SIOCLL_START %s)", name, ntopbuf);
+    }
+    else {
+	my_log(LOG_INFO, "ioctl(%s, SIOCLL_START)", name);
+    }
     return (ioctl(s, SIOCLL_START, &ifra_in6));
 }
 
 STATIC int
-ll_start(int s, const char * name, boolean_t use_cga)
+ll_start(int s, const char * name, const struct in6_addr * v6_ll,
+	 boolean_t use_cga)
 {
-    struct in6_llstartreq	req;
+    struct in6_cgareq	req;
 
-    if (use_cga == FALSE || !CGAIsEnabled()) {
-	return (siocll_start(s, name));
+    if (v6_ll != NULL || use_cga == FALSE || !CGAIsEnabled()) {
+	return (siocll_start(s, name, v6_ll));
     }
     bzero(&req, sizeof(req));
-    strncpy(req.llsr_name, name, sizeof(req.llsr_name));
-    CGAPrepareSetForInterface(name, &req.llsr_cgaprep);
-    req.llsr_lifetime.ia6t_vltime = -1;
-    req.llsr_lifetime.ia6t_pltime = -1;
+    strncpy(req.cgar_name, name, sizeof(req.cgar_name));
+    CGAPrepareSetForInterfaceLinkLocal(name, &req.cgar_cgaprep);
+    req.cgar_lifetime.ia6t_vltime = ND6_INFINITE_LIFETIME;
+    req.cgar_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME;
+    my_log(LOG_INFO, "ioctl(%s, SIOCLL_CGASTART)", name);
     return (ioctl(s, SIOCLL_CGASTART, &req));
 }
 
@@ -404,6 +421,7 @@ siocll_stop(int s, const char * name)
 
     bzero(&ifr, sizeof(ifr));
     strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+    my_log(LOG_INFO, "ioctl(%s, SIOCLL_STOP)", name);
     return (ioctl(s, SIOCLL_STOP, &ifr));
 }
 
@@ -451,8 +469,21 @@ siocgifalifetime_in6(int s, const char * ifname,
     return (0);
 }
 
+STATIC int
+siocsifcgaprep_in6(int s, const char * ifname)
+{
+    struct in6_cgareq	req;
+
+    bzero(&req, sizeof(req));
+    strncpy(req.cgar_name, ifname, sizeof(req.cgar_name));
+    CGAPrepareSetForInterface(ifname, &req.cgar_cgaprep);
+    req.cgar_lifetime.ia6t_vltime = ND6_INFINITE_LIFETIME;
+    req.cgar_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME;
+    return (ioctl(s, SIOCSIFCGAPREP_IN6, &req));
+}
+
 PRIVATE_EXTERN int
-inet6_attach_interface(const char * ifname)
+inet6_attach_interface(const char * ifname, boolean_t use_cga)
 {
     int	ret = 0;
     int s = inet6_dgram_socket();
@@ -469,6 +500,16 @@ inet6_attach_interface(const char * ifname)
 	if (ret != EEXIST && ret != ENXIO) {
 	    my_log(LOG_INFO, "siocprotoattach_in6(%s) failed, %s (%d)",
 		   ifname, strerror(errno), errno);
+	}
+    }
+    if (use_cga && CGAIsEnabled()) {
+	/* set the per-interface modifier */
+	if (siocsifcgaprep_in6(s, ifname) < 0) {
+	    ret = errno;
+	    if (ret != ENXIO) {
+		my_log(LOG_ERR, "siocsifcgaprep_in6(%s) failed, %s (%d)",
+		       ifname, strerror(errno), errno);
+	    }
 	}
     }
     my_log(LOG_INFO,
@@ -501,6 +542,8 @@ inet6_detach_interface(const char * ifname)
 	}
     }
     close(s);
+    my_log(LOG_INFO,
+	   "inet6_detach_interface(%s)", ifname);
 
  done:
     return (ret);
@@ -538,29 +581,17 @@ nd_flags_set_with_socket(int s, const char * if_name,
     return (TRUE);
 }
 
-STATIC boolean_t
-nd_flags_set(const char * if_name, uint32_t set_flags, uint32_t clear_flags)
-{
-    int			s;
-    boolean_t		success = FALSE;
-
-    s = inet6_dgram_socket();
-    if (s < 0) {
-	my_log_fl(LOG_ERR, "socket failed, %s", strerror(errno));
-    }
-    else {
-	success = nd_flags_set_with_socket(s, if_name, set_flags, clear_flags);
-	close(s);
-    }
-    return (success);
-}
-
-
 PRIVATE_EXTERN int
-inet6_linklocal_start(const char * ifname, boolean_t use_cga)
+inet6_linklocal_start(const char * ifname,
+		      const struct in6_addr * v6_ll,
+		      boolean_t perform_nud,
+		      boolean_t use_cga,
+		      boolean_t enable_dad)
 {
-    int ret = 0;
-    int s = inet6_dgram_socket();
+    uint32_t	clear_flags;
+    int 	ret = 0;
+    int 	s = inet6_dgram_socket();
+    uint32_t	set_flags;
 
     if (s < 0) {
 	ret = errno;
@@ -569,8 +600,32 @@ inet6_linklocal_start(const char * ifname, boolean_t use_cga)
 	       ifname, strerror(ret), ret);
 	goto done;
     }
-    nd_flags_set_with_socket(s, ifname, 0, ND6_IFF_IFDISABLED);
-    if (ll_start(s, ifname, use_cga) < 0) {
+
+    /* set/clear the ND flags */
+    set_flags = 0;
+    clear_flags = ND6_IFF_IFDISABLED;
+    if (use_cga) {
+	clear_flags |= ND6_IFF_INSECURE;
+    }
+    else {
+	set_flags |= ND6_IFF_INSECURE;
+    }
+    if (perform_nud) {
+	set_flags |= ND6_IFF_PERFORMNUD;
+    }
+    else {
+	clear_flags |= ND6_IFF_PERFORMNUD;
+    }
+    if (enable_dad) {
+	set_flags |= ND6_IFF_DAD;
+    }
+    else {
+	clear_flags |= ND6_IFF_DAD;
+    }
+    nd_flags_set_with_socket(s, ifname, set_flags, clear_flags);
+
+    /* start IPv6 link-local */
+    if (ll_start(s, ifname, v6_ll, use_cga) < 0) {
 	ret = errno;
 	if (errno != ENXIO) {
 	    my_log(LOG_ERR, "siocll_start(%s) failed, %s (%d)",
@@ -649,6 +704,9 @@ inet6_rtadv_enable(const char * if_name)
 	}
     }
     close(s);
+    my_log(LOG_INFO,
+	   "rtadv_enable(%s)", if_name);
+
  done:
     return (ret);
 }
@@ -674,6 +732,8 @@ inet6_rtadv_disable(const char * if_name)
 	}
     }
     close(s);
+    my_log(LOG_INFO,
+	   "rtadv_disable(%s)", if_name);
  done:
     return (ret);
 }
@@ -835,12 +895,16 @@ inet6_if_ioctl(const char * ifname, unsigned long request)
 PRIVATE_EXTERN int
 inet6_flush_prefixes(const char * ifname)
 {
+    my_log(LOG_INFO,
+	   "inet6_flush_prefixes(%s)", ifname);
     return (inet6_if_ioctl(ifname, SIOCSPFXFLUSH_IN6));
 }
 
 PRIVATE_EXTERN int
 inet6_flush_routes(const char * ifname)
 {
+    my_log(LOG_INFO,
+	   "inet6_flush_routes(%s)", ifname);
     return (inet6_if_ioctl(ifname, SIOCSRTRFLUSH_IN6));
 }
 
@@ -872,22 +936,6 @@ inet6_forwarding_is_enabled(void)
     return (enabled != 0);
 }
 
-PRIVATE_EXTERN boolean_t
-inet6_set_perform_nud(const char * if_name, boolean_t perform_nud)
-{
-    uint32_t	clear_flags;
-    uint32_t	set_flags;
-
-    if (perform_nud) {
-	set_flags = ND6_IFF_PERFORMNUD;
-	clear_flags = 0;
-    }
-    else {
-	set_flags = 0;
-	clear_flags = ND6_IFF_PERFORMNUD;
-    }
-    return (nd_flags_set(if_name, set_flags, clear_flags));
-}
 
 /**
  ** inet6_addrlist_*

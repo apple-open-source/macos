@@ -2515,10 +2515,9 @@ phase change for this ppp occured
 void ppp_updatephase(struct service *serv, int phase, int ifunit)
 {
 
-  /* check if update is received pppd has  exited */
-  if (serv->u.ppp.statusfd[READ] == -1)
-      return;
-
+    /* check if update is received pppd has  exited */
+    if (serv->u.ppp.statusfd[READ] == -1)
+        return;
 
     /* check for new phase */
     if (phase == serv->u.ppp.phase)

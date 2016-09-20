@@ -128,14 +128,17 @@ static int ccHashClone(const struct ccdigest_info *di, const tls_buffer *src, tl
 #define SSL_SHA1_DIGEST_LENGTH (CCSHA1_OUTPUT_SIZE)
 #define SSL_SHA256_DIGEST_LENGTH (CCSHA256_OUTPUT_SIZE)
 #define SSL_SHA384_DIGEST_LENGTH (CCSHA384_OUTPUT_SIZE)
+#define SSL_SHA512_DIGEST_LENGTH (CCSHA512_OUTPUT_SIZE)
 
 #define SSL_MD5_CONTEXT_SIZE (ccdigest_ctx_size(CCMD5_STATE_SIZE, CCMD5_BLOCK_SIZE))
 #define SSL_SHA1_CONTEXT_SIZE (ccdigest_ctx_size(CCSHA1_STATE_SIZE, CCSHA1_BLOCK_SIZE))
 #define SSL_SHA256_CONTEXT_SIZE (ccdigest_ctx_size(CCSHA256_STATE_SIZE, CCSHA256_BLOCK_SIZE))
 #define SSL_SHA384_CONTEXT_SIZE (ccdigest_ctx_size(CCSHA512_STATE_SIZE, CCSHA512_BLOCK_SIZE))
+#define SSL_SHA512_CONTEXT_SIZE (ccdigest_ctx_size(CCSHA512_STATE_SIZE, CCSHA512_BLOCK_SIZE))
 
 #define SSL_SHA256_BLOCK_BYTES CCSHA256_BLOCK_SIZE
 #define SSL_SHA384_BLOCK_BYTES CCSHA512_BLOCK_SIZE
+#define SSL_SHA512_BLOCK_BYTES CCSHA512_BLOCK_SIZE
 
 /*** MD5 ***/
 static int HashMD5Init(tls_buffer *digestCtx)
@@ -240,6 +243,32 @@ static int HashSHA384Clone(const tls_buffer *src, tls_buffer *dst)
 	return ccHashClone(ccsha384_di(), src, dst);
 }
 
+/*** SHA512 ***/
+static int HashSHA512Init(tls_buffer *digestCtx)
+{
+    return ccHashInit(ccsha512_di(), digestCtx);
+}
+
+static int HashSHA512Update(tls_buffer *digestCtx, const tls_buffer *data)
+{
+    return ccHashUpdate(ccsha512_di(), digestCtx, data);
+}
+
+static int HashSHA512Final(tls_buffer *digestCtx, tls_buffer *digest)
+{
+    return ccHashFinal(ccsha512_di(), digestCtx, digest);
+}
+
+static int HashSHA512Close(tls_buffer *digestCtx)
+{
+    return ccHashClose(ccsha512_di(), digestCtx);
+}
+
+static int HashSHA512Clone(const tls_buffer *src, tls_buffer *dst)
+{
+    return ccHashClone(ccsha512_di(), src, dst);
+}
+
 /*
  * These are the handles by which the bulk of digesting work
  * is done.
@@ -302,4 +331,16 @@ const HashReference SSLHashSHA384 =
     HashSHA384Final,
     HashSHA384Close,
     HashSHA384Clone
+};
+
+const HashReference SSLHashSHA512 =
+{
+    SSL_SHA512_DIGEST_LENGTH,
+    SSL_SHA512_BLOCK_BYTES,
+    SSL_SHA512_CONTEXT_SIZE,
+    HashSHA512Init,
+    HashSHA512Update,
+    HashSHA512Final,
+    HashSHA512Close,
+    HashSHA512Clone
 };

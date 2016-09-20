@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2012, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,7 +36,7 @@
 
 namespace WebKit {
 
-class WebPlatformStrategies : public WebCore::PlatformStrategies, private WebCore::CookiesStrategy, private WebCore::LoaderStrategy, private WebCore::PasteboardStrategy, private WebCore::PluginStrategy {
+class WebPlatformStrategies : public WebCore::PlatformStrategies, private WebCore::CookiesStrategy, private WebCore::PasteboardStrategy, private WebCore::PluginStrategy {
     friend class NeverDestroyed<WebPlatformStrategies>;
 public:
     static void initialize();
@@ -45,67 +45,62 @@ private:
     WebPlatformStrategies();
     
     // WebCore::PlatformStrategies
-    virtual WebCore::CookiesStrategy* createCookiesStrategy() override;
-    virtual WebCore::LoaderStrategy* createLoaderStrategy() override;
-    virtual WebCore::PasteboardStrategy* createPasteboardStrategy() override;
-    virtual WebCore::PluginStrategy* createPluginStrategy() override;
+    WebCore::CookiesStrategy* createCookiesStrategy() override;
+    WebCore::LoaderStrategy* createLoaderStrategy() override;
+    WebCore::PasteboardStrategy* createPasteboardStrategy() override;
+    WebCore::PluginStrategy* createPluginStrategy() override;
+    WebCore::BlobRegistry* createBlobRegistry() override;
 
     // WebCore::CookiesStrategy
-    virtual String cookiesForDOM(const WebCore::NetworkStorageSession&, const WebCore::URL& firstParty, const WebCore::URL&) override;
-    virtual void setCookiesFromDOM(const WebCore::NetworkStorageSession&, const WebCore::URL& firstParty, const WebCore::URL&, const String&) override;
-    virtual bool cookiesEnabled(const WebCore::NetworkStorageSession&, const WebCore::URL& firstParty, const WebCore::URL&) override;
-    virtual String cookieRequestHeaderFieldValue(const WebCore::NetworkStorageSession&, const WebCore::URL& firstParty, const WebCore::URL&) override;
-    virtual bool getRawCookies(const WebCore::NetworkStorageSession&, const WebCore::URL& firstParty, const WebCore::URL&, Vector<WebCore::Cookie>&) override;
-    virtual void deleteCookie(const WebCore::NetworkStorageSession&, const WebCore::URL&, const String&) override;
-
-    // WebCore::LoaderStrategy
-#if ENABLE(NETWORK_PROCESS)
-    virtual WebCore::ResourceLoadScheduler* resourceLoadScheduler() override;
-    virtual void loadResourceSynchronously(WebCore::NetworkingContext*, unsigned long resourceLoadIdentifier, const WebCore::ResourceRequest&, WebCore::StoredCredentials, WebCore::ClientCredentialPolicy, WebCore::ResourceError&, WebCore::ResourceResponse&, Vector<char>& data) override;
-    virtual WebCore::BlobRegistry* createBlobRegistry() override;
-    virtual void createPingHandle(WebCore::NetworkingContext*, WebCore::ResourceRequest&, bool shouldUseCredentialStorage) override;
-#endif
+    String cookiesForDOM(const WebCore::NetworkStorageSession&, const WebCore::URL& firstParty, const WebCore::URL&) override;
+    void setCookiesFromDOM(const WebCore::NetworkStorageSession&, const WebCore::URL& firstParty, const WebCore::URL&, const String&) override;
+    bool cookiesEnabled(const WebCore::NetworkStorageSession&, const WebCore::URL& firstParty, const WebCore::URL&) override;
+    String cookieRequestHeaderFieldValue(const WebCore::NetworkStorageSession&, const WebCore::URL& firstParty, const WebCore::URL&) override;
+    String cookieRequestHeaderFieldValue(WebCore::SessionID, const WebCore::URL& firstParty, const WebCore::URL&) override;
+    bool getRawCookies(const WebCore::NetworkStorageSession&, const WebCore::URL& firstParty, const WebCore::URL&, Vector<WebCore::Cookie>&) override;
+    void deleteCookie(const WebCore::NetworkStorageSession&, const WebCore::URL&, const String&) override;
+    void addCookie(const WebCore::NetworkStorageSession&, const WebCore::URL&, const WebCore::Cookie&) override;
 
     // WebCore::PluginStrategy
-    virtual void refreshPlugins() override;
-    virtual void getPluginInfo(const WebCore::Page*, Vector<WebCore::PluginInfo>&) override;
-    virtual void getWebVisiblePluginInfo(const WebCore::Page*, Vector<WebCore::PluginInfo>&) override;
+    void refreshPlugins() override;
+    void getPluginInfo(const WebCore::Page*, Vector<WebCore::PluginInfo>&) override;
+    void getWebVisiblePluginInfo(const WebCore::Page*, Vector<WebCore::PluginInfo>&) override;
 
 #if PLATFORM(MAC)
     typedef HashMap<String, WebCore::PluginLoadClientPolicy> PluginLoadClientPoliciesByBundleVersion;
     typedef HashMap<String, PluginLoadClientPoliciesByBundleVersion> PluginPolicyMapsByIdentifier;
 
-    virtual void setPluginLoadClientPolicy(WebCore::PluginLoadClientPolicy, const String& host, const String& bundleIdentifier, const String& versionString) override;
-    virtual void clearPluginClientPolicies() override;
+    void setPluginLoadClientPolicy(WebCore::PluginLoadClientPolicy, const String& host, const String& bundleIdentifier, const String& versionString) override;
+    void clearPluginClientPolicies() override;
 #endif
 
     // WebCore::PasteboardStrategy
 #if PLATFORM(IOS)
-    virtual void writeToPasteboard(const WebCore::PasteboardWebContent&) override;
-    virtual void writeToPasteboard(const WebCore::PasteboardImage&) override;
-    virtual void writeToPasteboard(const String& pasteboardType, const String&) override;
-    virtual int getPasteboardItemsCount() override;
-    virtual String readStringFromPasteboard(int index, const String& pasteboardType) override;
-    virtual PassRefPtr<WebCore::SharedBuffer> readBufferFromPasteboard(int index, const String& pasteboardType) override;
-    virtual WebCore::URL readURLFromPasteboard(int index, const String& pasteboardType) override;
-    virtual long changeCount() override;
+    void writeToPasteboard(const WebCore::PasteboardWebContent&) override;
+    void writeToPasteboard(const WebCore::PasteboardImage&) override;
+    void writeToPasteboard(const String& pasteboardType, const String&) override;
+    int getPasteboardItemsCount() override;
+    String readStringFromPasteboard(int index, const String& pasteboardType) override;
+    RefPtr<WebCore::SharedBuffer> readBufferFromPasteboard(int index, const String& pasteboardType) override;
+    WebCore::URL readURLFromPasteboard(int index, const String& pasteboardType) override;
+    long changeCount() override;
 #endif
 #if PLATFORM(COCOA)
-    virtual void getTypes(Vector<String>& types, const String& pasteboardName) override;
-    virtual PassRefPtr<WebCore::SharedBuffer> bufferForType(const String& pasteboardType, const String& pasteboardName) override;
-    virtual void getPathnamesForType(Vector<String>& pathnames, const String& pasteboardType, const String& pasteboardName) override;
-    virtual String stringForType(const String& pasteboardType, const String& pasteboardName) override;
-    virtual long changeCount(const String& pasteboardName) override;
-    virtual String uniqueName() override;
-    virtual WebCore::Color color(const String& pasteboardName) override;
-    virtual WebCore::URL url(const String& pasteboardName) override;
+    void getTypes(Vector<String>& types, const String& pasteboardName) override;
+    RefPtr<WebCore::SharedBuffer> bufferForType(const String& pasteboardType, const String& pasteboardName) override;
+    void getPathnamesForType(Vector<String>& pathnames, const String& pasteboardType, const String& pasteboardName) override;
+    String stringForType(const String& pasteboardType, const String& pasteboardName) override;
+    long changeCount(const String& pasteboardName) override;
+    String uniqueName() override;
+    WebCore::Color color(const String& pasteboardName) override;
+    WebCore::URL url(const String& pasteboardName) override;
 
-    virtual long addTypes(const Vector<String>& pasteboardTypes, const String& pasteboardName) override;
-    virtual long setTypes(const Vector<String>& pasteboardTypes, const String& pasteboardName) override;
-    virtual long copy(const String& fromPasteboard, const String& toPasteboard) override;
-    virtual long setBufferForType(PassRefPtr<WebCore::SharedBuffer>, const String& pasteboardType, const String& pasteboardName) override;
-    virtual long setPathnamesForType(const Vector<String>&, const String& pasteboardType, const String& pasteboardName) override;
-    virtual long setStringForType(const String&, const String& pasteboardType, const String& pasteboardName) override;
+    long addTypes(const Vector<String>& pasteboardTypes, const String& pasteboardName) override;
+    long setTypes(const Vector<String>& pasteboardTypes, const String& pasteboardName) override;
+    long copy(const String& fromPasteboard, const String& toPasteboard) override;
+    long setBufferForType(WebCore::SharedBuffer*, const String& pasteboardType, const String& pasteboardName) override;
+    long setPathnamesForType(const Vector<String>&, const String& pasteboardType, const String& pasteboardName) override;
+    long setStringForType(const String&, const String& pasteboardType, const String& pasteboardName) override;
 #endif
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
@@ -119,6 +114,8 @@ private:
 #if PLATFORM(MAC)
     HashMap<String, PluginPolicyMapsByIdentifier> m_hostsToPluginIdentifierData;
     bool pluginLoadClientPolicyForHost(const String&, const WebCore::PluginInfo&, WebCore::PluginLoadClientPolicy&) const;
+    String longestMatchedWildcardHostForHost(const String& host) const;
+    bool replaceHostWithMatchedWildcardHost(String& host, const String& identifier) const;
 #endif // PLATFORM(MAC)
 #endif // ENABLE(NETSCAPE_PLUGIN_API)
 };

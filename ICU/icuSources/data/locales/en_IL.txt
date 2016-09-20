@@ -1,19 +1,47 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
-// * Apple addition, not in CLDR
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/en_IL.xml
 // *
 // ***************************************************************************
 en_IL{
     %%Parent{"en_001"}
-    NumberElements{
-        latn{
-            patterns{
-                accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
-                currencyFormat{"¤#,##0.00"}
+    Version{"2.1.23.47"}
+    calendar{
+        generic{
+            availableFormats{
+                EHm{"E H:mm"}
+                EHms{"E H:mm:ss"}
+                H{"H"}
+                Hm{"H:mm"}
+                Hms{"H:mm:ss"}
+            }
+        }
+        gregorian{
+            DateTimePatterns{
+                "H:mm:ss zzzz",
+                "H:mm:ss z",
+                "H:mm:ss",
+                "H:mm",
+                "EEEE, d MMMM y",
+                "d MMMM y",
+                "d MMM y",
+                "dd/MM/y",
+                "{1}, {0}",
+                "{1} 'at' {0}",
+                "{1} 'at' {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+            }
+            availableFormats{
+                EHm{"E H:mm"}
+                EHms{"E H:mm:ss"}
+                H{"H"}
+                Hm{"H:mm"}
+                Hms{"H:mm:ss"}
             }
         }
     }
-    Version{"2.1.12.90"}
 }

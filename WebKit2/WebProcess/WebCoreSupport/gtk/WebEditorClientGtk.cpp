@@ -24,6 +24,7 @@
 #include <WebCore/DataObjectGtk.h>
 #include <WebCore/Document.h>
 #include <WebCore/Editor.h>
+#include <WebCore/EventNames.h>
 #include <WebCore/Frame.h>
 #include <WebCore/FrameDestructionObserver.h>
 #include <WebCore/KeyboardEvent.h>
@@ -39,11 +40,11 @@ bool WebEditorClient::executePendingEditorCommands(Frame* frame, const Vector<WT
 {
     Vector<Editor::Command> commands;
     for (auto& commandString : pendingEditorCommands) {
-        Editor::Command command = frame->editor().command(commandString.utf8().data());
+        Editor::Command command = frame->editor().command(commandString);
         if (command.isTextInsertion() && !allowTextInsertion)
             return false;
 
-        commands.append(WTF::move(command));
+        commands.append(WTFMove(command));
     }
 
     for (auto& command : commands) {
@@ -164,6 +165,9 @@ void WebEditorClient::updateGlobalSelection(Frame* frame)
 #if PLATFORM(X11)
     if (!frame->selection().isRange())
         return;
+    RefPtr<Range> range = frame->selection().toNormalizedRange();
+    if (!range)
+        return;
 
     frameSettingClipboard = frame;
     GRefPtr<GClosure> callback = adoptGRef(g_cclosure_new(G_CALLBACK(collapseSelection), frame, nullptr));
@@ -173,7 +177,6 @@ void WebEditorClient::updateGlobalSelection(Frame* frame)
     new EditorClientFrameDestructionObserver(frame, callback.get());
     g_closure_set_marshal(callback.get(), g_cclosure_marshal_VOID__VOID);
 
-    RefPtr<Range> range = frame->selection().toNormalizedRange();
     PasteboardWebContent pasteboardContent;
     pasteboardContent.canSmartCopyOrDelete = false;
     pasteboardContent.text = range->text();

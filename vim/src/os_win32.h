@@ -12,7 +12,10 @@
 
 #include "os_dos.h"		/* common MS-DOS and Win32 stuff */
 #ifndef __CYGWIN__
-#include <direct.h>		/* for _mkdir() */
+/* cproto fails on missing include files */
+# ifndef PROTO
+#  include <direct.h>		/* for _mkdir() */
+# endif
 #endif
 
 /* Stop the VC2005 compiler from nagging. */
@@ -54,21 +57,18 @@
 
 #define FEAT_SHORTCUT		/* resolve shortcuts */
 
-#if !defined(__MINGW32__) \
-	&& !defined(__CYGWIN__) \
-	&& (!defined(__BORLANDC__) || __BORLANDC__ >= 0x550) \
+#if (!defined(__BORLANDC__) || __BORLANDC__ >= 0x550) \
 	&& (!defined(_MSC_VER) || _MSC_VER > 1020)
 /*
  * Access Control List (actually security info).
- * Mingw and Cygwin don't have the acl stuff.
- * Borland only in version 5.5 and later.
+ * Borland has the acl stuff only in version 5.5 and later.
  * MSVC in 5.0, not in 4.2, don't know about 4.3.
  */
 # define HAVE_ACL
 #endif
 
 #define USE_FNAME_CASE		/* adjust case of file names */
-#if !defined(FEAT_CLIPBOARD) && defined(FEAT_VISUAL) && defined(FEAT_MOUSE)
+#if !defined(FEAT_CLIPBOARD) && defined(FEAT_MOUSE)
 # define FEAT_CLIPBOARD		/* include clipboard support */
 #endif
 #if defined(__DATE__) && defined(__TIME__)
@@ -77,7 +77,6 @@
 #ifndef FEAT_GUI_W32		/* GUI works different */
 # define BREAKCHECK_SKIP    1	/* call mch_breakcheck() each time, it's fast */
 #endif
-#define HAVE_AVAIL_MEM
 
 #define HAVE_PUTENV		/* at least Bcc 5.2 and MSC have it */
 
@@ -101,14 +100,19 @@
 #ifndef COBJMACROS
 # define COBJMACROS	/* For OLE: Enable "friendlier" access to objects */
 #endif
-#include <windows.h>
+#ifndef PROTO
+# include <windows.h>
+# ifndef SM_CXPADDEDBORDER
+#  define SM_CXPADDEDBORDER     92
+# endif
+#endif
 
 /*
  * Win32 has plenty of memory, use large buffers
  */
 #define CMDBUFFSIZE 1024	/* size of the command processing buffer */
 
-/* _MAX_PATH is only 256 (stdlib.h), but we want more for the 'path' option,
+/* _MAX_PATH is only 260 (stdlib.h), but we want more for the 'path' option,
  * thus use a larger number. */
 #define MAXPATHL	1024
 
@@ -124,6 +128,19 @@
 
 #ifndef DFLT_MAXMEMTOT
 # define DFLT_MAXMEMTOT	(5*1024)    /* use up to 5 Mbyte for Vim */
+#endif
+
+/*
+ * Reparse Point
+ */
+#ifndef FILE_ATTRIBUTE_REPARSE_POINT
+# define FILE_ATTRIBUTE_REPARSE_POINT	0x00000400
+#endif
+#ifndef IO_REPARSE_TAG_MOUNT_POINT
+# define IO_REPARSE_TAG_MOUNT_POINT	0xA0000003
+#endif
+#ifndef IO_REPARSE_TAG_SYMLINK
+# define IO_REPARSE_TAG_SYMLINK		0xA000000C
 #endif
 
 #if defined(_MSC_VER) || defined(__BORLANDC__)
@@ -191,5 +208,23 @@ Trace(char *pszFormat, ...);
 #ifdef __BORLANDC__
 # define vim_mkdir(x, y) mkdir(x)
 #else
-# define vim_mkdir(x, y) _mkdir(x)
+# define vim_mkdir(x, y) mch_mkdir(x)
 #endif
+
+#ifndef PROTO
+
+/* Enable common dialogs input unicode from IME if possible. */
+#ifdef FEAT_MBYTE
+    /* The variables are defined in os_win32.c. */
+extern LRESULT (WINAPI *pDispatchMessage)(CONST MSG *);
+extern BOOL (WINAPI *pGetMessage)(LPMSG, HWND, UINT, UINT);
+extern BOOL (WINAPI *pIsDialogMessage)(HWND, LPMSG);
+extern BOOL (WINAPI *pPeekMessage)(LPMSG, HWND, UINT, UINT, UINT);
+#else
+# define pDispatchMessage DispatchMessage
+# define pGetMessage GetMessage
+# define pIsDialogMessage IsDialogMessage
+# define pPeekMessage PeekMessage
+#endif
+
+#endif /* PROTO */

@@ -41,13 +41,13 @@ void Server::open(Socket &s, Support &my)
 {
     s.open(SOCK_STREAM);
     s.connect(my.mServer->address());
-    secdebug("socks", "%d connected to server %s", s.fd(), string(my.mServer->address()).c_str());
+    secinfo("socks", "%d connected to server %s", s.fd(), string(my.mServer->address()).c_str());
     Byte request[] = { 5, 1, socksAuthPublic };
     s.write(request, sizeof(request));
     Byte reply[2];
     s.read(reply, sizeof(reply));
     if (reply[0] != 5 || reply[1] != socksAuthPublic) {
-        secdebug("socks", "%d server failed (v%d auth=%d)", s.fd(), reply[0], reply[1]);
+        secinfo("socks", "%d server failed (v%d auth=%d)", s.fd(), reply[0], reply[1]);
         s.close();
         UnixError::throwMe(EPROTONOSUPPORT);
     }
@@ -61,7 +61,7 @@ void Server::connect(SocksClientSocket &me, const IPSockAddress &peer)
     Message reply(me);
     me.mLocalAddress = reply.address();
     me.mPeerAddress = peer;
-    secdebug("socks", "%d socks connected to %s", me.fd(), string(peer).c_str());
+    secinfo("socks", "%d socks connected to %s", me.fd(), string(peer).c_str());
 }
 
 void Server::connect(SocksClientSocket &me, const Host &host, IPPort port)
@@ -88,7 +88,7 @@ void Server::connect(SocksClientSocket &me, const Host &host, IPPort port)
     Message reply(me);
     me.mLocalAddress = reply.address();
     //me.mPeerAddress = not provided by Socks5 protocol;
-    secdebug("socks", "%d socks connected to %s", me.fd(), host.name().c_str());
+    secinfo("socks", "%d socks connected to %s", me.fd(), host.name().c_str());
 #endif
 }
 
@@ -101,7 +101,7 @@ void Server::bind(SocksServerSocket &me, const IPAddress &peer, IPPort port)
     Message reply(me);
     me.mLocalAddress = reply.address();
     //me.mPeerAddress not available yet;
-    secdebug("socks", "%d socks bound to %s", me.fd(), string(me.mLocalAddress).c_str());
+    secinfo("socks", "%d socks bound to %s", me.fd(), string(me.mLocalAddress).c_str());
 }
 
 void Server::receive(SocksServerSocket &me, SocksClientSocket &receiver)
@@ -109,7 +109,7 @@ void Server::receive(SocksServerSocket &me, SocksClientSocket &receiver)
     Message reply(me);
     receiver.setFd(me.fd(), me.mLocalAddress, reply.address());
     me.clear();					// clear our own (don't close on destruction)
-    secdebug("socks", "%d socks received from %s", receiver.fd(), string(reply.address()).c_str());
+    secinfo("socks", "%d socks received from %s", receiver.fd(), string(reply.address()).c_str());
 }
 
 

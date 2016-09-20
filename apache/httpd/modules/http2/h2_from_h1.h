@@ -60,8 +60,6 @@ struct h2_from_h1 {
 
 h2_from_h1 *h2_from_h1_create(int stream_id, apr_pool_t *pool);
 
-apr_status_t h2_from_h1_destroy(h2_from_h1 *response);
-
 apr_status_t h2_from_h1_read_response(h2_from_h1 *from_h1,
                                       ap_filter_t* f, apr_bucket_brigade* bb);
 
@@ -70,5 +68,8 @@ struct h2_response *h2_from_h1_get_response(h2_from_h1 *from_h1);
 apr_status_t h2_response_output_filter(ap_filter_t *f, apr_bucket_brigade *bb);
 
 apr_status_t h2_response_trailers_filter(ap_filter_t *f, apr_bucket_brigade *bb);
+
+void h2_from_h1_set_basic_http_header(apr_table_t *headers, request_rec *r,
+                                      apr_pool_t *pool);
 
 #endif /* defined(__mod_h2__h2_from_h1__) */

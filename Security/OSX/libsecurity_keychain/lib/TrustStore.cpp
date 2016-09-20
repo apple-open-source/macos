@@ -65,14 +65,14 @@ SecTrustUserSetting TrustStore::find(Certificate *cert, Policy *policy,
 					try {
 						cert->copyTo(location);	// add cert to the trust item's keychain
 					} catch (...) {
-						secdebug("trusteval", "failed to add certificate %p to keychain \"%s\"",
+						secinfo("trusteval", "failed to add certificate %p to keychain \"%s\"",
 							cert, location->name());
 						try {
 							if (&*location != &*defaultKeychain)
 								cert->copyTo(defaultKeychain);	// try the default (if it's not the same)
 						} catch (...) {
 							// unable to add the certificate
-							secdebug("trusteval", "failed to add certificate %p to keychain \"%s\"",
+							secinfo("trusteval", "failed to add certificate %p to keychain \"%s\"",
 								cert, defaultKeychain->name());
 						}
 					}
@@ -138,14 +138,14 @@ void TrustStore::assign(Certificate *cert, Policy *policy, SecTrustUserSetting t
 			try {
 				cert->copyTo(trustLocation);	// add cert to the trust item's keychain
 			} catch (...) {
-				secdebug("trusteval", "failed to add certificate %p to keychain \"%s\"",
+				secinfo("trusteval", "failed to add certificate %p to keychain \"%s\"",
 					cert, trustLocation->name());
 				try {
 					if (&*trustLocation != &*defaultKeychain)
 						cert->copyTo(defaultKeychain);	// try the default (if it's not the same)
 				} catch (...) {
 					// unable to add the certificate
-					secdebug("trusteval", "failed to add certificate %p to keychain \"%s\"",
+					secinfo("trusteval", "failed to add certificate %p to keychain \"%s\"",
 						cert, defaultKeychain->name());
 				}
 			}
@@ -170,6 +170,7 @@ Item TrustStore::findItem(Certificate *cert, Policy *policy,
 	// we no longer need or want to look for them anymore.
 	return ((ItemImpl*)NULL);
 
+#if 0
 	StLock<Mutex> _(mMutex);
 
 	try {
@@ -192,6 +193,7 @@ Item TrustStore::findItem(Certificate *cert, Policy *policy,
 	catch (const CommonError &error) {}
 
 	return ((ItemImpl*)NULL);	// no trust schema, no records, no error
+#endif
 }
 
 void TrustStore::getCssmRootCertificates(CertGroup &rootCerts)
@@ -252,7 +254,7 @@ void TrustStore::loadRootCertificates()
 		base += certData.Length;
 	}
 
-	secdebug("anchors", "%ld anchors loaded", (long)numCerts);
+	secinfo("anchors", "%ld anchors loaded", (long)numCerts);
 
 	mRootsValid = true;			// ready to roll
 }

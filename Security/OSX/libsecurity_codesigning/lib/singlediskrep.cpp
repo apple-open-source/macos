@@ -89,7 +89,6 @@ FileDesc &SingleDiskRep::fd()
 {
 	if (!mFd)
 		mFd.open(mPath, O_RDONLY);
-
 	return mFd;
 }
 
@@ -100,7 +99,6 @@ void SingleDiskRep::flush()
 {
 	mFd.close();
 }
-
 
 //
 // The recommended identifier of a SingleDiskRep is, absent any better clue,
@@ -118,6 +116,11 @@ string SingleDiskRep::recommendedIdentifier(const SigningContext &)
 void SingleDiskRep::strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated, SecCSFlags flags)
 {
 	DiskRep::strictValidate(cd, tolerated, flags);
+
+	if (flags & kSecCSRestrictSidebandData)
+		if (fd().hasExtendedAttribute(XATTR_RESOURCEFORK_NAME) || fd().hasExtendedAttribute(XATTR_FINDERINFO_NAME))
+			if (tolerated.find(errSecCSInvalidAssociatedFileData) == tolerated.end())
+				MacOSError::throwMe(errSecCSInvalidAssociatedFileData);
 	
 	// code limit must cover (exactly) the entire file
 	if (cd && cd->signingLimit() != signingLimit())

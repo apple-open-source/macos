@@ -17,6 +17,8 @@ protected:
 	u_int8_t* mDataArea;
 	u_int8_t* mDataPtr;
 	u_int8_t* mDataMax;
+
+    int mBackingFile;
 	
 	void WriteOffset (SegmentOffsetType offset);
 	void WriteData (const void* data, SegmentOffsetType length);
@@ -30,7 +32,6 @@ public:
 	const char* GetSegmentName ();
 	size_t GetSegmentSize ();
 	
-	SegmentOffsetType GetProducerOffset ();
 	void SetProducerOffset (SegmentOffsetType producerOffset);
 };
 

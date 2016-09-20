@@ -379,7 +379,8 @@ main(argc, argv)
 		if ((lockudp6sock = socket(AF_INET6, SOCK_DGRAM, 0)) < 0)
 			syslog(LOG_ERR, "can't create UDP IPv6 socket: %s (%d)", strerror(errno), errno);
 		if (lockudp6sock >= 0) {
-			setsockopt(lockudp6sock, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
+			if (setsockopt(lockudp6sock, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on)))
+				syslog(LOG_WARNING, "can't set IPV6_V6ONLY on socket: %s (%d)", strerror(errno), errno);
 			sin6->sin6_family = AF_INET6;
 			sin6->sin6_addr = in6addr_any;
 			sin6->sin6_port = htons(config.port);
@@ -859,6 +860,7 @@ get_statd_pid(void)
 	if ((len = read(fd, pidbuf, len)) < 0) {
 		if (config.verbose)
 			syslog(LOG_DEBUG, "%s: %s (%d)", _PATH_STATD_PID, strerror(errno), errno);
+		close(fd);
 		return (0);
 	}
 
@@ -868,6 +870,7 @@ get_statd_pid(void)
 	if (!len || (pid < 1)) {
 		if (config.verbose)
 			syslog(LOG_DEBUG, "%s: bogus pid: %s", _PATH_STATD_PID, pidbuf);
+		close(fd);
 		return (0);
 	}
 
@@ -895,6 +898,9 @@ statd_is_running(void)
 {
 	return (get_statd_pid() > 0);
 }
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 static int
 statd_is_loaded(void)
@@ -1025,3 +1031,4 @@ statd_stop(void)
 	return (rv);
 }
 
+#pragma clang diagnostic pop

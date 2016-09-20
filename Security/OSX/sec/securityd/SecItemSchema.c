@@ -153,6 +153,7 @@ SECDB_ATTR(v6keytype, "type", Number,      SecDbFlags(P,L, , ,A, , ,C,H, ,Z, ,N,
 SECDB_ATTR(v6keycrtr, "crtr", Number,      SecDbFlags(P,L, , ,A, , ,C,H, ,Z, ,N, ,V0), NULL, NULL);
 //                                                    | | | | | | | | | | | | | | |
 SECDB_ATTR(v6version, "version", Number,   SecDbFlags(P,L, , , , , , , , , , ,N, ,  ), NULL, NULL);
+SECDB_ATTR(v91minor, "minor", Number,      SecDbFlags( ,L, , , , , , , , ,Z, ,N, ,  ), NULL, NULL);
 
 const SecDbClass genp_class = {
     .name = CFSTR("genp"),
@@ -317,7 +318,9 @@ const SecDbClass keys_class = {
 const SecDbClass tversion_class = {
     .name = CFSTR("tversion"),
     .attrs = {
+        &v6rowid,
         &v6version,
+        &v91minor,
         0
     }
 };
@@ -331,17 +334,202 @@ const SecDbClass identity_class = {
     },
 };
 
-/* Version 9 (iOS 9.3 and OSX 10.11.5) database schema
- * Same contents as v8 tables; table names changed to force upgrade
- * and correct default values in table. */
-const SecDbSchema v9_schema = {
-    9,
+/*
+ * Version 9.1 (iOS 10.0 and OSX 10.11.8/10.12 addded minor version.
+ */
+const SecDbSchema v9_1_schema = {
+    .majorVersion = 9,
+    .minorVersion = 1,
     .classes = {
         &genp_class,
         &inet_class,
         &cert_class,
         &keys_class,
         &tversion_class,
+        0
+    }
+};
+
+const SecDbClass v9genp_class = {
+    .name = CFSTR("genp9"),
+    .attrs = {
+        &v6rowid,
+        &v6cdat,
+        &v6mdat,
+        &v6desc,
+        &v6icmt,
+        &v6crtr,
+        &v6type,
+        &v6scrp,
+        &v6labl,
+        &v6alis,
+        &v6invi,
+        &v6nega,
+        &v6cusi,
+        &v6prot,
+        &v6acct,
+        &v6svce,
+        &v6gena,
+        &v6data,
+        &v6agrp,
+        &v6pdmn,
+        &v6sync,
+        &v6tomb,
+        &v6sha1,
+        &v7vwht,
+        &v7tkid,
+        &v6v_Data,
+        &v6v_pk,
+        &v6accc,
+        &v7utomb,
+        &v8musr,
+        0
+    },
+};
+
+const SecDbClass v9inet_class = {
+    .name = CFSTR("inet9"),
+    .attrs = {
+        &v6rowid,
+        &v6cdat,
+        &v6mdat,
+        &v6desc,
+        &v6icmt,
+        &v6crtr,
+        &v6type,
+        &v6scrp,
+        &v6labl,
+        &v6alis,
+        &v6invi,
+        &v6nega,
+        &v6cusi,
+        &v6prot,
+        &v6acct,
+        &v6sdmn,
+        &v6srvr,
+        &v6ptcl,
+        &v6atyp,
+        &v6port,
+        &v6path,
+        &v6data,
+        &v6agrp,
+        &v6pdmn,
+        &v6sync,
+        &v6tomb,
+        &v6sha1,
+        &v7vwht,
+        &v7tkid,
+        &v6v_Data,
+        &v6v_pk,
+        &v6accc,
+        &v7utomb,
+        &v8musr,
+        0
+    },
+};
+
+const SecDbClass v9cert_class = {
+    .name = CFSTR("cert9"),
+    .attrs = {
+        &v6rowid,
+        &v6cdat,
+        &v6mdat,
+        &v6ctyp,
+        &v6cenc,
+        &v6labl,
+        &v6certalis,
+        &v6subj,
+        &v6issr,
+        &v6slnr,
+        &v6skid,
+        &v6pkhh,
+        &v6data,
+        &v6agrp,
+        &v6pdmn,
+        &v6sync,
+        &v6tomb,
+        &v6sha1,
+        &v7vwht,
+        &v7tkid,
+        &v6v_Data,
+        &v6v_pk,
+        &v6accc,
+        &v7utomb,
+        &v8musr,
+        0
+    },
+};
+
+const SecDbClass v9keys_class = {
+    .name = CFSTR("keys9"),
+    .attrs = {
+        &v6rowid,
+        &v6cdat,
+        &v6mdat,
+        &v6kcls,
+        &v6labl,
+        &v6alis,
+        &v6perm,
+        &v6priv,
+        &v6modi,
+        &v6klbl,
+        &v6atag,
+        &v6keycrtr,
+        &v6keytype,
+        &v6bsiz,
+        &v6esiz,
+        &v6sdat,
+        &v6edat,
+        &v6sens,
+        &v6asen,
+        &v6extr,
+        &v6next,
+        &v6encr,
+        &v6decr,
+        &v6drve,
+        &v6sign,
+        &v6vrfy,
+        &v6snrc,
+        &v6vyrc,
+        &v6wrap,
+        &v6unwp,
+        &v6data,
+        &v6agrp,
+        &v6pdmn,
+        &v6sync,
+        &v6tomb,
+        &v6sha1,
+        &v7vwht,
+        &v7tkid,
+        &v6v_Data,
+        &v6v_pk,
+        &v6accc,
+        &v7utomb,
+        &v8musr,
+        0
+    }
+};
+
+const SecDbClass v5tversion_class = {
+    .name = CFSTR("tversion5"),
+    .attrs = {
+        &v6version,
+        0
+    }
+};
+
+/* Version 9 (iOS 9.3 and OSX 10.11.5) database schema
+ * Same contents as v8 tables; table names changed to force upgrade
+ * and correct default values in table.
+ */
+const SecDbSchema v9_schema = {
+    .majorVersion = 9,
+    .classes = {
+        &v9genp_class,
+        &v9inet_class,
+        &v9cert_class,
+        &v9keys_class,
+        &v5tversion_class,
         0
     }
 };
@@ -508,13 +696,13 @@ const SecDbClass v8keys_class = {
 };
 
 const SecDbSchema v8_schema = {
-    8,
+    .majorVersion = 8,
     .classes = {
         &v8genp_class,
         &v8inet_class,
         &v8cert_class,
         &v8keys_class,
-        &tversion_class,
+        &v5tversion_class,
         0
     }
 };
@@ -678,13 +866,13 @@ const SecDbClass v7keys_class = {
 
 
 const SecDbSchema v7_schema = {
-    7,
+    .majorVersion = 7,
     .classes = {
         &v7genp_class,
         &v7inet_class,
         &v7cert_class,
         &v7keys_class,
-        &tversion_class,
+        &v5tversion_class,
         0
     }
 };
@@ -836,13 +1024,13 @@ static const SecDbClass v6keys_class = {
 };
 
 static const SecDbSchema v6_schema = {
-    6,
+    .majorVersion = 6,
     .classes = {
         &v6genp_class,
         &v6inet_class,
         &v6cert_class,
         &v6keys_class,
-        &tversion_class,
+        &v5tversion_class,
         0
     }
 };
@@ -974,18 +1162,19 @@ static const SecDbClass v5keys_class = {
 };
 
 static const SecDbSchema v5_schema = {
-    5,
+    .majorVersion = 5,
     .classes = {
         &v5genp_class,
         &v5inet_class,
         &v5cert_class,
         &v5keys_class,
-        &tversion_class,
+        &v5tversion_class,
         0
     }
 };
 
 const SecDbSchema *kc_schemas[] = {
+    &v9_1_schema,
     &v9_schema,
     &v8_schema,
     &v7_schema,

@@ -91,6 +91,9 @@ extern "C" {
 /* foreced length of LM-style uppper case password */
 #define NTLM_LM_PASSWORD_LEN		14
 
+/* max lenght of flattenedString we are willing to consider */
+#define NTLM_MAX_STRING_LEN         2048
+
 /* 
  * Flags - defined here in native endianness; sent over the wire little-endian 
  */
@@ -189,7 +192,7 @@ void ntlmAppendTimestamp(
 /*
  * Convert CFString to little-endian unicode. 
  */
-void ntlmStringToLE(
+OSStatus ntlmStringToLE(
 	CFStringRef		pwd,
 	unsigned char   **ucode,		// mallocd and RETURNED
 	unsigned		*ucodeLen);		// RETURNED
@@ -217,24 +220,16 @@ void md5Hash(
 	unsigned char		*digest);		// caller-supplied, NTLM_DIGEST_LENGTH */
 	
 /*
- * Calculate LM-style password hash. This really only works if the password 
- * is convertible to ASCII.
- */
-OSStatus lmPasswordHash(	
-	CFStringRef			pwd,
-	unsigned char		*digest);		// caller-supplied, NTLM_DIGEST_LENGTH
-
-/*
  * Calculate NTLM password hash (MD4 on a unicode password).
  */
-void ntlmPasswordHash(
+OSStatus ntlmPasswordHash(
 	CFStringRef			pwd,
 	unsigned char		*digest);		// caller-supplied, NTLM_DIGEST_LENGTH
 	
 /* 
  * NTLM response: DES with three different keys.
  */
-OSStatus ntlmResponse(
+OSStatus lmv2Response(
 	const unsigned char *digest,		// NTLM_DIGEST_LENGTH bytes
 	const unsigned char *challenge,		// actually challenge or session hash 
 	unsigned char		*ntlmResp);		// caller-supplied NTLM_LM_RESPONSE_LEN

@@ -30,6 +30,7 @@
 #include "DeviceOrientationClient.h"
 #include "DeviceOrientationData.h"
 #include "DeviceOrientationEvent.h"
+#include "EventNames.h"
 #include "Page.h"
 
 namespace WebCore {
@@ -79,7 +80,7 @@ bool DeviceOrientationController::hasLastData()
     return deviceOrientationClient()->lastOrientation();
 }
 
-PassRefPtr<Event> DeviceOrientationController::getLastEvent()
+RefPtr<Event> DeviceOrientationController::getLastEvent()
 {
     return DeviceOrientationEvent::create(eventNames().deviceorientationEvent, deviceOrientationClient()->lastOrientation());
 }

@@ -22,30 +22,26 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/lib/libc_r/man/pthread_rwlock_wrlock.3,v 1.4 2001/10/01 16:09:09 ru Exp $
+.\" $FreeBSD$
 .\"
 .Dd August 4, 1998
 .Dt PTHREAD_RWLOCK_WRLOCK 3
 .Os
 .Sh NAME
-.Nm pthread_rwlock_trywrlock ,
-.Nm pthread_rwlock_wrlock
+.Nm pthread_rwlock_wrlock ,
+.Nm pthread_rwlock_trywrlock
 .Nd acquire a read/write lock for writing
 .Sh SYNOPSIS
 .In pthread.h
 .Ft int
-.Fo pthread_rwlock_trywrlock
-.Fa "pthread_rwlock_t *rwlock"
-.Fc
+.Fn pthread_rwlock_wrlock "pthread_rwlock_t *lock"
 .Ft int
-.Fo pthread_rwlock_wrlock
-.Fa "pthread_rwlock_t *rwlock"
-.Fc
+.Fn pthread_rwlock_trywrlock "pthread_rwlock_t *lock"
 .Sh DESCRIPTION
 The
 .Fn pthread_rwlock_wrlock
 function blocks until a write lock can be acquired against
-.Fa rwlock .
+.Fa lock .
 The
 .Fn pthread_rwlock_trywrlock
 function performs the same action, but does not block if the lock
@@ -61,18 +57,8 @@ If successful, the
 and
 .Fn pthread_rwlock_trywrlock
 functions will return zero.
-Otherwise, an error number will be returned  to indicate the error.
-.Sh SEE ALSO
-.Xr pthread_rwlock_trywrlock 3 ,
-.Xr pthread_rwlock_unlock 3 ,
-.Xr pthread_rwlock_wrlock 3
-.Sh STANDARDS
-The
-.Fn pthread_rwlock_wrlock
-and
-.Fn pthread_rwlock_trywrlock
-functions are expected to conform to
-.St -susv2 .
+Otherwise an error number will be returned
+to indicate the error.
 .Sh ERRORS
 The
 .Fn pthread_rwlock_trywrlock
@@ -93,12 +79,24 @@ The calling thread already owns the read/write lock (for reading
 or writing).
 .It Bq Er EINVAL
 The value specified by
-.Fa rwlock
+.Fa lock
 is invalid.
 .It Bq Er ENOMEM
 Insufficient memory exists to initialize the lock (applies to
 statically initialized locks only).
 .El
+.Sh SEE ALSO
+.Xr pthread_rwlock_init 3 ,
+.Xr pthread_rwlock_rdlock 3 ,
+.Xr pthread_rwlock_tryrdlock 3 ,
+.Xr pthread_rwlock_unlock 3
+.Sh STANDARDS
+The
+.Fn pthread_rwlock_wrlock
+and
+.Fn pthread_rwlock_trywrlock
+functions are expected to conform to
+.St -susv2 .
 .Sh HISTORY
 The
 .Fn pthread_rwlock_wrlock

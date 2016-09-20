@@ -25,7 +25,7 @@
 #ifndef RTCDataChannelEvent_h
 #define RTCDataChannelEvent_h
 
-#if ENABLE(MEDIA_STREAM)
+#if ENABLE(WEB_RTC)
 
 #include "Event.h"
 #include "RTCDataChannel.h"
@@ -37,7 +37,6 @@ class RTCDataChannelEvent : public Event {
 public:
     virtual ~RTCDataChannelEvent();
 
-    static Ref<RTCDataChannelEvent> create();
     static Ref<RTCDataChannelEvent> create(const AtomicString& type, bool canBubble, bool cancelable, PassRefPtr<RTCDataChannel>);
 
     RTCDataChannel* channel() const;
@@ -45,7 +44,6 @@ public:
     virtual EventInterface eventInterface() const;
 
 private:
-    RTCDataChannelEvent();
     RTCDataChannelEvent(const AtomicString& type, bool canBubble, bool cancelable, PassRefPtr<RTCDataChannel>);
 
     RefPtr<RTCDataChannel> m_channel;
@@ -53,6 +51,6 @@ private:
 
 } // namespace WebCore
 
-#endif // ENABLE(MEDIA_STREAM)
+#endif // ENABLE(WEB_RTC)
 
 #endif // RTCDataChannelEvent_h

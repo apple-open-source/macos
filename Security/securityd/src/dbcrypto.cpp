@@ -26,6 +26,7 @@
 // dbcrypto - cryptographic core for database and key blob cryptography
 //
 #include "dbcrypto.h"
+#include <security_utilities/casts.h>
 #include <securityd_client/ssblob.h>
 #include "server.h"		// just for Server::csp()
 #include <security_cdsa_client/genkey.h>
@@ -43,9 +44,14 @@ using LowLevelMemoryUtilities::fieldOffsetOf;
 // The CryptoCore constructor doesn't do anything interesting.
 // It just initializes us to "empty".
 //
-DatabaseCryptoCore::DatabaseCryptoCore() : mBlobVersion(CommonBlob::version_MacOS_10_0), mHaveMaster(false), mIsValid(false)
+DatabaseCryptoCore::DatabaseCryptoCore(uint32 requestedVersion) : mBlobVersion(CommonBlob::version_MacOS_10_0), mHaveMaster(false), mIsValid(false)
 {
-    mBlobVersion = CommonBlob::getCurrentVersion();
+    // If there's a specific version our callers want, give them that. Otherwise, ask CommonBlob what to do.
+    if(requestedVersion == CommonBlob::version_none) {
+        mBlobVersion = CommonBlob::getCurrentVersion();
+    } else {
+        mBlobVersion = requestedVersion;
+    }
 }
 
 DatabaseCryptoCore::~DatabaseCryptoCore()
@@ -67,6 +73,31 @@ void DatabaseCryptoCore::invalidate()
 	mIsValid = false;
 }
 
+//
+// Copy everything from another databasecryptocore
+//
+void DatabaseCryptoCore::initializeFrom(DatabaseCryptoCore& core, uint32 requestedVersion) {
+    if(core.hasMaster()) {
+        mMasterKey = core.mMasterKey;
+        memcpy(mSalt, core.mSalt, sizeof(mSalt));
+        mHaveMaster = core.mHaveMaster;
+    } else {
+        mHaveMaster = false;
+    }
+
+    if(core.isValid()) {
+        importSecrets(core);
+    } else {
+        mIsValid = false;
+    }
+
+    // As the last thing we do, check if we should be changing the version of this blob.
+    if(requestedVersion == CommonBlob::version_none) {
+        mBlobVersion = core.mBlobVersion;
+    } else {
+        mBlobVersion = requestedVersion;
+    }
+}
 
 //
 // Generate new secrets for this crypto core.
@@ -163,9 +194,12 @@ bool DatabaseCryptoCore::get_encryption_key(CssmOwnedData &data)
 //
 bool DatabaseCryptoCore::validatePassphrase(const CssmData &passphrase)
 {
-	assert(hasMaster());
 	CssmClient::Key master = deriveDbMasterKey(passphrase);
-	
+    return validateKey(master);
+}
+
+bool DatabaseCryptoCore::validateKey(const CssmClient::Key& master) {
+    assert(hasMaster());
 	// to compare master with mMaster, see if they encrypt alike
 	StringData probe
 		("Now is the time for all good processes to come to the aid of their kernel.");
@@ -228,9 +262,9 @@ DbBlob *DatabaseCryptoCore::encodeCore(const DbBlob &blobTemplate,
 	memcpy(blob->salt, mSalt, sizeof(blob->salt));
     memcpy(blob->iv, iv, sizeof(iv));
     memcpy(blob->publicAclBlob(), publicAcl, publicAcl.length());
-    blob->startCryptoBlob = sizeof(DbBlob) + publicAcl.length();
+    blob->startCryptoBlob = sizeof(DbBlob) + int_cast<size_t, uint32_t>(publicAcl.length());
     memcpy(blob->cryptoBlob(), cryptoBlob, cryptoBlob.length());
-    blob->totalLength = blob->startCryptoBlob + cryptoBlob.length();
+    blob->totalLength = blob->startCryptoBlob + int_cast<size_t, uint32_t>(cryptoBlob.length());
     
     // sign the blob
     CssmData signChunk[] = {
@@ -300,7 +334,7 @@ void DatabaseCryptoCore::decodeCore(const DbBlob *blob, void **privateAclBlob)
     // all checks out; start extracting fields
     if (privateAclBlob) {
         // extract private ACL blob as a separately allocated area
-        uint32 blobLength = decryptedBlob.length() - sizeof(DbBlob::PrivateBlob);
+        uint32 blobLength = (uint32) decryptedBlob.length() - sizeof(DbBlob::PrivateBlob);
         *privateAclBlob = Allocator::standard().malloc(blobLength);
         memcpy(*privateAclBlob, privateBlob->privateAclBlob(), blobLength);
     }
@@ -390,9 +424,9 @@ KeyBlob *DatabaseCryptoCore::encodeKeyCore(const CssmKey &inKey,
     blob->wrappedHeader.wrapAlgorithm = wrappedKey.wrapAlgorithm();
     blob->wrappedHeader.wrapMode = wrappedKey.wrapMode();
     memcpy(blob->publicAclBlob(), publicAcl, publicAcl.length());
-    blob->startCryptoBlob = sizeof(KeyBlob) + publicAcl.length();
+    blob->startCryptoBlob = sizeof(KeyBlob) + int_cast<size_t, uint32_t>(publicAcl.length());
     memcpy(blob->cryptoBlob(), wrappedKey.data(), wrappedKey.length());
-    blob->totalLength = blob->startCryptoBlob + wrappedKey.length();
+    blob->totalLength = blob->startCryptoBlob + int_cast<size_t, uint32_t>(wrappedKey.length());
     
  	if(inTheClear) {
 		/* indicate that this is cleartext for decoding */

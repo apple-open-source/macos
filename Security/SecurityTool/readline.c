@@ -24,7 +24,7 @@
  */
 
 #include "readline.h"
-#include "security.h"
+#include "security_tool.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -85,7 +85,7 @@ readline(char *buffer, int buffer_size)
 int
 read_file(const char *name, CSSM_DATA *outData)
 {
-	int fd, result;
+	int fd = -1, result;
 	char *buffer = NULL;
 	off_t length;
 	ssize_t bytes_read;
@@ -109,10 +109,10 @@ read_file(const char *name, CSSM_DATA *outData)
 		goto loser;
 	}
 
-	buffer = malloc(length);
+	buffer = malloc((size_t)length);
 
 	do {
-		bytes_read = pread(fd, buffer, length, 0);
+		bytes_read = pread(fd, buffer, (size_t) length, 0);
 	} while (bytes_read == -1 && errno == EINTR);
 
 	if (bytes_read == -1)
@@ -128,14 +128,11 @@ read_file(const char *name, CSSM_DATA *outData)
 		goto loser;
 	}
 
-	do {
-		result = close(fd);
-	} while (result == -1 && errno == EINTR);
-	if (result == -1)
-	{
-		sec_error("close %s: %s", name, strerror(errno));
-		goto loser;
-	}
+    result = close(fd);
+    if (result) {
+        sec_error("close");
+        goto loser;
+    }
 
 	outData->Data = (uint8 *)buffer;
 	outData->Length = (uint32)length;
@@ -143,6 +140,8 @@ read_file(const char *name, CSSM_DATA *outData)
 	return result;
 
 loser:
+    if (fd != -1)
+        close(fd);
 	if (buffer)
 		free(buffer);
 

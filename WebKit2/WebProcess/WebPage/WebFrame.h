@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +27,7 @@
 #define WebFrame_h
 
 #include "APIObject.h"
+#include "DownloadID.h"
 #include "ShareableBitmap.h"
 #include "WKBase.h"
 #include "WebFrameLoaderClient.h"
@@ -49,6 +50,7 @@ class Frame;
 class HTMLFrameOwnerElement;
 class IntPoint;
 class IntRect;
+class SessionID;
 class URL;
 }
 
@@ -79,10 +81,10 @@ public:
 
     uint64_t setUpPolicyListener(WebCore::FramePolicyFunction);
     void invalidatePolicyListener();
-    void didReceivePolicyDecision(uint64_t listenerID, WebCore::PolicyAction, uint64_t navigationID, uint64_t downloadID);
+    void didReceivePolicyDecision(uint64_t listenerID, WebCore::PolicyAction, uint64_t navigationID, DownloadID);
 
-    void startDownload(const WebCore::ResourceRequest&);
-    void convertMainResourceLoadToDownload(WebCore::DocumentLoader*, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
+    void startDownload(const WebCore::ResourceRequest&, const String& suggestedName = { });
+    void convertMainResourceLoadToDownload(WebCore::DocumentLoader*, WebCore::SessionID, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
 
     String source() const;
     String contentsAsString() const;
@@ -113,6 +115,7 @@ public:
     bool containsAnyFormControls() const;
     void stopLoading();
     bool handlesPageScaleGesture() const;
+    bool requiresUnifiedScaleFactor() const;
     void setAccessibleName(const String&);
 
     static WebFrame* frameForContext(JSContextRef);
@@ -168,7 +171,7 @@ private:
 
     uint64_t m_policyListenerID;
     WebCore::FramePolicyFunction m_policyFunction;
-    uint64_t m_policyDownloadID;
+    DownloadID m_policyDownloadID;
 
     std::unique_ptr<WebFrameLoaderClient> m_frameLoaderClient;
     LoadListener* m_loadListener;

@@ -497,7 +497,7 @@ process_idb_options(pcap_t *p, struct block_cursor *cursor, u_int *tsresol,
 				return (-1);
 			}
 			saw_tsresol = 1;
-			tsresol_opt = *(u_int *)optvalue;
+			memcpy(&tsresol_opt, optvalue, sizeof(tsresol_opt));
 			if (tsresol_opt & 0x80) {
 				/*
 				 * Resolution is negative power of 2.
@@ -576,7 +576,7 @@ add_interface(pcap_t *p, struct block_cursor *cursor, char *errbuf)
 		/*
 		 * We need to grow the array.
 		 */
-		if (ps->ifaces == NULL) {
+		if (ps->ifaces == NULL || ps->ifaces_size == 0) {
 			/*
 			 * It's currently empty.
 			 */
@@ -693,7 +693,7 @@ pcap_ng_check_header(bpf_u_int32 magic, FILE *fp, u_int precision, char *errbuf,
 	struct pcap_ng_sf *ps;
 	int status;
 	struct block_cursor cursor;
-	struct interface_description_block *idbp;
+	struct interface_description_block *idbp = NULL;
 	long file_offset = ftell(fp);
         
 	/*
@@ -896,7 +896,9 @@ pcap_ng_check_header(bpf_u_int32 magic, FILE *fp, u_int precision, char *errbuf,
 		status = read_block(fp, p, &cursor, errbuf);
 		if (status == 0) {
 			/* EOF - no IDB in this file */
-			break;
+			snprintf(errbuf, PCAP_ERRBUF_SIZE,
+			    "the capture file has no Interface Description Blocks");
+			goto fail;
 		}
 		if (status == -1)
 			goto fail;	/* error */
@@ -1291,10 +1293,16 @@ found:
 	}
 
 	/*
-	 * Convert the time stamp to a struct timeval.
+	 * Convert the time stamp to seconds and fractions of a second,
+	 * with the fractions being in units of the file-supplied resolution.
 	 */
 	sec = t / ps->ifaces[interface_id].tsresol + ps->ifaces[interface_id].tsoffset;
 	frac = t % ps->ifaces[interface_id].tsresol;
+
+	/*
+	 * Convert the fractions from units of the file-supplied resolution
+	 * to units of the user-requested resolution.
+	 */
 	switch (ps->ifaces[interface_id].scale_type) {
 
 	case PASS_THROUGH:
@@ -1305,33 +1313,25 @@ found:
 		break;
 
 	case SCALE_UP:
+	case SCALE_DOWN:
 		/*
-		 * The interface resolution is less than what the user
-		 * wants; scale up to that resolution.
+		 * The interface resolution is different from what the
+		 * user wants; convert the fractions to units of the
+		 * resolution the user requested by multiplying by the
+		 * quotient of the user-requested resolution and the
+		 * file-supplied resolution.  We do that by multiplying
+		 * by the user-requested resolution and dividing by the
+		 * file-supplied resolution, as the quotient might not
+		 * fit in an integer.
 		 *
 		 * XXX - if ps->ifaces[interface_id].tsresol is a power
 		 * of 10, we could just multiply by the quotient of
-		 * ps->ifaces[interface_id].tsresol and ps->user_tsresol,
-		 * as we know that's an integer.  That runs less risk of
-		 * overflow.
-		 *
-		 * Is there something clever we could do if
-		 * ps->ifaces[interface_id].tsresol is a power of 2?
-		 */
-		frac *= ps->ifaces[interface_id].tsresol;
-		frac /= ps->user_tsresol;
-		break;
-
-	case SCALE_DOWN:
-		/*
-		 * The interface resolution is greater than what the user
-		 * wants; scale down to that resolution.
-		 *
-		 * XXX - if ps->ifaces[interface_id].tsresol is a power
-		 * of 10, we could just divide by the quotient of
-		 * ps->user_tsresol and ps->ifaces[interface_id].tsresol,
-		 * as we know that's an integer.  That runs less risk of
-		 * overflow.
+		 * ps->user_tsresol and ps->ifaces[interface_id].tsresol
+		 * in the scale-up case, and divide by the quotient of
+		 * ps->ifaces[interface_id].tsresol and ps->user_tsresol
+		 * in the scale-down case, as we know those will be integers.
+		 * That would involve fewer arithmetic operations, and
+		 * would run less risk of overflow.
 		 *
 		 * Is there something clever we could do if
 		 * ps->ifaces[interface_id].tsresol is a power of 2?
@@ -1341,7 +1341,7 @@ found:
 		break;
 	}
 	hdr->ts.tv_sec = sec;
-	hdr->ts.tv_usec = frac;
+	hdr->ts.tv_usec = (int32_t)frac;
 
 	/*
 	 * Get a pointer to the packet data.
@@ -1370,23 +1370,8 @@ found:
 	}
 #endif /* __APPLE */
 	
-	if (p->swapped) {
-		/*
-		 * Convert pseudo-headers from the byte order of
-		 * the host on which the file was saved to our
-		 * byte order, as necessary.
-		 */
-		switch (p->linktype) {
-
-		case DLT_USB_LINUX:
-			swap_linux_usb_header(hdr, *data, 0);
-			break;
-
-		case DLT_USB_LINUX_MMAPPED:
-			swap_linux_usb_header(hdr, *data, 1);
-			break;
-		}
-	}
+	if (p->swapped)
+		swap_pseudo_headers(p->linktype, hdr, *data);
 
 	return (0);
 }
@@ -1407,14 +1392,14 @@ sf_ng_write_header(FILE *fp, int linktype, int thiszone, int snaplen)
 	 */
 	len = sizeof(bh) + sizeof(shb) + sizeof(bt);
 	bh.block_type   = PCAPNG_BT_SHB;
-	bh.total_length = len;
+	bh.total_length = (bpf_u_int32)len;
 	
 	shb.byte_order_magic = PCAPNG_BYTE_ORDER_MAGIC;
 	shb.major_version    = PCAPNG_VERSION_MAJOR;
 	shb.minor_version    = 0;
 	shb.section_length   = 0xFFFFFFFFFFFFFFFF;
 	
-	bt.total_length = len;
+	bt.total_length = (bpf_u_int32)len;
 	
 	if (fwrite((char *)&bh, sizeof(bh), 1, fp) != 1)
 		return (-1);
@@ -1430,13 +1415,13 @@ sf_ng_write_header(FILE *fp, int linktype, int thiszone, int snaplen)
 	 */
 	len = sizeof(bh) + sizeof(idb) + sizeof(bt);
 	bh.block_type   = PCAPNG_BT_IDB;
-	bh.total_length = len;
+	bh.total_length = (bpf_u_int32)len;
 	
 	idb.idb_reserved = 0;
 	idb.idb_linktype = linktype;
 	idb.idb_snaplen  = snaplen;
 	
-	bt.total_length = len;
+	bt.total_length = (bpf_u_int32)len;
 	
 	if (fwrite((char *)&bh, sizeof(bh), 1, fp) != 1)
 		return (-1);
@@ -1460,6 +1445,7 @@ pcap_ng_setup_dump(pcap_t *p, int linktype, FILE *f, const char *fname)
 			(void)fclose(f);
 		return (NULL);
 	}
+	fflush(f);
 	p->shb_added = 1;
 	return ((pcap_dumper_t *)f);
 }
@@ -1575,7 +1561,7 @@ pcap_ng_dump(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 	}
 	
 	bh.block_type   = PCAPNG_BT_EPB;
-	bh.total_length = len;
+	bh.total_length = (bpf_u_int32)len;
 	
 	epb.caplen		   = h->caplen;
 	epb.interface_id   = 0;
@@ -1585,7 +1571,7 @@ pcap_ng_dump(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 	epb.timestamp_high = ts >> 32;
 	epb.timestamp_low  = ts & 0xffffffff;
 	
-	bt.total_length = len;
+	bt.total_length = (bpf_u_int32)len;
 	
 	f = (FILE *)user;
 	/* XXX we should check the return status */

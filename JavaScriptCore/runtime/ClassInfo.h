@@ -30,6 +30,7 @@
 
 namespace JSC {
 
+class HeapSnapshotBuilder;
 class JSArrayBufferView;
 struct HashTable;
 
@@ -49,10 +50,10 @@ struct MethodTable {
     typedef ConstructType (*GetConstructDataFunctionPtr)(JSCell*, ConstructData&);
     GetConstructDataFunctionPtr getConstructData;
 
-    typedef void (*PutFunctionPtr)(JSCell*, ExecState*, PropertyName propertyName, JSValue, PutPropertySlot&);
+    typedef bool (*PutFunctionPtr)(JSCell*, ExecState*, PropertyName propertyName, JSValue, PutPropertySlot&);
     PutFunctionPtr put;
 
-    typedef void (*PutByIndexFunctionPtr)(JSCell*, ExecState*, unsigned propertyName, JSValue, bool shouldThrow);
+    typedef bool (*PutByIndexFunctionPtr)(JSCell*, ExecState*, unsigned propertyName, JSValue, bool shouldThrow);
     PutByIndexFunctionPtr putByIndex;
 
     typedef bool (*DeletePropertyFunctionPtr)(JSCell*, ExecState*, PropertyName);
@@ -103,8 +104,26 @@ struct MethodTable {
     typedef PassRefPtr<ArrayBufferView> (*GetTypedArrayImpl)(JSArrayBufferView*);
     GetTypedArrayImpl getTypedArrayImpl;
 
+    typedef bool (*PreventExtensionsFunctionPtr)(JSObject*, ExecState*);
+    PreventExtensionsFunctionPtr preventExtensions;
+
+    typedef bool (*IsExtensibleFunctionPtr)(JSObject*, ExecState*);
+    IsExtensibleFunctionPtr isExtensible;
+
+    typedef bool (*SetPrototypeFunctionPtr)(JSObject*, ExecState*, JSValue, bool shouldThrowIfCantSet);
+    SetPrototypeFunctionPtr setPrototype;
+
+    typedef JSValue (*GetPrototypeFunctionPtr)(JSObject*, ExecState*);
+    GetPrototypeFunctionPtr getPrototype;
+
     typedef void (*DumpToStreamFunctionPtr)(const JSCell*, PrintStream&);
     DumpToStreamFunctionPtr dumpToStream;
+
+    typedef void (*HeapSnapshotFunctionPtr)(JSCell*, HeapSnapshotBuilder&);
+    HeapSnapshotFunctionPtr heapSnapshot;
+
+    typedef size_t (*EstimatedSizeFunctionPtr)(JSCell*);
+    EstimatedSizeFunctionPtr estimatedSize;
 };
 
 #define CREATE_MEMBER_CHECKER(member) \
@@ -151,7 +170,13 @@ struct MethodTable {
         &ClassName::defineOwnProperty, \
         &ClassName::slowDownAndWasteMemory, \
         &ClassName::getTypedArrayImpl, \
-        &ClassName::dumpToStream \
+        &ClassName::preventExtensions, \
+        &ClassName::isExtensible, \
+        &ClassName::setPrototype, \
+        &ClassName::getPrototype, \
+        &ClassName::dumpToStream, \
+        &ClassName::heapSnapshot, \
+        &ClassName::estimatedSize \
     }, \
     ClassName::TypedArrayStorageType
 
@@ -172,16 +197,7 @@ struct ClassInfo {
         return false;
     }
 
-    bool hasStaticProperties() const
-    {
-        for (const ClassInfo* ci = this; ci; ci = ci->parentClass) {
-            if (ci->staticPropHashTable)
-                return true;
-        }
-        return false;
-    }
-
-    bool hasStaticSetterOrReadonlyProperties() const;
+    JS_EXPORT_PRIVATE bool hasStaticSetterOrReadonlyProperties() const;
 
     const HashTable* staticPropHashTable;
 

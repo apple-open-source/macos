@@ -50,6 +50,7 @@ static void tests(void)
     SecKeyRef publicKey = NULL;
    
     CFErrorRef error = NULL;
+
     SOSCircleRef circle = SOSCircleCreate(NULL, CFSTR("Test Circle"), &error);
     
     CFStringRef circle_key = SOSCircleKeyCreateWithCircle(circle, NULL);
@@ -60,8 +61,8 @@ static void tests(void)
     is(SOSKVSKeyGetKeyTypeAndParse(circle_key, &circle_name, NULL, NULL, NULL, NULL, NULL), kCircleKey, "Is circle key, extract name");
     ok(circle_name, "Circle name extracted");
     ok(CFEqualSafe(circle_name, SOSCircleGetName(circle)), "Circle name matches '%@' '%@'", circle_name, SOSCircleGetName(circle));
-    
-    CFReleaseSafe(circle_key);
+    CFReleaseNull(circle_name);
+    CFReleaseNull(circle_key);
     
     SOSPeerInfoRef pi = SOSCreatePeerInfoFromName(CFSTR("Test Peer"), &publicKey, &error);
     
@@ -121,12 +122,15 @@ static void tests(void)
     CFReleaseNull(message_circle_name);
     CFReleaseNull(message_from_peer_id);
     CFReleaseNull(message_to_peer_id);
+    CFReleaseNull(retirement_circle_name);
+    CFReleaseNull(retirement_peer_id);
+
 }
 
 int sc_20_keynames(int argc, char *const *argv)
 {
     plan_tests(kTestTestCount);
-	
+
     tests();
 
 	return 0;

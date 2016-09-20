@@ -164,7 +164,7 @@ void StorageAreaSync::syncTimerFired()
 
     bool partialSync = false;
     {
-        MutexLocker locker(m_syncLock);
+        LockHolder locker(m_syncLock);
 
         // Do not schedule another sync if we're still trying to complete the
         // previous one. But, if we're shutting down, schedule it anyway.
@@ -352,9 +352,9 @@ void StorageAreaSync::performImport()
 
 void StorageAreaSync::markImported()
 {
-    MutexLocker locker(m_importLock);
+    LockHolder locker(m_importLock);
     m_importComplete = true;
-    m_importCondition.signal();
+    m_importCondition.notifyOne();
 }
 
 // FIXME: In the future, we should allow use of StorageAreas while it's importing (when safe to do so).
@@ -372,7 +372,7 @@ void StorageAreaSync::blockUntilImportComplete()
     if (!m_storageArea)
         return;
 
-    MutexLocker locker(m_importLock);
+    LockHolder locker(m_importLock);
     while (!m_importComplete)
         m_importCondition.wait(m_importLock);
     m_storageArea = nullptr;
@@ -467,7 +467,7 @@ void StorageAreaSync::performSync()
     bool clearItems;
     HashMap<String, String> items;
     {
-        MutexLocker locker(m_syncLock);
+        LockHolder locker(m_syncLock);
 
         ASSERT(m_syncScheduled);
 
@@ -482,7 +482,7 @@ void StorageAreaSync::performSync()
     sync(clearItems, items);
 
     {
-        MutexLocker locker(m_syncLock);
+        LockHolder locker(m_syncLock);
         m_syncInProgress = false;
     }
 
@@ -514,10 +514,8 @@ void StorageAreaSync::deleteEmptyDatabase()
         query.finalize();
         m_database.close();
         if (StorageTracker::tracker().isActive()) {
-            StringImpl* databaseIdentifierCopy = &m_databaseIdentifier.impl()->isolatedCopy().leakRef();
-            callOnMainThread([databaseIdentifierCopy] {
-                StorageTracker::tracker().deleteOriginWithIdentifier(databaseIdentifierCopy);
-                databaseIdentifierCopy->deref();
+            callOnMainThread([databaseIdentifier = m_databaseIdentifier.isolatedCopy()] {
+                StorageTracker::tracker().deleteOriginWithIdentifier(databaseIdentifier);
             });
         } else {
             String databaseFilename = m_syncManager->fullDatabaseFilename(m_databaseIdentifier);

@@ -193,15 +193,6 @@ reg_delete(uint32_t index)
 }
 
 static uint32_t
-reg_find_name(const char *name)
-{
-	uint32_t i;
-
-	for (i = 0; i < reg_count; i++) if (!strcmp(reg[i].name, name)) return i;
-	return IndexNull;
-}
-
-static uint32_t
 reg_find_token(uint32_t tid)
 {
 	uint32_t i;

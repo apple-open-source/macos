@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -27,31 +28,34 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef DedicatedWorkerThread_h
-#define DedicatedWorkerThread_h
 
-#include "ContentSecurityPolicy.h"
+#pragma once
+
 #include "WorkerThread.h"
 
 namespace WebCore {
 
-    class WorkerObjectProxy;
+class ContentSecurityPolicyResponseHeaders;
+class WorkerObjectProxy;
 
-    class DedicatedWorkerThread : public WorkerThread {
-    public:
-        static Ref<DedicatedWorkerThread> create(const URL& scriptURL, const String& userAgent, const String& sourceCode, WorkerLoaderProxy&, WorkerObjectProxy&, WorkerThreadStartMode, const String& contentSecurityPolicy, ContentSecurityPolicy::HeaderType, const SecurityOrigin* topOrigin);
-        WorkerObjectProxy& workerObjectProxy() const { return m_workerObjectProxy; }
-        virtual ~DedicatedWorkerThread();
+class DedicatedWorkerThread : public WorkerThread {
+public:
+    template<typename... Args> static Ref<DedicatedWorkerThread> create(Args&&... args)
+    {
+        return adoptRef(*new DedicatedWorkerThread(std::forward<Args>(args)...));
+    }
+    virtual ~DedicatedWorkerThread();
 
-    protected:
-        virtual Ref<WorkerGlobalScope> createWorkerGlobalScope(const URL&, const String& userAgent, const String& contentSecurityPolicy, ContentSecurityPolicy::HeaderType, PassRefPtr<SecurityOrigin> topOrigin) override;
-        virtual void runEventLoop() override;
+    WorkerObjectProxy& workerObjectProxy() const { return m_workerObjectProxy; }
 
-    private:
-        DedicatedWorkerThread(const URL&, const String& userAgent, const String& sourceCode, WorkerLoaderProxy&, WorkerObjectProxy&, WorkerThreadStartMode, const String& contentSecurityPolicy, ContentSecurityPolicy::HeaderType, const SecurityOrigin* topOrigin);
+protected:
+    Ref<WorkerGlobalScope> createWorkerGlobalScope(const URL&, const String& userAgent, const ContentSecurityPolicyResponseHeaders&, bool shouldBypassMainWorldContentSecurityPolicy, PassRefPtr<SecurityOrigin> topOrigin) override;
+    void runEventLoop() override;
 
-        WorkerObjectProxy& m_workerObjectProxy;
-    };
+private:
+    DedicatedWorkerThread(const URL&, const String& userAgent, const String& sourceCode, WorkerLoaderProxy&, WorkerObjectProxy&, WorkerThreadStartMode, const ContentSecurityPolicyResponseHeaders&, bool shouldBypassMainWorldContentSecurityPolicy, const SecurityOrigin* topOrigin, IDBClient::IDBConnectionProxy*, SocketProvider*);
+
+    WorkerObjectProxy& m_workerObjectProxy;
+};
+
 } // namespace WebCore
-
-#endif // DedicatedWorkerThread_h

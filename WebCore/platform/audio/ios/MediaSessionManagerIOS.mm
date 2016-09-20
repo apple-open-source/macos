@@ -34,7 +34,6 @@
 #import "PlatformMediaSession.h"
 #import "SoftLinking.h"
 #import "SystemMemory.h"
-#import "WebCoreSystemInterface.h"
 #import "WebCoreThreadRun.h"
 #import <AVFoundation/AVAudioSession.h>
 #import <MediaPlayer/MPMediaItem.h>
@@ -42,6 +41,7 @@
 #import <MediaPlayer/MPVolumeView.h>
 #import <UIKit/UIApplication.h>
 #import <objc/runtime.h>
+#import <wtf/MainThread.h>
 #import <wtf/RAMSize.h>
 #import <wtf/RetainPtr.h>
 
@@ -114,10 +114,18 @@ using namespace WebCore;
 
 namespace WebCore {
 
+static MediaSessionManageriOS* platformMediaSessionManager = nullptr;
+
 PlatformMediaSessionManager& PlatformMediaSessionManager::sharedManager()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(MediaSessionManageriOS, manager, ());
-    return manager;
+    if (!platformMediaSessionManager)
+        platformMediaSessionManager = new MediaSessionManageriOS;
+    return *platformMediaSessionManager;
+}
+
+PlatformMediaSessionManager* PlatformMediaSessionManager::sharedManagerIfExists()
+{
+    return platformMediaSessionManager;
 }
 
 MediaSessionManageriOS::MediaSessionManageriOS()
@@ -140,10 +148,6 @@ void MediaSessionManageriOS::resetRestrictions()
 
     PlatformMediaSessionManager::resetRestrictions();
 
-    static wkDeviceClass deviceClass = iosDeviceClass();
-    if (deviceClass == wkDeviceClassiPhone || deviceClass == wkDeviceClassiPod)
-        addRestriction(PlatformMediaSession::Video, InlineVideoPlaybackRestricted);
-
     if (ramSize() < systemMemoryRequiredForVideoInBackgroundTabs) {
         LOG(Media, "MediaSessionManageriOS::resetRestrictions - restricting video in background tabs because system memory = %zul", ramSize());
         addRestriction(PlatformMediaSession::Video, BackgroundTabPlaybackRestricted);
@@ -157,12 +161,6 @@ void MediaSessionManageriOS::resetRestrictions()
 
     removeRestriction(PlatformMediaSession::WebAudio, ConcurrentPlaybackNotPermitted);
     removeRestriction(PlatformMediaSession::WebAudio, BackgroundProcessPlaybackRestricted);
-
-    removeRestriction(PlatformMediaSession::Audio, MetadataPreloadingNotPermitted);
-    removeRestriction(PlatformMediaSession::Video, MetadataPreloadingNotPermitted);
-
-    addRestriction(PlatformMediaSession::Audio, AutoPreloadingNotPermitted);
-    addRestriction(PlatformMediaSession::Video, AutoPreloadingNotPermitted);
 }
 
 bool MediaSessionManageriOS::hasWirelessTargetsAvailable()
@@ -195,49 +193,98 @@ bool MediaSessionManageriOS::sessionWillBeginPlayback(PlatformMediaSession& sess
     if (!PlatformMediaSessionManager::sessionWillBeginPlayback(session))
         return false;
 
+    LOG(Media, "MediaSessionManageriOS::sessionWillBeginPlayback");
     updateNowPlayingInfo();
     return true;
 }
-    
+
+void MediaSessionManageriOS::removeSession(PlatformMediaSession& session)
+{
+    PlatformMediaSessionManager::removeSession(session);
+    LOG(Media, "MediaSessionManageriOS::removeSession");
+    updateNowPlayingInfo();
+}
+
 void MediaSessionManageriOS::sessionWillEndPlayback(PlatformMediaSession& session)
 {
     PlatformMediaSessionManager::sessionWillEndPlayback(session);
+    LOG(Media, "MediaSessionManageriOS::sessionWillEndPlayback");
     updateNowPlayingInfo();
 }
-    
+
+void MediaSessionManageriOS::clientCharacteristicsChanged(PlatformMediaSession&)
+{
+    LOG(Media, "MediaSessionManageriOS::clientCharacteristicsChanged");
+    updateNowPlayingInfo();
+}
+
+PlatformMediaSession* MediaSessionManageriOS::nowPlayingEligibleSession()
+{
+    for (auto session : sessions()) {
+        PlatformMediaSession::MediaType type = session->mediaType();
+        if (type != PlatformMediaSession::Video && type != PlatformMediaSession::Audio)
+            continue;
+
+        if (session->characteristics() & PlatformMediaSession::HasAudio)
+            return session;
+    }
+
+    return nullptr;
+}
+
 void MediaSessionManageriOS::updateNowPlayingInfo()
 {
-    LOG(Media, "MediaSessionManageriOS::updateNowPlayingInfo");
-
     MPNowPlayingInfoCenter *nowPlaying = (MPNowPlayingInfoCenter *)[getMPNowPlayingInfoCenterClass() defaultCenter];
-    const PlatformMediaSession* currentSession = this->currentSession();
-    
+    const PlatformMediaSession* currentSession = this->nowPlayingEligibleSession();
+
+    LOG(Media, "MediaSessionManageriOS::updateNowPlayingInfo - currentSession = %p", currentSession);
+
     if (!currentSession) {
-        [nowPlaying setNowPlayingInfo:nil];
+        if (m_nowPlayingActive) {
+            LOG(Media, "MediaSessionManageriOS::updateNowPlayingInfo - clearing now playing info");
+            [nowPlaying setNowPlayingInfo:nil];
+            m_nowPlayingActive = false;
+        }
+
         return;
     }
-    
-    RetainPtr<NSMutableDictionary> info = adoptNS([[NSMutableDictionary alloc] init]);
-    
+
     String title = currentSession->title();
-    if (!title.isEmpty())
-        [info setValue:static_cast<NSString *>(title) forKey:MPMediaItemPropertyTitle];
-    
     double duration = currentSession->duration();
+    double rate = currentSession->state() == PlatformMediaSession::Playing ? 1 : 0;
+    if (m_reportedTitle == title && m_reportedRate == rate && m_reportedDuration == duration) {
+        LOG(Media, "MediaSessionManageriOS::updateNowPlayingInfo - nothing new to show");
+        return;
+    }
+
+    m_reportedRate = rate;
+    m_reportedDuration = duration;
+    m_reportedTitle = title;
+
+    auto info = adoptNS([[NSMutableDictionary alloc] init]);
+    if (!title.isEmpty())
+        info.get()[MPMediaItemPropertyTitle] = static_cast<NSString *>(title);
     if (std::isfinite(duration) && duration != MediaPlayer::invalidTime())
-        [info setValue:@(duration) forKey:MPMediaItemPropertyPlaybackDuration];
-    
+        info.get()[MPMediaItemPropertyPlaybackDuration] = @(duration);
+    info.get()[MPNowPlayingInfoPropertyPlaybackRate] = @(rate);
+
     double currentTime = currentSession->currentTime();
     if (std::isfinite(currentTime) && currentTime != MediaPlayer::invalidTime())
-        [info setValue:@(currentTime) forKey:MPNowPlayingInfoPropertyElapsedPlaybackTime];
-    
-    [info setValue:(currentSession->state() == PlatformMediaSession::Playing ? @YES : @NO) forKey:MPNowPlayingInfoPropertyPlaybackRate];
+        info.get()[MPNowPlayingInfoPropertyElapsedPlaybackTime] = @(currentTime);
+
+    LOG(Media, "MediaSessionManageriOS::updateNowPlayingInfo - title = \"%s\", rate = %f, duration = %f, now = %f",
+        title.utf8().data(), rate, duration, currentTime);
+
+    m_nowPlayingActive = true;
     [nowPlaying setNowPlayingInfo:info.get()];
 }
 
 bool MediaSessionManageriOS::sessionCanLoadMedia(const PlatformMediaSession& session) const
 {
-    return session.state() == PlatformMediaSession::Playing || !session.isHidden() || session.displayType() == PlatformMediaSession::Optimized;
+    if (session.displayType() == PlatformMediaSession::Optimized)
+        return true;
+
+    return PlatformMediaSessionManager::sessionCanLoadMedia(session);
 }
 
 void MediaSessionManageriOS::externalOutputDeviceAvailableDidChange()
@@ -246,6 +293,42 @@ void MediaSessionManageriOS::externalOutputDeviceAvailableDidChange()
     bool haveTargets = [m_objcObserver hasWirelessTargetsAvailable];
     for (auto* session : sessionList)
         session->externalOutputDeviceAvailableDidChange(haveTargets);
+}
+
+void MediaSessionManageriOS::applicationDidEnterBackground(bool isSuspendedUnderLock)
+{
+    LOG(Media, "MediaSessionManageriOS::applicationDidEnterBackground");
+
+    if (m_isInBackground)
+        return;
+    m_isInBackground = true;
+
+    if (!isSuspendedUnderLock)
+        return;
+
+    Vector<PlatformMediaSession*> sessions = this->sessions();
+    for (auto* session : sessions) {
+        if (restrictions(session->mediaType()) & BackgroundProcessPlaybackRestricted)
+            session->beginInterruption(PlatformMediaSession::SuspendedUnderLock);
+    }
+}
+
+void MediaSessionManageriOS::applicationWillEnterForeground(bool isSuspendedUnderLock)
+{
+    LOG(Media, "MediaSessionManageriOS::applicationWillEnterForeground");
+
+    if (!m_isInBackground)
+        return;
+    m_isInBackground = false;
+
+    if (!isSuspendedUnderLock)
+        return;
+
+    Vector<PlatformMediaSession*> sessions = this->sessions();
+    for (auto* session : sessions) {
+        if (restrictions(session->mediaType()) & BackgroundProcessPlaybackRestricted)
+            session->endInterruption(PlatformMediaSession::MayResumePlaying);
+    }
 }
 
 } // namespace WebCore
@@ -313,10 +396,7 @@ void MediaSessionManageriOS::externalOutputDeviceAvailableDidChange()
     LOG(Media, "-[WebMediaSessionHelper dealloc]");
 
     if (!isMainThread()) {
-        auto volumeView = WTF::move(_volumeView);
-        auto routingController = WTF::move(_airPlayPresenceRoutingController);
-
-        callOnMainThread([volumeView, routingController] () mutable {
+        callOnMainThread([volumeView = WTFMove(_volumeView), routingController = WTFMove(_airPlayPresenceRoutingController)] () mutable {
             LOG(Media, "-[WebMediaSessionHelper dealloc] - dipatched to MainThread");
 
             volumeView.clear();
@@ -352,15 +432,14 @@ void MediaSessionManageriOS::externalOutputDeviceAvailableDidChange()
 
     LOG(Media, "-[WebMediaSessionHelper startMonitoringAirPlayRoutes]");
 
-    RetainPtr<WebMediaSessionHelper> strongSelf = self;
-    callOnMainThread([strongSelf] () {
+    callOnMainThread([protectedSelf = RetainPtr<WebMediaSessionHelper>(self)] () {
         LOG(Media, "-[WebMediaSessionHelper startMonitoringAirPlayRoutes] - dipatched to MainThread");
 
-        if (strongSelf->_airPlayPresenceRoutingController)
+        if (protectedSelf->_airPlayPresenceRoutingController)
             return;
 
-        strongSelf->_airPlayPresenceRoutingController = adoptNS([allocMPAVRoutingControllerInstance() initWithName:@"WebCore - HTML media element checking for AirPlay route presence"]);
-        [strongSelf->_airPlayPresenceRoutingController setDiscoveryMode:MPRouteDiscoveryModePresence];
+        protectedSelf->_airPlayPresenceRoutingController = adoptNS([allocMPAVRoutingControllerInstance() initWithName:@"WebCore - HTML media element checking for AirPlay route presence"]);
+        [protectedSelf->_airPlayPresenceRoutingController setDiscoveryMode:MPRouteDiscoveryModePresence];
     });
 }
 
@@ -371,21 +450,20 @@ void MediaSessionManageriOS::externalOutputDeviceAvailableDidChange()
 
     LOG(Media, "-[WebMediaSessionHelper stopMonitoringAirPlayRoutes]");
 
-    RetainPtr<WebMediaSessionHelper> strongSelf = self;
-    callOnMainThread([strongSelf] () {
+    callOnMainThread([protectedSelf = RetainPtr<WebMediaSessionHelper>(self)] () {
         LOG(Media, "-[WebMediaSessionHelper stopMonitoringAirPlayRoutes] - dipatched to MainThread");
 
-        if (!strongSelf->_airPlayPresenceRoutingController)
+        if (!protectedSelf->_airPlayPresenceRoutingController)
             return;
 
-        [strongSelf->_airPlayPresenceRoutingController setDiscoveryMode:MPRouteDiscoveryModeDisabled];
-        strongSelf->_airPlayPresenceRoutingController = nil;
+        [protectedSelf->_airPlayPresenceRoutingController setDiscoveryMode:MPRouteDiscoveryModeDisabled];
+        protectedSelf->_airPlayPresenceRoutingController = nil;
     });
 }
 
 - (void)interruption:(NSNotification *)notification
 {
-    if (!_callback)
+    if (!_callback || _callback->willIgnoreSystemInterruptions())
         return;
 
     NSUInteger type = [[[notification userInfo] objectForKey:AVAudioSessionInterruptionTypeKey] unsignedIntegerValue];
@@ -412,16 +490,18 @@ void MediaSessionManageriOS::externalOutputDeviceAvailableDidChange()
 {
     UNUSED_PARAM(notification);
 
-    if (!_callback)
+    if (!_callback || _callback->willIgnoreSystemInterruptions())
         return;
 
     LOG(Media, "-[WebMediaSessionHelper applicationWillEnterForeground]");
+
+    BOOL isSuspendedUnderLock = [[[notification userInfo] objectForKey:@"isSuspendedUnderLock"] boolValue];
 
     WebThreadRun(^{
         if (!_callback)
             return;
 
-        _callback->applicationWillEnterForeground();
+        _callback->applicationWillEnterForeground(isSuspendedUnderLock);
     });
 }
 
@@ -429,7 +509,7 @@ void MediaSessionManageriOS::externalOutputDeviceAvailableDidChange()
 {
     UNUSED_PARAM(notification);
 
-    if (!_callback)
+    if (!_callback || _callback->willIgnoreSystemInterruptions())
         return;
 
     LOG(Media, "-[WebMediaSessionHelper applicationDidBecomeActive]");
@@ -438,7 +518,7 @@ void MediaSessionManageriOS::externalOutputDeviceAvailableDidChange()
         if (!_callback)
             return;
 
-        _callback->applicationWillEnterForeground();
+        _callback->applicationDidEnterForeground();
     });
 }
 
@@ -446,7 +526,7 @@ void MediaSessionManageriOS::externalOutputDeviceAvailableDidChange()
 {
     UNUSED_PARAM(notification);
 
-    if (!_callback)
+    if (!_callback || _callback->willIgnoreSystemInterruptions())
         return;
 
     LOG(Media, "-[WebMediaSessionHelper applicationWillResignActive]");
@@ -478,7 +558,7 @@ void MediaSessionManageriOS::externalOutputDeviceAvailableDidChange()
 
 - (void)applicationDidEnterBackground:(NSNotification *)notification
 {
-    if (!_callback)
+    if (!_callback || _callback->willIgnoreSystemInterruptions())
         return;
 
     LOG(Media, "-[WebMediaSessionHelper applicationDidEnterBackground]");

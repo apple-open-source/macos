@@ -28,11 +28,12 @@
 
 #include "ArityCheckMode.h"
 #include "CallFrame.h"
+#include "CodeOrigin.h"
 #include "Disassembler.h"
-#include "JITStubs.h"
 #include "JSCJSValue.h"
 #include "MacroAssemblerCodeRef.h"
-#include "RegisterPreservationMode.h"
+#include "RegisterSet.h"
+#include <wtf/Optional.h>
 
 namespace JSC {
 
@@ -121,7 +122,7 @@ public:
             return false;
         }
     }
-    
+
     static bool isLowerTier(JITType expectedLower, JITType expectedHigher)
     {
         RELEASE_ASSERT(isExecutableScript(expectedLower));
@@ -173,7 +174,7 @@ public:
         return jitCode->jitType();
     }
     
-    virtual CodePtr addressForCall(VM&, ExecutableBase*, ArityCheckMode, RegisterPreservationMode) = 0;
+    virtual CodePtr addressForCall(ArityCheckMode) = 0;
     virtual void* executableAddressAtOffset(size_t offset) = 0;
     void* executableAddress() { return executableAddressAtOffset(0); }
     virtual void* dataAddressAtOffset(size_t offset) = 0;
@@ -194,6 +195,11 @@ public:
     
     virtual bool contains(void*) = 0;
 
+#if ENABLE(JIT)
+    virtual RegisterSet liveRegistersToPreserveAtExceptionHandlingCallSite(CodeBlock*, CallSiteIndex);
+    virtual Optional<CodeOrigin> findPC(CodeBlock*, void* pc) { UNUSED_PARAM(pc); return Nullopt; }
+#endif
+
 private:
     JITType m_jitType;
 };
@@ -206,11 +212,11 @@ protected:
 public:
     virtual ~JITCodeWithCodeRef();
 
-    virtual void* executableAddressAtOffset(size_t offset) override;
-    virtual void* dataAddressAtOffset(size_t offset) override;
-    virtual unsigned offsetOf(void* pointerIntoCode) override;
-    virtual size_t size() override;
-    virtual bool contains(void*) override;
+    void* executableAddressAtOffset(size_t offset) override;
+    void* dataAddressAtOffset(size_t offset) override;
+    unsigned offsetOf(void* pointerIntoCode) override;
+    size_t size() override;
+    bool contains(void*) override;
 
 protected:
     CodeRef m_ref;
@@ -224,19 +230,10 @@ public:
     
     void initializeCodeRef(CodeRef, CodePtr withArityCheck);
 
-    virtual CodePtr addressForCall(VM&, ExecutableBase*, ArityCheckMode, RegisterPreservationMode) override;
+    CodePtr addressForCall(ArityCheckMode) override;
 
 private:
-    struct RegisterPreservationWrappers {
-        CodeRef withoutArityCheck;
-        CodeRef withArityCheck;
-    };
-
-    RegisterPreservationWrappers* ensureWrappers();
-    
     CodePtr m_withArityCheck;
-    
-    std::unique_ptr<RegisterPreservationWrappers> m_wrappers;
 };
 
 class NativeJITCode : public JITCodeWithCodeRef {
@@ -247,7 +244,7 @@ public:
     
     void initializeCodeRef(CodeRef);
 
-    virtual CodePtr addressForCall(VM&, ExecutableBase*, ArityCheckMode, RegisterPreservationMode) override;
+    CodePtr addressForCall(ArityCheckMode) override;
 };
 
 } // namespace JSC

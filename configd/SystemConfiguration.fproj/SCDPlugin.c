@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2002-2006, 2013 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2006, 2013, 2015 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -316,17 +316,28 @@ _SCDPluginExecCommand2(SCDPluginExecCallBack	callout,
 
 			gid_t	egid;
 			uid_t	euid;
-			int	i;
 			int	status;
 
 			if (setup != NULL) {
 				(setup)(pid, setupContext);
 			} else {
+				int	fd;
+				int	i;
+
 				/* close any open FDs */
 				for (i = getdtablesize()-1; i>=0; i--) close(i);
-				open(_PATH_DEVNULL, O_RDWR, 0);
-				dup(0);
-				dup(0);
+
+				/* stdin, stdout, stderr */
+				fd = open(_PATH_DEVNULL, O_RDWR, 0);
+				if (fd != -1) {
+					(void) dup2(fd, STDIN_FILENO);
+					(void) dup2(fd, STDOUT_FILENO);
+					(void) dup2(fd, STDERR_FILENO);
+					if ((fd != STDIN_FILENO) && (fd != STDOUT_FILENO) && (fd != STDERR_FILENO)) {
+						(void) close(fd);
+					}
+
+				}
 			}
 
 			egid = getegid();

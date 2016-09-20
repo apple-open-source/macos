@@ -41,10 +41,14 @@ public:
 
 	struct dirent *getNext();	// gets the next item out of this DirScanner
 	bool initialized();			// returns false if the constructor failed to initialize the dirent
+	
+	void unlink(const struct dirent* ent, int flags);
+	bool isRegularFile(dirent* dp);
 
 private:
 	string path;
 	DIR *dp = NULL;
+	struct dirent entBuffer;
 	void initialize();
 	bool init;
 };

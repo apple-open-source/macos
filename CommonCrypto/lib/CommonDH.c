@@ -205,7 +205,7 @@ CCDHParametersRelease(CCDHParameters parameters)
 
 // TODO - needs PKCS3 in/out
 CCDHParameters
-CCDHParametersCreateFromPKCS3(const void *data, size_t len)
+CCDHParametersCreateFromPKCS3(const void *data, size_t __unused len)
 {
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
     CC_NONULLPARMRETNULL(data);
@@ -213,14 +213,14 @@ CCDHParametersCreateFromPKCS3(const void *data, size_t len)
 }
 
 size_t
-CCDHParametersPKCS3EncodeLength(CCDHParameters parms)
+CCDHParametersPKCS3EncodeLength(CCDHParameters __unused parms)
 {
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
     return 0;
 }
 
 size_t
-CCDHParametersPKCS3Encode(CCDHParameters parms, void *data, size_t dataAvailable)
+CCDHParametersPKCS3Encode(CCDHParameters __unused parms, void * __unused data, size_t __unused dataAvailable)
 {
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
     return 0;

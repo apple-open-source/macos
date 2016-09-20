@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -64,11 +64,11 @@
 
 
 /* "server" defines */
-#if	!TARGET_IPHONE_SIMULATOR
+#if	!TARGET_OS_SIMULATOR
 #define _SC_SERVER_PROG			"configd"
-#else	// !TARGET_IPHONE_SIMULATOR
+#else	// !TARGET_OS_SIMULATOR
 #define _SC_SERVER_PROG			"configd_sim"
-#endif	// !TARGET_IPHONE_SIMULATOR
+#endif	// !TARGET_OS_SIMULATOR
 
 
 /* atomic operations */
@@ -79,11 +79,20 @@
 
 
 /* framework path */
-#if !TARGET_OS_WATCH
+#if	!TARGET_OS_WATCH
 #define	SYSTEMCONFIGURATION_FRAMEWORK_PATH	"/System/Library/Frameworks/SystemConfiguration.framework"
 #else
 #define	SYSTEMCONFIGURATION_FRAMEWORK_PATH	"/System/Library/PrivateFrameworks/SystemConfiguration.framework"
 #endif
+
+
+/* get-network-info script path */
+#if	!TARGET_OS_EMBEDDED
+#define SYSTEMCONFIGURATION_GET_NETWORK_INFO_PATH	SYSTEMCONFIGURATION_FRAMEWORK_PATH "/Resources/get-network-info"
+#else
+#define SYSTEMCONFIGURATION_GET_NETWORK_INFO_PATH	SYSTEMCONFIGURATION_FRAMEWORK_PATH "/get-network-info"
+#endif
+
 
 /* framework variables */
 extern int	_sc_debug;	/* non-zero if debugging enabled */
@@ -309,6 +318,19 @@ CFDictionaryRef	_SCUnserializeMultiple		(CFDictionaryRef	dict);
 
 
 #pragma mark -
+
+
+/*!
+	@function _SCCreatePropertyListFromResource
+	@discussion Reads a property list referenced by a file URL.
+	@param url The file URL.
+	@result The CFPropertyList content of the URL.
+ */
+CFPropertyListRef
+_SCCreatePropertyListFromResource		(CFURLRef		url);
+
+
+#pragma mark -
 #pragma mark String conversion
 
 
@@ -388,6 +410,24 @@ void		_SC_sendMachMessage		(mach_port_t		port,
 
 #pragma mark -
 #pragma mark Logging
+
+
+/*!
+	@function _SC_LOG_DEFAULT
+	@discussion Maps a syslog/asl logging level to an os_log level.
+	@param level The syslog/asl logging level
+	@result The os_log level
+ */
+os_log_t	_SC_LOG_DEFAULT			();
+
+
+/*!
+	@function _SC_syslog_os_log_mapping
+	@discussion Maps a syslog/asl logging level to an os_log level.
+	@param level The syslog/asl logging level
+	@result The os_log level
+ */
+os_log_type_t	_SC_syslog_os_log_mapping	(int			level);
 
 
 /*!
@@ -488,15 +528,81 @@ void		SCLOG				(asl_object_t		asl,
 
 /*!
 	@function SC_log
-	@discussion Issue a log message.
-	@param level The asl(3) logging priority. Passing the complement of a logging
-		priority (e.g. ~ASL_LEVEL_NOTICE) will result in log message lines
-		NOT being split by a "\n".
+	@discussion Issue an os_log() message.
+
+	Note:	By default, the log messages will be associated with the
+		"com.apple.SystemConfiguration" subsystem.  This behavior
+		can be overwritten by #define'ing SC_LOG_HANDLE with the name
+		of an os_log_t global (or a function that returns an os_log_t)
+		*BEFORE* this header is #include'd. In that case, the noted
+		log handle will be used.
+
+		Also, by #define'ing SC_LOG_OR_PRINT, we will check the "_sc_log"
+		global to see if the messages should [also] be directed to stdout/stderr.
+
+	@param level The syslog(3 logging priority.
 	@param __string The format string
 	@result The specified message will be written to the unified logging system.
  */
-#define SC_log(__level, __string, ...)	\
-	SCLog(TRUE, __level, CFSTR( __string ), ## __VA_ARGS__)
+#ifndef SC_log
+
+#ifndef	SC_LOG_HANDLE
+#define	SC_LOG_HANDLE	_SC_LOG_DEFAULT()	// use [SC] default os_log handle
+
+#ifndef	SC_LOG_OR_PRINT
+#define	USE_SC_LOG_OR_PRINT			// use '_sc_log' to control os_log, printf
+#endif	// !SC_LOG_OR_PRINT
+
+#endif	// !SC_LOG_HANDLE
+
+#ifdef	USE_SC_LOG_OR_PRINT
+
+#define	SC_log(__level, __format, ...)							\
+	do {										\
+		os_log_t	__handle = SC_LOG_HANDLE;				\
+		os_log_type_t	__type   = _SC_syslog_os_log_mapping(__level);		\
+											\
+		if ((_sc_log != 1) || os_log_type_enabled(__handle, __type)) {		\
+			__SC_Log(__level,						\
+				 CFSTR( __format ),					\
+				 __handle,						\
+				 __type,						\
+				 __format,						\
+				 ## __VA_ARGS__);					\
+		}									\
+	} while (0)
+
+#else	// USE_SC_LOG_OR_PRINT
+
+#define	SC_log(__level, __format, ...)							\
+	do {										\
+		os_log_type_t	__type = _SC_syslog_os_log_mapping(__level);		\
+		os_log_with_type(SC_LOG_HANDLE, __type, __format, ## __VA_ARGS__);	\
+	} while (0)
+
+#endif	// USE_SC_LOG_OR_PRINT
+
+#endif	// !SC_log
+
+
+/*!
+	@function __SC_Log
+	@discussion Issue a log message w/os_log(3) or printf(3).
+	@param level A syslog(3) logging priority. If less than 0, log message is multi-line
+	@param format_CF The format string (as a CFString for stdout/stderr)
+	@param log The os_log_t handle (for logging)
+	@param type The os_log_type_t type (for logging)
+	@param format The format string (for logging)
+	@result The specified message will be written to the system message
+		logger.
+ stream.
+ */
+void		__SC_Log			(int		level,
+						 CFStringRef	format_CF,
+						 os_log_t	log,
+						 os_log_type_t	type,
+						 const char	*format,
+						 ...)	CF_FORMAT_FUNCTION(2, 6) __attribute__((format(os_log, 5, 6)));
 
 
 /*!
@@ -513,30 +619,6 @@ void		SCPrint				(Boolean		condition,
 						 CFStringRef		formatString,
 						 ...)	CF_FORMAT_FUNCTION(3, 4);
 
-
-
-/*!
-	@function SCTrace
-	@discussion Write a debug message with a time stamp.
-	@param stream The output stream for the log message.
-	@param formatString The format string
-	@result The message will be written to the specified stream
-		stream.
- */
-void		SCTrace				(FILE			*stream,
-						 CFStringRef		formatString,
-						 ...)	CF_FORMAT_FUNCTION(2, 3);
-
-/*!
-	@function SC_trace
-	@discussion Issue a debug message / write with a time stamp
-	@param stream The output stream for the log message.
-	@param formatString The format string
-	@result The message will be written to the specified stream
-		stream.
- */
-#define SC_trace(__stream, __string, ...)	\
-	SCTrace(__stream, CFSTR( __string ), ## __VA_ARGS__)
 
 
 /*!
@@ -762,37 +844,6 @@ _SC_dos_encoding_and_codepage			(CFStringEncoding	macEncoding,
 #endif	// !TARGET_OS_IPHONE
 
 #pragma mark -
-#pragma mark ScheduleWithRunLoop/UnscheduleFromRunLoop
-
-
-/*
- * object / CFRunLoop  management
- */
-void
-_SC_signalRunLoop				(CFTypeRef		obj,
-						 CFRunLoopSourceRef     rls,
-						 CFArrayRef		rlList);
-
-Boolean
-_SC_isScheduled					(CFTypeRef		obj,
-						 CFRunLoopRef		runLoop,
-						 CFStringRef		runLoopMode,
-						 CFMutableArrayRef      rlList);
-
-void
-_SC_schedule					(CFTypeRef		obj,
-						 CFRunLoopRef		runLoop,
-						 CFStringRef		runLoopMode,
-						 CFMutableArrayRef      rlList);
-
-Boolean
-_SC_unschedule					(CFTypeRef		obj,
-						 CFRunLoopRef		runLoop,
-						 CFStringRef		runLoopMode,
-						 CFMutableArrayRef      rlList,
-						 Boolean		all);
-
-#pragma mark -
 #pragma mark Bundle
 
 
@@ -859,6 +910,9 @@ _SC_isInstallEnvironment			(void);
 
 CFStringRef
 _SC_hw_model					(Boolean		trim);
+
+void *
+_SC_dlopen					(const char		*framework);
 
 /*
  * debugging

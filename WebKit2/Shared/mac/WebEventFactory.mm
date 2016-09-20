@@ -63,6 +63,8 @@ static WebMouseEvent::Button currentMouseButton()
 
 static WebMouseEvent::Button mouseButtonForEvent(NSEvent *event)
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     switch ([event type]) {
         case NSLeftMouseDown:
         case NSLeftMouseUp:
@@ -76,7 +78,7 @@ static WebMouseEvent::Button mouseButtonForEvent(NSEvent *event)
         case NSOtherMouseUp:
         case NSOtherMouseDragged:
             return WebMouseEvent::MiddleButton;
-#if defined(__LP64__) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101003
+#if defined(__LP64__)
         case NSEventTypePressure:
 #endif
         case NSMouseEntered:
@@ -85,10 +87,13 @@ static WebMouseEvent::Button mouseButtonForEvent(NSEvent *event)
         default:
             return WebMouseEvent::NoButton;
     }
+#pragma clang diagnostic pop
 }
 
 static WebEvent::Type mouseEventTypeForEvent(NSEvent* event)
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     switch ([event type]) {
         case NSLeftMouseDragged:
         case NSMouseEntered:
@@ -108,10 +113,13 @@ static WebEvent::Type mouseEventTypeForEvent(NSEvent* event)
         default:
             return WebEvent::MouseMove;
     }
+#pragma clang diagnostic pop
 }
 
 static int clickCountForEvent(NSEvent *event)
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     switch ([event type]) {
         case NSLeftMouseDown:
         case NSLeftMouseUp:
@@ -126,42 +134,17 @@ static int clickCountForEvent(NSEvent *event)
         default:
             return 0;
     }
-}
-
-static NSScreen *screenForWindow(NSWindow *window)
-{
-    NSScreen *screen = [window screen]; // nil if the window is off-screen
-    if (screen)
-        return screen;
-    
-    NSArray *screens = [NSScreen screens];
-    if ([screens count] > 0)
-        return [screens objectAtIndex:0]; // screen containing the menubar
-    
-    return nil;
-}
-
-static NSPoint flipScreenPoint(const NSPoint& screenPoint, NSScreen *screen)
-{
-    NSPoint flippedPoint = screenPoint;
-    flippedPoint.y = NSMaxY([screen frame]) - flippedPoint.y;
-    return flippedPoint;
-}
-
-static NSPoint globalPoint(const NSPoint& windowPoint, NSWindow *window)
-{
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    return flipScreenPoint([window convertBaseToScreen:windowPoint], screenForWindow(window));
 #pragma clang diagnostic pop
 }
 
 static NSPoint globalPointForEvent(NSEvent *event)
 {
     switch ([event type]) {
-#if defined(__LP64__) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101003
+#if defined(__LP64__)
     case NSEventTypePressure:
 #endif
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     case NSLeftMouseDown:
     case NSLeftMouseDragged:
     case NSLeftMouseUp:
@@ -175,7 +158,8 @@ static NSPoint globalPointForEvent(NSEvent *event)
     case NSRightMouseDragged:
     case NSRightMouseUp:
     case NSScrollWheel:
-        return globalPoint([event locationInWindow], [event window]);
+#pragma clang diagnostic pop
+        return WebCore::globalPoint([event locationInWindow], [event window]);
     default:
         return NSZeroPoint;
     }
@@ -184,9 +168,11 @@ static NSPoint globalPointForEvent(NSEvent *event)
 static NSPoint pointForEvent(NSEvent *event, NSView *windowView)
 {
     switch ([event type]) {
-#if defined(__LP64__) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101003
+#if defined(__LP64__)
     case NSEventTypePressure:
 #endif
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     case NSLeftMouseDown:
     case NSLeftMouseDragged:
     case NSLeftMouseUp:
@@ -200,6 +186,7 @@ static NSPoint pointForEvent(NSEvent *event, NSView *windowView)
     case NSRightMouseDragged:
     case NSRightMouseUp:
     case NSScrollWheel: {
+#pragma clang diagnostic pop
         // Note: This will have its origin at the bottom left of the window unless windowView is flipped.
         // In those cases, the Y coordinate gets flipped by Widget::convertFromContainingWindow.
         NSPoint location = [event locationInWindow];
@@ -251,14 +238,20 @@ static WebWheelEvent::Phase momentumPhaseForEvent(NSEvent *event)
 
 static inline String textFromEvent(NSEvent* event)
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     if ([event type] == NSFlagsChanged)
+#pragma clang diagnostic pop
         return emptyString();
     return String([event characters]);
 }
 
 static inline String unmodifiedTextFromEvent(NSEvent* event)
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     if ([event type] == NSFlagsChanged)
+#pragma clang diagnostic pop
         return emptyString();
     return String([event charactersIgnoringModifiers]);
 }
@@ -267,9 +260,12 @@ static bool isKeypadEvent(NSEvent* event)
 {
     // Check that this is the type of event that has a keyCode.
     switch ([event type]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         case NSKeyDown:
         case NSKeyUp:
         case NSFlagsChanged:
+#pragma clang diagnostic pop
             break;
         default:
             return false;
@@ -302,6 +298,8 @@ static bool isKeypadEvent(NSEvent* event)
 
 static inline bool isKeyUpEvent(NSEvent *event)
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     if ([event type] != NSFlagsChanged)
         return [event type] == NSKeyUp;
     // FIXME: This logic fails if the user presses both Shift keys at once, for example:
@@ -329,12 +327,15 @@ static inline bool isKeyUpEvent(NSEvent *event)
         case 63: // Function
             return ([event modifierFlags] & NSFunctionKeyMask) == 0;
     }
+#pragma clang diagnostic pop
     return false;
 }
 
 static inline WebEvent::Modifiers modifiersForEvent(NSEvent *event)
 {
     unsigned modifiers = 0;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     if ([event modifierFlags] & NSAlphaShiftKeyMask)
         modifiers |= WebEvent::CapsLockKey;
     if ([event modifierFlags] & NSShiftKeyMask)
@@ -345,6 +346,7 @@ static inline WebEvent::Modifiers modifiersForEvent(NSEvent *event)
         modifiers |= WebEvent::AltKey;
     if ([event modifierFlags] & NSCommandKeyMask)
         modifiers |= WebEvent::MetaKey;
+#pragma clang diagnostic pop
     return (WebEvent::Modifiers)modifiers;
 }
 
@@ -373,7 +375,7 @@ WebMouseEvent WebEventFactory::createWebMouseEvent(NSEvent *event, NSEvent *last
     NSPoint globalPosition = globalPointForEvent(event);
 
     WebEvent::Type type = mouseEventTypeForEvent(event);
-#if defined(__LP64__) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101003
+#if defined(__LP64__)
     if ([event type] == NSEventTypePressure) {
         // Since AppKit doesn't send mouse events for force down or force up, we have to use the current pressure
         // event and lastPressureEvent to detect if this is MouseForceDown, MouseForceUp, or just MouseForceChanged.
@@ -397,13 +399,13 @@ WebMouseEvent WebEventFactory::createWebMouseEvent(NSEvent *event, NSEvent *last
     int menuTypeForEvent = typeForEvent(event);
 
     double force = 0;
-#if defined(__LP64__) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101003
+#if defined(__LP64__)
     int stage = [event type] == NSEventTypePressure ? event.stage : lastPressureEvent.stage;
     double pressure = [event type] == NSEventTypePressure ? event.pressure : lastPressureEvent.pressure;
     force = pressure + stage;
 #endif
 
-    return WebMouseEvent(type, button, IntPoint(position), IntPoint(globalPosition), deltaX, deltaY, deltaZ, clickCount, modifiers, timestamp, force, eventNumber, menuTypeForEvent);
+    return WebMouseEvent(type, button, IntPoint(position), IntPoint(globalPosition), deltaX, deltaY, deltaZ, clickCount, modifiers, timestamp, force, WebMouseEvent::SyntheticClickType::NoTap, eventNumber, menuTypeForEvent);
 }
 
 WebWheelEvent WebEventFactory::createWebWheelEvent(NSEvent *event, NSView *windowView)
@@ -464,7 +466,10 @@ WebKeyboardEvent WebEventFactory::createWebKeyboardEvent(NSEvent *event, bool ha
     int windowsVirtualKeyCode       = windowsKeyCodeForKeyEvent(event);
     int nativeVirtualKeyCode        = [event keyCode];
     int macCharCode                 = WKGetNSEventKeyChar(event);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     bool autoRepeat                 = ([event type] != NSFlagsChanged) && [event isARepeat];
+#pragma clang diagnostic pop
     bool isKeypad                   = isKeypadEvent(event);
     bool isSystemKey                = false; // SystemKey is always false on the Mac.
     WebEvent::Modifiers modifiers   = modifiersForEvent(event);

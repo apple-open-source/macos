@@ -82,12 +82,12 @@ Policy::Policy(TP supportingTp, const CssmOid &policyOid)
       mAuxValue(Allocator::standard())
 {
 	// value is as yet unimplemented
-	secdebug("policy", "Policy() this %p", this);
+	secinfo("policy", "Policy() this %p", this);
 }
 
 Policy::~Policy() throw()
 {
-	secdebug("policy", "~Policy() this %p", this);
+	secinfo("policy", "~Policy() this %p", this);
 }
 
 void Policy::setValue(const CssmData &value)

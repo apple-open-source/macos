@@ -75,7 +75,7 @@ bool SecItemDbSelect(SecItemDbConnectionRef dbconn, SecDbQueryRef query, CFError
 #endif
 
 
-bool SecItemDbCreateSchema(SecDbConnectionRef dbt, const SecDbSchema *schema, CFErrorRef *error);
+bool SecItemDbCreateSchema(SecDbConnectionRef dbt, const SecDbSchema *schema, bool includeVersion, CFErrorRef *error);
 
 bool SecItemDbDeleteSchema(SecDbConnectionRef dbt, const SecDbSchema *schema, CFErrorRef *error);
 
@@ -125,6 +125,10 @@ bool SecServerImportKeychainInPlist(SecDbConnectionRef dbt,
                                     CFDictionaryRef keychain,
                                     enum SecItemFilter filter,
                                     CFErrorRef *error);
+
+CFStringRef
+SecServerBackupGetKeybagUUID(CFDictionaryRef keychain);
+
 
 #if TARGET_OS_IPHONE
 bool SecServerDeleteAllForUser(SecDbConnectionRef dbt, CFDataRef musrView, bool keepU, CFErrorRef *error);

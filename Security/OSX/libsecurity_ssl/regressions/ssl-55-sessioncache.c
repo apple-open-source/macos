@@ -100,7 +100,7 @@ typedef struct {
 } ssl_client_handle;
 
 static ssl_client_handle *
-ssl_client_handle_create(int comm, CFArrayRef trustedCA, uint32_t cache_ttl, uintptr_t peerID)
+ssl_client_handle_create(int comm, bool anyRoot, CFArrayRef trustedCA, bool trustedCAOnly, CFArrayRef trustedLeafs, uint32_t cache_ttl, uintptr_t peerID)
 {
     ssl_client_handle *handle = calloc(1, sizeof(ssl_client_handle));
     SSLContextRef ctx = SSLCreateContext(kCFAllocatorDefault, kSSLClientSide, kSSLStreamType);
@@ -115,7 +115,11 @@ ssl_client_handle_create(int comm, CFArrayRef trustedCA, uint32_t cache_ttl, uin
     require_noerr(SSLSetPeerDomainName(ctx, peer_domain_name,
         strlen(peer_domain_name)), out);
 
-    require_noerr(SSLSetTrustedRoots(ctx, trustedCA, true), out);
+    require_noerr(SSLSetAllowsAnyRoot(ctx, anyRoot), out);
+    require_noerr(SSLSetTrustedRoots(ctx, trustedCA, trustedCAOnly), out);
+#if !TARGET_OS_IPHONE
+    require_noerr(SSLSetTrustedLeafCertificates(ctx, trustedLeafs), out);
+#endif
 
     require_noerr(SSLSetSessionCacheTimeout(ctx, cache_ttl), out);
 
@@ -263,35 +267,35 @@ out:
 
 
 static void
-tests(void)
+tests_cache_ttl(void)
 {
     pthread_t client_thread, server_thread;
     CFArrayRef server_certs = server_chain();
     CFArrayRef trusted_ca = trusted_roots();
 
-    ok(server_certs, "got server certs");
-    ok(trusted_ca, "got trusted roots");
+    ok(server_certs, "ttl: got server certs");
+    ok(trusted_ca, "ttl: got trusted roots");
 
     int i, j, k;
 
-    for (i=0; i<2; i++) {
-        for (j=0; j<2; j++) {
+    for (i=0; i<2; i++) {  // client cache TTL
+        for (j=0; j<2; j++) { // Server cache TTL
             for (k=0; k<2; k++) {
+                ssl_client_handle *client = NULL;
+                ssl_server_handle *server = NULL;
 
                 int sp[2];
                 if (socketpair(AF_UNIX, SOCK_STREAM, 0, sp)) exit(errno);
                 fcntl(sp[0], F_SETNOSIGPIPE, 1);
                 fcntl(sp[1], F_SETNOSIGPIPE, 1);
 
-                ssl_client_handle *client;
-                client = ssl_client_handle_create(sp[0], trusted_ca, i, (i<<8)|(j+1));
-                ok(client!=NULL, "could not create client handle (%d:%d:%d)", i, j, k);
+                client = ssl_client_handle_create(sp[0], false, trusted_ca, true, NULL, i, (i<<8)|(j+1));
+                ok(client!=NULL, "ttl: could not create client handle (%d:%d:%d)", i, j, k);
+                require(client, errOut);
 
-
-                ssl_server_handle *server;
                 server = ssl_server_handle_create(sp[1], server_certs, j);
-                ok(server!=NULL, "could not create server handle (%d:%d:%d)", i, j, k);
-
+                ok(server!=NULL, "ttl: could not create server handle (%d:%d:%d)", i, j, k);
+                require(server, errOut);
                 pthread_create(&client_thread, NULL, securetransport_ssl_client_thread, client);
                 pthread_create(&server_thread, NULL, securetransport_ssl_server_thread, server);
 
@@ -304,20 +308,94 @@ tests(void)
                 unsigned char sessionID[32];
                 size_t sessionIDLength = sizeof(sessionID);
 
-                ok(client_err==0, "unexpected error %ld (client %d:%d:%d)", client_err, i, j, k);
-                ok(server_err==0, "unexpected error %ld (server %d:%d:%d)", server_err, i, j, k);
+                ok(client_err==0, "ttl: unexpected error %ld (client %d:%d:%d)", client_err, i, j, k);
+                ok(server_err==0, "ttl: unexpected error %ld (server %d:%d:%d)", server_err, i, j, k);
                 ok_status(SSLGetResumableSessionInfo(client->st, &resumed, sessionID, &sessionIDLength), "SSLGetResumableSessionInfo");
 
-                ok(i || j || (!k) || resumed, "Unexpected resumption state=%d (%d:%d:%d)", resumed, i, j, k);
+                ok((bool)resumed == (bool)(k && (!i) && (!j)), "ttl: Unexpected resumption state=%d (%d:%d:%d)", resumed, i, j, k);
 
+            errOut:
                 ssl_server_handle_destroy(server);
                 ssl_client_handle_destroy(client);
-                close(sp[0]);
-                close(sp[1]);
 
-                /* Sleep one second so that Session cache TTL can expire */
-                sleep(1);
+                /* Sleep two seconds so that Session cache TTL can expire */
+                sleep(2);
             }
+        }
+    }
+
+    CFReleaseSafe(server_certs);
+    CFReleaseSafe(trusted_ca);
+}
+
+static void
+tests_cache_trust(void)
+{
+    pthread_t client_thread, server_thread;
+    CFArrayRef server_certs = server_chain();
+    CFArrayRef trusted_ca = trusted_roots();
+    CFMutableArrayRef trusted_ca2 = CFArrayCreateMutableCopy(kCFAllocatorDefault, 0, trusted_ca);
+    CFArrayAppendArray(trusted_ca2, trusted_ca, CFRangeMake(0, CFArrayGetCount(trusted_ca)));
+
+    ok(server_certs, "trust: got server certs");
+    ok(trusted_ca, "trust: got trusted roots");
+    ok(trusted_ca2, "trust: got trusted roots extra");
+
+    int any, ca, caonly, leaf, k;
+
+    // Test cache and trust options:
+
+
+    for (any=0; any<2; any++) // any root ?
+    for (ca=0; ca<2; ca++) // trustedCA ?
+    for (caonly=0; caonly<2; caonly++) // leaf>
+#if TARGET_OS_IPHONE
+    {
+        leaf = 0;
+#else
+    for (leaf=0; leaf<2; leaf++)
+    {
+#endif
+        // attempt initial connection, then resumed connection, but all with same peer id (0xdeadbeef)
+        for (k=0; k<2; k++) {
+            ssl_client_handle *client = NULL;
+            ssl_server_handle *server = NULL;
+
+            int sp[2];
+            if (socketpair(AF_UNIX, SOCK_STREAM, 0, sp)) exit(errno);
+            fcntl(sp[0], F_SETNOSIGPIPE, 1);
+            fcntl(sp[1], F_SETNOSIGPIPE, 1);
+
+            client = ssl_client_handle_create(sp[0], any, ca?trusted_ca:trusted_ca2, caonly, leaf?NULL:trusted_ca, 300, 0xdeadbeef);
+            ok(client!=NULL, "trust: could not create client handle (%d:%d:%d:%d:%d)", any, ca, caonly, leaf, k);
+            require(client, errOut);
+
+            server = ssl_server_handle_create(sp[1], server_certs, 300);
+            ok(server!=NULL, "trust: could not create server handle (%d:%d:%d:%d:%d)", any, ca, caonly, leaf, k);
+            require(server, errOut);
+
+            pthread_create(&client_thread, NULL, securetransport_ssl_client_thread, client);
+            pthread_create(&server_thread, NULL, securetransport_ssl_server_thread, server);
+
+            intptr_t server_err, client_err;
+
+            pthread_join(client_thread, (void*)&client_err);
+            pthread_join(server_thread, (void*)&server_err);
+
+            Boolean resumed;
+            unsigned char sessionID[32];
+            size_t sessionIDLength = sizeof(sessionID);
+
+            ok(client_err==0, "trust: unexpected error %ld (client %d:%d:%d:%d:%d)", client_err, any, ca, caonly, leaf, k);
+            ok(server_err==0, "trust: unexpected error %ld (server %d:%d:%d:%d:%d)", server_err, any, ca, caonly, leaf, k);
+            ok_status(SSLGetResumableSessionInfo(client->st, &resumed, sessionID, &sessionIDLength), "SSLGetResumableSessionInfo");
+
+            ok((bool)resumed == (bool)(k), "trust: Unexpected resumption state=%d (%d:%d:%d:%d:%d)", resumed, any, ca, caonly, leaf, k);
+
+        errOut:
+            ssl_server_handle_destroy(server);
+            ssl_client_handle_destroy(client);
+
         }
     }
 
@@ -328,10 +406,18 @@ tests(void)
 int ssl_55_sessioncache(int argc, char *const *argv)
 {
 
-    plan_tests(6 * 8 + 2 /*cert*/);
+#if TARGET_OS_IPHONE
+#define N_TRUST_TESTS 8
+#else
+#define N_TRUST_TESTS 16
+#endif
+
+    plan_tests(/*ttl :*/ 6 * 8 + 2  + /* trust:*/ N_TRUST_TESTS*6*2 + 3);
 
 
-    tests();
+    tests_cache_ttl();
+
+    tests_cache_trust();
 
     return 0;
 }

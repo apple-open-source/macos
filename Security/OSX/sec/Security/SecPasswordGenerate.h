@@ -111,6 +111,13 @@ bool SecPasswordIsPasswordWeak(CFStringRef passcode)
 @function SecPasswordIsPasswordWeak2
 @abstract Evalutes the weakness of a passcode. This function can take any type of passcode.  Currently
 the function evaluates passcodes with only ASCII characters
+ ***conditions in which a passcode will be evaluated as weak***
+ * all repeating characters
+ * repeating 2 digits
+ * is found in the black list of the top 10 most commonly used passcodes
+ * incrementing digits
+ * decrementing digits (including 0987)
+ * low enough levels of entropy (complex passcodes)
 @param passcode a string of any length and type (4 or 6 digit PIN, complex passcode)
 @param isSimple is to indicate whether we're evaluating a 4 or 6 digit PIN or a complex passcode
 @result True if the password is weak, False if the password is strong.

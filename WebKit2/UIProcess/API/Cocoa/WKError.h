@@ -29,10 +29,10 @@
 
 #import <Foundation/Foundation.h>
 
-WK_ASSUME_NONNULL_BEGIN
+NS_ASSUME_NONNULL_BEGIN
 
 /*! @constant WKErrorDomain Indicates a WebKit error. */
-WK_EXTERN NSString * const WKErrorDomain WK_AVAILABLE(10_10, 8_0);
+WK_EXTERN NSString * const WKErrorDomain WK_API_AVAILABLE(macosx(10.10), ios(8.0));
 
 /*! @enum WKErrorCode
  @abstract Constants used by NSError to indicate errors in the WebKit domain.
@@ -47,9 +47,9 @@ typedef NS_ENUM(NSInteger, WKErrorCode) {
     WKErrorWebContentProcessTerminated,
     WKErrorWebViewInvalidated,
     WKErrorJavaScriptExceptionOccurred,
-    WKErrorJavaScriptResultTypeIsUnsupported WK_ENUM_AVAILABLE(WK_MAC_TBA, WK_IOS_TBA),
-} WK_ENUM_AVAILABLE(10_10, 8_0);
+    WKErrorJavaScriptResultTypeIsUnsupported WK_API_AVAILABLE(macosx(10.11), ios(9.0)),
+} WK_API_AVAILABLE(macosx(10.10), ios(8.0));
 
-WK_ASSUME_NONNULL_END
+NS_ASSUME_NONNULL_END
 
 #endif

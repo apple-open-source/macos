@@ -53,7 +53,7 @@ ssize_t xar_write_fd(int fd, void * buffer, size_t nbyte);
 ssize_t xar_pwrite_fd( int fd, void * buffer, size_t nbyte, off_t offset );
 dev_t xar_makedev(uint32_t major, uint32_t minor);
 void xar_devmake(dev_t dev, uint32_t *major, uint32_t *minor);
-
+char* xar_safe_dirname(const char* path);
 
 // This is used to check to see if a given path escapes from
 // the extraction root.

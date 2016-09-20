@@ -51,18 +51,22 @@ __FBSDID("$FreeBSD: src/usr.sbin/mtree/verify.c,v 1.24 2005/08/11 15:43:55 brian
 static NODE *root;
 static char path[MAXPATHLEN];
 
-static void	miss(NODE *, char *);
+static int	miss(NODE *, char *);
 static int	vwalk(void);
 
 int
 mtree_verifyspec(FILE *fi)
 {
-	int rval;
+	int rval, mval;
 
 	root = mtree_readspec(fi);
 	rval = vwalk();
-	miss(root, path);
-	return (rval);
+	mval = miss(root, path);
+	
+	if (rval != 0)
+		return rval;
+	else
+		return mval;
 }
 
 static int
@@ -153,13 +157,15 @@ extra:
 	return (rval);
 }
 
-static void
+static int
 miss(NODE *p, char *tail)
 {
 	int create;
 	char *tp;
 	const char *type, *what;
 	int serr;
+	int rval = 0;
+	int rrval = 0;
 
 	for (; p; p = p->next) {
 		if (p->type != F_DIR && (dflag || p->flags & F_VISIT))
@@ -170,10 +176,12 @@ miss(NODE *p, char *tail)
 			   symbolic link and the -q flag is set. */
 			struct stat statbuf;
 
-			if (qflag && stat(path, &statbuf) == 0)
+			if (qflag && stat(path, &statbuf) == 0) {
 				p->flags |= F_VISIT;
-			else
+			} else {
 				(void)printf("%s missing", path);
+				rval = MISMATCHEXIT;
+			}
 		}
 		if (p->type != F_DIR && p->type != F_LINK) {
 			putchar('\n');
@@ -226,7 +234,9 @@ miss(NODE *p, char *tail)
 
 		for (tp = tail; *tp; ++tp);
 		*tp = '/';
-		miss(p->child, tp + 1);
+		rrval = miss(p->child, tp + 1);
+		if (rrval != 0)
+			rval = rrval;
 		*tp = '\0';
 
 		if (!create)
@@ -252,4 +262,5 @@ miss(NODE *p, char *tail)
 			(void)printf("%s: file flags not set: %s\n",
 			    path, strerror(errno));
 	}
+	return rval;
 }

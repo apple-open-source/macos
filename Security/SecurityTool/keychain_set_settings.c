@@ -26,7 +26,7 @@
 #include "keychain_set_settings.h"
 #include "keychain_utilities.h"
 #include "readline.h"
-#include "security.h"
+#include "security_tool.h"
 
 #include <limits.h>
 #include <stdio.h>
@@ -73,8 +73,8 @@ do_keychain_set_password(const char *keychainName, const char* oldPassword, cons
 {
 	SecKeychainRef keychain = NULL;
 	OSStatus result = 1;
-	UInt32 oldLen = (oldPassword) ? strlen(oldPassword) : 0;
-	UInt32 newLen = (newPassword) ? strlen(newPassword) : 0;
+	UInt32 oldLen = (oldPassword) ? (UInt32) strlen(oldPassword) : 0;
+	UInt32 newLen = (newPassword) ? (UInt32) strlen(newPassword) : 0;
 	char *oldPass = (oldPassword) ? (char*)oldPassword : NULL;
 	char *newPass = (newPassword) ? (char*)newPassword : NULL;
 	char *oldBuf = NULL;
@@ -95,7 +95,7 @@ do_keychain_set_password(const char *keychainName, const char* oldPassword, cons
 		char *pBuf = getpass("Old Password: ");
 		if (pBuf) {
 			oldBuf = (char*) calloc(PW_BUF_SIZE, 1);
-			oldLen = strlen(pBuf);
+			oldLen = (UInt32) strlen(pBuf);
 			memcpy(oldBuf, pBuf, oldLen);
 			bzero(pBuf, oldLen);
 			oldPass = oldBuf;
@@ -107,14 +107,14 @@ do_keychain_set_password(const char *keychainName, const char* oldPassword, cons
 		char *pBuf = getpass("New Password: ");
 		if (pBuf) {
 			newBuf = (char*) calloc(PW_BUF_SIZE, 1);
-			newLen = strlen(pBuf);
+			newLen = (UInt32) strlen(pBuf);
 			memcpy(newBuf, pBuf, newLen);
 			bzero(pBuf, newLen);
 		}
 		/* confirm new password */
 		pBuf = getpass("Retype New Password: ");
 		if (pBuf) {
-			UInt32 confirmLen = strlen(pBuf);
+			UInt32 confirmLen = (UInt32) strlen(pBuf);
 			if (confirmLen == newLen && newBuf &&
 				!memcmp(pBuf, newBuf, newLen)) {
 				newPass = newBuf;

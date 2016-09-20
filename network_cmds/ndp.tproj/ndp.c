@@ -1205,9 +1205,9 @@ ifinfo(int argc, char **argv)
 	} while (0)
 		SETFLAG("nud", ND6_IFF_PERFORMNUD);
 		SETFLAG("proxy_prefixes", ND6_IFF_PROXY_PREFIXES);
-		SETFLAG("ignore_na", ND6_IFF_IGNORE_NA);
 		SETFLAG("disabled", ND6_IFF_IFDISABLED);
 		SETFLAG("insecure", ND6_IFF_INSECURE);
+		SETFLAG("replicated", ND6_IFF_REPLICATED);
 
 		ND.flags = newflags;
 		if (ioctl(s, SIOCSIFINFO_FLAGS, (caddr_t)&nd) < 0) {
@@ -1248,17 +1248,19 @@ ifinfo(int argc, char **argv)
 		}
 	}
 	if (ND.flags) {
-		printf("\nFlags: ");
+		printf("\nFlags: 0x%x ", ND.flags);
 		if ((ND.flags & ND6_IFF_IFDISABLED) != 0)
 			printf("IFDISABLED ");
-		if ((ND.flags & ND6_IFF_IGNORE_NA) != 0)
-			printf("IGNORE_NA ");
 		if ((ND.flags & ND6_IFF_INSECURE) != 0)
 			printf("INSECURE ");
 		if ((ND.flags & ND6_IFF_PERFORMNUD) != 0)
 			printf("PERFORMNUD ");
 		if ((ND.flags & ND6_IFF_PROXY_PREFIXES) != 0)
 			printf("PROXY_PREFIXES ");
+		if ((ND.flags & ND6_IFF_REPLICATED) != 0)
+			printf("REPLICATED ");
+		if ((ND.flags & ND6_IFF_DAD) != 0)
+			printf("DAD ");
 	}
 	putc('\n', stdout);
 #undef ND

@@ -206,7 +206,7 @@ static const uint8_t* der_decode_commontime_body(CFAbsoluteTime *at, CFErrorRef 
 	CFTimeInterval timeZoneOffset = der_decode_timezone_offset(&der, der_end, error);
 
 #if 0
-    secdebug("dateparse",
+    secinfo("dateparse",
              "date %.*s year: %04d%02d%02d%02d%02d%02d%+05g",
              length, bytes, g.year, g.month,
              g.day, g.hour, g.minute, g.second,

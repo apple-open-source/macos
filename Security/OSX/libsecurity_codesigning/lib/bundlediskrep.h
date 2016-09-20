@@ -68,7 +68,8 @@ public:
 	CFArrayRef modifiedFiles();
 	UnixPlusPlus::FileDesc &fd();
 	void flush();
-	
+    CFDictionaryRef diskRepInformation();
+
 	std::string recommendedIdentifier(const SigningContext &ctx);
 	CFDictionaryRef defaultResourceRules(const SigningContext &ctx);
 	const Requirements *defaultRequirements(const Architecture *arch, const SigningContext &ctx);
@@ -86,16 +87,21 @@ public:
 	
 protected:
 	std::string metaPath(const char *name);
-	CFDataRef metaData(const char *name) { return cfLoadFile(CFTempURL(metaPath(name))); }
 	void createMeta();						// (try to) create the meta-file directory
+	CFDataRef metaData(const char *name);
+	CFDataRef metaData(CodeDirectory::SpecialSlot slot);
 	
 private:
 	void setup(const Context *ctx);			// shared init
 	void checkModifiedFile(CFMutableArrayRef files, CodeDirectory::SpecialSlot slot);
 	CFDataRef loadRegularFile(CFURLRef url);
 	void recordStrictError(OSStatus error);
+	void validateMetaDirectory(const CodeDirectory* cd);
 	void validateFrameworkRoot(std::string root);
+	void checkPlainFile(UnixPlusPlus::FileDesc fd, const std::string& path);
+	void checkForks(UnixPlusPlus::FileDesc fd);
 	void checkMoved(CFURLRef oldPath, CFURLRef newPath);
+	void componentFromExec(bool fromExec);
 
 private:
 	CFRef<CFBundleRef> mBundle;
@@ -106,6 +112,9 @@ private:
 	bool mAppLike;							// is some form of app
 	string mFormat;							// format description string
 	RefPointer<DiskRep> mExecRep;			// DiskRep for main executable file
+	bool mComponentsFromExec;				// components are drawn from main executable diskrep
+	bool mComponentsFromExecValid;			// mComponentsFromExec is valid (tri-state)
+	std::set<CodeDirectory::SpecialSlot> mUsedComponents; // remember what components we've retrieved
 	std::set<OSStatus> mStrictErrors;		// strict validation errors encountered
 };
 
@@ -126,11 +135,13 @@ public:
 protected:
 	DiskRep *execRep() { return rep->mExecRep; }
 	void remove(CodeDirectory::SpecialSlot slot);
+	void purgeMetaDirectory();
 
 protected:
 	RefPointer<BundleDiskRep> rep;
 	RefPointer<DiskRep::Writer> execWriter;
 	bool mMadeMetaDirectory;
+	std::set<std::string> mWrittenFiles;
 };
 
 

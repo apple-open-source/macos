@@ -3,19 +3,18 @@
 	<key>OpenSourceProject</key>
 	<string>zlib</string>
 	<key>OpenSourceVersion</key>
-	<string>1.2.5</string>
+	<string>1.2.8</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.zlib.net/</string>
 	<key>OpenSourceURL</key>
-	<string>http://zlib.net/zlib-1.2.5.tar.bz2</string>
+	<string>http://zlib.net/zlib-1.2.8.tar.xz</string>
 	<key>OpenSourceMD5</key>
-	<string>be1e89810e66150f5b0327984d8625a0</string>
+	<string>28f1205d8dd2001f26fec1e8c2cebe37</string>
 	<key>OpenSourceImportDate</key>
-	<string>2011-02-24</string>
+	<string>2013-09-19</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>Minor changes to configure script.</string>
-		<string>Cast sizeof(z_stream) to int in zlib.h</string>
 		<string>compress2(): fail under LP64 if source &gt; 4GB</string>
 	</array>
 	<key>OpenSourceLicense</key>

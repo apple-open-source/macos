@@ -390,6 +390,7 @@ error/tst.DTRACEFLT_DIVZERO.d
 error/tst.DTRACEFLT_UNKNOWN.d
 error/tst.error.d
 error/tst.errorend.d
+error/tst.noerror.d
 exit/err.D_PROTO_LEN.noarg.d
 exit/err.exitarg1.d
 exit/tst.basic1.d
@@ -447,7 +448,6 @@ funcs/tst.chill.ksh
 funcs/tst.cleanpath.d
 funcs/tst.copyin.d
 funcs/tst.copyinto.d
-funcs/tst.core_profile.d
 # funcs/tst.ddi_pathname.d						/* WAIVED: Solaris device driver model specific. */
 funcs/tst.default.d
 funcs/tst.freopen.ksh

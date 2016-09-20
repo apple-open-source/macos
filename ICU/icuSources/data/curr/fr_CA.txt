@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/fr_CA.xml
@@ -72,10 +72,6 @@ fr_CA{
             "ILS",
             "nouveau shekel israélien",
         }
-        INR{
-            "INR",
-            "roupie indienne",
-        }
         JPY{
             "¥",
             "yen japonais",
@@ -108,9 +104,13 @@ fr_CA{
             "$ SG",
             "dollar de Singapour",
         }
-        THB{
-            "THB",
-            "baht thaïlandais",
+        SRD{
+            "SRD",
+            "dollar surinamais",
+        }
+        TOP{
+            "TOP",
+            "pa’anga",
         }
         TTD{
             "TTD",
@@ -140,12 +140,32 @@ fr_CA{
             "XPF",
             "franc CFP",
         }
+        XXX{
+            "XXX",
+            "Devise inconnue",
+        }
+    }
+    Currencies%narrow{
+        KMF{"CF"}
+        NIO{"C$"}
+        ZMW{"ZK"}
+    }
+    Currencies%variant{
+        TRY{"TL"}
     }
     CurrencyPlurals{
         FKP{
             one{"livre des Îles Malouines"}
             other{"livres des Îles Malouines"}
         }
+        TOP{
+            one{"pa’anga"}
+            other{"pa’angas"}
+        }
+        XXX{
+            one{"(devise inconnue)"}
+            other{"(devise inconnue)"}
+        }
     }
-    Version{"2.1.13.23"}
+    Version{"2.1.24.13"}
 }

@@ -60,10 +60,6 @@ extern "C"
 #error VERSION_MAJOR
 #endif
 
-#if         VERSION_MAJOR < 10
-#define     ROM_KEXTS       1
-#endif
-
 #ifndef kIOPolledInterfaceActiveKey
 #define kIOPolledInterfaceActiveKey  "IOPolledInterfaceActive"
 #endif
@@ -115,7 +111,9 @@ static IOLock *      	   gIOPCIWakeReasonLock;
 
 const OSSymbol *		   gIOPCITunnelIDKey;
 const OSSymbol *		   gIOPCITunnelledKey;
+const OSSymbol *		   gIOPCIHPTypeKey;
 const OSSymbol *		   gIOPCIThunderboltKey;
+const OSSymbol *		   gIOPCIHotplugCapableKey;
 const OSSymbol *		   gIOPCITunnelL1EnableKey;
 
 const OSSymbol *           gIOPlatformDeviceMessageKey;
@@ -153,6 +151,13 @@ uint32_t gIOPCIFlags = 0
 //           | kIOPCIConfiguratorIOLog | kIOPCIConfiguratorKPrintf
 ;
 
+
+#if !DEVELOPMENT && !defined(__x86_64__)
+
+#define DLOG(fmt, args...)
+
+#else
+
 #define DLOG(fmt, args...)                   \
     do {                                                    \
         if ((gIOPCIFlags & kIOPCIConfiguratorIOLog) && !ml_at_interrupt_context())   \
@@ -161,6 +166,7 @@ uint32_t gIOPCIFlags = 0
             kprintf(fmt, ## args);                          \
     } while(0)
 
+#endif	/* !DEVELOPMENT && !defined(__x86_64__) */
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -358,8 +364,10 @@ IOReturn IOPCIBridge::configOp(IOService * device, uintptr_t op, void * result, 
         gIOPCIACPIPlane             = IORegistryEntry::getPlane("IOACPIPlane");
         gIOPCITunnelIDKey           = OSSymbol::withCStringNoCopy(kIOPCITunnelIDKey);
         gIOPCITunnelledKey          = OSSymbol::withCStringNoCopy(kIOPCITunnelledKey);
+        gIOPCIHPTypeKey             = OSSymbol::withCStringNoCopy(kIOPCIHPTypeKey);
 		gIOPCITunnelL1EnableKey     = OSSymbol::withCStringNoCopy(kIOPCITunnelL1EnableKey);
         gIOPCIThunderboltKey        = OSSymbol::withCStringNoCopy("PCI-Thunderbolt");
+        gIOPCIHotplugCapableKey     = OSSymbol::withCStringNoCopy("PCIHotplugCapable");
         gIOPolledInterfaceActiveKey = OSSymbol::withCStringNoCopy(kIOPolledInterfaceActiveKey);
 
 		gIOPCIWaitingPauseSet = OSSet::withCapacity(4);
@@ -815,7 +823,7 @@ IOPCI2PCIBridge::setTunnelL1Enable(IOPCIDevice * device, IOService * client, boo
 	DLOG("setTunnelL1Enable(0x%llx) %d->%d\n", 
 		 device->getRegistryEntryID(), device->reserved->tunnelL1Allow, l1Enable);
 
-	if (!shadow->tunnelRoot)                                return (kIOReturnUnsupported);
+	if (!shadow->sharedRoot)                                return (kIOReturnUnsupported);
 
 	if ((client != device) 
 		&& !device->isChild(client, gIOServicePlane))       return (kIOReturnNotAttached);
@@ -834,7 +842,7 @@ IOPCI2PCIBridge::setTunnelL1Enable(IOPCIDevice * device, IOService * client, boo
 	if (was == now)	ret = kIOReturnSuccess;
 	else
 	{
-		if (device == shadow->tunnelRoot)
+		if (device == shadow->sharedRoot)
 		{
 			IOOptionBits state = 0;
 			if (now) state |= kIOPCIExpressASPML1;
@@ -984,7 +992,14 @@ IOReturn IOPCIBridge::saveDeviceState( IOPCIDevice * device,
 
     if (!device->savedConfig) return (kIOReturnNotReady);
 
-	shadow = configShadow(device);
+    shadow = configShadow(device);
+
+    // device flags
+    if (device->getProperty(kIOPMPCIWakeL1PMDisableKey))
+        shadow->flags |= kIOPCIConfigShadowWakeL1PMDisable;
+    else
+        shadow->flags &= ~kIOPCIConfigShadowWakeL1PMDisable;
+
     flags = shadow->flags;
 	_saved = shadow->configSave;
     saved = &_saved;
@@ -1001,7 +1016,7 @@ IOReturn IOPCIBridge::saveDeviceState( IOPCIDevice * device,
     shadow->flags = flags;
     shadow->restoreCount = 0;
 
-	if (device->getProperty(gIOPCITunnelledKey))
+	if (shadow->tunnelled)
 	{
 		shadow->tunnelID = device->copyProperty(gIOPCITunnelIDKey, gIOServicePlane);
 	}
@@ -1171,7 +1186,6 @@ IOReturn IOPCIBridge::_restoreDeviceState(IOPCIDevice * device, IOOptionBits opt
 		time = mach_absolute_time();
         ret = (*shadow->handler)(configShadow(device)->handlerRef, 
                                                kIOMessageDeviceWillPowerOn, device, 3);
-		if ((kIOPCIRestoreDeviceStateEarly & options) && (kIOReturnNotReady == ret)) return (ret);
 		time = mach_absolute_time() - time;
 		absolutetime_to_nanoseconds(time, &time);
 		DLOG("%s::configHandler(kIOMessageDeviceWillPowerOn) %lld ms\n", device->getName(), time / 1000000ULL);
@@ -1335,14 +1349,18 @@ void IOPCIBridge::restoreQEnter(IOPCIDevice * device)
     shadow = configShadow(device);
 	if (shadow->tunnelRoot) 
 	{
-        DLOG("queued %s on %s\n", device->getName(), shadow->tunnelRoot->getName());
+        DLOG("%s: queued on %s\n", device->getName(), shadow->tunnelRoot->getName());
         que = &configShadow(shadow->tunnelRoot)->dependents;
-		if (device == shadow->tunnelRoot)
+
+		if ((kPCIHeaderType0 == device->reserved->headerType)
+		    && (kPCIStaticTunnel == shadow->hpType))
 		{
-			IOLockLock(gIOPCIWakeReasonLock);
-			gIOPCITunnelSleep++;
-			IOLockUnlock(gIOPCIWakeReasonLock);
-		}
+            // tunnel controller
+            IOLockLock(gIOPCIWakeReasonLock);
+            gIOPCITunnelSleep++;
+            DLOG("%s: tunnel sleep %d\n", device->getName(), gIOPCITunnelSleep);
+            IOLockUnlock(gIOPCIWakeReasonLock);
+        }
 	}
     else
     {
@@ -1395,7 +1413,8 @@ void IOPCIBridge::tunnelsWait(IOPCIDevice * device)
 	IOLockUnlock(gIOPCIWakeReasonLock);
 }
 
-IOReturn IOPCIBridge::restoreTunnelState(IOPCIDevice * rootDevice, IOOptionBits options)
+IOReturn IOPCIBridge::restoreTunnelState(IOPCIDevice * rootDevice, IOOptionBits options, 
+                                         bool * didTunnelController)
 {
 	IOReturn            ret;
     IOPCIConfigShadow * root;
@@ -1427,12 +1446,7 @@ IOReturn IOPCIBridge::restoreTunnelState(IOPCIDevice * rootDevice, IOOptionBits 
 		if (kIOPCIConfigShadowVolatile & shadow->flags)
 		{
 			shadow->device->setPCIPowerState(kIOPCIDeviceOnState, options);
-
-			ret = _restoreDeviceState(shadow->device, kIOPCIRestoreDeviceStateEarly);
-			if (kIOReturnNotReady == ret)
-			{
-				ret = _restoreDeviceState(shadow->device, 0);
-			}
+			ret = _restoreDeviceState(shadow->device, 0);
 		}
 		if (shadow->tunnelID)
 		{
@@ -1448,6 +1462,10 @@ IOReturn IOPCIBridge::restoreTunnelState(IOPCIDevice * rootDevice, IOOptionBits 
 					 IOPCIConfigShadow *,
 					 link);
 		shadow->link.next = shadow->link.prev = NULL;
+
+		if (didTunnelController 
+		    && (kPCIHeaderType0 == shadow->device->reserved->headerType)
+		    && (kPCIStaticTunnel == shadow->hpType)) *didTunnelController = true;
 	}
 
 
@@ -1520,7 +1538,9 @@ IOReturn IOPCIBridge::restoreMachineState(IOOptionBits options, IOPCIDevice * de
 
         if (kMachineRestoreDehibernate & options) shadow->device->reserved->pmHibernated = true;
 
-		if (shadow->tunnelRoot || shadow->tunnelID) panic("tunnel");
+	    if (!queue_empty(&shadow->dependents))                      continue;
+		if (shadow->sharedRoot)                                     continue;
+		if (shadow->tunnelRoot || shadow->tunnelID)                 panic("tunnel");
 
 		if (shadow->device != device)
 		{
@@ -1537,7 +1557,16 @@ IOReturn IOPCIBridge::restoreMachineState(IOOptionBits options, IOPCIDevice * de
 				// except for nvidia bus zero devices
 				&& (shadow->device->space.s.busNum 
 					|| (0x10de != (shadow->configSave.savedConfig[kIOPCIConfigVendorID >> 2] & 0xffff))))
-																	continue;
+            {
+                if (!shadow->device->space.s.busNum)
+                {
+                    DLOG("disable %s\n", shadow->device->getName());
+                    shadow->device->configWrite16(kIOPCIConfigCommand,
+                        shadow->configSave.savedConfig[kIOPCIConfigCommand >> 2]
+                        & ~(kIOPCICommandIOSpace|kIOPCICommandMemorySpace|kIOPCICommandBusMaster));
+                }
+                continue;
+            }
 #endif
 			if (kMachineRestoreEarlyDevices & options)
 			{
@@ -1551,7 +1580,7 @@ IOReturn IOPCIBridge::restoreMachineState(IOOptionBits options, IOPCIDevice * de
 
 		shadow->device->setPCIPowerState(kIOPCIDeviceOnState, options);
 
-		ret = _restoreDeviceState(shadow->device, kIOPCIRestoreDeviceStateEarly);
+		ret = _restoreDeviceState(shadow->device, 0);
 
         IOSimpleLockLock(gIOAllPCI2PCIBridgesLock);
 
@@ -1568,12 +1597,52 @@ IOReturn IOPCIBridge::restoreMachineState(IOOptionBits options, IOPCIDevice * de
     return (kIOReturnSuccess);
 }
 
-IOReturn IOPCIBridge::restoreDeviceState( IOPCIDevice * device, IOOptionBits options )
+IOReturn IOPCIBridge::_restoreDeviceDependents(IOPCIDevice * device, IOOptionBits options, IOPCIDevice * forDependent)
 {
     IOReturn ret = kIOReturnNotFound;
 
-    if (!device->savedConfig)
-        return (kIOReturnNotReady);
+    if (!device->savedConfig) return (kIOReturnNotReady);
+
+    IOLockLock(configShadow(device)->dependentsLock);
+
+	if (!queue_empty(&configShadow(device)->dependents))
+	{
+		DLOG("%s: waking deps for %s\n", device->getName(), forDependent->getName());
+		do
+		{
+            bool didTunnelController = false;
+
+			ret = restoreTunnelState(device, kMachineRestoreBridges, &didTunnelController);
+			ret = restoreTunnelState(device, 0,                      &didTunnelController);
+			ret = restoreTunnelState(device, kMachineRestoreTunnels, &didTunnelController);
+			if (!queue_empty(&configShadow(device)->dependents)) panic("tunnelq");
+
+            if (didTunnelController)
+            {
+                IOLockLock(gIOPCIWakeReasonLock);
+                gIOPCITunnelSleep--;
+                if (gIOPCITunnelWait && !--gIOPCITunnelWait)
+                {
+                    IOLockWakeup(gIOPCIWakeReasonLock, &gIOPCITunnelWait, false);
+                }
+                IOLockUnlock(gIOPCIWakeReasonLock);
+            }
+		}
+		while (false);
+	}
+
+    IOLockUnlock(configShadow(device)->dependentsLock);
+
+    return (ret);
+}
+
+// public
+IOReturn IOPCIBridge::restoreDeviceState(IOPCIDevice * device, IOOptionBits options)
+{
+    IOReturn      ret = kIOReturnNotFound;
+	IOPCIDevice * root;
+
+    if (!device->savedConfig) return (kIOReturnNotReady);
 
     if (kSaveBridgeState == gIOAllPCI2PCIBridgeState)
     {
@@ -1582,27 +1651,16 @@ IOReturn IOPCIBridge::restoreDeviceState( IOPCIDevice * device, IOOptionBits opt
 
     if (kIOReturnSuccess != ret)
     {
-		if (!queue_empty(&configShadow(device)->dependents))
+		if ((root = configShadow(device)->tunnelRoot))
 		{
-			ret = restoreTunnelState(device, kMachineRestoreBridges);
-			ret = restoreTunnelState(device, 0);
-			ret = restoreTunnelState(device, kMachineRestoreTunnels);
-			if (!queue_empty(&configShadow(device)->dependents)) panic("tunnelq");
-
-			IOLockLock(gIOPCIWakeReasonLock);
-			gIOPCITunnelSleep--;
-			if (gIOPCITunnelWait && !--gIOPCITunnelWait)
-			{
-				IOLockWakeup(gIOPCIWakeReasonLock, &gIOPCITunnelWait, false);
-			}
-			IOLockUnlock(gIOPCIWakeReasonLock);
+			ret = _restoreDeviceDependents(root, options, device);
 		}
 		else
 		{
 			restoreQRemove(device);
 			ret = _restoreDeviceState(device, 0);
 		}
-    }
+	}
 
     if (!(kIOPCIConfigShadowPermanent & configShadow(device)->flags)) 
     {
@@ -1897,6 +1955,10 @@ void IOPCIBridge::removeDevice( IOPCIDevice * device, IOOptionBits options )
     getPlatform()->callPlatformFunction(gIOPlatformFreeDeviceResourcesKey,
 									  /* waitForFunction */ false,
 									  /* nub             */ device, NULL, NULL, NULL);
+#if ACPI_SUPPORT
+	AppleVTD::removeDevice(device);
+#endif
+
 	restoreQRemove(device);
     configOp(device, kConfigOpTerminated, 0);
 }
@@ -1906,13 +1968,7 @@ bool IOPCIBridge::publishNub( IOPCIDevice * nub, UInt32 /* index */ )
 	IOPCIDevice *               root;
     char                        location[ 24 ];
     bool                        ok;
-#if ROM_KEXTS
-    OSData *                    data;
-    OSData *                    driverData;
-    UInt32                      *regData, expRomReg;
-    IOMemoryMap *               memoryMap;
-    IOVirtualAddress            virtAddr;
-#endif
+    OSNumber *                  num;
 
     if (nub)
     {
@@ -1932,13 +1988,31 @@ bool IOPCIBridge::publishNub( IOPCIDevice * nub, UInt32 /* index */ )
             bzero(shadow, sizeof(IOPCIConfigShadow));
             queue_init(&shadow->dependents);
             shadow->device = nub;
+
+			shadow->tunnelled = (0 != nub->getProperty(gIOPCITunnelledKey));
+			if ((num = (OSNumber *) nub->copyProperty(gIOPCIHPTypeKey)))
+			{
+				shadow->hpType = num->unsigned8BitValue();
+				num->release();
+			}
+
 			for (root = nub;
 				 (!root->getProperty(gIOPCIThunderboltKey)) 
 				 	&& (root = OSDynamicCast(IOPCIDevice, root->getParentEntry(gIODTPlane)));) 
 			    {}
-			shadow->tunnelRoot = root;
-			nub->reserved->tunnelL1Allow = kTunnelL1NotSet;
+			shadow->sharedRoot = root;
+			if (root == nub)
+			{
+			    shadow->dependentsLock = IOLockAlloc();
+			    assert(shadow->dependentsLock);
+			}
+			else if ((kPCIStatic != shadow->hpType)
+			     && (kPCIStaticShared != shadow->hpType))
+			{
+			    shadow->tunnelRoot = root;
+			}
 
+			nub->reserved->tunnelL1Allow = kTunnelL1NotSet;
             nub->savedConfig = (UInt32 *) &shadow->configSave.savedConfig[0];
             for (int i = 0; i < kIOPCIConfigEPShadowRegs; i++)
             {
@@ -1960,44 +2034,6 @@ bool IOPCIBridge::publishNub( IOPCIDevice * nub, UInt32 /* index */ )
 #endif
         }
 
-#if ROM_KEXTS
-        // look for a "driver-reg,AAPL,MacOSX,PowerPC" property.
-
-        if ((data = (OSData *)nub->getProperty("driver-reg,AAPL,MacOSX,PowerPC")))
-        {
-            if (data->getLength() == (2 * sizeof(UInt32)))
-            {
-                regData = (UInt32 *)data->getBytesNoCopy();
-
-                getNubResources(nub);
-                memoryMap = nub->mapDeviceMemoryWithRegister(kIOPCIConfigExpansionROMBase);
-                if (memoryMap != 0)
-                {
-                    virtAddr = memoryMap->getVirtualAddress();
-                    virtAddr += regData[0];
-
-                    nub->setMemoryEnable(true);
-
-                    expRomReg = nub->configRead32(kIOPCIConfigExpansionROMBase);
-                    nub->configWrite32(kIOPCIConfigExpansionROMBase, expRomReg | 1);
-
-                    driverData = OSData::withBytesNoCopy((void *)virtAddr, regData[1]);
-                    if (driverData != 0)
-                    {
-                        gIOCatalogue->addExtensionsFromArchive(driverData);
-
-                        driverData->release();
-                    }
-
-                    nub->configWrite32(kIOPCIConfigExpansionROMBase, expRomReg);
-
-                    nub->setMemoryEnable(false);
-
-                    memoryMap->release();
-                }
-            }
-        }
-#endif
         ok = nub->attach( this );
 
         if (ok)
@@ -2497,6 +2533,10 @@ IOReturn IOPCIBridge::getNubResources( IOService * service )
     if (!msiDefault)
         resolveMSIInterrupts( provider, nub );
 
+#if ACPI_SUPPORT
+	AppleVTD::adjustDevice(nub);
+#endif
+
     return (err);
 }
 
@@ -2857,7 +2897,7 @@ bool IOPCI2PCIBridge::filterInterrupt(IOFilterInterruptEventSource * source)
 
 	if (kIOPCIDeviceOffState == fPowerState) return (false);
 	if (fNoDevice)     						 return (false);
-	ret = checkLink();
+	ret = checkLink(kCheckLinkParents);
 	if (kIOReturnNoDevice == ret)
 	{
 		fNoDevice = true;
@@ -2869,10 +2909,11 @@ bool IOPCI2PCIBridge::filterInterrupt(IOFilterInterruptEventSource * source)
 		enum { kNeedMask = ((1 << 8) | (1 << 3)) };
 
 		uint16_t slotStatus = fBridgeDevice->configRead16( fBridgeDevice->reserved->expressCapability + 0x1a );
-//		if (kNeedMask & slotStatus)
-			fBridgeDevice->configWrite16( fBridgeDevice->reserved->expressCapability + 0x1a, slotStatus );
-
-		if (0 != (kNeedMask & slotStatus)) intsPending |= kIntsHP;
+		if (0 != (kNeedMask & slotStatus))
+		{
+		    fBridgeDevice->configWrite16( fBridgeDevice->reserved->expressCapability + 0x1a, kNeedMask );
+		    intsPending |= kIntsHP;
+		}
 	}
 
 	IOPCIAERRoot * root;
@@ -3406,17 +3447,10 @@ IOReturn IOPCI2PCIBridge::saveDeviceState(IOPCIDevice * device,
 		configShadow(fBridgeDevice)->flags |= kIOPCIConfigShadowSleepReset;
 	else
 		configShadow(fBridgeDevice)->flags &= ~kIOPCIConfigShadowSleepReset;
-    if (device->getProperty(gIOPCITunnelledKey) || device->getProperty(kIOPCIEjectableKey))
+    if (configShadow(device)->tunnelled || device->getProperty(kIOPCIEjectableKey))
 		configShadow(fBridgeDevice)->flags |= kIOPCIConfigShadowHotplug;
 	else
 		configShadow(fBridgeDevice)->flags &= ~kIOPCIConfigShadowHotplug;
-
-	// device flags
-    if (device->getProperty(kIOPMPCIWakeL1PMDisableKey))
-		configShadow(device)->flags |= kIOPCIConfigShadowWakeL1PMDisable;
-	else
-		configShadow(device)->flags &= ~kIOPCIConfigShadowWakeL1PMDisable;
-
 
 	return super::saveDeviceState(device, options);
 }
@@ -3914,6 +3948,62 @@ IOPCIBridge::setProperties(OSObject * properties)
 			{
 				ret = victim->setTunnelL1Enable(victim, false);
 			}
+#if ACPI_SUPPORT
+			else if (!strncmp("map", cmdstr, strlen("map")))
+			{
+
+				IOMapper * mapper;
+				IOBufferMemoryDescriptor * bmd;
+				IODMAMapSpecification mapSpec;
+				uint32_t mapOptions;
+				uint64_t mapAddress1, mapAddress2;
+				uint64_t mapLength1, mapLength2;
+				size_t   bufLen;
+
+				bzero(&mapSpec, sizeof(mapSpec));
+
+				mapSpec.numAddressBits = 32;
+				mapSpec.alignment      = 4096;
+				bufLen = 65536;
+
+				mapper = IOMapper::copyMapperForDevice(victim);
+				if (mapper)
+				{
+					bmd = IOBufferMemoryDescriptor::inTaskWithOptions(
+								kernel_task, kIODirectionOutIn, bufLen);
+
+					mapOptions = 0;
+					mapOptions |= kIODMAMapReadAccess;
+					mapOptions |= kIODMAMapWriteAccess;
+					mapOptions |= kIODMAMapFixedAddress;
+
+					mapAddress1 = 0x12345000;
+					mapLength1 = bufLen;
+
+					ret = mapper->iovmMapMemory(bmd, 0, bufLen, mapOptions,
+								&mapSpec, NULL, NULL, &mapAddress1, &mapLength1);
+					kprintf("iovmMapMemory 0x%x, 0x%qx\n", ret, mapAddress1);
+
+					mapAddress2 = 0x76543000;
+					mapLength2 = bufLen;
+
+					ret = mapper->iovmMapMemory(bmd, 0, bufLen, mapOptions,
+								&mapSpec, NULL, NULL, &mapAddress2, &mapLength2);
+					kprintf("iovmMapMemory 0x%x, 0x%qx\n", ret, mapAddress2);
+
+					ret = mapper->iovmUnmapMemory(bmd, 0, mapAddress1, mapLength1);
+					kprintf("iovmUnmapMemory 0x%x, 0x%qx\n", ret, mapAddress1);
+
+					ret = mapper->iovmUnmapMemory(bmd, 0, mapAddress2, mapLength2);
+					kprintf("iovmUnmapMemory 0x%x, 0x%qx\n", ret, mapAddress2);
+
+
+					bmd->release();
+					mapper->release();
+				}
+				ret = kIOReturnSuccess;
+			}
+#endif /* ACPI_SUPPORT */
 		}
 		if (victimS)
 		{

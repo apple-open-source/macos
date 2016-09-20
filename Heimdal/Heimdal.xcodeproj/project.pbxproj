@@ -272,8 +272,10 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = EB95367C0FFC56EF0013822C /* Build configuration list for PBXAggregateTarget "TestTools" */;
 			buildPhases = (
+				EB670F871C5EDBDE003D49CA /* Install bats files */,
 			);
 			dependencies = (
+				EB670F771C5ED1CA003D49CA /* PBXTargetDependency */,
 				EB1C8FBA17F24B2D002F9FF7 /* PBXTargetDependency */,
 				EBF6F7EC1710B34D004CB0DB /* PBXTargetDependency */,
 				EB78980614804A5100627F36 /* PBXTargetDependency */,
@@ -1836,6 +1838,16 @@
 		EB663F6F17A01BB700801830 /* getarg.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB57260F21822D0009D37C /* getarg.h */; };
 		EB663F7017A01BB700801830 /* config-apple.h in Headers */ = {isa = PBXBuildFile; fileRef = EB6927301079287A00ACB444 /* config-apple.h */; };
 		EB663F7117A01BB700801830 /* heimbase.h in Headers */ = {isa = PBXBuildFile; fileRef = EB42F4FE116BCE9400FCDD8F /* heimbase.h */; };
+		EB670F671C5EB44F003D49CA /* aks.m in Sources */ = {isa = PBXBuildFile; fileRef = EB670F651C5EB301003D49CA /* aks.m */; };
+		EB670F781C5ED214003D49CA /* test_aks.m in Sources */ = {isa = PBXBuildFile; fileRef = EB670F681C5ED0E6003D49CA /* test_aks.m */; };
+		EB670F7A1C5ED239003D49CA /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB670F791C5ED239003D49CA /* Foundation.framework */; };
+		EB670F7C1C5ED292003D49CA /* heimcred.h in Headers */ = {isa = PBXBuildFile; fileRef = EB2C3E0516CC08E400D75FA0 /* heimcred.h */; };
+		EB670F7D1C5ED297003D49CA /* heimcred-const.h in Headers */ = {isa = PBXBuildFile; fileRef = EBE5864C16CC4F18000D7E07 /* heimcred-const.h */; };
+		EB670F7E1C5ED29E003D49CA /* common.h in Headers */ = {isa = PBXBuildFile; fileRef = EB2C3E0916CC1A4400D75FA0 /* common.h */; };
+		EB670F7F1C5ED326003D49CA /* aks.m in Sources */ = {isa = PBXBuildFile; fileRef = EB670F651C5EB301003D49CA /* aks.m */; };
+		EB670F811C5ED342003D49CA /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB670F801C5ED342003D49CA /* Security.framework */; };
+		EB670F831C5ED421003D49CA /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB670F821C5ED421003D49CA /* IOKit.framework */; };
+		EB670F881C5EDBEB003D49CA /* Heimdal.plist in Install bats files */ = {isa = PBXBuildFile; fileRef = EB670F861C5EDB53003D49CA /* Heimdal.plist */; };
 		EB67A2171767E1670069F978 /* kdc.c in Sources */ = {isa = PBXBuildFile; fileRef = EB67A2151767E1670069F978 /* kdc.c */; };
 		EB685E7E1756BE3100B97504 /* heimbase.h in Headers */ = {isa = PBXBuildFile; fileRef = EB42F4FE116BCE9400FCDD8F /* heimbase.h */; };
 		EB6927321079288D00ACB444 /* config-apple.h in Headers */ = {isa = PBXBuildFile; fileRef = EB6927301079287A00ACB444 /* config-apple.h */; };
@@ -2969,6 +2981,7 @@
 		EBB270FC140AE73600448F12 /* libvers.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EBFB58C60F2253FA0009D37C /* libvers.a */; };
 		EBB27101140AE78800448F12 /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBDA3358105990230042FFAE /* GSS.framework */; };
 		EBB27102140AE78800448F12 /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB49AA6C0F2584790076E27F /* Heimdal.framework */; };
+		EBB3CFD61CE6682B005577C8 /* libheimbase.a in Frameworks */ = {isa = PBXBuildFile; fileRef = EB42F4F0116BCE2500FCDD8F /* libheimbase.a */; };
 		EBB424EF143A665400E5E115 /* rtbl.h in Headers */ = {isa = PBXBuildFile; fileRef = EBFB57710F21822D0009D37C /* rtbl.h */; };
 		EBB4EDF010E8D897006ADF49 /* gss_destroy_cred.c in Sources */ = {isa = PBXBuildFile; fileRef = EBB4EDEF10E8D897006ADF49 /* gss_destroy_cred.c */; };
 		EBB5F3B5133AE92300C9C515 /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB3172920F638742008E7E5F /* OpenDirectory.framework */; };
@@ -6400,6 +6413,20 @@
 			remoteGlobalIDString = EB663F4C17A0186100801830;
 			remoteInfo = test_srv;
 		};
+		EB670F6C1C5ED184003D49CA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB3CC83814DCCE6D008E9787;
+			remoteInfo = GeneratedFiles;
+		};
+		EB670F761C5ED1CA003D49CA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB670F6A1C5ED184003D49CA;
+			remoteInfo = test_aks;
+		};
 		EB692776107932C600ACB444 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -7303,6 +7330,17 @@
 				EB805BBD1492EE7D00F1E44F /* check-apple-ac in Install Apple tests */,
 			);
 			name = "Install Apple tests";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		EB670F871C5EDBDE003D49CA /* Install bats files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
+			dstSubfolderSpec = 0;
+			files = (
+				EB670F881C5EDBEB003D49CA /* Heimdal.plist in Install bats files */,
+			);
+			name = "Install bats files";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		EB6FC9E710A4AA7D00D80A61 /* install sandbox */ = {
@@ -8224,6 +8262,13 @@
 		EB647B330F7A8AB4002BA17D /* store_cred.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = store_cred.c; path = lib/gssapi/krb5/store_cred.c; sourceTree = "<group>"; };
 		EB663F5717A0186100801830 /* test_srv */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = test_srv; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB663F5B17A018E700801830 /* test_srv.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_srv.c; path = lib/krb5/test_srv.c; sourceTree = "<group>"; };
+		EB670F651C5EB301003D49CA /* aks.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = aks.m; path = lib/heimcred/aks.m; sourceTree = "<group>"; };
+		EB670F681C5ED0E6003D49CA /* test_aks.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = test_aks.m; path = lib/heimcred/test_aks.m; sourceTree = "<group>"; };
+		EB670F751C5ED184003D49CA /* test_aks */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = test_aks; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB670F791C5ED239003D49CA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.12.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		EB670F801C5ED342003D49CA /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.12.sdk/System/Library/Frameworks/Security.framework; sourceTree = DEVELOPER_DIR; };
+		EB670F821C5ED421003D49CA /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.12.sdk/System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
+		EB670F861C5EDB53003D49CA /* Heimdal.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Heimdal.plist; path = packages/mac/bats/Heimdal.plist; sourceTree = SOURCE_ROOT; };
 		EB67A2151767E1670069F978 /* kdc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = kdc.c; path = kuser/kdc.c; sourceTree = "<group>"; };
 		EB67A2161767E1670069F978 /* kvno.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = kvno.c; path = kuser/kvno.c; sourceTree = "<group>"; };
 		EB69271C107830E500ACB444 /* TrustEvaluationAgent.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = TrustEvaluationAgent.framework; path = /System/Library/PrivateFrameworks/TrustEvaluationAgent.framework; sourceTree = "<absolute>"; };
@@ -9945,6 +9990,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EB670F6F1C5ED184003D49CA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB670F831C5ED421003D49CA /* IOKit.framework in Frameworks */,
+				EB670F811C5ED342003D49CA /* Security.framework in Frameworks */,
+				EB670F7A1C5ED239003D49CA /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		EB6B1FAC13AC1992001CB8AD /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -10264,6 +10319,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EBB3CFD61CE6682B005577C8 /* libheimbase.a in Frameworks */,
 				EBA4037D116E9D9300C04623 /* libhcrypto.a in Frameworks */,
 				EBA4037E116E9D9300C04623 /* libroken-application.a in Frameworks */,
 				EBA4037F116E9D9300C04623 /* libroken.a in Frameworks */,
@@ -10722,6 +10778,7 @@
 				EBC057F817D7ED670004EE78 /* test_gss_fuzzer */,
 				EB1C8FB717F24B01002F9FF7 /* test_fx */,
 				EB7AF0F419C9989B00056325 /* PACParser.bundle */,
+				EB670F751C5ED184003D49CA /* test_aks */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -11003,6 +11060,7 @@
 		EB2C3E0316CC08BA00D75FA0 /* heimcred */ = {
 			isa = PBXGroup;
 			children = (
+				EB670F651C5EB301003D49CA /* aks.m */,
 				EB2C3E0416CC08E400D75FA0 /* client.c */,
 				EB8E475517B3C3BC00FB52C2 /* com.apple.GSSCred.plist */,
 				EB2C3E0816CC1A4400D75FA0 /* common.c */,
@@ -11016,6 +11074,7 @@
 				EB312E5517B2F22C00BD74D9 /* kerberos.m */,
 				EB312E5617B2F22C00BD74D9 /* ntlm.m */,
 				EB2C3E0A16CC1A4400D75FA0 /* server.m */,
+				EB670F681C5ED0E6003D49CA /* test_aks.m */,
 			);
 			name = heimcred;
 			sourceTree = "<group>";
@@ -11382,6 +11441,15 @@
 				EB618170105F5386004A7FF2 /* release_name.c */,
 			);
 			name = netlogon;
+			sourceTree = "<group>";
+		};
+		EB670F841C5EDAE4003D49CA /* bats */ = {
+			isa = PBXGroup;
+			children = (
+				EB670F861C5EDB53003D49CA /* Heimdal.plist */,
+			);
+			name = bats;
+			path = packages/mac/SnowLeopard10A;
 			sourceTree = "<group>";
 		};
 		EB692793107933B200ACB444 /* hx509 */ = {
@@ -12648,6 +12716,9 @@
 		EBD090AB1330353B001D0938 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				EB670F821C5ED421003D49CA /* IOKit.framework */,
+				EB670F801C5ED342003D49CA /* Security.framework */,
+				EB670F791C5ED239003D49CA /* Foundation.framework */,
 				EB4A37411B572863008C97DF /* libDiagnosticMessagesClient.dylib */,
 				EBE0A34217BA1D9600D0D805 /* libheimdal-asn1.dylib */,
 				EB9F65B61767A8E70097F396 /* libaks.a */,
@@ -13189,6 +13260,7 @@
 				EB341D9311D06CB600877F5E /* framework */,
 				EB5D93640F266CF000807D31 /* framework */,
 				EBFB57C30F2191070009D37C /* SnowLeopard10A */,
+				EB670F841C5EDAE4003D49CA /* bats */,
 				EB9537E50FFC786C0013822C /* com.apple.Kerberos.digest-service.plist */,
 				EBE2BBBE109FCEAE00392208 /* com.apple.Kerberos.kadmind.plist */,
 				EB75B82410007B580009B251 /* com.apple.Kerberos.kcm.plist */,
@@ -14285,6 +14357,16 @@
 				EB663F6F17A01BB700801830 /* getarg.h in Headers */,
 				EB663F7017A01BB700801830 /* config-apple.h in Headers */,
 				EB663F7117A01BB700801830 /* heimbase.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB670F7B1C5ED28B003D49CA /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB670F7E1C5ED29E003D49CA /* common.h in Headers */,
+				EB670F7D1C5ED297003D49CA /* heimcred-const.h in Headers */,
+				EB670F7C1C5ED292003D49CA /* heimcred.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -16652,6 +16734,24 @@
 			productReference = EB663F5717A0186100801830 /* test_srv */;
 			productType = "com.apple.product-type.tool";
 		};
+		EB670F6A1C5ED184003D49CA /* test_aks */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EB670F711C5ED184003D49CA /* Build configuration list for PBXNativeTarget "test_aks" */;
+			buildPhases = (
+				EB670F6D1C5ED184003D49CA /* Sources */,
+				EB670F6F1C5ED184003D49CA /* Frameworks */,
+				EB670F7B1C5ED28B003D49CA /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				EB670F6B1C5ED184003D49CA /* PBXTargetDependency */,
+			);
+			name = test_aks;
+			productName = test_export;
+			productReference = EB670F751C5ED184003D49CA /* test_aks */;
+			productType = "com.apple.product-type.tool";
+		};
 		EB6B1FAE13AC1992001CB8AD /* GSSCredentialSelector */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = EB6B1FC213AC1992001CB8AD /* Build configuration list for PBXNativeTarget "GSSCredentialSelector" */;
@@ -18113,6 +18213,7 @@
 				EB47CCBE12F8C148002E6C2F /* test_get_cred */,
 				EB20B7C6114DDEA700EDEDBF /* Create test scripts */,
 				EB20B7F3114DF0D200EDEDBF /* Install tests */,
+				EB670F6A1C5ED184003D49CA /* test_aks */,
 				EBA40361116E9D5100C04623 /* test_rsa */,
 				EBED185E1171A6570097433E /* test_base */,
 				EB3CBA921185A38900F0B712 /* test_config */,
@@ -18804,6 +18905,7 @@
 				EB312E5817B2F22C00BD74D9 /* ntlm.m in Sources */,
 				EB2C3E2116CC438D00D75FA0 /* common.c in Sources */,
 				EB2C3E2016CC438500D75FA0 /* server.m in Sources */,
+				EB670F671C5EB44F003D49CA /* aks.m in Sources */,
 				EB312E5717B2F22C00BD74D9 /* kerberos.m in Sources */,
 				EBB6D5D416D15588004044DF /* HeimCredCoder.m in Sources */,
 			);
@@ -19003,6 +19105,15 @@
 			buildActionMask = 2147483647;
 			files = (
 				EB663F5C17A018E700801830 /* test_srv.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB670F6D1C5ED184003D49CA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB670F781C5ED214003D49CA /* test_aks.m in Sources */,
+				EB670F7F1C5ED326003D49CA /* aks.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -21706,6 +21817,16 @@
 			target = EB663F4C17A0186100801830 /* test_srv */;
 			targetProxy = EB663F5D17A0191800801830 /* PBXContainerItemProxy */;
 		};
+		EB670F6B1C5ED184003D49CA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB3CC83814DCCE6D008E9787 /* GeneratedFiles */;
+			targetProxy = EB670F6C1C5ED184003D49CA /* PBXContainerItemProxy */;
+		};
+		EB670F771C5ED1CA003D49CA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB670F6A1C5ED184003D49CA /* test_aks */;
+			targetProxy = EB670F761C5ED1CA003D49CA /* PBXContainerItemProxy */;
+		};
 		EB692777107932C600ACB444 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = EB692772107932A100ACB444 /* hx509-yacc */;
@@ -22214,7 +22335,10 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = "$(HEIMDAL_TMPDIR)";
+				HEADER_SEARCH_PATHS = (
+					"$(HEIMDAL_TMPDIR)",
+					"$(HEIMDAL_XNU_SYS_HEADERS)",
+				);
 				HEIMDAL_ASN1BASE_INSTALL_PATH = /usr/local;
 				HEIMDAL_MAN_DIR = "$(HEIMDAL_ROOT)/usr/share/man";
 				HEIMDAL_ROOT = "";
@@ -22609,8 +22733,8 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"$(SYSTEM_LIBRARY_DIR)/Frameworks/OpenDirectory.framework/Versions/A/Frameworks\"",
-					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/OpenDirectory.framework/Versions/A/Frameworks",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
 				GCC_MODEL_TUNING = G5;
 				HEADER_SEARCH_PATHS = (
@@ -22632,7 +22756,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
 				GCC_MODEL_TUNING = G5;
 				HEADER_SEARCH_PATHS = (
@@ -22792,7 +22916,7 @@
 					"$(HEIMDAL_PLATFORM_CFLAGS)",
 					"-DHEIMCRED_SERVER=1",
 				);
-				OTHER_LDFLAGS = "$(HEIMDAL_GSSCRED_AKS_LIBS)";
+				OTHER_LDFLAGS = "$(HEIMDAL_AKS_LIBS)";
 				PRODUCT_NAME = "com.apple.$(TARGET_NAME:rfc1034identifier)";
 				SKIP_INSTALL = NO;
 				WARNING_CFLAGS = "$(WARNING_CFLAGS_YL)";
@@ -22832,7 +22956,7 @@
 					"$(HEIMDAL_PLATFORM_CFLAGS)",
 					"-DHEIMCRED_SERVER=1",
 				);
-				OTHER_LDFLAGS = "$(HEIMDAL_GSSCRED_AKS_LIBS)";
+				OTHER_LDFLAGS = "$(HEIMDAL_AKS_LIBS)";
 				PLIST_FILE_OUTPUT_FORMAT = binary;
 				PRODUCT_NAME = "com.apple.$(TARGET_NAME:rfc1034identifier)";
 				SKIP_INSTALL = NO;
@@ -23008,7 +23132,10 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = "$(HEIMDAL_TMPDIR)";
+				HEADER_SEARCH_PATHS = (
+					"$(HEIMDAL_TMPDIR)",
+					"$(HEIMDAL_XNU_SYS_HEADERS)",
+				);
 				HEIMDAL_MAN_DIR = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/share/man";
 				HEIMDAL_ROOT = "";
 				HEIMDAL_SBIN_DIR = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/sbin";
@@ -23476,7 +23603,6 @@
 				FRAMEWORK_SEARCH_PATHS = /System/Library/PrivateFrameworks;
 				GCC_MODEL_TUNING = G5;
 				GCC_WARN_UNUSED_FUNCTION = NO;
-				HEADER_SEARCH_PATHS = "$(HEIMDAL_TMPDIR)";
 				INSTALL_PATH = /usr/local/lib;
 				PRODUCT_NAME = hx509;
 				SEPARATE_STRIP = NO;
@@ -23808,8 +23934,8 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"$(SYSTEM_LIBRARY_DIR)/Frameworks/OpenDirectory.framework/Versions/A/Frameworks\"",
-					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/OpenDirectory.framework/Versions/A/Frameworks",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
 				GCC_MODEL_TUNING = G5;
 				HEADER_SEARCH_PATHS = (
@@ -23831,7 +23957,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
 				GCC_MODEL_TUNING = G5;
 				HEADER_SEARCH_PATHS = (
@@ -24258,7 +24384,7 @@
 			};
 			name = "Release-Embedded";
 		};
-		EB4603001B9E61160013F3DC /* Release-asan */ = {
+		EB4603001B9E61160013F3DC /* Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = EB7F141A1768EF6800492225 /* Heimdal.xcconfig */;
 			buildSettings = {
@@ -24286,7 +24412,10 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = "$(HEIMDAL_TMPDIR)";
+				HEADER_SEARCH_PATHS = (
+					"$(HEIMDAL_TMPDIR)",
+					"$(HEIMDAL_XNU_SYS_HEADERS)",
+				);
 				HEIMDAL_ASN1BASE_INSTALL_PATH = /usr/local;
 				HEIMDAL_MAN_DIR = "$(HEIMDAL_ROOT)/usr/share/man";
 				HEIMDAL_ROOT = "";
@@ -24300,14 +24429,13 @@
 					"$(HEIMDAL_PLATFORM_CFLAGS)",
 					"$(inherited)",
 				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
+				PRODUCT_NAME = Heimdal;
 				RUN_CLANG_STATIC_ANALYZER = NO;
-				"SDKROOT[arch=armv6]" = iphoneos.internal;
-				"SDKROOT[arch=armv7]" = iphoneos.internal;
-				SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator";
-				VERSIONING_SYSTEM = "apple-generic";
-				VERSION_INFO_PREFIX = __;
+				STRIP_STYLE = "non-global";
+				ZERO_LINK = NO;
 			};
-			name = "Release-asan";
+			name = Release;
 		};
 		EB4603011B9E61160013F3DC /* Release-asan */ = {
 			isa = XCBuildConfiguration;
@@ -24959,7 +25087,6 @@
 				FRAMEWORK_SEARCH_PATHS = /System/Library/PrivateFrameworks;
 				GCC_MODEL_TUNING = G5;
 				GCC_WARN_UNUSED_FUNCTION = NO;
-				HEADER_SEARCH_PATHS = "$(HEIMDAL_TMPDIR)";
 				INSTALL_PATH = /usr/local/lib;
 				PRODUCT_NAME = hx509;
 				SEPARATE_STRIP = NO;
@@ -25031,7 +25158,7 @@
 					"$(HEIMDAL_PLATFORM_CFLAGS)",
 					"-DHEIMCRED_SERVER=1",
 				);
-				OTHER_LDFLAGS = "$(HEIMDAL_GSSCRED_AKS_LIBS)";
+				OTHER_LDFLAGS = "$(HEIMDAL_AKS_LIBS)";
 				PRODUCT_NAME = "com.apple.$(TARGET_NAME:rfc1034identifier)";
 				SKIP_INSTALL = NO;
 				WARNING_CFLAGS = "$(WARNING_CFLAGS_YL)";
@@ -25526,7 +25653,6 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
@@ -25546,10 +25672,8 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				INFOPLIST_FILE = PACParser/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Bundles";
-				MACOSX_DEPLOYMENT_TARGET = 10.10;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 				WRAPPER_EXTENSION = bundle;
 			};
@@ -25622,8 +25746,8 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"$(SYSTEM_LIBRARY_DIR)/Frameworks/OpenDirectory.framework/Versions/A/Frameworks\"",
-					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/OpenDirectory.framework/Versions/A/Frameworks",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
 				GCC_MODEL_TUNING = G5;
 				HEADER_SEARCH_PATHS = (
@@ -25645,7 +25769,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
 				GCC_MODEL_TUNING = G5;
 				HEADER_SEARCH_PATHS = (
@@ -25819,7 +25943,6 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
@@ -26249,7 +26372,6 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
@@ -26277,7 +26399,6 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
@@ -26304,7 +26425,6 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
@@ -26329,7 +26449,6 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
@@ -26548,6 +26667,39 @@
 				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
 				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
 				PRODUCT_NAME = test_srv;
+			};
+			name = "Release-Embedded";
+		};
+		EB670F721C5ED184003D49CA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				INSTALL_PATH = AppleInternal/CoreOS/tests/Heimdal/bin;
+				OTHER_LDFLAGS = "$(HEIMDAL_AKS_LIBS)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		EB670F731C5ED184003D49CA /* Release-asan */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				INSTALL_PATH = AppleInternal/CoreOS/tests/Heimdal/bin;
+				OTHER_LDFLAGS = "$(HEIMDAL_AKS_LIBS)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = "Release-asan";
+		};
+		EB670F741C5ED184003D49CA /* Release-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				INSTALL_PATH = AppleInternal/CoreOS/tests/Heimdal/bin;
+				OTHER_LDFLAGS = "$(HEIMDAL_AKS_LIBS)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = "Release-Embedded";
 		};
@@ -26881,7 +27033,6 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
@@ -26901,10 +27052,8 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				INFOPLIST_FILE = PACParser/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Bundles";
-				MACOSX_DEPLOYMENT_TARGET = 10.10;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 				WRAPPER_EXTENSION = bundle;
 			};
@@ -26917,7 +27066,6 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
@@ -26937,10 +27085,8 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				INFOPLIST_FILE = PACParser/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Bundles";
-				MACOSX_DEPLOYMENT_TARGET = 10.10;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 				WRAPPER_EXTENSION = bundle;
 			};
@@ -27422,7 +27568,6 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_MODULES = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
@@ -27800,7 +27945,6 @@
 				FRAMEWORK_SEARCH_PATHS = /System/Library/PrivateFrameworks;
 				GCC_MODEL_TUNING = G5;
 				GCC_WARN_UNUSED_FUNCTION = NO;
-				HEADER_SEARCH_PATHS = "$(HEIMDAL_TMPDIR)";
 				INSTALL_PATH = /usr/local/lib;
 				PRODUCT_NAME = hx509;
 				SEPARATE_STRIP = NO;
@@ -28033,7 +28177,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1DEB928B08733DD80010E9CD /* Release */,
-				EB4603001B9E61160013F3DC /* Release-asan */,
+				EB4603001B9E61160013F3DC /* Release */,
 				EB42F4381169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -28496,6 +28640,16 @@
 				EB663F5417A0186100801830 /* Release */,
 				EB4603781B9E61160013F3DC /* Release-asan */,
 				EB663F5517A0186100801830 /* Release-Embedded */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EB670F711C5ED184003D49CA /* Build configuration list for PBXNativeTarget "test_aks" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB670F721C5ED184003D49CA /* Release */,
+				EB670F731C5ED184003D49CA /* Release-asan */,
+				EB670F741C5ED184003D49CA /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

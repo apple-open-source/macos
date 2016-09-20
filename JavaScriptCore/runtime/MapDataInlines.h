@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2016 Apple Inc. All rights reserved.
  * Copyright (C) 2015 Yusuke Suzuki <utatane.tea@gmail.com>.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,7 +47,7 @@ inline void MapDataImpl<Entry, JSIterator>::clear()
     m_capacity = 0;
     m_size = 0;
     m_deletedCount = 0;
-    m_entries = nullptr;
+    m_entries.clear();
     m_iterators.forEach([](JSIterator* iterator, JSIterator*) {
         iterator->iteratorData()->didRemoveAllEntries();
     });
@@ -60,25 +60,25 @@ inline Entry* MapDataImpl<Entry, JSIterator>::find(ExecState* exec, KeyType key)
         auto iter = m_stringKeyedTable.find(asString(key.value)->value(exec).impl());
         if (iter == m_stringKeyedTable.end())
             return 0;
-        return &m_entries[iter->value];
+        return &m_entries.get()[iter->value];
     }
     if (key.value.isSymbol()) {
         auto iter = m_symbolKeyedTable.find(asSymbol(key.value)->privateName().uid());
         if (iter == m_symbolKeyedTable.end())
             return 0;
-        return &m_entries[iter->value];
+        return &m_entries.get()[iter->value];
     }
     if (key.value.isCell()) {
         auto iter = m_cellKeyedTable.find(key.value.asCell());
         if (iter == m_cellKeyedTable.end())
             return 0;
-        return &m_entries[iter->value];
+        return &m_entries.get()[iter->value];
     }
 
     auto iter = m_valueKeyedTable.find(JSValue::encode(key.value));
     if (iter == m_valueKeyedTable.end())
         return 0;
-    return &m_entries[iter->value];
+    return &m_entries.get()[iter->value];
 }
 
 template<typename Entry, typename JSIterator>
@@ -93,14 +93,14 @@ inline Entry* MapDataImpl<Entry, JSIterator>::add(ExecState* exec, JSCell* owner
 {
     typename Map::iterator location = map.find(key);
     if (location != map.end())
-        return &m_entries[location->value];
+        return &m_entries.get()[location->value];
 
     if (!ensureSpaceForAppend(exec, owner))
         return 0;
 
     auto result = map.add(key, m_size);
     RELEASE_ASSERT(result.isNewEntry);
-    Entry* entry = &m_entries[m_size++];
+    Entry* entry = &m_entries.get()[m_size++];
     new (entry) Entry();
     entry->setKey(exec->vm(), owner, keyValue.value);
     return entry;
@@ -164,7 +164,7 @@ inline bool MapDataImpl<Entry, JSIterator>::remove(ExecState* exec, KeyType key)
         location = iter->value;
         m_valueKeyedTable.remove(iter);
     }
-    m_entries[location].clear();
+    m_entries.get()[location].clear();
     m_deletedCount++;
     return true;
 }
@@ -176,7 +176,7 @@ inline void MapDataImpl<Entry, JSIterator>::replaceAndPackBackingStore(Entry* de
     int32_t newEnd = 0;
     RELEASE_ASSERT(newCapacity > 0);
     for (int32_t i = 0; i < m_size; i++) {
-        Entry& entry = m_entries[i];
+        Entry& entry = m_entries.get()[i];
         if (!entry.key()) {
             m_iterators.forEach([newEnd](JSIterator* iterator, JSIterator*) {
                 iterator->iteratorData()->didRemoveEntry(newEnd);
@@ -195,20 +195,20 @@ inline void MapDataImpl<Entry, JSIterator>::replaceAndPackBackingStore(Entry* de
 
     // Fixup for the hashmaps
     for (auto ptr = m_valueKeyedTable.begin(); ptr != m_valueKeyedTable.end(); ++ptr)
-        ptr->value = m_entries[ptr->value].key().get().asInt32();
+        ptr->value = m_entries.get()[ptr->value].key().get().asInt32();
     for (auto ptr = m_cellKeyedTable.begin(); ptr != m_cellKeyedTable.end(); ++ptr)
-        ptr->value = m_entries[ptr->value].key().get().asInt32();
+        ptr->value = m_entries.get()[ptr->value].key().get().asInt32();
     for (auto ptr = m_stringKeyedTable.begin(); ptr != m_stringKeyedTable.end(); ++ptr)
-        ptr->value = m_entries[ptr->value].key().get().asInt32();
+        ptr->value = m_entries.get()[ptr->value].key().get().asInt32();
     for (auto ptr = m_symbolKeyedTable.begin(); ptr != m_symbolKeyedTable.end(); ++ptr)
-        ptr->value = m_entries[ptr->value].key().get().asInt32();
+        ptr->value = m_entries.get()[ptr->value].key().get().asInt32();
 
     ASSERT((m_size - newEnd) == m_deletedCount);
     m_deletedCount = 0;
 
     m_capacity = newCapacity;
     m_size = newEnd;
-    m_entries = destination;
+    m_entries.setWithoutBarrier(destination);
 }
 
 template<typename Entry, typename JSIterator>
@@ -217,9 +217,9 @@ inline void MapDataImpl<Entry, JSIterator>::replaceBackingStore(Entry* destinati
     ASSERT(!shouldPack());
     RELEASE_ASSERT(newCapacity > 0);
     ASSERT(newCapacity >= m_capacity);
-    memcpy(destination, m_entries, sizeof(Entry) * m_size);
+    memcpy(destination, m_entries.get(), sizeof(Entry) * m_size);
     m_capacity = newCapacity;
-    m_entries = destination;
+    m_entries.setWithoutBarrier(destination);
 }
 
 template<typename Entry, typename JSIterator>
@@ -247,7 +247,7 @@ inline CheckedBoolean MapDataImpl<Entry, JSIterator>::ensureSpaceForAppend(ExecS
 template<typename Entry, typename JSIterator>
 inline void MapDataImpl<Entry, JSIterator>::visitChildren(JSCell* owner, SlotVisitor& visitor)
 {
-    Entry* entries = m_entries;
+    Entry* entries = m_entries.get();
     if (!entries)
         return;
     if (m_deletedCount) {
@@ -261,14 +261,14 @@ inline void MapDataImpl<Entry, JSIterator>::visitChildren(JSCell* owner, SlotVis
         visitor.appendValues(reinterpret_cast<WriteBarrier<Unknown>*>(&entries[0]), m_size * (sizeof(Entry) / sizeof(WriteBarrier<Unknown>)));
     }
 
-    visitor.copyLater(owner, MapBackingStoreCopyToken, entries, capacityInBytes());
+    visitor.copyLater(owner, MapBackingStoreCopyToken, m_entries.get(), capacityInBytes());
 }
 
 template<typename Entry, typename JSIterator>
 inline void MapDataImpl<Entry, JSIterator>::copyBackingStore(CopyVisitor& visitor, CopyToken token)
 {
-    if (token == MapBackingStoreCopyToken && visitor.checkIfShouldCopy(m_entries)) {
-        Entry* oldEntries = m_entries;
+    if (token == MapBackingStoreCopyToken && visitor.checkIfShouldCopy(m_entries.get())) {
+        Entry* oldEntries = m_entries.get();
         Entry* newEntries = static_cast<Entry*>(visitor.allocateNewSpace(capacityInBytes()));
         if (shouldPack())
             replaceAndPackBackingStore(newEntries, m_capacity);

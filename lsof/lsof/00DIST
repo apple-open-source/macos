@@ -116,6 +116,8 @@
 		4.85, September 27, 2011
 		4.86, April 10, 2012
 		4.87, January 2, 2013
+		4.88, October 13, 2014
+		4.89, July 7, 2015
 
 
 Dialects Supported
@@ -127,8 +129,7 @@ version 3, itself a major revision of version 2.  Version 4 has
 been tested on:
 
 	Apple Darwin 9 and Mac OS X 10.[567]
-	FreeBSD 4.9 and 6.4 for x86-based systems
-	FreeBSD 8.2, 9.0 and 10.0 for AMD64-based systems
+	FreeBSD 8.[234], 9.0, 10.0 and 11.0 for AMD64-based systems
 	Linux 2.1.72 and above for x86-based systems
 	Solaris 9, 10 and 11
 
@@ -4692,5 +4693,90 @@ Supplement	Regenerated the 4.04 distribution to correct a non-
 		<yamato@redhat.com> developed the kernel patch to getxattr()
 		and supplied the lsof patch.
 
+4.88		October 13, 2014
+		Reduced to 50 the number of open file descriptors lsof
+		attempts to close while trying to protect itself from a
+		file descriptor exec() attack.  This limits the overhead
+		lsof incurs on systems that have large file descriptor
+		limits, yet provides sufficient open descriptors for the
+		library functions lsof calls.
+
+		Updated for changes in FreeBSD 10 with advice from Eygene
+		Ryabinkin <rea@freebsd.org>.  Taught Configure to recognize
+		FreeBSD 8.4.
+
+		Herein am noting that lsof for Solaris 10 or 11 is no longer
+		supported.  I no longer have test systems.  Some support is
+		still available from Casper Dik <Casper.Dik@oracle.com> and a
+		Solaris 11 patch he provided is included in this revision.
+
+		Initialized local variables in the Linux process_id() function.
+		Jia He <jiakernel@gmail.com> reported the problem.
+
+		Added support for FreeBSD 11.
+
+		Updated FreeBSD ZFS Configure stanza to supply a dummy
+		opt_kdtrace.h when needed.
+
+		Added tmpfs file system support for FreeBSD.
+
+		Since a test system is no longer available, dropped the
+		claim of FreeBSD 4.9 support.
+
+		Added the +|-E options for Linux.  -E displays endpoint info;
+		+E displays endpoint info and endpopint files.  Masatake YAMATO
+		<yamato@redhat.com> requested this support and suggested code
+		to implement it.
+
+		Fixed a Linux bug handling processes whose command includes a
+		non-printing character, particularly a NEWLINE character, and
+		clarified printing of single '\\' characters in command and
+		file names.  Stephane Chazelas <stephane.chazelas@gmail.com>
+		reported the problem. 
+
+		Added support for Linux RDMA and CRYPTO protocal names and UNIX
+		socket type with code from Masatake YAMATO <yamato@redhat.com>.
+
+		Fixed field output to insure that the field descriptor field is
+		always selected, since it identifies the file set.  The bug was
+		reported by Gary Plewa <gary.m.plewa-1@lowes.com>.
+
+4.89		July 7, 2015
+		Applied correction from Casper Dik <Casper.Dik@oracle.com> to
+		his patch for Solaris 11 that I applied incorrectly in revision
+		4.88.
+
+		Updated for latest version of FreeBSD 11.0-CURRENT.
+
+		Compensated for a missing FreeBSD 10.0 typedef of bool on the
+		i386 architecture.  Allen Hewes <rallenh@hotmail.com> provided
+		a test system. Andrey Chernov <ache@freebsd.org> provided
+		useful advice.
+
+		Improved tests/Add2TestDB script with a patch from Peter
+		Schiffer <pschiffe@redhat.com>.  Added patches from Peter to
+		eliminate Linux gcc warnings.  Updated Lsof.8 with improvements
+		supplied by Bjarni Ingi Gislason <bjarniig@rhi.hi.is>.
+
+		Changed FreeBSD global CFLAGS extraction per Terry Kennedy
+		<TERRY@tmk.com>.  Also made sure -DNEEDS_BOOL_TYPEDEF is
+		#define'd when the resulting CFLAGS doesn't contain it.  Terry
+		reported that need.
+
+		Improved Linux test for tcp.h in response to a report from
+		Cato Auestad <cato@cato.ninja>.  Cato did the testing.
+
+		Fixed Linux UNIX socket search by name bug reported by
+		Stephane Chazelas <stephane.chazelas@gmail.com>.
+
+		Added Linux display of UNIX socket endpoint information with
+		code provided by Masatake YAMATO <yamato@redhat.com>.  Peter
+		Schiffer <pschiffe@redhat.com> provided a test system.
+
+		Insured that type definitions from <vm/vm.h> were again made
+		visible to lsof on FreeBSD 11 after a system header file change
+		hid them.
+
+
 Vic Abell <abe@purdue.edu>
-January 2, 2013
+July 7, 2015

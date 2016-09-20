@@ -33,6 +33,7 @@
 
 #include "CharacterData.h"
 #include "StaticNodeList.h"
+#include <wtf/NeverDestroyed.h>
 #include <wtf/StdLibExtras.h>
 
 namespace WebCore {
@@ -41,22 +42,22 @@ namespace {
 
 class ChildListRecord : public MutationRecord {
 public:
-    ChildListRecord(ContainerNode& target, PassRefPtr<NodeList> added, PassRefPtr<NodeList> removed, PassRefPtr<Node> previousSibling, PassRefPtr<Node> nextSibling)
+    ChildListRecord(ContainerNode& target, Ref<NodeList>&& added, Ref<NodeList>&& removed, RefPtr<Node>&& previousSibling, RefPtr<Node>&& nextSibling)
         : m_target(target)
-        , m_addedNodes(added)
-        , m_removedNodes(removed)
-        , m_previousSibling(previousSibling)
-        , m_nextSibling(nextSibling)
+        , m_addedNodes(WTFMove(added))
+        , m_removedNodes(WTFMove(removed))
+        , m_previousSibling(WTFMove(previousSibling))
+        , m_nextSibling(WTFMove(nextSibling))
     {
     }
 
 private:
-    virtual const AtomicString& type() override;
-    virtual Node* target() override { return m_target.ptr(); }
-    virtual NodeList* addedNodes() override { return m_addedNodes.get(); }
-    virtual NodeList* removedNodes() override { return m_removedNodes.get(); }
-    virtual Node* previousSibling() override { return m_previousSibling.get(); }
-    virtual Node* nextSibling() override { return m_nextSibling.get(); }
+    const AtomicString& type() override;
+    Node* target() override { return m_target.ptr(); }
+    NodeList* addedNodes() override { return m_addedNodes.get(); }
+    NodeList* removedNodes() override { return m_removedNodes.get(); }
+    Node* previousSibling() override { return m_previousSibling.get(); }
+    Node* nextSibling() override { return m_nextSibling.get(); }
 
     Ref<ContainerNode> m_target;
     RefPtr<NodeList> m_addedNodes;
@@ -74,15 +75,15 @@ public:
     }
 
 private:
-    virtual Node* target() override { return m_target.ptr(); }
-    virtual String oldValue() override { return m_oldValue; }
-    virtual NodeList* addedNodes() override { return lazilyInitializeEmptyNodeList(m_addedNodes); }
-    virtual NodeList* removedNodes() override { return lazilyInitializeEmptyNodeList(m_removedNodes); }
+    Node* target() override { return m_target.ptr(); }
+    String oldValue() override { return m_oldValue; }
+    NodeList* addedNodes() override { return lazilyInitializeEmptyNodeList(m_addedNodes); }
+    NodeList* removedNodes() override { return lazilyInitializeEmptyNodeList(m_removedNodes); }
 
     static NodeList* lazilyInitializeEmptyNodeList(RefPtr<NodeList>& nodeList)
     {
         if (!nodeList)
-            nodeList = StaticNodeList::createEmpty();
+            nodeList = StaticNodeList::create();
         return nodeList.get();
     }
 
@@ -102,9 +103,9 @@ public:
     }
 
 private:
-    virtual const AtomicString& type() override;
-    virtual const AtomicString& attributeName() override { return m_attributeName; }
-    virtual const AtomicString& attributeNamespace() override { return m_attributeNamespace; }
+    const AtomicString& type() override;
+    const AtomicString& attributeName() override { return m_attributeName; }
+    const AtomicString& attributeNamespace() override { return m_attributeNamespace; }
 
     AtomicString m_attributeName;
     AtomicString m_attributeNamespace;
@@ -118,69 +119,69 @@ public:
     }
 
 private:
-    virtual const AtomicString& type() override;
+    const AtomicString& type() override;
 };
 
 class MutationRecordWithNullOldValue : public MutationRecord {
 public:
-    MutationRecordWithNullOldValue(PassRefPtr<MutationRecord> record)
+    MutationRecordWithNullOldValue(MutationRecord& record)
         : m_record(record)
     {
     }
 
 private:
-    virtual const AtomicString& type() override { return m_record->type(); }
-    virtual Node* target() override { return m_record->target(); }
-    virtual NodeList* addedNodes() override { return m_record->addedNodes(); }
-    virtual NodeList* removedNodes() override { return m_record->removedNodes(); }
-    virtual Node* previousSibling() override { return m_record->previousSibling(); }
-    virtual Node* nextSibling() override { return m_record->nextSibling(); }
-    virtual const AtomicString& attributeName() override { return m_record->attributeName(); }
-    virtual const AtomicString& attributeNamespace() override { return m_record->attributeNamespace(); }
+    const AtomicString& type() override { return m_record->type(); }
+    Node* target() override { return m_record->target(); }
+    NodeList* addedNodes() override { return m_record->addedNodes(); }
+    NodeList* removedNodes() override { return m_record->removedNodes(); }
+    Node* previousSibling() override { return m_record->previousSibling(); }
+    Node* nextSibling() override { return m_record->nextSibling(); }
+    const AtomicString& attributeName() override { return m_record->attributeName(); }
+    const AtomicString& attributeNamespace() override { return m_record->attributeNamespace(); }
 
-    virtual String oldValue() override { return String(); }
+    String oldValue() override { return String(); }
 
-    RefPtr<MutationRecord> m_record;
+    Ref<MutationRecord> m_record;
 };
 
 const AtomicString& ChildListRecord::type()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, childList, ("childList", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<AtomicString> childList("childList", AtomicString::ConstructFromLiteral);
     return childList;
 }
 
 const AtomicString& AttributesRecord::type()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, attributes, ("attributes", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<AtomicString> attributes("attributes", AtomicString::ConstructFromLiteral);
     return attributes;
 }
 
 const AtomicString& CharacterDataRecord::type()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, characterData, ("characterData", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<AtomicString> characterData("characterData", AtomicString::ConstructFromLiteral);
     return characterData;
 }
 
 } // namespace
 
-PassRefPtr<MutationRecord> MutationRecord::createChildList(ContainerNode& target, PassRefPtr<NodeList> added, PassRefPtr<NodeList> removed, PassRefPtr<Node> previousSibling, PassRefPtr<Node> nextSibling)
+Ref<MutationRecord> MutationRecord::createChildList(ContainerNode& target, Ref<NodeList>&& added, Ref<NodeList>&& removed, RefPtr<Node>&& previousSibling, RefPtr<Node>&& nextSibling)
 {
-    return adoptRef(static_cast<MutationRecord*>(new ChildListRecord(target, added, removed, previousSibling, nextSibling)));
+    return adoptRef(static_cast<MutationRecord&>(*new ChildListRecord(target, WTFMove(added), WTFMove(removed), WTFMove(previousSibling), WTFMove(nextSibling))));
 }
 
-PassRefPtr<MutationRecord> MutationRecord::createAttributes(Element& target, const QualifiedName& name, const AtomicString& oldValue)
+Ref<MutationRecord> MutationRecord::createAttributes(Element& target, const QualifiedName& name, const AtomicString& oldValue)
 {
-    return adoptRef(static_cast<MutationRecord*>(new AttributesRecord(target, name, oldValue)));
+    return adoptRef(static_cast<MutationRecord&>(*new AttributesRecord(target, name, oldValue)));
 }
 
-PassRefPtr<MutationRecord> MutationRecord::createCharacterData(CharacterData& target, const String& oldValue)
+Ref<MutationRecord> MutationRecord::createCharacterData(CharacterData& target, const String& oldValue)
 {
-    return adoptRef(static_cast<MutationRecord*>(new CharacterDataRecord(target, oldValue)));
+    return adoptRef(static_cast<MutationRecord&>(*new CharacterDataRecord(target, oldValue)));
 }
 
-PassRefPtr<MutationRecord> MutationRecord::createWithNullOldValue(PassRefPtr<MutationRecord> record)
+Ref<MutationRecord> MutationRecord::createWithNullOldValue(MutationRecord& record)
 {
-    return adoptRef(static_cast<MutationRecord*>(new MutationRecordWithNullOldValue(record)));
+    return adoptRef(static_cast<MutationRecord&>(*new MutationRecordWithNullOldValue(record)));
 }
 
 MutationRecord::~MutationRecord()

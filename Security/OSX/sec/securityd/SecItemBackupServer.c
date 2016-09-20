@@ -50,7 +50,7 @@ static bool withDataSourceAndEngine(CFErrorRef *error, void (^action)(SOSDataSou
 int SecServerItemBackupHandoffFD(CFStringRef backupName, CFErrorRef *error) {
     __block int fd = -1;
     if (!withDataSourceAndEngine(error, ^(SOSDataSourceRef ds, SOSEngineRef engine) {
-        SOSEngineForPeerID(engine, backupName, error, ^(SOSPeerRef peer) {
+        SOSEngineForPeerIDNoCoder(engine, backupName, error, ^(SOSTransactionRef txn, SOSPeerRef peer) {
             fd = SOSPeerHandoffFD(peer, error);
         });
     }) && fd >= 0) {

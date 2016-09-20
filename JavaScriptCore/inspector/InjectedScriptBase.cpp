@@ -58,12 +58,6 @@ InjectedScriptBase::~InjectedScriptBase()
 {
 }
 
-void InjectedScriptBase::initialize(Deprecated::ScriptObject injectedScriptObject, InspectorEnvironment* environment)
-{
-    m_injectedScriptObject = injectedScriptObject;
-    m_environment = environment;
-}
-
 bool InjectedScriptBase::hasAccessToInspectedScriptState() const
 {
     return m_environment && m_environment->canAccessInspectedScriptState(m_injectedScriptObject.scriptState());
@@ -74,23 +68,11 @@ const Deprecated::ScriptObject& InjectedScriptBase::injectedScriptObject() const
     return m_injectedScriptObject;
 }
 
-Deprecated::ScriptValue InjectedScriptBase::callFunctionWithEvalEnabled(Deprecated::ScriptFunctionCall& function, bool& hadException) const
+JSC::JSValue InjectedScriptBase::callFunctionWithEvalEnabled(Deprecated::ScriptFunctionCall& function, bool& hadException) const
 {
-    if (m_environment)
-        m_environment->willCallInjectedScriptFunction(m_injectedScriptObject.scriptState(), name(), 1);
-
     JSC::ExecState* scriptState = m_injectedScriptObject.scriptState();
-    Deprecated::ScriptValue resultValue;
-
-    {
-        JSC::DebuggerEvalEnabler evalEnabler(scriptState);
-        resultValue = function.call(hadException);
-    }
-
-    if (m_environment)
-        m_environment->didCallInjectedScriptFunction(m_injectedScriptObject.scriptState());
-
-    return resultValue;
+    JSC::DebuggerEvalEnabler evalEnabler(scriptState);
+    return function.call(hadException);
 }
 
 void InjectedScriptBase::makeCall(Deprecated::ScriptFunctionCall& function, RefPtr<InspectorValue>* result)
@@ -101,15 +83,15 @@ void InjectedScriptBase::makeCall(Deprecated::ScriptFunctionCall& function, RefP
     }
 
     bool hadException = false;
-    Deprecated::ScriptValue resultValue = callFunctionWithEvalEnabled(function, hadException);
+    auto resultValue = callFunctionWithEvalEnabled(function, hadException);
 
     ASSERT(!hadException);
     if (!hadException) {
-        *result = resultValue.toInspectorValue(m_injectedScriptObject.scriptState());
+        *result = toInspectorValue(*m_injectedScriptObject.scriptState(), resultValue);
         if (!*result)
-            *result = InspectorString::create(String::format("Object has too long reference chain (must not be longer than %d)", InspectorValue::maxDepth));
+            *result = InspectorValue::create(String::format("Object has too long reference chain (must not be longer than %d)", InspectorValue::maxDepth));
     } else
-        *result = InspectorString::create("Exception while making a call.");
+        *result = InspectorValue::create("Exception while making a call.");
 }
 
 void InjectedScriptBase::makeEvalCall(ErrorString& errorString, Deprecated::ScriptFunctionCall& function, RefPtr<Protocol::Runtime::RemoteObject>* objectResult, Protocol::OptOutput<bool>* wasThrown, Protocol::OptOutput<int>* savedResultIndex)

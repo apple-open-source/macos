@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,6 +28,7 @@
 #if WK_API_ENABLED
 
 #import "SameDocumentNavigationType.h"
+#import "WKWebViewConfiguration.h"
 #import <wtf/RefPtr.h>
 #import <wtf/RetainPtr.h>
 
@@ -54,7 +55,9 @@ class WebPageProxy;
 struct PrintInfo;
 }
 
+@class WKWebViewContentProviderRegistry;
 @class _WKFrameHandle;
+@protocol _WKWebViewPrintProvider;
 
 @interface WKWebView () WK_WEB_VIEW_PROTOCOLS {
 
@@ -73,30 +76,34 @@ struct PrintInfo;
 
 - (void)_didCommitLoadForMainFrame;
 - (void)_didCommitLayerTree:(const WebKit::RemoteLayerTreeTransaction&)layerTreeTransaction;
+- (void)_layerTreeCommitComplete;
 
 - (void)_dynamicViewportUpdateChangedTargetToScale:(double)newScale position:(CGPoint)newScrollPosition nextValidLayerTreeTransactionID:(uint64_t)nextValidLayerTreeTransactionID;
 - (void)_couldNotRestorePageState;
-- (void)_restorePageStateToExposedRect:(WebCore::FloatRect)exposedRect scale:(double)scale;
-- (void)_restorePageStateToUnobscuredCenter:(WebCore::FloatPoint)center scale:(double)scale;
+- (void)_restorePageScrollPosition:(WebCore::FloatPoint)scrollPosition scrollOrigin:(WebCore::FloatPoint)scrollOrigin previousObscuredInset:(WebCore::FloatSize)topInset scale:(double)scale;
+- (void)_restorePageStateToUnobscuredCenter:(WebCore::FloatPoint)center scale:(double)scale; // FIXME: needs scroll origin?
 
 - (PassRefPtr<WebKit::ViewSnapshot>)_takeViewSnapshot;
 
-- (void)_scrollToContentOffset:(WebCore::FloatPoint)contentOffset scrollOrigin:(WebCore::IntPoint)scrollOrigin;
+- (void)_scrollToContentScrollPosition:(WebCore::FloatPoint)scrollPosition scrollOrigin:(WebCore::IntPoint)scrollOrigin;
 - (BOOL)_scrollToRect:(WebCore::FloatRect)targetRect origin:(WebCore::FloatPoint)origin minimumScrollDistance:(float)minimumScrollDistance;
-- (void)_scrollByOffset:(WebCore::FloatPoint)offset;
+- (void)_scrollByContentOffset:(WebCore::FloatPoint)offset;
 - (void)_zoomToFocusRect:(WebCore::FloatRect)focusedElementRect selectionRect:(WebCore::FloatRect)selectionRectInDocumentCoordinates fontSize:(float)fontSize minimumScale:(double)minimumScale maximumScale:(double)maximumScale allowScaling:(BOOL)allowScaling forceScroll:(BOOL)forceScroll;
 - (BOOL)_zoomToRect:(WebCore::FloatRect)targetRect withOrigin:(WebCore::FloatPoint)origin fitEntireRect:(BOOL)fitEntireRect minimumScale:(double)minimumScale maximumScale:(double)maximumScale minimumScrollDistance:(float)minimumScrollDistance;
 - (void)_zoomOutWithOrigin:(WebCore::FloatPoint)origin animated:(BOOL)animated;
+- (void)_zoomToInitialScaleWithOrigin:(WebCore::FloatPoint)origin animated:(BOOL)animated;
 
 - (void)_setHasCustomContentView:(BOOL)hasCustomContentView loadedMIMEType:(const WTF::String&)mimeType;
 - (void)_didFinishLoadingDataForCustomContentProviderWithSuggestedFilename:(const WTF::String&)suggestedFilename data:(NSData *)data;
-- (void)_setViewportMetaTagWidth:(float)newWidth;
 
 - (void)_willInvokeUIScrollViewDelegateCallback;
 - (void)_didInvokeUIScrollViewDelegateCallback;
 
 - (void)_updateVisibleContentRects;
+- (void)_updateVisibleContentRectAfterScrollInView:(UIScrollView *)scrollView;
+- (void)_updateContentRectsWithState:(BOOL)inStableState;
 
+- (void)_didFirstVisuallyNonEmptyLayoutForMainFrame;
 - (void)_didFinishLoadForMainFrame;
 - (void)_didFailLoadForMainFrame;
 - (void)_didSameDocumentNavigationForMainFrame:(WebKit::SameDocumentNavigationType)navigationType;
@@ -109,16 +116,17 @@ struct PrintInfo;
 - (void)_navigationGestureDidBegin;
 - (void)_navigationGestureDidEnd;
 
+@property (nonatomic, readonly) BOOL _isBackground;
+
+@property (nonatomic, readonly) WKWebViewContentProviderRegistry *_contentProviderRegistry;
+
+@property (nonatomic, readonly) WKSelectionGranularity _selectionGranularity;
+
+@property (nonatomic, readonly) BOOL _allowsDoubleTapGestures;
 @property (nonatomic, readonly) UIEdgeInsets _computedContentInset;
-#else
-@property (nonatomic, setter=_setIgnoresNonWheelEvents:) BOOL _ignoresNonWheelEvents;
 #endif
 
 - (WKPageRef)_pageForTesting;
-
-#if ENABLE(VIDEO)
-- (void)_mediaDocumentNaturalSizeChanged:(CGSize)newSize;
-#endif
 
 @end
 
@@ -126,9 +134,7 @@ WKWebView* fromWebPageProxy(WebKit::WebPageProxy&);
 
 #if PLATFORM(IOS)
 @interface WKWebView (_WKWebViewPrintFormatter)
-- (NSInteger)_computePageCountAndStartDrawingToPDFForFrame:(_WKFrameHandle *)frame printInfo:(const WebKit::PrintInfo&)printInfo firstPage:(uint32_t)firstPage computedTotalScaleFactor:(double&)totalScaleFactor;
-- (void)_endPrinting;
-@property (nonatomic, setter=_setPrintedDocument:) CGPDFDocumentRef _printedDocument;
+@property (nonatomic, readonly) id <_WKWebViewPrintProvider> _printProvider;
 @end
 #endif
 

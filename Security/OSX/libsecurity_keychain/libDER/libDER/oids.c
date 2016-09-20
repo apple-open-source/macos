@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2009,2011-2015 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2005-2009,2011-2016 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -65,8 +65,13 @@
 /* ANSI X9.62 */
 #define OID_ANSI_X9_62						OID_US, 206, 61
 #define OID_PUBLIC_KEY_TYPE					OID_ANSI_X9_62, 2
+#define OID_EC_CURVE                        OID_ANSI_X9_62, 3, 1
 #define OID_EC_SIG_TYPE                     OID_ANSI_X9_62, 4
 #define OID_ECDSA_WITH_SHA2                 OID_EC_SIG_TYPE, 3
+
+/* Certicom */
+#define OID_CERTICOM						OID_ISO_IDENTIFIED_ORG, 132
+#define OID_CERTICOM_EC_CURVE				OID_CERTICOM, 0
 
 /* ANSI X9.42 */
 #define OID_ANSI_X9_42						OID_US, 206, 62, 2
@@ -256,6 +261,9 @@
 /* Secure Boot Embedded Image3 value,
    co-opted by desktop for "Apple Released Code Signature", without value */
 #define APPLE_SBOOT_CERT_EXTEN_SBOOT_SPEC_OID	APPLE_CERT_EXTENSION_CODESIGNING, 1
+#define APPLE_SBOOT_CERT_EXTEN_SBOOT_TICKET_SPEC_OID	APPLE_CERT_EXTENSION_CODESIGNING, 11
+#define APPLE_SBOOT_CERT_EXTEN_IMG4_MANIFEST_SPEC_OID	APPLE_CERT_EXTENSION_CODESIGNING, 15
+
 /* iPhone Provisioning Profile Signing leaf - on the intermediate marker arc? */
 #define APPLE_PROVISIONING_PROFILE_OID	APPLE_CERT_EXT_INTERMEDIATE_MARKER, 1
 /* iPhone Application Signing leaf */
@@ -320,12 +328,33 @@
 #define APPLE_CERT_EXT_AST2_DIAGNOSTICS_SERVER_AUTH_TEST    APPLE_SERVER_AUTHENTICATION, 8, 1
 #define APPLE_CERT_EXT_AST2_DIAGNOSTICS_SERVER_AUTH_PROD    APPLE_SERVER_AUTHENTICATION, 8, 2
 
+/* Escrow Proxy Server Authentication
+ *   Test Marker OID 1.2.840.113635.100.6.27.7.1
+ *   Prod Marker OID 1.2.840.113635.100.6.27.7.2
+ */
+#define APPLE_CERT_EXT_ESCROW_PROXY_SERVER_AUTH_TEST    APPLE_SERVER_AUTHENTICATION, 7, 1
+#define APPLE_CERT_EXT_ESCROW_PROXY_SERVER_AUTH_PROD    APPLE_SERVER_AUTHENTICATION, 7, 2
+
+/* FMiP Server Authentication
+ *   Test Marker OID 1.2.840.113635.100.6.27.6.1
+ *   Prod Marker OID 1.2.840.113635.100.6.27.6.2
+ */
+#define APPLE_CERT_EXT_FMIP_SERVER_AUTH_TEST    APPLE_SERVER_AUTHENTICATION, 6, 1
+#define APPLE_CERT_EXT_FMIP_SERVER_AUTH_PROD    APPLE_SERVER_AUTHENTICATION, 6, 2
+
 /* HomeKit Server Authentication
  *  Intermediate Marker OID: 1.2.840.113635.100.6.2.16
  *  Leaf Marker OID: 1.2.840.113635.100.6.27.9
  */
 #define APPLE_CERT_EXT_INTERMEDIATE_MARKER_APPLE_HOME_KIT_SERVER_AUTH   APPLE_CERT_EXT_INTERMEDIATE_MARKER, 16
 #define APPLE_CERT_EXT_HOME_KIT_SERVER_AUTH     APPLE_SERVER_AUTHENTICATION, 9
+
+/* MMCS Server Authentication
+ * Test Marker OID 1.2.840.113635.100.6.27.11.1
+ * Prod Marker OID 1.2.840.113635.100.6.27.11.2
+ */
+#define APPLE_CERT_EXT_MMCS_SERVER_AUTH_TEST         APPLE_SERVER_AUTHENTICATION, 11, 1
+#define APPLE_CERT_EXT_MMCS_SERVER_AUTH_PROD         APPLE_SERVER_AUTHENTICATION, 11, 2
 
 /*
  * Netscape OIDs.
@@ -375,10 +404,10 @@ static const DERByte
     _oidMd4Rsa[]                    = { OID_PKCS_1, 3 },
     _oidMd5Rsa[]                    = { OID_PKCS_1, 4 },
     _oidSha1Rsa[]                   = { OID_PKCS_1, 5 },
-    _oidSha256Rsa[]                 = { OID_PKCS_1, 11 },
-    _oidSha384Rsa[]                 = { OID_PKCS_1, 12 },
-    _oidSha512Rsa[]                 = { OID_PKCS_1, 13 },
-    _oidSha224Rsa[]                 = { OID_PKCS_1, 14 },
+    _oidSha256Rsa[]                 = { OID_PKCS_1, 11 },   /* rfc5754 */
+    _oidSha384Rsa[]                 = { OID_PKCS_1, 12 },   /* rfc5754 */
+    _oidSha512Rsa[]                 = { OID_PKCS_1, 13 },   /* rfc5754 */
+    _oidSha224Rsa[]                 = { OID_PKCS_1, 14 },   /* rfc5754 */
     _oidEcPubKey[]                  = { OID_PUBLIC_KEY_TYPE, 1 },
     _oidSha1Ecdsa[]                 = { OID_EC_SIG_TYPE, 1 },     /* rfc3279 */
     _oidSha224Ecdsa[]               = { OID_ECDSA_WITH_SHA2, 1 }, /* rfc5758 */
@@ -399,7 +428,11 @@ static const DERByte
     _oidSha224[]                    = { OID_NIST_HASHALG, 4 },
     _oidFee[]                       = { APPLE_ALG_OID, 1 },
     _oidMd5Fee[]                    = { APPLE_ALG_OID, 3 },
-    _oidSha1Fee[]                   = { APPLE_ALG_OID, 4 };
+    _oidSha1Fee[]                   = { APPLE_ALG_OID, 4 },
+    _oidEcPrime192v1[]              = { OID_EC_CURVE, 1 },
+    _oidEcPrime256v1[]              = { OID_EC_CURVE, 7 },
+    _oidAnsip384r1[]                = { OID_CERTICOM_EC_CURVE, 34 },
+    _oidAnsip521r1[]                = { OID_CERTICOM_EC_CURVE, 35 };
 
 const DERItem
     oidRsa                          = { (DERByte *)_oidRsa,
@@ -461,7 +494,15 @@ const DERItem
     oidMd5Fee                       = { (DERByte *)_oidMd5Fee,
                                         sizeof(_oidMd5Fee) },
     oidSha1Fee                      = { (DERByte *)_oidSha1Fee,
-                                        sizeof(_oidSha1Fee) };
+                                        sizeof(_oidSha1Fee) },
+    oidEcPrime192v1                 = { (DERByte *)_oidEcPrime192v1,
+                                        sizeof(_oidEcPrime192v1) },
+    oidEcPrime256v1                 = { (DERByte *)_oidEcPrime256v1,
+                                        sizeof(_oidEcPrime256v1) },
+    oidAnsip384r1                   = { (DERByte *)_oidAnsip384r1,
+                                        sizeof(_oidAnsip384r1) },
+    oidAnsip521r1                   = { (DERByte *)_oidAnsip521r1,
+                                        sizeof(_oidAnsip521r1) };
 
 
 /* Extension OIDs. */
@@ -513,6 +554,8 @@ __unused static const DERByte
     _oidExtendedKeyUsageMicrosoftSGC[] = { MICROSOFT_BASE_OID, 10, 3, 3 },
     _oidExtendedKeyUsageNetscapeSGC[] = { NETSCAPE_CERT_POLICY, 1 },
     _oidAppleSecureBootCertSpec[]   = { APPLE_SBOOT_CERT_EXTEN_SBOOT_SPEC_OID },
+    _oidAppleSecureBootTicketCertSpec[] = { APPLE_SBOOT_CERT_EXTEN_SBOOT_TICKET_SPEC_OID },
+    _oidAppleImg4ManifestCertSpec[] = { APPLE_SBOOT_CERT_EXTEN_IMG4_MANIFEST_SPEC_OID },
     _oidAppleProvisioningProfile[]  = {APPLE_PROVISIONING_PROFILE_OID },
     _oidAppleApplicationSigning[]   = { APPLE_APP_SIGNING_OID },
     _oidAppleInstallerPackagingSigningExternal[]       = { APPLE_INSTALLER_PACKAGE_SIGNING_EXTERNAL_OID },
@@ -555,8 +598,14 @@ __unused static const DERByte
     _oidAppleCertExtCryptoServicesExtEncryption[] = {APPLE_CERT_EXT_CRYPTO_SERVICES_EXT_ENCRYPTION},
     _oidAppleCertExtAST2DiagnosticsServerAuthTest[] = {APPLE_CERT_EXT_AST2_DIAGNOSTICS_SERVER_AUTH_TEST},
     _oidAppleCertExtAST2DiagnosticsServerAuthProd[] = {APPLE_CERT_EXT_AST2_DIAGNOSTICS_SERVER_AUTH_PROD},
+    _oidAppleCertExtEscrowProxyServerAuthTest[] = {APPLE_CERT_EXT_ESCROW_PROXY_SERVER_AUTH_TEST},
+    _oidAppleCertExtEscrowProxyServerAuthProd[] = {APPLE_CERT_EXT_ESCROW_PROXY_SERVER_AUTH_PROD},
+    _oidAppleCertExtFMiPServerAuthTest[] = {APPLE_CERT_EXT_FMIP_SERVER_AUTH_TEST},
+    _oidAppleCertExtFMiPServerAuthProd[] = {APPLE_CERT_EXT_FMIP_SERVER_AUTH_PROD},
     _oidAppleCertExtHomeKitServerAuth[] = {APPLE_CERT_EXT_HOME_KIT_SERVER_AUTH},
-    _oidAppleIntmMarkerAppleHomeKitServerCA[] = {APPLE_CERT_EXT_INTERMEDIATE_MARKER_APPLE_HOME_KIT_SERVER_AUTH};
+    _oidAppleIntmMarkerAppleHomeKitServerCA[] = {APPLE_CERT_EXT_INTERMEDIATE_MARKER_APPLE_HOME_KIT_SERVER_AUTH},
+    _oidAppleCertExtMMCSServerAuthTest[] = {APPLE_CERT_EXT_MMCS_SERVER_AUTH_TEST},
+    _oidAppleCertExtMMCSServerAuthProd[] = {APPLE_CERT_EXT_MMCS_SERVER_AUTH_PROD};
 
 __unused const DERItem
     oidSubjectKeyIdentifier         = { (DERByte *)_oidSubjectKeyIdentifier,
@@ -651,6 +700,10 @@ __unused const DERItem
                                         sizeof(_oidExtendedKeyUsageNetscapeSGC) },
     oidAppleSecureBootCertSpec      = { (DERByte *)_oidAppleSecureBootCertSpec,
                                         sizeof(_oidAppleSecureBootCertSpec) },
+    oidAppleSecureBootTicketCertSpec = { (DERByte *)_oidAppleSecureBootTicketCertSpec,
+                                        sizeof(_oidAppleSecureBootTicketCertSpec) },
+    oidAppleImg4ManifestCertSpec = { (DERByte *)_oidAppleImg4ManifestCertSpec,
+                                        sizeof(_oidAppleImg4ManifestCertSpec) },
     oidAppleProvisioningProfile     = { (DERByte *)_oidAppleProvisioningProfile,
                                         sizeof(_oidAppleProvisioningProfile) },
     oidAppleApplicationSigning      = { (DERByte *)_oidAppleApplicationSigning,
@@ -748,10 +801,24 @@ __unused const DERItem
                                         sizeof(_oidAppleCertExtAST2DiagnosticsServerAuthTest)},
     oidAppleCertExtAST2DiagnosticsServerAuthProd = { (DERByte *)_oidAppleCertExtAST2DiagnosticsServerAuthProd,
                                         sizeof(_oidAppleCertExtAST2DiagnosticsServerAuthProd)},
+    oidAppleCertExtEscrowProxyServerAuthTest = { (DERByte *)_oidAppleCertExtEscrowProxyServerAuthTest,
+                                        sizeof(_oidAppleCertExtEscrowProxyServerAuthTest)},
+    oidAppleCertExtEscrowProxyServerAuthProd = { (DERByte *)_oidAppleCertExtEscrowProxyServerAuthProd,
+                                        sizeof(_oidAppleCertExtEscrowProxyServerAuthProd)},
+    oidAppleCertExtFMiPServerAuthTest = { (DERByte *)_oidAppleCertExtFMiPServerAuthTest,
+                                        sizeof(_oidAppleCertExtFMiPServerAuthTest)},
+    oidAppleCertExtFMiPServerAuthProd = { (DERByte *)_oidAppleCertExtFMiPServerAuthProd,
+                                        sizeof(_oidAppleCertExtFMiPServerAuthProd)},
     oidAppleCertExtHomeKitServerAuth = { (DERByte *)_oidAppleCertExtHomeKitServerAuth,
                                         sizeof(_oidAppleCertExtHomeKitServerAuth)},
     oidAppleIntmMarkerAppleHomeKitServerCA = { (DERByte *)_oidAppleIntmMarkerAppleHomeKitServerCA,
-                                        sizeof(_oidAppleIntmMarkerAppleHomeKitServerCA) };
+                                        sizeof(_oidAppleIntmMarkerAppleHomeKitServerCA) },
+    oidAppleCertExtAppleServerAuthenticationMMCSTest
+                                        = { (DERByte *)_oidAppleCertExtMMCSServerAuthTest,
+                                        sizeof(_oidAppleCertExtMMCSServerAuthTest) },
+    oidAppleCertExtAppleServerAuthenticationMMCSProd
+                                        = { (DERByte *)_oidAppleCertExtMMCSServerAuthProd,
+                                        sizeof(_oidAppleCertExtMMCSServerAuthProd) };
 
 
 

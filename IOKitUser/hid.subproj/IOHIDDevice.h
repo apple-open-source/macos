@@ -53,6 +53,9 @@
 
 __BEGIN_DECLS
 
+CF_ASSUME_NONNULL_BEGIN
+CF_IMPLICIT_BRIDGING_ENABLED
+
 /*!
 	@function   IOHIDDeviceGetTypeID
 	@abstract   Returns the type identifier of all IOHIDDevice instances.
@@ -71,8 +74,8 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
     @result     Returns a new IOHIDDeviceRef.
 */
 CF_EXPORT
-IOHIDDeviceRef IOHIDDeviceCreate(
-                                CFAllocatorRef                  allocator, 
+IOHIDDeviceRef _Nullable IOHIDDeviceCreate(
+                                CFAllocatorRef _Nullable        allocator,
                                 io_service_t                    service)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
@@ -197,9 +200,9 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
     @result     Returns CFArrayRef containing multiple IOHIDElement object.
 */
 CF_EXPORT 
-CFArrayRef IOHIDDeviceCopyMatchingElements(
+CFArrayRef _Nullable IOHIDDeviceCopyMatchingElements(
                                 IOHIDDeviceRef                  device, 
-                                CFDictionaryRef                 matching, 
+                                CFDictionaryRef _Nullable       matching,
                                 IOOptionBits                    options)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
@@ -247,8 +250,8 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 CF_EXPORT
 void IOHIDDeviceRegisterRemovalCallback( 
                                 IOHIDDeviceRef                  device, 
-                                IOHIDCallback                   callback, 
-                                void *                          context)
+                                IOHIDCallback _Nullable         callback,
+                                void * _Nullable                context)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*! @function   IOHIDDeviceRegisterInputValueCallback
@@ -265,9 +268,9 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 */
 CF_EXPORT
 void IOHIDDeviceRegisterInputValueCallback(
-                                IOHIDDeviceRef                  device, 
-                                IOHIDValueCallback              callback, 
-                                void *                          context)
+                                IOHIDDeviceRef                  device,
+                                IOHIDValueCallback _Nullable    callback,
+                                void * _Nullable                context)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*! @function   IOHIDDeviceRegisterInputReportCallback
@@ -288,8 +291,8 @@ void IOHIDDeviceRegisterInputReportCallback(
                                 IOHIDDeviceRef                  device, 
                                 uint8_t *                       report, 
                                 CFIndex                         reportLength,
-                                IOHIDReportCallback             callback, 
-                                void *                          context)
+                                IOHIDReportCallback _Nullable   callback,
+                                void * _Nullable                context)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*! @function   IOHIDDeviceRegisterInputReportWithTimeStampCallback
@@ -310,8 +313,8 @@ void IOHIDDeviceRegisterInputReportWithTimeStampCallback(
                                 IOHIDDeviceRef                      device, 
                                 uint8_t *                           report, 
                                 CFIndex                             reportLength,
-                                IOHIDReportWithTimeStampCallback    callback, 
-                                void *                              context)
+                                IOHIDReportWithTimeStampCallback _Nullable  callback,
+                                void * _Nullable                    context)
 AVAILABLE_MAC_OS_X_VERSION_10_10_AND_LATER;
 
 /*! @function   IOHIDDeviceSetInputValueMatching
@@ -330,7 +333,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_10_AND_LATER;
 CF_EXPORT
 void IOHIDDeviceSetInputValueMatching(
                                 IOHIDDeviceRef                  device, 
-                                CFDictionaryRef                 matching)
+                                CFDictionaryRef _Nullable       matching)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
                                 
 /*! @function   IOHIDDeviceSetInputValueMatchingMultiple
@@ -346,7 +349,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 CF_EXPORT
 void IOHIDDeviceSetInputValueMatchingMultiple(
                                 IOHIDDeviceRef                  device, 
-                                CFArrayRef                      multiple)
+                                CFArrayRef _Nullable            multiple)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
                                 
 /*! @function   IOHIDDeviceSetValue
@@ -408,8 +411,8 @@ IOReturn IOHIDDeviceSetValueWithCallback(
                                 IOHIDElementRef                 element, 
                                 IOHIDValueRef                   value, 
                                 CFTimeInterval                  timeout,
-                                IOHIDValueCallback              callback, 
-                                void *                          context)
+                                IOHIDValueCallback _Nullable    callback,
+                                void * _Nullable                context)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*! @function   IOHIDDeviceSetValueMultipleWithCallback
@@ -432,8 +435,8 @@ IOReturn IOHIDDeviceSetValueMultipleWithCallback(
                                 IOHIDDeviceRef                  device, 
                                 CFDictionaryRef                 multiple,
                                 CFTimeInterval                  timeout,
-                                IOHIDValueMultipleCallback      callback, 
-                                void *                          context)
+                                IOHIDValueMultipleCallback _Nullable    callback,
+                                void * _Nullable                context)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*! @function   IOHIDDeviceGetValue
@@ -452,7 +455,7 @@ CF_EXPORT
 IOReturn IOHIDDeviceGetValue(
                                 IOHIDDeviceRef                  device, 
                                 IOHIDElementRef                 element, 
-                                IOHIDValueRef *                 pValue)
+                                IOHIDValueRef _Nonnull * _Nonnull   pValue)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*! @function   IOHIDDeviceCopyValueMultiple
@@ -472,7 +475,7 @@ CF_EXPORT
 IOReturn IOHIDDeviceCopyValueMultiple(
                                 IOHIDDeviceRef                  device, 
                                 CFArrayRef                      elements, 
-                                CFDictionaryRef *               pMultiple)
+                                CFDictionaryRef _Nullable * _Nullable   pMultiple)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*! @function   IOHIDDeviceGetValueWithCallback
@@ -495,10 +498,10 @@ CF_EXPORT
 IOReturn IOHIDDeviceGetValueWithCallback(
                                 IOHIDDeviceRef                  device, 
                                 IOHIDElementRef                 element, 
-                                IOHIDValueRef *                 pValue,
+                                IOHIDValueRef _Nonnull * _Nonnull    pValue,
                                 CFTimeInterval                  timeout,
-                                IOHIDValueCallback              callback, 
-                                void *                          context)
+                                IOHIDValueCallback _Nullable    callback,
+                                void * _Nullable                context)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 
@@ -519,13 +522,14 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
     @result     Returns kIOReturnSuccess if successful.
 */
 CF_EXPORT
+
 IOReturn IOHIDDeviceCopyValueMultipleWithCallback(
                                 IOHIDDeviceRef                  device, 
                                 CFArrayRef                      elements, 
-                                CFDictionaryRef *               pMultiple,
+                                CFDictionaryRef _Nullable * _Nullable   pMultiple,
                                 CFTimeInterval                  timeout,
-                                IOHIDValueMultipleCallback      callback, 
-                                void *                          context)
+                                IOHIDValueMultipleCallback _Nullable    callback,
+                                void * _Nullable                context)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
                                 
 /*! @function   IOHIDDeviceSetReport
@@ -577,8 +581,8 @@ IOReturn IOHIDDeviceSetReportWithCallback(
                                 const uint8_t *                 report,
                                 CFIndex                         reportLength,
                                 CFTimeInterval                  timeout,
-                                IOHIDReportCallback             callback,
-                                void *                          context)
+                                IOHIDReportCallback _Nullable   callback,
+                                void * _Nullable                context)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*! @function   IOHIDDeviceGetReport
@@ -641,7 +645,10 @@ IOReturn IOHIDDeviceGetReportWithCallback(
                                 IOHIDReportCallback             callback,
                                 void *                          context)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
-                                
+
+CF_IMPLICIT_BRIDGING_DISABLED
+CF_ASSUME_NONNULL_END
+
 __END_DECLS
 
 #endif /* _IOKIT_HID_IOHIDDEVICE_USER_H */

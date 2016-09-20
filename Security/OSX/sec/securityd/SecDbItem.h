@@ -108,7 +108,8 @@ typedef struct SecDbClass {
 } SecDbClass;
 
 typedef struct SecDbSchema {
-    int version;
+    int majorVersion;
+    int minorVersion;
     const SecDbClass *classes[];
 } SecDbSchema;
 

@@ -28,8 +28,35 @@
 
 #include "APIWebsiteDataStore.h"
 #include "WKAPICast.h"
+#include "WebsiteDataType.h"
 
 WKTypeID WKWebsiteDataStoreGetTypeID()
 {
     return WebKit::toAPI(API::WebsiteDataStore::APIType);
+}
+
+WKWebsiteDataStoreRef WKWebsiteDataStoreGetDefaultDataStore()
+{
+    return WebKit::toAPI(API::WebsiteDataStore::defaultDataStore().get());
+}
+
+WKWebsiteDataStoreRef WKWebsiteDataStoreCreateNonPersistentDataStore()
+{
+    return WebKit::toAPI(&API::WebsiteDataStore::createNonPersistentDataStore().leakRef());
+}
+
+void WKWebsiteDataStoreSetResourceLoadStatisticsEnabled(WKWebsiteDataStoreRef dataStoreRef, bool enable)
+{
+    WebKit::toImpl(dataStoreRef)->setResourceLoadStatisticsEnabled(enable);
+}
+
+bool WKWebsiteDataStoreGetResourceLoadStatisticsEnabled(WKWebsiteDataStoreRef dataStoreRef)
+{
+    return WebKit::toImpl(dataStoreRef)->resourceLoadStatisticsEnabled();
+}
+
+void WKWebsiteDataStoreRemoveAllIndexedDatabases(WKWebsiteDataStoreRef dataStoreRef)
+{
+    OptionSet<WebKit::WebsiteDataType> dataTypes = WebKit::WebsiteDataType::IndexedDBDatabases;
+    WebKit::toImpl(dataStoreRef)->websiteDataStore().removeData(dataTypes, std::chrono::system_clock::time_point::min(), [] { });
 }

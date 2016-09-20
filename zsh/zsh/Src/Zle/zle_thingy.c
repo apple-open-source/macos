@@ -352,6 +352,7 @@ bin_zle(char *name, char **args, Options ops, UNUSED(int func))
 	{ 'U', bin_zle_unget, 1, 1 },
 	{ 'K', bin_zle_keymap, 1, 1 },
 	{ 'I', bin_zle_invalidate, 0, 0 },
+	{ 'f', bin_zle_flags, 1, -1 },
 	{ 'F', bin_zle_fd, 0, 2 },
 	{ 'T', bin_zle_transform, 0, 2},
 	{ 0,   bin_zle_call, 0, -1 },
@@ -466,7 +467,7 @@ bin_zle_mesg(char *name, char **args, UNUSED(Options ops), UNUSED(char func))
 static int
 bin_zle_unget(char *name, char **args, UNUSED(Options ops), UNUSED(char func))
 {
-    char *b = *args, *p = b + strlen(b);
+    char *b = unmeta(*args), *p = b + strlen(b);
 
     if (!zleactive) {
 	zwarnnam(name, "can only be called from widget function");
@@ -625,7 +626,7 @@ bin_zle_complete(char *name, char **args, UNUSED(Options ops), UNUSED(char func)
 
 /**/
 static int
-zle_usable()
+zle_usable(void)
 {
     return zleactive && !incompctlfunc && !incompfunc
 #if 0
@@ -638,6 +639,48 @@ zle_usable()
 	&& sfcontext == SFC_WIDGET
 #endif
 	   ;
+}
+
+/**/
+static int
+bin_zle_flags(char *name, char **args, UNUSED(Options ops), UNUSED(char func))
+{
+    int ret = 0;
+    char **flag;
+
+    if (!zle_usable()) {
+	zwarnnam(name, "can only set flags from a widget");
+	return 1;
+    }
+
+    if (bindk) {
+	Widget w = bindk->widget;
+	if (w) {
+	    for (flag = args; *flag; flag++) {
+		if (!strcmp(*flag, "yank")) {
+		    w->flags |= ZLE_YANKAFTER;
+		} else if (!strcmp(*flag, "yankbefore"))
+		    w->flags |= ZLE_YANKBEFORE;
+		else if (!strcmp(*flag, "kill"))
+		    w->flags |= ZLE_KILL;
+		/*
+		 * These won't do anything yet, because of how execzlefunc
+		 * handles user widgets
+		} else if (!strcmp(*flag, "menucmp"))
+		    w->flags |= ZLE_MENUCMP;
+		else if (!strcmp(*flag, "linemove"))
+		    w->flags |= ZLE_LINEMOVE;
+		else if (!strcmp(*flag, "keepsuffix"))
+		    w->flags |= ZLE_KEEPSUFFIX;
+		*/
+		else {
+		    zwarnnam(name, "invalid flag `%s' given to zle -f", *flag);
+		    ret = 1;
+		}
+	    }
+	}
+    }
+    return ret;
 }
 
 /**/

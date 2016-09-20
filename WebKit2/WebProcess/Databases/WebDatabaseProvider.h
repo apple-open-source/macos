@@ -27,6 +27,8 @@
 #define WebDatabaseProvider_h
 
 #include <WebCore/DatabaseProvider.h>
+#include <WebCore/InProcessIDBServer.h>
+#include <wtf/HashMap.h>
 
 namespace WebKit {
 
@@ -35,11 +37,15 @@ public:
     static Ref<WebDatabaseProvider> getOrCreate(uint64_t identifier);
     virtual ~WebDatabaseProvider();
 
+#if ENABLE(INDEXED_DATABASE)
+    WebCore::IDBClient::IDBConnectionToServer& idbConnectionToServerForSession(const WebCore::SessionID&) final;
+#endif
+
 private:
     explicit WebDatabaseProvider(uint64_t identifier);
 
 #if ENABLE(INDEXED_DATABASE)
-    virtual RefPtr<WebCore::IDBFactoryBackendInterface> createIDBFactoryBackend() override;
+    HashMap<uint64_t, RefPtr<WebCore::InProcessIDBServer>> m_idbEphemeralConnectionMap;
 #endif
 
     const uint64_t m_identifier;

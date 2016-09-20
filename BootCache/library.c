@@ -26,8 +26,7 @@
 #include <mach/mach_time.h>
 #include <dispatch/dispatch.h>
 
-
-#include "BootCache.h"
+#include "BootCache_private.h"
 
 /*
  * Return a user-readable string for a given uuid

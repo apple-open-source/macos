@@ -217,9 +217,9 @@ static void tests(bool isPasscodeSet)
 #endif
 
     CFArrayRef classArray = CFArrayCreateForCFTypes(kCFAllocatorDefault, kSecClassInternetPassword, kSecClassGenericPassword, kSecClassKey, kSecClassCertificate, NULL);
-    CFArrayRef protectionClassArray = CFArrayCreateForCFTypes(kCFAllocatorDefault, kSecAttrAccessibleWhenUnlocked, kSecAttrAccessibleAfterFirstUnlock, kSecAttrAccessibleAlways,
+    CFArrayRef protectionClassArray = CFArrayCreateForCFTypes(kCFAllocatorDefault, kSecAttrAccessibleWhenUnlocked, kSecAttrAccessibleAfterFirstUnlock, kSecAttrAccessibleAlwaysPrivate,
                                                          kSecAttrAccessibleWhenUnlockedThisDeviceOnly, kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
-                                                         kSecAttrAccessibleAlwaysThisDeviceOnly, kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly, NULL);
+                                                         kSecAttrAccessibleAlwaysThisDeviceOnlyPrivate, kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly, NULL);
 
     __block uint32_t pass = 0;
     CFArrayForEach(classArray, ^(CFTypeRef itemClass) {

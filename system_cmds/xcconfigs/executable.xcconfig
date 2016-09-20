@@ -1,0 +1,45 @@
+// This configuration file contains common build settings for all of libxpc's
+// executable targets.
+#include "base.xcconfig"
+
+XPC_EXECUTABLE_OTHER_CFLAGS = $(XPC_BUILD_OTHER_CFLAGS) $(XPC_BUILD_EXPORT_DEFAULTS) -DXPC_BUILD_TARGET_EXECUTABLE=1
+XPC_EXECUTABLE_OTHER_LDFLAGS = $(XPC_CRASHREPORTCLIENT_LDFLAGS)
+XPC_EXECUTABLE_WORKAROUND_14483011 = -lSystem -lobjc
+
+// Building.
+VALID_ARCHS[sdk=macosx*] = x86_64
+GCC_ENABLE_OBJC_EXCEPTIONS = YES
+INFOPLIST_FILE =
+SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator
+OTHER_CFLAGS = $(XPC_EXECUTABLE_OTHER_CFLAGS)
+
+// Work around asinine default tools behavior of adding entitlements to every
+// generated binary.
+//
+// <rdar://problem/15995721>
+// <rdar://problem/16477165>
+WANTS_GET_TASK_ALLOW = NO
+
+// Deployment linking.
+MACH_O_TYPE = mh_execute
+PRODUCT_NAME = xpc_executables
+EXECUTABLE_PREFIX =
+FRAMEWORK_SEARCH_PATHS = $(SDKROOT)/System/Library/PrivateFrameworks $(inherited)
+STRIP_STYLE = all
+XPC_EXECUTABLE_OTHER_LDFLAGS = $(XPC_EXECUTABLE_WORKAROUND_14483011) $(XPC_CRASHREPORTCLIENT_LDFLAGS)
+CREATE_INFOPLIST_SECTION_IN_BINARY = YES
+
+// Output our launchd plist as binary on iOS.
+APPLY_RULES_IN_COPY_FILES[sdk=iphoneos*] = YES
+PLIST_FILE_OUTPUT_FORMAT[sdk=iphoneos*] = binary
+
+// For building variants
+DARWIN_VARIANT_LOWER_RELEASE = release
+DARWIN_VARIANT_SUFFIX_RELEASE =
+DARWIN_VARIANT_LOWER_DEVELOPMENT = development
+DARWIN_VARIANT_SUFFIX_DEVELOPMENT = .development
+DARWIN_VARIANT_LOWER_DEBUG = debug
+DARWIN_VARIANT_SUFFIX_DEBUG = .debug
+
+DARWIN_VARIANT_LOWER = $(DARWIN_VARIANT_LOWER_$(DARWIN_VARIANT))
+DARWIN_VARIANT_SUFFIX = $(DARWIN_VARIANT_SUFFIX_$(DARWIN_VARIANT))

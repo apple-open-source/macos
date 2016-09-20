@@ -26,7 +26,7 @@
 #include "config.h"
 #include "VisitedLinkTableController.h"
 
-#include "VisitedLinkProviderMessages.h"
+#include "VisitedLinkStoreMessages.h"
 #include "VisitedLinkTableControllerMessages.h"
 #include "WebPage.h"
 #include "WebProcess.h"
@@ -50,10 +50,10 @@ PassRefPtr<VisitedLinkTableController> VisitedLinkTableController::getOrCreate(u
     if (visitedLinkTableControllerPtr)
         return visitedLinkTableControllerPtr;
 
-    RefPtr<VisitedLinkTableController> visitedLinkTableController = adoptRef(new VisitedLinkTableController(identifier));
-    visitedLinkTableControllerPtr = visitedLinkTableController.get();
+    auto visitedLinkTableController = adoptRef(*new VisitedLinkTableController(identifier));
+    visitedLinkTableControllerPtr = visitedLinkTableController.ptr();
 
-    return visitedLinkTableController.release();
+    return WTFMove(visitedLinkTableController);
 }
 
 VisitedLinkTableController::VisitedLinkTableController(uint64_t identifier)
@@ -85,16 +85,16 @@ void VisitedLinkTableController::addVisitedLink(Page& page, LinkHash linkHash)
     if (!webPage)
         return;
 
-    WebProcess::singleton().parentProcessConnection()->send(Messages::VisitedLinkProvider::AddVisitedLinkHashFromPage(webPage->pageID(), linkHash), m_identifier);
+    WebProcess::singleton().parentProcessConnection()->send(Messages::VisitedLinkStore::AddVisitedLinkHashFromPage(webPage->pageID(), linkHash), m_identifier);
 }
 
 void VisitedLinkTableController::setVisitedLinkTable(const SharedMemory::Handle& handle)
 {
-    RefPtr<SharedMemory> sharedMemory = SharedMemory::map(handle, SharedMemory::Protection::ReadOnly);
+    auto sharedMemory = SharedMemory::map(handle, SharedMemory::Protection::ReadOnly);
     if (!sharedMemory)
         return;
 
-    m_visitedLinkTable.setSharedMemory(sharedMemory.release());
+    m_visitedLinkTable.setSharedMemory(WTFMove(sharedMemory));
 
     invalidateStylesForAllLinks();
     PageCache::singleton().markPagesForVisitedLinkStyleRecalc();

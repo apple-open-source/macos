@@ -331,7 +331,7 @@ interface_update_ipv6(struct ifaddrs *ifap, const char *if_name)
 		}
 
 		bzero((char *)&ifr6, sizeof(ifr6));
-		strncpy(ifr6.ifr_name, ifa->ifa_name, sizeof(ifr6.ifr_name));
+		strlcpy(ifr6.ifr_name, ifa->ifa_name, sizeof(ifr6.ifr_name));
 		ifr6.ifr_addr = *sin6;
 		if (ioctl(sock, SIOCGIFAFLAG_IN6, &ifr6) == -1) {
 			/* if flags not available for this address */

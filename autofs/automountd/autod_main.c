@@ -392,7 +392,7 @@ main(argc, argv)
 	 * Wake up the "wait for flush indication" thread.
 	 */
 	if (ioctl(autofs_fd, AUTOFS_NOTIFYCHANGE, 0) == -1)
-		pr_msg("AUTOFS_NOTIFYCHANGE failed: %m");
+		pr_msg(LOG_ERR, "AUTOFS_NOTIFYCHANGE failed: %m");
 
 	if (trace > 0)
 		trace_prt(1, "%s exited", myname);
@@ -1248,7 +1248,7 @@ done:
  * for a "%m" string (like syslog).
  */
 void
-pr_msg(const char *fmt, ...)
+pr_msg(int priority, const char *fmt, ...)
 {
 	va_list ap;
 
@@ -1257,6 +1257,6 @@ pr_msg(const char *fmt, ...)
 #endif
 
 	va_start(ap, fmt);
-	(void) vsyslog(LOG_ERR, fmt, ap);
+	(void) vsyslog(priority, fmt, ap);
 	va_end(ap);
 }

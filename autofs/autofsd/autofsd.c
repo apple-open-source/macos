@@ -56,6 +56,9 @@ main(__unused int argc, __unused char **argv)
 	uint32_t status;
 	int volume_unmount_token;
 	dispatch_source_t usr1_source;
+#ifdef CODE_COVERAGE
+	dispatch_source_t sigterm_source;
+#endif
 
 	/* 
 	 * If launchd is redirecting these two files they'll be block-
@@ -168,6 +171,19 @@ main(__unused int argc, __unused char **argv)
 	    ^(void) { logging_debug = !logging_debug; });
 	dispatch_resume(usr1_source);
 
+#ifdef CODE_COVERAGE
+	signal(SIGTERM, SIG_IGN);
+	sigterm_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL,
+						SIGTERM, 0,
+						dispatch_get_main_queue());
+	if (sigterm_source == NULL) {
+		syslog(LOG_ERR, "Couldn't create dispatch source for SIGTERM");
+		exit(EXIT_FAILURE);
+	}
+	dispatch_source_set_event_handler(sigterm_source, ^(void) { exit(EXIT_SUCCESS); });
+	dispatch_resume(sigterm_source);
+#endif
+
 	/*
 	 * Set up the initial set of mounts.
 	 */
@@ -207,20 +223,6 @@ run_automount(char *flag)
 	pid_t pid;
 	int status;
 	extern char **environ;
-	static struct timeval last_run_automount;	// last run_automount time
-	struct timeval now;
-
-	if (flag != NULL && strcmp(flag, "-u") == 0) {
-		/*
-		 * Network change events usually come in a flurry.
-		 * Don't unmount automounts more than once in
-		 * 5 seconds.
-		 */
-		(void) gettimeofday(&now, NULL);
-		if (now.tv_sec < last_run_automount.tv_sec + 5)
-			return;
-	}
-	last_run_automount = now;
 
 	i = 0;
 	args[i++] = automount_path;

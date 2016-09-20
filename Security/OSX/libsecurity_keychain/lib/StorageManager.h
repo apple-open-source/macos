@@ -62,7 +62,8 @@ public:
     // These will call addAndNotify() if the specified keychain already exists
 	Keychain make(const char *fullPathName);
     Keychain make(const char *fullPathName, bool add);
-    Keychain makeLoginAuthUI(const Item *item);
+    Keychain make(const char *fullPathName, bool add, bool isReset);
+    Keychain makeLoginAuthUI(const Item *item, bool isReset);
     void created(const Keychain &keychain); // Be notified a Keychain just got created.
 
 	// Misc
@@ -90,10 +91,14 @@ public:
 	void didRemoveKeychain(const DLDbIdentifier &dLDbIdentifier);
 	
 	// Create KC if it doesn't exist, add it to the search list if it exists and is not already on it.
-    Keychain makeKeychain(const DLDbIdentifier &dLDbIdentifier, bool add = true);
+    Keychain makeKeychain(const DLDbIdentifier &dLDbIdentifier, bool add, bool isReset);
 
     // Reload a keychain from the on-disk database
     void reloadKeychain(Keychain keychain);
+
+    // Register a keychain in the keychain cache
+    void registerKeychain(Keychain& kc);
+    void registerKeychainImpl(KeychainImpl* kc);
 
 	// Keychain list maintenance
 
@@ -108,7 +113,7 @@ public:
 	void setSearchList(SecPreferencesDomain domain, const KeychainList &keychainList);
 
     void rename(Keychain keychain, const char* newName);
-    void renameUnique(Keychain keychain, CFStringRef newName);
+    void renameUnique(Keychain keychain, CFStringRef newName, bool appendDbSuffix);
 
 	// Iff keychainOrArray is NULL return the default KeychainList in keychainList otherwise
 	// if keychainOrArray is a CFArrayRef containing SecKeychainRef's convernt it to KeychainList,
@@ -122,15 +127,19 @@ public:
 	static CFArrayRef convertFromKeychainList(const KeychainList &keychainList);
 
 	// Login keychain support
-    void login(AuthorizationRef authRef, UInt32 nameLength, const char* name);
+    void login(AuthorizationRef authRef, UInt32 nameLength, const char* name, bool isReset);
 	void login(ConstStringPtr name, ConstStringPtr password);
-	void login(UInt32 nameLength, const void *name, UInt32 passwordLength, const void *password);
+	void login(UInt32 nameLength, const void *name, UInt32 passwordLength, const void *password, bool isReset);
     void stashLogin();
     void stashKeychain();
 	void logout();
 	void changeLoginPassword(ConstStringPtr oldPassword, ConstStringPtr newPassword);
 	void changeLoginPassword(UInt32 oldPasswordLength, const void *oldPassword,  UInt32 newPasswordLength, const void *newPassword);
 
+    // Token login support
+    CFDataRef getTokenLoginMasterKey(UInt32 passwordLength, const void *password);
+    CFDataRef unwrapTokenLoginMasterKey(CFDictionaryRef masterKeyData, CFStringRef tokenID, CFStringRef pin);
+    
     void resetKeychain(Boolean resetSearchList);
 
 	Keychain defaultKeychain();
@@ -160,6 +169,37 @@ private:
     DLDbIdentifier makeDLDbIdentifier(const char* pathName);
     CssmClient::Db makeDb(DLDbIdentifier dLDbIdentifier);
 
+    // Use this when you want to be extra sure this keychain is removed from the
+    // cache. Iterates over the whole cache to find all instances. This function
+    // will take the cache map mutex.
+    void forceRemoveFromCache(KeychainImpl* inItemImpl);
+
+public:
+    // Change the DLDBIdentifier to reflect the files on-disk. Currently:
+    //   If the keychain is in ~/Library/Keychains and either
+    //     the .keychain-db version of the file exists or
+    //     (global integrity protection is on AND isReset is true)
+    //  then change the filename to include ".keychain-db".
+    //
+    //  Otherwise, leave it alone.
+    static DLDbIdentifier mungeDLDbIdentifier(const DLDbIdentifier& dLDbIdentifier, bool isReset);
+
+    // Due to compatibility requirements, we need the DLDbListCFPref lists to
+    // never see a ".keychain-db" filename. Call this function to give them what
+    // they need.
+    static DLDbIdentifier demungeDLDbIdentifier(const DLDbIdentifier& dLDbIdentifier);
+
+    // Take a filename, and give it the extension .keychain-db
+    static string makeKeychainDbFilename(const string& filename);
+
+    // Check if a keychain path is in some user's ~/Library/Keychains/ folder.
+    static bool pathInHomeLibraryKeychains(const string& path);
+
+    // Notify the StorageManager that you're accessing this keychain. Used for
+    // time-based caching purposes.
+    void tickleKeychain(KeychainImpl *keychainImpl);
+
+private:
     // Only add if not there yet.  Writes out CFPref and broadcasts KCPrefListChanged notification
 	void addAndNotify(const Keychain& keychainToAdd);
 
@@ -169,7 +209,7 @@ private:
     typedef map<DLDbIdentifier, KeychainImpl *> KeychainMap;
 	// Reference map of all keychains we know about that aren't deleted
 	// or removed
-    KeychainMap mKeychains;
+    KeychainMap mKeychainMap;
 
 	// The dynamic search list.
 	DynamicDLDBList mDynamicList;

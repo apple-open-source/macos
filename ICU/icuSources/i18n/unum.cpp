@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-*   Copyright (C) 1996-2014, International Business Machines
+*   Copyright (C) 1996-2015, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *******************************************************************************
 * Modification History:
@@ -57,6 +57,7 @@ unum_open(  UNumberFormatStyle    style,
     case UNUM_CURRENCY_PLURAL:
     case UNUM_CURRENCY_ACCOUNTING:
     case UNUM_CASH_CURRENCY:
+    case UNUM_CURRENCY_STANDARD:
         retVal = NumberFormat::createInstance(Locale(locale), style, *status);
         break;
 

@@ -89,7 +89,7 @@ public:
     /* New APIs for DVD */
 
     virtual IOReturn	reportKey(IOMemoryDescriptor *buffer,const DVDKeyClass keyClass,
-                                        const UInt32 lba,const UInt8 agid,const DVDKeyFormat keyFormat)	= 0;
+                                        const UInt32 lba,const UInt8 agid,const DVDKeyFormat keyFormat)	__attribute__ ((deprecated));
 
     virtual IOReturn	sendKey(IOMemoryDescriptor *buffer,const DVDKeyClass keyClass,
                                         const UInt8 agid,const DVDKeyFormat keyFormat)	= 0;
@@ -97,7 +97,11 @@ public:
     virtual IOReturn	readDVDStructure(IOMemoryDescriptor *buffer,const DVDStructureFormat format,
                                         const UInt32 address,const UInt8 layer,const UInt8 agid)	= 0;
 
-    OSMetaClassDeclareReservedUnused(IODVDBlockStorageDevice,  0);
+    virtual IOReturn	reportKey(IOMemoryDescriptor *buffer,const DVDKeyClass keyClass,
+                                        const UInt32 lba,const UInt8 blockCount,
+                                        const UInt8 agid,const DVDKeyFormat keyFormat); /* 10.12.0 */
+
+    OSMetaClassDeclareReservedUsed(IODVDBlockStorageDevice,  0);        /* reportKey */
     OSMetaClassDeclareReservedUnused(IODVDBlockStorageDevice,  1);
     OSMetaClassDeclareReservedUnused(IODVDBlockStorageDevice,  2);
     OSMetaClassDeclareReservedUnused(IODVDBlockStorageDevice,  3);

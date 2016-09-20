@@ -106,6 +106,8 @@ static const char * const authdb_upgrade_sql[] = {
     "INSERT INTO config VALUES('version', "AUTHDB_VERSION_STRING");"
 };
 
+static sqlite3 * _create_handle(authdb_t db);
+
 static int32_t
 _sqlite3_exec(sqlite3 * handle, const char * query)
 {
@@ -272,9 +274,13 @@ static void _handle_corrupt_db(authdb_connection_t dbconn)
         } else {
             LOGE("Tried to copy corrupt database at path %s, but we failed with SQLite error %i.", dbconn->db->db_path, rc);
         }
-        sqlite3_close(corrupt_db);
     }
-    
+
+	// SQLite documentation says:
+	// Whether or not an error occurs when it is opened, resources associated with the database connection handle should be released by passing it to sqlite3_close() when it is no longer required.
+	if (corrupt_db)
+		sqlite3_close(corrupt_db);
+
     _truncate_db(dbconn);
 }
 
@@ -285,7 +291,7 @@ static int32_t _db_maintenance(authdb_connection_t dbconn)
     
     authdb_transaction(dbconn, AuthDBTransactionNormal, ^bool(void) {
         
-        authdb_get_key_value(dbconn, "config", &config);
+        authdb_get_key_value(dbconn, "config", true, &config);
         
         // We don't have a config table
         if (NULL == config) {
@@ -293,7 +299,7 @@ static int32_t _db_maintenance(authdb_connection_t dbconn)
             s3e = _db_upgrade_from_version(dbconn, 0);
             require_noerr_action(s3e, done, LOGE("authdb: failed to initialize database %i", s3e));
             
-            s3e = authdb_get_key_value(dbconn, "config", &config);
+            s3e = authdb_get_key_value(dbconn, "config", true, &config);
             require_noerr_action(s3e, done, LOGE("authdb: failed to get config %i", s3e));
         }
         
@@ -346,13 +352,17 @@ static bool _is_busy(int32_t rc)
     return SQLITE_BUSY == rc || SQLITE_LOCKED == rc;
 }
 
-static void _checkResult(authdb_connection_t dbconn, int32_t rc, const char * fn_name, sqlite3_stmt * stmt)
+static void _checkResult(authdb_connection_t dbconn, int32_t rc, const char * fn_name, sqlite3_stmt * stmt, const bool skip_maintenance)
 {
     bool isCorrupt = (SQLITE_CORRUPT == rc) || (SQLITE_NOTADB == rc) || (SQLITE_IOERR == rc);
     
     if (isCorrupt) {
+		if (skip_maintenance) {
+			LOGV("authdb: corrupted db, skipping maintenance %s %s", fn_name, sqlite3_errmsg(dbconn->handle));
+		} else {
         _handle_corrupt_db(dbconn);
         authdb_maintenance(dbconn);
+		}
     } else if (SQLITE_CONSTRAINT == rc || SQLITE_READONLY == rc) {
         if (stmt) {
             LOGV("authdb: %s %s for %s", fn_name, sqlite3_errmsg(dbconn->handle), sqlite3_sql(stmt));
@@ -457,7 +467,7 @@ authdb_connection_t authdb_connection_acquire(authdb_t db)
 
 void authdb_connection_release(authdb_connection_t * dbconn)
 {
-    if (!dbconn || !(*dbconn))
+    if (!(*dbconn))
         return;
 
     authdb_connection_t tmp = *dbconn;
@@ -479,6 +489,9 @@ static bool _db_check_corrupted(authdb_connection_t dbconn)
     bool isCorrupted = true;
     sqlite3_stmt *stmt = NULL;
     int32_t rc;
+
+	if (!dbconn->handle)
+		return true;
     
     rc = sqlite3_prepare_v2(dbconn->handle, "PRAGMA integrity_check;", -1, &stmt, NULL);
     if (rc == SQLITE_LOCKED || rc == SQLITE_BUSY) {
@@ -517,13 +530,19 @@ bool authdb_maintenance(authdb_connection_t dbconn)
         _handle_corrupt_db(dbconn);
     }
 
-    _db_maintenance(dbconn);
-    
-    rc = authdb_get_key_value(dbconn, "config", &config);
-    require_noerr_action(rc, done, LOGV("authdb: maintenance failed %i", rc));
-    
+	if (dbconn->handle == NULL) {
+		dbconn->handle = _create_handle(dbconn->db);
+	}
+
+	require_action(dbconn->handle, done, LOGE("authdb: maintenance cannot open database"));
+
+	_db_maintenance(dbconn);
+
+	rc = authdb_get_key_value(dbconn, "config", true, &config);
+	require_noerr_action(rc, done, LOGV("authdb: maintenance failed %i", rc));
+
     _db_load_data(dbconn, config);
-    
+
 done:
     CFReleaseSafe(config);
     LOGD("authdb: finished maintenance");
@@ -537,13 +556,13 @@ authdb_exec(authdb_connection_t dbconn, const char * query)
     require(query != NULL, done);
     
     rc = _sqlite3_exec(dbconn->handle, query);
-    _checkResult(dbconn, rc, __FUNCTION__, NULL);
+    _checkResult(dbconn, rc, __FUNCTION__, NULL, false);
     
 done:
     return rc;
 }
 
-static int32_t _prepare(authdb_connection_t dbconn, const char * sql, sqlite3_stmt ** out_stmt)
+static int32_t _prepare(authdb_connection_t dbconn, const char * sql, const bool skip_maintenance, sqlite3_stmt ** out_stmt)
 {
     int32_t rc;
     sqlite3_stmt * stmt = NULL; 
@@ -557,7 +576,7 @@ static int32_t _prepare(authdb_connection_t dbconn, const char * sql, sqlite3_st
     *out_stmt = stmt;
     
 done:
-    _checkResult(dbconn, rc, __FUNCTION__, stmt);
+    _checkResult(dbconn, rc, __FUNCTION__, stmt, skip_maintenance);
     return rc;
 }
 
@@ -629,7 +648,7 @@ static int32_t _bindItemsAtIndex(sqlite3_stmt * stmt, int col, auth_items_t item
     return rc;
 }
 
-int32_t authdb_get_key_value(authdb_connection_t dbconn, const char * table, auth_items_t * out_items)
+int32_t authdb_get_key_value(authdb_connection_t dbconn, const char * table, const bool skip_maintenance, auth_items_t * out_items)
 {
     int32_t rc = SQLITE_ERROR;
     char * query = NULL;
@@ -641,7 +660,7 @@ int32_t authdb_get_key_value(authdb_connection_t dbconn, const char * table, aut
     
     asprintf(&query, "SELECT * FROM %s", table);
     
-    rc = _prepare(dbconn, query, &stmt);
+    rc = _prepare(dbconn, query, skip_maintenance, &stmt);
     require_noerr(rc, done);
     
     items = auth_items_create();
@@ -651,7 +670,7 @@ int32_t authdb_get_key_value(authdb_connection_t dbconn, const char * table, aut
                 _parseItemsAtIndex(stmt, 1, items, (const char*)sqlite3_column_text(stmt, 0));
                 break;
             default:
-                _checkResult(dbconn, rc, __FUNCTION__, stmt);
+                _checkResult(dbconn, rc, __FUNCTION__, stmt, skip_maintenance);
                 if (_is_busy(rc)) {
                     sleep(AUTHDB_BUSY_DELAY);
                 } else {
@@ -683,19 +702,19 @@ int32_t authdb_set_key_value(authdb_connection_t dbconn, const char * table, aut
     
     asprintf(&query, "INSERT OR REPLACE INTO %s VALUES (?,?)", table);
     
-    rc = _prepare(dbconn, query, &stmt);
+    rc = _prepare(dbconn, query, false, &stmt);
     require_noerr(rc, done);
     
     auth_items_iterate(items, ^bool(const char *key) {
         sqlite3_reset(stmt);
-        _checkResult(dbconn, rc, __FUNCTION__, stmt);
+        _checkResult(dbconn, rc, __FUNCTION__, stmt, false);
         
         sqlite3_bind_text(stmt, 1, key, -1, NULL);
         _bindItemsAtIndex(stmt, 2, items, key);
         
         rc = sqlite3_step(stmt);
         if (rc != SQLITE_DONE) {
-            _checkResult(dbconn, rc, __FUNCTION__, stmt);
+            _checkResult(dbconn, rc, __FUNCTION__, stmt, false);
             LOGV("authdb: set_key_value, step (%i) %s", rc, sqlite3_errmsg(dbconn->handle));
         }
         
@@ -770,7 +789,7 @@ bool authdb_step(authdb_connection_t dbconn, const char * sql, void (^bind_stmt)
     
     require_action(sql != NULL, done, rc = SQLITE_ERROR);
     
-    rc = _prepare(dbconn, sql, &stmt);
+    rc = _prepare(dbconn, sql, false, &stmt);
     require_noerr(rc, done);
     
     if (bind_stmt) {
@@ -810,7 +829,7 @@ bool authdb_step(authdb_connection_t dbconn, const char * sql, void (^bind_stmt)
     }
     
 done:
-    _checkResult(dbconn, rc, __FUNCTION__, stmt);
+    _checkResult(dbconn, rc, __FUNCTION__, stmt, false);
     sqlite3_finalize(stmt);
     return rc == SQLITE_DONE;
 }
@@ -1006,15 +1025,27 @@ static sqlite3 * _create_handle(authdb_t db)
     int32_t rc = sqlite3_open_v2(db->db_path, &handle, SQLITE_OPEN_READWRITE, NULL);
     
     if (rc != SQLITE_OK) {
+		LOGE("authdb: open %s (%i) %s", db->db_path, rc, handle ? sqlite3_errmsg(handle) : "no memory for handle");
+		if (handle) {
+			sqlite3_close(handle);
+		}
         char * tmp = dirname(db->db_path);
         if (tmp) {
             mkpath_np(tmp, 0700);
-        }
-        rc = sqlite3_open_v2(db->db_path, &handle, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL);
-        dbcreated = true;
-    }
-    require_noerr_action(rc, done, LOGE("authdb: open %s (%i) %s", db->db_path, rc, sqlite3_errmsg(handle)));
-    
+		}
+		rc = sqlite3_open_v2(db->db_path, &handle, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL);
+		dbcreated = true;
+
+		if (rc != SQLITE_OK) {
+			LOGE("authdb: create %s (%i) %s", db->db_path, rc, handle ? sqlite3_errmsg(handle) : "no memory for handle");
+			if (handle) {
+				sqlite3_close(handle);
+				handle = NULL;
+			}
+			goto done;
+		}
+	}
+
     if (_sql_profile_enabled()) {
         sqlite3_profile(handle, _profile, NULL);
     }

@@ -63,12 +63,12 @@
 #include <net/if_dl.h>
 #include <syslog.h>
 #include <sys/uio.h>
+#include "ipconfigd_globals.h"
 #include "RTADVSocket.h"
 #include "util.h"
 #include "interfaces.h"
 #include "FDSet.h"
 #include "dynarray.h"
-#include "ipconfigd_globals.h"
 #include "symbol_scope.h"
 #include "timer.h"
 #include "IPv6Sock_Compat.h"
@@ -268,7 +268,7 @@ parse_nd_options(ptrlist_t * options_p, const char * buf, int len)
     for (scan = buf; left >= sizeof(*opt); ) {
 	opt = (struct nd_opt_hdr *)scan;
 	opt_len = opt->nd_opt_len * ND_OPT_ALIGN;
-	if (opt_len > left) {
+	if (opt_len == 0 || opt_len > left) {
 	    /* truncated packet */
 	    ptrlist_free(options_p);
 	    break;
@@ -482,7 +482,7 @@ RTADVSocketRead(void * arg1, void * arg2)
 	return;
     }
     if (n < sizeof(struct nd_router_advert)) {
-	my_log(LOG_NOTICE, "RTADVSocketRead: packet size(%d) is too short", n);
+	my_log(LOG_NOTICE, "RTADVSocketRead: packet size(%ld) is too short", n);
 	return;
     }
     if (!IN6_IS_ADDR_LINKLOCAL(&from.sin6_addr)) {

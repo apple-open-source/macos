@@ -116,7 +116,7 @@ OSStatus HIDNextItem(HIDReportDescriptor *ptDescriptor)
 	if (iHeader==kHIDLongItemHeader)
 	{
 		iSize = psD[(*piX)++];
-		ptItem->tag = *piX++;
+		ptItem->tag = (*piX)++;
 	}
 /*
  *	Short Item Header

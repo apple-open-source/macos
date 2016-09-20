@@ -34,16 +34,16 @@
  @constant WKUserScriptInjectionTimeAtDocumentStart    Inject the script after the document element has been created, but before any other content has been loaded.
  @constant WKUserScriptInjectionTimeAtDocumentEnd      Inject the script after the document has finished loading, but before any subresources may have finished loading.
  */
-WK_ASSUME_NONNULL_BEGIN
+NS_ASSUME_NONNULL_BEGIN
 
 typedef NS_ENUM(NSInteger, WKUserScriptInjectionTime) {
     WKUserScriptInjectionTimeAtDocumentStart,
     WKUserScriptInjectionTimeAtDocumentEnd
-} WK_ENUM_AVAILABLE(10_10, 8_0);
+} WK_API_AVAILABLE(macosx(10.10), ios(8.0));
 
 /*! A @link WKUserScript @/link object represents a script that can be injected into webpages.
  */
-WK_CLASS_AVAILABLE(10_10, 8_0)
+WK_CLASS_AVAILABLE(macosx(10.10), ios(8.0))
 @interface WKUserScript : NSObject <NSCopying>
 
 /* @abstract The script source code. */
@@ -64,6 +64,6 @@ WK_CLASS_AVAILABLE(10_10, 8_0)
 
 @end
 
-WK_ASSUME_NONNULL_END
+NS_ASSUME_NONNULL_END
 
 #endif

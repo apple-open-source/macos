@@ -45,20 +45,20 @@ class FunctorInputCursor final : public InputCursor {
 public:
     static Ref<FunctorInputCursor> create(RefPtr<ReplaySessionSegment>&& segment)
     {
-        return adoptRef(*new FunctorInputCursor(WTF::move(segment)));
+        return adoptRef(*new FunctorInputCursor(WTFMove(segment)));
     }
 
     // InputCursor
-    virtual bool isCapturing() const override { return false; }
-    virtual bool isReplaying() const override { return false; }
+    bool isCapturing() const override { return false; }
+    bool isReplaying() const override { return false; }
 
-    virtual void storeInput(std::unique_ptr<NondeterministicInputBase>) override;
-    virtual NondeterministicInputBase* uncheckedLoadInput(InputQueue) override;
+    void storeInput(std::unique_ptr<NondeterministicInputBase>) override;
+    NondeterministicInputBase* uncheckedLoadInput(InputQueue) override;
 
     template<typename Functor>
     typename Functor::ReturnType forEachInputInQueue(InputQueue, Functor&);
 protected:
-    virtual NondeterministicInputBase* loadInput(InputQueue, const String&) override;
+    NondeterministicInputBase* loadInput(InputQueue, const String&) override;
 private:
     FunctorInputCursor(RefPtr<ReplaySessionSegment>&&);
 
@@ -75,7 +75,7 @@ typename Functor::ReturnType FunctorInputCursor::forEachInputInQueue(InputQueue 
 }
 
 inline FunctorInputCursor::FunctorInputCursor(RefPtr<ReplaySessionSegment>&& segment)
-    : m_segment(WTF::move(segment))
+    : m_segment(WTFMove(segment))
 {
 }
 

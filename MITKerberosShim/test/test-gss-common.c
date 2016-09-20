@@ -228,6 +228,10 @@ int ReadEncryptedToken (int inSocket, const gss_ctx_id_t inContext,
     gss_buffer_desc micBuffer = { micLength, micToken };
     if(!err) {
           majorStatus = gss_verify_mic(&minorStatus, inContext, &outputBuffer, &micBuffer, GSS_C_QOP_DEFAULT);
+        if (majorStatus != GSS_S_COMPLETE) {
+            fprintf(stderr, "failed to verify token");
+            err = EAUTH;
+        }
     }
     
     if (!err) {
@@ -277,7 +281,11 @@ int WriteEncryptedToken (int inSocket, const gss_ctx_id_t inContext,
 	OM_uint32 back;
 	majorStatus = gss_wrap_size_limit(&minorStatus, inContext, encrypt, GSS_C_QOP_DEFAULT,
 			        (OM_uint32)inTokenLength, &back);
-        
+        if (majorStatus != GSS_S_COMPLETE) {
+            printGSSErrors ("gss_wrap_size_limit", majorStatus, minorStatus);
+            err = EAUTH;
+        }
+
         majorStatus = gss_wrap (&minorStatus, inContext, encrypt, GSS_C_QOP_DEFAULT,
                                 &inputBuffer, &encrypted, &outputBuffer);
         if (majorStatus != GSS_S_COMPLETE) { 
@@ -294,8 +302,14 @@ int WriteEncryptedToken (int inSocket, const gss_ctx_id_t inContext,
         printf ("Unencrypted token:\n");
         PrintBuffer (inToken, inTokenLength);
 	majorStatus = gss_get_mic(&minorStatus, inContext, GSS_C_QOP_DEFAULT, &outputBuffer, &mic);
-	err = WriteToken (inSocket, outputBuffer.value, outputBuffer.length);
-	//err = WriteToken (inSocket, mic.value, mic.length);
+        if (majorStatus != GSS_S_COMPLETE) {
+            printGSSErrors ("gss_get_mic", majorStatus, minorStatus);
+            err = EAUTH;
+        }
+
+        if (!err) {
+            err = WriteToken (inSocket, outputBuffer.value, outputBuffer.length);
+        }
     }
     
     if (!err) {
@@ -345,7 +359,8 @@ void printGSSErrors (const char *inRoutineName, OM_uint32 inMajorStatus, OM_uint
     do {
         majorStatus = gss_display_status (&minorStatus, inMinorStatus, GSS_C_MECH_CODE,
                                           GSS_C_NULL_OID, &messageContext, &errorBuffer);
-        fprintf (stderr,"      minor error <%d> %s\n", count, (char *) errorBuffer.value);
+        if (majorStatus == GSS_S_COMPLETE)
+            fprintf (stderr,"      minor error <%d> %s\n", count, (char *) errorBuffer.value);
         ++count;
-    } while (messageContext != 0);
+    } while (majorStatus == GSS_S_COMPLETE && messageContext != 0);
 }

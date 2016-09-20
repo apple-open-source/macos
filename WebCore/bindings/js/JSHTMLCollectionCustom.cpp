@@ -40,40 +40,38 @@ using namespace JSC;
 
 namespace WebCore {
 
-bool JSHTMLCollection::canGetItemsForName(ExecState*, HTMLCollection* collection, PropertyName propertyName)
+bool JSHTMLCollection::nameGetter(ExecState* exec, PropertyName propertyName, JSValue& value)
 {
-    return collection->hasNamedItem(propertyNameToAtomicString(propertyName));
+    ASSERT_WITH_MESSAGE(wrapped().type() != FormControls, "Should call the subclass' nameGetter");
+    ASSERT_WITH_MESSAGE(wrapped().type() != SelectOptions, "Should call the subclass' nameGetter");
+
+    auto item = wrapped().namedItem(propertyNameToAtomicString(propertyName));
+    if (!item)
+        return false;
+
+    value = toJS(exec, globalObject(), *item);
+    return true;
 }
 
-EncodedJSValue JSHTMLCollection::nameGetter(ExecState* exec, JSObject* slotBase, EncodedJSValue, PropertyName propertyName)
+JSValue toJSNewlyCreated(ExecState*, JSDOMGlobalObject* globalObject, Ref<HTMLCollection>&& collection)
 {
-    JSHTMLCollection* collection = jsCast<JSHTMLCollection*>(slotBase);
-    const AtomicString& name = propertyNameToAtomicString(propertyName);
-    return JSValue::encode(toJS(exec, collection->globalObject(), collection->impl().namedItem(name)));
-}
-
-JSValue toJS(ExecState*, JSDOMGlobalObject* globalObject, HTMLCollection* collection)
-{
-    if (!collection)
-        return jsNull();
-
-    JSObject* wrapper = getCachedWrapper(globalObject->world(), collection);
-
-    if (wrapper)
-        return wrapper;
-
     switch (collection->type()) {
     case FormControls:
-        return CREATE_DOM_WRAPPER(globalObject, HTMLFormControlsCollection, collection);
+        return CREATE_DOM_WRAPPER(globalObject, HTMLFormControlsCollection, WTFMove(collection));
     case SelectOptions:
-        return CREATE_DOM_WRAPPER(globalObject, HTMLOptionsCollection, collection);
+        return CREATE_DOM_WRAPPER(globalObject, HTMLOptionsCollection, WTFMove(collection));
     case DocAll:
-        return CREATE_DOM_WRAPPER(globalObject, HTMLAllCollection, collection);
+        return CREATE_DOM_WRAPPER(globalObject, HTMLAllCollection, WTFMove(collection));
     default:
         break;
     }
 
-    return CREATE_DOM_WRAPPER(globalObject, HTMLCollection, collection);
+    return CREATE_DOM_WRAPPER(globalObject, HTMLCollection, WTFMove(collection));
+}
+
+JSValue toJS(ExecState* state, JSDOMGlobalObject* globalObject, HTMLCollection& collection)
+{
+    return wrap(state, globalObject, collection);
 }
 
 } // namespace WebCore

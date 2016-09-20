@@ -81,6 +81,11 @@
 #include "crypto_openssl.h"
 #include "vendorid.h"
 
+#if !TARGET_OS_EMBEDDED
+#include <sandbox.h>
+#endif // !TARGET_OS_EMBEDDED
+
+
 #include <CoreFoundation/CoreFoundation.h>
 #include "power_mgmt.h"
 #include "preferences.h"
@@ -150,16 +155,20 @@ main(ac, av)
 {
 	int error;
 
+#if !TARGET_OS_EMBEDDED
+	char *errorbuf;
+	if (sandbox_init("racoon", SANDBOX_NAMED, &errorbuf) == -1) {
+		plog(ASL_LEVEL_ERR, "initializing sandbox failed %s", errorbuf);
+		sandbox_free_error(errorbuf);
+		return -1;
+	}
+#endif // !TARGET_OS_EMBEDDED
+
 	/*
 	 * Check IPSec plist
 	 */
 	prefsinit();
 	ploginit();
-
-	/* 
-	 * racoon is not sandboxed on Mac OS.
-	 * On embedded, racoon is sandboxed with a seatbelt-profiles entitlement.
-	 */
 
 	if (geteuid() != 0) {
 		errx(1, "must be root to invoke this program.");

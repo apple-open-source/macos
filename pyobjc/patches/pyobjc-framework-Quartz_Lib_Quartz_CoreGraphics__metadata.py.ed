@@ -1,4 +1,5 @@
 g/'CGDisplayBaseAddress': ([^)]*), /s///
 g/'CGDisplayAddressForPosition': ([^)]*), /s///
 g/\^c/s//*/g
+g/\'CGColorSpaceCopyICCProfile/s//\'CGColorSpaceCopyICCData': (b'^{__CFData=}^{CGColorSpace=}', '', {'retval': {'already_cfretained': True}}), 'CGColorSpaceCopyICCProfile/
 w

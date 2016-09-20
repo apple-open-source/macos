@@ -119,8 +119,7 @@ netfilter_read_linux(pcap_t *handle, int max_packets, pcap_handler callback, u_c
 		if (NFNL_SUBSYS_ID(nlh->nlmsg_type) == NFNL_SUBSYS_ULOG && 
 			NFNL_MSG_TYPE(nlh->nlmsg_type) == NFULNL_MSG_PACKET) 
 				type = NFLOG;
-
-		if (NFNL_SUBSYS_ID(nlh->nlmsg_type) == NFNL_SUBSYS_QUEUE && 
+		else if (NFNL_SUBSYS_ID(nlh->nlmsg_type) == NFNL_SUBSYS_QUEUE &&
 			NFNL_MSG_TYPE(nlh->nlmsg_type) == NFQNL_MSG_PACKET)
 				type = NFQUEUE;
 
@@ -128,7 +127,7 @@ netfilter_read_linux(pcap_t *handle, int max_packets, pcap_handler callback, u_c
 			const unsigned char *payload = NULL;
 			struct pcap_pkthdr pkth;
 
-			const struct nfgenmsg *nfg;
+			const struct nfgenmsg *nfg = NULL;
 			int id = 0;
 
 			if (handle->linktype != DLT_NFLOG) {
@@ -195,6 +194,9 @@ netfilter_read_linux(pcap_t *handle, int max_packets, pcap_handler callback, u_c
 
 			if (type == NFQUEUE) {
 				/* XXX, possible responses: NF_DROP, NF_ACCEPT, NF_STOLEN, NF_QUEUE, NF_REPEAT, NF_STOP */
+				/* if type == NFQUEUE, handle->linktype is always != DLT_NFLOG,
+				   so nfg is always initialized to NLMSG_DATA(nlh). */
+				if (nfg != NULL)
 				nfqueue_send_verdict(handle, ntohs(nfg->res_id), id, NF_ACCEPT);
 			}
 		}

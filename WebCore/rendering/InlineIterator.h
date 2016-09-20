@@ -25,11 +25,27 @@
 
 #include "BidiRun.h"
 #include "RenderBlockFlow.h"
+#include "RenderChildIterator.h"
 #include "RenderInline.h"
 #include "RenderText.h"
 #include <wtf/StdLibExtras.h>
 
 namespace WebCore {
+
+struct BidiIsolatedRun {
+    BidiIsolatedRun(RenderObject& object, unsigned position, RenderElement& root, BidiRun& runToReplace)
+        : object(object)
+        , root(root)
+        , runToReplace(runToReplace)
+        , position(position)
+    {
+    }
+
+    RenderObject& object;
+    RenderElement& root;
+    BidiRun& runToReplace;
+    unsigned position;
+};
 
 // This class is used to RenderInline subtrees, stepping by character within the
 // text children. InlineIterator will use bidiNext to find the next RenderText
@@ -194,15 +210,15 @@ enum EmptyInlineBehavior {
 
 static bool isEmptyInline(const RenderInline& renderer)
 {
-    for (RenderObject* current = renderer.firstChild(); current; current = current->nextSibling()) {
-        if (current->isFloatingOrOutOfFlowPositioned())
+    for (auto& current : childrenOfType<RenderObject>(renderer)) {
+        if (current.isFloatingOrOutOfFlowPositioned())
             continue;
-        if (is<RenderText>(*current)) {
-            if (!downcast<RenderText>(*current).isAllCollapsibleWhitespace())
+        if (is<RenderText>(current)) {
+            if (!downcast<RenderText>(current).isAllCollapsibleWhitespace())
                 return false;
             continue;
         }
-        if (!is<RenderInline>(*current) || !isEmptyInline(downcast<RenderInline>(*current)))
+        if (!is<RenderInline>(current) || !isEmptyInline(downcast<RenderInline>(current)))
             return false;
     }
     return true;
@@ -442,7 +458,7 @@ ALWAYS_INLINE UCharDirection InlineIterator::direction() const
 }
 
 template<>
-inline void InlineBidiResolver::increment()
+inline void InlineBidiResolver::incrementInternal()
 {
     m_current.increment(this);
 }
@@ -475,13 +491,14 @@ static inline unsigned numberOfIsolateAncestors(const InlineIterator& iter)
 
 // FIXME: This belongs on InlineBidiResolver, except it's a template specialization
 // of BidiResolver which knows nothing about RenderObjects.
-static inline void addPlaceholderRunForIsolatedInline(InlineBidiResolver& resolver, RenderObject& obj, unsigned pos)
+static inline void addPlaceholderRunForIsolatedInline(InlineBidiResolver& resolver, RenderObject& obj, unsigned pos, RenderElement& root)
 {
-    BidiRun* isolatedRun = new BidiRun(pos, 0, obj, resolver.context(), resolver.dir());
-    resolver.runs().addRun(isolatedRun);
+    std::unique_ptr<BidiRun> isolatedRun = std::make_unique<BidiRun>(pos, pos, obj, resolver.context(), resolver.dir());
     // FIXME: isolatedRuns() could be a hash of object->run and then we could cheaply
     // ASSERT here that we didn't create multiple objects for the same inline.
-    resolver.isolatedRuns().append(isolatedRun);
+    resolver.setWhitespaceCollapsingTransitionForIsolatedRun(*isolatedRun, resolver.whitespaceCollapsingState().currentTransition());
+    resolver.isolatedRuns().append(BidiIsolatedRun(obj, pos, root, *isolatedRun));
+    resolver.runs().appendRun(WTFMove(isolatedRun));
 }
 
 class IsolateTracker {
@@ -506,26 +523,21 @@ public:
     void embed(UCharDirection, BidiEmbeddingSource) { }
     void commitExplicitEmbedding() { }
 
-    void addFakeRunIfNecessary(RenderObject& obj, unsigned pos, InlineBidiResolver& resolver)
+    void addFakeRunIfNecessary(RenderObject& obj, unsigned pos, unsigned end, RenderElement& root, InlineBidiResolver& resolver)
     {
         // We only need to add a fake run for a given isolated span once during each call to createBidiRunsForLine.
         // We'll be called for every span inside the isolated span so we just ignore subsequent calls.
         // We also avoid creating a fake run until we hit a child that warrants one, e.g. we skip floats.
-        if (m_haveAddedFakeRunForRootIsolate || RenderBlock::shouldSkipCreatingRunsForObject(&obj))
+        if (RenderBlock::shouldSkipCreatingRunsForObject(obj))
             return;
-        m_haveAddedFakeRunForRootIsolate = true;
-        // obj and pos together denote a single position in the inline, from which the parsing of the isolate will start.
-        // We don't need to mark the end of the run because this is implicit: it is either endOfLine or the end of the
-        // isolate, when we call createBidiRunsForLine it will stop at whichever comes first.
-        addPlaceholderRunForIsolatedInline(resolver, obj, pos);
-        // FIXME: Inline isolates don't work properly with collapsing whitespace, see webkit.org/b/109624
-        // For now, if we enter an isolate between midpoints, we increment our current midpoint or else
-        // we'll leave the isolate and ignore the content that follows.
-        MidpointState<InlineIterator>& midpointState = resolver.midpointState();
-        if (midpointState.betweenMidpoints() && midpointState.midpoints()[midpointState.currentMidpoint()].renderer() == &obj) {
-            midpointState.setBetweenMidpoints(false);
-            midpointState.incrementCurrentMidpoint();
+        if (!m_haveAddedFakeRunForRootIsolate) {
+            // obj and pos together denote a single position in the inline, from which the parsing of the isolate will start.
+            // We don't need to mark the end of the run because this is implicit: it is either endOfLine or the end of the
+            // isolate, when we call createBidiRunsForLine it will stop at whichever comes first.
+            addPlaceholderRunForIsolatedInline(resolver, obj, pos, root);
         }
+        m_haveAddedFakeRunForRootIsolate = true;
+        RenderBlockFlow::appendRunsForObject(nullptr, pos, end, obj, resolver);
     }
 
 private:
@@ -533,8 +545,8 @@ private:
     bool m_haveAddedFakeRunForRootIsolate;
 };
 
-template <>
-inline void InlineBidiResolver::appendRun()
+template<>
+inline void InlineBidiResolver::appendRunInternal()
 {
     if (!m_emptyRun && !m_eor.atEnd() && !m_reachedEndOfLine) {
         // Keep track of when we enter/leave "unicode-bidi: isolate" inlines.
@@ -545,9 +557,9 @@ inline void InlineBidiResolver::appendRun()
         RenderObject* obj = m_sor.renderer();
         while (obj && obj != m_eor.renderer() && obj != endOfLine.renderer()) {
             if (isolateTracker.inIsolate())
-                isolateTracker.addFakeRunIfNecessary(*obj, start, *this);
+                isolateTracker.addFakeRunIfNecessary(*obj, start, obj->length(), *m_sor.root(), *this);
             else
-                RenderBlockFlow::appendRunsForObject(m_runs, start, obj->length(), obj, *this);
+                RenderBlockFlow::appendRunsForObject(&m_runs, start, obj->length(), *obj, *this);
             // FIXME: start/obj should be an InlineIterator instead of two separate variables.
             start = 0;
             obj = bidiNextSkippingEmptyInlines(*m_sor.root(), obj, &isolateTracker);
@@ -561,9 +573,9 @@ inline void InlineBidiResolver::appendRun()
             // It's OK to add runs for zero-length RenderObjects, just don't make the run larger than it should be
             int end = obj->length() ? pos + 1 : 0;
             if (isolateTracker.inIsolate())
-                isolateTracker.addFakeRunIfNecessary(*obj, start, *this);
+                isolateTracker.addFakeRunIfNecessary(*obj, start, obj->length(), *m_sor.root(), *this);
             else
-                RenderBlockFlow::appendRunsForObject(m_runs, start, end, obj, *this);
+                RenderBlockFlow::appendRunsForObject(&m_runs, start, end, *obj, *this);
         }
 
         m_eor.increment();

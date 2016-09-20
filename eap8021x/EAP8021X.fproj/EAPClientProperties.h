@@ -196,7 +196,6 @@
 #define kEAPClientPropEAPFASTProvisionPAC	CFSTR("EAPFASTProvisionPAC") /* boolean (false) */
 #define kEAPClientPropEAPFASTProvisionPACAnonymously	CFSTR("EAPFASTProvisionPACAnonymously") /* boolean (false) */
 
-
 /*
  * for EAP-MSCHAPv2
  *

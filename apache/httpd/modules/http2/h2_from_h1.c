@@ -31,7 +31,6 @@
 #include "h2_response.h"
 #include "h2_from_h1.h"
 #include "h2_task.h"
-#include "h2_task_output.h"
 #include "h2_util.h"
 
 
@@ -49,12 +48,6 @@ h2_from_h1 *h2_from_h1_create(int stream_id, apr_pool_t *pool)
     return from_h1;
 }
 
-apr_status_t h2_from_h1_destroy(h2_from_h1 *from_h1)
-{
-    from_h1->bb = NULL;
-    return APR_SUCCESS;
-}
-
 static void set_state(h2_from_h1 *from_h1, h2_from_h1_state_t state)
 {
     if (from_h1->state != state) {
@@ -70,12 +63,14 @@ h2_response *h2_from_h1_get_response(h2_from_h1 *from_h1)
 static apr_status_t make_h2_headers(h2_from_h1 *from_h1, request_rec *r)
 {
     from_h1->response = h2_response_create(from_h1->stream_id, 0,
-                                           from_h1->http_status, from_h1->hlines,
+                                           from_h1->http_status, 
+                                           from_h1->hlines,
+                                           r->notes,
                                            from_h1->pool);
     from_h1->content_length = from_h1->response->content_length;
     from_h1->chunked = r->chunked;
     
-    ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, r->connection,
+    ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, r->connection, APLOGNO(03197)
                   "h2_from_h1(%d): converted headers, content-length: %d"
                   ", chunked=%d",
                   from_h1->stream_id, (int)from_h1->content_length, 
@@ -258,7 +253,7 @@ static int uniq_field_values(void *d, const char *key, const char *val)
          */
         for (i = 0, strpp = (char **) values->elts; i < values->nelts;
              ++i, ++strpp) {
-            if (*strpp && strcasecmp(*strpp, start) == 0) {
+            if (*strpp && apr_strnatcasecmp(*strpp, start) == 0) {
                 break;
             }
         }
@@ -296,7 +291,8 @@ static void fix_vary(request_rec *r)
     }
 }
 
-static void set_basic_http_header(request_rec *r, apr_table_t *headers)
+void h2_from_h1_set_basic_http_header(apr_table_t *headers, request_rec *r,
+                                      apr_pool_t *pool)
 {
     char *date = NULL;
     const char *proxy_date = NULL;
@@ -307,7 +303,7 @@ static void set_basic_http_header(request_rec *r, apr_table_t *headers)
      * keep the set-by-proxy server and date headers, otherwise
      * generate a new server header / date header
      */
-    if (r->proxyreq != PROXYREQ_NONE) {
+    if (r && r->proxyreq != PROXYREQ_NONE) {
         proxy_date = apr_table_get(r->headers_out, "Date");
         if (!proxy_date) {
             /*
@@ -315,25 +311,29 @@ static void set_basic_http_header(request_rec *r, apr_table_t *headers)
              * our own Date header and pass it over to proxy_date later to
              * avoid a compiler warning.
              */
-            date = apr_palloc(r->pool, APR_RFC822_DATE_LEN);
+            date = apr_palloc(pool, APR_RFC822_DATE_LEN);
             ap_recent_rfc822_date(date, r->request_time);
         }
         server = apr_table_get(r->headers_out, "Server");
     }
     else {
-        date = apr_palloc(r->pool, APR_RFC822_DATE_LEN);
-        ap_recent_rfc822_date(date, r->request_time);
+        date = apr_palloc(pool, APR_RFC822_DATE_LEN);
+        ap_recent_rfc822_date(date, r? r->request_time : apr_time_now());
     }
     
     apr_table_setn(headers, "Date", proxy_date ? proxy_date : date );
-    apr_table_unset(r->headers_out, "Date");
+    if (r) {
+        apr_table_unset(r->headers_out, "Date");
+    }
     
     if (!server && *us) {
         server = us;
     }
     if (server) {
         apr_table_setn(headers, "Server", server);
-        apr_table_unset(r->headers_out, "Server");
+        if (r) {
+            apr_table_unset(r->headers_out, "Server");
+        }
     }
 }
 
@@ -408,7 +408,7 @@ static h2_response *create_response(h2_from_h1 *from_h1, request_rec *r)
         
         while (field && (token = ap_get_list_item(r->pool, &field)) != NULL) {
             for (i = 0; i < r->content_languages->nelts; ++i) {
-                if (!strcasecmp(token, languages[i]))
+                if (!apr_strnatcasecmp(token, languages[i]))
                     break;
             }
             if (i == r->content_languages->nelts) {
@@ -450,7 +450,7 @@ static h2_response *create_response(h2_from_h1 *from_h1, request_rec *r)
     
     headers = apr_table_make(r->pool, 10);
     
-    set_basic_http_header(r, headers);
+    h2_from_h1_set_basic_http_header(headers, r, r->pool);
     if (r->status == HTTP_NOT_MODIFIED) {
         apr_table_do((int (*)(void *, const char *, const char *)) copy_header,
                      (void *) headers, r->headers_out,
@@ -477,7 +477,7 @@ static h2_response *create_response(h2_from_h1 *from_h1, request_rec *r)
 apr_status_t h2_response_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 {
     h2_task *task = f->ctx;
-    h2_from_h1 *from_h1 = task->output? task->output->from_h1 : NULL;
+    h2_from_h1 *from_h1 = task->output.from_h1;
     request_rec *r = f->r;
     apr_bucket *b;
     ap_bucket_error *eb = NULL;
@@ -487,7 +487,7 @@ apr_status_t h2_response_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
     ap_log_cerror(APLOG_MARK, APLOG_TRACE1, 0, f->c,
                   "h2_from_h1(%d): output_filter called", from_h1->stream_id);
     
-    if (r->header_only && task->output && from_h1->response) {
+    if (r->header_only && from_h1->response) {
         /* throw away any data after we have compiled the response */
         apr_brigade_cleanup(bb);
         return OK;
@@ -507,7 +507,7 @@ apr_status_t h2_response_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
          */
         if (AP_BUCKET_IS_EOC(b)) {
             ap_remove_output_filter(f);
-            ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, f->c,
+            ap_log_cerror(APLOG_MARK, APLOG_TRACE2, 0, f->c,
                           "h2_from_h1(%d): eoc bucket passed", 
                           from_h1->stream_id);
             return ap_pass_brigade(f->next, bb);
@@ -517,7 +517,7 @@ apr_status_t h2_response_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
     if (eb) {
         int st = eb->status;
         apr_brigade_cleanup(bb);
-        ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, f->c,
+        ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, f->c, APLOGNO(03047)
                       "h2_from_h1(%d): err bucket status=%d", 
                       from_h1->stream_id, st);
         ap_die(st, r);
@@ -526,7 +526,7 @@ apr_status_t h2_response_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
     
     from_h1->response = create_response(from_h1, r);
     if (from_h1->response == NULL) {
-        ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, f->c,
+        ap_log_cerror(APLOG_MARK, APLOG_NOTICE, 0, f->c, APLOGNO(03048)
                       "h2_from_h1(%d): unable to create response", 
                       from_h1->stream_id);
         return APR_ENOMEM;
@@ -556,7 +556,7 @@ apr_status_t h2_response_output_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 apr_status_t h2_response_trailers_filter(ap_filter_t *f, apr_bucket_brigade *bb)
 {
     h2_task *task = f->ctx;
-    h2_from_h1 *from_h1 = task->output? task->output->from_h1 : NULL;
+    h2_from_h1 *from_h1 = task->output.from_h1;
     request_rec *r = f->r;
     apr_bucket *b;
  
@@ -572,7 +572,7 @@ apr_status_t h2_response_trailers_filter(ap_filter_t *f, apr_bucket_brigade *bb)
                 /* FIXME: need a better test case than this.
                 apr_table_setn(r->trailers_out, "X", "1"); */
                 if (r->trailers_out && !apr_is_empty_table(r->trailers_out)) {
-                    ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, f->c,
+                    ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, f->c, APLOGNO(03049)
                                   "h2_from_h1(%d): trailers filter, saving trailers",
                                   from_h1->stream_id);
                     h2_response_set_trailers(from_h1->response,

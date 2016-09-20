@@ -158,13 +158,15 @@ PRIVATE void rpc__server_register_fwd_map (
         /* [out] */   unsigned32          * /*status*/
     );
 
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PRIVATE void rpc__server_fwd_resolve_delayed (
 	/* [in] */   uuid_p_t            /*actuuid*/,
         /* [in] */   rpc_addr_p_t        /*fwd_addr*/,
         /* [in] */   rpc_fwd_action_t  * /*fwd_action*/,
         /* [out] */  unsigned32        * /*status*/
     );
-
+#endif
 /***********************************************************************/
 /*
  * The following are to be considered internal to the runtime.

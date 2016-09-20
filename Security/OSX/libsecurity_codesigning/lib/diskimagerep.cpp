@@ -45,24 +45,6 @@ static const int32_t udifVersion = 4;		// supported image file version
 //
 // Temporary hack to imply a fUDIFCryptosigFieldsset at the start of the "reserved" area of an UDIF header
 //
-struct UDIFSigning {
-	uint64_t fCodeSignatureOffset;
-	uint64_t fCodeSignatureLength;
-};
-	
-UDIFSigning& sigFields(UDIFFileHeader& header);
-const UDIFSigning& sigFields(const UDIFFileHeader& header);
-	
-UDIFSigning& sigFields(UDIFFileHeader& header)
-{
-	return *(UDIFSigning*)&header.fReserved;
-}
-
-const UDIFSigning& sigFields(const UDIFFileHeader& header)
-{
-	return *(UDIFSigning*)&header.fReserved;
-}
-	
 bool DiskImageRep::readHeader(FileDesc& fd, UDIFFileHeader& header)
 {
 	// the UDIF "header" is in fact the last 512 bytes of the file, with no particular alignment
@@ -100,12 +82,12 @@ void DiskImageRep::setup()
 		UnixError::throwMe(errSecCSBadDiskImageFormat);
 
 	mHeaderOffset = fd().fileSize() - sizeof(UDIFFileHeader);
-	size_t signatureOffset = size_t(n2h(sigFields(this->mHeader).fCodeSignatureOffset));
-	size_t signatureLength = size_t(n2h(sigFields(this->mHeader).fCodeSignatureLength));
-	sigFields(this->mHeader).fCodeSignatureLength = 0;		// blind length (signature covers header)
+	size_t signatureOffset = size_t(n2h(this->mHeader.fUDIFCodeSignOffset));
+	size_t signatureLength = size_t(n2h(this->mHeader.fUDIFCodeSignLength));
+	this->mHeader.fUDIFCodeSignLength = 0;		// blind length (signature covers header)
 	if (signatureOffset == 0) {
 		mEndOfDataOffset = mHeaderOffset;
-		sigFields(mHeader).fCodeSignatureOffset = h2n(mHeaderOffset);
+		mHeader.fUDIFCodeSignOffset = h2n(mHeaderOffset);
 		return;		// unsigned, header prepared for possible signing
 	} else {
 		mEndOfDataOffset = signatureOffset;
@@ -114,7 +96,9 @@ void DiskImageRep::setup()
 	// read the signature superblob
 	const size_t frameLength = mHeaderOffset - signatureOffset;		// room to following header
 	if (EmbeddedSignatureBlob* blob = EmbeddedSignatureBlob::readBlob(fd(), signatureOffset, frameLength)) {
-		if (blob->length() != frameLength || frameLength != signatureLength) {
+		if (blob->length() != frameLength
+				|| frameLength != signatureLength
+				|| !blob->strictValidateBlob(frameLength)) {
 			free(blob);
 			MacOSError::throwMe(errSecCSBadDiskImageFormat);
 		}
@@ -237,9 +221,10 @@ void DiskImageRep::Writer::flush()
 	
 	// now (re)write disk image header after it
 	UDIFFileHeader fullHeader = rep->mHeader;
-	sigFields(fullHeader).fCodeSignatureOffset = h2n(location);
-	sigFields(fullHeader).fCodeSignatureLength = h2n(mSigningData->length());
+	fullHeader.fUDIFCodeSignOffset = h2n(location);
+	fullHeader.fUDIFCodeSignLength = h2n(mSigningData->length());
 	fd().writeAll(&fullHeader, sizeof(rep->mHeader));
+    fd().truncate(fd().position());
 }
 
 

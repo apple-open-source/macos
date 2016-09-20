@@ -67,15 +67,13 @@ void ScrollingTreeIOS::invalidate()
     // Since this can potentially be the last reference to the scrolling coordinator,
     // we need to release it on the main thread since it has member variables (such as timers)
     // that expect to be destroyed from the main thread.
-    ScrollingCoordinator* scrollingCoordinator = m_scrollingCoordinator.release().leakRef();
-    callOnMainThread([scrollingCoordinator] {
-        scrollingCoordinator->deref();
+    callOnMainThread([scrollingCoordinator = WTFMove(m_scrollingCoordinator)] {
     });
 }
 
 void ScrollingTreeIOS::commitNewTreeState(std::unique_ptr<ScrollingStateTree> scrollingStateTree)
 {
-    ScrollingTree::commitNewTreeState(WTF::move(scrollingStateTree));
+    ScrollingTree::commitNewTreeState(WTFMove(scrollingStateTree));
 }
 
 void ScrollingTreeIOS::scrollingTreeNodeDidScroll(ScrollingNodeID nodeID, const FloatPoint& scrollPosition, SetOrSyncScrollingLayerPosition scrollingLayerPositionAction)
@@ -86,10 +84,7 @@ void ScrollingTreeIOS::scrollingTreeNodeDidScroll(ScrollingNodeID nodeID, const 
     if (nodeID == rootNode()->scrollingNodeID())
         setMainFrameScrollPosition(scrollPosition);
 
-    RefPtr<AsyncScrollingCoordinator> scrollingCoordinator = m_scrollingCoordinator;
-    bool localIsHandlingProgrammaticScroll = isHandlingProgrammaticScroll();
-
-    callOnMainThread([scrollingCoordinator, nodeID, scrollPosition, localIsHandlingProgrammaticScroll, scrollingLayerPositionAction] {
+    callOnMainThread([scrollingCoordinator = m_scrollingCoordinator, nodeID, scrollPosition, localIsHandlingProgrammaticScroll = isHandlingProgrammaticScroll(), scrollingLayerPositionAction] {
         scrollingCoordinator->scheduleUpdateScrollPositionAfterAsyncScroll(nodeID, scrollPosition, localIsHandlingProgrammaticScroll, scrollingLayerPositionAction);
     });
 }
@@ -123,8 +118,7 @@ void ScrollingTreeIOS::currentSnapPointIndicesDidChange(WebCore::ScrollingNodeID
     if (!m_scrollingCoordinator)
         return;
     
-    RefPtr<AsyncScrollingCoordinator> scrollingCoordinator = m_scrollingCoordinator;
-    callOnMainThread([scrollingCoordinator, nodeID, horizontal, vertical] {
+    callOnMainThread([scrollingCoordinator = m_scrollingCoordinator, nodeID, horizontal, vertical] {
         scrollingCoordinator->setActiveScrollSnapIndices(nodeID, horizontal, vertical);
     });
 }

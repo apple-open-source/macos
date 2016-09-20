@@ -265,14 +265,23 @@ DbHandle ClientSession::createDb(const DLDbIdentifier &dbId,
 	return db;
 }
 
+DbHandle ClientSession::cloneDb(const DLDbIdentifier &newDbId, DbHandle srcDb) {
+    DataWalkers::DLDbFlatIdentifier ident(newDbId);
+    CopyIn id(&ident, reinterpret_cast<xdrproc_t>(xdr_DLDbFlatIdentifier));
+
+    DbHandle db;
+    IPC(ucsp_client_cloneDb(UCSP_ARGS, srcDb, id.data(), id.length(), &db));
+    return db;
+}
+
 DbHandle ClientSession::recodeDbForSync(DbHandle dbToClone, 
 									   DbHandle srcDb)
 {
 	DbHandle newDb;
     
 	IPC(ucsp_client_recodeDbForSync(UCSP_ARGS, dbToClone, srcDb, &newDb));
-    
-	return newDb;
+
+    return newDb;
 }
 
 DbHandle ClientSession::recodeDbToVersion(uint32 newVersion, DbHandle srcDb)
@@ -282,6 +291,11 @@ DbHandle ClientSession::recodeDbToVersion(uint32 newVersion, DbHandle srcDb)
     IPC(ucsp_client_recodeDbToVersion(UCSP_ARGS, newVersion, srcDb, &newDb));
 
     return newDb;
+}
+
+void ClientSession::recodeFinished(DbHandle db)
+{
+    IPC(ucsp_client_recodeFinished(UCSP_ARGS, db));
 }
 
 DbHandle ClientSession::authenticateDbsForSync(const CssmData &dbHandleArray,
@@ -813,137 +827,6 @@ void ClientSession::extractMasterKey(DbHandle db, const Context &context, DbHand
 }
 
 
-//
-// Authorization subsystem entry
-//
-void ClientSession::authCreate(const AuthorizationItemSet *rights,
-	const AuthorizationItemSet *environment, AuthorizationFlags flags,
-	AuthorizationBlob &result)
-{
-	void *rightSet = NULL; mach_msg_size_t rightSet_size = 0;
-	void *environ = NULL; mach_msg_size_t environ_size = 0;
-
-	if ((rights && 
-		!copyin_AuthorizationItemSet(rights, &rightSet, &rightSet_size)) ||
-		(environment && 
-		!copyin_AuthorizationItemSet(environment, &environ, &environ_size)))
-			CssmError::throwMe(errAuthorizationInternal);
-
-	activate();
-	IPCSTART(ucsp_client_authorizationCreate(UCSP_ARGS,
-		rightSet, rightSet_size, 
-		flags,
-		environ, environ_size, 
-		&result));
-	
-	free(rightSet);
-	free(environ);
-	
-	if (rcode == CSSMERR_CSSM_NO_USER_INTERACTION)
-	  CssmError::throwMe(errAuthorizationInteractionNotAllowed);
-	IPCEND_CHECK;
-}
-
-void ClientSession::authRelease(const AuthorizationBlob &auth, 
-	AuthorizationFlags flags)
-{
-	activate();
-	IPCSTART(ucsp_client_authorizationRelease(UCSP_ARGS, auth, flags));
-	if (rcode == CSSMERR_CSSM_NO_USER_INTERACTION)
-	  CssmError::throwMe(errAuthorizationInteractionNotAllowed);
-	IPCEND_CHECK;
-}
-
-void ClientSession::authCopyRights(const AuthorizationBlob &auth,
-	const AuthorizationItemSet *rights, const AuthorizationItemSet *environment,
-	AuthorizationFlags flags,
-	AuthorizationItemSet **grantedRights)
-{
-	void *rightSet = NULL; mach_msg_size_t rightSet_size = 0;
-	void *environ = NULL; mach_msg_size_t environ_size = 0;
-	void *result = NULL; mach_msg_type_number_t resultLength = 0;
-	
-	if ((rights && !copyin_AuthorizationItemSet(rights, &rightSet, &rightSet_size)) ||
-		(environment && !copyin_AuthorizationItemSet(environment, &environ, &environ_size)))
-          CssmError::throwMe(errAuthorizationInternal); // allocation error probably
-
-	activate();
-	IPCSTART(ucsp_client_authorizationCopyRights(UCSP_ARGS,
-		auth,
-		rightSet, rightSet_size, 
-		flags | (grantedRights ? 0 : kAuthorizationFlagNoData),
-		environ, environ_size, 
-		&result, &resultLength));
-		
-	free(rightSet);
-	free(environ);
-	
-	// XXX/cs return error when copyout returns false
-	if (rcode == CSSM_OK && grantedRights) 
-		copyout_AuthorizationItemSet(result, resultLength, grantedRights);
-	
-	if (result)
-		mig_deallocate(reinterpret_cast<vm_address_t>(result), resultLength);
-	if (rcode == CSSMERR_CSSM_NO_USER_INTERACTION)
-	  CssmError::throwMe(errAuthorizationInteractionNotAllowed);
-	IPCEND_CHECK;
-}
-
-void ClientSession::authCopyInfo(const AuthorizationBlob &auth,
-	const char *tag,
-	AuthorizationItemSet * &info)
-{
-    if (tag == NULL)
-        tag = "";
-    else if (tag[0] == '\0')
-        MacOSError::throwMe(errAuthorizationInvalidTag);
-		
-	activate();
-	void *result; mach_msg_type_number_t resultLength;
-	IPCSTART(ucsp_client_authorizationCopyInfo(UCSP_ARGS, auth, tag, &result, &resultLength));
-
-	// XXX/cs return error when copyout returns false
-	if (rcode == CSSM_OK)
-		copyout_AuthorizationItemSet(result, resultLength, &info);
-	
-	if (result)
-		mig_deallocate(reinterpret_cast<vm_address_t>(result), resultLength);
-
-	if (rcode == CSSMERR_CSSM_NO_USER_INTERACTION)
-	  CssmError::throwMe(errAuthorizationInteractionNotAllowed);
-	IPCEND_CHECK;
-}
-
-void ClientSession::authExternalize(const AuthorizationBlob &auth,
-	AuthorizationExternalForm &extForm)
-{
-	activate();
-	IPCSTART(ucsp_client_authorizationExternalize(UCSP_ARGS, auth, &extForm));
-	if (rcode == CSSMERR_CSSM_NO_USER_INTERACTION)
-	  CssmError::throwMe(errAuthorizationInteractionNotAllowed);
-	IPCEND_CHECK;
-}
-
-void ClientSession::authInternalize(const AuthorizationExternalForm &extForm,
-	AuthorizationBlob &auth)
-{
-	activate();
-	IPCSTART(ucsp_client_authorizationInternalize(UCSP_ARGS, extForm, &auth));
-	if (rcode == CSSMERR_CSSM_NO_USER_INTERACTION)
-	  CssmError::throwMe(errAuthorizationInteractionNotAllowed);
-	IPCEND_CHECK;
-}
-
-
-//
-// Push user preferences from an app in user space to securityd
-//
-void ClientSession::setSessionUserPrefs(SecuritySessionId sessionId, uint32_t userPreferencesLength, const void *userPreferences)
-{
-	IPC(ucsp_client_setSessionUserPrefs(UCSP_ARGS, sessionId, const_cast<void *>(userPreferences), userPreferencesLength));
-}
-
-
 void ClientSession::postNotification(NotificationDomain domain, NotificationEvent event, const CssmData &data)
 {
 	uint32 seq = ++mGlobal().thread().notifySeq;
@@ -951,44 +834,12 @@ void ClientSession::postNotification(NotificationDomain domain, NotificationEven
 	if (getenv("NOTIFYJITTER")) {
 		// artificially reverse odd/even sequences to test securityd's jitter buffer
 		seq += 2 * (seq % 2) - 1;
-		secdebug("notify", "POSTING FAKE SEQUENCE %d NOTIFICATION", seq);
+		secinfo("notify", "POSTING FAKE SEQUENCE %d NOTIFICATION", seq);
 	}
 #endif //NDEBUG
-	secdebug("notify", "posting domain 0x%x event %d sequence %d",
+	secinfo("notify", "posting domain 0x%x event %d sequence %d",
 		domain, event, seq);
 	IPC(ucsp_client_postNotification(UCSP_ARGS, domain, event, DATA(data), seq));
-}
-
-//
-// authorizationdbGet/Set/Remove
-//
-void ClientSession::authorizationdbGet(const AuthorizationString rightname, CssmData &rightDefinition, Allocator &alloc)
-{
-	DataOutput definition(rightDefinition, alloc);
-	activate();
-	IPCSTART(ucsp_client_authorizationdbGet(UCSP_ARGS, rightname, DATA_OUT(definition)));
-	if (rcode == CSSMERR_CSSM_NO_USER_INTERACTION)
-	  CssmError::throwMe(errAuthorizationInteractionNotAllowed);
-	IPCEND_CHECK;
-}
-
-void ClientSession::authorizationdbSet(const AuthorizationBlob &auth, const AuthorizationString rightname, uint32_t rightDefinitionLength, const void *rightDefinition)
-{
-	// @@@ DATA_IN in transition.cpp is not const void *
-	activate();
-	IPCSTART(ucsp_client_authorizationdbSet(UCSP_ARGS, auth, rightname, const_cast<void *>(rightDefinition), rightDefinitionLength));
-	if (rcode == CSSMERR_CSSM_NO_USER_INTERACTION)
-	  CssmError::throwMe(errAuthorizationInteractionNotAllowed);
-	IPCEND_CHECK;
-}
-
-void ClientSession::authorizationdbRemove(const AuthorizationBlob &auth, const AuthorizationString rightname)
-{
-	activate();
-	IPCSTART(ucsp_client_authorizationdbRemove(UCSP_ARGS, auth, rightname));
-	if (rcode == CSSMERR_CSSM_NO_USER_INTERACTION)
-	  CssmError::throwMe(errAuthorizationInteractionNotAllowed);
-	IPCEND_CHECK;
 }
 
 
@@ -1013,7 +864,7 @@ SecGuestRef ClientSession::createGuest(SecGuestRef host,
 	SecGuestRef newGuest;
 	IPC(ucsp_client_createGuest(UCSP_ARGS, host, status, path, DATA(cdhash), DATA(attributes), flags, &newGuest));
 	if (flags & kSecCSDedicatedHost) {
-		secdebug("ssclient", "setting dedicated guest to 0x%x (was 0x%x)",
+		secinfo("ssclient", "setting dedicated guest to 0x%x (was 0x%x)",
 			mDedicatedGuest, newGuest);
 		mDedicatedGuest = newGuest;
 	}
@@ -1033,10 +884,10 @@ void ClientSession::removeGuest(SecGuestRef host, SecGuestRef guest)
 void ClientSession::selectGuest(SecGuestRef newGuest)
 {
 	if (mDedicatedGuest) {
-		secdebug("ssclient", "ignoring selectGuest(0x%x) because dedicated guest=0x%x",
+		secinfo("ssclient", "ignoring selectGuest(0x%x) because dedicated guest=0x%x",
 			newGuest, mDedicatedGuest);
 	} else {
-		secdebug("ssclient", "switching to guest 0x%x", newGuest);
+		secinfo("ssclient", "switching to guest 0x%x", newGuest);
 		mGlobal().thread().currentGuest = newGuest;
 	}
 }
@@ -1047,6 +898,16 @@ SecGuestRef ClientSession::selectedGuest() const
 		return mDedicatedGuest;
 	else
 		return mGlobal().thread().currentGuest;
+}
+
+//
+// Testing related
+//
+
+// Return the number of Keychain users prompts securityd has considered showing.
+// On non-internal installs, this returns 0.
+void ClientSession::getUserPromptAttempts(uint32_t& attempts) {
+    IPC(ucsp_client_getUserPromptAttempts(UCSP_ARGS, &attempts));
 }
 
 

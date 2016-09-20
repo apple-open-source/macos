@@ -37,7 +37,6 @@
 #include "Document.h"
 #include "Frame.h"
 #include "StorageInfo.h"
-#include <wtf/PassRefPtr.h>
 
 namespace WebCore {
 
@@ -62,7 +61,7 @@ DOMWindowQuota* DOMWindowQuota::from(DOMWindow* window)
     if (!supplement) {
         auto newSupplement = std::make_unique<DOMWindowQuota>(window);
         supplement = newSupplement.get();
-        provideTo(window, supplementName(), WTF::move(newSupplement));
+        provideTo(window, supplementName(), WTFMove(newSupplement));
     }
     return supplement;
 }

@@ -14,7 +14,7 @@
 
 
 D=dialects/darwin/libproc
-L="dlsof.h ddev.c dfile.c dmnt.c dproc.c dproto.h dsock.c dstore.c machine.h"
+L="dlsof.h ddev.c dfile.c dmnt.c dproc.c dproto.h dsock.c dstore.c dnetpolicy.c dchannel.c dnexus.c machine.h"
 
 for i in $L
 do

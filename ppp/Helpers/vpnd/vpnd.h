@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2016 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -47,7 +47,7 @@ int find_address(const struct sockaddr_in *address, char *interface); /* check i
 
 #define	PLUGINS_DIR 	"/System/Library/Extensions/"
 
-void vpnlog(int nSyslogPriority, char *format_str, ...);
+void vpnlog(int nSyslogPriority, char *format_str, ...)  __printflike(2,3);
 int update_prefs(void);
 void toggle_debug(void);
 void set_terminate(void);

@@ -266,7 +266,7 @@ profile_get_integer(profile_t profile, const char *name, const char *subname,
 	    return PROF_BAD_INTEGER;
 	
    
-	*ret_int = ret_long;
+	*ret_int = (int)ret_long;
 	return 0;
 }
 

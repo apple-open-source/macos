@@ -58,7 +58,8 @@
  * A usageConstraints dictionary is like so (all elements are optional). These key 
  * strings are defined in SecUserTrust.h.
  *
- * key = kSecTrustSettingsPolicy		value = policy OID as CFData
+ * key = kSecTrustSettingsPolicy		value = policy OID as CFData or CFString
+ * key = kSecTrustSettingsPolicyName    value = policy name as CFString
  * key = kSecTrustSettingsApplication	value = application as CFData
  * key = kSecTrustSettingsPolicyString	value = CFString, policy-specific
  * key = kSecTrustSettingsAllowedError	value = CFNumber, an SInt32 CSSM_RETURN 

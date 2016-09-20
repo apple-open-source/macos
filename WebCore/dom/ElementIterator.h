@@ -53,6 +53,8 @@ public:
     ElementIterator& traverseNextSkippingChildren();
     ElementIterator& traverseAncestor();
 
+    void dropAssertions();
+
 private:
     const ContainerNode* m_root;
     ElementType* m_current;
@@ -80,6 +82,8 @@ public:
     ElementConstIterator& traversePreviousSibling();
     ElementConstIterator& traverseNextSkippingChildren();
     ElementConstIterator& traverseAncestor();
+
+    void dropAssertions();
 
 private:
     const ContainerNode* m_root;
@@ -180,7 +184,15 @@ inline ElementIterator<ElementType>& ElementIterator<ElementType>::traverseNextS
 }
 
 template <typename ElementType>
-inline ElementType* findElementAncestorOfType(const Element& current)
+inline void ElementIterator<ElementType>::dropAssertions()
+{
+#if !ASSERT_DISABLED
+    m_assertions.clear();
+#endif
+}
+
+template <typename ElementType>
+inline ElementType* findElementAncestorOfType(const Node& current)
 {
     for (Element* ancestor = current.parentElement(); ancestor; ancestor = ancestor->parentElement()) {
         if (is<ElementType>(*ancestor))
@@ -190,7 +202,7 @@ inline ElementType* findElementAncestorOfType(const Element& current)
 }
 
 template <>
-inline Element* findElementAncestorOfType<Element>(const Element& current)
+inline Element* findElementAncestorOfType<Element>(const Node& current)
 {
     return current.parentElement();
 }
@@ -342,6 +354,14 @@ inline ElementConstIterator<ElementType>& ElementConstIterator<ElementType>::tra
         m_assertions.dropEventDispatchAssertion();
 #endif
     return *this;
+}
+
+template <typename ElementType>
+inline void ElementConstIterator<ElementType>::dropAssertions()
+{
+#if !ASSERT_DISABLED
+    m_assertions.clear();
+#endif
 }
 
 template <typename ElementType>

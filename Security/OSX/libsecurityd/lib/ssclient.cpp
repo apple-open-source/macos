@@ -79,7 +79,7 @@ void ClientSession::activate()
 	// (that has not exec'ed), our apparent connection to SecurityServer
 	// is just a mirage, and we better reset it.
 	if (mHasForked()) {
-		secdebug("SSclnt", "process has forked (now pid=%d) - resetting connection object", getpid());
+		secinfo("SSclnt", "process has forked (now pid=%d) - resetting connection object", getpid());
 		mGlobal.reset();
 	}
 		
@@ -90,14 +90,14 @@ void ClientSession::activate()
 		// first time for this thread - use abbreviated registration
 		IPCN(ucsp_client_setupThread(UCSP_ARGS, mach_task_self()));
         thread.registered = true;
-        secdebug("SSclnt", "Thread registered with %s", mContactName);
+        secinfo("SSclnt", "Thread registered with %s", mContactName);
 	}
 	
 	// if the thread's guest state has changed, tell securityd
 	if (thread.currentGuest != thread.lastGuest) {
 		IPCN(ucsp_client_setGuest(UCSP_ARGS, thread.currentGuest, kSecCSDefaultFlags));
 		thread.lastGuest = thread.currentGuest;
-		secdebug("SSclnt", "switched guest state to 0x%x", thread.currentGuest);
+		secinfo("SSclnt", "switched guest state to 0x%x", thread.currentGuest);
 	}
 }
 
@@ -147,7 +147,7 @@ ClientSession::Global::Global()
 		mach_task_self(), info, extForm));
     thread.registered = true;	// as a side-effect of setup call above
 	IFDEBUG(serverPort.requestNotify(thread.replyPort));
-	secdebug("SSclnt", "contact with %s established", mContactName);
+	secinfo("SSclnt", "contact with %s established", mContactName);
 }
 
 
@@ -160,7 +160,7 @@ ClientSession::Global::Global()
 //
 void ClientSession::reset()
 {
-	secdebug("SSclnt", "resetting client state (OUCH)");
+	secinfo("SSclnt", "resetting client state (OUCH)");
 	mGlobal.reset();
 }
 
@@ -179,9 +179,9 @@ Port ClientSession::findSecurityd()
 			mContactName = SECURITYSERVER_BOOTSTRAP_NAME;
 	}
 
-    secdebug("SSclnt", "Locating %s", mContactName);
+    secinfo("SSclnt", "Locating %s", mContactName);
     Port serverPort = Bootstrap().lookup2(mContactName);
-	secdebug("SSclnt", "contacting %s at port %d (version %d)",
+	secinfo("SSclnt", "contacting %s at port %d (version %d)",
 		mContactName, serverPort.port(), SSPROTOVERSION);
 	return serverPort;
 }
@@ -211,10 +211,10 @@ void ClientSession::childCheckIn(Port serverPort, Port taskPort)
 void ClientSession::notifyAclChange(KeyHandle key, CSSM_ACL_AUTHORIZATION_TAG tag)
 {
 	if (mCallback) {
-		secdebug("keyacl", "ACL change key %u operation %u", key, tag);
+		secinfo("keyacl", "ACL change key %u operation %u", key, tag);
 		mCallback(mCallbackContext, *this, key, tag);
 	} else
-		secdebug("keyacl", "dropped ACL change notice for key %u operation %u",
+		secinfo("keyacl", "dropped ACL change notice for key %u operation %u",
 			key, tag);
 }
 

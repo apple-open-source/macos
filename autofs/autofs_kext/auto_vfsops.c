@@ -76,6 +76,9 @@ static int auto_sync(mount_t, int, vfs_context_t);
 static int auto_vget(mount_t, ino64_t, vnode_t *, vfs_context_t);
 static int autofs_sysctl(int *, u_int, user_addr_t, size_t *, user_addr_t, size_t, vfs_context_t);
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-field-initializers"
+
 static struct vfsops autofs_vfsops = {
 	auto_mount,
 	auto_start,
@@ -90,8 +93,10 @@ static struct vfsops autofs_vfsops = {
 	NULL,			/* auto_init */
 	autofs_sysctl,
 	NULL,			/* auto_vfs_setattr */
-	{ NULL, NULL, NULL, NULL, NULL, NULL, NULL }	/* reserved ops */
+        // Remaining ops unused
 };
+
+#pragma clang diagnostic pop
 
 extern struct vnodeopv_desc autofsfs_vnodeop_opv_desc;
 struct vnodeopv_desc * autofs_vnodeop_opv_descs[] =
@@ -1338,13 +1343,6 @@ autofs_ioctl(__unused dev_t dev, u_long cmd, __unused caddr_t data,
 		break;
 
 	case AUTOFS_WAITFORFLUSH:
-		lck_mtx_lock(autofs_global_lock);
-		if (fngp == NULL)
-			fngp = autofs_zone_init();
-		lck_mtx_unlock(autofs_global_lock);
-		if (fngp == NULL)
-			return (ENOMEM);
-
 		/*
 		 * Block until there's a flush notification pending or we
 		 * get a signal.
@@ -1947,20 +1945,22 @@ autofs_homedirmounter_dev_close(dev_t dev, __unused int flag, __unused int fmt,
 			vp = homedirmounter_process->mount_point;
 			if (vp != NULL) {
 				fnp = vntofn(vp);
-                                
-                                /* 
-                                 * <13595777> Keep from racing with
-                                 * homedirmounter 
-                                 */
-                                if (fnp->fn_flags & MF_HOMEDIRMOUNT_LOCKED) {
-                                        lck_mtx_unlock(fnp->fn_mnt_lock);
-                                }
-                                
-				lck_mtx_lock(fnp->fn_lock);
-				fnp->fn_flags &= ~(MF_HOMEDIRMOUNT |
-                                                   MF_HOMEDIRMOUNT_LOCKED);
-				lck_mtx_unlock(fnp->fn_lock);
-                                
+
+				if (fnp != NULL) {
+					/*
+					 * <13595777> Keep from racing with
+					 * homedirmounter
+					 */
+					if (fnp->fn_flags & MF_HOMEDIRMOUNT_LOCKED) {
+					        lck_mtx_unlock(fnp->fn_mnt_lock);
+					}
+
+					lck_mtx_lock(fnp->fn_lock);
+					fnp->fn_flags &= ~(MF_HOMEDIRMOUNT |
+					                   MF_HOMEDIRMOUNT_LOCKED);
+					lck_mtx_unlock(fnp->fn_lock);
+				}
+
 				vnode_rele(vp);
 			}
 			FREE(homedirmounter_process, M_AUTOFS);

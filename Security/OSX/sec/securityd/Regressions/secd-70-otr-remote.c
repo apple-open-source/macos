@@ -101,8 +101,8 @@ static void tests(void)
     
     CFReleaseNull(cfpassword);
     
-    SOSAccountJoinCircles(alice_account, &testError);
-    SOSAccountJoinCircles(bob_account, &testError);
+    SOSAccountJoinCircles_wTxn(alice_account, &testError);
+    SOSAccountJoinCircles_wTxn(bob_account, &testError);
     
     CFDataRef alice_account_data = SOSAccountCopyEncodedData(alice_account, kCFAllocatorDefault, &testError);
     CFDataRef bob_account_data = SOSAccountCopyEncodedData(bob_account, kCFAllocatorDefault, &testError);

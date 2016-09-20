@@ -159,7 +159,7 @@ asl_object_remove_object_at_index(asl_object_private_t *obj, size_t n)
 }
 
 void
-asl_object_append(asl_object_private_t *obj, asl_object_private_t *newobj)
+asl_object_append(asl_object_private_t *obj, asl_object_private_t *newobj, void *addr)
 {
 	uint32_t type = ASL_TYPE_CLIENT;
 
@@ -168,7 +168,7 @@ asl_object_append(asl_object_private_t *obj, asl_object_private_t *newobj)
 
 	dispatch_once(&asl_object_once, ^{ _asl_object_init(); });
 	if (asl_jump[type]->append == NULL) return;
-	return asl_jump[type]->append(obj, newobj);
+	return asl_jump[type]->append(obj, newobj, addr);
 }
 
 void
@@ -313,7 +313,7 @@ asl_prev(asl_object_t obj)
 void
 asl_append(asl_object_t a, asl_object_t b)
 {
-	asl_object_append((asl_object_private_t *)a, (asl_object_private_t *)b);
+	asl_object_append((asl_object_private_t *)a, (asl_object_private_t *)b, __builtin_return_address(0));
 }
 
 void
@@ -326,7 +326,7 @@ asl_prepend(asl_object_t a, asl_object_t b)
 int
 asl_send(asl_object_t a, asl_object_t b)
 {
-	asl_object_append((asl_object_private_t *)a, (asl_object_private_t *)b);
+	asl_object_append((asl_object_private_t *)a, (asl_object_private_t *)b, __builtin_return_address(0));
 	return 0;
 }
 

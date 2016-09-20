@@ -388,7 +388,7 @@ bool top_options_parse(int argc, char *argv[]) {
 		return true;
 	    }
 
-	    top_prefs_set_pid(p);
+	    top_prefs_add_pid(p);
 	}
 	    break;
 

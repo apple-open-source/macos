@@ -38,6 +38,7 @@ WebInspector.Popover = class Popover extends WebInspector.Object
         this._preferredEdges = null;
 
         this._contentNeedsUpdate = false;
+        this._dismissing = false;
 
         this._element = document.createElement("div");
         this._element.className = "popover";
@@ -89,13 +90,10 @@ WebInspector.Popover = class Popover extends WebInspector.Object
             this._update(true);
     }
 
-    update(shouldAnimate)
+    update(shouldAnimate = true)
     {
         if (!this.visible)
             return;
-
-        if (shouldAnimate === undefined)
-            shouldAnimate = true;
 
         var previouslyFocusedElement = document.activeElement;
 
@@ -135,8 +133,10 @@ WebInspector.Popover = class Popover extends WebInspector.Object
 
     dismiss()
     {
-        if (this._element.parentNode !== document.body)
+        if (this._dismissing || this._element.parentNode !== document.body)
             return;
+
+        this._dismissing = true;
 
         console.assert(this._isListeningForPopoverEvents);
         this._isListeningForPopoverEvents = false;
@@ -164,6 +164,8 @@ WebInspector.Popover = class Popover extends WebInspector.Object
                 this._container.textContent = "";
                 if (this.delegate && typeof this.delegate.didDismissPopover === "function")
                     this.delegate.didDismissPopover(this);
+
+                this._dismissing = false;
                 break;
             }
         }
@@ -186,6 +188,8 @@ WebInspector.Popover = class Popover extends WebInspector.Object
         else
             this._element.classList.remove(WebInspector.Popover.FadeOutClassName);
 
+        this._dismissing = false;
+
         if (this._contentNeedsUpdate) {
             // Reset CSS properties on element so that the element may be sized to fit its content.
             this._element.style.removeProperty("left");
@@ -196,7 +200,7 @@ WebInspector.Popover = class Popover extends WebInspector.Object
                 this._element.classList.remove(this._cssClassNameForEdge());
 
             // Add the content in place of the wrapper to get the raw metrics.
-            this._element.replaceChild(this._content, this._container);
+            this._container.replaceWith(this._content);
 
             // Get the ideal size for the popover to fit its content.
             var popoverBounds = this._element.getBoundingClientRect();
@@ -283,7 +287,7 @@ WebInspector.Popover = class Popover extends WebInspector.Object
         // Wrap the content in the container so that it's located correctly.
         if (this._contentNeedsUpdate) {
             this._container.textContent = "";
-            this._element.replaceChild(this._container, this._content);
+            this._content.replaceWith(this._container);
             this._container.appendChild(this._content);
         }
 

@@ -50,6 +50,9 @@
 #include <sys/sysctl.h>
 #include <pthread.h>
 
+#include <System/sys/csr.h>
+#include <TargetConditionals.h>
+
 typedef struct dtrace_cmd {
 	void (*dc_func)(struct dtrace_cmd *);	/* function to compile arg */
 	dtrace_probespec_t dc_spec;		/* probe specifier context */
@@ -1389,6 +1392,33 @@ go(void)
 	}
 }
 
+#define DTRACE_PRIORITY_FOREGROUND 47
+
+static void
+set_sched_policy() {
+	int policy, err;
+	struct sched_param param;
+
+	err = pthread_getschedparam(pthread_self(), &policy, &param);
+	if (err) {
+		notice("could not set thread priority: cannot retrieve thread scheduling parameters");
+		return;
+	}
+
+	param.sched_priority = DTRACE_PRIORITY_FOREGROUND;
+
+	err = pthread_setschedparam(pthread_self(), policy, &param);
+	if (err) {
+		notice("could not set thread priority to %d", param.sched_priority);
+	}
+
+	err = pthread_set_fixedpriority_self();
+	if (err) {
+		notice("could not set thread scheduling priority to fixed");
+	}
+
+}
+
 /*ARGSUSED*/
 static void
 intr(int signo)
@@ -1549,6 +1579,22 @@ main(int argc, char *argv[])
 				}
 				/* NOTREACHED */
 
+			case 'x':
+				if ((p = strchr(optarg, '=')) != NULL)
+					*p++ = '\0';
+				/*
+				 * At that stage, only parse disallow_dsym
+				 * that we need to be set before dtrace_open
+				 */
+
+				if (strcmp(optarg, "disallow_dsym") == 0) {
+					_dtrace_disallow_dsym = 1;
+				}
+				// Restore the option string
+				if (p != NULL)
+					*(--p) = '=';
+
+				break;
 			default:
 				if (strchr(DTRACE_OPTSTR, c) == NULL)
 					return (usage(stderr));
@@ -1574,6 +1620,12 @@ main(int argc, char *argv[])
 
 	if (g_mode == DMODE_VERS)
 		return (printf("%s: %s\n", g_pname, _dtrace_version) <= 0);
+
+#if !TARGET_OS_EMBEDDED
+	if (g_mode != DMODE_HEADER && csr_check(CSR_ALLOW_UNRESTRICTED_DTRACE) != 0) {
+		notice("system integrity protection is on, some features will not be available\n");
+	}
+#endif
 
 	/*
 	 * D compiler target_arch is current_kernel_arch() by default.
@@ -2048,6 +2100,11 @@ main(int argc, char *argv[])
 	 */
 	if (g_total == 0 && !g_grabanon && !(g_cflags & DTRACE_C_ZDEFS))
 		dfatal("no probes %s\n", g_cmdc ? "matched" : "specified");
+
+	/**
+	 * Set our scheduling policy
+	 */
+	set_sched_policy();
 
 	/*
 	 * Start tracing.  Once we dtrace_go(), reload any options that affect

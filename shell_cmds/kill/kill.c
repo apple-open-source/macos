@@ -1,4 +1,4 @@
-/*
+/*-
  * Copyright (c) 1988, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -30,7 +26,12 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+/*
+ * Important: This file is used both as a standalone program /bin/kill and
+ * as a builtin for /bin/sh (#define SHELL).
+ */
 
+#if 0
 #ifndef lint
 static char const copyright[] =
 "@(#) Copyright (c) 1988, 1993, 1994\n\
@@ -38,12 +39,11 @@ static char const copyright[] =
 #endif /* not lint */
 
 #ifndef lint
-#if 0
 static char sccsid[] = "@(#)kill.c	8.4 (Berkeley) 4/28/95";
-#endif
-static const char rcsid[] =
-  "$FreeBSD: src/bin/kill/kill.c,v 1.11.2.1 2001/08/01 02:42:56 obrien Exp $";
 #endif /* not lint */
+#endif
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
 #include <ctype.h>
 #include <err.h>
@@ -53,18 +53,24 @@ static const char rcsid[] =
 #include <stdlib.h>
 #include <string.h>
 
-int main __P((int, char *[]));
-void nosig __P((char *));
-void printsignals __P((FILE *));
-int signame_to_signum __P((char *));
-void usage __P((void));
+#ifdef SHELL
+#define main killcmd
+#include "bltin/bltin.h"
+#endif
+
+static void nosig(const char *);
+static void printsignals(FILE *);
+static int signame_to_signum(const char *);
+static void usage(void);
+
+#ifdef __APPLE__
+#define sys_nsig NSIG
+#endif /* __APPLE__ */
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
-	int errors, numsig, pid;
+	int errors, numsig, pid, ret;
 	char *ep;
 
 	if (argc < 2)
@@ -82,16 +88,16 @@ main(argc, argv)
 				usage();
 			numsig = strtol(*argv, &ep, 10);
 			if (!**argv || *ep)
-				errx(1, "illegal signal number: %s", *argv);
+				errx(2, "illegal signal number: %s", *argv);
 			if (numsig >= 128)
 				numsig -= 128;
-			if (numsig <= 0 || numsig >= NSIG)
+			if (numsig <= 0 || numsig >= sys_nsig)
 				nosig(*argv);
 			printf("%s\n", sys_signame[numsig]);
-			exit(0);
+			return (0);
 		}
 		printsignals(stdout);
-		exit(0);
+		return (0);
 	}
 
 	if (!strcmp(*argv, "-s")) {
@@ -106,7 +112,7 @@ main(argc, argv)
 		} else
 			numsig = 0;
 		argc--, argv++;
-	} else if (**argv == '-') {
+	} else if (**argv == '-' && *(*argv + 1) != '-') {
 		++*argv;
 		if (isalpha(**argv)) {
 			if ((numsig = signame_to_signum(*argv)) < 0)
@@ -114,73 +120,84 @@ main(argc, argv)
 		} else if (isdigit(**argv)) {
 			numsig = strtol(*argv, &ep, 10);
 			if (!**argv || *ep)
-				errx(1, "illegal signal number: %s", *argv);
-			if (numsig < 0 || numsig >= NSIG)
+				errx(2, "illegal signal number: %s", *argv);
+			if (numsig < 0)
 				nosig(*argv);
 		} else
 			nosig(*argv);
 		argc--, argv++;
 	}
 
+	if (argc > 0 && strncmp(*argv, "--", 2) == 0)
+		argc--, argv++;
+
 	if (argc == 0)
 		usage();
 
 	for (errors = 0; argc; argc--, argv++) {
-		pid = strtol(*argv, &ep, 10);
-		if (!**argv || *ep) {
-			warnx("illegal process id: %s", *argv);
-			errors = 1;
-		} else if (kill(pid, numsig) == -1) {
+#ifdef SHELL
+		if (**argv == '%')
+			ret = killjob(*argv, numsig);
+		else
+#endif
+		{
+			pid = strtol(*argv, &ep, 10);
+			if (!**argv || *ep)
+				errx(2, "illegal process id: %s", *argv);
+			ret = kill(pid, numsig);
+		}
+		if (ret == -1) {
 			warn("%s", *argv);
 			errors = 1;
 		}
 	}
 
-	exit(errors);
+	return (errors);
 }
 
-int
-signame_to_signum(sig)
-	char *sig;
+static int
+signame_to_signum(const char *sig)
 {
 	int n;
 
-	if (!strncasecmp(sig, "sig", (size_t)3))
+	if (strncasecmp(sig, "SIG", 3) == 0)
 		sig += 3;
-	for (n = 1; n < NSIG; n++) {
+	for (n = 1; n < sys_nsig; n++) {
 		if (!strcasecmp(sys_signame[n], sig))
 			return (n);
 	}
 	return (-1);
 }
 
-void
-nosig(name)
-	char *name;
+static void
+nosig(const char *name)
 {
 
 	warnx("unknown signal %s; valid signals:", name);
 	printsignals(stderr);
-	exit(1);
+#ifdef SHELL
+	error(NULL);
+#else
+	exit(2);
+#endif
 }
 
-void
-printsignals(fp)
-	FILE *fp;
+static void
+printsignals(FILE *fp)
 {
 	int n;
 
-	for (n = 1; n < NSIG; n++) {
+	for (n = 1; n < sys_nsig; n++) {
 		(void)fprintf(fp, "%s", sys_signame[n]);
-		if (n == (NSIG / 2) || n == (NSIG - 1))
+		if (n == (sys_nsig / 2) || n == (sys_nsig - 1))
 			(void)fprintf(fp, "\n");
 		else
 			(void)fprintf(fp, " ");
 	}
 }
 
-void
-usage()
+static void
+usage(void)
 {
 
 	(void)fprintf(stderr, "%s\n%s\n%s\n%s\n",
@@ -188,5 +205,9 @@ usage()
 		"       kill -l [exit_status]",
 		"       kill -signal_name pid ...",
 		"       kill -signal_number pid ...");
-	exit(1);
+#ifdef SHELL
+	error(NULL);
+#else
+	exit(2);
+#endif
 }

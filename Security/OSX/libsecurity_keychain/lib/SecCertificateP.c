@@ -187,21 +187,21 @@ struct __SecCertificate {
 };
 
 /* Public Constants for property list keys. */
-CFStringRef kSecPropertyKeyType             = CFSTR("type");
-CFStringRef kSecPropertyKeyLabel            = CFSTR("label");
-CFStringRef kSecPropertyKeyLocalizedLabel   = CFSTR("localized label");
-CFStringRef kSecPropertyKeyValue            = CFSTR("value");
+const CFStringRef kSecPropertyKeyType             = CFSTR("type");
+const CFStringRef kSecPropertyKeyLabel            = CFSTR("label");
+const CFStringRef kSecPropertyKeyLocalizedLabel   = CFSTR("localized label");
+const CFStringRef kSecPropertyKeyValue            = CFSTR("value");
 
 /* Public Constants for property list values. */
-CFStringRef kSecPropertyTypeWarning         = CFSTR("warning");
-CFStringRef kSecPropertyTypeError           = CFSTR("error");
-CFStringRef kSecPropertyTypeSuccess         = CFSTR("success");
-CFStringRef kSecPropertyTypeTitle           = CFSTR("title");
-CFStringRef kSecPropertyTypeSection         = CFSTR("section");
-CFStringRef kSecPropertyTypeData            = CFSTR("data");
-CFStringRef kSecPropertyTypeString          = CFSTR("string");
-CFStringRef kSecPropertyTypeURL             = CFSTR("url");
-CFStringRef kSecPropertyTypeDate            = CFSTR("date");
+const CFStringRef kSecPropertyTypeWarning         = CFSTR("warning");
+const CFStringRef kSecPropertyTypeError           = CFSTR("error");
+const CFStringRef kSecPropertyTypeSuccess         = CFSTR("success");
+const CFStringRef kSecPropertyTypeTitle           = CFSTR("title");
+const CFStringRef kSecPropertyTypeSection         = CFSTR("section");
+const CFStringRef kSecPropertyTypeData            = CFSTR("data");
+const CFStringRef kSecPropertyTypeString          = CFSTR("string");
+const CFStringRef kSecPropertyTypeURL             = CFSTR("url");
+const CFStringRef kSecPropertyTypeDate            = CFSTR("date");
 
 /* Extension parsing routine. */
 typedef void (*SecCertificateExtensionParser)(SecCertificateRefP certificate,
@@ -597,7 +597,7 @@ static OSStatus parseX501Name(const DERItem *x501Name, void *context,
 
 static void SecCEPSubjectKeyIdentifier(SecCertificateRefP certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secinfo("cert", "critical: %s", extn->critical ? "yes" : "no");
     DERDecodedInfo keyIdentifier;
 	DERReturn drtn = DERDecodeItem(&extn->extnValue, &keyIdentifier);
 	require_noerr_quiet(drtn, badDER);
@@ -606,12 +606,12 @@ static void SecCEPSubjectKeyIdentifier(SecCertificateRefP certificate,
 
 	return;
 badDER:
-	secdebug("cert", "Invalid SubjectKeyIdentifier Extension");
+	secinfo("cert", "Invalid SubjectKeyIdentifier Extension");
 }
 
 static void SecCEPKeyUsage(SecCertificateRefP certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secinfo("cert", "critical: %s", extn->critical ? "yes" : "no");
     SecKeyUsage keyUsage = extn->critical ? kSecKeyUsageCritical : 0;
     DERDecodedInfo bitStringContent;
     DERReturn drtn = DERDecodeItem(&extn->extnValue, &bitStringContent);
@@ -646,28 +646,28 @@ badDER:
 
 static void SecCEPPrivateKeyUsagePeriod(SecCertificateRefP certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secinfo("cert", "critical: %s", extn->critical ? "yes" : "no");
 }
 
 static void SecCEPSubjectAltName(SecCertificateRefP certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secinfo("cert", "critical: %s", extn->critical ? "yes" : "no");
 	certificate->_subjectAltName = extn;
 }
 
 static void SecCEPIssuerAltName(SecCertificateRefP certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secinfo("cert", "critical: %s", extn->critical ? "yes" : "no");
 }
 
 static void SecCEPBasicConstraints(SecCertificateRefP certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secinfo("cert", "critical: %s", extn->critical ? "yes" : "no");
 	DERBasicConstraints basicConstraints;
 	require_noerr_quiet(DERParseSequence(&extn->extnValue,
         DERNumBasicConstraintsItemSpecs, DERBasicConstraintsItemSpecs,
         &basicConstraints, sizeof(basicConstraints)), badDER);
-    require_noerr_quiet(DERParseBoolean(&basicConstraints.cA, false,
+    require_noerr_quiet(DERParseBooleanWithDefault(&basicConstraints.cA, false,
 		&certificate->_basicConstraints.isCA), badDER);
     if (basicConstraints.pathLenConstraint.length != 0) {
         require_noerr_quiet(DERParseInteger(
@@ -680,12 +680,12 @@ static void SecCEPBasicConstraints(SecCertificateRefP certificate,
     return;
 badDER:
     certificate->_basicConstraints.present = false;
-	secdebug("cert", "Invalid BasicConstraints Extension");
+	secinfo("cert", "Invalid BasicConstraints Extension");
 }
 
 static void SecCEPCrlDistributionPoints(SecCertificateRefP certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secinfo("cert", "critical: %s", extn->critical ? "yes" : "no");
 }
 
 /*
@@ -702,9 +702,11 @@ static void SecCEPCrlDistributionPoints(SecCertificateRefP certificate,
         policyQualifierId  PolicyQualifierId,
         qualifier          ANY DEFINED BY policyQualifierId }
 */
+/* maximum number of policies of 8192 seems more than adequate */
+#define MAX_CERTIFICATE_POLICIES 8192
 static void SecCEPCertificatePolicies(SecCertificateRefP certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secinfo("cert", "critical: %s", extn->critical ? "yes" : "no");
     DERTag tag;
     DERSequence piSeq;
     SecCEPolicyInformation *policies = NULL;
@@ -713,7 +715,8 @@ static void SecCEPCertificatePolicies(SecCertificateRefP certificate,
     require_quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
     DERDecodedInfo piContent;
     DERSize policy_count = 0;
-    while ((drtn = DERDecodeSeqNext(&piSeq, &piContent)) == DR_Success) {
+    while ((policy_count < MAX_CERTIFICATE_POLICIES) &&
+           (drtn = DERDecodeSeqNext(&piSeq, &piContent)) == DR_Success) {
         require_quiet(piContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
         policy_count++;
     }
@@ -722,7 +725,8 @@ static void SecCEPCertificatePolicies(SecCertificateRefP certificate,
         * policy_count);
     DERDecodeSeqInit(&extn->extnValue, &tag, &piSeq);
     DERSize policy_ix = 0;
-    while ((drtn = DERDecodeSeqNext(&piSeq, &piContent)) == DR_Success) {
+    while ((policy_ix < (policy_count > 0 ? policy_count : 1)) &&
+           (drtn = DERDecodeSeqNext(&piSeq, &piContent)) == DR_Success) {
         DERPolicyInformation pi;
         drtn = DERParseSequenceContent(&piContent.content,
             DERNumPolicyInformationItemSpecs,
@@ -741,7 +745,7 @@ badDER:
     if (policies)
         free(policies);
     certificate->_certificatePolicies.present = false;
-	secdebug("cert", "Invalid CertificatePolicies Extension");
+	secinfo("cert", "Invalid CertificatePolicies Extension");
 }
 
 /*
@@ -754,7 +758,7 @@ badDER:
 #if 0
 static void SecCEPPolicyMappings(SecCertificateRefP certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secinfo("cert", "critical: %s", extn->critical ? "yes" : "no");
     DERTag tag;
     DERSequence pmSeq;
     SecCEPolicyMapping *mappings = NULL;
@@ -792,12 +796,12 @@ badDER:
         free(mappings);
     CFReleaseSafe(mappings);
     certificate->_policyMappings.present = false;
-	secdebug("cert", "Invalid CertificatePolicies Extension");
+	secinfo("cert", "Invalid CertificatePolicies Extension");
 }
 #else
 static void SecCEPPolicyMappings(SecCertificateRefP certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secinfo("cert", "critical: %s", extn->critical ? "yes" : "no");
     DERTag tag;
     DERSequence pmSeq;
     CFMutableDictionaryRef mappings = NULL;
@@ -838,7 +842,7 @@ static void SecCEPPolicyMappings(SecCertificateRefP certificate,
 badDER:
     CFReleaseSafe(mappings);
     certificate->_policyMappings = NULL;
-	secdebug("cert", "Invalid CertificatePolicies Extension");
+	secinfo("cert", "Invalid CertificatePolicies Extension");
 }
 #endif
 
@@ -854,7 +858,7 @@ KeyIdentifier ::= OCTET STRING
 */
 static void SecCEPAuthorityKeyIdentifier(SecCertificateRefP certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secinfo("cert", "critical: %s", extn->critical ? "yes" : "no");
 	DERAuthorityKeyIdentifier akid;
 	DERReturn drtn;
 	drtn = DERParseSequence(&extn->extnValue,
@@ -876,12 +880,12 @@ static void SecCEPAuthorityKeyIdentifier(SecCertificateRefP certificate,
 
 	return;
 badDER:
-	secdebug("cert", "Invalid AuthorityKeyIdentifier Extension");
+	secinfo("cert", "Invalid AuthorityKeyIdentifier Extension");
 }
 
 static void SecCEPPolicyConstraints(SecCertificateRefP certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secinfo("cert", "critical: %s", extn->critical ? "yes" : "no");
 	DERPolicyConstraints pc;
 	DERReturn drtn;
 	drtn = DERParseSequence(&extn->extnValue,
@@ -908,12 +912,12 @@ static void SecCEPPolicyConstraints(SecCertificateRefP certificate,
     return;
 badDER:
     certificate->_policyConstraints.present = false;
-	secdebug("cert", "Invalid PolicyConstraints Extension");
+	secinfo("cert", "Invalid PolicyConstraints Extension");
 }
 
 static void SecCEPExtendedKeyUsage(SecCertificateRefP certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secinfo("cert", "critical: %s", extn->critical ? "yes" : "no");
 }
 
 /*
@@ -923,14 +927,14 @@ static void SecCEPExtendedKeyUsage(SecCertificateRefP certificate,
 */
 static void SecCEPInhibitAnyPolicy(SecCertificateRefP certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secinfo("cert", "critical: %s", extn->critical ? "yes" : "no");
     require_noerr_quiet(DERParseInteger(
         &extn->extnValue,
         &certificate->_inhibitAnyPolicySkipCerts), badDER);
     return;
 badDER:
     certificate->_inhibitAnyPolicySkipCerts = UINT32_MAX;
-	secdebug("cert", "Invalid InhibitAnyPolicy Extension");
+	secinfo("cert", "Invalid InhibitAnyPolicy Extension");
 }
 
 /*
@@ -951,7 +955,7 @@ badDER:
  */
 static void SecCEPAuthorityInfoAccess(SecCertificateRefP certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secinfo("cert", "critical: %s", extn->critical ? "yes" : "no");
     DERTag tag;
     DERSequence adSeq;
     DERReturn drtn = DERDecodeSeqInit(&extn->extnValue, &tag, &adSeq);
@@ -998,7 +1002,7 @@ static void SecCEPAuthorityInfoAccess(SecCertificateRefP certificate,
             break;
         }
         default:
-            secdebug("cert", "bad general name for id-ad-ocsp AccessDescription t: 0x%02x v: %.*s",
+            secinfo("cert", "bad general name for id-ad-ocsp AccessDescription t: 0x%02llx v: %.*s",
                 generalNameContent.tag, (int)generalNameContent.content.length, generalNameContent.content.data);
             goto badDER;
             break;
@@ -1007,22 +1011,22 @@ static void SecCEPAuthorityInfoAccess(SecCertificateRefP certificate,
     require_quiet(drtn == DR_EndOfSequence, badDER);
 	return;
 badDER:
-    secdebug("cert", "failed to parse Authority Information Access extension");
+    secinfo("cert", "failed to parse Authority Information Access extension");
 }
 
 static void SecCEPSubjectInfoAccess(SecCertificateRefP certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secinfo("cert", "critical: %s", extn->critical ? "yes" : "no");
 }
 
 static void SecCEPNetscapeCertType(SecCertificateRefP certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secinfo("cert", "critical: %s", extn->critical ? "yes" : "no");
 }
 
 static void SecCEPEntrustVersInfo(SecCertificateRefP certificate,
 	const SecCertificateExtension *extn) {
-	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+	secinfo("cert", "critical: %s", extn->critical ? "yes" : "no");
 }
 
 /* Dictionary key callback for comparing to DERItems. */
@@ -1493,7 +1497,7 @@ static bool SecCertificateParse(SecCertificateRefP certificate)
             require_noerr_quiet(drtn, badCert);
             /* Copy stuff into certificate->extensions[ix]. */
             certificate->_extensions[ix].extnID = extn.extnID;
-            require_noerr_quiet(drtn = DERParseBoolean(&extn.critical, false,
+            require_noerr_quiet(drtn = DERParseBooleanWithDefault(&extn.critical, false,
                 &certificate->_extensions[ix].critical), badCert);
             certificate->_extensions[ix].extnValue = extn.extnValue;
 
@@ -1504,10 +1508,10 @@ static bool SecCertificateParse(SecCertificateRefP certificate)
 				/* Invoke the parser. */
 				parser(certificate, &certificate->_extensions[ix]);
 			} else if (certificate->_extensions[ix].critical) {
-				secdebug("cert", "Found unknown critical extension");
+				secinfo("cert", "Found unknown critical extension");
 				certificate->_foundUnknownCriticalExtension = true;
 			} else {
-				secdebug("cert", "Found unknown non critical extension");
+				secinfo("cert", "Found unknown non critical extension");
 			}
         }
     }
@@ -1887,7 +1891,7 @@ CFAbsoluteTime SecAbsoluteTimeFromDateContent(DERTag tag, const uint8_t *bytes,
 		timeZoneOffset = 0;
 	}
 
-    secdebug("dateparse",
+    secinfo("dateparse",
         "date %.*s year: %04d-%02d-%02d %02d:%02d:%02.f %+05.f",
         (int)length, bytes, (int)gdate.year, gdate.month,
         gdate.day, gdate.hour, gdate.minute, gdate.second,
@@ -2167,7 +2171,7 @@ static CFStringRef copyDERThingContentDescription(CFAllocatorRef allocator,
         /* @@@ Localize. */
         /* "format string for undisplayed field data with a given DER tag" */
         return printableOnly ? NULL : CFStringCreateWithFormat(allocator, NULL,
-            CFSTR("not displayed (tag = %d; length %d)"),
+            CFSTR("not displayed (tag = %llu; length %d)"),
             tag, (int)derThing->length);
 	}
 }
@@ -2312,7 +2316,7 @@ static void appendBoolProperty(CFMutableArrayRef properties,
 static void appendBooleanProperty(CFMutableArrayRef properties,
     CFStringRef label, const DERItem *boolean, bool defaultValue) {
     bool result;
-    DERReturn drtn = DERParseBoolean(boolean, defaultValue, &result);
+    DERReturn drtn = DERParseBooleanWithDefault(boolean, defaultValue, &result);
     if (drtn) {
         /* Couldn't parse boolean; dump the raw unparsed data as hex. */
         appendInvalidProperty(properties, label, boolean);
@@ -2413,7 +2417,7 @@ static void appendKeyUsage(CFMutableArrayRef properties,
         SecKeyUsage usage = (extnValue->data[3] << 8);
         if (extnValue->length == 5)
             usage += extnValue->data[4];
-        secdebug("keyusage", "keyusage: %04X", usage);
+        secinfo("keyusage", "keyusage: %04X", usage);
         static const CFStringRef usageNames[] = {
             CFSTR("Digital Signature"),
             CFSTR("Non-Repudiation"),
@@ -3681,13 +3685,12 @@ OSStatus SecCertificateIsSignedByP(SecCertificateRefP certificate,
     algId.parameters.Length = certificate->_tbsSigAlg.params.length;
     algId.parameters.Data = certificate->_tbsSigAlg.params.data;
 
-#warning implementation empty
 #if 0
     OSStatus status = SecKeyDigestAndVerify(issuerKey, &algId,
         certificate->_tbs.data, certificate->_tbs.length,
         certificate->_signature.data, certificate->_signature.length);
 	if (status) {
-		secdebug("verify", "signature verify failed: %d", status);
+		secinfo("verify", "signature verify failed: %d", status);
 		return errSecNotSigner;
 	}
 #endif
@@ -3741,11 +3744,11 @@ static OSStatus SecCertificateIsIssuedBy(SecCertificateRefP certificate,
 		signedDataLength = DER_MD_DIGEST_INFO_LEN;
 		crtn = mdDigestInfo(WD_MD2, &certificate->_tbs, signedData);
 	} else {
-		secdebug("verify", "unsupported algorithm");
+		secinfo("verify", "unsupported algorithm");
 		return errSecUnsupportedAlgorithm;
 	}
 	if (crtn) {
-		secdebug("verify", "*DigestInfo returned: %d", crtn);
+		secinfo("verify", "*DigestInfo returned: %d", crtn);
         /* FIXME: Do proper error code translation. */
 		return errSecUnsupportedAlgorithm;
 	}
@@ -3754,7 +3757,7 @@ static OSStatus SecCertificateIsIssuedBy(SecCertificateRefP certificate,
 		signedData, signedDataLength,
 		certificate->_signature.data, certificate->_signature.length);
 	if (status) {
-		secdebug("verify", "signature verify failed: %d", status);
+		secinfo("verify", "signature verify failed: %d", status);
 		return errSecNotSigner;
 	}
 
@@ -3781,7 +3784,7 @@ static OSStatus _SecCertificateSetParent(SecCertificateRefP certificate,
             /* We don't retain ourselves cause that would be bad mojo,
                however we do record that we are properly self signed. */
             certificate->_isSelfSigned = kSecSelfSignedTrue;
-            secdebug("cert", "set self as parent");
+            secinfo("cert", "set self as parent");
             return errSecSuccess;
         }
 
@@ -3845,7 +3848,7 @@ static bool SecCertificateFindParent(SecCertificateRefP certificate) {
     OSStatus status = SecItemCopyMatching(query, &results);
     CFRelease(query);
     if (status) {
-		secdebug("cert", "SecCertificateFindParent: SecItemCopyMatching: %d",
+		secinfo("cert", "SecCertificateFindParent: SecItemCopyMatching: %d",
             status);
         return false;
     }
@@ -4396,7 +4399,7 @@ CFDataRef SecDERItemCopySequenceP(DERItem *content) {
         sequence_length);
 	CFDataSetLength(sequence, sequence_length);
 	uint8_t *sequence_ptr = CFDataGetMutableBytePtr(sequence);
-    *sequence_ptr++ = 0x30; /* ASN1_CONSTR_SEQUENCE */
+    *sequence_ptr++ = ONE_BYTE_ASN1_CONSTR_SEQUENCE;
     require_noerr_quiet(DEREncodeLength(content->length,
         sequence_ptr, &seq_len_length), out);
     sequence_ptr += seq_len_length;
@@ -4428,7 +4431,6 @@ const DERItem *SecCertificateGetPublicKeyDataP(SecCertificateRefP certificate) {
 
 SecKeyRefP SecCertificateCopyPublicKeyP(SecCertificateRefP certificate) {
 	SecKeyRefP publicKey = NULL;
-#warning implementation empty
 #if 0
 	const DERAlgorithmId *algId =
 		SecCertificateGetPublicKeyAlgorithmP(certificate);
@@ -4437,7 +4439,7 @@ SecKeyRefP SecCertificateCopyPublicKeyP(SecCertificateRefP certificate) {
 		publicKey = SecKeyCreateRSAPublicKey(kCFAllocatorDefault,
 			keyData->data, keyData->length, kSecKeyEncodingPkcs1);
     } else {
-		secdebug("cert", "Unsupported algorithm oid");
+		secinfo("cert", "Unsupported algorithm oid");
 	}
 #endif
 

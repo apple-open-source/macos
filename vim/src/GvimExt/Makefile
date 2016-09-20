@@ -4,13 +4,19 @@
 #
 
 TARGETOS=BOTH
-APPVER=4.0
+!ifndef APPVER
+APPVER=5.0
+!endif
 
 !if "$(DEBUG)" != "yes"
 NODEBUG = 1
 !endif
 
-!include <win32.mak>
+!ifdef SDK_INCLUDE_DIR
+!include $(SDK_INCLUDE_DIR)\Win32.mak
+!else
+!include <Win32.mak>
+!endif
 
 all: gvimext.dll
 

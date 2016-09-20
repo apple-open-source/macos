@@ -65,6 +65,7 @@ Listen @@Port@@
 #
 @@LoadModule@@
 #LoadModule php5_module libexec/apache2/libphp5.so
+#LoadModule perl_module libexec/apache2/mod_perl.so
 LoadModule hfs_apple_module libexec/apache2/mod_hfs_apple.so
 
 <IfModule unixd_module>
@@ -280,6 +281,15 @@ LogLevel warn
     Options None
     Require all granted
 </Directory>
+
+<IfModule headers_module>
+    #
+    # Avoid passing HTTP_PROXY environment to CGI's on this or any proxied
+    # backend servers which have lingering "httpoxy" defects.
+    # 'Proxy' request header is undefined by the IETF, not listed by IANA
+    #
+    RequestHeader unset Proxy early
+</IfModule>
 
 <IfModule mime_module>
     #

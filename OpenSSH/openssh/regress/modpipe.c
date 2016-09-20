@@ -171,5 +171,5 @@ main(int argc, char **argv)
 		r = 1;
 		fprintf(stderr, "modpipe: warning - mod %u not reached\n", i);
 	}
-	return (int)r;
+	return r;
 }

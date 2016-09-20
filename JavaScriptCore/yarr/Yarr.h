@@ -28,13 +28,12 @@
 #ifndef Yarr_h
 #define Yarr_h
 
-#include "YarrInterpreter.h"
 #include "YarrPattern.h"
 
 namespace JSC { namespace Yarr {
 
-#define YarrStackSpaceForBackTrackInfoPatternCharacter 1 // Only for !fixed quantifiers.
-#define YarrStackSpaceForBackTrackInfoCharacterClass 1 // Only for !fixed quantifiers.
+#define YarrStackSpaceForBackTrackInfoPatternCharacter 2 // Only for !fixed quantifiers.
+#define YarrStackSpaceForBackTrackInfoCharacterClass 2 // Only for !fixed quantifiers.
 #define YarrStackSpaceForBackTrackInfoBackReference 2
 #define YarrStackSpaceForBackTrackInfoAlternative 1 // One per alternative.
 #define YarrStackSpaceForBackTrackInfoParentheticalAssertion 1
@@ -62,6 +61,8 @@ enum YarrCharSize {
     Char8,
     Char16
 };
+
+struct BytecodePattern;
 
 } } // namespace JSC::Yarr
 

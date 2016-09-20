@@ -50,6 +50,7 @@ private:
 };
 
 class RunResolver {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     class Iterator;
 
@@ -60,14 +61,18 @@ public:
         unsigned start() const;
         unsigned end() const;
 
-        LayoutRect rect() const;
-        FloatPoint baseline() const;
+        FloatRect rect() const;
+        float expansion() const;
+        ExpansionBehavior expansionBehavior() const;
+        int baselinePosition() const;
         StringView text() const;
         bool isEndOfLine() const;
 
         unsigned lineIndex() const;
 
     private:
+        float computeBaselinePosition() const;
+
         const Iterator& m_iterator;
     };
 
@@ -120,6 +125,7 @@ private:
     const LayoutUnit m_borderAndPaddingBefore;
     const float m_ascent;
     const float m_descent;
+    const float m_visualOverflowOffset;
     const bool m_inQuirksMode;
 };
 
@@ -135,7 +141,7 @@ public:
         bool operator==(const Iterator&) const;
         bool operator!=(const Iterator&) const;
 
-        const LayoutRect operator*() const;
+        const FloatRect operator*() const;
 
     private:
         RunResolver::Iterator m_runIterator;
@@ -166,6 +172,21 @@ inline unsigned RunResolver::Run::end() const
     return m_iterator.simpleRun().end;
 }
 
+inline float RunResolver::Run::expansion() const
+{
+    return m_iterator.simpleRun().expansion;
+}
+
+inline ExpansionBehavior RunResolver::Run::expansionBehavior() const
+{
+    return m_iterator.simpleRun().expansionBehavior;
+}
+
+inline int RunResolver::Run::baselinePosition() const
+{
+    return roundToInt(computeBaselinePosition());
+}
+
 inline bool RunResolver::Run::isEndOfLine() const
 {
     return m_iterator.simpleRun().isEndOfLine;
@@ -179,6 +200,12 @@ inline unsigned RunResolver::Run::lineIndex() const
 inline RunResolver::Iterator& RunResolver::Iterator::operator++()
 {
     return advance();
+}
+
+inline float RunResolver::Run::computeBaselinePosition() const
+{
+    auto& resolver = m_iterator.resolver();
+    return resolver.m_lineHeight * lineIndex() + resolver.m_baseline + resolver.m_borderAndPaddingBefore;
 }
 
 inline RunResolver::Iterator& RunResolver::Iterator::operator--()

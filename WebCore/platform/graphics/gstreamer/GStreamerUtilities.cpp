@@ -22,11 +22,11 @@
 #if USE(GSTREAMER)
 #include "GStreamerUtilities.h"
 
+#include "GRefPtrGStreamer.h"
 #include "IntSize.h"
 
 #include <gst/audio/audio-info.h>
 #include <gst/gst.h>
-#include <gst/video/video-info.h>
 #include <wtf/MathExtras.h>
 #include <wtf/glib/GUniquePtr.h>
 
@@ -73,6 +73,22 @@ bool getVideoSizeAndFormatFromCaps(GstCaps* caps, WebCore::IntSize& size, GstVid
 
     return true;
 }
+
+bool getSampleVideoInfo(GstSample* sample, GstVideoInfo& videoInfo)
+{
+    if (!GST_IS_SAMPLE(sample))
+        return false;
+
+    GstCaps* caps = gst_sample_get_caps(sample);
+    if (!caps)
+        return false;
+
+    gst_video_info_init(&videoInfo);
+    if (!gst_video_info_from_caps(&videoInfo, caps))
+        return false;
+
+    return true;
+}
 #endif
 
 GstBuffer* createGstBuffer(GstBuffer* buffer)
@@ -105,9 +121,9 @@ char* getGstBufferDataPointer(GstBuffer* buffer)
 
 void mapGstBuffer(GstBuffer* buffer)
 {
-    GstMapInfo* mapInfo = g_slice_new(GstMapInfo);
+    GstMapInfo* mapInfo = static_cast<GstMapInfo*>(fastMalloc(sizeof(GstMapInfo)));
     if (!gst_buffer_map(buffer, mapInfo, GST_MAP_WRITE)) {
-        g_slice_free(GstMapInfo, mapInfo);
+        fastFree(mapInfo);
         gst_buffer_unref(buffer);
         return;
     }
@@ -125,7 +141,7 @@ void unmapGstBuffer(GstBuffer* buffer)
         return;
 
     gst_buffer_unmap(buffer, mapInfo);
-    g_slice_free(GstMapInfo, mapInfo);
+    fastFree(mapInfo);
 }
 
 bool initializeGStreamer()
@@ -166,8 +182,18 @@ GstClockTime toGstClockTime(float time)
     float microSeconds = modff(time, &seconds) * 1000000;
     GTimeVal timeValue;
     timeValue.tv_sec = static_cast<glong>(seconds);
-    timeValue.tv_usec = static_cast<glong>(roundf(microSeconds / 10000) * 10000);
+    timeValue.tv_usec = static_cast<glong>(floor(microSeconds + 0.5));
     return GST_TIMEVAL_TO_TIME(timeValue);
+}
+
+bool gstRegistryHasElementForMediaType(GList* elementFactories, const char* capsString)
+{
+    GRefPtr<GstCaps> caps = adoptGRef(gst_caps_from_string(capsString));
+    GList* candidates = gst_element_factory_list_filter(elementFactories, caps.get(), GST_PAD_SINK, false);
+    bool result = candidates;
+
+    gst_plugin_feature_list_free(candidates);
+    return result;
 }
 
 }

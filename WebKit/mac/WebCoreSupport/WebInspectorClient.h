@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2015 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,64 +27,54 @@
  */
 
 #import <WebCore/InspectorClient.h>
-#import <WebCore/InspectorForwarding.h>
-#import <WebCore/InspectorFrontendClientLocal.h>
 
+#import <WebCore/InspectorFrontendClientLocal.h>
+#import <inspector/InspectorFrontendChannel.h>
 #import <wtf/Forward.h>
 #import <wtf/HashMap.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/text/StringHash.h>
 #import <wtf/text/WTFString.h>
 
-#ifdef __OBJC__
-@class NSURL;
-@class WebInspectorRemoteChannel;
-@class WebInspectorWindowController;
-@class WebNodeHighlighter;
-@class WebView;
-#else
-class NSURL;
-class WebInspectorRemoteChannel;
-class WebInspectorWindowController;
-class WebNodeHighlighter;
-class WebView;
-#endif
+OBJC_CLASS NSURL;
+OBJC_CLASS WebInspectorRemoteChannel;
+OBJC_CLASS WebInspectorWindowController;
+OBJC_CLASS WebNodeHighlighter;
+OBJC_CLASS WebView;
 
 namespace WebCore {
-
 class Frame;
 class Page;
-
 }
 
 class WebInspectorFrontendClient;
 
-class WebInspectorClient : public WebCore::InspectorClient, public WebCore::InspectorFrontendChannel {
+class WebInspectorClient : public WebCore::InspectorClient, public Inspector::FrontendChannel {
 public:
-    explicit WebInspectorClient(WebView *);
+    explicit WebInspectorClient(WebView *inspectedWebView);
 
-    virtual void inspectorDestroyed() override;
+    void inspectedPageDestroyed() override;
 
-    virtual WebCore::InspectorFrontendChannel* openInspectorFrontend(WebCore::InspectorController*) override;
-    virtual void closeInspectorFrontend() override;
-    virtual void bringFrontendToFront() override;
-    virtual void didResizeMainFrame(WebCore::Frame*) override;
+    Inspector::FrontendChannel* openLocalFrontend(WebCore::InspectorController*) override;
+    void bringFrontendToFront() override;
+    void didResizeMainFrame(WebCore::Frame*) override;
 
-    virtual void highlight() override;
-    virtual void hideHighlight() override;
+    void highlight() override;
+    void hideHighlight() override;
 
 #if PLATFORM(IOS)
-    virtual void showInspectorIndication() override;
-    virtual void hideInspectorIndication() override;
+    void showInspectorIndication() override;
+    void hideInspectorIndication() override;
 
-    virtual bool overridesShowPaintRects() const override { return true; }
-    virtual void setShowPaintRects(bool) override;
-    virtual void showPaintRect(const WebCore::FloatRect&) override;
+    bool overridesShowPaintRects() const override { return true; }
+    void setShowPaintRects(bool) override;
+    void showPaintRect(const WebCore::FloatRect&) override;
 #endif
 
-    virtual void didSetSearchingForNode(bool) override;
+    void didSetSearchingForNode(bool) override;
 
-    virtual bool sendMessageToFrontend(const String&) override;
+    bool sendMessageToFrontend(const String&) override;
+    ConnectionType connectionType() const override { return ConnectionType::Local; }
 
     bool inspectorStartsAttached();
     void setInspectorStartsAttached(bool);
@@ -101,9 +91,9 @@ public:
 private:
     std::unique_ptr<WebCore::InspectorFrontendClientLocal::Settings> createFrontendSettings();
 
-    WebView *m_webView;
+    WebView *m_inspectedWebView { nullptr };
     RetainPtr<WebNodeHighlighter> m_highlighter;
-    WebCore::Page* m_frontendPage;
+    WebCore::Page* m_frontendPage { nullptr };
     std::unique_ptr<WebInspectorFrontendClient> m_frontendClient;
 };
 
@@ -115,35 +105,33 @@ public:
     void attachAvailabilityChanged(bool);
     bool canAttach();
 
-    virtual void frontendLoaded() override;
+    void frontendLoaded() override;
 
-    virtual void startWindowDrag() override;
+    void startWindowDrag() override;
 
-    virtual String localizedStringsURL() override;
+    String localizedStringsURL() override;
 
-    virtual void bringToFront() override;
-    virtual void closeWindow() override;
-    virtual void disconnectFromBackend();
+    void bringToFront() override;
+    void closeWindow() override;
 
-    virtual void attachWindow(DockSide) override;
-    virtual void detachWindow() override;
+    void attachWindow(DockSide) override;
+    void detachWindow() override;
 
-    virtual void setAttachedWindowHeight(unsigned height) override;
-    virtual void setAttachedWindowWidth(unsigned height) override;
-    virtual void setToolbarHeight(unsigned) override;
+    void setAttachedWindowHeight(unsigned height) override;
+    void setAttachedWindowWidth(unsigned height) override;
 
-    virtual void inspectedURLChanged(const String& newURL) override;
+    void inspectedURLChanged(const String& newURL) override;
 
 private:
     void updateWindowTitle() const;
 
-    virtual bool canSave() override { return true; }
-    virtual void save(const String& url, const String& content, bool forceSaveAs, bool base64Encoded) override;
-    virtual void append(const String& url, const String& content) override;
+    bool canSave() override { return true; }
+    void save(const String& url, const String& content, bool forceSaveAs, bool base64Encoded) override;
+    void append(const String& url, const String& content) override;
 
 #if !PLATFORM(IOS)
-    WebView* m_inspectedWebView;
-    RetainPtr<WebInspectorWindowController> m_windowController;
+    WebView *m_inspectedWebView;
+    RetainPtr<WebInspectorWindowController> m_frontendWindowController;
     String m_inspectedURL;
     HashMap<String, RetainPtr<NSURL>> m_suggestedToActualURLMap;
 #endif

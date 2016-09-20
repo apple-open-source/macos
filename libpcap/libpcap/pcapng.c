@@ -143,6 +143,9 @@ pcap_ng_block_alloc(size_t len)
 	u_char *ptr;
 	struct pcapng_block *block;
 	
+	if (len > pcap_ng_block_size_max())
+		return (NULL);
+	
 	/*
 	 * The internal block structure is prepended
 	 */
@@ -157,8 +160,13 @@ pcap_ng_block_alloc(size_t len)
 	block->pcapng_bufptr = ptr + PAD_64BIT(sizeof(struct pcapng_block));
 	block->pcapng_buflen = len;
 	
-	
 	return (block);
+}
+
+size_t
+pcap_ng_block_size_max()
+{
+    return (2 * MAXIMUM_SNAPLEN);
 }
 
 void
@@ -176,7 +184,7 @@ pcap_ng_block_get_type(pcapng_block_t block)
 bpf_u_int32
 pcap_ng_block_get_len(pcapng_block_t block)
 {
-	return (block->pcapng_block_len);
+	return ((bpf_u_int32)block->pcapng_block_len);
 }
 
 int
@@ -512,6 +520,13 @@ pcap_ng_block_add_option_with_string(pcapng_block_t block, u_short code, const c
 {
 	return (pcap_ng_block_add_option_with_value(block, code, str, strlen(str) + 1));
 }
+
+int
+pcap_ng_block_add_option_with_uuid(pcapng_block_t block, u_short code, uuid_t uu)
+{
+	return (pcap_ng_block_add_option_with_value(block, code, uu, sizeof(uuid_t)));
+}
+
 
 static struct pcapng_option_header *
 get_opthdr_from_block_data(struct pcapng_option_header *opthdr, int swapped,
@@ -1231,7 +1246,7 @@ pcap_ng_block_internalize_common(pcapng_block_t *pblock, pcap_t *p, u_char *raw_
 			break;
 		}
 		case PCAPNG_BT_NRB: {
-			struct pcapng_record_header *rh = (struct pcapng_record_header *)(block + 1);
+			struct pcapng_record_header *rh;
 
 			while (1) {
 				size_t record_len;

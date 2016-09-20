@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2008, 2013-2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2008, 2013-2014, 2016 Apple Inc. All rights reserved.
  * Copyright (C) 2010 Patrick Gansterer <paroga@paroga.com>
  * Copyright (C) 2012 Google Inc. All rights reserved.
  *
@@ -27,32 +27,17 @@
 #include "dtoa.h"
 
 #if USE(WEB_THREAD)
-#include "SpinLock.h"
+#include "Lock.h"
 #endif
 
 namespace WTF {
 
-AtomicString AtomicString::lower() const
-{
-    // Note: This is a hot function in the Dromaeo benchmark.
-    StringImpl* impl = this->impl();
-    if (UNLIKELY(!impl))
-        return AtomicString();
-
-    RefPtr<StringImpl> lowercasedString = impl->lower();
-    if (LIKELY(lowercasedString == impl))
-        return *this;
-
-    AtomicString result;
-    result.m_string = AtomicStringImpl::add(lowercasedString.get());
-    return result;
-}
-
-AtomicString AtomicString::convertToASCIILowercase() const
+template<AtomicString::CaseConvertType type>
+ALWAYS_INLINE AtomicString AtomicString::convertASCIICase() const
 {
     StringImpl* impl = this->impl();
     if (UNLIKELY(!impl))
-        return AtomicString();
+        return nullAtom;
 
     // Convert short strings without allocating a new StringImpl, since
     // there's a good chance these strings are already in the atomic
@@ -63,7 +48,7 @@ AtomicString AtomicString::convertToASCIILowercase() const
         const LChar* characters = impl->characters8();
         unsigned failingIndex;
         for (unsigned i = 0; i < length; ++i) {
-            if (UNLIKELY(isASCIIUpper(characters[i]))) {
+            if (type == CaseConvertType::Lower ? UNLIKELY(isASCIIUpper(characters[i])) : LIKELY(isASCIILower(characters[i]))) {
                 failingIndex = i;
                 goto SlowPath;
             }
@@ -74,17 +59,27 @@ SlowPath:
         for (unsigned i = 0; i < failingIndex; ++i)
             localBuffer[i] = characters[i];
         for (unsigned i = failingIndex; i < length; ++i)
-            localBuffer[i] = toASCIILower(characters[i]);
+            localBuffer[i] = type == CaseConvertType::Lower ? toASCIILower(characters[i]) : toASCIIUpper(characters[i]);
         return AtomicString(localBuffer, length);
     }
 
-    RefPtr<StringImpl> convertedString = impl->convertToASCIILowercase();
-    if (LIKELY(convertedString == impl))
+    Ref<StringImpl> convertedString = type == CaseConvertType::Lower ? impl->convertToASCIILowercase() : impl->convertToASCIIUppercase();
+    if (LIKELY(convertedString.ptr() == impl))
         return *this;
 
     AtomicString result;
-    result.m_string = AtomicStringImpl::add(convertedString.get());
+    result.m_string = AtomicStringImpl::add(convertedString.ptr());
     return result;
+}
+
+AtomicString AtomicString::convertToASCIILowercase() const
+{
+    return convertASCIICase<CaseConvertType::Lower>();
+}
+
+AtomicString AtomicString::convertToASCIIUppercase() const
+{
+    return convertASCIICase<CaseConvertType::Upper>();
 }
 
 AtomicString AtomicString::number(int number)
@@ -93,6 +88,16 @@ AtomicString AtomicString::number(int number)
 }
 
 AtomicString AtomicString::number(unsigned number)
+{
+    return numberToStringUnsigned<AtomicString>(number);
+}
+
+AtomicString AtomicString::number(unsigned long number)
+{
+    return numberToStringUnsigned<AtomicString>(number);
+}
+
+AtomicString AtomicString::number(unsigned long long number)
 {
     return numberToStringUnsigned<AtomicString>(number);
 }

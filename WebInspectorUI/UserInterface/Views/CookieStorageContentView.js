@@ -46,10 +46,10 @@ WebInspector.CookieStorageContentView = class CookieStorageContentView extends W
 
     update()
     {
-        PageAgent.getCookies().then(function(payload) {
+        PageAgent.getCookies().then((payload) => {
             this._cookies = this._filterCookies(payload.cookies);
             this._rebuildTable();
-        }.bind(this)).catch(function(error) {
+        }).catch((error) => {
             console.error("Could not fetch cookies: ", error);
         });
     }
@@ -78,10 +78,12 @@ WebInspector.CookieStorageContentView = class CookieStorageContentView extends W
             columns.name.title = WebInspector.UIString("Name");
             columns.name.sortable = true;
             columns.name.width = "24%";
+            columns.name.locked = true;
 
             columns.value.title = WebInspector.UIString("Value");
             columns.value.sortable = true;
             columns.value.width = "34%";
+            columns.value.locked = true;
 
             columns.domain.title = WebInspector.UIString("Domain");
             columns.domain.sortable = true;
@@ -111,6 +113,7 @@ WebInspector.CookieStorageContentView = class CookieStorageContentView extends W
             columns.secure.width = "7%";
 
             this._dataGrid = new WebInspector.DataGrid(columns, null, this._deleteCallback.bind(this));
+            this._dataGrid.columnChooserEnabled = true;
             this._dataGrid.addEventListener(WebInspector.DataGrid.Event.SortChanged, this._sortDataGrid, this);
 
             this.addSubview(this._dataGrid);
@@ -121,7 +124,7 @@ WebInspector.CookieStorageContentView = class CookieStorageContentView extends W
         this._dataGrid.removeChildren();
 
         for (var cookie of this._cookies) {
-            var checkmark = "\u2713";
+            const checkmark = "\u2713";
             var data = {
                 "name": cookie.name,
                 "value": cookie.value,
@@ -143,26 +146,27 @@ WebInspector.CookieStorageContentView = class CookieStorageContentView extends W
         }
 
         this._dataGrid.sortColumnIdentifier = "name";
+        this._dataGrid.createSettings("cookie-storage-content-view");
     }
 
     _filterCookies(cookies)
     {
-        var resourceMatchesStorageDomain = function(resource) {
-            var urlComponents = resource.urlComponents;
+        let resourceMatchesStorageDomain = (resource) => {
+            let urlComponents = resource.urlComponents;
             return urlComponents && urlComponents.host && urlComponents.host === this.representedObject.host;
-        }.bind(this);
+        }
 
-        var allResources = [];
-        for (var frame of WebInspector.frameResourceManager.frames) {
+        let allResources = [];
+        for (let frame of WebInspector.frameResourceManager.frames) {
             // The main resource isn't in the list of resources, so add it as a candidate.
             allResources.push(frame.mainResource);
             allResources = allResources.concat(frame.resources);
         }
 
-        var resourcesForDomain = allResources.filter(resourceMatchesStorageDomain);
+        let resourcesForDomain = allResources.filter(resourceMatchesStorageDomain);
 
-        var cookiesForDomain = cookies.filter(function(cookie) {
-            return resourcesForDomain.some(function(resource) {
+        let cookiesForDomain = cookies.filter((cookie) => {
+            return resourcesForDomain.some((resource) => {
                 return WebInspector.CookieStorageObject.cookieMatchesResourceURL(cookie, resource.url);
             });
         });
@@ -184,12 +188,12 @@ WebInspector.CookieStorageContentView = class CookieStorageContentView extends W
         function expiresCompare(nodeA, nodeB)
         {
             if (nodeA.cookie.session !== nodeB.cookie.session)
-                return nodeA.cookie.session ? 1 : -1;
+                return nodeA.cookie.session ? -1 : 1;
 
             if (nodeA.cookie.session)
                 return 0;
 
-            return nodeA.data["expires"] - nodeB.data["expires"];
+            return nodeA.cookie.expires - nodeB.cookie.expires;
         }
 
         var comparator;

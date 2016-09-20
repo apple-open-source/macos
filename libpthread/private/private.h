@@ -52,4 +52,80 @@ struct _libpthread_functions {
 	void (*free)(void *); // added with version=2
 };
 
+/*!
+ * @function pthread_chdir_np
+ *
+ * @abstract
+ * Sets the per-thread current working directory.
+ *
+ * @discussion
+ * This will set the per-thread current working directory to the provided path.
+ * If this is used on a workqueue (dispatch) thread, it MUST be unset with
+ * pthread_fchdir_np(-1) before returning.
+ *
+ * @param path
+ * The path of the new working directory.
+ *
+ * @result
+ * 0 upon success, -1 upon error and errno is set.
+ */
+__OSX_AVAILABLE(10.12)
+__IOS_AVAILABLE(10.0)
+__TVOS_AVAILABLE(10.0)
+__WATCHOS_AVAILABLE(3.0)
+int pthread_chdir_np(char *path);
+
+/*!
+ * @function pthread_fchdir_np
+ *
+ * @abstract
+ * Sets the per-thread current working directory.
+ *
+ * @discussion
+ * This will set the per-thread current working directory to the provided
+ * directory fd.  If this is used on a workqueue (dispatch) thread, it MUST be
+ * unset with pthread_fchdir_np(-1) before returning.
+ *
+ * @param fd
+ * A file descriptor to the new working directory.  Pass -1 to unset the
+ * per-thread working directory.
+ *
+ * @result
+ * 0 upon success, -1 upon error and errno is set.
+ */
+__OSX_AVAILABLE(10.12)
+__IOS_AVAILABLE(10.0)
+__TVOS_AVAILABLE(10.0)
+__WATCHOS_AVAILABLE(3.0)
+int pthread_fchdir_np(int fd);
+
+
+#ifdef _os_tsd_get_base
+
+#ifdef __LP64__
+#define _PTHREAD_STRUCT_DIRECT_THREADID_OFFSET -8
+#else
+#define _PTHREAD_STRUCT_DIRECT_THREADID_OFFSET -16
+#endif
+
+/* N.B. DO NOT USE UNLESS YOU ARE REBUILT AS PART OF AN OS TRAIN WORLDBUILD */
+__header_always_inline uint64_t
+_pthread_threadid_self_np_direct(void)
+{
+#ifndef __i386__
+    if (_pthread_has_direct_tsd()) {
+#ifdef OS_GS_RELATIVE
+        return *(uint64_t OS_GS_RELATIVE *)(_PTHREAD_STRUCT_DIRECT_THREADID_OFFSET);
+#else
+        return *(uint64_t*)((char *)_os_tsd_get_base() + _PTHREAD_STRUCT_DIRECT_THREADID_OFFSET);
+#endif
+    }
+#endif
+    uint64_t threadid = 0;
+    pthread_threadid_np(NULL, &threadid);
+    return threadid;
+}
+
+#endif // _os_tsd_get_base
+
 #endif // __PTHREAD_PRIVATE_H__

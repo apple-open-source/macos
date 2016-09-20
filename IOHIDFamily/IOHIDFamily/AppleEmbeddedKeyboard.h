@@ -26,12 +26,9 @@
 #define _IOKIT_HID_APPLEEMBEDDEDKEYBOARD_H
 
 #include <IOKit/hidevent/IOHIDEventDriver.h>
+#include "IOHIDPrivateKeys.h"
 
 // Moved up to allow subclasses to use the same keys
-#define kFnFunctionUsageMapKey      "FnFunctionUsageMap"
-#define kFnKeyboardUsageMapKey      "FnKeyboardUsageMap"
-#define kNumLockKeyboardUsageMapKey "NumLockKeyboardUsageMap"
-#define kKeyboardUsageMapKey        "KeyboardUsageMap"
 
 enum {
     kSecondaryKeyFnFunction         = 0x01,
@@ -54,34 +51,34 @@ class AppleEmbeddedKeyboard: public IOHIDEventDriver
 {
     OSDeclareDefaultStructors( AppleEmbeddedKeyboard )
     
-    bool                    _fnKeyDownPhysical;
-    bool                    _fnKeyDownVirtual;
-    bool                    _numLockDown;
-    bool                    _virtualMouseKeysSupport;
-    UInt32                  _fKeyMode;
-    SecondaryKey    		_secondaryKeys[255];
-    IOHIDElement *          _keyboardRollOverElement;
+//    bool                    _fnKeyDownPhysical;
+//    bool                    _fnKeyDownVirtual;
+//    bool                    _numLockDown;
+//    bool                    _virtualMouseKeysSupport;
+//    UInt32                  _fKeyMode;
+//    SecondaryKey            _secondaryKeys[255];
+//    IOHIDElement *          _keyboardRollOverElement;
     OSDictionary *          _keyboardMap;
 
-    void                    findKeyboardRollOverElement(OSArray * reportElements);
-        
-    void                    parseSecondaryUsages();
-    
-    bool                    filterSecondaryFnFunctionUsage(
-                                UInt32 *                    usagePage,
-                                UInt32 *                    usage,
-                                bool                        down);
-                                
-    bool                    filterSecondaryFnKeyboardUsage(
-                                UInt32 *                    usagePage,
-                                UInt32 *                    usage,
-                                bool                        down);
-                                
-    bool                    filterSecondaryNumLockKeyboardUsage(
-                                UInt32 *                    usagePage,
-                                UInt32 *                    usage,
-                                bool                        down);
-    
+//    void                    findKeyboardRollOverElement(OSArray * reportElements);
+//        
+//    void                    parseSecondaryUsages();
+//    
+//    bool                    filterSecondaryFnFunctionUsage(
+//                                UInt32 *                    usagePage,
+//                                UInt32 *                    usage,
+//                                bool                        down);
+//                                
+//    bool                    filterSecondaryFnKeyboardUsage(
+//                                UInt32 *                    usagePage,
+//                                UInt32 *                    usage,
+//                                bool                        down);
+//                                
+//    bool                    filterSecondaryNumLockKeyboardUsage(
+//                                UInt32 *                    usagePage,
+//                                UInt32 *                    usage,
+//                                bool                        down);
+//    
     bool                    filterKeyboardUsage(
                                 UInt32 *                    usagePage,
                                 UInt32 *                    usage,
@@ -91,7 +88,7 @@ protected:
         
     virtual bool            handleStart( IOService * provider );
     
-    virtual void            setElementValue (
+    virtual IOReturn        setElementValue (
                                 UInt32                      usagePage,
                                 UInt32                      usage,
                                 UInt32                      value );

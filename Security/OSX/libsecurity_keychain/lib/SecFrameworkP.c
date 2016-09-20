@@ -84,7 +84,7 @@ CFURLRef SecFrameworkCopyResourceURL(CFStringRef resourceName,
         url = CFBundleCopyResourceURL(kSecFrameworkBundle, resourceName,
 			resourceType, subDirName);
 		if (!url) {
-            secdebug("SecFramework", "resource: %@.%@ in %@ not found", resourceName,
+            secinfo("SecFramework", "resource: %@.%@ in %@ not found", resourceName,
                 resourceType, subDirName);
 		}
     }
@@ -102,7 +102,7 @@ CFDataRef SecFrameworkCopyResourceContents(CFStringRef resourceName,
         SInt32 error;
         if (!CFURLCreateDataAndPropertiesFromResource(kCFAllocatorDefault,
             url, &data, NULL, NULL, &error)) {
-            secdebug("SecFramework", "read: %d", (int)error);
+            secinfo("SecFramework", "read: %d", (int)error);
         }
         CFRelease(url);
     }
@@ -150,110 +150,5 @@ CFDataRef SecDigestCreate(CFAllocatorRef allocator,
 	CFDataSetLength(digest, digestLen);
 	digestFcn(data, length, CFDataGetMutableBytePtr(digest));
 	return digest;
-}
-#endif
-
-#if 0
-
-/* Default random ref for /dev/random. */
-const SecRandomRef kSecRandomDefault = NULL;
-
-/* File descriptor for "/dev/random". */
-static int kSecRandomFD;
-static pthread_once_t kSecDevRandomOpen = PTHREAD_ONCE_INIT;
-
-static void SecDevRandomOpen(void) {
-    kSecRandomFD = open("/dev/random", O_RDONLY);
-}
-
-int SecRandomCopyBytes(SecRandomRef rnd, size_t count, uint8_t *bytes) {
-    if (rnd != kSecRandomDefault)
-        return errSecParam;
-    pthread_once(&kSecDevRandomOpen, SecDevRandomOpen);
-    if (kSecRandomFD < 0)
-        return -1;
-    while (count) {
-        ssize_t bytes_read = read(kSecRandomFD, bytes, count);
-        if (bytes_read == -1) {
-            if (errno == EINTR)
-                continue;
-            return -1;
-        }
-        if (bytes_read == 0) {
-            return -1;
-        }
-        count -= bytes_read;
-    }
-
-	return 0;
-}
-
-#include <CommonCrypto/CommonDigest.h>
-#include <stdlib.h>
-
-/* FIPS rng declarations. */
-typedef struct __SecRandom *SecRandomRef;
-SecRandomRef SecRandomCreate(CFIndex randomAlg, CFIndex seedLength,
-	const UInt8 *seed);
-void SecRandomCopyBytes(SecRandomRef randomref, CFIndex numBytes, UInt8 *outBytes);
-
-/* FIPS Rng implementation. */
-struct __SecRandom {
-	CC_SHA1_CTX sha1;
-	CFIndex bytesLeft;
-	UInt8 block[64];
-};
-
-SecRandomRef SecRandomCreate(CFIndex randomAlg, CFIndex seedLength,
-	const UInt8 *seed) {
-	SecRandomRef result = (SecRandomRef)malloc(sizeof(struct __SecRandom));
-	CC_SHA1_Init(&result->sha1);
-	memset(result->block + 20, 0, 44);
-	result->bytesLeft = 0;
-
-	if (seedLength) {
-		/* Digest the seed and put it into output. */
-		CC_SHA1(seed, seedLength, result->block);
-	} else {
-		/* Seed 20 bytes from "/dev/srandom". */
-		int fd = open("/dev/srandom", O_RDONLY);
-		if (fd < 0)
-			goto errOut;
-
-		if (read(fd, result->block, 20) != 20)
-			goto errOut;
-
-		close(fd);
-	}
-
-	CC_SHA1_Update(&result->sha1, result->block, 64);
-
-	return result;
-
-errOut:
-	free(result);
-	return NULL;
-}
-
-void SecRandomCopyBytes(SecRandomRef randomref, CFIndex numBytes,
-	UInt8 *outBytes) {
-	while (numBytes > 0) {
-		if (!randomref->bytesLeft) {
-			CC_SHA1_Update(&randomref->sha1, randomref->block, 64);
-			OSWriteBigInt32(randomref->block, 0, randomref->sha1.h0);
-			OSWriteBigInt32(randomref->block, 4, randomref->sha1.h1);
-			OSWriteBigInt32(randomref->block, 8, randomref->sha1.h2);
-			OSWriteBigInt32(randomref->block, 12, randomref->sha1.h3);
-			OSWriteBigInt32(randomref->block, 16, randomref->sha1.h4);
-			randomref->bytesLeft = 20;
-		}
-		CFIndex outLength = (numBytes > randomref->bytesLeft ?
-							 randomref->bytesLeft : numBytes);
-		memcpy(outBytes, randomref->block + 20 - randomref->bytesLeft,
-			outLength);
-		randomref->bytesLeft -= outLength;
-		outBytes += outLength;
-		numBytes -= outLength;
-	}
 }
 #endif

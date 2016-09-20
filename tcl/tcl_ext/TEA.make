@@ -28,7 +28,7 @@ endif
 Install_Flags         = DESTDIR="$(DSTROOT)" $(Extra_Install_Flags)
 Install_Target        = install
 
-Extra_CC_Flags        = -DNO_SSL2
+Extra_CC_Flags        = -DNO_SSL2 -DHAVE_SHA_H -DHAVE_MD5_H -DOPENSSL_SUB
 
 ##
 # Definitions used by all Tcl extensions

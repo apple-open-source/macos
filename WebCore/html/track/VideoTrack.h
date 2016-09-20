@@ -24,15 +24,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef VideoTrack_h
-#define VideoTrack_h
+#pragma once
 
 #if ENABLE(VIDEO_TRACK)
 
 #include "ExceptionCode.h"
 #include "TrackBase.h"
 #include "VideoTrackPrivate.h"
-#include <wtf/RefCounted.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -46,7 +44,7 @@ public:
     virtual void videoTrackSelectedChanged(VideoTrack*) = 0;
 };
 
-class VideoTrack final : public TrackBase, public VideoTrackPrivateClient {
+class VideoTrack final : public MediaTrackBase, public VideoTrackPrivateClient {
 public:
     static Ref<VideoTrack> create(VideoTrackClient* client, PassRefPtr<VideoTrackPrivate> trackPrivate)
     {
@@ -60,19 +58,19 @@ public:
     static const AtomicString& signKeyword();
     static const AtomicString& subtitlesKeyword();
     static const AtomicString& commentaryKeyword();
-    virtual const AtomicString& defaultKindKeyword() const override { return emptyAtom; }
+    const AtomicString& defaultKindKeyword() const override { return emptyAtom; }
 
     bool selected() const { return m_selected; }
     virtual void setSelected(const bool);
 
-    virtual void clearClient() override { m_client = 0; }
+    void clearClient() override { m_client = 0; }
     VideoTrackClient* client() const { return m_client; }
 
     size_t inbandTrackIndex();
 
 #if ENABLE(MEDIA_SOURCE)
-    virtual void setKind(const AtomicString&) override;
-    virtual void setLanguage(const AtomicString&) override;
+    void setKind(const AtomicString&) override;
+    void setLanguage(const AtomicString&) override;
 #endif
 
     const MediaDescription& description() const;
@@ -83,15 +81,18 @@ protected:
     VideoTrack(VideoTrackClient*, PassRefPtr<VideoTrackPrivate> privateTrack);
 
 private:
-    virtual bool isValidKind(const AtomicString&) const override;
+    bool isValidKind(const AtomicString&) const override;
 
-    virtual void selectedChanged(VideoTrackPrivate*, bool) override;
-    virtual void idChanged(TrackPrivateBase*, const AtomicString&) override;
-    virtual void labelChanged(TrackPrivateBase*, const AtomicString&) override;
-    virtual void languageChanged(TrackPrivateBase*, const AtomicString&) override;
-    virtual void willRemove(TrackPrivateBase*) override;
+    // VideoTrackPrivateClient
+    void selectedChanged(VideoTrackPrivate*, bool) override;
 
-    virtual bool enabled() const override { return selected(); }
+    // TrackPrivateBaseClient
+    void idChanged(TrackPrivateBase*, const AtomicString&) override;
+    void labelChanged(TrackPrivateBase*, const AtomicString&) override;
+    void languageChanged(TrackPrivateBase*, const AtomicString&) override;
+    void willRemove(TrackPrivateBase*) override;
+
+    bool enabled() const override { return selected(); }
 
     void updateKindFromPrivate();
 
@@ -101,13 +102,10 @@ private:
     RefPtr<VideoTrackPrivate> m_private;
 };
 
-inline VideoTrack* toVideoTrack(TrackBase* track)
-{
-    ASSERT_WITH_SECURITY_IMPLICATION(track->type() == TrackBase::VideoTrack);
-    return static_cast<VideoTrack*>(track);
-}
-
 } // namespace WebCore
 
-#endif
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::VideoTrack)
+    static bool isType(const WebCore::TrackBase& track) { return track.type() == WebCore::TrackBase::VideoTrack; }
+SPECIALIZE_TYPE_TRAITS_END()
+
 #endif

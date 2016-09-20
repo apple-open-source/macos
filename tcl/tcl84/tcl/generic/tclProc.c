@@ -557,8 +557,7 @@ TclCreateProc(interp, nsPtr, procName, argsPtr, bodyPtr, procPtrPtr)
              */
 
             localPtr = (CompiledLocal *) ckalloc((unsigned) 
-                    (sizeof(CompiledLocal) - sizeof(localPtr->name)
-                            + nameLength+1));
+                    (TclOffset(CompiledLocal, name) + nameLength + 1));
             if (procPtr->firstLocalPtr == NULL) {
                 procPtr->firstLocalPtr = procPtr->lastLocalPtr = localPtr;
             } else {
@@ -578,7 +577,7 @@ TclCreateProc(interp, nsPtr, procName, argsPtr, bodyPtr, procPtrPtr)
             } else {
                 localPtr->defValuePtr = NULL;
             }
-            strcpy(localPtr->name, fieldValues[0]);
+            memcpy(localPtr->name, fieldValues[0], nameLength + 1);
 	}
 
         ckfree((char *) fieldValues);

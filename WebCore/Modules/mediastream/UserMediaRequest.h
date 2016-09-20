@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2011 Ericsson AB. All rights reserved.
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2016 Apple Inc. All rights reserved.
  * Copyright (C) 2013 Nokia Corporation and/or its subsidiary(-ies).
  *
  * Redistribution and use in source and binary forms, with or without
@@ -49,8 +49,6 @@ class Document;
 class Frame;
 class MediaConstraints;
 class MediaStreamPrivate;
-class NavigatorUserMediaErrorCallback;
-class NavigatorUserMediaSuccessCallback;
 class UserMediaController;
 class SecurityOrigin;
 
@@ -59,35 +57,45 @@ typedef int ExceptionCode;
 class UserMediaRequest : public MediaStreamCreationClient, public ContextDestructionObserver {
 public:
     static void start(Document*, const Dictionary&, MediaDevices::Promise&&, ExceptionCode&);
+
     ~UserMediaRequest();
 
-    WEBCORE_EXPORT SecurityOrigin* securityOrigin() const;
+    WEBCORE_EXPORT SecurityOrigin* userMediaDocumentOrigin() const;
+    WEBCORE_EXPORT SecurityOrigin* topLevelDocumentOrigin() const;
 
     void start();
-    WEBCORE_EXPORT void userMediaAccessGranted();
+    WEBCORE_EXPORT void userMediaAccessGranted(const String& audioDeviceUID, const String& videoDeviceUID);
     WEBCORE_EXPORT void userMediaAccessDenied();
 
-    bool requiresAudio() const { return m_audioConstraints; }
-    bool requiresVideo() const { return m_videoConstraints; }
+    const Vector<String>& audioDeviceUIDs() const { return m_audioDeviceUIDs; }
+    const Vector<String>& videoDeviceUIDs() const { return m_videoDeviceUIDs; }
+
+    const String& allowedAudioDeviceUID() const { return m_audioDeviceUIDAllowed; }
+    const String& allowedVideoDeviceUID() const { return m_allowedVideoDeviceUID; }
 
 private:
     UserMediaRequest(ScriptExecutionContext*, UserMediaController*, PassRefPtr<MediaConstraints> audioConstraints, PassRefPtr<MediaConstraints> videoConstraints, MediaDevices::Promise&&);
 
     // MediaStreamCreationClient
-    virtual void constraintsValidated() override final;
-    virtual void constraintsInvalid(const String& constraintName) override final;
-    virtual void didCreateStream(PassRefPtr<MediaStreamPrivate>) override final;
-    virtual void failedToCreateStreamWithConstraintsError(const String& constraintName) override final;
-    virtual void failedToCreateStreamWithPermissionError() override final;
+    void constraintsValidated(const Vector<RefPtr<RealtimeMediaSource>>& audioTracks, const Vector<RefPtr<RealtimeMediaSource>>& videoTracks) final;
+    void constraintsInvalid(const String& constraintName) final;
+    void didCreateStream(PassRefPtr<MediaStreamPrivate>) final;
+    void failedToCreateStreamWithConstraintsError(const String& constraintName) final;
+    void failedToCreateStreamWithPermissionError() final;
 
     // ContextDestructionObserver
-    virtual void contextDestroyed() override final;
+    void contextDestroyed() final;
     
     RefPtr<MediaConstraints> m_audioConstraints;
     RefPtr<MediaConstraints> m_videoConstraints;
 
-    UserMediaController* m_controller;
+    Vector<String> m_videoDeviceUIDs;
+    Vector<String> m_audioDeviceUIDs;
 
+    String m_allowedVideoDeviceUID;
+    String m_audioDeviceUIDAllowed;
+
+    UserMediaController* m_controller;
     MediaDevices::Promise m_promise;
 };
 

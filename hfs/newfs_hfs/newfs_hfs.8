@@ -33,6 +33,7 @@
 .Op Fl c Ar clump-size-list
 .Op Fl i Ar first-cnid
 .Op Fl J Ar [journal-size]
+.Op Fl D Ar journal-device
 .Op Fl n Ar node-size-list
 .Op Fl v Ar volume-name
 .Ar special
@@ -48,6 +49,7 @@
 .Op Fl c Ar clump-size-list
 .Op Fl i Ar first-cnid
 .Op Fl J Ar [journal-size]
+.Op Fl D Ar journal-device
 .Op Fl n Ar node-size-list
 .Op Fl v Ar volume-name
 .Sh DESCRIPTION
@@ -162,6 +164,9 @@ Creates a journaled HFS+ volume.
 The default journal size varies, based on the size of the volume.  Appending an 'M' to the
 journal size implies megabytes (i.e. 64M is 64 megabytes).
 The maximum journal size is 1024 megabytes.
+.It Fl D Ar journal-device
+Creates the journal on special device
+.Em journal-device.
 .It Fl n Ar node-size-list
 This specifies the b-tree
 .Em node

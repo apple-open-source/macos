@@ -1,4 +1,5 @@
-/* * Copyright (c) 2006 Apple Inc. All rights reserved.
+/*
+ * Copyright (c) 2006-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,13 +25,13 @@
 #include <servers/bootstrap.h>
 #include <DirectoryService/DirServicesConst.h>
 #include <opendirectory/DSlibinfoMIG_types.h>
-#include <syslog.h>
 #include <stdlib.h>
 #include <arpa/inet.h>
 #include <mach/mach.h>
 #include <net/ethernet.h>
 #include <kvbuf.h>
 #include "bootplookup.h"
+#include "mylog.h"
 
 extern kern_return_t 
 libinfoDSmig_GetProcedureNumber(mach_port_t server,
@@ -96,7 +97,8 @@ dolookup(int32_t inProc, kvbuf_t *inRequest)
 	if (serverPort == MACH_PORT_NULL) {
 	    kr = bootstrap_look_up(bootstrap_port, kDSStdMachDSLookupPortName, &serverPort);
 	    if (kr != KERN_SUCCESS) {
-		syslog(LOG_CRIT, "Cannot find bootstrap port for DirectoryService\n");
+		my_log(LOG_CRIT,
+		       "Cannot find bootstrap port for DirectoryService\n");
 		return NULL;
 	    }
 	}
@@ -104,7 +106,9 @@ dolookup(int32_t inProc, kvbuf_t *inRequest)
 	if (serverPort != MACH_PORT_NULL && procs[inProc] == 0) {
 	    kr = libinfoDSmig_GetProcedureNumber(serverPort, gProcNames[inProc], &procs[inProc], &userToken);
 	    if (kr != KERN_SUCCESS) {
-		syslog(LOG_CRIT, "Cannot find procedure number for lookup %s\n", gProcNames[inProc]);
+		my_log(LOG_CRIT,
+		       "Cannot find procedure number for lookup %s\n",
+		       gProcNames[inProc]);
 		return NULL;
 	    }
 	}
@@ -289,7 +293,8 @@ freebootpent(bootpent *listhead)
     }
 
     if (listhead->reserved[0] == NULL) {
-	syslog(LOG_CRIT, "freebootpent called without the head of the entry list");
+	my_log(LOG_CRIT,
+	       "freebootpent called without the head of the entry list");
 	abort();
     }
 

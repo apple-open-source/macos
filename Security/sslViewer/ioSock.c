@@ -179,7 +179,8 @@ OSStatus MakeServerConnection(
 
     addr.sin_family = AF_INET;
     if (connect(sock, (struct sockaddr *) &addr, sizeof(struct sockaddr_in)) != 0)
-    {   printf("connect returned error\n");
+    {
+        perror("connect returned error");
         return errSecIO;
     }
 

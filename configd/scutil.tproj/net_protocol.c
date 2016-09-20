@@ -1594,7 +1594,7 @@ show_protocols(int argc, char **argv)
 			((net_protocol != NULL) && CFEqual(protocol, net_protocol)) ? '>' : ' ',
 			i + 1,
 			protocolType,
-			(int)(sizeof("AppleTalk") - CFStringGetLength(protocolType) - 1),
+			(int)(sizeof("Proxies") - CFStringGetLength(protocolType) - 1),
 			"");
 
 		if (SCNetworkProtocolGetEnabled(protocol)) {

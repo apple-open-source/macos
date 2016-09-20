@@ -61,6 +61,7 @@
 #include <Security/SecCertificate.h>
 #include <Security/SecCertificatePriv.h>
 #include <Security/SecTrust.h>
+#include <Security/SecPolicyPriv.h>
 #include <CoreFoundation/CFDictionary.h>
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFNumber.h>
@@ -287,15 +288,14 @@ EAPSecIdentityCreateCertificateTrustChain(SecIdentityRef identity,
     SecCertificateRef		cert;
     CFArrayRef 			certs;
     SecPolicyRef		policy = NULL;
-    OSStatus			status;
+    OSStatus			status = noErr;
     SecTrustRef 		trust = NULL;
     SecTrustResultType 		trust_result;
 
     *ret_chain = NULL;
-    status = EAPSecPolicyCopy(&policy);
-    if (status != noErr) {
-	EAPLOG_FL(LOG_NOTICE, "EAPSecPolicyCopy failed: %s (%d)",
-		  EAPSecurityErrorString(status), (int)status);
+    policy = SecPolicyCreateEAP(TRUE, NULL);
+    if (policy == NULL) {
+	EAPLOG_FL(LOG_NOTICE, "SecPolicyCreateEAP failed");
 	goto done;
     }
     status = SecIdentityCopyCertificate(identity, &cert);
@@ -326,6 +326,7 @@ EAPSecIdentityCreateCertificateTrustChain(SecIdentityRef identity,
 
 	if (count == 0) {
 	    EAPLOG_FL(LOG_NOTICE, "SecTrustGetCertificateCount returned 0");
+	    status = errSecParam;
 	    goto done;
 	}
 	array = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks);

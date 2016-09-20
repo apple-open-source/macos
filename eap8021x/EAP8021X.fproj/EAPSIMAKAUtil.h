@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -299,5 +299,47 @@ EAPSIMAKAIdentityTypeGetAttributeType(CFStringRef string);
  * later using the SRAND sent by the server.
  */
 #define kEAPClientPropEAPSIMAKAOPc		CFSTR("EAPSIMAKAOPc") /* data */
+
+/*
+ * Property: kEAPClientPropEAPSIMAKAConservativePeer
+ * Purpose:
+ *   When set to true, configure the EAP-SIM or EAP-AKA client to refuse
+ *   to provide the permanent identity when AT_PERMANENT_ID_REQ is requested
+ *   and we have a valid pseudonym identity. When true, this causes the client
+ *   to implement the "conservative" peer described in RFC 4186 section
+ *   4.2.6 and RFC 4187 section 4.1.6. The purpose of this property is to
+ *   help maintain identity privacy even when subject to an active
+ *   attack.
+ *
+ *   By setting this property to true, the network is expected to
+ *   maintain a pseudonym identity robustly for at least as long
+ *   as the "PseudonymIdentityLifetimeHours" (see below).
+ */
+#define kEAPClientPropEAPSIMAKAConservativePeer \
+CFSTR("EAPSIMAKAConservativePeer")          /* boolean (false) */
+
+/*
+ * Property: kEAPClientPropEAPSIMAKAPseudonymIdentityLifetimeHours
+ * Purpose:
+ *   This property may be specified along with setting the "ConservativePeer"
+ *   property to true. The property specifies the lifetime of the pseudonym
+ *   starting when the pseudonym was first issued.
+ *
+ *   The lifetime tells the client how long it should continue to refuse to
+ *   reveal the permanent identity via the AT_PERMANENT_ID_REQ. In other words,
+ *   it tells the client how long it should expect to be able to use the
+ *   pseudonym in place of the permanent identity when communicating with
+ *   a valid server.
+ *
+ *   The property attempts to balance the privacy needs vs. the possibility
+ *   that the server may lose track of the pseudonym. By aging it out, the
+ *   client can "self-heal" in this case and avoid the user from needing to
+ *   take other action to get authentication working again.
+ *
+ *   The lifetime is expressed in units of hours, and the default value
+ *   is 24 hours.
+ */
+#define kEAPClientPropEAPSIMAKAPseudonymIdentityLifetimeHours \
+CFSTR("EAPSIMAKAPseudonymIdentityLifetimeHours") /* integer (24) */
 
 #endif /* _EAP8021X_EAPSIMAKAUTIL_H */

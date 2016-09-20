@@ -42,7 +42,11 @@ protected:
 	NotificationDomain mDomain;
 	NotificationMask mMask;
 
+    static dispatch_once_t queueOnceToken;
+    static dispatch_queue_t notificationQueue;
 public:
+    static dispatch_queue_t getNotificationQueue();
+
 	EventListener(NotificationDomain domain, NotificationMask eventMask);
 	virtual ~EventListener();
 
@@ -53,6 +57,10 @@ public:
     
     static void FinishedInitialization(EventListener* eventListener);
 };
+
+// For backward compatiblity, we remember the client's CFRunLoop when notifications are enabled.
+// Use this function to get this run loop, to route notifications back to them on it.
+CFRunLoopRef clientNotificationRunLoop();
 
 
 } // end namespace SecurityServer

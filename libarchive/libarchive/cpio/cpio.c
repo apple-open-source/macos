@@ -965,6 +965,7 @@ list_item_verbose(struct cpio *cpio, struct archive_entry *entry)
 	const char		*fmt;
 	time_t			 mtime;
 	static time_t		 now;
+	struct tm		*tm;
 
 	if (!now)
 		time(&now);
@@ -1011,7 +1012,12 @@ list_item_verbose(struct cpio *cpio, struct archive_entry *entry)
 	else
 		fmt = cpio->day_first ? "%e %b %H:%M" : "%b %e %H:%M";
 #endif
-	strftime(date, sizeof(date), fmt, localtime(&mtime));
+	tm = localtime(&mtime);
+	if (tm != NULL) {
+		strftime(date, sizeof(date), fmt, tm);
+	} else {
+		*date = '\0';
+	}
 
 	fprintf(out, "%s%3d %-8s %-8s %8s %12s %s",
 	    archive_entry_strmode(entry),

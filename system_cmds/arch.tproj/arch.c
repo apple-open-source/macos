@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 1999, 2006, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -41,6 +41,7 @@
 #include <glob.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <NSSystemDirectories.h>
+#include <sysdir.h>
 
 #ifndef ARCH_PROG
 #define ARCH_PROG	"arch"
@@ -116,7 +117,7 @@ static void __dead2
 arch(int archcmd)
 {
     const NXArchInfo *arch = NXGetLocalArchInfo();
-    
+
     if(!arch)
         errx(-1, "Unknown architecture.");
     if(archcmd) {
@@ -143,7 +144,7 @@ spawnIt(CPU *cpu, int pflag, const char *str, char **argv)
     size_t copied;
     size_t count = cpu->count;
     cpu_type_t *prefs = cpu->buf;
-    
+
     if(count == 0) {
         if(unrecognizednative32seen)
             warnx("Unsupported native 32-bit architecture");
@@ -151,12 +152,12 @@ spawnIt(CPU *cpu, int pflag, const char *str, char **argv)
             warnx("Unsupported native 64-bit architecture");
         exit(1);
     }
-    
+
     if(unrecognizednative32seen)
         fprintf(stderr, "warning: unsupported native 32-bit architecture\n");
     if(unrecognizednative64seen)
         fprintf(stderr, "warning: unsupported native 64-bit architecture\n");
-    
+
     if((ret = posix_spawnattr_init(&attr)) != 0)
         errc(1, ret, "posix_spawnattr_init");
     /* do the equivalent of exec, rather than creating a separate process */
@@ -322,17 +323,17 @@ spawnFromPreferences(CPU *cpu, int needexecpath, char **argv)
     char fpath[PATH_MAX];
     char execpath2[PATH_MAX];
     CFDictionaryRef plist = NULL;
-    NSSearchPathEnumerationState state;
+    sysdir_search_path_enumeration_state state;
     size_t count, i;
     const char *prog = strrchr(*argv, '/');
-    
+
     if(prog)
         prog++;
     else
         prog = *argv;
     if(!*prog)
         errx(1, "Not program name specified");
-    
+
     /* check the environment variable first */
     if((count = useEnv(cpu, prog, &epath)) > 0) {
         /* if we were called as arch, use posix_spawnp */
@@ -342,19 +343,16 @@ spawnFromPreferences(CPU *cpu, int needexecpath, char **argv)
         if(epath)
             spawnIt(cpu, 0, epath, argv);
     }
-    
-    state = NSStartSearchPathEnumeration(NSLibraryDirectory, NSAllDomainsMask);
-    while ((state = NSGetNextSearchPathEnumeration(state, fpath))) {
-        
-        CFURLRef url;
-        CFReadStreamRef stream;
-        
+
+    state = sysdir_start_search_path_enumeration(SYSDIR_DIRECTORY_LIBRARY, SYSDIR_DOMAIN_MASK_ALL);
+    while ((state = sysdir_get_next_search_path_enumeration(state, fpath))) {
+
         if (fpath[0] == '~') {
             glob_t pglob;
             int gret;
-            
+
             bzero(&pglob, sizeof(pglob));
-            
+
             gret = glob(fpath, GLOB_TILDE, NULL, &pglob);
             if (gret == 0) {
                 int i;
@@ -366,13 +364,13 @@ spawnFromPreferences(CPU *cpu, int needexecpath, char **argv)
             }
             globfree(&pglob);
         }
-        
+
         // Handle path
         strlcat(fpath, "/" kSettingsDir "/", sizeof(fpath));
         strlcat(fpath, prog, sizeof(fpath));
         strlcat(fpath, kPlistExtension, sizeof(fpath));
         // printf("component: %s\n", fpath);
-        
+
         int fd, ret;
         size_t length;
         ssize_t rsize;
@@ -403,20 +401,19 @@ spawnFromPreferences(CPU *cpu, int needexecpath, char **argv)
             }
             close(fd);
         }
-        
+
         if (plist) {
             break;
         }
     }
-    
+
     if (plist) {
         if (CFGetTypeID(plist) != CFDictionaryGetTypeID())
             errx(1, "%s: plist not a dictionary", fpath);
     } else {
         errx(1, "Can't find any plists for %s", prog);
     }
-    
-    
+
     int errs = 0; /* scan for all errors and fail later */
     do { /* begin block */
         /* check the plist version */
@@ -476,9 +473,9 @@ spawnFromPreferences(CPU *cpu, int needexecpath, char **argv)
     } while(0); /* end block */
     if(errs) /* exit if there were any reported errors */
         exit(1);
-    
+
     CFRelease(plist);
-    
+
     /* call posix_spawn */
     spawnIt(cpu, 0, execpath2, argv);
 }
@@ -513,9 +510,9 @@ wrapped(const char *name)
     char *cur, *path;
     char buf[MAXPATHLEN], rpbuf[MAXPATHLEN];
     struct stat sb;
-    
+
     ln = strlen(name);
-    
+
     do { /* begin block */
         /* If it's an absolute or relative path name, it's easy. */
         if(index(name, '/')) {
@@ -525,11 +522,11 @@ wrapped(const char *name)
             }
             errx(1, "%s isn't executable", name);
         }
-        
+
         /* search the PATH, looking for name */
         if((path = getenv("PATH")) == NULL)
             path = _PATH_DEFPATH;
-        
+
         cur = alloca(strlen(path) + 1);
         if(cur == NULL)
             err(1, "alloca");
@@ -544,7 +541,7 @@ wrapped(const char *name)
                 lp = 1;
             } else
                 lp = strlen(p);
-            
+
             /*
              * If the path is too long complain.  This is a possible
              * security issue; given a way to make the path too long
@@ -613,7 +610,7 @@ static void __dead2
 spawnFromArgs(CPU *cpu, char **argv)
 {
     const char *ap, *ret;
-    
+
     /* process arguments */
     for(argv++; *argv && **argv == '-'; argv++) {
         if((ret = MATCHARGWITHVALUE(argv, "-arch", 5, "-arch without architecture"))) {
@@ -670,14 +667,14 @@ spawnFromArgs(CPU *cpu, char **argv)
     }
     /* if the program is already a link to arch, then force execpath */
     int needexecpath = wrapped(*argv);
-    
+
     /*
      * If we don't have any architecutures, try ARCHPREFERENCE and plist
      * files.
      */
     if((cpu->count == 0) || needexecpath)
         spawnFromPreferences(cpu, needexecpath, argv); /* doesn't return */
-    
+
     /*
      * Call posix_spawnp on the program name.
      */
@@ -692,7 +689,7 @@ main(int argc, char **argv)
     const char *prog = getprogname();
     int my_name_is_arch;
     CPU cpu;
-    
+
     if(strcmp(prog, MACHINE_PROG) == 0) {
         if(argc > 1)
             errx(-1, "no arguments accepted");
@@ -701,14 +698,14 @@ main(int argc, char **argv)
         if(argc == 1)
             arch(1); /* the "arch" command with no arguments was called */
     }
-    
+
     initCPU(&cpu);
-    
+
     if(my_name_is_arch)
         spawnFromArgs(&cpu, argv);
     else
         spawnFromPreferences(&cpu, 1, argv);
-    
+
     /* should never get here */
     errx(1, "returned from spawn");
 }

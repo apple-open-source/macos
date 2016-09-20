@@ -1,11 +1,9 @@
 #!/bin/sh
 #
-# "$Id: run-stp-tests.sh 12992 2015-11-19 15:19:00Z msweet $"
-#
 # Perform the complete set of IPP compliance tests specified in the
 # CUPS Software Test Plan.
 #
-# Copyright 2007-2015 by Apple Inc.
+# Copyright 2007-2016 by Apple Inc.
 # Copyright 1997-2007 by Easy Software Products, all rights reserved.
 #
 # These coded instructions, statements, and computer programs are the
@@ -279,7 +277,7 @@ case "$usedebugprintfs" in
 		echo "Enabling debug printfs (level $usedebugprintfs); log files can be found in $BASE/log..."
 		CUPS_DEBUG_LOG="$BASE/log/debug_printfs.%d"; export CUPS_DEBUG_LOG
 		CUPS_DEBUG_LEVEL="$usedebugprintfs"; export CUPS_DEBUG_LEVEL
-		CUPS_DEBUG_FILTER='^(http|_http|ipp|_ipp|cups.*Request|cupsGetResponse|cupsSend).*$'; export CUPS_DEBUG_FILTER
+		CUPS_DEBUG_FILTER='^(http|_http|ipp|_ipp|cups.*Request|cupsGetResponse|cupsSend|mime).*$'; export CUPS_DEBUG_FILTER
 		;;
 
 	*)
@@ -452,12 +450,14 @@ EOF
 }
 
 ln -s $root/test/test.convs $BASE/share/mime
+ln -s $root/test/test.types $BASE/share/mime
 
 if test `uname` = Darwin; then
 	instfilter cgimagetopdf imagetopdf pdf
 	instfilter cgpdftopdf pdftopdf passthru
 	instfilter cgpdftops pdftops ps
 	instfilter cgpdftoraster pdftoraster raster
+	instfilter cgpdftoraster pdftourf raster
 	instfilter cgtexttopdf texttopdf pdf
 	instfilter pstocupsraster pstoraster raster
 else
@@ -490,8 +490,11 @@ StrictConformance Yes
 Browsing Off
 Listen localhost:$port
 Listen $BASE/sock
+PassEnv DYLD_LIBRARY_PATH
+PassEnv LD_LIBRARY_PATH
+PassEnv LD_PRELOAD
 PassEnv LOCALEDIR
-PassEnv DYLD_INSERT_LIBRARIES
+PassEnv SHLIB_PATH
 MaxSubscriptions 3
 MaxLogSize 0
 AccessLogLevel actions
@@ -649,7 +652,7 @@ echo "    $VALGRIND ../scheduler/cupsd -c $BASE/cupsd.conf -f >$BASE/log/debug_l
 echo ""
 
 if test `uname` = Darwin -a "x$VALGRIND" = x; then
-	DYLD_INSERT_LIBRARIES=/usr/lib/libgmalloc.dylib MallocStackLogging=1 ../scheduler/cupsd -c $BASE/cupsd.conf -f >$BASE/log/debug_log 2>&1 &
+	DYLD_INSERT_LIBRARIES="/usr/lib/libgmalloc.dylib" MallocStackLogging=1 ../scheduler/cupsd -c $BASE/cupsd.conf -f >$BASE/log/debug_log 2>&1 &
 else
 	$VALGRIND ../scheduler/cupsd -c $BASE/cupsd.conf -f >$BASE/log/debug_log 2>&1 &
 fi
@@ -723,9 +726,9 @@ date=`date "+%Y-%m-%d"`
 
 if test -d $root/.svn; then
 	rev=`svn info . | grep Revision: | awk '{print $2}'`
-	strfile=$BASE/cups-str-2.1-r$rev-$user.html
+	strfile=$BASE/cups-str-2.2-r$rev-$user.html
 else
-	strfile=$BASE/cups-str-2.1-$date-$user.html
+	strfile=$BASE/cups-str-2.2-$date-$user.html
 fi
 
 rm -f $strfile
@@ -1112,7 +1115,3 @@ if test $fail != 0; then
 
 	exit 1
 fi
-
-#
-# End of "$Id: run-stp-tests.sh 12992 2015-11-19 15:19:00Z msweet $"
-#

@@ -1,4 +1,3 @@
-
 #define mig_external
 
 #include <sys/mount.h>
@@ -18,7 +17,6 @@
  *	-- it could set the prefix for the swapfile name.
  */
 
-
 static void
 clean_swap_directory(const char *path)
 {
@@ -35,7 +33,7 @@ clean_swap_directory(const char *path)
 	while ((entry = readdir(dir)) != NULL) {
 		if (entry->d_namlen>= 4 && strncmp(entry->d_name, "swap", 4) == 0) {
 			snprintf(buf, sizeof buf, "%s/%s", path, entry->d_name);
-			unlink(buf);	
+			unlink(buf);
 		}
 	}
 
@@ -85,11 +83,11 @@ main(int argc, char **argv)
 
 	if (statfs(tmp, &sfs) == -1) {
 		/*
-	 	 * Setup the swap directory.
-	 	 */
+		 * Setup the swap directory.
+		 */
 
-       		if (mkdir(tmp, 0755) == -1) {
-			(void)fprintf(stderr, "dynamic_pager: cannot create swap directory %s\n", tmp); 
+		if (mkdir(tmp, 0755) == -1) {
+			(void)fprintf(stderr, "dynamic_pager: cannot create swap directory %s\n", tmp);
 		}
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,14 +27,15 @@
 #define ConcurrentJITLock_h
 
 #include "DeferGC.h"
-#include <wtf/ByteSpinLock.h>
+#include <wtf/Lock.h>
 #include <wtf/NoLock.h>
+#include <wtf/Optional.h>
 
 namespace JSC {
 
 #if ENABLE(CONCURRENT_JIT)
-typedef ByteSpinLock ConcurrentJITLock;
-typedef ByteSpinLocker ConcurrentJITLockerImpl;
+typedef Lock ConcurrentJITLock;
+typedef LockHolder ConcurrentJITLockerImpl;
 #else
 typedef NoLock ConcurrentJITLock;
 typedef NoLockLocker ConcurrentJITLockerImpl;
@@ -49,6 +50,11 @@ public:
     }
     explicit ConcurrentJITLockerBase(ConcurrentJITLock* lockable)
         : m_locker(lockable)
+    {
+    }
+
+    explicit ConcurrentJITLockerBase(NoLockingNecessaryTag)
+        : m_locker(NoLockingNecessary)
     {
     }
 
@@ -104,17 +110,33 @@ class ConcurrentJITLocker : public ConcurrentJITLockerBase {
 public:
     ConcurrentJITLocker(ConcurrentJITLock& lockable)
         : ConcurrentJITLockerBase(lockable)
+#if ENABLE(CONCURRENT_JIT) && !defined(NDEBUG)
+        , m_disallowGC(InPlace)
+#endif
     {
     }
 
     ConcurrentJITLocker(ConcurrentJITLock* lockable)
         : ConcurrentJITLockerBase(lockable)
+#if ENABLE(CONCURRENT_JIT) && !defined(NDEBUG)
+        , m_disallowGC(InPlace)
+#endif
     {
     }
 
+    ConcurrentJITLocker(NoLockingNecessaryTag)
+        : ConcurrentJITLockerBase(NoLockingNecessary)
+#if ENABLE(CONCURRENT_JIT) && !defined(NDEBUG)
+        , m_disallowGC(Nullopt)
+#endif
+    {
+    }
+    
+    ConcurrentJITLocker(int) = delete;
+
 #if ENABLE(CONCURRENT_JIT) && !defined(NDEBUG)
 private:
-    DisallowGC m_disallowGC;
+    Optional<DisallowGC> m_disallowGC;
 #endif
 };
 

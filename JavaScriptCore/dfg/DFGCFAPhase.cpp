@@ -56,7 +56,7 @@ public:
         
         m_count = 0;
         
-        if (m_verbose && !shouldDumpGraphAtEachPhase()) {
+        if (m_verbose && !shouldDumpGraphAtEachPhase(m_graph.m_plan.mode)) {
             dataLog("Graph before CFA:\n");
             m_graph.dump();
         }
@@ -148,7 +148,7 @@ private:
         if (m_verbose) {
             dataLog("      head vars: ", block->valuesAtHead, "\n");
             if (m_graph.m_form == SSA)
-                dataLog("      head regs: ", mapDump(block->ssa->valuesAtHead), "\n");
+                dataLog("      head regs: ", nodeValuePairListDump(block->ssa->valuesAtHead), "\n");
         }
         for (unsigned i = 0; i < block->size(); ++i) {
             if (m_verbose) {
@@ -173,7 +173,7 @@ private:
             m_interpreter.dump(WTF::dataFile());
             dataLogF("\n");
         }
-        m_changed |= m_state.endBasicBlock(MergeToSuccessors);
+        m_changed |= m_state.endBasicBlock();
         
         if (m_verbose) {
             dataLog("      tail vars: ", block->valuesAtTail, "\n");
@@ -204,7 +204,6 @@ private:
 
 bool performCFA(Graph& graph)
 {
-    SamplingRegion samplingRegion("DFG CFA Phase");
     return runPhase<CFAPhase>(graph);
 }
 

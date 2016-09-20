@@ -93,8 +93,13 @@ void WebKitNotificationProvider::notificationCloseCallback(WebKitNotification* n
     uint64_t notificationID = webkit_notification_get_id(notification);
     Vector<RefPtr<API::Object>> arrayIDs;
     arrayIDs.append(API::UInt64::create(notificationID));
-    provider->m_notificationManager->providerDidCloseNotifications(API::Array::create(WTF::move(arrayIDs)).ptr());
+    provider->m_notificationManager->providerDidCloseNotifications(API::Array::create(WTFMove(arrayIDs)).ptr());
     provider->m_notifications.remove(notificationID);
+}
+
+void WebKitNotificationProvider::notificationClickedCallback(WebKitNotification* notification, WebKitNotificationProvider* provider)
+{
+    provider->m_notificationManager->providerDidClickNotification(webkit_notification_get_id(notification));
 }
 
 void WebKitNotificationProvider::show(WebPageProxy* page, const WebNotification& webNotification)
@@ -104,6 +109,7 @@ void WebKitNotificationProvider::show(WebPageProxy* page, const WebNotification&
     if (!notification) {
         notification = adoptGRef(webkitNotificationCreate(WEBKIT_WEB_VIEW(page->viewWidget()), webNotification));
         g_signal_connect(notification.get(), "closed", G_CALLBACK(notificationCloseCallback), this);
+        g_signal_connect(notification.get(), "clicked", G_CALLBACK(notificationClickedCallback), this);
         m_notifications.set(webNotification.notificationID(), notification);
     }
 

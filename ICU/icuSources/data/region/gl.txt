@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/gl.xml
@@ -46,7 +46,6 @@ gl{
         AI{"Anguila"}
         AL{"Albania"}
         AM{"Armenia"}
-        AN{"Antillas Holandesas"}
         AO{"Angola"}
         AQ{"Antártida"}
         AR{"Arxentina"}
@@ -54,7 +53,7 @@ gl{
         AT{"Austria"}
         AU{"Australia"}
         AW{"Aruba"}
-        AX{"Åland"}
+        AX{"Illas Aland"}
         AZ{"Acerbaixán"}
         BA{"Bosnia e Hercegovina"}
         BB{"Barbados"}
@@ -78,7 +77,7 @@ gl{
         BY{"Bielorrusia"}
         BZ{"Belice"}
         CA{"Canadá"}
-        CC{"Illas Cocos"}
+        CC{"Illas Cocos (Keeling)"}
         CD{"República Democrática do Congo"}
         CF{"República Centroafricana"}
         CG{"Congo"}
@@ -114,7 +113,7 @@ gl{
         ET{"Etiopía"}
         EU{"Unión Europea"}
         FI{"Finlandia"}
-        FJ{"Fidxi"}
+        FJ{"Fixi"}
         FK{"Illas Malvinas"}
         FM{"Micronesia"}
         FO{"Illas Feroe"}
@@ -136,7 +135,7 @@ gl{
         GS{"Xeorxia do Sur e Illas Sandwich"}
         GT{"Guatemala"}
         GU{"Guam"}
-        GW{"Guinea-Bisau"}
+        GW{"Guinea-Bissau"}
         GY{"Güiana"}
         HK{"Hong Kong RAE de China"}
         HM{"Illa Heard e Illas McDonald"}
@@ -155,7 +154,7 @@ gl{
         IR{"Irán"}
         IS{"Islandia"}
         IT{"Italia"}
-        JE{"Illa de Jersey"}
+        JE{"Jersey"}
         JM{"Xamaica"}
         JO{"Xordania"}
         JP{"Xapón"}
@@ -164,39 +163,39 @@ gl{
         KH{"Cambodia"}
         KI{"Kiribati"}
         KM{"Comores"}
-        KN{"Saint Kitts e Nevis"}
+        KN{"San Cristovo e Nevis"}
         KP{"Corea do Norte"}
         KR{"Corea do Sur"}
         KW{"Kuwait"}
         KY{"Illas Caimán"}
-        KZ{"Casaquistán"}
+        KZ{"Kazakhstan"}
         LA{"Laos"}
         LB{"Líbano"}
         LC{"Santa Lucía"}
         LI{"Liechtenstein"}
         LK{"Sri Lanka"}
         LR{"Liberia"}
-        LS{"Lesoto"}
+        LS{"Lesotho"}
         LT{"Lituania"}
         LU{"Luxemburgo"}
         LV{"Letonia"}
         LY{"Libia"}
         MA{"Marrocos"}
         MC{"Mónaco"}
-        MD{"Moldavia"}
+        MD{"Moldova"}
         ME{"Montenegro"}
         MF{"San Martiño"}
         MG{"Madagascar"}
         MH{"Illas Marshall"}
-        MK{"República de Macedonia"}
-        ML{"Malí"}
+        MK{"Macedonia"}
+        ML{"Mali"}
         MM{"Myanmar (Birmania)"}
         MN{"Mongolia"}
         MO{"Macau RAE de China"}
         MP{"Illas Marianas do norte"}
         MQ{"Martinica"}
         MR{"Mauritania"}
-        MS{"Illa Montserrat"}
+        MS{"Montserrat"}
         MT{"Malta"}
         MU{"Mauricio"}
         MV{"Maldivas"}
@@ -215,7 +214,7 @@ gl{
         NP{"Nepal"}
         NR{"Nauru"}
         NU{"Niue"}
-        NZ{"Nova Zelandia"}
+        NZ{"Nova Celandia"}
         OM{"Omán"}
         PA{"Panamá"}
         PE{"Perú"}
@@ -229,7 +228,7 @@ gl{
         PR{"Porto Rico"}
         PS{"Territorios palestinos"}
         PT{"Portugal"}
-        PW{"Rep. das Palaus"}
+        PW{"Palau"}
         PY{"Paraguai"}
         QA{"Qatar"}
         QO{"Oceanía Distante"}
@@ -255,7 +254,7 @@ gl{
         SR{"Surinam"}
         SS{"Sudán do sur"}
         ST{"San Tomé e Príncipe"}
-        SV{"O Salvador"}
+        SV{"El Salvador"}
         SX{"Sint Maarten"}
         SY{"Siria"}
         SZ{"Suacilandia"}
@@ -266,9 +265,9 @@ gl{
         TG{"Togo"}
         TH{"Tailandia"}
         TJ{"Taxiquistán"}
-        TK{"Toquelau"}
+        TK{"Tokelau"}
         TL{"Timor Leste"}
-        TM{"Turcomenistán"}
+        TM{"Turkmenistán"}
         TN{"Tunisia"}
         TO{"Tonga"}
         TR{"Turquía"}
@@ -304,6 +303,7 @@ gl{
         HK{"Hong Kong"}
         MO{"Macau"}
         PS{"Palestina"}
+        US{"EUA"}
     }
     Countries%variant{
         CD{"Congo (RDC)"}
@@ -312,5 +312,5 @@ gl{
         FK{"Illas Malvinas (Falkland)"}
         MK{"Macedonia (ARIM)"}
     }
-    Version{"2.1.12.94"}
+    Version{"2.1.23.76"}
 }

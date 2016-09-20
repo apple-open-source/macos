@@ -21,7 +21,7 @@
 #ifndef CoordinatedLayerTreeHostProxy_h
 #define CoordinatedLayerTreeHostProxy_h
 
-#if USE(COORDINATED_GRAPHICS_MULTIPROCESS)
+#if USE(COORDINATED_GRAPHICS)
 
 #include "CoordinatedGraphicsArgumentCoders.h"
 #include "CoordinatedGraphicsScene.h"
@@ -49,17 +49,17 @@ public:
     void setVisibleContentsRect(const WebCore::FloatRect&, const WebCore::FloatPoint& trajectoryVector);
     CoordinatedGraphicsScene* coordinatedGraphicsScene() const { return m_scene.get(); }
 
-    virtual void updateViewport() override;
-    virtual void renderNextFrame() override;
-    virtual void purgeBackingStores() override;
+    void updateViewport() override;
+    void renderNextFrame() override;
+    void purgeBackingStores() override;
 
-    virtual void commitScrollOffset(uint32_t layerID, const WebCore::IntSize& offset);
+    void commitScrollOffset(uint32_t layerID, const WebCore::IntSize& offset) override;
 
 protected:
     void dispatchUpdate(std::function<void()>);
 
     // IPC::MessageReceiver
-    virtual void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
+    void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
 
     CoordinatedDrawingAreaProxy* m_drawingAreaProxy;
     RefPtr<CoordinatedGraphicsScene> m_scene;
@@ -69,6 +69,6 @@ protected:
 
 } // namespace WebKit
 
-#endif // USE(COORDINATED_GRAPHICS_MULTIPROCESS)
+#endif // USE(COORDINATED_GRAPHICS)
 
 #endif // CoordinatedLayerTreeHostProxy_h

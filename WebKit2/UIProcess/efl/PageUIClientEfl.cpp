@@ -30,7 +30,6 @@
 #include "EwkView.h"
 #include "WKAPICast.h"
 #include "WKEvent.h"
-#include "WKPageEfl.h"
 #include "WKString.h"
 #include "ewk_file_chooser_request_private.h"
 #include "ewk_url_request_private.h"
@@ -79,15 +78,6 @@ PageUIClientEfl::PageUIClientEfl(EwkView* view)
     uiClient.createNewPage = createNewPage;
 
     WKPageSetPageUIClient(pageRef, &uiClient.base);
-
-    // Popup Menu UI client.
-    WKPageUIPopupMenuClientV0 uiPopupMenuClient;
-    memset(&uiPopupMenuClient, 0, sizeof(WKPageUIPopupMenuClientV0));
-    uiPopupMenuClient.base.version = 0;
-    uiPopupMenuClient.base.clientInfo = this;
-    uiPopupMenuClient.showPopupMenu = showPopupMenu;
-    uiPopupMenuClient.hidePopupMenu = hidePopupMenu;
-    WKPageSetUIPopupMenuClient(pageRef, &uiPopupMenuClient.base);
 }
 
 
@@ -195,7 +185,7 @@ void PageUIClientEfl::setWindowFrame(WKPageRef, WKRect frame, const void* client
 
 bool PageUIClientEfl::runBeforeUnloadConfirmPanel(WKPageRef, WKStringRef message, WKFrameRef, const void* clientInfo)
 {
-    return toPageUIClientEfl(clientInfo)->m_view->requestJSConfirmPopup(WKEinaSharedString(message));
+    return toPageUIClientEfl(clientInfo)->m_view->requestJSBeforeUnloadConfirmPopup(WKEinaSharedString(message));
 }
 
 unsigned long long PageUIClientEfl::exceededDatabaseQuota(WKPageRef, WKFrameRef, WKSecurityOriginRef, WKStringRef databaseName, WKStringRef displayName, unsigned long long currentQuota, unsigned long long currentOriginUsage, unsigned long long currentDatabaseUsage, unsigned long long expectedUsage, const void* clientInfo)
@@ -215,16 +205,6 @@ WKPageRef PageUIClientEfl::createNewPage(WKPageRef, WKURLRequestRef wkRequest, W
 {
     RefPtr<EwkUrlRequest> request = EwkUrlRequest::create(wkRequest);
     return toPageUIClientEfl(clientInfo)->m_view->createNewPage(request, wkWindowFeatures);
-}
-
-void PageUIClientEfl::showPopupMenu(WKPageRef, WKPopupMenuListenerRef menuListenerRef, WKRect rect, WKPopupItemTextDirection textDirection, double pageScaleFactor, WKArrayRef itemsRef, int32_t selectedIndex, const void* clientInfo)
-{
-    return toPageUIClientEfl(clientInfo)->m_view->requestPopupMenu(menuListenerRef, rect, textDirection, pageScaleFactor, itemsRef, selectedIndex);
-}
-
-void PageUIClientEfl::hidePopupMenu(WKPageRef, const void* clientInfo)
-{
-    return toPageUIClientEfl(clientInfo)->m_view->closePopupMenu();
 }
 
 } // namespace WebKit

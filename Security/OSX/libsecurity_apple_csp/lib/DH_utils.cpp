@@ -30,7 +30,7 @@
 #include <openssl/dh.h>
 #include <openssl/err.h>
 
-#define dhMiscDebug(args...)	secdebug("dhMisc", ## args)
+#define dhMiscDebug(args...)	secinfo("dhMisc", ## args)
 
 /* 
  * Given a Context:

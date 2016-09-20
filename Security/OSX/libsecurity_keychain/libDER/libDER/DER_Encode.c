@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2007,2011,2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2005-2016 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -72,7 +72,7 @@ static DERReturn DEREncodeTag(
 
     if(outLen == 1) {
 		/* short form */
-		*buf = tag1 | tagNumber;
+		*buf = (DERByte)(tag1 | tagNumber);
 	}
 	else {
         /* long form */
@@ -180,6 +180,7 @@ DERReturn DEREncodeItem(
 	bytesLeft -= itemLen;
 	DERMemmove(currPtr, src, length);
 
+    // Silence unused variable warning.
     (void) bytesLeft;
     
 	return DR_Success;
@@ -341,7 +342,7 @@ DERReturn DEREncodeSequence(
 		currPtr += itemSrc->length;
 		bytesLeft -= itemSrc->length;
 	}
-	*inOutLen = (currPtr - derOut);
+	*inOutLen = (DERSize)(currPtr - derOut);
 	return DR_Success;
 }
 

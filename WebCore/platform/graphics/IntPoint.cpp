@@ -27,14 +27,9 @@
 #include "IntPoint.h"
 
 #include "FloatPoint.h"
-#include <wtf/PrintStream.h>
+#include "TextStream.h"
 
 namespace WebCore {
-
-void IntPoint::dump(PrintStream& out) const
-{
-    out.printf("(%d, %d)", x(), y());
-}
 
 IntPoint::IntPoint(const FloatPoint& p)
     : m_x(clampToInteger(p.x()))
@@ -48,6 +43,11 @@ IntPoint IntPoint::constrainedBetween(const IntPoint& min, const IntPoint& max) 
         std::max(min.x(), std::min(max.x(), m_x)),
         std::max(min.y(), std::min(max.y(), m_y))
     };
+}
+
+TextStream& operator<<(TextStream& ts, const IntPoint& p)
+{
+    return ts << "(" << p.x() << "," << p.y() << ")";
 }
 
 }

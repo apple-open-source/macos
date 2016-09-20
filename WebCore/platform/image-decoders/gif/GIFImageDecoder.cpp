@@ -42,14 +42,14 @@ GIFImageDecoder::~GIFImageDecoder()
 {
 }
 
-void GIFImageDecoder::setData(SharedBuffer* data, bool allDataReceived)
+void GIFImageDecoder::setData(SharedBuffer& data, bool allDataReceived)
 {
     if (failed())
         return;
 
     ImageDecoder::setData(data, allDataReceived);
     if (m_reader)
-        m_reader->setData(data);
+        m_reader->setData(&data);
 }
 
 bool GIFImageDecoder::isSizeAvailable()
@@ -176,6 +176,10 @@ void GIFImageDecoder::clearFrameBufferCache(size_t clearBeforeFrame)
         if (j->status() != ImageFrame::FrameEmpty)
             j->clearPixelData();
     }
+
+    // When some frames are cleared, the reader is out of sync, since the caller might ask for any frame not
+    // necessarily in the order expected by the reader. See https://bugs.webkit.org/show_bug.cgi?id=159089.
+    m_reader = nullptr;
 }
 
 bool GIFImageDecoder::haveDecodedRow(unsigned frameIndex, const Vector<unsigned char>& rowBuffer, size_t width, size_t rowNumber, unsigned repeatCount, bool writeTransparentPixels)
@@ -303,7 +307,7 @@ void GIFImageDecoder::decode(unsigned haltAtFrame, GIFQuery query)
 
     if (!m_reader) {
         m_reader = std::make_unique<GIFImageReader>(this);
-        m_reader->setData(m_data);
+        m_reader->setData(m_data.get());
     }
 
     if (query == GIFSizeQuery) {

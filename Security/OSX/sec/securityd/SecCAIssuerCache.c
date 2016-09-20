@@ -47,8 +47,6 @@
 #include <CoreFoundation/CFUtilities.h>
 #include <utilities/SecFileLocations.h>
 
-#define caissuerErrorLog(args...)     asl_log(NULL, NULL, ASL_LEVEL_ERR, ## args)
-
 static const char expireSQL[] = "DELETE FROM issuers WHERE expires<?";
 static const char beginTxnSQL[] = "BEGIN EXCLUSIVE TRANSACTION";
 static const char endTxnSQL[] = "COMMIT TRANSACTION";
@@ -221,7 +219,7 @@ static SecCAIssuerCacheRef SecCAIssuerCacheCreate(const char *db_name) {
                            "CREATE INDEX iexpires ON issuers(expires);"
                            , NULL, NULL, &errmsg);
 		if (errmsg) {
-			caissuerErrorLog("caissuer db CREATE TABLES: %s", errmsg);
+			secerror("caissuer db CREATE TABLES: %s", errmsg);
 			sqlite3_free(errmsg);
 		}
 		require_noerr(s3e, errOut);
@@ -291,7 +289,7 @@ static void _SecCAIssuerCacheAddCertificate(SecCAIssuerCacheRef this,
 
 errOut:
     if (s3e) {
-        caissuerErrorLog("caissuer cache add failed: %s", sqlite3_errmsg(this->s3h));
+        secerror("caissuer cache add failed: %s", sqlite3_errmsg(this->s3h));
         /* TODO: Blow away the cache and create a new db. */
     }
 }
@@ -323,7 +321,7 @@ static SecCertificateRef _SecCAIssuerCacheCopyMatching(SecCAIssuerCacheRef this,
 errOut:
     if (s3e) {
         if (s3e != SQLITE_DONE) {
-            caissuerErrorLog("caissuer cache lookup failed: %s", sqlite3_errmsg(this->s3h));
+            secerror("caissuer cache lookup failed: %s", sqlite3_errmsg(this->s3h));
             /* TODO: Blow away the cache and create a new db. */
         }
 
@@ -351,7 +349,7 @@ static void _SecCAIssuerCacheGC(void *context) {
 
 errOut:
     if (s3e) {
-        caissuerErrorLog("caissuer cache expire failed: %s", sqlite3_errmsg(this->s3h));
+        secerror("caissuer cache expire failed: %s", sqlite3_errmsg(this->s3h));
         /* TODO: Blow away the cache and create a new db. */
     }
 }
@@ -364,7 +362,7 @@ static void _SecCAIssuerCacheFlush(void *context) {
     s3e = SecCAIssuerCacheCommitTxn(this);
 
     if (s3e) {
-        caissuerErrorLog("caissuer cache flush failed: %s", sqlite3_errmsg(this->s3h));
+        secerror("caissuer cache flush failed: %s", sqlite3_errmsg(this->s3h));
         /* TODO: Blow away the cache and create a new db. */
     }
 }

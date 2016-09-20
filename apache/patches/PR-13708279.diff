@@ -1,0 +1,128 @@
+--- server/request.c	2016-04-01 05:36:42.000000000 -0700
++++ server/request.c	2016-07-26 15:22:47.000000000 -0700
+@@ -105,6 +105,11 @@
+ static int auth_internal_per_conf_hooks = 0;
+ static int auth_internal_per_conf_providers = 0;
+ 
++#ifndef DARWIN
++#define files_strcmp(s1, s2, case_sensative, r) strcmp((s1, (s2))
++#else
++static int files_strcmp(const char *s1, const char *s2, int case_sensative, request_rec *r);
++#endif
+ 
+ static int decl_die(int status, const char *phase, request_rec *r)
+ {
+@@ -1581,6 +1586,72 @@
+     return OK;
+ }
+ 
++
++#ifdef DARWIN
++#include <CoreFoundation/CoreFoundation.h>
++
++#define release_if_non_nil(cfptr) do { if ((cfptr)) { CFRelease(cfptr); (cfptr) = NULL; } } while(0);
++
++static int  files_strcmp(const char *s1, const char *s2, int case_sensitive, request_rec *r) {
++    int retval = 1;             // default to not matching
++    
++    if (strcmp(s1, s2) == 0) {
++        retval = 0;
++    } 
++    else {
++        if (case_sensitive) {
++            return retval;
++        }
++        
++        CFMutableStringRef str1 = CFStringCreateMutable(kCFAllocatorDefault, 0);
++        CFMutableStringRef str2 = CFStringCreateMutable(kCFAllocatorDefault, 0);
++        
++        if ((!str1) || (!str2)) {
++            release_if_non_nil(str1);
++            release_if_non_nil(str2);
++            return retval;
++        }
++        
++        CFStringAppendCString(str1, s1, kCFStringEncodingUTF8);
++        CFStringAppendCString(str2, s2, kCFStringEncodingUTF8);
++
++        // allocate the test buffers
++        CFIndex str1_fsr_len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(str1), kCFStringEncodingUTF8);
++        CFIndex str2_fsr_len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(str2), kCFStringEncodingUTF8);
++        char *str1_fsr = apr_pcalloc(r->pool, str1_fsr_len);
++        char *str2_fsr = apr_pcalloc(r->pool, str2_fsr_len);
++        
++        if ((!str1_fsr) || (!str2_fsr)) {
++            goto cleanup;
++        }
++        
++        CFLocaleRef locale = CFLocaleCopyCurrent();
++        CFStringLowercase(str1, locale);
++        CFStringLowercase(str2, locale);
++        CFRelease(locale);
++        
++        if (!CFStringGetFileSystemRepresentation(str1, str1_fsr, str1_fsr_len)) {
++            goto cleanup;
++        }
++        
++        if (!CFStringGetFileSystemRepresentation(str2, str2_fsr, str2_fsr_len)) {
++            goto cleanup;
++        }
++        
++        if (strcmp(str1_fsr, str2_fsr) == 0) {
++            retval = 0;
++        } 
++    cleanup:        
++        release_if_non_nil(str1);
++        release_if_non_nil(str2);
++
++    }
++    
++    return retval;
++}
++
++#endif
++
+ AP_DECLARE(int) ap_file_walk(request_rec *r)
+ {
+     ap_conf_vector_t *now_merged = NULL;
+@@ -1590,6 +1663,7 @@
+     walk_cache_t *cache;
+     const char *test_file;
+     int cached;
++    int case_sensitive;
+ 
+     if (dconf->sec_file) {
+         sec_ent = (ap_conf_vector_t **)dconf->sec_file->elts;
+@@ -1626,13 +1700,22 @@
+         test_file = apr_pstrdup(r->pool, ++test_file);
+     }
+ 
++#ifdef DARWIN
++    case_sensitive = pathconf(r->filename, _PC_CASE_SENSITIVE);
++    if (case_sensitive == -1) {
++	case_sensitive = 1;	// nonexistant paths are case sensative
++    }
++#else
++    case_sensitive = 0;
++#endif
++
+     /* If we have an cache->cached file name that matches test_file,
+      * and the directory's list of file sections hasn't changed, we
+      * can skip rewalking the file_walk entries.
+      */
+     if (cached
+         && (cache->dir_conf_tested == sec_ent)
+-        && (strcmp(test_file, cache->cached) == 0)) {
++        && (files_strcmp(test_file, cache->cached, case_sensitive, r) == 0)) {
+         /* Well this looks really familiar!  If our end-result (per_dir_result)
+          * didn't change, we have absolutely nothing to do :)
+          * Otherwise (as is the case with most dir_merged requests)
+@@ -1701,7 +1784,7 @@
+             else {
+                 if ((entry_core->d_is_fnmatch
+                        ? apr_fnmatch(entry_core->d, cache->cached, APR_FNM_PATHNAME)
+-                       : strcmp(entry_core->d, cache->cached))) {
++                       : files_strcmp(entry_core->d, cache->cached, case_sensitive, r))) {
+                     continue;
+                 }
+             }

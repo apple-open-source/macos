@@ -488,7 +488,8 @@ PUBLIC void rpc_tower_to_binding
 **
 **--
 */
-
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PUBLIC void rpc_tower_vector_from_binding
 (
     rpc_if_handle_t         if_spec,
@@ -581,7 +582,7 @@ CLEANUP:
 
     return;
 }
-
+#endif
 /*
 **++
 **  ROUTINE NAME:       rpc_tower_vector_free
@@ -619,7 +620,8 @@ CLEANUP:
 **
 **--
 */
-
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PRIVATE void rpc_tower_vector_free
 (
     rpc_tower_vector_p_t    *twr_vector,
@@ -652,3 +654,4 @@ PRIVATE void rpc_tower_vector_free
     *status = rpc_s_ok;
     return;
 }
+#endif

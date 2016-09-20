@@ -32,6 +32,9 @@
 extern "C" {
 #endif
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 typedef CSSM_RETURN (CSSMAPI *CSSM_SPI_ModuleEventHandler)
     (const CSSM_GUID *ModuleGuid,
      void *CssmNotifyCallbackCtx,
@@ -124,6 +127,7 @@ CSSM_RETURN CSSMSPI
 CSSM_SPI_ModuleDetach (CSSM_MODULE_HANDLE ModuleHandle)
 	DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
+#pragma clang diagnostic pop
 
 #ifdef __cplusplus
 }

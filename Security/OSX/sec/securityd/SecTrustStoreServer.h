@@ -50,6 +50,9 @@ CFArrayRef SecTrustStoreCopyParents(SecTrustStoreRef ts,
 
 bool SecTrustStoreContainsCertificateWithDigest(SecTrustStoreRef source, CFDataRef digest, bool *contains, CFErrorRef *error);
 
+bool _SecTrustStoreCopyUsageConstraints(SecTrustStoreRef ts, CFDataRef digest, CFArrayRef *usageConstraints, CFErrorRef *error);
+
+bool _SecTrustStoreCopyAll(SecTrustStoreRef ts, CFArrayRef *trustStoreContents, CFErrorRef *error);
 
 __END_DECLS
 

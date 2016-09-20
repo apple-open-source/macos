@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Wrapper to build libtidy for both win32 and x64. -->
+<Project DefaultTargets="Release" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <ItemGroup>
+    <libtidy Include="libtidy.sln">
+      <AdditionalProperties>Platform=Win32</AdditionalProperties>
+    </libtidy>
+    <libtidy Include="libtidy.sln">
+      <AdditionalProperties>Platform=x64</AdditionalProperties>
+    </libtidy>
+  </ItemGroup>
+
+  <Target Name="Release">
+    <MSBuild Projects="@(libtidy)" Properties="Configuration=Release" Targets="ReBuild" />
+  </Target>
+
+  <Target Name="Debug">
+    <MSBuild Projects="@(libtidy)" Properties="Configuration=Debug" Targets="ReBuild" />
+  </Target>
+
+</Project>

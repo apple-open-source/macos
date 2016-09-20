@@ -291,7 +291,6 @@ CSSM_GetContext (CSSM_CC_HANDLE CCHandle,
                  CSSM_CONTEXT_PTR *ContextP)
 {
     BEGIN_API
-#warning Cast from CSSM_CC_HANDLE to CSSM_HANDLE
     HandleContext &context = HandleObject::find<HandleContext>((CSSM_HANDLE)CCHandle, CSSM_ERRCODE_INVALID_CONTEXT_HANDLE);
     Context *newContext = new(context.attachment) Context(context.type(), context.algorithm());
     try {
@@ -326,7 +325,6 @@ CSSM_SetContext (CSSM_CC_HANDLE CCHandle,
 {
     BEGIN_API
     const Context &source = Context::required(ContextP);
-#warning Cast from CSSM_CC_HANDLE to CSSM_HANDLE
     HandleContext &context = HandleObject::find<HandleContext>((CSSM_HANDLE)CCHandle, CSSM_ERRCODE_INVALID_CONTEXT_HANDLE);
 
     CSSM_CONTEXT_ATTRIBUTE *oldAttributes = context.ContextAttributes;
@@ -392,7 +390,6 @@ CSSM_UpdateContextAttributes (CSSM_CC_HANDLE CCHandle,
                               const CSSM_CONTEXT_ATTRIBUTE *ContextAttributes)
 {
     BEGIN_API
-#warning Cast from CSSM_CC_HANDLE to CSSM_HANDLE
     HandleContext &context = HandleObject::find<HandleContext>((CSSM_HANDLE)CCHandle, CSSM_ERRCODE_INVALID_CONTEXT_HANDLE);
     context.mergeAttributes(ContextAttributes, NumberAttributes);
     END_API(CSSM)
@@ -408,7 +405,6 @@ CSSM_DeleteContextAttributes (CSSM_CC_HANDLE CCHandle,
     if (NumberOfAttributes == 0)
         return CSSM_OK;	// I suppose
     Required(ContextAttributes); // preflight
-#warning Cast from CSSM_CC_HANDLE to CSSM_HANDLE
     HandleContext &context = HandleObject::find<HandleContext>((CSSM_HANDLE)CCHandle, CSSM_ERRCODE_INVALID_CONTEXT_HANDLE);
     for (uint32 n = 0; n < NumberOfAttributes; n++)
         context.deleteAttribute(ContextAttributes[n].AttributeType);
@@ -425,7 +421,6 @@ CSSM_DigestDataClone (CSSM_CC_HANDLE ccHandle,
                       CSSM_CC_HANDLE *newCCHandle)
 {
 	BEGIN_API
-#warning Cast from CSSM_CC_HANDLE to CSSM_HANDLE
     HandleContext &context = HandleObject::findAndLock<HandleContext>((CSSM_HANDLE)ccHandle, CSSM_ERRCODE_INVALID_CONTEXT_HANDLE);
 	TransitLock _(context.attachment);
     HandleContext *newContext =

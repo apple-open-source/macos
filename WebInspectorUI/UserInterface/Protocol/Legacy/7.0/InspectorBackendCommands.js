@@ -88,7 +88,6 @@ InspectorBackend.registerCommand("Runtime.callFunctionOn", [{"name": "objectId",
 InspectorBackend.registerCommand("Runtime.getProperties", [{"name": "objectId", "type": "string", "optional": false}, {"name": "ownProperties", "type": "boolean", "optional": true}], ["result", "internalProperties"]);
 InspectorBackend.registerCommand("Runtime.releaseObject", [{"name": "objectId", "type": "string", "optional": false}], []);
 InspectorBackend.registerCommand("Runtime.releaseObjectGroup", [{"name": "objectGroup", "type": "string", "optional": false}], []);
-InspectorBackend.registerCommand("Runtime.run", [], []);
 InspectorBackend.registerCommand("Runtime.enable", [], []);
 InspectorBackend.registerCommand("Runtime.disable", [], []);
 InspectorBackend.activateDomain("Runtime");
@@ -129,10 +128,6 @@ InspectorBackend.registerCommand("Network.enable", [], []);
 InspectorBackend.registerCommand("Network.disable", [], []);
 InspectorBackend.registerCommand("Network.setExtraHTTPHeaders", [{"name": "headers", "type": "object", "optional": false}], []);
 InspectorBackend.registerCommand("Network.getResponseBody", [{"name": "requestId", "type": "string", "optional": false}], ["body", "base64Encoded"]);
-InspectorBackend.registerCommand("Network.canClearBrowserCache", [], ["result"]);
-InspectorBackend.registerCommand("Network.clearBrowserCache", [], []);
-InspectorBackend.registerCommand("Network.canClearBrowserCookies", [], ["result"]);
-InspectorBackend.registerCommand("Network.clearBrowserCookies", [], []);
 InspectorBackend.registerCommand("Network.setCacheDisabled", [{"name": "cacheDisabled", "type": "boolean", "optional": false}], []);
 InspectorBackend.activateDomain("Network");
 
@@ -248,7 +243,7 @@ InspectorBackend.activateDomain("CSS");
 
 // Timeline.
 InspectorBackend.registerTimelineDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "Timeline");
-InspectorBackend.registerEnum("Timeline.EventType", {EventDispatch: "EventDispatch", ScheduleStyleRecalculation: "ScheduleStyleRecalculation", RecalculateStyles: "RecalculateStyles", InvalidateLayout: "InvalidateLayout", Layout: "Layout", Paint: "Paint", ScrollLayer: "ScrollLayer", ResizeImage: "ResizeImage", ParseHTML: "ParseHTML", TimerInstall: "TimerInstall", TimerRemove: "TimerRemove", TimerFire: "TimerFire", EvaluateScript: "EvaluateScript", MarkLoad: "MarkLoad", MarkDOMContent: "MarkDOMContent", TimeStamp: "TimeStamp", Time: "Time", TimeEnd: "TimeEnd", ScheduleResourceRequest: "ScheduleResourceRequest", ResourceSendRequest: "ResourceSendRequest", ResourceReceiveResponse: "ResourceReceiveResponse", ResourceReceivedData: "ResourceReceivedData", ResourceFinish: "ResourceFinish", XHRReadyStateChange: "XHRReadyStateChange", XHRLoad: "XHRLoad", FunctionCall: "FunctionCall", GCEvent: "GCEvent", RequestAnimationFrame: "RequestAnimationFrame", CancelAnimationFrame: "CancelAnimationFrame", FireAnimationFrame: "FireAnimationFrame", WebSocketCreate: "WebSocketCreate", WebSocketSendHandshakeRequest: "WebSocketSendHandshakeRequest", WebSocketReceiveHandshakeResponse: "WebSocketReceiveHandshakeResponse", WebSocketDestroy: "WebSocketDestroy"});
+InspectorBackend.registerEnum("Timeline.EventType", {EventDispatch: "EventDispatch", ScheduleStyleRecalculation: "ScheduleStyleRecalculation", RecalculateStyles: "RecalculateStyles", InvalidateLayout: "InvalidateLayout", Layout: "Layout", Paint: "Paint", ResizeImage: "ResizeImage", ParseHTML: "ParseHTML", TimerInstall: "TimerInstall", TimerRemove: "TimerRemove", TimerFire: "TimerFire", EvaluateScript: "EvaluateScript", MarkLoad: "MarkLoad", MarkDOMContent: "MarkDOMContent", TimeStamp: "TimeStamp", Time: "Time", TimeEnd: "TimeEnd", ScheduleResourceRequest: "ScheduleResourceRequest", ResourceSendRequest: "ResourceSendRequest", ResourceReceiveResponse: "ResourceReceiveResponse", ResourceReceivedData: "ResourceReceivedData", ResourceFinish: "ResourceFinish", XHRReadyStateChange: "XHRReadyStateChange", XHRLoad: "XHRLoad", FunctionCall: "FunctionCall", RequestAnimationFrame: "RequestAnimationFrame", CancelAnimationFrame: "CancelAnimationFrame", FireAnimationFrame: "FireAnimationFrame", WebSocketCreate: "WebSocketCreate", WebSocketSendHandshakeRequest: "WebSocketSendHandshakeRequest", WebSocketReceiveHandshakeResponse: "WebSocketReceiveHandshakeResponse", WebSocketDestroy: "WebSocketDestroy"});
 InspectorBackend.registerEvent("Timeline.eventRecorded", ["record"]);
 InspectorBackend.registerCommand("Timeline.start", [{"name": "maxCallStackDepth", "type": "number", "optional": true}], []);
 InspectorBackend.registerCommand("Timeline.stop", [], []);
@@ -313,21 +308,6 @@ InspectorBackend.registerCommand("Profiler.getCPUProfile", [{"name": "uid", "typ
 InspectorBackend.registerCommand("Profiler.removeProfile", [{"name": "type", "type": "string", "optional": false}, {"name": "uid", "type": "number", "optional": false}], []);
 InspectorBackend.registerCommand("Profiler.clearProfiles", [], []);
 InspectorBackend.activateDomain("Profiler");
-
-// Worker.
-InspectorBackend.registerWorkerDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "Worker");
-InspectorBackend.registerEvent("Worker.workerCreated", ["workerId", "url", "inspectorConnected"]);
-InspectorBackend.registerEvent("Worker.workerTerminated", ["workerId"]);
-InspectorBackend.registerEvent("Worker.dispatchMessageFromWorker", ["workerId", "message"]);
-InspectorBackend.registerEvent("Worker.disconnectedFromWorker", []);
-InspectorBackend.registerCommand("Worker.enable", [], []);
-InspectorBackend.registerCommand("Worker.disable", [], []);
-InspectorBackend.registerCommand("Worker.sendMessageToWorker", [{"name": "workerId", "type": "number", "optional": false}, {"name": "message", "type": "object", "optional": false}], []);
-InspectorBackend.registerCommand("Worker.canInspectWorkers", [], ["result"]);
-InspectorBackend.registerCommand("Worker.connectToWorker", [{"name": "workerId", "type": "number", "optional": false}], []);
-InspectorBackend.registerCommand("Worker.disconnectFromWorker", [{"name": "workerId", "type": "number", "optional": false}], []);
-InspectorBackend.registerCommand("Worker.setAutoconnectToWorkers", [{"name": "value", "type": "boolean", "optional": false}], []);
-InspectorBackend.activateDomain("Worker");
 
 // LayerTree.
 InspectorBackend.registerLayerTreeDispatcher = InspectorBackend.registerDomainDispatcher.bind(InspectorBackend, "LayerTree");

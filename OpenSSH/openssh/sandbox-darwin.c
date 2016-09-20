@@ -32,7 +32,6 @@
 #include "log.h"
 #include "sandbox.h"
 #include "xmalloc.h"
-#include "monitor.h"
 
 /* Darwin/OS X sandbox */
 
@@ -64,7 +63,7 @@ ssh_sandbox_child(struct ssh_sandbox *box)
 
 	debug3("%s: starting Darwin sandbox", __func__);
 #ifdef __APPLE_SANDBOX_NAMED_EXTERNAL__
-	if (sandbox_init("/System/Library/Sandbox/Profiles/org.openssh.sshd.sb",
+	if (sandbox_init("/System/Library/Sandbox/Profiles/com.openssh.sshd.sb",
 		SANDBOX_NAMED_EXTERNAL, &errmsg) == -1)
 #else
 	if (sandbox_init(kSBXProfilePureComputation, SANDBOX_NAMED,

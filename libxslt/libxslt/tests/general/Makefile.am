@@ -114,7 +114,7 @@ EXTRA_DIST = \
     bug-107.out bug-107.xsl \
     bug-108.out bug-108.xsl \
     bug-109.out bug-109.xsl \
-    bug-110.out bug-110.xsl \
+    bug-110.out bug-110.xsl bug-110.err \
     bug-111.out bug-111.xsl \
     bug-112.out bug-112.xsl \
     bug-113.out bug-113.xsl \
@@ -188,16 +188,24 @@ EXTRA_DIST = \
     bug-178.out bug-178.xsl \
     bug-179.out bug-179.xsl \
     bug-180.out bug-180.xsl bug-180.err \
+    bug-181.out bug-181.xsl \
+    bug-182.out bug-182.xsl \
+    bug-183.out bug-183.xsl \
+    bug-184.out bug-184.xsl bug-184.err \
+    bug-185.out bug-185.xsl bug-185.err \
+    bug-186.out bug-186.xsl \
+    bug-187.out bug-187.xsl bug-187.err \
     character.out character.xsl \
     character2.out character2.xsl \
     itemschoose.out itemschoose.xsl \
-    inner.xsl date_add.xsl
+    inner.xsl \
+    date_add.out date_add.xsl
 
 CLEANFILES = .memdump
 
 valgrind:
 	@echo '## Running the regression tests under Valgrind'
-	$(MAKE) CHECKER='valgrind -q' tests
+	$(MAKE) CHECKER='libtool --mode=execute valgrind -q --leak-check=full' tests
 
 test tests: $(top_builddir)/xsltproc/xsltproc
 	@echo '## Running general tests'

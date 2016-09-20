@@ -1528,6 +1528,8 @@ int msdosfs_vfs_sync(mp, waitfor, context)
 	return allerror;
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-field-initializers"
 
 struct vfsops msdosfs_vfsops = {
 	msdosfs_vfs_mount,
@@ -1543,8 +1545,10 @@ struct vfsops msdosfs_vfsops = {
 	msdosfs_init,
 	NULL, /* msdosfs_sysctl */
 	msdosfs_vfs_setattr,
-	{0}
+    // Remaining ops unused
 };
+
+#pragma clang diagnostic pop
 
 extern struct vnodeopv_desc msdosfs_vnodeop_opv_desc;
 extern struct vnodeopv_desc msdosfs_fat_vnodeop_opv_desc;

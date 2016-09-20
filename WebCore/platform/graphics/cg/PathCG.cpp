@@ -73,6 +73,22 @@ static inline CGContextRef scratchContext()
     return context;
 }
 
+Path Path::polygonPathFromPoints(const Vector<FloatPoint>& points)
+{
+    Path path;
+    if (points.size() < 2)
+        return path;
+
+    Vector<CGPoint, 32> cgPoints;
+    cgPoints.reserveInitialCapacity(points.size() - 1);
+    for (size_t i = 0; i < points.size(); ++i)
+        cgPoints.uncheckedAppend(points[i]);
+
+    CGPathAddLines(path.ensurePlatformPath(), nullptr, cgPoints.data(), cgPoints.size());
+    path.closeSubpath();
+    return path;
+}
+
 Path::Path()
     : m_path(nullptr)
 {
@@ -182,12 +198,23 @@ bool Path::strokeContains(StrokeStyleApplier* applier, const FloatPoint& point) 
 
 void Path::translate(const FloatSize& size)
 {
-    CGAffineTransform translation = CGAffineTransformMake(1, 0, 0, 1, size.width(), size.height());
-    CGMutablePathRef newPath = CGPathCreateMutable();
-    // FIXME: This is potentially wasteful to allocate an empty path only to create a transformed copy.
-    CGPathAddPath(newPath, &translation, ensurePlatformPath());
+    transform(AffineTransform(1, 0, 0, 1, size.width(), size.height()));
+}
+
+void Path::transform(const AffineTransform& transform)
+{
+    if (transform.isIdentity() || isEmpty())
+        return;
+
+    CGAffineTransform transformCG = transform;
+#if PLATFORM(WIN)
+    CGMutablePathRef path = CGPathCreateMutable();
+    CGPathAddPath(path, &transformCG, m_path);
+#else
+    CGMutablePathRef path = CGPathCreateMutableCopyByTransformingPath(m_path, &transformCG);
+#endif
     CGPathRelease(m_path);
-    m_path = newPath;
+    m_path = path;
 }
 
 FloatRect Path::boundingRect() const
@@ -195,8 +222,7 @@ FloatRect Path::boundingRect() const
     if (isNull())
         return CGRectZero;
 
-    // CGPathGetBoundingBox includes the path's control points, CGPathGetPathBoundingBox
-    // does not, but only exists on 10.6 and above.
+    // CGPathGetBoundingBox includes the path's control points, CGPathGetPathBoundingBox does not.
 
     CGRect bound = CGPathGetPathBoundingBox(m_path);
     return CGRectIsNull(bound) ? CGRectZero : bound;
@@ -235,27 +261,27 @@ FloatRect Path::strokeBoundingRect(StrokeStyleApplier* applier) const
 
 void Path::moveTo(const FloatPoint& point)
 {
-    CGPathMoveToPoint(ensurePlatformPath(), 0, point.x(), point.y());
+    CGPathMoveToPoint(ensurePlatformPath(), nullptr, point.x(), point.y());
 }
 
 void Path::addLineTo(const FloatPoint& p)
 {
-    CGPathAddLineToPoint(ensurePlatformPath(), 0, p.x(), p.y());
+    CGPathAddLineToPoint(ensurePlatformPath(), nullptr, p.x(), p.y());
 }
 
 void Path::addQuadCurveTo(const FloatPoint& cp, const FloatPoint& p)
 {
-    CGPathAddQuadCurveToPoint(ensurePlatformPath(), 0, cp.x(), cp.y(), p.x(), p.y());
+    CGPathAddQuadCurveToPoint(ensurePlatformPath(), nullptr, cp.x(), cp.y(), p.x(), p.y());
 }
 
 void Path::addBezierCurveTo(const FloatPoint& cp1, const FloatPoint& cp2, const FloatPoint& p)
 {
-    CGPathAddCurveToPoint(ensurePlatformPath(), 0, cp1.x(), cp1.y(), cp2.x(), cp2.y(), p.x(), p.y());
+    CGPathAddCurveToPoint(ensurePlatformPath(), nullptr, cp1.x(), cp1.y(), cp2.x(), cp2.y(), p.x(), p.y());
 }
 
 void Path::addArcTo(const FloatPoint& p1, const FloatPoint& p2, float radius)
 {
-    CGPathAddArcToPoint(ensurePlatformPath(), 0, p1.x(), p1.y(), p2.x(), p2.y(), radius);
+    CGPathAddArcToPoint(ensurePlatformPath(), nullptr, p1.x(), p1.y(), p2.x(), p2.y(), radius);
 }
 
 void Path::platformAddPathForRoundedRect(const FloatRect& rect, const FloatSize& topLeftRadius, const FloatSize& topRightRadius, const FloatSize& bottomLeftRadius, const FloatSize& bottomRightRadius)
@@ -365,14 +391,9 @@ FloatPoint Path::currentPoint() const
     return CGPathGetCurrentPoint(m_path);
 }
 
-struct PathApplierInfo {
-    void* info;
-    PathApplierFunction function;
-};
-
-static void CGPathApplierToPathApplier(void *info, const CGPathElement *element)
+static void CGPathApplierToPathApplier(void* info, const CGPathElement* element)
 {
-    PathApplierInfo* pinfo = (PathApplierInfo*)info;
+    const PathApplierFunction& function = *(PathApplierFunction*)info;
     FloatPoint points[3];
     PathElement pelement;
     pelement.type = (PathElementType)element->type;
@@ -395,30 +416,15 @@ static void CGPathApplierToPathApplier(void *info, const CGPathElement *element)
     case kCGPathElementCloseSubpath:
         break;
     }
-    pinfo->function(pinfo->info, &pelement);
+    function(pelement);
 }
 
-void Path::apply(void* info, PathApplierFunction function) const
+void Path::apply(const PathApplierFunction& function) const
 {
     if (isNull())
         return;
 
-    PathApplierInfo pinfo;
-    pinfo.info = info;
-    pinfo.function = function;
-    CGPathApply(m_path, &pinfo, CGPathApplierToPathApplier);
-}
-
-void Path::transform(const AffineTransform& transform)
-{
-    if (transform.isIdentity() || isEmpty())
-        return;
-
-    CGMutablePathRef path = CGPathCreateMutable();
-    CGAffineTransform transformCG = transform;
-    CGPathAddPath(path, &transformCG, m_path);
-    CGPathRelease(m_path);
-    m_path = path;
+    CGPathApply(m_path, (void*)&function, CGPathApplierToPathApplier);
 }
 
 }

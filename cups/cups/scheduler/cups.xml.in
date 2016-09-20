@@ -1,8 +1,6 @@
 <?xml version="1.0"?>
 <!DOCTYPE service_bundle SYSTEM "/usr/share/lib/xml/dtd/service_bundle.dtd.1">
 <!--
-    $Id: cups.xml.in 2314 2010-07-08 21:14:31Z msweet $
-
     Service manifest for CUPS.
 
     This service manifest introduces smf(5) services for CUPS.  The services

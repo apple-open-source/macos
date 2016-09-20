@@ -24,10 +24,11 @@
 
 #include "BigInteger.h"
 #include "Error.h"
+#include "JSCBuiltins.h"
+#include "JSCInlines.h"
 #include "JSFunction.h"
 #include "JSGlobalObject.h"
 #include "JSString.h"
-#include "JSCInlines.h"
 #include "Uint16WithFraction.h"
 #include <wtf/dtoa.h>
 #include <wtf/Assertions.h>
@@ -44,7 +45,6 @@ namespace JSC {
 
 static EncodedJSValue JSC_HOST_CALL numberProtoFuncToString(ExecState*);
 static EncodedJSValue JSC_HOST_CALL numberProtoFuncToLocaleString(ExecState*);
-static EncodedJSValue JSC_HOST_CALL numberProtoFuncValueOf(ExecState*);
 static EncodedJSValue JSC_HOST_CALL numberProtoFuncToFixed(ExecState*);
 static EncodedJSValue JSC_HOST_CALL numberProtoFuncToExponential(ExecState*);
 static EncodedJSValue JSC_HOST_CALL numberProtoFuncToPrecision(ExecState*);
@@ -75,17 +75,18 @@ NumberPrototype::NumberPrototype(VM& vm, Structure* structure)
 {
 }
 
-void NumberPrototype::finishCreation(VM& vm, JSGlobalObject*)
+void NumberPrototype::finishCreation(VM& vm, JSGlobalObject* globalObject)
 {
     Base::finishCreation(vm);
     setInternalValue(vm, jsNumber(0));
 
-    ASSERT(inherits(info()));
-}
+#if ENABLE(INTL)
+    JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION("toLocaleString", numberPrototypeToLocaleStringCodeGenerator, DontEnum);
+#else
+    UNUSED_PARAM(globalObject);
+#endif // ENABLE(INTL)
 
-bool NumberPrototype::getOwnPropertySlot(JSObject* object, ExecState* exec, PropertyName propertyName, PropertySlot &slot)
-{
-    return getStaticFunctionSlot<NumberObject>(exec, numberPrototypeTable, jsCast<NumberPrototype*>(object), propertyName, slot);
+    ASSERT(inherits(info()));
 }
 
 // ------------------------------ Functions ---------------------------
@@ -521,8 +522,9 @@ EncodedJSValue JSC_HOST_CALL numberProtoFuncToLocaleString(ExecState* exec)
 EncodedJSValue JSC_HOST_CALL numberProtoFuncValueOf(ExecState* exec)
 {
     double x;
-    if (!toThisNumber(exec->thisValue(), x))
-        return throwVMTypeError(exec);
+    JSValue thisValue = exec->thisValue();
+    if (!toThisNumber(thisValue, x))
+        return throwVMTypeError(exec, WTF::makeString("thisNumberValue called on incompatible ", jsCast<JSString*>(jsTypeStringForValue(exec, thisValue))->value(exec)));
     return JSValue::encode(jsNumber(x));
 }
 

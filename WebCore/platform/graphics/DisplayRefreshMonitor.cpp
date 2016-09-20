@@ -29,9 +29,13 @@
 #if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
 
 #include "DisplayRefreshMonitorClient.h"
-#include "DisplayRefreshMonitorIOS.h"
-#include "DisplayRefreshMonitorMac.h"
 #include "DisplayRefreshMonitorManager.h"
+
+#if PLATFORM(IOS)
+#include "DisplayRefreshMonitorIOS.h"
+#else
+#include "DisplayRefreshMonitorMac.h"
+#endif
 
 namespace WebCore {
 
@@ -52,8 +56,7 @@ RefPtr<DisplayRefreshMonitor> DisplayRefreshMonitor::create(DisplayRefreshMonito
 }
 
 DisplayRefreshMonitor::DisplayRefreshMonitor(PlatformDisplayID displayID)
-    : m_monotonicAnimationStartTime(0)
-    , m_active(true)
+    : m_active(true)
     , m_scheduled(false)
     , m_previousFrameDone(true)
     , m_unscheduledFireCount(0)
@@ -86,22 +89,19 @@ bool DisplayRefreshMonitor::removeClient(DisplayRefreshMonitorClient& client)
 
 void DisplayRefreshMonitor::displayDidRefresh()
 {
-    double monotonicAnimationStartTime;
-
     {
-        MutexLocker lock(m_mutex);
+        LockHolder lock(m_mutex);
         if (!m_scheduled)
             ++m_unscheduledFireCount;
         else
             m_unscheduledFireCount = 0;
 
         m_scheduled = false;
-        monotonicAnimationStartTime = m_monotonicAnimationStartTime;
     }
 
     // The call back can cause all our clients to be unregistered, so we need to protect
     // against deletion until the end of the method.
-    Ref<DisplayRefreshMonitor> protect(*this);
+    Ref<DisplayRefreshMonitor> protectedThis(*this);
 
     // Copy the hash table and remove clients from it one by one so we don't notify
     // any client twice, but can respond to removal of clients during the delivery process.
@@ -109,7 +109,7 @@ void DisplayRefreshMonitor::displayDidRefresh()
     m_clientsToBeNotified = &clientsToBeNotified;
     while (!clientsToBeNotified.isEmpty()) {
         DisplayRefreshMonitorClient* client = clientsToBeNotified.takeAny();
-        client->fireDisplayRefreshIfNeeded(monotonicAnimationStartTime);
+        client->fireDisplayRefreshIfNeeded();
 
         // This checks if this function was reentered. In that case, stop iterating
         // since it's not safe to use the set any more.
@@ -121,7 +121,7 @@ void DisplayRefreshMonitor::displayDidRefresh()
         m_clientsToBeNotified = nullptr;
 
     {
-        MutexLocker lock(m_mutex);
+        LockHolder lock(m_mutex);
         m_previousFrameDone = true;
     }
     

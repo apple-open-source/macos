@@ -1,4 +1,4 @@
-*netbeans.txt*  For Vim version 7.3.  Last change: 2010 Jul 20
+*netbeans.txt*  For Vim version 7.4.  Last change: 2015 Mar 14
 
 
 		  VIM REFERENCE MANUAL    by Gordon Prieur et al.
@@ -118,7 +118,8 @@ In case you do not want the NetBeans interface you can disable it by
 uncommenting a line with "--disable-netbeans" in the Makefile.
 
 Currently the NetBeans interface is supported by Vim running in a terminal and
-by GVim when it is run with one of the following GUIs: GTK, GNOME, and Motif.
+by GVim when it is run with one of the following GUIs: GTK, GNOME, Windows,
+Athena and Motif.
 
 If Motif support is required the user must supply XPM libraries.  See
 |workshop-xpm| for details on obtaining the latest version of XPM.
@@ -262,6 +263,12 @@ The messages are currently sent over a socket.  Since the messages are in
 plain UTF-8 text this protocol could also be used with any other communication
 mechanism.
 
+Netbeans messages are processed when Vim is idle, waiting for user input.
+When Vim is run in non-interactive mode, for example when running an automated
+test case that sources a Vim script, the idle loop may not be called often
+enough. In that case, insert |:sleep| commands in the Vim script. The |:sleep|
+command does invoke Netbeans messages processing.
+
 6.1 Kinds of messages		|nb-messages|
 6.2 Terms			|nb-terms|
 6.3 Commands			|nb-commands|
@@ -299,7 +306,12 @@ bufID		Buffer number.  A message may be either for a specific buffer
 		or generic.  Generic messages use a bufID of zero.  NOTE: this
 		buffer ID is assigned by the IDE, it is not Vim's buffer
 		number.  The bufID must be a sequentially rising number,
-		starting at one.
+		starting at one.  When the 'switchbuf' option is set to
+		"usetab" and the "bufID" buffer is not found in the current
+		tab page, the netbeans commands and functions that set this
+		buffer as the current buffer will jump to the first open
+		window that contains this buffer in other tab pages instead of
+		replacing the buffer in the current window.
 
 seqno		The IDE uses a sequence number for Commands and Functions.  A
 		Reply must use the sequence number of the Function that it is
@@ -463,7 +475,7 @@ raise		Bring the editor to the foreground.
 		New in version 2.1.
 
 removeAnno serNum
-		Remove a previously place annotation for this buffer.
+		Remove a previously placed annotation for this buffer.
 		"serNum" is the same number used in addAnno.
 
 save		Save the buffer when it was modified.  The other side of the
@@ -819,7 +831,7 @@ These errors occur when a message violates the protocol:
 ==============================================================================
 7. NetBeans commands					*netbeans-commands*
 
-							*:nbstart* *E511*
+							*:nbstart* *E511* *E838*
 :nbs[tart] {connection}	Start a new Netbeans session with {connection} as the
 			socket connection parameters.  The format of
 			{connection} is described in |netbeans-parameters|.
@@ -832,11 +844,16 @@ These errors occur when a message violates the protocol:
 			signs.
 
 							*:nbkey*
-:nb[key] {key}		Pass the {key} to the Vim Controller for processing
-
-When a hot-key has been installed with the specialKeys command, this command
-can be used to generate a hotkey messages to the Vim Controller. The events
-newDotAndMark, keyCommand and keyAtPos are generated (in this order).
+:nb[key] {key}		Pass the {key} to the Vim Controller for processing.
+			When a hot-key has been installed with the specialKeys
+			command, this command can be used to generate a hotkey
+			message to the Vim Controller.
+			This command can also be used to pass any text to the
+			Vim  Controller. It is used by Pyclewn, for example,
+			to build the complete set of gdb commands as Vim user
+			commands.
+			The events newDotAndMark, keyCommand and keyAtPos are
+			generated (in this order).
 
 
 ==============================================================================

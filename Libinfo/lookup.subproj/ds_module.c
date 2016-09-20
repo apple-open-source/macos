@@ -322,7 +322,7 @@ static si_list_t *
 _ds_list(si_mod_t *si, int cat, const char *procname, const void *extra, od_extract_t extract)
 {
 	__block si_list_t *list;
-	uint64_t va, vb;
+	uint64_t va = 0, vb = 0;
 	xpc_object_t reply, result;
 
 	if (procname == NULL) return NULL;
@@ -353,7 +353,7 @@ static si_item_t *
 _ds_item(si_mod_t *si, int cat, const char *procname, const void *extra, od_extract_t extract, xpc_object_t payload)
 {
 	xpc_object_t result;
-	uint64_t va, vb;
+	uint64_t va = 0, vb = 0;
 	si_item_t *item = NULL;
 
 	if (procname == NULL) return NULL;

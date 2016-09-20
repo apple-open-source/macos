@@ -174,7 +174,7 @@ struct CCCmacContext {
 };
 
 CCCmacContextPtr
-CCAESCmacCreate(const void *key, size_t keyLength)
+CCAESCmacCreate(const void *key, size_t __unused keyLength)
 {
     CCCmacContextPtr retval = (CCCmacContextPtr) CC_XMALLOC(sizeof(struct CCCmacContext));
     if(!retval) return NULL;

@@ -51,6 +51,8 @@ void SOSTestDeviceDestroyEngine(CFMutableDictionaryRef testDevices);
 SOSTestDeviceRef SOSTestDeviceSetMute(SOSTestDeviceRef td, bool mute);
 bool SOSTestDeviceIsMute(SOSTestDeviceRef td);
 
+bool SOSTestDeviceSetEngineState(SOSTestDeviceRef td, CFDataRef derEngineState);
+
 CFDataRef SOSTestDeviceCreateMessage(SOSTestDeviceRef td, CFStringRef peerID);
 
 bool SOSTestDeviceHandleMessage(SOSTestDeviceRef td, CFStringRef peerID, CFDataRef msgData);

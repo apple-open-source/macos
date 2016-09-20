@@ -141,7 +141,7 @@ static double CalculateEntropy(const void* buffer, size_t bufferSize)
 
 void EntropyManager::collectEntropy()
 {
-	SECURITYD_ENTROPY_COLLECT();
+    secinfo("SS", "Collecting entropy");
 
     int mib[4];
     mib[0] = CTL_KERN;
@@ -185,7 +185,6 @@ void EntropyManager::collectEntropy()
             rawEnt += 4;
         }
         
-        SECURITYD_ENTROPY_SEED((void *)nonEnt, (unsigned int) sizeof(nonEnt));
         addEntropy(nonEnt, sizeof(nonEnt));
         
         double entropyRead = CalculateEntropy(nonEnt, sizeof(nonEnt));
@@ -208,9 +207,8 @@ void EntropyManager::updateEntropyFile()
 {
     if (Time::now() >= mNextUpdate) {
         try {
-			SECURITYD_ENTROPY_SAVE((char *)mEntropyFilePath.c_str());
 			mNextUpdate = Time::now() + Time::Interval(updateInterval);
-            secdebug("entropy", "updating %s", mEntropyFilePath.c_str());
+            secinfo("entropy", "updating %s", mEntropyFilePath.c_str());
         	char buffer[entropyFileSize];
 			random(buffer, entropyFileSize);
             AutoFileDesc entropyFile(mEntropyFilePath.c_str(), O_WRONLY | O_TRUNC | O_CREAT, 0600);

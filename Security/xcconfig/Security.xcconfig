@@ -1,0 +1,10 @@
+
+APPLE_AKS_LIBRARY[sdk=macosx*] = -L$(SDKROOT)/usr/local/lib -laks
+APPLE_AKS_LIBRARY[sdk=iphoneos*] = -L$(SDKROOT)/usr/local/lib -laks
+APPLE_AKS_LIBRARY[sdk=watchos*] = -L$(SDKROOT)/usr/local/lib -laks
+APPLE_AKS_LIBRARY[sdk=tvos*] = -L$(SDKROOT)/usr/local/lib -laks
+
+
+FRAMEWORK_SEARCH_PATHS = $(inherited) $(SYSTEM_LIBRARY_DIR)/PrivateFrameworks $(DEVELOPER_LIBRARY_DIR)
+
+AOSKIT_FRAMEWORK[sdk=macosx*] = -framework AOSAccounts

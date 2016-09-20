@@ -31,6 +31,7 @@
 #include "AudioContext.h"
 #include "AudioUtilities.h"
 #include "Event.h"
+#include "EventNames.h"
 #include "ScriptController.h"
 #include <algorithm>
 #include <wtf/MathExtras.h>
@@ -43,7 +44,7 @@ namespace WebCore {
 
 const double AudioScheduledSourceNode::UnknownTime = -1;
 
-AudioScheduledSourceNode::AudioScheduledSourceNode(AudioContext* context, float sampleRate)
+AudioScheduledSourceNode::AudioScheduledSourceNode(AudioContext& context, float sampleRate)
     : AudioNode(context, sampleRate)
     , m_playbackState(UNSCHEDULED_STATE)
     , m_startTime(0)
@@ -71,7 +72,7 @@ void AudioScheduledSourceNode::updateSchedulingInfo(size_t quantumFrameSize,
     // quantumEndFrame       : End frame of the current time quantum.
     // startFrame            : Start frame for this source.
     // endFrame              : End frame for this source.
-    size_t quantumStartFrame = context()->currentSampleFrame();
+    size_t quantumStartFrame = context().currentSampleFrame();
     size_t quantumEndFrame = quantumStartFrame + quantumFrameSize;
     size_t startFrame = AudioUtilities::timeToSampleFrame(m_startTime, sampleRate);
     size_t endFrame = m_endTime == UnknownTime ? 0 : AudioUtilities::timeToSampleFrame(m_endTime, sampleRate);
@@ -91,7 +92,7 @@ void AudioScheduledSourceNode::updateSchedulingInfo(size_t quantumFrameSize,
     if (m_playbackState == SCHEDULED_STATE) {
         // Increment the active source count only if we're transitioning from SCHEDULED_STATE to PLAYING_STATE.
         m_playbackState = PLAYING_STATE;
-        context()->incrementActiveSourceCount();
+        context().incrementActiveSourceCount();
     }
 
     quantumFrameOffset = startFrame > quantumStartFrame ? startFrame - quantumStartFrame : 0;
@@ -137,16 +138,11 @@ void AudioScheduledSourceNode::updateSchedulingInfo(size_t quantumFrameSize,
     return;
 }
 
-void AudioScheduledSourceNode::start(ExceptionCode& ec)
-{
-    start(0, ec);
-}
-
 void AudioScheduledSourceNode::start(double when, ExceptionCode& ec)
 {
     ASSERT(isMainThread());
 
-    context()->nodeWillBeginPlayback();
+    context().nodeWillBeginPlayback();
 
     if (m_playbackState != UNSCHEDULED_STATE) {
         ec = INVALID_STATE_ERR;
@@ -160,11 +156,6 @@ void AudioScheduledSourceNode::start(double when, ExceptionCode& ec)
 
     m_startTime = when;
     m_playbackState = SCHEDULED_STATE;
-}
-
-void AudioScheduledSourceNode::stop(ExceptionCode& ec)
-{
-    stop(0, ec);
 }
 
 void AudioScheduledSourceNode::stop(double when, ExceptionCode& ec)
@@ -199,9 +190,9 @@ void AudioScheduledSourceNode::finish()
 {
     if (m_playbackState != FINISHED_STATE) {
         // Let the context dereference this AudioNode.
-        context()->notifyNodeFinishedProcessing(this);
+        context().notifyNodeFinishedProcessing(this);
         m_playbackState = FINISHED_STATE;
-        context()->decrementActiveSourceCount();
+        context().decrementActiveSourceCount();
     }
 
     if (m_hasEndedListener) {
@@ -211,17 +202,17 @@ void AudioScheduledSourceNode::finish()
     }
 }
 
-bool AudioScheduledSourceNode::addEventListener(const AtomicString& eventType, PassRefPtr<EventListener> listener, bool useCapture)
+bool AudioScheduledSourceNode::addEventListener(const AtomicString& eventType, Ref<EventListener>&& listener, const AddEventListenerOptions& options)
 {
-    bool success = AudioNode::addEventListener(eventType, listener, useCapture);
+    bool success = AudioNode::addEventListener(eventType, WTFMove(listener), options);
     if (success && eventType == eventNames().endedEvent)
         m_hasEndedListener = hasEventListeners(eventNames().endedEvent);
     return success;
 }
 
-bool AudioScheduledSourceNode::removeEventListener(const AtomicString& eventType, EventListener* listener, bool useCapture)
+bool AudioScheduledSourceNode::removeEventListener(const AtomicString& eventType, EventListener& listener, const ListenerOptions& options)
 {
-    bool success = AudioNode::removeEventListener(eventType, listener, useCapture);
+    bool success = AudioNode::removeEventListener(eventType, listener, options);
     if (success && eventType == eventNames().endedEvent)
         m_hasEndedListener = hasEventListeners(eventNames().endedEvent);
     return success;

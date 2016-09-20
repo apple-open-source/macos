@@ -42,6 +42,7 @@ int secd_01_items(int argc, char *const *argv)
 {
     plan_tests(24 + kSecdTestSetupTestCount);
 
+    secd_test_setup_testviews(); // if running all tests get the test views setup first
     /* custom keychain dir */
     secd_test_setup_temp_keychain("secd_01_items", NULL);
 

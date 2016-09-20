@@ -124,7 +124,7 @@ IOBlockStorageDevice::setWriteCacheState(bool enabled)
     return(kIOReturnUnsupported);
 }
 
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
 IOReturn
 IOBlockStorageDevice::doLockUnlockMedia(bool doLock)
 {
@@ -143,7 +143,7 @@ IOBlockStorageDevice::reportPollRequirements(bool *pollRequired,
 {
     return(kIOReturnUnsupported);
 }
-#endif /* __x86_64__ */
+#endif /* TARGET_OS_OSX && defined(__x86_64__) */
 
 IOReturn
 IOBlockStorageDevice::requestIdle(void)
@@ -151,20 +151,20 @@ IOBlockStorageDevice::requestIdle(void)
     return(kIOReturnUnsupported);
 }
 
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
 IOReturn
 IOBlockStorageDevice::doDiscard(UInt64 block, UInt64 nblks)
 {
     return(kIOReturnUnsupported);
 }
-#endif /* __x86_64__ */
+#endif /* TARGET_OS_OSX && defined(__x86_64__) */
 
 IOReturn
 IOBlockStorageDevice::doUnmap(IOBlockStorageDeviceExtent * extents,
                               UInt32                       extentsCount,
                               IOStorageUnmapOptions        options)
 {
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
     if (options) {
         return(kIOReturnUnsupported);
     } else {
@@ -181,9 +181,9 @@ IOBlockStorageDevice::doUnmap(IOBlockStorageDeviceExtent * extents,
     }
 
     return(kIOReturnSuccess);
-#else /* !__x86_64__ */
+#else /* !TARGET_OS_OSX || !defined(__x86_64__) */
     return(kIOReturnUnsupported);
-#endif /* !__x86_64__ */
+#endif /* !TARGET_OS_OSX || !defined(__x86_64__) */
 }
 
 IOReturn
@@ -209,10 +209,20 @@ IOBlockStorageDevice::doSynchronize(UInt64                      block,
     return(doSynchronizeCache());
 }
 
+IOReturn
+IOBlockStorageDevice:: doGetProvisionStatus(UInt64                                block,
+                                            UInt64                                nblks,
+                                            UInt32 *                              extentsCount,
+                                            IOBlockStorageProvisionDeviceExtent * extents,
+                                            IOStorageGetProvisionStatusOptions    options)
+{
+    return(kIOReturnUnsupported);
+}
+
 OSMetaClassDefineReservedUsed(IOBlockStorageDevice,  0);
 OSMetaClassDefineReservedUsed(IOBlockStorageDevice,  1);
 OSMetaClassDefineReservedUsed(IOBlockStorageDevice,  2);
-OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  3);
+OSMetaClassDefineReservedUsed(IOBlockStorageDevice,  3);
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  4);
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  5);
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  6);

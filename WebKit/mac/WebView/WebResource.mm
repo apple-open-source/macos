@@ -71,7 +71,6 @@ static NSString * const WebResourceResponseKey =          @"WebResourceResponse"
     WTF::initializeMainThreadToProcessMainThread();
     RunLoop::initializeMainRunLoop();
 #endif
-    WebCoreObjCFinalizeOnMainThread(self);
 }
 
 - (instancetype)init
@@ -97,13 +96,6 @@ static NSString * const WebResourceResponseKey =          @"WebResourceResponse"
     if (coreResource)
         coreResource->deref();
     [super dealloc];
-}
-
-- (void)finalize
-{
-    if (coreResource)
-        coreResource->deref();
-    [super finalize];
 }
 
 @end
@@ -176,8 +168,7 @@ static NSString * const WebResourceResponseKey =          @"WebResourceResponse"
     NSURLResponse *response = nil;
     
     if (resource) {
-        if (resource->data())
-            data = resource->data()->createNSData().get();
+        data = resource->data().createNSData().get();
         url = resource->url();
         mimeType = resource->mimeType();
         textEncoding = resource->textEncoding();
@@ -209,9 +200,7 @@ static NSString * const WebResourceResponseKey =          @"WebResourceResponse"
 
     if (!_private->coreResource)
         return nil;
-    if (!_private->coreResource->data())
-        return nil;
-    return _private->coreResource->data()->createNSData().autorelease();
+    return _private->coreResource->data().createNSData().autorelease();
 }
 
 - (NSURL *)URL
@@ -270,13 +259,6 @@ static NSString * const WebResourceResponseKey =          @"WebResourceResponse"
         return nil;
             
     ASSERT(coreResource);
-    
-    // WebResources should not be init'ed with nil data, and doing so breaks certain uses of NSHTMLReader
-    // See <rdar://problem/5820157> for more info
-    if (!coreResource->data()) {
-        [self release];
-        return nil;
-    }
     
     _private = [[WebResourcePrivate alloc] initWithCoreResource:coreResource];
             
@@ -382,8 +364,8 @@ static NSString * const WebResourceResponseKey =          @"WebResourceResponse"
     if (!encoding.isValid())
         encoding = WindowsLatin1Encoding();
     
-    SharedBuffer* coreData = _private->coreResource ? _private->coreResource->data() : 0;
-    return encoding.decode(reinterpret_cast<const char*>(coreData ? coreData->data() : 0), coreData ? coreData->size() : 0);
+    SharedBuffer* coreData = _private->coreResource ? &_private->coreResource->data() : nullptr;
+    return encoding.decode(reinterpret_cast<const char*>(coreData ? coreData->data() : nullptr), coreData ? coreData->size() : 0);
 }
 
 @end

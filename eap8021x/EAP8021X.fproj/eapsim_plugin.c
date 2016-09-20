@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -228,6 +228,72 @@ copy_static_identity(CFDictionaryRef properties)
     return (ret_identity);
 }
 
+/**
+ ** Utility Routines
+ **/
+static int
+S_get_plist_int(CFDictionaryRef plist, CFStringRef key, int def)
+{
+	CFNumberRef 	n;
+	int			ret = def;
+
+	n = isA_CFNumber(CFDictionaryGetValue(plist, key));
+	if (n != NULL) {
+		if (CFNumberGetValue(n, kCFNumberIntType, &ret) == FALSE) {
+			ret = def;
+		}
+	}
+	return (ret);
+}
+
+static bool
+S_get_plist_bool(CFDictionaryRef plist, CFStringRef key, bool def)
+{
+	CFBooleanRef 	b;
+	bool			ret = def;
+
+	b = isA_CFBoolean(CFDictionaryGetValue(plist, key));
+	if (b != NULL) {
+		ret = CFBooleanGetValue(b);
+	}
+	return (ret);
+}
+
+STATIC bool
+blocks_are_duplicated(const uint8_t * blocks, int n_blocks, int block_size)
+{
+	int 		i;
+	int			j;
+	const uint8_t *	scan;
+
+	for (i = 0, scan = blocks; i < (n_blocks - 1); i++, scan += block_size) {
+		const uint8_t *	scan_j = scan + block_size;
+
+		for (j = i + 1; j < n_blocks; j++, scan_j += block_size) {
+			if (bcmp(scan, scan_j, block_size) == 0) {
+				return (TRUE);
+			}
+		}
+	}
+	return (FALSE);
+}
+
+STATIC void
+fill_with_random(uint8_t * buf, int len)
+{
+	int             i;
+	int             n;
+	void *          p;
+	uint32_t        random;
+
+	n = len / sizeof(random);
+	for (i = 0, p = buf; i < n; i++, p += sizeof(random)) {
+		random = arc4random();
+		bcopy(&random, p, sizeof(random));
+	}
+	return;
+}
+
 #if TARGET_OS_EMBEDDED
 
 STATIC CFStringRef
@@ -243,11 +309,16 @@ copy_pseudonym_identity(CFStringRef pseudonym, CFStringRef realm)
 
 STATIC CFStringRef
 create_identity(EAPSIMAKAPersistentStateRef persist,
+		CFDictionaryRef properties,
 		EAPSIMAKAAttributeType requested_type,
 		CFStringRef realm,
-		Boolean * is_reauth_id_p)
+		Boolean * is_reauth_id_p,
+		EAPClientStatus	* client_status)
 {
     CFStringRef			ret_identity = NULL;
+    CFDateRef			start_time;
+    CFStringRef			pseudonym = NULL;
+    CFDateRef			now = NULL;
 
     if (is_reauth_id_p != NULL) {
 	*is_reauth_id_p = FALSE;
@@ -255,13 +326,12 @@ create_identity(EAPSIMAKAPersistentStateRef persist,
     if (persist == NULL) {
 	return (NULL);
     }
+    pseudonym = EAPSIMAKAPersistentStateGetPseudonym(persist, &start_time);
     if (requested_type == kAT_ANY_ID_REQ
 	|| requested_type == kAT_FULLAUTH_ID_REQ) {
 	CFStringRef		reauth_id;
-	CFStringRef		pseudonym;
 	
 	reauth_id = EAPSIMAKAPersistentStateGetReauthID(persist);
-	pseudonym = EAPSIMAKAPersistentStateGetPseudonym(persist);
 	if (requested_type == kAT_ANY_ID_REQ && reauth_id != NULL) {
 	    if (is_reauth_id_p != NULL) {
 		*is_reauth_id_p = TRUE;
@@ -273,10 +343,51 @@ create_identity(EAPSIMAKAPersistentStateRef persist,
 	}
     }
     if (ret_identity == NULL) {
+	if (pseudonym != NULL && requested_type == kAT_PERMANENT_ID_REQ) {
+	    /* first see if we are configured to be a conserverative peer */
+	    bool conservative_peer = false;
+	    int	 pseudonym_lifetime_hrs;
+
+	    conservative_peer
+		= S_get_plist_bool(properties,
+				   kEAPClientPropEAPSIMAKAConservativePeer,
+				   false);
+	    if (conservative_peer) {
+		pseudonym_lifetime_hrs
+		    = S_get_plist_int(properties,
+				      kEAPClientPropEAPSIMAKAPseudonymIdentityLifetimeHours,
+				      PSEUDONYM_MIN_LIFETIME_HOURS);
+		if (pseudonym_lifetime_hrs < PSEUDONYM_MIN_LIFETIME_HOURS) {
+			pseudonym_lifetime_hrs = PSEUDONYM_MIN_LIFETIME_HOURS;
+		}
+		/* now check if pseudonym is expired */
+		if (start_time != NULL) {
+		    now = CFDateCreate(NULL, CFAbsoluteTimeGetCurrent());
+		    if (now != NULL &&
+			CFDateGetTimeIntervalSinceDate(now, start_time) < (pseudonym_lifetime_hrs * 3600)) {
+			/* pseudonym is not expired, send an error to the server */
+			EAPLOG_FL(LOG_NOTICE,
+				  "EAP Peer is in conservative mode and pseudonym is not expired yet.");
+			if (client_status != NULL) {
+			    *client_status = kEAPClientStatusProtocolError;
+			}
+			goto done;
+		    }
+		}
+	    }
+	}
 	/* use permanent id */
-	ret_identity 
+	ret_identity
 	    = copy_imsi_identity(EAPSIMAKAPersistentStateGetIMSI(persist),
-				 realm);
+								 realm);
+    }
+    if (ret_identity == NULL && client_status != NULL) {
+	*client_status = kEAPClientStatusResourceUnavailable;
+    }
+
+done:
+    if (now != NULL) {
+	CFRelease(now);
     }
     return (ret_identity);
 }
@@ -285,7 +396,8 @@ STATIC CFStringRef
 sim_identity_create(EAPSIMAKAPersistentStateRef persist,
 		    CFDictionaryRef properties,
 		    EAPSIMAKAAttributeType identity_type,
-		    Boolean * is_reauth_id_p)
+		    Boolean * is_reauth_id_p,
+		    EAPClientStatus * client_status)
 {
     CFStringRef		realm = NULL;
     CFStringRef		ret_identity = NULL;
@@ -297,8 +409,8 @@ sim_identity_create(EAPSIMAKAPersistentStateRef persist,
     if (realm == NULL) {
 	realm = SIMCopyRealm();
     }
-    ret_identity = create_identity(persist, identity_type, realm,
-				   is_reauth_id_p);
+    ret_identity = create_identity(persist, properties, identity_type, realm,
+				   is_reauth_id_p, client_status);
     my_CFRelease(&realm);
     return (ret_identity);
 }
@@ -309,7 +421,8 @@ STATIC CFStringRef
 sim_identity_create(EAPSIMAKAPersistentStateRef persist,
 		    CFDictionaryRef properties,
 		    EAPSIMAKAAttributeType identity_type, 
-		    Boolean * is_reauth_id_p)
+		    Boolean * is_reauth_id_p,
+		    EAPClientStatus * client_status)
 {
     if (is_reauth_id_p != NULL) {
 	*is_reauth_id_p = FALSE;
@@ -317,60 +430,18 @@ sim_identity_create(EAPSIMAKAPersistentStateRef persist,
     return (NULL);
 }
 
+STATIC CFStringRef
+copy_pseudonym_identity(CFStringRef pseudonym, CFStringRef realm)
+{
+    if (realm != NULL) {
+	return (CFStringCreateWithFormat(NULL, NULL,
+					 CFSTR("%@" "@" "%@"),
+					 pseudonym, realm));
+    }
+    return (CFRetain(pseudonym));
+}
+
 #endif /* TARGET_OS_EMBEDDED */
-
-/**
- ** Utility Routines
- **/
-static int
-S_get_plist_int(CFDictionaryRef plist, CFStringRef key, int def)
-{
-    CFNumberRef 	n;
-    int			ret = def;
-
-    n = isA_CFNumber(CFDictionaryGetValue(plist, key));
-    if (n != NULL) {
-	if (CFNumberGetValue(n, kCFNumberIntType, &ret) == FALSE) {
-	    ret = def;
-	}
-    }
-    return (ret);
-}
-
-STATIC bool
-blocks_are_duplicated(const uint8_t * blocks, int n_blocks, int block_size)
-{
-    int 		i;
-    int			j;
-    const uint8_t *	scan;
-
-    for (i = 0, scan = blocks; i < (n_blocks - 1); i++, scan += block_size) {
-	const uint8_t *	scan_j = scan + block_size;
-
-	for (j = i + 1; j < n_blocks; j++, scan_j += block_size) {
-	    if (bcmp(scan, scan_j, block_size) == 0) {
-		return (TRUE);
-	    }
-	}
-    }
-    return (FALSE);
-}
-
-STATIC void
-fill_with_random(uint8_t * buf, int len)
-{
-    int             i;
-    int             n;
-    void *          p;
-    uint32_t        random;
-
-    n = len / sizeof(random);
-    for (i = 0, p = buf; i < n; i++, p += sizeof(random)) {
-        random = arc4random();
-        bcopy(&random, p, sizeof(random));
-    }
-    return;
-}
 
 STATIC EAPSIMAKAAttributeType
 S_get_identity_type(CFDictionaryRef dict)
@@ -932,19 +1003,18 @@ eapsim_start(EAPSIMContextRef context,
     if (!skip_identity) {
 	CFDataRef	identity_data = NULL;
 	Boolean		reauth_id_used = FALSE;
-
-	if (context->sim_static.kc != NULL || context->sim_static.ki != NULL) {
-	    identity = copy_static_identity(context->plugin->properties);
-	}
-	else {
-	    identity = sim_identity_create(context->persist,
-					   context->plugin->properties,
-					   identity_req_type,
-					   &reauth_id_used);
-	}
+	
+	identity = sim_identity_create(context->persist,
+				       context->plugin->properties,
+				       identity_req_type,
+				       &reauth_id_used,
+				       client_status);
 	if (identity == NULL) {
-	    EAPLOG(LOG_NOTICE, "eapsim: can't find SIM identity");
-	    *client_status = kEAPClientStatusResourceUnavailable;
+	    if (*client_status == kEAPClientStatusResourceUnavailable) {
+		EAPLOG(LOG_NOTICE, "eapsim: can't find SIM identity");
+	    } else if (*client_status == kEAPClientStatusProtocolError) {
+		EAPLOG(LOG_NOTICE, "eapsim: protocol error.");
+	    }
 	    pkt = NULL;
 	    goto done;
 	}
@@ -1357,7 +1427,7 @@ eapsim_reauthentication(EAPSIMContextRef context,
 						next_reauth_id);
 	    CFRelease(next_reauth_id);
 	}
-	EAPSIMAKAPersistentStateSetCounter(context->persist, at_counter);
+	EAPSIMAKAPersistentStateSetCounter(context->persist, at_counter + 1);
     }
     
     /* create our response */
@@ -1799,18 +1869,17 @@ eapsim_publish_props(EAPClientPluginDataRef plugin)
 STATIC CFStringRef
 eapsim_user_name_copy(CFDictionaryRef properties)
 {
-    EAPSIMAKAAttributeType 	identity_type;
-    CFStringRef			imsi;
+    EAPSIMAKAAttributeType      identity_type;
+    CFStringRef                 imsi;
     EAPSIMAKAPersistentStateRef persist;
-    CFStringRef			ret_identity;
-
-    ret_identity = copy_static_identity(properties);
-    if (ret_identity != NULL) {
-	return (ret_identity);
-    }
-    imsi = SIMCopyIMSI();
+    CFStringRef                 ret_identity = NULL;
+	
+    imsi = copy_static_imsi(properties);
     if (imsi == NULL) {
-	return (NULL);
+	imsi = SIMCopyIMSI();
+	if (imsi == NULL) {
+	    goto done;
+	}
     }
     identity_type = S_get_identity_type(properties);
     persist = EAPSIMAKAPersistentStateCreate(kEAPTypeEAPSIM,
@@ -1818,10 +1887,12 @@ eapsim_user_name_copy(CFDictionaryRef properties)
 					     imsi, identity_type);
     CFRelease(imsi);
     if (persist != NULL) {
-	ret_identity = sim_identity_create(persist, properties,
-					   identity_type, NULL);
+	ret_identity = sim_identity_create(persist,
+					   properties,
+					   identity_type, NULL, NULL);
 	EAPSIMAKAPersistentStateRelease(persist);
     }
+done:
     return (ret_identity);
 }
 
@@ -1842,8 +1913,9 @@ eapsim_copy_identity(EAPClientPluginDataRef plugin)
     if (context->sim_static.rand != NULL) {
 	return (copy_static_identity(plugin->properties));
     }
-    return (sim_identity_create(context->persist, plugin->properties,
-				kAT_ANY_ID_REQ, NULL));
+    return (sim_identity_create(context->persist,
+				plugin->properties,
+				kAT_ANY_ID_REQ, NULL, NULL));
 }
 
 STATIC CFStringRef

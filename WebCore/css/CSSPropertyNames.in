@@ -114,7 +114,7 @@ font-variant-caps [Inherited, FontProperty, NameForMethods=VariantCaps]
 font-variant-numeric [Inherited, FontProperty, NameForMethods=VariantNumeric, Custom=All]
 font-variant-alternates [Inherited, FontProperty, NameForMethods=VariantAlternates]
 font-variant-east-asian [Inherited, FontProperty, NameForMethods=VariantEastAsian, Custom=All]
--webkit-locale [Inherited, Custom=Value]
+-webkit-locale [Inherited, FontProperty, Custom=Value]
 -webkit-text-orientation [Inherited, Custom=Value]
 -epub-text-orientation = -webkit-text-orientation
 #if defined(ENABLE_IOS_TEXT_AUTOSIZING) && ENABLE_IOS_TEXT_AUTOSIZING
@@ -122,6 +122,7 @@ font-variant-east-asian [Inherited, FontProperty, NameForMethods=VariantEastAsia
 #endif
 -webkit-writing-mode [Inherited, Custom=Value]
 -epub-writing-mode = -webkit-writing-mode
+-webkit-text-zoom [Inherited, Custom=Value]
 zoom [Custom=All]
 font-synthesis [Inherited, FontProperty, Converter=FontSynthesis]
 
@@ -131,7 +132,7 @@ font-synthesis [Inherited, FontProperty, Converter=FontSynthesis]
 // The remaining properties are listed in alphabetical order
 alignment-baseline [SVG]
 all [Longhands=all]
-animation [Longhands=animation-name|animation-duration|animation-timing-function|animation-delay|animation-iteration-count|animation-direction|animation-fill-mode]
+animation [Longhands=animation-name|animation-duration|animation-timing-function|animation-delay|animation-iteration-count|animation-direction|animation-fill-mode|animation-play-state]
 animation-delay [AnimationProperty, NameForMethods=Delay]
 animation-direction [AnimationProperty, NameForMethods=Direction]
 animation-duration [AnimationProperty, NameForMethods=Duration]
@@ -144,7 +145,7 @@ background [Longhands=background-image|background-position-x|background-position
 background-attachment [FillLayerProperty, NameForMethods=Attachment]
 background-blend-mode [FillLayerProperty, NameForMethods=BlendMode]
 background-clip [FillLayerProperty, NameForMethods=Clip]
-background-color [VisitedLinkColorSupport, Initial=invalidColor, NoDefaultColor]
+background-color [VisitedLinkColorSupport, NoDefaultColor]
 background-image [FillLayerProperty, NameForMethods=Image]
 background-origin [FillLayerProperty, NameForMethods=Origin]
 background-position [Longhands=background-position-x|background-position-y]
@@ -195,6 +196,9 @@ border-width [Longhands=border-top-width|border-right-width|border-bottom-width|
 bottom [Initial=initialOffset, Converter=LengthOrAuto]
 box-shadow [Custom=All]
 box-sizing
+break-after [Initial=initialBreakBetween]
+break-before [Initial=initialBreakBetween]
+break-inside [Initial=initialBreakInside]
 buffered-rendering [SVG]
 // -webkit-box-sizing worked in Safari 4 and earlier.
 -webkit-box-sizing = box-sizing
@@ -232,6 +236,7 @@ font-variant [Inherited, Longhands=font-variant-ligatures|font-variant-position|
 font-stretch [SkipBuilder]
 glyph-orientation-horizontal [Inherited, SVG, Converter=GlyphOrientation]
 glyph-orientation-vertical [Inherited, SVG, Converter=GlyphOrientationOrAuto]
+hanging-punctuation [Inherited, Converter=HangingPunctuation]
 height [Initial=initialSize, Converter=LengthSizing]
 #if defined(ENABLE_CSS_IMAGE_ORIENTATION) && ENABLE_CSS_IMAGE_ORIENTATION
 image-orientation [Inherited]
@@ -269,6 +274,7 @@ max-width [Initial=initialMaxSize, Converter=LengthMaxSizing]
 min-height [Initial=initialMinSize, Converter=LengthSizing]
 min-width [Initial=initialMinSize, Converter=LengthSizing]
 object-fit
+object-position [Converter=ObjectPosition]
 opacity
 // Honor -webkit-opacity as a synonym for opacity. This was the only syntax that worked in Safari 1.1,
 // and may be in use on some websites and widgets.
@@ -276,9 +282,9 @@ opacity
 orphans [Inherited, AutoFunctions]
 outline [Longhands=outline-color|outline-style|outline-width]
 outline-color [VisitedLinkColorSupport, Initial=invalidColor]
-outline-offset [Converter=ComputedLength<int>]
+outline-offset [Converter=ComputedLength<float>]
 outline-style [Custom=All]
-outline-width [Converter=LineWidth<unsigned short>]
+outline-width [Converter=LineWidth<float>]
 overflow [Longhands=overflow-x|overflow-y]
 overflow-wrap
 overflow-x
@@ -289,9 +295,9 @@ padding-left [Initial=initialPadding, Converter=Length]
 padding-right [Initial=initialPadding, Converter=Length]
 padding-top [Initial=initialPadding, Converter=Length]
 page [SkipBuilder]
-page-break-after [Initial=initialPageBreak]
-page-break-before [Initial=initialPageBreak]
-page-break-inside [Initial=initialPageBreak]
+page-break-after [Initial=initialBreakBetween, NameForMethods=BreakAfter, Converter=PageBreakBetween]
+page-break-before [Initial=initialBreakBetween, NameForMethods=BreakBefore, Converter=PageBreakBetween]
+page-break-inside [Initial=initialBreakInside, NameForMethods=BreakInside, Converter=PageBreakInside]
 paint-order [SVG, Converter=PaintOrder]
 pointer-events [Inherited]
 position
@@ -366,7 +372,7 @@ y [Initial=initialZeroLength, Converter=Length]
 z-index [AutoFunctions]
 alt [NameForMethods=ContentAltText, Custom=Value]
 -webkit-alt = alt
--webkit-animation [Longhands=-webkit-animation-name|-webkit-animation-duration|-webkit-animation-timing-function|-webkit-animation-delay|-webkit-animation-iteration-count|-webkit-animation-direction|-webkit-animation-fill-mode]
+-webkit-animation [Longhands=-webkit-animation-name|-webkit-animation-duration|-webkit-animation-timing-function|-webkit-animation-delay|-webkit-animation-iteration-count|-webkit-animation-direction|-webkit-animation-fill-mode|-webkit-animation-play-state]
 -webkit-animation-delay [AnimationProperty, NameForMethods=Delay]
 -webkit-animation-direction [AnimationProperty, NameForMethods=Direction]
 -webkit-animation-duration [AnimationProperty, NameForMethods=Duration]
@@ -401,7 +407,7 @@ alt [NameForMethods=ContentAltText, Custom=Value]
 -webkit-border-end-style [SkipBuilder]
 -webkit-border-end-width [SkipBuilder]
 -webkit-border-fit
--webkit-border-horizontal-spacing [Inherited, NameForMethods=HorizontalBorderSpacing, Converter=ComputedLength<short>]
+-webkit-border-horizontal-spacing [Inherited, NameForMethods=HorizontalBorderSpacing, Converter=ComputedLength<float>]
 -webkit-border-image [Initial=initialNinePieceImage, Converter=BorderImage<CSSPropertyWebkitBorderImage>]
 // -webkit-border-radius differs from border-radius only in the interpretation of
 // a value consisting of two lengths: "-webkit-border-radius: l1 l2;" is equivalent
@@ -411,7 +417,7 @@ alt [NameForMethods=ContentAltText, Custom=Value]
 -webkit-border-start-color [SkipBuilder]
 -webkit-border-start-style [SkipBuilder]
 -webkit-border-start-width [SkipBuilder]
--webkit-border-vertical-spacing [Inherited, NameForMethods=VerticalBorderSpacing, Converter=ComputedLength<short>]
+-webkit-border-vertical-spacing [Inherited, NameForMethods=VerticalBorderSpacing, Converter=ComputedLength<float>]
 -webkit-box-align
 -webkit-box-direction [Inherited]
 -webkit-box-flex
@@ -425,11 +431,10 @@ alt [NameForMethods=ContentAltText, Custom=Value]
 // Let -webkit-box-shadow blur radius be w_r and box-shadow blur radius be b_r. For
 // w_r > 8px, b_r = 8 + 4 * sqrt((w_r - 8) / 2).
 -webkit-box-shadow [Custom=All]
--webkit-color-correction [Inherited, NameForMethods=ColorSpace]
 -webkit-column-axis
--webkit-column-break-after [Initial=initialPageBreak]
--webkit-column-break-before [Initial=initialPageBreak]
--webkit-column-break-inside [Initial=initialPageBreak]
+-webkit-column-break-after [Initial=initialBreakBetween, NameForMethods=BreakAfter, Converter=ColumnBreakBetween]
+-webkit-column-break-before [Initial=initialBreakBetween, NameForMethods=BreakBefore, Converter=ColumnBreakBetween]
+-webkit-column-break-inside [Initial=initialBreakInside, NameForMethods=BreakInside, Converter=ColumnBreakInside]
 column-count [AutoFunctions]
 -webkit-column-count = column-count
 column-fill
@@ -463,7 +468,7 @@ filter [ConditionalConverter=FilterOperations]
 -webkit-filter = filter
 align-content [Initial=initialContentAlignment, Converter=ContentAlignmentData]
 -webkit-align-content = align-content
-align-items [Initial=initialSelfAlignment, Converter=SelfOrDefaultAlignmentData]
+align-items [Initial=initialDefaultAlignment, Converter=SelfOrDefaultAlignmentData]
 -webkit-align-items = align-items
 align-self [Initial=initialSelfAlignment, Converter=SelfOrDefaultAlignmentData]
 -webkit-align-self = align-self
@@ -491,21 +496,24 @@ justify-self [Initial=initialSelfAlignment, Converter=SelfOrDefaultAlignmentData
 justify-items [Initial=initialSelfAlignment, Converter=SelfOrDefaultAlignmentData]
 -webkit-justify-items = justify-items
 #if defined(ENABLE_CSS_GRID_LAYOUT) && ENABLE_CSS_GRID_LAYOUT
--webkit-grid [Longhands=-webkit-grid-template-columns|-webkit-grid-template-rows|-webkit-grid-template-areas|-webkit-grid-auto-flow|-webkit-grid-auto-columns|-webkit-grid-auto-rows]
--webkit-grid-area [Longhands=-webkit-grid-row-start|-webkit-grid-column-start|-webkit-grid-row-end|-webkit-grid-row-start]
--webkit-grid-auto-columns [Converter=GridTrackSize]
--webkit-grid-auto-rows [Converter=GridTrackSize]
--webkit-grid-column-end [ConditionalConverter=GridPosition, NameForMethods=GridItemColumnEnd]
--webkit-grid-column-start [ConditionalConverter=GridPosition, NameForMethods=GridItemColumnStart]
--webkit-grid-template [Longhands=-webkit-grid-template-columns|-webkit-grid-template-rows|-webkit-grid-template-areas]
--webkit-grid-template-columns [Custom=All]
--webkit-grid-template-rows [Custom=All]
--webkit-grid-row-end [ConditionalConverter=GridPosition, NameForMethods=GridItemRowEnd]
--webkit-grid-row-start [ConditionalConverter=GridPosition, NameForMethods=GridItemRowStart]
--webkit-grid-column [Longhands=-webkit-grid-column-start|-webkit-grid-column-end]
--webkit-grid-row [Longhands=-webkit-grid-row-start|-webkit-grid-row-end]
--webkit-grid-template-areas [Custom=All]
--webkit-grid-auto-flow [Converter=GridAutoFlow]
+grid [Longhands=grid-template-rows|grid-template-columns|grid-template-areas|grid-auto-flow|grid-auto-rows|grid-auto-columns|grid-column-gap|grid-row-gap]
+grid-area [Longhands=grid-row-start|grid-column-start|grid-row-end|grid-column-end]
+grid-auto-columns [Converter=GridTrackSize]
+grid-auto-rows [Converter=GridTrackSize]
+grid-column-end [ConditionalConverter=GridPosition, NameForMethods=GridItemColumnEnd]
+grid-column-gap [Initial=initialZeroLength, Converter=Length]
+grid-column-start [ConditionalConverter=GridPosition, NameForMethods=GridItemColumnStart]
+grid-template [Longhands=grid-template-rows|grid-template-columns|grid-template-areas]
+grid-template-columns [Custom=All]
+grid-template-rows [Custom=All]
+grid-row-end [ConditionalConverter=GridPosition, NameForMethods=GridItemRowEnd]
+grid-row-gap [Initial=initialZeroLength, Converter=Length]
+grid-row-start [ConditionalConverter=GridPosition, NameForMethods=GridItemRowStart]
+grid-column [Longhands=grid-column-start|grid-column-end]
+grid-gap [Longhands=grid-row-gap|grid-column-gap]
+grid-row [Longhands=grid-row-start|grid-row-end]
+grid-template-areas [Custom=All]
+grid-auto-flow [Converter=GridAutoFlow]
 #endif
 -webkit-hyphenate-character [Inherited, NameForMethods=HyphenationString, Converter=StringOrAuto]
 -webkit-hyphenate-limit-after [Inherited, NameForMethods=HyphenationLimitAfter, Converter=NumberOrAuto<short>]
@@ -639,9 +647,9 @@ transform-style [NameForMethods=TransformStyle3D]
 -webkit-flow-into [NameForMethods=FlowThread, Converter=StringOrNone]
 -webkit-flow-from [NameForMethods=RegionThread, Converter=StringOrNone]
 -webkit-region-fragment
--webkit-region-break-after [Initial=initialPageBreak]
--webkit-region-break-before [Initial=initialPageBreak]
--webkit-region-break-inside [Initial=initialPageBreak]
+-webkit-region-break-after [Initial=initialBreakBetween, NameForMethods=BreakAfter, Converter=RegionBreakBetween]
+-webkit-region-break-before [Initial=initialBreakBetween, NameForMethods=BreakBefore, Converter=RegionBreakBetween]
+-webkit-region-break-inside [Initial=initialBreakInside, NameForMethods=BreakInside, Converter=RegionBreakInside]
 #endif
 #if defined(ENABLE_CSS_SHAPES) && ENABLE_CSS_SHAPES
 -webkit-shape-outside [Converter=ShapeValue]
@@ -662,6 +670,9 @@ user-zoom [SkipBuilder]
 #endif
 #if defined(ENABLE_ACCELERATED_OVERFLOW_SCROLLING) && ENABLE_ACCELERATED_OVERFLOW_SCROLLING
 -webkit-overflow-scrolling [Inherited, NameForMethods=UseTouchOverflowScrolling, Converter=OverflowScrolling]
+#endif
+#if defined(ENABLE_TOUCH_EVENTS) && ENABLE_TOUCH_EVENTS
+touch-action
 #endif
 #if defined(WTF_PLATFORM_IOS) && WTF_PLATFORM_IOS
 -webkit-touch-callout [Inherited, NameForMethods=TouchCalloutEnabled, Converter=TouchCallout]

@@ -31,24 +31,22 @@
 
 namespace WebCore {
 
-WrapContentsInDummySpanCommand::WrapContentsInDummySpanCommand(PassRefPtr<Element> element)
-    : SimpleEditCommand(element->document())
+WrapContentsInDummySpanCommand::WrapContentsInDummySpanCommand(Element& element)
+    : SimpleEditCommand(element.document())
     , m_element(element)
 {
-    ASSERT(m_element);
 }
 
 void WrapContentsInDummySpanCommand::executeApply()
 {
-    Vector<RefPtr<Node>> children;
+    Vector<Ref<Node>> children;
     for (Node* child = m_element->firstChild(); child; child = child->nextSibling())
-        children.append(child);
+        children.append(*child);
 
-    size_t size = children.size();
-    for (size_t i = 0; i < size; ++i)
-        m_dummySpan->appendChild(children[i].release(), IGNORE_EXCEPTION);
+    for (auto& child : children)
+        m_dummySpan->appendChild(child, IGNORE_EXCEPTION);
 
-    m_element->appendChild(m_dummySpan.get(), IGNORE_EXCEPTION);
+    m_element->appendChild(*m_dummySpan, IGNORE_EXCEPTION);
 }
 
 void WrapContentsInDummySpanCommand::doApply()
@@ -60,26 +58,21 @@ void WrapContentsInDummySpanCommand::doApply()
     
 void WrapContentsInDummySpanCommand::doUnapply()
 {
-    ASSERT(m_element);
-
     if (!m_dummySpan || !m_element->hasEditableStyle())
         return;
 
-    Vector<RefPtr<Node>> children;
+    Vector<Ref<Node>> children;
     for (Node* child = m_dummySpan->firstChild(); child; child = child->nextSibling())
-        children.append(child);
+        children.append(*child);
 
-    size_t size = children.size();
-    for (size_t i = 0; i < size; ++i)
-        m_element->appendChild(children[i].release(), IGNORE_EXCEPTION);
+    for (auto& child : children)
+        m_element->appendChild(child, IGNORE_EXCEPTION);
 
     m_dummySpan->remove(IGNORE_EXCEPTION);
 }
 
 void WrapContentsInDummySpanCommand::doReapply()
-{
-    ASSERT(m_element);
-    
+{    
     if (!m_dummySpan || !m_element->hasEditableStyle())
         return;
 
@@ -89,7 +82,7 @@ void WrapContentsInDummySpanCommand::doReapply()
 #ifndef NDEBUG
 void WrapContentsInDummySpanCommand::getNodesInCommand(HashSet<Node*>& nodes)
 {
-    addNodeAndDescendants(m_element.get(), nodes);
+    addNodeAndDescendants(m_element.ptr(), nodes);
     addNodeAndDescendants(m_dummySpan.get(), nodes);
 }
 #endif

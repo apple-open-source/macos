@@ -125,6 +125,3 @@
 
 ¤-
 ^
-./test/errors/crbug-602280.xml:1: parser error : Extra content at the end of the document
-¤-
-^

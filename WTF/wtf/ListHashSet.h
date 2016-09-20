@@ -19,8 +19,7 @@
  *
  */
 
-#ifndef WTF_ListHashSet_h
-#define WTF_ListHashSet_h
+#pragma once
 
 #include <wtf/HashSet.h>
 
@@ -69,9 +68,11 @@ public:
 
     typedef HashTableAddResult<iterator> AddResult;
 
-    ListHashSet();
+    ListHashSet() = default;
     ListHashSet(const ListHashSet&);
+    ListHashSet(ListHashSet&&);
     ListHashSet& operator=(const ListHashSet&);
+    ListHashSet& operator=(ListHashSet&&);
     ~ListHashSet();
 
     void swap(ListHashSet&);
@@ -149,8 +150,8 @@ private:
     const_iterator makeConstIterator(Node*) const;
 
     HashTable<Node*, Node*, IdentityExtractor, NodeHash, NodeTraits, NodeTraits> m_impl;
-    Node* m_head;
-    Node* m_tail;
+    Node* m_head { nullptr };
+    Node* m_tail { nullptr };
 };
 
 template<typename ValueArg> struct ListHashSetNode {
@@ -159,14 +160,12 @@ public:
     template<typename T>
     ListHashSetNode(T&& value)
         : m_value(std::forward<T>(value))
-        , m_prev(0)
-        , m_next(0)
     {
     }
 
     ValueArg m_value;
-    ListHashSetNode* m_prev;
-    ListHashSetNode* m_next;
+    ListHashSetNode* m_prev { nullptr };
+    ListHashSetNode* m_next { nullptr };
 };
 
 template<typename HashArg> struct ListHashSetNodeHashFunctions {
@@ -260,7 +259,7 @@ public:
 
     const_iterator& operator++()
     {
-        ASSERT(m_position != 0);
+        ASSERT(m_position);
         m_position = m_position->m_next;
         return *this;
     }
@@ -307,16 +306,7 @@ struct ListHashSetTranslator {
 };
 
 template<typename T, typename U>
-inline ListHashSet<T, U>::ListHashSet()
-    : m_head(0)
-    , m_tail(0)
-{
-}
-
-template<typename T, typename U>
 inline ListHashSet<T, U>::ListHashSet(const ListHashSet& other)
-    : m_head(0)
-    , m_tail(0)
 {
     for (auto it = other.begin(), end = other.end(); it != end; ++it)
         add(*it);
@@ -327,6 +317,23 @@ inline ListHashSet<T, U>& ListHashSet<T, U>::operator=(const ListHashSet& other)
 {
     ListHashSet tmp(other);
     swap(tmp);
+    return *this;
+}
+
+template<typename T, typename U>
+inline ListHashSet<T, U>::ListHashSet(ListHashSet&& other)
+    : m_impl(WTFMove(other.m_impl))
+    , m_head(std::exchange(other.m_head, nullptr))
+    , m_tail(std::exchange(other.m_tail, nullptr))
+{
+}
+
+template<typename T, typename U>
+inline ListHashSet<T, U>& ListHashSet<T, U>::operator=(ListHashSet&& other)
+{
+    m_impl = WTFMove(other.m_impl);
+    m_head = std::exchange(other.m_head, nullptr);
+    m_tail = std::exchange(other.m_tail, nullptr);
     return *this;
 }
 
@@ -381,7 +388,7 @@ inline T ListHashSet<T, U>::takeFirst()
     ASSERT(!isEmpty());
     auto it = m_impl.find(m_head);
 
-    T result = WTF::move((*it)->m_value);
+    T result = WTFMove((*it)->m_value);
     m_impl.remove(it);
     unlinkAndDelete(m_head);
 
@@ -421,7 +428,7 @@ inline T ListHashSet<T, U>::takeLast()
     ASSERT(!isEmpty());
     auto it = m_impl.find(m_tail);
 
-    T result = WTF::move((*it)->m_value);
+    T result = WTFMove((*it)->m_value);
     m_impl.remove(it);
     unlinkAndDelete(m_tail);
 
@@ -497,7 +504,7 @@ auto ListHashSet<T, U>::add(const ValueType& value) -> AddResult
 template<typename T, typename U>
 auto ListHashSet<T, U>::add(ValueType&& value) -> AddResult
 {
-    auto result = m_impl.template add<BaseTranslator>(WTF::move(value), nullptr);
+    auto result = m_impl.template add<BaseTranslator>(WTFMove(value), nullptr);
     if (result.isNewEntry)
         appendNode(*result.iterator);
     return AddResult(makeIterator(*result.iterator), result.isNewEntry);
@@ -518,7 +525,7 @@ auto ListHashSet<T, U>::appendOrMoveToLast(const ValueType& value) -> AddResult
 template<typename T, typename U>
 auto ListHashSet<T, U>::appendOrMoveToLast(ValueType&& value) -> AddResult
 {
-    auto result = m_impl.template add<BaseTranslator>(WTF::move(value), nullptr);
+    auto result = m_impl.template add<BaseTranslator>(WTFMove(value), nullptr);
     Node* node = *result.iterator;
     if (!result.isNewEntry)
         unlink(node);
@@ -542,7 +549,7 @@ auto ListHashSet<T, U>::prependOrMoveToFirst(const ValueType& value) -> AddResul
 template<typename T, typename U>
 auto ListHashSet<T, U>::prependOrMoveToFirst(ValueType&& value) -> AddResult
 {
-    auto result = m_impl.template add<BaseTranslator>(WTF::move(value), nullptr);
+    auto result = m_impl.template add<BaseTranslator>(WTFMove(value), nullptr);
     Node* node = *result.iterator;
     if (!result.isNewEntry)
         unlink(node);
@@ -560,7 +567,7 @@ auto ListHashSet<T, U>::insertBefore(const ValueType& beforeValue, const ValueTy
 template<typename T, typename U>
 auto ListHashSet<T, U>::insertBefore(const ValueType& beforeValue, ValueType&& newValue) -> AddResult
 {
-    return insertBefore(find(beforeValue), WTF::move(newValue));
+    return insertBefore(find(beforeValue), WTFMove(newValue));
 }
 
 template<typename T, typename U>
@@ -575,7 +582,7 @@ auto ListHashSet<T, U>::insertBefore(iterator it, const ValueType& newValue) -> 
 template<typename T, typename U>
 auto ListHashSet<T, U>::insertBefore(iterator it, ValueType&& newValue) -> AddResult
 {
-    auto result = m_impl.template add<BaseTranslator>(WTF::move(newValue), nullptr);
+    auto result = m_impl.template add<BaseTranslator>(WTFMove(newValue), nullptr);
     if (result.isNewEntry)
         insertNodeBefore(it.node(), *result.iterator);
     return AddResult(makeIterator(*result.iterator), result.isNewEntry);
@@ -602,8 +609,8 @@ inline void ListHashSet<T, U>::clear()
 {
     deleteAllNodes();
     m_impl.clear(); 
-    m_head = 0;
-    m_tail = 0;
+    m_head = nullptr;
+    m_tail = nullptr;
 }
 
 template<typename T, typename U>
@@ -637,7 +644,7 @@ template<typename T, typename U>
 void ListHashSet<T, U>::appendNode(Node* node)
 {
     node->m_prev = m_tail;
-    node->m_next = 0;
+    node->m_next = nullptr;
 
     if (m_tail) {
         ASSERT(m_head);
@@ -653,7 +660,7 @@ void ListHashSet<T, U>::appendNode(Node* node)
 template<typename T, typename U>
 void ListHashSet<T, U>::prependNode(Node* node)
 {
-    node->m_prev = 0;
+    node->m_prev = nullptr;
     node->m_next = m_head;
 
     if (m_head)
@@ -686,7 +693,7 @@ void ListHashSet<T, U>::deleteAllNodes()
     if (!m_head)
         return;
 
-    for (Node* node = m_head, *next = m_head->m_next; node; node = next, next = node ? node->m_next : 0)
+    for (Node* node = m_head, *next = m_head->m_next; node; node = next, next = node ? node->m_next : nullptr)
         delete node;
 }
 
@@ -705,5 +712,3 @@ inline auto ListHashSet<T, U>::makeConstIterator(Node* position) const -> const_
 } // namespace WTF
 
 using WTF::ListHashSet;
-
-#endif /* WTF_ListHashSet_h */

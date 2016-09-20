@@ -1,4 +1,4 @@
-*quickfix.txt*  For Vim version 7.3.  Last change: 2010 Jul 20
+*quickfix.txt*  For Vim version 7.4.  Last change: 2015 Sep 08
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -202,8 +202,8 @@ command with 'l'.
 			the current window is used instead of the quickfix
 			list.
 
-							*:caddb* *:caddbuffer*
-:caddb[uffer] [bufnr]	Read the error list from the current buffer and add
+							*:cad* *:caddbuffer*
+:cad[dbuffer] [bufnr]	Read the error list from the current buffer and add
 			the errors to the current quickfix list.  If a
 			quickfix list is not present, then a new list is
 			created. Otherwise, same as ":cbuffer".
@@ -215,32 +215,33 @@ command with 'l'.
 
 							*:cex* *:cexpr* *E777*
 :cex[pr][!] {expr}	Create a quickfix list using the result of {expr} and
-			jump to the first error.  If {expr} is a String, then
-			each new-line terminated line in the String is
-			processed using 'errorformat' and the result is added
-			to the quickfix list.  If {expr} is a List, then each
-			String item in the list is processed and added to the
-			quickfix list.  Non String items in the List are
-			ignored. See |:cc|
-			for [!].
+			jump to the first error.
+			If {expr} is a String, then each new-line terminated
+			line in the String is processed using the global value
+			of 'errorformat' and the result is added to the
+			quickfix list.
+			If {expr} is a List, then each String item in the list
+			is processed and added to the quickfix list.  Non
+			String items in the List are ignored.
+			See |:cc| for [!].
 			Examples: >
 				:cexpr system('grep -n xyz *')
 				:cexpr getline(1, '$')
 <
 							*:lex* *:lexpr*
-:lex[pr][!] {expr}	Same as ":cexpr", except the location list for the
+:lex[pr][!] {expr}	Same as |:cexpr|, except the location list for the
 			current window is used instead of the quickfix list.
 
 							*:cgete* *:cgetexpr*
 :cgete[xpr] {expr}	Create a quickfix list using the result of {expr}.
-			Just like ":cexpr", but don't jump to the first error.
+			Just like |:cexpr|, but don't jump to the first error.
 
 							*:lgete* *:lgetexpr*
-:lgete[xpr] {expr}	Same as ":cgetexpr", except the location list for the
+:lgete[xpr] {expr}	Same as |:cgetexpr|, except the location list for the
 			current window is used instead of the quickfix list.
 
-							*:cad* *:caddexpr*
-:cad[dexpr] {expr}	Evaluate {expr} and add the resulting lines to the
+							*:cadde* *:caddexpr*
+:cadde[xpr] {expr}	Evaluate {expr} and add the resulting lines to the
 			current quickfix list. If a quickfix list is not
 			present, then a new list is created. The current
 			cursor position will not be changed. See |:cexpr| for
@@ -298,23 +299,97 @@ use this code: >
 	au QuickfixCmdPost make call QfMakeConv()
 
 
+EXECUTE A COMMAND IN ALL THE BUFFERS IN QUICKFIX OR LOCATION LIST:
+							*:cdo*
+:cdo[!] {cmd}		Execute {cmd} in each valid entry in the quickfix list.
+			It works like doing this: >
+				:cfirst
+				:{cmd}
+				:cnext
+				:{cmd}
+				etc.
+<			When the current file can't be |abandon|ed and the [!]
+			is not present, the command fails.
+			When an error is detected excecution stops.
+			The last buffer (or where an error occurred) becomes
+			the current buffer.
+			{cmd} can contain '|' to concatenate several commands.
+
+			Only valid entries in the quickfix list are used.
+			A range can be used to select entries, e.g.: >
+				:10,$cdo cmd
+<			To skip entries 1 to 9.
+
+			Note: While this command is executing, the Syntax
+			autocommand event is disabled by adding it to
+			'eventignore'.  This considerably speeds up editing
+			each buffer.
+			{not in Vi} {not available when compiled without the
+			|+listcmds| feature}
+			Also see |:bufdo|, |:tabdo|, |:argdo|, |:windo|,
+			|:ldo|, |:cfdo| and |:lfdo|.
+
+							*:cfdo*
+:cfdo[!] {cmd}		Execute {cmd} in each file in the quickfix list.
+			It works like doing this: >
+				:cfirst
+				:{cmd}
+				:cnfile
+				:{cmd}
+				etc.
+<			Otherwise it works the same as `:cdo`.
+			{not in Vi} {not available when compiled without the
+			|+listcmds| feature}
+
+							*:ldo*
+:ld[o][!] {cmd}		Execute {cmd} in each valid entry in the location list
+			for the current window.
+			It works like doing this: >
+				:lfirst
+				:{cmd}
+				:lnext
+				:{cmd}
+				etc.
+<			Only valid entries in the location list are used.
+			Otherwise it works the same as `:cdo`.
+			{not in Vi} {not available when compiled without the
+			|+listcmds| feature}
+
+							*:lfdo*
+:lfdo[!] {cmd}		Execute {cmd} in each file in the location list for
+			the current window.
+			It works like doing this: >
+				:lfirst
+				:{cmd}
+				:lnfile
+				:{cmd}
+				etc.
+<			Otherwise it works the same as `:ldo`.
+			{not in Vi} {not available when compiled without the
+			|+listcmds| feature}
+
 =============================================================================
 2. The error window					*quickfix-window*
 
 					    *:cope* *:copen* *w:quickfix_title*
 :cope[n] [height]	Open a window to show the current list of errors.
+
 			When [height] is given, the window becomes that high
-			(if there is room).  Otherwise the window is made ten
-			lines high.
-			The window will contain a special buffer, with
-			'buftype' equal to "quickfix".  Don't change this!
+			(if there is room).  When [height] is omitted the
+			window is made ten lines high.
+
 			If there already is a quickfix window, it will be made
 			the current window.  It is not possible to open a
-			second quickfix window. The window will have the
-			w:quickfix_title variable set which will indicate the
-			command that produced the quickfix list. This can be
-			used to compose a custom status line if the value of
-			'statusline' is adjusted properly.
+			second quickfix window.  If [height] is given the
+			existing window will be resized to it.
+
+			The window will contain a special buffer, with
+			'buftype' equal to "quickfix".  Don't change this!
+			The window will have the w:quickfix_title variable set
+			which will indicate the command that produced the
+			quickfix list. This can be used to compose a custom
+			status line if the value of 'statusline' is adjusted
+			properly.
 
 							*:lop* *:lopen*
 :lop[en] [height]	Open a window to show the location list for the
@@ -546,13 +621,23 @@ descriptors when searching many files.  However, when the |:hide| command
 modifier is used the buffers are kept loaded.  This makes following searches
 in the same files a lot faster.
 
+Note that |:copen| (or |:lopen| for |:lgrep|) may be used to open a buffer
+containing the search results in linked form.  The |:silent| command may be
+used to suppress the default full screen grep output.  The ":grep!" form of
+the |:grep| command doesn't jump to the first match automatically.  These
+commands can be combined to create a NewGrep command: >
+
+        command! -nargs=+ NewGrep execute 'silent grep! <args>' | copen 42
+
 
 5.1 using Vim's internal grep
 
 					*:vim* *:vimgrep* *E682* *E683*
 :vim[grep][!] /{pattern}/[g][j] {file} ...
 			Search for {pattern} in the files {file} ... and set
-			the error list to the matches.
+			the error list to the matches.  Files matching
+			'wildignore' are ignored; files in 'suffixes' are
+			searched last.
 			Without the 'g' flag each line is added only once.
 			With 'g' every match is added.
 
@@ -563,6 +648,8 @@ in the same files a lot faster.
 			'ignorecase' applies.  To overrule it put |/\c| in the
 			pattern to ignore case or |/\C| to match case.
 			'smartcase' is not used.
+			If {pattern} is empty (e.g. // is specified), the last
+			used search pattern is used. |last-pattern|
 
 			When a number is put before the command this is used
 			as the maximum number of matches to find.  Use
@@ -825,7 +912,7 @@ Unfortunately, there is no standard way to run the tests.
 The alltests.py script seems to be used quite often, that's all.
 Useful values for the 'makeprg' options therefore are:
  setlocal makeprg=./alltests.py " Run a testsuite
- setlocal makeprg=python %      " Run a single testcase
+ setlocal makeprg=python\ %:S   " Run a single testcase
 
 Also see http://vim.sourceforge.net/tip_view.php?tip_id=280.
 
@@ -886,6 +973,8 @@ invalid.
 Special characters in 'errorformat' are comma and backslash.  See
 |efm-entries| for how to deal with them.  Note that a literal "%" is matched
 by "%%", thus it is not escaped with a backslash.
+Keep in mind that in the `:make` and `:grep` output all NUL characters are
+replaced with SOH (0x01).
 
 Note: By default the difference between upper and lowercase is ignored.  If
 you want to match case, add "\C" to the pattern |/\C|.
@@ -904,8 +993,8 @@ Basic items
 	%n		error number (finds a number)
 	%m		error message (finds a string)
 	%r		matches the "rest" of a single-line file message %O/P/Q
-	%p		pointer line (finds a sequence of '-', '.' or ' ' and
-			uses the length for the column number)
+	%p		pointer line (finds a sequence of '-', '.', ' ' or
+			tabs and uses the length for the column number)
 	%*{conv}	any scanf non-assignable conversion
 	%%		the single '%' character
 	%s		search text (finds a string)
@@ -1317,7 +1406,7 @@ or: >
 Here is an alternative from Michael F. Lamb for Unix that filters the errors
 first: >
   :setl errorformat=%Z%f:%l:\ %m,%A%p^,%-G%*[^sl]%.%#
-  :setl makeprg=javac\ %\ 2>&1\ \\\|\ vim-javac-filter
+  :setl makeprg=javac\ %:S\ 2>&1\ \\\|\ vim-javac-filter
 
 You need to put the following in "vim-javac-filter" somewhere in your path
 (e.g., in ~/bin) and make it executable: >

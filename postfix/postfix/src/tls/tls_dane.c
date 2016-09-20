@@ -162,6 +162,10 @@
 #include <sys_defs.h>
 #include <ctype.h>
 
+#ifdef STRCASECMP_IN_STRINGS_H
+#include <strings.h>
+#endif
+
 #ifdef USE_TLS
 #include <string.h>
 
@@ -383,7 +387,7 @@ static dane_digest *add_digest(char *mdalg, int pref)
 	&& ((md = EVP_get_digestbyname(dane_mdalg)) == 0
 	    || (mdlen = EVP_MD_size(md)) <= 0
 	    || mdlen > EVP_MAX_MD_SIZE)) {
-	msg_warn("Unimplemented digest algoritm in %s: %s%s%s",
+	msg_warn("Unimplemented digest algorithm in %s: %s%s%s",
 		 VAR_TLS_DANE_DIGESTS, mdalg,
 		 value ? "=" : "", value ? value : "");
 	return (0);
@@ -473,7 +477,7 @@ static void dane_init(void)
 		 VAR_TLS_DANE_AGILITY, var_tls_dane_agility);
     } else if (add_digest(fullmtype, 0)) {
 	save = cp = mystrdup(var_tls_dane_digests);
-	while ((tok = mystrtok(&cp, "\t\n\r ,")) != 0) {
+	while ((tok = mystrtok(&cp, CHARS_COMMA_SP)) != 0) {
 	    if ((d = add_digest(tok, ++digest_pref)) == 0) {
 		signalg = 0;
 		signmd = 0;
@@ -547,7 +551,7 @@ static void ta_cert_insert(TLS_DANE *d, X509 *x)
 {
     TLS_CERTS *new = (TLS_CERTS *) mymalloc(sizeof(*new));
 
-    CRYPTO_add(&x->references, 1, CRYPTO_LOCK_X509);
+    X509_up_ref(x);
     new->cert = x;
     new->next = d->certs;
     d->certs = new;
@@ -561,7 +565,7 @@ static void free_ta_certs(TLS_DANE *d)
     for (head = d->certs; head; head = next) {
 	next = head->next;
 	X509_free(head->cert);
-	myfree((char *) head);
+	myfree((void *) head);
     }
 }
 
@@ -583,7 +587,7 @@ static void free_ta_pkeys(TLS_DANE *d)
     for (head = d->pkeys; head; head = next) {
 	next = head->next;
 	EVP_PKEY_free(head->pkey);
-	myfree((char *) head);
+	myfree((void *) head);
     }
 }
 
@@ -595,7 +599,7 @@ static void tlsa_free(TLS_TLSA *tlsa)
 	argv_free(tlsa->certs);
     if (tlsa->pkeys)
 	argv_free(tlsa->pkeys);
-    myfree((char *) tlsa);
+    myfree((void *) tlsa);
 }
 
 /* tls_dane_free - free a TLS_DANE structure */
@@ -624,7 +628,7 @@ void    tls_dane_free(TLS_DANE *dane)
     if (dane->base_domain)
 	myfree(dane->base_domain);
 
-    myfree((char *) dane);
+    myfree((void *) dane);
 }
 
 /* dane_free - ctable style */
@@ -1402,12 +1406,8 @@ int     tls_dane_match(TLS_SESS_STATE *TLScontext, int usage,
 
 static int push_ext(X509 *cert, X509_EXTENSION *ext)
 {
-    x509_extension_stack_t *exts;
-
     if (ext) {
-	if ((exts = cert->cert_info->extensions) == 0)
-	    exts = cert->cert_info->extensions = sk_X509_EXTENSION_new_null();
-	if (exts && sk_X509_EXTENSION_push(exts, ext))
+	if (X509_add_ext(cert, ext, -1))
 	    return 1;
 	X509_EXTENSION_free(ext);
     }
@@ -1452,7 +1452,7 @@ static int set_serial(X509 *cert, AUTHORITY_KEYID *akid, X509 *subject)
 
 static int add_akid(X509 *cert, AUTHORITY_KEYID *akid)
 {
-    ASN1_STRING *id;
+    ASN1_OCTET_STRING *id;
     unsigned char c = 0;
     int     nid = NID_authority_key_identifier;
     int     ret = 0;
@@ -1464,13 +1464,13 @@ static int add_akid(X509 *cert, AUTHORITY_KEYID *akid)
      * exempt from any potential (off by default for now in OpenSSL)
      * self-signature checks!
      */
-    id = (ASN1_STRING *) ((akid && akid->keyid) ? akid->keyid : 0);
-    if (id && M_ASN1_STRING_length(id) == 1 && *M_ASN1_STRING_data(id) == c)
+    id = ((akid && akid->keyid) ? akid->keyid : 0);
+    if (id && ASN1_STRING_length(id) == 1 && *ASN1_STRING_data(id) == c)
 	c = 1;
 
     if ((akid = AUTHORITY_KEYID_new()) != 0
 	&& (akid->keyid = ASN1_OCTET_STRING_new()) != 0
-	&& M_ASN1_OCTET_STRING_set(akid->keyid, (void *) &c, 1)
+	&& ASN1_OCTET_STRING_set(akid->keyid, (void *) &c, 1)
 	&& X509_add1_ext_i2d(cert, nid, akid, 0, X509V3_ADD_DEFAULT) > 0)
 	ret = 1;
     if (akid)
@@ -1538,7 +1538,7 @@ static void grow_chain(TLS_SESS_STATE *TLScontext, int trusted, X509 *cert)
     if (cert) {
 	if (trusted && !X509_add1_trust_object(cert, serverAuth))
 	    msg_fatal("out of memory");
-	CRYPTO_add(&cert->references, 1, CRYPTO_LOCK_X509);
+	X509_up_ref(cert);
 	if (!sk_X509_push(*xs, cert))
 	    msg_fatal("out of memory");
     }
@@ -1640,7 +1640,7 @@ static void wrap_cert(TLS_SESS_STATE *TLScontext, X509 *tacert, int depth)
     cert = d2i_X509(0, (D2I_const unsigned char **) &buf, len);
     if (!cert || (buf - asn1) != len)
 	msg_panic("d2i_X509 failed to decode TA certificate");
-    myfree((char *) asn1);
+    myfree((void *) asn1);
 
     grow_chain(TLScontext, UNTRUSTED, cert);
 
@@ -1939,8 +1939,8 @@ static void add_tlsa(TLS_DANE *dane, char *argv[])
 
     digest = tls_data_fprint((char *) buf, len, *mdname ? mdname : signalg);
     dane_add(dane, u, s, *mdname ? mdname : signalg, digest);
-    myfree((char *) digest);
-    myfree((char *) buf);
+    myfree((void *) digest);
+    myfree((void *) buf);
 }
 
 static x509_stack_t *load_chain(const char *chainfile)
@@ -2050,6 +2050,10 @@ static int match_servername(const char *certid, ARGV *margv)
     int     i;
     int     idlen;
     int     domlen;
+
+    /*
+     * XXX EAI support.
+     */
 
     /*
      * Match the certid against each pattern until we find a match.

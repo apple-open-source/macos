@@ -1,4 +1,4 @@
-.TH "ZSHZLE" "1" "May 31, 2015" "zsh 5\&.0\&.8"
+.TH "ZSHZLE" "1" "December 2, 2015" "zsh 5\&.2"
 .SH "NAME"
 zshzle \- zsh command line editor
 .\" Yodl file: Zsh/zle.yo
@@ -23,7 +23,8 @@ line editor\&. See
 The parameter \fBzle_highlight\fP is also used by the line editor; see
 \fICharacter Highlighting\fP below\&.  Highlighting
 of special characters and the region between the cursor and the
-mark (as set with \fBset\-mark\-command\fP in Emacs mode) is enabled
+mark (as set with \fBset\-mark\-command\fP in Emacs mode, or by \fBvisual\-mode\fP
+in Vi mode) is enabled
 by default; consult this reference for more information\&.  Irascible
 conservatives will wish to know that all highlighting may be disabled by
 the following setting:
@@ -36,7 +37,7 @@ the following setting:
 .PP
 In many places, references are made to the \fBnumeric argument\fP\&.  This can
 by default be entered in emacs mode by holding the alt key and typing
-a number, or pressing escape before each number, and in vi command mode
+a number, or pressing escape before each digit, and in vi command mode
 by typing the number before entering a command\&.  Generally the numeric
 argument causes the next command entered to be repeated the specified
 number of times, unless otherwise noted below\&. See also
@@ -460,6 +461,9 @@ refer to a terminal an error is reported\&.
 \fBzle\fP \fB\-N\fP \fIwidget\fP [ \fIfunction\fP ]
 .TP
 .PD 0
+\fBzle\fP \fB\-f\fP \fIflag\fP [ \fIflag\fP\&.\&.\&. ]
+.TP
+.PD 0
 \fBzle\fP \fB\-C\fP \fIwidget\fP \fIcompletion\-widget\fP \fIfunction\fP
 .TP
 .PD 0
@@ -538,6 +542,23 @@ widget is invoked from within the editor, the specified shell \fIfunction\fP
 is called\&.  If no function name is specified, it defaults to
 the same name as the widget\&.  For further information, see
 the section `Widgets\&' below\&.
+.TP
+\fB\-f\fP \fIflag\fP [ \fIflag\fP\&.\&.\&. ]
+Set various flags on the running widget\&.  Possible values for \fIflag\fP are:
+.RS
+.PP
+\fByank\fP for indicating that the widget has yanked text into the buffer\&.
+If the widget is wrapping an existing internal widget, no further
+action is necessary, but if it has inserted the text manually, then it
+should also take care to set \fBYANK_START\fP and \fBYANK_END\fP correctly\&.
+\fByankbefore\fP does the same but is used when the yanked text appears
+after the cursor\&.
+.PP
+\fBkill\fP for indicating that text has been killed into the cutbuffer\&.
+When repeatedly invoking a kill widget, text is appended to the cutbuffer
+instead of replacing it, but when wrapping such widgets, it is necessary
+to call `\fBzle \-f kill\fP\&' to retain this effect\&.
+.RE
 .TP
 \fB\-C\fP \fIwidget\fP \fIcompletion\-widget\fP \fIfunction\fP
 Create a user\-defined completion widget named \fIwidget\fP\&. The 
@@ -1037,12 +1058,39 @@ any predisplay string should be highlighted in bold\&.
 .PP
 Note that the effect of \fBregion_highlight\fP is not saved and disappears
 as soon as the line is accepted\&.
+.PP
+The final highlighting on the command line depends on both \fBregion_highlight\fP
+and \fBzle_highlight\fP; see
+the section CHARACTER HIGHLIGHTING below for details\&.
 .RE
 .TP
 \fBUNDO_CHANGE_NO\fP (integer)
 A number representing the state of the undo history\&.  The only use
 of this is passing as an argument to the \fBundo\fP widget in order to
 undo back to the recorded point\&.  Read\-only\&.
+.TP
+\fBUNDO_LIMIT_NO\fP (integer)
+A number corresponding to an existing change in the undo history;
+compare \fBUNDO_CHANGE_NO\fP\&.  If this is set to a value greater
+than zero, the \fBundo\fP command will not allow the line to
+be undone beyond the given change number\&.  It is still possible
+to use `\fBzle undo\fP \fIchange\fP\&' in a widget to undo beyond
+that point; in that case, it will not be possible to undo at
+all until \fBUNDO_LIMIT_NO\fP is reduced\&.  Set to 0 to disable the limit\&.
+.RS
+.PP
+A typical use of this variable in a widget function is as follows (note
+the additional function scope is required):
+.PP
+.RS
+.nf
+\fB() {
+  local UNDO_LIMIT_NO=$UNDO_CHANGE_NO
+  # Perform some form of recursive edit\&.
+}\fP
+.fi
+.RE
+.RE
 .TP
 \fBWIDGET\fP (scalar)
 The name of the widget currently being executed; read\-only\&.
@@ -1060,6 +1108,25 @@ Describes the implementation behind the completion widget currently being
 executed; the second argument that followed \fBzle \-C\fP when the widget was
 defined\&.  This is the name of a builtin completion widget\&.  For widgets
 defined with \fBzle \-N\fP this is set to the empty string\&.  Read\-only\&.
+.TP
+.PD 0
+\fBYANK_ACTIVE\fP (integer)
+.TP
+.PD 0
+\fBYANK_START\fP (integer)
+.TP
+.PD
+\fBYANK_END\fP (integer)
+\fBYANK_ACTIVE\fP indicates whether text has just been yanked (pasted)
+into the buffer\&.  \fBYANK_START\fP and \fBYANK_END\fP give the location of
+the pasted text and are in the same units as \fBCURSOR\fP\&.  They are only
+valid for reading when \fBYANK_ACTIVE\fP is non\-zero\&.  They can also be
+assigned by widgets that insert text in a yank\-like fashion, for example
+wrappers of \fBbracketed\-paste\fP\&.  See also \fBzle \-f\fP\&.
+.RS
+.PP
+\fBYANK_ACTIVE\fP is read\-only\&.
+.RE
 .TP
 \fBZLE_STATE\fP (scalar)
 Contains a set of space\-separated words that describe the current \fBzle\fP
@@ -1081,7 +1148,7 @@ by doing:
 .PP
 .RS
 .nf
-\fBif [[ $ZLE_STATE == *insert*globalhistory* ]]; then \&.\&.\&.; fi\fP
+\fBif [[ $ZLE_STATE == *globalhistory*insert* ]]; then \&.\&.\&.; fi\fP
 .fi
 .RE
 .RE
@@ -1419,7 +1486,9 @@ entered\&.  Hence this has the effect of repeating
 Clear the screen, remaining in incremental search mode\&.
 .TP
 \fBhistory\-incremental\-search\-backward\fP
-Find the next occurrence of the contents of the mini\-buffer\&.
+Find the next occurrence of the contents of the mini\-buffer\&. If the
+mini\-buffer is empty, the most recent previously used search string is
+reinstated\&.
 .TP
 \fBhistory\-incremental\-search\-forward\fP
 Invert the sense of the search\&.
@@ -2063,6 +2132,19 @@ a desired suffix\-preservation behavior\&.
 \fBbeep\fP
 Beep, unless the \fBBEEP\fP option is unset\&.
 .TP
+\fBbracketed\-paste\fP
+This widget is invoked when text is pasted to the terminal emulator\&. It
+is not intended to be bound to actual keys but instead to the special
+sequence generated by the terminal emulator when text is pasted\&.
+If a numeric argument is given, shell quoting will be applied to the
+pasted text before it is inserted\&. When called from a widget function,
+an argument can be given to specify a variable to which pasted text is
+assigned\&.
+.RS
+.PP
+See also the \fBzle_bracketed_paste\fP parameter\&.
+.RE
+.TP
 \fBvi\-cmd\-mode\fP (\fB^X^V\fP) (unbound) (\fB^[\fP)
 Enter command mode; that is, select the `\fBvicmd\fP\&' keymap\&.
 Yes, this is bound by default in emacs mode\&.
@@ -2074,6 +2156,10 @@ track of their caps lock key (like the author)\&.
 .TP
 \fBclear\-screen\fP (\fB^L ESC\-^L\fP) (\fB^L\fP) (\fB^L\fP)
 Clear the screen and redraw the prompt\&.
+.TP
+\fBdeactivate\-region\fP
+Make the current region inactive\&. This disables vim\-style visual
+selection mode if it is active\&.
 .TP
 \fBdescribe\-key\-briefly\fP
 Reads a key sequence, then prints the function bound to that sequence\&.
@@ -2194,31 +2280,32 @@ the command line or key bindings temporarily\&.
 .RS
 .PP
 The following widget, \fBcaps\-lock\fP, serves as an example\&.
+.PP
 .RS
 .nf
 \fBself\-insert\-ucase() {
   LBUFFER+=${(U)KEYS[\-1]}
 }
-.PP
+
 integer stat
-.PP
+
 zle \-N self\-insert self\-insert\-ucase
 zle \-A caps\-lock save\-caps\-lock
 zle \-A accept\-line caps\-lock
-.PP
+
 zle recursive\-edit
 stat=$?
-.PP
+
 zle \-A \&.self\-insert self\-insert
 zle \-A save\-caps\-lock caps\-lock
 zle \-D save\-caps\-lock
-.PP
+
 (( stat )) && zle send\-break
-.PP
-return $stat
-\fP
+
+return $stat\fP
 .fi
 .RE
+.PP
 This causes typed letters to be inserted capitalised until either
 \fBaccept\-line\fP (i\&.e\&. typically the return key) is typed or the
 \fBcaps\-lock\fP widget is invoked again; the later is handled by saving
@@ -2316,7 +2403,8 @@ command is typed\&.  By default it beeps\&.
 Incrementally undo the last text modification\&.  When called from a
 user\-defined widget, takes an optional argument indicating a previous state
 of the undo history as returned by the \fBUNDO_CHANGE_NO\fP variable;
-modifications are undone until that state is reached\&.
+modifications are undone until that state is reached, subject to
+any limit imposed by the \fBUNDO_LIMIT_NO\fP variable\&.
 .RS
 .PP
 Note that when invoked from vi command mode, the full prior change made in
@@ -2449,6 +2537,15 @@ at that point, the most obvious example being a slash (\fB/\fP) after
 a directory name\&.  Note that suffix removal is configurable; the
 circumstances under which the suffix will be removed may differ
 for different completions\&.
+.TP
+\fBpaste\fP
+Following a command to paste text, the characters that were inserted\&.
+.PP
+When \fBregion_highlight\fP is set, the contexts that describe a region \-\-
+\fBisearch\fP, \fBregion\fP, \fBsuffix\fP, and \fBpaste\fP \-\-
+are applied first, then \fBregion_highlight\fP is applied, then the remaining
+\fBzle_highlight\fP contexts are applied\&.  If a particular character is
+affected by multiple specifications, the last specification wins\&.
 .PP
 \fBzle_highlight\fP may contain additional fields for controlling how
 terminal sequences to change colours are output\&.  Each of the following is
@@ -2591,7 +2688,7 @@ context, the defaults applied are equivalent to
 .RS
 .nf
 \fBzle_highlight=(region:standout special:standout
-suffix:bold isearch:underline)\fP
+suffix:bold isearch:underline paste:standout)\fP
 .fi
 .RE
 .PP

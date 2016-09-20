@@ -66,6 +66,10 @@
 
 #include "keychain_log.h"
 #include "secToolFileIO.h"
+#include "secViewDisplay.h"
+#include <utilities/debugging.h>
+
+
 #include <Security/SecPasswordGenerate.h>
 
 #define MAXKVSKEYTYPE kUnknownKey
@@ -450,80 +454,6 @@ static bool dumpKVS(char *itemName, CFErrorRef *err)
 }
 
 
-static struct foo {
-    const char *name;
-    const CFStringRef *viewspec;
-} string2View[] = {
-    {
-        "keychain", &kSOSViewKeychainV0
-    }, {
-        "masterkey", &kSOSViewPCSMasterKey,
-    }, {
-        "iclouddrive", &kSOSViewPCSiCloudDrive,
-    }, {
-        "photos", &kSOSViewPCSPhotos,
-    }, {
-        "escrow", &kSOSViewPCSEscrow,
-    }, {
-        "fde", &kSOSViewPCSFDE,
-    }, {
-        "maildrop", &kSOSViewPCSMailDrop,
-    }, {
-        "icloudbackup", &kSOSViewPCSiCloudBackup,
-    }, {
-        "notes", &kSOSViewPCSNotes,
-    }, {
-        "imessage", &kSOSViewPCSiMessage,
-    }, {
-        "feldspar", &kSOSViewPCSFeldspar,
-    }, {
-        "appletv", &kSOSViewAppleTV,
-    }, {
-        "homekit", &kSOSViewHomeKit,
-    }, {
-        "wifi", &kSOSViewWiFi,
-    }, {
-        "passwords", &kSOSViewAutofillPasswords,
-    }, {
-        "creditcards", &kSOSViewSafariCreditCards,
-    }, {
-        "icloudidentity", &kSOSViewiCloudIdentity,
-    }, {
-        "othersyncable", &kSOSViewOtherSyncable,
-    }
-};
-
-static CFStringRef convertViewReturnCodeToString(SOSViewActionCode ac) {
-    CFStringRef retval = NULL;
-    switch(ac) {
-        case kSOSCCGeneralViewError:
-            retval = CFSTR("General Error"); break;
-        case kSOSCCViewMember:
-            retval = CFSTR("Is Member of View"); break;
-        case kSOSCCViewNotMember:
-            retval = CFSTR("Is Not Member of View"); break;
-        case kSOSCCViewNotQualified:
-            retval = CFSTR("Is not qualified for View"); break;
-        case kSOSCCNoSuchView:
-            retval = CFSTR("No Such View"); break;
-    }
-    return retval;
-}
-
-static bool listviewcmd(CFErrorRef *err) {
-    unsigned n;
-
-    for (n = 0; n < sizeof(string2View)/sizeof(string2View[0]); n++) {
-        CFStringRef viewspec = *string2View[n].viewspec;
-
-        SOSViewResultCode rc = SOSCCView(viewspec, kSOSCCViewQuery, err);
-        CFStringRef resultString = convertViewReturnCodeToString(rc);
-
-        printmsg(CFSTR("View Result: %@ : %@\n"), resultString, viewspec);
-    };
-
-    return true;
-}
 
 #define USE_NEW_SPI 1
 #if ! USE_NEW_SPI
@@ -562,9 +492,9 @@ static void sysdiagnose_dump() {
     char *outputParent = NULL;
     char *outputDir = NULL;
     char hostname[80];
-    char *productName = NULL;
-    char *productVersion = NULL;
-    char *buildVersion = NULL;
+    char *productName = "NA";
+    char *productVersion = "NA";
+    char *buildVersion = "NA";
     char *keysToRegister = NULL;
     char *cloudkeychainproxy3 = NULL;
     char *now = createDateStrNow();
@@ -580,10 +510,6 @@ static void sysdiagnose_dump() {
         productName = CFDictionaryCopyCString(sysfdef, _kCFSystemVersionProductNameKey);
         productVersion = CFDictionaryCopyCString(sysfdef, _kCFSystemVersionProductVersionKey);
         buildVersion = CFDictionaryCopyCString(sysfdef, _kCFSystemVersionBuildVersionKey);
-    } else {
-        strcpy(productName, "unknownProduct");
-        strcpy(productVersion, "unknownProductVersion");
-        strcpy(buildVersion, "unknownVersion");
     }
 
     //     OUTPUTBASE=ckcdiagnose_snapshot_${HOSTNAME}_${PRODUCT_VERSION}_${NOW}
@@ -648,9 +574,6 @@ static void sysdiagnose_dump() {
     copyFileToOutputDir(outputDir, cloudkeychainproxy3);
 
     free(now);
-    if(productName) free(productName);
-    if(productVersion) free(productVersion);
-    if(buildVersion) free(buildVersion);
     CFReleaseNull(sysfdef);
 #if ! TARGET_OS_EMBEDDED
     free(keysToRegister);
@@ -665,6 +588,12 @@ static void sysdiagnose_dump() {
 
 #endif /* USE_NEW_SPI */
 
+static bool logmark(const char *optarg) {
+    if(!optarg) return false;
+    secnotice("mark", "%s", optarg);
+    return true;
+}
+
 
 // enable, disable, accept, reject, status, Reset, Clear
 int
@@ -676,6 +605,7 @@ keychain_log(int argc, char * const *argv)
      "    -D     [itemName]  dump contents of KVS"
      "    -L     list all known view and their status"
      "    -s     sysdiagnose log dumps"
+     "    -M string   place a mark in the syslog - category \"mark\""
 
      */
     setOutputTo(NULL, NULL);
@@ -684,7 +614,7 @@ keychain_log(int argc, char * const *argv)
     CFErrorRef error = NULL;
     bool hadError = false;
 
-    while ((ch = getopt(argc, argv, "DiLs")) != -1)
+    while ((ch = getopt(argc, argv, "DiLM:s")) != -1)
         switch  (ch) {
 
             case 'i':
@@ -702,6 +632,10 @@ keychain_log(int argc, char * const *argv)
                 
             case 'L':
                 hadError = !listviewcmd(&error);
+                break;
+                
+            case 'M':
+                hadError = !logmark(optarg);
                 break;
 
             case '?':

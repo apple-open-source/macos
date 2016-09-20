@@ -20,14 +20,10 @@
 		<key>com.apple.security.swcagent</key>
 		<true/>
 	</dict>
-	<key>OnDemand</key>
-	<true/>
 	<key>ProgramArguments</key>
 	<array>
 		<string>/System/Library/Frameworks/Security.framework/swcagent</string>
 	</array>
-	<key>ServiceIPC</key>
-	<true/>
 	<key>Umask</key>
 	<integer>54</integer>
 	<key>UserName</key>

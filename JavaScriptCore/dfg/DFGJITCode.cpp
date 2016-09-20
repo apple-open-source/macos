@@ -87,11 +87,43 @@ void JITCode::reconstruct(
         result[i] = recoveries[i].recover(exec);
 }
 
+RegisterSet JITCode::liveRegistersToPreserveAtExceptionHandlingCallSite(CodeBlock* codeBlock, CallSiteIndex callSiteIndex)
+{
+    for (OSRExit& exit : osrExit) {
+        if (exit.isExceptionHandler() && exit.m_exceptionHandlerCallSiteIndex.bits() == callSiteIndex.bits()) {
+            Operands<ValueRecovery> valueRecoveries;
+            reconstruct(codeBlock, exit.m_codeOrigin, exit.m_streamIndex, valueRecoveries);
+            RegisterSet liveAtOSRExit;
+            for (size_t index = 0; index < valueRecoveries.size(); ++index) {
+                const ValueRecovery& recovery = valueRecoveries[index];
+                if (recovery.isInRegisters()) {
+                    if (recovery.isInGPR())
+                        liveAtOSRExit.set(recovery.gpr());
+                    else if (recovery.isInFPR())
+                        liveAtOSRExit.set(recovery.fpr());
+#if USE(JSVALUE32_64)
+                    else if (recovery.isInJSValueRegs()) {
+                        liveAtOSRExit.set(recovery.payloadGPR());
+                        liveAtOSRExit.set(recovery.tagGPR());
+                    }
+#endif
+                    else
+                        RELEASE_ASSERT_NOT_REACHED();
+                }
+            }
+
+            return liveAtOSRExit;
+        }
+    }
+
+    return RegisterSet();
+}
+
 #if ENABLE(FTL_JIT)
 bool JITCode::checkIfOptimizationThresholdReached(CodeBlock* codeBlock)
 {
     ASSERT(codeBlock->jitType() == JITCode::DFGJIT);
-    return tierUpCounter.checkIfThresholdCrossedAndSet(codeBlock->baselineVersion());
+    return tierUpCounter.checkIfThresholdCrossedAndSet(codeBlock);
 }
 
 void JITCode::optimizeNextInvocation(CodeBlock* codeBlock)
@@ -99,7 +131,7 @@ void JITCode::optimizeNextInvocation(CodeBlock* codeBlock)
     ASSERT(codeBlock->jitType() == JITCode::DFGJIT);
     if (Options::verboseOSR())
         dataLog(*codeBlock, ": FTL-optimizing next invocation.\n");
-    tierUpCounter.setNewThreshold(0, codeBlock->baselineVersion());
+    tierUpCounter.setNewThreshold(0, codeBlock);
 }
 
 void JITCode::dontOptimizeAnytimeSoon(CodeBlock* codeBlock)
@@ -129,7 +161,7 @@ void JITCode::optimizeSoon(CodeBlock* codeBlock)
     CodeBlock* baseline = codeBlock->baselineVersion();
     tierUpCounter.setNewThreshold(
         baseline->adjustedCounterValue(Options::thresholdForFTLOptimizeSoon()),
-        baseline);
+        codeBlock);
 }
 
 void JITCode::forceOptimizationSlowPathConcurrently(CodeBlock* codeBlock)
@@ -181,6 +213,18 @@ void JITCode::validateReferences(const TrackedReferences& trackedReferences)
     }
     
     minifiedDFG.validateReferences(trackedReferences);
+}
+
+Optional<CodeOrigin> JITCode::findPC(CodeBlock*, void* pc)
+{
+    for (OSRExit& exit : osrExit) {
+        if (ExecutableMemoryHandle* handle = exit.m_code.executableMemory()) {
+            if (handle->start() <= pc && pc < handle->end())
+                return Optional<CodeOrigin>(exit.m_codeOriginForExitProfile);
+        }
+    }
+
+    return Nullopt;
 }
 
 } } // namespace JSC::DFG

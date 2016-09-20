@@ -55,8 +55,6 @@
 #include "kern/kern_trace.h"
 #include <sys/syscall.h>
 
-#include "os/atomic.h"
-
 #ifdef PLOCKSTAT
 #include "plockstat.h"
 #else /* !PLOCKSTAT */
@@ -159,7 +157,7 @@ pthread_mutex_init(pthread_mutex_t *omutex, const pthread_mutexattr_t *attr)
 		return EBUSY;
 #endif
 	_pthread_mutex *mutex = (_pthread_mutex *)omutex;
-	LOCK_INIT(mutex->lock);
+	_PTHREAD_LOCK_INIT(mutex->lock);
 	return (_pthread_mutex_init(mutex, attr, 0x7));
 }
 
@@ -169,10 +167,10 @@ pthread_mutex_getprioceiling(const pthread_mutex_t *omutex, int *prioceiling)
 	int res = EINVAL;
 	_pthread_mutex *mutex = (_pthread_mutex *)omutex;
 	if (_pthread_mutex_check_signature(mutex)) {
-		LOCK(mutex->lock);
+		_PTHREAD_LOCK(mutex->lock);
 		*prioceiling = mutex->prioceiling;
 		res = 0;
-		UNLOCK(mutex->lock);
+		_PTHREAD_UNLOCK(mutex->lock);
 	}
 	return res;
 }
@@ -183,13 +181,13 @@ pthread_mutex_setprioceiling(pthread_mutex_t *omutex, int prioceiling, int *old_
 	int res = EINVAL;
 	_pthread_mutex *mutex = (_pthread_mutex *)omutex;
 	if (_pthread_mutex_check_signature(mutex)) {
-		LOCK(mutex->lock);
+		_PTHREAD_LOCK(mutex->lock);
 		if (prioceiling >= -999 || prioceiling <= 999) {
 			*old_prioceiling = mutex->prioceiling;
 			mutex->prioceiling = prioceiling;
 			res = 0;
 		}
-		UNLOCK(mutex->lock);
+		_PTHREAD_UNLOCK(mutex->lock);
 	}
 	return res;
 }
@@ -627,7 +625,7 @@ _pthread_mutex_check_init_slow(pthread_mutex_t *omutex)
 	_pthread_mutex *mutex = (_pthread_mutex *)omutex;
 
 	if (_pthread_mutex_check_signature_init(mutex)) {
-		LOCK(mutex->lock);
+		_PTHREAD_LOCK(mutex->lock);
 		if (_pthread_mutex_check_signature_init(mutex)) {
 			// initialize a statically initialized mutex to provide
 			// compatibility for misbehaving applications.
@@ -636,7 +634,7 @@ _pthread_mutex_check_init_slow(pthread_mutex_t *omutex)
 		} else if (_pthread_mutex_check_signature(mutex)) {
 			res = 0;
 		}
-		UNLOCK(mutex->lock);
+		_PTHREAD_UNLOCK(mutex->lock);
 	} else if (_pthread_mutex_check_signature(mutex)) {
 		res = 0;
 	}
@@ -1097,7 +1095,7 @@ pthread_mutex_destroy(pthread_mutex_t *omutex)
 
 	int res = EINVAL;
 
-	LOCK(mutex->lock);
+	_PTHREAD_LOCK(mutex->lock);
 	if (_pthread_mutex_check_signature(mutex)) {
 		uint32_t lgenval, ugenval;
 		uint64_t oldval64;
@@ -1120,7 +1118,7 @@ pthread_mutex_destroy(pthread_mutex_t *omutex)
 		mutex->sig = _PTHREAD_NO_SIG;
 		res = 0;
 	}
-	UNLOCK(mutex->lock);
+	_PTHREAD_UNLOCK(mutex->lock);
 	
 	return res;	
 }

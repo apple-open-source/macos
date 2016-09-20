@@ -27,10 +27,11 @@
 #pragma ident	"@(#)tst.allquant.d	1.1	06/08/28 SMI"
 
 #pragma D option quiet
+#pragma D option statusrate=100ms
 
 int i;
 
-tick-10ms
+tick-1ms
 {
 	@ = quantize(1LL << i);
 	@ = quantize((1LL << i) + 1);
@@ -39,7 +40,7 @@ tick-10ms
 	i++;
 }
 
-tick-10ms
+tick-1ms
 /i == 64/
 {
 	exit(0);

@@ -253,7 +253,6 @@ void dialog_reminder(void *arg)
 // extra CFUserNotification keys
 static CFStringRef const SBUserNotificationTextAutocapitalizationType = CFSTR("SBUserNotificationTextAutocapitalizationType");
 static CFStringRef const SBUserNotificationTextAutocorrectionType = CFSTR("SBUserNotificationTextAutocorrectionType");
-static CFStringRef const SBUserNotificationGroupsTextFields = CFSTR("SBUserNotificationGroupsTextFields");
 #endif
 
 /* -----------------------------------------------------------------------------
@@ -379,9 +378,6 @@ int dialog_password(char *user, int maxuserlen, char *passwd, int maxpasswdlen, 
 				CFRelease(zeroRef);
 			if (oneRef)
 				CFRelease(oneRef);
-
-			// make CFUN prettier
-			CFDictionarySetValue(dict, SBUserNotificationGroupsTextFields, kCFBooleanTrue);
 		}
 #endif
 		

@@ -54,6 +54,7 @@ public:
 
     bool isSyncMessage() const;
     bool shouldDispatchMessageWhenWaitingForSyncReply() const;
+    bool shouldUseFullySynchronousModeForTesting() const;
 
 #if PLATFORM(MAC)
     void setImportanceAssertion(std::unique_ptr<ImportanceAssertion>);
@@ -64,10 +65,12 @@ public:
 #endif
 
 #if HAVE(DTRACE)
-    void setMessageProcessingToken(std::unique_ptr<MessageRecorder::MessageProcessingToken> token) { m_processingToken = WTF::move(token); }
+    void setMessageProcessingToken(std::unique_ptr<MessageRecorder::MessageProcessingToken> token) { m_processingToken = WTFMove(token); }
 
     const uuid_t& UUID() const { return m_UUID; }
 #endif
+
+    static std::unique_ptr<MessageDecoder> unwrapForTesting(MessageDecoder&);
 
 private:
     uint8_t m_messageFlags;

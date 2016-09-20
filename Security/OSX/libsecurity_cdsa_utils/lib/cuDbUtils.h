@@ -51,7 +51,7 @@ CSSM_RETURN cuAddCrlToDb(
 	CSSM_DL_DB_HANDLE	dlDbHand,
 	CSSM_CL_HANDLE		clHand,
 	const CSSM_DATA		*crl,
-	const CSSM_DATA		*URI);				// optional
+	const CSSM_DATA		*URI);
 
 /*
  * Search DB for all records of type CRL or cert, calling appropriate

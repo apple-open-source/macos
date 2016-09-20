@@ -1,4 +1,4 @@
-# Copyright (C) 2010 Apple Inc. All rights reserved.
+# Copyright (C) 2010, 2016 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -42,11 +42,11 @@ messages -> WebProcess LegacyReceiver {
     SetDefaultRequestTimeoutInterval(double timeoutInterval)
     SetAlwaysUsesComplexTextCodePath(bool alwaysUseComplexText)
     SetShouldUseFontSmoothing(bool useFontSmoothing)
+    SetResourceLoadStatisticsEnabled(bool resourceLoadStatisticsEnabled);
     UserPreferredLanguagesChanged(Vector<String> languages)
     FullKeyboardAccessModeChanged(bool fullKeyboardAccessEnabled)
-#if USE(SOUP)
-    SetIgnoreTLSErrors(bool ignoreTLSErrors)
-#endif
+
+    ClearCachedCredentials()
 
     // Legacy private browsing session is per process. Individual pages or page groups may use the private session or the default one as appropriate.
     EnsurePrivateBrowsingSession(WebCore::SessionID sessionID)
@@ -62,12 +62,6 @@ messages -> WebProcess LegacyReceiver {
     void StartMemorySampler(WebKit::SandboxExtension::Handle sampleLogFileHandle, String sampleLogFilePath, double interval);
     void StopMemorySampler();
 
-    # Downloads. This should really be in a Download.messages.in, but it seemed unnecessary to create a new file just for
-    # three messages.
-    DownloadRequest(uint64_t downloadID, uint64_t initiatingPageID, WebCore::ResourceRequest request)
-    ResumeDownload(uint64_t downloadID, IPC::DataReference resumeData, String path, WebKit::SandboxExtension::Handle sandboxExtensionHandle)
-    CancelDownload(uint64_t downloadID)
-
     SetTextCheckerState(struct WebKit::TextCheckerState textCheckerState)
 
     SetEnhancedAccessibility(bool flag)
@@ -77,21 +71,19 @@ messages -> WebProcess LegacyReceiver {
     SetJavaScriptGarbageCollectorTimerEnabled(bool enable)
 
     SetInjectedBundleParameter(String parameter, IPC::DataReference value);
+    SetInjectedBundleParameters(IPC::DataReference parameters);
     HandleInjectedBundleMessage(String messageName, WebKit::UserData messageBody);
 
     ReleasePageCache()
 
-    FetchWebsiteData(WebCore::SessionID sessionID, uint64_t websiteDataTypes, uint64_t callbackID)
-    DeleteWebsiteData(WebCore::SessionID sessionID, uint64_t websiteDataTypes, std::chrono::system_clock::time_point modifiedSince, uint64_t callbackID)
-    DeleteWebsiteDataForOrigins(WebCore::SessionID sessionID, uint64_t websiteDataTypes, Vector<WebKit::SecurityOriginData> origins, uint64_t callbackID)
+    FetchWebsiteData(WebCore::SessionID sessionID, OptionSet<WebKit::WebsiteDataType> websiteDataTypes, uint64_t callbackID)
+    DeleteWebsiteData(WebCore::SessionID sessionID, OptionSet<WebKit::WebsiteDataType> websiteDataTypes, std::chrono::system_clock::time_point modifiedSince, uint64_t callbackID)
+    DeleteWebsiteDataForOrigins(WebCore::SessionID sessionID, OptionSet<WebKit::WebsiteDataType> websiteDataTypes, Vector<WebCore::SecurityOriginData> origins, uint64_t callbackID)
 
+    SetHiddenPageTimerThrottlingIncreaseLimit(int milliseconds)
     SetProcessSuppressionEnabled(bool flag)
 #if PLATFORM(COCOA)
     SetQOS(int latencyQOS, int throughputQOS)
-#endif
-
-#if USE(SOUP)
-    AllowSpecificHTTPSCertificateForHost(WebCore::CertificateInfo certificate, String host)
 #endif
 
     SetMemoryCacheDisabled(bool disabled);
@@ -100,8 +92,13 @@ messages -> WebProcess LegacyReceiver {
     SetEnabledServices(bool hasImageServices, bool hasSelectionServices, bool hasRichContentServices)
 #endif
 
+    EnsureAutomationSessionProxy(String sessionIdentifier)
+    DestroyAutomationSessionProxy()
+
     ProcessWillSuspendImminently() -> (bool handled)
     PrepareToSuspend()
     CancelPrepareToSuspend()
     ProcessDidResume()
+
+    MainThreadPing()
 }

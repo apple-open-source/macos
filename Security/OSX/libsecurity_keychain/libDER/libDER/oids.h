@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2009,2011-2015 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2005-2009,2011-2016 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -33,9 +33,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 /*
  * Basic data types
@@ -82,7 +80,11 @@ extern const DERItem
     oidSha224,          /* OID_NIST_HASHALG 4 */
     oidFee,             /* APPLE_ALG_OID 1 */
     oidMd5Fee,          /* APPLE_ALG_OID 3 */
-    oidSha1Fee;         /* APPLE_ALG_OID 4 */
+    oidSha1Fee,         /* APPLE_ALG_OID 4 */
+    oidEcPrime192v1,    /* OID_EC_CURVE 1 prime192v1/secp192r1/ansiX9p192r1*/
+    oidEcPrime256v1,    /* OID_EC_CURVE 7 prime256v1/secp256r1*/
+    oidAnsip384r1,      /* OID_CERTICOM_EC_CURVE 34 ansip384r1/secp384r1*/
+    oidAnsip521r1;      /* OID_CERTICOM_EC_CURVE 35 ansip521r1/secp521r1*/
 
 /* Standard X.509 Cert and CRL extensions. */
 extern const DERItem
@@ -145,8 +147,6 @@ extern const DERItem
     oidGoogleEmbeddedSignedCertificateTimestamp,
     oidGoogleOCSPSignedCertificateTimestamp;
 
-#ifdef __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif	/* _LIB_DER_OIDS_H_ */

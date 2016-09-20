@@ -30,6 +30,7 @@
 
 #import "APIData.h"
 #import "ObjCObjectGraph.h"
+#import "PageLoadStateObserver.h"
 #import "RemoteObjectRegistry.h"
 #import "RemoteObjectRegistryMessages.h"
 #import "WKBackForwardListInternal.h"
@@ -50,6 +51,7 @@
 #import "WKRetainPtr.h"
 #import "WKURLRequestNS.h"
 #import "WKURLResponseNS.h"
+#import "WKViewInternal.h"
 #import "WeakObjCPtr.h"
 #import "WebCertificateInfo.h"
 #import "WebPageProxy.h"
@@ -60,76 +62,6 @@
 
 using namespace WebCore;
 using namespace WebKit;
-
-class PageLoadStateObserver : public PageLoadState::Observer {
-public:
-    PageLoadStateObserver(WKBrowsingContextController *controller)
-        : m_controller(controller)
-    {
-    }
-
-private:
-    virtual void willChangeIsLoading() override
-    {
-        [m_controller willChangeValueForKey:@"loading"];
-    }
-
-    virtual void didChangeIsLoading() override
-    {
-        [m_controller didChangeValueForKey:@"loading"];
-    }
-
-    virtual void willChangeTitle() override
-    {
-        [m_controller willChangeValueForKey:@"title"];
-    }
-
-    virtual void didChangeTitle() override
-    {
-        [m_controller didChangeValueForKey:@"title"];
-    }
-
-    virtual void willChangeActiveURL() override
-    {
-        [m_controller willChangeValueForKey:@"activeURL"];
-    }
-
-    virtual void didChangeActiveURL() override
-    {
-        [m_controller didChangeValueForKey:@"activeURL"];
-    }
-
-    virtual void willChangeHasOnlySecureContent() override
-    {
-        [m_controller willChangeValueForKey:@"hasOnlySecureContent"];
-    }
-
-    virtual void didChangeHasOnlySecureContent() override
-    {
-        [m_controller didChangeValueForKey:@"hasOnlySecureContent"];
-    }
-
-    virtual void willChangeEstimatedProgress() override
-    {
-        [m_controller willChangeValueForKey:@"estimatedProgress"];
-    }
-
-    virtual void didChangeEstimatedProgress() override
-    {
-        [m_controller didChangeValueForKey:@"estimatedProgress"];
-    }
-
-    virtual void willChangeCanGoBack() override { }
-    virtual void didChangeCanGoBack() override { }
-    virtual void willChangeCanGoForward() override { }
-    virtual void didChangeCanGoForward() override { }
-    virtual void willChangeNetworkRequestsInProgress() override { }
-    virtual void didChangeNetworkRequestsInProgress() override { }
-    virtual void willChangeCertificateInfo() override { }
-    virtual void didChangeCertificateInfo() override { }
-
-    WKBrowsingContextController *m_controller;
-};
 
 NSString * const WKActionIsMainFrameKey = @"WKActionIsMainFrameKey";
 NSString * const WKActionNavigationTypeKey = @"WKActionNavigationTypeKey";
@@ -148,8 +80,6 @@ NSString * const WKActionCanShowMIMETypeKey = @"WKActionCanShowMIMETypeKey";
 
     WeakObjCPtr<id <WKBrowsingContextLoadDelegate>> _loadDelegate;
     WeakObjCPtr<id <WKBrowsingContextPolicyDelegate>> _policyDelegate;
-    
-    RetainPtr<_WKRemoteObjectRegistry> _remoteObjectRegistry;
 }
 
 static HashMap<WebPageProxy*, WKBrowsingContextController *>& browsingContextControllerMap()
@@ -164,11 +94,6 @@ static HashMap<WebPageProxy*, WKBrowsingContextController *>& browsingContextCon
     browsingContextControllerMap().remove(_page.get());
 
     _page->pageLoadState().removeObserver(*_pageLoadStateObserver);
-
-    if (_remoteObjectRegistry) {
-        _page->process().processPool().removeMessageReceiver(Messages::RemoteObjectRegistry::messageReceiverName(), _page->pageID());
-        [_remoteObjectRegistry _invalidate];
-    }
 
     [super dealloc];
 }
@@ -262,12 +187,16 @@ static HashMap<WebPageProxy*, WKBrowsingContextController *>& browsingContextCon
 
 - (void)reload
 {
-    _page->reload(false);
+    const bool reloadFromOrigin = false;
+    const bool contentBlockersEnabled = true;
+    _page->reload(reloadFromOrigin, contentBlockersEnabled);
 }
 
 - (void)reloadFromOrigin
 {
-    _page->reload(true);
+    const bool reloadFromOrigin = true;
+    const bool contentBlockersEnabled = true;
+    _page->reload(reloadFromOrigin, contentBlockersEnabled);
 }
 
 - (NSString *)applicationNameForUserAgent
@@ -814,6 +743,16 @@ static void setUpPagePolicyClient(WKBrowsingContextController *browsingContext, 
     return _page->gapBetweenPages();
 }
 
+- (void)setPaginationLineGridEnabled:(BOOL)lineGridEnabled
+{
+    _page->setPaginationLineGridEnabled(lineGridEnabled);
+}
+
+- (BOOL)paginationLineGridEnabled
+{
+    return _page->paginationLineGridEnabled();
+}
+
 - (NSUInteger)pageCount
 {
     return _page->pageCount();
@@ -826,17 +765,21 @@ static void setUpPagePolicyClient(WKBrowsingContextController *browsingContext, 
 
 - (_WKRemoteObjectRegistry *)_remoteObjectRegistry
 {
-    if (!_remoteObjectRegistry) {
-        _remoteObjectRegistry = adoptNS([[_WKRemoteObjectRegistry alloc] _initWithMessageSender:*_page]);
-        _page->process().processPool().addMessageReceiver(Messages::RemoteObjectRegistry::messageReceiverName(), _page->pageID(), [_remoteObjectRegistry remoteObjectRegistry]);
-    }
-
-    return _remoteObjectRegistry.get();
+#if WK_API_ENABLED && !TARGET_OS_IPHONE
+    return _page->remoteObjectRegistry();
+#else
+    return nil;
+#endif
 }
 
 - (pid_t)processIdentifier
 {
     return _page->processIdentifier();
+}
+
+- (BOOL)_webProcessIsResponsive
+{
+    return _page->process().responsivenessTimer().isResponsive();
 }
 
 @end

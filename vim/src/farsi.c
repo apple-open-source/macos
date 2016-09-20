@@ -1813,7 +1813,7 @@ conv_to_pvim()
 		ptr[i] = toF_leading(ptr[i]);
 		++i;
 
-		while(canF_Rjoin(ptr[i]) && (i < llen))
+		while (canF_Rjoin(ptr[i]) && i < llen)
 		{
 		    ptr[i] = toF_Rjoin(ptr[i]);
 		    if (F_isterm(ptr[i]) || !F_isalpha(ptr[i]))
@@ -1841,7 +1841,7 @@ conv_to_pvim()
 }
 
 /*
- * Convert the Farsi VIM into Farsi 3342 standad.
+ * Convert the Farsi VIM into Farsi 3342 standard.
  */
     void
 conv_to_pstd()

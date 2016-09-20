@@ -1,7 +1,7 @@
 /* $OpenBSD: netcat.c,v 1.126 2014/10/30 16:08:31 tedu Exp $ */
 /*
  * Copyright (c) 2001 Eric Jackson <ericj@monkey.org>
- *z
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:

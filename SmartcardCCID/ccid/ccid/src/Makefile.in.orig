@@ -14,8 +14,6 @@
 
 @SET_MAKE@
 
-# $Id$
-
 DRIVER_DEST="$(DSTROOT)"
 
 VPATH = @srcdir@
@@ -332,6 +330,7 @@ LIBUSB_LIBS = @LIBUSB_LIBS@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
+LT_SYS_LIBRARY_PATH = @LT_SYS_LIBRARY_PATH@
 MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
 MANIFEST_TOOL = @MANIFEST_TOOL@
@@ -503,9 +502,9 @@ $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__confi
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign src/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu src/Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --foreign src/Makefile
+	  $(AUTOMAKE) --gnu src/Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
 	  *config.status*) \
@@ -1194,8 +1193,7 @@ Info.plist: Info.plist.src $(srcdir)/../readers/supported_readers.txt
 install_ccid: libccid.la Info.plist
 	$(mkinstalldirs) $(DRIVER_DEST)$(usbdropdir)/$(CCID_BUNDLE)/Contents/$(BUNDLE_HOST)/
 	cp Info.plist $(DRIVER_DEST)$(usbdropdir)/$(CCID_BUNDLE)/Contents/
-	cp .libs/$(CCID_LIB) $(DRIVER_DEST)$(usbdropdir)/$(CCID_BUNDLE)/Contents/$(BUNDLE_HOST)/$(CCID_LIB).$(VERSION)
-	ln -fs $(CCID_LIB).$(VERSION) $(DRIVER_DEST)$(usbdropdir)/$(CCID_BUNDLE)/Contents/$(BUNDLE_HOST)/$(CCID_LIB)
+	cp .libs/$(CCID_LIB) $(DRIVER_DEST)$(usbdropdir)/$(CCID_BUNDLE)/Contents/$(BUNDLE_HOST)/$(CCID_LIB)
 	$(INSTALL_UDEV_RULE_FILE)
 
 install_ccidtwin: libccidtwin.la

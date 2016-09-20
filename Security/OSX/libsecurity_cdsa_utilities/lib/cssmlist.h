@@ -29,6 +29,7 @@
 #define _H_CSSMLIST
 
 #include <security_utilities/utilities.h>
+#include <security_utilities/debugging.h>
 #include <security_cdsa_utilities/cssmalloc.h>
 #include <security_cdsa_utilities/cssmwalkers.h>
 
@@ -207,7 +208,7 @@ ListElement *walk(Action &operate, ListElement * &elem)
 	case CSSM_LIST_ELEMENT_WORDID:
 		break;
 	default:
-		secdebug("walkers", "invalid list element type (%ux)", (unsigned)elem->type());
+		secinfo("walkers", "invalid list element type (%ux)", (unsigned)elem->type());
 		break;
 	}
 	if (elem->next())		

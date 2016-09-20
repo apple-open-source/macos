@@ -2,7 +2,7 @@ Project    = httpd
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
-Version    = 2.4.18
+Version    = 2.4.23
 Sources    = $(SRCROOT)/$(Project)
 
 Patch_List = PR-18640257-SDK.diff \
@@ -12,6 +12,7 @@ Patch_List = PR-18640257-SDK.diff \
              PR-5432464.diff_httpd.conf \
              PR-16019492.diff \
              PR-5957348.diff \
+             PR-27313605.diff \
              patch-docs__conf__httpd.conf.in \
              PR-10154185.diff \
              PR-24076433 \
@@ -19,15 +20,17 @@ Patch_List = PR-18640257-SDK.diff \
              patch-docs__conf__extra__httpd-mpm.conf.in \
              patch-docs__conf__mime.types \
              patch-docs__conf__extra__httpd-userdir.conf.in \
+             patch-docs__conf__extra__http-ssl.conf.in \
              PR-15976165-ulimit.diff \
              PR-17754441-sbin.diff \
              PR-16019357-apxs.diff \
+	     PR-13708279.diff \
              mod_proxy_balancer-partialfix.diff
 
 Configure_Flags = --prefix=/usr \
                   --enable-layout=Darwin \
-                  --with-apr=$(SDKROOT)/usr/bin/apr-1-config \
-                  --with-apr-util=$(SDKROOT)/usr/bin/apu-1-config  \
+                  --with-apr=$(shell xcrun -find apr-1-config) \
+                  --with-apr-util=$(shell xcrun -find apu-1-config) \
                   --with-pcre=$(SRCROOT)/$(Project)/../\
                   --enable-mods-shared=all \
                   --enable-ssl \
@@ -58,7 +61,7 @@ install_source::
 build::
 	$(MKDIR) $(OBJROOT)
 	cd $(BuildDirectory) && $(Sources)/configure $(Configure_Flags)
-	cd $(BuildDirectory) && make EXTRA_CFLAGS="$(RC_CFLAGS) -D_FORTIFY_SOURCE=2" MOD_LDFLAGS="-L/usr/lib -lcrypto.35 -lssl.35" HTTPD_LDFLAGS="-sectcreate __TEXT __info_plist  $(SRCROOT)/Info.plist"
+	cd $(BuildDirectory) && make EXTRA_CFLAGS="$(RC_CFLAGS) -framework CoreFoundation -D_FORTIFY_SOURCE=2" MOD_LDFLAGS="-L/usr/lib -lcrypto.35 -lssl.35" HTTPD_LDFLAGS="-sectcreate __TEXT __info_plist  $(SRCROOT)/Info.plist"
 
 install::
 	cd $(BuildDirectory) && make install DESTDIR=$(DSTROOT)
@@ -101,7 +104,6 @@ post-install:
 	$(MV) $(DSTROOT)/Library/WebServer/Documents/index.html $(DSTROOT)/Library/WebServer/Documents/index.html.en
 	$(INSTALL_FILE) $(SRCROOT)/PoweredByMacOSX*.gif $(DSTROOT)/Library/WebServer/Documents
 	$(MKDIR) $(DSTROOT)/System/Library/LaunchDaemons
-	$(INSTALL_SCRIPT) $(SRCROOT)/webpromotion.rb $(DSTROOT)/usr/sbin/webpromotion
 	$(INSTALL_SCRIPT) $(SRCROOT)/httpd-wrapper.rb $(DSTROOT)/usr/sbin/httpd-wrapper
 	$(INSTALL_FILE) $(SRCROOT)/org.apache.httpd.plist $(DSTROOT)/System/Library/LaunchDaemons
 	$(MKDIR) $(DSTROOT)/usr/local/OpenSourceVersions $(DSTROOT)/usr/local/OpenSourceLicenses

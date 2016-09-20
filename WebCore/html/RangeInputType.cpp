@@ -33,6 +33,7 @@
 #include "RangeInputType.h"
 
 #include "AXObjectCache.h"
+#include "EventNames.h"
 #include "ExceptionCodePlaceholder.h"
 #include "HTMLInputElement.h"
 #include "HTMLParserIdioms.h"
@@ -46,6 +47,7 @@
 #include "SliderThumbElement.h"
 #include <limits>
 #include <wtf/MathExtras.h>
+#include <wtf/NeverDestroyed.h>
 
 #if ENABLE(TOUCH_EVENTS)
 #include "Touch.h"
@@ -113,19 +115,19 @@ bool RangeInputType::supportsRequired() const
 
 StepRange RangeInputType::createStepRange(AnyStepHandling anyStepHandling) const
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const StepRange::StepDescription, stepDescription, (rangeDefaultStep, rangeDefaultStepBase, rangeStepScaleFactor));
+    static NeverDestroyed<const StepRange::StepDescription> stepDescription(rangeDefaultStep, rangeDefaultStepBase, rangeStepScaleFactor);
 
-    const Decimal minimum = parseToNumber(element().fastGetAttribute(minAttr), rangeDefaultMinimum);
-    const Decimal maximum = ensureMaximum(parseToNumber(element().fastGetAttribute(maxAttr), rangeDefaultMaximum), minimum, rangeDefaultMaximum);
+    const Decimal minimum = parseToNumber(element().attributeWithoutSynchronization(minAttr), rangeDefaultMinimum);
+    const Decimal maximum = ensureMaximum(parseToNumber(element().attributeWithoutSynchronization(maxAttr), rangeDefaultMaximum), minimum, rangeDefaultMaximum);
 
-    const AtomicString& precisionValue = element().fastGetAttribute(precisionAttr);
+    const AtomicString& precisionValue = element().attributeWithoutSynchronization(precisionAttr);
     if (!precisionValue.isNull()) {
-        const Decimal step = equalIgnoringCase(precisionValue, "float") ? Decimal::nan() : 1;
-        return StepRange(minimum, minimum, maximum, step, stepDescription);
+        const Decimal step = equalLettersIgnoringASCIICase(precisionValue, "float") ? Decimal::nan() : 1;
+        return StepRange(minimum, RangeLimitations::Valid, minimum, maximum, step, stepDescription);
     }
 
-    const Decimal step = StepRange::parseStep(anyStepHandling, stepDescription, element().fastGetAttribute(stepAttr));
-    return StepRange(minimum, minimum, maximum, step, stepDescription);
+    const Decimal step = StepRange::parseStep(anyStepHandling, stepDescription, element().attributeWithoutSynchronization(stepAttr));
+    return StepRange(minimum, RangeLimitations::Valid, minimum, maximum, step, stepDescription);
 }
 
 bool RangeInputType::isSteppable() const
@@ -206,7 +208,7 @@ void RangeInputType::handleKeydownEvent(KeyboardEvent* event)
 
     // FIXME: We can't use stepUp() for the step value "any". So, we increase
     // or decrease the value by 1/100 of the value range. Is it reasonable?
-    const Decimal step = equalIgnoringCase(element().fastGetAttribute(stepAttr), "any") ? (stepRange.maximum() - stepRange.minimum()) / 100 : stepRange.step();
+    const Decimal step = equalLettersIgnoringASCIICase(element().attributeWithoutSynchronization(stepAttr), "any") ? (stepRange.maximum() - stepRange.minimum()) / 100 : stepRange.step();
     const Decimal bigStep = std::max((stepRange.maximum() - stepRange.minimum()) / 10, step);
 
     bool isVertical = false;
@@ -253,12 +255,12 @@ void RangeInputType::createShadowSubtree()
     ASSERT(element().userAgentShadowRoot());
 
     Document& document = element().document();
-    RefPtr<HTMLDivElement> track = HTMLDivElement::create(document);
+    auto track = HTMLDivElement::create(document);
     track->setPseudo(AtomicString("-webkit-slider-runnable-track", AtomicString::ConstructFromLiteral));
     track->appendChild(SliderThumbElement::create(document), IGNORE_EXCEPTION);
-    RefPtr<HTMLElement> container = SliderContainerElement::create(document);
-    container->appendChild(track.release(), IGNORE_EXCEPTION);
-    element().userAgentShadowRoot()->appendChild(container.release(), IGNORE_EXCEPTION);
+    auto container = SliderContainerElement::create(document);
+    container->appendChild(track, IGNORE_EXCEPTION);
+    element().userAgentShadowRoot()->appendChild(container, IGNORE_EXCEPTION);
 }
 
 HTMLElement* RangeInputType::sliderTrackElement() const
@@ -284,9 +286,9 @@ HTMLElement* RangeInputType::sliderThumbElement() const
     return &typedSliderThumbElement();
 }
 
-RenderPtr<RenderElement> RangeInputType::createInputRenderer(Ref<RenderStyle>&& style)
+RenderPtr<RenderElement> RangeInputType::createInputRenderer(RenderStyle&& style)
 {
-    return createRenderer<RenderSlider>(element(), WTF::move(style));
+    return createRenderer<RenderSlider>(element(), WTFMove(style));
 }
 
 Decimal RangeInputType::parseToNumber(const String& src, const Decimal& defaultValue) const
@@ -382,11 +384,11 @@ void RangeInputType::updateTickMarkValues()
     std::sort(m_tickMarkValues.begin(), m_tickMarkValues.end());
 }
 
-Decimal RangeInputType::findClosestTickMarkValue(const Decimal& value)
+Optional<Decimal> RangeInputType::findClosestTickMarkValue(const Decimal& value)
 {
     updateTickMarkValues();
     if (!m_tickMarkValues.size())
-        return Decimal::nan();
+        return Nullopt;
 
     size_t left = 0;
     size_t right = m_tickMarkValues.size();
@@ -408,10 +410,18 @@ Decimal RangeInputType::findClosestTickMarkValue(const Decimal& value)
         else
             right = middle;
     }
-    const Decimal closestLeft = middle ? m_tickMarkValues[middle - 1] : Decimal::infinity(Decimal::Negative);
-    const Decimal closestRight = middle != m_tickMarkValues.size() ? m_tickMarkValues[middle] : Decimal::infinity(Decimal::Positive);
-    if (closestRight - value < value - closestLeft)
+
+    Optional<Decimal> closestLeft = middle ? makeOptional(m_tickMarkValues[middle - 1]) : Nullopt;
+    Optional<Decimal> closestRight = middle != m_tickMarkValues.size() ? makeOptional(m_tickMarkValues[middle]) : Nullopt;
+
+    if (!closestLeft)
         return closestRight;
+    if (!closestRight)
+        return closestLeft;
+
+    if (*closestRight - value < value - *closestLeft)
+        return closestRight;
+
     return closestLeft;
 }
 #endif

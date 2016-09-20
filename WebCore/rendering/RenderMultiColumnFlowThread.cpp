@@ -38,8 +38,8 @@ namespace WebCore {
 
 bool RenderMultiColumnFlowThread::gShiftingSpanner = false;
 
-RenderMultiColumnFlowThread::RenderMultiColumnFlowThread(Document& document, Ref<RenderStyle>&& style)
-    : RenderFlowThread(document, WTF::move(style))
+RenderMultiColumnFlowThread::RenderMultiColumnFlowThread(Document& document, RenderStyle&& style)
+    : RenderFlowThread(document, WTFMove(style))
     , m_lastSetWorkedOn(nullptr)
     , m_columnCount(1)
     , m_columnWidth(0)
@@ -149,7 +149,7 @@ void RenderMultiColumnFlowThread::populate()
     // Reparent children preceding the flow thread into the flow thread. It's multicol content
     // now. At this point there's obviously nothing after the flow thread, but renderers (column
     // sets and spanners) will be inserted there as we insert elements into the flow thread.
-    LayoutStateDisabler layoutStateDisabler(&view());
+    LayoutStateDisabler layoutStateDisabler(view());
     multicolContainer->moveChildrenTo(this, multicolContainer->firstChild(), this, true);
 }
 
@@ -161,7 +161,7 @@ void RenderMultiColumnFlowThread::evacuateAndDestroy()
     // Delete the line box tree.
     deleteLines();
     
-    LayoutStateDisabler layoutStateDisabler(&view());
+    LayoutStateDisabler layoutStateDisabler(view());
 
     // First promote all children of the flow thread. Before we move them to the flow thread's
     // container, we need to unregister the flow thread, so that they aren't just re-added again to
@@ -239,7 +239,7 @@ static bool isValidColumnSpanner(RenderMultiColumnFlowThread* flowThread, Render
     ASSERT(descendant->isDescendantOf(flowThread));
 
     // First make sure that the renderer itself has the right properties for becoming a spanner.
-    RenderStyle& style = descendant->style();
+    auto& style = descendant->style();
     if (style.columnSpan() != ColumnSpanAll || !is<RenderBox>(*descendant) || descendant->isFloatingOrOutOfFlowPositioned())
         return false;
 
@@ -255,7 +255,7 @@ static bool isValidColumnSpanner(RenderMultiColumnFlowThread* flowThread, Render
         return false;
 
     // This looks like a spanner, but if we're inside something unbreakable, it's not to be treated as one.
-    for (RenderBox* ancestor = downcast<RenderBox>(*descendant).containingBlock(); ancestor; ancestor = ancestor->containingBlock()) {
+    for (RenderBox* ancestor = downcast<RenderBox>(*descendant).containingBlock(); ancestor && !is<RenderView>(*ancestor); ancestor = ancestor->containingBlock()) {
         if (ancestor->isRenderFlowThread()) {
             // Don't allow any intervening non-multicol fragmentation contexts. The spec doesn't say
             // anything about disallowing this, but it's just going to be too complicated to
@@ -338,7 +338,7 @@ RenderObject* RenderMultiColumnFlowThread::processPossibleSpannerDescendant(Rend
     // Need to create a new column set when there's no set already created. We also always insert
     // another column set after a spanner. Even if it turns out that there are no renderers
     // following the spanner, there may be bottom margins there, which take up space.
-    RenderMultiColumnSet* newSet = new RenderMultiColumnSet(*this, RenderStyle::createAnonymousStyleWithDisplay(&multicolContainer->style(), BLOCK));
+    RenderMultiColumnSet* newSet = new RenderMultiColumnSet(*this, RenderStyle::createAnonymousStyleWithDisplay(multicolContainer->style(), BLOCK));
     newSet->initializeStyle();
     multicolContainer->RenderBlock::addChild(newSet, insertBeforeMulticolChild);
     invalidateRegions();
@@ -610,7 +610,7 @@ LayoutSize RenderMultiColumnFlowThread::offsetFromContainer(RenderElement& enclo
     
     LayoutSize offset(translatedPhysicalPoint.x(), translatedPhysicalPoint.y());
     if (is<RenderBox>(enclosingContainer))
-        offset -= downcast<RenderBox>(enclosingContainer).scrolledContentOffset();
+        offset -= toLayoutSize(downcast<RenderBox>(enclosingContainer).scrollPosition());
     return offset;
 }
     

@@ -119,6 +119,8 @@ INSERT INTO feature (name, value, remarks)
 	VALUES ('filter_unsigned', 'present', 'builtin');
 INSERT INTO feature (name, value, remarks)
 	VALUES ('document rules', 'present', 'builtin');
+INSERT INTO feature (name, value, remarks)
+VALUES ('root_only', 'present', 'builtin');
 
 
 --

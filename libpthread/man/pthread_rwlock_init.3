@@ -22,7 +22,7 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/lib/libc_r/man/pthread_rwlock_init.3,v 1.5 2001/10/01 16:09:09 ru Exp $
+.\" $FreeBSD$
 .\"
 .Dd August 4, 1998
 .Dt PTHREAD_RWLOCK_INIT 3
@@ -33,10 +33,7 @@
 .Sh SYNOPSIS
 .In pthread.h
 .Ft int
-.Fo pthread_rwlock_init
-.Fa "pthread_rwlock_t *restrict rwlock"
-.Fa "const pthread_rwlockattr_t *restrict attr"
-.Fc
+.Fn pthread_rwlock_init "pthread_rwlock_t *lock" "const pthread_rwlockattr_t *attr"
 .Sh DESCRIPTION
 The
 .Fn pthread_rwlock_init
@@ -54,16 +51,8 @@ with an already initialized lock are undefined.
 If successful, the
 .Fn pthread_rwlock_init
 function will return zero.
-Otherwise, an error number will be returned to indicate the error.
-.Sh SEE ALSO
-.Xr pthread_rwlock_destroy 3 ,
-.Xr pthread_rwlockattr_init 3 ,
-.Xr pthread_rwlockattr_setpshared 3
-.Sh STANDARDS
-The
-.Fn pthread_rwlock_init
-function is expected to conform to
-.St -susv2 .
+Otherwise an error number will be returned
+to indicate the error.
 .Sh ERRORS
 The
 .Fn pthread_rwlock_init
@@ -86,13 +75,22 @@ function may fail if:
 .It Bq Er EBUSY
 The system has detected an attempt to re-initialize the object
 referenced by
-.Fa rwlock ,
+.Fa lock ,
 a previously initialized but not yet destroyed read/write lock.
 .It Bq Er EINVAL
 The value specified by
 .Fa attr
 is invalid.
 .El
+.Sh SEE ALSO
+.Xr pthread_rwlock_destroy 3 ,
+.Xr pthread_rwlockattr_init 3 ,
+.Xr pthread_rwlockattr_setpshared 3
+.Sh STANDARDS
+The
+.Fn pthread_rwlock_init
+function is expected to conform to
+.St -susv2 .
 .Sh HISTORY
 The
 .Fn pthread_rwlock_init

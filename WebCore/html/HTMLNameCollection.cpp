@@ -24,8 +24,11 @@
 #include "HTMLNameCollection.h"
 
 #include "Element.h"
+#include "HTMLAppletElement.h"
 #include "HTMLDocument.h"
+#include "HTMLEmbedElement.h"
 #include "HTMLFormElement.h"
+#include "HTMLIFrameElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLNames.h"
 #include "HTMLObjectElement.h"
@@ -35,19 +38,6 @@
 namespace WebCore {
 
 using namespace HTMLNames;
-
-HTMLNameCollection::HTMLNameCollection(Document& document, CollectionType type, const AtomicString& name)
-    : HTMLCollection(document, type)
-    , m_name(name)
-{
-}
-
-HTMLNameCollection::~HTMLNameCollection()
-{
-    ASSERT(type() == WindowNamedItems || type() == DocumentNamedItems);
-
-    document().nodeLists()->removeCachedCollection(this, m_name);
-}
 
 bool WindowNameCollection::elementMatchesIfNameAttributeMatch(const Element& element)
 {

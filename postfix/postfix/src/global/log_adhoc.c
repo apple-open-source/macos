@@ -55,15 +55,12 @@
 #include <sys_defs.h>
 #include <string.h>
 
-#ifdef STRCASECMP_IN_STRINGS_H
-#include <strings.h>
-#endif
-
 /* Utility library. */
 
 #include <msg.h>
 #include <vstring.h>
 #include <format_tv.h>
+#include <stringops.h>
 
 /* Global library. */
 
@@ -76,8 +73,8 @@
   * jumping back.
   */
 typedef struct {
-    int     dt_sec;			/* make sure it's signed */
-    int     dt_usec;			/* make sure it's signed */
+    long    dt_sec;			/* make sure it's signed */
+    long    dt_usec;			/* make sure it's signed */
 } DELTA_TIME;
 
 /* log_adhoc - ad-hoc logging */
@@ -108,7 +105,7 @@ void    log_adhoc(const char *id, MSG_STATS *stats, RECIPIENT *recipient,
      */
     vstring_sprintf(buf, "%s: to=<%s>", id, recipient->address);
     if (recipient->orig_addr && *recipient->orig_addr
-	&& strcasecmp(recipient->address, recipient->orig_addr) != 0)
+	&& strcasecmp_utf8(recipient->address, recipient->orig_addr) != 0)
 	vstring_sprintf_append(buf, ", orig_to=<%s>", recipient->orig_addr);
     vstring_sprintf_append(buf, ", relay=%s", relay);
     if (stats->reuse_count > 0)

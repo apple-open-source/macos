@@ -129,7 +129,7 @@ static bool
 switchPartition(char * diskName, char * partitionType)
 {
     char wholeDevicePath[256];
-    sprintf(wholeDevicePath, "/dev/%s", diskName);
+    snprintf(wholeDevicePath, 256, "/dev/%s", diskName);
 
     unsigned int partitionNumber = 0;
     char * c = wholeDevicePath + 5 + 4;		        // skip over "/dev/disk"

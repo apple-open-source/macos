@@ -36,5 +36,7 @@ BEGIN
 {
 	printf("%llu\n", timestamp);
 	printf("%lu\n", timestamp);
+
+	exit(0);
 }
 

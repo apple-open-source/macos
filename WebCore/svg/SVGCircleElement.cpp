@@ -98,9 +98,9 @@ void SVGCircleElement::svgAttributeChanged(const QualifiedName& attrName)
     }
 }
 
-RenderPtr<RenderElement> SVGCircleElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
+RenderPtr<RenderElement> SVGCircleElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
 {
-    return createRenderer<RenderSVGEllipse>(*this, WTF::move(style));
+    return createRenderer<RenderSVGEllipse>(*this, WTFMove(style));
 }
 
 }

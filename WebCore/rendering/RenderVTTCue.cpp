@@ -36,8 +36,8 @@
 
 namespace WebCore {
 
-RenderVTTCue::RenderVTTCue(VTTCueBox& element, Ref<RenderStyle>&& style)
-    : RenderBlockFlow(element, WTF::move(style))
+RenderVTTCue::RenderVTTCue(VTTCueBox& element, RenderStyle&& style)
+    : RenderBlockFlow(element, WTFMove(style))
     , m_cue(element.getCue())
 {
 }
@@ -47,14 +47,12 @@ void RenderVTTCue::layout()
     StackStats::LayoutCheckPoint layoutCheckPoint;
     RenderBlockFlow::layout();
 
-#if ENABLE(WEBVTT_REGIONS)
     // If WebVTT Regions are used, the regular WebVTT layout algorithm is no
     // longer necessary, since cues having the region parameter set do not have
     // any positioning parameters. Also, in this case, the regions themselves
     // have positioning information.
     if (!m_cue->regionId().isEmpty())
         return;
-#endif
 
     LayoutStateMaintainer statePusher(view(), *this, locationOffset(), hasTransform() || hasReflection() || style().isFlippedBlocksWritingMode());
     
@@ -72,6 +70,8 @@ void RenderVTTCue::layout()
 bool RenderVTTCue::initializeLayoutParameters(InlineFlowBox*& firstLineBox, LayoutUnit& step, LayoutUnit& position)
 {
     ASSERT(firstChild());
+    if (!firstChild())
+        return false;
 
     RenderBlock* parentBlock = containingBlock();
 

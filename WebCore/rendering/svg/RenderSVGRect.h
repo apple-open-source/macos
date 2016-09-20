@@ -35,7 +35,7 @@ namespace WebCore {
 
 class RenderSVGRect final : public RenderSVGShape {
 public:
-    RenderSVGRect(SVGRectElement&, Ref<RenderStyle>&&);
+    RenderSVGRect(SVGRectElement&, RenderStyle&&);
     virtual ~RenderSVGRect();
 
     SVGRectElement& rectElement() const;
@@ -43,15 +43,15 @@ public:
 private:
     void graphicsElement() const = delete;
 
-    virtual const char* renderName() const override { return "RenderSVGRect"; }
+    const char* renderName() const override { return "RenderSVGRect"; }
 
-    virtual void updateShapeFromElement() override;
-    virtual bool isEmpty() const override { return m_usePathFallback ? RenderSVGShape::isEmpty() : m_fillBoundingBox.isEmpty(); }
-    virtual bool isRenderingDisabled() const override;
-    virtual void fillShape(GraphicsContext*) const override;
-    virtual void strokeShape(GraphicsContext*) const override;
-    virtual bool shapeDependentStrokeContains(const FloatPoint&) override;
-    virtual bool shapeDependentFillContains(const FloatPoint&, const WindRule) const override;
+    void updateShapeFromElement() override;
+    bool isEmpty() const override { return m_usePathFallback ? RenderSVGShape::isEmpty() : m_fillBoundingBox.isEmpty(); }
+    bool isRenderingDisabled() const override;
+    void fillShape(GraphicsContext&) const override;
+    void strokeShape(GraphicsContext&) const override;
+    bool shapeDependentStrokeContains(const FloatPoint&) override;
+    bool shapeDependentFillContains(const FloatPoint&, const WindRule) const override;
 
 private:
     FloatRect m_innerStrokeRect;

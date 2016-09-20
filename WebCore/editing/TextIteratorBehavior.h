@@ -51,11 +51,13 @@ enum TextIteratorBehaviorFlag {
     // Used when pasting inside password field.
     TextIteratorEmitsOriginalText = 1 << 5,
 
-    TextIteratorStopsOnFormControls = 1 << 6,
+    TextIteratorEmitsImageAltText = 1 << 6,
 
-    TextIteratorEmitsImageAltText = 1 << 7,
+    TextIteratorBehavesAsIfNodesFollowing = 1 << 7,
 
-    TextIteratorBehavesAsIfNodesFollowing = 1 << 8,
+    // Makes visiblity test take into account the visibility of the frame.
+    // FIXME: This should probably be always on unless TextIteratorIgnoresStyleVisibility is set.
+    TextIteratorClipsToFrameAncestors = 1 << 8,
 };
 
 typedef unsigned short TextIteratorBehavior;

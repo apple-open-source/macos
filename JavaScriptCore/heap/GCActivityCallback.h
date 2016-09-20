@@ -49,7 +49,7 @@ public:
 
     GCActivityCallback(Heap*);
 
-    virtual void doWork() override;
+    void doWork() override;
 
     virtual void doCollection() = 0;
 
@@ -60,6 +60,10 @@ public:
     void setEnabled(bool enabled) { m_enabled = enabled; }
 
     static bool s_shouldCreateGCTimer;
+
+#if USE(CF) || PLATFORM(EFL)
+    double nextFireTime() const { return m_nextFireTime; }
+#endif
 
 protected:
     virtual double lastGCLength() = 0;
@@ -81,6 +85,13 @@ protected:
         , m_delay(s_hour)
     {
     }
+#elif USE(GLIB)
+    GCActivityCallback(VM* vm)
+        : HeapTimer(vm)
+        , m_enabled(true)
+        , m_delay(-1)
+    {
+    }
 #else
     GCActivityCallback(VM* vm)
         : HeapTimer(vm)
@@ -95,13 +106,14 @@ protected:
 protected:
     GCActivityCallback(Heap*, CFRunLoopRef);
 #endif
-#if USE(CF) || PLATFORM(EFL)
+#if USE(CF) || USE(GLIB)
 protected:
     void cancelTimer();
     void scheduleTimer(double);
 
 private:
     double m_delay;
+    double m_nextFireTime { 0 };
 #endif
 };
 

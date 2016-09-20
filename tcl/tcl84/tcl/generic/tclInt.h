@@ -654,7 +654,7 @@ typedef struct CompiledLocal {
 				 * is marked by a unique ClientData tag
 				 * during compilation, and that same tag
 				 * is used to find the variable at runtime. */
-    char name[4];		/* Name of the local variable starts here.
+    char name[1];		/* Name of the local variable starts here.
 				 * If the name is NULL, this will just be
 				 * '\0'. The actual size of this field will
 				 * be large enough to hold the name. MUST
@@ -2637,6 +2637,18 @@ extern Tcl_Mutex tclObjMutex;
 #else /* !WORDS_BIGENDIAN */
 #   define TclUniCharNcmp Tcl_UniCharNcmp
 #endif /* WORDS_BIGENDIAN */
+
+/*
+ * ----------------------------------------------------------------------
+ * Macro to use to find the offset of a field in a structure. Computes number
+ * of bytes from beginning of structure to a given field.
+ */
+
+#ifdef offsetof
+#define TclOffset(type, field) ((int) offsetof(type, field))
+#else
+#define TclOffset(type, field) ((int) ((char *) &((type *) 0)->field))
+#endif
 
 #include "tclIntDecls.h"
 

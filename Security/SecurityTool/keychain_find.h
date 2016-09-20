@@ -72,9 +72,13 @@ extern int keychain_find_generic_password(int argc, char * const *argv);
 
 extern int keychain_delete_generic_password(int argc, char * const *argv);
 
+extern int keychain_find_key(int argc, char* const *argv);
+
 extern int keychain_set_generic_password_partition_list(int argc, char * const *argv);
 
 extern int keychain_set_internet_password_partition_list(int argc, char * const *argv);
+
+extern int keychain_set_key_partition_list(int argc, char * const *argv);
 
 extern int keychain_find_certificate(int argc, char * const *argv);
 

@@ -21,10 +21,10 @@
  *
  * Adapted by rst from original NCSA code by Rob McCool
  *
- * Apache adds some new env vars; REDIRECT_URL and REDIRECT_QUERY_STRING for
- * custom error responses, and DOCUMENT_ROOT because we found it useful.
- * It also adds SERVER_ADMIN - useful for scripts to know who to mail when
- * they fail.
+ * This modules uses a httpd core function (ap_add_common_vars) to add some new env vars, 
+ * like REDIRECT_URL and REDIRECT_QUERY_STRING for custom error responses and DOCUMENT_ROOT.
+ * It also adds SERVER_ADMIN - useful for scripts to know who to mail when they fail.
+ * 
  */
 
 #include "apr_lib.h"
@@ -1072,6 +1072,8 @@ static int log_scripterror(request_rec *r, cgid_server_conf * conf, int ret,
     char time_str[APR_CTIME_LEN];
     int log_flags = rv ? APLOG_ERR : APLOG_ERR;
 
+    /* Intentional no APLOGNO */
+    /* Callee provides APLOGNO in error text */
     ap_log_rerror(APLOG_MARK, log_flags, rv, r,
                 "%s: %s", error, r->filename);
 
@@ -1457,13 +1459,18 @@ static int cgid_handler(request_rec *r)
         return log_scripterror(r, conf, HTTP_NOT_FOUND, 0, APLOGNO(01266)
                                "AcceptPathInfo off disallows user's path");
     }
-/*
+    /*
     if (!ap_suexec_enabled) {
         if (!ap_can_exec(&r->finfo))
             return log_scripterror(r, conf, HTTP_FORBIDDEN, 0, APLOGNO(01267)
                                    "file permissions deny server execution");
     }
-*/
+    */
+
+    /*
+     * httpd core function used to add common environment variables like
+     * DOCUMENT_ROOT. 
+     */
     ap_add_common_vars(r);
     ap_add_cgi_vars(r);
     env = ap_create_environment(r->pool, r->subprocess_env);
@@ -1673,10 +1680,8 @@ static int cgid_handler(request_rec *r)
 
         rv = ap_pass_brigade(r->output_filters, bb);
         if (rv != APR_SUCCESS) { 
-            /* APLOG_ERR because the core output filter message is at error,
-             * but doesn't know it's passing CGI output 
-             */
-            ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(02550) "Failed to flush CGI output to client");
+            ap_log_rerror(APLOG_MARK, APLOG_TRACE1, rv, r,
+                          "Failed to flush CGI output to client");
         }
     }
 
@@ -1868,8 +1873,8 @@ static apr_status_t handle_exec(include_ctx_t *ctx, ap_filter_t *f,
         ap_log_rerror(APLOG_MARK,
                       (ctx->flags & SSI_FLAG_PRINTING)
                           ? APLOG_ERR : APLOG_WARNING,
-                      0, r, "missing argument for exec element in %s",
-                      r->filename);
+                      0, r, APLOGNO(03196)
+                      "missing argument for exec element in %s", r->filename);
     }
 
     if (!(ctx->flags & SSI_FLAG_PRINTING)) {

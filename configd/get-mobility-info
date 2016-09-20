@@ -536,53 +536,22 @@ if [ -x /usr/bin/what -a -x /usr/bin/sum -a -x /bin/ls ]; then
 fi
 
 #
-# to give a chance for "networkd" and the DNS service to finish dumping their
-# state, the last thing we do is collect the logs
+# collect the logarchive
 #
-
-#
-# system log, kernel.log, early boot log messages
-#
-if [ -x /usr/bin/syslog ]; then
-	#
-	# save the recent activity
-	#
-	${PRIV} /usr/bin/syslog -T local.3					\
-		| ${TAIL_25000}							> syslog
-
-	#
-	# save just the "kernel" activity (in case some of the
-	# interesting/relevant message are before the messages
-	# captured above.
-	#
-	${PRIV} /usr/bin/syslog -T local.3 -k Facility kern			\
-		| ${TAIL_25000}							> kernel
-
-	if [ -d /var/log/DiagnosticMessages ]; then
-		# save any MessageTracer activity
-		${PRIV} /usr/bin/syslog	-d /var/log/DiagnosticMessages		\
-					-F raw					\
-					-T local.3				\
-			| ${TAIL_25000}						> DiagnosticMessages
-	fi
-else
-	if [ -f /var/log/system.log ]; then
-		${PRIV} ${TAIL_25000} /var/log/system.log			> system.log
-	fi
-	if [ -f /var/log/kernel.log ]; then
-		${PRIV} ${TAIL_25000} /var/log/kernel.log			> kernel.log
+if [ -x /usr/bin/log ]; then
+	LOGARCHIVE_START_TIME=`date -v -1d +"%Y-%m-%d %H:%M:%S"`
+	LOGARCHIVE_OUTPUT="system_logs.logarchive"
+	${PRIV} /usr/bin/log collect --livedata --output "${LOGARCHIVE_OUTPUT}" --start "${LOGARCHIVE_START_TIME}"	2>/dev/null
+	if [ -d ${LOGARCHIVE_OUTPUT} ]; then
+		${PRIV} chown -R ${UID} "${LOGARCHIVE_OUTPUT}"
 	fi
 fi
+
+#
+# dmesg
+#
 if [ -x /sbin/dmesg ]; then
 	${PRIV} /sbin/dmesg							> dmesg
-fi
-
-#
-# IPConfiguration log
-#
-if [ -f /var/log/com.apple.IPConfiguration.bootp ]; then
-	${PRIV} ${TAIL_2000} /var/log/com.apple.IPConfiguration.bootp	\
-							> com.apple.IPConfiguration.bootp
 fi
 
 #
@@ -611,13 +580,6 @@ do
 		cat "${logFile}"			> "${b}"		2>&1
 	fi
 done
-
-#
-# application firewall log
-#
-if [ -f /var/log/appfirewall.log ]; then
-	${PRIV} ${TAIL_2000} /var/log/appfirewall.log	> appfirewall.log
-fi
 
 if [ -x /bin/ls ]; then
 	#
@@ -653,19 +615,6 @@ if [ -x /bin/ls ]; then
 				${PRIV} cat "${log}"		> "${b}"		2>&1
 			fi
 		done
-	done
-
-	#
-	# collect any verbose logging output
-	#
-	/bin/ls -1	/Library/Logs/CrashReporter/com.apple.networking.*.log*		\
-			2>/dev/null							\
-	| while read log
-	do
-		if [ -f "${log}" ]; then
-			b="`basename ${log}`"
-			${PRIV} cat "${log}"			> "${b}"		2>&1
-		fi
 	done
 fi
 

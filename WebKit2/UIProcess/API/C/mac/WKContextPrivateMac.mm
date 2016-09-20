@@ -73,8 +73,8 @@ WKDictionaryRef WKContextCopyPlugInInfoForBundleIdentifier(WKContextRef contextR
     if (plugin.path.isNull())
         return 0;
 
-    RefPtr<API::Dictionary> dictionary = createPluginInformationDictionary(plugin);
-    return toAPI(dictionary.release().leakRef());
+    auto dictionary = createPluginInformationDictionary(plugin);
+    return toAPI(&dictionary.leakRef());
 #else
     return 0;
 #endif
@@ -91,7 +91,7 @@ void WKContextGetInfoForInstalledPlugIns(WKContextRef contextRef, WKContextGetIn
     for (const auto& plugin: plugins)
         pluginInfoDictionaries.uncheckedAppend(createPluginInformationDictionary(plugin));
 
-    RefPtr<API::Array> array = API::Array::create(WTF::move(pluginInfoDictionaries));
+    RefPtr<API::Array> array = API::Array::create(WTFMove(pluginInfoDictionaries));
 
     toImpl(contextRef)->ref();
     dispatch_async(dispatch_get_main_queue(), ^() {
@@ -166,10 +166,10 @@ bool WKContextShouldSuggestBlockWebGL()
 
 pid_t WKContextGetNetworkProcessIdentifier(WKContextRef contextRef)
 {
-#if ENABLE(NETWORK_PROCESS)
     return toImpl(contextRef)->networkProcessIdentifier();
-#else
-    UNUSED_PARAM(contextRef);
-    return 0;
-#endif
+}
+
+pid_t WKContextGetDatabaseProcessIdentifier(WKContextRef contextRef)
+{
+    return toImpl(contextRef)->databaseProcessIdentifier();
 }

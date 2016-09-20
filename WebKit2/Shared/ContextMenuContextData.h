@@ -30,7 +30,8 @@
 #if ENABLE(CONTEXT_MENUS)
 
 #include "ShareableBitmap.h"
-#include "WebHitTestResult.h"
+#include "WebContextMenuItemData.h"
+#include "WebHitTestResultData.h"
 
 namespace IPC {
 class ArgumentDecoder;
@@ -45,15 +46,26 @@ namespace WebKit {
 
 class ContextMenuContextData {
 public:
+    enum class Type {
+        ContextMenu,
+        ServicesMenu,
+    };
+
     ContextMenuContextData();
-    ContextMenuContextData(const WebCore::ContextMenuContext&);
-    
-    const WebHitTestResult::Data& webHitTestResultData() const { return m_webHitTestResultData; }
+    ContextMenuContextData(const WebCore::IntPoint& menuLocation, const Vector<WebKit::WebContextMenuItemData>& menuItems, const WebCore::ContextMenuContext&);
+
+    Type type() const { return m_type; }
+    const WebCore::IntPoint& menuLocation() const { return m_menuLocation; }
+    const Vector<WebKit::WebContextMenuItemData>& menuItems() const { return m_menuItems; }
+
+    const WebHitTestResultData& webHitTestResultData() const { return m_webHitTestResultData; }
     const String& selectedText() const { return m_selectedText; }
 
 #if ENABLE(SERVICE_CONTROLS)
-    ContextMenuContextData(const Vector<uint8_t>& selectionData, const Vector<String>& selectedTelephoneNumbers, bool isEditable)
-        : m_controlledSelectionData(selectionData)
+    ContextMenuContextData(const WebCore::IntPoint& menuLocation, const Vector<uint8_t>& selectionData, const Vector<String>& selectedTelephoneNumbers, bool isEditable)
+        : m_type(Type::ServicesMenu)
+        , m_menuLocation(menuLocation)
+        , m_controlledSelectionData(selectionData)
         , m_selectedTelephoneNumbers(selectedTelephoneNumbers)
         , m_selectionIsEditable(isEditable)
     {
@@ -63,15 +75,20 @@ public:
     const Vector<uint8_t>& controlledSelectionData() const { return m_controlledSelectionData; }
     const Vector<String>& selectedTelephoneNumbers() const { return m_selectedTelephoneNumbers; }
 
+    bool isServicesMenu() const { return m_type == ContextMenuContextData::Type::ServicesMenu; }
     bool controlledDataIsEditable() const;
-    bool needsServicesMenu() const { return m_controlledImage || !m_controlledSelectionData.isEmpty(); }
 #endif
 
     void encode(IPC::ArgumentEncoder&) const;
     static bool decode(IPC::ArgumentDecoder&, ContextMenuContextData&);
 
 private:
-    WebHitTestResult::Data m_webHitTestResultData;
+    Type m_type;
+
+    WebCore::IntPoint m_menuLocation;
+    Vector<WebKit::WebContextMenuItemData> m_menuItems;
+
+    WebHitTestResultData m_webHitTestResultData;
     String m_selectedText;
 
 #if ENABLE(SERVICE_CONTROLS)

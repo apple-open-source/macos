@@ -80,7 +80,7 @@
 
 #include "trusted_cert_add.h"
 #include "trusted_cert_utils.h"
-#include "security.h"
+#include "security_tool.h"
 #include "keychain_utilities.h"
 #include <Security/Security.h>
 #include <Security/SecTrust.h>
@@ -89,7 +89,7 @@
 #include <Security/oidsalg.h>
 #include <errno.h>
 #include <unistd.h>
-#include <security_cdsa_utils/cuFileIo.h>
+#include <utilities/fileIo.h>
 #include <CoreFoundation/CoreFoundation.h>
 
 /* r/w files as CFData */
@@ -97,9 +97,9 @@ static CFDataRef readFileData(
 	const char *fileName)
 {
 	unsigned char *d;
-	unsigned dLen;
+	size_t dLen;
 
-	if(readFile(fileName, &d, &dLen)) {
+	if(readFileSizet(fileName, &d, &dLen)) {
 		return NULL;
 	}
 	CFDataRef cfd = CFDataCreate(NULL, (const UInt8 *)d, dLen);
@@ -112,7 +112,7 @@ static int writeFileData(
 	CFDataRef cfd)
 {
 	unsigned long l = (unsigned long)CFDataGetLength(cfd);
-	int rtn = writeFile(fileName, CFDataGetBytePtr(cfd), l);
+	int rtn = writeFileSizet(fileName, CFDataGetBytePtr(cfd), l);
 	if(rtn) {
 		fprintf(stderr, "Error %d writing to %s\n", rtn, fileName);
 	}

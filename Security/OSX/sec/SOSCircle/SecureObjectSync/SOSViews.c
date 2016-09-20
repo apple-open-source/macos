@@ -60,28 +60,10 @@ const CFStringRef kSOSViewOtherSyncable_tomb        = CFSTR("OtherSyncable-tomb"
 // Views
 const CFStringRef kSOSViewKeychainV0            = CFSTR("KeychainV0");      // iCloud Keychain syncing for v0 peers
 
-const CFStringRef kSOSViewWiFi                  = CFSTR("WiFi");
-const CFStringRef kSOSViewAutofillPasswords     = CFSTR("Passwords");
-const CFStringRef kSOSViewSafariCreditCards     = CFSTR("CreditCards");
-const CFStringRef kSOSViewiCloudIdentity        = CFSTR("iCloudIdentity");
-const CFStringRef kSOSViewBackupBagV0           = CFSTR("BackupBagV0");     // iCloud Keychain backup bag for v0 peers (single item)
-const CFStringRef kSOSViewOtherSyncable         = CFSTR("OtherSyncable");
-
-// PCS (Protected Cloud Storage) Views
-const CFStringRef kSOSViewPCSMasterKey          = CFSTR("PCS-MasterKey");
-const CFStringRef kSOSViewPCSiCloudDrive        = CFSTR("PCS-iCloudDrive"); // Bladerunner
-const CFStringRef kSOSViewPCSPhotos             = CFSTR("PCS-Photos");      // Hyperion
-const CFStringRef kSOSViewPCSCloudKit           = CFSTR("PCS-CloudKit");    // Liverpool
-const CFStringRef kSOSViewPCSEscrow             = CFSTR("PCS-Escrow");
-const CFStringRef kSOSViewPCSFDE                = CFSTR("PCS-FDE");
-const CFStringRef kSOSViewPCSMailDrop           = CFSTR("PCS-Maildrop");    // PianoMover
-const CFStringRef kSOSViewPCSiCloudBackup       = CFSTR("PCS-Backup");
-const CFStringRef kSOSViewPCSNotes              = CFSTR("PCS-Notes");
-const CFStringRef kSOSViewPCSiMessage           = CFSTR("PCS-iMessage");
-const CFStringRef kSOSViewPCSFeldspar           = CFSTR("PCS-Feldspar");
-
-const CFStringRef kSOSViewAppleTV               = CFSTR("AppleTV");
-const CFStringRef kSOSViewHomeKit               = CFSTR("HomeKit");
+#undef DOVIEWMACRO
+#define DOVIEWMACRO(VIEWNAME, DEFSTRING, CMDSTRING, DEFAULTSETTING, INITIALSYNCSETTING, ALWAYSONSETTING, BACKUPSETTING, V0SETTING) \
+const CFStringRef kSOSView##VIEWNAME          = CFSTR(DEFSTRING);
+#include "Security/SecureObjectSync/ViewList.list"
 
 // View Hints
 // Note that by definition, there cannot be a V0 view hint
@@ -101,6 +83,31 @@ const CFStringRef kSOSViewHintPCSFeldspar       = CFSTR("PCS-Feldspar");
 const CFStringRef kSOSViewHintAppleTV           = CFSTR("AppleTV");
 const CFStringRef kSOSViewHintHomeKit           = CFSTR("HomeKit");
 
+CFMutableSetRef SOSViewCopyViewSet(ViewSetKind setKind) {
+    CFMutableSetRef result = CFSetCreateMutableForCFTypes(kCFAllocatorDefault);
+
+#undef DOVIEWMACRO
+#define __TYPE_MEMBER_ false
+#define __TYPE_MEMBER_D true
+#define __TYPE_MEMBER_I true
+#define __TYPE_MEMBER_A true
+#define __TYPE_MEMBER_V true
+#define __TYPE_MEMBER_B true
+#define DOVIEWMACRO(VIEWNAME, DEFSTRING, CMDSTRING, DEFAULT, INITIAL, ALWAYSON, BACKUP, V0) \
+    if ((setKind == kViewSetAll) || \
+       ((setKind == kViewSetDefault)   && __TYPE_MEMBER_##DEFAULT)  || \
+       ((setKind == kViewSetInitial)   && __TYPE_MEMBER_##INITIAL)  || \
+       ((setKind == kViewSetAlwaysOn)  && __TYPE_MEMBER_##ALWAYSON) || \
+       ((setKind == kViewSetRequiredForBackup)  && __TYPE_MEMBER_##BACKUP) || \
+       ((setKind == kViewSetV0)  && __TYPE_MEMBER_##V0)       ) { \
+           CFSetAddValue(result, kSOSView##VIEWNAME); \
+    }
+
+#include "Security/SecureObjectSync/ViewList.list"
+
+    return result;
+}
+
 CFGiblisGetSingleton(CFSetRef, SOSViewsGetV0ViewSet, defaultViewSet, ^{
     // Since peer->views must never be NULL, fill in with a default
     const void *values[] = { kSOSViewKeychainV0 };
@@ -109,9 +116,7 @@ CFGiblisGetSingleton(CFSetRef, SOSViewsGetV0ViewSet, defaultViewSet, ^{
 
 CFGiblisGetSingleton(CFSetRef, SOSViewsGetV0SubviewSet, subViewSet, (^{
     // Since peer->views must never be NULL, fill in with a default
-    const void *values[] = { kSOSViewWiFi, kSOSViewAutofillPasswords, kSOSViewSafariCreditCards,
-                             kSOSViewiCloudIdentity, kSOSViewBackupBagV0, kSOSViewOtherSyncable };
-    *subViewSet = CFSetCreate(kCFAllocatorDefault, values, array_size(values), &kCFTypeSetCallBacks);
+    *subViewSet = SOSViewCopyViewSet(kViewSetV0);
 }));
 
 CFGiblisGetSingleton(CFSetRef, SOSViewsGetV0BackupViewSet, defaultViewSet, ^{
@@ -123,6 +128,12 @@ CFGiblisGetSingleton(CFSetRef, SOSViewsGetV0BackupBagViewSet, defaultViewSet, ^{
     const void *values[] = { kSOSViewBackupBagV0_tomb };
     *defaultViewSet = CFSetCreate(kCFAllocatorDefault, values, array_size(values), &kCFTypeSetCallBacks);
 });
+
+
+CFGiblisGetSingleton(CFSetRef, SOSViewsGetInitialSyncSubviewSet, subViewSet, (^{
+    *subViewSet = SOSViewCopyViewSet(kViewSetInitial);
+}));
+
 
 bool SOSViewsIsV0Subview(CFStringRef viewName) {
     return CFSetContainsValue(SOSViewsGetV0SubviewSet(), viewName);
@@ -137,58 +148,28 @@ CFSetRef SOSViewsGetAllCurrent(void) {
     static dispatch_once_t dot;
     static CFMutableSetRef allViews = NULL;
     dispatch_once(&dot, ^{
-        allViews = CFSetCreateMutableForCFTypes(kCFAllocatorDefault);
+        allViews = SOSViewCopyViewSet(kViewSetAll);
+
         CFSetAddValue(allViews, kSOSViewKeychainV0);
-        CFSetAddValue(allViews, kSOSViewPCSMasterKey);
-        CFSetAddValue(allViews, kSOSViewPCSiCloudDrive);
-        CFSetAddValue(allViews, kSOSViewPCSPhotos);
-        CFSetAddValue(allViews, kSOSViewPCSCloudKit);
-        CFSetAddValue(allViews, kSOSViewPCSEscrow);
-        CFSetAddValue(allViews, kSOSViewPCSFDE);
-        CFSetAddValue(allViews, kSOSViewPCSMailDrop);
-        CFSetAddValue(allViews, kSOSViewPCSiCloudBackup);
-        CFSetAddValue(allViews, kSOSViewPCSNotes);
-        CFSetAddValue(allViews, kSOSViewPCSiMessage);
-        CFSetAddValue(allViews, kSOSViewPCSFeldspar);
-        CFSetAddValue(allViews, kSOSViewAppleTV);
-        CFSetAddValue(allViews, kSOSViewHomeKit);
-        CFSetAddValue(allViews, kSOSViewWiFi);
-        CFSetAddValue(allViews, kSOSViewAutofillPasswords);
-        CFSetAddValue(allViews, kSOSViewSafariCreditCards);
-        CFSetAddValue(allViews, kSOSViewiCloudIdentity);
-        CFSetAddValue(allViews, kSOSViewBackupBagV0);
-        CFSetAddValue(allViews, kSOSViewOtherSyncable);
+        if(sTestViewSet) CFSetUnion(allViews, sTestViewSet);
     });
-    return sTestViewSet ? sTestViewSet : allViews;
+    return allViews;
 }
 
-static CFMutableSetRef CFSetCreateMutableCopyForSOSViews(CFAllocatorRef allocator, CFSetRef original) {
-    if(!original) return NULL;
-    return CFSetCreateMutableCopy(allocator, 0, original);
-}
-
-CFMutableSetRef SOSViewsCreateDefault(bool includeLegacy, CFErrorRef *error) {
-    CFMutableSetRef result = CFSetCreateMutableCopyForSOSViews(NULL, SOSViewsGetAllCurrent());
-
-    // We don't by default particiate in V0, actually we don't want
-    // to let folks enable it.
-    CFSetRemoveValue(result, kSOSViewKeychainV0);
-
-    if (!includeLegacy) {
-        // We don't by default participate in fractures of iCloudKeychain
-        CFSetRemoveValue(result, kSOSViewWiFi);
-        CFSetRemoveValue(result, kSOSViewAutofillPasswords);
-        CFSetRemoveValue(result, kSOSViewSafariCreditCards);
-        CFSetRemoveValue(result, kSOSViewOtherSyncable);
+const char *SOSViewsXlateAction(SOSViewActionCode action) {
+    switch(action) {
+        case kSOSCCViewEnable: return "kSOSCCViewEnable";
+        case kSOSCCViewDisable: return "kSOSCCViewDisable";
+        case kSOSCCViewQuery: return "kSOSCCViewQuery";
+        default: return "unknownViewAction";
     }
-
-    return result;
 }
+
 
 // Eventually this will want to know the gestalt or security properties...
 void SOSViewsForEachDefaultEnabledViewName(void (^operation)(CFStringRef viewName)) {
-    CFMutableSetRef defaultViews = SOSViewsCreateDefault(false, NULL);
-    
+    CFMutableSetRef defaultViews = SOSViewCopyViewSet(kViewSetDefault);
+
     CFSetForEach(defaultViews, ^(const void *value) {
         CFStringRef name = asString(value, NULL);
 
@@ -196,7 +177,7 @@ void SOSViewsForEachDefaultEnabledViewName(void (^operation)(CFStringRef viewNam
             operation(name);
         }
     });
-    
+
     CFReleaseNull(defaultViews);
 }
 
@@ -205,6 +186,14 @@ static bool SOSViewsIsKnownView(CFStringRef viewname) {
     if(CFSetContainsValue(allViews, viewname)) return true;
     secnotice("views","Not a known view");
     return false;
+}
+
+static bool viewErrorReport(CFIndex errorCode, CFErrorRef *error, CFStringRef format, CFStringRef viewname, int retval) {
+    return SOSCreateErrorWithFormat(errorCode, NULL, error, NULL, format, viewname, retval);
+}
+
+static bool SOSViewsRequireIsKnownView(CFStringRef viewname, CFErrorRef* error) {
+    return SOSViewsIsKnownView(viewname) || viewErrorReport(kSOSErrorNameMismatch, error, viewUnknownError, viewname, kSOSCCNoSuchView);
 }
 
 bool SOSPeerInfoIsEnabledView(SOSPeerInfoRef pi, CFStringRef viewName) {
@@ -242,10 +231,10 @@ CFSetRef SOSPeerInfoGetPermittedViews(SOSPeerInfoRef pi) {
 }
 
 static void SOSPeerInfoSetViews(SOSPeerInfoRef pi, CFSetRef newviews) {
-	if(!newviews) {
-		secnotice("views","Asked to swap to NULL views");
-		return;
-	}
+    if(!newviews) {
+        secnotice("views","Asked to swap to NULL views");
+        return;
+    }
     SOSPeerInfoV2DictionarySetValue(pi, sViewsKey, newviews);
 }
 
@@ -253,114 +242,102 @@ static bool SOSPeerInfoViewIsValid(SOSPeerInfoRef pi, CFStringRef viewname) {
     return true;
 }
 
-static bool viewErrorReport(CFIndex errorCode, CFErrorRef *error, CFStringRef format, CFStringRef viewname, int retval) {
-	return SOSCreateErrorWithFormat(errorCode, NULL, error, NULL, format, viewname, retval);
-}
-
 SOSViewResultCode SOSViewsEnable(SOSPeerInfoRef pi, CFStringRef viewname, CFErrorRef *error) {
-	SOSViewResultCode retval = kSOSCCGeneralViewError;
-    
+    SOSViewResultCode retval = kSOSCCGeneralViewError;
+
     CFMutableSetRef newviews = SOSPeerInfoCopyEnabledViews(pi);
-    require_action_quiet(newviews, fail, 
-		SOSCreateError(kSOSErrorAllocationFailure, viewMemError, NULL, error));
-    require_action_quiet(SOSViewsIsKnownView(viewname), fail,
-		viewErrorReport(kSOSErrorNameMismatch, error, viewUnknownError, viewname, retval = kSOSCCNoSuchView));
+    require_action_quiet(newviews, fail,
+                         SOSCreateError(kSOSErrorAllocationFailure, viewMemError, NULL, error));
+    require_action_quiet(SOSViewsRequireIsKnownView(viewname, error), fail,
+                         retval = kSOSCCNoSuchView);
     require_action_quiet(SOSPeerInfoViewIsValid(pi, viewname), fail,
-		viewErrorReport(kSOSErrorNameMismatch, error, viewInvalidError, viewname, retval = kSOSCCViewNotQualified));
+                         viewErrorReport(kSOSErrorNameMismatch, error, viewInvalidError, viewname, retval = kSOSCCViewNotQualified));
     CFSetAddValue(newviews, viewname);
-	SOSPeerInfoSetViews(pi, newviews);
+    SOSPeerInfoSetViews(pi, newviews);
     CFReleaseSafe(newviews);
     return kSOSCCViewMember;
 
 fail:
-	CFReleaseNull(newviews);
-	secnotice("views","Failed to enable view(%@): %@", viewname, *error);
-	return retval;
+    CFReleaseNull(newviews);
+    secnotice("views","Failed to enable view(%@): %@", viewname, error ? *error : NULL);
+    return retval;
 }
 
 bool SOSViewSetEnable(SOSPeerInfoRef pi, CFSetRef viewSet) {
-    __block bool retval = true;
     __block bool addedView = false;
     CFMutableSetRef newviews = SOSPeerInfoCopyEnabledViews(pi);
     require_action_quiet(newviews, errOut, secnotice("views", "failed to copy enabled views"));
-    
+
     CFSetForEach(viewSet, ^(const void *value) {
         CFStringRef viewName = (CFStringRef) value;
-        if(SOSViewsIsKnownView(viewName) && SOSPeerInfoViewIsValid(pi, viewName) && !CFSetContainsValue(newviews, viewName)) {
-            addedView = true;
-            CFSetAddValue(newviews, viewName);
+        if(SOSViewsIsKnownView(viewName) && SOSPeerInfoViewIsValid(pi, viewName)) {
+            if (!CFSetContainsValue(newviews, viewName)) {
+                addedView = true;
+                CFSetAddValue(newviews, viewName);
+            }
         } else {
-            retval = false;
             secnotice("views", "couldn't add view %@", viewName);
         }
     });
-    require_quiet(retval, errOut);
+    require_quiet(addedView, errOut);
 
-    if (addedView) {
-        SOSPeerInfoSetViews(pi, newviews);
-    }
-    
+    SOSPeerInfoSetViews(pi, newviews);
+
 errOut:
     CFReleaseNull(newviews);
-    return retval;
+    return addedView;
 }
 
 
 SOSViewResultCode SOSViewsDisable(SOSPeerInfoRef pi, CFStringRef viewname, CFErrorRef *error) {
-	SOSViewResultCode retval = kSOSCCGeneralViewError;
+    SOSViewResultCode retval = kSOSCCGeneralViewError;
     CFMutableSetRef newviews = SOSPeerInfoCopyEnabledViews(pi);
-    require_action_quiet(newviews, fail, 
-		SOSCreateError(kSOSErrorAllocationFailure, viewMemError, NULL, error));
-    require_action_quiet(SOSViewsIsKnownView(viewname), fail,
-		viewErrorReport(kSOSErrorNameMismatch, error, viewUnknownError, viewname, retval = kSOSCCNoSuchView));
+    require_action_quiet(newviews, fail,
+                         SOSCreateError(kSOSErrorAllocationFailure, viewMemError, NULL, error));
+    require_action_quiet(SOSViewsRequireIsKnownView(viewname, error), fail, retval = kSOSCCNoSuchView);
 
     CFSetRemoveValue(newviews, viewname);
-	SOSPeerInfoSetViews(pi, newviews);
+    SOSPeerInfoSetViews(pi, newviews);
     CFReleaseSafe(newviews);
     return kSOSCCViewNotMember;
 
 fail:
-	CFReleaseNull(newviews);
-	secnotice("views","Failed to disable view(%@): %@", viewname, *error);
-	return retval;
+    CFReleaseNull(newviews);
+    secnotice("views","Failed to disable view(%@): %@", viewname, error ? *error : NULL);
+    return retval;
 }
 
 
 bool SOSViewSetDisable(SOSPeerInfoRef pi, CFSetRef viewSet) {
-    __block bool retval = true;
     __block bool removed = false;
     CFMutableSetRef newviews = SOSPeerInfoCopyEnabledViews(pi);
     require_action_quiet(newviews, errOut, secnotice("views", "failed to copy enabled views"));
-    
+
     CFSetForEach(viewSet, ^(const void *value) {
         CFStringRef viewName = (CFStringRef) value;
         if(SOSViewsIsKnownView(viewName) && CFSetContainsValue(newviews, viewName)) {
             removed = true;
             CFSetRemoveValue(newviews, viewName);
         } else {
-            retval = false;
             secnotice("views", "couldn't delete view %@", viewName);
         }
     });
 
-    require_quiet(retval, errOut);
+    require_quiet(removed, errOut);
 
-    if(removed) {
-        SOSPeerInfoSetViews(pi, newviews);
-    }
-    
+    SOSPeerInfoSetViews(pi, newviews);
+
 errOut:
     CFReleaseNull(newviews);
-    return retval;
+    return removed;
 }
 
 
 SOSViewResultCode SOSViewsQuery(SOSPeerInfoRef pi, CFStringRef viewname, CFErrorRef *error) {
-	SOSViewResultCode retval = kSOSCCNoSuchView;
+    SOSViewResultCode retval = kSOSCCNoSuchView;
     CFSetRef views = NULL;
-    secnotice("views", "Querying %@", viewname);
-    require_action_quiet(SOSViewsIsKnownView(viewname), fail,
-		SOSCreateError(kSOSErrorNameMismatch, viewUnknownError, NULL, error));
+    require_quiet(SOSViewsRequireIsKnownView(viewname, error), fail);
+
     views = SOSPeerInfoCopyEnabledViews(pi);
     if(!views){
         retval = kSOSCCViewNotMember;
@@ -376,12 +353,12 @@ SOSViewResultCode SOSViewsQuery(SOSPeerInfoRef pi, CFStringRef viewname, CFError
     } else {
         retval = (CFSetContainsValue(views, viewname)) ? kSOSCCViewMember: kSOSCCViewNotMember;
     }
-    
+
     CFReleaseNull(views);
     return retval;
-    
+
 fail:
-	secnotice("views","Failed to query view(%@): %@", viewname, *error);
+    secnotice("views","Failed to query view(%@): %@", viewname, error ? *error : NULL);
     CFReleaseNull(views);
     return retval;
 }
@@ -397,7 +374,7 @@ static CFArrayRef SOSCreateActiveViewIntersectionArrayForPeerInfos(SOSPeerInfoRe
         return NULL;
     }
     CFStringRef pi1views[count];
-    
+
     retval = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
     CFSetGetValues(views1, (const void **) &pi1views);
     for(size_t i = 0; i < count; i++) {
@@ -417,9 +394,9 @@ CFArrayRef SOSCreateActiveViewIntersectionArrayForPeerID(SOSAccountRef account, 
     SOSPeerInfoRef theirPI = SOSAccountCopyPeerWithID(account, peerID, NULL);
     require_action_quiet(myPI, errOut, retval = NULL);
     require_action_quiet(theirPI, errOut, retval = NULL);
-    
+
     retval = SOSCreateActiveViewIntersectionArrayForPeerInfos(myPI, theirPI);
-    
+
 errOut:
     CFReleaseNull(theirPI);
     return retval;
@@ -429,7 +406,7 @@ errOut:
 CFDictionaryRef SOSViewsCreateActiveViewMatrixDictionary(SOSAccountRef account, SOSCircleRef circle, CFErrorRef *error) {
     CFMutableDictionaryRef retval = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     SOSPeerInfoRef myPI = SOSAccountGetMyPeerInfo(account);
-    
+
     // For now, all views require that a valid member peer is in the circle and active/valid
     CFMutableSetRef peers = SOSCircleCopyPeers(circle, kCFAllocatorDefault);
 
@@ -456,12 +433,12 @@ CFDictionaryRef SOSViewsCreateActiveViewMatrixDictionary(SOSAccountRef account, 
             });
             CFDictionaryAddValue(retval, viewname, viewset);
         });
-    
+
     if(CFDictionaryGetCount(retval) == 0) goto errOut;  // Not really an error - just no intersection of views with anyone
     CFReleaseNull(peers);
     CFReleaseNull(myViews);
     return retval;
-    
+
 errOut:
     CFReleaseNull(retval);
     CFReleaseNull(peers);
@@ -478,9 +455,9 @@ errOut:
 CFSetRef CreateCFSetRefFromXPCObject(xpc_object_t xpcSetDER, CFErrorRef* error) {
     CFSetRef retval = NULL;
     require_action_quiet(xpcSetDER, errOut, SecCFCreateErrorWithFormat(kSecXPCErrorUnexpectedNull, sSecXPCErrorDomain, NULL, error, NULL, CFSTR("Unexpected Null Set to decode")));
-    
+
     require_action_quiet(xpc_get_type(xpcSetDER) == XPC_TYPE_DATA, errOut, SecCFCreateErrorWithFormat(kSecXPCErrorUnexpectedType, sSecXPCErrorDomain, NULL, error, NULL, CFSTR("xpcSetDER not data, got %@"), xpcSetDER));
-    
+
     const uint8_t* der = xpc_data_get_bytes_ptr(xpcSetDER);
     const uint8_t* der_end = der + xpc_data_get_length(xpcSetDER);
     der = der_decode_set(kCFAllocatorDefault, kCFPropertyListMutableContainersAndLeaves, &retval, error, der, der_end);

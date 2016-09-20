@@ -28,6 +28,7 @@
 
 #if ENABLE(ENCRYPTED_MEDIA_V2) && ENABLE(MEDIA_SOURCE)
 
+#import "AVFoundationSPI.h"
 #import "CDM.h"
 #import "CDMPrivateMediaSourceAVFObjC.h"
 #import "ExceptionCode.h"
@@ -37,9 +38,9 @@
 #import "SoftLinking.h"
 #import "SourceBufferPrivateAVFObjC.h"
 #import "UUID.h"
+#import "WebCoreNSErrorExtras.h"
 #import <AVFoundation/AVError.h>
 #import <CoreMedia/CMBase.h>
-#import <cstdlib>
 #import <objc/objc-runtime.h>
 #import <runtime/TypedArrayInlines.h>
 #import <wtf/NeverDestroyed.h>
@@ -50,13 +51,6 @@ SOFT_LINK_CLASS_OPTIONAL(AVFoundation, AVStreamSession);
 SOFT_LINK_CONSTANT_MAY_FAIL(AVFoundation, AVStreamDataParserContentKeyRequestProtocolVersionsKey, NSString *)
 SOFT_LINK_CONSTANT_MAY_FAIL(AVFoundation, AVStreamSessionContentProtectionSessionIdentifierChangedNotification, NSString *)
 
-@interface AVStreamDataParser : NSObject
-- (void)processContentKeyResponseData:(NSData *)contentKeyResponseData forTrackID:(CMPersistentTrackID)trackID;
-- (void)processContentKeyResponseError:(NSError *)error forTrackID:(CMPersistentTrackID)trackID;
-- (void)renewExpiringContentKeyResponseDataForTrackID:(CMPersistentTrackID)trackID;
-- (NSData *)streamingContentKeyRequestDataForApp:(NSData *)appIdentifier contentIdentifier:(NSData *)contentIdentifier trackID:(CMPersistentTrackID)trackID options:(NSDictionary *)options error:(NSError **)outError;
-@end
-
 @interface AVStreamSession : NSObject
 - (void)addStreamDataParser:(AVStreamDataParser *)streamDataParser;
 - (void)removeStreamDataParser:(AVStreamDataParser *)streamDataParser;
@@ -66,12 +60,12 @@ SOFT_LINK_CONSTANT_MAY_FAIL(AVFoundation, AVStreamSessionContentProtectionSessio
 + (void)removePendingExpiredSessionReports:(NSArray *)expiredSessionReports withAppIdentifier:(NSData *)appIdentifier storageDirectoryAtURL:(NSURL *)storageURL;
 @end
 
-@interface CDMSessionAVStreamSessionObserver : NSObject {
+@interface WebCDMSessionAVStreamSessionObserver : NSObject {
     WebCore::CDMSessionAVStreamSession *m_parent;
 }
 @end
 
-@implementation CDMSessionAVStreamSessionObserver
+@implementation WebCDMSessionAVStreamSessionObserver
 - (id)initWithParent:(WebCore::CDMSessionAVStreamSession *)parent
 {
     if ((self = [super init]))
@@ -98,7 +92,7 @@ namespace WebCore {
 CDMSessionAVStreamSession::CDMSessionAVStreamSession(const Vector<int>& protocolVersions, CDMPrivateMediaSourceAVFObjC& cdm, CDMSessionClient* client)
     : CDMSessionMediaSourceAVFObjC(cdm, client)
     , m_weakPtrFactory(this)
-    , m_dataParserObserver(adoptNS([[CDMSessionAVStreamSessionObserver alloc] initWithParent:this]))
+    , m_dataParserObserver(adoptNS([[WebCDMSessionAVStreamSessionObserver alloc] initWithParent:this]))
     , m_protocolVersions(protocolVersions)
     , m_mode(Normal)
 {
@@ -112,7 +106,7 @@ CDMSessionAVStreamSession::~CDMSessionAVStreamSession()
         removeParser(sourceBuffer->parser());
 }
 
-RefPtr<Uint8Array> CDMSessionAVStreamSession::generateKeyRequest(const String& mimeType, Uint8Array* initData, String& destinationURL, unsigned short& errorCode, unsigned long& systemCode)
+RefPtr<Uint8Array> CDMSessionAVStreamSession::generateKeyRequest(const String& mimeType, Uint8Array* initData, String& destinationURL, unsigned short& errorCode, uint32_t& systemCode)
 {
     UNUSED_PARAM(mimeType);
     UNUSED_PARAM(destinationURL);
@@ -125,7 +119,7 @@ RefPtr<Uint8Array> CDMSessionAVStreamSession::generateKeyRequest(const String& m
 
     m_initData = initData;
 
-    if (equalIgnoringCase(mimeType, "keyrelease")) {
+    if (equalLettersIgnoringASCIICase(mimeType, "keyrelease")) {
         m_mode = KeyRelease;
         return generateKeyReleaseMessage(errorCode, systemCode);
     }
@@ -187,7 +181,7 @@ static bool isEqual(Uint8Array* data, const char* literal)
     return !literal[length];
 }
 
-bool CDMSessionAVStreamSession::update(Uint8Array* key, RefPtr<Uint8Array>& nextMessage, unsigned short& errorCode, unsigned long& systemCode)
+bool CDMSessionAVStreamSession::update(Uint8Array* key, RefPtr<Uint8Array>& nextMessage, unsigned short& errorCode, uint32_t& systemCode)
 {
     bool shouldGenerateKeyRequest = !m_certificate || isEqual(key, "renew");
     if (!m_certificate) {
@@ -247,7 +241,10 @@ bool CDMSessionAVStreamSession::update(Uint8Array* key, RefPtr<Uint8Array>& next
         }
 
         NSError* error = nil;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         RetainPtr<NSData> request = [protectedSourceBuffer->parser() streamingContentKeyRequestDataForApp:certificateData.get() contentIdentifier:initData.get() trackID:protectedSourceBuffer->protectedTrackID() options:options.get() error:&error];
+#pragma clang diagnostic pop
 
         if (![protectedSourceBuffer->parser() respondsToSelector:@selector(contentProtectionSessionIdentifier)])
             m_sessionId = createCanonicalUUIDString();
@@ -255,7 +252,7 @@ bool CDMSessionAVStreamSession::update(Uint8Array* key, RefPtr<Uint8Array>& next
         if (error) {
             LOG(Media, "CDMSessionAVStreamSession::update(%p) - error:%@", this, [error description]);
             errorCode = MediaPlayer::InvalidPlayerState;
-            systemCode = std::abs(systemCodeForError(error));
+            systemCode = mediaKeyErrorSystemCode(error);
             return false;
         }
 
@@ -269,7 +266,10 @@ bool CDMSessionAVStreamSession::update(Uint8Array* key, RefPtr<Uint8Array>& next
     errorCode = MediaPlayer::NoError;
     systemCode = 0;
     RetainPtr<NSData> keyData = adoptNS([[NSData alloc] initWithBytes:key->data() length:key->length()]);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     [protectedSourceBuffer->parser() processContentKeyResponseData:keyData.get() forTrackID:protectedSourceBuffer->protectedTrackID()];
+#pragma clang diagnostic pop
 
     return true;
 }
@@ -304,7 +304,7 @@ void CDMSessionAVStreamSession::removeParser(AVStreamDataParser* parser)
         [m_streamSession removeStreamDataParser:parser];
 }
 
-PassRefPtr<Uint8Array> CDMSessionAVStreamSession::generateKeyReleaseMessage(unsigned short& errorCode, unsigned long& systemCode)
+PassRefPtr<Uint8Array> CDMSessionAVStreamSession::generateKeyReleaseMessage(unsigned short& errorCode, uint32_t systemCode)
 {
     ASSERT(m_mode == KeyRelease);
     m_certificate = m_initData;

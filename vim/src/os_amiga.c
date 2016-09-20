@@ -22,6 +22,9 @@
 #undef TRUE		/* will be redefined by exec/types.h */
 #undef FALSE
 
+/* cproto fails on missing include files, skip them */
+#ifndef PROTO
+
 #ifndef LATTICE
 # include <exec/types.h>
 # include <exec/exec.h>
@@ -54,6 +57,8 @@
 #if defined(LATTICE) && !defined(SASC) && defined(FEAT_ARP)
 # include <libraries/arp_pragmas.h>
 #endif
+
+#endif /* PROTO */
 
 /*
  * At this point TRUE and FALSE are defined as 1L and 0L, but we want 1 and 0.
@@ -113,7 +118,7 @@ mch_write(p, len)
 }
 
 /*
- * mch_inchar(): low level input funcion.
+ * mch_inchar(): low level input function.
  * Get a characters from the keyboard.
  * If time == 0 do not wait for characters.
  * If time == n wait a short time for characters.
@@ -191,16 +196,16 @@ mch_char_avail()
 }
 
 /*
- * Return amount of memory still available.
+ * Return amount of memory still available in Kbyte.
  */
     long_u
 mch_avail_mem(special)
     int	    special;
 {
 #ifdef __amigaos4__
-    return (long_u)AvailMem(MEMF_ANY);
+    return (long_u)AvailMem(MEMF_ANY) >> 10;
 #else
-    return (long_u)AvailMem(special ? (long)MEMF_CHIP : (long)MEMF_ANY);
+    return (long_u)(AvailMem(special ? (long)MEMF_CHIP : (long)MEMF_ANY)) >> 10;
 #endif
 }
 
@@ -283,7 +288,9 @@ mch_init()
 #endif
 }
 
-#include <workbench/startup.h>
+#ifndef PROTO
+# include <workbench/startup.h>
+#endif
 
 /*
  * Check_win checks whether we have an interactive window.
@@ -874,11 +881,14 @@ mch_mkdir(name)
 
 /*
  * Return 1 if "name" can be executed, 0 if not.
+ * If "use_path" is FALSE only check if "name" is executable.
  * Return -1 if unknown.
  */
     int
-mch_can_exe(name)
+mch_can_exe(name, path, use_path)
     char_u	*name;
+    char_u	**path;
+    int		use_path;
 {
     /* TODO */
     return -1;
@@ -1002,7 +1012,9 @@ mch_screenmode(arg)
  * Heavely modified by mool.
  */
 
-#include <devices/conunit.h>
+#ifndef PROTO
+# include <devices/conunit.h>
+#endif
 
 /*
  * try to get the real window size
@@ -1022,7 +1034,7 @@ mch_get_shellsize()
 
     /* insure longword alignment */
 #ifdef __amigaos4__
-    if(!(id = AllocDosObject(DOS_INFODATA, 0)))
+    if (!(id = AllocDosObject(DOS_INFODATA, 0)))
 	goto out;
 #else
     id = (struct InfoData *)(((long)id_a + 3L) & ~3L);
@@ -1129,9 +1141,11 @@ out_num(n)
  * say 'oml lib:amiga.lib -r sendpacket.o'
  */
 
+#ifndef PROTO
 /* #include <proto/exec.h> */
 /* #include <proto/dos.h> */
-#include <exec/memory.h>
+# include <exec/memory.h>
+#endif
 
 /*
  * Function - dos_packet written by Phil Lindsay, Carolyn Scheppner, and Andy

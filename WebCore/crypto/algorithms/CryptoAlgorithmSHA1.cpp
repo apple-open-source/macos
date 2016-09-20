@@ -42,9 +42,9 @@ CryptoAlgorithmSHA1::~CryptoAlgorithmSHA1()
 {
 }
 
-std::unique_ptr<CryptoAlgorithm> CryptoAlgorithmSHA1::create()
+Ref<CryptoAlgorithm> CryptoAlgorithmSHA1::create()
 {
-    return std::unique_ptr<CryptoAlgorithm>(new CryptoAlgorithmSHA1);
+    return adoptRef(*new CryptoAlgorithmSHA1);
 }
 
 CryptoAlgorithmIdentifier CryptoAlgorithmSHA1::identifier() const
@@ -52,9 +52,9 @@ CryptoAlgorithmIdentifier CryptoAlgorithmSHA1::identifier() const
     return s_identifier;
 }
 
-void CryptoAlgorithmSHA1::digest(const CryptoAlgorithmParameters&, const CryptoOperationData& data, VectorCallback callback, VoidCallback failureCallback, ExceptionCode&)
+void CryptoAlgorithmSHA1::digest(const CryptoAlgorithmParameters&, const CryptoOperationData& data, VectorCallback&& callback, VoidCallback&& failureCallback, ExceptionCode&)
 {
-    std::unique_ptr<CryptoDigest> digest = CryptoDigest::create(CryptoAlgorithmIdentifier::SHA_1);
+    std::unique_ptr<CryptoDigest> digest = CryptoDigest::create(CryptoDigest::Algorithm::SHA_1);
     if (!digest) {
         failureCallback();
         return;

@@ -1,6 +1,0 @@
-
-SUBDIR=	
-
-all:
-	cd $(SUBDIR) && make all
-

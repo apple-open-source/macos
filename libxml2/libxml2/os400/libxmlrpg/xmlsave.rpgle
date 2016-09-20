@@ -9,18 +9,21 @@
       /define XML_XMLSAVE_H__
 
       /include "libxmlrpg/xmlversion"
+
+      /if defined(LIBXML_OUTPUT_ENABLED)
+
+      /include "libxmlrpg/xmlTypesC"
       /include "libxmlrpg/tree"
       /include "libxmlrpg/encoding"
       /include "libxmlrpg/xmlIO"
-
-      /if defined(LIBXML_OUTPUT_ENABLED)
 
       * xmlSaveOption:
       *
       * This is the set of XML save options that can be passed down
       * to the xmlSaveToFd() and similar calls.
 
-     d xmlSaveOption   s             10i 0 based(######typedef######)           enum
+     d xmlSaveOption   s                   based(######typedef######)
+     d                                     like(xmlCenum)
      d  XML_SAVE_FORMAT...                                                      Format save output
      d                 c                   X'0001'
      d  XML_SAVE_NO_DECL...                                                     Drop xml declaration
@@ -42,23 +45,23 @@
 
      d xmlSaveToFd     pr                  extproc('xmlSaveToFd')
      d                                     like(xmlSaveCtxtPtr)
-     d  fd                           10i 0 value
+     d  fd                                 value like(xmlCint)
      d  encoding                       *   value options(*string)               const char *
-     d  options                      10i 0 value
+     d  options                            value like(xmlCint)
 
      d xmlSaveToFilename...
      d                 pr                  extproc('xmlSaveToFilename')
      d                                     like(xmlSaveCtxtPtr)
      d  filename                       *   value options(*string)               const char *
      d  encoding                       *   value options(*string)               const char *
-     d  options                      10i 0 value
+     d  options                            value like(xmlCint)
 
      d xmlSaveToBuffer...
      d                 pr                  extproc('xmlSaveToBuffer')
      d                                     like(xmlSaveCtxtPtr)
      d  buffer                             value like(xmlBufferPtr)
      d  encoding                       *   value options(*string)               const char *
-     d  options                      10i 0 value
+     d  options                            value like(xmlCint)
 
      d xmlSaveToIO     pr                  extproc('xmlSaveToIO')
      d                                     like(xmlSaveCtxtPtr)
@@ -66,29 +69,35 @@
      d  ioclose                            value like(xmlOutputCloseCallback)
      d  ioctx                          *   value                                void *
      d  encoding                       *   value options(*string)               const char *
-     d  options                      10i 0 value
+     d  options                            value like(xmlCint)
 
-     d xmlSaveDoc      pr            20i 0 extproc('xmlSaveDoc')
+     d xmlSaveDoc      pr                  extproc('xmlSaveDoc')
+     d                                     like(xmlClong)
      d  ctxt                               value like(xmlSaveCtxtPtr)
      d  doc                                value like(xmlDocPtr)
 
-     d xmlSaveTree     pr            20i 0 extproc('xmlSaveTree')
+     d xmlSaveTree     pr                  extproc('xmlSaveTree')
+     d                                     like(xmlClong)
      d  ctxt                               value like(xmlSaveCtxtPtr)
      d  node                               value like(xmlNodePtr)
 
-     d xmlSaveFlush    pr            10i 0 extproc('xmlSaveFlush')
+     d xmlSaveFlush    pr                  extproc('xmlSaveFlush')
+     d                                     like(xmlCint)
      d  ctxt                               value like(xmlSaveCtxtPtr)
 
-     d xmlSaveClose    pr            10i 0 extproc('xmlSaveClose')
+     d xmlSaveClose    pr                  extproc('xmlSaveClose')
+     d                                     like(xmlCint)
      d  ctxt                               value like(xmlSaveCtxtPtr)
 
      d xmlSaveSetEscape...
-     d                 pr            10i 0 extproc('xmlSaveSetEscape')
+     d                 pr                  extproc('xmlSaveSetEscape')
+     d                                     like(xmlCint)
      d  ctxt                               value like(xmlSaveCtxtPtr)
      d  escape                             value like(xmlCharEncodingOutputFunc)
 
      d xmlSaveSetAttrEscape...
-     d                 pr            10i 0 extproc('xmlSaveSetAttrEscape')
+     d                 pr                  extproc('xmlSaveSetAttrEscape')
+     d                                     like(xmlCint)
      d  ctxt                               value like(xmlSaveCtxtPtr)
      d  escape                             value like(xmlCharEncodingOutputFunc)
 

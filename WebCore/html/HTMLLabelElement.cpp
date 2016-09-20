@@ -36,12 +36,14 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-static LabelableElement* nodeAsSupportedLabelableElement(Node* node)
+static LabelableElement* firstElementWithIdIfLabelable(TreeScope& treeScope, const AtomicString& id)
 {
-    if (!is<LabelableElement>(node))
+    auto* element = treeScope.getElementById(id);
+    if (!is<LabelableElement>(element))
         return nullptr;
-    LabelableElement& element = downcast<LabelableElement>(*node);
-    return element.supportLabels() ? &element : nullptr;
+
+    auto& labelableElement = downcast<LabelableElement>(*element);
+    return labelableElement.supportLabels() ? &labelableElement : nullptr;
 }
 
 inline HTMLLabelElement::HTMLLabelElement(const QualifiedName& tagName, Document& document)
@@ -62,7 +64,7 @@ bool HTMLLabelElement::isFocusable() const
 
 LabelableElement* HTMLLabelElement::control()
 {
-    const AtomicString& controlId = fastGetAttribute(forAttr);
+    const AtomicString& controlId = attributeWithoutSynchronization(forAttr);
     if (controlId.isNull()) {
         // Search the children and descendants of the label element for a form element.
         // per http://dev.w3.org/html5/spec/Overview.html#the-label-element
@@ -74,9 +76,7 @@ LabelableElement* HTMLLabelElement::control()
         return nullptr;
     }
     
-    // Find the first element whose id is controlId. If it is found and it is a labelable form control,
-    // return it, otherwise return 0.
-    return nodeAsSupportedLabelableElement(treeScope().getElementById(controlId));
+    return inDocument() ? firstElementWithIdIfLabelable(treeScope(), controlId) : nullptr;
 }
 
 HTMLFormElement* HTMLLabelElement::form() const

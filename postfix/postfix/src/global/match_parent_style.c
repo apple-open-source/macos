@@ -14,7 +14,7 @@
 /*	postfix lookup mechanisms.
 /*
 /*	match_parent_style() looks up "name" in the
-/*      parent_domain_matches_subdomain configuration parameter
+/*	parent_domain_matches_subdomain configuration parameter
 /*	and returns either MATCH_FLAG_PARENT (parent domain matches
 /*	subdomains) or MATCH_FLAG_NONE.
 /* DIAGNOSTICS
@@ -60,7 +60,8 @@ int     match_parent_style(const char *name)
      */
     if (match_par_dom_list == 0)
 	match_par_dom_list =
-	    string_list_init(MATCH_FLAG_NONE, var_par_dom_match);
+	    string_list_init(VAR_PAR_DOM_MATCH, MATCH_FLAG_NONE,
+			     var_par_dom_match);
 
     /*
      * Look up the parent domain matching policy.

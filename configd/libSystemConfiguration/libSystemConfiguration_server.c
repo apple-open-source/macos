@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -23,7 +23,6 @@
 
 #include <Availability.h>
 #include <TargetConditionals.h>
-#include <asl.h>
 #include <dispatch/dispatch.h>
 #include <vproc.h>
 #include <vproc_priv.h>
@@ -32,13 +31,14 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCPrivate.h>
-
 #include "libSystemConfiguration_server.h"
 
 #define kTrailingEdgeAgentEntitlement "com.apple.SystemConfiguration.trailing-edge-agent"
 
-#pragma mark -
-#pragma mark Support functions
+#ifdef	SC_LOG_HANDLE
+#include <os/log.h>
+os_log_t	SC_LOG_HANDLE;
+#endif	//SC_LOG_HANDLE
 
 
 #pragma mark -

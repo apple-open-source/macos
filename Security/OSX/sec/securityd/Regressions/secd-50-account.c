@@ -81,7 +81,7 @@ static void tests(void)
     CFReleaseNull(inflated);
     
     CFDictionaryRef new_gestalt = SOSCreatePeerGestaltFromName(CFSTR("New Device"));
-    ok(SOSAccountResetToOffering(account, &error), "Reset to Offering  (%@)", error);
+    ok(SOSAccountResetToOffering_wTxn(account, &error), "Reset to Offering  (%@)", error);
     CFReleaseNull(error);
     is(SOSAccountGetCircleStatus(account, &error), kSOSCCInCircle, "Was in Circle  (%@)", error);
     CFReleaseNull(error);

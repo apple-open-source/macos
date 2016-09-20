@@ -462,7 +462,7 @@ HRESULT AccessibleText::scrollSubstringTo(long startIndex, long endIndex, enum I
     if (textRange.start.isNull() || textRange.end.isNull())
         return S_FALSE;
 
-    IntRect boundingBox = makeRange(textRange.start, textRange.end)->boundingBox();
+    IntRect boundingBox = makeRange(textRange.start, textRange.end)->absoluteBoundingBox();
     switch (scrollType) {
     case IA2_SCROLL_TYPE_TOP_LEFT:
         m_object->scrollToGlobalPoint(boundingBox.minXMinYCorner());
@@ -563,7 +563,7 @@ HRESULT AccessibleText::copyText(long startOffset, long endOffset)
 
 HRESULT AccessibleText::deleteText(long startOffset, long endOffset)
 {
-    if (m_object->isReadOnly())
+    if (!m_object->canSetValueAttribute())
         return S_FALSE;
 
     if (initialCheck() == E_POINTER)
@@ -581,7 +581,7 @@ HRESULT AccessibleText::deleteText(long startOffset, long endOffset)
 
 HRESULT AccessibleText::insertText(long offset, BSTR* text)
 {
-    if (m_object->isReadOnly())
+    if (!m_object->canSetValueAttribute())
         return S_FALSE;
 
     if (initialCheck() == E_POINTER)
@@ -601,7 +601,7 @@ HRESULT AccessibleText::insertText(long offset, BSTR* text)
 
 HRESULT AccessibleText::cutText(long startOffset, long endOffset)
 {
-    if (m_object->isReadOnly())
+    if (!m_object->canSetValueAttribute())
         return S_FALSE;
 
     if (initialCheck() == E_POINTER)
@@ -622,7 +622,7 @@ HRESULT AccessibleText::cutText(long startOffset, long endOffset)
 
 HRESULT AccessibleText::pasteText(long offset)
 {
-    if (m_object->isReadOnly())
+    if (!m_object->canSetValueAttribute())
         return S_FALSE;
 
     if (initialCheck() == E_POINTER)
@@ -642,7 +642,7 @@ HRESULT AccessibleText::pasteText(long offset)
 
 HRESULT AccessibleText::replaceText(long startOffset, long endOffset, BSTR* text)
 {
-    if (m_object->isReadOnly())
+    if (!m_object->canSetValueAttribute())
         return S_FALSE;
 
     if (initialCheck() == E_POINTER)
@@ -678,8 +678,10 @@ HRESULT AccessibleText::get_attributes(BSTR* attributes)
 }
 
 // IUnknown
-HRESULT STDMETHODCALLTYPE AccessibleText::QueryInterface(REFIID riid, void** ppvObject)
+HRESULT AccessibleText::QueryInterface(_In_ REFIID riid, _COM_Outptr_ void** ppvObject)
 {
+    if (!ppvObject)
+        return E_POINTER;
     if (IsEqualGUID(riid, __uuidof(IAccessibleText)))
         *ppvObject = static_cast<IAccessibleText*>(this);
     else if (IsEqualGUID(riid, __uuidof(IAccessibleEditableText)))
@@ -701,14 +703,14 @@ HRESULT STDMETHODCALLTYPE AccessibleText::QueryInterface(REFIID riid, void** ppv
     else if (IsEqualGUID(riid, __uuidof(AccessibleBase)))
         *ppvObject = static_cast<AccessibleBase*>(this);
     else {
-        *ppvObject = 0;
+        *ppvObject = nullptr;
         return E_NOINTERFACE;
     }
     AddRef();
     return S_OK;
 }
 
-ULONG STDMETHODCALLTYPE AccessibleText::Release(void)
+ULONG AccessibleText::Release()
 {
     ASSERT(m_refCount > 0);
     if (--m_refCount)

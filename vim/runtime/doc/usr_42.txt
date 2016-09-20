@@ -1,4 +1,4 @@
-*usr_42.txt*	For Vim version 7.3.  Last change: 2008 May 05
+*usr_42.txt*	For Vim version 7.4.  Last change: 2008 May 05
 
 		     VIM USER MANUAL - by Bram Moolenaar
 
@@ -311,7 +311,7 @@ redefine what these items do (after the default menus are setup).
 item with a bitmap.  For example, define a new toolbar item with: >
 
 	:tmenu ToolBar.Compile  Compile the current file
-	:amenu ToolBar.Compile  :!cc % -o %:r<CR>
+	:amenu ToolBar.Compile  :!cc %:S -o %:r:S<CR>
 
 Now you need to create the icon.  For MS-Windows it must be in bitmap format,
 with the name "Compile.bmp".  For Unix XPM format is used, the file name is

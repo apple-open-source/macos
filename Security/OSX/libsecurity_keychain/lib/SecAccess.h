@@ -135,7 +135,7 @@ OSStatus SecAccessCreate(CFStringRef descriptor, CFArrayRef __nullable trustedli
 	@param owner A pointer to a CSSM access control list owner.
 	@param aclCount An unsigned 32-bit integer representing the number of items in the access control list.
 	@param acls A pointer to the access control list.
-	@param On return, a pointer to the new access reference.
+	@param accessRef On return, a pointer to the new access reference.
 	@result A result code.  See "Security Error Codes" (SecBase.h).
 	@discussion For 10.7 and later please use the SecAccessCreateWithOwnerAndACL API
 */

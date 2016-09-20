@@ -274,8 +274,8 @@ WebInspector.FolderizedTreeElement = class FolderizedTreeElement extends WebInsp
 
         function createFolderTreeElement(type, displayName)
         {
-            var folderTreeElement = new WebInspector.FolderTreeElement(displayName);
-            var folderExpandedSetting = new WebInspector.Setting(type + "-folder-expanded-" + this._folderSettingsKey, false);
+            let folderTreeElement = new WebInspector.FolderTreeElement(displayName);
+            let folderExpandedSetting = new WebInspector.Setting(type + "-folder-expanded-" + this._folderSettingsKey, false);
             this._folderExpandedSettingMap.set(folderTreeElement, folderExpandedSetting);
 
             if (folderExpandedSetting.value)
@@ -303,7 +303,7 @@ WebInspector.FolderizedTreeElement = class FolderizedTreeElement extends WebInsp
 
     _folderTreeElementExpandedStateChange(folderTreeElement)
     {
-        var expandedSetting = this._folderExpandedSettingMap.get(folderTreeElement);
+        let expandedSetting = this._folderExpandedSettingMap.get(folderTreeElement);
         console.assert(expandedSetting, "No expanded setting for folderTreeElement", folderTreeElement);
         if (!expandedSetting)
             return;

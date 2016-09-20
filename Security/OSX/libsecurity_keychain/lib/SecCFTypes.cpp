@@ -58,7 +58,6 @@ SecCFTypes::SecCFTypes() :
 	ItemImpl("SecKeychainItem"),
 	KCCursorImpl("SecKeychainSearch"),
 	KeychainImpl("SecKeychain"),
-	KeyItem("SecKey"),
     PasswordImpl("SecPassword"),
 	Policy("SecPolicy"),
 	PolicyCursor("SecPolicySearch"),

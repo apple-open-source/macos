@@ -1,0 +1,69 @@
+diff -ur a/makedefs b/makedefs
+--- a/makedefs	2016-05-15 09:39:11.000000000 -0700
++++ b/makedefs	2016-06-08 09:52:23.000000000 -0700
+@@ -755,10 +755,12 @@
+ #
+ # Look for the ICU library and enable unicode email if available.
+ #
++# Apple: manually icu flags
++#
+ case "$CCARGS" in
+ *-DNO_EAI*) ;;
+-	 *) icu_cppflags=`(icu-config --cppflags) 2>/dev/null` && {
+-		icu_ldflags=`(icu-config --ldflags) 2>/dev/null` && {
++	 *) icu_cppflags="-I/usr/local/include" && {
++		icu_ldflags="-lpthread -lm -licucore" && {
+ 		    trap 'rm -f makedefs.test makedefs.test.[co]' 1 2 3 15
+ 		    cat >makedefs.test.c <<'EOF'
+ #include <unicode/uidna.h>
+diff -ur a/src/postfix/Makefile.in b/src/postfix/Makefile.in
+--- a/src/postfix/Makefile.in	2016-06-07 10:18:04.000000000 -0700
++++ b/src/postfix/Makefile.in	2015-01-27 16:13:12.000000000 -0800
+@@ -5,6 +5,7 @@
+ TESTSRC	= 
+ DEFS	= -I. -I$(INC_DIR) -D$(SYSTYPE)
+ CFLAGS	= $(DEBUG) $(OPT) $(DEFS)
++LDFLAGS = -sectcreate __TEXT __info_plist  $(SRCROOT)/Postfix.ServerSetup/Info.plist
+ FILES	= Makefile $(SRCS) $(HDRS)
+ INC_DIR	= ../../include
+ TESTPROG=
+diff -ur a/postfix-install b/postfix-install
+--- a/postfix-install	2016-01-02 16:25:23.000000000 -0800
++++ b/postfix-install	2016-06-06 15:11:44.000000000 -0700
+@@ -340,22 +340,25 @@
+      *) link=$1
+ 	;;
+     esac
+-    (test $link = "`myreadlink $2`" >/dev/null 2>&1 && echo Skipping $2...) || {
+-	echo Updating $2...
+-	# We create the symlink in place instead of using mv because:
+-	# 1) some systems cannot move symlinks between file systems;
+-	# 2) we cannot use mv to replace a symlink-to-directory;
+-	# 3) "ln -n" is not in POSIX, therefore it's not portable.
+-	# rm+ln is less atomic but this affects compatibility symlinks only.
+-	rm -f $2 && ln -sf $link $2 || exit 1
+-    }
++#    APPLE: Work around B&I sym link errors
++#    (test $link = "`myreadlink $2`" >/dev/null 2>&1 && echo Skipping $2...) || {
++#	echo Updating $2...
++#	# We create the symlink in place instead of using mv because:
++#	# 1) some systems cannot move symlinks between file systems;
++#	# 2) we cannot use mv to replace a symlink-to-directory;
++#	# 3) "ln -n" is not in POSIX, therefore it's not portable.
++#	# rm+ln is less atomic but this affects compatibility symlinks only.
++#	rm -f $2 && ln -sf $link $2 || exit 1
++#    }
+ }
+ 
+ compare_or_hardlink() {
+     (cmp $1 $2 >/dev/null 2>&1 && echo Skipping $2...) || {
+ 	echo Updating $2...
+ 	rm -f $2 || exit 1
+-	ln $1 $2 || exit 1
++#	APPLE: Work around B&I link errors
++#	ln $1 $2 || exit 1
++	cp $1 $2
+     }
+ }
+ 
+

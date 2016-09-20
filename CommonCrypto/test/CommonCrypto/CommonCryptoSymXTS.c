@@ -29,7 +29,7 @@ static int kTestTestCount = 1000;
 
 
 static void
-doXTSTestCase(int caseNumber, int direction, int dataLenBits, char *ivStr, char *cipherText, char *plainText, char *combinedKey)
+doXTSTestCase(int  __unused caseNumber, int direction, int dataLenBits, char *ivStr, char *cipherText, char *plainText, char *combinedKey)
 {
 	char keyString[65], twkString[65];
     size_t ckLen;
@@ -84,7 +84,7 @@ doXTSTestCase(int caseNumber, int direction, int dataLenBits, char *ivStr, char 
     
 }
 
-int CommonCryptoSymXTS(int argc, char *const *argv) {
+int CommonCryptoSymXTS(int __unused argc, char *const * __unused argv) {
 	int direction;
 	int caseNumber;
 	int dataLen;

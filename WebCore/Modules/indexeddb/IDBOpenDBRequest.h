@@ -1,69 +1,74 @@
 /*
- * Copyright (C) 2012 Google Inc. All rights reserved.
+ * Copyright (C) 2015, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
  *
- * 1.  Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- * 2.  Redistributions in binary form must reproduce the above copyright
- *     notice, this list of conditions and the following disclaimer in the
- *     documentation and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS CONTRIBUTORS BE LIABLE FOR ANY
- * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. AND ITS CONTRIBUTORS ``AS IS''
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE INC. OR ITS CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef IDBOpenDBRequest_h
-#define IDBOpenDBRequest_h
+#pragma once
 
 #if ENABLE(INDEXED_DATABASE)
 
+#include "IDBDatabaseIdentifier.h"
 #include "IDBRequest.h"
-#include "IndexedDB.h"
 
 namespace WebCore {
 
-class IDBDatabaseCallbacks;
+class IDBResultData;
 
-class IDBOpenDBRequest : public IDBRequest {
+class IDBOpenDBRequest final : public IDBRequest {
 public:
-    static Ref<IDBOpenDBRequest> create(ScriptExecutionContext*, PassRefPtr<IDBDatabaseCallbacks>, int64_t transactionId, uint64_t version, IndexedDB::VersionNullness);
+    static Ref<IDBOpenDBRequest> createDeleteRequest(ScriptExecutionContext&, IDBClient::IDBConnectionProxy&, const IDBDatabaseIdentifier&);
+    static Ref<IDBOpenDBRequest> createOpenRequest(ScriptExecutionContext&, IDBClient::IDBConnectionProxy&, const IDBDatabaseIdentifier&, uint64_t version);
+
     virtual ~IDBOpenDBRequest();
+    
+    const IDBDatabaseIdentifier& databaseIdentifier() const { return m_databaseIdentifier; }
+    uint64_t version() const { return m_version; }
 
-    using IDBRequest::onSuccess;
+    void requestCompleted(const IDBResultData&);
+    void requestBlocked(uint64_t oldVersion, uint64_t newVersion);
 
-    virtual void onBlocked(uint64_t existingVersion) override;
-    virtual void onUpgradeNeeded(uint64_t oldVersion, PassRefPtr<IDBDatabaseBackend>, const IDBDatabaseMetadata&) override;
-    virtual void onSuccess(PassRefPtr<IDBDatabaseBackend>, const IDBDatabaseMetadata&) override;
-
-    // EventTarget
-    virtual EventTargetInterface eventTargetInterface() const override;
-    virtual bool dispatchEvent(PassRefPtr<Event>) override;
-
-protected:
-    virtual bool shouldEnqueueEvent() const override;
+    void versionChangeTransactionDidFinish();
+    void fireSuccessAfterVersionChangeCommit();
+    void fireErrorAfterVersionChangeCompletion();
 
 private:
-    IDBOpenDBRequest(ScriptExecutionContext*, PassRefPtr<IDBDatabaseCallbacks>, int64_t transactionId, uint64_t version, IndexedDB::VersionNullness);
+    IDBOpenDBRequest(ScriptExecutionContext&, IDBClient::IDBConnectionProxy&, const IDBDatabaseIdentifier&, uint64_t version, IndexedDB::RequestType);
 
-    RefPtr<IDBDatabaseCallbacks> m_databaseCallbacks;
-    const int64_t m_transactionId;
-    uint64_t m_version;
-    IndexedDB::VersionNullness m_versionNullness;
+    bool dispatchEvent(Event&) final;
+
+    void cancelForStop() final;
+
+    void onError(const IDBResultData&);
+    void onSuccess(const IDBResultData&);
+    void onUpgradeNeeded(const IDBResultData&);
+    void onDeleteDatabaseSuccess(const IDBResultData&);
+
+    bool isOpenDBRequest() const final { return true; }
+
+    IDBDatabaseIdentifier m_databaseIdentifier;
+    uint64_t m_version { 0 };
 };
 
 } // namespace WebCore
 
 #endif // ENABLE(INDEXED_DATABASE)
-
-#endif // IDBOpenDBRequest_h

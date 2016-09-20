@@ -8,7 +8,23 @@
 
 () {
   exec </dev/tty
-  ${=${VISUAL:-${EDITOR:-vi}}} $1
+
+  # Compute the cursor's position in bytes, not characters.
+  setopt localoptions nomultibyte
+
+  # Open the editor, placing the cursor at the right place if we know how.
+  local editor=${${VISUAL:-${EDITOR:-vi}}}
+  case $editor in 
+    (*vim*)
+      integer byteoffset=$(( $#PREBUFFER + $#LBUFFER + 1 ))
+      ${=editor} -c "normal! ${byteoffset}go" -- $1;;
+    (*emacs*)
+      local lines=( ${(f):-"$PREBUFFER$LBUFFER"} )
+      ${=editor} +${#lines}:$((${#lines[-1]} + 1)) $1;;
+    (*) ${=editor} $1;;
+  esac
+
+  # Replace the buffer with the editor output.
   print -Rz - "$(<$1)" 
 } =(<<<"$PREBUFFER$BUFFER")
 

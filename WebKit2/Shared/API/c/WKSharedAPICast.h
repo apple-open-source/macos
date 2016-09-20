@@ -146,7 +146,7 @@ public:
     }
 
     ProxyingRefPtr(Ref<ImplType>&& impl)
-        : m_impl(WTF::move(impl))
+        : m_impl(WTFMove(impl))
     {
     }
 
@@ -472,6 +472,8 @@ inline WKContextMenuItemTag toAPI(WebCore::ContextMenuAction action)
         return kWKContextMenuItemTagToggleVideoFullscreen;
     case WebCore::ContextMenuItemTagEnterVideoFullscreen:
         return kWKContextMenuItemTagEnterVideoFullscreen;
+    case WebCore::ContextMenuItemTagToggleVideoEnhancedFullscreen:
+        return kWKContextMenuItemTagToggleVideoEnhancedFullscreen;
     case WebCore::ContextMenuItemTagMediaPlayPause:
         return kWKContextMenuItemTagMediaPlayPause;
     case WebCore::ContextMenuItemTagMediaMute:
@@ -504,8 +506,6 @@ inline WKContextMenuItemTag toAPI(WebCore::ContextMenuAction action)
     case WebCore::ContextMenuItemTagChangeBack:
         return kWKContextMenuItemTagChangeBack;
 #endif
-    case WebCore::ContextMenuItemTagOpenLinkInThisWindow:
-        return kWKContextMenuItemTagOpenLinkInThisWindow;
     case WebCore::ContextMenuItemTagShareMenu:
         return kWKContextMenuItemTagShareMenu;
     default:
@@ -666,6 +666,8 @@ inline WebCore::ContextMenuAction toImpl(WKContextMenuItemTag tag)
         return WebCore::ContextMenuItemTagToggleVideoFullscreen;
     case kWKContextMenuItemTagEnterVideoFullscreen:
         return WebCore::ContextMenuItemTagEnterVideoFullscreen;
+    case kWKContextMenuItemTagToggleVideoEnhancedFullscreen:
+        return WebCore::ContextMenuItemTagToggleVideoEnhancedFullscreen;
     case kWKContextMenuItemTagMediaPlayPause:
         return WebCore::ContextMenuItemTagMediaPlayPause;
     case kWKContextMenuItemTagMediaMute:
@@ -701,7 +703,6 @@ inline WebCore::ContextMenuAction toImpl(WKContextMenuItemTag tag)
         return WebCore::ContextMenuItemTagShareMenu;
 #endif
     case kWKContextMenuItemTagOpenLinkInThisWindow:
-        return WebCore::ContextMenuItemTagOpenLinkInThisWindow;
     default:
         if (tag < kWKContextMenuItemBaseApplicationTag)
             LOG_ERROR("WKContextMenuItemTag %i is an unknown tag but is below the allowable custom tag value of %i", tag, kWKContextMenuItemBaseApplicationTag);
@@ -951,6 +952,8 @@ inline SnapshotOptions toSnapshotOptions(WKSnapshotOptions wkSnapshotOptions)
         snapshotOptions |= SnapshotOptionsForceBlackText;
     if (wkSnapshotOptions & kWKSnapshotOptionsForceWhiteText)
         snapshotOptions |= SnapshotOptionsForceWhiteText;
+    if (wkSnapshotOptions & kWKSnapshotOptionsPrinting)
+        snapshotOptions |= SnapshotOptionsPrinting;
 
     return snapshotOptions;
 }

@@ -31,6 +31,7 @@ extern "C" {
 #endif
 
 extern int keychain_list(int argc, char * const *argv);
+extern int ctk_list(int argc, char * const *argv);
 
 extern int keychain_default(int argc, char * const *argv);
 

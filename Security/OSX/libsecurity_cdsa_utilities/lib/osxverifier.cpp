@@ -43,17 +43,17 @@ namespace Security {
 OSXVerifier::OSXVerifier(OSXCode *code)
 {
 	mPath = code->canonicalPath();
-	secdebug("codesign", "building verifier for %s", mPath.c_str());
+	secinfo("codesign", "building verifier for %s", mPath.c_str());
 
 	// build new-style verifier
 	CFRef<SecStaticCodeRef> staticCode = code->codeRef();
 	switch (OSStatus rc = SecCodeCopyDesignatedRequirement(staticCode,
 			kSecCSDefaultFlags, &mRequirement.aref())) {
 	case errSecSuccess:
-		secdebug("codesign", "  is signed; canonical requirement loaded");
+		secinfo("codesign", "  is signed; canonical requirement loaded");
 		break;
 	case errSecCSUnsigned:
-		secdebug("codesign", "  is unsigned; no requirement");
+		secinfo("codesign", "  is unsigned; no requirement");
 		break;
 	default:
 		MacOSError::throwMe(rc);
@@ -61,7 +61,7 @@ OSXVerifier::OSXVerifier(OSXCode *code)
 	
 	// build old-style verifier
 	makeLegacyHash(code, mLegacyHash);
-	secdebug("codesign", "  hash generated");
+	secinfo("codesign", "  hash generated");
 }
 
 
@@ -72,7 +72,7 @@ OSXVerifier::OSXVerifier(OSXCode *code)
 OSXVerifier::OSXVerifier(const SHA1::Byte *hash, const std::string &path)
 	: mPath(path)
 {
-	secdebug("codesign", "building verifier from hash %p and path=%s", hash, path.c_str());
+	secinfo("codesign", "building verifier from hash %p and path=%s", hash, path.c_str());
 	if (hash)
 		memcpy(mLegacyHash, hash, sizeof(mLegacyHash));
 	else
@@ -82,7 +82,7 @@ OSXVerifier::OSXVerifier(const SHA1::Byte *hash, const std::string &path)
 
 OSXVerifier::~OSXVerifier()
 {
-	secdebug("codesign", "%p verifier destroyed", this);
+	secinfo("codesign", "%p verifier destroyed", this);
 }
 
 
@@ -94,15 +94,15 @@ void OSXVerifier::add(const BlobCore *blob)
 {
 	if (blob->is<Requirement>()) {
 #if defined(NDEBUG)
-		secdebug("codesign", "%p verifier adds requirement", this);
+		secinfo("codesign", "%p verifier adds requirement", this);
 #else
-		secdebug("codesign", "%p verifier adds requirement %s", this,
+		secinfo("codesign", "%p verifier adds requirement %s", this,
 			Dumper::dump(Requirement::specific(blob), true).c_str());
 #endif //NDEBUG
 		MacOSError::check(SecRequirementCreateWithData(CFTempData(*blob),
 			kSecCSDefaultFlags, &mRequirement.aref()));
 	} else {
-		secdebug("codesign", "%p verifier adds blob (0x%x,%zd)",
+		secinfo("codesign", "%p verifier adds blob (0x%x,%zd)",
 			this, blob->magic(), blob->length());
 		BlobCore * &slot = mAuxiliary[blob->magic()];
 		if (slot)
@@ -124,7 +124,7 @@ const BlobCore *OSXVerifier::find(BlobCore::Magic magic)
 
 void OSXVerifier::makeLegacyHash(OSXCode *code, SHA1::Digest digest)
 {
-	secdebug("codesign", "calculating legacy hash for %s", code->canonicalPath().c_str());
+	secinfo("codesign", "calculating legacy hash for %s", code->canonicalPath().c_str());
 	UnixPlusPlus::AutoFileDesc fd(code->executablePath(), O_RDONLY);
 	char buffer[legacyHashLimit];
 	size_t size = fd.read(buffer, legacyHashLimit);

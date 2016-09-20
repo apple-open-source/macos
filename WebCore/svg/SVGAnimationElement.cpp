@@ -32,6 +32,7 @@
 #include "Document.h"
 #include "FloatConversion.h"
 #include "RenderObject.h"
+#include "SVGAnimateColorElement.h"
 #include "SVGAnimateElement.h"
 #include "SVGElement.h"
 #include "SVGNames.h"
@@ -286,10 +287,10 @@ void SVGAnimationElement::updateAnimationMode()
 
 void SVGAnimationElement::setCalcMode(const AtomicString& calcMode)
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, discrete, ("discrete", AtomicString::ConstructFromLiteral));
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, linear, ("linear", AtomicString::ConstructFromLiteral));
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, paced, ("paced", AtomicString::ConstructFromLiteral));
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, spline, ("spline", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<const AtomicString> discrete("discrete", AtomicString::ConstructFromLiteral);
+    static NeverDestroyed<const AtomicString> linear("linear", AtomicString::ConstructFromLiteral);
+    static NeverDestroyed<const AtomicString> paced("paced", AtomicString::ConstructFromLiteral);
+    static NeverDestroyed<const AtomicString> spline("spline", AtomicString::ConstructFromLiteral);
     if (calcMode == discrete)
         setCalcMode(CalcModeDiscrete);
     else if (calcMode == linear)
@@ -304,8 +305,8 @@ void SVGAnimationElement::setCalcMode(const AtomicString& calcMode)
 
 void SVGAnimationElement::setAttributeType(const AtomicString& attributeType)
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, css, ("CSS", AtomicString::ConstructFromLiteral));
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, xml, ("XML", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<const AtomicString> css("CSS", AtomicString::ConstructFromLiteral);
+    static NeverDestroyed<const AtomicString> xml("XML", AtomicString::ConstructFromLiteral);
     if (attributeType == css)
         m_attributeType = AttributeTypeCSS;
     else if (attributeType == xml)
@@ -317,30 +318,30 @@ void SVGAnimationElement::setAttributeType(const AtomicString& attributeType)
 
 String SVGAnimationElement::toValue() const
 {    
-    return fastGetAttribute(SVGNames::toAttr);
+    return attributeWithoutSynchronization(SVGNames::toAttr);
 }
 
 String SVGAnimationElement::byValue() const
 {    
-    return fastGetAttribute(SVGNames::byAttr);
+    return attributeWithoutSynchronization(SVGNames::byAttr);
 }
 
 String SVGAnimationElement::fromValue() const
 {    
-    return fastGetAttribute(SVGNames::fromAttr);
+    return attributeWithoutSynchronization(SVGNames::fromAttr);
 }
 
 bool SVGAnimationElement::isAdditive() const
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, sum, ("sum", AtomicString::ConstructFromLiteral));
-    const AtomicString& value = fastGetAttribute(SVGNames::additiveAttr);
+    static NeverDestroyed<const AtomicString> sum("sum", AtomicString::ConstructFromLiteral);
+    const AtomicString& value = attributeWithoutSynchronization(SVGNames::additiveAttr);
     return value == sum || animationMode() == ByAnimation;
 }
 
 bool SVGAnimationElement::isAccumulated() const
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, sum, ("sum", AtomicString::ConstructFromLiteral));
-    const AtomicString& value = fastGetAttribute(SVGNames::accumulateAttr);
+    static NeverDestroyed<const AtomicString> sum("sum", AtomicString::ConstructFromLiteral);
+    const AtomicString& value = attributeWithoutSynchronization(SVGNames::accumulateAttr);
     return value == sum && animationMode() != ToAnimation;
 }
 
@@ -552,7 +553,7 @@ void SVGAnimationElement::startedActiveInterval()
         return;
 
     // These validations are appropriate for all animation modes.
-    if (fastHasAttribute(SVGNames::keyPointsAttr) && m_keyPoints.size() != m_keyTimes.size())
+    if (hasAttributeWithoutSynchronization(SVGNames::keyPointsAttr) && m_keyPoints.size() != m_keyTimes.size())
         return;
 
     AnimationMode animationMode = this->animationMode();
@@ -560,9 +561,9 @@ void SVGAnimationElement::startedActiveInterval()
     if (calcMode == CalcModeSpline) {
         unsigned splinesCount = m_keySplines.size();
         if (!splinesCount
-            || (fastHasAttribute(SVGNames::keyPointsAttr) && m_keyPoints.size() - 1 != splinesCount)
+            || (hasAttributeWithoutSynchronization(SVGNames::keyPointsAttr) && m_keyPoints.size() - 1 != splinesCount)
             || (animationMode == ValuesAnimation && m_values.size() - 1 != splinesCount)
-            || (fastHasAttribute(SVGNames::keyTimesAttr) && m_keyTimes.size() - 1 != splinesCount))
+            || (hasAttributeWithoutSynchronization(SVGNames::keyTimesAttr) && m_keyTimes.size() - 1 != splinesCount))
             return;
     }
 
@@ -572,7 +573,7 @@ void SVGAnimationElement::startedActiveInterval()
     if (animationMode == NoAnimation)
         return;
     if ((animationMode == FromToAnimation || animationMode == FromByAnimation || animationMode == ToAnimation || animationMode == ByAnimation)
-        && (fastHasAttribute(SVGNames::keyPointsAttr) && fastHasAttribute(SVGNames::keyTimesAttr) && (m_keyTimes.size() < 2 || m_keyTimes.size() != m_keyPoints.size())))
+        && (hasAttributeWithoutSynchronization(SVGNames::keyPointsAttr) && hasAttributeWithoutSynchronization(SVGNames::keyTimesAttr) && (m_keyTimes.size() < 2 || m_keyTimes.size() != m_keyPoints.size())))
         return;
     if (animationMode == FromToAnimation)
         m_animationValid = calculateFromAndToValues(from, to);
@@ -586,16 +587,16 @@ void SVGAnimationElement::startedActiveInterval()
         m_animationValid = calculateFromAndByValues(emptyString(), by);
     else if (animationMode == ValuesAnimation) {
         m_animationValid = m_values.size() >= 1
-            && (calcMode == CalcModePaced || !fastHasAttribute(SVGNames::keyTimesAttr) || fastHasAttribute(SVGNames::keyPointsAttr) || (m_values.size() == m_keyTimes.size()))
+            && (calcMode == CalcModePaced || !hasAttributeWithoutSynchronization(SVGNames::keyTimesAttr) || hasAttributeWithoutSynchronization(SVGNames::keyPointsAttr) || (m_values.size() == m_keyTimes.size()))
             && (calcMode == CalcModeDiscrete || !m_keyTimes.size() || m_keyTimes.last() == 1)
             && (calcMode != CalcModeSpline || ((m_keySplines.size() && (m_keySplines.size() == m_values.size() - 1)) || m_keySplines.size() == m_keyPoints.size() - 1))
-            && (!fastHasAttribute(SVGNames::keyPointsAttr) || (m_keyTimes.size() > 1 && m_keyTimes.size() == m_keyPoints.size()));
+            && (!hasAttributeWithoutSynchronization(SVGNames::keyPointsAttr) || (m_keyTimes.size() > 1 && m_keyTimes.size() == m_keyPoints.size()));
         if (m_animationValid)
             m_animationValid = calculateToAtEndOfDurationValue(m_values.last());
         if (calcMode == CalcModePaced && m_animationValid)
             calculateKeyTimesForCalcModePaced();
     } else if (animationMode == PathAnimation)
-        m_animationValid = calcMode == CalcModePaced || !fastHasAttribute(SVGNames::keyPointsAttr) || (m_keyTimes.size() > 1 && m_keyTimes.size() == m_keyPoints.size());
+        m_animationValid = calcMode == CalcModePaced || !hasAttributeWithoutSynchronization(SVGNames::keyPointsAttr) || (m_keyTimes.size() > 1 && m_keyTimes.size() == m_keyPoints.size());
 }
 
 void SVGAnimationElement::updateAnimation(float percent, unsigned repeatCount, SVGSMILElement* resultElement)
@@ -656,7 +657,7 @@ void SVGAnimationElement::adjustForInheritance(SVGElement* targetElement, const 
 
 static bool inheritsFromProperty(SVGElement*, const QualifiedName& attributeName, const String& value)
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, inherit, ("inherit", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<const AtomicString> inherit("inherit", AtomicString::ConstructFromLiteral);
     
     if (value.isEmpty() || value != inherit)
         return false;

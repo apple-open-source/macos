@@ -245,7 +245,7 @@ vpn_disconnect(struct bound_addr *srv, const char *reason)
 }
 
 int
-vpn_start_ph2(struct bound_addr *addr, struct vpnctl_cmd_start_ph2 *pkt)
+vpn_start_ph2(struct bound_addr *addr, struct vpnctl_cmd_start_ph2 *pkt, size_t pkt_len)
 {
 	struct vpnctl_sa_selector *selector_ptr;
 	struct vpnctl_algo *algo_ptr, *next_algo;
@@ -283,7 +283,18 @@ vpn_start_ph2(struct bound_addr *addr, struct vpnctl_cmd_start_ph2 *pkt)
 	}
 
 	selector_ptr = (struct vpnctl_sa_selector *)(pkt + 1);
+	size_t total_selector_len = (sizeof(struct vpnctl_sa_selector) * ntohs(pkt->selector_count));
+	if (pkt_len < (sizeof(struct vpnctl_cmd_start_ph2) + total_selector_len)) {
+		plog(ASL_LEVEL_ERR, "invalid length for vpn ph2 selector - len=%ld - expected %ld\n", pkt_len, (sizeof(struct vpnctl_cmd_start_ph2) + total_selector_len));
+		return -1;
+	}
+
 	algo_ptr = (struct vpnctl_algo *)(selector_ptr + ntohs(pkt->selector_count));
+	size_t total_algo_len = (sizeof(struct vpnctl_algo) * ntohs(pkt->algo_count));
+	if (pkt_len < (sizeof(struct vpnctl_cmd_start_ph2) + total_selector_len + total_algo_len)) {
+		plog(ASL_LEVEL_ERR, "invalid length for vpn ph2 algo - len=%ld - expected %ld\n", pkt_len, (sizeof(struct vpnctl_cmd_start_ph2) + total_selector_len + total_algo_len));
+		return -1;
+	}
 
 	for (i = 0; i < ntohs(pkt->selector_count); i++, selector_ptr++) {
 		new_sainfo = create_sainfo();

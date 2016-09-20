@@ -19,7 +19,11 @@ SharedMemoryClient::SharedMemoryClient (const char* segmentName, SegmentOffsetTy
 	
 	mSegmentName = segmentName;
 	mSegmentSize = segmentSize;
-	mSegment = mDataArea = mDataPtr = 0;
+    mSegment = (u_int8_t*) MAP_FAILED;
+    mDataArea = mDataPtr = 0;
+
+	if (segmentSize < sizeof(u_int32_t))
+		return;
 	
 	// make the name
 	int segmentDescriptor;
@@ -36,6 +40,25 @@ SharedMemoryClient::SharedMemoryClient (const char* segmentName, SegmentOffsetTy
 		}
 	}
 
+    // check the file size is large enough to support Operations
+    struct stat statResult = {};
+    int result = fstat(segmentDescriptor, &statResult);
+    if(result) {
+        UnixError::throwMe(errno);
+    }
+
+    off_t sz = statResult.st_size;
+    if(sz < sizeof(SegmentOffsetType)) {
+        close(segmentDescriptor);
+        return;
+    }
+
+    if(sz > 4*segmentSize) {
+        // File is too ridiculously large. Quit.
+        close(segmentDescriptor);
+        return;
+    }
+
 	// map the segment into place
 	mSegment = (u_int8_t*) mmap (NULL, segmentSize, PROT_READ, MAP_SHARED, segmentDescriptor, 0);
 	close (segmentDescriptor);
@@ -46,7 +69,7 @@ SharedMemoryClient::SharedMemoryClient (const char* segmentName, SegmentOffsetTy
 	}
 	
 	mDataArea = mSegment + sizeof (SegmentOffsetType);
-	mDataMax = mSegment + segmentSize;
+	mDataMax = mSegment + sz;
 	mDataPtr = mDataArea + GetProducerCount ();
 }
 
@@ -70,7 +93,16 @@ SegmentOffsetType SharedMemoryClient::GetProducerCount ()
 	{
 		CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
 	}
-	return OSSwapBigToHostInt32 (*(u_int32_t*) mSegment);
+    if( ((u_int8_t*) (((u_int32_t*) mSegment) + 1)) > mDataMax) {
+        // Check we can actually read this u_int32_t
+        CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
+    }
+
+	SegmentOffsetType offset = OSSwapBigToHostInt32 (*(u_int32_t*) mSegment);
+	if (&mSegment[offset] >= mDataMax)
+		CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
+	else
+		return offset;
 }
 
 

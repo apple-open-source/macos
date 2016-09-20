@@ -70,6 +70,7 @@ public:
 private:
     WeakMapData(VM&);
     static void destroy(JSCell*);
+    static size_t estimatedSize(JSCell*);
     static void visitChildren(JSCell*, SlotVisitor&);
     void finishCreation(VM&);
 
@@ -80,8 +81,8 @@ private:
         {
         }
     private:
-        virtual void visitWeakReferences(SlotVisitor&) override;
-        virtual void finalizeUnconditionally() override;
+        void visitWeakReferences(SlotVisitor&) override;
+        void finalizeUnconditionally() override;
         unsigned m_liveKeyCount;
         WeakMapData* m_target;
     };

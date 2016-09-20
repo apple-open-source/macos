@@ -49,6 +49,9 @@
 
 __BEGIN_DECLS
 
+CF_ASSUME_NONNULL_BEGIN
+CF_IMPLICIT_BRIDGING_ENABLED
+
 /*!
 	@function   IOHIDValueGetTypeID
 	@abstract   Returns the type identifier of all IOHIDValue instances.
@@ -71,7 +74,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
     @result     Returns a reference to a new IOHIDValueRef.
 */
 CF_EXPORT
-IOHIDValueRef IOHIDValueCreateWithIntegerValue(CFAllocatorRef allocator, IOHIDElementRef element, uint64_t timeStamp, CFIndex value)
+IOHIDValueRef IOHIDValueCreateWithIntegerValue(CFAllocatorRef _Nullable allocator, IOHIDElementRef element, uint64_t timeStamp, CFIndex value)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*!
@@ -89,7 +92,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
     @result     Returns a reference to a new IOHIDValueRef.
 */
 CF_EXPORT
-IOHIDValueRef IOHIDValueCreateWithBytes(CFAllocatorRef allocator, IOHIDElementRef element, uint64_t timeStamp, const uint8_t * bytes, CFIndex length)
+IOHIDValueRef _Nullable IOHIDValueCreateWithBytes(CFAllocatorRef _Nullable allocator, IOHIDElementRef element, uint64_t timeStamp, const uint8_t * bytes, CFIndex length)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*!
@@ -107,7 +110,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
     @result     Returns a reference to a new IOHIDValueRef.
 */
 CF_EXPORT
-IOHIDValueRef IOHIDValueCreateWithBytesNoCopy(CFAllocatorRef allocator, IOHIDElementRef element, uint64_t timeStamp, const uint8_t * bytes, CFIndex length)
+IOHIDValueRef _Nullable IOHIDValueCreateWithBytesNoCopy(CFAllocatorRef _Nullable allocator, IOHIDElementRef element, uint64_t timeStamp, const uint8_t * bytes, CFIndex length)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*!
@@ -183,6 +186,9 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 CF_EXPORT
 double_t IOHIDValueGetScaledValue(IOHIDValueRef value, IOHIDValueScaleType type)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+CF_IMPLICIT_BRIDGING_DISABLED
+CF_ASSUME_NONNULL_END
 
 __END_DECLS
 

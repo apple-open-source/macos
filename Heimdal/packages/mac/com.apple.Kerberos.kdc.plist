@@ -29,8 +29,6 @@
 	<array>
 		<string>/System/Library/PrivateFrameworks/Heimdal.framework/Helpers/kdc</string>
 	</array>
-	<key>ServiceIPC</key>
-	<false/>
 	<key>MachServices</key>
 	<dict>
 		<key>org.h5l.kdc</key>

@@ -29,6 +29,7 @@
 #include "Document.h"
 #include "Element.h"
 #include "Event.h"
+#include "EventNames.h"
 #include "EventSender.h"
 #include "Frame.h"
 #include "HTMLNames.h"
@@ -89,7 +90,7 @@ static inline bool pageIsBeingDismissed(Document& document)
 
 ImageLoader::ImageLoader(Element& element)
     : m_element(element)
-    , m_image(0)
+    , m_image(nullptr)
     , m_derefElementTimer(*this, &ImageLoader::timerFired)
     , m_hasPendingBeforeLoadEvent(false)
     , m_hasPendingLoadEvent(false)
@@ -170,7 +171,7 @@ void ImageLoader::updateFromElement()
 
     // Do not load any image if the 'src' attribute is missing or if it is
     // an empty string.
-    CachedResourceHandle<CachedImage> newImage = 0;
+    CachedResourceHandle<CachedImage> newImage = nullptr;
     if (!attr.isNull() && !stripLeadingAndTrailingHTMLSpaces(attr).isEmpty()) {
         ResourceLoaderOptions options = CachedResourceLoader::defaultCachedResourceOptions();
         options.setContentSecurityPolicyImposition(element().isInUserAgentShadowTree() ? ContentSecurityPolicyImposition::SkipPolicyCheck : ContentSecurityPolicyImposition::DoPolicyCheck);
@@ -178,16 +179,18 @@ void ImageLoader::updateFromElement()
         CachedResourceRequest request(ResourceRequest(document.completeURL(sourceURI(attr))), options);
         request.setInitiator(&element());
 
-        String crossOriginMode = element().fastGetAttribute(HTMLNames::crossoriginAttr);
+        String crossOriginMode = element().attributeWithoutSynchronization(HTMLNames::crossoriginAttr);
         if (!crossOriginMode.isNull()) {
-            StoredCredentials allowCredentials = equalIgnoringCase(crossOriginMode, "use-credentials") ? AllowStoredCredentials : DoNotAllowStoredCredentials;
-            updateRequestForAccessControl(request.mutableResourceRequest(), document.securityOrigin(), allowCredentials);
+            StoredCredentials allowCredentials = equalLettersIgnoringASCIICase(crossOriginMode, "use-credentials") ? AllowStoredCredentials : DoNotAllowStoredCredentials;
+            ASSERT(document.securityOrigin());
+            updateRequestForAccessControl(request.mutableResourceRequest(), *document.securityOrigin(), allowCredentials);
         }
 
         if (m_loadManually) {
             bool autoLoadOtherImages = document.cachedResourceLoader().autoLoadImages();
             document.cachedResourceLoader().setAutoLoadImages(false);
             newImage = new CachedImage(request.resourceRequest(), m_element.document().page()->sessionID());
+            newImage->setStatus(CachedResource::Pending);
             newImage->setLoading(true);
             newImage->setOwningCachedResourceLoader(&document.cachedResourceLoader());
             document.cachedResourceLoader().m_documentResources.set(newImage->url(), newImage.get());
@@ -283,13 +286,13 @@ void ImageLoader::notifyFinished(CachedResource* resource)
     if (!m_hasPendingLoadEvent)
         return;
 
-    if (element().fastHasAttribute(HTMLNames::crossoriginAttr) && !resource->passesSameOriginPolicyCheck(*element().document().securityOrigin())) {
+    if (element().hasAttributeWithoutSynchronization(HTMLNames::crossoriginAttr) && !resource->passesSameOriginPolicyCheck(*element().document().securityOrigin())) {
         clearImageWithoutConsideringPendingLoadEvent();
 
         m_hasPendingErrorEvent = true;
         errorEventSender().dispatchEventSoon(*this);
 
-        DEPRECATED_DEFINE_STATIC_LOCAL(String, consoleMessage, (ASCIILiteral("Cross-origin image load denied by Cross-Origin Resource Sharing policy.")));
+        static NeverDestroyed<String> consoleMessage(ASCIILiteral("Cross-origin image load denied by Cross-Origin Resource Sharing policy."));
         element().document().addConsoleMessage(MessageSource::Security, MessageLevel::Error, consoleMessage);
 
         ASSERT(!m_hasPendingLoadEvent);
@@ -467,7 +470,7 @@ void ImageLoader::elementDidMoveToNewDocument()
 
 inline void ImageLoader::clearFailedLoadURL()
 {
-    m_failedLoadURL = AtomicString();
+    m_failedLoadURL = nullAtom;
 }
 
 }

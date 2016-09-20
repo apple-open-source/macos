@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CSSCanvasValue_h
-#define CSSCanvasValue_h
+#pragma once
 
 #include "CSSImageGeneratorValue.h"
 #include "HTMLCanvasElement.h"
@@ -32,6 +31,7 @@
 namespace WebCore {
 
 class Document;
+class HTMLCanvasElement;
 
 class CSSCanvasValue : public CSSImageGeneratorValue {
 public:
@@ -40,7 +40,7 @@ public:
 
     String customCSSText() const;
 
-    PassRefPtr<Image> image(RenderElement*, const FloatSize&);
+    RefPtr<Image> image(RenderElement*, const FloatSize&);
     bool isFixedSize() const { return true; }
     FloatSize fixedSize(const RenderElement*);
 
@@ -54,7 +54,6 @@ private:
         : CSSImageGeneratorValue(CanvasClass)
         , m_canvasObserver(*this)
         , m_name(name)
-        , m_element(0)
     {
     }
 
@@ -72,15 +71,15 @@ private:
         }
 
     private:
-        virtual void canvasChanged(HTMLCanvasElement& canvas, const FloatRect& changedRect) override
+        void canvasChanged(HTMLCanvasElement& canvas, const FloatRect& changedRect) override
         {
             m_ownerValue.canvasChanged(canvas, changedRect);
         }
-        virtual void canvasResized(HTMLCanvasElement& canvas) override
+        void canvasResized(HTMLCanvasElement& canvas) override
         {
             m_ownerValue.canvasResized(canvas);
         }
-        virtual void canvasDestroyed(HTMLCanvasElement& canvas) override
+        void canvasDestroyed(HTMLCanvasElement& canvas) override
         {
             m_ownerValue.canvasDestroyed(canvas);
         }
@@ -99,11 +98,10 @@ private:
     // The name of the canvas.
     String m_name;
     // The document supplies the element and owns it.
-    HTMLCanvasElement* m_element;
+    HTMLCanvasElement* m_element { nullptr };
 };
 
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_CSS_VALUE(CSSCanvasValue, isCanvasValue())
 
-#endif // CSSCanvasValue_h

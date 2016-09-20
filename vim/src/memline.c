@@ -42,10 +42,6 @@
  *  mf_get().
  */
 
-#if defined(MSDOS) || defined(WIN16) || defined(WIN32) || defined(_WIN64)
-# include "vimio.h"	/* for mch_open(), must be before vim.h */
-#endif
-
 #include "vim.h"
 
 #ifndef UNIX		/* it's in os_unix.h for Unix */
@@ -54,10 +50,6 @@
 
 #if defined(SASC) || defined(__amigaos4__)
 # include <proto/dos.h>	    /* for Open() and Close() */
-#endif
-
-#ifdef HAVE_ERRNO_H
-# include <errno.h>
 #endif
 
 typedef struct block0		ZERO_BL;    /* contents of the first block */
@@ -71,6 +63,15 @@ typedef struct pointer_entry	PTR_EN;	    /* block/line-count pair */
 #define BLOCK0_ID1     '0'		    /* block 0 id 1 */
 #define BLOCK0_ID1_C0  'c'		    /* block 0 id 1 'cm' 0 */
 #define BLOCK0_ID1_C1  'C'		    /* block 0 id 1 'cm' 1 */
+#define BLOCK0_ID1_C2  'd'		    /* block 0 id 1 'cm' 2 */
+
+#if defined(FEAT_CRYPT)
+static int id1_codes[] = {
+    BLOCK0_ID1_C0,  /* CRYPT_M_ZIP */
+    BLOCK0_ID1_C1,  /* CRYPT_M_BF */
+    BLOCK0_ID1_C2,  /* CRYPT_M_BF2 */
+};
+#endif
 
 /*
  * pointer to a block, used in a pointer block
@@ -159,7 +160,7 @@ struct data_block
 struct block0
 {
     char_u	b0_id[2];	/* id for block 0: BLOCK0_ID0 and BLOCK0_ID1,
-				 * BLOCK0_ID1_C0, BLOCK0_ID1_C1 */
+				 * BLOCK0_ID1_C0, BLOCK0_ID1_C1, etc. */
     char_u	b0_version[10];	/* Vim version string */
     char_u	b0_page_size[4];/* number of bytes per page */
     char_u	b0_mtime[4];	/* last modification time of file */
@@ -234,6 +235,7 @@ typedef enum {
 } upd_block0_T;
 
 #ifdef FEAT_CRYPT
+static void ml_set_mfp_crypt __ARGS((buf_T *buf));
 static void ml_set_b0_crypt __ARGS((buf_T *buf, ZERO_BL *b0p));
 #endif
 static int ml_check_b0_id __ARGS((ZERO_BL *b0p));
@@ -264,7 +266,7 @@ static long char_to_long __ARGS((char_u *));
 static char_u *make_percent_swname __ARGS((char_u *dir, char_u *name));
 #endif
 #ifdef FEAT_CRYPT
-static void ml_crypt_prepare __ARGS((memfile_T *mfp, off_t offset, int reading));
+static cryptstate_T *ml_crypt_prepare __ARGS((memfile_T *mfp, off_t offset, int reading));
 #endif
 #ifdef FEAT_BYTEOFF
 static void ml_updatechunk __ARGS((buf_T *buf, long line, long len, int updtype));
@@ -296,6 +298,9 @@ ml_open(buf)
 #ifdef FEAT_BYTEOFF
     buf->b_ml.ml_chunksize = NULL;
 #endif
+
+    if (cmdmod.noswapfile)
+	buf->b_p_swf = FALSE;
 
     /*
      * When 'updatecount' is non-zero swap file may be opened later.
@@ -364,8 +369,7 @@ ml_open(buf)
 	b0p->b0_hname[B0_HNAME_SIZE - 1] = NUL;
 	long_to_char(mch_get_pid(), b0p->b0_pid);
 #ifdef FEAT_CRYPT
-	if (*buf->b_p_key != NUL)
-	    ml_set_b0_crypt(buf, b0p);
+	ml_set_b0_crypt(buf, b0p);
 #endif
     }
 
@@ -430,6 +434,25 @@ error:
 
 #if defined(FEAT_CRYPT) || defined(PROTO)
 /*
+ * Prepare encryption for "buf" for the current key and method.
+ */
+    static void
+ml_set_mfp_crypt(buf)
+    buf_T	*buf;
+{
+    if (*buf->b_p_key != NUL)
+    {
+	int method_nr = crypt_get_method_nr(buf);
+
+	if (method_nr > CRYPT_M_ZIP)
+	{
+	    /* Generate a seed and store it in the memfile. */
+	    sha2_seed(buf->b_ml.ml_mfp->mf_seed, MF_SEED_LEN, NULL, 0);
+	}
+    }
+}
+
+/*
  * Prepare encryption for "buf" with block 0 "b0p".
  */
     static void
@@ -441,11 +464,11 @@ ml_set_b0_crypt(buf, b0p)
 	b0p->b0_id[1] = BLOCK0_ID1;
     else
     {
-	if (get_crypt_method(buf) == 0)
-	    b0p->b0_id[1] = BLOCK0_ID1_C0;
-	else
+	int method_nr = crypt_get_method_nr(buf);
+
+	b0p->b0_id[1] = id1_codes[method_nr];
+	if (method_nr > CRYPT_M_ZIP)
 	{
-	    b0p->b0_id[1] = BLOCK0_ID1_C1;
 	    /* Generate a seed and store it in block 0 and in the memfile. */
 	    sha2_seed(&b0p->b0_seed, MF_SEED_LEN, NULL, 0);
 	    mch_memmove(buf->b_ml.ml_mfp->mf_seed, &b0p->b0_seed, MF_SEED_LEN);
@@ -465,7 +488,7 @@ ml_set_b0_crypt(buf, b0p)
 ml_set_crypt_key(buf, old_key, old_cm)
     buf_T	*buf;
     char_u	*old_key;
-    int		old_cm;
+    char_u	*old_cm;
 {
     memfile_T	*mfp = buf->b_ml.ml_mfp;
     bhdr_T	*hp;
@@ -477,15 +500,30 @@ ml_set_crypt_key(buf, old_key, old_cm)
     DATA_BL	*dp;
     blocknr_T	bnum;
     int		top;
+    int		old_method;
 
     if (mfp == NULL)
 	return;  /* no memfile yet, nothing to do */
+    old_method = crypt_method_nr_from_name(old_cm);
+
+    /* First make sure the swapfile is in a consistent state, using the old
+     * key and method. */
+    {
+	char_u *new_key = buf->b_p_key;
+	char_u *new_buf_cm = buf->b_p_cm;
+
+	buf->b_p_key = old_key;
+	buf->b_p_cm = old_cm;
+	ml_preserve(buf, FALSE);
+	buf->b_p_key = new_key;
+	buf->b_p_cm = new_buf_cm;
+    }
 
     /* Set the key, method and seed to be used for reading, these must be the
      * old values. */
     mfp->mf_old_key = old_key;
-    mfp->mf_old_cm = old_cm;
-    if (old_cm > 0)
+    mfp->mf_old_cm = old_method;
+    if (old_method > 0 && *old_key != NUL)
 	mch_memmove(mfp->mf_old_seed, mfp->mf_seed, MF_SEED_LEN);
 
     /* Update block 0 with the crypt flag and may set a new seed. */
@@ -538,8 +576,10 @@ ml_set_crypt_key(buf, old_key, old_cm)
 		    {
 			if (pp->pb_pointer[idx].pe_bnum < 0)
 			{
-			    /* Skip data block with negative block number. */
-			    ++idx;    /* get same block again for next index */
+			    /* Skip data block with negative block number.
+			     * Should not happen, because of the ml_preserve()
+			     * above. Get same block again for next index. */
+			    ++idx; 
 			    continue;
 			}
 
@@ -556,6 +596,7 @@ ml_set_crypt_key(buf, old_key, old_cm)
 
 			bnum = pp->pb_pointer[idx].pe_bnum;
 			page_count = pp->pb_pointer[idx].pe_page_count;
+			idx = 0;
 			continue;
 		    }
 		}
@@ -582,6 +623,11 @@ ml_set_crypt_key(buf, old_key, old_cm)
 	    idx = ip->ip_index + 1;	    /* go to next index */
 	    page_count = 1;
 	}
+	if (hp != NULL)
+	    mf_put(mfp, hp, FALSE, FALSE);  /* release previous block */
+
+	if (error > 0)
+	    EMSG(_("E843: Error while updating swap file crypt"));
     }
 
     mfp->mf_old_key = NULL;
@@ -611,7 +657,7 @@ ml_setname(buf)
 	 * When 'updatecount' is 0 and 'noswapfile' there is no swap file.
 	 * For help files we will make a swap file now.
 	 */
-	if (p_uc != 0)
+	if (p_uc != 0 && !cmdmod.noswapfile)
 	    ml_open_file(buf);	    /* create a swap file */
 	return;
     }
@@ -626,6 +672,8 @@ ml_setname(buf)
 	    break;
 	fname = findswapname(buf, &dirp, mfp->mf_fname);
 						    /* alloc's fname */
+	if (dirp == NULL)	    /* out of memory */
+	    break;
 	if (fname == NULL)	    /* no file name found for this dir */
 	    continue;
 
@@ -722,14 +770,14 @@ ml_open_file(buf)
     char_u	*dirp;
 
     mfp = buf->b_ml.ml_mfp;
-    if (mfp == NULL || mfp->mf_fd >= 0 || !buf->b_p_swf)
+    if (mfp == NULL || mfp->mf_fd >= 0 || !buf->b_p_swf || cmdmod.noswapfile)
 	return;		/* nothing to do */
 
 #ifdef FEAT_SPELL
     /* For a spell buffer use a temp file name. */
     if (buf->b_spell)
     {
-	fname = vim_tempname('s');
+	fname = vim_tempname('s', FALSE);
 	if (fname != NULL)
 	    (void)mf_open_file(mfp, fname);	/* consumes fname! */
 	buf->b_may_swap = FALSE;
@@ -749,11 +797,13 @@ ml_open_file(buf)
 	 * and creating it, another Vim creates the file.  In that case the
 	 * creation will fail and we will use another directory. */
 	fname = findswapname(buf, &dirp, NULL); /* allocates fname */
+	if (dirp == NULL)
+	    break;  /* out of memory */
 	if (fname == NULL)
 	    continue;
 	if (mf_open_file(mfp, fname) == OK)	/* consumes fname! */
 	{
-#if defined(MSDOS) || defined(MSWIN) || defined(RISCOS)
+#if defined(MSDOS) || defined(MSWIN)
 	    /*
 	     * set full pathname for swap file now, because a ":!cd dir" may
 	     * change directory without us knowing it.
@@ -781,9 +831,7 @@ ml_open_file(buf)
 	need_wait_return = TRUE;	/* call wait_return later */
 	++no_wait_return;
 	(void)EMSG2(_("E303: Unable to open swap file for \"%s\", recovery impossible"),
-		    buf_spname(buf) != NULL
-			? (char_u *)buf_spname(buf)
-			: buf->b_fname);
+		    buf_spname(buf) != NULL ? buf_spname(buf) : buf->b_fname);
 	--no_wait_return;
     }
 
@@ -844,8 +892,11 @@ ml_close_all(del_file)
     for (buf = firstbuf; buf != NULL; buf = buf->b_next)
 	ml_close(buf, del_file && ((buf->b_flags & BF_PRESERVED) == 0
 				 || vim_strchr(p_cpo, CPO_PRESERVE) == NULL));
+#ifdef FEAT_SPELL
+    spell_delete_wordlist();	/* delete the internal wordlist */
+#endif
 #ifdef TEMPDIRNAMES
-    vim_deltempdir();	    /* delete created temp directory */
+    vim_deltempdir();		/* delete created temp directory */
 #endif
 }
 
@@ -884,7 +935,8 @@ ml_check_b0_id(b0p)
     if (b0p->b0_id[0] != BLOCK0_ID0
 	    || (b0p->b0_id[1] != BLOCK0_ID1
 		&& b0p->b0_id[1] != BLOCK0_ID1_C0
-		&& b0p->b0_id[1] != BLOCK0_ID1_C1)
+		&& b0p->b0_id[1] != BLOCK0_ID1_C1
+		&& b0p->b0_id[1] != BLOCK0_ID1_C2)
 	    )
 	return FAIL;
     return OK;
@@ -903,8 +955,19 @@ ml_upd_block0(buf, what)
     ZERO_BL	*b0p;
 
     mfp = buf->b_ml.ml_mfp;
-    if (mfp == NULL || (hp = mf_get(mfp, (blocknr_T)0, 1)) == NULL)
+    if (mfp == NULL)
 	return;
+    hp = mf_get(mfp, (blocknr_T)0, 1);
+    if (hp == NULL)
+    {
+#ifdef FEAT_CRYPT
+	/* Possibly update the seed in the memfile before there is a block0. */
+	if (what == UB_CRYPT)
+	    ml_set_mfp_crypt(buf);
+#endif
+	return;
+    }
+
     b0p = (ZERO_BL *)(hp->bh_data);
     if (ml_check_b0_id(b0p) == FAIL)
 	EMSG(_("E304: ml_upd_block0(): Didn't get block 0??"));
@@ -938,7 +1001,7 @@ set_b0_fname(b0p, buf)
 	b0p->b0_fname[0] = NUL;
     else
     {
-#if defined(MSDOS) || defined(MSWIN) || defined(AMIGA) || defined(RISCOS)
+#if defined(MSDOS) || defined(MSWIN) || defined(AMIGA)
 	/* Systems that cannot translate "~user" back into a path: copy the
 	 * file name unmodified.  Do use slashes instead of backslashes for
 	 * portability. */
@@ -1108,7 +1171,7 @@ ml_recover()
 	fname = (char_u *)"";
     len = (int)STRLEN(fname);
     if (len >= 4 &&
-#if defined(VMS) || defined(RISCOS)
+#if defined(VMS)
 	    STRNICMP(fname + len - 4, "_s" , 2)
 #else
 	    STRNICMP(fname + len - 4, ".s" , 2)
@@ -1252,14 +1315,12 @@ ml_recover()
     }
 
 #ifdef FEAT_CRYPT
-    if (b0p->b0_id[1] == BLOCK0_ID1_C0)
-	b0_cm = 0;
-    else if (b0p->b0_id[1] == BLOCK0_ID1_C1)
-    {
-	b0_cm = 1;
+    for (i = 0; i < (int)(sizeof(id1_codes) / sizeof(int)); ++i)
+	if (id1_codes[i] == b0p->b0_id[1])
+	    b0_cm = i;
+    if (b0_cm > 0)
 	mch_memmove(mfp->mf_seed, &b0p->b0_seed, MF_SEED_LEN);
-    }
-    set_crypt_method(buf, b0_cm);
+    crypt_set_cm_option(buf, b0_cm < 0 ? 0 : b0_cm);
 #else
     if (b0p->b0_id[1] != BLOCK0_ID1)
     {
@@ -1316,7 +1377,7 @@ ml_recover()
     smsg((char_u *)_("Using swap file \"%s\""), NameBuff);
 
     if (buf_spname(curbuf) != NULL)
-	STRCPY(NameBuff, buf_spname(curbuf));
+	vim_strncpy(NameBuff, buf_spname(curbuf), MAXPATHL - 1);
     else
 	home_replace(NULL, curbuf->b_ffname, NameBuff, MAXPATHL, TRUE);
     smsg((char_u *)_("Original file \"%s\""), NameBuff);
@@ -1386,7 +1447,7 @@ ml_recover()
 	}
 	else
 	    smsg((char_u *)_(need_key_msg), fname_used);
-	buf->b_p_key = get_crypt_key(FALSE, FALSE);
+	buf->b_p_key = crypt_get_key(FALSE, FALSE);
 	if (buf->b_p_key == NULL)
 	    buf->b_p_key = curbuf->b_p_key;
 	else if (*buf->b_p_key == NUL)
@@ -1512,6 +1573,7 @@ ml_recover()
 		    bnum = pp->pb_pointer[idx].pe_bnum;
 		    line_count = pp->pb_pointer[idx].pe_line_count;
 		    page_count = pp->pb_pointer[idx].pe_page_count;
+		    idx = 0;
 		    continue;
 		}
 	    }
@@ -1780,11 +1842,7 @@ recover_names(fname, list, nr, fname_out)
 #ifdef VMS
 		names[0] = vim_strsave((char_u *)"*_sw%");
 #else
-# ifdef RISCOS
-		names[0] = vim_strsave((char_u *)"*_sw#");
-# else
 		names[0] = vim_strsave((char_u *)"*.sw?");
-# endif
 #endif
 #if defined(UNIX) || defined(WIN3264)
 		/* For Unix names starting with a dot are special.  MS-Windows
@@ -1811,11 +1869,7 @@ recover_names(fname, list, nr, fname_out)
 #ifdef VMS
 		names[0] = concat_fnames(dir_name, (char_u *)"*_sw%", TRUE);
 #else
-# ifdef RISCOS
-		names[0] = concat_fnames(dir_name, (char_u *)"*_sw#", TRUE);
-# else
 		names[0] = concat_fnames(dir_name, (char_u *)"*.sw?", TRUE);
-# endif
 #endif
 #if defined(UNIX) || defined(WIN3264)
 		/* For Unix names starting with a dot are special.  MS-Windows
@@ -1884,7 +1938,7 @@ recover_names(fname, list, nr, fname_out)
 	    char_u	    *swapname;
 
 	    swapname = modname(fname_res,
-#if defined(VMS) || defined(RISCOS)
+#if defined(VMS)
 			       (char_u *)"_swp", FALSE
 #else
 			       (char_u *)".swp", TRUE
@@ -2061,7 +2115,7 @@ swapfile_info(fname)
     fd = mch_open((char *)fname, O_RDONLY | O_EXTRA, 0);
     if (fd >= 0)
     {
-	if (read(fd, (char *)&b0, sizeof(b0)) == sizeof(b0))
+	if (read_eintr(fd, &b0, sizeof(b0)) == sizeof(b0))
 	{
 	    if (STRNCMP(b0.b0_version, "VIM 3.0", 7) == 0)
 	    {
@@ -2183,11 +2237,7 @@ recov_file_names(names, path, prepend_dot)
 #ifdef VMS
     names[num_names] = concat_fnames(path, (char_u *)"_sw%", FALSE);
 #else
-# ifdef RISCOS
-    names[num_names] = concat_fnames(path, (char_u *)"_sw#", FALSE);
-# else
     names[num_names] = concat_fnames(path, (char_u *)".sw?", FALSE);
-# endif
 #endif
     if (names[num_names] == NULL)
 	goto end;
@@ -2214,11 +2264,7 @@ recov_file_names(names, path, prepend_dot)
 #ifdef VMS
     names[num_names] = modname(path, (char_u *)"_sw%", FALSE);
 #else
-# ifdef RISCOS
-    names[num_names] = modname(path, (char_u *)"_sw#", FALSE);
-# else
     names[num_names] = modname(path, (char_u *)".sw?", FALSE);
-# endif
 #endif
     if (names[num_names] == NULL)
 	goto end;
@@ -2386,7 +2432,7 @@ theend:
  * Make a copy of the line if necessary.
  */
 /*
- * get a pointer to a (read-only copy of a) line
+ * Return a pointer to a (read-only copy of a) line.
  *
  * On failure an error message is given and IObuff is returned (to avoid
  * having to check for error everywhere).
@@ -2399,7 +2445,7 @@ ml_get(lnum)
 }
 
 /*
- * ml_get_pos: get pointer to position 'pos'
+ * Return pointer to position "pos".
  */
     char_u *
 ml_get_pos(pos)
@@ -2409,7 +2455,7 @@ ml_get_pos(pos)
 }
 
 /*
- * ml_get_curline: get pointer to cursor line.
+ * Return pointer to cursor line.
  */
     char_u *
 ml_get_curline()
@@ -2418,7 +2464,7 @@ ml_get_curline()
 }
 
 /*
- * ml_get_cursor: get pointer to cursor position
+ * Return pointer to cursor position.
  */
     char_u *
 ml_get_cursor()
@@ -2428,7 +2474,7 @@ ml_get_cursor()
 }
 
 /*
- * get a pointer to a line in a specific buffer
+ * Return a pointer to a line in a specific buffer
  *
  * "will_change": if TRUE mark the buffer dirty (chars in the line will be
  * changed)
@@ -3161,7 +3207,7 @@ ml_delete_int(buf, lnum, message)
 	   )
 	    set_keep_msg((char_u *)_(no_lines_msg), 0);
 
-	/* FEAT_BYTEOFF already handled in there, dont worry 'bout it below */
+	/* FEAT_BYTEOFF already handled in there, don't worry 'bout it below */
 	i = ml_replace((linenr_T)1, (char_u *)"", TRUE);
 	buf->b_ml.ml_flags |= ML_EMPTY;
 
@@ -3212,7 +3258,8 @@ ml_delete_int(buf, lnum, message)
 	mf_free(mfp, hp);	/* free the data block */
 	buf->b_ml.ml_locked = NULL;
 
-	for (stack_idx = buf->b_ml.ml_stack_top - 1; stack_idx >= 0; --stack_idx)
+	for (stack_idx = buf->b_ml.ml_stack_top - 1; stack_idx >= 0;
+								  --stack_idx)
 	{
 	    buf->b_ml.ml_stack_top = 0;	    /* stack is invalid when failing */
 	    ip = &(buf->b_ml.ml_stack[stack_idx]);
@@ -3789,7 +3836,8 @@ ml_add_stack(buf)
 					(buf->b_ml.ml_stack_size + STACK_INCR));
 	if (newstack == NULL)
 	    return -1;
-	mch_memmove(newstack, buf->b_ml.ml_stack,
+	if (top > 0)
+	    mch_memmove(newstack, buf->b_ml.ml_stack,
 					     (size_t)top * sizeof(infoptr_T));
 	vim_free(buf->b_ml.ml_stack);
 	buf->b_ml.ml_stack = newstack;
@@ -3963,14 +4011,9 @@ makeswapname(fname, ffname, buf, dir_name)
 #else
 	    (buf->b_p_sn || buf->b_shortname),
 #endif
-#ifdef RISCOS
-	    /* Avoid problems if fname has special chars, eg <Wimp$Scrap> */
-	    ffname,
-#else
 	    fname_res,
-#endif
 	    (char_u *)
-#if defined(VMS) || defined(RISCOS)
+#if defined(VMS)
 	    "_swp",
 #else
 	    ".swp",
@@ -4038,6 +4081,13 @@ get_file_in_dir(fname, dname)
     else
 	retval = concat_fnames(dname, tail, TRUE);
 
+#ifdef WIN3264
+    if (retval != NULL)
+	for (t = gettail(retval); *t != NUL; mb_ptr_adv(t))
+	    if (*t == ':')
+		*t = '%';
+#endif
+
     return retval;
 }
 
@@ -4078,9 +4128,9 @@ attention_message(buf, fname)
     }
     /* Some of these messages are long to allow translation to
      * other languages. */
-    MSG_PUTS(_("\n(1) Another program may be editing the same file.\n    If this is the case, be careful not to end up with two\n    different instances of the same file when making changes.\n"));
-    MSG_PUTS(_("    Quit, or continue with caution.\n"));
-    MSG_PUTS(_("\n(2) An edit session for this file crashed.\n"));
+    MSG_PUTS(_("\n(1) Another program may be editing the same file.  If this is the case,\n    be careful not to end up with two different instances of the same\n    file when making changes."));
+    MSG_PUTS(_("  Quit, or continue with caution.\n"));
+    MSG_PUTS(_("(2) An edit session for this file crashed.\n"));
     MSG_PUTS(_("    If this is the case, use \":recover\" or \"vim -r "));
     msg_outtrans(buf->b_fname);
     MSG_PUTS(_("\"\n    to recover the changes (see \":help recovery\").\n"));
@@ -4140,6 +4190,7 @@ do_swapexists(buf, fname)
  *
  * Several names are tried to find one that does not exist
  * Returns the name in allocated memory or NULL.
+ * When out of memory "dirp" is set to NULL.
  *
  * Note: If BASENAMELEN is not correct, you will get error messages for
  *	 not being able to open the swap or undo file
@@ -4160,11 +4211,28 @@ findswapname(buf, dirp, old_fname)
 #ifndef SHORT_FNAME
     int		r;
 #endif
+    char_u	*buf_fname = buf->b_fname;
 
 #if !defined(SHORT_FNAME) \
-		     && ((!defined(UNIX) && !defined(OS2)) || defined(ARCHIE))
+		&& ((!defined(UNIX) && !defined(OS2)) || defined(ARCHIE))
 # define CREATE_DUMMY_FILE
     FILE	*dummyfd = NULL;
+
+# ifdef WIN3264
+    if (buf_fname != NULL && !mch_isFullName(buf_fname)
+				       && vim_strchr(gettail(buf_fname), ':'))
+    {
+	char_u *t;
+
+	buf_fname = vim_strsave(buf_fname);
+	if (buf_fname == NULL)
+	    buf_fname = buf->b_fname;
+	else
+	    for (t = gettail(buf_fname); *t != NUL; mb_ptr_adv(t))
+		if (*t == ':')
+		    *t = '%';
+    }
+# endif
 
     /*
      * If we start editing a new file, e.g. "test.doc", which resides on an
@@ -4173,9 +4241,9 @@ findswapname(buf, dirp, old_fname)
      * this problem we temporarily create "test.doc".  Don't do this when the
      * check below for a 8.3 file name is used.
      */
-    if (!(buf->b_p_sn || buf->b_shortname) && buf->b_fname != NULL
-					     && mch_getperm(buf->b_fname) < 0)
-	dummyfd = mch_fopen((char *)buf->b_fname, "w");
+    if (!(buf->b_p_sn || buf->b_shortname) && buf_fname != NULL
+					     && mch_getperm(buf_fname) < 0)
+	dummyfd = mch_fopen((char *)buf_fname, "w");
 #endif
 
     /*
@@ -4183,7 +4251,9 @@ findswapname(buf, dirp, old_fname)
      * First allocate some memory to put the directory name in.
      */
     dir_name = alloc((unsigned)STRLEN(*dirp) + 1);
-    if (dir_name != NULL)
+    if (dir_name == NULL)
+	*dirp = NULL;
+    else
 	(void)copy_option_part(dirp, dir_name, 31000, ",");
 
     /*
@@ -4192,7 +4262,7 @@ findswapname(buf, dirp, old_fname)
     if (dir_name == NULL)	    /* out of memory */
 	fname = NULL;
     else
-	fname = makeswapname(buf->b_fname, buf->b_ffname, buf, dir_name);
+	fname = makeswapname(buf_fname, buf->b_ffname, buf, dir_name);
 
     for (;;)
     {
@@ -4225,7 +4295,7 @@ findswapname(buf, dirp, old_fname)
 	     * It either contains two dots, is longer than 8 chars, or starts
 	     * with a dot.
 	     */
-	    tail = gettail(buf->b_fname);
+	    tail = gettail(buf_fname);
 	    if (       vim_strchr(tail, '.') != NULL
 		    || STRLEN(tail) > (size_t)8
 		    || *gettail(fname) == '.')
@@ -4294,7 +4364,7 @@ findswapname(buf, dirp, old_fname)
 		    {
 			buf->b_shortname = TRUE;
 			vim_free(fname);
-			fname = makeswapname(buf->b_fname, buf->b_ffname,
+			fname = makeswapname(buf_fname, buf->b_ffname,
 							       buf, dir_name);
 			continue;	/* try again with b_shortname set */
 		    }
@@ -4365,7 +4435,7 @@ findswapname(buf, dirp, old_fname)
 		{
 		    buf->b_shortname = TRUE;
 		    vim_free(fname);
-		    fname = makeswapname(buf->b_fname, buf->b_ffname,
+		    fname = makeswapname(buf_fname, buf->b_ffname,
 							       buf, dir_name);
 		    continue;	    /* try again with '.' replaced with '_' */
 		}
@@ -4377,7 +4447,7 @@ findswapname(buf, dirp, old_fname)
 	     * viewing a help file or when the path of the file is different
 	     * (happens when all .swp files are in one directory).
 	     */
-	    if (!recoverymode && buf->b_fname != NULL
+	    if (!recoverymode && buf_fname != NULL
 				&& !buf->b_help && !(buf->b_flags & BF_DUMMY))
 	    {
 		int		fd;
@@ -4391,7 +4461,7 @@ findswapname(buf, dirp, old_fname)
 		fd = mch_open((char *)fname, O_RDONLY | O_EXTRA, 0);
 		if (fd >= 0)
 		{
-		    if (read(fd, (char *)&b0, sizeof(b0)) == sizeof(b0))
+		    if (read_eintr(fd, &b0, sizeof(b0)) == sizeof(b0))
 		    {
 			/*
 			 * If the swapfile has the same directory as the
@@ -4434,14 +4504,6 @@ findswapname(buf, dirp, old_fname)
 		    }
 		    close(fd);
 		}
-#ifdef RISCOS
-		else
-		    /* Can't open swap file, though it does exist.
-		     * Assume that the user is editing two files with
-		     * the same name in different directories. No error.
-		     */
-		    differ = TRUE;
-#endif
 
 		/* give the ATTENTION message when there is an old swap file
 		 * for the current file, and the buffer was not recovered. */
@@ -4462,7 +4524,7 @@ findswapname(buf, dirp, old_fname)
 		    {
 			fclose(dummyfd);
 			dummyfd = NULL;
-			mch_remove(buf->b_fname);
+			mch_remove(buf_fname);
 			did_use_dummy = TRUE;
 		    }
 #endif
@@ -4477,7 +4539,7 @@ findswapname(buf, dirp, old_fname)
 		     * user anyway.
 		     */
 		    if (swap_exists_action != SEA_NONE
-			    && has_autocmd(EVENT_SWAPEXISTS, buf->b_fname, buf))
+			    && has_autocmd(EVENT_SWAPEXISTS, buf_fname, buf))
 			choice = do_swapexists(buf, fname);
 
 		    if (choice == 0)
@@ -4523,7 +4585,7 @@ findswapname(buf, dirp, old_fname)
 				    process_still_running
 					? (char_u *)_("&Open Read-Only\n&Edit anyway\n&Recover\n&Quit\n&Abort") :
 # endif
-					(char_u *)_("&Open Read-Only\n&Edit anyway\n&Recover\n&Delete it\n&Quit\n&Abort"), 1, NULL);
+					(char_u *)_("&Open Read-Only\n&Edit anyway\n&Recover\n&Delete it\n&Quit\n&Abort"), 1, NULL, FALSE);
 
 # if defined(UNIX) || defined(__EMX__) || defined(VMS)
 			if (process_still_running && choice >= 4)
@@ -4578,7 +4640,7 @@ findswapname(buf, dirp, old_fname)
 #ifdef CREATE_DUMMY_FILE
 		    /* Going to try another name, need the dummy file again. */
 		    if (did_use_dummy)
-			dummyfd = mch_fopen((char *)buf->b_fname, "w");
+			dummyfd = mch_fopen((char *)buf_fname, "w");
 #endif
 		}
 	    }
@@ -4610,8 +4672,12 @@ findswapname(buf, dirp, old_fname)
     if (dummyfd != NULL)	/* file has been created temporarily */
     {
 	fclose(dummyfd);
-	mch_remove(buf->b_fname);
+	mch_remove(buf_fname);
     }
+#endif
+#ifdef WIN3264
+    if (buf_fname != buf->b_fname)
+	vim_free(buf_fname);
 #endif
     return fname;
 }
@@ -4811,8 +4877,13 @@ ml_encrypt_data(mfp, data, offset, size)
     char_u	*text_start;
     char_u	*new_data;
     int		text_len;
+    cryptstate_T *state;
 
     if (dp->db_id != DATA_ID)
+	return data;
+
+    state = ml_crypt_prepare(mfp, offset, FALSE);
+    if (state == NULL)
 	return data;
 
     new_data = (char_u *)alloc(size);
@@ -4826,10 +4897,8 @@ ml_encrypt_data(mfp, data, offset, size)
     mch_memmove(new_data, dp, head_end - (char_u *)dp);
 
     /* Encrypt the text. */
-    crypt_push_state();
-    ml_crypt_prepare(mfp, offset, FALSE);
-    crypt_encode(text_start, text_len, new_data + dp->db_txt_start);
-    crypt_pop_state();
+    crypt_encode(state, text_start, text_len, new_data + dp->db_txt_start);
+    crypt_free_state(state);
 
     /* Clear the gap. */
     if (head_end < text_start)
@@ -4839,7 +4908,7 @@ ml_encrypt_data(mfp, data, offset, size)
 }
 
 /*
- * Decrypt the text in "data" if it points to a data block.
+ * Decrypt the text in "data" if it points to an encrypted data block.
  */
     void
 ml_decrypt_data(mfp, data, offset, size)
@@ -4852,6 +4921,7 @@ ml_decrypt_data(mfp, data, offset, size)
     char_u	*head_end;
     char_u	*text_start;
     int		text_len;
+    cryptstate_T *state;
 
     if (dp->db_id == DATA_ID)
     {
@@ -4863,18 +4933,21 @@ ml_decrypt_data(mfp, data, offset, size)
 						     || dp->db_txt_end > size)
 	    return;  /* data was messed up */
 
-	/* Decrypt the text in place. */
-	crypt_push_state();
-	ml_crypt_prepare(mfp, offset, TRUE);
-	crypt_decode(text_start, text_len);
-	crypt_pop_state();
+	state = ml_crypt_prepare(mfp, offset, TRUE);
+	if (state != NULL)
+	{
+	    /* Decrypt the text in place. */
+	    crypt_decode_inplace(state, text_start, text_len);
+	    crypt_free_state(state);
+	}
     }
 }
 
 /*
  * Prepare for encryption/decryption, using the key, seed and offset.
+ * Return an allocated cryptstate_T *.
  */
-    static void
+    static cryptstate_T *
 ml_crypt_prepare(mfp, offset, reading)
     memfile_T	*mfp;
     off_t	offset;
@@ -4882,38 +4955,39 @@ ml_crypt_prepare(mfp, offset, reading)
 {
     buf_T	*buf = mfp->mf_buffer;
     char_u	salt[50];
-    int		method;
+    int		method_nr;
     char_u	*key;
     char_u	*seed;
 
     if (reading && mfp->mf_old_key != NULL)
     {
 	/* Reading back blocks with the previous key/method/seed. */
-	method = mfp->mf_old_cm;
+	method_nr = mfp->mf_old_cm;
 	key = mfp->mf_old_key;
 	seed = mfp->mf_old_seed;
     }
     else
     {
-	method = get_crypt_method(buf);
+	method_nr = crypt_get_method_nr(buf);
 	key = buf->b_p_key;
 	seed = mfp->mf_seed;
     }
+    if (*key == NUL)
+	return NULL;
 
-    use_crypt_method = method;  /* select pkzip or blowfish */
-    if (method == 0)
+    if (method_nr == CRYPT_M_ZIP)
     {
+	/* For PKzip: Append the offset to the key, so that we use a different
+	 * key for every block. */
 	vim_snprintf((char *)salt, sizeof(salt), "%s%ld", key, (long)offset);
-	crypt_init_keys(salt);
+	return crypt_create(method_nr, salt, NULL, 0, NULL, 0);
     }
-    else
-    {
-	/* Using blowfish, add salt and seed. We use the byte offset of the
-	 * block for the salt. */
-	vim_snprintf((char *)salt, sizeof(salt), "%ld", (long)offset);
-	bf_key_init(key, salt, (int)STRLEN(salt));
-	bf_ofb_init(seed, MF_SEED_LEN);
-    }
+
+    /* Using blowfish or better: add salt and seed. We use the byte offset
+     * of the block for the salt. */
+    vim_snprintf((char *)salt, sizeof(salt), "%ld", (long)offset);
+    return crypt_create(method_nr, key, salt, (int)STRLEN(salt),
+							   seed, MF_SEED_LEN);
 }
 
 #endif
@@ -5014,6 +5088,8 @@ ml_updatechunk(buf, line, len, updtype)
 	/* May resize here so we don't have to do it in both cases below */
 	if (buf->b_ml.ml_usedchunks + 1 >= buf->b_ml.ml_numchunks)
 	{
+	    chunksize_T *t_chunksize = buf->b_ml.ml_chunksize;
+
 	    buf->b_ml.ml_numchunks = buf->b_ml.ml_numchunks * 3 / 2;
 	    buf->b_ml.ml_chunksize = (chunksize_T *)
 		vim_realloc(buf->b_ml.ml_chunksize,
@@ -5021,6 +5097,7 @@ ml_updatechunk(buf, line, len, updtype)
 	    if (buf->b_ml.ml_chunksize == NULL)
 	    {
 		/* Hmmmm, Give up on offset for this buffer */
+		vim_free(t_chunksize);
 		buf->b_ml.ml_usedchunks = -1;
 		return;
 	    }
@@ -5287,8 +5364,10 @@ ml_find_line_or_offset(buf, lnum, offp)
 	if (ffdos)
 	    size += lnum - 1;
 
-	/* Don't count the last line break if 'bin' and 'noeol'. */
-	if (buf->b_p_bin && !buf->b_p_eol)
+	/* Don't count the last line break if 'noeol' and ('bin' or
+	 * 'nofixeol'). */
+	if ((!buf->b_p_fixeol || buf->b_p_bin) && !buf->b_p_eol
+					   && buf->b_ml.ml_line_count == lnum)
 	    size -= ffdos + 1;
     }
 

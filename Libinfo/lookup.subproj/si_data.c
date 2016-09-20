@@ -95,6 +95,7 @@ si_list_concat(si_list_t *l, si_list_t *x)
 		else
 		{
 			l->count = 0;
+			free(l);
 			l = NULL;
 		}
 	}

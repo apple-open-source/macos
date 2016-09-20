@@ -37,10 +37,10 @@
 #undef UNIX
 
 /* Defined to the size of an int */
-#undef SIZEOF_INT
+#undef VIM_SIZEOF_INT
 
 /* Defined to the size of a long */
-#undef SIZEOF_LONG
+#undef VIM_SIZEOF_LONG
 
 /* Defined to the size of off_t */
 #undef SIZEOF_OFF_T
@@ -161,6 +161,7 @@
 #undef HAVE_FSYNC
 #undef HAVE_GETCWD
 #undef HAVE_GETPSEUDOTTY
+#undef HAVE_GETPWENT
 #undef HAVE_GETPWNAM
 #undef HAVE_GETPWUID
 #undef HAVE_GETRLIMIT
@@ -190,6 +191,7 @@
 #undef HAVE_SIGSETJMP
 #undef HAVE_SIGSTACK
 #undef HAVE_SIGVEC
+#undef HAVE_SMACK
 #undef HAVE_STRCASECMP
 #undef HAVE_STRERROR
 #undef HAVE_STRFTIME
@@ -346,8 +348,14 @@
 /* Define if dynamic python does not require RTLD_GLOBAL */
 #undef PY_NO_RTLD_GLOBAL
 
+/* Define if dynamic python3 does not require RTLD_GLOBAL */
+#undef PY3_NO_RTLD_GLOBAL
+
 /* Define if you want to include the Ruby interpreter. */
 #undef FEAT_RUBY
+
+/* Define for linking via dlopen() or LoadLibrary() */
+#undef DYNAMIC_RUBY
 
 /* Define if you want to include the Tcl interpreter. */
 #undef FEAT_TCL
@@ -357,8 +365,12 @@
 
 /* Define if you want to add support for ACL */
 #undef HAVE_POSIX_ACL
+#undef HAVE_SOLARIS_ZFS_ACL
 #undef HAVE_SOLARIS_ACL
 #undef HAVE_AIX_ACL
+
+/* Define if pango_shape_full() is available. */
+#undef HAVE_PANGO_SHAPE_FULL
 
 /* Define if you want to add support of GPM (Linux console mouse daemon) */
 #undef HAVE_GPM
@@ -431,3 +443,12 @@
 
 /* Define if fcntl()'s F_SETFD command knows about FD_CLOEXEC */
 #undef HAVE_FD_CLOEXEC
+
+/* Define if you want Cygwin to use the WIN32 clipboard, not compatible with X11*/
+#undef FEAT_CYGWIN_WIN32_CLIPBOARD
+
+/* Define if we have AvailabilityMacros.h on Mac OS X */
+#undef HAVE_AVAILABILITYMACROS_H
+
+/* Define if Xutf8SetWMProperties() is in an X library. */
+#undef HAVE_XUTF8SETWMPROPERTIES

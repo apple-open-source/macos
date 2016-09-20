@@ -39,4 +39,3 @@ interface SVGTransformList {
 
     [RaisesException] SVGTransform consolidate();
 };
-

@@ -27,7 +27,7 @@
 #include "keychain_find.h"
 
 #include "keychain_utilities.h"
-#include "security.h"
+#include "security_tool.h"
 #include <unistd.h>
 #include <Security/SecKeychain.h>
 #include <Security/SecKeychainItem.h>

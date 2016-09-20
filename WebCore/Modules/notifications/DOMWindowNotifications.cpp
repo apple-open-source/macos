@@ -58,26 +58,26 @@ DOMWindowNotifications* DOMWindowNotifications::from(DOMWindow* window)
     if (!supplement) {
         auto newSupplement = std::make_unique<DOMWindowNotifications>(window);
         supplement = newSupplement.get();
-        provideTo(window, supplementName(), WTF::move(newSupplement));
+        provideTo(window, supplementName(), WTFMove(newSupplement));
     }
     return supplement;
 }
 
-NotificationCenter* DOMWindowNotifications::webkitNotifications(DOMWindow* window)
+NotificationCenter* DOMWindowNotifications::webkitNotifications(DOMWindow& window)
 {
-    return DOMWindowNotifications::from(window)->webkitNotifications();
+    return DOMWindowNotifications::from(&window)->webkitNotifications();
 }
 
-void DOMWindowNotifications::disconnectFrameForPageCache()
+void DOMWindowNotifications::disconnectFrameForDocumentSuspension()
 {
-    m_suspendedNotificationCenter = m_notificationCenter.release();
-    DOMWindowProperty::disconnectFrameForPageCache();
+    m_suspendedNotificationCenter = WTFMove(m_notificationCenter);
+    DOMWindowProperty::disconnectFrameForDocumentSuspension();
 }
 
-void DOMWindowNotifications::reconnectFrameFromPageCache(Frame* frame)
+void DOMWindowNotifications::reconnectFrameFromDocumentSuspension(Frame* frame)
 {
-    DOMWindowProperty::reconnectFrameFromPageCache(frame);
-    m_notificationCenter = m_suspendedNotificationCenter.release();
+    DOMWindowProperty::reconnectFrameFromDocumentSuspension(frame);
+    m_notificationCenter = WTFMove(m_suspendedNotificationCenter);
 }
 
 void DOMWindowNotifications::willDestroyGlobalObjectInCachedFrame()

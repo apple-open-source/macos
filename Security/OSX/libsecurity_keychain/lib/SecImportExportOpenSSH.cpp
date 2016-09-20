@@ -35,7 +35,7 @@
 #include <security_utilities/debugging.h>
 #include <security_cdsa_utils/cuCdsaUtils.h>
 
-#define SecSSHDbg(args...)	secdebug("openssh", ## args)
+#define SecSSHDbg(args...)	secinfo("openssh", ## args)
 
 #define SSHv2_PUB_KEY_NAME		"OpenSSHv2 Public Key"
 #define SSHv1_PUB_KEY_NAME		"OpenSSHv1 Public Key"

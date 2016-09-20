@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/ur.xml
@@ -46,7 +46,6 @@ ur{
         AI{"انگوئیلا"}
         AL{"البانیہ"}
         AM{"آرمینیا"}
-        AN{"نیدرلینڈز انٹیلیز"}
         AO{"انگولا"}
         AQ{"انٹارکٹیکا"}
         AR{"ارجنٹینا"}
@@ -117,7 +116,7 @@ ur{
         FJ{"فجی"}
         FK{"فاکلینڈ جزائر"}
         FM{"مائکرونیشیا"}
-        FO{"فیرو آئلینڈز"}
+        FO{"جزائر فارو"}
         FR{"فرانس"}
         GA{"گیبون"}
         GB{"سلطنت متحدہ"}
@@ -314,5 +313,5 @@ ur{
         MK{"مقدونیہ (FYROM)"}
         TL{"مشرقی تیمور"}
     }
-    Version{"2.1.12.94"}
+    Version{"2.1.23.11"}
 }

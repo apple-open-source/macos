@@ -40,6 +40,7 @@
 		A637FAF40F2FE2B80008E04C /* IOPCIPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = A6DD8EEF0937A0EC000A918D /* IOPCIPrivate.h */; };
 		A655D6E50E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A655D6E40E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp */; };
 		A6849D13126539090033F95C /* IOPCIRange.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A6849D12126539090033F95C /* IOPCIRange.cpp */; };
+		A6CFCA001C56ED2C0035C68E /* IOPCIDevice.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 03DB1086033AA50A03CA2A5F /* IOPCIDevice.h */; };
 		B1BA52AC15DF1B1A00C147D3 /* IOPCIMessagedInterruptController.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B1BA52AB15DF1B1A00C147D3 /* IOPCIMessagedInterruptController.cpp */; };
 /* End PBXBuildFile section */
 
@@ -90,7 +91,7 @@
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/pci";
 			dstSubfolderSpec = 0;
 			files = (
-				A613B29B0D46AA65007BA726 /* IOPCIDevice.h in CopyFiles */,
+				A6CFCA001C56ED2C0035C68E /* IOPCIDevice.h in CopyFiles */,
 				A637FAF40F2FE2B80008E04C /* IOPCIPrivate.h in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
@@ -118,7 +119,6 @@
 		A6F210C60A78022400875EC6 /* AppleSamplePCIClient.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = AppleSamplePCIClient.c; sourceTree = "<group>"; };
 		A6F210C70A78022400875EC6 /* AppleSamplePCIShared.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleSamplePCIShared.h; sourceTree = "<group>"; };
 		A6F210C80A78022400875EC6 /* AppleSamplePCIUserClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleSamplePCIUserClient.cpp; sourceTree = "<group>"; };
-		B1402F9915BA323C00610685 /* AspenSDK.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = SYSTEM_DEVELOPER_DIR; };
 		B1BA52AB15DF1B1A00C147D3 /* IOPCIMessagedInterruptController.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIMessagedInterruptController.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -160,7 +160,6 @@
 				247142CAFF3F8F9811CA285C /* Source */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
 				A613B28C0D46AA65007BA726 /* Info-IOPCIFamily.plist */,
-				B1402F9915BA323C00610685 /* AspenSDK.xcconfig */,
 			);
 			name = IOPCIFamily;
 			sourceTree = "<group>";
@@ -422,6 +421,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_STYLE = SHALLOW;
+				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -429,6 +429,10 @@
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_TREAT_INCOMPATIBLE_POINTER_TYPE_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				HEADER_SEARCH_PATHS = "\"$(SRCROOT)\"";
 				INFOPLIST_FILE = "Info-IOPCIFamily.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
@@ -441,6 +445,7 @@
 				MODULE_NAME = com.apple.iokit.IOPCIFamily;
 				MODULE_VERSION = 2.4.1;
 				OTHER_CFLAGS = "";
+				OTHER_CFLAGS_development = "-DDEVELOPMENT=1 -DMACH_ASSERT=1";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOPCIFamily;
@@ -460,10 +465,15 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_STYLE = SHALLOW;
+				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_TREAT_INCOMPATIBLE_POINTER_TYPE_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				HEADER_SEARCH_PATHS = "\"$(SRCROOT)\"";
 				INFOPLIST_FILE = "Info-IOPCIFamily.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
@@ -476,6 +486,7 @@
 				MODULE_NAME = com.apple.iokit.IOPCIFamily;
 				MODULE_VERSION = 2.4.1;
 				OTHER_CFLAGS = "";
+				OTHER_CFLAGS_development = "-DDEVELOPMENT=1 -DMACH_ASSERT=1";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOPCIFamily;
@@ -494,9 +505,18 @@
 		A613B28B0D46AA65007BA726 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					/* development, */
+				);
 				BUNDLE_STYLE = SHALLOW;
+				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_TREAT_INCOMPATIBLE_POINTER_TYPE_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				HEADER_SEARCH_PATHS = "\"$(SRCROOT)\"";
 				INFOPLIST_FILE = "Info-IOPCIFamily.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
@@ -509,6 +529,7 @@
 				MODULE_NAME = com.apple.iokit.IOPCIFamily;
 				MODULE_VERSION = 2.4.1;
 				OTHER_CFLAGS = "";
+				OTHER_CFLAGS_development = "-DDEVELOPMENT=1 -DMACH_ASSERT=1";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOPCIFamily;
@@ -620,7 +641,6 @@
 		};
 		B169ED9415BA2B4F00A1A90A /* Development-Embedded */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = B1402F9915BA323C00610685 /* AspenSDK.xcconfig */;
 			buildSettings = {
 			};
 			name = "Development-Embedded";
@@ -628,7 +648,12 @@
 		B169ED9515BA2B4F00A1A90A /* Development-Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					development,
+				);
 				BUNDLE_STYLE = SHALLOW;
+				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -637,6 +662,10 @@
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = "SUPPORT_MULTIPLE_MSI=1";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_TREAT_INCOMPATIBLE_POINTER_TYPE_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				HEADER_SEARCH_PATHS = "\"$(SRCROOT)\"";
 				INFOPLIST_FILE = "Info-IOPCIFamily.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
@@ -649,6 +678,7 @@
 				MODULE_NAME = com.apple.iokit.IOPCIFamily;
 				MODULE_VERSION = 2.4.1;
 				OTHER_CFLAGS = "";
+				OTHER_CFLAGS_development = "-DDEVELOPMENT=1 -DMACH_ASSERT=1";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOPCIFamily;
@@ -702,7 +732,6 @@
 		};
 		B169ED9815BA2B6000A1A90A /* Deployment-Embedded */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = B1402F9915BA323C00610685 /* AspenSDK.xcconfig */;
 			buildSettings = {
 			};
 			name = "Deployment-Embedded";
@@ -710,12 +739,18 @@
 		B169ED9915BA2B6000A1A90A /* Deployment-Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					development,
+				);
 				BUNDLE_STYLE = SHALLOW;
-				COPY_PHASE_STRIP = NO;
+				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_PREPROCESSOR_DEFINITIONS = "SUPPORT_MULTIPLE_MSI=1";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_TREAT_INCOMPATIBLE_POINTER_TYPE_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				HEADER_SEARCH_PATHS = "\"$(SRCROOT)\"";
 				INFOPLIST_FILE = "Info-IOPCIFamily.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
@@ -728,6 +763,7 @@
 				MODULE_NAME = com.apple.iokit.IOPCIFamily;
 				MODULE_VERSION = 2.4.1;
 				OTHER_CFLAGS = "";
+				OTHER_CFLAGS_development = "-DDEVELOPMENT=1 -DMACH_ASSERT=1";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOPCIFamily;
@@ -739,7 +775,6 @@
 					"-Wconditional-uninitialized",
 				);
 				WRAPPER_EXTENSION = kext;
-				ZERO_LINK = NO;
 			};
 			name = "Deployment-Embedded";
 		};

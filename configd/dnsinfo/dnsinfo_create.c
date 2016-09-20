@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2004-2006, 2009, 2011-2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2006, 2009, 2011-2013, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,23 +17,23 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
 #include <stdlib.h>
 #include <strings.h>
 #include <mach/mach.h>
-#include <mach/mach_error.h>
 #include <mach/mach_time.h>
 #include <CommonCrypto/CommonDigest.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
+#include "SCNetworkReachabilityInternal.h"
 
 #include "dnsinfo_create.h"
 #include "dnsinfo_private.h"
-#include "network_information_priv.h"
+#include "network_state_information_priv.h"
 
 #include "ip_plugin.h"
 
@@ -421,23 +421,6 @@ _dns_resolver_set_port(dns_create_resolver_t *_resolver, uint16_t port)
 }
 
 
-/*
- * rankReachability()
- *   Not reachable       == 0
- *   Connection Required == 1
- *   Reachable           == 2
- */
-static int
-rankReachability(SCNetworkReachabilityFlags flags)
-{
-	int	rank = 0;
-
-	if (flags & kSCNetworkReachabilityFlagsReachable)		rank = 2;
-	if (flags & kSCNetworkReachabilityFlagsConnectionRequired)	rank = 1;
-	return rank;
-}
-
-
 static void
 _dns_resolver_set_reach_flags(dns_create_resolver_t _resolver)
 {
@@ -519,9 +502,13 @@ _dns_resolver_set_reach_flags(dns_create_resolver_t _resolver)
 				}
 
 				if ((n_nameserver++ == 0) ||
-				    (rankReachability(ns_flags) < rankReachability(flags))) {
-					/* return the first (and later, worst case) result */
+				    (__SCNetworkReachabilityRank(ns_flags) > __SCNetworkReachabilityRank(flags))) {
+					/* return the first (and later, best case) result */
 					flags = ns_flags;
+					if (__SCNetworkReachabilityRank(flags) == ReachabilityRankReachable) {
+						// Can't get any better than REACHABLE
+						break;
+					}
 				}
 			}
 

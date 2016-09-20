@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2003-2008, 2011-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2008, 2011-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -28,20 +28,21 @@
  * - initial revision
  */
 
+#include <dlfcn.h>
 #include <unistd.h>
 #include <sys/param.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <dlfcn.h>
-
-#include <SystemConfiguration/SCPreferencesSetSpecific.h>
-#if	!TARGET_OS_IPHONE
-#include <Security/Authorization.h>
-#endif	/* !TARGET_OS_IPHONE */
 
 #include "scutil.h"
 #include "commands.h"
 #include "prefs.h"
+
+#include "SCNetworkConfigurationInternal.h"
+
+#if	!TARGET_OS_IPHONE
+#include <Security/Authorization.h>
+#endif	/* !TARGET_OS_IPHONE */
 
 
 /* -------------------- */
@@ -50,22 +51,14 @@
 #if	!TARGET_OS_IPHONE
 static void *
 __loadSecurity(void) {
-	static void *image = NULL;
-	if (NULL == image) {
-		const char	*framework		= "/System/Library/Frameworks/Security.framework/Security";
-		struct stat	statbuf;
-		const char	*suffix			= getenv("DYLD_IMAGE_SUFFIX");
-		char		path[MAXPATHLEN];
+	static void		*image	= NULL;
+	static dispatch_once_t	once;
 
-		strlcpy(path, framework, sizeof(path));
-		if (suffix) strlcat(path, suffix, sizeof(path));
-		if (0 <= stat(path, &statbuf)) {
-			image = dlopen(path, RTLD_LAZY | RTLD_LOCAL);
-		} else {
-			image = dlopen(framework, RTLD_LAZY | RTLD_LOCAL);
-		}
-	}
-	return (void *)image;
+	dispatch_once(&once, ^{
+		image = _SC_dlopen("/System/Library/Frameworks/Security.framework/Security");
+	});
+
+	return image;
 }
 
 
@@ -566,12 +559,18 @@ do_getPref(char *pref, int argc, char **argv)
 		return;
 	}
 
-	// Add support to parse out extended get
+	// process extended get
 	// ie. scutil --get <filename> <prefs path> <key>
 	do_prefs_init();
-	do_prefs_open(argc, argv);
-	do_prefs_get(--argc, ++argv);
 
+	do_prefs_open(argc, argv);
+	if (SCError() != kSCStatusOK) {
+		SCPrint(TRUE, stderr, CFSTR("%s\n"), SCErrorString(SCError()));
+		_prefs_close();
+		exit(1);
+	}
+
+	do_prefs_get(--argc, ++argv);
 	if (value != NULL) {
 		CFStringRef key;
 		CFStringRef prefs_val;
@@ -986,32 +985,38 @@ __private_extern__
 void
 do_log(char * log, int argc, char **argv)
 {
-	if (strcmp(log, "IPMonitor")) {
-	    exit(0);
-	}
-	if (argc == 0) {
-	    printf("IPMonitor log is %s\n",
-		   on_off_str(IPMonitorControlPrefsIsVerbose()));
-	}
-	else {
-	    Boolean	verbose = FALSE;
+	Boolean	verbose	= FALSE;
 
-	    if (strcasecmp(argv[0], "on") == 0) {
-		verbose = TRUE;
-	    }
-	    else if (strcasecmp(argv[0], "off") == 0) {
-		verbose = FALSE;
-	    }
-	    else {
-		    fprintf(stderr, "%s invalid, must be 'on' or 'off'\n",
-			    argv[0]);
-		    exit(1);
-	    }
-	    if (IPMonitorControlPrefsSetVerbose(verbose) == FALSE) {
-		    fprintf(stderr, "failed to set preferences\n");
-		    exit(2);
-	    }
+	if (strcmp(log, "IPMonitor")) {
+		exit(0);
 	}
+
+	if (argc == 0) {
+		SCPrint(TRUE, stdout, CFSTR("IPMonitor log is %s\n"),
+			on_off_str(IPMonitorControlPrefsIsVerbose()));
+		exit(0);
+	}
+
+	if        ((strcasecmp(argv[0], "disable") == 0) ||
+		   (strcasecmp(argv[0], "no"     ) == 0) ||
+		   (strcasecmp(argv[0], "off"    ) == 0) ||
+		   (strcasecmp(argv[0], "0"      ) == 0)) {
+		verbose = FALSE;
+	} else if ((strcasecmp(argv[0], "enable") == 0) ||
+		   (strcasecmp(argv[0], "yes"   ) == 0) ||
+		   (strcasecmp(argv[0], "on"   ) == 0) ||
+		   (strcasecmp(argv[0], "1"     ) == 0)) {
+		verbose = TRUE;
+	} else {
+		SCPrint(TRUE, stdout, CFSTR("invalid value, must be 'on' or 'off'\n"));
+		exit(1);
+	}
+
+	if (!IPMonitorControlPrefsSetVerbose(verbose)) {
+		SCPrint(TRUE, stderr, CFSTR("failed to set preferences\n"));
+		exit(2);
+	}
+
 	exit(0);
 	return;
 }
@@ -1047,7 +1052,7 @@ copy_configured_interface(SCPreferencesRef prefs, CFStringRef if_name)
 		SCNetworkServiceRef	s;
 
 		s = (SCNetworkServiceRef)CFArrayGetValueAtIndex(services, i);
-		if (SCNetworkServiceGetEnabled(s) == FALSE) {
+		if (!SCNetworkServiceGetEnabled(s)) {
 			/* skip disabled services */
 			continue;
 		}
@@ -1079,7 +1084,7 @@ copy_configured_interface(SCPreferencesRef prefs, CFStringRef if_name)
 static void
 disable_until_needed_usage(void)
 {
-	fprintf(stderr, "usage: scutil --disable-until-needed <ifname> [ on | off ]\n");
+	fprintf(stderr, "usage: scutil --disable-until-needed <interfaceName> [on|off|default]\n");
 	return;
 }
 
@@ -1092,32 +1097,31 @@ do_disable_until_needed(int argc, char **argv)
 	const char * 		if_name;
 	CFStringRef		if_name_cf;
 	SCNetworkInterfaceRef	net_if;
-	Boolean			on = FALSE;
+	Boolean			on		= FALSE;
+	const char *		on_off		= "?";
 	Boolean			ok;
-	Boolean			set_value;
+	Boolean			set_default	= FALSE;
+	Boolean			set_value	= FALSE;
 
 	if (argc < 1 || argc > 2) {
 		disable_until_needed_usage();
 		exit(1);
 	}
 	if_name = argv[0];
-	if (argc == 1) {
-		set_value = FALSE;
-	}
-	else {
-		const char *	on_off = argv[1];
-
-		set_value = TRUE;
+	if (argc > 1) {
+		on_off = argv[1];
 		if (strcasecmp(on_off, "on") == 0) {
 			on = TRUE;
-		}
-		else if (strcasecmp(on_off, "off") == 0) {
+		} else if (strcasecmp(on_off, "off") == 0) {
 			on = FALSE;
-		}
-		else {
+		} else if ((strcmp(on_off, "") == 0) || (strcasecmp(on_off, "default") == 0)) {
+			set_default = TRUE;
+			on_off = "default";
+		} else {
 			disable_until_needed_usage();
 			exit(1);
 		}
+		set_value = TRUE;
 	}
 	ok = _prefs_open(CFSTR("scutil --disable-until-needed"), NULL);
 	if (!ok) {
@@ -1137,14 +1141,18 @@ do_disable_until_needed(int argc, char **argv)
 		exit(1);
 	}
 	if (set_value) {
-		if (SCNetworkInterfaceSetDisableUntilNeeded(net_if, on) == FALSE) {
+		if (!set_default) {
+			ok = SCNetworkInterfaceSetDisableUntilNeeded(net_if, on);
+		} else {
+			ok = __SCNetworkInterfaceSetDisableUntilNeededValue(net_if, NULL);
+		}
+		if (!ok) {
 			fprintf(stderr, "failed to turn disable-until-needed %s\n",
-				on_off_str(on));
+				on_off);
 			exit(1);
 		}
 		_prefs_save();
-	}
-	else {
+	} else {
 		on = SCNetworkInterfaceGetDisableUntilNeeded(net_if);
 		printf("%s disable-until-needed is %s\n", if_name, on_off_str(on));
 	}

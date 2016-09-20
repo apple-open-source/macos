@@ -88,7 +88,6 @@ public:
 	CFClass ItemImpl;
 	CFClass KCCursorImpl;
 	CFClass KeychainImpl;
-	CFClass KeyItem;
     CFClass PasswordImpl;
 	CFClass Policy;
 	CFClass PolicyCursor;

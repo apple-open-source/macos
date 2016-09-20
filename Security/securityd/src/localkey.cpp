@@ -41,7 +41,7 @@ LocalKey::LocalKey(Database &db, const CssmKey &newKey, CSSM_KEYATTR_FLAGS moreA
 {
 	mValidKey = true;
 	setup(newKey, moreAttributes);
-    secdebug("SSkey", "%p (handle %#x) created from key alg=%u use=0x%x attr=0x%x db=%p",
+    secinfo("SSkey", "%p (handle %#x) created from key alg=%u use=0x%x attr=0x%x db=%p",
         this, handle(), mKey.header().algorithm(), mKey.header().usage(), mAttributes, &db);
 }
 
@@ -77,7 +77,7 @@ void LocalKey::setup(const CssmKey &newKey, CSSM_KEYATTR_FLAGS moreAttributes)
 
 LocalKey::~LocalKey()
 {
-    secdebug("SSkey", "%p destroyed", this);
+    secinfo("SSkey", "%p destroyed", this);
 }
 
 

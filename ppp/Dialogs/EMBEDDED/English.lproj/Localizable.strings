@@ -34,7 +34,7 @@
 "Retry token:" = "Enter your token:";
 
 /* Reminder message, Default button, Cancel button */
-"Reminder timeout" = "This is a reminder that you're still connected. Do you wish to remain connected?";
+"Reminder timeout" = "This is a reminder that you’re still connected. Do you wish to remain connected?";
 "Stay connected" = "Stay connected";
 "Disconnect" = "Disconnect";
 

@@ -44,7 +44,7 @@ TrustedApplication::TrustedApplication(const TypedList &subject)
 	try {
 		CodeSignatureAclSubject::Maker maker;
 		mForm = maker.make(subject);
-		secdebug("trustedapp", "%p created from list form", this);
+		secinfo("trustedapp", "%p created from list form", this);
 		IFDUMPING("codesign", mForm->AclSubject::dump("STApp created from list"));
 	} catch (...) {
 		throw ACL::ParseError();
@@ -59,7 +59,7 @@ TrustedApplication::TrustedApplication(const std::string &path)
 {
 	RefPointer<OSXCode> code(OSXCode::at(path));
 	mForm = new CodeSignatureAclSubject(OSXVerifier(code));
-	secdebug("trustedapp", "%p created from path %s", this, path.c_str());
+	secinfo("trustedapp", "%p created from path %s", this, path.c_str());
 	IFDUMPING("codesign", mForm->AclSubject::dump("STApp created from path"));
 }
 
@@ -72,7 +72,7 @@ TrustedApplication::TrustedApplication()
 	//@@@@ should use CS's idea of "self"
 	RefPointer<OSXCode> me(OSXCode::main());
 	mForm = new CodeSignatureAclSubject(OSXVerifier(me));
-	secdebug("trustedapp", "%p created from self", this);
+	secinfo("trustedapp", "%p created from self", this);
 	IFDUMPING("codesign", mForm->AclSubject::dump("STApp created from self"));
 }
 
@@ -88,7 +88,7 @@ TrustedApplication::TrustedApplication(const std::string &path, SecRequirementRe
 	MacOSError::check(SecRequirementCopyData(reqRef, kSecCSDefaultFlags, &reqData.aref()));
 	mForm = new CodeSignatureAclSubject(NULL, path);
 	mForm->add((const BlobCore *)CFDataGetBytePtr(reqData));
-	secdebug("trustedapp", "%p created from path %s and requirement %p",
+	secinfo("trustedapp", "%p created from path %s and requirement %p",
 		this, path.c_str(), reqRef);
 	IFDUMPING("codesign", mForm->debugDump());
 }
@@ -142,7 +142,7 @@ void TrustedApplication::data(CFDataRef data)
 bool TrustedApplication::verifyToDisk(const char *path)
 {
 	if (SecRequirementRef requirement = mForm->requirement()) {
-		secdebug("trustedapp", "%p validating requirement against path %s", this, path);
+		secinfo("trustedapp", "%p validating requirement against path %s", this, path);
 		CFRef<SecStaticCodeRef> ondisk;
 		if (path)
 			MacOSError::check(SecStaticCodeCreateWithPath(CFTempURL(path),
@@ -151,7 +151,7 @@ bool TrustedApplication::verifyToDisk(const char *path)
 			MacOSError::check(SecCodeCopySelf(kSecCSDefaultFlags, (SecCodeRef *)&ondisk.aref()));
 		return SecStaticCodeCheckValidity(ondisk, kSecCSDefaultFlags, requirement) == errSecSuccess;
 	} else {
-		secdebug("trustedapp", "%p validating hash against path %s", this, path);
+		secinfo("trustedapp", "%p validating hash against path %s", this, path);
 		RefPointer<OSXCode> code = path ? OSXCode::at(path) : OSXCode::main();
 		SHA1::Digest ondiskDigest;
 		OSXVerifier::makeLegacyHash(code, ondiskDigest);

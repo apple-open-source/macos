@@ -19,7 +19,7 @@
 <div id="page-header">
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p>
 <p class="apache">Serveur Apache HTTP Version 2.4</p>
-<img alt="" src="../images/feather.gif" /></div>
+<img alt="" src="../images/feather.png" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
 <a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">Serveur HTTP</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.4</a> &gt; <a href="./">Modules</a></div>
@@ -45,13 +45,13 @@ utilisant la syntaxe <code>http://example.com/~utilisateur/</code>.</p>
 <ul id="toc">
 <li><img alt="" src="../images/down.gif" /> <a href="#userdir">UserDir</a></li>
 </ul>
-<h3>Voir aussi</h3>
+<h3>Traitement des bugs</h3><ul class="seealso"><li><a href="https://www.apache.org/dist/httpd/CHANGES_2.4">Journal des modifications de httpd</a></li><li><a href="https://bz.apache.org/bugzilla/buglist.cgi?bug_status=__open__&amp;list_id=144532&amp;product=Apache%20httpd-2&amp;query_format=specific&amp;order=changeddate%20DESC%2Cpriority%2Cbug_severity&amp;component=mod_userdir">Problèmes connus</a></li><li><a href="https://bz.apache.org/bugzilla/enter_bug.cgi?product=Apache%20httpd-2&amp;component=mod_userdir">Signaler un bug</a></li></ul><h3>Voir aussi</h3>
 <ul class="seealso">
 <li><a href="../urlmapping.html">Mise en correspondance des URLs
 avec le système de fichiers</a></li>
 <li><a href="../howto/public_html.html">Tutoriel
 public_html</a></li>
-</ul><ul class="seealso"><li><a href="#comments_section">Commentaires</a></li></ul></div>
+<li><a href="#comments_section">Commentaires</a></li></ul></div>
 
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="userdir" id="userdir">Directive</a> <a name="UserDir" id="UserDir">UserDir</a></h2>
@@ -95,7 +95,7 @@ utilisateur</td></tr>
     </ul>
 
     <p>Si aucun mot-clé <code>enabled</code> ou <code>disabled</code>
-    n'apparait dans la directive <code>Userdir</code>, l'argument est
+    n'apparait dans la directive <code class="directive">Userdir</code>, l'argument est
     traité en tant que modèle de fichier, et utilisé pour traduire le
     nom d'utilisateur en une spécification de répertoire. Une requête
     pour <code>http://www.example.com/~bob/un/deux.html</code> sera
@@ -156,7 +156,7 @@ UserDir enabled user1 user2 user3</pre>
     <p>Il est aussi possible de spécifier des répertoires utilisateurs
     alternatifs. Si vous utilisez une commande comme :</p>
 
-    <pre class="prettyprint lang-config">UserDir public_html /usr/web http://www.example.com/</pre>
+    <pre class="prettyprint lang-config">UserDir "public_html" "/usr/web" "http://www.example.com/"</pre>
 
 
     <p>Avec une requête pour
@@ -175,7 +175,7 @@ UserDir enabled user1 user2 user3</pre>
     <p>La substitution de répertoire utilisateur n'est pas activée par
     défaut depuis la version 2.1.4. Dans les versions précédentes,
     <code>UserDir public_html</code> était sous-entendu si aucune
-    directive <code class="directive"><a href="#userdir">UserDir</a></code>
+    directive <code class="directive">UserDir</code>
     n'était présente.</p>
 
     <div class="note"><h3>Détails à propos de la fusion</h3>
@@ -217,7 +217,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_userdir.html
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

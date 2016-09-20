@@ -18,5 +18,7 @@
 	</array>
 	<key>com.apple.private.nehelper.privileged</key>
 	<true/>
+	<key>com.apple.private.system-keychain</key>
+	<true/>
 </dict>
 </plist>

@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
@@ -10,7 +10,7 @@
  * except in compliance with the License.  Please obtain a copy of the
  * License at http://www.apple.com/publicsource and read it before using
  * this file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -18,21 +18,21 @@
  * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
  * License for the specific language governing rights and limitations
  * under the License."
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
  *      Copyright (c) 1994 Christopher G. Demetriou.
  *      @(#)Copyright (c) 1994, Simon J. Gerraty.
- *      
+ *
  *      This is free software.  It comes with NO WARRANTY.
- *      Permission to use, modify and distribute this source code 
+ *      Permission to use, modify and distribute this source code
  *      is granted subject to the following conditions.
- *      1/ that the above copyright notice and this notice 
- *      are preserved in all copies and that due credit be given 
- *      to the author.  
- *      2/ that any changes to this code are clearly commented 
- *      as such so that the author does not get blamed for bugs 
+ *      1/ that the above copyright notice and this notice
+ *      are preserved in all copies and that due credit be given
+ *      to the author.
+ *      2/ that any changes to this code are clearly commented
+ *      as such so that the author does not get blamed for bugs
  *      other than his own.
  */
 
@@ -86,7 +86,7 @@ struct tty_list {
  * globals - yes yuk
  */
 #ifdef CONSOLE_TTY
-static char 	*Console = CONSOLE_TTY;
+static char	*Console = CONSOLE_TTY;
 #endif
 static time_t	Total = 0;
 static time_t	FirstTime = 0;
@@ -121,14 +121,13 @@ struct user_list	*update_user __P((struct user_list *, char *, time_t));
 void			usage __P((void));
 
 struct tty_list *
-add_tty(name)
-	char *name;
+add_tty(char *name)
 {
 	struct tty_list *tp;
 	register char *rcp;
 
 	Flags |= AC_T;
-	
+
 	if ((tp = NEW(struct tty_list)) == NULL)
 		err(1, "malloc");
 	tp->len = 0;				/* full match */
@@ -152,12 +151,11 @@ add_tty(name)
  * should we process the named tty?
  */
 int
-do_tty(name)
-	char *name;
+do_tty(char *name)
 {
 	struct tty_list *tp;
 	int def_ret = 0;
-	
+
 	for (tp = Ttys; tp != NULL; tp = tp->next) {
 		if (tp->ret == 0)		/* specific don't */
 			def_ret = 1;		/* default do */
@@ -177,8 +175,7 @@ do_tty(name)
  * is someone logged in on Console?
  */
 int
-on_console(head)
-	struct utmp_list *head;
+on_console(struct utmp_list *head)
 {
 	struct utmp_list *up;
 
@@ -195,10 +192,7 @@ on_console(head)
  * update user's login time
  */
 struct user_list *
-update_user(head, name, secs)
-	struct user_list *head;
-	char	*name;
-	time_t	secs;
+update_user(struct user_list *head, char *name, time_t secs)
 {
 	struct user_list *up;
 
@@ -214,7 +208,7 @@ update_user(head, name, secs)
 	 */
 	if (Flags & AC_U)
 		return head;
-	
+
 	if ((up = NEW(struct user_list)) == NULL)
 		err(1, "malloc");
 	up->next = head;
@@ -226,9 +220,7 @@ update_user(head, name, secs)
 }
 
 int
-main(argc, argv)
-	int	argc;
-	char	**argv;
+main(int argc, char **argv)
 {
 	FILE *fp;
 	int c;
@@ -278,7 +270,7 @@ main(argc, argv)
 	if (Flags & AC_D)
 		Flags &= ~AC_P;
 	ac();
-	
+
 	return 0;
 }
 
@@ -286,17 +278,14 @@ main(argc, argv)
  * print login time in decimal hours
  */
 void
-show(name, secs)
-	char *name;
-	time_t secs;
+show(char *name, time_t secs)
 {
 	(void)printf("\t%-*s %8.2f\n", UT_NAMESIZE, name,
 	    ((double)secs / 3600));
 }
 
 void
-show_users(list)
-	struct user_list *list;
+show_users(struct user_list *list)
 {
 	struct user_list *lp;
 
@@ -308,10 +297,7 @@ show_users(list)
  * print total login time for 24hr period in decimal hours
  */
 void
-show_today(users, logins, secs)
-	struct user_list *users;
-	struct utmp_list *logins;
-	time_t secs;
+show_today(struct user_list *users, struct utmp_list *logins, time_t secs)
 {
 	struct user_list *up;
 	struct utmp_list *lp;
@@ -323,7 +309,7 @@ show_today(users, logins, secs)
 
 	/* restore the missing second */
 	yesterday++;
-	
+
 	for (lp = logins; lp != NULL; lp = lp->next) {
 		secs = yesterday - lp->usr.ut_tv.tv_sec;
 		Users = update_user(Users, lp->usr.ut_user, secs);
@@ -334,7 +320,7 @@ show_today(users, logins, secs)
 		secs += up->secs;
 		up->secs = 0;			/* for next day */
 	}
- 	if (secs)
+	if (secs)
 		(void)printf("%s %11.2f\n", date, ((double)secs / 3600));
 }
 
@@ -344,13 +330,11 @@ show_today(users, logins, secs)
  * been shut down.
  */
 struct utmp_list *
-log_out(head, up)
-	struct utmp_list *head;
-	struct utmpx *up;
+log_out(struct utmp_list *head, struct utmpx *up)
 {
 	struct utmp_list *lp, *lp2, *tlp;
 	time_t secs;
-	
+
 	for (lp = head, lp2 = NULL; lp != NULL; )
 		if (up->ut_type == BOOT_TIME || up->ut_type == SHUTDOWN_TIME || strncmp(lp->usr.ut_line, up->ut_line,
 		    sizeof (up->ut_line)) == 0) {
@@ -386,9 +370,7 @@ log_out(head, up)
  * if do_tty says ok, login a user
  */
 struct utmp_list *
-log_in(head, up)
-	struct utmp_list *head;
-	struct utmpx *up;
+log_in(struct utmp_list *head, struct utmpx *up)
 {
 	struct utmp_list *lp;
 
@@ -407,13 +389,13 @@ log_in(head, up)
 	if (up->ut_host[0] == ':') {
 		/*
 		 * SunOS 4.0.2 does not treat ":0.0" as special but we
-		 * do. 
+		 * do.
 		 */
 		if (on_console(head))
 			return head;
 		/*
 		 * ok, no recorded login, so they were here when wtmp
-		 * started!  Adjust ut_tv.tv_sec! 
+		 * started!  Adjust ut_tv.tv_sec!
 		 */
 		up->ut_tv.tv_sec = FirstTime;
 		/*
@@ -453,14 +435,14 @@ log_in(head, up)
 }
 
 int
-ac()
+ac(void)
 {
 	struct utmp_list *lp, *head = NULL;
 	struct utmpx *u, end;
 	struct tm *ltm;
 	time_t secs = 0;
 	int day = -1;
-	
+
 	setutxent_wtmp(1); /* read in forward direction */
 	while ((u = getutxent_wtmp()) != NULL) {
 		if (!FirstTime)
@@ -516,7 +498,7 @@ ac()
 	bzero(&end, sizeof(end));
 	end.ut_tv.tv_sec = time((time_t *)0);
 	end.ut_type = SHUTDOWN_TIME;
-	
+
 	if (Flags & AC_D) {
 		ltm = localtime(&end.ut_tv.tv_sec);
 		if (day >= 0 && day != ltm->tm_yday) {
@@ -546,7 +528,7 @@ ac()
 }
 
 void
-usage()
+usage(void)
 {
 	(void)fprintf(stderr,
 #ifdef CONSOLE_TTY

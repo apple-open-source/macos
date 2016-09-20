@@ -608,7 +608,7 @@ nc_ondemand(int argc, char **argv)
 	}
 
 	if (argc == 1) {
-#if	!TARGET_IPHONE_SIMULATOR
+#if	!TARGET_OS_SIMULATOR
 		if (strcmp("--refresh", argv[0]) == 0) {
 			SCNetworkConnectionRef	connection	= NULL;
 
@@ -624,7 +624,7 @@ nc_ondemand(int argc, char **argv)
 			my_CFRelease(&connection);
 			goto done;
 		}
-#endif	// !TARGET_IPHONE_SIMULATOR
+#endif	// !TARGET_OS_SIMULATOR
 
 		ondemand_nodename = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
 	} else if (argc != 0) {

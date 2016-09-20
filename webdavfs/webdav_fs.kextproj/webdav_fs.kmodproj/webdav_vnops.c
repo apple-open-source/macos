@@ -4459,6 +4459,23 @@ static int webdav_vnop_ioctl(struct vnop_ioctl_args *ap)
 	RET_ERR("webdav_vnop_ioctl", error);
 }
 
+static int webdav_vnop_advlock(struct vnop_advlock_args *ap)
+{
+	int error;
+
+	START_MARKER("webdav_vnop_advlock");
+	error = EINVAL;
+	/* only O_EXLOCK/O_SHLOCK open modes are supported not posix advisory (byte-range) locks */
+	/* from afpfs_vnop_advlock() */
+	if (ap->a_flags & F_FLOCK) {
+		/* open/close also calls here so to make them work for now, return no err */
+		error = 0;
+	} else {
+		error = err_advlock(ap);
+	}
+
+	RET_ERR("webdav_vnop_advlock", error);
+}
 /*****************************************************************************/
 
 #define VOPFUNC int (*)(void *)
@@ -4489,6 +4506,7 @@ struct vnodeopv_entry_desc webdav_vnodeop_entries[] = {
 	{&vnop_pathconf_desc, (VOPFUNC)webdav_vnop_pathconf},			/* pathconf */
 	{&vnop_pagein_desc, (VOPFUNC)webdav_vnop_pagein},				/* pagein */
 	{&vnop_pageout_desc, (VOPFUNC)webdav_vnop_pageout},				/* pageout */
+	{&vnop_advlock_desc, (VOPFUNC)webdav_vnop_advlock},				/* advlock */
 	{(struct vnodeop_desc *)NULL, (VOPFUNC)NULL}					/* end of table */
 };
 

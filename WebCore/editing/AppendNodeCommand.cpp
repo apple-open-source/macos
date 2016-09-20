@@ -35,32 +35,15 @@
 
 namespace WebCore {
 
-AppendNodeCommand::AppendNodeCommand(PassRefPtr<ContainerNode> parent, PassRefPtr<Node> node, EditAction editingAction)
+AppendNodeCommand::AppendNodeCommand(PassRefPtr<ContainerNode> parent, Ref<Node>&& node, EditAction editingAction)
     : SimpleEditCommand(parent->document(), editingAction)
     , m_parent(parent)
-    , m_node(node)
+    , m_node(WTFMove(node))
 {
     ASSERT(m_parent);
-    ASSERT(m_node);
     ASSERT(!m_node->parentNode());
 
     ASSERT(m_parent->hasEditableStyle() || !m_parent->renderer());
-}
-
-static void sendAXTextChangedIgnoringLineBreaks(Node* node, AXTextEditType type)
-{
-    if (!node)
-        return;
-
-    String text = node->nodeValue();
-    // Don't consider linebreaks in this command
-    if (text == "\n")
-      return;
-
-    if (AXObjectCache* cache = node->document().existingAXObjectCache()) {
-        Position position = is<Text>(node) ? Position(downcast<Text>(node), 0) : createLegacyEditingPosition(node, 0);
-        cache->postTextStateChangeNotification(node, type, text, VisiblePosition(position));
-    }
 }
 
 void AppendNodeCommand::doApply()
@@ -68,20 +51,13 @@ void AppendNodeCommand::doApply()
     if (!m_parent->hasEditableStyle() && m_parent->renderer())
         return;
 
-    m_parent->appendChild(m_node.get(), IGNORE_EXCEPTION);
-
-    if (shouldPostAccessibilityNotification())
-        sendAXTextChangedIgnoringLineBreaks(m_node.get(), applyEditType());
+    m_parent->appendChild(m_node, IGNORE_EXCEPTION);
 }
 
 void AppendNodeCommand::doUnapply()
 {
     if (!m_parent->hasEditableStyle())
         return;
-
-    // Need to notify this before actually deleting the text
-    if (shouldPostAccessibilityNotification())
-        sendAXTextChangedIgnoringLineBreaks(m_node.get(), unapplyEditType());
 
     m_node->remove(IGNORE_EXCEPTION);
 }
@@ -90,7 +66,7 @@ void AppendNodeCommand::doUnapply()
 void AppendNodeCommand::getNodesInCommand(HashSet<Node*>& nodes)
 {
     addNodeAndDescendants(m_parent.get(), nodes);
-    addNodeAndDescendants(m_node.get(), nodes);
+    addNodeAndDescendants(m_node.ptr(), nodes);
 }
 #endif
 

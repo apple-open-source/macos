@@ -87,13 +87,30 @@ SOSGenCountRef SOSGenerationCopy(SOSGenCountRef gen) {
     return CFNumberCreate(NULL, kCFNumberSInt64Type, &value);
 }
 
-bool SOSGenerationIsOlder(SOSGenCountRef current, SOSGenCountRef proposed) {
-    return CFNumberCompare(current, proposed, NULL) == kCFCompareGreaterThan;
+// Is current older than proposed?
+bool SOSGenerationIsOlder(SOSGenCountRef older, SOSGenCountRef newer) {
+    switch(CFNumberCompare(older, newer, NULL)) {
+        case kCFCompareLessThan:  return true;
+        case kCFCompareEqualTo: return false;
+        case kCFCompareGreaterThan:  return false;
+    }
+    return false;
 }
+
+// Is current older than proposed?
+static bool SOSGenerationIsOlderOrEqual(SOSGenCountRef older, SOSGenCountRef newer) {
+    switch(CFNumberCompare(older, newer, NULL)) {
+        case kCFCompareLessThan:  return true;
+        case kCFCompareEqualTo: return true;
+        case kCFCompareGreaterThan:  return false;
+    }
+    return false;
+}
+
 
 SOSGenCountRef SOSGenerationCreateWithBaseline(SOSGenCountRef reference) {
     SOSGenCountRef retval = SOSGenerationCreate();
-    if(!SOSGenerationIsOlder(retval, reference)) {
+    if(SOSGenerationIsOlderOrEqual(retval, reference)) {
         CFReleaseNull(retval);
         retval = SOSGenerationIncrementAndCreate(reference);
     }

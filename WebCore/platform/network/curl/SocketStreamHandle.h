@@ -29,8 +29,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SocketStreamHandle_h
-#define SocketStreamHandle_h
+#pragma once
 
 #include "SocketStreamHandleBase.h"
 
@@ -38,29 +37,26 @@
 #include <winsock2.h>
 #endif
 
+#include "SessionID.h"
 #include <curl/curl.h>
-
-#include <mutex>
-
 #include <wtf/Deque.h>
+#include <wtf/Lock.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Threading.h>
 
 namespace WebCore {
 
-class AuthenticationChallenge;
-class Credential;
 class NetworkingContext;
 class SocketStreamHandleClient;
 
 class SocketStreamHandle : public ThreadSafeRefCounted<SocketStreamHandle>, public SocketStreamHandleBase {
 public:
-    static Ref<SocketStreamHandle> create(const URL& url, SocketStreamHandleClient* client, NetworkingContext&) { return adoptRef(*new SocketStreamHandle(url, client)); }
+    static Ref<SocketStreamHandle> create(const URL& url, SocketStreamHandleClient& client, NetworkingContext&, SessionID) { return adoptRef(*new SocketStreamHandle(url, client)); }
 
     virtual ~SocketStreamHandle();
 
 private:
-    SocketStreamHandle(const URL&, SocketStreamHandleClient*);
+    SocketStreamHandle(const URL&, SocketStreamHandleClient&);
 
     int platformSend(const char* data, int length) override;
     void platformClose() override;
@@ -77,24 +73,16 @@ private:
 
     static std::unique_ptr<char[]> createCopy(const char* data, int length);
 
-    // No authentication for streams per se, but proxy may ask for credentials.
-    void didReceiveAuthenticationChallenge(const AuthenticationChallenge&);
-    void receivedCredential(const AuthenticationChallenge&, const Credential&);
-    void receivedRequestToContinueWithoutCredential(const AuthenticationChallenge&);
-    void receivedCancellation(const AuthenticationChallenge&);
-    void receivedRequestToPerformDefaultHandling(const AuthenticationChallenge&);
-    void receivedChallengeRejection(const AuthenticationChallenge&);
-
     struct SocketData {
         SocketData(std::unique_ptr<char[]>&& source, int length)
         {
-            data = WTF::move(source);
+            data = WTFMove(source);
             size = length;
         }
 
         SocketData(SocketData&& other)
         {
-            data = WTF::move(other.data);
+            data = WTFMove(other.data);
             size = other.size;
             other.size = 0;
         }
@@ -105,12 +93,10 @@ private:
 
     ThreadIdentifier m_workerThread { 0 };
     std::atomic<bool> m_stopThread { false };
-    std::mutex m_mutexSend;
-    std::mutex m_mutexReceive;
+    Lock m_mutexSend;
+    Lock m_mutexReceive;
     Deque<SocketData> m_sendData;
     Deque<SocketData> m_receiveData;
 };
 
 } // namespace WebCore
-
-#endif // SocketStreamHandle_h

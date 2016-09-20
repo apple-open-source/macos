@@ -45,15 +45,16 @@
 
 static inline ccdh_gp_t SecDH_gp(SecDHContext dh)
 {
-    void *p = dh;
-    ccdh_gp_t gp = { .gp = p };
+    ccdh_gp_t gp;
+    gp.gp  = (ccdh_gp *)dh;
     return gp;
 }
 
 static inline ccdh_full_ctx_t SecDH_priv(SecDHContext dh)
 {
     void *p = dh;
-    cczp_t zp = { .u = p };
+    cczp_t zp;
+    zp.zp = (struct cczp *) dh;
     cc_size s = ccn_sizeof_n(cczp_n(zp));
     ccdh_full_ctx_t priv = { .hdr = (struct ccdh_ctx_header *)(p+ccdh_gp_size(s)) };
     return priv;
@@ -114,7 +115,7 @@ OSStatus SecDHCreate(uint32_t g, const uint8_t *p, size_t p_len,
     if(recip) {
         if(ccn_read_uint(n+1, CCDH_GP_RECIP(gp), recip_len, recip))
             goto errOut;
-        gp.zp.zp->mod_prime = cczp_mod;
+        CCZP_MOD_PRIME(gp.zp) = cczp_mod;
     } else {
         cczp_init(gp.zp);
     };
@@ -170,10 +171,17 @@ sizeof(DER_DHParamsItemSpecs) / sizeof(DERItemSpec);
 OSStatus SecDHCreateFromParameters(const uint8_t *params,
 	size_t params_len, SecDHContext *pdh)
 {
+    // We support DomainParameters as specified in PKCS#3
+    // (http://www.emc.com/emc-plus/rsa-labs/standards-initiatives/pkcs-3-diffie-hellman-key-agreement-standar.htm)
+    // DHParameter ::= SEQUENCE {
+    //   prime INTEGER, -- p
+    //   base INTEGER, -- g
+    //   privateValueLength INTEGER OPTIONAL }
+
     DERReturn drtn;
 	DERItem paramItem = {(DERByte *)params, params_len};
 	DER_DHParams decodedParams;
-    uint32_t l;
+    uint32_t l = 0;
 
     drtn = DERParseSequence(&paramItem,
                             DER_NumDHParamsItemSpecs, DER_DHParamsItemSpecs,
@@ -181,9 +189,11 @@ OSStatus SecDHCreateFromParameters(const uint8_t *params,
     if(drtn)
         return drtn;
 
-    drtn = DERParseInteger(&decodedParams.l, &l);
-    if(drtn)
-        return drtn;
+    if (decodedParams.l.length > 0) {
+        drtn = DERParseInteger(&decodedParams.l, &l);
+        if(drtn)
+            return drtn;
+    }
     cc_size n = ccn_nof_size(decodedParams.p.length);
     cc_size p_len = ccn_sizeof_n(n);
     size_t context_size = ccdh_gp_size(p_len)+ccdh_full_ctx_size(p_len);
@@ -204,7 +214,7 @@ OSStatus SecDHCreateFromParameters(const uint8_t *params,
     if(decodedParams.recip.length) {
         if(ccn_read_uint(n+1, CCDH_GP_RECIP(gp), decodedParams.recip.length, decodedParams.recip.data))
             goto errOut;
-        gp.zp.zp->mod_prime = cczp_mod;
+        CCZP_MOD_PRIME(gp.zp) = cczp_mod;
     } else {
         cczp_init(gp.zp);
     };

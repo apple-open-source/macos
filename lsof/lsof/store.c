@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: store.c,v 1.41 2013/01/02 17:14:59 abe Exp $";
+static char *rcsid = "$Id: store.c,v 1.43 2015/07/07 20:16:58 abe Exp $";
 #endif
 
 
@@ -131,6 +131,8 @@ int Fblock = 0;			/* -b option status */
 int FcColW;			/* FCT column width */
 int Fcntx = 0;			/* -Z option status */
 int FdColW;			/* FD column width */
+int FeptE = 0;			/* -E option status: 0==none, 1==info,
+				 * 2==info+files */
 int Ffilesys = 0;		/* -f option status:
 				 *    0 = paths may be file systems
 				 *    1 = paths are just files
@@ -207,7 +209,7 @@ struct fieldsel FieldSel[] = {
     { LSOF_FID_CT,     0,  LSOF_FNM_CT,     &Fsv,     FSV_CT 	 }, /*  2 */
     { LSOF_FID_DEVCH,  0,  LSOF_FNM_DEVCH,  NULL,     0		 }, /*  3 */
     { LSOF_FID_DEVN,   0,  LSOF_FNM_DEVN,   NULL,     0		 }, /*  4 */
-    { LSOF_FID_FD,     0,  LSOF_FNM_FD,     NULL,     0		 }, /*  5 */
+    { LSOF_FID_FD,     1,  LSOF_FNM_FD,     NULL,     0		 }, /*  5 */
     { LSOF_FID_FA,     0,  LSOF_FNM_FA,     &Fsv,     FSV_FA	 }, /*  6 */
     { LSOF_FID_FG,     0,  LSOF_FNM_FG,     &Fsv,     FSV_FG	 }, /*  7 */
     { LSOF_FID_INODE,  0,  LSOF_FNM_INODE,  NULL,     0		 }, /*  8 */
@@ -248,6 +250,7 @@ struct lproc *Lp = (struct lproc *)NULL;
 				/* current local process table entry */
 struct lproc *Lproc = (struct lproc *)NULL;
 				/* local process table */
+int MaxFd;			/* maximum file descriptors to close */
 char *Memory = (char *)NULL;	/* core file path */
 int MntSup = 0;			/* mount supplement state: 0 == none
 				 *			   1 == create

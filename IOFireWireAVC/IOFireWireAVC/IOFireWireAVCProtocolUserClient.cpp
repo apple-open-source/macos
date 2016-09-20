@@ -117,6 +117,9 @@ IOReturn IOFireWireAVCProtocolUserClient::externalMethod( uint32_t selector,
 			break;
 		
 		case kIOFWAVCProtocolUserClientConnectTargetPlugs:
+			
+			if( (arguments->structureInputSize != sizeof(AVCConnectTargetPlugsInParams)) || (arguments->structureOutputSize != sizeof(AVCConnectTargetPlugsOutParams)) )
+				return kIOReturnBadArgument;
 			result = connectTargetPlugs((AVCConnectTargetPlugsInParams *) arguments->structureInput, (AVCConnectTargetPlugsOutParams *) arguments->structureOutput);
 			break;
 		
@@ -130,6 +133,9 @@ IOReturn IOFireWireAVCProtocolUserClient::externalMethod( uint32_t selector,
 			break;
 	
 		case kIOFWAVCProtocolUserClientGetTargetPlugConnection:
+
+			if( (arguments->structureInputSize != sizeof(AVCGetTargetPlugConnectionInParams)) || (arguments->structureOutputSize != sizeof(AVCGetTargetPlugConnectionOutParams)) )
+				return kIOReturnBadArgument;
 			result = getTargetPlugConnection((AVCGetTargetPlugConnectionInParams *) arguments->structureInput,
 											(AVCGetTargetPlugConnectionOutParams *) arguments->structureOutput);
 			break;

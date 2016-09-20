@@ -76,7 +76,7 @@ krb5_string_to_timestamp(char *string, mit_krb5_timestamp *timestampp)
 	    ret_time = mktime(&timebuf);
 	    if (ret_time == (time_t) -1)
 		continue;	/* clearly confused */
-	    *timestampp = (krb5_timestamp) ret_time;
+	    *timestampp = (mit_krb5_timestamp) ret_time;
 	    return 0;
 	}
     }

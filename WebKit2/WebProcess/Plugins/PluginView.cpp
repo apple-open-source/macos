@@ -31,6 +31,7 @@
 #include "ShareableBitmap.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebEvent.h"
+#include "WebLoaderStrategy.h"
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
 #include "WebProcess.h"
@@ -41,6 +42,7 @@
 #include <WebCore/CredentialStorage.h>
 #include <WebCore/DocumentLoader.h>
 #include <WebCore/EventHandler.h>
+#include <WebCore/EventNames.h>
 #include <WebCore/FocusController.h>
 #include <WebCore/FrameLoadRequest.h>
 #include <WebCore/FrameLoader.h>
@@ -62,7 +64,6 @@
 #include <WebCore/ProtectionSpace.h>
 #include <WebCore/ProxyServer.h>
 #include <WebCore/RenderEmbeddedObject.h>
-#include <WebCore/ResourceLoadScheduler.h>
 #include <WebCore/ScriptController.h>
 #include <WebCore/ScrollView.h>
 #include <WebCore/SecurityOrigin.h>
@@ -160,7 +161,7 @@ void PluginView::Stream::start()
     Frame* frame = m_pluginView->m_pluginElement->document().frame();
     ASSERT(frame);
 
-    m_loader = resourceLoadScheduler()->schedulePluginStreamLoad(frame, this, m_request);
+    m_loader = WebProcess::singleton().webLoaderStrategy().schedulePluginStreamLoad(*frame, *this, m_request);
 }
 
 void PluginView::Stream::cancel()
@@ -521,6 +522,14 @@ bool PluginView::handlesPageScaleFactor() const
     return m_plugin->handlesPageScaleFactor();
 }
 
+bool PluginView::requiresUnifiedScaleFactor() const
+{
+    if (!m_plugin || !m_isInitialized)
+        return false;
+
+    return m_plugin->requiresUnifiedScaleFactor();
+}
+
 void PluginView::webPageDestroyed()
 {
     m_webPage = 0;
@@ -681,6 +690,12 @@ void PluginView::didInitializePlugin()
                 frameView->setNeedsLayout();
         }
     }
+
+    if (Frame* frame = m_pluginElement->document().frame()) {
+        auto* webFrame = WebFrame::fromCoreFrame(*frame);
+        if (webFrame->isMainFrame())
+            webFrame->page()->send(Messages::WebPageProxy::MainFramePluginHandlesPageScaleGestureDidChange(handlesPageScaleFactor()));
+    }
 }
 
 #if PLATFORM(COCOA)
@@ -792,13 +807,13 @@ void PluginView::setFrameRect(const WebCore::IntRect& rect)
     viewGeometryDidChange();
 }
 
-void PluginView::paint(GraphicsContext* context, const IntRect& /*dirtyRect*/)
+void PluginView::paint(GraphicsContext& context, const IntRect& /*dirtyRect*/)
 {
     if (!m_plugin || !m_isInitialized || m_pluginElement->displayState() < HTMLPlugInElement::Restarting)
         return;
 
-    if (context->paintingDisabled()) {
-        if (context->updatingControlTints())
+    if (context.paintingDisabled()) {
+        if (context.updatingControlTints())
             m_plugin->updateControlTints(context);
         return;
     }
@@ -810,14 +825,14 @@ void PluginView::paint(GraphicsContext* context, const IntRect& /*dirtyRect*/)
         return;
 
     if (m_transientPaintingSnapshot) {
-        m_transientPaintingSnapshot->paint(*context, contentsScaleFactor(), frameRect().location(), m_transientPaintingSnapshot->bounds());
+        m_transientPaintingSnapshot->paint(context, contentsScaleFactor(), frameRect().location(), m_transientPaintingSnapshot->bounds());
         return;
     }
     
-    GraphicsContextStateSaver stateSaver(*context);
+    GraphicsContextStateSaver stateSaver(context);
 
     // Translate the coordinate system so that the origin is in the top-left corner of the plug-in.
-    context->translate(frameRect().location().x(), frameRect().location().y());
+    context.translate(frameRect().location().x(), frameRect().location().y());
 
     m_plugin->paint(context, paintRect);
 }
@@ -997,6 +1012,14 @@ bool PluginView::shouldNotAddLayer() const
     return m_pluginElement->displayState() < HTMLPlugInElement::Restarting && !m_plugin->supportsSnapshotting();
 }
 
+void PluginView::willDetatchRenderer()
+{
+    if (!m_isInitialized || !m_plugin)
+        return;
+
+    m_plugin->willDetatchRenderer();
+}
+
 PassRefPtr<SharedBuffer> PluginView::liveResourceData() const
 {
     if (!m_isInitialized || !m_plugin)
@@ -1143,7 +1166,7 @@ void PluginView::focusPluginElement()
     if (Page* page = frame()->page())
         page->focusController().setFocusedElement(m_pluginElement.get(), frame());
     else
-        frame()->document()->setFocusedElement(m_pluginElement);
+        frame()->document()->setFocusedElement(m_pluginElement.get());
 }
 
 void PluginView::pendingURLRequestsTimerFired()
@@ -1195,7 +1218,7 @@ void PluginView::performFrameLoadURLRequest(URLRequest* request)
         return;
     }
 
-    UserGestureIndicator gestureIndicator(request->allowPopups() ? DefinitelyProcessingUserGesture : PossiblyProcessingUserGesture);
+    UserGestureIndicator gestureIndicator(request->allowPopups() ? Optional<ProcessingUserGestureState>(ProcessingUserGesture) : Nullopt);
 
     // First, try to find a target frame.
     Frame* targetFrame = frame->loader().findFrameForNavigation(request->target());
@@ -1250,7 +1273,10 @@ void PluginView::performJavaScriptURLRequest(URLRequest* request)
     // Evaluate the JavaScript code. Note that running JavaScript here could cause the plug-in to be destroyed, so we
     // grab references to the plug-in here.
     RefPtr<Plugin> plugin = m_plugin;
-    Deprecated::ScriptValue result = frame->script().executeScript(jsString, request->allowPopups());
+    auto result = frame->script().executeScript(jsString, request->allowPopups());
+
+    if (!result)
+        return;
 
     // Check if evaluating the JavaScript destroyed the plug-in.
     if (!plugin->controller())
@@ -1338,12 +1364,13 @@ void PluginView::invalidateRect(const IntRect& dirtyRect)
     if (m_pluginElement->displayState() < HTMLPlugInElement::Restarting)
         return;
 
-    RenderBoxModelObject* renderer = downcast<RenderBoxModelObject>(m_pluginElement->renderer());
-    if (!renderer)
+    auto* renderer = m_pluginElement->renderer();
+    if (!is<RenderEmbeddedObject>(renderer))
         return;
+    auto& object = downcast<RenderEmbeddedObject>(*renderer);
 
     IntRect contentRect(dirtyRect);
-    contentRect.move(renderer->borderLeft() + renderer->paddingLeft(), renderer->borderTop() + renderer->paddingTop());
+    contentRect.move(object.borderLeft() + object.paddingLeft(), object.borderTop() + object.paddingTop());
     renderer->repaintRectangle(contentRect);
 }
 
@@ -1486,7 +1513,7 @@ bool PluginView::evaluate(NPObject* npObject, const String& scriptString, NPVari
     // protect the plug-in view from destruction.
     NPRuntimeObjectMap::PluginProtector pluginProtector(&m_npRuntimeObjectMap);
 
-    UserGestureIndicator gestureIndicator(allowPopups ? DefinitelyProcessingUserGesture : PossiblyProcessingUserGesture);
+    UserGestureIndicator gestureIndicator(allowPopups ? Optional<ProcessingUserGestureState>(ProcessingUserGesture) : Nullopt);
     return m_npRuntimeObjectMap.evaluate(npObject, scriptString, result);
 }
 
@@ -1539,13 +1566,14 @@ void PluginView::pluginProcessCrashed()
 {
     m_pluginProcessHasCrashed = true;
 
-    if (!is<RenderEmbeddedObject>(m_pluginElement->renderer()))
+    auto* renderer = m_pluginElement->renderer();
+    if (!is<RenderEmbeddedObject>(renderer))
         return;
 
     m_pluginElement->setNeedsStyleRecalc(SyntheticStyleChange);
 
-    downcast<RenderEmbeddedObject>(*m_pluginElement->renderer()).setPluginUnavailabilityReason(RenderEmbeddedObject::PluginCrashed);
-    
+    downcast<RenderEmbeddedObject>(*renderer).setPluginUnavailabilityReason(RenderEmbeddedObject::PluginCrashed);
+
     Widget::invalidate();
 }
 
@@ -1565,11 +1593,6 @@ void PluginView::setComplexTextInputState(PluginComplexTextInputState pluginComp
 const MachSendRight& PluginView::compositingRenderServerPort()
 {
     return WebProcess::singleton().compositingRenderServerPort();
-}
-
-void PluginView::openPluginPreferencePane()
-{
-    ASSERT_NOT_REACHED();
 }
 
 #endif
@@ -1659,8 +1682,7 @@ void PluginView::unprotectPluginFromDestruction()
     // the destroyed object higher on the stack. To prevent this, if the plug-in has
     // only one remaining reference, call deref() asynchronously.
     if (hasOneRef()) {
-        RunLoop::main().dispatch([this] {
-            deref();
+        RunLoop::main().dispatch([lastRef = adoptRef(*this)] {
         });
         return;
     }
@@ -1804,7 +1826,8 @@ void PluginView::pluginSnapshotTimerFired()
 
 #if ENABLE(PRIMARY_SNAPSHOTTED_PLUGIN_HEURISTIC)
     unsigned candidateArea = 0;
-    bool noSnapshotFoundAfterMaxRetries = m_countSnapshotRetries == frame()->settings().maximumPlugInSnapshotAttempts() && !isPlugInOnScreen && !snapshotFound;
+    unsigned maximumSnapshotRetries = frame() ? frame()->settings().maximumPlugInSnapshotAttempts() : 0;
+    bool noSnapshotFoundAfterMaxRetries = m_countSnapshotRetries == maximumSnapshotRetries && !isPlugInOnScreen && !snapshotFound;
     if (m_webPage->plugInIsPrimarySize(plugInImageElement, candidateArea)
         && (noSnapshotFoundAfterMaxRetries || plugInCameOnScreen))
         m_pluginElement->setDisplayState(HTMLPlugInElement::Playing);
@@ -1862,6 +1885,9 @@ bool PluginView::shouldCreateTransientPaintingSnapshot() const
             return false;
         }
     }
+
+    if (!m_plugin->canCreateTransientPaintingSnapshot())
+        return false;
 
     return true;
 }

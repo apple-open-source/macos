@@ -65,6 +65,10 @@
 .Fo pcap_ng_block_alloc
 .Fa "size_t len"
 .Fc
+.Ft size_t
+.Fo pcap_ng_block_size_max
+.Fa "void"
+.Fc
 .Ft int
 .Fo pcap_ng_block_reset
 .Fa "pcapng_block_t block"
@@ -326,7 +330,15 @@ allocates a
 object to hold an pcap-ng block data structure.
 This allocate a work buffer to hold the raw data block content 
 so the given size should be large enough to hold the largest expected 
-raw block size. 
+raw block size.
+.Pp
+If the size given to
+.Fn pcap_ng_block_alloc
+is greater than the value returned by
+.Fn pcap_ng_block_size_max
+then the allocation fails and
+.Fn pcap_ng_block_alloc
+returns NULL.
 .Pp
 To reuse an existing internalized
 .Vt pcapng_block_t
@@ -335,9 +347,9 @@ object, use the function
 as it is more efficient to reuse than to allocate a new data structure 
 of each pcap-ng block being read or written.
 .Pp
-The function 
+The function
 .Fn pcap_ng_free_block
-deletes the memory used by the 
+deletes the memory used by the
 .Vt pcapng_block_t
 object.
 .Pp
@@ -586,13 +598,20 @@ destroys a cloned pktap or iptap interface that was used as a capture device.
 .
 The function
 .Fn pcap_ng_dump_pktap
-saves a packet with a 
+saves a packet with a
 .Vt struct pcap_pkthdr
-header as a pcap-ng enhanced data block. It handles the packet metadata 
-information from the 
+header as a pcap-ng enhanced data block. It handles the packet metadata
+information from the
 .Vt struct pcap_pkthdr
-and creates process information blocks and interface information blocks as 
+and creates process information blocks and interface information blocks as
 needed. It returns 1 if the packet passes the filter, 0 otherwise.
+.
+The function
+.Fn pcap_ng_dump_pktap_comment
+saves a packet like
+.Fn pcap_ng_dump_pktap
+with the addition of a comment string parameter that is added
+to the pcap-ng enhanced data block.
 .
 .Sh SEE ALSO
 .

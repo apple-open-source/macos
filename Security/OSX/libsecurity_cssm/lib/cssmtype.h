@@ -38,6 +38,9 @@
 extern "C" {
 #endif
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 /* Handle types. */
 	
 typedef CSSM_INTPTR CSSM_HANDLE, *CSSM_HANDLE_PTR;
@@ -2072,6 +2075,8 @@ typedef struct cssm_db_schema_index_info {
     CSSM_DB_INDEX_TYPE IndexType;
     CSSM_DB_INDEXED_DATA_LOCATION IndexedDataLocation;
 } CSSM_DB_SCHEMA_INDEX_INFO DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_DB_SCHEMA_INDEX_INFO_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+
+#pragma clang diagnostic pop
 
 #ifdef __cplusplus
 }

@@ -41,13 +41,13 @@ public:
 
     StyleCachedImage* cachedImage(CachedResourceLoader&, const ResourceLoaderOptions&);
     // Returns a StyleCachedImage if the image is cached already, otherwise a StylePendingImage.
-    StyleImage* cachedOrPendingImage();
+    StyleImage& cachedOrPendingImage();
 
     const String& url() const { return m_url; }
 
     String customCSSText() const;
 
-    PassRefPtr<CSSValue> cloneForCSSOM() const;
+    Ref<CSSValue> cloneForCSSOM() const;
 
     bool traverseSubresources(const std::function<bool (const CachedResource&)>& handler) const;
 

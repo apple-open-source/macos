@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2011, 2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2011, 2013, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -47,8 +47,7 @@ __SCDynamicStoreCopyKeyList(SCDynamicStoreRef store, CFStringRef key, Boolean is
 	CFStringRef			storeStr;
 	CFDictionaryRef			storeValue;
 
-	SC_trace(_configd_trace, "%s : %5d : %s : %@\n",
-		 "list   ",
+	SC_trace("list    : %5d : %s : %@",
 		 storePrivate->server,
 		 isRegex  ? "pattern" : "key",
 		 key);

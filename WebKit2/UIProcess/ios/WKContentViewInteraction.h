@@ -44,9 +44,9 @@
 #import <wtf/Vector.h>
 #import <wtf/text/WTFString.h>
 
-#if USE(APPLE_INTERNAL_SDK)
-#import <WebKitAdditions/LinkPreviewDefines.h>
-#endif
+namespace API {
+class OpenPanelParameters;
+}
 
 namespace WebCore {
 class Color;
@@ -57,7 +57,6 @@ class IntSize;
 namespace WebKit {
 class NativeWebTouchEvent;
 class SmartMagnificationController;
-class WebOpenPanelParameters;
 class WebOpenPanelResultListenerProxy;
 class WebPageProxy;
 }
@@ -74,6 +73,7 @@ typedef void (^UIWKAutocorrectionContextHandler)(UIWKAutocorrectionContext *auto
 typedef void (^UIWKDictationContextHandler)(NSString *selectedText, NSString *beforeText, NSString *afterText);
 typedef void (^UIWKSelectionCompletionHandler)(void);
 typedef void (^UIWKSelectionWithDirectionCompletionHandler)(BOOL selectionEndIsMoving);
+typedef void (^UIWKKeyWebEventCompletionHandler)(WebIOSEvent *theEvent, BOOL wasHandled);
 
 namespace WebKit {
 struct WKSelectionDrawingInfo {
@@ -105,7 +105,9 @@ struct WKAutoCorrectionData {
     RetainPtr<_UIWebHighlightLongPressGestureRecognizer> _highlightLongPressGestureRecognizer;
     RetainPtr<UILongPressGestureRecognizer> _longPressGestureRecognizer;
     RetainPtr<UITapGestureRecognizer> _doubleTapGestureRecognizer;
+    RetainPtr<UITapGestureRecognizer> _nonBlockingDoubleTapGestureRecognizer;
     RetainPtr<UITapGestureRecognizer> _twoFingerDoubleTapGestureRecognizer;
+    RetainPtr<UITapGestureRecognizer> _twoFingerSingleTapGestureRecognizer;
     RetainPtr<WKInspectorNodeSearchGestureRecognizer> _inspectorNodeSearchGestureRecognizer;
 
     RetainPtr<UIWKTextInteractionAssistant> _textSelectionAssistant;
@@ -121,6 +123,7 @@ struct WKAutoCorrectionData {
     RetainPtr<WKFormInputSession> _formInputSession;
     RetainPtr<WKFileUploadPanel> _fileUploadPanel;
     RetainPtr<UIGestureRecognizer> _previewGestureRecognizer;
+    RetainPtr<UIGestureRecognizer> _previewSecondaryGestureRecognizer;
 #if HAVE(LINK_PREVIEW)
     RetainPtr<UIPreviewItemController> _previewItemController;
 #endif
@@ -129,7 +132,7 @@ struct WKAutoCorrectionData {
 
     id <UITextInputDelegate> _inputDelegate;
 
-    uint64_t _latestTapHighlightID;
+    uint64_t _latestTapID;
     struct TapHighlightInformation {
         WebCore::Color color;
         Vector<WebCore::FloatQuad> quads;
@@ -144,6 +147,8 @@ struct WKAutoCorrectionData {
     WebKit::InteractionInformationAtPosition _positionInformation;
     WebKit::AssistedNodeInformation _assistedNodeInformation;
     RetainPtr<NSObject<WKFormPeripheral>> _inputPeripheral;
+    RetainPtr<UIEvent> _uiEventBeingResent;
+    UIWKKeyWebEventCompletionHandler _keyWebEventHandler;
 
     CGPoint _lastInteractionLocation;
 
@@ -154,6 +159,7 @@ struct WKAutoCorrectionData {
     BOOL _hasValidPositionInformation;
     BOOL _isTapHighlightIDValid;
     BOOL _potentialTapInProgress;
+    BOOL _isDoubleTapPending;
     BOOL _highlightLongPressCanClick;
     BOOL _hasTapHighlightForPotentialTap;
     BOOL _selectionNeedsUpdate;
@@ -161,6 +167,13 @@ struct WKAutoCorrectionData {
     BOOL _usingGestureForSelection;
     BOOL _inspectorNodeSearchEnabled;
     BOOL _didAccessoryTabInitiateFocus;
+    BOOL _isExpectingFastSingleTapCommit;
+    BOOL _showDebugTapHighlightsForFastClicking;
+
+    BOOL _resigningFirstResponder;
+
+    // For testing.
+    BOOL _forceIPadStyleZoomOnInputFocus;
 }
 
 @end
@@ -183,8 +196,11 @@ struct WKAutoCorrectionData {
 - (void)_webTouchEvent:(const WebKit::NativeWebTouchEvent&)touchEvent preventsNativeGestures:(BOOL)preventsDefault;
 #endif
 - (void)_commitPotentialTapFailed;
+- (void)_didNotHandleTapAsClick:(const WebCore::IntPoint&)point;
 - (void)_didGetTapHighlightForRequest:(uint64_t)requestID color:(const WebCore::Color&)color quads:(const Vector<WebCore::FloatQuad>&)highlightedQuads topLeftRadius:(const WebCore::IntSize&)topLeftRadius topRightRadius:(const WebCore::IntSize&)topRightRadius bottomLeftRadius:(const WebCore::IntSize&)bottomLeftRadius bottomRightRadius:(const WebCore::IntSize&)bottomRightRadius;
 
+- (BOOL)_mayDisableDoubleTapGesturesDuringSingleTap;
+- (void)_disableDoubleTapGesturesDuringTapIfNecessary:(uint64_t)requestID;
 - (void)_startAssistingNode:(const WebKit::AssistedNodeInformation&)information userIsInteracting:(BOOL)userIsInteracting blurPreviousNode:(BOOL)blurPreviousNode userObject:(NSObject <NSSecureCoding> *)userObject;
 - (void)_stopAssistingNode;
 - (void)_selectionChanged;
@@ -199,13 +215,15 @@ struct WKAutoCorrectionData {
 - (void)_overflowScrollingDidEnd;
 - (void)_didUpdateBlockSelectionWithTouch:(WebKit::SelectionTouch)touch withFlags:(WebKit::SelectionFlags)flags growThreshold:(CGFloat)growThreshold shrinkThreshold:(CGFloat)shrinkThreshold;
 - (void)_showPlaybackTargetPicker:(BOOL)hasVideo fromRect:(const WebCore::IntRect&)elementRect;
-- (void)_showRunOpenPanel:(WebKit::WebOpenPanelParameters*)parameters resultListener:(WebKit::WebOpenPanelResultListenerProxy*)listener;
+- (void)_showRunOpenPanel:(API::OpenPanelParameters*)parameters resultListener:(WebKit::WebOpenPanelResultListenerProxy*)listener;
 - (void)accessoryDone;
-- (void)_didHandleKeyEvent:(WebIOSEvent *)event;
+- (void)_didHandleKeyEvent:(WebIOSEvent *)event eventWasHandled:(BOOL)eventWasHandled;
 - (Vector<WebKit::OptionItem>&) assistedNodeSelectOptions;
 - (void)_enableInspectorNodeSearch;
 - (void)_disableInspectorNodeSearch;
 - (void)_becomeFirstResponderWithSelectionMovingForward:(BOOL)selectingForward completionHandler:(void (^)(BOOL didBecomeFirstResponder))completionHandler;
+- (void)_setDoubleTapGesturesEnabled:(BOOL)enabled;
+- (NSArray *)_dataDetectionResults;
 @end
 
 #if HAVE(LINK_PREVIEW)
@@ -215,5 +233,11 @@ struct WKAutoCorrectionData {
 - (void)_unregisterPreview;
 @end
 #endif
+
+@interface WKContentView (WKInteractionTesting)
+
+@property (nonatomic) BOOL forceIPadStyleZoomOnInputFocus;
+
+@end
 
 #endif // PLATFORM(IOS)

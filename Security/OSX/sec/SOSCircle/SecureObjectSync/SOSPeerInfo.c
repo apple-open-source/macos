@@ -92,6 +92,7 @@ CFStringRef kSOSPeerInfoNameKey = CFSTR("SOSPeerInfoName");
 
 //Peer Info V2 Dictionary IDS keys
 CFStringRef sPreferIDS                  = CFSTR("PreferIDS");
+CFStringRef sPreferIDSFragmentation     = CFSTR("PreferIDFragmentation");
 CFStringRef sTransportType              = CFSTR("TransportType");
 CFStringRef sDeviceID                   = CFSTR("DeviceID");
 
@@ -101,13 +102,19 @@ SOSPeerInfoRef SOSPeerInfoAllocate(CFAllocatorRef allocator) {
     return  CFTypeAllocate(SOSPeerInfo, struct __OpaqueSOSPeerInfo, allocator);
 }
 
-SecKeyRef SOSPeerInfoCopyPubKey(SOSPeerInfoRef peer) {
-    CFDataRef pubKeyBytes = CFDictionaryGetValue(peer->description, sPublicKeyKey);
-    if (pubKeyBytes == NULL)
-        return NULL;
+SecKeyRef SOSPeerInfoCopyPubKey(SOSPeerInfoRef peer, CFErrorRef* error) {
+    SecKeyRef result = NULL;
+
+    CFDataRef pubKeyBytes = asData(CFDictionaryGetValue(peer->description, sPublicKeyKey), error);
+    require_quiet(pubKeyBytes, fail);
+
     CFAllocatorRef allocator = CFGetAllocator(peer);
-    SecKeyRef pubKey = SecKeyCreateFromPublicData(allocator, kSecECDSAAlgorithmID, pubKeyBytes);
-    return pubKey;
+    result = SecKeyCreateFromPublicData(allocator, kSecECDSAAlgorithmID, pubKeyBytes);
+
+    require_quiet(SecAllocationError(result, error, CFSTR("Failed to create public key from data %@"), pubKeyBytes), fail);
+
+fail:
+    return result;
 }
 
 CFDataRef SOSPeerInfoGetAutoAcceptInfo(SOSPeerInfoRef peer) {
@@ -175,10 +182,8 @@ bool SOSPeerInfoVerify(SOSPeerInfoRef peer, CFErrorRef *error) {
     const struct ccdigest_info *di = ccsha256_di();
     uint8_t hbuf[di->output_size];
 
-    SecKeyRef pubKey = SOSPeerInfoCopyPubKey(peer);
-    require_action_quiet(pubKey, error_out,
-                         SOSErrorCreate(kSOSErrorNoKey, error, NULL,
-                                        CFSTR("Couldn't find pub key for %@"), peer));
+    SecKeyRef pubKey = SOSPeerInfoCopyPubKey(peer, error);
+    require_quiet(pubKey, error_out);
 
     require_quiet(SOSDescriptionHash(peer, di, hbuf, error), error_out);
 
@@ -202,7 +207,7 @@ void SOSPeerInfoSetVersionNumber(SOSPeerInfoRef pi, int version) {
 static SOSPeerInfoRef SOSPeerInfoCreate_Internal(CFAllocatorRef allocator,
                                                  CFDictionaryRef gestalt, CFDataRef backup_key,
                                                  CFStringRef IDSID, CFStringRef transportType, CFBooleanRef preferIDS,
-                                                 CFSetRef enabledViews,
+                                                 CFBooleanRef preferFragmentation, CFSetRef enabledViews,
                                                  SecKeyRef signingKey, CFErrorRef* error,
                                                  void (^ description_modifier)(CFMutableDictionaryRef description)) {
     SOSPeerInfoRef pi = CFTypeAllocate(SOSPeerInfo, struct __OpaqueSOSPeerInfo, allocator);
@@ -238,6 +243,7 @@ static SOSPeerInfoRef SOSPeerInfoCreate_Internal(CFAllocatorRef allocator,
                                                               sGestaltKey,   pi->gestalt,
                                                               NULL);
 
+
     description_modifier(pi->description);
     
     
@@ -254,10 +260,11 @@ static SOSPeerInfoRef SOSPeerInfoCreate_Internal(CFAllocatorRef allocator,
     }
     
     // V2DictionarySetValue handles NULL as remove
-    SOSPeerInfoV2DictionarySetValue(pi, sBackupKeyKey, backup_key);
+    if (backup_key != NULL) SOSPeerInfoV2DictionarySetValue(pi, sBackupKeyKey, backup_key);
     SOSPeerInfoV2DictionarySetValue(pi, sDeviceID, IDSID);
     SOSPeerInfoV2DictionarySetValue(pi, sTransportType, transportType);
     SOSPeerInfoV2DictionarySetValue(pi, sPreferIDS, preferIDS);
+    SOSPeerInfoV2DictionarySetValue(pi, sPreferIDSFragmentation, preferFragmentation);
     
     SOSPeerInfoV2DictionarySetValue(pi, sViewsKey, enabledViews);
 
@@ -275,20 +282,20 @@ exit:
 }
 
 SOSPeerInfoRef SOSPeerInfoCreate(CFAllocatorRef allocator, CFDictionaryRef gestalt, CFDataRef backup_key, SecKeyRef signingKey, CFErrorRef* error) {
-    return SOSPeerInfoCreate_Internal(allocator, gestalt, backup_key, NULL, NULL, NULL, NULL, signingKey, error, ^(CFMutableDictionaryRef description) {});
+    return SOSPeerInfoCreate_Internal(allocator, gestalt, backup_key, NULL, NULL, NULL, NULL, NULL, signingKey, error, ^(CFMutableDictionaryRef description) {});
 }
 
 SOSPeerInfoRef SOSPeerInfoCreateWithTransportAndViews(CFAllocatorRef allocator, CFDictionaryRef gestalt, CFDataRef backup_key,
                                                       CFStringRef IDSID, CFStringRef transportType, CFBooleanRef preferIDS,
-                                                      CFSetRef enabledViews,
+                                                      CFBooleanRef preferFragmentation, CFSetRef enabledViews,
                                                       SecKeyRef signingKey, CFErrorRef* error)
 {
-    return SOSPeerInfoCreate_Internal(allocator, gestalt, backup_key, IDSID, transportType, preferIDS, enabledViews, signingKey, error, ^(CFMutableDictionaryRef description) {});
+    return SOSPeerInfoCreate_Internal(allocator, gestalt, backup_key, IDSID, transportType, preferIDS, preferFragmentation, enabledViews, signingKey, error, ^(CFMutableDictionaryRef description) {});
 }
 
 
 SOSPeerInfoRef SOSPeerInfoCreateCloudIdentity(CFAllocatorRef allocator, CFDictionaryRef gestalt, SecKeyRef signingKey, CFErrorRef* error) {
-    return SOSPeerInfoCreate_Internal(allocator, gestalt, NULL, NULL, NULL, NULL, NULL, signingKey, error, ^(CFMutableDictionaryRef description) {
+    return SOSPeerInfoCreate_Internal(allocator, gestalt, NULL, NULL, NULL, NULL, NULL, NULL, signingKey, error, ^(CFMutableDictionaryRef description) {
         CFDictionarySetValue(description, sCloudIdentityKey, kCFBooleanTrue);
     });
 
@@ -321,7 +328,7 @@ bool SOSPeerInfoVersionHasV2Data(SOSPeerInfoRef pi) {
 }
 
 SOSPeerInfoRef SOSPeerInfoCreateCurrentCopy(CFAllocatorRef allocator, SOSPeerInfoRef toCopy,
-                                            CFStringRef IDSID, CFStringRef transportType, CFBooleanRef preferIDS, CFSetRef enabledViews,
+                                            CFStringRef IDSID, CFStringRef transportType, CFBooleanRef preferIDS, CFBooleanRef preferFragmentation,CFSetRef enabledViews,
                                             SecKeyRef signingKey, CFErrorRef* error) {
     
     SOSPeerInfoRef pi = SOSPeerInfoCreateCopy(allocator, toCopy, error);
@@ -337,6 +344,9 @@ SOSPeerInfoRef SOSPeerInfoCreateCurrentCopy(CFAllocatorRef allocator, SOSPeerInf
     }
     if (preferIDS) {
         SOSPeerInfoV2DictionarySetValue(pi, sPreferIDS, preferIDS);
+    }
+    if (sPreferIDSFragmentation) {
+        SOSPeerInfoV2DictionarySetValue(pi, sPreferIDSFragmentation, preferFragmentation);
     }
     if (enabledViews) {
         SOSPeerInfoV2DictionarySetValue(pi, sViewsKey, enabledViews);
@@ -474,7 +484,8 @@ SOSPeerInfoRef SOSPeerInfoCopyWithPing(CFAllocatorRef allocator, SOSPeerInfoRef 
     SOSPeerInfoRef pi = SOSPeerInfoCreateCopy(allocator, toCopy, error);
     CFDataRef ping = CFDataCreateWithRandomBytes(8);
     SOSPeerInfoV2DictionarySetValue(pi, sPingKey, ping);
-    SecKeyRef pub_key = SOSPeerInfoCopyPubKey(pi);
+    SecKeyRef pub_key = SOSPeerInfoCopyPubKey(pi, error);
+    require_quiet(pub_key, exit);
     pi->id = SOSCopyIDOfKey(pub_key, error);
     require_quiet(pi->id, exit);
     require_action_quiet(SOSPeerInfoSign(signingKey, pi, error), exit, CFReleaseNull(pi));
@@ -524,8 +535,8 @@ static void SOSPeerInfoDestroy(CFTypeRef aObj) {
     CFReleaseNull(pi->signature);
     CFReleaseNull(pi->gestalt);
     CFReleaseNull(pi->id);
-    CFReleaseNull(pi->v2Dictionary);
-    CFReleaseNull(pi->secproperties);
+    if(pi->v2Dictionary) CFReleaseNull(pi->v2Dictionary);
+    if(pi->secproperties) CFReleaseNull(pi->secproperties);
 }
 
 static Boolean SOSPeerInfoCompare(CFTypeRef lhs, CFTypeRef rhs) {
@@ -615,6 +626,45 @@ static CFStringRef SOSPeerInfoCopyFormatDescription(CFTypeRef aObj, CFDictionary
     description = copyDescriptionWithFormatOptions(aObj, formatOptions);
 
     return description;
+}
+
+static char boolToChars(bool val, char truechar, char falsechar) {
+    return val? truechar: falsechar;
+}
+
+static CFStringRef isKnown(CFStringRef ref) {
+    return ref? ref: CFSTR("Unknown ");
+}
+
+void SOSPeerInfoLogState(char *category, SOSPeerInfoRef pi, SecKeyRef pubKey, CFStringRef myPID, char sigchr) {
+    if(!pi) return;
+    bool appValid = SOSPeerInfoApplicationVerify(pi, pubKey, NULL);
+    bool retired = SOSPeerInfoIsRetirementTicket(pi);
+    bool selfValid  = SOSPeerInfoVerify(pi, NULL);
+    bool backingUp = SOSPeerInfoHasBackupKey(pi);
+    bool isMe = CFEqualSafe(SOSPeerInfoGetPeerID(pi), myPID) == true;
+    bool isKVS = SOSPeerInfoKVSOnly(pi);
+    CFStringRef osVersion = CFDictionaryGetValue(pi->gestalt, kPIOSVersionKey);
+    CFStringRef tmp = SOSPeerInfoV2DictionaryCopyString(pi, sDeviceID);
+    CFStringRef deviceID = CFStringCreateTruncatedCopy(tmp, 8);
+    CFReleaseNull(tmp);
+    CFStringRef serialNum = SOSPeerInfoCopySerialNumber(pi);
+    CFStringRef peerID = CFStringCreateTruncatedCopy(SOSPeerInfoGetPeerID(pi), 8);
+
+    secnotice(category, "PI:    [name: %-20@] [%c%c%c%c%c%c%c] [type: %-20@] [spid: %8@] [os: %10@] [devid: %10@] [serial: %12@]", isKnown(SOSPeerInfoGetPeerName(pi)),
+              boolToChars(isMe, 'M', 'm'),
+              boolToChars(appValid, 'A', 'a'),
+              boolToChars(selfValid, 'S', 's'),
+              boolToChars(retired, 'R', 'r'),
+              boolToChars(backingUp, 'B', 'b'),
+              boolToChars(isKVS, 'K', 'I'),
+              sigchr,
+              isKnown(SOSPeerInfoGetPeerDeviceType(pi)),  isKnown(peerID),
+              isKnown(osVersion), isKnown(deviceID), isKnown(serialNum));
+    
+    CFReleaseNull(peerID);
+    CFReleaseNull(deviceID);
+    CFReleaseNull(serialNum);
 }
 
 CFDictionaryRef SOSPeerInfoCopyPeerGestalt(SOSPeerInfoRef pi) {
@@ -708,7 +758,7 @@ static CFDateRef sosCreateCFDate(CFDataRef sosdate) {
 }
 
 static bool sospeer_application_hash(SOSPeerInfoRef pi, const struct ccdigest_info *di, uint8_t *hbuf) {
-    CFDataRef appdate = CFDictionaryGetValue(pi->description, sApplicationDate);
+    CFDataRef appdate = asData(CFDictionaryGetValue(pi->description, sApplicationDate), NULL);
     if(!appdate) return false;
     ccdigest_di_decl(di, ctx);
     ccdigest_init(di, ctx);
@@ -836,7 +886,7 @@ CFStringRef SOSPeerInfoInspectRetirementTicket(SOSPeerInfoRef pi, CFErrorRef *er
     
     require_quiet(SOSPeerInfoVerify(pi, error), err);
 
-    retirement = sosCreateCFDate(CFDictionaryGetValue(pi->description, sRetirementDate));
+    retirement = asDate(sosCreateCFDate(CFDictionaryGetValue(pi->description, sRetirementDate)), error);
 
     require_action_quiet(retirement, err,
                          SOSCreateError(kSOSErrorUnexpectedType, CFSTR("Peer is not retired"), NULL, error));
@@ -895,6 +945,20 @@ SOSPeerInfoRef SOSPeerInfoSetIDSPreference(CFAllocatorRef allocator, SOSPeerInfo
                                                });
 }
 
+CFBooleanRef SOSPeerInfoCopyIDSFragmentationPreference(SOSPeerInfoRef peer){
+    CFBooleanRef preference = (CFBooleanRef)SOSPeerInfoV2DictionaryCopyBoolean(peer, sPreferIDSFragmentation);
+    return (preference ? preference : CFRetain(kCFBooleanFalse));
+}
+
+SOSPeerInfoRef SOSPeerInfoSetIDSFragmentationPreference(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFBooleanRef preference, SecKeyRef signingKey, CFErrorRef *error){
+    return SOSPeerInfoCopyWithModification(allocator, toCopy, signingKey, error,
+                                           ^bool(SOSPeerInfoRef peerToModify, CFErrorRef *error) {
+                                               SOSPeerInfoV2DictionarySetValue(peerToModify, sPreferIDSFragmentation, preference);
+                                               return true;
+                                           });
+}
+
+
 CFStringRef SOSPeerInfoCopyTransportType(SOSPeerInfoRef peer){
     CFStringRef transportType = (CFStringRef)SOSPeerInfoV2DictionaryCopyString(peer, sTransportType);
     return (transportType ? transportType : CFRetain(SOSTransportMessageTypeKVS));
@@ -907,6 +971,13 @@ SOSPeerInfoRef SOSPeerInfoSetTransportType(CFAllocatorRef allocator, SOSPeerInfo
                                                SOSPeerInfoV2DictionarySetValue(peerToModify, sTransportType, transportType);
                                                return true;
                                            });
+}
+
+bool SOSPeerInfoKVSOnly(SOSPeerInfoRef pi) {
+    CFStringRef transportType = SOSPeerInfoCopyTransportType(pi);
+    bool retval = CFEqualSafe(transportType, SOSTransportMessageTypeKVS);
+    CFReleaseNull(transportType);
+    return retval;
 }
 
 bool SOSPeerInfoHasDeviceID(SOSPeerInfoRef peer) {
@@ -925,41 +996,38 @@ SOSPeerInfoRef SOSPeerInfoSetDeviceID(CFAllocatorRef allocator, SOSPeerInfoRef t
                                                return true;
                                            });
 }
-
 bool SOSPeerInfoShouldUseIDSTransport(SOSPeerInfoRef myPeer, SOSPeerInfoRef theirPeer){
     
-    CFBooleanRef myPreference = SOSPeerInfoCopyIDSPreference(myPeer);
     CFStringRef myTransportType = SOSPeerInfoCopyTransportType(myPeer);
-
-    CFBooleanRef theirPreference = SOSPeerInfoCopyIDSPreference(theirPeer);
     CFStringRef theirTransportType = SOSPeerInfoCopyTransportType(theirPeer);
-
+    
     bool success = false;
-    //If I'm a galarch KVS + peer is KVS and ids only is true for both == KVS
-    if((CFStringCompare(myTransportType, SOSTransportMessageTypeKVS, 0) == 0 && CFStringCompare(theirTransportType, SOSTransportMessageTypeKVS, 0) == 0)&& (myPreference == kCFBooleanTrue && theirPreference == kCFBooleanTrue))
-        success = false;
-    
-    //If transport is IDS Galarch +1 (Pref is true) and peer is KVS (ids is true) == IDS
-    else if ((CFStringCompare(myTransportType, SOSTransportMessageTypeIDS, 0) == 0 && CFStringCompare(theirTransportType, SOSTransportMessageTypeKVS, 0) == 0) && (myPreference == kCFBooleanTrue && theirPreference == kCFBooleanTrue))
-        success = true;
-    
-    else if ((CFStringCompare(theirTransportType, SOSTransportMessageTypeIDS, 0) == 0 && CFStringCompare(myTransportType, SOSTransportMessageTypeKVS, 0) == 0) && (theirPreference == kCFBooleanTrue && myPreference == kCFBooleanTrue))
-        success = true;
 
-    //If transport is IDS Galarch +1 and peer is IDS Galarch +1 (prefer IDS is true) == IDS
-    else if ((CFStringCompare(myTransportType, SOSTransportMessageTypeIDS, 0) == 0 && CFStringCompare(theirTransportType, SOSTransportMessageTypeIDS, 0) == 0))
+    //sync only if we are the new IDS fragmented system
+    if((CFStringCompare(myTransportType, SOSTransportMessageTypeIDSV2, 0) == 0 && CFStringCompare(theirTransportType, SOSTransportMessageTypeIDSV2, 0) == 0))
         success = true;
-   
-    //If KVS and KVS prefer IDS is false (set to false or doesn't exist) == KVS
-    else if ((CFStringCompare(myTransportType, SOSTransportMessageTypeKVS, 0) == 0 && CFStringCompare(theirTransportType, SOSTransportMessageTypeKVS, 0) == 0) && (myPreference == kCFBooleanFalse && theirPreference == kCFBooleanFalse))
-        success = false;
-    
     else
         success = false;
-
-    CFReleaseSafe(myPreference);
+    
     CFReleaseSafe(myTransportType);
-    CFReleaseSafe(theirPreference);
     CFReleaseSafe(theirTransportType);
+    
+    return success;
+
+}
+
+bool SOSPeerInfoShouldUseIDSMessageFragmentation(SOSPeerInfoRef myPeer, SOSPeerInfoRef theirPeer){
+    
+    bool success = false;
+    
+    CFBooleanRef myPreference = SOSPeerInfoCopyIDSFragmentationPreference(myPeer);
+    
+    CFBooleanRef theirPreference = SOSPeerInfoCopyIDSFragmentationPreference(theirPeer);
+    secerror("mypreference: %@, theirpreference: %@", myPreference, theirPreference);
+    if((myPreference == kCFBooleanTrue && theirPreference == kCFBooleanTrue))
+        success = true;
+    
+    CFReleaseNull(myPreference);
+    CFReleaseNull(theirPreference);
     return success;
 }

@@ -76,6 +76,13 @@ void SOSPeerInfoSetSerialNumber(SOSPeerInfoRef pi) {
     CFReleaseNull(serialNumber);
 }
 
+const CFStringRef SOSSerialUnknown = CFSTR("Unknown");
+
+CFStringRef SOSPeerInfoCopySerialNumber(SOSPeerInfoRef pi) {
+    CFStringRef retval = SOSPeerInfoV2DictionaryCopyString(pi, sSerialNumberKey);
+    return (retval ? retval : CFRetain(SOSSerialUnknown));
+}
+
 static bool SOSPeerInfoV2SanityCheck(SOSPeerInfoRef pi) {
     if(!pi) {
         return false;
@@ -88,7 +95,7 @@ static bool SOSPeerInfoV2SanityCheck(SOSPeerInfoRef pi) {
 
 static CFDataRef SOSPeerInfoGetV2Data(SOSPeerInfoRef pi) {
     if(SOSPeerInfoV2SanityCheck(pi) == false) return NULL;
-    return CFDictionaryGetValue(pi->description, sV2DictionaryKey);
+    return asData(CFDictionaryGetValue(pi->description, sV2DictionaryKey), NULL);
 }
 
 static CFMutableDictionaryRef SOSCreateDictionaryFromDER(CFDataRef v2Data, CFErrorRef *error) {
@@ -153,25 +160,20 @@ bool SOSPeerInfoUpdateToV2(SOSPeerInfoRef pi, CFErrorRef *error) {
     if(serialNumber == NULL) {
         secnotice("signing", "serialNumber was returned NULL\n");
     }
-    CFMutableSetRef views = SOSViewsCreateDefault(false, error);
+    CFMutableSetRef views = SOSViewCopyViewSet(kViewSetDefault);
     CFMutableSetRef secproperties = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
     if(serialNumber) CFDictionaryAddValue(v2Dictionary, sSerialNumberKey, serialNumber);
     CFDictionaryAddValue(v2Dictionary, sViewsKey, views);
     CFDictionaryAddValue(v2Dictionary, sSecurityPropertiesKey, secproperties);
-   
-    if (whichTransportType == kSOSTransportFuture || whichTransportType == kSOSTransportIDS){
-        CFDictionaryAddValue(v2Dictionary, sDeviceID, CFSTR(""));
-        CFDictionaryAddValue(v2Dictionary, sTransportType, SOSTransportMessageTypeIDS);
-        CFDictionaryAddValue(v2Dictionary, sPreferIDS, kCFBooleanTrue);
-    }
-    else{
-        CFDictionaryAddValue(v2Dictionary, sDeviceID, CFSTR(""));
-        CFDictionaryAddValue(v2Dictionary, sTransportType, SOSTransportMessageTypeKVS);
-        CFDictionaryAddValue(v2Dictionary, sPreferIDS, kCFBooleanTrue);
-    }
+    
+    CFDictionaryAddValue(v2Dictionary, sDeviceID, CFSTR(""));
+    CFDictionaryAddValue(v2Dictionary, sTransportType, SOSTransportMessageTypeIDSV2);
+    CFDictionaryAddValue(v2Dictionary, sPreferIDS, kCFBooleanFalse);
+    CFDictionaryAddValue(v2Dictionary, sPreferIDSFragmentation, kCFBooleanTrue);
+    
     require_action_quiet((v2data = SOSCreateDERFromDictionary(v2Dictionary, error)), out, SOSCreateError(kSOSErrorAllocationFailure, CFSTR("No Memory"), NULL, error));
     CFDictionaryAddValue(pi->description, sV2DictionaryKey, v2data);
-    //SOSPeerInfoExpandV2Data(pi, error);
+    SOSPeerInfoExpandV2Data(pi, error);
     retval = true;
 out:
     CFReleaseNull(views);
@@ -194,15 +196,18 @@ errOut:
 
 bool SOSPeerInfoExpandV2Data(SOSPeerInfoRef pi, CFErrorRef *error) {
     CFDataRef v2data = NULL;
-    bool retval = false;
+    CFMutableDictionaryRef v2Dictionary = NULL;
 
-    require_quiet(pi, out);
-    CFReleaseNull(pi->v2Dictionary);
     require_action_quiet((v2data = SOSPeerInfoGetV2Data(pi)), out, SOSCreateError(kSOSErrorDecodeFailure, CFSTR("No V2 Data in description"), NULL, error));
-    require_action_quiet((pi->v2Dictionary = SOSCreateDictionaryFromDER(v2data, error)), out, SOSCreateError(kSOSErrorDecodeFailure, CFSTR("Can't expand V2 Dictionary"), NULL, error));
-    retval = true;
+    require_action_quiet((v2Dictionary = SOSCreateDictionaryFromDER(v2data, error)), out, SOSCreateError(kSOSErrorDecodeFailure, CFSTR("Can't expand V2 Dictionary"), NULL, error));
+    CFReleaseNull(pi->v2Dictionary);
+    pi->v2Dictionary = v2Dictionary;
+    return true;
+
 out:
-    return retval;
+    CFReleaseNull(v2Dictionary);
+    return false;
+
 }
 
 void SOSPeerInfoV2DictionarySetValue(SOSPeerInfoRef pi, const void *key, const void *value) {

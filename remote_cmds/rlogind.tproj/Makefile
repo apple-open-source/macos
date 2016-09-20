@@ -8,6 +8,7 @@ LAUNCHD_PLISTS = login.plist
 
 Extra_CC_Flags = -Wall -Werror -fPIE
 Extra_LD_Flags = -dead_strip -pie
+Extra_LD_Libraries = -lutil
 
 Extra_CC_Flags += -D__FBSDID=__RCSID
 

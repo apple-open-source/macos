@@ -32,9 +32,9 @@
 #include "TextCheckerState.h"
 
 #if ENABLE(SPELLCHECK)
-#include "TextBreakIterator.h"
 #include "TextCheckerClientEfl.h"
 #include "WebTextChecker.h"
+#include <wtf/text/TextBreakIterator.h>
 #endif
 
 using namespace WebCore;
@@ -148,8 +148,10 @@ static unsigned nextWordOffset(StringView text, unsigned currentOffset)
 #endif // ENABLE(SPELLCHECK)
 
 #if USE(UNIFIED_TEXT_CHECKING)
-Vector<TextCheckingResult> TextChecker::checkTextOfParagraph(int64_t spellDocumentTag, StringView text, uint64_t checkingTypes)
+Vector<TextCheckingResult> TextChecker::checkTextOfParagraph(int64_t spellDocumentTag, StringView text, int32_t insertionPoint, uint64_t checkingTypes, bool)
 {
+    UNUSED_PARAM(insertionPoint);
+
     Vector<TextCheckingResult> paragraphCheckingResult;
 #if ENABLE(SPELLCHECK)
     if (checkingTypes & TextCheckingTypeSpelling) {
@@ -230,8 +232,9 @@ void TextChecker::updateSpellingUIWithGrammarString(int64_t, const String&, cons
     notImplemented();
 }
 
-void TextChecker::getGuessesForWord(int64_t spellDocumentTag, const String& word, const String& , Vector<String>& guesses)
+void TextChecker::getGuessesForWord(int64_t spellDocumentTag, const String& word, const String& , int32_t insertionPoint, Vector<String>& guesses, bool)
 {
+    UNUSED_PARAM(insertionPoint);
 #if ENABLE(SPELLCHECK)
     WebTextChecker::singleton()->client().guessesForWord(spellDocumentTag, word, guesses);
 #else
@@ -261,7 +264,7 @@ void TextChecker::ignoreWord(int64_t spellDocumentTag, const String& word)
 #endif
 }
 
-void TextChecker::requestCheckingOfString(PassRefPtr<TextCheckerCompletion> completion)
+void TextChecker::requestCheckingOfString(PassRefPtr<TextCheckerCompletion> completion, int32_t insertionPoint)
 {
 #if ENABLE(SPELLCHECK)
     if (!completion)
@@ -271,9 +274,10 @@ void TextChecker::requestCheckingOfString(PassRefPtr<TextCheckerCompletion> comp
     ASSERT(request.sequence() != unrequestedTextCheckingSequence);
     ASSERT(request.mask() != TextCheckingTypeNone);
 
-    completion->didFinishCheckingText(checkTextOfParagraph(completion->spellDocumentTag(), request.text(), request.mask()));
+    completion->didFinishCheckingText(checkTextOfParagraph(completion->spellDocumentTag(), request.text(), insertionPoint, request.mask(), false));
 #else
     UNUSED_PARAM(completion);
+    UNUSED_PARAM(insertionPoint);
 #endif
 }
 

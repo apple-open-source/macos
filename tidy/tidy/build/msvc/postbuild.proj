@@ -1,0 +1,93 @@
+<!-- PostBuild.proj
+	The targets in this file carry out the post build tasks of version stamping the build products, copying 
+	them to destination folders and copying header and source files
+-->
+<Project DefaultTargets="postBuild" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+	<ItemGroup>
+    <headerFilestoBeCopied Include="..\..\include\*.h" />
+	<sourceFilestoBeCopied Include="$(SOURCE_TO_COPY)" />
+  </ItemGroup>
+  <PropertyGroup Condition="$(TargetExt) == ''" >
+    <TargetExt>.dll</TargetExt>
+  </PropertyGroup>
+  <PropertyGroup Condition="$(TargetDir) == ''" >
+    <TargetDir>$(Configuration)\$(ProjectName)\</TargetDir>
+  </PropertyGroup>
+    <Choose>
+		<When Condition="$(Configuration) == 'Debug' Or $(Configuration) == 'Debug_BNI'">
+			<PropertyGroup>
+				<TargetName>$(ProjectName)_debug</TargetName>
+			</PropertyGroup>
+		</When>
+		<Otherwise>
+			<PropertyGroup>
+				<TargetName>$(ProjectName)</TargetName>
+			</PropertyGroup>
+		</Otherwise>
+	</Choose>
+	<Choose>
+		<When Condition="$(Platform) == 'X64'">
+			<PropertyGroup>
+				<PLATFORM_SUFFIX>64</PLATFORM_SUFFIX>
+				<DESTINATION>$(DSTROOT)\Program Files\Common Files\Apple\Apple Application Support</DESTINATION>
+				<TargetDir>$(TargetDir)x64\</TargetDir>
+			</PropertyGroup>
+		</When>
+		<Otherwise>
+			<PropertyGroup>
+				<PLATFORM_SUFFIX>32</PLATFORM_SUFFIX>
+				<DESTINATION>$(DSTROOT)\Program Files (x86)\Common Files\Apple\Apple Application Support</DESTINATION>
+			</PropertyGroup>
+		</Otherwise>
+	</Choose>
+	<PropertyGroup>
+		<LIBRARY>$(DSTROOT)\AppleInternal\lib$(PLATFORM_SUFFIX)</LIBRARY>
+		<SYMBOLS>$(DSTROOT)\AppleInternal\public$(PLATFORM_SUFFIX)\sym</SYMBOLS>
+	</PropertyGroup>
+	<Choose>
+		<When Condition="$(HEADER_DESTINATION) == ''">
+			<PropertyGroup>
+				<HEADERS>$(DSTROOT)\AppleInternal\include\tidy</HEADERS>
+			</PropertyGroup>
+		</When>
+		<Otherwise>
+			<PropertyGroup>
+				<HEADERS>$(DSTROOT)\AppleInternal\include\$(HEADER_DESTINATION)</HEADERS>
+			</PropertyGroup>
+		</Otherwise>
+	</Choose>
+	<PropertyGroup Condition="$(SOURCE_DESTINATION) != ''">
+		<SOURCEFILES>$(DSTROOT)\AppleInternal\Sources$(PLATFORM_SUFFIX)\$(SOURCE_DESTINATION)</SOURCEFILES>
+	</PropertyGroup>
+	<Target Name="_copyBinary" Condition="$(TargetExt) == '.dll' Or $(TargetExt) == '.exe'" >
+		<MakeDir Directories="$(DESTINATION)" />
+		<Copy SourceFiles="$(TargetDir)$(TargetName)$(TargetExt)" DestinationFolder="$(DESTINATION)" />
+		<Copy SourceFiles="$(TargetDir)$(TargetName).pdb" DestinationFolder="$(DESTINATION)" />
+	</Target>
+	<Target Name="_copyLibrary" Condition="$(TargetExt) != '.exe'" >
+		<MakeDir Directories="$(LIBRARY)" />
+		<Copy SourceFiles="$(TargetDir)$(TargetName).lib" DestinationFolder="$(LIBRARY)" />
+		<Copy Condition="Exists('$(TargetDir)$(TargetName).exp')" SourceFiles="$(TargetDir)$(TargetName).exp" DestinationFolder="$(LIBRARY)" />
+	</Target>
+	<Target Name="_copySymbols">
+		<MakeDir Directories="$(SYMBOLS)" />
+		<Copy SourceFiles="$(TargetDir)$(TargetName).pdb" DestinationFolder="$(SYMBOLS)" />
+	</Target>
+	<Target Name="_copyHeaders" Condition="$(HEADERS_TO_COPY) != ''" Inputs="@(headerFilestoBeCopied)" Outputs="@(headerFilestoBeCopied -> '$(HEADERS)\%(FileName)%(Extension)')">
+		<MakeDir Directories="$(HEADERS)" />
+		<Copy SourceFiles="%(headerFilestoBeCopied.Identity)" DestinationFolder="$(HEADERS)" />
+	</Target>
+	<Target Name="_copySource" 
+			Inputs="@(sourceFilestoBeCopied)" 
+			Outputs="@(sourceFilestoBeCopied -> '$(SOURCEFILES)\%(FileName)%(Extension)')"
+			Condition="$(SOURCEFILES) != ''">
+		<MakeDir Directories="$(SOURCEFILES)" />
+		<Copy SourceFiles="%(sourceFilestoBeCopied.Identity)" DestinationFolder="$(SOURCEFILES)" />
+	</Target>
+	<Target Name="_versionStamp" Condition="$(TargetExt) == '.dll' Or $(TargetExt) == '.exe'" DependsOnTargets="_copyBinary">
+		<Exec Command="$(SRCROOT)\AppleInternal\tools\VersionStamper\VersionStamper.exe --verbose %22$(DESTINATION)\$(TargetName)$(TargetExt)%22" />
+	</Target>
+	<Target Name="postBuild"
+		  DependsOnTargets="_copyBinary;_copyLibrary;_copySymbols;_copyHeaders;_copySource;_versionStamp">
+	</Target>
+</Project>

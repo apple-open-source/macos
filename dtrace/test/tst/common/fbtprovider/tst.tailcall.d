@@ -36,7 +36,7 @@
 #pragma D option quiet
 #pragma D option statusrate=10ms
 
-fbt::sigprocmask:entry
+fbt::ioctl:entry
 {
 	self->traceme = 1;
 }
@@ -47,7 +47,7 @@ fbt:::entry
 	printf("called %s\n", probefunc);
 }
 
-fbt::sigprocmask:return
+fbt::ioctl:return
 /self->traceme/
 {
 	self->traceme = 0;

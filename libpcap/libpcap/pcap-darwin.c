@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -557,27 +557,71 @@ pcapng_dump_shb(pcap_t *pcap, pcap_dumper_t *dumper)
 			return (0);
 		}
 		
-		pcap_ng_dump_block(dumper, block);
+		(void) pcap_ng_dump_block(dumper, block);
 		
 		pcap->shb_added = 1;
 	}
 	return (1);
 }
 
-static struct pcap_proc_info *
+struct pcap_proc_info *
 pcap_ng_dump_proc_info(pcap_t *pcap, pcap_dumper_t *dumper, pcapng_block_t block,
-		       pid_t pid, char *pcomm)
+		       struct pcap_proc_info *proc_info)
 {
 	int retval;
+	struct pcapng_process_information_fields *pib;
+
+	/*
+	 * We're done when the process info block has already been saved
+	 */
+	if (proc_info->proc_block_dumped != 0)
+		return (proc_info);
+	
+	retval = pcap_ng_block_reset(block, PCAPNG_BT_PIB);
+	if (retval != 0) {
+		snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+			 "%s: pcap_ng_block_reset(PCAPNG_BT_PIB) failed", __func__);
+		return (NULL);
+	}
+	pib = pcap_ng_get_process_information_fields(block);
+	pib->process_id = proc_info->proc_pid;
+	
+	if (pcap_ng_block_add_option_with_string(block, PCAPNG_PIB_NAME, proc_info->proc_name) != 0) {
+		snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+			 "%s: pcap_ng_block_add_option_with_string(PCAPNG_PIB_NAME, %s) failed",
+			 __func__, proc_info->proc_name);
+		return (NULL);
+	}
+
+	if (uuid_is_null(proc_info->proc_uuid) == 0) {
+		if (pcap_ng_block_add_option_with_uuid(block, PCAPNG_PIB_UUID, proc_info->proc_uuid) != 0) {
+			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+				 "%s: pcap_ng_block_add_option_with_uuid(PCAPNG_PIB_UUID) failed",
+				 __func__);
+			return (NULL);
+		}
+	}
+
+	(void) pcap_ng_dump_block(dumper, block);
+	
+	proc_info->proc_block_dumped = 1;
+	proc_info->proc_dump_index = pcap->proc_dump_index++;
+	
+	return (proc_info);
+}
+
+static struct pcap_proc_info *
+pcap_ng_dump_proc(pcap_t *pcap, pcap_dumper_t *dumper, pcapng_block_t block,
+		  pid_t pid, char *pcomm, uuid_t uu)
+{
 	struct pcap_proc_info *proc_info;
-	int i;
 	
 	/*
 	 * Add a process info block if needed
 	 */
-	proc_info = pcap_find_proc_info(pcap, pid, pcomm);
+	proc_info = pcap_find_proc_info_uuid(pcap, pid, pcomm, uu);
 	if (proc_info == NULL) {
-		proc_info = pcap_add_proc_info(pcap, pid, pcomm);
+		proc_info = pcap_add_proc_info_uuid(pcap, pid, pcomm, uu);
 		if (proc_info == NULL) {
 			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
 				 "%s: allocate_proc_info(%s) failed",
@@ -586,44 +630,7 @@ pcap_ng_dump_proc_info(pcap_t *pcap, pcap_dumper_t *dumper, pcapng_block_t block
 		}
 	}
 	
-	/*
-	 * We're done when the process info block has already been saved
-	 */
-	if (proc_info->proc_block_added != 0)
-		return (proc_info);
-	
-	/*
-	 * Need to add the all the process info blocks until the one we're adding
-	 * to avoid reference to missing processes caused by filtering
-	 */
-	for (i = 0; i <= proc_info->proc_index; i++) {
-		struct pcap_proc_info *tmp_pi;
-		struct pcapng_process_information_fields *pib;
-		
-		tmp_pi = pcap_find_proc_info_by_index(pcap, i);
-		if (tmp_pi->proc_block_added)
-			continue;
-		
-		retval = pcap_ng_block_reset(block, PCAPNG_BT_PIB);
-		if (retval != 0) {
-			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
-				 "%s: pcap_ng_block_reset(PCAPNG_BT_PIB) failed", __func__);
-			return (NULL);
-		}
-		pib = pcap_ng_get_process_information_fields(block);
-		pib->process_id = tmp_pi->proc_pid;
-		
-		if (pcap_ng_block_add_option_with_string(block, PCAPNG_PIB_NAME, tmp_pi->proc_name) != 0) {
-			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
-				 "%s: pcap_ng_block_add_option_with_string(PCAPNG_PIB_NAME, %s) failed",
-				 __func__, pcomm);
-			return (NULL);
-		}
-		
-		pcap_ng_dump_block(dumper, block);
-		
-		proc_info->proc_block_added = 1;
-	}
+	proc_info = pcap_ng_dump_proc_info(pcap, dumper, block, proc_info);
 	
 	return (proc_info);
 }
@@ -649,22 +656,60 @@ pcap_ng_dump_kern_event(pcap_t *pcap, pcap_dumper_t *dumper,
 	}
 	osev_fields = pcap_ng_get_os_event_fields(block);
 	osev_fields->type = PCAPNG_OSEV_KEV;
-	osev_fields->timestamp_high = ts->tv_sec;
+	osev_fields->timestamp_high = (u_int32_t)ts->tv_sec;
 	osev_fields->timestamp_low = ts->tv_usec;
 	osev_fields->len = kev->total_size;
 	pcap_ng_block_packet_set_data(block, kev, kev->total_size);
 
-	pcap_ng_dump_block(dumper, block);
+	(void) pcap_ng_dump_block(dumper, block);
 	
 	return (1);
 }
 
-static struct pcap_if_info *
+struct pcap_if_info *
 pcap_ng_dump_if_info(pcap_t *pcap, pcap_dumper_t *dumper, pcapng_block_t block,
-		     char *ifname, u_short dlt, u_short snaplen)
+		     struct pcap_if_info *if_info)
 {
-	int i;
 	int retval;
+	struct pcapng_interface_description_fields *idb = NULL;
+	
+	/*
+	 * We're done when the interface block has already been saved
+	 */
+	if (if_info->if_block_dumped != 0) {
+		return (if_info);
+	}
+	
+	retval = pcap_ng_block_reset(block, PCAPNG_BT_IDB);
+	if (retval != 0) {
+		snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+			 "%s: pcap_ng_block_reset(PCAPNG_BT_IDB) failed", __func__);
+		return (0);
+	}
+	idb = pcap_ng_get_interface_description_fields(block);
+	idb->idb_linktype = dlt_to_linktype(if_info->if_linktype);
+	idb->idb_snaplen = if_info->if_snaplen;
+	
+	if (pcap_ng_block_add_option_with_string(block, PCAPNG_IF_NAME,
+						 if_info->if_name) != 0) {
+		snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+			 "%s: pcap_ng_block_add_option_with_string(PCAPNG_IF_NAME, %s) failed",
+			 __func__, if_info->if_name);
+		return (0);
+	}
+	
+	(void) pcap_ng_dump_block(dumper, block);
+	
+	if_info->if_block_dumped = 1;
+	if_info->if_dump_id = pcap->if_dump_id++;
+	
+	return (if_info);
+}
+
+static struct pcap_if_info *
+pcap_ng_dump_if(pcap_t *pcap, pcap_dumper_t *dumper, pcapng_block_t block,
+		char *ifname, u_short dlt, u_short snaplen)
+{
 	struct pcap_if_info *if_info;
 	
 	/*
@@ -682,65 +727,19 @@ pcap_ng_dump_if_info(pcap_t *pcap, pcap_dumper_t *dumper, pcapng_block_t block,
 		}
 	}
 	
-	/*
-	 * We're done when the interface block has already been saved
-	 */
-	if (if_info->if_block_added != 0) {
-		return (if_info);
-	}
+	if_info = pcap_ng_dump_if_info(pcap, dumper, block, if_info);
 	
-	/*
-	 * Need to add the all the interface info blocks until the one we're adding
-	 * to avoid reference to missing interfaces caused by filtering
-	 */
-	for (i = 0; i <= if_info->if_id; i++) {
-		struct pcapng_interface_description_fields *idb = NULL;
-		struct pcap_if_info *tmp_ifi;
-		
-		tmp_ifi = pcap_find_if_info_by_id(pcap, i);
-		if (tmp_ifi == NULL) {
-			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
-				 "%s: pcap_find_if_info_by_id(%i) failed",
-				 __func__, i);
-			return (0);
-		}
-		if (tmp_ifi->if_block_added)
-			continue;
-		
-		retval = pcap_ng_block_reset(block, PCAPNG_BT_IDB);
-		if (retval != 0) {
-			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
-				 "%s: pcap_ng_block_reset(PCAPNG_BT_IDB) failed", __func__);
-			return (0);
-		}
-		idb = pcap_ng_get_interface_description_fields(block);
-		idb->idb_linktype = dlt_to_linktype(tmp_ifi->if_linktype);
-		idb->idb_snaplen = tmp_ifi->if_snaplen;
-		
-		if (pcap_ng_block_add_option_with_string(block, PCAPNG_IF_NAME,
-							 tmp_ifi->if_name) != 0) {
-			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
-				 "%s: pcap_ng_block_add_option_with_string(PCAPNG_IF_NAME, %s) failed",
-				 __func__, tmp_ifi->if_name);
-			return (0);
-		}
-		
-		pcap_ng_dump_block(dumper, block);
-		
-		tmp_ifi->if_block_added = 1;
-	}
 	return (if_info);
 }
-
-
 
 /*
  * To minimize memory allocation we use a single block object that
  * we reuse by calling pcap_ng_block_reset()
  */
 int
-pcap_ng_dump_pktap(pcap_t *pcap, pcap_dumper_t *dumper,
-		   const struct pcap_pkthdr *h, const u_char *sp)
+pcap_ng_dump_pktap_comment(pcap_t *pcap, pcap_dumper_t *dumper,
+			   const struct pcap_pkthdr *h, const u_char *sp,
+			   const char *comment)
 {
 	pcapng_block_t block = NULL;
 	struct pktap_header *pktp_hdr;
@@ -765,17 +764,22 @@ pcap_ng_dump_pktap(pcap_t *pcap, pcap_dumper_t *dumper,
 	
 	if (pcapng_dump_shb(pcap, dumper) == 0)
 		return (0);
-
+	
 	block = pcap->dump_block;
-
 	
 	/*
-	 * Add an interface info block for a new interface
+	 * Add an interface info block for a new interface before filtering
 	 */
-	if_info = pcap_ng_dump_if_info(pcap, dumper, block, pktp_hdr->pth_ifname,
-				       pktp_hdr->pth_dlt, pcap->snapshot);
+	if_info = pcap_find_if_info_by_name(pcap, pktp_hdr->pth_ifname);
 	if (if_info == NULL) {
-		return (0);
+		if_info = pcap_add_if_info(pcap, pktp_hdr->pth_ifname, -1,
+					   pktp_hdr->pth_dlt, pcap->snapshot);
+		if (if_info == NULL) {
+			snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+				 "%s: pcap_add_if_info(%s) failed",
+				 __func__, pktp_hdr->pth_ifname);
+			return (NULL);
+		}
 	}
 	
 	/*
@@ -784,15 +788,26 @@ pcap_ng_dump_pktap(pcap_t *pcap, pcap_dumper_t *dumper,
 	if (pcap_filter_pktap(pcap, if_info, h, sp) == 0)
 		return (0);
 	
-	if (pktp_hdr->pth_pid != -1 && pktp_hdr->pth_comm[0] != 0) {
-		proc_info = pcap_ng_dump_proc_info(pcap, dumper, block,
-						   pktp_hdr->pth_pid, pktp_hdr->pth_comm);
+	/*
+	 * Dump the interface info block (if needed)
+	 */
+	if_info = pcap_ng_dump_if_info(pcap, dumper, block, if_info);
+	if (if_info == NULL) {
+		snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+			 "%s: pcap_ng_dump_if_info(%s) failed",
+			 __func__, pktp_hdr->pth_ifname);
+		return (0);
+	}
+	
+	if (pktp_hdr->pth_pid != -1 || pktp_hdr->pth_comm[0] != 0 || uuid_is_null(pktp_hdr->pth_uuid) == 0) {
+		proc_info = pcap_ng_dump_proc(pcap, dumper, block,
+					      pktp_hdr->pth_pid, pktp_hdr->pth_comm, pktp_hdr->pth_uuid);
 		if (proc_info == NULL)
 			return (0);
 	}
-	if (pktp_hdr->pth_epid != -1 && pktp_hdr->pth_ecomm[0] != 0) {
-		e_proc_info = pcap_ng_dump_proc_info(pcap, dumper, block,
-						     pktp_hdr->pth_epid, pktp_hdr->pth_ecomm);
+	if (pktp_hdr->pth_epid != -1 || pktp_hdr->pth_ecomm[0] != 0 || uuid_is_null(pktp_hdr->pth_euuid) == 0) {
+		e_proc_info = pcap_ng_dump_proc(pcap, dumper, block,
+						pktp_hdr->pth_epid, pktp_hdr->pth_ecomm, pktp_hdr->pth_euuid);
 		if (e_proc_info == NULL)
 			return (0);
 	}
@@ -809,7 +824,7 @@ pcap_ng_dump_pktap(pcap_t *pcap, pcap_dumper_t *dumper,
 	pkt_data = sp + pktp_hdr->pth_length;
 	epb = pcap_ng_get_enhanced_packet_fields(block);
 	epb->caplen = h->caplen - pktp_hdr->pth_length;
-	epb->interface_id = if_info->if_id;
+	epb->interface_id = if_info->if_dump_id;
 	epb->len = h->len - pktp_hdr->pth_length;
 	/* Microsecond resolution */
 	ts = ((uint64_t)h->ts.tv_sec) * 1000000 + (uint64_t)h->ts.tv_usec;
@@ -819,9 +834,9 @@ pcap_ng_dump_pktap(pcap_t *pcap, pcap_dumper_t *dumper,
 	pcap_ng_block_packet_set_data(block, pkt_data, epb->caplen);
 	
 	if (proc_info != NULL)
-		pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_PIB_INDEX, &proc_info->proc_index, 4);
+		pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_PIB_INDEX, &proc_info->proc_dump_index, 4);
 	if (e_proc_info != NULL)
-		pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_E_PIB_INDEX, &e_proc_info->proc_index, 4);
+		pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_E_PIB_INDEX, &e_proc_info->proc_dump_index, 4);
 	
 	if ((pktp_hdr->pth_flags & PTH_FLAG_DIR_IN))
 		pktflags = 0x01;
@@ -833,9 +848,19 @@ pcap_ng_dump_pktap(pcap_t *pcap, pcap_dumper_t *dumper,
 	if (pktp_hdr->pth_svc != -1)
 		pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_SVC , &pktp_hdr->pth_svc, 4);
 	
-	pcap_ng_dump_block(dumper, block);
+	if (comment != NULL)
+		pcap_ng_block_add_option_with_string(block, PCAPNG_OPT_COMMENT, comment);
+	
+	(void) pcap_ng_dump_block(dumper, block);
 	
 	return (1);
+}
+
+int
+pcap_ng_dump_pktap(pcap_t *pcap, pcap_dumper_t *dumper,
+		   const struct pcap_pkthdr *h, const u_char *sp)
+{
+	return (pcap_ng_dump_pktap_comment(pcap, dumper, h, sp, NULL));
 }
 
 #endif /* HAVE_PKTAP_API */

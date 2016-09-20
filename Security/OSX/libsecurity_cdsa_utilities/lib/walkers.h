@@ -56,7 +56,7 @@ namespace DataWalkers {
 
 
 #if WALKERDEBUG
-# define DEBUGWALK(who)	secdebug("walkers", "walk " who " %s@%p (%ld)", \
+# define DEBUGWALK(who)	secinfo("walkers", "walk " who " %s@%p (%ld)", \
 									Debug::typeName(addr).c_str(), addr, size)
 #else
 # define DEBUGWALK(who)	/* nothing */
@@ -316,7 +316,7 @@ void chunkFree(T *obj, Allocator &alloc = Allocator::standard())
 }
 
 template <class T>
-void chunkFree(const T &obj, Allocator &alloc = Allocator::standard())
+void chunkFree(T &obj, Allocator &alloc = Allocator::standard())
 {
 	ChunkFreeWalker w(alloc);
 	walk(w, obj);

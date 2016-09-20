@@ -1129,7 +1129,7 @@ kern_return_t ocsp_server_crlFlush(
 
 void OcspdServer::OcspdTimer::action()
 {
-	ocspdDebug("ocspdRefresh", "OcspdTimer firing");
+	ocspdDebug("OcspdServer: OcspdTimer firing");
 	ocspdDbCacheFlushStale();
 	crlCacheRefresh(0,		// stale_days
 					0,		// expire_overlap_seconds,
@@ -1137,7 +1137,7 @@ void OcspdServer::OcspdTimer::action()
 					false,	// full_crypto_verify
 					false);	// do Refresh
 	Time::Interval nextFire = OCSPD_TIMER_INTERVAL;
-	ocspdDebug("ocspdRefresh", "OcspdTimer scheduling");
+	ocspdDebug("OcspdServer: OcspdTimer scheduling");
 	mServer.setTimer(this, nextFire);
 }
 

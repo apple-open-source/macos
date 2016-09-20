@@ -251,8 +251,10 @@ xdr_mntdump(XDR *xdrsp, struct mountlist **mlp)
 		if (!xdr_string(xdrsp, &strp, RPCMNT_NAMELEN))
 			return (0);
 		strp = mp->ml_dirp;
-		if (!xdr_string(xdrsp, &strp, RPCMNT_PATHLEN))
+		if (!xdr_string(xdrsp, &strp, RPCMNT_PATHLEN)) {
+			free(mp);
 			return (0);
+		}
 
 		/*
 		 * Build a binary tree on sorted order of either host or dirp.
@@ -335,8 +337,11 @@ xdr_exports(XDR *xdrsp, struct exportslisthead *exphead)
 			if (gp == NULL)
 				return (0);
 			strp = gp->gr_name;
-			if (!xdr_string(xdrsp, &strp, RPCMNT_NAMELEN))
+			if (!xdr_string(xdrsp, &strp, RPCMNT_NAMELEN)) {
+				free(gp);
+				free(ep);
 				return (0);
+			}
 			TAILQ_INSERT_TAIL(&ep->ex_groups, gp, gr_link);
 			if (!xdr_bool(xdrsp, &grpbool))
 				return (0);

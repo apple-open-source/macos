@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2014, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -132,10 +132,10 @@ void Node::convertToIdentityOn(Node* child)
         setOpAndDefaultFlags(Int52Rep);
         switch (input) {
         case NodeResultDouble:
-            child1().setUseKind(DoubleRepMachineIntUse);
+            child1().setUseKind(DoubleRepAnyIntUse);
             return;
         case NodeResultJS:
-            child1().setUseKind(MachineIntUse);
+            child1().setUseKind(AnyIntUse);
             return;
         default:
             RELEASE_ASSERT_NOT_REACHED();
@@ -158,6 +158,14 @@ void Node::convertToIdentityOn(Node* child)
         RELEASE_ASSERT_NOT_REACHED();
         return;
     }
+}
+
+void Node::convertToLazyJSConstant(Graph& graph, LazyJSValue value)
+{
+    m_op = LazyJSConstant;
+    m_flags &= ~NodeMustGenerate;
+    m_opInfo = bitwise_cast<uintptr_t>(graph.m_lazyJSValues.add(value));
+    children.reset();
 }
 
 void Node::convertToPutHint(const PromotedLocationDescriptor& descriptor, Node* base, Node* value)
@@ -191,6 +199,15 @@ void Node::convertToPutClosureVarHint()
     convertToPutHint(
         PromotedLocationDescriptor(ClosureVarPLoc, scopeOffset().offset()),
         child1().node(), child2().node());
+}
+
+String Node::tryGetString(Graph& graph)
+{
+    if (hasConstant())
+        return constant()->tryGetString(graph);
+    if (hasLazyJSValue())
+        return lazyJSValue().tryGetString(graph);
+    return String();
 }
 
 PromotedLocationDescriptor Node::promotedLocationDescriptor()

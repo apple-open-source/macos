@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2007  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2007, 2010-2012  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: sockaddr.c,v 1.70 2007/06/19 23:47:17 tbox Exp $ */
+/* $Id$ */
 
 /*! \file */
 
@@ -134,7 +134,7 @@ isc_sockaddr_totext(const isc_sockaddr_t *sockaddr, isc_buffer_t *target) {
 		break;
 #ifdef ISC_PLAFORM_HAVESYSUNH
 	case AF_UNIX:
-		plen = strlen(sockaddr->type.sunix.sun_path);
+		plen = (unsigned int)strlen(sockaddr->type.sunix.sun_path);
 		if (plen >= isc_buffer_availablelength(target))
 			return (ISC_R_NOSPACE);
 
@@ -153,7 +153,7 @@ isc_sockaddr_totext(const isc_sockaddr_t *sockaddr, isc_buffer_t *target) {
 		return (ISC_R_FAILURE);
 	}
 
-	plen = strlen(pbuf);
+	plen = (unsigned int)strlen(pbuf);
 	INSIST(plen < sizeof(pbuf));
 
 	isc_netaddr_fromsockaddr(&netaddr, sockaddr);
@@ -182,6 +182,9 @@ isc_sockaddr_format(const isc_sockaddr_t *sa, char *array, unsigned int size) {
 	isc_result_t result;
 	isc_buffer_t buf;
 
+	if (size == 0U)
+		return;
+
 	isc_buffer_init(&buf, array, size);
 	result = isc_sockaddr_totext(sa, &buf);
 	if (result != ISC_R_SUCCESS) {
@@ -189,9 +192,10 @@ isc_sockaddr_format(const isc_sockaddr_t *sa, char *array, unsigned int size) {
 		 * The message is the same as in netaddr.c.
 		 */
 		snprintf(array, size,
+			 "<%s %u>",
 			 isc_msgcat_get(isc_msgcat, ISC_MSGSET_NETADDR,
 					ISC_MSG_UNKNOWNADDR,
-					"<unknown address, family %u>"),
+					"unknown address, family"),
 			 sa->type.sa.sa_family);
 		array[size - 1] = '\0';
 	}
@@ -217,7 +221,7 @@ isc_sockaddr_hash(const isc_sockaddr_t *sockaddr, isc_boolean_t address_only) {
 	case AF_INET6:
 		in6 = &sockaddr->type.sin6.sin6_addr;
 		if (IN6_IS_ADDR_V4MAPPED(in6)) {
-			s = (const unsigned char *)&in6[12];
+			s = (const unsigned char *)&in6 + 12;
 			length = sizeof(sockaddr->type.sin.sin_addr.s_addr);
 		} else {
 			s = (const unsigned char *)in6;
@@ -227,10 +231,11 @@ isc_sockaddr_hash(const isc_sockaddr_t *sockaddr, isc_boolean_t address_only) {
 		break;
 	default:
 		UNEXPECTED_ERROR(__FILE__, __LINE__,
+				 "%s: %d",
 				 isc_msgcat_get(isc_msgcat,
 						ISC_MSGSET_SOCKADDR,
 						ISC_MSG_UNKNOWNFAMILY,
-						"unknown address family: %d"),
+						"unknown address family"),
 					     (int)sockaddr->type.sa.sa_family);
 		s = (const unsigned char *)&sockaddr->type;
 		length = sockaddr->length;
@@ -390,8 +395,8 @@ isc_sockaddr_fromnetaddr(isc_sockaddr_t *sockaddr, const isc_netaddr_t *na,
 #endif
 		sockaddr->type.sin6.sin6_port = htons(port);
 		break;
-        default:
-                INSIST(0);
+	default:
+		INSIST(0);
 	}
 	ISC_LINK_INIT(sockaddr, link);
 }
@@ -407,9 +412,10 @@ isc_sockaddr_setport(isc_sockaddr_t *sockaddr, in_port_t port) {
 		break;
 	default:
 		FATAL_ERROR(__FILE__, __LINE__,
+			    "%s: %d",
 			    isc_msgcat_get(isc_msgcat, ISC_MSGSET_SOCKADDR,
 					   ISC_MSG_UNKNOWNFAMILY,
-					   "unknown address family: %d"),
+					   "unknown address family"),
 			    (int)sockaddr->type.sa.sa_family);
 	}
 }
@@ -427,9 +433,10 @@ isc_sockaddr_getport(const isc_sockaddr_t *sockaddr) {
 		break;
 	default:
 		FATAL_ERROR(__FILE__, __LINE__,
+			    "%s: %d",
 			    isc_msgcat_get(isc_msgcat, ISC_MSGSET_SOCKADDR,
 					   ISC_MSG_UNKNOWNFAMILY,
-					   "unknown address family: %d"),
+					   "unknown address family"),
 			    (int)sockaddr->type.sa.sa_family);
 	}
 

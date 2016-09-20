@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -313,6 +313,26 @@ CFStringRef
 _SCNetworkInterfaceGetConfigurationAction		(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0);
 
 /*!
+	@function _SCNetworkInterfaceGetFamilyType
+	@discussion Returns the family type for the interface.
+	@param interface The network interface.
+	@result The family type (ift_family) associated with the interface;
+		NULL if no family type is available.
+ */
+CFNumberRef
+_SCNetworkInterfaceGetFamilyType			(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_12,__IPHONE_10_0);
+
+/*!
+	@function _SCNetworkInterfaceGetFamilySubType
+	@discussion Returns the family subtype for the interface.
+	@param interface The network interface.
+	@result The family subtype (ift_subfamily) associated with the interface;
+		NULL if no family subtype is available.
+ */
+CFNumberRef
+_SCNetworkInterfaceGetFamilySubType			(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_12,__IPHONE_10_0);
+
+/*!
 	@function _SCNetworkInterfaceGetHardwareAddress
 	@discussion Returns a link layer address for the interface.
 	@param interface The network interface.
@@ -470,7 +490,8 @@ _SCNetworkInterfaceForceConfigurationRefresh		(CFStringRef			ifName)		__OSX_AVAI
 		about the currently requested capabilities, the active capabilities,
 		and the capabilities which are available.
 	@param interface The desired network interface.
-	@param capability The desired capability.
+	@param capability The desired capability;
+		NULL to return a CFDictionary of all capabilities.
 	@result a CFTypeRef representing the current value of requested
 		capability;
 		NULL if the capability is not available for this
@@ -712,11 +733,19 @@ SCNetworkInterfaceSetPassword				(SCNetworkInterfaceRef		interface,
 
 
 Boolean
-SCNetworkInterfaceGetDisableUntilNeeded			(SCNetworkInterfaceRef interface) __OSX_AVAILABLE_STARTING(__MAC_10_11,__IPHONE_9_0);
+SCNetworkInterfaceGetDisableUntilNeeded			(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_11,__IPHONE_9_0);
 
 Boolean
-SCNetworkInterfaceSetDisableUntilNeeded			(SCNetworkInterfaceRef interface,
-							 Boolean disable) __OSX_AVAILABLE_STARTING(__MAC_10_11,__IPHONE_9_0);
+SCNetworkInterfaceSetDisableUntilNeeded			(SCNetworkInterfaceRef		interface,
+							 Boolean			disable)	__OSX_AVAILABLE_STARTING(__MAC_10_11,__IPHONE_9_0);
+
+
+CFDictionaryRef
+SCNetworkInterfaceGetQoSMarkingPolicy			(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_12,__IPHONE_10_0);
+
+Boolean
+SCNetworkInterfaceSetQoSMarkingPolicy			(SCNetworkInterfaceRef		interface,
+							 CFDictionaryRef		policy)		__OSX_AVAILABLE_STARTING(__MAC_10_12,__IPHONE_10_0);
 
 
 #pragma mark -
@@ -878,6 +907,16 @@ isA_SCNetworkSet(CFTypeRef obj)
  */
 CFArrayRef
 SCNetworkSetCopyAvailableInterfaces			(SCNetworkSetRef		set)		__OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/);
+
+/*!
+	@function _SCNetworkSetCreateDefault
+	@discussion Create a new [default] set in the configuration.
+	@param prefs The "preferences" session.
+	@result A reference to the new SCNetworkSet.
+		You must release the returned value.
+ */
+SCNetworkSetRef
+_SCNetworkSetCreateDefault				(SCPreferencesRef		prefs)		__OSX_AVAILABLE_STARTING(__MAC_10_12,__IPHONE_10_0/*SPI*/);
 
 /*!
 	@function SCNetworkSetEstablishDefaultConfiguration
@@ -1110,7 +1149,7 @@ _SCNetworkConfigurationCheckValidity(CFURLRef configDir,
  @param prefs	the preferences ref pointing to the said preferences.plist
  @param ni_prefs	the preferences ref pointing to the said NetworkInterfaces.plist
  @result	TRUE if the configurations are valid against each other
- 
+
  */
 
 Boolean
@@ -1146,12 +1185,12 @@ _SCNetworkMigrationAreConfigurationsIdentical (CFURLRef configurationURL,
  @param targetPaths	the CFArray returned by _SCNetworkConfigurationPerformMigration
  @param targetDir	the CFURL passed to _SCNetworkConfigurationPerformMigration
  @result	An array of CFURL's; NULL if no paths need to be removed from the target filesystem
- 
+
 */
 
 CFArrayRef	// of CFURLRef's
 _SCNetworkConfigurationCopyMigrationRemovePaths	(CFArrayRef	targetPaths,
-                                                 CFURLRef	targetDir)				__OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
+						 CFURLRef	targetDir)				__OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_8_0);
 
 __END_DECLS
 #endif	/* _SCNETWORKCONFIGURATIONPRIVATE_H */

@@ -36,13 +36,14 @@ SYSTEM_PRIVATE = -I$(SYSROOT)/System/Library/Frameworks/System.framework/Private
 SC_PRIV = -DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS
 
 BLIB = ../bootplib
-ARPTEST_BOOTPLIB_CFILES = $(BLIB)/dynarray.c $(BLIB)/ptrlist.c $(BLIB)/interfaces.c $(BLIB)/bpflib.c $(BLIB)/ioregpath.c
+ARPTEST_BOOTPLIB_CFILES = $(BLIB)/dynarray.c $(BLIB)/ptrlist.c $(BLIB)/interfaces.c $(BLIB)/bpflib.c $(BLIB)/ioregpath.c $(BLIB)/IPConfigurationLog.c $(BLIB)/util.c
 
-arptest: arp_session.o arp_session.h timer.c timer.h FDSet.c FDSet.h
-	cc -g -arch i386 -Wall -DTEST_ARP_SESSION $(SYSTEM_PRIVATE) -I../bootplib -o arptest arp_session.o timer.c FDSet.c $(ARPTEST_BOOTPLIB_CFILES) -framework CoreFoundation -framework IOKit
+arptest: arp_session.c arp_session.h
+	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) $(SYSTEM_PRIVATE) -g  -Wall -DTEST_ARP_SESSION $(SC_PRIV) -I../bootplib timer.c FDSet.c $(ARPTEST_BOOTPLIB_CFILES) -framework CoreFoundation -framework IOKit -framework SystemConfiguration arp_session.c -o $@
 
-arp_session.o: arp_session.c arp_session.h
-	cc -g -arch i386 -Wall -c arp_session.c -DTEST_ARP_SESSION $(SYSTEM_PRIVATE) -I../bootplib
+##arp_session.o: arp_session.c arp_session.h
+##	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) $(SYSTEM_PRIVATE) -g -Wall -c arp_session.c -DTEST_ARP_SESSION $(SYSTEM_PRIVATE) -I../bootplib
+##
 
 inet6_addrs: ifutil.c rtutil.c ../bootplib/arp.c ../bootplib/IPConfigurationLog.c ../bootplib/util.c
 	cc -DTEST_INET6_ADDRLIST -DCONFIGURE_IPV6 -I../bootplib $(SYSTEM_PRIVATE) -framework SystemConfiguration -framework CoreFoundation -g -o $@ $^

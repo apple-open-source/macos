@@ -1,0 +1,54 @@
+.\" Copyright (c) 2016, Apple Inc.  All rights reserved.
+.\"
+.Dd March 14, 2016
+.Dt PROC_UUID_POLICY 1
+.Os "Mac OS X"
+.Sh NAME
+.Nm proc_uuid_policy
+.Nd Set UUID policy with the kernel
+.Sh SYNOPSIS
+.Nm
+.Ar verb
+.Ar policy
+.Ar uuid
+.Sh DESCRIPTION
+.Nm
+sets policy for a specific UUID or mach-o file with the kernel
+.Pp
+The uuid may be a uuid of the form 1A213FB4-B430-333F-AC63-891678070AFE
+or a path to a valid mach-o executable.
+.Nm
+will extract the LC_UUID load commands from the executable.
+.Pp
+.Sh VERBS
+The verbs are as follows:
+.Bl -tag -width indent
+.\" ==========
+.It clear
+Clear the policy for the given UUID with PROC_UUID_POLICY_OPERATION_CLEAR.
+.\" ==========
+.It add
+Add the policy for the given UUID with PROC_UUID_POLICY_OPERATION_ADD.
+.\" ==========
+.It remove
+Add the policy for the given UUID with PROC_UUID_POLICY_OPERATION_REMOVE.
+.\" ==========
+.Sh POLICIES
+The policies are as follows:
+.Bl -tag -width indent
+.\" ==========
+.It none
+PROC_UUID_POLICY_FLAGS_NONE
+.\" ==========
+.It no_cellular
+PROC_UUID_NO_CELLULAR
+.\" ==========
+.It necp
+PROC_UUID_NO_CELLULAR
+.\" ==========
+.It alt-dyld
+PROC_UUID_ALT_DYLD_POLICY
+.\" ==========
+.El
+.Sh SEE ALSO
+.Xr otool 1

@@ -380,8 +380,11 @@ __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
     @param      dataInLength    Length of data to process.
     @param      dataOut         Result is written here. Allocated by caller. 
                                 Encryption and decryption can be performed
-                                "in-place", with the same buffer used for 
-                                input and output. 
+                                "in-place", with the same buffer used for
+                                input and output. The in-place operation is not 
+                                suported for ciphers modes that work with blocks
+                                of data such as CBC and ECB.
+
     @param      dataOutAvailable The size of the dataOut buffer in bytes.  
     @param      dataOutMoved    On successful return, the number of bytes
     				written to dataOut.
@@ -583,11 +586,11 @@ CCCryptorStatus CCCryptorReset(
     
     @param      dataOut         Result is written here. Allocated by caller. 
                                 Encryption and decryption can be performed
-                                "in-place", with the same buffer used for 
-                                input and output. 
-    
-    @param      dataOutAvailable The size of the dataOut buffer in bytes.  
-    
+                                "in-place", with the same buffer used for
+                                input and output.
+
+    @param      dataOutAvailable The size of the dataOut buffer in bytes.
+
     @param      dataOutMoved    On successful return, the number of bytes
     				written to dataOut. If kCCBufferTooSmall is
 				returned as a result of insufficient buffer

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -51,21 +51,7 @@ CF_ASSUME_NONNULL_BEGIN
 		These APIs are treated as advisory only.
 		There is no guarantee or contract that the operating system
 		will take the intended action.
-
-	@note IMPORTANT: This API is deprecated starting in iOS 9.
-		For captive network applications, this has been completely
-		replaced by <NetworkExtension/NEHotspotHelper.h>.
-		For other applications, there is no direct replacement.
-		Please file a bug describing your use of this API so that
-		we can consider your requirements as this situation evolves.
  */
-
-#define CN_DEPRECATION_NOTICE						\
-    "For captive network applications, this has been completely "	\
-    "replaced by <NetworkExtension/NEHotspotHelper.h>. "		\
-    "For other applications, there is no direct replacement. "		\
-    "Please file a bug describing your use of this API to that "	\
-    "we can consider your requirements as this situation evolves."
 
 __BEGIN_DECLS
 
@@ -129,37 +115,25 @@ CNMarkPortalOffline	(CFStringRef	interfaceName)
 	 You MUST release the returned value.
  */
 CFArrayRef __nullable
-CNCopySupportedInterfaces	(void)
-    __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_8, __MAC_NA,
-				       __IPHONE_4_1, __IPHONE_9_0,
-				       CN_DEPRECATION_NOTICE);
+CNCopySupportedInterfaces	(void)			__OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_4_1);
 
 /*!
  @constant kCNNetworkInfoKeySSIDData
  @discussion NetworkInfo Dictionary key for SSID in CFData format
  */
-extern const CFStringRef kCNNetworkInfoKeySSIDData
-    __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_NA, __MAC_NA,
-				       __IPHONE_4_1, __IPHONE_9_0,
-				       CN_DEPRECATION_NOTICE);
+extern const CFStringRef kCNNetworkInfoKeySSIDData	__OSX_AVAILABLE_STARTING(__MAC_NA,__IPHONE_4_1);
 
 /*!
  @constant kCNNetworkInfoKeySSID
  @discussion NetworkInfo Dictionary key for SSID in CFString format
  */
-extern const CFStringRef kCNNetworkInfoKeySSID
-    __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_NA, __MAC_NA,
-				       __IPHONE_4_1, __IPHONE_9_0,
-				       CN_DEPRECATION_NOTICE);
+extern const CFStringRef kCNNetworkInfoKeySSID		__OSX_AVAILABLE_STARTING(__MAC_NA,__IPHONE_4_1);
 
 /*!
  @constant kCNNetworkInfoKeyBSSID
  @discussion NetworkInfo Dictionary key for BSSID in CFString format
  */
-extern const CFStringRef kCNNetworkInfoKeyBSSID
-    __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_NA, __MAC_NA,
-				       __IPHONE_4_1, __IPHONE_9_0,
-				       CN_DEPRECATION_NOTICE);
+extern const CFStringRef kCNNetworkInfoKeyBSSID		__OSX_AVAILABLE_STARTING(__MAC_NA,__IPHONE_4_1);
 
 /*!
  @function CNCopyCurrentNetworkInfo
@@ -181,10 +155,7 @@ extern const CFStringRef kCNNetworkInfoKeyBSSID
 	 You MUST release the returned value.
  */
 CFDictionaryRef __nullable
-CNCopyCurrentNetworkInfo	(CFStringRef interfaceName)
-    __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_NA, __MAC_NA,
-				       __IPHONE_4_1, __IPHONE_9_0,
-				       CN_DEPRECATION_NOTICE);
+CNCopyCurrentNetworkInfo	(CFStringRef interfaceName)	__OSX_AVAILABLE_STARTING(__MAC_NA,__IPHONE_4_1);
 
 __END_DECLS
 

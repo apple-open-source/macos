@@ -29,6 +29,10 @@
 #include "mech_locl.h"
 #include <heim_threads.h>
 
+#ifdef __APPLE__
+#include <sys/codesign.h>
+#endif
+
 #ifndef _PATH_GSS_MECH
 #define _PATH_GSS_MECH	"/etc/gss/mech"
 #endif
@@ -226,6 +230,199 @@ add_builtin(gssapi_mech_interface mech)
     return 0;
 }
 
+static void
+_gss_load_config_mechs(void)
+{
+#ifdef HAVE_DLOPEN
+    OM_uint32	major_status, minor_status;
+    FILE		*fp;
+    char		buf[256];
+    char		*p;
+    char		*name, *oid, *lib, *kobj;
+    struct _gss_mech_switch *m;
+    void		*so;
+    gss_OID_desc	mech_oid;
+    int		found;
+
+#if __APPLE__
+    int flags = 0;
+
+    if (csops(0, CS_OPS_STATUS, &flags, sizeof(flags)) != 0)
+	return;
+    if (flags & CS_RESTRICT)
+	return;
+#endif /* __APPLE__ */
+
+    fp = fopen(_PATH_GSS_MECH, "r");
+    if (!fp) {
+	return;
+    }
+    rk_cloexec_file(fp);
+
+    while (fgets(buf, sizeof(buf), fp)) {
+	_gss_mo_init *mi;
+
+	if (*buf == '#')
+	    continue;
+	p = buf;
+	name = strsep(&p, "\t\n ");
+	if (p) while (isspace((unsigned char)*p)) p++;
+	oid = strsep(&p, "\t\n ");
+	if (p) while (isspace((unsigned char)*p)) p++;
+	lib = strsep(&p, "\t\n ");
+	if (p) while (isspace((unsigned char)*p)) p++;
+	kobj = strsep(&p, "\t\n ");
+	if (!name || !oid || !lib || !kobj)
+	    continue;
+
+	if (_gss_string_to_oid(oid, &mech_oid))
+	    continue;
+
+	/*
+	 * Check for duplicates, already loaded mechs.
+	 */
+	found = 0;
+	HEIM_SLIST_FOREACH(m, &_gss_mechs, gm_link) {
+	    if (gss_oid_equal(&m->gm_mech.gm_mech_oid, &mech_oid)) {
+		found = 1;
+		free(mech_oid.elements);
+		break;
+	    }
+	}
+	if (found)
+	    continue;
+
+#ifndef RTLD_LOCAL
+#define RTLD_LOCAL 0
+#endif
+
+#ifndef RTLD_GROUP
+#define RTLD_GROUP 0
+#endif
+
+	so = dlopen(lib, RTLD_LAZY | RTLD_LOCAL | RTLD_GROUP);
+	if (so == NULL) {
+	    /*			fprintf(stderr, "dlopen: %s\n", dlerror()); */
+	    goto bad;
+	}
+
+	m = calloc(1, sizeof(*m));
+	if (m == NULL)
+	    goto bad;
+
+	m->gm_so = so;
+	m->gm_mech_oid = mech_oid;
+	m->gm_mech.gm_name = strdup(name);
+	m->gm_mech.gm_mech_oid = mech_oid;
+	m->gm_mech.gm_flags = 0;
+	m->gm_mech.gm_compat = calloc(1, sizeof(struct gss_mech_compat_desc_struct));
+	if (m->gm_mech.gm_compat == NULL)
+	    goto bad;
+
+	major_status = gss_add_oid_set_member(&minor_status,
+					      &m->gm_mech.gm_mech_oid, &_gss_mech_oids);
+	if (GSS_ERROR(major_status))
+	    goto bad;
+
+	SYM(acquire_cred);
+	SYM(release_cred);
+	SYM(init_sec_context);
+	SYM(accept_sec_context);
+	SYM(process_context_token);
+	SYM(delete_sec_context);
+	SYM(context_time);
+	SYM(get_mic);
+	SYM(verify_mic);
+	SYM(wrap);
+	SYM(unwrap);
+	SYM(display_status);
+	SYM(indicate_mechs);
+	SYM(compare_name);
+	SYM(display_name);
+	SYM(import_name);
+	SYM(export_name);
+	SYM(release_name);
+	SYM(inquire_cred);
+	SYM(inquire_context);
+	SYM(wrap_size_limit);
+	SYM(add_cred);
+	SYM(inquire_cred_by_mech);
+	SYM(export_sec_context);
+	SYM(import_sec_context);
+	SYM(inquire_names_for_mech);
+	SYM(inquire_mechs_for_name);
+	SYM(canonicalize_name);
+	SYM(duplicate_name);
+	OPTSYM(inquire_cred_by_oid);
+	OPTSYM(inquire_sec_context_by_oid);
+	OPTSYM(set_sec_context_option);
+	OPTSPISYM(set_cred_option);
+	OPTSYM(pseudo_random);
+	OPTSYM(wrap_iov);
+	OPTSYM(unwrap_iov);
+	OPTSYM(wrap_iov_length);
+	OPTSYM(store_cred);
+	OPTSYM(export_cred);
+	OPTSYM(import_cred);
+#if 0
+	OPTSYM(acquire_cred_ext);
+	OPTSYM(iter_creds);
+	OPTSYM(destroy_cred);
+	OPTSYM(cred_hold);
+	OPTSYM(cred_unhold);
+	OPTSYM(cred_label_get);
+	OPTSYM(cred_label_set);
+#endif
+	OPTSYM(display_name_ext);
+	OPTSYM(inquire_name);
+	OPTSYM(get_name_attribute);
+	OPTSYM(set_name_attribute);
+	OPTSYM(delete_name_attribute);
+	OPTSYM(export_name_composite);
+	OPTSYM(pname_to_uid);
+	OPTSPISYM(authorize_localname);
+
+	mi = dlsym(so, "gss_mo_init");
+	if (mi != NULL) {
+	    major_status = mi(&minor_status, &mech_oid,
+			      &m->gm_mech.gm_mo, &m->gm_mech.gm_mo_num);
+	    if (GSS_ERROR(major_status))
+		goto bad;
+	} else {
+	    /* API-as-SPI compatibility */
+	    COMPATSYM(inquire_saslname_for_mech);
+	    COMPATSYM(inquire_mech_for_saslname);
+	    COMPATSYM(inquire_attrs_for_mech);
+	    COMPATSPISYM(acquire_cred_with_password);
+	}
+
+	/* pick up the oid sets of names */
+
+	if (m->gm_mech.gm_inquire_names_for_mech)
+	    (*m->gm_mech.gm_inquire_names_for_mech)(&minor_status,
+						    &m->gm_mech.gm_mech_oid, &m->gm_name_types);
+
+	if (m->gm_name_types == NULL)
+	    gss_create_empty_oid_set(&minor_status, &m->gm_name_types);
+
+	HEIM_SLIST_INSERT_HEAD(&_gss_mechs, m, gm_link);
+	continue;
+
+    bad:
+	if (m != NULL) {
+	    free(m->gm_mech.gm_compat);
+	    free(m->gm_mech.gm_mech_oid.elements);
+	    free((char *)m->gm_mech.gm_name);
+	    free(m);
+	}
+	dlclose(so);
+	continue;
+    }
+    fclose(fp);
+#endif
+}
+
+
 /*
  * Load the mechanisms file (/etc/gss/mech).
  */
@@ -233,15 +430,6 @@ void
 _gss_load_mech(void)
 {
 	OM_uint32	major_status, minor_status;
-	FILE		*fp;
-	char		buf[256];
-	char		*p;
-	char		*name, *oid, *lib, *kobj;
-	struct _gss_mech_switch *m;
-	void		*so;
-	gss_OID_desc	mech_oid;
-	int		found;
-
 
 	HEIMDAL_MUTEX_lock(&_gss_mech_mutex);
 
@@ -270,175 +458,9 @@ _gss_load_mech(void)
 	add_builtin(__gss_spnego_initialize());
 	add_builtin(__gss_krb5_initialize());
 
-#ifdef HAVE_DLOPEN
-	fp = fopen(_PATH_GSS_MECH, "r");
-	if (!fp) {
-		HEIMDAL_MUTEX_unlock(&_gss_mech_mutex);
-		return;
-	}
-	rk_cloexec_file(fp);
+	_gss_load_config_mechs();
 
-	while (fgets(buf, sizeof(buf), fp)) {
-		_gss_mo_init *mi;
 
-		if (*buf == '#')
-			continue;
-		p = buf;
-		name = strsep(&p, "\t\n ");
-		if (p) while (isspace((unsigned char)*p)) p++;
-		oid = strsep(&p, "\t\n ");
-		if (p) while (isspace((unsigned char)*p)) p++;
-		lib = strsep(&p, "\t\n ");
-		if (p) while (isspace((unsigned char)*p)) p++;
-		kobj = strsep(&p, "\t\n ");
-		if (!name || !oid || !lib || !kobj)
-			continue;
-
-		if (_gss_string_to_oid(oid, &mech_oid))
-			continue;
-
-		/*
-		 * Check for duplicates, already loaded mechs.
-		 */
-		found = 0;
-		HEIM_SLIST_FOREACH(m, &_gss_mechs, gm_link) {
-			if (gss_oid_equal(&m->gm_mech.gm_mech_oid, &mech_oid)) {
-				found = 1;
-				free(mech_oid.elements);
-				break;
-			}
-		}
-		if (found)
-			continue;
-
-#ifndef RTLD_LOCAL
-#define RTLD_LOCAL 0
-#endif
-
-#ifndef RTLD_GROUP
-#define RTLD_GROUP 0
-#endif
-
-		so = dlopen(lib, RTLD_LAZY | RTLD_LOCAL | RTLD_GROUP);
-		if (so == NULL) {
-/*			fprintf(stderr, "dlopen: %s\n", dlerror()); */
-			goto bad;
-		}
-
-		m = calloc(1, sizeof(*m));
-		if (m == NULL)
-			goto bad;
-
-		m->gm_so = so;
-		m->gm_mech_oid = mech_oid;
-		m->gm_mech.gm_name = strdup(name);
-		m->gm_mech.gm_mech_oid = mech_oid;
-		m->gm_mech.gm_flags = 0;
-		m->gm_mech.gm_compat = calloc(1, sizeof(struct gss_mech_compat_desc_struct));
-		if (m->gm_mech.gm_compat == NULL)
-			goto bad;
-
-		major_status = gss_add_oid_set_member(&minor_status,
-		    &m->gm_mech.gm_mech_oid, &_gss_mech_oids);
-		if (GSS_ERROR(major_status))
-			goto bad;
-
-		SYM(acquire_cred);
-		SYM(release_cred);
-		SYM(init_sec_context);
-		SYM(accept_sec_context);
-		SYM(process_context_token);
-		SYM(delete_sec_context);
-		SYM(context_time);
-		SYM(get_mic);
-		SYM(verify_mic);
-		SYM(wrap);
-		SYM(unwrap);
-		SYM(display_status);
-		SYM(indicate_mechs);
-		SYM(compare_name);
-		SYM(display_name);
-		SYM(import_name);
-		SYM(export_name);
-		SYM(release_name);
-		SYM(inquire_cred);
-		SYM(inquire_context);
-		SYM(wrap_size_limit);
-		SYM(add_cred);
-		SYM(inquire_cred_by_mech);
-		SYM(export_sec_context);
-		SYM(import_sec_context);
-		SYM(inquire_names_for_mech);
-		SYM(inquire_mechs_for_name);
-		SYM(canonicalize_name);
-		SYM(duplicate_name);
-		OPTSYM(inquire_cred_by_oid);
-		OPTSYM(inquire_sec_context_by_oid);
-		OPTSYM(set_sec_context_option);
-		OPTSPISYM(set_cred_option);
-		OPTSYM(pseudo_random);
-		OPTSYM(wrap_iov);
-		OPTSYM(unwrap_iov);
-		OPTSYM(wrap_iov_length);
-		OPTSYM(store_cred);
-		OPTSYM(export_cred);
-		OPTSYM(import_cred);
-#if 0
-		OPTSYM(acquire_cred_ext);
-		OPTSYM(iter_creds);
-		OPTSYM(destroy_cred);
-		OPTSYM(cred_hold);
-		OPTSYM(cred_unhold);
-		OPTSYM(cred_label_get);
-		OPTSYM(cred_label_set);
-#endif
-		OPTSYM(display_name_ext);
-		OPTSYM(inquire_name);
-		OPTSYM(get_name_attribute);
-		OPTSYM(set_name_attribute);
-		OPTSYM(delete_name_attribute);
-		OPTSYM(export_name_composite);
-		OPTSYM(pname_to_uid);
-		OPTSPISYM(authorize_localname);
-
-		mi = dlsym(so, "gss_mo_init");
-		if (mi != NULL) {
-			major_status = mi(&minor_status, &mech_oid,
-					  &m->gm_mech.gm_mo, &m->gm_mech.gm_mo_num);
-			if (GSS_ERROR(major_status))
-				goto bad;
-		} else {
-			/* API-as-SPI compatibility */
-			COMPATSYM(inquire_saslname_for_mech);
-			COMPATSYM(inquire_mech_for_saslname);
-			COMPATSYM(inquire_attrs_for_mech);
-			COMPATSPISYM(acquire_cred_with_password);
-		}
-
-		/* pick up the oid sets of names */
-
-		if (m->gm_mech.gm_inquire_names_for_mech)
-			(*m->gm_mech.gm_inquire_names_for_mech)(&minor_status,
-			&m->gm_mech.gm_mech_oid, &m->gm_name_types);
-
-		if (m->gm_name_types == NULL)
-			gss_create_empty_oid_set(&minor_status, &m->gm_name_types);
-
-		HEIM_SLIST_INSERT_HEAD(&_gss_mechs, m, gm_link);
-		continue;
-
-	bad:
-		if (m != NULL) {
-			free(m->gm_mech.gm_compat);
-			free(m->gm_mech.gm_mech_oid.elements);
-			free((char *)m->gm_mech.gm_name);
-			free(m);
-		}
-		dlclose(so);
-		continue;
-	}
-	fclose(fp);
-#endif
 	HEIMDAL_MUTEX_unlock(&_gss_mech_mutex);
 }
 

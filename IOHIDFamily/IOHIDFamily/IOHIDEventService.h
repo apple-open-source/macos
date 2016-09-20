@@ -34,10 +34,8 @@
 #include <IOKit/hid/IOHIDInterface.h>
 #include <IOKit/hid/IOHIDElement.h>
 #include <IOKit/hid/IOHIDKeys.h>
-
-#if TARGET_OS_EMBEDDED
-    #include <IOKit/hid/IOHIDEvent.h>
-#endif
+#include <IOKit/hid/IOHIDEvent.h>
+#include "IOHIDUtility.h"
 
 enum 
 {
@@ -72,10 +70,33 @@ enum
     kHIDDispatchOptionKeyboardNoRepeat                  = (1<<0)
 };
 
+enum
+{
+    kHIDShutdownDebugModeStackshots = 1,
+    kHIDShutdownDebugModePanic,
+    kHIDShutdownDebugModeDisabled
+};
+
+
+class IOHIDEventService;
 class   IOHIDPointing;
 class   IOHIDKeyboard;
 class   IOHIDConsumer;
 struct  TransducerData;
+
+
+struct KeyValueMask {
+    Key key;
+    uint32_t mask;
+};
+
+typedef void (*DebugKeyActionProc) (IOHIDEventService *self, void * parameter);
+struct DebugKeyAction {
+  uint32_t            mask;
+  DebugKeyActionProc  action;
+  void*               parameter;
+};
+
 
 /*! @class IOHIDEventService : public IOService
  @abstract
@@ -109,9 +130,7 @@ private:
         OSArray *               deviceUsagePairs;
         IOCommandGate *         commandGate;
         
-#if TARGET_OS_EMBEDDED
         OSDictionary *          clientDict;
-#endif
 
         struct {
             UInt32                  deviceID;
@@ -123,18 +142,6 @@ private:
         } digitizer;
 
         struct {
-            struct {
-                UInt32                  delayMS;
-                IOTimerEventSource *    timer;
-                UInt32                  state;
-                IOOptionBits            options;
-            } eject;
-            struct {
-                UInt32                  delayMS;
-                IOTimerEventSource *    timer;
-                UInt32                  state;
-                IOOptionBits            options;
-            } caps;
             
 #if TARGET_OS_EMBEDDED
             struct {
@@ -145,13 +152,19 @@ private:
                 IOTimerEventSource *    nmiTimer;
                 UInt32                  stackshotHeld;
                 IOTimerEventSource *    stackshotTimer;
+                UInt32                  shutdownDebugMode;
+                UInt32                  shutdownDebugKeyMask;
+                UInt32                  shutdownDebugDelay;
+                IOTimerEventSource *    shutdownDebugTimer;
             } debug;
-
             bool                    swapISO;
+#else
+            Key                     pressedKeys[10];
+            UInt32                  pressedKeysMask;
 #endif
             bool                    appleVendorSupported;
         } keyboard;
-        
+
         struct {
             IOFixed                 x;
             IOFixed                 y;
@@ -168,8 +181,23 @@ private:
             UInt32                  buttonState;
         } relativePointer;
 
+#if !TARGET_OS_EMBEDDED
+
+        struct {
+            UInt32                  buttonState;
+        } absolutePointer;
+
+        int                   pointingShim;
+        int                   keyboardShim;
+#endif
 
     };
+
+#if !TARGET_OS_EMBEDDED
+    static KeyValueMask   keyMonitorTable[];
+    static DebugKeyAction debugKeyActionTable[];
+#endif
+
     ExpansionData *         _reserved;
     
     IOHIDPointing *         newPointingShim (
@@ -194,20 +222,20 @@ private:
                                     
     static bool             _publishMatchingNotificationHandler(void * target, void * ref, IOService * newService, IONotifier * notifier);
 
-    void                    ejectTimerCallback(IOTimerEventSource *sender);
-
-    void                    capsTimerCallback(IOTimerEventSource *sender);
-    
 #if TARGET_OS_EMBEDDED
     void                    debuggerTimerCallback(IOTimerEventSource *sender);
 
     void                    stackshotTimerCallback(IOTimerEventSource *sender);
+
+#if TARGET_OS_IPHONE
+    void                    forcedShutdownDebugTimerCallback(IOTimerEventSource *sender);
+    void                    forcedShutdownDebugInit();
+  
+#endif
 #endif
     
     void                    multiAxisTimerCallback(IOTimerEventSource *sender);
 
-    void                    calculateCapsLockDelay();
-    
     void                    calculateStandardType();
 
 protected:
@@ -288,7 +316,7 @@ protected:
     
     virtual OSArray *       getReportElements();
 
-    virtual void            setElementValue (
+    virtual IOReturn        setElementValue (
                                 UInt32                      usagePage,
                                 UInt32                      usage,
                                 UInt32                      value );
@@ -310,7 +338,15 @@ protected:
                                 SInt32                      dy,
                                 UInt32                      buttonState,
                                 IOOptionBits                options = 0 );
-    
+
+    void                    dispatchRelativePointerEventWithFixed(
+                                AbsoluteTime                timeStamp,
+                                IOFixed                     dx,
+                                IOFixed                     dy,
+                                UInt32                      buttonState,
+                                IOOptionBits                options = 0 );
+
+  
     virtual void            dispatchAbsolutePointerEvent(
                                 AbsoluteTime                timeStamp,
                                 SInt32                      x,
@@ -328,6 +364,13 @@ protected:
                                 SInt32                      deltaAxis1,
                                 SInt32                      deltaAxis2,
                                 SInt32                      deltaAxis3,
+                                IOOptionBits                options = 0 );
+
+    void                    dispatchScrollWheelEventWithFixed(
+                                AbsoluteTime                timeStamp,
+                                IOFixed                     deltaAxis1,
+                                IOFixed                     deltaAxis2,
+                                IOFixed                     deltaAxis3,
                                 IOOptionBits                options = 0 );
 
     virtual void            dispatchTabletPointerEvent(
@@ -372,7 +415,14 @@ public:
     virtual IOReturn        setSystemProperties( OSDictionary * properties );
     
     virtual IOReturn        setProperties( OSObject * properties );
-    
+  
+    virtual IOReturn        newUserClient(
+                              task_t owningTask,
+                              void * securityID,
+                              UInt32 type,
+                              OSDictionary * properties,
+                              IOUserClient ** handler );
+ 
 protected:
     OSMetaClassDeclareReservedUsed(IOHIDEventService,  0);
     virtual OSArray *       getDeviceUsagePairs();
@@ -619,9 +669,6 @@ private:
                                 IOOptionBits                    options                 = 0 );
     
 
-
-
-#if TARGET_OS_EMBEDDED
 public:
     typedef void (*Action)(OSObject *target, OSObject * sender, void *context, OSObject *event, IOOptionBits options);
 
@@ -641,7 +688,12 @@ protected:
     
     OSMetaClassDeclareReservedUsed(IOHIDEventService, 10);
     virtual UInt32          getPrimaryUsage();
-    
+ 
+#if !TARGET_OS_EMBEDDED
+    static void debugActionSysdiagnose(IOHIDEventService* self, void *parameter);
+    static void debugActionNMI(IOHIDEventService* self, void *parameter);
+#endif
+  
 public:
     OSMetaClassDeclareReservedUsed(IOHIDEventService,  11);
     virtual IOHIDEvent *    copyEvent(
@@ -729,15 +781,6 @@ protected:
                                                                 IOOptionBits                    options         = 0 );
     
 
-#else
-    OSMetaClassDeclareReservedUnused(IOHIDEventService,  7);
-    OSMetaClassDeclareReservedUnused(IOHIDEventService,  8);
-    OSMetaClassDeclareReservedUnused(IOHIDEventService,  9);
-    OSMetaClassDeclareReservedUnused(IOHIDEventService, 10);
-    OSMetaClassDeclareReservedUnused(IOHIDEventService, 11);
-    OSMetaClassDeclareReservedUnused(IOHIDEventService, 12);
-    OSMetaClassDeclareReservedUnused(IOHIDEventService, 13);
-#endif
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 14);
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 15);
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 16);
@@ -757,15 +800,12 @@ protected:
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 30);
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 31);
     
-#if TARGET_OS_EMBEDDED
 public:
     virtual void            close( IOService * forClient, IOOptionBits options = 0 );
     
 private:
     bool                    openGated( IOService *client, IOOptionBits *pOptions, void *context, Action action);
     void                    closeGated( IOService * forClient, IOOptionBits *pOptions);
-#endif
-
 };
 
 #endif /* !_IOKIT_HID_IOHIDEVENTSERVICE_H */

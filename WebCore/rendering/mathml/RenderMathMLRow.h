@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 Alex Milowski (alex@milowski.com). All rights reserved.
+ * Copyright (C) 2016 Igalia S.L.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,8 +24,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef RenderMathMLRow_h
-#define RenderMathMLRow_h
+#pragma once
 
 #if ENABLE(MATHML)
 
@@ -32,22 +32,23 @@
 
 namespace WebCore {
 
-class RenderMathMLRoot;
-
 class RenderMathMLRow : public RenderMathMLBlock {
 public:
-    RenderMathMLRow(Element&, Ref<RenderStyle>&&);
-    RenderMathMLRow(Document&, Ref<RenderStyle>&&);
+    RenderMathMLRow(Element&, RenderStyle&&);
 
-    static RenderPtr<RenderMathMLRow> createAnonymousWithParentRenderer(RenderMathMLRoot&);
     void updateOperatorProperties();
 
 protected:
-    virtual void layout() override;
+    void layoutBlock(bool relayoutChildren, LayoutUnit pageLogicalHeight = 0) override;
+    Optional<int> firstLineBaseline() const override;
+
+    void layoutRowItems(LayoutUnit& ascent, LayoutUnit& descent);
+    void computeLineVerticalStretch(LayoutUnit& ascent, LayoutUnit& descent);
+    void computePreferredLogicalWidths() override;
 
 private:
-    virtual bool isRenderMathMLRow() const override final { return true; }
-    virtual const char* renderName() const override { return isAnonymous() ? "RenderMathMLRow (anonymous)" : "RenderMathMLRow"; }
+    bool isRenderMathMLRow() const final { return true; }
+    const char* renderName() const override { return "RenderMathMLRow"; }
 };
 
 } // namespace WebCore
@@ -55,4 +56,3 @@ private:
 SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderMathMLRow, isRenderMathMLRow())
 
 #endif // ENABLE(MATHML)
-#endif // RenderMathMLRow_h

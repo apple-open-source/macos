@@ -259,7 +259,8 @@ PRIVATE void rpc__noauth_init
  *
  * Free info.
  */
-
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PRIVATE void rpc__noauth_free_info
 (
         rpc_auth_info_p_t *info
@@ -286,6 +287,7 @@ PRIVATE void rpc__noauth_free_info
         info_type, rpc_g_noauth_alloc_count - rpc_g_noauth_free_count));
     *info = NULL;
 }
+#endif
 
 /*
  * R P C _ _ N O A U T H _ M G T _ I N Q _ D E F

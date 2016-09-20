@@ -19,18 +19,14 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef XMLHttpRequest_h
-#define XMLHttpRequest_h
+#pragma once
 
 #include "ActiveDOMObject.h"
-#include "EventListener.h"
-#include "EventTarget.h"
 #include "FormData.h"
 #include "ResourceResponse.h"
-#include "ScriptWrappable.h"
 #include "ThreadableLoaderClient.h"
+#include "XMLHttpRequestEventTarget.h"
 #include "XMLHttpRequestProgressEventThrottle.h"
-#include <wtf/text/AtomicStringHash.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace JSC {
@@ -43,19 +39,17 @@ namespace WebCore {
 class Blob;
 class Document;
 class DOMFormData;
-class ResourceRequest;
 class SecurityOrigin;
 class SharedBuffer;
 class TextResourceDecoder;
 class ThreadableLoader;
 
-class XMLHttpRequest final : public ScriptWrappable, public RefCounted<XMLHttpRequest>, public EventTargetWithInlineData, private ThreadableLoaderClient, public ActiveDOMObject {
+class XMLHttpRequest final : public RefCounted<XMLHttpRequest>, public XMLHttpRequestEventTarget, private ThreadableLoaderClient, public ActiveDOMObject {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     static Ref<XMLHttpRequest> create(ScriptExecutionContext&);
     WEBCORE_EXPORT ~XMLHttpRequest();
 
-    // These exact numeric values are important because JS expects them.
     enum State {
         UNSENT = 0,
         OPENED = 1,
@@ -64,24 +58,10 @@ public:
         DONE = 4
     };
     
-    enum ResponseTypeCode {
-        ResponseTypeDefault,
-        ResponseTypeText,
-        ResponseTypeJSON,
-        ResponseTypeDocument,
+    virtual void didReachTimeout();
 
-        // Binary format
-        ResponseTypeBlob,
-        ResponseTypeArrayBuffer
-    };
-    static const ResponseTypeCode FirstBinaryResponseType = ResponseTypeBlob;
-
-#if ENABLE(XHR_TIMEOUT)
-    virtual void didTimeout();
-#endif
-
-    virtual EventTargetInterface eventTargetInterface() const override { return XMLHttpRequestEventTargetInterfaceType; }
-    virtual ScriptExecutionContext* scriptExecutionContext() const override { return ActiveDOMObject::scriptExecutionContext(); }
+    EventTargetInterface eventTargetInterface() const override { return XMLHttpRequestEventTargetInterfaceType; }
+    ScriptExecutionContext* scriptExecutionContext() const override { return ActiveDOMObject::scriptExecutionContext(); }
 
     const URL& url() const { return m_url; }
     String statusText() const;
@@ -113,10 +93,8 @@ public:
     Document* optionalResponseXML() const { return m_responseDocument.get(); }
     Blob* responseBlob();
     Blob* optionalResponseBlob() const { return m_responseBlob.get(); }
-#if ENABLE(XHR_TIMEOUT)
-    unsigned long timeout() const { return m_timeoutMilliseconds; }
-    void setTimeout(unsigned long timeout, ExceptionCode&);
-#endif
+    unsigned timeout() const { return m_timeoutMilliseconds; }
+    void setTimeout(unsigned timeout, ExceptionCode&);
 
     bool responseCacheIsValid() const { return m_responseCacheIsValid; }
     void didCacheResponseJSON();
@@ -126,9 +104,9 @@ public:
     static String uppercaseKnownHTTPMethod(const String&);
     static bool isAllowedHTTPHeader(const String&);
 
-    void setResponseType(const String&, ExceptionCode&);
-    String responseType();
-    ResponseTypeCode responseTypeCode() const { return m_responseTypeCode; }
+    enum class ResponseType { EmptyString, Arraybuffer, Blob, Document, Json, Text };
+    void setResponseType(ResponseType, ExceptionCode&);
+    ResponseType responseType() const;
 
     String responseURL() const;
 
@@ -152,14 +130,14 @@ private:
 
     // ActiveDOMObject
     void contextDestroyed() override;
-    bool canSuspendForPageCache() const override;
+    bool canSuspendForDocumentSuspension() const override;
     void suspend(ReasonForSuspension) override;
     void resume() override;
     void stop() override;
     const char* activeDOMObjectName() const override;
 
-    virtual void refEventTarget() override { ref(); }
-    virtual void derefEventTarget() override { deref(); }
+    void refEventTarget() override { ref(); }
+    void derefEventTarget() override { deref(); }
 
     Document* document() const;
     SecurityOrigin* securityOrigin() const;
@@ -168,20 +146,16 @@ private:
     bool usesDashboardBackwardCompatibilityMode() const;
 #endif
 
-    virtual void didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent) override;
-    virtual void didReceiveResponse(unsigned long identifier, const ResourceResponse&) override;
-    virtual void didReceiveData(const char* data, int dataLength) override;
-    virtual void didFinishLoading(unsigned long identifier, double finishTime) override;
-    virtual void didFail(const ResourceError&) override;
-    virtual void didFailRedirectCheck() override;
+    void didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent) override;
+    void didReceiveResponse(unsigned long identifier, const ResourceResponse&) override;
+    void didReceiveData(const char* data, int dataLength) override;
+    void didFinishLoading(unsigned long identifier, double finishTime) override;
+    void didFail(const ResourceError&) override;
 
     bool responseIsXML() const;
 
     bool initSend(ExceptionCode&);
     void sendBytesData(const void*, size_t, ExceptionCode&);
-
-    String getRequestHeader(const String& name) const;
-    void setRequestHeaderInternal(const String& name, const String& value);
 
     void changeState(State newState);
     void callReadyStateChangeListener();
@@ -201,8 +175,6 @@ private:
     void networkError();
     void abortError();
 
-    bool shouldDecodeResponse() const { return m_responseTypeCode < FirstBinaryResponseType; }
-
     void dispatchErrorEvents(const AtomicString&);
 
     void resumeTimerFired();
@@ -214,15 +186,13 @@ private:
     HTTPHeaderMap m_requestHeaders;
     RefPtr<FormData> m_requestEntityBody;
     String m_mimeTypeOverride;
-    bool m_async;
-    bool m_includeCredentials;
-#if ENABLE(XHR_TIMEOUT)
-    unsigned long m_timeoutMilliseconds;
-#endif
+    bool m_async { true };
+    bool m_includeCredentials { false };
     RefPtr<Blob> m_responseBlob;
 
     RefPtr<ThreadableLoader> m_loader;
-    State m_state;
+    State m_state { UNSENT };
+    bool m_sendFlag { false };
 
     ResourceResponse m_response;
     String m_responseEncoding;
@@ -230,40 +200,46 @@ private:
     RefPtr<TextResourceDecoder> m_decoder;
 
     StringBuilder m_responseBuilder;
-    bool m_createdDocument;
+    bool m_createdDocument { false };
     RefPtr<Document> m_responseDocument;
     
     RefPtr<SharedBuffer> m_binaryResponseBuilder;
     RefPtr<JSC::ArrayBuffer> m_responseArrayBuffer;
 
-    bool m_error;
+    bool m_error { false };
 
-    bool m_uploadEventsAllowed;
-    bool m_uploadComplete;
+    bool m_uploadEventsAllowed { true };
+    bool m_uploadComplete { false };
 
-    bool m_sameOriginRequest;
+    bool m_sameOriginRequest { true };
 
-    // Used for onprogress tracking
-    long long m_receivedLength;
+    // Used for progress event tracking.
+    long long m_receivedLength { 0 };
 
-    unsigned m_lastSendLineNumber;
-    unsigned m_lastSendColumnNumber;
+    unsigned m_lastSendLineNumber { 0 };
+    unsigned m_lastSendColumnNumber { 0 };
     String m_lastSendURL;
-    ExceptionCode m_exceptionCode;
+    ExceptionCode m_exceptionCode { 0 };
 
     XMLHttpRequestProgressEventThrottle m_progressEventThrottle;
 
-    // An enum corresponding to the allowed string values for the responseType attribute.
-    ResponseTypeCode m_responseTypeCode;
-    bool m_responseCacheIsValid;
+    ResponseType m_responseType { ResponseType::EmptyString };
+    bool m_responseCacheIsValid { false };
 
     Timer m_resumeTimer;
-    bool m_dispatchErrorOnResuming;
+    bool m_dispatchErrorOnResuming { false };
 
     Timer m_networkErrorTimer;
     void networkErrorTimerFired();
+
+    unsigned m_timeoutMilliseconds { 0 };
+    std::chrono::steady_clock::time_point m_sendingTime;
+    Timer m_timeoutTimer;
 };
 
-} // namespace WebCore
+inline auto XMLHttpRequest::responseType() const -> ResponseType
+{
+    return m_responseType;
+}
 
-#endif // XMLHttpRequest_h
+} // namespace WebCore

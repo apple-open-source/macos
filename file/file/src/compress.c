@@ -35,7 +35,7 @@
 #include "file.h"
 
 #ifndef lint
-FILE_RCSID("@(#)$File: compress.c,v 1.64 2009/05/08 17:41:58 christos Exp $")
+FILE_RCSID("@(#)$File: compress.c,v 1.80 2015/06/03 18:21:24 christos Exp $")
 #endif
 
 #include "magic.h"
@@ -45,7 +45,15 @@ FILE_RCSID("@(#)$File: compress.c,v 1.64 2009/05/08 17:41:58 christos Exp $")
 #endif
 #include <string.h>
 #include <errno.h>
+#ifdef HAVE_SIGNAL_H
+#include <signal.h>
+# ifndef HAVE_SIG_T
+typedef void (*sig_t)(int);
+# endif /* HAVE_SIG_T */
+#endif 
+#if !defined(__MINGW32__) && !defined(WIN32)
 #include <sys/ioctl.h>
+#endif
 #ifdef HAVE_SYS_WAIT_H
 #include <sys/wait.h>
 #endif
@@ -77,14 +85,15 @@ private const struct {
 	{ "BZh",      3, { "bzip2", "-cd", NULL }, 1 },		/* bzip2-ed */
 	{ "LZIP",     4, { "lzip", "-cdq", NULL }, 1 },
  	{ "\3757zXZ\0",6,{ "xz", "-cd", NULL }, 1 },		/* XZ Utils */
+ 	{ "LRZI",     4, { "lrzip", "-dqo-", NULL }, 1 },	/* LRZIP */
+ 	{ "\004\"M\030", 4, { "lz4", "-cd", NULL }, 1 },	/* LZ4 */
 };
-
-private size_t ncompr = sizeof(compr) / sizeof(compr[0]);
 
 #define NODATA ((size_t)~0)
 
-
 private ssize_t swrite(int, const void *, size_t);
+#if HAVE_FORK
+private size_t ncompr = sizeof(compr) / sizeof(compr[0]);
 private size_t uncompressbuf(struct magic_set *, int, size_t,
     const unsigned char *, unsigned char **, size_t);
 #ifdef BUILTIN_DECOMPRESS
@@ -100,10 +109,16 @@ file_zmagic(struct magic_set *ms, int fd, const char *name,
 	size_t i, nsz;
 	int rv = 0;
 	int mime = ms->flags & MAGIC_MIME;
+#ifdef HAVE_SIGNAL_H
+	sig_t osigpipe;
+#endif
 
 	if ((ms->flags & MAGIC_COMPRESS) == 0)
 		return 0;
 
+#ifdef HAVE_SIGNAL_H
+	osigpipe = signal(SIGPIPE, SIG_IGN);
+#endif
 	for (i = 0; i < ncompr; i++) {
 		if (nbytes < compr[i].maglen)
 			continue;
@@ -115,29 +130,30 @@ file_zmagic(struct magic_set *ms, int fd, const char *name,
 			if (file_buffer(ms, -1, name, newbuf, nsz) == -1)
 				goto error;
 
-			if (mime == MAGIC_MIME || mime == 0) {
+			if ((ms->flags & MAGIC_COMPRESS_TRANSP) == 0 &&
+			    (mime == MAGIC_MIME || mime == 0)) {
 				if (file_printf(ms, mime ?
 				    " compressed-encoding=" : " (") == -1)
 					goto error;
+				if (file_buffer(ms, -1, NULL, buf, nbytes) == -1)
+					goto error;
+				if (!mime && file_printf(ms, ")") == -1)
+					goto error;
 			}
 
-			if ((mime == 0 || mime & MAGIC_MIME_ENCODING) &&
-			    file_buffer(ms, -1, NULL, buf, nbytes) == -1)
-				goto error;
-
-			if (!mime && file_printf(ms, ")") == -1)
-				goto error;
 			rv = 1;
 			break;
 		}
 	}
 error:
-	if (newbuf)
-		free(newbuf);
+#ifdef HAVE_SIGNAL_H
+	(void)signal(SIGPIPE, osigpipe);
+#endif
+	free(newbuf);
 	ms->flags |= MAGIC_COMPRESS;
 	return rv;
 }
-
+#endif
 /*
  * `safe' write for sockets and pipes.
  */
@@ -167,9 +183,9 @@ swrite(int fd, const void *buf, size_t n)
  * `safe' read for sockets and pipes.
  */
 protected ssize_t
-sread(int fd, void *buf, size_t n, int canbepipe)
+sread(int fd, void *buf, size_t n, int canbepipe __attribute__((__unused__)))
 {
-	ssize_t rv, cnt;
+	ssize_t rv;
 #ifdef FIONREAD
 	int t = 0;
 #endif
@@ -179,8 +195,9 @@ sread(int fd, void *buf, size_t n, int canbepipe)
 		goto nocheck;
 
 #ifdef FIONREAD
-	if ((canbepipe && (ioctl(fd, FIONREAD, &t) == -1)) || (t == 0)) {
+	if (canbepipe && (ioctl(fd, FIONREAD, &t) == -1 || t == 0)) {
 #ifdef FD_ZERO
+		ssize_t cnt;
 		for (cnt = 0;; cnt++) {
 			fd_set check;
 			struct timeval tout = {0, 100 * 1000};
@@ -236,7 +253,7 @@ file_pipe2file(struct magic_set *ms, int fd, const void *startbuf,
 {
 	char buf[4096];
 	ssize_t r;
-	int tfd, te;
+	int tfd;
 
 	(void)strlcpy(buf, "/tmp/file.XXXXXX", sizeof buf);
 #ifndef HAVE_MKSTEMP
@@ -248,10 +265,13 @@ file_pipe2file(struct magic_set *ms, int fd, const void *startbuf,
 		errno = r;
 	}
 #else
-	tfd = mkstemp(buf);
-	te = errno;
-	(void)unlink(buf);
-	errno = te;
+	{
+		int te;
+		tfd = mkstemp(buf);
+		te = errno;
+		(void)unlink(buf);
+		errno = te;
+	}
 #endif
 	if (tfd == -1) {
 		file_error(ms, errno,
@@ -294,7 +314,7 @@ file_pipe2file(struct magic_set *ms, int fd, const void *startbuf,
 	}
 	return fd;
 }
-
+#if HAVE_FORK
 #ifdef BUILTIN_DECOMPRESS
 
 #define FHCRC		(1 << 1)
@@ -373,6 +393,7 @@ uncompressbuf(struct magic_set *ms, int fd, size_t method,
     const unsigned char *old, unsigned char **newch, size_t n)
 {
 	int fdin[2], fdout[2];
+	int status;
 	ssize_t r;
 
 #ifdef BUILTIN_DECOMPRESS
@@ -391,16 +412,19 @@ uncompressbuf(struct magic_set *ms, int fd, size_t method,
 	case 0:	/* child */
 		(void) close(0);
 		if (fd != -1) {
-		    (void) dup(fd);
+		    if (dup(fd) == -1)
+			_exit(1);
 		    (void) lseek(0, (off_t)0, SEEK_SET);
 		} else {
-		    (void) dup(fdin[0]);
+		    if (dup(fdin[0]) == -1)
+			_exit(1);
 		    (void) close(fdin[0]);
 		    (void) close(fdin[1]);
 		}
 
 		(void) close(1);
-		(void) dup(fdout[1]);
+		if (dup(fdout[1]) == -1)
+			_exit(1);
 		(void) close(fdout[0]);
 		(void) close(fdout[1]);
 #ifndef DEBUG
@@ -451,7 +475,17 @@ uncompressbuf(struct magic_set *ms, int fd, size_t method,
 				/*NOTREACHED*/
 
 			default:  /* parent */
-				break;
+				if (wait(&status) == -1) {
+#ifdef DEBUG
+					(void)fprintf(stderr,
+					    "Wait failed (%s)\n",
+					    strerror(errno));
+#endif
+					exit(1);
+				}
+				exit(WIFEXITED(status) ?
+				    WEXITSTATUS(status) : 1);
+				/*NOTREACHED*/
 			}
 			(void) close(fdin[1]);
 			fdin[1] = -1;
@@ -462,7 +496,7 @@ uncompressbuf(struct magic_set *ms, int fd, size_t method,
 			(void)fprintf(stderr, "Malloc failed (%s)\n",
 			    strerror(errno));
 #endif
-			n = 0;
+			n = NODATA;
 			goto err;
 		}
 		if ((r = sread(fdout[0], *newch, HOWMANY, 0)) <= 0) {
@@ -471,8 +505,8 @@ uncompressbuf(struct magic_set *ms, int fd, size_t method,
 			    strerror(errno));
 #endif
 			free(*newch);
-			n = 0;
-			newch[0] = '\0';
+			n = NODATA;
+			*newch = NULL;
 			goto err;
 		} else {
 			n = r;
@@ -483,14 +517,27 @@ err:
 		if (fdin[1] != -1)
 			(void) close(fdin[1]);
 		(void) close(fdout[0]);
-#ifdef WNOHANG
-		while (waitpid(-1, NULL, WNOHANG) != -1)
-			continue;
-#else
-		(void)wait(NULL);
+		if (wait(&status) == -1) {
+#ifdef DEBUG
+			(void)fprintf(stderr, "Wait failed (%s)\n",
+			    strerror(errno));
 #endif
+			n = NODATA;
+		} else if (!WIFEXITED(status)) {
+#ifdef DEBUG
+			(void)fprintf(stderr, "Child not exited (0x%x)\n",
+			    status);
+#endif
+		} else if (WEXITSTATUS(status) != 0) {
+#ifdef DEBUG
+			(void)fprintf(stderr, "Child exited (0x%d)\n",
+			    WEXITSTATUS(status));
+#endif
+		}
+
 		(void) close(fdin[0]);
 	    
 		return n;
 	}
 }
+#endif

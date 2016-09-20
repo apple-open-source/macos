@@ -58,21 +58,29 @@ WebInspector.ResourceSidebarPanel = class ResourceSidebarPanel extends WebInspec
         WebInspector.frameResourceManager.addEventListener(WebInspector.FrameResourceManager.Event.MainFrameDidChange, this._mainFrameDidChange, this);
 
         WebInspector.debuggerManager.addEventListener(WebInspector.DebuggerManager.Event.ScriptAdded, this._scriptWasAdded, this);
+        WebInspector.debuggerManager.addEventListener(WebInspector.DebuggerManager.Event.ScriptRemoved, this._scriptWasRemoved, this);
         WebInspector.debuggerManager.addEventListener(WebInspector.DebuggerManager.Event.ScriptsCleared, this._scriptsCleared, this);
 
         WebInspector.notifications.addEventListener(WebInspector.Notification.ExtraDomainsActivated, this._extraDomainsActivated, this);
 
-        this.contentTreeOutline.onselect = this._treeElementSelected.bind(this);
+        this.contentTreeOutline.addEventListener(WebInspector.TreeOutline.Event.SelectionDidChange, this._treeSelectionDidChange, this);
         this.contentTreeOutline.includeSourceMapResourceChildren = true;
 
-        if (WebInspector.debuggableType === WebInspector.DebuggableType.JavaScript)
-            this.contentTreeOutline.element.classList.add(WebInspector.NavigationSidebarPanel.HideDisclosureButtonsStyleClassName);
+        if (WebInspector.debuggableType === WebInspector.DebuggableType.JavaScript) {
+            this.contentTreeOutline.disclosureButtons = false;
+            WebInspector.SourceCode.addEventListener(WebInspector.SourceCode.Event.SourceMapAdded, () => { this.contentTreeOutline.disclosureButtons = true }, this);
+        }
 
         if (WebInspector.frameResourceManager.mainFrame)
             this._mainFrameMainResourceDidChange(WebInspector.frameResourceManager.mainFrame);
     }
 
     // Public
+
+    get minimumWidth()
+    {
+        return this._navigationBar.minimumWidth;
+    }
 
     closed()
     {
@@ -267,15 +275,11 @@ WebInspector.ResourceSidebarPanel = class ResourceSidebarPanel extends WebInspec
 
         // We don't add scripts without URLs here. Those scripts can quickly clutter the interface and
         // are usually more transient. They will get added if/when they need to be shown in a content view.
-        if (!script.url)
-            return;
-
-        // Exclude inspector scripts.
-        if (script.url.startsWith("__WebInspector"))
+        if (!script.url && !script.sourceURL)
             return;
 
         // If the script URL matches a resource we can assume it is part of that resource and does not need added.
-        if (script.resource)
+        if (script.resource || script.dynamicallyAddedScriptElement)
             return;
 
         var insertIntoTopLevel = false;
@@ -309,10 +313,24 @@ WebInspector.ResourceSidebarPanel = class ResourceSidebarPanel extends WebInspec
         }
     }
 
+    _scriptWasRemoved(event)
+    {
+        let script = event.data.script;
+        let scriptTreeElement = this.contentTreeOutline.getCachedTreeElement(script);
+        if (!scriptTreeElement)
+            return;
+
+        let parentTreeElement = scriptTreeElement.parent;
+        parentTreeElement.removeChild(scriptTreeElement);
+
+        if (parentTreeElement instanceof WebInspector.FolderTreeElement && !parentTreeElement.children.length)
+            parentTreeElement.parent.removeChild(parentTreeElement);
+    }
+
     _scriptsCleared(event)
     {
-        var suppressOnDeselect = true;
-        var suppressSelectSibling = true;
+        const suppressOnDeselect = true;
+        const suppressSelectSibling = true;
         
         if (this._extensionScriptsFolderTreeElement) {
             if (this._extensionScriptsFolderTreeElement.parent)
@@ -333,9 +351,10 @@ WebInspector.ResourceSidebarPanel = class ResourceSidebarPanel extends WebInspec
         }
     }
 
-    _treeElementSelected(treeElement, selectedByUser)
+    _treeSelectionDidChange(event)
     {
-        if (treeElement instanceof WebInspector.FolderTreeElement)
+        let treeElement = event.data.selectedElement;
+        if (!treeElement || treeElement instanceof WebInspector.FolderTreeElement)
             return;
 
         if (treeElement instanceof WebInspector.ResourceTreeElement
@@ -365,7 +384,7 @@ WebInspector.ResourceSidebarPanel = class ResourceSidebarPanel extends WebInspec
     _extraDomainsActivated()
     {
         if (WebInspector.debuggableType === WebInspector.DebuggableType.JavaScript)
-            this.contentTreeOutline.element.classList.remove(WebInspector.NavigationSidebarPanel.HideDisclosureButtonsStyleClassName);
+            this.contentTreeOutline.disclosureButtons = true;
     }
 
     _scopeBarSelectionDidChange(event)

@@ -22,6 +22,7 @@
 [
     CustomToJSObject,
     ConstructorTemplate=Event,
+    Exposed=(Window,Worker),
     ObjCPolymorphic,
 ] interface Event {
 
@@ -57,17 +58,24 @@
     readonly attribute unsigned short   eventPhase;
     [InitializedByEventConstructor] readonly attribute boolean bubbles;
     [InitializedByEventConstructor] readonly attribute boolean cancelable;
+    [InitializedByEventConstructor, EnabledAtRuntime=ShadowDOM] readonly attribute boolean composed;
     readonly attribute DOMTimeStamp     timeStamp;
+
+    [EnabledAtRuntime=ShadowDOM] sequence<Node> composedPath();
 
     void               stopPropagation();
     void               preventDefault();
-    [ObjCLegacyUnnamedParameters] void initEvent([Default=Undefined] optional DOMString eventTypeArg, 
-                                  [Default=Undefined] optional boolean canBubbleArg, 
-                                  [Default=Undefined] optional boolean cancelableArg);
+
+    // FIXME: Using "undefined" as default parameter value is wrong.
+    [ObjCLegacyUnnamedParameters] void initEvent(optional DOMString eventTypeArg = "undefined",
+                                  optional boolean canBubbleArg = false,
+                                  optional boolean cancelableArg = false);
 
     // DOM Level 3 Additions.
     readonly attribute boolean defaultPrevented;
     void stopImmediatePropagation();
+
+    [Unforgeable] readonly attribute boolean isTrusted;
 
     // IE Extensions
     readonly attribute EventTarget      srcElement;

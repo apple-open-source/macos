@@ -26,10 +26,13 @@
 #import "KDCirclePeer.h"
 #include <notify.h>
 #include <dispatch/dispatch.h>
-#import "SecureObjectSync/SOSCloudCircle.h"
-#include "SecureObjectSync/SOSPeerInfo.h"
+
+#import <Security/SecureObjectSync/SOSCloudCircle.h>
+#import <Security/SecureObjectSync/SOSPeerInfo.h>
+
 #import <CloudServices/SecureBackup.h>
-#include "../utilities/utilities/debugging.h"
+
+#include <utilities/debugging.h>
 
 @interface KDSecCircle ()
 @property (retain) NSMutableArray *callbacks;
@@ -129,6 +132,10 @@ typedef void (^applicantBlock)(id applicant);
     });
 }
 
+// Tell clang that these bools are okay, even if NSAssert doesn't use them
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-variable"
+
 -(void)acceptApplicantId:(NSString*)applicantId
 {
     [self forApplicantId:applicantId run:^void(id applicant) {
@@ -146,6 +153,8 @@ typedef void (^applicantBlock)(id applicant);
         NSAssert(ok, @"Error %@ while rejecting %@ (%@)", err, applicantId, applicant);
     }];
 }
+
+#pragma clang diagnostic pop
 
 -(id)init
 {

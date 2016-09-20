@@ -57,7 +57,7 @@ static const char *tcpstates[] = {
 
 static const char *mptcpstates[] = {
 	"CLOSED", "LISTEN", "ESTABLISHED", "CLOSE_WAIT", "FIN_WAIT_1",
-	"CLOSING", "LAST_ACK", "FIN_WAIT_2", "TIME_WAIT", "FASTCLOSE_WAIT"
+	"CLOSING", "LAST_ACK", "FIN_WAIT_2", "TIME_WAIT", "TERMINATE"
 };
 
 int mptcp_done = 0;

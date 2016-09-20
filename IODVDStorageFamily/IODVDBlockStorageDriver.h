@@ -137,7 +137,7 @@ public:
      * As documented by MtFuji. See DVDKeyFormat.
      */
     virtual IOReturn	reportKey(IOMemoryDescriptor *buffer,const DVDKeyClass keyClass,
-                                        const UInt32 lba,const UInt8 agid,const DVDKeyFormat keyFormat);
+                                        const UInt32 lba,const UInt8 agid,const DVDKeyFormat keyFormat) __attribute__ ((deprecated));
 
     /*
      * @function sendKey
@@ -179,7 +179,31 @@ public:
     virtual IOReturn	readStructure(IOMemoryDescriptor *buffer,const DVDStructureFormat format,
                                         const UInt32 address,const UInt8 layer,const UInt8 agid);
 
-    OSMetaClassDeclareReservedUnused(IODVDBlockStorageDriver,  0);
+    /*
+     * @function reportKey
+     * @abstract
+     * Get key info from the DVD drive.
+     * @discussion
+     * This function handles the getting of key- and encryption-related data for the drive.
+     * @param buffer
+     * A buffer containing information, as documented in the specification
+     * "MtFuji Commands For Multimedia Devices."
+     * @param keyClass
+     * As documented by MtFuji. See DVDKeyClass.
+     * @param lba
+     * As documented by MtFuji.
+     * @param blockCount
+	 * As documented by MMC
+     * @param agid
+     * As documented by MtFuji.
+     * @param keyFormat
+     * As documented by MtFuji. See DVDKeyFormat.
+     */
+    virtual IOReturn	reportKey(IOMemoryDescriptor *buffer,const DVDKeyClass keyClass,
+										const UInt32 lba,const UInt8 blockCount,
+										const UInt8 agid,const DVDKeyFormat keyFormat);
+
+    OSMetaClassDeclareReservedUsed(IODVDBlockStorageDriver,  0);		/* reportKey */
     OSMetaClassDeclareReservedUnused(IODVDBlockStorageDriver,  1);
     OSMetaClassDeclareReservedUnused(IODVDBlockStorageDriver,  2);
     OSMetaClassDeclareReservedUnused(IODVDBlockStorageDriver,  3);

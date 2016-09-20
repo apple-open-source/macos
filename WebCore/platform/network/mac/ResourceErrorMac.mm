@@ -26,10 +26,10 @@
 #import "config.h"
 #import "ResourceError.h"
 
-#import "BlockExceptions.h"
 #import "URL.h"
 #import <CoreFoundation/CFError.h>
 #import <Foundation/Foundation.h>
+#import <wtf/BlockObjCExceptions.h>
 
 #if PLATFORM(IOS) && USE(CFNETWORK)
 #import <CFNetwork/CFSocketStreamPriv.h>
@@ -182,12 +182,9 @@ static RetainPtr<NSError> createNSErrorFromResourceErrorBase(const ResourceError
         [userInfo.get() setValue:resourceError.localizedDescription() forKey:NSLocalizedDescriptionKey];
 
     if (!resourceError.failingURL().isEmpty()) {
-        // FIXEME: We normally create an NSURL from a string by using URL::createNSURL, which handles
-        // cases correctly that initWithString: handles incorrectly.
-        RetainPtr<NSURL> cocoaURL = adoptNS([[NSURL alloc] initWithString:resourceError.failingURL()]);
-        [userInfo.get() setValue:resourceError.failingURL() forKey:@"NSErrorFailingURLStringKey"];
-        if (cocoaURL)
-            [userInfo.get() setValue:cocoaURL.get() forKey:@"NSErrorFailingURLKey"];
+        [userInfo.get() setValue:(NSString *)resourceError.failingURL().string() forKey:@"NSErrorFailingURLStringKey"];
+        if (NSURL *cocoaURL = (NSURL *)resourceError.failingURL())
+            [userInfo.get() setValue:cocoaURL forKey:@"NSErrorFailingURLKey"];
     }
 
     return adoptNS([[NSError alloc] initWithDomain:resourceError.domain() code:resourceError.errorCode() userInfo:userInfo.get()]);
@@ -196,17 +193,17 @@ static RetainPtr<NSError> createNSErrorFromResourceErrorBase(const ResourceError
 #if USE(CFNETWORK)
 
 ResourceError::ResourceError(NSError *error)
-    : m_dataIsUpToDate(false)
+    : ResourceErrorBase(Type::Null)
+    , m_dataIsUpToDate(false)
     , m_platformError(reinterpret_cast<CFErrorRef>(error))
 {
-    m_isNull = !error;
-    if (!m_isNull)
-        m_isTimeout = [error code] == NSURLErrorTimedOut;
+    if (error)
+        setType(([error code] == NSURLErrorTimedOut) ? Type::Timeout : Type::General);
 }
 
 NSError *ResourceError::nsError() const
 {
-    if (m_isNull) {
+    if (isNull()) {
         ASSERT(!m_platformError);
         return nil;
     }
@@ -241,21 +238,17 @@ ResourceError::operator NSError *() const
 #else
 
 ResourceError::ResourceError(NSError *nsError)
-    : m_dataIsUpToDate(false)
+    : ResourceErrorBase(Type::Null)
+    , m_dataIsUpToDate(false)
     , m_platformError(nsError)
 {
-    m_isNull = !nsError;
-    if (!m_isNull)
-        m_isTimeout = [m_platformError.get() code] == NSURLErrorTimedOut;
+    if (nsError)
+        setType(([m_platformError.get() code] == NSURLErrorTimedOut) ? Type::Timeout : Type::General);
 }
 
 ResourceError::ResourceError(CFErrorRef cfError)
-    : m_dataIsUpToDate(false)
-    , m_platformError((NSError *)cfError)
+    : ResourceError((NSError *)cfError)
 {
-    m_isNull = !cfError;
-    if (!m_isNull)
-        m_isTimeout = [m_platformError.get() code] == NSURLErrorTimedOut;
 }
 
 void ResourceError::platformLazyInit()
@@ -266,10 +259,10 @@ void ResourceError::platformLazyInit()
     m_domain = [m_platformError.get() domain];
     m_errorCode = [m_platformError.get() code];
 
-    NSString* failingURLString = [[m_platformError.get() userInfo] valueForKey:@"NSErrorFailingURLStringKey"];
-    if (!failingURLString)
-        failingURLString = [[[m_platformError.get() userInfo] valueForKey:@"NSErrorFailingURLKey"] absoluteString];
-    m_failingURL = failingURLString; 
+    if (NSString* failingURLString = [[m_platformError.get() userInfo] valueForKey:@"NSErrorFailingURLStringKey"])
+        m_failingURL = URL(URL(), failingURLString);
+    else
+        m_failingURL = URL((NSURL *)[[m_platformError.get() userInfo] valueForKey:@"NSErrorFailingURLKey"]);
     // Workaround for <rdar://problem/6554067>
     m_localizedDescription = m_failingURL;
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
@@ -284,9 +277,13 @@ bool ResourceError::platformCompare(const ResourceError& a, const ResourceError&
     return a.nsError() == b.nsError();
 }
 
+void ResourceError::doPlatformIsolatedCopy(const ResourceError&)
+{
+}
+
 NSError *ResourceError::nsError() const
 {
-    if (m_isNull) {
+    if (isNull()) {
         ASSERT(!m_platformError);
         return nil;
     }

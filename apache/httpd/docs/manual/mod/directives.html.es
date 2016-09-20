@@ -7,7 +7,7 @@
               This file is generated from xml source: DO NOT EDIT
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
       -->
-<title>Índice de Directivas - Servidor HTTP Apache Versión 2.4</title>
+<title>Índice de Directivas - Servidor Apache HTTP Versión 2.4</title>
 <link href="../style/css/manual.css" rel="stylesheet" media="all" type="text/css" title="Main stylesheet" />
 <link href="../style/css/manual-loose-100pc.css" rel="alternate stylesheet" media="all" type="text/css" title="No Sidebar - Default font size" />
 <link href="../style/css/manual-print.css" rel="stylesheet" media="print" type="text/css" /><link rel="stylesheet" type="text/css" href="../style/css/prettify.css" />
@@ -16,9 +16,9 @@
 
 <link href="../images/favicon.ico" rel="shortcut icon" /></head>
 <body id="directive-index"><div id="page-header">
-<p class="menu"><a href="../mod/">Módulos</a> | <a href="../mod/directives.html">Directivas</a> | <a href="http://wiki.apache.org/httpd/FAQ">Preguntas Frecuentes</a> | <a href="../glossary.html">Glosario</a> | <a href="../sitemap.html">Mapa de este sitio web</a></p>
+<p class="menu"><a href="../mod/">Módulos</a> | <a href="../mod/directives.html">Directivas</a> | <a href="http://wiki.apache.org/httpd/FAQ">Preguntas Frecuentes</a> | <a href="../glossary.html">Glosario</a> | <a href="../sitemap.html">Mapa del sitio web</a></p>
 <p class="apache">Versión 2.4 del Servidor HTTP Apache</p>
-<img alt="" src="../images/feather.gif" /></div>
+<img alt="" src="../images/feather.png" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
 <a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">Servidor HTTP</a> &gt; <a href="http://httpd.apache.org/docs/">Documentación</a> &gt; <a href="../">Versión 2.4</a> &gt; <a href="./">Módulos</a></div><div id="preamble"><h1>Índice de Directivas</h1>
@@ -202,6 +202,7 @@
 <li><a href="mod_cgid.html#cgidscripttimeout">CGIDScriptTimeout</a></li>
 <li><a href="core.html#cgimapextension">CGIMapExtension</a></li>
 <li><a href="core.html#cgipassauth">CGIPassAuth</a></li>
+<li><a href="core.html#cgivar">CGIVar</a></li>
 <li><a href="mod_charset_lite.html#charsetdefault">CharsetDefault</a></li>
 <li><a href="mod_charset_lite.html#charsetoptions">CharsetOptions</a></li>
 <li><a href="mod_charset_lite.html#charsetsourceenc">CharsetSourceEnc</a></li>
@@ -282,7 +283,8 @@
 <li><a href="mod_negotiation.html#forcelanguagepriority">ForceLanguagePriority</a></li>
 <li><a href="core.html#forcetype">ForceType</a></li>
 <li><a href="mod_log_forensic.html#forensiclog">ForensicLog</a></li>
-<li><a href="core.html#gprofdir" id="G" name="G">GprofDir</a></li>
+<li><a href="mod_log_config.html#globallog" id="G" name="G">GlobalLog</a></li>
+<li><a href="core.html#gprofdir">GprofDir</a></li>
 <li><a href="mpm_common.html#gracefulshutdowntimeout">GracefulShutdownTimeout</a></li>
 <li><a href="mod_unixd.html#group">Group</a></li>
 <li><a href="mod_http2.html#h2direct" id="H" name="H">H2Direct</a></li>
@@ -292,6 +294,7 @@
 <li><a href="mod_http2.html#h2minworkers">H2MinWorkers</a></li>
 <li><a href="mod_http2.html#h2moderntlsonly">H2ModernTLSOnly</a></li>
 <li><a href="mod_http2.html#h2push">H2Push</a></li>
+<li><a href="mod_http2.html#h2pushdiarysize">H2PushDiarySize</a></li>
 <li><a href="mod_http2.html#h2pushpriority">H2PushPriority</a></li>
 <li><a href="mod_http2.html#h2serializeheaders">H2SerializeHeaders</a></li>
 <li><a href="mod_http2.html#h2sessionextrafiles">H2SessionExtraFiles</a></li>
@@ -443,6 +446,9 @@
 <li><a href="mod_proxy_ftp.html#proxyftpdircharset">ProxyFtpDirCharset</a></li>
 <li><a href="mod_proxy_ftp.html#proxyftpescapewildcards">ProxyFtpEscapeWildcards</a></li>
 <li><a href="mod_proxy_ftp.html#proxyftplistonwildcard">ProxyFtpListOnWildcard</a></li>
+<li><a href="mod_proxy_hcheck.html#proxyhcexpr">ProxyHCExpr</a></li>
+<li><a href="mod_proxy_hcheck.html#proxyhctemplate">ProxyHCTemplate</a></li>
+<li><a href="mod_proxy_hcheck.html#proxyhctpsize">ProxyHCTPsize</a></li>
 <li><a href="mod_proxy_html.html#proxyhtmlbufsize">ProxyHTMLBufSize</a></li>
 <li><a href="mod_proxy_html.html#proxyhtmlcharsetout">ProxyHTMLCharsetOut</a></li>
 <li><a href="mod_proxy_html.html#proxyhtmldoctype">ProxyHTMLDocType</a></li>
@@ -590,6 +596,7 @@
 <li><a href="mod_ssl.html#sslocspdefaultresponder">SSLOCSPDefaultResponder</a></li>
 <li><a href="mod_ssl.html#sslocspenable">SSLOCSPEnable</a></li>
 <li><a href="mod_ssl.html#sslocspoverrideresponder">SSLOCSPOverrideResponder</a></li>
+<li><a href="mod_ssl.html#sslocspproxyurl">SSLOCSPProxyURL</a></li>
 <li><a href="mod_ssl.html#sslocsprespondertimeout">SSLOCSPResponderTimeout</a></li>
 <li><a href="mod_ssl.html#sslocspresponsemaxage">SSLOCSPResponseMaxAge</a></li>
 <li><a href="mod_ssl.html#sslocspresponsetimeskew">SSLOCSPResponseTimeSkew</a></li>
@@ -704,8 +711,8 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/directives.html'
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licencia bajo los términos de la <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
-<p class="menu"><a href="../mod/">Módulos</a> | <a href="../mod/directives.html">Directivas</a> | <a href="http://wiki.apache.org/httpd/FAQ">Preguntas Frecuentes</a> | <a href="../glossary.html">Glosario</a> | <a href="../sitemap.html">Mapa de este sitio web</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
+<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licencia bajo los términos de <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="menu"><a href="../mod/">Módulos</a> | <a href="../mod/directives.html">Directivas</a> | <a href="http://wiki.apache.org/httpd/FAQ">Preguntas Frecuentes</a> | <a href="../glossary.html">Glosario</a> | <a href="../sitemap.html">Mapa del sitio web</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();
 }

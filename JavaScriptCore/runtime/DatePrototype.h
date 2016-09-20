@@ -27,13 +27,13 @@ namespace JSC {
 
 class ObjectPrototype;
 
-class DatePrototype : public DateInstance {
+class DatePrototype : public JSNonFinalObject {
 private:
     DatePrototype(VM&, Structure*);
 
 public:
-    typedef DateInstance Base;
-    static const unsigned StructureFlags = Base::StructureFlags | OverridesGetOwnPropertySlot;
+    typedef JSNonFinalObject Base;
+    static const unsigned StructureFlags = Base::StructureFlags | HasStaticPropertyTable;
 
     static DatePrototype* create(VM& vm, JSGlobalObject* globalObject, Structure* structure)
     {
@@ -41,7 +41,6 @@ public:
         prototype->finishCreation(vm, globalObject);
         return prototype;
     }
-    static bool getOwnPropertySlot(JSObject*, ExecState*, PropertyName, PropertySlot&);
 
     DECLARE_INFO;
 
@@ -53,6 +52,8 @@ public:
 protected:
     void finishCreation(VM&, JSGlobalObject*);
 };
+
+EncodedJSValue JSC_HOST_CALL dateProtoFuncGetTime(ExecState*);
 
 } // namespace JSC
 

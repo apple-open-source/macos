@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2009, 2015 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -19,48 +19,71 @@
  */
 
 [
+    CustomToJSObject,
     JSCustomHeader,
     JSGenerateToNativeObject,
+    ExportMacro=WEBCORE_EXPORT,
 ] interface Element : Node {
 
     // DOM Level 1 Core
 
-    [TreatReturnedNullStringAs=Null] readonly attribute DOMString tagName;
+    readonly attribute DOMString? tagName;
 
-    [TreatReturnedNullStringAs=Null] DOMString getAttribute([Default=Undefined] optional DOMString name);
-    [ObjCLegacyUnnamedParameters, RaisesException] void setAttribute([Default=Undefined] optional DOMString name,
-                                     [Default=Undefined] optional DOMString value);
-    void removeAttribute([Default=Undefined] optional DOMString name);
-    Attr getAttributeNode([Default=Undefined] optional DOMString name);
-    [RaisesException] Attr setAttributeNode([Default=Undefined] optional Attr newAttr);
-    [RaisesException] Attr removeAttributeNode([Default=Undefined] optional Attr oldAttr);
-    NodeList getElementsByTagName([Default=Undefined] optional DOMString name);
+    // FIXME: Using "undefined" as default parameter value is wrong.
+    DOMString? getAttribute(optional DOMString name = "undefined");
+
+    [ObjCLegacyUnnamedParameters, RaisesException, InvokesCustomElementLifecycleCallbacks]
+
+    // FIXME: Using "undefined" as default parameter value is wrong.
+    void setAttribute(optional DOMString name = "undefined", optional DOMString value = "undefined");
+
+    // FIXME: Using "undefined" as default parameter value is wrong.
+    [InvokesCustomElementLifecycleCallbacks] void removeAttribute(optional DOMString name = "undefined");
+    Attr getAttributeNode(optional DOMString name = "undefined");
+
+    [RaisesException, InvokesCustomElementLifecycleCallbacks] Attr setAttributeNode(Attr newAttr);
+    [RaisesException, InvokesCustomElementLifecycleCallbacks] Attr removeAttributeNode(Attr oldAttr);
+
+#if defined(LANGUAGE_OBJECTIVE_C) && LANGUAGE_OBJECTIVE_C
+    [ImplementedAs=getElementsByTagNameForObjC] NodeList getElementsByTagName(optional DOMString name);
+#else
+    // FIXME: Using "undefined" as default parameter value is wrong.
+    HTMLCollection getElementsByTagName(optional DOMString name = "undefined");
+#endif
 
 #if !defined(LANGUAGE_OBJECTIVE_C)
     // For ObjC this is defined on Node for legacy support.
-    readonly attribute NamedNodeMap     attributes;
-    boolean            hasAttributes();
+    readonly attribute NamedNodeMap attributes;
+    boolean hasAttributes();
 #endif
 
     // DOM Level 2 Core
 
-    [ObjCLegacyUnnamedParameters] DOMString getAttributeNS([TreatNullAs=NullString,Default=Undefined] optional DOMString namespaceURI,
-                                            [Default=Undefined] optional DOMString localName);
-    [ObjCLegacyUnnamedParameters, RaisesException] void setAttributeNS([TreatNullAs=NullString,Default=Undefined] optional DOMString namespaceURI,
-                                       [Default=Undefined] optional DOMString qualifiedName, 
-                                       [Default=Undefined] optional DOMString value);
-    [ObjCLegacyUnnamedParameters] void removeAttributeNS([TreatNullAs=NullString] DOMString namespaceURI,
-                                          DOMString localName);
-    [ObjCLegacyUnnamedParameters] NodeList getElementsByTagNameNS([TreatNullAs=NullString,Default=Undefined] optional DOMString namespaceURI,
-                                                   [Default=Undefined] optional DOMString localName);
-    [ObjCLegacyUnnamedParameters] Attr getAttributeNodeNS([TreatNullAs=NullString,Default=Undefined] optional DOMString namespaceURI,
-                                           [Default=Undefined] optional DOMString localName);
-    [RaisesException] Attr setAttributeNodeNS([Default=Undefined] optional Attr newAttr);
-    boolean hasAttribute(DOMString name);
-    [ObjCLegacyUnnamedParameters] boolean hasAttributeNS([TreatNullAs=NullString,Default=Undefined] optional DOMString namespaceURI,
-                                          [Default=Undefined] optional DOMString localName);
+    // FIXME: Using "undefined" as default parameter value is wrong.
+    [ObjCLegacyUnnamedParameters] DOMString? getAttributeNS(optional DOMString? namespaceURI = null, optional DOMString localName = "undefined");
 
-    readonly attribute CSSStyleDeclaration style;
+    [ObjCLegacyUnnamedParameters, RaisesException, InvokesCustomElementLifecycleCallbacks]
+
+    // FIXME: Using "undefined" as default parameter value is wrong.
+    void setAttributeNS(optional DOMString? namespaceURI = null, optional DOMString qualifiedName = "undefined", optional DOMString value = "undefined");
+
+    [ObjCLegacyUnnamedParameters, InvokesCustomElementLifecycleCallbacks] void removeAttributeNS(DOMString? namespaceURI, DOMString localName);
+
+#if defined(LANGUAGE_OBJECTIVE_C) && LANGUAGE_OBJECTIVE_C
+    [ObjCLegacyUnnamedParameters, ImplementedAs=getElementsByTagNameNSForObjC] NodeList getElementsByTagNameNS(optional DOMString namespaceURI, optional DOMString localName);
+#else
+    // FIXME: Using "undefined" as default parameter value is wrong.
+    HTMLCollection getElementsByTagNameNS(optional DOMString? namespaceURI = null, optional DOMString localName = "undefined");
+#endif
+
+    // FIXME: Using "undefined" as default parameter value is wrong.
+    [ObjCLegacyUnnamedParameters] Attr getAttributeNodeNS(optional DOMString? namespaceURI = null, optional DOMString localName = "undefined");
+    [RaisesException, InvokesCustomElementLifecycleCallbacks] Attr setAttributeNodeNS(Attr newAttr);
+    boolean hasAttribute(DOMString name);
+    // FIXME: Using "undefined" as default parameter value is wrong.
+    [ObjCLegacyUnnamedParameters] boolean hasAttributeNS(optional DOMString? namespaceURI = null, optional DOMString localName = "undefined");
+
+    [ImplementedAs=cssomStyle] readonly attribute CSSStyleDeclaration style;
 
     // DOM 4
 #if !defined(LANGUAGE_OBJECTIVE_C) || !LANGUAGE_OBJECTIVE_C
@@ -96,24 +119,32 @@
 
     [ImplementedAs=bindingsOffsetParent] readonly attribute Element offsetParent;
 
+#if defined(LANGUAGE_OBJECTIVE_C) && LANGUAGE_OBJECTIVE_C || defined(LANGUAGE_GOBJECT) && LANGUAGE_GOBJECT
     void focus();
     void blur();
-    void scrollIntoView(optional boolean alignWithTop);
+#endif
+
+    void scrollIntoView(optional boolean alignWithTop = true);
 
     // WebKit extensions
 
-    void scrollIntoViewIfNeeded(optional boolean centerIfNeeded);
-    void scrollByLines([Default=Undefined] optional long lines);
-    void scrollByPages([Default=Undefined] optional long pages);
+    void scrollIntoViewIfNeeded(optional boolean centerIfNeeded = true);
+    void scrollByLines(optional long lines = 0);
+    void scrollByPages(optional long pages = 0);
 
     // HTML 5
-    NodeList getElementsByClassName([Default=Undefined] optional DOMString name);
-    [TreatNullAs=NullString, SetterRaisesException] attribute DOMString innerHTML;
-    [TreatNullAs=NullString, SetterRaisesException] attribute DOMString outerHTML;
-             
+#if defined(LANGUAGE_OBJECTIVE_C) && LANGUAGE_OBJECTIVE_C
+    [ImplementedAs=getElementsByClassNameForObjC] NodeList getElementsByClassName(optional DOMString name);
+#else
+    // FIXME: Using "undefined" as default parameter value is wrong.
+    HTMLCollection getElementsByClassName(optional DOMString name = "undefined");
+#endif
+    [TreatNullAs=EmptyString, SetterRaisesException] attribute DOMString innerHTML;
+    [TreatNullAs=EmptyString, SetterRaisesException] attribute DOMString outerHTML;
+
 
     [Reflect=class] attribute DOMString className;
-    readonly attribute DOMTokenList classList;
+    [PutForwards=value] readonly attribute DOMTokenList classList;
 
 #if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
     readonly attribute DOMStringMap dataset;
@@ -137,7 +168,7 @@
 #if defined(ENABLE_FULLSCREEN_API) && ENABLE_FULLSCREEN_API
     // Mozilla version
     const unsigned short ALLOW_KEYBOARD_INPUT = 1;
-    void webkitRequestFullScreen([Default=Undefined] optional unsigned short flags);
+    void webkitRequestFullScreen(optional unsigned short flags = 0);
 
     // W3C version
     void webkitRequestFullscreen();
@@ -153,6 +184,12 @@
     [Conditional=CSS_REGIONS] readonly attribute DOMString webkitRegionOverset;
     [Conditional=CSS_REGIONS] sequence<Range> webkitGetRegionFlowRanges();
 
+    // Shadow DOM API
+#if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
+    [EnabledAtRuntime=ShadowDOM, RaisesException] ShadowRoot attachShadow(ShadowRootInit init);
+    [EnabledAtRuntime=ShadowDOM, ImplementedAs=shadowRootForBindings, CallWith=ScriptState] readonly attribute ShadowRoot shadowRoot;
+    [EnabledAtRuntime=ShadowDOM, Reflect] attribute DOMString slot;
+#endif
 
     // Event Handlers
 
@@ -174,10 +211,10 @@
     [NotEnumerable] attribute EventHandler onanimationiteration;
     [NotEnumerable] attribute EventHandler onanimationstart;
     [NotEnumerable] attribute EventHandler ontransitionend;
-    [NotEnumerable] attribute EventHandler onwebkitanimationend;
-    [NotEnumerable] attribute EventHandler onwebkitanimationiteration;
-    [NotEnumerable] attribute EventHandler onwebkitanimationstart;
-    [NotEnumerable] attribute EventHandler onwebkittransitionend;
+    [NotEnumerable, ImplementedAs=onwebkitAnimationEnd] attribute EventHandler onwebkitanimationend;
+    [NotEnumerable, ImplementedAs=onwebkitAnimationIteration] attribute EventHandler onwebkitanimationiteration;
+    [NotEnumerable, ImplementedAs=onwebkitAnimationStart] attribute EventHandler onwebkitanimationstart;
+    [NotEnumerable, ImplementedAs=onwebkitTransitionEnd] attribute EventHandler onwebkittransitionend;
     [NotEnumerable, Conditional=IOS_GESTURE_EVENTS] attribute EventHandler ongesturechange;
     [NotEnumerable, Conditional=IOS_GESTURE_EVENTS] attribute EventHandler ongestureend;
     [NotEnumerable, Conditional=IOS_GESTURE_EVENTS] attribute EventHandler ongesturestart;
@@ -197,7 +234,13 @@
     [NotEnumerable, Conditional=WIRELESS_PLAYBACK_TARGET] attribute EventHandler onwebkitplaybacktargetavailabilitychanged;
 };
 
+enum ShadowRootMode { "open", "closed" };
+
+dictionary ShadowRootInit {
+    required ShadowRootMode mode;
+};
+
 Element implements ChildNode;
-Element implements ParentNode;
 Element implements NonDocumentTypeChildNode;
-Element implements GlobalEventHandlers;
+Element implements ParentNode;
+Element implements Slotable;

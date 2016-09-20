@@ -491,7 +491,8 @@ done_broad:
 		clnt_stat = RPC_SUCCESS;
 	}
 	free_transports(tr_head);
-	AUTH_DESTROY(sys_auth);
+	if (sys_auth)
+		AUTH_DESTROY(sys_auth);
 	return (clnt_stat);
 }
 

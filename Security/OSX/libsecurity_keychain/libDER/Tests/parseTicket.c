@@ -258,29 +258,6 @@ dumpBytes( const char *title, const unsigned char *data, int len, int nonewline 
 }
 
 static void
-readFile(char *filename, unsigned char **data, unsigned *len)
-{
-    int size = 0;
-    FILE *file = NULL;
-    if ((file = fopen(filename, "r")) == NULL) {
-        fprintf(stderr, "could not open file=%s", filename);
-        return;
-    }
-    fseek(file, 0, SEEK_END);
-    size = ftell(file);
-    *len = size;
-    *data = (unsigned char*)malloc(*len);
-    if (!*data) {
-        fprintf(stderr, "Out of memory");
-        fclose(file);
-        return;
-    }
-    rewind(file);
-    (void)fread(*data, size, 1, file);
-    fclose(file);
-}
-
-static void
 writeFile( char* filename, unsigned char* buf, int len )
 {
     FILE *file = NULL;

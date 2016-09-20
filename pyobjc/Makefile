@@ -52,7 +52,11 @@ ifeq ($(AEP),YES)
 	done && \
 	find . -name \*setup.py -print0 | xargs -0 fgrep -l ".extend(['-isysroot'," | while read patchfile; do \
 	    ed - "$$patchfile" < '$(SRCROOT)/patches/isysroot.ed' || exit 1; \
+	done && \
+	find . -name pyobjc_setup.py -print0 | xargs -0 grep -lw _install_lib | while read patchfile; do \
+	    patch -F0 "$$patchfile" '$(SRCROOT)/patches/setuptools-module-24062165.diff' || exit 1; \
 	done
+	patch -F0 $(SRCROOT)/$(Project)/pyobjc-core-*/setup.py < '$(SRCROOT)/patches/setuptools-core-24062165.diff'
 	ed - $(SRCROOT)/$(Project)/pyobjc-core-*/setup.py < '$(SRCROOT)/patches/pyobjc-core_setup.py.ed'
 	ed - $(SRCROOT)/$(Project)/pyobjc-core-*/Lib/PyObjCTools/TestSupport.py < '$(SRCROOT)/patches/pyobjc-core_Lib_PyObjCTools_TestSupport.py.ed'
 	ed - $(SRCROOT)/$(Project)/pyobjc-core-*/Lib/objc/_bridgesupport.py < '$(SRCROOT)/patches/pyobjc-core_Lib_objc__bridgesupport.py.ed'

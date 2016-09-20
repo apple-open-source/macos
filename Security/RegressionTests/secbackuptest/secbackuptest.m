@@ -28,11 +28,16 @@ main(void)
 
 #include <libaks.h>
 
-static NSData *
+static NSData *keybag = NULL;
+static NSString *keybaguuid = NULL;
+
+static void
 BagMe(void)
 {
     keybag_handle_t handle;
     kern_return_t result;
+    char uuidstr[37];
+    uuid_t uuid;
     void *data = NULL;
     int length;
 
@@ -44,19 +49,27 @@ BagMe(void)
     if (result)
         errx(1, "aks_save_bag");
 
-    return [NSData dataWithBytes:data length:length];
+    result = aks_get_bag_uuid(handle, uuid);
+    if (result)
+        errx(1, "aks_get_bag_uuid");
+
+    uuid_unparse_lower(uuid, uuidstr);
+
+    keybaguuid = [NSString stringWithUTF8String:uuidstr];
+    keybag = [NSData dataWithBytes:data length:length];
 }
 
 int main (int argc, const char * argv[])
 {
     @autoreleasepool {
-        NSData *bag = NULL, *password = NULL;
+        NSData *password = NULL;
         CFErrorRef error = NULL;
+        NSString *uuid = NULL;
 
-        bag = BagMe();
+        BagMe();
         password = [NSData dataWithBytes:"foo" length:3];
 
-        NSData *backup = CFBridgingRelease(_SecKeychainCopyBackup((__bridge CFDataRef)bag, (__bridge CFDataRef)password));
+        NSData *backup = CFBridgingRelease(_SecKeychainCopyBackup((__bridge CFDataRef)keybag, (__bridge CFDataRef)password));
         if (backup == NULL) {
             errx(1, "backup failed");
         }
@@ -64,10 +77,21 @@ int main (int argc, const char * argv[])
         char path[] = "/tmp/secbackuptestXXXXXXX";
         int fd = mkstemp(path);
 
-        bool status = _SecKeychainWriteBackupToFileDescriptor((__bridge CFDataRef)bag, (__bridge CFDataRef)password, fd, &error);
+        bool status = _SecKeychainWriteBackupToFileDescriptor((__bridge CFDataRef)keybag, (__bridge CFDataRef)password, fd, &error);
         if (!status) {
             NSLog(@"backup failed: %@", error);
             errx(1, "failed backup 2");
+        }
+
+        uuid = CFBridgingRelease(_SecKeychainCopyKeybagUUIDFromFileDescriptor(fd, &error));
+        if (uuid == NULL) {
+            NSLog(@"getting uuid failed failed: %@", error);
+            errx(1, "failed getting uuid");
+        }
+
+        if (![uuid isEqual:keybaguuid]) {
+            NSLog(@"getting uuid failed failed: %@ vs %@", uuid, keybaguuid);
+            errx(1, "failed compare uuid");
         }
 
         struct stat sb;
@@ -79,8 +103,7 @@ int main (int argc, const char * argv[])
         if (abs((int)(sb.st_size - (off_t)[backup length])) > 1000)
             errx(1, "backup different enough to fail");
 
-
-        status = _SecKeychainRestoreBackupFromFileDescriptor(fd, (__bridge CFDataRef)bag, (__bridge CFDataRef)password, &error);
+        status = _SecKeychainRestoreBackupFromFileDescriptor(fd, (__bridge CFDataRef)keybag, (__bridge CFDataRef)password, &error);
         if (!status) {
             NSLog(@"restore failed: %@", error);
             errx(1, "restore failed");
@@ -89,7 +112,7 @@ int main (int argc, const char * argv[])
         close(fd);
         unlink(path);
 
-        NSData *backup2 = CFBridgingRelease(_SecKeychainCopyBackup((__bridge CFDataRef)bag, (__bridge CFDataRef)password));
+        NSData *backup2 = CFBridgingRelease(_SecKeychainCopyBackup((__bridge CFDataRef)keybag, (__bridge CFDataRef)password));
         if (backup2 == NULL) {
             errx(1, "backup 3 failed");
         }

@@ -44,14 +44,14 @@ VERSIONFILE="${ZONEINFO}/+VERSION"
 mkdir -p "${DATFILES}"
 mkdir -p "${ZONEINFO}"
 tar zxf "${TARBALL}" -C "${DATFILES}"
-ZONE_FILES="$(${SRCROOT}/zic.tproj/generate_zone_file_list.sh ${DATFILES})"
+ZONE_FILES="$("${SRCROOT}"/zic.tproj/generate_zone_file_list.sh "${DATFILES}")"
 for tz in ${ZONE_FILES}; do
     if [ ${tz} = "northamerica" ]; then
         ARG="-p America/New_York"
     else
         ARG=""
     fi
-    ${ZICHOST} ${ARG} -L /dev/null -d "${ZONEINFO}" \
+    "${ZICHOST}" ${ARG} -L /dev/null -d "${ZONEINFO}" \
         -y "${DATFILES}/yearistype.sh" "${DATFILES}/${tz}" || exit 1
 done
 
@@ -67,7 +67,13 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-case "$PLATFORM_NAME" in
+if [ -n "$RC_BRIDGE" ]; then
+    ACTUAL_PLATFORM_NAME="bridge${PLATFORM_NAME#watch}"
+else
+    ACTUAL_PLATFORM_NAME="${PLATFORM_NAME}"
+fi
+
+case "$ACTUAL_PLATFORM_NAME" in
 iphone*|appletv*|watch*)
     mkdir -p "${PRIVATEDIR}/var/db"
     mkdir -p -m a+rx "${PRIVATEDIR}/var/db/timezone"
@@ -75,12 +81,12 @@ iphone*|appletv*|watch*)
     # This link must precisely start with TZDIR followed by a slash. radar:13532660
     ln -hfs "/var/db/timezone/zoneinfo/${LOCALTIME}" "${PRIVATEDIR}/var/db/timezone/localtime"
     ;;
-macosx)
+macosx|bridge*)
     mkdir -p "${PRIVATEDIR}/etc"
     ln -hfs "/usr/share/zoneinfo/${LOCALTIME}" "${PRIVATEDIR}/etc/localtime"
     ;;
 *)
-    echo "Unsupported platform: $PLATFORM_NAME"
+    echo "Unsupported platform: $ACTUAL_PLATFORM_NAME"
     exit 1
     ;;
 esac

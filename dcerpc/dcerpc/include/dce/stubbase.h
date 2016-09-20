@@ -1109,6 +1109,8 @@ typedef struct rpc_ss_ee_pipe_state_t
     error_status_t *p_st;             /* address of status in the stub */
 } rpc_ss_ee_pipe_state_t;
 
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 void rpc_ss_initialize_callee_pipe   (
     long ,        /* index of pipe in set of pipes in the
                                         operation's parameter list */
@@ -1124,6 +1126,7 @@ void rpc_ss_initialize_callee_pipe   (
     rpc_ss_ee_pipe_state_t **, /* address of ptr to pipe state block */
     error_status_t *
 );
+#endif
 
 #define rpc_p_pipe_state ((rpc_ss_ee_pipe_state_t *)state)
 
@@ -1181,10 +1184,12 @@ void rpc_ss_ctx_client_ref_count_inc   (
   error_status_t *
 );
 
+/* Removed unused symbol for rdar://problem/26430747
 void rpc_ss_ctx_client_ref_count_dec   (
   handle_t h,
   error_status_t *
 );
+ */
 
 void rpc_ss_ctx_client_ref_count_i_2   (
     handle_t ,
@@ -1657,11 +1662,14 @@ void rpc_ss_map_local_to_dce_status    (
  * Canned routines that can be used in an ACF [binding_callout] attribute.
  * These routines are called from the client stub.
  */
+#if 0
+/* Removed unused symbol for rdar://problem/26430747
 void rpc_ss_bind_authn_client (
     rpc_binding_handle_t    *,      /* [io] Binding handle */
     rpc_if_handle_t         ,       /* [in] Interface handle */
     error_status_t          *       /*[out] Return status */
 );
+#endif
 
 #endif  /* !defined(NCK) || defined(NCK_NEED_MARSHALLING) */
 

@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2000-2005, 2008-2011, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2008-2011, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -31,20 +31,16 @@
  * - initial revision
  */
 
-#include <mach/mach.h>
-#include <mach/mach_error.h>
-
-#include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCPrivate.h>
 #include "SCDynamicStoreInternal.h"
 #include "config.h"		/* MiG generated file */
 
 Boolean
 SCDynamicStoreNotifyCancel(SCDynamicStoreRef store)
 {
-	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
-	kern_return_t			status;
-	int				sc_status;
+	struct os_activity_scope_state_s	activity_state;
+	SCDynamicStorePrivateRef		storePrivate = (SCDynamicStorePrivateRef)store;
+	kern_return_t				status;
+	int					sc_status;
 
 	if (store == NULL) {
 		/* sorry, you must provide a session */
@@ -58,8 +54,13 @@ SCDynamicStoreNotifyCancel(SCDynamicStoreRef store)
 			return TRUE;
 		case Using_NotifierInformViaRunLoop :
 			if (storePrivate->rls != NULL) {
-				CFRunLoopSourceInvalidate(storePrivate->rls);
+				CFRunLoopSourceRef	rls;
+
+				rls = storePrivate->rls;
 				storePrivate->rls = NULL;
+
+				CFRunLoopSourceInvalidate(rls);
+				CFRelease(rls);
 			}
 			return TRUE;
 		case Using_NotifierInformViaDispatch :
@@ -75,6 +76,8 @@ SCDynamicStoreNotifyCancel(SCDynamicStoreRef store)
 		goto done;
 	}
 
+	os_activity_scope_enter(storePrivate->activity, &activity_state);
+
 	status = notifycancel(storePrivate->server, (int *)&sc_status);
 
 	if (__SCDynamicStoreCheckRetryAndHandleError(store,
@@ -84,10 +87,9 @@ SCDynamicStoreNotifyCancel(SCDynamicStoreRef store)
 		sc_status = kSCStatusOK;
 	}
 
-    done :
+	os_activity_scope_leave(&activity_state);
 
-	/* set notifier inactive */
-	storePrivate->notifyStatus = NotifierNotRegistered;
+    done :
 
 	if (sc_status != kSCStatusOK) {
 		_SCErrorSet(sc_status);

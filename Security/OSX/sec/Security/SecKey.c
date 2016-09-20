@@ -29,11 +29,13 @@
 #include <Security/SecKeyInternal.h>
 #include <Security/SecItem.h>
 #include <Security/SecItemPriv.h>
+#include <Security/SecItemShim.h>
 #include <Security/SecFramework.h>
 
 #include <utilities/SecIOFormat.h>
 
 #include <utilities/SecCFWrappers.h>
+#include <utilities/array_size.h>
 
 #include "SecRSAKeyPriv.h"
 #include "SecECKeyPriv.h"
@@ -53,7 +55,10 @@
 #include <Security/oidsalg.h>
 #include <Security/SecInternal.h>
 #include <Security/SecRandom.h>
+#include <Security/SecureTransport.h> /* For error codes. */
+
 #include <corecrypto/ccrng_system.h>
+
 #include <asl.h>
 #include <stdlib.h>
 #include <syslog.h>
@@ -62,65 +67,17 @@
 #include <libDER/DER_Keys.h>
 #include <libDER/DER_Encode.h>
 
-
-/* Static functions. */
-#define MAX_DIGEST_LEN (CC_SHA512_DIGEST_LENGTH)
-
-/* Currently length of SHA512 oid + 1 */
-#define MAX_OID_LEN (10)
-
-#define DER_MAX_DIGEST_INFO_LEN  (10 + MAX_DIGEST_LEN + MAX_OID_LEN)
-
-/* Encode the digestInfo header into digestInfo and return the offset from
- digestInfo at which to put the actual digest.  Returns 0 if digestInfo
- won't fit within digestInfoLength bytes.
-
- 0x30, topLen,
- 0x30, algIdLen,
- 0x06, oid.Len, oid.Data,
- 0x05, 0x00
- 0x04, digestLen
- digestData
- */
-
-static size_t DEREncodeDigestInfoPrefix(const SecAsn1Oid *oid,
-                                        size_t digestLength, uint8_t *digestInfo, size_t digestInfoLength) {
-    size_t algIdLen = oid->Length + 4;
-    size_t topLen = algIdLen + digestLength + 4;
-	size_t totalLen = topLen + 2;
-
-    if (totalLen > digestInfoLength) {
-        return 0;
-    }
-
-    size_t ix = 0;
-    digestInfo[ix++] = (SEC_ASN1_SEQUENCE | SEC_ASN1_CONSTRUCTED);
-    digestInfo[ix++] = topLen;
-    digestInfo[ix++] = (SEC_ASN1_SEQUENCE | SEC_ASN1_CONSTRUCTED);
-    digestInfo[ix++] = algIdLen;
-    digestInfo[ix++] = SEC_ASN1_OBJECT_ID;
-    digestInfo[ix++] = oid->Length;
-    memcpy(&digestInfo[ix], oid->Data, oid->Length);
-    ix += oid->Length;
-    digestInfo[ix++] = SEC_ASN1_NULL;
-    digestInfo[ix++] = 0;
-    digestInfo[ix++] = SEC_ASN1_OCTET_STRING;
-    digestInfo[ix++] = digestLength;
-
-    return ix;
-}
-
 CFDataRef SecKeyCopyPublicKeyHash(SecKeyRef key)
 {
 	CFDataRef pubKeyDigest = NULL, pubKeyBlob = NULL;
 
 	/* encode the public key. */
-    require_noerr(SecKeyCopyPublicBytes(key, &pubKeyBlob), errOut);
-    require(pubKeyBlob, errOut);
+    require_noerr_quiet(SecKeyCopyPublicBytes(key, &pubKeyBlob), errOut);
+    require_quiet(pubKeyBlob, errOut);
 
 	/* Calculate the digest of the public key. */
-	require(pubKeyDigest = SecSHA1DigestCreate(CFGetAllocator(key),
-                                               CFDataGetBytePtr(pubKeyBlob), CFDataGetLength(pubKeyBlob)),
+	require_quiet(pubKeyDigest = SecSHA1DigestCreate(CFGetAllocator(key),
+                                                     CFDataGetBytePtr(pubKeyBlob), CFDataGetLength(pubKeyBlob)),
 			errOut);
 errOut:
     CFReleaseNull(pubKeyBlob);
@@ -143,13 +100,13 @@ static CFDictionaryRef SecKeyCopyAttributeDictionaryWithLocalKey(SecKeyRef key,
     CFNumberRef sizeInBits = CFNumberCreate(allocator, kCFNumberLongType, &sizeValue);
 
 	/* encode the public key. */
-    require_noerr(SecKeyCopyPublicBytes(key, &pubKeyBlob), errOut);
-    require(pubKeyBlob, errOut);
+    require_noerr_quiet(SecKeyCopyPublicBytes(key, &pubKeyBlob), errOut);
+    require_quiet(pubKeyBlob, errOut);
 
 	/* Calculate the digest of the public key. */
-	require(pubKeyDigest = SecSHA1DigestCreate(allocator,
-                                               CFDataGetBytePtr(pubKeyBlob), CFDataGetLength(pubKeyBlob)),
-			errOut);
+	require_quiet(pubKeyDigest = SecSHA1DigestCreate(allocator,
+                                                     CFDataGetBytePtr(pubKeyBlob), CFDataGetLength(pubKeyBlob)),
+                  errOut);
 
 	DICT_ADDPAIR(kSecClass, kSecClassKey);
 	DICT_ADDPAIR(kSecAttrKeyClass, privateBlob ? kSecAttrKeyClassPrivate : kSecAttrKeyClassPublic);
@@ -164,15 +121,15 @@ static CFDictionaryRef SecKeyCopyAttributeDictionaryWithLocalKey(SecKeyRef key,
 	DICT_ADDPAIR(kSecAttrWasAlwaysSensitive, kCFBooleanFalse);
 	DICT_ADDPAIR(kSecAttrIsExtractable, kCFBooleanTrue);
 	DICT_ADDPAIR(kSecAttrWasNeverExtractable, kCFBooleanFalse);
-	DICT_ADDPAIR(kSecAttrCanEncrypt, kCFBooleanFalse);
-	DICT_ADDPAIR(kSecAttrCanDecrypt, kCFBooleanTrue);
+	DICT_ADDPAIR(kSecAttrCanEncrypt, privateBlob ? kCFBooleanFalse : kCFBooleanTrue);
+	DICT_ADDPAIR(kSecAttrCanDecrypt, privateBlob ? kCFBooleanTrue : kCFBooleanFalse);
 	DICT_ADDPAIR(kSecAttrCanDerive, kCFBooleanTrue);
-	DICT_ADDPAIR(kSecAttrCanSign, kCFBooleanTrue);
-	DICT_ADDPAIR(kSecAttrCanVerify, kCFBooleanFalse);
+	DICT_ADDPAIR(kSecAttrCanSign, privateBlob ? kCFBooleanTrue : kCFBooleanFalse);
+	DICT_ADDPAIR(kSecAttrCanVerify, privateBlob ? kCFBooleanFalse : kCFBooleanTrue);
 	DICT_ADDPAIR(kSecAttrCanSignRecover, kCFBooleanFalse);
 	DICT_ADDPAIR(kSecAttrCanVerifyRecover, kCFBooleanFalse);
-	DICT_ADDPAIR(kSecAttrCanWrap, kCFBooleanFalse);
-	DICT_ADDPAIR(kSecAttrCanUnwrap, kCFBooleanTrue);
+	DICT_ADDPAIR(kSecAttrCanWrap, privateBlob ? kCFBooleanFalse : kCFBooleanTrue);
+	DICT_ADDPAIR(kSecAttrCanUnwrap, privateBlob ? kCFBooleanTrue : kCFBooleanFalse);
 	DICT_ADDPAIR(kSecValueData, privateBlob ? privateBlob : pubKeyBlob);
     dict = DICT_CREATE(allocator);
 
@@ -208,6 +165,9 @@ static CFStringRef SecKeyCopyDescription(CFTypeRef cf) {
 
 static void SecKeyDestroy(CFTypeRef cf) {
     SecKeyRef key = (SecKeyRef)cf;
+#if !TARGET_OS_IPHONE
+    CFReleaseSafe(key->cdsaKey);
+#endif
     if (key->key_class->destroy)
         key->key_class->destroy(key);
 }
@@ -220,6 +180,8 @@ static Boolean SecKeyEqual(CFTypeRef cf1, CFTypeRef cf2)
         return true;
     if (!key2 || key1->key_class != key2->key_class)
         return false;
+    if (key1->key_class->version >= 4 && key1->key_class->isEqual)
+        return key1->key_class->isEqual(key1, key2);
     if (key1->key_class->extraBytes)
         return !memcmp(key1->key, key2->key, key1->key_class->extraBytes);
 
@@ -227,6 +189,10 @@ static Boolean SecKeyEqual(CFTypeRef cf1, CFTypeRef cf2)
     CFDictionaryRef d1, d2;
     d1 = SecKeyCopyAttributeDictionary(key1);
     d2 = SecKeyCopyAttributeDictionary(key2);
+    // Returning NULL is an error; bail out of the equality check
+    if(!d1 || !d2) {
+        return false;
+    }
     Boolean result = CFEqual(d1, d2);
     CFReleaseSafe(d1);
     CFReleaseSafe(d2);
@@ -299,7 +265,7 @@ CFIndex SecKeyGetAlgorithmIdentifier(SecKeyRef key) {
     if (key->key_class->version > 0 && key->key_class->getAlgorithmID) {
         return key->key_class->getAlgorithmID(key);
     }
-    /* All version 0 key were RSA. */
+    /* All version 0 keys were RSA. */
     return kSecRSAAlgorithmID;
 }
 
@@ -314,17 +280,17 @@ OSStatus SecKeyGeneratePair(CFDictionaryRef parameters,
 	CFStringRef ktype = CFDictionaryGetValue(parameters, kSecAttrKeyType);
     CFStringRef tokenID = CFDictionaryGetValue(parameters, kSecAttrTokenID);
 
-    require(ktype, errOut);
+    require_quiet(ktype, errOut);
 
     if (tokenID != NULL) {
         result = SecCTKKeyGeneratePair(parameters, &pubKey, &privKey);
-    } else if (CFEqual(ktype, kSecAttrKeyTypeEC)) {
+    } else if (CFEqual(ktype, kSecAttrKeyTypeECSECPrimeRandom)) {
         result = SecECKeyGeneratePair(parameters, &pubKey, &privKey);
     } else if (CFEqual(ktype, kSecAttrKeyTypeRSA)) {
         result = SecRSAKeyGeneratePair(parameters, &pubKey, &privKey);
     }
 
-    require_noerr(result, errOut);
+    require_noerr_quiet(result, errOut);
 
     /* Store the keys in the keychain if they are marked as permanent. */
     if (getBoolForKey(pubParams, kSecAttrIsPermanent, false)) {
@@ -354,24 +320,13 @@ errOut:
 }
 
 SecKeyRef SecKeyCreatePublicFromPrivate(SecKeyRef privateKey) {
-    CFDataRef serializedPublic = NULL;
-    SecKeyRef result = NULL;
-
-    require_noerr_quiet(SecKeyCopyPublicBytes(privateKey, &serializedPublic), fail);
-    require_quiet(serializedPublic, fail);
-
-    result = SecKeyCreateFromPublicData(kCFAllocatorDefault, SecKeyGetAlgorithmIdentifier(privateKey), serializedPublic);
-
-fail:
-    CFReleaseSafe(serializedPublic);
-
-    return result;
+    return SecKeyCopyPublicKey(privateKey);
 }
 
 CFDictionaryRef CreatePrivateKeyMatchingQuery(SecKeyRef publicKey, bool returnPersistentRef)
 {
     const CFTypeRef refType = (returnPersistentRef) ? kSecReturnPersistentRef: kSecReturnRef;
-    
+
     CFDataRef public_key_hash = SecKeyCopyPublicKeyHash(publicKey);
 
     CFDictionaryRef query = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
@@ -401,14 +356,14 @@ SecKeyRef SecKeyCopyMatchingPrivateKey(SecKeyRef publicKey, CFErrorRef *error) {
     SecKeyRef privateKey = NULL;
     CFTypeRef queryResult = NULL;
     CFDictionaryRef query = NULL;
-    
+
     require_action_quiet(publicKey != NULL, errOut, SecError(errSecParam, error, CFSTR("Null Public Key")));
 
     query = CreatePrivateKeyMatchingQuery(publicKey, false);
 
     require_quiet(SecError(SecItemCopyMatching(query, &queryResult), error,
                            CFSTR("Error finding private key from public: %@"), publicKey), errOut);
-    
+
     if (CFGetTypeID(queryResult) == SecKeyGetTypeID()) {
         privateKey = (SecKeyRef) queryResult;
         queryResult = NULL;
@@ -424,17 +379,17 @@ OSStatus SecKeyGetMatchingPrivateKeyStatus(SecKeyRef publicKey, CFErrorRef *erro
     OSStatus retval = errSecParam;
     CFTypeRef private_key = NULL;
     CFDictionaryRef query = NULL;
-    
+
     require_action_quiet(publicKey != NULL, errOut, SecError(errSecParam, error, NULL, CFSTR("Null Public Key")));
 
     query = CreatePrivateKeyMatchingQuery(publicKey, false);
-    
+
     retval = SecItemCopyMatching(query, &private_key);
-    
+
     if (!retval && CFGetTypeID(private_key) != SecKeyGetTypeID()) {
         retval = errSecInternalComponent;
     }
-    
+
 errOut:
     CFReleaseNull(query);
     CFReleaseNull(private_key);
@@ -448,7 +403,11 @@ SecKeyRef SecKeyCreatePublicFromDER(CFAllocatorRef allocator,
     SecKeyRef publicKey = NULL;
 	if (SecAsn1OidCompare(oid, &CSSMOID_RSA)) {
         /* pkcs1 1 */
-		publicKey = SecKeyCreateRSAPublicKey(kCFAllocatorDefault,
+        /* Note that we call SecKeyCreateRSAPublicKey_ios directly instead of
+           SecKeyCreateRSAPublicKey, since on OS X the latter function will return
+           a CSSM SecKeyRef, and we always want an iOS format SecKeyRef here.
+         */
+		publicKey = SecKeyCreateRSAPublicKey_ios(allocator,
                                              keyData->Data, keyData->Length, kSecKeyEncodingPkcs1);
 	} else if (SecAsn1OidCompare(oid, &CSSMOID_ecPublicKey)) {
         SecDERKey derKey = {
@@ -461,7 +420,7 @@ SecKeyRef SecKeyCreatePublicFromDER(CFAllocatorRef allocator,
             derKey.parameters = params->Data;
             derKey.parametersLength = params->Length;
         }
-		publicKey = SecKeyCreateECPublicKey(kCFAllocatorDefault,
+		publicKey = SecKeyCreateECPublicKey(allocator,
                                             (const uint8_t *)&derKey, sizeof(derKey), kSecDERKeyEncoding);
     } else {
 		secwarning("Unsupported algorithm oid");
@@ -540,84 +499,94 @@ SecKeyRef SecKeyCreate(CFAllocatorRef allocator,
     return result;
 }
 
-enum {
-    kSecKeyDigestInfoSign,
-    kSecKeyDigestInfoVerify
-};
-
-static OSStatus SecKeyDigestInfoSignVerify(
-                                           SecKeyRef           key,            /* Private key */
-                                           SecPadding          padding,		/* kSecPaddingPKCS1@@@ */
-                                           const uint8_t       *dataToSign,	/* signature over this data */
-                                           size_t              dataToSignLen,	/* length of dataToSign */
-                                           uint8_t             *sig,			/* signature, RETURNED */
-                                           size_t              *sigLen,        /* IN/OUT */
-                                           int mode) {
-    size_t digestInfoLength = DER_MAX_DIGEST_INFO_LEN;
-    uint8_t digestInfo[digestInfoLength];
-    const SecAsn1Oid *digestOid;
-    size_t digestLen;
-
-    switch (padding) {
-#if 0
-        case kSecPaddingPKCS1MD2:
-            digestLen = CC_MD2_DIGEST_LENGTH;
-            digestOid = &CSSMOID_MD2;
-            break;
-        case kSecPaddingPKCS1MD4:
-            digestLen = CC_MD4_DIGEST_LENGTH;
-            digestOid = &CSSMOID_MD4;
-            break;
-        case kSecPaddingPKCS1MD5:
-            digestLen = CC_MD5_DIGEST_LENGTH;
-            digestOid = &CSSMOID_MD5;
-            break;
+static SecKeyAlgorithm SecKeyGetSignatureAlgorithmForPadding(SecKeyRef key, SecPadding padding) {
+    switch (SecKeyGetAlgorithmIdentifier(key)) {
+        case kSecRSAAlgorithmID:
+            switch (padding) {
+                case kSecPaddingNone:
+                    return kSecKeyAlgorithmRSASignatureRaw;
+                case kSecPaddingPKCS1:
+                    return kSecKeyAlgorithmRSASignatureDigestPKCS1v15Raw;
+#if TARGET_OS_IPHONE
+                case kSecPaddingPKCS1SHA1:
+                    return kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA1;
+                case kSecPaddingPKCS1SHA224:
+                    return kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA224;
+                case kSecPaddingPKCS1SHA256:
+                    return kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA256;
+                case kSecPaddingPKCS1SHA384:
+                    return kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA384;
+                case kSecPaddingPKCS1SHA512:
+                    return kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA512;
+#else
+                    // On CSSM-based implementation, these functions actually did hash its input,
+                    // so keep doing that for backward compatibility.
+                case kSecPaddingPKCS1SHA1:
+                    return kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA1;
+                case kSecPaddingPKCS1SHA224:
+                    return kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA224;
+                case kSecPaddingPKCS1SHA256:
+                    return kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA256;
+                case kSecPaddingPKCS1SHA384:
+                    return kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA384;
+                case kSecPaddingPKCS1SHA512:
+                    return kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA512;
 #endif
-        case kSecPaddingPKCS1SHA1:
-            digestLen = CC_SHA1_DIGEST_LENGTH;
-            digestOid = &CSSMOID_SHA1;
-            break;
-        case kSecPaddingPKCS1SHA224:
-            digestLen = CC_SHA224_DIGEST_LENGTH;
-            digestOid = &CSSMOID_SHA224;
-            break;
-        case kSecPaddingPKCS1SHA256:
-            digestLen = CC_SHA256_DIGEST_LENGTH;
-            digestOid = &CSSMOID_SHA256;
-            break;
-        case kSecPaddingPKCS1SHA384:
-            digestLen = CC_SHA384_DIGEST_LENGTH;
-            digestOid = &CSSMOID_SHA384;
-            break;
-        case kSecPaddingPKCS1SHA512:
-            digestLen = CC_SHA512_DIGEST_LENGTH;
-            digestOid = &CSSMOID_SHA512;
-            break;
+                default:
+                    return NULL;
+            }
+        case kSecECDSAAlgorithmID:
+            switch (padding) {
+                case kSecPaddingSigRaw:
+                    return kSecKeyAlgorithmECDSASignatureRFC4754;
+                default:
+                    // Although it is not very logical, previous SecECKey implementation really considered
+                    // anything else than SigRaw (incl. None!) as PKCS1 (i.e. x962), so we keep the behaviour
+                    // for backward compatibility.
+                    return kSecKeyAlgorithmECDSASignatureDigestX962;
+            }
         default:
-            return errSecUnsupportedPadding;
+            return NULL;
+    }
+}
+
+// Generic wrapper helper for invoking new-style CFDataRef-based operations with ptr/length arguments
+// used by legacy RawSign-style functions.
+static OSStatus SecKeyPerformLegacyOperation(SecKeyRef key,
+                                             const uint8_t *in1Ptr, size_t in1Len,
+                                             const uint8_t *in2Ptr, size_t in2Len,
+                                             uint8_t *outPtr, size_t *outLen,
+                                             CFTypeRef (^operation)(CFDataRef in1, CFDataRef in2, CFRange *resultRange, CFErrorRef *error)) {
+    CFErrorRef error = NULL;
+    OSStatus status = errSecSuccess;
+    CFDataRef in1 = CFDataCreateWithBytesNoCopy(NULL, in1Ptr, in1Len, kCFAllocatorNull);
+    CFDataRef in2 = in2Ptr ? CFDataCreateWithBytesNoCopy(NULL, in2Ptr, in2Len, kCFAllocatorNull) : NULL;
+    CFRange range = { 0, -1 };
+    CFTypeRef output = operation(in1, in2, &range, &error);
+    require_quiet(output, out);
+    if (CFGetTypeID(output) == CFDataGetTypeID() && outLen != NULL) {
+        if (range.length == -1) {
+            range.length = CFDataGetLength(output);
+        }
+        require_action_quiet((size_t)range.length <= *outLen, out,
+                             SecError(errSecParam, &error, CFSTR("buffer too small")));
+        *outLen = range.length;
+        CFDataGetBytes(output, range, outPtr);
     }
 
-    if (dataToSignLen != digestLen)
-        return errSecParam;
-
-    size_t offset = DEREncodeDigestInfoPrefix(digestOid, digestLen,
-                                              digestInfo, digestInfoLength);
-    if (!offset)
-        return errSecBufferTooSmall;
-
-    /* Append the digest to the digestInfo prefix and adjust the length. */
-    memcpy(&digestInfo[offset], dataToSign, digestLen);
-    digestInfoLength = offset + digestLen;
-
-    if (mode == kSecKeyDigestInfoSign) {
-        return key->key_class->rawSign(key, kSecPaddingPKCS1,
-                                       digestInfo, digestInfoLength, sig, sigLen);
-    } else {
-        return key->key_class->rawVerify(key, kSecPaddingPKCS1,
-                                         digestInfo, digestInfoLength, sig, *sigLen);
+out:
+    CFReleaseSafe(in1);
+    CFReleaseSafe(in2);
+    CFReleaseSafe(output);
+    if (error != NULL) {
+        status = (OSStatus)CFErrorGetCode(error);
+        if (status == errSecVerifyFailed) {
+            // Legacy functions used errSSLCrypto, while new implementation uses errSecVerifyFailed.
+            status = errSSLCrypto;
+        }
+        CFRelease(error);
     }
-
-    return errSecSuccess;
+    return status;
 }
 
 OSStatus SecKeyRawSign(
@@ -627,16 +596,14 @@ OSStatus SecKeyRawSign(
                        size_t              dataToSignLen,	/* length of dataToSign */
                        uint8_t             *sig,			/* signature, RETURNED */
                        size_t              *sigLen) {		/* IN/OUT */
-    if (!key->key_class->rawSign)
-        return errSecUnsupportedOperation;
-
-    if (padding < kSecPaddingPKCS1MD2) {
-        return key->key_class->rawSign(key, padding, dataToSign, dataToSignLen,
-                                       sig, sigLen);
-    } else {
-        return SecKeyDigestInfoSignVerify(key, padding, dataToSign, dataToSignLen,
-                                          sig, sigLen, kSecKeyDigestInfoSign);
+    SecKeyAlgorithm algorithm = SecKeyGetSignatureAlgorithmForPadding(key, padding);
+    if (algorithm == NULL) {
+        return errSecParam;
     }
+    return SecKeyPerformLegacyOperation(key, dataToSign, dataToSignLen, NULL, 0, sig, sigLen,
+                                        ^CFTypeRef(CFDataRef in1, CFDataRef in2, CFRange *range, CFErrorRef *error) {
+                                            return SecKeyCreateSignature(key, algorithm, in1, error);
+                                        });
 }
 
 OSStatus SecKeyRawVerify(
@@ -646,19 +613,33 @@ OSStatus SecKeyRawVerify(
                          size_t              signedDataLen,	/* length of dataToSign */
                          const uint8_t       *sig,			/* signature */
                          size_t              sigLen) {		/* length of signature */
-    if (!key->key_class->rawVerify)
-        return errSecUnsupportedOperation;
+    SecKeyAlgorithm algorithm = SecKeyGetSignatureAlgorithmForPadding(key, padding);
+    if (algorithm == NULL) {
+        return errSecParam;
+    }
+    OSStatus status = SecKeyPerformLegacyOperation(key, signedData, signedDataLen, sig, sigLen, NULL, NULL,
+                                                   ^CFTypeRef(CFDataRef in1, CFDataRef in2, CFRange *range, CFErrorRef *error) {
+                                                       return in2 != NULL && SecKeyVerifySignature(key, algorithm, in1, in2, error)
+                                                       ? kCFBooleanTrue : NULL;
+                                                   });
+    return status;
+}
 
-    if (padding < kSecPaddingPKCS1MD2) {
-        return key->key_class->rawVerify(key, padding, signedData, signedDataLen,
-                                         sig, sigLen);
-    } else {
-        /* Casting away the constness of sig is safe since
-         SecKeyDigestInfoSignVerify only modifies sig if
-         mode == kSecKeyDigestInfoSign. */
-        return SecKeyDigestInfoSignVerify(key, padding,
-                                          signedData, signedDataLen, (uint8_t *)sig, &sigLen,
-                                          kSecKeyDigestInfoVerify);
+static SecKeyAlgorithm SecKeyGetEncryptionAlgorithmForPadding(SecKeyRef key, SecPadding padding) {
+    switch (SecKeyGetAlgorithmIdentifier(key)) {
+        case kSecRSAAlgorithmID:
+            switch (padding) {
+                case kSecPaddingNone:
+                    return kSecKeyAlgorithmRSAEncryptionRaw;
+                case kSecPaddingPKCS1:
+                    return kSecKeyAlgorithmRSAEncryptionPKCS1;
+                case kSecPaddingOAEP:
+                    return kSecKeyAlgorithmRSAEncryptionOAEPSHA1;
+                default:
+                    return NULL;
+            }
+        default:
+            return NULL;
     }
 }
 
@@ -669,10 +650,15 @@ OSStatus SecKeyEncrypt(
                        size_t              plainTextLen,		/* length of plainText */
                        uint8_t             *cipherText,
                        size_t              *cipherTextLen) {	/* IN/OUT */
-    if (key->key_class->encrypt)
-        return key->key_class->encrypt(key, padding, plainText, plainTextLen,
-                                       cipherText, cipherTextLen);
-    return errSecUnsupportedOperation;
+    SecKeyAlgorithm algorithm = SecKeyGetEncryptionAlgorithmForPadding(key, padding);
+    if (algorithm == NULL) {
+        return errSecParam;
+    }
+
+    return SecKeyPerformLegacyOperation(key, plainText, plainTextLen, NULL, 0, cipherText, cipherTextLen,
+                                        ^CFTypeRef(CFDataRef in1, CFDataRef in2, CFRange *range, CFErrorRef *error) {
+                                            return SecKeyCreateEncryptedData(key, algorithm, in1, error);
+                                        });
 }
 
 OSStatus SecKeyDecrypt(
@@ -682,10 +668,27 @@ OSStatus SecKeyDecrypt(
                        size_t              cipherTextLen,		/* length of cipherText */
                        uint8_t             *plainText,
                        size_t              *plainTextLen) {	/* IN/OUT */
-    if (key->key_class->decrypt)
-        return key->key_class->decrypt(key, padding, cipherText, cipherTextLen,
-                                       plainText, plainTextLen);
-    return errSecUnsupportedOperation;
+    SecKeyAlgorithm algorithm = SecKeyGetEncryptionAlgorithmForPadding(key, padding);
+    if (algorithm == NULL) {
+        return errSecParam;
+    }
+    return SecKeyPerformLegacyOperation(key, cipherText, cipherTextLen, NULL, 0, plainText, plainTextLen,
+                                        ^CFTypeRef(CFDataRef in1, CFDataRef in2, CFRange *range, CFErrorRef *error) {
+                                            CFDataRef decrypted = SecKeyCreateDecryptedData(key, algorithm, in1, error);
+                                            const UInt8 *data;
+                                            if (decrypted != NULL && algorithm == kSecKeyAlgorithmRSAEncryptionRaw &&
+                                                *(data = CFDataGetBytePtr(decrypted)) == 0x00) {
+                                                // Strip zero-padding from the beginning of the block, as the contract of this
+                                                // function says.
+                                                range->length = CFDataGetLength(decrypted);
+                                                while (*data == 0x00 && range->length > 0) {
+                                                    range->location++;
+                                                    range->length--;
+                                                    data++;
+                                                }
+                                            }
+                                            return decrypted;
+                                        });
 }
 
 size_t SecKeyGetBlockSize(SecKeyRef key) {
@@ -703,357 +706,165 @@ CFDictionaryRef SecKeyCopyAttributeDictionary(SecKeyRef key) {
 }
 
 SecKeyRef SecKeyCreateFromAttributeDictionary(CFDictionaryRef refAttributes) {
-	/* TODO: Support having an allocator in refAttributes. */
- 	CFAllocatorRef allocator = NULL;
-	CFDataRef data = CFDictionaryGetValue(refAttributes, kSecValueData);
-	CFTypeRef ktype = CFDictionaryGetValue(refAttributes, kSecAttrKeyType);
-	SInt32 algorithm;
-	SecKeyRef ref;
-
-	/* First figure out the key type (algorithm). */
-	if (CFGetTypeID(ktype) == CFNumberGetTypeID()) {
-		CFNumberGetValue(ktype, kCFNumberSInt32Type, &algorithm);
-	} else if (isString(ktype)) {
-        algorithm = CFStringGetIntValue(ktype);
-        CFStringRef t = CFStringCreateWithFormat(0, 0, CFSTR("%ld"), (long) algorithm);
-        if (!CFEqual(t, ktype)) {
-            secwarning("Unsupported key class: %@", ktype);
-            CFReleaseSafe(t);
-            return NULL;
-        }
-        CFReleaseSafe(t);
-    } else {
-		secwarning("Unsupported key type: %@", ktype);
-		return NULL;
-	}
-
-	/* TODO: The code below won't scale well, consider moving to something
-     table driven. */
-	SInt32 class;
-	CFTypeRef kclass = CFDictionaryGetValue(refAttributes, kSecAttrKeyClass);
-	if (CFGetTypeID(kclass) == CFNumberGetTypeID()) {
-		CFNumberGetValue(kclass, kCFNumberSInt32Type, &class);
-	} else if (isString(kclass)) {
-        class = CFStringGetIntValue(kclass);
-        CFStringRef t = CFStringCreateWithFormat(0, 0, CFSTR("%ld"), (long) class);
-        if (!CFEqual(t, kclass)) {
-            CFReleaseSafe(t);
-            secwarning("Unsupported key class: %@", kclass);
-            return NULL;
-        }
-        CFReleaseSafe(t);
-    } else {
-		secwarning("Unsupported key class: %@", kclass);
-		return NULL;
-	}
-
-    switch (class) {
-        case 0: // kSecAttrKeyClassPublic
-            switch (algorithm) {
-                case 42: // kSecAlgorithmRSA
-                    ref = SecKeyCreateRSAPublicKey(allocator,
-                                                   CFDataGetBytePtr(data), CFDataGetLength(data),
-                                                   kSecKeyEncodingBytes);
-                    break;
-                case 43: // kSecAlgorithmECDSA
-                case 73: // kSecAlgorithmEC
-                    ref = SecKeyCreateECPublicKey(allocator,
-                                                  CFDataGetBytePtr(data), CFDataGetLength(data),
-                                                  kSecKeyEncodingBytes);
-                    break;
-                default:
-                    secwarning("Unsupported public key type: %@", ktype);
-                    ref = NULL;
-                    break;
-            };
-            break;
-        case 1: // kSecAttrKeyClassPrivate
-            if (CFDictionaryGetValue(refAttributes, kSecAttrTokenID) != NULL) {
-                ref = SecKeyCreateCTKKey(allocator, refAttributes);
-                break;
-            }
-            switch (algorithm) {
-                case 42: // kSecAlgorithmRSA
-                    ref = SecKeyCreateRSAPrivateKey(allocator,
-                                                    CFDataGetBytePtr(data), CFDataGetLength(data),
-                                                    kSecKeyEncodingBytes);
-                    break;
-                case 43: // kSecAlgorithmECDSA
-                case 73: // kSecAlgorithmEC
-                    ref = SecKeyCreateECPrivateKey(allocator,
-                                                   CFDataGetBytePtr(data), CFDataGetLength(data),
-                                                   kSecKeyEncodingBytes);
-                    break;
-                default:
-                    secwarning("Unsupported private key type: %@", ktype);
-                    ref = NULL;
-                    break;
-            };
-            break;
-        case 2: // kSecAttrKeyClassSymmetric
-            secwarning("Unsupported symmetric key type: %@", ktype);
-            ref = NULL;
-            break;
-        default:
-            secwarning("Unsupported key class: %@", kclass);
-            ref = NULL;
+    CFErrorRef error = NULL;
+    SecKeyRef key = SecKeyCreateWithData(CFDictionaryGetValue(refAttributes, kSecValueData), refAttributes, &error);
+    if (key == NULL) {
+        CFStringRef description = CFErrorCopyDescription(error);
+        secwarning("%@", description);
+        CFRelease(description);
+        CFRelease(error);
     }
-
-	return ref;
+    return key;
 }
 
-/* TODO: This function should ensure that this keys algorithm matches the
- signature algorithm. */
-static OSStatus SecKeyGetDigestInfo(SecKeyRef this, const SecAsn1AlgId *algId,
-                                    const uint8_t *data, size_t dataLen, bool digestData,
-                                    uint8_t *digestInfo, size_t *digestInfoLen /* IN/OUT */) {
-    unsigned char *(*digestFcn)(const void *, CC_LONG, unsigned char *);
-    CFIndex keyAlgID = kSecNullAlgorithmID;
-    const SecAsn1Oid *digestOid;
-    size_t digestLen;
-    size_t offset = 0;
+static SecKeyAlgorithm SecKeyGetAlgorithmForSecAsn1AlgId(SecKeyRef key, const SecAsn1AlgId *algId, bool digestData) {
+    static const struct TableItem {
+        const SecAsn1Oid *oid1, *oid2;
+        const SecKeyAlgorithm *algorithms[2];
+    } translationTableRSA[] = {
+        { &CSSMOID_SHA1WithRSA, &CSSMOID_SHA1, {
+            [false] = &kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA1,
+            [true] = &kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA1,
+        } },
+        { &CSSMOID_SHA224WithRSA, &CSSMOID_SHA224, {
+            [false] = &kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA224,
+            [true] = &kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA224,
+        } },
+        { &CSSMOID_SHA256WithRSA, &CSSMOID_SHA256, {
+            [false] = &kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA256,
+            [true] = &kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA256,
+        } },
+        { &CSSMOID_SHA384WithRSA, &CSSMOID_SHA384, {
+            [false] = &kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA384,
+            [true] = &kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA384,
+        } },
+        { &CSSMOID_SHA512WithRSA, &CSSMOID_SHA512, {
+            [false] = &kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA512,
+            [true] = &kSecKeyAlgorithmRSASignatureMessagePKCS1v15SHA512,
+        } },
+        { &CSSMOID_MD5, NULL, {
+            [false] = &kSecKeyAlgorithmRSASignatureDigestPKCS1v15MD5,
+            [true] = &kSecKeyAlgorithmRSASignatureMessagePKCS1v15MD5,
+        } },
+        { NULL },
+    }, translationTableECDSA[] = {
+        { &CSSMOID_ECDSA_WithSHA1, &CSSMOID_SHA1, {
+            [false] = &kSecKeyAlgorithmECDSASignatureDigestX962,
+            [true] = &kSecKeyAlgorithmECDSASignatureMessageX962SHA1,
+        } },
+        { &CSSMOID_ECDSA_WithSHA224, &CSSMOID_SHA224, {
+            [false] = &kSecKeyAlgorithmECDSASignatureDigestX962,
+            [true] = &kSecKeyAlgorithmECDSASignatureMessageX962SHA224,
+        } },
+        { &CSSMOID_ECDSA_WithSHA256, &CSSMOID_SHA256, {
+            [false] = &kSecKeyAlgorithmECDSASignatureDigestX962,
+            [true] = &kSecKeyAlgorithmECDSASignatureMessageX962SHA256,
+        } },
+        { &CSSMOID_ECDSA_WithSHA384, &CSSMOID_SHA384, {
+            [false] = &kSecKeyAlgorithmECDSASignatureDigestX962,
+            [true] = &kSecKeyAlgorithmECDSASignatureMessageX962SHA384,
+        } },
+        { &CSSMOID_ECDSA_WithSHA512, &CSSMOID_SHA512, {
+            [false] = &kSecKeyAlgorithmECDSASignatureDigestX962,
+            [true] = &kSecKeyAlgorithmECDSASignatureMessageX962SHA512,
+        } },
+        { NULL },
+    };
 
-    /* Since these oids all have the same prefix, use switch. */
-    if ((algId->algorithm.Length == CSSMOID_RSA.Length) &&
-        !memcmp(algId->algorithm.Data, CSSMOID_RSA.Data,
-                algId->algorithm.Length - 1)) {
-            keyAlgID = kSecRSAAlgorithmID;
-            switch (algId->algorithm.Data[algId->algorithm.Length - 1]) {
-#if 0
-                case 2: /* oidMD2WithRSA */
-                    digestFcn = CC_MD2;
-                    digestLen = CC_MD2_DIGEST_LENGTH;
-                    digestOid = &CSSMOID_MD2;
-                    break;
-                case 3: /* oidMD4WithRSA */
-                    digestFcn = CC_MD4;
-                    digestLen = CC_MD4_DIGEST_LENGTH;
-                    digestOid = &CSSMOID_MD4;
-                    break;
-                case 4: /* oidMD5WithRSA */
-                    digestFcn = CC_MD5;
-                    digestLen = CC_MD5_DIGEST_LENGTH;
-                    digestOid = &CSSMOID_MD5;
-                    break;
-#endif /* 0 */
-                case 5: /* oidSHA1WithRSA */
-                    digestFcn = CC_SHA1;
-                    digestLen = CC_SHA1_DIGEST_LENGTH;
-                    digestOid = &CSSMOID_SHA1;
-                    break;
-                case 11: /* oidSHA256WithRSA */
-                    digestFcn = CC_SHA256;
-                    digestLen = CC_SHA256_DIGEST_LENGTH;
-                    digestOid = &CSSMOID_SHA256;
-                    break;
-                case 12: /* oidSHA384WithRSA */
-                    /* pkcs1 12 */
-                    digestFcn = CC_SHA384;
-                    digestLen = CC_SHA384_DIGEST_LENGTH;
-                    digestOid = &CSSMOID_SHA384;
-                    break;
-                case 13: /* oidSHA512WithRSA */
-                    digestFcn = CC_SHA512;
-                    digestLen = CC_SHA512_DIGEST_LENGTH;
-                    digestOid = &CSSMOID_SHA512;
-                    break;
-                case 14: /* oidSHA224WithRSA */
-                    digestFcn = CC_SHA224;
-                    digestLen = CC_SHA224_DIGEST_LENGTH;
-                    digestOid = &CSSMOID_SHA224;
-                    break;
-                default:
-                    secdebug("key", "unsupported rsa signature algorithm");
-                    return errSecUnsupportedAlgorithm;
-            }
-        } else if ((algId->algorithm.Length == CSSMOID_ECDSA_WithSHA224.Length) &&
-                   !memcmp(algId->algorithm.Data, CSSMOID_ECDSA_WithSHA224.Data,
-                           algId->algorithm.Length - 1)) {
-                       keyAlgID = kSecECDSAAlgorithmID;
-                       switch (algId->algorithm.Data[algId->algorithm.Length - 1]) {
-                           case 1: /* oidSHA224WithECDSA */
-                               digestFcn = CC_SHA224;
-                               digestLen = CC_SHA224_DIGEST_LENGTH;
-                               break;
-                           case 2: /* oidSHA256WithECDSA */
-                               digestFcn = CC_SHA256;
-                               digestLen = CC_SHA256_DIGEST_LENGTH;
-                               break;
-                           case 3: /* oidSHA384WithECDSA */
-                               /* pkcs1 12 */
-                               digestFcn = CC_SHA384;
-                               digestLen = CC_SHA384_DIGEST_LENGTH;
-                               break;
-                           case 4: /* oidSHA512WithECDSA */
-                               digestFcn = CC_SHA512;
-                               digestLen = CC_SHA512_DIGEST_LENGTH;
-                               break;
-                           default:
-                               secdebug("key", "unsupported ecdsa signature algorithm");
-                               return errSecUnsupportedAlgorithm;
-                       }
-                   } else if (SecAsn1OidCompare(&algId->algorithm, &CSSMOID_ECDSA_WithSHA1)) {
-                       keyAlgID = kSecECDSAAlgorithmID;
-                       digestFcn = CC_SHA1;
-                       digestLen = CC_SHA1_DIGEST_LENGTH;
-                   } else if (SecAsn1OidCompare(&algId->algorithm, &CSSMOID_SHA1)) {
-                       digestFcn = CC_SHA1;
-                       digestLen = CC_SHA1_DIGEST_LENGTH;
-                       digestOid = &CSSMOID_SHA1;
-                   } else if ((algId->algorithm.Length == CSSMOID_SHA224.Length) &&
-                              !memcmp(algId->algorithm.Data, CSSMOID_SHA224.Data, algId->algorithm.Length - 1))
-                   {
-                       switch (algId->algorithm.Data[algId->algorithm.Length - 1]) {
-                           case 4: /* OID_SHA224 */
-                               digestFcn = CC_SHA224;
-                               digestLen = CC_SHA224_DIGEST_LENGTH;
-                               digestOid = &CSSMOID_SHA224;
-                               break;
-                           case 1: /* OID_SHA256 */
-                               digestFcn = CC_SHA256;
-                               digestLen = CC_SHA256_DIGEST_LENGTH;
-                               digestOid = &CSSMOID_SHA256;
-                               break;
-                           case 2: /* OID_SHA384 */
-                               /* pkcs1 12 */
-                               digestFcn = CC_SHA384;
-                               digestLen = CC_SHA384_DIGEST_LENGTH;
-                               digestOid = &CSSMOID_SHA384;
-                               break;
-                           case 3: /* OID_SHA512 */
-                               digestFcn = CC_SHA512;
-                               digestLen = CC_SHA512_DIGEST_LENGTH;
-                               digestOid = &CSSMOID_SHA512;
-                               break;
-                           default:
-                               secdebug("key", "unsupported sha-2 signature algorithm");
-                               return errSecUnsupportedAlgorithm;
-                       }
-                   } else if (SecAsn1OidCompare(&algId->algorithm, &CSSMOID_MD5)) {
-                       digestFcn = CC_MD5;
-                       digestLen = CC_MD5_DIGEST_LENGTH;
-                       digestOid = &CSSMOID_MD5;
-                   } else {
-                       secdebug("key", "unsupported digesting algorithm");
-                       return errSecUnsupportedAlgorithm;
-                   }
-
-    /* check key is appropriate for signature (superfluous for digest only oid) */
-    if (keyAlgID == kSecNullAlgorithmID)
-        keyAlgID = SecKeyGetAlgorithmIdentifier(this);
-    else if (keyAlgID != SecKeyGetAlgorithmIdentifier(this))
-        return errSecUnsupportedAlgorithm;
-
-    switch(keyAlgID) {
+    const struct TableItem *table;
+    switch (SecKeyGetAlgorithmIdentifier(key)) {
         case kSecRSAAlgorithmID:
-            offset = DEREncodeDigestInfoPrefix(digestOid, digestLen,
-                                               digestInfo, *digestInfoLen);
-            if (!offset)
-                return errSecBufferTooSmall;
-            break;
-        case kSecDSAAlgorithmID:
-            if (digestOid != &CSSMOID_SHA1)
-                return errSecUnsupportedAlgorithm;
+            table = translationTableRSA;
             break;
         case kSecECDSAAlgorithmID:
+            table = translationTableECDSA;
             break;
         default:
-            secdebug("key", "unsupported signature algorithm");
-            return errSecUnsupportedAlgorithm;
+            return NULL;
     }
 
-    if (digestData) {
-        if(dataLen>UINT32_MAX) /* Check for overflow with CC_LONG cast */
-            return errSecParam;
-        digestFcn(data, (CC_LONG)dataLen, &digestInfo[offset]);
-        *digestInfoLen = offset + digestLen;
-    } else {
-        if (dataLen != digestLen)
-            return errSecParam;
-        memcpy(&digestInfo[offset], data, dataLen);
-        *digestInfoLen = offset + dataLen;
+    for (; table->oid1 != NULL; table++) {
+        if (SecAsn1OidCompare(table->oid1, &algId->algorithm) ||
+            (table->oid2 != NULL && SecAsn1OidCompare(table->oid2, &algId->algorithm))) {
+            return *table->algorithms[digestData];
+        }
     }
-
-    return errSecSuccess;
+    return NULL;
 }
 
 OSStatus SecKeyDigestAndVerify(
-                               SecKeyRef           this,            /* Private key */
+                               SecKeyRef           key,            /* Private key */
                                const SecAsn1AlgId  *algId,         /* algorithm oid/params */
                                const uint8_t       *dataToDigest,	/* signature over this data */
                                size_t              dataToDigestLen,/* length of dataToDigest */
                                const uint8_t       *sig,			/* signature to verify */
                                size_t              sigLen) {		/* length of sig */
-    size_t digestInfoLength = DER_MAX_DIGEST_INFO_LEN;
-    uint8_t digestInfo[digestInfoLength];
-    OSStatus status;
 
-    if (this == NULL)
-        return errSecParam;
+    SecKeyAlgorithm algorithm = SecKeyGetAlgorithmForSecAsn1AlgId(key, algId, true);
+    if (algorithm == NULL) {
+        return errSecUnimplemented;
+    }
 
-    status = SecKeyGetDigestInfo(this, algId, dataToDigest, dataToDigestLen, true,
-                                 digestInfo, &digestInfoLength);
-    if (status)
-        return status;
-    return SecKeyRawVerify(this, kSecPaddingPKCS1,
-                           digestInfo, digestInfoLength, sig, sigLen);
+    return SecKeyPerformLegacyOperation(key, dataToDigest, dataToDigestLen, sig, sigLen, NULL, NULL,
+                                        ^CFTypeRef(CFDataRef in1, CFDataRef in2, CFRange *range, CFErrorRef *error) {
+                                            return SecKeyVerifySignature(key, algorithm, in1, in2, error) ?
+                                            kCFBooleanTrue : NULL;
+                                        });
 }
 
 OSStatus SecKeyDigestAndSign(
-                             SecKeyRef           this,            /* Private key */
+                             SecKeyRef           key,            /* Private key */
                              const SecAsn1AlgId  *algId,         /* algorithm oid/params */
                              const uint8_t       *dataToDigest,	/* signature over this data */
                              size_t              dataToDigestLen,/* length of dataToDigest */
                              uint8_t             *sig,			/* signature, RETURNED */
                              size_t              *sigLen) {		/* IN/OUT */
-    size_t digestInfoLength = DER_MAX_DIGEST_INFO_LEN;
-    uint8_t digestInfo[digestInfoLength];
-    OSStatus status;
+    SecKeyAlgorithm algorithm = SecKeyGetAlgorithmForSecAsn1AlgId(key, algId, true);
+    if (algorithm == NULL) {
+        return errSecUnimplemented;
+    }
 
-    status = SecKeyGetDigestInfo(this, algId, dataToDigest, dataToDigestLen, true /* digest data */,
-                                 digestInfo, &digestInfoLength);
-    if (status)
-        return status;
-    return SecKeyRawSign(this, kSecPaddingPKCS1,
-                         digestInfo, digestInfoLength, sig, sigLen);
+    return SecKeyPerformLegacyOperation(key, dataToDigest, dataToDigestLen, NULL, 0, sig, sigLen,
+                                        ^CFTypeRef(CFDataRef in1, CFDataRef in2, CFRange *range, CFErrorRef *error) {
+                                            return SecKeyCreateSignature(key, algorithm, in1, error);
+                                        });
 }
 
 OSStatus SecKeyVerifyDigest(
-                            SecKeyRef           this,            /* Private key */
+                            SecKeyRef           key,            /* Private key */
                             const SecAsn1AlgId  *algId,         /* algorithm oid/params */
                             const uint8_t       *digestData,	/* signature over this digest */
                             size_t              digestDataLen,/* length of dataToDigest */
                             const uint8_t       *sig,			/* signature to verify */
                             size_t              sigLen) {		/* length of sig */
-    size_t digestInfoLength = DER_MAX_DIGEST_INFO_LEN;
-    uint8_t digestInfo[digestInfoLength];
-    OSStatus status;
+    SecKeyAlgorithm algorithm = SecKeyGetAlgorithmForSecAsn1AlgId(key, algId, false);
+    if (algorithm == NULL) {
+        return errSecUnimplemented;
+    }
 
-    status = SecKeyGetDigestInfo(this, algId, digestData, digestDataLen, false /* data is digest */,
-                                 digestInfo, &digestInfoLength);
-    if (status)
-        return status;
-    return SecKeyRawVerify(this, kSecPaddingPKCS1,
-                           digestInfo, digestInfoLength, sig, sigLen);
+    return SecKeyPerformLegacyOperation(key, digestData, digestDataLen, sig, sigLen, NULL, NULL,
+                                        ^CFTypeRef(CFDataRef in1, CFDataRef in2, CFRange *range, CFErrorRef *error) {
+                                            return SecKeyVerifySignature(key, algorithm, in1, in2, error) ?
+                                            kCFBooleanTrue : NULL;
+                                        });
 }
 
 OSStatus SecKeySignDigest(
-                          SecKeyRef           this,            /* Private key */
+                          SecKeyRef           key,            /* Private key */
                           const SecAsn1AlgId  *algId,         /* algorithm oid/params */
                           const uint8_t       *digestData,	/* signature over this digest */
                           size_t              digestDataLen,/* length of digestData */
                           uint8_t             *sig,			/* signature, RETURNED */
                           size_t              *sigLen) {		/* IN/OUT */
-    size_t digestInfoLength = DER_MAX_DIGEST_INFO_LEN;
-    uint8_t digestInfo[digestInfoLength];
-    OSStatus status;
+    SecKeyAlgorithm algorithm = SecKeyGetAlgorithmForSecAsn1AlgId(key, algId, false);
+    if (algorithm == NULL) {
+        return errSecUnimplemented;
+    }
 
-    status = SecKeyGetDigestInfo(this, algId, digestData, digestDataLen, false,
-                                 digestInfo, &digestInfoLength);
-    if (status)
-        return status;
-    return SecKeyRawSign(this, kSecPaddingPKCS1,
-                         digestInfo, digestInfoLength, sig, sigLen);
+    return SecKeyPerformLegacyOperation(key, digestData, digestDataLen, NULL, 0, sig, sigLen,
+                                        ^CFTypeRef(CFDataRef in1, CFDataRef in2, CFRange *range, CFErrorRef *error) {
+                                            return SecKeyCreateSignature(key, algorithm, in1, error);
+                                        });
 }
 
 CFIndex SecKeyGetAlgorithmId(SecKeyRef key) {
@@ -1217,4 +1028,351 @@ _SecKeyCopyUnwrapKey(SecKeyRef key, SecKeyWrapType type, CFDataRef wrappedKey, C
 
     SecError(errSecUnsupportedOperation, error, CFSTR("No key unwrap for key %@"), key);
     return NULL;
+}
+
+static SInt32 SecKeyParamsGetSInt32(CFTypeRef value, CFStringRef errName, CFErrorRef *error) {
+    SInt32 result = -1;
+    if (CFGetTypeID(value) == CFNumberGetTypeID()) {
+        if (!CFNumberGetValue(value, kCFNumberSInt32Type, &result) || result < 0) {
+            SecError(errSecParam, error, CFSTR("Unsupported %@: %@"), errName, value);
+        }
+    } else if (isString(value)) {
+        result = CFStringGetIntValue(value);
+        CFStringRef t = CFStringCreateWithFormat(0, 0, CFSTR("%ld"), (long) result);
+        if (!CFEqual(t, value) || result < 0) {
+            SecError(errSecParam, error, CFSTR("Unsupported %@: %@"), errName, value);
+            result = -1;
+        }
+        CFReleaseSafe(t);
+    } else {
+        SecError(errSecParam, error, CFSTR("Unsupported %@: %@"), errName, value);
+    }
+    return result;
+}
+
+SecKeyRef SecKeyCreateWithData(CFDataRef keyData, CFDictionaryRef parameters, CFErrorRef *error) {
+
+    SecKeyRef key = NULL;
+    CFAllocatorRef allocator = NULL;
+
+    /* First figure out the key type (algorithm). */
+    SInt32 algorithm;
+    CFTypeRef ktype = CFDictionaryGetValue(parameters, kSecAttrKeyType);
+    require_quiet((algorithm = SecKeyParamsGetSInt32(ktype, CFSTR("key type"), error)) >= 0, out);
+    SInt32 class;
+    CFTypeRef kclass = CFDictionaryGetValue(parameters, kSecAttrKeyClass);
+    require_quiet((class = SecKeyParamsGetSInt32(kclass, CFSTR("key class"), error)) >= 0, out);
+
+    switch (class) {
+        case 0: // kSecAttrKeyClassPublic
+            switch (algorithm) {
+                case 42: // kSecAlgorithmRSA
+                    key = SecKeyCreateRSAPublicKey(allocator,
+                                                   CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
+                                                   kSecKeyEncodingBytes);
+                    if (key == NULL) {
+                        SecError(errSecParam, error, CFSTR("RSA public key creation from data failed"));
+                    }
+                    break;
+                case 43: // kSecAlgorithmECDSA
+                case 73: // kSecAlgorithmEC
+                    key = SecKeyCreateECPublicKey(allocator,
+                                                  CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
+                                                  kSecKeyEncodingBytes);
+                    if (key == NULL) {
+                        SecError(errSecParam, error, CFSTR("EC public key creation from data failed"));
+                    }
+                    break;
+                default:
+                    SecError(errSecParam, error, CFSTR("Unsupported public key type: %@"), ktype);
+                    break;
+            };
+            break;
+        case 1: // kSecAttrKeyClassPrivate
+            if (CFDictionaryGetValue(parameters, kSecAttrTokenID) != NULL) {
+                key = SecKeyCreateCTKKey(allocator, parameters, error);
+                break;
+            }
+            switch (algorithm) {
+                case 42: // kSecAlgorithmRSA
+                    key = SecKeyCreateRSAPrivateKey(allocator,
+                                                    CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
+                                                    kSecKeyEncodingBytes);
+                    if (key == NULL) {
+                        SecError(errSecParam, error, CFSTR("RSA private key creation from data failed"));
+                    }
+                    break;
+                case 43: // kSecAlgorithmECDSA
+                case 73: // kSecAlgorithmEC
+                    key = SecKeyCreateECPrivateKey(allocator,
+                                                   CFDataGetBytePtr(keyData), CFDataGetLength(keyData),
+                                                   kSecKeyEncodingBytes);
+                    if (key == NULL) {
+                        SecError(errSecParam, error, CFSTR("EC public key creation from data failed"));
+                    }
+                    break;
+                default:
+                    SecError(errSecParam, error, CFSTR("Unsupported private key type: %@"), ktype);
+                    break;
+            };
+            break;
+        case 2: // kSecAttrKeyClassSymmetric
+            SecError(errSecUnimplemented, error, CFSTR("Unsupported symmetric key type: %@"), ktype);
+            break;
+        default:
+            SecError(errSecParam, error, CFSTR("Unsupported key class: %@"), kclass);
+            break;
+    }
+
+out:
+    return key;
+}
+
+CFDataRef SecKeyCopyExternalRepresentation(SecKeyRef key, CFErrorRef *error) {
+    if (!key->key_class->copyExternalRepresentation) {
+        SecError(errSecUnimplemented, error, CFSTR("export not implemented for key %@"), key);
+        return NULL;
+    }
+
+    return key->key_class->copyExternalRepresentation(key, error);
+}
+
+CFDictionaryRef SecKeyCopyAttributes(SecKeyRef key) {
+    if (key->key_class->copyDictionary)
+        return key->key_class->copyDictionary(key);
+    return NULL;
+}
+
+SecKeyRef SecKeyCopyPublicKey(SecKeyRef key) {
+    SecKeyRef result = NULL;
+    if (key->key_class->version >= 4 && key->key_class->copyPublicKey) {
+        result = key->key_class->copyPublicKey(key);
+        if (result != NULL) {
+            return result;
+        }
+    }
+
+    CFDataRef serializedPublic = NULL;
+
+    require_noerr_quiet(SecKeyCopyPublicBytes(key, &serializedPublic), fail);
+    require_quiet(serializedPublic, fail);
+
+    result = SecKeyCreateFromPublicData(kCFAllocatorDefault, SecKeyGetAlgorithmIdentifier(key), serializedPublic);
+
+fail:
+    CFReleaseSafe(serializedPublic);
+    return result;
+}
+
+SecKeyRef SecKeyCreateRandomKey(CFDictionaryRef parameters, CFErrorRef *error) {
+    SecKeyRef privKey = NULL, pubKey = NULL;
+    OSStatus status = SecKeyGeneratePair(parameters, &pubKey, &privKey);
+    SecError(status, error, CFSTR("Key generation failed, error %d"), (int)status);
+    CFReleaseSafe(pubKey);
+    return privKey;
+}
+
+#pragma mark Generic algorithm adaptor lookup and invocation
+
+static CFTypeRef SecKeyCopyBackendOperationResult(SecKeyOperationContext *context, SecKeyAlgorithm algorithm,
+                                                  CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
+    CFTypeRef result = NULL;
+    assert(CFArrayGetCount(context->algorithm) > 0);
+    if (context->key->key_class->version >= 4 && context->key->key_class->copyOperationResult != NULL) {
+        return context->key->key_class->copyOperationResult(context->key, context->operation, algorithm,
+                                                            context->algorithm, context->mode, in1, in2, error);
+    }
+
+    // Mapping from algorithms to legacy SecPadding values.
+    static const struct {
+        const SecKeyAlgorithm *algorithm;
+        CFIndex keyAlg;
+        SecPadding padding;
+    } paddingMap[] = {
+        { &kSecKeyAlgorithmRSASignatureRaw, kSecRSAAlgorithmID, kSecPaddingNone },
+        { &kSecKeyAlgorithmRSASignatureDigestPKCS1v15Raw, kSecRSAAlgorithmID, kSecPaddingPKCS1 },
+        { &kSecKeyAlgorithmECDSASignatureRFC4754, kSecECDSAAlgorithmID, kSecPaddingSigRaw },
+        { &kSecKeyAlgorithmECDSASignatureDigestX962, kSecECDSAAlgorithmID, kSecPaddingPKCS1 },
+        { &kSecKeyAlgorithmRSAEncryptionRaw, kSecRSAAlgorithmID, kSecPaddingNone },
+        { &kSecKeyAlgorithmRSAEncryptionPKCS1, kSecRSAAlgorithmID, kSecPaddingPKCS1 },
+        { &kSecKeyAlgorithmRSAEncryptionOAEPSHA1, kSecRSAAlgorithmID, kSecPaddingOAEP },
+    };
+    SecPadding padding = (SecPadding)-1;
+    CFIndex keyAlg = SecKeyGetAlgorithmIdentifier(context->key);
+    for (size_t i = 0; i < array_size(paddingMap); ++i) {
+        if (keyAlg == paddingMap[i].keyAlg && CFEqual(algorithm, *paddingMap[i].algorithm)) {
+            padding = paddingMap[i].padding;
+            break;
+        }
+    }
+    require_quiet(padding != (SecPadding)-1, out);
+
+    // Check legacy virtual table entries.
+    size_t size = 0;
+    OSStatus status = errSecSuccess;
+    switch (context->operation) {
+        case kSecKeyOperationTypeSign:
+            if (context->key->key_class->rawSign != NULL) {
+                result = kCFBooleanTrue;
+                if (context->mode == kSecKeyOperationModePerform) {
+                    size = SecKeyGetSize(context->key, kSecKeySignatureSize);
+                    result = CFDataCreateMutableWithScratch(NULL, size);
+                    status = context->key->key_class->rawSign(context->key, padding,
+                                                              CFDataGetBytePtr(in1), CFDataGetLength(in1),
+                                                              CFDataGetMutableBytePtr((CFMutableDataRef)result), &size);
+                }
+            }
+            break;
+        case kSecKeyOperationTypeVerify:
+            if (context->key->key_class->rawVerify != NULL) {
+                result = kCFBooleanTrue;
+                if (context->mode == kSecKeyOperationModePerform) {
+                    status = context->key->key_class->rawVerify(context->key, padding,
+                                                                CFDataGetBytePtr(in1), CFDataGetLength(in1),
+                                                                CFDataGetBytePtr(in2), CFDataGetLength(in2));
+                }
+            }
+            break;
+        case kSecKeyOperationTypeEncrypt:
+            if (context->key->key_class->encrypt != NULL) {
+                result = kCFBooleanTrue;
+                if (context->mode == kSecKeyOperationModePerform) {
+                    size = SecKeyGetSize(context->key, kSecKeyEncryptedDataSize);
+                    result = CFDataCreateMutableWithScratch(NULL, size);
+                    status = context->key->key_class->encrypt(context->key, padding,
+                                                              CFDataGetBytePtr(in1), CFDataGetLength(in1),
+                                                              CFDataGetMutableBytePtr((CFMutableDataRef)result), &size);
+                }
+            }
+            break;
+        case kSecKeyOperationTypeDecrypt:
+            if (context->key->key_class->decrypt != NULL) {
+                result = kCFBooleanTrue;
+                if (context->mode == kSecKeyOperationModePerform) {
+                    size = SecKeyGetSize(context->key, kSecKeyEncryptedDataSize);
+                    result = CFDataCreateMutableWithScratch(NULL, size);
+                    status = context->key->key_class->decrypt(context->key, padding,
+                                                              CFDataGetBytePtr(in1), CFDataGetLength(in1),
+                                                              CFDataGetMutableBytePtr((CFMutableDataRef)result), &size);
+                }
+            }
+            break;
+        default:
+            goto out;
+    }
+
+    if (status == errSecSuccess) {
+        if (CFGetTypeID(result) == CFDataGetTypeID()) {
+            CFDataSetLength((CFMutableDataRef)result, size);
+        }
+    } else {
+        SecError(status, error, CFSTR("legacy SecKey backend operation:%d(%d) failed"), (int)context->operation, (int)padding);
+        CFReleaseNull(result);
+    }
+
+out:
+    return result;
+}
+
+CFTypeRef SecKeyRunAlgorithmAndCopyResult(SecKeyOperationContext *context, CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
+
+    // Check algorithm array for cycles; if any value of it is duplicated inside, report 'algorithm not found' error.
+    CFIndex algorithmCount = CFArrayGetCount(context->algorithm);
+    for (CFIndex index = 0; index < algorithmCount - 1; index++) {
+        SecKeyAlgorithm indexAlgorithm = CFArrayGetValueAtIndex(context->algorithm, index);
+        for (CFIndex tested = index + 1; tested < algorithmCount; tested++) {
+            require_quiet(!CFEqual(indexAlgorithm, CFArrayGetValueAtIndex(context->algorithm, tested)), fail);
+        }
+    }
+
+    SecKeyAlgorithm algorithm = CFArrayGetValueAtIndex(context->algorithm, algorithmCount - 1);
+    CFTypeRef output = SecKeyCopyBackendOperationResult(context, algorithm, in1, in2, error);
+    if (output != kCFNull) {
+        // Backend handled the operation, return result.
+        return output;
+    }
+
+    // To silence static analyzer.
+    CFReleaseSafe(output);
+
+    // Get adaptor which is able to handle requested algorithm.
+    SecKeyAlgorithmAdaptor adaptor = SecKeyGetAlgorithmAdaptor(context->operation, algorithm);
+    require_quiet(adaptor != NULL, fail);
+
+    // Invoke the adaptor and return result.
+    CFTypeRef result = adaptor(context, in1, in2, error);
+    require_quiet(result != kCFNull, fail);
+    return result;
+
+fail:
+    if (context->mode == kSecKeyOperationModePerform) {
+        SecError(errSecParam, error, CFSTR("%@: algorithm not supported by the key %@"),
+                 CFArrayGetValueAtIndex(context->algorithm, 0), context->key);
+        return NULL;
+    } else {
+        return kCFNull;
+    }
+}
+
+#pragma mark Algorithm-related SecKey API entry points
+
+static CFMutableArrayRef SecKeyCreateAlgorithmArray(SecKeyAlgorithm algorithm) {
+    CFMutableArrayRef result = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
+    CFArrayAppendValue(result, algorithm);
+    return result;
+}
+
+CFDataRef SecKeyCreateSignature(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef dataToSign, CFErrorRef *error) {
+    SecKeyOperationContext context = { key, kSecKeyOperationTypeSign, SecKeyCreateAlgorithmArray(algorithm) };
+    CFDataRef result = SecKeyRunAlgorithmAndCopyResult(&context, dataToSign, NULL, error);
+    SecKeyOperationContextDestroy(&context);
+    return result;
+}
+
+Boolean SecKeyVerifySignature(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef signedData, CFDataRef signature,
+                              CFErrorRef *error) {
+    SecKeyOperationContext context = { key, kSecKeyOperationTypeVerify, SecKeyCreateAlgorithmArray(algorithm) };
+    CFTypeRef res = SecKeyRunAlgorithmAndCopyResult(&context, signedData, signature, error);
+    Boolean result = CFEqualSafe(res, kCFBooleanTrue);
+    CFReleaseSafe(res);
+    SecKeyOperationContextDestroy(&context);
+    return result;
+}
+
+CFDataRef SecKeyCreateEncryptedData(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef plainText, CFErrorRef *error) {
+    SecKeyOperationContext context = { key, kSecKeyOperationTypeEncrypt, SecKeyCreateAlgorithmArray(algorithm) };
+    CFDataRef result = SecKeyRunAlgorithmAndCopyResult(&context, plainText, NULL, error);
+    SecKeyOperationContextDestroy(&context);
+    return result;
+}
+
+CFDataRef SecKeyCreateDecryptedData(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef cipherText, CFErrorRef *error) {
+    SecKeyOperationContext context = { key, kSecKeyOperationTypeDecrypt, SecKeyCreateAlgorithmArray(algorithm) };
+    CFDataRef result = SecKeyRunAlgorithmAndCopyResult(&context, cipherText, NULL, error);
+    SecKeyOperationContextDestroy(&context);
+    return result;
+}
+
+CFDataRef SecKeyCopyKeyExchangeResult(SecKeyRef key, SecKeyAlgorithm algorithm, SecKeyRef publicKey,
+                                      CFDictionaryRef parameters, CFErrorRef *error) {
+    CFDataRef publicKeyData = NULL, result = NULL;
+    SecKeyOperationContext context = { key, kSecKeyOperationTypeKeyExchange, SecKeyCreateAlgorithmArray(algorithm) };
+    require_quiet(publicKeyData = SecKeyCopyExternalRepresentation(publicKey, error), out);
+    result = SecKeyRunAlgorithmAndCopyResult(&context, publicKeyData, parameters, error);
+
+out:
+    CFReleaseSafe(publicKeyData);
+    SecKeyOperationContextDestroy(&context);
+    return result;
+}
+
+Boolean SecKeyIsAlgorithmSupported(SecKeyRef key, SecKeyOperationType operation, SecKeyAlgorithm algorithm) {
+    SecKeyOperationContext context = { key, operation, SecKeyCreateAlgorithmArray(algorithm), kSecKeyOperationModeCheckIfSupported };
+    CFErrorRef error = NULL;
+    CFTypeRef res = SecKeyRunAlgorithmAndCopyResult(&context, NULL, NULL, &error);
+    Boolean result = CFEqualSafe(res, kCFBooleanTrue);
+    CFReleaseSafe(res);
+    CFReleaseSafe(error);
+    SecKeyOperationContextDestroy(&context);
+    return result;
 }

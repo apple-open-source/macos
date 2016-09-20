@@ -323,7 +323,8 @@ static size_t wchar_to_loop_convert (iconv_t icd,
   size_t result = 0;
   while (*inbytesleft > 0) {
     size_t incount;
-    for (incount = 1; incount <= *inbytesleft; incount++) {
+    for (incount = 1; ; ) {
+      /* Here incount <= *inbytesleft. */
       char buf[BUF_SIZE];
       const char* inptr = *inbuf;
       size_t inleft = incount;
@@ -404,6 +405,12 @@ static size_t wchar_to_loop_convert (iconv_t icd,
           result += res;
           break;
         }
+      }
+      incount++;
+      if (incount > *inbytesleft) {
+        /* Incomplete input. */
+        errno = EINVAL;
+        return -1;
       }
     }
   }

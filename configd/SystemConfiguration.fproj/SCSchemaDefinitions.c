@@ -74,6 +74,7 @@ const CFStringRef kSCEntNetLinkIssues                              = CFSTR("Link
 const CFStringRef kSCEntNetLinkQuality                             = CFSTR("LinkQuality");
 const CFStringRef kSCEntNetLoopback                                = CFSTR("Loopback");
 const CFStringRef kSCEntNetOnDemand                                = CFSTR("OnDemand");
+const CFStringRef kSCEntNetQoSMarkingPolicy                        = CFSTR("QoSMarkingPolicy");
 const CFStringRef kSCEntNetService                                 = CFSTR("__SERVICE__");
 const CFStringRef kSCEntNetVPN                                     = CFSTR("VPN");
 const CFStringRef kSCPropNetOverridePrimary                        = CFSTR("OverridePrimary");
@@ -96,18 +97,11 @@ const CFStringRef kSCValNetAirPortJoinModeStrongest                = CFSTR("Stro
 const CFStringRef kSCValNetAirPortAuthPasswordEncryptionKeychain   = CFSTR("Keychain");
 
 #if	!TARGET_OS_IPHONE
-const CFStringRef kSCPropNetAppleTalkComputerName                  = CFSTR("ComputerName");
-const CFStringRef kSCPropNetAppleTalkComputerNameEncoding          = CFSTR("ComputerNameEncoding");
 const CFStringRef kSCPropNetAppleTalkConfigMethod                  = CFSTR("ConfigMethod");
 const CFStringRef kSCPropNetAppleTalkDefaultZone                   = CFSTR("DefaultZone");
 const CFStringRef kSCPropNetAppleTalkNetworkID                     = CFSTR("NetworkID");
-const CFStringRef kSCPropNetAppleTalkNetworkRange                  = CFSTR("NetworkRange");
 const CFStringRef kSCPropNetAppleTalkNodeID                        = CFSTR("NodeID");
-const CFStringRef kSCPropNetAppleTalkSeedNetworkRange              = CFSTR("SeedNetworkRange");
-const CFStringRef kSCPropNetAppleTalkSeedZones                     = CFSTR("SeedZones");
 const CFStringRef kSCValNetAppleTalkConfigMethodNode               = CFSTR("Node");
-const CFStringRef kSCValNetAppleTalkConfigMethodRouter             = CFSTR("Router");
-const CFStringRef kSCValNetAppleTalkConfigMethodSeedRouter         = CFSTR("SeedRouter");
 #endif	// !TARGET_OS_IPHONE
 
 
@@ -255,18 +249,6 @@ const CFStringRef kSCPropNetModemSpeed                             = CFSTR("Spee
 const CFStringRef kSCValNetModemDialModeIgnoreDialTone             = CFSTR("IgnoreDialTone");
 const CFStringRef kSCValNetModemDialModeManual                     = CFSTR("Manual");
 const CFStringRef kSCValNetModemDialModeWaitForDialTone            = CFSTR("WaitForDialTone");
-
-#if	!TARGET_OS_IPHONE
-const CFStringRef kSCPropNetNetInfoBindingMethods                  = CFSTR("BindingMethods");
-const CFStringRef kSCPropNetNetInfoServerAddresses                 = CFSTR("ServerAddresses");
-const CFStringRef kSCPropNetNetInfoServerTags                      = CFSTR("ServerTags");
-const CFStringRef kSCPropNetNetInfoBroadcastServerTag              = CFSTR("BroadcastServerTag");
-const CFStringRef kSCValNetNetInfoBindingMethodsBroadcast          = CFSTR("Broadcast");
-const CFStringRef kSCValNetNetInfoBindingMethodsDHCP               = CFSTR("DHCP");
-const CFStringRef kSCValNetNetInfoBindingMethodsManual             = CFSTR("Manual");
-const CFStringRef kSCValNetNetInfoDefaultServerTag                 = CFSTR("network");
-#endif	// !TARGET_OS_IPHONE
-
 const CFStringRef kSCPropNetPPPACSPEnabled                         = CFSTR("ACSPEnabled");
 const CFStringRef kSCPropNetPPPConnectTime                         = CFSTR("ConnectTime");
 const CFStringRef kSCPropNetPPPDeviceLastCause                     = CFSTR("DeviceLastCause");
@@ -381,7 +363,11 @@ const CFStringRef kSCPropNetProxiesScoped                          = CFSTR("__SC
 const CFStringRef kSCPropNetProxiesServices                        = CFSTR("__SERVICES__");
 const CFStringRef kSCPropNetProxiesSupplemental                    = CFSTR("__SUPPLEMENTAL__");
 const CFStringRef kSCPropNetProxiesSupplementalMatchDomain         = CFSTR("__MATCH_DOMAIN__");
+const CFStringRef kSCPropNetQoSMarkingAppleAudioVideoCalls         = CFSTR("QoSMarkingAppleAudioVideoCalls");
+const CFStringRef kSCPropNetQoSMarkingEnabled                      = CFSTR("QoSMarkingEnabled");
+const CFStringRef kSCPropNetQoSMarkingWhitelistedAppIdentifiers    = CFSTR("QoSMarkingWhitelistedAppIdentifiers");
 const CFStringRef kSCPropNetServicePrimaryRank                     = CFSTR("PrimaryRank");
+const CFStringRef kSCPropNetServiceServiceIndex                    = CFSTR("ServiceIndex");
 const CFStringRef kSCPropNetServiceUserDefinedName                 = CFSTR("UserDefinedName");
 const CFStringRef kSCValNetServicePrimaryRankFirst                 = CFSTR("First");
 const CFStringRef kSCValNetServicePrimaryRankLast                  = CFSTR("Last");

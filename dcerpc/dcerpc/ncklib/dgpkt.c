@@ -1570,7 +1570,8 @@ PRIVATE void rpc__dg_pkt_cancel_reservation
  * to make sure there are enough packets in the packet pool to satisfy the
  * requirements of the packet rationing algorithm.
  */
-
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PUBLIC void rpc_mgmt_set_max_concurrency
 (
     unsigned32 max_client_calls,
@@ -1603,6 +1604,7 @@ PUBLIC void rpc_mgmt_set_max_concurrency
 
     RPC_DG_PKT_POOL_UNLOCK(0);
 }
+#endif
 
 /*
  * R P C _ M G M T _ G E T _ M A X _ C O N C U R R E N C Y
@@ -1610,7 +1612,8 @@ PUBLIC void rpc_mgmt_set_max_concurrency
  * This call allows an application (currently only DFS) to inquire about the
  * maximum number of call threads that can be run concurrently.
  */
-
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PUBLIC unsigned32 rpc_mgmt_get_max_concurrency(void)
 {
     unsigned32 temp;
@@ -1629,6 +1632,7 @@ PUBLIC unsigned32 rpc_mgmt_get_max_concurrency(void)
 
     return (temp);
 }
+#endif
 
 /*
  * R P C _ _ D G _ P K T _ I S _ R A T I O N I N G

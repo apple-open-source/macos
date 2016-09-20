@@ -1,4 +1,4 @@
-; Copyright (C) 2013, 2014 Apple Inc. All rights reserved.
+; Copyright (C) 2013-2016 Apple Inc. All rights reserved.
 ;
 ; Redistribution and use in source and binary forms, with or without
 ; modification, are permitted provided that the following conditions
@@ -43,6 +43,8 @@
     (subpath "/Library/Frameworks")
     (subpath "/Library/Managed Preferences")
 
+    (literal "/Library/Application Support/CrashReporter/SubmitDiagInfo.domains")
+
     ;; System and user preferences
     (literal "/Library/Preferences/.GlobalPreferences.plist")
     (regex #"^/Library/Managed Preferences/[^/]+/com\.apple\.networkConnect\.plist$")
@@ -55,6 +57,7 @@
     ;; On-disk WebKit2 framework location, to account for debug installations
     ;; outside of /System/Library/Frameworks
     (subpath (param "WEBKIT2_FRAMEWORK_DIR")))
+(allow system-fsctl (fsctl-command (_IO "h" 47)))
 
 ;; Sandbox extensions
 (define (apply-read-and-issue-extension op path-filter)
@@ -100,7 +103,10 @@
 
 ;; Security framework
 (allow mach-lookup
+       (global-name "com.apple.ctkd.token-client") 
        (global-name "com.apple.ocspd")
+       (global-name "com.apple.securityd.xpc") 
+       (global-name "com.apple.CoreAuthentication.agent.libxpc")
        (global-name "com.apple.SecurityServer"))
 (allow file-read* file-write* (home-subpath "/Library/Keychains")) ;; FIXME: This should be removed when <rdar://problem/10479685> is fixed.
 (allow file-read* file-write* (subpath "/private/var/db/mds/system")) ;; FIXME: This should be removed when <rdar://problem/9538414> is fixed.
@@ -152,11 +158,7 @@
 (deny file-write-xattr (xattr "com.apple.quarantine") (with no-log))
 
 ;; Reserve a namespace for additional protected extended attributes.
-#if __MAC_OS_X_VERSION_MIN_REQUIRED > 1090
 (deny file-read-xattr file-write-xattr (xattr-regex #"^com\.apple\.security\.private\."))
-#else
-(deny file-read-xattr file-write-xattr (xattr #"^com\.apple\.security\.private\."))
-#endif
 
 (deny file-read* file-write* (with no-log)
     ;; FIXME: Should be removed after <rdar://problem/10463881> is fixed.

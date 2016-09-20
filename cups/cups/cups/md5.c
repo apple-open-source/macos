@@ -1,6 +1,4 @@
 /*
- * "$Id: md5.c 12131 2014-08-28 23:38:16Z msweet $"
- *
  * Private MD5 implementation for CUPS.
  *
  * Copyright 2007-2014 by Apple Inc.
@@ -339,8 +337,3 @@ _cupsMD5Finish(_cups_md5_state_t *pms, unsigned char digest[16])
     for (i = 0; i < 16; ++i)
 	digest[i] = (unsigned char)(pms->abcd[i >> 2] >> ((i & 3) << 3));
 }
-
-
-/*
- * End of "$Id: md5.c 12131 2014-08-28 23:38:16Z msweet $".
- */

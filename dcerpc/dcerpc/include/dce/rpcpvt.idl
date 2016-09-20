@@ -200,12 +200,15 @@ boolean32 rpc_binding_handle_equal
  * Server binding handles are those created by the runtime and provided
  * to the server manager as a result of a [handle_t] RPC parameter.
  */
+/*
+ * Removed unused symbol for rdar://problem/26430747
 void rpc_binding_server_to_client
 (
     [in]        rpc_binding_handle_t    sbinding_handle,
     [out]       rpc_binding_handle_t    *cbinding_handle,
     [out]       unsigned32              *status
 );
+ */
 
 /*
  * R P C _ B I N D I N G _ T O _ E P M A P
@@ -214,12 +217,14 @@ void rpc_binding_server_to_client
  * EP map on that host.  If input_binding is NULL, return a binding to
  * the EP map on the local host.
  */
+/* Removed unused symbol for rdar://problem/26430747
 void rpc_binding_to_epmap
 (
     [in]        rpc_binding_handle_t    input_binding,
     [out]       rpc_binding_handle_t    *output_binding,
     [out]       unsigned32              *status
 );
+ */
 
 /*************************************************************************/
 /********************  Comm Services Server object  **********************/
@@ -319,12 +324,14 @@ void rpc_server_set_thread_pool_fn
  * queue size to be increased.  Attempts to decrease the queue size
  * are ignored.)
  */
+/* Removed unused symbol for rdar://problem/26430747
 void rpc_server_set_thread_pool_qlen
 (
     [in]        rpc_thread_pool_handle_t  phandle,
     [in]        unsigned32                queue_size,
     [out]       unsigned32                *status
 );
+*/
 
 /*************************************************************************/
 /*******************  Comm Services Tower object  ************************/
@@ -348,6 +355,7 @@ void rpc_tower_to_binding
  *
  * Creates a tower vector (of twr_t's) from a binding handle.
  */
+/* Removed unused symbol for rdar://problem/26430747
 void rpc_tower_vector_from_binding
 (
     [in]        rpc_if_handle_t         if_spec,
@@ -355,6 +363,7 @@ void rpc_tower_vector_from_binding
     [out]       rpc_tower_vector_p_t    *twr_vector,
     [out]       unsigned32              *status
 );
+*/
 
 /*
  * R P C _ T O W E R _ V E C T O R _ F R E E
@@ -363,11 +372,13 @@ void rpc_tower_vector_from_binding
  * contained in the vector and the vector itself. A NULL pointer will be
  * returned.
  */
+/* Removed unused symbol for rdar://problem/26430747
 void rpc_tower_vector_free
 (
     [in, out]   rpc_tower_vector_p_t    *twr_vector,
     [out]       unsigned32              *status
 );
+*/
 
 /*************************************************************************/
 /**********************  Name Services Entry object  *********************/
@@ -424,12 +435,14 @@ void rpc_mgmt_inq_dflt_authn_level
  * Notify RPC runtime of how many concurrent RPC threads are required
  * by the application.
  */
+/* Removed unused symbol for rdar://problem/26430747
 void rpc_mgmt_set_max_concurrency
 (
     [in]        unsigned32              max_client_calls,
     [in]        unsigned32              max_server_calls,
     [out]       unsigned32              *status
 );
+*/
 
 /*
  * R P C _ M G M T _ G E T _ M A X _ C O N C U R R E N C Y
@@ -437,20 +450,24 @@ void rpc_mgmt_set_max_concurrency
  * Allows an application to determine how many concurrent RPC calls can
  * be supported by the runtime.
  */
+/* Removed unused symbol for rdar://problem/26430747
 unsigned32 rpc_mgmt_get_max_concurrency
 (
 );
+*/
 
 /*
  * R P C _ M G M T _ S E T _ S E R V E R _ C O M _ T I M E O U T
  *
  * Set the default comm timeout setting for all server calls.
  */
+/* Removed unused symbol for rdar://problem/26430747
 void rpc_mgmt_set_server_com_timeout
 (
     [in]        unsigned32              timeout,
     [out]       unsigned32              *status
 );
+*/
 
 /*
  * R P C _ M G M T _ I N Q _ S E R V E R _ C O M _ T I M E O U T
@@ -490,11 +507,13 @@ void rpc_binding_inq_client
  * stack. The danger is that the server stub would return to the RPC
  * runtime thereby invalidating its stack and the buffer contents.
  */
+/* Removed unused symbol for rdar://problem/26430747
 void rpc_call_block_until_free
 (
     [in]        rpc_call_handle_t       call_handle,
     [out]       unsigned32              *status
 );
+ */
 
 /*
  * R P C _ C A L L _ C A N C E L
@@ -502,11 +521,13 @@ void rpc_call_block_until_free
  * Forward a local cancel to the remote RPC thread identified by the call
  * handle provided.
  */
+/* Removed unused symbol for rdar://problem/26430747
 void rpc_call_cancel
 (
     [in]        rpc_call_handle_t       call_handle,
     [out]       unsigned32              *status
 );
+*/
 
 /*
  * R P C _ C A L L _ D I D _ M G R _ E X E C U T E

@@ -45,12 +45,10 @@ class MHTMLArchive : public Archive {
 public:
     virtual Type type() const { return MHTML; }
 
-    static PassRefPtr<MHTMLArchive> create();
-    static PassRefPtr<MHTMLArchive> create(const URL&, SharedBuffer*);
+    static Ref<MHTMLArchive> create();
+    static RefPtr<MHTMLArchive> create(const URL&, SharedBuffer&);
 
     static PassRefPtr<SharedBuffer> generateMHTMLData(Page*);
-    // Binary encoding results in smaller MHTML files but they might not work in other browsers.
-    static PassRefPtr<SharedBuffer> generateMHTMLDataUsingBinaryEncoding(Page*);
 
     virtual ~MHTMLArchive();
 

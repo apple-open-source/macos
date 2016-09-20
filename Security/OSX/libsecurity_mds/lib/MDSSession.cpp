@@ -126,10 +126,10 @@ namespace Security
 #define MDS_SCAN_INTERVAL 	5
 
 /* trace file I/O */
-#define MSIoDbg(args...)		secdebug("MDS_IO", ## args)
+#define MSIoDbg(args...)		secinfo("MDS_IO", ## args)
 
 /* Trace cleanDir() */
-#define MSCleanDirDbg(args...)	secdebug("MDS_CleanDir", ## args)
+#define MSCleanDirDbg(args...)	secinfo("MDS_CleanDir", ## args)
 
 static std::string GetMDSBaseDBDir(bool isRoot)
 {
@@ -766,11 +766,11 @@ MDSSession::LockHelper::obtainLock(
 {
 	mFD = -1;
 	for(;;) {
-		secdebug("mdslock", "obtainLock: calling open(%s)", lockFile);
+		secinfo("mdslock", "obtainLock: calling open(%s)", lockFile);
 		mFD = open(lockFile, O_EXLOCK | O_CREAT | O_RDWR, 0644);
 		if(mFD == -1) {
 			int err = errno;
-			secdebug("mdslock", "obtainLock: open error %d", errno);
+			secinfo("mdslock", "obtainLock: open error %d", errno);
 			if(err == EINTR) {
 				/* got a signal, go again */
 				continue;
@@ -781,7 +781,7 @@ MDSSession::LockHelper::obtainLock(
 			}
 		}
 		else {
-			secdebug("mdslock", "obtainLock: success");
+			secinfo("mdslock", "obtainLock: success");
 			return true;
 		}
 	}
@@ -797,7 +797,7 @@ MDSSession::LockHelper::obtainLock(
 
 MDSSession::LockHelper::~LockHelper()
 {
-	secdebug("mdslock", "releaseLock");
+	secinfo("mdslock", "releaseLock");
     if (mFD == -1)
     {
         return;

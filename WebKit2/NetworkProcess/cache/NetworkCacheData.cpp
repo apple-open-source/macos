@@ -62,6 +62,9 @@ Data Data::mapToFile(const char* path) const
     // Drop the write permission.
     mprotect(map, m_size, PROT_READ);
 
+    // Flush (asynchronously) to file, turning this into clean memory.
+    msync(map, m_size, MS_ASYNC);
+
     return Data::adoptMap(map, m_size, fd);
 }
 
@@ -86,8 +89,10 @@ Data mapFile(const char* path)
 
 Data adoptAndMapFile(int fd, size_t offset, size_t size)
 {
-    if (!size)
+    if (!size) {
+        close(fd);
         return Data::empty();
+    }
 
     void* map = mmap(nullptr, size, PROT_READ, MAP_PRIVATE, fd, offset);
     if (map == MAP_FAILED) {

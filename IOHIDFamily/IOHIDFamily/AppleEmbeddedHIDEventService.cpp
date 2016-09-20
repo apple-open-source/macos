@@ -191,6 +191,21 @@ void AppleEmbeddedHIDEventService::dispatchBiometricEvent(AbsoluteTime timeStamp
 }
 
 //====================================================================================================
+// AppleEmbeddedHIDEventService::dispatchBiometricEvent
+//====================================================================================================
+/*
+void AppleEmbeddedHIDEventService::dispatchBiometricEvent(AbsoluteTime timeStamp, IOFixed level, IOHIDBiometricEventType eventType, UInt32 usagePage, UInt32 usage, UInt8 tapCount, IOOptionBits options)
+{
+    IOHIDEvent * event = IOHIDEvent::biometricEvent(timeStamp, level, eventType, usagePage, usage, tapCount, options);
+    
+    if ( event ) {
+        dispatchEvent(event);
+        event->release();
+    }
+}
+*/
+
+//====================================================================================================
 // AppleEmbeddedHIDEventService::dispatchAtmosphericPressureEvent
 //====================================================================================================
 void AppleEmbeddedHIDEventService::dispatchAtmosphericPressureEvent(AbsoluteTime timeStamp, IOFixed level, UInt32 sequence, IOOptionBits options)

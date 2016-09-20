@@ -1,1 +1,0 @@
-This example shows how to implement an ``NSFormatter`` subclass in Python.

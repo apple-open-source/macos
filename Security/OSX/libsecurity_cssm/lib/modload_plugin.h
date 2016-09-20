@@ -56,6 +56,8 @@ private:
     template <class FunctionType>
     void findFunction(FunctionType * &func, const char *name)
     { func = (FunctionType *)lookupSymbol(name); }
+
+    bool allowableModulePath(const char *path);
 };
 
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012, 2013, 2015 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2012-2013, 2015-2016 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,6 +31,7 @@
 #include "ClassInfo.h"
 #include "CodeCache.h"
 #include "Executable.h"
+#include "ExecutableInfo.h"
 #include "FunctionOverrides.h"
 #include "JSString.h"
 #include "JSCInlines.h"
@@ -43,202 +44,36 @@
 
 namespace JSC {
 
-static_assert(sizeof(UnlinkedFunctionExecutable) <= 128, "UnlinkedFunctionExecutable should fit in a 128-byte cell.");
-
-const ClassInfo UnlinkedFunctionExecutable::s_info = { "UnlinkedFunctionExecutable", 0, 0, CREATE_METHOD_TABLE(UnlinkedFunctionExecutable) };
 const ClassInfo UnlinkedCodeBlock::s_info = { "UnlinkedCodeBlock", 0, 0, CREATE_METHOD_TABLE(UnlinkedCodeBlock) };
 const ClassInfo UnlinkedGlobalCodeBlock::s_info = { "UnlinkedGlobalCodeBlock", &Base::s_info, 0, CREATE_METHOD_TABLE(UnlinkedGlobalCodeBlock) };
 const ClassInfo UnlinkedProgramCodeBlock::s_info = { "UnlinkedProgramCodeBlock", &Base::s_info, 0, CREATE_METHOD_TABLE(UnlinkedProgramCodeBlock) };
+const ClassInfo UnlinkedModuleProgramCodeBlock::s_info = { "UnlinkedModuleProgramCodeBlock", &Base::s_info, nullptr, CREATE_METHOD_TABLE(UnlinkedModuleProgramCodeBlock) };
 const ClassInfo UnlinkedEvalCodeBlock::s_info = { "UnlinkedEvalCodeBlock", &Base::s_info, 0, CREATE_METHOD_TABLE(UnlinkedEvalCodeBlock) };
 const ClassInfo UnlinkedFunctionCodeBlock::s_info = { "UnlinkedFunctionCodeBlock", &Base::s_info, 0, CREATE_METHOD_TABLE(UnlinkedFunctionCodeBlock) };
 
-static UnlinkedFunctionCodeBlock* generateFunctionCodeBlock(
-    VM& vm, UnlinkedFunctionExecutable* executable, const SourceCode& source,
-    CodeSpecializationKind kind, DebuggerMode debuggerMode, ProfilerMode profilerMode,
-    UnlinkedFunctionKind functionKind, ParserError& error)
-{
-    JSParserBuiltinMode builtinMode = executable->isBuiltinFunction() ? JSParserBuiltinMode::Builtin : JSParserBuiltinMode::NotBuiltin;
-    JSParserStrictMode strictMode = executable->isInStrictContext() ? JSParserStrictMode::Strict : JSParserStrictMode::NotStrict;
-    std::unique_ptr<FunctionNode> function = parse<FunctionNode>(
-        &vm, source, executable->parameters(), executable->name(), builtinMode,
-        strictMode, JSParserCodeType::Function, error, 0);
-
-    if (!function) {
-        ASSERT(error.isValid());
-        return nullptr;
-    }
-
-    function->finishParsing(executable->parameters(), executable->name(), executable->functionMode());
-    executable->recordParse(function->features(), function->hasCapturedVariables());
-    
-    UnlinkedFunctionCodeBlock* result = UnlinkedFunctionCodeBlock::create(&vm, FunctionCode,
-        ExecutableInfo(function->needsActivation(), function->usesEval(), function->isStrictMode(), kind == CodeForConstruct, functionKind == UnlinkedBuiltinFunction, executable->constructorKind()));
-    auto generator(std::make_unique<BytecodeGenerator>(vm, function.get(), result, debuggerMode, profilerMode));
-    error = generator->generate();
-    if (error.isValid())
-        return nullptr;
-    return result;
-}
-
-UnlinkedFunctionExecutable::UnlinkedFunctionExecutable(VM* vm, Structure* structure, const SourceCode& source, RefPtr<SourceProvider>&& sourceOverride, FunctionBodyNode* node, UnlinkedFunctionKind kind)
-    : Base(*vm, structure)
-    , m_name(node->ident())
-    , m_inferredName(node->inferredName())
-    , m_parameters(node->parameters())
-    , m_sourceOverride(WTF::move(sourceOverride))
-    , m_firstLineOffset(node->firstLine() - source.firstLine())
-    , m_lineCount(node->lastLine() - node->firstLine())
-    , m_unlinkedFunctionNameStart(node->functionNameStart() - source.startOffset())
-    , m_unlinkedBodyStartColumn(node->startColumn())
-    , m_unlinkedBodyEndColumn(m_lineCount ? node->endColumn() : node->endColumn() - node->startColumn())
-    , m_startOffset(node->source().startOffset() - source.startOffset())
-    , m_sourceLength(node->source().length())
-    , m_parametersStartOffset(node->parametersStart())
-    , m_typeProfilingStartOffset(node->functionKeywordStart())
-    , m_typeProfilingEndOffset(node->startStartOffset() + node->source().length() - 1)
-    , m_features(0)
-    , m_isInStrictContext(node->isInStrictContext())
-    , m_hasCapturedVariables(false)
-    , m_isBuiltinFunction(kind == UnlinkedBuiltinFunction)
-    , m_constructorKind(static_cast<unsigned>(node->constructorKind()))
-    , m_functionMode(node->functionMode())
-{
-    ASSERT(m_constructorKind == static_cast<unsigned>(node->constructorKind()));
-}
-
-size_t UnlinkedFunctionExecutable::parameterCount() const
-{
-    return m_parameters->size();
-}
-
-void UnlinkedFunctionExecutable::visitChildren(JSCell* cell, SlotVisitor& visitor)
-{
-    UnlinkedFunctionExecutable* thisObject = jsCast<UnlinkedFunctionExecutable*>(cell);
-    ASSERT_GC_OBJECT_INHERITS(thisObject, info());
-    Base::visitChildren(thisObject, visitor);
-    visitor.append(&thisObject->m_codeBlockForCall);
-    visitor.append(&thisObject->m_codeBlockForConstruct);
-    visitor.append(&thisObject->m_nameValue);
-    visitor.append(&thisObject->m_symbolTableForCall);
-    visitor.append(&thisObject->m_symbolTableForConstruct);
-}
-
-FunctionExecutable* UnlinkedFunctionExecutable::link(VM& vm, const SourceCode& ownerSource, int overrideLineNumber)
-{
-    SourceCode source = m_sourceOverride ? SourceCode(m_sourceOverride) : ownerSource;
-    unsigned firstLine = source.firstLine() + m_firstLineOffset;
-    unsigned startOffset = source.startOffset() + m_startOffset;
-    unsigned lineCount = m_lineCount;
-
-    // Adjust to one-based indexing.
-    bool startColumnIsOnFirstSourceLine = !m_firstLineOffset;
-    unsigned startColumn = m_unlinkedBodyStartColumn + (startColumnIsOnFirstSourceLine ? source.startColumn() : 1);
-    bool endColumnIsOnStartLine = !lineCount;
-    unsigned endColumn = m_unlinkedBodyEndColumn + (endColumnIsOnStartLine ? startColumn : 1);
-
-    SourceCode code(source.provider(), startOffset, startOffset + m_sourceLength, firstLine, startColumn);
-    FunctionOverrides::OverrideInfo overrideInfo;
-    bool hasFunctionOverride = false;
-
-    if (UNLIKELY(Options::functionOverrides())) {
-        hasFunctionOverride = FunctionOverrides::initializeOverrideFor(code, overrideInfo);
-        if (hasFunctionOverride) {
-            firstLine = overrideInfo.firstLine;
-            lineCount = overrideInfo.lineCount;
-            startColumn = overrideInfo.startColumn;
-            endColumn = overrideInfo.endColumn;
-            code = overrideInfo.sourceCode;
-        }
-    }
-
-    FunctionExecutable* result = FunctionExecutable::create(vm, code, this, firstLine, firstLine + lineCount, startColumn, endColumn);
-    if (overrideLineNumber != -1)
-        result->setOverrideLineNumber(overrideLineNumber);
-
-    if (UNLIKELY(hasFunctionOverride)) {
-        result->overrideParameterAndTypeProfilingStartEndOffsets(
-            overrideInfo.parametersStartOffset,
-            overrideInfo.typeProfilingStartOffset,
-            overrideInfo.typeProfilingEndOffset);
-    }
-
-    return result;
-}
-
-UnlinkedFunctionExecutable* UnlinkedFunctionExecutable::fromGlobalCode(
-    const Identifier& name, ExecState& exec, const SourceCode& source, 
-    JSObject*& exception, int overrideLineNumber)
-{
-    ParserError error;
-    VM& vm = exec.vm();
-    CodeCache* codeCache = vm.codeCache();
-    UnlinkedFunctionExecutable* executable = codeCache->getFunctionExecutableFromGlobalCode(vm, name, source, error);
-
-    auto& globalObject = *exec.lexicalGlobalObject();
-    if (globalObject.hasDebugger())
-        globalObject.debugger()->sourceParsed(&exec, source.provider(), error.line(), error.message());
-
-    if (error.isValid()) {
-        exception = error.toErrorObject(&globalObject, source, overrideLineNumber);
-        return nullptr;
-    }
-
-    return executable;
-}
-
-UnlinkedFunctionCodeBlock* UnlinkedFunctionExecutable::codeBlockFor(
-    VM& vm, const SourceCode& source, CodeSpecializationKind specializationKind, 
-    DebuggerMode debuggerMode, ProfilerMode profilerMode, ParserError& error)
-{
-    switch (specializationKind) {
-    case CodeForCall:
-        if (UnlinkedFunctionCodeBlock* codeBlock = m_codeBlockForCall.get())
-            return codeBlock;
-        break;
-    case CodeForConstruct:
-        if (UnlinkedFunctionCodeBlock* codeBlock = m_codeBlockForConstruct.get())
-            return codeBlock;
-        break;
-    }
-
-    UnlinkedFunctionCodeBlock* result = generateFunctionCodeBlock(
-        vm, this, source, specializationKind, debuggerMode, profilerMode, 
-        isBuiltinFunction() ? UnlinkedBuiltinFunction : UnlinkedNormalFunction, 
-        error);
-    
-    if (error.isValid())
-        return nullptr;
-
-    switch (specializationKind) {
-    case CodeForCall:
-        m_codeBlockForCall.set(vm, this, result);
-        m_symbolTableForCall.set(vm, this, result->symbolTable());
-        break;
-    case CodeForConstruct:
-        m_codeBlockForConstruct.set(vm, this, result);
-        m_symbolTableForConstruct.set(vm, this, result->symbolTable());
-        break;
-    }
-    return result;
-}
-
-UnlinkedCodeBlock::UnlinkedCodeBlock(VM* vm, Structure* structure, CodeType codeType, const ExecutableInfo& info)
+UnlinkedCodeBlock::UnlinkedCodeBlock(VM* vm, Structure* structure, CodeType codeType, const ExecutableInfo& info, DebuggerMode debuggerMode)
     : Base(*vm, structure)
     , m_numVars(0)
-    , m_numCalleeRegisters(0)
+    , m_numCalleeLocals(0)
     , m_numParameters(0)
-    , m_vm(vm)
     , m_globalObjectRegister(VirtualRegister())
-    , m_needsFullScopeChain(info.needsActivation())
     , m_usesEval(info.usesEval())
     , m_isStrictMode(info.isStrictMode())
     , m_isConstructor(info.isConstructor())
     , m_hasCapturedVariables(false)
     , m_isBuiltinFunction(info.isBuiltinFunction())
     , m_constructorKind(static_cast<unsigned>(info.constructorKind()))
+    , m_superBinding(static_cast<unsigned>(info.superBinding()))
+    , m_derivedContextType(static_cast<unsigned>(info.derivedContextType()))
+    , m_evalContextType(static_cast<unsigned>(info.evalContextType()))
+    , m_isArrowFunctionContext(info.isArrowFunctionContext())
+    , m_isClassContext(info.isClassContext())
+    , m_wasCompiledWithDebuggingOpcodes(debuggerMode == DebuggerMode::DebuggerOn || Options::forceDebuggerBytecodeGeneration())
     , m_firstLine(0)
     , m_lineCount(0)
     , m_endColumn(UINT_MAX)
+    , m_didOptimize(MixedTriState)
+    , m_parseMode(info.parseMode())
     , m_features(0)
     , m_codeType(codeType)
     , m_arrayProfileCount(0)
@@ -246,13 +81,15 @@ UnlinkedCodeBlock::UnlinkedCodeBlock(VM* vm, Structure* structure, CodeType code
     , m_objectAllocationProfileCount(0)
     , m_valueProfileCount(0)
     , m_llintCallLinkInfoCount(0)
-#if ENABLE(BYTECODE_COMMENTS)
-    , m_bytecodeCommentIterator(0)
-#endif
 {
     for (auto& constantRegisterIndex : m_linkTimeConstants)
         constantRegisterIndex = 0;
     ASSERT(m_constructorKind == static_cast<unsigned>(info.constructorKind()));
+}
+
+VM* UnlinkedCodeBlock::vm() const
+{
+    return MarkedBlock::blockFor(this)->vm();
 }
 
 void UnlinkedCodeBlock::visitChildren(JSCell* cell, SlotVisitor& visitor)
@@ -260,16 +97,24 @@ void UnlinkedCodeBlock::visitChildren(JSCell* cell, SlotVisitor& visitor)
     UnlinkedCodeBlock* thisObject = jsCast<UnlinkedCodeBlock*>(cell);
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
     Base::visitChildren(thisObject, visitor);
-    visitor.append(&thisObject->m_symbolTable);
     for (FunctionExpressionVector::iterator ptr = thisObject->m_functionDecls.begin(), end = thisObject->m_functionDecls.end(); ptr != end; ++ptr)
         visitor.append(ptr);
     for (FunctionExpressionVector::iterator ptr = thisObject->m_functionExprs.begin(), end = thisObject->m_functionExprs.end(); ptr != end; ++ptr)
         visitor.append(ptr);
     visitor.appendValues(thisObject->m_constantRegisters.data(), thisObject->m_constantRegisters.size());
+    if (thisObject->m_unlinkedInstructions)
+        visitor.reportExtraMemoryVisited(thisObject->m_unlinkedInstructions->sizeInBytes());
     if (thisObject->m_rareData) {
         for (size_t i = 0, end = thisObject->m_rareData->m_regexps.size(); i != end; i++)
             visitor.append(&thisObject->m_rareData->m_regexps[i]);
     }
+}
+
+size_t UnlinkedCodeBlock::estimatedSize(JSCell* cell)
+{
+    UnlinkedCodeBlock* thisObject = jsCast<UnlinkedCodeBlock*>(cell);
+    size_t extraSize = thisObject->m_unlinkedInstructions ? thisObject->m_unlinkedInstructions->sizeInBytes() : 0;
+    return Base::estimatedSize(cell) + extraSize;
 }
 
 int UnlinkedCodeBlock::lineNumberForBytecodeOffset(unsigned bytecodeOffset)
@@ -284,8 +129,8 @@ int UnlinkedCodeBlock::lineNumberForBytecodeOffset(unsigned bytecodeOffset)
     return line;
 }
 
-inline void UnlinkedCodeBlock::getLineAndColumn(ExpressionRangeInfo& info,
-    unsigned& line, unsigned& column)
+inline void UnlinkedCodeBlock::getLineAndColumn(const ExpressionRangeInfo& info,
+    unsigned& line, unsigned& column) const
 {
     switch (info.mode) {
     case ExpressionRangeInfo::FatLineMode:
@@ -341,7 +186,7 @@ void UnlinkedCodeBlock::dumpExpressionRangeInfo()
 #endif
 
 void UnlinkedCodeBlock::expressionRangeForBytecodeOffset(unsigned bytecodeOffset,
-    int& divot, int& startOffset, int& endOffset, unsigned& line, unsigned& column)
+    int& divot, int& startOffset, int& endOffset, unsigned& line, unsigned& column) const
 {
     ASSERT(bytecodeOffset < instructions().count());
 
@@ -354,7 +199,7 @@ void UnlinkedCodeBlock::expressionRangeForBytecodeOffset(unsigned bytecodeOffset
         return;
     }
 
-    Vector<ExpressionRangeInfo>& expressionInfo = m_expressionInfo;
+    const Vector<ExpressionRangeInfo>& expressionInfo = m_expressionInfo;
 
     int low = 0;
     int high = expressionInfo.size();
@@ -369,7 +214,7 @@ void UnlinkedCodeBlock::expressionRangeForBytecodeOffset(unsigned bytecodeOffset
     if (!low)
         low = 1;
 
-    ExpressionRangeInfo& info = expressionInfo[low - 1];
+    const ExpressionRangeInfo& info = expressionInfo[low - 1];
     startOffset = info.startOffset;
     endOffset = info.endOffset;
     divot = info.divotPoint;
@@ -433,8 +278,16 @@ void UnlinkedCodeBlock::addExpressionInfo(unsigned instructionOffset,
 bool UnlinkedCodeBlock::typeProfilerExpressionInfoForBytecodeOffset(unsigned bytecodeOffset, unsigned& startDivot, unsigned& endDivot)
 {
     static const bool verbose = false;
-    auto iter = m_typeProfilerInfoMap.find(bytecodeOffset);
-    if (iter == m_typeProfilerInfoMap.end()) {
+    if (!m_rareData) {
+        if (verbose)
+            dataLogF("Don't have assignment info for offset:%u\n", bytecodeOffset);
+        startDivot = UINT_MAX;
+        endDivot = UINT_MAX;
+        return false;
+    }
+
+    auto iter = m_rareData->m_typeProfilerInfoMap.find(bytecodeOffset);
+    if (iter == m_rareData->m_typeProfilerInfoMap.end()) {
         if (verbose)
             dataLogF("Don't have assignment info for offset:%u\n", bytecodeOffset);
         startDivot = UINT_MAX;
@@ -442,7 +295,7 @@ bool UnlinkedCodeBlock::typeProfilerExpressionInfoForBytecodeOffset(unsigned byt
         return false;
     }
     
-    TypeProfilerExpressionRange& range = iter->value;
+    RareData::TypeProfilerExpressionRange& range = iter->value;
     startDivot = range.m_startDivot;
     endDivot = range.m_endDivot;
     return true;
@@ -450,15 +303,23 @@ bool UnlinkedCodeBlock::typeProfilerExpressionInfoForBytecodeOffset(unsigned byt
 
 void UnlinkedCodeBlock::addTypeProfilerExpressionInfo(unsigned instructionOffset, unsigned startDivot, unsigned endDivot)
 {
-    TypeProfilerExpressionRange range;
+    createRareDataIfNecessary();
+    RareData::TypeProfilerExpressionRange range;
     range.m_startDivot = startDivot;
     range.m_endDivot = endDivot;
-    m_typeProfilerInfoMap.set(instructionOffset, range);  
+    m_rareData->m_typeProfilerInfoMap.set(instructionOffset, range);
 }
 
 void UnlinkedProgramCodeBlock::visitChildren(JSCell* cell, SlotVisitor& visitor)
 {
     UnlinkedProgramCodeBlock* thisObject = jsCast<UnlinkedProgramCodeBlock*>(cell);
+    ASSERT_GC_OBJECT_INHERITS(thisObject, info());
+    Base::visitChildren(thisObject, visitor);
+}
+
+void UnlinkedModuleProgramCodeBlock::visitChildren(JSCell* cell, SlotVisitor& visitor)
+{
+    UnlinkedModuleProgramCodeBlock* thisObject = jsCast<UnlinkedModuleProgramCodeBlock*>(cell);
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
     Base::visitChildren(thisObject, visitor);
 }
@@ -470,6 +331,11 @@ UnlinkedCodeBlock::~UnlinkedCodeBlock()
 void UnlinkedProgramCodeBlock::destroy(JSCell* cell)
 {
     jsCast<UnlinkedProgramCodeBlock*>(cell)->~UnlinkedProgramCodeBlock();
+}
+
+void UnlinkedModuleProgramCodeBlock::destroy(JSCell* cell)
+{
+    jsCast<UnlinkedModuleProgramCodeBlock*>(cell)->~UnlinkedModuleProgramCodeBlock();
 }
 
 void UnlinkedEvalCodeBlock::destroy(JSCell* cell)
@@ -489,7 +355,9 @@ void UnlinkedFunctionExecutable::destroy(JSCell* cell)
 
 void UnlinkedCodeBlock::setInstructions(std::unique_ptr<UnlinkedInstructionStream> instructions)
 {
-    m_unlinkedInstructions = WTF::move(instructions);
+    ASSERT(instructions);
+    m_unlinkedInstructions = WTFMove(instructions);
+    Heap::heap(this)->reportExtraMemoryAllocated(m_unlinkedInstructions->sizeInBytes());
 }
 
 const UnlinkedInstructionStream& UnlinkedCodeBlock::instructions() const

@@ -128,7 +128,7 @@ int secd_05_corrupted_items(int argc, char *const *argv)
 
     SecKeychainDbReset(^{
         /* corrupt all the password */
-        NSString *keychain_path = [(NSString *)__SecKeychainCopyPath() autorelease];
+        NSString *keychain_path = CFBridgingRelease(__SecKeychainCopyPath());
         char corrupt_item_sql[80];
         sqlite3 *db;
 

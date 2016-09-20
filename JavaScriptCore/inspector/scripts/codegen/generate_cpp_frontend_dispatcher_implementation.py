@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (c) 2014 Apple Inc. All rights reserved.
+# Copyright (c) 2014-2016 Apple Inc. All rights reserved.
 # Copyright (c) 2014 University of Washington. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -37,21 +37,24 @@ from models import ObjectType, ArrayType
 log = logging.getLogger('global')
 
 
-class CppFrontendDispatcherImplementationGenerator(Generator):
+class CppFrontendDispatcherImplementationGenerator(CppGenerator):
     def __init__(self, model, input_filepath):
-        Generator.__init__(self, model, input_filepath)
+        CppGenerator.__init__(self, model, input_filepath)
 
     def output_filename(self):
-        return "InspectorFrontendDispatchers.cpp"
+        return "%sFrontendDispatchers.cpp" % self.protocol_name()
 
     def domains_to_generate(self):
         return filter(lambda domain: len(domain.events) > 0, Generator.domains_to_generate(self))
 
     def generate_output(self):
-        secondary_headers = ['<wtf/text/CString.h>']
+        secondary_headers = [
+            '"InspectorFrontendRouter.h"',
+            '<wtf/text/CString.h>',
+        ]
 
         header_args = {
-            'primaryInclude': '"InspectorFrontendDispatchers.h"',
+            'primaryInclude': '"%sFrontendDispatchers.h"' % self.protocol_name(),
             'secondaryIncludes': "\n".join(['#include %s' % header for header in secondary_headers]),
         }
 
@@ -82,7 +85,7 @@ class CppFrontendDispatcherImplementationGenerator(Generator):
             if parameter.is_optional and not CppGenerator.should_pass_by_copy_for_return_type(parameter.type):
                 parameter_value = '*' + parameter_value
             if parameter.type.is_enum():
-                parameter_value = 'Inspector::Protocol::getEnumConstantValue(%s)' % parameter_value
+                parameter_value = 'Inspector::Protocol::%s::getEnumConstantValue(%s)' % (self.helpers_namespace(), parameter_value)
 
             parameter_args = {
                 'parameterType': CppGenerator.cpp_type_for_stack_out_parameter(parameter),
@@ -113,9 +116,9 @@ class CppFrontendDispatcherImplementationGenerator(Generator):
         if len(parameter_assignments) > 0:
             lines.append('    Ref<InspectorObject> paramsObject = InspectorObject::create();')
             lines.extend(parameter_assignments)
-            lines.append('    jsonMessage->setObject(ASCIILiteral("params"), WTF::move(paramsObject));')
+            lines.append('    jsonMessage->setObject(ASCIILiteral("params"), WTFMove(paramsObject));')
 
         lines.append('')
-        lines.append('    m_frontendChannel->sendMessageToFrontend(jsonMessage->toJSONString());')
+        lines.append('    m_frontendRouter.sendEvent(jsonMessage->toJSONString());')
         lines.append('}')
         return "\n".join(lines)

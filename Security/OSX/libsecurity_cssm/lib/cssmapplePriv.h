@@ -116,6 +116,18 @@ enum
 
     // Make a backup of this database on the filesystem
     CSSM_APPLECSPDL_DB_MAKE_BACKUP = CSSM_APPLE_PRIVATE_CSPDL_CODE_23,
+
+    // Make a copy of this database on the filesystem
+    CSSM_APPLECSPDL_DB_MAKE_COPY = CSSM_APPLE_PRIVATE_CSPDL_CODE_24,
+
+    // Make a clone of this database on the filesystem, and tell securityd about it
+    CSSM_APPLECSPDL_DB_CLONE = CSSM_APPLE_PRIVATE_CSPDL_CODE_25,
+
+    // Delete the file underlying this database
+    CSSM_APPLECSPDL_DB_DELETE_FILE = CSSM_APPLE_PRIVATE_CSPDL_CODE_26,
+
+    // Recoding of this database is complete
+    CSSM_APPLECSPDL_DB_RECODE_FINISHED = CSSM_APPLE_PRIVATE_CSPDL_CODE_27,
 };
 
 /* AppleCSPDL passthrough parameters */

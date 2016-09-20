@@ -37,6 +37,8 @@ int	 compare(char *, NODE *, FTSENT *);
 int	 crc(int, uint32_t *, off_t *);
 void	 cwalk(void);
 char	*flags_to_string(u_long);
+char	*escape_path(char *string);
+struct timespec	ptime(char *path, int *supported);
 
 const char	*inotype(u_int);
 u_int	 parsekey(char *, int *);

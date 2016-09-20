@@ -41,14 +41,17 @@
 #define WQOPS_THREAD_KEVENT_RETURN 0x40	/* parks the thread after delivering the passed kevent array */
 #define WQOPS_SET_EVENT_MANAGER_PRIORITY 0x80	/* max() in the provided priority in the the priority of the event manager */
 
-/* flag values for reuse field in the libc side _pthread_wqthread */
-#define	WQ_FLAG_THREAD_PRIOMASK		0x0000ffff
-#define WQ_FLAG_THREAD_PRIOSHIFT	(8ull)
-#define	WQ_FLAG_THREAD_OVERCOMMIT	0x00010000	/* thread is with overcommit prio */
-#define	WQ_FLAG_THREAD_REUSE		0x00020000	/* thread is being reused */
-#define	WQ_FLAG_THREAD_NEWSPI		0x00040000	/* the call is with new SPIs */
-#define WQ_FLAG_THREAD_KEVENT       0x00080000  /* thread is response to kevent req */
-#define WQ_FLAG_THREAD_EVENT_MANAGER    0x00100000  /* event manager thread */
+/* flag values for upcall flags field, only 8 bits per struct threadlist */
+#define	WQ_FLAG_THREAD_PRIOMASK			0x0000ffff
+#define WQ_FLAG_THREAD_PRIOSHIFT		16
+#define	WQ_FLAG_THREAD_OVERCOMMIT		0x00010000	/* thread is with overcommit prio */
+#define	WQ_FLAG_THREAD_REUSE			0x00020000	/* thread is being reused */
+#define	WQ_FLAG_THREAD_NEWSPI			0x00040000	/* the call is with new SPIs */
+#define WQ_FLAG_THREAD_KEVENT			0x00080000  /* thread is response to kevent req */
+#define WQ_FLAG_THREAD_EVENT_MANAGER	0x00100000  /* event manager thread */
+#define WQ_FLAG_THREAD_TSD_BASE_SET		0x00200000  /* tsd base has already been set */
+
+#define WQ_THREAD_CLEANUP_QOS QOS_CLASS_UTILITY
 
 /* These definitions are only available to the kext, to avoid bleeding constants and types across the boundary to
  * the userspace library.
@@ -90,36 +93,46 @@ enum {
 
 #define WORKQUEUE_OVERCOMMIT	0x10000
 
+/*
+ * A thread which is scheduled may read its own th_priority field without
+ * taking the workqueue lock.  Other fields should be assumed to require the
+ * lock.
+ */
 struct threadlist {
 	TAILQ_ENTRY(threadlist) th_entry;
 	thread_t th_thread;
-	int	 th_flags;
-	uint8_t	 th_priority;
-	uint8_t  th_policy;
 	struct workqueue *th_workq;
-	mach_vm_size_t th_stacksize;
-	mach_vm_size_t th_allocsize;
 	mach_vm_offset_t th_stackaddr;
 	mach_port_name_t th_thport;
+	uint16_t th_flags;
+	uint8_t th_upcall_flags;
+	uint8_t th_priority;
 };
-#define TH_LIST_INITED 		0x01
-#define TH_LIST_RUNNING 	0x02
-#define TH_LIST_BLOCKED 	0x04
-#define TH_LIST_SUSPENDED 	0x08
-#define TH_LIST_BUSY		0x10
-#define TH_LIST_NEED_WAKEUP	0x20
-#define TH_LIST_CONSTRAINED	0x40
-#define TH_LIST_EVENT_MGR_SCHED_PRI	0x80
 
+#define TH_LIST_INITED 		0x01 /* Set at thread creation. */
+#define TH_LIST_RUNNING 	0x02 /* On thrunlist, not parked. */
+#define TH_LIST_KEVENT		0x04 /* Thread requested by kevent */
+#define TH_LIST_NEW			0x08 /* First return to userspace */
+#define TH_LIST_BUSY		0x10 /* Removed from idle list but not ready yet. */
+#define TH_LIST_KEVENT_BOUND	0x20 /* Thread bound to kqueues */
+#define TH_LIST_CONSTRAINED	0x40 /* Non-overcommit thread. */
+#define TH_LIST_EVENT_MGR_SCHED_PRI	0x80 /* Non-QoS Event Manager */
 
 struct workqueue {
 	proc_t		wq_proc;
 	vm_map_t	wq_map;
 	task_t		wq_task;
-	thread_call_t	wq_atimer_call;
-	int 		wq_flags;  // updated atomically
-	int			wq_lflags; // protected by wqueue lock
-	uint64_t 	wq_thread_yielded_timestamp;
+
+	_Atomic uint32_t	wq_flags;  // updated atomically
+	uint32_t	wq_lflags; // protected by wqueue lock
+
+	lck_spin_t	wq_lock;
+	boolean_t	wq_interrupt_state;
+
+	thread_call_t	wq_atimer_delayed_call;
+	thread_call_t	wq_atimer_immediate_call;
+
+	uint64_t	wq_thread_yielded_timestamp;
 	uint32_t	wq_thread_yielded_count;
 	uint32_t	wq_timer_interval;
 	uint32_t	wq_max_concurrency;
@@ -127,14 +140,16 @@ struct workqueue {
 	uint32_t	wq_constrained_threads_scheduled;
 	uint32_t	wq_nthreads;
 	uint32_t	wq_thidlecount;
+
 	TAILQ_HEAD(, threadlist) wq_thrunlist;
 	TAILQ_HEAD(, threadlist) wq_thidlelist;
+	TAILQ_HEAD(, threadlist) wq_thidlemgrlist;
 
 	/* Counters for how many requests we have outstanding.  The invariants here:
 	 *   - reqcount == SUM(requests) + (event manager ? 1 : 0)
 	 *   - SUM(ocrequests) + SUM(kevent_requests) + SUM(kevent_ocrequests) <= SUM(requests)
 	 *   - # of constrained requests is difference between quantities above
-	 * i.e. a kevent+overcommit request will incrument reqcount, requests and 
+	 * i.e. a kevent+overcommit request will increment reqcount, requests and
 	 * kevent_ocrequests only.
 	 */
 	uint32_t	wq_reqcount;
@@ -148,25 +163,18 @@ struct workqueue {
 	uint32_t	wq_thactive_count[WORKQUEUE_NUM_BUCKETS] __attribute__((aligned(4))); /* must be uint32_t since we OSAddAtomic on these */
 	uint64_t	wq_lastblocked_ts[WORKQUEUE_NUM_BUCKETS] __attribute__((aligned(8))); /* XXX: why per bucket? */
 
-	uint32_t wq_event_manager_priority;
+	uint32_t	wq_event_manager_priority;
 };
 #define WQ_LIST_INITED		0x01
-#define WQ_ATIMER_RUNNING	0x02
-#define WQ_EXITING		0x04
+#define WQ_EXITING		0x02
+#define WQ_ATIMER_DELAYED_RUNNING	0x04
+#define WQ_ATIMER_IMMEDIATE_RUNNING	0x08
+
+#define WQ_SETFLAG(wq, flag) __c11_atomic_fetch_or(&wq->wq_flags, flag, __ATOMIC_SEQ_CST)
+#define WQ_UNSETFLAG(wq, flag) __c11_atomic_fetch_and(&wq->wq_flags, ~flag, __ATOMIC_SEQ_CST)
 
 #define WQL_ATIMER_BUSY		0x01
 #define WQL_ATIMER_WAITING	0x02
-#define WQL_EXCEEDED_CONSTRAINED_THREAD_LIMIT    0x04
-#define WQL_EXCEEDED_TOTAL_THREAD_LIMIT          0x08
-
-#define WQ_VECT_SET_BIT(vector, bit)	\
-	vector[(bit) / 32] |= (1 << ((bit) % 32))
-
-#define WQ_VECT_CLEAR_BIT(vector, bit)	\
-	vector[(bit) / 32] &= ~(1 << ((bit) % 32))
-
-#define WQ_VECT_TEST_BIT(vector, bit)	\
-	vector[(bit) / 32] & (1 << ((bit) % 32))
 
 #define WORKQUEUE_MAXTHREADS		512
 #define WQ_YIELDED_THRESHOLD		2000

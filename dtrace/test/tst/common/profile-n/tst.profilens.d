@@ -38,7 +38,7 @@
 
 #pragma D option quiet
 
-tick-2000000000ns
+tick-200000000ns
 {
 	printf("This test is a simple profile-ns provider test");
 	exit(0);

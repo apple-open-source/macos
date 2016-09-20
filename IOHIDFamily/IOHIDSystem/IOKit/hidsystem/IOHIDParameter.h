@@ -39,6 +39,7 @@
 /* Public type definitions. */
 #include <IOKit/hidsystem/IOHIDTypes.h>
 #include <IOKit/hidsystem/IOLLEvent.h>
+#include <IOKit/hid/IOHIDProperties.h>
 
 /*
  * Identify this driver as one that uses the new driverkit and messaging API
@@ -70,25 +71,27 @@
 #define kIOHIDKeyboardCapsLockDoesLockKey       "HIDKeyboardCapsLockDoesLock"
 #define kIOHIDKeyboardSupportsF12EjectKey       "HIDKeyboardSupportsF12Eject"
 #define kIOHIDKeyboardSupportedModifiersKey     "HIDKeyboardSupportedModifiers"
+#define kIOHIDKeyboardGlobalModifiersKey        "HIDKeyboardGlobalModifiers"
+
+//read only property that specify usage of clobal modifiers
+// Bit[0] -  Report modifiers to the service by setting kIOHIDKeyboardGlobalModifiersKey  with global modifiers
+// Bit[1] -  Update/translate events from service taking global modifiers state in consideration
+#define kIOHIDServiceGlobalModifiersUsageKey     "HIDServiceGlobalModifiersUsage"
+
 
 #define kIOHIDPointerResolutionKey		"HIDPointerResolution"
 #define kIOHIDResetPointerKey			"HIDResetPointer"
 #define kIOHIDPointerConvertAbsoluteKey	"HIDPointerConvertAbsolute"
 #define kIOHIDPointerContactToMoveKey	"HIDPointerContactToMove"
 #define kIOHIDPointerPressureToClickKey	"HIDPointerPressureToClick"
-#define kIOHIDPointerButtonMode			"HIDPointerButtonMode"
 #define kIOHIDPointerButtonCountKey	"HIDPointerButtonCount"
 
-#define kIOHIDPointerAccelerationKey	"HIDPointerAcceleration"
 #define kIOHIDPointerAccelerationSettingsKey	"HIDPointerAccelerationSettings"
-#define kIOHIDPointerAccelerationTypeKey	"HIDPointerAccelerationType"
 #define kIOHIDPointerAccelerationTableKey  "HIDPointerAccelerationTable"
 
 #define kIOHIDScrollResetKey			"HIDScrollReset"
 #define kIOHIDScrollResolutionKey		"HIDScrollResolution"
 #define kIOHIDScrollReportRateKey       "HIDScrollReportRate"
-#define kIOHIDScrollAccelerationKey		"HIDScrollAcceleration"
-#define kIOHIDScrollAccelerationTypeKey     "HIDScrollAccelerationType"
 #define kIOHIDScrollAccelerationTableKey	"HIDScrollAccelerationTable"
 
 #define kIOHIDScrollResolutionXKey		"HIDScrollResolutionX"
@@ -104,10 +107,8 @@
 #define kIOHIDScrollZoomModifierMaskKey "HIDScrollZoomModifierMask"
 
 #define kIOHIDTrackpadScrollAccelerationKey "HIDTrackpadScrollAcceleration"
-#define kIOHIDMouseScrollAccelerationKey   "HIDMouseScrollAcceleration"
 
 #define kIOHIDTrackpadAccelerationType	"HIDTrackpadAcceleration"
-#define kIOHIDMouseAccelerationType		"HIDMouseAcceleration"
 
 #define kIOHIDClickTimeKey				"HIDClickTime"
 #define kIOHIDClickSpaceKey				"HIDClickSpace"
@@ -135,6 +136,10 @@
 // if kIOHIDStickyKeysShiftTogglesKey is 1, then a sequence of five
 // shift keys in sequence will toggle sticky keys on or off
 #define kIOHIDStickyKeysShiftTogglesKey	"HIDStickyKeysShiftToggles"
+
+//
+//
+#define kIOHIDMouseClickNotification    "HIDClickNotification"
 
 // if kIOHIDMouseKeysOptionTogglesKey is 1, then a sequence of five
 // option keys in sequence will toggle mouse keys on or off

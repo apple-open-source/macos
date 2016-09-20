@@ -159,6 +159,9 @@ int sslCheckFile(const char *path);
 extern const char *sslCurveString(
 	SSL_ECDSA_NamedCurve namedCurve);
 
+SecKeyRef create_private_key_from_der(bool ecdsa, const unsigned char *pkey_der, size_t pkey_der_len);
+CFArrayRef chain_from_der(bool ecdsa, const unsigned char *pkey_der, size_t pkey_der_len, const unsigned char *cert_der, size_t cert_der_len);
+
 #ifdef	__cplusplus
 }
 #endif

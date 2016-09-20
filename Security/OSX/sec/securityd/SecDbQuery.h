@@ -125,7 +125,14 @@ typedef struct Query
     CFArrayRef q_caller_access_groups;
     bool q_system_keychain;
     int32_t q_sync_bubble;
+    bool q_spindump_on_failure;
 
+    //policy for filtering certs and identities
+    SecPolicyRef q_match_policy;
+    //date for filtering certs and identities
+    CFDateRef q_match_valid_on_date;
+    //trusted only certs and identities
+    CFBooleanRef q_match_trusted_only;
 
     Pair q_pairs[];
 } Query;
@@ -147,6 +154,9 @@ Pair query_attr_at(const Query *q, CFIndex ix);
 bool query_update_parse(Query *q, CFDictionaryRef update, CFErrorRef *error);
 const SecDbClass *kc_class_with_name(CFStringRef name);
 void query_set_caller_access_groups(Query *q, CFArrayRef caller_access_groups);
+void query_set_policy(Query *q, SecPolicyRef policy);
+void query_set_valid_on_date(Query *q, CFDateRef policy);
+void query_set_trusted_only(Query *q, CFBooleanRef trusted_only);
 
 CFDataRef
 SecMUSRCopySystemKeychainUUID(void);

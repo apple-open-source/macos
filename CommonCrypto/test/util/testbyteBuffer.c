@@ -103,7 +103,7 @@ hexStringToBytes(const char *inhex)
 
     if(inhex) {
         for(i=0, p = (const uint8_t *) inhex; i<len; i++) {
-            retval->bytes[i] = (nibbleFromChar(*p) << 4) | nibbleFromChar(*(p+1));
+            retval->bytes[i] = (uint8_t)(nibbleFromChar(*p) << 4) | nibbleFromChar(*(p+1));
             p += 2;
         }
         retval->bytes[len] = 0;

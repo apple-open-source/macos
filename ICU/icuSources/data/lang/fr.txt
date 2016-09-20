@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/fr.xml
@@ -19,6 +19,9 @@ fr{
         colStrength{"Priorité du tri"}
         collation{"ordre de tri"}
         currency{"devise"}
+        hc{"système horaire (12 ou 24 heures)"}
+        lb{"style de saut de ligne"}
+        ms{"système de mesure"}
         numbers{"nombres"}
         timezone{"Fuseau horaire"}
         va{"Variante locale"}
@@ -48,7 +51,7 @@ fr{
         ar{"arabe"}
         ar_001{"arabe standard moderne"}
         arc{"araméen"}
-        arn{"araukan"}
+        arn{"mapuche"}
         arp{"arapaho"}
         arw{"arawak"}
         as{"assamais"}
@@ -70,6 +73,7 @@ fr{
         bez{"béna"}
         bfd{"bafut"}
         bg{"bulgare"}
+        bgn{"baloutchi occidental"}
         bho{"bhojpuri"}
         bi{"bichelamar"}
         bik{"bikol"}
@@ -171,6 +175,7 @@ fr{
         fr{"français"}
         fr_CA{"français canadien"}
         fr_CH{"français suisse"}
+        frc{"français cadien"}
         frm{"moyen français"}
         fro{"ancien français"}
         frp{"franco-provençal"}
@@ -211,7 +216,7 @@ fr{
         ho{"hiri motu"}
         hr{"croate"}
         hsb{"haut-sorabe"}
-        ht{"haïtien"}
+        ht{"créole haïtien"}
         hu{"hongrois"}
         hup{"hupa"}
         hy{"arménien"}
@@ -295,7 +300,9 @@ fr{
         ln{"lingala"}
         lo{"lao"}
         lol{"mongo"}
+        lou{"créole louisianais"}
         loz{"lozi"}
+        lrc{"lori du Nord"}
         lt{"lituanien"}
         lu{"luba-katanga"}
         lua{"luba-lulua"}
@@ -344,12 +351,14 @@ fr{
         my{"birman"}
         mye{"myènè"}
         myv{"erzya"}
+        mzn{"mazandérani"}
         na{"nauruan"}
         nap{"napolitain"}
         naq{"nama"}
         nb{"norvégien bokmål"}
         nd{"ndébélé du Nord"}
         nds{"bas-allemand"}
+        nds_NL{"bas-saxon néerlandais"}
         ne{"népalais"}
         new{"newari"}
         ng{"ndonga"}
@@ -426,6 +435,7 @@ fr{
         scn{"sicilien"}
         sco{"écossais"}
         sd{"sindhi"}
+        sdh{"kurde du Sud"}
         se{"sami du Nord"}
         see{"seneca"}
         seh{"sena"}
@@ -463,8 +473,8 @@ fr{
         sux{"sumérien"}
         sv{"suédois"}
         sw{"swahili"}
+        sw_CD{"swahili du Congo"}
         swb{"comorien"}
-        swc{"swahili du Congo"}
         syc{"syriaque classique"}
         syr{"syriaque"}
         ta{"tamoul"}
@@ -519,6 +529,7 @@ fr{
         wal{"walamo"}
         war{"waray"}
         was{"washo"}
+        wbp{"warlpiri"}
         wo{"wolof"}
         xal{"kalmouk"}
         xh{"xhosa"}
@@ -769,6 +780,22 @@ fr{
             unihan{"ordre par radical et nombre de traits"}
             zhuyin{"ordre zhuyin"}
         }
+        hc{
+            h11{"système horaire de 12 heures (0–11)"}
+            h12{"système horaire de 12 heures (1–12)"}
+            h23{"système horaire de 24 heures (0–23)"}
+            h24{"système horaire de 24 heures (1–24)"}
+        }
+        lb{
+            loose{"style de saut de ligne permissif"}
+            normal{"style de saut de ligne normal"}
+            strict{"style de saut de ligne strict"}
+        }
+        ms{
+            metric{"système métrique"}
+            uksystem{"système impérial"}
+            ussystem{"système américain"}
+        }
         numbers{
             arab{"chiffres arabes"}
             arabext{"chiffres arabes étendus"}
@@ -843,7 +870,7 @@ fr{
         VALENCIA{"valencien"}
         WADEGILE{"Wade-Giles"}
     }
-    Version{"2.1.13.46"}
+    Version{"2.1.23.79"}
     codePatterns{
         language{"langue : {0}"}
         script{"écriture : {0}"}

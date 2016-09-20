@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/is.xml
@@ -46,7 +46,6 @@ is{
         AI{"Angvilla"}
         AL{"Albanía"}
         AM{"Armenía"}
-        AN{"Hollensku Antillur"}
         AO{"Angóla"}
         AQ{"Suðurskautslandið"}
         AR{"Argentína"}
@@ -65,7 +64,7 @@ is{
         BH{"Barein"}
         BI{"Búrúndí"}
         BJ{"Benín"}
-        BL{"Saint Barthélemy"}
+        BL{"Sankti Bartólómeusareyjar"}
         BM{"Bermúdaeyjar"}
         BN{"Brúnei"}
         BO{"Bólivía"}
@@ -114,7 +113,7 @@ is{
         ET{"Eþíópía"}
         EU{"Evrópusambandið"}
         FI{"Finnland"}
-        FJ{"Fídjieyjar"}
+        FJ{"Fídjíeyjar"}
         FK{"Falklandseyjar"}
         FM{"Míkrónesía"}
         FO{"Færeyjar"}
@@ -185,7 +184,7 @@ is{
         MC{"Mónakó"}
         MD{"Moldóva"}
         ME{"Svartfjallaland"}
-        MF{"Saint Martin"}
+        MF{"St. Martin"}
         MG{"Madagaskar"}
         MH{"Marshalleyjar"}
         MK{"Makedónía"}
@@ -256,7 +255,7 @@ is{
         SS{"Suður-Súdan"}
         ST{"Saó Tóme og Prinsípe"}
         SV{"El Salvador"}
-        SX{"Sint Maarten"}
+        SX{"Sankti Martin"}
         SY{"Sýrland"}
         SZ{"Svasíland"}
         TA{"Tristan da Cunha"}
@@ -313,5 +312,5 @@ is{
         MK{"Makedónía (Fyrrverandi lýðveldi Júgóslavíu)"}
         TL{"Austur-Tímor"}
     }
-    Version{"2.1.12.94"}
+    Version{"2.1.22.93"}
 }

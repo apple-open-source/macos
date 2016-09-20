@@ -66,7 +66,7 @@ test tests:
 
 valgrind:
 	@echo '## Running the regression tests under Valgrind'
-	$(MAKE) CHECKER='valgrind -q' tests
+	$(MAKE) CHECKER='libtool --mode=execute valgrind -q --leak-check=full' tests
 
 CLEANFILES = *.tmp *~ .memdump core db100.xml db1000.xml db10000.xml
 

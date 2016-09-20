@@ -30,7 +30,7 @@ typedef struct {
     int flags;			/* Operations for which Tcl command is
 				 * to be invoked. */
     size_t length;		/* Number of non-NULL chars. in command. */
-    char command[4];		/* Space for Tcl command to invoke.  Actual
+    char command[1];		/* Space for Tcl command to invoke.  Actual
 				 * size will be as large as necessary to
 				 * hold command.  This field must be the
 				 * last in the structure, so that it can
@@ -64,11 +64,11 @@ typedef struct {
                                  * not deleted too early.  Keeps track
                                  * of how many pieces of code have
                                  * a pointer to this structure. */
-    char command[4];		/* Space for Tcl command to invoke.  Actual
+    char command[1];		/* Space for Tcl command to invoke.  Actual
 				 * size will be as large as necessary to
 				 * hold command.  This field must be the
 				 * last in the structure, so that it can
-				 * be larger than 4 bytes. */
+				 * be larger than 1 byte. */
 } TraceCommandInfo;
 
 /* 
@@ -3326,8 +3326,7 @@ TclTraceExecutionObjCmd(interp, optionIndex, objc, objv)
 	    if ((enum traceOptions) optionIndex == TRACE_ADD) {
 		TraceCommandInfo *tcmdPtr;
 		tcmdPtr = (TraceCommandInfo *) ckalloc((unsigned)
-			(sizeof(TraceCommandInfo) - sizeof(tcmdPtr->command)
-				+ length + 1));
+			((TclOffset(TraceCommandInfo, command) + 1) + length));
 		tcmdPtr->flags = flags;
 		tcmdPtr->stepTrace = NULL;
 		tcmdPtr->startLevel = 0;
@@ -3563,8 +3562,7 @@ TclTraceCommandObjCmd(interp, optionIndex, objc, objv)
 	    if ((enum traceOptions) optionIndex == TRACE_ADD) {
 		TraceCommandInfo *tcmdPtr;
 		tcmdPtr = (TraceCommandInfo *) ckalloc((unsigned)
-			(sizeof(TraceCommandInfo) - sizeof(tcmdPtr->command)
-				+ length + 1));
+			((TclOffset(TraceCommandInfo, command) + 1) + length));
 		tcmdPtr->flags = flags;
 		tcmdPtr->stepTrace = NULL;
 		tcmdPtr->startLevel = 0;
@@ -3781,8 +3779,7 @@ TclTraceVariableObjCmd(interp, optionIndex, objc, objv)
 		int flagMask;
 
 		compTracePtr = (CompoundVarTrace *) ckalloc((unsigned)
-			(sizeof(CompoundVarTrace) - sizeof(tvarPtr->command)
-				+ length + 1));
+			((TclOffset(CompoundVarTrace, tvar.command) + 1) + length));
 		tracePtr = &(compTracePtr->trace);
 		tvarPtr = &(compTracePtr->tvar);
 		tvarPtr->flags = flags;

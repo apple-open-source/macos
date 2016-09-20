@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -107,12 +107,14 @@ __unused static const char copyright[] =
 #include <math.h>
 #include <netdb.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
 #include <unistd.h>
 #include <ifaddrs.h>
+#include <getopt.h>
 
 #define	INADDR_LEN	((int)sizeof(in_addr_t))
 #define	TIMEVAL_LEN	((int)sizeof(struct tv32))
@@ -167,6 +169,8 @@ int options;
 #define	F_TIME		0x100000
 #define	F_SWEEP		0x200000
 #define	F_WAITTIME	0x400000
+#define	F_CONNECT	0x800000
+#define F_PRTIME	0x1000000
 
 /*
  * MAX_DUP_CHK is the number of bits in received table, i.e. the maximum
@@ -195,12 +199,11 @@ int phdr_len = 0;
 int send_len;
 char *boundif;
 unsigned int ifscope;
-#if defined(IP_FORCE_OUT_IFP) && TARGET_OS_EMBEDDED
-char boundifname[IFNAMSIZ];
-#endif /* IP_FORCE_OUT_IFP */
 int nocell;
-int how_traffic_class = 0;
+int use_sendmsg = 0;
+int use_recvmsg = 0;
 int traffic_class = SO_TC_CTL;	/* use control class, by default */
+int net_service_type = -1;
 int no_dup = 0;
 
 /* counters */
@@ -244,8 +247,25 @@ static void pr_retip(struct ip *);
 static void status(int);
 static void stopit(int);
 static void tvsub(struct timeval *, const struct timeval *);
-static uint32_t str2svc(const char *);
+static int str2sotc(const char *, bool *);
+static int str2netservicetype(const char *, bool *);
+static u_int8_t str2tos(const char *, bool *);
 static void usage(void) __dead2;
+
+int32_t thiszone;		/* seconds offset from gmt to local time */
+extern int32_t gmt2local(time_t);
+static void pr_currenttime(void);
+
+static int longopt_flag = 0;
+
+#define	LOF_CONNECT	0x01
+#define	LOF_PRTIME	0x02
+
+static const struct option longopts[] = {
+	{ "apple-connect", no_argument, &longopt_flag, LOF_CONNECT },
+	{ "apple-time", no_argument, &longopt_flag, LOF_PRTIME },
+	{ NULL, 0, NULL, 0 }
+};
 
 int
 main(int argc, char *const *argv)
@@ -280,6 +300,7 @@ main(int argc, char *const *argv)
 #ifdef IPSEC_POLICY_IPSEC
 	policy_in = policy_out = NULL;
 #endif
+	bool valid;
 
 	/*
 	 * Do the stuff that we need root priv's for *first*, and
@@ -299,17 +320,9 @@ main(int argc, char *const *argv)
 	alarmtimeout = df = preload = tos = 0;
 
 	outpack = outpackhdr + sizeof(struct ip);
-	while ((ch = getopt(argc, argv,
-		"Aab:Cc:DdfG:g:h:I:i:k:Ll:M:m:nop:QqRrS:s:T:t:vW:z:"
-#ifdef IPSEC
-#ifdef IPSEC_POLICY_IPSEC
-		"P:"
-#endif /*IPSEC_POLICY_IPSEC*/
-#endif /*IPSEC*/
-#if defined(IP_FORCE_OUT_IFP) && TARGET_OS_EMBEDDED
-		"B:"
-#endif /* IP_FORCE_OUT_IFP */
-		)) != -1)
+	while ((ch = getopt_long(argc, argv,
+	    "AaB:b:Cc:DdfG:g:h:I:i:k:K:Ll:M:m:noP:p:QqRrS:s:T:t:vW:z:",
+	    longopts, NULL)) != -1)
 	{
 		switch(ch) {
 		case 'A':
@@ -318,12 +331,7 @@ main(int argc, char *const *argv)
 		case 'a':
 			options |= F_AUDIBLE;
 			break;
-#if defined(IP_FORCE_OUT_IFP) && TARGET_OS_EMBEDDED
 		case 'B':
-			(void) snprintf(boundifname, sizeof (boundifname),
-			    "%s", optarg);
-			break;
-#endif /* IP_FORCE_OUT_IFP */
 		case 'b':
 			boundif = optarg;
 			break;
@@ -421,11 +429,30 @@ main(int argc, char *const *argv)
 			}
 			break;
 		case 'k':
-			how_traffic_class++;
-			traffic_class = str2svc(optarg);
-			if (traffic_class == UINT32_MAX)
+			if (strcasecmp(optarg, "sendmsg") == 0) {
+				use_sendmsg++;
+				break;
+			}
+			if (strcasecmp(optarg, "recvmsg") == 0) {
+				use_recvmsg++;
+				break;
+			}
+			traffic_class = str2sotc(optarg, &valid);
+			if (valid == false)
 				errx(EX_USAGE, "bad traffic class: `%s'",
 				     optarg);
+			break;
+		case 'K':
+			if (strcasecmp(optarg, "sendmsg") == 0) {
+				use_sendmsg++;
+				break;
+			}
+			net_service_type = str2netservicetype(optarg, &valid);
+			if (valid == false)
+				errx(EX_USAGE, "bad network service type: `%s'",
+				     optarg);
+			/* suppress default traffic class (-k can still be specified after -K) */
+			traffic_class = -1;
 			break;
 		case 'L':
 			options |= F_NOLOOP;
@@ -470,9 +497,9 @@ main(int argc, char *const *argv)
 		case 'o':
 			options |= F_ONCE;
 			break;
+		case 'P':
 #ifdef IPSEC
 #ifdef IPSEC_POLICY_IPSEC
-		case 'P':
 			options |= F_POLICY;
 			if (!strncmp("in", optarg, 2))
 				policy_in = strdup(optarg);
@@ -480,9 +507,9 @@ main(int argc, char *const *argv)
 				policy_out = strdup(optarg);
 			else
 				errx(1, "invalid security policy");
-			break;
 #endif /*IPSEC_POLICY_IPSEC*/
 #endif /*IPSEC*/
+			break;
 		case 'p':		/* fill buffer with user pattern */
 			options |= F_PINGFILLED;
 			payload = optarg;
@@ -548,10 +575,23 @@ main(int argc, char *const *argv)
 			break;
 		case 'z':
 			options |= F_HDRINCL;
-			ultmp = strtoul(optarg, &ep, 0);
-			if (*ep || ep == optarg || ultmp > MAXTOS)
+			tos = str2tos(optarg, &valid);
+			if (valid == false)
 				errx(EX_USAGE, "invalid TOS: `%s'", optarg);
-			tos = ultmp;
+			break;
+		case 0:
+			switch (longopt_flag) {
+				case LOF_CONNECT:
+					options |= F_CONNECT;
+					break;
+				case LOF_PRTIME:
+					options |= F_PRTIME;
+					thiszone = gmt2local(0);
+					break;
+				default:
+					break;
+			}
+			longopt_flag = 0;
 			break;
 		default:
 			usage();
@@ -620,7 +660,11 @@ main(int argc, char *const *argv)
 			shostname = snamebuf;
 		}
 		if (bind(s, (struct sockaddr *)&sock_in, sizeof sock_in) == -1)
+#if (DEBUG || DEVELOPMENT)
+			options |= F_HDRINCL;
+#else
 			err(1, "bind");
+#endif /* DEBUG || DEVELOPMENT */
 	}
 
 	bzero(&whereto, sizeof(whereto));
@@ -678,9 +722,6 @@ main(int argc, char *const *argv)
 		errx(EX_USAGE,
 		    "-I, -L, -T flags cannot be used with unicast destination");
 
-	if (datalen >= TIMEVAL_LEN)	/* can we time transfer */
-		timing = 1;
-
 	if (!(options & F_PINGFILLED))
 		for (i = TIMEVAL_LEN; i < MAX(datalen, sweepmax); ++i)
 			*datap++ = i;
@@ -699,13 +740,6 @@ main(int argc, char *const *argv)
 		    (char *)&ifscope, sizeof (ifscope)) != 0)
 			err(EX_OSERR, "setsockopt(IP_BOUND_IF)");
 	}
-#if defined(IP_FORCE_OUT_IFP) && TARGET_OS_EMBEDDED
-	else if (boundifname[0] != 0) {
-		if (setsockopt(s, IPPROTO_IP, IP_FORCE_OUT_IFP, boundifname,
-		    sizeof (boundifname)) != 0)
-			err(EX_OSERR, "setsockopt(IP_FORCE_OUT_IFP)");
-	}
-#endif /* IP_FORCE_OUT_IFP */
 	if (nocell) {
 		if (setsockopt(s, IPPROTO_IP, IP_NO_IFT_CELLULAR,
 		    (char *)&nocell, sizeof (nocell)) != 0)
@@ -717,11 +751,19 @@ main(int argc, char *const *argv)
 	if (options & F_SO_DONTROUTE)
 		(void)setsockopt(s, SOL_SOCKET, SO_DONTROUTE, (char *)&hold,
 		    sizeof(hold));
-	if (how_traffic_class < 2 && traffic_class >= 0) {
-		(void) setsockopt(s, SOL_SOCKET, SO_TRAFFIC_CLASS,
-		    (void *)&traffic_class, sizeof (traffic_class));
+	if (use_sendmsg == 0) {
+		if (net_service_type != -1)
+			if (setsockopt(s, SOL_SOCKET, SO_NET_SERVICE_TYPE,
+				       (void *)&net_service_type, sizeof (net_service_type)) != 0)
+				warn("setsockopt(SO_NET_SERVICE_TYPE");
+		if (traffic_class != -1) {
+			if (setsockopt(s, SOL_SOCKET, SO_TRAFFIC_CLASS,
+				       (void *)&traffic_class, sizeof (traffic_class)) != 0)
+				warn("setsockopt(SO_TRAFFIC_CLASS");
+			
+		}
 	}
-	if (how_traffic_class > 0) {
+	if (use_recvmsg > 0) {
 		int on = 1;
 		(void) setsockopt(s, SOL_SOCKET, SO_RECV_TRAFFIC_CLASS,
 		    (void *)&on, sizeof (on));
@@ -824,6 +866,12 @@ main(int argc, char *const *argv)
 		err(EX_OSERR, "setsockopt SO_TIMESTAMP");
 	}
 #endif
+
+	if ((options & F_CONNECT)) {
+		if (connect(s, (struct sockaddr *)&whereto, sizeof whereto) == -1)
+			err(EX_OSERR, "connect");
+	}
+
 	if (sweepmax) {
 		if (sweepmin >= sweepmax)
 			errx(EX_USAGE, "Maximum packet size must be greater than the minimum packet size");
@@ -879,6 +927,16 @@ main(int argc, char *const *argv)
 		else
 			(void)printf("PING %s: %d data bytes\n", hostname, datalen);
 	}
+
+	/*
+	 * rdar://25829310
+	 *
+	 * Clear blocked signals inherited from the parent
+	 */
+	sigset_t newset;
+	sigemptyset(&newset);
+	if (sigprocmask(SIG_SETMASK, &newset, NULL) != 0)
+		err(EX_OSERR, "sigprocmask(newset)");
 
 	/*
 	 * Use sigaction() instead of signal() to get unambiguous semantics,
@@ -967,7 +1025,7 @@ main(int argc, char *const *argv)
 		if (n == 1) {
 			struct timeval *tv = NULL;
 #ifdef SO_TIMESTAMP
-			struct cmsghdr *cmsg = (struct cmsghdr *)&ctrl;
+			struct cmsghdr *cmsg;
 
 			msg.msg_controllen = sizeof(ctrl);
 #endif
@@ -1094,6 +1152,11 @@ pinger(void)
 
 	CLR(ntransmitted % mx_dup_ck);
 
+	if (datalen >= TIMEVAL_LEN)	/* can we time transfer */
+		timing = 1;
+	else
+		timing = 0;
+	
 	if ((options & F_TIME) || timing) {
 		(void)gettimeofday(&now, NULL);
 
@@ -1120,33 +1183,54 @@ pinger(void)
 		ip->ip_sum = in_cksum((u_short *)outpackhdr, cc);
 		packet = outpackhdr;
 	}
-	if (how_traffic_class > 1 && traffic_class >= 0) {
+	if (use_sendmsg > 0) {
 		struct msghdr msg;
 		struct iovec iov;
-		char *cmbuf[CMSG_SPACE(sizeof(int))];
+		char cmbuf[2 * CMSG_SPACE(sizeof(int))];
 		struct cmsghdr *cm = (struct cmsghdr *)cmbuf;
 
+		if ((options & F_CONNECT)) {
+			msg.msg_name = NULL;
+			msg.msg_namelen = 0;
+		} else {
 		msg.msg_name = &whereto;
 		msg.msg_namelen = sizeof(whereto);
-
+		}
 		iov.iov_base = packet;
 		iov.iov_len = cc;
 		msg.msg_iov = &iov;
 		msg.msg_iovlen = 1;
 
-		cm->cmsg_len = CMSG_LEN(sizeof(int));
-		cm->cmsg_level = SOL_SOCKET;
-		cm->cmsg_type = SO_TRAFFIC_CLASS;
-		*(int *)CMSG_DATA(cm) = traffic_class;
-		msg.msg_control = cm;
-		msg.msg_controllen = CMSG_SPACE(sizeof(int));
+		msg.msg_controllen = 0;
+		msg.msg_control = NULL;
+		
+		if (traffic_class >= 0) {
+			cm->cmsg_len = CMSG_LEN(sizeof(int));
+			cm->cmsg_level = SOL_SOCKET;
+			cm->cmsg_type = SO_TRAFFIC_CLASS;
+			*(int *)CMSG_DATA(cm) = traffic_class;
+			msg.msg_controllen += CMSG_SPACE(sizeof(int));
+			cm = (struct cmsghdr *)(((char *)cm) + CMSG_SPACE(sizeof(int)));
+		}
+		if (net_service_type >= 0) {
+			cm->cmsg_len = CMSG_LEN(sizeof(int));
+			cm->cmsg_level = SOL_SOCKET;
+			cm->cmsg_type = SO_NET_SERVICE_TYPE;
+			msg.msg_controllen += CMSG_SPACE(sizeof(int));
+			*(int *)CMSG_DATA(cm) = net_service_type;
+		}
+		msg.msg_control = cmbuf;
 
 		msg.msg_flags = 0;
 
 		i = sendmsg(s, &msg, 0);
 	} else {
+		if ((options & F_CONNECT)) {
+			i = send(s, (char *)packet, cc, 0);
+		} else {
 		i = sendto(s, (char *)packet, cc, 0, (struct sockaddr *)&whereto,
 			sizeof(whereto));
+	}
 	}
 	if (i < 0 || i != cc)  {
 		if (i < 0) {
@@ -1267,6 +1351,8 @@ pr_pack(char *buf, int cc, struct sockaddr_in *from, struct timeval *tv,
 				seq_datalen = sweepmin + (seq / snpackets) * sweepincr;
 				seq_sent_len = icmp_len + seq_datalen;
 			}
+			if (options & F_PRTIME)
+				pr_currenttime();
 			(void)printf("%d bytes from %s: icmp_seq=%u", cc,
 			   inet_ntoa(*(struct in_addr *)&from->sin_addr.s_addr),
 			   seq);
@@ -1353,6 +1439,8 @@ pr_pack(char *buf, int cc, struct sockaddr_in *from, struct timeval *tv,
 		     (oip->ip_p == IPPROTO_ICMP) &&
 		     (oicmp->icmp_type == ICMP_ECHO) &&
 		     (oicmp->icmp_id == ident))) {
+		    if (options & F_PRTIME)
+			    pr_currenttime();
 		    (void)printf("%d bytes from %s: ", cc,
 			pr_addr(from->sin_addr));
 		    pr_icmph(icp);
@@ -1862,14 +1950,16 @@ fill(char *bp, char *patp)
 	}
 }
 
-uint32_t
-str2svc(const char *str)
+int
+str2sotc(const char *str, bool *valid)
 {
-	uint32_t svc;
+	int sotc = -1;
 	char *endptr;
 	
+	*valid = true;
+	
 	if (str == NULL || *str == '\0')
-		svc = UINT32_MAX;
+		*valid = false;
 	else if (strcasecmp(str, "BK_SYS") == 0)
 		return SO_TC_BK_SYS;
 	else if (strcasecmp(str, "BK") == 0)
@@ -1891,11 +1981,130 @@ str2svc(const char *str)
 	else if (strcasecmp(str, "CTL") == 0)
 		return SO_TC_CTL;
 	else {
-		svc = strtoul(str, &endptr, 0);
+		sotc = (int)strtol(str, &endptr, 0);
 		if (*endptr != '\0')
-			svc = UINT32_MAX;
+			*valid = false;
+	}
+	return (sotc);
+}
+
+int
+str2netservicetype(const char *str, bool *valid)
+{
+	int svc = -1;
+	char *endptr;
+	
+	*valid = true;
+	
+	if (str == NULL || *str == '\0')
+		*valid = false;
+	else if (strcasecmp(str, "BK") == 0)
+		return NET_SERVICE_TYPE_BK;
+	else if (strcasecmp(str, "BE") == 0)
+		return NET_SERVICE_TYPE_BE;
+	else if (strcasecmp(str, "VI") == 0)
+		return NET_SERVICE_TYPE_VI;
+	else if (strcasecmp(str, "SIG") == 0)
+		return NET_SERVICE_TYPE_SIG;
+	else if (strcasecmp(str, "VO") == 0)
+		return NET_SERVICE_TYPE_VO;
+	else if (strcasecmp(str, "RV") == 0)
+		return NET_SERVICE_TYPE_RV;
+	else if (strcasecmp(str, "AV") == 0)
+		return NET_SERVICE_TYPE_AV;
+	else if (strcasecmp(str, "OAM") == 0)
+		return NET_SERVICE_TYPE_OAM;
+	else if (strcasecmp(str, "RD") == 0)
+		return NET_SERVICE_TYPE_RD;
+	else {
+		svc = (int)strtol(str, &endptr, 0);
+		if (*endptr != '\0')
+			*valid = false;
 	}
 	return (svc);
+}
+
+u_int8_t
+str2tos(const char *str, bool *valid)
+{
+	u_int8_t dscp = -1;
+	char *endptr;
+	
+	*valid = true;
+	
+	if (str == NULL || *str == '\0')
+		*valid = false;
+	else if (strcasecmp(str, "DF") == 0)
+		dscp = _DSCP_DF;
+	else if (strcasecmp(str, "EF") == 0)
+		dscp = _DSCP_EF;
+	else if (strcasecmp(str, "VA") == 0)
+		dscp = _DSCP_VA;
+	
+	else if (strcasecmp(str, "CS0") == 0)
+		dscp = _DSCP_CS0;
+	else if (strcasecmp(str, "CS1") == 0)
+		dscp = _DSCP_CS1;
+	else if (strcasecmp(str, "CS2") == 0)
+		dscp = _DSCP_CS2;
+	else if (strcasecmp(str, "CS3") == 0)
+		dscp = _DSCP_CS3;
+	else if (strcasecmp(str, "CS4") == 0)
+		dscp = _DSCP_CS4;
+	else if (strcasecmp(str, "CS5") == 0)
+		dscp = _DSCP_CS5;
+	else if (strcasecmp(str, "CS6") == 0)
+		dscp = _DSCP_CS6;
+	else if (strcasecmp(str, "CS7") == 0)
+		dscp = _DSCP_CS7;
+	
+	else if (strcasecmp(str, "AF11") == 0)
+		dscp = _DSCP_AF11;
+	else if (strcasecmp(str, "AF12") == 0)
+		dscp = _DSCP_AF12;
+	else if (strcasecmp(str, "AF13") == 0)
+		dscp = _DSCP_AF13;
+	else if (strcasecmp(str, "AF21") == 0)
+		dscp = _DSCP_AF21;
+	else if (strcasecmp(str, "AF22") == 0)
+		dscp = _DSCP_AF22;
+	else if (strcasecmp(str, "AF23") == 0)
+		dscp = _DSCP_AF23;
+	else if (strcasecmp(str, "AF31") == 0)
+		dscp = _DSCP_AF31;
+	else if (strcasecmp(str, "AF32") == 0)
+		dscp = _DSCP_AF32;
+	else if (strcasecmp(str, "AF33") == 0)
+		dscp = _DSCP_AF33;
+	else if (strcasecmp(str, "AF41") == 0)
+		dscp = _DSCP_AF41;
+	else if (strcasecmp(str, "AF42") == 0)
+		dscp = _DSCP_AF42;
+	else if (strcasecmp(str, "AF43") == 0)
+		dscp = _DSCP_AF43;
+	
+	else {
+		unsigned long val = strtoul(str, &endptr, 0);
+		if (*endptr != '\0' || val > 255)
+			*valid = false;
+		else
+			return ((u_int8_t)val);
+	}
+	/* DSCP occupies the 6 upper bits of the TOS field */
+	return (dscp << 2);
+}
+
+void
+pr_currenttime(void)
+{
+	int s;
+	struct timeval tv;
+	
+	gettimeofday(&tv, NULL);
+	
+	s = (tv.tv_sec + thiszone) % 86400;
+	printf("%02d:%02d:%02d.%06u ", s / 3600, (s % 3600) / 60, s % 60,
+	       (u_int32_t)tv.tv_usec);
 }
 
 #if defined(IPSEC) && defined(IPSEC_POLICY_IPSEC)
@@ -1908,14 +2117,20 @@ usage(void)
 {
 
 	(void)fprintf(stderr, "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n",
-"usage: ping [-AaDdfnoQqRrv] [-b boundif] [-c count] [-G sweepmaxsize]",
-"            [-g sweepminsize] [-h sweepincrsize] [-i wait] [−k trafficclass]",
+"usage: ping [-AaDdfnoQqRrv] [-c count] [-G sweepmaxsize]",
+"            [-g sweepminsize] [-h sweepincrsize] [-i wait]",
 "            [-l preload] [-M mask | time] [-m ttl]" SECOPT " [-p pattern]",
-"            [-S src_addr] [-s packetsize] [-t timeout][-W waittime] [-z tos]",
-"            host",
-"       ping [-AaDdfLnoQqRrv] [-b boundif] [-c count] [-I iface] [-i wait]",
-"            [−k trafficclass] [-l preload] [-M mask | time] [-m ttl]" SECOPT " [-p pattern] [-S src_addr]",
+"            [-S src_addr] [-s packetsize] [-t timeout][-W waittime]",
+"            [-z tos] host",
+"       ping [-AaDdfLnoQqRrv] [-c count] [-I iface] [-i wait]",
+"            [-l preload] [-M mask | time] [-m ttl]" SECOPT " [-p pattern] [-S src_addr]",
 "            [-s packetsize] [-T ttl] [-t timeout] [-W waittime]",
 "            [-z tos] mcast-group");
+	(void)fprintf(stderr, "Apple specific options (to be specified before mcast-group or host like all options)\n");
+	(void)fprintf(stderr, "            -b boundif           # bind the socket to the interface\n");
+	(void)fprintf(stderr, "            -k traffic_class     # set traffic class socket option\n");
+	(void)fprintf(stderr, "            -K net_service_type  # set traffic class socket options\n");
+	(void)fprintf(stderr, "            -apple-connect       # call connect(2) in the socket\n");
+	(void)fprintf(stderr, "            -apple-time          # display current time\n");
 	exit(EX_USAGE);
 }

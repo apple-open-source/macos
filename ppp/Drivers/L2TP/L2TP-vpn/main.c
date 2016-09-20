@@ -536,7 +536,10 @@ u_long load_kext(char *kext, int byBundleID)
  ----------------------------------------------------------------------------- */
 int l2tp_set_delegated_process(int fd, int pid)
 {
-    setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_SETDELEGATEDPID, &pid, sizeof(pid));
+    if (setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_SETDELEGATEDPID, &pid, sizeof(pid))) {
+        syslog(LOG_ERR, "L2TP plugin: Unable to set L2TP_OPT_SETDELEGATEDPID, error: %s\n", strerror(errno));
+        return -1;
+    }
     return 0;
 }
 
@@ -546,7 +549,10 @@ int l2tp_set_ouraddress(int fd, struct sockaddr *addr)
 {
     socklen_t optlen;
 
-    setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_OURADDRESS, addr, sizeof(*addr));
+    if (setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_OURADDRESS, addr, sizeof(*addr))) {
+        syslog(LOG_ERR, "L2TP plugin: Unable to set L2TP_OPT_OURADDRESS, error: %s\n", strerror(errno));
+		return -1;
+    }
     /* get the address to retrieve the actual port used */
     optlen = sizeof(*addr);
     getsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_OURADDRESS, addr, &optlen);
@@ -563,10 +569,10 @@ int l2tpvpn_listen(void)
     if (listen_sockfd <= 0)
         return -1;
     
-    //set_flag(listen_sockfd, kerneldebug & 1, L2TP_FLAG_DEBUG);
-    set_flag(listen_sockfd, 1, L2TP_FLAG_CONTROL);
-    set_flag(listen_sockfd, !opt_noipsec, L2TP_FLAG_IPSEC);
-    l2tp_set_delegated_process(listen_sockfd, getpid());  // must be set before calling l2tp_set_ouraddress
+    //(void)set_flag(listen_sockfd, kerneldebug & 1, L2TP_FLAG_DEBUG);
+    (void)set_flag(listen_sockfd, 1, L2TP_FLAG_CONTROL);
+    (void)set_flag(listen_sockfd, !opt_noipsec, L2TP_FLAG_IPSEC);
+    (void)l2tp_set_delegated_process(listen_sockfd, getpid());  // must be set before calling l2tp_set_ouraddress
 
     /* unknown src and dst addresses */
     any_address.sin_len = sizeof(any_address);
@@ -579,7 +585,7 @@ int l2tpvpn_listen(void)
     listen_address.sin_family = AF_INET;
     listen_address.sin_port = htons(L2TP_UDP_PORT);
     listen_address.sin_addr.s_addr = INADDR_ANY;
-    l2tp_set_ouraddress(listen_sockfd, (struct sockaddr *)&listen_address);
+    (void)l2tp_set_ouraddress(listen_sockfd, (struct sockaddr *)&listen_address);
     our_address = listen_address;
 
     /* add security policies */
@@ -673,9 +679,11 @@ int l2tpvpn_accept(void)
         }
     
     /* accept the call. it will copy the data to the new socket */
-    //set_flag(newSockfd, kerneldebug & 1, L2TP_FLAG_DEBUG);
-    setsockopt(newSockfd, PPPPROTO_L2TP, L2TP_OPT_ACCEPT, 0, 0);
-    
+    //(void)set_flag(newSockfd, kerneldebug & 1, L2TP_FLAG_DEBUG);
+    if (setsockopt(newSockfd, PPPPROTO_L2TP, L2TP_OPT_ACCEPT, 0, 0)) {
+        syslog(LOG_ERR, "L2TP plugin: Unable to set L2TP_OPT_ACCEPT during accept, error: %s\n", strerror(errno));
+    }
+
     /* read the duplicated SCCRQ from the listen socket and ignore for now */
     if (l2tp_sys_recvfrom(listen_sockfd, recv_buf, 1500, MSG_DONTWAIT, (struct sockaddr*)&from, &addrlen) < 0)
         return -1;
@@ -709,7 +717,9 @@ int l2tpvpn_refuse(void)
         }
     
     /* accept the call. it will copy the data to the new socket */
-    setsockopt(newSockfd, PPPPROTO_L2TP, L2TP_OPT_ACCEPT, 0, 0);
+    if (setsockopt(newSockfd, PPPPROTO_L2TP, L2TP_OPT_ACCEPT, 0, 0)) {
+        syslog(LOG_ERR, "L2TP plugin: Unable to set L2TP_OPT_ACCEPT during refuse, error: %s\n", strerror(errno));
+    }
     /* and close it right away */
     close(newSockfd);
     

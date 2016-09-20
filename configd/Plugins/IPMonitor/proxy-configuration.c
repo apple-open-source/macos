@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -248,13 +248,13 @@ compareBySearchOrder(const void *val1, const void *val2, void *context)
 
 	num1 = CFDictionaryGetValue(proxy1, PROXY_MATCH_ORDER_KEY);
 	if (!isA_CFNumber(num1) ||
-	    !CFNumberGetValue(num1, kCFNumberIntType, &order1)) {
+	    !CFNumberGetValue(num1, kCFNumberSInt32Type, &order1)) {
 		order1 = DEFAULT_MATCH_ORDER;
 	}
 
 	num2 = CFDictionaryGetValue(proxy2, PROXY_MATCH_ORDER_KEY);
 	if (!isA_CFNumber(num2) ||
-	    !CFNumberGetValue(num2, kCFNumberIntType, &order2)) {
+	    !CFNumberGetValue(num2, kCFNumberSInt32Type, &order2)) {
 		order2 = DEFAULT_MATCH_ORDER;
 	}
 
@@ -264,8 +264,8 @@ compareBySearchOrder(const void *val1, const void *val2, void *context)
 		    CFDictionaryGetValueIfPresent(proxy2, ORDER_KEY, (const void **)&num2) &&
 		    isA_CFNumber(num1) &&
 		    isA_CFNumber(num2) &&
-		    CFNumberGetValue(num1, kCFNumberIntType, &order1) &&
-		    CFNumberGetValue(num2, kCFNumberIntType, &order2)) {
+		    CFNumberGetValue(num1, kCFNumberSInt32Type, &order1) &&
+		    CFNumberGetValue(num2, kCFNumberSInt32Type, &order2)) {
 			if (order1 == order2) {
 				return kCFCompareEqualTo;
 			} else {
@@ -389,8 +389,9 @@ copy_app_layer_vpn_proxies(CFDictionaryRef services, CFArrayRef order, CFDiction
 		CFDictionaryRef		proxy;
 		CFDictionaryRef		service;
 		CFStringRef		serviceID;
-		CFNumberRef		isServiceSpecific;
-		int			boolValue = 0;
+		CFNumberRef		serviceSpecificIdentifier;
+		int			serviceIdentifier = 0;
+		CFStringRef		serviceIdentifierString;
 
 		serviceID = CFArrayGetValueAtIndex(order, i);
 		service = CFDictionaryGetValue(services, serviceID);
@@ -405,15 +406,22 @@ copy_app_layer_vpn_proxies(CFDictionaryRef services, CFArrayRef order, CFDiction
 			continue;
 		}
 
-		isServiceSpecific = CFDictionaryGetValue(proxy, kSCPropNetProxiesServiceSpecific);
-		if (!isA_CFNumber(isServiceSpecific) || !CFNumberGetValue(isServiceSpecific, kCFNumberIntType, &boolValue) || !boolValue) {
+		serviceSpecificIdentifier = CFDictionaryGetValue(proxy, kSCPropNetProxiesServiceSpecific);
+		if (!isA_CFNumber(serviceSpecificIdentifier) ||
+		    !CFNumberGetValue(serviceSpecificIdentifier, kCFNumberIntType, &serviceIdentifier) ||
+		    serviceIdentifier == 0) {
 			// if not a service-specific proxy configuration
 			continue;
 		}
 
+		serviceIdentifierString = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%u"), serviceIdentifier);
+		if (serviceIdentifierString == NULL) {
+			continue;
+		}
 		if ((app_layer_proxies != NULL) &&
-		    CFDictionaryContainsKey(app_layer_proxies, serviceID)) {
-			// if we've already processed this [app_layer_proxies] interface
+		    CFDictionaryContainsKey(app_layer_proxies, serviceIdentifierString)) {
+			// if we've already processed this [app_layer_proxies] identifier
+			CFRelease(serviceIdentifierString);
 			continue;
 		}
 
@@ -428,7 +436,8 @@ copy_app_layer_vpn_proxies(CFDictionaryRef services, CFArrayRef order, CFDiction
 								      &kCFTypeDictionaryKeyCallBacks,
 								      &kCFTypeDictionaryValueCallBacks);
 		}
-		CFDictionarySetValue(app_layer_proxies, serviceID, newProxy);
+		CFDictionarySetValue(app_layer_proxies, serviceIdentifierString, newProxy);
+		CFRelease(serviceIdentifierString);
 		CFRelease(newProxy);
 	}
 
@@ -532,7 +541,7 @@ add_default_proxy(CFMutableArrayRef	proxies,
 	// ensure that the default proxy has a search order
 
 	if (!isA_CFNumber(order) ||
-	    !CFNumberGetValue(order, kCFNumberIntType, &myOrder)) {
+	    !CFNumberGetValue(order, kCFNumberSInt32Type, &myOrder)) {
 		myOrder = DEFAULT_MATCH_ORDER;
 		order = CFNumberCreate(NULL, kCFNumberIntType, &myOrder);
 		CFDictionarySetValue(myDefault, PROXY_MATCH_ORDER_KEY, order);

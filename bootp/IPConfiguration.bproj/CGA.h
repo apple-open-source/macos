@@ -1,6 +1,5 @@
-
 /*
- * Copyright (c) 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -47,6 +46,10 @@ CGAInit(void);
 
 bool
 CGAIsEnabled(void);
+
+void
+CGAPrepareSetForInterfaceLinkLocal(const char * name,
+				   struct in6_cga_prepare * cgaprep);
 
 void
 CGAPrepareSetForInterface(const char * name, struct in6_cga_prepare * cgaprep);

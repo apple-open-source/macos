@@ -2,3 +2,5 @@
 if [ "$TERM_PROGRAM" = "Apple_Terminal" ]; then
 	setopt combiningchars
 fi
+
+disable log

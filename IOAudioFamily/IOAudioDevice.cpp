@@ -105,79 +105,6 @@ OSMetaClassDefineReservedUnused(IOAudioDevice, 29);
 OSMetaClassDefineReservedUnused(IOAudioDevice, 30);
 OSMetaClassDefineReservedUnused(IOAudioDevice, 31);
 
-// New code added here
-
-//================================================================================================
-//
-//	Start Tracepoint Setup
-//
-//================================================================================================
-class AudioGlobals
-{
-public:
-    AudioGlobals(void);                             // Constructor
-    virtual ~AudioGlobals(void);					// Destructor
-};
-
-static int				AudioSysctl ( struct sysctl_oid * oidp, void * arg1, int arg2, struct sysctl_req * req );
-static AudioGlobals		gAudioStackGlobals;						// needs to be declared early to register tracepoints via sysctl
-UInt32					gAudioStackDebugFlags = 0;				// extern-ed in IOAudioDebug.h
-
-SYSCTL_PROC ( _debug, OID_AUTO, Audio, CTLFLAG_RW, 0, 0, AudioSysctl, "Audio", "Audio debug interface" );
-
-static int AudioSysctl ( struct sysctl_oid * oidp, void * arg1, int arg2, struct sysctl_req * req )
-{
-    int                 error = 0;
-    AudioSysctlArgs     audioArgs;
-    
-    DEBUG_UNUSED ( oidp );
-    DEBUG_UNUSED ( arg1 );
-    DEBUG_UNUSED ( arg2 );
-        
-    error = SYSCTL_IN ( req, &audioArgs, sizeof ( audioArgs ) );
-    if ( ( error == 0 ) && ( audioArgs.type == kAudioTypeDebug ) )
-    {
-        if ( audioArgs.operation == kAudioOperationGetFlags )
-        {
-            audioArgs.debugFlags = gAudioStackDebugFlags;
-            error = SYSCTL_OUT ( req, &audioArgs, sizeof ( audioArgs ) );
-        }
-        
-        else if ( audioArgs.operation == kAudioOperationSetFlags )
-        {
-            gAudioStackDebugFlags = audioArgs.debugFlags;
-        }
-    }
-    
-    return error;
-}
-
-
-
-AudioGlobals::AudioGlobals ( void )
-{
-    int debugFlags;
-    
-    if ( PE_parse_boot_argn ( "audio", &debugFlags, sizeof ( debugFlags ) ) )
-    {
-        gAudioStackDebugFlags = debugFlags;
-    }
-    
-    // Register our sysctl interface
-    sysctl_register_oid ( &sysctl__debug_Audio );
-    
-}
-
-
-
-AudioGlobals::~AudioGlobals ( void )
-{
-    // Unregister our sysctl interface
-    sysctl_unregister_oid ( &sysctl__debug_Audio );
-    
-}
-
-
 
 void IOAudioDevice::setDeviceModelName(const char *modelName)
 {
@@ -702,6 +629,8 @@ IOReturn IOAudioDevice::protectedSetPowerState(unsigned long powerStateOrdinal, 
 
 void IOAudioDevice::waitForPendingPowerStateChange()
 {
+    IOReturn            kr = kIOReturnSuccess;
+    
     audioDebugIOLog(3, "+ IOAudioDevice[%p]::waitForPendingPowerStateChange()\n", this);
     AudioTrace_Start(kAudioTIOAudioDevice, kTPIOAudioDeviceWaitForPendingPowerStateChange, (uintptr_t)this, asyncPowerStateChangeInProgress, 0, 0);
 
@@ -711,14 +640,38 @@ void IOAudioDevice::waitForPendingPowerStateChange()
         cg = getCommandGate();
         
         if (cg) {
-            cg->commandSleep((void *)&asyncPowerStateChangeInProgress);
-            assert(!asyncPowerStateChangeInProgress);
+            AbsoluteTime        deadline;
+            
+            cg->retain();
+            clock_interval_to_deadline(1, kSecondScale, &deadline);
+            
+            kr = cg->commandSleep( &asyncPowerStateChangeInProgress, deadline, THREAD_ABORTSAFE );
+            switch (kr)
+            {
+                case THREAD_AWAKENED:
+                    // this is what we expect
+                    break;
+                    
+                case THREAD_TIMED_OUT:
+                case THREAD_INTERRUPTED:
+                case THREAD_RESTART:
+                default:
+                    // unexpected, but since the method doesn't return a value, we just log it
+                    IOLog("Sound assert: IOAudioDevice::waitForPendingPowerStateChange got kr 0x%08x\n", kr);
+                    break;
+                    
+            }
+            cg->release();
+            if (asyncPowerStateChangeInProgress)
+            {
+                IOLog("Sound assert: IOAudioDevice::waitForPendingPowerStateChange() - internal error - power state change still in progress\n");
+            }
         } else {
-            IOLog("IOAudioDevice[%p]::waitForPendingPowerStateChange() - internal error - unable to get the command gate.\n", this);
+            IOLog("Sound assert: IOAudioDevice::waitForPendingPowerStateChange() - internal error - unable to get the command gate.\n");
         }
     }
     audioDebugIOLog(3, "- IOAudioDevice[%p]::waitForPendingPowerStateChange()\n", this);
-    AudioTrace_End(kAudioTIOAudioDevice, kTPIOAudioDeviceWaitForPendingPowerStateChange, (uintptr_t)this, asyncPowerStateChangeInProgress, 0, 0);
+    AudioTrace_End(kAudioTIOAudioDevice, kTPIOAudioDeviceWaitForPendingPowerStateChange, (uintptr_t)this, asyncPowerStateChangeInProgress, kr, 0);
 	return;
 }
 
@@ -1214,11 +1167,7 @@ IOReturn IOAudioDevice::addTimerEvent(OSObject *target, TimerEvent event, Absolu
 				{
 					UInt64 nanos;
 					absolutetime_to_nanoseconds(minimumInterval, &nanos);
-#ifdef __LP64__
 					audioDebugIOLog(5, "  scheduling timer to fire in %lums - previousTimerFire = {%llu}\n", (long unsigned int) (nanos / 1000000), previousTimerFire);
-#else	/* __LP64__ */
-					audioDebugIOLog(5, "  scheduling timer to fire in %lums - previousTimerFire = {%ld,%lu}\n", (long unsigned int) (nanos / 1000000), previousTimerFire.hi, previousTimerFire.lo);
-#endif	/* __LP64__ */
 				}
 #endif
 
@@ -1243,11 +1192,7 @@ IOReturn IOAudioDevice::addTimerEvent(OSObject *target, TimerEvent event, Absolu
 					{
 						UInt64 nanos;
 						absolutetime_to_nanoseconds(interval, &nanos);
-#ifdef __LP64__
 						audioDebugIOLog(5, "  scheduling timer to fire in %lums at {%llu} - previousTimerFire = {%llu}\n", (long unsigned int) (nanos / 1000000), desiredNextFire, previousTimerFire);
-#else	/* __LP64__ */
-						audioDebugIOLog(5, "  scheduling timer to fire in %lums at {%ld,%lu} - previousTimerFire = {%ld,%lu}\n", (long unsigned int) (nanos / 1000000), desiredNextFire.hi, desiredNextFire.lo, previousTimerFire.hi, previousTimerFire.lo);
-#endif	/* __LP64__ */		
 					}
 #endif
 
@@ -1325,22 +1270,12 @@ void IOAudioDevice::removeTimerEvent(OSObject *target)
 					if (CMP_ABSOLUTETIME(&then, &now)) {
 						SUB_ABSOLUTETIME(&then, &now);
 						absolutetime_to_nanoseconds(then, &nanos);
-#ifdef __LP64__
 						audioDebugIOLog(5, "IOAudioDevice::removeTimerEvent() - scheduling timer to fire in %lums at {%llu} - previousTimerFire = {%llu} - interval=%lums\n", (long unsigned int) (nanos / 1000000), nextTimerFire, previousTimerFire, (long unsigned int)(mi/1000000));
-#else	/* __LP64__ */
-						audioDebugIOLog(5, "IOAudioDevice::removeTimerEvent() - scheduling timer to fire in %lums at {%ld,%lu} - previousTimerFire = {%ld,%lu} - interval=%lums\n", (long unsigned int) (nanos / 1000000), nextTimerFire.hi, nextTimerFire.lo, previousTimerFire.hi, previousTimerFire.lo, (long unsigned int)(mi/1000000));
-#endif	/* __LP64__ */
-						
 					
 					} else {
 						SUB_ABSOLUTETIME(&now, &then);
 						absolutetime_to_nanoseconds(now, &nanos);
-#ifdef __LP64__
 						audioDebugIOLog(5, "IOAudioDevice::removeTimerEvent() - scheduling timer to fire in -%lums - previousTimerFire = {%llu}\n", (long unsigned int) (nanos / 1000000), previousTimerFire);
-#else	/* __LP64__ */
-						audioDebugIOLog(5, "IOAudioDevice::removeTimerEvent() - scheduling timer to fire in -%lums - previousTimerFire = {%ld,%lu}\n", (long unsigned int) (nanos / 1000000), previousTimerFire.hi, previousTimerFire.lo);
-#endif	/* __LP64__ */
-						
 					}
 				}
 #endif
@@ -1393,11 +1328,7 @@ void IOAudioDevice::dispatchTimerEvents(bool force)
         delta = now;
         SUB_ABSOLUTETIME(&delta, &previousTimerFire);
         absolutetime_to_nanoseconds(delta, &nanos);
-#ifdef __LP64__
         audioDebugIOLog(5, "  woke up %lums after last fire - now = {%llu} - previousFire = {%llu}\n", (long unsigned int)(nanos / 1000000), now, previousTimerFire);
-#else	/* __LP64__ */
-		audioDebugIOLog(5, "  woke up %lums after last fire - now = {%ld,%lu} - previousFire = {%ld,%lu}\n", (UInt32)(nanos / 1000000), now.hi, now.lo, previousTimerFire.hi, previousTimerFire.lo);
-#endif	/* __LP64__ */
 #endif	/* DEBUG */
 		
         if (force || (getPowerState() != kIOAudioDeviceSleep)) {
@@ -1440,21 +1371,13 @@ void IOAudioDevice::dispatchTimerEvents(bool force)
                     if (CMP_ABSOLUTETIME(&later, &now)) {
                         SUB_ABSOLUTETIME(&later, &now);
                         absolutetime_to_nanoseconds(later, &nanos);
-#ifdef __LP64__
 						audioDebugIOLog(5, "  scheduling timer to fire in %lums at {%llu} - previousTimerFire = {%llu} - interval=%lums\n", (long unsigned int) (nanos / 1000000), nextTimerFire, previousTimerFire, (long unsigned int)(mi/1000000));
-#else	/* __LP64__ */
-						audioDebugIOLog(5, "  scheduling timer to fire in %lums at {%ld,%lu} - previousTimerFire = {%ld,%lu} - interval=%lums\n", (UInt32) (nanos / 1000000), nextTimerFire.hi, nextTimerFire.lo, previousTimerFire.hi, previousTimerFire.lo, (UInt32)(mi/1000000));
-#endif	/* __LP64__*/
-                    } 
+                    }
 					else 
 					{
                         SUB_ABSOLUTETIME(&now, &later);
                         absolutetime_to_nanoseconds(now, &nanos);
-#ifdef __LP64__
                         audioDebugIOLog(5, "  scheduling timer to fire in -%lums - previousTimerFire = {%llu}\n", (long unsigned int) (nanos / 1000000), previousTimerFire);
-#else	/* __LP64__ */
-						audioDebugIOLog(5, "  scheduling timer to fire in -%lums - previousTimerFire = {%ld,%lu}\n", (UInt32) (nanos / 1000000), previousTimerFire.hi, previousTimerFire.lo);
-#endif	/* __LP64__*/
                     }
                 }
 #endif	/* DEBUG */

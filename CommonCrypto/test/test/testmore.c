@@ -159,8 +159,8 @@ void test_plan_tests(int count, const char *file, unsigned line)
 }
 
 int
-test_diag(const char *directive, const char *reason,
-	const char *file, unsigned line, const char *fmt, ...)
+test_diag(const char *directive, const char * __unused reason,
+	__unused const char *file, unsigned __unused line, const char *fmt, ...)
 {
 	int is_todo = directive && !strcmp(directive, "TODO");
 	va_list args;

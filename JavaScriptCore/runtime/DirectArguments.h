@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -55,7 +55,8 @@ public:
     
     // Creates an arguments object by copying the argumnets from the stack.
     static DirectArguments* createByCopying(ExecState*);
-    
+
+    static size_t estimatedSize(JSCell*);
     static void visitChildren(JSCell*, SlotVisitor&);
     static void copyBackingStore(JSCell*, CopyVisitor&, CopyToken);
     
@@ -148,7 +149,7 @@ private:
     WriteBarrier<JSFunction> m_callee;
     uint32_t m_length; // Always the actual length of captured arguments and never what was stored into the length property.
     uint32_t m_minCapacity; // The max of this and length determines the capacity of this object. It may be the actual capacity, or maybe something smaller. We arrange it this way to be kind to the JITs.
-    CopyWriteBarrier<bool> m_overrides; // If non-null, it means that length, callee, and caller are fully materialized properties.
+    CopyBarrier<bool> m_overrides; // If non-null, it means that length, callee, and caller are fully materialized properties.
 };
 
 } // namespace JSC

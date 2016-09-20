@@ -322,12 +322,14 @@ void rpc_binding_inq_auth_client
     [out]       unsigned32              *st
 );
 
+/* Removed unused symbol for rdar://problem/26430747
 void rpc_binding_set_transport_info
 (
     [in]        rpc_binding_handle_t         binding_handle,
     [in]        rpc_transport_info_handle_t  info,
     [out]       unsigned32                   *st
 );
+ */
 
 void rpc_binding_inq_transport_info
 (
@@ -389,12 +391,14 @@ const unsigned32 rpc_call_attributes_version = 1;
 const unsigned32 rpc_query_server_principal_name = 2;
 const unsigned32 rpc_query_client_principal_name = 4;
 
+/* Removed unused symbol for rdar://problem/26430747
 void rpc_server_inq_call_attributes
 (
     [in]        rpc_binding_handle_t    cbinding_handle,
     [out]       rpc_call_attributes_t   *attributes,
     [out]       unsigned32               *status
 );
+*/
 
 /*
  * R P C _ B I N D I N G _ I N Q _ S E C U R I T Y _ C O N T E X T
@@ -442,6 +446,7 @@ const unsigned32 rpc_bht_exclusive_and_guaranteed = 4;
 /*
  * R P C _ B I N D I N G _ C R E A T E
  */
+/* Removed unused symbol for rdar://problem/26430747
 void rpc_binding_create
 (
     [in]        rpc_binding_handle_template_t *_template,
@@ -450,6 +455,7 @@ void rpc_binding_create
     [out]       rpc_binding_handle_t          *handle,
     [out]       unsigned32                    *st
 );
+ */
 
 /*************************************************************************/
 /*******************  Comm Services Interface object  ********************/
@@ -745,6 +751,7 @@ const unsigned32 rpc_if_sec_no_cache = 0x0040;
  *
  * Extended version of rpc_server_register_if()
  */
+/* Removed unused symbol for rdar://problem/26430747
 void rpc_server_register_if_ex
 (
     [in]        rpc_if_handle_t         if_spec,
@@ -755,6 +762,7 @@ void rpc_server_register_if_ex
     [in]        rpc_if_callback_fn_t    if_callback,
     [out]       unsigned32              *status
 );
+#endif
 
 /*
  * R P C _ S E R V E R _ R E G I S T E R _ I F 2
@@ -762,6 +770,7 @@ void rpc_server_register_if_ex
  * Same as rpc_server_register_if_ex(), but takes a maximum RPC
  * size parameter to avoid Denial of Service (DoS) attacks.
  */
+/* Removed unused symbol for rdar://problem/26430747
 void rpc_server_register_if_2
 (
     [in]        rpc_if_handle_t         if_spec,
@@ -773,6 +782,7 @@ void rpc_server_register_if_2
     [in]        rpc_if_callback_fn_t    if_callback,
     [out]       unsigned32              *status
 );
+*/
 
 /*
  * R P C _ S E R V E R _ U N R E G I S T E R _ I F
@@ -794,6 +804,7 @@ void rpc_server_unregister_if
  * Given an interface spec and type ID, return the manager EPV that has
  * been registered for them (if any).
  */
+/* Removed unused symbol for rdar://problem/26430747
 void rpc_server_inq_if
 (
     [in]        rpc_if_handle_t         if_spec,
@@ -801,6 +812,7 @@ void rpc_server_inq_if
     [out]       rpc_mgr_epv_t           *mgr_epv,
     [out]       unsigned32              *status
 );
+*/
 
 /*
  * R P C _ S E R V E R _ R E G I S T E R _ A U T H _ I N F O
@@ -851,7 +863,7 @@ void rpc_ep_register
  * Just like "rpc_ep_register" except this version does NOT replace old
  * registrations that differ only in the endpoint.
  */
-
+/* Removed unused symbol for rdar://problem/26430747
 void rpc_ep_register_no_replace
 (
     [in]        rpc_if_handle_t         if_spec,
@@ -860,6 +872,7 @@ void rpc_ep_register_no_replace
     [in]        unsigned_char_p_t       annotation,
     [out]       unsigned32              *status
 );
+*/
 
 /*
  * R P C _ E P _ R E S O L V E _ B I N D I N G
@@ -1025,11 +1038,13 @@ void rpc_mgmt_set_com_timeout
  * the thread stack size when creating call threads. This value will
  * be applied to all threads created for the server.
  */
+/* Removed unused symbol for rdar://problem/26430747
 void rpc_mgmt_set_server_stack_size
 (
     [in]        unsigned32              thread_stack_size,
     [out]       unsigned32              *status
 );
+*/
 
 /*
  * R P C _ M G M T _ S T O P _ S E R V E R _ L I S T E N I N G
@@ -1123,6 +1138,7 @@ void rpc_mgmt_ep_elt_inq_done
  *
  * Removes server address information from the local endpoint map database.
  */
+/* Removed unused symbol for rdar://problem/26430747
 void rpc_mgmt_ep_unregister
 (
     [in]        rpc_binding_handle_t    ep_binding,
@@ -1131,6 +1147,7 @@ void rpc_mgmt_ep_unregister
     [in]        uuid_p_t                object_uuid,
     [out]       unsigned32              *status
 );
+*/
 
 /*
  * R P C _ M G M T _ I N Q _ S E R V E R _ P R I N C _ N A M E
@@ -1223,6 +1240,7 @@ void rpc_ns_binding_inq_entry_name
  *
  * Start a search in the name service for a compatible binding.
  */
+/* Removed unused symbol for rdar://problem/26430747
 void rpc_ns_binding_lookup_begin
 (
     [in]        unsigned32              entry_name_syntax,
@@ -1233,29 +1251,34 @@ void rpc_ns_binding_lookup_begin
     [out]       rpc_ns_handle_t         *lookup_context,
     [out]       unsigned32              *status
 );
+*/
 
 /*
  * R P C _ N S _ B I N D I N G _ L O O K U P _ D O N E
  *
  * Terminate a search in the name service for a compatible binding.
  */
+/* Removed unused symbol for rdar://problem/26430747
 void rpc_ns_binding_lookup_done
 (
     [in, out]   rpc_ns_handle_t         *lookup_context,
     [out]       unsigned32              *status
 );
+*/
 
 /*
  * R P C _ N S _ B I N D I N G _ L O O K U P _ N E X T
  *
  * Continue a search in the name service for a compatible binding.
  */
+/* Removed unused symbol for rdar://problem/26430747
 void rpc_ns_binding_lookup_next
 (
     [in]        rpc_ns_handle_t         lookup_context,
     [out]       rpc_binding_vector_p_t  *binding_vector,
     [out]       unsigned32              *status
 );
+*/
 
 /*
  * R P C _ N S _ B I N D I N G _ S E L E C T
@@ -1274,6 +1297,7 @@ void rpc_ns_binding_select
  *
  * Unexport an interface and/or a set of object uuids.
  */
+/* Removed unused symbol for rdar://problem/26430747
 void rpc_ns_binding_unexport
 (
     [in]        unsigned32              entry_name_syntax,
@@ -1282,6 +1306,7 @@ void rpc_ns_binding_unexport
     [in]        uuid_vector_p_t         object_uuid_vector,
     [out]       unsigned32              *status
 );
+*/
 
 /*************************************************************************/
 /**********************  Name Services Entry object  *********************/
@@ -1748,6 +1773,7 @@ void rpc_ns_mgmt_read_codesets
  * Client uses this function to set an appropriate evaluation routine
  * to an import context.
  */
+/* Removed unused symbol for rdar://problem/26430747
 void rpc_ns_import_ctx_add_eval
 (
     [in, out]	rpc_ns_handle_t		*import_ctx,
@@ -1757,6 +1783,7 @@ void rpc_ns_import_ctx_add_eval
     [in]	void			(*cs_free_func)(void *cntx),
     [out]	error_status_t		*status
 );
+*/
 
 /*
  * R P C _ C S _ E V A L _ W I T H _ U N I V E R S A L
@@ -1765,12 +1792,14 @@ void rpc_ns_import_ctx_add_eval
  * server code sets match, Universal code set will be used for communication.
  * 'args' is not used, and 'cntx' points to 'rpc_cs_codeset_i14y_data'.
  */
+/* Removed unused symbol for rdar://problem/26430747
 void rpc_cs_eval_with_universal
 (
     [in]	handle_t		binding_h,
     [in]	void			*args,
     [in, out]	void			**cntx
 );
+*/
 
 /*
  * R P C _ C S _ E V A L _ W I T H O U T _ U N I V E R S A L
@@ -1902,12 +1931,13 @@ void rpc_cs_binding_set_tags (
  * When in-stub evaluation is used, RPC performance can be
  * suffered.
  */
-
+/* Removed unused symbol for rdar://problem/26430747
 void rpc_cs_binding_set_eval (
         [in, out]   rpc_binding_handle_t	*h,
 	[in]	    void			(*cs_stub_eval_func)(unsigned32 *p_stag, unsigned32 *p_drtag, error_status_t *status),
         [out]		error_status_t		*status
 );
+*/
 
 /*
  * R P C _ R G Y _ G E T _ C O D E S E T S

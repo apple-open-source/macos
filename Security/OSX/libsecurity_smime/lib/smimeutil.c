@@ -366,6 +366,8 @@ nss_SMIME_FindCipherForSMIMECap(NSSSMIMECapability *cap)
 	return smime_cipher_map[i].cipher;	/* match found, point to cipher */
 }
 
+static int smime_keysize_by_cipher (unsigned long which);
+
 /*
  * smime_choose_cipher - choose a cipher that works for all the recipients
  *
@@ -509,6 +511,10 @@ done:
     if (poolp != NULL)
 	PORT_FreeArena (poolp, PR_FALSE);
 
+    if (smime_keysize_by_cipher(chosen_cipher) < 128) {
+        /* you're going to use strong(er) crypto whether you like it or not */
+        chosen_cipher = SMIME_DES_EDE3_168;
+    }
     return chosen_cipher;
 }
 

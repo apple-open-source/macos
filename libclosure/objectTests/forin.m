@@ -18,14 +18,10 @@ int main() {
     for (int i = 0; i < 200; ++i) {
         [array addObject:[[^{ return i; } copy] autorelease]];
     }
-#if defined(__clang__) && defined(__cplusplus)
-    testwarn("clang++ rdar://8295106");
-#else
     int i = 0;
     for (int (^b)(void) in array) {
         testassert(b() == i++);
     }
-#endif
     [pool drain];
 
     succeed(__FILE__);

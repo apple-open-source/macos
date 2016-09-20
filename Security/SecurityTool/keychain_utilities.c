@@ -24,7 +24,7 @@
  */
 
 #include "keychain_utilities.h"
-#include "security.h"
+#include "security_tool.h"
 
 #include <Security/cssmapi.h>
 #include <Security/SecAccess.h>
@@ -40,6 +40,7 @@
 
 // SecTrustedApplicationValidateWithPath
 #include <Security/SecTrustedApplicationPriv.h>
+#include <Security/SecKeychainPriv.h>
 
 
 void check_obsolete_keychain(const char *kcName)
@@ -92,7 +93,7 @@ keychain_open(const char *name)
 		else
 		{
 			uint32_t i;
-			uint32_t count = dynamic ? CFArrayGetCount(dynamic) : 0;
+			CFIndex count = dynamic ? CFArrayGetCount(dynamic) : 0;
 
 			for (i = 0; i < count; ++i)
 			{
@@ -156,7 +157,7 @@ int
 parse_fourcharcode(const char *name, UInt32 *code)
 {
 	UInt32 cc = 0;
-	int len = (name) ? strlen(name) : 0;
+	size_t len = (name) ? strlen(name) : 0;
 
 	// error check the name
 	if (len != 4)
@@ -199,7 +200,7 @@ loser:
 	return result;
 }
 
-int
+static int
 print_keychain_version(FILE* stream, SecKeychainRef keychain)
 {
     int result = 0;
@@ -211,7 +212,7 @@ print_keychain_version(FILE* stream, SecKeychainRef keychain)
         goto loser;
     }
 
-    fprintf(stream, "%d", version);
+    fprintf(stream, "%d", (uint32_t) version);
 
 loser:
     return result;
@@ -753,7 +754,7 @@ loser:
 }
 
 static void
-print_buffer_hex(FILE *stream, UInt32 length, const void *data)
+print_buffer_hex(FILE *stream, size_t length, const void *data)
 {
 	uint8 *p = (uint8 *) data;
 	while (length--)
@@ -764,7 +765,7 @@ print_buffer_hex(FILE *stream, UInt32 length, const void *data)
 }
 
 static void
-print_buffer_ascii(FILE *stream, UInt32 length, const void *data)
+print_buffer_ascii(FILE *stream, size_t length, const void *data)
 {
 	uint8 *p = (uint8 *) data;
 	while (length--)
@@ -785,7 +786,7 @@ print_buffer_ascii(FILE *stream, UInt32 length, const void *data)
 }
 
 void
-print_buffer(FILE *stream, UInt32 length, const void *data)
+print_buffer(FILE *stream, size_t length, const void *data)
 {
 	uint8 *p = (uint8 *) data;
 	Boolean hex = FALSE;
@@ -995,7 +996,7 @@ unsigned char bintoasc[] =
 static void
 encChunk(const unsigned char *inp,
 	unsigned char *outp,
-	int count)
+	size_t count)
 {
 	unsigned char c1, c2, c3, c4;
 
@@ -1021,8 +1022,8 @@ encChunk(const unsigned char *inp,
 
 static unsigned char *
 malloc_enc64_with_lines(const unsigned char *inbuf,
-	unsigned inlen,
-	unsigned linelen,
+	size_t inlen,
+	size_t linelen,
 	unsigned *outlen)
 {
 	unsigned		outTextLen;
@@ -1035,7 +1036,7 @@ malloc_enc64_with_lines(const unsigned char *inbuf,
 	unsigned		numLines;
 	unsigned		thisLine;
 
-	outTextLen = ((inlen + 2) / 3) * 4;
+	outTextLen = ((((unsigned)inlen) + 2) / 3) * 4;
 	if(linelen) {
 	    /*
 	     * linelen must be 0 mod 4 for this to work; round up...
@@ -1043,7 +1044,7 @@ malloc_enc64_with_lines(const unsigned char *inbuf,
 	    if((linelen & 0x03) != 0) {
 	        linelen = (linelen + 3) & 0xfffffffc;
 	    }
-	    numLines = (outTextLen + linelen - 1)/ linelen;
+	    numLines = (outTextLen + ((unsigned)linelen) - 1)/ linelen;
 	}
 	else {
 	    numLines = 1;
@@ -1097,7 +1098,7 @@ malloc_enc64_with_lines(const unsigned char *inbuf,
 }
 
 void
-print_buffer_pem(FILE *stream, const char *headerString, UInt32 length, const void *data)
+print_buffer_pem(FILE *stream, const char *headerString, size_t length, const void *data)
 {
 	unsigned char *buf;
 	unsigned bufLen;

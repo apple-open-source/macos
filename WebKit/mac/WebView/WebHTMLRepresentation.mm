@@ -62,6 +62,7 @@
 #import <WebKitLegacy/DOMHTMLInputElement.h>
 #import <yarr/RegularExpression.h>
 #import <wtf/Assertions.h>
+#import <wtf/NeverDestroyed.h>
 #import <wtf/StdLibExtras.h>
 #import <wtf/text/StringBuilder.h>
 
@@ -86,52 +87,42 @@ using JSC::Yarr::RegularExpression;
 
 @implementation WebHTMLRepresentation
 
-static NSMutableArray *newArrayWithStrings(const HashSet<String>& set) NS_RETURNS_RETAINED;
-static NSMutableArray *newArrayWithStrings(const HashSet<String>& set)
+static RetainPtr<NSArray> newArrayWithStrings(const HashSet<String, ASCIICaseInsensitiveHash>& set)
 {
-    NSMutableArray *array = [[NSMutableArray alloc] initWithCapacity:set.size()];
-    HashSet<String>::const_iterator end = set.end();
-    for (HashSet<String>::const_iterator it = set.begin(); it != end; ++it)
-        [array addObject:(NSString *)(*it)];
-    return array;
-}
-
-static NSMutableArray *newArrayByConcatenatingArrays(NSArray *first, NSArray *second) NS_RETURNS_RETAINED;
-static NSMutableArray *newArrayByConcatenatingArrays(NSArray *first, NSArray *second)
-{
-    NSMutableArray *result = [first mutableCopy];
-    [result addObjectsFromArray:second];
-    return result;
+    Vector<NSString *> vector;
+    copyToVector(set, vector);
+    return adoptNS([[NSArray alloc] initWithObjects:vector.data() count:vector.size()]);
 }
 
 + (NSArray *)supportedMIMETypes
 {
-    static __unsafe_unretained NSArray *staticSupportedMIMETypes = newArrayByConcatenatingArrays([self supportedNonImageMIMETypes],
-        newArrayByConcatenatingArrays([self supportedImageMIMETypes], [self supportedMediaMIMETypes]));
+    static NSArray *staticSupportedMIMETypes = [[[[self supportedNonImageMIMETypes] arrayByAddingObjectsFromArray:
+        [self supportedImageMIMETypes]] arrayByAddingObjectsFromArray:
+        [self supportedMediaMIMETypes]] retain];
     return staticSupportedMIMETypes;
 }
 
 + (NSArray *)supportedMediaMIMETypes
 {
-    static __unsafe_unretained NSArray *staticSupportedMediaMIMETypes = newArrayWithStrings(MIMETypeRegistry::getSupportedMediaMIMETypes());
+    static NSArray *staticSupportedMediaMIMETypes = newArrayWithStrings(MIMETypeRegistry::getSupportedMediaMIMETypes()).leakRef();
     return staticSupportedMediaMIMETypes;
 }
 
 + (NSArray *)supportedNonImageMIMETypes
 {
-    static __unsafe_unretained NSArray *staticSupportedNonImageMIMETypes = newArrayWithStrings(MIMETypeRegistry::getSupportedNonImageMIMETypes());
+    static NSArray *staticSupportedNonImageMIMETypes = newArrayWithStrings(MIMETypeRegistry::getSupportedNonImageMIMETypes()).leakRef();
     return staticSupportedNonImageMIMETypes;
 }
 
 + (NSArray *)supportedImageMIMETypes
 {
-    static __unsafe_unretained NSArray *staticSupportedImageMIMETypes = newArrayWithStrings(MIMETypeRegistry::getSupportedImageMIMETypes());
+    static NSArray *staticSupportedImageMIMETypes = newArrayWithStrings(MIMETypeRegistry::getSupportedImageMIMETypes()).leakRef();
     return staticSupportedImageMIMETypes;
 }
 
 + (NSArray *)unsupportedTextMIMETypes
 {
-    static __unsafe_unretained NSArray *staticUnsupportedTextMIMETypes = newArrayWithStrings(MIMETypeRegistry::getUnsupportedTextMIMETypes());
+    static NSArray *staticUnsupportedTextMIMETypes = newArrayWithStrings(MIMETypeRegistry::getUnsupportedTextMIMETypes()).leakRef();
     return staticUnsupportedTextMIMETypes;
 }
 
@@ -154,14 +145,6 @@ static NSMutableArray *newArrayByConcatenatingArrays(NSArray *first, NSArray *se
     [_private release];
 
     [super dealloc];
-}
-
-- (void)finalize
-{
-    if (_private && _private->includedInWebKitStatistics)
-        --WebHTMLRepresentationCount;
-
-    [super finalize];
 }
 
 - (void)_redirectDataToManualLoader:(id<WebPluginManualLoader>)manualLoader forPluginView:(NSView *)pluginView
@@ -371,15 +354,15 @@ static RegularExpression* regExpForLabels(NSArray *labels)
     // that the app will use is equal to the number of locales is used in searching.
     static const unsigned int regExpCacheSize = 4;
     static NSMutableArray* regExpLabels = nil;
-    DEPRECATED_DEFINE_STATIC_LOCAL(Vector<RegularExpression*>, regExps, ());
-    DEPRECATED_DEFINE_STATIC_LOCAL(RegularExpression, wordRegExp, ("\\w", TextCaseSensitive));
+    static NeverDestroyed<Vector<RegularExpression*>> regExps;
+    static NeverDestroyed<RegularExpression> wordRegExp("\\w", TextCaseSensitive);
 
     RegularExpression* result;
     if (!regExpLabels)
         regExpLabels = [[NSMutableArray alloc] initWithCapacity:regExpCacheSize];
     CFIndex cacheHit = [regExpLabels indexOfObject:labels];
     if (cacheHit != NSNotFound)
-        result = regExps.at(cacheHit);
+        result = regExps.get().at(cacheHit);
     else {
         StringBuilder pattern;
         pattern.append('(');
@@ -391,8 +374,8 @@ static RegularExpression* regExpForLabels(NSArray *labels)
             bool startsWithWordChar = false;
             bool endsWithWordChar = false;
             if (label.length() != 0) {
-                startsWithWordChar = wordRegExp.match(label.substring(0, 1)) >= 0;
-                endsWithWordChar = wordRegExp.match(label.substring(label.length() - 1, 1)) >= 0;
+                startsWithWordChar = wordRegExp.get().match(label.substring(0, 1)) >= 0;
+                endsWithWordChar = wordRegExp.get().match(label.substring(label.length() - 1, 1)) >= 0;
             }
             
             if (i != 0)
@@ -415,16 +398,16 @@ static RegularExpression* regExpForLabels(NSArray *labels)
         if (cacheHit != NSNotFound) {
             // remove from old spot
             [regExpLabels removeObjectAtIndex:cacheHit];
-            regExps.remove(cacheHit);
+            regExps.get().remove(cacheHit);
         }
         // add to start
         [regExpLabels insertObject:labels atIndex:0];
-        regExps.insert(0, result);
+        regExps.get().insert(0, result);
         // trim if too big
         if ([regExpLabels count] > regExpCacheSize) {
             [regExpLabels removeObjectAtIndex:regExpCacheSize];
-            RegularExpression* last = regExps.last();
-            regExps.removeLast();
+            RegularExpression* last = regExps.get().last();
+            regExps.get().removeLast();
             delete last;
         }
     }
@@ -537,11 +520,11 @@ static NSString* matchLabelsAgainstElement(NSArray* labels, Element* element)
 {
     // Match against the name element, then against the id element if no match is found for the name element.
     // See 7538330 for one popular site that benefits from the id element check.
-    String resultFromNameAttribute = matchLabelsAgainstString(labels, element->getAttribute(nameAttr));
+    String resultFromNameAttribute = matchLabelsAgainstString(labels, element->attributeWithoutSynchronization(nameAttr));
     if (!resultFromNameAttribute.isEmpty())
         return resultFromNameAttribute;
     
-    return matchLabelsAgainstString(labels, element->getAttribute(idAttr));
+    return matchLabelsAgainstString(labels, element->attributeWithoutSynchronization(idAttr));
 }
 
 

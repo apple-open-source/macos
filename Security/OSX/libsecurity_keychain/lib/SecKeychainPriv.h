@@ -114,9 +114,25 @@ OSStatus SecKeychainSystemKeychainCheckWouldDeadlock()
     __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
 OSStatus SecKeychainStoreUnlockKey(SecKeychainRef userKeychainRef, SecKeychainRef systemKeychainRef, CFStringRef username, CFStringRef password)
     __OSX_AVAILABLE_STARTING(__MAC_10_10, __IPHONE_NA);
+OSStatus SecKeychainEraseUnlockKey(SecKeychainRef systemKeychainRef, CFStringRef username)
+    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_NA);
 
+/* Token login support */
+OSStatus SecKeychainStoreUnlockKeyWithPubKeyHash(CFDataRef pubKeyHash, CFStringRef tokenID, CFDataRef wrapPubKeyHash, SecKeychainRef userKeychain, CFStringRef password)
+    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_NA);
+OSStatus SecKeychainEraseUnlockKeyWithPubKeyHash(CFDataRef pubKeyHash)
+    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_NA);
+
+/* calls to interact with keychain versions */
 OSStatus SecKeychainGetKeychainVersion(SecKeychainRef keychain, UInt32* version)
     __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_NA);
+
+OSStatus SecKeychainAttemptMigrationWithMasterKey(SecKeychainRef keychain, UInt32 version, const char* masterKeyFilename)
+    __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_NA);
+
+/* calls for testing only */
+OSStatus SecKeychainGetUserPromptAttempts(uint32_t* attempts)
+    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_NA);
 
 /*!
  @function SecKeychainMDSInstall

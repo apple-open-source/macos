@@ -42,6 +42,7 @@ ac_cv_func_fchown=${ac_cv_func_fchown=yes}
 ac_cv_func_fsync=${ac_cv_func_fsync=yes}
 ac_cv_func_getcwd=${ac_cv_func_getcwd=yes}
 ac_cv_func_getpseudotty=${ac_cv_func_getpseudotty=no}
+ac_cv_func_getpwent=${ac_cv_func_getpwent=yes}
 ac_cv_func_getpwnam=${ac_cv_func_getpwnam=yes}
 ac_cv_func_getpwuid=${ac_cv_func_getpwuid=yes}
 ac_cv_func_getrlimit=${ac_cv_func_getrlimit=yes}
@@ -81,6 +82,7 @@ ac_cv_func_towupper=${ac_cv_func_towupper=yes}
 ac_cv_func_usleep=${ac_cv_func_usleep=yes}
 ac_cv_func_utime=${ac_cv_func_utime=yes}
 ac_cv_func_utimes=${ac_cv_func_utimes=yes}
+ac_cv_header_AvailabilityMacros_h=${ac_cv_header_AvailabilityMacros_h=yes}
 ac_cv_header_X11_SM_SMlib_h=${ac_cv_header_X11_SM_SMlib_h=yes}
 ac_cv_header_dirent_dirent_h=${ac_cv_header_dirent_dirent_h=yes}
 ac_cv_header_dlfcn_h=${ac_cv_header_dlfcn_h=yes}
@@ -94,6 +96,7 @@ ac_cv_header_langinfo_h=${ac_cv_header_langinfo_h=yes}
 ac_cv_header_libc_h=${ac_cv_header_libc_h=yes}
 ac_cv_header_libgen_h=${ac_cv_header_libgen_h=yes}
 ac_cv_header_libintl_h=${ac_cv_header_libintl_h=no}
+ac_cv_header_linux_xattr_h=${ac_cv_header_linux_xattr_h=no}
 ac_cv_header_locale_h=${ac_cv_header_locale_h=yes}
 ac_cv_header_math_h=${ac_cv_header_math_h=yes}
 ac_cv_header_poll_h=${ac_cv_header_poll_h=yes}
@@ -139,11 +142,14 @@ ac_cv_lib_m_strtod=${ac_cv_lib_m_strtod=yes}
 ac_cv_lib_ncurses___tgetent=${ac_cv_lib_ncurses___tgetent=yes}
 ac_cv_lib_nsl_gethostbyname=${ac_cv_lib_nsl_gethostbyname=no}
 ac_cv_lib_posix1e_acl_get_file=${ac_cv_lib_posix1e_acl_get_file=no}
+ac_cv_lib_sec_acl_get=${ac_cv_lib_sec_acl_get=no}
 ac_cv_lib_selinux_is_selinux_enabled=${ac_cv_lib_selinux_is_selinux_enabled=no}
 ac_cv_lib_socket_socket=${ac_cv_lib_socket_socket=no}
+ac_cv_lib_tinfo___tgetent=${ac_cv_lib_tinfo___tgetent=no}
 ac_cv_lib_xpg4__xpg4_setrunelocale=${ac_cv_lib_xpg4__xpg4_setrunelocale=no}
 ac_cv_objext=${ac_cv_objext=o}
 ac_cv_path_EGREP=${ac_cv_path_EGREP='/usr/bin/grep -E'}
+ac_cv_path_FGREP=${ac_cv_path_FGREP='/usr/bin/grep -F'}
 ac_cv_path_GREP=${ac_cv_path_GREP=/usr/bin/grep}
 ac_cv_path_XCODE_SELECT=${ac_cv_path_XCODE_SELECT=/usr/bin/xcode-select}
 ac_cv_prog_AWK=${ac_cv_prog_AWK=awk}

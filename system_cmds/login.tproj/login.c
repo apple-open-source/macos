@@ -672,12 +672,12 @@ main(int argc, char *argv[])
 	}
 
 #if defined(__APPLE__) && TARGET_OS_EMBEDDED
-	/* on embedded, allow a shell to live in /var/debug_mount/bin/sh */
-#define _PATH_DEBUGSHELL	"/var/debug_mount/bin/sh"
+	/* on embedded, allow a shell to live in /private/var/personalized_debug/bin/sh */
+#define _PATH_DEBUGSHELL		"/private/var/personalized_debug/bin/sh"
         if (stat(pwd->pw_shell, &st) != 0) {
-        	if (stat(_PATH_DEBUGSHELL, &st) == 0) {
-        		pwd->pw_shell = strdup(_PATH_DEBUGSHELL);
-        	}
+		if (stat(_PATH_DEBUGSHELL, &st) == 0) {
+			pwd->pw_shell = strdup(_PATH_DEBUGSHELL);
+		}
         }
 #endif
 
@@ -882,7 +882,7 @@ main(int argc, char *argv[])
 	(void)setgid(pwd->pw_gid);
 	if (initgroups(username, pwd->pw_gid) == -1)
 		syslog(LOG_ERR, "login: initgroups() failed");
-	(void) setuid(rootlogin ? 0 : pwd->pw_uid);		
+	(void) setuid(rootlogin ? 0 : pwd->pw_uid);
 #else /* !__APPLE__ */
 	if (setusercontext(lc, pwd, pwd->pw_uid,
 	    LOGIN_SETALL & ~(LOGIN_SETLOGIN|LOGIN_SETGROUP)) != 0) {
@@ -967,7 +967,7 @@ main(int argc, char *argv[])
 		  break;
 		}
 
-		kr = task_set_exception_ports(mts, EXC_MASK_CRASH, ep, EXCEPTION_STATE_IDENTITY | MACH_EXCEPTION_CODES, flavor);
+		kr = task_set_exception_ports(mts, EXC_MASK_RESOURCE | EXC_MASK_GUARD | EXC_MASK_CORPSE_NOTIFY, ep, EXCEPTION_STATE_IDENTITY | MACH_EXCEPTION_CODES, flavor);
 		if (kr != KERN_SUCCESS) {
 		  syslog(LOG_ERR, "task_set_exception_ports() failure: %d", kr);
 		  break;
@@ -1074,7 +1074,7 @@ auth_pam(int skip_auth)
 	int rval;
 
 	rval = 0;
-	
+
 	if (skip_auth == 0)
 	{
 		pam_err = pam_authenticate(pamh, pam_silent);
@@ -1160,7 +1160,7 @@ auth_pam(int skip_auth)
  * Export any environment variables PAM modules may have set
  */
 static void
-export_pam_environment()
+export_pam_environment(void)
 {
 	char **pam_env;
 	char **pp;
@@ -1210,7 +1210,7 @@ export(const char *s)
 #endif /* USE_PAM */
 
 static void
-usage()
+usage(void)
 {
 #ifdef __APPLE__
 	(void)fprintf(stderr, "usage: login [-pq] [-h hostname] [username]\n");
@@ -1225,7 +1225,7 @@ usage()
  * Prompt user and read login name from stdin.
  */
 static char *
-getloginname()
+getloginname(void)
 {
 	char *nbuf, *p;
 	int ch;
@@ -1348,7 +1348,7 @@ timedout(int signo __unused)
 #ifdef __APPLE__
 #ifndef USE_PAM
 void
-checknologin()
+checknologin(void)
 {
 	int fd, nchars;
 	char tbuf[8192];
@@ -1366,8 +1366,7 @@ checknologin()
 #endif /* !USE_PAM */
 
 void
-dolastlog(quiet)
-	int quiet;
+dolastlog(int quiet)
 {
 #ifdef USE_PAM
 	if (quiet)
@@ -1406,7 +1405,6 @@ dolastlog(quiet)
 static void
 badlogin(char *name)
 {
-
 	if (failures == 0)
 		return;
 	if (hflag) {
@@ -1468,9 +1466,8 @@ pam_syslog(const char *msg)
  * Shut down PAM
  */
 static void
-pam_cleanup()
+pam_cleanup(void)
 {
-
 	if (pamh != NULL) {
 		if (pam_session_established) {
 			pam_err = pam_close_session(pamh, 0);
@@ -1496,7 +1493,6 @@ pam_cleanup()
 void
 bail(int sec, int eval)
 {
-
 #ifdef USE_PAM
 	pam_cleanup();
 #endif /* USE_PAM */

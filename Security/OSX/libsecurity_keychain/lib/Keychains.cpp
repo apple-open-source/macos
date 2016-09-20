@@ -37,6 +37,7 @@
 #include <security_cdsa_utilities/cssmacl.h>
 #include <security_cdsa_utilities/cssmdb.h>
 #include <security_utilities/trackingallocator.h>
+#include <security_utilities/FileLockTransaction.h>
 #include <security_keychain/SecCFTypes.h>
 #include <securityd_client/ssblob.h>
 #include <Security/TrustSettingsSchema.h>
@@ -47,6 +48,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include "DLDbListCFPref.h"
 #include <fcntl.h>
+#include <glob.h>
 #include <sys/param.h>
 #include <syslog.h>
 #include <sys/stat.h>
@@ -395,7 +397,7 @@ static void check_system_keychain()
 // KeychainImpl
 //
 KeychainImpl::KeychainImpl(const Db &db)
-	: mAttemptedUpgrade(false), mDbItemMapMutex(Mutex::recursive), mDbDeletedItemMapMutex(Mutex::recursive),
+:  mCacheTimer(NULL), mSuppressTickle(false), mAttemptedUpgrade(false), mDbItemMapMutex(Mutex::recursive), mDbDeletedItemMapMutex(Mutex::recursive),
       mInCache(false), mDb(db), mCustomUnlockCreds (this), mIsInBatchMode (false), mMutex(Mutex::recursive)
 {
 	dispatch_once(&SecKeychainSystemKeychainChecked, ^{
@@ -420,7 +422,7 @@ KeychainImpl::~KeychainImpl()
 }
 
 Mutex*
-KeychainImpl::getMutexForObject()
+KeychainImpl::getMutexForObject() const
 {
 	return globals().storageManager.getStorageManagerMutex();
 }
@@ -490,6 +492,9 @@ KeychainImpl::create(UInt32 passwordLength, const void *inPassword)
 	AclFactory::PasswordChangeCredentials pCreds (password, alloc);
 	AclFactory::AnyResourceContext rcc(pCreds);
 	create(&rcc);
+
+    // Now that we've created, trigger setting the defaultCredentials
+    mDb->open();
 }
 
 void KeychainImpl::create(ConstStringPtr inPassword)
@@ -510,6 +515,9 @@ KeychainImpl::create()
 	AclFactory aclFactory;
 	AclFactory::AnyResourceContext rcc(aclFactory.unlockCred());
 	create(&rcc);
+
+    // Now that we've created, trigger setting the defaultCredentials
+    mDb->open();
 }
 
 void KeychainImpl::createWithBlob(CssmData &blob)
@@ -767,8 +775,6 @@ KeychainImpl::isActive() const
 
 void KeychainImpl::completeAdd(Item &inItem, PrimaryKey &primaryKey)
 {
-
-	
 	// The inItem shouldn't be in the cache yet
 	assert(!inItem->inCache());
 
@@ -788,7 +794,7 @@ void KeychainImpl::completeAdd(Item &inItem, PrimaryKey &primaryKey)
 		// uniquifying items.  We really need to insert the item into the
 		// map before we start the add.  And have the item be in an
 		// "is being added" state.
-		secdebug("keychain", "add of new item %p somehow replaced %p",
+		secnotice("keychain", "add of new item %p somehow replaced %p",
 			inItem.get(), oldItem);
 
         mDbItemMap.erase(p.first);
@@ -850,7 +856,7 @@ KeychainImpl::didUpdate(const Item &inItem, PrimaryKey &oldPK,
 				// uniquifying items.  We really need to insert the item into
 				// the map with the new primary key before we start the update.
 				// And have the item be in an "is being updated" state.
-				secdebug("keychain", "update of item %p somehow replaced %p",
+				secnotice("keychain", "update of item %p somehow replaced %p",
 					inItem.get(), oldItem);
 
                 mDbItemMap.erase(p.first);
@@ -861,24 +867,20 @@ KeychainImpl::didUpdate(const Item &inItem, PrimaryKey &oldPK,
 		}
 	}
 
-  // Item updates now are technically a delete and re-add, so post these events instead of kSecUpdateEvent
-  postEvent(kSecDeleteEvent, inItem);
-  postEvent(kSecAddEvent, inItem);
+    // Item updates now are technically a delete and re-add, so post these events instead of kSecUpdateEvent
+    postEvent(kSecDeleteEvent, inItem, oldPK);
+    postEvent(kSecAddEvent, inItem);
 }
 
 void
 KeychainImpl::deleteItem(Item &inoutItem)
 {
 	{
-		// We don't need to hold the DO mutex through event posting, and, in fact, doing so causes deadlock.
-		// Hold it only as long as needed, instead.
-	
-		
 		// item must be persistent
 		if (!inoutItem->isPersistent())
 			MacOSError::throwMe(errSecInvalidItemRef);
 
-        secdebug("kcnotify", "starting deletion of item %p", inoutItem.get());
+        secinfo("kcnotify", "starting deletion of item %p", inoutItem.get());
 
 		DbUniqueRecord uniqueId = inoutItem->dbUniqueRecord();
 		PrimaryKey primaryKey = inoutItem->primaryKey();
@@ -907,6 +909,13 @@ KeychainImpl::deleteItem(Item &inoutItem)
 	}
 	
 	postEvent(kSecDeleteEvent, inoutItem);
+}
+
+void KeychainImpl::changeDatabase(CssmClient::Db db)
+{
+    StLock<Mutex>_(mDbMutex);
+    mDb = db;
+    mDb->defaultCredentials(this);
 }
 
 
@@ -1020,6 +1029,7 @@ KeychainImpl::_lookupItem(const PrimaryKey &primaryKey)
 ItemImpl *
 KeychainImpl::_lookupDeletedItemOnly(const PrimaryKey &primaryKey)
 {
+    StLock<Mutex> _(mDbDeletedItemMapMutex);
     DbItemMap::iterator it = mDbDeletedItemMap.find(primaryKey);
     if (it != mDbDeletedItemMap.end())
     {
@@ -1043,8 +1053,7 @@ KeychainImpl::item(const PrimaryKey &primaryKey)
 	try
 	{
 		// We didn't find it so create a new item with just a keychain and
-		// a primary key.  However since we aren't holding
-		// globals().apiLock anymore some other thread might have beaten
+		// a primary key.  Some other thread might have beaten
 		// us to creating this item and adding it to the cache.  If that
 		// happens we retry the lookup.
 		return Item(this, primaryKey);
@@ -1168,7 +1177,7 @@ KeychainImpl::didDeleteItem(ItemImpl *inItemImpl)
 	StLock<Mutex>_(mMutex);
 	
 	// Called by CCallbackMgr
-    secdebug("kcnotify", "%p notified that item %p was deleted", this, inItemImpl);
+    secinfo("kcnotify", "%p notified that item %p was deleted", this, inItemImpl);
 	removeItem(inItemImpl->primaryKey(), inItemImpl);
 }
 
@@ -1230,14 +1239,14 @@ KeychainImpl::forceRemoveFromCache(ItemImpl* inItemImpl) {
             }
         } // drop mDbDeletedItemMapMutex
     } catch(UnixError ue) {
-        secdebugfunc("keychain", "caught UnixError: %d %s", ue.unixError(), ue.what());
+        secnotice("keychain", "caught UnixError: %d %s", ue.unixError(), ue.what());
     } catch (CssmError cssme) {
         const char* errStr = cssmErrorString(cssme.error);
-        secdebugfunc("keychain", "caught CssmError: %d %s", (int) cssme.error, errStr);
+        secnotice("keychain", "caught CssmError: %d %s", (int) cssme.error, errStr);
     } catch (MacOSError mose) {
-        secdebugfunc("keychain", "MacOSError: %d", (int)mose.osStatus());
+        secnotice("keychain", "MacOSError: %d", (int)mose.osStatus());
     } catch(...) {
-        secdebugfunc("keychain", "Unknown error");
+        secnotice("keychain", "Unknown error");
     }
 }
 
@@ -1349,13 +1358,20 @@ KeychainImpl::setBatchMode(Boolean mode, Boolean rollback)
 		KCEventNotifier::PostKeychainEvent(kSecKeychainEnteredBatchModeEvent);
 	}
 }
-
 void
 KeychainImpl::postEvent(SecKeychainEvent kcEvent, ItemImpl* item)
 {
+    postEvent(kcEvent, item, NULL);
+}
+
+void
+KeychainImpl::postEvent(SecKeychainEvent kcEvent, ItemImpl* item, PrimaryKey pk)
+{
 	PrimaryKey primaryKey;
 
-	{
+    if(pk.get()) {
+        primaryKey = pk;
+    } else {
 		StLock<Mutex>_(mMutex);
 		
 		if (item != NULL)
@@ -1383,6 +1399,12 @@ KeychainImpl::postEvent(SecKeychainEvent kcEvent, ItemImpl* item)
 	}
 }
 
+void KeychainImpl::tickle() {
+    if(!mSuppressTickle) {
+        globals().storageManager.tickleKeychain(this);
+    }
+}
+
 
 bool KeychainImpl::performKeychainUpgradeIfNeeded() {
     // Grab this keychain's mutex. This might not be sufficient, since the
@@ -1390,7 +1412,7 @@ bool KeychainImpl::performKeychainUpgradeIfNeeded() {
     StLock<Mutex>_(mMutex);
 
     if(!globals().integrityProtection()) {
-        secdebugfunc("integrity", "skipping upgrade for %s due to global integrity protection being diabled", mDb->name());
+        secnotice("integrity", "skipping upgrade for %s due to global integrity protection being disabled", mDb->name());
         return false;
     }
 
@@ -1401,7 +1423,7 @@ bool KeychainImpl::performKeychainUpgradeIfNeeded() {
 
     // We only want to upgrade file-based Apple keychains. Check the GUID.
     if(mDb->dl()->guid() != gGuidAppleCSPDL) {
-        secdebugfunc("integrity", "skipping upgrade for %s due to guid mismatch\n", mDb->name());
+        secnotice("integrity", "skipping upgrade for %s due to guid mismatch\n", mDb->name());
         return false;
     }
 
@@ -1412,7 +1434,7 @@ bool KeychainImpl::performKeychainUpgradeIfNeeded() {
 
     // Don't upgrade the System root certificate keychain (to make old tp code happy)
     if(strncmp(mDb->name(), SYSTEM_ROOT_STORE_PATH, strlen(SYSTEM_ROOT_STORE_PATH)) == 0) {
-        secdebugfunc("integrity", "skipping upgrade for %s\n", mDb->name());
+        secnotice("integrity", "skipping upgrade for %s\n", mDb->name());
         return false;
     }
 
@@ -1424,104 +1446,262 @@ bool KeychainImpl::performKeychainUpgradeIfNeeded() {
         if(cssme.error == CSSMERR_DL_DATASTORE_DOESNOT_EXIST) {
             // oh well! We tried to get the blob version of a database
             // that doesn't exist. It doesn't need migration, so do nothing.
-            secdebugfunc("integrity", "dbBlobVersion() failed for a non-existent database");
+            secnotice("integrity", "dbBlobVersion() failed for a non-existent database");
             return false;
         } else {
             // Some other error occurred. We can't upgrade this keychain, so fail.
             const char* errStr = cssmErrorString(cssme.error);
-            secdebugfunc("integrity", "dbBlobVersion() failed for a CssmError: %d %s", (int) cssme.error, errStr);
+            secnotice("integrity", "dbBlobVersion() failed for a CssmError: %d %s", (int) cssme.error, errStr);
             return false;
         }
     } catch (...) {
-        secdebugfunc("integrity", "dbBlobVersion() failed for an unknown reason");
+        secnotice("integrity", "dbBlobVersion() failed for an unknown reason");
         return false;
     }
 
-    if(dbBlobVersion != SecurityServer::DbBlob::currentVersion) {
-        secdebugfunc("integrity", "going to upgrade %s from version %d to %d!", mDb->name(), dbBlobVersion, SecurityServer::DbBlob::currentVersion);
 
-        // We need to opportunistically perform the upgrade/reload dance.
-        //
-        // If the keychain is unlocked, try to upgrade it.
-        // In either case, reload the database from disk.
-        // We need this keychain's read/write lock.
 
-        // Try to grab the keychain write lock.
-        StReadWriteLock lock(mRWLock, StReadWriteLock::TryWrite);
+    // Check the location of this keychain
+    string path = mDb->name();
+    string keychainDbPath = StorageManager::makeKeychainDbFilename(path);
 
-        // If we didn't manage to grab the lock, there's readers out there
-        // currently reading this keychain. Abort the upgrade.
-        if(!lock.isLocked()) {
+    bool inHomeLibraryKeychains = StorageManager::pathInHomeLibraryKeychains(path);
+
+    string keychainDbSuffix = "-db";
+    bool endsWithKeychainDb = (path.size() > keychainDbSuffix.size() && (0 == path.compare(path.size() - keychainDbSuffix.size(), keychainDbSuffix.size(), keychainDbSuffix)));
+
+    bool isSystemKeychain = (0 == path.compare("/Library/Keychains/System.keychain"));
+
+    bool result = false;
+
+    if(inHomeLibraryKeychains && endsWithKeychainDb && dbBlobVersion == SecurityServer::DbBlob::version_MacOS_10_0) {
+        // something has gone horribly wrong: an old-versioned keychain has a .keychain-db name. Rename it.
+        string basePath = path;
+        basePath.erase(basePath.end()-3, basePath.end());
+
+        attemptKeychainRename(path, basePath, dbBlobVersion);
+
+        // If we moved to a good path, we might still want to perform the upgrade. Update our variables.
+        path = mDb->name();
+
+        try {
+            dbBlobVersion = mDb->dbBlobVersion();
+        } catch (CssmError cssme) {
+            const char* errStr = cssmErrorString(cssme.error);
+            secnotice("integrity", "dbBlobVersion() after a rename failed for a CssmError: %d %s", (int) cssme.error, errStr);
+            return false;
+        } catch (...) {
+            secnotice("integrity", "dbBlobVersion() failed for an unknown reason after a rename");
             return false;
         }
 
-        try {
-            // We can only attempt an upgrade if the keychain is currently unlocked
-            // There's a TOCTTOU issue here, but it's going to be rare in practice, and the upgrade will simply fail.
-            if(!mDb->isLocked()) {
-                secdebugfunc("integrity", "attempting migration on database %s", mDb->name());
-                // Database blob is out of date. Attempt a migration.
-                uint32 convertedVersion = attemptKeychainMigration(dbBlobVersion, SecurityServer::DbBlob::currentVersion);
-                if(convertedVersion == SecurityServer::DbBlob::currentVersion) {
-                    secdebugfunc("integrity", "conversion succeeded");
-                } else {
-                    secdebugfunc("integrity", "conversion failed, keychain is still %d", convertedVersion);
-                }
-            }
-        } catch (CssmError cssme) {
-            const char* errStr = cssmErrorString(cssme.error);
-            secdebugfunc("integrity", "caught CssmError: %d %s", (int) cssme.error, errStr);
-        } catch (...) {
-            // Something went wrong, but don't worry about it.
-        }
-
-        // No matter if the migrator succeeded, we need to reload this keychain from disk.
-        // Maybe someone else beat us to upgrading the keychain, but it's been locked since then.
-        secdebugfunc("integrity", "reloading keychain");
-        globals().storageManager.reloadKeychain(this);
-        secdebugfunc("integrity", "database %s is version %d", mDb->name(), mDb->dbBlobVersion());
-
-        return true;
+        endsWithKeychainDb = (path.size() > keychainDbSuffix.size() && (0 == path.compare(path.size() - keychainDbSuffix.size(), keychainDbSuffix.size(), keychainDbSuffix)));
+        keychainDbPath = StorageManager::makeKeychainDbFilename(path);
+        secnotice("integrity", "after rename, our database thinks that it is %s", path.c_str());
     }
 
-    return false;
+    // Migrate an old keychain in ~/Library/Keychains
+    if(inHomeLibraryKeychains && dbBlobVersion != SecurityServer::DbBlob::version_partition && !endsWithKeychainDb) {
+        // We can only attempt to migrate an unlocked keychain.
+        if(mDb->isLocked()) {
+            // However, it's possible that while we weren't doing any keychain operations, someone upgraded the keychain,
+            // and then locked it. No way around hitting the filesystem here: check for the existence of a new file and,
+            // if no new file exists, quit.
+            DLDbIdentifier mungedDLDbIdentifier = StorageManager::mungeDLDbIdentifier(mDb->dlDbIdentifier(), false);
+            string mungedPath(mungedDLDbIdentifier.dbName());
+
+            // If this matches the file we already have, skip the upgrade. Otherwise, continue.
+            if(mungedPath == path) {
+                secnotice("integrity", "skipping upgrade for locked keychain %s\n", mDb->name());
+                return false;
+            }
+        }
+
+        result = keychainMigration(path, dbBlobVersion, keychainDbPath, SecurityServer::DbBlob::version_partition);
+    } else if(inHomeLibraryKeychains && dbBlobVersion == SecurityServer::DbBlob::version_partition && !endsWithKeychainDb) {
+        // This is a new-style keychain with the wrong name, try to rename it
+        attemptKeychainRename(path, keychainDbPath, dbBlobVersion);
+        result = true;
+    } else if(isSystemKeychain && dbBlobVersion == SecurityServer::DbBlob::version_partition) {
+        // Try to "unupgrade" the system keychain, to clean up our old issues
+        secnotice("integrity", "attempting downgrade for %s version %d (%d %d %d)", path.c_str(), dbBlobVersion, inHomeLibraryKeychains, endsWithKeychainDb, isSystemKeychain);
+
+        // First step: acquire the credentials to allow for ACL modification
+        SecurityServer::SystemKeychainKey skk(kSystemUnlockFile);
+        if(skk.valid()) {
+            // We've managed to read the key; now, create credentials using it
+            CssmClient::Key systemKeychainMasterKey(csp(), skk.key(), true);
+            CssmClient::AclFactory::MasterKeyUnlockCredentials creds(systemKeychainMasterKey, Allocator::standard(Allocator::sensitive));
+
+            // Attempt the downgrade, using our master key as the ACL override
+            result = keychainMigration(path, dbBlobVersion, path, SecurityServer::DbBlob::version_MacOS_10_0, creds.getAccessCredentials());
+        } else {
+            secnotice("integrity", "Couldn't read System.keychain key, skipping update");
+        }
+    } else {
+        secnotice("integrity", "not attempting migration for %s version %d (%d %d %d)", path.c_str(), dbBlobVersion, inHomeLibraryKeychains, endsWithKeychainDb, isSystemKeychain);
+
+        // Since we don't believe any migration needs to be done here, mark the
+        // migration as "attempted" to short-circuit future checks.
+        mAttemptedUpgrade = true;
+    }
+
+    // We might have changed our location on disk. Let StorageManager know.
+    globals().storageManager.registerKeychainImpl(this);
+
+    // if we attempted a migration, try to clean up leftover files from <rdar://problem/23950408> XARA backup have provided me with 12GB of login keychain copies
+    if(result) {
+        string pattern = path + "_*_backup";
+        glob_t pglob = {};
+        secnotice("integrity", "globbing for %s", pattern.c_str());
+        int globresult = glob(pattern.c_str(), GLOB_MARK, NULL, &pglob);
+        if(globresult == 0) {
+            secnotice("integrity", "glob: %lu results", pglob.gl_pathc);
+            if(pglob.gl_pathc > 10) {
+                // There are more than 10 backup files, indicating a problem.
+                // Delete all but one of them. Under rdar://23950408, they should all be identical.
+                secnotice("integrity", "saving backup file: %s", pglob.gl_pathv[0]);
+                for(int i = 1; i < pglob.gl_pathc; i++) {
+                    secnotice("integrity", "cleaning up backup file: %s", pglob.gl_pathv[i]);
+                    // ignore return code; this is a best-effort cleanup
+                    unlink(pglob.gl_pathv[i]);
+                }
+            }
+
+            struct stat st;
+            bool pathExists = (::stat(path.c_str(), &st) == 0);
+            bool keychainDbPathExists = (::stat(keychainDbPath.c_str(), &st) == 0);
+
+            if(!pathExists && keychainDbPathExists && pglob.gl_pathc >= 1) {
+                // We have a file at keychainDbPath, no file at path, and at least one backup keychain file.
+                //
+                // Move the backup file to path, to simulate the current  "split-world" view,
+                // which copies from path to keychainDbPath, then modifies keychainDbPath.
+                secnotice("integrity", "moving backup file %s to %s", pglob.gl_pathv[0], path.c_str());
+                ::rename(pglob.gl_pathv[0], path.c_str());
+            }
+        }
+
+        globfree(&pglob);
+    }
+
+    return result;
 }
 
-// Make sure you have this keychain's mutex and write lock when you call this function!
-uint32 KeychainImpl::attemptKeychainMigration(uint32 oldBlobVersion, uint32 newBlobVersion) {
-    Db db = mDb;  // let's not muck up our db for now
-    db->takeFileLock();
+bool KeychainImpl::keychainMigration(const string oldPath, const uint32 dbBlobVersion, const string newPath, const uint32 newBlobVersion, const AccessCredentials *cred) {
+    secnotice("integrity", "going to migrate %s at version %d to", oldPath.c_str(), dbBlobVersion);
+    secnotice("integrity", "                 %s at version %d", newPath.c_str(), newBlobVersion);
+
+    // We need to opportunistically perform the upgrade/reload dance.
+    //
+    // If the keychain is unlocked, try to upgrade it.
+    // In either case, reload the database from disk.
+    // We need this keychain's read/write lock.
+
+    // Try to grab the keychain write lock.
+    StReadWriteLock lock(mRWLock, StReadWriteLock::TryWrite);
+
+    // If we didn't manage to grab the lock, there's readers out there
+    // currently reading this keychain. Abort the upgrade.
+    if(!lock.isLocked()) {
+        secnotice("integrity", "couldn't get read-write lock, aborting upgrade");
+        return false;
+    }
+
+    // Take the file lock on the existing database. We don't need to commit this txion, because we're not planning to
+    // change the original keychain.
+    FileLockTransaction fileLockmDb(mDb);
 
     // Let's reload this keychain to see if someone changed it on disk
     globals().storageManager.reloadKeychain(this);
 
+    bool result = false;
+
+    try {
+        // We can only attempt an upgrade if the keychain is currently unlocked
+        // There's a TOCTTOU issue here, but it's going to be rare in practice, and the upgrade will simply fail.
+        if(!mDb->isLocked()) {
+            secnotice("integrity", "have a plan to migrate database %s", mDb->name());
+            // Database blob is out of date. Attempt a migration.
+            uint32 convertedVersion = attemptKeychainMigration(oldPath, dbBlobVersion, newPath, newBlobVersion, cred);
+            if(convertedVersion == newBlobVersion) {
+                secnotice("integrity", "conversion succeeded");
+                result = true;
+            } else {
+                secnotice("integrity", "conversion failed, keychain is still %d", convertedVersion);
+            }
+        } else {
+            secnotice("integrity", "keychain is locked, can't upgrade");
+        }
+    } catch (CssmError cssme) {
+        const char* errStr = cssmErrorString(cssme.error);
+        secnotice("integrity", "caught CssmError: %d %s", (int) cssme.error, errStr);
+    } catch (...) {
+        // Something went wrong, but don't worry about it.
+        secnotice("integrity", "caught unknown error");
+    }
+
+    // No matter if the migrator succeeded, we need to reload this keychain from disk.
+    secnotice("integrity", "reloading keychain after migration");
+    globals().storageManager.reloadKeychain(this);
+    secnotice("integrity", "database %s is now version %d", mDb->name(), mDb->dbBlobVersion());
+
+    return result;
+}
+
+// Make sure you have this keychain's mutex and write lock when you call this function!
+uint32 KeychainImpl::attemptKeychainMigration(const string oldPath, const uint32 oldBlobVersion, const string newPath, const uint32 newBlobVersion, const AccessCredentials* cred) {
     if(mDb->dbBlobVersion() == newBlobVersion) {
         // Someone else upgraded this, hurray!
-        secdebugfunc("integrity", "reloaded keychain version %d, quitting", mDb->dbBlobVersion());
-        db->releaseFileLock(false);
+        secnotice("integrity", "reloaded keychain version %d, quitting", mDb->dbBlobVersion());
         return newBlobVersion;
     }
 
     mAttemptedUpgrade = true;
     uint32 newDbVersion = oldBlobVersion;
 
-    try {
-        secdebugfunc("integrity", "attempting migration from version %d to %d", oldBlobVersion, newBlobVersion);
+    if( (oldBlobVersion == SecurityServer::DbBlob::version_MacOS_10_0 && newBlobVersion == SecurityServer::DbBlob::version_partition) ||
+        (oldBlobVersion == SecurityServer::DbBlob::version_partition && newBlobVersion == SecurityServer::DbBlob::version_MacOS_10_0 && cred != NULL)) {
+        // Here's the upgrade outline:
+        //
+        //   1. Make a copy of the keychain with the new file path
+        //   2. Open that keychain database.
+        //   3. Recode it to use the new version.
+        //   4. Notify the StorageManager that the DLDB identifier for this keychain has changed.
+        //
+        // If we're creating a new keychain file, on failure, try to delete the new file. Otherwise,
+        // everyone will try to use it.
 
-        // First, make a backup of this database (so we never lose data if something goes wrong)
-        mDb->makeBackup();
+        secnotice("integrity", "attempting migration from version %d to %d", oldBlobVersion, newBlobVersion);
 
-        if(oldBlobVersion == SecurityServer::DbBlob::version_MacOS_10_0 && newBlobVersion == SecurityServer::DbBlob::version_partition) {
+        Db db;
+        bool newFile = (oldPath != newPath);
+
+        try {
+            DLDbIdentifier dldbi(dlDbIdentifier().ssuid(), newPath.c_str(), dlDbIdentifier().dbLocation());
+            if(newFile) {
+                secnotice("integrity", "creating a new keychain at %s", newPath.c_str());
+                db = mDb->cloneTo(dldbi);
+            } else {
+                secnotice("integrity", "using old keychain at %s", newPath.c_str());
+                db = mDb;
+            }
+            FileLockTransaction fileLockDb(db);
+
+            if(newFile) {
+                // since we're creating a completely new file, if this migration fails, delete the new file
+                fileLockDb.setDeleteOnFailure();
+            }
+
             // Let the upgrade begin.
             newDbVersion = db->recodeDbToVersion(newBlobVersion);
             if(newDbVersion != newBlobVersion) {
                 // Recoding failed. Don't proceed.
-                secdebugfunc("integrity", "recodeDbToVersion failed, version is still %d", newDbVersion);
-                db->releaseFileLock(false);
+                secnotice("integrity", "recodeDbToVersion failed, version is still %d", newDbVersion);
                 return newDbVersion;
             }
 
-            secdebugfunc("integrity", "recoded db successfully, adding extra integrity");
+            secnotice("integrity", "recoded db successfully, adding extra integrity");
 
             Keychain keychain(db);
 
@@ -1529,6 +1709,7 @@ uint32 KeychainImpl::attemptKeychainMigration(uint32 oldBlobVersion, uint32 newB
             // Don't upgrade this keychain, since we just upgraded the DB
             // But the DB won't return any new data until the txion commits
             keychain->mAttemptedUpgrade = true;
+            keychain->mSuppressTickle = true;
 
             SecItemClass classes[] = {kSecGenericPasswordItemClass,
                                       kSecInternetPasswordItemClass,
@@ -1549,14 +1730,19 @@ uint32 KeychainImpl::attemptKeychainMigration(uint32 oldBlobVersion, uint32 newB
 
                 while(kcc->next(item)) {
                     try {
-                        // Force the item to set integrity. The keychain is confused about its version because it hasn't written to disk yet,
-                        // but if we've reached this point, the keychain supports integrity.
-                        item->setIntegrity(true);
+                        if(newBlobVersion == SecurityServer::DbBlob::version_partition) {
+                            // Force the item to set integrity. The keychain is confused about its version because it hasn't written to disk yet,
+                            // but if we've reached this point, the keychain supports integrity.
+                            item->setIntegrity(true);
+                        } else if(newBlobVersion == SecurityServer::DbBlob::version_MacOS_10_0) {
+                            // We're downgrading this keychain. Pass in whatever credentials our caller thinks will allow this ACL modification.
+                            item->removeIntegrity(cred);
+                        }
                     } catch(CssmError cssme) {
                         // During recoding, we might have deleted some corrupt keys. Because of this, we might have zombie SSGroup records left in
                         // the database that have no matching key. If we get a DL_RECORD_NOT_FOUND error, delete the matching item record.
                         if (cssme.osStatus() == CSSMERR_DL_RECORD_NOT_FOUND) {
-                            secdebugfunc("integrity", "deleting corrupt (Not Found) record");
+                            secnotice("integrity", "deleting corrupt (Not Found) record");
                             keychain->deleteItem(item);
                         } else {
                             throw;
@@ -1565,30 +1751,75 @@ uint32 KeychainImpl::attemptKeychainMigration(uint32 oldBlobVersion, uint32 newB
                 }
             }
 
-            // If we reach here, tell releaseFileLock() to commit the transaction and return the new blob version
-            secdebugfunc("integrity", "releasing file lock");
-            db->releaseFileLock(true);
+            // Tell securityd we're done with the upgrade, to re-enable all protections
+            db->recodeFinished();
 
-            secdebugfunc("integrity", "success, returning version %d", newDbVersion);
+            // If we reach here, tell the file locks to commit the transaction and return the new blob version
+            fileLockDb.success();
+
+            secnotice("integrity", "success, returning version %d", newDbVersion);
             return newDbVersion;
+        } catch(UnixError ue) {
+            secnotice("integrity", "caught UnixError: %d %s", ue.unixError(), ue.what());
+        } catch (CssmError cssme) {
+            const char* errStr = cssmErrorString(cssme.error);
+            secnotice("integrity", "caught CssmError: %d %s", (int) cssme.error, errStr);
+        } catch (MacOSError mose) {
+            secnotice("integrity", "MacOSError: %d", (int)mose.osStatus());
+        } catch (const std::bad_cast & e) {
+            secnotice("integrity", "***** bad cast: %s", e.what());
+        } catch (...) {
+            // We failed to migrate. We won't commit the transaction, so the blob on-disk stays the same.
+            secnotice("integrity", "***** unknown error");
         }
-    } catch (CssmError cssme) {
-        const char* errStr = cssmErrorString(cssme.error);
-        secdebugfunc("integrity", "caught CssmError: %d %s", (int) cssme.error, errStr);
-        db->releaseFileLock(false);
-    } catch (MacOSError mose) {
-        secdebugfunc("integrity", "MacOSError: %d", (int)mose.osStatus());
-        db->releaseFileLock(false);
-    } catch (...) {
-        // We failed to migrate. We won't commit the transaction, so the blob on-disk stays the same.
-        secdebugfunc("integrity", "unknown error");
-        db->releaseFileLock(false);
+    } else {
+        secnotice("integrity", "no migration path for %s at version %d to", oldPath.c_str(), oldBlobVersion);
+        secnotice("integrity", "                      %s at version %d", newPath.c_str(), newBlobVersion);
+        return oldBlobVersion;
     }
 
-    // If we reached here, we failed the migration. Return the old version.
+    // If we reached here, the migration failed. Return the old version.
     return oldBlobVersion;
 }
 
+void KeychainImpl::attemptKeychainRename(const string oldPath, const string newPath, uint32 blobVersion) {
+    secnotice("integrity", "attempting to rename keychain (%d) from %s to %s", blobVersion, oldPath.c_str(), newPath.c_str());
+
+    // Take the file lock on this database, so other people won't try to move it before we do
+    // NOTE: during a migration from a v256 to a v512 keychain, the db is first copied from the .keychain to the
+    //       .keychain-db path. Other non-migrating processes, if they open the keychain, enter this function to
+    //       try to move it back. These will attempt to take the .keychain-db file lock, but they will not succeed
+    //       until the migration is finished. Once they acquire that, they might try to take the .keychain file lock.
+    //       This is technically lock inversion, but deadlocks will not happen since the migrating process creates the
+    //       .keychain-db file lock before creating the .keychain-db file, so other processes will not try to grab the
+    //       .keychain-db lock in this function before the migrating process already has it.
+    FileLockTransaction fileLockmDb(mDb);
+
+    // first, check if someone renamed this keychain while we were grabbing the file lock
+    globals().storageManager.reloadKeychain(this);
+
+    uint32 dbBlobVersion = SecurityServer::DbBlob::version_MacOS_10_0;
+
+    try {
+        dbBlobVersion = mDb->dbBlobVersion();
+    } catch (...) {
+        secnotice("integrity", "dbBlobVersion() failed for an unknown reason while renaming, aborting rename");
+        return;
+    }
+
+    if(dbBlobVersion != blobVersion) {
+        secnotice("integrity", "database version changed while we were grabbing the file lock; aborting rename");
+        return;
+    }
+
+    if(oldPath != mDb->name()) {
+        secnotice("integrity", "database location changed while we were grabbing the file lock; aborting rename");
+        return;
+    }
+
+    // we're still at the original location and version; go ahead and do the move
+    globals().storageManager.rename(this, newPath.c_str());
+}
 
 Keychain::Keychain()
 {
@@ -1663,11 +1894,11 @@ bool KeychainImpl::hasIntegrityProtection() {
         if(mDb->dbBlobVersion() >= SecurityServer::DbBlob::version_partition) {
             return true;
         } else {
-            secdebugfunc("integrity", "keychain blob version does not support integrity");
+            secnotice("integrity", "keychain blob version does not support integrity");
             return false;
         }
     } else {
-        secdebugfunc("integrity", "keychain guid does not support integrity");
+        secnotice("integrity", "keychain guid does not support integrity");
         return false;
     }
     return false;

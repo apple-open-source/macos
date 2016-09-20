@@ -39,13 +39,14 @@
  */
 
 #pragma D option quiet
+#pragma D option statusrate=15ms
 
 BEGIN
 {
 	i = 0;
 }
 
-profile:::tick-1sec
+profile:::tick-10msec
 {
 	printf("probe description module field = %s", probemod);
 	exit (0);

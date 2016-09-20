@@ -1,8 +1,5 @@
-
-#ifndef _S_IPCONFIGD_GLOBALS_H
-#define _S_IPCONFIGD_GLOBALS_H
 /*
- * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,6 +21,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#ifndef _S_IPCONFIGD_GLOBALS_H
+#define _S_IPCONFIGD_GLOBALS_H
+
 /*
  * ipconfigd_globals.h
  * - ipconfigd global definitions
@@ -42,6 +42,7 @@
 
 #define IPCONFIGURATION_PRIVATE_DIR	"/var/db/dhcpclient"
 #define DHCPCLIENT_LEASES_DIR		IPCONFIGURATION_PRIVATE_DIR "/leases"
+#define ARP_PROBE_FAILURE_RETRY_TIME	(8.0)
 
 void
 remove_unused_ip(const char * ifname, struct in_addr ip);

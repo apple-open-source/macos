@@ -4,6 +4,8 @@
 //
 
 #include "SOSAccountPriv.h"
+#include "SOSAccountLog.h"
+
 #include <Security/SecureObjectSync/SOSAccountHSAJoin.h>
 #include <Security/SecureObjectSync/SOSTransportCircle.h>
 #include <Security/SecureObjectSync/SOSTransport.h>
@@ -55,31 +57,27 @@ static bool isBackupSOSRing(SOSRingRef ring)
     return isSOSRing(ring) && (kSOSRingBackup == SOSRingGetType(ring));
 }
 
-static bool CFSetIntersectionNotEmpty(CFSetRef set1, CFSetRef set2) {
-    __block bool intersectionEmpty = true;
-    CFSetForEach(set1, ^(const void *value) {
-        if (CFSetContainsValue(set2, value)) {
-            intersectionEmpty = false;
-        };
-    });
-    return !intersectionEmpty;
-}
-
-__unused
 static void SOSAccountAppendPeerMetasForViewBackups(SOSAccountRef account, CFSetRef views, CFMutableArrayRef appendTo)
 {
-    if (account->trusted_rings == NULL || CFDictionaryGetCount(account->trusted_rings) == 0) return;
+    CFMutableDictionaryRef ringToViewTable = NULL;
 
-    CFMutableDictionaryRef ringToViewTable = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
+    require_quiet(SOSAccountIsInCircle(account, NULL), done);
+
+    require_action_quiet(SOSAccountHasCompletedRequiredBackupSync(account), done,
+                         secnotice("backup", "Haven't finished initial backup syncing, not registering backup metas with engine"));
+
+    require_action_quiet(SOSPeerInfoV2DictionaryHasData(SOSAccountGetMyPeerInfo(account), sBackupKeyKey), done,
+                         secnotice("backup", "No key to backup to, we don't enable individual view backups"));
+
+    ringToViewTable = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
 
     CFSetForEach(views, ^(const void *value) {
         CFStringRef viewName = value;
         if (isString(viewName) && !CFEqualSafe(viewName, kSOSViewKeychainV0)) {
             CFStringRef ringName = SOSBackupCopyRingNameForView(viewName);
             viewName = ringName;
-            SOSRingRef ring = (SOSRingRef) CFDictionaryGetValue(account->trusted_rings, ringName);
-
-            if (isBackupSOSRing(ring)) {
+            SOSRingRef ring = SOSAccountCopyRing(account, ringName, NULL);
+            if (ring && isBackupSOSRing(ring)) {
                 CFTypeRef currentValue = (CFTypeRef) CFDictionaryGetValue(ringToViewTable, ring);
 
                 if (isSet(currentValue)) {
@@ -95,17 +93,18 @@ static void SOSAccountAppendPeerMetasForViewBackups(SOSAccountRef account, CFSet
                 secwarning("View '%@' not being backed up – ring %@:%@ not backup ring.", viewName, ringName, ring);
             }
             CFReleaseNull(ringName);
+            CFReleaseNull(ring);
         }
     });
 
-    CFSetRef unsynced = asSet(SOSAccountGetValue(account, kSOSUnsyncedViewsKey, NULL), NULL);
-
     CFDictionaryForEach(ringToViewTable, ^(const void *key, const void *value) {
         SOSRingRef ring = (SOSRingRef) key;
-        CFSetRef viewNames = (CFSetRef) value;
-        if (isSOSRing(ring) && isSet(viewNames)) {
-            if (unsynced && CFSetIntersectionNotEmpty(unsynced, viewNames)) {
-                secnotice("engine-notify", "Haven't initially synced views, not making backup peer meta: U: %@ R: %@ Vs: %@", unsynced, SOSRingGetName(ring), viewNames);
+        CFSetRef viewNames = asSet(value, NULL);
+        if (isSOSRing(ring) && viewNames) {
+            if (SOSAccountIntersectsWithOutstanding(account, viewNames)) {
+                CFStringSetPerformWithDescription(viewNames, ^(CFStringRef ringViews) {
+                    secnotice("engine-notify", "Not ready, no peer meta: R: %@ Vs: %@", SOSRingGetName(ring), ringViews);
+                });
             } else {
                 bool meta_added = false;
                 CFErrorRef create_error = NULL;
@@ -122,13 +121,17 @@ static void SOSAccountAppendPeerMetasForViewBackups(SOSAccountRef account, CFSet
                 require_quiet(SecAllocationError(newMeta, &create_error, CFSTR("Didn't make peer meta for: %@"), ring), skip);
                 CFArrayAppendValue(appendTo, newMeta);
 
-                secnotice("engine-notify", "Backup peer meta: R: %@ Vs: %@ VD: %@", SOSRingGetName(ring), viewNames, ring_payload);
+                CFStringSetPerformWithDescription(viewNames, ^(CFStringRef ringViews) {
+                    secnotice("engine-notify", "Backup peer meta: R: %@ Vs: %@ VD: %@", SOSRingGetName(ring), ringViews, ring_payload);
+                });
 
                 meta_added = true;
 
             skip:
                 if (!meta_added) {
-                    secerror("Failed to register backup meta from %@ for views %@. Error (%@)", ring, viewNames, create_error);
+                    CFStringSetPerformWithDescription(viewNames, ^(CFStringRef ringViews) {
+                        secerror("Failed to register backup meta from %@ for views %@. Error (%@)", ring, ringViews, create_error);
+                    });
                 }
                 CFReleaseNull(newMeta);
                 CFReleaseNull(key_bag);
@@ -137,6 +140,7 @@ static void SOSAccountAppendPeerMetasForViewBackups(SOSAccountRef account, CFSet
         }
     });
 
+done:
     CFReleaseNull(ringToViewTable);
 }
 
@@ -181,6 +185,10 @@ void SOSAccountNotifyEngines(SOSAccountRef account)
                 CFSetAddValue(views, kSOSViewKeychainV0);
             }
 
+            CFStringSetPerformWithDescription(views, ^(CFStringRef viewsDescription) {
+                secnotice("engine-notify", "Meta: %@: %@", SOSPeerInfoGetPeerID(peer), viewsDescription);
+            });
+
             SOSPeerMetaRef peerMeta = SOSPeerMetaCreateWithComponents(SOSPeerInfoGetPeerID(peer), views, NULL);
             CFReleaseNull(views);
 
@@ -188,7 +196,8 @@ void SOSAccountNotifyEngines(SOSAccountRef account)
             CFReleaseNull(peerMeta);
         });
 
-        // We don't make a backup peer for the magic V0 peer, so do it before we munge the set.
+        // We don't make a backup peer meta for the magic V0 peer
+        // Set up all the rest before we munge the set
         SOSAccountAppendPeerMetasForViewBackups(account, myViews, syncing_peer_metas);
 
         // If we saw someone else needing V0, we sync V0, too!
@@ -196,6 +205,9 @@ void SOSAccountNotifyEngines(SOSAccountRef account)
             CFSetAddValue(myViews, kSOSViewKeychainV0);
         }
 
+        CFStringSetPerformWithDescription(myViews, ^(CFStringRef viewsDescription) {
+            secnotice("engine-notify", "My Meta: %@: %@", myPi_id, viewsDescription);
+        });
         myMeta = SOSPeerMetaCreateWithComponents(myPi_id, myViews, NULL);
         CFReleaseSafe(myViews);
     }
@@ -211,7 +223,7 @@ void SOSAccountNotifyEngines(SOSAccountRef account)
     CFReleaseNull(zombie_peer_metas);
 }
 
-// murf Upcoming call to View Changes Here
+// Upcoming call to View Changes Here
 static void SOSAccountNotifyOfChange(SOSAccountRef account, SOSCircleRef oldCircle, SOSCircleRef newCircle)
 {
     account->circle_rings_retirements_need_attention = true;
@@ -249,9 +261,9 @@ CFDictionaryRef SOSAccountHandleRetirementMessages(SOSAccountRef account, CFDict
     // We only handle one circle, look it up:
 
     require_quiet(account->trusted_circle, finish); // We don't fail, we intentionally handle nothing.
-    CFDictionaryRef retirment_dictionary = CFDictionaryGetValue(circle_retirement_messages, circle_name);
-
-    CFDictionaryForEach(retirment_dictionary, ^(const void *key, const void *value) {
+    CFDictionaryRef retirement_dictionary = asDictionary(CFDictionaryGetValue(circle_retirement_messages, circle_name), error);
+    require_quiet(retirement_dictionary, finish);
+    CFDictionaryForEach(retirement_dictionary, ^(const void *key, const void *value) {
         if(isData(value)) {
             SOSPeerInfoRef pi = SOSPeerInfoCreateFromData(NULL, error, (CFDataRef) value);
             if(pi && CFEqual(key, SOSPeerInfoGetPeerID(pi)) && SOSPeerInfoInspectRetirementTicket(pi, error)) {
@@ -354,6 +366,9 @@ bool SOSAccountHandleParametersChange(SOSAccountRef account, CFDataRef parameter
     bool success = false;
     
     if(SOSAccountRetrieveCloudParameters(account, &newKey, parameters, &newParameters, error)) {
+        debugDumpUserParameters(CFSTR("SOSAccountHandleParametersChange got new user key parameters:"), parameters);
+        secnotice("keygen", "SOSAccountHandleParametersChange got new public key: %@", newKey);
+
         if (CFEqualSafe(account->user_public, newKey)) {
             secnotice("updates", "Got same public key sent our way. Ignoring.");
             success = true;
@@ -366,16 +381,15 @@ bool SOSAccountHandleParametersChange(SOSAccountRef account, CFDataRef parameter
             newKey = NULL;
 
             if(SOSAccountRetryUserCredentials(account)) {
-                secnotice("keygen", "Successfully used cached password with new parameters: %@", account->user_public);
+                secnotice("keygen", "Successfully used cached password with new parameters");
                 SOSAccountGenerationSignatureUpdate(account, error);
             } else {
                 SOSAccountPurgePrivateCredential(account);
-                secnotice("keygen", "Got new parameters for public key - failed with cached password: %@", account->user_public);
-                debugDumpUserParameters(CFSTR("params"), account->user_key_parameters);
+                secnotice("keygen", "Got new parameters for public key - could not find or use cached password");
             }
 
             account->circle_rings_retirements_need_attention = true;
-            SOSUpdateKeyInterest(account);
+            account->key_interests_need_updating = true;
 
             success = true;
         }
@@ -414,13 +428,14 @@ static const char *concordstring[] = {
     "kSOSConcordanceWeSigned",
 };
 
+
 bool SOSAccountHandleUpdateCircle(SOSAccountRef account, SOSCircleRef prospective_circle, bool writeUpdate, CFErrorRef *error)
 {
     bool success = true;
     bool haveOldCircle = true;
     const char *local_remote = writeUpdate ? "local": "remote";
 
-    secnotice("signing", "start:[%s] %@", local_remote, prospective_circle);
+    secnotice("signing", "start:[%s]", local_remote);
     if (!account->user_public || !account->user_public_trusted) {
         SOSCreateError(kSOSErrorPublicKeyAbsent, CFSTR("Can't handle updates with no trusted public key here"), NULL, error);
         return false;
@@ -437,7 +452,7 @@ bool SOSAccountHandleUpdateCircle(SOSAccountRef account, SOSCircleRef prospectiv
     
     if(oldCircle == NULL) {
         SOSCreateErrorWithFormat(kSOSErrorIncompatibleCircle, NULL, error, NULL, CFSTR("Current Entry is NULL; rejecting %@"), prospective_circle);
-        secerror("##### Can't replace circle - we don't care about %@ ######", prospective_circle);
+        secerror("##### Can't replace circle - we don't care about it ######");
         return false;
     }
     if (CFGetTypeID(oldCircle) != SOSCircleGetTypeID()) {
@@ -451,14 +466,17 @@ bool SOSAccountHandleUpdateCircle(SOSAccountRef account, SOSCircleRef prospectiv
         // SOSAccountDestroyCirclePeerInfo(account, oldCircle, NULL);
     }
     
-    SOSFullPeerInfoRef me_full = account->my_identity;
-    SOSPeerInfoRef     me = SOSFullPeerInfoGetPeerInfo(me_full);
     
     SOSTransportCircleRef transport = account->circle_transport;
 
     SOSAccountScanForRetired(account, prospective_circle, error);
     SOSCircleRef newCircle = SOSAccountCloneCircleWithRetirement(account, prospective_circle, error);
     if(!newCircle) return false;
+
+    SOSFullPeerInfoRef me_full = account->my_identity;
+    SOSPeerInfoRef     me = SOSFullPeerInfoGetPeerInfo(me_full);
+    CFStringRef        myPeerID = SOSPeerInfoGetPeerID(me);
+    myPeerID = (myPeerID) ? myPeerID: CFSTR("No Peer");
 
     if (me && SOSCircleUpdatePeerInfo(newCircle, me)) {
         writeUpdate = true; // If we update our peer in the new circle we should write it if we accept it.
@@ -511,7 +529,7 @@ bool SOSAccountHandleUpdateCircle(SOSAccountRef account, SOSCircleRef prospectiv
         case kSOSConcordanceNoPeerSig:
             circle_action = accept; // We might like this one eventually but don't countersign.
             concStr = CFSTR("No trusted peer signature");
-            secerror("##### No trusted peer signature found, accepting hoping for concordance later %@", newCircle);
+            secnotice("signing", "##### No trusted peer signature found, accepting hoping for concordance later");
             break;
         case kSOSConcordanceNoPeer:
             circle_action = leave;
@@ -528,7 +546,7 @@ bool SOSAccountHandleUpdateCircle(SOSAccountRef account, SOSCircleRef prospectiv
             break;
     }
     
-    secnotice("signing", "Decided on action [%s] based on concordance state [%s] and [%s] circle.", actionstring[circle_action], concordstring[concstat], userTrustedOldCircle ? "trusted" : "untrusted");
+    secnotice("signing", "Decided on action [%s] based on concordance state [%s] and [%s] circle.  My PeerID is %@", actionstring[circle_action], concordstring[concstat], userTrustedOldCircle ? "trusted" : "untrusted", myPeerID);
     
     SOSCircleRef circleToPush = NULL;
 
@@ -544,9 +562,10 @@ bool SOSAccountHandleUpdateCircle(SOSAccountRef account, SOSCircleRef prospectiv
                       account->user_public, account->previous_public, old_circle_key);
 
             if (sosAccountLeaveCircle(account, newCircle, error)) {
+                secnotice("leaveCircle", "Leaving circle by newcircle state");
                 circleToPush = newCircle;
             } else {
-                secnotice("signing", "Can't leave circle %@, but dumping identities", oldCircle);
+                secnotice("signing", "Can't leave circle, but dumping identities");
                 success = false;
             }
             account->departure_code = leave_reason;
@@ -566,15 +585,15 @@ bool SOSAccountHandleUpdateCircle(SOSAccountRef account, SOSCircleRef prospectiv
     if (circle_action == countersign) {
         if (me && SOSCircleHasPeer(newCircle, me, NULL)) {
             if (SOSCircleVerifyPeerSigned(newCircle, me, NULL)) {
-                secnotice("signing", "Already concur with: %@", newCircle);
+                secnotice("signing", "Already concur with the new circle");
             } else {
                 CFErrorRef signing_error = NULL;
                 
                 if (me_full && SOSCircleConcordanceSign(newCircle, me_full, &signing_error)) {
                     circleToPush = newCircle;
-                    secnotice("signing", "Concurred with: %@", newCircle);
+                    secnotice("signing", "Concurred with new circle");
                 } else {
-                    secerror("Failed to concurrence sign, error: %@  Old: %@ New: %@", signing_error, oldCircle, newCircle);
+                    secerror("Failed to concurrence sign, error: %@", signing_error);
                     success = false;
                 }
                 CFReleaseSafe(signing_error);
@@ -585,7 +604,7 @@ bool SOSAccountHandleUpdateCircle(SOSAccountRef account, SOSCircleRef prospectiv
                 writeUpdate = true;
             }
         } else {
-            secnotice("signing", "Not countersigning, not in circle: %@", newCircle);
+            secnotice("signing", "Not countersigning, not in new circle");
             debugDumpCircle(CFSTR("circle to countersign"), newCircle);
         }
         circle_action = accept;
@@ -636,7 +655,7 @@ bool SOSAccountHandleUpdateCircle(SOSAccountRef account, SOSCircleRef prospectiv
         CFRetainAssign(account->trusted_circle, newCircle);
         SOSAccountSetPreviousPublic(account);
         
-        secnotice("signing", "%@, Accepting circle: %@", concStr, newCircle);
+        secnotice("signing", "%@, Accepting new circle", concStr);
         
         if (me && account->user_public_trusted
             && SOSCircleHasApplicant(oldCircle, me, NULL)
@@ -646,7 +665,7 @@ bool SOSAccountHandleUpdateCircle(SOSAccountRef account, SOSCircleRef prospectiv
             // We were applying and we weren't accepted.
             // Our application is declared lost, let us reapply.
             
-            secnotice("signing", "requesting readmission to circle %@", newCircle);
+            secnotice("signing", "requesting readmission to new circle");
             if (SOSCircleRequestReadmission(newCircle, account->user_public, me, NULL))
                 writeUpdate = true;
         }
@@ -661,7 +680,7 @@ bool SOSAccountHandleUpdateCircle(SOSAccountRef account, SOSCircleRef prospectiv
         
         if (writeUpdate)
             circleToPush = newCircle;
-        SOSUpdateKeyInterest(account);
+        account->key_interests_need_updating = true;
     }
     
     /*
@@ -672,21 +691,24 @@ bool SOSAccountHandleUpdateCircle(SOSAccountRef account, SOSCircleRef prospectiv
     
     if (circle_action == revert) {
         if(haveOldCircle && me && SOSCircleHasActivePeer(oldCircle, me, NULL)) {
-            secnotice("signing", "%@, Rejecting: %@ re-publishing %@", concStr, newCircle, oldCircle);
+            secnotice("signing", "%@, Rejecting new circle, re-publishing old circle", concStr);
             debugDumpCircle(CFSTR("oldCircle"), oldCircle);
             debugDumpCircle(CFSTR("newCircle"), newCircle);
             circleToPush = oldCircle;
         } else {
-            secnotice("canary", "%@, Rejecting: %@ Have no old circle - would reset", concStr, newCircle);
+            secnotice("canary", "%@, Rejecting: new circle Have no old circle - would reset", concStr);
         }
     }
     
     
     if (circleToPush != NULL) {
-        secnotice("signing", "Pushing:[%s] %@", local_remote, circleToPush);
+        secnotice("signing", "Pushing:[%s]", local_remote);
         CFDataRef circle_data = SOSCircleCopyEncodedData(circleToPush, kCFAllocatorDefault, error);
         
         if (circle_data) {
+            // Ensure we flush changes
+            account->circle_rings_retirements_need_attention = true;
+
             //recording circle we are pushing in KVS
             success &= SOSTransportCircleRecordLastCirclePushedInKVS(transport, SOSCircleGetName(circleToPush), circle_data);
             //posting new circle to peers
@@ -699,5 +721,6 @@ bool SOSAccountHandleUpdateCircle(SOSAccountRef account, SOSCircleRef prospectiv
     
     CFReleaseSafe(newCircle);
     CFReleaseNull(emptyCircle);
+    
     return success;
 }

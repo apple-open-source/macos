@@ -29,6 +29,10 @@
 #include <IOKit/graphics/IOFramebufferShared.h>
 #include <IOKit/IOLib.h>
 
+
+#define IOFRAMEBUFFER_REV           2
+
+
 class IOFramebuffer;
 class IOBufferMemoryDescriptor;
 
@@ -135,6 +139,9 @@ enum {
 
     kIOFBNotifyWillNotify       = 80,
     kIOFBNotifyDidNotify        = 81,
+
+    kIOFBNotifyWSAAEnterDefer   = 90,
+    kIOFBNotifyWSAAExitDefer    = 91,
 };
 
 struct IOFramebufferNotificationNotify

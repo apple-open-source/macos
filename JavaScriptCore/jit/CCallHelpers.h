@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,6 +30,8 @@
 
 #include "AssemblyHelpers.h"
 #include "GPRInfo.h"
+#include "RegisterMap.h"
+#include "StackAlignment.h"
 
 namespace JSC {
 
@@ -37,6 +39,23 @@ namespace JSC {
 #define POKE_ARGUMENT_OFFSET 4
 #else
 #define POKE_ARGUMENT_OFFSET 0
+#endif
+
+// EncodedJSValue in JSVALUE32_64 is a 64-bit integer. When being compiled in ARM EABI, it must be aligned even-numbered register (r0, r2 or [sp]).
+// To avoid assemblies from using wrong registers, let's occupy r1 or r3 with a dummy argument when necessary.
+#if (COMPILER_SUPPORTS(EABI) && CPU(ARM)) || CPU(MIPS)
+#define EABI_32BIT_DUMMY_ARG      CCallHelpers::TrustedImm32(0),
+#else
+#define EABI_32BIT_DUMMY_ARG
+#endif
+
+// JSVALUE32_64 is a 64-bit integer that cannot be put half in an argument register and half on stack when using SH4 architecture.
+// To avoid this, let's occupy the 4th argument register (r7) with a dummy argument when necessary. This must only be done when there
+// is no other 32-bit value argument behind this 64-bit JSValue.
+#if CPU(SH4)
+#define SH4_32BIT_DUMMY_ARG      CCallHelpers::TrustedImm32(0),
+#else
+#define SH4_32BIT_DUMMY_ARG
 #endif
 
 class CCallHelpers : public AssemblyHelpers {
@@ -61,6 +80,8 @@ public:
         functor(GPRInfo::nonArgGPR0);
         poke(GPRInfo::nonArgGPR0, POKE_ARGUMENT_OFFSET + argumentIndex - GPRInfo::numberOfArgumentRegisters);
     }
+
+    void setupArgumentsWithExecState() { setupArgumentsExecState(); }
 
     // These methods used to sort arguments into the correct registers.
     // On X86 we use cdecl calling conventions, which pass all arguments on the
@@ -209,6 +230,15 @@ public:
         addCallArgument(arg2);
     }
 
+    ALWAYS_INLINE void setupArgumentsWithExecState(GPRReg arg1, TrustedImmPtr arg2, GPRReg arg3)
+    {
+        resetCallArguments();
+        addCallArgument(GPRInfo::callFrameRegister);
+        addCallArgument(arg1);
+        addCallArgument(arg2);
+        addCallArgument(arg3);
+    }
+    
     ALWAYS_INLINE void setupArgumentsWithExecState(GPRReg arg1, TrustedImm32 arg2)
     {
         resetCallArguments();
@@ -302,13 +332,24 @@ public:
         addCallArgument(arg3);
     }
 
-    ALWAYS_INLINE void setupArgumentsWithExecState(GPRReg arg1, TrustedImmPtr arg2, GPRReg arg3)
+    ALWAYS_INLINE void setupArgumentsWithExecState(GPRReg arg1, TrustedImmPtr arg2, GPRReg arg3, TrustedImm32 arg4)
     {
         resetCallArguments();
         addCallArgument(GPRInfo::callFrameRegister);
         addCallArgument(arg1);
         addCallArgument(arg2);
         addCallArgument(arg3);
+        addCallArgument(arg4);
+    }
+
+    ALWAYS_INLINE void setupArgumentsWithExecState(GPRReg arg1, GPRReg arg2, TrustedImmPtr arg3, TrustedImm32 arg4)
+    {
+        resetCallArguments();
+        addCallArgument(GPRInfo::callFrameRegister);
+        addCallArgument(arg1);
+        addCallArgument(arg2);
+        addCallArgument(arg3);
+        addCallArgument(arg4);
     }
 
     ALWAYS_INLINE void setupArgumentsWithExecState(GPRReg arg1, TrustedImm32 arg2, TrustedImmPtr arg3)
@@ -340,6 +381,17 @@ public:
 
     ALWAYS_INLINE void setupArgumentsWithExecState(TrustedImm32 arg1, GPRReg arg2, TrustedImm32 arg3, GPRReg arg4, TrustedImm32 arg5)
     {
+        resetCallArguments();
+        addCallArgument(GPRInfo::callFrameRegister);
+        addCallArgument(arg1);
+        addCallArgument(arg2);
+        addCallArgument(arg3);
+        addCallArgument(arg4);
+        addCallArgument(arg5);
+    }
+
+    ALWAYS_INLINE void setupArgumentsWithExecState(TrustedImmPtr arg1, GPRReg arg2, TrustedImmPtr arg3, TrustedImm32 arg4, TrustedImm32 arg5)
+    { 
         resetCallArguments();
         addCallArgument(GPRInfo::callFrameRegister);
         addCallArgument(arg1);
@@ -446,6 +498,26 @@ public:
     }
     
     ALWAYS_INLINE void setupArgumentsWithExecState(TrustedImmPtr arg1, GPRReg arg2, TrustedImm32 arg3, GPRReg arg4, GPRReg arg5)
+    {
+        resetCallArguments();
+        addCallArgument(GPRInfo::callFrameRegister);
+        addCallArgument(arg1);
+        addCallArgument(arg2);
+        addCallArgument(arg3);
+        addCallArgument(arg4);
+        addCallArgument(arg5);
+    }
+
+    ALWAYS_INLINE void setupArgumentsWithExecState(GPRReg arg1, TrustedImmPtr arg2, TrustedImm32 arg3)
+    {
+        resetCallArguments();
+        addCallArgument(GPRInfo::callFrameRegister);
+        addCallArgument(arg1);
+        addCallArgument(arg2);
+        addCallArgument(arg3);
+    }
+
+    ALWAYS_INLINE void setupArgumentsWithExecState(GPRReg arg1, GPRReg arg2, GPRReg arg3, TrustedImmPtr arg4, TrustedImm32 arg5)
     {
         resetCallArguments();
         addCallArgument(GPRInfo::callFrameRegister);
@@ -644,6 +716,16 @@ public:
         addCallArgument(arg4);
     }
 
+    ALWAYS_INLINE void setupArgumentsWithExecState(GPRReg arg1, TrustedImm32 arg2, TrustedImmPtr arg3, GPRReg arg4)
+    {
+        resetCallArguments();
+        addCallArgument(GPRInfo::callFrameRegister);
+        addCallArgument(arg1);
+        addCallArgument(arg2);
+        addCallArgument(arg3);
+        addCallArgument(arg4);
+    }
+
     ALWAYS_INLINE void setupArgumentsWithExecState(GPRReg arg1, TrustedImmPtr arg2, GPRReg arg3, GPRReg arg4)
     {
         resetCallArguments();
@@ -654,6 +736,16 @@ public:
         addCallArgument(arg4);
     }
 
+    ALWAYS_INLINE void setupArgumentsWithExecState(GPRReg arg1, TrustedImm32 arg2, GPRReg arg3, GPRReg arg4)
+    {
+        resetCallArguments();
+        addCallArgument(GPRInfo::callFrameRegister);
+        addCallArgument(arg1);
+        addCallArgument(arg2);
+        addCallArgument(arg3);
+        addCallArgument(arg4);
+    }
+    
     ALWAYS_INLINE void setupArgumentsWithExecState(GPRReg arg1, GPRReg arg2, GPRReg arg3, GPRReg arg4, GPRReg arg5)
     {
         resetCallArguments();
@@ -763,6 +855,21 @@ public:
         addCallArgument(arg2);
         addCallArgument(arg3);
     }
+
+    ALWAYS_INLINE void setupArgumentsWithExecState(GPRReg arg1, GPRReg arg2, GPRReg arg3, GPRReg arg4, GPRReg arg5, GPRReg arg6, GPRReg arg7, GPRReg arg8)
+    {
+        resetCallArguments();
+        addCallArgument(GPRInfo::callFrameRegister);
+        addCallArgument(arg1);
+        addCallArgument(arg2);
+        addCallArgument(arg3);
+        addCallArgument(arg4);
+        addCallArgument(arg5);
+        addCallArgument(arg6);
+        addCallArgument(arg7);
+        addCallArgument(arg8);
+    }
+
 #endif // !NUMBER_OF_ARGUMENT_REGISTERS
     // These methods are suitable for any calling convention that provides for
     // at least 4 argument registers, e.g. X86_64, ARMv7.
@@ -848,6 +955,8 @@ public:
         if (srcB != destB)
             swap(destB, destC);
     }
+
+    void setupFourStubArgsGPR(GPRReg destA, GPRReg destB, GPRReg destC, GPRReg destD, GPRReg srcA, GPRReg srcB, GPRReg srcC, GPRReg srcD);
 
 #if CPU(X86_64) || CPU(ARM64)
     template<FPRReg destA, FPRReg destB>
@@ -1074,12 +1183,12 @@ public:
         poke(arg3, 4);
     }
 
-    ALWAYS_INLINE void setupArgumentsWithExecState(TrustedImm32 arg1, FPRReg arg2, GPRReg arg3)
+    ALWAYS_INLINE void setupArgumentsWithExecState(TrustedImm32, FPRReg arg2, GPRReg arg3)
     {
         setupArgumentsWithExecState(arg2, arg3);
     }
 
-    ALWAYS_INLINE void setupArgumentsWithExecState(GPRReg arg1, GPRReg arg2, TrustedImm32 arg3, FPRReg arg4)
+    ALWAYS_INLINE void setupArgumentsWithExecState(GPRReg arg1, GPRReg arg2, TrustedImm32, FPRReg arg4)
     {
         setupArgumentsWithExecState(arg1, arg2, arg4);
     }
@@ -1466,6 +1575,12 @@ public:
         setupArgumentsWithExecState(arg1, arg2, arg3);
     }
 
+    ALWAYS_INLINE void setupArgumentsWithExecState(GPRReg arg1, GPRReg arg2, TrustedImmPtr arg3, TrustedImm32 arg4)
+    {
+        poke(arg4, POKE_ARGUMENT_OFFSET);
+        setupArgumentsWithExecState(arg1, arg2, arg3);
+    }
+
     ALWAYS_INLINE void setupArgumentsWithExecState(GPRReg arg1, GPRReg arg2, GPRReg arg3, TrustedImm32 arg4)
     {
         poke(arg4, POKE_ARGUMENT_OFFSET);
@@ -1516,6 +1631,21 @@ public:
         setupArgumentsWithExecState(arg1, arg2, arg3);
     }
 
+    ALWAYS_INLINE void setupArgumentsWithExecState(TrustedImmPtr arg1, GPRReg arg2, TrustedImmPtr arg3, TrustedImm32 arg4, TrustedImm32 arg5)
+    {
+        poke(arg5, POKE_ARGUMENT_OFFSET + 1);
+        poke(arg4, POKE_ARGUMENT_OFFSET);
+        setupArgumentsWithExecState(arg1, arg2, arg3);
+    }
+
+#if CPU(X86_64)
+    ALWAYS_INLINE void setupArgumentsWithExecState(TrustedImmPtr arg1, GPRReg arg2, TrustedImmPtr arg3, TrustedImm64 arg4)
+    {
+        poke(arg4, POKE_ARGUMENT_OFFSET);
+        setupArgumentsWithExecState(arg1, arg2, arg3);
+    }
+#endif
+
     ALWAYS_INLINE void setupArgumentsWithExecState(TrustedImmPtr arg1, GPRReg arg2, TrustedImm32 arg3, TrustedImmPtr arg4)
     {
         poke(arg4, POKE_ARGUMENT_OFFSET);
@@ -1559,6 +1689,12 @@ public:
     }
 
     ALWAYS_INLINE void setupArgumentsWithExecState(GPRReg arg1, GPRReg arg2, TrustedImm32 arg3, TrustedImm32 arg4)
+    {
+        poke(arg4, POKE_ARGUMENT_OFFSET);
+        setupArgumentsWithExecState(arg1, arg2, arg3);
+    }
+
+    ALWAYS_INLINE void setupArgumentsWithExecState(GPRReg arg1, TrustedImm32 arg2, TrustedImmPtr arg3, GPRReg arg4)
     {
         poke(arg4, POKE_ARGUMENT_OFFSET);
         setupArgumentsWithExecState(arg1, arg2, arg3);
@@ -1639,6 +1775,12 @@ public:
         setupArgumentsWithExecState(arg1, arg2, arg3);
     }
 
+    ALWAYS_INLINE void setupArgumentsWithExecState(GPRReg arg1, TrustedImm32 arg2, GPRReg arg3, GPRReg arg4)
+    {
+        poke(arg4, POKE_ARGUMENT_OFFSET);
+        setupArgumentsWithExecState(arg1, arg2, arg3);
+    }
+
     ALWAYS_INLINE void setupArgumentsWithExecState(GPRReg arg1, GPRReg arg2, TrustedImm32 arg3, GPRReg arg4, GPRReg arg5)
     {
         poke(arg5, POKE_ARGUMENT_OFFSET + 1);
@@ -1668,6 +1810,20 @@ public:
     }
 
     ALWAYS_INLINE void setupArgumentsWithExecState(TrustedImmPtr arg1, GPRReg arg2, TrustedImm32 arg3, GPRReg arg4, GPRReg arg5)
+    {
+        poke(arg5, POKE_ARGUMENT_OFFSET + 1);
+        poke(arg4, POKE_ARGUMENT_OFFSET);
+        setupArgumentsWithExecState(arg1, arg2, arg3);
+    }
+
+    ALWAYS_INLINE void setupArgumentsWithExecState(TrustedImm32 arg1, GPRReg arg2, TrustedImm32 arg3, GPRReg arg4, GPRReg arg5)
+    {
+        poke(arg5, POKE_ARGUMENT_OFFSET + 1);
+        poke(arg4, POKE_ARGUMENT_OFFSET);
+        setupArgumentsWithExecState(arg1, arg2, arg3);
+    }
+
+    ALWAYS_INLINE void setupArgumentsWithExecState(GPRReg arg1, GPRReg arg2, GPRReg arg3, TrustedImmPtr arg4, TrustedImm32 arg5)
     {
         poke(arg5, POKE_ARGUMENT_OFFSET + 1);
         poke(arg4, POKE_ARGUMENT_OFFSET);
@@ -1846,7 +2002,37 @@ public:
         setupArgumentsWithExecState(arg1, arg2, arg3);
     }
 
+    ALWAYS_INLINE void setupArgumentsWithExecState(GPRReg arg1, GPRReg arg2, GPRReg arg3, GPRReg arg4, GPRReg arg5, GPRReg arg6, GPRReg arg7, GPRReg arg8)
+    {
+        poke(arg8, POKE_ARGUMENT_OFFSET + 4);
+        poke(arg7, POKE_ARGUMENT_OFFSET + 3);
+        poke(arg6, POKE_ARGUMENT_OFFSET + 2);
+        poke(arg5, POKE_ARGUMENT_OFFSET + 1);
+        poke(arg4, POKE_ARGUMENT_OFFSET);
+        setupArgumentsWithExecState(arg1, arg2, arg3);
+    }
+
+    ALWAYS_INLINE void setupArgumentsWithExecState(TrustedImm32 arg1, GPRReg arg2, GPRReg arg3, GPRReg arg4, GPRReg arg5, GPRReg arg6, GPRReg arg7, GPRReg arg8, GPRReg arg9)
+    {
+        poke(arg9, POKE_ARGUMENT_OFFSET + 5);
+        poke(arg8, POKE_ARGUMENT_OFFSET + 4);
+        poke(arg7, POKE_ARGUMENT_OFFSET + 3);
+        poke(arg6, POKE_ARGUMENT_OFFSET + 2);
+        poke(arg5, POKE_ARGUMENT_OFFSET + 1);
+        poke(arg4, POKE_ARGUMENT_OFFSET);
+        setupArgumentsWithExecState(arg1, arg2, arg3);
+    }
+
     ALWAYS_INLINE void setupArgumentsWithExecState(TrustedImm32 arg1, GPRReg arg2, GPRReg arg3, TrustedImm32 arg4, TrustedImm32 arg5, GPRReg arg6, GPRReg arg7)
+    {
+        poke(arg7, POKE_ARGUMENT_OFFSET + 3);
+        poke(arg6, POKE_ARGUMENT_OFFSET + 2);
+        poke(arg5, POKE_ARGUMENT_OFFSET + 1);
+        poke(arg4, POKE_ARGUMENT_OFFSET);
+        setupArgumentsWithExecState(arg1, arg2, arg3);
+    }
+
+    ALWAYS_INLINE void setupArgumentsWithExecState(TrustedImm32 arg1, GPRReg arg2, GPRReg arg3, GPRReg arg4, TrustedImm32 arg5, GPRReg arg6, GPRReg arg7)
     {
         poke(arg7, POKE_ARGUMENT_OFFSET + 3);
         poke(arg6, POKE_ARGUMENT_OFFSET + 2);
@@ -1869,9 +2055,22 @@ public:
         poke(arg4, POKE_ARGUMENT_OFFSET);
         setupArgumentsWithExecState(arg1, arg2, arg3);
     }
+
+    ALWAYS_INLINE void setupArgumentsWithExecState(TrustedImm32 arg1, GPRReg arg2, TrustedImm32 arg3, TrustedImmPtr arg4, GPRReg arg5)
+    {
+        poke(arg5, POKE_ARGUMENT_OFFSET + 1);
+        poke(arg4, POKE_ARGUMENT_OFFSET);
+        setupArgumentsWithExecState(arg1, arg2, arg3);
+    }
 #endif // NUMBER_OF_ARGUMENT_REGISTERS == 4
 
 #if NUMBER_OF_ARGUMENT_REGISTERS >= 5
+    ALWAYS_INLINE void setupArgumentsWithExecState(GPRReg arg1, GPRReg arg2, GPRReg arg3, GPRReg arg4)
+    {
+        setupFourStubArgsGPR(GPRInfo::argumentGPR1, GPRInfo::argumentGPR2, GPRInfo::argumentGPR3, GPRInfo::argumentGPR4, arg1, arg2, arg3, arg4);
+        move(GPRInfo::callFrameRegister, GPRInfo::argumentGPR0);
+    }
+
     void setupStubArguments134(GPRReg arg1, GPRReg arg3, GPRReg arg4)
     {
         setupThreeStubArgsGPR<GPRInfo::argumentGPR1, GPRInfo::argumentGPR3, GPRInfo::argumentGPR4>(arg1, arg3, arg4);
@@ -1892,6 +2091,22 @@ public:
         move(GPRInfo::callFrameRegister, GPRInfo::argumentGPR0);
     }
 
+    ALWAYS_INLINE void setupArgumentsWithExecState(GPRReg arg1, GPRReg arg2, TrustedImmPtr arg3, TrustedImm32 arg4)
+    {
+        setupTwoStubArgsGPR<GPRInfo::argumentGPR1, GPRInfo::argumentGPR2>(arg1, arg2);
+        move(arg3, GPRInfo::argumentGPR3);
+        move(arg4, GPRInfo::argumentGPR4);
+        move(GPRInfo::callFrameRegister, GPRInfo::argumentGPR0);
+    }
+
+    ALWAYS_INLINE void setupArgumentsWithExecState(GPRReg arg1, TrustedImmPtr arg2, TrustedImm32 arg3, GPRReg arg4, GPRReg arg5)
+    {
+        setupThreeStubArgsGPR<GPRInfo::argumentGPR1, GPRInfo::argumentGPR4, GPRInfo::argumentGPR5>(arg1, arg4, arg5);
+        move(arg2, GPRInfo::argumentGPR2);
+        move(arg3, GPRInfo::argumentGPR3);
+        move(GPRInfo::callFrameRegister, GPRInfo::argumentGPR0);
+    }
+
     ALWAYS_INLINE void setupArgumentsWithExecState(GPRReg arg1, TrustedImmPtr arg2, GPRReg arg3, GPRReg arg4)
     {
         setupStubArguments134(arg1, arg3, arg4);
@@ -1906,13 +2121,32 @@ public:
         move(arg4, GPRInfo::argumentGPR4);
         move(GPRInfo::callFrameRegister, GPRInfo::argumentGPR0);
     }
-    
+
     ALWAYS_INLINE void setupArgumentsWithExecState(TrustedImmPtr arg1, GPRReg arg2, TrustedImm32 arg3, TrustedImm32 arg4)
     {
         move(arg2, GPRInfo::argumentGPR2); // In case arg2 is argumentGPR1.
         move(arg1, GPRInfo::argumentGPR1);
         move(arg3, GPRInfo::argumentGPR3);
         move(arg4, GPRInfo::argumentGPR4);
+        move(GPRInfo::callFrameRegister, GPRInfo::argumentGPR0);
+    }
+
+    ALWAYS_INLINE void setupArgumentsWithExecState(TrustedImmPtr arg1, GPRReg arg2, TrustedImmPtr arg3, TrustedImm64 arg4)
+    {
+        move(arg2, GPRInfo::argumentGPR2); // In case arg2 is argumentGPR1.
+        move(arg1, GPRInfo::argumentGPR1);
+        move(arg3, GPRInfo::argumentGPR3);
+        move(arg4, GPRInfo::argumentGPR4);
+        move(GPRInfo::callFrameRegister, GPRInfo::argumentGPR0);
+    }
+
+    ALWAYS_INLINE void setupArgumentsWithExecState(TrustedImmPtr arg1, GPRReg arg2, TrustedImmPtr arg3, TrustedImm32 arg4, TrustedImm32 arg5)
+    {
+        move(arg2, GPRInfo::argumentGPR2); // In case arg2 is argumentGPR1.
+        move(arg1, GPRInfo::argumentGPR1);
+        move(arg3, GPRInfo::argumentGPR3);
+        move(arg4, GPRInfo::argumentGPR4);
+        move(arg5, GPRInfo::argumentGPR5);
         move(GPRInfo::callFrameRegister, GPRInfo::argumentGPR0);
     }
 
@@ -1973,6 +2207,15 @@ public:
     }
 #endif
     
+    void setupArgumentsWithExecState(JSValueRegs arg1, JSValueRegs arg2, TrustedImmPtr arg3)
+    {
+#if USE(JSVALUE64)
+        setupArgumentsWithExecState(arg1.gpr(), arg2.gpr(), arg3);
+#else
+        setupArgumentsWithExecState(EABI_32BIT_DUMMY_ARG arg1.payloadGPR(), arg1.tagGPR(), arg2.payloadGPR(), arg2.tagGPR(), arg3);
+#endif
+    }
+    
     void setupArguments(JSValueRegs arg1)
     {
 #if USE(JSVALUE64)
@@ -2014,11 +2257,106 @@ public:
     
     void jumpToExceptionHandler()
     {
-        // genericUnwind() leaves the handler CallFrame* in vm->callFrameForThrow,
+        // genericUnwind() leaves the handler CallFrame* in vm->callFrameForCatch,
         // and the address of the handler in vm->targetMachinePCForThrow.
         loadPtr(&vm()->targetMachinePCForThrow, GPRInfo::regT1);
         jump(GPRInfo::regT1);
     }
+
+    void prepareForTailCallSlow(GPRReg calleeGPR = InvalidGPRReg)
+    {
+        GPRReg temp1 = calleeGPR == GPRInfo::regT0 ? GPRInfo::regT3 : GPRInfo::regT0;
+        GPRReg temp2 = calleeGPR == GPRInfo::regT1 ? GPRInfo::regT3 : GPRInfo::regT1;
+        GPRReg temp3 = calleeGPR == GPRInfo::regT2 ? GPRInfo::regT3 : GPRInfo::regT2;
+
+        GPRReg newFramePointer = temp1;
+        GPRReg newFrameSizeGPR = temp2;
+        {
+            // The old frame size is its number of arguments (or number of
+            // parameters in case of arity fixup), plus the frame header size,
+            // aligned
+            GPRReg oldFrameSizeGPR = temp2;
+            {
+                GPRReg argCountGPR = oldFrameSizeGPR;
+                load32(Address(framePointerRegister, CallFrameSlot::argumentCount * static_cast<int>(sizeof(Register)) + PayloadOffset), argCountGPR);
+
+                {
+                    GPRReg numParametersGPR = temp1;
+                    {
+                        GPRReg codeBlockGPR = numParametersGPR;
+                        loadPtr(Address(framePointerRegister, CallFrameSlot::codeBlock * static_cast<int>(sizeof(Register))), codeBlockGPR);
+                        load32(Address(codeBlockGPR, CodeBlock::offsetOfNumParameters()), numParametersGPR);
+                    }
+
+                    ASSERT(numParametersGPR != argCountGPR);
+                    Jump argumentCountWasNotFixedUp = branch32(BelowOrEqual, numParametersGPR, argCountGPR);
+                    move(numParametersGPR, argCountGPR);
+                    argumentCountWasNotFixedUp.link(this);
+                }
+
+                add32(TrustedImm32(stackAlignmentRegisters() + CallFrame::headerSizeInRegisters - 1), argCountGPR, oldFrameSizeGPR);
+                and32(TrustedImm32(-stackAlignmentRegisters()), oldFrameSizeGPR);
+                // We assume < 2^28 arguments
+                mul32(TrustedImm32(sizeof(Register)), oldFrameSizeGPR, oldFrameSizeGPR);
+            }
+
+            // The new frame pointer is at framePointer + oldFrameSize - newFrameSize
+            ASSERT(newFramePointer != oldFrameSizeGPR);
+            addPtr(framePointerRegister, oldFrameSizeGPR, newFramePointer);
+
+            // The new frame size is just the number of arguments plus the
+            // frame header size, aligned
+            ASSERT(newFrameSizeGPR != newFramePointer);
+            load32(Address(stackPointerRegister, CallFrameSlot::argumentCount * static_cast<int>(sizeof(Register)) + PayloadOffset - sizeof(CallerFrameAndPC)),
+                newFrameSizeGPR);
+            add32(TrustedImm32(stackAlignmentRegisters() + CallFrame::headerSizeInRegisters - 1), newFrameSizeGPR);
+            and32(TrustedImm32(-stackAlignmentRegisters()), newFrameSizeGPR);
+            // We assume < 2^28 arguments
+            mul32(TrustedImm32(sizeof(Register)), newFrameSizeGPR, newFrameSizeGPR);
+        }
+
+        GPRReg tempGPR = temp3;
+        ASSERT(tempGPR != newFramePointer && tempGPR != newFrameSizeGPR);
+
+        // We don't need the current frame beyond this point. Masquerade as our
+        // caller.
+#if CPU(ARM) || CPU(SH4) || CPU(ARM64)
+        loadPtr(Address(framePointerRegister, sizeof(void*)), linkRegister);
+        subPtr(TrustedImm32(2 * sizeof(void*)), newFrameSizeGPR);
+#elif CPU(MIPS)
+        loadPtr(Address(framePointerRegister, sizeof(void*)), returnAddressRegister);
+        subPtr(TrustedImm32(2 * sizeof(void*)), newFrameSizeGPR);
+#elif CPU(X86) || CPU(X86_64)
+        loadPtr(Address(framePointerRegister, sizeof(void*)), tempGPR);
+        push(tempGPR);
+        subPtr(TrustedImm32(sizeof(void*)), newFrameSizeGPR);
+#else
+        UNREACHABLE_FOR_PLATFORM();
+#endif
+        subPtr(newFrameSizeGPR, newFramePointer);
+        loadPtr(Address(framePointerRegister), framePointerRegister);
+
+
+        // We need to move the newFrameSizeGPR slots above the stack pointer by
+        // newFramePointer registers. We use pointer-sized chunks.
+        MacroAssembler::Label copyLoop(label());
+
+        subPtr(TrustedImm32(sizeof(void*)), newFrameSizeGPR);
+        loadPtr(BaseIndex(stackPointerRegister, newFrameSizeGPR, TimesOne), tempGPR);
+        storePtr(tempGPR, BaseIndex(newFramePointer, newFrameSizeGPR, TimesOne));
+
+        branchTest32(MacroAssembler::NonZero, newFrameSizeGPR).linkTo(copyLoop, this);
+
+        // Ready for a jump!
+        move(newFramePointer, stackPointerRegister);
+    }
+    
+    // These operations clobber all volatile registers. They assume that there is room on the top of
+    // stack to marshall call arguments.
+    void logShadowChickenProloguePacket(GPRReg shadowPacket, GPRReg scratch1, GPRReg scope);
+    void logShadowChickenTailPacket(GPRReg shadowPacket, JSValueRegs thisRegs, GPRReg scope, CodeBlock*, CallSiteIndex);
+    // Leaves behind a pointer to the Packet we should write to in shadowPacket.
+    void ensureShadowChickenPacket(GPRReg shadowPacket, GPRReg scratch1NonArgGPR, GPRReg scratch2);
 };
 
 } // namespace JSC

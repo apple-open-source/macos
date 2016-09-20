@@ -29,15 +29,9 @@ WebInspector.VisualStyleColorPicker = class VisualStyleColorPicker extends WebIn
     {
         super(propertyNames, text, null, null, "input-color-picker", layoutReversed);
 
-        this._swatchElement = document.createElement("span");
-        this._swatchElement.classList.add("color-swatch");
-        this._swatchElement.title = WebInspector.UIString("Click to select a color. Shift-click to switch color formats.");
-        this._swatchElement.addEventListener("click", this._colorSwatchClicked.bind(this));
-
-        this._swatchInnerElement = document.createElement("span");
-        this._swatchElement.appendChild(this._swatchInnerElement);
-
-        this.contentElement.appendChild(this._swatchElement);
+        this._colorSwatch = new WebInspector.InlineSwatch(WebInspector.InlineSwatch.Type.Color);
+        this._colorSwatch.addEventListener(WebInspector.InlineSwatch.Event.ValueChanged, this._colorSwatchColorChanged, this);
+        this.contentElement.appendChild(this._colorSwatch.element);
 
         this._textInputElement = document.createElement("input");
         this._textInputElement.spellcheck = false;
@@ -103,48 +97,20 @@ WebInspector.VisualStyleColorPicker = class VisualStyleColorPicker extends WebIn
 
     // Private
 
+    _colorSwatchColorChanged(event)
+    {
+        let colorString = event && event.data && event.data.value && event.data.value.toString();
+        if (!colorString)
+            return;
+
+        this.value = colorString;
+        this._valueDidChange();
+    }
+
     _updateColorSwatch()
     {
-        var value = this._textInputElement.value;
-        this._color = WebInspector.Color.fromString(value || "transparent");
-        this._swatchInnerElement.style.backgroundColor = this._color ? value : null;
-    }
-
-    _colorSwatchClicked(event)
-    {
-        var color = this._color;
-        if (event.shiftKey) {
-            var nextFormat = color.nextFormat();
-
-            console.assert(nextFormat);
-            if (!nextFormat)
-                return;
-
-            color.format = nextFormat;
-            this.value = color.toString();
-
-            this._formatChanged = true;
-            this._valueDidChange();
-            return;
-        }
-
-        var bounds = WebInspector.Rect.rectFromClientRect(this._swatchElement.getBoundingClientRect());
-
-        var colorPicker = new WebInspector.ColorPicker;
-        colorPicker.addEventListener(WebInspector.ColorPicker.Event.ColorChanged, this._colorPickerColorDidChange, this);
-
-        var popover = new WebInspector.Popover(this);
-        popover.content = colorPicker.element;
-        popover.present(bounds.pad(2), [WebInspector.RectEdge.MIN_X]);
-
-        colorPicker.color = color;
-    }
-
-    _colorPickerColorDidChange(event)
-    {
-        var format = !this._formatChanged ? WebInspector.Color.Format.HEX : null;
-        this.value = event.data.color.toString(format);
-        this._valueDidChange();
+        let value = this._textInputElement.value;
+        this._colorSwatch.value = WebInspector.Color.fromString(value);
     }
 
     _completionClicked(event)
@@ -158,9 +124,9 @@ WebInspector.VisualStyleColorPicker = class VisualStyleColorPicker extends WebIn
         if (!this._completionController.visible)
             return;
 
-        var keyCode = event.keyCode;
-        var enterKeyCode = WebInspector.KeyboardShortcut.Key.Enter.keyCode;
-        var tabKeyCode = WebInspector.KeyboardShortcut.Key.Tab.keyCode;
+        let keyCode = event.keyCode;
+        let enterKeyCode = WebInspector.KeyboardShortcut.Key.Enter.keyCode;
+        let tabKeyCode = WebInspector.KeyboardShortcut.Key.Tab.keyCode;
         if (keyCode === enterKeyCode || keyCode === tabKeyCode) {
             this.value = this._completionController.currentCompletion;
             this._hideCompletions();
@@ -168,13 +134,13 @@ WebInspector.VisualStyleColorPicker = class VisualStyleColorPicker extends WebIn
             return;
         }
 
-        var escapeKeyCode = WebInspector.KeyboardShortcut.Key.Escape.keyCode;
+        let escapeKeyCode = WebInspector.KeyboardShortcut.Key.Escape.keyCode;
         if (keyCode === escapeKeyCode) {
             this._hideCompletions();
             return;
         }
 
-        var key = event.keyIdentifier;
+        let key = event.keyIdentifier;
         if (key === "Up") {
             this._completionController.previous();
             return;
@@ -198,12 +164,12 @@ WebInspector.VisualStyleColorPicker = class VisualStyleColorPicker extends WebIn
         if (!this.hasCompletions)
             return;
 
-        var result = this._valueDidChange();
+        let result = this._valueDidChange();
         if (!result)
             return;
 
         if (this._completionController.update(this.value)) {
-            var bounds = WebInspector.Rect.rectFromClientRect(this._textInputElement.getBoundingClientRect());
+            let bounds = WebInspector.Rect.rectFromClientRect(this._textInputElement.getBoundingClientRect());
             if (!bounds)
                 return;
 

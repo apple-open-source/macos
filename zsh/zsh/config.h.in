@@ -1130,6 +1130,9 @@
 /* Define if getxattr() etc. require additional MacOS-style arguments */
 #undef XATTR_EXTRA_ARGS
 
+/* Define to 1 if the zlong type uses 64-bit long int. */
+#undef ZLONG_IS_LONG_64
+
 /* Define to 1 if the zlong type uses long long int. */
 #undef ZLONG_IS_LONG_LONG
 

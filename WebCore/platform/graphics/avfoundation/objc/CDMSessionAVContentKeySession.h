@@ -34,7 +34,7 @@
 
 OBJC_CLASS AVContentKeyRequest;
 OBJC_CLASS AVContentKeySession;
-OBJC_CLASS CDMSessionAVContentKeySessionDelegate;
+OBJC_CLASS WebCDMSessionAVContentKeySessionDelegate;
 
 namespace WebCore {
 
@@ -48,10 +48,10 @@ public:
     static bool isAvailable();
 
     // CDMSession
-    virtual CDMSessionType type() override { return CDMSessionTypeAVContentKeySession; }
-    virtual RefPtr<Uint8Array> generateKeyRequest(const String& mimeType, Uint8Array* initData, String& destinationURL, unsigned short& errorCode, unsigned long& systemCode) override;
-    virtual void releaseKeys() override;
-    virtual bool update(Uint8Array* key, RefPtr<Uint8Array>& nextMessage, unsigned short& errorCode, unsigned long& systemCode) override;
+    CDMSessionType type() override { return CDMSessionTypeAVContentKeySession; }
+    RefPtr<Uint8Array> generateKeyRequest(const String& mimeType, Uint8Array* initData, String& destinationURL, unsigned short& errorCode, uint32_t& systemCode) override;
+    void releaseKeys() override;
+    bool update(Uint8Array* key, RefPtr<Uint8Array>& nextMessage, unsigned short& errorCode, uint32_t& systemCode) override;
 
     // CDMSessionMediaSourceAVFObjC
     void addParser(AVStreamDataParser *) override;
@@ -60,13 +60,13 @@ public:
     void didProvideContentKeyRequest(AVContentKeyRequest *);
 
 protected:
-    PassRefPtr<Uint8Array> generateKeyReleaseMessage(unsigned short& errorCode, unsigned long& systemCode);
+    PassRefPtr<Uint8Array> generateKeyReleaseMessage(unsigned short& errorCode, uint32_t& systemCode);
 
     bool hasContentKeySession() const { return m_contentKeySession; }
     AVContentKeySession* contentKeySession();
 
     RetainPtr<AVContentKeySession> m_contentKeySession;
-    RetainPtr<CDMSessionAVContentKeySessionDelegate> m_contentKeySessionDelegate;
+    RetainPtr<WebCDMSessionAVContentKeySessionDelegate> m_contentKeySessionDelegate;
     RetainPtr<AVContentKeyRequest> m_keyRequest;
     RefPtr<Uint8Array> m_initData;
     RetainPtr<NSData> m_expiredSession;

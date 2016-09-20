@@ -72,6 +72,8 @@ typedef enum
     /* Padding, https://tools.ietf.org/html/draft-ietf-tls-padding-01 */
     SSL_HE_Padding = 21,
 
+    /* Extended Master secret RFC 7627 */
+    SSL_HE_ExtendedMasterSecret = 23,
 	/*
 	 * This one is suggested but not formally defined in
 	 * I.D.salowey-tls-ticket-07

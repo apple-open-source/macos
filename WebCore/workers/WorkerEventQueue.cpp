@@ -49,8 +49,8 @@ WorkerEventQueue::~WorkerEventQueue()
 class WorkerEventQueue::EventDispatcher
 {
 public:
-    EventDispatcher(PassRefPtr<Event> event, WorkerEventQueue& eventQueue)
-        : m_event(event)
+    EventDispatcher(RefPtr<Event>&& event, WorkerEventQueue& eventQueue)
+        : m_event(WTFMove(event))
         , m_eventQueue(eventQueue)
         , m_isCancelled(false)
     {
@@ -67,7 +67,7 @@ public:
         if (m_isCancelled)
             return;
         m_eventQueue.m_eventDispatcherMap.remove(m_event.get());
-        m_event->target()->dispatchEvent(m_event);
+        m_event->target()->dispatchEvent(*m_event);
         m_event = nullptr;
     }
 
@@ -83,15 +83,15 @@ private:
     bool m_isCancelled;
 };
 
-bool WorkerEventQueue::enqueueEvent(PassRefPtr<Event> event)
+bool WorkerEventQueue::enqueueEvent(Ref<Event>&& event)
 {
     if (m_isClosed)
         return false;
 
-    EventDispatcher* eventDispatcherPtr = new EventDispatcher(event.get(), *this);
-    m_eventDispatcherMap.add(event, eventDispatcherPtr);
-    m_scriptExecutionContext.postTask([eventDispatcherPtr] (ScriptExecutionContext&) {
-        std::unique_ptr<EventDispatcher> eventDispatcher(eventDispatcherPtr);
+    auto* eventPtr = event.ptr();
+    auto eventDispatcher = std::make_unique<EventDispatcher>(WTFMove(event), *this);
+    m_eventDispatcherMap.add(eventPtr, eventDispatcher.get());
+    m_scriptExecutionContext.postTask([eventDispatcher = WTFMove(eventDispatcher)] (ScriptExecutionContext&) {
         eventDispatcher->dispatch();
     });
 

@@ -26,6 +26,7 @@ GCC_WARN_UNUSED_VARIABLE = YES
 
 LINK_WITH_STANDARD_LIBRARIES = NO
 
-SUPPORTED_PLATFORMS = macosx iphoneos
+//This one is not supported in the simulators
+SUPPORTED_PLATFORMS = macosx iphoneos watchos appletvos
 
 EXECUTABLE_PREFIX = lib

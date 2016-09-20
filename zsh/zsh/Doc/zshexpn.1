@@ -1,4 +1,4 @@
-.TH "ZSHEXPN" "1" "May 31, 2015" "zsh 5\&.0\&.8"
+.TH "ZSHEXPN" "1" "December 2, 2015" "zsh 5\&.2"
 .SH "NAME"
 zshexpn \- zsh expansion and substitution
 .\" Yodl file: Zsh/expn.yo
@@ -305,6 +305,19 @@ forms of expansion\&.
 Note that if a `\fB&\fP\&' is used within glob qualifiers an extra backslash
 is needed as a \fB&\fP is a special character in this case\&.
 .PP
+Also note that the order of expansions affects the interpretation of
+\fIl\fP and \fIr\fP\&.  When used in a history expansion, which occurs before
+any other expansions, \fIl\fP and \fIr\fP are treated as literal strings
+(except as explained for \fBHIST_SUBST_PATTERN\fP below)\&.  When used in
+parameter expansion, the replacement of \fIr\fP into the parameter\&'s value
+is done first, and then any additional process, parameter, command,
+arithmetic, or brace references are applied, which may evaluate those
+substitutions and expansions more than once if \fIl\fP appears more than
+once in the starting value\&.  When used in a glob qualifier, any
+substitutions or expansions are performed once at the time the qualifier
+is parsed, even before the `\fB:s\fP\&' expression itself is divided into
+\fIl\fP and \fIr\fP sides\&.
+.PP
 If the option \fBHIST_SUBST_PATTERN\fP is set, \fIl\fP is treated as
 a pattern of the usual form described in
 the section FILENAME GENERATION below\&.  This can be used in
@@ -382,6 +395,12 @@ form must occur at the start of a command argument, and the forms
 are only expanded when first parsing command or assignment arguments\&.
 Process substitutions may be used following redirection operators; in this
 case, the substitution must appear with no trailing string\&.
+.PP
+Note that `\fB<<(\fP\fIlist\fP\fB)\fP\&' is not a special syntax; it
+is equivalent to `\fB< <(\fP\fIlist\fP\fB)\fP\&', redirecting
+standard input from the result of process substitution\&.  Hence all
+the following documentation applies\&.  The second form (with the space)
+is recommended for clarity\&.
 .PP
 In the case of the \fB<\fP or \fB>\fP forms, the shell runs the commands in
 \fIlist\fP as a subprocess of the job executing the shell command line\&.
@@ -973,6 +992,35 @@ array index order\&.  Note that `\fBa\fP\&' is therefore equivalent to the
 default but `\fBOa\fP\&' is useful for obtaining an array's elements in reverse
 order\&.
 .TP
+\fBb\fP
+Quote with backslashes only characters that are special to pattern
+matching\&. This is useful when the contents of the variable are to be
+tested using \fBGLOB_SUBST\fP, including the \fB${~\fP\fI\&.\&.\&.\fP\fB}\fP switch\&.
+.RS
+.PP
+Quoting using one of the \fBq\fP family of flags does not work
+for this purpose since quotes are not stripped from non\-pattern
+characters by \fBGLOB_SUBST\fP\&.  In other words,
+.PP
+.RS
+.nf
+\fBpattern=${(q)str}
+[[ $str = ${~pattern} ]]\fP
+.fi
+.RE
+.PP
+works if \fB$str\fP is `\fBa*b\fP\&' but not if it is `\fBa b\fP', whereas
+.PP
+.RS
+.nf
+\fBpattern=${(b)str}
+[[ $str = ${~pattern} ]]\fP
+.fi
+.RE
+.PP
+is always true for any possible value of \fB$str\fP\&.
+.RE
+.TP
 \fBc\fP
 With \fB${#\fP\fIname\fP\fB}\fP, count the total number of characters in an array,
 as if the elements were concatenated with spaces between them\&.  This is not
@@ -1057,7 +1105,16 @@ Note that flags set with one of the \fBtypeset\fP family of commands
 If used with a nested parameter or command substitution, the result of that
 will be taken as a parameter name in the same way\&.  For example, if you
 have `\fBfoo=bar\fP\&' and `\fBbar=baz\fP', the strings \fB${(P)foo}\fP,
-\fB${(P)${foo}}\fP, and \fB${(P)$(echo bar)}\fP will be expanded to `\fBbaz\fP\&'\&.
+\fB${(P)${foo}}\fP, and \fB${(P)$(echo bar)}\fP will be expanded to
+`\fBbaz\fP\&'\&.
+.PP
+Likewise, if the reference is itself nested, the expression with the
+flag is treated as if it were directly replaced by the parameter name\&.
+It is an error if this nested substitution produces an array with more
+than one word\&.  For example, if `\fBname=assoc\fP\&' where the parameter
+\fBassoc\fP is an associative array, then
+`\fB${${(P)name}[elt]}\fP\&' refers to the element of the associative
+subscripted `\fBelt\fP\&'\&.
 .RE
 .TP
 \fBq\fP
@@ -1078,35 +1135,6 @@ If a \fBq\-\fP is given (only a single \fBq\fP may appear), a minimal
 form of single quoting is used that only quotes the string if needed to
 protect special characters\&.  Typically this form gives the most readable
 output\&.
-.RE
-.TP
-\fBb\fP
-Quote with backslashes only characters that are special to pattern
-matching\&. This is useful when the contents of the variable are to be
-tested using \fBGLOB_SUBST\fP, including the \fB${~\fP\fI\&.\&.\&.\fP\fB}\fP switch\&.
-.RS
-.PP
-Quoting using one of the \fBq\fP family of flags does not work
-for this purpose since quotes are not stripped from non\-pattern
-characters by \fBGLOB_SUBST\fP\&.  In other words,
-.PP
-.RS
-.nf
-\fBpattern=${(q)str}
-[[ $str = ${~pattern} ]]\fP
-.fi
-.RE
-.PP
-works if \fB$str\fP is \fB\&'a*b'\fP but not if it is \fB'a b'\fP, whereas
-.PP
-.RS
-.nf
-\fBpattern=${(b)str}
-[[ $str = ${~pattern} ]]\fP
-.fi
-.RE
-.PP
-is always true for any possible value of \fB$str\fP\&.
 .RE
 .TP
 \fBQ\fP
@@ -1460,10 +1488,14 @@ outermost\&.  The flags are not propagated up to enclosing
 substitutions; the nested substitution will return either a scalar or an
 array as determined by the flags, possibly adjusted for quoting\&.  All the
 following steps take place where applicable at all levels of substitution\&.
-Note that, unless the `\fB(P)\fP\&' flag is present, the flags and any subscripts
-apply directly to the value of the nested substitution; for example, the
-expansion \fB${${foo}}\fP behaves exactly the same as \fB${foo}\fP\&.
 .RS
+.PP
+Note that, unless the `\fB(P)\fP\&' flag is present, the flags and any
+subscripts apply directly to the value of the nested substitution; for
+example, the expansion \fB${${foo}}\fP behaves exactly the same as
+\fB${foo}\fP\&.  When the `\fB(P)\fP\&' flag is present in a nested substitution,
+the other substitution rules are applied to the value \fIbefore\fP it is
+interpreted as a name, so \fB${${(P)foo}}\fP may differ from \fB${(P)foo}\fP\&.
 .PP
 At each nested level of substitution, the substituted words undergo all
 forms of single\-word substitution (i\&.e\&. not filename generation), including
@@ -1477,11 +1509,20 @@ of the path\&.)
 .RE
 .TP
 \fB2\&.\fP \fIInternal parameter flags\fP
-Any parameter flags set by one of the \fBtypeset\fP family of commands,
-in particular the \fBL\fP, \fBR\fP, \fBZ\fP, \fBu\fP and \fBl\fP flags for padding
-and capitalization, are applied directly to the parameter value\&.
-Note these flags are options to the command, e\&.g\&. `\fBtypeset \-Z\fP\&';
-they are not the same as the flags used within parameter substitutions\&.
+Any parameter flags set by one of the \fBtypeset\fP family of commands, in
+particular the \fB\-L\fP, \fB\-R\fP, \fB\-Z\fP, \fB\-u\fP and \fB\-l\fP options for
+padding and capitalization, are applied directly to the parameter value\&.
+Note these flags are options to the command, e\&.g\&. `\fBtypeset \-Z\fP\&'; they
+are not the same as the flags used within parameter substitutions\&.
+.RS
+.PP
+At the outermost level of substitution, the `\fB(P)\fP\&' flag (rule \fB4\&.\fP)
+ignores these transformations and uses the unmodified value of the
+parameter as the name to be replaced\&.  This is usually the desired
+behavior because padding may make the value syntactically illegal as a
+parameter name, but if capitalization changes are desired, use the
+\fB${${(P)foo}}\fP form (rule \fB25\&.\fP)\&.
+.RE
 .TP
 \fB3\&.\fP \fIParameter subscripting\fP
 If the value is a raw parameter reference with a subscript, such as
@@ -1492,19 +1533,27 @@ subscript\&.  Thus if \fBvar\fP is an array, \fB${var[1][2]}\fP is the second
 character of the first word, but \fB${var[2,4][2]}\fP is the entire third
 word (the second word of the range of words two through four of the
 original array)\&.  Any number of subscripts may appear\&.  Flags such as
-\fB(k)\fP and \fB(v)\fP which alter the result of subscripting are applied\&.
+`\fB(k)\fP\&' and `\fB(v)\fP' which alter the result of subscripting are applied\&.
 .TP
 \fB4\&.\fP \fIParameter name replacement\fP
-The effect of any \fB(P)\fP flag, which treats the value so far as a
-parameter name and replaces it with the corresponding value, is applied\&.
+At the outermost level of nesting only, the `\fB(P)\fP\&' flag is applied\&.  This
+treats the value so far as a parameter name (which may include a subscript
+expression) and replaces that with the corresponding value\&.  This
+replacement occurs later if the `\fB(P)\fP\&' flag appears in a nested
+substitution\&.
+.RS
+.PP
+If the value so far names a parameter that has internal flags (rule \fB2\&.\fP),
+those internal flags are applied to the new value after replacement\&.
+.RE
 .TP
 \fB5\&.\fP \fIDouble\-quoted joining\fP
 If the value after this process is an array, and the substitution
-appears in double quotes, and neither an \fB(@)\fP flag nor a \fB#\fP
+appears in double quotes, and neither an `\fB(@)\fP\&' flag nor a `\fB#\fP'
 length operator is present at the current level, then words of the
 value are joined with the first character of the parameter \fB$IFS\fP,
 by default a space, between each word (single word arrays are not
-modified)\&.  If the \fB(j)\fP flag is present, that is used for joining
+modified)\&.  If the `\fB(j)\fP\&' flag is present, that is used for joining
 instead of \fB$IFS\fP\&.
 .TP
 \fB6\&.\fP \fINested subscripting\fP
@@ -1518,22 +1567,22 @@ returns a scalar because of the quotes)\&.
 .TP
 \fB7\&.\fP \fIModifiers\fP
 Any modifiers, as specified by a trailing `\fB#\fP\&', `\fB%\fP', `\fB/\fP'
-(possibly doubled) or by a set of modifiers of the form \fB:\&.\&.\&.\fP (see
+(possibly doubled) or by a set of modifiers of the form `\fB:\&.\&.\&.\fP\&' (see
 the section `Modifiers\&' in the section `History Expansion'), are applied to the words
 of the value at this level\&.
 .TP
 \fB8\&.\fP \fICharacter evaluation\fP
-Any \fB(#)\fP flag is applied, evaluating the result so far numerically
+Any `\fB(#)\fP\&' flag is applied, evaluating the result so far numerically
 as a character\&.
 .TP
 \fB9\&.\fP \fILength\fP
-Any initial \fB#\fP modifier, i\&.e\&. in the form \fB${#\fP\fIvar\fP\fB}\fP, is
+Any initial `\fB#\fP\&' modifier, i\&.e\&. in the form \fB${#\fP\fIvar\fP\fB}\fP, is
 used to evaluate the length of the expression so far\&.
 .TP
 \fB10\&.\fP \fIForced joining\fP
 If the `\fB(j)\fP\&' flag is present, or no `\fB(j)\fP' flag is present but
 the string is to be split as given by rule \fB11\&.\fP, and joining
-did not take place at step \fB5\&.\fP, any words in the value are joined
+did not take place at rule \fB5\&.\fP, any words in the value are joined
 together using the given string or the first character of \fB$IFS\fP if none\&.
 Note that the `\fB(F)\fP\&' flag implicitly supplies a string for joining in this
 manner\&.
@@ -1552,22 +1601,22 @@ takes place at all levels of a nested substitution\&.
 .RE
 .TP
 \fB12\&.\fP \fICase modification\fP
-Any case modification from one of the flags \fB(L)\fP, \fB(U)\fP or \fB(C)\fP
+Any case modification from one of the flags `\fB(L)\fP\&', `\fB(U)\fP' or `\fB(C)\fP'
 is applied\&.
 .TP
 \fB13\&.\fP \fIEscape sequence replacement\fP
-First any replacements from the \fB(g)\fP flag are performed, then any
-prompt\-style formatting from the \fB(%)\fP family of flags is applied\&.
+First any replacements from the `\fB(g)\fP\&' flag are performed, then any
+prompt\-style formatting from the `\fB(%)\fP\&' family of flags is applied\&.
 .TP
 \fB14\&.\fP \fIQuote application\fP
-Any quoting or unquoting using \fB(q)\fP and \fB(Q)\fP and related flags
+Any quoting or unquoting using `\fB(q)\fP\&' and `\fB(Q)\fP' and related flags
 is applied\&.
 .TP
 \fB15\&.\fP \fIDirectory naming\fP
-Any directory name substitution using \fB(D)\fP flag is applied\&.
+Any directory name substitution using `\fB(D)\fP\&' flag is applied\&.
 .TP
 \fB16\&.\fP \fIVisibility enhancement\fP
-Any modifications to make characters visible using the \fB(V)\fP flag
+Any modifications to make characters visible using the `\fB(V)\fP\&' flag
 are applied\&.
 .TP
 \fB17\&.\fP \fILexical word splitting\fP
@@ -1605,7 +1654,7 @@ In contexts where expansion semantics requires a single word to
 result, all words are rejoined with the first character of \fBIFS\fP
 between\&.  So in `\fB${(P\fP\fB)${(f\fP\fB)lines}}\fP\&'
 the value of \fB${lines}\fP is split at newlines, but then must be
-joined again before the \fBP\fP flag can be applied\&.
+joined again before the `\fB(P)\fP\&' flag can be applied\&.
 .RS
 .PP
 If a single word is not required, this rule is skipped\&.
@@ -1621,6 +1670,12 @@ Strictly speaking, the removal happens later as the same happens with
 other forms of substitution; the point to note here is simply that
 it occurs after any of the above parameter operations\&.
 .RE
+.TP
+\fB25\&.\fP \fINested parameter name replacement\fP
+If the `\fB(P)\fP\&' flag is present and rule \fB4\&.\fP has not applied, the
+value so far is treated as a parameter name (which may include a subscript
+expression) and replaced with the corresponding value, with internal flags
+(rule \fB2\&.\fP) applied to the new value\&.
 .PP
 .SS "Examples"
 The flag \fBf\fP is useful to split a double\-quoted substitution line by
@@ -2029,6 +2084,20 @@ The character is used as an input field separator, i\&.e\&. is contained in the
 The character is an IFS white space character; see the documentation
 for \fBIFS\fP in
 the \fIzshparam\fP(1) manual page\&.
+.TP
+\fB[:INCOMPLETE:]\fP
+Matches a byte that starts an incomplete multibyte character\&.
+Note that there may be a sequence of more than one bytes that
+taken together form the prefix of a multibyte character\&.  To
+test for a potentially incomplete byte sequence, use the pattern
+`\fB[[:INCOMPLETE:]]*\fP\&'\&.  This will never match a sequence starting
+with a valid multibyte character\&.
+.TP
+\fB[:INVALID:]\fP
+Matches a byte that does not start a valid multibyte character\&.
+Note this may be a continuation byte of an incomplete multibyte
+character as any part of a multibyte string consisting of invalid and
+incomplete multibyte characters is treated as single bytes\&.
 .TP
 \fB[:WORD:]\fP
 The character is treated as part of a word; this test is sensitive
@@ -2459,6 +2528,26 @@ follow symbolic links; the alternative form `\fB***/\fP\&' does, but is
 otherwise identical\&.  Neither of these can be combined with other forms of
 globbing within the same path segment; in that case, the `\fB*\fP\&'
 operators revert to their usual effect\&.
+.PP
+Even shorter forms are available when the option \fBGLOB_STAR_SHORT\fP is
+set\&.  In that case if no \fB/\fP immediately follows a \fB**\fP or \fB***\fP
+they are treated as if both a \fB/\fP plus a further \fB*\fP are present\&.
+Hence:
+.PP
+.RS
+.nf
+\fBsetopt GLOBSTARSHORT
+ls **\&.c\fP
+.fi
+.RE
+.PP
+is equivalent to
+.PP
+.RS
+.nf
+\fBls **/*\&.c\fP
+.fi
+.RE
 .SS "Glob Qualifiers"
 Patterns used for filename generation may end in a
 list of qualifiers enclosed in parentheses\&.

@@ -1105,20 +1105,27 @@ IOCFSerializeBinary(CFTypeRef object, CFOptionFlags options __unused)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-#define setAtIndex(v, idx, o)													\
-	if (idx >= v##Capacity)														\
-	{																			\
-		uint32_t ncap = v##Capacity + 64;										\
-		typeof(v##Array) nbuf = (typeof(v##Array)) malloc(ncap * sizeof(o));	\
-		if (!nbuf) ok = false;													\
-		if (v##Array)															\
-		{																		\
-			bcopy(v##Array, nbuf, v##Capacity * sizeof(o));						\
-			free(v##Array);							\
-		}																		\
-		v##Array    = nbuf;														\
-		v##Capacity = ncap;														\
-	}																			\
+#define setAtIndex(v, idx, o)													    \
+	if (idx >= v##Capacity)														    \
+	{																			    \
+        if (v##Capacity >= v##CapacityMax) ok = false;                              \
+        else																		\
+        {																			\
+            uint32_t ncap = v##Capacity + 64;										\
+            typeof(v##Array) nbuf = (typeof(v##Array)) malloc(ncap * sizeof(o));	\
+            if (!nbuf) ok = false;													\
+            else																	\
+            {																		\
+                if (v##Array)														\
+                {																	\
+                    bcopy(v##Array, nbuf, v##Capacity * sizeof(o));					\
+                    free(v##Array);							                        \
+                }																	\
+                v##Array    = nbuf;													\
+                v##Capacity = ncap;													\
+            }																		\
+	    }																			\
+	}		    																	\
 	if (ok) v##Array[idx] = o;
 
 
@@ -1133,10 +1140,12 @@ IOCFUnserializeBinary(const char	* buffer,
 {
 	CFTypeRef * objsArray;
 	uint32_t    objsCapacity;
+	enum      { objsCapacityMax = 16*1024*1024 };
 	uint32_t    objsIdx;
 
 	CFTypeRef * stackArray;
 	uint32_t    stackCapacity;
+	enum      { stackCapacityMax = 64*1024 };
 	uint32_t    stackIdx;
 
     CFTypeRef              result;
@@ -1214,7 +1223,6 @@ IOCFUnserializeBinary(const char	* buffer,
 		    case kOSSerializeObject:
 				if (len >= objsIdx) break;
 				o = objsArray[len];
-				CFRetain(o);
 				isRef = true;
 				break;
 
@@ -1268,7 +1276,11 @@ IOCFUnserializeBinary(const char	* buffer,
 		if (!isRef)
 		{
 			setAtIndex(objs, objsIdx, o);
-			if (!ok) break;
+			if (!ok)
+			{
+			     CFRelease(o);
+			     break;
+            }
 			objsIdx++;
 		}
 		if (dict)
@@ -1276,8 +1288,6 @@ IOCFUnserializeBinary(const char	* buffer,
 			if (sym)
 			{
 				if (o != dict) CFDictionarySetValue(dict, sym, o);
-				CFRelease(o);
-				CFRelease(sym);
 				sym = 0;
 			}
 			else 
@@ -1286,16 +1296,9 @@ IOCFUnserializeBinary(const char	* buffer,
 				sym = o;
 			}
 		}
-		else if (array) 
-		{
-			CFArrayAppendValue(array, o);
-			CFRelease(o);
-		}
-		else if (set)
-		{
-		    CFSetAddValue(set, o);
-			CFRelease(o);
-		}
+		else if (array)  CFArrayAppendValue(array, o);
+		else if (set)    CFSetAddValue(set, o);
+		else if (result) ok = false;
 		else
 		{
 		    assert(!parent);
@@ -1337,16 +1340,18 @@ IOCFUnserializeBinary(const char	* buffer,
 			else                                 ok    = false;
 		}
 	}
-	DEBG("ret %p\n", result);
 
-	if (objsCapacity)  free(objsArray);
+	if (!ok) result = 0;
+
+	if (objsCapacity)
+	{
+        for (len = (result != 0); len < objsIdx; len++) CFRelease(objsArray[len]);
+	    free(objsArray);
+    }
 	if (stackCapacity) free(stackArray);
 
-	if (!ok && result)
-	{
-		CFRelease(result);
-		result = 0;
-	}
+	DEBG("ret %p\n", result);
+
 	return (result);
 }
 

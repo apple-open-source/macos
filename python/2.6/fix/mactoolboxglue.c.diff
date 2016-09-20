@@ -1,0 +1,10 @@
+--- mactoolboxglue.c.orig	2016-01-07 18:57:52.000000000 -0800
++++ mactoolboxglue.c	2016-01-07 18:57:59.000000000 -0800
+@@ -26,6 +26,7 @@
+ #include "Python.h"
+ #include "pymactoolbox.h"
+ #include <arpa/inet.h>  /* for ntohl, htonl */
++#include <QuickTime/QuickTime.h>
+ 
+ 
+ /* Like strerror() but for Mac OS error numbers */

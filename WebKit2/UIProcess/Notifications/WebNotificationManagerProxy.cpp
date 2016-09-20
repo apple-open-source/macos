@@ -215,7 +215,7 @@ void WebNotificationManagerProxy::providerDidCloseNotifications(API::Array* glob
             if (pageIt == pageNotificationIDs.end()) {
                 Vector<uint64_t> newVector;
                 newVector.reserveInitialCapacity(size);
-                pageIt = pageNotificationIDs.add(webPage, WTF::move(newVector)).iterator;
+                pageIt = pageNotificationIDs.add(webPage, WTFMove(newVector)).iterator;
             }
 
             uint64_t pageNotificationID = it->value.second;
@@ -254,6 +254,18 @@ void WebNotificationManagerProxy::providerDidRemoveNotificationPolicies(API::Arr
         originStrings.append(origins->at<API::SecurityOrigin>(i)->securityOrigin().toString());
     
     processPool()->sendToAllProcesses(Messages::WebNotificationManager::DidRemoveNotificationDecisions(originStrings));
+}
+
+uint64_t WebNotificationManagerProxy::notificationLocalIDForTesting(WebNotification* notification)
+{
+    if (!notification)
+        return 0;
+
+    auto it = m_globalNotificationMap.find(notification->notificationID());
+    if (it == m_globalNotificationMap.end())
+        return 0;
+
+    return it->value.second;
 }
 
 } // namespace WebKit

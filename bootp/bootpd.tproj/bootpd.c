@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -135,6 +135,7 @@
 #define CFGPROP_RELAY_IP_LIST		"relay_ip_list"
 #define CFGPROP_USE_SERVER_CONFIG_FOR_DHCP_OPTIONS "use_server_config_for_dhcp_options"
 #define CFGPROP_IGNORE_ALLOW_DENY	"ignore_allow_deny"
+#define CFGPROP_VERBOSE			"verbose"
 
 /*
  * On some platforms the root filesystem is mounted read-only;
@@ -155,6 +156,11 @@
 #define SERVICE_OLD_NETBOOT			0x00000004
 #define SERVICE_NETBOOT				0x00000008
 #define SERVICE_RELAY				0x00000010
+#define SERVICE_ALL 				(SERVICE_BOOTP	       \
+						 | SERVICE_DHCP	       \
+						 | SERVICE_OLD_NETBOOT \
+						 | SERVICE_NETBOOT     \
+						 | SERVICE_RELAY)
 #define SERVICE_IGNORE_ALLOW_DENY 		0x00000020
 #define SERVICE_DETECT_OTHER_DHCP_SERVER 	0x00000040
 #define SERVICE_DHCP_DISABLED			0x80000000
@@ -162,7 +168,7 @@
 /* global variables: */
 char		boot_tftp_dir[128] = "/private/tftpboot";
 int		bootp_socket = -1;
-int		debug = 0;
+bool		debug;
 bool		dhcp_ignore_client_identifier = FALSE;
 int		quiet = 0;
 uint32_t	reply_threshold_seconds = 0;
@@ -170,6 +176,8 @@ unsigned short	server_priority = BSDP_PRIORITY_BASE;
 char *		testing_control = "";
 char		server_name[MAXHOSTNAMELEN + 1];
 SubnetListRef	subnets;
+bool		verbose;
+
 /*
  * transmit_buffer is cast to some struct types containing short fields;
  * force it to be aligned as much as an int
@@ -180,19 +188,12 @@ char *		transmit_buffer = (char *)transmit_buffer_aligned;
 #if ! TARGET_OS_EMBEDDED
 bool		use_open_directory = TRUE;
 #endif /* ! TARGET_OS_EMBEDDED */
-int		verbose = 0;
 
 /* local types */
 
 /* local variables */
 static boolean_t		S_bootfile_noexist_reply = TRUE;
-static boolean_t		S_do_bootp;
-#if !TARGET_OS_EMBEDDED
-static boolean_t		S_do_netboot;
-static boolean_t		S_do_old_netboot;
-#endif /* !TARGET_OS_EMBEDDED */
-static boolean_t		S_do_dhcp;
-static boolean_t		S_do_relay;
+static u_int32_t		S_do_services = 0;
 static struct in_addr *		S_dns_servers = NULL;
 static int			S_dns_servers_count = 0;
 static char *			S_domain_name = NULL;
@@ -217,6 +218,7 @@ static struct in_addr *		S_relay_ip_list = NULL;
 static int			S_relay_ip_list_count = 0;
 static int			S_max_hops = 4;
 static boolean_t		S_use_server_config_for_dhcp_options = TRUE;
+static boolean_t		S_verbose;
 
 void
 my_log(int priority, const char *message, ...)
@@ -553,8 +555,9 @@ S_service_is_enabled(u_int32_t service)
 {
     int i;
 
-    if (S_which_services & service)
+    if ((S_which_services & service) != 0) {
 	return (TRUE);
+    }
 
     for (i = 0; i < S_interfaces->count; i++) {
 	interface_t * 	if_p = S_interfaces->list + i;
@@ -567,8 +570,6 @@ S_service_is_enabled(u_int32_t service)
 static void
 S_disable_netboot()
 {
-    S_do_netboot = FALSE;
-    S_do_old_netboot = FALSE;
     S_service_disable(SERVICE_NETBOOT | SERVICE_OLD_NETBOOT);
     return;
 }
@@ -843,9 +844,17 @@ S_update_services()
 	    plist = NULL;
 	}
     }
-    S_which_services = 0;
+    /* start with the set specified via command-line flags */
+    S_which_services = S_do_services;
+    verbose = S_verbose;
 
     if (plist != NULL) {
+	/* Verbose */
+	if (S_get_plist_boolean(plist, CFSTR(CFGPROP_VERBOSE),
+				CFGPROP_VERBOSE, FALSE)) {
+	    verbose = TRUE;
+	}
+
 	/* BOOTP */
 	S_service_enable(CFDictionaryGetValue(plist,
 					      CFSTR(CFGPROP_BOOTP_ENABLED)),
@@ -937,8 +946,7 @@ S_update_services()
 
     dhcp_init();
 #if !TARGET_OS_EMBEDDED
-    if (S_do_netboot || S_do_old_netboot
-	|| S_service_is_enabled(SERVICE_NETBOOT | SERVICE_OLD_NETBOOT)) {
+    if (S_service_is_enabled(SERVICE_NETBOOT | SERVICE_OLD_NETBOOT)) {
 	if (bsdp_init(plist) == FALSE) {
 	    my_log(LOG_INFO, "bootpd: NetBoot service turned off");
 	    S_disable_netboot();
@@ -952,49 +960,48 @@ S_update_services()
 }
 
 static __inline__ boolean_t
-bootp_enabled(interface_t * if_p)
+is_service_enabled(interface_t * if_p, u_int32_t service_flag,
+		   u_int32_t service_disabled_flag)
 {
     u_int32_t 	which = (S_which_services | if_p->user_defined);
 
-    return (S_do_bootp || (which & SERVICE_BOOTP) != 0);
+    if (service_disabled_flag != 0
+	&& (if_p->user_defined & service_disabled_flag) != 0) {
+	return (FALSE);
+    }
+    return ((which & service_flag) != 0);
+}
+
+static __inline__ boolean_t
+bootp_enabled(interface_t * if_p)
+{
+    return (is_service_enabled(if_p, SERVICE_BOOTP, 0));
 }
 
 static __inline__ boolean_t
 dhcp_enabled(interface_t * if_p)
 {
-    u_int32_t 	which;
-
-    if ((if_p->user_defined & SERVICE_DHCP_DISABLED) != 0) {
-	return (FALSE);
-    }
-    which = (S_which_services | if_p->user_defined);
-    return (S_do_dhcp || (which & SERVICE_DHCP) != 0);
+    return (is_service_enabled(if_p, SERVICE_DHCP, SERVICE_DHCP_DISABLED));
 }
 
 #if !TARGET_OS_EMBEDDED
 static __inline__ boolean_t
 netboot_enabled(interface_t * if_p)
 {
-    u_int32_t 	which = (S_which_services | if_p->user_defined);
-
-    return (S_do_netboot || (which & SERVICE_NETBOOT) != 0);
+    return (is_service_enabled(if_p, SERVICE_NETBOOT, 0));
 }
 
 static __inline__ boolean_t
 old_netboot_enabled(interface_t * if_p)
 {
-    u_int32_t 	which = (S_which_services | if_p->user_defined);
-
-    return (S_do_old_netboot || (which & SERVICE_OLD_NETBOOT) != 0);
+    return (is_service_enabled(if_p, SERVICE_OLD_NETBOOT, 0));
 }
 #endif /* !TARGET_OS_EMBEDDED */
 
 static __inline__ boolean_t
 relay_enabled(interface_t * if_p)
 {
-    u_int32_t 	which = (S_which_services | if_p->user_defined);
-
-    return (S_do_relay || (which & SERVICE_RELAY) != 0);
+    return (is_service_enabled(if_p, SERVICE_RELAY, 0));
 }
 
 void
@@ -1035,8 +1042,8 @@ main(int argc, char * argv[])
     int			logopt = LOG_CONS;
     struct in_addr	relay_ip = { 0 };
 
-    debug = 0;			/* no debugging ie. go into the background */
-    verbose = 0;		/* don't print extra information */
+    debug = FALSE;		/* no debugging ie. go into the background */
+    verbose = FALSE;		/* don't print extra information */
 
     ptrlist_init(&S_if_list);
 
@@ -1054,7 +1061,7 @@ main(int argc, char * argv[])
 	case 'B':
 	    break;
 	case 'S':
-	    S_do_bootp = TRUE;
+	    S_do_services |= SERVICE_BOOTP;
 	    break;
 	case 'b':
 	    S_bootfile_noexist_reply = FALSE; 
@@ -1063,10 +1070,10 @@ main(int argc, char * argv[])
 	case 'c':		    /* was: cache check interval - seconds */
 	    break;
 	case 'D':		/* answer DHCP requests as a DHCP server */
-	    S_do_dhcp = TRUE;
+	    S_do_services |= SERVICE_DHCP;
 	    break;
 	case 'd':		/* stay in the foreground, extra printf's */
-	    debug = 1;
+	    debug = TRUE;
 	    break;
 	case 'h':
 	case 'H':
@@ -1086,11 +1093,10 @@ main(int argc, char * argv[])
 	    break;
 #if !TARGET_OS_EMBEDDED
 	case 'm':
-	    S_do_old_netboot = TRUE;
-	    S_do_dhcp = TRUE;
+	    S_do_services |= SERVICE_OLD_NETBOOT;
 	    break;
 	case 'N':
-	    S_do_netboot = TRUE;
+	    S_do_services |= SERVICE_NETBOOT;
 	    break;
 #endif /* !TARGET_OS_EMBEDDED */
 	case 'o': {
@@ -1115,7 +1121,7 @@ main(int argc, char * argv[])
 	    quiet = 1;
 	    break;
 	case 'r':
-	    S_do_relay = 1;
+	    S_do_services |= SERVICE_RELAY;
 	    if (S_str_to_ip(optarg, &relay_ip) == FALSE) {
 		printf("Invalid relay server ip address %s\n", optarg);
 		exit(1);
@@ -1131,7 +1137,7 @@ main(int argc, char * argv[])
 	    testing_control = optarg;
 	    break;
 	case 'v':	/* extra info to syslog */
-	    verbose++;
+	    S_verbose = TRUE;
 	    break;
 	default:
 	    break;
@@ -1179,8 +1185,6 @@ main(int argc, char * argv[])
 
     (void) openlog("bootpd", logopt | LOG_PID, LOG_DAEMON);
 
-    SubnetListLogErrors(LOG_NOTICE);
-
     my_log(LOG_DEBUG, "server starting");
 
     { 
@@ -1220,7 +1224,7 @@ main(int argc, char * argv[])
 #if defined(SO_TRAFFIC_CLASS)
 	opt = SO_TC_CTL;
 	/* set traffic class */
-	if (setsockopt(sockfd, SOL_SOCKET, SO_TRAFFIC_CLASS, &opt,
+	if (setsockopt(bootp_socket, SOL_SOCKET, SO_TRAFFIC_CLASS, &opt,
 		       sizeof(opt)) < 0) {
 	    my_log(LOG_NOTICE, "setsockopt(SO_TRAFFIC_CLASS) failed, %s",
 		   strerror(errno));
@@ -1368,7 +1372,7 @@ bootp_add_bootfile(const char * request_file, const char * hostname,
 	strlcpy(file, bootfile, sizeof(file));
     }
     else {
-	my_log(LOG_DEBUG, "no replyfile", path);
+	my_log(LOG_DEBUG, "no replyfile");
 	return (TRUE);
     }
 
@@ -1573,7 +1577,7 @@ bootp_request(request_t * request)
     strlcpy((char *)rp.bp_sname, server_name, sizeof(rp.bp_sname));
     if (sendreply(request->if_p, &rp, sizeof(rp), FALSE, NULL)) {
 	my_log(LOG_INFO, "reply sent %s %s pktsize %d",
-	       hostname, inet_ntoa(iaddr), sizeof(rp));
+	       hostname, inet_ntoa(iaddr), (int)sizeof(rp));
     }
 
   no_reply:
@@ -1635,7 +1639,6 @@ sendreply(interface_t * if_p, struct bootp * bp, int n,
     if (bootp_transmit(bootp_socket, transmit_buffer, if_name(if_p),
 		       if_link_arptype(if_p),
 		       hwaddr,
-		       bp->bp_hlen,
 		       dst, if_inet_addr(if_p),
 		       dest_port, src_port,
 		       bp, n) < 0) {
@@ -1878,7 +1881,7 @@ S_relay_packet(struct bootp * bp, int n, interface_t * if_p)
 	    }
 
 	    if (bootp_transmit(bootp_socket, transmit_buffer, if_name(if_p),
-			       bp->bp_htype, NULL, 0, 
+			       bp->bp_htype, NULL,
 			       relay, if_inet_addr(if_p),
 			       S_ipport_server, S_ipport_client,
 			       bp, n) < 0) {
@@ -1922,7 +1925,7 @@ S_relay_packet(struct bootp * bp, int n, interface_t * if_p)
 	    }
 	}
 	if (bootp_transmit(bootp_socket, transmit_buffer, if_name(if_p),
-			   bp->bp_htype, bp->bp_chaddr, bp->bp_hlen,
+			   bp->bp_htype, bp->bp_chaddr,
 			   dst, if_inet_addr(if_p),
 			   S_ipport_client, S_ipport_server,
 			   bp, n) < 0) {
@@ -2055,7 +2058,7 @@ S_dispatch_packet(struct bootp * bp, int n, interface_t * if_p,
 
 	gettimeofday(&now, 0);
 	timeval_subtract(now, S_lastmsgtime, &result);
-	my_log(LOG_INFO, "service time %d.%06d seconds",
+	my_log(LOG_INFO, "service time %lu.%06d seconds",
 	       result.tv_sec, result.tv_usec);
     }
     return;
@@ -2101,13 +2104,26 @@ S_which_interface()
 	    my_log(LOG_DEBUG, "unknown interface %s", ifname);
 	return (NULL);
     }
-    if (if_inet_valid(if_p) == FALSE)
+    if (if_inet_valid(if_p) == FALSE) {
+	if (verbose) {
+	    my_log(LOG_DEBUG, "ignoring request on %s (no IP address)", ifname);
+	}
 	return (NULL);
+    }
     if (ptrlist_count(&S_if_list) > 0
 	&& S_string_in_list(&S_if_list, ifname) == FALSE) {
-	if (verbose)
+	if (verbose) {
 	    my_log(LOG_DEBUG, "ignoring request on %s", ifname);
+	}
 	return (NULL);
+    }
+    if (!is_service_enabled(if_p, SERVICE_ALL, SERVICE_DHCP_DISABLED)) {
+	/* no services enabled */
+	if (verbose) {
+	    my_log(LOG_DEBUG, "ignoring request on %s (no services enabled)",
+		   ifname);
+	}
+	if_p = NULL;
     }
     return (if_p);
 }
@@ -2235,7 +2251,7 @@ S_add_ip_change_notifications()
 					    NULL);
     CFRelease(options);
     if (store == NULL) {
-	syslog(LOG_ERR, "SCDynamicStoreCreate failed");
+	my_log(LOG_ERR, "SCDynamicStoreCreate failed");
 	exit(2);
 	return;
     }

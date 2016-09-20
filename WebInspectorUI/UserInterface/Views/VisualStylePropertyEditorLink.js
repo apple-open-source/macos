@@ -33,13 +33,13 @@ WebInspector.VisualStylePropertyEditorLink = class VisualStylePropertyEditorLink
         this._linksToHideWhenLinked = linksToHideWhenLinked || [];
         this._lastPropertyEdited = null;
 
-        for (var property of this._linkedProperties)
+        for (let property of this._linkedProperties)
             property.addEventListener(WebInspector.VisualStylePropertyEditor.Event.ValueDidChange, this._linkedPropertyValueChanged, this);
 
         this._element = document.createElement("div");
         this._element.classList.add("visual-style-property-editor-link", className || "");
 
-        var leftLineElement = document.createElement("div");
+        let leftLineElement = document.createElement("div");
         leftLineElement.classList.add("visual-style-property-editor-link-border", "left");
         this._element.appendChild(leftLineElement);
 
@@ -59,7 +59,7 @@ WebInspector.VisualStylePropertyEditorLink = class VisualStylePropertyEditorLink
 
         this._element.appendChild(this._iconElement);
 
-        var rightLineElement = document.createElement("div");
+        let rightLineElement = document.createElement("div");
         rightLineElement.classList.add("visual-style-property-editor-link-border", "right");
         this._element.appendChild(rightLineElement);
 
@@ -87,7 +87,7 @@ WebInspector.VisualStylePropertyEditorLink = class VisualStylePropertyEditorLink
 
         this._iconElement.title = this._linked ? WebInspector.UIString("Click to remove link") : WebInspector.UIString("Click to link property values");
 
-        for (var linkToHide of this._linksToHideWhenLinked)
+        for (let linkToHide of this._linksToHideWhenLinked)
             linkToHide.disabled = this._linked;
     }
 
@@ -104,7 +104,7 @@ WebInspector.VisualStylePropertyEditorLink = class VisualStylePropertyEditorLink
         if (!event)
             return;
 
-        var property = event.target;
+        let property = event.target;
         if (!property)
             return;
 
@@ -117,11 +117,11 @@ WebInspector.VisualStylePropertyEditorLink = class VisualStylePropertyEditorLink
 
     _updateLinkedEditors(property)
     {
-        var style = property.style;
-        var text = style.text;
-        var value = property.synthesizedValue || null;
+        let style = property.style;
+        let text = style.text;
+        let value = property.synthesizedValue || null;
 
-        for (var linkedProperty of this._linkedProperties)
+        for (let linkedProperty of this._linkedProperties)
             text = linkedProperty.updateValueFromText(text, value);
 
         style.text = text;

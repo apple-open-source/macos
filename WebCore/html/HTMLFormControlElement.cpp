@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2016 Apple Inc. All rights reserved.
  *           (C) 2006 Alexey Proskuryakov (ap@nypop.com)
  *
  * This library is free software; you can redistribute it and/or
@@ -25,12 +25,14 @@
 #include "config.h"
 #include "HTMLFormControlElement.h"
 
+#include "Autofill.h"
 #include "ControlStates.h"
 #include "ElementAncestorIterator.h"
 #include "Event.h"
 #include "EventHandler.h"
 #include "EventNames.h"
 #include "Frame.h"
+#include "FrameView.h"
 #include "HTMLFieldSetElement.h"
 #include "HTMLFormElement.h"
 #include "HTMLInputElement.h"
@@ -38,6 +40,7 @@
 #include "HTMLTextAreaElement.h"
 #include "RenderBox.h"
 #include "RenderTheme.h"
+#include "StyleTreeResolver.h"
 #include "ValidationMessage.h"
 #include <wtf/NeverDestroyed.h>
 #include <wtf/Ref.h>
@@ -49,6 +52,7 @@ using namespace HTMLNames;
 
 HTMLFormControlElement::HTMLFormControlElement(const QualifiedName& tagName, Document& document, HTMLFormElement* form)
     : LabelableElement(tagName, document)
+    , FormAssociatedElement(form)
     , m_disabled(false)
     , m_isReadOnly(false)
     , m_isRequired(false)
@@ -61,7 +65,6 @@ HTMLFormControlElement::HTMLFormControlElement(const QualifiedName& tagName, Doc
     , m_wasChangedSinceLastFormControlChangeEvent(false)
     , m_hasAutofocused(false)
 {
-    setForm(form);
     setHasCustomStyleResolveCallbacks();
 }
 
@@ -74,7 +77,7 @@ HTMLFormControlElement::~HTMLFormControlElement()
 
 String HTMLFormControlElement::formEnctype() const
 {
-    const AtomicString& formEnctypeAttr = fastGetAttribute(formenctypeAttr);
+    const AtomicString& formEnctypeAttr = attributeWithoutSynchronization(formenctypeAttr);
     if (formEnctypeAttr.isNull())
         return emptyString();
     return FormSubmission::Attributes::parseEncodingType(formEnctypeAttr);
@@ -82,12 +85,12 @@ String HTMLFormControlElement::formEnctype() const
 
 void HTMLFormControlElement::setFormEnctype(const String& value)
 {
-    setAttribute(formenctypeAttr, value);
+    setAttributeWithoutSynchronization(formenctypeAttr, value);
 }
 
 String HTMLFormControlElement::formMethod() const
 {
-    const AtomicString& formMethodAttr = fastGetAttribute(formmethodAttr);
+    const AtomicString& formMethodAttr = attributeWithoutSynchronization(formmethodAttr);
     if (formMethodAttr.isNull())
         return emptyString();
     return FormSubmission::Attributes::methodString(FormSubmission::Attributes::parseMethodType(formMethodAttr));
@@ -95,19 +98,32 @@ String HTMLFormControlElement::formMethod() const
 
 void HTMLFormControlElement::setFormMethod(const String& value)
 {
-    setAttribute(formmethodAttr, value);
+    setAttributeWithoutSynchronization(formmethodAttr, value);
 }
 
 bool HTMLFormControlElement::formNoValidate() const
 {
-    return fastHasAttribute(formnovalidateAttr);
+    return hasAttributeWithoutSynchronization(formnovalidateAttr);
+}
+
+String HTMLFormControlElement::formAction() const
+{
+    const AtomicString& value = attributeWithoutSynchronization(formactionAttr);
+    if (value.isEmpty())
+        return document().url();
+    return getURLAttribute(formactionAttr);
+}
+
+void HTMLFormControlElement::setFormAction(const AtomicString& value)
+{
+    setAttributeWithoutSynchronization(formactionAttr, value);
 }
 
 bool HTMLFormControlElement::computeIsDisabledByFieldsetAncestor() const
 {
     Element* previousAncestor = nullptr;
     for (Element* ancestor = parentElement(); ancestor; ancestor = ancestor->parentElement()) {
-        if (is<HTMLFieldSetElement>(*ancestor) && ancestor->fastHasAttribute(disabledAttr)) {
+        if (is<HTMLFieldSetElement>(*ancestor) && ancestor->hasAttributeWithoutSynchronization(disabledAttr)) {
             HTMLFieldSetElement& fieldSetAncestor = downcast<HTMLFieldSetElement>(*ancestor);
             bool isInFirstLegend = is<HTMLLegendElement>(previousAncestor) && previousAncestor == fieldSetAncestor.legend();
             return !isInFirstLegend;
@@ -180,7 +196,7 @@ static bool shouldAutofocus(HTMLFormControlElement* element)
 {
     if (!element->renderer())
         return false;
-    if (!element->fastHasAttribute(autofocusAttr))
+    if (!element->hasAttributeWithoutSynchronization(autofocusAttr))
         return false;
     if (!element->inDocument() || !element->document().renderView())
         return false;
@@ -220,9 +236,16 @@ void HTMLFormControlElement::didAttachRenderers()
         setAutofocused();
 
         RefPtr<HTMLFormControlElement> element = this;
-        Style::queuePostResolutionCallback([element] {
-            element->focus();
-        });
+        auto* frameView = document().view();
+        if (frameView && frameView->isInLayout()) {
+            frameView->queuePostLayoutCallback([element] {
+                element->focus();
+            });
+        } else {
+            Style::queuePostResolutionCallback([element] {
+                element->focus();
+            });
+        }
     }
 }
 
@@ -252,13 +275,12 @@ static void removeInvalidElementToAncestorFromInsertionPoint(const HTMLFormContr
 
 Node::InsertionNotificationRequest HTMLFormControlElement::insertedInto(ContainerNode& insertionPoint)
 {
-    if (willValidate() && !isValidFormControlElement())
-        addInvalidElementToAncestorFromInsertionPoint(*this, &insertionPoint);
-
-    if (document().hasDisabledFieldsetElement())
-        setAncestorDisabled(computeIsDisabledByFieldsetAncestor());
     m_dataListAncestorState = Unknown;
     setNeedsWillValidateCheck();
+    if (willValidate() && !isValidFormControlElement())
+        addInvalidElementToAncestorFromInsertionPoint(*this, &insertionPoint);
+    if (document().hasDisabledFieldsetElement())
+        setAncestorDisabled(computeIsDisabledByFieldsetAncestor());
     HTMLElement::insertedInto(insertionPoint);
     FormAssociatedElement::insertedInto(insertionPoint);
     return InsertionShouldCallFinishedInsertingSubtree;
@@ -372,7 +394,7 @@ bool HTMLFormControlElement::matchesInvalidPseudoClass() const
     return willValidate() && !isValidFormControlElement();
 }
 
-short HTMLFormControlElement::tabIndex() const
+int HTMLFormControlElement::tabIndex() const
 {
     // Skip the supportsFocus check in HTMLElement.
     return Element::tabIndex();
@@ -458,7 +480,7 @@ bool HTMLFormControlElement::checkValidity(Vector<RefPtr<FormAssociatedElement>>
     if (!willValidate() || isValidFormControlElement())
         return true;
     // An event handler can deref this object.
-    Ref<HTMLFormControlElement> protect(*this);
+    Ref<HTMLFormControlElement> protectedThis(*this);
     Ref<Document> originalDocument(document());
     bool needsDefaultAction = dispatchEvent(Event::create(eventNames().invalidEvent, false, true));
     if (needsDefaultAction && unhandledInvalidControls && inDocument() && originalDocument.ptr() == &document())
@@ -533,7 +555,7 @@ bool HTMLFormControlElement::validationMessageShadowTreeContains(const Node& nod
 
 void HTMLFormControlElement::dispatchBlurEvent(RefPtr<Element>&& newFocusedElement)
 {
-    HTMLElement::dispatchBlurEvent(WTF::move(newFocusedElement));
+    HTMLElement::dispatchBlurEvent(WTFMove(newFocusedElement));
     hideVisibleValidationMessage();
 }
 
@@ -542,19 +564,15 @@ HTMLFormElement* HTMLFormControlElement::virtualForm() const
     return FormAssociatedElement::form();
 }
 
-bool HTMLFormControlElement::isDefaultButtonForForm() const
-{
-    return isSuccessfulSubmitButton() && form() && form()->defaultButton() == this;
-}
-
 #if ENABLE(IOS_AUTOCORRECT_AND_AUTOCAPITALIZE)
-// FIXME: We should look to share these methods with class HTMLFormElement instead of duplicating them.
+
+// FIXME: We should look to share this code with class HTMLFormElement instead of duplicating the logic.
 
 bool HTMLFormControlElement::autocorrect() const
 {
-    const AtomicString& autocorrectValue = fastGetAttribute(autocorrectAttr);
+    const AtomicString& autocorrectValue = attributeWithoutSynchronization(autocorrectAttr);
     if (!autocorrectValue.isEmpty())
-        return !equalIgnoringCase(autocorrectValue, "off");
+        return !equalLettersIgnoringASCIICase(autocorrectValue, "off");
     if (HTMLFormElement* form = this->form())
         return form->autocorrect();
     return true;
@@ -562,12 +580,12 @@ bool HTMLFormControlElement::autocorrect() const
 
 void HTMLFormControlElement::setAutocorrect(bool autocorrect)
 {
-    setAttribute(autocorrectAttr, autocorrect ? AtomicString("on", AtomicString::ConstructFromLiteral) : AtomicString("off", AtomicString::ConstructFromLiteral));
+    setAttributeWithoutSynchronization(autocorrectAttr, autocorrect ? AtomicString("on", AtomicString::ConstructFromLiteral) : AtomicString("off", AtomicString::ConstructFromLiteral));
 }
 
 WebAutocapitalizeType HTMLFormControlElement::autocapitalizeType() const
 {
-    WebAutocapitalizeType type = autocapitalizeTypeForAttributeValue(fastGetAttribute(autocapitalizeAttr));
+    WebAutocapitalizeType type = autocapitalizeTypeForAttributeValue(attributeWithoutSynchronization(autocapitalizeAttr));
     if (type == WebAutocapitalizeTypeDefault) {
         if (HTMLFormElement* form = this->form())
             return form->autocapitalizeType();
@@ -582,8 +600,9 @@ const AtomicString& HTMLFormControlElement::autocapitalize() const
 
 void HTMLFormControlElement::setAutocapitalize(const AtomicString& value)
 {
-    setAttribute(autocapitalizeAttr, value);
+    setAttributeWithoutSynchronization(autocapitalizeAttr, value);
 }
+
 #endif
 
 HTMLFormControlElement* HTMLFormControlElement::enclosingFormControlElement(Node* node)
@@ -595,163 +614,28 @@ HTMLFormControlElement* HTMLFormControlElement::enclosingFormControlElement(Node
     return nullptr;
 }
 
-static inline bool isContactToken(const AtomicString& token)
-{
-    return token == "home" || token == "work" || token == "mobile" || token == "fax" || token == "pager";
-}
-
-enum class AutofillCategory {
-    Invalid,
-    Off,
-    Automatic,
-    Normal,
-    Contact,
-};
-
-static inline AutofillCategory categoryForAutofillFieldToken(const AtomicString& token)
-{
-    static NeverDestroyed<HashMap<AtomicString, AutofillCategory>> map;
-    if (map.get().isEmpty()) {
-        map.get().add(AtomicString("off", AtomicString::ConstructFromLiteral), AutofillCategory::Off);
-        map.get().add(AtomicString("on", AtomicString::ConstructFromLiteral), AutofillCategory::Automatic);
-
-        map.get().add(AtomicString("name", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("honorific-prefix", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("given-name", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("additional-name", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("family-name", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("honorific-suffix", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("nickname", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("username", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("new-password", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("current-password", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("organization-title", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("organization", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("street-address", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("address-line1", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("address-line2", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("address-line3", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("address-level4", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("address-level3", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("address-level2", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("address-level1", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("country", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("country-name", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("postal-code", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("cc-name", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("cc-given-name", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("cc-additional-name", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("cc-family-name", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("cc-number", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("cc-exp", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("cc-exp-month", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("cc-exp-year", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("cc-csc", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("cc-type", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("transaction-currency", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("transaction-amount", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("language", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("bday", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("bday-day", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("bday-month", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("bday-year", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("sex", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("url", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-        map.get().add(AtomicString("photo", AtomicString::ConstructFromLiteral), AutofillCategory::Normal);
-
-        map.get().add(AtomicString("tel", AtomicString::ConstructFromLiteral), AutofillCategory::Contact);
-        map.get().add(AtomicString("tel-country-code", AtomicString::ConstructFromLiteral), AutofillCategory::Contact);
-        map.get().add(AtomicString("tel-national", AtomicString::ConstructFromLiteral), AutofillCategory::Contact);
-        map.get().add(AtomicString("tel-area-code", AtomicString::ConstructFromLiteral), AutofillCategory::Contact);
-        map.get().add(AtomicString("tel-local", AtomicString::ConstructFromLiteral), AutofillCategory::Contact);
-        map.get().add(AtomicString("tel-local-prefix", AtomicString::ConstructFromLiteral), AutofillCategory::Contact);
-        map.get().add(AtomicString("tel-local-suffix", AtomicString::ConstructFromLiteral), AutofillCategory::Contact);
-        map.get().add(AtomicString("tel-extension", AtomicString::ConstructFromLiteral), AutofillCategory::Contact);
-        map.get().add(AtomicString("email", AtomicString::ConstructFromLiteral), AutofillCategory::Contact);
-        map.get().add(AtomicString("impp", AtomicString::ConstructFromLiteral), AutofillCategory::Contact);
-    }
-
-    return map.get().get(token);
-}
-
-static inline unsigned maxTokensForAutofillFieldCategory(AutofillCategory category)
-{
-    switch (category) {
-    case AutofillCategory::Invalid:
-        return 0;
-
-    case AutofillCategory::Automatic:
-    case AutofillCategory::Off:
-        return 1;
-
-    case AutofillCategory::Normal:
-        return 3;
-
-    case AutofillCategory::Contact:
-        return 4;
-    }
-    ASSERT_NOT_REACHED();
-    return 0;
-}
-
-// https://html.spec.whatwg.org/multipage/forms.html#processing-model-3
 String HTMLFormControlElement::autocomplete() const
 {
-    const AtomicString& attributeValue = fastGetAttribute(autocompleteAttr);
-    SpaceSplitString tokens(attributeValue, true);
-    if (tokens.isEmpty())
-        return String();
-
-    size_t currentTokenIndex = tokens.size() - 1;
-    const auto& fieldToken = tokens[currentTokenIndex];
-    auto category = categoryForAutofillFieldToken(fieldToken);
-    if (category == AutofillCategory::Invalid)
-        return String();
-
-    if (tokens.size() > maxTokensForAutofillFieldCategory(category))
-        return String();
-
-    bool wearingAutofillAnchorMantle = is<HTMLInputElement>(*this) && downcast<HTMLInputElement>(this)->isInputTypeHidden();
-    if ((category == AutofillCategory::Off || category == AutofillCategory::Automatic) && wearingAutofillAnchorMantle)
-        return String();
-
-    if (category == AutofillCategory::Off)
-        return ASCIILiteral("off");
-
-    if (category == AutofillCategory::Automatic)
-        return ASCIILiteral("on");
-
-    String result = fieldToken;
-    if (!currentTokenIndex--)
-        return result;
-
-    const auto& contactToken = tokens[currentTokenIndex];
-    if (category == AutofillCategory::Contact && isContactToken(contactToken)) {
-        result = contactToken + " " + result;
-        if (!currentTokenIndex--)
-            return result;
-    }
-
-    const auto& modeToken = tokens[currentTokenIndex];
-    if (modeToken == "shipping" || modeToken == "billing") {
-        result = modeToken + " " + result;
-        if (!currentTokenIndex--)
-            return result;
-    }
-
-    if (currentTokenIndex)
-        return String();
-
-    const auto& sectionToken = tokens[currentTokenIndex];
-    if (!sectionToken.startsWith("section-"))
-        return String();
-
-    return sectionToken + " " + result;
+    return autofillData().idlExposedValue;
 }
 
 void HTMLFormControlElement::setAutocomplete(const String& value)
 {
-    setAttribute(autocompleteAttr, value);
+    setAttributeWithoutSynchronization(autocompleteAttr, value);
+}
+
+AutofillMantle HTMLFormControlElement::autofillMantle() const
+{
+    return is<HTMLInputElement>(*this) && downcast<HTMLInputElement>(this)->isInputTypeHidden() ? AutofillMantle::Anchor : AutofillMantle::Expectation;
+}
+
+AutofillData HTMLFormControlElement::autofillData() const
+{
+    // FIXME: We could cache the AutofillData if we we had an efficient way to invalidate the cache when
+    // the autofill mantle changed (due to a type change on an <input> element) or the element's form
+    // owner's autocomplete attribute changed or the form owner itself changed.
+
+    return AutofillData::createFromHTMLFormControlElement(*this);
 }
 
 } // namespace Webcore

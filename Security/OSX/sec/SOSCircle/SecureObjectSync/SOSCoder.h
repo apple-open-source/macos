@@ -39,15 +39,20 @@ enum {
     kSOSCoderFailure = 3,
     kSOSCoderStaleEvent = 4,
     kSOSCoderTooNew = 5,
+    kSOSCoderForceMessage = 6,
 };
 typedef uint32_t SOSCoderStatus;
+
+CFTypeID SOSCoderGetTypeID(void);
 
 SOSCoderRef SOSCoderCreate(SOSPeerInfoRef peerInfo, SOSFullPeerInfoRef myPeerInfo, CFBooleanRef useCompact, CFErrorRef *error);
 SOSCoderRef SOSCoderCreateFromData(CFDataRef exportedData, CFErrorRef *error);
 
-void SOSCoderDispose(SOSCoderRef coder);
-
 CFDataRef SOSCoderCopyDER(SOSCoderRef coder, CFErrorRef* error);
+
+CFStringRef SOSCoderGetID(SOSCoderRef coder);
+
+bool SOSCoderIsFor(SOSCoderRef coder, SOSPeerInfoRef peerInfo, SOSFullPeerInfoRef myPeerInfo);
 
 SOSCoderStatus
 SOSCoderStart(SOSCoderRef coder, CFErrorRef *error);

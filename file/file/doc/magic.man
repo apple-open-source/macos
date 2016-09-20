@@ -1,5 +1,5 @@
-.\" $File: magic.man,v 1.60 2009/05/08 23:02:44 christos Exp $
-.Dd August 30, 2008
+.\" $File: magic.man,v 1.86 2015/09/08 13:48:44 christos Exp $
+.Dd January 1, 2015
 .Dt MAGIC __FSECTION__
 .Os
 .\" install as magic.4 on USG, magic.5 on V7, Berkeley and Linux systems.
@@ -51,9 +51,9 @@ A 64-bit double precision IEEE floating point number in this machine's native by
 .It Dv string
 A string of bytes.
 The string type specification can be optionally followed
-by /[Bbc]*.
+by /[WwcCtbT]*.
 The
-.Dq B
+.Dq W
 flag compacts whitespace in the target, which must
 contain at least one whitespace character.
 If the magic has
@@ -62,18 +62,59 @@ consecutive blanks, the target needs at least
 .Dv n
 consecutive blanks to match.
 The
-.Dq b
-flag treats every blank in the target as an optional blank.
-Finally the
+.Dq w
+flag treats every blank in the magic as an optional blank.
+The
 .Dq c
-flag, specifies case insensitive matching: lowercase
+flag specifies case insensitive matching: lower case
 characters in the magic match both lower and upper case characters in the
-target, whereas upper case characters in the magic only match uppercase
+target, whereas upper case characters in the magic only match upper case
 characters in the target.
+The
+.Dq C
+flag specifies case insensitive matching: upper case
+characters in the magic match both lower and upper case characters in the
+target, whereas lower case characters in the magic only match upper case
+characters in the target.
+To do a complete case insensitive match, specify both
+.Dq c
+and
+.Dq C .
+The
+.Dq t
+flag forces the test to be done for text files, while the
+.Dq b
+flag forces the test to be done for binary files.
+The
+.Dq T
+flag causes the string to be trimmed, i.e. leading and trailing whitespace
+is deleted before the string is printed.
 .It Dv pstring
-A Pascal-style string where the first byte is interpreted as the an
+A Pascal-style string where the first byte/short/int is interpreted as the
 unsigned length.
+The length defaults to byte and can be specified as a modifier.
+The following modifiers are supported:
+.Bl -tag -compact -width B
+.It B
+A byte length (default).
+.It H
+A 2 byte big endian length.
+.It h
+A 2 byte big little length.
+.It L
+A 4 byte big endian length.
+.It l
+A 4 byte big little length.
+.It J
+The length includes itself in its count.
+.El
 The string is not NUL terminated.
+.Dq J
+is used rather than the more
+valuable
+.Dq I
+because this type of length is a feature of the JPEG
+format.
 .It Dv date
 A four-byte value interpreted as a UNIX date.
 .It Dv qdate
@@ -84,6 +125,8 @@ local time rather than UTC.
 .It Dv qldate
 An eight-byte value interpreted as a UNIX-style date, but interpreted as
 local time rather than UTC.
+.It Dv qwdate
+An eight-byte value interpreted as a Windows-style date.
 .It Dv beid3
 A 32-bit ID3 length in big-endian byte order.
 .It Dv beshort
@@ -110,6 +153,9 @@ than UTC.
 An eight-byte value in big-endian byte order,
 interpreted as a UNIX-style date, but interpreted as local time rather
 than UTC.
+.It Dv beqwdate
+An eight-byte value in big-endian byte order,
+interpreted as a Windows-style date.
 .It Dv bestring16
 A two-byte unicode (UCS16) string in big-endian byte order.
 .It Dv leid3
@@ -138,6 +184,9 @@ than UTC.
 An eight-byte value in little-endian byte order,
 interpreted as a UNIX-style date, but interpreted as local time rather
 than UTC.
+.It Dv leqwdate
+An eight-byte value in little-endian byte order,
+interpreted as a Windows-style date.
 .It Dv lestring16
 A two-byte unicode (UCS16) string in little-endian byte order.
 .It Dv melong
@@ -151,56 +200,164 @@ interpreted as a UNIX-style date, but interpreted as local time rather
 than UTC.
 .It Dv indirect
 Starting at the given offset, consult the magic database again.
+The offset of the
+.Dv indirect
+magic is by default absolute in the file, but one can specify
+.Dv /r
+to indicate that the offset is relative from the beginning of the entry.
+.It Dv name
+Define a
+.Dq named
+magic instance that can be called from another
+.Dv use
+magic entry, like a subroutine call.
+Named instance direct magic offsets are relative to the offset of the
+previous matched entry, but indirect offsets are relative to the beginning
+of the file as usual.
+Named magic entries always match.
+.It Dv use
+Recursively call the named magic starting from the current offset.
+If the name of the referenced begins with a
+.Dv ^
+then the endianness of the magic is switched; if the magic mentioned
+.Dv leshort
+for example,
+it is treated as
+.Dv beshort
+and vice versa.
+This is useful to avoid duplicating the rules for different endianness.
 .It Dv regex
 A regular expression match in extended POSIX regular expression syntax
-(like egrep). Regular expressions can take exponential time to
-process, and their performance is hard to predict, so their use is
-discouraged. When used in production environments, their performance
-should be carefully checked. The type specification can be optionally
-followed by
-.Dv /[c][s] .
+(like egrep).
+Regular expressions can take exponential time to process, and their
+performance is hard to predict, so their use is discouraged.
+When used in production environments, their performance
+should be carefully checked.
+The size of the string to search should also be limited by specifying
+.Dv /<length> ,
+to avoid performance issues scanning long files.
+The type specification can also be optionally followed by
+.Dv /[c][s][l] .
 The
 .Dq c
 flag makes the match case insensitive, while the
 .Dq s
 flag update the offset to the start offset of the match, rather than the end.
-The regular expression is tested against line
-.Dv N + 1
-onwards, where
-.Dv N
-is the given offset.
-Line endings are assumed to be in the machine's native format.
+The
+.Dq l
+modifier, changes the limit of length to mean number of lines instead of a
+byte count.
+Lines are delimited by the platforms native line delimiter.
+When a line count is specified, an implicit byte count also computed assuming
+each line is 80 characters long.
+If neither a byte or line count is specified, the search is limited automatically
+to 8KiB.
 .Dv ^
 and
 .Dv $
 match the beginning and end of individual lines, respectively,
 not beginning and end of file.
 .It Dv search
-A literal string search starting at the given offset. The same
-modifier flags can be used as for string patterns. The modifier flags
-(if any) must be followed by
-.Dv /number
-the range, that is, the number of positions at which the match will be
-attempted, starting from the start offset. This is suitable for
+A literal string search starting at the given offset.
+The same modifier flags can be used as for string patterns.
+The search expression must contain the range in the form
+.Dv /number,
+that is the number of positions at which the match will be
+attempted, starting from the start offset.
+This is suitable for
 searching larger binary expressions with variable offsets, using
 .Dv \e
-escapes for special characters. The offset works as for regex.
+escapes for special characters.
+The order of modifier and number is not relevant.
 .It Dv default
 This is intended to be used with the test
 .Em x
-(which is always true) and a message that is to be used if there are
-no other matches.
+(which is always true) and it has no type.
+It matches when no other test at that continuation level has matched before.
+Clearing that matched tests for a continuation level, can be done using the
+.Dv clear
+test.
+.It Dv clear
+This test is always true and clears the match flag for that continuation level.
+It is intended to be used with the
+.Dv default
+test.
 .El
 .Pp
+For compatibility with the Single
+.Ux
+Standard, the type specifiers
+.Dv dC
+and
+.Dv d1
+are equivalent to
+.Dv byte ,
+the type specifiers
+.Dv uC
+and
+.Dv u1
+are equivalent to
+.Dv ubyte ,
+the type specifiers
+.Dv dS
+and
+.Dv d2
+are equivalent to
+.Dv short ,
+the type specifiers
+.Dv uS
+and
+.Dv u2
+are equivalent to
+.Dv ushort ,
+the type specifiers
+.Dv dI ,
+.Dv dL ,
+and
+.Dv d4
+are equivalent to
+.Dv long ,
+the type specifiers
+.Dv uI ,
+.Dv uL ,
+and
+.Dv u4
+are equivalent to
+.Dv ulong ,
+the type specifier
+.Dv d8
+is equivalent to
+.Dv quad ,
+the type specifier
+.Dv u8
+is equivalent to
+.Dv uquad ,
+and the type specifier
+.Dv s
+is equivalent to
+.Dv string .
+In addition, the type specifier
+.Dv dQ
+is equivalent to
+.Dv quad
+and the type specifier
+.Dv uQ
+is equivalent to
+.Dv uquad .
+.Pp
 Each top-level magic pattern (see below for an explanation of levels)
-is classified as text or binary according to the types used. Types
+is classified as text or binary according to the types used.
+Types
 .Dq regex
 and
 .Dq search
 are classified as text tests, unless non-printable characters are used
-in the pattern. All other tests are classified as binary. A top-level
+in the pattern.
+All other tests are classified as binary.
+A top-level
 pattern is considered to be a test text when all its patterns are text
-patterns; otherwise, it is considered to be a binary pattern. When
+patterns; otherwise, it is considered to be a binary pattern.
+When
 matching a file, binary patterns are tried first; if no match is
 found, and the file looks like text, then its encoding is determined
 and the text patterns are tried.
@@ -263,6 +420,9 @@ is octal, and
 .Dv 0x13
 is hexadecimal.
 .Pp
+Numeric operations are not performed on date types, instead the numeric
+value is interpreted as an offset.
+.Pp
 For string values, the string from the
 file must match the specified string.
 The operators
@@ -280,10 +440,13 @@ then print the string), with
 .Em \*[Gt]\e0
 (because all non-empty strings are greater than the empty string).
 .Pp
+Dates are treated as numerical values in the respective internal
+representation.
+.Pp
 The special test
 .Em x
 always evaluates to true.
-.Dv message
+.It Dv message
 The message to be printed if the comparison succeeds.
 If the string contains a
 .Xr printf 3
@@ -344,11 +507,11 @@ on the line indicates the level of the test; a line with no
 .Em \*[Gt]
 at the beginning is considered to be at level 0.
 Tests are arranged in a tree-like hierarchy:
-If a the test on a line at level
+if the test on a line at level
 .Em n
 succeeds, all following tests at level
 .Em n+1
-are performed, and the messages printed if the tests succeed, untile a line
+are performed, and the messages printed if the tests succeed, until a line
 with level
 .Em n
 (or less) appears.
@@ -365,7 +528,7 @@ being examined.
 If the first character following the last
 .Em \*[Gt]
 is a
-.Em (
+.Em \&(
 then the string after the parenthesis is interpreted as an indirect offset.
 That means that the number after the parenthesis is used as an offset in
 the file.
@@ -467,7 +630,7 @@ Or even both!
 \*[Gt]\*[Gt]\*[Gt]\*[Am](\*[Am]0x54.l-3)  string  UNACE  \eb, ACE self-extracting archive
 .Ed
 .Pp
-Finally, if you have to deal with offset/length pairs in your file, even the
+If you have to deal with offset/length pairs in your file, even the
 second value in a parenthesized expression can be taken from the file itself,
 using another set of parentheses.
 Note that this additional indirect offset is always relative to the
@@ -482,6 +645,18 @@ start of the main indirect offset.
 # these are located 14 and 10 bytes after the section name
 \*[Gt]\*[Gt]\*[Gt]\*[Gt](\*[Am]0xe.l+(-4)) string       PK\e3\e4 \eb, ZIP self-extracting archive
 .Ed
+.Pp
+If you have a list of known avalues at a particular continuation level,
+and you want to provide a switch-like default case:
+.Bd -literal -offset indent
+# clear that continuation level match
+\*[Gt]18	clear
+\*[Gt]18	lelong	1	one
+\*[Gt]18	lelong	2	two
+\*[Gt]18	default	x
+# print default match
+\*[Gt]\*[Gt]18	lelong	x	unmatched 0x%x
+.Ed
 .Sh SEE ALSO
 .Xr file __CSECTION__
 \- the command that reads this file.
@@ -493,19 +668,41 @@ The formats
 .Dv melong ,
 .Dv short ,
 .Dv beshort ,
-.Dv leshort ,
-.Dv date ,
-.Dv bedate ,
-.Dv medate ,
-.Dv ledate ,
-.Dv beldate ,
-.Dv leldate ,
 and
-.Dv meldate
-are system-dependent; perhaps they should be specified as a number
-of bytes (2B, 4B, etc),
-since the files being recognized typically come from
-a system on which the lengths are invariant.
+.Dv leshort
+do not depend on the length of the C data types
+.Dv short
+and
+.Dv long
+on the platform, even though the Single
+.Ux
+Specification implies that they do.  However, as OS X Mountain Lion has
+passed the Single
+.Ux
+Specification validation suite, and supplies a version of
+.Xr file __CSECTION__
+in which they do not depend on the sizes of the C data types and that is
+built for a 64-bit environment in which
+.Dv long
+is 8 bytes rather than 4 bytes, presumably the validation suite does not
+test whether, for example
+.Dv long
+refers to an item with the same size as the C data type
+.Dv long .
+There should probably be
+.Dv type
+names
+.Dv int8 ,
+.Dv uint8 ,
+.Dv int16 ,
+.Dv uint16 ,
+.Dv int32 ,
+.Dv uint32 ,
+.Dv int64 ,
+and
+.Dv uint64 ,
+and specified-byte-order variants of them,
+to make it clearer that those types have specified widths.
 .\"
 .\" From: guy@sun.uucp (Guy Harris)
 .\" Newsgroups: net.bugs.usg

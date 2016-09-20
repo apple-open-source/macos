@@ -54,8 +54,8 @@ public:
 private:
     explicit StorageNamespaceImpl(WebCore::StorageType, uint64_t storageNamespaceID, WebCore::SecurityOrigin* topLevelOrigin, unsigned quotaInBytes);
 
-    virtual PassRefPtr<WebCore::StorageArea> storageArea(PassRefPtr<WebCore::SecurityOrigin>) override;
-    virtual PassRefPtr<WebCore::StorageNamespace> copy(WebCore::Page*) override;
+    RefPtr<WebCore::StorageArea> storageArea(RefPtr<WebCore::SecurityOrigin>&&) override;
+    RefPtr<WebCore::StorageNamespace> copy(WebCore::Page*) override;
 
     const WebCore::StorageType m_storageType;
     const uint64_t m_storageNamespaceID;

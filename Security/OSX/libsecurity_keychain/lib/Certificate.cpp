@@ -741,10 +741,10 @@ Certificate::verifyEncoding(CSSM_DATA_PTR data)
 
 		if (mHaveTypeAndEncoding) {
 			if (mType < CSSM_CERT_X_509v1 || mType > CSSM_CERT_X_509v3) {
-				secdebug("Certificate", "verifyEncoding: certificate has custom type (%d)", (int)mType);
+				secinfo("Certificate", "verifyEncoding: certificate has custom type (%d)", (int)mType);
 			}
 			if (mEncoding < CSSM_CERT_ENCODING_BER || mEncoding > CSSM_CERT_ENCODING_DER) {
-				secdebug("Certificate", "verifyEncoding: certificate has custom encoding (%d)", (int)mEncoding);
+				secinfo("Certificate", "verifyEncoding: certificate has custom encoding (%d)", (int)mEncoding);
 			}
 		}
 
@@ -760,16 +760,16 @@ Certificate::verifyEncoding(CSSM_DATA_PTR data)
 			CSSM_SIZE tagLength = (CSSM_SIZE)((uintptr_t)derInfo.content.data - (uintptr_t)der.data);
 			CSSM_SIZE derLength = (CSSM_SIZE)derInfo.content.length + tagLength;
 			if (derLength != data->Length) {
-				secdebug("Certificate", "Certificate DER length is %d, but data length is %d",
+				secinfo("Certificate", "Certificate DER length is %d, but data length is %d",
 						(int)derLength, (int)data->Length);
 				// will adjust data size if DER length is positive, but smaller than actual length
 				if ((derLength > 0) && (derLength < data->Length)) {
 					verifiedLength = derLength;
-					secdebug("Certificate", "Will adjust certificate data length to %d",
+					secinfo("Certificate", "Will adjust certificate data length to %d",
 							(int)derLength);
 				}
 				else {
-					secdebug("Certificate", "Certificate encoding invalid (DER length is %d)",
+					secinfo("Certificate", "Certificate encoding invalid (DER length is %d)",
 							(int)derLength);
 					return false;
 				}
@@ -778,7 +778,7 @@ Certificate::verifyEncoding(CSSM_DATA_PTR data)
 		}
 		else {
 			// failure to decode provided data as DER sequence
-			secdebug("Certificate", "Certificate not in DER encoding (error %d)",
+			secinfo("Certificate", "Certificate not in DER encoding (error %d)",
 					(int)drtn);
 			return false;
 		}
@@ -787,7 +787,7 @@ Certificate::verifyEncoding(CSSM_DATA_PTR data)
 	if (verifiedLength > 0) {
 		// setData acquires the mMutex lock, so we call it while not holding the lock
 		setData((UInt32)verifiedLength, data->Data);
-		secdebug("Certificate", "Adjusted certificate data length to %d",
+		secinfo("Certificate", "Adjusted certificate data length to %d",
 				(int)verifiedLength);
 	}
 
@@ -797,24 +797,17 @@ Certificate::verifyEncoding(CSSM_DATA_PTR data)
 const CssmData &
 Certificate::data()
 {
-	CssmDataContainer *data = NULL;
-	bool hasKeychain = false;
-	bool verified = false;
-	{
-		StLock<Mutex>_(mMutex);
-		data = mData.get();
-		hasKeychain = (mKeychain != NULL);
-		verified = mEncodingVerified;
-	}
+    StLock<Mutex> _(mMutex);
+
+	CssmDataContainer *data = mData.get();
+	bool hasKeychain = (mKeychain != NULL);
+	bool verified = mEncodingVerified;
 
 	// If data has been set but not yet verified, verify it now.
 	if (!verified && data) {
 		// verifyEncoding might modify mData, so refresh the data container
 		verified = verifyEncoding(data);
-		{
-			StLock<Mutex>_(mMutex);
-			data = mData.get();
-		}
+		data = mData.get();
 	}
 
 	// If data isn't set at this point, try to read it from the db record
@@ -823,20 +816,16 @@ Certificate::data()
 	    // Make sure mUniqueId is set.
 		dbUniqueRecord();
 		CssmDataContainer _data;
-		{
-			StLock<Mutex>_(mMutex);
-			mData = NULL;
-			/* new data allocated by CSPDL, implicitly freed by CssmDataContainer */
-			mUniqueId->get(NULL, &_data);
-		}
+
+		mData = NULL;
+		/* new data allocated by CSPDL, implicitly freed by CssmDataContainer */
+		mUniqueId->get(NULL, &_data);
+
 		/* this saves a copy to be freed at destruction and to be passed to caller */
 		setData((UInt32)_data.length(), _data.data());
 		// verifyEncoding might modify mData, so refresh the data container
 		verified = verifyEncoding(&_data);
-		{
-			StLock<Mutex>_(mMutex);
-			data = mData.get();
-		}
+		data = mData.get();
 	}
 
 	// If the data hasn't been set we can't return it.

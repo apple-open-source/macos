@@ -28,20 +28,19 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if ENABLE(FONT_LOAD_EVENTS)
+#pragma once
 
-#ifndef CSSFontFaceLoadEvent_h
-#define CSSFontFaceLoadEvent_h
+#if ENABLE(FONT_LOAD_EVENTS)
 
 #include "CSSFontFaceRule.h"
 #include "CSSValue.h"
-#include "DOMError.h"
 #include "Event.h"
 #include "EventNames.h"
-#include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
+
+class DOMError;
 
 struct CSSFontFaceLoadEventInit : public EventInit {
     RefPtr<CSSFontFaceRule> fontface;
@@ -60,14 +59,14 @@ public:
         return adoptRef<CSSFontFaceLoadEvent>(*new CSSFontFaceLoadEvent(type, initializer));
     }
 
-    static Ref<CSSFontFaceLoadEvent> createForFontFaceRule(const AtomicString& type, PassRefPtr<CSSFontFaceRule> rule)
+    static Ref<CSSFontFaceLoadEvent> createForFontFaceRule(const AtomicString& type, RefPtr<CSSFontFaceRule>&& rule)
     {
-        return adoptRef<CSSFontFaceLoadEvent>(*new CSSFontFaceLoadEvent(type, rule, 0));
+        return adoptRef<CSSFontFaceLoadEvent>(*new CSSFontFaceLoadEvent(type, WTFMove(rule), nullptr));
     }
 
-    static Ref<CSSFontFaceLoadEvent> createForError(PassRefPtr<CSSFontFaceRule> rule, PassRefPtr<DOMError> error)
+    static Ref<CSSFontFaceLoadEvent> createForError(RefPtr<CSSFontFaceRule>&& rule, RefPtr<DOMError>&& error)
     {
-        return adoptRef<CSSFontFaceLoadEvent>(*new CSSFontFaceLoadEvent(eventNames().errorEvent, rule, error));
+        return adoptRef<CSSFontFaceLoadEvent>(*new CSSFontFaceLoadEvent(eventNames().errorEvent, WTFMove(rule), WTFMove(error)));
     }
 
     virtual ~CSSFontFaceLoadEvent();
@@ -75,11 +74,11 @@ public:
     CSSFontFaceRule* fontface() const { return m_fontface.get(); }
     DOMError* error() const { return m_error.get(); }
 
-    virtual EventInterface eventInterface() const override;
+    EventInterface eventInterface() const override;
 
 private:
     CSSFontFaceLoadEvent();
-    CSSFontFaceLoadEvent(const AtomicString&, PassRefPtr<CSSFontFaceRule>, PassRefPtr<DOMError>);
+    CSSFontFaceLoadEvent(const AtomicString&, RefPtr<CSSFontFaceRule>&&, RefPtr<DOMError>&&);
     CSSFontFaceLoadEvent(const AtomicString&, const CSSFontFaceLoadEventInit&);
 
     RefPtr<CSSFontFaceRule> m_fontface;
@@ -88,5 +87,4 @@ private:
 
 } // namespace WebCore
 
-#endif // CSSFontFaceLoadEvent_h
 #endif // ENABLE(FONT_LOAD_EVENTS)

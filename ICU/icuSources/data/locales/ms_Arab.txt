@@ -1,14 +1,11 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2014 International Business Machines
+// * Copyright (C) 2015 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/ms_Arab.xml
 // *
 // ***************************************************************************
-/**
- * ICU <specials> source: <path>/common/main/ms_Arab.xml
- */
 ms_Arab{
     %%Parent{"root"}
     AuxExemplarCharacters{"[ڬ ۑ]"}
@@ -21,14 +18,12 @@ ms_Arab{
         "[ء آ أ ؤ إ ئ ا ب ة ت ث ج چ ح خ د ذ ر ز س ش ص ض ط ظ ع غ ڠ ف ڤ ق ك ݢ ل م ن ڽ ه"
         " و ۏ ى ي]"
     }
-    LocaleScript{
-        "Arab",
-    }
     MoreInformation{"؟"}
     NumberElements{
         latn{
             patterns{
-                currencyFormat{"¤#,##0.00;(¤#,##0.00)"}
+                accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
+                currencyFormat{"¤#,##0.00"}
                 decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0%"}
                 scientificFormat{"#E0"}
@@ -87,7 +82,7 @@ ms_Arab{
             }
         }
     }
-    Version{"2.1.6.69"}
+    Version{"2.1.19.29"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -599,15 +594,39 @@ ms_Arab{
                 "1"{"ايسوق"}
                 "2"{"هاري سلڤس ايسوق"}
             }
+            relativeTime{
+                future{
+                    other{"دالم {0} هاري"}
+                }
+                past{
+                    other{"{0} هاري لالو"}
+                }
+            }
         }
         era{
             dn{"ايرا"}
         }
         hour{
             dn{"جم"}
+            relativeTime{
+                future{
+                    other{"دالم {0} جم"}
+                }
+                past{
+                    other{"{0} جم لالو"}
+                }
+            }
         }
         minute{
             dn{"مينيت"}
+            relativeTime{
+                future{
+                    other{"دالم {0} مينيت"}
+                }
+                past{
+                    other{"{0} مينيت لالو"}
+                }
+            }
         }
         month{
             dn{"بولن"}
@@ -616,9 +635,25 @@ ms_Arab{
                 "0"{"بولن ني"}
                 "1"{"بولن ستروسڽ"}
             }
+            relativeTime{
+                future{
+                    other{"دالم {0} بولن"}
+                }
+                past{
+                    other{"{0} بولن لالو"}
+                }
+            }
         }
         second{
             dn{"کدوا"}
+            relativeTime{
+                future{
+                    other{"دالم {0} ساعت"}
+                }
+                past{
+                    other{"{0} ساعت لالو"}
+                }
+            }
         }
         week{
             dn{"ميڠݢو"}
@@ -626,6 +661,14 @@ ms_Arab{
                 "-1"{"ميڠݢو لڤس"}
                 "0"{"ميڠݢو ني"}
                 "1"{"ميڠݢو ستروسڽ"}
+            }
+            relativeTime{
+                future{
+                    other{"دالم {0} ميڠݢو"}
+                }
+                past{
+                    other{"{0} ميڠݢو لالو"}
+                }
             }
         }
         weekday{
@@ -637,6 +680,14 @@ ms_Arab{
                 "-1"{"تاهون لڤس"}
                 "0"{"تاهون ني"}
                 "1"{"تاهون هدڤن"}
+            }
+            relativeTime{
+                future{
+                    other{"دالم {0} تاهون"}
+                }
+                past{
+                    other{"{0} تاهون لالو"}
+                }
             }
         }
         zone{

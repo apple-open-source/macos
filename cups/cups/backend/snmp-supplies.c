@@ -1,9 +1,7 @@
 /*
- * "$Id: snmp-supplies.c 12234 2014-10-28 21:00:20Z msweet $"
- *
  * SNMP supplies functions for CUPS.
  *
- * Copyright 2008-2014 by Apple Inc.
+ * Copyright 2008-2015 by Apple Inc.
  *
  * These coded instructions, statements, and computer programs are the
  * property of Apple Inc. and are protected by Federal copyright
@@ -19,6 +17,7 @@
  */
 
 #include "backend-private.h"
+#include <cups/ppd-private.h>
 #include <cups/array.h>
 
 
@@ -1095,8 +1094,3 @@ utf16_to_utf8(
 
   cupsUTF32ToUTF8(dst, temp, (int)dstsize);
 }
-
-
-/*
- * End of "$Id: snmp-supplies.c 12234 2014-10-28 21:00:20Z msweet $".
- */

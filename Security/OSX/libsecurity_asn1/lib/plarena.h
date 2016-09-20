@@ -123,7 +123,7 @@ struct PLArenaPool {
     PR_BEGIN_MACRO \
         PLArena *_a = (pool)->current; \
         PRUword _q = (PRUword)p + size + incr;  /*__APPLE__ */ \
-        if ((p < p + size) && (_q > p) &&  (_q > p + size) && /*__APPLE__ avoid overflow in _q*/ \
+        if ((p < p + size) && (_q > (PRUword)p) &&  (_q > (PRUword)p + size) && /*__APPLE__ avoid overflow in _q*/ \
             _a->avail == (PRUword)(p) + PL_ARENA_ALIGN(pool, size) && \
             _q <= PL_ARENA_ALIGN(pool,_q) && /*__APPLE__ avoid overflow from alignment*/ \
             _a->limit >= PL_ARENA_ALIGN(pool,_q)) { /* __APPLE__ expanded buffer within arena*/ \

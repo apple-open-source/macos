@@ -34,7 +34,7 @@
 #
 script()
 {
-	$dtrace -s /dev/stdin <<EOF
+	$dtrace -xstatusrate=200ms -s /dev/stdin <<EOF
 	proc:::exit
 	/curpsinfo->pr_ppid == $child && args[0] == 1 /* CLD_EXITED */ /
 	{
@@ -47,7 +47,7 @@ sleeper()
 {
 	while true; do
 		if [ -f /usr/lib/dtrace/darwin.d ]; then
-			/bin/sleep 1
+			/bin/sleep 0.1
 		else
 			/usr/bin/sleep 1
 		fi

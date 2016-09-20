@@ -35,13 +35,13 @@
  * - created
  */
 
+#include "ipconfigd_globals.h"
 #include <CoreFoundation/CFString.h>
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include <unistd.h>
 #include "util.h"
 #include "globals.h"
-#include "ipconfigd_globals.h"
 #include "cfutil.h"
 #include "HostUUID.h"
 #include "DHCPDUID.h"

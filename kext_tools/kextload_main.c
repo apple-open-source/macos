@@ -376,7 +376,7 @@ ExitStatus loadKextsViaKextd(KextloadArgs * toolArgs)
     OSReturn   loadResult = kOSReturnError;
     char       scratchCString[PATH_MAX];
     CFIndex    count, index;
- 
+
     count = CFArrayGetCount(toolArgs->kextIDs);
     for (index = 0; index < count; index++) {
         CFStringRef kextID  = CFArrayGetValueAtIndex(toolArgs->kextIDs, index);
@@ -463,7 +463,7 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
     Boolean     earlyBoot = false;
     Boolean     readOnly = false;
 #endif
-    
+
     OSKextLog(/* kext */ NULL,
         kOSKextLogProgressLevel | kOSKextLogGeneralFlag,
         "Reading extensions.");
@@ -512,7 +512,7 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
 
             strlcpy(scratchCString, "unknown", sizeof(scratchCString));
         }
-        
+
         OSKextLog(/* kext */ NULL,
             kOSKextLogBasicLevel | kOSKextLogGeneralFlag |
             kOSKextLogLoadFlag | kOSKextLogIPCFlag,
@@ -570,7 +570,13 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
             }
         }
 #endif // not TARGET_OS_EMBEDDED
-        
+
+#if HAVE_DANGERZONE
+        // Ideally we would gate these loads with Danger Zone, but this codepath is specifically for early
+        // boot when kextd and daemons aren't available.
+        dzRecordKextLoadBypass(theKext);
+#endif // HAVE_DANGERZONE
+
         /* The codepath from this function will do any error logging
         * and cleanup needed.
         */
@@ -631,7 +637,7 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
             CFStringRef     myBundleID = NULL;         // do not release
 
             myBundleID = OSKextGetIdentifier(theKext);
-            
+
             // temp change for 18367703
             if (readOnly && myBundleID &&
                 (CFStringCompare(myBundleID, CFSTR("com.apple.nke.asp-tcp"), 0) == kCFCompareEqualTo
@@ -672,6 +678,12 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
                     goto finish;
                 }
             }
+
+#if HAVE_DANGERZONE
+            // Ideally we would gate these loads with Danger Zone, but this codepath is specifically for early
+            // boot when kextd and daemons aren't available.
+            dzRecordKextLoadBypass(theKext);
+#endif // HAVE_DANGERZONE
             
             if (sigResult == 0) {
                 loadResult = OSKextLoadWithOptions(theKext,

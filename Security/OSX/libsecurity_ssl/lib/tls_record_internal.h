@@ -60,7 +60,6 @@ typedef struct WaitingRecord
 struct SSLRecordInternalContext
 {
     tls_record_t        filter;
-    bool                dtls;
 
     /* Reference back to the SSLContext */
     SSLContextRef       sslCtx;

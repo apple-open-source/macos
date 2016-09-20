@@ -17,8 +17,9 @@
  * Boston, MA 02110-1301, USA.
  */
 [
-    Constructor([Default=NullString] optional DOMString data),
-    ConstructorCallWith=Document
+    Constructor(optional DOMString data),
+    ConstructorCallWith=Document,
+    CustomToJSObject,
 ] interface Text : CharacterData {
 
     // DOM Level 1
@@ -27,6 +28,9 @@
 
     // Introduced in DOM Level 3:
     readonly attribute DOMString       wholeText;
-    [RaisesException] Text               replaceWholeText([Default=Undefined] optional DOMString content);
+
+    // FIXME: Using "undefined" as default parameter value is wrong.
+    [RaisesException] Text               replaceWholeText(optional DOMString content = "undefined");
 };
 
+Text implements Slotable;

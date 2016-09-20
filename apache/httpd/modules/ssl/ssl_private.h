@@ -344,13 +344,15 @@ typedef enum {
     || (errnum == X509_V_ERR_UNABLE_TO_VERIFY_LEAF_SIGNATURE))
 
 /**
-  * CRL checking modes
+  * CRL checking mask (mode | flags)
   */
 typedef enum {
-    SSL_CRLCHECK_UNSET = UNSET,
-    SSL_CRLCHECK_NONE  = 0,
-    SSL_CRLCHECK_LEAF  = 1,
-    SSL_CRLCHECK_CHAIN = 2
+    SSL_CRLCHECK_NONE  = (0),
+    SSL_CRLCHECK_LEAF  = (1 << 0),
+    SSL_CRLCHECK_CHAIN = (1 << 1),
+
+#define SSL_CRLCHECK_FLAGS (~0x3)
+    SSL_CRLCHECK_NO_CRL_FOR_CERT_OK = (1 << 2)
 } ssl_crlcheck_t;
 
 /**
@@ -386,7 +388,7 @@ typedef enum {
  * Define the SSL requirement structure
  */
 typedef struct {
-    char           *cpExpr;
+    const char     *cpExpr;
     ap_expr_info_t *mpExpr;
 } ssl_require_t;
 
@@ -608,7 +610,7 @@ typedef struct {
     /** certificate revocation list */
     const char    *crl_path;
     const char    *crl_file;
-    ssl_crlcheck_t crl_check_mode;
+    int            crl_check_mask;
 
 #ifdef HAVE_OCSP_STAPLING
     /** OCSP stapling options */
@@ -639,6 +641,7 @@ typedef struct {
     long ocsp_resp_maxage;
     apr_interval_time_t ocsp_responder_timeout;
     BOOL ocsp_use_request_nonce;
+    apr_uri_t *proxy_uri;
 
 #ifdef HAVE_SSL_CONF_CMD
     SSL_CONF_CTX *ssl_ctx_config; /* Configuration context */
@@ -766,6 +769,7 @@ const char *ssl_cmd_SSLOCSPResponseMaxAge(cmd_parms *cmd, void *dcfg, const char
 const char *ssl_cmd_SSLOCSPResponderTimeout(cmd_parms *cmd, void *dcfg, const char *arg);
 const char *ssl_cmd_SSLOCSPUseRequestNonce(cmd_parms *cmd, void *dcfg, int flag);
 const char *ssl_cmd_SSLOCSPEnable(cmd_parms *cmd, void *dcfg, int flag);
+const char *ssl_cmd_SSLOCSPProxyURL(cmd_parms *cmd, void *dcfg, const char *arg);
 
 #ifdef HAVE_SSL_CONF_CMD
 const char *ssl_cmd_SSLOpenSSLConfCmd(cmd_parms *cmd, void *dcfg, const char *arg1, const char *arg2);

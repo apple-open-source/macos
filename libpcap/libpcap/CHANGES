@@ -1,3 +1,54 @@
+Saturday Jun. 27, 2015 mcr@sandelman.ca
+  Summary for 1.7.4 libpcap release
+	Include fix for GitHub issue #424 -- out of tree builds.
+
+Friday Apr. 10, 2015 guy@alum.mit.edu
+  Summary for 1.7.3 libpcap release
+	Work around a Linux bonding driver bug.
+
+Thursday Feb. 12, 2015 guy@alum.mit.edu/mcr@sandelman.ca
+  Summary for 1.7.2 libpcap release
+	Support for filtering Geneve encapsulated packets.
+	Generalize encapsulation handling, fixing some bugs.
+	Don't add null addresses to address lists.
+	Add pcap_dump_open_append() to open for appending.
+	Fix the swapping of isochronous descriptors in Linux USB.
+	Attempt to handle TPACKET_V1 with 32-bit userland and 64-bit kernel.
+
+Wednesday Nov. 12, 2014 guy@alum.mit.edu/mcr@sandelman.ca
+  Summary for 1.7.0 libpcap release
+	Fix handling of zones for BPF on Solaris
+	new DLT for ZWAVE
+	clarifications for read timeouts.
+	Use BPF extensions in compiled filters, fixing VLAN filters
+	some fixes to compilation without stdint.h
+	EBUSY can now be returned by SNFv3 code.
+	Fix the range checks in BPF loads
+	Various DAG fixes.
+	Various Linux fixes.
+
+Monday Aug. 12, 2014 guy@alum.mit.edu
+  Summary for 1.6.2 libpcap release
+	Don't crash on filters testing a non-existent link-layer type
+	    field.
+	Fix sending in non-blocking mode on Linux with memory-mapped
+	    capture.
+	Fix timestamps when reading pcap-ng files on big-endian
+	    machines.
+
+Saturday  Jul. 19, 2014 mcr@sandelman.ca
+  Summary for 1.6.1 libpcap release
+	some fixes for the any device
+	changes for how --enable-XXX (--enable-sniffing, --enable-can) works
+
+Wednesday Jul. 2, 2014 mcr@sandelman.ca
+  Summary for 1.6.0 libpcap release
+        Don't support D-Bus sniffing on OS X
+        fixes for byte order issues with NFLOG captures
+        Handle using cooked mode for DLT_NETLINK in activate_new().
+        on platforms where you can not capture on down interfaces, do not list them
+        but: do list interfaces which are down, if you can capture on them!
+
 Wednesday December 18, 2013 guy@alum.mit.edu
 Summary for 1.5.3 libpcap release
 	Don't let packets that don't match the current filter get to the

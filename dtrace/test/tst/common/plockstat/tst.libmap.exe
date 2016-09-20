@@ -1,5 +1,5 @@
-#!/bin/ksh
-##!/usr/bin/ksh
+#!/bin/sh
+##!/usr/bin/sh
 #
 # CDDL HEADER START
 #

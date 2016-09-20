@@ -35,7 +35,7 @@
 #import <Security/SecItem.h>
 #import <Security/SecItemPriv.h>
 #import <Security/SecInternal.h>
-#import <utilities/SecCFWrappers.h>
+#import <utilities/SecCFRelease.h>
 #import <utilities/SecFileLocations.h>
 #import <securityd/SecItemServer.h>
 
@@ -82,8 +82,7 @@ keychain_upgrade(bool musr, const char *dbname)
     is(res, 0, "SecItemAdd(user)");
 
     SecKeychainDbReset(^{
-        NSString *keychain_path = (NSString *)__SecKeychainCopyPath();
-        [keychain_path autorelease];
+        NSString *keychain_path = CFBridgingRelease(__SecKeychainCopyPath());
 
         /* Create a new keychain sqlite db */
         sqlite3 *db;

@@ -448,14 +448,19 @@ zgetcwd(void)
     }
 #endif /* HAVE_GETCWD */
     if (!ret)
-	ret = pwd;
+	ret = unmeta(pwd);
     if (!ret)
 	ret = dupstring(".");
     return ret;
 }
 
-/* chdir with arbitrary long pathname.  Returns 0 on success, -1 on normal *
- * failure and -2 when chdir failed and the current directory is lost.  */
+/*
+ * chdir with arbitrary long pathname.  Returns 0 on success, -1 on normal *
+ * failure and -2 when chdir failed and the current directory is lost.
+ *
+ * This is to be treated as if at system level, so dir is unmetafied but
+ * terminated by a NULL.
+ */
 
 /**/
 mod_export int

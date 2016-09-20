@@ -5,24 +5,24 @@
 	<key>OpenSourceProject</key>
 	<string>apache</string>
 	<key>OpenSourceVersion</key>
-	<string>2.4.18</string>
+	<string>2.4.23</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://httpd.apache.org/</string>
 	<key>OriginalOpenSourceURL</key>
-	<string>http://www.apache.org/dist/httpd/httpd-2.4.18.tar.bz2</string>
+	<string>http://www.apache.org/dist/httpd/httpd-2.4.23.tar.bz2</string>
 	<key>OriginalOpenSourceSHA1</key>
-	<string>271a129f2f04e3aa694e5c2091df9b707bf8ef80</string>
+	<string>5101be34ac4a509b245adb70a56690a84fcc4e7f</string>
 	<key>OpenSourceImportDate</key>
-	<string>2015-12-16</string>
+	<string>2016-7-5</string>
 	<key>OpenSourceModifications</key>
 	<array>
                <string>Removed GPLv3 bison-generated parsers</string>
                <string>Patch mod_ssl for SSLOptions LegacyCertChainVerify</string>		
 	</array>
 	<key>OpenSourceSHA1</key>
- 	<string>c20d3890b75587eabc030136583aa8682dbe067b</string>
+ 	<string>01a5fba5fe6de82f80041ec2c9b111eb5fac0d2e</string>
 	<key>OpenSourceMD5</key>
- 	<string>c7f5637d3c3944baa16c6dcb0a09677a</string>
+ 	<string>04f19c60e810c028f5240a062668a688</string>
 	<key>OpenSourceLicense</key>
 	<string>Apache</string>
 	<key>OpenSourceLicenseFile</key>

@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-*   Copyright (C) 1996-2015, International Business Machines
+*   Copyright (C) 1996-2016, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *******************************************************************************
 */
@@ -27,6 +27,7 @@
 #include "ustrenum.h"
 #include "uenumimp.h"
 #include "ulist.h"
+#include "ulocimp.h"
 
 U_NAMESPACE_USE
 
@@ -671,15 +672,8 @@ static const char * const CAL_TYPES[] = {
 U_CAPI UEnumeration* U_EXPORT2
 ucal_getKeywordValuesForLocale(const char * /* key */, const char* locale, UBool commonlyUsed, UErrorCode *status) {
     // Resolve region
-    char prefRegion[ULOC_FULLNAME_CAPACITY] = "";
-    int32_t prefRegionLength = 0;
-    prefRegionLength = uloc_getCountry(locale, prefRegion, sizeof(prefRegion), status);
-    if (prefRegionLength == 0) {
-        char loc[ULOC_FULLNAME_CAPACITY] = "";
-        uloc_addLikelySubtags(locale, loc, sizeof(loc), status);
-        
-        prefRegionLength = uloc_getCountry(loc, prefRegion, sizeof(prefRegion), status);
-    }
+    char prefRegion[ULOC_COUNTRY_CAPACITY];
+    (void)ulocimp_getRegionForSupplementalData(locale, TRUE, prefRegion, sizeof(prefRegion), status);
     
     // Read preferred calendar values from supplementalData calendarPreference
     UResourceBundle *rb = ures_openDirect(NULL, "supplementalData", status);
@@ -897,12 +891,12 @@ uacal_getDayPeriod( const char* locale,
         }
     }
     if (lang[0] == 0) {
-        uprv_strcpy(lang, "en"); // should be "root" but the data for root is currently missing
+        uprv_strcpy(lang, "en"); // should be "root" but the data for root was missing
     }
     LocalUResourceBundlePointer rbLang(ures_getByKey(rbSub.getAlias(), lang, NULL, status));
     if (U_FAILURE(*status)) {
         // should only happen if lang was not [root] en
-        // fallback should be "root" but the data for root is currently missing, use "en"
+        // fallback should be "root" but the data for root was missing, use "en"
         *status = U_ZERO_ERROR;
         rbLang.adoptInstead(ures_getByKey(rbSub.getAlias(), "en", rbLang.orphan(), status));
     }
@@ -936,33 +930,41 @@ uacal_getDayPeriod( const char* locale,
         }
         // rbSub now has the bundle for a particular dayPeriod such as morning1, afternoon2, noon
         UADayPeriod dpForBundle = dayPeriodFromName(ures_getKey(rbSub.getAlias()));
+        int32_t dpLimit = 24;
         while (ures_hasNext(rbSub.getAlias())) {
             rbBound.adoptInstead(ures_getNextResource(rbSub.getAlias(), rbBound.orphan(), status));
             if (U_FAILURE(*status)) {
                 return dayPeriod;
             }
-            // rbBound now has the bundle for a particular time period boundary such as at, from, after.
+            // rbBound now has the bundle for a particular time period boundary such as at, from, before.
             // This is either of type URES_STRING (size=1) or of type URES_ARRAY (size > 1)
             const char *boundaryType = ures_getKey(rbBound.getAlias());
-            // skip boundaryType "before", it is redundant if we have at, from, after
+            char boundaryTimeStr[kBoundaryTimeMaxLen];
+            int32_t boundaryTimeStrLen = kBoundaryTimeMaxLen;
+            ures_getUTF8String(rbBound.getAlias(), boundaryTimeStr, &boundaryTimeStrLen, TRUE, status);
+            if (U_FAILURE(*status)) {
+                return dayPeriod;
+            }
+            int32_t startHour = atoi(boundaryTimeStr); // can depend on POSIX locale (fortunately no decimal sep here)
             if (uprv_strcmp(boundaryType, "before") == 0) {
+                dpLimit = startHour;
                 continue;
             }
-            int32_t boundaryMinute = (uprv_strcmp(boundaryType, "after") == 0)? 1: 0;
-            int32_t boundaryTimeIndex, boundaryTimeCount = ures_getSize(rbBound.getAlias());
-            for (boundaryTimeIndex = 0; boundaryTimeIndex < boundaryTimeCount; boundaryTimeIndex++) {
-                char boundaryTimeStr[kBoundaryTimeMaxLen];
-                int32_t boundaryTimeStrLen = kBoundaryTimeMaxLen;
-                ures_getUTF8StringByIndex(rbBound.getAlias(), boundaryTimeIndex, boundaryTimeStr, &boundaryTimeStrLen, TRUE, status);
-                if (U_FAILURE(*status)) {
-                    return dayPeriod;
-                }
-                if (dpEntriesCount < kDayPeriodEntriesMax) {
-                    dpEntries[dpEntriesCount].startHour = atoi(boundaryTimeStr); // can depend on POSIX locale (fortunately no decimal sep here)
-                    dpEntries[dpEntriesCount].startMin = boundaryMinute;
+            int32_t startMinute = 0;
+            if (uprv_strcmp(boundaryType, "from") == 0) {
+                startMinute = 1;
+                if (startHour > dpLimit && dpEntriesCount < kDayPeriodEntriesMax) {
+                    dpEntries[dpEntriesCount].startHour = 0;
+                    dpEntries[dpEntriesCount].startMin = startMinute;
                     dpEntries[dpEntriesCount].value = dpForBundle;
                     dpEntriesCount++;
                 }
+            }
+            if (dpEntriesCount < kDayPeriodEntriesMax) {
+                dpEntries[dpEntriesCount].startHour = startHour;
+                dpEntries[dpEntriesCount].startMin = startMinute;
+                dpEntries[dpEntriesCount].value = dpForBundle;
+                dpEntriesCount++;
             }
         }
     }
@@ -974,13 +976,22 @@ uacal_getDayPeriod( const char* locale,
     }
     // We have collected all of the rule data, now sort by time
     qsort(dpEntries, dpEntriesCount, sizeof(DayPeriodEntry), CompareDayPeriodEntries);
+
+    // now fix start minute for the non-"at" entries
+    int32_t dpIndex;
+    for (dpIndex = 0; dpIndex < dpEntriesCount; dpIndex++) {
+        if (dpIndex == 0 || (dpEntries[dpIndex-1].value != UADAYPERIOD_MIDNIGHT && dpEntries[dpIndex-1].value != UADAYPERIOD_NOON)) {
+            dpEntries[dpIndex].startMin = 0;
+        }
+    }
+
     // OK, all of the above is what we would do in an "open" function if we were using an
     // open/use/close model for this; the object would just have the sorted array above.
     
     // Now we use the sorted array to find the dayPeriod matching the supplied time.
     // Only a few entries, linear search OK
     DayPeriodEntry entryToMatch = { hour, minute, UADAYPERIOD_UNKNOWN };
-    int32_t dpIndex = 0;
+    dpIndex = 0;
     while (dpIndex < dpEntriesCount - 1 && CompareDayPeriodEntries(&entryToMatch, &dpEntries[dpIndex + 1]) >= 0) {
         dpIndex++;
     }

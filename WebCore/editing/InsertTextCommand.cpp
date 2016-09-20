@@ -27,9 +27,9 @@
 #include "InsertTextCommand.h"
 
 #include "Document.h"
-#include "Element.h"
 #include "Editor.h"
 #include "Frame.h"
+#include "HTMLElement.h"
 #include "HTMLInterchange.h"
 #include "Text.h"
 #include "VisibleUnits.h"
@@ -58,7 +58,7 @@ Position InsertTextCommand::positionInsideTextNode(const Position& p)
 {
     Position pos = p;
     if (isTabSpanTextNode(pos.anchorNode())) {
-        RefPtr<Node> textNode = document().createEditingTextNode("");
+        RefPtr<Node> textNode = document().createEditingTextNode(emptyString());
         insertNodeAtTabSpanPosition(textNode.get(), pos);
         return firstPositionInNode(textNode.get());
     }
@@ -66,7 +66,7 @@ Position InsertTextCommand::positionInsideTextNode(const Position& p)
     // Prepare for text input by looking at the specified position.
     // It may be necessary to insert a text node to receive characters.
     if (!pos.containerNode()->isTextNode()) {
-        RefPtr<Node> textNode = document().createEditingTextNode("");
+        RefPtr<Node> textNode = document().createEditingTextNode(emptyString());
         insertNodeAt(textNode.get(), pos);
         return firstPositionInNode(textNode.get());
     }
@@ -120,7 +120,7 @@ bool InsertTextCommand::performOverwrite(const String& text, bool selectInserted
 
     replaceTextInNode(textNode, start.offsetInContainerNode(), count, text);
 
-    Position endPosition = Position(textNode.release(), start.offsetInContainerNode() + text.length());
+    Position endPosition = Position(WTFMove(textNode), start.offsetInContainerNode() + text.length());
     setEndingSelectionWithoutValidation(start, endPosition);
     if (!selectInsertedText)
         setEndingSelection(VisibleSelection(endingSelection().visibleEnd(), endingSelection().isDirectional()));
@@ -132,7 +132,7 @@ void InsertTextCommand::doApply()
 {
     ASSERT(m_text.find('\n') == notFound);
 
-    if (!endingSelection().isNonOrphanedCaretOrRange())
+    if (endingSelection().isNoneOrOrphaned())
         return;
 
     // Delete the current selection.
@@ -235,6 +235,8 @@ void InsertTextCommand::doApply()
 Position InsertTextCommand::insertTab(const Position& pos)
 {
     Position insertPos = VisiblePosition(pos, DOWNSTREAM).deepEquivalent();
+    if (insertPos.isNull())
+        return pos;
 
     Node* node = insertPos.containerNode();
     unsigned int offset = node->isTextNode() ? insertPos.offsetInContainerNode() : 0;
@@ -243,19 +245,19 @@ Position InsertTextCommand::insertTab(const Position& pos)
     if (isTabSpanTextNode(node)) {
         RefPtr<Text> textNode = downcast<Text>(node);
         insertTextIntoNode(textNode, offset, "\t");
-        return Position(textNode.release(), offset + 1);
+        return Position(WTFMove(textNode), offset + 1);
     }
     
     // create new tab span
-    RefPtr<Element> spanNode = createTabSpanElement(document());
+    auto spanNode = createTabSpanElement(document());
     
     // place it
-    if (!is<Text>(*node)) {
-        insertNodeAt(spanNode.get(), insertPos);
-    } else {
+    if (!is<Text>(*node))
+        insertNodeAt(spanNode.ptr(), insertPos);
+    else {
         RefPtr<Text> textNode = downcast<Text>(node);
         if (offset >= textNode->length())
-            insertNodeAfter(spanNode, textNode.release());
+            insertNodeAfter(spanNode.copyRef(), WTFMove(textNode));
         else {
             // split node to make room for the span
             // NOTE: splitTextNode uses textNode for the
@@ -263,12 +265,12 @@ Position InsertTextCommand::insertTab(const Position& pos)
             // insert the span before it.
             if (offset > 0)
                 splitTextNode(textNode, offset);
-            insertNodeBefore(spanNode, textNode.release());
+            insertNodeBefore(spanNode.copyRef(), WTFMove(textNode));
         }
     }
 
     // return the position following the new tab
-    return lastPositionInNode(spanNode.get());
+    return lastPositionInNode(spanNode.ptr());
 }
 
 }

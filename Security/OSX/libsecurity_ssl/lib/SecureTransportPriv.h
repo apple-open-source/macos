@@ -146,6 +146,7 @@ SSLGetClientSideAuthenticate (
 	SSLContextRef	context,
 	SSLAuthenticate	*auth);					// RETURNED
 
+#if !TARGET_OS_IPHONE
 /*
  * Get/set array of trusted leaf certificates.
  *
@@ -161,7 +162,7 @@ OSStatus
 SSLCopyTrustedLeafCertificates (
 	SSLContextRef	context,
 	CFArrayRef 		*certRefs);				// RETURNED, caller must release
-
+#endif
 /*
  * Get/set enable of anonymous ciphers. This is deprecated and now a no-op.
  */
@@ -375,10 +376,10 @@ extern OSStatus SSLGetClientAuthTypes(
    unsigned *numTypes);							/* IN/OUT */
 
 /*
- * Obtain the SSLClientAuthenticationType actually performed.
- * Only valid if client certificate state is kSSLClientCertSent
- * or kSSLClientCertRejected; SSLClientAuthNone is returned as
- * the negotiated auth type otherwise.
+ * -- DEPRECATED -- 
+ * This is not actually useful. Currently return errSecUnimplemented.
+ * The client auth type is fully determined by the type of private key used by
+ * the client.
  */
 extern OSStatus SSLGetNegotiatedClientAuthType(
    SSLContextRef ctx,
@@ -439,25 +440,6 @@ OSStatus SSLGetMinimumDHGroupSize(SSLContextRef ctx, unsigned *nbits);
 OSStatus SSLSetDHEEnabled(SSLContextRef ctx, bool enabled);
 
 OSStatus SSLGetDHEEnabled(SSLContextRef ctx, bool *enabled);
-
-extern const CFStringRef kSSLSessionConfig_default;
-extern const CFStringRef kSSLSessionConfig_ATSv1;
-extern const CFStringRef kSSLSessionConfig_ATSv1_noPFS;
-extern const CFStringRef kSSLSessionConfig_legacy;
-extern const CFStringRef kSSLSessionConfig_standard;
-extern const CFStringRef kSSLSessionConfig_RC4_fallback;
-extern const CFStringRef kSSLSessionConfig_TLSv1_fallback;
-extern const CFStringRef kSSLSessionConfig_TLSv1_RC4_fallback;
-extern const CFStringRef kSSLSessionConfig_legacy_DHE;
-
-OSStatus
-SSLSetSessionConfig(SSLContextRef context,
-                    CFStringRef config);
-
-OSStatus
-SSLGetSessionConfig(SSLContextRef context,
-                    CFStringRef *config);
-
 
 #if TARGET_OS_IPHONE
 
@@ -842,16 +824,6 @@ SSLGetALPNData				(SSLContextRef      context,
     __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
 
 // end of ALPN
-
-OSStatus
-SSLCopyRequestedPeerName	(SSLContextRef		context,
-                             char			*peerName,
-                             size_t				*peerNameLen);
-
-OSStatus
-SSLCopyRequestedPeerNameLength	(SSLContextRef		ctx,
-                                 size_t				*peerNameLen);
-
 
 #ifdef __cplusplus
 }

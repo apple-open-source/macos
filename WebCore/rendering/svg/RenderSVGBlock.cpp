@@ -28,8 +28,8 @@
 
 namespace WebCore {
 
-RenderSVGBlock::RenderSVGBlock(SVGGraphicsElement& element, Ref<RenderStyle>&& style)
-    : RenderBlockFlow(element, WTF::move(style))
+RenderSVGBlock::RenderSVGBlock(SVGGraphicsElement& element, RenderStyle&& style)
+    : RenderBlockFlow(element, WTFMove(style))
 {
 }
 

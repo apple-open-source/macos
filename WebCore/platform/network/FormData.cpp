@@ -39,9 +39,6 @@
 namespace WebCore {
 
 inline FormData::FormData()
-    : m_identifier(0)
-    , m_alwaysStream(false)
-    , m_containsPasswordData(false)
 {
 }
 
@@ -70,72 +67,77 @@ FormData::~FormData()
     removeGeneratedFilesIfNeeded();
 }
 
-PassRefPtr<FormData> FormData::create()
+Ref<FormData> FormData::create()
 {
-    return adoptRef(new FormData);
+    return adoptRef(*new FormData);
 }
 
-PassRefPtr<FormData> FormData::create(const void* data, size_t size)
+Ref<FormData> FormData::create(const void* data, size_t size)
 {
-    RefPtr<FormData> result = create();
+    Ref<FormData> result = create();
     result->appendData(data, size);
-    return result.release();
+    return result;
 }
 
-PassRefPtr<FormData> FormData::create(const CString& string)
+Ref<FormData> FormData::create(const CString& string)
 {
-    RefPtr<FormData> result = create();
+    Ref<FormData> result = create();
     result->appendData(string.data(), string.length());
-    return result.release();
+    return result;
 }
 
-PassRefPtr<FormData> FormData::create(const Vector<char>& vector)
+Ref<FormData> FormData::create(const Vector<char>& vector)
 {
-    RefPtr<FormData> result = create();
+    Ref<FormData> result = create();
     result->appendData(vector.data(), vector.size());
-    return result.release();
+    return result;
 }
 
-PassRefPtr<FormData> FormData::create(const FormDataList& list, const TextEncoding& encoding, EncodingType encodingType)
+Ref<FormData> FormData::create(const FormDataList& list, const TextEncoding& encoding, EncodingType encodingType)
 {
-    RefPtr<FormData> result = create();
+    Ref<FormData> result = create();
     result->appendKeyValuePairItems(list, encoding, false, 0, encodingType);
-    return result.release();
+    return result;
 }
 
-PassRefPtr<FormData> FormData::createMultiPart(const FormDataList& list, const TextEncoding& encoding, Document* document)
+Ref<FormData> FormData::createMultiPart(const FormDataList& list, const TextEncoding& encoding, Document* document)
 {
-    RefPtr<FormData> result = create();
+    Ref<FormData> result = create();
     result->appendKeyValuePairItems(list, encoding, true, document);
-    return result.release();
+    return result;
 }
 
-PassRefPtr<FormData> FormData::copy() const
+Ref<FormData> FormData::copy() const
 {
-    return adoptRef(new FormData(*this));
+    return adoptRef(*new FormData(*this));
 }
 
-PassRefPtr<FormData> FormData::deepCopy() const
+Ref<FormData> FormData::isolatedCopy() const
 {
-    RefPtr<FormData> formData(create());
+    // FIXME: isolatedCopy() (historically deepCopy()) only copies certain values from `this`. Why is that?
+    auto formData = create();
 
     formData->m_alwaysStream = m_alwaysStream;
 
     formData->m_elements.reserveInitialCapacity(m_elements.size());
-    for (const FormDataElement& element : m_elements) {
-        switch (element.m_type) {
-        case FormDataElement::Type::Data:
-            formData->m_elements.uncheckedAppend(FormDataElement(element.m_data));
-            break;
-        case FormDataElement::Type::EncodedFile:
-            formData->m_elements.uncheckedAppend(FormDataElement(element.m_filename, element.m_fileStart, element.m_fileLength, element.m_expectedFileModificationTime, element.m_shouldGenerateFile));
-            break;
-        case FormDataElement::Type::EncodedBlob:
-            formData->m_elements.uncheckedAppend(FormDataElement(element.m_url));
-            break;
-        }
+    for (auto& element : m_elements)
+        formData->m_elements.uncheckedAppend(element.isolatedCopy());
+
+    return formData;
+}
+
+FormDataElement FormDataElement::isolatedCopy() const
+{
+    switch (m_type) {
+    case Type::Data:
+        return FormDataElement(m_data);
+    case Type::EncodedFile:
+        return FormDataElement(m_filename.isolatedCopy(), m_fileStart, m_fileLength, m_expectedFileModificationTime, m_shouldGenerateFile);
+    case Type::EncodedBlob:
+        return FormDataElement(m_url.isolatedCopy());
     }
-    return formData.release();
+
+    RELEASE_ASSERT_NOT_REACHED();
 }
 
 void FormData::appendData(const void* data, size_t size)
@@ -293,16 +295,17 @@ static void appendBlobResolved(FormData* formData, const URL& url)
     const BlobDataItemList::const_iterator itend = blobData->items().end();
     for (; it != itend; ++it) {
         const BlobDataItem& blobItem = *it;
-        if (blobItem.type == BlobDataItem::Data)
-            formData->appendData(blobItem.data->data() + static_cast<int>(blobItem.offset()), static_cast<int>(blobItem.length()));
-        else if (blobItem.type == BlobDataItem::File)
-            formData->appendFileRange(blobItem.file->path(), blobItem.offset(), blobItem.length(), blobItem.file->expectedModificationTime());
+        if (blobItem.type() == BlobDataItem::Type::Data) {
+            ASSERT(blobItem.data().data());
+            formData->appendData(blobItem.data().data()->data() + static_cast<int>(blobItem.offset()), static_cast<int>(blobItem.length()));
+        } else if (blobItem.type() == BlobDataItem::Type::File)
+            formData->appendFileRange(blobItem.file()->path(), blobItem.offset(), blobItem.length(), blobItem.file()->expectedModificationTime());
         else
             ASSERT_NOT_REACHED();
     }
 }
 
-PassRefPtr<FormData> FormData::resolveBlobReferences()
+Ref<FormData> FormData::resolveBlobReferences()
 {
     // First check if any blobs needs to be resolved, or we can take the fast path.
     bool hasBlob = false;
@@ -316,10 +319,10 @@ PassRefPtr<FormData> FormData::resolveBlobReferences()
     }
 
     if (!hasBlob)
-        return this;
+        return *this;
 
     // Create a copy to append the result into.
-    RefPtr<FormData> newFormData = FormData::create();
+    Ref<FormData> newFormData = FormData::create();
     newFormData->setAlwaysStream(alwaysStream());
     newFormData->setIdentifier(identifier());
     it = elements().begin();
@@ -330,11 +333,11 @@ PassRefPtr<FormData> FormData::resolveBlobReferences()
         else if (element.m_type == FormDataElement::Type::EncodedFile)
             newFormData->appendFileRange(element.m_filename, element.m_fileStart, element.m_fileLength, element.m_expectedFileModificationTime, element.m_shouldGenerateFile);
         else if (element.m_type == FormDataElement::Type::EncodedBlob)
-            appendBlobResolved(newFormData.get(), element.m_url);
+            appendBlobResolved(newFormData.ptr(), element.m_url);
         else
             ASSERT_NOT_REACHED();
     }
-    return newFormData.release();
+    return newFormData;
 }
 
 void FormData::generateFiles(Document* document)

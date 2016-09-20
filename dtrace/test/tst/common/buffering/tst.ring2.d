@@ -39,14 +39,14 @@
 #pragma D option bufpolicy=ring
 #pragma D option bufsize=512k
 #pragma D option quiet
-
-tick-1sec
+#pragma D option switchrate=10ms
+tick-10ms
 /n < 5/
 {
 	printf("%d\n", n++);
 }
 
-tick-1sec
+tick-10ms
 /n == 5/
 {
 	exit(0);

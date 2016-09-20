@@ -17,15 +17,8 @@ GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES
 GCC_WARN_ABOUT_RETURN_TYPE = YES
 GCC_WARN_UNUSED_VARIABLE = YES
 
-SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator
+SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator
 
-GCC_PREPROCESSOR_DEFINITIONS[sdk=iphonesimulator*] = INDIGO=1 $(inherited)
+INSTALL_PATH = /usr/local/bin
 
-#include "<DEVELOPER_DIR>/AppleInternal/XcodeConfig/SimulatorSupport.xcconfig"
-
-// Set INSTALL_PATH_ACTUAL to whatever INSTALL_PATH would normally be
-INSTALL_PATH_ACTUAL = /usr/local/bin
-
-// Set INSTALL_PATH[sdk=macosx*] when SimulatorSupport.xcconfig is unavailable
-INSTALL_PATH[sdk=macosx*] = $(INSTALL_PATH_ACTUAL)
-
+HEADER_SEARCH_PATHS = $(PROJECT_DIR)/../utilities $(inherited)

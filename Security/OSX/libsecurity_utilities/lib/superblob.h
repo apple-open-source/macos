@@ -40,6 +40,7 @@ public:
 	};
 	
 	bool validateBlob(size_t maxSize = 0) const;
+	bool strictValidateBlob(size_t maxSize = 0) const;
 	
 	unsigned count() const { return mCount; }
 
@@ -78,6 +79,34 @@ inline bool SuperBlobCore<_BlobType, _magic, _Type>::validateBlob(size_t maxSize
 				return false;
 	}
 	return true;
+}
+
+struct _SBRange {
+	size_t base;
+	size_t end;
+	_SBRange(size_t b, size_t len) : base(b), end(b+len) { }
+	bool operator < (const _SBRange& other) const { return this->base < other.base; }
+};
+
+template <class _BlobType, uint32_t _magic, class _Type>
+inline bool SuperBlobCore<_BlobType, _magic, _Type>::strictValidateBlob(size_t size /* = 0 */) const
+{
+	if (!validateBlob(size))	// verifies in-bound sub-blobs
+		return false;
+	unsigned count = mCount;
+	if (count == 0)
+		return this->length() == sizeof(SuperBlobCore);	// nothing in here
+
+	std::vector<_SBRange> ranges;
+	for (unsigned ix = 0; ix < count; ++ix)
+		ranges.push_back(_SBRange(mIndex[ix].offset, this->blob(ix)->length()));
+	sort(ranges.begin(), ranges.end());
+	if (ranges[0].base != sizeof(SuperBlobCore) + count * sizeof(Index))
+		return false;	// start anchor
+	for (unsigned ix = 1; ix < count; ++ix)
+		if (ranges[ix].base != ranges[ix-1].end)	// nothing in between
+			return false;
+	return ranges[count-1].end == this->length();	// end anchor
 }
 
 
@@ -157,7 +186,7 @@ void SuperBlobCore<_BlobType, _magic, _Type>::Maker::add(Type type, BlobCore *bl
 {
 	pair<typename BlobMap::iterator, bool> r = mPieces.insert(make_pair(type, blob));
 	if (!r.second) {	// already there
-		secdebug("superblob", "Maker %p replaces type=%d", this, type);
+		secinfo("superblob", "Maker %p replaces type=%d", this, type);
 		::free(r.first->second);
 		r.first->second = blob;
 	}
@@ -233,7 +262,7 @@ _BlobType *SuperBlobCore<_BlobType, _magic, _Type>::Maker::make() const
 		pc += it->second->length();
 		n++;
 	}
-	secdebug("superblob", "Maker %p assembles %ld blob(s) into %p (size=%d)",
+	secinfo("superblob", "Maker %p assembles %ld blob(s) into %p (size=%d)",
 		this, mPieces.size(), result, total);
 	return result;
 }

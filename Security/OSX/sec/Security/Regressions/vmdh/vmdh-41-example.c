@@ -18,15 +18,16 @@
 /* How to reach in the internals of SecDH/vmdh struct */
 static inline ccdh_gp_t vmdh_gp(struct vmdh *dh)
 {
-    void *p = dh;
-    ccdh_gp_t gp = { .gp = p };
+    ccdh_gp_t gp;
+    gp.gp  = (ccdh_gp *)dh;
     return gp;
 }
 
 static inline ccdh_full_ctx_t vmdh_priv(struct vmdh *dh)
 {
     void *p = dh;
-    cczp_t zp = { .u = p };
+    cczp_t zp;
+    zp.zp = (struct cczp *) dh;
     cc_size s = ccn_sizeof_n(cczp_n(zp));
     ccdh_full_ctx_t priv = { .hdr = (struct ccdh_ctx_header *)(p+ccdh_gp_size(s)) };
     return priv;

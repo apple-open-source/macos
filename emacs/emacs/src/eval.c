@@ -1201,7 +1201,7 @@ internal_catch (tag, func, arg)
      Lisp_Object arg;
 {
   /* This structure is made part of the chain `catchlist'.  */
-  struct catchtag c;
+  volatile struct catchtag c;
 
   /* Fill in the components of c, and put it on the list.  */
   c.next = catchlist;
@@ -1376,8 +1376,8 @@ internal_lisp_condition_case (var, bodyform, handlers)
      Lisp_Object bodyform, handlers;
 {
   Lisp_Object val;
-  struct catchtag c;
-  struct handler h;
+  volatile struct catchtag c;
+  volatile struct handler h;
 
   CHECK_SYMBOL (var);
 
@@ -1446,8 +1446,8 @@ internal_condition_case (bfun, handlers, hfun)
      Lisp_Object (*hfun) ();
 {
   Lisp_Object val;
-  struct catchtag c;
-  struct handler h;
+  volatile struct catchtag c;
+  volatile struct handler h;
 
   /* Since Fsignal will close off all calls to x_catch_errors,
      we will get the wrong results if some are not closed now.  */
@@ -1494,8 +1494,8 @@ internal_condition_case_1 (bfun, arg, handlers, hfun)
      Lisp_Object (*hfun) ();
 {
   Lisp_Object val;
-  struct catchtag c;
-  struct handler h;
+  volatile struct catchtag c;
+  volatile struct handler h;
 
   /* Since Fsignal will close off all calls to x_catch_errors,
      we will get the wrong results if some are not closed now.  */
@@ -1545,8 +1545,8 @@ internal_condition_case_2 (bfun, nargs, args, handlers, hfun)
      Lisp_Object (*hfun) ();
 {
   Lisp_Object val;
-  struct catchtag c;
-  struct handler h;
+  volatile struct catchtag c;
+  volatile struct handler h;
 
   /* Since Fsignal will close off all calls to x_catch_errors,
      we will get the wrong results if some are not closed now.  */

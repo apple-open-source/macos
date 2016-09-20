@@ -31,17 +31,15 @@
 #ifndef MutationObserver_h
 #define MutationObserver_h
 
-#include <wtf/HashMap.h>
+#include <wtf/Forward.h>
 #include <wtf/HashSet.h>
-#include <wtf/PassRefPtr.h>
+#include <wtf/Optional.h>
 #include <wtf/RefCounted.h>
-#include <wtf/RefPtr.h>
-#include <wtf/text/AtomicString.h>
-#include <wtf/text/AtomicStringHash.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
 
-class Dictionary;
+class HTMLSlotElement;
 class MutationCallback;
 class MutationObserverRegistration;
 class MutationRecord;
@@ -53,6 +51,7 @@ typedef unsigned char MutationObserverOptions;
 typedef unsigned char MutationRecordDeliveryOptions;
 
 class MutationObserver : public RefCounted<MutationObserver> {
+    friend class MutationObserverMicrotask;
 public:
     enum MutationType {
         ChildList = 1 << 0,
@@ -72,32 +71,43 @@ public:
         CharacterDataOldValue = 1 << 6,
     };
 
-    static Ref<MutationObserver> create(PassRefPtr<MutationCallback>);
-    static void deliverAllMutations();
+    static Ref<MutationObserver> create(Ref<MutationCallback>&&);
 
     ~MutationObserver();
 
-    void observe(Node*, const Dictionary&, ExceptionCode&);
-    Vector<RefPtr<MutationRecord>> takeRecords();
+    struct Init {
+        bool childList;
+        Optional<bool> attributes;
+        Optional<bool> characterData;
+        bool subtree;
+        Optional<bool> attributeOldValue;
+        Optional<bool> characterDataOldValue;
+        Optional<Vector<String>> attributeFilter;
+    };
+
+    void observe(Node&, const Init&, ExceptionCode&);
+    Vector<Ref<MutationRecord>> takeRecords();
     void disconnect();
-    void observationStarted(MutationObserverRegistration*);
-    void observationEnded(MutationObserverRegistration*);
-    void enqueueMutationRecord(PassRefPtr<MutationRecord>);
+
+    void observationStarted(MutationObserverRegistration&);
+    void observationEnded(MutationObserverRegistration&);
+    void enqueueMutationRecord(Ref<MutationRecord>&&);
     void setHasTransientRegistration();
     bool canDeliver();
 
-    HashSet<Node*> getObservedNodes() const;
+    HashSet<Node*> observedNodes() const;
+
+    static void enqueueSlotChangeEvent(HTMLSlotElement&);
 
 private:
-    struct ObserverLessThan;
-
-    explicit MutationObserver(PassRefPtr<MutationCallback>);
+    explicit MutationObserver(Ref<MutationCallback>&&);
     void deliver();
 
+    static void notifyMutationObservers();
     static bool validateOptions(MutationObserverOptions);
 
-    RefPtr<MutationCallback> m_callback;
-    Vector<RefPtr<MutationRecord>> m_records;
+    Ref<MutationCallback> m_callback;
+    Vector<Ref<MutationRecord>> m_records;
     HashSet<MutationObserverRegistration*> m_registrations;
     unsigned m_priority;
 };

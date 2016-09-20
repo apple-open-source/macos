@@ -23,8 +23,8 @@
 
 
 #import <Foundation/Foundation.h>
-#include "SecureObjectSync/SOSCloudCircle.h"
-#include "SecureObjectSync/SOSPeerInfo.h"
+#include <Security/SecureObjectSync/SOSCloudCircle.h>
+#include <Security/SecureObjectSync/SOSPeerInfo.h>
 
 @interface KNPersistentState : NSObject
 +(instancetype)loadFromStorage;

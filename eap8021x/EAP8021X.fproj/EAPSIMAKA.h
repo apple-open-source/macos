@@ -397,4 +397,6 @@ typedef union {
     uint8_t	key[EAPSIMAKA_KEY_SIZE];
 } EAPSIMAKAKeyInfo, * EAPSIMAKAKeyInfoRef;
 
+#define PSEUDONYM_MIN_LIFETIME_HOURS 24 /* default age of pseudonym in conservative peer mode */
+
 #endif /* _EAP8021X_EAPSIMAKA_H */

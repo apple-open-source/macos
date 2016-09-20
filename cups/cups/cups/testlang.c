@@ -1,22 +1,16 @@
 /*
- * "$Id: testlang.c 12992 2015-11-19 15:19:00Z msweet $"
+ * Localization test program for CUPS.
  *
- *   Localization test program for CUPS.
+ * Copyright 2007-2015 by Apple Inc.
+ * Copyright 1997-2006 by Easy Software Products.
  *
- *   Copyright 2007-2015 by Apple Inc.
- *   Copyright 1997-2006 by Easy Software Products.
+ * These coded instructions, statements, and computer programs are the
+ * property of Apple Inc. and are protected by Federal copyright
+ * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
+ * which should have been included with this file.  If this file is
+ * file is missing or damaged, see the license at "http://www.cups.org/".
  *
- *   These coded instructions, statements, and computer programs are the
- *   property of Apple Inc. and are protected by Federal copyright
- *   law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- *   which should have been included with this file.  If this file is
- *   file is missing or damaged, see the license at "http://www.cups.org/".
- *
- *   This file is subject to the Apple OS-Developed Software exception.
- *
- * Contents:
- *
- *   main() - Load the specified language and show the strings for yes and no.
+ * This file is subject to the Apple OS-Developed Software exception.
  */
 
 /*
@@ -24,6 +18,7 @@
  */
 
 #include "cups-private.h"
+#include "ppd-private.h"
 
 
 /*
@@ -149,8 +144,3 @@ main(int  argc,				/* I - Number of command-line arguments */
 
   return (errors > 0);
 }
-
-
-/*
- * End of "$Id: testlang.c 12992 2015-11-19 15:19:00Z msweet $".
- */

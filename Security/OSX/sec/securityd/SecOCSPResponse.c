@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2009,2012-2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2008-2009,2012-2016 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -122,6 +122,7 @@ static CFAbsoluteTime genTimeToCFAbsTime(const SecAsn1Item *datetime)
 }
 
 void SecOCSPSingleResponseDestroy(SecOCSPSingleResponseRef this) {
+    CFReleaseSafe(this->scts);
     free(this);
 }
 
@@ -458,7 +459,22 @@ CFAbsoluteTime SecOCSPResponseProducedAt(SecOCSPResponseRef this) {
 }
 
 CFArrayRef SecOCSPResponseCopySigners(SecOCSPResponseRef this) {
-    return NULL;
+    CFMutableArrayRef result = NULL;
+    result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    if (!result) {
+        return NULL;
+    }
+    SecAsn1Item **certs;
+    for (certs = this->basicResponse.certs; certs && *certs; ++certs) {
+        SecCertificateRef cert = NULL;
+        cert = SecCertificateCreateWithBytes(kCFAllocatorDefault, (*certs)->Data, (*certs)->Length);
+        if (cert) {
+            CFArrayAppendValue(result, cert);
+            CFReleaseNull(cert);
+        }
+    }
+
+    return result;
 }
 
 void SecOCSPResponseFinalize(SecOCSPResponseRef this) {
@@ -542,7 +558,7 @@ SecOCSPSingleResponseRef SecOCSPResponseCopySingleResponse(
         }
 
         if (!issuerNameHash || !issuerPubKeyHash) {
-            /* This can happen when the hash algorithm is not supported, shoudl be really rare */
+            /* This can happen when the hash algorithm is not supported, should be really rare */
             /* See also: <rdar://problem/21908655> CrashTracer: securityd at securityd: SecOCSPResponseCopySingleResponse */
             ocspdErrorLog("Unknown hash algorithm in singleResponse");
             algorithm = NULL;
@@ -590,12 +606,11 @@ static bool SecOCSPResponseVerifySignature(SecOCSPResponseRef this,
 }
 
 static bool SecOCSPResponseIsIssuer(SecOCSPResponseRef this,
-    SecCertificatePathRef issuer) {
+    SecCertificateRef issuer) {
     bool shouldBeSigner = false;
-    SecCertificateRef signer = SecCertificatePathGetCertificateAtIndex(issuer, 0);
 	if (this->responderIdTag == RIT_Name) {
 		/* Name inside response must == signer's SubjectName. */
-        CFDataRef subject = SecCertificateCopySubjectSequence(signer);
+        CFDataRef subject = SecCertificateCopySubjectSequence(issuer);
         if (!subject) {
 			ocspdDebug("error on SecCertificateCopySubjectSequence");
 			return false;
@@ -611,7 +626,7 @@ static bool SecOCSPResponseIsIssuer(SecOCSPResponseRef this,
         CFRelease(subject);
     } else /* if (this->responderIdTag == RIT_Key) */ {
 		/* ResponderID.byKey must == SHA1(signer's public key) */
-        CFDataRef pubKeyDigest = SecCertificateCopyPublicKeySHA1Digest(signer);
+        CFDataRef pubKeyDigest = SecCertificateCopyPublicKeySHA1Digest(issuer);
         if ((size_t)CFDataGetLength(pubKeyDigest) == this->responderID.byKey.Length &&
             !memcmp(this->responderID.byKey.Data, CFDataGetBytePtr(pubKeyDigest),
                 this->responderID.byKey.Length)) {
@@ -624,7 +639,11 @@ static bool SecOCSPResponseIsIssuer(SecOCSPResponseRef this,
     }
 
     if (shouldBeSigner) {
-        SecKeyRef key = SecCertificatePathCopyPublicKeyAtIndex(issuer, 0);
+#if TARGET_OS_IPHONE
+        SecKeyRef key = SecCertificateCopyPublicKey(issuer);
+#else
+        SecKeyRef key = SecCertificateCopyPublicKey_ios(issuer);
+#endif
         if (key) {
             shouldBeSigner = SecOCSPResponseVerifySignature(this, key);
             ocspdDebug("ocsp response signature %sok", shouldBeSigner ? "" : "not ");
@@ -638,42 +657,30 @@ static bool SecOCSPResponseIsIssuer(SecOCSPResponseRef this,
     return shouldBeSigner;
 }
 
-/* Returns the SecCertificatePathRef whose leaf signed this ocspResponse if
-   we can find one and NULL if we can't find a valid signer. */
-SecCertificatePathRef SecOCSPResponseCopySigner(SecOCSPResponseRef this,
-    SecCertificatePathRef issuer) {
-    SecCertificateRef issuerCert = SecCertificatePathGetCertificateAtIndex(issuer, 0);
-    CFDataRef issuerSubject = SecCertificateGetNormalizedSubjectContent(issuerCert);
-    /* Look though any certs that came with the response and see if they were
-       both issued by the issuerPath and signed the response. */
+/* Returns the SecCertificateRef of the cert that signed this ocspResponse if
+ we can find one and NULL if we can't find a valid signer. */
+SecCertificateRef SecOCSPResponseCopySigner(SecOCSPResponseRef this, SecCertificateRef issuer) {
+    /* Look though any certs that came with the response to find
+     * which one signed the response. */
     SecAsn1Item **certs;
     for (certs = this->basicResponse.certs; certs && *certs; ++certs) {
         SecCertificateRef cert = SecCertificateCreateWithBytes(
-            kCFAllocatorDefault, (*certs)->Data, (*certs)->Length);
+                                    kCFAllocatorDefault, (*certs)->Data, (*certs)->Length);
         if (cert) {
-            CFDataRef certIssuer = SecCertificateGetNormalizedIssuerContent(cert);
-            if (certIssuer && CFEqual(issuerSubject, certIssuer)) {
-                SecCertificatePathRef signer = SecCertificatePathCopyAddingLeaf(issuer, cert);
-                CFRelease(cert);
-                if (signer) {
-                    if (SecOCSPResponseIsIssuer(this, signer)) {
-                        return signer;
-                    } else {
-                        ocspdErrorLog("ocsp response cert not signed by issuer.");
-                        CFRelease(signer);
-                    }
-                }
+            if (SecOCSPResponseIsIssuer(this, cert)) {
+                return cert;
             } else {
-                ocspdErrorLog("ocsp response cert issuer doesn't match issuer subject.");
+                CFRelease(cert);
             }
         } else {
-			ocspdErrorLog("ocsp response cert failed to parse");
+            ocspdErrorLog("ocsp response cert failed to parse");
         }
-	}
+    }
+    ocspdDebug("ocsp response did not contain a signer cert.");
 
     /* If none of the returned certs work, try the issuer of the certificate
        being checked directly. */
-    if (SecOCSPResponseIsIssuer(this, issuer)) {
+    if (issuer && SecOCSPResponseIsIssuer(this, issuer)) {
         CFRetain(issuer);
         return issuer;
     }

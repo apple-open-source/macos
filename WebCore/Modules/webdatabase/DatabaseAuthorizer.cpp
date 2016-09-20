@@ -29,7 +29,6 @@
 #include "config.h"
 #include "DatabaseAuthorizer.h"
 
-#include <wtf/PassRefPtr.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -289,7 +288,7 @@ int DatabaseAuthorizer::createVTable(const String& tableName, const String& modu
         return SQLAuthDeny;
 
     // Allow only the FTS3 extension
-    if (!equalIgnoringCase(moduleName, "fts3"))
+    if (!equalLettersIgnoringASCIICase(moduleName, "fts3"))
         return SQLAuthDeny;
 
     m_lastActionChangedDatabase = true;
@@ -302,7 +301,7 @@ int DatabaseAuthorizer::dropVTable(const String& tableName, const String& module
         return SQLAuthDeny;
 
     // Allow only the FTS3 extension
-    if (!equalIgnoringCase(moduleName, "fts3"))
+    if (!equalLettersIgnoringASCIICase(moduleName, "fts3"))
         return SQLAuthDeny;
 
     return updateDeletesBasedOnTableName(tableName);
@@ -344,7 +343,7 @@ int DatabaseAuthorizer::allowRead(const String& tableName, const String&)
 {
     if (m_permissions & NoAccessMask && m_securityEnabled)
         return SQLAuthDeny;
-    
+
     return denyBasedOnTableName(tableName);
 }
 
@@ -407,12 +406,14 @@ int DatabaseAuthorizer::denyBasedOnTableName(const String& tableName) const
         return SQLAuthAllow;
 
     // Sadly, normal creates and drops end up affecting sqlite_master in an authorizer callback, so
-    // it will be tough to enforce all of the following policies
-    //if (equalIgnoringCase(tableName, "sqlite_master") || equalIgnoringCase(tableName, "sqlite_temp_master") ||
-    //    equalIgnoringCase(tableName, "sqlite_sequence") || equalIgnoringCase(tableName, Database::databaseInfoTableName()))
-    //        return SQLAuthDeny;
+    // it will be tough to enforce all of the following policies.
+    // if (equalIgnoringASCIICase(tableName, "sqlite_master")
+    //      || equalIgnoringASCIICase(tableName, "sqlite_temp_master")
+    //      || equalIgnoringASCIICase(tableName, "sqlite_sequence")
+    //      || equalIgnoringASCIICase(tableName, Database::databaseInfoTableName()))
+    //    return SQLAuthDeny;
 
-    if (equalIgnoringCase(tableName, m_databaseInfoTableName))
+    if (equalIgnoringASCIICase(tableName, m_databaseInfoTableName))
         return SQLAuthDeny;
 
     return SQLAuthAllow;

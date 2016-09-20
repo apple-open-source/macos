@@ -6,21 +6,19 @@
 		<key>OpenSourceProject</key>
 		<string>ccid</string>
 		<key>OpenSourceVersion</key>
-		<string>1.4.21</string>
+		<string>1.4.24</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://pcsclite.alioth.debian.org/ccid.html</string>
 		<key>OpenSourceURL</key>
-		<string>https://alioth.debian.org/frs/download.php/file/4148/ccid-1.4.21.tar.bz2</string>
+		<string>https://alioth.debian.org/frs/download.php/file/4171/ccid-1.4.24.tar.bz2</string>
 		<key>OpenSourceImportDate</key>
-		<string>2015-12-15</string>
+		<string>2016-5-23</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>destDirFix.patch - makefile.in, customized destination directory</string>
 			<string>ForceWithoutPcsc.patch - Makefile.am, Makefile.in, define PROVIDED_BY_PCSC</string>
 			<string>ccid-info-plist.patch - Info.plist.src, ifdLogLevel 0x0001</string>
 			<string>osxConfigure.patch - configure, if [[ (&quot;$*&quot; =~ &quot;--no-configure&quot;) ]]; then exit 0 fi</string>
-			<string>scardcontrol.c.patch - scardcontrol.c, fix formating string warnings</string>
-			<string>RSA_SecurID_getpasswd.c.patch - RSA_SecurID_getpasswd.c, fix formating string warnings</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>LGPL</string>

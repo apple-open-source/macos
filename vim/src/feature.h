@@ -211,18 +211,11 @@
 #endif
 
 /*
- * +visual		Visual mode.
+ * +visual		Visual mode - now always included.
  * +visualextra		Extra features for Visual mode (mostly block operators).
  */
-#ifdef FEAT_SMALL
-# define FEAT_VISUAL
-# ifdef FEAT_NORMAL
-#  define FEAT_VISUALEXTRA
-# endif
-#else
-# ifdef FEAT_CLIPBOARD
-#  undef FEAT_CLIPBOARD	/* can't use clipboard without Visual mode */
-# endif
+#ifdef FEAT_NORMAL
+# define FEAT_VISUALEXTRA
 #endif
 
 /*
@@ -328,7 +321,7 @@
  *
  * Disabled for EBCDIC as it requires multibyte.
  */
-#if defined(FEAT_BIG) && !defined(WIN16) && SIZEOF_INT >= 4 && !defined(EBCDIC)
+#if defined(FEAT_BIG) && !defined(WIN16) && VIM_SIZEOF_INT >= 4 && !defined(EBCDIC)
 # define FEAT_ARABIC
 #endif
 #ifdef FEAT_ARABIC
@@ -506,15 +499,6 @@
 #endif
 
 /*
- * +osfiletype		filetype checking in autocommand patterns.
- *			Only on systems that support filetypes (RISC OS).
- */
-#if 0
-# define FEAT_OSFILETYPE
-# define DFLT_OFT "Text"
-#endif
-
-/*
  * +viminfo		reading/writing the viminfo file. Takes about 8Kbyte
  *			of code.
  * VIMINFO_FILE		Location of user .viminfo file (should start with $).
@@ -640,9 +624,9 @@
  * Disabled for EBCDIC:
  * Multibyte support doesn't work on z/OS Unix currently.
  */
-#if (defined(FEAT_BIG) || defined(FEAT_GUI_GTK) || defined(FEAT_ARABIC)) \
+#if (defined(FEAT_NORMAL) || defined(FEAT_GUI_GTK) || defined(FEAT_ARABIC)) \
 	&& !defined(FEAT_MBYTE) && !defined(WIN16) \
-	&& SIZEOF_INT >= 4 && !defined(EBCDIC)
+	&& VIM_SIZEOF_INT >= 4 && !defined(EBCDIC)
 # define FEAT_MBYTE
 #endif
 
@@ -663,7 +647,7 @@
 # define FEAT_MBYTE
 #endif
 
-#if defined(FEAT_MBYTE) && SIZEOF_INT < 4 && !defined(PROTO)
+#if defined(FEAT_MBYTE) && VIM_SIZEOF_INT < 4 && !defined(PROTO)
 	Error: Can only handle multi-byte feature with 32 bit int or larger
 #endif
 
@@ -801,6 +785,15 @@
 #endif
 
 /*
+ * On some systems, when we compile with the GUI, we always use it.  On Mac
+ * there is no terminal version, and on Windows we can't figure out how to
+ * fork one off with :gui.
+ */
+#if defined(FEAT_GUI_MSWIN) || (defined(FEAT_GUI_MAC) && !defined(MACOS_X_UNIX))
+# define ALWAYS_USE_GUI
+#endif
+
+/*
  * +dialog_gui		Use GUI dialog.
  * +dialog_con		May use Console dialog.
  *			When none of these defined there is no dialog support.
@@ -829,6 +822,9 @@
 	 || defined(FEAT_GUI_GTK) || defined(FEAT_GUI_MSWIN) \
 	 || defined(FEAT_GUI_PHOTON) || defined(FEAT_GUI_MAC))
 # define FEAT_GUI_TEXTDIALOG
+# ifndef ALWAYS_USE_GUI
+#  define FEAT_CON_DIALOG
+# endif
 #endif
 
 /* Mac specific thing: Codewarrior interface. */
@@ -997,7 +993,7 @@
 
 /*
  * MODIFIED_BY		Name of who modified Vim.  Required when distributing
- *			a modifed version of Vim.
+ *			a modified version of Vim.
  *			Also from the "--with-modified-by" configure argument.
  */
 /* #define MODIFIED_BY "John Doe" */
@@ -1047,8 +1043,10 @@
  * +mouse_gpm		Unix only: Include code for Linux console mouse
  *			handling.
  * +mouse_pterm		PTerm mouse support for QNX
+ * +mouse_sgr		Unix only: Include code for for SGR-styled mouse.
  * +mouse_sysmouse	Unix only: Include code for FreeBSD and DragonFly
  *			console mouse handling.
+ * +mouse_urxvt		Unix only: Include code for for urxvt mosue handling.
  * +mouse		Any mouse support (any of the above enabled).
  */
 /* OS/2 and Amiga console have no mouse support */
@@ -1062,6 +1060,12 @@
 # ifdef FEAT_BIG
 #  define FEAT_MOUSE_DEC
 # endif
+# ifdef FEAT_BIG
+#  define FEAT_MOUSE_URXVT
+# endif
+# ifdef FEAT_BIG
+#  define FEAT_MOUSE_SGR
+# endif
 # if defined(FEAT_NORMAL) && (defined(MSDOS) || defined(WIN3264))
 #  define DOS_MOUSE
 # endif
@@ -1070,6 +1074,13 @@
 # endif
 #endif
 
+/*
+ * Note: Only one of the following may be defined:
+ * FEAT_MOUSE_GPM
+ * FEAT_SYSMOUSE
+ * FEAT_MOUSE_JSB
+ * FEAT_MOUSE_PTERM
+ */
 #if defined(FEAT_NORMAL) && defined(HAVE_GPM)
 # define FEAT_MOUSE_GPM
 #endif
@@ -1077,13 +1088,29 @@
 #if defined(FEAT_NORMAL) && defined(HAVE_SYSMOUSE)
 # define FEAT_SYSMOUSE
 #endif
+
+/* urxvt is a small variation of mouse_xterm, and shares its code */
+#if defined(FEAT_MOUSE_URXVT) && !defined(FEAT_MOUSE_XTERM)
+# define FEAT_MOUSE_XTERM
+#endif
+
+/* sgr is a small variation of mouse_xterm, and shares its code */
+#if defined(FEAT_MOUSE_SGR) && !defined(FEAT_MOUSE_XTERM)
+# define FEAT_MOUSE_XTERM
+#endif
+
 /* Define FEAT_MOUSE when any of the above is defined or FEAT_GUI. */
 #if !defined(FEAT_MOUSE_TTY) \
 	&& (defined(FEAT_MOUSE_XTERM) \
-	    || defined(FEAT_MOUSE_NET) || defined(FEAT_MOUSE_DEC) \
-	    || defined(DOS_MOUSE) || defined(FEAT_MOUSE_GPM) \
-	    || defined(FEAT_MOUSE_JSB) || defined(FEAT_MOUSE_PTERM) \
-	    || defined(FEAT_SYSMOUSE))
+	    || defined(FEAT_MOUSE_NET) \
+	    || defined(FEAT_MOUSE_DEC) \
+	    || defined(DOS_MOUSE) \
+	    || defined(FEAT_MOUSE_GPM) \
+	    || defined(FEAT_MOUSE_JSB) \
+	    || defined(FEAT_MOUSE_PTERM) \
+	    || defined(FEAT_SYSMOUSE) \
+	    || defined(FEAT_MOUSE_URXVT) \
+	    || defined(FEAT_MOUSE_SGR))
 # define FEAT_MOUSE_TTY		/* include non-GUI mouse support */
 #endif
 #if !defined(FEAT_MOUSE) && (defined(FEAT_MOUSE_TTY) || defined(FEAT_GUI))
@@ -1095,16 +1122,18 @@
  * +xterm_clipboard	Unix only: Include code for handling the clipboard
  *			in an xterm like in the GUI.
  */
+
+#ifdef FEAT_CYGWIN_WIN32_CLIPBOARD
+# define FEAT_CLIPBOARD
+#endif
+
 #ifdef FEAT_GUI
 # ifndef FEAT_CLIPBOARD
 #  define FEAT_CLIPBOARD
-#  ifndef FEAT_VISUAL
-#   define FEAT_VISUAL
-#  endif
 # endif
 #endif
 
-#if defined(FEAT_NORMAL) && defined(FEAT_VISUAL) \
+#if defined(FEAT_NORMAL) \
 	&& (defined(UNIX) || defined(VMS)) \
 	&& defined(WANT_X11) && defined(HAVE_X11)
 # define FEAT_XCLIPBOARD
@@ -1311,4 +1340,12 @@
  */
 #ifdef FEAT_NORMAL
 # define FEAT_PERSISTENT_UNDO
+#endif
+
+/*
+ * +filterpipe
+ */
+#if (defined(UNIX) && !defined(USE_SYSTEM)) \
+	    || (defined(WIN3264) && defined(FEAT_GUI_W32))
+# define FEAT_FILTERPIPE
 #endif

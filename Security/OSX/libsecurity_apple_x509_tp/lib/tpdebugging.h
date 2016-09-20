@@ -27,9 +27,8 @@
 #include <security_utilities/debugging.h>
 
 /* If TP_USE_SYSLOG is defined and not 0, use syslog() for debug
- * logging in addition to invoking the secdebug macro (which, as of
- * Snow Leopard, emits a static dtrace probe instead of an actual
- * log message.)
+ * logging in addition to invoking the secinfo macro (which, as of
+ * 10.11, emits a os_log message of a syslog message.)
  */
 #ifndef TP_USE_SYSLOG
 #define TP_USE_SYSLOG	0
@@ -37,31 +36,31 @@
 
 #if TP_USE_SYSLOG
 #include <syslog.h>
-#define tp_secdebug(scope, format...) \
+#define tp_secinfo(scope, format...) \
 { \
 	syslog(LOG_NOTICE, format); \
-	secdebug(scope, format); \
+	secinfo(scope, format); \
 }
 #else
-#define tp_secdebug(scope, format...) \
-	secdebug(scope, format)
+#define tp_secinfo(scope, format...) \
+	secinfo(scope, format)
 #endif
 
 #ifdef	NDEBUG
 /* this actually compiles to nothing */
-#define tpErrorLog(args...)		tp_secdebug("tpError", ## args)
+#define tpErrorLog(args...)		tp_secinfo("tpError", ## args)
 #else
 #define tpErrorLog(args...)		printf(args)
 #endif
 
-#define tpDebug(args...)		tp_secdebug("tpDebug", ## args)
-#define tpDbDebug(args...)		tp_secdebug("tpDbDebug", ## args)
-#define tpCrlDebug(args...)		tp_secdebug("tpCrlDebug", ## args)
-#define tpPolicyError(args...)	tp_secdebug("tpPolicy", ## args)
-#define tpVfyDebug(args...)		tp_secdebug("tpVfyDebug", ## args)
-#define tpAnchorDebug(args...)	tp_secdebug("tpAnchorDebug", ## args)
-#define tpOcspDebug(args...)	tp_secdebug("tpOcsp", ## args)
-#define tpOcspCacheDebug(args...)	tp_secdebug("tpOcspCache", ## args)
-#define tpTrustSettingsDbg(args...)	tp_secdebug("tpTrustSettings", ## args)
+#define tpDebug(args...)		tp_secinfo("tpDebug", ## args)
+#define tpDbDebug(args...)		tp_secinfo("tpDbDebug", ## args)
+#define tpCrlDebug(args...)		tp_secinfo("tpCrlDebug", ## args)
+#define tpPolicyError(args...)	tp_secinfo("tpPolicy", ## args)
+#define tpVfyDebug(args...)		tp_secinfo("tpVfyDebug", ## args)
+#define tpAnchorDebug(args...)	tp_secinfo("tpAnchorDebug", ## args)
+#define tpOcspDebug(args...)	tp_secinfo("tpOcsp", ## args)
+#define tpOcspCacheDebug(args...)	tp_secinfo("tpOcspCache", ## args)
+#define tpTrustSettingsDbg(args...)	tp_secinfo("tpTrustSettings", ## args)
 
 #endif	/* _TPDEBUGGING_H_ */

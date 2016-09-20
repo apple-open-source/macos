@@ -47,7 +47,7 @@ static cc_time_t context_change_time = 0;
 void
 update_time(cc_time_t *change_time)
 {
-    cc_time_t now = time(NULL);
+    cc_time_t now = (cc_time_t)time(NULL);
     if (*change_time >= now)
 	*change_time += 1;
     else
@@ -259,18 +259,18 @@ make_ccred_from_cred(krb5_context context,
 	goto fail;
 
     cred->keyblock.type = incred->session.keytype;
-    cred->keyblock.length = incred->session.keyvalue.length;
+    cred->keyblock.length = (cc_uint32)incred->session.keyvalue.length;
     cred->keyblock.data = incred->session.keyvalue.data;
 
-    cred->authtime = incred->times.authtime;
-    cred->starttime = incred->times.starttime;
-    cred->endtime = incred->times.endtime;
-    cred->renew_till = incred->times.renew_till;
+    cred->authtime = (cc_time_t)incred->times.authtime;
+    cred->starttime = (cc_time_t)incred->times.starttime;
+    cred->endtime = (cc_time_t)incred->times.endtime;
+    cred->renew_till = (cc_time_t)incred->times.renew_till;
 
-    cred->ticket.length = incred->ticket.length;
+    cred->ticket.length = (cc_int32)incred->ticket.length;
     cred->ticket.data = incred->ticket.data;
 
-    cred->second_ticket.length = incred->second_ticket.length;
+    cred->second_ticket.length = (cc_int32)incred->second_ticket.length;
     cred->second_ticket.data = incred->second_ticket.data;
 
     /* XXX this one should also be filled in */
@@ -292,7 +292,7 @@ make_ccred_from_cred(krb5_context context,
 	    goto fail;
 	}
 	addr->type = incred->addresses.val[i].addr_type;
-	addr->length = incred->addresses.val[i].address.length;
+	addr->length = (cc_int32)incred->addresses.val[i].address.length;
 	addr->data = malloc(addr->length);
 	if (addr->data == NULL) {
 	    free(addr);
@@ -817,7 +817,7 @@ ccache_get_kdc_time_offset(cc_ccache_t in_ccache,
 	return LOG_FAILURE(ccErrBadParam, "bad argument");
 
     heim_krb5_cc_get_kdc_offset(milcontext, c->id, &sec);
-    *out_time_offset = sec;
+    *out_time_offset = (cc_time_t)sec;
 
     return ccNoError;
 }

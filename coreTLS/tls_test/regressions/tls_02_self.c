@@ -1,4 +1,3 @@
-
 //
 //  tls_02_self.c
 //  coretls
@@ -9,9 +8,7 @@
 #include <assert.h>
 #include <string.h>
 #include <AssertMacros.h>
-#include "CipherSuite.h"
 
-#include "appleSession.h"
 #include "secCrypto.h"
 
 #include <tls_ciphersuites.h>
@@ -23,6 +20,10 @@
 #include "tls_regressions.h"
 
 #include <tls_handshake.h>
+#include <tls_cache.h>
+#include <tls_helpers.h>
+
+#include "sslMemory.h"
 
 #define DEBUG_ONLY __attribute__((unused))
 
@@ -49,6 +50,7 @@ typedef struct {
     bool server_allow_renegotiation;
     bool request_client_auth;
     bool server_rsa_key_exchange;
+    bool fallback;
 
     tls_buffer *dh_parameters;
     unsigned min_dh_size;
@@ -68,6 +70,9 @@ typedef struct {
     bool sct_enable;
     tls_buffer_list_t *sct_list;
 
+    bool client_extMS_enable;
+    bool server_extMS_enable;
+
     int (*fuzzer)(struct _myFilterCtx *myCtx, const tls_buffer in, uint8_t content_type);
     intptr_t fuzz_ctx;
 
@@ -81,6 +86,16 @@ typedef struct {
     tls_handshake_config_t client_config;
     tls_handshake_config_t server_config;
 
+    const uint16_t *server_ec_curves;
+    int num_server_ec_curves;
+    const uint16_t *client_ec_curves;
+    int num_client_ec_curves;
+
+    const tls_signature_and_hash_algorithm *server_sigalgs;
+    int num_server_sigalgs;
+    const tls_signature_and_hash_algorithm *client_sigalgs;
+    int num_client_sigalgs;
+
     // expected outputs of test case
     bool handshake_ok;
     int client_err;
@@ -90,6 +105,7 @@ typedef struct {
     int certificate_requested;
     uint16_t negotiated_ciphersuite;
     tls_protocol_version negotiated_version;
+    uint16_t negotiated_ec_curve;
     bool received_cert;
 } tls_test_case;
 
@@ -97,6 +113,7 @@ typedef struct _myFilterCtx {
     tls_test_case *test;
     bool server;
     tls_handshake_t filter;
+    tls_cache_t cache;
     dispatch_group_t group;
     dispatch_queue_t queue;
     dispatch_source_t timer;
@@ -108,6 +125,7 @@ typedef struct _myFilterCtx {
     int write_ready;
     bool peer_ocsp_enabled;
     bool bad_client_hello_size; // true if we sent a client hello with a bad size.
+    tls_buffer session_data; // resumed session data
     int err;
 } myFilterCtx_t;
 
@@ -195,7 +213,6 @@ tls_handshake_message_callback(tls_handshake_ctx_t ctx, tls_handshake_message_t 
     myFilterCtx_t *myCtx = (myFilterCtx_t *)ctx;
     int err = 0;
     tls_handshake_trust_t trust;
-    SecTrustRef trustRef = NULL;
 
     test_printf("%s: [%s] event = %d\n", __FUNCTION__, side(myCtx), event);
 
@@ -213,9 +230,8 @@ tls_handshake_message_callback(tls_handshake_ctx_t ctx, tls_handshake_message_t 
             require_noerr((err=tls_handshake_set_identity(myCtx->filter, myCtx->test->client_certs, myCtx->test->client_key)), errOut);
             break;
         case tls_handshake_message_certificate:
-            require_noerr((err = tls_create_peer_trust(myCtx->filter, &trustRef)), errOut);
-            if(trustRef && !myCtx->test->forget_to_set_pubkey) {
-                require_noerr((err = tls_set_peer_pubkey(myCtx->filter, trustRef)), errOut);
+            if(!myCtx->test->forget_to_set_pubkey) {
+                require_noerr((err = tls_helper_set_peer_pubkey(myCtx->filter)), errOut);
             }
             break;
         case tls_handshake_message_server_hello_done:
@@ -242,7 +258,6 @@ tls_handshake_message_callback(tls_handshake_ctx_t ctx, tls_handshake_message_t 
     }
 
 errOut:
-    CFReleaseSafe(trustRef);
     return err;
 }
 
@@ -384,8 +399,7 @@ tls_handshake_save_session_data_callback(tls_handshake_ctx_t ctx, tls_buffer ses
     test_printf("%s:[%s]\n", __FUNCTION__, side(myCtx));
 
     test_printf("%s:[%s] key=[%p,%zd] data=[%p,%zd]\n",__FUNCTION__, side(myCtx), sessionKey.data, sessionKey.length, sessionData.data, sessionData.length);
-
-    return sslAddSession(sessionKey, sessionData, 0);
+    return tls_cache_save_session_data(myCtx->cache, &sessionKey, &sessionData, 0);
 }
 
 static int
@@ -396,9 +410,15 @@ tls_handshake_load_session_data_callback(tls_handshake_ctx_t ctx, tls_buffer ses
     test_printf("%s:[%s]\n", __FUNCTION__, side(myCtx));
 
 
-    int err = sslGetSession(sessionKey, sessionData);
+    int err = tls_cache_load_session_data(myCtx->cache, &sessionKey, sessionData);
 
     test_printf("%s:[%s] key=[%p,%zd] data=[%p,%zd], err=%d\n", __FUNCTION__, side(myCtx), sessionKey.data, sessionKey.length, sessionData->data, sessionData->length, err);
+
+    // This may look weird: tls_cache_load_session_data() create a copy of the session data buffer, but coreTLS will not free it.
+    // We can't free here, because coreTLS will need it after we return, so we keep a reference to it, and free it when we destry the myFilterCtx_t.
+    // Secure Transport does the same thing. This issue is tracked by rdar://problem/16277298.
+    SSLFreeBuffer(&myCtx->session_data);
+    myCtx->session_data = *sessionData;
 
     return err;
 }
@@ -410,7 +430,7 @@ tls_handshake_delete_session_data_callback(tls_handshake_ctx_t ctx, tls_buffer s
 
     test_printf("%s:[%s]\n", __FUNCTION__, side(myCtx));
 
-    return sslDeleteSession(sessionKey);
+    return tls_cache_delete_session_data(myCtx->cache, &sessionKey);
 }
 
 static int
@@ -420,7 +440,7 @@ tls_handshake_delete_all_sessions_callback(tls_handshake_ctx_t ctx)
 
     test_printf("%s:[%s]\n", __FUNCTION__, side(myCtx));
 
-    return sslCleanupSession();
+    return -1;
 }
 
 static
@@ -447,8 +467,9 @@ typedef struct _CipherSuiteName {
 
 #define CIPHER(cipher) { cipher, #cipher},
 
+/* SSL ciphers: support SSLv3, support client auth */
 static const CipherSuiteName ssl_ciphers[] = {
-    //SSL_NULL_WITH_NULL_NULL, unsupported
+
     CIPHER(SSL_RSA_WITH_NULL_SHA)
     CIPHER(SSL_RSA_WITH_NULL_MD5)
     CIPHER(TLS_RSA_WITH_NULL_SHA256)
@@ -466,7 +487,7 @@ static const CipherSuiteName ssl_ciphers[] = {
 };
 static int n_ssl_ciphers = sizeof(ssl_ciphers)/sizeof(ssl_ciphers[0]);
 
-/* DH anon ciphers, don't support Client Auth */
+/* DH anon ciphers: support SSLv3, don't support Client Auth */
 static const CipherSuiteName anon_ciphers[] = {
     CIPHER(SSL_DH_anon_WITH_RC4_128_MD5)
     CIPHER(SSL_DH_anon_WITH_3DES_EDE_CBC_SHA)
@@ -475,8 +496,7 @@ static const CipherSuiteName anon_ciphers[] = {
 };
 static int n_anon_ciphers = sizeof(anon_ciphers)/sizeof(anon_ciphers[0]);
 
-
-/* PSK Ciphers, only supported in TLS, no client auth */
+/* PSK Ciphers: TLS only, no Client Auth */
 static const CipherSuiteName psk_ciphers[] = {
     CIPHER(TLS_PSK_WITH_AES_256_CBC_SHA384)
     CIPHER(TLS_PSK_WITH_AES_128_CBC_SHA256)
@@ -490,13 +510,20 @@ static const CipherSuiteName psk_ciphers[] = {
 };
 static int n_psk_ciphers = sizeof(psk_ciphers)/sizeof(psk_ciphers[0]);
 
-/* GCM Ciphers, only supported in TLS, do support client auth */
+/* GCM Ciphers: only supported in TLS 1.2, do support client auth */
 static const CipherSuiteName gcm_ciphers[] = {
     CIPHER(TLS_RSA_WITH_AES_256_GCM_SHA384)
     CIPHER(TLS_RSA_WITH_AES_128_GCM_SHA256)
+    CIPHER(TLS_DHE_RSA_WITH_AES_256_GCM_SHA384)
+    CIPHER(TLS_DHE_RSA_WITH_AES_128_GCM_SHA256)
+    CIPHER(TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384)
+    CIPHER(TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256)
+    CIPHER(TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384)
+    CIPHER(TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256)
 };
 static int n_gcm_ciphers = sizeof(gcm_ciphers)/sizeof(gcm_ciphers[0]);
-#if 1
+
+/* ECDHE ciphers: only supported in TLS, do support client auth */
 static const CipherSuiteName ecdhe_ciphers[] = {
     CIPHER(TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384)
     CIPHER(TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256)
@@ -506,26 +533,17 @@ static const CipherSuiteName ecdhe_ciphers[] = {
     CIPHER(TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA)
 };
 static int n_ecdhe_ciphers = sizeof(ecdhe_ciphers)/sizeof(ecdhe_ciphers[0]);
-#endif
 
-#if 0
-/* Unsupported cipher: EC (server side): */
-
-
-static const CipherSuiteName unsupported_ciphers[] = {
-
-    CIPHER(TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA)
-    CIPHER(TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA)
-
+/* ECDH anon ciphers: TLS only, don't support Client Auth */
+static const CipherSuiteName ecanon_ciphers[] = {
+    CIPHER(TLS_ECDH_anon_WITH_NULL_SHA)
+    CIPHER(TLS_ECDH_anon_WITH_RC4_128_SHA)
+    CIPHER(TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA)
     CIPHER(TLS_ECDH_anon_WITH_AES_128_CBC_SHA)
     CIPHER(TLS_ECDH_anon_WITH_AES_256_CBC_SHA)
-
-    CIPHER(TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256)
-    CIPHER(TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384)
-
 };
-static int n_unsupported_ciphers = sizeof(unsupported_ciphers)/sizeof(unsupported_ciphers[0]);
-#endif
+static int n_ecanon_ciphers = sizeof(ecanon_ciphers)/sizeof(ecanon_ciphers[0]);
+
 
 static int protos[]={
     tls_protocol_version_SSL_3,
@@ -537,6 +555,8 @@ static int protos[]={
 static int nprotos = sizeof(protos)/sizeof(protos[0]);
 
 static uint8_t shared_secret[] = "secret";
+
+static tls_cache_t g_cache; // Global TLS session cache
 
 static
 int init_context(myFilterCtx_t *c, bool server, const char *name, tls_test_case *test, dispatch_group_t group)
@@ -551,6 +571,7 @@ int init_context(myFilterCtx_t *c, bool server, const char *name, tls_test_case 
     require((c->queue=dispatch_queue_create(name, DISPATCH_QUEUE_SERIAL)), fail);
 
     require((c->filter=tls_handshake_create(false, server)), fail);
+    require((c->cache=g_cache), fail);
 
     require_noerr(tls_handshake_set_user_agent(c->filter, "tls_test"), fail);
 
@@ -568,6 +589,7 @@ int init_context(myFilterCtx_t *c, bool server, const char *name, tls_test_case 
             require_noerr(tls_set_encrypt_pubkey(c->filter, test->server_certs), fail);
         if(test->dh_parameters)
             require_noerr(tls_handshake_set_dh_parameters(c->filter, test->dh_parameters), fail);
+        require_noerr(tls_handshake_set_ems_enable(c->filter, test->server_extMS_enable), fail);
     } else {
         if(test->client_config)
             require_noerr(tls_handshake_set_config(c->filter, test->client_config), fail);
@@ -582,8 +604,10 @@ int init_context(myFilterCtx_t *c, bool server, const char *name, tls_test_case 
             require_noerr(tls_handshake_set_peer_hostname(c->filter, "localhost", strlen("localhost")), fail);
         }
         require_noerr(tls_handshake_set_sct_enable(c->filter, test->sct_enable), fail);
+        require_noerr(tls_handshake_set_fallback(c->filter, test->fallback), fail);
         if(test->min_dh_size)
             require_noerr(tls_handshake_set_min_dh_group_size(c->filter, test->min_dh_size), fail);
+        require_noerr(tls_handshake_set_ems_enable(c->filter, test->client_extMS_enable), fail);
     }
 
     require_noerr(tls_handshake_set_callbacks(c->filter,
@@ -624,6 +648,20 @@ int init_context(myFilterCtx_t *c, bool server, const char *name, tls_test_case 
 
     require_noerr(tls_handshake_set_resumption(c->filter, test->allow_resumption), fail);
 
+    if (server && test->num_server_ec_curves) {
+        require_noerr(tls_handshake_set_curves(c->filter, test->server_ec_curves, test->num_server_ec_curves), fail);
+    }
+    if (!server && test->num_client_ec_curves) {
+        require_noerr(tls_handshake_set_curves(c->filter, test->client_ec_curves, test->num_client_ec_curves), fail);
+    }
+
+    if (server && test->num_server_sigalgs) {
+        require_noerr(tls_handshake_set_sigalgs(c->filter, test->server_sigalgs, test->num_server_sigalgs), fail);
+    }
+    if (!server && test->num_client_sigalgs) {
+        require_noerr(tls_handshake_set_sigalgs(c->filter, test->client_sigalgs, test->num_client_sigalgs), fail);
+    }
+
     return 0;
 
 fail:
@@ -640,6 +678,7 @@ void clean_context(myFilterCtx_t *c)
             test_printf("%s: [%s] releasing timer [%p]\n", __FUNCTION__, side(c), c->timer);
             if(c->filter) tls_handshake_destroy(c->filter); c->filter = NULL;
             if(c->timer) dispatch_release(c->timer); c->timer = NULL;
+            SSLFreeBuffer(&c->session_data);
         });
 
         if(c->queue) dispatch_release(c->queue); c->queue = NULL;
@@ -666,11 +705,19 @@ static bool tls_buffer_list_equal(const tls_buffer_list_t *a, const tls_buffer_l
     }
 
     /* Is there still items in one of the list ? */
-    if(a && b) return false;
+    if(a || b) return false;
 
     return true;
 }
 
+const uint16_t anon_ciphersuites[] = {
+    TLS_ECDH_anon_WITH_AES_256_CBC_SHA,
+    TLS_ECDH_anon_WITH_AES_128_CBC_SHA,
+    TLS_DH_anon_WITH_AES_256_CBC_SHA256,
+    TLS_DH_anon_WITH_AES_256_CBC_SHA,
+    TLS_DH_anon_WITH_AES_128_CBC_SHA256,
+    TLS_DH_anon_WITH_AES_128_CBC_SHA,
+};
 
 const uint16_t default_ciphersuites[] = {
     TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
@@ -823,6 +870,7 @@ static bool test_ciphersuites(tls_test_case *test, bool server, const uint16_t *
                 expected_n = sizeof(ATSv1_noPFS_ciphersuites)/sizeof(uint16_t);
                 expected_ciphersuites = ATSv1_noPFS_ciphersuites;
                 break;
+            case tls_handshake_config_default:
             case tls_handshake_config_standard:
             case tls_handshake_config_TLSv1_fallback:
                 expected_n = sizeof(standard_ciphersuites)/sizeof(uint16_t);
@@ -835,9 +883,12 @@ static bool test_ciphersuites(tls_test_case *test, bool server, const uint16_t *
             case tls_handshake_config_RC4_fallback:
             case tls_handshake_config_TLSv1_RC4_fallback:
             case tls_handshake_config_legacy:
-            case tls_handshake_config_default:
                 expected_n = sizeof(default_ciphersuites)/sizeof(uint16_t);
                 expected_ciphersuites = default_ciphersuites;
+                break;
+            case tls_handshake_config_anonymous:
+                expected_n = sizeof(anon_ciphersuites)/sizeof(uint16_t);
+                expected_ciphersuites = anon_ciphersuites;
                 break;
             case tls_handshake_config_none:  /* none means custom, so always return true */
                 expected_n = n;
@@ -1075,9 +1126,37 @@ static int test_result(myFilterCtx_t *client, myFilterCtx_t *server)
             }
         }
 
+        /* EC curves */
+        uint16_t client_negotiated_ec_curve = tls_handshake_get_negotiated_curve(client->filter);
+        test_printf("client negotiated ec curve: %04x\n", client_negotiated_ec_curve);
+        uint16_t server_negotiated_ec_curve = tls_handshake_get_negotiated_curve(server->filter);
+        test_printf("server negotiated ciphersuite: %04x\n", server_negotiated_ec_curve);
+
+        if(client_negotiated_ec_curve != server_negotiated_ec_curve) {
+            fprintf(stderr, "client and server ec curves do not match. client=%04x, server=%04x\n", client_negotiated_ec_curve, server_negotiated_ec_curve);
+            err = -1;
+        } else if(test->negotiated_ec_curve && (client_negotiated_ec_curve != test->negotiated_ec_curve)) {
+            fprintf(stderr, "EC curve negotiated: %04x, expected %04x\n", client_negotiated_ec_curve, test->negotiated_ec_curve);
+            err = -1;
+        }
+
+
         /* Client Auth (TODO) */
         if(test->request_client_auth) {
 
+        }
+
+        /* Extended Master Secret */
+        if (test->client_extMS_enable && test->server_extMS_enable) {
+            if (!tls_handshake_get_negotiated_ems(client->filter) || !tls_handshake_get_negotiated_ems(server->filter)) {
+                fprintf(stderr, "extended master secret should have been used\n");
+                err = -1;
+            }
+        } else {
+            if (tls_handshake_get_negotiated_ems(client->filter) || tls_handshake_get_negotiated_ems(server->filter)) {
+                fprintf(stderr, "Unexpected: extended master secret should NOT have been used\n");
+                err = -1;
+            }
         }
 
     } else {
@@ -1319,8 +1398,6 @@ static void resumption_tests(const CipherSuiteName *ciphers, size_t n_ciphers, i
 
     int i, j, err;
 
-    sslCleanupSession();
-
     for(i=0; i<n_ciphers; i++) {
         // Skip SSL3 for tls only ciphers:
         for(j=min_proto; j<nprotos; j++) {
@@ -1334,6 +1411,14 @@ static void resumption_tests(const CipherSuiteName *ciphers, size_t n_ciphers, i
             test.session_id = (ciphers[i].cipher<<8 | j) + 1;
             test.server_certs = server_cert_for_cipher(ciphers[i].cipher);
             test.server_key = server_key_for_cipher(ciphers[i].cipher);
+            // Extended master secret not supported for ssl3
+            if (j > 0) {
+                test.server_extMS_enable = true;
+                test.client_extMS_enable = true;
+            } else {
+                test.server_extMS_enable = false;
+                test.client_extMS_enable = false;
+            }
 
             // expected outputs of test case
             test.handshake_ok = true;
@@ -1378,7 +1463,7 @@ static void resumption_mismatch_tests(void)
     uint16_t cipherA = TLS_RSA_WITH_AES_128_CBC_SHA;
     uint16_t cipherB = TLS_RSA_WITH_AES_256_CBC_SHA;
 
-    sslCleanupSession();
+    tls_cache_empty(g_cache);
 
     // Case 0: Attempt to resume a TLS 1.2 connection with TLS 1.0.
     // Case 1: Attempt to resume a cipherA connection with cipherB.
@@ -1909,7 +1994,6 @@ static uint8_t dummy_data[] = {
     0x9d, 0x97, 0x11, 0x81, 0x14, 0x61, 0xbb, 0x02, 0x01, 0x01, 0xa1, 0x11,
 };
 
-
 static tls_buffer g_ocsp_request_extension = {
     .data = dummy_data,
     .length = sizeof(dummy_data),
@@ -1921,13 +2005,14 @@ static tls_buffer_list_t g_ocsp_responder_id_list = {
     .buffer.length = sizeof(dummy_data),
 };
 
-
 static void ocsp_tests(void)
 {
     tls_test_case test = {0,};
     int err;
 
     uint16_t cipher = TLS_RSA_WITH_AES_128_CBC_SHA;
+
+    tls_cache_empty(g_cache);
 
     for(int i=0;i<4;i++) {
         test.client_protocol_min = tls_protocol_version_TLS_1_2;
@@ -1936,8 +2021,6 @@ static void ocsp_tests(void)
         test.server_protocol_max = tls_protocol_version_TLS_1_2;
         test.ciphersuites = &cipher;
         test.num_ciphersuites = 1;
-        test.allow_resumption = false;
-        test.session_id = 0;
         test.server_certs = &g_server_cert;
         test.server_key = g_server_key;
         test.client_certs = &g_client_cert;
@@ -1948,20 +2031,33 @@ static void ocsp_tests(void)
         test.ocsp_responder_id_list = &g_ocsp_responder_id_list;
         test.client_ocsp_enable = i&0x1;
         test.server_ocsp_enable = i&0x2;
+        test.allow_resumption = true;
+        test.session_id = i + 1;
 
         // expected outputs of test case
         test.handshake_ok = true;
         test.client_err = 0;
         test.server_err = 0;
-        test.is_session_resumed = false;
         test.certificate_requested = 0;
         test.negotiated_ciphersuite = cipher;
         test.negotiated_version = tls_protocol_version_TLS_1_2;
+
+        test.is_session_resumption_proposed = false; // First one should not propose resumption
+        test.is_session_resumed = false; // First one should not be a resumption
 
         test_log_start();
         test_printf("Test case oscp %d\n", i );
         err = test_one_case(&test);
         ok(!err, "Test case ocsp %d - err=%d", i, err);
+        test_log_end(err);
+
+        test.is_session_resumption_proposed = true; // Second one should propose resumption
+        test.is_session_resumed = true; // Second one should be a resumption
+
+        test_log_start();
+        test_printf("Test case oscp %d (resumed)\n", i );
+        err = test_one_case(&test);
+        ok(!err, "Test case ocsp %d (resumed) - err=%d", i, err);
         test_log_end(err);
     }
 
@@ -2122,6 +2218,8 @@ static void sct_tests(void)
 
     uint16_t cipher = TLS_RSA_WITH_AES_128_CBC_SHA;
 
+    tls_cache_empty(g_cache);
+
     for(int i=0;i<4;i++) {
         test.client_protocol_min = tls_protocol_version_TLS_1_2;
         test.client_protocol_max = tls_protocol_version_TLS_1_2;
@@ -2138,15 +2236,28 @@ static void sct_tests(void)
         test.handshake_ok = true;
         test.client_err = 0;
         test.server_err = 0;
-        test.is_session_resumed = false;
         test.certificate_requested = 0;
         test.negotiated_ciphersuite = cipher;
         test.negotiated_version = tls_protocol_version_TLS_1_2;
+        test.allow_resumption = true;
+        test.session_id = i + 1;
+
+        test.is_session_resumption_proposed = false; // First one should not propose resumption
+        test.is_session_resumed = false; // First one should not be a resumption
 
         test_log_start();
         test_printf("Test case sct %d\n", i );
         err = test_one_case(&test);
         ok(!err, "Test case sct %d - err=%d", i, err);
+        test_log_end(err);
+
+        test.is_session_resumption_proposed = true; // Second one should propose resumption
+        test.is_session_resumed = true; // Second one should be a resumption
+
+        test_log_start();
+        test_printf("Test case sct %d (resumed)\n", i );
+        err = test_one_case(&test);
+        ok(!err, "Test case sct %d (resumed) - err=%d", i, err);
         test_log_end(err);
     }
     
@@ -2182,7 +2293,7 @@ static void negotiated_version_tests(void)
 
 
         /* expected results : */
-        actual_client_min = (test.client_protocol_min==0)?tls_protocol_version_SSL_3:test.client_protocol_min;
+        actual_client_min = (test.client_protocol_min==0)?tls_protocol_version_TLS_1_0:test.client_protocol_min;
         actual_server_min = (test.server_protocol_min==0)?tls_protocol_version_TLS_1_0:test.server_protocol_min;
         actual_client_max = (test.client_protocol_max==0)?tls_protocol_version_TLS_1_2:test.client_protocol_max;
         actual_server_max = (test.server_protocol_max==0)?tls_protocol_version_TLS_1_2:test.server_protocol_max;
@@ -2686,7 +2797,7 @@ static void config_tests(void)
     int err;
     int i;
 
-    for(i=0; i<=tls_handshake_config_legacy_DHE; i++)
+    for(i=0; i<=tls_handshake_config_anonymous; i++)
     {
         test.client_config = i;
         test.server_config = i;
@@ -2706,23 +2817,377 @@ static void config_tests(void)
     }
 }
 
+/* EC Curves server supports */
+uint16_t serverCurves[] = {
+    tls_curve_secp256r1,
+    tls_curve_secp384r1,
+    tls_curve_secp521r1
+};
+static int serverCurvesCount = sizeof(serverCurves)/sizeof(serverCurves[0]);
+
+/* EC Curves client supports */
+uint16_t ecCurves1[] = {
+    tls_curve_secp256r1,
+    tls_curve_secp384r1,
+    tls_curve_secp521r1
+};
+static int n_ecCurves1 = sizeof(ecCurves1)/sizeof(ecCurves1[0]);
+uint16_t ecCurves2[] = {
+    tls_curve_secp384r1,
+    tls_curve_secp521r1
+};
+static int n_ecCurves2 = sizeof(ecCurves2)/sizeof(ecCurves2[0]);
+uint16_t ecCurves3[] = {
+    tls_curve_sect193r1
+};
+static int n_ecCurves3 = sizeof(ecCurves3)/sizeof(ecCurves3[0]);
+
+static void ec_curves_tests(const uint16_t *clientCurves, int clientCurvesCount, int negotiated_ec_curve)
+{
+    tls_test_case test = {0,};
+    int err;
+
+    uint16_t cipher = TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384;
+
+    test.client_protocol_min = tls_protocol_version_TLS_1_2;
+    test.client_protocol_max = tls_protocol_version_TLS_1_2;
+    test.server_protocol_min = tls_protocol_version_TLS_1_2;
+    test.server_protocol_max = tls_protocol_version_TLS_1_2;
+    test.ciphersuites = &cipher;
+    test.num_ciphersuites = 1;
+    test.server_certs = &g_server_ecdsa_cert;
+    test.server_key = g_server_ecdsa_key;
+    test.client_certs = &g_client_cert;
+    test.client_key = g_client_key;
+    test.server_ec_curves = serverCurves;
+    test.num_server_ec_curves = serverCurvesCount;
+    test.client_ec_curves = clientCurves;
+    test.num_client_ec_curves = clientCurvesCount;
+
+    // expected outputs of test case
+    if (negotiated_ec_curve == tls_curve_none) {
+        test.handshake_ok = false;
+    } else {
+        test.handshake_ok = true;
+        test.client_err = 0;
+        test.server_err = 0;
+        test.certificate_requested = 0;
+        test.negotiated_ec_curve = negotiated_ec_curve;
+    }
+
+    test_log_start();
+    test_printf("Test case: negotiated ec curves \n");
+    err = test_one_case(&test);
+    ok(!err, "Test case: negotiated ec curves");
+    test_log_end(err);
+}
+
+//
+// MARK: RSA ciphersuite + EC key
+//
+
+static void ciphersuite_key_mismatch_test(void)
+{
+    tls_test_case test = {0,};
+    int err;
+
+    uint16_t cipher = TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384;
+
+    test.client_protocol_min = tls_protocol_version_TLS_1_2;
+    test.client_protocol_max = tls_protocol_version_TLS_1_2;
+    test.server_protocol_min = tls_protocol_version_TLS_1_2;
+    test.server_protocol_max = tls_protocol_version_TLS_1_2;
+    test.ciphersuites = &cipher;
+    test.num_ciphersuites = 1;
+    test.server_certs = &g_server_ecdsa_cert;
+    test.server_key = g_server_ecdsa_key;
+    test.client_certs = &g_client_cert;
+    test.client_key = g_client_key;
+
+    test.handshake_ok = false;
+
+    test_log_start();
+    test_printf("Test case: ciphersuite_key_mismatch_test\n");
+    err = test_one_case(&test);
+    ok(!err, "Test case: ciphersuite_key_mismatch_test");
+    test_log_end(err);
+}
+
+//
+// MARK: SigAlgs
+//
+
+static tls_signature_and_hash_algorithm sigAlgs[] = {
+    {tls_hash_algorithm_SHA1,   tls_signature_algorithm_RSA},
+    {tls_hash_algorithm_SHA256, tls_signature_algorithm_RSA},
+    {tls_hash_algorithm_SHA384, tls_signature_algorithm_RSA},
+    {tls_hash_algorithm_SHA512, tls_signature_algorithm_RSA},
+    {tls_hash_algorithm_SHA1,   tls_signature_algorithm_ECDSA},
+    {tls_hash_algorithm_SHA256, tls_signature_algorithm_ECDSA},
+    {tls_hash_algorithm_SHA384, tls_signature_algorithm_ECDSA},
+    {tls_hash_algorithm_SHA512, tls_signature_algorithm_ECDSA},
+};
+static int n_sigAlgs = sizeof(sigAlgs)/sizeof(sigAlgs[0]);
+
+static void sigalgs_tests(void)
+{
+    tls_test_case test = {0,};
+    int err;
+    uint16_t cipher;
+
+    for(int i=0;i<n_sigAlgs;i++)
+    {
+        switch(sigAlgs[i].signature) {
+            case tls_signature_algorithm_RSA:
+                cipher = TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384;
+                test.server_certs = &g_server_cert;
+                test.server_key = g_server_key;
+                test.client_certs = &g_client_cert;
+                test.client_key = g_client_key;
+                break;
+            case tls_signature_algorithm_ECDSA:
+                cipher = TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384;
+                test.server_certs = &g_server_ecdsa_cert;
+                test.server_key = g_server_ecdsa_key;
+                test.client_certs = &g_server_ecdsa_cert;
+                test.client_key = g_server_ecdsa_key;
+                break;
+            default:
+                assert(0);
+                break;
+        }
+
+        test.client_protocol_min = tls_protocol_version_TLS_1_2;
+        test.client_protocol_max = tls_protocol_version_TLS_1_2;
+        test.server_protocol_min = tls_protocol_version_TLS_1_2;
+        test.server_protocol_max = tls_protocol_version_TLS_1_2;
+        test.ciphersuites = &cipher;
+        test.num_ciphersuites = 1;
+        test.server_sigalgs = &sigAlgs[i];
+        test.num_server_sigalgs = 1;
+        test.client_sigalgs = &sigAlgs[i];
+        test.num_client_sigalgs = 1;
+        test.request_client_auth = true;
+
+        // expected outputs of test case
+        test.handshake_ok = true;
+        test.client_err = 0;
+        test.server_err = 0;
+        test.certificate_requested = 1;
+
+
+        test_log_start();
+        test_printf("Test case: sigalgs (%d)\n", i);
+        err = test_one_case(&test);
+        ok(!err, "Test case: siglags (%d)", i);
+        test_log_end(err);
+    }
+
+}
+
+static void fallback_tests(void)
+{
+    tls_test_case test = {0,};
+    int err;
+
+    uint16_t cipher = SSL_RSA_WITH_RC4_128_SHA;
+
+    for(int i=0;i<nprotos-1;i++)
+        for(int j=0;j<nprotos-1;j++) {
+            test.client_protocol_min = tls_protocol_version_SSL_3;
+            test.client_protocol_max = protos[i];
+            test.server_protocol_min = tls_protocol_version_SSL_3;
+            test.server_protocol_max = protos[j];
+            test.ciphersuites = &cipher;
+            test.num_ciphersuites = 1;
+            test.server_certs = &g_server_cert;
+            test.server_key = g_server_key;
+            test.client_certs = &g_client_cert;
+            test.client_key = g_client_key;
+            test.fallback = true;
+
+            if(test.client_protocol_max < test.server_protocol_max) {
+                test.handshake_ok = false;
+            } else {
+                test.handshake_ok = true;
+            }
+            test.client_err = 0;
+            test.server_err = 0;
+            test.is_session_resumed = false;
+            test.certificate_requested = 0;
+            test.negotiated_ciphersuite = SSL_RSA_WITH_RC4_128_SHA;
+
+            test_log_start();
+            test_printf("Test case: fallback (%d, %d)\n", i, j);
+            err = test_one_case(&test);
+            ok(!err, "Test case: fallback (%d, %d)", i, j);
+            test_log_end(err);
+        }
+}
+
+static void extended_master_secret_tests(void)
+{
+    tls_test_case test = {0,};
+    int err;
+    int i, j;
+
+    uint16_t cipher = TLS_RSA_WITH_AES_128_CBC_SHA;
+
+    for (i = 0; i < 4; i++) {
+        for(j=1; j<nprotos; j++) {
+            test.client_protocol_min = protos[j];
+            test.client_protocol_max = protos[j];
+            test.server_protocol_min = protos[j];
+            test.server_protocol_max = protos[j];
+            test.ciphersuites = &cipher;
+            test.num_ciphersuites = 1;
+            test.allow_resumption = true;
+            test.session_id = 0;
+            test.server_certs = &g_server_cert;
+            test.server_key = g_server_key;
+            test.client_certs = &g_client_cert;
+            test.client_key = g_client_key;
+
+            test.client_extMS_enable = i&0x1;
+            test.server_extMS_enable = i&0x2;
+
+            // expected outputs of test case
+            test.handshake_ok = true;
+            test.client_err = 0;
+            test.server_err = 0;
+            test.is_session_resumed = false;
+            test.certificate_requested = 0;
+            test.negotiated_ciphersuite = cipher;
+            test.negotiated_version = protos[j];
+
+            test_log_start();
+            test_printf("Test case extended master secret %d (%04x)\n", i, j );
+            err = test_one_case(&test);
+            ok(!err, "Test case extended master secret %d (%04x)- err=%d", i, j, err);
+            test_log_end(err);
+        }
+    }
+}
+
+static void extended_master_secret_resumption_tests(void)
+{
+    tls_test_case test = {0,};
+    int err;
+    int i;
+
+    uint16_t cipher = TLS_RSA_WITH_AES_128_CBC_SHA;
+    test.client_protocol_min = tls_protocol_version_TLS_1_2;
+    test.client_protocol_max = tls_protocol_version_TLS_1_2;
+    test.server_protocol_min = tls_protocol_version_TLS_1_2;
+    test.server_protocol_max = tls_protocol_version_TLS_1_2;
+    test.ciphersuites = &cipher;
+    test.num_ciphersuites = 1;
+    test.allow_resumption = true;
+    test.server_certs = &g_server_cert;
+    test.server_key = g_server_key;
+    test.client_certs = &g_client_cert;
+    test.client_key = g_client_key;
+
+    for (i = 0; i < 2; i++) {
+        test.session_id = (cipher<<8 | i) + 1;
+        test.server_extMS_enable = true;
+        test.client_extMS_enable = i;
+
+        // expected outputs of test case
+        test.handshake_ok = true;
+        test.client_err = 0;
+        test.server_err = 0;
+        test.is_session_resumed = false; // First one should not be a resumption
+        test.certificate_requested = 0;
+        test.negotiated_ciphersuite = cipher;
+        if (test.client_extMS_enable)
+            test.is_session_resumption_proposed = false;
+        else
+            test.is_session_resumption_proposed = false;
+
+        test_log_start();
+        test_printf("Extended master secret Resumption - 1st connection client: %d server: 1\n", i);
+        err = test_one_case(&test);
+        ok(!err, "Extended master secret Resumption - 1st connection client: %d server: 1 - err=%d", i, err);
+        test_log_end(err);
+
+        test.is_session_resumed = false; // Second one should be a resumption
+        test.client_extMS_enable = !i;
+        if (test.client_extMS_enable) {
+            test.handshake_ok = true;
+            test.is_session_resumption_proposed = true;
+        } else {
+            test.handshake_ok = false;
+            test.is_session_resumption_proposed = false;
+        }
+
+        test_log_start();
+        test_printf("Extended master secret Resumption - 2nd connection client: %d server: 1\n", !i);
+        err = test_one_case(&test);
+        ok(!err, "Extended master secret Resumption - 2nd connection client: %d server: 1 - err=%d", !i, err);
+        test_log_end(err);
+    }
+    for (i = 0; i < 2; i++) {
+        test.session_id = i+1;
+        test.client_extMS_enable = true;
+        test.server_extMS_enable = i;
+
+        // expected outputs of test case
+        test.handshake_ok = true;
+        test.client_err = 0;
+        test.server_err = 0;
+        test.is_session_resumed = false; // First one should not be a resumption
+        test.certificate_requested = 0;
+        test.negotiated_ciphersuite = cipher;
+        if (test.server_extMS_enable)
+            test.is_session_resumption_proposed = false;
+        else
+            test.is_session_resumption_proposed = false;
+
+        test_log_start();
+        test_printf("Extended master secret Resumption - 1st connection client: 1 server: %d\n", i);
+        err = test_one_case(&test);
+        ok(!err, "Extended master secret Resumption - 1st connection client: 1 server: %d - err=%d", i, err);
+        test_log_end(err);
+
+        test.is_session_resumed = false; // Second one should be a resumption
+        test.server_extMS_enable = !i;
+        if (test.server_extMS_enable) {
+            test.handshake_ok = true;
+            test.is_session_resumption_proposed = true;
+        } else {
+            test.handshake_ok = false;
+            test.is_session_resumption_proposed = false;
+        }
+
+        test_log_start();
+        test_printf("Extended master secret Resumption - 2nd connection client: 1 server: %d\n", !i);
+        err = test_one_case(&test);
+        ok(!err, "Extended master secret Resumption - 2nd connection client: 1 server: %d - err=%d", !i, err);
+        test_log_end(err);
+    }
+
+}
+
 //
 // MARK: main
 //
 
 int tls_02_self(int argc, char * const argv[])
 {
-    plan_tests(4 // init_*_keys
+    plan_tests(5 // init_*_keys + init cache
                + n_ssl_ciphers*nprotos*2      // good tests (ssl)
                + n_anon_ciphers*nprotos       // good tests (anon)
                + n_psk_ciphers*(nprotos-1)    // good tests (psk)
-               + n_gcm_ciphers*(nprotos-2)*2  // good tests (gcm)
+               + n_gcm_ciphers*(nprotos-3)*2  // good tests (gcm)
                + n_ecdhe_ciphers*(nprotos-1)*2  // good tests (ecdhe)
+               + n_ecanon_ciphers*(nprotos-1) // good tests (ecanon)
                + n_ssl_ciphers*nprotos*2      // resumption tests (ssl)
                + n_anon_ciphers*nprotos*2     // resumption tests (anon)
                + n_psk_ciphers*(nprotos-1)*2  // resumption tests (psk)
-               + n_gcm_ciphers*(nprotos-2)*2  // resumption tests (gcm)
+               + n_gcm_ciphers*(nprotos-3)*2  // resumption tests (gcm)
                + n_ecdhe_ciphers*(nprotos-1)*2  // resumption tests (ecdhe)
+               + n_ecanon_ciphers*(nprotos-1)*2 // resumption tests (ecanon)
                + 4 // ciphersuites test
                + 8 // renegotiation_tests
                + ntrust_values*3 //trust_tests + client_auth_trust_tests
@@ -2730,8 +3195,8 @@ int tls_02_self(int argc, char * const argv[])
                + 4 //corrupted_cert_len_tests
                + 1 //goto_fail test
                + 1 //cert_mismatch test
-               + 4 // ocsp tests
-               + 4 // sct tests
+               + 8 // ocsp tests
+               + 8 // sct tests
                + nprotos*nprotos*nprotos*nprotos // negotiated_version tests
                + 7 // version tolerance tests
                + 1 // dtls test
@@ -2742,7 +3207,13 @@ int tls_02_self(int argc, char * const argv[])
                + 1 // forget_pubkey_test
                + 4 // resumption_mismatch_test
                + 20 // dhe size tests
-               + 9 // config tests
+               + 10 // config tests
+               + 3 // ec curves test
+               + 1 // ciphersuite_key_mismatch_test
+               + n_sigAlgs // sigalgs test
+               + (nprotos-1)*(nprotos-1) //fallback test
+               + 4*(nprotos-1) //extended master secret tests
+               + 8
                );
 
     int err;
@@ -2767,7 +3238,6 @@ int tls_02_self(int argc, char * const argv[])
                            server_D_cert_data, sizeof(server_D_cert_data),
                            server_D_key_data, sizeof(server_D_key_data),
                            &g_server_D_cert, &g_server_D_key);
-
     ok(!err, "init server D keys()");
     if(err) return 0;
 
@@ -2776,10 +3246,12 @@ int tls_02_self(int argc, char * const argv[])
                            eccert_der, eccert_der_len,
                            eckey_der, eckey_der_len,
                            &g_server_ecdsa_cert, &g_server_ecdsa_key);
-    
-
     ok(!err, "init server ECDSA keys()");
     if(err) return 0;
+
+    g_cache = tls_cache_create();
+    ok(g_cache, "init session cache");
+    if(!g_cache) return 0;
 
     good_tests(ssl_ciphers, n_ssl_ciphers, 0, false);
     good_tests(ssl_ciphers, n_ssl_ciphers, 0, true);
@@ -2789,11 +3261,13 @@ int tls_02_self(int argc, char * const argv[])
     good_tests(gcm_ciphers, n_gcm_ciphers, 3, true);
     good_tests(ecdhe_ciphers, n_ecdhe_ciphers, 1, false);
     good_tests(ecdhe_ciphers, n_ecdhe_ciphers, 1, true);
+    good_tests(ecanon_ciphers, n_ecanon_ciphers, 1, false);
     resumption_tests(ssl_ciphers, n_ssl_ciphers, 0);
     resumption_tests(anon_ciphers, n_anon_ciphers, 0);
     resumption_tests(psk_ciphers, n_psk_ciphers, 1);
     resumption_tests(gcm_ciphers, n_gcm_ciphers, 3);
     resumption_tests(ecdhe_ciphers, n_ecdhe_ciphers, 1);
+    resumption_tests(ecanon_ciphers, n_ecanon_ciphers, 1);
 
     ciphersuites_tests();
     renegotiation_tests();
@@ -2816,11 +3290,21 @@ int tls_02_self(int argc, char * const argv[])
     resumption_mismatch_tests();
     min_dh_size_test();
     config_tests();
+    ec_curves_tests(ecCurves1, n_ecCurves1, tls_curve_secp256r1);
+    ec_curves_tests(ecCurves2, n_ecCurves2, tls_curve_secp384r1);
+    ec_curves_tests(ecCurves3, n_ecCurves3, tls_curve_none);
+    ciphersuite_key_mismatch_test();
+    sigalgs_tests();
+    fallback_tests();
 
+    extended_master_secret_tests();
+    extended_master_secret_resumption_tests();
     clean_server_keys(g_server_key);
     clean_server_keys(g_client_key);
     clean_server_keys(g_server_D_key);
     clean_server_keys(g_server_ecdsa_key);
+
+    tls_cache_destroy(g_cache);
 
     return 0;
 }

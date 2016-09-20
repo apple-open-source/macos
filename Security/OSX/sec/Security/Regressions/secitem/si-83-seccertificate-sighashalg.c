@@ -9,12 +9,11 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecCertificatePriv.h>
-#include <Security/SecCertificateInternal.h>
 #include <utilities/SecCFWrappers.h>
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "Security_regressions.h"
+#include "shared_regressions.h"
 
 /* prototypes */
 int si_83_seccertificate_sighashalg(int argc, char *const *argv);

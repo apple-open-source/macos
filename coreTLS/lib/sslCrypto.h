@@ -38,9 +38,9 @@ extern "C" {
 #include <corecrypto/ccec.h>
 
 
-int sslDhCreateKey(ccdh_const_gp_t params, ccdh_full_ctx_in_t *dhKey);
-int sslDhExportPub(ccdh_full_ctx_in_t dhKey, tls_buffer *pubKey);
-int sslDhKeyExchange(ccdh_full_ctx_in_t dhKey, const tls_buffer *dhPeerPublic, tls_buffer *preMasterSecret);
+int sslDhCreateKey(ccdh_const_gp_t params, ccdh_full_ctx_t *dhKey);
+int sslDhExportPub(ccdh_full_ctx_t dhKey, tls_buffer *pubKey);
+int sslDhKeyExchange(ccdh_full_ctx_t dhKey, const tls_buffer *dhPeerPublic, tls_buffer *preMasterSecret);
 
 int sslDecodeDhParams(
 	ccdh_const_gp_t params,			/* Input - corecrypto object */
@@ -53,9 +53,9 @@ int sslEncodeDhParams(
     const tls_buffer		*generator);    /* Input - wire format */
 
 
-int sslEcdhCreateKey(ccec_const_cp_t cp, ccec_full_ctx_in_t *ecdhKey);
-int sslEcdhExportPub(ccec_full_ctx_in_t ecdhKey, tls_buffer *pubKey);
-int sslEcdhKeyExchange(ccec_full_ctx_in_t ecdhKey, ccec_pub_ctx_in_t ecdhPeerPublic, tls_buffer *preMasterSecret);
+int sslEcdhCreateKey(ccec_const_cp_t cp, ccec_full_ctx_t *ecdhKey);
+int sslEcdhExportPub(ccec_full_ctx_t ecdhKey, tls_buffer *pubKey);
+int sslEcdhKeyExchange(ccec_full_ctx_t ecdhKey, ccec_pub_ctx_t ecdhPeerPublic, tls_buffer *preMasterSecret);
 
 
 int sslRand(tls_buffer *buf);

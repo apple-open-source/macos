@@ -169,6 +169,7 @@ versionerdir:
 	install -d $(DSTROOT)$(VERSIONERDIR)
 	install -m 0644 $(VERSIONER_C) $(DSTROOT)$(VERSIONERDIR)
 	install -d $(DSTROOT)$(VERSIONERDIR)/$(Project)/fix
+	cd $(FIX) && chmod g-w $(VERSIONERFIX)
 	cd $(FIX) && rsync -pt $(VERSIONERFIX) $(DSTROOT)$(VERSIONERDIR)/$(Project)/fix
 	echo DEFAULT = $(DEFAULT) > $(DSTROOT)$(VERSIONVERSIONS)
 	for vers in $(KNOWNVERSIONS); do \

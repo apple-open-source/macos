@@ -53,6 +53,7 @@ enum {
     kIOPMPowerEventsMIGCopyScheduledEvents          = 4,
     kIOPMPowerEventsMIGCopyRepeatEvents             = 5,
     kIOPMAssertionMIGCopyByType                     = 6,
+    kIOPMAssertionMIGCopyInactive                   = 7,
 };
 
 /*
@@ -63,5 +64,31 @@ enum {
     kIOPMAssertionMIGDoRetain                       = 1,
     kIOPMAssertionMIGDoRelease                      = -1
 };
+
+/*
+ * XPC based messaging keys
+ */
+
+#define kMsgReturnCode              "returnCode"
+#define kClaimSystemWakeEvent       "claimSystemWakeEvent"
+
+#define kUserActivityRegister           "userActivityRegister"
+#define kUserActivityTimeoutUpdate      "userActivityTimeout"
+
+#define kUserActivityTimeoutKey     "ActivityTimeout"
+#define kUserActivityLevels         "UserActivityLevels"
+
+#define kAssertionCreateMsg         "assertionCreate"
+#define kAssertionReleaseMsg        "assertionRelease"
+#define kAssertionPropertiesMsg     "assertionProperties"
+#define kAssertionCheckMsg          "assertionCheck"
+#define kAssertionTimeoutMsg        "assertionTimeout"
+
+#define kAssertionDetailsKey        "assertionDictonary"
+#define kAssertionIdKey             "assertionId"
+#define kAssertionReleaseDateKey    "assertioReleaseDate"
+#define kAssertionEnTrIntensityKey  "EnTrIntensity"
+#define kAssertionCheckTokenKey     "assertionCheckToken"
+#define kAssertionCheckCountKey     "assertionCheckCount"
 
 #endif

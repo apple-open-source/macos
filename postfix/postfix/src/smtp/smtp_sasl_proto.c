@@ -138,7 +138,7 @@ void    smtp_sasl_helo_auth(SMTP_SESSION *session, const char *words)
 	session->sasl_mechanism_list = mystrdup(mech_list);
     } else {
 	msg_warn(*words ? "%s offered no supported AUTH mechanisms: '%s'" :
-		 "%s offered null AUTH mechanism list",
+		 "%s offered null AUTH mechanism list%s",
 		 session->namaddrport, words);
     }
     session->features |= SMTP_FEATURE_AUTH;
@@ -177,15 +177,16 @@ int     smtp_sasl_helo_login(SMTP_STATE *state)
 	/* Session reuse is disabled. */
     } else {
 #ifndef USE_TLS
-	smtp_sasl_start(session, SMTP_X(SASL_OPTS), var_smtp_sasl_opts);
+	smtp_sasl_start(session, VAR_LMTP_SMTP(SASL_OPTS), var_smtp_sasl_opts);
 #else
 	if (session->tls_context == 0)
-	    smtp_sasl_start(session, SMTP_X(SASL_OPTS), var_smtp_sasl_opts);
+	    smtp_sasl_start(session, VAR_LMTP_SMTP(SASL_OPTS),
+			    var_smtp_sasl_opts);
 	else if (TLS_CERT_IS_MATCHED(session->tls_context))
-	    smtp_sasl_start(session, SMTP_X(SASL_TLSV_OPTS),
+	    smtp_sasl_start(session, VAR_LMTP_SMTP(SASL_TLSV_OPTS),
 			    var_smtp_sasl_tlsv_opts);
 	else
-	    smtp_sasl_start(session, SMTP_X(SASL_TLS_OPTS),
+	    smtp_sasl_start(session, VAR_LMTP_SMTP(SASL_TLS_OPTS),
 			    var_smtp_sasl_tls_opts);
 #endif
 	if (smtp_sasl_authenticate(session, why) <= 0) {

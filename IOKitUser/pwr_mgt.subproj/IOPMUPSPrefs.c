@@ -29,9 +29,8 @@
 #include <IOKit/IOReturn.h>
 
 #include "IOPMUPSPrivate.h"
+#include "IOPMLibPrivate.h"
 
-#define kIOPMPrefsPath			    CFSTR("com.apple.PowerManagement.xml")
-#define kIOPMAppName			    CFSTR("I/O Kit PM Library")
 
 
 static bool 
@@ -123,49 +122,11 @@ _mergeUnspecifiedUPSThresholds(
     return;
 }
 
-#if 0
-static void    
-_removeUnsupportedUPSThresholds(
-    CFTypeRef whichUPS __unused, 
-    CFMutableDictionaryRef ret_dict)
-{
-    CFTypeRef                   snap;
-    CFTypeRef                   our_favorite_ups;
-    CFDictionaryRef             description;
-
-    snap = IOPSCopyPowerSourcesInfo();
-    if(!snap) return;
-    our_favorite_ups = IOPSGetActiveUPS(snap);
-    if(!our_favorite_ups) goto exit;
-
-    description = IOPSGetPowerSourceDescription(snap, our_favorite_ups);
-    if(!description) goto exit;
-    
-    // does this UPS report its battery capacity?
-    if( !CFDictionaryGetValue(description, CFSTR(kIOPSCurrentCapacityKey))
-        || !CFDictionaryGetValue(description, CFSTR(kIOPSMaxCapacityKey)) )
-    {
-        CFDictionaryRemoveValue(ret_dict, CFSTR(kIOUPSShutdownAtLevelKey));
-    }
-
-    // does this UPS report a time remaining?
-    if( !CFDictionaryGetValue(description, CFSTR(kIOPSTimeToEmptyKey))
-        && !CFDictionaryGetValue(description, CFSTR(kIOPSTimeToFullChargeKey)) )
-    {
-        CFDictionaryRemoveValue(ret_dict, CFSTR(kIOUPSShutdownAtMinutesLeft));
-    }
-
-exit:
-    CFRelease(snap);
-    return;
-}
-#endif
 
 extern IOReturn 
 IOPMSetUPSShutdownLevels(CFTypeRef whichUPS, CFDictionaryRef UPSPrefs)
 {
-    IOReturn                    ret = kIOReturnSuccess;
-    SCPreferencesRef            prefs_file = NULL;
+    bool    hasUPS = false;
     
     if( (!UPSPrefs || !_validUPSShutdownSettings(UPSPrefs)) || 
         (!whichUPS || !_validUPSIdentifier(whichUPS)) )
@@ -173,36 +134,14 @@ IOPMSetUPSShutdownLevels(CFTypeRef whichUPS, CFDictionaryRef UPSPrefs)
         return kIOReturnBadArgument;
     }
 
-    prefs_file = SCPreferencesCreate( kCFAllocatorDefault, kIOPMAppName, kIOPMPrefsPath );
-    if(!prefs_file) return kIOReturnError;
-
-    if(!SCPreferencesSetValue(prefs_file, whichUPS, UPSPrefs))
-    {
-        ret = kIOReturnError;
-        goto exit;
+    IOPSGetSupportedPowerSources(NULL, NULL, &hasUPS);
+    if (!hasUPS) {
+        return kIOReturnNoDevice;
     }
 
-    if(!SCPreferencesCommitChanges(prefs_file))
-    {
-        if(kSCStatusAccessError == SCError()) 
-            ret = kIOReturnNotPrivileged;
-        else
-            ret = kIOReturnError;
-        goto exit;
-    }
-    
-    if(!SCPreferencesApplyChanges(prefs_file))
-    {
-        if(kSCStatusAccessError == SCError()) 
-            ret = kIOReturnNotPrivileged;
-        else 
-            ret = kIOReturnError;        
-        goto exit;
-    }
 
-exit:
-    if(prefs_file) CFRelease(prefs_file);
-    return ret;
+    return IOPMWriteToPrefs(whichUPS, UPSPrefs, true, true);
+
 }
 
 extern CFDictionaryRef 
@@ -210,31 +149,31 @@ IOPMCopyUPSShutdownLevels(CFTypeRef whichUPS)
 {
     CFDictionaryRef             tmp_dict = NULL;
     CFMutableDictionaryRef      ret_dict = NULL;
-    SCPreferencesRef            prefs_file = NULL;
+    bool                        hasUPS = false;
 
     if( !whichUPS || !_validUPSIdentifier(whichUPS) )
     {
         return NULL;
     }
 
-    prefs_file = SCPreferencesCreate( kCFAllocatorDefault, kIOPMAppName, kIOPMPrefsPath );
-    if(!prefs_file) return NULL;
+    IOPSGetSupportedPowerSources(NULL, NULL, &hasUPS);
+    if (!hasUPS) {
+        return NULL;
+    }
 
-    tmp_dict = SCPreferencesGetValue(prefs_file, whichUPS);
-    if(!isA_CFDictionary(tmp_dict)) {
+    tmp_dict = IOPMCopyFromPrefs(NULL, whichUPS);
+    if (!tmp_dict) {
         ret_dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
             &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    } else {
+    }
+    else {
         ret_dict = CFDictionaryCreateMutableCopy(0, 0, tmp_dict);
     }
     if(!ret_dict) goto exit;
         
     // Merge in the default values
     _mergeUnspecifiedUPSThresholds(whichUPS, ret_dict);
-#if 0
-    // Remove any unsupported values
-    _removeUnsupportedUPSThresholds(whichUPS, ret_dict);
-#endif
+
     // Does this UPS support NOTHING? If so, just return NULL.
     if( (0 == CFDictionaryGetCount(ret_dict)) ||
         !_validUPSShutdownSettings(ret_dict) )
@@ -244,7 +183,9 @@ IOPMCopyUPSShutdownLevels(CFTypeRef whichUPS)
     }
 
 exit:
-    if(prefs_file) CFRelease(prefs_file);
+    if (tmp_dict)  {
+        CFRelease(tmp_dict);
+    }
     return ret_dict;
 }
 

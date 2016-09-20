@@ -35,7 +35,7 @@
 #ifndef _SECURITY_SECCERTIFICATEPRIVP_H_
 #define _SECURITY_SECCERTIFICATEPRIVP_H_
 
-//#include <Security/SecCertificate.h>
+#include <Security/SecCertificate.h>
 #include "SecCertificateP.h"
 #include <CoreFoundation/CFArray.h>
 #include <CoreFoundation/CFData.h>
@@ -46,23 +46,6 @@
 #if defined(__cplusplus)
 extern "C" {
 #endif
-
-typedef uint32_t SecKeyUsage;
-enum {
-    kSecKeyUsageUnspecified      = 0,
-    kSecKeyUsageDigitalSignature = 1 << 0,
-    kSecKeyUsageNonRepudiation   = 1 << 1,
-    kSecKeyUsageContentCommitment= 1 << 1,
-    kSecKeyUsageKeyEncipherment  = 1 << 2,
-    kSecKeyUsageDataEncipherment = 1 << 3,
-    kSecKeyUsageKeyAgreement     = 1 << 4,
-    kSecKeyUsageKeyCertSign      = 1 << 5,
-    kSecKeyUsageCRLSign          = 1 << 6,
-    kSecKeyUsageEncipherOnly     = 1 << 7,
-    kSecKeyUsageDecipherOnly     = 1 << 8,
-    kSecKeyUsageCritical         = 1 << 31,
-    kSecKeyUsageAll              = 0x7FFFFFFF
-};
 
 /* Return a certificate for the DER representation of this certificate.
    Return NULL if the passed-in data is not a valid DER-encoded X.509

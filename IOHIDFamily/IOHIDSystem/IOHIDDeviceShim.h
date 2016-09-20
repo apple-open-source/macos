@@ -41,10 +41,11 @@ class IOHIDDeviceShim : public IOHIDDevice
     OSDeclareDefaultStructors( IOHIDDeviceShim )
 
 private:
-    IOService *			_device;
-    IOHIDevice *		_hiDevice;
+    IOService *       _device;
+    IOHIDevice *      _hiDevice;
     IOHIDTransport		_transport;
-    UInt32              _location;
+    UInt32            _location;
+    boolean_t         _allowVirtualProvider;
 
 protected:
 
@@ -66,6 +67,8 @@ public:
     virtual OSString * newSerialNumberString() const;
     
     virtual bool       isSeized();
+    virtual bool       initWithParameters(UInt32 location, boolean_t allowVirtualProvider);
+
 };
 
 #endif /* !_IOKIT_HID_IOHIDDEVICESHIM_H */

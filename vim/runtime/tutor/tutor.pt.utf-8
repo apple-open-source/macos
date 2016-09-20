@@ -58,11 +58,11 @@ NOTA: As teclas de cursor devem funcionar também. Mas usando hjkl, tão logo
      Isso sai do editor SEM salvar qualquer mudança que tenha sido feita.
      Se quiser salvar as alterações e sair, digite     :wq <ENTER>
 
-  3. Quando vir o prompt do shell digite o comando que lhe trouxe a este
-     tutorial, na maioria dos casos:      vimtutor <ENTER>.
+  3. Repita o procedimento que lhe trouxe a este tutorial. O procedimento pode
+     ter sido a digitação de:  vimtutor <ENTER>.
 
   4. Se você memorizou estes passos e está confiante, execute os passos de
-     1 a 3 para sair e re-entrar no editor.
+     1 a 3 para sair e reentrar no editor.
 
 NOTA:  :q! <ENTER>  descarta qualquer mudança. Em uma próxima lição será
        ensinado como salvar as mudanças feitas em um arquivo.
@@ -560,7 +560,7 @@ Nota: Isso é muito útil para corrigir um programa com parênteses não-casados
 
   1. Mova o cursor para a linha abaixo marcada com --->.
 
-  2. Digite  :/s/aa/a <ENTER> . Note que este comando somente muda a 
+  2. Digite  :s/aa/a <ENTER> . Note que este comando somente muda a 
      primeira ocorrência na linha.
 
   3. Agora digite  :s/aa/a/g   significando substituir globalmente na linha.
@@ -572,7 +572,7 @@ Nota: Isso é muito útil para corrigir um programa com parênteses não-casados
      digite  :#,#s/velho/novo/g   onde #,# são os números das duas linhas.
      Digite  :%s/velho/novo/g     para mudar todas as ocorrências no arquivo
                                   inteiro.
-     Digite  :%/velho/novo/gc     para mudar todas as ocorrência no arquivo
+     Digite  :%s/velho/novo/gc    para mudar todas as ocorrência no arquivo
                                   inteiro, com a opção de confirmar cada
 				  substituição.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -971,7 +971,7 @@ NOTA:  A completação funciona com muitos comandos. Basta pressionar CTRL-D e
   Colorado School of Mines, usando idéias fornecidas por Charles Smith,
   Colorado State University.  E-mail: bware@mines.colorado.edu.
 
-  Modificado para o Vim por Bram Moolenar.
+  Modificado para o Vim por Bram Moolenaar.
 
   Versão 1.4 traduzida para o português por Marcelo Drudi Miranda, Escola
   Politécnica da Universidade de São Paulo.

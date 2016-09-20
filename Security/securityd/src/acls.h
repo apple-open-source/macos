@@ -165,10 +165,10 @@ public:
 	{ return acl().changeAcl(edit, cred, relatedDatabase()); }
 	virtual void changeOwner(const AclOwnerPrototype &newOwner, const AccessCredentials *cred)
 	{ return acl().changeOwner(newOwner, cred, relatedDatabase()); }
-	virtual void validate(AclAuthorization auth, const AccessCredentials *cred)
-	{ acl().validate(auth, cred, relatedDatabase()); }
-	virtual void validate(AclAuthorization auth, const Context &context)
-	{ acl().validate(auth, context, relatedDatabase()); }
+	virtual void validate(AclAuthorization auth, const AccessCredentials *cred, Database* relatedDb = NULL)
+    { acl().validate(auth, cred, relatedDb ? relatedDb : relatedDatabase()); }
+	virtual void validate(AclAuthorization auth, const Context &context, Database* relatedDb = NULL)
+	{ acl().validate(auth, context, relatedDb ? relatedDb : relatedDatabase()); }
 };
 
 

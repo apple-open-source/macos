@@ -34,10 +34,6 @@
 #include "FrameLoaderClient.h"
 #include "SharedBuffer.h"
 
-#if USE(NETWORK_CFDATA_ARRAY_CALLBACK)
-#include "InspectorInstrumentation.h"
-#endif
-
 namespace WebCore {
 
 #if USE(CFNETWORK)
@@ -45,7 +41,7 @@ namespace WebCore {
 CFCachedURLResponseRef ResourceLoader::willCacheResponse(ResourceHandle*, CFCachedURLResponseRef cachedResponse)
 {
     if (m_options.sendLoadCallbacks() == DoNotSendCallbacks)
-        return 0;
+        return nullptr;
 
     RetainPtr<NSCachedURLResponse> nsCachedResponse = adoptNS([[NSCachedURLResponse alloc] _initWithCFCachedURLResponse:cachedResponse]);
     return [frameLoader()->client().willCacheResponse(documentLoader(), identifier(), nsCachedResponse.get()) _CFCachedURLResponse];
@@ -56,7 +52,7 @@ CFCachedURLResponseRef ResourceLoader::willCacheResponse(ResourceHandle*, CFCach
 NSCachedURLResponse* ResourceLoader::willCacheResponse(ResourceHandle*, NSCachedURLResponse* response)
 {
     if (m_options.sendLoadCallbacks() == DoNotSendCallbacks)
-        return 0;
+        return nullptr;
     return frameLoader()->client().willCacheResponse(documentLoader(), identifier(), response);
 }
 
@@ -68,7 +64,7 @@ void ResourceLoader::didReceiveDataArray(CFArrayRef dataArray)
 {
     // Protect this in this delegate method since the additional processing can do
     // anything including possibly derefing this; one example of this is Radar 3266216.
-    Ref<ResourceLoader> protect(*this);
+    Ref<ResourceLoader> protectedThis(*this);
 
     CFIndex arrayCount = CFArrayGetCount(dataArray);
     for (CFIndex i = 0; i < arrayCount; ++i) {

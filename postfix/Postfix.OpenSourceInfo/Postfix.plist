@@ -11,9 +11,9 @@
 	<key>OpenSourceProject</key>
 	<string>Postfix</string>
 	<key>OpenSourceURL</key>
-	<string>http://mirrors-usa.go-parts.com/postfix/source/official/postfix-2.11.0.tar.gz</string>
+	<string>http://cdn.postfix.johnriley.me/mirrors/postfix-release/official/postfix-3.1.1.tar.gz</string>
 	<key>OpenSourceVersion</key>
-	<string>postfix-2.11.0</string>
+	<string>postfix-3.1.1</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.postfix.org</string>
 </dict>

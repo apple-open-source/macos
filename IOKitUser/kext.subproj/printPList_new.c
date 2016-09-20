@@ -28,6 +28,7 @@
 #include <libc.h>
 #include "printPList_new.h"
 #include "misc_util.h"
+#include <os/overflow.h>
 
 static void _indent(CFMutableStringRef string, unsigned indentLevel)
 {
@@ -105,8 +106,23 @@ static void _appendPlist(
         CFStringRef * keys = NULL;   // must free
         CFTypeRef * values = NULL; // must free
         count = CFDictionaryGetCount(dict);
-        keys = (CFStringRef *)malloc(count * sizeof(CFStringRef));
-        values = (CFTypeRef *)malloc(count * sizeof(CFTypeRef));
+        size_t malloc_size;
+        if (os_mul_overflow(count, sizeof(CFStringRef), &malloc_size)) {
+                return;
+        }
+        keys = (CFStringRef *)malloc(malloc_size);
+        if (keys == NULL) {
+                return;
+        }
+        if (os_mul_overflow(count, sizeof(CFTypeRef), &malloc_size)) {
+                free(keys);
+                return;
+        }
+        values = (CFTypeRef *)malloc(malloc_size);
+        if (values == NULL) {
+                free(keys);
+                return;
+        }
 
         CFDictionaryGetKeysAndValues(dict, (const void **)keys,
             (const void **)values);

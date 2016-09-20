@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/lt.xml
@@ -46,7 +46,6 @@ lt{
         AI{"Angilija"}
         AL{"Albanija"}
         AM{"Armėnija"}
-        AN{"Olandijos Antilai"}
         AO{"Angola"}
         AQ{"Antarktida"}
         AR{"Argentina"}
@@ -309,8 +308,9 @@ lt{
     Countries%variant{
         CD{"Kongo Demokratinė Respublika"}
         CG{"Kongo Respublika"}
+        CI{"Dramblio Kaulo Kranto Respublika"}
         FK{"Folklando (Malvinų) Salos"}
         MK{"Makedonijos Respublika"}
     }
-    Version{"2.1.13.46"}
+    Version{"2.1.22.93"}
 }

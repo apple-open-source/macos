@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,13 +23,17 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#import <wtf/Platform.h>
+
+#if PLATFORM(IOS)
+
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 
 #if USE(APPLE_INTERNAL_SDK)
 
 #import <MediaPlayer/MPAVRoutingController.h>
-#import <MediaPlayer/MPAudioVideoRoutingActionSheet.h>
+#import <MediaPlayer/MPAVRoutingSheet.h>
 #import <MediaPlayer/MPAudioVideoRoutingPopoverController.h>
 
 #else
@@ -51,24 +55,39 @@ typedef NSInteger MPRouteDiscoveryMode;
 @interface MPAVRoutingController : NSObject
 @end
 
-@interface MPAVRoutingController (Details)
+@interface MPAVRoutingController ()
 - (instancetype)initWithName:(NSString *)name;
 @property (nonatomic, assign) MPRouteDiscoveryMode discoveryMode;
 @end
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 @interface MPAudioVideoRoutingPopoverController : UIPopoverController
 @end
+#pragma clang diagnostic pop
 
-@interface MPAudioVideoRoutingPopoverController (Details)
+@interface MPAudioVideoRoutingPopoverController ()
 - (id)initWithType:(MPAVItemType)avItemType;
 @end
 
-@interface MPAudioVideoRoutingActionSheet : UIActionSheet
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+@interface MPAVRoutingSheet : UIView
+@end
+#pragma clang diagnostic pop
+
+@interface MPAVRoutingSheet ()
+@property (nonatomic, assign, setter=setAVItemType:) MPAVItemType avItemType;
+
+@property (nonatomic, assign) BOOL mirroringOnly;
+
+- (id)initWithAVItemType:(MPAVItemType)avItemType;
+
+- (void)showInView:(UIView *)view withCompletionHandler:(void (^)(void))completionHandler;
+
+- (void)dismiss;
 @end
 
-@interface MPAudioVideoRoutingActionSheet (Details)
-- (id)initWithType:(MPAVItemType)avItemType;
-- (void)showWithValidInterfaceOrientationMaskBlock:(UIInterfaceOrientationMask (^)(void))block completionHandler:(void (^)())completionHandler;
-@end
+#endif
 
 #endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2006 Apple Inc.  All rights reserved.
+ * Copyright (C) 2004-2016 Apple Inc.  All rights reserved.
  * Copyright (C) 2008 Collabora Ltd.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,6 +38,7 @@
 #include <wtf/Forward.h>
 #include <wtf/RefCounted.h>
 #include <wtf/TypeCasts.h>
+#include <wtf/WeakPtr.h>
 
 #if PLATFORM(COCOA)
 #include <wtf/RetainPtr.h>
@@ -117,7 +118,7 @@ public:
     void move(int x, int y) { setFrameRect(IntRect(x, y, width(), height())); }
     void move(const IntPoint& p) { setFrameRect(IntRect(p, size())); }
 
-    WEBCORE_EXPORT virtual void paint(GraphicsContext*, const IntRect&);
+    WEBCORE_EXPORT virtual void paint(GraphicsContext&, const IntRect&);
     void invalidate() { invalidateRect(boundsRect()); }
     virtual void invalidateRect(const IntRect&) = 0;
 
@@ -151,7 +152,7 @@ public:
 
     virtual void notifyWidget(WidgetNotification) { }
 
-    IntRect convertToRootView(const IntRect&) const;
+    WEBCORE_EXPORT IntRect convertToRootView(const IntRect&) const;
     IntRect convertFromRootView(const IntRect&) const;
 
     IntPoint convertToRootView(const IntPoint&) const;
@@ -191,6 +192,8 @@ public:
     WEBCORE_EXPORT virtual IntPoint convertToContainingView(const IntPoint&) const;
     WEBCORE_EXPORT virtual IntPoint convertFromContainingView(const IntPoint&) const;
 
+    WeakPtr<Widget> createWeakPtr() { return m_weakPtrFactory.createWeakPtr(); }
+
 private:
     void init(PlatformWidget); // Must be called by all Widget constructors to initialize cross-platform data.
 
@@ -212,6 +215,7 @@ private:
 #else
     RetainPtr<NSView> m_widget;
 #endif
+    WeakPtrFactory<Widget> m_weakPtrFactory { this };
     bool m_selfVisible;
     bool m_parentVisible;
 

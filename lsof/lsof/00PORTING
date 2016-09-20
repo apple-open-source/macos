@@ -778,6 +778,9 @@ possibilities
     HASEOPT		indicates the dialect supports the -e option to
 			eliminate kernel blocks on a named file system.
 
+    HASEPTOPTS		indicates the dialect supports the +|-E end point
+			options.
+
     HASEXT2FS           is defined for BSD dialects for which ext2fs
 			file system support can be provided.  A value
 			of 1 indicates that the i_e2din member does not
@@ -785,6 +788,12 @@ possibilities
 
     HASF_VNODE		indicates the dialect's file structure has an
 			f_vnode member in it.
+
+    HAS_FDESCENTTBL	indicates the FreeBSD system has the fdescenttbl
+			structure.
+
+    HAS_FILEDESCENT	indicates the FreeBSD system has the filedescent
+			definition in the <sys/filedesc.h> header file.
 
     HASFDESCFS		enables file descriptor file system support
 			for the dialect.   A value of 1 indicates
@@ -814,8 +823,6 @@ possibilities
 			and may be needed when searching the kernel
 			name cache.  See dialects/osr/dproc.c for
 			an example.
-
-    HAS_JFS2		The AIX >= 5.0 dialect has jfs2 support.
 
     HASFSTRUCT		indicates the dialect has a file structure
 			the listing of whose element values can be
@@ -891,6 +898,8 @@ possibilities
     HASIPv6             indicates the dialect supports the IPv6
 			Internet address family.
 
+    HAS_JFS2		The AIX >= 5.0 dialect has jfs2 support.
+
     HASKERNELKEYT       indicates the Linux version has a
 			__kernel_key_t typedef in <linux/types.h>.
 
@@ -903,6 +912,9 @@ possibilities
     HASKOPT		enables/disables the ability to read the
 			kernel's name list from a file -- e.g., from
 			a crash dump file.
+
+    HAS_PAUSE_SBT	indicates the FreeBSD system's systm.h has the
+			pause to pause_sbt definition.
 
     HASKQUEUE           indicates the dialect supports the kqueue
 			file type.
@@ -1156,6 +1168,9 @@ possibilities
     HAS_SANFS           indicates the AIX system has SANFS file system
 			support.
 
+    HAS_SB_CC		indicates the FreeBSD system's sockbuf structure has
+			the sb_ccc member, rather than the sb_cc member.
+
     HASSBSTATE          indicates the dialect has socket buffer state
 			information (e.g., SBS_* symbols) available.
 
@@ -1236,6 +1251,9 @@ possibilities
 			Tru64 UNIX dialect has a libmsfs.so,
 			containing tag_to_path().
 
+    HAS_TMPFS		indicates the FreeBSD system has the <fs/tmpfs.h>
+			header file.
+
     HASTMPNODE		enables/disables readtnode() in node.c.
 
     HASTCPOPT           indicates the dialect has TCP option
@@ -1271,6 +1289,9 @@ possibilities
     HASUINT16TYPE	is defined when the dialect has a typedef
 			for u_int16 that may conflict with some other
 			header file's redefinition (e.g., <afs/std.h>).
+
+    HASUXSOCKEPT	indicates the Linux version has support for the
+			UNIX socket endpoint option.
 
     HASUTMPX		indicates the dialect has a <utmpx.h> header
 			file.
@@ -1351,11 +1372,11 @@ possibilities
 			X option to processes whose real user ID
 			is root.
 
-    HAS_ZFS		indicates the dialect has support for the ZFS file
-			system.
-
     HASXOPT_VALUE	defines the default binary value for the X option
 			in store.c.
+
+    HAS_ZFS		indicates the dialect has support for the ZFS file
+			system.
 
     HASZONES		the Solaris dialect has zones.
 
@@ -1411,11 +1432,18 @@ possibilities
     NCACHELDSFX		defines C code to be executed after calling
 			ncache_load().
 
+    NEEDS_BOOL_TYPEDEF	indicates the FreeBSD 10 system, being built on an
+			i386 architecture systemn, needs typdef bool.
+
     NEEDS_BOOLEAN_T	indicates the FreeBSD 9 and above system needs a
 			boolean_t definition for <sys/conf.h>.
 
     NEEDS_MACH_PORT_T	is defined for Darwin versions that need the inclusion
 			of the header file <device/device_types.h>.
+
+    NEEDS_NETINET_TCPH	is defined when the Linux version needs to #include
+			<netinet/tcp.h> in place of <linux/tcp.h> in order to
+			have access to the TCP_* definitions.
 
     NEVER_HASDCACHE	keeps the Customize script from offering to
 			change HASDCACHE by its presence anywhere
@@ -1835,4 +1863,4 @@ keep in mind the private, one-man nature of current lsof support.
 
 
 Vic Abell <abe@purdue.edu>
-January 2, 2013
+July 7, 2015

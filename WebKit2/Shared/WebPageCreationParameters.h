@@ -38,6 +38,7 @@
 #include <WebCore/Pagination.h>
 #include <WebCore/ScrollTypes.h>
 #include <WebCore/SessionID.h>
+#include <WebCore/UserInterfaceLayoutDirection.h>
 #include <WebCore/ViewState.h>
 #include <wtf/text/WTFString.h>
 
@@ -65,7 +66,6 @@ struct WebPageCreationParameters {
     WebPageGroupData pageGroupData;
 
     bool drawsBackground;
-    bool drawsTransparentBackground;
     bool isEditable;
 
     WebCore::Color underlayColor;
@@ -79,7 +79,8 @@ struct WebPageCreationParameters {
     bool paginationBehavesLikeColumns;
     double pageLength;
     double gapBetweenPages;
-
+    bool paginationLineGridEnabled;
+    
     String userAgent;
 
     Vector<BackForwardListItemState> itemStates;
@@ -116,8 +117,11 @@ struct WebPageCreationParameters {
 
     Vector<String> mimeTypesWithCustomContentProviders;
 
+    bool controlledByAutomation;
+
 #if ENABLE(REMOTE_INSPECTOR)
     bool allowsRemoteInspection;
+    String remoteInspectionNameOverride;
 #endif
 
 #if PLATFORM(MAC)
@@ -127,10 +131,12 @@ struct WebPageCreationParameters {
     WebCore::FloatSize screenSize;
     WebCore::FloatSize availableScreenSize;
     float textAutosizingWidth;
+    bool ignoresViewportScaleLimits;
 #endif
     bool appleMailPaginationQuirkEnabled;
     bool shouldScaleViewToFitDocument;
-    bool userContentExtensionsEnabled;
+
+    WebCore::UserInterfaceLayoutDirection userInterfaceLayoutDirection;
 };
 
 } // namespace WebKit

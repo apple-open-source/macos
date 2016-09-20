@@ -400,7 +400,9 @@ void rpc_sm_enable_allocate (  idl_ulong_int * );
 
 void rpc_sm_free (idl_void_p_t, idl_ulong_int * );
 
+/* Removed unused symbol for rdar://problem/26430747
 rpc_ss_thread_handle_t rpc_sm_get_thread_handle (idl_ulong_int * );
+*/
 
 void rpc_sm_set_client_alloc_free  (
     rpc_ss_p_alloc_t,
@@ -408,7 +410,9 @@ void rpc_sm_set_client_alloc_free  (
     idl_ulong_int *
 );
 
+/* Removed unused symbol for rdar://problem/26430747
 void rpc_sm_set_thread_handle ( rpc_ss_thread_handle_t , idl_ulong_int * );
+ */
 
 void rpc_sm_swap_client_alloc_free (
     rpc_ss_p_alloc_t,

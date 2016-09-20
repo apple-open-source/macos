@@ -18,7 +18,7 @@
 <body id="manual-page"><div id="page-header">
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p>
 <p class="apache">Serveur Apache HTTP Version 2.4</p>
-<img alt="" src="../images/feather.gif" /></div>
+<img alt="" src="../images/feather.png" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
 <a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">Serveur HTTP</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.4</a> &gt; <a href="./">How-To / Tutoriels</a></div><div id="page-content"><div id="preamble"><h1>Contrôle d'accès</h1>
@@ -38,7 +38,7 @@ arbitraires</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#rewrite">Utilisation de mod_rewrite pour le contrôle
 d'accès</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#moreinformation">Informations complémentaires</a></li>
-</ul><ul class="seealso"><li><a href="#comments_section">Commentaires</a></li></ul></div>
+</ul><h3>Voir aussi</h3><ul class="seealso"><li><a href="#comments_section">Commentaires</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="related" id="related">Modules et directives concernés</a></h2>
@@ -115,7 +115,8 @@ Require ip ip.address</pre>
     l'accès à une machine en fonction de son nom, vous pouvez ajouter
     ceci :</p>
 
-    <pre class="prettyprint lang-config">Require not host <var>host.example.com</var></pre>
+    <pre class="prettyprint lang-config">Require not host <var>host.example.com</var>
+    </pre>
 
 
     <p>Et si vous voulez interdire l'accès à un domaine particulier,
@@ -178,7 +179,7 @@ d'accès</a></h2>
     <pre class="prettyprint lang-config">RewriteEngine On
 RewriteCond "%{TIME_HOUR}" "&gt;=20" [OR]
 RewriteCond "%{TIME_HOUR}" "&lt;07"
-RewriteRule "^/fridge" "-" [F]</pre>
+RewriteRule "^/fridge"     "-" [F]</pre>
 
 
     <p>Toute requête arrivant après 20h ou avant 7h du matin provoquera
@@ -230,7 +231,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/howto/access.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

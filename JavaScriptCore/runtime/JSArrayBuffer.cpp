@@ -40,10 +40,11 @@ JSArrayBuffer::JSArrayBuffer(VM& vm, Structure* structure, PassRefPtr<ArrayBuffe
 {
 }
 
-void JSArrayBuffer::finishCreation(VM& vm)
+void JSArrayBuffer::finishCreation(VM& vm, JSGlobalObject* globalObject)
 {
     Base::finishCreation(vm);
     vm.heap.addReference(this, m_impl);
+    vm.m_typedArrayController->registerWrapper(globalObject, m_impl, this);
 }
 
 JSArrayBuffer* JSArrayBuffer::create(
@@ -53,7 +54,7 @@ JSArrayBuffer* JSArrayBuffer::create(
     JSArrayBuffer* result =
         new (NotNull, allocateCell<JSArrayBuffer>(vm.heap))
         JSArrayBuffer(vm, structure, buffer);
-    result->finishCreation(vm);
+    result->finishCreation(vm, structure->globalObject());
     return result;
 }
 
@@ -63,6 +64,13 @@ Structure* JSArrayBuffer::createStructure(
     return Structure::create(
         vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info(),
         NonArray);
+}
+
+size_t JSArrayBuffer::estimatedSize(JSCell* cell)
+{
+    JSArrayBuffer* thisObject = jsCast<JSArrayBuffer*>(cell);
+    size_t bufferEstimatedSize = thisObject->impl()->gcSizeEstimateInBytes();
+    return Base::estimatedSize(cell) + bufferEstimatedSize;
 }
 
 bool JSArrayBuffer::getOwnPropertySlot(
@@ -78,18 +86,19 @@ bool JSArrayBuffer::getOwnPropertySlot(
     return Base::getOwnPropertySlot(thisObject, exec, propertyName, slot);
 }
 
-void JSArrayBuffer::put(
+bool JSArrayBuffer::put(
     JSCell* cell, ExecState* exec, PropertyName propertyName, JSValue value,
     PutPropertySlot& slot)
 {
     JSArrayBuffer* thisObject = jsCast<JSArrayBuffer*>(cell);
+
+    if (UNLIKELY(isThisValueAltered(slot, thisObject)))
+        return ordinarySetSlow(exec, thisObject, propertyName, value, slot.thisValue(), slot.isStrictMode());
     
-    if (propertyName == exec->propertyNames().byteLength) {
-        reject(exec, slot.isStrictMode(), "Attempting to write to a read-only array buffer property.");
-        return;
-    }
+    if (propertyName == exec->propertyNames().byteLength)
+        return reject(exec, slot.isStrictMode(), "Attempting to write to a read-only array buffer property.");
     
-    Base::put(thisObject, exec, propertyName, value, slot);
+    return Base::put(thisObject, exec, propertyName, value, slot);
 }
 
 bool JSArrayBuffer::defineOwnProperty(

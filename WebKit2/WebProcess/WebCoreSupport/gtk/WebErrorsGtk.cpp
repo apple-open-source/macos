@@ -50,6 +50,11 @@ ResourceError blockedError(const ResourceRequest& request)
     return WebCore::blockedError(request);
 }
 
+ResourceError blockedByContentBlockerError(const ResourceRequest& request)
+{
+    return WebCore::blockedByContentBlockerError(request);
+}
+
 ResourceError cannotShowURLError(const ResourceRequest& request)
 {
     return WebCore::cannotShowURLError(request);
@@ -77,7 +82,7 @@ ResourceError pluginWillHandleLoadError(const ResourceResponse& response)
 
 WebCore::ResourceError internalError(const WebCore::URL& url)
 {
-    return ResourceError(API::Error::webKitErrorDomain(), kWKErrorInternal, url.string(), _("Internal error"));
+    return ResourceError(API::Error::webKitErrorDomain(), kWKErrorInternal, url, _("Internal error"));
 }
 
 } // namespace WebKit

@@ -558,6 +558,16 @@ Do not disable all IPv6 communication on the interface.
 Disable the processing of Secure Neighbor Discovery (SEND).
 .It Cm -insecure
 Do not disabled the processing of Secure Neighbor Discovery (SEND).
+.It Cm dad
+Perform duplicate address detection (DAD).
+.It Cm -dad
+Do not perform duplicate address detection (DAD).
+.It Cm replicated
+Modify duplicate address detection (DAD) protocol to expect that interface
+configuration is replicated at a network sleep proxy. Ignores certain NA
+messages and disables optimistic DAD.
+.It Cm -replicated
+Do not use modified duplicated address detection (DAD) protocol.
 .El
 .Pp
 The following parameters are specific to link aggregate interfaces:

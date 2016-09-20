@@ -994,6 +994,9 @@ static int webdav_sysctl(int *name, u_int namelen, user_addr_t oldp, size_t *old
 
 /*****************************************************************************/
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-field-initializers"
+
 struct vfsops webdav_vfsops = {
 	webdav_mount,
 	webdav_start,
@@ -1008,8 +1011,10 @@ struct vfsops webdav_vfsops = {
 	webdav_init,
 	webdav_sysctl,
 	NULL,
-	{0}
+	// Remaining ops unused
 };
+
+#pragma clang diagnostic pop
 
 /*****************************************************************************/
 

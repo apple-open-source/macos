@@ -190,7 +190,7 @@ void NotificationPort::add(const DeviceMatch &match, Receiver &receiver, const c
 		&iterator));
 	
 	// run initial iterator to process existing devices
-	secdebug("iokit", "dispatching initial device match iterator %d", iterator);
+	secinfo("iokit", "dispatching initial device match iterator %d", iterator);
 	DeviceIterator it(iterator);
 	receiver.ioChange(it);
 }
@@ -199,10 +199,9 @@ void NotificationPort::addInterestNotification(Receiver &receiver, io_service_t 
 	const io_name_t interestType)
 {
 	io_iterator_t iterator;
-	mach_port_t pp = NotificationPort::port();
 
-	secdebug("iokit", "NotificationPort::addInterest - type: %s [port: %p (0x%08X), service: 0x%08X]",
-		interestType, mPortRef, pp, service);
+	secinfo("iokit", "NotificationPort::addInterest - type: %s [port: %p (0x%08X), service: 0x%08X]",
+		interestType, mPortRef, NotificationPort::port(), service);
 
 	// We cannot throw if we get an error here since we will receive notifications
 	// from each plane, and not all planes have the necessary information to be
@@ -212,30 +211,30 @@ void NotificationPort::addInterestNotification(Receiver &receiver, io_service_t 
 	const char *msgstr = mach_error_string(kr);
 	const char *msgtyp = mach_error_type(kr);
 	if (msgstr && msgtyp)
-		secdebug("iokit", " msg: %s, typ: %s", msgstr, msgtyp);
+		secinfo("iokit", " msg: %s, typ: %s", msgstr, msgtyp);
 }
 
 void NotificationPort::ioNotify(void *refCon, io_iterator_t iterator)
 {
-	secdebug("iokit", "dispatching new device match iterator %d", iterator);
+	secinfo("iokit", "dispatching new device match iterator %d", iterator);
 	DeviceIterator it(iterator);
 	try {
 		reinterpret_cast<Receiver *>(refCon)->ioChange(it);
 	} catch (...) {
-		secdebug("iokit", "ioChange callback threw an exception (ignored)");
+		secinfo("iokit", "ioChange callback threw an exception (ignored)");
 	}
 }
 
 void NotificationPort::ioDeviceNotification(void *refCon, io_service_t service,
 	natural_t messageType, void *messageArgument)
 {
-	secdebug("iokit", "dispatching NEW device notification iterator, service 0x%08X, msg: 0x%04X, arg: %p", 
+	secinfo("iokit", "dispatching NEW device notification iterator, service 0x%08X, msg: 0x%04X, arg: %p", 
 		service, messageType, messageArgument);
 
 	const char *msgstr = mach_error_string(messageType);
 	const char *msgtyp = mach_error_type(messageType);
 	if (msgstr && msgtyp)
-		secdebug("iokit", " msg: %s, typ: %s", msgstr, msgtyp);
+		secinfo("iokit", " msg: %s, typ: %s", msgstr, msgtyp);
 	
 	if (service!=io_service_t(-1))
 		reinterpret_cast<Receiver *>(refCon)->ioServiceChange(refCon, service, messageType, messageArgument);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2015 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Google Inc. All rights reserved.
  * Copyright (C) 2009 Torch Mobile, Inc. All rights reserved.
  *
@@ -99,12 +99,9 @@
 #include <wtf/CurrentTime.h>
 #include <wtf/HashMap.h>
 #include <wtf/MathExtras.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/RandomNumberSeed.h>
 #include <wtf/WTFThreadData.h>
-
-#if !USE(PTHREADS) && OS(WINDOWS)
-#include "ThreadSpecific.h"
-#endif
 
 #if HAVE(ERRNO_H)
 #include <errno.h>
@@ -145,7 +142,7 @@ void initializeCurrentThreadInternal(const char* szThreadName)
 
 static Mutex& threadMapMutex()
 {
-    static Mutex mutex;
+    static NeverDestroyed<Mutex> mutex;
     return mutex;
 }
 
@@ -165,13 +162,12 @@ void initializeThreading()
     threadMapMutex();
     initializeRandomNumberGenerator();
     wtfThreadData();
-    s_dtoaP5Mutex = new Mutex;
     initializeDates();
 }
 
 static HashMap<DWORD, HANDLE>& threadMap()
 {
-    static HashMap<DWORD, HANDLE> map;
+    static NeverDestroyed<HashMap<DWORD, HANDLE>> map;
     return map;
 }
 
@@ -199,11 +195,6 @@ static unsigned __stdcall wtfThreadEntryPoint(void* param)
 {
     std::unique_ptr<ThreadFunctionInvocation> invocation(static_cast<ThreadFunctionInvocation*>(param));
     invocation->function(invocation->data);
-
-#if !USE(PTHREADS) && OS(WINDOWS)
-    // Do the TLS cleanup.
-    ThreadSpecificThreadExit();
-#endif
 
     return 0;
 }

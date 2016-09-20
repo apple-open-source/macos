@@ -173,7 +173,7 @@ msgstr "Tecken för %s:"
 
 #, c-format
 msgid "    line=%ld  id=%d  name=%s"
-msgstr "    line=%ld  id=%d  namn%s"
+msgstr "    line=%ld  id=%d  namn=%s"
 
 #, c-format
 msgid "E96: Can not diff more than %ld buffers"
@@ -433,8 +433,8 @@ msgstr "E109: Saknar ':' efter '?'"
 msgid "E691: Can only compare List with List"
 msgstr "E691: Kan bara jämföra Lista med Lista"
 
-msgid "E692: Invalid operation for Lists"
-msgstr "E692: Ogiltig operation för Listor"
+msgid "E692: Invalid operation for List"
+msgstr "E692: Ogiltig operation för Lista"
 
 msgid "E735: Can only compare Dictionary with Dictionary"
 msgstr "E735: Kan bara jämföra Tabell med Tabell"
@@ -2036,21 +2036,6 @@ msgstr "Ersätt &alla"
 
 msgid "&Undo"
 msgstr "&Ångra"
-
-#, c-format
-msgid "E610: Can't load Zap font '%s'"
-msgstr "E610: Kan inte läsa in Zap-typsnitt '%s'"
-
-#, c-format
-msgid "E611: Can't use font %s"
-msgstr "E611: Kan inte använda typsnitt %s"
-
-msgid ""
-"\n"
-"Sending message to terminate child process.\n"
-msgstr ""
-"\n"
-"Skickar meddelande för att avsluta barnprocess.\n"
 
 #, c-format
 msgid "E671: Cannot find window title \"%s\""
@@ -4302,9 +4287,6 @@ msgstr "E244: Otillåtet teckenkodsnamn \"%s\" i typsnittsnamn \"%s\""
 #, c-format
 msgid "E245: Illegal char '%c' in font name \"%s\""
 msgstr "E245: Otillåtet tecken '%c' i typsnittsnamn \"%s\""
-
-msgid "E366: Invalid 'osfiletype' option - using Text"
-msgstr "E366: Ogiltig 'osfiletype'-flagga - använder Text"
 
 msgid "Vim: Double signal, exiting\n"
 msgstr "Vim: Dubbelsignal, avslutar\n"

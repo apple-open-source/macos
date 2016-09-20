@@ -4,14 +4,19 @@ trace_codename = function(codename, callback)
 	local debugid = trace.debugid(codename)
 	if debugid ~= 0 then 
 		trace.single(debugid,callback) 
+	else
+		printf("WARNING: Cannot locate debugid for '%s'\n", codename)
 	end
 end
 
 initial_timestamp = 0
+workqueue_ptr_map = {};
 get_prefix = function(buf)
 	if initial_timestamp == 0 then
 		initial_timestamp = buf.timestamp
 	end
+	local secs = (buf.timestamp - initial_timestamp) / 1000000000
+
 	local prefix
 	if trace.debugid_is_start(buf.debugid) then 
 		prefix = "→" 
@@ -20,30 +25,43 @@ get_prefix = function(buf)
 	else 
 		prefix = "↔" 
 	end
-	local secs = (buf.timestamp - initial_timestamp)   / 1000 / 1000000
-	local usecs = (buf.timestamp - initial_timestamp) / 1000 % 1000000
-	return string.format("%s %6d.%06d %-16s[%06x] %-24s",
-		prefix, secs, usecs, buf.command, buf.threadid, buf.debugname)
+
+	local proc
+	if buf.command ~= "kernel_task" then
+		proc = buf.command
+		workqueue_ptr_map[buf[1]] = buf.command
+	elseif workqueue_ptr_map[buf[1]] ~= nil then
+		proc = workqueue_ptr_map[buf[1]]
+	else
+		proc = "UNKNOWN"
+	end
+
+	return string.format("%s %6.9f %-17s [%05d.%06x] %-24s",
+		prefix, secs, proc, buf.pid, buf.threadid, buf.debugname)
 end
 
 parse_pthread_priority = function(pri)
-	local qos = bit32.rshift(bit32.band(pri, 0x00ffff00), 8)
+	pri = pri & 0xffffffff
+	if (pri & 0x02000000) == 0x02000000 then
+		return "Manager"
+	end
+	local qos = (pri & 0x00ffff00) >> 8
 	if qos == 0x20 then
-		return "UInter"
+		return string.format("UInter[%x]", pri);
 	elseif qos == 0x10 then
-		return "UInit"
+		return string.format("UInit[%x]", pri);
 	elseif qos == 0x08 then
-		return "Dflt"
+		return string.format("Dflt[%x]", pri);
 	elseif qos == 0x04 then
-		return "Util"
+		return string.format("Util[%x]", pri);
 	elseif qos == 0x02 then
-		return "BG"
+		return string.format("BG[%x]", pri);
 	elseif qos == 0x01 then
-		return "Maint"
+		return string.format("Maint[%x]", pri);
 	elseif qos == 0x00 then
-		return "Unsp"
+		return string.format("Unsp[%x]", pri);
 	else
-		return "Unkn"
+		return string.format("Unkn[%x]", pri);
 	end
 end
 
@@ -107,8 +125,13 @@ trace_codename("wq_req_kevent_octhreads", function(buf)
 end)
 trace_codename("wq_req_event_manager", function(buf)
 	local prefix = get_prefix(buf)
-	printf("%s\trecording event manager request at %s, existing at %d, %d running\n",
-		prefix, parse_pthread_priority(buf.arg2), buf.arg3, buf.arg4)
+	if buf.arg2 == 1 then
+		printf("%s\tstarting event manager thread, existing at %d, %d added\n",
+			prefix, buf.arg3, buf.arg4)
+	else
+		printf("%s\trecording event manager request, existing at %d, %d added\n",
+			prefix, buf.arg3, buf.arg4)
+	end
 end)
 
 trace_codename("wq_start_add_timer", function(buf)
@@ -134,11 +157,11 @@ end)
 
 trace_codename("wq_overcommitted", function(buf)
 	local prefix = get_prefix(buf)
-	if bit32.band(buf.arg2, 0x80) then
-		printf("%s\tworkqueue overcimmitted @ %s, starting timer (thactive_count: %d, busycount; %d)",
+	if buf.arg2 & 0x1000000 ~= 0 then
+		printf("%s\tworkqueue overcommitted @ %s, starting timer (thactive_count: %d, busycount; %d)\n",
 			prefix, parse_pthread_priority(buf.arg2), buf.arg3, buf.arg4)
 	else
-		printf("%s\tworkqueue overcimmitted @ %s (thactive_count: %d, busycount; %d)",
+		printf("%s\tworkqueue overcommitted @ %s (thactive_count: %d, busycount; %d)\n",
 			prefix, parse_pthread_priority(buf.arg2), buf.arg3, buf.arg4)
 	end
 end)
@@ -154,21 +177,19 @@ trace_codename("wq_run_nextitem", function(buf)
 	local prefix = get_prefix(buf)
 	if trace.debugid_is_start(buf.debugid) then
 		if buf.arg2 == 0 then
-			printf("%s\tthread %d looking for next request (idlecount: %d, reqcount: %d)\n",
-				prefix, buf.threadid, buf.arg3, buf.arg4)
-		else
 			printf("%s\ttrying to run a request on an idle thread (idlecount: %d, reqcount: %d)\n",
 				prefix, buf.arg3, buf.arg4)
+		else
+			printf("%s\tthread %x looking for next request (idlecount: %d, reqcount: %d)\n",
+				prefix, buf.threadid, buf.arg3, buf.arg4)
 		end
 	else
 		if buf.arg4 == 1 then
-			printf("%s\tkicked off work on thread %d (overcommit: %d)\n", prefix, buf.arg2, buf.arg3)
-		elseif buf.arg4 == 2 then
-			printf("%s\tno work/threads (start_timer: %d)\n", prefix, buf.arg3)
+			printf("%s\tkicked off work on thread %x (overcommit: %d)\n", prefix, buf.arg2, buf.arg3)
 		elseif buf.arg4 == 3 then
-			printf("%s\tthread parked\n", prefix)
+			printf("%s\tno work %x can currently do (start_timer: %d)\n", prefix, buf.arg2, buf.arg3)
 		elseif buf.arg4 == 4 then
-			printf("%s\treturning with new request\n", prefix)
+			printf("%s\treturning to run next item\n", prefix)
 		else
 			printf("%s\tWARNING: UNKNOWN END CODE:%d\n", prefix, buf.arg4)
 		end
@@ -178,9 +199,9 @@ end)
 trace_codename("wq_runitem", function(buf)
 	local prefix = get_prefix(buf)
 	if trace.debugid_is_start(buf.debugid) then
-		printf("%s\trunning an item at %s (flags: %x)\n", prefix, parse_pthread_priority(buf.arg3), buf.arg2)
+		printf("%s\tSTART running item\n", prefix)
 	else
-		printf("%s\tthread returned\n", prefix)
+		printf("%s\tDONE running item; thread returned to kernel\n", prefix)
 	end
 end)
 
@@ -190,10 +211,10 @@ trace_codename("wq_thread_yielded", function(buf)
 		printf("%s\tthread_yielded called (yielded_count: %d, reqcount: %d)\n",
 			prefix, buf.arg2, buf.arg3)
 	else
-		if (buf.arg4 == 1) then
+		if buf.arg4 == 1 then
 			printf("%s\tthread_yielded completed kicking thread (yielded_count: %d, reqcount: %d)\n",
 				prefix, buf.arg2, buf.arg3)
-		elseif (buf.arg4 == 2) then
+		elseif buf.arg4 == 2 then
 			printf("%s\tthread_yielded completed (yielded_count: %d, reqcount: %d)\n",
 				prefix, buf.arg2, buf.arg3)
 		else
@@ -269,6 +290,15 @@ trace_codename("wq_thread_create_failed", function(buf)
 	end
 end)
 
+trace_codename("wq_thread_create", function(buf)
+	printf("%s\tcreateed new workqueue thread\n", get_prefix(buf))
+end)
+
+trace_codename("wq_manager_request", function(buf)
+	local prefix = get_prefix(buf)
+	printf("%s\tthread in bucket %d\n", prefix, buf.arg3)
+end)
+
 
 -- The trace codes we need aren't enabled by default
 darwin.sysctlbyname("kern.pthread_debug_tracing", 1)
@@ -276,4 +306,3 @@ completion_handler = function()
 	darwin.sysctlbyname("kern.pthread_debug_tracing", 0)
 end
 trace.set_completion_handler(completion_handler)
-

@@ -177,7 +177,7 @@ protected:
 	
 	void * fValidMessage;
 	
-	bool fNubIsTerminated;
+	bool fClientOpened;
 	bool fNubIsKeyboard;
 	
 	IOOptionBits fCachedOptionBits;
@@ -200,8 +200,6 @@ protected:
 		
 	virtual void free();
 
-	virtual void cleanupGated();
-	
 	virtual IOReturn message(UInt32 type, IOService * provider, void * argument = 0 );
 	virtual IOReturn messageGated(UInt32 type, IOService * provider, void * argument = 0 );
 

@@ -65,6 +65,36 @@ static Vector<std::unique_ptr<char[]>> createArgsArray(const String& prefix, con
     return args;
 }
 
+static void parseAndRemoveEnvironments(Vector<std::unique_ptr<char[]>>& args)
+{
+    // Handle environment variable specified before executable file name only for this process use.
+    auto end = args.end();
+    auto it = args.begin();
+    int argsLength = 0;
+
+    for (; it != end; ++it) {
+        const char* key;
+        const char* value;
+        auto arg = (*it).get();
+
+        if (strchr(arg, '=') == nullptr)
+            break;
+
+        key = strtok(arg, "=");
+        value = strtok(nullptr, "=");
+
+        if (key == nullptr) {
+            argsLength++;
+            continue;
+        }
+
+        setenv(key, value, 1);
+        argsLength++;
+    }
+
+    args.remove(0, argsLength);
+}
+
 void ProcessLauncher::launchProcess()
 {
     int sockets[2];
@@ -75,18 +105,22 @@ void ProcessLauncher::launchProcess()
 
     String processCmdPrefix, executablePath, pluginPath;
     switch (m_launchOptions.processType) {
-    case WebProcess:
+    case ProcessLauncher::ProcessType::Web:
         executablePath = executablePathOfWebProcess();
         break;
 #if ENABLE(PLUGIN_PROCESS)
-    case PluginProcess:
+    case ProcessLauncher::ProcessType::Plugin64:
+    case ProcessLauncher::ProcessType::Plugin32:
         executablePath = executablePathOfPluginProcess();
         pluginPath = m_launchOptions.extraInitializationData.get("plugin-path");
         break;
 #endif
-#if ENABLE(NETWORK_PROCESS)
-    case NetworkProcess:
+    case ProcessLauncher::ProcessType::Network:
         executablePath = executablePathOfNetworkProcess();
+        break;
+#if ENABLE(DATABASE_PROCESS)
+    case ProcessLauncher::ProcessType::Database:
+        executablePath = executablePathOfDatabaseProcess();
         break;
 #endif
     default:
@@ -99,6 +133,8 @@ void ProcessLauncher::launchProcess()
         processCmdPrefix = m_launchOptions.processCmdPrefix;
 #endif
     auto args = createArgsArray(processCmdPrefix, executablePath, String::number(sockets[0]), pluginPath);
+
+    parseAndRemoveEnvironments(args);
 
     // Do not perform memory allocation in the middle of the fork()
     // exec() below. FastMalloc can potentially deadlock because

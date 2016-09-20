@@ -31,7 +31,7 @@ WebInspector.DatabaseUserQueryViewBase = class DatabaseUserQueryViewBase extends
 
         this.element.className = "database-user-query";
 
-        var commandTextElement = document.createElement("span");
+        let commandTextElement = document.createElement("span");
         commandTextElement.className = "database-query-text";
         commandTextElement.textContent = query;
         this.element.appendChild(commandTextElement);

@@ -30,34 +30,51 @@
 
 #include "NetworkCacheCoders.h"
 #include <wtf/ASCIICType.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WebKit {
 namespace NetworkCache {
 
+static const String& noPartitionString()
+{
+    static NeverDestroyed<String> noPartition(ASCIILiteral("No partition"));
+    return noPartition;
+}
+
 Key::Key(const Key& o)
-    : m_method(o.m_method.isolatedCopy())
-    , m_partition(o.m_partition.isolatedCopy())
+    : m_partition(o.m_partition.isolatedCopy())
+    , m_type(o.m_type.isolatedCopy())
     , m_identifier(o.m_identifier.isolatedCopy())
     , m_range(o.m_range.isolatedCopy())
     , m_hash(o.m_hash)
 {
 }
 
-Key::Key(const String& method, const String& partition, const String& range, const String& identifier)
-    : m_method(method.isolatedCopy())
-    , m_partition(partition.isolatedCopy())
-    , m_identifier(identifier.isolatedCopy())
-    , m_range(range.isolatedCopy())
+Key::Key(const String& partition, const String& type, const String& range, const String& identifier)
+    : m_partition(partition.isEmpty() ? noPartitionString() : partition)
+    , m_type(type)
+    , m_identifier(identifier)
+    , m_range(range)
     , m_hash(computeHash())
 {
 }
 
+Key::Key(WTF::HashTableDeletedValueType)
+    : m_identifier(WTF::HashTableDeletedValue)
+{
+}
+
+bool Key::hasPartition() const
+{
+    return m_partition != noPartitionString();
+}
+
 Key& Key::operator=(const Key& other)
 {
-    m_method = other.m_method.isolatedCopy();
     m_partition = other.m_partition.isolatedCopy();
+    m_type = other.m_type.isolatedCopy();
     m_identifier = other.m_identifier.isolatedCopy();
     m_range = other.m_range.isolatedCopy();
     m_hash = other.m_hash;
@@ -85,8 +102,8 @@ Key::HashType Key::computeHash() const
     // We don't really need a cryptographic hash. The key is always verified against the entry header.
     // SHA1 just happens to be suitably sized, fast and available.
     SHA1 sha1;
-    hashString(sha1, m_method);
     hashString(sha1, m_partition);
+    hashString(sha1, m_type);
     hashString(sha1, m_identifier);
     hashString(sha1, m_range);
     SHA1::Digest hash;
@@ -128,13 +145,13 @@ bool Key::stringToHash(const String& string, HashType& hash)
 
 bool Key::operator==(const Key& other) const
 {
-    return m_hash == other.m_hash && m_method == other.m_method && m_partition == other.m_partition && m_identifier == other.m_identifier && m_range == other.m_range;
+    return m_hash == other.m_hash && m_partition == other.m_partition && m_type == other.m_type && m_identifier == other.m_identifier && m_range == other.m_range;
 }
 
 void Key::encode(Encoder& encoder) const
 {
-    encoder << m_method;
     encoder << m_partition;
+    encoder << m_type;
     encoder << m_identifier;
     encoder << m_range;
     encoder << m_hash;
@@ -142,7 +159,7 @@ void Key::encode(Encoder& encoder) const
 
 bool Key::decode(Decoder& decoder, Key& key)
 {
-    return decoder.decode(key.m_method) && decoder.decode(key.m_partition) && decoder.decode(key.m_identifier) && decoder.decode(key.m_range) && decoder.decode(key.m_hash);
+    return decoder.decode(key.m_partition) && decoder.decode(key.m_type) && decoder.decode(key.m_identifier) && decoder.decode(key.m_range) && decoder.decode(key.m_hash);
 }
 
 }

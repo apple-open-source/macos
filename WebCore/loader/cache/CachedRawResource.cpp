@@ -42,14 +42,14 @@ CachedRawResource::CachedRawResource(ResourceRequest& resourceRequest, Type type
     , m_identifier(0)
     , m_allowEncodedDataReplacement(true)
 {
-    ASSERT(isMainOrRawResource());
+    ASSERT(isMainOrMediaOrRawResource());
 }
 
 const char* CachedRawResource::calculateIncrementalDataChunk(SharedBuffer* data, unsigned& incrementalDataLength)
 {
     incrementalDataLength = 0;
     if (!data)
-        return 0;
+        return nullptr;
 
     unsigned previousDataLength = encodedSize();
     ASSERT(data->size() >= previousDataLength);
@@ -59,7 +59,7 @@ const char* CachedRawResource::calculateIncrementalDataChunk(SharedBuffer* data,
 
 void CachedRawResource::addDataBuffer(SharedBuffer& data)
 {
-    CachedResourceHandle<CachedRawResource> protect(this);
+    CachedResourceHandle<CachedRawResource> protectedThis(this);
     ASSERT(dataBufferingPolicy() == BufferData);
     m_data = &data;
 
@@ -86,7 +86,7 @@ void CachedRawResource::addData(const char* data, unsigned length)
 
 void CachedRawResource::finishLoading(SharedBuffer* data)
 {
-    CachedResourceHandle<CachedRawResource> protect(this);
+    CachedResourceHandle<CachedRawResource> protectedThis(this);
     DataBufferingPolicy dataBufferingPolicy = this->dataBufferingPolicy();
     if (dataBufferingPolicy == BufferData) {
         m_data = data;
@@ -113,7 +113,7 @@ void CachedRawResource::notifyClientsDataWasReceived(const char* data, unsigned 
     if (!length)
         return;
 
-    CachedResourceHandle<CachedRawResource> protect(this);
+    CachedResourceHandle<CachedRawResource> protectedThis(this);
     CachedResourceClientWalker<CachedRawResourceClient> w(m_clients);
     while (CachedRawResourceClient* c = w.next())
         c->dataReceived(this, data, length);
@@ -126,7 +126,7 @@ void CachedRawResource::didAddClient(CachedResourceClient* c)
     // The calls to the client can result in events running, potentially causing
     // this resource to be evicted from the cache and all clients to be removed,
     // so a protector is necessary.
-    CachedResourceHandle<CachedRawResource> protect(this);
+    CachedResourceHandle<CachedRawResource> protectedThis(this);
     CachedRawResourceClient* client = static_cast<CachedRawResourceClient*>(c);
     size_t redirectCount = m_redirectChain.size();
     for (size_t i = 0; i < redirectCount; i++) {
@@ -138,8 +138,16 @@ void CachedRawResource::didAddClient(CachedResourceClient* c)
     }
     ASSERT(redirectCount == m_redirectChain.size());
 
-    if (!m_response.isNull())
-        client->responseReceived(this, m_response);
+    if (!m_response.isNull()) {
+        ResourceResponse response(m_response);
+        if (validationCompleting())
+            response.setSource(ResourceResponse::Source::MemoryCacheAfterValidation);
+        else {
+            ASSERT(!validationInProgress());
+            response.setSource(ResourceResponse::Source::MemoryCache);
+        }
+        client->responseReceived(this, response);
+    }
     if (!hasClient(c))
         return;
     if (m_data)
@@ -157,7 +165,7 @@ void CachedRawResource::allClientsRemoved()
 
 void CachedRawResource::redirectReceived(ResourceRequest& request, const ResourceResponse& response)
 {
-    CachedResourceHandle<CachedRawResource> protect(this);
+    CachedResourceHandle<CachedRawResource> protectedThis(this);
     if (!response.isNull()) {
         CachedResourceClientWalker<CachedRawResourceClient> w(m_clients);
         while (CachedRawResourceClient* c = w.next())
@@ -169,13 +177,23 @@ void CachedRawResource::redirectReceived(ResourceRequest& request, const Resourc
 
 void CachedRawResource::responseReceived(const ResourceResponse& response)
 {
-    CachedResourceHandle<CachedRawResource> protect(this);
+    CachedResourceHandle<CachedRawResource> protectedThis(this);
     if (!m_identifier)
         m_identifier = m_loader->identifier();
     CachedResource::responseReceived(response);
     CachedResourceClientWalker<CachedRawResourceClient> w(m_clients);
     while (CachedRawResourceClient* c = w.next())
         c->responseReceived(this, m_response);
+}
+
+bool CachedRawResource::shouldCacheResponse(const ResourceResponse& response)
+{
+    CachedResourceClientWalker<CachedRawResourceClient> w(m_clients);
+    while (CachedRawResourceClient* c = w.next()) {
+        if (!c->shouldCacheResponse(this, response))
+            return false;
+    }
+    return true;
 }
 
 void CachedRawResource::didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent)
@@ -234,6 +252,9 @@ bool CachedRawResource::canReuse(const ResourceRequest& newRequest) const
         return false;
 
     if (m_resourceRequest.allowCookies() != newRequest.allowCookies())
+        return false;
+
+    if (newRequest.isConditional())
         return false;
 
     // Ensure most headers match the existing headers before continuing.

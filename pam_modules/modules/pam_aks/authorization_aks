@@ -1,0 +1,3 @@
+# localauthentication: auth 
+auth       required       pam_aks.so
+account    required       pam_opendirectory.so

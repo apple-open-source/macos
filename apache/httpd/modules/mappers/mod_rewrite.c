@@ -166,6 +166,7 @@ static const char* really_last_key = "rewrite_really_last";
 #define RULEFLAG_DISCARDPATHINFO    (1<<15)
 #define RULEFLAG_QSDISCARD          (1<<16)
 #define RULEFLAG_END                (1<<17)
+#define RULEFLAG_QSLAST             (1<<19)
 
 /* return code of the rewrite rule
  * the result may be escaped - or not
@@ -443,8 +444,7 @@ static void do_rewritelog(request_rec *r, int level, char *perdir,
     if (!APLOG_R_IS_LEVEL(r, APLOG_DEBUG + level))
         return;
 
-    rhost = ap_get_remote_host(r->connection, r->per_dir_config,
-                               REMOTE_NOLOOKUP, NULL);
+    rhost = ap_get_useragent_host(r, REMOTE_NOLOOKUP, NULL);
     rname = ap_get_remote_logname(r);
 
     for (redir=0, req=r; req->prev; req = req->prev) {
@@ -473,6 +473,7 @@ static void do_rewritelog(request_rec *r, int level, char *perdir,
 
     AP_REWRITE_LOG((uintptr_t)r, level, r->main ? 0 : 1, (char *)ap_get_server_name(r), logline);
 
+    /* Intentional no APLOGNO */
     ap_log_rerror(APLOG_MARK, APLOG_DEBUG + level, 0, r, "%s", logline);
 
     return;
@@ -558,6 +559,14 @@ static unsigned is_absolute_uri(char *uri, int *supportsqs)
         else if (!strncasecmp(uri, "ttps://", 7)) { /* https://  */
             *sqs = 1;
             return 8;
+        }
+        else if (!strncasecmp(uri, "2://", 4)) {    /* h2://     */
+            *sqs = 1;
+            return 5;
+        }
+        else if (!strncasecmp(uri, "2c://", 5)) {   /* h2c://    */
+            *sqs = 1;
+            return 6;
         }
         break;
 
@@ -724,7 +733,8 @@ static char *escape_absolute_uri(apr_pool_t *p, char *uri, unsigned scheme)
  * split out a QUERY_STRING part from
  * the current URI string
  */
-static void splitout_queryargs(request_rec *r, int qsappend, int qsdiscard)
+static void splitout_queryargs(request_rec *r, int qsappend, int qsdiscard, 
+                               int qslast)
 {
     char *q;
     int split;
@@ -743,7 +753,8 @@ static void splitout_queryargs(request_rec *r, int qsappend, int qsdiscard)
         rewritelog((r, 2, NULL, "discarding query string"));
     }
 
-    q = ap_strchr(r->filename, '?');
+    q = qslast ? ap_strrchr(r->filename, '?') : ap_strchr(r->filename, '?');
+
     if (q != NULL) {
         char *olduri;
         apr_size_t len;
@@ -751,18 +762,23 @@ static void splitout_queryargs(request_rec *r, int qsappend, int qsdiscard)
         olduri = apr_pstrdup(r->pool, r->filename);
         *q++ = '\0';
         if (qsappend) {
-            r->args = apr_pstrcat(r->pool, q, "&", r->args, NULL);
+            if (*q) { 
+                r->args = apr_pstrcat(r->pool, q, "&" , r->args, NULL);
+            }
         }
         else {
             r->args = apr_pstrdup(r->pool, q);
         }
 
-        len = strlen(r->args);
-        if (!len) {
-            r->args = NULL;
-        }
-        else if (r->args[len-1] == '&') {
-            r->args[len-1] = '\0';
+        if (r->args) { 
+           len = strlen(r->args);
+      
+           if (!len) {
+               r->args = NULL;
+           }
+           else if (r->args[len-1] == '&') {
+               r->args[len-1] = '\0';
+           }
         }
 
         rewritelog((r, 3, NULL, "split uri=%s -> uri=%s, args=%s", olduri,
@@ -3584,6 +3600,9 @@ static const char *cmd_rewriterule_setflag(apr_pool_t *p, void *_cfg,
         } else if ( !strcasecmp(key, "SD")
                 || !strcasecmp(key, "sdiscard") ) {       /* qsdiscard */
             cfg->flags |= RULEFLAG_QSDISCARD;
+        } else if ( !strcasecmp(key, "SL")
+                || !strcasecmp(key, "slast") ) {          /* qslast */
+            cfg->flags |= RULEFLAG_QSLAST;
         }
         else {
             ++error;
@@ -4136,7 +4155,9 @@ static int apply_rewrite_rule(rewriterule_entry *p, rewrite_ctx *ctx)
         r->path_info = NULL;
     }
 
-    splitout_queryargs(r, p->flags & RULEFLAG_QSAPPEND, p->flags & RULEFLAG_QSDISCARD);
+    splitout_queryargs(r, p->flags & RULEFLAG_QSAPPEND, 
+                          p->flags & RULEFLAG_QSDISCARD, 
+                          p->flags & RULEFLAG_QSLAST);
 
     /* Add the previously stripped per-directory location prefix, unless
      * (1) it's an absolute URL path and
@@ -4480,6 +4501,7 @@ static int hook_uri2file(request_rec *r)
     unsigned int port;
     int rulestatus;
     void *skipdata;
+    const char *oargs;
 
     /*
      *  retrieve the config structures
@@ -4528,6 +4550,12 @@ static int hook_uri2file(request_rec *r)
                     r->uri));
         return DECLINED;
     }
+
+    /*
+     *  remember the original query string for later check, since we don't
+     *  want to apply URL-escaping when no substitution has changed it.
+     */
+    oargs = r->args;
 
     /*
      *  add the SCRIPT_URL variable to the env. this is a bit complicated
@@ -4663,11 +4691,21 @@ static int hook_uri2file(request_rec *r)
 
             /* append the QUERY_STRING part */
             if (r->args) {
+                char *escaped_args = NULL;
+                int noescape = (rulestatus == ACTION_NOESCAPE ||
+                                (oargs && !strcmp(r->args, oargs)));
+
                 r->filename = apr_pstrcat(r->pool, r->filename, "?",
-                                          (rulestatus == ACTION_NOESCAPE)
+                                          noescape
                                             ? r->args
-                                            : ap_escape_uri(r->pool, r->args),
+                                            : (escaped_args =
+                                               ap_escape_uri(r->pool, r->args)),
                                           NULL);
+
+                rewritelog((r, 1, NULL, "%s %s to query string for redirect %s",
+                            noescape ? "copying" : "escaping",
+                            r->args ,
+                            noescape ? "" : escaped_args));
             }
 
             /* determine HTTP redirect response code */

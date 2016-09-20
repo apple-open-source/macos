@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2007, 2008, 2009 Apple Inc. All rights reserved.
+ *  Copyright (C) 2007, 2008, 2009, 2016 Apple Inc. All rights reserved.
  *  Copyright (C) 2009 Torch Mobile, Inc.
  *
  *  This library is free software; you can redistribute it and/or
@@ -22,6 +22,7 @@
 #ifndef RegExp_h
 #define RegExp_h
 
+#include "ConcurrentJITLock.h"
 #include "ExecutableAllocator.h"
 #include "MatchResult.h"
 #include "RegExpKey.h"
@@ -50,10 +51,14 @@ public:
     JS_EXPORT_PRIVATE static RegExp* create(VM&, const String& pattern, RegExpFlags);
     static const bool needsDestruction = true;
     static void destroy(JSCell*);
+    static size_t estimatedSize(JSCell*);
 
     bool global() const { return m_flags & FlagGlobal; }
     bool ignoreCase() const { return m_flags & FlagIgnoreCase; }
     bool multiline() const { return m_flags & FlagMultiline; }
+    bool sticky() const { return m_flags & FlagSticky; }
+    bool globalOrSticky() const { return global() || sticky(); }
+    bool unicode() const { return m_flags & FlagUnicode; }
 
     const String& pattern() const { return m_patternString; }
 
@@ -61,7 +66,18 @@ public:
     const char* errorMessage() const { return m_constructionError; }
 
     JS_EXPORT_PRIVATE int match(VM&, const String&, unsigned startOffset, Vector<int, 32>& ovector);
+
+    // Returns false if we couldn't run the regular expression for any reason.
+    bool matchConcurrently(VM&, const String&, unsigned startOffset, int& position, Vector<int, 32>& ovector);
+    
     JS_EXPORT_PRIVATE MatchResult match(VM&, const String&, unsigned startOffset);
+
+    bool matchConcurrently(VM&, const String&, unsigned startOffset, MatchResult&);
+
+    // Call these versions of the match functions if you're desperate for performance.
+    int matchInline(VM&, const String&, unsigned startOffset, Vector<int, 32>& ovector);
+    MatchResult matchInline(VM&, const String&, unsigned startOffset);
+    
     unsigned numSubpatterns() const { return m_numSubpatterns; }
 
     bool hasCode()
@@ -69,7 +85,10 @@ public:
         return m_state != NotCompiled;
     }
 
-    void invalidateCode();
+    bool hasCodeFor(Yarr::YarrCharSize);
+    bool hasMatchOnlyCodeFor(Yarr::YarrCharSize);
+
+    void deleteCode();
 
 #if ENABLE(REGEXP_TRACING)
     void printTraceData();
@@ -124,6 +143,7 @@ private:
     unsigned m_rtMatchCallCount;
     unsigned m_rtMatchFoundCount;
 #endif
+    ConcurrentJITLock m_lock;
 
 #if ENABLE(YARR_JIT)
     Yarr::YarrCodeBlock m_regExpJITCode;

@@ -1,4 +1,4 @@
-/* 
+/*
  *  atrun.c - run jobs queued by at; run with root privileges.
  *  Copyright (C) 1993, 1994 Thomas Koenig
  *
@@ -154,7 +154,7 @@ run_file(const char *filename, uid_t uid, gid_t gid)
     pid = fork();
     if (pid == -1)
 	perr("cannot fork");
-    
+
     else if (pid != 0)
 	return;
 
@@ -214,16 +214,16 @@ run_file(const char *filename, uid_t uid, gid_t gid)
 
     if (S_ISLNK(lbuf.st_mode))
 	perrx("Symbolic link encountered in job %s - aborting", filename);
- 
+
     if ((lbuf.st_dev != buf.st_dev) || (lbuf.st_ino != buf.st_ino) ||
         (lbuf.st_uid != buf.st_uid) || (lbuf.st_gid != buf.st_gid) ||
         (lbuf.st_size!=buf.st_size))
 	perrx("Somebody changed files from under us for job %s - aborting",
 		filename);
- 
+
     if (buf.st_nlink > 1)
 	perrx("Somebody is trying to run a linked script for job %s", filename);
- 
+
     if ((fflags = fcntl(fd_in, F_GETFD)) <0)
 	perr("error in fcntl");
 
@@ -238,7 +238,7 @@ run_file(const char *filename, uid_t uid, gid_t gid)
 
     if (mailbuf[0] == '-')
 	perrx("Illegal mail name %s in %s", mailbuf, filename);
- 
+
     mailname = mailbuf;
 
     if (nuid != uid)
@@ -253,10 +253,10 @@ run_file(const char *filename, uid_t uid, gid_t gid)
 
     if (chdir(ATSPOOL_DIR) < 0)
 	perr("cannot chdir to %s", ATSPOOL_DIR);
-    
+
     /* Create a file to hold the output of the job we are about to run.
      * Write the mail header.
-     */    
+     */
     if((fd_out=open(filename,
 		O_WRONLY | O_CREAT | O_EXCL, S_IWUSR | S_IRUSR)) < 0)
 	perr("cannot create output file");
@@ -270,7 +270,7 @@ run_file(const char *filename, uid_t uid, gid_t gid)
     close(STDIN_FILENO);
     close(STDOUT_FILENO);
     close(STDERR_FILENO);
- 
+
     pid = fork();
     if (pid < 0)
 	perr("error in fork");
@@ -306,7 +306,7 @@ run_file(const char *filename, uid_t uid, gid_t gid)
 	PRIV_START
 
         nice(tolower(queue) - 'a');
-	
+
 #ifdef LOGIN_CAP
 	/*
 	 * For simplicity and safety, set all aspects of the user context
@@ -356,7 +356,7 @@ run_file(const char *filename, uid_t uid, gid_t gid)
 
     unlink(filename);
     if ((buf.st_size != size) || send_mail)
-    {    
+    {
 	PRIV_START
 
 #ifdef LOGIN_CAP
@@ -476,7 +476,7 @@ main(int argc, char *argv[])
     {
 	switch (c)
 	{
-	case 'l': 
+	case 'l':
 	    if (sscanf(optarg, "%lf", &load_avg) != 1)
 		perr("garbled option -l");
 	    if (load_avg <= 0.)
@@ -520,7 +520,7 @@ main(int argc, char *argv[])
 
 	/* We don't want directories
 	 */
-	if (!S_ISREG(buf.st_mode)) 
+	if (!S_ISREG(buf.st_mode))
 	    continue;
 
 	if (sscanf(dirent->d_name,"%c%5lx%8lx",&queue,&jobno,&ctm) != 3)
@@ -535,7 +535,7 @@ main(int argc, char *argv[])
 		batch_uid = buf.st_uid;
 		batch_gid = buf.st_gid;
 	    }
-	
+
 	/* The file is executable and old enough
 	 */
 	    if (islower(queue))
@@ -565,7 +565,7 @@ usage(void)
     if (debug)
 	fprintf(stderr, "usage: atrun [-l load_avg] [-d]\n");
     else
-	syslog(LOG_ERR, "usage: atrun [-l load_avg] [-d]"); 
+	syslog(LOG_ERR, "usage: atrun [-l load_avg] [-d]");
 
     exit(EXIT_FAILURE);
 }

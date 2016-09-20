@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,29 +38,24 @@
 
 #include "FDSet.h"
 #include "interfaces.h"
+#include <CoreFoundation/CFDate.h>
 
 #define ARP_PROBE_COUNT				3
 #define ARP_GRATUITOUS_COUNT			2
-#define ARP_RETRY_SECS				0
-#define ARP_RETRY_USECS				320000
-#define ARP_DETECT_COUNT			3
-#define ARP_DETECT_RETRY_SECS			0
-#define ARP_DETECT_RETRY_USECS			15000
+#define ARP_RETRY_SECS				0.32
+#define ARP_DETECT_COUNT			6
+#define ARP_DETECT_RETRY_SECS			0.02
 #define ARP_CONFLICT_RETRY_COUNT		2
-#define ARP_CONFLICT_RETRY_DELAY_SECS		0
-#define ARP_CONFLICT_RETRY_DELAY_USECS		750000
-#define ARP_RESOLVE_RETRY_SECS			0
-#define ARP_RESOLVE_RETRY_USECS			320000
+#define ARP_CONFLICT_RETRY_DELAY_SECS		0.75
 
 typedef struct arp_session_values {
     int * 		probe_count;
     int * 		probe_gratuitous_count;
-    struct timeval * 	probe_interval;
+    CFTimeInterval *	probe_interval;
     int * 		detect_count;
-    struct timeval * 	detect_interval;
+    CFTimeInterval * 	detect_interval;
     int *		conflict_retry_count;
-    struct timeval *	conflict_delay_interval;
-    struct timeval * 	resolve_interval;
+    CFTimeInterval *	conflict_delay_interval;
 } arp_session_values_t;
 
 typedef struct arp_client arp_client_t;
@@ -129,14 +124,6 @@ const char *
 arp_client_errmsg(arp_client_t * client);
 
 void
-arp_client_set_probe_info(arp_client_t * client, 
-			  const struct timeval * retry_interval,
-			  const int * probe_count, 
-			  const int * gratuitous_count);
-void 
-arp_client_restore_default_probe_info(arp_client_t * client);
-
-void
 arp_client_probe(arp_client_t * client,
 		 arp_result_func_t * func, void * arg1, void * arg2,
 		 struct in_addr sender_ip, struct in_addr target_ip);
@@ -150,8 +137,8 @@ arp_client_resolve(arp_client_t * client,
 void
 arp_client_detect(arp_client_t * client,
 		  arp_result_func_t * func, void * arg1, void * arg2,
-		  const arp_address_info_t * list, int list_count,
-		  boolean_t resolve);
+		  const arp_address_info_t * list, int list_count);
+
 void
 arp_client_cancel(arp_client_t * client);
 

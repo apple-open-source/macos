@@ -47,7 +47,7 @@ private:
     {
     }
 
-    virtual bool isHTMLUnknownElement() const override { return true; }
+    bool isHTMLUnknownElement() const final { return true; }
 };
 
 } // namespace

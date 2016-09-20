@@ -40,101 +40,60 @@ void InitWebCoreSystemInterface(void)
         INIT(AdvanceDefaultButtonPulseAnimation);
 #endif
         INIT(CALayerEnumerateRectsBeingDrawnWithBlock);
-        INIT(CGContextGetShouldSmoothFonts);
         INIT(CGPatternCreateWithImageAndTransform);
-        INIT(CGContextResetClip);
 #if !PLATFORM(IOS)
         INIT(CGContextDrawsWithCorrectShadowOffsets);
 #endif
         INIT(CopyCONNECTProxyResponse);
-        INIT(CopyNSURLResponseStatusLine);
-        INIT(CopyNSURLResponseCertificateChain);
 #if !PLATFORM(IOS)
         INIT(DrawBezeledTextArea);
-        INIT(DrawCapsLockIndicator);
         INIT(DrawFocusRing);
         INIT(DrawFocusRingAtTime);
         INIT(DrawCellFocusRingWithFrameAtTime);
         INIT(DrawMediaSliderTrack);
         INIT(DrawMediaUIPart);
-#endif
-        INIT(GetHTTPRequestPriority);
-        INIT(GetNSURLResponseLastModifiedDate);
-#if !PLATFORM(IOS)
         INIT(SignedPublicKeyAndChallengeString);
 #endif
-        INIT(GetUserToBaseCTM);
         INIT(GetWebDefaultCFStringEncoding);
         INIT(CGContextIsPDFContext);
 #if !PLATFORM(IOS)
         INIT(GetWheelEventDeltas);
         INIT(GetNSEventKeyChar);
         INIT(HitTestMediaUIPart);
-#endif
-        INIT(InitializeMaximumHTTPConnectionCountPerHost);
-        INIT(HTTPRequestEnablePipelining);
-#if !PLATFORM(IOS)
         INIT(MeasureMediaUIPart);
-        INIT(PopupMenu);
         INIT(QTIncludeOnlyModernMediaFileTypes);
         INIT(QTMovieDisableComponent);
         INIT(QTMovieGetType);
         INIT(QTMovieHasClosedCaptions);
         INIT(QTMovieMaxTimeLoaded);
         INIT(QTMovieMaxTimeLoadedChangeNotification);
-        INIT(QTMovieMaxTimeSeekable);
         INIT(QTMovieResolvedURL);
         INIT(QTMovieSelectPreferredAlternates);
         INIT(QTMovieSetShowClosedCaptions);
-        INIT(QTMovieViewSetDrawSynchronously);
         INIT(QTGetSitesInMediaDownloadCache);
         INIT(QTClearMediaDownloadCacheForSite);
         INIT(QTClearMediaDownloadCache);
-        INIT(SetCGFontRenderingMode);
 #endif
-        INIT(SetBaseCTM);
         INIT(SetCONNECTProxyAuthorizationForStream);
         INIT(SetCONNECTProxyForStream);
 #if !PLATFORM(IOS)
         INIT(SetDragImage);
 #endif
-        INIT(SetHTTPRequestMaximumPriority);
-        INIT(SetHTTPRequestPriority);
-        INIT(SetHTTPRequestMinimumFastLanePriority);
-        INIT(SetNSURLConnectionDefersCallbacks);
-        INIT(SetNSURLRequestShouldContentSniff);
-        INIT(SetPatternPhaseInUserSpace);
         INIT(CreatePrivateStorageSession);
         INIT(CopyRequestWithStorageSession);
-        INIT(CopyHTTPCookieStorage);
         INIT(GetHTTPCookieAcceptPolicy);
-        INIT(SetHTTPCookieAcceptPolicy);
         INIT(HTTPCookies);
-        INIT(HTTPCookiesForURL);
         INIT(SetHTTPCookiesForURL);
         INIT(DeleteAllHTTPCookies);
         INIT(DeleteHTTPCookie);
 
 #if !PLATFORM(IOS)
         INIT(SetMetadataURL);
-#endif // !PLATFORM(IOS)
-
-#if !PLATFORM(IOS)
         INIT(ExecutableWasLinkedOnOrBeforeSnowLeopard);
         INIT(CopyDefaultSearchProviderDisplayName);
         INIT(Cursor);
         INIT(WindowSetScaledFrame);
         INIT(WindowSetAlpha);
-#endif // !PLATFORM(IOS)
-
-#if USE(CFNETWORK)
-        INIT(GetDefaultHTTPCookieStorage);
-        INIT(CopyCredentialFromCFPersistentStorage);
-        INIT(SetCFURLRequestShouldContentSniff);
-        INIT(SetRequestStorageSession);
-#endif
-
-#if !PLATFORM(IOS)
         INIT(SpeechSynthesisGetVoiceIdentifiers);
         INIT(SpeechSynthesisGetDefaultVoiceIdentifierForLocale);
         INIT(GetAXTextMarkerTypeID);
@@ -147,37 +106,9 @@ void InitWebCoreSystemInterface(void)
         INIT(AccessibilityHandleFocusChanged);
         INIT(CreateAXUIElementRef);
         INIT(UnregisterUniqueIdForElement);
-#endif
-
-        INIT(GetCFURLResponseMIMEType);
-        INIT(GetCFURLResponseURL);
-        INIT(GetCFURLResponseHTTPResponse);
-        INIT(CopyCFURLResponseSuggestedFilename);
-        INIT(SetCFURLResponseMIMEType);
-
-        INIT(CFURLRequestAllowAllPostCaching);
-
-#if PLATFORM(IOS)
-        INIT(GetUserAgent);
-        INIT(GetDeviceName);
-        INIT(GetOSNameForUserAgent);
-        INIT(GetPlatformNameForNavigator);
-        INIT(GetVendorNameForNavigator);
-#endif
-
-#if !PLATFORM(IOS)
         INIT(NSElasticDeltaForTimeDelta);
         INIT(NSElasticDeltaForReboundDelta);
         INIT(NSReboundDeltaForElasticDelta);
-#endif
-#if PLATFORM(IOS)
-        INIT(ExecutableWasLinkedOnOrAfterIOSVersion);
-        INIT(GetDeviceClass);
-        INIT(GetScreenSize);
-        INIT(GetAvailableScreenSize);
-        INIT(GetScreenScaleFactor);
-        INIT(IsGB18030ComplianceRequired);
-        INIT(IsOptimizedFullscreenSupported);
 #endif
 
 #if ENABLE(PUBLIC_SUFFIX_LIST)

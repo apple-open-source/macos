@@ -81,9 +81,52 @@ struct curl_waitfd {
 <p class="level0"><a name="CURLWAITPOLLPRI"></a><span class="nroffip">CURL_WAIT_POLLPRI</span> 
 <p class="level1">Bit flag to curl_waitfd.events indicating the socket should poll on high priority read events such as out of band data. 
 <p class="level0"><a name="CURLWAITPOLLOUT"></a><span class="nroffip">CURL_WAIT_POLLOUT</span> 
-<p class="level1">Bit flag to curl_waitfd.events indicating the socket should poll on write events such as the socket being clear to write without blocking. <a name="RETURN"></a><h2 class="nroffsh">RETURN VALUE</h2>
+<p class="level1">Bit flag to curl_waitfd.events indicating the socket should poll on write events such as the socket being clear to write without blocking. <a name="EXAMPLE"></a><h2 class="nroffsh">EXAMPLE</h2>
+<p class="level0"><pre class="level0">
+CURL *easy_handle;
+CURLM *multi_handle;
+&nbsp;
+/* add the individual easy handle */
+curl_multi_add_handle(multi_handle, easy_handle);
+&nbsp;
+do {
+&nbsp; CURLMcode mc;
+&nbsp; int numfds;
+&nbsp;
+&nbsp; mc = curl_multi_perform(multi_handle, &still_running);
+&nbsp;
+&nbsp; if(mc == CURLM_OK ) {
+&nbsp;   /* wait for activity, timeout or "nothing" */
+&nbsp;   mc = curl_multi_wait(multi_handle, NULL, 0, 1000, &numfds);
+&nbsp; }
+&nbsp;
+&nbsp; if(mc != CURLM_OK) {
+&nbsp;   fprintf(stderr, "curl_multi failed, code %d.n", mc);
+&nbsp;   break;
+&nbsp; }
+&nbsp;
+&nbsp; /* 'numfds' being zero means either a timeout or no file descriptors to
+&nbsp;    wait for. Try timeout on first occurrence, then assume no file
+&nbsp;    descriptors and no file descriptors to wait for means wait for 100
+&nbsp;    milliseconds. */
+&nbsp;
+&nbsp; if(!numfds) {
+&nbsp;   repeats++; /* count number of repeated zero numfds */
+&nbsp;   if(repeats &gt; 1) {
+&nbsp;     WAITMS(100); /* sleep 100 milliseconds */
+&nbsp;   }
+&nbsp; }
+&nbsp; else
+&nbsp;   repeats = 0;
+&nbsp;
+} while(still_running);
+&nbsp;
+curl_multi_remove_handle(multi_handle, easy_handle);
+</pre>
+
+<p class="level0"><a name="RETURN"></a><h2 class="nroffsh">RETURN VALUE</h2>
 <p class="level0">CURLMcode type, general libcurl multi interface error code. See <a Class="emphasis" href="./libcurl-errors.html">libcurl-errors</a> <a name="AVAILABILITY"></a><h2 class="nroffsh">AVAILABILITY</h2>
 <p class="level0">This function was added in libcurl 7.28.0. <a name="SEE"></a><h2 class="nroffsh">SEE ALSO</h2>
-<p class="level0"><a Class="manpage" href="./curl_multi_fdset.html">curl_multi_fdset</a>, <a Class="manpage" href="./curl_multi_perform.html">curl_multi_perform</a>, <p class="roffit">
+<p class="level0"><a Class="manpage" href="./curl_multi_fdset.html">curl_multi_fdset</a>, <a Class="manpage" href="./curl_multi_perform.html">curl_multi_perform</a><p class="roffit">
  This HTML page was made with <a href="http://daniel.haxx.se/projects/roffit/">roffit</a>.
 </body></html>

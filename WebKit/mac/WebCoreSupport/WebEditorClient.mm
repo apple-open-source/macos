@@ -54,18 +54,25 @@
 #import <WebCore/ArchiveResource.h>
 #import <WebCore/Document.h>
 #import <WebCore/DocumentFragment.h>
+#import <WebCore/Editor.h>
+#import <WebCore/FloatQuad.h>
+#import <WebCore/Frame.h>
+#import <WebCore/FrameView.h>
 #import <WebCore/HTMLInputElement.h>
 #import <WebCore/HTMLNames.h>
 #import <WebCore/HTMLTextAreaElement.h>
 #import <WebCore/KeyboardEvent.h>
 #import <WebCore/LegacyWebArchive.h>
+#import <WebCore/NSSpellCheckerSPI.h>
 #import <WebCore/Page.h>
 #import <WebCore/PlatformKeyboardEvent.h>
 #import <WebCore/Settings.h>
 #import <WebCore/SpellChecker.h>
 #import <WebCore/StyleProperties.h>
+#import <WebCore/TextIterator.h>
 #import <WebCore/UndoStep.h>
 #import <WebCore/UserTypingGestureIndicator.h>
+#import <WebCore/VisibleUnits.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <runtime/InitializeThreading.h>
 #import <wtf/MainThread.h>
@@ -119,7 +126,6 @@ static WebViewInsertAction kit(EditorInsertAction coreAction)
     WTF::initializeMainThreadToProcessMainThread();
     RunLoop::initializeMainRunLoop();
 #endif
-    WebCoreObjCFinalizeOnMainThread(self);
 }
 
 - (id)initWithUndoStep:(PassRefPtr<UndoStep>)step
@@ -138,11 +144,6 @@ static WebViewInsertAction kit(EditorInsertAction coreAction)
         return;
 
     [super dealloc];
-}
-
-- (void)finalize
-{
-    [super finalize];
 }
 
 + (WebUndoStep *)stepWithUndoStep:(PassRefPtr<UndoStep>)step
@@ -182,11 +183,6 @@ static WebViewInsertAction kit(EditorInsertAction coreAction)
 
 @end
 
-void WebEditorClient::pageDestroyed()
-{
-    delete this;
-}
-
 WebEditorClient::WebEditorClient(WebView *webView)
     : m_webView(webView)
     , m_undoTarget(adoptNS([[WebEditorUndoTarget alloc] init]))
@@ -195,6 +191,7 @@ WebEditorClient::WebEditorClient(WebView *webView)
     , m_delayingContentChangeNotifications(0)
     , m_hasDelayedContentChangeNotification(0)
 #endif
+    , m_weakPtrFactory(this)
 {
 }
 
@@ -348,8 +345,10 @@ void WebEditorClient::respondToChangedContents()
 void WebEditorClient::respondToChangedSelection(Frame* frame)
 {
     NSView<WebDocumentView> *documentView = [[kit(frame) frameView] documentView];
-    if ([documentView isKindOfClass:[WebHTMLView class]])
+    if ([documentView isKindOfClass:[WebHTMLView class]]) {
         [(WebHTMLView *)documentView _selectionChanged];
+        [m_webView updateWebViewAdditions];
+    }
 
 #if !PLATFORM(IOS)
     // FIXME: This quirk is needed due to <rdar://problem/5009625> - We can phase it out once Aperture can adopt the new behavior on their end
@@ -362,6 +361,11 @@ void WebEditorClient::respondToChangedSelection(Frame* frame)
     // for the NSInvocation to retain the WebView.
     if (![m_webView _isClosing])
         WebThreadPostNotification(WebViewDidChangeSelectionNotification, m_webView, nil);
+#endif
+
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
+    if (frame->editor().canEdit())
+        requestCandidatesForSelection(frame->selection().selection());
 #endif
 }
 
@@ -410,7 +414,7 @@ NSURL *WebEditorClient::canonicalizeURLString(NSString *URLString)
 {
     NSURL *URL = nil;
     if ([URLString _webkit_looksLikeAbsoluteURL])
-        URL = [[NSURL _web_URLWithUserTypedString:URLString] _webkit_canonicalize];
+        URL = [[NSURL _webkit_URLWithUserTypedString:URLString] _webkit_canonicalize];
     return URL;
 }
 
@@ -872,7 +876,7 @@ int WebEditorClient::pasteboardChangeCount()
     return 0;
 }
 
-Vector<TextCheckingResult> WebEditorClient::checkTextOfParagraph(StringView string, TextCheckingTypeMask checkingTypes)
+Vector<TextCheckingResult> WebEditorClient::checkTextOfParagraph(StringView string, TextCheckingTypeMask checkingTypes, const VisibleSelection&)
 {
     ASSERT(checkingTypes & NSTextCheckingTypeSpelling);
 
@@ -1041,9 +1045,22 @@ static Vector<TextCheckingResult> core(NSArray *incomingResults, TextCheckingTyp
     return results;
 }
 
-Vector<TextCheckingResult> WebEditorClient::checkTextOfParagraph(StringView string, TextCheckingTypeMask checkingTypes)
+#if HAVE(ADVANCED_SPELL_CHECKING)
+static int insertionPointFromCurrentSelection(const VisibleSelection& currentSelection)
 {
-    return core([[NSSpellChecker sharedSpellChecker] checkString:string.createNSStringWithoutCopying().get() range:NSMakeRange(0, string.length()) types:(checkingTypes | NSTextCheckingTypeOrthography) options:nil inSpellDocumentWithTag:spellCheckerDocumentTag() orthography:NULL wordCount:NULL], checkingTypes);
+    VisiblePosition selectionStart = currentSelection.visibleStart();
+    VisiblePosition paragraphStart = startOfParagraph(selectionStart);
+    return TextIterator::rangeLength(makeRange(paragraphStart, selectionStart).get());
+}
+#endif
+
+Vector<TextCheckingResult> WebEditorClient::checkTextOfParagraph(StringView string, TextCheckingTypeMask checkingTypes, const VisibleSelection& currentSelection)
+{
+    NSDictionary *options = nil;
+#if HAVE(ADVANCED_SPELL_CHECKING)
+    options = @{ NSTextCheckingInsertionPointKey :  [NSNumber numberWithUnsignedInteger:insertionPointFromCurrentSelection(currentSelection)] };
+#endif
+    return core([[NSSpellChecker sharedSpellChecker] checkString:string.createNSStringWithoutCopying().get() range:NSMakeRange(0, string.length()) types:(checkingTypes | NSTextCheckingTypeOrthography) options:options inSpellDocumentWithTag:spellCheckerDocumentTag() orthography:NULL wordCount:NULL], checkingTypes);
 }
 
 void WebEditorClient::updateSpellingUIWithGrammarString(const String& badGrammarPhrase, const GrammarDetail& grammarDetail)
@@ -1079,13 +1096,18 @@ bool WebEditorClient::spellingUIIsShowing()
     return [[[NSSpellChecker sharedSpellChecker] spellingPanel] isVisible];
 }
 
-void WebEditorClient::getGuessesForWord(const String& word, const String& context, Vector<String>& guesses) {
+void WebEditorClient::getGuessesForWord(const String& word, const String& context, const WebCore::VisibleSelection& currentSelection, Vector<String>& guesses)
+{
     guesses.clear();
     NSString* language = nil;
     NSOrthography* orthography = nil;
     NSSpellChecker *checker = [NSSpellChecker sharedSpellChecker];
+    NSDictionary *options = nil;
+#if HAVE(ADVANCED_SPELL_CHECKING)
+    options = @{ NSTextCheckingInsertionPointKey :  [NSNumber numberWithUnsignedInteger:insertionPointFromCurrentSelection(currentSelection)] };
+#endif
     if (context.length()) {
-        [checker checkString:context range:NSMakeRange(0, context.length()) types:NSTextCheckingTypeOrthography options:0 inSpellDocumentWithTag:spellCheckerDocumentTag() orthography:&orthography wordCount:0];
+        [checker checkString:context range:NSMakeRange(0, context.length()) types:NSTextCheckingTypeOrthography options:options inSpellDocumentWithTag:spellCheckerDocumentTag() orthography:&orthography wordCount:0];
         language = [checker languageForWordRange:NSMakeRange(0, context.length()) inString:context orthography:orthography];
     }
     NSArray* stringsArray = [checker guessesForWordRange:NSMakeRange(0, word.length()) inString:word language:language inSpellDocumentWithTag:spellCheckerDocumentTag()];
@@ -1108,6 +1130,96 @@ void WebEditorClient::willSetInputMethodState()
 void WebEditorClient::setInputMethodState(bool)
 {
 }
+
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
+void WebEditorClient::requestCandidatesForSelection(const VisibleSelection& selection)
+{
+    if (![m_webView shouldRequestCandidates])
+        return;
+
+    RefPtr<Range> selectedRange = selection.toNormalizedRange();
+    if (!selectedRange)
+        return;
+
+    m_lastSelectionForRequestedCandidates = selection;
+
+#if HAVE(ADVANCED_SPELL_CHECKING)
+    VisiblePosition selectionStart = selection.visibleStart();
+    VisiblePosition selectionEnd = selection.visibleEnd();
+    VisiblePosition paragraphStart = startOfParagraph(selectionStart);
+    VisiblePosition paragraphEnd = endOfParagraph(selectionEnd);
+
+    int lengthToSelectionStart = TextIterator::rangeLength(makeRange(paragraphStart, selectionStart).get());
+    int lengthToSelectionEnd = TextIterator::rangeLength(makeRange(paragraphStart, selectionEnd).get());
+    m_rangeForCandidates = NSMakeRange(lengthToSelectionStart, lengthToSelectionEnd - lengthToSelectionStart);
+    m_paragraphContextForCandidateRequest = plainText(makeRange(paragraphStart, paragraphEnd).get());
+
+    NSTextCheckingTypes checkingTypes = NSTextCheckingTypeSpelling | NSTextCheckingTypeReplacement | NSTextCheckingTypeCorrection;
+    auto weakEditor = m_weakPtrFactory.createWeakPtr();
+    m_lastCandidateRequestSequenceNumber = [[NSSpellChecker sharedSpellChecker] requestCandidatesForSelectedRange:m_rangeForCandidates inString:m_paragraphContextForCandidateRequest.get() types:checkingTypes options:nil inSpellDocumentWithTag:spellCheckerDocumentTag() completionHandler:[weakEditor](NSInteger sequenceNumber, NSArray<NSTextCheckingResult *> *candidates) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (!weakEditor)
+                return;
+            weakEditor->handleRequestedCandidates(sequenceNumber, candidates);
+        });
+    }];
+#endif // HAVE(ADVANCED_SPELL_CHECKING)
+}
+
+void WebEditorClient::handleRequestedCandidates(NSInteger sequenceNumber, NSArray<NSTextCheckingResult *> *candidates)
+{
+    if (![m_webView shouldRequestCandidates])
+        return;
+
+    if (m_lastCandidateRequestSequenceNumber != sequenceNumber)
+        return;
+
+    Frame* frame = core([m_webView _selectedOrMainFrame]);
+    if (!frame)
+        return;
+
+    const VisibleSelection& selection = frame->selection().selection();
+    if (selection != m_lastSelectionForRequestedCandidates)
+        return;
+
+    RefPtr<Range> selectedRange = selection.toNormalizedRange();
+    if (!selectedRange)
+        return;
+
+    IntRect rectForSelectionCandidates;
+    Vector<FloatQuad> quads;
+    selectedRange->absoluteTextQuads(quads);
+    if (!quads.isEmpty())
+        rectForSelectionCandidates = frame->view()->contentsToWindow(quads[0].enclosingBoundingBox());
+
+    [m_webView showCandidates:candidates forString:m_paragraphContextForCandidateRequest.get() inRect:rectForSelectionCandidates forSelectedRange:m_rangeForCandidates view:m_webView completionHandler:nil];
+
+}
+
+void WebEditorClient::handleAcceptedCandidateWithSoftSpaces(TextCheckingResult acceptedCandidate)
+{
+    Frame* frame = core([m_webView _selectedOrMainFrame]);
+    if (!frame)
+        return;
+
+    const VisibleSelection& selection = frame->selection().selection();
+    if (selection != m_lastSelectionForRequestedCandidates)
+        return;
+
+    NSView <WebDocumentView> *view = [[[m_webView selectedFrame] frameView] documentView];
+    if ([view isKindOfClass:[WebHTMLView class]]) {
+        unsigned replacementLength = acceptedCandidate.replacement.length();
+        if (replacementLength > 0) {
+            NSRange replacedRange = NSMakeRange(acceptedCandidate.location, replacementLength);
+            NSRange softSpaceRange = NSMakeRange(NSMaxRange(replacedRange) - 1, 1);
+            if (acceptedCandidate.replacement.endsWith(" "))
+                [(WebHTMLView *)view _setSoftSpaceRange:softSpaceRange];
+        }
+    }
+
+    frame->editor().handleAcceptedCandidate(acceptedCandidate);
+}
+#endif // PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
 
 #if !PLATFORM(IOS)
 @interface WebEditorSpellCheckResponder : NSObject
@@ -1147,7 +1259,7 @@ void WebEditorClient::didCheckSucceed(int sequence, NSArray* results)
 }
 #endif
 
-void WebEditorClient::requestCheckingOfString(PassRefPtr<WebCore::TextCheckingRequest> request)
+void WebEditorClient::requestCheckingOfString(PassRefPtr<WebCore::TextCheckingRequest> request, const VisibleSelection& currentSelection)
 {
 #if !PLATFORM(IOS)
     ASSERT(!m_textCheckingRequest);
@@ -1156,8 +1268,11 @@ void WebEditorClient::requestCheckingOfString(PassRefPtr<WebCore::TextCheckingRe
     int sequence = m_textCheckingRequest->data().sequence();
     NSRange range = NSMakeRange(0, m_textCheckingRequest->data().text().length());
     NSRunLoop* currentLoop = [NSRunLoop currentRunLoop];
-    [[NSSpellChecker sharedSpellChecker] requestCheckingOfString:m_textCheckingRequest->data().text() range:range types:NSTextCheckingAllSystemTypes options:0 inSpellDocumentWithTag:0
-                                         completionHandler:^(NSInteger, NSArray* results, NSOrthography*, NSInteger) {
+    NSDictionary *options = nil;
+#if HAVE(ADVANCED_SPELL_CHECKING)
+    options = @{ NSTextCheckingInsertionPointKey :  [NSNumber numberWithUnsignedInteger:insertionPointFromCurrentSelection(currentSelection)] };
+#endif
+    [[NSSpellChecker sharedSpellChecker] requestCheckingOfString:m_textCheckingRequest->data().text() range:range types:NSTextCheckingAllSystemTypes options:options inSpellDocumentWithTag:0 completionHandler:^(NSInteger, NSArray* results, NSOrthography*, NSInteger) {
             [currentLoop performSelector:@selector(perform) 
                                   target:[[[WebEditorSpellCheckResponder alloc] initWithClient:this sequence:sequence results:results] autorelease]
                                 argument:nil order:0 modes:[NSArray arrayWithObject:NSDefaultRunLoopMode]];

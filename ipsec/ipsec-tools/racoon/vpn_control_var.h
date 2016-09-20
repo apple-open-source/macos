@@ -74,7 +74,7 @@ extern int vpn_control_connected (void);
 extern int vpn_connect (struct bound_addr *, int);
 extern int vpn_disconnect (struct bound_addr *, const char *);
 extern void vpncontrol_disconnect_all (struct vpnctl_socket_elem *, const char *);
-extern int vpn_start_ph2 (struct bound_addr *, struct vpnctl_cmd_start_ph2 *);
+extern int vpn_start_ph2 (struct bound_addr *, struct vpnctl_cmd_start_ph2 *, size_t);
 extern int vpncontrol_notify_need_authinfo (phase1_handle_t *, void*, size_t);
 extern int vpncontrol_notify_peer_resp_ph1 (u_int16_t, phase1_handle_t*);
 extern int vpncontrol_notify_peer_resp_ph2 (u_int16_t, phase2_handle_t*);

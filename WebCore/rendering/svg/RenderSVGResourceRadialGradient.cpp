@@ -24,8 +24,8 @@
 
 namespace WebCore {
 
-RenderSVGResourceRadialGradient::RenderSVGResourceRadialGradient(SVGRadialGradientElement& element, Ref<RenderStyle>&& style)
-    : RenderSVGResourceGradient(element, WTF::move(style))
+RenderSVGResourceRadialGradient::RenderSVGResourceRadialGradient(SVGRadialGradientElement& element, RenderStyle&& style)
+    : RenderSVGResourceGradient(element, WTFMove(style))
 {
 }
 

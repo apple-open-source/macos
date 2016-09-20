@@ -272,7 +272,8 @@ main(int argc, char **argv)
 		if ((statudp6sock = socket(AF_INET6, SOCK_DGRAM, 0)) < 0)
 			log(LOG_ERR, "can't create UDP IPv6 socket: %s (%d)", strerror(errno), errno);
 		if (statudp6sock >= 0) {
-			setsockopt(statudp6sock, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
+			if (setsockopt(statudp6sock, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on)))
+				log(LOG_WARNING, "can't set IPV6_V6ONLY on socket: %s (%d)", strerror(errno), errno);
 			sin6->sin6_family = AF_INET6;
 			sin6->sin6_addr = in6addr_any;
 			sin6->sin6_port = htons(config.port);
@@ -483,6 +484,7 @@ get_statd_notify_pid(void)
 	len = sizeof(pidbuf) - 1;
 	if ((len = read(fd, pidbuf, len)) < 0) {
 		DEBUG(9, "%s: %s (%d)", _PATH_STATD_NOTIFY_PID, strerror(errno), errno);
+		close(fd);
 		return (0);
 	}
 	/* parse PID */
@@ -490,6 +492,7 @@ get_statd_notify_pid(void)
 	pid = strtol(pidbuf, &pidend, 10);
 	if (!len || (pid < 1)) {
 		DEBUG(1, "%s: bogus pid: %s", _PATH_STATD_NOTIFY_PID, pidbuf);
+		close(fd);
 		return (0);
 	}
 	/* check for lock on file by PID */
@@ -664,6 +667,9 @@ safe_exec(char *const argv[], int silent)
 	return (WEXITSTATUS(status));
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 int
 statd_notify_load(void)
 {
@@ -723,6 +729,7 @@ statd_notify_start(void)
 	launch_data_free(msg);
 	return (rv);
 }
+#pragma clang diagnostic pop
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wformat-nonliteral"

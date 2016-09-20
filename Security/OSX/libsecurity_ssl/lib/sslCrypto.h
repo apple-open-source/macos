@@ -58,7 +58,6 @@ CFIndex sslPrivKeyGetAlgorithmID(SecKeyRef privKey);
 OSStatus
 sslCreateSecTrust(
 	SSLContext				*ctx,
-	CFArrayRef				certChain,
     SecTrustRef             *trust); 	/* RETURNED */
 
 OSStatus sslVerifySelectedCipher(

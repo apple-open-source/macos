@@ -647,6 +647,7 @@ DNSNameListBufferCreate(const char * names[], int names_count,
 		used = DNSNamesBufUsed(&nb);
 		buffer = NULL;
 	    }
+	    DNSNamesBufFreeElements(&nb);
 	    goto failed;
 	}
     }
@@ -656,9 +657,10 @@ DNSNameListBufferCreate(const char * names[], int names_count,
 	buffer = malloc(used);
 	memcpy(buffer, DNSNamesBufBuffer(&nb), used);
     }
+    DNSNamesBufFreeElements(&nb);
+
  failed:
     *buffer_size = used;
-    DNSNamesBufFreeElements(&nb);
     return (buffer);
 
 }

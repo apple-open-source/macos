@@ -69,6 +69,11 @@ public:
     
     virtual void setCapsLockLEDElement(bool state);
     virtual void setNumLockLEDElement(bool state);
+  
+    virtual bool matchPropertyTable(
+                                    OSDictionary *              table,
+                                    SInt32 *                    score);
+  
 };
 
 #endif /* !_IOKIT_HID_IOHIDKEYBOARDDEVICE_H */

@@ -34,7 +34,7 @@ entryPoint(CommonCryptoBlowfish,"CommonCrypto Blowfish Testing")
 
 static int kTestTestCount = 1;
 
-int CommonCryptoBlowfish(int argc, char *const *argv)
+int CommonCryptoBlowfish(int __unused argc, char *const * __unused argv)
 {
     char *keyStr;
 	char *iv = NULL;

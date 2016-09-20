@@ -41,7 +41,7 @@ static pthread_once_t agent_cred_init = PTHREAD_ONCE_INIT;
 static gid_t agent_gid = 92;
 static uid_t agent_uid = 92;
 
-void initialize_agent_creds()
+static void initialize_agent_creds()
 {
     struct passwd *agentUser = getpwnam("securityagent");
     if (agentUser)
@@ -52,19 +52,17 @@ void initialize_agent_creds()
     }
 }
   
-AuthHostInstance::AuthHostInstance(Session &session, AuthHostType host) :
-	mHostType(host)
+AuthHostInstance::AuthHostInstance(Session &session)
 {
-	secdebug("authhost", "authhost born (%p)", this);
+	secinfo("authhost", "authhost born (%p)", this);
 	referent(session);
 	session.addReference(*this);
-    if (host == securityAgent)
-        pthread_once(&agent_cred_init, initialize_agent_creds); 
+	pthread_once(&agent_cred_init, initialize_agent_creds);
 }
 
 AuthHostInstance::~AuthHostInstance()
 { 
-	secdebug("authhost", "authhost died (%p)", this);
+	secinfo("authhost", "authhost died (%p)", this);
 }
 
 Session &AuthHostInstance::session() const
@@ -80,23 +78,7 @@ bool AuthHostInstance::inDarkWake()
 void
 AuthHostInstance::childAction()
 {
-	secdebug("AuthHostInstance", "authhostinstance not supported");
+	secinfo("AuthHostInstance", "authhostinstance not supported");
 	// Unconditional suicide follows.
 	_exit(1);
-}
-
-// @@@  these definitions and the logic in lookup() should move into 
-// libsecurity_agent
-#define SECURITYAGENT_BOOTSTRAP_NAME_BASE       "com.apple.SecurityAgent"
-#define AUTHORIZATIONHOST_BOOTSTRAP_NAME_BASE   "com.apple.authorizationhost"
-
-mach_port_t
-AuthHostInstance::lookup()
-{
-	CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
-}
-
-Port AuthHostInstance::activate()
-{
-	CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
 }

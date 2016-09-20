@@ -1,8 +1,8 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="8052.4" systemVersion="15A131a" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="11038.2" systemVersion="16A154" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
     <dependencies>
         <deployment identifier="macosx"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="8052.4"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="11038.2"/>
     </dependencies>
     <objects>
         <customObject id="-2" userLabel="File's Owner" customClass="MBCAbout">
@@ -17,7 +17,7 @@
             <windowStyleMask key="styleMask" titled="YES" closable="YES"/>
             <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
             <rect key="contentRect" x="538" y="186" width="522" height="405"/>
-            <rect key="screenRect" x="0.0" y="0.0" width="3840" height="2137"/>
+            <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
             <value key="minSize" type="size" width="520" height="400"/>
             <view key="contentView" id="8">
                 <rect key="frame" x="0.0" y="0.0" width="522" height="405"/>
@@ -29,9 +29,9 @@
                             <constraint firstAttribute="width" constant="64" id="200028"/>
                             <constraint firstAttribute="height" constant="64" id="200029"/>
                         </constraints>
-                        <imageCell key="cell" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="chess" id="100012"/>
+                        <imageCell key="cell" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="Chess_128x128" id="100012"/>
                     </imageView>
-                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="6">
+                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" preferredMaxLayoutWidth="282" translatesAutoresizingMaskIntoConstraints="NO" id="6">
                         <rect key="frame" x="117" y="314" width="286" height="19"/>
                         <constraints>
                             <constraint firstAttribute="width" constant="282" id="200024"/>
@@ -53,10 +53,10 @@
                                     <rect key="frame" x="0.0" y="0.0" width="481" height="207"/>
                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                     <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
-                                    <size key="minSize" width="470" height="207"/>
+                                    <size key="minSize" width="481" height="207"/>
                                     <size key="maxSize" width="953" height="10000000"/>
                                     <color key="insertionPointColor" white="0.0" alpha="1" colorSpace="calibratedWhite"/>
-                                    <size key="minSize" width="470" height="207"/>
+                                    <size key="minSize" width="481" height="207"/>
                                     <size key="maxSize" width="953" height="10000000"/>
                                     <connections>
                                         <binding destination="-2" name="font" keyPath="licenseFont" id="200013"/>
@@ -74,7 +74,7 @@
                             <autoresizingMask key="autoresizingMask"/>
                         </scroller>
                     </scrollView>
-                    <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="9">
+                    <button verticalHuggingPriority="750" misplaced="YES" translatesAutoresizingMaskIntoConstraints="NO" id="9">
                         <rect key="frame" x="312" y="17" width="194" height="32"/>
                         <string key="toolTip">Open web location to download 
 the source code for this application.</string>
@@ -86,7 +86,7 @@ the source code for this application.</string>
                             <action selector="downloadSource:" target="-2" id="16"/>
                         </connections>
                     </button>
-                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="13">
+                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" preferredMaxLayoutWidth="150" translatesAutoresizingMaskIntoConstraints="NO" id="13">
                         <rect key="frame" x="17" y="15" width="154" height="42"/>
                         <constraints>
                             <constraint firstAttribute="height" constant="42" id="200052"/>
@@ -94,14 +94,14 @@ the source code for this application.</string>
                         </constraints>
                         <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" id="100013">
                             <font key="font" metaFont="label"/>
-                            <string key="title">© 2003-2015
+                            <string key="title">© 2003-2016
 © 2000
 © 2002</string>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
-                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="7">
+                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" preferredMaxLayoutWidth="161" translatesAutoresizingMaskIntoConstraints="NO" id="7">
                         <rect key="frame" x="179" y="294" width="165" height="16"/>
                         <constraints>
                             <constraint firstAttribute="height" constant="16" id="200050"/>
@@ -123,7 +123,7 @@ the source code for this application.</string>
                             </binding>
                         </connections>
                     </textField>
-                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="200011">
+                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" preferredMaxLayoutWidth="150" translatesAutoresizingMaskIntoConstraints="NO" id="200011">
                         <rect key="frame" x="92" y="15" width="154" height="42"/>
                         <constraints>
                             <constraint firstAttribute="width" constant="150" id="200023"/>
@@ -137,7 +137,7 @@ R. Ancell &amp; M. Duelli</string>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
-                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="200014">
+                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" misplaced="YES" preferredMaxLayoutWidth="161" translatesAutoresizingMaskIntoConstraints="NO" id="200014">
                         <rect key="frame" x="327" y="0.0" width="165" height="16"/>
                         <constraints>
                             <constraint firstAttribute="height" constant="16" id="200026"/>
@@ -186,6 +186,6 @@ R. Ancell &amp; M. Duelli</string>
         <userDefaultsController id="200016"/>
     </objects>
     <resources>
-        <image name="chess" width="512" height="512"/>
+        <image name="Chess_128x128" width="128" height="128"/>
     </resources>
 </document>

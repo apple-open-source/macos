@@ -28,6 +28,9 @@
 
 #include <Security/cssmtype.h>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 /***
  *** Structs for declaring extension-specific data. 
  ***/
@@ -636,5 +639,7 @@ typedef struct __CE_DataAndType {
 	CE_Data					extension;
 	CSSM_BOOL				critical;
 } CE_DataAndType DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+
+#pragma clang diagnostic pop
 
 #endif	/* _CERT_EXTENSIONS_H_ */

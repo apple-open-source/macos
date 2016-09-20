@@ -96,9 +96,9 @@ WebInspector.TabBar = class TabBar extends WebInspector.View
 
         if (this._tabAnimatedClosedSinceMouseEnter) {
             // Delay adding the new tab until we can expand the tabs after a closed tab.
-            this._finishExpandingTabsAfterClose().then(function() {
+            this._finishExpandingTabsAfterClose().then(() => {
                 this.insertTabBarItem(tabBarItem, index, doNotAnimate);
-            }.bind(this));
+            });
             return;
         }
 
@@ -220,7 +220,7 @@ WebInspector.TabBar = class TabBar extends WebInspector.View
         var hasMoreThanOneNormalTab = this._hasMoreThanOneNormalTab();
         this.element.classList.toggle("single-tab", !hasMoreThanOneNormalTab);
 
-        var shouldOpenDefaultTab = !tabBarItem.isDefaultTab && !this.hasNormalTab();
+        const shouldOpenDefaultTab = !tabBarItem.isDefaultTab && !this.hasNormalTab();
         if (shouldOpenDefaultTab)
             doNotAnimate = true;
 
@@ -381,7 +381,7 @@ WebInspector.TabBar = class TabBar extends WebInspector.View
 
     hasNormalTab()
     {
-        return this._tabBarItems.some(function(tab) { return !tab.pinned; });
+        return this._tabBarItems.some((tab) => !tab.pinned);
     }
 
     // Protected
@@ -394,8 +394,8 @@ WebInspector.TabBar = class TabBar extends WebInspector.View
         this.element.classList.remove("hide-titles");
         this.element.classList.remove("collapsed");
 
-        var firstNormalTabItem = null;
-        for (var tabItem of this._tabBarItems) {
+        let firstNormalTabItem = null;
+        for (let tabItem of this._tabBarItems) {
             if (tabItem.pinned)
                 continue;
             firstNormalTabItem = tabItem;
@@ -410,7 +410,7 @@ WebInspector.TabBar = class TabBar extends WebInspector.View
 
         this.element.classList.add("collapsed");
 
-        if (firstNormalTabItem.element.offsetWidth >= 60)
+        if (firstNormalTabItem.element.offsetWidth >= 75)
             return;
 
         this.element.classList.add("hide-titles");
@@ -454,7 +454,7 @@ WebInspector.TabBar = class TabBar extends WebInspector.View
     {
         var tabBarItemSizesAndPositions = new Map;
 
-        var barRect = this.element.getBoundingClientRect();
+        const barRect = this.element.getBoundingClientRect();
 
         for (var tabBarItem of this._tabBarItems) {
             var boundingRect = tabBarItem.element.getBoundingClientRect();
@@ -596,7 +596,7 @@ WebInspector.TabBar = class TabBar extends WebInspector.View
         if (tabBarItem.disabled)
             return;
 
-        var clickedMiddleButton = event.button === 1;
+        const clickedMiddleButton = event.button === 1;
 
         var closeButtonElement = event.target.enclosingNodeOrSelfWithClass(WebInspector.TabBarItem.CloseButtonStyleClassName);
         if (closeButtonElement || clickedMiddleButton) {
@@ -722,8 +722,8 @@ WebInspector.TabBar = class TabBar extends WebInspector.View
         // This event can still fire when the mouse is inside the element if DOM nodes are added, removed or generally change inside.
         // Check if the mouse really did leave the element by checking the bounds.
         // FIXME: Is this a WebKit bug or correct behavior?
-        var barRect = this.element.getBoundingClientRect();
-        var newTabItemRect = this._newTabItem ? this._newTabItem.element.getBoundingClientRect() : null;
+        const barRect = this.element.getBoundingClientRect();
+        const newTabItemRect = this._newTabItem ? this._newTabItem.element.getBoundingClientRect() : null;
         if (event.pageY > barRect.top && event.pageY < barRect.bottom && event.pageX > barRect.left && event.pageX < (newTabItemRect ? newTabItemRect.right : barRect.right))
             return;
 

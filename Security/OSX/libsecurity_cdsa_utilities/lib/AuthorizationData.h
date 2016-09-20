@@ -95,8 +95,6 @@ public:
     ~AuthValueVector() {}
 
     AuthValueVector &operator = (const AuthorizationValueVector& valueVector);
-
-    void copy(AuthorizationValueVector **data, size_t *length) const;
 };
 
 
@@ -120,8 +118,6 @@ public:
     AuthItem &operator = (const AuthItem &other);
     ~AuthItem();
     
-    void fillInAuthorizationItem(AuthorizationItem &item);
-    
     AuthorizationString name() const { return mName; }
     const AuthorizationValue& value() const { return mValue; }
 	string stringValue() const { return string(static_cast<char *>(mValue.data), mValue.length); }
@@ -136,7 +132,6 @@ private:
     mutable bool mOwnsValue;
 	
 public:
-	bool getBool(bool &value);
 	bool getString(string &value);
 	bool getCssmData(CssmAutoData &value);
 };
@@ -166,16 +161,8 @@ public:
     AuthItemSet &operator = (const AuthorizationItemSet& itemSet);
     AuthItemSet &operator = (const AuthItemSet& itemSet);
 
-	void copy(AuthorizationItemSet *&data, size_t &length, Allocator &alloc = Allocator::standard()) const;
-	AuthorizationItemSet *copy() const;
-	
-	char *firstItemName;	
-
 public:
 	AuthItem *find(const char *name);
-
-private:
-	void duplicate(const AuthItemSet& itemSet);
 };
 
 class FindAuthItemByRightName
@@ -191,7 +178,7 @@ public:
     {
         return (!strcmp(name, authitem->name));
     }
-    
+
 private:
     const char *name;
 };

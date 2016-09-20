@@ -37,7 +37,9 @@
 #include "WebFrame.h"
 #include "WebPage.h"
 #include "WebPageGroupProxy.h"
+#include <WebCore/DatabaseManager.h>
 
+using namespace WebCore;
 using namespace WebKit;
 
 WKTypeID WKBundleGetTypeID()
@@ -60,7 +62,7 @@ void WKBundlePostSynchronousMessage(WKBundleRef bundleRef, WKStringRef messageNa
     RefPtr<API::Object> returnData;
     toImpl(bundleRef)->postSynchronousMessage(toWTFString(messageNameRef), toImpl(messageBodyRef), returnData);
     if (returnDataRef)
-        *returnDataRef = toAPI(returnData.release().leakRef());
+        *returnDataRef = toAPI(returnData.leakRef());
 }
 
 WKConnectionRef WKBundleGetApplicationConnection(WKBundleRef bundleRef)
@@ -198,50 +200,16 @@ void WKBundleReportException(JSContextRef context, JSValueRef exception)
     InjectedBundle::reportException(context, exception);
 }
 
-void WKBundleClearAllDatabases(WKBundleRef bundleRef)
+void WKBundleClearAllDatabases(WKBundleRef)
 {
-    toImpl(bundleRef)->clearAllDatabases();
+    DatabaseManager::singleton().deleteAllDatabasesImmediately();
 }
 
 void WKBundleSetDatabaseQuota(WKBundleRef bundleRef, uint64_t quota)
 {
-    toImpl(bundleRef)->setDatabaseQuota(quota);
-}
-
-void WKBundleClearApplicationCache(WKBundleRef bundleRef)
-{
-    toImpl(bundleRef)->clearApplicationCache();
-}
-
-void WKBundleClearApplicationCacheForOrigin(WKBundleRef bundleRef, WKStringRef origin)
-{
-    toImpl(bundleRef)->clearApplicationCacheForOrigin(toWTFString(origin));
-}
-
-void WKBundleSetAppCacheMaximumSize(WKBundleRef bundleRef, uint64_t size)
-{
-    toImpl(bundleRef)->setAppCacheMaximumSize(size);
-}
-
-uint64_t WKBundleGetAppCacheUsageForOrigin(WKBundleRef bundleRef, WKStringRef origin)
-{
-    return toImpl(bundleRef)->appCacheUsageForOrigin(toWTFString(origin));
-}
-
-void WKBundleSetApplicationCacheOriginQuota(WKBundleRef bundleRef, WKStringRef origin, uint64_t bytes)
-{
-    toImpl(bundleRef)->setApplicationCacheOriginQuota(toWTFString(origin), bytes);
-}
-
-void WKBundleResetApplicationCacheOriginQuota(WKBundleRef bundleRef, WKStringRef origin)
-{
-    toImpl(bundleRef)->resetApplicationCacheOriginQuota(toWTFString(origin));
-}
-
-WKArrayRef WKBundleCopyOriginsWithApplicationCache(WKBundleRef bundleRef)
-{
-    RefPtr<API::Array> origins = toImpl(bundleRef)->originsWithApplicationCache();
-    return toAPI(origins.release().leakRef());
+    // Historically, we've used the following (somewhat non-sensical) string
+    // for the databaseIdentifier of local files.
+    DatabaseManager::singleton().setQuota(SecurityOrigin::createFromDatabaseIdentifier("file__0").ptr(), quota);
 }
 
 WKDataRef WKBundleCreateWKDataFromUInt8Array(WKBundleRef bundle, JSContextRef context, JSValueRef data)

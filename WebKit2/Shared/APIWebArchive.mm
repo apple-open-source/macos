@@ -82,13 +82,12 @@ WebArchive::WebArchive(WebArchiveResource* mainResource, PassRefPtr<API::Array> 
         coreSubframeLegacyWebArchives.uncheckedAppend(subframeWebArchive->coreLegacyWebArchive());
     }
 
-    m_legacyWebArchive = LegacyWebArchive::create(coreMainResource.release(), WTF::move(coreArchiveResources), WTF::move(coreSubframeLegacyWebArchives));
+    m_legacyWebArchive = LegacyWebArchive::create(WTFMove(coreMainResource), WTFMove(coreArchiveResources), WTFMove(coreSubframeLegacyWebArchives));
 }
 
 WebArchive::WebArchive(API::Data* data)
 {
-    RefPtr<SharedBuffer> buffer = SharedBuffer::create(data->bytes(), data->size());
-    m_legacyWebArchive = LegacyWebArchive::create(buffer.get());
+    m_legacyWebArchive = LegacyWebArchive::create(SharedBuffer::create(data->bytes(), data->size()).get());
 }
 
 WebArchive::WebArchive(PassRefPtr<LegacyWebArchive> legacyWebArchive)
@@ -116,7 +115,7 @@ API::Array* WebArchive::subresources()
         for (const auto& subresource : m_legacyWebArchive->subresources())
             subresources.uncheckedAppend(WebArchiveResource::create(subresource));
 
-        m_cachedSubresources = API::Array::create(WTF::move(subresources));
+        m_cachedSubresources = API::Array::create(WTFMove(subresources));
     }
 
     return m_cachedSubresources.get();
@@ -131,7 +130,7 @@ API::Array* WebArchive::subframeArchives()
         for (const auto& subframeArchive : m_legacyWebArchive->subframeArchives())
             subframeWebArchives.uncheckedAppend(WebArchive::create(static_cast<LegacyWebArchive*>(subframeArchive.get())));
 
-        m_cachedSubframeArchives = API::Array::create(WTF::move(subframeWebArchives));
+        m_cachedSubframeArchives = API::Array::create(WTFMove(subframeWebArchives));
     }
 
     return m_cachedSubframeArchives.get();

@@ -270,7 +270,7 @@ void Access::removeAclsForRight(AclAuthorization right) {
     for (Map::const_iterator it = mAcls.begin(); it != mAcls.end(); ) {
         if (it->second->authorizesSpecifically(right)) {
             it = mAcls.erase(it);
-            secdebugfunc("SecAccess", "%p removed an acl, %d left", this, mAcls.size());
+            secinfo("SecAccess", "%p removed an acl, %lu left", this, mAcls.size());
         } else {
             it++;
         }
@@ -339,16 +339,16 @@ void Access::compile(const CSSM_ACL_OWNER_PROTOTYPE &owner,
 	StLock<Mutex>_(mMutex);
 	// add owner acl
 	mAcls[ownerHandle] = new ACL(AclOwnerPrototype::overlay(owner));
-    secdebugfunc("SecAccess", "form of owner is: %d", mAcls[ownerHandle]->form());
+    secinfo("SecAccess", "form of owner is: %d", mAcls[ownerHandle]->form());
 	
 	// add acl entries
 	const AclEntryInfo *acl = AclEntryInfo::overlay(acls);
 	for (uint32 n = 0; n < aclCount; n++) {
-		secdebug("SecAccess", "%p compiling entry %ld", this, acl[n].handle());
+		secinfo("SecAccess", "%p compiling entry %ld", this, acl[n].handle());
 		mAcls[acl[n].handle()] = new ACL(acl[n]);
-        secdebug("SecAccess", "form is: %d", mAcls[acl[n].handle()]->form());
+        secinfo("SecAccess", "form is: %d", mAcls[acl[n].handle()]->form());
 	}
-	secdebug("SecAccess", "%p %ld entries compiled", this, mAcls.size());
+	secinfo("SecAccess", "%p %ld entries compiled", this, mAcls.size());
 }
 
 
@@ -370,8 +370,8 @@ Access::Maker::Maker(Allocator &alloc, MakerType makerType)
 		mInput = AclEntryPrototype(TypedList(allocator, CSSM_ACL_SUBJECT_TYPE_PASSWORD,
 			new(allocator) ListElement(mKey.get())));
 		mInput.proto().tag(creationEntryTag);
-        secdebugfunc("SecAccess", "made a CSSM_ACL_SUBJECT_TYPE_PASSWORD ACL entry for %p", this);
-        secdebugfunc("SecAccess", "mInput: %p, typedList %p", &mInput, mInput.Prototype.TypedSubject);
+        secinfo("SecAccess", "made a CSSM_ACL_SUBJECT_TYPE_PASSWORD ACL entry for %p", this);
+        secinfo("SecAccess", "mInput: %p, typedList %p", &mInput, &(mInput.Prototype.TypedSubject));
 
 		// create credential sample for access
 		mCreds += TypedList(allocator, CSSM_SAMPLE_TYPE_PASSWORD, new(allocator) ListElement(mKey.get()));
@@ -380,7 +380,7 @@ Access::Maker::Maker(Allocator &alloc, MakerType makerType)
 	{
 		// just make it an CSSM_ACL_SUBJECT_TYPE_ANY list
 		mInput = AclEntryPrototype(TypedList(allocator, CSSM_ACL_SUBJECT_TYPE_ANY));
-        secdebugfunc("SecAccess", "made a CSSM_ACL_SUBJECT_TYPE_ANY ACL entry for %p", this);
+        secinfo("SecAccess", "made a CSSM_ACL_SUBJECT_TYPE_ANY ACL entry for %p", this);
 	}
 }
 

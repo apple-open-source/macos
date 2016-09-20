@@ -227,14 +227,14 @@ bool IOBlockStorageDriver::didTerminate(IOService *  provider,
     return super::didTerminate(provider, options, defer);
 }
 
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
 bool IOBlockStorageDriver::yield(IOService *  provider,
                                  IOOptionBits options,
                                  void *       argument)
 {
     return false;
 }
-#endif /* __x86_64__ */
+#endif /* TARGET_OS_OSX && defined(__x86_64__) */
 
 void IOBlockStorageDriver::free()
 {
@@ -649,7 +649,7 @@ void IOBlockStorageDriver::prepareRequestCompletion(void *   target,
     driver->deleteContext(context);
 }
 
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
 void IOBlockStorageDriver::schedulePoller()
 {
 
@@ -659,7 +659,7 @@ void IOBlockStorageDriver::unschedulePoller()
 {
 
 }
-#endif /* __x86_64__ */
+#endif /* TARGET_OS_OSX && defined(__x86_64__) */
 
 IOReturn IOBlockStorageDriver::message(UInt32      type,
                                        IOService * provider,
@@ -925,7 +925,7 @@ IOBlockStorageDriver::mediaStateHasChanged(IOMediaState state)
     }
 }
 
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
 UInt64
 IOBlockStorageDriver::constrainByteCount(UInt64 /* requestedCount */ ,bool isWrite)
 {
@@ -935,7 +935,7 @@ IOBlockStorageDriver::constrainByteCount(UInt64 /* requestedCount */ ,bool isWri
         return(_maxReadByteTransfer);
     }
 }
-#endif /* __x86_64__ */
+#endif /* TARGET_OS_OSX && defined(__x86_64__) */
 
 /* Decommission a piece of media that has become unavailable either due to
  * ejection or some outside force (e.g. the Giant Hand of the User).
@@ -1369,7 +1369,7 @@ IOBlockStorageDriver::handleStart(IOService * provider)
     return(true);
 }
 
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
 bool
 IOBlockStorageDriver::handleYield(IOService *  provider,
                                   IOOptionBits options,
@@ -1377,7 +1377,7 @@ IOBlockStorageDriver::handleYield(IOService *  provider,
 {
     return false;
 }
-#endif /* __x86_64__ */
+#endif /* TARGET_OS_OSX && defined(__x86_64__) */
 
 void
 IOBlockStorageDriver::initMediaState(void)
@@ -1483,7 +1483,7 @@ IOBlockStorageDriver::isMediaRemovable(void) const
     return(_removable);
 }
 
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
 bool
 IOBlockStorageDriver::isMediaPollExpensive(void) const
 {
@@ -1495,7 +1495,7 @@ IOBlockStorageDriver::isMediaPollRequired(void) const
 {
     return(false);
 }
-#endif /* __x86_64__ */
+#endif /* TARGET_OS_OSX && defined(__x86_64__) */
 
 bool
 IOBlockStorageDriver::isMediaWritable(void) const
@@ -1503,7 +1503,7 @@ IOBlockStorageDriver::isMediaWritable(void) const
     return(!_writeProtected);
 }
 
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
 IOReturn
 IOBlockStorageDriver::lockMedia(bool locked)
 {
@@ -1515,7 +1515,7 @@ IOBlockStorageDriver::pollMedia(void)
 {
     return(kIOReturnUnsupported);
 }
-#endif /* __x86_64__ */
+#endif /* TARGET_OS_OSX && defined(__x86_64__) */
 
 IOReturn
 IOBlockStorageDriver::recordMediaParameters(void)
@@ -1579,7 +1579,7 @@ IOBlockStorageDriver::synchronize(IOService *                 client,
     UInt64 blockStart;
     UInt64 blockCount;
 
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
     if ( _respondsTo_synchronizeCache )
     {
         if ( options == _kIOStorageSynchronizeOption_super__synchronizeCache )
@@ -1591,7 +1591,7 @@ IOBlockStorageDriver::synchronize(IOService *                 client,
             return IOStorage::synchronize( client, byteStart, byteCount, options );
         }
     }
-#endif /* __x86_64__ */
+#endif /* TARGET_OS_OSX && defined(__x86_64__) */
 
     if ( ( options & kIOStorageSynchronizeOptionReserved ) )
     {
@@ -1659,6 +1659,63 @@ IOBlockStorageDriver::unmap(IOService *           client,
     {
         return kIOReturnSuccess;
     }
+}
+
+IOReturn
+IOBlockStorageDriver::getProvisionStatus(IOService *                client,
+                                         UInt64                     byteStart,
+                                         UInt64                     byteCount,
+                                         UInt32 *                   extentsCount,
+                                         IOStorageProvisionExtent * extents,
+                                         IOStorageGetProvisionStatusOptions options)
+{
+    UInt64                                blockStart;
+    UInt64                                blockCount;
+    UInt64                                maxByteSize;
+    UInt32                                extentsCountIn;
+    IOBlockStorageProvisionDeviceExtent * extentsOut;
+    IOReturn                              result;
+
+    if ( options != 0 )
+    {
+        return kIOReturnBadArgument;
+    }
+
+    maxByteSize = (_maxBlockNumber + 1 ) * _mediaBlockSize;
+    if ( byteStart > maxByteSize )
+    {
+        return kIOReturnBadArgument;
+    }
+
+    byteCount = min ( byteCount, maxByteSize - byteStart );
+
+    blockStart = byteStart / _mediaBlockSize;
+    blockCount = ( byteStart + byteCount + _mediaBlockSize - 1 ) / _mediaBlockSize - blockStart;
+
+    if ( ( extents == NULL ) || ( extentsCount == NULL ) || ( *extentsCount == 0 ) )
+    {
+        return kIOReturnBadArgument;
+    }
+
+    extentsOut = ( IOBlockStorageProvisionDeviceExtent * ) extents;
+    extentsCountIn = *extentsCount;
+
+    result = getProvider( )->doGetProvisionStatus( blockStart, blockCount, extentsCount, extentsOut, options );
+
+    if ( result == kIOReturnSuccess )
+    {
+        UInt32                          extentsIndex;
+
+        extentsCountIn = min ( extentsCountIn, *extentsCount );
+
+        for ( extentsIndex = 0; extentsIndex < extentsCountIn; extentsIndex++ )
+        {
+            extents [ extentsIndex ].byteStart *= _mediaBlockSize;
+            extents [ extentsIndex ].byteCount *= _mediaBlockSize;
+        }
+    }
+
+    return result;
 }
 
 bool IOBlockStorageDriver::lockPhysicalExtents(IOService * client)
@@ -1784,6 +1841,7 @@ protected:
     } _stage;
 
     virtual void free();
+    virtual uint64_t getPreparationID( void );
 
 public:
 
@@ -1959,6 +2017,29 @@ void IODeblocker::free()
     if ( _threadCallback )  thread_call_free(_threadCallback);
 
     super::free();
+}
+
+uint64_t
+IODeblocker::getPreparationID( void )
+{
+    uint64_t pID = kIOPreparationIDUnsupported;
+
+    if ( _chunksCount == 0 )
+    {
+        return (super::getPreparationID());
+    }
+
+    //
+    // Walk through the list of _chunks, Calling buffer getPreparationID() on
+    // each one of them will make sure all of them have a proper
+    // preparationID assigned.
+    //
+    for ( unsigned index = 0; index < _chunksCount; index++ )
+    {
+        pID = _chunks[index].buffer->getPreparationID();
+    }
+
+    return pID;
 }
 
 IOReturn IODeblocker::prepare(IODirection forDirection)
@@ -3344,9 +3425,9 @@ OSMetaClassDefineReservedUnused(IOBlockStorageDriver, 29);
 OSMetaClassDefineReservedUnused(IOBlockStorageDriver, 30);
 OSMetaClassDefineReservedUnused(IOBlockStorageDriver, 31);
 
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
 extern "C" void _ZN20IOBlockStorageDriver16synchronizeCacheEP9IOService( IOBlockStorageDriver * driver, IOService * client )
 {
     driver->synchronize( client, 0, 0 );
 }
-#endif /* __x86_64__ */
+#endif /* TARGET_OS_OSX && defined(__x86_64__) */

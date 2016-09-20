@@ -29,6 +29,7 @@
 #include "APIObject.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
     class DOMWrapperWorld;
@@ -39,19 +40,25 @@ namespace WebKit {
 class InjectedBundleScriptWorld : public API::ObjectImpl<API::Object::Type::BundleScriptWorld> {
 public:
     static Ref<InjectedBundleScriptWorld> create();
+    static Ref<InjectedBundleScriptWorld> create(const String&);
     static PassRefPtr<InjectedBundleScriptWorld> getOrCreate(WebCore::DOMWrapperWorld&);
     static InjectedBundleScriptWorld* normalWorld();
 
     virtual ~InjectedBundleScriptWorld();
 
-    WebCore::DOMWrapperWorld& coreWorld() const;
-    
+    const WebCore::DOMWrapperWorld& coreWorld() const;
+    WebCore::DOMWrapperWorld& coreWorld();
+
     void clearWrappers();
+    void makeAllShadowRootsOpen();
+
+    const String& name() const { return m_name; }
 
 private:
-    InjectedBundleScriptWorld(PassRefPtr<WebCore::DOMWrapperWorld>);
+    InjectedBundleScriptWorld(WebCore::DOMWrapperWorld&, const String&);
 
-    RefPtr<WebCore::DOMWrapperWorld> m_world;
+    Ref<WebCore::DOMWrapperWorld> m_world;
+    String m_name;
 };
 
 } // namespace WebKit

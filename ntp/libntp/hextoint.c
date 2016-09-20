@@ -2,6 +2,7 @@
  * hextoint - convert an ascii string in hex to an unsigned
  *	      long, with error checking
  */
+#include <config.h>
 #include <ctype.h>
 
 #include "ntp_stdlib.h"
@@ -22,7 +23,7 @@ hextoint(
 
 	u = 0;
 	while (*cp != '\0') {
-		if (!isxdigit(*cp))
+		if (!isxdigit((unsigned char)*cp))
 			return 0;
 		if (u & 0xF0000000)
 			return 0;	/* overflow */

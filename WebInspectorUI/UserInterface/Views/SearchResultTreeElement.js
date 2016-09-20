@@ -32,8 +32,6 @@ WebInspector.SearchResultTreeElement = class SearchResultTreeElement extends Web
         var title = WebInspector.SearchResultTreeElement.truncateAndHighlightTitle(representedObject.title, representedObject.searchTerm, representedObject.sourceCodeTextRange);
 
         super(representedObject.className, title, null, representedObject, false);
-
-        this.small = true;
     }
 
     // Static
@@ -52,7 +50,7 @@ WebInspector.SearchResultTreeElement = class SearchResultTreeElement extends Web
         // at the end of the string.
         var modifiedTitle = null;
         if (searchTermIndex > WebInspector.SearchResultTreeElement.CharactersToShowBeforeSearchMatch) {
-            modifiedTitle = "\u2026" + title.substring(searchTermIndex - WebInspector.SearchResultTreeElement.CharactersToShowBeforeSearchMatch);
+            modifiedTitle = ellipsis + title.substring(searchTermIndex - WebInspector.SearchResultTreeElement.CharactersToShowBeforeSearchMatch);
             searchTermIndex = WebInspector.SearchResultTreeElement.CharactersToShowBeforeSearchMatch + 1;
         } else
             modifiedTitle = title;
@@ -64,14 +62,14 @@ WebInspector.SearchResultTreeElement = class SearchResultTreeElement extends Web
 
         var highlightedTitle = document.createDocumentFragment();
 
-        highlightedTitle.appendChild(document.createTextNode(modifiedTitle.substring(0, searchTermIndex)));
+        highlightedTitle.append(modifiedTitle.substring(0, searchTermIndex));
 
         var highlightSpan = document.createElement("span");
         highlightSpan.className = "highlighted";
-        highlightSpan.appendChild(document.createTextNode(modifiedTitle.substring(searchTermIndex, searchTermIndex + searchTerm.length)));
+        highlightSpan.append(modifiedTitle.substring(searchTermIndex, searchTermIndex + searchTerm.length));
         highlightedTitle.appendChild(highlightSpan);
 
-        highlightedTitle.appendChild(document.createTextNode(modifiedTitle.substring(searchTermIndex + searchTerm.length)));
+        highlightedTitle.append(modifiedTitle.substring(searchTermIndex + searchTerm.length));
 
         return highlightedTitle;
     }

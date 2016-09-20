@@ -111,7 +111,7 @@ OSStatus SecCodeCopyStaticCode(SecCodeRef code, SecCSFlags flags, SecStaticCodeR
 	and is the ultimate authority on the its dynamic validity and status.
 	The host relationship is securely established (absent reported errors).
 	
-	@param code A valid SecCode object reference representing code running
+	@param guest A valid SecCode object reference representing code running
 	on the system.
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
 	@param host On successful return, a SecCode object reference identifying
@@ -120,6 +120,16 @@ OSStatus SecCodeCopyStaticCode(SecCodeRef code, SecCSFlags flags, SecStaticCodeR
 	CSCommon.h or certain other Security framework headers.
 */
 OSStatus SecCodeCopyHost(SecCodeRef guest, SecCSFlags flags, SecCodeRef * __nonnull CF_RETURNS_RETAINED host);
+
+extern const CFStringRef kSecGuestAttributeCanonical;
+extern const CFStringRef kSecGuestAttributeHash;
+extern const CFStringRef kSecGuestAttributeMachPort;
+extern const CFStringRef kSecGuestAttributePid;
+extern const CFStringRef kSecGuestAttributeAudit;
+extern const CFStringRef kSecGuestAttributeDynamicCode;
+extern const CFStringRef kSecGuestAttributeDynamicCodeInfoPlist;
+extern const CFStringRef kSecGuestAttributeArchitecture;
+extern const CFStringRef kSecGuestAttributeSubarchitecture;
 
 /*!
 	@function SecCodeCopyGuestWithAttributes
@@ -175,14 +185,6 @@ OSStatus SecCodeCopyHost(SecCodeRef guest, SecCSFlags flags, SecCodeRef * __nonn
 	@error errSecCSMultipleGuests The attributes specified do not uniquely identify
 	a guest (the specification is ambiguous).
 */
-extern const CFStringRef kSecGuestAttributeCanonical;
-extern const CFStringRef kSecGuestAttributeHash;
-extern const CFStringRef kSecGuestAttributeMachPort;
-extern const CFStringRef kSecGuestAttributePid;
-extern const CFStringRef kSecGuestAttributeDynamicCode;
-extern const CFStringRef kSecGuestAttributeDynamicCodeInfoPlist;
-extern const CFStringRef kSecGuestAttributeArchitecture;
-extern const CFStringRef kSecGuestAttributeSubarchitecture;
 
 OSStatus SecCodeCopyGuestWithAttributes(SecCodeRef __nullable host,
 	CFDictionaryRef __nullable attributes,	SecCSFlags flags, SecCodeRef * __nonnull CF_RETURNS_RETAINED guest);
@@ -206,6 +208,30 @@ OSStatus SecCodeCopyGuestWithAttributes(SecCodeRef __nullable host,
 	@param requirement An optional code requirement specifying additional conditions
 	the code object must satisfy to be considered valid. If NULL, no additional
 	requirements are imposed.
+	@result If validation passes, errSecSuccess. If validation fails, an OSStatus value
+	documented in CSCommon.h or certain other Security framework headers.
+*/
+OSStatus SecCodeCheckValidity(SecCodeRef code, SecCSFlags flags,
+	SecRequirementRef __nullable requirement);
+
+/*!
+	@function SecCodeCheckValidityWifErrors
+	Performs dynamic validation of the given SecCode object. The call obtains and
+	verifies the signature on the code object. It checks the validity of only those
+	sealed components required to establish identity. It checks the SecCode's
+	dynamic validity status as reported by its host. It ensures that the SecCode's
+	host is in turn valid. Finally, it validates the code against a SecRequirement
+	if one is given. The call succeeds if all these conditions are satisfactory.
+	It fails otherwise.
+
+	This call is secure against attempts to modify the file system source of the
+	SecCode.
+
+	@param code The code object to be validated.
+	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
+	@param requirement An optional code requirement specifying additional conditions
+	the code object must satisfy to be considered valid. If NULL, no additional
+	requirements are imposed.
 	@param errors An optional pointer to a CFErrorRef variable. If the call fails
 	(and something other than errSecSuccess is returned), and this argument is non-NULL,
 	a CFErrorRef is stored there further describing the nature and circumstances
@@ -213,9 +239,6 @@ OSStatus SecCodeCopyGuestWithAttributes(SecCodeRef __nullable host,
 	@result If validation passes, errSecSuccess. If validation fails, an OSStatus value
 	documented in CSCommon.h or certain other Security framework headers.
 */
-OSStatus SecCodeCheckValidity(SecCodeRef code, SecCSFlags flags,
-	SecRequirementRef __nullable requirement);
-
 OSStatus SecCodeCheckValidityWithErrors(SecCodeRef code, SecCSFlags flags,
 	SecRequirementRef __nullable requirement, CFErrorRef *errors);
 
@@ -226,10 +249,7 @@ OSStatus SecCodeCheckValidityWithErrors(SecCodeRef code, SecCSFlags flags,
 	code object can be found. For single files, the URL points to that file.
 	For bundles, it points to the directory containing the entire bundle.
 	
-	This returns the same URL as the kSecCodeInfoMainExecutable key returned
-	by SecCodeCopySigningInformation.
-
-	@param code The Code or StaticCode object to be located. For a Code
+	@param staticCode The Code or StaticCode object to be located. For a Code
 		argument, its StaticCode is processed as per SecCodeCopyStaticCode.
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
 	@param path On successful return, contains a CFURL identifying the location
@@ -340,10 +360,12 @@ OSStatus SecCodeCopyDesignatedRequirement(SecStaticCodeRef code, SecCSFlags flag
 	@constant kSecCodeInfoFormat A CFString characterizing the type and format of
 		the code. Suitable for display to a (knowledeable) user.
 	@constant kSecCodeInfoDigestAlgorithm A CFNumber indicating the kind of cryptographic
-		hash function actually used to establish integrity of the signature.
+		hash function chosen to establish integrity of the signature on this system, which
+        is the best supported algorithm from kSecCodeInfoDigestAlgorithms.
 	@constant kSecCodeInfoDigestAlgorithms A CFArray of CFNumbers indicating the kinds of
  		cryptographic hash functions available within the signature. The ordering of those items
- 		has no significance.
+ 		has no significance in terms of priority, but determines the order in which
+        the hashes appear in kSecCodeInfoCdHashes.
  	@constant kSecCodeInfoPlatformIdentifier If this code was signed as part of an operating
  		system release, this value identifies that release.
 	@constant kSecCodeInfoIdentifier A CFString with the actual signing identifier
@@ -391,6 +413,11 @@ OSStatus SecCodeCopyDesignatedRequirement(SecStaticCodeRef code, SecCSFlags flag
 		remains stable across (developer-approved) updates.
 		The algorithm used may change from time to time. However, for any existing signature,
  		the value is stable.
+	@constant kSecCodeInfoCdHashes An array containing the values of the kSecCodeInfoUnique
+        binary identifier for every digest algorithm supported in the signature, in the same
+        order as in the kSecCodeInfoDigestAlgorithms array. The kSecCodeInfoUnique value
+        will be contained in this array, and be the one corresponding to the
+        kSecCodeInfoDigestAlgorithm value.
  */
 CF_ENUM(uint32_t) {
 	kSecCSInternalInformation = 1 << 0,

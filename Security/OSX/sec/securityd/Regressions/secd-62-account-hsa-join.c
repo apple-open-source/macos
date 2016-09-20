@@ -79,12 +79,12 @@ static void tests(void)
     ok(SOSAccountAssertUserCredentialsAndUpdate(carole_account, cfaccount, cfpassword, &error), "Credential setting (%@)", error);
     CFReleaseNull(error);
     CFReleaseNull(cfpassword);
-    ok(SOSAccountResetToOffering(alice_account, &error), "Reset to offering (%@)", error);
+    ok(SOSAccountResetToOffering_wTxn(alice_account, &error), "Reset to offering (%@)", error);
     CFReleaseNull(error);
     
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, NULL), 2, "updates");
     
-    ok(SOSAccountJoinCircles(bob_account, &error), "Bob Applies (%@)", error);
+    ok(SOSAccountJoinCircles_wTxn(bob_account, &error), "Bob Applies (%@)", error);
     CFReleaseNull(error);
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, NULL), 2, "updates");
     
@@ -101,7 +101,7 @@ static void tests(void)
     
     accounts_agree("bob&alice pair", bob_account, alice_account);
 
-    ok(SOSAccountJoinCircles(carole_account, &error), "Carole Applies (%@)", error);
+    ok(SOSAccountJoinCircles_wTxn(carole_account, &error), "Carole Applies (%@)", error);
 
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, NULL), 2, "updates");
 
@@ -109,9 +109,10 @@ static void tests(void)
     
     ok(carolePeerInfo, "got carole's peerinfo");
     
-    SecKeyRef carolePubKey = SOSPeerInfoCopyPubKey(carolePeerInfo);
+    SecKeyRef carolePubKey = SOSPeerInfoCopyPubKey(carolePeerInfo, &error);
 
-    ok(carolePubKey, "got carole's pubkey");
+    ok(carolePubKey, "got carole's pubkey (%@)", error);
+    CFReleaseNull(error);
 
     CFDataRef pubKeyData = NULL;
     OSStatus stat = SecKeyCopyPublicBytes(carolePubKey, &pubKeyData);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2011 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2005-2016 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,12 +28,10 @@
 #ifndef	_DER_DECODE_H_
 #define _DER_DECODE_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <libDER/libDER.h>
 #include <stdbool.h>
+
+__BEGIN_DECLS
 
 /*
  * Decoding one item consists of extracting its tag, a pointer
@@ -59,6 +57,24 @@ DERReturn DERDecodeItem(
 	const DERItem	*der,			/* data to decode */
 	DERDecodedInfo	*decoded);		/* RETURNED */
 
+/*
+ *  Basic decoding primitive. Allows for decoding with a partial buffer.
+ *  if allowPartialBuffer is true. A partial buffer would normally fail
+ *  because the encoded length would be greater than the size of the buffer passed in.
+ *  Only works with:
+ *
+ *  -- definite length encoding
+ *  -- one-byte tags (unless DER_MULTIBYTE_TAGS is defined)
+ *  -- max content length fits in a DERSize
+ *
+ * No malloc or copy of the contents is performed; the returned
+ * content->content.data is a pointer into the incoming der data.
+ */
+DERReturn DERDecodeItemPartialBuffer(
+    const DERItem        *der,                        /* data to decode */
+    DERDecodedInfo        *decoded,       /* RETURNED */
+    bool allowPartialBuffer);
+
 /* 
  * Given a BIT_STRING, in the form of its raw content bytes, 
  * obtain the number of unused bits and the raw bit string bytes.
@@ -73,13 +89,26 @@ DERReturn DERParseBitString(
  * obtain it's value.
  */
 DERReturn DERParseBoolean(
-	const DERItem	*contents,
-	bool			defaultValue,
-	bool			*value);	/* RETURNED */
+    const DERItem	*contents,
+    bool			*value);	/* RETURNED */
+
+DERReturn DERParseBooleanWithDefault(
+    const DERItem	*contents,
+    bool			defaultValue,
+    bool			*value);	/* RETURNED */
+/*
+ * Given a positive INTEGER, in the form of its raw content bytes,
+ * obtain it's value as a 32 bit or 64 bit quantity.
+ * Returns DR_BufOverflow if the value is too large to fit in the return type
+ */
 
 DERReturn DERParseInteger(
 	const DERItem	*contents,
 	uint32_t        *value);	/* RETURNED */
+
+DERReturn DERParseInteger64(
+    const DERItem   *contents,
+    uint64_t        *value);        /* RETURNED */
 
 /* 
  * Sequence/set decode support.
@@ -187,9 +216,7 @@ DERReturn DERParseSequenceContent(
 	void					*dest,			/* DERDecodedInfo(s) here RETURNED */
 	DERSize					sizeToZero);	/* optional */
 
-#ifdef __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif	/* _DER_DECODE_H_ */
 

@@ -185,7 +185,7 @@ bool ACL::authorizesSpecifically(AclAuthorization right)
 
 void ACL::setIntegrity(const CssmData& digest) {
     if(mForm != integrityForm) {
-        secdebugfunc("integrity", "acl has incorrect form: %d", mForm);
+        secnotice("integrity", "acl has incorrect form: %d", mForm);
         CssmError::throwMe(CSSMERR_CSP_INVALID_ACL_SUBJECT_VALUE);
     }
 
@@ -230,7 +230,7 @@ void ACL::modify()
 {
 	StLock<Mutex>_(mMutex);
 	if (mState == unchanged) {
-		secdebug("SecAccess", "ACL %p marked modified", this);
+		secinfo("SecAccess", "ACL %p marked modified", this);
 		mState = modified;
 	}
 }
@@ -248,7 +248,7 @@ void ACL::remove()
 	StLock<Mutex>_(mMutex);
 	mAppList.clear();
 	mForm = invalidForm;
-    secdebug("SecAccess", "ACL %p marked deleted", this);
+    secinfo("SecAccess", "ACL %p marked deleted", this);
 	mState = deleted;
 }
 
@@ -308,12 +308,12 @@ void ACL::setAccess(AclBearer &target, bool update,
 	if (isOwner()) {
 		switch (action) {
 		case unchanged:
-			secdebug("SecAccess", "ACL %p owner unchanged", this);
+			secinfo("SecAccess", "ACL %p owner unchanged", this);
 			return;
 		case inserted:		// means modify the initial owner
 		case modified:
 			{
-				secdebug("SecAccess", "ACL %p owner modified", this);
+				secinfo("SecAccess", "ACL %p owner modified", this);
 				makeSubject();
 				assert(mSubjectForm);
 				AclOwnerPrototype proto(*mSubjectForm, mDelegate);
@@ -329,10 +329,10 @@ void ACL::setAccess(AclBearer &target, bool update,
 	// simple cases
 	switch (action) {
 	case unchanged:	// ignore
-		secdebug("SecAccess", "ACL %p handle 0x%lx unchanged", this, entryHandle());
+		secinfo("SecAccess", "ACL %p handle 0x%lx unchanged", this, entryHandle());
 		return;
 	case deleted:	// delete
-		secdebug("SecAccess", "ACL %p handle 0x%lx deleted", this, entryHandle());
+		secinfo("SecAccess", "ACL %p handle 0x%lx deleted", this, entryHandle());
 		target.deleteAcl(entryHandle(), cred);
 		return;
 	default:
@@ -349,12 +349,12 @@ void ACL::setAccess(AclBearer &target, bool update,
 	AclEntryInput input(proto);
 	switch (action) {
 	case inserted:	// insert
-		secdebug("SecAccess", "ACL %p inserted", this);
+		secinfo("SecAccess", "ACL %p inserted", this);
 		target.addAcl(input, cred);
         mState = unchanged;
 		break;
 	case modified:	// update
-		secdebug("SecAccess", "ACL %p handle 0x%lx modified", this, entryHandle());
+		secinfo("SecAccess", "ACL %p handle 0x%lx modified", this, entryHandle());
 		target.changeAcl(entryHandle(), input, cred);
         mState = unchanged;
 		break;
@@ -376,13 +376,13 @@ void ACL::parse(const TypedList &subject)
 		case CSSM_ACL_SUBJECT_TYPE_ANY:
 			// subsume an "any" as a standard form
 			mForm = allowAllForm;
-            secdebug("SecAccess", "parsed an allowAllForm (%d) (%d)", subject.type(), mForm);
+            secinfo("SecAccess", "parsed an allowAllForm (%d) (%d)", subject.type(), mForm);
 			return;
 		case CSSM_ACL_SUBJECT_TYPE_KEYCHAIN_PROMPT:
 			// pure keychain prompt - interpret as applist form with no apps
 			parsePrompt(subject);
 			mForm = appListForm;
-            secdebug("SecAccess", "parsed a Keychain Prompt (%d) as an appListForm (%d)", subject.type(), mForm);
+            secinfo("SecAccess", "parsed a Keychain Prompt (%d) as an appListForm (%d)", subject.type(), mForm);
 			return;
 		case CSSM_ACL_SUBJECT_TYPE_THRESHOLD:
 			{
@@ -401,32 +401,32 @@ void ACL::parse(const TypedList &subject)
 				TypedList &first = subject[3];
 				if (first.type() == CSSM_ACL_SUBJECT_TYPE_ANY) {
 					mForm = allowAllForm;
-                    secdebug("SecAccess", "parsed a Threshhold (%d) as an allowAllForm (%d)", subject.type(), mForm);
+                    secinfo("SecAccess", "parsed a Threshhold (%d) as an allowAllForm (%d)", subject.type(), mForm);
 					return;
 				}
 				
 				// parse other (code signing) elements
                 for (uint32 n = 0; n < count - 1; n++) {
                     mAppList.push_back(new TrustedApplication(TypedList(subject[n + 3].list())));
-                    secdebug("SecAccess", "found an application: %s", mAppList.back()->path());
+                    secinfo("SecAccess", "found an application: %s", mAppList.back()->path());
                 }
 			}
 			mForm = appListForm;
-            secdebug("SecAccess", "parsed a Threshhold (%d) as an appListForm (%d)", subject.type(), mForm);
+            secinfo("SecAccess", "parsed a Threshhold (%d) as an appListForm (%d)", subject.type(), mForm);
 			return;
         case CSSM_ACL_SUBJECT_TYPE_PARTITION:
             mForm = integrityForm;
             mIntegrity.copy(subject.last()->data());
-            secdebug("SecAccess", "parsed a Partition (%d) as an integrityForm (%d)", subject.type(), mForm);
+            secinfo("SecAccess", "parsed a Partition (%d) as an integrityForm (%d)", subject.type(), mForm);
             return;
         default:
-            secdebug("SecAccess", "didn't find a type for %d, marking custom (%d)", subject.type(), mForm);
+            secinfo("SecAccess", "didn't find a type for %d, marking custom (%d)", subject.type(), mForm);
 			mForm = customForm;
 			mSubjectForm = chunkCopy(&subject);
 			return;
 		}
 	} catch (const ParseError &) {
-		secdebug("SecAccess", "acl compile failed for type (%d); marking custom", subject.type());
+		secinfo("SecAccess", "acl compile failed for type (%d); marking custom", subject.type());
 		mForm = customForm;
 		mSubjectForm = chunkCopy(&subject);
 		mAppList.clear();
@@ -466,7 +466,7 @@ void ACL::makeSubject()
 				new(allocator) ListElement(allocator, mPromptDescription));
 			*mSubjectForm += new(allocator) ListElement(prompt);
 		}
-        secdebug("SecAccess", "made an allowAllForm (%d) into a subjectForm (%d)", mForm, mSubjectForm->type());
+        secinfo("SecAccess", "made an allowAllForm (%d) into a subjectForm (%d)", mForm, mSubjectForm->type());
 		return;
 	case appListForm: {
 		// threshold(1 of n+1) of { app1, ..., appn, PROMPT }
@@ -483,17 +483,17 @@ void ACL::makeSubject()
 			new(allocator) ListElement(allocator, mPromptDescription));
 		*mSubjectForm += new(allocator) ListElement(prompt);
 		}
-        secdebug("SecAccess", "made an appListForm (%d) into a subjectForm (%d)", mForm, mSubjectForm->type());
+        secinfo("SecAccess", "made an appListForm (%d) into a subjectForm (%d)", mForm, mSubjectForm->type());
 		return;
     case integrityForm:
         chunkFree(mSubjectForm, allocator);
         mSubjectForm = new(allocator) TypedList(allocator, CSSM_ACL_SUBJECT_TYPE_PARTITION,
                                                  new(allocator) ListElement(allocator, mIntegrity));
-        secdebug("SecAccess", "made an integrityForm (%d) into a subjectForm (%d)", mForm, mSubjectForm->type());
+        secinfo("SecAccess", "made an integrityForm (%d) into a subjectForm (%d)", mForm, mSubjectForm->type());
         return;
 	case customForm:
 		assert(mSubjectForm);	// already set; keep it
-        secdebug("SecAccess", "have a customForm (%d), already have a subjectForm (%d)", mForm, mSubjectForm->type());
+        secinfo("SecAccess", "have a customForm (%d), already have a subjectForm (%d)", mForm, mSubjectForm->type());
 		return;
 
 	default:

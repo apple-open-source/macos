@@ -18,8 +18,7 @@
     Boston, MA 02110-1301, USA.
 */
 
-#ifndef JSTestCustomNamedGetter_h
-#define JSTestCustomNamedGetter_h
+#pragma once
 
 #include "JSDOMWrapper.h"
 #include "TestCustomNamedGetter.h"
@@ -27,23 +26,22 @@
 
 namespace WebCore {
 
-class JSTestCustomNamedGetter : public JSDOMWrapper {
+class JSTestCustomNamedGetter : public JSDOMWrapper<TestCustomNamedGetter> {
 public:
-    typedef JSDOMWrapper Base;
+    typedef JSDOMWrapper<TestCustomNamedGetter> Base;
     static JSTestCustomNamedGetter* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, Ref<TestCustomNamedGetter>&& impl)
     {
-        JSTestCustomNamedGetter* ptr = new (NotNull, JSC::allocateCell<JSTestCustomNamedGetter>(globalObject->vm().heap)) JSTestCustomNamedGetter(structure, globalObject, WTF::move(impl));
+        JSTestCustomNamedGetter* ptr = new (NotNull, JSC::allocateCell<JSTestCustomNamedGetter>(globalObject->vm().heap)) JSTestCustomNamedGetter(structure, *globalObject, WTFMove(impl));
         ptr->finishCreation(globalObject->vm());
         return ptr;
     }
 
     static JSC::JSObject* createPrototype(JSC::VM&, JSC::JSGlobalObject*);
-    static JSC::JSObject* getPrototype(JSC::VM&, JSC::JSGlobalObject*);
+    static JSC::JSObject* prototype(JSC::VM&, JSC::JSGlobalObject*);
     static TestCustomNamedGetter* toWrapped(JSC::JSValue);
     static bool getOwnPropertySlot(JSC::JSObject*, JSC::ExecState*, JSC::PropertyName, JSC::PropertySlot&);
     static bool getOwnPropertySlotByIndex(JSC::JSObject*, JSC::ExecState*, unsigned propertyName, JSC::PropertySlot&);
     static void destroy(JSC::JSCell*);
-    ~JSTestCustomNamedGetter();
 
     DECLARE_INFO;
 
@@ -52,16 +50,11 @@ public:
         return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), info());
     }
 
-    static JSC::JSValue getConstructor(JSC::VM&, JSC::JSGlobalObject*);
-    TestCustomNamedGetter& impl() const { return *m_impl; }
-    void releaseImpl() { std::exchange(m_impl, nullptr)->deref(); }
-
-private:
-    TestCustomNamedGetter* m_impl;
+    static JSC::JSValue getConstructor(JSC::VM&, const JSC::JSGlobalObject*);
 public:
-    static const unsigned StructureFlags = JSC::HasImpureGetOwnPropertySlot | JSC::InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero | JSC::OverridesGetOwnPropertySlot | Base::StructureFlags;
+    static const unsigned StructureFlags = JSC::GetOwnPropertySlotIsImpureForPropertyAbsence | JSC::InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero | JSC::OverridesGetOwnPropertySlot | Base::StructureFlags;
 protected:
-    JSTestCustomNamedGetter(JSC::Structure*, JSDOMGlobalObject*, Ref<TestCustomNamedGetter>&&);
+    JSTestCustomNamedGetter(JSC::Structure*, JSDOMGlobalObject&, Ref<TestCustomNamedGetter>&&);
 
     void finishCreation(JSC::VM& vm)
     {
@@ -70,8 +63,7 @@ protected:
     }
 
 private:
-    static bool canGetItemsForName(JSC::ExecState*, TestCustomNamedGetter*, JSC::PropertyName);
-    static JSC::EncodedJSValue nameGetter(JSC::ExecState*, JSC::JSObject*, JSC::EncodedJSValue, JSC::PropertyName);
+    bool nameGetter(JSC::ExecState*, JSC::PropertyName, JSC::JSValue&);
 };
 
 class JSTestCustomNamedGetterOwner : public JSC::WeakHandleOwner {
@@ -86,10 +78,15 @@ inline JSC::WeakHandleOwner* wrapperOwner(DOMWrapperWorld&, TestCustomNamedGette
     return &owner.get();
 }
 
-JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, TestCustomNamedGetter*);
-inline JSC::JSValue toJS(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, TestCustomNamedGetter& impl) { return toJS(exec, globalObject, &impl); }
+inline void* wrapperKey(TestCustomNamedGetter* wrappableObject)
+{
+    return wrappableObject;
+}
+
+JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, TestCustomNamedGetter&);
+inline JSC::JSValue toJS(JSC::ExecState* state, JSDOMGlobalObject* globalObject, TestCustomNamedGetter* impl) { return impl ? toJS(state, globalObject, *impl) : JSC::jsNull(); }
+JSC::JSValue toJSNewlyCreated(JSC::ExecState*, JSDOMGlobalObject*, Ref<TestCustomNamedGetter>&&);
+inline JSC::JSValue toJSNewlyCreated(JSC::ExecState* state, JSDOMGlobalObject* globalObject, RefPtr<TestCustomNamedGetter>&& impl) { return impl ? toJSNewlyCreated(state, globalObject, impl.releaseNonNull()) : JSC::jsNull(); }
 
 
 } // namespace WebCore
-
-#endif

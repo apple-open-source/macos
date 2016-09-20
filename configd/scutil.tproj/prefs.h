@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2005-2007, 2012, 2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2003, 2005-2007, 2012, 2013, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,7 +35,7 @@
 #include <SystemConfiguration/SystemConfiguration.h>
 
 
-Boolean	_prefs_changed;
+extern Boolean	_prefs_changed;
 
 
 __BEGIN_DECLS

@@ -5,22 +5,22 @@
 	<key>OpenSourceProject</key>
 	<string>curl</string>
 	<key>OpenSourceVersion</key>
-	<string>7.43.0</string>
+	<string>7.49.1</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://curl.haxx.se/</string>
 	<key>OpenSourceURL</key>
-	<string>http://curl.haxx.se/download/curl-7.43.0.tar.bz2</string>
+	<string>http://curl.haxx.se/download/curl-7.49.1.tar.bz2</string>
 	<key>OpenSourceSHA1</key>
-	<string>d821ea39610b7f1122f1f574a4d8e20e81b3c561</string>
+	<string>50db69ee612d36a465e2fec3a35028e11c2766bb</string>
 	<key>OpenSourceImportDate</key>
-	<string>2015-07-13</string>
+	<string>2016-07-05</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>curl-config.in: remove -I, -L, and static library info</string>
 		<string>docs/curl.1: remove references to netrc(4) and wget(1)</string>
 		<string>include/curl/multi.h: Add availability to curl_multi_wait (13158909)</string>
 		<string>lib/ldap.c: 5648196</string>
-		<string>lib/multi.c, lib/transfer.c: 903b6e05565bf826b4194447864288642214b094</string>
+		<string>lib/curl_gssapi.c: revert upstream 3b4ee0d to work around alignment problems (27287483)</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>MIT</string>

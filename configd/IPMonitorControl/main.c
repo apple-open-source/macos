@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2013, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -70,6 +70,7 @@ main(int argc, char * argv[])
 	IPMonitorControlRef		control;
 	SCNetworkServicePrimaryRank 	rank;
 	Boolean				rank_set = FALSE;
+	Boolean				wait = FALSE;
 
 	rank = kSCNetworkServicePrimaryRankDefault;
 	control = IPMonitorControlCreate();
@@ -78,7 +79,7 @@ main(int argc, char * argv[])
 	    exit(1);
 	}
 
-	while ((ch = getopt(argc, argv, "i:r:")) != EOF) {
+	while ((ch = getopt(argc, argv, "i:r:w")) != EOF) {
 	    CFStringRef			ifname;
 	    SCNetworkServicePrimaryRank	existing_rank;
 
@@ -103,6 +104,9 @@ main(int argc, char * argv[])
 	    case 'r':
 		rank = strtoul(optarg, NULL, 0);
 		break;
+	    case 'w':
+		wait = TRUE;
+		break;
 	    default:
 		fprintf(stderr, "unexpected option '%c'\n", (char)ch);
 		exit(1);
@@ -114,8 +118,11 @@ main(int argc, char * argv[])
 	if (argc > 0) {
 	    fprintf(stderr, "ignoring additional parameters\n");
 	}
-	if (rank_set == FALSE) {
+	if (!rank_set) {
 	    exit(1);
+	}
+	if (wait) {
+	    CFRunLoopRun();
 	}
     }
     else {
@@ -129,13 +136,12 @@ main(int argc, char * argv[])
 	rls = CFRunLoopSourceCreate(NULL, 0, &context);
 	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls,
 			   kCFRunLoopDefaultMode);
-	if (IPMonitorControlServerStart(CFRunLoopGetCurrent(), rls,
-					&verbose) == FALSE) {
+	if (!IPMonitorControlServerStart(CFRunLoopGetCurrent(), rls, &verbose)) {
 	    fprintf(stderr, "failed to create connection\n");
 	    exit(1);
 	}
+	CFRunLoopRun();
     }
-    CFRunLoopRun();
     exit(0);
     return (0);
 }

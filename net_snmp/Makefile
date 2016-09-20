@@ -7,7 +7,7 @@ Project		= net-snmp
 ProjectName	= net_snmp
 UserType	= Administration
 ToolType	= Commands
-Submission	= 151
+Submission	= 153
 
 
 #
@@ -69,6 +69,7 @@ Extra_Configure_Flags	= --sysconfdir=/etc \
 			--with-perl-modules \
 			--disable-perl-cc-checks \
 			--disable-embedded-perl  \
+			--datarootdir=/usr/share \
 			--with-openssl=/usr/libressl/ \
 			--without-kmem-usage
 
@@ -82,6 +83,8 @@ Extra_Configure_Flags	= --sysconfdir=/etc \
 #			--enable-developer
 #			--with-libwrap=/usr/lib/libwrap.dylib
 #			--disable-embedded-perl  \
+#			--datadir=/etc \
+
 
 
 # The following are sometimes necessary if DESTDIR or --with-install-prefix
@@ -142,7 +145,7 @@ AEP_Patches    = diskio.patch IPv6.patch universal_builds.patch \
 			container.patch darwin-header.patch 10268440.patch \
 			host.patch CVE-2012-6151.patch CVE-2014-3565.patch \
 			lmsensors.patch darwin-sensors.patch \
-			darwin64.patch perl-cc.patch 
+			darwin64.patch disk_label.patch 22291336.patch perl-cc.patch 
 AEP_LaunchdConfigs	= org.net-snmp.snmpd.plist
 AEP_ConfigDir	= $(ETCDIR)/snmp
 AEP_ConfigFiles	= snmpd.conf
@@ -262,6 +265,7 @@ install-macosx:
 	done
 
 	@echo "Copying sensor data"
+	$(_v) $(MKDIR) -p $(DSTROOT)$(SHAREDIR)/snmp
 	$(_v) $(INSTALL_FILE) $(SRCROOT)/SensorDat.xml $(DSTROOT)$(SHAREDIR)/snmp
 	@echo "Fixing permissions..."
 	$(_v) $(FIND) $(DSTROOT)$(USRINCLUDEDIR)/net-snmp -type f -exec chmod 644 {} \;

@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -73,18 +73,18 @@ void print_vm_statistics(void);
 void munch_for_level(unsigned int, unsigned int);
 void munch_for_percentage(unsigned int, unsigned int, unsigned int);
 
-static void 
+static void
 usage(void)
 {
 	fprintf(stderr, "Usage: memory_pressure [options] [<pages>]\n"
 			"  Allocate memory and wait forever.\n"
 			"  Options include:\n"
-			"  -l <level>     	 - allocate memory until a low memory notification is received (warn OR critical)\n"
+			"  -l <level>		 - allocate memory until a low memory notification is received (warn OR critical)\n"
 			"  -p <percent-free>     - allocate memory until percent free is this (or less)\n"
 			"  -s <seconds>          - how long to sleep between checking for a set percent level\n"
 			"  -w <percent-free>     - don't allocate, just wait until percent free is this then exit\n"
 			"  -v <print VM stats>   - print VM statistics every sampling interval\n"
-			"  -Q <quiet mode>   	 - reduces the tool's output\n"
+			"  -Q <quiet mode>	 - reduces the tool's output\n"
 			"  -S			 - simulate the system's memory pressure level without applying any real pressure\n"
 			"  \n"
 	       );
@@ -92,7 +92,7 @@ usage(void)
 }
 
 static unsigned int
-read_sysctl_int(const char* name) 
+read_sysctl_int(const char* name)
 {
 	unsigned int var;
 	size_t var_size;
@@ -108,7 +108,7 @@ read_sysctl_int(const char* name)
 }
 
 static int
-get_percent_free(unsigned int* level) 
+get_percent_free(unsigned int* level)
 {
 	int error;
 
@@ -150,7 +150,7 @@ print_vm_statistics(void)
 		printf("Pages speculative: %llu \n", (uint64_t) (vm_stat.speculative_count));
 		printf("Pages throttled: %llu \n", (uint64_t) (vm_stat.throttled_count));
 		printf("Pages wired down: %llu \n", (uint64_t) (vm_stat.wire_count));
-		
+
 		printf("\nCompressor Stats:\n");
 		printf("Pages used by compressor: %llu \n", (uint64_t) (vm_stat.compressor_page_count));
 		printf("Pages decompressed: %llu \n", (uint64_t) (vm_stat.decompressions));
@@ -170,7 +170,6 @@ print_vm_statistics(void)
 	}
 }
 
-
 static int
 reached_or_bypassed_desired_result(void)
 {
@@ -188,7 +187,7 @@ reached_or_bypassed_desired_result(void)
 	}
 
 	if (tool_mode == TOOL_MODE_FOR_PERCENT) {
-		
+
 		unsigned int current_percent = 0;
 
 		get_percent_free(&current_percent);
@@ -213,18 +212,18 @@ reference_pages(int level)
 	error = pthread_mutex_lock(&reference_pages_mutex);
 	addr = range_start_addr;
 again:
-     	while(start_referencing_pages == 0) {
+	while(start_referencing_pages == 0) {
 		error = pthread_cond_wait(&reference_pages_condvar, &reference_pages_mutex);
 	}
 
 	start_allocing_pages = 0;
 	pthread_mutex_unlock(&reference_pages_mutex);
-	
+
 	num_pages = 0;
 	for(; addr < range_current_addr;) {
-		
+
 		char p;
-		
+
 		if (reached_or_bypassed_desired_result()) {
 			//printf("stopped referencing after %d pages\n", num_pages);
 			break;
@@ -233,9 +232,9 @@ again:
 		p = *(char*) addr;
 		addr += PAGE_SIZE;
 		num_pages++;
-				
+
 	}
-	
+
 	//if (num_pages) {
 	//	printf("Referenced %d\n", num_pages);
 	//}
@@ -243,16 +242,15 @@ again:
 	start_referencing_pages = 0;
 	start_allocing_pages = 1;
 
-	goto again;	
-
+	goto again;
 }
 
 static void
-process_pages(int num_pages, int page_op) 
+process_pages(int num_pages, int page_op)
 {
 	if (num_pages > 0) {
-		
-		int 	error = 0, i = 0;
+
+		int	error = 0, i = 0;
 		size_t	size = num_pages * PAGE_SIZE;
 
 		if (page_op == PAGE_OP_ALLOC) {
@@ -262,7 +260,7 @@ process_pages(int num_pages, int page_op)
 				if (error == -1) {
 					perror("Failed to lock memory!");
 					exit(-1);
-				}        
+				}
 
 				memset(range_current_addr, 0xFF, size);
 				range_current_addr += size;
@@ -278,7 +276,7 @@ process_pages(int num_pages, int page_op)
 				pthread_mutex_unlock(&reference_pages_mutex);
 
 				for (i=0; i < num_pages; i++) {
-			
+
 					if (reached_or_bypassed_desired_result()) {
 						//printf("stopped faulting after %d pages\n", i);
 						break;
@@ -299,8 +297,8 @@ process_pages(int num_pages, int page_op)
 				if (error == -1) {
 					perror("Failed to unlock memory!");
 					exit(-1);
-				}        
-				
+				}
+
 				error = madvise(range_current_addr, size, MADV_FREE);
 				if (error == -1) {
 					perror("Failed to madv_free memory!");
@@ -316,7 +314,7 @@ process_pages(int num_pages, int page_op)
 					sleep(1);
 					pthread_mutex_lock(&reference_pages_mutex);
 				}
-				
+
 				error = madvise(range_current_addr, size, MADV_FREE);
 				if (error == -1) {
 					perror("Failed to madv_free memory!");
@@ -332,7 +330,7 @@ process_pages(int num_pages, int page_op)
 }
 
 void
-munch_for_level(unsigned int sleep_seconds, unsigned int print_vm_stats) 
+munch_for_level(unsigned int sleep_seconds, unsigned int print_vm_stats)
 {
 
 	unsigned int	current_level = 0;
@@ -352,7 +350,7 @@ munch_for_level(unsigned int sleep_seconds, unsigned int print_vm_stats)
 	}
 
 	get_percent_free(&current_percent);
-			
+
 	if (print_vm_stats) {
 		print_vm_stats_on_page_processing = TRUE;
 	}
@@ -367,7 +365,7 @@ munch_for_level(unsigned int sleep_seconds, unsigned int print_vm_stats)
 			} else {
 				desired_percent = 1;
 			}
-			
+
 			pages_to_process = (desired_percent * phys_pages) / 100;
 
 			page_op = PAGE_OP_ALLOC;
@@ -381,7 +379,7 @@ munch_for_level(unsigned int sleep_seconds, unsigned int print_vm_stats)
 				printf(".");
 				fflush(stdout);
 			}
-			
+
 			if (print_vm_stats_on_page_processing == TRUE) {
 				print_vm_statistics();
 			}
@@ -391,21 +389,21 @@ munch_for_level(unsigned int sleep_seconds, unsigned int print_vm_stats)
 			current_level =  read_sysctl_int("kern.memorystatus_vm_pressure_level");
 
 			if (current_level >= desired_level) {
-				
+
 				while(1) {
 					current_level =  read_sysctl_int("kern.memorystatus_vm_pressure_level");
 					if (current_level < desired_level) {
 						break;
 					}
-					
+
 					if (current_level > desired_level) {
 						page_op = PAGE_OP_FREE;
-						
+
 						get_percent_free(&current_percent);
 
 						if (stabilized_percentage > current_percent) {
 							pages_to_process = ((stabilized_percentage - current_percent) * phys_pages) / 100;
-			
+
 							if (previous_page_op != page_op) {
 								printf("\nCMD: %s pages to go from %d to %d level", (page_op == PAGE_OP_ALLOC) ? "Allocating" : "Freeing", current_level, desired_level);
 								previous_page_op = page_op;
@@ -446,7 +444,7 @@ munch_for_level(unsigned int sleep_seconds, unsigned int print_vm_stats)
 			get_percent_free(&current_percent);
 			//printf("Percent: %d Level: %d\n", current_percent, current_level);
 			sleep(1);
-		
+
 			if (print_vm_stats) {
 				print_vm_stats_on_page_processing = TRUE;
 			}
@@ -454,8 +452,8 @@ munch_for_level(unsigned int sleep_seconds, unsigned int print_vm_stats)
 	} /* while */
 }
 
-void 
-munch_for_percentage(unsigned int sleep_seconds, unsigned int wait_percent_free, unsigned int print_vm_stats) 
+void
+munch_for_percentage(unsigned int sleep_seconds, unsigned int wait_percent_free, unsigned int print_vm_stats)
 {
 
 	int		total_pages_allocated = 0;
@@ -467,10 +465,10 @@ munch_for_percentage(unsigned int sleep_seconds, unsigned int wait_percent_free,
 	boolean_t	ok_to_print_stablity_message = TRUE;
 
 	/* Allocate until memory level is hit. */
-	
+
 	get_percent_free(&current_percent);
 
-	/* 
+	/*
 	 * "wait" mode doesn't alloc, it just waits and exits.  This is used
 	 * while waiting for *other* processes to allocate memory.
 	 */
@@ -512,7 +510,7 @@ munch_for_percentage(unsigned int sleep_seconds, unsigned int wait_percent_free,
 				process_pages(pages_to_process, page_op);
 				ok_to_print_stablity_message = TRUE;
 			} else {
-				
+
 				if (total_pages_allocated >= pages_to_process) {
 					total_pages_allocated -= pages_to_process;
 					process_pages(pages_to_process, page_op);
@@ -526,7 +524,7 @@ munch_for_percentage(unsigned int sleep_seconds, unsigned int wait_percent_free,
 					}
 				}
 			}
-			
+
 			//printf("kernel memorystatus: %d%% free, allocated %d pages total. Requested: %d\n", current_percent, total_pages_allocated, desired_percent);
 			if (print_vm_stats) {
 				print_vm_stats_on_page_processing = TRUE;
@@ -545,21 +543,21 @@ munch_for_percentage(unsigned int sleep_seconds, unsigned int wait_percent_free,
 		}
 
 		if (print_vm_stats_on_page_processing) {
-			
+
 			print_vm_statistics();
 
 			if (print_vm_stats_on_page_processing == TRUE) {
 				print_vm_stats_on_page_processing = FALSE;
 			}
 		}
-		
+
 		sleep(sleep_seconds);
 
 		get_percent_free(&current_percent);
 	} /* while */
 }
 
-int 
+int
 main(int argc, char * const argv[])
 {
 	int opt;
@@ -577,14 +575,14 @@ main(int argc, char * const argv[])
 				strlcpy(level, optarg, 9);
 
 				if (strncasecmp(level, "normal", 6) == 0) {
-					desired_level = DISPATCH_MEMORYSTATUS_PRESSURE_NORMAL;
+					desired_level = DISPATCH_MEMORYPRESSURE_NORMAL;
 					percent_for_level = 90;
 				} else if (strncasecmp(level, "warn", 4) == 0) {
-					desired_level = DISPATCH_MEMORYSTATUS_PRESSURE_WARN;
+					desired_level = DISPATCH_MEMORYPRESSURE_WARN;
 					percent_for_level = 60;
 
 				} else if (strncasecmp(level, "critical", 8) == 0) {
-					desired_level = DISPATCH_MEMORYSTATUS_PRESSURE_CRITICAL;
+					desired_level = DISPATCH_MEMORYPRESSURE_CRITICAL;
 					percent_for_level = 30;
 
 				} else {
@@ -603,7 +601,7 @@ main(int argc, char * const argv[])
 				break;
 			case 'v':
 				print_vm_stats = 1;
-				break;			
+				break;
 			case 'Q':
 				quiet_mode_on = TRUE;
 				break;
@@ -623,22 +621,22 @@ main(int argc, char * const argv[])
 	phys_mem   = read_sysctl_int("hw.physmem");
 	phys_pages = (unsigned int) (phys_mem / PAGE_SIZE);
 
-	printf("The system has %ld (%d pages with a page size of %d).\n", phys_mem, phys_pages, PAGE_SIZE);
+	printf("The system has %lu (%d pages with a page size of %d).\n", phys_mem, phys_pages, PAGE_SIZE);
 
 	print_vm_statistics();
-	
+
 	get_percent_free(&current_percent);
 	printf("System-wide memory free percentage: %d%%\n", current_percent);
 
 	if (desired_percent == 0 && wait_percent_free == 0 && desired_level == 0) {
 		return 0;
 	}
-	
+
 	if (simulate_mode_on == TRUE) {
 
-		/*	
+		/*
 			We use the sysctl "kern.memorypressure_manual_trigger" for this mode. Here's a blurb:
-			
+
 			Supported behaviors when using the manual trigger tests.
 
 			#define TEST_LOW_MEMORY_TRIGGER_ONE		1	most suitable app is notified
@@ -655,7 +653,7 @@ main(int argc, char * const argv[])
 		*/
 
 #define TEST_LOW_MEMORY_PURGEABLE_TRIGGER_ALL	6
-	
+
 		unsigned int var = 0;
 		size_t var_size = 0;
 		int error = 0;
@@ -665,22 +663,22 @@ main(int argc, char * const argv[])
 		var = ((TEST_LOW_MEMORY_PURGEABLE_TRIGGER_ALL << 16) | desired_level);
 
 		error = sysctlbyname("kern.memorypressure_manual_trigger", NULL, 0, &var, var_size);
-	
+
 		if(error) {
 			perror("sysctl: kern.memorypressure_manual_trigger failed ");
 			exit(-1);
 		}
-	
+
 		printf("Waiting %d seconds before resetting system state\n", sleep_seconds);
 
 		sleep(sleep_seconds);
 
 		var_size = sizeof(var);
 
-		var = ((TEST_LOW_MEMORY_PURGEABLE_TRIGGER_ALL << 16) | DISPATCH_MEMORYSTATUS_PRESSURE_NORMAL);
+		var = ((TEST_LOW_MEMORY_PURGEABLE_TRIGGER_ALL << 16) | DISPATCH_MEMORYPRESSURE_NORMAL);
 
 		error = sysctlbyname("kern.memorypressure_manual_trigger", NULL, 0, &var, var_size);
-	
+
 		if(error) {
 			perror("sysctl: kern.memorypressure_manual_trigger failed ");
 			exit(-1);
@@ -690,7 +688,7 @@ main(int argc, char * const argv[])
 
 	} else {
 		range_start_addr = mmap(NULL, MAX_RANGE_SIZE, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, 0, 0);
-		
+
 		if (range_start_addr == MAP_FAILED) {
 			perror("mmap failed");
 		} else {

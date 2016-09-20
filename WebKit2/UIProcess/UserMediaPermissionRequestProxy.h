@@ -20,7 +20,9 @@
 #define UserMediaPermissionRequestProxy_h
 
 #include "APIObject.h"
-#include <wtf/PassRefPtr.h>
+#include <WebCore/RealtimeMediaSource.h>
+#include <wtf/Vector.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebKit {
 
@@ -28,26 +30,29 @@ class UserMediaPermissionRequestManagerProxy;
 
 class UserMediaPermissionRequestProxy : public API::ObjectImpl<API::Object::Type::UserMediaPermissionRequest> {
 public:
-    static PassRefPtr<UserMediaPermissionRequestProxy> create(UserMediaPermissionRequestManagerProxy& manager, uint64_t userMediaID, bool requiresAudio, bool requiresVideo)
+    static Ref<UserMediaPermissionRequestProxy> create(UserMediaPermissionRequestManagerProxy& manager, uint64_t userMediaID, const Vector<String>& videoDeviceUIDs, const Vector<String>& audioDeviceUIDs)
     {
-        return adoptRef(new UserMediaPermissionRequestProxy(manager, userMediaID, requiresAudio, requiresVideo));
+        return adoptRef(*new UserMediaPermissionRequestProxy(manager, userMediaID, videoDeviceUIDs, audioDeviceUIDs));
     }
 
-    void allow();
+    void allow(const String& videoDeviceUID, const String& audioDeviceUID);
     void deny();
 
     void invalidate();
 
-    bool requiresAudio() const { return m_requiresAudio; }
-    bool requiresVideo() const { return m_requiresVideo; }
+    bool requiresAudio() const { return m_audioDeviceUIDs.size(); }
+    bool requiresVideo() const { return m_videoDeviceUIDs.size(); }
+
+    const Vector<String>& videoDeviceUIDs() const { return m_videoDeviceUIDs; }
+    const Vector<String>& audioDeviceUIDs() const { return m_audioDeviceUIDs; }
 
 private:
-    UserMediaPermissionRequestProxy(UserMediaPermissionRequestManagerProxy&, uint64_t userMediaID, bool requiresAudio, bool requiresVideo);
+    UserMediaPermissionRequestProxy(UserMediaPermissionRequestManagerProxy&, uint64_t userMediaID, const Vector<String>& videoDeviceUIDs, const Vector<String>& audioDeviceUIDs);
 
-    UserMediaPermissionRequestManagerProxy& m_manager;
+    UserMediaPermissionRequestManagerProxy* m_manager;
     uint64_t m_userMediaID;
-    bool m_requiresAudio;
-    bool m_requiresVideo;
+    Vector<String> m_videoDeviceUIDs;
+    Vector<String> m_audioDeviceUIDs;
 };
 
 } // namespace WebKit

@@ -49,12 +49,12 @@ public:
 				   const char *inDbName, const CSSM_NET_ADDRESS *inDbLocation);
 	virtual ~SSDatabaseImpl();
 
-	void create(const DLDbIdentifier &dlDbIdentifier);
-	void createWithBlob(const DLDbIdentifier &dlDbIdentifier, const CSSM_DATA &blob);
-	void open(const DLDbIdentifier &dlDbIdentifier);
-	SSUniqueRecord insert(CSSM_DB_RECORDTYPE recordType,
+	void ssCreate(const DLDbIdentifier &dlDbIdentifier);
+	void ssCreateWithBlob(const DLDbIdentifier &dlDbIdentifier, const CSSM_DATA &blob);
+	void ssOpen(const DLDbIdentifier &dlDbIdentifier);
+	SSUniqueRecord ssInsert(CSSM_DB_RECORDTYPE recordType,
 						  const CSSM_DB_RECORD_ATTRIBUTE_DATA *attributes,
-						  const CSSM_DATA *data, bool);
+						  const CSSM_DATA *data);
 	void authenticate(CSSM_DB_ACCESS_TYPE inAccessRequest,
 						const CSSM_ACCESS_CREDENTIALS *inAccessCredentials);
 
@@ -68,13 +68,16 @@ public:
 	void setSettings(uint32 inIdleTimeout, bool inLockOnSleep);
 	bool isLocked();
 	void changePassphrase(const CSSM_ACCESS_CREDENTIALS *cred);
-	void recode(const CssmData &data, const CssmData &extraData);
+	void ssRecode(const CssmData &data, const CssmData &extraData);
 
 
 
     // Attempt to recode this database to the new blob version
     // Returns new version
     uint32 recodeDbToVersion(uint32 newBlobVersion);
+
+    // Tell securityd that we're done with the upgrade operation
+    void recodeFinished();
 
     // Try to take or release the file lock on the underlying database.
     // You _must_ call these as a pair. They start a transaction on the
@@ -92,7 +95,7 @@ public:
 	SecurityServer::DbHandle dbHandle();
 
 	void getRecordIdentifier(const CSSM_DB_UNIQUE_RECORD_PTR uniqueRecord, CSSM_DATA &data);
-	void copyBlob(CSSM_DATA &blob);
+	void ssCopyBlob(CSSM_DATA& blob);
 
     // Get the version of this database's encoding
     uint32 dbBlobVersion();
@@ -100,9 +103,23 @@ public:
     // Try to make a backup copy of this database on the filesystem
     void makeBackup();
 
+    // Try to make a backup copy of this database on the filesystem
+    void makeCopy(const char* path);
+
+    // Try to delete the backing file of this database
+    // AFter you've done this, operations might fail in strange ways.
+    void deleteFile();
+
+    // Duplicate this database to this location, and return the clone.
+    // For best results, use on an unlocked SSDatabase, but it should work on a locked one as well.
+    SSDatabase ssCloneTo(const DLDbIdentifier& dldbidentifier);
+
 protected:
 	CssmClient::DbUniqueRecord getDbBlobId(CssmDataContainer *dbb = NULL);
 	void commonCreate (const DLDbIdentifier &dlDbIdentifier, bool &autocommit);
+
+    // Load the database from disk, but don't talk with securityd about it
+    void load(const DLDbIdentifier &dlDbIdentifier);
 
     static uint32 getDbVersionFromBlob(const CssmData& dbb);
     uint32 recodeHelper(SecurityServer::DbHandle clonedDbHandle, CssmClient::DbUniqueRecord& dbBlobId);

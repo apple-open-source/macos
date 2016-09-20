@@ -217,7 +217,7 @@ rsa_key_allowed_in_file(struct passwd *pw, char *file,
 			key_options = NULL;
 
 		/* Parse the key from the line. */
-		if (hostfile_read_key(&cp, (u_int *)&bits, key) == 0) {
+		if (hostfile_read_key(&cp, &bits, key) == 0) {
 			debug("%.100s, line %lu: non ssh1 key syntax",
 			    file, linenum);
 			continue;

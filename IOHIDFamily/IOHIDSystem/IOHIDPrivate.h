@@ -33,18 +33,10 @@ enum {
 #ifdef KERNEL
 #include <IOKit/hidsystem/ev_keymap.h>
 
-#define DISPATCH_POWER_KEY_EVENT(keyDown) \
-    _DispatchKeyboardSpecialEvent ( NX_POWER_KEY, keyDown )
-
 __BEGIN_DECLS
-    void _DispatchKeyboardSpecialEvent(int key, bool down);
+  uint32_t _GetGlobalEventFlags ();
 __END_DECLS
+
 #endif
-
-struct IOHIDSystem_stackShotMessage {
-    mach_msg_header_t   header;
-    uint32_t            flavor;
-};
-
 
 #endif /* !_IOKIT_HID_IOHIDPRIVATE_H */

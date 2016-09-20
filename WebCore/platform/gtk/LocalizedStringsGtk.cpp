@@ -456,6 +456,16 @@ String AXSearchFieldCancelButtonText()
     return String::fromUTF8(_("cancel"));
 }
 
+String AXAutoFillCredentialsLabel()
+{
+    return String::fromUTF8(_("password auto fill"));
+}
+
+String AXAutoFillContactsLabel()
+{
+    return String::fromUTF8(_("contact info auto fill"));
+}
+    
 String AXButtonActionVerb()
 {
     return String::fromUTF8(_("press"));
@@ -519,12 +529,6 @@ String blockedPluginByContentSecurityPolicyText()
 }
 
 String insecurePluginVersionText()
-{
-    notImplemented();
-    return String();
-}
-
-String inactivePluginText()
 {
     notImplemented();
     return String();
@@ -786,11 +790,6 @@ String validationMessageBadInputForNumberText()
 }
 
 #if ENABLE(VIDEO_TRACK)
-String textTrackClosedCaptionsText()
-{
-    return String::fromUTF8(C_("Closed Captions", "Menu section heading for closed captions"));
-}
-
 String textTrackSubtitlesText()
 {
     return String::fromUTF8(C_("Menu section heading for subtitles", "Subtitles"));
@@ -803,7 +802,7 @@ String textTrackOffMenuItemText()
 
 String textTrackAutomaticMenuItemText()
 {
-    return String::fromUTF8(C_("Menu item label for the automatically choosen track", "Auto"));
+    return String::fromUTF8(C_("Menu item label for the automatically chosen track", "Auto"));
 }
 
 String textTrackNoLabelText()

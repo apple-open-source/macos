@@ -1,6 +1,4 @@
 /*
- * "$Id: network.c 12131 2014-08-28 23:38:16Z msweet $"
- *
  * Common backend network APIs for CUPS.
  *
  * Copyright 2007-2014 by Apple Inc.
@@ -301,8 +299,3 @@ backendNetworkSideCB(
 
   return (cupsSideChannelWrite(command, status, data, datalen, 1.0));
 }
-
-
-/*
- * End of "$Id: network.c 12131 2014-08-28 23:38:16Z msweet $".
- */

@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PingHandle_h
-#define PingHandle_h
+#pragma once
 
 #include "ResourceHandle.h"
 #include "ResourceHandleClient.h"
@@ -57,19 +56,19 @@ public:
     }
 
 private:
-    virtual void didReceiveResponse(ResourceHandle*, const ResourceResponse&) override { delete this; }
-    virtual void didReceiveData(ResourceHandle*, const char*, unsigned, int) override { delete this; }
-    virtual void didFinishLoading(ResourceHandle*, double) override { delete this; }
-    virtual void didFail(ResourceHandle*, const ResourceError&) override { delete this; }
-    virtual bool shouldUseCredentialStorage(ResourceHandle*)  override { return m_shouldUseCredentialStorage; }
-    virtual bool usesAsyncCallbacks() override { return m_usesAsyncCallbacks == UsesAsyncCallbacks::Yes; }
+    void didReceiveResponse(ResourceHandle*, ResourceResponse&&) override { delete this; }
+    void didReceiveBuffer(ResourceHandle*, Ref<SharedBuffer>&&, int) override { delete this; };
+    void didFinishLoading(ResourceHandle*, double) override { delete this; }
+    void didFail(ResourceHandle*, const ResourceError&) override { delete this; }
+    bool shouldUseCredentialStorage(ResourceHandle*)  override { return m_shouldUseCredentialStorage; }
+    bool usesAsyncCallbacks() override { return m_usesAsyncCallbacks == UsesAsyncCallbacks::Yes; }
     void timeoutTimerFired() { delete this; }
 
     virtual ~PingHandle()
     {
         if (m_handle) {
             ASSERT(m_handle->client() == this);
-            m_handle->setClient(nullptr);
+            m_handle->clearClient();
             m_handle->cancel();
         }
     }
@@ -81,5 +80,3 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // PingHandle_h

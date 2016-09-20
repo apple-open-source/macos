@@ -12,6 +12,21 @@ plockstat \- front-end to DTrace to print statistics about POSIX mutexes and rea
 \fB-p\fP \fIpid\fP
 .fam T
 .fi
+.SH OVERVIEW
+The \fIplockstat\fP command is a front-end to DTrace that can be used to print
+statistics about POSIX mutexes and read/write locks.
+.br
+.P
+Since OS X 10.11, in order to use this, your process must be run with DYLD_LIBRARY_PATH set to
+contain /usr/lib/system/introspection:
+
+.RS 8
+DYLD_LIBRARY_PATH=/usr/lib/system/introspection
+.br
+.RE
+.P
+Which contains the necessary static DTrace probes.
+
 .SH OPTIONS
 
 .TP

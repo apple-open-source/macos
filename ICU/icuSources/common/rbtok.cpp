@@ -89,7 +89,7 @@ int32_t RuleBasedTokenizer::tokenize(int32_t maxTokens, RuleBasedTokenRange *out
                 // Note:  the 16 in UTRIE_GET16 refers to the size of the data being returned,
                 //        not the size of the character going in, which is a UChar32.
                 //
-                if (__builtin_expect((c < 0x100), 1))
+                if (c < 0x100)
                     category = fLatin1Cat[c];
                 else
                     UTRIE_GET16(trie, c, category);
@@ -99,7 +99,7 @@ int32_t RuleBasedTokenizer::tokenize(int32_t maxTokens, RuleBasedTokenRange *out
                 //    Chars that need to be handled by a dictionary have a flag bit set
                 //    in their category values.
                 //
-                if (__builtin_expect((category & 0x4000) != 0, 0))  {
+                if ((category & 0x4000) != 0)  {
                     fDictionaryCharCount++;
                     //  And off the dictionary flag bit.
                     category &= ~0x4000;
@@ -234,19 +234,25 @@ RuleBasedTokenizer::init()
 RuleBasedTokenizer::RuleBasedTokenizer(const UnicodeString &rules, UParseError &parseErr, UErrorCode &err)
     : RuleBasedBreakIterator(rules, parseErr, err)
 {
-    init();
+    if (U_SUCCESS(err)) {
+        init();
+    }
 }
 
 RuleBasedTokenizer::RuleBasedTokenizer(uint8_t *data, UErrorCode &status)
     : RuleBasedBreakIterator((RBBIDataHeader *)data, status)
 {
-    init();
+    if (U_SUCCESS(status)) {
+        init();
+    }
 }
 
 RuleBasedTokenizer::RuleBasedTokenizer(const uint8_t *data, enum EDontAdopt, UErrorCode &status)
     : RuleBasedBreakIterator((const RBBIDataHeader *)data, RuleBasedBreakIterator::kDontAdopt, status)
 {
-    init();
+    if (U_SUCCESS(status)) {
+        init();
+    }
 }
 
 RuleBasedTokenizer::~RuleBasedTokenizer() {

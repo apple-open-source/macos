@@ -283,6 +283,41 @@ struct IOStorageExtent
 };
 
 /*!
+ * @enum IOStorageProvisionTypes
+ * @discussion
+ * Device block provision types, such as mapped, deallocated, or anchored. See SCSI
+ * SBC4 specifiction, LBA status descriptor for definitions.
+ */
+
+enum
+{
+    kIOStorageProvisionTypeMapped      = 0x00,
+    kIOStorageProvisionTypeDeallocated = 0x01,
+    kIOStorageProvisionTypeAnchored    = 0x02
+};
+
+typedef UInt64 IOStorageGetProvisionStatusOptions;
+/*!
+ * @struct IOStorageProvisionExtent
+ * @discussion
+ * Extent for provision status.
+ * @field byteStart
+ * Starting byte offset for the operation.
+ * @field byteCount
+ * Size of the operation.
+ * @field provisionType
+ * Block provision type. See IOStorageProvisionTypes.
+ */
+
+struct IOStorageProvisionExtent
+{
+    UInt64 byteStart;
+    UInt64 byteCount;
+    UInt8  provisionType;
+    UInt8  reserved[7];
+};
+
+/*!
  * @typedef IOStorageCompletionAction
  * @discussion
  * The IOStorageCompletionAction declaration describes the C (or C++) completion
@@ -371,7 +406,7 @@ protected:
 
     virtual bool handleOpen(IOService *  client,
                             IOOptionBits options,
-                            void *       access) = 0;
+                            void *       access) APPLE_KEXT_OVERRIDE = 0;
 
     /*!
      * @function handleIsOpen
@@ -385,7 +420,7 @@ protected:
      * Returns true if the client was (or clients were) open, false otherwise.
      */
 
-    virtual bool handleIsOpen(const IOService * client) const = 0;
+    virtual bool handleIsOpen(const IOService * client) const APPLE_KEXT_OVERRIDE = 0;
 
     /*!
      * @function handleClose
@@ -397,13 +432,13 @@ protected:
      * Options for the close.  Set to zero.
      */
 
-    virtual void handleClose(IOService * client, IOOptionBits options) = 0;
+    virtual void handleClose(IOService * client, IOOptionBits options) APPLE_KEXT_OVERRIDE = 0;
 
 public:
 
-#ifdef __x86_64__
-    virtual bool attach(IOService * provider);
-#endif /* __x86_64__ */
+#if TARGET_OS_OSX && defined(__x86_64__)
+    virtual bool attach(IOService * provider) APPLE_KEXT_OVERRIDE;
+#endif /* TARGET_OS_OSX && defined(__x86_64__) */
 
     /*!
      * @function complete
@@ -500,9 +535,9 @@ public:
                            IOStorageAttributes * attributes      = 0,
                            UInt64 *              actualByteCount = 0);
 
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
     virtual IOReturn synchronizeCache(IOService * client) __attribute__ ((deprecated));
-#endif /* __x86_64__ */
+#endif /* TARGET_OS_OSX && defined(__x86_64__) */
 
     /*!
      * @function read
@@ -566,11 +601,11 @@ public:
                        IOStorageAttributes * attributes,
                        IOStorageCompletion * completion) = 0;
 
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
     virtual IOReturn discard(IOService * client,
                              UInt64      byteStart,
                              UInt64      byteCount) __attribute__ ((deprecated));
-#endif /* __x86_64__ */
+#endif /* TARGET_OS_OSX && defined(__x86_64__) */
 
     /*!
      * @function unmap
@@ -589,17 +624,17 @@ public:
      * Returns the status of the operation.
      */
 
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
     virtual IOReturn unmap(IOService *           client,
                            IOStorageExtent *     extents,
                            UInt32                extentsCount,
                            IOStorageUnmapOptions options = 0); /* 10.6.6 */
-#else /* !__x86_64__ */
+#else /* !TARGET_OS_OSX || !defined(__x86_64__) */
     virtual IOReturn unmap(IOService *           client,
                            IOStorageExtent *     extents,
                            UInt32                extentsCount,
                            IOStorageUnmapOptions options = 0) = 0;
-#endif /* !__x86_64__ */
+#endif /* !TARGET_OS_OSX || !defined(__x86_64__) */
 
     /*!
      * @function lockPhysicalExtents
@@ -686,17 +721,45 @@ public:
      * Returns the status of the synchronization.
      */
 
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
     virtual IOReturn synchronize(IOService *                 client,
                                  UInt64                      byteStart,
                                  UInt64                      byteCount,
                                  IOStorageSynchronizeOptions options = 0); /* 10.11.0 */
-#else /* !__x86_64__ */
+#else /* !TARGET_OS_OSX || !defined(__x86_64__) */
     virtual IOReturn synchronize(IOService *                 client,
                                  UInt64                      byteStart,
                                  UInt64                      byteCount,
                                  IOStorageSynchronizeOptions options = 0) = 0;
-#endif /* !__x86_64__ */
+#endif /* !TARGET_OS_OSX || !defined(__x86_64__) */
+
+    /*!
+     * @function getProvisionStatus
+     * @discussion
+     * Get device block provision status
+     * @param client
+     * Client requesting the synchronization.
+     * @param byteStart
+     * Byte offset of logical extent on the device.
+     * @param byteCount
+     * Byte length of logical extent on the device, 0 mean the entire remaining space.
+     * @param extentsCount
+     * Number of extents allocated in extents. On return, this parameter indicate number
+     * of provision extents returned.
+     * @param extents
+     * List of provision extents. See IOStorageProvisionExtents.
+     * @param options
+     * Options for get provision status.  See IOStorageGetProvisionStatusOptions.
+     * @result
+     * Returns the status of the getProvisionStatus.
+     */
+
+    virtual IOReturn getProvisionStatus(IOService *                        client,
+                                        UInt64                             byteStart,
+                                        UInt64                             byteCount,
+                                        UInt32 *                           extentsCount,
+                                        IOStorageProvisionExtent *         extents,
+                                        IOStorageGetProvisionStatusOptions options = 0 ); /* 10.12.0 */
 
     OSMetaClassDeclareReservedUsed(IOStorage,  0);
     OSMetaClassDeclareReservedUsed(IOStorage,  1);
@@ -704,7 +767,7 @@ public:
     OSMetaClassDeclareReservedUsed(IOStorage,  3);
     OSMetaClassDeclareReservedUsed(IOStorage,  4);
     OSMetaClassDeclareReservedUsed(IOStorage,  5);
-    OSMetaClassDeclareReservedUnused(IOStorage,  6);
+    OSMetaClassDeclareReservedUsed(IOStorage,  6);
     OSMetaClassDeclareReservedUnused(IOStorage,  7);
     OSMetaClassDeclareReservedUnused(IOStorage,  8);
     OSMetaClassDeclareReservedUnused(IOStorage,  9);
@@ -716,12 +779,12 @@ public:
     OSMetaClassDeclareReservedUnused(IOStorage, 15);
 };
 
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
 #ifdef KERNEL_PRIVATE
 #define _kIOStorageSynchronizeOption_super__synchronizeCache 0xFFFFFFFF
 #define _respondsTo_synchronizeCache ( IOStorage::_expansionData )
 #endif /* KERNEL_PRIVATE */
-#endif /* __x86_64__ */
+#endif /* TARGET_OS_OSX && defined(__x86_64__) */
 
 #endif /* __cplusplus */
 #endif /* KERNEL */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2010-2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2010-2013, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -32,8 +32,6 @@
  */
 
 #include <TargetConditionals.h>
-#include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCPrivate.h>
 #include "SCPreferencesInternal.h"
 #include "SCHelper_client.h"
 
@@ -311,6 +309,9 @@ SCPreferencesCommitChanges(SCPreferencesRef prefs)
 	prefsPrivate->signature = __SCPSignatureFromStatbuf(&statBuf);
 
     committed :
+
+	SC_log(LOG_INFO, "SCPreferences() commit: %s",
+	       prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path);
 
 	/* post notification */
 	ok = SCDynamicStoreNotifyValue(NULL, prefsPrivate->sessionKeyCommit);

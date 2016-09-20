@@ -88,7 +88,7 @@ public:
 	Rule *findRule(string path) const;
 
 	static CFDataRef hashFile(const char *path, CodeDirectory::HashAlgorithm type);
-	static CFMutableDictionaryRef hashFile(const char *path, CodeDirectory::HashAlgorithms types);
+	static CFMutableDictionaryRef hashFile(const char *path, CodeDirectory::HashAlgorithms types, bool strictCheck);
 	
 	static std::string hashName(CodeDirectory::HashAlgorithm type);
 	

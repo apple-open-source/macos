@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MediaSession_h
-#define MediaSession_h
+#pragma once
 
 #if ENABLE(MEDIA_SESSION)
 
@@ -39,55 +38,50 @@ class HTMLMediaElement;
 
 class MediaSession final : public RefCounted<MediaSession> {
 public:
-    enum class State {
-        Idle,
-        Active,
-        Interrupted
-    };
+    enum class Kind { Content, Transient, TransientSolo, Ambient };
+    enum class State { Idle, Active, Interrupted };
 
-    static Ref<MediaSession> create(ScriptExecutionContext& context, const String& kind)
+    static Ref<MediaSession> create(ScriptExecutionContext& context, Kind kind)
     {
         return adoptRef(*new MediaSession(context, kind));
     }
 
-    explicit MediaSession(Document&);
-    MediaSession(ScriptExecutionContext&, const String&);
     ~MediaSession();
 
-    String kind() const;
-    MediaRemoteControls* controls(bool& isNull);
+    Kind kind() const { return m_kind; }
+    MediaRemoteControls* controls();
 
-    State currentState() const { return m_currentState; }
+    WEBCORE_EXPORT State currentState() const { return m_currentState; }
     bool hasActiveMediaElements() const;
 
     void setMetadata(const Dictionary&);
 
-    void releaseSession();
-    
+    void deactivate();
+
     // Runs the media session invocation algorithm and returns true on success.
     bool invoke();
+
+    void handleDuckInterruption();
+    void handleIndefinitePauseInterruption();
+    void handlePauseInterruption();
+    void handleUnduckInterruption();
+    void handleUnpauseInterruption();
 
     void togglePlayback();
     void skipToNextTrack();
     void skipToPreviousTrack();
 
+    void controlIsEnabledDidChange();
+
 private:
     friend class HTMLMediaElement;
 
-    enum class Kind {
-        Default,
-        Content,
-        Transient,
-        TransientSolo,
-        Ambient
-    };
-
-    static Kind parseKind(const String&);
-    Kind kindEnum() const { return m_kind; }
+    MediaSession(ScriptExecutionContext&, const String&);
 
     void addMediaElement(HTMLMediaElement&);
     void removeMediaElement(HTMLMediaElement&);
 
+    void safelyIterateActiveMediaElements(std::function<void(HTMLMediaElement*)>);
     void changeActiveMediaElements(std::function<void(void)>);
     void addActiveMediaElement(HTMLMediaElement&);
     bool isMediaElementActive(HTMLMediaElement&);
@@ -100,7 +94,7 @@ private:
     HashSet<HTMLMediaElement*>* m_iteratedActiveParticipatingElements { nullptr };
 
     Document& m_document;
-    const Kind m_kind { Kind::Default };
+    const Kind m_kind;
     RefPtr<MediaRemoteControls> m_controls;
     MediaSessionMetadata m_metadata;
 };
@@ -108,5 +102,3 @@ private:
 } // namespace WebCore
 
 #endif /* ENABLE(MEDIA_SESSION) */
-
-#endif /* MediaSession_h */

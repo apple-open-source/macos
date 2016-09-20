@@ -22,10 +22,10 @@
  */
 
 
-#import <SenTestingKit/SenTestingKit.h>
+#import <XCTest/XCTest.h>
 
 
-@interface custom : SenTestCase {
+@interface custom : XCTestCase {
 
 }
 

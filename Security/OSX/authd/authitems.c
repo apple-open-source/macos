@@ -489,6 +489,10 @@ auth_items_get_flags(auth_items_t items, const char *key)
 bool
 auth_items_check_flags(auth_items_t items, const char *key, uint32_t flags)
 {
+	// When several bits are set in uint32_t flags, "(current & flags) != 0" checks if ANY flag is set, not all flags!
+	// This odd behavior is currently being relied upon in several places, so be careful when changing / fixing this.
+	// However, this also risks unwanted information leakage in
+	// AuthorizationCopyInfo ==> authorization_copy_info ==> [all info] auth_items_copy_with_flags
     uint32_t current = auth_items_get_flags(items,key);
     return flags ? (current & flags) != 0 : current == 0;
 }
@@ -601,18 +605,18 @@ done:
 void
 auth_items_set_string(auth_items_t items, const char *key, const char *value)
 {
-    if (value) {
-        size_t valLen = strlen(value);
-        auth_item_t item = _find_item(items,key);
-        if (item && item->type == AI_TYPE_STRING && valLen < item->bufLen) {
-            memcpy(item->data.value, value, valLen+1); // copy null
-            item->data.valueLength = valLen;
-        } else {
-            item = auth_item_create(AI_TYPE_STRING, key, value, valLen, 0);
-            if (item) {
-                CFDictionarySetValue(items->dictionary, auth_item_get_cf_key(item), item);
-                CFReleaseSafe(item);
-            }
+    assert(value); // marked non-null
+
+    size_t valLen = strlen(value);
+    auth_item_t item = _find_item(items,key);
+    if (item && item->type == AI_TYPE_STRING && valLen < item->bufLen) {
+        memcpy(item->data.value, value, valLen+1); // copy null
+        item->data.valueLength = valLen;
+    } else {
+        item = auth_item_create(AI_TYPE_STRING, key, value, valLen, 0);
+        if (item) {
+            CFDictionarySetValue(items->dictionary, auth_item_get_cf_key(item), item);
+            CFReleaseSafe(item);
         }
     }
 }
@@ -637,7 +641,9 @@ auth_items_get_string(auth_items_t items, const char *key)
 void
 auth_items_set_data(auth_items_t items, const char *key, const void *value, size_t len)
 {
-    if (value && len) {
+    assert(value); // marked non-null
+
+    if (len) {
         auth_item_t item = _find_item(items,key);
         if (item && item->type == AI_TYPE_DATA && len <= item->bufLen) {
             memcpy(item->data.value, value, len);
@@ -655,6 +661,8 @@ auth_items_set_data(auth_items_t items, const char *key, const void *value, size
 const void *
 auth_items_get_data(auth_items_t items, const char *key, size_t *len)
 {
+    assert(len); // marked non-null
+
     auth_item_t item = _find_item(items,key);
     if (item) {
 #if DEBUG
@@ -663,13 +671,32 @@ auth_items_get_data(auth_items_t items, const char *key, size_t *len)
                  item->data.name, item->type, AI_TYPE_DATA);
         }
 #endif
-        if (len) {
-            *len = item->data.valueLength;
-        }
+        *len = item->data.valueLength;
         return item->data.value;
     }
     
     return NULL;
+}
+
+const void *
+auth_items_get_data_with_flags(auth_items_t items, const char *key, size_t *len, uint32_t flags)
+{
+    assert(len); // marked non-null
+
+	auth_item_t item = _find_item(items,key);
+	if (item && (item->data.flags & flags) == flags) {
+#if DEBUG
+		if (!(item->type == AI_TYPE_DATA || item->type == AI_TYPE_UNKNOWN)) {
+			LOGV("auth_items: key = %s, invalid type=%i expected=%i",
+				 item->data.name, item->type, AI_TYPE_DATA);
+		}
+#endif
+		*len = item->data.valueLength;
+
+		return item->data.value;
+	}
+
+	return NULL;
 }
 
 void

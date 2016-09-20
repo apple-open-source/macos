@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -50,6 +50,7 @@
  *   kSCEntNetLinkQuality                               "LinkQuality"                  CFDictionary
  *   kSCEntNetLoopback                                  "Loopback"                     CFDictionary
  *   kSCEntNetOnDemand                                  "OnDemand"                     CFDictionary
+ *   kSCEntNetQoSMarkingPolicy                          "QoSMarkingPolicy"             CFDictionary
  *   kSCEntNetService                                   "__SERVICE__"                  CFDictionary
  *   kSCEntNetVPN                                       "VPN"                          CFDictionary
  *
@@ -177,9 +178,16 @@
  *   kSCPropNetProxiesSupplemental                      "__SUPPLEMENTAL__"             CFArray[CFDictionary]
  *   kSCPropNetProxiesSupplementalMatchDomain           "__MATCH_DOMAIN__"             CFString
  *
+ * kSCEntNetQoSMarkingPolicy Entity Keys
+ *
+ *   kSCPropNetQoSMarkingAppleAudioVideoCalls           "QoSMarkingAppleAudioVideoCalls" CFBoolean
+ *   kSCPropNetQoSMarkingEnabled                        "QoSMarkingEnabled"            CFBoolean
+ *   kSCPropNetQoSMarkingWhitelistedAppIdentifiers      "QoSMarkingWhitelistedAppIdentifiers" CFArray[CFString]
+ *
  * kSCEntNetService Entity Keys
  *
  *   kSCPropNetServicePrimaryRank                       "PrimaryRank"                  CFString
+ *   kSCPropNetServiceServiceIndex                      "ServiceIndex"                 CFNumber
  *   kSCPropNetServiceUserDefinedName                   "UserDefinedName"              CFString
  *
  *   --- kSCPropNetServicePrimaryRank values ---
@@ -414,6 +422,13 @@ extern const CFStringRef kSCEntNetLoopback                                  __OS
  */
 extern const CFStringRef kSCEntNetOnDemand                                  __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_3_0/*SPI*/);
 #define kSCEntNetOnDemand kSCEntNetOnDemand
+
+/*!
+  @const kSCEntNetQoSMarkingPolicy
+  @discussion Value is a CFDictionary
+ */
+extern const CFStringRef kSCEntNetQoSMarkingPolicy                          __OSX_AVAILABLE_STARTING(__MAC_10_12,__IPHONE_10_0/*SPI*/);
+#define kSCEntNetQoSMarkingPolicy kSCEntNetQoSMarkingPolicy
 
 /*!
   @const kSCEntNetService
@@ -972,6 +987,31 @@ extern const CFStringRef kSCPropNetProxiesSupplementalMatchDomain           __OS
 #define kSCPropNetProxiesSupplementalMatchDomain kSCPropNetProxiesSupplementalMatchDomain
 
 /*!
+  @group kSCEntNetQoSMarkingPolicy Entity Keys
+ */
+
+/*!
+  @const kSCPropNetQoSMarkingAppleAudioVideoCalls
+  @discussion Value is a CFBoolean
+ */
+extern const CFStringRef kSCPropNetQoSMarkingAppleAudioVideoCalls           __OSX_AVAILABLE_STARTING(__MAC_10_12,__IPHONE_10_0/*SPI*/);
+#define kSCPropNetQoSMarkingAppleAudioVideoCalls kSCPropNetQoSMarkingAppleAudioVideoCalls
+
+/*!
+  @const kSCPropNetQoSMarkingEnabled
+  @discussion Value is a CFBoolean
+ */
+extern const CFStringRef kSCPropNetQoSMarkingEnabled                        __OSX_AVAILABLE_STARTING(__MAC_10_12,__IPHONE_10_0/*SPI*/);
+#define kSCPropNetQoSMarkingEnabled kSCPropNetQoSMarkingEnabled
+
+/*!
+  @const kSCPropNetQoSMarkingWhitelistedAppIdentifiers
+  @discussion Value is a CFArray[CFString]
+ */
+extern const CFStringRef kSCPropNetQoSMarkingWhitelistedAppIdentifiers      __OSX_AVAILABLE_STARTING(__MAC_10_12,__IPHONE_10_0/*SPI*/);
+#define kSCPropNetQoSMarkingWhitelistedAppIdentifiers kSCPropNetQoSMarkingWhitelistedAppIdentifiers
+
+/*!
   @group kSCEntNetService Entity Keys
  */
 
@@ -981,6 +1021,13 @@ extern const CFStringRef kSCPropNetProxiesSupplementalMatchDomain           __OS
  */
 extern const CFStringRef kSCPropNetServicePrimaryRank                       __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0/*SPI*/);
 #define kSCPropNetServicePrimaryRank kSCPropNetServicePrimaryRank
+
+/*!
+  @const kSCPropNetServiceServiceIndex
+  @discussion Value is a CFNumber
+ */
+extern const CFStringRef kSCPropNetServiceServiceIndex                      __OSX_AVAILABLE_STARTING(__MAC_10_12,__IPHONE_10_0/*SPI*/);
+#define kSCPropNetServiceServiceIndex kSCPropNetServiceServiceIndex
 
 /*!
   @const kSCPropNetServiceUserDefinedName

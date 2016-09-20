@@ -44,7 +44,7 @@ wireless_p: wireless.c
 	codesign -s - -f --entitlements entitlements.plist $@
 
 Dialogue: Dialogue.c
-	cc -Wall -DTEST_DIALOGUE -g -o Dialogue Dialogue.c mylog.c -I../EAP8021X.fproj ../EAP8021X.fproj/myCFUtil.c -framework CoreFoundation -framework SystemConfiguration -framework EAP8021X -F/System/Library/PrivateFrameworks -framework Security
+	cc -Wall -DTEST_DIALOGUE -g -o Dialogue Dialogue.c mylog.c ../EAP8021X.fproj/EAPLog.c -I../EAP8021X.fproj ../EAP8021X.fproj/myCFUtil.c -framework CoreFoundation -framework SystemConfiguration -framework EAP8021X -F/System/Library/PrivateFrameworks -framework Security
 
 InterestNotification: InterestNotification.c
 	cc -DTEST_INTERESTNOTIFICATION -Wall -g -o InterestNotification InterestNotification.c -framework CoreFoundation -framework IOKit

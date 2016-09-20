@@ -26,14 +26,11 @@
 
 #include <TargetConditionals.h>
 
-#if TARGET_OS_IPHONE
-
 #include <Foundation/Foundation.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <utilities/SecCFWrappers.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecCertificatePriv.h>
-#include <Security/SecInternal.h>
 #include <Security/SecPolicyPriv.h>
 #include <Security/SecTrust.h>
 #include <Security/SecTrustPriv.h>
@@ -42,22 +39,6 @@
 
 #include "testmore.h"
 
-/*
- * Copyright (c) 2011-2014 Apple Inc. All Rights Reserved.
- */
-
-#include <Foundation/Foundation.h>
-#include <CoreFoundation/CoreFoundation.h>
-#include <Security/SecCertificate.h>
-#include <Security/SecCertificatePriv.h>
-#include <Security/SecInternal.h>
-#include <Security/SecPolicyPriv.h>
-#include <Security/SecTrust.h>
-#include <Security/SecTrustPriv.h>
-#include <stdlib.h>
-#include <unistd.h>
-
-#include "testmore.h"
 
 /* Those tests were originally written around that date. */
 CFGiblisGetSingleton(CFDateRef, GetFrozenTime, frozenTime, ^{
@@ -136,7 +117,7 @@ static void runOneLeafTest(SecPolicyRef policy,
     //NSLog(@"Evaluating: %@",certRef);
     err = SecTrustEvaluate(trustRef, &evalRes);
     if (err) {
-        ok_status(err, "SecTrustCreateWithCertificates");
+        ok_status(err, "SecTrustEvaluate");
         goto exit;
     }
     BOOL isValid = (evalRes == kSecTrustResultProceed || evalRes == kSecTrustResultUnspecified);
@@ -212,5 +193,3 @@ void runCertificateTestForDirectory(SecPolicyRef policy, CFStringRef resourceSub
 
     [pool release];
 }
-
-#endif /* TARGET_OS_IPHONE */

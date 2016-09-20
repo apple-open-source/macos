@@ -121,7 +121,7 @@ static void modssl_ctx_init(modssl_ctx_t *mctx, apr_pool_t *p)
 
     mctx->crl_path            = NULL;
     mctx->crl_file            = NULL;
-    mctx->crl_check_mode      = SSL_CRLCHECK_UNSET;
+    mctx->crl_check_mask      = UNSET;
 
     mctx->auth.ca_cert_path   = NULL;
     mctx->auth.ca_cert_file   = NULL;
@@ -136,6 +136,7 @@ static void modssl_ctx_init(modssl_ctx_t *mctx, apr_pool_t *p)
     mctx->ocsp_resp_maxage    = UNSET;
     mctx->ocsp_responder_timeout = UNSET;
     mctx->ocsp_use_request_nonce = UNSET;
+    mctx->proxy_uri              = NULL;
 
 #ifdef HAVE_OCSP_STAPLING
     mctx->stapling_enabled           = UNSET;
@@ -271,7 +272,7 @@ static void modssl_ctx_cfg_merge(apr_pool_t *p,
 
     cfgMerge(crl_path, NULL);
     cfgMerge(crl_file, NULL);
-    cfgMerge(crl_check_mode, SSL_CRLCHECK_UNSET);
+    cfgMergeInt(crl_check_mask);
 
     cfgMergeString(auth.ca_cert_path);
     cfgMergeString(auth.ca_cert_file);
@@ -286,6 +287,7 @@ static void modssl_ctx_cfg_merge(apr_pool_t *p,
     cfgMergeInt(ocsp_resp_maxage);
     cfgMergeInt(ocsp_responder_timeout);
     cfgMergeBool(ocsp_use_request_nonce);
+    cfgMerge(proxy_uri, NULL);
 #ifdef HAVE_OCSP_STAPLING
     cfgMergeBool(stapling_enabled);
     cfgMergeInt(stapling_resptime_skew);
@@ -1017,21 +1019,36 @@ const char *ssl_cmd_SSLCARevocationFile(cmd_parms *cmd,
 
 static const char *ssl_cmd_crlcheck_parse(cmd_parms *parms,
                                           const char *arg,
-                                          ssl_crlcheck_t *mode)
+                                          int *mask)
 {
-    if (strcEQ(arg, "none")) {
-        *mode = SSL_CRLCHECK_NONE;
+    const char *w;
+
+    w = ap_getword_conf(parms->temp_pool, &arg);
+    if (strcEQ(w, "none")) {
+        *mask = SSL_CRLCHECK_NONE;
     }
-    else if (strcEQ(arg, "leaf")) {
-        *mode = SSL_CRLCHECK_LEAF;
+    else if (strcEQ(w, "leaf")) {
+        *mask = SSL_CRLCHECK_LEAF;
     }
-    else if (strcEQ(arg, "chain")) {
-        *mode = SSL_CRLCHECK_CHAIN;
+    else if (strcEQ(w, "chain")) {
+        *mask = SSL_CRLCHECK_CHAIN;
     }
     else {
         return apr_pstrcat(parms->temp_pool, parms->cmd->name,
-                           ": Invalid argument '", arg, "'",
+                           ": Invalid argument '", w, "'",
                            NULL);
+    }
+
+    while (*arg) {
+        w = ap_getword_conf(parms->temp_pool, &arg);
+        if (strcEQ(w, "no_crl_for_cert_ok")) {
+            *mask |= SSL_CRLCHECK_NO_CRL_FOR_CERT_OK;
+        }
+        else {
+            return apr_pstrcat(parms->temp_pool, parms->cmd->name,
+                               ": Invalid argument '", w, "'",
+                               NULL);
+        }
     }
 
     return NULL;
@@ -1043,7 +1060,7 @@ const char *ssl_cmd_SSLCARevocationCheck(cmd_parms *cmd,
 {
     SSLSrvConfigRec *sc = mySrvConfig(cmd->server);
 
-    return ssl_cmd_crlcheck_parse(cmd, arg, &sc->server->crl_check_mode);
+    return ssl_cmd_crlcheck_parse(cmd, arg, &sc->server->crl_check_mask);
 }
 
 static const char *ssl_cmd_verify_parse(cmd_parms *parms,
@@ -1317,7 +1334,7 @@ const char *ssl_cmd_SSLRequire(cmd_parms *cmd,
     }
 
     require = apr_array_push(dc->aRequirement);
-    require->cpExpr = apr_pstrdup(cmd->pool, arg);
+    require->cpExpr = arg;
     require->mpExpr = info;
 
     return NULL;
@@ -1560,7 +1577,7 @@ const char *ssl_cmd_SSLProxyCARevocationCheck(cmd_parms *cmd,
 {
     SSLSrvConfigRec *sc = mySrvConfig(cmd->server);
 
-    return ssl_cmd_crlcheck_parse(cmd, arg, &sc->proxy->crl_check_mode);
+    return ssl_cmd_crlcheck_parse(cmd, arg, &sc->proxy->crl_check_mask);
 }
 
 const char *ssl_cmd_SSLProxyMachineCertificateFile(cmd_parms *cmd,
@@ -1689,6 +1706,18 @@ const char *ssl_cmd_SSLOCSPUseRequestNonce(cmd_parms *cmd, void *dcfg, int flag)
 
     sc->server->ocsp_use_request_nonce = flag ? TRUE : FALSE;
 
+    return NULL;
+}
+
+const char *ssl_cmd_SSLOCSPProxyURL(cmd_parms *cmd, void *dcfg,
+                                    const char *arg)
+{
+    SSLSrvConfigRec *sc = mySrvConfig(cmd->server);
+    sc->server->proxy_uri = apr_palloc(cmd->pool, sizeof(apr_uri_t));
+    if (apr_uri_parse(cmd->pool, arg, sc->server->proxy_uri) != APR_SUCCESS) {
+        return apr_psprintf(cmd->pool,
+                            "SSLOCSPProxyURL: Cannot parse URL %s", arg);
+    }
     return NULL;
 }
 

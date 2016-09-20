@@ -56,13 +56,13 @@ void FunctionConstructor::finishCreation(VM& vm, FunctionPrototype* functionProt
 static EncodedJSValue JSC_HOST_CALL constructWithFunctionConstructor(ExecState* exec)
 {
     ArgList args(exec);
-    return JSValue::encode(constructFunction(exec, asInternalFunction(exec->callee())->globalObject(), args));
+    return JSValue::encode(constructFunction(exec, asInternalFunction(exec->callee())->globalObject(), args, FunctionConstructionMode::Function, exec->newTarget()));
 }
 
 ConstructType FunctionConstructor::getConstructData(JSCell*, ConstructData& constructData)
 {
     constructData.native.function = constructWithFunctionConstructor;
-    return ConstructTypeHost;
+    return ConstructType::Host;
 }
 
 static EncodedJSValue JSC_HOST_CALL callFunctionConstructor(ExecState* exec)
@@ -75,41 +75,43 @@ static EncodedJSValue JSC_HOST_CALL callFunctionConstructor(ExecState* exec)
 CallType FunctionConstructor::getCallData(JSCell*, CallData& callData)
 {
     callData.native.function = callFunctionConstructor;
-    return CallTypeHost;
+    return CallType::Host;
 }
 
 // ECMA 15.3.2 The Function Constructor
-JSObject* constructFunction(ExecState* exec, JSGlobalObject* globalObject, const ArgList& args, const Identifier& functionName, const String& sourceURL, const TextPosition& position)
+JSObject* constructFunction(ExecState* exec, JSGlobalObject* globalObject, const ArgList& args, const Identifier& functionName, const String& sourceURL, const TextPosition& position, FunctionConstructionMode functionConstructionMode, JSValue newTarget)
 {
     if (!globalObject->evalEnabled())
         return exec->vm().throwException(exec, createEvalError(exec, globalObject->evalDisabledErrorMessage()));
-    return constructFunctionSkippingEvalEnabledCheck(exec, globalObject, args, functionName, sourceURL, position);
+    return constructFunctionSkippingEvalEnabledCheck(exec, globalObject, args, functionName, sourceURL, position, -1, functionConstructionMode, newTarget);
 }
 
 JSObject* constructFunctionSkippingEvalEnabledCheck(
     ExecState* exec, JSGlobalObject* globalObject, const ArgList& args, 
     const Identifier& functionName, const String& sourceURL, 
-    const TextPosition& position, int overrideLineNumber)
+    const TextPosition& position, int overrideLineNumber, FunctionConstructionMode functionConstructionMode, JSValue newTarget)
 {
     // How we stringify functions is sometimes important for web compatibility.
     // See https://bugs.webkit.org/show_bug.cgi?id=24350.
     String program;
     if (args.isEmpty())
-        program = makeString("{function ", functionName.string(), "() {\n\n}}");
+        program = makeString("{function ", functionConstructionMode == FunctionConstructionMode::Generator ? "*" : "", functionName.string(), "() {\n\n}}");
     else if (args.size() == 1)
-        program = makeString("{function ", functionName.string(), "() {\n", args.at(0).toString(exec)->value(exec), "\n}}");
+        program = makeString("{function ", functionConstructionMode == FunctionConstructionMode::Generator ? "*" : "", functionName.string(), "() {\n", args.at(0).toString(exec)->value(exec), "\n}}");
     else {
         StringBuilder builder;
         builder.appendLiteral("{function ");
+        if (functionConstructionMode == FunctionConstructionMode::Generator)
+            builder.append('*');
         builder.append(functionName.string());
         builder.append('(');
-        builder.append(args.at(0).toString(exec)->view(exec));
+        builder.append(args.at(0).toString(exec)->view(exec).get());
         for (size_t i = 1; i < args.size() - 1; i++) {
             builder.appendLiteral(", ");
-            builder.append(args.at(i).toString(exec)->view(exec));
+            builder.append(args.at(i).toString(exec)->view(exec).get());
         }
         builder.appendLiteral(") {\n");
-        builder.append(args.at(args.size() - 1).toString(exec)->view(exec));
+        builder.append(args.at(args.size() - 1).toString(exec)->view(exec).get());
         builder.appendLiteral("\n}}");
         program = builder.toString();
     }
@@ -122,13 +124,17 @@ JSObject* constructFunctionSkippingEvalEnabledCheck(
         return exec->vm().throwException(exec, exception);
     }
 
-    return JSFunction::create(exec->vm(), function, globalObject);
+    Structure* subclassStructure = InternalFunction::createSubclassStructure(exec, newTarget, globalObject->functionStructure());
+    if (exec->hadException())
+        return nullptr;
+
+    return JSFunction::create(exec->vm(), function, globalObject->globalScope(), subclassStructure);
 }
 
 // ECMA 15.3.2 The Function Constructor
-JSObject* constructFunction(ExecState* exec, JSGlobalObject* globalObject, const ArgList& args)
+JSObject* constructFunction(ExecState* exec, JSGlobalObject* globalObject, const ArgList& args, FunctionConstructionMode functionConstructionMode, JSValue newTarget)
 {
-    return constructFunction(exec, globalObject, args, exec->propertyNames().anonymous, String(), TextPosition::minimumPosition());
+    return constructFunction(exec, globalObject, args, exec->propertyNames().anonymous, String(), TextPosition::minimumPosition(), functionConstructionMode, newTarget);
 }
 
 } // namespace JSC

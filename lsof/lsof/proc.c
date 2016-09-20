@@ -32,18 +32,11 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: proc.c,v 1.47 2013/01/02 17:14:59 abe Exp $";
+static char *rcsid = "$Id: proc.c,v 1.49 2015/07/07 20:16:58 abe Exp $";
 #endif
 
 
 #include "lsof.h"
-
-
-/*
- * Local function prototypes
- */
-
-_PROTOTYPE(static int is_file_sel,(struct lproc *lp, struct lfile *lf));
 
 
 /*
@@ -60,12 +53,12 @@ add_nma(cp, len)
 	if (!cp || !len)
 	    return;
 	if (Lf->nma) {
-	    nl = (int)strlen(Lf->nma);
-	    Lf->nma = (char *)realloc((MALLOC_P *)Lf->nma,
-				      (MALLOC_S)(len + nl + 2));
+	    nl = (int) strlen(Lf->nma);
+	    Lf->nma = (char *) realloc((MALLOC_P *)Lf->nma,
+				       (MALLOC_S)(len + nl + 2));
 	} else {
 	    nl = 0;
-	    Lf->nma = (char *)malloc((MALLOC_S)(len + 1));
+	    Lf->nma = (char *) malloc((MALLOC_S)(len + 1));
 	}
 	if (!Lf->nma) {
 	    (void) fprintf(stderr, "%s: no name addition space: PID %ld, FD %s",
@@ -168,6 +161,10 @@ alloc_lfile(nm, num)
 #if	defined(HASMNTSTAT)
 	Lf->mnt_stat = (unsigned char)0;
 #endif	/* defined(HASMNTSTAT) */
+
+#if	defined(HASEPTOPTS)
+	Lf->chend = 0;
+#endif	/* defined(HASEPTOPTS) */
 
 #if	defined(HASSOOPT)
 	Lf->lts.kai = Lf->lts.ltm = 0;
@@ -302,6 +299,10 @@ alloc_lproc(pid, pgid, ppid, uid, cmd, pss, sf)
 	}
 	Lp = &Lproc[Nlproc++];
 	Lp->pid = pid;
+
+#if	defined(HASEPTOPTS)
+	Lp->ept = 0;
+#endif	/* defined(HASEPTOPTS) */
 
 #if	defined(HASTASKS)
 	Lp->tid = 0;
@@ -631,7 +632,7 @@ is_cmd_excl(cmd, pss, sf)
  * is_file_sel() - is file selected?
  */
 
-static int
+int
 is_file_sel(lp, lf)
 	struct lproc *lp;		/* lproc structure pointer */
 	struct lfile *lf;		/* lfile structure pointer */
@@ -882,7 +883,37 @@ link_lfile()
 {
 	if (Lf->sf & SELEXCLF)
 	    return;
-	Lp->pss |= PS_SEC;
+
+#if	defined(HASEPTOPTS)
+/*
+ * If endpoint info has been requested, clear the SELPINFO flag from the local
+ * pipe file structure, since it was set only to insure this file would be
+ * linked.  While this might leave no file selection flags set, a later call
+ * to the process_pinfo() function might set some.  Also set the EPT_PIPE flag.
+ */
+	if (FeptE) {
+	    if (Lf->sf & SELPINFO) {
+		Lp->ept |= EPT_PIPE;
+		Lf->sf &= ~SELPINFO;
+	    }
+
+# if	defined(HASUXSOCKEPT)
+/*
+ * Process UNIX socket endpoint files the same way by clearing the SELUXINFO
+ * flag and setting the EPT_UXS flag, letting a later call to process_uxsinfo()
+ * set selection flags.
+ */
+	    if (Lf->sf & SELUXSINFO) {
+		Lp->ept |= EPT_UXS;
+		Lf->sf &= ~SELUXSINFO;
+	    }
+# endif	/* defined(HASUXSOCKEPT) */
+
+	}
+#endif	/* defined(HASEPTOPTS) */
+
+	if (Lf->sf)
+	    Lp->pss |= PS_SEC;
 	if (Plf)
 	    Plf->next = Lf;
 	else
@@ -896,6 +927,107 @@ link_lfile()
 	    Ftask = 2;
 	Lf = (struct lfile *)NULL;
 }
+
+
+#if	defined(HASEPTOPTS)
+/*
+ * process_pinfo() -- process pipe info, adding it to selected files and
+ *		      selecting pipe end files (if requested)
+ */
+
+void
+process_pinfo(f)
+	int f;				/* function:
+					 *     0 == process selected pipe
+					 *     1 == process end point
+					 */
+{
+	struct lproc *ep;		/* pipe endpoint process */
+	struct lfile *ef;		/* pipe endpoint file */
+	int i;				/* temporary index */
+	char nma[1024];			/* name addition buffer */
+	pxinfo_t *pp;			/* previous pipe info */
+	
+	if (!FeptE)
+	    return;
+	for (Lf = Lp->file; Lf; Lf = Lf->next) {
+	    if ((Lf->ntype != N_FIFO) || (Lf->inp_ty != 1))
+		continue;
+	    pp = (pxinfo_t *)NULL;
+	    switch(f) {
+	    case 0:
+
+	    /*
+	     * Process already selected pipe file.
+	     */
+		if (is_file_sel(Lp, Lf)) {
+
+		/*
+		 * This file has been selected by some criterion other than
+		 * its being a pipe.  Look up the pipe's endpoints.
+		 */
+		    do {
+			if ((pp = find_pendinfo(Lf, pp))) {
+
+			/*
+			 * This pipe endpoint is linked to the selected pipe
+			 * file.  Add its PID and FD to the name column
+			 * addition.
+			 */
+			    ep = &Lproc[pp->lpx];
+			    ef = pp->lf;
+			    for (i = 0; i < (FDLEN - 1); i++) {
+				if (ef->fd[i] != ' ')
+				    break;
+			    }
+			    (void) snpf(nma, sizeof(nma) - 1, "%d,%.*s,%s%c",
+				ep->pid, CmdLim, ep->cmd,&ef->fd[i],
+				ef->access);
+			    (void) add_nma(nma, strlen(nma));
+			    if (FeptE == 2) {
+
+			    /*
+			     * Endpoint files have been selected, so mark this
+			     * one for selection later. Set the type to PIPE.
+			     */
+				ef->chend = CHEND_PIPE;
+				ep->ept |= EPT_PIPE_END;
+			    }
+			    pp = pp->next;
+			}
+		    } while (pp);
+		}
+		break;
+	    case 1:
+		if (!is_file_sel(Lp, Lf) && (Lf->chend & CHEND_PIPE)) {
+
+		/*
+		 * This is an unselected end point file.  Select it and add
+		 * its end point information to its name column addition.
+		 */
+		    Lf->sf = Selflags;
+		    Lp->pss |= PS_SEC;
+		    do {
+			if ((pp = find_pendinfo(Lf, pp))) {
+			    ep = &Lproc[pp->lpx];
+			    ef = pp->lf;
+			    for (i = 0; i < (FDLEN - 1); i++) {
+				if (ef->fd[i] != ' ')
+				    break;
+			    }
+			    (void) snpf(nma, sizeof(nma) - 1, "%d,%.*s,%s%c",
+				ep->pid, CmdLim, ep->cmd, &ef->fd[i],
+				ef->access);
+			    (void) add_nma(nma, strlen(nma));
+			    pp = pp->next;
+			}
+		    } while (pp);
+		}
+		break;
+	    }
+	}
+}
+#endif	/* defined(HASEPTOPTS) */
 
 
 #if	defined(HASFSTRUCT)
@@ -1056,7 +1188,7 @@ print_proc()
 		    (void) printf("%c%s%c", LSOF_FID_LOGIN, cp, Terminator);
 	    }
 	    if (Terminator == '\0')
-	    putchar('\n');
+		putchar('\n');
 	}
 /*
  * Print files.
@@ -1066,25 +1198,29 @@ print_proc()
 		continue;
 	    rv = 1;
 	/*
-	 * If no field output selected, print dialects-specific formatted
+	 * If no field output selected, print dialect-specific formatted
 	 * output.
 	 */
 	    if (!Ffield) {
 		print_file();
 		continue;
 	    }
+	    lc = st = 0;
+	    if (FieldSel[LSOF_FIX_FD].st) {
+
+	    /*
+	     * Skip leading spaces in the file descriptor.  Print the field
+	     * identifier even if there are no characters after leading
+	     * spaces.
+	     */
+		for (cp = Lf->fd; *cp == ' '; cp++)
+		    ;
+		(void) printf("%c%s%c", LSOF_FID_FD, cp, Terminator);
+		lc++;
+	    }
 	/*
 	 * Print selected fields.
 	 */
-	    lc = st = 0;
-	    if (FieldSel[LSOF_FIX_FD].st) {
-		for (cp = Lf->fd; *cp == ' '; cp++)
-		    ;
-		if (*cp) {
-		    (void) printf("%c%s%c", LSOF_FID_FD, cp, Terminator);
-		    lc++;
-		}
-	    }
 	    if (FieldSel[LSOF_FIX_ACCESS].st) {
 		(void) printf("%c%c%c",
 		    LSOF_FID_ACCESS, Lf->access, Terminator);

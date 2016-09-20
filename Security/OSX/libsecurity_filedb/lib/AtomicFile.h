@@ -125,9 +125,6 @@ private:
 
 	// Length of file in bytes.
 	off_t mLength;
-	
-	// Is on a local file system
-	bool mIsMapped;
 };
 
 

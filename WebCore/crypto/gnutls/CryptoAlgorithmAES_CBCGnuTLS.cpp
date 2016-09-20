@@ -35,28 +35,28 @@
 
 namespace WebCore {
 
-void CryptoAlgorithmAES_CBC::platformEncrypt(const CryptoAlgorithmAesCbcParams& parameters, const CryptoKeyAES& key, const CryptoOperationData& data, VectorCallback callback, VoidCallback failureCallback, ExceptionCode& ec)
+void CryptoAlgorithmAES_CBC::platformEncrypt(const CryptoAlgorithmAesCbcParams& parameters, const CryptoKeyAES& key, const CryptoOperationData& data, VectorCallback&& callback, VoidCallback&& failureCallback, ExceptionCode& ec)
 {
     notImplemented();
     ec = NOT_SUPPORTED_ERR;
-    failureCallback();
 
     UNUSED_PARAM(parameters);
     UNUSED_PARAM(key);
     UNUSED_PARAM(data);
     UNUSED_PARAM(callback);
+    UNUSED_PARAM(failureCallback);
 }
 
-void CryptoAlgorithmAES_CBC::platformDecrypt(const CryptoAlgorithmAesCbcParams& parameters, const CryptoKeyAES& key, const CryptoOperationData& data, VectorCallback callback, VoidCallback failureCallback, ExceptionCode& ec)
+void CryptoAlgorithmAES_CBC::platformDecrypt(const CryptoAlgorithmAesCbcParams& parameters, const CryptoKeyAES& key, const CryptoOperationData& data, VectorCallback&& callback, VoidCallback&& failureCallback, ExceptionCode& ec)
 {
     notImplemented();
     ec = NOT_SUPPORTED_ERR;
-    failureCallback();
 
     UNUSED_PARAM(parameters);
     UNUSED_PARAM(key);
     UNUSED_PARAM(data);
     UNUSED_PARAM(callback);
+    UNUSED_PARAM(failureCallback);
 }
 
 } // namespace WebCore

@@ -162,12 +162,7 @@ init_context_from_config_file(krb5_context context)
 				       "libdefaults",
 				       "allow_weak_crypto", NULL);
     if (ret) {
-	krb5_enctype_enable(context, ETYPE_DES_CBC_CRC);
-	krb5_enctype_enable(context, ETYPE_DES_CBC_MD4);
-	krb5_enctype_enable(context, ETYPE_DES_CBC_MD5);
-	krb5_enctype_enable(context, ETYPE_DES_CBC_NONE);
-	krb5_enctype_enable(context, ETYPE_DES_CFB64_NONE);
-	krb5_enctype_enable(context, ETYPE_DES_PCBC_NONE);
+	krb5_allow_weak_crypto(context, TRUE);
     }
 
     ret = set_etypes (context, "default_etypes", &tmptypes);
@@ -275,6 +270,7 @@ init_context_from_config_file(krb5_context context)
     INIT_FIELD(context, bool, srv_lookup, context->srv_lookup, "dns_lookup_kdc");
     INIT_FIELD(context, int, large_msg_size, 1400, "large_message_size");
     INIT_FIELD(context, int, max_msg_size, 1000 * 1024, "maximum_message_size");
+    INIT_FIELD(context, int, max_srv_entries, 5, "max_srv_entries");
     INIT_FLAG(context, flags, KRB5_CTX_F_DNS_CANONICALIZE_HOSTNAME, TRUE, "dns_canonicalize_hostname");
     INIT_FLAG(context, flags, KRB5_CTX_F_CHECK_PAC, TRUE, "check_pac");
 
@@ -334,27 +330,18 @@ init_context_from_config_file(krb5_context context)
 		    /* ignore other types */;
 		CFRelease(val);
 
-		asprintf(&logline, "0-%d/ASL:NOTICE:libkrb5", logLevel);
+		asprintf(&logline, "0-%d/OSLOG:normal:libkrb5", logLevel);
 	    }
 	}
 #endif /* __APPLE__ */
 
-#if __APPLE_TARGET_EMBEDDED__
-	/* on embedded, don't do any debug logging by default */
-	if (logline) {
-	    krb5_initlog(context, "libkrb5", &context->debug_dest);
-	    krb5_addlog_dest(context, context->debug_dest, logline);
-	    free(logline);
-	}
-#else
 	krb5_initlog(context, "libkrb5", &context->debug_dest);
 	if (logline) {
 	    krb5_addlog_dest(context, context->debug_dest, logline);
 	    free(logline);
 	} else {
-	    krb5_addlog_dest(context, context->debug_dest, "0-1/ASL:DEBUG:libkrb5");
+	    krb5_addlog_dest(context, context->debug_dest, "0-1/OSLOG:debug:libkrb5");
 	}
-#endif
     }
 
     tmp = krb5_config_get_string(context, NULL, "libdefaults",
@@ -1059,7 +1046,6 @@ krb5_kerberos_enctypes(krb5_context context)
 	ETYPE_AES256_CTS_HMAC_SHA1_96,
 	ETYPE_AES128_CTS_HMAC_SHA1_96,
 	ETYPE_DES3_CBC_SHA1,
-	ETYPE_ARCFOUR_HMAC_MD5,
 	ETYPE_NULL
     };
 
@@ -1129,8 +1115,17 @@ copy_enctypes(krb5_context context,
 static krb5_error_code
 default_etypes(krb5_context context, krb5_enctype **etype)
 {
-    const krb5_enctype *p = krb5_kerberos_enctypes(context);
-    return copy_enctypes(context, p, etype);
+    static const krb5_enctype default_enctypes[] = {
+	ETYPE_AES256_CTS_HMAC_SHA1_96,
+	ETYPE_AES128_CTS_HMAC_SHA1_96,
+	ETYPE_DES3_CBC_SHA1,
+	ETYPE_ARCFOUR_HMAC_MD5,
+	ETYPE_DES_CBC_MD5,
+	ETYPE_DES_CBC_MD4,
+	ETYPE_DES_CBC_CRC,
+	ETYPE_NULL
+    };
+    return copy_enctypes(context, default_enctypes, etype);
 }
 
 /**

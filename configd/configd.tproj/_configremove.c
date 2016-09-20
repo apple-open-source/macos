@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2008, 2011, 2012, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008, 2011, 2012, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -44,7 +44,7 @@ __SCDynamicStoreRemoveValue(SCDynamicStoreRef store, CFStringRef key, Boolean in
 	int				sc_status	= kSCStatusOK;
 	CFStringRef			sessionKey;
 
-	SC_trace(_configd_trace, "%s : %5d : %@\n",
+	SC_trace("%s : %5d : %@",
 		 internal ? "*remove" : "remove ",
 		 storePrivate->server,
 		 key);
@@ -53,7 +53,7 @@ __SCDynamicStoreRemoveValue(SCDynamicStoreRef store, CFStringRef key, Boolean in
 	 * Ensure that this key exists.
 	 */
 	dict = CFDictionaryGetValue(storeData, key);
-	if ((dict == NULL) || (CFDictionaryContainsKey(dict, kSCDData) == FALSE)) {
+	if ((dict == NULL) || !CFDictionaryContainsKey(dict, kSCDData)) {
 		/* key doesn't exist (or data never defined) */
 		sc_status = kSCStatusNoKey;
 		goto done;

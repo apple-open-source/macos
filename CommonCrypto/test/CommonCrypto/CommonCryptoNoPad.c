@@ -81,7 +81,7 @@ testFinal(CCOperation op, CCMode mode, CCAlgorithm alg,
     return -1;
 }
 
-int CommonCryptoNoPad (int argc, char *const *argv)
+int CommonCryptoNoPad (int __unused argc, char *const * __unused argv)
 {
     int verbose = 0;
 	plan_tests(kTestTestCount);

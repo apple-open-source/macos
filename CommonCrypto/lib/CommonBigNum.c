@@ -138,7 +138,7 @@ CCBigNumFromData(CCStatus *status, const void *s, size_t len)
 }
 
 size_t
-CCBigNumToData(CCStatus *status, const CCBigNumRef bn, void *to)
+CCBigNumToData(CCStatus *  __unused status, const CCBigNumRef bn, void *to)
 {
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
     const ccz *s = (ccz *)bn;
@@ -164,7 +164,7 @@ CCBigNumFromHexString(CCStatus *status, const char *in)
 }
 
 char *
-CCBigNumToHexString(CCStatus *status, const CCBigNumRef bn)
+CCBigNumToHexString(CCStatus *  __unused status, const CCBigNumRef bn)
 {
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
     const ccz *s = (ccz *)bn;
@@ -193,7 +193,7 @@ CCBigNumFromDecimalString(CCStatus *status, const char *in)
 }
 
 char *
-CCBigNumToDecimalString(CCStatus *status, const CCBigNumRef bn)
+CCBigNumToDecimalString(CCStatus * __unused status, const CCBigNumRef bn)
 {
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
     const ccz *s = (ccz *)bn;
@@ -263,7 +263,7 @@ CCBigNumGetI(CCStatus *status, const CCBigNumRef bn)
 }
 
 CCBigNumRef
-CCBigNumCreateRandom(CCStatus *status, int bits, int top, int bottom)
+CCBigNumCreateRandom(CCStatus *status, int __unused bits, int top, int bottom)
 {
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
     struct ccrng_state *rng = ccDRBGGetRngState();
@@ -475,21 +475,21 @@ CCBigNumRightShift(CCBigNumRef res, const CCBigNumRef a, const uint32_t digits)
 }
 
 CCStatus
-CCBigNumMontgomerySetup(CCBigNumRef num, uint32_t *rho)
+CCBigNumMontgomerySetup(CCBigNumRef  __unused num, uint32_t *  __unused rho)
 {
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
 	return kCCUnimplemented; // ccLTCErr(mp_montgomery_setup(num, rho));
 }
 
 CCStatus
-CCBigNumMontgomeryNormalization(CCBigNumRef a, CCBigNumRef b)
+CCBigNumMontgomeryNormalization(CCBigNumRef __unused a, CCBigNumRef __unused b)
 {
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
 	return kCCUnimplemented; // ccLTCErr(mp_montgomery_normalization(a, b));
 }
 
 CCStatus
-CCBigNumMontgomeryReduce(CCBigNumRef x, CCBigNumRef n, uint32_t rho)
+CCBigNumMontgomeryReduce(CCBigNumRef __unused x, CCBigNumRef __unused n, uint32_t __unused rho)
 {
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
 	return kCCUnimplemented; // ccLTCErr(mp_montgomery_reduce(x, n, rho));

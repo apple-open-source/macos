@@ -42,17 +42,15 @@
 #include "IOHIDFamilyTrace.h"
 #include "IOHIDEventSource.h"
 #include "OSStackRetain.h"
+#include "IOHIDDebug.h"
 
 #include <sys/queue.h>
 #include <machine/limits.h>
+#include <os/overflow.h>
 
 #if !TARGET_OS_EMBEDDED
 #include "IOHIKeyboard.h"
 #include "IOHIPointing.h"
-#endif
-
-#ifndef kMFiAccessoryAuthenticatedKey
-#define kMFiAccessoryAuthenticatedKey "Authenticated"
 #endif
 
 //===========================================================================
@@ -259,13 +257,6 @@ struct IOHIDReportHandler
 
 #define GetHeadElement(slot, type)  _reportHandlers[slot].head[type]
 
-// #define DEBUG 1
-#ifdef  DEBUG
-#define DLOG(fmt, args...)  IOLog(fmt, args)
-#else
-#define DLOG(fmt, args...)
-#endif
-
 #ifndef kIOUserClientCrossEndianKey
 #define kIOUserClientCrossEndianKey "IOUserClientCrossEndian"
 #endif
@@ -422,18 +413,15 @@ bool IOHIDDevice::start( IOService * provider )
     OSData *                reportDescriptorData    = NULL;
     OSNumber *              primaryUsagePage        = NULL;
     OSNumber *              primaryUsage            = NULL;
-    OSArray *               deviceUsagePairs        = NULL;
-    OSNumber *              deviceUsagePage         = NULL;
-    OSNumber *              deviceUsage             = NULL;
-    bool                    gameDevice              = false;
-    bool                    authenticated           = true;
+    OSObject *              obj                     = NULL;
+    OSObject *              obj2                    = NULL;
     IOReturn                ret;
     bool                    result;
 
     require_action(super::start(provider), error, result=false);
     
     _workLoop = getWorkLoop();
-    require_action(_workLoop, error, IOLog("IOHIDDevice failed to get a work loop\n"); result=false);
+    require_action(_workLoop, error, HIDLogError("IOHIDDevice failed to get a work loop"); result=false);
     
     _workLoop->retain();
     
@@ -480,59 +468,20 @@ bool IOHIDDevice::start( IOService * provider )
     // Publish properties to the registry before any clients are
     // attached.
     require_action(publishProperties(provider), error, result=false);
-    
-    deviceUsagePairs = OSDynamicCast(OSArray, copyProperty(kIOHIDDeviceUsagePairsKey));
-    if (deviceUsagePairs) {
-        int i                           = 0;
-        OSDictionary *  usagePair       = NULL;
-        OSBoolean *     auth            = NULL;
-        for (;i < deviceUsagePairs->getCount(); i++) {
-            usagePair = OSDynamicCast(OSDictionary, deviceUsagePairs->getObject(i));
-            
-            if (!usagePair) continue;
-            
-            deviceUsagePage = OSDynamicCast(OSNumber, usagePair->getObject(kIOHIDDeviceUsagePageKey));
-            deviceUsage = OSDynamicCast(OSNumber, usagePair->getObject(kIOHIDDeviceUsageKey));
-            
-            if ((deviceUsagePage && deviceUsagePage->unsigned32BitValue() == kHIDPage_GenericDesktop) &&
-                (deviceUsage && (deviceUsage->unsigned32BitValue() == kHIDUsage_GD_GamePad || deviceUsage->unsigned32BitValue() == kHIDUsage_GD_Joystick))) {
-                gameDevice = true;
-            }
-        }
-        
-        deviceUsagePairs->release();
-        
-        if (gameDevice) {
-            auth = (OSBoolean *)copyProperty(kMFiAccessoryAuthenticatedKey);
-            
-            if (auth) {
-                if (auth == kOSBooleanFalse) {
-                    authenticated = false;
-                    IOLog("Un-authenticated device attached\n");
-                }
-                
-                auth->release();
-            }
-#if TARGET_OS_EMBEDDED
-            else
-            {
-                authenticated = false;
-                IOLog("Un-authenticated device attached\n");
-            }
-#endif
-        }
-    }
-    
-    require_action(authenticated, error, result = false);
 
     // *** GAME DEVICE HACK ***
-    primaryUsagePage    = (OSNumber*)copyProperty(kIOHIDPrimaryUsagePageKey);
-    primaryUsage        = (OSNumber*)copyProperty(kIOHIDPrimaryUsageKey);
+    obj = copyProperty(kIOHIDPrimaryUsagePageKey);
+    primaryUsagePage = OSDynamicCast(OSNumber, obj);
+    obj2 = copyProperty(kIOHIDPrimaryUsageKey);
+    primaryUsage = OSDynamicCast(OSNumber, obj2);
 
-    if ((OSDynamicCast(OSNumber, primaryUsagePage) && (primaryUsagePage->unsigned32BitValue() == 0x05)) &&
-        (OSDynamicCast(OSNumber, primaryUsage) && (primaryUsage->unsigned32BitValue() == 0x01))) {
+    if ((primaryUsagePage && (primaryUsagePage->unsigned32BitValue() == 0x05)) &&
+        (primaryUsage && (primaryUsage->unsigned32BitValue() == 0x01))) {
         OSIncrementAtomic(&g3DGameControllerCount);
     }
+
+    OSSafeReleaseNULL(obj);
+    OSSafeReleaseNULL(obj2);
     // *** END GAME DEVICE HACK ***
 
     if ( ! OSTestAndSet(0, &gDeviceMatchedNotifierInitialized) ) {
@@ -558,10 +507,6 @@ error:
     
     if ( reportDescriptor )
         reportDescriptor->release();
-    if ( primaryUsage )
-        primaryUsage->release();
-    if ( primaryUsagePage )
-        primaryUsagePage->release();
     if ( reportDescriptorData )
         reportDescriptorData->release();
     if ( reportDescriptorMap )
@@ -603,15 +548,17 @@ bool IOHIDDevice::_publishDeviceNotificationHandler(void * target __unused,
 void IOHIDDevice::stop(IOService * provider)
 {
     // *** GAME DEVICE HACK ***
-    OSNumber *primaryUsagePage = (OSNumber*)copyProperty(kIOHIDPrimaryUsagePageKey);
-    OSNumber *primaryUsage = (OSNumber*)copyProperty(kIOHIDPrimaryUsageKey);
+    OSObject *obj = copyProperty(kIOHIDPrimaryUsagePageKey);
+    OSObject *obj2 = copyProperty(kIOHIDPrimaryUsageKey);
+    OSNumber *primaryUsagePage =  OSDynamicCast(OSNumber, obj);
+    OSNumber *primaryUsage = OSDynamicCast(OSNumber, obj2);
 
-    if ((OSDynamicCast(OSNumber, primaryUsagePage) && (primaryUsagePage->unsigned32BitValue() == 0x05)) &&
-        (OSDynamicCast(OSNumber, primaryUsage) && (primaryUsage->unsigned32BitValue() == 0x01))) {
+    if ((primaryUsagePage && (primaryUsagePage->unsigned32BitValue() == 0x05)) &&
+        (primaryUsage && (primaryUsage->unsigned32BitValue() == 0x01))) {
         OSDecrementAtomic(&g3DGameControllerCount);
     }
-    OSSafeReleaseNULL(primaryUsagePage);
-    OSSafeReleaseNULL(primaryUsage);
+    OSSafeReleaseNULL(obj);
+    OSSafeReleaseNULL(obj2);
     // *** END GAME DEVICE HACK ***
 
     handleStop(provider);
@@ -660,7 +607,7 @@ bool IOHIDDevice::matchPropertyTable(OSDictionary * table, SInt32 * score)
         if ((primaryUsage && (primaryUsage->unsigned32BitValue() == 0x01)) &&
             (primaryUsagePage && (primaryUsagePage->unsigned32BitValue() == 0x05))) {
             match = true;
-            IOLog("IOHIDManager: It appears that an application is attempting to locate an invalid device.  A workaround is in currently in place, but will be removed after version 10.2\n");
+            HIDLogError("IOHIDManager: It appears that an application is attempting to locate an invalid device.  A workaround is in currently in place, but will be removed after version 10.2");
         }
     }
     // *** END HACK ***
@@ -705,6 +652,7 @@ bool IOHIDDevice::publishProperties(IOService * provider __unused)
 
         SET_PROP_FROM_VALUE("BootProtocol", getProvider()->copyProperty("bInterfaceProtocol"));
         SET_PROP_FROM_VALUE("HIDDefaultBehavior", copyProperty("HIDDefaultBehavior"));
+        SET_PROP_FROM_VALUE(kIOHIDAuthenticatedDeviceKey, copyProperty(kIOHIDAuthenticatedDeviceKey));
     }
 
     return true;
@@ -724,14 +672,15 @@ void IOHIDDevice::handleStop(IOService * provider __unused)
 
 static inline bool ShouldPostDisplayActivityTickles(IOService *device, OSSet * clientSet, bool isSeized)
 {
-    OSNumber *              primaryUsagePage = (OSNumber*)device->copyProperty(kIOHIDPrimaryUsagePageKey);
+    OSObject *obj = device->copyProperty(kIOHIDPrimaryUsagePageKey);
+    OSNumber *primaryUsagePage = OSDynamicCast(OSNumber, obj);
 
-    if (!clientSet->getCount() || !primaryUsagePage || !OSDynamicCast(OSNumber, primaryUsagePage) ||
+    if (!clientSet->getCount() || !primaryUsagePage ||
         (primaryUsagePage->unsigned32BitValue() != kHIDPage_GenericDesktop)) {
-        OSSafeReleaseNULL(primaryUsagePage);
+        OSSafeReleaseNULL(obj);
         return false;
     }
-    OSSafeReleaseNULL(primaryUsagePage);
+    OSSafeReleaseNULL(obj);
 
     // We have clients and this device is generic desktop.
     // Probe the client list to make sure that we are not
@@ -767,7 +716,8 @@ static inline bool ShouldPostDisplayActivityTicklesForWakeDevice(
     IOService *device, OSSet * clientSet, bool isSeized)
 {
     bool        returnValue = false;
-    OSNumber *  primaryUsagePage = OSDynamicCast(OSNumber, device->copyProperty(kIOHIDPrimaryUsagePageKey));
+    OSObject *obj = device->copyProperty(kIOHIDPrimaryUsagePageKey);
+    OSNumber *  primaryUsagePage = OSDynamicCast(OSNumber, obj);
     if (primaryUsagePage == NULL) {
         goto exit;
     }
@@ -809,7 +759,7 @@ static inline bool ShouldPostDisplayActivityTicklesForWakeDevice(
         iterator->release();
     }
 exit:
-    OSSafeReleaseNULL(primaryUsagePage);
+    OSSafeReleaseNULL(obj);
     return returnValue;
 }
 
@@ -830,8 +780,8 @@ bool IOHIDDevice::handleOpen(IOService      *client,
 
         if ( _clientSet->containsObject(client) )
         {
-            DLOG("%s: multiple opens from client %lx\n",
-                 getName(), (UInt32) client);
+            HIDLogDebug("%s: multiple opens from client",
+                 getName());
             accept = true;
             break;
         }
@@ -925,7 +875,7 @@ IOReturn IOHIDDevice::newUserClient( task_t          owningTask,
     // default hid clients to ensure that at least connect to our correct client.
     if ( type == kIOHIDLibUserClientConnectManager ) {
         if ( isInactive() ) {
-            IOLog( "IOHIDDevice::newUserClient called on an inactive device\n" );
+            HIDLogError( "called on an inactive device" );
             *handler = NULL;
             return kIOReturnNotReady;
         }
@@ -943,7 +893,7 @@ IOReturn IOHIDDevice::newUserClient( task_t          owningTask,
                                           this, owningTask, security_id, properties, handler );
             }
             else {
-            IOLog( "IOHIDDevice::newUserClient failed to get a workloop\n" );
+            HIDLogError( "failed to get a workloop" );
         }
 
         return result;
@@ -1186,19 +1136,19 @@ IOHIDDevice::createElementHierarchy( HIDPreparsedDataRef parseData )
 
         // Dump HIDCapabilities structure contents.
 
-        DLOG("Report bytes: input:%ld output:%ld feature:%ld\n",
-             caps.inputReportByteLength,
-             caps.outputReportByteLength,
-             caps.featureReportByteLength);
-        DLOG("Collections : %ld\n", caps.numberCollectionNodes);
-        DLOG("Buttons     : input:%ld output:%ld feature:%ld\n",
-             caps.numberInputButtonCaps,
-             caps.numberOutputButtonCaps,
-             caps.numberFeatureButtonCaps);
-        DLOG("Values      : input:%ld output:%ld feature:%ld\n",
-             caps.numberInputValueCaps,
-             caps.numberOutputValueCaps,
-             caps.numberFeatureValueCaps);
+        HIDLogDebug("Report bytes: input:%ld output:%ld feature:%ld",
+             (long)caps.inputReportByteLength,
+             (long)caps.outputReportByteLength,
+             (long)caps.featureReportByteLength);
+        HIDLogDebug("Collections : %ld", (long)caps.numberCollectionNodes);
+        HIDLogDebug("Buttons     : input:%ld output:%ld feature:%ld",
+             (long)caps.numberInputButtonCaps,
+             (long)caps.numberOutputButtonCaps,
+             (long)caps.numberFeatureButtonCaps);
+        HIDLogDebug("Values      : input:%ld output:%ld feature:%ld",
+             (long)caps.numberInputValueCaps,
+             (long)caps.numberOutputValueCaps,
+             (long)caps.numberFeatureValueCaps);
 
         _maxInputReportSize    = caps.inputReportByteLength;
         _maxOutputReportSize   = caps.outputReportByteLength;
@@ -1402,16 +1352,16 @@ bool IOHIDDevice::getReportCountAndSizes( HIDPreparsedDataRef parseData )
 
     _reportCount = data->reportCount;
 
-    DLOG("Report count: %ld\n", _reportCount);
+    HIDLogDebug("Report count: %ld", (long)_reportCount);
 
     for ( UInt32 num = 0; num < data->reportCount; num++, report++ )
     {
 
-        DLOG("Report ID: %ld input:%ld output:%ld feature:%ld\n",
-             report->reportID,
-             report->inputBitCount,
-             report->outputBitCount,
-             report->featureBitCount);
+        HIDLogDebug("Report ID: %ld input:%ld output:%ld feature:%ld",
+             (long)report->reportID,
+             (long)report->inputBitCount,
+             (long)report->outputBitCount,
+             (long)report->featureBitCount);
 
         setReportSize( report->reportID,
                        kIOHIDReportTypeInput,
@@ -1545,6 +1495,7 @@ bool IOHIDDevice::createButtonElements( HIDPreparsedDataRef parseData,
     HIDButtonCapabilitiesPtr 	buttons = 0;
     UInt32			count   = maxCount;
     bool			ret     = false;
+    vm_size_t          	sz      = 0;
     IOHIDElementPrivate *		element;
     IOHIDElementPrivate *		parent;
 
@@ -1552,6 +1503,10 @@ bool IOHIDDevice::createButtonElements( HIDPreparsedDataRef parseData,
         if ( maxCount == 0 )
         {
             ret = true;
+            break;
+        }
+
+        if (os_mul_overflow(maxCount, sizeof(HIDButtonCapabilities), &sz)) {
             break;
         }
 
@@ -1612,6 +1567,7 @@ bool IOHIDDevice::createValueElements( HIDPreparsedDataRef parseData,
     HIDValueCapabilitiesPtr  values = 0;
     UInt32           count  = maxCount;
     bool             ret    = false;
+    vm_size_t        sz     = 0;
     IOHIDElementPrivate *   element;
     IOHIDElementPrivate *   parent;
 
@@ -1619,6 +1575,10 @@ bool IOHIDDevice::createValueElements( HIDPreparsedDataRef parseData,
         if ( maxCount == 0 )
         {
             ret = true;
+            break;
+        }
+
+        if (os_mul_overflow(maxCount, sizeof(HIDValueCapabilities), &sz)) {
             break;
         }
 
@@ -1782,7 +1742,7 @@ IOBufferMemoryDescriptor * IOHIDDevice::createMemoryForElementValues()
 
     // Allocate an IOBufferMemoryDescriptor object.
 
-    DLOG("Element value capacity %ld\n", capacity);
+    HIDLogDebug("Element value capacity %ld", (long)capacity);
 
     descriptor = IOBufferMemoryDescriptor::withOptions(
                      kIOMemoryKernelUserShared,
@@ -2217,8 +2177,9 @@ IOReturn IOHIDDevice::handleReportWithTime(
         reportData = IOMalloc(reportLength);
         if ( !reportData )
             return kIOReturnNoMemory;
-        
+        report->prepare();
         report->readBytes( 0, reportData, reportLength );
+        report->complete();
     }
     
     WORKLOOP_LOCK;
@@ -2287,10 +2248,11 @@ OSMetaClassDefineReservedUsed(IOHIDDevice, 9);
 OSNumber * IOHIDDevice::newReportIntervalNumber() const
 {
     UInt32 interval = 8000; // default to 8 milliseconds
-    OSNumber *number = (OSNumber*)copyProperty(kIOHIDReportIntervalKey, gIOServicePlane, kIORegistryIterateRecursively | kIORegistryIterateParents);
-    if ( OSDynamicCast(OSNumber, number) )
+    OSObject *obj = copyProperty(kIOHIDReportIntervalKey, gIOServicePlane, kIORegistryIterateRecursively | kIORegistryIterateParents);
+    OSNumber *number = OSDynamicCast(OSNumber, obj);
+    if ( number )
         interval = number->unsigned32BitValue();
-    OSSafeReleaseNULL(number);
+    OSSafeReleaseNULL(obj);
 
     return OSNumber::withNumber(interval, 32);
 }

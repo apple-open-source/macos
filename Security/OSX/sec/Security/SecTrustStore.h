@@ -30,6 +30,7 @@
 #define _SECURITY_SECTRUSTSTORE_H_
 
 #include <Security/SecCertificate.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 __BEGIN_DECLS
 
@@ -57,6 +58,13 @@ OSStatus SecTrustStoreRemoveCertificate(SecTrustStoreRef ts,
 	SecCertificateRef certificate);
 
 OSStatus SecTrustStoreGetSettingsVersionNumber(SecTrustSettingsVersionNumber* p_settings_version_number);
+
+OSStatus SecTrustStoreCopyAll(SecTrustStoreRef ts, CFArrayRef *CF_RETURNS_RETAINED trustStoreContents);
+
+/* Note that usageConstraints may be NULL on success. */
+OSStatus SecTrustStoreCopyUsageConstraints(SecTrustStoreRef ts,
+	SecCertificateRef certificate,
+	CFArrayRef *CF_RETURNS_RETAINED usageConstraints);
 
 __END_DECLS
 

@@ -178,9 +178,21 @@ Unlink the
 file before starting.  (This is only applicable for the
 .Fn copyfile
 function.)
+.It Dv COPYFILE_CLONE_FORCE
+Clone the file/directory instead.
+This is a force flag i.e. if cloning fails, an error is returned.
+This flag is equivalent to (COPYFILE_EXCL | COPYFILE_ACL | COPYFILE_STAT | COPYFILE_XATTR | COPYFILE_DATA).
+Note that if cloning is successful, callbacks will not be invoked.
+.It Dv COPYFILE_CLONE
+Try to clone the file/directory instead.
+This is a best try flag i.e. if cloning fails, fallback to copying the file.
+This flag is equivalent to (COPYFILE_EXCL | COPYFILE_ACL | COPYFILE_STAT | COPYFILE_XATTR | COPYFILE_DATA).
+Note that if cloning is successful, callbacks will not be invoked.
 .It Dv COPYFILE_NOFOLLOW
 This is a convenience macro, equivalent to
 .Dv (COPYFILE_NOFOLLOW_DST|COPYFILE_NOFOLLOW_SRC) .
+.It Dv COPYFILE_RUN_IN_PLACE
+If the src file has quarantine information, add the QTN_FLAG_DO_NOT_TRANSLOCATE flag to the quarantine information of the dst file. This allows a bundle to run in place instead of being translocated.
 .El
 .Pp
 The
@@ -264,6 +276,11 @@ Get the number of data bytes copied so far.
 (Only valid for
 .Fn copyfile_state_get ;
 see below for more details about callbacks.)
+If a
+.Dv COPYFILE_CLONE
+or
+.Dv COPYFILE_CLONE_FORCE
+operation successfully cloned the requested objects, then this value will be 0.
 The
 .Va dst
 parameter is a pointer to
@@ -277,6 +294,18 @@ for
 (see below for details).  This field cannot be set,
 and may be
 .Dv NULL .
+.It Dv COPYFILE_STATE_WAS_CLONED
+True if a
+.Dv COPYFILE_CLONE
+or
+.Dv COPYFILE_CLONE_FORCE
+operation successfully cloned the requested objects.
+The
+.Va dst
+parameter is a pointer to
+.Vt bool
+(type
+.Vt bool\ * ).
 .El
 .Sh Recursive Copies
 When given the

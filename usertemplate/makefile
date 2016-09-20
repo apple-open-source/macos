@@ -60,9 +60,6 @@ install:
 	ls -ald $(DESTINATION)
 	echo "##################################"
 
-	# Make the ~/Library folder hidden in Finder (<rdar://problem/7889093> ~/Library should be hidden in the Finder)
-	/usr/bin/SetFile -a "V" $(DESTINATION)"/Non_localized/Library"
-
 	rm $(DSTROOT)$(SYSTEM_LIBRARY_DIR)/User\ Template/makefile*
 
 installsrc:

@@ -28,9 +28,7 @@
 #include <Security/cssmapi.h>
 #include <security_utilities/debugging.h>
 #include "utilities/SecCFRelease.h"
-
-static char keychainFile[1000];
-static char keychainName[1000];
+#include "kc-helpers.h"
 
 #if TARGET_OS_MAC
 
@@ -45,11 +43,24 @@ static SecKeychainRef newKeychain(const char * name) {
 
     // Kill the test keychain if it exists.
     unlink(keychainFile);
+    unlink(keychainDbFile);
+
+    // Delete from CDSA-land? No tests, here, it'll work or it won't.
+    SecKeychainOpen(keychainName, &kc);
+    if(kc) {
+        SecKeychainDelete(kc);
+        CFReleaseNull(kc);
+    }
 
     ok_status(SecKeychainCreate(keychainName, (UInt32) strlen(password), password, false, NULL, &kc), "%s: SecKeychainCreate", name);
+
+    char path[400];
+    UInt32 len = sizeof(path);
+    ok_status(SecKeychainGetPath(kc, &len, path), "%s: SecKeychainGetPath", name);
+    eq_stringn(path, len, keychainDbFile, strlen(keychainDbFile), "%s: paths do not match", name);
     return kc;
 }
-#define newKeychainTests 1
+#define newKeychainTests 3
 
 /* name is the name of the test, not the name of the keychain */
 static SecKeychainRef newCustomKeychain(const char * name, const char * path, const char * password) {
@@ -78,9 +89,47 @@ static SecKeychainRef openCustomKeychain(const char * name, const char * path, c
 #define openCustomKeychainTests 2
 
 static SecKeychainRef openKeychain(const char * name) {
-    return openCustomKeychain(name, "test.keychain", NULL);
+    return openCustomKeychain(name, keychainName, NULL);
 }
 #define openKeychainTests (openCustomKeychainTests)
+
+#define checkPartitionIDsTests 3
+static void checkPartitionIDs(const char* name, SecKeychainItemRef item, uint32_t n) {
+    if(!item) {
+        for(int i = 0; i < checkPartitionIDsTests; i++) {
+            fail("%s: checkNoPartitionIDs not passed an item", name);
+        }
+        return;
+    }
+    SecAccessRef access = NULL;
+    ok_status(SecKeychainItemCopyAccess(item, &access), "%s: SecKeychainItemCopyAccess", name);
+
+    CFArrayRef acllist = NULL;
+    ok_status(SecAccessCopyACLList(access, &acllist), "%s: SecAccessCopyACLList", name);
+
+    int partitionIDsFound = 0;
+    CFStringRef output = NULL;
+
+    if(acllist) {
+        for(int i = 0; i < CFArrayGetCount(acllist); i++) {
+            SecACLRef acl = (SecACLRef) CFArrayGetValueAtIndex(acllist, i);
+
+            CFArrayRef auths = SecACLCopyAuthorizations(acl);
+            CFRange searchrange = {0, CFArrayGetCount(auths)};
+            if(CFArrayContainsValue(auths, searchrange, kSecACLAuthorizationPartitionID)) {
+
+                // found a hash. match it.
+                partitionIDsFound++;
+            }
+
+            CFReleaseNull(auths);
+        }
+
+        CFReleaseNull(acllist);
+    }
+
+    is(partitionIDsFound, n, "%s: Wrong number of partition IDs found", name);
+}
 
 #define getIntegrityHashTests 3
 static CFStringRef getIntegrityHash(const char* name, SecKeychainItemRef item) {
@@ -145,6 +194,10 @@ static void checkIntegrityHash(const char* name, SecKeychainItemRef item, CFStri
         printf("%s: Hashes didn't match. Was: ", name);
         fflush(stdout);
         CFShow(hash);
+        printf(" expected: ");
+        fflush(stdout);
+        CFShow(expectedHash);
+        fflush(stdout);
         fail("Hashes don't match");
     }
 }
@@ -171,36 +224,6 @@ static void checkHashesMatch(const char* name, SecKeychainItemRef item, SecKeych
     }
 }
 #define checkHashesMatchTests (getIntegrityHashTests + getIntegrityHashTests + 1)
-
-/* Checks to be sure there are N elements in this search, and returns the first
- * if it exists. */
-static SecKeychainItemRef checkN(char* testName, const CFDictionaryRef query, uint32_t n) {
-    CFArrayRef results = NULL;
-    if(n > 0) {
-        ok_status(SecItemCopyMatching(query, (CFTypeRef*) &results), "%s: SecItemCopyMatching", testName);
-    } else {
-        is(SecItemCopyMatching(query, (CFTypeRef*) &results), errSecItemNotFound, "%s: SecItemCopyMatching (for no items)", testName);
-    }
-    CFRelease(query);
-
-    SecKeychainItemRef item = NULL;
-    if(results) {
-        is(CFArrayGetCount(results), n, "%s: Wrong number of results", testName);
-        if(n >= 1) {
-            ok(item = (SecKeychainItemRef) CFArrayGetValueAtIndex(results, 0), "%s: Couldn't get item", testName);
-        } else {
-            pass("make test numbers match");
-        }
-    } else if((!results) && n == 0) {
-        pass("%s: no results found (and none expected)", testName);
-        pass("make test numbers match");
-    } else {
-        fail("%s: no results found (and %d expected)", testName, n);
-        pass("make test numbers match");
-    }
-    return item;
-}
-#define checkNTests 3
 
 #pragma clang pop
 #else

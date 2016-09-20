@@ -70,6 +70,8 @@ CSSymbolicatorRef dtrace_kernel_symbolicator(bool with_slide) {
 			if (with_slide)
 				flags |= kCSSymbolicatorUseSlidKernelAddresses;
 
+			if (_dtrace_disallow_dsym)
+				flags |= kCSSymbolicatorDisallowDsymData ;
 			CSSymbolicatorRef temp = CSSymbolicatorCreateWithMachKernelFlagsAndNotification(flags, NULL);
 
 			OSMemoryBarrier();
@@ -98,16 +100,21 @@ static void filter_module_symbols(CSSymbolOwnerRef owner, int provide_private_pr
 {
 	// See note at callsites, we want to always use __TEXT __text for now.
 	if (TRUE || (CSSymbolOwnerIsObject(owner) && !(CSSymbolOwnerGetDataFlags(owner) & kCSSymbolOwnerDataFoundDsym))) {				
-		// Find the TEXT text region
-		CSRegionRef text_region = CSSymbolOwnerGetRegionWithName(owner, "__TEXT __text");
-		CSRegionForeachSymbol(text_region, ^(CSSymbolRef symbol) {
+		void (^check_sym)(CSSymbolRef) = ^(CSSymbolRef symbol) {
 			// By default, the kernel team has requested minimal symbol info.
 			if ((CSSymbolIsUnnamed(symbol) == false) && (provide_private_probes || CSSymbolIsExternal(symbol))) {
 				if (CSSymbolGetRange(symbol).length > 0) {
 					valid_symbol(symbol);
 				}
 			}
-		});
+		};
+
+		// Find the TEXT/TEXT_EXEC text regions
+		CSRegionRef text_region = CSSymbolOwnerGetRegionWithName(owner, "__TEXT __text");
+		CSRegionRef text_exec_region = CSSymbolOwnerGetRegionWithName(owner, "__TEXT_EXEC __text");
+		CSRegionForeachSymbol(text_region, check_sym);
+		CSRegionForeachSymbol(text_exec_region, check_sym);
+
 	} else {
 		CSSymbolOwnerForeachSymbol(owner, ^(CSSymbolRef symbol) {
 			if (CSSymbolIsFunction(symbol) && (CSSymbolGetRange(symbol).length > 0)) {

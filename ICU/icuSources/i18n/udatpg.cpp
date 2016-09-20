@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2009-2012,2014 International Business Machines
+*   Copyright (C) 2009-2015, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -85,7 +85,7 @@ udatpg_getBestPatternWithOptions(UDateTimePatternGenerator *dtpg,
 }
 
 U_CAPI int32_t U_EXPORT2
-udatpg_getSkeleton(UDateTimePatternGenerator *dtpg,
+udatpg_getSkeleton(UDateTimePatternGenerator * /* dtpg */,
                    const UChar *pattern, int32_t length,
                    UChar *skeleton, int32_t capacity,
                    UErrorCode *pErrorCode) {
@@ -97,12 +97,13 @@ udatpg_getSkeleton(UDateTimePatternGenerator *dtpg,
         return 0;
     }
     UnicodeString patternString((UBool)(length<0), pattern, length);
-    UnicodeString result=((DateTimePatternGenerator *)dtpg)->getSkeleton(patternString, *pErrorCode);
+    UnicodeString result=DateTimePatternGenerator::staticGetSkeleton(
+            patternString, *pErrorCode);
     return result.extract(skeleton, capacity, *pErrorCode);
 }
 
 U_CAPI int32_t U_EXPORT2
-udatpg_getBaseSkeleton(UDateTimePatternGenerator *dtpg,
+udatpg_getBaseSkeleton(UDateTimePatternGenerator * /* dtpg */,
                        const UChar *pattern, int32_t length,
                        UChar *skeleton, int32_t capacity,
                        UErrorCode *pErrorCode) {
@@ -114,7 +115,8 @@ udatpg_getBaseSkeleton(UDateTimePatternGenerator *dtpg,
         return 0;
     }
     UnicodeString patternString((UBool)(length<0), pattern, length);
-    UnicodeString result=((DateTimePatternGenerator *)dtpg)->getBaseSkeleton(patternString, *pErrorCode);
+    UnicodeString result=DateTimePatternGenerator::staticGetBaseSkeleton(
+            patternString, *pErrorCode);
     return result.extract(skeleton, capacity, *pErrorCode);
 }
 
@@ -373,7 +375,7 @@ uadatpg_remapPatternWithOptions(UDateTimePatternGenerator *dtpg,
         int32_t timeNonHourStart = -1;
         int32_t timeNonHourLimit = 0;
         UnicodeString skeleton, otherCycSkeleton;
-        UnicodeString timePatChars(":ahHKkmsSzZOvVXx", -1, US_INV); // all pattern chars for times
+        UnicodeString timePatChars("abBhHKkmsSzZOvVXx", -1, US_INV); // all pattern chars for times
         int32_t numForcedH = 0;
         int32_t patPos, patLen = patternString.length();
 
@@ -437,7 +439,7 @@ uadatpg_remapPatternWithOptions(UDateTimePatternGenerator *dtpg,
                 }
                 if (inTimePat && !u_isWhitespace(patChr)) {
                     timePatLimit = patPos + 1;
-                    if (timeNonHourStart >= 0 && patChr!=LOW_A) { // NonHour portion should not include 'a'
+                    if (timeNonHourStart >= 0 && patChr!=LOW_A && patChr!=LOW_B && patChr!=CAP_B) { // NonHour portion should not include 'a','b','B'
                         timeNonHourLimit = timePatLimit;
                     }
                 }

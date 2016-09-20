@@ -29,8 +29,8 @@
 #include "AudioDSPKernelProcessor.h"
 #include "AudioNode.h"
 #include <memory>
-#include <mutex>
 #include <runtime/Float32Array.h>
+#include <wtf/Lock.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
@@ -49,9 +49,9 @@ public:
 
     virtual ~WaveShaperProcessor();
 
-    virtual std::unique_ptr<AudioDSPKernel> createKernel() override;
+    std::unique_ptr<AudioDSPKernel> createKernel() override;
 
-    virtual void process(const AudioBus* source, AudioBus* destination, size_t framesToProcess) override;
+    void process(const AudioBus* source, AudioBus* destination, size_t framesToProcess) override;
 
     void setCurve(Float32Array*);
     Float32Array* curve() { return m_curve.get(); }
@@ -66,7 +66,7 @@ private:
     OverSampleType m_oversample;
 
     // This synchronizes process() with setCurve().
-    mutable std::mutex m_processMutex;
+    mutable Lock m_processMutex;
 };
 
 } // namespace WebCore

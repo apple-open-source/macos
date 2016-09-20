@@ -57,6 +57,7 @@ Includes
 #include <net/if_types.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <netinet/udp.h>
 #include <netinet/in_systm.h>
 #include <net/bpf.h>
 #include <net/kpi_interface.h>
@@ -629,19 +630,44 @@ int ppp_if_input(ifnet_t ifp, mbuf_t m, u_int16_t proto, u_int16_t hdrlen)
         case PPP_IP:
             if (wan->npmode[NP_IP] != NPMODE_PASS)
                 goto reject;
-            if (wan->npafmode[NP_IP] & NPAFMODE_SRC_IN) {
-                if (ppp_ip_af_src_in(ifp, mbuf_data(m))) {
-                    error = 0;
-                    goto free;
+
+            if (wan->npafmode[NP_IP] & (NPAFMODE_SRC_IN | NPAFMODE_DHCP_INTERCEPT_SERVER | NPAFMODE_DHCP_INTERCEPT_CLIENT)) {
+                errno_t pde;
+                size_t len = sizeof(struct ip);
+                
+                if (mbuf_len(m) < len) {
+                    pde = mbuf_pullup(&m, len);
+                    if (0 != pde) {
+                        LOGDBG(ifp, ("ppp%d ppp_if_input mbuf_pullup len %d failed %d\n", ifnet_unit(ifp),len, pde));
+                        goto end;
+                    }
                 }
-            }
-            if (wan->npafmode[NP_IP] & NPAFMODE_DHCP_INTERCEPT_SERVER) {
-				if (ppp_ip_bootp_server_in(ifp, mbuf_data(m)))
-					goto reject;
-            }
-            if (wan->npafmode[NP_IP] & NPAFMODE_DHCP_INTERCEPT_CLIENT) {
-                if (ppp_ip_bootp_client_in(ifp, mbuf_data(m)))
-					goto reject;
+                struct ip *ip = (struct ip *)(void *)mbuf_data(m);
+                if (ip->ip_p == IPPROTO_UDP) {
+                    len += sizeof(struct udphdr);
+                    if (mbuf_len(m) < len) {
+                        pde = mbuf_pullup(&m, len);
+                        if (0 != pde) {
+                            LOGDBG(ifp, ("ppp%d ppp_if_input mbuf_pullup len %d failed %d\n", ifnet_unit(ifp), len, pde));
+                            goto end;
+                        }
+                    }
+                }
+                
+                if (wan->npafmode[NP_IP] & NPAFMODE_SRC_IN) {
+                    if (ppp_ip_af_src_in(ifp, mbuf_data(m))) {
+                        error = 0;
+                        goto free;
+                    }
+                }
+                if (wan->npafmode[NP_IP] & NPAFMODE_DHCP_INTERCEPT_SERVER) {
+                    if (ppp_ip_bootp_server_in(ifp, mbuf_data(m)))
+                        goto reject;
+                }
+                if (wan->npafmode[NP_IP] & NPAFMODE_DHCP_INTERCEPT_CLIENT) {
+                    if (ppp_ip_bootp_client_in(ifp, mbuf_data(m)))
+                        goto reject;
+                }
             }
             break;
         case PPP_IPV6:

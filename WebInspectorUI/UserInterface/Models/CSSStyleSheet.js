@@ -140,9 +140,9 @@ WebInspector.CSSStyleSheet = class CSSStyleSheet extends WebInspector.SourceCode
         if (!this._hasInfo)
             return sourceCodeLocation;
 
-        var sourceCode = sourceCodeLocation.sourceCode;
-        var lineNumber = this._startLineNumber + sourceCodeLocation.lineNumber;
-        var columnNumber = this._startColumnNumber + sourceCodeLocation.columnNumber;
+        let sourceCode = sourceCodeLocation.sourceCode;
+        let lineNumber = this._startLineNumber + sourceCodeLocation.lineNumber;
+        let columnNumber = this._startColumnNumber + sourceCodeLocation.columnNumber;
         return sourceCode.createSourceCodeLocation(lineNumber, columnNumber);
     }
 

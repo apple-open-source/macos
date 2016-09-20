@@ -57,6 +57,7 @@
 // We cannot import dt_impl.h, so define this here.
 extern void dt_dprintf(const char *, ...);
 
+extern int _dtrace_disallow_dsym;
 extern int _dtrace_mangled;
 
 
@@ -171,8 +172,12 @@ static struct ps_prochandle* createProcAndSymbolicator(pid_t pid, task_t task, i
 	// Only enable this if we're going to generate events...
 	if (should_queue_proc_activity_notices)
 		proc->proc_activity_queue_enabled = true;
-	
-	CSSymbolicatorRef symbolicator = CSSymbolicatorCreateWithTaskFlagsAndNotification(task, kCSSymbolicatorTrackDyldActivity, ^(uint32_t notification_type, CSNotificationData data) {
+	uint32_t flags = kCSSymbolicatorTrackDyldActivity;
+
+	if (_dtrace_disallow_dsym)
+		flags |= kCSSymbolicatorDisallowDsymData;
+
+	CSSymbolicatorRef symbolicator = CSSymbolicatorCreateWithTaskFlagsAndNotification(task, flags, ^(uint32_t notification_type, CSNotificationData data) {
 		switch (notification_type) {
 			case kCSNotificationPing:
 				dt_dprintf("pid %d: kCSNotificationPing (value: %d)\n", CSSymbolicatorGetPid(data.symbolicator), data.u.ping.value);
@@ -230,6 +235,24 @@ static struct ps_prochandle* createProcAndSymbolicator(pid_t pid, task_t task, i
 	return proc;
 }
 
+/**
+ * Kills a process that has been launched with posix_spawn with
+ * POSIX_SPAWN_START_SUSPENDED
+ */
+static void
+kill_process(pid_t pid)
+{
+	/**
+	 * <rdar://problem/25700569> We cannot send a SIGKILL signal to a
+	 * process that has just been launched with POSIX_SPAWN_START_SUSPENDED,
+	 * we need to send a SIGCONT first so that task_resume is called
+	 */
+	if (kill(pid, SIGCONT))
+		perror("kill(SIGCONT)");
+	if (kill(pid, SIGKILL))
+		perror("kill(SIGKILL)");
+}
+
 struct ps_prochandle *
 Pcreate(const char *file,	/* executable file name */
         char *const *argv,	/* argument vector */
@@ -266,25 +289,26 @@ destroy_attr:
 	posix_spawnattr_destroy(&attr);
 	
 	if (0 == *perr) {
+#if !TARGET_OS_EMBEDDED
 		/*
 		 * <rdar://problem/13969762>:
 		 * If the process is signed with restricted entitlements, the libdtrace_dyld
 		 * library will not be injected in the process. In this case we kill the
 		 * process and report an error.
 		 */
-		if (csops(pid, CS_OPS_STATUS, &flags, sizeof(flags)) != -1
+		if (csr_check(CSR_ALLOW_UNRESTRICTED_DTRACE) != 0 && csops(pid, CS_OPS_STATUS, &flags, sizeof(flags)) != -1
 			&& (flags & CS_RESTRICT))
 		{
-			if (kill(pid, SIGKILL))
-				perror("kill()");
+			kill_process(pid);
 			*perr = APPLE_EXECUTABLE_RESTRICTED;
 			return NULL;
 		}
-
+#endif
 		/*
 		 * Check if DTrace will be able to attach to the process.
 		 */
 		if (!canAttachToProcess(pid)) {
+			kill_process(pid);
 			*perr = APPLE_EXECUTABLE_NOT_ATTACHABLE;
 			return NULL;
 		}
@@ -343,7 +367,7 @@ Pcreate_error(int error)
 			str = "dtrace cannot control executables signed with restricted entitlements";
 			break;
 		case APPLE_EXECUTABLE_NOT_ATTACHABLE:
-			str= "the current security restriction (rootless enabled) prevent dtrace from attaching to an executable not signed "
+			str= "the current security restriction (system integrity protection enabled) prevents dtrace from attaching to an executable not signed "
 			     "with the [com.apple.security.get-task-allow] entitlement";
 		default:
 			if (error < 0)
@@ -419,7 +443,7 @@ const char *Pgrab_error(int err) {
 			str = "Pgrab was called with unsupported flags";
 			break;
 		case APPLE_EXECUTABLE_NOT_ATTACHABLE:
-			str = "the current security restriction (rootless enabled) prevent dtrace from attaching to an executable not signed "
+			str = "the current security restriction (system integrity protection enabled) prevents dtrace from attaching to an executable not signed "
 			      "with the [com.apple.security.get-task-allow] entitlement";
 			break;
 		default:

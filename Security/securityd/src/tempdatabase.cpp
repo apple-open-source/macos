@@ -130,12 +130,12 @@ void TempDatabase::makeSecurePassphraseKey(const Context &context,
 										   uint32 usage, uint32 attrs, 
 										   RefPointer<Key> &newKey)
 {
-	secdebug("SSdb", "requesting secure passphrase");
+	secinfo("SSdb", "requesting secure passphrase");
 	
 	string passphrase;
 	getSecurePassphrase(context, passphrase);
 	
-	secdebug("SSdb", "wrapping securely-obtained passphrase as key");
+	secinfo("SSdb", "wrapping securely-obtained passphrase as key");
 	
 	// CssmKey rawKey(StringData(passphrase)) confuses gcc
 	StringData passphraseData(passphrase);

@@ -252,7 +252,7 @@ static void setReverseMap(CoderFrame frame)
     for(i=0; i<frame->encoderRef->baseNum; i++) {
         int idx;
         idx = frame->encoderRef->charMap[i];
-        frame->reverseMap[idx] = i;
+        frame->reverseMap[idx] = (uint8_t)i;
     }
 }
 

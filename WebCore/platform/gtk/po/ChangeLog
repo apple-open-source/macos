@@ -1,3 +1,247 @@
+2016-04-23  Gabor Kelemen  <kelemeng@ubuntu.com>
+
+        Updated Hungarian translation
+        https://bugs.webkit.org/show_bug.cgi?id=156952
+
+        Rubber-stamped by Michael Catanzaro.
+
+        * hu.po:
+
+2016-04-18  Tom Tryfonidis  <tomtryf@gmail.com>
+
+        [l10n] Updated Greek translation of WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=156677
+
+        Rubber-stamped by Michael Catanzaro.
+
+        * el.po:
+
+2016-04-16  Michael Catanzaro  <mcatanzaro@igalia.com>
+
+        Localization files with empty Language: block build with gettext 0.19
+        https://bugs.webkit.org/show_bug.cgi?id=133611
+
+        Reviewed by Darin Adler.
+
+        Fix the language tags. Note that the build error is not actually important here as it only
+        occurs with an older version of gettext, but presumably it's bad for the language tags to be
+        wrong.
+
+        * as.po:
+        * en_CA.po:
+        * gu.po: Also correct the translation team to Gujarati.
+        * hu.po:
+        * id.po:
+        * ko.po:
+        * lv.po:
+        * pa.po:
+        * ru.po:
+        * sl.po:
+
+2016-04-16  Muhammet Kara  <muhammetk@gmail.com>
+
+        [GTK] [l10n] Updated Turkish translation of WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=156667
+
+        Rubber-stamped by Michael Catanzaro.
+
+        * tr.po:
+
+2016-04-16  Jiri Grönroos  <jiri.gronroos+l10n@iki.fi>
+
+        Submit the first version of Finnish translation
+        https://bugs.webkit.org/show_bug.cgi?id=153406
+
+        Rubber-stamped by Michael Catanzaro. For FINLAN.
+
+        * fi.po: Added. Note it's pretty incomplete as of yet.
+
+2016-04-16  Zahari Yurukov  <zahari.yurukov@gmail.com>
+
+        [GTK] [l10n] Updated Bulgarian translation of WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=156656
+
+        Rubber-stamped by Michael Catanzaro.
+
+        * bg.po:
+
+2016-04-06  Milo Casagrande  <milo@milo.name>
+
+        [GTK] [l10n] Updated Italian translation of WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=156283
+
+        Rubber-stamped by Michael Catanzaro.
+
+        * it.po:
+
+2016-04-05  Rafael Fontenelle  <rafaelff@gnome.org>
+
+        Updated Brazilian Portuguese translation
+        https://bugs.webkit.org/show_bug.cgi?id=156236
+
+        Rubber-stamped by Michael Catanzaro.
+
+        * pt_BR.po:
+
+2016-03-22  Alberto Garcia  <berto@igalia.com>
+
+        Unreviewed typo fix "choosen" => "chosen"
+
+        * as.po:
+        * bg.po:
+        * ca.po:
+        * de.po:
+        * en_GB.po:
+        * es.po:
+        * fr.po:
+        * gl.po:
+        * gu.po:
+        * he.po:
+        * hi.po:
+        * it.po:
+        * ja.po:
+        * kn.po:
+        * mr.po:
+        * nl.po:
+        * or.po:
+        * pl.po:
+        * pt_BR.po:
+        * sl.po:
+        * sv.po:
+        * ta.po:
+        * te.po:
+        * tr.po:
+
+2016-02-22  Piotr Drąg <piotrdrag@gmail.com>
+
+        [l10n] Updated Polish translation of WebKitGTK+ for 2.12
+        https://bugs.webkit.org/show_bug.cgi?id=154549
+
+        Rubber-stamped by Michael Catanzaro.
+
+        * pl.po:
+
+2016-01-12  Sam Friedmann <sfriedma@redhat.com>
+
+        [l10n] Updated French translation for WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=153013
+
+        Rubber-stamped by Michael Catanzaro.
+
+        * fr.po:
+
+2016-01-09  Muhammet Kara  <muhammetk@gmail.com>
+
+        [l10n] Updated Turkish translation of WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=152948
+
+        "Reviewed" by Michael Catanzaro.
+
+        * tr.po:
+
+2015-12-20  Bernd Homuth  <dev@hmt.im>
+
+        German translation update
+        https://bugs.webkit.org/show_bug.cgi?id=152228
+
+        Unreviewed.
+
+        * de.po:
+
+2015-12-18  Michael Catanzaro  <mcatanzaro@igalia.com>
+
+        [GTK] Unreviewed, update POTFILES.in after r194272
+
+        * POTFILES.in:
+
+2015-11-22  Milo Casagrande  <milo@milo.name>
+
+        [GTK] [l10n] Updated Italian translation of WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=151543
+
+        Unreviewed.
+
+        * it.po:
+
+2015-09-15  Michael Catanzaro  <mcatanzaro@igalia.com>
+
+        [GTK] Remove outdated README under po directory
+        https://bugs.webkit.org/show_bug.cgi?id=149166
+
+        Reviewed by Martin Robinson.
+
+        * README: Removed.
+
+2015-09-13  Ankit Patel  <ankit@redhat.com>
+
+        Webkit Gujarati Translations
+        https://bugs.webkit.org/show_bug.cgi?id=139530
+
+        Unreviewed.
+
+        * gu.po:
+
+2015-09-12  Francisco Serrador  <fserrador@gmail.com>
+
+        Updated Spanish translation
+        https://bugs.webkit.org/show_bug.cgi?id=145550
+
+        Unreviewed.
+
+        * es.po:
+
+2015-09-12  Matej Urbančič  <mateju@svn.gnome.org>
+
+        Updated Slovenian translation
+        https://bugs.webkit.org/show_bug.cgi?id=123080
+
+        Unreviewed.
+
+        * sl.po:
+
+2015-09-12  Shantha kumar  <shkumar@redhat.com>
+
+        Webkit Tamil translations updated
+        https://bugs.webkit.org/show_bug.cgi?id=139478
+
+        Unreviewed.
+
+        * ta.po:
+
+2015-09-12  Zahari Yurukov  <zahari.yurukov@gmail.com>
+
+        [l10n] Updated Bulgarian translation
+        https://bugs.webkit.org/show_bug.cgi?id=142611
+
+        Unreviewed.
+
+        * bg.po:
+
+2015-09-12  Piotr Drąg  <piotrdrag@gmail.com>
+
+        [l10n] Updated Polish translation of WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=148475
+
+        Unreviewed.
+
+        * pl.po:
+
+2015-09-12  Muhammet Kara  <muhammetk@gmail.com>
+
+        [GTK] [l10n] Updated Turkish translation of WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=148362
+
+        Unreviewed.
+
+        * tr.po: Added.
+
+2015-07-22  Josef Andersson  <josef.andersson@fripost.org>
+
+        [l10n] Updated Swedish translation
+        https://bugs.webkit.org/show_bug.cgi?id=147190
+
+        * sv.po:
+
 2015-07-10  Josef Andersson  <josef.andersson@fripost.org>
 
         Updated Swedish translation for WebKitGTK+

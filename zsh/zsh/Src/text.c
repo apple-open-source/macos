@@ -30,6 +30,16 @@
 #include "zsh.mdh"
 #include "text.pro"
 
+/*
+ * If non-zero, expand syntactically significant leading tabs in text
+ * to this number of spaces.
+ *
+ * If negative, don't output leading whitespace at all.
+ */
+
+/**/
+int text_expand_tabs;
+
 static char *tptr, *tbuf, *tlim, *tpending;
 static int tsiz, tindent, tnewlins, tjob;
 
@@ -67,8 +77,8 @@ taddpending(char *str1, char *str2)
      */
     if (tpending) {
 	int oldlen = strlen(tpending);
-	tpending = realloc(tpending, len + oldlen);
-	sprintf(tpending + oldlen, "%s%s", str1, str2);
+	tpending = zrealloc(tpending, len + oldlen + 1);
+	sprintf(tpending + oldlen, "\n%s%s", str1, str2);
     } else {
 	tpending = (char *)zalloc(len);
 	sprintf(tpending, "%s%s", str1, str2);
@@ -100,7 +110,7 @@ taddchr(int c)
 	    tptr--;
 	    return;
 	}
-	tbuf = realloc(tbuf, tsiz *= 2);
+	tbuf = zrealloc(tbuf, tsiz *= 2);
 	tlim = tbuf + tsiz;
 	tptr = tbuf + tsiz / 2;
     }
@@ -120,7 +130,7 @@ taddstr(char *s)
 
 	if (!tbuf)
 	    return;
-	tbuf = realloc(tbuf, tsiz *= 2);
+	tbuf = zrealloc(tbuf, tsiz *= 2);
 	tlim = tbuf + tsiz;
 	tptr = tbuf + x;
     }
@@ -145,6 +155,48 @@ taddlist(Estate state, int num)
     }
 }
 
+/* add an assignment */
+
+static void
+taddassign(wordcode code, Estate state, int typeset)
+{
+    /* name */
+    taddstr(ecgetstr(state, EC_NODUP, NULL));
+    /* value... maybe */
+    if (WC_ASSIGN_TYPE2(code) == WC_ASSIGN_INC) {
+	if (typeset) {
+	    /* dummy assignment --- just var name */
+	    (void)ecgetstr(state, EC_NODUP, NULL);
+	    taddchr(' ');
+	    return;
+	}
+	taddchr('+');
+    }
+    taddchr('=');
+    if (WC_ASSIGN_TYPE(code) == WC_ASSIGN_ARRAY) {
+	taddchr('(');
+	taddlist(state, WC_ASSIGN_NUM(code));
+	taddstr(") ");
+    } else {
+	taddstr(ecgetstr(state, EC_NODUP, NULL));
+	taddchr(' ');
+    }
+}
+
+/* add a number of assignments from typeset */
+
+/**/
+static void
+taddassignlist(Estate state, wordcode count)
+{
+    if (count)
+	taddchr(' ');
+    while (count--) {
+	wordcode code = *state->pc++;
+	taddassign(code, state, 1);
+    }
+}
+
 /* add a newline, or something equivalent, to the text buffer */
 
 /**/
@@ -156,13 +208,45 @@ taddnl(int no_semicolon)
     if (tnewlins) {
 	tdopending();
 	taddchr('\n');
-	for (t0 = 0; t0 != tindent; t0++)
-	    taddchr('\t');
+	for (t0 = 0; t0 != tindent; t0++) {
+	    if (text_expand_tabs >= 0) {
+		if (text_expand_tabs) {
+		    int t1;
+		    for (t1 = 0; t1 < text_expand_tabs; t1++)
+			taddchr(' ');
+		} else
+		    taddchr('\t');
+	    }
+	}
     } else if (no_semicolon) {
 	taddstr(" ");
     } else {
 	taddstr("; ");
     }
+}
+
+/*
+ * Output a tab that may be expanded as part of a leading set.
+ * Note this is not part of the text framework; it's for
+ * code that needs to output its own tabs that are to be
+ * consistent with those from getpermtext().
+ *
+ * Note these tabs are only expected to be useful at the
+ * start of the line, so we make no attempt to count columns.
+ */
+
+/**/
+void
+zoutputtab(FILE *outf)
+{
+    if (text_expand_tabs < 0)
+	return;
+    if (text_expand_tabs) {
+	int i;
+	for (i = 0; i < text_expand_tabs; i++)
+	    fputc(' ', outf);
+    } else
+	fputc('\t', outf);
 }
 
 /* get a permanent textual representation of n */
@@ -397,20 +481,15 @@ gettext2(Estate state)
 	    }
 	    break;
 	case WC_ASSIGN:
-	    taddstr(ecgetstr(state, EC_NODUP, NULL));
-	    if (WC_ASSIGN_TYPE2(code) == WC_ASSIGN_INC) taddchr('+');
-	    taddchr('=');
-	    if (WC_ASSIGN_TYPE(code) == WC_ASSIGN_ARRAY) {
-		taddchr('(');
-		taddlist(state, WC_ASSIGN_NUM(code));
-		taddstr(") ");
-	    } else {
-		taddstr(ecgetstr(state, EC_NODUP, NULL));
-		taddchr(' ');
-	    }
+	    taddassign(code, state, 0);
 	    break;
 	case WC_SIMPLE:
 	    taddlist(state, WC_SIMPLE_ARGC(code));
+	    stack = 1;
+	    break;
+	case WC_TYPESET:
+	    taddlist(state, WC_TYPESET_ARGC(code));
+	    taddassignlist(state, *state->pc++);
 	    stack = 1;
 	    break;
 	case WC_SUBSH:
@@ -553,8 +632,10 @@ gettext2(Estate state)
 		    taddstr(" in ");
 		    taddlist(state, *state->pc++);
 		}
-		tindent++;
 		taddnl(0);
+		taddstr("do");
+		taddnl(0);
+		tindent++;
 		tpush(code, 1);
 	    } else {
 		dec_tindent();
@@ -602,7 +683,7 @@ gettext2(Estate state)
 	case WC_CASE:
 	    if (!s) {
 		Wordcode end = state->pc + WC_CASE_SKIP(code);
-		wordcode nalts;
+		wordcode ialts;
 
 		taddstr("case ");
 		taddstr(ecgetstr(state, EC_NODUP, NULL));
@@ -616,6 +697,7 @@ gettext2(Estate state)
 		    taddstr("esac");
 		    stack = 1;
 		} else {
+		    Wordcode prev_pc;
 		    tindent++;
 		    if (tnewlins)
 			taddnl(0);
@@ -623,21 +705,23 @@ gettext2(Estate state)
 			taddchr(' ');
 		    taddstr("(");
 		    code = *state->pc++;
-		    nalts = *state->pc++;
-		    while (nalts--) {
+		    prev_pc = state->pc++;
+		    ialts = *prev_pc;
+		    while (ialts--) {
 			taddstr(ecgetstr(state, EC_NODUP, NULL));
 			state->pc++;
-			if (nalts)
+			if (ialts)
 			    taddstr(" | ");
 		    }
 		    taddstr(") ");
 		    tindent++;
 		    n = tpush(code, 0);
 		    n->u._case.end = end;
-		    n->pop = (state->pc - 2 + WC_CASE_SKIP(code) >= end);
+		    n->pop = (prev_pc + WC_CASE_SKIP(code) >= end);
 		}
 	    } else if (state->pc < s->u._case.end) {
-		wordcode nalts;
+		Wordcode prev_pc;
+		wordcode ialts;
 		dec_tindent();
 		switch (WC_CASE_TYPE(code)) {
 		case WC_CASE_OR:
@@ -658,17 +742,18 @@ gettext2(Estate state)
 		    taddchr(' ');
 		taddstr("(");
 		code = *state->pc++;
-		nalts = *state->pc++;
-		while (nalts--) {
+		prev_pc = state->pc++;
+		ialts = *prev_pc;
+		while (ialts--) {
 		    taddstr(ecgetstr(state, EC_NODUP, NULL));
 		    state->pc++;
-		    if (nalts)
+		    if (ialts)
 			taddstr(" | ");
 		}
 		taddstr(") ");
 		tindent++;
 		s->code = code;
-		s->pop = ((state->pc - 2 + WC_CASE_SKIP(code)) >=
+		s->pop = (prev_pc + WC_CASE_SKIP(code) >=
 			  s->u._case.end);
 	    } else {
 		dec_tindent();

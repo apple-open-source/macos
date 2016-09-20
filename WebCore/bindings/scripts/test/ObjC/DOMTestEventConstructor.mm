@@ -55,13 +55,6 @@
     [super dealloc];
 }
 
-- (void)finalize
-{
-    if (_internal)
-        IMPL->deref();
-    [super finalize];
-}
-
 - (NSString *)attr1
 {
     WebCore::JSMainThreadNullState state;
@@ -73,6 +66,14 @@
     WebCore::JSMainThreadNullState state;
     return IMPL->attr2();
 }
+
+#if ENABLE(SPECIAL_EVENT)
+- (NSString *)attr3
+{
+    WebCore::JSMainThreadNullState state;
+    return IMPL->attr3();
+}
+#endif
 
 @end
 

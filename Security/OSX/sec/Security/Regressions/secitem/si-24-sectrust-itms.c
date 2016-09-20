@@ -8,7 +8,6 @@
 #include <Security/SecPolicyPriv.h>
 #include <Security/SecTrust.h>
 #include <Security/SecKey.h>
-#include <Security/SecInternal.h>
 #include <CommonCrypto/CommonDigest.h>
 #include <CommonCrypto/CommonDigestSPI.h>
 #include <utilities/SecCFWrappers.h>
@@ -16,7 +15,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "Security_regressions.h"
+#include "shared_regressions.h"
 
 static const UInt8 sITunesStoreRootCertificate[] =
 {
@@ -132,7 +131,9 @@ static void tests(void)
     CFDataRef signature = CFDictionaryGetValue(urlBagDict, CFSTR("signature"));
 	CFDataRef bag = CFDictionaryGetValue(urlBagDict, CFSTR("bag"));
     unsigned char sha1_hash[CC_SHA1_DIGEST_LENGTH];
+    CFDataRef sha1Data = NULL;
     CCDigest(kCCDigestSHA1, CFDataGetBytePtr(bag), CFDataGetLength(bag), sha1_hash);
+    sha1Data = CFDataCreate(NULL, sha1_hash, sizeof(sha1_hash));
 
     isnt(policy = SecPolicyCreateiTunesStoreURLBag(), NULL, "create policy instance");
 
@@ -151,9 +152,14 @@ static void tests(void)
     is(SecTrustGetCertificateCount(trust), 2, "cert count is 2");
 	SecKeyRef pub_key_leaf;
 	isnt(pub_key_leaf = SecTrustCopyPublicKey(trust), NULL, "get leaf pub key");
-	ok_status(SecKeyRawVerify(pub_key_leaf, kSecPaddingPKCS1SHA1, sha1_hash, sizeof(sha1_hash), CFDataGetBytePtr(signature), CFDataGetLength(signature)),
-		"verify signature on bag");
+    if (!pub_key_leaf) { goto errOut; }
+    CFErrorRef error = NULL;
+    ok(SecKeyVerifySignature(pub_key_leaf, kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA1, sha1Data, signature, &error),
+       "verify signature on bag");
+    CFReleaseNull(error);
 
+errOut:
+    CFReleaseSafe(sha1Data);
     CFReleaseSafe(pub_key_leaf);
 	CFReleaseSafe(urlBagDict);
     CFReleaseSafe(certs);

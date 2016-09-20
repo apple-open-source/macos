@@ -22,8 +22,6 @@
 #include <corecrypto/ccaes.h>
 #include <corecrypto/ccder.h>
 
-#if !(TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
-
 //
 // We assume that SecKey is set up for this to work.
 // Specifically ccrng_seckey needs to be initialized
@@ -320,10 +318,18 @@ CFDataRef SecCopyDecryptedForServer(SecKeyRef serverFullKey, CFDataRef blob, CFE
     return result;
 }
 
+#if TARGET_OS_MAC && !(TARGET_OS_IPHONE || TARGET_OS_EMBEDDED)
+#include <Security/SecTrustInternal.h>
+#endif
+
 CFDataRef SecCopyEncryptedToServer(SecTrustRef trustedEvaluation, CFDataRef dataToEncrypt, CFErrorRef *error)
 {
     CFDataRef result = NULL;
+#if TARGET_OS_MAC && !(TARGET_OS_IPHONE || TARGET_OS_EMBEDDED)
+    SecKeyRef trustKey = SecTrustCopyPublicKey_ios(trustedEvaluation);
+#else
     SecKeyRef trustKey = SecTrustCopyPublicKey(trustedEvaluation);
+#endif
 
     require_action_quiet(trustKey, fail,
                          SecError(errSecInteractionNotAllowed, error, CFSTR("Failed to get key out of trust ref, was it evaluated?")));
@@ -332,24 +338,6 @@ CFDataRef SecCopyEncryptedToServer(SecTrustRef trustedEvaluation, CFDataRef data
     result = SecCopyEncryptedToServerKey(trustKey, dataToEncrypt, error);
 
 fail:
-
+    CFReleaseNull(trustKey);
     return result;
 }
-
-#else
-
-CFDataRef SecCopyDecryptedForServer(SecKeyRef serverFullKey, CFDataRef encryptedData, CFErrorRef* error)
-{
-    SecError(errSecUnimplemented, error, CFSTR("SecCopyDecryptedForServer not implemented on this platform"));
-
-    return NULL;
-}
-
-CFDataRef SecCopyEncryptedToServer(SecTrustRef trustedEvaluation, CFDataRef dataToEncrypt, CFErrorRef *error)
-{
-    SecError(errSecUnimplemented, error, CFSTR("SecCopyEncryptedToServer not implemented on this platform"));
-
-    return NULL;
-}
-
-#endif

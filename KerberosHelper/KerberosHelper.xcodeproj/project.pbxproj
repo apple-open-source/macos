@@ -1101,6 +1101,7 @@
 				GCC_WARN_UNUSED_PARAMETER = NO;
 				GCC_WARN_UNUSED_VALUE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				SDKROOT = macosx.internal;
 			};
 			name = Debug;
 		};
@@ -1124,6 +1125,7 @@
 				GCC_WARN_UNUSED_PARAMETER = NO;
 				GCC_WARN_UNUSED_VALUE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				SDKROOT = macosx.internal;
 			};
 			name = Release;
 		};

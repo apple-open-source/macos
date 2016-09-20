@@ -82,6 +82,10 @@ bool tls_handshake_ciphersuite_is_valid(tls_handshake_t ctx, uint16_t ciphersuit
  */
 bool tls_handshake_curve_is_supported(uint16_t curve);
 
+/*
+ * Return true if the given sigalg is supported
+ */
+bool tls_handshake_sigalg_is_supported(tls_signature_and_hash_algorithm sigalg);
 
 #ifdef __cplusplus
 }

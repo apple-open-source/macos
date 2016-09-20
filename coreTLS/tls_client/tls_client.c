@@ -20,6 +20,9 @@
 #define CCRNGSTATE() ccDRBGGetRngState()
 
 #include <tls_ciphersuites.h>
+#include <tls_helpers.h>
+#include <tls_cache.h>
+#include <Security/CipherSuite.h>
 
 #include <Security/SecKeyPriv.h>
 #include <Security/SecIdentity.h>
@@ -144,8 +147,7 @@ tls_handshake_message_callback(tls_handshake_ctx_t ctx, tls_handshake_message_t 
         case tls_handshake_message_client_hello:
             break;
         case tls_handshake_message_certificate:
-            require_noerr((err = tls_create_peer_trust(cc->hdsk, &cc->trustRef)), errOut);
-            require_noerr((err = tls_set_peer_pubkey(cc->hdsk, cc->trustRef)), errOut);
+            require_noerr((err = tls_helper_set_peer_pubkey(cc->hdsk)), errOut);
             break;
         case tls_handshake_message_certificate_request:
             cc->certificate_requested++;
@@ -252,19 +254,21 @@ int mySSLRecordSetProtocolVersionFunc(tls_handshake_ctx_t ref,
 }
 
 
+static tls_cache_t g_cache = NULL;
+
 static int
 tls_handshake_save_session_data_callback(tls_handshake_ctx_t ctx, tls_buffer sessionKey, tls_buffer sessionData)
 {
     tls_client_ctx_t DEBUG_ONLY *cc = (tls_client_ctx_t *)ctx;
     session_log("key = %s data=[%p,%zd]\n", sessionKey.data, sessionData.data, sessionData.length);
-    return sslAddSession(sessionKey, sessionData, 0);
+    return tls_cache_save_session_data(g_cache, &sessionKey, &sessionData, 0);
 }
 
 static int
 tls_handshake_load_session_data_callback(tls_handshake_ctx_t ctx, tls_buffer sessionKey, tls_buffer *sessionData)
 {
     tls_client_ctx_t DEBUG_ONLY *cc = (tls_client_ctx_t *)ctx;
-    int err = sslGetSession(sessionKey, sessionData);
+    int err = tls_cache_load_session_data(g_cache, &sessionKey, sessionData);
     session_log("key = %s data=[%p,%zd], err=%d\n", sessionKey.data, sessionData->data, sessionData->length, err);
     return err;
 }
@@ -274,7 +278,7 @@ tls_handshake_delete_session_data_callback(tls_handshake_ctx_t ctx, tls_buffer s
 {
     tls_client_ctx_t DEBUG_ONLY *cc = (tls_client_ctx_t *)ctx;
     session_log("\n");
-    return sslDeleteSession(sessionKey);
+    return tls_cache_delete_session_data(g_cache, &sessionKey);
 }
 
 static int
@@ -282,7 +286,7 @@ tls_handshake_delete_all_sessions_callback(tls_handshake_ctx_t ctx)
 {
     tls_client_ctx_t DEBUG_ONLY *cc = (tls_client_ctx_t *)ctx;
     session_log("\n");
-    return sslCleanupSession();
+    return -1;
 }
 
 /* TLS callbacks */
@@ -396,6 +400,7 @@ const CipherSuiteName ciphers[] = {
     
 #if 1
     /* ECDHE_RSA cipher suites */
+    CIPHER(TLS_ECDHE_RSA_WITH_NULL_SHA),
     CIPHER(TLS_ECDHE_RSA_WITH_RC4_128_SHA),
     CIPHER(TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA),
     CIPHER(TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA),
@@ -403,27 +408,7 @@ const CipherSuiteName ciphers[] = {
     CIPHER(TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA),
     CIPHER(TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384), // Not supported by either gnutls or openssl
 #endif
-    
-#if 1
-    /* ECDH_ECDSA cipher suites */
-    CIPHER(TLS_ECDH_ECDSA_WITH_RC4_128_SHA),
-    CIPHER(TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA),
-    CIPHER(TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA),
-    CIPHER(TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256),
-    CIPHER(TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA),
-    CIPHER(TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384),
-#endif
-    
-#if 1
-    /* ECDH_RSA cipher suites */
-    CIPHER(TLS_ECDH_RSA_WITH_RC4_128_SHA),
-    CIPHER(TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA),
-    CIPHER(TLS_ECDH_RSA_WITH_AES_128_CBC_SHA),
-    CIPHER(TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256),
-    CIPHER(TLS_ECDH_RSA_WITH_AES_256_CBC_SHA),
-    CIPHER(TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384),
-#endif
-    
+
 #if 1
     CIPHER(TLS_PSK_WITH_RC4_128_SHA),
     CIPHER(TLS_PSK_WITH_3DES_EDE_CBC_SHA),
@@ -446,20 +431,21 @@ const CipherSuiteName ciphers[] = {
     CIPHER(TLS_DH_anon_WITH_AES_128_GCM_SHA256),
     CIPHER(TLS_DH_anon_WITH_AES_256_GCM_SHA384),
     
-    CIPHER(TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384),
-    CIPHER(TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256),
-    
-    CIPHER(TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256),
-    CIPHER(TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384),
-    
     CIPHER(TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256),
     CIPHER(TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384),
-    
+
+
     CIPHER(TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256),
     CIPHER(TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384),
 #endif
     
-    { -1, NULL, }
+    CIPHER(TLS_ECDH_anon_WITH_NULL_SHA),
+    CIPHER(TLS_ECDH_anon_WITH_RC4_128_SHA),
+    CIPHER(TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA),
+    CIPHER(TLS_ECDH_anon_WITH_AES_128_CBC_SHA),
+    CIPHER(TLS_ECDH_anon_WITH_AES_256_CBC_SHA),
+
+    { 0, NULL }
 };
 
 
@@ -475,7 +461,7 @@ static uint16_t sslcipher_atoi(char* cipherstring){
 static const char *sslcipher_itoa(uint16_t cs)
 {
     const CipherSuiteName *a = ciphers;
-    while(a->cipher >= 0) {
+    while(a->cipher > 0) {
         if (cs == a->cipher) break;
         a++;
     }
@@ -508,8 +494,19 @@ int init_context(tls_client_ctx_t *cc, tls_client_params *params)
     require_noerr((err=tls_handshake_set_peer_hostname(cc->hdsk, params->hostname, strlen(params->hostname))), fail);
     require_noerr((err=tls_handshake_set_npn_enable(cc->hdsk, true)), fail);
     /* TODO: convert ALPN string into ALPN data */
-    //require_noerr((err=tls_handshake_set_alpn_data(cc->hdsk, alpnData)), fail);
+    if(params->alpn_string) {
+        tls_buffer alpnData;
 
+        alpnData.length = strlen(params->alpn_string)+1;
+        alpnData.data = malloc(alpnData.length);
+        alpnData.data[0] = alpnData.length-1;
+        memcpy(alpnData.data+1, params->alpn_string, alpnData.length-1);
+
+        require_noerr((err=tls_handshake_set_alpn_data(cc->hdsk, alpnData)), fail);
+    }
+
+    if(params->config)
+        require_noerr((err=tls_handshake_set_config(cc->hdsk, atoi(params->config))), fail);
     if(params->num_ciphersuites)
         require_noerr((err=tls_handshake_set_ciphersuites(cc->hdsk, params->ciphersuites, params->num_ciphersuites)), fail);
     if(params->protocol_min)
@@ -520,6 +517,8 @@ int init_context(tls_client_ctx_t *cc, tls_client_params *params)
     require_noerr((err=tls_handshake_set_session_ticket_enabled(cc->hdsk, params->session_tickets_enabled)), fail);
     require_noerr((err=tls_handshake_set_ocsp_enable(cc->hdsk, params->ocsp_enabled)), fail);
     require_noerr((err=tls_handshake_set_min_dh_group_size(cc->hdsk, params->min_dh_size)), fail);
+    require_noerr((err=tls_handshake_set_fallback(cc->hdsk, params->fallback)), fail);
+    require_noerr((err=tls_handshake_set_ems_enable(cc->hdsk, params->allow_ext_master_secret)), fail);
 
 fail:
     return err;
@@ -693,7 +692,6 @@ logger(void * __unused ctx, const char *scope, const char *function, const char 
     printf("[%s] %s: %s\n", scope, function, str);
 }
 
-
 //#define HOSTNAME "scotthelme.co.uk"
 #define HOSTNAME "www.google.com"
 int main(int argc, const char * argv[])
@@ -706,20 +704,17 @@ int main(int argc, const char * argv[])
     static char get_request[100];
     bool resume_with_higher_version = false;
 
-
     memset(&params, 0, sizeof(params));
     //params.hostname="www.imperialviolet.org";
     //params.port="6628";
     params.hostname=HOSTNAME;
     params.service="https";
-    params.num_ciphersuites = CipherSuiteCount;
-    params.ciphersuites = KnownCipherSuites;
     params.request = get_request;
     params.ocsp_enabled = true;
     params.session_tickets_enabled = true;
     params.allow_resumption = true;
+    params.allow_ext_master_secret = true;
     params.peer_id = 'P';
-
 
     if (argc > 1) {
         int i = 0;
@@ -730,10 +725,22 @@ int main(int argc, const char * argv[])
             if (strcmp(argv[i], "--port") == 0 && argv[i+1] != NULL){
                 params.service = argv[++i];
             }
+            if (strcmp(argv[i], "--config") == 0 && argv[i+1] != NULL){
+                params.config = argv[++i];
+            }
+            if (strcmp(argv[i], "--alpn") == 0 && argv[i+1] != NULL){
+                params.alpn_string = argv[++i];
+            }
             if (strcmp(argv[i], "--cipher") == 0 && argv[i+1] != NULL){
                 cipher_to_use = sslcipher_atoi((char*)argv[++i]);
                 params.ciphersuites = &(cipher_to_use);
                 params.num_ciphersuites = 1;
+            }
+            if ((strcmp(argv[i], "--protocol_min") == 0) && (argv[i+1] != NULL)){
+                params.protocol_min = (tls_protocol_version)strtoul(argv[++i], NULL, 0);
+            }
+            if ((strcmp(argv[i], "--protocol_max") == 0) && (argv[i+1] != NULL)){
+                params.protocol_max = (tls_protocol_version)strtoul(argv[++i], NULL, 0);
             }
             if (strcmp(argv[i], "--resume_with_higher_version") == 0) {
                 reconnects = 1;
@@ -762,6 +769,12 @@ int main(int argc, const char * argv[])
             if (strcmp(argv[i], "--dtls") == 0){
                 params.dtls = true;
             }
+            if (strcmp(argv[i], "--fallback") == 0){
+                params.fallback = true;
+            }
+            if (strcmp(argv[i], "--no-extended-ms") == 0){
+                params.allow_ext_master_secret = false;
+            }
             if (strcmp(argv[i], "--debug") == 0){
                 tls_add_debug_logger(logger, NULL);
             }
@@ -770,6 +783,9 @@ int main(int argc, const char * argv[])
 
     memset(get_request, 0, sizeof(get_request));
     snprintf(get_request, sizeof(get_request), "GET / HTTP/1.1\r\nHost: %s:%s\r\nConnection: close\r\n\r\n", params.hostname, params.service);
+
+
+    g_cache = tls_cache_create();
 
     do {
         client_log("***** Connection to  %s:%s (reconnects=%d) starting\n", params.hostname, params.service, reconnects);
@@ -787,4 +803,5 @@ int main(int argc, const char * argv[])
 
     } while(reconnects--);
 
+    tls_cache_destroy(g_cache);
 }

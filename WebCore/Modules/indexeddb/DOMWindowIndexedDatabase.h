@@ -44,13 +44,13 @@ public:
 
     static DOMWindowIndexedDatabase* from(DOMWindow*);
 
-    static IDBFactory* indexedDB(DOMWindow*);
+    WEBCORE_EXPORT static IDBFactory* indexedDB(DOMWindow&);
 
-    virtual void disconnectFrameForPageCache() override;
-    virtual void reconnectFrameFromPageCache(Frame*) override;
-    virtual void willDestroyGlobalObjectInCachedFrame() override;
-    virtual void willDestroyGlobalObjectInFrame() override;
-    virtual void willDetachGlobalObjectFromFrame() override;
+    void disconnectFrameForDocumentSuspension() override;
+    void reconnectFrameFromDocumentSuspension(Frame*) override;
+    void willDestroyGlobalObjectInCachedFrame() override;
+    void willDestroyGlobalObjectInFrame() override;
+    void willDetachGlobalObjectFromFrame() override;
 
 private:
     IDBFactory* indexedDB();

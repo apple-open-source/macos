@@ -177,6 +177,7 @@ BOOL lp_ignore_errors(int );
 BOOL lp_ignore_nonreadable(int );
 BOOL lp_list(int );
 BOOL lp_munge_symlinks(int );
+BOOL lp_numeric_ids(int );
 BOOL lp_read_only(int );
 BOOL lp_strict_modes(int );
 BOOL lp_transfer_logging(int );

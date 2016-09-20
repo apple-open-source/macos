@@ -6,8 +6,22 @@
 	objectVersion = 46;
 	objects = {
 
+/* Begin PBXAggregateTarget section */
+		D447C4DB1D31C9DD0082FC1D /* libCMSInstall */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = D447C4DE1D31C9DD0082FC1D /* Build configuration list for PBXAggregateTarget "libCMSInstall" */;
+			buildPhases = (
+				D447C4E11D31C9F20082FC1D /* Copy Headers */,
+			);
+			dependencies = (
+				D447C4E01D31C9E80082FC1D /* PBXTargetDependency */,
+			);
+			name = libCMSInstall;
+			productName = libCMSInstall;
+		};
+/* End PBXAggregateTarget section */
+
 /* Begin PBXBuildFile section */
-		0C2C8E25164D8F3F00D0B3C9 /* SecSMIME.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C7183470637153700230DDE /* SecSMIME.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		4C14208F0415845900CA2E66 /* cmsdigdata.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C2741F803E9FC5B00A80181 /* cmsdigdata.c */; };
 		4C21886C0635F4BD00E64E02 /* SecCmsBase.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4CCC26030635F1A100CBF0D4 /* SecCmsBase.h */; };
 		4C21886D0635F4BD00E64E02 /* SecCmsContentInfo.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4CCC26040635F1A100CBF0D4 /* SecCmsContentInfo.h */; };
@@ -94,6 +108,7 @@
 		79DC33800D4E6F170039E4BC /* secoid.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C8E166C0438EEE700CA2E66 /* secoid.c */; };
 		79DC33810D4E6F170039E4BC /* smimeutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C27420F03E9FC5B00A80181 /* smimeutil.c */; };
 		79DC33820D4E6F170039E4BC /* cmsmessage.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C2741FE03E9FC5B00A80181 /* cmsmessage.c */; };
+		D447C4E21D31CA360082FC1D /* SecSMIME.h in Copy Headers */ = {isa = PBXBuildFile; fileRef = 4C7183470637153700230DDE /* SecSMIME.h */; };
 		F64399010420118A01CA2DCC /* cert.h in Headers */ = {isa = PBXBuildFile; fileRef = F64398FF0420118A01CA2DCC /* cert.h */; };
 		F64399020420118A01CA2DCC /* cert.c in Sources */ = {isa = PBXBuildFile; fileRef = F64399000420118A01CA2DCC /* cert.c */; };
 /* End PBXBuildFile section */
@@ -105,6 +120,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 4C7FAB40056AC7A200FE0C44;
 			remoteInfo = security_smime;
+		};
+		D447C4DF1D31C9E80082FC1D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4C2741E803E9FBAF00A80181 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 79DC33610D4E6EEA0039E4BC;
+			remoteInfo = libCMS;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -159,6 +181,17 @@
 				4C7183560637155B00230DDE /* SecSMIME.h in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D447C4E11D31C9F20082FC1D /* Copy Headers */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/include/Security;
+			dstSubfolderSpec = 0;
+			files = (
+				D447C4E21D31CA360082FC1D /* SecSMIME.h in Copy Headers */,
+			);
+			name = "Copy Headers";
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
@@ -365,14 +398,6 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
-		0C2C8E24164D8F2C00D0B3C9 /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				0C2C8E25164D8F3F00D0B3C9 /* SecSMIME.h in Headers */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		4C2741E903E9FBF700A80181 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -439,7 +464,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 79DC33840D4E6F350039E4BC /* Build configuration list for PBXNativeTarget "libCMS" */;
 			buildPhases = (
-				0C2C8E24164D8F2C00D0B3C9 /* Headers */,
 				79DC335F0D4E6EEA0039E4BC /* Sources */,
 				79DC33600D4E6EEA0039E4BC /* Frameworks */,
 			);
@@ -458,7 +482,13 @@
 		4C2741E803E9FBAF00A80181 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0700;
+				LastUpgradeCheck = 0800;
+				TargetAttributes = {
+					D447C4DB1D31C9DD0082FC1D = {
+						CreatedOnToolsVersion = 8.0;
+						ProvisioningStyle = Automatic;
+					};
+				};
 			};
 			buildConfigurationList = 79DC321B0D49473C0039E4BC /* Build configuration list for PBXProject "libsecurity_smime" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -478,6 +508,7 @@
 				4C2741ED03E9FBF700A80181 /* libsecurity_smime */,
 				4C7FAB40056AC7A200FE0C44 /* security_smime */,
 				79DC33610D4E6EEA0039E4BC /* libCMS */,
+				D447C4DB1D31C9DD0082FC1D /* libCMSInstall */,
 			);
 		};
 /* End PBXProject section */
@@ -575,6 +606,11 @@
 			target = 4C7FAB40056AC7A200FE0C44 /* security_smime */;
 			targetProxy = 4C89DFC5056AC87A0002E1CA /* PBXContainerItemProxy */;
 		};
+		D447C4E01D31C9E80082FC1D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 79DC33610D4E6EEA0039E4BC /* libCMS */;
+			targetProxy = D447C4DF1D31C9E80082FC1D /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -582,8 +618,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				ENABLE_TESTABILITY = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = "DEBUG=1";
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
@@ -605,7 +643,7 @@
 					"-fno-inline",
 				);
 				SDKROOT = iphoneos.internal;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator";
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wextra",
@@ -680,12 +718,12 @@
 					"$(PROJECT_DIR)/../OSX/sec",
 					"$(PROJECT_DIR)/../OSX/libsecurity_keychain/libDER",
 					"$(PROJECT_DIR)/../OSX/libsecurity_asn1",
-					"$(BUILT_PRODUCTS_DIR)$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/include",
-					"$(DSTROOT)$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/include",
+					"$(BUILT_PRODUCTS_DIR)/usr/local/include",
+					"$(DSTROOT)/usr/local/include",
 				);
-				INSTALL_PATH = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/lib";
+				INSTALL_PATH = /usr/local/lib;
 				PRODUCT_NAME = CMS;
-				PUBLIC_HEADERS_FOLDER_PATH = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/include/Security";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/Security;
 				SKIP_INSTALL = YES;
 				STRIP_INSTALLED_PRODUCT = NO;
 			};
@@ -697,6 +735,7 @@
 				COPY_PHASE_STRIP = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_PREPROCESSOR_DEFINITIONS = "NDEBUG=1";
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
@@ -715,7 +754,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				OTHER_CFLAGS = "-fconstant-cfstrings";
 				SDKROOT = iphoneos.internal;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator";
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wextra",
@@ -790,14 +829,28 @@
 					"$(PROJECT_DIR)/../OSX/sec",
 					"$(PROJECT_DIR)/../OSX/libsecurity_keychain/libDER",
 					"$(PROJECT_DIR)/../OSX/libsecurity_asn1",
-					"$(BUILT_PRODUCTS_DIR)$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/include",
-					"$(DSTROOT)$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/include",
+					"$(BUILT_PRODUCTS_DIR)/usr/local/include",
+					"$(DSTROOT)/usr/local/include",
 				);
-				INSTALL_PATH = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/lib";
+				INSTALL_PATH = /usr/local/lib;
 				PRODUCT_NAME = CMS;
-				PUBLIC_HEADERS_FOLDER_PATH = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/include/Security";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/Security;
 				SKIP_INSTALL = YES;
 				STRIP_INSTALLED_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		D447C4DC1D31C9DD0082FC1D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		D447C4DD1D31C9DD0082FC1D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
 		};
@@ -839,6 +892,14 @@
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
+		};
+		D447C4DE1D31C9DD0082FC1D /* Build configuration list for PBXAggregateTarget "libCMSInstall" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D447C4DC1D31C9DD0082FC1D /* Debug */,
+				D447C4DD1D31C9DD0082FC1D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
 		};
 /* End XCConfigurationList section */
 	};

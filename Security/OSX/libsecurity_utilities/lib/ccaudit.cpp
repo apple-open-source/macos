@@ -116,7 +116,7 @@ void AuditRecord::submit(const short event_code, const int returnCode,
     if (!(au_get_state() == AUC_AUDITING))
 		return;
 
-    secdebug("ccaudit", "Submitting authorization audit record");
+    secinfo("ccaudit", "Submitting authorization audit record");
 
     int ret = kAUNoErr;
 

@@ -219,6 +219,14 @@ bool SOSCCIsHomeKitSyncing(void);
 bool SOSCCIsWiFiSyncing(void);
 
 /*!
+ @function SOSCCIsAlwaysOnNoInitialSyncSyncing
+ @abstract determines whether homekit keychain syncing is occuring (kSOSViewHomeKit)
+ @result true if we're in the circle. false otherwise.
+ */
+
+bool SOSCCIsContinuityUnlockSyncing(void);
+
+/*!
  @function SOSCCRequestToJoinCircle
  @abstract Requests that this device join the circle.
  @param error What went wrong if we tried to join.
@@ -428,7 +436,6 @@ bool SOSCCSetAutoAcceptInfo(CFDataRef autoaccept, CFErrorRef *error);
  */
 bool SOSCCCheckPeerAvailability(CFErrorRef *error);
 
-
 /*!
  @function SOSCCGetLastDepartureReason
  @abstract Returns the code of why you left the circle.
@@ -443,7 +450,8 @@ enum DepartureReason {
     kSOSNeverAppliedToCircle,  // We've never applied to a circle
     kSOSDiscoveredRetirement,  // We discovered that we were retired.
     kSOSLostPrivateKey,        // We lost our private key
-							   // <-- add additional departure reason codes HERE!
+    kSOSPasswordChanged,        // We lost our public key, password change?
+                                // <-- add additional departure reason codes HERE!
 	kSOSNumDepartureReasons,   // ACHTUNG: this *MUST* be the last entry - ALWAYS!
 };
 
@@ -479,10 +487,9 @@ CFStringRef SOSCCCopyIncompatibilityInfo(CFErrorRef *error);
 // -- Views that sync to os in (iOS in (7.1, 8.*) Mac OS in (10.9, 10.10)) peers
 //
 
-// kSOSViewKeychainV0 - All items in the original iCloud Keychain are in this view
+// kSOSViewKeychainV0 - All items in the original iCloud Keychain are in the views listed below
 // It is defined by the query:
 // class in (genp inet keys) and pdmn in (ak,ck,dk,aku,cku,dku) and vwht = NULL and tkid = NULL
-extern const CFStringRef kSOSViewKeychainV0;
 
 // kSOSViewWiFi - class = genp and  pdmn in (ak,ck,dk,aku,cku,dku) and vwht = NULL and agrp = apple and svce = AirPort
 extern const CFStringRef kSOSViewWiFi;
@@ -495,6 +502,7 @@ extern const CFStringRef kSOSViewSafariCreditCards;
 
 // kSOSViewiCloudIdentity - class = keys and pdmn in (ak,ck,dk,aku,cku,dku) and vwht = NULL and agrp = com.apple.security.sos
 extern const CFStringRef kSOSViewiCloudIdentity;
+// End of KeychainV0 views
 
 // kSOSViewBackupBagV0 - class = genp and and pdmn in (ak,ck,dk,aku,cku,dku) and vwht = NULL and agrp = com.apple.sbd
 // (LEAVE OUT FOR NOW) and svce = SecureBackupService pdmn = ak acct = SecureBackupPublicKeybag
@@ -524,9 +532,12 @@ extern const CFStringRef kSOSViewPCSiCloudBackup;
 extern const CFStringRef kSOSViewPCSNotes;
 extern const CFStringRef kSOSViewPCSiMessage;
 extern const CFStringRef kSOSViewPCSFeldspar;
+extern const CFStringRef kSOSViewPCSSharing;
 
 extern const CFStringRef kSOSViewAppleTV;
 extern const CFStringRef kSOSViewHomeKit;
+extern const CFStringRef kSOSViewContinuityUnlock;
+extern const CFStringRef kSOSViewAccessoryPairing;
 
 /*!
  @function SOSCCView
@@ -634,6 +645,14 @@ bool SOSCCRegisterSingleRecoverySecret(CFDataRef aks_bag, bool forV0Only, CFErro
 
 
 /*!
+ @function SOSCCIsThisDeviceLastBackup
+ @param error Why this query can't be accepted.
+ @result true if this is the last backup device, false otherwise.
+ */
+
+bool SOSCCIsThisDeviceLastBackup(CFErrorRef *error);
+
+/*!
  @function SOSCCSetEscrowRecord
  @param escrow_label Account label
  @param tries Number of attempts
@@ -653,6 +672,40 @@ bool SOSCCSetEscrowRecord(CFStringRef escrow_label, uint64_t tries, CFErrorRef *
  @discussion for debugging - retrieve the escrow record
  */
 CFDictionaryRef SOSCCCopyEscrowRecord(CFErrorRef *error);
+
+/*!
+ @function SOSCCCopyApplication
+ @param error What went wrong getting the applicant peerInfo.
+ @result PeerInfoRef that's an applicant peerinfo to be used as the start of an HSA2 piggyback entry.
+ */
+
+SOSPeerInfoRef SOSCCCopyApplication(CFErrorRef *error);
+
+/*!
+ @function SOSCCCopyCircleJoiningBlob
+ @param applicant The peerInfo applicant to pre-approve for membership in the circle
+ @param error Why this peerInfo wasn't accepted.
+ @result DER blob containing the gencount and this peerkey signature of the current circle with the applicant as a member at the gencount.
+ */
+CFDataRef SOSCCCopyCircleJoiningBlob(SOSPeerInfoRef applicant, CFErrorRef *error);
+
+/*!
+ @function SOSCCJoinWithCircleJoiningBlob
+ @param joiningBlob DER blob to be used to create a suitable circle for this pre-approved peer to join.
+ @param error Why this peerInfo can't be accepted.
+ @result true if this succeeded.
+ */
+
+bool SOSCCJoinWithCircleJoiningBlob(CFDataRef joiningBlob, CFErrorRef *error);
+
+/*!
+ @function: bool SOSCCPeersHaveViewsEnabled(CFSetRef viewNames)
+ @param viewNames the collection of views we want to know if other peers have enabled
+ @result CFBooleanTrue if we are in circle and all views are enabled by at least one other peer,
+         CFBooleanFalse if we are in circle and any of the views aren't avaialbe
+         NULL if we have an error.
+ */
+CFBooleanRef SOSCCPeersHaveViewsEnabled(CFArrayRef viewNames, CFErrorRef *error);
 
 __END_DECLS
 

@@ -74,13 +74,13 @@ void ScrollingStateNode::setPropertyChanged(unsigned propertyBit)
 
 PassRefPtr<ScrollingStateNode> ScrollingStateNode::cloneAndReset(ScrollingStateTree& adoptiveTree)
 {
-    RefPtr<ScrollingStateNode> clone = this->clone(adoptiveTree);
+    auto clone = this->clone(adoptiveTree);
 
     // Now that this node is cloned, reset our change properties.
     resetChangedProperties();
 
-    cloneAndResetChildren(*clone, adoptiveTree);
-    return clone.release();
+    cloneAndResetChildren(clone.get(), adoptiveTree);
+    return WTFMove(clone);
 }
 
 void ScrollingStateNode::cloneAndResetChildren(ScrollingStateNode& clone, ScrollingStateTree& adoptiveTree)
@@ -112,17 +112,17 @@ void ScrollingStateNode::setLayer(const LayerRepresentation& layerRepresentation
     setPropertyChanged(ScrollLayer);
 }
 
-void ScrollingStateNode::dump(TextStream& ts, int indent) const
+void ScrollingStateNode::dump(TextStream& ts, int indent, ScrollingStateTreeAsTextBehavior behavior) const
 {
     writeIndent(ts, indent);
-    dumpProperties(ts, indent);
+    dumpProperties(ts, indent, behavior);
 
     if (m_children) {
         writeIndent(ts, indent + 1);
         ts << "(children " << children()->size() << "\n";
         
         for (auto& child : *m_children)
-            child->dump(ts, indent + 2);
+            child->dump(ts, indent + 2, behavior);
         writeIndent(ts, indent + 1);
         ts << ")\n";
     }
@@ -135,7 +135,7 @@ String ScrollingStateNode::scrollingStateTreeAsText() const
 {
     TextStream ts;
 
-    dump(ts, 0);
+    dump(ts, 0, ScrollingStateTreeAsTextBehaviorNormal);
     return ts.release();
 }
 

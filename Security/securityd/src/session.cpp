@@ -64,7 +64,7 @@ const char Session::kRealname[] = "realname";
 // Create a Session object from initial parameters (create)
 //
 Session::Session(const AuditInfo &audit, Server &server)
-	: mAudit(audit), mSecurityAgent(NULL), mAuthHost(NULL), mKeybagState(0)
+	: mAudit(audit), mSecurityAgent(NULL), mKeybagState(0)
 {
 	// link to Server as the global nexus in the object mesh
 	parent(server);
@@ -75,7 +75,7 @@ Session::Session(const AuditInfo &audit, Server &server)
 	mSessions[audit.sessionId()] = this;
 	
 	// log it
-	SECURITYD_SESSION_CREATE(this, this->sessionId(), &mAudit, sizeof(mAudit));
+    secnotice("SS", "%p Session %d created, uid:%d sessionId:%d", this, this->sessionId(), mAudit.uid(), mAudit.sessionId());
 	Syslog::notice("Session %d created", this->sessionId());
 }
 
@@ -85,7 +85,7 @@ Session::Session(const AuditInfo &audit, Server &server)
 //
 Session::~Session()
 {
-	SECURITYD_SESSION_DESTROY(this, this->sessionId());
+    secnotice("SS", "%p Session %d destroyed", this, this->sessionId());
 	Syslog::notice("Session %d destroyed", this->sessionId());
 }
 
@@ -114,7 +114,7 @@ Session &Session::find(pid_t id, bool create)
 	AuditInfo info;
 	info.get(id);
 	assert(info.sessionId() == id);
-	RefPointer<Session> session = new DynamicSession(info);
+	RefPointer<Session> session = new Session(info, Server::active());
 	mSessions.insert(make_pair(id, session));
 	return *session;
 }
@@ -130,7 +130,6 @@ Session &Session::find(pid_t id, bool create)
 void Session::destroy(SessionId id)
 {
     // remove session from session map
-    bool unlocked = false;
     RefPointer<Session> session = NULL;
     {
         StLock<Mutex> _(mSessionLock);
@@ -139,22 +138,10 @@ void Session::destroy(SessionId id)
             session = it->second;
             assert(session->sessionId() == id);
             mSessions.erase(it);
-
-            for (SessionMap::iterator kb_it = mSessions.begin(); kb_it != mSessions.end(); kb_it++) {
-                RefPointer<Session> kb_session = kb_it->second;
-                if (kb_session->originatorUid() == session->originatorUid()) {
-                    if (kb_session->keybagGetState(session_keybag_unlocked)) unlocked = true;
-                }
-            }
         }
     }
 
     if (session.get()) {
-        if (!unlocked) {
-            // sessions are destroy outside of a process request session->get_current_service_context()
-            service_context_t context = { session->sessionId(), session->originatorUid(), {} };
-            service_client_kb_lock(&context);
-        }
         session->kill();
     }
 }
@@ -163,19 +150,8 @@ void Session::destroy(SessionId id)
 void Session::kill()
 {
     StLock<Mutex> _(*this);     // do we need to take this so early?
-	SECURITYD_SESSION_KILL(this, this->sessionId());
+    secnotice("SS", "%p killing session %d", this, this->sessionId());
     invalidateSessionAuthHosts();
-	
-    // invalidate shared credentials
-    {
-        StLock<Mutex> _(mCredsLock);
-        
-        IFDEBUG(if (!mSessionCreds.empty()) 
-            secdebug("SSauth", "session %p clearing %d shared credentials", 
-                this, int(mSessionCreds.size())));
-        for (CredentialSet::iterator it = mSessionCreds.begin(); it != mSessionCreds.end(); it++)
-            (*it)->invalidate();
-    }
 	
 	// base kill processing
 	PerSession::kill();
@@ -263,9 +239,7 @@ void Session::invalidateSessionAuthHosts()
     // if you got here, we don't care about pending operations: the auth hosts die
     Syslog::warning("Killing auth hosts");
     if (mSecurityAgent) mSecurityAgent->UnixPlusPlus::Child::kill(SIGTERM);
-    if (mAuthHost) mAuthHost->UnixPlusPlus::Child::kill(SIGTERM);
     mSecurityAgent = NULL;
-    mAuthHost = NULL;
 }
 
 void Session::invalidateAuthHosts()
@@ -311,164 +285,6 @@ RootSession::RootSession(uint64_t attributes, Server &server)
 }
 
 
-//
-// Dynamic sessions use the audit session context of the first-contact client caller.
-//
-DynamicSession::DynamicSession(const AuditInfo &audit)
-	: Session(audit, Server::active())
-{
-}
-
-
-//
-// Authorization operations
-//
-OSStatus Session::authCreate(const AuthItemSet &rights,
-	const AuthItemSet &environment,
-	AuthorizationFlags flags,
-	AuthorizationBlob &newHandle,
-	const audit_token_t &auditToken)
-{
-	// invoke the authorization computation engine
-	CredentialSet resultCreds;
-	
-	// this will acquire the object lock, so we delay acquiring it (@@@ no longer needed)
-	auto_ptr<AuthorizationToken> auth(new AuthorizationToken(*this, resultCreds, auditToken, (flags&kAuthorizationFlagLeastPrivileged)));
-
-	SECURITYD_AUTH_CREATE(this, auth.get());
-    
-    // Make a copy of the mSessionCreds
-    CredentialSet sessionCreds;
-    {
-        StLock<Mutex> _(mCredsLock);
-        sessionCreds = mSessionCreds;
-    }
-	
-	AuthItemSet outRights;
-	OSStatus result = Server::authority().authorize(rights, environment, flags,
-        &sessionCreds, &resultCreds, outRights, *auth);
-	newHandle = auth->handle();
-
-    // merge resulting creds into shared pool
-    if ((flags & kAuthorizationFlagExtendRights) && 
-        !(flags & kAuthorizationFlagDestroyRights))
-    {
-        StLock<Mutex> _(mCredsLock);
-        mergeCredentials(resultCreds);
-        auth->mergeCredentials(resultCreds);
-    }
-
-	// Make sure that this isn't done until the auth(AuthorizationToken) is guaranteed to 
-	// not be destroyed anymore since it's destructor asserts it has no processes
-	Server::process().addAuthorization(auth.get());
-	auth.release();
-	return result;
-}
-
-void Session::authFree(const AuthorizationBlob &authBlob, AuthorizationFlags flags)
-{
-    AuthorizationToken::Deleter deleter(authBlob);
-    AuthorizationToken &auth = deleter;
-	Process &process = Server::process();
-	process.checkAuthorization(&auth);
-
-	if (flags & kAuthorizationFlagDestroyRights) {
-		// explicitly invalidate all shared credentials and remove them from the session
-		for (CredentialSet::const_iterator it = auth.begin(); it != auth.end(); it++)
-			if ((*it)->isShared())
-				(*it)->invalidate();
-	}
-
-	// now get rid of the authorization itself
-	if (process.removeAuthorization(&auth))
-        deleter.remove();
-}
-
-OSStatus Session::authGetRights(const AuthorizationBlob &authBlob,
-	const AuthItemSet &rights, const AuthItemSet &environment,
-	AuthorizationFlags flags,
-	AuthItemSet &grantedRights)
-{
-	AuthorizationToken &auth = authorization(authBlob);
-	return auth.session().authGetRights(auth, rights, environment, flags, grantedRights);
-}
-
-OSStatus Session::authGetRights(AuthorizationToken &auth,
-	const AuthItemSet &rights, const AuthItemSet &environment,
-	AuthorizationFlags flags,
-	AuthItemSet &grantedRights)
-{
-    CredentialSet resultCreds;
-    CredentialSet effective;
-    {
-        StLock<Mutex> _(mCredsLock);
-        effective	 = auth.effectiveCreds();
-    }
-	OSStatus result = Server::authority().authorize(rights, environment, flags, 
-        &effective, &resultCreds, grantedRights, auth);
-
-	// merge resulting creds into shared pool
-	if ((flags & kAuthorizationFlagExtendRights) && !(flags & kAuthorizationFlagDestroyRights))
-    {
-        StLock<Mutex> _(mCredsLock);
-        mergeCredentials(resultCreds);
-        auth.mergeCredentials(resultCreds);
-	}
-
-	secdebug("SSauth", "Authorization %p copyRights asked for %d got %d",
-		&auth, int(rights.size()), int(grantedRights.size()));
-	return result;
-}
-
-OSStatus Session::authGetInfo(const AuthorizationBlob &authBlob,
-	const char *tag,
-	AuthItemSet &contextInfo)
-{
-	AuthorizationToken &auth = authorization(authBlob);
-	secdebug("SSauth", "Authorization %p get-info", &auth);
-	contextInfo = auth.infoSet(tag);
-    return noErr;
-}
-
-OSStatus Session::authExternalize(const AuthorizationBlob &authBlob, 
-	AuthorizationExternalForm &extForm)
-{
-	const AuthorizationToken &auth = authorization(authBlob);
-	StLock<Mutex> _(*this);
-	if (auth.mayExternalize(Server::process())) {
-		memset(&extForm, 0, sizeof(extForm));
-        AuthorizationExternalBlob &extBlob =
-            reinterpret_cast<AuthorizationExternalBlob &>(extForm);
-        extBlob.blob = auth.handle();
-        extBlob.session = this->sessionId();
-		secdebug("SSauth", "Authorization %p externalized", &auth);
-		return noErr;
-	} else
-		return errAuthorizationExternalizeNotAllowed;
-}
-
-OSStatus Session::authInternalize(const AuthorizationExternalForm &extForm, 
-	AuthorizationBlob &authBlob)
-{
-	// interpret the external form
-    const AuthorizationExternalBlob &extBlob = 
-        reinterpret_cast<const AuthorizationExternalBlob &>(extForm);
-	
-    // locate source authorization
-    AuthorizationToken &sourceAuth = AuthorizationToken::find(extBlob.blob);
-    
-	// check for permission and do it
-	if (sourceAuth.mayInternalize(Server::process(), true)) {
-		StLock<Mutex> _(*this);
-		authBlob = extBlob.blob;
-        Server::process().addAuthorization(&sourceAuth);
-        secdebug("SSauth", "Authorization %p internalized", &sourceAuth);
-		return noErr;
-	} else
-		return errAuthorizationInternalizeNotAllowed;
-}
-
-
 // 
 // Accessor method for setting audit session flags.
 // 
@@ -499,177 +315,19 @@ uid_t Session::originatorUid()
     return mAudit.uid();
 }
 
-//
-// Authorization database I/O
-//
-OSStatus Session::authorizationdbGet(AuthorizationString inRightName, CFDictionaryRef *rightDict)
-{
-	string rightName(inRightName);
-	return Server::authority().getRule(rightName, rightDict);
-}
-
-
-OSStatus Session::authorizationdbSet(const AuthorizationBlob &authBlob, AuthorizationString inRightName, CFDictionaryRef rightDict)
-{
-	CredentialSet resultCreds;
-    AuthorizationToken &auth = authorization(authBlob);
-    CredentialSet effective;
-
-    {
-        StLock<Mutex> _(mCredsLock);
-        effective	 = auth.effectiveCreds();
-    }
-
-	OSStatus result = Server::authority().setRule(inRightName, rightDict, &effective, &resultCreds, auth);
-
-    {
-        StLock<Mutex> _(mCredsLock);
-        mergeCredentials(resultCreds);
-        auth.mergeCredentials(resultCreds);
-	}
-
-	secdebug("SSauth", "Authorization %p authorizationdbSet %s (result=%d)",
-		&authorization(authBlob), inRightName, int32_t(result));
-	return result;
-}
-
-
-OSStatus Session::authorizationdbRemove(const AuthorizationBlob &authBlob, AuthorizationString inRightName)
-{
-	CredentialSet resultCreds;
-    AuthorizationToken &auth = authorization(authBlob);
-    CredentialSet effective;
-
-    {
-        StLock<Mutex> _(mCredsLock);
-        effective	 = auth.effectiveCreds();
-    }
-
-	OSStatus result = Server::authority().removeRule(inRightName, &effective, &resultCreds, auth);
-
-    {
-        StLock<Mutex> _(mCredsLock);
-        mergeCredentials(resultCreds);
-        auth.mergeCredentials(resultCreds);
-	}
-
-	secdebug("SSauth", "Authorization %p authorizationdbRemove %s (result=%d)",
-		&authorization(authBlob), inRightName, int32_t(result));
-	return result;
-}
-
-
-//
-// Merge a set of credentials into the shared-session credential pool
-//
-// must hold mCredsLock
-void Session::mergeCredentials(CredentialSet &creds)
-{
-    secdebug("SSsession", "%p merge creds @%p", this, &creds);
-	CredentialSet updatedCredentials = creds;
-	for (CredentialSet::const_iterator it = creds.begin(); it != creds.end(); it++)
-		if ((*it)->isShared() && (*it)->isValid()) {
-			CredentialSet::iterator old = mSessionCreds.find(*it);
-			if (old == mSessionCreds.end()) {
-				mSessionCreds.insert(*it);
-            } else {
-                // replace "new" with "old" in input set to retain synchronization
-				(*old)->merge(**it);
-                updatedCredentials.erase(*it);
-                updatedCredentials.insert(*old);
-            }
-		}
-	creds.swap(updatedCredentials);
-}
-
-
-//
-// Locate an AuthorizationToken given a blob
-//
-AuthorizationToken &Session::authorization(const AuthorizationBlob &blob)
-{
-    AuthorizationToken &auth = AuthorizationToken::find(blob);
-	Server::process().checkAuthorization(&auth);
-	return auth;
-}
-
-//
-// Run the Authorization engine to check if a given right has been authorized,
-// independent of an external client request.  
-//
-OSStatus Session::authCheckRight(string &rightName, Connection &connection, bool allowUI)
-{
-    // dummy up the arguments for authCreate()
-    AuthorizationItem rightItem = { rightName.c_str(), 0, NULL, 0 };
-    AuthorizationItemSet rightItemSet = { 1, &rightItem };
-    AuthItemSet rightAuthItemSet(&rightItemSet);
-    AuthItemSet envAuthItemSet(kAuthorizationEmptyEnvironment);
-    AuthorizationFlags flags = kAuthorizationFlagDefaults | kAuthorizationFlagExtendRights;
-    if (true == allowUI)
-        flags |= kAuthorizationFlagInteractionAllowed;
-    AuthorizationBlob dummyHandle;
-    const audit_token_t *at = connection.auditToken();
-    
-    return authCreate(rightAuthItemSet, envAuthItemSet, flags, dummyHandle, *at);
-}
-
-// for places within securityd that don't want to #include
-// <libsecurity_authorization/Authorization.h> or to fuss about exceptions
-bool Session::isRightAuthorized(string &rightName, Connection &connection, bool allowUI)
-{
-    bool isAuthorized = false;
-    
-    try {
-        OSStatus status = authCheckRight(rightName, connection, allowUI);
-        if (errAuthorizationSuccess == status)
-            isAuthorized = true;
-    }
-    catch (...) { 
-    }
-    return isAuthorized;
-}
 
 RefPointer<AuthHostInstance> 
-Session::authhost(const AuthHostType hostType, const bool restart)
+Session::authhost(const bool restart)
 {
 	StLock<Mutex> _(mAuthHostLock);
 
-	if (hostType == privilegedAuthHost)
+	if (restart || !mSecurityAgent || (mSecurityAgent->state() != Security::UnixPlusPlus::Child::alive))
 	{
-		if (restart || !mAuthHost || (mAuthHost->state() != Security::UnixPlusPlus::Child::alive))
-		{
-			if (mAuthHost)
-				PerSession::kill(*mAuthHost);
-			mAuthHost = new AuthHostInstance(*this, hostType);	
-		}
-		return mAuthHost;
+		if (mSecurityAgent)
+			PerSession::kill(*mSecurityAgent);
+		mSecurityAgent = new AuthHostInstance(*this);
 	}
-	else /* if (hostType == securityAgent) */
-	{
-		if (restart || !mSecurityAgent || (mSecurityAgent->state() != Security::UnixPlusPlus::Child::alive))
-		{
-			if (mSecurityAgent)
-				PerSession::kill(*mSecurityAgent);
-			mSecurityAgent = new AuthHostInstance(*this, hostType);
-		}
-		return mSecurityAgent;
-	}
-}
-
-void DynamicSession::setUserPrefs(CFDataRef userPrefsDict)
-{
-	if (Server::process().uid() != 0)
-		MacOSError::throwMe(errSessionAuthorizationDenied);
-	StLock<Mutex> _(*this);
-	mSessionAgentPrefs = userPrefsDict;
-}
-
-CFDataRef DynamicSession::copyUserPrefs()
-{
-	StLock<Mutex> _(*this);
-	if (mSessionAgentPrefs)
-		CFRetain(mSessionAgentPrefs);
-	return mSessionAgentPrefs;
+	return mSecurityAgent;
 }
 
 
@@ -681,8 +339,8 @@ CFDataRef DynamicSession::copyUserPrefs()
 void Session::dumpNode()
 {
 	PerSession::dumpNode();
-	Debug::dump(" auid=%d attrs=%#x authhost=%p securityagent=%p",
-		this->sessionId(), uint32_t(this->attributes()), mAuthHost, mSecurityAgent);
+	Debug::dump(" auid=%d attrs=%#x securityagent=%p",
+		this->sessionId(), uint32_t(this->attributes()), mSecurityAgent);
 }
 
 #endif //DEBUGDUMP

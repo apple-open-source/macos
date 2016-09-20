@@ -211,12 +211,12 @@ IOHIDElementRef _IOHIDElementCreateWithParentAndData(
     IOHIDElementRef element = NULL;
     
     if (!elementStruct)
-        return NULL;
+        return (_Nonnull IOHIDElementRef)NULL;
 
     element = __IOHIDElementCreate(allocator, NULL);
 
     if (!element)
-        return NULL;
+        return (_Nonnull IOHIDElementRef)NULL;
                     
     element->data               = (CFDataRef)CFRetain(data);
     element->elementStructPtr   = elementStruct;
@@ -325,12 +325,12 @@ IOHIDElementRef IOHIDElementCreateWithDictionary(
     IOHIDElementRef element = NULL;
     
     if ( !dictionary )
-        return NULL;
+        return (_Nonnull IOHIDElementRef)NULL;
 
     element = __IOHIDElementCreate(allocator, NULL);
 
     if (!element)
-        return NULL;
+        return (_Nonnull IOHIDElementRef)NULL;
                     
     element->index              = 0;
     
@@ -340,7 +340,7 @@ IOHIDElementRef IOHIDElementCreateWithDictionary(
     
     if ( !element->data ) {
         CFRelease(element);
-        return NULL;
+        return (_Nonnull IOHIDElementRef)NULL;
     }
     
     element->elementStructPtr = (IOHIDElementStruct *)CFDataGetMutableBytePtr(

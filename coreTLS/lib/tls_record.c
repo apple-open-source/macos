@@ -36,6 +36,7 @@ SSLDisposeCipherSuite(CipherContext *cipher, tls_record_t ctx)
 }
 
 #include <tls_ciphersuites.h>
+#include "CipherSuite.h"
 #include "symCipher.h"
 #include <corecrypto/ccdigest.h>
 #include <corecrypto/ccmd5.h>
@@ -518,6 +519,10 @@ tls_record_decrypt(tls_record_t ctx,
     }
 
     if (ctx->readCipher.symCipher->params->cipherType == aeadCipherType) {
+        size_t overheadSize =  TLS_AES_GCM_EXPLICIT_IV_SIZE+TLS_AES_GCM_TAG_SIZE;
+        if (cipherFragment.length < overheadSize)
+            return errSSLRecordRecordOverflow;
+
         if ((err = ctx->readCipher.symCipher->c.aead.setIV(cipherFragment.data, ctx->readCipher.cipherCtx)) != 0)
             return errSSLRecordParam;
         /*
@@ -529,7 +534,7 @@ tls_record_decrypt(tls_record_t ctx,
         uint8_t *seq = &aad[0];
         SSLEncodeUInt64(seq, ctx->readCipher.sequenceNum);
         memcpy(aad+8, charPtr-TLS_RECORD_HEADER_SIZE, TLS_RECORD_HEADER_SIZE);
-        unsigned long len=cipherFragment.length-24;
+        unsigned long len=cipherFragment.length-overheadSize;
         aad[11] = len>>8;
         aad[12] = len & 0xff;
         if ((err = ctx->readCipher.symCipher->c.aead.update(aad, 13, ctx->readCipher.cipherCtx)) != 0)

@@ -30,7 +30,7 @@
 extern "C" {
 #endif
 
-extern int cms_util(int argc, char * const *argv);
+int cms_util(int argc, char * const *argv);
 
 #ifdef __cplusplus
 }

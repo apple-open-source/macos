@@ -64,6 +64,14 @@ Not all commands use all default settings, so some general options may not
 have an effect on all commands.
 .Pp
 The
+.Fl f
+option causes the
+.Nm
+utility to open the device with O_SHLOCK|O_RDWR mode.  Use this mode cautiously.
+It may conflict with other tasks currently have the write access to the same
+device.
+.Pp
+The
 .Fl p Ar count
 option allows the user to change the number of partitions the GPT can
 accommodate.
@@ -130,7 +138,7 @@ option allows the user to specify the partition type.
 The type is given as an UUID, but
 .Nm
 accepts
-.Cm efi , hfs , linux
+.Cm efi , hfs , apfs , linux
 and
 .Cm windows
 as aliases for the most commonly used partition types.

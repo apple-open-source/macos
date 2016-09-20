@@ -21,10 +21,12 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>10.0</string>
+	<string>1.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>${CURRENT_PROJECT_VERSION}</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright © 2013 Apple, Inc. All rights reserved.</string>
 </dict>
 </plist>

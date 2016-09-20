@@ -11,6 +11,7 @@
 #include <dispatch/dispatch.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/codesign.h>
 #include <stdio.h>
 #include <errno.h>
 #include <assert.h>
@@ -22,6 +23,8 @@
 #include <copyfile.h>
 #include <AssertMacros.h>
 #include <Security/Security.h>
+#include <Security/SecTask.h>
+#include <Security/SecTaskPriv.h>
 #include <Security/SecKeychainPriv.h>
 
 #include <IOKit/IOKitLib.h>
@@ -541,14 +544,8 @@ done:
 static int
 service_kb_lock(service_context_t * context)
 {
-    int rc = KB_GeneralError;
-    keybag_handle_t session_handle;
-    require_noerr(rc = _kb_get_session_handle(context, &session_handle), done);
-    
-    rc = aks_lock_bag(session_handle);
-    
-done:
-    return rc;
+    // this call has been disabled
+    return -1;
 }
 
 static int
@@ -753,10 +750,17 @@ done:
 OSStatus service_stash_set_key(service_context_t * context, xpc_object_t event, xpc_object_t reply)
 {
     kern_return_t kr = KERN_INVALID_ARGUMENT;
+    io_connect_t conn = IO_OBJECT_NULL;
     size_t keydata_len = 0;
     size_t len;
+
+    keybag_state_t state;
+    keybag_handle_t session_handle;
+    require_noerr(_kb_get_session_handle(context, &session_handle), done);
+    require_noerr(aks_get_lock_state(session_handle, &state), done);
+    require_action(!(state & keybag_lock_locked), done, kr = CSSMERR_CSP_OS_ACCESS_DENIED; LOG("stash failed keybag locked"));
     
-    io_connect_t conn = openiodev();
+    conn = openiodev();
     require(conn, done);
 
     // Store the key in the keystore and get its uuid
@@ -943,7 +947,6 @@ void service_peer_event_handler(xpc_connection_t connection, xpc_object_t event)
                 xpc_connection_cancel(connection);
                 return;
             }
-
             if (!check_signature(connection)) {
                 xpc_connection_cancel(connection);
                 return;
@@ -1041,37 +1044,42 @@ void service_peer_event_handler(xpc_connection_t connection, xpc_object_t event)
 
 bool check_signature(xpc_connection_t connection)
 {
-    CFStringRef reqStr = CFSTR("identifier com.apple.securityd and anchor apple");
-    SecRequirementRef  requirement = NULL;
-    SecCodeRef codeRef = NULL;
-    CFMutableDictionaryRef codeDict = NULL;
-    CFNumberRef codePid = NULL;
-    pid_t pid = xpc_connection_get_pid(connection);
-    
-    OSStatus status = SecRequirementCreateWithString(reqStr, kSecCSDefaultFlags, &requirement);
-    require_action(status == errSecSuccess, done, LOG("failed to create requirement"));
-    
-    codeDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    codePid = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &pid);
-    CFDictionarySetValue(codeDict, kSecGuestAttributePid, codePid);
-    status = SecCodeCopyGuestWithAttributes(NULL, codeDict, kSecCSDefaultFlags, &codeRef);
-    require_action(status == errSecSuccess, done, LOG("failed to get code ref"));
+#if !(DEBUG || RC_BUILDIT_YES)
+    audit_token_t token;
 
-    status = SecCodeCheckValidity(codeRef, kSecCSDefaultFlags,
-#if DEBUG || RC_BUILDIT_YES
-                                  NULL);
+    xpc_connection_get_audit_token(connection, &token);
+
+    SecTaskRef task = SecTaskCreateWithAuditToken(NULL, token);
+    if (task == NULL) {
+        syslog(LOG_NOTICE, "failed getting SecTaskRef of the client");
+        return false;
+    }
+
+    uint32_t flags = SecTaskGetCodeSignStatus(task);
+    /* check if valid and platform binary, but not platform path */
+    if ((flags & (CS_VALID | CS_PLATFORM_BINARY | CS_PLATFORM_PATH)) != (CS_VALID | CS_PLATFORM_BINARY)) {
+        syslog(LOG_NOTICE, "client is not a platform binary: %0x08x", flags);
+        CFRelease(task);
+        return false;
+    }
+
+    CFStringRef signingIdentity = SecTaskCopySigningIdentifier(task, NULL);
+    CFRelease(task);
+    if (signingIdentity == NULL) {
+        syslog(LOG_NOTICE, "client have no code sign identity");
+        return false;
+    }
+
+    bool res = CFEqual(signingIdentity, CFSTR("com.apple.securityd"));
+    CFRelease(signingIdentity);
+
+    if (!res)
+        syslog(LOG_NOTICE, "client is not not securityd");
+
+    return res;
 #else
-                                  requirement);
+    return true;
 #endif
-    require_action(status == errSecSuccess, done, syslog(LOG_ERR, "pid %d, does not satisfy code requirment (%d)", pid, status));
-    
-done:
-    if (codeRef) CFRelease(codeRef);
-    if (requirement) CFRelease(requirement);
-    if (codeDict) CFRelease(codeDict);
-    if (codePid) CFRelease(codePid);
-    
-    return (status == errSecSuccess);
 }
 
 static void register_for_notifications()

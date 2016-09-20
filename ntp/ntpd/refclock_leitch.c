@@ -6,23 +6,17 @@
 # include <config.h>
 #endif
 
-#if defined(REFCLOCK) && defined(CLOCK_LEITCH)
+#include "ntp_types.h"
 
-#include "ntpd.h"
-#include "ntp_io.h"
-#include "ntp_refclock.h"
-#include "ntp_unixtime.h"
+#if defined(REFCLOCK) && defined(CLOCK_LEITCH)
 
 #include <stdio.h>
 #include <ctype.h>
 
-#ifdef STREAM
-#include <stropts.h>
-#if defined(LEITCHCLK)
-#include <sys/clkdefs.h>
-#endif /* LEITCHCLK */
-#endif /* STREAM */
-
+#include "ntpd.h"
+#include "ntp_io.h"
+#include "ntp_refclock.h"
+#include "timevalops.h"
 #include "ntp_stdlib.h"
 
 
@@ -101,7 +95,7 @@ static	void	leitch_init	(void);
 static	int	leitch_start	(int, struct peer *);
 static	void	leitch_shutdown	(int, struct peer *);
 static	void	leitch_poll	(int, struct peer *);
-static	void	leitch_control	(int, struct refclockstat *, struct refclockstat *, struct peer *);
+static	void	leitch_control	(int, const struct refclockstat *, struct refclockstat *, struct peer *);
 #define	leitch_buginfo	noentry
 static	void	leitch_receive	(struct recvbuf *);
 static	void	leitch_process	(struct leitchunit *);
@@ -150,9 +144,17 @@ leitch_shutdown(
 	struct peer *peer
 	)
 {
+	struct leitchunit *leitch;
+
+	if (unit >= MAXUNITS) {
+		return;
+	}
+	leitch = &leitchunits[unit];
+	if (-1 != leitch->leitchio.fd)
+		io_closeclock(&leitch->leitchio);
 #ifdef DEBUG
 	if (debug)
-	    fprintf(stderr, "leitch_shutdown()\n");
+		fprintf(stderr, "leitch_shutdown()\n");
 #endif
 }
 
@@ -193,7 +195,7 @@ leitch_poll(
 static void
 leitch_control(
 	int unit,
-	struct refclockstat *in,
+	const struct refclockstat *in,
 	struct refclockstat *out,
 	struct peer *passed_peer
 	)
@@ -258,7 +260,7 @@ leitch_start(
 	/*
 	 * Open serial port.
 	 */
-	(void) sprintf(leitchdev, LEITCH232, unit);
+	snprintf(leitchdev, sizeof(leitchdev), LEITCH232, unit);
 	fd232 = open(leitchdev, O_RDWR, 0777);
 	if (fd232 == -1) {
 		msyslog(LOG_ERR,
@@ -267,7 +269,7 @@ leitch_start(
 	}
 
 	leitch = &leitchunits[unit];
-	memset((char*)leitch, 0, sizeof(*leitch));
+	memset(leitch, 0, sizeof(*leitch));
 
 #if defined(HAVE_SYSV_TTYS)
 	/*
@@ -295,9 +297,6 @@ leitch_start(
 #if defined(HAVE_TERMIOS)
 	/*
 	 * POSIX serial line parameters (termios interface)
-	 *
-	 * The LEITCHCLK option provides timestamping at the driver level. 
-	 * It requires the tty_clk streams module.
 	 */
 	{	struct termios ttyb, *ttyp;
 
@@ -324,27 +323,12 @@ leitch_start(
 	}
 	}
 #endif /* HAVE_TERMIOS */
-#ifdef STREAM
-#if defined(LEITCHCLK)
-	if (ioctl(fd232, I_PUSH, "clk") < 0)
-	    msyslog(LOG_ERR,
-		    "leitch_start: ioctl(%s, I_PUSH, clk): %m", leitchdev);
-	if (ioctl(fd232, CLK_SETSTR, "\n") < 0)
-	    msyslog(LOG_ERR,
-		    "leitch_start: ioctl(%s, CLK_SETSTR): %m", leitchdev);
-#endif /* LEITCHCLK */
-#endif /* STREAM */
 #if defined(HAVE_BSD_TTYS)
 	/*
 	 * 4.3bsd serial line parameters (sgttyb interface)
-	 *
-	 * The LEITCHCLK option provides timestamping at the driver level. 
-	 * It requires the tty_clk line discipline and 4.3bsd or later.
 	 */
-	{	struct sgttyb ttyb;
-#if defined(LEITCHCLK)
-	int ldisc = CLKLDISC;
-#endif /* LEITCHCLK */
+	{
+		struct sgttyb ttyb;
 
 	if (ioctl(fd232, TIOCGETP, &ttyb) < 0) {
 		msyslog(LOG_ERR,
@@ -352,25 +336,13 @@ leitch_start(
 		goto screwed;
 	}
 	ttyb.sg_ispeed = ttyb.sg_ospeed = SPEED232;
-#if defined(LEITCHCLK)
-	ttyb.sg_erase = ttyb.sg_kill = '\r';
-	ttyb.sg_flags = RAW;
-#else
 	ttyb.sg_erase = ttyb.sg_kill = '\0';
 	ttyb.sg_flags = EVENP|ODDP|CRMOD;
-#endif /* LEITCHCLK */
 	if (ioctl(fd232, TIOCSETP, &ttyb) < 0) {
 		msyslog(LOG_ERR,
 			"leitch_start: ioctl(%s, TIOCSETP): %m", leitchdev);
 		goto screwed;
 	}
-#if defined(LEITCHCLK)
-	if (ioctl(fd232, TIOCSETD, &ldisc) < 0) {
-		msyslog(LOG_ERR,
-			"leitch_start: ioctl(%s, TIOCSETD): %m",leitchdev);
-		goto screwed;
-	}
-#endif /* LEITCHCLK */
 	}
 #endif /* HAVE_BSD_TTYS */
 
@@ -383,10 +355,11 @@ leitch_start(
 	leitch->fudge1 = 15;	/* 15ms */
 
 	leitch->leitchio.clock_recv = leitch_receive;
-	leitch->leitchio.srcclock = (caddr_t) leitch;
+	leitch->leitchio.srcclock = peer;
 	leitch->leitchio.datalen = 0;
 	leitch->leitchio.fd = fd232;
 	if (!io_addclock(&leitch->leitchio)) {
+		leitch->leitchio.fd = -1;
 		goto screwed;
 	}
 
@@ -417,7 +390,7 @@ leitch_receive(
 	struct recvbuf *rbufp
 	)
 {
-	struct leitchunit *leitch = (struct leitchunit *)rbufp->recv_srcclock;
+	struct leitchunit *leitch = rbufp->recv_peer->procptr->unitptr;
 
 #ifdef DEBUG
 	if (debug)
@@ -623,5 +596,5 @@ leitch_get_time(
 }
 
 #else
-int refclock_leitch_bs;
+NONEMPTY_TRANSLATION_UNIT
 #endif /* REFCLOCK */

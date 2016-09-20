@@ -6,13 +6,13 @@
  * are met:
  *
  * 1.  Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer. 
+ *     notice, this list of conditions and the following disclaimer.
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
- *     documentation and/or other materials provided with the distribution. 
+ *     documentation and/or other materials provided with the distribution.
  * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission. 
+ *     from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -29,13 +29,12 @@
 #include "config.h"
 #include "JSSymbolTableObject.h"
 
-#include "JSGlobalObject.h"
-#include "JSLexicalEnvironment.h"
-#include "JSNameScope.h"
 #include "JSCInlines.h"
 #include "PropertyNameArray.h"
 
 namespace JSC {
+
+const ClassInfo JSSymbolTableObject::s_info = { "SymbolTableObject", &Base::s_info, nullptr, CREATE_METHOD_TABLE(JSSymbolTableObject) };
 
 void JSSymbolTableObject::visitChildren(JSCell* cell, SlotVisitor& visitor)
 {
@@ -48,10 +47,10 @@ void JSSymbolTableObject::visitChildren(JSCell* cell, SlotVisitor& visitor)
 bool JSSymbolTableObject::deleteProperty(JSCell* cell, ExecState* exec, PropertyName propertyName)
 {
     JSSymbolTableObject* thisObject = jsCast<JSSymbolTableObject*>(cell);
-    if (thisObject->symbolTable()->contains(propertyName.publicName()))
+    if (thisObject->symbolTable()->contains(propertyName.uid()))
         return false;
 
-    return JSObject::deleteProperty(thisObject, exec, propertyName);
+    return Base::deleteProperty(thisObject, exec, propertyName);
 }
 
 void JSSymbolTableObject::getOwnNonIndexPropertyNames(JSObject* object, ExecState* exec, PropertyNameArray& propertyNames, EnumerationMode mode)
@@ -62,14 +61,14 @@ void JSSymbolTableObject::getOwnNonIndexPropertyNames(JSObject* object, ExecStat
         SymbolTable::Map::iterator end = thisObject->symbolTable()->end(locker);
         for (SymbolTable::Map::iterator it = thisObject->symbolTable()->begin(locker); it != end; ++it) {
             if (!(it->value.getAttributes() & DontEnum) || mode.includeDontEnumProperties()) {
-                if (it->key->isSymbol() && !mode.includeSymbolProperties())
+                if (it->key->isSymbol() && !propertyNames.includeSymbolProperties())
                     continue;
                 propertyNames.add(Identifier::fromUid(exec, it->key.get()));
             }
         }
     }
-    
-    JSObject::getOwnNonIndexPropertyNames(thisObject, exec, propertyNames, mode);
+
+    Base::getOwnNonIndexPropertyNames(thisObject, exec, propertyNames, mode);
 }
 
 } // namespace JSC

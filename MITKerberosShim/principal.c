@@ -45,12 +45,12 @@ map_mit_principal(struct comb_principal *p)
     p->mit.type = p->heim->name.name_type;
     p->mit.realm.magic = MIT_KV5M_DATA;
     p->mit.realm.data = p->heim->realm;
-    p->mit.realm.length = strlen(p->heim->realm);
+    p->mit.realm.length = (unsigned int)strlen(p->heim->realm);
     p->mit.data = calloc(p->heim->name.name_string.len, sizeof(*p->mit.data));
     for (i = 0; i < p->heim->name.name_string.len; i++) {
 	p->mit.data[i].magic = MIT_KV5M_DATA;
 	p->mit.data[i].data = p->heim->name.name_string.val[i];
-	p->mit.data[i].length = strlen(p->heim->name.name_string.val[i]);
+	p->mit.data[i].length = (unsigned int)strlen(p->heim->name.name_string.val[i]);
     }
     p->mit.length = p->heim->name.name_string.len;
 }

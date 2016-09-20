@@ -81,8 +81,8 @@ public:
     float value() const { return m_value; }
 
 private:
-    virtual float evaluate(float) const override;
-    virtual bool operator==(const CalcExpressionNode&) const override;
+    float evaluate(float) const override;
+    bool operator==(const CalcExpressionNode&) const override;
 
     float m_value;
 };
@@ -94,8 +94,8 @@ public:
     const Length& length() const { return m_length; }
 
 private:
-    virtual float evaluate(float maxValue) const override;
-    virtual bool operator==(const CalcExpressionNode&) const override;
+    float evaluate(float maxValue) const override;
+    bool operator==(const CalcExpressionNode&) const override;
 
     Length m_length;
 };
@@ -109,8 +109,8 @@ public:
     CalcOperator getOperator() const { return m_operator; }
 
 private:
-    virtual float evaluate(float maxValue) const override;
-    virtual bool operator==(const CalcExpressionNode&) const override;
+    float evaluate(float maxValue) const override;
+    bool operator==(const CalcExpressionNode&) const override;
 
     std::unique_ptr<CalcExpressionNode> m_leftSide;
     std::unique_ptr<CalcExpressionNode> m_rightSide;
@@ -126,8 +126,8 @@ public:
     float progress() const { return m_progress; }
 
 private:
-    virtual float evaluate(float maxValue) const override;
-    virtual bool operator==(const CalcExpressionNode&) const override;
+    float evaluate(float maxValue) const override;
+    bool operator==(const CalcExpressionNode&) const override;
 
     Length m_from;
     Length m_to;
@@ -155,7 +155,7 @@ inline CalcExpressionNode::CalcExpressionNode(CalcExpressionNodeType type)
 }
 
 inline CalculationValue::CalculationValue(std::unique_ptr<CalcExpressionNode> expression, CalculationPermittedValueRange range)
-    : m_expression(WTF::move(expression))
+    : m_expression(WTFMove(expression))
     , m_shouldClampToNonNegative(range == CalculationRangeNonNegative)
 {
 }
@@ -201,8 +201,8 @@ inline const CalcExpressionLength& toCalcExpressionLength(const CalcExpressionNo
 
 inline CalcExpressionBinaryOperation::CalcExpressionBinaryOperation(std::unique_ptr<CalcExpressionNode> leftSide, std::unique_ptr<CalcExpressionNode> rightSide, CalcOperator op)
     : CalcExpressionNode(CalcExpressionNodeBinaryOperation)
-    , m_leftSide(WTF::move(leftSide))
-    , m_rightSide(WTF::move(rightSide))
+    , m_leftSide(WTFMove(leftSide))
+    , m_rightSide(WTFMove(rightSide))
     , m_operator(op)
 {
 }

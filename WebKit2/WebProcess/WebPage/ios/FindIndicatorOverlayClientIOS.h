@@ -30,23 +30,28 @@
 #import <WebCore/GraphicsContext.h>
 #import <WebCore/PageOverlay.h>
 
+namespace WebCore {
+class TextIndicator;
+}
+
 namespace WebKit {
 
 class FindIndicatorOverlayClientIOS : public WebCore::PageOverlay::Client {
 public:
-    FindIndicatorOverlayClientIOS(WebCore::Frame& frame)
+    FindIndicatorOverlayClientIOS(WebCore::Frame& frame, WebCore::TextIndicator* textIndicator)
         : m_frame(frame)
+        , m_textIndicator(textIndicator)
     {
     }
 
 private:
-    virtual void pageOverlayDestroyed(WebCore::PageOverlay&) override { }
-    virtual void willMoveToPage(WebCore::PageOverlay&, WebCore::Page*) override { }
-    virtual void didMoveToPage(WebCore::PageOverlay&, WebCore::Page*) override { }
-    virtual void drawRect(WebCore::PageOverlay&, WebCore::GraphicsContext&, const WebCore::IntRect& dirtyRect) override;
-    virtual bool mouseEvent(WebCore::PageOverlay&, const WebCore::PlatformMouseEvent&) override { return false; }
+    void willMoveToPage(WebCore::PageOverlay&, WebCore::Page*) override { }
+    void didMoveToPage(WebCore::PageOverlay&, WebCore::Page*) override { }
+    void drawRect(WebCore::PageOverlay&, WebCore::GraphicsContext&, const WebCore::IntRect& dirtyRect) override;
+    bool mouseEvent(WebCore::PageOverlay&, const WebCore::PlatformMouseEvent&) override { return false; }
 
     WebCore::Frame& m_frame;
+    RefPtr<WebCore::TextIndicator> m_textIndicator;
 };
 
 } // namespace WebKit

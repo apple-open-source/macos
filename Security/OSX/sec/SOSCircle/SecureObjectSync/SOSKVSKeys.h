@@ -41,6 +41,7 @@ extern const CFStringRef sLastKeyParametersPushedPrefix;
 extern const CFStringRef sDebugInfoPrefix;
 
 SOSKVSKeyType SOSKVSKeyGetKeyType(CFStringRef key);
+bool SOSKVSKeyParse(SOSKVSKeyType keyType, CFStringRef key, CFStringRef *circle, CFStringRef *peerInfo, CFStringRef *ring, CFStringRef *backupName, CFStringRef *from, CFStringRef *to);
 SOSKVSKeyType SOSKVSKeyGetKeyTypeAndParse(CFStringRef key, CFStringRef *circle, CFStringRef *peerInfo, CFStringRef *ring, CFStringRef *backupName, CFStringRef *from, CFStringRef *to);
 
 CFStringRef SOSCircleKeyCreateWithCircle(SOSCircleRef circle, CFErrorRef *error);
@@ -60,8 +61,8 @@ CFStringRef SOSMessageKeyCreateWithCircleAndPeerInfos(SOSCircleRef circle, SOSPe
 CFStringRef SOSRetirementKeyCreateWithCircleNameAndPeer(CFStringRef circle_name, CFStringRef retirement_peer_name);
 CFStringRef SOSRetirementKeyCreateWithCircleAndPeer(SOSCircleRef circle, CFStringRef retirement_peer_name);
 
-CFStringRef SOSMessageKeyCreateFromTransportToPeer(SOSTransportMessageKVSRef transport, CFStringRef peer_name);
-CFStringRef SOSMessageKeyCreateFromPeerToTransport(SOSTransportMessageKVSRef transport, CFStringRef peer_name);
+CFStringRef SOSMessageKeyCreateFromTransportToPeer(SOSTransportMessageRef transport, CFStringRef peer_name);
+CFStringRef SOSMessageKeyCreateFromPeerToTransport(SOSTransportMessageRef transport, CFStringRef peer_name);
 CFStringRef SOSMessageKeyCreateWithCircleNameAndTransportType(CFStringRef circleName, CFStringRef transportType);
 
 CFStringRef SOSPeerInfoV2KeyCreateWithPeerName(CFStringRef peer_name);

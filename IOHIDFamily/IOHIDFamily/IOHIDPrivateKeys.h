@@ -27,6 +27,7 @@
 
 #include <sys/cdefs.h>
 #include <IOKit/hid/IOHIDKeys.h>
+#include <IOKit/hid/IOHIDProperties.h>
 
 __BEGIN_DECLS
 
@@ -62,7 +63,8 @@ typedef enum {
      kIOHIDLogLevelTypeWarning,
      kIOHIDLogLevelTypeNotice,
      kIOHIDLogLevelTypeInfo,
-     kIOHIDLogLevelTypeDebug
+     kIOHIDLogLevelTypeDebug,
+     kIOHIDLogLevelTypeTrace
 } IOHIDLogLevelType;
 
 /*!
@@ -72,10 +74,6 @@ typedef enum {
         when searching for elements via copyMatchingElements.  
 */
 #define kIOHIDElementCollectionCookieKey    "CollectionCookie"
-
-#define kIOHIDKeyboardCapsLockDelay         "CapsLockDelay"
-#define kIOHIDKeyboardCapsLockDelayOverride "CapsLockDelayOverride"
-#define kIOHIDKeyboardEjectDelay            "EjectDelay"
 
 #define kIOHIDAbsoluteAxisBoundsRemovalPercentage   "AbsoluteAxisBoundsRemovalPercentage"
 
@@ -87,8 +85,14 @@ typedef enum {
 #define kIOHIDSetButtonPropertiesKey        "SetButtonProperties"
 #define kIOHIDSetButtonPriorityKey          "SetButtonPriority"
 #define kIOHIDSetButtonDelayKey             "SetButtonDelay"
+#define kIOHIDSetButtonLoggingKey           "SetButtonLogging"
 
 #define kIOHIDSupportsGlobeKeyKey           "SupportsGlobeKey"
+
+#define kIOHIDCompatibilityInterface        "HIDCompatibilityInterface"
+
+#define kIOHIDAuthenticatedDeviceKey        "Authenticated"
+
 
 /*!
  @typedef IOHIDGameControllerType
@@ -103,6 +107,11 @@ enum {
 typedef uint32_t IOHIDGameControllerType;
 
 #define kIOHIDGameControllerTypeKey "GameControllerType"
+
+#define kIOHIDGameControllerFormFittingKey "GameControllerFormFitting"
+
+
+
 
 __END_DECLS
 

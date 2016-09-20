@@ -25,11 +25,19 @@
     ReportExtraMemoryCost,
 ] interface HTMLCollection {
     readonly attribute unsigned long length;
-    getter Node item([Default=Undefined] optional unsigned long index);
-    getter Node namedItem([Default=Undefined] optional DOMString name);
+
+#if defined(LANGUAGE_OBJECTIVE_C) && LANGUAGE_OBJECTIVE_C || defined(LANGUAGE_GOBJECT) && LANGUAGE_GOBJECT
+    getter Node item(optional unsigned long index);
+    getter Node namedItem(optional DOMString name);
+#else
+    getter Element item(optional unsigned long index = 0);
+
+    // FIXME: Using "undefined" as default parameter value is wrong.
+    getter Element namedItem(optional DOMString name = "undefined");
+#endif
 
 #if defined(LANGUAGE_OBJECTIVE_C) && LANGUAGE_OBJECTIVE_C
-    NodeList tags([Default=Undefined] optional DOMString name);
+    NodeList tags(optional DOMString name);
 #endif
 };
 

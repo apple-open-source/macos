@@ -260,6 +260,13 @@ case $(sw_vers -buildVersion) in
 esac
 
 #
+# Misc regression cases
+#
+
+runTest fail-evil-itunes spctl -a -t exec $ct/evil-itunes.app
+
+
+#
 # cleanup
 #
 

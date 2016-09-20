@@ -28,7 +28,6 @@
 #include "SSLRecordInternal.h"
 #include "sslDebug.h"
 #include "cipherSpecs.h"
-#include "sslUtils.h"
 #include "tls_record_internal.h"
 
 #include <AssertMacros.h>
@@ -136,6 +135,7 @@ static int SSLRecordReadInternal(SSLRecordContextRef ref, SSLRecord *rec)
     tls_record_parse_header(ctx->filter, header, &contentLen, &content_type);
 
     if(content_type&0x80) {
+        sslDebugLog("Detected SSL2 record in SSLReadRecordInternal");
         // Looks like SSL2 record, reset expectations.
         head = 2;
         err=tls_record_parse_ssl2_header(ctx->filter, header, &contentLen, &content_type);
@@ -144,17 +144,23 @@ static int SSLRecordReadInternal(SSLRecordContextRef ref, SSLRecord *rec)
 
     check(ctx->partialReadBuffer.length>=head+contentLen);
 
-    if(head+contentLen>ctx->partialReadBuffer.length)
+    if(head+contentLen>ctx->partialReadBuffer.length) {
+        sslDebugLog("overflow in SSLReadRecordInternal");
         return errSSLRecordRecordOverflow;
+    }
 
     if (ctx->amountRead < head + contentLen)
-    {   readData.length = head + contentLen - ctx->amountRead;
+    {
+        readData.length = head + contentLen - ctx->amountRead;
         readData.data = ctx->partialReadBuffer.data + ctx->amountRead;
         len = readData.length;
         err = sslIoRead(readData, &len, ctx);
         if(err != 0)
-        {   if (err == errSSLRecordWouldBlock)
-            ctx->amountRead += len;
+        {
+            if (err == errSSLRecordWouldBlock)
+            {
+                ctx->amountRead += len;
+            }
             return err;
         }
         ctx->amountRead += len;
@@ -179,7 +185,7 @@ static int SSLRecordReadInternal(SSLRecordContextRef ref, SSLRecord *rec)
         /* There was an underflow - For TLS, we return errSSLRecordClosedAbort for historical reason - see ssl-44-crashes test */
         if(sz==0) {
             sslErrorLog("underflow in SSLReadRecordInternal");
-            if(ctx->dtls) {
+            if(ctx->sslCtx->isDTLS) {
                 // For DTLS, we should just drop it.
                 return errSSLRecordUnexpectedRecord;
             } else {

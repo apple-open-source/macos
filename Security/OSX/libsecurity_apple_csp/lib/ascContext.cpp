@@ -30,8 +30,8 @@
 #include <security_utilities/logging.h>
 #include <Security/cssmapple.h>
 
-#define abprintf(args...)	secdebug("ascBuf", ## args)		/* buffer sizes */
-#define aioprintf(args...)	secdebug("ascIo", ## args)		/* all I/O */
+#define abprintf(args...)	secinfo("ascBuf", ## args)		/* buffer sizes */
+#define aioprintf(args...)	secinfo("ascIo", ## args)		/* all I/O */
 
 static Allocator *ascAllocator;
 

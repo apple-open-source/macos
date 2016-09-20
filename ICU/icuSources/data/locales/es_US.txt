@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/es_US.xml
@@ -8,7 +8,7 @@
 // ***************************************************************************
 es_US{
     %%Parent{"es_419"}
-    Version{"2.1.13.23"}
+    Version{"2.1.22.17"}
     calendar{
         generic{
             DateTimePatterns{
@@ -142,7 +142,6 @@ es_US{
                 "{1} {0}",
                 "{1} {0}",
             }
-            NoonMarkerNarrow{"m"}
             availableFormats{
                 GyMMM{"MMM y G"}
                 GyMMMEd{"E, MMM d, y G"}
@@ -163,6 +162,13 @@ es_US{
                 yMMMMd{"d 'de' MMMM 'de' y"}
                 yMMMd{"MMM d, y"}
                 yMd{"M/d/y"}
+            }
+            dayPeriod{
+                format{
+                    narrow{
+                        noon{"m"}
+                    }
+                }
             }
             intervalFormats{
                 MEd{

@@ -46,6 +46,10 @@ typedef enum UATimeUnitStyle {
      * narrow style, e.g. "1.0 m"
      * @draft ICU 53 */
     UATIMEUNITSTYLE_NARROW,
+    /**
+     * shorter style,between abbreviated and narrow"
+     * @draft ICU 57 */
+    UATIMEUNITSTYLE_SHORTER,
     /** @draft ICU 53 */
     UATIMEUNITSTYLE_COUNT
 } UATimeUnitStyle;

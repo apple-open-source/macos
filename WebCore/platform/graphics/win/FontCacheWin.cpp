@@ -34,6 +34,7 @@
 #include <mlang.h>
 #include <windows.h>
 #include <wtf/HashSet.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringHash.h>
@@ -403,8 +404,7 @@ static inline bool isGDIFontWeightBold(LONG gdiFontWeight)
 
 static LONG adjustedGDIFontWeight(LONG gdiFontWeight, const String& family)
 {
-    static AtomicString lucidaStr("Lucida Grande");
-    if (equalIgnoringCase(family, lucidaStr)) {
+    if (equalLettersIgnoringASCIICase(family, "lucida grande")) {
         if (gdiFontWeight == FW_NORMAL)
             return FW_MEDIUM;
         if (gdiFontWeight == FW_BOLD)
@@ -541,7 +541,7 @@ static int CALLBACK traitsInFamilyEnumProc(CONST LOGFONT* logFont, CONST TEXTMET
     procData->m_traitsMasks.add(traitsMask);
     return 1;
 }
-void FontCache::getTraitsInFamily(const AtomicString& familyName, Vector<unsigned>& traitsMasks)
+Vector<FontTraitsMask> FontCache::getTraitsInFamily(const AtomicString& familyName)
 {
     HWndDC hdc(0);
 
@@ -554,17 +554,18 @@ void FontCache::getTraitsInFamily(const AtomicString& familyName, Vector<unsigne
 
     TraitsInFamilyProcData procData(familyName);
     EnumFontFamiliesEx(hdc, &logFont, traitsInFamilyEnumProc, reinterpret_cast<LPARAM>(&procData), 0);
-    copyToVector(procData.m_traitsMasks, traitsMasks);
+    Vector<FontTraitsMask> result;
+    result.reserveInitialCapacity(procData.m_traitsMasks.size());
+    for (unsigned mask : procData.m_traitsMasks)
+        result.uncheckedAppend(static_cast<FontTraitsMask>(mask));
+    return result;
 }
 
-std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDescription& fontDescription, const AtomicString& family)
+std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDescription& fontDescription, const AtomicString& family, const FontFeatureSettings*, const FontVariantSettings*)
 {
-    bool isLucidaGrande = false;
-    static AtomicString lucidaStr("Lucida Grande");
-    if (equalIgnoringCase(family, lucidaStr))
-        isLucidaGrande = true;
+    bool isLucidaGrande = equalLettersIgnoringASCIICase(family, "lucida grande");
 
-    bool useGDI = fontDescription.renderingMode() == AlternateRenderingMode && !isLucidaGrande;
+    bool useGDI = fontDescription.renderingMode() == FontRenderingMode::Alternate && !isLucidaGrande;
 
     // The logical size constant is 32. We do this for subpixel precision when rendering using Uniscribe.
     // This masks rounding errors related to the HFONT metrics being  different from the CGFont metrics.
@@ -586,7 +587,7 @@ std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDe
     bool synthesizeBold = isGDIFontWeightBold(weight) && !isGDIFontWeightBold(logFont.lfWeight);
     bool synthesizeItalic = fontDescription.italic() && !logFont.lfItalic;
 
-    auto result = std::make_unique<FontPlatformData>(WTF::move(hfont), fontDescription.computedPixelSize(), synthesizeBold, synthesizeItalic, useGDI);
+    auto result = std::make_unique<FontPlatformData>(WTFMove(hfont), fontDescription.computedPixelSize(), synthesizeBold, synthesizeItalic, useGDI);
 
 #if USE(CG)
     bool fontCreationFailed = !result->cgFont();
@@ -602,6 +603,34 @@ std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDe
     }
 
     return result;
+}
+
+const AtomicString& FontCache::platformAlternateFamilyName(const AtomicString& familyName)
+{
+    static NeverDestroyed<AtomicString> timesNewRoman("Times New Roman", AtomicString::ConstructFromLiteral);
+    static NeverDestroyed<AtomicString> microsoftSansSerif("Microsoft Sans Serif", AtomicString::ConstructFromLiteral);
+
+    switch (familyName.length()) {
+    // On Windows, we don't support bitmap fonts, but legacy content expects support.
+    // Thus we allow Times New Roman as an alternative for the bitmap font MS Serif,
+    // even if the webpage does not specify fallback.
+    // FIXME: Seems unlikely this is still needed. If it was really needed, I think we
+    // would need it on other platforms too.
+    case 8:
+        if (equalLettersIgnoringASCIICase(familyName, "ms serif"))
+            return timesNewRoman;
+        break;
+    // On Windows, we don't support bitmap fonts, but legacy content expects support.
+    // Thus we allow Microsoft Sans Serif as an alternative for the bitmap font MS Sans Serif,
+    // even if the webpage does not specify fallback.
+    // FIXME: Seems unlikely this is still needed. If it was really needed, I think we
+    // would need it on other platforms too.
+    case 13:
+        if (equalLettersIgnoringASCIICase(familyName, "ms sans serif"))
+            return microsoftSansSerif;
+        break;
+    }
+    return nullAtom;
 }
 
 }

@@ -38,15 +38,15 @@
 // Construct a TokenDbCommon
 //
 TokenDbCommon::TokenDbCommon(Session &ssn, Token &tk, const char *name)
-	: DbCommon(ssn), mDbName(name ? name : ""), mHasAclState(false), mResetLevel(0)
+	: DbCommon(ssn), mDbName(name ? name : ""), mHasAclState(false)
 {
-	secdebug("tokendb", "creating tokendbcommon %p: with token %p", this, &tk);
+	secinfo("tokendb", "creating tokendbcommon %p: with token %p", this, &tk);
 	parent(tk);
 }
 
 TokenDbCommon::~TokenDbCommon()
 {
-	secdebug("tokendb", "destroying tokendbcommon %p", this);
+	secinfo("tokendb", "destroying tokendbcommon %p", this);
 	token().removeCommon(*this);		// unregister from Token
 }
 
@@ -128,12 +128,12 @@ TokenDatabase::TokenDatabase(uint32 ssid, Process &proc,
 	StLock<Mutex> _(session);
 	if (TokenDbCommon *dbcom = session.findFirst<TokenDbCommon, uint32>(&TokenDbCommon::subservice, ssid)) {
 		parent(*dbcom);
-		secdebug("tokendb", "open tokendb %p(%d) at known common %p",
+		secinfo("tokendb", "open tokendb %p(%d) at known common %p",
 			this, subservice(), dbcom);
 	} else {
 		// DbCommon not present; make a new one
 		parent(*new TokenDbCommon(proc.session(), *token, name));
-		secdebug("tokendb", "open tokendb %p(%d) with new common %p",
+		secinfo("tokendb", "open tokendb %p(%d) with new common %p",
 			this, subservice(), &common());
 	}
 	mOpenCreds = copy(cred, Allocator::standard());
@@ -192,8 +192,9 @@ void TokenDatabase::getAcl(const char *tag, uint32 &count, AclEntryInfo *&acls)
 	
 	for (unsigned n = 0; n < count; n++) {
 		AclEntryPrototype &proto = acls[n];
-		if (unsigned pin = pinFromAclTag(proto.tag(), "?")) {	// pin state response
-			secdebug("tokendb", "%p updating PIN%d state response", this, pin);
+        uint32_t pin = pinFromAclTag(proto.tag(), "?");
+		if (pin) {	// pin state response
+			secinfo("tokendb", "%p updating PIN%d state response", this, pin);
 			TypedList &subject = proto.subject();
 			// subject == { CSSM_WORID_PIN, pin-number, status [, count ] } # all numbers
 			if (subject.length() > 2
@@ -201,16 +202,20 @@ void TokenDatabase::getAcl(const char *tag, uint32 &count, AclEntryInfo *&acls)
 				&& subject[0] == CSSM_WORDID_PIN
 				&& subject[1].is(CSSM_LIST_ELEMENT_WORDID)
 				&& subject[2].is(CSSM_LIST_ELEMENT_WORDID)) {
-				uint32 pin = subject[1];
-				if (!common().attachment<PreAuthorizationAcls::AclState>((void *)pin).accepted) {
+				uint32_t pin = subject[1];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wint-to-void-pointer-cast"
+                // This is likely a bug, but we're trapped by CDSA types
+				if (!common().attachment<PreAuthorizationAcls::AclState>((void *) pin).accepted) {
+#pragma clang diagnostic pop
 					// we are not pre-authorized in this session
-					secdebug("tokendb", "%p session state forces PIN%d reporting unauthorized", this, pin);
+					secinfo("tokendb", "%p session state forces PIN%d reporting unauthorized", this, pin);
 					uint32 status = subject[2];
 					status &= ~CSSM_ACL_PREAUTH_TRACKING_AUTHORIZED;	// clear authorized bit
 					subject[2] = status;
 #if !defined(NDEBUG)
 				if (subject.length() > 3 && subject[3].is(CSSM_LIST_ELEMENT_WORDID))
-					secdebug("tokendb", "%p PIN%d count=%d", this, pin, subject[3].word());
+					secinfo("tokendb", "%p PIN%d count=%d", this, pin, subject[3].word());
 #endif //NDEBUG
 				}
 			}
@@ -226,7 +231,7 @@ bool TokenDatabase::isLocked()
 	bool lockState = pinState(1);
 //	bool lockState = access().isLocked();
 	
-	secdebug("tokendb", "returning isLocked=%d", lockState);
+	secinfo("tokendb", "returning isLocked=%d", lockState);
 	return lockState;
 }
 
@@ -240,10 +245,10 @@ bool TokenDatabase::pinState(uint32 pin, int *pinCount /* = NULL */)
 		*pinCount = -1;		// preset unknown
 	switch (count) {
 	case 0:
-		secdebug("tokendb", "PIN%d query returned no entries", pin);
+		secinfo("tokendb", "PIN%d query returned no entries", pin);
 		break;
 	default:
-		secdebug("tokendb", "PIN%d query returned multiple entries", pin);
+		secinfo("tokendb", "PIN%d query returned multiple entries", pin);
 		break;
 	case 1:
 		{
@@ -334,16 +339,16 @@ static CSSM_KEYATTR_FLAGS modattrs(CSSM_KEYATTR_FLAGS attrs)
 //
 bool TokenDatabase::validateSecret(const AclSubject *subject, const AccessCredentials *cred)
 {
-	secdebug("tokendb", "%p attempting remote validation", this);
+	secinfo("tokendb", "%p attempting remote validation", this);
 	try {
 		Access access(token());
 		// @@@ Use cached mode
 		access().authenticate(CSSM_DB_ACCESS_READ, cred);
-		secdebug("tokendb", "%p remote validation successful", this);
+		secinfo("tokendb", "%p remote validation successful", this);
 		return true;
 	}
 	catch (...) {
-		secdebug("tokendb", "%p remote validation failed", this);
+		secinfo("tokendb", "%p remote validation failed", this);
 	//	return false;
 	throw;	// try not to mask error
 	}
@@ -581,7 +586,7 @@ void TokenDatabase::authenticate(CSSM_DB_ACCESS_TYPE mode, const AccessCredentia
 	TRY
 	GUARD
 	if (mode != CSSM_DB_ACCESS_RESET && cred) {
-		secdebug("tokendb", "%p authenticate calling validate", this);
+		secinfo("tokendb", "%p authenticate calling validate", this);
 		if (unsigned pin = pinFromAclTag(cred->EntryTag)) {
 			validate(CSSM_ACL_AUTHORIZATION_PREAUTH(pin), cred);
 			notify(kNotificationEventUnlocked);
@@ -714,7 +719,7 @@ void TokenDatabase::findRecordHandle(Database::Record *rRecord,
 	DONE
 }
 
-void TokenDatabase::insertRecord(CSSM_DB_RECORDTYPE recordType,
+void TokenDatabase::tokenInsertRecord(CSSM_DB_RECORDTYPE recordType,
 	const CssmDbRecordAttributeData *attributes, mach_msg_type_number_t attributesLength,
 	const CssmData &data, RefPointer<Database::Record> &rRecord)
 {
@@ -730,12 +735,12 @@ void TokenDatabase::insertRecord(CSSM_DB_RECORDTYPE recordType,
 	DONE
 }
 
-void TokenDatabase::modifyRecord(CSSM_DB_RECORDTYPE recordType, Record *rRecord,
+void TokenDatabase::modifyRecord(CSSM_DB_RECORDTYPE recordType, Database::Record *rRecord,
 	const CssmDbRecordAttributeData *attributes, mach_msg_type_number_t attributesLength,
 	const CssmData *data, CSSM_DB_MODIFY_MODE modifyMode)
 {
 	Access access(token());
-	Record *record = safe_cast<Record *>(rRecord);
+    TokenDatabase::Record *record = safe_cast<TokenDatabase::Record *>(rRecord);
 	access.add(*record);
 	TRY
 	validate(CSSM_ACL_AUTHORIZATION_DB_MODIFY, openCreds());
@@ -769,7 +774,7 @@ TokenDatabase::Search::~Search()
 		try {
 			database().token().tokend().Tokend::ClientSession::releaseSearch(mHandle);
 		} catch (...) {
-			secdebug("tokendb", "%p release search handle %u threw (ignored)",
+			secinfo("tokendb", "%p release search handle %u threw (ignored)",
 				this, mHandle);
 		}
 }
@@ -780,7 +785,7 @@ TokenDatabase::Record::~Record()
 		try {
 			database().token().tokend().Tokend::ClientSession::releaseRecord(mHandle);
 		} catch (...) {
-			secdebug("tokendb", "%p release record handle %u threw (ignored)",
+			secinfo("tokendb", "%p release record handle %u threw (ignored)",
 				this, mHandle);
 		}
 }

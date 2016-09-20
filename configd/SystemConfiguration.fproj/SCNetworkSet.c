@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -31,10 +31,7 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
-#include <SystemConfiguration/SystemConfiguration.h>
 #include "SCNetworkConfigurationInternal.h"
-#include <SystemConfiguration/SCValidation.h>
-#include <SystemConfiguration/SCPrivate.h>
 
 #include <pthread.h>
 
@@ -157,10 +154,9 @@ __SCNetworkSetCreatePrivate(CFAllocatorRef      allocator,
 		return NULL;
 	}
 
+	/* initialize non-zero/NULL members */
 	setPrivate->setID       = CFStringCreateCopy(NULL, setID);
 	setPrivate->prefs       = CFRetain(prefs);
-	setPrivate->name	= NULL;
-	setPrivate->established	= FALSE;	// "new" (not yet established) set
 
 	return setPrivate;
 }
@@ -498,6 +494,10 @@ SCNetworkSetAddService(SCNetworkSetRef set, SCNetworkServiceRef service)
 
     done :
 
+	if (ok) {
+		SC_log(LOG_DEBUG, "SCNetworkSetAddService(): %@, %@", set, service);
+	}
+
 	if (interface_config != NULL)	CFRelease(interface_config);
 	return ok;
 }
@@ -777,14 +777,31 @@ SCNetworkSetCopyServices(SCNetworkSetRef set)
 										      serviceID,	// service
 										      NULL);		// entity
 				if (CFEqual(path, link)) {
-					SCNetworkServicePrivateRef	servicePrivate;
+					CFDictionaryRef	entity;
+					CFStringRef	interfacePath;
+					Boolean		skip		= FALSE;
 
-					servicePrivate = __SCNetworkServiceCreatePrivate(NULL,
-											 setPrivate->prefs,
-											 serviceID,
-											 NULL);
-					CFArrayAppendValue(array, (SCNetworkServiceRef)servicePrivate);
-					CFRelease(servicePrivate);
+					interfacePath = SCPreferencesPathKeyCreateNetworkServiceEntity(NULL,			// allocator
+												       serviceID,		// service
+												       kSCEntNetInterface);	// entity
+					entity = SCPreferencesPathGetValue(setPrivate->prefs, interfacePath);
+					CFRelease(interfacePath);
+
+					if (__SCNetworkInterfaceEntityIsPPTP(entity)) {
+						SC_log(LOG_INFO, "PPTP services are no longer supported");
+						skip = TRUE;
+					}
+
+					if (!skip) {
+						SCNetworkServicePrivateRef	servicePrivate;
+
+						servicePrivate = __SCNetworkServiceCreatePrivate(NULL,
+												 setPrivate->prefs,
+												 serviceID,
+												 NULL);
+						CFArrayAppendValue(array, (SCNetworkServiceRef)servicePrivate);
+						CFRelease(servicePrivate);
+					}
 				}
 				CFRelease(path);
 			}
@@ -840,7 +857,71 @@ SCNetworkSetCreate(SCPreferencesRef prefs)
 		setPrivate = NULL;
 	}
 
+	if (setPrivate != NULL) {
+		SC_log(LOG_DEBUG, "SCNetworkSetCreate(): %@", setPrivate);
+	}
+
 	return (SCNetworkSetRef)setPrivate;
+}
+
+
+SCNetworkSetRef
+_SCNetworkSetCreateDefault(SCPreferencesRef prefs)
+{
+	CFBundleRef	bundle;
+	Boolean		ok		= TRUE;
+	SCNetworkSetRef	set;
+	CFStringRef	setName		= NULL;
+
+	set = SCNetworkSetCopyCurrent(prefs);
+	if (set != NULL) {
+		SC_log(LOG_NOTICE, "creating default set w/already existing set");
+		CFRelease(set);
+		_SCErrorSet(kSCStatusKeyExists);
+		return NULL;
+	}
+
+	// create a new ("Automatic") set
+	set = SCNetworkSetCreate(prefs);
+	if (set == NULL) {
+		SC_log(LOG_NOTICE, "could not create \"new\" set: %s",
+		       SCErrorString(SCError()));
+		goto done;
+	}
+
+	bundle = _SC_CFBundleGet();
+	if (bundle != NULL) {
+		setName = CFBundleCopyLocalizedString(bundle,
+						      CFSTR("DEFAULT_SET_NAME"),
+						      CFSTR("Automatic"),
+						      NULL);
+	}
+
+	ok = SCNetworkSetSetName(set, (setName != NULL) ? setName : CFSTR("Automatic"));
+	if (!ok) {
+		// if we could not save the new set's "name"
+		SC_log(LOG_NOTICE, "could not save the new set's name: %s",
+		       SCErrorString(SCError()));
+		goto done;
+	}
+
+	ok = SCNetworkSetSetCurrent(set);
+	if (!ok) {
+		// if we could not make this the "current" set
+		SC_log(LOG_NOTICE, "could not establish new set as current: %s",
+		       SCErrorString(SCError()));
+//		goto done;
+	}
+
+    done :
+
+	if (!ok && (set != NULL)) {
+		SCNetworkSetRemove(set);
+		CFRelease(set);
+		set = NULL;
+	}
+	if (setName != NULL) CFRelease(setName);
+	return set;
 }
 
 
@@ -978,9 +1059,14 @@ SCNetworkSetRemove(SCNetworkSetRef set)
 	if (!isA_CFString(currentPath) || !CFEqual(currentPath, path)) {
 		ok = SCPreferencesPathRemoveValue(setPrivate->prefs, path);
 	} else {
+		SC_log(LOG_DEBUG, "SCNetworkSetRemove() failed, currently active: %@", setPrivate->setID);
 		_SCErrorSet(kSCStatusInvalidArgument);
 	}
 	CFRelease(path);
+
+	if (ok) {
+		SC_log(LOG_DEBUG, "SCNetworkSetRemove(): %@", set);
+	}
 
 	return ok;
 }
@@ -1034,12 +1120,15 @@ SCNetworkSetRemoveService(SCNetworkSetRef set, SCNetworkServiceRef service)
 	// push the [deep] interface configuration [back] into all sets which contain the service.
 	if (interface_config != NULL) {
 		__SCNetworkInterfaceSetDeepConfiguration(set, interface, interface_config);
+		CFRelease(interface_config);
 	}
 
-	if (interface_config != NULL)     CFRelease(interface_config);
-	if (!ok) {
+	if (ok) {
+		SC_log(LOG_DEBUG, "SCNetworkSetRemoveService(): %@, %@", set, service);
+	} else {
 		_SCErrorSet(sc_status);
 	}
+
 	return ok;
 }
 
@@ -1059,6 +1148,11 @@ SCNetworkSetSetCurrent(SCNetworkSetRef set)
 	path = SCPreferencesPathKeyCreateSet(NULL, setPrivate->setID);
 	ok = SCPreferencesSetValue(setPrivate->prefs, kSCPrefCurrentSet, path);
 	CFRelease(path);
+
+	if (ok) {
+		SC_log(LOG_DEBUG, "SCNetworkSetSetCurrent(): %@", set);
+	}
+
 	return ok;
 }
 
@@ -1187,6 +1281,10 @@ SCNetworkSetSetName(SCNetworkSetRef set, CFStringRef name)
 	CFRelease(path);
 
     done :
+
+	if (ok) {
+		SC_log(LOG_DEBUG, "SCNetworkSetSetName(): %@", set);
+	}
 
 	if (localized != NULL)		CFRelease(localized);
 	if (non_localized != NULL)	CFRelease(non_localized);
@@ -1463,7 +1561,9 @@ __SCNetworkSetEstablishDefaultConfigurationForInterfaces(SCNetworkSetRef set, CF
 	CFArrayRef		services;
 	SCNetworkSetPrivateRef	setPrivate	= (SCNetworkSetPrivateRef)set;
 	Boolean			updated		= FALSE;
+#if	!TARGET_OS_IPHONE
 	Boolean			updatedIFs	= FALSE;
+#endif	// !TARGET_OS_IPHONE
 
 #if	TARGET_OS_IPHONE
 	CFArrayRef		orphans		= NULL;
@@ -1667,7 +1767,9 @@ __SCNetworkSetEstablishDefaultConfigurationForInterfaces(SCNetworkSetRef set, CF
 		}
 		CFRelease(interface_list);
 	}
+#if	!TARGET_OS_IPHONE
 	if (updatedIFs)		CFRelease(interfaces);
+#endif	// !TARGET_OS_IPHONE
 	if (services != NULL)	CFRelease(services);
 	if (excluded != NULL)	CFRelease(excluded);
 
@@ -1960,9 +2062,11 @@ _SCNetworkSetSetSetID(SCNetworkSetRef set, CFStringRef newSetID)
 		CFRelease(currentSet);
 	}
 
+	SC_log(LOG_DEBUG, "_SCNetworkSetSetID(): %@ --> %@", set, newSetID);
+
+	// replace setID with new one
 	CFRetain(newSetID);
 	CFRelease(setPrivate->setID);
-
 	setPrivate->setID = newSetID;
 
 	if (updateCurrentSet) {

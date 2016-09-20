@@ -36,7 +36,6 @@
 #include "Timer.h"
 #include <runtime/Uint8Array.h>
 #include <wtf/Deque.h>
-#include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/text/WTFString.h>
 
@@ -47,7 +46,7 @@ class MediaKeys;
 
 class MediaKeySession final : public RefCounted<MediaKeySession>, public EventTargetWithInlineData, public ActiveDOMObject, public CDMSessionClient {
 public:
-    static Ref<MediaKeySession> create(ScriptExecutionContext*, MediaKeys*, const String& keySystem);
+    static Ref<MediaKeySession> create(ScriptExecutionContext&, MediaKeys*, const String& keySystem);
     ~MediaKeySession();
 
     const String& keySystem() const { return m_keySystem; }
@@ -60,8 +59,8 @@ public:
     void setKeys(MediaKeys* keys) { m_keys = keys; }
     MediaKeys* keys() const { return m_keys; }
 
-    void generateKeyRequest(const String& mimeType, Uint8Array* initData);
-    void update(Uint8Array* key, ExceptionCode&);
+    void generateKeyRequest(const String& mimeType, Ref<Uint8Array>&& initData);
+    void update(Ref<Uint8Array>&& key, ExceptionCode&);
 
     bool isClosed() const { return !m_session; }
     void close();
@@ -71,23 +70,23 @@ public:
     using RefCounted<MediaKeySession>::ref;
     using RefCounted<MediaKeySession>::deref;
 
-    void enqueueEvent(PassRefPtr<Event>);
+    void enqueueEvent(RefPtr<Event>&&);
 
-    virtual EventTargetInterface eventTargetInterface() const override { return MediaKeySessionEventTargetInterfaceType; }
-    virtual ScriptExecutionContext* scriptExecutionContext() const override { return ActiveDOMObject::scriptExecutionContext(); }
+    EventTargetInterface eventTargetInterface() const override { return MediaKeySessionEventTargetInterfaceType; }
+    ScriptExecutionContext* scriptExecutionContext() const override { return ActiveDOMObject::scriptExecutionContext(); }
 
     // ActiveDOMObject API.
     bool hasPendingActivity() const override;
 
 protected:
-    MediaKeySession(ScriptExecutionContext*, MediaKeys*, const String& keySystem);
+    MediaKeySession(ScriptExecutionContext&, MediaKeys*, const String& keySystem);
     void keyRequestTimerFired();
     void addKeyTimerFired();
 
     // CDMSessionClient
-    virtual void sendMessage(Uint8Array*, String destinationURL) override;
-    virtual void sendError(MediaKeyErrorCode, unsigned long systemCode) override;
-    virtual String mediaKeysStorageDirectory() const override;
+    void sendMessage(Uint8Array*, String destinationURL) override;
+    void sendError(MediaKeyErrorCode, uint32_t systemCode) override;
+    String mediaKeysStorageDirectory() const override;
 
     MediaKeys* m_keys;
     String m_keySystem;
@@ -97,23 +96,22 @@ protected:
     std::unique_ptr<CDMSession> m_session;
 
     struct PendingKeyRequest {
-        PendingKeyRequest(const String& mimeType, Uint8Array* initData) : mimeType(mimeType), initData(initData) { }
         String mimeType;
-        RefPtr<Uint8Array> initData;
+        Ref<Uint8Array> initData;
     };
     Deque<PendingKeyRequest> m_pendingKeyRequests;
     Timer m_keyRequestTimer;
 
-    Deque<RefPtr<Uint8Array>> m_pendingKeys;
+    Deque<Ref<Uint8Array>> m_pendingKeys;
     Timer m_addKeyTimer;
 
 private:
-    virtual void refEventTarget() override { ref(); }
-    virtual void derefEventTarget() override { deref(); }
+    void refEventTarget() override { ref(); }
+    void derefEventTarget() override { deref(); }
 
     // ActiveDOMObject API.
     void stop() override;
-    bool canSuspendForPageCache() const override;
+    bool canSuspendForDocumentSuspension() const override;
     const char* activeDOMObjectName() const override;
 };
 

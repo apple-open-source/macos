@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2004,2006-2010,2013-2015 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2003-2004,2006-2010,2013-2016 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -130,6 +130,7 @@ struct _OpaqueSecOTAPKI
 	CFSetRef			_grayListSet;
     CFDictionaryRef     _allowList;
     CFArrayRef          _trustedCTLogs;
+    CFDataRef           _CTWhiteListData;
 	CFArrayRef			_escrowCertificates;
 	CFArrayRef			_escrowPCSCertificates;
 	CFDictionaryRef		_evPolicyToAnchorMapping;
@@ -161,6 +162,7 @@ static void SecOTAPKIDestroy(CFTypeRef cf)
 	free((void *)otapkiref->_anchorTable);
 
     CFReleaseNull(otapkiref->_trustedCTLogs);
+    CFReleaseNull(otapkiref->_CTWhiteListData);
 }
 
 static CFDataRef SecOTACopyFileContents(const char *path)
@@ -398,6 +400,61 @@ static CFDataRef SecSystemTrustStoreCopyResourceContents(CFStringRef resourceNam
     return data;
 }
 
+static CFPropertyListRef CFPropertyListCopyFromAsset(const char *ota_assets_path, CFStringRef asset)
+{
+    CFPropertyListRef plist = NULL;
+    // Check to see if the <asset>.plist file is in the asset location
+    CFDataRef xmlData = NULL;
+    if (ota_assets_path) {
+        CFStringRef filePath = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%s/%@.%@"), ota_assets_path, asset, CFSTR("plist"));
+        CFURLRef url = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, filePath, kCFURLPOSIXPathStyle, false);
+
+        plist = CFPropertyListReadFromFile(url);
+        CFReleaseSafe(url);
+        CFReleaseSafe(filePath);
+    }
+
+    if (!plist) {
+        // no OTA asset file, so use the file in the system trust store bundle
+        xmlData = SecSystemTrustStoreCopyResourceContents(asset, CFSTR("plist"), NULL);
+
+        if (xmlData) {
+            plist = CFPropertyListCreateWithData(kCFAllocatorDefault, xmlData, kCFPropertyListImmutable, NULL, NULL);
+            CFRelease(xmlData);
+        }
+    }
+
+    return plist;
+}
+
+static CFSetRef CFSetCreateFromPropertyList(CFPropertyListRef plist)
+{
+    CFSetRef result = NULL;
+
+    if (plist) {
+        CFMutableSetRef tempSet = NULL;
+        if (CFGetTypeID(plist) == CFArrayGetTypeID()) {
+            tempSet = CFSetCreateMutable(kCFAllocatorDefault, 0, &kCFTypeSetCallBacks);
+            if (NULL == tempSet) {
+                return result;
+            }
+            CFArrayRef array = (CFArrayRef)plist;
+            CFIndex num_keys = CFArrayGetCount(array);
+            for (CFIndex idx = 0; idx < num_keys; idx++) {
+                CFDataRef data = (CFDataRef)CFArrayGetValueAtIndex(array, idx);
+                CFSetAddValue(tempSet, data);
+            }
+        }
+        else {
+            return result;
+        }
+
+        if (NULL != tempSet) {
+            result = tempSet;
+        }
+    }
+    return result;
+}
 
 static const char* InitOTADirectory(int* pAssetVersion)
 {
@@ -526,138 +583,38 @@ static const char* InitOTADirectory(int* pAssetVersion)
 
 static CFSetRef InitializeBlackList(const char* path_ptr)
 {
-	CFSetRef result = NULL;
+    CFPropertyListRef plist = CFPropertyListCopyFromAsset(path_ptr, CFSTR("Blocked"));
+    CFSetRef result = CFSetCreateFromPropertyList(plist);
+    CFReleaseSafe(plist);
 
-	// Check to see if the EVRoots.plist file is in the asset location
-	CFDataRef xmlData = NULL;
-	const char* asset_path = path_ptr;
-	if (asset_path) {
-		char file_path_buffer[PATH_MAX];
-		memset(file_path_buffer, 0, PATH_MAX);
-		snprintf(file_path_buffer, PATH_MAX, "%s/Blocked.plist", asset_path);
-
-        xmlData = SecOTACopyFileContents(file_path_buffer);
-    }
-
-    if (!xmlData) {
-        // no OTA asset file, so use the file in the system trust store bundle
-        xmlData = SecSystemTrustStoreCopyResourceContents(CFSTR("Blocked"), CFSTR("plist"), NULL);
-    }
-
-	CFPropertyListRef blackKeys = NULL;
-    if (xmlData) {
-        blackKeys = CFPropertyListCreateWithData(kCFAllocatorDefault, xmlData, kCFPropertyListImmutable, NULL, NULL);
-        CFRelease(xmlData);
-    }
-
-	if (blackKeys) {
-		CFMutableSetRef tempSet = NULL;
-		if (CFGetTypeID(blackKeys) == CFArrayGetTypeID()) {
-			tempSet = CFSetCreateMutable(kCFAllocatorDefault, 0, &kCFTypeSetCallBacks);
-			if (NULL == tempSet) {
-				CFRelease(blackKeys);
-				return result;
-			}
-			CFArrayRef blackKeyArray = (CFArrayRef)blackKeys;
-			CFIndex num_keys = CFArrayGetCount(blackKeyArray);
-			for (CFIndex idx = 0; idx < num_keys; idx++) {
-				CFDataRef key_data = (CFDataRef)CFArrayGetValueAtIndex(blackKeyArray, idx);
-				CFSetAddValue(tempSet, key_data);
-			}
-		}
-		else {
-			CFRelease(blackKeys);
-			return result;
-		}
-
-		if (NULL != tempSet) {
-			result = tempSet;
-		}
-		CFRelease(blackKeys);
-    }
-
-	return result;
+    return result;
 }
 
 static CFSetRef InitializeGrayList(const char* path_ptr)
 {
-	CFSetRef result = NULL;
+    CFPropertyListRef plist = CFPropertyListCopyFromAsset(path_ptr, CFSTR("GrayListedKeys"));
+    CFSetRef result = CFSetCreateFromPropertyList(plist);
+    CFReleaseSafe(plist);
 
-	// Check to see if the EVRoots.plist file is in the asset location
-	CFDataRef xmlData = NULL;
-	const char* asset_path = path_ptr;
-	if (asset_path) {
-		char file_path_buffer[PATH_MAX];
-		memset(file_path_buffer, 0, PATH_MAX);
-		snprintf(file_path_buffer, PATH_MAX, "%s/GrayListedKeys.plist", asset_path);
+    return result;
+}
 
-        xmlData = SecOTACopyFileContents(file_path_buffer);
-	}
+static CFDataRef InitializeCTWhiteListData(const char* path_ptr)
+{
+    CFPropertyListRef data = CFPropertyListCopyFromAsset(path_ptr, CFSTR("CTWhiteListData"));
 
-    if (!xmlData) {
-        // no OTA asset file, so use the file in the system trust store bundle
-        xmlData = SecSystemTrustStoreCopyResourceContents(CFSTR("GrayListedKeys"), CFSTR("plist"), NULL);
+    if (data && (CFGetTypeID(data) == CFDataGetTypeID())) {
+        return data;
+    } else {
+        CFReleaseNull(data);
+        return NULL;
     }
-
-	CFPropertyListRef grayKeys = NULL;
-    if (xmlData) {
-        grayKeys = CFPropertyListCreateWithData(kCFAllocatorDefault, xmlData, kCFPropertyListImmutable, NULL, NULL);
-        CFRelease(xmlData);
-    }
-
-	if (grayKeys) {
-		CFMutableSetRef tempSet = NULL;
-		if (CFGetTypeID(grayKeys) == CFArrayGetTypeID()) {
-			tempSet = CFSetCreateMutable(kCFAllocatorDefault, 0, &kCFTypeSetCallBacks);
-			if (NULL == tempSet) {
-				CFRelease(grayKeys);
-				return result;
-			}
-			CFArrayRef grayKeyArray = (CFArrayRef)grayKeys;
-			CFIndex num_keys = CFArrayGetCount(grayKeyArray);
-			for (CFIndex idx = 0; idx < num_keys; idx++) {
-				CFDataRef key_data = (CFDataRef)CFArrayGetValueAtIndex(grayKeyArray, idx);
-				CFSetAddValue(tempSet, key_data);
-			}
-		}
-		else {
-			CFRelease(grayKeys);
-			return result;
-		}
-
-		if (NULL != tempSet) {
-			result = tempSet;
-		}
-
-		CFRelease(grayKeys);
-    }
-	return result;
 }
 
 static CFDictionaryRef InitializeAllowList(const char* path_ptr)
 {
-    // Check to see if the Allowed.plist file is in the asset location
-    CFDataRef xmlData = NULL;
-    const char* asset_path = path_ptr;
-    if (asset_path) {
-        char file_path_buffer[PATH_MAX];
-        memset(file_path_buffer, 0, PATH_MAX);
-        snprintf(file_path_buffer, PATH_MAX, "%s/Allowed.plist", asset_path);
-        
-        xmlData = SecOTACopyFileContents(file_path_buffer);
-    }
-    
-    if (!xmlData) {
-        // no OTA asset file, so use the file in the system trust store bundle
-        xmlData = SecSystemTrustStoreCopyResourceContents(CFSTR("Allowed"), CFSTR("plist"), NULL);
-    }
-    
-    CFPropertyListRef allowList = NULL;
-    if (xmlData) {
-        allowList = CFPropertyListCreateWithData(kCFAllocatorDefault, xmlData, kCFPropertyListImmutable, NULL, NULL);
-        CFRelease(xmlData);
-    }
-    
+    CFPropertyListRef allowList = CFPropertyListCopyFromAsset(path_ptr, CFSTR("Allowed"));
+
     if (allowList && (CFGetTypeID(allowList) == CFDictionaryGetTypeID())) {
         return allowList;
     } else {
@@ -668,27 +625,7 @@ static CFDictionaryRef InitializeAllowList(const char* path_ptr)
 
 static CFArrayRef InitializeTrustedCTLogs(const char* path_ptr)
 {
-    // Check to see if the TrustedCTLogs.plist file is in the asset location
-    CFDataRef xmlData = NULL;
-    const char* asset_path = path_ptr;
-    if (asset_path) {
-        char file_path_buffer[PATH_MAX];
-        memset(file_path_buffer, 0, PATH_MAX);
-        snprintf(file_path_buffer, PATH_MAX, "%s/TrustedCTLogs.plist", asset_path);
-
-        xmlData = SecOTACopyFileContents(file_path_buffer);
-    }
-
-    if (!xmlData) {
-        // no OTA asset file, so use the file in the system trust store bundle
-        xmlData = SecSystemTrustStoreCopyResourceContents(CFSTR("TrustedCTLogs"), CFSTR("plist"), NULL);
-    }
-
-    CFPropertyListRef trustedCTLogs = NULL;
-    if (xmlData) {
-        trustedCTLogs = CFPropertyListCreateWithData(kCFAllocatorDefault, xmlData, kCFPropertyListImmutable, NULL, NULL);
-        CFRelease(xmlData);
-    }
+    CFPropertyListRef trustedCTLogs = CFPropertyListCopyFromAsset(path_ptr, CFSTR("TrustedCTLogs"));
 
     if (trustedCTLogs && (CFGetTypeID(trustedCTLogs) == CFArrayGetTypeID())) {
         return trustedCTLogs;
@@ -698,34 +635,10 @@ static CFArrayRef InitializeTrustedCTLogs(const char* path_ptr)
     }
 }
 
-
 static CFDictionaryRef InitializeEVPolicyToAnchorDigestsTable(const char* path_ptr)
 {
-	CFDictionaryRef result = NULL;
-
-	// Check to see if the EVRoots.plist file is in the asset location
-	CFDataRef xmlData = NULL;
-	const char* asset_path = path_ptr;
-	if (asset_path)
-	{
-        char file_path_buffer[PATH_MAX];
-        memset(file_path_buffer, 0, PATH_MAX);
-        snprintf(file_path_buffer, PATH_MAX, "%s/EVRoots.plist", asset_path);
-
-        xmlData = SecOTACopyFileContents(file_path_buffer);
-	}
-
-    if (!xmlData) {
-        // no OTA asset file, so use the file in the system trust store bundle
-        xmlData = SecSystemTrustStoreCopyResourceContents(CFSTR("EVRoots"), CFSTR("plist"), NULL);
-    }
-
-	CFPropertyListRef evroots = NULL;
-    if (xmlData) {
-        evroots = CFPropertyListCreateWithData(
-            kCFAllocatorDefault, xmlData, kCFPropertyListImmutable, NULL, NULL);
-        CFRelease(xmlData);
-    }
+    CFDictionaryRef result = NULL;
+    CFPropertyListRef evroots = CFPropertyListCopyFromAsset(path_ptr, CFSTR("EVRoots"));
 
 	if (evroots) {
 		if (CFGetTypeID(evroots) == CFDictionaryGetTypeID()) {
@@ -1039,7 +952,7 @@ static void InitializeEscrowCertificates(const char* path_ptr, CFArrayRef *escro
 				*escrowPCSRoots = CFArrayCreateCopy(kCFAllocatorDefault, pcs_certs);
 			}
 		}
-        CFReleaseSafe(certsDictionary);
+		CFReleaseSafe(certsDictionary);
 		CFRelease(file_data);
 	}
 
@@ -1065,6 +978,7 @@ static SecOTAPKIRef SecOTACreate()
 	otapkiref->_grayListSet = NULL;
     otapkiref->_allowList = NULL;
     otapkiref->_trustedCTLogs = NULL;
+    otapkiref->_CTWhiteListData = NULL;
 	otapkiref->_escrowCertificates = NULL;
 	otapkiref->_escrowPCSCertificates = NULL;
 	otapkiref->_evPolicyToAnchorMapping = NULL;
@@ -1103,12 +1017,15 @@ static SecOTAPKIRef SecOTACreate()
 		return otapkiref;
 	}
 	otapkiref->_grayListSet = grayKeysSet;
-    
+
     // Get the allow list dictionary
     otapkiref->_allowList = InitializeAllowList(path_ptr);
 
     // Get the trusted Certificate Transparency Logs
     otapkiref->_trustedCTLogs = InitializeTrustedCTLogs(path_ptr);
+
+    // Get the EV whitelist
+    otapkiref->_CTWhiteListData = InitializeCTWhiteListData(path_ptr);
 
 	CFArrayRef escrowCerts = NULL;
 	CFArrayRef escrowPCSCerts = NULL;
@@ -1215,7 +1132,7 @@ CFDictionaryRef SecOTAPKICopyAllowList(SecOTAPKIRef otapkiRef)
     {
         return result;
     }
-    
+
     result = otapkiRef->_allowList;
     CFRetainSafe(result);
     return result;
@@ -1234,12 +1151,25 @@ CFArrayRef SecOTAPKICopyTrustedCTLogs(SecOTAPKIRef otapkiRef)
     return result;
 }
 
+CFDataRef SecOTAPKICopyCTWhiteList(SecOTAPKIRef otapkiRef)
+{
+    CFDataRef result = NULL;
+    if (NULL == otapkiRef)
+    {
+        return result;
+    }
 
+    result = otapkiRef->_CTWhiteListData;
+    CFRetainSafe(result);
+    return result;
+}
+
+
+/* Returns an array of certificate data (CFDataRef) */
 CFArrayRef SecOTAPKICopyEscrowCertificates(uint32_t escrowRootType, SecOTAPKIRef otapkiRef)
 {
-	CFArrayRef result = NULL;
-	if (NULL == otapkiRef)
-	{
+	CFMutableArrayRef result = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+	if (NULL == otapkiRef) {
 		return result;
 	}
 
@@ -1248,17 +1178,46 @@ CFArrayRef SecOTAPKICopyEscrowCertificates(uint32_t escrowRootType, SecOTAPKIRef
 		// since this function vends production roots by definition.
 		case kSecCertificateBaselineEscrowRoot:
 		case kSecCertificateProductionEscrowRoot:
-			result = otapkiRef->_escrowCertificates;
+		case kSecCertificateBaselineEscrowBackupRoot:
+		case kSecCertificateProductionEscrowBackupRoot:
+			if (otapkiRef->_escrowCertificates) {
+				CFArrayRef escrowCerts = otapkiRef->_escrowCertificates;
+				CFArrayAppendArray(result, escrowCerts, CFRangeMake(0, CFArrayGetCount(escrowCerts)));
+			}
+			break;
+		case kSecCertificateBaselineEscrowEnrollmentRoot:
+		case kSecCertificateProductionEscrowEnrollmentRoot:
+			if (otapkiRef->_escrowCertificates) {
+				// for enrollment purposes, exclude the v100 root
+				static const unsigned char V100EscrowRoot[] = {
+					0x65,0x5C,0xB0,0x3C,0x39,0x3A,0x32,0xA6,0x0B,0x96,
+					0x40,0xC0,0xCA,0x73,0x41,0xFD,0xC3,0x9E,0x96,0xB3
+				};
+				CFArrayRef escrowCerts = otapkiRef->_escrowCertificates;
+				CFIndex idx, count = CFArrayGetCount(escrowCerts);
+				for (idx=0; idx < count; idx++) {
+					CFDataRef tmpData = (CFDataRef) CFArrayGetValueAtIndex(escrowCerts, idx);
+					SecCertificateRef tmpCert = (tmpData) ? SecCertificateCreateWithData(NULL, tmpData) : NULL;
+					CFDataRef sha1Hash = (tmpCert) ? SecCertificateGetSHA1Digest(tmpCert) : NULL;
+					const uint8_t *dp = (sha1Hash) ? CFDataGetBytePtr(sha1Hash) : NULL;
+					if (!(dp && !memcmp(V100EscrowRoot, dp, sizeof(V100EscrowRoot))) && tmpData) {
+						CFArrayAppendValue(result, tmpData);
+					}
+					CFReleaseSafe(tmpCert);
+				}
+			}
 			break;
 		case kSecCertificateBaselinePCSEscrowRoot:
 		case kSecCertificateProductionPCSEscrowRoot:
-			result = otapkiRef->_escrowPCSCertificates;
+			if (otapkiRef->_escrowPCSCertificates) {
+				CFArrayRef escrowPCSCerts = otapkiRef->_escrowPCSCertificates;
+				CFArrayAppendArray(result, escrowPCSCerts, CFRangeMake(0, CFArrayGetCount(escrowPCSCerts)));
+			}
 			break;
 		default:
 			break;
 	}
 
-	CFRetainSafe(result);
 	return result;
 }
 
@@ -1325,6 +1284,7 @@ void SecOTAPKIRefreshData()
 		});
 }
 
+/* Returns an array of certificate data (CFDataRef) */
 CFArrayRef SecOTAPKICopyCurrentEscrowCertificates(uint32_t escrowRootType, CFErrorRef* error)
 {
 	CFArrayRef result = NULL;

@@ -30,12 +30,10 @@
 
 namespace JSC {
 
-class Stringifier;
-
 class JSONObject : public JSNonFinalObject {
 public:
     typedef JSNonFinalObject Base;
-    static const unsigned StructureFlags = Base::StructureFlags | OverridesGetOwnPropertySlot;
+    static const unsigned StructureFlags = Base::StructureFlags | HasStaticPropertyTable;
 
     static JSONObject* create(VM& vm, Structure* structure)
     {
@@ -56,7 +54,6 @@ protected:
 
 private:
     JSONObject(VM&, Structure*);
-    static bool getOwnPropertySlot(JSObject*, ExecState*, PropertyName, PropertySlot&);
 };
 
 JS_EXPORT_PRIVATE JSValue JSONParse(ExecState*, const String&);

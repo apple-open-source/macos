@@ -62,6 +62,7 @@ class EditorInternalCommand;
 class Frame;
 class HTMLElement;
 class HitTestResult;
+class KeyboardEvent;
 class KillRing;
 class Pasteboard;
 class SharedBuffer;
@@ -97,6 +98,7 @@ enum class MailBlockquoteHandling {
 };
 
 class Editor {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit Editor(Frame&);
     ~Editor();
@@ -162,9 +164,9 @@ public:
     WEBCORE_EXPORT PassRefPtr<Node> insertUnorderedList();
     WEBCORE_EXPORT bool canIncreaseSelectionListLevel();
     WEBCORE_EXPORT bool canDecreaseSelectionListLevel();
-    WEBCORE_EXPORT PassRefPtr<Node> increaseSelectionListLevel();
-    WEBCORE_EXPORT PassRefPtr<Node> increaseSelectionListLevelOrdered();
-    WEBCORE_EXPORT PassRefPtr<Node> increaseSelectionListLevelUnordered();
+    WEBCORE_EXPORT RefPtr<Node> increaseSelectionListLevel();
+    WEBCORE_EXPORT RefPtr<Node> increaseSelectionListLevelOrdered();
+    WEBCORE_EXPORT RefPtr<Node> increaseSelectionListLevelUnordered();
     WEBCORE_EXPORT void decreaseSelectionListLevel();
    
     void removeFormattingAndStyle();
@@ -203,19 +205,20 @@ public:
         WEBCORE_EXPORT Command();
         Command(const EditorInternalCommand*, EditorCommandSource, PassRefPtr<Frame>);
 
-        WEBCORE_EXPORT bool execute(const String& parameter = String(), Event* triggeringEvent = 0) const;
+        WEBCORE_EXPORT bool execute(const String& parameter = String(), Event* triggeringEvent = nullptr) const;
         WEBCORE_EXPORT bool execute(Event* triggeringEvent) const;
 
         WEBCORE_EXPORT bool isSupported() const;
-        WEBCORE_EXPORT bool isEnabled(Event* triggeringEvent = 0) const;
+        WEBCORE_EXPORT bool isEnabled(Event* triggeringEvent = nullptr) const;
 
-        WEBCORE_EXPORT TriState state(Event* triggeringEvent = 0) const;
-        String value(Event* triggeringEvent = 0) const;
+        WEBCORE_EXPORT TriState state(Event* triggeringEvent = nullptr) const;
+        String value(Event* triggeringEvent = nullptr) const;
 
         WEBCORE_EXPORT bool isTextInsertion() const;
+        WEBCORE_EXPORT bool allowExecutionWhenDisabled() const;
 
     private:
-        const EditorInternalCommand* m_command;
+        const EditorInternalCommand* m_command { nullptr };
         EditorCommandSource m_source;
         RefPtr<Frame> m_frame;
     };
@@ -229,6 +232,7 @@ public:
     bool insertTextWithoutSendingTextEvent(const String&, bool selectInsertedText, TextEvent* triggeringEvent);
     bool insertLineBreak();
     bool insertParagraphSeparator();
+    WEBCORE_EXPORT bool insertParagraphSeparatorInQuotedContent();
 
     WEBCORE_EXPORT bool isContinuousSpellCheckingEnabled() const;
     WEBCORE_EXPORT void toggleContinuousSpellChecking();
@@ -300,7 +304,7 @@ public:
     WEBCORE_EXPORT void confirmComposition(const String&); // if no existing composition, replaces selection
     WEBCORE_EXPORT void cancelComposition();
     bool cancelCompositionIfSelectionIsInvalid();
-    WEBCORE_EXPORT PassRefPtr<Range> compositionRange() const;
+    WEBCORE_EXPORT RefPtr<Range> compositionRange() const;
     WEBCORE_EXPORT bool getCompositionSelection(unsigned& selectionStart, unsigned& selectionEnd) const;
 
     // getting international text input composition state (for use by InlineTextBox)
@@ -325,11 +329,11 @@ public:
 
     EditingBehavior behavior() const;
 
-    PassRefPtr<Range> selectedRange();
+    RefPtr<Range> selectedRange();
 
 #if PLATFORM(IOS)
     WEBCORE_EXPORT void confirmMarkedText();
-    WEBCORE_EXPORT void setTextAsChildOfElement(const String&, Element*);
+    WEBCORE_EXPORT void setTextAsChildOfElement(const String&, Element&);
     WEBCORE_EXPORT void setTextAlignmentForChangedBaseWritingDirection(WritingDirection);
     WEBCORE_EXPORT void insertDictationPhrases(Vector<Vector<String>>&& dictationPhrases, RetainPtr<id> metadata);
     WEBCORE_EXPORT void setDictationPhrasesAsChildOfElement(const Vector<Vector<String>>& dictationPhrases, RetainPtr<id> metadata, Element&);
@@ -345,7 +349,7 @@ public:
     WEBCORE_EXPORT void handleAlternativeTextUIResult(const String& correction);
     void dismissCorrectionPanelAsIgnored();
 
-    WEBCORE_EXPORT void pasteAsFragment(PassRefPtr<DocumentFragment>, bool smartReplace, bool matchStyle, MailBlockquoteHandling = MailBlockquoteHandling::RespectBlockquote);
+    WEBCORE_EXPORT void pasteAsFragment(Ref<DocumentFragment>&&, bool smartReplace, bool matchStyle, MailBlockquoteHandling = MailBlockquoteHandling::RespectBlockquote);
     WEBCORE_EXPORT void pasteAsPlainText(const String&, bool smartReplace);
 
     // This is only called on the mac where paste is implemented primarily at the WebKit level.
@@ -360,8 +364,8 @@ public:
     String selectedTextForDataTransfer() const;
     WEBCORE_EXPORT bool findString(const String&, FindOptions);
 
-    PassRefPtr<Range> rangeOfString(const String&, Range*, FindOptions);
-    PassRefPtr<Range> findStringAndScrollToVisible(const String&, Range*, FindOptions);
+    RefPtr<Range> rangeOfString(const String&, Range*, FindOptions);
+    RefPtr<Range> findStringAndScrollToVisible(const String&, Range*, FindOptions);
 
     const VisibleSelection& mark() const; // Mark, to be used as emacs uses it.
     void setMark(const VisibleSelection&);
@@ -423,12 +427,11 @@ public:
     WEBCORE_EXPORT void toggleAutomaticSpellingCorrection();
 #endif
 
-    PassRefPtr<DocumentFragment> webContentFromPasteboard(Pasteboard&, Range& context, bool allowPlainText, bool& chosePlainText);
+    RefPtr<DocumentFragment> webContentFromPasteboard(Pasteboard&, Range& context, bool allowPlainText, bool& chosePlainText);
 
 #if PLATFORM(COCOA)
-    WEBCORE_EXPORT static RenderStyle* styleForSelectionStart(Frame* , Node *&nodeToRemove);
-    void getTextDecorationAttributesRespectingTypingStyle(RenderStyle&, NSMutableDictionary*) const;
-    WEBCORE_EXPORT bool insertParagraphSeparatorInQuotedContent();
+    WEBCORE_EXPORT static const RenderStyle* styleForSelectionStart(Frame* , Node *&nodeToRemove);
+    void getTextDecorationAttributesRespectingTypingStyle(const RenderStyle&, NSMutableDictionary*) const;
     WEBCORE_EXPORT const Font* fontForSelection(bool&) const;
     WEBCORE_EXPORT NSDictionary *fontAttributesForSelectionStart() const;
     WEBCORE_EXPORT String stringSelectionForPasteboard();
@@ -438,7 +441,7 @@ public:
     void takeFindStringFromSelection();
     WEBCORE_EXPORT void readSelectionFromPasteboard(const String& pasteboardName, MailBlockquoteHandling = MailBlockquoteHandling::RespectBlockquote);
     WEBCORE_EXPORT void replaceNodeFromPasteboard(Node*, const String& pasteboardName);
-    WEBCORE_EXPORT PassRefPtr<SharedBuffer> dataSelectionForPasteboard(const String& pasteboardName);
+    WEBCORE_EXPORT RefPtr<SharedBuffer> dataSelectionForPasteboard(const String& pasteboardName);
     WEBCORE_EXPORT void applyFontStyles(const String& fontFamily, double fontSize, unsigned fontTraits);
 #endif // !PLATFORM(IOS)
     WEBCORE_EXPORT void replaceSelectionWithAttributedString(NSAttributedString *, MailBlockquoteHandling = MailBlockquoteHandling::RespectBlockquote);
@@ -453,6 +456,10 @@ public:
     void scanSelectionForTelephoneNumbers();
     const Vector<RefPtr<Range>>& detectedTelephoneNumberRanges() const { return m_detectedTelephoneNumberRanges; }
 #endif
+
+    WEBCORE_EXPORT String stringForCandidateRequest() const;
+    WEBCORE_EXPORT void handleAcceptedCandidate(TextCheckingResult);
+    bool isHandlingAcceptedCandidate() const { return m_isHandlingAcceptedCandidate; }
 
 private:
     class WebContentReader;
@@ -475,7 +482,7 @@ private:
     enum SetCompositionMode { ConfirmComposition, CancelComposition };
     void setComposition(const String&, SetCompositionMode);
 
-    void changeSelectionAfterCommand(const VisibleSelection& newSelection, FrameSelection::SetSelectionOptions, AXTextStateChangeIntent = AXTextStateChangeIntent());
+    void changeSelectionAfterCommand(const VisibleSelection& newSelection, FrameSelection::SetSelectionOptions);
 
     enum EditorActionSpecifier { CutAction, CopyAction };
     void performCutOrCopy(EditorActionSpecifier);
@@ -487,12 +494,14 @@ private:
     bool unifiedTextCheckerEnabled() const;
 
 #if PLATFORM(COCOA)
-    PassRefPtr<SharedBuffer> selectionInWebArchiveFormat();
-    PassRefPtr<Range> adjustedSelectionRange();
-    PassRefPtr<DocumentFragment> createFragmentForImageResourceAndAddResource(PassRefPtr<ArchiveResource>);
-    PassRefPtr<DocumentFragment> createFragmentAndAddResources(NSAttributedString *);
+    RefPtr<SharedBuffer> selectionInWebArchiveFormat();
+    RefPtr<Range> adjustedSelectionRange();
+    RefPtr<DocumentFragment> createFragmentForImageResourceAndAddResource(RefPtr<ArchiveResource>&&);
+    RefPtr<DocumentFragment> createFragmentAndAddResources(NSAttributedString *);
     void fillInUserVisibleForm(PasteboardURL&);
 #endif
+
+    void postTextStateChangeNotificationForCut(const String&, const VisibleSelection&);
 
     Frame& m_frame;
     RefPtr<CompositeEditCommand> m_lastEditCommand;
@@ -515,6 +524,7 @@ private:
     Timer m_editorUIUpdateTimer;
     bool m_editorUIUpdateTimerShouldCheckSpellingAndGrammar;
     bool m_editorUIUpdateTimerWasTriggeredByDictation;
+    bool m_isHandlingAcceptedCandidate { false };
 
 #if ENABLE(TELEPHONE_NUMBER_DETECTION) && !PLATFORM(IOS)
     bool shouldDetectTelephoneNumbers();

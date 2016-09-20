@@ -26,15 +26,16 @@
 #ifndef WKImmediateActionController_h
 #define WKImmediateActionController_h
 
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+#if PLATFORM(MAC)
 
 #import "WKImmediateActionTypes.h"
-#import "WebHitTestResult.h"
+#import "WebHitTestResultData.h"
 #import <WebCore/NSImmediateActionGestureRecognizerSPI.h>
 #import <wtf/RetainPtr.h>
 
 namespace WebKit {
 class WebPageProxy;
+class WebViewImpl;
 
 enum class ImmediateActionState {
     None = 0,
@@ -46,18 +47,18 @@ enum class ImmediateActionState {
 
 @class DDActionContext;
 @class QLPreviewMenuItem;
-@class WKView;
 
 @interface WKImmediateActionController : NSObject <NSImmediateActionGestureRecognizerDelegate> {
 @private
-    WebKit::WebPageProxy *_page;
-    WKView *_wkView;
+    WebKit::WebPageProxy* _page;
+    NSView *_view;
+    WebKit::WebViewImpl* _viewImpl;
 
     WebKit::ImmediateActionState _state;
-    WebKit::WebHitTestResult::Data _hitTestResultData;
+    WebKit::WebHitTestResultData _hitTestResultData;
     BOOL _contentPreventsDefault;
     RefPtr<API::Object> _userData;
-    _WKImmediateActionType _type;
+    uint32_t _type;
     RetainPtr<NSImmediateActionGestureRecognizer> _immediateActionRecognizer;
 
     BOOL _hasActivatedActionContext;
@@ -67,14 +68,14 @@ enum class ImmediateActionState {
     BOOL _hasActiveImmediateAction;
 }
 
-- (instancetype)initWithPage:(WebKit::WebPageProxy&)page view:(WKView *)wkView recognizer:(NSImmediateActionGestureRecognizer *)immediateActionRecognizer;
-- (void)willDestroyView:(WKView *)view;
-- (void)didPerformImmediateActionHitTest:(const WebKit::WebHitTestResult::Data&)hitTestResult contentPreventsDefault:(BOOL)contentPreventsDefault userData:(API::Object*)userData;
+- (instancetype)initWithPage:(WebKit::WebPageProxy&)page view:(NSView *)view viewImpl:(WebKit::WebViewImpl&)viewImpl recognizer:(NSImmediateActionGestureRecognizer *)immediateActionRecognizer;
+- (void)willDestroyView:(NSView *)view;
+- (void)didPerformImmediateActionHitTest:(const WebKit::WebHitTestResultData&)hitTestResult contentPreventsDefault:(BOOL)contentPreventsDefault userData:(API::Object*)userData;
 - (void)dismissContentRelativeChildWindows;
 - (BOOL)hasActiveImmediateAction;
 
 @end
 
-#endif // PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
+#endif // PLATFORM(MAC)
 
 #endif // WKImmediateActionController_h

@@ -299,7 +299,7 @@ int l2tp_outgoing_call(int fd, struct sockaddr *peer_address,
     /* set peer tunnel id and peer window */
     if (peer_params->window_size == 0)
         peer_params->window_size = 4;		/* assume 4 if absent as per rfc2661 */
-    l2tp_set_peerparams(fd, peer_params);
+    (void)l2tp_set_peerparams(fd, peer_params);
     
     /* ------------- send SCCCN  -------------*/	 
     size = prepare_SCCCN(control_buf, MAX_CNTL_BUFFER_SIZE);

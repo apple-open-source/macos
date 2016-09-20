@@ -57,7 +57,7 @@ public:
         // for sunken PutStacks in the presence of interesting control flow merges, and where the
         // value being PutStack'd is also otherwise live in the DFG code. We could work around this
         // by doing the sinking over CPS, or maybe just by doing really smart hoisting. It's also
-        // possible that the duplicate Phi graph can be deduplicated by LLVM. It would be best if we
+        // possible that the duplicate Phi graph can be deduplicated by B3. It would be best if we
         // could observe that there is already a Phi graph in place that does what we want. In
         // principle if we have a request to place a Phi at a particular place, we could just check
         // if there is already a Phi that does what we want. Because PutStackSinkingPhase runs just
@@ -75,6 +75,8 @@ public:
             dataLog("Graph before PutStack sinking:\n");
             m_graph.dump();
         }
+
+        m_graph.ensureDominators();
         
         SSACalculator ssaCalculator(m_graph);
         InsertionSet insertionSet(m_graph);
@@ -388,7 +390,7 @@ public:
                 if (verbose)
                     dataLog("Adding Phi for ", operand, " at ", pointerDump(block), "\n");
                 
-                Node* phiNode = m_graph.addNode(SpecHeapTop, Phi, NodeOrigin());
+                Node* phiNode = m_graph.addNode(SpecHeapTop, Phi, block->at(0)->origin.withInvalidExit());
                 phiNode->mergeFlags(resultFor(format));
                 return phiNode;
             });
@@ -491,7 +493,7 @@ public:
                         insertionSet.insertNode(
                             nodeIndex, SpecNone, PutStack, node->origin,
                             OpInfo(m_graph.m_stackAccessData.add(operand, format)),
-                            Edge(incoming, useKindFor(format)));
+                            Edge(incoming, uncheckedUseKindFor(format)));
                     
                         deferred.operand(operand) = DeadFlush;
                     };
@@ -525,7 +527,7 @@ public:
                         dataLog("Creating Upsilon for ", operand, " at ", pointerDump(block), "->", pointerDump(successorBlock), "\n");
                     FlushFormat format = deferredAtHead[successorBlock].operand(operand);
                     DFG_ASSERT(m_graph, nullptr, isConcrete(format));
-                    UseKind useKind = useKindFor(format);
+                    UseKind useKind = uncheckedUseKindFor(format);
                     
                     // We need to get a value for the stack slot. This phase doesn't really have a
                     // good way of determining if a stack location got clobbered. It just knows if
@@ -556,8 +558,7 @@ public:
         }
         
         // Finally eliminate the sunken PutStacks by turning them into Checks. This keeps whatever
-        // type check they were doing. Also prepend KillStacks to them to ensure that we know that
-        // the relevant value was *not* stored to the stack.
+        // type check they were doing.
         for (BasicBlock* block : m_graph.blocksInNaturalOrder()) {
             for (unsigned nodeIndex = 0; nodeIndex < block->size(); ++nodeIndex) {
                 Node* node = block->at(nodeIndex);
@@ -582,7 +583,6 @@ public:
     
 bool performPutStackSinking(Graph& graph)
 {
-    SamplingRegion samplingRegion("DFG PutStack Sinking Phase");
     return runPhase<PutStackSinkingPhase>(graph);
 }
 

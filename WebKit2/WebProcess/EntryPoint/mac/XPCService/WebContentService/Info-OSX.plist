@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleFollowParentLocalization</key>
+	<true/>
 	<key>CFBundleGetInfoString</key>
 	<string>${BUNDLE_VERSION}, Copyright 2003-2016 Apple Inc.</string>
 	<key>CFBundleDevelopmentRegion</key>
@@ -9,7 +11,7 @@
 	<key>CFBundleExecutable</key>
 	<string>${EXECUTABLE_NAME}</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.apple.WebKit.WebContent</string>
+	<string>${PRODUCT_NAME}</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>

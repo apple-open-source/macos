@@ -117,7 +117,8 @@ enum
 	kCBIProtocolDeviceDetectedCode			= UMC_TRACE ( kCBIProtocolDeviceDetected ),
 	kCBICommandAlreadyInProgressCode		= UMC_TRACE ( kCBICommandAlreadyInProgress ),
 	kCBISendSCSICommandReturnedCode			= UMC_TRACE ( kCBISendSCSICommandReturned ),
-	
+	kCBICompletionCode                      = UMC_TRACE ( kCBICompletion ),
+    
 	// UFI Specific							0x052D0800 - 0x052D0BFF
 
 	// Bulk-Only Specific					0x052D0C00 - 0x052D0FFF
@@ -1375,6 +1376,16 @@ ParseKernelTracePoint ( kd_buf inTracePoint )
             errorString = StringFromReturnCode ( inTracePoint.arg3 );
             printf ( "[%10p] CBI - SCSI Task %p was sent with status %s (0x%x)\n",
                     ( void * ) inTracePoint.arg1, ( void * ) inTracePoint.arg2, errorString, ( unsigned int ) inTracePoint.arg3 );
+            
+        }
+        break;
+            
+        case kCBICompletionCode:
+        {
+
+            errorString = StringFromReturnCode ( inTracePoint.arg2 );
+            printf ( "[%10p] CBI - Completion for state %lu, Task %p was sent with status %s (0x%x)\n",
+                        ( void * ) inTracePoint.arg1, inTracePoint.arg3, ( void * ) inTracePoint.arg4, errorString, ( unsigned int ) inTracePoint.arg2 );
             
         }
         break;

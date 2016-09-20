@@ -37,6 +37,8 @@
 
 #import <AVFoundation/AVPlayer.h>
 
+NS_ASSUME_NONNULL_BEGIN
+
 @class AVOutputContext;
 @interface AVOutputContext : NSObject <NSSecureCoding>
 @property (nonatomic, readonly) NSString *deviceName;
@@ -47,9 +49,32 @@
 @property (nonatomic, retain) AVOutputContext *outputContext;
 @end
 
+NS_ASSUME_NONNULL_END
+
 #endif
 
 #endif // ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS)
+
+#if USE(APPLE_INTERNAL_SDK)
+#import <AVFoundation/AVAssetCache_Private.h>
+#else
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101200) || (PLATFORM(IOS) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 100000)
+#import <AVFoundation/AVAssetCache.h>
+#else
+@interface AVAssetCache : NSObject
+@end
+#endif
+NS_ASSUME_NONNULL_BEGIN
+@interface AVAssetCache ()
++ (AVAssetCache *)assetCacheWithURL:(NSURL *)URL;
+- (id)initWithURL:(NSURL *)URL;
+- (NSArray *)allKeys;
+- (NSDate *)lastModifiedDateOfEntryForKey:(NSString *)key;
+- (void)removeEntryForKey:(NSString *)key;
+@property (nonatomic, readonly, copy) NSURL *URL;
+@end
+NS_ASSUME_NONNULL_END
+#endif
 
 #if PLATFORM(IOS)
 
@@ -64,7 +89,7 @@
 
 #endif
 
-#if !HAVE(AVKIT) || !USE(APPLE_INTERNAL_SDK) || __IPHONE_OS_VERSION_MIN_REQUIRED < 90000
+#if !HAVE(AVKIT) || !USE(APPLE_INTERNAL_SDK)
 
 @interface AVPlayerLayer (AVPlayerLayerPictureInPictureModeSupportPrivate)
 - (void)setPIPModeEnabled:(BOOL)flag;
@@ -74,3 +99,54 @@
 
 #endif // PLATFORM(IOS)
 
+#pragma mark -
+#pragma mark AVStreamDataParser
+#if !PLATFORM(IOS)
+#if USE(APPLE_INTERNAL_SDK)
+#import <AVFoundation/AVStreamDataParser.h>
+#else
+
+@protocol AVStreamDataParserOutputHandling <NSObject>
+@end
+
+typedef int32_t CMPersistentTrackID;
+
+NS_ASSUME_NONNULL_BEGIN
+typedef NS_ENUM(NSUInteger, AVStreamDataParserOutputMediaDataFlags) {
+    AVStreamDataParserOutputMediaDataReserved = 1 << 0
+};
+
+@interface AVStreamDataParser : NSObject
+- (void)setDelegate:(nullable id<AVStreamDataParserOutputHandling>)delegate;
+- (void)appendStreamData:(NSData *)data;
+- (void)setShouldProvideMediaData:(BOOL)shouldProvideMediaData forTrackID:(CMPersistentTrackID)trackID;
+- (BOOL)shouldProvideMediaDataForTrackID:(CMPersistentTrackID)trackID;
+- (void)providePendingMediaData;
+- (void)processContentKeyResponseData:(NSData *)contentKeyResponseData forTrackID:(CMPersistentTrackID)trackID;
+- (void)processContentKeyResponseError:(NSError *)error forTrackID:(CMPersistentTrackID)trackID;
+- (void)renewExpiringContentKeyResponseDataForTrackID:(CMPersistentTrackID)trackID;
+- (NSData *)streamingContentKeyRequestDataForApp:(NSData *)appIdentifier contentIdentifier:(NSData *)contentIdentifier trackID:(CMPersistentTrackID)trackID options:(NSDictionary *)options error:(NSError **)outError;
+@end
+NS_ASSUME_NONNULL_END
+#endif // USE(APPLE_INTERNAL_SDK)
+
+NS_ASSUME_NONNULL_BEGIN
+@interface AVStreamDataParser (AVStreamDataParserPrivate)
++ (NSString *)outputMIMECodecParameterForInputMIMECodecParameter:(NSString *)inputMIMECodecParameter;
+@end
+NS_ASSUME_NONNULL_END
+
+#endif // !PLATFORM(IOS)
+
+// FIXME: Wrap in a #if USE(APPLE_INTERNAL_SDK) once these SPI land
+#import <AVFoundation/AVAssetResourceLoader.h>
+
+NS_ASSUME_NONNULL_BEGIN
+
+@interface AVAssetResourceLoader (AVAssetResourceLoaderPrivate)
+@property (nonatomic, readonly) id<NSURLSessionDataDelegate> URLSessionDataDelegate;
+@property (nonatomic, readonly) NSOperationQueue *URLSessionDataDelegateQueue;
+@property (nonatomic, nullable, retain) NSURLSession *URLSession;
+@end
+
+NS_ASSUME_NONNULL_END

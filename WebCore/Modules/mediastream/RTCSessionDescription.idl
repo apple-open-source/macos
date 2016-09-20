@@ -30,11 +30,19 @@
  */
 
 [
-    Conditional=MEDIA_STREAM,
-    CustomConstructor(optional Dictionary dictionary),
-    ConstructorRaisesException
+    Conditional=WEB_RTC,
+    Constructor(Dictionary dictionary),
+    ConstructorRaisesException,
+    PrivateIdentifier,
+    PublicIdentifier
 ] interface RTCSessionDescription {
-    [SetterRaisesException] attribute DOMString type;
-    attribute DOMString sdp;
+    [SetterRaisesException] readonly attribute RTCSdpType type;
+    readonly attribute DOMString sdp;
 };
 
+enum RTCSdpType {
+    "offer",
+    "pranswer",
+    "answer",
+    "rollback"
+};

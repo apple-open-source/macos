@@ -454,7 +454,7 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict)
                 goto finish;
             }
 
-            // path to the prelinkedkernel (or kernelcache)
+            // path to the prelinkedkernel
             str = (CFStringRef)CFDictionaryGetValue(mkDict, kBCPathKey);
             MAKE_CACHEDPATH(&caches->rpspaths[rpsindex], caches, str);
             caches->kext_boot_cache_file = &caches->rpspaths[rpsindex++];
@@ -520,7 +520,7 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict)
                 }
             }
 
-            // kernelcaches have a kernel path key, which we set up by hand
+            // prelinked kernels have a kernel path key, which we set up by hand
             if (isKernelcache) {
                 // <= 10.9 - /Volumes/foo/mach_kernel
                 // > 10.9 - /Volumes/foo/System/Library/Kernels/kernel
@@ -567,9 +567,9 @@ finish:
  * creates and populates extraKernelCachePaths.  Also sets kernelsCount.
  * Looks for any kernel files in the format of "kernel.SUFFIX" in 
  * /System/Library/Kernels then uses SUFFIX to create the corresponding 
- * kernelcache.SUFFIX path.
+ * prelinkedkernel.SUFFIX path.
  *
- * NOTE, we already have the kernelcache path for the "kernel" file as part of
+ * NOTE, we already have the prelinkedkernel path for the "kernel" file as part of
  * rpspaths so we do not add it to extraKernelCachePaths (thus "extra").  And
  * that is why nekcp is one less than bootCaches.kernelsCount.
  */
@@ -683,7 +683,7 @@ getExtraKernelCachePaths(struct bootCaches *caches)
         tmpCFString =  CFURLCopyPathExtension(enumURL);
         if (tmpCFString == NULL)   continue;
         
-        // build kernelcache file for each valid kernel suffix we find.
+        // build prelinkedkernel file for each valid kernel suffix we find.
         suffixPtr = createUTF8CStringForCFString(tmpCFString);
         if (suffixPtr == NULL)    continue;
         
@@ -907,8 +907,7 @@ readBootCaches(char *volRoot, BRUpdateOpts_t opts)
     caches = calloc(1, sizeof(*caches));
     if (!caches)            goto finish;
     caches->cachefd = -1;       // set cardinal (fd 0 valid)
-    pathcpy(caches->root, volRoot);
-
+    if (strlcpy(caches->root, volRoot, sizeof(caches->root)) >= sizeof(caches->root)) goto finish;
     errmsg = "error opening " kBootCachesPath;
     pathcpy(bcpath, caches->root);
     pathcat(bcpath, kBootCachesPath);
@@ -1500,7 +1499,7 @@ rebuild_kext_boot_cache_file(
     Boolean         generateKernelcache     = false;
     int             mkextVersion            = 0;
     
-    // bootcaches.plist might not request mkext/kernelcache rebuilds
+    // bootcaches.plist might not request mkext/prelinkedkernel rebuilds
     if (!caches->kext_boot_cache_file) {
        goto finish;
     }
@@ -1762,9 +1761,9 @@ check_kext_boot_cache_file(
     char         fullPath[PATH_MAX]                 = "";
     struct stat  statbuffer;
     time_t       validModtime                       = 0;
-    time_t       kernelcacheModtime                 = 0;
+    time_t       prelinkedkernelModtime             = 0;
 
-   /* Do we have a cache file (mkext or kernelcache)?
+   /* Do we have a cache file (mkext or prelinkedkernel)?
     * Note: cache_path is a pointer field, not a static array.
     */
     if (cache_path == NULL)
@@ -1802,7 +1801,7 @@ check_kext_boot_cache_file(
     }
 
    /* Check the mod time of the appropriate kernel too, if applicable.
-    * A kernel path in bootcaches.plist means we should have a kernelcache.
+    * A kernel path in bootcaches.plist means we should have a prelinkedkernel.
     * Note: kernel_path is a static array, not a pointer field.
     */
     if (kernel_path[0]) {
@@ -1847,8 +1846,8 @@ check_kext_boot_cache_file(
                       __func__, statbuffer.st_mtime, fullPath);
 #endif
    
-    kernelcacheModtime = statbuffer.st_mtime;
-    needsrebuild = (kernelcacheModtime != validModtime);
+    prelinkedkernelModtime = statbuffer.st_mtime;
+    needsrebuild = (prelinkedkernelModtime != validModtime);
 
 finish:
     return needsrebuild;
@@ -1990,6 +1989,10 @@ check_csfde(struct bootCaches *caches)
             goto finish;
         }
     }
+
+    // if we are on a unencrypted core storage volume don't update, 26592318
+    if (caches->csfde_uuid && erStamp && !propStamp)
+	goto finish;
 
     // generally the timestamp advances, but != means out of date
     needsupdate = erStamp != propStamp;

@@ -14,7 +14,7 @@
 # shell script, named $LSOF_MK, that places its source modules in this
 # directory.
 #
-# $Id: Configure,v 1.162 2013/01/02 17:13:48 abe Exp $
+# $Id: Configure,v 1.164 2015/07/07 20:16:58 abe Exp $
 
 # LSOF_CFLAGS_OVERRIDE=1 may be introduced through the environment to cause
 #	the library Makefile's CFLAGS definition to override any in the
@@ -104,6 +104,8 @@ LSOF_VF=version
 #	$LSOF_NBSD_BUFQH    NetBSD <sys/bufq.h> copy status
 #	$LSOF_NBSD_PTYFS    NetBSD ${NETBSD_SYS}/sys/fs/ptyfs/ copy status
 #	$LSOF_N_UNIXV	    *BSD system's kernel file
+#	$LSOF_OPINC	    supplies additional -I/path arguments for the
+#			    Makefile's CFLAGS.
 #	$LSOF_PL	    patch level
 #	$LSOF_RANLIB	    randomizing command for the lsof library
 #	$LSOF_RANLIB_SUP    if non-NULL $LSOF_RANLIB was supplied
@@ -132,6 +134,7 @@ LSOF_VF=version
 #	$LSOF_TSTXO	    test extra objects (for $LSOF_TSTXOC)
 #	$LSOF_TSTXOC	    test extra objects file
 #	$LSOF_UNSUP	    Lsof is unsupported on this dialect
+#	$LSOF_UNSUP2	    Second message about lack of support
 #	$LSOF_VERS	    Unix dialect version as a decimal number (may
 #			    be supplied externally)
 #	$LSOF_VSTR	    Unix dialect version as a string -- may be supplied
@@ -199,6 +202,7 @@ LSOF_TSTVPATH=0
 LSOF_TSTXO=""
 LSOF_TSTXOC="${LSOF_TSTSUBD}/config.xobj"
 LSOF_UNSUP="WARNING: unsupported dialect or version"
+LSOF_UNSUP2=""
 if test "X$LSOF_VERS" = "X"	# {
 then
   LSOF_VERS=""
@@ -289,6 +293,8 @@ do
       echo "rm -rf AFSHeaders AFSVersion solaris11 version.h vnode_if.h"
       rm -f ${LSOF_HLP_BASE}* cd9660_node.h lockf_owner.h fbsd_minor.h
       echo "rm -f ${LSOF_HLP_BASE}* cd9660_node.h lockf_owner.h fbsd_minor.h"
+      rm -f opt_kdtrace.h
+      echo "rm -f opt_kdtrace.h"
       rm -f dialects/aix/aix5/j2/j2_snapshot.h
       echo "rm -f dialects/aix/aix5/j2/j2_snapshot.h"
       rm -f dialects/sun/solaris10	# DEBUG -- for s10_44
@@ -889,13 +895,19 @@ case $LSOF_TGT in	# {
       13.*)			# Mac OS X 10.9 (Mavericks)
  	LSOF_VERS=1300
  	;;
-      14.*)			# Next Mac OS X
+      14.*)			# Mac OS X 10.10 (Yosemite)
  	LSOF_VERS=1400
+ 	;;
+      15.*)			# Mac OS X 10.11 (El Capitan)
+ 	LSOF_VERS=1500
+ 	;;
+      16.*)			# Next? Mac OS X
+ 	LSOF_VERS=1600
  	;;
       *)
 	echo Unknown Darwin release: `uname -r`
-	echo Assuming Darwin 13.0
-	LSOF_VERS=1300
+	echo Assuming Darwin 15.0
+	LSOF_VERS=1500
 	;;
       esac	# }
     fi	# }
@@ -924,7 +936,7 @@ case $LSOF_TGT in	# {
       LSOF_CFGF="$LSOF_CFGF -DHASIPv6"
       LSOF_TMP1="net/ndrv_var.h net/raw_cb.h netinet/ip_var.h netinet/tcp_var.h sys/eventvar.h sys/file_internal.h sys/mount_internal.h sys/proc_internal.h sys/vnode_internal.h"
       ;;
-    900|1000|1100|1200|1300)
+    900|1000|1100|1200|1300|1400|1500)
       LSOF_CFGF="$LSOF_CFGF -DHASIPv6"
       LSOF_TMP1=""
       LSOF_UNSUP=""
@@ -934,8 +946,8 @@ case $LSOF_TGT in	# {
 	LSOF_CFGF="$LSOF_CFGF -DNEEDS_MACH_PORT_T"
       fi	# }
       ;;
-    1400)
-      LSOF_CFGF="$LSOF_CFGF -DHASIPv6"
+    1600)
+      LSOF_CFGF="$LSOF_CFGF -DHASIPv6 -fno-common"
       LSOF_TMP1=""
       ;;
     *)
@@ -1601,6 +1613,10 @@ kernel generation process.
 	LSOF_TSTBIGF=" "
 	LSOF_VERS=8030
 	;;
+      8.4*)
+	LSOF_TSTBIGF=" "
+	LSOF_VERS=8040
+	;;
       9*)
 	LSOF_TSTBIGF=" "
 	LSOF_VERS=9000
@@ -1608,6 +1624,10 @@ kernel generation process.
       10*)
 	LSOF_TSTBIGF=" "
 	LSOF_VERS=10000
+	;;
+      11*)
+	LSOF_TSTBIGF=" "
+	LSOF_VERS=11000
 	;;
       *)
 	echo Unknown FreeBSD release: `uname -r`
@@ -1620,37 +1640,36 @@ kernel generation process.
     # Clear LSOF_UNSUP message for supported versions of FreeBSD.
     
     case $LSOF_VERS in  # {
-    4090|8020|8030|9000|10000)
+    4090|8020|8030|8040|9000|10000|11000)
       LSOF_UNSUP=""
       ;;
     esac	# }
 
-    # Get system CFLAGS from FREEBSD_MAKE_CONF (default=/etc/make.conf).
+    # Get system CFLAGS, if possible.
 
-    if test "X$FREEBSD_MAKE_CONF" = "X"	# {
-    then
-      FREEBSD_MAKE_CONF="/etc/make.conf"
-    fi	# }
-    if test -r $FREEBSD_MAKE_CONF	# {
-    then
-      LSOF_TMP1=`echo "all:\n.include <bsd.prog.mk>" | $LSOF_MAKE -f- -VCFLAGS`
-      LSOF_TMP=1
-      while test $LSOF_TMP -eq 1	# {
-      do
-	echo $LSOF_TMP1 | grep -q -e '-O'
-	if test $? -eq 0	# {
-	then
-	  if test "X$LSOF_DEBUG" = "X"
+    LSOF_TMP1=`echo "all:\n.include <bsd.prog.mk>" | $LSOF_MAKE -f- -VCFLAGS`
+    LSOF_TMP=1
+    while test $LSOF_TMP -eq 1	# {
+    do
+      echo $LSOF_TMP1 | grep -q -e '-O'
+      if test $? -eq 0	# {
+      then
+	if test "X$LSOF_DEBUG" = "X"
 	  then	# {
 	    LSOF_DEBUG=`echo $LSOF_TMP1 | sed 's/.*\(-O[^ $]*\).*/\1/'`
-	  fi	# }
-	  LSOF_TMP1=`echo $LSOF_TMP1 | sed 's/\(.*\)-O[^ $]*\(.*\)/\1 \2/' | sed 's/^  *//g' | sed 's/  */ /g' | sed 's/  *$//'`
-	else
-	  LSOF_TMP=0
-	fi	# }
-	LSOF_FBSD_ZFS_CFGF="$LSOF_CFGF $LSOF_TMP1"
-      done	# }
-      LSOF_CFGF="$LSOF_CFGF $LSOF_TMP1"
+	 fi	# }
+	LSOF_TMP1=`echo $LSOF_TMP1 | sed 's/\(.*\)-O[^ $]*\(.*\)/\1 \2/' | sed 's/^  *//g' | sed 's/  */ /g' | sed 's/  *$//'`
+      else
+	LSOF_TMP=0
+      fi	# }
+      LSOF_FBSD_ZFS_CFGF="$LSOF_CFGF $LSOF_TMP1"
+    done	# }
+    LSOF_CFGF="$LSOF_CFGF $LSOF_TMP1"
+    echo $LSOF_CFGF | grep -q NEEDS_BOOL_TYPEDEF
+    if test $? -ne 0
+    then	# {
+      LSOF_CFGF="$LSOF_CFGF -DNEEDS_BOOL_TYPEDEF"
+      LSOF_FBSD_ZFS_CFGF="$LSOF_FBSD_ZFS_CFGF -DNEEDS_BOOL_TYPEDEF"
     fi	# }
 
     # Determine path to FreeBSD sources.
@@ -1684,6 +1703,17 @@ kernel generation process.
       echo "FATAL: can't find sys/user.h"
       rm -f $LSOF_HLP
       exit 1
+    fi	# }
+
+    # Test pause() status in system.h.
+
+    if test -r ${FREEBSD_SYS}/sys/systm.h	# {
+    then
+      grep -q pause_sbt ${FREEBSD_SYS}/sys/systm.h
+      if test $? -eq 0	# {
+      then
+	LSOF_CFGF="$LSOF_CFGF -DHAS_PAUSE_SBT"
+      fi	# }
     fi	# }
 
     # Do FreeBSD version-specific stuff.
@@ -1777,6 +1807,18 @@ kernel generation process.
 	    fi	# }
 	  fi	# }
 	fi	# }
+	if test -r ${FREEBSD_SYS}/sys/filedesc.h	# {
+	then
+	  grep -q filedescent ${FREEBSD_SYS}/sys/filedesc.h
+	  if test $? -eq 0	# {
+	  then
+	    LSOF_CFGF="$LSOF_CFGF -DHAS_FILEDESCENT"
+	  fi	# }
+	fi	# }
+	if test -r ${FREEBSD_SYS}/fs/tmpfs/tmpfs.h	# {
+	then
+	    LSOF_CFGF="$LSOF_CFGF -DHAS_TMPFS"
+	fi	#}
 
       # Do FreeBSD 5.2 and higher version-specific stuff.
 
@@ -1949,6 +1991,23 @@ FBSD_MINOR3
 	    then
 	      LSOF_FBSD_ZFS_CFGF="$LSOF_FBSD_ZFS_CFGF -DHAS_Z_PHYS"
 	    fi	# }
+	    if test -r ${LSOF_FBSD_ZFS_SYS}/compat/opensolaris/sys/sdt.h  #{
+	    then
+	      grep -q opt_kdtrace.h ${LSOF_FBSD_ZFS_SYS}/compat/opensolaris/sys/sdt.h
+	      if test $? -eq 0	# {
+	      then
+		rm -f opt_kdtrace.h
+		touch opt_kdtrace.h
+	      fi	# }
+	    fi	# }
+	    if test -r ${LSOF_FBSD_ZFS_SYS}/compat/opensolaris/sys/kcondvar.h #{
+	    then
+		grep -q cv_timedwait_sbt ${LSOF_FBSD_ZFS_SYS}/compat/opensolaris/sys/kcondvar.h
+		if test $? -eq 0	# {
+		then
+		  LSOF_FBSD_ZFS_CFGF="$LSOF_FBSD_ZFS_CFGF -DHAS_CV_TIMEDWAIT_SBT"
+		fi	# }
+	    fi	#}
 	  fi	# }
 	  if test -r ${LSOF_INCLUDE}/sys/vnode.h	# {
 	  then
@@ -2067,8 +2126,35 @@ LOCKF_OWNER4
 	      then
 		LSOF_CFGF="$LSOF_CFGF -DNEEDS_BOOLEAN_T"
 	      fi	# }
-	    fi	# |
+	    fi	# }
+	    if test -r ${LSOF_INCLUDE}/sys/sockbuf.h	# {
+	    then
+	      grep -q 'u_int	sb_ccc;' ${LSOF_INCLUDE}/sys/sockbuf.h
+	      if test $? -eq 0	# {
+	      then
+		LSOF_CFGF="$LSOF_CFGF -DHAS_SB_CCC"
+	      fi	# }
+	    fi	# }
+	    if test -r ${LSOF_INCLUDE}/sys/filedesc.h	# {
+	    then
+	      grep -q '^struct fdescenttbl {' ${LSOF_INCLUDE}/sys/filedesc.h
+	      if test $? -eq 0	# {
+	      then
+		LSOF_CFGF="$LSOF_CFGF -DHAS_FDESCENTTBL"
+	      fi	# }
+	    fi	# }
 	  fi	# }
+	fi	# }
+      fi	# }
+      if test $LSOF_VERS -eq 10000	# {
+      then
+
+      # Do specific FreeBSD 10 version-specific stuff.
+
+	LSOF_TMP1=`uname -m`
+	if test "X$LSOF_TMP1" = "Xi386"	# {
+	then
+	  LSOF_CFGF="$LSOF_CFGF -DNEEDS_BOOL_TYPEDEF"
 	fi	# }
       fi	# }
       ;;
@@ -2820,6 +2906,17 @@ return(0); }
       LSOF_CFGF="$LSOF_CFGF -DHASNORPC_H"
     fi	# }
 
+    # Test for TCP_* symbols.
+
+    if test -r ${LSOF_INCLUDE}/netinet/tcp.h	# (
+    then
+      grep -q TCP_ESTABLISHED ${LSOF_INCLUDE}/netinet/tcp.h
+      if test $? -eq 0	# {
+      then
+	LSOF_CFGF="$LSOF_CFGF -DNEEDS_NETINET_TCPH"
+      fi	#}
+    fi	# }
+
     # Test for SELinux support.
 
     LSOF_TMP1=0
@@ -2839,6 +2936,13 @@ return(0); }
     then
       LSOF_CFGF="$LSOF_CFGF -DHASSELINUX"
       LSOF_CFGL="$LSOF_CFGL -lselinux"
+    fi	# }
+
+  # Test for UNIX socket endpoint support.
+
+    if test -r ${LSOF_INCLUDE}/linux/sock_diag.h -a -r ${LSOF_INCLUDE}/linux/unix_diag.h  # {
+    then
+      LSOF_CFGF="$LSOF_CFGF -DHASUXSOCKEPT"
     fi	# }
     LSOF_DIALECT_DIR="linux"
     LSOF_CFGF="$LSOF_CFGF -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE"
@@ -4958,6 +5062,10 @@ return(0); }
     if test $LSOF_TMP1 -eq 1	# {
     then
 
+    # Warn that VxFS is unsupported.
+
+      LSOF_UNSUP2="WARNING: VxFS is no longer supported by Solaris lsof."
+
     # The VxFS header files are for VxFS version 3.4 or above.  Enable VxFS
     # for those versions.
 
@@ -5444,6 +5552,10 @@ else
   fi	# }
 fi	# }
 echo "DEBUG=	$LSOF_DEBUG" >> $LSOF_MKFC
+if test "X$LSOF_OPINC" != "X"	# {
+then
+  LSOF_DINC="$LSOF_DINC $LSOF_OPINC"
+fi	# }
 if test "X$LSOF_DINC" != "X"	# {
 then
   echo "" >> $LSOF_MKFC
@@ -5600,10 +5712,14 @@ then
   ./Customize $LSOF_DIALECT_DIR
 fi	# }
 
-# Issue unsupported warning, as appropriate.
+# Issue unsupported warnings, as appropriate.
 
 if test "X$LSOF_UNSUP" != "X"	# {
 then
   echo "$LSOF_UNSUP"
+fi	#}
+if test "X$LSOF_UNSUP2" != "X"	# {
+then
+  echo "$LSOF_UNSUP2"
 fi	#}
 exit 0

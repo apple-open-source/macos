@@ -1,5 +1,7 @@
 SDKROOT = macosx.internal
 
+SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator watchos watchsimulator appletvos appletvsimulator
+
 CODE_SIGN_IDENTITY = -;
 DEBUG_INFORMATION_FORMAT = dwarf-with-dsym
 CURRENT_PROJECT_VERSION = $(RC_ProjectSourceVersion)
@@ -9,17 +11,4 @@ DEAD_CODE_STRIPPING = YES;
 RUN_CLANG_STATIC_ANALYZER = YES
 CLANG_STATIC_ANALYZER_MODE = deep
 
-ARCHS = $(ARCHS_STANDARD_32_64_BIT)
-
 OTHER_CFLAGS_coverage = $(inherited) -fprofile-instr-generate -fprofile-arcs -ftest-coverage
-
-
-// There is no build setting to point to the toolchain PATH, DT_TOOLCHAIN_DIR is not it.
-// See: <rdar://problem/19488357> DT_TOOLCHAIN_DIR is wrong on iOS
-// Those hacks will break sooner than later, but this is only need for the test coverage stuff.
-TOOLCHAIN_DIR[sdk=iphone*] = $(DEVELOPER_DIR)/Toolchains/iOS9.0.xctoolchain/
-TOOLCHAIN_DIR[sdk=macosx*] = $(DEVELOPER_DIR)/Toolchains/OSX10.11.xctoolchain/
-TOOLCHAIN_RT_DIR[sdk=iphone*] = $(TOOLCHAIN_DIR)/usr/lib/clang/7.0.0/lib/darwin/
-TOOLCHAIN_RT_DIR[sdk=macosx*] = $(TOOLCHAIN_DIR)/usr/lib/clang/7.0.0/lib/darwin/
-PROFILING_LIBNAME[sdk=macosx*] = clang_rt.profile_osx
-PROFILING_LIBNAME[sdk=iphone*] = clang_rt.profile_ios

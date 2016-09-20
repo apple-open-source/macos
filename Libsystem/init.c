@@ -144,19 +144,20 @@ libSystem_initializer(int argc,
 	__libkernel_init(&libkernel_funcs, envp, apple, vars);
 
 	__libplatform_init(NULL, envp, apple, vars);
+
 	__pthread_init(&libpthread_funcs, envp, apple, vars);
+
 	_libc_initializer(&libc_funcs, envp, apple, vars);
 
 	// TODO: Move __malloc_init before __libc_init after breaking malloc's upward link to Libc
 	__malloc_init(apple);
 
-#if !TARGET_OS_SIMULATOR
+#if !TARGET_OS_SIMULATOR && !TARGET_OS_TV && !TARGET_OS_WATCH
 	/* <rdar://problem/9664631> */
 	__keymgr_initializer();
 #endif
 
 	_dyld_initializer();
-
 
 	libdispatch_init();
 	_libxpc_initializer();

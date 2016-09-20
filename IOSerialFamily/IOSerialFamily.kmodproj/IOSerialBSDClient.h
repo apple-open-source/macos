@@ -63,15 +63,15 @@ public:
     //
     // IOService overrides
     //
-    virtual void free();
+    virtual void free() APPLE_KEXT_OVERRIDE;
 
-    virtual bool start(IOService *provider);
-    virtual bool matchPropertyTable(OSDictionary *table);
-    virtual bool requestTerminate(IOService *provider, IOOptionBits options);
-    virtual bool didTerminate(IOService *provider, IOOptionBits options, bool *defer);
-    virtual bool willTerminate(IOService *provider, IOOptionBits options);
+    virtual bool start(IOService *provider) APPLE_KEXT_OVERRIDE;
+    virtual bool matchPropertyTable(OSDictionary *table) APPLE_KEXT_OVERRIDE;
+    virtual bool requestTerminate(IOService *provider, IOOptionBits options) APPLE_KEXT_OVERRIDE;
+    virtual bool didTerminate(IOService *provider, IOOptionBits options, bool *defer) APPLE_KEXT_OVERRIDE;
+    virtual bool willTerminate(IOService *provider, IOOptionBits options) APPLE_KEXT_OVERRIDE;
     
-    virtual IOReturn setProperties(OSObject *properties);
+    virtual IOReturn setProperties(OSObject *properties) APPLE_KEXT_OVERRIDE;
 
     // BSD TTY linediscipline stuff
     static struct cdevsw devsw;

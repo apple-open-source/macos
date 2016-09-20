@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2006, 2007, 2008, 2009, 2010, 2011, 2015 Apple Inc. All rights reserved.
+ *  Copyright (C) 2006-2011, 2015-2016 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -35,16 +35,18 @@ enum JSType : uint8_t {
     StringType,
     SymbolType,
 
-    GetterSetterType,
     CustomGetterSetterType,
     APIValueWrapperType,
 
     EvalExecutableType,
     ProgramExecutableType,
+    ModuleProgramExecutableType,
     FunctionExecutableType,
+    WebAssemblyExecutableType,
 
     UnlinkedFunctionExecutableType,
     UnlinkedProgramCodeBlockType,
+    UnlinkedModuleProgramCodeBlockType,
     UnlinkedEvalCodeBlockType,
     UnlinkedFunctionCodeBlockType,
 
@@ -58,10 +60,11 @@ enum JSType : uint8_t {
     PureForwardingProxyType,
     ImpureProxyType,
     WithScopeType,
+    ArrayType,
     DirectArgumentsType,
     ScopedArgumentsType,
 
-    Int8ArrayType,
+    Int8ArrayType = 100,
     Int16ArrayType,
     Int32ArrayType,
     Uint8ArrayType,
@@ -72,12 +75,15 @@ enum JSType : uint8_t {
     Float64ArrayType,
     DataViewType,
 
-    NameScopeObjectType,
-
+    GetterSetterType,
     GlobalObjectType,
-    ActivationObjectType,
+    LexicalEnvironmentType,
+    GlobalLexicalEnvironmentType,
+    ModuleEnvironmentType,
+    RegExpObjectType,
+    ProxyObjectType,
 
-    LastJSCObjectType = ActivationObjectType,
+    LastJSCObjectType = ProxyObjectType,
 };
 
 COMPILE_ASSERT(sizeof(JSType) == sizeof(uint8_t), sizeof_jstype_is_one_byte);

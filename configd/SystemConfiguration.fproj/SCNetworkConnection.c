@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -39,12 +39,12 @@
 #include <TargetConditionals.h>
 #include <sys/cdefs.h>
 #include <dispatch/dispatch.h>
-#include <CoreFoundation/CoreFoundation.h>
-#include <CoreFoundation/CFRuntime.h>
 #include <CoreFoundation/CFXPCBridge.h>
-#include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCPrivate.h>
-#include <SystemConfiguration/SCValidation.h>
+
+#include "SCNetworkConnectionInternal.h"
+#include "SCNetworkConfigurationInternal.h"
+#include "SCD.h"
+
 #include <SystemConfiguration/VPNAppLayerPrivate.h>
 #include <SystemConfiguration/VPNTunnel.h>
 
@@ -78,9 +78,6 @@
 #ifndef	PPPCONTROLLER_SERVER_PRIV
 #define	PPPCONTROLLER_SERVER_PRIV	PPPCONTROLLER_SERVER
 #endif	// !PPPCONTROLLER_SERVER_PRIV
-
-
-#include "SCNetworkConnectionInternal.h"
 
 static int		debug			= 0;
 static pthread_once_t	initialized		= PTHREAD_ONCE_INIT;
@@ -140,11 +137,24 @@ typedef struct {
 	/* Flow Divert support info */
 	CFDictionaryRef			flow_divert_token_params;
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 	/* NetworkExtension data structures */
 	ne_session_t			ne_session;
-#endif /* !TARGET_IPHONE_SIMULATOR */
+#endif /* !TARGET_OS_SIMULATOR */
 } SCNetworkConnectionPrivate, *SCNetworkConnectionPrivateRef;
+
+
+__private_extern__ os_log_t
+__log_SCNetworkConnection()
+{
+	static os_log_t	log	= NULL;
+
+	if (log == NULL) {
+		log = os_log_create("com.apple.SystemConfiguration", "SCNetworkConnection");
+	}
+
+	return log;
+}
 
 
 static __inline__ CFTypeRef
@@ -154,7 +164,7 @@ isA_SCNetworkConnection(CFTypeRef obj)
 }
 
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 Boolean
 __SCNetworkConnectionUseNetworkExtension(SCNetworkConnectionPrivateRef connectionPrivate)
 {
@@ -178,7 +188,12 @@ __SCNetworkConnectionUseNetworkExtension(SCNetworkConnectionPrivateRef connectio
 				if (isA_CFString(interfaceType)) {
 					if (CFEqual(interfaceType, kSCNetworkInterfaceTypePPP)) {
 						CFStringRef interfaceSubType = CFDictionaryGetValue(interfaceDict, kSCPropNetInterfaceSubType);
-						result = (isA_CFString(interfaceSubType) && (CFEqual(interfaceSubType, kSCValNetInterfaceSubTypePPTP) || CFEqual(interfaceSubType, kSCValNetInterfaceSubTypeL2TP)));
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated"
+						result = (isA_CFString(interfaceSubType) &&
+							  (CFEqual(interfaceSubType, kSCValNetInterfaceSubTypePPTP) ||
+							   CFEqual(interfaceSubType, kSCValNetInterfaceSubTypeL2TP)));
+#pragma GCC diagnostic pop
 					} else {
 						result = (CFEqual(interfaceType, kSCNetworkInterfaceTypeVPN) || CFEqual(interfaceType, kSCNetworkInterfaceTypeIPSec));
 					}
@@ -193,17 +208,17 @@ __SCNetworkConnectionUseNetworkExtension(SCNetworkConnectionPrivateRef connectio
 
 	return result;
 }
-#endif /* !TARGET_IPHONE_SIMULATOR */
+#endif /* !TARGET_OS_SIMULATOR */
 
 
 Boolean
 __SCNetworkConnectionUsingNetworkExtension(SCNetworkConnectionPrivateRef connectionPrivate)
 {
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
     return (connectionPrivate->ne_session != NULL);
 #else
 	return FALSE;
-#endif /* !TARGET_IPHONE_SIMULATOR */
+#endif /* !TARGET_OS_SIMULATOR */
 }
 
 
@@ -299,12 +314,12 @@ __SCNetworkConnectionDeallocate(CFTypeRef cf)
 		CFRelease(connectionPrivate->flow_divert_token_params);
 	}
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 	if (connectionPrivate->ne_session != NULL) {
 		ne_session_set_event_handler(connectionPrivate->ne_session, NULL, NULL);
 		ne_session_release(connectionPrivate->ne_session);
 	}
-#endif /* !TARGET_IPHONE_SIMULATOR */
+#endif /* !TARGET_OS_SIMULATOR */
 
 	return;
 }
@@ -386,15 +401,19 @@ __SCNetworkConnectionNotify(SCNetworkConnectionRef	connection,
 			    void			(*context_release)(const void *),
 			    void			*context_info)
 {
-	os_activity_t	activity_id;
+	os_activity_t	activity;
 
-	activity_id = os_activity_start("processing SCNetworkConnection notification",
-					OS_ACTIVITY_FLAG_DEFAULT);
+	activity = os_activity_create("processing SCHelper request",
+				      OS_ACTIVITY_CURRENT,
+				      OS_ACTIVITY_FLAG_DEFAULT);
+	os_activity_scope(activity);
+
+	SC_log(LOG_DEBUG, "exec SCNetworkConnection callout");
 	(*rlsFunction)(connection, nc_status, context_info);
 	if ((context_release != NULL) && (context_info != NULL)) {
 		(*context_release)(context_info);
 	}
-	os_activity_end(activity_id);
+	os_release(activity);
 
 	return;
 }
@@ -472,7 +491,7 @@ __SCNetworkConnectionCallBack(void *connection)
 		context_release	= NULL;
 	}
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 	if (__SCNetworkConnectionUsingNetworkExtension(connectionPrivate)) {
 		pthread_mutex_unlock(&connectionPrivate->lock);
 
@@ -481,7 +500,7 @@ __SCNetworkConnectionCallBack(void *connection)
 		CFRelease(connection); /* This releases the reference that we took in the NESessionEventStatusChanged event handler */
 		return;
 	}
-#endif /* !TARGET_IPHONE_SIMULATOR */
+#endif /* !TARGET_OS_SIMULATOR */
 
 	// Do we need to spin a new thread? (either we are running on the main
 	// dispatch queue or main runloop)
@@ -585,7 +604,6 @@ __SCNetworkConnectionCreatePrivate(CFAllocatorRef		allocator,
 	SCNetworkConnectionPrivateRef	connectionPrivate	= NULL;
 	uint32_t			size;
 
-
 	/* initialize runtime */
 	pthread_once(&initialized, __SCNetworkConnectionInitialize);
 
@@ -596,36 +614,24 @@ __SCNetworkConnectionCreatePrivate(CFAllocatorRef		allocator,
 		goto fail;
 	}
 
-	/* zero the data structure */
-	bzero(((u_char*)connectionPrivate)+sizeof(CFRuntimeBase), size);
-
+	/* initialize non-zero/NULL members */
 	pthread_mutex_init(&connectionPrivate->lock, NULL);
-
-	/* save the service */
 	if (service != NULL) {
 		connectionPrivate->service = CFRetain(service);
 	}
-
-	connectionPrivate->client_audit_session = MACH_PORT_NULL;
-	connectionPrivate->client_bootstrap_port = MACH_PORT_NULL;
 	connectionPrivate->client_uid = geteuid();
 	connectionPrivate->client_gid = getegid();
 	connectionPrivate->client_pid = getpid();
-	connectionPrivate->client_bundle_id = NULL;
-	uuid_clear(connectionPrivate->client_uuid);
-
 	connectionPrivate->rlsFunction = callout;
-
 	if (context) {
 		bcopy(context, &connectionPrivate->rlsContext, sizeof(SCNetworkConnectionContext));
 		if (context->retain != NULL) {
 			connectionPrivate->rlsContext.info = (void *)(*context->retain)(context->info);
 		}
 	}
-
 	connectionPrivate->type = kSCNetworkConnectionTypeUnknown;
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 	if (__SCNetworkConnectionUseNetworkExtension(connectionPrivate)) {
 		CFStringRef serviceID = SCNetworkServiceGetServiceID(connectionPrivate->service);
 		if (serviceID != NULL) {
@@ -645,7 +651,7 @@ __SCNetworkConnectionCreatePrivate(CFAllocatorRef		allocator,
 			goto fail;
 		}
 	}
-#endif /* !TARGET_IPHONE_SIMULATOR */
+#endif /* !TARGET_OS_SIMULATOR */
 
 	/* success, return the connection reference */
 	return connectionPrivate;
@@ -729,12 +735,12 @@ __SCNetworkConnectionRefreshServerPort(mach_port_t current_server, int *mach_res
 	return new_server;
 }
 
-#if	((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 50000)) && (!TARGET_IPHONE_SIMULATOR || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 70000))
+#if	((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 50000)) && (!TARGET_OS_SIMULATOR || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 70000))
 #define	HAVE_PPPCONTROLLER_ATTACHWITHAUDITSESSION
 #endif
 
 
-#if	((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 50000)) && !TARGET_IPHONE_SIMULATOR
+#if	((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 50000)) && !TARGET_OS_SIMULATOR
 #define	HAVE_PPPCONTROLLER_ATTACHWITHPROXY
 #endif
 
@@ -1234,6 +1240,12 @@ SCNetworkConnectionCreateWithService(CFAllocatorRef			allocator,
 		return FALSE;
 	}
 
+	if (__SCNetworkServiceIsPPTP(service)) {
+		SC_log(LOG_INFO, "PPTP VPNs are no longer supported");
+		_SCErrorSet(kSCStatusConnectionIgnore);
+		return FALSE;
+	}
+
 	connectionPrivate = __SCNetworkConnectionCreatePrivate(allocator, service, callout, context);
 	return (SCNetworkConnectionRef)connectionPrivate;
 }
@@ -1419,7 +1431,7 @@ SCNetworkConnectionCopyStatistics(SCNetworkConnectionRef connection)
 
 	pthread_mutex_lock(&connectionPrivate->lock);
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 	if (__SCNetworkConnectionUsingNetworkExtension(connectionPrivate)) {
 		__block xpc_object_t xstats = NULL;
 		ne_session_t ne_session = connectionPrivate->ne_session;
@@ -1447,7 +1459,7 @@ SCNetworkConnectionCopyStatistics(SCNetworkConnectionRef connection)
 
 		return statistics;
 	}
-#endif /* !TARGET_IPHONE_SIMULATOR */
+#endif /* !TARGET_OS_SIMULATOR */
 
     retry :
 
@@ -1532,7 +1544,7 @@ SCNetworkConnectionGetStatus(SCNetworkConnectionRef connection)
 
 	pthread_mutex_lock(&connectionPrivate->lock);
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 	if (__SCNetworkConnectionUsingNetworkExtension(connectionPrivate)) {
 		__block ne_session_status_t ne_status;
 		ne_session_t ne_session = connectionPrivate->ne_session;
@@ -1551,7 +1563,7 @@ SCNetworkConnectionGetStatus(SCNetworkConnectionRef connection)
 
 		return SCNetworkConnectionGetStatusFromNEStatus(ne_status);
 	}
-#endif /* !TARGET_IPHONE_SIMULATOR */
+#endif /* !TARGET_OS_SIMULATOR */
 
     retry :
 
@@ -1623,7 +1635,7 @@ SCNetworkConnectionCopyExtendedStatus(SCNetworkConnectionRef connection)
 
 	pthread_mutex_lock(&connectionPrivate->lock);
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 	if (__SCNetworkConnectionUsingNetworkExtension(connectionPrivate)) {
 		__block CFDictionaryRef statusDictionary = NULL;
 		ne_session_t ne_session = connectionPrivate->ne_session;
@@ -1823,7 +1835,7 @@ SCNetworkConnectionStart(SCNetworkConnectionRef	connection,
 	    connectionPrivate->flow_divert_token_params = NULL;
 	}
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 	if (__SCNetworkConnectionUsingNetworkExtension(connectionPrivate)) {
 		xpc_object_t xuser_options = NULL;
 
@@ -1862,10 +1874,10 @@ SCNetworkConnectionStart(SCNetworkConnectionRef	connection,
 		ok = TRUE;
 		goto done;
 	}
-#endif /* !TARGET_IPHONE_SIMULATOR */
+#endif /* !TARGET_OS_SIMULATOR */
 
 	if (userOptions && !_SCSerialize(userOptions, &dataref, &data, &datalen)) {
-		return FALSE;
+		goto done;
 	}
 
     retry :
@@ -1929,7 +1941,7 @@ SCNetworkConnectionStop(SCNetworkConnectionRef	connection,
 
 	pthread_mutex_lock(&connectionPrivate->lock);
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 	if (__SCNetworkConnectionUsingNetworkExtension(connectionPrivate)) {
 		ne_session_stop(connectionPrivate->ne_session);
 		/* make sure the xpc_message goes through */
@@ -1937,7 +1949,7 @@ SCNetworkConnectionStop(SCNetworkConnectionRef	connection,
 		ok = TRUE;
 		goto done;
 	}
-#endif /* !TARGET_IPHONE_SIMULATOR */
+#endif /* !TARGET_OS_SIMULATOR */
 
     retry :
 
@@ -1993,13 +2005,13 @@ SCNetworkConnectionSuspend(SCNetworkConnectionRef connection)
 
 	pthread_mutex_lock(&connectionPrivate->lock);
 
-#if !!TARGET_IPHONE_SIMULATOR
+#if !!TARGET_OS_SIMULATOR
 	if (__SCNetworkConnectionUsingNetworkExtension(connectionPrivate)) {
 		/* Suspend only applies to PPPSerial and PPPoE */
 		ok = TRUE;
 		goto done;
 	}
-#endif /* !TARGET_IPHONE_SIMULATOR */
+#endif /* !TARGET_OS_SIMULATOR */
 
     retry :
 
@@ -2055,13 +2067,13 @@ SCNetworkConnectionResume(SCNetworkConnectionRef connection)
 
 	pthread_mutex_lock(&connectionPrivate->lock);
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 	if (__SCNetworkConnectionUsingNetworkExtension(connectionPrivate)) {
 		/* Resume only applies to PPPSerial and PPPoE */
 		ok = TRUE;
 		goto done;
 	}
-#endif /* !TARGET_IPHONE_SIMULATOR */
+#endif /* !TARGET_OS_SIMULATOR */
 
     retry :
 
@@ -2097,7 +2109,7 @@ SCNetworkConnectionResume(SCNetworkConnectionRef connection)
 }
 
 
-#if	!TARGET_IPHONE_SIMULATOR
+#if	!TARGET_OS_SIMULATOR
 Boolean
 SCNetworkConnectionRefreshOnDemandState(SCNetworkConnectionRef connection)
 {
@@ -2169,7 +2181,7 @@ SCNetworkConnectionRefreshOnDemandState(SCNetworkConnectionRef connection)
 	pthread_mutex_unlock(&connectionPrivate->lock);
 	return ok;
 }
-#endif	/* !TARGET_IPHONE_SIMULATOR */
+#endif	/* !TARGET_OS_SIMULATOR */
 
 
 CFDictionaryRef
@@ -2190,7 +2202,7 @@ SCNetworkConnectionCopyUserOptions(SCNetworkConnectionRef connection)
 
 	pthread_mutex_lock(&connectionPrivate->lock);
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 	if (__SCNetworkConnectionUsingNetworkExtension(connectionPrivate)) {
 		__block xpc_object_t config = NULL;
 		ne_session_t ne_session = connectionPrivate->ne_session;
@@ -2218,7 +2230,7 @@ SCNetworkConnectionCopyUserOptions(SCNetworkConnectionRef connection)
 		}
 		return userOptions;
 	}
-#endif /* !TARGET_IPHONE_SIMULATOR */
+#endif /* !TARGET_OS_SIMULATOR */
 
     retry :
 
@@ -2401,6 +2413,7 @@ __SCNetworkConnectionScheduleWithRunLoop(SCNetworkConnectionRef	connection,
 					      MACH_PORT_NULL);		// notify
 				if (kr != KERN_SUCCESS) {
 					SC_log(LOG_NOTICE, "SCDynamicStore notification handler, kr=0x%x", kr);
+					free(notify_msg);
 					return;
 				}
 
@@ -2436,7 +2449,7 @@ __SCNetworkConnectionScheduleWithRunLoop(SCNetworkConnectionRef	connection,
 		_SC_schedule(connection, runLoop, runLoopMode, connectionPrivate->rlList);
 	}
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 	if (__SCNetworkConnectionUsingNetworkExtension(connectionPrivate)) {
 		CFRetain(connection);
 		ne_session_set_event_handler(connectionPrivate->ne_session, __SCNetworkConnectionQueue(), ^(ne_session_event_t event, void *event_data) {
@@ -2458,7 +2471,7 @@ __SCNetworkConnectionScheduleWithRunLoop(SCNetworkConnectionRef	connection,
 			}
 		});
 	}
-#endif /* !TARGET_IPHONE_SIMULATOR */
+#endif /* !TARGET_OS_SIMULATOR */
 
 	ok = TRUE;
 
@@ -2548,9 +2561,9 @@ __SCNetworkConnectionUnscheduleFromRunLoop(SCNetworkConnectionRef	connection,
 		connectionPrivate->scheduled = FALSE;
 
 		if (__SCNetworkConnectionUsingNetworkExtension(connectionPrivate)) {
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 			ne_session_cancel(connectionPrivate->ne_session);
-#endif /* !TARGET_IPHONE_SIMULATOR */
+#endif /* !TARGET_OS_SIMULATOR */
 		} else {
 			mach_port_t session_port = __SCNetworkConnectionSessionPort(connectionPrivate);
 			if (session_port == MACH_PORT_NULL) {
@@ -2676,12 +2689,11 @@ SCNetworkConnectionTriggerOnDemandIfNeeded	(CFStringRef			hostName,
 						 int				timeout,
 						 int				trafficClass)
 {
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 	__block Boolean triggeredOnDemand = FALSE;
 	struct proc_uniqidentifierinfo procu;
 	void *policy_match = NULL;
 	char *hostname = NULL;
-	CFIndex hostnameSize = 0;
 	pid_t pid = getpid();
 	uid_t uid = geteuid();
 
@@ -2690,13 +2702,7 @@ SCNetworkConnectionTriggerOnDemandIfNeeded	(CFStringRef			hostName,
 		goto done;
 	}
 
-	hostnameSize = CFStringGetLength(hostName);
-	if (hostnameSize == 0) {
-		goto done;
-	}
-
-	hostname = malloc(hostnameSize + 1);
-	CFStringGetCString(hostName, hostname, hostnameSize + 1, kCFStringEncodingUTF8);
+	hostname = _SC_cfstring_to_cstring(hostName, NULL, 0, kCFStringEncodingUTF8);
 
 	if (proc_pidinfo(pid, PROC_PIDUNIQIDENTIFIERINFO, 1, &procu, sizeof(procu)) != sizeof(procu)) {
 		goto done;
@@ -2725,10 +2731,12 @@ SCNetworkConnectionTriggerOnDemandIfNeeded	(CFStringRef			hostName,
 								dispatch_retain(wait_for_session);
 								ne_session_set_event_handler(new_session, __SCNetworkConnectionQueue(),
 									^(ne_session_event_t event, void *event_data) {
-										os_activity_t	activity_id;
+										os_activity_t	activity;
 
-										activity_id = os_activity_start("processing ne_session notification",
-														OS_ACTIVITY_FLAG_DEFAULT);
+										activity = os_activity_create("processing ne_session notification",
+													      OS_ACTIVITY_CURRENT,
+													      OS_ACTIVITY_FLAG_DEFAULT);
+										os_activity_scope(activity);
 
 										if (event == NESessionEventStatusChanged) {
 											dispatch_retain(wait_for_session);
@@ -2747,7 +2755,7 @@ SCNetworkConnectionTriggerOnDemandIfNeeded	(CFStringRef			hostName,
 											dispatch_release(wait_for_session);
 										}
 
-										os_activity_end(activity_id);
+										os_release(activity);
 									});
 								ne_session_start_with_options(new_session, start_options);
 							} else {
@@ -2767,7 +2775,7 @@ SCNetworkConnectionTriggerOnDemandIfNeeded	(CFStringRef			hostName,
 	}
 done:
 	if (hostname) {
-		free(hostname);
+		CFAllocatorDeallocate(NULL, hostname);
 	}
 
 	if (policy_match) {
@@ -2932,7 +2940,7 @@ SCNetworkConnectionGetServiceIdentifier		(SCNetworkConnectionRef		connection)
 }
 
 
-#if !TARGET_IPHONE_SIMULATOR
+#if !TARGET_OS_SIMULATOR
 SCNetworkConnectionStatus
 SCNetworkConnectionGetStatusFromNEStatus(ne_session_status_t status)
 {
@@ -2952,7 +2960,7 @@ SCNetworkConnectionGetStatusFromNEStatus(ne_session_status_t status)
 
 	return kSCNetworkConnectionInvalid;
 }
-#endif /* !TARGET_IPHONE_SIMULATOR */
+#endif /* !TARGET_OS_SIMULATOR */
 
 
 #pragma mark -
@@ -3917,7 +3925,7 @@ __SCNetworkConnectionCopyUserPreferencesInternal(CFDictionaryRef	selectionOption
 				// (4) Get the default set of user options for this service
 				success = SCNetworkConnectionPrivateCopyDefaultUserOptionsFromArray((CFArrayRef)userServices,
 												    userOptions);
-				if(success && (userOptions != NULL)) {
+				if (success) {
 					addPasswordFromKeychain(*serviceID, userOptions);
 				}
 			} else {
@@ -3943,7 +3951,6 @@ SCNetworkConnectionCopyUserPreferences(CFDictionaryRef	selectionOptions,
 				       CFDictionaryRef	*userOptions)
 {
 	Boolean	success	= FALSE;
-
 
 	/* initialize runtime */
 	pthread_once(&initialized, __SCNetworkConnectionInitialize);
@@ -4368,18 +4375,23 @@ SCNetworkConnectionSelectServiceWithOptions(SCNetworkConnectionRef connection, C
 		if (isA_CFDictionary(configuration)) {
 			found_trigger = __SCNetworkConnectionCopyTriggerWithService(configuration, service_id);
 			if (found_trigger != NULL) {
-				CFNumberRef status_num = CFDictionaryGetValue(found_trigger, kSCNetworkConnectionOnDemandStatus);
-				if (isA_CFNumber(status_num)) {
-					CFNumberGetValue(status_num, kCFNumberIntType, &on_demand_status);
+				CFNumberRef status_num;
+
+				if (!CFDictionaryGetValueIfPresent(found_trigger,
+								   kSCNetworkConnectionOnDemandStatus,
+								   (const void **) &status_num) ||
+				    !isA_CFNumber(status_num) ||
+				    !CFNumberGetValue(status_num, kCFNumberSInt32Type, &on_demand_status)) {
+					on_demand_status = kSCNetworkConnectionInvalid;
 				}
+
 				/*
 				 * If the trigger should be ignored, still use App Layer VPN if it is already connected or
 				 * is in the process of connecting.
 				 */
 				if (__SCNetworkConnectionShouldIgnoreTrigger(found_trigger) &&
-				    on_demand_status != kSCNetworkConnectionConnecting &&
-				    on_demand_status != kSCNetworkConnectionConnected)
-				{
+				    (on_demand_status != kSCNetworkConnectionConnecting) &&
+				    (on_demand_status != kSCNetworkConnectionConnected)) {
 					use_app_layer = FALSE;
 				}
 			}
@@ -4483,9 +4495,14 @@ SCNetworkConnectionSelectServiceWithOptions(SCNetworkConnectionRef connection, C
 		CFRetain(connectionPrivate->on_demand_info);
 
 		if (on_demand_status == kSCNetworkConnectionInvalid) {
-			CFNumberRef status_num = CFDictionaryGetValue(found_trigger, kSCNetworkConnectionOnDemandStatus);
-			if (isA_CFNumber(status_num)) {
-				CFNumberGetValue(status_num, kCFNumberIntType, &on_demand_status);
+			CFNumberRef	status_num;
+
+			if (!CFDictionaryGetValueIfPresent(found_trigger,
+							   kSCNetworkConnectionOnDemandStatus,
+							   (const void **) &status_num) ||
+			    !isA_CFNumber(status_num) ||
+			    !CFNumberGetValue(status_num, kCFNumberSInt32Type, &on_demand_status)) {
+				on_demand_status = kSCNetworkConnectionInvalid;
 			}
 		}
 
@@ -4576,7 +4593,6 @@ SCNetworkConnectionPrivateCopyDefaultServiceIDForDial(CFStringRef *serviceID)
 {
 	Boolean			foundService		= FALSE;
 	CFPropertyListRef	lastServiceSelectedInIC = NULL;
-
 
 
 	// we found the service the user last had open in IC
@@ -4924,12 +4940,11 @@ __private_extern__
 char *
 __SCNetworkConnectionGetControllerPortName(void)
 {
-#if	((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1090) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 70000)) && !TARGET_IPHONE_SIMULATOR
+#if	((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1090) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 70000)) && !TARGET_OS_SIMULATOR
 	if (scnc_server_name == NULL){
 		if (!(sandbox_check(getpid(), "mach-lookup", SANDBOX_FILTER_GLOBAL_NAME | SANDBOX_CHECK_NO_REPORT, PPPCONTROLLER_SERVER_PRIV))){
 			scnc_server_name = PPPCONTROLLER_SERVER_PRIV;
-		}
-		else{
+		} else {
 			scnc_server_name = PPPCONTROLLER_SERVER;
 		}
 	}

@@ -22,3 +22,5 @@
  */
 
 #define mig_external __private_extern__
+
+typedef const char * ___path_t;

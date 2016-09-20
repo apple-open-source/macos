@@ -1,6 +1,6 @@
---- configure.orig	2013-08-21 15:26:58.000000000 -0700
-+++ configure	2013-08-21 15:27:04.000000000 -0700
-@@ -15557,7 +15557,7 @@
+--- configure.orig	2015-04-25 05:04:18.000000000 -0700
++++ configure	2016-04-25 08:30:46.000000000 -0700
+@@ -15537,7 +15537,7 @@
    esac
    if test "$_lt_dar_can_shared" = "yes"; then
      output_verbose_link_cmd=func_echo_all
@@ -9,3 +9,12 @@
      module_cmds="\$CC \$allow_undefined_flag -o \$lib -bundle \$libobjs \$deplibs \$compiler_flags${_lt_dsymutil}"
      archive_expsym_cmds="sed 's,^,_,' < \$export_symbols > \$output_objdir/\${libname}-symbols.expsym~\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring ${_lt_dar_single_mod}${_lt_dar_export_syms}${_lt_dsymutil}"
      module_expsym_cmds="sed -e 's,^,_,' < \$export_symbols > \$output_objdir/\${libname}-symbols.expsym~\$CC \$allow_undefined_flag -o \$lib -bundle \$libobjs \$deplibs \$compiler_flags${_lt_dar_export_syms}${_lt_dsymutil}"
+@@ -17773,7 +17773,7 @@
+ 
+ if test "x$use_libtool" = "xyes"; then
+       lt_compile='$(LIBTOOL) $(LTFLAGS) --mode=compile $(COMPILE) -o $@ -c $< && touch $@'
+-      LT_VERSION="-version-info `$get_version libtool $version_hdr APR`"
++      LT_VERSION="-version-info 4:8:4"
+       link="\$(LIBTOOL) \$(LTFLAGS) --mode=link \$(COMPILE) \$(LT_LDFLAGS) \$(LT_VERSION) \$(ALL_LDFLAGS) -o \$@"
+       so_ext='lo'
+       lib_target='-rpath $(libdir) $(OBJECTS)'

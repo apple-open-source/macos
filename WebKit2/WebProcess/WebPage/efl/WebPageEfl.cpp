@@ -30,6 +30,7 @@
 
 #include "EditorState.h"
 #include "EventHandler.h"
+#include "EventNames.h"
 #include "NotImplemented.h"
 #include "WebEvent.h"
 #include "WebPageProxyMessages.h"
@@ -184,17 +185,16 @@ static Frame* targetFrameForEditing(WebPage* page)
 
     Editor& editor = frame.editor();
     if (!editor.canEdit())
-        return 0;
+        return nullptr;
 
     if (editor.hasComposition()) {
         // We should verify the parent node of this IME composition node are
         // editable because JavaScript may delete a parent node of the composition
         // node. In this case, WebKit crashes while deleting texts from the parent
         // node, which doesn't exist any longer.
-        if (PassRefPtr<Range> range = editor.compositionRange()) {
-            Node* node = range->startContainer();
-            if (!node || !node->isContentEditable())
-                return 0;
+        if (auto range = editor.compositionRange()) {
+            if (!range->startContainer().isContentEditable())
+                return nullptr;
         }
     }
 
@@ -233,12 +233,12 @@ String WebPage::platformUserAgent(const URL&) const
 void WebPage::restorePageState(const HistoryItem& historyItem)
 {
     float restorePageScaleFactor = historyItem.pageScaleFactor();
-    IntPoint restoreScrollPoint = historyItem.scrollPoint();
+    IntPoint restoreScrollPosition = historyItem.scrollPosition();
 
     // A scale factor or scroll point of zero means that the history item has the default scale factor or scroll position,
     // thus we don't need to update it.
-    if (restorePageScaleFactor || restoreScrollPoint != IntPoint(0, 0))
-        scalePage(restorePageScaleFactor, restoreScrollPoint);
+    if (restorePageScaleFactor || restoreScrollPosition != IntPoint())
+        scalePage(restorePageScaleFactor, restoreScrollPosition);
 }
 
 void WebPage::savePageState(HistoryItem&)

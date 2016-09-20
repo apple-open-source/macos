@@ -58,10 +58,13 @@
 
 __BEGIN_DECLS
 
+CF_ASSUME_NONNULL_BEGIN
+CF_IMPLICIT_BRIDGING_ENABLED
+
 /*! @typedef IOHIDQueueRef
 	This is the type of a reference to the IOHIDQueue.
 */
-typedef struct __IOHIDQueue * IOHIDQueueRef;
+typedef struct CF_BRIDGED_TYPE(id) __IOHIDQueue * IOHIDQueueRef;
 
 /*!
 	@function   IOHIDQueueGetTypeID
@@ -83,8 +86,8 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
     @result     Returns a new IOHIDQueueRef.
 */
 CF_EXPORT
-IOHIDQueueRef IOHIDQueueCreate(
-                                CFAllocatorRef                  allocator, 
+IOHIDQueueRef _Nullable IOHIDQueueCreate(
+                                CFAllocatorRef _Nullable        allocator,
                                 IOHIDDeviceRef                  device,
                                 CFIndex                         depth,
                                 IOOptionBits                    options)
@@ -232,7 +235,7 @@ CF_EXPORT
 void IOHIDQueueRegisterValueAvailableCallback(
                                 IOHIDQueueRef                   queue,
                                 IOHIDCallback                   callback,
-                                void *                          context)
+                                void * _Nullable                context)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*! 
@@ -268,6 +271,9 @@ IOHIDValueRef IOHIDQueueCopyNextValueWithTimeout(
                                 IOHIDQueueRef                   queue,
                                 CFTimeInterval                  timeout)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+CF_IMPLICIT_BRIDGING_DISABLED
+CF_ASSUME_NONNULL_END
 
 __END_DECLS
 

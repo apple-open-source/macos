@@ -47,7 +47,7 @@ UserTrustItem::UserTrustItem(Certificate *cert, Policy *policy, const TrustData 
 		reinterpret_cast<const void *>(&trustData)),
 	mCertificate(cert), mPolicy(policy)
 {
-	secdebug("usertrust", "%p create(%p,%p) = %d",
+	secinfo("usertrust", "%p create(%p,%p) = %d",
 		this, cert, policy, SecTrustUserSetting(trustData.trust));
 }
 
@@ -57,7 +57,7 @@ UserTrustItem::UserTrustItem(Certificate *cert, Policy *policy, const TrustData 
 //
 UserTrustItem::~UserTrustItem() 
 {
-	secdebug("usertrust", "%p destroyed", this);
+	secinfo("usertrust", "%p destroyed", this);
 }
 
 
@@ -94,7 +94,7 @@ PrimaryKey UserTrustItem::add(Keychain &keychain)
 	try
 	{
 		mUniqueId = db->insert(recordType, mDbAttributes.get(), mData.get());
-		secdebug("usertrust", "%p inserted", this);
+		secinfo("usertrust", "%p inserted", this);
 	}
 	catch (const CssmError &e)
 	{
@@ -102,7 +102,7 @@ PrimaryKey UserTrustItem::add(Keychain &keychain)
 			throw;
 
 		// Create the trust relation and try again.
-		secdebug("usertrust", "adding schema relation for user trusts");
+		secinfo("usertrust", "adding schema relation for user trusts");
 		db->createRelation(CSSM_DL_DB_RECORD_USER_TRUST, "CSSM_DL_DB_RECORD_USER_TRUST",
 			Schema::UserTrustSchemaAttributeCount,
 			Schema::UserTrustSchemaAttributeList,
@@ -117,7 +117,7 @@ PrimaryKey UserTrustItem::add(Keychain &keychain)
 			Schema::UserTrustSchemaIndexList);
 
 		mUniqueId = db->insert(recordType, mDbAttributes.get(), mData.get());
-		secdebug("usertrust", "%p inserted now", this);
+		secinfo("usertrust", "%p inserted now", this);
 	}
 
 	mPrimaryKey = keychain->makePrimaryKey(recordType, mUniqueId);

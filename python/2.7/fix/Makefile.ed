@@ -3,10 +3,6 @@ BUILDEXE = .exe
 
 LIBPYTHON=	/Library/Python/$(VERSION)
 .
-/^COREPYTHONPATH=/s/$(EXTRAMACHDEPPATH)/&$(EXTRASPATH)/
-/^EXTRAMACHDEPPATH=/i
-EXTRASPATH=:../../Extras/lib/python
-.
 /quiet="-q"/s//quiet=""/
 /$(CC)/s//& $(RC_CFLAGS)/
 g,b=$(LIBDEST)/$$d;,s,,if test $$d = site-packages; then b=$(LIBPYTHON)/$$d; else & fi;,

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,8 +30,19 @@
 #import "WKBrowsingContextControllerInternal.h"
 #import "WKBrowsingContextHandleInternal.h"
 #import "WKTypeRefWrapper.h"
+#import <wtf/NeverDestroyed.h>
 
 namespace WebKit {
+
+const HashSet<String>& WebProcessProxy::platformPathsWithAssumedReadAccess()
+{
+    static NeverDestroyed<HashSet<String>> platformPathsWithAssumedReadAccess(std::initializer_list<String> {
+        [NSBundle bundleWithIdentifier:@"com.apple.WebCore"].resourcePath.stringByStandardizingPath,
+        [NSBundle bundleWithIdentifier:@"com.apple.WebKit"].resourcePath.stringByStandardizingPath
+    });
+
+    return platformPathsWithAssumedReadAccess;
+}
 
 RefPtr<ObjCObjectGraph> WebProcessProxy::transformHandlesToObjects(ObjCObjectGraph& objectGraph)
 {
@@ -41,7 +52,7 @@ RefPtr<ObjCObjectGraph> WebProcessProxy::transformHandlesToObjects(ObjCObjectGra
         {
         }
 
-        virtual bool shouldTransformObject(id object) const override
+        bool shouldTransformObject(id object) const override
         {
 #if WK_API_ENABLED
             if (dynamic_objc_cast<WKBrowsingContextHandle>(object))
@@ -53,7 +64,7 @@ RefPtr<ObjCObjectGraph> WebProcessProxy::transformHandlesToObjects(ObjCObjectGra
             return false;
         }
 
-        virtual RetainPtr<id> transformObject(id object) const override
+        RetainPtr<id> transformObject(id object) const override
         {
 #if WK_API_ENABLED
             if (auto* handle = dynamic_objc_cast<WKBrowsingContextHandle>(object)) {
@@ -79,7 +90,7 @@ RefPtr<ObjCObjectGraph> WebProcessProxy::transformHandlesToObjects(ObjCObjectGra
 RefPtr<ObjCObjectGraph> WebProcessProxy::transformObjectsToHandles(ObjCObjectGraph& objectGraph)
 {
     struct Transformer final : ObjCObjectGraph::Transformer {
-        virtual bool shouldTransformObject(id object) const override
+        bool shouldTransformObject(id object) const override
         {
 #if WK_API_ENABLED
             if (dynamic_objc_cast<WKBrowsingContextController>(object))
@@ -91,7 +102,7 @@ RefPtr<ObjCObjectGraph> WebProcessProxy::transformObjectsToHandles(ObjCObjectGra
             return false;
         }
 
-        virtual RetainPtr<id> transformObject(id object) const override
+        RetainPtr<id> transformObject(id object) const override
         {
 #if WK_API_ENABLED
             if (auto* controller = dynamic_objc_cast<WKBrowsingContextController>(object))

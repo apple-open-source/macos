@@ -36,13 +36,14 @@
 
 
 #pragma D option quiet
+#pragma D option statusrate=15ms
 
 END
 {
 	printf("End fired after exit\n");
 }
 
-tick-1
+tick-10ms
 {
 	exit(0);
 }

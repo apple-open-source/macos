@@ -49,6 +49,7 @@ void gui_mch_flash __ARGS((int msec));
 void gui_mch_delete_lines __ARGS((int row, int num_lines));
 void gui_mch_insert_lines __ARGS((int row, int num_lines));
 void gui_mch_exit __ARGS((int rc));
+void gui_mch_wide_font_changed __ARGS((void));
 int gui_mch_init_font __ARGS((char_u *font_name, int fontset));
 int gui_mch_maximized __ARGS((void));
 void gui_mch_newfont __ARGS((void));
@@ -74,6 +75,6 @@ void gui_make_popup __ARGS((char_u *path_name, int mouse_pos));
 void gui_mch_add_menu_item __ARGS((vimmenu_T *menu, int idx));
 void gui_mch_destroy_menu __ARGS((vimmenu_T *menu));
 void gui_mch_menu_grey __ARGS((vimmenu_T *menu, int grey));
-int gui_mch_dialog __ARGS((int type, char_u *title, char_u *message, char_u *buttons, int dfltbutton, char_u *textfield));
+int gui_mch_dialog __ARGS((int type, char_u *title, char_u *message, char_u *buttons, int dfltbutton, char_u *textfield, int ex_cmd));
 void gui_mch_set_foreground __ARGS((void));
 /* vim: set ft=c : */

@@ -386,6 +386,7 @@ checkRules(void)
 	{ "domainrule2",	CFSTR("https://host2.icloud.com/foo"), domainrule },
 	{ "domainrule3",	CFSTR("https://host2.icloud.com/foo"), domainrule },
 	{ "domainrule4",	CFSTR("https://host2.icloud.com/bar/"), domainrule },
+	{ "domainrule5",	CFSTR("https://host.subdomain.apple.com"), domainrule },
 	{ "no match",		CFSTR("host.h5l.org"), NULL },
 	{ "plain match",	CFSTR("http://plainhost.me.com"), plainhostrule },
 	{ "plain no match",	CFSTR("http://plainhost2.me.com"), NULL },

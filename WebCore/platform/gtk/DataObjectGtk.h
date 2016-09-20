@@ -29,9 +29,9 @@ namespace WebCore {
 
 class DataObjectGtk : public RefCounted<DataObjectGtk> {
 public:
-    static PassRefPtr<DataObjectGtk> create()
+    static Ref<DataObjectGtk> create()
     {
-        return adoptRef(new DataObjectGtk());
+        return adoptRef(*new DataObjectGtk);
     }
 
     const URL& url() const { return m_url; }
@@ -47,14 +47,14 @@ public:
     bool hasURL() const { return !m_url.isEmpty() && m_url.isValid(); }
     bool hasFilenames() const { return !m_filenames.isEmpty(); }
     bool hasImage() const { return m_image; }
-    void clearURIList() { m_uriList = ""; }
+    void clearURIList() { m_uriList = emptyString(); }
     void clearURL() { m_url = URL(); }
     void clearImage() { m_image = nullptr; }
 
     String text() const { return m_text; }
     String markup() const { return m_markup; }
     String unknownTypeData(const String& type) const { return m_unknownTypeData.get(type); }
-    HashMap<String, String> unknownTypes() const;
+    const HashMap<String, String>& unknownTypes() const;
     void setText(const String&);
     void setMarkup(const String&);
     void setUnknownTypeData(const String& type, const String& data) { m_unknownTypeData.set(type, data); }

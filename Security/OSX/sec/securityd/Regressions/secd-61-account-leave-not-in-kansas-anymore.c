@@ -102,13 +102,13 @@ static void tests(void)
     ok(SOSAccountAssertUserCredentialsAndUpdate(david_account, cfaccount, cfpassword, &error), "Credential setting (%@)", error);
     CFReleaseNull(error);
     
-    ok(SOSAccountResetToOffering(alice_account, &error), "Reset to offering (%@)", error);
+    ok(SOSAccountResetToOffering_wTxn(alice_account, &error), "Reset to offering (%@)", error);
     CFReleaseNull(error);
 
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, david_account, NULL), 2, "updates");
 
 
-    ok(SOSAccountJoinCircles(bob_account, &error), "Bob Applies (%@)", error);
+    ok(SOSAccountJoinCircles_wTxn(bob_account, &error), "Bob Applies (%@)", error);
     CFReleaseNull(error);
 
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, "updates");
@@ -124,7 +124,7 @@ static void tests(void)
     // ==============================  Alice and Bob are in the Account. ============================================
     
     
-    ok(SOSAccountJoinCircles(carole_account, &error), "Carole Applies (%@)", error);
+    ok(SOSAccountJoinCircles_wTxn(carole_account, &error), "Carole Applies (%@)", error);
     CFReleaseNull(error);
     is(ProcessChangesUntilNoChange(changes, alice_account, carole_account, david_account, NULL), 2, "updates");
     
@@ -146,7 +146,7 @@ static void tests(void)
     is(ProcessChangesUntilNoChange(changes, alice_account, carole_account, david_account, NULL), 2, "updates");
 
     
-    ok(SOSAccountJoinCircles(david_account, &error), "David Applies (%@)", error);
+    ok(SOSAccountJoinCircles_wTxn(david_account, &error), "David Applies (%@)", error);
     CFReleaseNull(error);
 
     is(ProcessChangesUntilNoChange(changes, alice_account, carole_account, david_account, NULL), 2, "updates");

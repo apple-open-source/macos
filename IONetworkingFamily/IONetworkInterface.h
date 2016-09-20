@@ -1145,10 +1145,13 @@ public:
     requires strict scheduling strategy (e.g. 802.11 WMM), and that the
     networking stack is only responsible for creating multiple queues for the
     corresponding service classes.
+    @constant kOutputPacketSchedulingModelFqCodel
+    The FQ-CoDel packet scheduling model.
 */
     enum {
         kOutputPacketSchedulingModelNormal          = 0,
-        kOutputPacketSchedulingModelDriverManaged   = 1
+        kOutputPacketSchedulingModelDriverManaged   = 1,
+        kOutputPacketSchedulingModelFqCodel         = 2
     };
 
 /*! @function configureOutputPullModel
@@ -1160,7 +1163,8 @@ public:
     can pull packets from. An output thread will notify the driver through
     <code>outputStart()</code> when packets are added to the output queue.
     @param driverQueueSize The number of packets that the driver's transmit
-    queue or ring can hold.
+    queue or ring can hold. This parameter is not currently used by the family,
+    and drivers can pass zero.
     @param options <code>kIONetworkWorkLoopSynchronous</code> forces the output
     thread to call <code>outputStart()</code> on the driver's work loop context.
     @param outputQueueSize The size of the interface output queue. Unless the
@@ -1348,6 +1352,26 @@ public:
                             uint64_t *          packetBytes = 0 );
 
     OSMetaClassDeclareReservedUsed(IONetworkInterface, 9);
+
+/*! @function dequeueOutputPacketsWithMaxSize
+	@abstract Dequeue packets with a byte size constraint.
+    @discussion See <code>dequeueOutputPackets</code>.
+    @param maxSize The maximum byte size of the dequeued packet chain.
+    This value must be greater than zero.
+    @param packetHead Pointer to the first packet that was dequeued.
+    @param packetTail Optional pointer to the last packet that was dequeued.
+	@param packetCount Optional pointer to store the number of packets that
+    was dequeued.
+	@param packetBytes Optional pointer to store the total length of packets
+    that was dequeued. The length of each packet is given by
+    <code>mbuf_pkthdr_len()</code>.
+*/
+    IOReturn dequeueOutputPacketsWithMaxSize(
+                            uint32_t            maxSize,
+                            mbuf_t *            packetHead,
+                            mbuf_t *            packetTail  = 0,
+                            uint32_t *          packetCount = 0,
+                            uint64_t *          packetBytes = 0 );
 
 /*  @function installOutputPreEnqueueHandler
     @abstract Install a handler to intercept all output packets before they

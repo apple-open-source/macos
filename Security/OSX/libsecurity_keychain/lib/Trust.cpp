@@ -96,6 +96,21 @@ TrustKeychains::TrustKeychains() :
     mRootStoreHandle = (*mRootStore)->database()->handle();
 }
 
+TrustKeychains::~TrustKeychains() {
+    if(mRootStoreDL) {
+        delete mRootStoreDL;
+        mRootStoreDL = NULL;
+    }
+    if(mRootStoreDb) {
+        delete mRootStoreDb;
+        mRootStoreDb = NULL;
+    }
+    if(mRootStore) {
+        delete mRootStore;
+        mRootStore = NULL;
+    }
+}
+
 RecursiveMutex& SecTrustKeychainsGetMutex()
 {
 	return trustKeychainsMutex();
@@ -223,11 +238,11 @@ void Trust::evaluate(bool disableEV)
 	}
 	CFArrayRef filteredCerts = NULL;
 	if (isEVCandidate) {
-		secdebug("evTrust", "Trust::evaluate() certificate is EV candidate");
+		secinfo("evTrust", "Trust::evaluate() certificate is EV candidate");
 		filteredCerts = potentialEVChainWithCertificates(mCerts);
 		mCerts = filteredCerts;
 	} else {
-		secdebug("evTrust", "Trust::evaluate() performing standard evaluation");
+		secinfo("evTrust", "Trust::evaluate() performing standard evaluation");
 		if (mCerts) {
 			filteredCerts = CFArrayCreateMutableCopy(NULL, 0, mCerts);
 		}
@@ -247,7 +262,7 @@ void Trust::evaluate(bool disableEV)
 
 	if (mAllowedAnchors)
 	{
-		secdebug("trusteval", "Trust::evaluate: anchors: %ld", CFArrayGetCount(mAllowedAnchors));
+		secinfo("trusteval", "Trust::evaluate: anchors: %ld", CFArrayGetCount(mAllowedAnchors));
 #if !defined(NDEBUG)
 		CFArrayApplyFunction(mAllowedAnchors, CFRangeMake(0, CFArrayGetCount(mAllowedAnchors)), showCertSKID, NULL);
 #endif
@@ -328,7 +343,7 @@ void Trust::evaluate(bool disableEV)
 	allPolicies = convertRevocationPolicy(numRevocationAdded, context.allocator);
 	if (allPolicies) {
 		// caller has explicitly set the revocation policy they want to use
-		secdebug("evTrust", "Trust::evaluate() using explicit revocation policy (%d)",
+		secinfo("evTrust", "Trust::evaluate() using explicit revocation policy (%d)",
 			numRevocationAdded);
 		if (numRevocationAdded == 0)
 			isEVCandidate = false;
@@ -337,13 +352,13 @@ void Trust::evaluate(bool disableEV)
 		// caller explicitly provided empty anchors and no keychain list,
 		// and did not explicitly specify the revocation policy;
 		// override global revocation check setting for this evaluation
-		secdebug("evTrust", "Trust::evaluate() has empty anchors and no keychains");
+		secinfo("evTrust", "Trust::evaluate() has empty anchors and no keychains");
 		allPolicies = NULL; // use only mPolicies
 		isEVCandidate = false;
 	}
 	else if (isEVCandidate || requirePerCert) {
 		// force revocation checking for this evaluation
-		secdebug("evTrust", "Trust::evaluate() forcing OCSP/CRL revocation check");
+		secinfo("evTrust", "Trust::evaluate() forcing OCSP/CRL revocation check");
 		allPolicies = forceRevocationPolicies(true, requirePerCert,
 			numRevocationAdded, context.allocator, requirePerCert);
 	}
@@ -354,7 +369,7 @@ void Trust::evaluate(bool disableEV)
 	}
 	if (allPolicies == NULL) {
 		// use mPolicies; no revocation checking will be performed
-		secdebug("evTrust", "Trust::evaluate() will not perform revocation check");
+		secinfo("evTrust", "Trust::evaluate() will not perform revocation check");
 		CFIndex numPolicies = CFArrayGetCount(mPolicies);
 		CFAllocatorRef allocator = CFGetAllocator(mPolicies);
 		allPolicies = CFArrayCreateMutableCopy(allocator, numPolicies, mPolicies);
@@ -375,14 +390,14 @@ void Trust::evaluate(bool disableEV)
 		// no anchor certificates were provided;
 		// built-in anchors will be trusted unless explicitly disabled.
 		mUsingTrustSettings = (mAnchorPolicy < useAnchorsOnly);
-		secdebug("userTrust", "Trust::evaluate() %s",
+		secinfo("userTrust", "Trust::evaluate() %s",
 				 (mUsingTrustSettings) ? "using UserTrust" : "has no trusted anchors!");
     }
 	else {
 		// anchor certificates were provided;
 		// built-in anchors will NOT also be trusted unless explicitly enabled.
 		mUsingTrustSettings = (mAnchorPolicy == useAnchorsAndBuiltIns);
-		secdebug("userTrust", "Trust::evaluate() using %s %s anchors",
+		secinfo("userTrust", "Trust::evaluate() using %s %s anchors",
 				 (mUsingTrustSettings) ? "UserTrust AND" : "only",
 				 (isEVCandidate) ? "EV" : "caller");
 		context.anchors(roots, roots);
@@ -465,7 +480,7 @@ void Trust::evaluate(bool disableEV)
         mTpReturn = errSecSuccess;
     } catch (CommonError &err) {
         mTpReturn = err.osStatus();
-        secdebug("trusteval", "certGroupVerify exception: %d", (int)mTpReturn);
+        secinfo("trusteval", "certGroupVerify exception: %d", (int)mTpReturn);
     }
     mResult = diagnoseOutcome();
 
@@ -480,7 +495,7 @@ void Trust::evaluate(bool disableEV)
             mTpResult[2].as<CSSM_TP_APPLE_EVIDENCE_INFO>(), anchors);
     } else {
         // unexpected evidence information. Can't use it
-        secdebug("trusteval", "unexpected evidence ignored");
+        secinfo("trusteval", "unexpected evidence ignored");
     }
 
 	/* do post-processing for the evaluated certificate chain */
@@ -623,7 +638,7 @@ void Trust::evaluateUserTrust(const CertGroup &chain,
         if (info.recordId()) {
 			Keychain keychain = keychainByDLDb(info.DlDbHandle);
 			DbUniqueRecord uniqueId(keychain->database()->newDbUniqueRecord());
-			secdebug("trusteval", "evidence %lu from keychain \"%s\"", (unsigned long)n, keychain->name());
+			secinfo("trusteval", "evidence %lu from keychain \"%s\"", (unsigned long)n, keychain->name());
 			*static_cast<CSSM_DB_UNIQUE_RECORD_PTR *>(uniqueId) = info.UniqueRecord;
 			uniqueId->activate(); // transfers ownership
 			Item ii = keychain->item(CSSM_DL_DB_RECORD_X509_CERTIFICATE, uniqueId);
@@ -633,20 +648,20 @@ void Trust::evaluateUserTrust(const CertGroup &chain,
 			}
 			mCertChain[n] = cert;
         } else if (info.status(CSSM_CERT_STATUS_IS_IN_INPUT_CERTS)) {
-            secdebug("trusteval", "evidence %lu from input cert %lu", (unsigned long)n, (unsigned long)info.index());
+            secinfo("trusteval", "evidence %lu from input cert %lu", (unsigned long)n, (unsigned long)info.index());
             assert(info.index() < uint32(CFArrayGetCount(mCerts)));
             SecCertificateRef cert = SecCertificateRef(CFArrayGetValueAtIndex(mCerts,
                 info.index()));
             mCertChain[n] = Certificate::required(cert);
         } else if (info.status(CSSM_CERT_STATUS_IS_IN_ANCHORS)) {
-            secdebug("trusteval", "evidence %lu from anchor cert %lu", (unsigned long)n, (unsigned long)info.index());
+            secinfo("trusteval", "evidence %lu from anchor cert %lu", (unsigned long)n, (unsigned long)info.index());
             assert(info.index() < uint32(CFArrayGetCount(anchors)));
             SecCertificateRef cert = SecCertificateRef(CFArrayGetValueAtIndex(anchors,
                 info.index()));
             mCertChain[n] = Certificate::required(cert);
         } else {
             // unknown source; make a new Certificate for it
-            secdebug("trusteval", "evidence %lu from unknown source", (unsigned long)n);
+            secinfo("trusteval", "evidence %lu from unknown source", (unsigned long)n);
             mCertChain[n] =
                 new Certificate(chain.blobCerts()[n],
 					CSSM_CERT_X_509v3, CSSM_CERT_ENCODING_BER);
@@ -665,7 +680,7 @@ void Trust::evaluateUserTrust(const CertGroup &chain,
 			continue;
 		}
 		mResult = store.find(mCertChain[mResultIndex], policy, searchLibs());
-		secdebug("trusteval", "trustResult=%d from cert %d", (int)mResult, (int)mResultIndex);
+		secinfo("trusteval", "trustResult=%d from cert %d", (int)mResult, (int)mResultIndex);
 	}
 }
 
@@ -698,12 +713,12 @@ void Trust::releaseTPEvidence(TPVerifyResult &result, Allocator &allocator)
 					allocator.free(evidence[n].StatusCodes);
 				allocator.free(result[2].data());	// array of (flat) info structs
 			} else {
-				secdebug("trusteval", "unrecognized Apple TP evidence format");
+				secinfo("trusteval", "unrecognized Apple TP evidence format");
 				// drop it -- better leak than kill
 			}
 		} else {
 			// unknown format -- blindly assume flat blobs
-			secdebug("trusteval", "destroying unknown TP evidence format");
+			secinfo("trusteval", "destroying unknown TP evidence format");
 			for (uint32 n = 0; n < result.count(); n++)
 			{
 				allocator.free(result[n].data());
@@ -724,6 +739,7 @@ void Trust::clearResults()
 	if (mResult != kSecTrustResultInvalid) {
 		releaseTPEvidence(mTpResult, mTP.allocator());
 		mResult = kSecTrustResultInvalid;
+		mExtendedResult = NULL;
 	}
 }
 

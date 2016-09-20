@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2008-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2008-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -31,19 +31,11 @@
  * - initial revision
  */
 
-#include <Availability.h>
-#include <TargetConditionals.h>
-#include <sys/cdefs.h>
-#include <dispatch/dispatch.h>
-#include <mach/mach.h>
-#include <mach/mach_error.h>
-
-#include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCPrivate.h>
 #include "SCDynamicStoreInternal.h"
 #include "config.h"		/* MiG generated file */
+#include "SCD.h"
 
-#if !TARGET_IPHONE_SIMULATOR || (defined(IPHONE_SIMULATOR_HOST_MIN_VERSION_REQUIRED) && (IPHONE_SIMULATOR_HOST_MIN_VERSION_REQUIRED >= 1090))
+#if !TARGET_OS_SIMULATOR || (defined(IPHONE_SIMULATOR_HOST_MIN_VERSION_REQUIRED) && (IPHONE_SIMULATOR_HOST_MIN_VERSION_REQUIRED >= 1090))
 #define HAVE_MACHPORT_GUARDS
 #endif
 
@@ -63,14 +55,10 @@ notifyMPCopyDescription(const void *info)
 static void
 rlsCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 {
-	os_activity_t			activity_id;
 	mach_no_senders_notification_t	*buf		= msg;
 	mach_msg_id_t			msgid		= buf->not_header.msgh_id;
 	SCDynamicStoreRef		store		= (SCDynamicStoreRef)info;
 	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
-
-	activity_id = os_activity_start("processing SCDynamicStore notification",
-					OS_ACTIVITY_FLAG_DEFAULT);
 
 	if (msgid == MACH_NOTIFY_NO_SENDERS) {
 		/* the server died, disable additional callbacks */
@@ -97,8 +85,6 @@ rlsCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 		CFRunLoopSourceSignal(storePrivate->rls);
 	}
 
-	os_activity_end(activity_id);
-
 	return;
 }
 
@@ -114,7 +100,7 @@ rlsSchedule(void *info, CFRunLoopRef rl, CFStringRef mode)
 	       (rl != NULL) ? mode : CFSTR("libdispatch"));
 #endif	/* DEBUG */
 
-	if (storePrivate->rlList == NULL) {
+	if (storePrivate->rlsNotifyPort == NULL) {
 		CFMachPortContext	context		= { 0
 							  , (void *)store
 							  , CFRetain
@@ -194,6 +180,12 @@ rlsSchedule(void *info, CFRunLoopRef rl, CFStringRef mode)
 			SC_log(LOG_NOTICE, "oldNotify != MACH_PORT_NULL");
 		}
 
+#ifdef	DEBUG
+		SC_log(LOG_DEBUG, "  establish notification request with SCDynamicStore server");
+#endif	/* DEBUG */
+
+		os_activity_scope(storePrivate->activity);
+
 	    retry :
 
 		__MACH_PORT_DEBUG(TRUE, "*** rlsSchedule", port);
@@ -236,12 +228,17 @@ rlsSchedule(void *info, CFRunLoopRef rl, CFStringRef mode)
 									   port,
 									   rlsCallback,
 									   &context);
-		storePrivate->rlsNotifyRLS = CFMachPortCreateRunLoopSource(NULL, storePrivate->rlsNotifyPort, 0);
 
-		storePrivate->rlList = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+		if (rl != NULL) {
+			storePrivate->rlsNotifyRLS = CFMachPortCreateRunLoopSource(NULL, storePrivate->rlsNotifyPort, 0);
+			storePrivate->rlList = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+		}
 	}
 
 	if ((rl != NULL) && (storePrivate->rlsNotifyRLS != NULL)) {
+		/* set notifier active */
+		storePrivate->notifyStatus = Using_NotifierInformViaRunLoop;
+
 		if (!_SC_isScheduled(store, rl, mode, storePrivate->rlList)) {
 			/*
 			 * if we are not already scheduled with this runLoop / runLoopMode
@@ -296,6 +293,13 @@ rlsCancel(void *info, CFRunLoopRef rl, CFStringRef mode)
 				  "*** rlsCancel",
 				  CFMachPortGetPort(storePrivate->rlsNotifyPort));
 
+		if (storePrivate->rls != NULL) {
+			// Remove the reference we took on the rls. We do not invalidate
+			// the runloop source and let the client do it when appropriate.
+			CFRelease(storePrivate->rls);
+			storePrivate->rls = NULL;
+		}
+
 		if (storePrivate->rlList != NULL) {
 			CFRelease(storePrivate->rlList);
 			storePrivate->rlList = NULL;
@@ -329,6 +333,12 @@ rlsCancel(void *info, CFRunLoopRef rl, CFStringRef mode)
 #endif	// HAVE_MACHPORT_GUARDS
 		}
 
+#ifdef	DEBUG
+		SC_log(LOG_DEBUG, "  cancel notification request with SCDynamicStore server");
+#endif	/* DEBUG */
+
+		os_activity_scope(storePrivate->activity);
+
 		if (storePrivate->server != MACH_PORT_NULL) {
 			kr = notifycancel(storePrivate->server, (int *)&sc_status);
 
@@ -341,6 +351,9 @@ rlsCancel(void *info, CFRunLoopRef rl, CFStringRef mode)
 				return;
 			}
 		}
+
+		/* set notifier inactive */
+		storePrivate->notifyStatus = NotifierNotRegistered;
 	}
 
 	return;
@@ -350,16 +363,12 @@ rlsCancel(void *info, CFRunLoopRef rl, CFStringRef mode)
 static void
 rlsPerform(void *info)
 {
-	os_activity_t			activity_id;
 	CFArrayRef			changedKeys	= NULL;
 	void				*context_info;
 	void				(*context_release)(const void *);
 	SCDynamicStoreCallBack		rlsFunction;
 	SCDynamicStoreRef		store		= (SCDynamicStoreRef)info;
 	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
-
-	activity_id = os_activity_start("processing SCDynamicStore notification",
-					OS_ACTIVITY_FLAG_DEFAULT);
 
 #ifdef	DEBUG
 	SC_log(LOG_DEBUG, "  executing notification function");
@@ -386,6 +395,7 @@ rlsPerform(void *info)
 		context_release	= NULL;
 	}
 	if (rlsFunction != NULL) {
+		SC_log(LOG_DEBUG, "exec SCDynamicStore callout");
 		(*rlsFunction)(store, changedKeys, context_info);
 	}
 	if (context_release != NULL) {
@@ -394,60 +404,12 @@ rlsPerform(void *info)
 
     done :
 
+#ifdef	DEBUG
+	SC_log(LOG_DEBUG, "  done!");
+#endif	/* DEBUG */
+
 	if (changedKeys != NULL) {
 		CFRelease(changedKeys);
-	}
-
-	os_activity_end(activity_id);
-
-	return;
-}
-
-
-static CFTypeRef
-rlsRetain(CFTypeRef cf)
-{
-	SCDynamicStoreRef		store		= (SCDynamicStoreRef)cf;
-	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
-
-	switch (storePrivate->notifyStatus) {
-		case NotifierNotRegistered :
-			/* mark RLS active */
-			storePrivate->notifyStatus = Using_NotifierInformViaRunLoop;
-			/* keep a reference to the store */
-			CFRetain(store);
-			break;
-		case Using_NotifierInformViaRunLoop :
-			break;
-		default :
-			SC_log(LOG_NOTICE, "unexpected notify status=%d", storePrivate->notifyStatus);
-			break;
-	}
-
-	return cf;
-}
-
-
-static void
-rlsRelease(CFTypeRef cf)
-{
-	SCDynamicStoreRef		store		= (SCDynamicStoreRef)cf;
-	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
-
-	switch (storePrivate->notifyStatus) {
-		case NotifierNotRegistered :
-			break;
-		case Using_NotifierInformViaRunLoop :
-			/* mark RLS inactive */
-			storePrivate->notifyStatus = NotifierNotRegistered;
-			storePrivate->rls = NULL;
-
-			/* release our reference to the store */
-			CFRelease(store);
-			break;
-		default :
-			SC_log(LOG_NOTICE, "unexpected notify status=%d", storePrivate->notifyStatus);
-			break;
 	}
 
 	return;
@@ -517,13 +479,11 @@ SCDynamicStoreCreateRunLoopSource(CFAllocatorRef	allocator,
 			return NULL;
 	}
 
-	if (storePrivate->rls != NULL) {
-		CFRetain(storePrivate->rls);
-	} else {
+	if (storePrivate->rls == NULL) {
 		CFRunLoopSourceContext	context = { 0			// version
 						  , (void *)store	// info
-						  , rlsRetain		// retain
-						  , rlsRelease		// release
+						  , CFRetain		// retain
+						  , CFRelease		// release
 						  , rlsCopyDescription	// copyDescription
 						  , CFEqual		// equal
 						  , CFHash		// hash
@@ -536,6 +496,10 @@ SCDynamicStoreCreateRunLoopSource(CFAllocatorRef	allocator,
 		if (storePrivate->rls == NULL) {
 			_SCErrorSet(kSCStatusFailed);
 		}
+	}
+
+	if (storePrivate->rls != NULL) {
+		CFRetain(storePrivate->rls);
 	}
 
 	return storePrivate->rls;
@@ -650,6 +614,10 @@ SCDynamicStoreSetDispatchQueue(SCDynamicStoreRef store, dispatch_queue_t queue)
 
 		msgid = notify_msg.msg.header.msgh_id;
 
+#ifdef	DEBUG
+		SC_log(LOG_DEBUG, "dispatch source callback, queue rlsPerform");
+#endif	/* DEBUG */
+
 		CFRetain(store);
 		dispatch_group_async(group, queue, ^{
 			if (msgid == MACH_NOTIFY_NO_SENDERS) {
@@ -685,7 +653,7 @@ SCDynamicStoreSetDispatchQueue(SCDynamicStoreRef store, dispatch_queue_t queue)
 
 	rlsCancel((void*)store, NULL, NULL);
 
-	if (drainGroup != NULL) {
+	if ((drainGroup != NULL) && (drainQueue != NULL)) {
 		dispatch_group_notify(drainGroup, drainQueue, ^{
 			// release group/queue references
 			dispatch_release(drainQueue);

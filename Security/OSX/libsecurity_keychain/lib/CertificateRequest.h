@@ -37,7 +37,7 @@
 #include <security_utilities/debugging.h>
 #include <CoreFoundation/CoreFoundation.h>
 
-#define certReqDbg(args...) secdebug("certReq", ## args)
+#define certReqDbg(args...) secinfo("certReq", ## args)
 
 namespace Security
 {

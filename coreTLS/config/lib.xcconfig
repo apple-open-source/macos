@@ -26,13 +26,9 @@ GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES
 GCC_WARN_ABOUT_RETURN_TYPE = YES
 GCC_WARN_UNUSED_VARIABLE = YES
 
-SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator
-
-GCC_PREPROCESSOR_DEFINITIONS[sdk=iphonesimulator*] = INDIGO=1 $(inherited)
-
-INSTALL_PATH_ACTUAL = /usr/lib/system
+GCC_PREPROCESSOR_DEFINITIONS[sdk=*simulator*] = INDIGO=1 $(inherited)
 
 PRIVATE_HEADERS_FOLDER_PATH = $(INSTALL_PATH_PREFIX)/usr/local/include
 PUBLIC_HEADERS_FOLDER_PATH = $(INSTALL_PATH_PREFIX)/usr/local/include
 
-OTHER_LDFLAGS_coverage = $(inherited) -fprofile-arcs -ftest-coverage -l$(PROFILING_LIBNAME) -L$(TOOLCHAIN_RT_DIR)
+OTHER_LDFLAGS_coverage = $(inherited) -fprofile-arcs -ftest-coverage

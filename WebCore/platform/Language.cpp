@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2013, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +27,8 @@
 #include "Language.h"
 
 #include <wtf/HashMap.h>
+#include <wtf/NeverDestroyed.h>
+#include <wtf/PlatformUserPreferredLanguages.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/text/WTFString.h>
 
@@ -36,15 +38,28 @@
 
 namespace WebCore {
 
+static StaticLock userPreferredLanguagesMutex;
+
+static void registerLanguageDidChangeCallbackIfNecessary()
+{
+    static std::once_flag once;
+    std::call_once(
+        once,
+        [] {
+            setPlatformUserPreferredLanguagesChangedCallback(languageDidChange);
+        });
+}
+
 typedef HashMap<void*, LanguageChangeObserverFunction> ObserverMap;
 static ObserverMap& observerMap()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(ObserverMap, map, ());
-    return map;
+    static NeverDestroyed<ObserverMap> map;
+    return map.get();
 }
 
 void addLanguageChangeObserver(void* context, LanguageChangeObserverFunction customObserver)
 {
+    registerLanguageDidChangeCallbackIfNecessary();
     observerMap().set(context, customObserver);
 }
 
@@ -72,7 +87,7 @@ String defaultLanguage()
 
 static Vector<String>& preferredLanguagesOverride()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(Vector<String>, override, ());
+    static NeverDestroyed<Vector<String>> override;
     return override;
 }
 
@@ -84,20 +99,34 @@ Vector<String> userPreferredLanguagesOverride()
 void overrideUserPreferredLanguages(const Vector<String>& override)
 {
     preferredLanguagesOverride() = override;
+    languageDidChange();
 }
-    
+
+static Vector<String> isolatedCopy(const Vector<String>& strings)
+{
+    Vector<String> copy;
+    copy.reserveInitialCapacity(strings.size());
+    for (auto& language : strings)
+        copy.uncheckedAppend(language.isolatedCopy());
+    return copy;
+}
+
 Vector<String> userPreferredLanguages()
 {
-    Vector<String>& override = preferredLanguagesOverride();
-    if (!override.isEmpty())
-        return override;
+    {
+        std::lock_guard<StaticLock> lock(userPreferredLanguagesMutex);
+        Vector<String>& override = preferredLanguagesOverride();
+        if (!override.isEmpty())
+            return isolatedCopy(override);
+    }
     
+    registerLanguageDidChangeCallbackIfNecessary();
     return platformUserPreferredLanguages();
 }
 
 static String canonicalLanguageIdentifier(const String& languageCode)
 {
-    String lowercaseLanguageCode = languageCode.lower();
+    String lowercaseLanguageCode = languageCode.convertToASCIILowercase();
     
     if (lowercaseLanguageCode.length() >= 3 && lowercaseLanguageCode[2] == '_')
         lowercaseLanguageCode.replace(2, 1, "-");
@@ -107,7 +136,7 @@ static String canonicalLanguageIdentifier(const String& languageCode)
 
 size_t indexOfBestMatchingLanguageInList(const String& language, const Vector<String>& languageList, bool& exactMatch)
 {
-    String lowercaseLanguage = language.lower();
+    String lowercaseLanguage = language.convertToASCIILowercase();
     String languageWithoutLocaleMatch;
     String languageMatchButNotLocale;
     size_t languageWithoutLocaleMatchIndex = 0;

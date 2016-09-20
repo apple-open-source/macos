@@ -26,6 +26,8 @@
 #include "DAInternal.h"
 #include "DAServer.h"
 
+#include <sys/stat.h>
+
 #ifndef __LP64__
 
 #include <paths.h>
@@ -61,6 +63,8 @@ __private_extern__ DAReturn _DAAuthorize( DASessionRef session, _DAAuthorizeOpti
 
 __private_extern__ char *      _DADiskGetID( DADiskRef disk );
 __private_extern__ mach_port_t _DADiskGetSessionID( DADiskRef disk );
+
+__private_extern__ mach_port_t _DASessionGetID( DASessionRef session );
 
 __private_extern__ void _DARegisterCallback( DASessionRef    session,
                                              void *          callback,
@@ -2487,6 +2491,53 @@ int DiskArbVSDBGetVolumeStatus_auto( char * disk )
 }
 
 #endif /* !__LP64__ */
+
+int _DAmkdir( const char * path, mode_t mode )
+{
+    int status;
+
+    status = mkdir( path, mode );
+
+    if ( status )
+    {
+        status = errno;
+
+        if ( status == EACCES )
+        {
+            DASessionRef session;
+
+            session = DASessionCreate( kCFAllocatorDefault );
+
+            if ( session )
+            {
+                status = _DAServermkdir( _DASessionGetID( session ), path );
+
+                if ( status )
+                {
+                    if ( unix_err( err_get_code( status ) ) == status )
+                    {
+                        status = err_get_code( status );
+                    }
+                    else
+                    {
+                        status = EACCES;
+                    }
+                }
+
+                CFRelease( session );
+            }
+        }
+
+        if ( status )
+        {
+            errno = status;
+
+            status = -1;
+        }
+    }
+
+    return status;
+}
 
 DAReturn _DADiskSetAdoption( DADiskRef disk, Boolean adoption )
 {

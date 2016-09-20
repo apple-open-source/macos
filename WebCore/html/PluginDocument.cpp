@@ -58,7 +58,7 @@ private:
     {
     }
 
-    virtual void appendBytes(DocumentWriter&, const char*, size_t) override;
+    void appendBytes(DocumentWriter&, const char*, size_t) override;
 
     void createDocumentStructure();
 
@@ -67,9 +67,9 @@ private:
 
 void PluginDocumentParser::createDocumentStructure()
 {
-    RefPtr<Element> rootElement = document()->createElement(htmlTag, false);
+    auto rootElement = document()->createElement(htmlTag, false);
     document()->appendChild(rootElement, IGNORE_EXCEPTION);
-    downcast<HTMLHtmlElement>(*rootElement).insertedByParser();
+    downcast<HTMLHtmlElement>(rootElement.get()).insertedByParser();
 
     if (document()->frame())
         document()->frame()->injectUserScripts(InjectAtDocumentStart);
@@ -79,9 +79,9 @@ void PluginDocumentParser::createDocumentStructure()
     document()->processViewport(ASCIILiteral("user-scalable=no"), ViewportArguments::PluginDocument);
 #endif
 
-    RefPtr<Element> body = document()->createElement(bodyTag, false);
-    body->setAttribute(marginwidthAttr, AtomicString("0", AtomicString::ConstructFromLiteral));
-    body->setAttribute(marginheightAttr, AtomicString("0", AtomicString::ConstructFromLiteral));
+    auto body = document()->createElement(bodyTag, false);
+    body->setAttributeWithoutSynchronization(marginwidthAttr, AtomicString("0", AtomicString::ConstructFromLiteral));
+    body->setAttributeWithoutSynchronization(marginheightAttr, AtomicString("0", AtomicString::ConstructFromLiteral));
 #if PLATFORM(IOS)
     body->setAttribute(styleAttr, AtomicString("background-color: rgb(217,224,233)", AtomicString::ConstructFromLiteral));
 #else
@@ -90,19 +90,19 @@ void PluginDocumentParser::createDocumentStructure()
 
     rootElement->appendChild(body, IGNORE_EXCEPTION);
         
-    RefPtr<Element> embedElement = document()->createElement(embedTag, false);
+    auto embedElement = document()->createElement(embedTag, false);
         
-    m_embedElement = downcast<HTMLEmbedElement>(embedElement.get());
-    m_embedElement->setAttribute(widthAttr, "100%");
-    m_embedElement->setAttribute(heightAttr, "100%");
+    m_embedElement = downcast<HTMLEmbedElement>(embedElement.ptr());
+    m_embedElement->setAttributeWithoutSynchronization(widthAttr, AtomicString("100%", AtomicString::ConstructFromLiteral));
+    m_embedElement->setAttributeWithoutSynchronization(heightAttr, AtomicString("100%", AtomicString::ConstructFromLiteral));
     
-    m_embedElement->setAttribute(nameAttr, "plugin");
-    m_embedElement->setAttribute(srcAttr, document()->url().string());
+    m_embedElement->setAttributeWithoutSynchronization(nameAttr, AtomicString("plugin", AtomicString::ConstructFromLiteral));
+    m_embedElement->setAttributeWithoutSynchronization(srcAttr, document()->url().string());
     
     DocumentLoader* loader = document()->loader();
     ASSERT(loader);
     if (loader)
-        m_embedElement->setAttribute(typeAttr, loader->writer().mimeType());
+        m_embedElement->setAttributeWithoutSynchronization(typeAttr, loader->writer().mimeType());
 
     downcast<PluginDocument>(*document()).setPluginElement(m_embedElement);
 

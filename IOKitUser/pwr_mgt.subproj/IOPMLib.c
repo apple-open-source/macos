@@ -335,7 +335,7 @@ IOReturn IODeregisterForSystemPower ( io_object_t * root_notifier )
 }
 
 
-IOReturn IOAllowPowerChange(io_connect_t kernelPort, long notificationID)
+IOReturn IOAllowPowerChange(io_connect_t kernelPort, intptr_t notificationID)
 {
     uint64_t inData = notificationID;
     kern_return_t err = IOConnectCallScalarMethod(
@@ -350,7 +350,7 @@ IOReturn IOAllowPowerChange(io_connect_t kernelPort, long notificationID)
 }
 
 
-IOReturn IOCancelPowerChange ( io_connect_t kernelPort, long notificationID )
+IOReturn IOCancelPowerChange ( io_connect_t kernelPort, intptr_t notificationID )
 {
     uint64_t inData = notificationID;
     kern_return_t err = IOConnectCallScalarMethod(

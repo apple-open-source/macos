@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,7 +45,6 @@
 #include <netinet/udp.h>
 #include <netinet/bootp.h>
 #include <netinet/if_ether.h>
-#include <syslog.h>
 #include <arpa/inet.h>
 #include <net/if_arp.h>
 #include <mach/boolean.h>
@@ -377,7 +376,7 @@ S_ipinuse(void * arg, struct in_addr ip)
 
 	if (pending_secs < DEFAULT_PENDING_SECS) {
 	    my_log(LOG_DEBUG, "dhcpd: %s will remain pending %d secs",
-		   inet_ntoa(ip), DEFAULT_PENDING_SECS - pending_secs);
+		   inet_ntoa(ip), (int)(DEFAULT_PENDING_SECS - pending_secs));
 	    return (TRUE);
 	}
 	hostfree(&S_pending_hosts, hp); /* remove it from the list */

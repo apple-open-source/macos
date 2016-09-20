@@ -1,4 +1,4 @@
-# Copyright (C) 2011 Apple Inc. All rights reserved.
+# Copyright (C) 2011, 2016 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -98,14 +98,23 @@ def validBackends
     $validBackends.keys
 end
 
+class LoweringError < StandardError
+    attr_reader :originString
+    
+    def initialize(e, originString)
+        super "#{e} (due to #{originString})"
+        @originString = originString
+        set_backtrace e.backtrace
+    end
+end
+
 class Node
     def lower(name)
         begin
             $activeBackend = name
             send("lower" + name)
         rescue => e
-            e.message << "At #{codeOriginString}"
-            raise e
+            raise LoweringError.new(e, codeOriginString)
         end
     end
 end
@@ -114,6 +123,7 @@ end
 
 class Label
     def lower(name)
+        $asm.debugAnnotation codeOrigin.debugDirective if $enableDebugAnnotations
         $asm.putsLabel(self.name[1..-1], @global)
     end
 end

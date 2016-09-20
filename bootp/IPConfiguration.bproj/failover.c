@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -207,9 +207,9 @@ failover_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
     failover = (Service_failover_t *)ServiceGetPrivate(service_p);
     switch (evid) {
       case IFEventID_start_e: {
-	  ipconfig_method_data_t * method_data;
+	  ipconfig_method_data_t method_data;
 
-	  method_data = (ipconfig_method_data_t *)event_data;
+	  method_data = (ipconfig_method_data_t)event_data;
 	  if (failover != NULL) {
 	      my_log(LOG_INFO, "FAILOVER %s: re-entering start state",
 		     if_name(if_p));
@@ -268,7 +268,7 @@ failover_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
       }
       case IFEventID_change_e: {
 	  change_event_data_t *   	change_event;
-	  ipconfig_method_data_t * 	method_data;
+	  ipconfig_method_data_t 	method_data;
 
 	  if (failover == NULL) {
 	      my_log(LOG_INFO, "FAILOVER %s: private data is NULL",
@@ -334,6 +334,7 @@ failover_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  failover_start(service_p, IFEventID_start_e, NULL);
 	  break;
       }
+      case IFEventID_wake_e:
       case IFEventID_link_status_changed_e: {
 	  link_status_t		link_status;
 
@@ -341,14 +342,12 @@ failover_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	      return (ipconfig_status_internal_error_e);
 	  }
 	  link_status = service_link_status(service_p);
-	  if (link_status.valid == TRUE) {
-	      if (link_status.active == TRUE) {
-		  failover_start(service_p, IFEventID_start_e, NULL);
-	      }
-	      else {
-		  failover->address_is_verified = FALSE;
-		  failover_cancel_pending_events(service_p);
-	      }
+	  if (link_status.valid == TRUE && link_status.active == FALSE) {
+	      failover->address_is_verified = FALSE;
+	      failover_cancel_pending_events(service_p);
+	  }
+	  else {
+	      failover_start(service_p, IFEventID_start_e, NULL);
 	  }
 	  break;
       }

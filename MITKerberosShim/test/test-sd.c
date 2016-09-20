@@ -49,7 +49,7 @@ main(int argc, char **argv)
     int matched = 0;
     
     char svc_name[] = "host";
-    int svc_name_len = strlen (svc_name);
+    int svc_name_len = (int)strlen (svc_name);
     
     
     krb5_err = krb5_init_context(&kcontext);

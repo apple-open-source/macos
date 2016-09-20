@@ -27,6 +27,7 @@
 
 #include <sys/kdebug.h>
 #include <sys/syscall.h>
+#include "IOHIDLibPrivate.h"
 
 // Set to 1 to enable profiling traces
 // define in individual files to enable traces in individual files
@@ -88,9 +89,9 @@ enum {
     kdebug_trace(IOHID_DEBUG_END(code), a, b, c, d);              \
 } while (0)
 #else
-#define HIDDEBUGTRACE(code, a, b, c, d)
-#define HIDFUNCSTART(code, a, b, c, d)
-#define HIDFUNCEND(code, a, b, c, d)
+#define HIDDEBUGTRACE(code, a, b, c, d)     IOHIDLogTrace(#code " 0x%-16llx 0x%-16llx 0x%-16llx 0x%-16llx 0x%-16llx", (unsigned long long)k##code, (unsigned long long)a, (unsigned long long)b, (unsigned long long)c, (unsigned long long)d)
+#define HIDFUNCSTART(code, a, b, c, d)      IOHIDLogTrace(#code " 0x%-16llx 0x%-16llx 0x%-16llx 0x%-16llx 0x%-16llx", (unsigned long long)k##code, (unsigned long long)a, (unsigned long long)b, (unsigned long long)c, (unsigned long long)d)
+#define HIDFUNCEND(code, a, b, c, d)        IOHIDLogTrace(#code " 0x%-16llx 0x%-16llx 0x%-16llx 0x%-16llx 0x%-16llx", (unsigned long long)k##code, (unsigned long long)a, (unsigned long long)b, (unsigned long long)c, (unsigned long long)d)
 #endif
 
 #if HID_PROFILING
@@ -98,7 +99,7 @@ enum {
     HIDDEBUGTRACE(code, a, b, c, d);                              \
 } while (0)
 #else
-#define HIDPROFTRACE(code, a, b, c, d)
+#define HIDPROFTRACE(code, a, b, c, d)      IOHIDLogTrace(#code " 0x%-16llx 0x%-16llx 0x%-16llx 0x%-16llx 0x%-16llx", (unsigned long long)k##code, (unsigned long long)a, (unsigned long long)b, (unsigned long long)c, (unsigned long long)d)
 #endif
 
 #endif

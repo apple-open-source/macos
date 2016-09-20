@@ -32,22 +32,14 @@
 #import <Carbon/Carbon.h>
 #import <WebCore/DynamicLinkerInterposing.h>
 #import <WebKitSystemInterface.h>
-#import <stdio.h>
+#import <mach/mach_vm.h>
 #import <objc/message.h>
-
-#include <sys/shm.h>
-#include <sys/ipc.h>
-#include <sys/mman.h>
-
-#undef __APPLE_API_PRIVATE
-#include <sandbox.h>
-
-#ifndef _SANDBOX_PRIVATE_H_
-enum sandbox_filter_type {
-        SANDBOX_FILTER_NONE,
-};
-extern "C" int sandbox_check(pid_t pid, const char *operation, enum sandbox_filter_type type, ...);
-#endif
+#import <stdio.h>
+#import <sys/ipc.h>
+#import <sys/mman.h>
+#import <sys/shm.h>
+#import <wtf/Compiler.h>
+#import <wtf/spi/darwin/SandboxSPI.h>
 
 namespace WebKit {
 
@@ -120,6 +112,21 @@ shimLSOpenCFURLRef(CFURLRef url, CFURLRef* launchedURL)
     return LSOpenCFURLRef(url, launchedURL);
 }
 
+#if __MAC_OS_X_VERSION_MIN_REQUIRED < 101100
+SUPPRESS_ASAN
+#endif
+static kern_return_t shimMachVMMap(vm_map_t task, mach_vm_address_t *address, mach_vm_size_t size, mach_vm_offset_t mask, int flags, mem_entry_name_port_t object, memory_object_offset_t offset, boolean_t copy, vm_prot_t currentProtection, vm_prot_t maxProtection, vm_inherit_t inheritance)
+{
+    if (task == mach_task_self()) {
+        if (pluginProcessShimCallbacks.shouldMapMemoryExecutable && pluginProcessShimCallbacks.shouldMapMemoryExecutable(flags)) {
+            currentProtection |= VM_PROT_EXECUTE;
+            maxProtection |= VM_PROT_EXECUTE;
+        }
+    }
+
+    return mach_vm_map(task, address, size, mask, flags, object, offset, copy, currentProtection, maxProtection, inheritance);
+}
+
 DYLD_INTERPOSE(shimDebugger, Debugger);
 DYLD_INTERPOSE(shimGetCurrentEventButtonState, GetCurrentEventButtonState);
 DYLD_INTERPOSE(shimIsWindowActive, IsWindowActive);
@@ -128,6 +135,7 @@ DYLD_INTERPOSE(shimAlert, Alert);
 DYLD_INTERPOSE(shimShowWindow, ShowWindow);
 DYLD_INTERPOSE(shimHideWindow, HideWindow);
 DYLD_INTERPOSE(shimLSOpenCFURLRef, LSOpenCFURLRef);
+DYLD_INTERPOSE(shimMachVMMap, mach_vm_map);
 
 #pragma clang diagnostic pop
 
@@ -321,6 +329,20 @@ DYLD_INTERPOSE(shim_shmat, shmat);
 DYLD_INTERPOSE(shim_shmdt, shmdt);
 DYLD_INTERPOSE(shim_shmget, shmget);
 DYLD_INTERPOSE(shim_shmctl, shmctl);
+
+static CFComparisonResult shimCFStringCompare(CFStringRef a, CFStringRef b, CFStringCompareFlags options)
+{
+    if (pluginProcessShimCallbacks.stringCompare) {
+        CFComparisonResult result;
+        if (pluginProcessShimCallbacks.stringCompare(a, b, options, __builtin_return_address(0), result))
+            return result;
+    }
+
+    return CFStringCompare(a, b, options);
+}
+
+DYLD_INTERPOSE(shimCFStringCompare, CFStringCompare);
+
 
 __attribute__((visibility("default")))
 void WebKitPluginProcessShimInitialize(const PluginProcessShimCallbacks& callbacks)

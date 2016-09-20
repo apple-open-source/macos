@@ -30,7 +30,9 @@
 #include "config.h"
 #include "WebKitNamedFlow.h"
 
+#include "EventNames.h"
 #include "NamedFlowCollection.h"
+#include "NoEventDispatchAssertion.h"
 #include "RenderNamedFlowFragment.h"
 #include "RenderNamedFlowThread.h"
 #include "RenderRegion.h"
@@ -39,9 +41,9 @@
 
 namespace WebCore {
 
-WebKitNamedFlow::WebKitNamedFlow(PassRefPtr<NamedFlowCollection> manager, const AtomicString& flowThreadName)
+WebKitNamedFlow::WebKitNamedFlow(NamedFlowCollection& manager, const AtomicString& flowThreadName)
     : m_flowThreadName(flowThreadName)
-    , m_flowManager(manager)
+    , m_flowManager(&manager)
     , m_parentFlowThread(nullptr)
 {
 }
@@ -52,7 +54,7 @@ WebKitNamedFlow::~WebKitNamedFlow()
     m_flowManager->discardNamedFlow(this);
 }
 
-Ref<WebKitNamedFlow> WebKitNamedFlow::create(PassRefPtr<NamedFlowCollection> manager, const AtomicString& flowThreadName)
+Ref<WebKitNamedFlow> WebKitNamedFlow::create(NamedFlowCollection& manager, const AtomicString& flowThreadName)
 {
     return adoptRef(*new WebKitNamedFlow(manager, flowThreadName));
 }
@@ -117,10 +119,10 @@ int WebKitNamedFlow::firstEmptyRegionIndex() const
     return -1;
 }
 
-PassRefPtr<NodeList> WebKitNamedFlow::getRegionsByContent(Node* contentNode)
+Ref<NodeList> WebKitNamedFlow::getRegionsByContent(Node* contentNode)
 {
     if (!contentNode)
-        return StaticElementList::createEmpty();
+        return StaticElementList::create();
 
     if (m_flowManager->document())
         m_flowManager->document()->updateLayoutIgnorePendingStylesheets();
@@ -128,7 +130,7 @@ PassRefPtr<NodeList> WebKitNamedFlow::getRegionsByContent(Node* contentNode)
     // The renderer may be destroyed or created after the style update.
     // Because this is called from JS, where the wrapper keeps a reference to the NamedFlow, no guard is necessary.
     if (!m_parentFlowThread)
-        return StaticElementList::createEmpty();
+        return StaticElementList::create();
 
     Vector<Ref<Element>> regionElements;
 
@@ -148,10 +150,10 @@ PassRefPtr<NodeList> WebKitNamedFlow::getRegionsByContent(Node* contentNode)
         }
     }
 
-    return StaticElementList::adopt(regionElements);
+    return StaticElementList::create(WTFMove(regionElements));
 }
 
-PassRefPtr<NodeList> WebKitNamedFlow::getRegions()
+Ref<NodeList> WebKitNamedFlow::getRegions()
 {
     if (m_flowManager->document())
         m_flowManager->document()->updateLayoutIgnorePendingStylesheets();
@@ -159,7 +161,7 @@ PassRefPtr<NodeList> WebKitNamedFlow::getRegions()
     // The renderer may be destroyed or created after the style update.
     // Because this is called from JS, where the wrapper keeps a reference to the NamedFlow, no guard is necessary.
     if (!m_parentFlowThread)
-        return StaticElementList::createEmpty();
+        return StaticElementList::create();
 
     Vector<Ref<Element>> regionElements;
 
@@ -175,10 +177,10 @@ PassRefPtr<NodeList> WebKitNamedFlow::getRegions()
         regionElements.append(*namedFlowFragment.generatingElement());
     }
 
-    return StaticElementList::adopt(regionElements);
+    return StaticElementList::create(WTFMove(regionElements));
 }
 
-PassRefPtr<NodeList> WebKitNamedFlow::getContent()
+Ref<NodeList> WebKitNamedFlow::getContent()
 {
     if (m_flowManager->document())
         m_flowManager->document()->updateLayoutIgnorePendingStylesheets();
@@ -186,17 +188,17 @@ PassRefPtr<NodeList> WebKitNamedFlow::getContent()
     // The renderer may be destroyed or created after the style update.
     // Because this is called from JS, where the wrapper keeps a reference to the NamedFlow, no guard is necessary.
     if (!m_parentFlowThread)
-        return StaticElementList::createEmpty();
+        return StaticElementList::create();
 
+    auto& contentElementsList = m_parentFlowThread->contentElements();
     Vector<Ref<Element>> contentElements;
-
-    const NamedFlowContentElements& contentElementsList = m_parentFlowThread->contentElements();
+    contentElements.reserveInitialCapacity(contentElementsList.size());
     for (auto& element : contentElementsList) {
         ASSERT(element->computedStyle()->flowThread() == m_parentFlowThread->flowThreadName());
-        contentElements.append(*element);
+        contentElements.uncheckedAppend(*element);
     }
 
-    return StaticElementList::adopt(contentElements);
+    return StaticElementList::create(WTFMove(contentElements));
 }
 
 void WebKitNamedFlow::setRenderer(RenderNamedFlowThread* parentFlowThread)

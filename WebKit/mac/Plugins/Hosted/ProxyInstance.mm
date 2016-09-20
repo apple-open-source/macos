@@ -36,6 +36,7 @@
 #import <runtime/Error.h>
 #import <runtime/FunctionPrototype.h>
 #import <runtime/PropertyNameArray.h>
+#import <wtf/NeverDestroyed.h>
 
 extern "C" {
 #import "WebKitPluginHost.h"
@@ -65,8 +66,8 @@ Field* ProxyClass::fieldNamed(PropertyName propertyName, Instance* instance) con
 
 static ProxyClass* proxyClass()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(ProxyClass, proxyClass, ());
-    return &proxyClass;
+    static NeverDestroyed<ProxyClass> proxyClass;
+    return &proxyClass.get();
 }
     
 class ProxyField : public JSC::Bindings::Field {
@@ -80,7 +81,7 @@ public:
 
 private:
     virtual JSValue valueFromInstance(ExecState*, const Instance*) const;
-    virtual void setValueToInstance(ExecState*, const Instance*, JSValue) const;
+    virtual bool setValueToInstance(ExecState*, const Instance*, JSValue) const;
     
     uint64_t m_serverIdentifier;
 };
@@ -90,9 +91,9 @@ JSValue ProxyField::valueFromInstance(ExecState* exec, const Instance* instance)
     return static_cast<const ProxyInstance*>(instance)->fieldValue(exec, this);
 }
     
-void ProxyField::setValueToInstance(ExecState* exec, const Instance* instance, JSValue value) const
+bool ProxyField::setValueToInstance(ExecState* exec, const Instance* instance, JSValue value) const
 {
-    static_cast<const ProxyInstance*>(instance)->setFieldValue(exec, this, value);
+    return static_cast<const ProxyInstance*>(instance)->setFieldValue(exec, this, value);
 }
 
 class ProxyMethod : public JSC::Bindings::Method {
@@ -219,7 +220,7 @@ JSValue ProxyInstance::getMethod(JSC::ExecState* exec, PropertyName propertyName
 JSValue ProxyInstance::invokeMethod(ExecState* exec, JSC::RuntimeMethod* runtimeMethod)
 {
     if (!asObject(runtimeMethod)->inherits(ProxyRuntimeMethod::info()))
-        return exec->vm().throwException(exec, createTypeError(exec, "Attempt to invoke non-plug-in method on plug-in object."));
+        return throwTypeError(exec, ASCIILiteral("Attempt to invoke non-plug-in method on plug-in object."));
 
     ProxyMethod* method = static_cast<ProxyMethod*>(runtimeMethod->method());
     ASSERT(method);
@@ -415,10 +416,10 @@ JSC::JSValue ProxyInstance::fieldValue(ExecState* exec, const Field* field) cons
     return m_instanceProxy->demarshalValue(exec, (char*)CFDataGetBytePtr(reply->m_result.get()), CFDataGetLength(reply->m_result.get()));
 }
     
-void ProxyInstance::setFieldValue(ExecState* exec, const Field* field, JSValue value) const
+bool ProxyInstance::setFieldValue(ExecState* exec, const Field* field, JSValue value) const
 {
     if (!m_instanceProxy)
-        return;
+        return false;
     
     uint64_t serverIdentifier = static_cast<const ProxyField*>(field)->serverIdentifier();
     uint32_t requestID = m_instanceProxy->nextRequestID();
@@ -433,10 +434,11 @@ void ProxyInstance::setFieldValue(ExecState* exec, const Field* field, JSValue v
     if (m_instanceProxy)
         m_instanceProxy->releaseLocalObject(value);
     if (kr != KERN_SUCCESS)
-        return;
+        return false;
     
     waitForReply<NetscapePluginInstanceProxy::BooleanReply>(requestID);
     NetscapePluginInstanceProxy::moveGlobalExceptionToExecState(exec);
+    return true;
 }
 
 void ProxyInstance::invalidate()

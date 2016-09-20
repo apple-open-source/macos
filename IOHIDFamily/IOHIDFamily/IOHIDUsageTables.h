@@ -94,7 +94,9 @@ enum
     kHIDUsage_GD_Keyboard    = 0x06,    /* Application Collection */
     kHIDUsage_GD_Keypad    = 0x07,    /* Application Collection */
     kHIDUsage_GD_MultiAxisController    = 0x08,    /* Application Collection */
-    /* 0x09 - 0x2F Reserved */
+    kHIDUsage_GD_TabletPCSystemControls    = 0x09,    /* Application Collection */
+    kHIDUsage_GD_AssistiveControl    = 0x0A,    /* Application Collection */
+    /* 0x0B - 0x2F Reserved */
     kHIDUsage_GD_X    = 0x30,    /* Dynamic Value */
     kHIDUsage_GD_Y    = 0x31,    /* Dynamic Value */
     kHIDUsage_GD_Z    = 0x32,    /* Dynamic Value */
@@ -301,6 +303,7 @@ enum
     kHIDUsage_Game_GunSafety    = 0x36,    /* On/Off Control */
     kHIDUsage_Game_GamepadFireOrJump    = 0x37,    /* Logical Collection */
     kHIDUsage_Game_GamepadTrigger    = 0x39,    /* Logical Collection */
+    kHIDUsage_Game_GamepadFormFitting    = 0x39,    /* Static Flag */
     /* 0x3A - 0xFFFF Reserved */
     kHIDUsage_Game_Reserved = 0xFFFF
 };
@@ -576,6 +579,15 @@ enum
     kHIDUsage_LED_GenericIndicator    = 0x4B,    /* On/Off Control */
     kHIDUsage_LED_SystemSuspend    = 0x4C,    /* On/Off Control */
     kHIDUsage_LED_ExternalPowerConnected    = 0x4D,    /* On/Off Control */
+    kHIDUsage_LED_PlayerIndicator   = 0x4E, /* Collection Logical */
+    kHIDUsage_LED_Player1   = 0x4F,  /* Selector */
+    kHIDUsage_LED_Player2   = 0x50,  /* Selector */
+    kHIDUsage_LED_Player3   = 0x51,  /* Selector */
+    kHIDUsage_LED_Player4   = 0x52,  /* Selector */
+    kHIDUsage_LED_Player5   = 0x53,  /* Selector */
+    kHIDUsage_LED_Player6   = 0x54,  /* Selector */
+    kHIDUsage_LED_Player7   = 0x55,  /* Selector */
+    kHIDUsage_LED_Player8   = 0x56,  /* Selector */
     /* 0x4E - 0xFFFF Reserved */
     kHIDUsage_LED_Reserved = 0xFFFF
 };

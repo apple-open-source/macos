@@ -1,8 +1,15 @@
-functions [ {+|-}UkmtTuz ] [ name ... ]
+functions [ {+|-}UkmtTuz ] [ -x num ] [ name ... ]
 functions -M mathfn [ min [ max [ shellfn ] ] ]
 functions -M [ -m pattern ... ]
 functions +M [ -m ] mathfn ...
-       Equivalent to typeset -f, with the exception of the  -M  option.
+       Equivalent  to  typeset  -f, with the exception of the -x and -M
+       options.
+
+       The -x option indicates that any functions output will have each
+       leading  tab for indentation, added by the shell to show syntac-
+       tic structure, expanded to the given number num of spaces.   num
+       can also be 0 to suppress all indentation.
+
        Use of the -M option may not be combined with any of the options
        handled by typeset -f.
 
@@ -44,28 +51,31 @@ functions +M [ -m ] mathfn ...
               print $(( cube(3) ))
 
 autoload [ {+|-}TUXkmtz ] [ -w ] [ name ... ]
-       Equivalent to functions -u, with the exception of -X/+X and -w.
+       Equivalent to functions -u, with the exception of -X/+X and  -w.
+       See  the  section `Autoloading Functions' in zshmisc(1) for full
+       details.  The fpath parameter will be searched to find the func-
+       tion definition when the function is first referenced.
 
-       The flag -X may be used only inside a shell  function,  and  may
+       The  flag  -X  may be used only inside a shell function, and may
        not be followed by a name.  It causes the calling function to be
        marked for autoloading and then immediately loaded and executed,
-       with  the  current  array of positional parameters as arguments.
-       This replaces the previous definition of the  function.   If  no
-       function  definition is found, an error is printed and the func-
+       with the current array of positional  parameters  as  arguments.
+       This  replaces  the  previous definition of the function.  If no
+       function definition is found, an error is printed and the  func-
        tion remains undefined and marked for autoloading.
 
-       The flag +X attempts to load each name as  an  autoloaded  func-
-       tion,  but  does  not execute it.  The exit status is zero (suc-
-       cess) if the function was not previously defined and  a  defini-
+       The  flag  +X  attempts to load each name as an autoloaded func-
+       tion, but does not execute it.  The exit status  is  zero  (suc-
+       cess)  if  the function was not previously defined and a defini-
        tion for it was found.  This does not replace any existing defi-
        nition of the function.  The exit status is nonzero (failure) if
-       the  function  was  already  defined  or  when no definition was
-       found.  In the latter case the function  remains  undefined  and
-       marked  for  autoloading.   If ksh-style autoloading is enabled,
-       the function created will contain the contents of the file  plus
+       the function was already  defined  or  when  no  definition  was
+       found.   In  the  latter case the function remains undefined and
+       marked for autoloading.  If ksh-style  autoloading  is  enabled,
+       the  function created will contain the contents of the file plus
        a call to the function itself appended to it, thus giving normal
        ksh autoloading behaviour on the first call to the function.  If
-       the  -m flag is also given each name is treated as a pattern and
+       the -m flag is also given each name is treated as a pattern  and
        all functions already marked for autoload that match the pattern
        are loaded.
 
@@ -74,16 +84,16 @@ autoload [ {+|-}TUXkmtz ] [ -w ] [ name ... ]
        marked for autoloading.
 
        The flags -z and -k mark the function to be autoloaded using the
-       zsh or ksh style, as if the option KSH_AUTOLOAD  were  unset  or
-       were  set,  respectively.  The flags override the setting of the
+       zsh  or  ksh  style, as if the option KSH_AUTOLOAD were unset or
+       were set, respectively.  The flags override the setting  of  the
        option at the time the function is loaded.
 
-       Note that the autoload command makes no attempt  to  ensure  the
-       shell  options  set  during the loading or execution of the file
+       Note  that  the  autoload command makes no attempt to ensure the
+       shell options set during the loading or execution  of  the  file
        have any particular value.  For this, the emulate command can be
        used:
 
               emulate zsh -c 'autoload -Uz func'
 
-       arranges  that  when  func  is loaded the shell is in native zsh
+       arranges that when func is loaded the shell  is  in  native  zsh
        emulation, and this emulation is also applied when func is run.

@@ -79,6 +79,8 @@ public:
         DictationPhraseWithAlternatives = 1 << 11,
         DictationResult = 1 << 12,
 #endif
+        // This marker indicates that the user has selected a text candidate.
+        AcceptedCandidate = 1 << 13,
     };
 
     class MarkerTypes {
@@ -102,12 +104,12 @@ public:
         AllMarkers()
 #if !PLATFORM(IOS)
 #if !ENABLE(TELEPHONE_NUMBER_DETECTION)
-            : MarkerTypes(Spelling | Grammar | TextMatch | Replacement | CorrectionIndicator | RejectedCorrection | Autocorrected | SpellCheckingExemption | DeletedAutocorrection | DictationAlternatives)
+            : MarkerTypes(Spelling | Grammar | TextMatch | Replacement | CorrectionIndicator | RejectedCorrection | Autocorrected | SpellCheckingExemption | DeletedAutocorrection | DictationAlternatives | AcceptedCandidate)
 #else
-            : MarkerTypes(Spelling | Grammar | TextMatch | Replacement | CorrectionIndicator | RejectedCorrection | Autocorrected | SpellCheckingExemption | DeletedAutocorrection | DictationAlternatives | TelephoneNumber)
+            : MarkerTypes(Spelling | Grammar | TextMatch | Replacement | CorrectionIndicator | RejectedCorrection | Autocorrected | SpellCheckingExemption | DeletedAutocorrection | DictationAlternatives | TelephoneNumber | AcceptedCandidate)
 #endif // !ENABLE(TELEPHONE_NUMBER_DETECTION)
 #else
-            : MarkerTypes(Spelling | Grammar | TextMatch | Replacement | CorrectionIndicator | RejectedCorrection | Autocorrected | SpellCheckingExemption | DeletedAutocorrection | DictationAlternatives | TelephoneNumber | DictationPhraseWithAlternatives | DictationResult)
+            : MarkerTypes(Spelling | Grammar | TextMatch | Replacement | CorrectionIndicator | RejectedCorrection | Autocorrected | SpellCheckingExemption | DeletedAutocorrection | DictationAlternatives | TelephoneNumber | DictationPhraseWithAlternatives | DictationResult | AcceptedCandidate)
 #endif // !PLATFORM(IOS)
         {
         }
@@ -120,7 +122,7 @@ public:
     DocumentMarker(MarkerType, unsigned startOffset, unsigned endOffset, const String& description, const Vector<String>& alternatives, RetainPtr<id> metadata);
 #endif
     DocumentMarker(unsigned startOffset, unsigned endOffset, bool activeMatch);
-    DocumentMarker(MarkerType, unsigned startOffset, unsigned endOffset, PassRefPtr<DocumentMarkerDetails>);
+    DocumentMarker(MarkerType, unsigned startOffset, unsigned endOffset, RefPtr<DocumentMarkerDetails>&&);
 
     MarkerType type() const { return m_type; }
     unsigned startOffset() const { return m_startOffset; }

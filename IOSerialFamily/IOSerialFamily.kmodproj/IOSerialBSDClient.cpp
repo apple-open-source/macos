@@ -534,7 +534,7 @@ IOSerialBSDClient *IOSerialBSDClientGlobals::getClient(dev_t dev)
 {
     //debug(MULTI,"begin");
     unsigned int i = TTY_UNIT(dev);
-    assert(i < LastMinor);
+    assert(i < fLastMinor);
     if (i < fLastMinor) {
         return fClients[TTY_UNIT(dev)];
     }
@@ -1368,6 +1368,9 @@ iossselect(dev_t dev, int which, void *wql, struct proc *p)
 	
     error = sp->fErrno;
     if (!error) {
+        if (me->frxBlocked && TTY_QUEUESIZE(tp) < TTY_LOWWATER) {
+            me->sessionSetState(sp, PD_S_RX_EVENT, PD_S_RX_EVENT);
+        }
 		tty_lock(tp);
         error = ttyselect(tp, which, wql, p);
 		tty_unlock(tp);

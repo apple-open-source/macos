@@ -31,13 +31,15 @@ ZDUMP_OPTS= -v -a -d $(ZDUMPOUT) -c 1902,2038 -i
 ICUZDUMP_OPTS= -a -d $(ICUZDUMPOUT)
 
 # Executables & objects
-OBJECTS= zic.o localtime.o asctime.o scheck.o ialloc.o
+ZICOBJECTS= zic.o localtime.o asctime.o scheck.o ialloc.o
 ZICTARG=$(BINDIR)/zic$(EXEEXT)
 ZICEXEC=$(TOOLBINDIR)/zic$(TOOLEXEEXT)
+TZ2ICUOBJ= tz2icu.o
 TZ2ICUTARG=$(BINDIR)/tz2icu$(EXEEXT)
 TZ2ICUEXEC=$(TOOLBINDIR)/tz2icu$(TOOLEXEEXT)
 ICUZDUMPTARG=$(BINDIR)/icuzdump$(EXEEXT)
 ICUZDUMPEXEC=$(TOOLBINDIR)/icuzdump$(TOOLEXEEXT)
+ICUZDUMPOBJ= icuzdump.o
 
 ifeq ($(TZDATA),)
 all: 
@@ -118,15 +120,20 @@ ICUDATA=ZoneMetaData.java icu_zone.txt tz2icu zoneinfo64.txt zoneinfo.txt
 # create modified CXXFLAGS without -fXXX, -Wxxxx (the settings for these don't work for tz2icu)
 TZCODE_CXXFLAGS=$(patsubst -W%,,$(patsubst -f%,,$(CXXFLAGS)))
 
-$(ZICTARG):		$(OBJECTS) $(TDATA) yearistype $(srcdir)/tz2icu.h
-		$(CC) $(CFLAGS) $(TZORIG_EXTRA_CFLAGS) $(LFLAGS) -I$(srcdir) $(OBJECTS) $(LDLIBS) -o $@
+$(ZICTARG):		$(ZICOBJECTS) $(TDATA) yearistype $(srcdir)/tz2icu.h
+		$(CC) $(CFLAGS) $(TZORIG_EXTRA_CFLAGS) $(LFLAGS) -I$(srcdir) $(ZICOBJECTS) $(LDLIBS) -o $@
 
-$(TZ2ICUTARG):	$(srcdir)/tz2icu.cpp $(srcdir)/tz2icu.h
-		$(CXX) -W -Wall $(TZCODE_CXXFLAGS) -I$(srcdir) -I$(top_srcdir)/common -pedantic $(srcdir)/tz2icu.cpp -o $@
+$(TZ2ICUOBJ):	$(srcdir)/tz2icu.cpp $(srcdir)/tz2icu.h
+		$(CXX) -W -Wall $(TZCODE_CXXFLAGS) -I$(srcdir) -I$(top_srcdir)/common -pedantic $(srcdir)/tz2icu.cpp -c -o $@
+
+$(TZ2ICUTARG):	$(TZ2ICUOBJ)
+		$(CXX) -W -Wall $(TZCODE_CXXFLAGS) -I$(srcdir) -I$(top_srcdir)/common -pedantic $(TZ2ICUOBJ) -o $@
 
 $(ICUZDUMPTARG):	$(srcdir)/icuzdump.cpp
 		$(LINK.cc)  -I$(srcdir) -I$(top_srcdir)/common -I$(top_srcdir)/i18n -I$(top_srcdir)/tools/toolutil -I$(top_srcdir)/io  -pedantic $(srcdir)/icuzdump.cpp $(LIBICUUC) $(LIBICUDT) $(LIBICUI18N) $(LIBICUIO) $(LIBICUTOOLUTIL) -o $@
 
+$(ICUZDUMPOBJ):	$(srcdir)/icuzdump.cpp
+		$(CXX) -W -Wall $(TZCODE_CXXFLAGS) --std=c++0x -I$(srcdir) -I$(top_srcdir)/common -I$(top_srcdir)/i18n -I$(top_srcdir)/tools/toolutil -I$(top_srcdir)/io $(srcdir)/icuzdump.cpp -c -o $@
 
 $(TDATA): tdatamarker
 
@@ -145,6 +152,8 @@ posix_only:	$(ZICEXEC) $(TDATA) $(srcdir)/icuzones
 icu_data:	$(TZ2ICUEXEC) posix_only
 		$(TZ2ICUEXEC) $(TZDIR) zone.tab `echo $(TZDATA) | sed -e "s/.*\/tzdata//;s/\.tar\.gz$$//"`
 		$(TZ2ICUEXEC) $(TZDIR) zone.tab `echo $(TZDATA) | sed -e "s/.*\/tzdata//;s/\.tar\.gz$$//"` --old
+
+tztoolobjs: $(ZICOBJECTS) $(TZ2ICUOBJ) $(ICUZDUMPOBJ)
 
 clean:
 		-rm -f core *.o *.out zdump${EXEEXT} $(ZICTARG) yearistype date $(TZ2ICUTARG)

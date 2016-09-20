@@ -22,13 +22,13 @@
 #ifndef SVGDocument_h
 #define SVGDocument_h
 
-#include "Document.h"
+#include "XMLDocument.h"
 
 namespace WebCore {
 
 class SVGSVGElement;
 
-class SVGDocument final : public Document {
+class SVGDocument final : public XMLDocument {
 public:
     static Ref<SVGDocument> create(Frame*, const URL&);
 
@@ -41,7 +41,7 @@ public:
 private:
     SVGDocument(Frame*, const URL&);
 
-    virtual Ref<Document> cloneDocumentWithoutChildren() const override;
+    Ref<Document> cloneDocumentWithoutChildren() const override;
 
     FloatSize m_panningOffset;
 };

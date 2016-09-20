@@ -70,6 +70,7 @@ friendly(uuid_t *t)
 	static uuid_t mslinux = GPT_ENT_TYPE_MS_BASIC_DATA;
 	static uuid_t freebsd = GPT_ENT_TYPE_FREEBSD;
 	static uuid_t hfs = GPT_ENT_TYPE_APPLE_HFS;
+	static uuid_t apfs = GPT_ENT_TYPE_APPLE_APFS;
 	static uuid_t linuxswap = GPT_ENT_TYPE_LINUX_SWAP;
 	static uuid_t msr = GPT_ENT_TYPE_MS_RESERVED;
 	static uuid_t swap = GPT_ENT_TYPE_FREEBSD_SWAP;
@@ -105,7 +106,8 @@ friendly(uuid_t *t)
 		return ("Windows reserved");
 	if (uuid_equal(t, &hfs, NULL))
 		return ("Apple HFS");
-
+	if (uuid_equal(t, &apfs, NULL))
+		return ("Apple APFS");
 unfriendly:
 	uuid_to_string(t, &s, NULL);
 	strlcpy(buf, s, sizeof buf);

@@ -1,11 +1,12 @@
+#include <sys/cdefs.h>
 #ifndef lint
 #ifndef NOID
-static const char	elsieid[] = "@(#)ialloc.c	8.29";
+__unused static const char	elsieid[] = "@(#)ialloc.c	8.29";
 #endif /* !defined NOID */
 #endif /* !defined lint */
 
 #ifndef lint
-static const char rcsid[] =
+__unused static const char rcsid[] =
   "$FreeBSD: src/usr.sbin/zic/ialloc.c,v 1.6 2000/11/28 18:18:56 charnier Exp $";
 #endif /* not lint */
 
@@ -16,39 +17,32 @@ static const char rcsid[] =
 #define nonzero(n)	(((n) == 0) ? 1 : (n))
 
 char *
-imalloc(n)
-const int	n;
+imalloc(const size_t n)
 {
-	return malloc((size_t) nonzero(n));
+	return malloc(nonzero(n));
 }
 
 char *
-icalloc(nelem, elsize)
-int	nelem;
-int	elsize;
+icalloc(size_t nelem, size_t elsize)
 {
 	if (nelem == 0 || elsize == 0)
 		nelem = elsize = 1;
-	return calloc((size_t) nelem, (size_t) elsize);
+	return calloc(nelem, elsize);
 }
 
 void *
-irealloc(pointer, size)
-void * const	pointer;
-const int	size;
+irealloc(void * const pointer, const size_t size)
 {
 	if (pointer == NULL)
 		return imalloc(size);
-	return realloc((void *) pointer, (size_t) nonzero(size));
+	return realloc((void *) pointer, nonzero(size));
 }
 
 char *
-icatalloc(old, new)
-char * const		old;
-const char * const	new;
+icatalloc(char * const old, const char * const new)
 {
-	register char *	result;
-	register int	oldsize, newsize;
+	char *	result;
+	size_t	oldsize, newsize;
 
 	newsize = (new == NULL) ? 0 : strlen(new);
 	if (old == NULL)
@@ -63,23 +57,20 @@ const char * const	new;
 }
 
 char *
-icpyalloc(string)
-const char * const	string;
+icpyalloc(const char * const string)
 {
 	return icatalloc((char *) NULL, string);
 }
 
 void
-ifree(p)
-char * const	p;
+ifree(char * const p)
 {
 	if (p != NULL)
 		(void) free(p);
 }
 
 void
-icfree(p)
-char * const	p;
+icfree(char * const p)
 {
 	if (p != NULL)
 		(void) free(p);

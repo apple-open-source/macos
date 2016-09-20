@@ -31,52 +31,124 @@
 #include "IDBKey.h"
 #include "IDBKeyData.h"
 #include "IDBKeyPath.h"
+#include "IDBValue.h"
 #include "SharedBuffer.h"
 
 namespace WebCore {
 
-struct IDBGetResult {
+class IDBGetResult {
+public:
     IDBGetResult()
+        : m_isDefined(false)
     {
     }
 
-    IDBGetResult(PassRefPtr<SharedBuffer> buffer)
-        : valueBuffer(buffer)
+    IDBGetResult(const IDBValue& value, const IDBKeyData& currentPrimaryKey)
+        : m_value(value)
+        , m_primaryKeyData(currentPrimaryKey)
+    {
+    }
+
+    IDBGetResult(const ThreadSafeDataBuffer& buffer)
+        : m_value(buffer)
+    {
+    }
+
+    IDBGetResult(IDBValue&& buffer)
+        : m_value(WTFMove(buffer))
     {
     }
 
     IDBGetResult(PassRefPtr<IDBKey> key)
-        : keyData(key.get())
+        : m_keyData(key.get())
     {
     }
 
     IDBGetResult(const IDBKeyData& keyData)
-        : keyData(keyData)
+        : m_keyData(keyData)
     {
     }
 
     IDBGetResult(PassRefPtr<SharedBuffer> buffer, PassRefPtr<IDBKey> key, const IDBKeyPath& path)
-        : valueBuffer(buffer)
-        , keyData(key.get())
-        , keyPath(path)
+        : m_keyData(key.get())
+        , m_keyPath(path)
+    {
+        if (buffer)
+            dataFromBuffer(*buffer);
+    }
+
+    IDBGetResult(const IDBKeyData& keyData, const IDBKeyData& primaryKeyData)
+        : m_keyData(keyData)
+        , m_primaryKeyData(primaryKeyData)
     {
     }
 
-    IDBGetResult isolatedCopy() const
+    IDBGetResult(const IDBKeyData& keyData, const IDBKeyData& primaryKeyData, IDBValue&& value)
+        : m_value(WTFMove(value))
+        , m_keyData(keyData)
+        , m_primaryKeyData(primaryKeyData)
     {
-        IDBGetResult result;
-        if (valueBuffer)
-            result.valueBuffer = valueBuffer->copy();
-
-        result.keyData = keyData.isolatedCopy();
-        result.keyPath = keyPath.isolatedCopy();
-        return result;
     }
 
-    RefPtr<SharedBuffer> valueBuffer;
-    IDBKeyData keyData;
-    IDBKeyPath keyPath;
+    IDBGetResult(const IDBKeyData& keyData, const IDBKeyData& primaryKeyData, const IDBValue& value)
+        : m_value(value)
+        , m_keyData(keyData)
+        , m_primaryKeyData(primaryKeyData)
+    {
+    }
+
+    enum IsolatedCopyTag { IsolatedCopy };
+    IDBGetResult(const IDBGetResult&, IsolatedCopyTag);
+
+    IDBGetResult isolatedCopy() const;
+
+    const IDBValue& value() const { return m_value; }
+    const IDBKeyData& keyData() const { return m_keyData; }
+    const IDBKeyData& primaryKeyData() const { return m_primaryKeyData; }
+    const IDBKeyPath& keyPath() const { return m_keyPath; }
+    bool isDefined() const { return m_isDefined; }
+
+    template<class Encoder> void encode(Encoder&) const;
+    template<class Decoder> static bool decode(Decoder&, IDBGetResult&);
+
+private:
+    void dataFromBuffer(SharedBuffer&);
+
+    static void isolatedCopy(const IDBGetResult& source, IDBGetResult& destination);
+
+    IDBValue m_value;
+    IDBKeyData m_keyData;
+    IDBKeyData m_primaryKeyData;
+    IDBKeyPath m_keyPath;
+    bool m_isDefined { true };
 };
+
+template<class Encoder>
+void IDBGetResult::encode(Encoder& encoder) const
+{
+    encoder << m_keyData << m_primaryKeyData << m_keyPath << m_isDefined << m_value;
+}
+
+template<class Decoder>
+bool IDBGetResult::decode(Decoder& decoder, IDBGetResult& result)
+{
+    if (!decoder.decode(result.m_keyData))
+        return false;
+
+    if (!decoder.decode(result.m_primaryKeyData))
+        return false;
+
+    if (!decoder.decode(result.m_keyPath))
+        return false;
+
+    if (!decoder.decode(result.m_isDefined))
+        return false;
+
+    if (!decoder.decode(result.m_value))
+        return false;
+
+    return true;
+}
 
 } // namespace WebCore
 

@@ -1,4 +1,4 @@
-/* $OpenBSD: authfd.c,v 1.97 2015/03/26 19:32:19 markus Exp $ */
+/* $OpenBSD: authfd.c,v 1.100 2015/12/04 16:41:28 markus Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -426,11 +426,24 @@ ssh_decrypt_challenge(int sock, struct sshkey* key, BIGNUM *challenge,
 }
 #endif
 
+/* encode signature algoritm in flag bits, so we can keep the msg format */
+static u_int
+agent_encode_alg(struct sshkey *key, const char *alg)
+{
+	if (alg != NULL && key->type == KEY_RSA) {
+		if (strcmp(alg, "rsa-sha2-256") == 0)
+			return SSH_AGENT_RSA_SHA2_256;
+		else if (strcmp(alg, "rsa-sha2-512") == 0)
+			return SSH_AGENT_RSA_SHA2_512;
+	}
+	return 0;
+}
+
 /* ask agent to sign data, returns err.h code on error, 0 on success */
 int
 ssh_agent_sign(int sock, struct sshkey *key,
     u_char **sigp, size_t *lenp,
-    const u_char *data, size_t datalen, u_int compat)
+    const u_char *data, size_t datalen, const char *alg, u_int compat)
 {
 	struct sshbuf *msg;
 	u_char *blob = NULL, type;
@@ -449,12 +462,13 @@ ssh_agent_sign(int sock, struct sshkey *key,
 		return SSH_ERR_ALLOC_FAIL;
 	if ((r = sshkey_to_blob(key, &blob, &blen)) != 0)
 		goto out;
+	flags |= agent_encode_alg(key, alg);
 	if ((r = sshbuf_put_u8(msg, SSH2_AGENTC_SIGN_REQUEST)) != 0 ||
 	    (r = sshbuf_put_string(msg, blob, blen)) != 0 ||
 	    (r = sshbuf_put_string(msg, data, datalen)) != 0 ||
 	    (r = sshbuf_put_u32(msg, flags)) != 0)
 		goto out;
-	if ((r = ssh_request_reply(sock, msg, msg) != 0))
+	if ((r = ssh_request_reply(sock, msg, msg)) != 0)
 		goto out;
 	if ((r = sshbuf_get_u8(msg, &type)) != 0)
 		goto out;
@@ -560,10 +574,8 @@ ssh_add_identity_constrained(int sock, struct sshkey *key, const char *comment,
 #ifdef WITH_OPENSSL
 	case KEY_RSA:
 	case KEY_RSA_CERT:
-	case KEY_RSA_CERT_V00:
 	case KEY_DSA:
 	case KEY_DSA_CERT:
-	case KEY_DSA_CERT_V00:
 	case KEY_ECDSA:
 	case KEY_ECDSA_CERT:
 #endif
@@ -678,34 +690,6 @@ ssh_update_card(int sock, int add, const char *reader_id, const char *pin,
 	r = decode_reply(type);
  out:
 	sshbuf_free(msg);
-	return r;
-}
-
-/*
- * Adds identities using passphrases stored in the keychain.  This call is not
- * meant to be used by normal applications.
- */
-
-int
-ssh_add_from_keychain(int agentSocket)
-{
-	u_char type;
-	int r;
-
-	struct sshbuf *msg;
-	if ((msg = sshbuf_new()) == NULL)
-		return SSH_ERR_ALLOC_FAIL;
-	
-	if ((r = sshbuf_put_u8(msg, SSH_AGENTC_ADD_FROM_KEYCHAIN)) != 0)
-		goto out;
-	if ((r = ssh_request_reply(agentSocket, msg, msg)) != 0)
-		goto out;
-	if ((r = sshbuf_get_u8(msg, &type)) != 0)
-		goto out;
-	r = decode_reply(type);
-out:
-	sshbuf_free(msg);
-	
 	return r;
 }
 

@@ -48,6 +48,7 @@ _SSLInternal_PRF
 _SSLNewContext
 _SSLNewDatagramContext
 _SSLRead
+_SSLReHandshake
 _SSLSetAllowsAnyRoot
 _SSLSetAllowsExpiredCerts
 _SSLSetAllowsExpiredRoots
@@ -90,7 +91,5 @@ _SSLGetClientAuthTypes
 _SSLGetNegotiatedClientAuthType
 _SSLSetMinimumDHGroupSize
 _SSLGetMinimumDHGroupSize
-_SSLSetSessionStrengthPolicy
 _SSLSetSessionConfig
-_SSLGetSessionConfig
 

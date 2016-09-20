@@ -217,16 +217,22 @@ enum {
     @constant kIONetworkFeatureTransmitCompletionStatus Set this bit to
         advertise the capability to report per-packet transmit completion status.
         See <code>IONetworkInterface::reportTransmitCompletionStatus</code>.
+    @constant kIONetworkFeatureHWTimeStamp Set this bit to advertise
+         the capability to compute per-packet timestamp in hardware.
+    @constant kIONetworkFeatureHWTimeStamp Set this bit to advertise
+        the capability to compute per-packet timestamp in software.
 */
 
 enum {
-    kIONetworkFeatureNoBSDWait                  = 0x01,
-    kIONetworkFeatureHardwareVlan               = 0x02,
-    kIONetworkFeatureSoftwareVlan               = 0x04,
-    kIONetworkFeatureMultiPages                 = 0x08,
-    kIONetworkFeatureTSOIPv4                    = 0x10,
-    kIONetworkFeatureTSOIPv6                    = 0x20,
-    kIONetworkFeatureTransmitCompletionStatus   = 0x40
+    kIONetworkFeatureNoBSDWait                  = 0x001,
+    kIONetworkFeatureHardwareVlan               = 0x002,
+    kIONetworkFeatureSoftwareVlan               = 0x004,
+    kIONetworkFeatureMultiPages                 = 0x008,
+    kIONetworkFeatureTSOIPv4                    = 0x010,
+    kIONetworkFeatureTSOIPv6                    = 0x020,
+    kIONetworkFeatureTransmitCompletionStatus   = 0x040,
+    kIONetworkFeatureHWTimeStamp                = 0x080,
+    kIONetworkFeatureSWTimeStamp                = 0x100
 };
 
 #ifdef KERNEL

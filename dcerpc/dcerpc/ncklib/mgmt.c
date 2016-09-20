@@ -1121,7 +1121,8 @@ Note: there should be a dispatching routine in com...
 **
 **--
 **/
-
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PUBLIC void rpc_mgmt_set_server_com_timeout
 (
  unsigned32              timeout,
@@ -1149,7 +1150,7 @@ PUBLIC void rpc_mgmt_set_server_com_timeout
 
     *status = rpc_s_ok;
 }
-
+#endif
 /*
 **++
 **
@@ -1188,7 +1189,8 @@ PUBLIC void rpc_mgmt_set_server_com_timeout
 **
 **--
 **/
-
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PUBLIC void rpc_mgmt_set_server_stack_size
 (
     unsigned32              thread_stack_size,
@@ -1220,7 +1222,7 @@ PUBLIC void rpc_mgmt_set_server_stack_size
 #  endif
 #endif
 }
-
+#endif
 /*
 **++
 **

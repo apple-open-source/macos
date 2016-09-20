@@ -12,6 +12,7 @@
 	<array>
 		<string>Patch host.defs for x86_64</string>
 		<string>Do not define SAVESIGVEC</string>
+		<string>define KAI to avoid log builtin</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>tcsh</string>
@@ -20,7 +21,7 @@
 	<key>OpenSourceURL</key>
 	<string>ftp://ftp.astron.com/pub/tcsh/tcsh-6.18.01.tar.gz</string>
 	<key>OpenSourceVersion</key>
-	<string>6.15.00</string>
+	<string>6.18.01</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.tcsh.org</string>
 </dict>

@@ -32,7 +32,7 @@
 #import <wtf/spi/darwin/XPCSPI.h>
 
 #if HAVE(VOUCHERS)
-#if __has_include(<os/voucher_private.h>)
+#if USE(APPLE_INTERNAL_SDK)
 #include <os/voucher_private.h>
 #else
 extern "C" OS_NOTHROW void voucher_replace_default_voucher(void);
@@ -44,7 +44,7 @@ namespace WebKit {
 class XPCServiceInitializerDelegate {
 public:
     XPCServiceInitializerDelegate(OSObjectPtr<xpc_connection_t> connection, xpc_object_t initializerMessage)
-        : m_connection(WTF::move(connection))
+        : m_connection(WTFMove(connection))
         , m_initializerMessage(initializerMessage)
     {
     }
@@ -67,9 +67,9 @@ protected:
 };
 
 template<typename XPCServiceType, typename XPCServiceInitializerDelegateType>
-void XPCServiceInitializer(OSObjectPtr<xpc_connection_t> connection, xpc_object_t initializerMessage)
+void XPCServiceInitializer(OSObjectPtr<xpc_connection_t> connection, xpc_object_t initializerMessage, xpc_object_t priorityBoostMessage)
 {
-    XPCServiceInitializerDelegateType delegate(WTF::move(connection), initializerMessage);
+    XPCServiceInitializerDelegateType delegate(WTFMove(connection), initializerMessage);
 
     // We don't want XPC to be in charge of whether the process should be terminated or not,
     // so ensure that we have an outstanding transaction here.
@@ -81,6 +81,9 @@ void XPCServiceInitializer(OSObjectPtr<xpc_connection_t> connection, xpc_object_
         exit(EXIT_FAILURE);
 
     ChildProcessInitializationParameters parameters;
+    if (priorityBoostMessage)
+        parameters.priorityBoostMessage = adoptOSObject(xpc_retain(priorityBoostMessage));
+
     if (!delegate.getConnectionIdentifier(parameters.connectionIdentifier))
         exit(EXIT_FAILURE);
 
@@ -100,6 +103,8 @@ void XPCServiceInitializer(OSObjectPtr<xpc_connection_t> connection, xpc_object_
 
     XPCServiceType::singleton().initialize(parameters);
 }
+
+void XPCServiceExit(OSObjectPtr<xpc_object_t>&& priorityBoostMessage);
 
 } // namespace WebKit
 

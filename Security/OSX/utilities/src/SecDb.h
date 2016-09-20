@@ -96,7 +96,7 @@ CFTypeID SecDbGetTypeID(void);
 
 SecDbRef SecDbCreate(CFStringRef dbName, bool (^opened)(SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error));
 
-void SecDbSetNotifyPhaseBlock(SecDbRef db, dispatch_queue_t queue, SecDBNotifyBlock notifyPhase);
+void SecDbAddNotifyPhaseBlock(SecDbRef db, SecDBNotifyBlock notifyPhase);
 
 // Read only connections go to the end of the queue, writeable
 // connections go to the start of the queue.  Use SecDbPerformRead() and SecDbPerformWrite() if you
@@ -133,6 +133,8 @@ sqlite3 *SecDbHandle(SecDbConnectionRef dbconn);
 
 // Do not call this unless you are SecDbItem!
 void SecDbRecordChange(SecDbConnectionRef dbconn, CFTypeRef deleted, CFTypeRef inserted);
+
+void SecDbPerformOnCommitQueue(SecDbConnectionRef dbconn, bool barrier, dispatch_block_t perform);
 
 // MARK: -
 // MARK: Bind helpers

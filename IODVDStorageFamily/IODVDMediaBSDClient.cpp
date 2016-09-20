@@ -62,8 +62,9 @@ typedef struct
 {
     uint8_t       format;
     uint8_t       keyClass;
+    uint8_t       blockCount;
 
-    uint8_t       reserved0016[2];
+    uint8_t       reserved0024[1];
 
     uint32_t      address;
     uint8_t       grantID;
@@ -78,8 +79,9 @@ typedef struct
 {
     uint8_t       format;
     uint8_t       keyClass;
+    uint8_t       blockCount;
 
-    uint8_t       reserved0016[2];
+    uint8_t       reserved0024[1];
 
     uint32_t      address;
     uint8_t       grantID;
@@ -317,7 +319,7 @@ int IODVDMediaBSDClient::ioctl( dev_t   dev,
 
             if ( proc_is64bit(proc) )  { error = ENOTTY;  break; }
 
-            if ( DKIOC_IS_RESERVED(data, 0x20C) )  { error = EINVAL;  break; }
+            if ( DKIOC_IS_RESERVED(data, 0x208) )  { error = EINVAL;  break; }
 
             buffer = DKIOC_PREPARE_BUFFER(
                        /* address   */ request->buffer,
@@ -326,11 +328,12 @@ int IODVDMediaBSDClient::ioctl( dev_t   dev,
                        /* proc      */ proc );
 
             status = getProvider()->reportKey(
-                       /* buffer    */                buffer,
-                       /* keyClass  */ (DVDKeyClass)  request->keyClass,
-                       /* address   */                request->address,
-                       /* grantID   */                request->grantID,
-                       /* format    */ (DVDKeyFormat) request->format );
+                       /* buffer     */                buffer,
+                       /* keyClass   */ (DVDKeyClass)  request->keyClass,
+                       /* address    */                request->address,
+                       /* blockCount */                request->blockCount,
+                       /* grantID    */                request->grantID,
+                       /* format     */ (DVDKeyFormat) request->format );
 
             status = (status == kIOReturnUnderrun) ? kIOReturnSuccess : status;
 
@@ -344,7 +347,7 @@ int IODVDMediaBSDClient::ioctl( dev_t   dev,
 
             if ( proc_is64bit(proc) == 0 )  { error = ENOTTY;  break; }
 
-            if ( DKIOC_IS_RESERVED(data, 0x3E0C) )  { error = EINVAL;  break; }
+            if ( DKIOC_IS_RESERVED(data, 0x3E08) )  { error = EINVAL;  break; }
 
             buffer = DKIOC_PREPARE_BUFFER(
                        /* address   */ request->buffer,
@@ -353,11 +356,12 @@ int IODVDMediaBSDClient::ioctl( dev_t   dev,
                        /* proc      */ proc );
 
             status = getProvider()->reportKey(
-                       /* buffer    */                buffer,
-                       /* keyClass  */ (DVDKeyClass)  request->keyClass,
-                       /* address   */                request->address,
-                       /* grantID   */                request->grantID,
-                       /* format    */ (DVDKeyFormat) request->format );
+                       /* buffer     */                buffer,
+                       /* keyClass   */ (DVDKeyClass)  request->keyClass,
+                       /* address    */                request->address,
+                       /* blockCount */                request->blockCount,
+                       /* grantID    */                request->grantID,
+                       /* format     */ (DVDKeyFormat) request->format );
 
             status = (status == kIOReturnUnderrun) ? kIOReturnSuccess : status;
 

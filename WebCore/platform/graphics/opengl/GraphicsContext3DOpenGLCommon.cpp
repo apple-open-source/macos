@@ -57,6 +57,7 @@
 #include <runtime/Uint8Array.h>
 #include <wtf/HexNumber.h>
 #include <wtf/MainThread.h>
+#include <wtf/ThreadSpecific.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
 #include <yarr/RegularExpression.h>
@@ -76,10 +77,25 @@
 #endif
 #endif
 
+using namespace WTF;
 
 namespace WebCore {
 
-static ShaderNameHash* currentNameHashMapForShader = nullptr;
+static ThreadSpecific<ShaderNameHash*>& getCurrentNameHashMapForShader()
+{
+    static std::once_flag onceFlag;
+    static ThreadSpecific<ShaderNameHash*>* sharedNameHash;
+    std::call_once(onceFlag, [] {
+        sharedNameHash = new ThreadSpecific<ShaderNameHash*>;
+    });
+
+    return *sharedNameHash;
+}
+
+static void setCurrentNameHashMapForShader(ShaderNameHash* shaderNameHash)
+{
+    *getCurrentNameHashMapForShader() = shaderNameHash;
+}
 
 // Hash function used by the ANGLE translator/compiler to do
 // symbol name mangling. Since this is a static method, before
@@ -94,11 +110,10 @@ static uint64_t nameHashForShader(const char* name, size_t length)
     CString nameAsCString = CString(name);
 
     // Look up name in our local map.
-    if (currentNameHashMapForShader) {
-        ShaderNameHash::iterator result = currentNameHashMapForShader->find(nameAsCString);
-        if (result != currentNameHashMapForShader->end())
-            return result->value;
-    }
+    ShaderNameHash*& currentNameHashMapForShader = *getCurrentNameHashMapForShader();
+    ShaderNameHash::iterator findResult = currentNameHashMapForShader->find(nameAsCString);
+    if (findResult != currentNameHashMapForShader->end())
+        return findResult->value;
 
     unsigned hashValue = nameAsCString.hash();
 
@@ -117,8 +132,10 @@ static uint64_t nameHashForShader(const char* name, size_t length)
 
 PassRefPtr<GraphicsContext3D> GraphicsContext3D::createForCurrentGLContext()
 {
-    RefPtr<GraphicsContext3D> context = adoptRef(new GraphicsContext3D(Attributes(), 0, GraphicsContext3D::RenderToCurrentGLContext));
-    return context->m_private ? context.release() : 0;
+    auto context = adoptRef(*new GraphicsContext3D(Attributes(), 0, GraphicsContext3D::RenderToCurrentGLContext));
+    if (!context->m_private)
+        return nullptr;
+    return WTFMove(context);
 }
 
 void GraphicsContext3D::validateDepthStencil(const char* packedDepthStencilExtension)
@@ -133,7 +150,7 @@ void GraphicsContext3D::validateDepthStencil(const char* packedDepthStencilExten
             m_attrs.stencil = false;
     }
     if (m_attrs.antialias) {
-        if (!extensions->maySupportMultisampling() || !extensions->supports("GL_ANGLE_framebuffer_multisample") || isGLES2Compliant())
+        if (!extensions->supports("GL_ANGLE_framebuffer_multisample") || isGLES2Compliant())
             m_attrs.antialias = false;
         else
             extensions->ensureEnabled("GL_ANGLE_framebuffer_multisample");
@@ -169,8 +186,7 @@ void GraphicsContext3D::paintRenderingResultsToCanvas(ImageBuffer* imageBuffer)
     paintToCanvas(pixels.get(), m_currentWidth, m_currentHeight,
                   imageBuffer->internalSize().width(), imageBuffer->internalSize().height(), imageBuffer->context());
 #else
-    paintToCanvas(pixels.get(), m_currentWidth, m_currentHeight,
-                  imageBuffer->internalSize().width(), imageBuffer->internalSize().height(), imageBuffer->context()->platformContext());
+    paintToCanvas(pixels.get(), m_currentWidth, m_currentHeight, imageBuffer->internalSize().width(), imageBuffer->internalSize().height(), imageBuffer->context().platformContext());
 #endif
 
 #if PLATFORM(IOS)
@@ -191,7 +207,7 @@ PassRefPtr<ImageData> GraphicsContext3D::paintRenderingResultsToImageData()
     if (m_attrs.premultipliedAlpha)
         return 0;
 
-    RefPtr<ImageData> imageData = ImageData::create(IntSize(m_currentWidth, m_currentHeight));
+    auto imageData = ImageData::create(IntSize(m_currentWidth, m_currentHeight));
     unsigned char* pixels = imageData->data()->data();
     int totalBytes = 4 * m_currentWidth * m_currentHeight;
 
@@ -201,7 +217,7 @@ PassRefPtr<ImageData> GraphicsContext3D::paintRenderingResultsToImageData()
     for (int i = 0; i < totalBytes; i += 4)
         std::swap(pixels[i], pixels[i + 2]);
 
-    return imageData.release();
+    return WTFMove(imageData);
 }
 
 void GraphicsContext3D::prepareTexture()
@@ -211,11 +227,24 @@ void GraphicsContext3D::prepareTexture()
 
     makeContextCurrent();
 
+#if !USE(COORDINATED_GRAPHICS_THREADED)
     TemporaryOpenGLSetting scopedScissor(GL_SCISSOR_TEST, GL_FALSE);
     TemporaryOpenGLSetting scopedDither(GL_DITHER, GL_FALSE);
-    
+#endif
+
     if (m_attrs.antialias)
         resolveMultisamplingIfNecessary();
+
+#if USE(COORDINATED_GRAPHICS_THREADED)
+    std::swap(m_fbo, m_compositorFBO);
+    std::swap(m_texture, m_compositorTexture);
+
+    if (m_state.boundFBO != m_compositorFBO)
+        ::glBindFramebufferEXT(GraphicsContext3D::FRAMEBUFFER, m_state.boundFBO);
+    else
+        ::glBindFramebufferEXT(GraphicsContext3D::FRAMEBUFFER, m_fbo);
+    return;
+#endif
 
     ::glBindFramebufferEXT(GraphicsContext3D::FRAMEBUFFER, m_fbo);
     ::glActiveTexture(GL_TEXTURE0);
@@ -569,14 +598,14 @@ void GraphicsContext3D::compileShader(Platform3DObject shader)
 
     if (!nameHashMapForShaders)
         nameHashMapForShaders = std::make_unique<ShaderNameHash>();
-    currentNameHashMapForShader = nameHashMapForShaders.get();
+    setCurrentNameHashMapForShader(nameHashMapForShaders.get());
     m_compiler.setResources(ANGLEResources);
 
     String translatedShaderSource = m_extensions->getTranslatedShaderSourceANGLE(shader);
 
     ANGLEResources.HashFunction = previousHashFunction;
     m_compiler.setResources(ANGLEResources);
-    currentNameHashMapForShader = nullptr;
+    setCurrentNameHashMapForShader(nullptr);
 
     if (!translatedShaderSource.length())
         return;
@@ -878,11 +907,11 @@ String GraphicsContext3D::mappedSymbolName(Platform3DObject program, ANGLEShader
         // and aren't even required to be used in any shader program.
         if (!nameHashMapForShaders)
             nameHashMapForShaders = std::make_unique<ShaderNameHash>();
-        currentNameHashMapForShader = nameHashMapForShaders.get();
+        setCurrentNameHashMapForShader(nameHashMapForShaders.get());
 
         String generatedName = generateHashedName(name);
 
-        currentNameHashMapForShader = nullptr;
+        setCurrentNameHashMapForShader(nullptr);
 
         m_possiblyUnusedAttributeMap.set(generatedName, name);
 
@@ -1823,6 +1852,14 @@ void GraphicsContext3D::forceContextLost()
 #if ENABLE(WEBGL)
     if (m_webglContext)
         m_webglContext->forceLostContext(WebGLRenderingContextBase::RealLostContext);
+#endif
+}
+
+void GraphicsContext3D::recycleContext()
+{
+#if ENABLE(WEBGL)
+    if (m_webglContext)
+        m_webglContext->recycleContext();
 #endif
 }
 

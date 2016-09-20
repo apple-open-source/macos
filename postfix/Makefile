@@ -14,11 +14,11 @@ SYMROOT=$(OBJROOT)
 DSTROOT=/usr/local
 SDKROOT=
 RC_ARCHS=
-CFLAGS=-g -Os $(RC_CFLAGS)
+CFLAGS=$(RC_CFLAGS)
 
 WARN = -Wall -Wno-comment -Wformat -Wimplicit -Wmissing-prototypes \
 	-Wparentheses -Wstrict-prototypes -Wswitch -Wuninitialized \
-	-Wunused -Wno-missing-braces
+	-Wunused -Wno-missing-braces -Wno-deprecated
 
 BuildDirectory	= $(OBJROOT)/Build
 TMPDIR		= $(OBJROOT)/Build/tmp
@@ -34,7 +34,7 @@ else
 endif
 
 install :: copy-src apply-patches build-postfix install-postfix archive-strip-binaries \
-		post-install install-extras set-defaults
+		post-install install-extras
 
 clean : ;
 
@@ -56,7 +56,9 @@ copy-src :
 
 apply-patches :
 	@echo "***** applying patches "
-	$(_v) cd $(BuildDirectory)/$(PROJECT) && patch -p1 < "$(SRCROOT)/patches/postfix-2.11.0-patch01.txt"
+	$(_v) cd $(BuildDirectory)/$(PROJECT) && patch -p1 < "$(SRCROOT)/patches/server-config.patch"
+	$(_v) cd $(BuildDirectory)/$(PROJECT) && patch -p1 < "$(SRCROOT)/patches/libressl.patch"
+	$(_v) cd $(BuildDirectory)/$(PROJECT) && patch -p1 < "$(SRCROOT)/patches/build.patch"
 	@echo "***** creating MIG API files "
 	$(_v) cd $(BuildDirectory)/$(PROJECT)/src/global && mig -v "$(SDKROOT)/usr/local/include/opendirectory/DSlibinfoMIG.defs"
 	@echo "***** creating MIG API files complete"
@@ -64,16 +66,17 @@ apply-patches :
 build-postfix :
 	@echo "***** building $(PROJECT)"
 	@echo "*** build environment = $(ENV)"
-	$(ENV) $(MAKE) -C $(BuildDirectory)/$(PROJECT) makefiles CC="$(CC_PATH)" OPT=" -DNO_NETINFO \
-			-DUSE_TLS -DUSE_CYRUS_SASL -DUSE_SASL_AUTH -D__APPLE_OS_X_SERVER__ \
-			-DEVENTS_STYLE=EVENTS_STYLE_KQUEUE \
-			-DHAS_DEV_URANDOM -DUSE_SYSV_POLL -DHAS_PCRE -DHAS_LDAP $(WARN)\
-			-I$(SDKROOT)/usr/include \
-			-I$(SDKROOT)/usr/include/sasl \
-			-I$(SDKROOT)/usr/local/include \
-			-F$(SDKROOT)/System/Library/Frameworks \
-			-F$(SDKROOT)/System/Library/PrivateFrameworks \
-			$(CFLAGS)" AUXLIBS="-L$(SDKROOT)/usr/lib -lssl -lsasl2.2.0.1 -lgssapi_krb5 -lldap"
+	$(ENV) $(MAKE) -C $(BuildDirectory)/$(PROJECT) makefiles CC="$(CC_PATH)" \
+		OPT=" -g -Os" \
+		CCARGS=" -DNO_NETINFO \
+			 -DUSE_TLS -I$(SDKROOT)/usr/local/libressl/include \
+			 -DUSE_CYRUS_SASL -DUSE_SASL_AUTH -I$(SDKROOT)/usr/include/sasl \
+			 -DEVENTS_STYLE=EVENTS_STYLE_KQUEUE \
+			 -DHAS_DEV_URANDOM -DUSE_SYSV_POLL -DHAS_PCRE -DHAS_LDAP \
+			 -F$(SDKROOT)/System/Library/Frameworks \
+			 -F$(SDKROOT)/System/Library/PrivateFrameworks \
+			 $(CFLAGS) $(WARN)" \
+		AUXLIBS="-lssl.35 -lcrypto.35 -lpcre -lsasl2.2.0.1 -lgssapi_krb5 -lldap -licucore"
 	$(ENV) $(MAKE) -C $(BuildDirectory)/$(PROJECT)
 	@echo "*** building: smtpstone"
 	cd $(BuildDirectory)/postfix/src/smtpstone && make all
@@ -99,7 +102,8 @@ install-postfix :
 		sample_directory=/usr/share/doc/postfix/examples \
 		html_directory=/usr/share/doc/postfix/html \
 		data_directory=/private/var/lib/postfix \
-		readme_directory=/usr/share/doc/postfix
+		readme_directory=/usr/share/doc/postfix \
+		meta_directory=/private/etc/postfix
 	@echo "****** installing $(PROJECT) complete"
 
 archive-strip-binaries :
@@ -141,7 +145,8 @@ post-install :
 		sample_directory=$(DSTROOT)/usr/share/doc/postfix/examples \
 		html_directory=$(DSTROOT)/usr/share/doc/postfix/html \
 		data_directory=$(DSTROOT)/private/var/lib/postfix \
-		readme_directory=$(DSTROOT)/usr/share/doc/postfix
+		readme_directory=$(DSTROOT)/usr/share/doc/postfix \
+		meta_directory=$(DSTROOT)/private/etc/postfix
 	@echo "*****  post-install $(PROJECT) complete"
 
 install-extras : 
@@ -164,10 +169,10 @@ install-extras :
 	install -m 0644 $(SRCROOT)/Postfix.Config/main.cf.default $(DSTROOT)/private/etc/postfix/main.cf
 	install -m 0644 $(SRCROOT)/Postfix.Config/master.cf.default $(DSTROOT)/private/etc/postfix
 	install -m 0644 $(SRCROOT)/Postfix.Config/master.cf.default $(DSTROOT)/private/etc/postfix/master.cf
-	install -m 0644 $(SRCROOT)/Postfix.LaunchDaemons/org.postfix.master.plist \
-			$(DSTROOT)/System/Library/LaunchDaemons/org.postfix.master.plist
-	install -m 0644 $(SRCROOT)/Postfix.LaunchDaemons/org.postfix.newaliases.plist \
-			$(DSTROOT)/System/Library/LaunchDaemons/org.postfix.newaliases.plist
+	install -m 0644 $(SRCROOT)/Postfix.LaunchDaemons/com.apple.postfix.master.plist \
+			$(DSTROOT)/System/Library/LaunchDaemons/com.apple.postfix.master.plist
+	install -m 0644 $(SRCROOT)/Postfix.LaunchDaemons/com.apple.postfix.newaliases.plist \
+			$(DSTROOT)/System/Library/LaunchDaemons/com.apple.postfix.newaliases.plist
 	install -m 0755 $(SRCROOT)/Postfix.ServerSetup/check-aliases.sh $(DSTROOT)/usr/libexec/postfix/check-aliases.sh
 	install -m 0755 $(SRCROOT)/Postfix.ServerSetup/set_credentials.sh $(DSTROOT)/usr/libexec/postfix/set_credentials.sh
 	@echo "*** Installing smtpstone binaries"
@@ -188,32 +193,5 @@ install-extras :
 	cd $(DSTROOT)/usr/bin && ln -s ../sbin/sendmail mailq
 	install -m 640 $(SRCROOT)/Postfix.Config/aliases.db $(DSTROOT)/private/etc/aliases.db
 	@echo "***** installing extras complete"
-
-set-defaults :
-	@echo "***** setting default cofig values"
-	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e mail_owner=_postfix
-	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e setgid_group=_postdrop
-	#$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e mydomain_fallback=localhost
-	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e queue_directory=/private/var/spool/postfix
-	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e command_directory=/usr/sbin
-	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e daemon_directory=/usr/libexec/postfix
-	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e sendmail_path=/usr/sbin/sendmail
-	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e newaliases_path=/usr/bin/newaliases
-	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e mailq_path=/usr/bin/mailq
-	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e manpage_directory=/usr/share/man
-	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e sample_directory=/usr/share/doc/postfix/examples
-	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e html_directory=/usr/share/doc/postfix/html
-	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e readme_directory=/usr/share/doc/postfix
-	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e message_size_limit=10485760
-	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e mailbox_size_limit=0
-	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e biff=no
-	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e mynetworks='127.0.0.0/8, [::1]/128'
-	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e smtpd_client_restrictions='permit_mynetworks permit_sasl_authenticated permit'
-	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e recipient_delimiter=+
-	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e tls_random_source=dev:/dev/urandom
-	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e smtpd_tls_ciphers=medium
-	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e inet_protocols=all
-	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e inet_interfaces=loopback-only
-	@echo "****** setting default cofig values complete"
 
 .PHONY: clean installhdrs installsrc build install pre-install

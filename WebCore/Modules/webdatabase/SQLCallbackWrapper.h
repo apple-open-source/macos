@@ -29,7 +29,7 @@
 #define SQLCallbackWrapper_h
 
 #include "ScriptExecutionContext.h"
-#include <wtf/ThreadingPrimitives.h>
+#include <wtf/Lock.h>
 
 namespace WebCore {
 
@@ -41,8 +41,8 @@ namespace WebCore {
 // - by unwrapping and then dereferencing normally - on context thread only
 template<typename T> class SQLCallbackWrapper {
 public:
-    SQLCallbackWrapper(PassRefPtr<T> callback, ScriptExecutionContext* scriptExecutionContext)
-        : m_callback(callback)
+    SQLCallbackWrapper(RefPtr<T>&& callback, ScriptExecutionContext* scriptExecutionContext)
+        : m_callback(WTFMove(callback))
         , m_scriptExecutionContext(m_callback ? scriptExecutionContext : 0)
     {
         ASSERT(!m_callback || (m_scriptExecutionContext.get() && m_scriptExecutionContext->isContextThread()));
@@ -58,7 +58,7 @@ public:
         ScriptExecutionContext* scriptExecutionContextPtr;
         T* callback;
         {
-            MutexLocker locker(m_mutex);
+            LockHolder locker(m_mutex);
             if (!m_callback) {
                 ASSERT(!m_scriptExecutionContext);
                 return;
@@ -68,8 +68,8 @@ public:
                 m_scriptExecutionContext = nullptr;
                 return;
             }
-            scriptExecutionContextPtr = m_scriptExecutionContext.release().leakRef();
-            callback = m_callback.release().leakRef();
+            scriptExecutionContextPtr = m_scriptExecutionContext.leakRef();
+            callback = m_callback.leakRef();
         }
         scriptExecutionContextPtr->postTask({
             ScriptExecutionContext::Task::CleanupTask,
@@ -81,19 +81,19 @@ public:
         });
     }
 
-    PassRefPtr<T> unwrap()
+    RefPtr<T> unwrap()
     {
-        MutexLocker locker(m_mutex);
+        LockHolder locker(m_mutex);
         ASSERT(!m_callback || m_scriptExecutionContext->isContextThread());
         m_scriptExecutionContext = nullptr;
-        return m_callback.release();
+        return WTFMove(m_callback);
     }
 
     // Useful for optimizations only, please test the return value of unwrap to be sure.
     bool hasCallback() const { return m_callback; }
 
 private:
-    Mutex m_mutex;
+    Lock m_mutex;
     RefPtr<T> m_callback;
     RefPtr<ScriptExecutionContext> m_scriptExecutionContext;
 };

@@ -29,8 +29,10 @@ use warnings;
 
 my $defines;
 my $preprocessor;
+my $gperf;
 GetOptions('defines=s' => \$defines,
-           'preprocessor=s' => \$preprocessor);
+           'preprocessor=s' => \$preprocessor,
+           'gperf-executable=s' => \$gperf);
 
 my @NAMES = applyPreprocessor("CSSPropertyNames.in", $defines, $preprocessor);
 die "We've reached more than 1024 CSS properties, please make sure to update CSSProperty/StylePropertyMetadata accordingly" if (scalar(@NAMES) > 1024);
@@ -711,8 +713,8 @@ sub generateInitialValueSetter {
   } elsif (exists $propertiesWithStyleBuilderOptions{$name}{"AnimationProperty"}) {
     $setterContent .= generateAnimationPropertyInitialValueSetter($name, $indent . "    ");
   } elsif (exists $propertiesWithStyleBuilderOptions{$name}{"FontProperty"}) {
-    $setterContent .= $indent . "    FontDescription fontDescription = styleResolver.fontDescription();\n";
-    $setterContent .= $indent . "    fontDescription." . $setter . "(FontDescription::" . $initial . "());\n";
+    $setterContent .= $indent . "    auto fontDescription = styleResolver.fontDescription();\n";
+    $setterContent .= $indent . "    fontDescription." . $setter . "(FontCascadeDescription::" . $initial . "());\n";
     $setterContent .= $indent . "    styleResolver.setFontDescription(fontDescription);\n";
   } elsif (exists $propertiesWithStyleBuilderOptions{$name}{"FillLayerProperty"}) {
     $setterContent .= generateFillLayerPropertyInitialValueSetter($name, $indent . "    ");
@@ -755,7 +757,7 @@ sub generateInheritValueSetter {
     $setterContent .= generateAnimationPropertyInheritValueSetter($name, $indent . "    ");
     $didCallSetValue = 1;
   } elsif (exists $propertiesWithStyleBuilderOptions{$name}{"FontProperty"}) {
-    $setterContent .= $indent . "    FontDescription fontDescription = styleResolver.fontDescription();\n";
+    $setterContent .= $indent . "    auto fontDescription = styleResolver.fontDescription();\n";
     $setterContent .= $indent . "    fontDescription." . $setter . "(styleResolver.parentFontDescription()." . $getter . "());\n";
     $setterContent .= $indent . "    styleResolver.setFontDescription(fontDescription);\n";
     $didCallSetValue = 1;
@@ -809,7 +811,7 @@ sub generateValueSetter {
     $setterContent .= generateAnimationPropertyValueSetter($name, $indent . "    ");
     $didCallSetValue = 1;
   } elsif (exists $propertiesWithStyleBuilderOptions{$name}{"FontProperty"}) {
-    $setterContent .= $indent . "    FontDescription fontDescription = styleResolver.fontDescription();\n";
+    $setterContent .= $indent . "    auto fontDescription = styleResolver.fontDescription();\n";
     $setterContent .= $indent . "    fontDescription." . $setter . "(" . $convertedValue . ");\n";
     $setterContent .= $indent . "    styleResolver.setFontDescription(fontDescription);\n";
     $didCallSetValue = 1;
@@ -1003,7 +1005,7 @@ print SHORTHANDS_CPP << "EOF";
 EOF
 
 print SHORTHANDS_CPP << "EOF";
-Vector<StylePropertyShorthand> matchingShorthandsForLonghand(CSSPropertyID propertyID)
+StylePropertyShorthandVector matchingShorthandsForLonghand(CSSPropertyID propertyID)
 {
     switch (propertyID) {
 EOF
@@ -1011,7 +1013,7 @@ EOF
 sub constructShorthandsVector {
   my $shorthands = shift;
 
-  my $vector = "Vector<StylePropertyShorthand>{";
+  my $vector = "StylePropertyShorthandVector{";
   foreach my $i (0 .. $#$shorthands) {
     $vector .= ", " unless $i == 0;
     $vector .= lcfirst($nameToId{$shorthands->[$i]}) . "Shorthand()";
@@ -1046,5 +1048,7 @@ EOF
 
 close SHORTHANDS_CPP;
 
-my $gperf = $ENV{GPERF} ? $ENV{GPERF} : "gperf";
+if (not $gperf) {
+    $gperf = $ENV{GPERF} ? $ENV{GPERF} : "gperf";
+}
 system("\"$gperf\" --key-positions=\"*\" -D -n -s 2 CSSPropertyNames.gperf --output-file=CSSPropertyNames.cpp") == 0 || die "calling gperf failed: $?";

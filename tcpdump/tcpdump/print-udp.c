@@ -26,6 +26,8 @@
 
 #include <tcpdump-stdinc.h>
 
+#include <string.h>
+
 #include "interface.h"
 #include "addrtoname.h"
 #include "extract.h"
@@ -271,6 +273,91 @@ rtcp_print(netdissect_options *ndo, const u_char *hdr, const u_char *ep)
 	return (hdr + len);
 }
 
+#ifdef __APPLE__
+
+static const u_char *
+iperf_print(netdissect_options *ndo, const u_char *hdr, const u_char *ep)
+{
+	struct iperf_udp_hdr {
+		int32_t id;
+		uint32_t tv_sec;
+		uint32_t tv_usec;
+	} *ptr = (struct iperf_udp_hdr *)hdr;
+	
+	if ((u_char *)(ptr + 1) > ep) {
+		ND_PRINT((ndo, " [|iperf]"));
+		return (ep);
+	}
+	ND_PRINT((ndo, " id %d", EXTRACT_32BITS(&ptr->id)));
+	ND_PRINT((ndo, " ts %u:%06u", EXTRACT_32BITS(&ptr->tv_sec), EXTRACT_32BITS(&ptr->tv_usec)));
+	
+	return (u_char *)(ptr + 1);
+}
+
+static const u_char *
+iperf3_print(netdissect_options *ndo, const u_char *hdr, const u_char *ep)
+{
+	struct iperf_udp_hdr {
+		uint32_t tv_sec;
+		uint32_t tv_usec;
+		int32_t id;
+	} *ptr = (struct iperf_udp_hdr *)hdr;
+	
+	if ((u_char *)(ptr + 1) > ep) {
+		ND_PRINT((ndo, " [|iperf3]"));
+		return (ep);
+	}
+	ND_PRINT((ndo, " id %u", EXTRACT_32BITS(&ptr->id)));
+	ND_PRINT((ndo, " ts %u:%06u", EXTRACT_32BITS(&ptr->tv_sec), EXTRACT_32BITS(&ptr->tv_usec)));
+	
+	return (u_char *)(ptr + 1);
+}
+
+static const u_char *
+iperf3_64_print(netdissect_options *ndo, const u_char *hdr, const u_char *ep)
+{
+	struct iperf_udp_hdr {
+		uint32_t tv_sec;
+		uint32_t tv_usec;
+		uint64_t id;
+	} *ptr = (struct iperf_udp_hdr *)hdr;
+	
+	if ((u_char *)(ptr + 1) > ep) {
+		ND_PRINT((ndo, " [|iperf3-64]"));
+		return (ep);
+	}
+	ND_PRINT((ndo, " id %llu", EXTRACT_64BITS(&ptr->id)));
+	ND_PRINT((ndo, " ts %u:%06u", EXTRACT_32BITS(&ptr->tv_sec), EXTRACT_32BITS(&ptr->tv_usec)));
+	
+	return (u_char *)(ptr + 1);
+}
+
+/*
+ * Simple UDP Throughput Test Protocol
+ */
+static const u_char *
+suttp_print(netdissect_options *ndo, const u_char *hdr, const u_char *ep)
+{
+	const char *format = "---PacketSeqNum   %lu   ---%n";
+	char str[36];
+	unsigned long seq;
+	int size;
+	
+	if (hdr + sizeof(str) > ep) {
+		ND_PRINT((ndo, " [|suttp]"));
+		return (ep);
+	}
+	strlcpy(str, (const char *)hdr, sizeof(str));
+	if (sscanf(str, format, &seq, &size) == 0) {
+		ND_PRINT((ndo, " [|suttp]"));
+		return (ep);
+	}
+	ND_PRINT((ndo, " seq %lu", seq));
+	return (hdr + size);
+}
+
+#endif /* __APPLE__ */
+
 static int udp_cksum(netdissect_options *ndo, register const struct ip *ip,
 		     register const struct udphdr *up,
 		     register u_int len)
@@ -481,6 +568,24 @@ udp_print(netdissect_options *ndo, register const u_char *bp, u_int length,
 			udpipaddr_print(ndo, ip, sport, dport);
 			lmp_print(ndo, cp, length);
 			break;
+#ifdef __APPLE__
+		case PT_IPERF:
+			udpipaddr_print(ndo, ip, sport, dport);
+			iperf_print(ndo, cp, ep);
+			break;
+		case PT_IPERF3:
+			udpipaddr_print(ndo, ip, sport, dport);
+			iperf3_print(ndo, cp, ep);
+			break;
+		case PT_IPERF3_64:
+			udpipaddr_print(ndo, ip, sport, dport);
+			iperf3_64_print(ndo, cp, ep);
+			break;
+		case PT_SUTTP:
+			udpipaddr_print(ndo, ip, sport, dport);
+			suttp_print(ndo, cp, ep);
+			break;
+#endif /* __APPLE__ */
 		}
 		return;
 	}

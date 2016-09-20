@@ -65,7 +65,8 @@ extern "C" {
  * Usage Constraints. Each Usage Constraints dictionary contains zero or one of 
  * each the following components:
  *
- * key = kSecTrustSettingsPolicy		value = SecPolicyRef
+ * key = kSecTrustSettingsPolicy		value = policy OID as CFString
+ * key = kSecTrustSettingsPolicyName    value = policy name as CFString
  * key = kSecTrustSettingsApplication	value = SecTrustedApplicationRef
  * key = kSecTrustSettingsPolicyString	value = CFString, policy-specific
  * key = kSecTrustSettingsKeyUsage		value = CFNumber, an SInt32 key usage
@@ -94,7 +95,11 @@ extern "C" {
  * Notes on the various Usage Constraints components:
  *
  * kSecTrustSettingsPolicy			Specifies a cert verification policy, e.g., SSL, 
- *									SMIME, etc.
+ *									SMIME, etc, using Policy Constants
+ * kSecTrustSettingsPolicyName      Specifies a cert verification policy, e.g.,
+ *                                  sslServer, eapClient, etc, using policy names.
+ *                                  This entry can be used to restrict the policy where
+ *                                  the same Policy Constant is used for multiple policyNames.
  * kSecTrustSettingsApplication 	Specifies the application performing the cert 
  *									verification.
  * kSecTrustSettingsPolicyString 	Policy-specific. For the SMIME policy, this is 
@@ -167,6 +172,7 @@ extern "C" {
  * The keys in one Usage Constraints dictionary.
  */
 #define kSecTrustSettingsPolicy			CFSTR("kSecTrustSettingsPolicy")
+#define kSecTrustSettingsPolicyName     CFSTR("kSecTrustSettingsPolicyName")
 #define kSecTrustSettingsApplication	CFSTR("kSecTrustSettingsApplication")
 #define kSecTrustSettingsPolicyString	CFSTR("kSecTrustSettingsPolicyString")
 #define kSecTrustSettingsKeyUsage		CFSTR("kSecTrustSettingsKeyUsage")
@@ -176,7 +182,7 @@ extern "C" {
 /*
  * Key usage bits, the value for Usage Constraints key kSecTrustSettingsKeyUsage.
  */ 
-enum {
+typedef CF_OPTIONS(uint32_t, SecTrustSettingsKeyUsage) {
 	/* sign/verify data */
 	kSecTrustSettingsKeyUseSignature		= 0x00000001,	
 	/* bulk encryption */
@@ -192,13 +198,12 @@ enum {
 	/* any usage (the default if this value is not specified) */
 	kSecTrustSettingsKeyUseAny				= 0xffffffff	
 };
-typedef uint32_t SecTrustSettingsKeyUsage;
 
 /*!
 	@enum SecTrustSettingsResult
 	@abstract Result of a trust settings evaluation.
 */
-enum {
+typedef CF_ENUM(uint32_t, SecTrustSettingsResult) {
 	kSecTrustSettingsResultInvalid = 0,		/* Never valid in a Trust Settings array or 
 											 * in an API call. */
 	kSecTrustSettingsResultTrustRoot,		/* Root cert is explicitly trusted */
@@ -207,19 +212,17 @@ enum {
 	kSecTrustSettingsResultUnspecified		/* Neither trusted nor distrusted; evaluation
 											 * proceeds as usual */
 };
-typedef uint32_t SecTrustSettingsResult;
 
 /* 
  * Specify user, local administrator, or system domain Trust Properties. 
  * Note that kSecTrustSettingsDomainSystem settings are read-only, even by
  * root.  
  */
-enum {
+typedef CF_ENUM(uint32_t, SecTrustSettingsDomain) {
 	kSecTrustSettingsDomainUser = 0,
 	kSecTrustSettingsDomainAdmin,
 	kSecTrustSettingsDomainSystem
 };
-typedef uint32_t SecTrustSettingsDomain;
 
 /*
  * SecCertificateRef value indicating the default Root Certificate Trust Settings 

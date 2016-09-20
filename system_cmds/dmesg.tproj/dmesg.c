@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
@@ -10,7 +10,7 @@
  * except in compliance with the License.  Please obtain a copy of the
  * License at http://www.apple.com/publicsource and read it before using
  * this file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -18,7 +18,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
  * License for the specific language governing rights and limitations
  * under the License."
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*-
@@ -60,14 +60,16 @@
 #include <sys/sysctl.h>
 #include <libproc.h>
 
-void
-usage() {
+static void
+usage(void)
+{
 	(void)fprintf(stderr, "usage: sudo dmesg\n");
 	exit(1);
 }
 
 int
-main(int argc, char **argv) {
+main(int argc, char **argv)
+{
 	char *msgbuf, *visbuf;
 	int msgbufsize;
 	size_t sysctlsize = sizeof(msgbufsize);
@@ -97,4 +99,3 @@ main(int argc, char **argv) {
 	free(msgbuf);
 	exit(0);
 }
-

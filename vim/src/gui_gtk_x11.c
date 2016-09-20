@@ -86,7 +86,6 @@ extern void bonobo_dock_item_set_behavior(BonoboDockItem *dock_item, BonoboDockI
 
 #ifdef HAVE_X11_SUNKEYSYM_H
 # include <X11/Sunkeysym.h>
-static guint32 clipboard_event_time = CurrentTime;
 #endif
 
 /*
@@ -651,7 +650,7 @@ property_event(GtkWidget *widget,
 	xev.xproperty.atom = commProperty;
 	xev.xproperty.window = commWindow;
 	xev.xproperty.state = PropertyNewValue;
-	serverEventProc(GDK_WINDOW_XDISPLAY(widget->window), &xev);
+	serverEventProc(GDK_WINDOW_XDISPLAY(widget->window), &xev, 0);
     }
     return FALSE;
 }
@@ -733,7 +732,10 @@ blink_cb(gpointer data UNUSED)
 gui_mch_start_blink(void)
 {
     if (blink_timer)
+    {
 	gtk_timeout_remove(blink_timer);
+	blink_timer = 0;
+    }
     /* Only switch blinking on if none of the times is zero */
     if (blink_waittime && blink_ontime && blink_offtime && gui.in_focus)
     {
@@ -933,7 +935,7 @@ key_press_event(GtkWidget *widget UNUSED,
     guint	state;
     char_u	*s, *d;
 
-    clipboard_event_time = event->time;
+    gui.event_time = event->time;
     key_sym = event->keyval;
     state = event->state;
 
@@ -1128,7 +1130,7 @@ key_release_event(GtkWidget *widget UNUSED,
 		  GdkEventKey *event,
 		  gpointer data UNUSED)
 {
-    clipboard_event_time = event->time;
+    gui.event_time = event->time;
     /*
      * GTK+ 2 input methods may do fancy stuff on key release events too.
      * With the default IM for instance, you can enter any UCS code point
@@ -1172,7 +1174,7 @@ selection_received_cb(GtkWidget		*widget UNUSED,
     char_u	    *tmpbuf = NULL;
     guchar	    *tmpbuf_utf8 = NULL;
     int		    len;
-    int		    motion_type;
+    int		    motion_type = MAUTO;
 
     if (data->selection == clip_plus.gtk_sel_atom)
 	cbd = &clip_plus;
@@ -1181,7 +1183,6 @@ selection_received_cb(GtkWidget		*widget UNUSED,
 
     text = (char_u *)data->data;
     len  = data->length;
-    motion_type = MCHAR;
 
     if (text == NULL || len <= 0)
     {
@@ -1259,7 +1260,7 @@ selection_received_cb(GtkWidget		*widget UNUSED,
 	}
     }
 
-    /* Chop off any traiing NUL bytes.  OpenOffice sends these. */
+    /* Chop off any trailing NUL bytes.  OpenOffice sends these. */
     while (len > 0 && text[len - 1] == NUL)
 	--len;
 
@@ -1416,7 +1417,29 @@ selection_get_cb(GtkWidget	    *widget UNUSED,
 }
 
 /*
- * Check if the GUI can be started.  Called before gvimrc is sourced.
+ * Check if the GUI can be started.  Called before gvimrc is sourced and
+ * before fork().
+ * Return OK or FAIL.
+ */
+    int
+gui_mch_early_init_check(void)
+{
+    char_u *p;
+
+    /* Guess that when $DISPLAY isn't set the GUI can't start. */
+    p = mch_getenv((char_u *)"DISPLAY");
+    if (p == NULL || *p == NUL)
+    {
+	gui.dying = TRUE;
+	EMSG(_((char *)e_opendisp));
+	return FAIL;
+    }
+    return OK;
+}
+
+/*
+ * Check if the GUI can be started.  Called before gvimrc is sourced but after
+ * fork().
  * Return OK or FAIL.
  */
     int
@@ -1426,6 +1449,11 @@ gui_mch_init_check(void)
     if (gtk_socket_id == 0)
 	using_gnome = 1;
 #endif
+
+    /* This defaults to argv[0], but we want it to match the name of the
+     * shipped gvim.desktop so that Vim's windows can be associated with this
+     * file. */
+    g_set_prgname("gvim");
 
     /* Don't use gtk_init() or gnome_init(), it exits on failure. */
     if (!gtk_init_check(&gui_argc, &gui_argv))
@@ -1622,7 +1650,7 @@ button_press_event(GtkWidget *widget,
     int x, y;
     int_u vim_modifiers;
 
-    clipboard_event_time = event->time;
+    gui.event_time = event->time;
 
     /* Make sure we have focus now we've been selected */
     if (gtk_socket_id != 0 && !GTK_WIDGET_HAS_FOCUS(widget))
@@ -1733,7 +1761,7 @@ button_release_event(GtkWidget *widget UNUSED,
     int x, y;
     int_u vim_modifiers;
 
-    clipboard_event_time = event->time;
+    gui.event_time = event->time;
 
     /* Remove any motion "machine gun" timers used for automatic further
        extension of allocation areas if outside of the applications window
@@ -2026,6 +2054,7 @@ write_session_file(char_u *filename)
 
     ssop_flags = save_ssop_flags;
     g_free(mksession_cmdline);
+
     /*
      * Reopen the file and append a command to restore v:this_session,
      * as if this save never happened.	This is to avoid conflicts with
@@ -2844,7 +2873,9 @@ create_tabline_menu(void)
     GtkWidget *menu;
 
     menu = gtk_menu_new();
-    add_tabline_menu_item(menu, (char_u *)_("Close"), TABLINE_MENU_CLOSE);
+    if (first_tabpage->tp_next != NULL)
+	add_tabline_menu_item(menu, (char_u *)_("Close tab"),
+							  TABLINE_MENU_CLOSE);
     add_tabline_menu_item(menu, (char_u *)_("New tab"), TABLINE_MENU_NEW);
     add_tabline_menu_item(menu, (char_u *)_("Open Tab..."), TABLINE_MENU_OPEN);
 
@@ -3052,7 +3083,7 @@ gui_gtk_set_selection_targets(void)
 
     for (i = 0; i < (int)N_SELECTION_TARGETS; ++i)
     {
-	/* OpenOffice tries to use TARGET_HTML and fails when it doesn't
+	/* OpenOffice tries to use TARGET_HTML and fails when we don't
 	 * return something, instead of trying another target. Therefore only
 	 * offer TARGET_HTML when it works. */
 	if (!clip_html && selection_targets[i].info == TARGET_HTML)
@@ -3083,7 +3114,7 @@ gui_gtk_set_dnd_targets(void)
 
     for (i = 0; i < (int)N_DND_TARGETS; ++i)
     {
-	if (!clip_html && selection_targets[i].info == TARGET_HTML)
+	if (!clip_html && dnd_targets[i].info == TARGET_HTML)
 	    n_targets--;
 	else
 	    targets[j++] = dnd_targets[i];
@@ -3093,7 +3124,7 @@ gui_gtk_set_dnd_targets(void)
     gtk_drag_dest_set(gui.drawarea,
 		      GTK_DEST_DEFAULT_ALL,
 		      targets, n_targets,
-		      GDK_ACTION_COPY);
+		      GDK_ACTION_COPY | GDK_ACTION_MOVE);
 }
 
 /*
@@ -3110,8 +3141,20 @@ gui_mch_init(void)
      * exits on failure, but that's a non-issue because we already called
      * gtk_init_check() in gui_mch_init_check(). */
     if (using_gnome)
+    {
 	gnome_program_init(VIMPACKAGE, VIM_VERSION_SHORT,
 			   LIBGNOMEUI_MODULE, gui_argc, gui_argv, NULL);
+# if defined(FEAT_FLOAT) && defined(LC_NUMERIC)
+	{
+	    char *p = setlocale(LC_NUMERIC, NULL);
+
+	    /* Make sure strtod() uses a decimal point, not a comma. Gnome
+	     * init may change it. */
+	    if (p == NULL || strcmp(p, "C") != 0)
+	       setlocale(LC_NUMERIC, "C");
+	}
+# endif
+    }
 #endif
     vim_free(gui_argv);
     gui_argv = NULL;
@@ -3665,6 +3708,7 @@ gui_mch_open(void)
 		p_window = h - 1;
 	    Rows = h;
 	}
+	limit_screen_size();
 
 	pixel_width = (guint)(gui_get_base_width() + Columns * gui.char_width);
 	pixel_height = (guint)(gui_get_base_height() + Rows * gui.char_height);
@@ -3899,6 +3943,21 @@ gui_mch_unmaximize()
 {
     if (gui.mainwin != NULL)
 	gtk_window_unmaximize(GTK_WINDOW(gui.mainwin));
+}
+
+/*
+ * Called when the font changed while the window is maximized.  Compute the
+ * new Rows and Columns.  This is like resizing the window.
+ */
+    void
+gui_mch_newfont()
+{
+    int w, h;
+
+    gtk_window_get_size(GTK_WINDOW(gui.mainwin), &w, &h);
+    w -= get_menu_tool_width();
+    h -= get_menu_tool_height();
+    gui_resize_shell(w, h);
 }
 
 /*
@@ -4411,14 +4470,9 @@ gui_mch_init_font(char_u *font_name, int fontset UNUSED)
 
     if (gui_mch_maximized())
     {
-	int w, h;
-
 	/* Update lines and columns in accordance with the new font, keep the
 	 * window maximized. */
-	gtk_window_get_size(GTK_WINDOW(gui.mainwin), &w, &h);
-	w -= get_menu_tool_width();
-	h -= get_menu_tool_height();
-	gui_resize_shell(w, h);
+	gui_mch_newfont();
     }
     else
     {
@@ -5009,8 +5063,13 @@ not_ascii:
 	     * done, because drawing the cursor would change the display. */
 	    item->analysis.shape_engine = default_shape_engine;
 
+#ifdef HAVE_PANGO_SHAPE_FULL
+	    pango_shape_full((const char *)s + item->offset, item->length,
+		    (const char *)s, len, &item->analysis, glyphs);
+#else
 	    pango_shape((const char *)s + item->offset, item->length,
 			&item->analysis, glyphs);
+#endif
 	    /*
 	     * Fixed-width hack: iterate over the array and assign a fixed
 	     * width to each glyph, thus overriding the choice made by the
@@ -5126,8 +5185,7 @@ gui_mch_haskey(char_u *name)
     return FAIL;
 }
 
-#if defined(FEAT_TITLE) \
-	|| defined(PROTO)
+#if defined(FEAT_TITLE) || defined(FEAT_EVAL) || defined(PROTO)
 /*
  * Return the text window-id and display.  Only required for X-based GUI's
  */
@@ -5418,9 +5476,8 @@ gui_mch_wait_for_chars(long wtime)
 	    focus = gui.in_focus;
 	}
 
-#if defined(FEAT_NETBEANS_INTG)
-	/* Process the queued netbeans messages. */
-	netbeans_parse_messages();
+#ifdef MESSAGE_QUEUE
+	parse_queued_messages();
 #endif
 
 	/*
@@ -5637,12 +5694,8 @@ clip_mch_request_selection(VimClipboard *cbd)
     void
 clip_mch_lose_selection(VimClipboard *cbd UNUSED)
 {
-    /* WEIRD: when using NULL to actually disown the selection, we lose the
-     * selection the first time we own it. */
-    /*
-    gtk_selection_owner_set(NULL, cbd->gtk_sel_atom, (guint32)GDK_CURRENT_TIME);
+    gtk_selection_owner_set(NULL, cbd->gtk_sel_atom, gui.event_time);
     gui_mch_update();
-     */
 }
 
 /*
@@ -5654,7 +5707,7 @@ clip_mch_own_selection(VimClipboard *cbd)
     int success;
 
     success = gtk_selection_owner_set(gui.drawarea, cbd->gtk_sel_atom,
-				      clipboard_event_time);
+				      gui.event_time);
     gui_mch_update();
     return (success) ? OK : FAIL;
 }
@@ -5666,6 +5719,12 @@ clip_mch_own_selection(VimClipboard *cbd)
     void
 clip_mch_set_selection(VimClipboard *cbd UNUSED)
 {
+}
+
+    int
+clip_gtk_owner_exists(VimClipboard *cbd)
+{
+    return gdk_selection_owner_get(cbd->gtk_sel_atom) != NULL;
 }
 
 
@@ -5912,27 +5971,48 @@ gui_mch_drawsign(int row, int col, int typenr)
 	 * Decide whether we need to scale.  Allow one pixel of border
 	 * width to be cut off, in order to avoid excessive scaling for
 	 * tiny differences in font size.
+	 * Do scale to fit the height to avoid gaps because of linespacing.
 	 */
 	need_scale = (width > SIGN_WIDTH + 2
-		      || height > SIGN_HEIGHT + 2
+		      || height != SIGN_HEIGHT
 		      || (width < 3 * SIGN_WIDTH / 4
 			  && height < 3 * SIGN_HEIGHT / 4));
 	if (need_scale)
 	{
-	    double aspect;
+	    double  aspect;
+	    int	    w = width;
+	    int	    h = height;
 
 	    /* Keep the original aspect ratio */
 	    aspect = (double)height / (double)width;
 	    width  = (double)SIGN_WIDTH * SIGN_ASPECT / aspect;
 	    width  = MIN(width, SIGN_WIDTH);
-	    height = (double)width * aspect;
+	    if (((double)(MAX(height, SIGN_HEIGHT)) /
+		 (double)(MIN(height, SIGN_HEIGHT))) < 1.15)
+	    {
+		/* Change the aspect ratio by at most 15% to fill the
+		 * available space completly. */
+		height = (double)SIGN_HEIGHT * SIGN_ASPECT / aspect;
+		height = MIN(height, SIGN_HEIGHT);
+	    }
+	    else
+		height = (double)width * aspect;
 
-	    /* This doesn't seem to be worth caching, and doing so
-	     * would complicate the code quite a bit. */
-	    sign = gdk_pixbuf_scale_simple(sign, width, height,
-					   GDK_INTERP_BILINEAR);
-	    if (sign == NULL)
-		return; /* out of memory */
+	    if (w == width && h == height)
+	    {
+		/* no change in dimensions; don't decrease reference counter
+		 * (below) */
+		need_scale = FALSE;
+	    }
+	    else
+	    {
+		/* This doesn't seem to be worth caching, and doing so would
+		 * complicate the code quite a bit. */
+		sign = gdk_pixbuf_scale_simple(sign, width, height,
+							 GDK_INTERP_BILINEAR);
+		if (sign == NULL)
+		    return; /* out of memory */
+	    }
 	}
 
 	/* The origin is the upper-left corner of the pixmap.  Therefore

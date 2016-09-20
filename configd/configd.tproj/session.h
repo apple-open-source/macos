@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2005-2007, 2009-2012, 2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2005-2007, 2009-2012, 2014, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -73,6 +73,9 @@ typedef struct {
 
 	/* data associated with this "open" session */
 	SCDynamicStoreRef	store;
+
+	/* caller's activity */
+	os_activity_t		activity;
 
 	/* credentials associated with this "open" session */
 	uid_t			callerEUID;

@@ -28,6 +28,8 @@ void tests()
     ortn = SSLHandshake(ctx);
 
     is(ortn, errSSLWouldBlock, "SSLHandshake unexpected return\n");
+
+    CFRelease(ctx);
 }
 
 

@@ -40,7 +40,6 @@ void WebPageCreationParameters::encode(IPC::ArgumentEncoder& encoder) const
     encoder << pageGroupData;
     encoder << drawsBackground;
     encoder << isEditable;
-    encoder << drawsTransparentBackground;
     encoder << underlayColor;
     encoder << useFixedLayout;
     encoder << fixedLayoutSize;
@@ -48,6 +47,7 @@ void WebPageCreationParameters::encode(IPC::ArgumentEncoder& encoder) const
     encoder << paginationBehavesLikeColumns;
     encoder << pageLength;
     encoder << gapBetweenPages;
+    encoder << paginationLineGridEnabled;
     encoder << userAgent;
     encoder << itemStates;
     encoder << sessionID;
@@ -70,9 +70,11 @@ void WebPageCreationParameters::encode(IPC::ArgumentEncoder& encoder) const
     encoder << backgroundExtendsBeyondPage;
     encoder.encodeEnum(layerHostingMode);
     encoder << mimeTypesWithCustomContentProviders;
+    encoder << controlledByAutomation;
 
 #if ENABLE(REMOTE_INSPECTOR)
     encoder << allowsRemoteInspection;
+    encoder << remoteInspectionNameOverride;
 #endif
 #if PLATFORM(MAC)
     encoder << colorSpace;
@@ -81,10 +83,11 @@ void WebPageCreationParameters::encode(IPC::ArgumentEncoder& encoder) const
     encoder << screenSize;
     encoder << availableScreenSize;
     encoder << textAutosizingWidth;
+    encoder << ignoresViewportScaleLimits;
 #endif
     encoder << appleMailPaginationQuirkEnabled;
     encoder << shouldScaleViewToFitDocument;
-    encoder << userContentExtensionsEnabled;
+    encoder.encodeEnum(userInterfaceLayoutDirection);
 }
 
 bool WebPageCreationParameters::decode(IPC::ArgumentDecoder& decoder, WebPageCreationParameters& parameters)
@@ -103,8 +106,6 @@ bool WebPageCreationParameters::decode(IPC::ArgumentDecoder& decoder, WebPageCre
         return false;
     if (!decoder.decode(parameters.isEditable))
         return false;
-    if (!decoder.decode(parameters.drawsTransparentBackground))
-        return false;
     if (!decoder.decode(parameters.underlayColor))
         return false;
     if (!decoder.decode(parameters.useFixedLayout))
@@ -118,6 +119,8 @@ bool WebPageCreationParameters::decode(IPC::ArgumentDecoder& decoder, WebPageCre
     if (!decoder.decode(parameters.pageLength))
         return false;
     if (!decoder.decode(parameters.gapBetweenPages))
+        return false;
+    if (!decoder.decode(parameters.paginationLineGridEnabled))
         return false;
     if (!decoder.decode(parameters.userAgent))
         return false;
@@ -163,9 +166,13 @@ bool WebPageCreationParameters::decode(IPC::ArgumentDecoder& decoder, WebPageCre
         return false;
     if (!decoder.decode(parameters.mimeTypesWithCustomContentProviders))
         return false;
+    if (!decoder.decode(parameters.controlledByAutomation))
+        return false;
 
 #if ENABLE(REMOTE_INSPECTOR)
     if (!decoder.decode(parameters.allowsRemoteInspection))
+        return false;
+    if (!decoder.decode(parameters.remoteInspectionNameOverride))
         return false;
 #endif
 
@@ -181,6 +188,8 @@ bool WebPageCreationParameters::decode(IPC::ArgumentDecoder& decoder, WebPageCre
         return false;
     if (!decoder.decode(parameters.textAutosizingWidth))
         return false;
+    if (!decoder.decode(parameters.ignoresViewportScaleLimits))
+        return false;
 #endif
 
     if (!decoder.decode(parameters.appleMailPaginationQuirkEnabled))
@@ -189,7 +198,7 @@ bool WebPageCreationParameters::decode(IPC::ArgumentDecoder& decoder, WebPageCre
     if (!decoder.decode(parameters.shouldScaleViewToFitDocument))
         return false;
 
-    if (!decoder.decode(parameters.userContentExtensionsEnabled))
+    if (!decoder.decodeEnum(parameters.userInterfaceLayoutDirection))
         return false;
 
     return true;

@@ -56,7 +56,7 @@ private:
     PluginProcessConnectionManager();
 
     // IPC::Connection::WorkQueueMessageReceiver.
-    virtual void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
+    void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
 
     void pluginProcessCrashed(uint64_t pluginProcessToken);
 
@@ -64,7 +64,7 @@ private:
 
     Vector<RefPtr<PluginProcessConnection>> m_pluginProcessConnections;
 
-    Mutex m_tokensAndConnectionsMutex;
+    Lock m_tokensAndConnectionsMutex;
     HashMap<uint64_t, RefPtr<IPC::Connection>> m_tokensAndConnections;
 };
 

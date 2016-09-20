@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2007, 2009, 2010-2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2007, 2009, 2010-2013, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -29,13 +29,23 @@
  */
 
 
-#include <CoreFoundation/CoreFoundation.h>
-#include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCValidation.h>
-#include <SystemConfiguration/SCPrivate.h>
+#include "SCNetworkConfigurationInternal.h"
 
 #include <sys/ioctl.h>
 #include <net/if.h>
+
+
+__private_extern__ os_log_t
+__log_SCNetworkConfiguration()
+{
+	static os_log_t	log	= NULL;
+
+	if (log == NULL) {
+		log = os_log_create("com.apple.SystemConfiguration", "SCNetworkConfiguration");
+	}
+
+	return log;
+}
 
 
 __private_extern__ CFDictionaryRef
@@ -202,12 +212,8 @@ static CFDictionaryRef
 __copyTemplates()
 {
 	CFBundleRef     bundle;
-	CFErrorRef	error		= NULL;
-	SInt32		errorCode;
-	Boolean		ok;
 	CFDictionaryRef templates;
 	CFURLRef	url;
-	CFDataRef       xmlTemplates    = NULL;
 
 	bundle = _SC_CFBundleGet();
 	if (bundle == NULL) {
@@ -223,7 +229,7 @@ __copyTemplates()
 							  NETWORKCONFIGURATION_RESOURCE_FILE),
 						    kCFURLPOSIXPathStyle,
 						    TRUE);
-		
+
 		if (url == NULL) {
 			SC_log(LOG_ERR, "failed to CREATE resource URL to \"%s\"", SYSTEMCONFIGURATION_RESOURCES_PATH
 										   "/"
@@ -232,28 +238,10 @@ __copyTemplates()
 		}
 	}
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated"
-	ok = CFURLCreateDataAndPropertiesFromResource(NULL, url, &xmlTemplates, NULL, NULL, &errorCode);
-#pragma GCC diagnostic pop
+	templates = _SCCreatePropertyListFromResource(url);
 	CFRelease(url);
-	if (!ok || (xmlTemplates == NULL)) {
-		SC_log(LOG_NOTICE, "%s: failed to create data properties from resource (error=%ld)", __FUNCTION__ , (long)errorCode);
-		return NULL;
-	}
 
-	// convert the XML data into a property list
-	templates = CFPropertyListCreateWithData(NULL, xmlTemplates, kCFPropertyListImmutable, NULL, &error);
-	CFRelease(xmlTemplates);
-	if (templates == NULL) {
-		if (error != NULL) {
-			SC_log(LOG_NOTICE, "could not load SCNetworkConfiguration templates: %@", error);
-			CFRelease(error);
-		}
-		return NULL;
-	}
-
-	if (!isA_CFDictionary(templates)) {
+	if ((templates != NULL) && !isA_CFDictionary(templates)) {
 		CFRelease(templates);
 		return NULL;
 	}

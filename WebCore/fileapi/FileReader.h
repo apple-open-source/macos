@@ -67,27 +67,26 @@ public:
     void readAsArrayBuffer(Blob*, ExceptionCode&);
     void readAsBinaryString(Blob*, ExceptionCode&);
     void readAsText(Blob*, const String& encoding, ExceptionCode&);
-    void readAsText(Blob*, ExceptionCode&);
     void readAsDataURL(Blob*, ExceptionCode&);
     void abort();
 
     void doAbort();
 
     ReadyState readyState() const { return m_state; }
-    PassRefPtr<FileError> error() { return m_error; }
+    RefPtr<FileError> error() { return m_error; }
     FileReaderLoader::ReadType readType() const { return m_readType; }
-    PassRefPtr<JSC::ArrayBuffer> arrayBufferResult() const;
+    RefPtr<JSC::ArrayBuffer> arrayBufferResult() const;
     String stringResult();
 
     // EventTarget
-    virtual EventTargetInterface eventTargetInterface() const override { return FileReaderEventTargetInterfaceType; }
-    virtual ScriptExecutionContext* scriptExecutionContext() const override { return ActiveDOMObject::scriptExecutionContext(); }
+    EventTargetInterface eventTargetInterface() const override { return FileReaderEventTargetInterfaceType; }
+    ScriptExecutionContext* scriptExecutionContext() const override { return ActiveDOMObject::scriptExecutionContext(); }
 
     // FileReaderLoaderClient
-    virtual void didStartLoading() override;
-    virtual void didReceiveData() override;
-    virtual void didFinishLoading() override;
-    virtual void didFail(int errorCode) override;
+    void didStartLoading() override;
+    void didReceiveData() override;
+    void didFinishLoading() override;
+    void didFail(int errorCode) override;
 
     using RefCounted<FileReader>::ref;
     using RefCounted<FileReader>::deref;
@@ -97,15 +96,15 @@ private:
 
     // ActiveDOMObject API.
     const char* activeDOMObjectName() const override;
-    bool canSuspendForPageCache() const override;
+    bool canSuspendForDocumentSuspension() const override;
     void stop() override;
 
     // EventTarget
-    virtual void refEventTarget() override { ref(); }
-    virtual void derefEventTarget() override { deref(); }
+    void refEventTarget() override { ref(); }
+    void derefEventTarget() override { deref(); }
 
     void terminate();
-    void readInternal(Blob*, FileReaderLoader::ReadType, ExceptionCode&);
+    void readInternal(Blob&, FileReaderLoader::ReadType, ExceptionCode&);
     void fireErrorEvent(int httpStatusCode);
     void fireEvent(const AtomicString& type);
 

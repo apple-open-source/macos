@@ -50,8 +50,6 @@ public:
 
     void didReceiveAuthenticationChallenge(ResourceLoader*, const AuthenticationChallenge&);
     void didReceiveAuthenticationChallenge(unsigned long identifier, DocumentLoader*, const AuthenticationChallenge&);
-    void didCancelAuthenticationChallenge(ResourceLoader*, const AuthenticationChallenge&);
-    void didCancelAuthenticationChallenge(unsigned long identifier, DocumentLoader*, const AuthenticationChallenge&);
 
     void willSendRequest(ResourceLoader*, ResourceRequest&, const ResourceResponse& redirectResponse);
     void didReceiveResponse(ResourceLoader*, const ResourceResponse&);
@@ -61,7 +59,7 @@ public:
 
     void assignIdentifierToInitialRequest(unsigned long identifier, DocumentLoader*, const ResourceRequest&);
     void dispatchWillSendRequest(DocumentLoader*, unsigned long identifier, ResourceRequest&, const ResourceResponse& redirectResponse);
-    void dispatchDidReceiveResponse(DocumentLoader*, unsigned long identifier, const ResourceResponse&, ResourceLoader* = 0);
+    void dispatchDidReceiveResponse(DocumentLoader*, unsigned long identifier, const ResourceResponse&, ResourceLoader* = nullptr);
     void dispatchDidReceiveData(DocumentLoader*, unsigned long identifier, const char* data, int dataLength, int encodedDataLength);
     void dispatchDidFinishLoading(DocumentLoader*, unsigned long identifier, double finishTime);
     void dispatchDidFailLoading(DocumentLoader*, unsigned long identifier, const ResourceError&);

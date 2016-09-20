@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 Google Inc. All rights reserved.
+ * Copyright (C) 2015, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,54 +26,72 @@
 #ifndef DOMTokenList_h
 #define DOMTokenList_h
 
-#include <wtf/text/AtomicString.h>
+#include <Element.h>
+#include <wtf/Optional.h>
 #include <wtf/Vector.h>
+#include <wtf/text/AtomicString.h>
 
 namespace WebCore {
-
-class Element;
 
 typedef int ExceptionCode;
 
 class DOMTokenList {
     WTF_MAKE_NONCOPYABLE(DOMTokenList); WTF_MAKE_FAST_ALLOCATED;
 public:
-    DOMTokenList() { }
-    virtual ~DOMTokenList() {};
+    DOMTokenList(Element&, const QualifiedName& attributeName);
 
-    virtual void ref() = 0;
-    virtual void deref() = 0;
+    void associatedAttributeValueChanged(const AtomicString&);
 
-    virtual unsigned length() const = 0;
-    virtual const AtomicString item(unsigned index) const = 0;
+    void ref() { m_element.ref(); }
+    void deref() { m_element.deref(); }
 
-    bool contains(const AtomicString&, ExceptionCode&) const;
+    unsigned length() const;
+    const AtomicString& item(unsigned index) const;
+
+    bool contains(const AtomicString&) const;
     void add(const Vector<String>&, ExceptionCode&);
     void add(const AtomicString&, ExceptionCode&);
     void remove(const Vector<String>&, ExceptionCode&);
     void remove(const AtomicString&, ExceptionCode&);
-    bool toggle(const AtomicString&, ExceptionCode&);
-    bool toggle(const AtomicString&, bool force, ExceptionCode&);
+    bool toggle(const AtomicString&, Optional<bool> force, ExceptionCode&);
 
-    AtomicString toString() const { return value(); }
+    const AtomicString& toString() const { return value(); }
 
-    virtual Element* element() const { return 0; }
+    Element& element() const { return m_element; }
 
-protected:
-    virtual AtomicString value() const = 0;
-    virtual void setValue(const AtomicString&) = 0;
+    void setValue(const String&);
+    const AtomicString& value() const;
 
-    void addInternal(const AtomicString&);
-    virtual bool containsInternal(const AtomicString&) const = 0;
-    void removeInternal(const AtomicString&);
+private:
+    void updateTokensFromAttributeValue(const String&);
+    void updateAssociatedAttributeFromTokens();
 
-    static bool validateToken(const AtomicString&, ExceptionCode&);
-    static bool validateTokens(const Vector<String>&, ExceptionCode&);
-    static String addToken(const AtomicString&, const AtomicString&);
-    static String addTokens(const AtomicString&, const Vector<String>&);
-    static String removeToken(const AtomicString&, const AtomicString&);
-    static String removeTokens(const AtomicString&, const Vector<String>&);
+    Vector<AtomicString>& tokens();
+    const Vector<AtomicString>& tokens() const { return const_cast<DOMTokenList&>(*this).tokens(); }
+
+    static bool validateToken(const String&, ExceptionCode&);
+    static bool validateTokens(const String* tokens, size_t length, ExceptionCode&);
+    void addInternal(const String* tokens, size_t length, ExceptionCode&);
+    void removeInternal(const String* tokens, size_t length, ExceptionCode&);
+
+    Element& m_element;
+    const WebCore::QualifiedName& m_attributeName;
+    bool m_inUpdateAssociatedAttributeFromTokens { false };
+    bool m_tokensNeedUpdating { true };
+    Vector<AtomicString> m_tokens;
+    mutable AtomicString m_cachedValue;
 };
+
+inline unsigned DOMTokenList::length() const
+{
+    return tokens().size();
+}
+
+inline const AtomicString& DOMTokenList::item(unsigned index) const
+{
+    auto& tokens = this->tokens();
+    return index < tokens.size() ? tokens[index] : nullAtom;
+}
 
 } // namespace WebCore
 

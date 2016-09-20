@@ -34,7 +34,12 @@
 #define KN_ACTIVE     0x01
 #define KN_QUEUED     0x02
 #define KN_DISABLED   0x04
+#define KN_DROPPING   0x08
+#define KN_USEWAIT    0x10
+#define KN_ATTACHING  0x20
 #define KN_STAYQUEUED 0x40
+#define KN_DEFERDROP  0x80
+#define KN_TOUCH      0x100
 
 
 /*

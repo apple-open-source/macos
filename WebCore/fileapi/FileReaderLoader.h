@@ -64,7 +64,7 @@ public:
     FileReaderLoader(ReadType, FileReaderLoaderClient*);
     ~FileReaderLoader();
 
-    void start(ScriptExecutionContext*, Blob*);
+    void start(ScriptExecutionContext*, Blob&);
     void cancel();
 
     // ThreadableLoaderClient
@@ -74,7 +74,7 @@ public:
     virtual void didFail(const ResourceError&);
 
     String stringResult();
-    PassRefPtr<JSC::ArrayBuffer> arrayBufferResult() const;
+    RefPtr<JSC::ArrayBuffer> arrayBufferResult() const;
     unsigned bytesLoaded() const { return m_bytesLoaded; }
     unsigned totalBytes() const { return m_totalBytes; }
     int errorCode() const { return m_errorCode; }
@@ -113,10 +113,6 @@ private:
     bool m_variableLength;
     unsigned m_bytesLoaded;
     unsigned m_totalBytes;
-
-    bool m_hasRange;
-    unsigned m_rangeStart;
-    unsigned m_rangeEnd;
 
     int m_errorCode;
 };

@@ -521,7 +521,7 @@ _jump_remove_object_at_index(asl_object_private_t *obj, size_t n)
 }
 
 static void
-_jump_append(asl_object_private_t *obj, asl_object_private_t *newobj)
+_jump_append(asl_object_private_t *obj, asl_object_private_t *newobj, void *addr)
 {
 	int type = asl_get_type((asl_object_t)newobj);
 	if ((type != ASL_TYPE_QUERY) && (type != ASL_TYPE_MSG)) return;

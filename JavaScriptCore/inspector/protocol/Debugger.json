@@ -60,7 +60,6 @@
                 { "name": "location", "$ref": "Location", "description": "Location of the function." },
                 { "name": "name", "type": "string", "optional": true, "description": "Name of the function. Not present for anonymous functions." },
                 { "name": "displayName", "type": "string", "optional": true, "description": "Display name of the function(specified in 'displayName' property on the function object)." },
-                { "name": "inferredName", "type": "string", "optional": true, "description": "Name of the function inferred from its initial assignment." },
                 { "name": "scopeChain", "type": "array", "optional": true, "items": { "$ref": "Scope" }, "description": "Scope chain for this closure." }
             ],
             "description": "Information about the function."
@@ -73,7 +72,8 @@
                 { "name": "functionName", "type": "string", "description": "Name of the JavaScript function called on this call frame." },
                 { "name": "location", "$ref": "Location", "description": "Location in the source code." },
                 { "name": "scopeChain", "type": "array", "items": { "$ref": "Scope" }, "description": "Scope chain for this call frame." },
-                { "name": "this", "$ref": "Runtime.RemoteObject", "description": "<code>this</code> object for this call frame." }
+                { "name": "this", "$ref": "Runtime.RemoteObject", "description": "<code>this</code> object for this call frame." },
+                { "name": "isTailDeleted", "type": "boolean", "description": "Is the current frame tail deleted from a tail call." }
             ],
             "description": "JavaScript call frame. Array of call frames form the call stack."
         },
@@ -81,8 +81,10 @@
             "id": "Scope",
             "type": "object",
             "properties": [
-                { "name": "type", "type": "string", "enum": ["global", "local", "with", "closure", "catch", "functionName"], "description": "Scope type." },
-                { "name": "object", "$ref": "Runtime.RemoteObject", "description": "Object representing the scope. For <code>global</code> and <code>with</code> scopes it represents the actual object; for the rest of the scopes, it is artificial transient object enumerating scope variables as its properties." }
+                { "name": "object", "$ref": "Runtime.RemoteObject", "description": "Object representing the scope. For <code>global</code> and <code>with</code> scopes it represents the actual object; for the rest of the scopes, it is artificial transient object enumerating scope variables as its properties." },
+                { "name": "type", "type": "string", "enum": ["global", "with", "closure", "catch", "functionName", "globalLexicalEnvironment", "nestedLexical"], "description": "Scope type." },
+                { "name": "name", "type": "string", "optional": true, "description": "Name associated with the scope." },
+                { "name": "location", "$ref": "Location", "optional": true, "description": "Location if available of the scope definition." }
             ],
             "description": "Scope description."
         },
@@ -276,14 +278,14 @@
             "name": "scriptParsed",
             "parameters": [
                 { "name": "scriptId", "$ref": "ScriptId", "description": "Identifier of the script parsed." },
-                { "name": "url", "type": "string", "description": "URL or name of the script parsed (if any)." },
+                { "name": "url", "type": "string", "description": "URL of the script parsed (if any)." },
                 { "name": "startLine", "type": "integer", "description": "Line offset of the script within the resource with given URL (for script tags)." },
                 { "name": "startColumn", "type": "integer", "description": "Column offset of the script within the resource with given URL." },
                 { "name": "endLine", "type": "integer", "description": "Last line of the script." },
                 { "name": "endColumn", "type": "integer", "description": "Length of the last line of the script." },
                 { "name": "isContentScript", "type": "boolean", "optional": true, "description": "Determines whether this script is a user extension script." },
-                { "name": "sourceMapURL", "type": "string", "optional": true, "description": "URL of source map associated with script (if any)." },
-                { "name": "hasSourceURL", "type": "boolean", "optional": true, "description": "True, if this script has sourceURL." }
+                { "name": "sourceURL", "type": "string", "optional": true, "description": "sourceURL name of the script (if any)." },
+                { "name": "sourceMapURL", "type": "string", "optional": true, "description": "URL of source map associated with script (if any)." }
             ],
             "description": "Fired when virtual machine parses script. This event is also fired for all known and uncollected scripts upon enabling debugger."
         },

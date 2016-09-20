@@ -37,6 +37,7 @@ CFDictionaryRef xpcEngineUpdate(CFTypeRef target, SecAssessmentFlags flags, CFDi
     CF_RETURNS_RETAINED;
 bool xpcEngineControl(const char *name);
 void xpcEngineRecord(CFDictionaryRef info);
+void xpcEngineCheckDevID(CFBooleanRef* result);
 
 
 } // end namespace CodeSigning

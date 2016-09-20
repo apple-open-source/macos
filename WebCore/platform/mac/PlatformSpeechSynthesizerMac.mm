@@ -30,7 +30,6 @@
 #include "PlatformSpeechSynthesisVoice.h"
 #include "WebCoreSystemInterface.h"
 #include <AppKit/NSSpeechSynthesizer.h>
-#include <wtf/PassRefPtr.h>
 #include <wtf/RetainPtr.h>
 
 #if ENABLE(SPEECH_SYNTHESIS)
@@ -40,7 +39,7 @@
     WebCore::PlatformSpeechSynthesizer* m_synthesizerObject;
     // Hold a Ref to the utterance so that it won't disappear until the synth is done with it.
     WebCore::PlatformSpeechSynthesisUtterance* m_utterance;
-    
+
     RetainPtr<NSSpeechSynthesizer> m_synthesizer;
     float m_basePitch;
 }
@@ -56,7 +55,7 @@
 {
     if (!(self = [super init]))
         return nil;
-    
+
     m_synthesizerObject = synthesizer;
     [self updateBasePitchForSynthesizer];
     return self;
@@ -88,30 +87,28 @@
     // When speak is called we should not have an existing speech utterance outstanding.
     ASSERT(!m_utterance);
     ASSERT(utterance);
-    
+
     if (!m_synthesizer) {
         m_synthesizer = adoptNS([[NSSpeechSynthesizer alloc] initWithVoice:nil]);
         [m_synthesizer setDelegate:self];
     }
-    
+
     // Find if we should use a specific voice based on the voiceURI in utterance.
     // Otherwise, find the voice that matches the language. The Mac doesn't have a default voice per language, so the first
     // one will have to do.
-    Vector<RefPtr<WebCore::PlatformSpeechSynthesisVoice>> voiceList = m_synthesizerObject->voiceList();
-    size_t voiceListSize = voiceList.size();
-    
+
     WebCore::PlatformSpeechSynthesisVoice* utteranceVoice = utterance->voice();
     // If no voice was specified, try to match by language.
     if (!utteranceVoice && !utterance->lang().isEmpty()) {
-        for (size_t k = 0; k < voiceListSize; k++) {
-            if (equalIgnoringCase(utterance->lang(), voiceList[k]->lang())) {
-                utteranceVoice = voiceList[k].get();
-                if (voiceList[k]->isDefault())
+        for (auto& voice : m_synthesizerObject->voiceList()) {
+            if (equalIgnoringASCIICase(utterance->lang(), voice->lang())) {
+                utteranceVoice = voice.get();
+                if (voice->isDefault())
                     break;
             }
         }
     }
-    
+
     NSString *voiceURI = nil;
     if (utteranceVoice)
         voiceURI = utteranceVoice->voiceURI();
@@ -126,44 +123,44 @@
         // Reset the base pitch whenever we change voices.
         updatePitch = YES;
     }
-    
+
     if (m_basePitch == 0 || updatePitch)
-        [self updateBasePitchForSynthesizer];    
-    
+        [self updateBasePitchForSynthesizer];
+
     [m_synthesizer setObject:[NSNumber numberWithFloat:[self convertPitchToNSSpeechValue:utterance->pitch()]] forProperty:NSSpeechPitchBaseProperty error:nil];
     [m_synthesizer setRate:[self convertRateToWPM:utterance->rate()]];
     [m_synthesizer setVolume:utterance->volume()];
-    
+
     m_utterance = utterance;
     [m_synthesizer startSpeakingString:utterance->text()];
-    m_synthesizerObject->client()->didStartSpeaking(utterance);
+    m_synthesizerObject->client()->didStartSpeaking(*m_utterance);
 }
 
 - (void)pause
 {
     if (!m_utterance)
         return;
-    
+
     [m_synthesizer pauseSpeakingAtBoundary:NSSpeechImmediateBoundary];
-    m_synthesizerObject->client()->didPauseSpeaking(m_utterance);
+    m_synthesizerObject->client()->didPauseSpeaking(*m_utterance);
 }
 
 - (void)resume
 {
     if (!m_utterance)
         return;
-    
+
     [m_synthesizer continueSpeaking];
-    m_synthesizerObject->client()->didResumeSpeaking(m_utterance);
+    m_synthesizerObject->client()->didResumeSpeaking(*m_utterance);
 }
 
 - (void)cancel
 {
     if (!m_utterance)
         return;
-    
+
     [m_synthesizer stopSpeakingAtBoundary:NSSpeechImmediateBoundary];
-    m_synthesizerObject->client()->speakingErrorOccurred(m_utterance);
+    m_synthesizerObject->client()->speakingErrorOccurred(*m_utterance);
     m_utterance = 0;
 }
 
@@ -178,17 +175,17 @@
 {
     if (!m_utterance)
         return;
-    
+
     UNUSED_PARAM(sender);
-    
+
     // Clear the m_utterance variable in case finish speaking kicks off a new speaking job immediately.
     WebCore::PlatformSpeechSynthesisUtterance* utterance = m_utterance;
     m_utterance = 0;
-    
+
     if (finishedSpeaking)
-        m_synthesizerObject->client()->didFinishSpeaking(utterance);
+        m_synthesizerObject->client()->didFinishSpeaking(*utterance);
     else
-        m_synthesizerObject->client()->speakingErrorOccurred(utterance);
+        m_synthesizerObject->client()->speakingErrorOccurred(*utterance);
 }
 
 - (void)speechSynthesizer:(NSSpeechSynthesizer *)sender willSpeakWord:(NSRange)characterRange ofString:(NSString *)string
@@ -200,7 +197,7 @@
         return;
 
     // Mac platform only supports word boundaries.
-    m_synthesizerObject->client()->boundaryEventOccurred(m_utterance, WebCore::SpeechWordBoundary, characterRange.location);
+    m_synthesizerObject->client()->boundaryEventOccurred(*m_utterance, WebCore::SpeechWordBoundary, characterRange.location);
 }
 
 @end
@@ -208,8 +205,7 @@
 namespace WebCore {
 
 PlatformSpeechSynthesizer::PlatformSpeechSynthesizer(PlatformSpeechSynthesizerClient* client)
-    : m_voiceListIsInitialized(false)
-    , m_speechSynthesizerClient(client)
+    : m_speechSynthesizerClient(client)
 {
 }
 
@@ -225,23 +221,23 @@ void PlatformSpeechSynthesizer::initializeVoiceList()
     for (NSUInteger k = 0; k < count; k++) {
         NSString *voiceName = [availableVoices objectAtIndex:k];
         NSDictionary *attributes = [NSSpeechSynthesizer attributesForVoice:voiceName];
-        
+
         NSString *voiceURI = [attributes objectForKey:NSVoiceIdentifier];
         NSString *name = [attributes objectForKey:NSVoiceName];
         NSString *language = [attributes objectForKey:NSVoiceLocaleIdentifier];
         NSLocale *locale = [[NSLocale alloc] initWithLocaleIdentifier:language];
         NSString *defaultVoiceURI = wkSpeechSynthesisGetDefaultVoiceIdentifierForLocale(locale);
         [locale release];
-        
+
         // Change to BCP-47 format as defined by spec.
         language = [language stringByReplacingOccurrencesOfString:@"_" withString:@"-"];
-        
+
         bool isDefault = [defaultVoiceURI isEqualToString:voiceURI];
-        
+
         m_voiceList.append(PlatformSpeechSynthesisVoice::create(voiceURI, name, language, true, isDefault));
     }
 }
-    
+
 void PlatformSpeechSynthesizer::pause()
 {
     [m_platformSpeechWrapper.get() pause];
@@ -251,12 +247,12 @@ void PlatformSpeechSynthesizer::resume()
 {
     [m_platformSpeechWrapper.get() resume];
 }
-    
-void PlatformSpeechSynthesizer::speak(PassRefPtr<PlatformSpeechSynthesisUtterance> utterance)
+
+void PlatformSpeechSynthesizer::speak(RefPtr<PlatformSpeechSynthesisUtterance>&& utterance)
 {
     if (!m_platformSpeechWrapper)
         m_platformSpeechWrapper = adoptNS([[WebSpeechSynthesisWrapper alloc] initWithSpeechSynthesizer:this]);
-    
+
     [m_platformSpeechWrapper.get() speakUtterance:utterance.get()];
 }
 
@@ -264,7 +260,7 @@ void PlatformSpeechSynthesizer::cancel()
 {
     [m_platformSpeechWrapper.get() cancel];
 }
-    
+
 } // namespace WebCore
 
 #endif // ENABLE(SPEECH_SYNTHESIS)

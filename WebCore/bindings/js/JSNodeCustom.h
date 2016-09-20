@@ -23,26 +23,21 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef JSNodeCustom_h
-#define JSNodeCustom_h
+#pragma once
 
 #include "JSDOMBinding.h"
 #include "JSNode.h"
-#include "ScriptState.h"
 #include "ShadowRoot.h"
 
 namespace WebCore {
 
-WEBCORE_EXPORT JSC::JSValue createWrapper(JSC::ExecState*, JSDOMGlobalObject*, Node*);
-WEBCORE_EXPORT JSC::JSObject* getOutOfLineCachedWrapper(JSDOMGlobalObject*, Node*);
+WEBCORE_EXPORT JSC::JSValue createWrapper(JSC::ExecState*, JSDOMGlobalObject*, Ref<Node>&&);
+WEBCORE_EXPORT JSC::JSObject* getOutOfLineCachedWrapper(JSDOMGlobalObject*, Node&);
 
-inline JSC::JSValue toJS(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, Node* node)
+inline JSC::JSValue toJS(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, Node& node)
 {
-    if (!node)
-        return JSC::jsNull();
-
     if (LIKELY(globalObject->worldIsNormal())) {
-        if (auto* wrapper = node->wrapper())
+        if (auto* wrapper = node.wrapper())
             return wrapper;
     } else {
         if (auto* wrapper = getOutOfLineCachedWrapper(globalObject, node))
@@ -91,5 +86,3 @@ ALWAYS_INLINE JSNode* jsNodeCast(JSC::JSValue value)
 }
 
 } // namespace WebCore
-
-#endif // JSDOMNodeCustom_h

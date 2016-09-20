@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -29,16 +29,13 @@
  */
 
 
-#include <CoreFoundation/CoreFoundation.h>
-#include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCPrivate.h>
-
 #include "eventmon.h"
 #include "ev_extra.h"
 
 
+
 static CFBooleanRef
-is_expensive(SCNetworkInterfaceRef interface)
+is_expensive(SCNetworkInterfaceRef _Nonnull interface)
 {
 	CFBooleanRef	expensive	= NULL;
 	CFStringRef	interfaceType;

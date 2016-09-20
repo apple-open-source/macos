@@ -70,8 +70,23 @@ typedef struct _pthread_attr_t pthread_attr_t;
 #include <libkern/OSAtomic.h>
 #include <mach/mach.h>
 #include <mach/mach_error.h>
-#include <os/once_private.h>
 #include <sys/queue.h>
+
+#define __OS_EXPOSE_INTERNALS__ 1
+#include <os/internal/internal_shared.h>
+#include <os/once_private.h>
+
+#define PTHREAD_INTERNAL_CRASH(c, x) do { \
+		_os_set_crash_log_cause_and_message((c), \
+				"BUG IN LIBPTHREAD: " x); \
+		__builtin_trap(); \
+	} while (0)
+
+#define PTHREAD_CLIENT_CRASH(c, x) do { \
+		_os_set_crash_log_cause_and_message((c), \
+				"BUG IN CLIENT OF LIBPTHREAD: " x); \
+		__builtin_trap(); \
+	} while (0)
 
 #ifndef __POSIX_LIB__
 #define __POSIX_LIB__
@@ -85,6 +100,16 @@ typedef struct _pthread_attr_t pthread_attr_t;
 #include "tsd_private.h"
 #include "spinlock_private.h"
 
+#define OS_UNFAIR_LOCK_INLINE 1
+#include <os/lock_private.h>
+typedef os_unfair_lock _pthread_lock;
+#define _PTHREAD_LOCK_INITIALIZER OS_UNFAIR_LOCK_INIT
+#define _PTHREAD_LOCK_INIT(lock) ((lock) = (_pthread_lock)_PTHREAD_LOCK_INITIALIZER)
+#define _PTHREAD_LOCK(lock) os_unfair_lock_lock_with_options_inline(&(lock), OS_UNFAIR_LOCK_DATA_SYNCHRONIZATION)
+#define _PTHREAD_LOCK_FROM_MACH_THREAD(lock) os_unfair_lock_lock_inline_no_tsd_4libpthread(&(lock))
+#define _PTHREAD_UNLOCK(lock) os_unfair_lock_unlock_inline(&(lock))
+#define _PTHREAD_UNLOCK_FROM_MACH_THREAD(lock) os_unfair_lock_unlock_inline_no_tsd_4libpthread(&(lock))
+
 #if TARGET_IPHONE_SIMULATOR
 #error Unsupported target
 #endif
@@ -94,7 +119,7 @@ TAILQ_HEAD(__pthread_list, _pthread);
 extern struct __pthread_list __pthread_head;
 
 // Lock protects access to above list.
-extern pthread_lock_t _pthread_list_lock;
+extern _pthread_lock _pthread_list_lock;
 
 extern int __is_threaded;
 
@@ -129,7 +154,7 @@ typedef struct _pthread {
 			childexit:1,
 			pad3:29;
 	
-	pthread_lock_t lock; // protect access to everything below
+	_pthread_lock lock; // protect access to everything below
 	uint32_t detached:8,
 			inherit:8,
 			policy:8,
@@ -139,10 +164,9 @@ typedef struct _pthread {
 			wqkillset:1,
 			pad:4;
 
-#if __LP64__
+#if defined(__LP64__)
 	uint32_t pad0;
 #endif
-	uint64_t thread_id;	// 64-bit unique thread id
 
 	void *(*fun)(void*);	// thread start routine
 	void *arg;		// thread start routine argument
@@ -154,11 +178,6 @@ typedef struct _pthread {
 	int cancel_state;	// whether the thread can be cancelled
 	int cancel_error;
 
-#ifdef __i386__
-	// i386 err_no must be at a 68 byte offset
-	// See <rdar://problem/13249323>
-	uint32_t __13249323_pad[3];
-#endif
 	int err_no;		// thread-local errno
 
 	struct _pthread *joiner;
@@ -168,7 +187,7 @@ typedef struct _pthread {
 	TAILQ_ENTRY(_pthread) plist;	// global thread list [aligned]
 
 	char pthread_name[MAXTHREADNAMESIZE];	// includes NUL [aligned]
-	
+
 	void *stackaddr;	// base of the stack (page aligned)
 	size_t stacksize;	// size of stack (page multiple and >= PTHREAD_STACK_MIN)
 
@@ -176,14 +195,26 @@ typedef struct _pthread {
 	size_t freesize;	// stack/thread allocation size
 	size_t guardsize;	// guard page size in bytes
 
-	// thread specific data
-	void *tsd[_EXTERNAL_POSIX_THREAD_KEYS_MAX + _INTERNAL_POSIX_THREAD_KEYS_MAX] __attribute__ ((aligned (16)));
+	// tsd-base relative accessed elements
+	__attribute__((aligned(8)))
+	uint64_t thread_id;	// 64-bit unique thread id
+
+	/* Thread Specific Data slots
+	 *
+	 * The offset of this field from the start of the structure is difficult to
+	 * change on OS X because of a thorny bitcompat issue: mono has hard coded
+	 * the value into their source.  Newer versions of mono will fall back to
+	 * scanning to determine it at runtime, but there's lots of software built
+	 * with older mono that won't.  We will have to break them someday...
+	 */
+	__attribute__ ((aligned (16)))
+	void *tsd[_EXTERNAL_POSIX_THREAD_KEYS_MAX + _INTERNAL_POSIX_THREAD_KEYS_MAX];
 } *pthread_t;
 
 
 struct _pthread_attr_t {
 	long sig;
-	pthread_lock_t lock;
+	_pthread_lock lock;
 	uint32_t detached:8,
 		inherit:8,
 		policy:8,
@@ -240,7 +271,7 @@ struct _pthread_mutex_options {
 
 typedef struct {
 	long sig;
-	pthread_lock_t lock;
+	_pthread_lock lock;
 	union {
 		uint32_t value;
 		struct _pthread_mutex_options options;
@@ -271,7 +302,7 @@ typedef struct {
 
 typedef struct {
 	long sig;
-	pthread_lock_t lock;
+	_pthread_lock lock;
 	uint32_t unused:29,
 		misalign:1,
 		pshared:2;
@@ -304,7 +335,7 @@ typedef struct {
 
 typedef struct {
 	long sig;
-	pthread_lock_t lock;
+	_pthread_lock lock;
 	uint32_t unused:29,
 		misalign:1,
 		pshared:2;
@@ -501,6 +532,9 @@ PTHREAD_ALWAYS_INLINE
 static inline void
 _pthread_set_kernel_thread(pthread_t t, mach_port_t p)
 {
+	if (os_slowpath(!MACH_PORT_VALID(p))) {
+		PTHREAD_INTERNAL_CRASH(t, "Invalid thread port");
+	}
 	t->tsd[_PTHREAD_TSD_SLOT_MACH_THREAD_SELF] = p;
 }
 
@@ -523,8 +557,8 @@ struct pthread_atfork_entry {
 struct pthread_globals_s {
 	// atfork.c
 	pthread_t psaved_self;
-	OSSpinLock psaved_self_global_lock;
-	OSSpinLock pthread_atfork_lock;
+	_pthread_lock psaved_self_global_lock;
+	_pthread_lock pthread_atfork_lock;
 
 	size_t atfork_count;
 	struct pthread_atfork_entry atfork_storage[PTHREAD_ATFORK_INLINE_MAX];

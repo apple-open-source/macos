@@ -61,7 +61,7 @@ CredentialImpl::CredentialImpl(const string &username, const string &password, b
         int checkpw_status = checkpw_internal(pw, passwd);
 
         if (checkpw_status != CHECKPW_SUCCESS) {
-            syslog(LOG_ERR, "checkpw() returned %d; failed to authenticate user %s (uid %lu).", checkpw_status, pw->pw_name, pw->pw_uid);
+            syslog(LOG_ERR, "checkpw() returned %d; failed to authenticate user %s (uid %u).", checkpw_status, pw->pw_name, pw->pw_uid);
             break;
         }
 

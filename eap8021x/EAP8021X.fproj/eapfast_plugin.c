@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -69,7 +69,7 @@
     { if (__string != NULL)						\
 	    CFStringAppendFormat(__string, NULL, CFSTR(__format),	\
 				 ## __VA_ARGS__);			\
-	else EAPLog(__level, CFSTR(__format), ## __VA_ARGS__); }
+	else EAPLOG(__level, __format, ## __VA_ARGS__); }
 
 #define EAP_FAST_NAME		"EAP-FAST"
 #define EAP_FAST_NAME_LENGTH	(sizeof(EAP_FAST_NAME) - 1)
@@ -1091,7 +1091,9 @@ remove_pac(CFDictionaryRef pac_dict,
 			  kCFPreferencesCurrentUser,
 			  kCFPreferencesAnyHost);
     my_CFRelease(&new_pac_list);
-    (void)CFPreferencesAppSynchronize(kEAPFASTApplicationID);
+    (void)CFPreferencesSynchronize(kEAPFASTApplicationID,
+			  kCFPreferencesCurrentUser,
+			  kCFPreferencesAnyHost);
 
  done:
     my_CFRelease(&pac_list);
@@ -1189,7 +1191,9 @@ save_pac(bool system_mode, PACTLVAttributeListRef tlvlist_p)
     CFPreferencesSetValue(kPACList, new_pac_list, kEAPFASTApplicationID,
 			  kCFPreferencesCurrentUser,
 			  kCFPreferencesAnyHost);
-    saved = CFPreferencesAppSynchronize(kEAPFASTApplicationID);
+    saved = CFPreferencesSynchronize(kEAPFASTApplicationID,
+			  kCFPreferencesCurrentUser,
+			  kCFPreferencesAnyHost);
 
  done:
     my_CFRelease(&pac_dict);
@@ -1352,6 +1356,7 @@ eap_client_set_properties(EAPClientPluginDataRef plugin)
 	*((CFDictionaryRef *)&context->eap.plugin_data.properties) = dict;
     }
     else {
+	my_CFRelease((CFDictionaryRef *)&context->eap.plugin_data.properties);
 	*((CFDictionaryRef *)&context->eap.plugin_data.properties) 
 	    = CFRetain(plugin->properties);
     }

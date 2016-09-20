@@ -33,6 +33,7 @@
 #import <WebCore/NetworkStorageSession.h>
 #import <WebCore/Page.h>
 #import <WebCore/ResourceError.h>
+#import <WebCore/SessionID.h>
 #import <WebCore/Settings.h>
 #import <wtf/NeverDestroyed.h>
 
@@ -49,14 +50,16 @@ static std::unique_ptr<NetworkStorageSession>& privateSession()
     return session;
 }
 
-void WebFrameNetworkingContext::ensurePrivateBrowsingSession()
+NetworkStorageSession& WebFrameNetworkingContext::ensurePrivateBrowsingSession()
 {
     ASSERT(isMainThread());
 
     if (privateSession())
-        return;
+        return *privateSession();
 
-    privateSession() = NetworkStorageSession::createPrivateBrowsingSession([[NSBundle mainBundle] bundleIdentifier]);
+    privateSession() = NetworkStorageSession::createPrivateBrowsingSession(SessionID::legacyPrivateSessionID(), [[NSBundle mainBundle] bundleIdentifier]);
+
+    return *privateSession();
 }
 
 void WebFrameNetworkingContext::destroyPrivateBrowsingSession()

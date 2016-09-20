@@ -318,6 +318,23 @@ SecCmsUtilMakeSignatureAlgorithm(SECOidTag hashalg, SECOidTag encalg)
 	  default:
 	    return SEC_OID_UNKNOWN;
 	}
+      case SEC_OID_EC_PUBLIC_KEY:
+        switch(hashalg) {
+          /*
+           * Note this is only used when signing and verifying signed attributes,
+           * In which case we really do want the combined ECDSA_WithSHA1 alg...
+           */
+          case SEC_OID_SHA1:
+            return SEC_OID_ECDSA_WithSHA1;
+          case SEC_OID_SHA256:
+            return SEC_OID_ECDSA_WITH_SHA256;
+          case SEC_OID_SHA384:
+            return SEC_OID_ECDSA_WITH_SHA384;
+          case SEC_OID_SHA512:
+            return SEC_OID_ECDSA_WITH_SHA512;
+          default:
+            return SEC_OID_UNKNOWN;
+        }
       default:
 	break;
     }

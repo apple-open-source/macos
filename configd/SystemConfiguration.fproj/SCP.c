@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007-2009, 2011, 2014, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2009, 2011, 2014-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -31,8 +31,6 @@
  * - initial revision
  */
 
-#include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCPrivate.h>
 #include "SCPreferencesInternal.h"
 #include "SCNetworkConfigurationInternal.h"
 
@@ -109,7 +107,7 @@ __SCPreferencesPath(CFAllocatorRef	allocator,
 
 		pathLen = CFStringGetMaximumSizeOfFileSystemRepresentation(path);
 		pathStr = CFAllocatorAllocate(NULL, pathLen, 0);
-		if (CFStringGetFileSystemRepresentation(path, pathStr, pathLen) == FALSE) {
+		if (!CFStringGetFileSystemRepresentation(path, pathStr, pathLen)) {
 			SC_log(LOG_INFO, "could not convert path to C string");
 			CFAllocatorDeallocate(NULL, pathStr);
 			pathStr = NULL;
@@ -179,7 +177,7 @@ __SCPreferencesCreateNIPrefsFromPrefs(SCPreferencesRef prefs)
 			       kCFCompareBackwards);
 
 	newURL = CFURLCreateWithFileSystemPath(NULL, newPath, kCFURLPOSIXPathStyle, FALSE);
-	if (CFURLResourceIsReachable(newURL, NULL) == FALSE) {
+	if (!CFURLResourceIsReachable(newURL, NULL)) {
 		ni_prefs = __SCNetworkCreateDefaultNIPrefs(newPath);
 	}
 	else {

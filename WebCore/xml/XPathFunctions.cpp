@@ -63,158 +63,158 @@ private:
 };
 
 class FunLast final : public Function {
-    virtual Value evaluate() const override;
-    virtual Value::Type resultType() const override { return Value::NumberValue; }
+    Value evaluate() const override;
+    Value::Type resultType() const override { return Value::NumberValue; }
 public:
     FunLast() { setIsContextSizeSensitive(true); }
 };
 
 class FunPosition final : public Function {
-    virtual Value evaluate() const override;
-    virtual Value::Type resultType() const override { return Value::NumberValue; }
+    Value evaluate() const override;
+    Value::Type resultType() const override { return Value::NumberValue; }
 public:
     FunPosition() { setIsContextPositionSensitive(true); }
 };
 
 class FunCount final : public Function {
-    virtual Value evaluate() const override;
-    virtual Value::Type resultType() const override { return Value::NumberValue; }
+    Value evaluate() const override;
+    Value::Type resultType() const override { return Value::NumberValue; }
 };
 
 class FunId final : public Function {
-    virtual Value evaluate() const override;
-    virtual Value::Type resultType() const override { return Value::NodeSetValue; }
+    Value evaluate() const override;
+    Value::Type resultType() const override { return Value::NodeSetValue; }
 };
 
 class FunLocalName final : public Function {
-    virtual Value evaluate() const override;
-    virtual Value::Type resultType() const override { return Value::StringValue; }
+    Value evaluate() const override;
+    Value::Type resultType() const override { return Value::StringValue; }
 public:
     FunLocalName() { setIsContextNodeSensitive(true); } // local-name() with no arguments uses context node. 
 };
 
 class FunNamespaceURI final : public Function {
-    virtual Value evaluate() const override;
-    virtual Value::Type resultType() const override { return Value::StringValue; }
+    Value evaluate() const override;
+    Value::Type resultType() const override { return Value::StringValue; }
 public:
     FunNamespaceURI() { setIsContextNodeSensitive(true); } // namespace-uri() with no arguments uses context node. 
 };
 
 class FunName final : public Function {
-    virtual Value evaluate() const override;
-    virtual Value::Type resultType() const override { return Value::StringValue; }
+    Value evaluate() const override;
+    Value::Type resultType() const override { return Value::StringValue; }
 public:
     FunName() { setIsContextNodeSensitive(true); } // name() with no arguments uses context node. 
 };
 
 class FunString final : public Function {
-    virtual Value evaluate() const override;
-    virtual Value::Type resultType() const override { return Value::StringValue; }
+    Value evaluate() const override;
+    Value::Type resultType() const override { return Value::StringValue; }
 public:
     FunString() { setIsContextNodeSensitive(true); } // string() with no arguments uses context node. 
 };
 
 class FunConcat final : public Function {
-    virtual Value evaluate() const override;
-    virtual Value::Type resultType() const override { return Value::StringValue; }
+    Value evaluate() const override;
+    Value::Type resultType() const override { return Value::StringValue; }
 };
 
 class FunStartsWith final : public Function {
-    virtual Value evaluate() const override;
-    virtual Value::Type resultType() const override { return Value::BooleanValue; }
+    Value evaluate() const override;
+    Value::Type resultType() const override { return Value::BooleanValue; }
 };
 
 class FunContains final : public Function {
-    virtual Value evaluate() const override;
-    virtual Value::Type resultType() const override { return Value::BooleanValue; }
+    Value evaluate() const override;
+    Value::Type resultType() const override { return Value::BooleanValue; }
 };
 
 class FunSubstringBefore final : public Function {
-    virtual Value evaluate() const override;
-    virtual Value::Type resultType() const override { return Value::StringValue; }
+    Value evaluate() const override;
+    Value::Type resultType() const override { return Value::StringValue; }
 };
 
 class FunSubstringAfter final : public Function {
-    virtual Value evaluate() const override;
-    virtual Value::Type resultType() const override { return Value::StringValue; }
+    Value evaluate() const override;
+    Value::Type resultType() const override { return Value::StringValue; }
 };
 
 class FunSubstring final : public Function {
-    virtual Value evaluate() const override;
-    virtual Value::Type resultType() const override { return Value::StringValue; }
+    Value evaluate() const override;
+    Value::Type resultType() const override { return Value::StringValue; }
 };
 
 class FunStringLength final : public Function {
-    virtual Value evaluate() const override;
-    virtual Value::Type resultType() const override { return Value::NumberValue; }
+    Value evaluate() const override;
+    Value::Type resultType() const override { return Value::NumberValue; }
 public:
     FunStringLength() { setIsContextNodeSensitive(true); } // string-length() with no arguments uses context node. 
 };
 
 class FunNormalizeSpace final : public Function {
-    virtual Value evaluate() const override;
-    virtual Value::Type resultType() const override { return Value::StringValue; }
+    Value evaluate() const override;
+    Value::Type resultType() const override { return Value::StringValue; }
 public:
     FunNormalizeSpace() { setIsContextNodeSensitive(true); } // normalize-space() with no arguments uses context node. 
 };
 
 class FunTranslate final : public Function {
-    virtual Value evaluate() const override;
-    virtual Value::Type resultType() const override { return Value::StringValue; }
+    Value evaluate() const override;
+    Value::Type resultType() const override { return Value::StringValue; }
 };
 
 class FunBoolean final : public Function {
-    virtual Value evaluate() const override;
-    virtual Value::Type resultType() const override { return Value::BooleanValue; }
+    Value evaluate() const override;
+    Value::Type resultType() const override { return Value::BooleanValue; }
 };
 
 class FunNot : public Function {
-    virtual Value evaluate() const override;
-    virtual Value::Type resultType() const override { return Value::BooleanValue; }
+    Value evaluate() const override;
+    Value::Type resultType() const override { return Value::BooleanValue; }
 };
 
 class FunTrue final : public Function {
-    virtual Value evaluate() const override;
-    virtual Value::Type resultType() const override { return Value::BooleanValue; }
+    Value evaluate() const override;
+    Value::Type resultType() const override { return Value::BooleanValue; }
 };
 
 class FunFalse final : public Function {
-    virtual Value evaluate() const override;
-    virtual Value::Type resultType() const override { return Value::BooleanValue; }
+    Value evaluate() const override;
+    Value::Type resultType() const override { return Value::BooleanValue; }
 };
 
 class FunLang final : public Function {
-    virtual Value evaluate() const override;
-    virtual Value::Type resultType() const override { return Value::BooleanValue; }
+    Value evaluate() const override;
+    Value::Type resultType() const override { return Value::BooleanValue; }
 public:
     FunLang() { setIsContextNodeSensitive(true); } // lang() always works on context node. 
 };
 
 class FunNumber final : public Function {
-    virtual Value evaluate() const override;
-    virtual Value::Type resultType() const override { return Value::NumberValue; }
+    Value evaluate() const override;
+    Value::Type resultType() const override { return Value::NumberValue; }
 public:
     FunNumber() { setIsContextNodeSensitive(true); } // number() with no arguments uses context node. 
 };
 
 class FunSum final : public Function {
-    virtual Value evaluate() const override;
-    virtual Value::Type resultType() const override { return Value::NumberValue; }
+    Value evaluate() const override;
+    Value::Type resultType() const override { return Value::NumberValue; }
 };
 
 class FunFloor final : public Function {
-    virtual Value evaluate() const override;
-    virtual Value::Type resultType() const override { return Value::NumberValue; }
+    Value evaluate() const override;
+    Value::Type resultType() const override { return Value::NumberValue; }
 };
 
 class FunCeiling final : public Function {
-    virtual Value evaluate() const override;
-    virtual Value::Type resultType() const override { return Value::NumberValue; }
+    Value evaluate() const override;
+    Value::Type resultType() const override { return Value::NumberValue; }
 };
 
 class FunRound final : public Function {
-    virtual Value evaluate() const override;
-    virtual Value::Type resultType() const override { return Value::NumberValue; }
+    Value evaluate() const override;
+    Value::Type resultType() const override { return Value::NumberValue; }
 public:
     static double round(double);
 };
@@ -291,7 +291,7 @@ void Function::setArguments(const String& name, Vector<std::unique_ptr<Expressio
     if (name != "lang" && !arguments.isEmpty())
         setIsContextNodeSensitive(false);
 
-    setSubexpressions(WTF::move(arguments));
+    setSubexpressions(WTFMove(arguments));
 }
 
 Value FunLast::evaluate() const
@@ -355,13 +355,11 @@ Value FunId::evaluate() const
     
     result.markSorted(false);
     
-    return Value(WTF::move(result));
+    return Value(WTFMove(result));
 }
 
 static inline String expandedNameLocalPart(Node* node)
 {
-    // The local part of an XPath expanded-name matches DOM local name for most node types, except for namespace nodes and processing instruction nodes.
-    ASSERT(node->nodeType() != Node::XPATH_NAMESPACE_NODE); // Not supported yet.
     if (is<ProcessingInstruction>(*node))
         return downcast<ProcessingInstruction>(*node).target();
     return node->localName().string();
@@ -598,7 +596,7 @@ Value FunLang::evaluate() const
 
     String langValue = languageAttribute->value();
     while (true) {
-        if (equalIgnoringCase(langValue, lang))
+        if (equalIgnoringASCIICase(langValue, lang))
             return true;
 
         // Remove suffixes one by one.
@@ -737,7 +735,7 @@ std::unique_ptr<Function> Function::create(const String& name, Vector<std::uniqu
 {
     std::unique_ptr<Function> function = create(name, arguments.size());
     if (function)
-        function->setArguments(name, WTF::move(arguments));
+        function->setArguments(name, WTFMove(arguments));
     return function;
 }
 

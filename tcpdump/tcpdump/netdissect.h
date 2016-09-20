@@ -238,7 +238,9 @@ struct netdissect_options {
 #define PRMD_PID		0x0004
 #define PRMD_SVC		0x0008
 #define PRMD_DIR		0x0010
-#define PRMD_COMMENT	0x0020
+#define PRMD_COMMENT		0x0020
+#define PRMD_PUUID		0x0040
+#define PRMD_DEFAULT		(PRMD_IF|PRMD_PNAME|PRMD_PID|PRMD_SVC|PRMD_DIR|PRMD_COMMENT)
 #define PRMD_ALL		0xffff
 #endif /* __APPLE__ */
 

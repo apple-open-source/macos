@@ -49,7 +49,7 @@ gethrtime(void)
 		start = mach_absolute_time();
     }
     
-    elapsed = mach_absolute_time() - start;
+    elapsed = mach_absolute_time();
 
     // Convert to nanoseconds.
 	// return (elapsed * (uint64_t)sTimebaseInfo.numer)/(uint64_t)sTimebaseInfo.denom;

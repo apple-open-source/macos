@@ -32,6 +32,7 @@
 #include <security_utilities/errors.h>
 #include <security_utilities/threading.h>
 #include <security_utilities/globalizer.h>
+#include <security_utilities/debugging_internal.h>
 #include <mach/mach.h>
 #include <servers/bootstrap.h>
 #include <set>

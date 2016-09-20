@@ -247,6 +247,8 @@ int secd_70_engine_corrupt(int argc, char *const *argv)
 {
     plan_tests(kTestTestCount);
 
+    __security_simulatecrash_enable(false);
+
     /* custom keychain dir */
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
 
@@ -255,6 +257,8 @@ int secd_70_engine_corrupt(int argc, char *const *argv)
     drop_manifest();
     add_sha1();
     change_sha1();
+
+    __security_simulatecrash_enable(true);
 
     return 0;
 }

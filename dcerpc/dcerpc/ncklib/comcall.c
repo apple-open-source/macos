@@ -445,7 +445,8 @@ PUBLIC void rpc_call_receive
 **
 **--
 **/
-
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PUBLIC void rpc_call_block_until_free
 (
     rpc_call_handle_t       call_h,
@@ -460,7 +461,7 @@ PUBLIC void rpc_call_block_until_free
     (*rpc_g_protocol_id[((rpc_call_rep_p_t) (call_h))->protocol_id].call_epv
         ->call_block_until_free) ((rpc_call_rep_p_t) call_h, status);
 }
-
+#endif
 /*
 **++
 **
@@ -496,7 +497,8 @@ PUBLIC void rpc_call_block_until_free
 **
 **--
 **/
-
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PUBLIC void rpc_call_cancel
 (
     rpc_call_handle_t       call_h,
@@ -511,7 +513,7 @@ PUBLIC void rpc_call_cancel
     (*rpc_g_protocol_id[((rpc_call_rep_p_t) (call_h))->protocol_id].call_epv
         ->call_cancel) ((rpc_call_rep_p_t) call_h, status);
 }
-
+#endif
 /*
 **++
 **

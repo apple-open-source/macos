@@ -31,13 +31,18 @@
 
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecCoreCrypto.h>
+#include <utilities/SecBuffer.h>
+
 #include <Security/SecureObjectSync/SOSKVSKeys.h>
 #include <SOSPeerInfoDER.h>
 
 #include <Security/SecureObjectSync/SOSTransport.h>
 
 #include <Security/SecureObjectSync/SOSPeerInfoCollections.h>
+#include <os/state_private.h>
 
+#include "SOSAccountPriv.h"
+#define kSecServerPeerInfoAvailable "com.apple.security.fpiAvailable"
 
 
 static SOSAccountRef SOSAccountCreateFromRemainingDER_v6(CFAllocatorRef allocator,
@@ -310,6 +315,9 @@ SOSAccountRef SOSAccountCreateFromDER(CFAllocatorRef allocator,
     /* I may not always have an identity, but when I do, it has a private key */
     if(account->my_identity) {
         require_action_quiet(SOSFullPeerInfoPrivKeyExists(account->my_identity), errOut, secnotice("account", "No private key associated with my_identity, resetting"));
+        notify_post(kSecServerPeerInfoAvailable);
+        if(account->deviceID)
+            SOSFullPeerInfoUpdateDeviceID(account->my_identity, account->deviceID, error);
     }
     
     require_action_quiet(SOSAccountEnsureFactoryCircles(account), errOut,
@@ -317,16 +325,34 @@ SOSAccountRef SOSAccountCreateFromDER(CFAllocatorRef allocator,
 
     SOSPeerInfoRef myPI = SOSAccountGetMyPeerInfo(account);
     if (myPI) {
-        // if we were syncing legacy keychain, ensure we include those legacy views.
-        bool wasSyncingLegacy = !SOSPeerInfoVersionIsCurrent(myPI) && SOSAccountIsInCircle(account, NULL);
-        CFSetRef viewsToEnsure = SOSViewsCreateDefault(wasSyncingLegacy, NULL);
-        SOSAccountUpdateFullPeerInfo(account, viewsToEnsure, SOSViewsGetV0ViewSet()); // We don't permit V0 view proper, only sub-views
-        CFReleaseNull(viewsToEnsure);
+        if(SOSAccountHasCompletedInitialSync(account)) {
+            CFMutableSetRef viewsToEnsure = SOSViewCopyViewSet(kViewSetAlwaysOn);
+
+            // Previous version PeerInfo if we were syncing legacy keychain, ensure we include those legacy views.
+            if(!SOSPeerInfoVersionIsCurrent(myPI) && SOSAccountIsInCircle(account, NULL)) {
+                CFSetRef V0toAdd = SOSViewCopyViewSet(kViewSetV0);
+                CFSetUnion(viewsToEnsure, V0toAdd);
+                CFReleaseNull(V0toAdd);
+            }
+            
+            SOSAccountUpdateFullPeerInfo(account, viewsToEnsure, SOSViewsGetV0ViewSet()); // We don't permit V0 view proper, only sub-views
+            CFReleaseNull(viewsToEnsure);
+        }
+        
+        SOSPeerInfoRef oldPI = myPI;
+        // if UpdateFullPeerInfo did something - we need to make sure we have the right Ref
+        myPI = SOSAccountGetMyPeerInfo(account);
+        if(oldPI != myPI) secnotice("canary", "Caught spot where PIs differ in account setup");
+        CFStringRef transportTypeInflatedFromDER = SOSPeerInfoCopyTransportType(myPI);
+        if (CFStringCompare(transportTypeInflatedFromDER, CFSTR("IDS"), 0) == 0 || CFStringCompare(transportTypeInflatedFromDER, CFSTR("KVS"), 0) == 0)
+            SOSFullPeerInfoUpdateTransportType(account->my_identity, SOSTransportMessageTypeIDSV2, NULL); //update the transport type to the current IDS V2 type
+               
+        CFReleaseNull(transportTypeInflatedFromDER);
     }
-    
-    SOSAccountCheckHasBeenInSync(account);
-    
-    SOSUpdateKeyInterest(account);
+
+    SOSAccountWithTransactionSync(account, ^(SOSAccountRef account, SOSAccountTransactionRef txn) {
+        account->key_interests_need_updating = true;
+    });
 
     result = CFRetainSafe(account);
 
@@ -404,12 +430,9 @@ uint8_t* SOSAccountEncodeToDER(SOSAccountRef account, CFErrorRef* error, const u
 
 CFDataRef SOSAccountCopyEncodedData(SOSAccountRef account, CFAllocatorRef allocator, CFErrorRef *error)
 {
-    size_t size = SOSAccountGetDEREncodedSize(account, error);
-    if (size == 0)
-        return NULL;
-    uint8_t buffer[size];
-    uint8_t* start = SOSAccountEncodeToDER(account, error, buffer, buffer + sizeof(buffer));
-    CFDataRef result = CFDataCreate(kCFAllocatorDefault, start, size);
-    return result;
+    return CFDataCreateWithDER(kCFAllocatorDefault, SOSAccountGetDEREncodedSize(account, error), ^uint8_t*(size_t size, uint8_t *buffer) {
+        return SOSAccountEncodeToDER(account, error, buffer, (uint8_t *) buffer + size);
+    });
 }
+
 

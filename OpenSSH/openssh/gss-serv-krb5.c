@@ -1,7 +1,7 @@
 /* $OpenBSD: gss-serv-krb5.c,v 1.8 2013/07/20 01:55:13 djm Exp $ */
 
 /*
- * Copyright (c) 2001-2007 Simon Wilkinson. All rights reserved.
+ * Copyright (c) 2001-2003 Simon Wilkinson. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,8 +28,6 @@
 
 #ifdef GSSAPI
 #ifdef KRB5
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 #include <sys/types.h>
 
@@ -58,10 +56,6 @@ extern ServerOptions options;
 # include <gssapi/gssapi_krb5.h>
 #endif
 
-#ifdef __APPLE_CROSS_REALM__
-#include <membership.h>
-#endif
-
 static krb5_context krb_context = NULL;
 
 /* Initialise the krb5 library, for the stuff that GSSAPI won't do */
@@ -82,45 +76,6 @@ ssh_gssapi_krb5_init(void)
 
 	return 1;
 }
-
-#ifdef __APPLE_CROSS_REALM__
-/* Check if the principal matches any of the user's OD entries for RecordName */
-krb5_boolean
-od_kuserok(krb5_context context, krb5_principal principal, const char *luser)
-{
-	char *kprinc = NULL;
-	int ret = 0, retval = FALSE;
-	uuid_t krb_uuid, un_uuid;
-
-	ret = krb5_unparse_name(context, principal, &kprinc);
-	if (ret  > 0) {
-		logit("od_kuserok - krb5_unparse_name failed: %d", ret);
-		goto error;
-	}
-
-	ret = mbr_identifier_to_uuid(ID_TYPE_USERNAME, luser, strlen(luser), un_uuid);
-	if (!ret) {
-		logit("od_kuserok - mbr_identifier_to_uuid: %d", ret);
-		goto error;
-	}
-
-	ret = mbr_identifier_to_uuid(ID_TYPE_KERBEROS, kprinc, strlen(kprinc), krb_uuid);
-	if (!ret) {
-		goto error;
-	}
-
-	ret = uuid_compare(krb_uuid, un_uuid);
-	if (0 == ret)  {
-		retval = TRUE;
-	}
-
-error:
-	if (kprinc)
-		free(kprinc);
-
-	return retval;
-}
-#endif
 
 /* Check if this user is OK to login. This only works with krb5 - other
  * GSSAPI mechanisms will need their own.
@@ -148,12 +103,6 @@ ssh_gssapi_krb5_userok(ssh_gssapi_client *client, char *name)
 		retval = 1;
 		logit("Authorized to %s, krb5 principal %s (krb5_kuserok)",
 		    name, (char *)client->displayname.value);
-#ifdef __APPLE_CROSS_REALM__
-	} else if (od_kuserok(krb_context, princ, name)) {
-		retval = 1;
-		logit("Authorized to %s, krb5 principal %s (od_kuserok)",
-			  name, (char *)client->displayname.value);
-#endif
 	} else
 		retval = 0;
 
@@ -173,7 +122,6 @@ ssh_gssapi_krb5_storecreds(ssh_gssapi_client *client)
 	krb5_principal princ;
 	OM_uint32 maj_status, min_status;
 	int len;
-	const char *new_ccname;
 	const char *errmsg;
 
 	if (client->creds == NULL) {
@@ -233,18 +181,12 @@ ssh_gssapi_krb5_storecreds(ssh_gssapi_client *client)
 		return;
 	}
 
-	new_ccname = krb5_cc_get_name(krb_context, ccache);
-
+	client->store.filename = xstrdup(krb5_cc_get_name(krb_context, ccache));
 	client->store.envvar = "KRB5CCNAME";
-#ifdef USE_CCAPI
-	xasprintf(&client->store.envval, "API:%s", new_ccname);
-	client->store.filename = NULL;
-#else
-	xasprintf(&client->store.envval, "FILE:%s", new_ccname);
-	client->store.filename = xstrdup(new_ccname);
-#endif
-		
-		
+	len = strlen(client->store.filename) + 6;
+	client->store.envval = xmalloc(len);
+	snprintf(client->store.envval, len, "FILE:%s", client->store.filename);
+
 #ifdef USE_PAM
 	if (options.use_pam)
 		do_pam_putenv(client->store.envvar, client->store.envval);
@@ -255,71 +197,6 @@ ssh_gssapi_krb5_storecreds(ssh_gssapi_client *client)
 	return;
 }
 
-int
-ssh_gssapi_krb5_updatecreds(ssh_gssapi_ccache *store, 
-    ssh_gssapi_client *client)
-{
-	krb5_ccache ccache = NULL;
-	krb5_principal principal = NULL;
-	char *name = NULL;
-	krb5_error_code problem;
-	OM_uint32 maj_status, min_status;
-
-   	if ((problem = krb5_cc_resolve(krb_context, store->envval, &ccache))) {
-                logit("krb5_cc_resolve(): %.100s",
-                    krb5_get_err_text(krb_context, problem));
-                return 0;
-       	}
-	
-	/* Find out who the principal in this cache is */
-	if ((problem = krb5_cc_get_principal(krb_context, ccache, 
-	    &principal))) {
-		logit("krb5_cc_get_principal(): %.100s",
-		    krb5_get_err_text(krb_context, problem));
-		krb5_cc_close(krb_context, ccache);
-		return 0;
-	}
-
-	if ((problem = krb5_unparse_name(krb_context, principal, &name))) {
-		logit("krb5_unparse_name(): %.100s",
-		    krb5_get_err_text(krb_context, problem));
-		krb5_free_principal(krb_context, principal);
-		krb5_cc_close(krb_context, ccache);
-		return 0;
-	}
-
-
-	if (strcmp(name,client->exportedname.value)!=0) {
-		debug("Name in local credentials cache differs. Not storing");
-		krb5_free_principal(krb_context, principal);
-		krb5_cc_close(krb_context, ccache);
-		krb5_free_unparsed_name(krb_context, name);
-		return 0;
-	}
-	krb5_free_unparsed_name(krb_context, name);
-
-	/* Name matches, so lets get on with it! */
-
-	if ((problem = krb5_cc_initialize(krb_context, ccache, principal))) {
-		logit("krb5_cc_initialize(): %.100s",
-		    krb5_get_err_text(krb_context, problem));
-		krb5_free_principal(krb_context, principal);
-		krb5_cc_close(krb_context, ccache);
-		return 0;
-	}
-
-	krb5_free_principal(krb_context, principal);
-
-	if ((maj_status = gss_krb5_copy_ccache(&min_status, client->creds,
-	    ccache))) {
-		logit("gss_krb5_copy_ccache() failed. Sorry!");
-		krb5_cc_close(krb_context, ccache);
-		return 0;
-	}
-
-	return 1;
-}
-
 ssh_gssapi_mech gssapi_kerberos_mech = {
 	"toWM5Slw5Ew8Mqkay+al2g==",
 	"Kerberos",
@@ -327,8 +204,7 @@ ssh_gssapi_mech gssapi_kerberos_mech = {
 	NULL,
 	&ssh_gssapi_krb5_userok,
 	NULL,
-	&ssh_gssapi_krb5_storecreds,
-	&ssh_gssapi_krb5_updatecreds
+	&ssh_gssapi_krb5_storecreds
 };
 
 #endif /* KRB5 */

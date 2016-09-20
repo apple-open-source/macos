@@ -35,13 +35,57 @@
 
 #include "SecdTestKeychainUtilities.h"
 
-static int kTestTestCount = 46;
+static int64_t getCurrentGenCount(SOSAccountRef account) {
+    return SOSCircleGetGenerationSint(account->trusted_circle);
+}
+
+static bool SOSAccountResetWithGenCountValue(SOSAccountRef account, int64_t gcount, CFErrorRef* error) {
+    if (!SOSAccountHasPublicKey(account, error))
+        return false;
+    __block bool result = true;
+    
+    result &= SOSAccountResetAllRings(account, error);
+    
+    CFReleaseNull(account->my_identity);
+    
+    account->departure_code = kSOSWithdrewMembership;
+    result &= SOSAccountModifyCircle(account, error, ^(SOSCircleRef circle) {
+        SOSGenCountRef gencount = SOSGenerationCreateWithValue(gcount);
+        result = SOSCircleResetToEmpty(circle, error);
+        SOSCircleSetGeneration(circle, gencount);
+        CFReleaseNull(gencount);
+        return result;
+    });
+    
+    if (!result) {
+        secerror("error: %@", error ? *error : NULL);
+    }
+    
+    return result;
+}
+
+static SOSCircleRef SOSCircleCreateWithGenCount(int64_t gcount) {
+    SOSCircleRef c = SOSCircleCreate(kCFAllocatorDefault, CFSTR("a"), NULL);
+    SOSGenCountRef gencount = SOSGenerationCreateWithValue(gcount);
+    SOSCircleSetGeneration(c, gencount);
+    CFReleaseNull(gencount);
+    return c;
+}
+
+static int kTestTestCount = 47;
 
 static void tests(void)
 {
     CFErrorRef error = NULL;
     CFDataRef cfpassword = CFDataCreate(NULL, (uint8_t *) "FooFooFoo", 10);
     CFStringRef cfaccount = CFSTR("test@test.org");
+    
+    SOSCircleRef c1 = SOSCircleCreateWithGenCount(1);
+    SOSCircleRef c99 = SOSCircleCreateWithGenCount(99);
+    ok(SOSCircleIsOlderGeneration(c1, c99), "Is Comparison working correctly?", NULL);
+    CFReleaseNull(c1);
+    CFReleaseNull(c99);
+    
     
     CFMutableDictionaryRef changes = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
     SOSAccountRef alice_account = CreateAccountForLocalChanges(CFSTR("Alice"), CFSTR("TestSource"));
@@ -52,10 +96,10 @@ static void tests(void)
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 1, "updates");
     ok(SOSAccountAssertUserCredentialsAndUpdate(alice_account, cfaccount, cfpassword, &error), "Credential setting (%@)", error);
     CFReleaseNull(error);
-    ok(SOSAccountResetToOffering(alice_account, &error), "Reset to offering (%@)", error);
+    ok(SOSAccountResetToOffering_wTxn(alice_account, &error), "Reset to offering (%@)", error);
     CFReleaseNull(error);
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, "updates");
-    ok(SOSAccountJoinCircles(bob_account, &error), "Bob Applies (%@)", error);
+    ok(SOSAccountJoinCircles_wTxn(bob_account, &error), "Bob Applies (%@)", error);
     CFReleaseNull(error);
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, "updates");
     {
@@ -72,9 +116,14 @@ static void tests(void)
     ok(peers && CFArrayGetCount(peers) == 2, "See two peers %@ (%@)", peers, error);
     CFReleaseNull(peers);
     
-    ok(SOSAccountResetToEmpty(alice_account, &error), "Alice resets the circle to empty");
+    uint64_t cnt = getCurrentGenCount(alice_account);
+
+    ok(SOSAccountResetWithGenCountValue(alice_account, cnt-1, &error), "Alice resets the circle to empty with old value");
     CFReleaseNull(error);
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, "updates");
+    
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 1, "updates");
+    is(SOSAccountGetCircleStatus(bob_account, NULL), 0, "Bob Survives bad circle post");
+    is(SOSAccountGetCircleStatus(alice_account, NULL), 1, "Alice does not survive bad circle post");
     CFReleaseNull(bob_account);
     CFReleaseNull(alice_account);
     CFReleaseNull(cfpassword);

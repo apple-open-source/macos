@@ -31,12 +31,19 @@
 #ifndef HTTPParsers_h
 #define HTTPParsers_h
 
-#include "ContentSecurityPolicy.h"
 #include <wtf/Forward.h>
 #include <wtf/Optional.h>
 #include <wtf/Vector.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
+
+enum class XSSProtectionDisposition {
+    Invalid,
+    Disabled,
+    Enabled,
+    BlockEnabled,
+};
 
 enum ContentDispositionType {
     ContentDispositionNone,
@@ -62,16 +69,17 @@ enum XFrameOptionsDisposition {
 };
 
 ContentDispositionType contentDispositionType(const String&);
+bool isValidReasonPhrase(const String&);
 bool isValidHTTPHeaderValue(const String&);
 bool isValidHTTPToken(const String&);
 bool parseHTTPRefresh(const String& refresh, bool fromHttpEquivMeta, double& delay, String& url);
 Optional<std::chrono::system_clock::time_point> parseHTTPDate(const String&);
-String filenameFromHTTPContentDisposition(const String&); 
+String filenameFromHTTPContentDisposition(const String&);
 String extractMIMETypeFromMediaType(const String&);
-String extractCharsetFromMediaType(const String&); 
+String extractCharsetFromMediaType(const String&);
 void findCharsetInMediaType(const String& mediaType, unsigned int& charsetPos, unsigned int& charsetLen, unsigned int start = 0);
-ContentSecurityPolicy::ReflectedXSSDisposition parseXSSProtectionHeader(const String& header, String& failureReason, unsigned& failurePosition, String& reportURL);
-String extractReasonPhraseFromHTTPStatusLine(const String&);
+XSSProtectionDisposition parseXSSProtectionHeader(const String& header, String& failureReason, unsigned& failurePosition, String& reportURL);
+AtomicString extractReasonPhraseFromHTTPStatusLine(const String&);
 XFrameOptionsDisposition parseXFrameOptionsHeader(const String&);
 
 // -1 could be set to one of the return parameters to indicate the value is not specified.
@@ -84,8 +92,19 @@ ContentTypeOptionsDisposition parseContentTypeOptionsHeader(const String& header
 // Parsing Complete HTTP Messages.
 enum HTTPVersion { Unknown, HTTP_1_0, HTTP_1_1 };
 size_t parseHTTPRequestLine(const char* data, size_t length, String& failureReason, String& method, String& url, HTTPVersion&);
-size_t parseHTTPHeader(const char* data, size_t length, String& failureReason, String& nameStr, String& valueStr, bool strict = true);
+size_t parseHTTPHeader(const char* data, size_t length, String& failureReason, StringView& nameStr, String& valueStr, bool strict = true);
 size_t parseHTTPRequestBody(const char* data, size_t length, Vector<unsigned char>& body);
+
+inline bool isHTTPSpace(UChar character)
+{
+    return character <= ' ' && (character == ' ' || character == '\n' || character == '\t' || character == '\r');
+}
+
+// Strip leading and trailing whitespace as defined in https://fetch.spec.whatwg.org/#concept-header-value-normalize.
+inline String stripLeadingAndTrailingHTTPSpaces(const String& string)
+{
+    return string.stripWhiteSpace(isHTTPSpace);
+}
 
 }
 

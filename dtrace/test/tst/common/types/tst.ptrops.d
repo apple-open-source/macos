@@ -40,12 +40,12 @@
 
 BEGIN
 {
-	ptr_1 = &`max_ncpus;
-	ptr_2 = (&`max_ncpus) + 1;
-	ptr_3 = (&`max_ncpus) - 1 ;
+	ptr_1 = &`real_ncpus;
+	ptr_2 = (&`real_ncpus) + 1;
+	ptr_3 = (&`real_ncpus) - 1 ;
 }
 
-tick-1
+tick-10ms
 /ptr_1 >= ptr_2 || ptr_2 <= ptr_1 || ptr_1 == ptr_2/
 {
 	printf("Shouldn't end up here (1)\n");
@@ -54,7 +54,7 @@ tick-1
 	exit(1);
 }
 
-tick-1
+tick-10ms
 /ptr_3 > ptr_1 || ptr_1 < ptr_3 || ptr_3 == ptr_1/
 {
 	printf("Shouldn't end up here (2)\n");
@@ -63,7 +63,7 @@ tick-1
 	exit(1);
 }
 
-tick-1
+tick-10ms
 /ptr_3 > ptr_2 || ptr_1 < ptr_2 ^^ ptr_3 == ptr_2 && !(ptr_1 != ptr_2)/
 {
 	exit(0);

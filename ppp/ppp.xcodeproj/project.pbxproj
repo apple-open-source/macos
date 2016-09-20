@@ -124,6 +124,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		06B5E7F61CC1C650008D655E /* MiniTerm.nib in Resources */ = {isa = PBXBuildFile; fileRef = 06B5E7F41CC1C650008D655E /* MiniTerm.nib */; };
 		0C0F0E3B0B72CF730046310D /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C2300D5514104CA2CDC /* SystemConfiguration.framework */; };
 		23022728062DA4C10033908D /* pppcontroller.h in Headers */ = {isa = PBXBuildFile; fileRef = 23022727062DA4C10033908D /* pppcontroller.h */; };
 		23055ED205E1807F00EAB16F /* PPP_VERSION.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
@@ -184,7 +185,6 @@
 		23055F5E05E1808000EAB16F /* PPP_VERSION.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
 		23055F6F05E1808100EAB16F /* MiniTerm.h in Headers */ = {isa = PBXBuildFile; fileRef = 013F974C001901697F000001 /* MiniTerm.h */; };
 		23055F7005E1808100EAB16F /* PPP_VERSION.h in Headers */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
-		23055F7205E1808100EAB16F /* MiniTerm.nib in Resources */ = {isa = PBXBuildFile; fileRef = 013F9735001901697F000001 /* MiniTerm.nib */; };
 		23055F7305E1808100EAB16F /* MiniTerm.iconheader in Resources */ = {isa = PBXBuildFile; fileRef = 013F974D001901697F000001 /* MiniTerm.iconheader */; };
 		23055F7505E1808100EAB16F /* MiniTerm.m in Sources */ = {isa = PBXBuildFile; fileRef = 013F974E001901697F000001 /* MiniTerm.m */; };
 		23055F7605E1808100EAB16F /* MiniTerm_main.m in Sources */ = {isa = PBXBuildFile; fileRef = 013F9752001901697F000001 /* MiniTerm_main.m */; };
@@ -423,10 +423,7 @@
 		720C564814E0999B008B1CDE /* network_detection.c in Sources */ = {isa = PBXBuildFile; fileRef = 720C564614E0999B008B1CDE /* network_detection.c */; };
 		72117C6409EC519A008EC1A2 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23524800049FFD5F0051E486 /* Security.framework */; };
 		7228853616C062D800E8090E /* sandbox_info.m in Sources */ = {isa = PBXBuildFile; fileRef = 7228853516C062D800E8090E /* sandbox_info.m */; };
-		723074571161275A004C0871 /* vpn_environment.c in Sources */ = {isa = PBXBuildFile; fileRef = 723074551161275A004C0871 /* vpn_environment.c */; };
 		723074581161275A004C0871 /* vpn_environment.h in Headers */ = {isa = PBXBuildFile; fileRef = 723074561161275A004C0871 /* vpn_environment.h */; };
-		723074591161275A004C0871 /* vpn_environment.c in Sources */ = {isa = PBXBuildFile; fileRef = 723074551161275A004C0871 /* vpn_environment.c */; };
-		7230745A1161275A004C0871 /* vpn_environment.h in Headers */ = {isa = PBXBuildFile; fileRef = 723074561161275A004C0871 /* vpn_environment.h */; };
 		723EC005164C76FF003D5EB3 /* sbslauncher.m in Sources */ = {isa = PBXBuildFile; fileRef = 83F592FA0F6B38C900B1E1AE /* sbslauncher.m */; };
 		723EC008164C76FF003D5EB3 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F51AB14A0235CA450160DF93 /* CoreFoundation.framework */; };
 		723EC00B164C76FF003D5EB3 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8179206711124814005B9F24 /* Foundation.framework */; };
@@ -503,7 +500,6 @@
 		72A56F870D1B58EB00DFDE1E /* ipsec_strerror.h in Headers */ = {isa = PBXBuildFile; fileRef = FA76575303EB2B7504CA2DDA /* ipsec_strerror.h */; };
 		72A56FF10D1B5E2300DFDE1E /* PPP_VERSION.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
 		72A570130D1B5E9400DFDE1E /* PPP_VERSION.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
-		72AD6D26164D88C000ADE57C /* sbslauncher in CopyFiles */ = {isa = PBXBuildFile; fileRef = 723EC011164C76FF003D5EB3 /* sbslauncher */; };
 		72B280F214E45A6B00EBDC05 /* network_detection.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B280F114E45A6B00EBDC05 /* network_detection.h */; };
 		72B280F314E45A6B00EBDC05 /* network_detection.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B280F114E45A6B00EBDC05 /* network_detection.h */; };
 		72B41EC515ED9F4B00C31217 /* algorithm_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B41EC415ED9F4B00C31217 /* algorithm_types.h */; };
@@ -634,11 +630,8 @@
 		7827408A17049C93006CF9E1 /* scnc_cache.h in Headers */ = {isa = PBXBuildFile; fileRef = 7827408817049C93006CF9E1 /* scnc_cache.h */; };
 		78CFEBA81703655700CB6E65 /* network_detection_helper.m in Sources */ = {isa = PBXBuildFile; fileRef = 78CFEBA71703655700CB6E65 /* network_detection_helper.m */; };
 		78CFEBA91703655700CB6E65 /* network_detection_helper.m in Sources */ = {isa = PBXBuildFile; fileRef = 78CFEBA71703655700CB6E65 /* network_detection_helper.m */; };
-		8135E2BB139967E600C0C449 /* sbslauncher in CopyFiles */ = {isa = PBXBuildFile; fileRef = 83F592D40F6B376D00B1E1AE /* sbslauncher */; };
 		813F1F6E11168087005AB6C7 /* StoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 81CF182E111126D500D53EB8 /* StoreServices.framework */; };
 		813F1F6F1116809D005AB6C7 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8179206711124814005B9F24 /* Foundation.framework */; };
-		81937E62107EC2D900EEE3F8 /* vpn_manager.c in Sources */ = {isa = PBXBuildFile; fileRef = 81953A2E0F5208CB00BC014C /* vpn_manager.c */; };
-		81937E63107EC2FA00EEE3F8 /* vpn_manager.h in Headers */ = {isa = PBXBuildFile; fileRef = 81953A2F0F5208EE00BC014C /* vpn_manager.h */; };
 		81937E95107EC4A200EEE3F8 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 81D42EF60F572A1B0031E487 /* main.c */; };
 		81937E96107EC4A200EEE3F8 /* vpnagent.c in Sources */ = {isa = PBXBuildFile; fileRef = 81D42EF70F572A1B0031E487 /* vpnagent.c */; };
 		81937E97107EC4A200EEE3F8 /* vpnagent_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 81D42EF80F572A1B0031E487 /* vpnagent_utils.c */; };
@@ -651,8 +644,6 @@
 		81D42EFD0F572A1B0031E487 /* vpnagent_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 81D42EF80F572A1B0031E487 /* vpnagent_utils.c */; };
 		81D42EFF0F572A1B0031E487 /* vpnagent_control.c in Sources */ = {isa = PBXBuildFile; fileRef = 81D42EFA0F572A1B0031E487 /* vpnagent_control.c */; };
 		81D4302D0F57579B0031E487 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F51AB14A0235CA450160DF93 /* CoreFoundation.framework */; };
-		81D430A80F575A040031E487 /* vpn_manager.c in Sources */ = {isa = PBXBuildFile; fileRef = 81953A2E0F5208CB00BC014C /* vpn_manager.c */; };
-		81D430A90F575A160031E487 /* vpn_manager.h in Headers */ = {isa = PBXBuildFile; fileRef = 81953A2F0F5208EE00BC014C /* vpn_manager.h */; };
 		81FC7D9511C697B20058949B /* PluginDownloadObserver.m in Sources */ = {isa = PBXBuildFile; fileRef = 81FC7D9411C697B20058949B /* PluginDownloadObserver.m */; };
 		830402C50F6B43590062C836 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F51AB14A0235CA450160DF93 /* CoreFoundation.framework */; };
 		834679F60DCFE34700FCABA3 /* CoreTelephony.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8376A9620DCA88ED0084EA79 /* CoreTelephony.framework */; };
@@ -910,13 +901,6 @@
 			remoteGlobalIDString = 2342E4A006DA523D0019B94A;
 			remoteInfo = "EAP-KRB (Plugin)";
 		};
-		723EC012164C7742003D5EB3 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 723EC003164C76FF003D5EB3;
-			remoteInfo = "sbslauncher (Tool)";
-		};
 		728CB6350D404EFE00B1964E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
@@ -1000,13 +984,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = 72FDE4FE0D41256B007C4F13;
 			remoteInfo = "PPPDialogs (Plugin) EMBEDDED";
-		};
-		830403480F6B4CC00062C836 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 83F592D30F6B376D00B1E1AE;
-			remoteInfo = "sbslauncher (Tool) EMBEDDED";
 		};
 /* End PBXContainerItemProxy section */
 
@@ -1187,16 +1164,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		72AD6D25164D88B300ADE57C /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 7;
-			files = (
-				72AD6D26164D88C000ADE57C /* sbslauncher in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		72C265C00D412932003A6CE8 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -1236,16 +1203,6 @@
 				72E07C47103E387600E4241C /* vpnd.5 in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
-		};
-		830403500F6B4D140062C836 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 7;
-			files = (
-				8135E2BB139967E600C0C449 /* sbslauncher in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		B02A237617709EB300B228B9 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -1300,8 +1257,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		013F9736001901697F000001 /* English - windows */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = "English - windows"; path = "English.lproj/MiniTerm-windows.nib"; sourceTree = "<group>"; };
-		013F9737001901697F000001 /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = English.lproj/MiniTerm.nib; sourceTree = "<group>"; };
 		013F974C001901697F000001 /* MiniTerm.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MiniTerm.h; sourceTree = "<group>"; };
 		013F974D001901697F000001 /* MiniTerm.iconheader */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = MiniTerm.iconheader; sourceTree = "<group>"; };
 		013F974E001901697F000001 /* MiniTerm.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = MiniTerm.m; sourceTree = "<group>"; };
@@ -1337,6 +1292,7 @@
 		014A7C8600754E8E7F000001 /* PPPoE.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = PPPoE.h; path = "Drivers/PPPoE/PPPoE-extension/PPPoE.h"; sourceTree = SOURCE_ROOT; };
 		018CF39F00BDC8447F000001 /* NetworkConnect.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; name = NetworkConnect.icns; path = Dialogs/NetworkConnect.icns; sourceTree = SOURCE_ROOT; };
 		01A345D600C4684A7F000001 /* scnc_client.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = scnc_client.c; path = Controller/scnc_client.c; sourceTree = "<group>"; };
+		06B5E7F51CC1C650008D655E /* Base */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = Base; path = Base.lproj/MiniTerm.nib; sourceTree = "<group>"; };
 		071EC564009888F57F000001 /* Dialogs.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = Dialogs.c; path = Dialogs/Dialogs.c; sourceTree = SOURCE_ROOT; };
 		071EC567009889367F000001 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = Dialogs/English.lproj/Localizable.strings; sourceTree = SOURCE_ROOT; };
 		0D977A4500C8596D7F000001 /* NetworkConnect.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = NetworkConnect.icns; sourceTree = "<group>"; };
@@ -1463,7 +1419,6 @@
 		7208653316A762F0004A5747 /* controller_options.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = controller_options.h; sourceTree = "<group>"; };
 		720C564614E0999B008B1CDE /* network_detection.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = network_detection.c; path = Controller/network_detection.c; sourceTree = "<group>"; };
 		7228853516C062D800E8090E /* sandbox_info.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = sandbox_info.m; path = sbslauncher/sandbox_info.m; sourceTree = "<group>"; };
-		723074551161275A004C0871 /* vpn_environment.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vpn_environment.c; path = Controller/vpn_environment.c; sourceTree = "<group>"; };
 		723074561161275A004C0871 /* vpn_environment.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vpn_environment.h; sourceTree = "<group>"; };
 		723EC011164C76FF003D5EB3 /* sbslauncher */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sbslauncher; sourceTree = BUILT_PRODUCTS_DIR; };
 		7240E44B152617B2001F555F /* NetworkConnect_128x128.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = NetworkConnect_128x128.png; sourceTree = "<group>"; };
@@ -1525,7 +1480,6 @@
 		78CFEBA71703655700CB6E65 /* network_detection_helper.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = network_detection_helper.m; path = sbslauncher/network_detection_helper.m; sourceTree = "<group>"; };
 		8179206711124814005B9F24 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		81937EA1107EC4A200EEE3F8 /* vpnagent */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = vpnagent; sourceTree = BUILT_PRODUCTS_DIR; };
-		81953A2E0F5208CB00BC014C /* vpn_manager.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vpn_manager.c; path = Controller/vpn_manager.c; sourceTree = "<group>"; };
 		81953A2F0F5208EE00BC014C /* vpn_manager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vpn_manager.h; sourceTree = "<group>"; };
 		81CF182E111126D500D53EB8 /* StoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreServices.framework; path = System/Library/PrivateFrameworks/StoreServices.framework; sourceTree = SDKROOT; };
 		81D42EF60F572A1B0031E487 /* main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = main.c; path = vpnagent/main.c; sourceTree = "<group>"; };
@@ -2064,7 +2018,7 @@
 				013F9752001901697F000001 /* MiniTerm_main.m */,
 				013F974E001901697F000001 /* MiniTerm.m */,
 				013F974C001901697F000001 /* MiniTerm.h */,
-				013F9735001901697F000001 /* MiniTerm.nib */,
+				06B5E7F41CC1C650008D655E /* MiniTerm.nib */,
 				013F977D001904737F000001 /* AppKit.framework */,
 				F540B7FD0298B01601CA2D7A /* Carbon.framework */,
 				013F9778001904587F000001 /* Supporting FIles */,
@@ -2269,8 +2223,6 @@
 				7827408517049C71006CF9E1 /* scnc_cache.c */,
 				23B708FF061CA53B008BA483 /* scnc_utils.c */,
 				01A345D600C4684A7F000001 /* scnc_client.c */,
-				81953A2E0F5208CB00BC014C /* vpn_manager.c */,
-				723074551161275A004C0871 /* vpn_environment.c */,
 				7129A463FFF956F311CA2CDC /* scnc_main.c */,
 				BA1E33C30F3FFDF200E52690 /* sessionTracer.c */,
 				720C564614E0999B008B1CDE /* network_detection.c */,
@@ -2942,7 +2894,6 @@
 			files = (
 				7827408917049C93006CF9E1 /* scnc_cache.h in Headers */,
 				B089692B164038E000E79570 /* pppcontroller_mach_defines.h in Headers */,
-				81D430A90F575A160031E487 /* vpn_manager.h in Headers */,
 				23055ED705E1807F00EAB16F /* scnc_client.h in Headers */,
 				23055ED905E1807F00EAB16F /* ppp_manager.h in Headers */,
 				B096EC44171DFC6E00EE4713 /* fd_exchange.h in Headers */,
@@ -3259,10 +3210,8 @@
 				7290FEBE0D3318CC0027CEAD /* ipsec_strerror.h in Headers */,
 				7290FEBF0D3318CC0027CEAD /* pppcontroller.h in Headers */,
 				7290FEC00D3318CC0027CEAD /* ipsec_manager.h in Headers */,
-				81937E63107EC2FA00EEE3F8 /* vpn_manager.h in Headers */,
 				7290FEC10D3318CC0027CEAD /* scnc_main.h in Headers */,
 				B096EC45171DFC6E00EE4713 /* fd_exchange.h in Headers */,
-				7230745A1161275A004C0871 /* vpn_environment.h in Headers */,
 				72B280F314E45A6B00EBDC05 /* network_detection.h in Headers */,
 				C40EF97C189199F300EEBF23 /* ne_sm_bridge_private.h in Headers */,
 				7827408A17049C93006CF9E1 /* scnc_cache.h in Headers */,
@@ -3372,7 +3321,6 @@
 				23055EE905E1807F00EAB16F /* Frameworks */,
 				23055EED05E1807F00EAB16F /* Rez */,
 				23055EEE05E1807F00EAB16F /* Copy Files */,
-				72AD6D25164D88B300ADE57C /* CopyFiles */,
 				23055EF005E1807F00EAB16F /* ShellScript */,
 				722E71261526260800E7383A /* ShellScript */,
 			);
@@ -3380,7 +3328,6 @@
 			);
 			dependencies = (
 				230560E405E1808C00EAB16F /* PBXTargetDependency */,
-				723EC013164C7742003D5EB3 /* PBXTargetDependency */,
 			);
 			name = "PPPController (Bundle)";
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
@@ -3962,14 +3909,12 @@
 				7290FED10D3318CC0027CEAD /* Frameworks */,
 				7290FED50D3318CC0027CEAD /* Rez */,
 				7290FED60D3318CC0027CEAD /* CopyFiles */,
-				830403500F6B4D140062C836 /* CopyFiles */,
 				7290FED80D3318CC0027CEAD /* ShellScript */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				72FDE5140D412576007C4F13 /* PBXTargetDependency */,
-				830403490F6B4CC00062C836 /* PBXTargetDependency */,
 			);
 			name = "PPPController (Bundle) EMBEDDED";
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
@@ -4196,10 +4141,8 @@
 			hasScannedForEncodings = 1;
 			knownRegions = (
 				English,
-				Japanese,
-				French,
-				German,
 				"English-EMBEDDED",
+				Base,
 			);
 			mainGroup = 7129A432FFF956F311CA2CDC /* ppp */;
 			productRefGroup = 7129A4CEFFF956F311CA2CDC /* Products */;
@@ -4300,7 +4243,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				23055F7205E1808100EAB16F /* MiniTerm.nib in Resources */,
+				06B5E7F61CC1C650008D655E /* MiniTerm.nib in Resources */,
 				23055F7305E1808100EAB16F /* MiniTerm.iconheader in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4895,11 +4838,9 @@
 				23EC339C0CD7E4BB005AB2A9 /* ipsec_manager.c in Sources */,
 				BA1E33C60F3FFDF200E52690 /* sessionTracer.c in Sources */,
 				72DE9C74101551E600DF2440 /* ipsec_utils.c in Sources */,
-				81D430A80F575A040031E487 /* vpn_manager.c in Sources */,
 				C40EF97D189199F300EEBF23 /* ne_sm_bridge.c in Sources */,
 				BAC29FA510D493F9007AC660 /* nat_port_mapping.c in Sources */,
 				72DCD75D1149BBE900B25E3A /* vpn_configuration.c in Sources */,
-				723074571161275A004C0871 /* vpn_environment.c in Sources */,
 				720C564714E0999B008B1CDE /* network_detection.c in Sources */,
 				C447EC8E160283EB00CF047A /* flow_divert_controller.c in Sources */,
 				B08969321640394500E79570 /* app_layer.c in Sources */,
@@ -5216,7 +5157,6 @@
 				7827408717049C71006CF9E1 /* scnc_cache.c in Sources */,
 				7290FEC80D3318CC0027CEAD /* pfkey.c in Sources */,
 				7290FEC90D3318CC0027CEAD /* ppp_getoption.c in Sources */,
-				81937E62107EC2D900EEE3F8 /* vpn_manager.c in Sources */,
 				7290FECA0D3318CC0027CEAD /* ppp_manager.c in Sources */,
 				7290FECB0D3318CC0027CEAD /* scnc_main.c in Sources */,
 				7290FECC0D3318CC0027CEAD /* scnc_client.c in Sources */,
@@ -5228,7 +5168,6 @@
 				C40EF97E189199F300EEBF23 /* ne_sm_bridge.c in Sources */,
 				9AFD09B317305EC2003BF988 /* scnc_utils_common.c in Sources */,
 				72DCD75F1149BBE900B25E3A /* vpn_configuration.c in Sources */,
-				723074591161275A004C0871 /* vpn_environment.c in Sources */,
 				720C564814E0999B008B1CDE /* network_detection.c in Sources */,
 				B096EC41171DFC6E00EE4713 /* fd_exchange.c in Sources */,
 				C447EC8F160283EB00CF047A /* flow_divert_controller.c in Sources */,
@@ -5510,11 +5449,6 @@
 			target = 2342E4A006DA523D0019B94A /* EAP-KRB (Plugin) */;
 			targetProxy = 2342E4A306DA533F0019B94A /* PBXContainerItemProxy */;
 		};
-		723EC013164C7742003D5EB3 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 723EC003164C76FF003D5EB3 /* sbslauncher (Tool) */;
-			targetProxy = 723EC012164C7742003D5EB3 /* PBXContainerItemProxy */;
-		};
 		728CB6360D404EFE00B1964E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 728CB6260D404ECD00B1964E /* Drivers (Aggregate) EMBEDDED */;
@@ -5575,19 +5509,13 @@
 			target = 72FDE4FE0D41256B007C4F13 /* PPPDialogs (Plugin) EMBEDDED */;
 			targetProxy = 72FDE5130D412576007C4F13 /* PBXContainerItemProxy */;
 		};
-		830403490F6B4CC00062C836 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 83F592D30F6B376D00B1E1AE /* sbslauncher (Tool) EMBEDDED */;
-			targetProxy = 830403480F6B4CC00062C836 /* PBXContainerItemProxy */;
-		};
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
-		013F9735001901697F000001 /* MiniTerm.nib */ = {
+		06B5E7F41CC1C650008D655E /* MiniTerm.nib */ = {
 			isa = PBXVariantGroup;
 			children = (
-				013F9736001901697F000001 /* English - windows */,
-				013F9737001901697F000001 /* English */,
+				06B5E7F51CC1C650008D655E /* Base */,
 			);
 			name = MiniTerm.nib;
 			sourceTree = "<group>";
@@ -5671,7 +5599,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/vpnagent/vpnagent-entitlement-dev-embedded.plist";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
@@ -5709,7 +5636,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/vpnagent/vpnagent-entitlement-dev-embedded.plist";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -5748,7 +5674,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/vpnagent/vpnagent-entitlement-dev-embedded.plist";
 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -5936,7 +5861,6 @@
 		728CB6500D404F6600B1964E /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -5983,7 +5907,6 @@
 		728CB6510D404F6600B1964E /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -6026,7 +5949,6 @@
 		728CB6520D404F6600B1964E /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
@@ -6065,7 +5987,6 @@
 		728CB6840D404F8C00B1964E /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
@@ -6108,7 +6029,6 @@
 		728CB6850D404F8C00B1964E /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -6150,7 +6070,6 @@
 		728CB6860D404F8C00B1964E /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
@@ -6188,7 +6107,6 @@
 		7290FEDA0D3318CC0027CEAD /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -6242,7 +6160,6 @@
 		7290FEDB0D3318CC0027CEAD /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -6291,7 +6208,6 @@
 		7290FEDC0D3318CC0027CEAD /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
@@ -6336,7 +6252,6 @@
 		72A570000D1B5E2300DFDE1E /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = armv6;
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -6367,10 +6282,6 @@
 		72A570010D1B5E2300DFDE1E /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					arm,
-					armv6,
-				);
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -6397,7 +6308,6 @@
 		72A570020D1B5E2300DFDE1E /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = armv6;
 				FRAMEWORK_SEARCH_PATHS = "";
 				OTHER_CFLAGS = (
 					"-include",
@@ -6499,7 +6409,6 @@
 		72C265C40D412932003A6CE8 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/pppd/pppd-entitlement.plist";
 				CODE_SIGN_IDENTITY = "-";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)";
@@ -6535,7 +6444,6 @@
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
@@ -6566,7 +6474,6 @@
 		72C265C50D412932003A6CE8 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/pppd/pppd-entitlement.plist";
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
@@ -6598,7 +6505,6 @@
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
@@ -6628,7 +6534,6 @@
 		72C265C60D412932003A6CE8 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/pppd/pppd-entitlement.plist";
 				CODE_SIGN_IDENTITY = "-";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -6657,7 +6562,6 @@
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
@@ -6704,7 +6608,6 @@
 				PRODUCT_NAME = "PPP Headers";
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6731,7 +6634,6 @@
 				PRODUCT_NAME = "PPP Headers";
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6755,7 +6657,6 @@
 				PRODUCT_NAME = "PPP Headers";
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6767,7 +6668,6 @@
 		72DD796D091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = "";
 				CODE_SIGN_IDENTITY = "-";
@@ -6803,7 +6703,6 @@
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
@@ -6822,7 +6721,6 @@
 				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				STRIPFLAGS = "-x";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6836,7 +6734,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALTERNATE_MODE = "$(INSTALL_MODE_FLAG)";
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = "$(SRCROOT)/Helpers/pppd/pppd-entitlement-osx.plist";
 				CODE_SIGN_IDENTITY = "-";
@@ -6869,7 +6766,6 @@
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
@@ -6887,7 +6783,6 @@
 				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				STRIPFLAGS = "-x";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6901,7 +6796,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALTERNATE_MODE = "$(INSTALL_MODE_FLAG)";
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				"CODE_SIGN_ENTITLEMENTS[sdk=*]" = "$(SRCROOT)/Helpers/pppd/pppd-entitlement-osx.plist";
 				CODE_SIGN_IDENTITY = "-";
@@ -6931,7 +6825,6 @@
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
@@ -6949,7 +6842,6 @@
 				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				STRIPFLAGS = "-x";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6961,7 +6853,6 @@
 		72DD7971091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -6973,7 +6864,6 @@
 				HEADER_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
@@ -6987,7 +6877,6 @@
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
 				STRIPFLAGS = "-x";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7000,7 +6889,6 @@
 		72DD7972091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
@@ -7010,7 +6898,6 @@
 				HEADER_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
@@ -7023,7 +6910,6 @@
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
 				STRIPFLAGS = "-x";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7036,14 +6922,12 @@
 		72DD7973091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
-				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
@@ -7056,7 +6940,6 @@
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
 				STRIPFLAGS = "-x";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7068,7 +6951,6 @@
 		72DD7975091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -7090,7 +6972,6 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = MiniTerm;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7104,7 +6985,6 @@
 		72DD7976091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
@@ -7123,7 +7003,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = MiniTerm;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7137,7 +7016,6 @@
 		72DD7977091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				GCC_DYNAMIC_NO_PIC = YES;
 				HEADER_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/";
@@ -7153,7 +7031,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = MiniTerm;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7166,7 +7043,6 @@
 		72DD7979091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -7183,7 +7059,6 @@
 				PRODUCT_NAME = chat;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7196,7 +7071,6 @@
 		72DD797A091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
@@ -7210,7 +7084,6 @@
 				PRODUCT_NAME = chat;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7223,7 +7096,6 @@
 		72DD797B091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = lint;
@@ -7234,7 +7106,6 @@
 				PRODUCT_NAME = chat;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7326,7 +7197,6 @@
 		72DD7981091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)/$(CONFIGURATION)";
@@ -7352,7 +7222,6 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = PPPDialogs;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7366,7 +7235,6 @@
 		72DD7982091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -7385,7 +7253,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPDialogs;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7399,7 +7266,6 @@
 		72DD7983091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				INFOPLIST_FILE = "Dialogs/PPPDialogs-Info.plist";
 				MACOSX_DEPLOYMENT_TARGET = "";
@@ -7416,7 +7282,6 @@
 				PRODUCT_NAME = PPPDialogs;
 				SECTORDER_FLAGS = "";
 				SYMROOT = build;
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7429,7 +7294,6 @@
 		72DD7985091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)";
 				COPY_PHASE_STRIP = NO;
@@ -7468,7 +7332,6 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = PPPController;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7482,7 +7345,6 @@
 		72DD7986091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -7516,7 +7378,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPController;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7530,7 +7391,6 @@
 		72DD7987091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(NEXT_ROOT)/System/Library/Frameworks/CoreServices.framework/Frameworks",
@@ -7561,7 +7421,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPController;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7574,7 +7433,6 @@
 		72DD7989091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -7604,7 +7462,6 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = PPP;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7618,7 +7475,6 @@
 		72DD798A091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -7644,7 +7500,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPP;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7658,7 +7513,6 @@
 		72DD798B091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
@@ -7681,7 +7535,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPP;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7694,7 +7547,6 @@
 		72DD798D091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -7719,7 +7571,6 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = PPPSerial;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7733,7 +7584,6 @@
 		72DD798E091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -7754,7 +7604,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPSerial;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7768,7 +7617,6 @@
 		72DD798F091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				INFOPLIST_FILE = "Drivers/PPPSerial/PPPSerial-plugin/PPPSerial-ppp-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -7786,7 +7634,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPSerial;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7799,7 +7646,6 @@
 		72DD7991091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -7822,7 +7668,6 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = PPPoE;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7836,7 +7681,6 @@
 		72DD7992091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -7855,7 +7699,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPoE;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7869,7 +7712,6 @@
 		72DD7993091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				INFOPLIST_FILE = "Drivers/PPPoE/PPPoE-vpn/PPPoE-vpn-Info.plist";
 				MACOSX_DEPLOYMENT_TARGET = "";
@@ -7885,7 +7727,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPoE;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7898,7 +7739,6 @@
 		72DD7995091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -7928,7 +7768,6 @@
 				PRODUCT_NAME = PPPoE;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7942,7 +7781,6 @@
 		72DD7996091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -7968,7 +7806,6 @@
 				PRODUCT_NAME = PPPoE;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7982,7 +7819,6 @@
 		72DD7997091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
@@ -8005,7 +7841,6 @@
 				PRODUCT_NAME = PPPoE;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8018,7 +7853,6 @@
 		72DD7999091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -8042,7 +7876,6 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = PPPoE;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8056,7 +7889,6 @@
 		72DD799A091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -8076,7 +7908,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPoE;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8090,7 +7921,6 @@
 		72DD799B091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				INFOPLIST_FILE = "Drivers/PPPoE/PPPoE-plugin/PPPoE-ppp-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -8107,7 +7937,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPoE;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8120,7 +7949,6 @@
 		72DD799D091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -8148,7 +7976,6 @@
 				PRODUCT_NAME = PPTP;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8162,7 +7989,6 @@
 		72DD799E091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -8186,7 +8012,6 @@
 				PRODUCT_NAME = PPTP;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8200,7 +8025,6 @@
 		72DD799F091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
@@ -8221,7 +8045,6 @@
 				PRODUCT_NAME = PPTP;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8234,7 +8057,6 @@
 		72DD79A1091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -8258,7 +8080,6 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = PPTP;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8272,7 +8093,6 @@
 		72DD79A2091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -8292,7 +8112,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPTP;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8306,7 +8125,6 @@
 		72DD79A3091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				HEADER_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/";
 				INFOPLIST_FILE = "Drivers/PPTP/PPTP-vpn/PPTP-vpn-Info.plist";
@@ -8323,7 +8141,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPTP;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8336,7 +8153,6 @@
 		72DD79A5091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -8361,7 +8177,6 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = PPTP;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8375,7 +8190,6 @@
 		72DD79A6091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -8396,7 +8210,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPTP;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8410,7 +8223,6 @@
 		72DD79A7091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				HEADER_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/Versions/B/PrivateHeaders/";
 				INFOPLIST_FILE = "Drivers/PPTP/PPTP-plugin/PPTP-ppp-Info.plist";
@@ -8428,7 +8240,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPTP;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8441,7 +8252,6 @@
 		72DD79A9091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				BUNDLE_LOADER = "";
 				COPY_PHASE_STRIP = NO;
@@ -8471,7 +8281,6 @@
 				PRODUCT_NAME = L2TP;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8485,7 +8294,6 @@
 		72DD79AA091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -8510,7 +8318,6 @@
 				PRODUCT_NAME = L2TP;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8524,7 +8331,6 @@
 		72DD79AB091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
@@ -8546,7 +8352,6 @@
 				PRODUCT_NAME = L2TP;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8559,7 +8364,6 @@
 		72DD79AD091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -8584,7 +8388,6 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = L2TP;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8598,7 +8401,6 @@
 		72DD79AE091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -8619,7 +8421,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = L2TP;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8633,7 +8434,6 @@
 		72DD79AF091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				HEADER_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/";
 				INFOPLIST_FILE = "Drivers/L2TP/L2TP-vpn/L2TP-vpn-Info.plist";
@@ -8651,7 +8451,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = L2TP;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8664,7 +8463,6 @@
 		72DD79B1091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -8696,7 +8494,6 @@
 				PRODUCT_NAME = L2TP;
 				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8710,7 +8507,6 @@
 		72DD79B2091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -8738,7 +8534,6 @@
 				PRODUCT_NAME = L2TP;
 				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8752,7 +8547,6 @@
 		72DD79B3091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -8777,7 +8571,6 @@
 				PRODUCT_NAME = L2TP;
 				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8870,7 +8663,6 @@
 		72DD79B9091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -8894,7 +8686,6 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = DSACL;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8908,7 +8699,6 @@
 		72DD79BA091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -8928,7 +8718,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = DSACL;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8942,7 +8731,6 @@
 		72DD79BB091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				INFOPLIST_FILE = "Authenticators/DSAccessControl/DSACL-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -8959,7 +8747,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = DSACL;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8972,7 +8759,6 @@
 		72DD79BD091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -8996,7 +8782,6 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = DSAuth;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -9010,7 +8795,6 @@
 		72DD79BE091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -9030,7 +8814,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = DSAuth;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -9044,7 +8827,6 @@
 		72DD79BF091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				INFOPLIST_FILE = "Authenticators/DSAuthentication/DSAuth-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -9061,7 +8843,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = DSAuth;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -9074,7 +8855,6 @@
 		72DD79C1091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -9099,7 +8879,6 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = Radius;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -9113,7 +8892,6 @@
 		72DD79C2091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -9134,7 +8912,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = Radius;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -9148,7 +8925,6 @@
 		72DD79C3091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				INFOPLIST_FILE = "Authenticators/Radius/Radius-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -9166,7 +8942,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = Radius;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -9179,7 +8954,6 @@
 		72DD79C5091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
@@ -9205,7 +8979,6 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = "EAP-TLS";
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -9219,7 +8992,6 @@
 		72DD79C6091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
@@ -9241,7 +9013,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = "EAP-TLS";
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -9255,7 +9026,6 @@
 		72DD79C7091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				HEADER_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/";
@@ -9274,7 +9044,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = "EAP-TLS";
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -9287,7 +9056,6 @@
 		72DD79C9091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
@@ -9315,7 +9083,6 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = "EAP-KRB";
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -9329,7 +9096,6 @@
 		72DD79CA091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
@@ -9353,7 +9119,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = "EAP-KRB";
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -9367,7 +9132,6 @@
 		72DD79CB091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -9388,7 +9152,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = "EAP-KRB";
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -9552,7 +9315,6 @@
 		72DD79D5091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -9627,7 +9389,6 @@
 		72DD79D9091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -9647,7 +9408,6 @@
 				PRODUCT_NAME = pppstats;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -9660,7 +9420,6 @@
 		72DD79DA091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
@@ -9677,7 +9436,6 @@
 				PRODUCT_NAME = pppstats;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -9690,7 +9448,6 @@
 		72DD79DB091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				GCC_DYNAMIC_NO_PIC = YES;
 				HEADER_SEARCH_PATHS = ../../Family;
@@ -9704,7 +9461,6 @@
 				PRODUCT_NAME = pppstats;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -9735,7 +9491,6 @@
 				PREBINDING = NO;
 				PRODUCT_NAME = krblaunch;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -9764,7 +9519,6 @@
 				PREBINDING = NO;
 				PRODUCT_NAME = krblaunch;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -9790,7 +9544,6 @@
 				PREBINDING = NO;
 				PRODUCT_NAME = krblaunch;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -9829,7 +9582,6 @@
 		72FDE4910D4124C4007C4F13 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -9873,7 +9625,6 @@
 		72FDE4920D4124C4007C4F13 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -9913,7 +9664,6 @@
 		72FDE4930D4124C4007C4F13 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Family/PPP-kext-Info.plist";
@@ -9949,7 +9699,6 @@
 		72FDE4BF0D41251B007C4F13 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				BUNDLE_LOADER = "";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -9993,7 +9742,6 @@
 		72FDE4C00D41251B007C4F13 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -10032,7 +9780,6 @@
 		72FDE4C10D41251B007C4F13 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Drivers/L2TP/L2TP-extension/L2TP-kext-Info.plist";
@@ -10067,7 +9814,6 @@
 		72FDE4E10D412522007C4F13 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -10109,7 +9855,6 @@
 		72FDE4E20D412522007C4F13 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -10147,7 +9892,6 @@
 		72FDE4E30D412522007C4F13 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Drivers/PPTP/PPTP-extension/PPTP-kext-Info.plist";
@@ -10181,7 +9925,6 @@
 		72FDE50A0D41256B007C4F13 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)";
 				COPY_PHASE_STRIP = NO;
@@ -10221,7 +9964,6 @@
 		72FDE50B0D41256B007C4F13 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
@@ -10255,7 +9997,6 @@
 		72FDE50C0D41256B007C4F13 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				INFOPLIST_FILE = "Dialogs/PPPDialogs-Info.plist";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
@@ -10396,7 +10137,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -10419,7 +10159,6 @@
 				OTHER_LDFLAGS = "-lsandbox";
 				PREBINDING = NO;
 				PRODUCT_NAME = vpnagent;
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 			};
 			name = Development;
 		};
@@ -10427,7 +10166,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -10449,7 +10187,6 @@
 				OTHER_LDFLAGS = "-lsandbox";
 				PREBINDING = NO;
 				PRODUCT_NAME = vpnagent;
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
@@ -10458,7 +10195,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
@@ -10478,7 +10214,6 @@
 				OTHER_LDFLAGS = "-lsandbox";
 				PREBINDING = NO;
 				PRODUCT_NAME = vpnagent;
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 			};
 			name = Default;
 		};

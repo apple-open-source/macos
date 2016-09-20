@@ -13,6 +13,19 @@
 #
 # Tests for `Simple Commands and Pipelines'
 #
+
+  # Test skipping early to ensure we run the remainder...
+  if [[ -n $ZTST_test_skip ]]; then
+    ZTST_skip="Test system verification for skipping"
+  else
+    print "This is standard output"
+    print "This is standard error" >&2
+    false
+  fi
+1:Test skipping if ZTST_test_skip is set
+>This is standard output
+?This is standard error
+
   echo foo | cat | sed 's/foo/bar/'
 0:Basic pipeline handling
 >bar
@@ -168,6 +181,12 @@
 >0
 >1
 >2
+
+  for (( $(true); ; )); do break; done
+  for (( ; $(true); )); do break; done
+  for (( ; ; $(true) )); do break; done
+  for (( ; $((1)); )); do break; done
+0:regression test, nested cmdsubst in arithmetic `for' loop
 
   for keyvar valvar in key1 val1 key2 val2; do
      print key=$keyvar val=$valvar
@@ -695,3 +714,27 @@
 0:Balanced parentheses and spaces with zsh pattern
 >It worked
 >That worked, too
+
+  fn() {
+    typeset ac_file="the else branch"
+    case $ac_file in
+      *.$ac_ext | *.xcoff | *.tds | *.d | *.pdb | *.xSYM | *.bb | *.bbg | *.map | *.inf | *.dSYM | *.o | *.obj ) ;;
+      *.* ) break;;
+      *)
+      ;;
+    esac
+    print Stuff here
+  }
+  which fn
+  fn
+0:Long case with parsed alternatives turned back into text
+>fn () {
+>	typeset ac_file="the else branch" 
+>	case $ac_file in
+>		(*.$ac_ext | *.xcoff | *.tds | *.d | *.pdb | *.xSYM | *.bb | *.bbg | *.map | *.inf | *.dSYM | *.o | *.obj)  ;;
+>		(*.*) break ;;
+>		(*)  ;;
+>	esac
+>	print Stuff here
+>}
+>Stuff here

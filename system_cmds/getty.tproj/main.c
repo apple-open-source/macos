@@ -34,7 +34,7 @@
 
 #include <sys/cdefs.h>
 #ifndef lint
-static const char copyright[] =
+__unused static const char copyright[] =
 "@(#) Copyright (c) 1980, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
@@ -43,7 +43,7 @@ static const char copyright[] =
 #if 0
 static char sccsid[] = "@(#)from: main.c	8.1 (Berkeley) 6/20/93";
 #endif
-static const char rcsid[] =
+__unused static const char rcsid[] =
   "$FreeBSD: src/libexec/getty/main.c,v 1.47 2005/04/06 17:42:24 stefanf Exp $";
 #endif /* not lint */
 
@@ -290,12 +290,12 @@ main(int argc, char *argv[])
 			int i, rfds;
 			struct timeval to;
 
-        		rfds = 1 << 0;	/* FD_SET */
-        		to.tv_sec = RT;
-        		to.tv_usec = 0;
-        		i = select(32, (fd_set*)&rfds, (fd_set*)NULL,
-        			       (fd_set*)NULL, RT ? &to : NULL);
-        		if (i < 0) {
+			rfds = 1 << 0;	/* FD_SET */
+			to.tv_sec = RT;
+			to.tv_usec = 0;
+			i = select(32, (fd_set*)&rfds, (fd_set*)NULL,
+				       (fd_set*)NULL, RT ? &to : NULL);
+			if (i < 0) {
 				syslog(LOG_ERR, "select %s: %m", ttyn);
 			} else if (i == 0) {
 				syslog(LOG_NOTICE, "recycle tty %s", ttyn);
@@ -323,7 +323,7 @@ main(int argc, char *argv[])
 	for (;;) {
 
 		/*
-		 * if a delay was specified then sleep for that 
+		 * if a delay was specified then sleep for that
 		 * number of seconds before writing the initial prompt
 		 */
 		if (first_sleep && DE) {
@@ -479,7 +479,7 @@ opentty(const char *tty, int flags)
 		}
 		sleep(60);
 	}
-	if (login_tty(i) < 0) { 
+	if (login_tty(i) < 0) {
 #ifndef __APPLE__
 		if (daemon(0,0) < 0) {
 			syslog(LOG_ERR,"daemon: %m");
@@ -497,7 +497,7 @@ opentty(const char *tty, int flags)
 }
 
 static void
-defttymode()
+defttymode(void)
 {
 
 	/* Start with default tty settings. */
@@ -842,7 +842,6 @@ putf(const char *cp)
 static void
 dogettytab()
 {
-	
 	/* Read the database entry. */
 	gettable(tname);
 

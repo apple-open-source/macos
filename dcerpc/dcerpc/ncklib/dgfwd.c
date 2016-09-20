@@ -478,6 +478,8 @@ INTERNAL void fwd_delayed (
  * Remove specified packet from the list of delayed packets
  * and do what we are told with it
  */
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PRIVATE void rpc__server_fwd_resolve_delayed(
     uuid_p_t             actuuid,
     rpc_addr_p_t	fwd_addr,
@@ -559,3 +561,4 @@ PRIVATE void rpc__server_fwd_resolve_delayed(
     rpc__dg_pkt_free_rqe(rqe, NULL);
     return;
 }
+#endif

@@ -1,11 +1,13 @@
 " Vim syntax file
 " Language: resolver configuration file
-" Maintainer: David Ne\v{c}as (Yeti) <yeti@physics.muni.cz>
-" Original Maintaner: Radu Dineiu <littledragon@altern.org>
-" License: This file can be redistribued and/or modified under the same terms
-"   as Vim itself.
-" URL: http://trific.ath.cx/Ftp/vim/syntax/resolv.vim
-" Last Change: 2006-04-16
+" Maintainer: Radu Dineiu <radu.dineiu@gmail.com>
+" URL: https://raw.github.com/rid9/vim-resolv/master/resolv.vim
+" Last Change: 2013 May 21
+" Version: 1.0
+"
+" Credits:
+"   David Necas (Yeti) <yeti@physics.muni.cz>
+"   Stefano Zacchiroli <zack@debian.org>
 
 if version < 600
 	syntax clear
@@ -42,8 +44,6 @@ syn match resolvSortList /^\s*sortlist\>/ nextgroup=resolvIPNetmaskSortList skip
 syn match resolvOptions /^\s*options\>/ nextgroup=resolvOption skipwhite
 
 " Options
-" FIXME: The manual page and the source code do not exactly agree on the set
-" of allowed options
 syn match resolvOption /\<\%(debug\|no_tld_query\|rotate\|no-check-names\|inet6\)\>/ contained nextgroup=resolvOption skipwhite
 syn match resolvOption /\<\%(ndots\|timeout\|attempts\):\d\+\>/ contained contains=resolvOperator nextgroup=resolvOption skipwhite
 

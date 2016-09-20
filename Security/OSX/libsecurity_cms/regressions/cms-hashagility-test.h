@@ -25,6 +25,7 @@
 #define cms_hashagility_test_h
 
 #include <stdio.h>
+#include <stdint.h>
 
 int cms_hash_agility_test(int argc, char *const *argv);
 

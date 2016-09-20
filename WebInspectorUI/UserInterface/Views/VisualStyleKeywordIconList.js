@@ -36,27 +36,23 @@ WebInspector.VisualStyleKeywordIconList = class VisualStyleKeywordIconList exten
         this._computedIcon = null;
         this._selectedIcon = null;
 
-        function dashToCapital(match) {
-            return match[1].toUpperCase();
-        }
-
-        var prettyPropertyReferenceName = this._propertyReferenceName.capitalize().replace(/(-.)/g, dashToCapital);
+        let prettyPropertyReferenceName = this._propertyReferenceName.capitalize().replace(/(-.)/g, (match) => match[1].toUpperCase());
 
         function createListItem(value, title) {
-            var iconButtonElement = document.createElement("button");
+            let iconButtonElement = document.createElement("button");
             iconButtonElement.id = value;
             iconButtonElement.title = title;
             iconButtonElement.classList.add("keyword-icon");
             iconButtonElement.addEventListener("click", this._handleKeywordChanged.bind(this));
 
-            var imageName = value === "none" ? "VisualStyleNone" : prettyPropertyReferenceName + title.replace(/\s/g, "");
+            let imageName = (value === "none" || value === "initial") ? "VisualStyleNone" : prettyPropertyReferenceName + title.replace(/\s/g, "");
             iconButtonElement.appendChild(useSVGSymbol("Images/" + imageName + ".svg"));
 
             return iconButtonElement;
         }
 
-        for (var key in this._possibleValues.basic) {
-            var iconElement = createListItem.call(this, key, this._possibleValues.basic[key]);
+        for (let key in this._possibleValues.basic) {
+            let iconElement = createListItem.call(this, key, this._possibleValues.basic[key]);
             this._iconListContainer.appendChild(iconElement);
             this._iconElements.push(iconElement);
         }
@@ -78,25 +74,23 @@ WebInspector.VisualStyleKeywordIconList = class VisualStyleKeywordIconList exten
     {
         this._computedIcon = null;
         this._selectedIcon = null;
-        for (var icon of this._iconElements) {
+        for (let icon of this._iconElements) {
+            icon.classList.remove("selected", "computed");
+
             if (icon.id === this._updatedValues.placeholder)
                 this._computedIcon = icon;
 
             if (icon.id === value && !this._propertyMissing)
                 this._selectedIcon = icon;
-            else
-                icon.classList.remove("selected", "computed");
         }
 
         if (!this._computedIcon)
             this._computedIcon = this._iconElements[0];
 
-        var iconIsSelected = this._selectedIcon && this._selectedIcon.classList.toggle("selected");
-        if (!iconIsSelected) {
-            this._selectedIcon = null;
-            this._propertyMissing = true;
+        if (this._selectedIcon)
+            this._selectedIcon.classList.add("selected");
+        else
             this._computedIcon.classList.add("computed");
-        }
     }
 
     get synthesizedValue()
@@ -108,8 +102,9 @@ WebInspector.VisualStyleKeywordIconList = class VisualStyleKeywordIconList exten
 
     _handleKeywordChanged(event)
     {
-        this._propertyMissing = false;
-        this.value = event.target.id;
+        let toggleOff = this.value === event.target.id;
+        this._propertyMissing = toggleOff;
+        this.value = toggleOff ? null : event.target.id;
         this._valueDidChange();
     }
 };

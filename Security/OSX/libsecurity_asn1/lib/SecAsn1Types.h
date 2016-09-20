@@ -44,6 +44,10 @@
 #include <stdint.h>
 
 #include <TargetConditionals.h>
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 #if TARGET_OS_EMBEDDED || TARGET_IPHONE_SIMULATOR
 /* @@@ We need something that tells us which platform we are building
    for that let's us distinguish if we are doing an emulator build. */
@@ -243,5 +247,7 @@ typedef const SecAsn1Template * SecAsn1TemplateChooser(
 typedef SecAsn1TemplateChooser * SecAsn1TemplateChooserPtr;
 
 CF_ASSUME_NONNULL_END
+
+#pragma clang diagnostic pop
 
 #endif /* _SEC_ASN1_TYPES_H_ */

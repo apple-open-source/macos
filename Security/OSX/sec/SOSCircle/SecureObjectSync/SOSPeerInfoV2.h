@@ -23,6 +23,8 @@ extern CFStringRef sSerialNumberKey;            // Device Serial Number
 extern CFStringRef sSecurityPropertiesKey;      // Set of Security Properties
 extern CFStringRef kSOSHsaCrKeyDictionary;      // HSA Challenge-Response area
 extern CFStringRef sPreferIDS;                    // Whether or not a peer requires to speak over IDS or KVS
+extern CFStringRef sPreferIDSFragmentation;     // Whether or not a peer requires to speak over fragmented IDS or not
+
 extern CFStringRef sTransportType;              // Dictates the transport type
 extern CFStringRef sDeviceID;                   // The IDS device id
 extern CFStringRef sRingState;                  // Dictionary of Ring Membership States
@@ -53,5 +55,6 @@ void SOSPeerInfoV2DictionaryWithSet(SOSPeerInfoRef pi, const void *key, void(^op
 
 bool SOSPeerInfoSerialNumberIsSet(SOSPeerInfoRef pi);
 void SOSPeerInfoSetSerialNumber(SOSPeerInfoRef pi);
+CFStringRef SOSPeerInfoCopySerialNumber(SOSPeerInfoRef pi);
 
 #endif /* defined(_sec_SOSPeerInfoV2_) */

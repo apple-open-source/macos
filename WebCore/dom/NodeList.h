@@ -39,7 +39,17 @@ public:
     // DOM methods & attributes for NodeList
     virtual unsigned length() const = 0;
     virtual Node* item(unsigned index) const = 0;
-    virtual Node* namedItem(const AtomicString&) const = 0;
+
+    class Iterator {
+    public:
+        explicit Iterator(NodeList& list) : m_list(list) { }
+        Node* next() { return m_list->item(m_index++); }
+
+    private:
+        size_t m_index { 0 };
+        Ref<NodeList> m_list;
+    };
+    Iterator createIterator() { return Iterator(*this); }
 
     // Other methods (not part of DOM)
     virtual bool isLiveNodeList() const { return false; }

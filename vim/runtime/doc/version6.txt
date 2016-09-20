@@ -1,4 +1,4 @@
-*version6.txt*  For Vim version 7.3.  Last change: 2008 Aug 06
+*version6.txt*  For Vim version 7.4.  Last change: 2014 Aug 29
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -2452,7 +2452,7 @@ differently.
 
 ":n *.c" ":cd .." ":n" didn't use the original directory of the file.  Vi only
 does it for the current file (looks like a bug).  Now remember the buffer used
-for the entry in the argument list and use it's name (adjusted when doing
+for the entry in the argument list and use its name (adjusted when doing
 ":cd"), unless it's deleted.
 
 When inserting a special key as its name ("<F8>" as four characters) after
@@ -3675,7 +3675,7 @@ When double clicking on the first character of a word while 'selection' is
 
 
 Patch 6.0.001
-Problem:    Loading the sh.vim syntax file causes error messages . (Corinna
+Problem:    Loading the sh.vim syntax file causes error messages. (Corinna
 	    Vinschen)
 Solution:   Add an "if". (Charles Campbell)
 Files:	    runtime/syntax/sh.vim
@@ -7816,7 +7816,7 @@ Files:	    src/buffer.c, src/eval.c, src/ex_docmd.c, src/fileio.c,
 Patch 6.1.212
 Problem:    When Vim was started with "-R" ":new" creates a buffer
 	    'noreadonly' while ":enew" has 'readonly' set. (Preben Guldberg)
-Solution:   Don't set 'readonly in a new empty buffer for ":enew".
+Solution:   Don't set 'readonly' in a new empty buffer for ":enew".
 Files:	    src/ex_docmd.c
 
 Patch 6.1.213
@@ -9091,7 +9091,7 @@ Files:	    src/Make_w16.mak, src/testdir/Make_dos.mak
 Patch 6.1.402
 Problem:    When evaluating a function name with curly braces, an error
 	    is not handled consistently.
-Solution:   Accept the result of an curly braces expression when an
+Solution:   Accept the result of a curly braces expression when an
 	    error was encountered.  Skip evaluating an expression in curly
 	    braces when skipping.  (Servatius Brandt)
 Files:	    src/eval.c
@@ -10959,7 +10959,7 @@ Solution:   Save and restore the KeyTyped variable when evaluating 'foldexpr'.
 Files:	    src/fold.c
 
 Patch 6.2.160
-Problem:    When 'virtualedit' is "all" and 'selection is "exclusive",
+Problem:    When 'virtualedit' is "all" and 'selection' is "exclusive",
 	    selecting a double-width character below a single-width character
 	    may cause a crash.
 Solution:   Avoid overflow on unsigned integer decrement. (Taro Muraoka)
@@ -11619,7 +11619,7 @@ Files:	    src/gui_gtk.c
 
 Patch 6.2.256
 Problem:    Mac: "macroman" encoding isn't recognized, need to use
-	    "8bit-macroman.
+	    "8bit-macroman".
 Solution:   Recognize "macroman" with an alias "mac". (Eckehard Berns)
 Files:	    src/mbyte.c
 

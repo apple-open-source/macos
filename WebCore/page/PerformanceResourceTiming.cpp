@@ -32,7 +32,7 @@
 #include "config.h"
 #include "PerformanceResourceTiming.h"
 
-#if ENABLE(RESOURCE_TIMING)
+#if ENABLE(WEB_TIMING)
 
 #include "Document.h"
 #include "DocumentLoadTiming.h"
@@ -59,7 +59,7 @@ static bool passesTimingAllowCheck(const ResourceResponse& response, Document* r
         return true;
 
     const String& timingAllowOriginString = response.httpHeaderField(HTTPHeaderName::TimingAllowOrigin);
-    if (timingAllowOriginString.isEmpty() || equalIgnoringCase(timingAllowOriginString, "null"))
+    if (timingAllowOriginString.isEmpty() || equalLettersIgnoringASCIICase(timingAllowOriginString, "null"))
         return false;
 
     if (timingAllowOriginString == "*")
@@ -199,5 +199,4 @@ double PerformanceResourceTiming::resourceTimeToDocumentMilliseconds(int deltaMi
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(RESOURCE_TIMING)
+#endif // ENABLE(WEB_TIMING)

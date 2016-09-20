@@ -64,6 +64,7 @@ extern int filesfrom_fd;
 extern int extended_attributes;
 #endif
 extern pid_t cleanup_child_pid;
+extern unsigned int module_dirlen;
 extern struct stats stats;
 extern char *filesfrom_host;
 extern char *partial_dir;
@@ -867,15 +868,18 @@ static void do_server_recv(int f_in, int f_out, int argc,char *argv[])
 	fix_basis_dirs();
 
 	if (server_filter_list.head) {
-		char **dir;
+		char **dir_p;
 		struct filter_list_struct *elp = &server_filter_list;
 
-		for (dir = basis_dir; *dir; dir++) {
-			if (check_filter(elp, *dir, 1) < 0)
+		for (dir_p = basis_dir; *dir_p; dir_p++) {
+			char *dir = *dir_p;
+			if (*dir == '/')
+				dir += module_dirlen;
+			if (check_filter(elp, dir, 1) < 0)
 				goto options_rejected;
 		}
 		if (partial_dir && *partial_dir == '/'
-		 && check_filter(elp, partial_dir, 1) < 0) {
+		 && check_filter(elp, partial_dir + module_dirlen, 1) < 0) {
 		    options_rejected:
 			rprintf(FERROR,
 				"Your options have been rejected by the server.\n");

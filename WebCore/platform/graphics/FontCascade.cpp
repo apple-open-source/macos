@@ -28,11 +28,14 @@
 #include "FloatRect.h"
 #include "FontCache.h"
 #include "GlyphBuffer.h"
+#include "GraphicsContext.h"
 #include "LayoutRect.h"
+#include "SurrogatePairAwareTextIterator.h"
 #include "TextRun.h"
 #include "WidthIterator.h"
 #include <wtf/MainThread.h>
 #include <wtf/MathExtras.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/text/AtomicStringHash.h>
 #include <wtf/text/StringBuilder.h>
 
@@ -41,23 +44,7 @@ using namespace Unicode;
 
 namespace WebCore {
 
-static Ref<FontCascadeFonts> retrieveOrAddCachedFonts(const FontDescription&, PassRefPtr<FontSelector>);
-
-const uint8_t FontCascade::s_roundingHackCharacterTable[256] = {
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 1 /*\t*/, 1 /*\n*/, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    1 /*space*/, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 /*-*/, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 /*?*/,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    1 /*no-break space*/, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-};
-
-static bool isDrawnWithSVGFont(const TextRun& run)
-{
-    return run.renderingContext();
-}
+static Ref<FontCascadeFonts> retrieveOrAddCachedFonts(const FontCascadeDescription&, RefPtr<FontSelector>&&);
 
 static bool useBackslashAsYenSignForFamily(const AtomicString& family)
 {
@@ -105,7 +92,7 @@ FontCascade::FontCascade()
 {
 }
 
-FontCascade::FontCascade(const FontDescription& fd, float letterSpacing, float wordSpacing)
+FontCascade::FontCascade(const FontCascadeDescription& fd, float letterSpacing, float wordSpacing)
     : m_fontDescription(fd)
     , m_weakPtrFactory(this)
     , m_letterSpacing(letterSpacing)
@@ -134,24 +121,6 @@ FontCascade::FontCascade(const FontPlatformData& fontData, FontSmoothingMode fon
     m_fontDescription.setWeight((CTFontGetSymbolicTraits(fontData.font()) & kCTFontTraitBold) ? FontWeightBold : FontWeightNormal);
 #endif
 }
-
-// FIXME: We should make this constructor platform-independent.
-#if PLATFORM(IOS)
-FontCascade::FontCascade(const FontPlatformData& fontData, PassRefPtr<FontSelector> fontSelector)
-    : m_weakPtrFactory(this)
-    , m_letterSpacing(0)
-    , m_wordSpacing(0)
-    , m_enableKerning(computeEnableKerning())
-    , m_requiresShaping(computeRequiresShaping())
-{
-    CTFontRef primaryFont = fontData.font();
-    m_fontDescription.setSpecifiedSize(CTFontGetSize(primaryFont));
-    m_fontDescription.setComputedSize(CTFontGetSize(primaryFont));
-    m_fontDescription.setIsItalic(CTFontGetSymbolicTraits(primaryFont) & kCTFontTraitItalic);
-    m_fontDescription.setWeight((CTFontGetSymbolicTraits(primaryFont) & kCTFontTraitBold) ? FontWeightBold : FontWeightNormal);
-    m_fonts = retrieveOrAddCachedFonts(m_fontDescription, fontSelector.get());
-}
-#endif
 
 FontCascade::FontCascade(const FontCascade& other)
     : m_fontDescription(other.m_fontDescription)
@@ -199,8 +168,7 @@ bool FontCascade::operator==(const FontCascade& other) const
 }
 
 struct FontCascadeCacheKey {
-    // This part of the key is shared with the lower level FontCache (caching FontData objects).
-    FontDescriptionFontDataCacheKey fontDescriptionCacheKey;
+    FontDescriptionKey fontDescriptionKey; // Shared with the lower level FontCache (caching Font objects)
     Vector<AtomicString, 3> families;
     unsigned fontSelectorId;
     unsigned fontSelectorVersion;
@@ -210,25 +178,27 @@ struct FontCascadeCacheEntry {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     FontCascadeCacheEntry(FontCascadeCacheKey&& key, Ref<FontCascadeFonts>&& fonts)
-        : key(WTF::move(key))
-        , fonts(WTF::move(fonts))
+        : key(WTFMove(key))
+        , fonts(WTFMove(fonts))
     { }
     FontCascadeCacheKey key;
     Ref<FontCascadeFonts> fonts;
 };
 
+// FIXME: Should make hash traits for FontCascadeCacheKey instead of using a hash as the key (so we hash a hash).
 typedef HashMap<unsigned, std::unique_ptr<FontCascadeCacheEntry>, AlreadyHashed> FontCascadeCache;
 
-static bool operator==(const FontCascadeCacheKey& a, const FontCascadeCacheKey& b)
+static bool keysMatch(const FontCascadeCacheKey& a, const FontCascadeCacheKey& b)
 {
-    if (a.fontDescriptionCacheKey != b.fontDescriptionCacheKey)
+    if (a.fontDescriptionKey != b.fontDescriptionKey)
         return false;
     if (a.fontSelectorId != b.fontSelectorId || a.fontSelectorVersion != b.fontSelectorVersion)
         return false;
-    if (a.families.size() != b.families.size())
+    unsigned size = a.families.size();
+    if (size != b.families.size())
         return false;
-    for (unsigned i = 0; i < a.families.size(); ++i) {
-        if (!equalIgnoringCase(a.families[i].impl(), b.families[i].impl()))
+    for (unsigned i = 0; i < size; ++i) {
+        if (!equalIgnoringASCIICase(a.families[i], b.families[i]))
             return false;
     }
     return true;
@@ -236,8 +206,8 @@ static bool operator==(const FontCascadeCacheKey& a, const FontCascadeCacheKey& 
 
 static FontCascadeCache& fontCascadeCache()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(FontCascadeCache, cache, ());
-    return cache;
+    static NeverDestroyed<FontCascadeCache> cache;
+    return cache.get();
 }
 
 void invalidateFontCascadeCache()
@@ -251,12 +221,14 @@ void clearWidthCaches()
         value->fonts.get().widthCache().clear();
 }
 
-static FontCascadeCacheKey makeFontCascadeCacheKey(const FontDescription& description, FontSelector* fontSelector)
+static FontCascadeCacheKey makeFontCascadeCacheKey(const FontCascadeDescription& description, FontSelector* fontSelector)
 {
     FontCascadeCacheKey key;
-    key.fontDescriptionCacheKey = FontDescriptionFontDataCacheKey(description);
-    for (unsigned i = 0; i < description.familyCount(); ++i)
-        key.families.append(description.familyAt(i));
+    key.fontDescriptionKey = FontDescriptionKey(description);
+    unsigned familyCount = description.familyCount();
+    key.families.reserveInitialCapacity(familyCount);
+    for (unsigned i = 0; i < familyCount; ++i)
+        key.families.uncheckedAppend(description.familyAt(i));
     key.fontSelectorId = fontSelector ? fontSelector->uniqueId() : 0;
     key.fontSelectorVersion = fontSelector ? fontSelector->version() : 0;
     return key;
@@ -264,21 +236,21 @@ static FontCascadeCacheKey makeFontCascadeCacheKey(const FontDescription& descri
 
 static unsigned computeFontCascadeCacheHash(const FontCascadeCacheKey& key)
 {
-    Vector<unsigned, 7> hashCodes;
-    hashCodes.reserveInitialCapacity(4 + key.families.size());
-
-    hashCodes.uncheckedAppend(key.fontDescriptionCacheKey.computeHash());
-    hashCodes.uncheckedAppend(key.fontSelectorId);
-    hashCodes.uncheckedAppend(key.fontSelectorVersion);
-    for (unsigned i = 0; i < key.families.size(); ++i)
-        hashCodes.uncheckedAppend(key.families[i].impl() ? CaseFoldingHash::hash(key.families[i]) : 0);
-
-    return StringHasher::hashMemory(hashCodes.data(), hashCodes.size() * sizeof(unsigned));
+    // FIXME: Should hash the key and the family name characters rather than making a hash out of other hashes.
+    IntegerHasher hasher;
+    hasher.add(key.fontDescriptionKey.computeHash());
+    hasher.add(key.fontSelectorId);
+    hasher.add(key.fontSelectorVersion);
+    for (unsigned i = 0; i < key.families.size(); ++i) {
+        StringImpl* family = key.families[i].impl();
+        hasher.add(family ? ASCIICaseInsensitiveHash::hash(family) : 0);
+    }
+    return hasher.hash();
 }
 
 void pruneUnreferencedEntriesFromFontCascadeCache()
 {
-    fontCascadeCache().removeIf([](FontCascadeCache::KeyValuePairType& entry) {
+    fontCascadeCache().removeIf([](auto& entry) {
         return entry.value->fonts.get().hasOneRef();
     });
 }
@@ -289,17 +261,17 @@ void pruneSystemFallbackFonts()
         entry->fonts->pruneSystemFallbacks();
 }
 
-static Ref<FontCascadeFonts> retrieveOrAddCachedFonts(const FontDescription& fontDescription, PassRefPtr<FontSelector> fontSelector)
+static Ref<FontCascadeFonts> retrieveOrAddCachedFonts(const FontCascadeDescription& fontDescription, RefPtr<FontSelector>&& fontSelector)
 {
     auto key = makeFontCascadeCacheKey(fontDescription, fontSelector.get());
 
     unsigned hash = computeFontCascadeCacheHash(key);
-    auto addResult = fontCascadeCache().add(hash, std::unique_ptr<FontCascadeCacheEntry>());
-    if (!addResult.isNewEntry && addResult.iterator->value->key == key)
+    auto addResult = fontCascadeCache().add(hash, nullptr);
+    if (!addResult.isNewEntry && keysMatch(addResult.iterator->value->key, key))
         return addResult.iterator->value->fonts.get();
 
     auto& newEntry = addResult.iterator->value;
-    newEntry = std::make_unique<FontCascadeCacheEntry>(WTF::move(key), FontCascadeFonts::create(fontSelector));
+    newEntry = std::make_unique<FontCascadeCacheEntry>(WTFMove(key), FontCascadeFonts::create(WTFMove(fontSelector)));
     Ref<FontCascadeFonts> glyphs = newEntry->fonts.get();
 
     static const unsigned unreferencedPruneInterval = 50;
@@ -314,15 +286,22 @@ static Ref<FontCascadeFonts> retrieveOrAddCachedFonts(const FontDescription& fon
     return glyphs;
 }
 
-void FontCascade::update(PassRefPtr<FontSelector> fontSelector) const
+void FontCascade::update(RefPtr<FontSelector>&& fontSelector) const
 {
-    m_fonts = retrieveOrAddCachedFonts(m_fontDescription, fontSelector.get());
+    m_fonts = retrieveOrAddCachedFonts(m_fontDescription, WTFMove(fontSelector));
     m_useBackslashAsYenSymbol = useBackslashAsYenSignForFamily(firstFamily());
     m_enableKerning = computeEnableKerning();
     m_requiresShaping = computeRequiresShaping();
 }
 
-float FontCascade::drawText(GraphicsContext* context, const TextRun& run, const FloatPoint& point, int from, int to, CustomFontNotReadyAction customFontNotReadyAction) const
+float FontCascade::glyphBufferForTextRun(CodePath codePathToUse, const TextRun& run, int from, int to, GlyphBuffer& glyphBuffer) const
+{
+    if (codePathToUse != Complex)
+        return getGlyphsAndAdvancesForSimpleText(run, from, to, glyphBuffer);
+    return getGlyphsAndAdvancesForComplexText(run, from, to, glyphBuffer);
+}
+
+float FontCascade::drawText(GraphicsContext& context, const TextRun& run, const FloatPoint& point, int from, int to, CustomFontNotReadyAction customFontNotReadyAction) const
 {
     // Don't draw anything while we are using custom fonts that are in the process of loading,
     // except if the 'force' argument is set to true (in which case it will use a fallback
@@ -334,16 +313,21 @@ float FontCascade::drawText(GraphicsContext* context, const TextRun& run, const 
 
     CodePath codePathToUse = codePath(run);
     // FIXME: Use the fast code path once it handles partial runs with kerning and ligatures. See http://webkit.org/b/100050
-    if (codePathToUse != Complex && (enableKerning() || requiresShaping()) && (from || static_cast<unsigned>(to) != run.length()) && !isDrawnWithSVGFont(run))
+    if (codePathToUse != Complex && (enableKerning() || requiresShaping()) && (from || static_cast<unsigned>(to) != run.length()))
         codePathToUse = Complex;
 
-    if (codePathToUse != Complex)
-        return drawSimpleText(context, run, point, from, to);
-
-    return drawComplexText(context, run, point, from, to);
+    GlyphBuffer glyphBuffer;
+    float startX = point.x() + glyphBufferForTextRun(codePathToUse, run, from, to, glyphBuffer);
+    // We couldn't generate any glyphs for the run. Give up.
+    if (glyphBuffer.isEmpty())
+        return 0;
+    // Draw the glyph buffer now at the starting point returned in startX.
+    FloatPoint startPoint(startX, point.y());
+    drawGlyphBuffer(context, glyphBuffer, startPoint);
+    return startPoint.x() - startX;
 }
 
-void FontCascade::drawEmphasisMarks(GraphicsContext* context, const TextRun& run, const AtomicString& mark, const FloatPoint& point, int from, int to) const
+void FontCascade::drawEmphasisMarks(GraphicsContext& context, const TextRun& run, const AtomicString& mark, const FloatPoint& point, int from, int to) const
 {
     if (isLoadingCustomFonts())
         return;
@@ -353,7 +337,7 @@ void FontCascade::drawEmphasisMarks(GraphicsContext* context, const TextRun& run
 
     CodePath codePathToUse = codePath(run);
     // FIXME: Use the fast code path once it handles partial runs with kerning and ligatures. See http://webkit.org/b/100050
-    if (codePathToUse != Complex && (enableKerning() || requiresShaping()) && (from || static_cast<unsigned>(to) != run.length()) && !isDrawnWithSVGFont(run))
+    if (codePathToUse != Complex && (enableKerning() || requiresShaping()) && (from || static_cast<unsigned>(to) != run.length()))
         codePathToUse = Complex;
 
     if (codePathToUse != Complex)
@@ -368,10 +352,10 @@ float FontCascade::width(const TextRun& run, HashSet<const Font*>* fallbackFonts
     if (codePathToUse != Complex) {
         // The complex path is more restrictive about returning fallback fonts than the simple path, so we need an explicit test to make their behaviors match.
         if (!canReturnFallbackFontsForComplexText())
-            fallbackFonts = 0;
+            fallbackFonts = nullptr;
         // The simple path can optimize the case where glyph overflow is not observable.
         if (codePathToUse != SimpleWithGlyphOverflow && (glyphOverflow && !glyphOverflow->computeBounds))
-            glyphOverflow = 0;
+            glyphOverflow = nullptr;
     }
 
     bool hasWordSpacingOrLetterSpacing = wordSpacing() || letterSpacing();
@@ -394,22 +378,10 @@ float FontCascade::width(const TextRun& run, HashSet<const Font*>* fallbackFonts
     return result;
 }
 
-float FontCascade::width(const TextRun& run, int& charsConsumed, String& glyphName) const
-{
-#if ENABLE(SVG_FONTS)
-    if (isDrawnWithSVGFont(run))
-        return run.renderingContext()->floatWidthUsingSVGFont(*this, run, charsConsumed, glyphName);
-#endif
-
-    charsConsumed = run.length();
-    glyphName = "";
-    return width(run);
-}
-
 GlyphData FontCascade::glyphDataForCharacter(UChar32 c, bool mirror, FontVariant variant) const
 {
     if (variant == AutoVariant) {
-        if (m_fontDescription.variantCaps() == FontVariantCaps::Small && !primaryFont().isSVGFont()) {
+        if (m_fontDescription.variantCaps() == FontVariantCaps::Small) {
             UChar32 upperC = u_toupper(c);
             if (upperC != c) {
                 c = upperC;
@@ -525,7 +497,7 @@ void FontCascade::adjustSelectionRectForText(const TextRun& run, LayoutRect& sel
 
     CodePath codePathToUse = codePath(run);
     // FIXME: Use the fast code path once it handles partial runs with kerning and ligatures. See http://webkit.org/b/100050
-    if (codePathToUse != Complex && (enableKerning() || requiresShaping()) && (from || static_cast<unsigned>(to) != run.length()) && !isDrawnWithSVGFont(run))
+    if (codePathToUse != Complex && (enableKerning() || requiresShaping()) && (from || static_cast<unsigned>(to) != run.length()))
         codePathToUse = Complex;
 
     if (codePathToUse != Complex)
@@ -537,7 +509,7 @@ void FontCascade::adjustSelectionRectForText(const TextRun& run, LayoutRect& sel
 int FontCascade::offsetForPosition(const TextRun& run, float x, bool includePartialGlyphs) const
 {
     // FIXME: Use the fast code path once it handles partial runs with kerning and ligatures. See http://webkit.org/b/100050
-    if (codePath(run) != Complex && (!(enableKerning() || requiresShaping()) || isDrawnWithSVGFont(run)))
+    if (codePath(run) != Complex && (!(enableKerning() || requiresShaping())))
         return offsetForPositionForSimpleText(run, x, includePartialGlyphs);
 
     return offsetForPositionForComplexText(run, x, includePartialGlyphs);
@@ -578,18 +550,6 @@ bool FontCascade::shouldUseSmoothing()
     return shouldUseFontSmoothing;
 }
 
-static bool antialiasedFontDilationIsEnabled = false;
-
-void FontCascade::setAntialiasedFontDilationEnabled(bool enabled)
-{
-    antialiasedFontDilationIsEnabled = enabled;
-}
-
-bool FontCascade::antialiasedFontDilationEnabled()
-{
-    return antialiasedFontDilationIsEnabled;
-}
-
 void FontCascade::setCodePath(CodePath p)
 {
     s_codePath = p;
@@ -604,11 +564,6 @@ FontCascade::CodePath FontCascade::codePath(const TextRun& run) const
 {
     if (s_codePath != Auto)
         return s_codePath;
-
-#if ENABLE(SVG_FONTS)
-    if (isDrawnWithSVGFont(run))
-        return Simple;
-#endif
 
 #if PLATFORM(COCOA)
     // Because Font::applyTransforms() doesn't know which features to enable/disable in the simple code path, it can't properly handle feature or variant settings.
@@ -718,6 +673,11 @@ FontCascade::CodePath FontCascade::characterRangeCodePath(const UChar* character
         if (c <= 0x20FF)
             return Complex;
 
+        if (c < 0x26F9)
+            continue;
+        if (c < 0x26FA)
+            return Complex;
+
         if (c < 0x2CEF) // U+2CEF through U+2CF1 Combining marks for Coptic
             continue;
         if (c <= 0x2CF1)
@@ -767,11 +727,11 @@ FontCascade::CodePath FontCascade::characterRangeCodePath(const UChar* character
             if (supplementaryCharacter <= 0x1F1FF)
                 return Complex;
 
-            if (supplementaryCharacter == 0x1F441 || supplementaryCharacter == 0x1F5E8 || (supplementaryCharacter >= 0x1F466 && supplementaryCharacter <= 0x1F469)) {
+            if (isEmojiGroupCandidate(supplementaryCharacter)) {
                 previousCharacterIsEmojiGroupCandidate = true;
                 continue;
             }
-            if (isEmojiModifier(supplementaryCharacter))
+            if (isEmojiFitzpatrickModifier(supplementaryCharacter))
                 return Complex;
             if (supplementaryCharacter < 0xE0100) // U+E0100 through U+E01EF Unicode variation selectors.
                 continue;
@@ -1218,38 +1178,31 @@ GlyphToPathTranslator::GlyphUnderlineType computeUnderlineType(const TextRun& te
 
 // FIXME: This function may not work if the emphasis mark uses a complex script, but none of the
 // standard emphasis marks do so.
-bool FontCascade::getEmphasisMarkGlyphData(const AtomicString& mark, GlyphData& glyphData) const
+Optional<GlyphData> FontCascade::getEmphasisMarkGlyphData(const AtomicString& mark) const
 {
     if (mark.isEmpty())
-        return false;
+        return Nullopt;
 
-    UChar32 character = mark[0];
+    UChar32 character;
+    if (!mark.is8Bit()) {
+        SurrogatePairAwareTextIterator iterator(mark.characters16(), 0, mark.length(), mark.length());
+        unsigned clusterLength;
+        if (!iterator.consume(character, clusterLength))
+            return Nullopt;
+    } else
+        character = mark[0];
 
-    if (U16_IS_SURROGATE(character)) {
-        if (!U16_IS_SURROGATE_LEAD(character))
-            return false;
-
-        if (mark.length() < 2)
-            return false;
-
-        UChar low = mark[1];
-        if (!U16_IS_TRAIL(low))
-            return false;
-
-        character = U16_GET_SUPPLEMENTARY(character, low);
-    }
-
-    glyphData = glyphDataForCharacter(character, false, EmphasisMarkVariant);
-    return true;
+    Optional<GlyphData> glyphData(glyphDataForCharacter(character, false, EmphasisMarkVariant));
+    return glyphData.value().isValid() ? glyphData : Nullopt;
 }
 
 int FontCascade::emphasisMarkAscent(const AtomicString& mark) const
 {
-    GlyphData markGlyphData;
-    if (!getEmphasisMarkGlyphData(mark, markGlyphData))
+    Optional<GlyphData> markGlyphData = getEmphasisMarkGlyphData(mark);
+    if (!markGlyphData)
         return 0;
 
-    const Font* markFontData = markGlyphData.font;
+    const Font* markFontData = markGlyphData.value().font;
     ASSERT(markFontData);
     if (!markFontData)
         return 0;
@@ -1259,11 +1212,11 @@ int FontCascade::emphasisMarkAscent(const AtomicString& mark) const
 
 int FontCascade::emphasisMarkDescent(const AtomicString& mark) const
 {
-    GlyphData markGlyphData;
-    if (!getEmphasisMarkGlyphData(mark, markGlyphData))
+    Optional<GlyphData> markGlyphData = getEmphasisMarkGlyphData(mark);
+    if (!markGlyphData)
         return 0;
 
-    const Font* markFontData = markGlyphData.font;
+    const Font* markFontData = markGlyphData.value().font;
     ASSERT(markFontData);
     if (!markFontData)
         return 0;
@@ -1273,11 +1226,11 @@ int FontCascade::emphasisMarkDescent(const AtomicString& mark) const
 
 int FontCascade::emphasisMarkHeight(const AtomicString& mark) const
 {
-    GlyphData markGlyphData;
-    if (!getEmphasisMarkGlyphData(mark, markGlyphData))
+    Optional<GlyphData> markGlyphData = getEmphasisMarkGlyphData(mark);
+    if (!markGlyphData)
         return 0;
 
-    const Font* markFontData = markGlyphData.font;
+    const Font* markFontData = markGlyphData.value().font;
     ASSERT(markFontData);
     if (!markFontData)
         return 0;
@@ -1315,23 +1268,7 @@ float FontCascade::getGlyphsAndAdvancesForSimpleText(const TextRun& run, int fro
     return initialAdvance;
 }
 
-float FontCascade::drawSimpleText(GraphicsContext* context, const TextRun& run, const FloatPoint& point, int from, int to) const
-{
-    // This glyph buffer holds our glyphs+advances+font data for each glyph.
-    GlyphBuffer glyphBuffer;
-
-    float startX = point.x() + getGlyphsAndAdvancesForSimpleText(run, from, to, glyphBuffer);
-
-    if (glyphBuffer.isEmpty())
-        return 0;
-
-    FloatPoint startPoint(startX, point.y());
-    drawGlyphBuffer(context, run, glyphBuffer, startPoint);
-
-    return startPoint.x() - startX;
-}
-
-void FontCascade::drawEmphasisMarksForSimpleText(GraphicsContext* context, const TextRun& run, const AtomicString& mark, const FloatPoint& point, int from, int to) const
+void FontCascade::drawEmphasisMarksForSimpleText(GraphicsContext& context, const TextRun& run, const AtomicString& mark, const FloatPoint& point, int from, int to) const
 {
     GlyphBuffer glyphBuffer;
     float initialAdvance = getGlyphsAndAdvancesForSimpleText(run, from, to, glyphBuffer, ForTextEmphasis);
@@ -1339,15 +1276,11 @@ void FontCascade::drawEmphasisMarksForSimpleText(GraphicsContext* context, const
     if (glyphBuffer.isEmpty())
         return;
 
-    drawEmphasisMarks(context, run, glyphBuffer, mark, FloatPoint(point.x() + initialAdvance, point.y()));
+    drawEmphasisMarks(context, glyphBuffer, mark, FloatPoint(point.x() + initialAdvance, point.y()));
 }
 
-void FontCascade::drawGlyphBuffer(GraphicsContext* context, const TextRun& run, const GlyphBuffer& glyphBuffer, FloatPoint& point) const
+void FontCascade::drawGlyphBuffer(GraphicsContext& context, const GlyphBuffer& glyphBuffer, FloatPoint& point) const
 {
-#if !ENABLE(SVG_FONTS)
-    UNUSED_PARAM(run);
-#endif
-
     // Draw each contiguous run of glyphs that use the same font data.
     const Font* fontData = glyphBuffer.fontAt(0);
     FloatSize offset = glyphBuffer.offsetAt(0);
@@ -1356,20 +1289,12 @@ void FontCascade::drawGlyphBuffer(GraphicsContext* context, const TextRun& run, 
     float nextY = startPoint.y() + glyphBuffer.advanceAt(0).height();
     int lastFrom = 0;
     int nextGlyph = 1;
-#if ENABLE(SVG_FONTS)
-    TextRun::RenderingContext* renderingContext = run.renderingContext();
-#endif
     while (nextGlyph < glyphBuffer.size()) {
         const Font* nextFontData = glyphBuffer.fontAt(nextGlyph);
         FloatSize nextOffset = glyphBuffer.offsetAt(nextGlyph);
 
         if (nextFontData != fontData || nextOffset != offset) {
-#if ENABLE(SVG_FONTS)
-            if (renderingContext && fontData->isSVGFont())
-                renderingContext->drawSVGGlyphs(context, fontData, glyphBuffer, lastFrom, nextGlyph - lastFrom, startPoint);
-            else
-#endif
-                drawGlyphs(context, fontData, glyphBuffer, lastFrom, nextGlyph - lastFrom, startPoint);
+            context.drawGlyphs(*this, *fontData, glyphBuffer, lastFrom, nextGlyph - lastFrom, startPoint);
 
             lastFrom = nextGlyph;
             fontData = nextFontData;
@@ -1382,15 +1307,8 @@ void FontCascade::drawGlyphBuffer(GraphicsContext* context, const TextRun& run, 
         nextGlyph++;
     }
 
-#if ENABLE(SVG_FONTS)
-    if (renderingContext && fontData->isSVGFont())
-        renderingContext->drawSVGGlyphs(context, fontData, glyphBuffer, lastFrom, nextGlyph - lastFrom, startPoint);
-    else
-#endif
-    {
-        drawGlyphs(context, fontData, glyphBuffer, lastFrom, nextGlyph - lastFrom, startPoint);
-        point.setX(nextX);
-    }
+    context.drawGlyphs(*this, *fontData, glyphBuffer, lastFrom, nextGlyph - lastFrom, startPoint);
+    point.setX(nextX);
 }
 
 inline static float offsetToMiddleOfGlyph(const Font* fontData, Glyph glyph)
@@ -1408,18 +1326,18 @@ inline static float offsetToMiddleOfGlyphAtIndex(const GlyphBuffer& glyphBuffer,
     return offsetToMiddleOfGlyph(glyphBuffer.fontAt(i), glyphBuffer.glyphAt(i));
 }
 
-void FontCascade::drawEmphasisMarks(GraphicsContext* context, const TextRun& run, const GlyphBuffer& glyphBuffer, const AtomicString& mark, const FloatPoint& point) const
+void FontCascade::drawEmphasisMarks(GraphicsContext& context, const GlyphBuffer& glyphBuffer, const AtomicString& mark, const FloatPoint& point) const
 {
-    GlyphData markGlyphData;
-    if (!getEmphasisMarkGlyphData(mark, markGlyphData))
+    Optional<GlyphData> markGlyphData = getEmphasisMarkGlyphData(mark);
+    if (!markGlyphData)
         return;
 
-    const Font* markFontData = markGlyphData.font;
+    const Font* markFontData = markGlyphData.value().font;
     ASSERT(markFontData);
     if (!markFontData)
         return;
 
-    Glyph markGlyph = markGlyphData.glyph;
+    Glyph markGlyph = markGlyphData.value().glyph;
     Glyph spaceGlyph = markFontData->spaceGlyph();
 
     float middleOfLastGlyph = offsetToMiddleOfGlyphAtIndex(glyphBuffer, 0);
@@ -1434,7 +1352,7 @@ void FontCascade::drawEmphasisMarks(GraphicsContext* context, const TextRun& run
     }
     markBuffer.add(glyphBuffer.glyphAt(glyphBuffer.size() - 1) ? markGlyph : spaceGlyph, markFontData, 0);
 
-    drawGlyphBuffer(context, run, markBuffer, startPoint);
+    drawGlyphBuffer(context, markBuffer, startPoint);
 }
 
 float FontCascade::floatWidthForSimpleText(const TextRun& run, HashSet<const Font*>* fallbackFonts, GlyphOverflow* glyphOverflow) const

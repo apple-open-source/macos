@@ -31,10 +31,10 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/Security.h>
 #include <Security/SecCertificatePriv.h>
-#include <Security/SecInternal.h>
 #include <utilities/array_size.h>
+#include <utilities/SecCFWrappers.h>
 
-#include "Security_regressions.h"
+#include "shared_regressions.h"
 #include <test/testcert.h>
 
 /* This is a minimal test case to ensure that the functionality of
@@ -324,6 +324,7 @@ static void tests(void)
 		isnt(policy, NULL, "SecPolicyCreateWithProperties");
 		CFReleaseSafe(properties);
 	}
+    if (!policy) { goto errOut; }
 
 	/* Test introspection of a policy's properties via SecPolicyCopyProperties */
 	{
@@ -355,6 +356,7 @@ static void tests(void)
 		CFReleaseSafe(results);
 	}
 
+errOut:
 	CFReleaseSafe(trust);
 	CFReleaseSafe(policy);
 	CFReleaseSafe(date);

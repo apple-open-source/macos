@@ -16,9 +16,6 @@
 // MARK: Circle management
 //
 
-CFIndex whichTransportType;
-
-
 SecKeyRef SOSAccountCopyPublicKeyForPeer(SOSAccountRef account, CFStringRef peer_id, CFErrorRef *error) {
     SecKeyRef publicKey = NULL;
     SOSPeerInfoRef peer = NULL;
@@ -28,7 +25,7 @@ SecKeyRef SOSAccountCopyPublicKeyForPeer(SOSAccountRef account, CFStringRef peer
     peer = SOSCircleCopyPeerWithID(account->trusted_circle, peer_id, error);
     require_quiet(peer, fail);
 
-    publicKey = SOSPeerInfoCopyPubKey(peer);
+    publicKey = SOSPeerInfoCopyPubKey(peer, error);
 
 fail:
     CFReleaseSafe(peer);
@@ -53,33 +50,6 @@ fail:
     return NULL;
 }
 
-static void setup_defaults_settings(){
-
-    Boolean keyExistsAndHasValue = false;
-    
-    whichTransportType = CFPreferencesGetAppIntegerValue(CFSTR("Transport"), CFSTR("com.apple.security"), &keyExistsAndHasValue);
-    if(whichTransportType == kSOSTransportFuture)
-        secdebug("IDS", "Successfully retrieved value: %d, We are a Galarch + 1 device: %ld", keyExistsAndHasValue, whichTransportType);
-    else if (whichTransportType == kSOSTransportPresent)
-        secdebug("IDS", "Successfully retrieved value: %d, We are a Galarch device: %ld", keyExistsAndHasValue, whichTransportType);
-    
-    else if (whichTransportType == kSOSTransportIDS)
-        secdebug("IDS", "Successfully retrieved value: %d, We are an IDS device: %ld", keyExistsAndHasValue, whichTransportType);
-    
-    else if (whichTransportType == kSOSTransportKVS)
-        secdebug("IDS", "Successfully retrieved value: %d, We are a KVS device: %ld", keyExistsAndHasValue, whichTransportType);
-    else
-        secdebug("IDS", "Successfully retrieved value: %d, We are a KVS device: %ld", keyExistsAndHasValue, whichTransportType);
-
-}
-
-static void SOSTransportInit(void) {
-    static dispatch_once_t sdOnceToken;
-    dispatch_once(&sdOnceToken, ^{
-        setup_defaults_settings();
-    });
-}
-
 static bool SOSAccountInflateTransportsForCircle(SOSAccountRef account, CFStringRef circleName, CFErrorRef *error){
     bool success = false;
 
@@ -88,11 +58,9 @@ static bool SOSAccountInflateTransportsForCircle(SOSAccountRef account, CFString
     SOSTransportMessageRef tidsMessage = NULL;
     SOSTransportMessageRef tkvsMessage = NULL;
     
-    SOSTransportInit();
-
     tKey = (SOSTransportKeyParameterRef)SOSTransportKeyParameterKVSCreate(account, error);
     tCircle = (SOSTransportCircleRef)SOSTransportCircleKVSCreate(account, circleName, error);
-
+    
     require_quiet(tKey, fail);
     require_quiet(tCircle, fail);
     
@@ -100,11 +68,12 @@ static bool SOSAccountInflateTransportsForCircle(SOSAccountRef account, CFString
     require_quiet(tidsMessage, fail);
     
     CFRetainAssign(account->ids_message_transport, tidsMessage);
+    
     tkvsMessage = (SOSTransportMessageRef)SOSTransportMessageKVSCreate(account, circleName, error);
     require_quiet(tkvsMessage, fail);
     
     CFRetainAssign(account->kvs_message_transport, tkvsMessage);
-    
+
     CFRetainAssign(account->key_transport, (SOSTransportKeyParameterRef)tKey);
     CFRetainAssign(account->circle_transport, tCircle);
 
@@ -124,7 +93,7 @@ SOSCircleRef SOSAccountEnsureCircle(SOSAccountRef a, CFStringRef name, CFErrorRe
 
     if (a->trusted_circle == NULL) {
         a->trusted_circle = SOSCircleCreate(NULL, name, NULL);
-        SOSUpdateKeyInterest(a);
+        a->key_interests_need_updating = true;
     }
 
     

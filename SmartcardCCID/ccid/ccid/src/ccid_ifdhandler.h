@@ -17,10 +17,6 @@
 	Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-/*
- * $Id$
- */
-
 #ifndef _ccid_ifd_handler_h_
 #define _ccid_ifd_handler_h_
 
@@ -41,7 +37,6 @@
 #define DRIVER_OPTION_CCID_EXCHANGE_AUTHORIZED 1
 #define DRIVER_OPTION_GEMPC_TWIN_KEY_APDU 2
 #define DRIVER_OPTION_USE_BOGUS_FIRMWARE 4
-#define DRIVER_OPTION_RESET_ON_CLOSE 8
 #define DRIVER_OPTION_DISABLE_PIN_RETRIES (1 << 6)
 
 extern int DriverOptions;

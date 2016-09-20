@@ -40,14 +40,14 @@ WKTypeID WKApplicationCacheManagerGetTypeID()
 void WKApplicationCacheManagerGetApplicationCacheOrigins(WKApplicationCacheManagerRef applicationCacheManager, void* context, WKApplicationCacheManagerGetApplicationCacheOriginsFunction callback)
 {
     auto& websiteDataStore = toImpl(reinterpret_cast<WKWebsiteDataStoreRef>(applicationCacheManager))->websiteDataStore();
-    websiteDataStore.fetchData(WebsiteDataTypes::WebsiteDataTypeOfflineWebApplicationCache, [context, callback](Vector<WebsiteDataRecord> dataRecords) {
+    websiteDataStore.fetchData(WebsiteDataType::OfflineWebApplicationCache, { }, [context, callback](auto dataRecords) {
         Vector<RefPtr<API::Object>> securityOrigins;
         for (const auto& dataRecord : dataRecords) {
             for (const auto& origin : dataRecord.origins)
                 securityOrigins.append(API::SecurityOrigin::create(*origin));
         }
 
-        callback(toAPI(API::Array::create(WTF::move(securityOrigins)).ptr()), nullptr, context);
+        callback(toAPI(API::Array::create(WTFMove(securityOrigins)).ptr()), nullptr, context);
     });
 }
 
@@ -56,13 +56,13 @@ void WKApplicationCacheManagerDeleteEntriesForOrigin(WKApplicationCacheManagerRe
     auto& websiteDataStore = toImpl(reinterpret_cast<WKWebsiteDataStoreRef>(applicationCacheManager))->websiteDataStore();
 
     WebsiteDataRecord dataRecord;
-    dataRecord.add(WebsiteDataTypes::WebsiteDataTypeOfflineWebApplicationCache, &toImpl(origin)->securityOrigin());
+    dataRecord.add(WebsiteDataType::OfflineWebApplicationCache, &toImpl(origin)->securityOrigin());
 
-    websiteDataStore.removeData(WebsiteDataTypes::WebsiteDataTypeOfflineWebApplicationCache, { dataRecord }, [] { });
+    websiteDataStore.removeData(WebsiteDataType::OfflineWebApplicationCache, { dataRecord }, [] { });
 }
 
 void WKApplicationCacheManagerDeleteAllEntries(WKApplicationCacheManagerRef applicationCacheManager)
 {
     auto& websiteDataStore = toImpl(reinterpret_cast<WKWebsiteDataStoreRef>(applicationCacheManager))->websiteDataStore();
-    websiteDataStore.removeData(WebsiteDataTypes::WebsiteDataTypeOfflineWebApplicationCache, std::chrono::system_clock::time_point::min(), [] { });
+    websiteDataStore.removeData(WebsiteDataType::OfflineWebApplicationCache, std::chrono::system_clock::time_point::min(), [] { });
 }

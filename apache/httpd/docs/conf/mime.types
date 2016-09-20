@@ -1213,7 +1213,7 @@ audio/basic					au snd
 # audio/lpc
 audio/midi					mid midi kar rmi
 # audio/mobile-xmf
-audio/mp4					mp4a
+audio/mp4					m4a mp4a
 # audio/mp4a-latm
 audio/mp4a-latm					m4a m4p
 # audio/mpa

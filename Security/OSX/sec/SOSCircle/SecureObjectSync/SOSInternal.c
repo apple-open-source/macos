@@ -67,7 +67,7 @@ bool SOSErrorCreate(CFIndex errorCode, CFErrorRef *error, CFDictionaryRef format
 
 bool SOSCreateError(CFIndex errorCode, CFStringRef descriptionString, CFErrorRef previousError, CFErrorRef *newError) {
     SOSCreateErrorWithFormat(errorCode, previousError, newError, NULL, CFSTR("%@"), descriptionString);
-    return true;
+    return false;
 }
 
 bool SOSCreateErrorWithFormat(CFIndex errorCode, CFErrorRef previousError, CFErrorRef *newError,
@@ -81,8 +81,7 @@ bool SOSCreateErrorWithFormat(CFIndex errorCode, CFErrorRef previousError, CFErr
 
 bool SOSCreateErrorWithFormatAndArguments(CFIndex errorCode, CFErrorRef previousError, CFErrorRef *newError,
                                           CFDictionaryRef formatOptions, CFStringRef format, va_list args) {
-    SecCFCreateErrorWithFormatAndArguments(errorCode, kSOSErrorDomain, previousError, newError, formatOptions, format, args);
-    return true;
+    return SecCFCreateErrorWithFormatAndArguments(errorCode, kSOSErrorDomain, previousError, newError, formatOptions, format, args);
 }
 
 
@@ -193,6 +192,14 @@ fail:
     return result;
 }
 
+CFStringRef SOSCopyIDOfKeyWithLength(SecKeyRef key, CFIndex len, CFErrorRef *error) {
+    CFStringRef retval = NULL;
+    CFStringRef tmp = SOSCopyIDOfKey(key, error);
+    if(tmp) retval = CFStringCreateWithSubstring(kCFAllocatorDefault, tmp, CFRangeMake(0, len));
+    CFReleaseNull(tmp);
+    return retval;
+}
+
 CFGiblisGetSingleton(ccec_const_cp_t, SOSGetBackupKeyCurveParameters, sBackupKeyCurveParameters, ^{
     *sBackupKeyCurveParameters = ccec_cp_256();
 });
@@ -205,7 +212,6 @@ CFGiblisGetSingleton(ccec_const_cp_t, SOSGetBackupKeyCurveParameters, sBackupKey
 //
 const int kBackupKeyIterations = 20;
 const uint8_t sBackupKeySalt[] = { 0 };
-const int kBackupKeyMaxBytes = 256;
 
 bool SOSPerformWithDeviceBackupFullKey(ccec_const_cp_t cp, CFDataRef entropy, CFErrorRef *error, void (^operation)(ccec_full_ctx_t fullKey))
 {
@@ -229,6 +235,7 @@ bool SOSGenerateDeviceBackupFullKey(ccec_full_ctx_t generatedKey, ccec_const_cp_
     bool result = false;
     int cc_result = 0;
     struct ccrng_pbkdf2_prng_state pbkdf2_prng;
+    const int kBackupKeyMaxBytes = 1024; // This may be a function of the cp but will be updated when we use a formally deterministic key generation.
 
     cc_result = ccrng_pbkdf2_prng_init(&pbkdf2_prng, kBackupKeyMaxBytes,
                                        CFDataGetLength(entropy), CFDataGetBytePtr(entropy),
@@ -278,3 +285,19 @@ CFDataRef SOSDateCreate(void) {
     return CFDataCreate(NULL, buf, bufsiz);
 }
 
+
+CFDataRef CFDataCreateWithDER(CFAllocatorRef allocator, CFIndex size, uint8_t*(^operation)(size_t size, uint8_t *buffer)) {
+    __block CFMutableDataRef result = NULL;
+    if(!size) return NULL;
+    if((result = CFDataCreateMutableWithScratch(allocator, size)) == NULL) return NULL;
+    uint8_t *ptr = CFDataGetMutableBytePtr(result);
+    uint8_t *derptr = operation(size, ptr);
+    if(derptr == ptr) return result; // most probable case
+    if(!derptr || derptr < ptr) { // DER op failed  - or derptr ended up prior to allocated buffer
+        CFReleaseNull(result);
+    } else if(derptr > ptr) { // This is a possible case where we don't end up using the entire allocated buffer
+        size_t diff = derptr - ptr; // The unused space ends up being the beginning of the allocation
+        CFDataDeleteBytes(result, CFRangeMake(0, diff));
+    }
+    return result;
+}

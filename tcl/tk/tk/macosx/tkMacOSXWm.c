@@ -2729,7 +2729,7 @@ WmProtocolCmd(
 	protPtr->nextPtr = wmPtr->protPtr;
 	wmPtr->protPtr = protPtr;
 	protPtr->interp = interp;
-	strcpy(protPtr->command, cmd);
+	memcpy(protPtr->command, cmd, cmdLength + 1);
     }
     return TCL_OK;
 }

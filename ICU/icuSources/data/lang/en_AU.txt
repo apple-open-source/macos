@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/en_AU.xml
@@ -11,6 +11,13 @@ en_AU{
     Languages{
         bax{"Bamum"}
         en_US{"United States English"}
+        ro_MD{"Moldovan"}
     }
-    Version{"2.1.11.59"}
+    Types{
+        calendar{
+            dangi{"Korean Calendar"}
+            ethiopic{"Ethiopian Calendar"}
+        }
+    }
+    Version{"2.1.24.13"}
 }

@@ -1,0 +1,57 @@
+
+function test () 
+  io.write(string.format("+keyboardstress\n"))
+
+  local properties = [[
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0">
+    <dict>
+      <key>VendorID</key>
+      <integer>5</integer>
+      <key>ProductID</key>
+      <integer>6</integer>
+      <key>ReportInterval</key>
+      <integer>10000</integer>
+      <key>RequestTimeout</key>
+      <integer>5000000</integer>
+    </dict>
+    </plist>
+  ]]
+
+  local descriptor = {
+                        0x05 ,0x01 ,0x09 ,0x06 ,0xa1 ,0x01 ,0x05 ,0x07 ,0x19 ,0xe0 ,0x29 ,
+                        0xe7 ,0x15 ,0x00 ,0x25 ,0x01 ,0x75 ,0x01 ,0x95 ,0x08 ,0x81 ,0x02 ,
+                        0x95 ,0x01 ,0x75 ,0x08 ,0x81 ,0x01 ,0x05 ,0x08 ,0x19 ,0x01 ,0x29 ,
+                        0x05 ,0x95 ,0x05 ,0x75 ,0x01 ,0x91 ,0x02 ,0x95 ,0x01 ,0x75 ,0x03 ,
+                        0x91 ,0x01 ,0x05 ,0x07 ,0x19 ,0x00 ,0x2a ,0xff ,0x00 ,0x95 ,0x05 ,
+                        0x75 ,0x08 ,0x15 ,0x00 ,0x26 ,0xff ,0x00 ,0x81 ,0x00 ,0x05 ,0xff ,
+                        0x09 ,0x03 ,0x75 ,0x08 ,0x95 ,0x01 ,0x81 ,0x02 ,0xc0
+                    }
+   
+   local keyboards = {}
+   for i=0,20,1 do
+     keyboards[i] = HIDUserDevice(properties,  descriptor)
+   end   
+   util.usleep(100000)
+
+   for i=0,20,1 do
+    io.write(string.format("Send key\n"))
+    local keyboard = keyboards[i];
+    keyboard:SendReport ({0x00, 0x00, 0x2c, 0x00, 0x00, 0x00, 0x00, 0x00})
+    util.usleep(10000)
+    keyboard:SendReport ({0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00})
+  end
+
+  io.write(string.format("-keyboardstress\n"))
+end
+
+function main ()
+  for i=0,10000,1 do
+    test()
+    collectgarbage()
+ end 
+end
+
+
+main();

@@ -483,6 +483,12 @@ static UInt32 getIfnetHardwareAssistValue(
     if (driverFeatures & kIONetworkFeatureTransmitCompletionStatus)
         hwassist |= IFNET_TX_STATUS;
 
+    if (driverFeatures & kIONetworkFeatureHWTimeStamp)
+        hwassist |= IFNET_HW_TIMESTAMP;
+
+    if (driverFeatures & kIONetworkFeatureSWTimeStamp)
+        hwassist |= IFNET_SW_TIMESTAMP;
+
     return hwassist;
 }
 
@@ -1146,7 +1152,6 @@ SInt32 IONetworkInterface::syncSIOCGIFMEDIA(IONetworkController * ctr,
     UInt                    maxCount;
     OSCollectionIterator *  iter = 0;
     UInt32 *                typeList;
-    UInt                    typeListSize;
     OSSymbol *              keyObject;
     SInt32                  error = 0;
     struct ifmediareq *     ifmr = (struct ifmediareq *) ifr;
@@ -1200,15 +1205,15 @@ SInt32 IONetworkInterface::syncSIOCGIFMEDIA(IONetworkController * ctr,
         }
 
         // Allocate memory for the copyout buffer.
+        // IONew checks for overflow.
         //
-        typeListSize = maxCount * sizeof(UInt32);
-        typeList = (UInt32 *) IOMalloc(typeListSize);
+        typeList = IONew(UInt32, maxCount);
         if (!typeList)
         {
             error = ENOMEM;
             break;
         }
-        bzero(typeList, typeListSize);
+        bzero(typeList, maxCount * sizeof(UInt32));
 
         // Iterate through the medium dictionary and copy the type of
         // each medium entry to typeList[].
@@ -1234,11 +1239,11 @@ SInt32 IONetworkInterface::syncSIOCGIFMEDIA(IONetworkController * ctr,
                 ((struct ifmediareq64 *)ifmr)->ifmu_ulist :
             CAST_USER_ADDR_T(((struct ifmediareq32 *)ifmr)->ifmu_ulist);
             if (srcaddr != USER_ADDR_NULL) {
-                    error = copyout((caddr_t) typeList, srcaddr, typeListSize);
+                error = copyout((caddr_t) typeList, srcaddr, maxCount * sizeof(UInt32));
             }
         }
 
-        IOFree(typeList, typeListSize);
+        IODelete(typeList, UInt32, maxCount);
     }
     while (0);
 
@@ -2028,6 +2033,8 @@ IOReturn IONetworkInterface::attachToDataLinkLayer( IOOptionBits options,
 	char                    buffer[2 * sizeof(struct sockaddr_dl)];
     errno_t                 error;
     OSObject *              prop;
+    OSNumber *link_prop;
+    uint32_t link_status;
     IOReturn                result = kIOReturnInternalError;
 
     if (!_driver)
@@ -2203,11 +2210,25 @@ IOReturn IONetworkInterface::attachToDataLinkLayer( IOOptionBits options,
         ifnet_set_rcvq_maxlen(_backingIfnet, _rxRingSize);
 
     error = ifnet_attach(_backingIfnet, ll_addr);
-    if (!error)
+    if (!error) {
+        //
+        // In some case Controller may have already established a link prior to the ifnet_attach
+        // if that happens then the link quality needs to be re-synchronized with the link
+        // state.
+        //
+        link_prop = OSDynamicCast(OSNumber, _controller->getProperty(kIOLinkStatus));
+        if (link_prop != NULL) {
+            link_status = link_prop->unsigned32BitValue();	
+	    if (link_status & kIONetworkLinkValid) {
+                if (link_status & kIONetworkLinkActive)
+                    ifnet_set_link_quality(_backingIfnet, IFNET_LQM_THRESH_GOOD);
+                else
+                    ifnet_set_link_quality(_backingIfnet, IFNET_LQM_THRESH_OFF);
+            }
+        }
         result = kIOReturnSuccess;
-    else
+    } else
         LOG("%s: ifnet_attach error %d\n", getName(), error);
-
 fail:    
     if ((result != kIOReturnSuccess) && _backingIfnet)
     {
@@ -2703,6 +2724,81 @@ IOReturn IONetworkInterface::dequeueOutputPacketsWithServiceClass(
 
 no_frames:
     *packetHead  = 0;
+    if (packetTail)
+        packetTail = 0;
+    if (packetCount)
+        packetCount = 0;
+    if (packetBytes)
+        packetBytes = 0;
+    return kIOReturnNoFrames;
+}
+
+IOReturn IONetworkInterface::dequeueOutputPacketsWithMaxSize(
+    uint32_t            maxSize,
+    mbuf_t *            packetHead,
+    mbuf_t *            packetTail,
+    uint32_t *          packetCount,
+    uint64_t *          packetBytes )
+{
+    uint32_t    txByteCount, temp, txPackets = 0, txErrors = 0;
+    int         delta;
+    errno_t     error;
+
+    if (!maxSize || !packetHead)
+        return kIOReturnBadArgument;
+
+    if (_txThreadState & (kTxThreadStateInit | kTxThreadStateDetach))
+    {
+        goto no_frames;
+    }
+
+    assert(_backingIfnet);
+
+    error = ifnet_dequeue_multi_bytes(
+                _backingIfnet, maxSize,
+                packetHead, packetTail, packetCount, &txByteCount);
+    if (error) goto no_frames;
+
+    // feed output tap
+    if (_outputFilterFunc)
+    {
+        mbuf_t  m, n;
+
+        m = *packetHead;
+        assert(m);
+        assert((mbuf_flags(m) & MBUF_PKTHDR));
+
+        for (n = m; n != 0; n = mbuf_nextpkt(n))
+            feedPacketOutputTap(n);
+    }
+
+    if (_txThreadSignal != _txThreadSignalLast)
+    {
+        // Update the stats that the driver maintains
+        temp = _driverStats.outputErrors;
+        delta = temp - _lastDriverStats.outputErrors;
+        if (delta)
+        {
+            txErrors = ABS(delta);
+            _lastDriverStats.outputErrors = temp;
+        }
+
+        temp = _driverStats.outputPackets;
+        delta = temp - _lastDriverStats.outputPackets;
+        txPackets = ABS(delta);
+        _lastDriverStats.outputPackets = temp;
+        _txThreadSignalLast = _txThreadSignal;
+    }
+
+    // update interface output byte count
+    ifnet_stat_increment_out(_backingIfnet, txPackets, txByteCount, txErrors);
+    if (packetBytes)
+        *packetBytes = txByteCount;
+
+    return kIOReturnSuccess;
+
+no_frames:
+    *packetHead = 0;
     if (packetTail)
         packetTail = 0;
     if (packetCount)

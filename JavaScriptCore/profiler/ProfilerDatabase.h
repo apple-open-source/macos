@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2013, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,8 +30,10 @@
 #include "ProfilerBytecodes.h"
 #include "ProfilerCompilation.h"
 #include "ProfilerCompilationKind.h"
+#include "ProfilerEvent.h"
 #include <wtf/FastMalloc.h>
 #include <wtf/HashMap.h>
+#include <wtf/Lock.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/SegmentedVector.h>
@@ -51,7 +53,7 @@ public:
     Bytecodes* ensureBytecodesFor(CodeBlock*);
     void notifyDestruction(CodeBlock*);
     
-    void addCompilation(PassRefPtr<Compilation>);
+    void addCompilation(CodeBlock*, PassRefPtr<Compilation>);
     
     // Converts the database to a JavaScript object that is suitable for JSON stringification.
     // Note that it's probably a good idea to use an ExecState* associated with a global
@@ -69,22 +71,11 @@ public:
 
     void registerToSaveAtExit(const char* filename);
     
-private:
-    // Use a full-blown adaptive mutex because:
-    // - There is only one ProfilerDatabase per VM. The size overhead of the system's
-    //   mutex is negligible if you only have one of them.
-    // - It's locked infrequently - once per bytecode generation, compilation, and
-    //   code block collection - so the fact that the fast path still requires a
-    //   function call is neglible.
-    // - It tends to be held for a while. Currently, we hold it while generating
-    //   Profiler::Bytecodes for a CodeBlock. That's uncommon and shouldn't affect
-    //   performance, but if we did have contention, we would want a sensible,
-    //   power-aware backoff. An adaptive mutex will do this as a matter of course,
-    //   but a spinlock won't.
-    typedef Mutex Lock;
-    typedef MutexLocker Locker;
+    JS_EXPORT_PRIVATE void logEvent(CodeBlock* codeBlock, const char* summary, const CString& detail);
     
-
+private:
+    Bytecodes* ensureBytecodesFor(const LockHolder&, CodeBlock*);
+    
     void addDatabaseToAtExit();
     void removeDatabaseFromAtExit();
     void performAtExitSave() const;
@@ -96,6 +87,8 @@ private:
     SegmentedVector<Bytecodes> m_bytecodes;
     HashMap<CodeBlock*, Bytecodes*> m_bytecodesMap;
     Vector<RefPtr<Compilation>> m_compilations;
+    HashMap<CodeBlock*, RefPtr<Compilation>> m_compilationMap;
+    Vector<Event> m_events;
     bool m_shouldSaveAtExit;
     CString m_atExitSaveFilename;
     Database* m_nextRegisteredDatabase;

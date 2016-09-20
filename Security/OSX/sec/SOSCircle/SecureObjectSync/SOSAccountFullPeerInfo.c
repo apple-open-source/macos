@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -28,6 +28,7 @@
 #include "SOSViews.h"
 
 static CFStringRef kicloud_identity_name = CFSTR("Cloud Identity");
+#define kSecServerPeerInfoAvailable "com.apple.security.fpiAvailable"
 
 
 SecKeyRef SOSAccountCopyDeviceKey(SOSAccountRef account, CFErrorRef *error) {
@@ -99,16 +100,28 @@ bool SOSAccountEnsureFullPeerAvailable(SOSAccountRef account, CFErrorRef * error
         CFReleaseNull(keyName);
 
         if (full_key) {
-            CFSetRef defaultViews = SOSViewsCreateDefault(false, NULL);
+            CFSetRef initialViews = SOSViewCopyViewSet(kViewSetInitial);
 
             CFReleaseNull(account->my_identity);
-            account->my_identity = SOSFullPeerInfoCreateWithViews(kCFAllocatorDefault, account->gestalt, account->backup_key, defaultViews,
+            account->my_identity = SOSFullPeerInfoCreateWithViews(kCFAllocatorDefault, account->gestalt, account->backup_key, initialViews,
                                                                   full_key, error);
-            CFReleaseNull(defaultViews);
+            CFReleaseNull(initialViews);
             CFReleaseNull(full_key);
+
+            CFSetRef pendingDefaultViews = SOSViewCopyViewSet(kViewSetDefault);
+            SOSAccountPendEnableViewSet(account, pendingDefaultViews);
+            CFReleaseNull(pendingDefaultViews);
+
+            SOSAccountSetValue(account, kSOSUnsyncedViewsKey, kCFBooleanTrue, NULL);
 
             if (!account->my_identity) {
                 secerror("Can't make FullPeerInfo for %@-%@ (%@) - is AKS ok?", SOSPeerGestaltGetName(account->gestalt), SOSCircleGetName(account->trusted_circle), error ? (void*)*error : (void*)CFSTR("-"));
+            }
+            else{
+                secnotice("fpi", "alert IDSKeychainSyncingProxy the fpi is available");
+                notify_post(kSecServerPeerInfoAvailable);
+                if(account->deviceID)
+                    SOSFullPeerInfoUpdateDeviceID(account->my_identity, account->deviceID, error);
             }
         }
         else {

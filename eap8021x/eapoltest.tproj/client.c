@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,6 +37,7 @@
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCDynamicStorePrivate.h>
+#include "EAP8021X/EAPTLSUtil.h"
 #include "EAPOLControl.h"
 #include "EAPOLControlPrivate.h"
 #include "EAPOLControlPrefs.h"
@@ -597,6 +598,107 @@ S_show_identities(int argc, char * argv[])
     return (0);
 }
 
+static CFDataRef
+file_create_data(const char * filename)
+{
+    CFMutableDataRef	data = NULL;
+    size_t		len = 0;
+    int			fd = -1;
+    struct stat		sb;
+
+    if (stat(filename, &sb) < 0) {
+	goto done;
+    }
+    len = sb.st_size;
+    if (len == 0) {
+	goto done;
+    }
+    data = CFDataCreateMutable(NULL, len);
+    if (data == NULL) {
+	goto done;
+    }
+    fd = open(filename, O_RDONLY);
+    if (fd < 0) {
+	goto done;
+    }
+    CFDataSetLength(data, len);
+    if (read(fd, CFDataGetMutableBytePtr(data), len) != len) {
+	goto done;
+    }
+
+done:
+    if (fd >= 0) {
+	close(fd);
+    }
+    return (data);
+}
+
+static CFDictionaryRef
+read_dictionary(const char * filename)
+{
+    CFDictionaryRef dict;
+
+    dict = my_CFPropertyListCreateFromFile(filename);
+    if (dict != NULL) {
+	if (isA_CFDictionary(dict) == NULL) {
+	    CFRelease(dict);
+	    dict = NULL;
+	}
+    }
+
+    return (dict);
+}
+
+static SecCertificateRef
+file_create_certificate(const char  * filename)
+{
+    CFDataRef		data;
+    SecCertificateRef	cert;
+
+    data = file_create_data(filename);
+    if (data == NULL) {
+	return (NULL);
+    }
+    cert = SecCertificateCreateWithData(NULL, data);
+    CFRelease(data);
+    return (cert);
+}
+
+static int
+S_verify_server(int argc, char * argv[])
+{
+    CFArrayRef		array;
+    CFDictionaryRef	properties;
+    OSStatus		sec_status;
+    SecCertificateRef	server_cert;
+    EAPClientStatus	status;
+
+    if (argc != 2) {
+	fprintf(stderr, "usage: verify_server <cert-file> <properties>\n");
+	return (-1);
+    }
+
+    server_cert = file_create_certificate(argv[0]);
+    if (server_cert == NULL) {
+	fprintf(stderr, "failed to load cert file\n");
+	return (-1);
+    }
+    properties = read_dictionary(argv[1]);
+    if (properties == NULL) {
+	fprintf(stderr, "failed to load properties\n");
+	return (-1);
+    }
+    array = CFArrayCreate(NULL, (const void **)&server_cert, 1,
+			  &kCFTypeArrayCallBacks);
+
+    status = EAPTLSVerifyServerCertificateChain(properties,
+						array,
+						&sec_status);
+    printf("status is %d, sec status is %d\n", status, sec_status);
+
+    return (status == kEAPClientStatusOK ? 0 : -1);
+}
+
 typedef struct {
     char *	command;
     funcptr_t	func;
@@ -615,6 +717,7 @@ static commandInfo commands[] = {
     { "set_verbose", S_set_verbose, 1, "( on | off )" },
     { "stress_start", S_stress_start, 2, "<interface_name> <config_file>"  },
     { "show_identities", S_show_identities, 0 },
+    { "verify_server", S_verify_server, 2, "<cert-file> <properties>" },
 #if ! TARGET_OS_EMBEDDED
     { "start_system", S_start_system, 1, "<interface_name> [ <config_file> ]"},
     { "loginwindow_config", S_loginwindow_config, 1, "<interface_name>" },

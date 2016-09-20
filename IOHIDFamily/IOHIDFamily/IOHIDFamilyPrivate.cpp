@@ -27,6 +27,8 @@
 #include "IOHIDSystem.h"
 #endif
 #include "OSStackRetain.h"
+#include "IOHIDPrivateKeys.h"
+#include "IOHIDDebug.h"
 
 #define kHIDTransport1ScoreIncrement        1000
 #define kHIDTransport2ScoreIncrement        2000
@@ -77,16 +79,18 @@ bool CompareDeviceUsage( IOService * owner, OSDictionary * matching, SInt32 * sc
     // We return success if we match the key in the dictionary with the key in
     // the property table, or if the prop isn't present
     //
-    OSObject *      usage;
-    OSObject *      usagePage;
+    OSNumber *      usage;
+    OSNumber *      usagePage;
     OSArray *       functions;
+    OSObject *      obj;
     OSDictionary *  pair;
     bool            matches = true;
     int             count;
     
-    usage = matching->getObject( kIOHIDDeviceUsageKey );
-    usagePage = matching->getObject( kIOHIDDeviceUsagePageKey );
-    functions = OSDynamicCast(OSArray, owner->copyProperty( kIOHIDDeviceUsagePairsKey ));
+    usage = OSDynamicCast(OSNumber, matching->getObject( kIOHIDDeviceUsageKey ));
+    usagePage = OSDynamicCast(OSNumber, matching->getObject( kIOHIDDeviceUsagePageKey ));
+    obj = owner->copyProperty( kIOHIDDeviceUsagePairsKey );
+    functions = OSDynamicCast(OSArray, obj);
     
     if ( functions )
     {
@@ -96,11 +100,17 @@ bool CompareDeviceUsage( IOService * owner, OSDictionary * matching, SInt32 * sc
             
             for (int i=0; i<count; i++)
             {
-                if ( !(pair = (OSDictionary *)functions->getObject(i)) )
+                if ( !(pair = OSDynamicCast(OSDictionary, functions->getObject(i))) )
                     continue;
+                
+                OSNumber *pairUsage;
+                OSNumber *pairUsagePage;
+                
+                pairUsage = OSDynamicCast(OSNumber, pair->getObject(kIOHIDDeviceUsageKey));
+                pairUsagePage = OSDynamicCast(OSNumber, pair->getObject(kIOHIDDeviceUsagePageKey));
             
-                if ( !usagePage || 
-                    !(matches = usagePage->isEqualTo(pair->getObject(kIOHIDDeviceUsagePageKey))) )
+                if ( !usagePage || !pairUsagePage ||
+                    !(matches = usagePage->isEqualTo(pairUsagePage)) )
                     continue;
 
                 if ( score && !usage ) 
@@ -109,8 +119,8 @@ bool CompareDeviceUsage( IOService * owner, OSDictionary * matching, SInt32 * sc
                     break;
                 }
                     
-                if ( !usage || 
-                    !(matches = usage->isEqualTo(pair->getObject(kIOHIDDeviceUsageKey))) )            
+                if ( !usage || ! pairUsage ||
+                    !(matches = usage->isEqualTo(pairUsage)) )
                     continue;
         
                 if ( score ) 
@@ -120,11 +130,11 @@ bool CompareDeviceUsage( IOService * owner, OSDictionary * matching, SInt32 * sc
             }
         }
         
-        functions->release();
     } else {
         matches = false;
     }
     
+    OSSafeRelease(obj);
     return matches;
 }
 
@@ -356,7 +366,9 @@ bool MatchPropertyTable(IOService * owner, OSDictionary * table, SInt32 * score)
         !manMatch ||
         !serialMatch ||
         !bootPMatch ||
-        (table->getObject("HIDDefaultBehavior") && !owner->getProperty("HIDDefaultBehavior")))
+        (table->getObject("HIDDefaultBehavior") && !owner->getProperty("HIDDefaultBehavior")) ||
+        (table->getObject(kIOHIDCompatibilityInterface) && !owner->getProperty(kIOHIDCompatibilityInterface))
+        )
     {
         if (score) 
             *score = 0;
@@ -382,6 +394,7 @@ bool MatchPropertyTable(IOService * owner, OSDictionary * table, SInt32 * score)
 void IOHIDSystemActivityTickle(SInt32 nxEventType, IOService *sender)
 {
 #if !TARGET_OS_EMBEDDED
+    HIDLogInfo("HID Activity Tickle (type:%d sender:%llx)", nxEventType, sender ? sender->getRegistryEntryID() : 0);
     IOHIDSystem *ioSys = IOHIDSystem::instance();
     if (ioSys) {
         intptr_t event = nxEventType;
@@ -397,6 +410,6 @@ void handle_stackshot_keychord(uint32_t keycode)
 {
     kern_stack_snapshot_with_reason("Stackshot triggered using keycombo");
     sysdiagnose_notify_user(keycode);
-    IOLog("IOHIDSystem posted stackshot event 0x%08x\n", keycode);
+    HIDLog("IOHIDSystem posted stackshot event 0x%08x", keycode);
 }
 

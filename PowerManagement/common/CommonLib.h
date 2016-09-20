@@ -41,7 +41,7 @@
 #define kPMASLPowerSourceKey                "powersource"
 #define kPMASLBatteryPercentageKey          "batterypercentage"
 #define kPMASLSleepCntSinceBoot             "sleepcntsinceboot"
-#define kPMASLSleepCntSinceFailure          "sleepcntsincefailure"
+#define kPMASLSleepCntSinceFailure          "sleepcntsincefailure16"
 
 #define kPMASLValueSupported                "supported"
 #define kPMASLValueExpired                  "expired"
@@ -204,6 +204,6 @@ __private_extern__ IOReturn ActivatePMSettings(
 
 __private_extern__ CFCalendarRef        _gregorian(void);
 
-__private_extern__  asl_object_t open_pm_asl_store(void);
+__private_extern__  asl_object_t open_pm_asl_store(char *);
 
 #endif

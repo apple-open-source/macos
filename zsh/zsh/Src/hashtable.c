@@ -937,13 +937,17 @@ printshfuncnode(HashNode hn, int printflags)
  
     quotedzputs(f->node.nam, stdout);
     if (f->funcdef || f->node.flags & PM_UNDEFINED) {
-	printf(" () {\n\t");
-	if (f->node.flags & PM_UNDEFINED)
-	    printf("%c undefined\n\t", hashchar);
-	else
+	printf(" () {\n");
+	zoutputtab(stdout);
+	if (f->node.flags & PM_UNDEFINED) {
+	    printf("%c undefined\n", hashchar);
+	    zoutputtab(stdout);
+	} else
 	    t = getpermtext(f->funcdef, NULL, 1);
-	if (f->node.flags & (PM_TAGGED|PM_TAGGED_LOCAL))
-	    printf("%c traced\n\t", hashchar);
+	if (f->node.flags & (PM_TAGGED|PM_TAGGED_LOCAL)) {
+	    printf("%c traced\n", hashchar);
+	    zoutputtab(stdout);
+	}
 	if (!t) {
 	    char *fopt = "UtTkz";
 	    int flgs[] = {
@@ -959,11 +963,12 @@ printshfuncnode(HashNode hn, int printflags)
 	    zputs(t, stdout);
 	    zsfree(t);
 	    if (f->funcdef->flags & EF_RUN) {
-		printf("\n\t");
+		printf("\n");
+		zoutputtab(stdout);
 		quotedzputs(f->node.nam, stdout);
 		printf(" \"$@\"");
 	    }
-	}   
+	}
 	printf("\n}");
     } else {
 	printf(" () { }");
@@ -979,6 +984,59 @@ printshfuncnode(HashNode hn, int printflags)
     putchar('\n');
 }
 
+/*
+ * Wrap scanmatchtable for shell functions with optional
+ * expansion of leading tabs.
+ * expand = 0 is standard: use hard tabs.
+ * expand > 0 uses that many spaces.
+ * expand < 0 uses no identation.
+ *
+ * Note this function and the following two are called with
+ * interrupts queued, so saving and restoring text_expand_tabs
+ * is safe.
+ */
+
+/**/
+mod_export int
+scanmatchshfunc(Patprog pprog, int sorted, int flags1, int flags2,
+		ScanFunc scanfunc, int scanflags, int expand)
+{
+    int ret, save_expand;
+
+    save_expand = text_expand_tabs;
+    text_expand_tabs = expand;
+    ret = scanmatchtable(shfunctab, pprog, sorted, flags1, flags2,
+			scanfunc, scanflags);
+    text_expand_tabs = save_expand;
+
+    return ret;
+}
+
+/* Wrap scanhashtable to expand tabs for shell functions */
+
+/**/
+mod_export int
+scanshfunc(int sorted, int flags1, int flags2,
+	      ScanFunc scanfunc, int scanflags, int expand)
+{
+    return scanmatchshfunc(NULL, sorted, flags1, flags2,
+			   scanfunc, scanflags, expand);
+}
+
+/* Wrap shfunctab->printnode to expand tabs */
+
+/**/
+mod_export void
+printshfuncexpand(HashNode hn, int printflags, int expand)
+{
+    int save_expand;
+
+    save_expand = text_expand_tabs;
+    text_expand_tabs = expand;
+    shfunctab->printnode(hn, printflags);
+    text_expand_tabs = save_expand;
+}
+
 /**************************************/
 /* Reserved Word Hash Table Functions */
 /**************************************/
@@ -992,22 +1050,29 @@ static struct reswd reswds[] = {
     {{NULL, "}", 0}, OUTBRACE},
     {{NULL, "case", 0}, CASE},
     {{NULL, "coproc", 0}, COPROC},
+    {{NULL, "declare", 0}, TYPESET},
     {{NULL, "do", 0}, DOLOOP},
     {{NULL, "done", 0}, DONE},
     {{NULL, "elif", 0}, ELIF},
     {{NULL, "else", 0}, ELSE},
     {{NULL, "end", 0}, ZEND},
     {{NULL, "esac", 0}, ESAC},
+    {{NULL, "export", 0}, TYPESET},
     {{NULL, "fi", 0}, FI},
+    {{NULL, "float", 0}, TYPESET},
     {{NULL, "for", 0}, FOR},
     {{NULL, "foreach", 0}, FOREACH},
     {{NULL, "function", 0}, FUNC},
     {{NULL, "if", 0}, IF},
+    {{NULL, "integer", 0}, TYPESET},
+    {{NULL, "local", 0}, TYPESET},
     {{NULL, "nocorrect", 0}, NOCORRECT},
+    {{NULL, "readonly", 0}, TYPESET},
     {{NULL, "repeat", 0}, REPEAT},
     {{NULL, "select", 0}, SELECT},
     {{NULL, "then", 0}, THEN},
     {{NULL, "time", 0}, TIME},
+    {{NULL, "typeset", 0}, TYPESET},
     {{NULL, "until", 0}, UNTIL},
     {{NULL, "while", 0}, WHILE},
     {{NULL, NULL, 0}, 0}
@@ -1169,7 +1234,10 @@ printaliasnode(HashNode hn, int printflags)
     }
 
     if (printflags & PRINT_WHENCE_WORD) {
-	printf("%s: alias\n", a->node.nam);
+	if (a->node.flags & ALIAS_SUFFIX)
+	    printf("%s: suffix alias\n", a->node.nam);
+	else
+	    printf("%s: alias\n", a->node.nam);
 	return;
     }
 

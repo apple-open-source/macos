@@ -35,7 +35,7 @@
 #include <WebCore/GtkUtilities.h>
 #include <WebCore/PasteboardHelper.h>
 #include <gtk/gtk.h>
-#include <wtf/glib/GMainLoopSource.h>
+#include <wtf/RunLoop.h>
 #include <wtf/glib/GUniquePtr.h>
 
 using namespace WebCore;
@@ -44,6 +44,9 @@ namespace WebKit {
 
 DragAndDropHandler::DragAndDropHandler(WebPageProxy& page)
     : m_page(page)
+#if GTK_CHECK_VERSION(3, 16, 0)
+    , m_dragContext(nullptr)
+#endif
 {
 }
 
@@ -110,13 +113,30 @@ static inline DragOperation gdkDragActionToDragOperation(GdkDragAction gdkAction
 
 void DragAndDropHandler::startDrag(const DragData& dragData, PassRefPtr<ShareableBitmap> dragImage)
 {
+#if GTK_CHECK_VERSION(3, 16, 0)
+    m_draggingDataObject = adoptRef(dragData.platformData());
+    GRefPtr<GtkTargetList> targetList = adoptGRef(PasteboardHelper::singleton().targetListForDataObject(m_draggingDataObject.get()));
+#else
     RefPtr<DataObjectGtk> dataObject = adoptRef(dragData.platformData());
-    GRefPtr<GtkTargetList> targetList = adoptGRef(PasteboardHelper::defaultPasteboardHelper()->targetListForDataObject(dataObject.get()));
-    GUniquePtr<GdkEvent> currentEvent(gtk_get_current_event());
+    GRefPtr<GtkTargetList> targetList = adoptGRef(PasteboardHelper::singleton().targetListForDataObject(dataObject.get()));
+#endif
 
+    GUniquePtr<GdkEvent> currentEvent(gtk_get_current_event());
     GdkDragContext* context = gtk_drag_begin(m_page.viewWidget(), targetList.get(), dragOperationToGdkDragActions(dragData.draggingSourceOperationMask()),
         GDK_BUTTON_PRIMARY, currentEvent.get());
+
+#if GTK_CHECK_VERSION(3, 16, 0)
+    // WebCore::EventHandler does not support more than one DnD operation at the same time for
+    // a given page, so we should cancel any previous operation whose context we might have
+    // stored, should we receive a new startDrag event before finishing a previous DnD operation.
+    if (m_dragContext)
+        gtk_drag_cancel(m_dragContext.get());
+    m_dragContext = context;
+#else
+    // We don't have gtk_drag_cancel() in GTK+ < 3.16, so we use the old code.
+    // See https://bugs.webkit.org/show_bug.cgi?id=138468
     m_draggingDataObjects.set(context, dataObject.get());
+#endif
 
     if (dragImage) {
         RefPtr<cairo_surface_t> image(dragImage->createCairoSurface());
@@ -129,14 +149,37 @@ void DragAndDropHandler::startDrag(const DragData& dragData, PassRefPtr<Shareabl
 
 void DragAndDropHandler::fillDragData(GdkDragContext* context, GtkSelectionData* selectionData, unsigned info)
 {
+#if GTK_CHECK_VERSION(3, 16, 0)
+    // This can happen when attempting to call finish drag from webkitWebViewBaseDragDataGet()
+    // for a obsolete DnD operation that got previously cancelled in startDrag().
+    if (m_dragContext.get() != context)
+        return;
+
+    ASSERT(m_draggingDataObject);
+    PasteboardHelper::singleton().fillSelectionData(selectionData, info, m_draggingDataObject.get());
+#else
     if (DataObjectGtk* dataObject = m_draggingDataObjects.get(context))
-        PasteboardHelper::defaultPasteboardHelper()->fillSelectionData(selectionData, info, dataObject);
+        PasteboardHelper::singleton().fillSelectionData(selectionData, info, dataObject);
+#endif
 }
 
 void DragAndDropHandler::finishDrag(GdkDragContext* context)
 {
+#if GTK_CHECK_VERSION(3, 16, 0)
+    // This can happen when attempting to call finish drag from webkitWebViewBaseDragEnd()
+    // for a obsolete DnD operation that got previously cancelled in startDrag().
+    if (m_dragContext.get() != context)
+        return;
+
+    if (!m_draggingDataObject)
+        return;
+
+    m_dragContext = nullptr;
+    m_draggingDataObject = nullptr;
+#else
     if (!m_draggingDataObjects.remove(context))
         return;
+#endif
 
     GdkDevice* device = gdk_drag_context_get_device(context);
     int x = 0, y = 0;
@@ -153,7 +196,7 @@ DataObjectGtk* DragAndDropHandler::dataObjectForDropData(GdkDragContext* context
         return nullptr;
 
     droppingContext->pendingDataRequests--;
-    PasteboardHelper::defaultPasteboardHelper()->fillDataObjectFromDropData(selectionData, info, droppingContext->dataObject.get());
+    PasteboardHelper::singleton().fillDataObjectFromDropData(selectionData, info, droppingContext->dataObject.get());
     if (droppingContext->pendingDataRequests)
         return nullptr;
 
@@ -185,7 +228,7 @@ DataObjectGtk* DragAndDropHandler::requestDragData(GdkDragContext* context, cons
     if (!droppingContext) {
         GtkWidget* widget = m_page.viewWidget();
         droppingContext = std::make_unique<DroppingContext>(context, position);
-        Vector<GdkAtom> acceptableTargets(PasteboardHelper::defaultPasteboardHelper()->dropAtomsForContext(widget, droppingContext->gdkContext));
+        Vector<GdkAtom> acceptableTargets(PasteboardHelper::singleton().dropAtomsForContext(widget, droppingContext->gdkContext));
         droppingContext->pendingDataRequests = acceptableTargets.size();
         for (auto& target : acceptableTargets)
             gtk_drag_get_data(widget, droppingContext->gdkContext, target, time);
@@ -221,7 +264,7 @@ void DragAndDropHandler::dragLeave(GdkDragContext* context)
     // During a drop GTK+ will fire a drag-leave signal right before firing
     // the drag-drop signal. We want the actions for drag-leave to happen after
     // those for drag-drop, so schedule them to happen asynchronously here.
-    GMainLoopSource::scheduleAndDeleteOnDestroy("[WebKit] handleDragLeaveLater", [this, droppingContext]() {
+    RunLoop::main().dispatch([this, droppingContext]() {
         auto it = m_droppingContexts.find(droppingContext->gdkContext);
         if (it == m_droppingContexts.end())
             return;

@@ -65,6 +65,7 @@ unsigned long des_quad_cksum(const unsigned char *in, unsigned DES_INT32 *out, l
 int main(int argc, char **argv)
 {
 	struct ktext ss;
+    memset(&ss, 0, sizeof(ss));
 
 	VERIFY_DEPRECATED_I(
 		"krb_get_cred",

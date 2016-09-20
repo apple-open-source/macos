@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2009, 2015 Apple Inc. All rights reserved.
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * Redistribution and use in source and binary forms, with or without
@@ -124,7 +124,7 @@ public:
 
     // Pass 0 as the GraphicsLayer to detatch the root layer.
     virtual void attachRootGraphicsLayer(WebCore::Frame*, WebCore::GraphicsLayer*);
-    virtual void attachViewOverlayGraphicsLayer(WebCore::Frame*, WebCore::GraphicsLayer*) override;
+    void attachViewOverlayGraphicsLayer(WebCore::Frame*, WebCore::GraphicsLayer*) override;
     // Sets a flag to specify that the next time content is drawn to the window,
     // the changes appear on the screen in synchrony with updates to GraphicsLayers.
     virtual void setNeedsOneShotDrawingSynchronization() { }
@@ -133,13 +133,13 @@ public:
     virtual void scheduleCompositingLayerFlush();
 
 #if PLATFORM(WIN) && USE(AVFOUNDATION)
-    virtual WebCore::GraphicsDeviceAdapter* graphicsDeviceAdapter() const override;
+    WebCore::GraphicsDeviceAdapter* graphicsDeviceAdapter() const override;
 #endif
 
     virtual void scrollRectIntoView(const WebCore::IntRect&) const { }
 
 #if ENABLE(VIDEO)
-    virtual bool supportsVideoFullscreen();
+    virtual bool supportsVideoFullscreen(WebCore::HTMLMediaElementEnums::VideoFullscreenMode);
     virtual void enterVideoFullscreenForVideoElement(WebCore::HTMLVideoElement&);
     virtual void exitVideoFullscreenForVideoElement(WebCore::HTMLVideoElement&);
 #endif
@@ -151,8 +151,8 @@ public:
     virtual bool selectItemWritingDirectionIsNatural();
     virtual bool selectItemAlignmentFollowsMenuWritingDirection();
     virtual bool hasOpenedPopup() const;
-    virtual PassRefPtr<WebCore::PopupMenu> createPopupMenu(WebCore::PopupMenuClient*) const;
-    virtual PassRefPtr<WebCore::SearchPopupMenu> createSearchPopupMenu(WebCore::PopupMenuClient*) const;
+    virtual RefPtr<WebCore::PopupMenu> createPopupMenu(WebCore::PopupMenuClient*) const;
+    virtual RefPtr<WebCore::SearchPopupMenu> createSearchPopupMenu(WebCore::PopupMenuClient*) const;
 
 #if ENABLE(FULLSCREEN_API)
     virtual bool supportsFullScreenForElement(const WebCore::Element*, bool withKeyboard);
@@ -160,12 +160,18 @@ public:
     virtual void exitFullScreenForElement(WebCore::Element*);
 #endif
 
-    virtual void wheelEventHandlersChanged(bool) override { }
+#if ENABLE(TOUCH_EVENTS)
+    void needTouchEvents(bool) override { }
+#endif
+
+    void wheelEventHandlersChanged(bool) override { }
 
     WebView* webView() { return m_webView; }
 
     virtual void AXStartFrameLoad();
     virtual void AXFinishFrameLoad();
+
+    bool shouldUseTiledBackingForFrameView(const WebCore::FrameView*) const override;
 
 private:
     COMPtr<IWebUIDelegate> uiDelegate();

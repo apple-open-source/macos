@@ -22,6 +22,9 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		A23DB3151C83C6DD00FB3DC4 /* oncrpc.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A23DB3141C83C6DD00FB3DC4 /* oncrpc.framework */; };
+		A23DB3171C83CAEE00FB3DC4 /* lucid.x in Sources */ = {isa = PBXBuildFile; fileRef = A23DB3131C83C4D100FB3DC4 /* lucid.x */; };
+		A23DB3191C83E83400FB3DC4 /* lucid.c in Sources */ = {isa = PBXBuildFile; fileRef = A23DB3181C83E83400FB3DC4 /* lucid.c */; };
 		D63CF5E31A0D932B00B806D1 /* gssd_mach.defs in Sources */ = {isa = PBXBuildFile; fileRef = D63CF5E21A0D932B00B806D1 /* gssd_mach.defs */; settings = {ATTRIBUTES = (Client, Server, ); }; };
 		D63CF5E61A0D97F000B806D1 /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D63CF5E41A0D97F000B806D1 /* GSS.framework */; };
 		D63CF5E91A0D98DD00B806D1 /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D63CF5E81A0D98DD00B806D1 /* Heimdal.framework */; };
@@ -32,6 +35,21 @@
 		D68D850D10A50BFA00042EDD /* gssd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = D68D83B610A4E93700042EDD /* gssd.8 */; };
 		D68D851110A50C5A00042EDD /* com.apple.gssd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D68D83C110A4E99B00042EDD /* com.apple.gssd.plist */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXBuildRule section */
+		A23DB3161C83C74300FB3DC4 /* PBXBuildRule */ = {
+			isa = PBXBuildRule;
+			compilerSpec = com.apple.compilers.proxy.script;
+			filePatterns = "*.x";
+			fileType = pattern.proxy;
+			isEditable = 1;
+			outputFiles = (
+				"$(DERIVED_FILE_DIR)/$(INPUT_FILE_BASE).h",
+				"$(DERIVED_FILE_DIR)/$(INPUT_FILE_BASE)_xdr.c",
+			);
+			script = "RPCGEN=/System/Library/PrivateFrameworks/oncrpc.framework/bin/rpcgen &&\n$RPCGEN -h -o ${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}.h ${INPUT_FILE_PATH} &&\n$RPCGEN -x -o ${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}_xdr.c ${INPUT_FILE_PATH}";
+		};
+/* End PBXBuildRule section */
 
 /* Begin PBXContainerItemProxy section */
 		D68D84C010A5051500042EDD /* PBXContainerItemProxy */ = {
@@ -82,6 +100,9 @@
 
 /* Begin PBXFileReference section */
 		8DD76FB20486AB0100D96B5E /* gssd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = gssd; sourceTree = BUILT_PRODUCTS_DIR; };
+		A23DB3131C83C4D100FB3DC4 /* lucid.x */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = lucid.x; sourceTree = "<group>"; };
+		A23DB3141C83C6DD00FB3DC4 /* oncrpc.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = oncrpc.framework; path = ../../../../../System/Library/PrivateFrameworks/oncrpc.framework; sourceTree = "<group>"; };
+		A23DB3181C83E83400FB3DC4 /* lucid.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lucid.c; sourceTree = "<group>"; };
 		D63CF5E21A0D932B00B806D1 /* gssd_mach.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; name = gssd_mach.defs; path = System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/gssd/gssd_mach.defs; sourceTree = SDKROOT; };
 		D63CF5E41A0D97F000B806D1 /* GSS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GSS.framework; path = System/Library/Frameworks/GSS.framework; sourceTree = SDKROOT; };
 		D63CF5E81A0D98DD00B806D1 /* Heimdal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Heimdal.framework; path = System/Library/PrivateFrameworks/Heimdal.framework; sourceTree = SDKROOT; };
@@ -101,6 +122,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D63CF5E61A0D97F000B806D1 /* GSS.framework in Frameworks */,
+				A23DB3151C83C6DD00FB3DC4 /* oncrpc.framework in Frameworks */,
 				D63CF5E91A0D98DD00B806D1 /* Heimdal.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -136,6 +158,8 @@
 				D68D83BB10A4E98600042EDD /* gssd.c */,
 				D68D83BC10A4E98600042EDD /* gssd.h */,
 				EB805B8A1492DB4300F1E44F /* gssd-Info.plist */,
+				A23DB3181C83E83400FB3DC4 /* lucid.c */,
+				A23DB3131C83C4D100FB3DC4 /* lucid.x */,
 			);
 			name = Source;
 			sourceTree = "<group>";
@@ -160,6 +184,7 @@
 		D68D84CE10A507B300042EDD /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				A23DB3141C83C6DD00FB3DC4 /* oncrpc.framework */,
 				D63CF5E81A0D98DD00B806D1 /* Heimdal.framework */,
 				D63CF5E41A0D97F000B806D1 /* GSS.framework */,
 			);
@@ -179,6 +204,7 @@
 				8DD76FAF0486AB0100D96B5E /* CopyFiles */,
 			);
 			buildRules = (
+				A23DB3161C83C74300FB3DC4 /* PBXBuildRule */,
 			);
 			dependencies = (
 			);
@@ -239,9 +265,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A23DB3171C83CAEE00FB3DC4 /* lucid.x in Sources */,
 				D68D83BE10A4E98600042EDD /* gssd_util.c in Sources */,
 				D68D83BF10A4E98600042EDD /* gssd.c in Sources */,
 				D63CF5E31A0D932B00B806D1 /* gssd_mach.defs in Sources */,
+				A23DB3191C83E83400FB3DC4 /* lucid.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -406,9 +434,123 @@
 				GCC_WARN_UNUSED_PARAMETER = YES;
 				GCC_WARN_UNUSED_VALUE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				OTHER_CFLAGS = "";
 				SDKROOT = macosx.internal;
 			};
 			name = Release;
+		};
+		D66DF7B41D0F458100B59D95 /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_FIELD_INITIALIZERS = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_PEDANTIC = NO;
+				GCC_WARN_PROTOTYPE_CONVERSION = NO;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-fprofile-instr-generate",
+					"-fcoverage-mapping",
+					"-fprofile-generate=/var/tmp/cc/gssd.%p",
+					"-DCCOVERAGE=1",
+				);
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-fprofile-instr-generate",
+				);
+				RUN_CLANG_STATIC_ANALYZER = YES;
+				SDKROOT = macosx.internal;
+				STRIP_INSTALLED_PRODUCT = NO;
+			};
+			name = Coverage;
+		};
+		D66DF7B51D0F458100B59D95 /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INFOPLIST_FILE = "gssd-Info.plist";
+				INSTALL_MODE_FLAG = "a-w,a+rX";
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = "$(inherited)";
+				OTHER_LDFLAGS = (
+					"-lbsm",
+					"-sectcreate",
+					__TEXT,
+					__info_plist,
+					"$(INFOPLIST_FILE)",
+					"$(inherited)",
+				);
+				PRODUCT_NAME = gssd;
+			};
+			name = Coverage;
+		};
+		D66DF7B61D0F458100B59D95 /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SRCROOT)\"",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_MODE_FLAG = "u+w,go-w,a+rX,u+s";
+				INSTALL_PATH = /usr/local/bin;
+				PRODUCT_NAME = gsstest;
+			};
+			name = Coverage;
+		};
+		D66DF7B71D0F458100B59D95 /* Coverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				PRODUCT_NAME = All;
+			};
+			name = Coverage;
 		};
 		D68D83D110A4EA5500042EDD /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -478,6 +620,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1DEB928608733DD80010E9CD /* Debug */,
+				D66DF7B51D0F458100B59D95 /* Coverage */,
 				1DEB928708733DD80010E9CD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -487,6 +630,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1DEB928A08733DD80010E9CD /* Debug */,
+				D66DF7B41D0F458100B59D95 /* Coverage */,
 				1DEB928B08733DD80010E9CD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -496,6 +640,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D68D83D110A4EA5500042EDD /* Debug */,
+				D66DF7B61D0F458100B59D95 /* Coverage */,
 				D68D83D210A4EA5500042EDD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -505,6 +650,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D68D84BD10A504F500042EDD /* Debug */,
+				D66DF7B71D0F458100B59D95 /* Coverage */,
 				D68D84BE10A504F500042EDD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;

@@ -59,7 +59,7 @@ FormControlState HiddenInputType::saveFormControlState() const
 
 void HiddenInputType::restoreFormControlState(const FormControlState& state)
 {
-    element().setAttribute(valueAttr, state[0]);
+    element().setAttributeWithoutSynchronization(valueAttr, state[0]);
 }
 
 bool HiddenInputType::supportsValidation() const
@@ -67,7 +67,7 @@ bool HiddenInputType::supportsValidation() const
     return false;
 }
 
-RenderPtr<RenderElement> HiddenInputType::createInputRenderer(Ref<RenderStyle>&&)
+RenderPtr<RenderElement> HiddenInputType::createInputRenderer(RenderStyle&&)
 {
     ASSERT_NOT_REACHED();
     return nullptr;
@@ -89,7 +89,7 @@ bool HiddenInputType::storesValueSeparateFromAttribute()
 
 void HiddenInputType::setValue(const String& sanitizedValue, bool, TextFieldEventBehavior)
 {
-    element().setAttribute(valueAttr, sanitizedValue);
+    element().setAttributeWithoutSynchronization(valueAttr, sanitizedValue);
 }
 
 bool HiddenInputType::isHiddenType() const
@@ -99,7 +99,7 @@ bool HiddenInputType::isHiddenType() const
 
 bool HiddenInputType::appendFormData(FormDataList& encoding, bool isMultipartForm) const
 {
-    if (equalIgnoringCase(element().name(), "_charset_")) {
+    if (equalIgnoringASCIICase(element().name(), "_charset_")) {
         encoding.appendData(element().name(), String(encoding.encoding().name()));
         return true;
     }

@@ -44,9 +44,9 @@
 			buildPhases = (
 			);
 			dependencies = (
+				72C4A4801BE44D19009D570E /* PBXTargetDependency */,
 				1558480607550D470046C2E9 /* PBXTargetDependency */,
 				1558480807550D470046C2E9 /* PBXTargetDependency */,
-				1558480A07550D470046C2E9 /* PBXTargetDependency */,
 				D6DDAC3D147A24BC00A2E902 /* PBXTargetDependency */,
 				150ECB300D0042DA0065E94D /* PBXTargetDependency */,
 			);
@@ -103,6 +103,8 @@
 				158317B50CFB8660006F62B9 /* PBXTargetDependency */,
 				157A85520D56CA9E00B6F1A0 /* PBXTargetDependency */,
 				157A85540D56CACA00B6F1A0 /* PBXTargetDependency */,
+				155F49AD1C86511300E47D08 /* PBXTargetDependency */,
+				155F49AF1C86511300E47D08 /* PBXTargetDependency */,
 			);
 			name = "configd_plugins-Embedded";
 			productName = Plugins;
@@ -144,6 +146,7 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 15C64A270F684C6B00D78394 /* Build configuration list for PBXAggregateTarget "configd_libSystem" */;
 			buildPhases = (
+				1502C5611BDD4936005CF7EA /* Move libsystem_configuration_asan.dylib */,
 			);
 			dependencies = (
 				15C64A220F684C4900D78394 /* PBXTargetDependency */,
@@ -155,6 +158,7 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 15C64A2B0F684C6B00D78394 /* Build configuration list for PBXAggregateTarget "configd_libSystem-Embedded" */;
 			buildPhases = (
+				15AC9A4C1BE3ED87003071BD /* Move libsystem_configuration_asan.dylib */,
 			);
 			dependencies = (
 				15C64A310F684C8F00D78394 /* PBXTargetDependency */,
@@ -236,7 +240,7 @@
 		153ACCA914E322D5005029A5 /* network_information_server.c in Sources */ = {isa = PBXBuildFile; fileRef = 153ACCA614E322D5005029A5 /* network_information_server.c */; };
 		153ACCAB14E322D5005029A5 /* network_information_server.h in Headers */ = {isa = PBXBuildFile; fileRef = 153ACCA714E322D5005029A5 /* network_information_server.h */; };
 		153ACCAC14E322D5005029A5 /* network_information_server.h in Headers */ = {isa = PBXBuildFile; fileRef = 153ACCA714E322D5005029A5 /* network_information_server.h */; };
-		1540E3610987DA9500157C07 /* com.apple.configd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1540E3600987DA9500157C07 /* com.apple.configd.plist */; };
+		1540E3610987DA9500157C07 /* com.apple.configd.plist in Copy Files */ = {isa = PBXBuildFile; fileRef = 1540E3600987DA9500157C07 /* com.apple.configd.plist */; };
 		154361E00752C81800A8EC6C /* set-hostname.c in Sources */ = {isa = PBXBuildFile; fileRef = 159D53AB07528B36004F8947 /* set-hostname.c */; };
 		1543636B0752D03C00A8EC6C /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1543636A0752D03C00A8EC6C /* IOKit.framework */; };
 		154707300D1F70C80075C28D /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1547072E0D1F70C80075C28D /* SystemConfiguration.framework */; };
@@ -286,6 +290,8 @@
 		155D223B0AF13A7300D52ED0 /* dns-configuration.h in Headers */ = {isa = PBXBuildFile; fileRef = 155D22380AF13A7300D52ED0 /* dns-configuration.h */; };
 		155D223C0AF13A7300D52ED0 /* set-hostname.h in Headers */ = {isa = PBXBuildFile; fileRef = 155D22390AF13A7300D52ED0 /* set-hostname.h */; };
 		155D223D0AF13A7300D52ED0 /* smb-configuration.h in Headers */ = {isa = PBXBuildFile; fileRef = 155D223A0AF13A7300D52ED0 /* smb-configuration.h */; };
+		155F49A61C864FFC00E47D08 /* qos-marking.m in Sources */ = {isa = PBXBuildFile; fileRef = 155F49A51C864FE500E47D08 /* qos-marking.m */; };
+		155F49A71C86500100E47D08 /* qos-marking.m in Sources */ = {isa = PBXBuildFile; fileRef = 155F49A51C864FE500E47D08 /* qos-marking.m */; };
 		1565D85018B847590097062B /* SCNetworkMigration.c in Sources */ = {isa = PBXBuildFile; fileRef = 55A3DB9D183C2A8200ED3DB7 /* SCNetworkMigration.c */; };
 		1565D85118B847F20097062B /* SCNetworkMigration.c in Sources */ = {isa = PBXBuildFile; fileRef = 55A3DB9D183C2A8200ED3DB7 /* SCNetworkMigration.c */; };
 		156BD6BC07E0DFA9008698FF /* SCPreferencesSetSpecificPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 156BD6BB07E0DFA9008698FF /* SCPreferencesSetSpecificPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -313,9 +319,6 @@
 		1572C4BE0CFB55B400E2776E /* SCValidation.h in Headers */ = {isa = PBXBuildFile; fileRef = 15CB693905C0722B0099E85F /* SCValidation.h */; settings = {ATTRIBUTES = (Private, Project, ); }; };
 		1572C4BF0CFB55B400E2776E /* DHCPClientPreferences.h in Headers */ = {isa = PBXBuildFile; fileRef = 15CB693D05C0722B0099E85F /* DHCPClientPreferences.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		1572C4C00CFB55B400E2776E /* SCDynamicStoreCopyDHCPInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = 15CB693F05C0722B0099E85F /* SCDynamicStoreCopyDHCPInfo.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		1572C4C10CFB55B400E2776E /* moh_msg.h in Headers */ = {isa = PBXBuildFile; fileRef = 15CB694105C0722B0099E85F /* moh_msg.h */; };
-		1572C4C20CFB55B400E2776E /* moh.h in Headers */ = {isa = PBXBuildFile; fileRef = 15CB694305C0722B0099E85F /* moh.h */; };
-		1572C4C30CFB55B400E2776E /* DeviceOnHold.h in Headers */ = {isa = PBXBuildFile; fileRef = 15CB694505C0722B0099E85F /* DeviceOnHold.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		1572C4C50CFB55B400E2776E /* dy_framework.h in Headers */ = {isa = PBXBuildFile; fileRef = 15CB694905C0722B0099E85F /* dy_framework.h */; };
 		1572C4C70CFB55B400E2776E /* SCPreferencesPathKey.h in Headers */ = {isa = PBXBuildFile; fileRef = 151BDA2B05D9E28B00657BC7 /* SCPreferencesPathKey.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		1572C4CA0CFB55B400E2776E /* pppcontroller_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 23C1E2B4062DD2C700835B54 /* pppcontroller_types.h */; };
@@ -376,8 +379,6 @@
 		1572C50C0CFB55B400E2776E /* SCNetworkReachability.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB69A605C0722B0099E85F /* SCNetworkReachability.c */; settings = {ATTRIBUTES = (); }; };
 		1572C50D0CFB55B400E2776E /* SCProxies.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB69A805C0722B0099E85F /* SCProxies.c */; settings = {ATTRIBUTES = (); }; };
 		1572C50E0CFB55B400E2776E /* DHCP.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB69AC05C0722B0099E85F /* DHCP.c */; settings = {ATTRIBUTES = (); }; };
-		1572C50F0CFB55B400E2776E /* moh.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB69AE05C0722B0099E85F /* moh.c */; settings = {ATTRIBUTES = (); }; };
-		1572C5100CFB55B400E2776E /* DeviceOnHold.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB69B005C0722B0099E85F /* DeviceOnHold.c */; settings = {ATTRIBUTES = (); }; };
 		1572C5110CFB55B400E2776E /* LinkConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB69B205C0722B0099E85F /* LinkConfiguration.c */; settings = {ATTRIBUTES = (); }; };
 		1572C5120CFB55B400E2776E /* dy_framework.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB69B405C0722B0099E85F /* dy_framework.c */; settings = {ATTRIBUTES = (); }; };
 		1572C5140CFB55B400E2776E /* config.defs in Sources */ = {isa = PBXBuildFile; fileRef = 15CB69BE05C0722B0099E85F /* config.defs */; settings = {ATTRIBUTES = (Client, ); }; };
@@ -427,7 +428,6 @@
 		15732A9616EA503200F3AC4C /* _notifycancel.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB6A1405C0722B0099E85F /* _notifycancel.c */; settings = {ATTRIBUTES = (); }; };
 		15732A9716EA503200F3AC4C /* _snapshot.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB6A1605C0722B0099E85F /* _snapshot.c */; settings = {ATTRIBUTES = (); }; };
 		15732A9816EA503200F3AC4C /* config.defs in Sources */ = {isa = PBXBuildFile; fileRef = 15CB69BE05C0722B0099E85F /* config.defs */; settings = {ATTRIBUTES = (Server, ); }; };
-		15732A9916EA503200F3AC4C /* dnsinfo_server.c in Sources */ = {isa = PBXBuildFile; fileRef = 15B73F0D05FD1B670096477F /* dnsinfo_server.c */; };
 		15732A9C16EA503200F3AC4C /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15CB6A6F05C0722B0099E85F /* CoreFoundation.framework */; };
 		15732A9D16EA503200F3AC4C /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1547072E0D1F70C80075C28D /* SystemConfiguration.framework */; };
 		15732A9E16EA503200F3AC4C /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1543636A0752D03C00A8EC6C /* IOKit.framework */; };
@@ -562,21 +562,18 @@
 		158317450CFB80A1006F62B9 /* _notifycancel.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB6A1405C0722B0099E85F /* _notifycancel.c */; settings = {ATTRIBUTES = (); }; };
 		158317460CFB80A1006F62B9 /* _snapshot.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB6A1605C0722B0099E85F /* _snapshot.c */; settings = {ATTRIBUTES = (); }; };
 		158317470CFB80A1006F62B9 /* config.defs in Sources */ = {isa = PBXBuildFile; fileRef = 15CB69BE05C0722B0099E85F /* config.defs */; settings = {ATTRIBUTES = (Server, ); }; };
-		158317490CFB80A1006F62B9 /* dnsinfo_server.c in Sources */ = {isa = PBXBuildFile; fileRef = 15B73F0D05FD1B670096477F /* dnsinfo_server.c */; };
 		1583174C0CFB80A1006F62B9 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15CB6A6F05C0722B0099E85F /* CoreFoundation.framework */; };
 		1583174E0CFB80A1006F62B9 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1543636A0752D03C00A8EC6C /* IOKit.framework */; };
 		158317500CFB80A1006F62B9 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 15BAA32207F0699A00D9EC95 /* libbsm.dylib */; };
-		158317520CFB80A1006F62B9 /* libKernelEventMonitor.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 159D53D407528BDA004F8947 /* libKernelEventMonitor.a */; };
-		158317530CFB80A1006F62B9 /* libInterfaceNamer.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 159D53E507528C4A004F8947 /* libInterfaceNamer.a */; };
-		158317540CFB80A1006F62B9 /* libIPMonitor.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 159D53EC07528C61004F8947 /* libIPMonitor.a */; };
-		158317550CFB80A1006F62B9 /* libLinkConfiguration.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 159D53F307528C79004F8947 /* libLinkConfiguration.a */; };
-		158317570CFB80A1006F62B9 /* libPreferencesMonitor.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 159D53FA07528C95004F8947 /* libPreferencesMonitor.a */; };
 		1583175C0CFB80A1006F62B9 /* com.apple.configd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1540E3600987DA9500157C07 /* com.apple.configd.plist */; };
 		1583379C0CFB6B9E0033AB93 /* SCHelper_client.h in Headers */ = {isa = PBXBuildFile; fileRef = 155B7BF60847776D00F0E262 /* SCHelper_client.h */; };
 		1583379E0CFB6B9E0033AB93 /* SCHelper_server.c in Sources */ = {isa = PBXBuildFile; fileRef = 15DAF2D908466D4900D1B2BD /* SCHelper_server.c */; };
 		158337A00CFB6B9E0033AB93 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15CB6A6F05C0722B0099E85F /* CoreFoundation.framework */; };
 		158337A20CFB6B9E0033AB93 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1520A3DE0846B2DC0010B584 /* Security.framework */; };
 		158337AD0CFB6BDC0033AB93 /* com.apple.SCHelper-embedded.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 151356AD0CE0CF2F0017E523 /* com.apple.SCHelper-embedded.plist */; };
+		158D6D891C974E9E00A08E78 /* com.apple.SystemConfiguration.plist in Logging Preferences */ = {isa = PBXBuildFile; fileRef = 158D6D871C974DBA00A08E78 /* com.apple.SystemConfiguration.plist */; };
+		158D6D8B1C974F1800A08E78 /* com.apple.SystemConfiguration.plist in Logging Preferences */ = {isa = PBXBuildFile; fileRef = 158D6D871C974DBA00A08E78 /* com.apple.SystemConfiguration.plist */; };
+		158D6D8D1C974F5800A08E78 /* com.apple.SystemConfiguration.plist in Logging Preferences */ = {isa = PBXBuildFile; fileRef = 158D6D871C974DBA00A08E78 /* com.apple.SystemConfiguration.plist */; };
 		158E595E1107CAE40062081E /* helper.defs in Sources */ = {isa = PBXBuildFile; fileRef = 152E0E7E10FE820E00E402F2 /* helper.defs */; };
 		158E595F1107CAE80062081E /* helper.defs in Sources */ = {isa = PBXBuildFile; fileRef = 152E0E7E10FE820E00E402F2 /* helper.defs */; };
 		158E59611107CAF40062081E /* helper.defs in Sources */ = {isa = PBXBuildFile; fileRef = 152E0E7E10FE820E00E402F2 /* helper.defs */; };
@@ -644,13 +641,7 @@
 		159D54C407529FFF004F8947 /* _notifycancel.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB6A1405C0722B0099E85F /* _notifycancel.c */; settings = {ATTRIBUTES = (); }; };
 		159D54C507529FFF004F8947 /* _snapshot.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB6A1605C0722B0099E85F /* _snapshot.c */; settings = {ATTRIBUTES = (); }; };
 		159D54C607529FFF004F8947 /* config.defs in Sources */ = {isa = PBXBuildFile; fileRef = 15CB69BE05C0722B0099E85F /* config.defs */; settings = {ATTRIBUTES = (Server, ); }; };
-		159D54C807529FFF004F8947 /* dnsinfo_server.c in Sources */ = {isa = PBXBuildFile; fileRef = 15B73F0D05FD1B670096477F /* dnsinfo_server.c */; };
 		159D54CC07529FFF004F8947 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15CB6A6F05C0722B0099E85F /* CoreFoundation.framework */; };
-		159D54CE07529FFF004F8947 /* libKernelEventMonitor.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 159D53D407528BDA004F8947 /* libKernelEventMonitor.a */; };
-		159D54D007529FFF004F8947 /* libInterfaceNamer.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 159D53E507528C4A004F8947 /* libInterfaceNamer.a */; };
-		159D54D107529FFF004F8947 /* libIPMonitor.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 159D53EC07528C61004F8947 /* libIPMonitor.a */; };
-		159D54D207529FFF004F8947 /* libLinkConfiguration.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 159D53F307528C79004F8947 /* libLinkConfiguration.a */; };
-		159D54D307529FFF004F8947 /* libPreferencesMonitor.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 159D53FA07528C95004F8947 /* libPreferencesMonitor.a */; };
 		159D54D607529FFF004F8947 /* configd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 15CB6A2005C0722B0099E85F /* configd.8 */; };
 		15A1FF3210597F17004C9CC9 /* CaptiveNetwork.h in Headers */ = {isa = PBXBuildFile; fileRef = 15A1FF3010597F17004C9CC9 /* CaptiveNetwork.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		15A1FF3310597F17004C9CC9 /* CaptiveNetwork.c in Sources */ = {isa = PBXBuildFile; fileRef = 15A1FF3110597F17004C9CC9 /* CaptiveNetwork.c */; };
@@ -682,9 +673,6 @@
 		15A5A1FC0D5B94190087BDA0 /* SCValidation.h in Headers */ = {isa = PBXBuildFile; fileRef = 15CB693905C0722B0099E85F /* SCValidation.h */; settings = {ATTRIBUTES = (Private, Project, ); }; };
 		15A5A1FD0D5B94190087BDA0 /* DHCPClientPreferences.h in Headers */ = {isa = PBXBuildFile; fileRef = 15CB693D05C0722B0099E85F /* DHCPClientPreferences.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		15A5A1FE0D5B94190087BDA0 /* SCDynamicStoreCopyDHCPInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = 15CB693F05C0722B0099E85F /* SCDynamicStoreCopyDHCPInfo.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		15A5A1FF0D5B94190087BDA0 /* moh_msg.h in Headers */ = {isa = PBXBuildFile; fileRef = 15CB694105C0722B0099E85F /* moh_msg.h */; };
-		15A5A2000D5B94190087BDA0 /* moh.h in Headers */ = {isa = PBXBuildFile; fileRef = 15CB694305C0722B0099E85F /* moh.h */; };
-		15A5A2010D5B94190087BDA0 /* DeviceOnHold.h in Headers */ = {isa = PBXBuildFile; fileRef = 15CB694505C0722B0099E85F /* DeviceOnHold.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		15A5A2030D5B94190087BDA0 /* dy_framework.h in Headers */ = {isa = PBXBuildFile; fileRef = 15CB694905C0722B0099E85F /* dy_framework.h */; };
 		15A5A2050D5B94190087BDA0 /* SCPreferencesPathKey.h in Headers */ = {isa = PBXBuildFile; fileRef = 151BDA2B05D9E28B00657BC7 /* SCPreferencesPathKey.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		15A5A2060D5B94190087BDA0 /* dnsinfo.h in Headers */ = {isa = PBXBuildFile; fileRef = 15B73F0905FD1B670096477F /* dnsinfo.h */; };
@@ -746,8 +734,6 @@
 		15A5A24B0D5B94190087BDA0 /* SCNetworkReachability.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB69A605C0722B0099E85F /* SCNetworkReachability.c */; settings = {ATTRIBUTES = (); }; };
 		15A5A24C0D5B94190087BDA0 /* SCProxies.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB69A805C0722B0099E85F /* SCProxies.c */; settings = {ATTRIBUTES = (); }; };
 		15A5A24D0D5B94190087BDA0 /* DHCP.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB69AC05C0722B0099E85F /* DHCP.c */; settings = {ATTRIBUTES = (); }; };
-		15A5A24E0D5B94190087BDA0 /* moh.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB69AE05C0722B0099E85F /* moh.c */; settings = {ATTRIBUTES = (); }; };
-		15A5A24F0D5B94190087BDA0 /* DeviceOnHold.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB69B005C0722B0099E85F /* DeviceOnHold.c */; settings = {ATTRIBUTES = (); }; };
 		15A5A2500D5B94190087BDA0 /* LinkConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB69B205C0722B0099E85F /* LinkConfiguration.c */; settings = {ATTRIBUTES = (); }; };
 		15A5A2510D5B94190087BDA0 /* dy_framework.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB69B405C0722B0099E85F /* dy_framework.c */; settings = {ATTRIBUTES = (); }; };
 		15A5A2530D5B94190087BDA0 /* config.defs in Sources */ = {isa = PBXBuildFile; fileRef = 15CB69BE05C0722B0099E85F /* config.defs */; settings = {ATTRIBUTES = (Client, ); }; };
@@ -768,7 +754,6 @@
 		15AAA7F7108E310700C2A607 /* VPNTunnelPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 15AAA7F1108E310700C2A607 /* VPNTunnelPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		15AAA7F8108E310700C2A607 /* VPNTunnel.h in Headers */ = {isa = PBXBuildFile; fileRef = 15AAA7F2108E310700C2A607 /* VPNTunnel.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		15AAA7F9108E310700C2A607 /* VPNTunnel.c in Sources */ = {isa = PBXBuildFile; fileRef = 15AAA7F3108E310700C2A607 /* VPNTunnel.c */; };
-		15AB752D16EC2AE900FAA8CE /* libIPMonitor_sim.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 15E1B05916EBAE3C00E5F06F /* libIPMonitor_sim.a */; };
 		15BAA32307F0699A00D9EC95 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 15BAA32207F0699A00D9EC95 /* libbsm.dylib */; };
 		15C330D1134B95AA0028E36B /* SCNetworkReachabilityInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = 15C330D0134B95AA0028E36B /* SCNetworkReachabilityInternal.h */; };
 		15C330D2134B95AA0028E36B /* SCNetworkReachabilityInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = 15C330D0134B95AA0028E36B /* SCNetworkReachabilityInternal.h */; };
@@ -776,15 +761,12 @@
 		15C8C6BF170AAB4E005375CE /* cache.c in Sources */ = {isa = PBXBuildFile; fileRef = 159D53CA07528B36004F8947 /* cache.c */; };
 		15C8C6C0170AAB4E005375CE /* cache.h in Headers */ = {isa = PBXBuildFile; fileRef = 159D53CB07528B36004F8947 /* cache.h */; };
 		15D2E437167643460078F547 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1520A3DE0846B2DC0010B584 /* Security.framework */; };
-		15D3083316F3EB0700014F82 /* libSimulatorSupport_sim.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 15D3082716F3E4DA00014F82 /* libSimulatorSupport_sim.a */; };
 		15D3083916F3EB8600014F82 /* simulator_support.c in Sources */ = {isa = PBXBuildFile; fileRef = 15D3083816F3EB8600014F82 /* simulator_support.c */; };
 		15D3083B16F4E81C00014F82 /* com.apple.configd_sim.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 15D3083A16F4E6D900014F82 /* com.apple.configd_sim.plist */; };
 		15D48EBF0F67061600B4711E /* dnsinfo_create.c in Sources */ = {isa = PBXBuildFile; fileRef = 1521FC5C060F296A003B28F5 /* dnsinfo_create.c */; };
 		15D48EC00F67061700B4711E /* dnsinfo_create.h in Headers */ = {isa = PBXBuildFile; fileRef = 1532629006281C9D00B1C10C /* dnsinfo_create.h */; };
 		15D48EC10F67061F00B4711E /* dnsinfo_create.c in Sources */ = {isa = PBXBuildFile; fileRef = 1521FC5C060F296A003B28F5 /* dnsinfo_create.c */; };
 		15D48EC20F67061F00B4711E /* dnsinfo_create.h in Headers */ = {isa = PBXBuildFile; fileRef = 1532629006281C9D00B1C10C /* dnsinfo_create.h */; };
-		15D54E2715B4FA4600F5229A /* com.apple.networking.IPMonitor in com.apple.networking.IPMonitor */ = {isa = PBXBuildFile; fileRef = D68AD25F159BCD5900D4F1BE /* com.apple.networking.IPMonitor */; };
-		15D54E2B15B4FB0300F5229A /* com.apple.networking.IPMonitor in com.apple.networking.IPMonitor */ = {isa = PBXBuildFile; fileRef = D68AD25F159BCD5900D4F1BE /* com.apple.networking.IPMonitor */; };
 		15D8B22A1450D8450090CECF /* SCD.h in Headers */ = {isa = PBXBuildFile; fileRef = 15D8B2291450D8450090CECF /* SCD.h */; };
 		15D8B22B1450D8450090CECF /* SCD.h in Headers */ = {isa = PBXBuildFile; fileRef = 15D8B2291450D8450090CECF /* SCD.h */; };
 		15D8B22C1450D8450090CECF /* SCD.h in Headers */ = {isa = PBXBuildFile; fileRef = 15D8B2291450D8450090CECF /* SCD.h */; };
@@ -815,9 +797,6 @@
 		15DAD65707591A1A0084A6ED /* SCValidation.h in Headers */ = {isa = PBXBuildFile; fileRef = 15CB693905C0722B0099E85F /* SCValidation.h */; settings = {ATTRIBUTES = (Private, Project, ); }; };
 		15DAD65807591A1A0084A6ED /* DHCPClientPreferences.h in Headers */ = {isa = PBXBuildFile; fileRef = 15CB693D05C0722B0099E85F /* DHCPClientPreferences.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		15DAD65907591A1A0084A6ED /* SCDynamicStoreCopyDHCPInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = 15CB693F05C0722B0099E85F /* SCDynamicStoreCopyDHCPInfo.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		15DAD65A07591A1A0084A6ED /* moh_msg.h in Headers */ = {isa = PBXBuildFile; fileRef = 15CB694105C0722B0099E85F /* moh_msg.h */; };
-		15DAD65B07591A1A0084A6ED /* moh.h in Headers */ = {isa = PBXBuildFile; fileRef = 15CB694305C0722B0099E85F /* moh.h */; };
-		15DAD65C07591A1A0084A6ED /* DeviceOnHold.h in Headers */ = {isa = PBXBuildFile; fileRef = 15CB694505C0722B0099E85F /* DeviceOnHold.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		15DAD65E07591A1A0084A6ED /* dy_framework.h in Headers */ = {isa = PBXBuildFile; fileRef = 15CB694905C0722B0099E85F /* dy_framework.h */; };
 		15DAD66107591A1A0084A6ED /* SCPreferencesPathKey.h in Headers */ = {isa = PBXBuildFile; fileRef = 151BDA2B05D9E28B00657BC7 /* SCPreferencesPathKey.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		15DAD66407591A1A0084A6ED /* pppcontroller_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 23C1E2B4062DD2C700835B54 /* pppcontroller_types.h */; };
@@ -867,8 +846,6 @@
 		15DAD69807591A1A0084A6ED /* SCNetworkReachability.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB69A605C0722B0099E85F /* SCNetworkReachability.c */; settings = {ATTRIBUTES = (); }; };
 		15DAD69907591A1A0084A6ED /* SCProxies.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB69A805C0722B0099E85F /* SCProxies.c */; settings = {ATTRIBUTES = (); }; };
 		15DAD69A07591A1A0084A6ED /* DHCP.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB69AC05C0722B0099E85F /* DHCP.c */; settings = {ATTRIBUTES = (); }; };
-		15DAD69B07591A1A0084A6ED /* moh.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB69AE05C0722B0099E85F /* moh.c */; settings = {ATTRIBUTES = (); }; };
-		15DAD69C07591A1A0084A6ED /* DeviceOnHold.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB69B005C0722B0099E85F /* DeviceOnHold.c */; settings = {ATTRIBUTES = (); }; };
 		15DAD69D07591A1A0084A6ED /* LinkConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB69B205C0722B0099E85F /* LinkConfiguration.c */; settings = {ATTRIBUTES = (); }; };
 		15DAD69E07591A1A0084A6ED /* dy_framework.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB69B405C0722B0099E85F /* dy_framework.c */; settings = {ATTRIBUTES = (); }; };
 		15DAD69F07591A1A0084A6ED /* VLANConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB69B605C0722B0099E85F /* VLANConfiguration.c */; settings = {ATTRIBUTES = (); COMPILER_FLAGS = "-Wno-deprecated-declarations"; }; };
@@ -885,7 +862,7 @@
 		15DAF2E108466D4900D1B2BD /* SCHelper_server.c in Sources */ = {isa = PBXBuildFile; fileRef = 15DAF2D908466D4900D1B2BD /* SCHelper_server.c */; };
 		15E1B04316EBAE3C00E5F06F /* dns-configuration.h in Headers */ = {isa = PBXBuildFile; fileRef = 155D22380AF13A7300D52ED0 /* dns-configuration.h */; };
 		15E1B04416EBAE3C00E5F06F /* dnsinfo_create.h in Headers */ = {isa = PBXBuildFile; fileRef = 1532629006281C9D00B1C10C /* dnsinfo_create.h */; };
-		15E1B04516EBAE3C00E5F06F /* network_information_priv.h in Headers */ = {isa = PBXBuildFile; fileRef = D6986A761368911E0091C931 /* network_information_priv.h */; };
+		15E1B04516EBAE3C00E5F06F /* network_state_information_priv.h in Headers */ = {isa = PBXBuildFile; fileRef = D6986A761368911E0091C931 /* network_state_information_priv.h */; };
 		15E1B04616EBAE3C00E5F06F /* proxy-configuration.h in Headers */ = {isa = PBXBuildFile; fileRef = 1575FD2612CD15C60003D86E /* proxy-configuration.h */; };
 		15E1B04816EBAE3C00E5F06F /* network_information_server.h in Headers */ = {isa = PBXBuildFile; fileRef = 153ACCA714E322D5005029A5 /* network_information_server.h */; };
 		15E1B04916EBAE3C00E5F06F /* libSystemConfiguration_server.h in Headers */ = {isa = PBXBuildFile; fileRef = 1596A7B014EDB73D00798C39 /* libSystemConfiguration_server.h */; };
@@ -893,7 +870,7 @@
 		15E1B04C16EBAE3C00E5F06F /* dnsinfo_create.c in Sources */ = {isa = PBXBuildFile; fileRef = 1521FC5C060F296A003B28F5 /* dnsinfo_create.c */; };
 		15E1B04D16EBAE3C00E5F06F /* dnsinfo_server.c in Sources */ = {isa = PBXBuildFile; fileRef = 15B73F0D05FD1B670096477F /* dnsinfo_server.c */; };
 		15E1B04E16EBAE3C00E5F06F /* ip_plugin.c in Sources */ = {isa = PBXBuildFile; fileRef = 159D53A707528B36004F8947 /* ip_plugin.c */; };
-		15E1B04F16EBAE3C00E5F06F /* network_information_priv.c in Sources */ = {isa = PBXBuildFile; fileRef = D6986A75136891120091C931 /* network_information_priv.c */; };
+		15E1B04F16EBAE3C00E5F06F /* network_state_information_priv.c in Sources */ = {isa = PBXBuildFile; fileRef = D6986A75136891120091C931 /* network_state_information_priv.c */; };
 		15E1B05016EBAE3C00E5F06F /* network_information_server.c in Sources */ = {isa = PBXBuildFile; fileRef = 153ACCA614E322D5005029A5 /* network_information_server.c */; };
 		15E1B05116EBAE3C00E5F06F /* proxy-configuration.c in Sources */ = {isa = PBXBuildFile; fileRef = 1575FD2512CD15C60003D86E /* proxy-configuration.c */; };
 		15E1B05316EBAE3C00E5F06F /* libSystemConfiguration_server.c in Sources */ = {isa = PBXBuildFile; fileRef = 1596A7AF14EDB73D00798C39 /* libSystemConfiguration_server.c */; };
@@ -908,22 +885,58 @@
 		15FEE81F0CD03E75001312F9 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 15FEE8180CD03CBB001312F9 /* Localizable.strings */; };
 		15FF5C370CDF776200EEC8AA /* com.apple.SCHelper.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 15FF5C290CDF770500EEC8AA /* com.apple.SCHelper.plist */; };
 		55A3DB9E183C2AD900ED3DB7 /* SCNetworkMigration.c in Sources */ = {isa = PBXBuildFile; fileRef = 55A3DB9D183C2A8200ED3DB7 /* SCNetworkMigration.c */; };
+		720985441C580D9F00966D30 /* network_config_agent_info_priv.h in Headers */ = {isa = PBXBuildFile; fileRef = 720985431C580D9F00966D30 /* network_config_agent_info_priv.h */; };
+		720985451C580D9F00966D30 /* network_config_agent_info_priv.h in Headers */ = {isa = PBXBuildFile; fileRef = 720985431C580D9F00966D30 /* network_config_agent_info_priv.h */; };
+		720985471C5835DB00966D30 /* agent-monitor.h in Headers */ = {isa = PBXBuildFile; fileRef = 728015931BE1697E009F4F60 /* agent-monitor.h */; };
+		720A4C0A1C585C7D007436B8 /* configAgent.h in Headers */ = {isa = PBXBuildFile; fileRef = 728015781BE16833009F4F60 /* configAgent.h */; };
+		720A4C0B1C585C93007436B8 /* controller.h in Headers */ = {isa = PBXBuildFile; fileRef = 7280157A1BE16833009F4F60 /* controller.h */; };
+		720A4C0C1C585C97007436B8 /* dnsAgent.h in Headers */ = {isa = PBXBuildFile; fileRef = 7280157C1BE16833009F4F60 /* dnsAgent.h */; };
+		720A4C0D1C585C9F007436B8 /* proxyAgent.h in Headers */ = {isa = PBXBuildFile; fileRef = 7280157F1BE16833009F4F60 /* proxyAgent.h */; };
+		7214BCE31BEB392000A8F056 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 728015951BE16B6C009F4F60 /* Network.framework */; };
+		7214BCE41BEB392300A8F056 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 728015961BE16B6C009F4F60 /* NetworkExtension.framework */; };
 		72499BA41AC9B7AB0090C49F /* get-network-info in Resources */ = {isa = PBXBuildFile; fileRef = 72499BA31AC9B7AB0090C49F /* get-network-info */; };
 		72499BA51AC9B7AB0090C49F /* get-network-info in Resources */ = {isa = PBXBuildFile; fileRef = 72499BA31AC9B7AB0090C49F /* get-network-info */; };
-		725E53D71A92D2C3009997E1 /* com.apple.networking.IPMonitor in com.apple.networking.IPMonitor */ = {isa = PBXBuildFile; fileRef = 725E53D51A92D2A5009997E1 /* com.apple.networking.IPMonitor */; };
+		725CB7551BF439C6000C05A8 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 725CB7541BF439C6000C05A8 /* Foundation.framework */; };
+		725CB7561BF439D2000C05A8 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 725CB7541BF439C6000C05A8 /* Foundation.framework */; };
+		725CB7581BF514F2000C05A8 /* configAgentDefines.h in Headers */ = {isa = PBXBuildFile; fileRef = 725CB7571BF51476000C05A8 /* configAgentDefines.h */; };
+		725CB7591BF514F5000C05A8 /* configAgentDefines.h in Headers */ = {isa = PBXBuildFile; fileRef = 725CB7571BF51476000C05A8 /* configAgentDefines.h */; };
 		7264C144147319E7004FD76D /* CaptiveNetwork.c in Sources */ = {isa = PBXBuildFile; fileRef = 15A1FF3110597F17004C9CC9 /* CaptiveNetwork.c */; };
 		7264C14614731A1F004FD76D /* CaptiveNetwork.h in Headers */ = {isa = PBXBuildFile; fileRef = 15A1FF3010597F17004C9CC9 /* CaptiveNetwork.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		726DB2F41BEA80E5001B2C6C /* config_agent_info.c in Sources */ = {isa = PBXBuildFile; fileRef = 726DB2F11BEA80E5001B2C6C /* config_agent_info.c */; };
+		726DB2F61BEA80E5001B2C6C /* config_agent_info.h in Headers */ = {isa = PBXBuildFile; fileRef = 726DB2F21BEA80E5001B2C6C /* config_agent_info.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		727AF25419138699009AB153 /* VPNAppLayerPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = B0A88CA616397A1200A60B3A /* VPNAppLayerPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		727AF255191386A0009AB153 /* VPNFlow.h in Headers */ = {isa = PBXBuildFile; fileRef = C4CDB8111631933400819B44 /* VPNFlow.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		727AF257191386DA009AB153 /* VPNTunnel.h in Headers */ = {isa = PBXBuildFile; fileRef = 15AAA7F2108E310700C2A607 /* VPNTunnel.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		727AF258191386E3009AB153 /* VPNTunnelPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 15AAA7F1108E310700C2A607 /* VPNTunnelPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		727AF25919138E24009AB153 /* VPNTunnel.c in Sources */ = {isa = PBXBuildFile; fileRef = 15AAA7F3108E310700C2A607 /* VPNTunnel.c */; };
+		728015811BE1683B009F4F60 /* agent-monitor.m in Sources */ = {isa = PBXBuildFile; fileRef = 728015751BE16833009F4F60 /* agent-monitor.m */; };
+		728015821BE16840009F4F60 /* agent-monitor.m in Sources */ = {isa = PBXBuildFile; fileRef = 728015751BE16833009F4F60 /* agent-monitor.m */; };
+		728015871BE1684E009F4F60 /* configAgent.m in Sources */ = {isa = PBXBuildFile; fileRef = 728015791BE16833009F4F60 /* configAgent.m */; };
+		728015881BE16851009F4F60 /* configAgent.m in Sources */ = {isa = PBXBuildFile; fileRef = 728015791BE16833009F4F60 /* configAgent.m */; };
+		7280158B1BE1685B009F4F60 /* controller.m in Sources */ = {isa = PBXBuildFile; fileRef = 7280157B1BE16833009F4F60 /* controller.m */; };
+		7280158C1BE1685D009F4F60 /* controller.m in Sources */ = {isa = PBXBuildFile; fileRef = 7280157B1BE16833009F4F60 /* controller.m */; };
+		7280158D1BE16861009F4F60 /* dnsAgent.m in Sources */ = {isa = PBXBuildFile; fileRef = 7280157D1BE16833009F4F60 /* dnsAgent.m */; };
+		7280158E1BE16863009F4F60 /* dnsAgent.m in Sources */ = {isa = PBXBuildFile; fileRef = 7280157D1BE16833009F4F60 /* dnsAgent.m */; };
+		728015911BE1686C009F4F60 /* proxyAgent.m in Sources */ = {isa = PBXBuildFile; fileRef = 728015801BE16833009F4F60 /* proxyAgent.m */; };
+		728015921BE1686F009F4F60 /* proxyAgent.m in Sources */ = {isa = PBXBuildFile; fileRef = 728015801BE16833009F4F60 /* proxyAgent.m */; };
+		728015971BE16B6C009F4F60 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 728015951BE16B6C009F4F60 /* Network.framework */; };
+		728015981BE16B6C009F4F60 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 728015961BE16B6C009F4F60 /* NetworkExtension.framework */; };
+		728015991BE1812B009F4F60 /* agent-monitor.h in Headers */ = {isa = PBXBuildFile; fileRef = 728015931BE1697E009F4F60 /* agent-monitor.h */; };
+		7280159B1BE1812B009F4F60 /* configAgent.h in Headers */ = {isa = PBXBuildFile; fileRef = 728015781BE16833009F4F60 /* configAgent.h */; };
+		7280159C1BE1812B009F4F60 /* controller.h in Headers */ = {isa = PBXBuildFile; fileRef = 7280157A1BE16833009F4F60 /* controller.h */; };
+		7280159D1BE1812B009F4F60 /* dnsAgent.h in Headers */ = {isa = PBXBuildFile; fileRef = 7280157C1BE16833009F4F60 /* dnsAgent.h */; };
+		7280159E1BE1812B009F4F60 /* proxyAgent.h in Headers */ = {isa = PBXBuildFile; fileRef = 7280157F1BE16833009F4F60 /* proxyAgent.h */; };
+		728CEAFF1BEA951A00F13F92 /* config_agent_info.c in Sources */ = {isa = PBXBuildFile; fileRef = 726DB2F11BEA80E5001B2C6C /* config_agent_info.c */; };
+		728CEB001BEA993100F13F92 /* config_agent_info.h in Headers */ = {isa = PBXBuildFile; fileRef = 726DB2F21BEA80E5001B2C6C /* config_agent_info.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		72B43728113C7BFC00EBF1B6 /* nc.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B43726113C7BFC00EBF1B6 /* nc.h */; };
 		72B43729113C7BFC00EBF1B6 /* nc.c in Sources */ = {isa = PBXBuildFile; fileRef = 72B43727113C7BFC00EBF1B6 /* nc.c */; };
 		72B4372A113C7BFC00EBF1B6 /* nc.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B43726113C7BFC00EBF1B6 /* nc.h */; };
 		72B4372B113C7BFC00EBF1B6 /* nc.c in Sources */ = {isa = PBXBuildFile; fileRef = 72B43727113C7BFC00EBF1B6 /* nc.c */; };
 		72D3E6611AE6EA3A00DB4C69 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72D3E6601AE6EA3A00DB4C69 /* main.swift */; };
 		72D3E66C1AE6EAF600DB4C69 /* test-objC.m in Sources */ = {isa = PBXBuildFile; fileRef = 72D3E66B1AE6EAF600DB4C69 /* test-objC.m */; };
+		90507AB01CE2F55B0067D16B /* libnetwork.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 90507AAF1CE2F55B0067D16B /* libnetwork.dylib */; };
+		90507AB21CE2F5720067D16B /* libnetwork.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 90507AB11CE2F5720067D16B /* libnetwork.dylib */; };
+		90507AB31CE2F58A0067D16B /* libnetwork.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 90507AB11CE2F5720067D16B /* libnetwork.dylib */; };
 		B03FEFB616376D2800A1B88F /* VPNAppLayer.c in Sources */ = {isa = PBXBuildFile; fileRef = B03FEFB516376D2800A1B88F /* VPNAppLayer.c */; };
 		B03FEFB716376D2800A1B88F /* VPNAppLayer.c in Sources */ = {isa = PBXBuildFile; fileRef = B03FEFB516376D2800A1B88F /* VPNAppLayer.c */; };
 		B03FEFBA16382C0700A1B88F /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 15BAA32207F0699A00D9EC95 /* libbsm.dylib */; };
@@ -959,10 +972,10 @@
 		D661C2F21368BB720030B977 /* network_information.h in Headers */ = {isa = PBXBuildFile; fileRef = D6986A781368913C0091C931 /* network_information.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D6623873120B2AA7007F8E95 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1520A3DE0846B2DC0010B584 /* Security.framework */; };
 		D6986A79136891650091C931 /* network_information.c in Sources */ = {isa = PBXBuildFile; fileRef = D6986A77136891300091C931 /* network_information.c */; };
-		E49173E1137C4E4F0000089F /* network_information_priv.c in Sources */ = {isa = PBXBuildFile; fileRef = D6986A75136891120091C931 /* network_information_priv.c */; };
-		E4F211D3137B0AB900BBB915 /* network_information_priv.c in Sources */ = {isa = PBXBuildFile; fileRef = D6986A75136891120091C931 /* network_information_priv.c */; };
-		E4F211D4137B0ABD00BBB915 /* network_information_priv.h in Headers */ = {isa = PBXBuildFile; fileRef = D6986A761368911E0091C931 /* network_information_priv.h */; };
-		E4F211D7137B0AF200BBB915 /* network_information_priv.h in Headers */ = {isa = PBXBuildFile; fileRef = D6986A761368911E0091C931 /* network_information_priv.h */; };
+		E49173E1137C4E4F0000089F /* network_state_information_priv.c in Sources */ = {isa = PBXBuildFile; fileRef = D6986A75136891120091C931 /* network_state_information_priv.c */; };
+		E4F211D3137B0AB900BBB915 /* network_state_information_priv.c in Sources */ = {isa = PBXBuildFile; fileRef = D6986A75136891120091C931 /* network_state_information_priv.c */; };
+		E4F211D4137B0ABD00BBB915 /* network_state_information_priv.h in Headers */ = {isa = PBXBuildFile; fileRef = D6986A761368911E0091C931 /* network_state_information_priv.h */; };
+		E4F211D7137B0AF200BBB915 /* network_state_information_priv.h in Headers */ = {isa = PBXBuildFile; fileRef = D6986A761368911E0091C931 /* network_state_information_priv.h */; };
 		F9347FF7187C796E003D4178 /* IPMonitorControl.c in Sources */ = {isa = PBXBuildFile; fileRef = F9B7AE5C1862116500C78D18 /* IPMonitorControl.c */; };
 		F9347FF8187C7993003D4178 /* IPMonitorControl.h in Headers */ = {isa = PBXBuildFile; fileRef = F9B7AE5D1862116500C78D18 /* IPMonitorControl.h */; };
 		F9347FF9187C7993003D4178 /* IPMonitorControlPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = F9B7AE5E1862116500C78D18 /* IPMonitorControlPrivate.h */; };
@@ -1017,19 +1030,26 @@
 			remoteGlobalIDString = 1558481207550EC10046C2E9;
 			remoteInfo = scselect;
 		};
-		1558480907550D470046C2E9 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 155847430754FDCD0046C2E9;
-			remoteInfo = scutil;
-		};
 		1558480E07550DD00046C2E9 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 155847FA07550D210046C2E9;
 			remoteInfo = configd_executables;
+		};
+		155F49AC1C86511300E47D08 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 155F49951C864F4E00E47D08;
+			remoteInfo = "QoSMarking-Embedded";
+		};
+		155F49AE1C86511300E47D08 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 155F499D1C864F5400E47D08;
+			remoteInfo = "QoSMarking.bundle-Embedded";
 		};
 		15732AE516EA6BCE00F3AC4C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -1388,6 +1408,13 @@
 			remoteGlobalIDString = 15DAD63F07591A1A0084A6ED;
 			remoteInfo = SystemConfiguration.framework;
 		};
+		72C4A47F1BE44D19009D570E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 155847430754FDCD0046C2E9;
+			remoteInfo = scutil;
+		};
 		D6DDAC3C147A24BC00A2E902 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
@@ -1448,6 +1475,39 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		158D6D881C974E7E00A08E78 /* Logging Preferences */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/Preferences/Logging/Subsystems;
+			dstSubfolderSpec = 0;
+			files = (
+				158D6D891C974E9E00A08E78 /* com.apple.SystemConfiguration.plist in Logging Preferences */,
+			);
+			name = "Logging Preferences";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		158D6D8A1C974EF700A08E78 /* Logging Preferences */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/Preferences/Logging/Subsystems;
+			dstSubfolderSpec = 0;
+			files = (
+				158D6D8B1C974F1800A08E78 /* com.apple.SystemConfiguration.plist in Logging Preferences */,
+			);
+			name = "Logging Preferences";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		158D6D8C1C974F4800A08E78 /* Logging Preferences */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/Preferences/Logging/Subsystems;
+			dstSubfolderSpec = 0;
+			files = (
+				158D6D8D1C974F5800A08E78 /* com.apple.SystemConfiguration.plist in Logging Preferences */,
+			);
+			name = "Logging Preferences";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		159D54D507529FFF004F8947 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -1458,36 +1518,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		159D54D707529FFF004F8947 /* CopyFiles */ = {
+		159D54D707529FFF004F8947 /* Copy Files */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = /System/Library/LaunchDaemons;
 			dstSubfolderSpec = 0;
 			files = (
-				1540E3610987DA9500157C07 /* com.apple.configd.plist in CopyFiles */,
+				1540E3610987DA9500157C07 /* com.apple.configd.plist in Copy Files */,
 			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		15D54E2515B4FA1900F5229A /* com.apple.networking.IPMonitor */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /private/etc/asl;
-			dstSubfolderSpec = 0;
-			files = (
-				15D54E2715B4FA4600F5229A /* com.apple.networking.IPMonitor in com.apple.networking.IPMonitor */,
-			);
-			name = com.apple.networking.IPMonitor;
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		15D54E2A15B4FAF100F5229A /* com.apple.networking.IPMonitor */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /private/etc/asl;
-			dstSubfolderSpec = 0;
-			files = (
-				15D54E2B15B4FB0300F5229A /* com.apple.networking.IPMonitor in com.apple.networking.IPMonitor */,
-			);
-			name = com.apple.networking.IPMonitor;
+			name = "Copy Files";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		15D9DCF910DD909F004E545D /* AppWorkaround.plist */ = {
@@ -1509,17 +1548,6 @@
 			files = (
 				15FF5C370CDF776200EEC8AA /* com.apple.SCHelper.plist in CopyFiles */,
 			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		72AD314B1A843C1000D2226E /* com.apple.networking.IPMonitor */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /private/etc/asl;
-			dstSubfolderSpec = 0;
-			files = (
-				725E53D71A92D2C3009997E1 /* com.apple.networking.IPMonitor in com.apple.networking.IPMonitor */,
-			);
-			name = com.apple.networking.IPMonitor;
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		72D3E65C1AE6EA3900DB4C69 /* CopyFiles */ = {
@@ -1589,6 +1617,12 @@
 		155D22380AF13A7300D52ED0 /* dns-configuration.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = "dns-configuration.h"; sourceTree = "<group>"; };
 		155D22390AF13A7300D52ED0 /* set-hostname.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = "set-hostname.h"; sourceTree = "<group>"; };
 		155D223A0AF13A7300D52ED0 /* smb-configuration.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = "smb-configuration.h"; sourceTree = "<group>"; };
+		155F498D1C864F1400E47D08 /* libQoSMarking.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libQoSMarking.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		155F49931C864F3700E47D08 /* QoSMarking.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = QoSMarking.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		155F499C1C864F4E00E47D08 /* libQoSMarking.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libQoSMarking.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		155F49A21C864F5400E47D08 /* QoSMarking.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = QoSMarking.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		155F49A41C864FE500E47D08 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Plugins/QoSMarking/Info.plist; sourceTree = "<group>"; };
+		155F49A51C864FE500E47D08 /* qos-marking.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "qos-marking.m"; path = "Plugins/QoSMarking/qos-marking.m"; sourceTree = "<group>"; };
 		1567333E0DD1FD6500145179 /* entitlements-ios.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "entitlements-ios.plist"; sourceTree = "<group>"; };
 		156BD6BB07E0DFA9008698FF /* SCPreferencesSetSpecificPrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SCPreferencesSetSpecificPrivate.h; sourceTree = "<group>"; };
 		1572C57E171CCF9500870549 /* pppcontroller_mach_defines.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; name = pppcontroller_mach_defines.h; path = usr/local/include/ppp/pppcontroller_mach_defines.h; sourceTree = SDKROOT; };
@@ -1612,6 +1646,7 @@
 		158AD8700754E3D400124717 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		158AD8C00754E3EF00124717 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		158AD9100754E40E00124717 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		158D6D871C974DBA00A08E78 /* com.apple.SystemConfiguration.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.SystemConfiguration.plist; sourceTree = "<group>"; };
 		1596A7AF14EDB73D00798C39 /* libSystemConfiguration_server.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; lineEnding = 0; name = libSystemConfiguration_server.c; path = libSystemConfiguration/libSystemConfiguration_server.c; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.c; };
 		1596A7B014EDB73D00798C39 /* libSystemConfiguration_server.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = libSystemConfiguration_server.h; path = libSystemConfiguration/libSystemConfiguration_server.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
 		159A7513107FEAA400A57EAB /* VPNPrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VPNPrivate.h; sourceTree = "<group>"; };
@@ -1652,7 +1687,6 @@
 		15AAA7F1108E310700C2A607 /* VPNTunnelPrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VPNTunnelPrivate.h; sourceTree = "<group>"; };
 		15AAA7F2108E310700C2A607 /* VPNTunnel.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VPNTunnel.h; sourceTree = "<group>"; };
 		15AAA7F3108E310700C2A607 /* VPNTunnel.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = VPNTunnel.c; sourceTree = "<group>"; };
-		15AC2D8816C574FE00340E28 /* libcupolicy.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcupolicy.dylib; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.Internal.sdk/usr/lib/libcupolicy.dylib; sourceTree = DEVELOPER_DIR; };
 		15AD7A380670A85900BFE03C /* SCNetworkConfiguration.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SCNetworkConfiguration.h; sourceTree = "<group>"; };
 		15AD7A390670A85900BFE03C /* SCNetworkConfigurationInternal.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = SCNetworkConfigurationInternal.c; sourceTree = "<group>"; };
 		15AD7A3A0670A85900BFE03C /* SCNetworkConfigurationInternal.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SCNetworkConfigurationInternal.h; sourceTree = "<group>"; };
@@ -1668,7 +1702,6 @@
 		15B73F0E05FD1B670096477F /* dnsinfo_server.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = dnsinfo_server.h; path = dnsinfo/dnsinfo_server.h; sourceTree = "<group>"; };
 		15BAA32207F0699A00D9EC95 /* libbsm.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libbsm.dylib; path = /usr/lib/libbsm.dylib; sourceTree = "<absolute>"; };
 		15C330D0134B95AA0028E36B /* SCNetworkReachabilityInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SCNetworkReachabilityInternal.h; sourceTree = "<group>"; };
-		15CAEF381712690500367CE1 /* libcupolicy.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcupolicy.dylib; path = Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator7.0.sdk/usr/local/lib/libcupolicy.dylib; sourceTree = DEVELOPER_DIR; };
 		15CB691305C0722B0099E85F /* SystemConfiguration.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SystemConfiguration.h; sourceTree = "<group>"; };
 		15CB691505C0722B0099E85F /* SCPrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SCPrivate.h; sourceTree = "<group>"; };
 		15CB691705C0722B0099E85F /* SCDPlugin.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SCDPlugin.h; sourceTree = "<group>"; };
@@ -1690,9 +1723,6 @@
 		15CB693905C0722B0099E85F /* SCValidation.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SCValidation.h; sourceTree = "<group>"; };
 		15CB693D05C0722B0099E85F /* DHCPClientPreferences.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DHCPClientPreferences.h; sourceTree = "<group>"; };
 		15CB693F05C0722B0099E85F /* SCDynamicStoreCopyDHCPInfo.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SCDynamicStoreCopyDHCPInfo.h; sourceTree = "<group>"; };
-		15CB694105C0722B0099E85F /* moh_msg.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = moh_msg.h; sourceTree = "<group>"; };
-		15CB694305C0722B0099E85F /* moh.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = moh.h; sourceTree = "<group>"; };
-		15CB694505C0722B0099E85F /* DeviceOnHold.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DeviceOnHold.h; sourceTree = "<group>"; };
 		15CB694905C0722B0099E85F /* dy_framework.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dy_framework.h; sourceTree = "<group>"; };
 		15CB695005C0722B0099E85F /* SCD.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SCD.c; sourceTree = "<group>"; };
 		15CB695205C0722B0099E85F /* SCDKeys.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SCDKeys.c; sourceTree = "<group>"; };
@@ -1735,8 +1765,6 @@
 		15CB69A605C0722B0099E85F /* SCNetworkReachability.c */ = {isa = PBXFileReference; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = SCNetworkReachability.c; sourceTree = "<group>"; };
 		15CB69A805C0722B0099E85F /* SCProxies.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SCProxies.c; sourceTree = "<group>"; };
 		15CB69AC05C0722B0099E85F /* DHCP.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = DHCP.c; sourceTree = "<group>"; };
-		15CB69AE05C0722B0099E85F /* moh.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = moh.c; sourceTree = "<group>"; };
-		15CB69B005C0722B0099E85F /* DeviceOnHold.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = DeviceOnHold.c; sourceTree = "<group>"; };
 		15CB69B205C0722B0099E85F /* LinkConfiguration.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = LinkConfiguration.c; sourceTree = "<group>"; };
 		15CB69B405C0722B0099E85F /* dy_framework.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = dy_framework.c; sourceTree = "<group>"; };
 		15CB69B605C0722B0099E85F /* VLANConfiguration.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = VLANConfiguration.c; sourceTree = "<group>"; };
@@ -1834,8 +1862,25 @@
 		23C1E2B8062DD45900835B54 /* pppcontroller.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; name = pppcontroller.defs; path = SystemConfiguration.fproj/pppcontroller.defs; sourceTree = "<group>"; };
 		23C1E2BE062DD5DB00835B54 /* pppcontroller.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = pppcontroller.h; path = configd.build/SystemConfiguration.framework.build/DerivedSources/pppcontroller.h; sourceTree = BUILT_PRODUCTS_DIR; };
 		55A3DB9D183C2A8200ED3DB7 /* SCNetworkMigration.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SCNetworkMigration.c; sourceTree = "<group>"; };
+		720985431C580D9F00966D30 /* network_config_agent_info_priv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = network_config_agent_info_priv.h; path = nwi/network_config_agent_info_priv.h; sourceTree = "<group>"; };
 		72499BA31AC9B7AB0090C49F /* get-network-info */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "get-network-info"; sourceTree = SOURCE_ROOT; };
+		725CB7541BF439C6000C05A8 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		725CB7571BF51476000C05A8 /* configAgentDefines.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = configAgentDefines.h; sourceTree = "<group>"; };
 		725E53D51A92D2A5009997E1 /* com.apple.networking.IPMonitor */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = com.apple.networking.IPMonitor; sourceTree = "<group>"; };
+		726DB2F11BEA80E5001B2C6C /* config_agent_info.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = config_agent_info.c; path = "config-agent-info/config_agent_info.c"; sourceTree = "<group>"; };
+		726DB2F21BEA80E5001B2C6C /* config_agent_info.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = config_agent_info.h; path = "config-agent-info/config_agent_info.h"; sourceTree = "<group>"; };
+		728015751BE16833009F4F60 /* agent-monitor.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; path = "agent-monitor.m"; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
+		728015781BE16833009F4F60 /* configAgent.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = configAgent.h; sourceTree = "<group>"; };
+		728015791BE16833009F4F60 /* configAgent.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = configAgent.m; sourceTree = "<group>"; };
+		7280157A1BE16833009F4F60 /* controller.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = controller.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		7280157B1BE16833009F4F60 /* controller.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; path = controller.m; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
+		7280157C1BE16833009F4F60 /* dnsAgent.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = dnsAgent.h; sourceTree = "<group>"; };
+		7280157D1BE16833009F4F60 /* dnsAgent.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = dnsAgent.m; sourceTree = "<group>"; };
+		7280157F1BE16833009F4F60 /* proxyAgent.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = proxyAgent.h; sourceTree = "<group>"; };
+		728015801BE16833009F4F60 /* proxyAgent.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = proxyAgent.m; sourceTree = "<group>"; };
+		728015931BE1697E009F4F60 /* agent-monitor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "agent-monitor.h"; sourceTree = "<group>"; };
+		728015951BE16B6C009F4F60 /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = System/Library/PrivateFrameworks/Network.framework; sourceTree = SDKROOT; };
+		728015961BE16B6C009F4F60 /* NetworkExtension.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetworkExtension.framework; path = System/Library/Frameworks/NetworkExtension.framework; sourceTree = SDKROOT; };
 		72B43726113C7BFC00EBF1B6 /* nc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = nc.h; sourceTree = "<group>"; };
 		72B43727113C7BFC00EBF1B6 /* nc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nc.c; sourceTree = "<group>"; };
 		72D3E6591AE6E8A900DB4C69 /* Modules */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Modules; path = SystemConfiguration.fproj/Modules; sourceTree = SOURCE_ROOT; };
@@ -1843,6 +1888,8 @@
 		72D3E6601AE6EA3A00DB4C69 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		72D3E6691AE6EAF600DB4C69 /* SCTest-ObjC */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "SCTest-ObjC"; sourceTree = BUILT_PRODUCTS_DIR; };
 		72D3E66B1AE6EAF600DB4C69 /* test-objC.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "test-objC.m"; sourceTree = "<group>"; };
+		90507AAF1CE2F55B0067D16B /* libnetwork.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libnetwork.dylib; path = usr/lib/libnetwork.dylib; sourceTree = SDKROOT; };
+		90507AB11CE2F5720067D16B /* libnetwork.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libnetwork.dylib; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS10.0.Internal.sdk/usr/lib/libnetwork.dylib; sourceTree = DEVELOPER_DIR; };
 		9EE943F306AF409B00772EB5 /* BondConfiguration.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BondConfiguration.c; sourceTree = "<group>"; };
 		B03FEFB516376D2800A1B88F /* VPNAppLayer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = VPNAppLayer.c; sourceTree = "<group>"; };
 		B084710E16385121006C92A3 /* SCNetworkConnectionInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SCNetworkConnectionInternal.h; sourceTree = "<group>"; };
@@ -1854,9 +1901,8 @@
 		C4F1847F16237AFC00D97043 /* VPNService.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = VPNService.c; sourceTree = "<group>"; };
 		D61AAEAD1522C99C0066B003 /* scprefs_observer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = scprefs_observer.c; sourceTree = "<group>"; };
 		D61AAEB41522C9BD0066B003 /* scprefs_observer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = scprefs_observer.h; sourceTree = "<group>"; };
-		D68AD25F159BCD5900D4F1BE /* com.apple.networking.IPMonitor */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = com.apple.networking.IPMonitor; sourceTree = "<group>"; };
-		D6986A75136891120091C931 /* network_information_priv.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = network_information_priv.c; path = nwi/network_information_priv.c; sourceTree = "<group>"; };
-		D6986A761368911E0091C931 /* network_information_priv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = network_information_priv.h; path = nwi/network_information_priv.h; sourceTree = "<group>"; };
+		D6986A75136891120091C931 /* network_state_information_priv.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = network_state_information_priv.c; path = nwi/network_state_information_priv.c; sourceTree = "<group>"; };
+		D6986A761368911E0091C931 /* network_state_information_priv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = network_state_information_priv.h; path = nwi/network_state_information_priv.h; sourceTree = "<group>"; };
 		D6986A77136891300091C931 /* network_information.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = network_information.c; path = nwi/network_information.c; sourceTree = "<group>"; };
 		D6986A781368913C0091C931 /* network_information.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = network_information.h; path = nwi/network_information.h; sourceTree = "<group>"; };
 		D6AEB89815AE4446009F2FAF /* ip_plugin.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ip_plugin.h; sourceTree = "<group>"; };
@@ -1922,6 +1968,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				90507AB21CE2F5720067D16B /* libnetwork.dylib in Frameworks */,
 				1572C5240CFB55B400E2776E /* CoreFoundation.framework in Frameworks */,
 				B03FEFBB16382C1300A1B88F /* libbsm.dylib in Frameworks */,
 			);
@@ -1936,8 +1983,6 @@
 				15732A9E16EA503200F3AC4C /* IOKit.framework in Frameworks */,
 				15732A9F16EA503200F3AC4C /* Security.framework in Frameworks */,
 				15732AA016EA503200F3AC4C /* libbsm.dylib in Frameworks */,
-				15AB752D16EC2AE900FAA8CE /* libIPMonitor_sim.a in Frameworks */,
-				15D3083316F3EB0700014F82 /* libSimulatorSupport_sim.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1988,17 +2033,15 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				725CB7561BF439D2000C05A8 /* Foundation.framework in Frameworks */,
+				7214BCE31BEB392000A8F056 /* Network.framework in Frameworks */,
+				7214BCE41BEB392300A8F056 /* NetworkExtension.framework in Frameworks */,
 				1583174C0CFB80A1006F62B9 /* CoreFoundation.framework in Frameworks */,
 				154707350D1F70C80075C28D /* SystemConfiguration.framework in Frameworks */,
 				1583174E0CFB80A1006F62B9 /* IOKit.framework in Frameworks */,
 				152439EC180716ED00D91708 /* MobileWiFi.framework in Frameworks */,
 				159C32B60F583724008A72EE /* Security.framework in Frameworks */,
 				158317500CFB80A1006F62B9 /* libbsm.dylib in Frameworks */,
-				158317520CFB80A1006F62B9 /* libKernelEventMonitor.a in Frameworks */,
-				158317530CFB80A1006F62B9 /* libInterfaceNamer.a in Frameworks */,
-				158317540CFB80A1006F62B9 /* libIPMonitor.a in Frameworks */,
-				158317550CFB80A1006F62B9 /* libLinkConfiguration.a in Frameworks */,
-				158317570CFB80A1006F62B9 /* libPreferencesMonitor.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2017,17 +2060,15 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				725CB7551BF439C6000C05A8 /* Foundation.framework in Frameworks */,
+				728015971BE16B6C009F4F60 /* Network.framework in Frameworks */,
+				728015981BE16B6C009F4F60 /* NetworkExtension.framework in Frameworks */,
 				159D54CC07529FFF004F8947 /* CoreFoundation.framework in Frameworks */,
 				1559C44A0D349A4E0098FD59 /* SystemConfiguration.framework in Frameworks */,
 				152439E8180399D800D91708 /* CoreWLAN.framework in Frameworks */,
 				1543636B0752D03C00A8EC6C /* IOKit.framework in Frameworks */,
 				D6623873120B2AA7007F8E95 /* Security.framework in Frameworks */,
 				15BAA32307F0699A00D9EC95 /* libbsm.dylib in Frameworks */,
-				159D54CE07529FFF004F8947 /* libKernelEventMonitor.a in Frameworks */,
-				159D54D007529FFF004F8947 /* libInterfaceNamer.a in Frameworks */,
-				159D54D107529FFF004F8947 /* libIPMonitor.a in Frameworks */,
-				159D54D207529FFF004F8947 /* libLinkConfiguration.a in Frameworks */,
-				159D54D307529FFF004F8947 /* libPreferencesMonitor.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2035,6 +2076,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				90507AB31CE2F58A0067D16B /* libnetwork.dylib in Frameworks */,
 				15A5A2630D5B94190087BDA0 /* CoreFoundation.framework in Frameworks */,
 				B0FEF41A164406F400174B99 /* libbsm.dylib in Frameworks */,
 			);
@@ -2051,6 +2093,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				90507AB01CE2F55B0067D16B /* libnetwork.dylib in Frameworks */,
 				15DAD6AE07591A1A0084A6ED /* CoreFoundation.framework in Frameworks */,
 				B03FEFBA16382C0700A1B88F /* libbsm.dylib in Frameworks */,
 				15FBB54C17D6834C0035D752 /* libCrashReporterClient.a in Frameworks */,
@@ -2187,6 +2230,15 @@
 			name = Sources;
 			sourceTree = "<group>";
 		};
+		155F49851C864ED400E47D08 /* QoSMarking */ = {
+			isa = PBXGroup;
+			children = (
+				155F49A51C864FE500E47D08 /* qos-marking.m */,
+				155F49A41C864FE500E47D08 /* Info.plist */,
+			);
+			name = QoSMarking;
+			sourceTree = "<group>";
+		};
 		1582B36B05FD1A4D009C2750 /* DNSConfiguration */ = {
 			isa = PBXGroup;
 			children = (
@@ -2255,6 +2307,7 @@
 				159D53AF07528B36004F8947 /* KernelEventMonitor */,
 				159D53C007528B36004F8947 /* LinkConfiguration */,
 				159D53C207528B36004F8947 /* PreferencesMonitor */,
+				155F49851C864ED400E47D08 /* QoSMarking */,
 				15D3080E16F3E49F00014F82 /* SimulatorSupport */,
 			);
 			name = Plugins;
@@ -2263,6 +2316,7 @@
 		159D53A607528B36004F8947 /* IPMonitor */ = {
 			isa = PBXGroup;
 			children = (
+				728015741BE1681B009F4F60 /* AgentMonitor */,
 				725E53D41A92D289009997E1 /* Simulator */,
 				D6AEB89815AE4446009F2FAF /* ip_plugin.h */,
 				159D53A707528B36004F8947 /* ip_plugin.c */,
@@ -2276,7 +2330,6 @@
 				1572EB7A0A506D3B00D02459 /* smb-configuration.c */,
 				15FD743E0754DE7A001CC321 /* Info.plist */,
 				15FBB54E17D7899C0035D752 /* Info-EmbeddedSimulator.plist */,
-				D68AD25F159BCD5900D4F1BE /* com.apple.networking.IPMonitor */,
 			);
 			name = IPMonitor;
 			path = Plugins/IPMonitor;
@@ -2352,6 +2405,7 @@
 				1596A7AF14EDB73D00798C39 /* libSystemConfiguration_server.c */,
 				1582B36B05FD1A4D009C2750 /* DNSConfiguration */,
 				D6986A70136890B60091C931 /* NetworkInformation */,
+				726DB2F01BEA8075001B2C6C /* ConfigAgentInformation */,
 			);
 			name = libsystem_configuration;
 			sourceTree = "<group>";
@@ -2363,9 +2417,10 @@
 				15A6F7C20A4B266D00B907EA /* Localizable.strings */,
 				15B686220678B65C00FF4023 /* NetworkConfiguration.plist */,
 				1577253606EFBF3100D7B52B /* NetworkInterface.strings */,
+				158D6D871C974DBA00A08E78 /* com.apple.SystemConfiguration.plist */,
 				15CFC229068B222F00123568 /* get-mobility-info */,
-				153393E20D34994100FE74E7 /* update-headers */,
 				72499BA31AC9B7AB0090C49F /* get-network-info */,
+				153393E20D34994100FE74E7 /* update-headers */,
 			);
 			name = "Supporting Files";
 			sourceTree = "<group>";
@@ -2611,6 +2666,7 @@
 				72D3E65F1AE6EA3A00DB4C69 /* SCTest-Swift */,
 				72D3E66A1AE6EAF600DB4C69 /* SCTest-ObjC */,
 				15CB690F05C0722B0099E85F /* Products */,
+				90507AAE1CE2F55B0067D16B /* Frameworks */,
 			);
 			indentWidth = 8;
 			name = configd;
@@ -2653,6 +2709,10 @@
 				15D3082D16F3E4E100014F82 /* SimulatorSupport.bundle */,
 				72D3E65E1AE6EA3A00DB4C69 /* SCTest-Swift */,
 				72D3E6691AE6EAF600DB4C69 /* SCTest-ObjC */,
+				155F498D1C864F1400E47D08 /* libQoSMarking.a */,
+				155F49931C864F3700E47D08 /* QoSMarking.bundle */,
+				155F499C1C864F4E00E47D08 /* libQoSMarking.a */,
+				155F49A21C864F5400E47D08 /* QoSMarking.bundle */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -2671,12 +2731,9 @@
 				F95B8A450B03E09300993BA3 /* SCNetworkSignaturePrivate.h */,
 				15CB693905C0722B0099E85F /* SCValidation.h */,
 				15A1FF3010597F17004C9CC9 /* CaptiveNetwork.h */,
-				15CB694505C0722B0099E85F /* DeviceOnHold.h */,
 				15CB693D05C0722B0099E85F /* DHCPClientPreferences.h */,
 				15CB694905C0722B0099E85F /* dy_framework.h */,
 				D61AAEB41522C9BD0066B003 /* scprefs_observer.h */,
-				15CB694305C0722B0099E85F /* moh.h */,
-				15CB694105C0722B0099E85F /* moh_msg.h */,
 			);
 			name = "Other Headers";
 			sourceTree = "<group>";
@@ -2696,8 +2753,6 @@
 				15CB69A805C0722B0099E85F /* SCProxies.c */,
 				15A1FF3110597F17004C9CC9 /* CaptiveNetwork.c */,
 				15CB69AC05C0722B0099E85F /* DHCP.c */,
-				15CB69AE05C0722B0099E85F /* moh.c */,
-				15CB69B005C0722B0099E85F /* DeviceOnHold.c */,
 				15CB69B405C0722B0099E85F /* dy_framework.c */,
 			);
 			name = "Other Sources";
@@ -2861,6 +2916,9 @@
 		15CB6A6E05C0722B0099E85F /* External Frameworks and Libraries */ = {
 			isa = PBXGroup;
 			children = (
+				725CB7541BF439C6000C05A8 /* Foundation.framework */,
+				728015961BE16B6C009F4F60 /* NetworkExtension.framework */,
+				728015951BE16B6C009F4F60 /* Network.framework */,
 				15FEE80D0CCFD341001312F9 /* ApplicationServices.framework */,
 				15CB6A6F05C0722B0099E85F /* CoreFoundation.framework */,
 				152439E7180399D800D91708 /* CoreWLAN.framework */,
@@ -2868,10 +2926,8 @@
 				152439EB180716ED00D91708 /* MobileWiFi.framework */,
 				1520A3DE0846B2DC0010B584 /* Security.framework */,
 				15BAA32207F0699A00D9EC95 /* libbsm.dylib */,
-				15AC2D8816C574FE00340E28 /* libcupolicy.dylib */,
 				152CEED0070CF6640050F23C /* libedit.dylib */,
 				15FBB54B17D6834C0035D752 /* libCrashReporterClient.a */,
-				15CAEF381712690500367CE1 /* libcupolicy.dylib */,
 			);
 			name = "External Frameworks and Libraries";
 			sourceTree = "<group>";
@@ -2924,6 +2980,33 @@
 			path = Simulator;
 			sourceTree = "<group>";
 		};
+		726DB2F01BEA8075001B2C6C /* ConfigAgentInformation */ = {
+			isa = PBXGroup;
+			children = (
+				726DB2F11BEA80E5001B2C6C /* config_agent_info.c */,
+				726DB2F21BEA80E5001B2C6C /* config_agent_info.h */,
+			);
+			name = ConfigAgentInformation;
+			sourceTree = "<group>";
+		};
+		728015741BE1681B009F4F60 /* AgentMonitor */ = {
+			isa = PBXGroup;
+			children = (
+				728015751BE16833009F4F60 /* agent-monitor.m */,
+				728015931BE1697E009F4F60 /* agent-monitor.h */,
+				728015781BE16833009F4F60 /* configAgent.h */,
+				725CB7571BF51476000C05A8 /* configAgentDefines.h */,
+				728015791BE16833009F4F60 /* configAgent.m */,
+				7280157A1BE16833009F4F60 /* controller.h */,
+				7280157B1BE16833009F4F60 /* controller.m */,
+				7280157C1BE16833009F4F60 /* dnsAgent.h */,
+				7280157D1BE16833009F4F60 /* dnsAgent.m */,
+				7280157F1BE16833009F4F60 /* proxyAgent.h */,
+				728015801BE16833009F4F60 /* proxyAgent.m */,
+			);
+			name = AgentMonitor;
+			sourceTree = "<group>";
+		};
 		72D3E65F1AE6EA3A00DB4C69 /* SCTest-Swift */ = {
 			isa = PBXGroup;
 			children = (
@@ -2940,6 +3023,15 @@
 			path = "SCTest-ObjC";
 			sourceTree = "<group>";
 		};
+		90507AAE1CE2F55B0067D16B /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				90507AB11CE2F5720067D16B /* libnetwork.dylib */,
+				90507AAF1CE2F55B0067D16B /* libnetwork.dylib */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		D6986A70136890B60091C931 /* NetworkInformation */ = {
 			isa = PBXGroup;
 			children = (
@@ -2953,7 +3045,8 @@
 			isa = PBXGroup;
 			children = (
 				D6986A781368913C0091C931 /* network_information.h */,
-				D6986A761368911E0091C931 /* network_information_priv.h */,
+				D6986A761368911E0091C931 /* network_state_information_priv.h */,
+				720985431C580D9F00966D30 /* network_config_agent_info_priv.h */,
 				153ACCA714E322D5005029A5 /* network_information_server.h */,
 			);
 			name = Headers;
@@ -2963,7 +3056,7 @@
 			isa = PBXGroup;
 			children = (
 				D6986A77136891300091C931 /* network_information.c */,
-				D6986A75136891120091C931 /* network_information_priv.c */,
+				D6986A75136891120091C931 /* network_state_information_priv.c */,
 				153ACCA614E322D5005029A5 /* network_information_server.c */,
 			);
 			name = Sources;
@@ -3024,6 +3117,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		155F49871C864F1400E47D08 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		155F49961C864F4E00E47D08 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		1572C4A80CFB55B400E2776E /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -3056,9 +3163,6 @@
 				1572C4BE0CFB55B400E2776E /* SCValidation.h in Headers */,
 				1572C4BF0CFB55B400E2776E /* DHCPClientPreferences.h in Headers */,
 				1572C4C00CFB55B400E2776E /* SCDynamicStoreCopyDHCPInfo.h in Headers */,
-				1572C4C10CFB55B400E2776E /* moh_msg.h in Headers */,
-				1572C4C20CFB55B400E2776E /* moh.h in Headers */,
-				1572C4C30CFB55B400E2776E /* DeviceOnHold.h in Headers */,
 				1572C4C50CFB55B400E2776E /* dy_framework.h in Headers */,
 				1572C4C70CFB55B400E2776E /* SCPreferencesPathKey.h in Headers */,
 				1572C4CE0CFB55B400E2776E /* SCPreferencesSetSpecificPrivate.h in Headers */,
@@ -3169,6 +3273,7 @@
 				D661C2F21368BB720030B977 /* network_information.h in Headers */,
 				157A84DB0D56C63900B6F1A0 /* dnsinfo_private.h in Headers */,
 				153338C014BE7978004FCE22 /* libSystemConfiguration_client.h in Headers */,
+				726DB2F61BEA80E5001B2C6C /* config_agent_info.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3178,13 +3283,20 @@
 			files = (
 				F9B7AE6C186211DE00C78D18 /* IPMonitorControlServer.h in Headers */,
 				157A84F60D56C7E800B6F1A0 /* dns-configuration.h in Headers */,
+				720A4C0B1C585C93007436B8 /* controller.h in Headers */,
 				15D48EC20F67061F00B4711E /* dnsinfo_create.h in Headers */,
-				E4F211D4137B0ABD00BBB915 /* network_information_priv.h in Headers */,
+				720A4C0C1C585C97007436B8 /* dnsAgent.h in Headers */,
+				720985451C580D9F00966D30 /* network_config_agent_info_priv.h in Headers */,
+				E4F211D4137B0ABD00BBB915 /* network_state_information_priv.h in Headers */,
+				720A4C0D1C585C9F007436B8 /* proxyAgent.h in Headers */,
 				1575FD2812CD15C60003D86E /* proxy-configuration.h in Headers */,
 				F9B7AE6F186211F600C78D18 /* symbol_scope.h in Headers */,
 				F9B7AE68186211C900C78D18 /* IPMonitorControlPrivate.h in Headers */,
+				725CB7591BF514F5000C05A8 /* configAgentDefines.h in Headers */,
+				720985471C5835DB00966D30 /* agent-monitor.h in Headers */,
 				157A84F70D56C7E800B6F1A0 /* set-hostname.h in Headers */,
 				153ACCAC14E322D5005029A5 /* network_information_server.h in Headers */,
+				720A4C0A1C585C7D007436B8 /* configAgent.h in Headers */,
 				1596A7B514EDB73D00798C39 /* libSystemConfiguration_server.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -3270,9 +3382,16 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				728015991BE1812B009F4F60 /* agent-monitor.h in Headers */,
+				7280159B1BE1812B009F4F60 /* configAgent.h in Headers */,
+				7280159C1BE1812B009F4F60 /* controller.h in Headers */,
+				7280159D1BE1812B009F4F60 /* dnsAgent.h in Headers */,
+				7280159E1BE1812B009F4F60 /* proxyAgent.h in Headers */,
 				155D223B0AF13A7300D52ED0 /* dns-configuration.h in Headers */,
 				15D48EC00F67061700B4711E /* dnsinfo_create.h in Headers */,
-				E4F211D7137B0AF200BBB915 /* network_information_priv.h in Headers */,
+				725CB7581BF514F2000C05A8 /* configAgentDefines.h in Headers */,
+				E4F211D7137B0AF200BBB915 /* network_state_information_priv.h in Headers */,
+				720985441C580D9F00966D30 /* network_config_agent_info_priv.h in Headers */,
 				1575FD2A12CD15C60003D86E /* proxy-configuration.h in Headers */,
 				155D223C0AF13A7300D52ED0 /* set-hostname.h in Headers */,
 				F9B7AE67186211C200C78D18 /* IPMonitorControlPrivate.h in Headers */,
@@ -3346,9 +3465,6 @@
 				D61AAEB71522C9EF0066B003 /* scprefs_observer.h in Headers */,
 				15A5A1FE0D5B94190087BDA0 /* SCDynamicStoreCopyDHCPInfo.h in Headers */,
 				727AF258191386E3009AB153 /* VPNTunnelPrivate.h in Headers */,
-				15A5A1FF0D5B94190087BDA0 /* moh_msg.h in Headers */,
-				15A5A2000D5B94190087BDA0 /* moh.h in Headers */,
-				15A5A2010D5B94190087BDA0 /* DeviceOnHold.h in Headers */,
 				15A5A2030D5B94190087BDA0 /* dy_framework.h in Headers */,
 				15A5A2050D5B94190087BDA0 /* SCPreferencesPathKey.h in Headers */,
 				15A5A2060D5B94190087BDA0 /* dnsinfo.h in Headers */,
@@ -3388,6 +3504,7 @@
 				D661C2EF1368BB280030B977 /* network_information.h in Headers */,
 				15DAD5E2075913CE0084A6ED /* dnsinfo_private.h in Headers */,
 				153338BF14BE7978004FCE22 /* libSystemConfiguration_client.h in Headers */,
+				728CEB001BEA993100F13F92 /* config_agent_info.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3427,9 +3544,6 @@
 				15DAD65707591A1A0084A6ED /* SCValidation.h in Headers */,
 				15DAD65807591A1A0084A6ED /* DHCPClientPreferences.h in Headers */,
 				15DAD65907591A1A0084A6ED /* SCDynamicStoreCopyDHCPInfo.h in Headers */,
-				15DAD65A07591A1A0084A6ED /* moh_msg.h in Headers */,
-				15DAD65B07591A1A0084A6ED /* moh.h in Headers */,
-				15DAD65C07591A1A0084A6ED /* DeviceOnHold.h in Headers */,
 				15DAD65E07591A1A0084A6ED /* dy_framework.h in Headers */,
 				15DAD66107591A1A0084A6ED /* SCPreferencesPathKey.h in Headers */,
 				B0A88CA716397A1200A60B3A /* VPNAppLayerPrivate.h in Headers */,
@@ -3460,7 +3574,7 @@
 			files = (
 				15E1B04316EBAE3C00E5F06F /* dns-configuration.h in Headers */,
 				15E1B04416EBAE3C00E5F06F /* dnsinfo_create.h in Headers */,
-				15E1B04516EBAE3C00E5F06F /* network_information_priv.h in Headers */,
+				15E1B04516EBAE3C00E5F06F /* network_state_information_priv.h in Headers */,
 				15E1B04616EBAE3C00E5F06F /* proxy-configuration.h in Headers */,
 				15E1B04816EBAE3C00E5F06F /* network_information_server.h in Headers */,
 				15E1B04916EBAE3C00E5F06F /* libSystemConfiguration_server.h in Headers */,
@@ -3560,17 +3674,82 @@
 			productReference = 1558481D07550EC10046C2E9 /* scselect */;
 			productType = "com.apple.product-type.tool";
 		};
+		155F49861C864F1400E47D08 /* QoSMarking */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 155F498A1C864F1400E47D08 /* Build configuration list for PBXNativeTarget "QoSMarking" */;
+			buildPhases = (
+				155F49871C864F1400E47D08 /* Headers */,
+				155F49881C864F1400E47D08 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = QoSMarking;
+			productName = QoSMarking;
+			productReference = 155F498D1C864F1400E47D08 /* libQoSMarking.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		155F498E1C864F3700E47D08 /* QoSMarking.bundle */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 155F49901C864F3700E47D08 /* Build configuration list for PBXNativeTarget "QoSMarking.bundle" */;
+			buildPhases = (
+				155F498F1C864F3700E47D08 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = QoSMarking.bundle;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = QoSMarking.bundle;
+			productReference = 155F49931C864F3700E47D08 /* QoSMarking.bundle */;
+			productType = "com.apple.product-type.bundle";
+		};
+		155F49951C864F4E00E47D08 /* QoSMarking-Embedded */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 155F49991C864F4E00E47D08 /* Build configuration list for PBXNativeTarget "QoSMarking-Embedded" */;
+			buildPhases = (
+				155F49961C864F4E00E47D08 /* Headers */,
+				155F49971C864F4E00E47D08 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "QoSMarking-Embedded";
+			productName = QoSMarking;
+			productReference = 155F499C1C864F4E00E47D08 /* libQoSMarking.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		155F499D1C864F5400E47D08 /* QoSMarking.bundle-Embedded */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 155F499F1C864F5400E47D08 /* Build configuration list for PBXNativeTarget "QoSMarking.bundle-Embedded" */;
+			buildPhases = (
+				155F499E1C864F5400E47D08 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "QoSMarking.bundle-Embedded";
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = QoSMarking.bundle;
+			productReference = 155F49A21C864F5400E47D08 /* QoSMarking.bundle */;
+			productType = "com.apple.product-type.bundle";
+		};
 		1572C4A60CFB55B400E2776E /* SystemConfiguration.framework-Embedded */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 1572C5290CFB55B400E2776E /* Build configuration list for PBXNativeTarget "SystemConfiguration.framework-Embedded" */;
 			buildPhases = (
 				1572C4A80CFB55B400E2776E /* Headers */,
 				153393E40D34999D00FE74E7 /* Update Headers */,
-				1572C4D90CFB55B400E2776E /* Resources */,
 				1572C4DE0CFB55B400E2776E /* Sources */,
 				1572C5230CFB55B400E2776E /* Frameworks */,
-				1572C5270CFB55B400E2776E /* get-mobility-info */,
+				1572C4D90CFB55B400E2776E /* Resources */,
 				1510A7301B17E1AF00125A85 /* Add framework symlink (TEMPORARY) */,
+				1572C5270CFB55B400E2776E /* get-mobility-info */,
+				158D6D8A1C974EF700A08E78 /* Logging Preferences */,
 			);
 			buildRules = (
 			);
@@ -3683,6 +3862,7 @@
 				157A84D90D56C63900B6F1A0 /* Headers */,
 				157A84DD0D56C63900B6F1A0 /* Sources */,
 				157A84E20D56C63900B6F1A0 /* Frameworks */,
+				154070A11B98E8D3003195EF /* Update "install_path" for address sanitizer */,
 			);
 			buildRules = (
 			);
@@ -3814,7 +3994,6 @@
 			buildConfigurationList = 158317800CFB85C8006F62B9 /* Build configuration list for PBXNativeTarget "IPMonitor.bundle-Embedded" */;
 			buildPhases = (
 				1583177E0CFB85C8006F62B9 /* Resources */,
-				15D54E2515B4FA1900F5229A /* com.apple.networking.IPMonitor */,
 			);
 			buildRules = (
 			);
@@ -3997,7 +4176,7 @@
 				159D54AB07529FFF004F8947 /* Sources */,
 				159D54CA07529FFF004F8947 /* Frameworks */,
 				159D54D507529FFF004F8947 /* CopyFiles */,
-				159D54D707529FFF004F8947 /* CopyFiles */,
+				159D54D707529FFF004F8947 /* Copy Files */,
 				15FBB54D17D75DE70035D752 /* Update MachServices */,
 			);
 			buildRules = (
@@ -4016,10 +4195,11 @@
 			buildPhases = (
 				15A5A1E60D5B94190087BDA0 /* Headers */,
 				15A5A2170D5B94190087BDA0 /* Update Headers */,
-				15A5A2180D5B94190087BDA0 /* Resources */,
 				15A5A21D0D5B94190087BDA0 /* Sources */,
 				15A5A2620D5B94190087BDA0 /* Frameworks */,
+				15A5A2180D5B94190087BDA0 /* Resources */,
 				1535FEDC1B0FDDCD00B2A3AD /* Add framework symlink (TEMPORARY) */,
+				158D6D8C1C974F4800A08E78 /* Logging Preferences */,
 			);
 			buildRules = (
 			);
@@ -4070,6 +4250,7 @@
 				15DAD5E0075913CE0084A6ED /* Headers */,
 				15DAD5E4075913CE0084A6ED /* Sources */,
 				15DAD5E9075913CE0084A6ED /* Frameworks */,
+				154070A01B968548003195EF /* Update "install_path" for address sanitizer */,
 			);
 			buildRules = (
 			);
@@ -4088,11 +4269,12 @@
 				15DAD6AC07591A1A0084A6ED /* SystemConfiguration.order */,
 				15DAD64107591A1A0084A6ED /* Headers */,
 				15AC82480D376E2400A579D0 /* Update Headers */,
-				15DAD66807591A1A0084A6ED /* Resources */,
 				15DAD66C07591A1A0084A6ED /* Sources */,
 				15DAD6AD07591A1A0084A6ED /* Frameworks */,
+				15DAD66807591A1A0084A6ED /* Resources */,
 				15DAD6B007591A1A0084A6ED /* get-mobility-info */,
 				15D9DCF910DD909F004E545D /* AppWorkaround.plist */,
+				158D6D881C974E7E00A08E78 /* Logging Preferences */,
 			);
 			buildRules = (
 			);
@@ -4125,7 +4307,6 @@
 			buildConfigurationList = 15E1B05E16EBAE7800E5F06F /* Build configuration list for PBXNativeTarget "IPMonitor.bundle-EmbeddedSimulator" */;
 			buildPhases = (
 				15E1B05B16EBAE7800E5F06F /* Resources */,
-				72AD314B1A843C1000D2226E /* com.apple.networking.IPMonitor */,
 			);
 			buildRules = (
 			);
@@ -4158,7 +4339,6 @@
 			buildConfigurationList = 156EB5F20905594A00EEF749 /* Build configuration list for PBXNativeTarget "IPMonitor.bundle" */;
 			buildPhases = (
 				15FD72A20754DA4C001CC321 /* Resources */,
-				15D54E2A15B4FAF100F5229A /* com.apple.networking.IPMonitor */,
 			);
 			buildRules = (
 			);
@@ -4244,7 +4424,7 @@
 		15CB6A7705C0722B0099E85F /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0700;
+				LastUpgradeCheck = 0800;
 				TargetAttributes = {
 					72D3E65D1AE6EA3900DB4C69 = {
 						CreatedOnToolsVersion = 7.0;
@@ -4286,6 +4466,8 @@
 				15FD72B10754DA69001CC321 /* LinkConfiguration.bundle */,
 				159D53F907528C95004F8947 /* PreferencesMonitor */,
 				15FD72C50754DA7E001CC321 /* PreferencesMonitor.bundle */,
+				155F49861C864F1400E47D08 /* QoSMarking */,
+				155F498E1C864F3700E47D08 /* QoSMarking.bundle */,
 				155847FA07550D210046C2E9 /* configd_executables */,
 				159D549F07529FFF004F8947 /* configd */,
 				1558481207550EC10046C2E9 /* scselect */,
@@ -4308,6 +4490,8 @@
 				158317980CFB860C006F62B9 /* LinkConfiguration.bundle-Embedded */,
 				157A853C0D56C96F00B6F1A0 /* PreferencesMonitor-Embedded */,
 				158317A80CFB8639006F62B9 /* PreferencesMonitor.bundle-Embedded */,
+				155F49951C864F4E00E47D08 /* QoSMarking-Embedded */,
+				155F499D1C864F5400E47D08 /* QoSMarking.bundle-Embedded */,
 				158317040CFB7782006F62B9 /* configd_executables-Embedded */,
 				158317230CFB80A1006F62B9 /* configd-Embedded */,
 				157433DD0D4A8122002ACA73 /* scselect-Embedded */,
@@ -4337,6 +4521,20 @@
 			buildActionMask = 2147483647;
 			files = (
 				15FEE81F0CD03E75001312F9 /* Localizable.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		155F498F1C864F3700E47D08 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		155F499E1C864F5400E47D08 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4416,10 +4614,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				15A6F7C40A4B266D00B907EA /* Localizable.strings in Resources */,
-				15DAD66B07591A1A0084A6ED /* NetworkInterface.strings in Resources */,
-				72499BA41AC9B7AB0090C49F /* get-network-info in Resources */,
 				15DAD66907591A1A0084A6ED /* NetworkConfiguration.plist in Resources */,
+				15DAD66B07591A1A0084A6ED /* NetworkInterface.strings in Resources */,
 				15DAD66A07591A1A0084A6ED /* get-mobility-info in Resources */,
+				72499BA41AC9B7AB0090C49F /* get-network-info in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4461,6 +4659,21 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		1502C5611BDD4936005CF7EA /* Move libsystem_configuration_asan.dylib */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Move libsystem_configuration_asan.dylib";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "#\n# move libsystem_configuration_asan.dylib out of /usr/lib/system\n#\n# Note: to use the asan .dylib, set DYLD_INSERT_LIBRARIES=...\n#\nfor VARIANT in ${BUILD_VARIANTS}\ndo\n    if [ \"${VARIANT}\" = \"asan\" ]; then\n        DIR_O=\"/usr/lib/system\"\n        DIR_N=\"/usr/local/lib\"\n        DYLIB=\"libsystem_configuration_${VARIANT}.dylib\"\n\n\t\tmkdir -p \"${DSTROOT}/${DIR_N}\"\n\t\tmv \"${DSTROOT}/${DIR_O}/${DYLIB}\" \"${DSTROOT}/${DIR_N}/${DYLIB}\"\n\t\tif [ -d \"${DSTROOT}/${DIR_O}/${DYLIB}.dSYM\" ]; then\n\t\t\tmv \"${DSTROOT}/${DIR_O}/${DYLIB}.dSYM\" \"${DSTROOT}/${DIR_N}/${DYLIB}.dSYM\"\n\t\tfi\n    fi\ndone";
+			showEnvVarsInLog = 0;
+		};
 		1510A7301B17E1AF00125A85 /* Add framework symlink (TEMPORARY) */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -4473,7 +4686,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"${USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK}\" = \"YES\" ]; then\n    mkdir -p ${INSTALL_ROOT}/System/Library/Frameworks\n    cd ${INSTALL_ROOT}/System/Library/Frameworks\n    rm -rf SystemConfiguration.framework\n    ln -s ../PrivateFrameworks/SystemConfiguration.framework .\nfi";
+			shellScript = "if [ \"${USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK}\" = \"YES\" ]; then\n    mkdir -p ${DSTROOT}/System/Library/Frameworks\n    cd ${DSTROOT}/System/Library/Frameworks\n    rm -rf SystemConfiguration.framework\n    ln -s ../PrivateFrameworks/SystemConfiguration.framework .\nfi";
 			showEnvVarsInLog = 0;
 		};
 		151F63DB09328A3C0096DCC9 /* ShellScript */ = {
@@ -4521,7 +4734,37 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"${USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK}\" = \"YES\" ]; then\n    mkdir -p ${INSTALL_ROOT}/System/Library/Frameworks\n    cd ${INSTALL_ROOT}/System/Library/Frameworks\n    rm -rf SystemConfiguration.framework\n    ln -s ../PrivateFrameworks/SystemConfiguration.framework .\nfi";
+			shellScript = "if [ \"${USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK}\" = \"YES\" ]; then\n    mkdir -p ${DSTROOT}/System/Library/Frameworks\n    cd ${DSTROOT}/System/Library/Frameworks\n    rm -rf SystemConfiguration.framework\n    ln -s ../PrivateFrameworks/SystemConfiguration.framework .\nfi";
+			showEnvVarsInLog = 0;
+		};
+		154070A01B968548003195EF /* Update "install_path" for address sanitizer */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Update \"install_path\" for address sanitizer";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "#\n# fix address-sanitizer library @rpath references\n#\n\nfor VARIANT in ${BUILD_VARIANTS}\ndo\n    if [ \"${VARIANT}\" = \"asan\" ]; then\n        ASAN_SDK_DIR=\"${TOOLCHAIN_DIR}/usr/lib/clang/${CLANG_VERS}/lib/darwin\"\n        ASAN_DST_DIR=\"/usr/local/lib\"\n        case \"${PLATFORM_NAME}\" in\n            macosx )\n\t\t\t\tASAN_LIB=\"clang_rt.asan_osx_dynamic.dylib\"\n                ;;\n            iphoneos )\n\t\t\t\tASAN_LIB=\"clang_rt.asan_ios_dynamic.dylib\"\n                ;;\n            iphonesimulator )\n\t\t\t\tASAN_LIB=\"clang_rt.asan_iossim_dynamic.dylib\"\n                ;;\n            tvos )\n\t\t\t\tASAN_LIB=\"clang_rt.asan_tvos_dynamic.dylib\"\n                ;;\n            tvsosimulator )\n\t\t\t\tASAN_LIB=\"clang_rt.asan_tvossim_dynamic.dylib\"\n                ;;\n            watchos )\n\t\t\t\tASAN_LIB=\"clang_rt.asan_watchos_dynamic.dylib\"\n                ;;\n            watchsimulator )\n\t\t\t\tASAN_LIB=\"clang_rt.asan_watchossim_dynamic.dylib\"\n                ;;\n        esac\n\n        if [ ! -f \"${ASAN_SDK_DIR}/lib${ASAN_LIB}\" ]; then exit 0; fi\n\n\t\t# ensure that the ASAN dylib will be in the DSTROOT\n        ditto \"${ASAN_SDK_DIR}/lib${ASAN_LIB}\" \"${DSTROOT}${ASAN_DST_DIR}/lib${ASAN_LIB}\"\n\n\t\t# change @rpath reference\n        install_name_tool                                           \\\n            -change                                                 \\\n            \"@rpath/lib${ASAN_LIB}\"                                 \\\n            \"${ASAN_DST_DIR}/lib${ASAN_LIB}\"                        \\\n            \"${DSTROOT}${INSTALL_PATH}/${PRODUCT_NAME}_asan.dylib\"\n    fi\ndone";
+			showEnvVarsInLog = 0;
+		};
+		154070A11B98E8D3003195EF /* Update "install_path" for address sanitizer */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Update \"install_path\" for address sanitizer";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "#\n# fix address-sanitizer library @rpath references\n#\n\nfor VARIANT in ${BUILD_VARIANTS}\ndo\n    if [ \"${VARIANT}\" = \"asan\" ]; then\n        ASAN_SDK_DIR=\"${TOOLCHAIN_DIR}/usr/lib/clang/${CLANG_VERS}/lib/darwin\"\n        ASAN_DST_DIR=\"/usr/local/lib\"\n        case \"${PLATFORM_NAME}\" in\n            macosx )\n\t\t\t\tASAN_LIB=\"clang_rt.asan_osx_dynamic.dylib\"\n                ;;\n            iphoneos )\n\t\t\t\tASAN_LIB=\"clang_rt.asan_ios_dynamic.dylib\"\n                ;;\n            iphonesimulator )\n\t\t\t\tASAN_LIB=\"clang_rt.asan_iossim_dynamic.dylib\"\n                ;;\n            tvos )\n\t\t\t\tASAN_LIB=\"clang_rt.asan_tvos_dynamic.dylib\"\n                ;;\n            tvsosimulator )\n\t\t\t\tASAN_LIB=\"clang_rt.asan_tvossim_dynamic.dylib\"\n                ;;\n            watchos )\n\t\t\t\tASAN_LIB=\"clang_rt.asan_watchos_dynamic.dylib\"\n                ;;\n            watchsimulator )\n\t\t\t\tASAN_LIB=\"clang_rt.asan_watchossim_dynamic.dylib\"\n                ;;\n        esac\n\n        if [ ! -f \"${ASAN_SDK_DIR}/lib${ASAN_LIB}\" ]; then exit 0; fi\n\n\t\t# ensure that the ASAN dylib will be in the DSTROOT\n        ditto \"${ASAN_SDK_DIR}/lib${ASAN_LIB}\" \"${DSTROOT}${ASAN_DST_DIR}/lib${ASAN_LIB}\"\n\n\t\t# change @rpath reference\n        install_name_tool                                           \\\n            -change                                                 \\\n            \"@rpath/lib${ASAN_LIB}\"                                 \\\n            \"${ASAN_DST_DIR}/lib${ASAN_LIB}\"                        \\\n            \"${DSTROOT}${INSTALL_PATH}/${PRODUCT_NAME}_asan.dylib\"\n    fi\ndone";
 			showEnvVarsInLog = 0;
 		};
 		1572C5270CFB55B400E2776E /* get-mobility-info */ = {
@@ -4551,7 +4794,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "SCHELPER_LAUNCHD_PLIST=\"${INSTALL_ROOT}/System/Library/LaunchDaemons/com.apple.SCHelper-embedded.plist\"\n\nif [ -e \"${SCHELPER_LAUNCHD_PLIST}\" ]; then\n    /usr/bin/plutil -replace Program -string \"${INSTALL_PATH}/SCHelper\" \"${SCHELPER_LAUNCHD_PLIST}\"\n    /usr/bin/plutil -convert binary1 \"${SCHELPER_LAUNCHD_PLIST}\"\nfi";
+			shellScript = "SCHELPER_LAUNCHD_PLIST=\"${DSTROOT}/System/Library/LaunchDaemons/com.apple.SCHelper-embedded.plist\"\n\nif [ -e \"${SCHELPER_LAUNCHD_PLIST}\" ]; then\n    /usr/bin/plutil -replace Program -string \"${INSTALL_PATH}/SCHelper\" \"${SCHELPER_LAUNCHD_PLIST}\"\n    /usr/bin/plutil -convert binary1 \"${SCHELPER_LAUNCHD_PLIST}\"\nfi";
 			showEnvVarsInLog = 0;
 		};
 		15A5A2170D5B94190087BDA0 /* Update Headers */ = {
@@ -4584,6 +4827,21 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "if [ -x ${SCRIPT_INPUT_FILE_0} ]; then\n\t${SCRIPT_INPUT_FILE_0} clean\nfi\n";
+			showEnvVarsInLog = 0;
+		};
+		15AC9A4C1BE3ED87003071BD /* Move libsystem_configuration_asan.dylib */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Move libsystem_configuration_asan.dylib";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "#\n# move libsystem_configuration_asan.dylib out of /usr/lib/system\n#\n# Note: to use the asan .dylib, set DYLD_INSERT_LIBRARIES=...\n#\nfor VARIANT in ${BUILD_VARIANTS}\ndo\n    if [ \"${VARIANT}\" = \"asan\" ]; then\n        DIR_O=\"/usr/lib/system\"\n        DIR_N=\"/usr/local/lib\"\n        DYLIB=\"libsystem_configuration_${VARIANT}.dylib\"\n\n\t\tmkdir -p \"${DSTROOT}/${DIR_N}\"\n\t\tmv \"${DSTROOT}/${DIR_O}/${DYLIB}\" \"${DSTROOT}/${DIR_N}/${DYLIB}\"\n\t\tif [ -d \"${DSTROOT}/${DIR_O}/${DYLIB}.dSYM\" ]; then\n\t\t\tmv \"${DSTROOT}/${DIR_O}/${DYLIB}.dSYM\" \"${DSTROOT}/${DIR_N}/${DYLIB}.dSYM\"\n\t\tfi\n    fi\ndone";
 			showEnvVarsInLog = 0;
 		};
 		15DAD6AC07591A1A0084A6ED /* SystemConfiguration.order */ = {
@@ -4715,6 +4973,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		155F49881C864F1400E47D08 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				155F49A61C864FFC00E47D08 /* qos-marking.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		155F49971C864F4E00E47D08 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				155F49A71C86500100E47D08 /* qos-marking.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		1572C4DE0CFB55B400E2776E /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -4765,8 +5039,6 @@
 				1572C50C0CFB55B400E2776E /* SCNetworkReachability.c in Sources */,
 				1572C50D0CFB55B400E2776E /* SCProxies.c in Sources */,
 				1572C50E0CFB55B400E2776E /* DHCP.c in Sources */,
-				1572C50F0CFB55B400E2776E /* moh.c in Sources */,
-				1572C5100CFB55B400E2776E /* DeviceOnHold.c in Sources */,
 				1572C5110CFB55B400E2776E /* LinkConfiguration.c in Sources */,
 				1572C5120CFB55B400E2776E /* dy_framework.c in Sources */,
 				1572C5150CFB55B400E2776E /* SCPreferencesPathKey.c in Sources */,
@@ -4822,7 +5094,6 @@
 				15732A9516EA503200F3AC4C /* _notifyviasignal.c in Sources */,
 				15732A9616EA503200F3AC4C /* _notifycancel.c in Sources */,
 				15732A9716EA503200F3AC4C /* _snapshot.c in Sources */,
-				15732A9916EA503200F3AC4C /* dnsinfo_server.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4895,6 +5166,7 @@
 				157A84DF0D56C63900B6F1A0 /* dnsinfo_copy.c in Sources */,
 				D661C2F11368BB600030B977 /* network_information.c in Sources */,
 				153338BD14BE7978004FCE22 /* libSystemConfiguration_client.c in Sources */,
+				726DB2F41BEA80E5001B2C6C /* config_agent_info.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4904,13 +5176,18 @@
 			files = (
 				157A84FB0D56C7E800B6F1A0 /* dns-configuration.c in Sources */,
 				15D48EC10F67061F00B4711E /* dnsinfo_create.c in Sources */,
+				7280158E1BE16863009F4F60 /* dnsAgent.m in Sources */,
 				F9B7AE69186211CE00C78D18 /* IPMonitorControlServer.c in Sources */,
+				728015881BE16851009F4F60 /* configAgent.m in Sources */,
+				728015911BE1686C009F4F60 /* proxyAgent.m in Sources */,
 				150BEC1A14CA252200237116 /* dnsinfo_server.c in Sources */,
 				155281020E3E4A0F00C54315 /* ip_plugin.c in Sources */,
-				E4F211D3137B0AB900BBB915 /* network_information_priv.c in Sources */,
+				E4F211D3137B0AB900BBB915 /* network_state_information_priv.c in Sources */,
 				153ACCA914E322D5005029A5 /* network_information_server.c in Sources */,
 				1575FD2712CD15C60003D86E /* proxy-configuration.c in Sources */,
 				157A84FC0D56C7E800B6F1A0 /* set-hostname.c in Sources */,
+				7280158B1BE1685B009F4F60 /* controller.m in Sources */,
+				728015821BE16840009F4F60 /* agent-monitor.m in Sources */,
 				1596A7B214EDB73D00798C39 /* libSystemConfiguration_server.c in Sources */,
 				D61AAEB11522C99C0066B003 /* scprefs_observer.c in Sources */,
 				F9A3781116A4849100C57CDC /* IPMonitorControlPrefs.c in Sources */,
@@ -4983,7 +5260,6 @@
 				158317440CFB80A1006F62B9 /* _notifyviasignal.c in Sources */,
 				158317450CFB80A1006F62B9 /* _notifycancel.c in Sources */,
 				158317460CFB80A1006F62B9 /* _snapshot.c in Sources */,
-				158317490CFB80A1006F62B9 /* dnsinfo_server.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5022,17 +5298,22 @@
 			buildActionMask = 2147483647;
 			files = (
 				159D541807528E09004F8947 /* dns-configuration.c in Sources */,
+				728015871BE1684E009F4F60 /* configAgent.m in Sources */,
 				15D48EBF0F67061600B4711E /* dnsinfo_create.c in Sources */,
 				1522FCFB0FA7FE4B00B24128 /* dnsinfo_flatfile.c in Sources */,
 				150BEC1814CA24F900237116 /* dnsinfo_server.c in Sources */,
 				F9B7AE6A186211D300C78D18 /* IPMonitorControlServer.c in Sources */,
 				159D541707528E05004F8947 /* ip_plugin.c in Sources */,
-				E49173E1137C4E4F0000089F /* network_information_priv.c in Sources */,
+				7280158D1BE16861009F4F60 /* dnsAgent.m in Sources */,
+				E49173E1137C4E4F0000089F /* network_state_information_priv.c in Sources */,
 				153ACCA814E322D5005029A5 /* network_information_server.c in Sources */,
 				1575FD2912CD15C60003D86E /* proxy-configuration.c in Sources */,
 				154361E00752C81800A8EC6C /* set-hostname.c in Sources */,
+				728015921BE1686F009F4F60 /* proxyAgent.m in Sources */,
 				1572EB7B0A506D3B00D02459 /* smb-configuration.c in Sources */,
 				1596A7B114EDB73D00798C39 /* libSystemConfiguration_server.c in Sources */,
+				728015811BE1683B009F4F60 /* agent-monitor.m in Sources */,
+				7280158C1BE1685D009F4F60 /* controller.m in Sources */,
 				D61AAEAF1522C99C0066B003 /* scprefs_observer.c in Sources */,
 				F9A3781016A4847700C57CDC /* IPMonitorControlPrefs.c in Sources */,
 			);
@@ -5083,7 +5364,6 @@
 				159D54C307529FFF004F8947 /* _notifyviasignal.c in Sources */,
 				159D54C407529FFF004F8947 /* _notifycancel.c in Sources */,
 				159D54C507529FFF004F8947 /* _snapshot.c in Sources */,
-				159D54C807529FFF004F8947 /* dnsinfo_server.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5136,8 +5416,6 @@
 				15A5A24B0D5B94190087BDA0 /* SCNetworkReachability.c in Sources */,
 				15A5A24C0D5B94190087BDA0 /* SCProxies.c in Sources */,
 				15A5A24D0D5B94190087BDA0 /* DHCP.c in Sources */,
-				15A5A24E0D5B94190087BDA0 /* moh.c in Sources */,
-				15A5A24F0D5B94190087BDA0 /* DeviceOnHold.c in Sources */,
 				15A5A2500D5B94190087BDA0 /* LinkConfiguration.c in Sources */,
 				15A5A2510D5B94190087BDA0 /* dy_framework.c in Sources */,
 				15A5A2540D5B94190087BDA0 /* SCPreferencesPathKey.c in Sources */,
@@ -5179,6 +5457,7 @@
 				15DAD5E6075913CE0084A6ED /* dnsinfo_copy.c in Sources */,
 				D6986A79136891650091C931 /* network_information.c in Sources */,
 				153338BC14BE7978004FCE22 /* libSystemConfiguration_client.c in Sources */,
+				728CEAFF1BEA951A00F13F92 /* config_agent_info.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5235,8 +5514,6 @@
 				15DAD69807591A1A0084A6ED /* SCNetworkReachability.c in Sources */,
 				15DAD69907591A1A0084A6ED /* SCProxies.c in Sources */,
 				15DAD69A07591A1A0084A6ED /* DHCP.c in Sources */,
-				15DAD69B07591A1A0084A6ED /* moh.c in Sources */,
-				15DAD69C07591A1A0084A6ED /* DeviceOnHold.c in Sources */,
 				15DAD69D07591A1A0084A6ED /* LinkConfiguration.c in Sources */,
 				15DAD69E07591A1A0084A6ED /* dy_framework.c in Sources */,
 				15DAD69F07591A1A0084A6ED /* VLANConfiguration.c in Sources */,
@@ -5270,7 +5547,7 @@
 				15E1B04C16EBAE3C00E5F06F /* dnsinfo_create.c in Sources */,
 				15E1B04D16EBAE3C00E5F06F /* dnsinfo_server.c in Sources */,
 				15E1B04E16EBAE3C00E5F06F /* ip_plugin.c in Sources */,
-				15E1B04F16EBAE3C00E5F06F /* network_information_priv.c in Sources */,
+				15E1B04F16EBAE3C00E5F06F /* network_state_information_priv.c in Sources */,
 				15E1B05016EBAE3C00E5F06F /* network_information_server.c in Sources */,
 				15E1B05116EBAE3C00E5F06F /* proxy-configuration.c in Sources */,
 				15E1B05316EBAE3C00E5F06F /* libSystemConfiguration_server.c in Sources */,
@@ -5318,15 +5595,20 @@
 			target = 1558481207550EC10046C2E9 /* scselect */;
 			targetProxy = 1558480707550D470046C2E9 /* PBXContainerItemProxy */;
 		};
-		1558480A07550D470046C2E9 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 155847430754FDCD0046C2E9 /* scutil */;
-			targetProxy = 1558480907550D470046C2E9 /* PBXContainerItemProxy */;
-		};
 		1558480F07550DD00046C2E9 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 155847FA07550D210046C2E9 /* configd_executables */;
 			targetProxy = 1558480E07550DD00046C2E9 /* PBXContainerItemProxy */;
+		};
+		155F49AD1C86511300E47D08 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 155F49951C864F4E00E47D08 /* QoSMarking-Embedded */;
+			targetProxy = 155F49AC1C86511300E47D08 /* PBXContainerItemProxy */;
+		};
+		155F49AF1C86511300E47D08 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 155F499D1C864F5400E47D08 /* QoSMarking.bundle-Embedded */;
+			targetProxy = 155F49AE1C86511300E47D08 /* PBXContainerItemProxy */;
 		};
 		15732AE616EA6BCE00F3AC4C /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -5583,6 +5865,11 @@
 			target = 15DAD63F07591A1A0084A6ED /* SystemConfiguration.framework */;
 			targetProxy = 723050331AE6F29D004AC149 /* PBXContainerItemProxy */;
 		};
+		72C4A4801BE44D19009D570E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 155847430754FDCD0046C2E9 /* scutil */;
+			targetProxy = 72C4A47F1BE44D19009D570E /* PBXContainerItemProxy */;
+		};
 		D6DDAC3D147A24BC00A2E902 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 1547001808455B98006787CE /* SCHelper */;
@@ -5643,6 +5930,7 @@
 				FRAMEWORK_SEARCH_PATHS = "$(SYMROOT)";
 				INFOPLIST_FILE = SCMonitor/Info.plist;
 				INSTALL_PATH = /System/Library/UserEventPlugins;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.SystemConfiguration.${EXECUTABLE_NAME}";
 				PRODUCT_NAME = SCMonitor;
 				PROVISIONING_PROFILE = "";
 				WRAPPER_EXTENSION = plugin;
@@ -5658,6 +5946,7 @@
 				FRAMEWORK_SEARCH_PATHS = "$(SYMROOT)";
 				INFOPLIST_FILE = SCMonitor/Info.plist;
 				INSTALL_PATH = /System/Library/UserEventPlugins;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.SystemConfiguration.${EXECUTABLE_NAME}";
 				PRODUCT_NAME = SCMonitor;
 				PROVISIONING_PROFILE = "";
 				WRAPPER_EXTENSION = plugin;
@@ -5708,6 +5997,111 @@
 			};
 			name = Release;
 		};
+		155F498B1C864F1400E47D08 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"ARCHS[sdk=macosx*]" = "$(ARCHS_STANDARD)";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				INSTALL_PATH = /usr/local/lib/SystemConfiguration;
+				LIBRARY_STYLE = STATIC;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRIP_INSTALLED_PRODUCT = NO;
+			};
+			name = Debug;
+		};
+		155F498C1C864F1400E47D08 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_ARC = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				INSTALL_PATH = /usr/local/lib/SystemConfiguration;
+				LIBRARY_STYLE = STATIC;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRIP_INSTALLED_PRODUCT = NO;
+			};
+			name = Release;
+		};
+		155F49911C864F3700E47D08 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = Plugins/QoSMarking/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.QoSMarking;
+				PRODUCT_NAME = QoSMarking;
+			};
+			name = Debug;
+		};
+		155F49921C864F3700E47D08 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = Plugins/QoSMarking/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.QoSMarking;
+				PRODUCT_NAME = QoSMarking;
+			};
+			name = Release;
+		};
+		155F499A1C864F4E00E47D08 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_ARC = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				INSTALL_PATH = /usr/local/lib/SystemConfiguration;
+				LIBRARY_STYLE = STATIC;
+				PRODUCT_NAME = QoSMarking;
+				SDKROOT = iphoneos.internal;
+				STRIP_INSTALLED_PRODUCT = NO;
+				SUPPORTED_PLATFORMS = iphoneos;
+			};
+			name = Debug;
+		};
+		155F499B1C864F4E00E47D08 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_ARC = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				INSTALL_PATH = /usr/local/lib/SystemConfiguration;
+				LIBRARY_STYLE = STATIC;
+				PRODUCT_NAME = QoSMarking;
+				SDKROOT = iphoneos.internal;
+				STRIP_INSTALLED_PRODUCT = NO;
+				SUPPORTED_PLATFORMS = iphoneos;
+			};
+			name = Release;
+		};
+		155F49A01C864F5400E47D08 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = Plugins/QoSMarking/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.QoSMarking;
+				PRODUCT_NAME = QoSMarking;
+				SDKROOT = iphoneos.internal;
+				SUPPORTED_PLATFORMS = iphoneos;
+			};
+			name = Debug;
+		};
+		155F49A11C864F5400E47D08 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = Plugins/QoSMarking/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.QoSMarking;
+				PRODUCT_NAME = QoSMarking;
+				SDKROOT = iphoneos.internal;
+				SUPPORTED_PLATFORMS = iphoneos;
+			};
+			name = Release;
+		};
 		156EB5DB0905594A00EEF749 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -5715,8 +6109,10 @@
 					normal,
 					debug,
 					profile,
+					"${EXTRA_BUILD_VARIANT}",
 				);
 				GENERATE_PROFILING_CODE_profile = YES;
+				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /usr/lib/system;
 				LINK_WITH_STANDARD_LIBRARIES = NO;
@@ -5735,9 +6131,12 @@
 					"-lsystem_notify",
 					"-lsystem$(INTERPOSITION_SIM_SUFFIX)_platform",
 					"-lsystem$(INTERPOSITION_SIM_SUFFIX)_pthread",
+					"-lsystem_trace",
 					"-lxpc",
 				);
+				OTHER_LDFLAGS_asan = "-headerpad_max_install_names -L${TOOLCHAIN_DIR}/usr/lib/clang/${CLANG_VERS}/lib/darwin -lclang_rt.asan_osx_dynamic";
 				PRODUCT_NAME = libsystem_configuration;
+				STRIP_INSTALLED_PRODUCT_asan = NO;
 				STRIP_INSTALLED_PRODUCT_debug = NO;
 				STRIP_INSTALLED_PRODUCT_normal = YES;
 				STRIP_INSTALLED_PRODUCT_profile = NO;
@@ -5751,14 +6150,14 @@
 					normal,
 					debug,
 					profile,
+					"${EXTRA_BUILD_VARIANT}",
 				);
 				GENERATE_PROFILING_CODE_profile = YES;
+				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /usr/lib/system;
 				LINK_WITH_STANDARD_LIBRARIES = NO;
 				OTHER_CFLAGS_debug = "-O0";
-				OTHER_CFLAGS_normal = "";
-				OTHER_CFLAGS_profile = "";
 				OTHER_LDFLAGS = (
 					"-Wl,-umbrella,System",
 					"-L/usr/lib/system",
@@ -5773,9 +6172,12 @@
 					"-lsystem_notify",
 					"-lsystem$(INTERPOSITION_SIM_SUFFIX)_platform",
 					"-lsystem$(INTERPOSITION_SIM_SUFFIX)_pthread",
+					"-lsystem_trace",
 					"-lxpc",
 				);
+				OTHER_LDFLAGS_asan = "-headerpad_max_install_names -L${TOOLCHAIN_DIR}/usr/lib/clang/${CLANG_VERS}/lib/darwin -lclang_rt.asan_osx_dynamic";
 				PRODUCT_NAME = libsystem_configuration;
+				STRIP_INSTALLED_PRODUCT_asan = NO;
 				STRIP_INSTALLED_PRODUCT_debug = NO;
 				STRIP_INSTALLED_PRODUCT_normal = YES;
 				STRIP_INSTALLED_PRODUCT_profile = NO;
@@ -5799,6 +6201,12 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				LIBRARY_SEARCH_PATHS = "$(SYMROOT)";
 				MODULEMAP_FILE = SystemConfiguration.fproj/Modules/sc_modules.modulemap;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DSC_LOG_OR_PRINT",
+				);
+				OTHER_CFLAGS_debug = "-O0";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration;
 				PRODUCT_NAME = SystemConfiguration;
 				WRAPPER_EXTENSION = framework;
 			};
@@ -5821,6 +6229,12 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				LIBRARY_SEARCH_PATHS = "$(SYMROOT)";
 				MODULEMAP_FILE = SystemConfiguration.fproj/Modules/sc_modules.modulemap;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DSC_LOG_OR_PRINT",
+				);
+				OTHER_CFLAGS_debug = "-O0";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration;
 				PRODUCT_NAME = SystemConfiguration;
 				SECTORDER_FLAGS = (
 					"-sectorder",
@@ -5869,10 +6283,17 @@
 		156EB5EF0905594A00EEF749 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				"ARCHS[sdk=macosx*]" = "$(ARCHS_STANDARD)";
+				CLANG_ENABLE_OBJC_ARC = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALL_PATH = /usr/local/lib/SystemConfiguration;
 				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DSC_LOG_HANDLE=\"__log_IPMonitor()\"",
+				);
 				PRODUCT_NAME = IPMonitor;
 				STRIP_INSTALLED_PRODUCT = NO;
 			};
@@ -5881,10 +6302,16 @@
 		156EB5F00905594A00EEF749 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_ARC = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALL_PATH = /usr/local/lib/SystemConfiguration;
 				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DSC_LOG_HANDLE=\"__log_IPMonitor()\"",
+				);
 				PRODUCT_NAME = IPMonitor;
 				STRIP_INSTALLED_PRODUCT = NO;
 			};
@@ -5895,6 +6322,7 @@
 			buildSettings = {
 				INFOPLIST_FILE = Plugins/IPMonitor/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.IPMonitor;
 				PRODUCT_NAME = IPMonitor;
 			};
 			name = Debug;
@@ -5904,6 +6332,7 @@
 			buildSettings = {
 				INFOPLIST_FILE = Plugins/IPMonitor/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.IPMonitor;
 				PRODUCT_NAME = IPMonitor;
 			};
 			name = Release;
@@ -5935,6 +6364,7 @@
 			buildSettings = {
 				INFOPLIST_FILE = Plugins/InterfaceNamer/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.InterfaceNamer;
 				PRODUCT_NAME = InterfaceNamer;
 			};
 			name = Debug;
@@ -5944,6 +6374,7 @@
 			buildSettings = {
 				INFOPLIST_FILE = Plugins/InterfaceNamer/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.InterfaceNamer;
 				PRODUCT_NAME = InterfaceNamer;
 			};
 			name = Release;
@@ -5953,6 +6384,7 @@
 			buildSettings = {
 				INFOPLIST_FILE = Plugins/KernelEventMonitor/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.KernelEventMonitor;
 				PRODUCT_NAME = KernelEventMonitor;
 			};
 			name = Debug;
@@ -5962,6 +6394,7 @@
 			buildSettings = {
 				INFOPLIST_FILE = Plugins/KernelEventMonitor/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.KernelEventMonitor;
 				PRODUCT_NAME = KernelEventMonitor;
 			};
 			name = Release;
@@ -5974,6 +6407,10 @@
 				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALL_PATH = /usr/local/lib/SystemConfiguration;
 				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DSC_LOG_HANDLE=\"__log_KernelEventMonitor()\"",
+				);
 				PRODUCT_NAME = KernelEventMonitor;
 				STRIP_INSTALLED_PRODUCT = NO;
 			};
@@ -5987,6 +6424,10 @@
 				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALL_PATH = /usr/local/lib/SystemConfiguration;
 				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DSC_LOG_HANDLE=\"__log_KernelEventMonitor()\"",
+				);
 				PRODUCT_NAME = KernelEventMonitor;
 				STRIP_INSTALLED_PRODUCT = NO;
 			};
@@ -6019,6 +6460,7 @@
 			buildSettings = {
 				INFOPLIST_FILE = Plugins/LinkConfiguration/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.LinkConfiguration;
 				PRODUCT_NAME = LinkConfiguration;
 			};
 			name = Debug;
@@ -6028,6 +6470,7 @@
 			buildSettings = {
 				INFOPLIST_FILE = Plugins/LinkConfiguration/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.LinkConfiguration;
 				PRODUCT_NAME = LinkConfiguration;
 			};
 			name = Release;
@@ -6059,6 +6502,7 @@
 			buildSettings = {
 				INFOPLIST_FILE = Plugins/PreferencesMonitor/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.PreferencesMonitor;
 				PRODUCT_NAME = PreferencesMonitor;
 			};
 			name = Debug;
@@ -6068,6 +6512,7 @@
 			buildSettings = {
 				INFOPLIST_FILE = Plugins/PreferencesMonitor/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.PreferencesMonitor;
 				PRODUCT_NAME = PreferencesMonitor;
 			};
 			name = Release;
@@ -6089,13 +6534,24 @@
 		156EB6230905594A00EEF749 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "$(SYMROOT)";
+				"ARCHS[sdk=macosx*]" = "$(ARCHS_STANDARD)";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SYMROOT)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				GCC_DYNAMIC_NO_PIC = NO;
 				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALL_PATH = /usr/libexec;
 				LIBRARY_SEARCH_PATHS = (
 					"$(SYMROOT)",
-					/usr/local/lib/SystemConfiguration,
+					"$(SDKROOT)/usr/local/lib/SystemConfiguration",
+				);
+				OTHER_LDFLAGS = (
+					"-lKernelEventMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lInterfaceNamer$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lIPMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lLinkConfiguration$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lPreferencesMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
 				);
 				PRODUCT_NAME = configd;
 			};
@@ -6104,13 +6560,23 @@
 		156EB6240905594A00EEF749 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "$(SYMROOT)";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SYMROOT)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
 				GCC_DYNAMIC_NO_PIC = NO;
 				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALL_PATH = /usr/libexec;
 				LIBRARY_SEARCH_PATHS = (
 					"$(SYMROOT)",
-					/usr/local/lib/SystemConfiguration,
+					"$(SDKROOT)/usr/local/lib/SystemConfiguration",
+				);
+				OTHER_LDFLAGS = (
+					"-lKernelEventMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lInterfaceNamer$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lIPMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lLinkConfiguration$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lPreferencesMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
 				);
 				PRODUCT_NAME = configd;
 			};
@@ -6142,10 +6608,7 @@
 				FRAMEWORK_SEARCH_PATHS = "$(SYMROOT)";
 				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_PATH = /usr/sbin;
-				LIBRARY_SEARCH_PATHS = (
-					"$(SYMROOT)",
-					/usr/local/lib/SystemConfiguration,
-				);
+				LIBRARY_SEARCH_PATHS = "$(SYMROOT)";
 				PRODUCT_NAME = scutil;
 			};
 			name = Debug;
@@ -6156,10 +6619,7 @@
 				FRAMEWORK_SEARCH_PATHS = "$(SYMROOT)";
 				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_PATH = /usr/sbin;
-				LIBRARY_SEARCH_PATHS = (
-					"$(SYMROOT)",
-					/usr/local/lib/SystemConfiguration,
-				);
+				LIBRARY_SEARCH_PATHS = "$(SYMROOT)";
 				PRODUCT_NAME = scutil;
 			};
 			name = Release;
@@ -6195,8 +6655,11 @@
 		156EB63F0905594A00EEF749 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				"ARCHS[sdk=iphoneos*]" = "$(NATIVE_ARCH)";
-				"ARCHS[sdk=macosx*]" = "$(ARCHS_STANDARD_32_64_BIT)";
+				APPLY_RULES_IN_COPY_FILES = YES;
+				BUILD_VARIANTS = (
+					normal,
+					"${EXTRA_BUILD_VARIANT}",
+				);
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
@@ -6204,15 +6667,25 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = "$(RC_ProjectSourceVersion)";
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
 				INSTALL_PATH = /usr/sbin;
 				INTERPOSITION_SIM_SUFFIX = "";
 				"INTERPOSITION_SIM_SUFFIX[sdk=iphonesimulator*]" = _sim;
 				OTHER_CFLAGS = (
+					"$(inherited)",
 					"-fconstant-cfstrings",
 					"-fstack-protector-all",
-					"-D_FORTIFY_SOURCE=2",
+					"-DOS_ACTIVITY_OBJECT_API=1",
 				);
+				OTHER_CFLAGS_asan = "-fsanitize=address";
+				OTHER_LDFLAGS_asan = "-fsanitize=address";
+				PLIST_FILE_OUTPUT_FORMAT = binary;
 				RUN_CLANG_STATIC_ANALYZER = YES;
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = macosx;
@@ -6231,20 +6704,30 @@
 		156EB6400905594A00EEF749 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				APPLY_RULES_IN_COPY_FILES = YES;
+				BUILD_VARIANTS = (
+					normal,
+					"${EXTRA_BUILD_VARIANT}",
+				);
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = "$(RC_ProjectSourceVersion)";
+				GCC_NO_COMMON_BLOCKS = YES;
 				INSTALL_PATH = /usr/sbin;
 				INTERPOSITION_SIM_SUFFIX = "";
 				"INTERPOSITION_SIM_SUFFIX[sdk=iphonesimulator*]" = _sim;
 				OTHER_CFLAGS = (
+					"$(inherited)",
 					"-fconstant-cfstrings",
 					"-fstack-protector-all",
-					"-D_FORTIFY_SOURCE=2",
+					"-DOS_ACTIVITY_OBJECT_API=1",
 				);
+				OTHER_CFLAGS_asan = "-fsanitize=address";
+				OTHER_LDFLAGS_asan = "-fsanitize=address";
+				PLIST_FILE_OUTPUT_FORMAT = binary;
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = macosx;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -6274,6 +6757,11 @@
 				"INSTALL_PATH[sdk=watch*]" = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				LIBRARY_SEARCH_PATHS = "$(SYMROOT)";
 				MODULEMAP_FILE = SystemConfiguration.fproj/Modules/sc_modules.modulemap;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DSC_LOG_OR_PRINT",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration;
 				PRODUCT_NAME = SystemConfiguration;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = iphoneos;
@@ -6299,6 +6787,11 @@
 				"INSTALL_PATH[sdk=watch*]" = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				LIBRARY_SEARCH_PATHS = "$(SYMROOT)";
 				MODULEMAP_FILE = SystemConfiguration.fproj/Modules/sc_modules.modulemap;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DSC_LOG_OR_PRINT",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration;
 				PRODUCT_NAME = SystemConfiguration;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = iphoneos;
@@ -6312,13 +6805,17 @@
 		15732AAA16EA503200F3AC4C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				APPLY_RULES_IN_COPY_FILES = YES;
+				BUILD_VARIANTS = normal;
 				FRAMEWORK_SEARCH_PATHS = "$(SYMROOT)";
 				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALL_PATH = /usr/libexec;
 				LIBRARY_SEARCH_PATHS = (
 					"$(SYMROOT)",
 					"$(SDKROOT)/usr/local/lib/SystemConfiguration",
+				);
+				OTHER_LDFLAGS = (
+					"-lIPMonitor_sim$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lSimulatorSupport_sim$(EXECUTABLE_VARIANT_SUFFIX)",
 				);
 				PRODUCT_NAME = configd_sim;
 				SDKROOT = iphoneos.internal;
@@ -6329,13 +6826,17 @@
 		15732AAB16EA503200F3AC4C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				APPLY_RULES_IN_COPY_FILES = YES;
+				BUILD_VARIANTS = normal;
 				FRAMEWORK_SEARCH_PATHS = "$(SYMROOT)";
 				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALL_PATH = /usr/libexec;
 				LIBRARY_SEARCH_PATHS = (
 					"$(SYMROOT)",
 					"$(SDKROOT)/usr/local/lib/SystemConfiguration",
+				);
+				OTHER_LDFLAGS = (
+					"-lIPMonitor_sim$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lSimulatorSupport_sim$(EXECUTABLE_VARIANT_SUFFIX)",
 				);
 				PRODUCT_NAME = configd_sim;
 				SDKROOT = iphoneos.internal;
@@ -6346,6 +6847,7 @@
 		15732AD316EA511900F3AC4C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BUILD_VARIANTS = normal;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(SYMROOT)",
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -6364,6 +6866,7 @@
 		15732AD416EA511900F3AC4C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BUILD_VARIANTS = normal;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(SYMROOT)",
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -6382,20 +6885,12 @@
 		15732AE216EA6B6700F3AC4C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUILD_VARIANTS = (
-					normal,
-					debug,
-					profile,
-				);
+				BUILD_VARIANTS = normal;
 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
 				GENERATE_PROFILING_CODE_profile = YES;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /usr/lib/system;
-				LIBRARY_SEARCH_PATHS = "$(SDKDIR)/usr/lib";
 				LINK_WITH_STANDARD_LIBRARIES = NO;
-				OTHER_CFLAGS_debug = "-O0";
-				OTHER_CFLAGS_normal = "";
-				OTHER_CFLAGS_profile = "";
 				OTHER_LDFLAGS = (
 					"-Wl,-umbrella,System",
 					"-L/usr/lib/system",
@@ -6410,15 +6905,14 @@
 					"-lsystem_notify",
 					"-lsystem$(INTERPOSITION_SIM_SUFFIX)_platform",
 					"-lsystem$(INTERPOSITION_SIM_SUFFIX)_pthread",
+					"-lsystem_trace",
 					"-lxpc",
 				);
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include;
 				PRODUCT_NAME = libsystem_configuration;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include;
 				SDKROOT = iphoneos.internal;
-				STRIP_INSTALLED_PRODUCT_debug = NO;
 				STRIP_INSTALLED_PRODUCT_normal = YES;
-				STRIP_INSTALLED_PRODUCT_profile = NO;
 				SUPPORTED_PLATFORMS = iphonesimulator;
 			};
 			name = Debug;
@@ -6426,20 +6920,12 @@
 		15732AE316EA6B6700F3AC4C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUILD_VARIANTS = (
-					normal,
-					debug,
-					profile,
-				);
+				BUILD_VARIANTS = normal;
 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
 				GENERATE_PROFILING_CODE_profile = YES;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /usr/lib/system;
-				LIBRARY_SEARCH_PATHS = "$(SDKDIR)/usr/lib";
 				LINK_WITH_STANDARD_LIBRARIES = NO;
-				OTHER_CFLAGS_debug = "-O0";
-				OTHER_CFLAGS_normal = "";
-				OTHER_CFLAGS_profile = "";
 				OTHER_LDFLAGS = (
 					"-Wl,-umbrella,System",
 					"-L/usr/lib/system",
@@ -6454,15 +6940,14 @@
 					"-lsystem_notify",
 					"-lsystem$(INTERPOSITION_SIM_SUFFIX)_platform",
 					"-lsystem$(INTERPOSITION_SIM_SUFFIX)_pthread",
+					"-lsystem_trace",
 					"-lxpc",
 				);
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include;
 				PRODUCT_NAME = libsystem_configuration;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include;
 				SDKROOT = iphoneos.internal;
-				STRIP_INSTALLED_PRODUCT_debug = NO;
 				STRIP_INSTALLED_PRODUCT_normal = YES;
-				STRIP_INSTALLED_PRODUCT_profile = NO;
 				SUPPORTED_PLATFORMS = iphonesimulator;
 			};
 			name = Release;
@@ -6528,18 +7013,12 @@
 		157A84E50D56C63900B6F1A0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUILD_VARIANTS = (
-					normal,
-					debug,
-					profile,
-				);
 				GENERATE_PROFILING_CODE_profile = YES;
+				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /usr/lib/system;
+				INSTALL_PATH_asan = /usr/local/lib;
 				LINK_WITH_STANDARD_LIBRARIES = NO;
-				OTHER_CFLAGS_debug = "-O0";
-				OTHER_CFLAGS_normal = "";
-				OTHER_CFLAGS_profile = "";
 				OTHER_LDFLAGS = (
 					"-Wl,-umbrella,System",
 					"-L/usr/lib/system",
@@ -6554,14 +7033,20 @@
 					"-lsystem_notify",
 					"-lsystem_platform",
 					"-lsystem_pthread",
+					"-lsystem_trace",
 					"-lxpc",
 					"-Wl,-upward-lSystem",
 				);
+				"OTHER_LDFLAGS_asan[sdk=iphoneos*]" = "-headerpad_max_install_names -L${TOOLCHAIN_DIR}/usr/lib/clang/${CLANG_VERS}/lib/darwin -lclang_rt.asan_ios_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=iphonesimulator*]" = "-headerpad_max_install_names -L${TOOLCHAIN_DIR}/usr/lib/clang/${CLANG_VERS}/lib/darwin -lclang_rt.asan_iossim_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=tvos*]" = "-headerpad_max_install_names -L${TOOLCHAIN_DIR}/usr/lib/clang/${CLANG_VERS}/lib/darwin -lclang_rt.asan_tvos_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=tvossimulator*]" = "-headerpad_max_install_names -L${TOOLCHAIN_DIR}/usr/lib/clang/${CLANG_VERS}/lib/darwin -lclang_rt.asan_tvosossim_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=watchos*]" = "-headerpad_max_install_names -L${TOOLCHAIN_DIR}/usr/lib/clang/${CLANG_VERS}/lib/darwin -lclang_rt.asan_watchos_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=watchsimulator*]" = "-headerpad_max_install_names -L${TOOLCHAIN_DIR}/usr/lib/clang/${CLANG_VERS}/lib/darwin -lclang_rt.asan_watchossim_dynamic";
 				PRODUCT_NAME = libsystem_configuration;
 				SDKROOT = iphoneos.internal;
-				STRIP_INSTALLED_PRODUCT_debug = NO;
+				STRIP_INSTALLED_PRODUCT_asan = NO;
 				STRIP_INSTALLED_PRODUCT_normal = YES;
-				STRIP_INSTALLED_PRODUCT_profile = NO;
 				SUPPORTED_PLATFORMS = "iphoneos tvos watchos";
 			};
 			name = Debug;
@@ -6569,18 +7054,12 @@
 		157A84E60D56C63900B6F1A0 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUILD_VARIANTS = (
-					normal,
-					debug,
-					profile,
-				);
 				GENERATE_PROFILING_CODE_profile = YES;
+				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /usr/lib/system;
+				INSTALL_PATH_asan = /usr/local/lib;
 				LINK_WITH_STANDARD_LIBRARIES = NO;
-				OTHER_CFLAGS_debug = "-O0";
-				OTHER_CFLAGS_normal = "";
-				OTHER_CFLAGS_profile = "";
 				OTHER_LDFLAGS = (
 					"-Wl,-umbrella,System",
 					"-L/usr/lib/system",
@@ -6595,14 +7074,20 @@
 					"-lsystem_notify",
 					"-lsystem_platform",
 					"-lsystem_pthread",
+					"-lsystem_trace",
 					"-lxpc",
 					"-Wl,-upward-lSystem",
 				);
+				"OTHER_LDFLAGS_asan[sdk=iphoneos*]" = "-headerpad_max_install_names -L${TOOLCHAIN_DIR}/usr/lib/clang/${CLANG_VERS}/lib/darwin -lclang_rt.asan_ios_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=iphonesimulator*]" = "-headerpad_max_install_names -L${TOOLCHAIN_DIR}/usr/lib/clang/${CLANG_VERS}/lib/darwin -lclang_rt.asan_iossim_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=tvos*]" = "-headerpad_max_install_names -L${TOOLCHAIN_DIR}/usr/lib/clang/${CLANG_VERS}/lib/darwin -lclang_rt.asan_tvos_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=tvossimulator*]" = "-headerpad_max_install_names -L${TOOLCHAIN_DIR}/usr/lib/clang/${CLANG_VERS}/lib/darwin -lclang_rt.asan_tvosossim_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=watchos*]" = "-headerpad_max_install_names -L${TOOLCHAIN_DIR}/usr/lib/clang/${CLANG_VERS}/lib/darwin -lclang_rt.asan_watchos_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=watchsimulator*]" = "-headerpad_max_install_names -L${TOOLCHAIN_DIR}/usr/lib/clang/${CLANG_VERS}/lib/darwin -lclang_rt.asan_watchossim_dynamic";
 				PRODUCT_NAME = libsystem_configuration;
 				SDKROOT = iphoneos.internal;
-				STRIP_INSTALLED_PRODUCT_debug = NO;
+				STRIP_INSTALLED_PRODUCT_asan = NO;
 				STRIP_INSTALLED_PRODUCT_normal = YES;
-				STRIP_INSTALLED_PRODUCT_profile = NO;
 				SUPPORTED_PLATFORMS = "iphoneos tvos watchos";
 			};
 			name = Release;
@@ -6610,10 +7095,16 @@
 		157A84FF0D56C7E800B6F1A0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_ARC = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALL_PATH = /usr/local/lib/SystemConfiguration;
 				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DSC_LOG_HANDLE=\"__log_IPMonitor()\"",
+				);
 				PRODUCT_NAME = IPMonitor;
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
@@ -6624,10 +7115,16 @@
 		157A85000D56C7E800B6F1A0 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_ARC = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALL_PATH = /usr/local/lib/SystemConfiguration;
 				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DSC_LOG_HANDLE=\"__log_IPMonitor()\"",
+				);
 				PRODUCT_NAME = IPMonitor;
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
@@ -6668,6 +7165,10 @@
 				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALL_PATH = /usr/local/lib/SystemConfiguration;
 				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DSC_LOG_HANDLE=\"__log_KernelEventMonitor()\"",
+				);
 				PRODUCT_NAME = KernelEventMonitor;
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
@@ -6682,6 +7183,10 @@
 				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALL_PATH = /usr/local/lib/SystemConfiguration;
 				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DSC_LOG_HANDLE=\"__log_KernelEventMonitor()\"",
+				);
 				PRODUCT_NAME = KernelEventMonitor;
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
@@ -6744,7 +7249,6 @@
 		157FDE3F164A075F0040D6A8 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				INSTALLHDRS_COPY_PHASE = YES;
 				PRODUCT_NAME = "configd_libSystem (EmbeddedSimulator)";
 				SUPPORTED_PLATFORMS = iphonesimulator;
 			};
@@ -6753,7 +7257,6 @@
 		157FDE40164A075F0040D6A8 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				INSTALLHDRS_COPY_PHASE = YES;
 				PRODUCT_NAME = "configd_libSystem (EmbeddedSimulator)";
 				SUPPORTED_PLATFORMS = iphonesimulator;
 			};
@@ -6810,7 +7313,6 @@
 		1583175E0CFB80A1006F62B9 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				APPLY_RULES_IN_COPY_FILES = YES;
 				CODE_SIGN_ENTITLEMENTS = "configd.tproj/entitlements-ios.plist";
 				CODE_SIGN_IDENTITY = "-";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -6822,6 +7324,14 @@
 				LIBRARY_SEARCH_PATHS = (
 					"$(SYMROOT)",
 					"$(SDKROOT)/usr/local/lib/SystemConfiguration",
+				);
+				OTHER_LDFLAGS = (
+					"-lKernelEventMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lInterfaceNamer$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lIPMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lLinkConfiguration$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lPreferencesMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lQoSMarking$(EXECUTABLE_VARIANT_SUFFIX)",
 				);
 				PRODUCT_NAME = configd;
 				SDKROOT = iphoneos.internal;
@@ -6832,7 +7342,6 @@
 		1583175F0CFB80A1006F62B9 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				APPLY_RULES_IN_COPY_FILES = YES;
 				CODE_SIGN_ENTITLEMENTS = "configd.tproj/entitlements-ios.plist";
 				CODE_SIGN_IDENTITY = "-";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -6844,6 +7353,14 @@
 				LIBRARY_SEARCH_PATHS = (
 					"$(SYMROOT)",
 					"$(SDKROOT)/usr/local/lib/SystemConfiguration",
+				);
+				OTHER_LDFLAGS = (
+					"-lKernelEventMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lInterfaceNamer$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lIPMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lLinkConfiguration$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lPreferencesMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
+					"-lQoSMarking$(EXECUTABLE_VARIANT_SUFFIX)",
 				);
 				PRODUCT_NAME = configd;
 				SDKROOT = iphoneos.internal;
@@ -6856,6 +7373,7 @@
 			buildSettings = {
 				INFOPLIST_FILE = Plugins/IPMonitor/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.IPMonitor;
 				PRODUCT_NAME = IPMonitor;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = iphoneos;
@@ -6867,6 +7385,7 @@
 			buildSettings = {
 				INFOPLIST_FILE = Plugins/IPMonitor/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.IPMonitor;
 				PRODUCT_NAME = IPMonitor;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = iphoneos;
@@ -6878,6 +7397,7 @@
 			buildSettings = {
 				INFOPLIST_FILE = Plugins/InterfaceNamer/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.InterfaceNamer;
 				PRODUCT_NAME = InterfaceNamer;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = iphoneos;
@@ -6889,6 +7409,7 @@
 			buildSettings = {
 				INFOPLIST_FILE = Plugins/InterfaceNamer/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.InterfaceNamer;
 				PRODUCT_NAME = InterfaceNamer;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = iphoneos;
@@ -6900,6 +7421,7 @@
 			buildSettings = {
 				INFOPLIST_FILE = Plugins/KernelEventMonitor/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.KernelEventMonitor;
 				PRODUCT_NAME = KernelEventMonitor;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = iphoneos;
@@ -6911,6 +7433,7 @@
 			buildSettings = {
 				INFOPLIST_FILE = Plugins/KernelEventMonitor/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.KernelEventMonitor;
 				PRODUCT_NAME = KernelEventMonitor;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = iphoneos;
@@ -6922,6 +7445,7 @@
 			buildSettings = {
 				INFOPLIST_FILE = Plugins/LinkConfiguration/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.LinkConfiguration;
 				PRODUCT_NAME = LinkConfiguration;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = iphoneos;
@@ -6933,6 +7457,7 @@
 			buildSettings = {
 				INFOPLIST_FILE = Plugins/LinkConfiguration/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.LinkConfiguration;
 				PRODUCT_NAME = LinkConfiguration;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = iphoneos;
@@ -6944,6 +7469,7 @@
 			buildSettings = {
 				INFOPLIST_FILE = Plugins/PreferencesMonitor/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.PreferencesMonitor;
 				PRODUCT_NAME = PreferencesMonitor;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = iphoneos;
@@ -6955,6 +7481,7 @@
 			buildSettings = {
 				INFOPLIST_FILE = Plugins/PreferencesMonitor/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.PreferencesMonitor;
 				PRODUCT_NAME = PreferencesMonitor;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = iphoneos;
@@ -6964,7 +7491,6 @@
 		158337A70CFB6B9E0033AB93 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				APPLY_RULES_IN_COPY_FILES = YES;
 				FRAMEWORK_SEARCH_PATHS = "$(SYMROOT)";
 				"INSTALL_PATH[sdk=appletv*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks/SystemConfiguration.framework";
 				"INSTALL_PATH[sdk=iphone*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks/SystemConfiguration.framework";
@@ -6978,7 +7504,6 @@
 		158337A80CFB6B9E0033AB93 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				APPLY_RULES_IN_COPY_FILES = YES;
 				FRAMEWORK_SEARCH_PATHS = "$(SYMROOT)";
 				"INSTALL_PATH[sdk=appletv*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks/SystemConfiguration.framework";
 				"INSTALL_PATH[sdk=iphone*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks/SystemConfiguration.framework";
@@ -6992,6 +7517,7 @@
 		15A5A2670D5B94190087BDA0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BUILD_VARIANTS = normal;
 				DEFINES_MODULE = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
@@ -7005,9 +7531,12 @@
 				LIBRARY_SEARCH_PATHS = "$(SYMROOT)";
 				MODULEMAP_FILE = SystemConfiguration.fproj/Modules/sc_modules.modulemap;
 				OTHER_CFLAGS = (
+					"$(inherited)",
 					"-idirafter",
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+					"-DSC_LOG_OR_PRINT",
 				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration;
 				PRODUCT_NAME = SystemConfiguration;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = iphonesimulator;
@@ -7021,6 +7550,7 @@
 		15A5A2680D5B94190087BDA0 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BUILD_VARIANTS = normal;
 				DEFINES_MODULE = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
@@ -7034,9 +7564,12 @@
 				LIBRARY_SEARCH_PATHS = "$(SYMROOT)";
 				MODULEMAP_FILE = SystemConfiguration.fproj/Modules/sc_modules.modulemap;
 				OTHER_CFLAGS = (
+					"$(inherited)",
 					"-idirafter",
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+					"-DSC_LOG_OR_PRINT",
 				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration;
 				PRODUCT_NAME = SystemConfiguration;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = iphonesimulator;
@@ -7050,7 +7583,6 @@
 		15C64A1F0F684C3300D78394 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				INSTALL_PATH = /usr/local/lib/system;
 				PRODUCT_NAME = configd_libSystem;
 			};
 			name = Debug;
@@ -7058,7 +7590,6 @@
 		15C64A200F684C3300D78394 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				INSTALL_PATH = /usr/local/lib/system;
 				PRODUCT_NAME = configd_libSystem;
 			};
 			name = Release;
@@ -7066,7 +7597,6 @@
 		15C64A2C0F684C6B00D78394 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				INSTALL_PATH = /usr/local/lib/system;
 				PRODUCT_NAME = "configd_libSystem (Embedded)";
 				SUPPORTED_PLATFORMS = iphoneos;
 			};
@@ -7075,7 +7605,6 @@
 		15C64A2D0F684C6B00D78394 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				INSTALL_PATH = /usr/local/lib/system;
 				PRODUCT_NAME = "configd_libSystem (Embedded)";
 				SUPPORTED_PLATFORMS = iphoneos;
 			};
@@ -7084,10 +7613,15 @@
 		15D3082516F3E4DA00014F82 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BUILD_VARIANTS = normal;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALL_PATH = /usr/local/lib/SystemConfiguration;
 				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DSC_LOG_HANDLE=\"__log_SimulatorSupport()\"",
+				);
 				PRODUCT_NAME = SimulatorSupport_sim;
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
@@ -7098,10 +7632,15 @@
 		15D3082616F3E4DA00014F82 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BUILD_VARIANTS = normal;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALL_PATH = /usr/local/lib/SystemConfiguration;
 				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DSC_LOG_HANDLE=\"__log_SimulatorSupport()\"",
+				);
 				PRODUCT_NAME = SimulatorSupport_sim;
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
@@ -7114,6 +7653,7 @@
 			buildSettings = {
 				INFOPLIST_FILE = Plugins/SimulatorSupport/Info.plist;
 				INSTALL_PATH = /System/Library/SystemConfiguration;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.SimulatorSupport;
 				PRODUCT_NAME = SimulatorSupport;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = iphonesimulator;
@@ -7125,6 +7665,7 @@
 			buildSettings = {
 				INFOPLIST_FILE = Plugins/SimulatorSupport/Info.plist;
 				INSTALL_PATH = /System/Library/SystemConfiguration;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.SimulatorSupport;
 				PRODUCT_NAME = SimulatorSupport;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = iphonesimulator;
@@ -7134,11 +7675,17 @@
 		15E1B05716EBAE3C00E5F06F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BUILD_VARIANTS = normal;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INFOPLIST_FILE = "Plugins/IPMonitor/Info-EmbeddedSimulator.plist";
 				INSTALL_PATH = /usr/local/lib/SystemConfiguration;
 				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DSC_LOG_HANDLE=\"__log_IPMonitor()\"",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.IPMonitor;
 				PRODUCT_NAME = IPMonitor_sim;
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
@@ -7149,11 +7696,17 @@
 		15E1B05816EBAE3C00E5F06F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BUILD_VARIANTS = normal;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INFOPLIST_FILE = "Plugins/IPMonitor/Info-EmbeddedSimulator.plist";
 				INSTALL_PATH = /usr/local/lib/SystemConfiguration;
 				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DSC_LOG_HANDLE=\"__log_IPMonitor()\"",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.IPMonitor;
 				PRODUCT_NAME = IPMonitor_sim;
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
@@ -7166,6 +7719,7 @@
 			buildSettings = {
 				INFOPLIST_FILE = "Plugins/IPMonitor/Info-EmbeddedSimulator.plist";
 				INSTALL_PATH = /System/Library/SystemConfiguration;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.IPMonitor;
 				PRODUCT_NAME = IPMonitor;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = iphonesimulator;
@@ -7177,6 +7731,7 @@
 			buildSettings = {
 				INFOPLIST_FILE = "Plugins/IPMonitor/Info-EmbeddedSimulator.plist";
 				INSTALL_PATH = /System/Library/SystemConfiguration;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.IPMonitor;
 				PRODUCT_NAME = IPMonitor;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = iphonesimulator;
@@ -7235,10 +7790,6 @@
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
@@ -7312,10 +7863,6 @@
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
@@ -7401,6 +7948,42 @@
 			buildConfigurations = (
 				151FE2E50D5B7046000D6DB1 /* Debug */,
 				151FE2E60D5B7046000D6DB1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		155F498A1C864F1400E47D08 /* Build configuration list for PBXNativeTarget "QoSMarking" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				155F498B1C864F1400E47D08 /* Debug */,
+				155F498C1C864F1400E47D08 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		155F49901C864F3700E47D08 /* Build configuration list for PBXNativeTarget "QoSMarking.bundle" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				155F49911C864F3700E47D08 /* Debug */,
+				155F49921C864F3700E47D08 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		155F49991C864F4E00E47D08 /* Build configuration list for PBXNativeTarget "QoSMarking-Embedded" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				155F499A1C864F4E00E47D08 /* Debug */,
+				155F499B1C864F4E00E47D08 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		155F499F1C864F5400E47D08 /* Build configuration list for PBXNativeTarget "QoSMarking.bundle-Embedded" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				155F49A01C864F5400E47D08 /* Debug */,
+				155F49A11C864F5400E47D08 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

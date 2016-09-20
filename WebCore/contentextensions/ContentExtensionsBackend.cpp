@@ -34,7 +34,9 @@
 #include "DFABytecodeInterpreter.h"
 #include "Document.h"
 #include "DocumentLoader.h"
+#include "ExtensionStyleSheets.h"
 #include "Frame.h"
+#include "FrameLoaderClient.h"
 #include "MainFrame.h"
 #include "ResourceLoadInfo.h"
 #include "URL.h"
@@ -58,7 +60,7 @@ void ContentExtensionsBackend::addContentExtension(const String& identifier, Ref
     }
 
     RefPtr<ContentExtension> extension = ContentExtension::create(identifier, adoptRef(*compiledContentExtension.leakRef()));
-    m_contentExtensions.set(identifier, WTF::move(extension));
+    m_contentExtensions.set(identifier, WTFMove(extension));
 }
 
 void ContentExtensionsBackend::removeContentExtension(const String& identifier)
@@ -92,20 +94,27 @@ Vector<Action> ContentExtensionsBackend::actionsForResourceLoad(const ResourceLo
         DFABytecodeInterpreter withoutDomainsInterpreter(compiledExtension.filtersWithoutDomainsBytecode(), compiledExtension.filtersWithoutDomainsBytecodeLength());
         DFABytecodeInterpreter::Actions withoutDomainsActions = withoutDomainsInterpreter.interpret(urlCString, flags);
         
+        String domain = resourceLoadInfo.mainDocumentURL.host();
         DFABytecodeInterpreter withDomainsInterpreter(compiledExtension.filtersWithDomainsBytecode(), compiledExtension.filtersWithDomainsBytecodeLength());
-        DFABytecodeInterpreter::Actions withDomainsActions = withDomainsInterpreter.interpretWithDomains(urlCString, flags, contentExtension->cachedDomainActions(resourceLoadInfo.mainDocumentURL.host()));
+        DFABytecodeInterpreter::Actions withDomainsActions = withDomainsInterpreter.interpretWithDomains(urlCString, flags, contentExtension->cachedDomainActions(domain));
         
         const SerializedActionByte* actions = compiledExtension.actions();
         const unsigned actionsLength = compiledExtension.actionsLength();
         
         bool sawIgnorePreviousRules = false;
-        if (!withoutDomainsActions.isEmpty() || !withDomainsActions.isEmpty()) {
+        const Vector<uint32_t>& universalWithDomains = contentExtension->universalActionsWithDomains(domain);
+        const Vector<uint32_t>& universalWithoutDomains = contentExtension->universalActionsWithoutDomains();
+        if (!withoutDomainsActions.isEmpty() || !withDomainsActions.isEmpty() || !universalWithDomains.isEmpty() || !universalWithoutDomains.isEmpty()) {
             Vector<uint32_t> actionLocations;
-            actionLocations.reserveInitialCapacity(withoutDomainsActions.size() + withDomainsActions.size());
+            actionLocations.reserveInitialCapacity(withoutDomainsActions.size() + withDomainsActions.size() + universalWithoutDomains.size() + universalWithDomains.size());
             for (uint64_t actionLocation : withoutDomainsActions)
                 actionLocations.uncheckedAppend(static_cast<uint32_t>(actionLocation));
             for (uint64_t actionLocation : withDomainsActions)
                 actionLocations.uncheckedAppend(static_cast<uint32_t>(actionLocation));
+            for (uint32_t actionLocation : universalWithoutDomains)
+                actionLocations.uncheckedAppend(actionLocation);
+            for (uint32_t actionLocation : universalWithDomains)
+                actionLocations.uncheckedAppend(actionLocation);
             std::sort(actionLocations.begin(), actionLocations.end());
 
             // Add actions in reverse order to properly deal with IgnorePreviousRules.
@@ -126,7 +135,7 @@ Vector<Action> ContentExtensionsBackend::actionsForResourceLoad(const ResourceLo
     }
 #if CONTENT_EXTENSIONS_PERFORMANCE_REPORTING
     double addedTimeEnd = monotonicallyIncreasingTime();
-    WTFLogAlways("Time added: %f microseconds %s", (addedTimeEnd - addedTimeStart) * 1.0e6, resourceLoadInfo.resourceURL.string().utf8().data());
+    dataLogF("Time added: %f microseconds %s \n", (addedTimeEnd - addedTimeStart) * 1.0e6, resourceLoadInfo.resourceURL.string().utf8().data());
 #endif
     return finalActions;
 }
@@ -137,8 +146,11 @@ StyleSheetContents* ContentExtensionsBackend::globalDisplayNoneStyleSheet(const 
     return contentExtension ? contentExtension->globalDisplayNoneStyleSheet() : nullptr;
 }
 
-void ContentExtensionsBackend::processContentExtensionRulesForLoad(ResourceRequest& request, ResourceType resourceType, DocumentLoader& initiatingDocumentLoader)
+BlockedStatus ContentExtensionsBackend::processContentExtensionRulesForLoad(ResourceRequest& request, ResourceType resourceType, DocumentLoader& initiatingDocumentLoader)
 {
+    if (m_contentExtensions.isEmpty())
+        return BlockedStatus::NotBlocked;
+
     Document* currentDocument = nullptr;
     URL mainDocumentURL;
 
@@ -169,7 +181,7 @@ void ContentExtensionsBackend::processContentExtensionRulesForLoad(ResourceReque
             if (resourceType == ResourceType::Document)
                 initiatingDocumentLoader.addPendingContentExtensionDisplayNoneSelector(action.extensionIdentifier(), action.stringArgument(), action.actionID());
             else if (currentDocument)
-                currentDocument->styleSheetCollection().addDisplayNoneSelector(action.extensionIdentifier(), action.stringArgument(), action.actionID());
+                currentDocument->extensionStyleSheets().addDisplayNoneSelector(action.extensionIdentifier(), action.stringArgument(), action.actionID());
             break;
         case ContentExtensions::ActionType::CSSDisplayNoneStyleSheet: {
             StyleSheetContents* styleSheetContents = globalDisplayNoneStyleSheet(action.stringArgument());
@@ -177,7 +189,26 @@ void ContentExtensionsBackend::processContentExtensionRulesForLoad(ResourceReque
                 if (resourceType == ResourceType::Document)
                     initiatingDocumentLoader.addPendingContentExtensionSheet(action.stringArgument(), *styleSheetContents);
                 else if (currentDocument)
-                    currentDocument->styleSheetCollection().maybeAddContentExtensionSheet(action.stringArgument(), *styleSheetContents);
+                    currentDocument->extensionStyleSheets().maybeAddContentExtensionSheet(action.stringArgument(), *styleSheetContents);
+            }
+            break;
+        }
+        case ContentExtensions::ActionType::MakeHTTPS: {
+            const URL originalURL = request.url();
+            if (originalURL.protocolIs("http") && (!originalURL.hasPort() || isDefaultPortForProtocol(originalURL.port(), originalURL.protocol()))) {
+                URL newURL = originalURL;
+                newURL.setProtocol("https");
+                if (originalURL.hasPort())
+                    newURL.setPort(defaultPortForProtocol("https"));
+                request.setURL(newURL);
+
+                if (resourceType == ResourceType::Document && initiatingDocumentLoader.isLoadingMainResource()) {
+                    // This is to make sure the correct 'new' URL shows in the location bar.
+                    initiatingDocumentLoader.request().setURL(newURL);
+                    initiatingDocumentLoader.frameLoader()->client().dispatchDidChangeProvisionalURL();
+                }
+                if (currentDocument)
+                    currentDocument->addConsoleMessage(MessageSource::ContentBlocker, MessageLevel::Info, makeString("Content blocker promoted URL from ", originalURL.string(), " to ", newURL.string()));
             }
             break;
         }
@@ -190,8 +221,9 @@ void ContentExtensionsBackend::processContentExtensionRulesForLoad(ResourceReque
     if (willBlockLoad) {
         if (currentDocument)
             currentDocument->addConsoleMessage(MessageSource::ContentBlocker, MessageLevel::Info, makeString("Content blocker prevented frame displaying ", mainDocumentURL.string(), " from loading a resource from ", request.url().string()));
-        request = ResourceRequest();
+        return BlockedStatus::Blocked;
     }
+    return BlockedStatus::NotBlocked;
 }
 
 const String& ContentExtensionsBackend::displayNoneCSSRule()

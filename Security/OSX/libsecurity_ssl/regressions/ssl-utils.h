@@ -30,12 +30,12 @@
 #define CFReleaseSafe(CF) { CFTypeRef _cf = (CF); if (_cf) {  CFRelease(_cf); } }
 #define CFReleaseNull(CF) { CFTypeRef _cf = (CF); if (_cf) {  (CF) = NULL; CFRelease(_cf); } }
 
-CFArrayRef trusted_roots(void);
-CFArrayRef server_chain(void);
-CFArrayRef server_ec_chain(void);
-CFArrayRef trusted_client_chain(void);
-CFArrayRef trusted_ec_client_chain(void);
-CFArrayRef untrusted_client_chain(void);
+CFArrayRef CF_RETURNS_RETAINED trusted_roots(void);
+CFArrayRef CF_RETURNS_RETAINED server_chain(void);
+CFArrayRef CF_RETURNS_RETAINED server_ec_chain(void);
+CFArrayRef CF_RETURNS_RETAINED trusted_client_chain(void);
+CFArrayRef CF_RETURNS_RETAINED trusted_ec_client_chain(void);
+CFArrayRef CF_RETURNS_RETAINED untrusted_client_chain(void);
 
 #define client_chain trusted_client_chain
 

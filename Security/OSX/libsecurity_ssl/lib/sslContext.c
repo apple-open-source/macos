@@ -29,7 +29,6 @@
 
 #include "SSLRecordInternal.h"
 #include "SecureTransportPriv.h"
-#include "appleSession.h"
 #include "ssl.h"
 #include "sslCipherSpecs.h"
 #include "sslContext.h"
@@ -37,7 +36,6 @@
 #include "sslDebug.h"
 #include "sslKeychain.h"
 #include "sslMemory.h"
-#include "sslUtils.h"
 
 #include "tlsCallbacks.h"
 
@@ -78,26 +76,6 @@ static void sslFreeDnList(SSLContext *ctx)
     ctx->acceptableDNList = NULL;
 }
 
-/*
-  This frees ctx->localCert, which is allocated in parseIncomingCert.
-  This is structured as a list, but all the SSLCertificates structs are
-  allocated as a single array, so there is only on sslFree(localCert).
- */
-static void sslFreeLocalCert(SSLContext *ctx)
-{
-    SSLCertificate  *cert;
-
-    cert = ctx->localCert;
-    while (cert)
-    {
-        SSLFreeBuffer(&cert->derCert);
-        cert = cert->next;
-    }
-    sslFree(ctx->localCert);
-    ctx->localCert = NULL;
-}
-
-
 Boolean sslIsSessionActive(const SSLContext *ctx)
 {
 	assert(ctx != NULL);
@@ -134,15 +112,20 @@ Boolean sslIsSessionActive(const SSLContext *ctx)
 #define MIN_ALLOWED_DTLS_MTU    64      /* this ensure than there will be no integer
                                             underflow when calculating max write size */
 
-int kSplitDefaultValue;
+/* Preferences values */
 CFIndex kMinDhGroupSizeDefaultValue;
+CFIndex kMinProtocolVersionDefaultValue;
+CFStringRef kSSLSessionConfigDefaultValue;
+Boolean kSSLDisableRecordSplittingDefaultValue;
+
+static tls_cache_t g_session_cache = NULL;
 
 #if TARGET_OS_IPHONE
 /*
  * Instead of using CFPropertyListReadFromFile we use a
  * CFPropertyListCreateWithStream directly
  * here. CFPropertyListReadFromFile() uses
- * CFURLCopyResourcePropertyForKey() andCF pulls in CoreServices for
+ * CFURLCopyResourcePropertyForKey() and CF pulls in CoreServices for
  * CFURLCopyResourcePropertyForKey() and that doesn't work in install
  * enviroment.
  */
@@ -161,55 +144,91 @@ CopyPlistFromFile(CFURLRef url)
 #endif
 
 
+static
+CFTypeRef SSLPreferencesCopyValue(CFStringRef key, CFPropertyListRef managed_prefs)
+{
+    CFTypeRef value = (CFTypeRef) CFPreferencesCopyAppValue(CFSTR("SSLSessionConfig"), kCFPreferencesCurrentApplication);
+
+    if(!value && managed_prefs) {
+        value =  CFDictionaryGetValue(managed_prefs, key);
+    }
+
+    return value;
+}
+
+static
+CFIndex SSLPreferencesGetInteger(CFStringRef key, CFPropertyListRef managed_prefs)
+{
+    CFTypeRef value = SSLPreferencesCopyValue(key, managed_prefs);
+    CFIndex int_value = 0;
+    if (isNumber(value)) {
+        CFNumberGetValue(value, kCFNumberCFIndexType, &int_value);
+    }
+    CFReleaseSafe(value);
+    return int_value;
+}
+
+static
+Boolean SSLPreferencesGetBoolean(CFStringRef key, CFPropertyListRef managed_prefs)
+{
+    CFTypeRef value = SSLPreferencesCopyValue(key, managed_prefs);
+    Boolean bool_value = FALSE;
+    if (isBoolean(value)) {
+        bool_value = CFBooleanGetValue(value);
+    }
+
+    CFReleaseSafe(value);
+    return bool_value;
+}
+
+static
+CFStringRef SSLPreferencesCopyString(CFStringRef key, CFPropertyListRef managed_prefs)
+{
+    CFTypeRef value = SSLPreferencesCopyValue(key, managed_prefs);
+    if (isString(value)) {
+        return value;
+    } else {
+        CFReleaseSafe(value);
+        return NULL;
+    }
+}
+
 static void _SSLContextReadDefault()
 {
-	/* 0 = disabled, 1 = split every write, 2 = split second and subsequent writes */
-    /* Enabled by default, this may cause some interop issues, see <rdar://problem/12307662> and <rdar://problem/12323307> */
-    const int defaultSplitDefaultValue = 2;
-
-	CFTypeRef value = (CFTypeRef)CFPreferencesCopyValue(CFSTR("SSLWriteSplit"),
-							CFSTR("com.apple.security"),
-							kCFPreferencesAnyUser,
-							kCFPreferencesCurrentHost);
-	if (value) {
-		if (CFGetTypeID(value) == CFBooleanGetTypeID())
-			kSplitDefaultValue = CFBooleanGetValue((CFBooleanRef)value) ? 1 : 0;
-		else if (CFGetTypeID(value) == CFNumberGetTypeID()) {
-			if (!CFNumberGetValue((CFNumberRef)value, kCFNumberIntType, &kSplitDefaultValue))
-				kSplitDefaultValue = defaultSplitDefaultValue;
-		}
-		if (kSplitDefaultValue < 0 || kSplitDefaultValue > 2) {
-			kSplitDefaultValue = defaultSplitDefaultValue;
-		}
-		CFRelease(value);
-	}
-	else {
-		kSplitDefaultValue = defaultSplitDefaultValue;
-	}
-
-    /* Min DH Group Size */
-    kMinDhGroupSizeDefaultValue = CFPreferencesGetAppIntegerValue(CFSTR("SSLMinDhGroupSize"), kCFPreferencesCurrentApplication, NULL);
+    CFPropertyListRef managed_prefs = NULL;
 
 #if TARGET_OS_IPHONE
-    /* on iOS, if the above returned nothing, we manually look into mobile's Managed Preferences */
+    /* on iOS, we also look for preferences from mobile's Managed Preferences */
     /* Note that if the process is running as mobile, the above call will already have read the Managed Preference plist.
-       As a result, if you have some preferences set manually with defaults, which preference applies may be different for mobile vs not-mobile. */
-    if(kMinDhGroupSizeDefaultValue == 0) {
-        CFURLRef prefURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, CFSTR("/Library/Managed Preferences/mobile/.GlobalPreferences.plist"), kCFURLPOSIXPathStyle, false);
-        if(prefURL) {
-            CFPropertyListRef plist = CopyPlistFromFile(prefURL);
-            if (plist) {
-                value =  CFDictionaryGetValue(plist, CFSTR("SSLMinDhGroupSize"));
-                if (isNumber(value)) {
-                    CFNumberGetValue(value, kCFNumberCFIndexType, &kMinDhGroupSizeDefaultValue);
-                }
-            }
-            CFReleaseSafe(plist);
-        }
-        CFReleaseSafe(prefURL);
+     As a result, if you have some preferences set manually with defaults, which preference applies may be different for mobile vs not-mobile. */
+    CFURLRef prefURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, CFSTR("/Library/Managed Preferences/mobile/.GlobalPreferences.plist"), kCFURLPOSIXPathStyle, false);
+    if(prefURL) {
+        managed_prefs = CopyPlistFromFile(prefURL);
     }
+    CFReleaseSafe(prefURL);
 #endif
 
+    /* Disable record splitting */
+    /* Enabled by default, this may cause some interop issues, see <rdar://problem/12307662> and <rdar://problem/12323307> */
+    kSSLDisableRecordSplittingDefaultValue = SSLPreferencesGetBoolean(CFSTR("SSLDisableRecordSplitting"), managed_prefs);
+
+    /* Min DH Group Size */
+    kMinDhGroupSizeDefaultValue = SSLPreferencesGetInteger(CFSTR("SSLMinDhGroupSize"), managed_prefs);
+
+    /* Default Min Prototcol Version */
+    kMinProtocolVersionDefaultValue = SSLPreferencesGetInteger(CFSTR("SSLMinProtocolVersion"), managed_prefs);
+
+    /* Default Config */
+    kSSLSessionConfigDefaultValue = SSLPreferencesCopyString(CFSTR("SSLSessionConfig"), managed_prefs);
+
+    CFReleaseSafe(managed_prefs);
+}
+
+/* This functions initialize global variables, run once per process */
+static void SSLContextOnce(void)
+{
+    _SSLContextReadDefault();
+    g_session_cache = tls_cache_create();
 }
 
 CFGiblisWithHashFor(SSLContext)
@@ -269,6 +288,13 @@ SSLContextRef SSLCreateContextWithRecordFuncs(CFAllocatorRef alloc, SSLProtocolS
         return NULL;
     }
 
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        SSLContextOnce();
+    });
+
+    ctx->cache = g_session_cache;
+
     tls_handshake_set_callbacks(ctx->hdsk,
                                 &tls_handshake_callbacks,
                                 ctx);
@@ -297,31 +323,22 @@ SSLContextRef SSLCreateContextWithRecordFuncs(CFAllocatorRef alloc, SSLProtocolS
 	/* Default for RSA blinding is ENABLED */
 	ctx->rsaBlindingEnable = true;
 
-	/* Default for sending one-byte app data record is DISABLED */
-	ctx->oneByteRecordEnable = false;
+	/* Default for sending one-byte app data record is ENABLED */
+    ctx->oneByteRecordEnable = !kSSLDisableRecordSplittingDefaultValue;
 
     /* Dont enable fallback behavior by default */
     ctx->fallbackEnabled = false;
 
-	/* Consult global system preference for default behavior:
-	 * 0 = disabled, 1 = split every write, 2 = split second and subsequent writes
-	 * (caller can override by setting kSSLSessionOptionSendOneByteRecord)
-	 */
-	static pthread_once_t sReadDefault = PTHREAD_ONCE_INIT;
-	pthread_once(&sReadDefault, _SSLContextReadDefault);
-    if (kSplitDefaultValue > 0) {
-		ctx->oneByteRecordEnable = true;
-    }
-
-    /* Default for server is DHE enabled, default for client is disabled */
-    if(ctx->protocolSide == kSSLServerSide) {
-        SSLSetDHEEnabled(ctx, true);
-    } else {
-        SSLSetDHEEnabled(ctx, false);
+    if(kSSLSessionConfigDefaultValue) {
+        SSLSetSessionConfig(ctx, kSSLSessionConfigDefaultValue);
     }
 
     if(kMinDhGroupSizeDefaultValue) {
         tls_handshake_set_min_dh_group_size(ctx->hdsk, (unsigned)kMinDhGroupSizeDefaultValue);
+    }
+
+    if(kMinProtocolVersionDefaultValue) {
+        SSLSetProtocolVersionMin(ctx, (unsigned)kMinProtocolVersionDefaultValue);
     }
 
 	/* default for anonymous ciphers is DISABLED */
@@ -333,8 +350,6 @@ SSLContextRef SSLCreateContextWithRecordFuncs(CFAllocatorRef alloc, SSLProtocolS
     ctx->signalServerAuth = false;
     ctx->signalCertRequest = false;
     ctx->signalClientAuth = false;
-
-	ctx->negAuthType = SSLClientAuthNone;		/* ditto */
 
 	return ctx;
 }
@@ -406,16 +421,14 @@ void SSLContextDestroy(CFTypeRef arg)
     SSLFreeBuffer(&ctx->receivedDataBuffer);
 
     CFReleaseSafe(ctx->acceptableCAs);
+#if !TARGET_OS_IPHONE
     CFReleaseSafe(ctx->trustedLeafCerts);
+#endif
     CFReleaseSafe(ctx->localCertArray);
     CFReleaseSafe(ctx->encryptCertArray);
-    CFReleaseSafe(ctx->peerCert);
     CFReleaseSafe(ctx->trustedCerts);
     CFReleaseSafe(ctx->peerSecTrust);
 
-    sslFreePrivKey(&ctx->signingPrivKeyRef);
-
-    sslFreeLocalCert(ctx);
     sslFreeDnList(ctx);
 
     SSLFreeBuffer(&ctx->ownVerifyData);
@@ -426,9 +439,10 @@ void SSLContextDestroy(CFTypeRef arg)
 
     SSLFreeBuffer(&ctx->dhParamsEncoded);
 
-    memset(((uint8_t*) ctx) + sizeof(CFRuntimeBase), 0, sizeof(SSLContext) - sizeof(CFRuntimeBase));
+    if(ctx->cache)
+        tls_cache_cleanup(ctx->cache);
 
-	sslCleanupSession();
+    memset(((uint8_t*) ctx) + sizeof(CFRuntimeBase), 0, sizeof(SSLContext) - sizeof(CFRuntimeBase));
 }
 
 /*
@@ -511,6 +525,9 @@ SSLSetSessionOption			(SSLContextRef		context,
             break;
         case kSSLSessionOptionAllowServerIdentityChange:
             tls_handshake_set_server_identity_change(context->hdsk, value);
+            break;
+        case kSSLSessionOptionAllowRenegotiation:
+            tls_handshake_set_renegotiation(context->hdsk, value);
             break;
         default:
             return errSecParam;
@@ -1331,56 +1348,32 @@ OSStatus
 SSLSetAllowsExpiredCerts(SSLContextRef		ctx,
 						 Boolean			allowExpired)
 {
-	if(ctx == NULL) {
-		return errSecParam;
-	}
-	sslCertDebug("SSLSetAllowsExpiredCerts %s",
-		allowExpired ? "true" : "false");
-	if(sslIsSessionActive(ctx)) {
-		/* can't do this with an active session */
-		return errSecBadReq;
-	}
-	ctx->allowExpiredCerts = allowExpired;
-	return errSecSuccess;
+    /* This has been deprecated since 10.9, and non-functional since at least 10.10 */
+    return 0;
 }
 
 OSStatus
 SSLGetAllowsExpiredCerts	(SSLContextRef		ctx,
 							 Boolean			*allowExpired)
 {
-	if(ctx == NULL) {
-		return errSecParam;
-	}
-	*allowExpired = ctx->allowExpiredCerts;
-	return errSecSuccess;
+    /* This has been deprecated since 10.9, and non-functional since at least 10.10 */
+    return errSecUnimplemented;
 }
 
 OSStatus
 SSLSetAllowsExpiredRoots(SSLContextRef		ctx,
 						 Boolean			allowExpired)
 {
-	if(ctx == NULL) {
-		return errSecParam;
-	}
-	sslCertDebug("SSLSetAllowsExpiredRoots %s",
-		allowExpired ? "true" : "false");
-	if(sslIsSessionActive(ctx)) {
-		/* can't do this with an active session */
-		return errSecBadReq;
-	}
-	ctx->allowExpiredRoots = allowExpired;
-	return errSecSuccess;
+    /* This has been deprecated since 10.9, and non-functional since at least 10.10 */
+    return 0;
 }
 
 OSStatus
 SSLGetAllowsExpiredRoots	(SSLContextRef		ctx,
 							 Boolean			*allowExpired)
 {
-	if(ctx == NULL) {
-		return errSecParam;
-	}
-	*allowExpired = ctx->allowExpiredRoots;
-	return errSecSuccess;
+    /* This has been deprecated since 10.9, and non-functional since at least 10.10 */
+    return errSecUnimplemented;
 }
 
 OSStatus SSLSetAllowsAnyRoot(
@@ -1483,6 +1476,7 @@ SSLCopyTrustedRoots			(SSLContextRef 		ctx,
 #endif
 }
 
+#if !TARGET_OS_IPHONE
 OSStatus
 SSLSetTrustedLeafCertificates	(SSLContextRef 		ctx,
 								 CFArrayRef 		trustedCerts)
@@ -1498,8 +1492,7 @@ SSLSetTrustedLeafCertificates	(SSLContextRef 		ctx,
 	if(ctx->trustedLeafCerts) {
 		CFRelease(ctx->trustedLeafCerts);
 	}
-	ctx->trustedLeafCerts = trustedCerts;
-	CFRetain(trustedCerts);
+	ctx->trustedLeafCerts = CFRetainSafe(trustedCerts);
 	return errSecSuccess;
 }
 
@@ -1518,6 +1511,7 @@ SSLCopyTrustedLeafCertificates	(SSLContextRef 		ctx,
 	*trustedCerts = NULL;
 	return errSecSuccess;
 }
+#endif
 
 OSStatus
 SSLSetClientSideAuthenticate 	(SSLContext			*ctx,
@@ -1568,7 +1562,7 @@ SSLGetClientCertificateState	(SSLContextRef				ctx,
                *clientState = kSSLClientCertNone;
                break;
            case kSSLClientCertRequested:
-               if(ctx->localCert) {
+               if(ctx->localCertArray) {
                    *clientState = kSSLClientCertSent;
                } else {
                    *clientState = kSSLClientCertRequested;
@@ -1587,7 +1581,7 @@ SSLGetClientCertificateState	(SSLContextRef				ctx,
                 *clientState = ctx->clientCertState;
                 break;
             case kSSLClientCertRequested:
-                if(ctx->peerCert) {
+                if(ctx->peerSecTrust) {
                     *clientState = kSSLClientCertSent;
                 } else {
                     *clientState = kSSLClientCertRequested;
@@ -1602,10 +1596,13 @@ SSLGetClientCertificateState	(SSLContextRef				ctx,
 	return errSecSuccess;
 }
 
+#include <tls_helpers.h>
+
 OSStatus
 SSLSetCertificate			(SSLContextRef		ctx,
-							 CFArrayRef			certRefs)
+							 CFArrayRef			_Nullable certRefs)
 {
+    OSStatus ortn;
 	/*
 	 * -- free localCerts if we have any
 	 * -- Get raw cert data, convert to ctx->localCert
@@ -1617,23 +1614,17 @@ SSLSetCertificate			(SSLContextRef		ctx,
 	}
 
     CFReleaseNull(ctx->localCertArray);
-	/* changing the client cert invalidates negotiated auth type */
-	ctx->negAuthType = SSLClientAuthNone;
 	if(certRefs == NULL) {
 		return errSecSuccess; // we have cleared the cert, as requested
 	}
-    sslFreeLocalCert(ctx);
-	OSStatus ortn = parseIncomingCerts(ctx,
-		certRefs,
-		&ctx->localCert,
-        &ctx->signingPrivKeyRef);
-    if(ortn == errSecSuccess) {
-		ctx->localCertArray = certRefs;
-		CFRetain(certRefs);
-        if(ctx->protocolSide==kSSLClientSide)
-            SSLUpdateNegotiatedClientAuthType(ctx);
-        tls_handshake_set_identity(ctx->hdsk, ctx->localCert, ctx->signingPrivKeyRef);
+
+    ortn = tls_helper_set_identity_from_array(ctx->hdsk, certRefs);
+
+    if(ortn == noErr) {
+        ctx->localCertArray = certRefs;
+        CFRetain(certRefs);
     }
+
 	return ortn;
 }
 
@@ -1931,44 +1922,32 @@ SSLCopyDistinguishedNames	(SSLContextRef		ctx,
 /*
  * Request peer certificates. Valid anytime, subsequent to
  * a handshake attempt.
- * Common code for SSLGetPeerCertificates() and SSLCopyPeerCertificates().
- * TODO: the 'legacy' argument is not used anymore.
  */
-static OSStatus
-sslCopyPeerCertificates		(SSLContextRef 		ctx,
-							 CFArrayRef			*certs,
-							 Boolean			legacy)
+OSStatus
+SSLCopyPeerCertificates	(SSLContextRef ctx, CFArrayRef *certs)
 {
 	if(ctx == NULL) {
 		return errSecParam;
 	}
 
-	if (!ctx->peerCert) {
+	if (!ctx->peerSecTrust) {
 		*certs = NULL;
 		return errSecBadReq;
 	}
 
-    CFArrayRef ca = CFArrayCreateCopy(kCFAllocatorDefault, ctx->peerCert);
-    *certs = ca;
+    CFIndex count = SecTrustGetCertificateCount(ctx->peerSecTrust);
+    CFMutableArrayRef ca = CFArrayCreateMutable(kCFAllocatorDefault, count, &kCFTypeArrayCallBacks);
     if (ca == NULL) {
         return errSecAllocate;
     }
 
-	if (legacy) {
-		CFIndex ix, count = CFArrayGetCount(ca);
-		for (ix = 0; ix < count; ++ix) {
-			CFRetain(CFArrayGetValueAtIndex(ca, ix));
-		}
-	}
+    for (CFIndex ix = 0; ix < count; ++ix) {
+        CFArrayAppendValue(ca, SecTrustGetCertificateAtIndex(ctx->peerSecTrust, ix));
+    }
 
+    *certs = ca;
+    
 	return errSecSuccess;
-}
-
-OSStatus
-SSLCopyPeerCertificates		(SSLContextRef 		ctx,
-							 CFArrayRef			*certs)
-{
-	return sslCopyPeerCertificates(ctx, certs, false);
 }
 
 #if !TARGET_OS_IPHONE
@@ -1981,7 +1960,7 @@ OSStatus
 SSLGetPeerCertificates (SSLContextRef ctx,
                         CFArrayRef *certs)
 {
-    return sslCopyPeerCertificates(ctx, certs, true);
+    return errSecUnimplemented;
 }
 #endif
 
@@ -2105,12 +2084,8 @@ SSLCopyPeerTrust(
 
 	/* Create a SecTrustRef if this was a resumed session and we
 	   didn't have one yet. */
-    if (!ctx->peerCert) {
-        ctx->peerCert = tls_get_peer_certs(tls_handshake_get_peer_certificates(ctx->hdsk));
-    }
-	if (!ctx->peerSecTrust && ctx->peerCert) {
-		status = sslCreateSecTrust(ctx, ctx->peerCert,
-			&ctx->peerSecTrust);
+	if (!ctx->peerSecTrust) {
+		status = sslCreateSecTrust(ctx, &ctx->peerSecTrust);
     }
 
 	*trust = ctx->peerSecTrust;
@@ -2130,9 +2105,8 @@ OSStatus SSLGetPeerSecTrust(
 
 	/* Create a SecTrustRef if this was a resumed session and we
 	   didn't have one yet. */
-	if (!ctx->peerSecTrust && ctx->peerCert) {
-		status = sslCreateSecTrust(ctx, ctx->peerCert,
-			&ctx->peerSecTrust);
+	if (!ctx->peerSecTrust) {
+		status = sslCreateSecTrust(ctx, &ctx->peerSecTrust);
     }
 
 	*trust = ctx->peerSecTrust;
@@ -2454,92 +2428,13 @@ OSStatus SSLGetClientAuthTypes(
 }
 
 /*
- * Obtain the SSLClientAuthenticationType actually performed.
- * Only valid if client certificate state is kSSLClientCertSent
- * or kSSLClientCertRejected; returns errSecParam otherwise.
+ * -- DEPRECATED -- Return errSecUnimplemented.
  */
 OSStatus SSLGetNegotiatedClientAuthType(
    SSLContextRef ctx,
    SSLClientAuthenticationType *authType)		/* RETURNED */
 {
-	if(ctx == NULL) {
-		return errSecParam;
-	}
-
-	*authType = ctx->negAuthType;
-
-	return errSecSuccess;
-}
-
-/*
- * Update the negotiated client authentication type.
- * This function may be called at any time; however, note that
- * the negotiated authentication type will be SSLClientAuthNone
- * until both of the following have taken place (in either order):
- *   - a CertificateRequest message from the server has been processed
- *   - a client certificate has been specified
- * As such, this function (only) needs to be called from (both)
- * SSLProcessCertificateRequest and SSLSetCertificate.
- */
-OSStatus SSLUpdateNegotiatedClientAuthType(
-	SSLContextRef ctx)
-{
-	if(ctx == NULL) {
-		return errSecParam;
-	}
-    assert(ctx->protocolSide==kSSLClientSide);
-	/*
-	 * See if we have a signing cert that matches one of the
-	 * allowed auth types. The x509Requested flag indicates "we
-	 * have a cert that we think the server will accept".
-	 */
-	ctx->x509Requested = 0;
-	ctx->negAuthType = SSLClientAuthNone;
-	if(ctx->signingPrivKeyRef != NULL) {
-        CFIndex ourKeyAlg = sslPrivKeyGetAlgorithmID((SecKeyRef)tls_private_key_get_context(ctx->signingPrivKeyRef));
-
-		unsigned i;
-		for(i=0; i<ctx->numAuthTypes; i++) {
-			switch(ctx->clientAuthTypes[i]) {
-				case SSLClientAuth_RSASign:
-					if(ourKeyAlg == kSecRSAAlgorithmID) {
-						ctx->x509Requested = 1;
-						ctx->negAuthType = SSLClientAuth_RSASign;
-					}
-					break;
-				case SSLClientAuth_ECDSASign:
-			#if SSL_ENABLE_ECDSA_FIXED_ECDH_AUTH
-				case SSLClientAuth_ECDSAFixedECDH:
-			#endif
-                    if(ourKeyAlg == kSecECDSAAlgorithmID) {
-						ctx->x509Requested = 1;
-						ctx->negAuthType = ctx->clientAuthTypes[i];
-					}
-					break;
-			#if SSL_ENABLE_RSA_FIXED_ECDH_AUTH
-				case SSLClientAuth_RSAFixedECDH:
-					/* Odd case, we differ from our signer */
-					if((ourKeyAlg == kSecECDSAAlgorithmID) &&
-					   (ctx->ourSignerAlg == kSecRSAAlgorithmID)) {
-						ctx->x509Requested = 1;
-						ctx->negAuthType = SSLClientAuth_RSAFixedECDH;
-					}
-					break;
-			#endif
-				default:
-					/* None others supported */
-					break;
-			}
-			if(ctx->x509Requested) {
-				sslLogNegotiateDebug("===CHOOSING authType %d", (int)ctx->negAuthType);
-				break;
-			}
-		}	/* parsing authTypes */
-	}	/* we have a signing key */
-
-    tls_handshake_set_client_auth_type(ctx->hdsk, ctx->negAuthType);
-
-	return errSecSuccess;
+    return errSecUnimplemented;
 }
 
 OSStatus SSLGetNumberOfSignatureAlgorithms(
@@ -2642,14 +2537,6 @@ OSStatus SSLInternal_PRF(
                                       vout, outLen);
 }
 
-/* To be implemented */
-OSStatus
-SSLSetSessionStrengthPolicy(SSLContextRef context,
-                            SSLSessionStrengthPolicy policyStrength)
-{
-    return errSecSuccess;
-}
-
 const CFStringRef kSSLSessionConfig_default = CFSTR("default");
 const CFStringRef kSSLSessionConfig_ATSv1 = CFSTR("ATSv1");
 const CFStringRef kSSLSessionConfig_ATSv1_noPFS = CFSTR("ATSv1_noPFS");
@@ -2659,60 +2546,35 @@ const CFStringRef kSSLSessionConfig_RC4_fallback = CFSTR("RC4_fallback");
 const CFStringRef kSSLSessionConfig_TLSv1_fallback = CFSTR("TLSv1_fallback");
 const CFStringRef kSSLSessionConfig_TLSv1_RC4_fallback = CFSTR("TLSv1_RC4_fallback");
 const CFStringRef kSSLSessionConfig_legacy_DHE = CFSTR("legacy_DHE");
+const CFStringRef kSSLSessionConfig_anonymous = CFSTR("anonymous");
 
 static
 tls_handshake_config_t SSLSessionConfig_to_tls_handshake_config(CFStringRef config)
 {
     if(CFEqual(config, kSSLSessionConfig_ATSv1)){
         return tls_handshake_config_ATSv1;
-    } else  if(CFEqual(config, kSSLSessionConfig_ATSv1_noPFS)){
+    } else if(CFEqual(config, kSSLSessionConfig_ATSv1_noPFS)){
         return tls_handshake_config_ATSv1_noPFS;
-    } else  if(CFEqual(config, kSSLSessionConfig_standard)){
+    } else if(CFEqual(config, kSSLSessionConfig_standard)){
         return tls_handshake_config_standard;
-    } else  if(CFEqual(config, kSSLSessionConfig_TLSv1_fallback)){
+    } else if(CFEqual(config, kSSLSessionConfig_TLSv1_fallback)){
         return tls_handshake_config_TLSv1_fallback;
-    } else  if(CFEqual(config, kSSLSessionConfig_TLSv1_RC4_fallback)){
+    } else if(CFEqual(config, kSSLSessionConfig_TLSv1_RC4_fallback)){
         return tls_handshake_config_TLSv1_RC4_fallback;
-    } else  if(CFEqual(config, kSSLSessionConfig_RC4_fallback)){
+    } else if(CFEqual(config, kSSLSessionConfig_RC4_fallback)){
         return tls_handshake_config_RC4_fallback;
-    } else  if(CFEqual(config, kSSLSessionConfig_legacy)){
+    } else if(CFEqual(config, kSSLSessionConfig_legacy)){
         return tls_handshake_config_legacy;
-    } else  if(CFEqual(config, kSSLSessionConfig_legacy_DHE)){
+    } else if(CFEqual(config, kSSLSessionConfig_legacy_DHE)){
         return tls_handshake_config_legacy_DHE;
-    } else  if(CFEqual(config, kSSLSessionConfig_default)){
+    } else if(CFEqual(config, kSSLSessionConfig_anonymous)){
+        return tls_handshake_config_anonymous;
+    } else if(CFEqual(config, kSSLSessionConfig_default)){
         return tls_handshake_config_default;
     } else {
         return tls_handshake_config_none;
     }
 }
-
-static
-const CFStringRef tls_handshake_config_to_SSLSessionConfig(tls_handshake_config_t config)
-{
-    switch(config) {
-        case tls_handshake_config_ATSv1:
-            return kSSLSessionConfig_ATSv1;
-        case tls_handshake_config_ATSv1_noPFS:
-            return kSSLSessionConfig_ATSv1_noPFS;
-        case tls_handshake_config_standard:
-            return kSSLSessionConfig_standard;
-        case tls_handshake_config_RC4_fallback:
-            return kSSLSessionConfig_RC4_fallback;
-        case tls_handshake_config_TLSv1_fallback:
-            return kSSLSessionConfig_TLSv1_fallback;
-        case tls_handshake_config_TLSv1_RC4_fallback:
-            return kSSLSessionConfig_TLSv1_RC4_fallback;
-        case tls_handshake_config_legacy:
-            return kSSLSessionConfig_legacy;
-        case tls_handshake_config_legacy_DHE:
-            return kSSLSessionConfig_legacy_DHE;
-        case tls_handshake_config_default:
-            return kSSLSessionConfig_default;
-        case tls_handshake_config_none:
-            return NULL;
-    }
-}
-
 
 /* Set Predefined TLS Configuration */
 OSStatus
@@ -2726,19 +2588,3 @@ SSLSetSessionConfig(SSLContextRef context,
         return errSecParam;
     }
 }
-
-OSStatus
-SSLGetSessionConfig(SSLContextRef context,
-                    CFStringRef *config)
-{
-    tls_handshake_config_t cfg;
-    OSStatus err = tls_handshake_get_config(context->hdsk, &cfg);
-    if(err) {
-        return err;
-    }
-
-    *config =  tls_handshake_config_to_SSLSessionConfig(cfg);
-
-    return noErr;
-}
-

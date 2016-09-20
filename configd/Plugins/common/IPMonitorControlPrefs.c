@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2013, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -33,11 +33,13 @@
  * - created
  */
 
+#include <TargetConditionals.h>
 #include <SystemConfiguration/SCPreferences.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/scprefs_observer.h>
-#include <TargetConditionals.h>
 #include "IPMonitorControlPrefs.h"
+
+os_log_t	__log_IPMonitor();
 
 /*
  * kIPMonitorControlPrefsID
@@ -67,17 +69,19 @@ IPMonitorControlPrefsGet(void)
 static void
 prefs_changed(__unused void * arg)
 {
-    os_activity_t	activity_id;
+    os_activity_t	activity;
 
-    activity_id = os_activity_start("processing logging preference change",
-				    OS_ACTIVITY_FLAG_DEFAULT);
+    activity = os_activity_create("processing IPMonitor [rank] preference change",
+				  OS_ACTIVITY_CURRENT,
+				  OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
 
     /* get the current value */
     if (S_callback != NULL) {
 	(*S_callback)(S_prefs);
     }
 
-    os_activity_end(activity_id);
+    os_release(activity);
 
     return;
 }
@@ -157,11 +161,20 @@ IPMonitorControlPrefsInit(CFRunLoopRef runloop,
 				  kIPMonitorControlPrefsID);
     if (runloop != NULL && callback != NULL) {
 	S_callback = callback;
-	SCPreferencesSetCallback(S_prefs, IPMonitorControlPrefsChanged, NULL);
-	SCPreferencesScheduleWithRunLoop(S_prefs, runloop,
-					 kCFRunLoopCommonModes);
+	if (!SCPreferencesSetCallback(S_prefs, IPMonitorControlPrefsChanged, NULL)) {
+		SC_log(LOG_NOTICE, "SCPreferencesSetCallBack() failed: %s", SCErrorString(SCError()));
+		goto done;
+	}
+
+	if (!SCPreferencesScheduleWithRunLoop(S_prefs, runloop, kCFRunLoopCommonModes)) {
+		SC_log(LOG_NOTICE, "SCPreferencesScheduleWithRunLoop() failed: %s", SCErrorString(SCError()));
+		(void) SCPreferencesSetCallback(S_prefs, NULL, NULL);
+	}
+
 	enable_prefs_observer(runloop);
     }
+
+done :
     return (S_prefs);
 }
 
@@ -247,7 +260,7 @@ IPMonitorControlPrefsIsVerbose(void)
 __private_extern__ Boolean
 IPMonitorControlPrefsSetVerbose(Boolean verbose)
 {
-    if (verbose == FALSE) {
+    if (!verbose) {
 	prefs_set_boolean(kVerbose, NULL);
     }
     else {
@@ -279,7 +292,7 @@ main(int argc, char * argv[])
 	fprintf(stderr, "usage: %s ( on | off )\n", argv[0]);
 	exit(1);
     }
-    if (success == FALSE) {
+    if (!success) {
 	fprintf(stderr, "failed to save prefs\n");
 	exit(2);
     }

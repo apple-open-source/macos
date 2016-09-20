@@ -29,81 +29,85 @@
 
 #if USE(TEXTURE_MAPPER_GL)
 #include "BitmapTextureGL.h"
-#include "GLContext.h"
 #endif
 
 namespace WebCore {
 
-const double s_releaseUnusedSecondsTolerance = 3;
-const double s_releaseUnusedTexturesTimerInterval = 0.5;
-
-BitmapTexturePool::BitmapTexturePool()
-    : m_releaseUnusedTexturesTimer(*this, &BitmapTexturePool::releaseUnusedTexturesTimerFired)
-{
-}
+static const double s_releaseUnusedSecondsTolerance = 3;
+static const double s_releaseUnusedTexturesTimerInterval = 0.5;
 
 #if USE(TEXTURE_MAPPER_GL)
-BitmapTexturePool::BitmapTexturePool(PassRefPtr<GraphicsContext3D> context)
-    : m_context3D(context)
+BitmapTexturePool::BitmapTexturePool(RefPtr<GraphicsContext3D>&& context3D)
+    : m_context3D(WTFMove(context3D))
     , m_releaseUnusedTexturesTimer(*this, &BitmapTexturePool::releaseUnusedTexturesTimerFired)
 {
 }
 #endif
 
+RefPtr<BitmapTexture> BitmapTexturePool::acquireTexture(const IntSize& size, const BitmapTexture::Flags flags)
+{
+    Vector<Entry>& list = flags & BitmapTexture::FBOAttachment ? m_attachmentTextures : m_textures;
+
+    Entry* selectedEntry = std::find_if(list.begin(), list.end(),
+        [&size](Entry& entry) { return entry.m_texture->refCount() == 1 && entry.m_texture->size() == size; });
+
+    if (selectedEntry == list.end()) {
+        list.append(Entry(createTexture(flags)));
+        selectedEntry = &list.last();
+    }
+
+    scheduleReleaseUnusedTextures();
+    selectedEntry->markIsInUse();
+    return selectedEntry->m_texture.copyRef();
+}
+
 void BitmapTexturePool::scheduleReleaseUnusedTextures()
 {
     if (m_releaseUnusedTexturesTimer.isActive())
-        m_releaseUnusedTexturesTimer.stop();
+        return;
 
     m_releaseUnusedTexturesTimer.startOneShot(s_releaseUnusedTexturesTimerInterval);
 }
 
 void BitmapTexturePool::releaseUnusedTexturesTimerFired()
 {
-    if (m_textures.isEmpty())
-        return;
-
     // Delete entries, which have been unused in s_releaseUnusedSecondsTolerance.
-    std::sort(m_textures.begin(), m_textures.end(), BitmapTexturePoolEntry::compareTimeLastUsed);
-
     double minUsedTime = monotonicallyIncreasingTime() - s_releaseUnusedSecondsTolerance;
-    for (size_t i = 0; i < m_textures.size(); ++i) {
-        if (m_textures[i].m_timeLastUsed < minUsedTime) {
-            m_textures.remove(i, m_textures.size() - i);
-            break;
-        }
-    }
-}
 
-PassRefPtr<BitmapTexture> BitmapTexturePool::acquireTexture(const IntSize& size)
-{
-    BitmapTexturePoolEntry* selectedEntry = 0;
-    for (auto& entry : m_textures) {
-        // If the surface has only one reference (the one in m_textures), we can safely reuse it.
-        if (entry.m_texture->refCount() > 1)
-            continue;
+    if (!m_textures.isEmpty()) {
+        std::sort(m_textures.begin(), m_textures.end(),
+            [](const Entry& a, const Entry& b) { return a.m_lastUsedTime > b.m_lastUsedTime; });
 
-        if (entry.m_texture->canReuseWith(size)) {
-            selectedEntry = &entry;
-            break;
+        for (size_t i = 0; i < m_textures.size(); ++i) {
+            if (m_textures[i].m_lastUsedTime < minUsedTime) {
+                m_textures.remove(i, m_textures.size() - i);
+                break;
+            }
         }
     }
 
-    if (!selectedEntry) {
-        m_textures.append(BitmapTexturePoolEntry(createTexture()));
-        selectedEntry = &m_textures.last();
+    if (!m_attachmentTextures.isEmpty()) {
+        std::sort(m_attachmentTextures.begin(), m_attachmentTextures.end(),
+            [](const Entry& a, const Entry& b) { return a.m_lastUsedTime > b.m_lastUsedTime; });
+
+        for (size_t i = 0; i < m_attachmentTextures.size(); ++i) {
+            if (m_attachmentTextures[i].m_lastUsedTime < minUsedTime) {
+                m_attachmentTextures.remove(i, m_attachmentTextures.size() - i);
+                break;
+            }
+        }
     }
 
-    scheduleReleaseUnusedTextures();
-    selectedEntry->markUsed();
-    return selectedEntry->m_texture;
+    if (!m_textures.isEmpty() || !m_attachmentTextures.isEmpty())
+        scheduleReleaseUnusedTextures();
 }
 
-PassRefPtr<BitmapTexture> BitmapTexturePool::createTexture()
+RefPtr<BitmapTexture> BitmapTexturePool::createTexture(const BitmapTexture::Flags flags)
 {
 #if USE(TEXTURE_MAPPER_GL)
-    BitmapTextureGL* texture = new BitmapTextureGL(m_context3D);
-    return adoptRef(texture);
+    return adoptRef(new BitmapTextureGL(m_context3D, flags));
+#else
+    return nullptr;
 #endif
 }
 

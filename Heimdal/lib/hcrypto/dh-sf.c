@@ -53,8 +53,6 @@ struct dh_sf {
     SecDHContext secdh;
 };
 
-#define DH_NUM_TRIES 10
-
 static int
 sf_dh_generate_key(DH *dh)
 {
@@ -121,7 +119,7 @@ sf_dh_generate_key(DH *dh)
 	SecDHDestroy(sf->secdh);
     sf->secdh = NULL;
 
-    return 1;
+    return 0;
 }
 
 static int

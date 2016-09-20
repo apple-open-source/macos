@@ -34,13 +34,13 @@
 void Access::operator () (const CssmError &err)
 {
 	if (++mIteration > 2) {
-		secdebug("tokendb", "retry failed; aborting operation");
+		secinfo("tokendb", "retry failed; aborting operation");
 		throw;
 	}
 	
 	//@@@ hack until tokend returns RESET
 	if (err.error == -1) {
-		secdebug("tokendb", "TEMP HACK (error -1) action - reset and retry");
+		secinfo("tokendb", "TEMP HACK (error -1) action - reset and retry");
 		token.resetAcls();
 		return;
 	}
@@ -50,14 +50,14 @@ void Access::operator () (const CssmError &err)
 		case CSSM_ERRCODE_OPERATION_AUTH_DENIED:
 		case CSSM_ERRCODE_OBJECT_USE_AUTH_DENIED:
 			// @@@ do something more focused here, but for now...
-			secdebug("tokendb", "tokend denies auth; we're punting for now");
+			secinfo("tokendb", "tokend denies auth; we're punting for now");
 			throw;
 		case CSSM_ERRCODE_DEVICE_RESET:
-			secdebug("tokendb", "tokend signals reset; clearing and retrying");
+			secinfo("tokendb", "tokend signals reset; clearing and retrying");
 			token.resetAcls();
 			return;	// induce retry
 		}
 	// all others are non-recoverable
-	secdebug("tokendb", "non-recoverable error in Access(): %d", err.error);
+	secinfo("tokendb", "non-recoverable error in Access(): %d", err.error);
 	throw;
 }

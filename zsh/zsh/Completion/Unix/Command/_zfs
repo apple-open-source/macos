@@ -2,13 +2,15 @@
 # Synced with the S11U1 man page
 
 _zfs() {
-	local context state line expl
+	local context state line expl implementation
 	typeset -A opt_args
 	local -a subcmds rw_properties rw_propnames ro_properties create_properties
 	local -a share_nfs_ro_properties share_nfs_rw_properties
 	local -a share_smb_ro_properties share_nfs_rw_properties
 	local -a share_ro_properties share_rw_properties
 	local -a difffields delegatable_perms
+
+	_pick_variant -r implementation -c 'zpool upgrade -v' openzfs='This system supports ZFS pool feature flags' solaris
 
 	subcmds=(
 		"create" "destroy" "clone" "promote" "rename" "snapshot"
@@ -17,6 +19,8 @@ _zfs() {
 		"upgrade" "userspace" "groupspace" "hold" "holds" "release"
 		"diff" "key" "help"
 	)
+
+  [[ $OSTYPE == freebsd<7->.* ]] && subcmds+=(jail unjail)
 
 	share_nfs_ro_properties=(
 		"share.nfs.all"
@@ -529,6 +533,12 @@ _zfs() {
 			'-c[Change the encryption key]' \
 			'-o[Change a property]:property:_zfs_keysource_props' \
 			':filesystem or volume:_zfs_dataset -t fs -t vol'
+		;;
+
+	("jail"|"unjail")
+		_arguments \
+			'1: : _jails' \
+			'2:filesystem:_zfs_dataset -t fs'
 		;;
 
 	("help")

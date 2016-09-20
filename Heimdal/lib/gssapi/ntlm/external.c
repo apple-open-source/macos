@@ -68,20 +68,6 @@ get_signing_supported(gss_const_OID mech, gss_mo_desc *mo, gss_buffer_t value)
 
 static gss_mo_desc _gssntlm_mech_options[] = {
     {
-	GSS_C_NTLM_V1,
-	GSS_MO_MA,
-	"NTLMv1",
-	NULL,
-	_gss_mo_get_option_0
-    },
-    {
-	GSS_C_NTLM_FORCE_V1,
-	GSS_MO_MA,
-	"Force NTLMv1",
-	NULL,
-	_gss_mo_get_option_0
-    },
-    {
 	GSS_C_NTLM_V2,
 	GSS_MO_MA,
 	"NTLMv2",

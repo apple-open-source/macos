@@ -35,6 +35,7 @@
 __BEGIN_DECLS
 
 // Internal only views, do not export.
+extern const CFStringRef kSOSViewKeychainV0;
 extern const CFStringRef kSOSViewKeychainV0_tomb;
 extern const CFStringRef kSOSViewBackupBagV0_tomb;
 extern const CFStringRef kSOSViewWiFi_tomb;
@@ -50,14 +51,25 @@ typedef struct __OpaqueSOSView {
 } *SOSViewRef;
 
 
+typedef enum {
+    kViewSetAll,
+    kViewSetDefault,
+    kViewSetInitial,
+    kViewSetAlwaysOn,
+    kViewSetV0,
+    kViewSetRequiredForBackup
+} ViewSetKind;
+
+CFMutableSetRef SOSViewCopyViewSet(ViewSetKind setKind);
+
+
+
 CFSetRef SOSViewsGetV0ViewSet(void);
 CFSetRef SOSViewsGetV0SubviewSet(void);
 CFSetRef SOSViewsGetV0BackupViewSet(void);
 CFSetRef SOSViewsGetV0BackupBagViewSet(void);
 
 bool SOSViewsIsV0Subview(CFStringRef viewName);
-
-CFMutableSetRef SOSViewsCreateDefault(bool includeLegacy, CFErrorRef *error);
 
 // Basic interfaces to change and query views
 SOSViewResultCode SOSViewsEnable(SOSPeerInfoRef pi, CFStringRef viewname, CFErrorRef *error);
@@ -79,7 +91,7 @@ static inline bool SOSPeerInfoIsViewPermitted(SOSPeerInfoRef peerInfo, CFStringR
     return kSOSCCViewMember == viewResult || kSOSCCViewPending == viewResult || kSOSCCViewNotMember == viewResult;
 }
 
-
+const char *SOSViewsXlateAction(SOSViewActionCode action);
 __END_DECLS
 
 #endif /* defined(_sec_SOSViews_) */

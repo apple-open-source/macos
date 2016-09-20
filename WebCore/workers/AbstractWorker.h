@@ -54,12 +54,12 @@ namespace WebCore {
         AbstractWorker() = default;
 
         // Helper function that converts a URL to an absolute URL and checks the result for validity.
-        URL resolveURL(const String& url, ExceptionCode& ec);
+        URL resolveURL(const String& url, bool shouldBypassMainWorldContentSecurityPolicy, ExceptionCode&);
         intptr_t asID() const { return reinterpret_cast<intptr_t>(this); }
 
     private:
-        virtual void refEventTarget() override final { ref(); }
-        virtual void derefEventTarget() override final { deref(); }
+        void refEventTarget() final { ref(); }
+        void derefEventTarget() final { deref(); }
     };
 
 } // namespace WebCore

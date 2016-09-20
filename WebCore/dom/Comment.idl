@@ -18,8 +18,9 @@
  */
 
 [
-    Constructor([Default=NullString] optional DOMString data),
-    ConstructorCallWith=Document
+    Constructor(optional DOMString data),
+    ConstructorCallWith=Document,
+    JSGenerateToJSObject
 ] interface Comment : CharacterData {
 };
 

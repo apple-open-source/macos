@@ -166,31 +166,22 @@ public:
 
     virtual bool matchPropertyTable(OSDictionary * table, SInt32 * score);
 
-    /*!
-     * @function reportKey
-     * @discussion
+    /*
      * Issue an MMC REPORT KEY command.
-     * @param buffer
-     * Buffer for the data transfer.  The size of the buffer implies the size of
-     * the data transfer.  Pass null for the kDVDKeyFormatAGID_Invalidate format
-     * case.
-     * @param keyClass
-     * As documented by MMC.
-     * @param address
-     * As documented by MMC.
-     * @param grantID
-     * As documented by MMC.
-     * @param format
-     * As documented by MMC.
-     * @result
-     * Returns the status of the data transfer.
+     * Obsoleted, replaced by this interface:
+     *    virtual IOReturn reportKey( IOMemoryDescriptor * buffer,
+     *                                UInt8                keyClass,
+     *                                UInt32               address,
+     *                                UInt8                blockCount,
+     *                                UInt8                grantID,
+     *                                UInt8                format );
      */
 
     virtual IOReturn reportKey( IOMemoryDescriptor * buffer,
                                 const DVDKeyClass    keyClass,
                                 const UInt32         address,
                                 const UInt8          grantID,
-                                const DVDKeyFormat   format );
+                                const DVDKeyFormat   format ) __attribute__ ((deprecated));
 
     /*!
      * @function sendKey
@@ -308,7 +299,35 @@ public:
                                     DVDRZoneInfoAddressType addressType,
                                     UInt16 *                actualByteCount );
 
-    OSMetaClassDeclareReservedUnused(IODVDMedia,  0);
+    /*!
+     * @function reportKey
+     * @discussion
+     * Issue an MMC REPORT KEY command.
+     * @param buffer
+     * Buffer for the data transfer.  The size of the buffer implies the size of
+     * the data transfer.
+     * @param keyClass
+     * As documented by MMC.
+     * @param address
+     * As documented by MMC.
+     * @param blockCount
+     * As documented by MMC.
+     * @param grantID
+     * As documented by MMC.
+     * @param format
+     * As documented by MMC.
+     * @result
+     * Returns the status of the data transfer.
+     */
+
+    virtual IOReturn reportKey( IOMemoryDescriptor * buffer,
+                                UInt8                keyClass,
+                                UInt32               address,
+                                UInt8                blockCount,
+                                UInt8                grantID,
+                                UInt8                format );
+
+    OSMetaClassDeclareReservedUsed(IODVDMedia,  0);         /* reportKey */
     OSMetaClassDeclareReservedUnused(IODVDMedia,  1);
     OSMetaClassDeclareReservedUnused(IODVDMedia,  2);
     OSMetaClassDeclareReservedUnused(IODVDMedia,  3);

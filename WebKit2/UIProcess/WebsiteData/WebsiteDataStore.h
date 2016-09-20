@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,11 +27,11 @@
 #define WebsiteDataStore_h
 
 #include "WebProcessLifetimeObserver.h"
-#include "WebsiteDataTypes.h"
 #include <WebCore/SecurityOriginHash.h>
 #include <WebCore/SessionID.h>
 #include <functional>
 #include <wtf/HashSet.h>
+#include <wtf/OptionSet.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/WorkQueue.h>
@@ -46,6 +46,9 @@ namespace WebKit {
 class StorageManager;
 class WebPageProxy;
 class WebProcessPool;
+class WebResourceLoadStatisticsStore;
+enum class WebsiteDataFetchOption;
+enum class WebsiteDataType;
 struct WebsiteDataRecord;
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
@@ -57,10 +60,13 @@ public:
     struct Configuration {
         String networkCacheDirectory;
         String applicationCacheDirectory;
+        String applicationCacheFlatFileSubdirectoryName;
 
+        String mediaCacheDirectory;
         String webSQLDatabaseDirectory;
         String localStorageDirectory;
         String mediaKeysStorageDirectory;
+        String resourceLoadStatisticsDirectory;
     };
     static Ref<WebsiteDataStore> createNonPersistent();
     static Ref<WebsiteDataStore> create(Configuration);
@@ -71,11 +77,14 @@ public:
     bool isPersistent() const { return !m_sessionID.isEphemeral(); }
     WebCore::SessionID sessionID() const { return m_sessionID; }
 
+    bool resourceLoadStatisticsEnabled() const;
+    void setResourceLoadStatisticsEnabled(bool);
+
     static void cloneSessionData(WebPageProxy& sourcePage, WebPageProxy& newPage);
 
-    void fetchData(WebsiteDataTypes, std::function<void (Vector<WebsiteDataRecord>)> completionHandler);
-    void removeData(WebsiteDataTypes, std::chrono::system_clock::time_point modifiedSince, std::function<void ()> completionHandler);
-    void removeData(WebsiteDataTypes, const Vector<WebsiteDataRecord>&, std::function<void ()> completionHandler);
+    void fetchData(OptionSet<WebsiteDataType>, OptionSet<WebsiteDataFetchOption>, std::function<void (Vector<WebsiteDataRecord>)> completionHandler);
+    void removeData(OptionSet<WebsiteDataType>, std::chrono::system_clock::time_point modifiedSince, std::function<void ()> completionHandler);
+    void removeData(OptionSet<WebsiteDataType>, const Vector<WebsiteDataRecord>&, std::function<void ()> completionHandler);
 
     StorageManager* storageManager() { return m_storageManager.get(); }
 
@@ -84,12 +93,12 @@ private:
     explicit WebsiteDataStore(Configuration);
 
     // WebProcessLifetimeObserver.
-    virtual void webPageWasAdded(WebPageProxy&) override;
-    virtual void webPageWasRemoved(WebPageProxy&) override;
-    virtual void webProcessWillOpenConnection(WebProcessProxy&, IPC::Connection&) override;
-    virtual void webPageWillOpenConnection(WebPageProxy&, IPC::Connection&) override;
-    virtual void webPageDidCloseConnection(WebPageProxy&, IPC::Connection&) override;
-    virtual void webProcessDidCloseConnection(WebProcessProxy&, IPC::Connection&) override;
+    void webPageWasAdded(WebPageProxy&) override;
+    void webPageWasRemoved(WebPageProxy&) override;
+    void webProcessWillOpenConnection(WebProcessProxy&, IPC::Connection&) override;
+    void webPageWillOpenConnection(WebPageProxy&, IPC::Connection&) override;
+    void webPageDidCloseConnection(WebPageProxy&, IPC::Connection&) override;
+    void webProcessDidCloseConnection(WebProcessProxy&, IPC::Connection&) override;
 
     void platformInitialize();
     void platformDestroy();
@@ -108,12 +117,10 @@ private:
     const uint64_t m_identifier;
     const WebCore::SessionID m_sessionID;
 
-    const String m_networkCacheDirectory;
-    const String m_applicationCacheDirectory;
+    const Configuration m_configuration;
 
-    const String m_webSQLDatabaseDirectory;
-    const String m_mediaKeysStorageDirectory;
     const RefPtr<StorageManager> m_storageManager;
+    const RefPtr<WebResourceLoadStatisticsStore> m_resourceLoadStatistics;
 
     Ref<WorkQueue> m_queue;
 };

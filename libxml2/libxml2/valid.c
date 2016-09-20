@@ -2544,7 +2544,7 @@ xmlDumpNotationTable(xmlBufferPtr buf, xmlNotationTablePtr table) {
  * DICT_FREE:
  * @str:  a string
  *
- * Free a string if it is not owned by the "dict" dictionnary in the
+ * Free a string if it is not owned by the "dict" dictionary in the
  * current scope
  */
 #define DICT_FREE(str)						\
@@ -2646,8 +2646,10 @@ xmlAddID(xmlValidCtxtPtr ctxt, xmlDocPtr doc, const xmlChar *value,
 	/*
 	 * The id is already defined in this DTD.
 	 */
-	xmlErrValidNode(ctxt, attr->parent, XML_DTD_ID_REDEFINED,
-			"ID %s already defined\n", value, NULL, NULL);
+	if (ctxt != NULL) {
+	    xmlErrValidNode(ctxt, attr->parent, XML_DTD_ID_REDEFINED,
+			    "ID %s already defined\n", value, NULL, NULL);
+	}
 #endif /* LIBXML_VALID_ENABLED */
 	xmlFreeID(ret);
 	return(NULL);

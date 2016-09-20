@@ -1,11 +1,16 @@
 
-/*
- *  $Id: 808e536555f06924b450ab6b5a72c03b67c5b99a $
- *  Time-stamp:      "2009-11-01 11:45:57 bkorb"
+/**
+ * \file reset.c
  *
+ *  Reset the option state to the compiled state.
+ *
+ * @addtogroup autoopts
+ * @{
+ */
+/*
  *  This file is part of AutoOpts, a companion to AutoGen.
  *  AutoOpts is free software.
- *  AutoOpts is copyright (c) 1992-2009 by Bruce Korb - all rights reserved
+ *  AutoOpts is Copyright (C) 1992-2015 by Bruce Korb - all rights reserved
  *
  *  AutoOpts is available under any one of two licenses.  The license
  *  in use must be one of these two and the choice is under the control
@@ -17,15 +22,15 @@
  *   The Modified Berkeley Software Distribution License
  *      See the file "COPYING.mbsd"
  *
- *  These files have the following md5sums:
+ *  These files have the following sha256 sums:
  *
- *  43b91e8ca915626ed3818ffb1b71248b pkg/libopts/COPYING.gplv3
- *  06a1a2e4760c90ea5e1dad8dfaac4d39 pkg/libopts/COPYING.lgplv3
- *  66a5cedaf62c4b2637025f049f9b826f pkg/libopts/COPYING.mbsd
+ *  8584710e9b04216a394078dc156b781d0b47e1729104d666658aecef8ee32e95  COPYING.gplv3
+ *  4379e7444a0e2ce2b12dd6f5a52a27a4d02d39d247901d3285c88cf0d37f477b  COPYING.lgplv3
+ *  13aa749a5b0a454917a944ed8fffc530b784f5ead522b1aacaf4ec8aa55a6239  COPYING.mbsd
  */
 
 static void
-optionReset( tOptions* pOpts, tOptDesc* pOD )
+optionReset(tOptions * pOpts, tOptDesc * pOD)
 {
     pOD->fOptState &= OPTST_PERSISTENT_MASK;
     pOD->fOptState |= OPTST_RESET;
@@ -58,48 +63,49 @@ optionResetEverything(tOptions * pOpts)
  * private:
  *
  * what:  Reset the value of an option
- * arg:   + tOptions* + pOpts    + program options descriptor  +
- * arg:   + tOptDesc* + pOptDesc + the descriptor for this arg +
+ * arg:   + tOptions * + pOpts    + program options descriptor  +
+ * arg:   + tOptDesc * + pOptDesc + the descriptor for this arg +
  *
  * doc:
  *  This code will cause another option to be reset to its initial state.
  *  For example, --reset=foo will cause the --foo option to be reset.
 =*/
 void
-optionResetOpt( tOptions* pOpts, tOptDesc* pOD )
+optionResetOpt(tOptions * pOpts, tOptDesc * pOD)
 {
-    static ag_bool reset_active = AG_FALSE;
+    static bool reset_active = false;
 
     tOptState opt_state = OPTSTATE_INITIALIZER(DEFINED);
     char const * pzArg = pOD->optArg.argString;
     tSuccess     succ;
 
+    if (pOpts <= OPTPROC_EMIT_LIMIT)
+        return;
+
     if (reset_active)
         return;
 
     if (  (! HAS_originalOptArgArray(pOpts))
-       || (pOpts->originalOptArgCookie == NULL)) {
-        fputs(zResetNotConfig, stderr);
-        _exit(EX_SOFTWARE);
-    }
+       || (pOpts->originalOptArgCookie == NULL))
+        ao_bug(zno_reset);
 
     if ((pzArg == NULL) || (*pzArg == NUL)) {
-        fputs(zNoResetArg, stderr);
+        fprintf(stderr, zreset_arg, pOpts->pzProgName, pOD->pz_Name);
         pOpts->pUsageProc(pOpts, EXIT_FAILURE);
         /* NOTREACHED */
         assert(0 == 1);
     }
 
-    reset_active = AG_TRUE;
+    reset_active = true;
 
     if (pzArg[1] == NUL) {
         if (*pzArg == '*') {
             optionResetEverything(pOpts);
-            reset_active = AG_FALSE;
+            reset_active = false;
             return;
         }
 
-        succ = shortOptionFind(pOpts, (tAoUC)*pzArg, &opt_state);
+        succ = opt_find_short(pOpts, (uint8_t)*pzArg, &opt_state);
         if (! SUCCESSFUL(succ)) {
             fprintf(stderr, zIllOptChr, pOpts->pzProgPath, *pzArg);
             pOpts->pUsageProc(pOpts, EXIT_FAILURE);
@@ -107,7 +113,7 @@ optionResetOpt( tOptions* pOpts, tOptDesc* pOD )
             assert(0 == 1);
         }
     } else {
-        succ = longOptionFind(pOpts, (char *)pzArg, &opt_state);
+        succ = opt_find_long(pOpts, pzArg, &opt_state);
         if (! SUCCESSFUL(succ)) {
             fprintf(stderr, zIllOptStr, pOpts->pzProgPath, pzArg);
             pOpts->pUsageProc(pOpts, EXIT_FAILURE);
@@ -123,9 +129,10 @@ optionResetOpt( tOptions* pOpts, tOptDesc* pOD )
      *  Finally, clear the reset flag, too.
      */
     optionReset(pOpts, opt_state.pOD);
-    reset_active = AG_FALSE;
+    reset_active = false;
 }
-/*
+/** @}
+ *
  * Local Variables:
  * mode: C
  * c-file-style: "stroustrup"

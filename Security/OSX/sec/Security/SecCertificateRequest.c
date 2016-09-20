@@ -1196,7 +1196,7 @@ SecGenerateCertificateRequestSubject(SecCertificateRef ca_certificate, CFArrayRe
     sequence = CFDataCreateMutable(kCFAllocatorDefault, 0);
     CFDataSetLength(sequence, seq_len_length);
     uint8_t *sequence_ptr = CFDataGetMutableBytePtr(sequence);
-    *sequence_ptr++ = 0x30; //ASN1_CONSTR_SEQUENCE;
+    *sequence_ptr++ = 0x30; //ONE_BYTE_ASN1_CONSTR_SEQUENCE;
     require_noerr_quiet(DEREncodeLength(subject_item.Length + issuer_item.Length, sequence_ptr, &sequence_length), out);
     sequence_ptr += sequence_length;
     memcpy(sequence_ptr, issuer_item.Data, issuer_item.Length);

@@ -18,8 +18,7 @@
     Boston, MA 02110-1301, USA.
 */
 
-#ifndef JSTestNamedConstructor_h
-#define JSTestNamedConstructor_h
+#pragma once
 
 #include "JSDOMWrapper.h"
 #include "TestNamedConstructor.h"
@@ -27,21 +26,20 @@
 
 namespace WebCore {
 
-class JSTestNamedConstructor : public JSDOMWrapper {
+class JSTestNamedConstructor : public JSDOMWrapper<TestNamedConstructor> {
 public:
-    typedef JSDOMWrapper Base;
+    typedef JSDOMWrapper<TestNamedConstructor> Base;
     static JSTestNamedConstructor* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, Ref<TestNamedConstructor>&& impl)
     {
-        JSTestNamedConstructor* ptr = new (NotNull, JSC::allocateCell<JSTestNamedConstructor>(globalObject->vm().heap)) JSTestNamedConstructor(structure, globalObject, WTF::move(impl));
+        JSTestNamedConstructor* ptr = new (NotNull, JSC::allocateCell<JSTestNamedConstructor>(globalObject->vm().heap)) JSTestNamedConstructor(structure, *globalObject, WTFMove(impl));
         ptr->finishCreation(globalObject->vm());
         return ptr;
     }
 
     static JSC::JSObject* createPrototype(JSC::VM&, JSC::JSGlobalObject*);
-    static JSC::JSObject* getPrototype(JSC::VM&, JSC::JSGlobalObject*);
+    static JSC::JSObject* prototype(JSC::VM&, JSC::JSGlobalObject*);
     static TestNamedConstructor* toWrapped(JSC::JSValue);
     static void destroy(JSC::JSCell*);
-    ~JSTestNamedConstructor();
 
     DECLARE_INFO;
 
@@ -50,15 +48,10 @@ public:
         return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), info());
     }
 
-    static JSC::JSValue getConstructor(JSC::VM&, JSC::JSGlobalObject*);
+    static JSC::JSValue getConstructor(JSC::VM&, const JSC::JSGlobalObject*);
     static JSC::JSValue getNamedConstructor(JSC::VM&, JSC::JSGlobalObject*);
-    TestNamedConstructor& impl() const { return *m_impl; }
-    void releaseImpl() { std::exchange(m_impl, nullptr)->deref(); }
-
-private:
-    TestNamedConstructor* m_impl;
 protected:
-    JSTestNamedConstructor(JSC::Structure*, JSDOMGlobalObject*, Ref<TestNamedConstructor>&&);
+    JSTestNamedConstructor(JSC::Structure*, JSDOMGlobalObject&, Ref<TestNamedConstructor>&&);
 
     void finishCreation(JSC::VM& vm)
     {
@@ -80,10 +73,15 @@ inline JSC::WeakHandleOwner* wrapperOwner(DOMWrapperWorld&, TestNamedConstructor
     return &owner.get();
 }
 
-JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, TestNamedConstructor*);
-inline JSC::JSValue toJS(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, TestNamedConstructor& impl) { return toJS(exec, globalObject, &impl); }
+inline void* wrapperKey(TestNamedConstructor* wrappableObject)
+{
+    return wrappableObject;
+}
+
+JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, TestNamedConstructor&);
+inline JSC::JSValue toJS(JSC::ExecState* state, JSDOMGlobalObject* globalObject, TestNamedConstructor* impl) { return impl ? toJS(state, globalObject, *impl) : JSC::jsNull(); }
+JSC::JSValue toJSNewlyCreated(JSC::ExecState*, JSDOMGlobalObject*, Ref<TestNamedConstructor>&&);
+inline JSC::JSValue toJSNewlyCreated(JSC::ExecState* state, JSDOMGlobalObject* globalObject, RefPtr<TestNamedConstructor>&& impl) { return impl ? toJSNewlyCreated(state, globalObject, impl.releaseNonNull()) : JSC::jsNull(); }
 
 
 } // namespace WebCore
-
-#endif

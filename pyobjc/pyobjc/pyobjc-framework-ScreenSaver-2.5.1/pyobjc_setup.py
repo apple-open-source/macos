@@ -186,15 +186,22 @@ def get_os_level():
 class pyobjc_install_lib (install_lib.install_lib):
     def get_exclusions(self):
         result = install_lib.install_lib.get_exclusions(self)
-        for fn in install_lib._install_lib.get_outputs(self):
-            if 'PyObjCTest' in fn:
-                result[fn] = 1
+        if hasattr(install_lib, '_install_lib'):
+            outputs = install_lib._install_lib.get_outputs(self)
+        else:
+            outputs = install_lib.orig.install_lib.get_outputs(self)
 
-        result['PyObjCTest'] = 1
-        result[os.path.join(self.install_dir, 'PyObjCTest')] = 1
+        exclusions = {}
+        for fn in outputs:
+            if 'PyObjCTest' in fn:
+                exclusions[fn] = 1
+
+        exclusions['PyObjCTest'] = 1
+        exclusions[os.path.join(self.install_dir, 'PyObjCTest')] = 1
         for fn in os.listdir('PyObjCTest'):
-            result[os.path.join('PyObjCTest', fn)] = 1
-            result[os.path.join(self.install_dir, 'PyObjCTest', fn)] = 1
+            exclusions[os.path.join('PyObjCTest', fn)] = 1
+            exclusions[os.path.join(self.install_dir, 'PyObjCTest', fn)] = 1
+        result.update(exclusions)
 
         return result
 

@@ -451,26 +451,6 @@ _nc_list_new(void *d)
 }
 
 /*
- * Free a node
- */
-void
-_nc_list_free(list_t *l)
-{
-	if (l == NULL) return;
-	free(l);
-}
-
-/*
- * Get previous node
- */
-list_t *
-_nc_list_prev(list_t *l)
-{
-	if (l == NULL) return NULL;
-	return l->prev;
-}
-
-/*
  * Get next node
  */
 list_t *
@@ -478,36 +458,6 @@ _nc_list_next(list_t *l)
 {
 	if (l == NULL) return NULL;
 	return l->next;
-}
-
-/*
- * Get head (first node) of list
- */
-list_t *
-_nc_list_head(list_t *l)
-{
-	list_t *p;
-
-	if (l == NULL) return NULL;
-
-	for (p = l; p->prev != NULL; p = p->prev);
-
-	return p;
-}
-
-/*
- * Get tail (last node) of list
- */
-list_t *
-_nc_list_tail(list_t *l)
-{
-	list_t *p;
-
-	if (l == NULL) return NULL;
-
-	for (p = l; p->next != NULL; p = p->next);
-
-	return p;
 }
 
 /*
@@ -532,47 +482,6 @@ _nc_list_prepend(list_t *l, list_t *n)
 }
 
 /*
- * Append a node after another node.
- * Cuts list if n is NULL.
- */
-list_t *
-_nc_list_append(list_t *l, list_t *n)
-{
-	if (l == NULL) return n;
-
-	if (n != NULL)
-	{
-		n->prev = l;
-		n->next = l->next;
-	}
-
-	if (l->next != NULL) n->next->prev = n;
-	l->next = n;
-
-	return n;
-}
-
-/*
- * Set next pointer - use with care.
- */
-void
-_nc_list_set_next(list_t *l, list_t *n)
-{
-	if (l == NULL) return;
-	l->next = n;
-}
-
-/*
- * Set prev pointer - use with care.
- */
-void
-_nc_list_set_prev(list_t *l, list_t *p)
-{
-	if (l == NULL) return;
-	l->prev = p;
-}
-
-/*
  * Concatenate two lists.
  * Returns new head.
  */
@@ -594,127 +503,11 @@ _nc_list_concat(list_t *a, list_t *b)
 	return p;
 }
 
-uint32_t
-_nc_list_count(list_t *l)
-{
-	uint32_t n;
-	list_t *p;
-
-	n = 0;
-	for (p = l; p != NULL; p = p->next) n++;
-	return n;
-}
-
 void *
 _nc_list_data(list_t *l)
 {
 	if (l == NULL) return NULL;
 	return l->data;
-}
-
-void
-_nc_list_set_data(list_t *l, void *d)
-{
-	if (l != NULL) l->data = d;
-}
-
-list_t *
-_nc_list_find(list_t *l, void *d)
-{
-	list_t *p;
-
-	if (l == NULL) return NULL;
-
-	for (p = l; p != NULL; p = p->next)
-	{
-		if (p->data == d) return p;
-	}
-
-	return NULL;
-}
-
-list_t *
-_nc_list_delete(list_t *l, void *d)
-{
-	list_t *p;
-
-	if (l == NULL) return NULL;
-
-	if (l->data == d)
-	{
-		p = l->next;
-		if (p != NULL) p->prev = NULL;
-		_nc_list_free(l);
-		return p;
-	}
-
-	for (p = l->next; p != NULL; p = p->next)
-	{
-		if (p->data == d)
-		{
-			p->prev->next = p->next;
-			if (p->next != NULL) p->next->prev = p->prev;
-			_nc_list_free(p);
-			return l;
-		}
-	}
-
-	return l;
-}
-
-list_t *
-_nc_list_reverse(list_t *l)
-{
-	list_t *x, *s, *r;
-
-	if (l == NULL) return NULL;
-
-	x = l->prev;
-	r = l;
-	s = l->next;
-
-	while (s != NULL)
-	{
-		s = r->next;
-		r->next = r->prev;
-		r->prev = s;
-		if (s != NULL) r = s;
-	}
-
-	if (x != NULL)
-	{
-		x->next = r;
-		r->prev = x;
-	}
-
-	return r;
-}
-
-list_t *
-_nc_list_extract(list_t *n)
-{
-	if (n == NULL) return NULL;
-
-	if (n->prev != NULL) n->prev->next = n->next;
-	if (n->next != NULL) n->next->prev = n->prev;
-
-	n->prev = NULL;
-	n->next = NULL;
-
-	return n;
-}
-
-list_t *
-_nc_list_chop(list_t *l)
-{
-	list_t *p;
-
-	if (l == NULL) return NULL;
-	p = l->next;
-	if (p != NULL) p->prev = NULL;
-
-	_nc_list_free(l);
-	return p;
 }
 
 void
@@ -729,7 +522,7 @@ _nc_list_free_list(list_t *l)
 	while (p != NULL)
 	{
 		n = p->next;
-		_nc_list_free(p);
+		free(p);
 		p = n;
 	}
 }

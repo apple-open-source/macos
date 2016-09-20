@@ -1431,6 +1431,7 @@ gui_mch_init()
 		p_window = h - 1;
 	    Rows = h;
 	}
+	limit_screen_size();
 	/*
 	 * Set the (x,y) position of the main window only if specified in the
 	 * users geometry, so we get good defaults when they don't. This needs
@@ -1502,14 +1503,13 @@ gui_mch_init()
     if (XGetIconSizes(XtDisplay(vimShell), root_window,
 						   &size, &number_sizes) != 0)
     {
-
 	if (number_sizes > 0)
 	{
-	    if (size->max_height >= 48 && size->max_height >= 48)
+	    if (size->max_height >= 48 && size->max_width >= 48)
 		magick = vim48x48;
-	    else if (size->max_height >= 32 && size->max_height >= 32)
+	    else if (size->max_height >= 32 && size->max_width >= 32)
 		magick = vim32x32;
-	    else if (size->max_height >= 16 && size->max_height >= 16)
+	    else if (size->max_height >= 16 && size->max_width >= 16)
 		magick = vim16x16;
 	}
     }
@@ -2197,12 +2197,12 @@ check_fontset_sanity(fs)
 	if (	   xfs[i]->max_bounds.width != 2 * min_width
 		&& xfs[i]->max_bounds.width != min_width)
 	{
-	    EMSG2(_("E253: Fontset name: %s\n"), base_name);
-	    EMSG2(_("Font0: %s\n"), font_name[min_font_idx]);
-	    EMSG2(_("Font1: %s\n"), font_name[i]);
-	    EMSGN(_("Font%ld width is not twice that of font0\n"), i);
-	    EMSGN(_("Font0 width: %ld\n"), xfs[min_font_idx]->max_bounds.width);
-	    EMSGN(_("Font1 width: %ld\n\n"), xfs[i]->max_bounds.width);
+	    EMSG2(_("E253: Fontset name: %s"), base_name);
+	    EMSG2(_("Font0: %s"), font_name[min_font_idx]);
+	    EMSG2(_("Font1: %s"), font_name[i]);
+	    EMSGN(_("Font%ld width is not twice that of font0"), i);
+	    EMSGN(_("Font0 width: %ld"), xfs[min_font_idx]->max_bounds.width);
+	    EMSGN(_("Font1 width: %ld"), xfs[i]->max_bounds.width);
 	    return FAIL;
 	}
     }
@@ -2895,6 +2895,10 @@ gui_mch_wait_for_chars(wtime)
 	    focus = gui.in_focus;
 	}
 
+#ifdef MESSAGE_QUEUE
+	parse_queued_messages();
+#endif
+
 	/*
 	 * Don't use gui_mch_update() because then we will spin-lock until a
 	 * char arrives, instead we use XtAppProcessEvent() to hang until an
@@ -3194,7 +3198,7 @@ gui_x11_send_event_handler(w, client_data, event, dum)
     if (e->type == PropertyNotify && e->window == commWindow
 	    && e->atom == commProperty &&  e->state == PropertyNewValue)
     {
-	serverEventProc(gui.dpy, event);
+	serverEventProc(gui.dpy, event, 0);
     }
 }
 #endif

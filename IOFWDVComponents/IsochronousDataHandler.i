@@ -27,10 +27,7 @@
 					
 	Copyright:	© 1997-2001 by Apple Computer, Inc., all rights reserved.
 
-		$Log: IsochronousDataHandler.i,v $
-		Revision 1.9  2010/08/05 20:59:16  calderon
-		<rdar://problem/6822618> IOFWDVComponents should add APSL headers to each source file
-
+		$Log: not supported by cvs2svn $
 		Revision 1.8  2002/12/20 22:33:25  wgulland
 		Fix radars 3118059 and 3071011
 		

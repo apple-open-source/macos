@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2007,2011,2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2005-2016 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,12 +30,10 @@
 #ifndef	_DER_KEYS_H_
 #define _DER_KEYS_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <libDER/libDER.h>
 #include <libDER/DER_Decode.h>
+
+__BEGIN_DECLS
 
 /* Algorithm Identifier components */
 typedef struct {
@@ -117,9 +115,7 @@ typedef struct {
 extern const DERItemSpec DERRSAKeyPairItemSpecs[];
 extern const DERSize DERNumRSAKeyPairItemSpecs;
 
-#ifdef __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif	/* _DER_KEYS_H_ */
 

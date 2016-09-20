@@ -45,8 +45,14 @@
 
 #define DATA_NAME "pam_uwtmp.utmpx"
 
+struct pam_uwtmp_data {
+	struct utmpx	utmpx;
+	struct utmpx	backup;
+	int				restore;
+};
+
 PAM_EXTERN int
-populate_struct(pam_handle_t *pamh, struct utmpx *u)
+populate_struct(pam_handle_t *pamh, struct utmpx *u, int populate)
 {
 	int status;
 	char *tty;
@@ -63,22 +69,27 @@ populate_struct(pam_handle_t *pamh, struct utmpx *u)
 	if (NULL != user)
 		strlcpy(u->ut_user, user, sizeof(u->ut_user));
 
-	if (PAM_SUCCESS != (status = pam_get_item(pamh, PAM_TTY, (const void **)&tty))) {
-		openpam_log(PAM_LOG_DEBUG, "Unable to obtain the tty.");
-		return status;
-	}
-	if (NULL == tty) {
-		openpam_log(PAM_LOG_DEBUG, "The tty is NULL.");
-		return PAM_IGNORE;
-	} else
-		strlcpy(u->ut_line, tty, sizeof(u->ut_line));
+	if (populate) {
+		if (PAM_SUCCESS != (status = pam_get_item(pamh, PAM_TTY, (const void **)&tty))) {
+			openpam_log(PAM_LOG_DEBUG, "Unable to obtain the tty.");
+			return status;
+		}
+		if (NULL == tty) {
+			openpam_log(PAM_LOG_DEBUG, "The tty is NULL.");
+			return PAM_IGNORE;
+		} else
+			strlcpy(u->ut_line, tty, sizeof(u->ut_line));
 
-	if (PAM_SUCCESS != (status = pam_get_item(pamh, PAM_RHOST, (const void **)&remhost))) {
-		openpam_log(PAM_LOG_DEBUG, "Unable to obtain the rhost.");
-		return status;
+		if (PAM_SUCCESS != (status = pam_get_item(pamh, PAM_RHOST, (const void **)&remhost))) {
+			openpam_log(PAM_LOG_DEBUG, "Unable to obtain the rhost.");
+			return status;
+		}
+		if (NULL != remhost)
+			strlcpy(u->ut_host, remhost, sizeof(u->ut_host));
 	}
-	if (NULL != remhost)
-		strlcpy(u->ut_host, remhost, sizeof(u->ut_host));
+
+	u->ut_pid = getpid();
+	gettimeofday(&u->ut_tv, NULL);
 
 	return status;
 }
@@ -87,21 +98,46 @@ PAM_EXTERN int
 pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
 	int status;
+	struct pam_uwtmp_data *pam_data = NULL;
 	struct utmpx *u = NULL;
+	struct utmpx *t = NULL;
+	char *tty;
 
-	if( (u = calloc(1, sizeof(*u))) == NULL ) {
+	if( (pam_data = calloc(1, sizeof(*pam_data))) == NULL ) {
 		openpam_log(PAM_LOG_ERROR, "Memory allocation error.");
 		return PAM_BUF_ERR;
 	}
 
-	if (PAM_SUCCESS != (status = populate_struct(pamh, u))) {
-		pam_set_data(pamh, DATA_NAME, NULL, NULL);
-		goto err;
+	u = &pam_data->utmpx;
+	
+	// Existing utmpx entry for current terminal?
+	status = pam_get_item(pamh, PAM_TTY, (const void **) &tty);
+	if (status == PAM_SUCCESS && tty != NULL) {
+		strlcpy(u->ut_line, tty, sizeof(u->ut_line));
+		t = getutxline(u);
 	}
 
-	u->ut_pid = getpid();
-	u->ut_type = UTMPX_AUTOFILL_MASK | USER_PROCESS;
-	gettimeofday(&u->ut_tv, NULL);
+	if (t) {
+		// YES: backup existing utmpx entry + update
+		openpam_log(PAM_LOG_DEBUG, "Updating existing entry for %s", u->ut_line);
+		memcpy(&pam_data->utmpx,  t, sizeof(*t));
+		memcpy(&pam_data->backup, t, sizeof(*t));
+		pam_data->restore = 1;
+
+		if (PAM_SUCCESS != (status = populate_struct(pamh, &pam_data->utmpx, 0))) {
+			pam_set_data(pamh, DATA_NAME, NULL, NULL);
+			goto err;
+		}
+	} else {
+		// NO: create new utmpx entry
+		openpam_log(PAM_LOG_DEBUG, "New entry for %s", tty ?: "-");
+		if (PAM_SUCCESS != (status = populate_struct(pamh, u, 1))) {
+			pam_set_data(pamh, DATA_NAME, NULL, NULL);
+			goto err;
+		}
+
+		u->ut_type = UTMPX_AUTOFILL_MASK | USER_PROCESS;
+	}
 
 	if (PAM_SUCCESS != (status = pam_set_data(pamh, DATA_NAME, u, openpam_free_data))) {
 		openpam_log(PAM_LOG_ERROR, "There was an error setting data in the context.");
@@ -117,7 +153,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	return PAM_SUCCESS;
 
 err:
-	free(u);
+	free(pam_data);
 	return status;
 }
 
@@ -125,28 +161,35 @@ PAM_EXTERN int
 pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
 	int status;
+	struct pam_uwtmp_data *pam_data = NULL;
 	struct utmpx *u = NULL;
 	int free_u = 0;
 
-	status = pam_get_data(pamh, DATA_NAME, (const void **)&u);
+	status = pam_get_data(pamh, DATA_NAME, (const void **)&pam_data);
 	if( status != PAM_SUCCESS ) {
 		openpam_log(PAM_LOG_DEBUG, "Unable to obtain the tmp record from the context.");
 	}
 
-	if (NULL == u) {
+	if (NULL == pam_data) {
 		if( (u = calloc(1, sizeof(*u))) == NULL ) {
 			openpam_log(PAM_LOG_ERROR, "Memory allocation error.");
 			return PAM_BUF_ERR;
 		}
 		free_u = 1;
 
-		if (PAM_SUCCESS != (status = populate_struct(pamh, u)))
+		if (PAM_SUCCESS != (status = populate_struct(pamh, u, 1)))
 			goto fin;
+	} else {
+		u = &pam_data->utmpx;
 	}
 
-	u->ut_pid = getpid();
-	u->ut_type = UTMPX_AUTOFILL_MASK | DEAD_PROCESS;
-	gettimeofday(&u->ut_tv, NULL);
+	if (pam_data != NULL && pam_data->restore) {
+		u = &pam_data->backup;
+		openpam_log(PAM_LOG_DEBUG, "Restoring previous entry for %s", u->ut_line);
+	} else {
+		openpam_log(PAM_LOG_DEBUG, "Dead process");
+		u->ut_type = UTMPX_AUTOFILL_MASK | DEAD_PROCESS;
+	}
 
 	if( pututxline(u) == NULL ) {
 		openpam_log(PAM_LOG_ERROR, "Unable to write the utmp record.");

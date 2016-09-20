@@ -883,7 +883,7 @@ static void vol_appeared(DADiskRef disk, void *launchCtx)
     if (caches->kernelsCount > 0) {
         watch_kernels(watched, caches->kernelpath, fsPort);
      
-        // watch any other kernelcache files (kernelcache.SUFFIX)
+        // watch any other prelinkedkernel files (prelinkedkernel.SUFFIX)
         if (watched->caches->extraKernelCachePaths) {
             for (i = 0; i < watched->caches->nekcp; i++) {
                 WATCH(watched, path, caches->extraKernelCachePaths[i].rpath, fsPort);

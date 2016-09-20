@@ -23,6 +23,7 @@
 
 #include <IOKit/IOLib.h>
 #include "IOHIDSystemCursorHelper.h"
+#include "IOHIDDebug.h"
 
 //===========================================================================
 boolean_t IOHIDSystemCursorHelper::init()
@@ -125,13 +126,13 @@ bool IOHIDSystemCursorHelper::isPosting()
 //===========================================================================
 void IOHIDSystemCursorHelper::logPosition(const char *name, uint64_t ts)
 {
-    IOLog("IOHIDSystem::%-20s cursor @ %lld: "
+    HIDLog("IOHIDSystem::%-20s cursor @ %lld: "
           "(%4lld.%02lld, %4lld.%02lld) "
           "[%+3lld.%02lld, %+3lld.%02lld] "
           "P[%+3lld.%02lld, %+3lld.%02lld] "
           "A[%+3lld.%02lld, %+3lld.%02lld] "
           "S(%4lld.%02lld, %4lld.%02lld) "
-          "C %ld/%ld of %lld.%01lld\n",
+          "C %ld/%ld of %lld.%01lld",
           name, ts,
           location.xValue().as64(), (location.xValue().asFixed64() & 0xffff) / 656,
           location.yValue().as64(), (location.yValue().asFixed64() & 0xffff) / 656,

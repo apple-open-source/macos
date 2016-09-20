@@ -61,7 +61,7 @@ struct __DACommandRunLoopSourceJob
 typedef struct __DACommandRunLoopSourceJob __DACommandRunLoopSourceJob;
 
 static __DACommandRunLoopSourceJob * __gDACommandRunLoopSourceJobs = NULL;
-static pthread_mutex_t	             __gDACommandRunLoopSourceLock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t               __gDACommandRunLoopSourceLock = PTHREAD_MUTEX_INITIALIZER;
 static CFMachPortRef                 __gDACommandRunLoopSourcePort = NULL;
 
 static void __DACommandExecute( char * const *           argv,

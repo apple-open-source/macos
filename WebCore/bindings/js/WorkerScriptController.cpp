@@ -30,20 +30,22 @@
 
 #include "JSDOMBinding.h"
 #include "JSDedicatedWorkerGlobalScope.h"
+#include "JSEventTarget.h"
 #include "ScriptSourceCode.h"
 #include "WebCoreJSClientData.h"
+#include "WorkerConsoleClient.h"
 #include "WorkerGlobalScope.h"
 #include "WorkerObjectProxy.h"
-#include "WorkerScriptDebugServer.h"
 #include "WorkerThread.h"
 #include <bindings/ScriptValue.h>
 #include <heap/StrongInlines.h>
 #include <interpreter/Interpreter.h>
 #include <runtime/Completion.h>
+#include <runtime/Error.h>
 #include <runtime/Exception.h>
 #include <runtime/ExceptionHelpers.h>
-#include <runtime/Error.h>
 #include <runtime/JSLock.h>
+#include <runtime/Watchdog.h>
 
 using namespace JSC;
 
@@ -55,12 +57,17 @@ WorkerScriptController::WorkerScriptController(WorkerGlobalScope* workerGlobalSc
     , m_workerGlobalScopeWrapper(*m_vm)
     , m_executionForbidden(false)
 {
+    m_vm->ensureWatchdog();
     initNormalWorldClientData(m_vm.get());
 }
 
 WorkerScriptController::~WorkerScriptController()
 {
     JSLockHolder lock(vm());
+    if (m_workerGlobalScopeWrapper) {
+        m_workerGlobalScopeWrapper->setConsoleClient(nullptr);
+        m_consoleClient = nullptr;
+    }
     m_workerGlobalScopeWrapper.clear();
     m_vm = nullptr;
 }
@@ -74,24 +81,28 @@ void WorkerScriptController::initScript()
     // Explicitly protect the global object's prototype so it isn't collected
     // when we allocate the global object. (Once the global object is fully
     // constructed, it can mark its own prototype.)
-    Structure* workerGlobalScopePrototypeStructure = JSWorkerGlobalScopePrototype::createStructure(*m_vm, 0, jsNull());
-    Strong<JSWorkerGlobalScopePrototype> workerGlobalScopePrototype(*m_vm, JSWorkerGlobalScopePrototype::create(*m_vm, 0, workerGlobalScopePrototypeStructure));
-
     if (m_workerGlobalScope->isDedicatedWorkerGlobalScope()) {
-        Structure* dedicatedContextPrototypeStructure = JSDedicatedWorkerGlobalScopePrototype::createStructure(*m_vm, 0, workerGlobalScopePrototype.get());
+        Structure* dedicatedContextPrototypeStructure = JSDedicatedWorkerGlobalScopePrototype::createStructure(*m_vm, 0, jsNull());
         Strong<JSDedicatedWorkerGlobalScopePrototype> dedicatedContextPrototype(*m_vm, JSDedicatedWorkerGlobalScopePrototype::create(*m_vm, 0, dedicatedContextPrototypeStructure));
         Structure* structure = JSDedicatedWorkerGlobalScope::createStructure(*m_vm, 0, dedicatedContextPrototype.get());
+        auto* proxyStructure = JSProxy::createStructure(*m_vm, nullptr, jsNull(), PureForwardingProxyType);
+        auto* proxy = JSProxy::create(*m_vm, proxyStructure);
 
-        m_workerGlobalScopeWrapper.set(*m_vm, JSDedicatedWorkerGlobalScope::create(*m_vm, structure, static_cast<DedicatedWorkerGlobalScope&>(*m_workerGlobalScope)));
-        workerGlobalScopePrototypeStructure->setGlobalObject(*m_vm, m_workerGlobalScopeWrapper.get());
+        m_workerGlobalScopeWrapper.set(*m_vm, JSDedicatedWorkerGlobalScope::create(*m_vm, structure, static_cast<DedicatedWorkerGlobalScope&>(*m_workerGlobalScope), proxy));
         dedicatedContextPrototypeStructure->setGlobalObject(*m_vm, m_workerGlobalScopeWrapper.get());
         ASSERT(structure->globalObject() == m_workerGlobalScopeWrapper);
         ASSERT(m_workerGlobalScopeWrapper->structure()->globalObject() == m_workerGlobalScopeWrapper);
-        workerGlobalScopePrototype->structure()->setGlobalObject(*m_vm, m_workerGlobalScopeWrapper.get());
         dedicatedContextPrototype->structure()->setGlobalObject(*m_vm, m_workerGlobalScopeWrapper.get());
+        dedicatedContextPrototype->structure()->setPrototypeWithoutTransition(*m_vm, JSWorkerGlobalScope::prototype(*m_vm, m_workerGlobalScopeWrapper.get()));
+
+        proxy->setTarget(*m_vm, m_workerGlobalScopeWrapper.get());
+        proxy->structure()->setGlobalObject(*m_vm, m_workerGlobalScopeWrapper.get());
     }
     ASSERT(m_workerGlobalScopeWrapper->globalObject() == m_workerGlobalScopeWrapper);
-    ASSERT(asObject(m_workerGlobalScopeWrapper->prototype())->globalObject() == m_workerGlobalScopeWrapper);
+    ASSERT(asObject(m_workerGlobalScopeWrapper->getPrototypeDirect())->globalObject() == m_workerGlobalScopeWrapper);
+
+    m_consoleClient = std::make_unique<WorkerConsoleClient>(*m_workerGlobalScope);
+    m_workerGlobalScopeWrapper->setConsoleClient(m_consoleClient.get());
 }
 
 void WorkerScriptController::evaluate(const ScriptSourceCode& sourceCode)
@@ -120,8 +131,7 @@ void WorkerScriptController::evaluate(const ScriptSourceCode& sourceCode, NakedP
     JSC::evaluate(exec, sourceCode.jsSourceCode(), m_workerGlobalScopeWrapper->globalThis(), returnedException);
 
     VM& vm = exec->vm();
-    if ((returnedException && isTerminatedExecutionException(returnedException))
-        || (vm.watchdog && vm.watchdog->didFire())) {
+    if ((returnedException && isTerminatedExecutionException(returnedException)) || isTerminatingExecution()) {
         forbidExecution();
         return;
     }
@@ -131,7 +141,8 @@ void WorkerScriptController::evaluate(const ScriptSourceCode& sourceCode, NakedP
         int lineNumber = 0;
         int columnNumber = 0;
         String sourceURL = sourceCode.url().string();
-        if (m_workerGlobalScope->sanitizeScriptError(errorMessage, lineNumber, columnNumber, sourceURL, sourceCode.cachedScript())) {
+        Deprecated::ScriptValue error;
+        if (m_workerGlobalScope->sanitizeScriptError(errorMessage, lineNumber, columnNumber, sourceURL, error, sourceCode.cachedScript())) {
             vm.throwException(exec, createError(exec, errorMessage.impl()));
             returnedException = vm.exception();
             vm.clearException();
@@ -148,20 +159,20 @@ void WorkerScriptController::setException(JSC::Exception* exception)
 void WorkerScriptController::scheduleExecutionTermination()
 {
     // The mutex provides a memory barrier to ensure that once
-    // termination is scheduled, isExecutionTerminating will
+    // termination is scheduled, isTerminatingExecution() will
     // accurately reflect that state when called from another thread.
-    MutexLocker locker(m_scheduledTerminationMutex);
-    if (m_vm->watchdog)
-        m_vm->watchdog->fire();
+    LockHolder locker(m_scheduledTerminationMutex);
+    m_isTerminatingExecution = true;
+
+    ASSERT(m_vm->watchdog());
+    m_vm->watchdog()->terminateSoon();
 }
 
-bool WorkerScriptController::isExecutionTerminating() const
+bool WorkerScriptController::isTerminatingExecution() const
 {
     // See comments in scheduleExecutionTermination regarding mutex usage.
-    MutexLocker locker(m_scheduledTerminationMutex);
-    if (m_vm->watchdog)
-        return m_vm->watchdog->didFire();
-    return false;
+    LockHolder locker(m_scheduledTerminationMutex);
+    return m_isTerminatingExecution;
 }
 
 void WorkerScriptController::forbidExecution()

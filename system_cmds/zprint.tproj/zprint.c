@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -11,10 +11,10 @@
  * unlawful or unlicensed copies of an Apple operating system, or to
  * circumvent, violate, or enable the circumvention or violation of, any
  * terms of an Apple operating system software license agreement.
- * 
+ *
  * Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -22,34 +22,34 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 /*
  * @OSF_COPYRIGHT@
  */
-/* 
+/*
  * Mach Operating System
  * Copyright (c) 1991,1990,1989 Carnegie Mellon University
  * All Rights Reserved.
- * 
+ *
  * Permission to use, copy, modify and distribute this software and its
  * documentation is hereby granted, provided that both the copyright
  * notice and this permission notice appear in all copies of the
  * software, derivative works or modified versions, and any portions
  * thereof, and that both notices appear in supporting documentation.
- * 
- * CARNEGIE MELLON ALLOWS FREE USE OF THIS SOFTWARE IN ITS 
+ *
+ * CARNEGIE MELLON ALLOWS FREE USE OF THIS SOFTWARE IN ITS
  * CONDITION.  CARNEGIE MELLON DISCLAIMS ANY LIABILITY OF ANY KIND FOR
  * ANY DAMAGES WHATSOEVER RESULTING FROM THE USE OF THIS SOFTWARE.
- * 
+ *
  * Carnegie Mellon requests users of this software to return to
- * 
+ *
  *  Software Distribution Coordinator  or  Software.Distribution@CS.CMU.EDU
  *  School of Computer Science
  *  Carnegie Mellon University
  *  Pittsburgh PA 15213-3890
- * 
+ *
  * any improvements or extensions that they make and grant Carnegie the
  * rights to redistribute these changes.
  */
@@ -64,8 +64,6 @@
  *	With a "-w" flag, calculates how much much space is allocated
  *	to zones but not currently in use.
  */
-
-
 
 #include <vm_statistics.h>
 #include <stdio.h>
@@ -86,9 +84,6 @@
 #include <IOKit/kext/OSKext.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreSymbolication/CoreSymbolication.h>
-
-
-
 
 #define streql(a, b)		(strcmp((a), (b)) == 0)
 #define strneql(a, b, n)	(strncmp((a), (b), (n)) == 0)
@@ -139,7 +134,7 @@ sigintr(__unused int signum)
 static void
 usage(void)
 {
-	fprintf(stderr, "usage: %s [-w] [-s] [-c] [-h] [-t] [-d] [-p <pid>] [name]\n", program);
+	fprintf(stderr, "usage: %s [-w] [-s] [-c] [-h] [-t] [-d] [-l] [-L] [-p <pid>] [name]\n", program);
 	exit(1);
 }
 
@@ -234,7 +229,7 @@ main(int argc, char **argv)
 	if (ShowPid) {
 		kr = task_for_pid(mach_task_self(), pid, &task);
 		if (kr != KERN_SUCCESS) {
-			fprintf(stderr, "%s: task_for_pid(%d) failed: %s (try running as root)\n", 
+			fprintf(stderr, "%s: task_for_pid(%d) failed: %s (try running as root)\n",
 				program, pid, mach_error_string(kr));
 			exit(1);
 		}
@@ -335,11 +330,11 @@ main(int argc, char **argv)
 					printzone(&name[i], &info[i]);
 			}
 		}
+	}
 
-		if (ShowLarge && first_time) {
-			PrintLarge(wiredInfo, wiredInfoCnt, 
-				   SortZones ? &SortSize : &SortName, ColFormat);
-		}
+	if (ShowLarge && first_time) {
+		PrintLarge(wiredInfo, wiredInfoCnt,
+			   SortZones ? &SortSize : &SortName, ColFormat);
 	}
 
 	first_time = 0;
@@ -395,6 +390,8 @@ static boolean_t
 substr(const char *a, size_t alen, const char *b, size_t blen)
 {
 	int i;
+
+	if (alen > blen) return FALSE;
 
 	for (i = 0; i <= blen - alen; i++)
 		if (strneql(a, b+i, alen))
@@ -611,6 +608,9 @@ kern_vm_tag_name(uint64_t tag)
 	case (VM_KERN_MEMORY_UBC):		name = "VM_KERN_MEMORY_UBC"; break;
 	case (VM_KERN_MEMORY_SECURITY):		name = "VM_KERN_MEMORY_SECURITY"; break;
 	case (VM_KERN_MEMORY_MLOCK):		name = "VM_KERN_MEMORY_MLOCK"; break;
+	case (VM_KERN_MEMORY_REASON):		name = "VM_KERN_MEMORY_REASON"; break;
+	case (VM_KERN_MEMORY_SKYWALK):		name = "VM_KERN_MEMORY_SKYWALK"; break;
+	case (VM_KERN_MEMORY_LTABLE):		name = "VM_KERN_MEMORY_LTABLE"; break;
 	case (VM_KERN_MEMORY_ANY):		name = "VM_KERN_MEMORY_ANY"; break;
 	default:				name = NULL; break;
     }
@@ -619,7 +619,7 @@ kern_vm_tag_name(uint64_t tag)
     return (result);
  }
 
-static char * 
+static char *
 kern_vm_counter_name(uint64_t tag)
 {
     char * result;
@@ -656,11 +656,11 @@ MakeLoadTagKeys(const void * key, const void * value, void * context)
     CFDictionarySetValue(newDict, key, value);
 }
 
-static CSSymbolicatorRef 	 gSym;
+static CSSymbolicatorRef	 gSym;
 static CFMutableDictionaryRef    gTagDict;
 static mach_memory_info_t *  gSites;
 
-static char * 
+static char *
 GetSiteName(int siteIdx)
 {
     const char      * name;
@@ -693,7 +693,7 @@ GetSiteName(int siteIdx)
 
 	case VM_KERN_SITE_KMOD:
 	    kextInfo = CFDictionaryGetValue(gTagDict, (const void *)(uintptr_t) addr);
-	    if (kextInfo) 
+	    if (kextInfo)
 	    {
 		bundleID = (CFStringRef)CFDictionaryGetValue(kextInfo,  kCFBundleIdentifierKey);
 		name = CFStringGetCStringPtr(bundleID, kCFStringEncodingUTF8);
@@ -729,7 +729,7 @@ GetSiteName(int siteIdx)
      return (result);
 }
 
-static int 
+static int
 SortName(const void * left, const void * right)
 {
     const int * idxL;
@@ -750,7 +750,7 @@ SortName(const void * left, const void * right)
     return (result);
 }
 
-static int 
+static int
 SortSize(const void * left, const void * right)
 {
     const mach_memory_info_t * siteL;
@@ -781,15 +781,16 @@ PrintLarge(mach_memory_info_t *wiredInfo, unsigned int wiredInfoCnt,
     int sorted[wiredInfoCnt];
     char totalstr[40];
     char * name;
+    bool   headerPrinted;
 
     zonetotal = totalsize;
 
     gSites = wiredInfo;
 
     gSym = CSSymbolicatorCreateWithMachKernel();
-   
+
     allKexts = OSKextCopyLoadedKextInfo(NULL, NULL);
-    gTagDict = CFDictionaryCreateMutable( 
+    gTagDict = CFDictionaryCreateMutable(
 			    kCFAllocatorDefault, (CFIndex) 0,
 			    (CFDictionaryKeyCallBacks *) 0,
 			    &kCFTypeDictionaryValueCallBacks);
@@ -802,16 +803,11 @@ PrintLarge(mach_memory_info_t *wiredInfo, unsigned int wiredInfoCnt,
     for (idx = 0; idx < wiredInfoCnt; idx++) sorted[idx] = idx;
     first = 0; // VM_KERN_MEMORY_FIRST_DYNAMIC
     qsort(&sorted[first],
-	    wiredInfoCnt - first, 
-	    sizeof(sorted[0]), 
+	    wiredInfoCnt - first,
+	    sizeof(sorted[0]),
 	    func);
 
-    printf("-------------------------------------------------------------------------------------------------------------\n");
-    printf("                                                               kmod          vm                       cur\n");
-    printf("wired memory                                                     id         tag                      size\n");
-    printf("-------------------------------------------------------------------------------------------------------------\n");
-
-    for (idx = 0; idx < wiredInfoCnt; idx++) 
+    for (headerPrinted = false, idx = 0; idx < wiredInfoCnt; idx++)
     {
         site = sorted[idx];
 	if (!gSites[site].size) continue;
@@ -820,6 +816,15 @@ PrintLarge(mach_memory_info_t *wiredInfo, unsigned int wiredInfoCnt,
 	if (!(VM_KERN_SITE_WIRED & gSites[site].flags)) continue;
 
 	name = GetSiteName(site);
+        if (!substr(zname, znamelen, name, strlen(name))) continue;
+        if (!headerPrinted)
+        {
+            printf("-------------------------------------------------------------------------------------------------------------\n");
+            printf("                                                               kmod          vm                       cur\n");
+            printf("wired memory                                                     id         tag                      size\n");
+            printf("-------------------------------------------------------------------------------------------------------------\n");
+            headerPrinted = true;
+        }
 	printf("%-67s", name);
 	free(name);
 	printf("%12d", site);
@@ -831,19 +836,20 @@ PrintLarge(mach_memory_info_t *wiredInfo, unsigned int wiredInfoCnt,
 	printf("\n");
     }
 
-    printf("%-67s", "zones");
-    printf("%12s", "");
-    printf(" %11s", "");
-    PRINTK(" %12llu", zonetotal);
-    snprintf(totalstr, sizeof(totalstr), "%6.2fM of %6.2fM", totalsize / 1024.0 / 1024.0, top_wired / 1024.0 / 1024.0);
-    printf("\ntotal%100s\n", totalstr);
-
-    printf("-------------------------------------------------------------------------------------------------------------\n");
-    printf("                                                                                    largest\n");
-    printf("maps                                                                       free        free          size\n");
-    printf("-------------------------------------------------------------------------------------------------------------\n");
-
-    for (idx = 0; idx < wiredInfoCnt; idx++) 
+    if (!znamelen)
+    {
+        printf("%-67s", "zones");
+        printf("%12s", "");
+        printf(" %11s", "");
+        PRINTK(" %12llu", zonetotal);
+        printf("\n");
+    }
+    if (headerPrinted)
+    {
+        snprintf(totalstr, sizeof(totalstr), "%6.2fM of %6.2fM", totalsize / 1024.0 / 1024.0, top_wired / 1024.0 / 1024.0);
+        printf("total%100s\n", totalstr);
+    }
+    for (headerPrinted = false, idx = 0; idx < wiredInfoCnt; idx++)
     {
         site = sorted[idx];
 	if (!gSites[site].size) continue;
@@ -851,6 +857,15 @@ PrintLarge(mach_memory_info_t *wiredInfo, unsigned int wiredInfoCnt,
 	if (VM_KERN_SITE_WIRED & gSites[site].flags) continue;
 
 	name = GetSiteName(site);
+        if (!substr(zname, znamelen, name, strlen(name))) continue;
+        if (!headerPrinted)
+        {
+            printf("-------------------------------------------------------------------------------------------------------------\n");
+            printf("                                                                                    largest\n");
+            printf("maps                                                                       free        free          size\n");
+            printf("-------------------------------------------------------------------------------------------------------------\n");
+            headerPrinted = true;
+        }
 	printf("%-67s", name);
 	free(name);
 

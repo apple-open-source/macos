@@ -42,12 +42,15 @@
 #include <Security/SecRandom.h>
 #include <utilities/debugging.h>
 #include <utilities/SecCFWrappers.h>
+#include <utilities/SecCFError.h>
+#include <utilities/array_size.h>
 #include "SecItemPriv.h"
 #include <Security/SecInternal.h>
 
 #include <corecrypto/ccn.h>
 #include <corecrypto/ccrsa.h>
 #include <corecrypto/ccsha1.h>
+#include <corecrypto/ccsha2.h>
 
 #include <libDER/asn1Types.h>
 #include <libDER/DER_Keys.h>
@@ -64,62 +67,6 @@
 
 #define RSA_PKCS1_PAD_SIGN		0x01
 #define RSA_PKCS1_PAD_ENCRYPT	0x02
-
-static void ccn_c_dump(cc_size count, const cc_unit *s)
-{
-    printf("{ ");
-    cc_size ix;
-    for (ix = count; ix--;) {
-        printf("0x%.02x, 0x%.02x, 0x%.02x, 0x%.02x, ",
-               (int) ((s[ix] >> 24) & 0xFF),
-               (int) ((s[ix] >> 16) & 0xFF),
-               (int) ((s[ix] >> 8 ) & 0xFF),
-               (int) ((s[ix] >> 0 ) & 0xFF));
-    }
-    printf("};");
-}
-
-static void ccn_cprint(cc_size count, char* prefix, const cc_unit *s)
-{
-    printf("%s", prefix);
-    ccn_c_dump(count, s);
-    printf("\n");
-}
-
-void ccrsa_dump_full_key(ccrsa_full_ctx_t key); // Suppress warnings
-void ccrsa_dump_full_key(ccrsa_full_ctx_t key) {
-    ccn_cprint(ccrsa_ctx_n(key),      "uint8_t m[]  = ", ccrsa_ctx_m(key));
-    ccn_cprint(ccrsa_ctx_n(key) + 1,  "uint8_t rm[] = ", cczp_recip(ccrsa_ctx_zm(key)));
-    ccn_cprint(ccrsa_ctx_n(key),      "uint8_t e[]  = ", ccrsa_ctx_e(key));
-    ccn_cprint(ccrsa_ctx_n(key),      "uint8_t d[]  = ", ccrsa_ctx_d(key));
-
-    printf("cc_size np = %lu;\n", cczp_n(ccrsa_ctx_private_zp(ccrsa_ctx_private(key))));
-    ccn_cprint(cczp_n(ccrsa_ctx_private_zp(ccrsa_ctx_private(key))),     "uint8_t p[]  = ",
-               cczp_prime(ccrsa_ctx_private_zp(ccrsa_ctx_private(key))));
-    ccn_cprint(cczp_n(ccrsa_ctx_private_zp(ccrsa_ctx_private(key))) + 1, "uint8_t rp[] = ",
-               cczp_recip(ccrsa_ctx_private_zp(ccrsa_ctx_private(key))));
-    printf("cc_size nq = %lu;\n", cczp_n(ccrsa_ctx_private_zq(ccrsa_ctx_private(key))));
-    ccn_cprint(cczp_n(ccrsa_ctx_private_zq(ccrsa_ctx_private(key))),     "uint8_t q[]  = ",
-               cczp_prime(ccrsa_ctx_private_zq(ccrsa_ctx_private(key))));
-    ccn_cprint(cczp_n(ccrsa_ctx_private_zq(ccrsa_ctx_private(key))) + 1, "uint8_t rq[] = ",
-               cczp_recip(ccrsa_ctx_private_zq(ccrsa_ctx_private(key))));
-    ccn_cprint(cczp_n(ccrsa_ctx_private_zp(ccrsa_ctx_private(key))),     "uint8_t dp[] = ",
-               ccrsa_ctx_private_dp(ccrsa_ctx_private(key)));
-    ccn_cprint(cczp_n(ccrsa_ctx_private_zq(ccrsa_ctx_private(key))),     "uint8_t dq[] = ",
-               ccrsa_ctx_private_dq(ccrsa_ctx_private(key)));
-    ccn_cprint(cczp_n(ccrsa_ctx_private_zp(ccrsa_ctx_private(key))),     "uint8_t qinv[] = ",
-               ccrsa_ctx_private_qinv(ccrsa_ctx_private(key)));
-    printf("--\n");
-}
-
-void ccrsa_dump_public_key(ccrsa_pub_ctx_t key); // Suppress warning.
-void ccrsa_dump_public_key(ccrsa_pub_ctx_t key) {
-    ccn_cprint(ccrsa_ctx_n(key),      "uint8_t m[]  = ", ccrsa_ctx_m(key));
-    ccn_cprint(ccrsa_ctx_n(key) + 1,  "uint8_t rm[] = ", cczp_recip(ccrsa_ctx_zm(key)));
-    ccn_cprint(ccrsa_ctx_n(key),      "uint8_t e[]  = ", ccrsa_ctx_e(key));
-
-    printf("--\n");
-}
 
 /*
  *
@@ -171,18 +118,18 @@ static OSStatus ccrsa_pub_decode_apple(ccrsa_pub_ctx_t pubkey, size_t pkcs1_size
 	DERItem keyItem = {(DERByte *)pkcs1, pkcs1_size};
     DERRSAPubKeyApple decodedKey;
 
-	require_noerr_action(DERParseSequence(&keyItem,
-                                          DERNumRSAPubKeyAppleItemSpecs, DERRSAPubKeyAppleItemSpecs,
-                                          &decodedKey, sizeof(decodedKey)),
-                         errOut, result = errSecDecode);
+	require_noerr_action_quiet(DERParseSequence(&keyItem,
+                                                DERNumRSAPubKeyAppleItemSpecs, DERRSAPubKeyAppleItemSpecs,
+                                                &decodedKey, sizeof(decodedKey)),
+                               errOut, result = errSecDecode);
 
-    // We could honor the recipricol, but we don't think this is used enough to care.
+    // We could honor the reciprocal, but we don't think this is used enough to care.
     // Don't bother exploding the below function to try to handle this case, it computes.
 
-    require_noerr(ccrsa_pub_init(pubkey,
-                                 decodedKey.modulus.length, decodedKey.modulus.data,
-                                 decodedKey.pubExponent.length, decodedKey.pubExponent.data),
-                  errOut);
+    require_noerr_quiet(ccrsa_pub_init(pubkey,
+                                       decodedKey.modulus.length, decodedKey.modulus.data,
+                                       decodedKey.pubExponent.length, decodedKey.pubExponent.data),
+                        errOut);
 
     result = errSecSuccess;
 
@@ -216,18 +163,17 @@ static OSStatus SecRSAPublicKeyInit(SecKeyRef key,
     switch (encoding) {
         case kSecKeyEncodingBytes: // Octets is PKCS1
         case kSecKeyEncodingPkcs1: {
-            const uint8_t *der_end = keyData + keyDataLength;
-            size_n = ccder_decode_rsa_pub_n(keyData, der_end);
-            require(size_n != 0, errOut);
-            require(size_n <= ccn_nof(kMaximumRSAKeyBits), errOut);
+            size_n = ccrsa_import_pub_n(keyDataLength, keyData);
+            require_quiet(size_n != 0, errOut);
+            require_quiet(size_n <= ccn_nof(kMaximumRSAKeyBits), errOut);
 
             key->key = calloc(1, ccrsa_pub_ctx_size(ccn_sizeof_n(size_n)));
-            require_action(key->key, errOut, result = errSecAllocate);
+            require_action_quiet(key->key, errOut, result = errSecAllocate);
 
             pubkey.pub = key->key;
             ccrsa_ctx_n(pubkey) = size_n;
 
-            require_noerr(ccrsa_import_pub(pubkey, keyDataLength, keyData), errOut);
+            require_noerr_quiet(ccrsa_import_pub(pubkey, keyDataLength, keyData), errOut);
 
             result = errSecSuccess;
 
@@ -238,7 +184,7 @@ static OSStatus SecRSAPublicKeyInit(SecKeyRef key,
             size_n = ccn_nof(kMaximumRSAKeyBits);
 
             key->key = calloc(1, ccrsa_pub_ctx_size(ccn_sizeof_n(size_n)));
-            require_action(key->key, errOut, result = errSecAllocate);
+            require_action_quiet(key->key, errOut, result = errSecAllocate);
 
             pubkey.pub = key->key;
             ccrsa_ctx_n(pubkey) = size_n;
@@ -252,14 +198,14 @@ static OSStatus SecRSAPublicKeyInit(SecKeyRef key,
             size_n = ccn_nof_size(params->modulusLength);
 
             key->key = calloc(1, ccrsa_pub_ctx_size(ccn_sizeof_n(size_n)));
-            require_action(key->key, errOut, result = errSecAllocate);
+            require_action_quiet(key->key, errOut, result = errSecAllocate);
 
             pubkey.pub = key->key;
             ccrsa_ctx_n(pubkey) = size_n;
 
-            require_noerr(ccrsa_pub_init(pubkey,
-                                         params->modulusLength, params->modulus,
-                                         params->exponentLength, params->exponent), errOut);
+            require_noerr_quiet(ccrsa_pub_init(pubkey,
+                                               params->modulusLength, params->modulus,
+                                               params->exponentLength, params->exponent), errOut);
 
             result = errSecSuccess;
             break;
@@ -272,7 +218,7 @@ static OSStatus SecRSAPublicKeyInit(SecKeyRef key,
             size_n = ccrsa_ctx_n(fullKey);
 
             key->key = calloc(1, ccrsa_pub_ctx_size(ccn_sizeof_n(size_n)));
-            require_action(key->key, errOut, result = errSecAllocate);
+            require_action_quiet(key->key, errOut, result = errSecAllocate);
 
             pubkey.pub = key->key;
             ccrsa_ctx_n(pubkey) = size_n;
@@ -289,250 +235,51 @@ errOut:
     return result;
 }
 
-static OSStatus SecRSAPublicKeyRawVerify(SecKeyRef key, SecPadding padding,
-                                         const uint8_t *signedData, size_t signedDataLen,
-                                         const uint8_t *sig, size_t sigLen) {
-    OSStatus result = errSSLCrypto;
+static CFTypeRef SecRSAPublicKeyCopyOperationResult(SecKeyRef key, SecKeyOperationType operation, SecKeyAlgorithm algorithm,
+                                                    CFArrayRef allAlgorithms, SecKeyOperationMode mode,
+                                                    CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
+    CFTypeRef result;
+    require_action_quiet(CFEqual(algorithm, kSecKeyAlgorithmRSAEncryptionRawCCUnit), out, result = kCFNull);
 
     ccrsa_pub_ctx_t pubkey;
     pubkey.pub = key->key;
+    result = kCFBooleanTrue;
+    switch (operation) {
+        case kSecKeyOperationTypeEncrypt:
+            if (mode == kSecKeyOperationModePerform) {
+                // Verify that plaintext is smaller than modulus.
+                require_action_quiet(ccn_cmpn(ccn_nof_size(CFDataGetLength(in1)), (const cc_unit *)CFDataGetBytePtr(in1),
+                                              ccrsa_ctx_n(pubkey), ccrsa_ctx_m(pubkey)) < 0, out,
+                                     (result = NULL,
+                                      SecError(errSecParam, error, CFSTR("RSApubkey wrong size of buffer to encrypt"))));
 
-    cc_unit s[ccrsa_ctx_n(pubkey)];
-
-    ccn_read_uint(ccrsa_ctx_n(pubkey), s, sigLen, sig);
-    ccrsa_pub_crypt(pubkey, s, s);
-    ccn_swap(ccrsa_ctx_n(pubkey), s);
-
-    const uint8_t* sBytes = (uint8_t*) s;
-    const uint8_t* sEnd = (uint8_t*) (s + ccrsa_ctx_n(pubkey));
-
-    switch (padding) {
-        case kSecPaddingNone:
-            // Skip leading zeros as long as s is bigger than signedData.
-            while (((ptrdiff_t)signedDataLen < (sEnd - sBytes)) && (*sBytes == 0))
-                ++sBytes;
-            break;
-
-        case kSecPaddingPKCS1:
-        {
-            // Verify and skip PKCS1 padding:
-            //
-            // 0x00, 0x01 (RSA_PKCS1_PAD_SIGN), 0xFF .. 0x00, signedData
-            //
-            size_t m_size = ccn_write_uint_size(ccrsa_ctx_n(pubkey), ccrsa_ctx_m(pubkey));
-            size_t prefix_zeros = ccn_sizeof_n(ccrsa_ctx_n(pubkey)) - m_size;
-
-            while (prefix_zeros--)
-                require_quiet(*sBytes++ == 0x00, errOut);
-
-            require_quiet(*sBytes++ == 0x00, errOut);
-            require_quiet(*sBytes++ == RSA_PKCS1_PAD_SIGN, errOut);
-
-            while (*sBytes == 0xFF) {
-                require_quiet(++sBytes < sEnd, errOut);
+                // Encrypt into output buffer.
+                result = CFDataCreateMutableWithScratch(NULL, ccrsa_block_size(pubkey));
+                ccrsa_pub_crypt(pubkey, (cc_unit *)CFDataGetMutableBytePtr((CFMutableDataRef)result),
+                                (const cc_unit *)CFDataGetBytePtr(in1));
             }
-            // Required to have at least 8 0xFFs
-            require_quiet((sBytes - (uint8_t*)s) - 2 >= 8, errOut);
-
-            require_quiet(*sBytes == 0x00, errOut);
-            require_quiet(++sBytes < sEnd, errOut);
             break;
-        }
-        case kSecPaddingOAEP:
-            result = errSecParam;
-            goto errOut;
-
+        case kSecKeyOperationTypeDecrypt:
+            if (mode == kSecKeyOperationModePerform) {
+                // Decrypt into output buffer.
+                result = CFDataCreateMutableWithScratch(NULL, ccrsa_block_size(pubkey));
+                ccrsa_pub_crypt(pubkey, (cc_unit *)CFDataGetMutableBytePtr((CFMutableDataRef)result),
+                                (const cc_unit *)CFDataGetBytePtr(in1));
+            }
+            break;
         default:
-            result = errSecUnimplemented;
-            goto errOut;
+            result = kCFNull;
+            break;
     }
 
-    // Compare the rest.
-    require_quiet((sEnd - sBytes) == (ptrdiff_t)signedDataLen, errOut);
-    require_quiet(memcmp(sBytes, signedData, signedDataLen) == 0, errOut);
-
-    result = errSecSuccess;
-
-errOut:
-    cc_clear(ccrsa_ctx_n(pubkey), s);
-    
-    return result;
-}
-
-static OSStatus SecRSAPublicKeyRawEncrypt(SecKeyRef key, SecPadding padding,
-                                          const uint8_t *plainText, size_t plainTextLen,
-                                          uint8_t *cipherText, size_t *cipherTextLen) {
-    OSStatus result = errSecParam;
-    ccrsa_pub_ctx_t pubkey;
-    pubkey.pub = key->key;
-
-    cc_unit s[ccrsa_ctx_n(pubkey)];
-    const size_t m_size = ccn_write_uint_size(ccrsa_ctx_n(pubkey), ccrsa_ctx_m(pubkey));
-
-    require(cipherTextLen, errOut);
-    require(*cipherTextLen >= m_size, errOut);
-
-    uint8_t* sBytes = (uint8_t*) s;
-
-    switch (padding) {
-        case kSecPaddingNone:
-            // We'll allow modulus size assuming input is smaller than modulus
-            require_quiet(plainTextLen <= m_size, errOut);
-            require_noerr_quiet(ccn_read_uint(ccrsa_ctx_n(pubkey), s, plainTextLen, plainText), errOut);
-            require_quiet(ccn_cmp(ccrsa_ctx_n(pubkey), s, ccrsa_ctx_m(pubkey)) < 0, errOut);
-            break;
-
-        case kSecPaddingPKCS1:
-        {
-            // Create PKCS1 padding:
-            //
-            // 0x00, 0x01 (RSA_PKCS1_PAD_ENCRYPT), 0xFF .. 0x00, signedData
-            //
-            const int kMinimumPadding = 1 + 1 + 8 + 1;
-
-            require_quiet(plainTextLen <= m_size - kMinimumPadding, errOut);
-
-            size_t prefix_zeros = ccn_sizeof_n(ccrsa_ctx_n(pubkey)) - m_size;
-
-            while (prefix_zeros--)
-                *sBytes++ = 0x00;
-
-            size_t pad_size = m_size - plainTextLen;
-
-            *sBytes++ = 0x00;
-            *sBytes++ = RSA_PKCS1_PAD_ENCRYPT;
-
-            ccrng_generate(ccrng_seckey, pad_size - 3, sBytes);
-            // Remove zeroes from the random pad
-
-            const uint8_t* sEndOfPad = sBytes + (pad_size - 3);
-            while (sBytes < sEndOfPad)
-            {
-                if (*sBytes == 0x00)
-                    *sBytes = 0xFF; // Michael said 0xFF was good enough.
-
-                ++sBytes;
-            }
-
-            *sBytes++ = 0x00;
-
-            memcpy(sBytes, plainText, plainTextLen);
-
-            ccn_swap(ccrsa_ctx_n(pubkey), s);
-            break;
-        }
-        case kSecPaddingOAEP:
-        {
-            const struct ccdigest_info* di = ccsha1_di();
-
-            const size_t encodingOverhead = 2 + 2 * di->output_size;
-
-            require_action(m_size > encodingOverhead, errOut, result = errSecParam);
-            require_action_quiet(plainTextLen <= m_size - encodingOverhead, errOut, result = errSecParam);
-
-            require_noerr_action(ccrsa_oaep_encode(di,
-                                                   ccrng_seckey,
-                                                   m_size, s,
-                                                   plainTextLen, plainText), errOut, result = errSecInternal);
-            break;
-        }
-        default:
-            goto errOut;
-    }
-
-
-    ccrsa_pub_crypt(pubkey, s, s);
-
-    ccn_write_uint_padded(ccrsa_ctx_n(pubkey), s, m_size, cipherText);
-    *cipherTextLen = m_size;
-
-    result = errSecSuccess;
-
-errOut:
-    ccn_zero(ccrsa_ctx_n(pubkey), s);
-    return result;
-}
-
-static OSStatus SecRSAPublicKeyRawDecrypt(SecKeyRef key, SecPadding padding,
-                                          const uint8_t *cipherText, size_t cipherTextLen, uint8_t *plainText, size_t *plainTextLen) {
-    OSStatus result = errSSLCrypto;
-
-    ccrsa_pub_ctx_t pubkey;
-    pubkey.pub = key->key;
-
-    cc_unit s[ccrsa_ctx_n(pubkey)];
-
-    require_action_quiet(cipherText != NULL, errOut, result = errSecParam);
-    require_action_quiet(plainText != NULL, errOut, result = errSecParam);
-    require_action_quiet(plainTextLen != NULL, errOut, result = errSecParam);
-
-    ccn_read_uint(ccrsa_ctx_n(pubkey), s, cipherTextLen, cipherText);
-    ccrsa_pub_crypt(pubkey, s, s);
-    ccn_swap(ccrsa_ctx_n(pubkey), s);
-
-    const uint8_t* sBytes = (uint8_t*) s;
-    const uint8_t* sEnd = (uint8_t*) (s + ccrsa_ctx_n(pubkey));
-
-    switch (padding) {
-        case kSecPaddingNone:
-            // Skip leading zeros
-            // We return the bytes for a number and
-            // trim leading zeroes
-            while (sBytes < sEnd && *sBytes == 0x00)
-                ++sBytes;
-            break;
-
-        case kSecPaddingPKCS1:
-        {
-            // Verify and skip PKCS1 padding:
-            //
-            // 0x00, 0x01 (RSA_PKCS1_PAD_ENCRYPT), 0xFF .. 0x00, signedData
-            //
-            size_t m_size = ccn_write_uint_size(ccrsa_ctx_n(pubkey), ccrsa_ctx_m(pubkey));
-            size_t prefix_zeros = ccn_sizeof_n(ccrsa_ctx_n(pubkey)) - m_size;
-
-            while (prefix_zeros--)
-                require_quiet(*sBytes++ == 0x00, errOut);
-
-            require_quiet(*sBytes++ == 0x00, errOut);
-            require_quiet(*sBytes++ == RSA_PKCS1_PAD_ENCRYPT, errOut);
-
-            while (*sBytes != 0x00) {
-                require_quiet(++sBytes < sEnd, errOut);
-            }
-            // Required to have at least 8 0xFFs
-            require_quiet((sBytes - (uint8_t*)s) - 2 >= 8, errOut);
-
-            require_quiet(*sBytes == 0x00, errOut);
-            require_quiet(++sBytes < sEnd, errOut);
-
-            break;
-        }
-        case kSecPaddingOAEP:
-            result = errSecParam;
-        default:
-            goto errOut;
-    }
-
-    // Return the rest.
-    require_action((sEnd - sBytes) <= (ptrdiff_t)*plainTextLen, errOut, result = errSecParam);
-
-    *plainTextLen = sEnd - sBytes;
-    memcpy(plainText, sBytes, *plainTextLen);
-
-    result = errSecSuccess;
-
-errOut:
-    ccn_zero(ccrsa_ctx_n(pubkey), s);
-
+out:
     return result;
 }
 
 static size_t SecRSAPublicKeyBlockSize(SecKeyRef key) {
     ccrsa_pub_ctx_t pubkey;
     pubkey.pub = key->key;
-
-    return ccn_write_uint_size(ccrsa_ctx_n(pubkey), ccrsa_ctx_m(pubkey));
+    return ccrsa_block_size(pubkey);
 }
 
 
@@ -546,16 +293,10 @@ static CFDataRef SecRSAPublicKeyCreatePKCS1(CFAllocatorRef allocator, ccrsa_pub_
 
     const size_t result_size = DERLengthOfItem(ASN1_SEQUENCE, seq_size);
 
-	CFMutableDataRef pkcs1 = CFDataCreateMutable(allocator, result_size);
-
-    if (pkcs1 == NULL)
-        return NULL;
-
-	CFDataSetLength(pkcs1, result_size);
-
+	CFMutableDataRef pkcs1 = CFDataCreateMutableWithScratch(allocator, result_size);
     uint8_t *bytes = CFDataGetMutableBytePtr(pkcs1);
 
-    *bytes++ = ASN1_CONSTR_SEQUENCE;
+    *bytes++ = ONE_BYTE_ASN1_CONSTR_SEQUENCE;
 
     DERSize itemLength = 4;
     DEREncodeLength(seq_size, bytes, &itemLength);
@@ -582,7 +323,18 @@ static OSStatus SecRSAPublicKeyCopyPublicSerialization(SecKeyRef key, CFDataRef*
 }
 
 static CFDictionaryRef SecRSAPublicKeyCopyAttributeDictionary(SecKeyRef key) {
-    return SecKeyGeneratePublicAttributeDictionary(key, kSecAttrKeyTypeRSA);
+    CFDictionaryRef dict = SecKeyGeneratePublicAttributeDictionary(key, kSecAttrKeyTypeRSA);
+    CFMutableDictionaryRef mutableDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
+    CFDictionarySetValue(mutableDict, kSecAttrCanDecrypt, kCFBooleanTrue);
+    CFDictionarySetValue(mutableDict, kSecAttrCanDerive, kCFBooleanFalse);
+    CFAssignRetained(dict, mutableDict);
+    return dict;
+}
+
+static CFDataRef SecRSAPublicKeyCopyExternalRepresentation(SecKeyRef key, CFErrorRef *error) {
+    ccrsa_pub_ctx_t pubkey;
+    pubkey.pub = key->key;
+    return SecRSAPublicKeyCreatePKCS1(CFGetAllocator(key), pubkey);
 }
 
 static CFStringRef SecRSAPublicKeyCopyDescription(SecKeyRef key) {
@@ -594,7 +346,7 @@ static CFStringRef SecRSAPublicKeyCopyDescription(SecKeyRef key) {
     pubkey.pub = key->key;
 
     CFStringRef modulusString = CFDataCopyHexString(modRef);
-    require( modulusString, fail);
+    require_quiet(modulusString, fail);
 
     keyDescription = CFStringCreateWithFormat(kCFAllocatorDefault,NULL,CFSTR( "<SecKeyRef algorithm id: %lu, key type: %s, version: %d, block size: %zu bits, exponent: {hex: %llx, decimal: %lld}, modulus: %@, addr: %p>"), SecKeyGetAlgorithmId(key), key->key_class->name, key->key_class->version, (8*SecKeyGetBlockSize(key)), (long long)*ccrsa_ctx_e(pubkey), (long long)*ccrsa_ctx_e(pubkey), modulusString, key);
 
@@ -608,69 +360,90 @@ fail:
 }
 
 SecKeyDescriptor kSecRSAPublicKeyDescriptor = {
-    kSecKeyDescriptorVersion,
-    "RSAPublicKey",
-    0, /* extraBytes */
-    SecRSAPublicKeyInit,
-    SecRSAPublicKeyDestroy,
-    NULL, /* SecKeyRawSignMethod */
-    SecRSAPublicKeyRawVerify,
-    SecRSAPublicKeyRawEncrypt,
-    SecRSAPublicKeyRawDecrypt,
-    NULL, /* SecKeyComputeMethod */
-    SecRSAPublicKeyBlockSize,
-	SecRSAPublicKeyCopyAttributeDictionary,
-    SecRSAPublicKeyCopyDescription,
-    NULL,
-    SecRSAPublicKeyCopyPublicSerialization,
-    NULL,
-    NULL
+    .version = kSecKeyDescriptorVersion,
+    .name = "RSAPublicKey",
+
+    .init = SecRSAPublicKeyInit,
+    .destroy = SecRSAPublicKeyDestroy,
+    .blockSize = SecRSAPublicKeyBlockSize,
+    .copyDictionary = SecRSAPublicKeyCopyAttributeDictionary,
+    .copyExternalRepresentation = SecRSAPublicKeyCopyExternalRepresentation,
+    .describe = SecRSAPublicKeyCopyDescription,
+    .copyPublic = SecRSAPublicKeyCopyPublicSerialization,
+    .copyOperationResult = SecRSAPublicKeyCopyOperationResult,
 };
 
 /* Public Key API functions. */
-SecKeyRef SecKeyCreateRSAPublicKey(CFAllocatorRef allocator,
+SecKeyRef SecKeyCreateRSAPublicKey_ios(CFAllocatorRef allocator,
                                    const uint8_t *keyData, CFIndex keyDataLength,
                                    SecKeyEncoding encoding) {
     return SecKeyCreate(allocator, &kSecRSAPublicKeyDescriptor, keyData,
                         keyDataLength, encoding);
 }
 
+SecKeyRef SecKeyCreateRSAPublicKey(CFAllocatorRef allocator,
+                                   const uint8_t *keyData, CFIndex keyDataLength,
+                                   SecKeyEncoding encoding) {
+    return SecKeyCreateRSAPublicKey_ios(allocator, keyData,
+                        keyDataLength, encoding);
+}
+
 CFDataRef SecKeyCopyModulus(SecKeyRef key) {
-    ccrsa_pub_ctx_t pubkey;
-    pubkey.pub = key->key;
+    CFDataRef modulus = NULL;
+    if (key->key_class == &kSecRSAPublicKeyDescriptor) {
+        ccrsa_pub_ctx_t pubkey;
+        pubkey.pub = key->key;
 
-    size_t m_size = ccn_write_uint_size(ccrsa_ctx_n(pubkey), ccrsa_ctx_m(pubkey));
+        size_t m_size = ccn_write_uint_size(ccrsa_ctx_n(pubkey), ccrsa_ctx_m(pubkey));
 
-	CFAllocatorRef allocator = CFGetAllocator(key);
-	CFMutableDataRef modulusData = CFDataCreateMutable(allocator, m_size);
+        CFAllocatorRef allocator = CFGetAllocator(key);
+        CFMutableDataRef modulusData = CFDataCreateMutable(allocator, m_size);
 
-    if (modulusData == NULL)
-        return NULL;
+        if (modulusData == NULL)
+            return NULL;
 
-	CFDataSetLength(modulusData, m_size);
+        CFDataSetLength(modulusData, m_size);
 
-    ccn_write_uint(ccrsa_ctx_n(pubkey), ccrsa_ctx_m(pubkey), m_size, CFDataGetMutableBytePtr(modulusData));
+        ccn_write_uint(ccrsa_ctx_n(pubkey), ccrsa_ctx_m(pubkey), m_size, CFDataGetMutableBytePtr(modulusData));
+        modulus = modulusData;
+    } else if (key->key_class->copyDictionary != NULL) {
+        CFDictionaryRef dict = key->key_class->copyDictionary(key);
+        if (dict != NULL) {
+            modulus = CFRetainSafe(CFDictionaryGetValue(dict, CFSTR("_rsam")));
+            CFRelease(dict);
+        }
+    }
 
-    return modulusData;
+    return modulus;
 }
 
 CFDataRef SecKeyCopyExponent(SecKeyRef key) {
-    ccrsa_pub_ctx_t pubkey;
-    pubkey.pub = key->key;
+    CFDataRef exponent = NULL;
+    if (key->key_class == &kSecRSAPublicKeyDescriptor) {
+        ccrsa_pub_ctx_t pubkey;
+        pubkey.pub = key->key;
 
-    size_t e_size = ccn_write_uint_size(ccrsa_ctx_n(pubkey), ccrsa_ctx_e(pubkey));
+        size_t e_size = ccn_write_uint_size(ccrsa_ctx_n(pubkey), ccrsa_ctx_e(pubkey));
 
-	CFAllocatorRef allocator = CFGetAllocator(key);
-	CFMutableDataRef exponentData = CFDataCreateMutable(allocator, e_size);
+        CFAllocatorRef allocator = CFGetAllocator(key);
+        CFMutableDataRef exponentData = CFDataCreateMutable(allocator, e_size);
 
-    if (exponentData == NULL)
-        return NULL;
+        if (exponentData == NULL)
+            return NULL;
 
-	CFDataSetLength(exponentData, e_size);
+        CFDataSetLength(exponentData, e_size);
 
-    ccn_write_uint(ccrsa_ctx_n(pubkey), ccrsa_ctx_e(pubkey), e_size, CFDataGetMutableBytePtr(exponentData));
+        ccn_write_uint(ccrsa_ctx_n(pubkey), ccrsa_ctx_e(pubkey), e_size, CFDataGetMutableBytePtr(exponentData));
+        exponent = exponentData;
+    } else if (key->key_class->copyDictionary != NULL) {
+        CFDictionaryRef dict = key->key_class->copyDictionary(key);
+        if (dict != NULL) {
+            exponent = CFRetainSafe(CFDictionaryGetValue(dict, CFSTR("_rsae")));
+            CFRelease(dict);
+        }
+    }
 
-    return exponentData;
+    return exponent;
 }
 
 
@@ -701,18 +474,17 @@ static OSStatus SecRSAPrivateKeyInit(SecKeyRef key, const uint8_t *keyData, CFIn
         case kSecKeyEncodingBytes: // Octets is PKCS1
         case kSecKeyEncodingPkcs1:
         {
-            const uint8_t *der_end = keyData + keyDataLength;
-            size_n = ccder_decode_rsa_priv_n(keyData, der_end);
-            require(size_n != 0, errOut);
-            require(size_n <= ccn_nof(kMaximumRSAKeyBits), errOut);
+            size_n = ccrsa_import_priv_n(keyDataLength,keyData);
+            require_quiet(size_n != 0, errOut);
+            require_quiet(size_n <= ccn_nof(kMaximumRSAKeyBits), errOut);
 
             key->key = calloc(1, ccrsa_full_ctx_size(ccn_sizeof_n(size_n)));
-            require_action(key->key, errOut, result = errSecAllocate);
+            require_action_quiet(key->key, errOut, result = errSecAllocate);
 
             fullkey.full = key->key;
             ccrsa_ctx_n(fullkey) = size_n;
 
-            require(ccder_decode_rsa_priv(fullkey, keyData, der_end), errOut);
+            require_quiet(ccrsa_import_priv(fullkey, keyDataLength, keyData)==0, errOut);
 
             result = errSecSuccess;
             break;
@@ -733,14 +505,14 @@ static OSStatus SecRSAPrivateKeyInit(SecKeyRef key, const uint8_t *keyData, CFIn
             size_n = ccn_nof(keyLengthInBits);
 
             key->key = calloc(1, ccrsa_full_ctx_size(ccn_sizeof_n(size_n)));
-            require_action(key->key, errOut, result = errSecAllocate);
+            require_action_quiet(key->key, errOut, result = errSecAllocate);
 
             fullkey.full = key->key;
             ccrsa_ctx_n(fullkey) = size_n;
 
             /* TODO: Add support for kSecPublicExponent parameter. */
             static uint8_t e[] = { 0x01, 0x00, 0x01 }; // Default is 65537
-            if (!ccrsa_generate_key(keyLengthInBits, fullkey.full, sizeof(e), e, ccrng_seckey))
+            if (!ccrsa_generate_fips186_key(keyLengthInBits, fullkey.full, sizeof(e), e, ccrng_seckey,ccrng_seckey))
                 result = errSecSuccess;
             break;
         }
@@ -751,164 +523,51 @@ errOut:
     return result;
 }
 
-static OSStatus SecRSAPrivateKeyRawSign(SecKeyRef key, SecPadding padding,
-                                        const uint8_t *dataToSign, size_t dataToSignLen,
-                                        uint8_t *sig, size_t *sigLen) {
+static CFTypeRef SecRSAPrivateKeyCopyOperationResult(SecKeyRef key, SecKeyOperationType operation, SecKeyAlgorithm algorithm,
+                                                     CFArrayRef allAlgorithms, SecKeyOperationMode mode,
+                                                     CFTypeRef in1, CFTypeRef in2, CFErrorRef *error) {
+    CFTypeRef result = kCFNull;
 
-    OSStatus result = errSecParam;
+    ccrsa_full_ctx_t fullkey = { .full = key->key };
+    switch (operation) {
+        case kSecKeyOperationTypeSign:
+            if (CFEqual(algorithm, kSecKeyAlgorithmRSASignatureRawCCUnit)) {
+                if (mode == kSecKeyOperationModePerform) {
+                    // Verify that data is smaller than modulus.
+                    require_action_quiet(ccn_cmpn(ccn_nof_size(CFDataGetLength(in1)), (const cc_unit *)CFDataGetBytePtr(in1),
+                                                  ccrsa_ctx_n(fullkey), ccrsa_ctx_m(fullkey)) < 0, out,
+                                         (result = NULL,
+                                          SecError(errSecParam, error, CFSTR("%@: sign - digest too big (%d bytes)"),
+                                                   (int)CFDataGetLength(in1))));
 
-    ccrsa_full_ctx_t fullkey;
-    fullkey.full = key->key;
-
-    size_t m_size = ccn_write_uint_size(ccrsa_ctx_n(fullkey), ccrsa_ctx_m(fullkey));
-    cc_unit s[ccrsa_ctx_n(fullkey)];
-
-    uint8_t* sBytes = (uint8_t*) s;
-
-    require(sigLen, errOut);
-    require(*sigLen >= m_size, errOut);
-
-    switch (padding) {
-        case kSecPaddingNone:
-            // We'll allow modulus size assuming input is smaller than modulus
-            require_quiet(dataToSignLen <= m_size, errOut);
-            require_noerr_quiet(ccn_read_uint(ccrsa_ctx_n(fullkey), s, dataToSignLen, dataToSign), errOut);
-            require_quiet(ccn_cmp(ccrsa_ctx_n(fullkey), s, ccrsa_ctx_m(fullkey)) < 0, errOut);
-            break;
-
-        case kSecPaddingPKCS1:
-        {
-            // Create PKCS1 padding:
-            //
-            // 0x00, 0x01 (RSA_PKCS1_PAD_SIGN), 0xFF .. 0x00, signedData
-            //
-            const int kMinimumPadding = 1 + 1 + 8 + 1;
-
-            require_quiet(dataToSignLen <= m_size - kMinimumPadding, errOut);
-
-            size_t prefix_zeros = ccn_sizeof_n(ccrsa_ctx_n(fullkey)) - m_size;
-
-            while (prefix_zeros--)
-                *sBytes++ = 0x00;
-
-            size_t pad_size = m_size - dataToSignLen;
-
-            *sBytes++ = 0x00;
-            *sBytes++ = RSA_PKCS1_PAD_SIGN;
-
-            size_t ff_size;
-            for(ff_size = pad_size - 3; ff_size > 0; --ff_size)
-                *sBytes++ = 0xFF;
-
-            *sBytes++ = 0x00;
-
-            // Get the user data into s looking like a ccn.
-            memcpy(sBytes, dataToSign, dataToSignLen);
-            ccn_swap(ccrsa_ctx_n(fullkey), s);
-
-            break;
-        }
-        case kSecPaddingOAEP:
-            result = errSecParam;
-        default:
-            goto errOut;
-    }
-
-    ccrsa_priv_crypt(ccrsa_ctx_private(fullkey), s, s);
-
-    // Pad with leading zeros to fit in modulus size
-    ccn_write_uint_padded(ccrsa_ctx_n(fullkey), s, m_size, sig);
-    *sigLen = m_size;
-
-    result = errSecSuccess;
-
-errOut:
-    ccn_zero(ccrsa_ctx_n(fullkey), s);
-    return result;
-}
-
-static OSStatus SecRSAPrivateKeyRawDecrypt(SecKeyRef key, SecPadding padding,
-                                           const uint8_t *cipherText, size_t cipherTextLen,
-                                           uint8_t *plainText, size_t *plainTextLen) {
-    OSStatus result = errSSLCrypto;
-
-    ccrsa_full_ctx_t fullkey;
-    fullkey.full = key->key;
-
-    size_t m_size = ccn_write_uint_size(ccrsa_ctx_n(fullkey), ccrsa_ctx_m(fullkey));
-
-    cc_unit s[ccrsa_ctx_n(fullkey)];
-    uint8_t recoveredData[ccn_sizeof_n(ccrsa_ctx_n(fullkey))];
-
-    ccn_read_uint(ccrsa_ctx_n(fullkey), s, cipherTextLen, cipherText);
-    ccrsa_priv_crypt(ccrsa_ctx_private(fullkey), s, s);
-
-    const uint8_t* sBytes = (uint8_t*) s;
-    const uint8_t* sEnd = (uint8_t*) (s + ccrsa_ctx_n(fullkey));
-
-    require(plainTextLen, errOut);
-
-    switch (padding) {
-        case kSecPaddingNone:
-            ccn_swap(ccrsa_ctx_n(fullkey), s);
-            // Skip Zeros since our contract is to do so.
-            while (sBytes < sEnd && *sBytes == 0x00)
-                ++sBytes;
-            break;
-
-        case kSecPaddingPKCS1:
-        {
-            ccn_swap(ccrsa_ctx_n(fullkey), s);
-            // Verify and skip PKCS1 padding:
-            //
-            // 0x00, 0x01 (RSA_PKCS1_PAD_ENCRYPT), 0xFF .. 0x00, signedData
-            //
-
-            size_t prefix_zeros = ccn_sizeof_n(ccrsa_ctx_n(fullkey)) - m_size;
-
-            while (prefix_zeros--)
-                require_quiet(*sBytes++ == 0x00, errOut);
-
-            require_quiet(*sBytes++ == 0x00, errOut);
-            require_quiet(*sBytes++ == RSA_PKCS1_PAD_ENCRYPT, errOut);
-
-            while (*sBytes != 0x00) {
-                require_quiet(++sBytes < sEnd, errOut);
+                    // Encrypt buffer and write it to output data.
+                    result = CFDataCreateMutableWithScratch(kCFAllocatorDefault, ccrsa_block_size(ccrsa_ctx_public(fullkey)));
+                    ccrsa_priv_crypt(fullkey, (cc_unit *)CFDataGetMutableBytePtr((CFMutableDataRef)result),
+                                     (const cc_unit *)CFDataGetBytePtr(in1));
+                } else {
+                    // Operation is supported.
+                    result = kCFBooleanTrue;
+                }
             }
-            // Required to have at least 8 non-zeros
-            require_quiet((sBytes - (uint8_t*)s) - 2 >= 8, errOut);
-
-            require_quiet(*sBytes == 0x00, errOut);
-            require_quiet(++sBytes < sEnd, errOut);
             break;
-        }
-        case kSecPaddingOAEP:
-        {
-            size_t length = sizeof(recoveredData);
-
-            require_noerr_quiet(ccrsa_oaep_decode(ccsha1_di(),
- 												  &length, recoveredData,
-                                                  ccn_write_uint_size(ccrsa_ctx_n(fullkey),ccrsa_ctx_m(fullkey)), s
-                                                  ), errOut);
-
-            sBytes = recoveredData;
-            sEnd = recoveredData + length;
+        case kSecKeyOperationTypeDecrypt:
+            if (CFEqual(algorithm, kSecKeyAlgorithmRSAEncryptionRawCCUnit)) {
+                if (mode == kSecKeyOperationModePerform) {
+                    // Decrypt buffer and write it to output data.
+                    result = CFDataCreateMutableWithScratch(NULL, ccrsa_block_size(fullkey));
+                    ccrsa_priv_crypt(fullkey, (cc_unit *)CFDataGetMutableBytePtr((CFMutableDataRef)result),
+                                     (const cc_unit *)CFDataGetBytePtr(in1));
+                } else {
+                    // Operation is supported.
+                    result = kCFBooleanTrue;
+                }
+            }
             break;
-        }
         default:
-            goto errOut;
+            break;
     }
 
-    require((sEnd - sBytes) <= (ptrdiff_t)*plainTextLen, errOut);
-    *plainTextLen = sEnd - sBytes;
-    memcpy(plainText, sBytes, *plainTextLen);
-
-    result = errSecSuccess;
-
-errOut:
-    bzero(recoveredData, sizeof(recoveredData));
-    ccn_zero(ccrsa_ctx_n(fullkey), s);
-
+out:
     return result;
 }
 
@@ -921,34 +580,7 @@ static size_t SecRSAPrivateKeyBlockSize(SecKeyRef key) {
 
 static CFDataRef SecRSAPrivateKeyCreatePKCS1(CFAllocatorRef allocator, ccrsa_full_ctx_t fullkey)
 {
-    ccrsa_priv_ctx_t privkey = ccrsa_ctx_private(fullkey);
-
-    const cc_size np = cczp_n(ccrsa_ctx_private_zp(privkey));
-    const cc_size nq = cczp_n(ccrsa_ctx_private_zq(privkey));
-
-    size_t m_size = ccn_write_int_size(ccrsa_ctx_n(fullkey), ccrsa_ctx_m(fullkey));
-    size_t e_size = ccn_write_int_size(ccrsa_ctx_n(fullkey), ccrsa_ctx_e(fullkey));
-    size_t d_size = ccn_write_int_size(ccrsa_ctx_n(fullkey), ccrsa_ctx_d(fullkey));
-
-    size_t p_size = ccn_write_int_size(np, cczp_prime(ccrsa_ctx_private_zp(privkey)));
-    size_t q_size = ccn_write_int_size(nq, cczp_prime(ccrsa_ctx_private_zq(privkey)));
-
-    size_t dp_size = ccn_write_int_size(np, ccrsa_ctx_private_dp(privkey));
-    size_t dq_size = ccn_write_int_size(nq, ccrsa_ctx_private_dq(privkey));
-
-    size_t qinv_size = ccn_write_int_size(np, ccrsa_ctx_private_qinv(privkey));
-
-    const size_t seq_size = 3 +
-    DERLengthOfItem(ASN1_INTEGER, m_size) +
-    DERLengthOfItem(ASN1_INTEGER, e_size) +
-    DERLengthOfItem(ASN1_INTEGER, d_size) +
-    DERLengthOfItem(ASN1_INTEGER, p_size) +
-    DERLengthOfItem(ASN1_INTEGER, q_size) +
-    DERLengthOfItem(ASN1_INTEGER, dp_size) +
-    DERLengthOfItem(ASN1_INTEGER, dq_size) +
-    DERLengthOfItem(ASN1_INTEGER, qinv_size);
-
-    const size_t result_size = DERLengthOfItem(ASN1_SEQUENCE, seq_size);
+    const size_t result_size = ccrsa_export_priv_size(fullkey);
 
 	CFMutableDataRef pkcs1 = CFDataCreateMutable(allocator, result_size);
 
@@ -959,25 +591,11 @@ static CFDataRef SecRSAPrivateKeyCreatePKCS1(CFAllocatorRef allocator, ccrsa_ful
 
     uint8_t *bytes = CFDataGetMutableBytePtr(pkcs1);
 
-    *bytes++ = ASN1_CONSTR_SEQUENCE;
-
-    DERSize itemLength = 4;
-    DEREncodeLength(seq_size, bytes, &itemLength);
-    bytes += itemLength;
-
-    *bytes++ = ASN1_INTEGER;
-    *bytes++ = 0x01;
-    *bytes++ = 0x00;
-
-    ccasn_encode_int(ccrsa_ctx_n(fullkey), ccrsa_ctx_m(fullkey), m_size, &bytes);
-    ccasn_encode_int(ccrsa_ctx_n(fullkey), ccrsa_ctx_e(fullkey), e_size, &bytes);
-    ccasn_encode_int(ccrsa_ctx_n(fullkey), ccrsa_ctx_d(fullkey), d_size, &bytes);
-
-    ccasn_encode_int(np, cczp_prime(ccrsa_ctx_private_zp(privkey)), p_size, &bytes);
-    ccasn_encode_int(nq, cczp_prime(ccrsa_ctx_private_zq(privkey)), q_size, &bytes);
-    ccasn_encode_int(np, ccrsa_ctx_private_dp(privkey), dp_size, &bytes);
-    ccasn_encode_int(nq, ccrsa_ctx_private_dq(privkey), dq_size, &bytes);
-    ccasn_encode_int(np, ccrsa_ctx_private_qinv(privkey), qinv_size, &bytes);
+    if (ccrsa_export_priv(fullkey,result_size,bytes)!=0) {
+        /* Decoding failed */
+        CFReleaseNull(pkcs1);
+        return NULL;
+    }
 
     return pkcs1;
 }
@@ -1012,9 +630,12 @@ static CFDictionaryRef SecRSAPrivateKeyCopyAttributeDictionary(SecKeyRef key) {
 
 	/* PKCS1 encode the key pair. */
 	fullKeyBlob = SecRSAPrivateKeyCopyPKCS1(key);
-    require(fullKeyBlob, errOut);
+    require_quiet(fullKeyBlob, errOut);
 
 	dict = SecKeyGeneratePrivateAttributeDictionary(key, kSecAttrKeyTypeRSA, fullKeyBlob);
+    CFMutableDictionaryRef mutableDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
+    CFDictionarySetValue(mutableDict, kSecAttrCanDerive, kCFBooleanFalse);
+    CFAssignRetained(dict, mutableDict);
 
 errOut:
 	CFReleaseSafe(fullKeyBlob);
@@ -1022,29 +643,28 @@ errOut:
 	return dict;
 }
 
+static CFDataRef SecRSAPrivateKeyCopyExternalRepresentation(SecKeyRef key, CFErrorRef *error) {
+    return SecRSAPrivateKeyCopyPKCS1(key);
+}
+
 static CFStringRef SecRSAPrivateKeyCopyDescription(SecKeyRef key){
 
 	return CFStringCreateWithFormat(kCFAllocatorDefault,NULL,CFSTR( "<SecKeyRef algorithm id: %lu, key type: %s, version: %d, block size: %zu bits, addr: %p>"), SecKeyGetAlgorithmId(key), key->key_class->name, key->key_class->version, (8*SecKeyGetBlockSize(key)), key);
 
 }
+
 SecKeyDescriptor kSecRSAPrivateKeyDescriptor = {
-    kSecKeyDescriptorVersion,
-    "RSAPrivateKey",
-    0, /* extraBytes */
-    SecRSAPrivateKeyInit,
-    SecRSAPrivateKeyDestroy,
-    SecRSAPrivateKeyRawSign,
-    NULL, /* SecKeyRawVerifyMethod */
-    NULL, /* SecKeyEncryptMethod */
-    SecRSAPrivateKeyRawDecrypt,
-    NULL, /* SecKeyComputeMethod */
-    SecRSAPrivateKeyBlockSize,
-	SecRSAPrivateKeyCopyAttributeDictionary,
-    SecRSAPrivateKeyCopyDescription,
-    NULL,
-    SecRSAPrivateKeyCopyPublicSerialization,
-    NULL,
-    NULL
+    .version = kSecKeyDescriptorVersion,
+    .name = "RSAPrivateKey",
+
+    .init = SecRSAPrivateKeyInit,
+    .destroy = SecRSAPrivateKeyDestroy,
+    .blockSize = SecRSAPrivateKeyBlockSize,
+    .copyExternalRepresentation = SecRSAPrivateKeyCopyExternalRepresentation,
+    .copyDictionary = SecRSAPrivateKeyCopyAttributeDictionary,
+    .describe = SecRSAPrivateKeyCopyDescription,
+    .copyPublic = SecRSAPrivateKeyCopyPublicSerialization,
+    .copyOperationResult = SecRSAPrivateKeyCopyOperationResult,
 };
 
 /* Private Key API functions. */
@@ -1066,13 +686,13 @@ OSStatus SecRSAKeyGeneratePair(CFDictionaryRef parameters,
     SecKeyRef privKey = SecKeyCreate(allocator, &kSecRSAPrivateKeyDescriptor,
                                      (const void*) parameters, 0, kSecGenerateKey);
 
-    require(privKey, errOut);
+    require_quiet(privKey, errOut);
 
 	/* Create SecKeyRef's from the pkcs1 encoded keys. */
     pubKey = SecKeyCreate(allocator, &kSecRSAPublicKeyDescriptor,
                           privKey->key, 0, kSecExtractPublicFromPrivate);
 
-    require(pubKey, errOut);
+    require_quiet(pubKey, errOut);
 
     if (rsaPublicKey) {
         *rsaPublicKey = pubKey;

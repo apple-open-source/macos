@@ -79,7 +79,13 @@ packets to network hosts
 .Op Fl c Ar count
 .Ek
 .Bk -words
+.Op Fl G Ar sweepmaxsize[,sweepminsize[,sweepincrsize]]
+.Ek
+.Bk -words
 .Op Fl g Ar gateway
+.Ek
+.Bk -words
+.Op Fl G Ar sweep
 .Ek
 .Bk -words
 .Op Fl h Ar hoplimit
@@ -92,6 +98,9 @@ packets to network hosts
 .Ek
 .Bk -words
 .Op Fl k Ar trafficclass
+.Ek
+.Bk -words
+.Op Fl K Ar netservicetype
 .Ek
 .Bk -words
 .Op Fl l Ar preload
@@ -111,6 +120,12 @@ packets to network hosts
 .Ek
 .Bk -words
 .Op Fl z Ar tclass
+.Ek
+.Bk -words
+.Op Fl Fl apple-connect
+.Ek
+.Bk -words
+.Op Fl Fl apple-print
 .Ek
 .Bk -words
 .Op Ar hops ...
@@ -169,6 +184,7 @@ This is an experimental option.
 Set socket buffer size.
 .It Fl B Ar boundif
 Bind the socket to interface
+This option is an Apple addition.
 .Ar boundif
 for sending.
 .It Fl C
@@ -178,6 +194,10 @@ Stop after sending
 (and receiving)
 .Ar count
 .Tn ECHO_RESPONSE
+packets.
+If this option is specified in conjunction with ping sweeps,
+each sweep will consist of
+.Ar count
 packets.
 .It Fl D
 Disable IPv6 fragmentation.
@@ -204,6 +224,18 @@ Only the super-user may use this option.
 .Bf -emphasis
 This can be very hard on a network and should be used with caution.
 .Ef
+.It Fl G Ar sweepmaxsize[,sweepminsize[,sweepincrsize]]
+.Ar sweepmaxsize
+specifies the maximum size of the payload when sending sweeping
+pings and is required for sweeps.
+.Ar sweepminsize
+specifies the size of the payload to start with when sending
+sweeping pings -- the default value is 0.
+.Ar sweepincrsize
+specifies the number of bytes to increment the size of the payload
+after each sweep when sending sweeping pings -- the default value
+is 1.
+This option is an Apple addition.
 .It Fl g Ar gateway
 Specifies to use
 .Ar gateway
@@ -231,13 +263,19 @@ values less than 0.1 second.
 This option is incompatible with the
 .Fl f
 option.
-.It Fl k Ar trafficlass
+.It Fl k Ar trafficclass
 Specifies the traffic class to use for sending ICMPv6 packets.
 The supported traffic classes are
 BK_SYS, BK, BE, RD, OAM, AV, RV, VI, VO and CTL.
 By default 
 .Nm
 uses the control traffic class (CTL).
+This option is an Apple addition.
+.It Fl K Ar netservicetype
+Specifies the network service type to use for sending ICMPv6 packets.
+The supported network service type are BK_SYS, BK, BE, RV, AV, RD, OAM, VI, SIG and VO.
+Note this overrides the default traffic class (-k can still be specified after -K to use both).
+This option is an Apple addition.
 .It Fl l Ar preload
 If
 .Ar preload
@@ -354,6 +392,12 @@ has no effect if
 is specified.
 .It Fl z Ar tclass
 Use the specified traffic class.
+.It Fl Fl apple-connect
+Connects the socket to the destination address.
+This option is an Apple addition.
+.It Fl Fl apple-print
+Prints the time a packet was received.
+This option is an Apple addition.
 .It Ar hops
 IPv6 addresses for intermediate nodes,
 which will be put into type 0 routing header.

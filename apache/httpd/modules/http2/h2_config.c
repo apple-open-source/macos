@@ -28,6 +28,7 @@
 
 #include <apr_strings.h>
 
+#include "h2.h"
 #include "h2_alt_svc.h"
 #include "h2_ctx.h"
 #include "h2_conn.h"
@@ -59,32 +60,13 @@ static h2_config defconf = {
     1,                      /* TLS cooldown secs */
     1,                      /* HTTP/2 server push enabled */
     NULL,                   /* map of content-type to priorities */
+    256,                    /* push diary size */
+    
 };
 
-static int files_per_session = 0;
-
-void h2_config_init(apr_pool_t *pool) {
-    /* Determine a good default for this platform and mpm?
-     * TODO: not sure how APR wants to hand out this piece of 
-     * information.
-     */
-    int max_files = 256;
-    int conn_threads = 1;
-    int tx_files = max_files / 4;
-    
+void h2_config_init(apr_pool_t *pool)
+{
     (void)pool;
-    ap_mpm_query(AP_MPMQ_MAX_THREADS, &conn_threads);
-    switch (h2_conn_mpm_type()) {
-        case H2_MPM_PREFORK:
-        case H2_MPM_WORKER:
-        case H2_MPM_EVENT:
-            /* allow that many transfer open files per mplx */
-            files_per_session = (tx_files / conn_threads);
-            break;
-        default:
-            /* don't know anything about it, stay safe */
-            break;
-    }
 }
 
 static void *h2_config_create(apr_pool_t *pool,
@@ -93,11 +75,7 @@ static void *h2_config_create(apr_pool_t *pool,
     h2_config *conf = (h2_config *)apr_pcalloc(pool, sizeof(h2_config));
     
     const char *s = x? x : "unknown";
-    char *name = apr_pcalloc(pool, strlen(prefix) + strlen(s) + 20);
-    strcpy(name, prefix);
-    strcat(name, "[");
-    strcat(name, s);
-    strcat(name, "]");
+    char *name = apr_pstrcat(pool, prefix, "[", s, "]", NULL);
     
     conf->name                 = name;
     conf->h2_max_streams       = DEF_VAL;
@@ -116,6 +94,7 @@ static void *h2_config_create(apr_pool_t *pool,
     conf->tls_cooldown_secs    = DEF_VAL;
     conf->h2_push              = DEF_VAL;
     conf->priorities           = NULL;
+    conf->push_diary_size      = DEF_VAL;
     
     return conf;
 }
@@ -136,12 +115,7 @@ void *h2_config_merge(apr_pool_t *pool, void *basev, void *addv)
     h2_config *add = (h2_config *)addv;
     h2_config *n = (h2_config *)apr_pcalloc(pool, sizeof(h2_config));
 
-    char *name = apr_pcalloc(pool, 20 + strlen(add->name) + strlen(base->name));
-    strcpy(name, "merged[");
-    strcat(name, add->name);
-    strcat(name, ", ");
-    strcat(name, base->name);
-    strcat(name, "]");
+    char *name = apr_pstrcat(pool, "merged[", add->name, ", ", base->name, "]", NULL);
     n->name = name;
 
     n->h2_max_streams       = H2_CONFIG_GET(add, base, h2_max_streams);
@@ -166,6 +140,7 @@ void *h2_config_merge(apr_pool_t *pool, void *basev, void *addv)
     else {
         n->priorities       = add->priorities? add->priorities : base->priorities;
     }
+    n->push_diary_size      = H2_CONFIG_GET(add, base, push_diary_size);
     
     return n;
 }
@@ -177,7 +152,6 @@ int h2_config_geti(const h2_config *conf, h2_config_var_t var)
 
 apr_int64_t h2_config_geti64(const h2_config *conf, h2_config_var_t var)
 {
-    int n;
     switch(var) {
         case H2_CONF_MAX_STREAMS:
             return H2_CONFIG_GET(conf, &defconf, h2_max_streams);
@@ -202,17 +176,15 @@ apr_int64_t h2_config_geti64(const h2_config *conf, h2_config_var_t var)
         case H2_CONF_DIRECT:
             return H2_CONFIG_GET(conf, &defconf, h2_direct);
         case H2_CONF_SESSION_FILES:
-            n = H2_CONFIG_GET(conf, &defconf, session_extra_files);
-            if (n < 0) {
-                n = files_per_session;
-            }
-            return n;
+            return H2_CONFIG_GET(conf, &defconf, session_extra_files);
         case H2_CONF_TLS_WARMUP_SIZE:
             return H2_CONFIG_GET(conf, &defconf, tls_warmup_size);
         case H2_CONF_TLS_COOLDOWN_SECS:
             return H2_CONFIG_GET(conf, &defconf, tls_cooldown_secs);
         case H2_CONF_PUSH:
             return H2_CONFIG_GET(conf, &defconf, h2_push);
+        case H2_CONF_PUSH_DIARY_SIZE:
+            return H2_CONFIG_GET(conf, &defconf, push_diary_size);
         default:
             return DEF_VAL;
     }
@@ -256,7 +228,7 @@ static const char *h2_conf_set_window_size(cmd_parms *parms,
     cfg->h2_window_size = (int)apr_atoi64(value);
     (void)arg;
     if (cfg->h2_window_size < 1024) {
-        return "value must be > 1k";
+        return "value must be >= 1024";
     }
     return NULL;
 }
@@ -268,7 +240,7 @@ static const char *h2_conf_set_min_workers(cmd_parms *parms,
     cfg->min_workers = (int)apr_atoi64(value);
     (void)arg;
     if (cfg->min_workers < 1) {
-        return "value must be > 1";
+        return "value must be > 0";
     }
     return NULL;
 }
@@ -280,7 +252,7 @@ static const char *h2_conf_set_max_workers(cmd_parms *parms,
     cfg->max_workers = (int)apr_atoi64(value);
     (void)arg;
     if (cfg->max_workers < 1) {
-        return "value must be > 1";
+        return "value must be > 0";
     }
     return NULL;
 }
@@ -292,7 +264,7 @@ static const char *h2_conf_set_max_worker_idle_secs(cmd_parms *parms,
     cfg->max_worker_idle_secs = (int)apr_atoi64(value);
     (void)arg;
     if (cfg->max_worker_idle_secs < 1) {
-        return "value must be > 1";
+        return "value must be > 0";
     }
     return NULL;
 }
@@ -306,7 +278,7 @@ static const char *h2_conf_set_stream_max_mem_size(cmd_parms *parms,
     cfg->stream_max_mem_size = (int)apr_atoi64(value);
     (void)arg;
     if (cfg->stream_max_mem_size < 1024) {
-        return "value must be > 1k";
+        return "value must be >= 1024";
     }
     return NULL;
 }
@@ -510,6 +482,23 @@ static const char *h2_conf_set_tls_cooldown_secs(cmd_parms *parms,
     return NULL;
 }
 
+static const char *h2_conf_set_push_diary_size(cmd_parms *parms,
+                                               void *arg, const char *value)
+{
+    h2_config *cfg = (h2_config *)h2_config_sget(parms->server);
+    (void)arg;
+    cfg->push_diary_size = (int)apr_atoi64(value);
+    if (cfg->push_diary_size < 0) {
+        return "value must be >= 0";
+    }
+    if (cfg->push_diary_size > 0 && (cfg->push_diary_size & (cfg->push_diary_size-1))) {
+        return "value must a power of 2";
+    }
+    if (cfg->push_diary_size > (1 << 15)) {
+        return "value must <= 65536";
+    }
+    return NULL;
+}
 
 #define AP_END_CMD     AP_INIT_TAKE1(NULL, NULL, NULL, RSRC_CONF, NULL)
 
@@ -548,6 +537,8 @@ const command_rec h2_cmds[] = {
                   RSRC_CONF, "off to disable HTTP/2 server push"),
     AP_INIT_TAKE23("H2PushPriority", h2_conf_add_push_priority, NULL,
                   RSRC_CONF, "define priority of PUSHed resources per content type"),
+    AP_INIT_TAKE1("H2PushDiarySize", h2_conf_set_push_diary_size, NULL,
+                  RSRC_CONF, "size of push diary"),
     AP_END_CMD
 };
 
@@ -561,16 +552,17 @@ const h2_config *h2_config_rget(request_rec *r)
 
 const h2_config *h2_config_get(conn_rec *c)
 {
-    h2_ctx *ctx = h2_ctx_get(c);
+    h2_ctx *ctx = h2_ctx_get(c, 0);
     
-    if (ctx->config) {
-        return ctx->config;
-    }
-    else if (ctx->server) {
-        ctx->config = h2_config_sget(ctx->server);
-        return ctx->config;
+    if (ctx) {
+        if (ctx->config) {
+            return ctx->config;
+        }
+        else if (ctx->server) {
+            ctx->config = h2_config_sget(ctx->server);
+            return ctx->config;
+        }
     }
     
     return h2_config_sget(c->base_server);
 }
-

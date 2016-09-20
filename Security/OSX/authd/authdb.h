@@ -48,7 +48,7 @@ AUTH_NONNULL1 AUTH_NONNULL2 AUTH_NONNULL3
 bool authdb_step(authdb_connection_t, const char * sql, void (^bind_stmt)(sqlite3_stmt* stmt), authdb_iterator_t iter);
 
 AUTH_NONNULL_ALL    
-int32_t authdb_get_key_value(authdb_connection_t, const char * table, auth_items_t * out_items);
+int32_t authdb_get_key_value(authdb_connection_t, const char * table, const bool skip_maintenance, auth_items_t * out_items);
 
 AUTH_NONNULL_ALL    
 int32_t authdb_set_key_value(authdb_connection_t, const char * table, auth_items_t items);

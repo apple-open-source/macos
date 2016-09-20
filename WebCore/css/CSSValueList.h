@@ -67,7 +67,7 @@ public:
     void prepend(Ref<CSSValue>&&);
     bool removeAll(CSSValue*);
     bool hasValue(CSSValue*) const;
-    PassRefPtr<CSSValueList> copy();
+    Ref<CSSValueList> copy();
 
     String customCSSText() const;
     bool equals(const CSSValueList&) const;
@@ -77,7 +77,7 @@ public:
 
     bool traverseSubresources(const std::function<bool (const CachedResource&)>& handler) const;
     
-    PassRefPtr<CSSValueList> cloneForCSSOM() const;
+    Ref<CSSValueList> cloneForCSSOM() const;
 
     bool containsVariables() const;
     bool checkVariablesForCycles(CustomPropertyValueMap& customProperties, HashSet<AtomicString>& seenProperties, HashSet<AtomicString>& invalidProperties) const;
@@ -98,12 +98,12 @@ private:
 
 inline void CSSValueList::append(Ref<CSSValue>&& value)
 {
-    m_values.append(WTF::move(value));
+    m_values.append(WTFMove(value));
 }
 
 inline void CSSValueList::prepend(Ref<CSSValue>&& value)
 {
-    m_values.insert(0, WTF::move(value));
+    m_values.insert(0, WTFMove(value));
 }
 
 } // namespace WebCore

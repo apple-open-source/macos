@@ -48,6 +48,7 @@
 #include <libDER/libDER.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <corecrypto/ccsha2.h>
 
 #include "Security_regressions.h"
 
@@ -249,10 +250,12 @@ SKIP: {
     uint8_t something[20] = {0x80, 0xbe, 0xef, 0xba, 0xd0, };
     size_t sigLen = SecKeyGetSize(privKey2, kSecKeySignatureSize);
     uint8_t sig[sigLen];
-    ok_status(SecKeyRawSign(privKey2, kSecPaddingPKCS1,
-                            something, sizeof(something), sig, &sigLen), "sign something");
-    ok_status(SecKeyRawVerify(pubKey2, kSecPaddingPKCS1,
-                              something, sizeof(something), sig, sigLen), "verify sig on something");
+    if (privKey2 != NULL && pubKey2 != NULL) {
+        ok_status(SecKeyRawSign(privKey2, kSecPaddingPKCS1,
+                                something, sizeof(something), sig, &sigLen), "sign something");
+        ok_status(SecKeyRawVerify(pubKey2, kSecPaddingPKCS1,
+                                  something, sizeof(something), sig, sigLen), "verify sig on something");
+    }
 
     /* Cleanup. */
     CFReleaseNull(pubKey2);
@@ -408,37 +411,585 @@ static void testsignformat(void)
                                         kSecKeyEncodingBytes))!=NULL,
        "recreate seckey");
 
-    // Verify fixed signature
-    ok_status(SecKeyRawVerify(pubkey, kSecPaddingPKCS1,
-                              EC_SigDigest, sizeof(EC_SigDigest), EC_P256_SigDER, sizeof(EC_P256_SigDER)), "verify DER sig on something");
+    if (pubkey != NULL && pkey != NULL) {
+        // Verify fixed signature
+        ok_status(SecKeyRawVerify(pubkey, kSecPaddingPKCS1,
+                                  EC_SigDigest, sizeof(EC_SigDigest), EC_P256_SigDER, sizeof(EC_P256_SigDER)), "verify DER sig on something");
 
-    ok_status(SecKeyRawVerify(pubkey, kSecPaddingSigRaw,
-                              EC_SigDigest, sizeof(EC_SigDigest), EC_P256_SigRaw, sizeof(EC_P256_SigRaw)), "verify RAW sig on something");
+        ok_status(SecKeyRawVerify(pubkey, kSecPaddingSigRaw,
+                                  EC_SigDigest, sizeof(EC_SigDigest), EC_P256_SigRaw, sizeof(EC_P256_SigRaw)), "verify RAW sig on something");
 
-    // Verify signature with mismatching format
-    ok_status(!SecKeyRawVerify(pubkey, kSecPaddingSigRaw,
-                              EC_SigDigest, sizeof(EC_SigDigest), EC_P256_SigDER, sizeof(EC_P256_SigDER)), "verify DER sig with RAW option");
+        // Verify signature with mismatching format
+        ok_status(!SecKeyRawVerify(pubkey, kSecPaddingSigRaw,
+                                   EC_SigDigest, sizeof(EC_SigDigest), EC_P256_SigDER, sizeof(EC_P256_SigDER)), "verify DER sig with RAW option");
 
-    ok_status(!SecKeyRawVerify(pubkey, kSecPaddingPKCS1,
-                              EC_SigDigest, sizeof(EC_SigDigest), EC_P256_SigRaw, sizeof(EC_P256_SigRaw)), "verify RAW sig with DER something");
+        ok_status(!SecKeyRawVerify(pubkey, kSecPaddingPKCS1,
+                                   EC_SigDigest, sizeof(EC_SigDigest), EC_P256_SigRaw, sizeof(EC_P256_SigRaw)), "verify RAW sig with DER something");
 
-    // Sign something in each format
-    ok_status(SecKeyRawSign(pkey, kSecPaddingPKCS1,
-                              EC_SigDigest, sizeof(EC_SigDigest), EC_signature_DER, &EC_signature_DER_size), "sign DER sig on something");
+        // Sign something in each format
+        ok_status(SecKeyRawSign(pkey, kSecPaddingPKCS1,
+                                EC_SigDigest, sizeof(EC_SigDigest), EC_signature_DER, &EC_signature_DER_size), "sign DER sig on something");
 
-    ok_status(SecKeyRawSign(pkey, kSecPaddingSigRaw,
-                              EC_SigDigest, sizeof(EC_SigDigest), EC_signature_RAW, &EC_signature_RAW_size), "sign RAW sig on something");
+        ok_status(SecKeyRawSign(pkey, kSecPaddingSigRaw,
+                                EC_SigDigest, sizeof(EC_SigDigest), EC_signature_RAW, &EC_signature_RAW_size), "sign RAW sig on something");
 
-    // Verify expecting that verification does the right thing.
-    ok_status(SecKeyRawVerify(pubkey, kSecPaddingPKCS1,
-                              EC_SigDigest, sizeof(EC_SigDigest), EC_signature_DER, EC_signature_DER_size), "verify DER sig on something");
+        // Verify expecting that verification does the right thing.
+        ok_status(SecKeyRawVerify(pubkey, kSecPaddingPKCS1,
+                                  EC_SigDigest, sizeof(EC_SigDigest), EC_signature_DER, EC_signature_DER_size), "verify DER sig on something");
 
-    ok_status(SecKeyRawVerify(pubkey, kSecPaddingSigRaw,
-                              EC_SigDigest, sizeof(EC_SigDigest), EC_signature_RAW, EC_signature_RAW_size), "verify RAW sig on something");
+        ok_status(SecKeyRawVerify(pubkey, kSecPaddingSigRaw,
+                                  EC_SigDigest, sizeof(EC_SigDigest), EC_signature_RAW, EC_signature_RAW_size), "verify RAW sig on something");
+    }
 
     CFReleaseNull(pkey);
     CFReleaseNull(pubkey);
     CFReleaseNull(pubdata);
+}
+
+static void testkeyexchange(unsigned long keySizeInBits)
+{
+    size_t keySizeInBytes = (keySizeInBits + 7) / 8;
+    CFNumberRef kzib;
+    int32_t keysz32 = (int32_t)keySizeInBits;
+
+    kzib = CFNumberCreate(NULL, kCFNumberSInt32Type, &keysz32);
+    CFDictionaryRef kgp = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+                                                       kSecAttrKeyType, kSecAttrKeyTypeEC,
+                                                       kSecAttrKeySizeInBits, kzib,
+                                                       kSecAttrIsPermanent, kCFBooleanFalse,
+                                                       NULL);
+    CFReleaseNull(kzib);
+
+    SecKeyRef pubKey1 = NULL, privKey1 = NULL;
+    SecKeyRef pubKey2 = NULL, privKey2 = NULL;
+
+    OSStatus status;
+    ok_status(status = SecKeyGeneratePair(kgp, &pubKey1, &privKey1),
+              "Generate %ld bit (%ld byte) EC keypair (status = %d)",
+              keySizeInBits, keySizeInBytes, (int)status);
+    ok_status(status = SecKeyGeneratePair(kgp, &pubKey2, &privKey2),
+              "Generate %ld bit (%ld byte) EC keypair (status = %d)",
+              keySizeInBits, keySizeInBytes, (int)status);
+    CFReleaseNull(kgp);
+
+    const SecKeyAlgorithm algos[] = {
+        kSecKeyAlgorithmECDHKeyExchangeStandard,
+        kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA1,
+        kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA224,
+        kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA256,
+        kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA384,
+        kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA512,
+        kSecKeyAlgorithmECDHKeyExchangeCofactor,
+        kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA1,
+        kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA224,
+        kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA256,
+        kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA384,
+        kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA512,
+    };
+
+    // Strange size to test borderline conditions.
+    CFIndex rs = 273;
+    CFNumberRef requestedSize = CFNumberCreate(kCFAllocatorDefault, kCFNumberCFIndexType, &rs);
+    CFDataRef sharedInfo = CFDataCreate(kCFAllocatorDefault, (const UInt8 *)"sharedInput", 11);
+    CFDictionaryRef params = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+                                                          kSecKeyKeyExchangeParameterRequestedSize, requestedSize,
+                                                          kSecKeyKeyExchangeParameterSharedInfo, sharedInfo,
+                                                          NULL);
+    CFRelease(requestedSize);
+    CFRelease(sharedInfo);
+
+    for (size_t ix = 0; ix < array_size(algos); ++ix) {
+        CFErrorRef error = NULL;
+
+        CFDataRef secret1 = SecKeyCopyKeyExchangeResult(privKey1, algos[ix], pubKey2, params, &error);
+        ok(secret1 != NULL && CFGetTypeID(secret1) == CFDataGetTypeID());
+        CFReleaseNull(error);
+
+        CFDataRef secret2 = SecKeyCopyKeyExchangeResult(privKey2, algos[ix], pubKey1, params, &error);
+        ok(secret2 != NULL && CFGetTypeID(secret1) == CFDataGetTypeID());
+        CFReleaseNull(error);
+
+        eq_cf(secret1, secret2, "results of key exchange are equal");
+        if (algos[ix] != kSecKeyAlgorithmECDHKeyExchangeCofactor && algos[ix] != kSecKeyAlgorithmECDHKeyExchangeStandard) {
+            is(CFDataGetLength(secret1), rs, "generated response has expected length");
+        }
+
+        CFReleaseNull(secret1);
+        CFReleaseNull(secret2);
+    }
+
+    CFReleaseNull(privKey1);
+    CFReleaseNull(pubKey1);
+    CFReleaseNull(privKey2);
+    CFReleaseNull(pubKey2);
+    CFReleaseNull(params);
+}
+
+static void testsupportedalgos(size_t keySizeInBits)
+{
+    size_t keySizeInBytes = (keySizeInBits + 7) / 8;
+    CFNumberRef kzib;
+    int32_t keysz32 = (int32_t)keySizeInBits;
+
+    kzib = CFNumberCreate(NULL, kCFNumberSInt32Type, &keysz32);
+    CFDictionaryRef kgp = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+                                                       kSecAttrKeyType, kSecAttrKeyTypeEC,
+                                                       kSecAttrKeySizeInBits, kzib,
+                                                       kSecAttrIsPermanent, kCFBooleanFalse,
+                                                       NULL);
+    CFReleaseNull(kzib);
+
+    SecKeyRef pubKey = NULL, privKey = NULL;
+
+    OSStatus status;
+    ok_status(status = SecKeyGeneratePair(kgp, &pubKey, &privKey),
+              "Generate %ld bit (%ld byte) EC keypair (status = %d)",
+              keySizeInBits, keySizeInBytes, (int)status);
+
+    const SecKeyAlgorithm sign[] = {
+        kSecKeyAlgorithmECDSASignatureRFC4754,
+        kSecKeyAlgorithmECDSASignatureDigestX962,
+        kSecKeyAlgorithmECDSASignatureDigestX962SHA1,
+        kSecKeyAlgorithmECDSASignatureDigestX962SHA224,
+        kSecKeyAlgorithmECDSASignatureDigestX962SHA256,
+        kSecKeyAlgorithmECDSASignatureDigestX962SHA384,
+        kSecKeyAlgorithmECDSASignatureDigestX962SHA512,
+        kSecKeyAlgorithmECDSASignatureMessageX962SHA1,
+        kSecKeyAlgorithmECDSASignatureMessageX962SHA224,
+        kSecKeyAlgorithmECDSASignatureMessageX962SHA256,
+        kSecKeyAlgorithmECDSASignatureMessageX962SHA384,
+        kSecKeyAlgorithmECDSASignatureMessageX962SHA512,
+    };
+
+    for (size_t i = 0; i < array_size(sign); i++) {
+        ok(SecKeyIsAlgorithmSupported(privKey, kSecKeyOperationTypeSign, sign[i]),
+           "privKey supports sign algorithm %@", sign[i]);
+        ok(SecKeyIsAlgorithmSupported(pubKey, kSecKeyOperationTypeVerify, sign[i]),
+           "pubKey supports verify algorithm %@", sign[i]);
+        ok(!SecKeyIsAlgorithmSupported(privKey, kSecKeyOperationTypeVerify, sign[i]),
+           "privKey doesn't supports verify algorithm %@", sign[i]);
+        ok(!SecKeyIsAlgorithmSupported(pubKey, kSecKeyOperationTypeSign, sign[i]),
+           "pubKey doesn't support verify algorithm %@", sign[i]);
+    }
+
+    const SecKeyAlgorithm keyexchange[] = {
+        kSecKeyAlgorithmECDHKeyExchangeStandard,
+        kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA1,
+        kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA224,
+        kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA256,
+        kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA384,
+        kSecKeyAlgorithmECDHKeyExchangeStandardX963SHA512,
+        kSecKeyAlgorithmECDHKeyExchangeCofactor,
+        kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA1,
+        kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA224,
+        kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA256,
+        kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA384,
+        kSecKeyAlgorithmECDHKeyExchangeCofactorX963SHA512,
+    };
+    for (size_t i = 0; i < array_size(crypt); i++) {
+        ok(SecKeyIsAlgorithmSupported(privKey, kSecKeyOperationTypeKeyExchange, keyexchange[i]),
+           "privKey supports keyexchange algorithm %@", keyexchange[i]);
+        ok(!SecKeyIsAlgorithmSupported(pubKey, kSecKeyOperationTypeKeyExchange, keyexchange[i]),
+           "pubKey doesn't support keyexchange algorithm %@", keyexchange[i]);
+    }
+
+    /* Cleanup. */
+    CFReleaseNull(kgp);
+    CFReleaseNull(pubKey);
+    CFReleaseNull(privKey);
+}
+
+static void testcreatewithdata(unsigned long keySizeInBits)
+{
+    size_t keySizeInBytes = (keySizeInBits + 7) / 8;
+    int32_t keysz32 = (int32_t)keySizeInBits;
+
+    CFNumberRef kzib = CFNumberCreate(NULL, kCFNumberSInt32Type, &keysz32);
+    CFDictionaryRef kgp = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+                                                       kSecAttrKeyType, kSecAttrKeyTypeEC,
+                                                       kSecAttrKeySizeInBits, kzib,
+                                                       kSecAttrIsPermanent, kCFBooleanFalse,
+                                                       NULL);
+    SecKeyRef pubKey = NULL, privKey = NULL;
+    OSStatus status;
+    ok_status(status = SecKeyGeneratePair(kgp, &pubKey, &privKey),
+              "Generate %ld bit (%ld byte) EC keypair (status = %d)",
+              keySizeInBits, keySizeInBytes, (int)status);
+    CFReleaseNull(kgp);
+
+    CFMutableDictionaryRef kcwd = CFDictionaryCreateMutableForCFTypesWith(kCFAllocatorDefault,
+                                                                          kSecAttrKeyType, kSecAttrKeyTypeEC,
+                                                                          kSecAttrKeySizeInBits, kzib,
+                                                                          kSecAttrIsPermanent, kCFBooleanFalse,
+                                                                          NULL);
+    CFReleaseNull(kzib);
+
+    CFErrorRef error = NULL;
+    CFDataRef privExternalData = NULL, pubExternalData = NULL;
+    SecKeyRef dataKey = NULL;
+
+    { // privKey
+        privExternalData = SecKeyCopyExternalRepresentation(privKey, &error);
+        ok(privExternalData && CFGetTypeID(privExternalData) == CFDataGetTypeID(),
+           "priv key SecKeyCopyExternalRepresentation failed");
+        CFReleaseNull(error);
+
+        SKIP: {
+            skip("invalid priv key external data", 4, privExternalData);
+
+            CFDictionarySetValue(kcwd, kSecAttrKeyClass, kSecAttrKeyClassPrivate);
+            dataKey = SecKeyCreateWithData(privExternalData, kcwd, &error);
+            ok(dataKey, "priv key SecKeyCreateWithData failed");
+            CFReleaseNull(error);
+
+            eq_cf(privKey, dataKey, "priv keys differ");
+            CFReleaseNull(dataKey);
+
+            CFDictionarySetValue(kcwd, kSecAttrKeyClass, kSecAttrKeyClassPublic);
+            dataKey = SecKeyCreateWithData(privExternalData, kcwd, &error);
+            ok(!dataKey, "priv key SecKeyCreateWithData succeeded with invalid kSecAttrKeyClass");
+            CFReleaseNull(error);
+            CFReleaseNull(dataKey);
+
+            CFMutableDataRef modifiedExternalData = CFDataCreateMutable(kCFAllocatorDefault, 0);
+            CFDataAppend(modifiedExternalData, privExternalData);
+            *CFDataGetMutableBytePtr(modifiedExternalData) ^= 0xff;
+
+            CFDictionarySetValue(kcwd, kSecAttrKeyClass, kSecAttrKeyClassPrivate);
+            dataKey = SecKeyCreateWithData(modifiedExternalData, kcwd, &error);
+            ok(!dataKey, "priv key SecKeyCreateWithData succeeded with invalid external data");
+            CFReleaseNull(error);
+            CFReleaseNull(dataKey);
+
+            CFReleaseNull(modifiedExternalData);
+        }
+    }
+
+    { // pubKey
+        pubExternalData = SecKeyCopyExternalRepresentation(pubKey, &error);
+        ok(pubExternalData && CFGetTypeID(pubExternalData) == CFDataGetTypeID(),
+           "pub key SecKeyCopyExternalRepresentation failed");
+        CFReleaseNull(error);
+
+        SKIP: {
+            skip("invalid pub key external data", 4, pubExternalData);
+
+            CFDictionarySetValue(kcwd, kSecAttrKeyClass, kSecAttrKeyClassPublic);
+            dataKey = SecKeyCreateWithData(pubExternalData, kcwd, &error);
+            ok(dataKey, "pub key SecKeyCreateWithData failed");
+            CFReleaseNull(error);
+
+            eq_cf(pubKey, dataKey, "pub keys differ");
+            CFReleaseNull(dataKey);
+
+            CFDictionarySetValue(kcwd, kSecAttrKeyClass, kSecAttrKeyClassPrivate);
+            dataKey = SecKeyCreateWithData(pubExternalData, kcwd, &error);
+            ok(!dataKey, "pub key SecKeyCreateWithData succeeded with invalid kSecAttrKeyClass");
+            CFReleaseNull(error);
+            CFReleaseNull(dataKey);
+
+            CFMutableDataRef modifiedExternalData = CFDataCreateMutable(kCFAllocatorDefault, 0);
+            CFDataAppend(modifiedExternalData, pubExternalData);
+            *CFDataGetMutableBytePtr(modifiedExternalData) ^= 0xff;
+
+            CFDictionarySetValue(kcwd, kSecAttrKeyClass, kSecAttrKeyClassPublic);
+            dataKey = SecKeyCreateWithData(modifiedExternalData, kcwd, &error);
+            ok(!dataKey, "pub key SecKeyCreateWithData succeeded with invalid external data");
+            CFReleaseNull(error);
+            CFReleaseNull(dataKey);
+
+            CFReleaseNull(modifiedExternalData);
+        }
+    }
+
+    SKIP: {
+        skip("invalid pub key external data", 1, pubExternalData);
+
+        CFDictionarySetValue(kcwd, kSecAttrKeyClass, kSecAttrKeyClassPrivate);
+        dataKey = SecKeyCreateWithData(pubExternalData, kcwd, &error);
+        ok(!dataKey, "priv key SecKeyCreateWithData succeeded with public external data");
+        CFReleaseNull(error);
+        CFReleaseNull(dataKey);
+
+        CFReleaseNull(pubExternalData);
+    }
+
+    SKIP: {
+        skip("invalid priv key external data", 1, privExternalData);
+
+        CFDictionarySetValue(kcwd, kSecAttrKeyClass, kSecAttrKeyClassPublic);
+        dataKey = SecKeyCreateWithData(privExternalData, kcwd, &error);
+        ok(!dataKey, "pub key SecKeyCreateWithData succeeded with private external data");
+        CFReleaseNull(error);
+        CFReleaseNull(dataKey);
+
+        CFReleaseNull(privExternalData);
+    }
+
+    CFReleaseNull(kcwd);
+    CFReleaseNull(pubKey);
+    CFReleaseNull(privKey);
+}
+
+static void testcopyattributes(unsigned long keySizeInBits)
+{
+    size_t keySizeInBytes = (keySizeInBits + 7) / 8;
+    int32_t keysz32 = (int32_t)keySizeInBits;
+
+    CFNumberRef kzib = CFNumberCreate(NULL, kCFNumberSInt32Type, &keysz32);
+    CFDictionaryRef kgp = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+                                                       kSecAttrKeyType, kSecAttrKeyTypeEC,
+                                                       kSecAttrKeySizeInBits, kzib,
+                                                       kSecAttrIsPermanent, kCFBooleanFalse,
+                                                       NULL);
+    SecKeyRef pubKey = NULL, privKey = NULL;
+    OSStatus status;
+    ok_status(status = SecKeyGeneratePair(kgp, &pubKey, &privKey),
+              "Generate %ld bit (%ld byte) EC keypair (status = %d)",
+              keySizeInBits, keySizeInBytes, (int)status);
+    CFReleaseNull(kgp);
+
+    CFDictionaryRef attributes;
+    CFTypeRef attrValue = NULL, privAppLabel = NULL, pubAppLabel = NULL;
+
+    { // privKey
+        attributes = SecKeyCopyAttributes(privKey);
+        ok(attributes && CFGetTypeID(attributes) == CFDictionaryGetTypeID(),
+           "priv key SecKeyCopyAttributes failed");
+
+        SKIP: {
+            skip("invalid attributes", 8, attributes);
+
+            attrValue = CFDictionaryGetValue(attributes, kSecAttrCanEncrypt);
+            eq_cf(attrValue, kCFBooleanFalse, "invalid priv key kSecAttrCanEncrypt");
+
+            attrValue = CFDictionaryGetValue(attributes, kSecAttrCanDecrypt);
+            eq_cf(attrValue, kCFBooleanTrue, "invalid priv key kSecAttrCanDecrypt");
+
+            attrValue = CFDictionaryGetValue(attributes, kSecAttrCanDerive);
+            eq_cf(attrValue, kCFBooleanTrue, "invalid priv key kSecAttrCanDerive");
+
+            attrValue = CFDictionaryGetValue(attributes, kSecAttrCanSign);
+            eq_cf(attrValue, kCFBooleanTrue, "invalid priv key kSecAttrCanSign");
+
+            attrValue = CFDictionaryGetValue(attributes, kSecAttrCanVerify);
+            eq_cf(attrValue, kCFBooleanFalse, "invalid priv key kSecAttrCanVerify");
+
+            attrValue = CFDictionaryGetValue(attributes, kSecAttrKeyClass);
+            eq_cf(attrValue, kSecAttrKeyClassPrivate, "priv key invalid kSecAttrKeyClass");
+
+            attrValue = CFDictionaryGetValue(attributes, kSecAttrKeyType);
+            eq_cf(attrValue, kSecAttrKeyTypeEC, "invalid priv key kSecAttrKeyType");
+
+            attrValue = CFDictionaryGetValue(attributes, kSecAttrKeySizeInBits);
+            eq_cf(attrValue, kzib, "invalid priv key kSecAttrKeySizeInBits");
+
+            privAppLabel = CFDictionaryGetValue(attributes, kSecAttrApplicationLabel);
+            CFRetainSafe(privAppLabel);
+
+            CFReleaseNull(attributes);
+        }
+    }
+
+    { // pubKey
+        attributes = SecKeyCopyAttributes(pubKey);
+        ok(attributes && CFGetTypeID(attributes) == CFDictionaryGetTypeID(),
+           "pub key SecKeyCopyAttributes failed");
+
+        SKIP: {
+            skip("invalid attributes", 8, attributes);
+
+            attrValue = CFDictionaryGetValue(attributes, kSecAttrCanEncrypt);
+            eq_cf(attrValue, kCFBooleanTrue, "pub key invalid kSecAttrCanEncrypt");
+
+            attrValue = CFDictionaryGetValue(attributes, kSecAttrCanDecrypt);
+            eq_cf(attrValue, kCFBooleanFalse, "pub key invalid kSecAttrCanDecrypt");
+
+            attrValue = CFDictionaryGetValue(attributes, kSecAttrCanDerive);
+            eq_cf(attrValue, kCFBooleanFalse, "pub key invalid kSecAttrCanDerive");
+
+            attrValue = CFDictionaryGetValue(attributes, kSecAttrCanSign);
+            eq_cf(attrValue, kCFBooleanFalse, "pub key invalid kSecAttrCanSign");
+
+            attrValue = CFDictionaryGetValue(attributes, kSecAttrCanVerify);
+            eq_cf(attrValue, kCFBooleanTrue, "pub key invalid kSecAttrCanVerify");
+
+            attrValue = CFDictionaryGetValue(attributes, kSecAttrKeyClass);
+            eq_cf(attrValue, kSecAttrKeyClassPublic, "pub key invalid kSecAttrKeyClass");
+
+            attrValue = CFDictionaryGetValue(attributes, kSecAttrKeyType);
+            eq_cf(attrValue, kSecAttrKeyTypeEC, "pub key invalid kSecAttrKeyType");
+
+            attrValue = CFDictionaryGetValue(attributes, kSecAttrKeySizeInBits);
+            eq_cf(attrValue, kzib, "pub key invalid kSecAttrKeySizeInBits");
+
+            pubAppLabel = CFDictionaryGetValue(attributes, kSecAttrApplicationLabel);
+            CFRetainSafe(pubAppLabel);
+
+            CFReleaseNull(attributes);
+        }
+    }
+
+    eq_cf(privAppLabel, pubAppLabel, "priv key and pub key kSecAttrApplicationLabel differ");
+
+    CFReleaseNull(privAppLabel);
+    CFReleaseNull(pubAppLabel);
+    CFReleaseNull(kzib);
+    CFReleaseNull(pubKey);
+    CFReleaseNull(privKey);
+}
+
+static void testcopypublickey(unsigned long keySizeInBits)
+{
+    size_t keySizeInBytes = (keySizeInBits + 7) / 8;
+    int32_t keysz32 = (int32_t)keySizeInBits;
+
+    CFNumberRef kzib = CFNumberCreate(NULL, kCFNumberSInt32Type, &keysz32);
+    CFDictionaryRef kgp = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+                                                       kSecAttrKeyType, kSecAttrKeyTypeEC,
+                                                       kSecAttrKeySizeInBits, kzib,
+                                                       kSecAttrIsPermanent, kCFBooleanFalse,
+                                                       NULL);
+    CFReleaseNull(kzib);
+
+    SecKeyRef pubKey = NULL, privKey = NULL;
+    OSStatus status;
+    ok_status(status = SecKeyGeneratePair(kgp, &pubKey, &privKey),
+              "Generate %ld bit (%ld byte) EC keypair (status = %d)",
+              keySizeInBits, keySizeInBytes, (int)status);
+    CFReleaseNull(kgp);
+
+    SecKeyRef pubKeyCopy = NULL;
+
+    { // privKey
+        pubKeyCopy = SecKeyCopyPublicKey(privKey);
+        ok(pubKeyCopy, "priv key SecKeyCopyPublicKey failed");
+        eq_cf(pubKeyCopy, pubKey, "pub key from priv key SecKeyCopyPublicKey and pub key differ");
+        CFReleaseNull(pubKeyCopy);
+    }
+
+    { // pubKey
+        pubKeyCopy = SecKeyCopyPublicKey(pubKey);
+        ok(pubKeyCopy, "pub key SecKeyCopyPublicKey failed");
+        eq_cf(pubKeyCopy, pubKey, "pub key from pub key SecKeyCopyPublicKey and pub key differ");
+        CFReleaseNull(pubKeyCopy);
+    }
+
+    CFReleaseNull(pubKey);
+    CFReleaseNull(privKey);
+}
+
+static void testsignverify(unsigned long keySizeInBits)
+{
+    size_t keySizeInBytes = (keySizeInBits + 7) / 8;
+    int32_t keysz32 = (int32_t)keySizeInBits;
+
+    CFNumberRef kzib = CFNumberCreate(NULL, kCFNumberSInt32Type, &keysz32);
+    CFDictionaryRef kgp = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+                                                       kSecAttrKeyType, kSecAttrKeyTypeEC,
+                                                       kSecAttrKeySizeInBits, kzib,
+                                                       kSecAttrIsPermanent, kCFBooleanFalse,
+                                                       NULL);
+    CFReleaseNull(kzib);
+
+    SecKeyRef pubKey = NULL, privKey = NULL;
+    OSStatus status;
+    ok_status(status = SecKeyGeneratePair(kgp, &pubKey, &privKey),
+              "Generate %ld bit (%ld byte) EC keypair (status = %d)",
+              keySizeInBits, keySizeInBytes, (int)status);
+    CFReleaseNull(kgp);
+
+    SecKeyAlgorithm algorithms[] = {
+        kSecKeyAlgorithmECDSASignatureRFC4754,
+        kSecKeyAlgorithmECDSASignatureDigestX962,
+        kSecKeyAlgorithmECDSASignatureMessageX962SHA1,
+        kSecKeyAlgorithmECDSASignatureMessageX962SHA224,
+        kSecKeyAlgorithmECDSASignatureMessageX962SHA256,
+        kSecKeyAlgorithmECDSASignatureMessageX962SHA384,
+        kSecKeyAlgorithmECDSASignatureMessageX962SHA512
+    };
+
+    CFDataRef testData = CFStringCreateExternalRepresentation(kCFAllocatorDefault, CFSTR("test"), kCFStringEncodingUTF8, 0);
+    ok(testData, "creating test data failed");
+
+    SKIP: {
+        skip("invalid test data", 51, status == errSecSuccess && testData);
+
+        CFErrorRef error = NULL;
+
+        for (uint32_t ix = 0; ix < array_size(algorithms); ++ix) {
+            SecKeyAlgorithm algorithm = algorithms[ix];
+            SecKeyAlgorithm incompatibleAlgorithm = CFEqual(algorithm, kSecKeyAlgorithmECDSASignatureRFC4754) ?
+            kSecKeyAlgorithmECDSASignatureDigestX962 : kSecKeyAlgorithmECDSASignatureRFC4754;
+
+            CFDataRef dataToSign = NULL;
+            if (CFEqual(algorithm, kSecKeyAlgorithmECDSASignatureRFC4754) ||
+                CFEqual(algorithm, kSecKeyAlgorithmECDSASignatureDigestX962)) {
+                dataToSign = CFDataCreateWithHash(kCFAllocatorDefault, ccsha256_di(),
+                                                  CFDataGetBytePtr(testData), CFDataGetLength(testData));
+                ok(dataToSign, "creating digest failed for algorithm %d", (int)algorithm);
+                CFReleaseNull(error);
+            }
+            else {
+                CFRetainAssign(dataToSign, testData);
+            }
+
+            SKIP: {
+                skip("invalid data to sign", 7, dataToSign != NULL);
+
+                CFDataRef signature = SecKeyCreateSignature(pubKey, algorithm, dataToSign, &error);
+                ok(!signature, "SecKeyCopySignature succeeded with pub key for algorithm %d", (int)algorithm);
+                CFReleaseNull(error);
+                CFReleaseNull(signature);
+
+                signature = SecKeyCreateSignature(privKey, algorithm, dataToSign, &error);
+                ok(signature, "SecKeyCopySignature failed for algorithm %d", (int)algorithm);
+                CFReleaseNull(error);
+
+                SKIP: {
+                    skip("invalid signature", 5, signature != NULL);
+
+                    ok(!SecKeyVerifySignature(privKey, algorithm, dataToSign, signature, &error),
+                       "SecKeyVerifySignature succeeded with priv key for %d", (int)algorithm);
+                    CFReleaseNull(error);
+
+                    ok(!SecKeyVerifySignature(pubKey, incompatibleAlgorithm, dataToSign, signature, &error),
+                       "SecKeyVerifySignature succeeded with wrong algorithm for %d", (int)algorithm);
+                    CFReleaseNull(error);
+
+                    ok(SecKeyVerifySignature(pubKey, algorithm, dataToSign, signature, &error),
+                       "SecKeyVerifySignature failed for algorithm %d", (int)algorithm);
+                    CFReleaseNull(error);
+
+                    CFMutableDataRef modifiedSignature = CFDataCreateMutable(kCFAllocatorDefault, 0);
+                    CFDataAppend(modifiedSignature, signature);
+                    *CFDataGetMutableBytePtr(modifiedSignature) ^= 0xff;
+
+                    ok(!SecKeyVerifySignature(pubKey, algorithm, dataToSign, modifiedSignature, &error),
+                       "SecKeyVerifySignature succeeded with bad signature for algorithm %d", (int)algorithm);
+                    CFReleaseNull(error);
+
+                    CFMutableDataRef modifiedDataToSign = CFDataCreateMutable(kCFAllocatorDefault, 0);
+                    CFDataAppend(modifiedDataToSign, dataToSign);
+                    *CFDataGetMutableBytePtr(modifiedDataToSign) ^= 0xff;
+
+                    ok(!SecKeyVerifySignature(pubKey, algorithm, modifiedDataToSign, signature, &error),
+                       "SecKeyVerifySignature succeeded with bad data for %d", (int)algorithm);
+                    CFReleaseNull(error);
+
+                    CFReleaseNull(modifiedDataToSign);
+                    CFReleaseNull(modifiedSignature);
+
+                    CFReleaseNull(signature);
+                }
+                CFReleaseNull(dataToSign);
+            }
+        }
+    }
+
+    CFReleaseNull(testData);
+    CFReleaseNull(pubKey);
+    CFReleaseNull(privKey);
 }
 
 /* Test basic add delete update copy matching stuff. */
@@ -463,11 +1014,22 @@ static void tests(void)
     testkeywrap(256, _kSecKeyWrapRFC6637WrapDigestSHA512KekAES256);
     testkeywrap(521, _kSecKeyWrapRFC6637WrapDigestSHA512KekAES256);
 
+    testkeyexchange(192);
+    testkeyexchange(224);
+    testkeyexchange(256);
+    testkeyexchange(384);
+    testkeyexchange(521);
+
+    testsupportedalgos(192);
+    testcreatewithdata(192);
+    testcopyattributes(192);
+    testcopypublickey(192);
+    testsignverify(192);
 }
 
 int si_41_sececkey(int argc, char *const *argv)
 {
-	plan_tests(175);
+	plan_tests(557);
 
 	tests();
 

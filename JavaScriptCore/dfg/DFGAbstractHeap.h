@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,6 +39,7 @@ namespace JSC { namespace DFG {
 // - Stack with a TOP payload is a direct subtype of World
 // - Stack with a non-TOP payload is a direct subtype of Stack with a TOP payload.
 // - Heap is a direct subtype of World.
+// - SideState is a direct subtype of World.
 // - Any other kind with TOP payload is the direct subtype of Heap.
 // - Any other kind with non-TOP payload is the direct subtype of the same kind with a TOP payload.
 
@@ -57,6 +58,7 @@ namespace JSC { namespace DFG {
     macro(JSCell_typeInfoType) \
     macro(JSObject_butterfly) \
     macro(JSPropertyNameEnumerator_cachedPropertyNames) \
+    macro(RegExpObject_lastIndex) \
     macro(NamedProperties) \
     macro(IndexedInt32Properties) \
     macro(IndexedDoubleProperties) \
@@ -68,6 +70,7 @@ namespace JSC { namespace DFG {
     macro(TypedArrayProperties) \
     macro(HeapObjectCount) /* Used to reflect the fact that some allocations reveal object identity */\
     macro(RegExpState) \
+    macro(MathDotRandomState) \
     macro(InternalState) \
     macro(Absolute) \
     /* Use this for writes only, to indicate that this may fire watchpoints. Usually this is never directly written but instead we test to see if a node clobbers this; it just so happens that you have to write world to clobber it. */\

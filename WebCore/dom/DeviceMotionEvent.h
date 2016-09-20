@@ -35,20 +35,22 @@ class DeviceMotionData;
 class DeviceMotionEvent final : public Event {
 public:
     virtual ~DeviceMotionEvent();
-    static Ref<DeviceMotionEvent> create()
-    {
-        return adoptRef(*new DeviceMotionEvent);
-    }
+
     static Ref<DeviceMotionEvent> create(const AtomicString& eventType, DeviceMotionData* deviceMotionData)
     {
         return adoptRef(*new DeviceMotionEvent(eventType, deviceMotionData));
+    }
+
+    static Ref<DeviceMotionEvent> createForBindings()
+    {
+        return adoptRef(*new DeviceMotionEvent);
     }
 
     void initDeviceMotionEvent(const AtomicString& type, bool bubbles, bool cancelable, DeviceMotionData*);
 
     DeviceMotionData* deviceMotionData() const { return m_deviceMotionData.get(); }
 
-    virtual EventInterface eventInterface() const override;
+    EventInterface eventInterface() const override;
 
 private:
     DeviceMotionEvent();

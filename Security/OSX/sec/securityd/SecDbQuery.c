@@ -41,6 +41,8 @@
 #include <Security/SecItemInternal.h>
 #include <Security/SecAccessControl.h>
 #include <Security/SecAccessControlPriv.h>
+#include <Security/SecPolicyInternal.h>
+#include <Security/SecuritydXPC.h>
 #include <CommonCrypto/CommonDigest.h>
 #include <CommonCrypto/CommonDigestSPI.h>
 
@@ -457,6 +459,48 @@ static void query_add_match(const void *key, const void *value, Query *q)
             } else
                 CFRelease(canonical_issuers);
         }
+    } else if (CFEqual(kSecMatchPolicy, key)) {
+        if (CFGetTypeID(value) != CFArrayGetTypeID()) {
+            SecError(errSecParam, &q->q_error, CFSTR("unsupported value for kSecMatchPolicy attribute"));
+            return;
+        }
+        xpc_object_t policiesArrayXPC = _CFXPCCreateXPCObjectFromCFObject(value);
+        if (!policiesArrayXPC) {
+            SecError(errSecParam, &q->q_error, CFSTR("unsupported kSecMatchPolicy object in query"));
+            return;
+        }
+
+        CFArrayRef policiesArray = SecPolicyXPCArrayCopyArray(policiesArrayXPC, &q->q_error);
+        xpc_release(policiesArrayXPC);
+        if (!policiesArray)
+            return;
+
+        if (CFArrayGetCount(policiesArray) != 1 || CFGetTypeID(CFArrayGetValueAtIndex(policiesArray, 0)) != SecPolicyGetTypeID()) {
+            CFRelease(policiesArray);
+            SecError(errSecParam, &q->q_error, CFSTR("unsupported array of policies"));
+            return;
+        }
+
+        query_set_policy(q, (SecPolicyRef)CFArrayGetValueAtIndex(policiesArray, 0));
+        CFRelease(policiesArray);
+    } else if (CFEqual(kSecMatchValidOnDate, key)) {
+        if (CFGetTypeID(value) == CFNullGetTypeID()) {
+            CFDateRef date = CFDateCreate(kCFAllocatorDefault, CFAbsoluteTimeGetCurrent());
+            query_set_valid_on_date(q, date);
+            CFRelease(date);
+        } else if (CFGetTypeID(value) == CFDateGetTypeID()) {
+            query_set_valid_on_date(q, value);
+        } else {
+            SecError(errSecParam, &q->q_error, CFSTR("unsupported value for kSecMatchValidOnDate attribute"));
+            return;
+        }
+    } else if (CFEqual(kSecMatchTrustedOnly, key)) {
+        if ((CFGetTypeID(value) == CFBooleanGetTypeID())) {
+            query_set_trusted_only(q, value);
+        } else {
+            SecError(errSecParam, &q->q_error, CFSTR("unsupported value for kSecMatchTrustedOnly attribute"));
+            return;
+        }
     }
 }
 
@@ -752,15 +796,14 @@ static void query_applier(const void *key, const void *value, void *context)
 }
 
 static CFStringRef query_infer_keyclass(Query *q, CFStringRef agrp) {
-    /* apsd and lockdown are always dku. */
-    if (CFEqual(agrp, CFSTR("com.apple.apsd"))
-        || CFEqual(agrp, CFSTR("lockdown-identities"))) {
-        return kSecAttrAccessibleAlwaysThisDeviceOnly;
+    /* apsd are always dku. */
+    if (CFEqual(agrp, CFSTR("com.apple.apsd"))) {
+        return kSecAttrAccessibleAlwaysThisDeviceOnlyPrivate;
     }
     /* All other certs or in the apple agrp is dk. */
     if (q->q_class == &cert_class) {
         /* third party certs are always dk. */
-        return kSecAttrAccessibleAlways;
+        return kSecAttrAccessibleAlwaysPrivate;
     }
     /* The rest defaults to ak. */
     return kSecAttrAccessibleWhenUnlocked;
@@ -792,6 +835,9 @@ bool query_destroy(Query *q, CFErrorRef *error) {
     CFReleaseSafe(q->q_access_control);
     CFReleaseSafe(q->q_use_cred_handle);
     CFReleaseSafe(q->q_caller_access_groups);
+    CFReleaseSafe(q->q_match_policy);
+    CFReleaseSafe(q->q_match_valid_on_date);
+    CFReleaseSafe(q->q_match_trusted_only);
 
     free(q);
     return ok;
@@ -903,4 +949,17 @@ Query *query_create_with_limit(CFDictionaryRef query, CFDataRef musr, CFIndex li
 void
 query_set_caller_access_groups(Query *q, CFArrayRef caller_access_groups) {
     CFRetainAssign(q->q_caller_access_groups, caller_access_groups);
+}
+
+void
+query_set_policy(Query *q, SecPolicyRef policy) {
+    CFRetainAssign(q->q_match_policy, policy);
+}
+
+void query_set_valid_on_date(Query *q, CFDateRef date) {
+    CFRetainAssign(q->q_match_valid_on_date, date);
+}
+
+void query_set_trusted_only(Query *q, CFBooleanRef trusted_only) {
+    CFRetainAssign(q->q_match_trusted_only, trusted_only);
 }

@@ -37,7 +37,7 @@
  */
 
 #pragma D option quiet
-
+#pragma D option statusrate=10ms
 
 BEGIN
 {

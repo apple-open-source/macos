@@ -51,7 +51,8 @@ class CallbackInfo
 public:
 	~CallbackInfo();
 	CallbackInfo();
-	CallbackInfo(SecKeychainCallback inCallbackFunction,SecKeychainEventMask inEventMask,void *inContext);
+	CallbackInfo(SecKeychainCallback inCallbackFunction,SecKeychainEventMask inEventMask,void *inContext, CFRunLoopRef runLoop);
+    CallbackInfo(const CallbackInfo& cb);
 	
 	bool operator ==(const CallbackInfo& other) const;
 	bool operator !=(const CallbackInfo& other) const;
@@ -59,6 +60,8 @@ public:
 	SecKeychainCallback mCallback;
 	SecKeychainEventMask mEventMask;
 	void *mContext;
+    CFRunLoopRef mRunLoop;
+    bool mActive;
 };
 
 // typedefs
@@ -89,8 +92,12 @@ private:
 	void consume (SecurityServer::NotificationDomain domain, SecurityServer::NotificationEvent whichEvent,
 				  const CssmData &data);
 	
-	static void AlertClients(const list<CallbackInfo> &eventCallbacks, SecKeychainEvent inEvent, pid_t inPid,
+    void AlertClients(const list<CallbackInfo> &eventCallbacks, SecKeychainEvent inEvent, pid_t inPid,
 							 const Keychain& inKeychain, const Item &inItem);
+
+    // Use these as a CFRunLoop callback
+    static void tellClient(CFRunLoopTimerRef timer, void* ctx);
+    static void cfrunLoopActive(CFRunLoopTimerRef timer, void* info);
 
 	list<CallbackInfo> 		mEventCallbacks;
 };

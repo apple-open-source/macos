@@ -42,12 +42,22 @@ _FRAMEWORK_CONFIG_MAP = {
     "Global": {
     },
     "JavaScriptCore": {
-        "export_macro": "JS_EXPORT_PRIVATE"
+        "protocol_group": "Inspector",
+        "export_macro": "JS_EXPORT_PRIVATE",
+        "alternate_dispatchers": True,
+    },
+    "WebKit": {
+        "protocol_group": "Automation",
     },
     "WebInspector": {
+        "protocol_group": "RWI",
+        "objc_prefix": "RWI",
     },
     # Used for code generator tests.
     "Test": {
+        "alternate_dispatchers": True,
+        "protocol_group": "Test",
+        "objc_prefix": "Test",
     }
 }
 
@@ -76,6 +86,9 @@ class Framework:
         if frameworkString == "JavaScriptCore":
             return Frameworks.JavaScriptCore
 
+        if frameworkString == "WebKit":
+            return Frameworks.WebKit
+
         if frameworkString == "WebInspector":
             return Frameworks.WebInspector
 
@@ -88,6 +101,7 @@ class Framework:
 class Frameworks:
     Global = Framework("Global")
     JavaScriptCore = Framework("JavaScriptCore")
+    WebKit = Framework("WebKit")
     WebInspector = Framework("WebInspector")
     Test = Framework("Test")
 
@@ -105,6 +119,10 @@ class TypeReference:
         if type_kind is not None and referenced_type_name is not None:
             raise ParseException("Type reference cannot have both 'type' and '$ref' keys.")
 
+        all_primitive_types = ["integer", "number", "string", "boolean", "enum", "object", "array", "any"]
+        if type_kind is not None and type_kind not in all_primitive_types:
+            raise ParseException("Type reference '%s' is not a primitive type. Allowed values: %s" % (type_kind, ', '.join(all_primitive_types)))
+
         if type_kind == "array" and array_items is None:
             raise ParseException("Type reference with type 'array' must have key 'items' to define array element type.")
 
@@ -115,7 +133,7 @@ class TypeReference:
         if self.referenced_type_name is not None:
             return self.referenced_type_name
         else:
-            return self.type_kind  # integer, string, number, boolean, enum, object, array
+            return self.type_kind  # one of all_primitive_types
 
 
 class Type:
@@ -161,8 +179,9 @@ class PrimitiveType(Type):
 
 
 class AliasedType(Type):
-    def __init__(self, name, domain, aliased_type_ref):
-        self._name = name
+    def __init__(self, declaration, domain, aliased_type_ref):
+        self._name = declaration.type_name
+        self._declaration = declaration
         self._domain = domain
         self._aliased_type_ref = aliased_type_ref
         self.aliased_type = None
@@ -191,8 +210,9 @@ class AliasedType(Type):
 
 
 class EnumType(Type):
-    def __init__(self, name, domain, values, primitive_type_ref, is_anonymous=False):
-        self._name = name
+    def __init__(self, declaration, domain, values, primitive_type_ref, is_anonymous=False):
+        self._name = "(anonymous)" if declaration is None else declaration.type_name
+        self._declaration = declaration
         self._domain = domain
         self._values = values
         self._primitive_type_ref = primitive_type_ref
@@ -205,11 +225,14 @@ class EnumType(Type):
     def is_enum(self):
         return True
 
+    def enum_values(self):
+        return self._values
+
     def type_domain(self):
         return self._domain
 
-    def enum_values(self):
-        return self._values
+    def declaration(self):
+        return self._declaration
 
     def qualified_name(self):
         return  ".".join([self.type_domain().domain_name, self.raw_name()])
@@ -224,8 +247,9 @@ class EnumType(Type):
 
 
 class ArrayType(Type):
-    def __init__(self, name, element_type_ref, domain):
-        self._name = name
+    def __init__(self, declaration, element_type_ref, domain):
+        self._name = None if declaration is None else declaration.type_name
+        self._declaration = declaration
         self._domain = domain
         self._element_type_ref = element_type_ref
         self.element_type = None
@@ -235,6 +259,9 @@ class ArrayType(Type):
             return 'ArrayType[element_type=%r]' % self.element_type
         else:
             return 'ArrayType[element_type=(unresolved)]'
+
+    def declaration(self):
+        return self._declaration
 
     def type_domain(self):
         return self._domain
@@ -251,13 +278,17 @@ class ArrayType(Type):
 
 
 class ObjectType(Type):
-    def __init__(self, name, domain, members):
-        self._name = name
+    def __init__(self, declaration, domain):
+        self._name = declaration.type_name
+        self._declaration = declaration
         self._domain = domain
-        self.members = members
+        self.members = declaration.type_members
 
     def __repr__(self):
         return 'ObjectType[%s]' % self.qualified_name()
+
+    def declaration(self):
+        return self._declaration
 
     def type_domain(self):
         return self._domain
@@ -425,13 +456,13 @@ class Protocol:
                 kind = declaration.type_ref.type_kind
                 if declaration.type_ref.enum_values is not None:
                     primitive_type_ref = TypeReference(declaration.type_ref.type_kind, None, None, None)
-                    type_instance = EnumType(declaration.type_name, domain, declaration.type_ref.enum_values, primitive_type_ref)
+                    type_instance = EnumType(declaration, domain, declaration.type_ref.enum_values, primitive_type_ref)
                 elif kind == "array":
-                    type_instance = ArrayType(declaration.type_name, declaration.type_ref.array_type_ref, domain)
+                    type_instance = ArrayType(declaration, declaration.type_ref.array_type_ref, domain)
                 elif kind == "object":
-                    type_instance = ObjectType(declaration.type_name, domain, declaration.type_members)
+                    type_instance = ObjectType(declaration, domain)
                 else:
-                    type_instance = AliasedType(declaration.type_name, domain, declaration.type_ref)
+                    type_instance = AliasedType(declaration, domain, declaration.type_ref)
 
                 log.debug("< Created fresh type %r for declaration %s" % (type_instance, qualified_type_name))
                 self.types_by_name[qualified_type_name] = type_instance
@@ -462,7 +493,7 @@ class Protocol:
         if type_ref.enum_values is not None:
             # We need to create a type reference without enum values as the enum's nested type.
             primitive_type_ref = TypeReference(type_ref.type_kind, None, None, None)
-            type_instance = EnumType("(anonymous)", domain, type_ref.enum_values, primitive_type_ref, True)
+            type_instance = EnumType(None, domain, type_ref.enum_values, primitive_type_ref, True)
             type_instance.resolve_type_references(self)
             log.debug("< Created fresh type instance for anonymous enum type: %s" % type_instance.qualified_name())
             return type_instance
@@ -538,7 +569,7 @@ class TypeMember:
         self.is_optional = is_optional
         self.description = description
 
-        if self.is_optional not in [True, False]:
+        if not isinstance(self.is_optional, bool):
             raise ParseException("The 'optional' flag for a type member must be a boolean literal.")
 
     def resolve_type_references(self, protocol, domain):
@@ -553,7 +584,7 @@ class Parameter:
         self.is_optional = is_optional
         self.description = description
 
-        if self.is_optional not in [True, False]:
+        if not isinstance(self.is_optional, bool):
             raise ParseException("The 'optional' flag for a parameter must be a boolean literal.")
 
     def resolve_type_references(self, protocol, domain):

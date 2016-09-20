@@ -43,8 +43,11 @@ static const char lastRejectFile[] = "/var/db/.LastGKReject";
 static const char lastApprovedFile[] = "/var/db/.LastGKApp";
 static const char rearmTimerFile[] = "/var/db/.GKRearmTimer";
 
-static const char gkeAuthFile[] = "/var/db/gke.auth";
-static const char gkeSigsFile[] = "/var/db/gke.sigs";
+static const char gkeAuthFile_old[] = "/var/db/gke.auth";
+static const char gkeSigsFile_old[] = "/var/db/gke.sigs";
+static const char gkeAuthFile[] = "/var/db/gke.bundle/Contents/Resources/gke.auth";
+static const char gkeSigsFile[] = "/var/db/gke.bundle/Contents/Resources/gke.sigs";
+
 static const unsigned int gkeCheckInterval = 60;	// seconds
 
 

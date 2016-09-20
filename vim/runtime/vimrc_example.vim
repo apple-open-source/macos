@@ -1,7 +1,7 @@
 " An example for a vimrc file.
 "
 " Maintainer:	Bram Moolenaar <Bram@vim.org>
-" Last change:	2008 Dec 17
+" Last change:	2015 Mar 24
 "
 " To use it, copy it to
 "     for Unix and OS/2:  ~/.vimrc
@@ -24,7 +24,8 @@ set backspace=indent,eol,start
 if has("vms")
   set nobackup		" do not keep a backup file, use versions instead
 else
-  set backup		" keep a backup file
+  set backup		" keep a backup file (restore to previous version)
+  set undofile		" keep an undo file (undo changes after closing)
 endif
 set history=50		" keep 50 lines of command line history
 set ruler		" show the cursor position all the time
@@ -72,10 +73,8 @@ if has("autocmd")
   " When editing a file, always jump to the last known cursor position.
   " Don't do it when the position is invalid or when inside an event handler
   " (happens when dropping a file on gvim).
-  " Also don't do it when the mark is in the first line, that is the default
-  " position when opening a file.
   autocmd BufReadPost *
-    \ if line("'\"") > 1 && line("'\"") <= line("$") |
+    \ if line("'\"") >= 1 && line("'\"") <= line("$") |
     \   exe "normal! g`\"" |
     \ endif
 
@@ -91,6 +90,13 @@ endif " has("autocmd")
 " file it was loaded from, thus the changes you made.
 " Only define it when not defined already.
 if !exists(":DiffOrig")
-  command DiffOrig vert new | set bt=nofile | r # | 0d_ | diffthis
+  command DiffOrig vert new | set bt=nofile | r ++edit # | 0d_ | diffthis
 		  \ | wincmd p | diffthis
+endif
+
+if has('langmap') && exists('+langnoremap')
+  " Prevent that the langmap option applies to characters that result from a
+  " mapping.  If unset (default), this may break plugins (but it's backward
+  " compatible).
+  set langnoremap
 endif

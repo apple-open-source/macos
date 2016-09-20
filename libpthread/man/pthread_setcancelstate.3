@@ -1,5 +1,5 @@
-.\" $FreeBSD: src/lib/libc_r/man/pthread_testcancel.3,v 1.2.2.3 2001/08/17 15:42:52 ru Exp $
-.Dd January 17, 1999
+.\" $FreeBSD$
+.Dd June 11, 2013
 .Dt PTHREAD_TESTCANCEL 3
 .Os
 .Sh NAME
@@ -8,28 +8,24 @@
 .Nm pthread_testcancel
 .Nd set cancelability state
 .Sh SYNOPSIS
-.Fd #include <pthread.h>
+.In pthread.h
 .Ft int
-.Fo pthread_setcancelstate
-.Fa "int state"
-.Fa "int *oldstate"
-.Fc
+.Fn pthread_setcancelstate "int state" "int *oldstate"
 .Ft int
-.Fo pthread_setcanceltype
-.Fa "int type"
-.Fa "int *oldtype"
-.Fc
+.Fn pthread_setcanceltype "int type" "int *oldtype"
 .Ft void
-.Fo pthread_testcancel
-.Fa "void"
-.Fc
+.Fn pthread_testcancel "void"
 .Sh DESCRIPTION
 The
 .Fn pthread_setcancelstate
 function atomically both sets the calling thread's cancelability state
 to the indicated
 .Fa state
-and returns the previous cancelability state at the location referenced by
+and, if
+.Fa oldstate
+is not
+.Dv NULL ,
+returns the previous cancelability state at the location referenced by
 .Fa oldstate .
 Legal values for
 .Fa state
@@ -43,7 +39,11 @@ The
 function atomically both sets the calling thread's cancelability type
 to the indicated
 .Fa type
-and returns the previous cancelability type at the location referenced by
+and, if
+.Fa oldtype
+is not
+.Dv NULL ,
+returns the previous cancelability type at the location referenced by
 .Fa oldtype .
 Legal values for
 .Fa type
@@ -186,7 +186,7 @@ always be restored to its value on entry to the object.
 .Pp
 This follows from a modularity argument: if the client of an object (or the
 client of an object that uses that object) has disabled cancelability, it is
-because the client doesn't want to have to worry about how to clean up if the
+because the client does not want to have to worry about how to clean up if the
 thread is canceled while executing some sequence of actions.
 If an object
 is called in such a state and it enables cancelability and a cancellation
@@ -198,7 +198,7 @@ Second, the cancelability type may be explicitly set to either
 or
 .Em asynchronous
 upon entry to an object.
-But, as with the cancelability state, on exit from
+But as with the cancelability state, on exit from
 an object that cancelability type should always be restored to its value on
 entry to the object.
 .Pp
@@ -229,12 +229,15 @@ or
 .Sh SEE ALSO
 .Xr pthread_cancel 3
 .Sh STANDARDS
+The
 .Fn pthread_testcancel
-conforms to
+function conforms to
 .St -p1003.1-96 .
+The standard allows implementations to make many more functions
+cancellation points.
 .Sh AUTHORS
-This man page was written by
-.An David Leonard Aq d@openbsd.org
+This manual page was written by
+.An David Leonard Aq Mt d@openbsd.org
 for the
 .Ox
 implementation of

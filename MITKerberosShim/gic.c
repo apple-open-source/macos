@@ -326,9 +326,9 @@ krb5_verify_init_creds(mit_krb5_context context,
 
     memset(&hcreds, 0, sizeof(hcreds));
     heim_krb5_verify_init_creds_opt_init(&hopts);
-    
-    if (options->ap_req_nofail)
-	heim_krb5_verify_init_creds_opt_set_ap_req_nofail(&hopts, options->ap_req_nofail);
+
+    if (options && options->ap_req_nofail)
+        heim_krb5_verify_init_creds_opt_set_ap_req_nofail(&hopts, options->ap_req_nofail);
 
     mshim_mcred2hcred(HC(context), creds, &hcreds);
 

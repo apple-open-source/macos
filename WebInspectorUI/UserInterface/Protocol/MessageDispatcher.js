@@ -28,11 +28,11 @@ WebInspector._messagesToDispatch = [];
 
 WebInspector.dispatchNextQueuedMessageFromBackend = function()
 {
-    var startCount = WebInspector._messagesToDispatch.length;
-    var startTimestamp = timestamp();
-    var timeLimitPerRunLoop = 10; // milliseconds
+    const startCount = WebInspector._messagesToDispatch.length;
+    const startTimestamp = timestamp();
+    const timeLimitPerRunLoop = 10; // milliseconds
 
-    var i = 0;
+    let i = 0;
     for (; i < WebInspector._messagesToDispatch.length; ++i) {
         // Defer remaining messages if we have taken too long. In practice, single
         // messages like Page.getResourceContent blow through the time budget.
@@ -51,9 +51,9 @@ WebInspector.dispatchNextQueuedMessageFromBackend = function()
     }
 
     if (InspectorBackend.dumpInspectorTimeStats) {
-        var messageDuration = (timestamp() - startTimestamp).toFixed(3);
-        var dispatchedCount = startCount - WebInspector._messagesToDispatch.length;
-        var remainingCount = WebInspector._messagesToDispatch.length;
+        let messageDuration = (timestamp() - startTimestamp).toFixed(3);
+        let dispatchedCount = startCount - WebInspector._messagesToDispatch.length;
+        let remainingCount = WebInspector._messagesToDispatch.length;
         console.log(`time-stats: --- RunLoop duration: ${messageDuration}ms; dispatched: ${dispatchedCount}; remaining: ${remainingCount}`);
     }
 };
@@ -64,6 +64,12 @@ WebInspector.dispatchMessageFromBackend = function(message)
     // The messages are dequeued on a zero delay timeout.
 
     this._messagesToDispatch.push(message);
+
+    // If something has gone wrong and the uncaught exception sheet is showing,
+    // then don't try to dispatch more messages. Dispatching causes spurious uncaught
+    // exceptions and cause the sheet to overflow with hundreds of logged exceptions.
+    if (window.__uncaughtExceptions && window.__uncaughtExceptions.length)
+        return;
 
     if (this._dispatchTimeout)
         return;

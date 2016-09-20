@@ -113,10 +113,14 @@ static inline void giantMulDigits(
  	giantDigit	*lowProduct,		/* RETURNED, low digit */
 	giantDigit	*hiProduct)		/* RETURNED, high digit */
 {
+#if GIANT_LOG2_BITS_PER_DIGIT>5
+#error "dprod is too small to represent the full result of the multiplication"
+#else
 	unsigned long long dprod;
+#endif
 
 	dprod = (unsigned long long)dig1 * (unsigned long long)dig2;
-	*hiProduct = (giantDigit)(dprod >> GIANT_BITS_PER_DIGIT);
+	*hiProduct =  (giantDigit)(dprod >> GIANT_BITS_PER_DIGIT);
 	*lowProduct = (giantDigit)dprod;
 }
 

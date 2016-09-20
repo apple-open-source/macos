@@ -54,7 +54,7 @@ script()
 		total += vtimestamp - self->on;
 	}
 
-	tick-1sec
+	tick-100msec
 	/i++ == 10/
 	{
 		exit(0);

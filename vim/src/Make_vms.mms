@@ -2,7 +2,7 @@
 # Makefile for Vim on OpenVMS
 #
 # Maintainer:   Zoltan Arpadffy <arpadffy@polarhome.com>
-# Last change:  2008 Aug 16
+# Last change:  2014 Aug 10
 #
 # This has script been tested on VMS 6.2 to 8.2 on DEC Alpha, VAX and IA64
 # with MMS and MMK
@@ -21,9 +21,6 @@
 ######################################################################
 # Configuration section.
 ######################################################################
-# VMS version
-# Uncomment if you use VMS version 6.2 or older
-# OLD_VMS = YES
 
 # Compiler selection.
 # Comment out if you use the VAXC compiler
@@ -34,7 +31,7 @@ DECC = YES
 # SMALL  - Few features enabled, as basic as possible
 # NORMAL - A default selection of features enabled
 # BIG    - Many features enabled, as rich as possible. (default)
-# HUGE   - All possible featues enabled.
+# HUGE   - All possible features enabled.
 # Please select one of these alternatives above.
 MODEL = HUGE
 
@@ -55,12 +52,12 @@ MODEL = HUGE
 # Comment out if you want the compiler version with :ver command.
 # NOTE: This part can make some complications if you're using some
 # predefined symbols/flags for your compiler. If does, just leave behind
-# the comment varialbe CCVER.
+# the comment variable CCVER.
 CCVER = YES
 
 # Uncomment if want a debug version. Resulting executable is DVIM.EXE
 # Development purpose only! Normally, it should not be defined. !!!
-# DEBUG = YES
+# DEBUG = YES 
 
 # Languages support for Perl, Python, TCL etc.
 # If you don't need it really, leave them behind the comment.
@@ -87,6 +84,9 @@ CCVER = YES
 # Allow FEATURE_MZSCHEME
 # VIM_MZSCHEME = YES
 
+# Use ICONV
+# VIM_ICONV  = YES
+
 ######################################################################
 # Directory, library and include files configuration section.
 # Normally you need not to change anything below. !
@@ -99,24 +99,24 @@ CCVER = YES
 
 .IFDEF MMSVAX
 .IFDEF DECC	     # VAX with DECC
-CC_DEF  = cc # /decc # some system requires this switch but when it is not required /ver might fail
+CC_DEF  = cc # /decc # some versions require /decc switch but when it is not required /ver might fail
 PREFIX  = /prefix=all
+OPTIMIZE= /noopt     # do not optimize on VAX. The compiler has hard time with crypto functions
 .ELSE		     # VAX with VAXC
 CC_DEF	= cc
 PREFIX	=
+OPTIMIZE= /noopt
 CCVER	=
 .ENDIF
-.ELSE		     # AXP wixh DECC
+.ELSE		     # AXP and IA64 with DECC
 CC_DEF  = cc
 PREFIX  = /prefix=all
+OPTIMIZE= /opt
 .ENDIF
+
 
 LD_DEF  = link
 C_INC   = [.proto]
-
-.IFDEF OLD_VMS
-VMS_DEF = ,"OLD_VMS"
-.ENDIF
 
 .IFDEF DEBUG
 DEBUG_DEF = ,"DEBUG"
@@ -125,7 +125,7 @@ CFLAGS    = /debug/noopt$(PREFIX)
 LDFLAGS   = /debug
 .ELSE
 TARGET    = vim.exe
-CFLAGS    = /opt$(PREFIX)
+CFLAGS    = $(OPTIMIZE)$(PREFIX)
 LDFLAGS   =
 .ENDIF
 
@@ -274,6 +274,11 @@ MZSCH_SRC = if_mzsch.c
 MZSCH_OBJ = if_mzsch.obj
 .ENDIF
 
+.IFDEF VIM_ICONV
+# ICONV related setup
+ICONV_DEF = ,"USE_ICONV"
+.ENDIF
+
 ######################################################################
 # End of configuration section.
 # Please, do not change anything below without programming experience.
@@ -287,8 +292,8 @@ VIMHOST = "''F$TRNLNM("SYS$NODE")'''F$TRNLNM("UCX$INET_HOST")'.''F$TRNLNM("UCX$I
 
 .SUFFIXES : .obj .c
 
-ALL_CFLAGS = /def=($(MODEL_DEF)$(DEFS)$(VMS_DEF)$(DEBUG_DEF)$(PERL_DEF)$(PYTHON_DEF) -
- $(TCL_DEF)$(SNIFF_DEF)$(RUBY_DEF)$(XIM_DEF)$(HANGULIN_DEF)$(TAG_DEF)$(MZSCH_DEF)) -
+ALL_CFLAGS = /def=($(MODEL_DEF)$(DEFS)$(DEBUG_DEF)$(PERL_DEF)$(PYTHON_DEF) -
+ $(TCL_DEF)$(SNIFF_DEF)$(RUBY_DEF)$(XIM_DEF)$(HANGULIN_DEF)$(TAG_DEF)$(MZSCH_DEF)$(ICONV_DEF)) -
  $(CFLAGS)$(GUI_FLAG) -
  /include=($(C_INC)$(GUI_INC_DIR)$(GUI_INC)$(PERL_INC)$(PYTHON_INC)$(TCL_INC))
 
@@ -296,15 +301,15 @@ ALL_CFLAGS = /def=($(MODEL_DEF)$(DEFS)$(VMS_DEF)$(DEBUG_DEF)$(PERL_DEF)$(PYTHON_
 # It is specially formated for correct display of unix like includes
 # as $(GUI_INC) - replaced with $(GUI_INC_VER)
 # Otherwise should not be any other difference.
-ALL_CFLAGS_VER = /def=($(MODEL_DEF)$(DEFS)$(VMS_DEF)$(DEBUG_DEF)$(PERL_DEF)$(PYTHON_DEF) -
- $(TCL_DEF)$(SNIFF_DEF)$(RUBY_DEF)$(XIM_DEF)$(HANGULIN_DEF)$(TAG_DEF)$(MZSCH_DEF)) -
+ALL_CFLAGS_VER = /def=($(MODEL_DEF)$(DEFS)$(DEBUG_DEF)$(PERL_DEF)$(PYTHON_DEF) -
+ $(TCL_DEF)$(SNIFF_DEF)$(RUBY_DEF)$(XIM_DEF)$(HANGULIN_DEF)$(TAG_DEF)$(MZSCH_DEF)$(ICONV_DEF)) -
  $(CFLAGS)$(GUI_FLAG) -
  /include=($(C_INC)$(GUI_INC_DIR)$(GUI_INC_VER)$(PERL_INC)$(PYTHON_INC)$(TCL_INC))
 
 ALL_LIBS = $(LIBS) $(GUI_LIB_DIR) $(GUI_LIB) \
 	   $(PERL_LIB) $(PYTHON_LIB) $(TCL_LIB) $(SNIFF_LIB) $(RUBY_LIB)
 
-SRC =	blowfish.c buffer.c charset.c diff.c digraph.c edit.c eval.c ex_cmds.c ex_cmds2.c \
+SRC =	blowfish.c buffer.c charset.c crypt.c, crypt_zip.c diff.c digraph.c edit.c eval.c ex_cmds.c ex_cmds2.c \
 	ex_docmd.c ex_eval.c ex_getln.c if_xcmdsrv.c fileio.c fold.c getchar.c \
 	hardcopy.c hashtab.c main.c mark.c menu.c mbyte.c memfile.c memline.c message.c misc1.c \
 	misc2.c move.c normal.c ops.c option.c popupmnu.c quickfix.c regexp.c search.c sha256.c\
@@ -313,7 +318,7 @@ SRC =	blowfish.c buffer.c charset.c diff.c digraph.c edit.c eval.c ex_cmds.c ex_
 	$(GUI_SRC) $(PERL_SRC) $(PYTHON_SRC) $(TCL_SRC) $(SNIFF_SRC) \
 	$(RUBY_SRC) $(HANGULIN_SRC) $(MZSCH_SRC)
 
-OBJ =	blowfish.obj buffer.obj charset.obj diff.obj digraph.obj edit.obj eval.obj \
+OBJ =	blowfish.obj buffer.obj charset.obj crypt.obj, crypt_zip.obj diff.obj digraph.obj edit.obj eval.obj \
 	ex_cmds.obj ex_cmds2.obj ex_docmd.obj ex_eval.obj ex_getln.obj \
 	if_xcmdsrv.obj fileio.obj fold.obj getchar.obj hardcopy.obj hashtab.obj main.obj mark.obj \
 	menu.obj memfile.obj memline.obj message.obj misc1.obj misc2.obj \

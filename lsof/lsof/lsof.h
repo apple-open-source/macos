@@ -31,7 +31,7 @@
 
 
 /*
- * $Id: lsof.h,v 1.66 2013/01/02 17:14:59 abe Exp $
+ * $Id: lsof.h,v 1.68 2015/07/07 20:16:58 abe Exp $
  */
 
 
@@ -78,6 +78,24 @@ struct l_dev {
 	int v;				/* has been verified
 					 * (when DCUnsafe == 1) */
 };
+
+
+# if	defined(HASEPTOPTS)
+/*
+ * End point definitions
+ */
+
+#define	CHEND_PIPE	1		/* pipe endpoint ID */
+#define	EPT_PIPE	1		/* process has pipe file */
+#define	EPT_PIPE_END	2		/* process has pipe end point file */
+
+#  if	defined(HASUXSOCKEPT)
+#define	CHEND_UXS	2		/* UNIX socket endpoint ID */
+#define	EPT_UXS		4		/* process has a UNIX socket file */
+#define	EPT_UXS_END	8		/* process has a UNIX socket end point
+					 * file */
+#  endif	/* defined(HASUXSOCKEPT) */
+# endif	/* defined(HASEPTOPTS) */
 
 
 /*
@@ -470,6 +488,10 @@ extern int ZoneColW;
 #define	SELZONE		0x1000		/* select zone (-z) */
 #define	SELEXCLF	0x2000		/* file selection excluded */
 #define	SELTASK		0x4000		/* select tasks (-K) */
+#define	SELPINFO	0x8000		/* selected for pipe info (cleared in
+					 * link_lfile() */
+#define	SELUXSINFO	0x10000		/* selected for UNIX socket info
+					 * cleared in link_lfile() */
 #define	SELALL		(SELCMD|SELCNTX|SELFD|SELNA|SELNET|SELNM|SELNFS|SELPID|SELUID|SELUNX|SELZONE|SELTASK)
 #define	SELPROC		(SELCMD|SELCNTX|SELPGID|SELPID|SELUID|SELZONE|SELTASK)
 					/* process selecters */
@@ -544,6 +566,38 @@ struct pff_tab {			/* print file flags table structure */
 	char *nm;			/* name to print for flag */
 };
 # endif	/* defined(HASFSTRUCT) */
+
+# if	defined(HASEPTOPTS)
+typedef struct pxinfo {			/* hashed pipe or UNIX socket inode
+					 * information */
+	INODETYPE ino;			/* file's inode */
+	struct lfile *lf;		/* connected peer file */
+	int lpx;			/* connected process index */
+	struct pxinfo *next;		/* next entry for hashed inode */
+} pxinfo_t;
+
+typedef struct uxsin {			/* UNIX socket information */
+	INODETYPE inode;		/* node number */
+	char *pcb;			/* protocol control block */
+	char *path;			/* file path */
+	unsigned char sb_def;		/* stat(2) buffer definitions */
+	dev_t sb_dev;			/* stat(2) buffer device */
+	INODETYPE sb_ino;		/* stat(2) buffer node number */
+	dev_t sb_rdev;			/* stat(2) raw device number */
+	uint32_t ty;			/* socket type */
+
+#  if	defined(HASEPTOPTS) && defined(HASUXSOCKEPT)
+	struct uxsin *icons;		/* incoming socket conections */
+	unsigned int icstat;		/* incoming connection status
+					 * 0 == none */
+	pxinfo_t *pxinfo;		/* inode information */
+	struct uxsin *peer;	        /* connected peer(s) info */
+#  endif	/* defined(HASEPTOPTS) && defined(HASUXSOCKEPT) */
+
+	struct uxsin *next;
+} uxsin_t;
+# endif	/* defined(HASEPTOPTS) */
+
 
 struct seluid {
 	uid_t uid;			/* User ID */
@@ -621,6 +675,8 @@ extern int Fnfs;
 extern int Fnlink;
 extern int Foffset;
 extern int Fovhd;
+extern int FeptE;
+
 extern int Fport;
 
 # if	!defined(HASNORPC_H)
@@ -703,6 +759,12 @@ struct lfile {
 
 	unsigned char nlink_def;	/* link count definition status */
 	unsigned char off_def;		/* offset definition status */
+
+# if	defined(HASEPTOPTS)
+	unsigned char chend;		/* communication channel endpoint
+					 * file */
+# endif	/* defined(HASEPTOPTS) */
+
 	unsigned char rdev_def;		/* rdev definition status */
 	unsigned char sz_def;		/* size definition status */
 
@@ -713,7 +775,7 @@ struct lfile {
 	char fd[FDLEN];
 	char iproto[IPROTOL];
 	char type[TYPEL];
-	short sf;			/* select flags -- SEL* symbols */
+	unsigned int sf;		/* select flags -- SEL* symbols */
 	int ch;				/* VMPC channel: -1 = none */
 	int ntype;			/* node type -- N_* value */
 	SZOFFTYPE off;
@@ -838,6 +900,10 @@ struct lproc {
 	short pss;			/* state: 0 = not selected
 				 	 *	  1 = wholly selected
 				 	 *	  2 = partially selected */
+# if	defined(HASEPTOPTS)
+	short ept;			/* end point status -- EPT_* values */
+# endif	/* defined(HASEPTOPTS) */
+
 	int pid;			/* process ID */
 
 # if	defined(HASTASKS)
@@ -856,6 +922,7 @@ struct lproc {
 };
 extern struct lproc *Lp, *Lproc;
 
+extern int MaxFd;
 extern char *Memory;
 extern int MntSup;
 extern char *MntSupP;

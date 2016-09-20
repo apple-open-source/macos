@@ -7,12 +7,13 @@
 /*	#include "bounce_service.h"
 /*
 /*	int     bounce_one_service(flags, queue_name, queue_id, encoding,
-/*					orig_sender, envid, ret,
+/*					smtputf8, orig_sender, envid, ret,
 /*					rcpt_buf, dsn_buf, templates)
 /*	int	flags;
 /*	char	*queue_name;
 /*	char	*queue_id;
 /*	char	*encoding;
+/*	int	smtputf8;
 /*	char	*orig_sender;
 /*	char	*envid;
 /*	int	ret;
@@ -56,15 +57,12 @@
 #include <string.h>
 #include <ctype.h>
 
-#ifdef STRCASECMP_IN_STRINGS_H
-#include <strings.h>
-#endif
-
 /* Utility library. */
 
 #include <msg.h>
 #include <vstream.h>
 #include <name_mask.h>
+#include <stringops.h>
 
 /* Global library. */
 
@@ -74,6 +72,7 @@
 #include <mail_error.h>
 #include <bounce.h>
 #include <dsn_mask.h>
+#include <rec_type.h>
 
 /* Application-specific. */
 
@@ -84,10 +83,10 @@
 /* bounce_one_service - send a bounce for one recipient */
 
 int     bounce_one_service(int flags, char *queue_name, char *queue_id,
-			           char *encoding, char *orig_sender,
-			           char *dsn_envid, int dsn_ret,
-			           RCPT_BUF *rcpt_buf, DSN_BUF *dsn_buf,
-			           BOUNCE_TEMPLATES *ts)
+			           char *encoding, int smtputf8,
+			           char *orig_sender, char *dsn_envid,
+			           int dsn_ret, RCPT_BUF *rcpt_buf,
+			           DSN_BUF *dsn_buf, BOUNCE_TEMPLATES *ts)
 {
     BOUNCE_INFO *bounce_info;
     int     bounce_status = 1;
@@ -101,8 +100,8 @@ int     bounce_one_service(int flags, char *queue_name, char *queue_id,
      * Initialize. Open queue file, bounce log, etc.
      */
     bounce_info = bounce_mail_one_init(queue_name, queue_id, encoding,
-				       dsn_envid, rcpt_buf, dsn_buf,
-				       ts->failure);
+				       smtputf8, dsn_envid, rcpt_buf,
+				       dsn_buf, ts->failure);
 
 #define NULL_SENDER		MAIL_ADDR_EMPTY	/* special address */
 #define NULL_TRACE_FLAGS	0
@@ -128,7 +127,7 @@ int     bounce_one_service(int flags, char *queue_name, char *queue_id,
      * address and substitute something else so mail does not come back at
      * us.
      */
-    if (strcasecmp(orig_sender, mail_addr_double_bounce()) == 0) {
+    if (strcasecmp_utf8(orig_sender, mail_addr_double_bounce()) == 0) {
 	msg_warn("%s: undeliverable postmaster notification discarded",
 		 queue_id);
 	bounce_status = 0;
@@ -147,8 +146,9 @@ int     bounce_one_service(int flags, char *queue_name, char *queue_id,
 	} else {
 	    if ((bounce = post_mail_fopen_nowait(mail_addr_double_bounce(),
 						 var_2bounce_rcpt,
-						 INT_FILT_MASK_BOUNCE,
+						 MAIL_SRC_MASK_BOUNCE,
 						 NULL_TRACE_FLAGS,
+						 smtputf8,
 						 new_id)) != 0) {
 
 		/*
@@ -183,8 +183,9 @@ int     bounce_one_service(int flags, char *queue_name, char *queue_id,
 	    bounce_status = 0;
 	} else {
 	    if ((bounce = post_mail_fopen_nowait(NULL_SENDER, orig_sender,
-						 INT_FILT_MASK_BOUNCE,
+						 MAIL_SRC_MASK_BOUNCE,
 						 NULL_TRACE_FLAGS,
+						 smtputf8,
 						 new_id)) != 0) {
 
 		/*
@@ -217,7 +218,7 @@ int     bounce_one_service(int flags, char *queue_name, char *queue_id,
 #define SEND_POSTMASTER_SINGLE_BOUNCE_NOTICE (notify_mask & MAIL_ERROR_BOUNCE)
 
 	if (bounce_status == 0 && SEND_POSTMASTER_SINGLE_BOUNCE_NOTICE
-	    && strcasecmp(orig_sender, mail_addr_double_bounce()) != 0) {
+	    && strcasecmp_utf8(orig_sender, mail_addr_double_bounce()) != 0) {
 
 	    /*
 	     * Send the text with reason for the bounce, and the headers of
@@ -228,8 +229,9 @@ int     bounce_one_service(int flags, char *queue_name, char *queue_id,
 	     */
 	    if ((bounce = post_mail_fopen_nowait(mail_addr_double_bounce(),
 						 var_bounce_rcpt,
-						 INT_FILT_MASK_BOUNCE,
+						 MAIL_SRC_MASK_BOUNCE,
 						 NULL_TRACE_FLAGS,
+						 smtputf8,
 						 new_id)) != 0) {
 		if (bounce_header(bounce, bounce_info, var_bounce_rcpt,
 				  POSTMASTER_COPY) == 0

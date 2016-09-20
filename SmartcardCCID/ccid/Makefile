@@ -25,11 +25,11 @@ post-install:
 
 # Automatic Extract & Patch
 AEP_Project    = ccid
-AEP_Version    = 1.4.21
+AEP_Version    = 1.4.24
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = destDirFix.patch ForceWithoutPcsc.patch ccid-info-plist.patch osxConfigure.patch scardcontrol.c.patch RSA_SecurID_getpasswd.c.patch
+AEP_Patches    = destDirFix.patch ForceWithoutPcsc.patch ccid-info-plist.patch osxConfigure.patch
 
 # Extract the source.
 install_source::

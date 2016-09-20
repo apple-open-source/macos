@@ -50,7 +50,7 @@ public:
     
     ~PolymorphicCallNode();
     
-    void unlink(RepatchBuffer&);
+    void unlink(VM&);
 
     bool hasCallLinkInfo(CallLinkInfo* info) { return m_callLinkInfo == info; }
     void clearCallLinkInfo();
@@ -96,10 +96,10 @@ public:
 
     void clearCallNodesFor(CallLinkInfo*);
     
-    bool visitWeak(RepatchBuffer&) override;
+    bool visitWeak(VM&) override;
 
 protected:
-    virtual void markRequiredObjectsInternal(SlotVisitor&) override;
+    void markRequiredObjectsInternal(SlotVisitor&) override;
 
 private:
     Vector<WriteBarrier<JSCell>, 2> m_variants;

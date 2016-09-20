@@ -312,7 +312,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 
    
-uint8_t *
+const uint8_t *
 CCDigestOID(CCDigestRef ctx)
 __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
@@ -321,7 +321,7 @@ CCDigestOIDLen(CCDigestRef ctx)
 __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 CCDigestRef
-CCDigestCreateByOID(uint8_t *OID, size_t OIDlen)
+CCDigestCreateByOID(const uint8_t *OID, size_t OIDlen)
 __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
     
 

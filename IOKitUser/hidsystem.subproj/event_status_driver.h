@@ -41,6 +41,7 @@ __BEGIN_DECLS
 #include <IOKit/hidsystem/IOLLEvent.h>
 #include <IOKit/hidsystem/IOHIDTypes.h>
 #include <AvailabilityMacros.h> 
+#include <IOKit/IOKitLib.h>
 
 /*
  * Event System Handle:
@@ -52,27 +53,27 @@ __BEGIN_DECLS
 typedef mach_port_t NXEventHandle;
 
 /* Open and Close */
-NXEventHandle NXOpenEventStatus(void);
-void NXCloseEventStatus(NXEventHandle handle);
+NXEventHandle NXOpenEventStatus(void) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_12, __IPHONE_NA, __IPHONE_NA);
+void NXCloseEventStatus(NXEventHandle handle) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_12, __IPHONE_NA, __IPHONE_NA);
 
 /* Status */
 extern NXEventSystemInfoType NXEventSystemInfo(NXEventHandle handle,
 				char *flavor,
 				int *evs_info,
-				unsigned int *evs_info_cnt);
+				unsigned int *evs_info_cnt) __deprecated;
 /* Keyboard */
-extern void NXSetKeyRepeatInterval(NXEventHandle handle, double seconds);
-extern double NXKeyRepeatInterval(NXEventHandle handle);
-extern void NXSetKeyRepeatThreshold(NXEventHandle handle, double threshold);
-extern double NXKeyRepeatThreshold(NXEventHandle handle);
-extern void NXResetKeyboard(NXEventHandle handle);
+extern void NXSetKeyRepeatInterval(NXEventHandle handle, double seconds) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_12, __IPHONE_NA, __IPHONE_NA);
+extern double NXKeyRepeatInterval(NXEventHandle handle) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_12, __IPHONE_NA, __IPHONE_NA);
+extern void NXSetKeyRepeatThreshold(NXEventHandle handle, double threshold) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_12, __IPHONE_NA, __IPHONE_NA);
+extern double NXKeyRepeatThreshold(NXEventHandle handle) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_12, __IPHONE_NA, __IPHONE_NA);
+extern void NXResetKeyboard(NXEventHandle handle) __deprecated;
 
 /* Mouse */
-extern void NXSetClickTime(NXEventHandle handle, double seconds);
-extern double NXClickTime(NXEventHandle handle);
-extern void NXSetClickSpace(NXEventHandle handle, _NXSize_ *area);
-extern void NXGetClickSpace(NXEventHandle handle, _NXSize_ *area);
-extern void NXResetMouse(NXEventHandle handle);
+extern void NXSetClickTime(NXEventHandle handle, double seconds)__OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_12, __IPHONE_NA, __IPHONE_NA);
+extern double NXClickTime(NXEventHandle handle) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_12, __IPHONE_NA, __IPHONE_NA);
+extern void NXSetClickSpace(NXEventHandle handle, _NXSize_ *area) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_12, __IPHONE_NA, __IPHONE_NA);
+extern void NXGetClickSpace(NXEventHandle handle, _NXSize_ *area) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_12, __IPHONE_NA, __IPHONE_NA);
+extern void NXResetMouse(NXEventHandle handle) __deprecated;
 
 /*
 * The following functions have been removed.

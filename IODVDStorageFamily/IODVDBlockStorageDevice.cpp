@@ -25,6 +25,21 @@
 #define	super	IOCDBlockStorageDevice
 OSDefineMetaClassAndAbstractStructors(IODVDBlockStorageDevice,IOCDBlockStorageDevice)
 
+extern "C" IOReturn _ZN23IODVDBlockStorageDevice9reportKeyEP18IOMemoryDescriptorhjhhh (
+                                        IOMemoryDescriptor *buffer,const DVDKeyClass keyClass,
+                                        const UInt32 lba,const UInt8 blockCount,
+                                        const UInt8 agid,const DVDKeyFormat keyFormat);
+
+#define dvdStorageReportKeyWithBlockCount( dvdStorage )                                                   \
+( OSMemberFunctionCast( void *,                                                                           \
+                        dvdStorage,                                                                       \
+                        ( IOReturn ( IODVDBlockStorageDevice::* )( IOMemoryDescriptor *,                  \
+                                                                   const DVDKeyClass,                     \
+                                                                   const UInt32, const UInt8,             \
+                                                                   const UInt8 agid, const DVDKeyFormat ) \
+                        ) &IODVDBlockStorageDevice::reportKey ) !=                                        \
+  _ZN23IODVDBlockStorageDevice9reportKeyEP18IOMemoryDescriptorhjhhh )
+
 bool
 IODVDBlockStorageDevice::init(OSDictionary * properties)
 {
@@ -38,7 +53,35 @@ IODVDBlockStorageDevice::init(OSDictionary * properties)
     return(result);
 }
 
-OSMetaClassDefineReservedUnused(IODVDBlockStorageDevice,  0);
+IOReturn
+IODVDBlockStorageDevice::reportKey(IOMemoryDescriptor *buffer,const DVDKeyClass keyClass,
+                                        const UInt32 lba,const UInt8 agid,const DVDKeyFormat keyFormat)
+{
+    if ( dvdStorageReportKeyWithBlockCount ( this ) )
+    {
+        return(reportKey(buffer,keyClass,lba,0,agid,keyFormat));
+    }
+    return kIOReturnUnsupported;
+}
+
+IOReturn
+IODVDBlockStorageDevice::reportKey(IOMemoryDescriptor *buffer,const DVDKeyClass keyClass,
+                                        const UInt32 lba,const UInt8 blockCount,
+                                        const UInt8 agid,const DVDKeyFormat keyFormat)
+{
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
+    if ( blockCount == 0 )
+    {
+        return ( reportKey( buffer,keyClass,lba,agid,keyFormat ) );
+    }
+    return kIOReturnUnsupported;
+
+#pragma clang diagnostic pop
+}
+
+OSMetaClassDefineReservedUsed(IODVDBlockStorageDevice,  0);     /* reportKey */
 OSMetaClassDefineReservedUnused(IODVDBlockStorageDevice,  1);
 OSMetaClassDefineReservedUnused(IODVDBlockStorageDevice,  2);
 OSMetaClassDefineReservedUnused(IODVDBlockStorageDevice,  3);

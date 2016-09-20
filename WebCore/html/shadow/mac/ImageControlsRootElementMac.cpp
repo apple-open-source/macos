@@ -38,19 +38,19 @@ namespace WebCore {
 
 class RenderImageControls final : public RenderBlockFlow {
 public:
-    RenderImageControls(HTMLElement&, Ref<RenderStyle>&&);
+    RenderImageControls(HTMLElement&, RenderStyle&&);
     virtual ~RenderImageControls();
 
 private:
-    virtual void updateLogicalWidth() override;
-    virtual void computeLogicalHeight(LayoutUnit logicalHeight, LayoutUnit logicalTop, LogicalExtentComputedValues&) const override;
+    void updateLogicalWidth() override;
+    void computeLogicalHeight(LayoutUnit logicalHeight, LayoutUnit logicalTop, LogicalExtentComputedValues&) const override;
 
-    virtual const char* renderName() const override { return "RenderImageControls"; }
-    virtual bool requiresForcedStyleRecalcPropagation() const override { return true; }
+    const char* renderName() const override { return "RenderImageControls"; }
+    bool requiresForcedStyleRecalcPropagation() const override { return true; }
 };
 
-RenderImageControls::RenderImageControls(HTMLElement& element, Ref<RenderStyle>&& style)
-    : RenderBlockFlow(element, WTF::move(style))
+RenderImageControls::RenderImageControls(HTMLElement& element, RenderStyle&& style)
+    : RenderBlockFlow(element, WTFMove(style))
 {
 }
 
@@ -80,17 +80,18 @@ void RenderImageControls::computeLogicalHeight(LayoutUnit logicalHeight, LayoutU
     computedValues.m_extent = downcast<RenderImage>(*renderer).logicalHeight();
 }
 
-RefPtr<ImageControlsRootElement> ImageControlsRootElement::maybeCreate(Document& document)
+RefPtr<ImageControlsRootElement> ImageControlsRootElement::tryCreate(Document& document)
 {
     if (!document.page())
         return nullptr;
 
-    RefPtr<ImageControlsRootElementMac> controls = adoptRef(*new ImageControlsRootElementMac(document));
-    controls->setAttribute(HTMLNames::classAttr, "x-webkit-image-controls");
+    Ref<ImageControlsRootElementMac> controls = adoptRef(*new ImageControlsRootElementMac(document));
+    controls->setAttributeWithoutSynchronization(HTMLNames::classAttr, AtomicString("x-webkit-image-controls", AtomicString::ConstructFromLiteral));
 
-    controls->appendChild(ImageControlsButtonElementMac::maybeCreate(document));
+    if (RefPtr<ImageControlsButtonElementMac> button = ImageControlsButtonElementMac::tryCreate(document))
+        controls->appendChild(*button);
 
-    return controls.release();
+    return WTFMove(controls);
 }
 
 ImageControlsRootElementMac::ImageControlsRootElementMac(Document& document)
@@ -102,9 +103,9 @@ ImageControlsRootElementMac::~ImageControlsRootElementMac()
 {
 }
 
-RenderPtr<RenderElement> ImageControlsRootElementMac::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
+RenderPtr<RenderElement> ImageControlsRootElementMac::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
 {
-    return createRenderer<RenderImageControls>(*this, WTF::move(style));
+    return createRenderer<RenderImageControls>(*this, WTFMove(style));
 }
 
 } // namespace WebCore

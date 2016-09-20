@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2014-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -60,11 +60,6 @@ Ref<WebInspector> WebInspector::create(WebPage* page)
 
 WebInspector::WebInspector(WebPage* page)
     : m_page(page)
-    , m_attached(false)
-    , m_previousCanAttach(false)
-#if ENABLE(INSPECTOR_SERVER)
-    , m_remoteFrontendConnected(false)
-#endif
 {
 }
 
@@ -75,18 +70,18 @@ WebInspector::~WebInspector()
 }
 
 // Called from WebInspectorClient
-void WebInspector::createInspectorPage(bool underTest)
+void WebInspector::openFrontendConnection(bool underTest)
 {
-#if OS(DARWIN)
+#if USE(UNIX_DOMAIN_SOCKETS)
+    IPC::Connection::SocketPair socketPair = IPC::Connection::createPlatformConnection();
+    IPC::Connection::Identifier connectionIdentifier(socketPair.server);
+    IPC::Attachment connectionClientPort(socketPair.client);
+#elif OS(DARWIN)
     mach_port_t listeningPort;
     mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &listeningPort);
 
     IPC::Connection::Identifier connectionIdentifier(listeningPort);
     IPC::Attachment connectionClientPort(listeningPort, MACH_MSG_TYPE_MAKE_SEND);
-#elif USE(UNIX_DOMAIN_SOCKETS)
-    IPC::Connection::SocketPair socketPair = IPC::Connection::createPlatformConnection();
-    IPC::Connection::Identifier connectionIdentifier(socketPair.server);
-    IPC::Attachment connectionClientPort(socketPair.client);
 #else
     notImplemented();
     return;
@@ -98,12 +93,15 @@ void WebInspector::createInspectorPage(bool underTest)
     WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorProxy::CreateInspectorPage(connectionClientPort, canAttachWindow(), underTest), m_page->pageID());
 }
 
-void WebInspector::closeFrontend()
+void WebInspector::closeFrontendConnection()
 {
     WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorProxy::DidClose(), m_page->pageID());
 
-    m_frontendConnection->invalidate();
-    m_frontendConnection = nullptr;
+    // If we tried to close the frontend before it was created, then no connection exists yet.
+    if (m_frontendConnection) {
+        m_frontendConnection->invalidate();
+        m_frontendConnection = nullptr;
+    }
 
     m_attached = false;
     m_previousCanAttach = false;
@@ -128,7 +126,12 @@ void WebInspector::close()
     if (!m_page->corePage())
         return;
 
-    m_page->corePage()->inspectorController().close();
+    // Close could be called multiple times during teardown.
+    if (!m_frontendConnection)
+        return;
+
+    m_page->corePage()->inspectorController().disconnectFrontend(this);
+    closeFrontendConnection();
 }
 
 void WebInspector::openInNewTab(const String& urlString)
@@ -173,6 +176,15 @@ void WebInspector::showResources()
     m_frontendConnection->send(Messages::WebInspectorUI::ShowResources(), 0);
 }
 
+void WebInspector::showTimelines()
+{
+    if (!m_page->corePage())
+        return;
+
+    m_page->corePage()->inspectorController().show();
+    m_frontendConnection->send(Messages::WebInspectorUI::ShowTimelines(), 0);
+}
+
 void WebInspector::showMainResourceForFrame(uint64_t frameIdentifier)
 {
     WebFrame* frame = WebProcess::singleton().webFrame(frameIdentifier);
@@ -193,7 +205,6 @@ void WebInspector::startPageProfiling()
     if (!m_page->corePage())
         return;
 
-    m_page->corePage()->inspectorController().show();
     m_frontendConnection->send(Messages::WebInspectorUI::StartPageProfiling(), 0);
 }
 
@@ -202,8 +213,28 @@ void WebInspector::stopPageProfiling()
     if (!m_page->corePage())
         return;
 
-    m_page->corePage()->inspectorController().show();
     m_frontendConnection->send(Messages::WebInspectorUI::StopPageProfiling(), 0);
+}
+
+void WebInspector::startElementSelection()
+{
+    if (!m_page->corePage())
+        return;
+
+    m_frontendConnection->send(Messages::WebInspectorUI::StartElementSelection(), 0);
+}
+
+void WebInspector::stopElementSelection()
+{
+    if (!m_page->corePage())
+        return;
+
+    m_frontendConnection->send(Messages::WebInspectorUI::StopElementSelection(), 0);
+}
+
+void WebInspector::elementSelectionChanged(bool active)
+{
+    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorProxy::ElementSelectionChanged(active), m_page->pageID());
 }
 
 bool WebInspector::canAttachWindow()
@@ -264,8 +295,7 @@ void WebInspector::remoteFrontendConnected()
 {
     if (m_page->corePage()) {
         m_remoteFrontendConnected = true;
-        bool isAutomaticInspection = false;
-        m_page->corePage()->inspectorController().connectFrontend(this, isAutomaticInspection);
+        m_page->corePage()->inspectorController().connectFrontend(this);
     }
 }
 
@@ -274,7 +304,7 @@ void WebInspector::remoteFrontendDisconnected()
     m_remoteFrontendConnected = false;
 
     if (m_page->corePage())
-        m_page->corePage()->inspectorController().disconnectFrontend(Inspector::DisconnectReason::InspectorDestroyed);
+        m_page->corePage()->inspectorController().disconnectFrontend(this);
 }
 #endif
 

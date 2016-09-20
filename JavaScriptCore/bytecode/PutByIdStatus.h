@@ -29,7 +29,6 @@
 #include "CallLinkStatus.h"
 #include "ExitingJITType.h"
 #include "PutByIdVariant.h"
-#include "StructureStubInfo.h"
 #include <wtf/text/StringImpl.h>
 
 namespace JSC {
@@ -39,6 +38,9 @@ class VM;
 class JSGlobalObject;
 class Structure;
 class StructureChain;
+class StructureStubInfo;
+
+typedef HashMap<CodeOrigin, StructureStubInfo*, CodeOriginApproximateHash> StubInfoMap;
 
 class PutByIdStatus {
 public:
@@ -74,6 +76,10 @@ public:
     static PutByIdStatus computeFor(JSGlobalObject*, const StructureSet&, UniquedStringImpl* uid, bool isDirect);
     
     static PutByIdStatus computeFor(CodeBlock* baselineBlock, CodeBlock* dfgBlock, StubInfoMap& baselineMap, StubInfoMap& dfgMap, CodeOrigin, UniquedStringImpl* uid);
+
+#if ENABLE(JIT)
+    static PutByIdStatus computeForStubInfo(const ConcurrentJITLocker&, CodeBlock* baselineBlock, StructureStubInfo*, CodeOrigin, UniquedStringImpl* uid);
+#endif
     
     State state() const { return m_state; }
     

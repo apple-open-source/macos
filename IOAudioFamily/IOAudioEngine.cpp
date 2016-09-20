@@ -19,7 +19,8 @@
  *
  * @APPLE_LICENSE_HEADER_END@
  */
- 
+
+#include <emmintrin.h>
 #include "IOAudioDebug.h"
 #include "IOAudioEngine.h"
 #include "IOAudioEngineUserClient.h"
@@ -167,11 +168,7 @@ void IOAudioEngine::setClockDomain(UInt32 inClockDomain) {
 	UInt32		clockDomain;
 
 	if (kIOAudioNewClockDomain == inClockDomain) {
-#if __LP64__	
 		clockDomain = (UInt32) ((UInt64)this >> 2) ; // grab a couple of bits from the high address to help randomness
-#else
-		clockDomain = (UInt32) this ;
-#endif
 
 	} else {
 		clockDomain = inClockDomain;
@@ -441,11 +438,7 @@ bool IOAudioEngine::init(OSDictionary *properties)
 
 								setState(kIOAudioEngineStopped);
 
-#if __i386__ || __x86_64__
 								setProperty(kIOAudioEngineFlavorKey, (UInt32)kIOAudioStreamByteOrderLittleEndian, sizeof(UInt32)*8);
-#elif __ppc__
-								setProperty(kIOAudioEngineFlavorKey, (unsigned long long)kIOAudioStreamByteOrderBigEndian, sizeof(UInt32)*8);
-#endif
 								result = true;
 							}
 						}
@@ -796,22 +789,17 @@ void IOAudioEngine::setDescription(const char *description)
 void IOAudioEngine::resetStatusBuffer()
 {
     audioDebugIOLog(3, "+ IOAudioEngine[%p]::resetStatusBuffer()\n", this);
-
+    AudioTrace_Start(kAudioTIOAudioEngine, kTPIOAudioEngineResetStatusBuffer, (uintptr_t)this, 0, 0, 0);
+	
     assert(status);
     
     status->fCurrentLoopCount = 0;
-    
-#if __LP64__
 	status->fLastLoopTime = 0;
-#else
-	status->fLastLoopTime.hi = 0;
-	status->fLastLoopTime.lo = 0;
-#endif
-
     status->fEraseHeadSampleFrame = 0;
-    
+
     stopEngineAtPosition(NULL);
-    
+
+    AudioTrace_End(kAudioTIOAudioEngine, kTPIOAudioEngineResetStatusBuffer, (uintptr_t)this, 0, 0, 0);
     audioDebugIOLog(3, "- IOAudioEngine[%p]::resetStatusBuffer()\n", this);
     return;
 }
@@ -860,44 +848,7 @@ IOReturn IOAudioEngine::createUserClient(task_t task, void *securityID, UInt32 t
 
 IOReturn IOAudioEngine::newUserClient(task_t task, void *securityID, UInt32 type, IOUserClient **handler)
 {
-#if __i386__ || __x86_64__
     return kIOReturnUnsupported;
-#else
-    IOReturn				result = kIOReturnSuccess;
-    IOAudioEngineUserClient	*client;
-
-    audioDebugIOLog(3, "+ IOAudioEngine[%p]::newUserClient(0x%x, %p, 0x%lx, %p)\n", this, (unsigned int)task, securityID, type, handler);
-
-    if (!isInactive()) {
-        result = createUserClient(task, securityID, type, &client);
-    
-        if ((result == kIOReturnSuccess) && (client != NULL)) {
-            if (!client->attach(this)) {
-                client->release();
-                result = kIOReturnError;
-            } else if (!client->start(this)) {
-                client->detach(this);
-                client->release();
-                result = kIOReturnError;
-            } else {
-                assert(workLoop);	// <rdar://7324947>
-    
-                result = workLoop->runAction(_addUserClientAction, this, client);	// <rdar://7324947>, <rdar://7529580>
-                
-                if (result == kIOReturnSuccess) {
-                    *handler = client;
-                }
-			}
-        } else {
-            result = kIOReturnNoMemory;
-        }
-    } else {
-        result = kIOReturnNoDevice;
-    }
-	
-	audioDebugIOLog(3, "- IOAudioEngine[%p]::newUserClient(0x%x, %p, 0x%lx, %p)\n", this, (unsigned int)task, securityID, type, handler);
-   return result;
-#endif
 }
 
 IOReturn IOAudioEngine::newUserClient(task_t task, void *securityID, UInt32 type, OSDictionary *properties, IOUserClient **handler)
@@ -1789,12 +1740,9 @@ IOReturn IOAudioEngine::pauseAudioEngine()
             // If it did, that would create the potential for a deadlock
             result = performAudioEngineStop();
             if (result == kIOReturnSuccess) {
-                lockAllStreams();
                 setState(kIOAudioEnginePaused);
-                unlockAllStreams();
-				sendNotification(kIOAudioEnginePausedNotification);
-                
                 clearAllSampleBuffers();
+				sendNotification(kIOAudioEnginePausedNotification);
             }
             break;
         default:
@@ -1863,7 +1811,7 @@ void IOAudioEngine::setNumSampleFramesPerBuffer(UInt32 numSampleFrames)
     audioDebugIOLog(3, "+ IOAudioEngine[%p]::setNumSampleFramesPerBuffer(0x%lx)\n", this, (long unsigned int)numSampleFrames);
 
     if (getState() == kIOAudioEngineRunning) {
-        IOLog("IOAudioEngine[%p]::setNumSampleFramesPerBuffer(0x%ld) - Error: can't change num sample frames while engine is running.\n", this, (long int) numSampleFrames);
+        IOLog("IOAudioEngine::setNumSampleFramesPerBuffer(0x%ld) - Error: can't change num sample frames while engine is running.\n", (long int) numSampleFrames);
     } else {
         numSampleFramesPerBuffer = numSampleFrames;
         setProperty(kIOAudioEngineNumSampleFramesPerBufferKey, numSampleFramesPerBuffer, sizeof(UInt32)*8);
@@ -1967,6 +1915,7 @@ void IOAudioEngine::setSampleRate(const IOAudioSampleRate *newSampleRate)
 {
     OSDictionary *sampleRateDict;
     
+    AudioTrace(kAudioTIOAudioEngine, kTPIOAudioEngineSetSampleRate, (uintptr_t)this, newSampleRate->whole, 0, 0);
     audioDebugIOLog(3, "+-IOAudioEngine[%p]::setSampleRate(%p)\n", this, newSampleRate);
 
     sampleRate = *newSampleRate;
@@ -1980,6 +1929,7 @@ void IOAudioEngine::setSampleRate(const IOAudioSampleRate *newSampleRate)
 
 IOReturn IOAudioEngine::hardwareSampleRateChanged(const IOAudioSampleRate *newSampleRate)
 {
+    AudioTrace_Start(kAudioTIOAudioEngine, kTPIOAudioEngineHardwareSampleRateChanged, (uintptr_t)this, newSampleRate ? newSampleRate->whole : 0, 0, 0);
     if ((newSampleRate->whole != sampleRate.whole) || (newSampleRate->fraction != sampleRate.fraction)) {
         bool engineWasRunning;
         
@@ -1999,6 +1949,7 @@ IOReturn IOAudioEngine::hardwareSampleRateChanged(const IOAudioSampleRate *newSa
         }
     }
     
+    AudioTrace_End(kAudioTIOAudioEngine, kTPIOAudioEngineHardwareSampleRateChanged, (uintptr_t)this, 0, 0, 0);
     return kIOReturnSuccess;
 }
 
@@ -2278,8 +2229,10 @@ IOReturn IOAudioEngine::convertInputSamples(const void *sampleBuf, void *destBuf
 
 void IOAudioEngine::takeTimeStamp(bool incrementLoopCount, AbsoluteTime *timestamp)
 {
-    AbsoluteTime uptime, *ts;
-    
+    AbsoluteTime		uptime, *ts;
+	IOAudioEngineStatus	newStatus;
+	__int128			newStatus128, oldStatus128;
+	
     if (timestamp) {
         ts = timestamp;
     } else {
@@ -2288,60 +2241,64 @@ void IOAudioEngine::takeTimeStamp(bool incrementLoopCount, AbsoluteTime *timesta
     }
     
     assert(status);
-    
-#if __LP64__
-    status->fLastLoopTime = *ts;
-#else
-    status->fLastLoopTime.hi = ts->hi;
-    status->fLastLoopTime.lo = ts->lo;
-#endif
-    
-    if (incrementLoopCount) {
-        ++status->fCurrentLoopCount;
-    }
+	
+	AbsoluteTime deadline;
+	clock_interval_to_deadline(100, kMillisecondScale, &deadline);
+	
+	// To atomically update the status, we copy the current value, modify it and swap it in if the value hasn't changed.
+	// If it fails, we try again until we timeout.
+	do
+	{
+		newStatus = *status;
+		oldStatus128 = *reinterpret_cast<__int128*>(&newStatus);
+
+		newStatus.fLastLoopTime = *ts;
+		if (incrementLoopCount)
+			newStatus.fCurrentLoopCount++;
+		newStatus128 = *reinterpret_cast<__int128*>(&newStatus);
+	}
+	while ( !__sync_bool_compare_and_swap(reinterpret_cast<__int128*>(status), oldStatus128, newStatus128) && ( mach_absolute_time() < deadline ) );
+	
+	if ( mach_absolute_time() > deadline )
+	{
+		IOLog("Sound Assert: error updating timestamp\n");
+	}
+
+	AudioTrace(kAudioTIOAudioEngine, kTPIOAudioEngineTakeTimeStamp, (uintptr_t)this, (uintptr_t)incrementLoopCount, (uintptr_t)(status ? status->fLastLoopTime : 0), (uintptr_t)(status ? status->fCurrentLoopCount : 0) );
 }
 
 IOReturn IOAudioEngine::getLoopCountAndTimeStamp(UInt32 *loopCount, AbsoluteTime *timestamp)
 {
     IOReturn result = kIOReturnBadArgument;
-    UInt32 nextLoopCount;
-    AbsoluteTime nextTimestamp;
-    
+	
     if (loopCount && timestamp) {
         assert(status);
-        
-#if __LP64__
-		*timestamp = status->fLastLoopTime;
-#else
-        timestamp->hi = status->fLastLoopTime.hi;
-		timestamp->lo = status->fLastLoopTime.lo;
-#endif
-        *loopCount = status->fCurrentLoopCount;
-        
-#if __LP64__
-        nextTimestamp = status->fLastLoopTime;
-#else
-        nextTimestamp.hi = status->fLastLoopTime.hi;
-        nextTimestamp.lo = status->fLastLoopTime.lo;
-#endif
-        nextLoopCount = status->fCurrentLoopCount;
-        
-        while ((*loopCount != nextLoopCount) || (CMP_ABSOLUTETIME(timestamp, &nextTimestamp) != 0)) {
-            *timestamp = nextTimestamp;
-            *loopCount = nextLoopCount;
-            
-#if __LP64__
-            nextTimestamp = status->fLastLoopTime;
+	
+		__int128 currentStatus128;
 
-#else
-            nextTimestamp.hi = status->fLastLoopTime.hi;
-            nextTimestamp.lo = status->fLastLoopTime.lo;
-#endif
-            nextLoopCount = status->fCurrentLoopCount;
-        }
-        
+		AbsoluteTime deadline;
+		clock_interval_to_deadline(100, kMillisecondScale, &deadline);
+		
+		// To ensure an atomic read, we read and atomically verify the value hasn't changed since we read it. If it has, we repeat until we timeout
+		do
+		{
+			currentStatus128 = *reinterpret_cast<__int128*>(status);
+		}
+		while ( !__sync_bool_compare_and_swap(&currentStatus128, *reinterpret_cast<__int128*>(status), currentStatus128) && ( mach_absolute_time() < deadline ) );
+		
+		if ( mach_absolute_time() > deadline )
+		{
+			IOLog("Sound Assert: error reading timestamp\n");
+		}
+		
+		IOAudioEngineStatus currentStatus = *reinterpret_cast<IOAudioEngineStatus*>(&currentStatus128);
+		*loopCount = currentStatus.fCurrentLoopCount;
+		*timestamp = currentStatus.fLastLoopTime;
+
         result = kIOReturnSuccess;
     }
+	
+	//AudioTrace(kAudioTIOAudioEngine, kTPIOAudioEngineGetLoopCountAndTimeStamp, (uintptr_t)this, (uintptr_t)*timestamp, (uintptr_t)*loopCount, 0);
     
     return result;
 }
@@ -2671,11 +2628,17 @@ IOReturn IOAudioEngine::waitForEngineResume ( void )
     AudioTrace_Start(kAudioTIOAudioEngine, kTPIOAudioEngineWaitForEngineResume, (uintptr_t)this, 0, 0, 0);
     
 	if (commandGate) {
-		retain();
+        AbsoluteTime        deadline;
+        
+        retain();
 
 		audioDebugIOLog(3, "Waiting on engine[%p] resume...\n", this);
 		setCommandGateUsage(this, true);
-		err = commandGate->commandSleep( &state );
+
+        clock_interval_to_deadline(1, kSecondScale, &deadline);
+        
+        err = commandGate->commandSleep( &state, deadline, THREAD_ABORTSAFE );
+        
 		setCommandGateUsage(this, false);
 		
 		audioDebugIOLog(3, "...wait completed for engine[%p] with err=%#x\n", this, err);

@@ -2,7 +2,7 @@
 " You can also use this as a start for your own set of menus.
 "
 " Maintainer:	Bram Moolenaar <Bram@vim.org>
-" Last Change:	2009 Feb 26
+" Last Change:	2014 May 22
 
 " Note that ":an" (short for ":anoremenu") is often used to make a menu work
 " in all modes and avoid side effects from mappings defined by the user.
@@ -101,7 +101,7 @@ an 10.320 &File.Sp&lit-Open\.\.\.<Tab>:sp	:browse sp<CR>
 an 10.320 &File.Open\ Tab\.\.\.<Tab>:tabnew	:browse tabnew<CR>
 an 10.325 &File.&New<Tab>:enew			:confirm enew<CR>
 an <silent> 10.330 &File.&Close<Tab>:close
-	\ :if winheight(2) < 0 <Bar>
+	\ :if winheight(2) < 0 && tabpagewinnr(2) == 0 <Bar>
 	\   confirm enew <Bar>
 	\ else <Bar>
 	\   confirm close <Bar>
@@ -132,7 +132,7 @@ an 10.610 &File.Sa&ve-Exit<Tab>:wqa		:confirm wqa<CR>
 an 10.620 &File.E&xit<Tab>:qa			:confirm qa<CR>
 
 func! <SID>SelectAll()
-  exe "norm gg" . (&slm == "" ? "VG" : "gH\<C-O>G")
+  exe "norm! gg" . (&slm == "" ? "VG" : "gH\<C-O>G")
 endfunc
 
 func! s:FnameEscape(fname)
@@ -308,8 +308,10 @@ fun! s:TextWidth()
   endif
   let n = inputdialog(g:menutrans_textwidth_dialog, &tw)
   if n != ""
-    " remove leading zeros to avoid it being used as an octal number
-    let &tw = substitute(n, "^0*", "", "")
+    " Remove leading zeros to avoid it being used as an octal number.
+    " But keep a zero by itself.
+    let tw = substitute(n, "^0*", "", "")
+    let &tw = tw == '' ? 0 : tw 
   endif
 endfun
 
@@ -434,6 +436,10 @@ if has("spell")
       let enc = &enc
     endif
 
+    if !exists("g:menutrans_set_lang_to")
+      let g:menutrans_set_lang_to = 'Set language to'
+    endif
+
     let found = 0
     let s = globpath(&rtp, "spell/*." . enc . ".spl")
     if s != ""
@@ -441,8 +447,9 @@ if has("spell")
       for f in split(s, "\n")
 	let nm = substitute(f, '.*spell[/\\]\(..\)\.[^/\\]*\.spl', '\1', "")
 	if nm != "en" && nm !~ '/'
+          let _nm = nm
 	  let found += 1
-	  let menuname = '&Tools.&Spelling.Set\ language\ to\ "' . nm . '"'
+	  let menuname = '&Tools.&Spelling.' . escape(g:menutrans_set_lang_to, "\\. \t|") . '\ "' . nm . '"'
 	  exe 'an 40.335.' . n . ' ' . menuname . ' :set spl=' . nm . ' spell<CR>'
 	  let s:undo_spellang += ['aun ' . menuname]
 	endif
@@ -452,7 +459,7 @@ if has("spell")
     if found == 0
       echomsg "Could not find other spell files"
     elseif found == 1
-      echomsg "Found spell file " . nm
+      echomsg "Found spell file " . _nm
     else
       echomsg "Found " . found . " more spell files"
     endif
@@ -470,6 +477,7 @@ if has("folding")
   an 40.340.110 &Tools.&Folding.&Enable/Disable\ folds<Tab>zi		zi
   an 40.340.120 &Tools.&Folding.&View\ Cursor\ Line<Tab>zv		zv
   an 40.340.120 &Tools.&Folding.Vie&w\ Cursor\ Line\ only<Tab>zMzx	zMzx
+  inoremenu 40.340.120 &Tools.&Folding.Vie&w\ Cursor\ Line\ only<Tab>zMzx  <C-O>zM<C-O>zx
   an 40.340.130 &Tools.&Folding.C&lose\ more\ folds<Tab>zm		zm
   an 40.340.140 &Tools.&Folding.&Close\ all\ folds<Tab>zM		zM
   an 40.340.150 &Tools.&Folding.O&pen\ more\ folds<Tab>zr		zr

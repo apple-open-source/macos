@@ -320,6 +320,7 @@ int fat_iterator_find_fat_arch(
     struct fat_arch * fat_arches_copy = NULL;  // must free
 
     struct fat_arch * found_arch;
+    struct fat_arch fake_fat_arches;
 
     magic = MAGIC32(iter->file_start);
 
@@ -355,7 +356,6 @@ int fat_iterator_find_fat_arch(
                 OSSwapBigToHostInt32(fat_arches[index].align);
         }
     } else {
-        struct fat_arch fake_fat_arches;
         uint8_t  swap;
         struct mach_header * mach_hdr;
 

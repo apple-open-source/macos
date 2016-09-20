@@ -35,7 +35,7 @@
 #include <security_utilities/globalizer.h>
 #include <CoreFoundation/CFNumber.h>
 
-#define rsaMiscDebug(args...)	secdebug("rsaMisc", ## args)
+#define rsaMiscDebug(args...)	secinfo("rsaMisc", ## args)
 
 /*
  * Obtain and cache max key sizes. System preferences only consulted 

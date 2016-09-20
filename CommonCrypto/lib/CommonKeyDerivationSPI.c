@@ -31,7 +31,7 @@ CCKeyDerivationHMac(CCKDFAlgorithm algorithm, CCDigestAlgorithm digest,
                     const void *keyDerivationKey, size_t keyDerivationKeyLen,
                     const void *label, size_t labelLen,
                     const void *context, size_t contextLen, // or FIXED buffer (label | context)
-                    const void *iv, size_t ivLen,           // for FB
+                    const void * __unused iv, size_t __unused ivLen,           // for FB
                     const void *salt, size_t saltLen,       // for PBKDF or HKDF
                     void *derivedKey, size_t derivedKeyLen) {
     int cc_retval = 0;

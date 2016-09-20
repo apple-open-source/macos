@@ -201,9 +201,12 @@ void rpc__noauth_inq_my_princ_name (
         unsigned32                          /* out */   * /*st*/
     );
 
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 void rpc__noauth_free_info (
         rpc_auth_info_p_t                   /* in/out */ * /*info*/
     );
+#endif
 
 /*
  * Miscellaneous internal entry points.

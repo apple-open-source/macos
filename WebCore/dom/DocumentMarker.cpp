@@ -37,12 +37,12 @@ DocumentMarkerDetails::~DocumentMarkerDetails()
 {
 }
 
-class DocumentMarkerDescription : public DocumentMarkerDetails {
+class DocumentMarkerDescription final : public DocumentMarkerDetails {
 public:
     static Ref<DocumentMarkerDescription> create(const String&);
 
     const String& description() const { return m_description; }
-    virtual bool isDescription() const override { return true; }
+    bool isDescription() const override { return true; }
 
 private:
     DocumentMarkerDescription(const String& description)
@@ -71,7 +71,7 @@ public:
     static PassRefPtr<DocumentMarkerTextMatch> instanceFor(bool);
 
     bool activeMatch() const { return m_match; }
-    virtual bool isTextMatch() const override { return true; }
+    bool isTextMatch() const override { return true; }
 
 private:
     explicit DocumentMarkerTextMatch(bool match)
@@ -125,7 +125,7 @@ DocumentMarker::DocumentMarker(unsigned startOffset, unsigned endOffset, bool ac
     ASSERT(m_details);
 }
 
-DocumentMarker::DocumentMarker(MarkerType type, unsigned startOffset, unsigned endOffset, PassRefPtr<DocumentMarkerDetails> details)
+DocumentMarker::DocumentMarker(MarkerType type, unsigned startOffset, unsigned endOffset, RefPtr<DocumentMarkerDetails>&& details)
     : m_type(type)
     , m_startOffset(startOffset)
     , m_endOffset(endOffset)

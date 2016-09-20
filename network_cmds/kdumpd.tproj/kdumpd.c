@@ -63,6 +63,7 @@ __unused static const char copyright[] =
 #include "kdump.h"
 #include <arpa/inet.h>
 
+#include <assert.h>
 #include <stdint.h>
 #include <ctype.h>
 #include <errno.h>
@@ -80,6 +81,7 @@ __unused static const char copyright[] =
 
 #include "kdumpsubs.h"
 
+#define DEFAULT_KDUMPD_PORTNO (1069)
 #define	TIMEOUT		2
 
 int	peer;
@@ -110,6 +112,7 @@ static struct dirlist {
 static int	suppress_naks;
 static int	logging = 1;
 static int	ipchroot;
+static int  server_mode = 1;
 
 static char *errtomsg __P((int));
 static void  nak __P((int));
@@ -137,7 +140,7 @@ main(argc, argv)
 	char *chuser = "nobody";
 
 	openlog("kdumpd", LOG_PID | LOG_NDELAY, LOG_FTP);
-	while ((ch = getopt(argc, argv, "cClns:u:")) != -1) {
+	while ((ch = getopt(argc, argv, "cClns:u:w")) != -1) {
 		switch (ch) {
 		case 'c':
 			ipchroot = 1;
@@ -156,6 +159,9 @@ main(argc, argv)
 			break;
 		case 'u':
 			chuser = optarg;
+			break;
+		case 'w':
+			server_mode = 0;
 			break;
 		default:
 			syslog(LOG_WARNING, "ignoring unknown option -%c", ch);
@@ -184,67 +190,70 @@ main(argc, argv)
 		exit(1);
 	}
 
-	on = 1;
-	if (ioctl(0, FIONBIO, &on) < 0) {
-		syslog(LOG_ERR, "ioctl(FIONBIO): %m");
-		exit(1);
-	}
-	fromlen = sizeof (from);
-	n = recvfrom(0, buf, sizeof (buf), 0,
-	    (struct sockaddr *)&from, &fromlen);
-	if (n < 0) {
-		syslog(LOG_ERR, "recvfrom: %m");
-		exit(1);
-	}
-	/*
-	 * Now that we have read the message out of the UDP
-	 * socket, we fork and exit.  Thus, inetd will go back
-	 * to listening to the kdump port, and the next request
-	 * to come in will start up a new instance of kdumpd.
-	 *
-	 * We do this so that inetd can run kdumpd in "wait" mode.
-	 * The problem with kdumpd running in "nowait" mode is that
-	 * inetd may get one or more successful "selects" on the
-	 * kdump port before we do our receive, so more than one
-	 * instance of kdumpd may be started up.  Worse, if kdumpd
-	 * breaks before doing the above "recvfrom", inetd would
-	 * spawn endless instances, clogging the system.
-	 */
-	{
-		int pid;
-		int i;
-		socklen_t j;
-
-		for (i = 1; i < 20; i++) {
-		    pid = fork();
-		    if (pid < 0) {
-				sleep(i);
-				/*
-				 * flush out to most recently sent request.
-				 *
-				 * This may drop some requests, but those
-				 * will be resent by the clients when
-				 * they timeout.  The positive effect of
-				 * this flush is to (try to) prevent more
-				 * than one kdumpd being started up to service
-				 * a single request from a single client.
-				 */
-				j = sizeof from;
-				i = recvfrom(0, buf, sizeof (buf), 0,
-				    (struct sockaddr *)&from, &j);
-				if (i > 0) {
-					n = i;
-					fromlen = j;
-				}
-		    } else {
-				break;
-		    }
-		}
-		if (pid < 0) {
-			syslog(LOG_ERR, "fork: %m");
+	/* If we are not in server mode, skip the whole 'inetd' logic below. */
+	if (server_mode) {
+		on = 1;
+		if (ioctl(0, FIONBIO, &on) < 0) {
+			syslog(LOG_ERR, "ioctl(FIONBIO): %m");
 			exit(1);
-		} else if (pid != 0) {
-			exit(0);
+		}
+		fromlen = sizeof (from);
+		n = recvfrom(0, buf, sizeof (buf), 0,
+			(struct sockaddr *)&from, &fromlen);
+		if (n < 0) {
+			syslog(LOG_ERR, "recvfrom: %m");
+			exit(1);
+		}
+		/*
+		 * Now that we have read the message out of the UDP
+		 * socket, we fork and exit.  Thus, inetd will go back
+		 * to listening to the kdump port, and the next request
+		 * to come in will start up a new instance of kdumpd.
+		 *
+		 * We do this so that inetd can run kdumpd in "wait" mode.
+		 * The problem with kdumpd running in "nowait" mode is that
+		 * inetd may get one or more successful "selects" on the
+		 * kdump port before we do our receive, so more than one
+		 * instance of kdumpd may be started up.  Worse, if kdumpd
+		 * breaks before doing the above "recvfrom", inetd would
+		 * spawn endless instances, clogging the system.
+		 */
+		{
+			int pid;
+			int i;
+			socklen_t j;
+
+			for (i = 1; i < 20; i++) {
+				pid = fork();
+				if (pid < 0) {
+					sleep(i);
+					/*
+					 * flush out to most recently sent request.
+					 *
+					 * This may drop some requests, but those
+					 * will be resent by the clients when
+					 * they timeout.  The positive effect of
+					 * this flush is to (try to) prevent more
+					 * than one kdumpd being started up to service
+					 * a single request from a single client.
+					 */
+					j = sizeof from;
+					i = recvfrom(0, buf, sizeof (buf), 0,
+						(struct sockaddr *)&from, &j);
+					if (i > 0) {
+						n = i;
+						fromlen = j;
+					}
+				} else {
+					break;
+				}
+			}
+			if (pid < 0) {
+				syslog(LOG_ERR, "fork: %m");
+				exit(1);
+			} else if (pid != 0) {
+				exit(0);
+			}
 		}
 	}
 
@@ -278,10 +287,9 @@ main(argc, argv)
 		}
 		chdir( "/" );
 		setuid(nobody->pw_uid);
-	}
-	else
-	  if (0 !=  chdir(dirs->name))
+	} else if (0 !=  chdir(dirs->name)) {
 	    syslog(LOG_ERR, "chdir%s: %m", dirs->name);
+	}
 
 	from.sin_family = AF_INET;
 	alarm(0);
@@ -294,10 +302,32 @@ main(argc, argv)
 	}
 	memset(&sin, 0, sizeof(sin));
 	sin.sin_family = AF_INET;
+
+	if (!server_mode) {
+		sin.sin_addr.s_addr = htonl(INADDR_ANY);
+		sin.sin_port = htons((uint16_t) DEFAULT_KDUMPD_PORTNO);
+	}
+
 	if (bind(peer, (struct sockaddr *)&sin, sizeof (sin)) < 0) {
 		syslog(LOG_ERR, "bind: %m");
 		exit(1);
 	}
+
+	if (!server_mode) {
+		/*
+		 * Wait for an incoming message from a remote peer, note that we need to
+		 * populate n since kdump() expect the first message to be in buf
+		 * already.
+		 */
+		socklen_t slen = sizeof(from);
+		n = recvfrom(peer, buf, sizeof(buf), 0,
+			(struct sockaddr *) &from, &slen);
+		if (n <= 0) {
+			syslog(LOG_ERR, "recvfrom: %m");
+			exit(1);
+		}
+	}
+
 	if (connect(peer, (struct sockaddr *)&from, sizeof(from)) < 0) {
 		syslog(LOG_ERR, "connect: %m");
 		exit(1);

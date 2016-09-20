@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003, 2004, 2006, 2009, 2011, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2004, 2006, 2009, 2011, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -191,7 +191,7 @@ _removeWatcher				(CFNumberRef		sessionNum,
 					 CFStringRef		watchedKey);
 
 void
-pushNotifications			(FILE			*_configd_trace);
+pushNotifications			();
 
 __END_DECLS
 

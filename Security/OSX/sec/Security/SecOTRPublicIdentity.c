@@ -119,6 +119,10 @@ void SecOTRAdvertiseHashes(bool advertise) {
     sAdvertiseHashes = advertise;
 }
 
+bool SecOTRPICompareToPublicKey(SecOTRPublicIdentityRef pubID, SecKeyRef publicKey) {
+    return CFEqualSafe(pubID->publicSigningKey, publicKey);
+}
+
 SecOTRPublicIdentityRef SecOTRPublicIdentityCopyFromPrivate(CFAllocatorRef allocator, SecOTRFullIdentityRef fullID, CFErrorRef *error)
 {
     SecOTRPublicIdentityRef result = CFTypeAllocate(SecOTRPublicIdentity, struct _SecOTRPublicIdentity, allocator);
@@ -223,7 +227,15 @@ bool SecOTRPIEqualToBytes(SecOTRPublicIdentityRef id, const uint8_t*bytes, CFInd
     SecOTRPIAppendSerialization(id, idStreamed, NULL);
     
     bool equal = CFEqualSafe(dataToMatch, idStreamed);
-    
+
+    if (!equal) {
+        CFDataPerformWithHexString(dataToMatch, ^(CFStringRef dataToMatchString) {
+            CFDataPerformWithHexString(idStreamed, ^(CFStringRef idStreamedString) {
+                secnotice("otr", "ID Comparison failed: d: %@ id: %@", dataToMatchString, idStreamedString);
+            });
+        });
+    }
+
     CFReleaseNull(dataToMatch);
     CFReleaseNull(idStreamed);
     

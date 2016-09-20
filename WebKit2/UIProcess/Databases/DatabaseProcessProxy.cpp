@@ -28,6 +28,7 @@
 
 #include "DatabaseProcessMessages.h"
 #include "DatabaseProcessProxyMessages.h"
+#include "NetworkProcessMessages.h"
 #include "WebProcessPool.h"
 #include "WebsiteData.h"
 #include <WebCore/NotImplemented.h>
@@ -66,8 +67,8 @@ DatabaseProcessProxy::~DatabaseProcessProxy()
 
 void DatabaseProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& launchOptions)
 {
-    launchOptions.processType = ProcessLauncher::DatabaseProcess;
-    platformGetLaunchOptions(launchOptions);
+    launchOptions.processType = ProcessLauncher::ProcessType::Database;
+    ChildProcessProxy::getLaunchOptions(launchOptions);
 }
 
 void DatabaseProcessProxy::processWillShutDown(IPC::Connection& connection)
@@ -83,30 +84,30 @@ void DatabaseProcessProxy::didReceiveMessage(IPC::Connection& connection, IPC::M
     }
 }
 
-void DatabaseProcessProxy::fetchWebsiteData(SessionID sessionID, WebsiteDataTypes dataTypes, std::function<void (WebsiteData)> completionHandler)
+void DatabaseProcessProxy::fetchWebsiteData(SessionID sessionID, OptionSet<WebsiteDataType> dataTypes, std::function<void (WebsiteData)> completionHandler)
 {
     ASSERT(canSendMessage());
 
     uint64_t callbackID = generateCallbackID();
-    m_pendingFetchWebsiteDataCallbacks.add(callbackID, WTF::move(completionHandler));
+    m_pendingFetchWebsiteDataCallbacks.add(callbackID, WTFMove(completionHandler));
 
     send(Messages::DatabaseProcess::FetchWebsiteData(sessionID, dataTypes, callbackID), 0);
 }
 
-void DatabaseProcessProxy::deleteWebsiteData(WebCore::SessionID sessionID, WebsiteDataTypes dataTypes, std::chrono::system_clock::time_point modifiedSince,  std::function<void ()> completionHandler)
+void DatabaseProcessProxy::deleteWebsiteData(WebCore::SessionID sessionID, OptionSet<WebsiteDataType> dataTypes, std::chrono::system_clock::time_point modifiedSince,  std::function<void ()> completionHandler)
 {
     auto callbackID = generateCallbackID();
 
-    m_pendingDeleteWebsiteDataCallbacks.add(callbackID, WTF::move(completionHandler));
+    m_pendingDeleteWebsiteDataCallbacks.add(callbackID, WTFMove(completionHandler));
     send(Messages::DatabaseProcess::DeleteWebsiteData(sessionID, dataTypes, modifiedSince, callbackID), 0);
 }
 
-void DatabaseProcessProxy::deleteWebsiteDataForOrigins(SessionID sessionID, WebsiteDataTypes dataTypes, const Vector<RefPtr<WebCore::SecurityOrigin>>& origins, std::function<void ()> completionHandler)
+void DatabaseProcessProxy::deleteWebsiteDataForOrigins(SessionID sessionID, OptionSet<WebsiteDataType> dataTypes, const Vector<RefPtr<WebCore::SecurityOrigin>>& origins, std::function<void ()> completionHandler)
 {
     ASSERT(canSendMessage());
 
     uint64_t callbackID = generateCallbackID();
-    m_pendingDeleteWebsiteDataForOriginsCallbacks.add(callbackID, WTF::move(completionHandler));
+    m_pendingDeleteWebsiteDataForOriginsCallbacks.add(callbackID, WTFMove(completionHandler));
 
     Vector<SecurityOriginData> originData;
     for (auto& origin : origins)
@@ -133,10 +134,10 @@ void DatabaseProcessProxy::didClose(IPC::Connection&)
     while (!m_pendingConnectionReplies.isEmpty()) {
         auto reply = m_pendingConnectionReplies.takeFirst();
 
-#if OS(DARWIN)
-        reply->send(IPC::Attachment(0, MACH_MSG_TYPE_MOVE_SEND));
-#elif USE(UNIX_DOMAIN_SOCKETS)
+#if USE(UNIX_DOMAIN_SOCKETS)
         reply->send(IPC::Attachment());
+#elif OS(DARWIN)
+        reply->send(IPC::Attachment(0, MACH_MSG_TYPE_MOVE_SEND));
 #else
         notImplemented();
 #endif
@@ -168,10 +169,10 @@ void DatabaseProcessProxy::didCreateDatabaseToWebProcessConnection(const IPC::At
 
     RefPtr<Messages::WebProcessProxy::GetDatabaseProcessConnection::DelayedReply> reply = m_pendingConnectionReplies.takeFirst();
 
-#if OS(DARWIN)
-    reply->send(IPC::Attachment(connectionIdentifier.port(), MACH_MSG_TYPE_MOVE_SEND));
-#elif USE(UNIX_DOMAIN_SOCKETS)
+#if USE(UNIX_DOMAIN_SOCKETS)
     reply->send(connectionIdentifier);
+#elif OS(DARWIN)
+    reply->send(IPC::Attachment(connectionIdentifier.port(), MACH_MSG_TYPE_MOVE_SEND));
 #else
     notImplemented();
 #endif
@@ -193,6 +194,18 @@ void DatabaseProcessProxy::didDeleteWebsiteDataForOrigins(uint64_t callbackID)
 {
     auto callback = m_pendingDeleteWebsiteDataForOriginsCallbacks.take(callbackID);
     callback();
+}
+
+void DatabaseProcessProxy::getSandboxExtensionsForBlobFiles(uint64_t requestID, const Vector<String>& paths)
+{
+    SandboxExtension::HandleArray extensions;
+    extensions.allocate(paths.size());
+    for (size_t i = 0; i < paths.size(); ++i) {
+        // ReadWrite is required for creating hard links, which is something that might be done with these extensions.
+        SandboxExtension::createHandle(paths[i], SandboxExtension::ReadWrite, extensions[i]);
+    }
+
+    send(Messages::DatabaseProcess::DidGetSandboxExtensionsForBlobFiles(requestID, extensions), 0);
 }
 
 void DatabaseProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Connection::Identifier connectionIdentifier)

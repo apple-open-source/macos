@@ -22,7 +22,6 @@
 #define CSSStyleSheet_h
 
 #include "CSSParserMode.h"
-#include "CSSRule.h"
 #include "StyleSheet.h"
 #include <memory>
 #include <wtf/HashMap.h>
@@ -56,37 +55,36 @@ public:
 
     virtual ~CSSStyleSheet();
 
-    virtual CSSStyleSheet* parentStyleSheet() const override;
-    virtual Node* ownerNode() const override { return m_ownerNode; }
-    virtual MediaList* media() const override;
-    virtual String href() const override;
-    virtual String title() const override { return m_title; }
-    virtual bool disabled() const override { return m_isDisabled; }
-    virtual void setDisabled(bool) override;
+    CSSStyleSheet* parentStyleSheet() const override;
+    Node* ownerNode() const override { return m_ownerNode; }
+    MediaList* media() const override;
+    String href() const override;
+    String title() const override { return m_title; }
+    bool disabled() const override { return m_isDisabled; }
+    void setDisabled(bool) override;
     
-    PassRefPtr<CSSRuleList> cssRules();
+    RefPtr<CSSRuleList> cssRules();
     unsigned insertRule(const String& rule, unsigned index, ExceptionCode&);
     void deleteRule(unsigned index, ExceptionCode&);
     
     // IE Extensions
-    PassRefPtr<CSSRuleList> rules();
-    int addRule(const String& selector, const String& style, int index, ExceptionCode&);
-    int addRule(const String& selector, const String& style, ExceptionCode&);
+    RefPtr<CSSRuleList> rules();
+    int addRule(const String& selector, const String& style, Optional<unsigned> index, ExceptionCode&);
     void removeRule(unsigned index, ExceptionCode& ec) { deleteRule(index, ec); }
     
     // For CSSRuleList.
     unsigned length() const;
     CSSRule* item(unsigned index);
 
-    virtual void clearOwnerNode() override;
-    virtual CSSImportRule* ownerRule() const override { return m_ownerRule; }
-    virtual URL baseURL() const override;
-    virtual bool isLoading() const override;
+    void clearOwnerNode() override;
+    CSSImportRule* ownerRule() const override { return m_ownerRule; }
+    URL baseURL() const override;
+    bool isLoading() const override;
     
     void clearOwnerRule() { m_ownerRule = 0; }
     Document* ownerDocument() const;
     MediaQuerySet* mediaQueries() const { return m_mediaQueries.get(); }
-    void setMediaQueries(PassRefPtr<MediaQuerySet>);
+    void setMediaQueries(Ref<MediaQuerySet>&&);
     void setTitle(const String& title) { m_title = title; }
 
     bool hadRulesMutation() const { return m_mutatedRules; }
@@ -128,8 +126,8 @@ private:
     CSSStyleSheet(Ref<StyleSheetContents>&&, CSSImportRule* ownerRule);
     CSSStyleSheet(Ref<StyleSheetContents>&&, Node* ownerNode, const TextPosition& startPosition, bool isInlineStylesheet);
 
-    virtual bool isCSSStyleSheet() const override { return true; }
-    virtual String type() const override { return ASCIILiteral("text/css"); }
+    bool isCSSStyleSheet() const override { return true; }
+    String type() const override { return ASCIILiteral("text/css"); }
 
     bool canAccessRules() const;
     

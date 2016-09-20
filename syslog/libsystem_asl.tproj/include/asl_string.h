@@ -40,18 +40,18 @@ typedef struct
 	char *buf;
 } asl_string_t;
 
-asl_string_t *asl_string_new(uint32_t encoding) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
-asl_string_t *asl_string_retain(asl_string_t *str) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
-void asl_string_release(asl_string_t *str) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
-char *asl_string_release_return_bytes(asl_string_t *str) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
-char *asl_string_bytes(asl_string_t *str) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
-size_t asl_string_length(asl_string_t *str) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
-size_t asl_string_allocated_size(asl_string_t *str) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
-asl_string_t *asl_string_append(asl_string_t *str, const char *app) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
-asl_string_t *asl_string_append_asl_key(asl_string_t *str, const char *app) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
-asl_string_t *asl_string_append_op(asl_string_t *str, uint32_t op) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
-asl_string_t *asl_string_append_no_encoding(asl_string_t *str, const char *app) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
-asl_string_t *asl_string_append_char_no_encoding(asl_string_t *str, const char c) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
-asl_string_t *asl_string_append_xml_tag(asl_string_t *str, const char *tag, const char *s) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
+asl_string_t *asl_string_new(uint32_t encoding) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.8,10.12), ios(5.1,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+asl_string_t *asl_string_retain(asl_string_t *str) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.8,10.12), ios(5.1,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+void asl_string_release(asl_string_t *str) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.8,10.12), ios(5.1,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+char *asl_string_release_return_bytes(asl_string_t *str) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.8,10.12), ios(5.1,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+char *asl_string_bytes(asl_string_t *str) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.8,10.12), ios(5.1,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+size_t asl_string_length(asl_string_t *str) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.8,10.12), ios(5.1,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+size_t asl_string_allocated_size(asl_string_t *str) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.8,10.12), ios(5.1,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+asl_string_t *asl_string_append(asl_string_t *str, const char *app) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.8,10.12), ios(5.1,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+asl_string_t *asl_string_append_asl_key(asl_string_t *str, const char *app) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.8,10.12), ios(5.1,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+asl_string_t *asl_string_append_op(asl_string_t *str, uint32_t op) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.8,10.12), ios(5.1,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+asl_string_t *asl_string_append_no_encoding(asl_string_t *str, const char *app) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.8,10.12), ios(5.1,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+asl_string_t *asl_string_append_char_no_encoding(asl_string_t *str, const char c) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.8,10.12), ios(5.1,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
+asl_string_t *asl_string_append_xml_tag(asl_string_t *str, const char *tag, const char *s) __API_DEPRECATED("os_log(3) has replaced asl(3)", macosx(10.8,10.12), ios(5.1,10.0), watchos(2.0,3.0), tvos(9.0,10.0));
 
 #endif /* __ASL_STRING_H__ */

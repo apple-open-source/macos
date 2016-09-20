@@ -26,7 +26,6 @@
 #include "config.h"
 #include "SVGElement.h"
 
-#include "CSSCursorImageValue.h"
 #include "CSSParser.h"
 #include "DOMImplementation.h"
 #include "Document.h"
@@ -40,7 +39,6 @@
 #include "RenderSVGResource.h"
 #include "RenderSVGResourceFilter.h"
 #include "RenderSVGResourceMasker.h"
-#include "SVGCursorElement.h"
 #include "SVGDocumentExtensions.h"
 #include "SVGElementRareData.h"
 #include "SVGGraphicsElement.h"
@@ -286,10 +284,6 @@ SVGElement::~SVGElement()
     if (m_svgRareData) {
         for (SVGElement* instance : m_svgRareData->instances())
             instance->m_svgRareData->setCorrespondingElement(nullptr);
-        if (SVGCursorElement* cursorElement = m_svgRareData->cursorElement())
-            cursorElement->removeClient(this);
-        if (CSSCursorImageValue* cursorImageValue = m_svgRareData->cursorImageValue())
-            cursorImageValue->removeReferencedElement(this);
         if (SVGElement* correspondingElement = m_svgRareData->correspondingElement())
             correspondingElement->m_svgRareData->instances().remove(this);
 
@@ -299,7 +293,7 @@ SVGElement::~SVGElement()
     document().accessSVGExtensions().removeAllElementReferencesForTarget(this);
 }
 
-short SVGElement::tabIndex() const
+int SVGElement::tabIndex() const
 {
     if (supportsFocus())
         return Element::tabIndex();
@@ -375,12 +369,12 @@ bool SVGElement::isSupported(StringImpl* feature, StringImpl* version) const
 
 String SVGElement::xmlbase() const
 {
-    return fastGetAttribute(XMLNames::baseAttr);
+    return attributeWithoutSynchronization(XMLNames::baseAttr);
 }
 
 void SVGElement::setXmlbase(const String& value, ExceptionCode&)
 {
-    setAttribute(XMLNames::baseAttr, value);
+    setAttributeWithoutSynchronization(XMLNames::baseAttr, value);
 }
 
 void SVGElement::removedFrom(ContainerNode& rootParent)
@@ -444,40 +438,6 @@ bool SVGElement::getBoundingBox(FloatRect& rect, SVGLocatable::StyleUpdateStrate
     return false;
 }
 
-void SVGElement::setCursorElement(SVGCursorElement* cursorElement)
-{
-    SVGElementRareData& rareData = ensureSVGRareData();
-    if (SVGCursorElement* oldCursorElement = rareData.cursorElement()) {
-        if (cursorElement == oldCursorElement)
-            return;
-        oldCursorElement->removeReferencedElement(this);
-    }
-    rareData.setCursorElement(cursorElement);
-}
-
-void SVGElement::cursorElementRemoved() 
-{
-    ASSERT(m_svgRareData);
-    m_svgRareData->setCursorElement(nullptr);
-}
-
-void SVGElement::setCursorImageValue(CSSCursorImageValue* cursorImageValue)
-{
-    SVGElementRareData& rareData = ensureSVGRareData();
-    if (CSSCursorImageValue* oldCursorImageValue = rareData.cursorImageValue()) {
-        if (cursorImageValue == oldCursorImageValue)
-            return;
-        oldCursorImageValue->removeReferencedElement(this);
-    }
-    rareData.setCursorImageValue(cursorImageValue);
-}
-
-void SVGElement::cursorImageValueRemoved()
-{
-    ASSERT(m_svgRareData);
-    m_svgRareData->setCursorImageValue(nullptr);
-}
-
 SVGElement* SVGElement::correspondingElement() const
 {
     return m_svgRareData ? m_svgRareData->correspondingElement() : nullptr;
@@ -488,9 +448,9 @@ SVGUseElement* SVGElement::correspondingUseElement() const
     auto* root = containingShadowRoot();
     if (!root)
         return nullptr;
-    if (root->type() != ShadowRoot::UserAgentShadowRoot)
+    if (root->type() != ShadowRoot::Type::UserAgent)
         return nullptr;
-    auto* host = root->hostElement();
+    auto* host = root->host();
     if (!is<SVGUseElement>(host))
         return nullptr;
     return &downcast<SVGUseElement>(*host);
@@ -516,13 +476,10 @@ void SVGElement::parseAttribute(const QualifiedName& name, const AtomicString& v
     }
 
     if (name == HTMLNames::tabindexAttr) {
-        int tabindex = 0;
         if (value.isEmpty())
             clearTabIndexExplicitlyIfNeeded();
-        else if (parseHTMLInteger(value, tabindex)) {
-            // Clamp tabindex to the range of 'short' to match Firefox's behavior.
-            setTabIndexExplicitly(std::max(static_cast<int>(std::numeric_limits<short>::min()), std::min(tabindex, static_cast<int>(std::numeric_limits<short>::max()))));
-        }
+        else if (Optional<int> tabIndex = parseHTMLInteger(value))
+            setTabIndexExplicitly(tabIndex.value());
         return;
     }
 
@@ -571,12 +528,10 @@ bool SVGElement::haveLoadedRequiredResources()
     return true;
 }
 
-bool SVGElement::addEventListener(const AtomicString& eventType, PassRefPtr<EventListener> prpListener, bool useCapture)
-{
-    RefPtr<EventListener> listener = prpListener;
-    
+bool SVGElement::addEventListener(const AtomicString& eventType, Ref<EventListener>&& listener, const AddEventListenerOptions& options)
+{   
     // Add event listener to regular DOM element
-    if (!Node::addEventListener(eventType, listener, useCapture))
+    if (!Node::addEventListener(eventType, listener.copyRef(), options))
         return false;
 
     if (containingShadowRoot())
@@ -586,27 +541,27 @@ bool SVGElement::addEventListener(const AtomicString& eventType, PassRefPtr<Even
     ASSERT(!instanceUpdatesBlocked());
     for (auto* instance : instances()) {
         ASSERT(instance->correspondingElement() == this);
-        bool result = instance->Node::addEventListener(eventType, listener, useCapture);
+        bool result = instance->Node::addEventListener(eventType, listener.copyRef(), options);
         ASSERT_UNUSED(result, result);
     }
 
     return true;
 }
 
-bool SVGElement::removeEventListener(const AtomicString& eventType, EventListener* listener, bool useCapture)
+bool SVGElement::removeEventListener(const AtomicString& eventType, EventListener& listener, const ListenerOptions& options)
 {
     if (containingShadowRoot())
-        return Node::removeEventListener(eventType, listener, useCapture);
+        return Node::removeEventListener(eventType, listener, options);
 
     // EventTarget::removeEventListener creates a PassRefPtr around the given EventListener
     // object when creating a temporary RegisteredEventListener object used to look up the
     // event listener in a cache. If we want to be able to call removeEventListener() multiple
     // times on different nodes, we have to delay its immediate destruction, which would happen
     // after the first call below.
-    RefPtr<EventListener> protector(listener);
+    Ref<EventListener> protector(listener);
 
     // Remove event listener from regular DOM element
-    if (!Node::removeEventListener(eventType, listener, useCapture))
+    if (!Node::removeEventListener(eventType, listener, options))
         return false;
 
     // Remove event listener from all shadow tree DOM element instances
@@ -614,11 +569,11 @@ bool SVGElement::removeEventListener(const AtomicString& eventType, EventListene
     for (auto& instance : instances()) {
         ASSERT(instance->correspondingElement() == this);
 
-        if (instance->Node::removeEventListener(eventType, listener, useCapture))
+        if (instance->Node::removeEventListener(eventType, listener, options))
             continue;
 
         // This case can only be hit for event listeners created from markup
-        ASSERT(listener->wasCreatedFromMarkup());
+        ASSERT(listener.wasCreatedFromMarkup());
 
         // If the event listener 'listener' has been created from markup and has been fired before
         // then JSLazyEventListener::parseCode() has been called and m_jsFunction of that listener
@@ -791,12 +746,13 @@ void SVGElement::synchronizeSystemLanguage(SVGElement* contextElement)
     contextElement->synchronizeSystemLanguage();
 }
 
-RefPtr<RenderStyle> SVGElement::customStyleForRenderer(RenderStyle& parentStyle)
+Optional<ElementStyle> SVGElement::resolveCustomStyle(const RenderStyle& parentStyle, const RenderStyle*)
 {
-    if (!correspondingElement())
-        return document().ensureStyleResolver().styleForElement(this, &parentStyle);
+    // If the element is in a <use> tree we get the style from the definition tree.
+    if (auto* styleElement = this->correspondingElement())
+        return styleElement->resolveStyle(&parentStyle);
 
-    return document().ensureStyleResolver().styleForElement(correspondingElement(), &parentStyle, DisallowStyleSharing);
+    return resolveStyle(&parentStyle);
 }
 
 MutableStyleProperties* SVGElement::animatedSMILStyleProperties() const
@@ -817,18 +773,18 @@ void SVGElement::setUseOverrideComputedStyle(bool value)
         m_svgRareData->setUseOverrideComputedStyle(value);
 }
 
-RenderStyle* SVGElement::computedStyle(PseudoId pseudoElementSpecifier)
+const RenderStyle* SVGElement::computedStyle(PseudoId pseudoElementSpecifier)
 {
     if (!m_svgRareData || !m_svgRareData->useOverrideComputedStyle())
         return Element::computedStyle(pseudoElementSpecifier);
 
-    RenderStyle* parentStyle = nullptr;
+    const RenderStyle* parentStyle = nullptr;
     if (Element* parent = parentOrShadowHostElement()) {
         if (auto renderer = parent->renderer())
             parentStyle = &renderer->style();
     }
 
-    return m_svgRareData->overrideComputedStyle(this, parentStyle);
+    return m_svgRareData->overrideComputedStyle(*this, parentStyle);
 }
 
 static void addQualifiedName(HashMap<AtomicString, QualifiedName>& map, const QualifiedName& name)

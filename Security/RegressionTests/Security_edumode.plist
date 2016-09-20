@@ -4,12 +4,6 @@
 <dict>
 	<key>Project</key>
 	<string>Security</string>
-	<key>TestSpecificLogs</key>
-	<array>
-		<string>/var/log/system.log</string>
-		<string>/var/log/module/com.apple.securityd/.*</string>
-		<string>/var/mobile/Library/Logs/CrashReporter/DiagnosticLogs/.*security.log.*</string>
-	</array>
 	<key>Tests</key>
 	<array>
 		<dict>

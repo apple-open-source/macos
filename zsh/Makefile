@@ -4,7 +4,7 @@
 
 # Project info
 Project		      = zsh
-ProjectVersion	      = 5.0.8
+ProjectVersion	      = 5.2
 UserType	      = Administration
 ToolType	      = Commands
 Extra_CC_Flags	      = -no-cpp-precomp
@@ -13,14 +13,13 @@ Extra_Configure_Flags = --bindir="$(BINDIR)" --with-tcsetpgrp --enable-multibyte
 Extra_Install_Flags   = bindir="$(DSTROOT)$(BINDIR)"
 GnuAfterInstall	      = post-install install-plist strip-binaries
 
-Patches = utmpx_ut_user.patch no_strip.patch arg_zero.patch \
-          zsh-Doc.patch svn-zsh-complete.patch no_auto.patch
+Patches = no_strip.patch arg_zero.patch \
+          zsh-Doc.patch svn-zsh-complete.patch no_auto.patch \
+          export-22966068.patch \
+          log-24988289.patch
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
-
-# hack to resurrect zshall
-COMPRESSMANPAGES = true
 
 post-install:
 	rm -f $(DSTROOT)/bin/zsh-$(ProjectVersion)
@@ -47,7 +46,7 @@ strip-binaries:
 
 install_source::
 	$(RMDIR) $(SRCROOT)/$(Project)-$(ProjectVersion) $(SRCROOT)/$(Project)
-	$(TAR) -C $(SRCROOT) -xf $(SRCROOT)/$(Project)-$(ProjectVersion).tar.bz2
+	$(TAR) -C $(SRCROOT) -xf $(SRCROOT)/$(Project)-$(ProjectVersion).tar.xz
 	$(MV) $(SRCROOT)/$(Project)-$(ProjectVersion) $(SRCROOT)/$(Project)
 	@set -x && \
 	cd $(SRCROOT)/$(Project) && \
@@ -63,17 +62,3 @@ install-plist:
 	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
 	$(MKDIR) $(OSL)
 	$(INSTALL_FILE) $(Sources)/LICENCE $(OSL)/$(Project).txt
-
-##---------------------------------------------------------------------
-# Patch config.h just after running configure
-#
-# RLIMIT_RSS is now the save value as the new RLIMIT_AS, which causes
-# a duplicate case value.  So we undefine HAVE_RLIMIT_RSS.
-##---------------------------------------------------------------------
-ConfigStamp2 = $(ConfigStamp)2
-
-configure:: $(ConfigStamp2)
-
-$(ConfigStamp2): $(ConfigStamp)
-	$(_v) ed - ${BuildDirectory}/config.h < $(SRCROOT)/patches/config.h.ed
-	$(_v) $(TOUCH) $(ConfigStamp2)

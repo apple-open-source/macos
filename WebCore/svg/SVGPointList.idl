@@ -34,4 +34,3 @@ interface SVGPointList {
     [StrictTypeChecking, RaisesException] SVGPoint removeItem(unsigned long index);
     [StrictTypeChecking, RaisesException] SVGPoint appendItem(SVGPoint item);
 };
-

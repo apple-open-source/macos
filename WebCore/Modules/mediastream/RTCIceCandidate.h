@@ -31,11 +31,11 @@
 #ifndef RTCIceCandidate_h
 #define RTCIceCandidate_h
 
-#if ENABLE(MEDIA_STREAM)
+#if ENABLE(WEB_RTC)
 
 #include "ExceptionBase.h"
 #include "ScriptWrappable.h"
-#include <wtf/PassRefPtr.h>
+#include <wtf/Optional.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/text/WTFString.h>
@@ -48,23 +48,23 @@ class RTCIceCandidateDescriptor;
 class RTCIceCandidate : public RefCounted<RTCIceCandidate>, public ScriptWrappable {
 public:
     static RefPtr<RTCIceCandidate> create(const Dictionary&, ExceptionCode&);
-    static Ref<RTCIceCandidate> create(PassRefPtr<RTCIceCandidateDescriptor>);
-    virtual ~RTCIceCandidate();
+    static Ref<RTCIceCandidate> create(const String& candidate, const String& sdpMid, Optional<unsigned short> sdpMLineIndex);
+    virtual ~RTCIceCandidate() { }
 
-    const String& candidate() const;
-    const String& sdpMid() const;
-    unsigned short sdpMLineIndex() const;
-
-    RTCIceCandidateDescriptor* descriptor();
+    const String& candidate() const { return m_candidate; }
+    const String& sdpMid() const { return m_sdpMid; }
+    Optional<unsigned short> sdpMLineIndex() const { return m_sdpMLineIndex; }
 
 private:
-    explicit RTCIceCandidate(PassRefPtr<RTCIceCandidateDescriptor>);
+    explicit RTCIceCandidate(const String& candidate, const String& sdpMid, Optional<unsigned short> sdpMLineIndex);
 
-    RefPtr<RTCIceCandidateDescriptor> m_descriptor;
+    String m_candidate;
+    String m_sdpMid;
+    Optional<unsigned short> m_sdpMLineIndex;
 };
 
 } // namespace WebCore
 
-#endif // ENABLE(MEDIA_STREAM)
+#endif // ENABLE(WEB_RTC)
 
 #endif // RTCIceCandidate_h

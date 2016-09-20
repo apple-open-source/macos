@@ -79,10 +79,16 @@ namespace JSC {
 
         bool isHashTableDeletedValue() const { return m_provider.isHashTableDeletedValue(); }
 
-        String toString() const
+        unsigned hash() const
+        {
+            ASSERT(m_provider);
+            return m_provider->hash();
+        }
+
+        StringView view() const
         {
             if (!m_provider)
-                return String();
+                return StringView();
             return m_provider->getRange(m_startChar, m_endChar);
         }
         
@@ -105,9 +111,6 @@ namespace JSC {
         
         SourceCode subExpression(unsigned openBrace, unsigned closeBrace, int firstLine, int startColumn);
 
-#if ENABLE(ES6_ARROWFUNCTION_SYNTAX)
-        SourceCode subArrowExpression(unsigned startArrowFunction, unsigned endArrowFunction, int firstLine, int startColumn);
-#endif
     private:
         RefPtr<SourceProvider> m_provider;
         int m_startChar;
@@ -121,20 +124,8 @@ namespace JSC {
         return SourceCode(StringSourceProvider::create(source, url, startPosition), startPosition.m_line.oneBasedInt(), startPosition.m_column.oneBasedInt());
     }
     
-#if ENABLE(ES6_ARROWFUNCTION_SYNTAX)
-    inline SourceCode SourceCode::subArrowExpression(unsigned startArrowFunction, unsigned endArrowFunction, int firstLine, int startColumn)
-    {
-        ASSERT(provider()->source()[startArrowFunction] == '=' && provider()->source()[startArrowFunction + 1] == '>');
-
-        startColumn += 1; // Convert to base 1.
-        return SourceCode(provider(), startArrowFunction, endArrowFunction, firstLine, startColumn);
-    }
-#endif
-
     inline SourceCode SourceCode::subExpression(unsigned openBrace, unsigned closeBrace, int firstLine, int startColumn)
     {
-        ASSERT(provider()->source()[openBrace] == '{');
-        ASSERT(provider()->source()[closeBrace] == '}');
         startColumn += 1; // Convert to base 1.
         return SourceCode(provider(), openBrace, closeBrace + 1, firstLine, startColumn);
     }

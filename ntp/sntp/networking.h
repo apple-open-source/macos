@@ -32,23 +32,14 @@
 #define KOD_RATE -5	    /* KOD packet with code RATE, reduce poll intervall */
 #define BROADCAST_FAILED -6
 
-
-/* From ntpdate.c */
-int is_reachable (struct addrinfo *dst);
-
-int resolve_hosts (char **hosts, int hostc, const char *servname, struct addrinfo ***res, int pref_family);
-
-void create_socket (SOCKET *rsock, sockaddr_u *dest);
-
-int sendpkt (SOCKET rsock, sockaddr_u *dest, struct pkt *pkt, int len);
-
-int recvdata (SOCKET rsock, struct timeval timeout, sockaddr_u *sender, char *rdata, int rdata_len);
-
-int recvpkt (SOCKET rsock, struct timeval timeout, struct pkt *rpkt, struct pkt *spkt);
-
-int recv_bcst_data (SOCKET rsock, char *rdata, int rdata_len, sockaddr_u *sas, sockaddr_u *ras);
-
-int recv_bcst_pkt (SOCKET rsock, struct pkt *rpkt, sockaddr_u *sas);
+/* prototypes */
+int sendpkt(SOCKET rsock, sockaddr_u *dest, struct pkt *pkt, int len);
+int recvdata(SOCKET rsock, struct timeval timeout, sockaddr_u *sender, void *rdata,
+	     int rdata_len);
+int recvpkt(SOCKET rsock, struct timeval timeout, struct pkt *rpkt, unsigned int rsize,
+	    struct pkt *spkt);
+int process_pkt(struct pkt *rpkt, sockaddr_u *sas, int pkt_len,
+		int mode, struct pkt *spkt, const char *func_name);
 
 /* Shortened peer structure. Not absolutely necessary yet */
 struct speer {
@@ -71,7 +62,7 @@ struct speer {
 	l_fp reftime;
 	keyid_t keyid;
 
-#ifdef OPENSSL
+#ifdef AUTOKEY
 #define clear_to_zero opcode
 	u_int32	opcode;		/* last request opcode */
 	associd_t assoc;	/* peer association ID */
@@ -99,9 +90,9 @@ struct speer {
 	int	keynumber;	/* current key number */
 	struct value encrypt;	/* send encrypt values */
 	struct value sndval;	/* send autokey values */
-#else /* OPENSSL */
+#else	/* !AUTOKEY follows */
 #define clear_to_zero status
-#endif /* OPENSSL */
+#endif	/* !AUTOKEY */
 	
 	l_fp	rec;		/* receive time stamp */
 	l_fp	xmt;		/* transmit time stamp */

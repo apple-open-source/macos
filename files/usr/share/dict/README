@@ -1,5 +1,5 @@
 #	@(#)README	8.1 (Berkeley) 6/5/93
-# $FreeBSD: src/share/dict/README,v 1.13.34.1.4.1 2010/06/14 02:09:06 kensmith Exp $
+# $FreeBSD$
 
 WEB ---- (introduction provided by jaw@riacs) -------------------------
 
@@ -9,12 +9,6 @@ supplemental 'web2a' list contains hyphenated terms as well as assorted
 noun and adverbial phrases.  The wordlist makes a dandy 'grep' victim.
 
      -- James A. Woods    {ihnp4,hplabs}!ames!jaw    (or jaw@riacs)
-
-Dictionaries for other languages, e.g. Afrikaans, American, Aussie,
-Chinese, Croatian, Czech, Danish, Dutch, Esperanto, Finnish, French,
-German, Hindi, Hungarian, Italian, Japanese, Latin, Norwegian, Polish,
-Russian, Spanish, Swahili, Swedish, Yiddish, are available
-at ftp://ftp.ox.ac.uk/pub/wordlists.
 
 Country names are stored in the file /usr/share/misc/iso3166.
 

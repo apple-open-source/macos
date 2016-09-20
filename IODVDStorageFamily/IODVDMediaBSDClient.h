@@ -69,8 +69,9 @@ typedef struct
 {
     uint8_t  format;
     uint8_t  keyClass;
+    uint8_t  blockCount;
 
-    uint8_t  reserved0016[2];                      /* reserved, clear to zero */
+    uint8_t  reserved0024[1];                      /* reserved, clear to zero */
 
     uint32_t address;
     uint8_t  grantID;

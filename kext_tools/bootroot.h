@@ -111,7 +111,7 @@ int32_t BRBLLogFunc(void *refcon, int32_t level, const char *string);
  *
  *  @discussion
  *      At minimum, ensures that a local-root primory kext cache
- *      (traditional mkext, modern kernelcache) is up to date and
+ *      (traditional mkext, modern prelinked kernel) is up to date and
  *      then -- if needed or requested -- copies all Boot!=Root
  *      files to the appropriate helper partition(s) (e.g. Apple_Boot).
  *

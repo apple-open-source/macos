@@ -31,16 +31,17 @@
 
 __BEGIN_DECLS
 
-typedef struct __IOHIDUserDevice * IOHIDUserDeviceRef;
+CF_ASSUME_NONNULL_BEGIN
+CF_IMPLICIT_BRIDGING_ENABLED
+
+typedef struct CF_BRIDGED_TYPE(id) __IOHIDUserDevice * IOHIDUserDeviceRef;
 
 
-typedef IOReturn (*IOHIDUserDeviceReportCallback)(void * refcon, IOHIDReportType type, uint32_t reportID, uint8_t * report, CFIndex reportLength);
-typedef IOReturn (*IOHIDUserDeviceReportWithReturnLengthCallback)(void * refcon, IOHIDReportType type, uint32_t reportID, uint8_t * report, CFIndex * pReportLength);
-typedef IOReturn (*IOHIDUserDeviceHandleReportAsyncCallback)(void * refcon, IOReturn result);
+typedef IOReturn (*IOHIDUserDeviceReportCallback)(void * _Nullable refcon, IOHIDReportType type, uint32_t reportID, uint8_t * report, CFIndex reportLength);
+typedef IOReturn (*IOHIDUserDeviceReportWithReturnLengthCallback)(void * _Nullable refcon, IOHIDReportType type, uint32_t reportID, uint8_t * report, CFIndex * pReportLength);
+typedef IOReturn (*IOHIDUserDeviceHandleReportAsyncCallback)(void * _Nullable refcon, IOReturn result);
 
-enum {
-  kIOHIDUserDeviceCreateOptionStartWhenScheduled = (1<<0)
-};
+static const IOOptionBits kIOHIDUserDeviceCreateOptionStartWhenScheduled = (1<<0);
 
 /*!
     @function   IOHIDUserDeviceGetTypeID
@@ -59,7 +60,7 @@ CFTypeID IOHIDUserDeviceGetTypeID(void);
     @result     Returns a new IOHIDUserDeviceRef.
 */
 CF_EXPORT
-IOHIDUserDeviceRef IOHIDUserDeviceCreate(CFAllocatorRef allocator, CFDictionaryRef properties);
+IOHIDUserDeviceRef IOHIDUserDeviceCreate(CFAllocatorRef _Nullable allocator, CFDictionaryRef properties);
 
 /*!
  @function   IOHIDUserDeviceCreateWithOptions
@@ -74,7 +75,7 @@ IOHIDUserDeviceRef IOHIDUserDeviceCreate(CFAllocatorRef allocator, CFDictionaryR
  @result     Returns a new IOHIDUserDeviceRef.
  */
 CF_EXPORT
-IOHIDUserDeviceRef IOHIDUserDeviceCreateWithOptions(CFAllocatorRef allocator, CFDictionaryRef properties, IOOptionBits options);
+IOHIDUserDeviceRef IOHIDUserDeviceCreateWithOptions(CFAllocatorRef _Nullable allocator, CFDictionaryRef properties, IOOptionBits options);
 
 
 /*!
@@ -125,7 +126,7 @@ void IOHIDUserDeviceUnscheduleFromDispatchQueue(IOHIDUserDeviceRef device, dispa
     @param      refcon pointer to a reference object of your choosing
 */
 CF_EXPORT
-void IOHIDUserDeviceRegisterGetReportCallback(IOHIDUserDeviceRef device, IOHIDUserDeviceReportCallback callback, void * refcon);
+void IOHIDUserDeviceRegisterGetReportCallback(IOHIDUserDeviceRef device, IOHIDUserDeviceReportCallback _Nullable callback, void * _Nullable refcon);
 
 /*!
  @function   IOHIDUserDeviceRegisterGetReportWithLegthCallback
@@ -136,7 +137,7 @@ void IOHIDUserDeviceRegisterGetReportCallback(IOHIDUserDeviceRef device, IOHIDUs
  @param      refcon pointer to a reference object of your choosing
  */
 CF_EXPORT
-void IOHIDUserDeviceRegisterGetReportWithReturnLengthCallback(IOHIDUserDeviceRef device, IOHIDUserDeviceReportWithReturnLengthCallback callback, void * refcon);
+void IOHIDUserDeviceRegisterGetReportWithReturnLengthCallback(IOHIDUserDeviceRef device, IOHIDUserDeviceReportWithReturnLengthCallback _Nullable callback, void * _Nullable refcon);
 
 /*!
     @function   IOHIDUserDeviceRegisterSetReportCallback
@@ -146,7 +147,7 @@ void IOHIDUserDeviceRegisterGetReportWithReturnLengthCallback(IOHIDUserDeviceRef
     @param      refcon pointer to a reference object of your choosing
 */
 CF_EXPORT
-void IOHIDUserDeviceRegisterSetReportCallback(IOHIDUserDeviceRef device, IOHIDUserDeviceReportCallback callback, void * refcon);
+void IOHIDUserDeviceRegisterSetReportCallback(IOHIDUserDeviceRef device, IOHIDUserDeviceReportCallback _Nullable callback, void * _Nullable refcon);
 
 /*!
     @function   IOHIDUserDeviceHandleReport
@@ -170,7 +171,7 @@ IOReturn IOHIDUserDeviceHandleReport(IOHIDUserDeviceRef device, uint8_t * report
     @result     Returns kIOReturnSuccess when report is handled successfully.
  */
 CF_EXPORT
-IOReturn IOHIDUserDeviceHandleReportAsync(IOHIDUserDeviceRef device, uint8_t *report, CFIndex reportLength, IOHIDUserDeviceHandleReportAsyncCallback callback, void * refcon);
+IOReturn IOHIDUserDeviceHandleReportAsync(IOHIDUserDeviceRef device, uint8_t *report, CFIndex reportLength, IOHIDUserDeviceHandleReportAsyncCallback _Nullable callback, void * _Nullable refcon);
 
 /*!
     @function   IOHIDUserDeviceHandleReportWithTimeStamp
@@ -196,7 +197,10 @@ IOReturn IOHIDUserDeviceHandleReportWithTimeStamp(IOHIDUserDeviceRef device, uin
     @result     Returns kIOReturnSuccess when report is handled successfully.
  */
 CF_EXPORT
-IOReturn IOHIDUserDeviceHandleReportAsyncWithTimeStamp(IOHIDUserDeviceRef device, uint64_t timestamp, uint8_t *report, CFIndex reportLength, IOHIDUserDeviceHandleReportAsyncCallback callback, void * refcon);
+IOReturn IOHIDUserDeviceHandleReportAsyncWithTimeStamp(IOHIDUserDeviceRef device, uint64_t timestamp, uint8_t *report, CFIndex reportLength, IOHIDUserDeviceHandleReportAsyncCallback _Nullable callback, void * _Nullable refcon);
+
+CF_IMPLICIT_BRIDGING_DISABLED
+CF_ASSUME_NONNULL_END
 
 __END_DECLS
 

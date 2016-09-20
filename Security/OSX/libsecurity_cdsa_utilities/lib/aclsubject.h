@@ -34,6 +34,7 @@
 #include <security_utilities/globalizer.h>
 #include <security_utilities/memutils.h>
 #include <security_utilities/adornments.h>
+#include <security_utilities/debugging_internal.h>
 #include <map>
 #include <set>
 #include <string>

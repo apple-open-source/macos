@@ -30,7 +30,6 @@
 #define ChannelMergerNode_h
 
 #include "AudioNode.h"
-#include <wtf/PassRefPtr.h>
 
 namespace WebCore {
 
@@ -38,22 +37,22 @@ class AudioContext;
     
 class ChannelMergerNode : public AudioNode {
 public:
-    static RefPtr<ChannelMergerNode> create(AudioContext*, float sampleRate, unsigned numberOfInputs);
+    static RefPtr<ChannelMergerNode> create(AudioContext&, float sampleRate, unsigned numberOfInputs);
 
     // AudioNode
-    virtual void process(size_t framesToProcess) override;
-    virtual void reset() override;
+    void process(size_t framesToProcess) override;
+    void reset() override;
 
     // Called in the audio thread (pre-rendering task) when the number of channels for an input may have changed.
-    virtual void checkNumberOfChannelsForInput(AudioNodeInput*) override;
+    void checkNumberOfChannelsForInput(AudioNodeInput*) override;
 
 private:
     unsigned m_desiredNumberOfOutputChannels;
 
-    virtual double tailTime() const override { return 0; }
-    virtual double latencyTime() const override { return 0; }
+    double tailTime() const override { return 0; }
+    double latencyTime() const override { return 0; }
 
-    ChannelMergerNode(AudioContext*, float sampleRate, unsigned numberOfInputs);
+    ChannelMergerNode(AudioContext&, float sampleRate, unsigned numberOfInputs);
 };
 
 } // namespace WebCore

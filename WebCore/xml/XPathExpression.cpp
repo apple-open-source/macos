@@ -41,17 +41,17 @@ namespace WebCore {
 using namespace XPath;
     
 inline XPathExpression::XPathExpression(std::unique_ptr<XPath::Expression> expression)
-    : m_topExpression(WTF::move(expression))
+    : m_topExpression(WTFMove(expression))
 {
 }
 
-RefPtr<XPathExpression> XPathExpression::createExpression(const String& expression, XPathNSResolver* resolver, ExceptionCode& ec)
+RefPtr<XPathExpression> XPathExpression::createExpression(const String& expression, RefPtr<XPathNSResolver>&& resolver, ExceptionCode& ec)
 {
-    auto parsedExpression = Parser::parseStatement(expression, resolver, ec);
+    auto parsedExpression = Parser::parseStatement(expression, WTFMove(resolver), ec);
     if (!parsedExpression)
         return nullptr;
 
-    return adoptRef(*new XPathExpression(WTF::move(parsedExpression)));
+    return adoptRef(*new XPathExpression(WTFMove(parsedExpression)));
 }
 
 XPathExpression::~XPathExpression()
@@ -87,7 +87,7 @@ RefPtr<XPathResult> XPathExpression::evaluate(Node* contextNode, unsigned short 
             return nullptr;
     }
 
-    return WTF::move(result);
+    return result;
 }
 
 }

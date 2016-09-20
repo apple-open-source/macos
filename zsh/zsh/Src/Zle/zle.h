@@ -352,8 +352,7 @@ struct brinfo {
 #define BEFORECOMPLETEHOOK (zlehooks + 2)
 #define AFTERCOMPLETEHOOK  (zlehooks + 3)
 #define ACCEPTCOMPHOOK     (zlehooks + 4)
-#define REVERSEMENUHOOK    (zlehooks + 5)
-#define INVALIDATELISTHOOK (zlehooks + 6)
+#define INVALIDATELISTHOOK (zlehooks + 5)
 
 /* complete hook data struct */
 
@@ -430,8 +429,11 @@ struct region_highlight {
  * 0: region between point and mark
  * 1: isearch region
  * 2: suffix
+ * 3: pasted text
  */
-#define N_SPECIAL_HIGHLIGHTS	(3)
+/* If you change this, update the documentation of zle_highlight/region_highlight
+ * interaction in Doc/Zsh/zle.yo. */
+#define N_SPECIAL_HIGHLIGHTS	(4)
 
 
 #ifdef MULTIBYTE_SUPPORT

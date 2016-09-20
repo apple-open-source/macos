@@ -31,17 +31,10 @@
 # implementation of malloc(3C).  If you're reading this comment because
 # those assumptions have become false, please accept my apologies...
 #
-if [ -f /usr/lib/dtrace/darwin.d ]; then
 dylib=libsystem_c.dylib
 prog="/bin/echo"
-caller=exit
+caller="exit"
 callee=__cxa_finalize
-else
-prog="/usr/bin/echo"
-dylib=ld.so.1
-caller=calloc
-callee=malloc
-fi
 
 dtrace -qs /dev/stdin -c $prog <<EOF
 pid\$target:$dylib:$caller:entry
@@ -53,12 +46,6 @@ pid\$target:$dylib:$callee:entry
 /self->$caller/
 {
 	@[umod(ucaller), ufunc(ucaller)] = count();
-}
-
-pid\$target:$dylib:$caller:return
-/self->$caller/
-{
-	self->$caller = 0;
 }
 
 END

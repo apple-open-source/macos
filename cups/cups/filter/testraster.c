@@ -1,9 +1,7 @@
 /*
- * "$Id: testraster.c 12749 2015-06-24 16:14:15Z msweet $"
- *
  * Raster test program routines for CUPS.
  *
- * Copyright 2007-2015 by Apple Inc.
+ * Copyright 2007-2016 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products.
  *
  * These coded instructions, statements, and computer programs are the
@@ -20,6 +18,7 @@
  */
 
 #include <cups/raster-private.h>
+#include <cups/ppd.h>
 #include <math.h>
 
 
@@ -1063,8 +1062,3 @@ print_changes(
            header->cupsPageSizeName,
            expected->cupsPageSizeName);
 }
-
-
-/*
- * End of "$Id: testraster.c 12749 2015-06-24 16:14:15Z msweet $".
- */

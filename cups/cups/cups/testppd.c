@@ -1,6 +1,4 @@
 /*
- * "$Id: testppd.c 12671 2015-05-27 23:59:26Z msweet $"
- *
  * PPD test program for CUPS.
  *
  * Copyright 2007-2015 by Apple Inc.
@@ -21,6 +19,7 @@
 
 #undef _CUPS_NO_DEPRECATED
 #include "cups-private.h"
+#include "ppd-private.h"
 #include <sys/stat.h>
 #ifdef WIN32
 #  include <io.h>
@@ -1167,8 +1166,3 @@ main(int  argc,				/* I - Number of command-line arguments */
 
   return (status);
 }
-
-
-/*
- * End of "$Id: testppd.c 12671 2015-05-27 23:59:26Z msweet $".
- */

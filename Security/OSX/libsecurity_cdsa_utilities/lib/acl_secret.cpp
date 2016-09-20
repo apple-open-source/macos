@@ -67,9 +67,9 @@ void SecretAclSubject::secret(const CssmData &s) const
 	if (mCacheSecret) {
 		mSecret = s;
 		mSecretValid = true;
-		secdebug("aclsecret", "%p secret stored", this);
+		secinfo("aclsecret", "%p secret stored", this);
 	} else
-		secdebug("aclsecret", "%p refused to store secret", this);
+		secinfo("aclsecret", "%p refused to store secret", this);
 }
 
 void SecretAclSubject::secret(CssmManagedData &s) const
@@ -78,9 +78,9 @@ void SecretAclSubject::secret(CssmManagedData &s) const
 	if (mCacheSecret) {
 		mSecret = s;
 		mSecretValid = true;
-		secdebug("aclsecret", "%p secret stored", this);
+		secinfo("aclsecret", "%p secret stored", this);
 	} else
-		secdebug("aclsecret", "%p refused to store secret", this);
+		secinfo("aclsecret", "%p refused to store secret", this);
 }
 
 

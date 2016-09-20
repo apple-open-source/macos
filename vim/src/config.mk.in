@@ -30,6 +30,7 @@ TAGPRG		= @TAGPRG@
 CPP		= @CPP@
 CPP_MM		= @CPP_MM@
 DEPEND_CFLAGS_FILTER = @DEPEND_CFLAGS_FILTER@
+LINK_AS_NEEDED	= @LINK_AS_NEEDED@
 X_CFLAGS	= @X_CFLAGS@
 X_LIBS_DIR	= @X_LIBS@
 X_PRE_LIBS	= @X_PRE_LIBS@
@@ -47,11 +48,12 @@ MZSCHEME_SRC	= @MZSCHEME_SRC@
 MZSCHEME_OBJ	= @MZSCHEME_OBJ@
 MZSCHEME_CFLAGS	= @MZSCHEME_CFLAGS@
 MZSCHEME_PRO	= @MZSCHEME_PRO@
-MZSCHEME_EXTRA  = @MZSCHEME_EXTRA@
+MZSCHEME_EXTRA	= @MZSCHEME_EXTRA@
 MZSCHEME_MZC	= @MZSCHEME_MZC@
 
 PERL		= @vi_cv_path_perl@
 PERLLIB		= @vi_cv_perllib@
+PERL_XSUBPP	= @vi_cv_perl_xsubpp@
 PERL_LIBS	= @PERL_LIBS@
 SHRPENV		= @shrpenv@
 PERL_SRC	= @PERL_SRC@
@@ -162,6 +164,8 @@ OS_EXTRA_OBJ	= @OS_EXTRA_OBJ@
 
 ### If the *.po files are to be translated to *.mo files.
 MAKEMO		= @MAKEMO@
+
+MSGFMT		= @MSGFMT@
 
 # Make sure that "make first" will run "make all" once configure has done its
 # work.  This is needed when using the Makefile in the top directory.

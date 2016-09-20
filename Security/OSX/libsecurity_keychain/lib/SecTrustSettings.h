@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006,2011,2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006,2011,2014-2015 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -230,7 +230,7 @@ typedef CF_ENUM(uint32, SecTrustSettingsDomain) {
  * SecTrustSettingsResult for that default Trust Setting (if not 
  * kSecTrustSettingsResultUnspecified) will apply. 
  *
- * This can be used e.g. by a system administrator to explicilty distrust all 
+ * This can be used e.g. by a system administrator to explicitly distrust all
  * of the root certs in the (immutable) system domain for a specific policy. 
  *
  * This const is passed as the 'SecCertificateRef certRef' argument to 

@@ -45,11 +45,11 @@ public:
 
     const Vector<RefPtr<RTCStatsReport>>& result() const { return m_result; };
 
-    PassRefPtr<RTCStatsReport> namedItem(const AtomicString&);
-    bool canGetItemsForName(const AtomicString&);
+    RefPtr<RTCStatsReport> namedItem(const AtomicString&);
+    Vector<AtomicString> supportedPropertyNames();
 
-    virtual size_t addReport(String id, String type, double timestamp) override;
-    virtual void addStatistic(size_t report, String name, String value) override;
+    size_t addReport(String id, String type, double timestamp) override;
+    void addStatistic(size_t report, String name, String value) override;
 
 private:
     RTCStatsResponse();

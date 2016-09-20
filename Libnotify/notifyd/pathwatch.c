@@ -69,6 +69,7 @@
 #include <fcntl.h>
 #include <assert.h>
 #include <tzfile.h>
+#include <sandbox.h>
 #include "pathwatch.h"
 
 #define forever for(;;)
@@ -206,7 +207,7 @@ _path_stat(const char *path, int link, uid_t uid, gid_t gid)
  * Sets ftype output parameter if it is non-NULL.
  */
 static int
-_path_stat_check_access(const char *path, uid_t uid, gid_t gid, uint32_t *ftype)
+_path_stat_check_access(const char *path, pid_t pid, uid_t uid, gid_t gid, uint32_t *ftype)
 {
 	struct stat sb;
 	char buf[MAXPATHLEN + 1];
@@ -224,6 +225,11 @@ _path_stat_check_access(const char *path, uid_t uid, gid_t gid, uint32_t *ftype)
 	{
 		if (ftype != NULL) *ftype = PATH_NODE_TYPE_DIR;
 		return PATH_STAT_OK;
+	}
+
+	/* Don't perform stat if sandbox won't allow it. (15907527) */
+	if (sandbox_check(pid, "file-read-metadata", SANDBOX_FILTER_PATH | SANDBOX_CHECK_NO_REPORT, path) != 0) {
+		return PATH_STAT_ACCESS;
 	}
 
 	memset(&sb, 0, sizeof(struct stat));
@@ -810,7 +816,7 @@ _path_node_update(path_node_t *pnode, uint32_t flags, vnode_t *vnode)
 
 	old_type = pnode->type;
 
-	status = _path_stat_check_access(pnode->path, pnode->uid, pnode->gid, &(pnode->type));
+	status = _path_stat_check_access(pnode->path, pnode->pid, pnode->uid, pnode->gid, &(pnode->type));
 	if (status == PATH_STAT_ACCESS) flags |= DISPATCH_VNODE_REVOKE;
 
 	data = 0;
@@ -928,7 +934,7 @@ _path_node_update(path_node_t *pnode, uint32_t flags, vnode_t *vnode)
  * be shared with other path_node_t structures.
  */
 path_node_t *
-path_node_create(const char *path, uid_t uid, gid_t gid, uint32_t mask, dispatch_queue_t queue)
+path_node_create(const char *path, pid_t pid, uid_t uid, gid_t gid, uint32_t mask, dispatch_queue_t queue)
 {
 	path_node_t *pnode;
 
@@ -938,6 +944,7 @@ path_node_create(const char *path, uid_t uid, gid_t gid, uint32_t mask, dispatch
 	if (pnode == NULL) return NULL;
 
 	pnode->refcount = 1;
+	pnode->pid = pid;
 	pnode->uid = uid;
 	pnode->gid = gid;
 

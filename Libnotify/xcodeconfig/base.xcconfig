@@ -1,5 +1,8 @@
 #include "<DEVELOPER_DIR>/Makefiles/CoreOS/Xcode/BSD.xcconfig"
 
+// Architectures
+SDKROOT = macosx.internal
+
 ALWAYS_SEARCH_USER_PATHS = YES
 HEADER_SEARCH_PATHS = $(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders $(PROJECT_DIR)
 ARCHS = $(ARCHS_STANDARD_32_64_BIT)

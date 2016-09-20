@@ -204,7 +204,7 @@ IOReturn IODeregisterForSystemPower ( io_object_t * notifier )
     @param notificationID A copy of the notification ID which came as part of the power state change notification being acknowledged.
     @result             Returns kIOReturnSuccess or an error condition if request failed.
 */
-IOReturn IOAllowPowerChange ( io_connect_t kernelPort, long notificationID )
+IOReturn IOAllowPowerChange ( io_connect_t kernelPort, intptr_t notificationID )
                             AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;
 
 /*! @function IOCancelPowerChange
@@ -220,7 +220,7 @@ IOReturn IOAllowPowerChange ( io_connect_t kernelPort, long notificationID )
     @param notificationID A copy of the notification ID which came as part of the power state change notification being acknowledged.
     @result Returns kIOReturnSuccess or an error condition if request failed.
  */
-IOReturn IOCancelPowerChange ( io_connect_t kernelPort, long notificationID )
+IOReturn IOCancelPowerChange ( io_connect_t kernelPort, intptr_t notificationID )
                             AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;
 
 /*!
@@ -458,7 +458,7 @@ typedef enum {
  *	                    Caller must specify this argument.
  *
  * @param Details 	    A CFString value to correspond to key <code>@link kIOPMAssertionDetailsKey@/link</code>.
- *	                    Caller my pass NULL, but it helps power users and administrators identify the
+ *	                    Caller may pass NULL, but it helps power users and administrators identify the
  *                      reasons for this assertion.
  *
  * @param HumanReadableReason
@@ -481,8 +481,8 @@ typedef enum {
  * @result              kIOReturnSuccess, or another IOKit return code on error.
  */
 IOReturn	IOPMAssertionCreateWithDescription(
-                                           CFStringRef  AssertionType, 
-                                           CFStringRef  Name, 
+                                           CFStringRef  AssertionType,
+                                           CFStringRef  Name,
                                            CFStringRef  Details,
                                            CFStringRef  HumanReadableReason,
                                            CFStringRef  LocalizationBundlePath,
@@ -490,7 +490,7 @@ IOReturn	IOPMAssertionCreateWithDescription(
                                            CFStringRef  TimeoutAction,
                                            IOPMAssertionID  *AssertionID)
 __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
-    
+
 
 
 /*!
@@ -500,21 +500,22 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
  * @param AssertionProperties   Dictionary providing the properties of the assertion that need to be created.
  * @param AssertionID           (Output) On successful return, contains a unique reference to a PM assertion.
  *
- * @discussion          
- *      Create a new PM assertion - the caller must specify the type of assertion, initial level, and its 
+ * @discussion
+ *      Create a new PM assertion - the caller must specify the type of assertion, initial level, and its
  *      properties as @link IOPMAssertionDictionaryKeys@/link keys in the <code>AssertionProperties</code> dictionary.
- *      The following keys are recommend and/or required to be specified in the AssertionProperties 
+ *      The following keys are recommend and/or required to be specified in the AssertionProperties
  *      dictionary argument.
  *      <ul>
  *          <li> REQUIRED: <code>kIOPMAssertionTypeKey</code> define the assertion type.
  *
- *          <li> REQUIRED: <code>kIOPMAssertionValueKey</code> define an inital value.
- *
  *          <li> REQUIRED: <code>kIOPMAssertionNameKey</code> Caller must describe the name for the activity that
- *               requires the change in behavior provided by the assertion. 
+ *               requires the change in behavior provided by the assertion.
+ *
+ *          <li> OPTIONAL: <code>kIOPMAssertionLevelKey</code> define an inital value. If not set, assertion is
+ *               turned on after creation.
  *
  *          <li> OPTIONAL: <code>kIOPMAssertionDetailsKey</code> Caller may describe context-specific data about the
- *               assertion. 
+ *               assertion.
  *
  *          <li> OPTIONAL: <code>kIOPMAssertionHumanReadableReasonKey</code> Caller may describe the reason for creating the assertion
  *              in a localizable CFString. This should be a human readable phrase that describes the actions the
@@ -539,13 +540,13 @@ IOReturn IOPMAssertionCreateWithProperties(
 /*!
  * @function            IOPMAssertionDeclareUserActivity
  *
- * @abstract            Declares that the user is active on the system. 
+ * @abstract            Declares that the user is active on the system.
  *
- * @discussion          This causes the display to power on and postpone display sleep, 
- *                      up to the user's display sleep Energy Saver settings. 
+ * @discussion          This causes the display to power on and postpone display sleep,
+ *                      up to the user's display sleep Energy Saver settings.
  *
  *                      If you need to hold the display awake for a longer period and you know
- *                      how long you'd like to hold it, consider taking assertion 
+ *                      how long you'd like to hold it, consider taking assertion
  *                      <code>@link kIOPMAssertPreventUserIdleDisplaySleep @/link</code> using
  *                      <code>@link IOPMAssertionCreateWithDescription @/link</code> API instead.
  *
@@ -679,7 +680,7 @@ CFDictionaryRef IOPMAssertionCopyProperties(IOPMAssertionID theAssertion)
  * @discussion          Only the process that created an assertion may change its properties.
  * @param theAssertion  The <code>@link IOPMAssertionID@/link</code> of the assertion to modify.
  * @param theProperty   The CFString key, from <code>@link IOPMAssertionDictionaryKeys@/link</code> to modify.
- * @param theValue      The property to set. It must be a CFNumber or CFString, as specified by the property key named in whichProperty.
+ * @param theValue      The property to set. The value must match the CF type expected for the specified key.
  * @result              Returns <code>@link kIOReturnNotPriviliged@/link</code> if the caller doesn't 
  *                          have permission to modify this assertion.
  *                      Returns <code>@link kIOReturnNotFound@/link</code> if PM can't locate this assertion.
@@ -756,9 +757,6 @@ IOReturn IOPMAssertionCreate(CFStringRef        AssertionType,
  * @function            IOPMAssertionCreateWithName
  *
  * @abstract            The simplest API to create a power assertion.
- *
- * @deprecated          IOPMAssertionCreate is deprecated in favor of <code>@link IOPMAssertionCreateWithProperties@/link</code>.
- *                      Please use that version of this API instead.
  *
  * @discussion          No special privileges are necessary to make this call - any process may
  *                      activate a power assertion. Caller must specify an AssertionName - NULL is not

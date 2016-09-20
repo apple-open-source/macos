@@ -30,7 +30,6 @@
 #include "sslUtils.h"
 #include "sslDigests.h"
 #include "sslAlertMessage.h"
-//#include "sslCrypto.h"
 #include "sslDebug.h"
 #include "tls_hmac.h"
 #include <assert.h>
@@ -83,6 +82,8 @@ static void tlsDump(const char *name, void *b, unsigned len)
 #define PLS_EXPORT_SERVER_WRITE_LEN	16
 #define PLS_EXPORT_IV_BLOCK			"IV block"
 #define PLS_EXPORT_IV_BLOCK_LEN		8
+#define PLS_EXT_MASTER_SECRET       "extended master secret"
+#define PLS_EXT_MASTER_SECRET_LEN	22
 
 // MARK: -
 // MARK: private functions
@@ -327,21 +328,128 @@ static int tls1GenerateMasterSecret (
 {
 	unsigned char randBuf[2 * SSL_CLIENT_SRVR_RAND_SIZE];
 	int serr;
+    tls_buffer shaMsgState, md5MsgState;
+    tls_buffer digBuf;
+    unsigned char digests[SSL_MD5_DIGEST_LEN + SSL_SHA1_DIGEST_LEN];
 
-	memmove(randBuf, ctx->clientRandom, SSL_CLIENT_SRVR_RAND_SIZE);
-	memmove(randBuf + SSL_CLIENT_SRVR_RAND_SIZE,
-		ctx->serverRandom, SSL_CLIENT_SRVR_RAND_SIZE);
-	serr = tls_handshake_internal_prf(ctx,
-		ctx->preMasterSecret.data,
-		ctx->preMasterSecret.length,
-		(const unsigned char *)PLS_MASTER_SECRET,
-		PLS_MASTER_SECRET_LEN,
-		randBuf,
-		2 * SSL_CLIENT_SRVR_RAND_SIZE,
-		ctx->masterSecret,		// destination
-		SSL_MASTER_SECRET_SIZE);
+    if (ctx->extMSEnabled && ctx->extMSReceived) {
+        // Use handshake hash and generate extended master secret
+        shaMsgState.data = 0;
+        md5MsgState.data = 0;
+        if ((serr = CloneHashState(&SSLHashSHA1, &ctx->shaState, &shaMsgState)) != 0) {
+            goto fail;
+        }
+        if ((serr = CloneHashState(&SSLHashMD5, &ctx->md5State, &md5MsgState)) != 0) {
+            SSLFreeBuffer(&shaMsgState);
+            goto fail;
+        }
+        /* concatenate two digest results */
+        digBuf.data = digests;
+        digBuf.length = SSL_MD5_DIGEST_LEN;
+        serr = SSLHashMD5.final(&md5MsgState, &digBuf);
+        if(serr) {
+            SSLFreeBuffer(&shaMsgState);
+            SSLFreeBuffer(&md5MsgState);
+            goto fail;
+        }
+        digBuf.data += SSL_MD5_DIGEST_LEN;
+        digBuf.length = SSL_SHA1_DIGEST_LEN;
+        serr = SSLHashSHA1.final(&shaMsgState, &digBuf);
+        if(serr) {
+            SSLFreeBuffer(&shaMsgState);
+            SSLFreeBuffer(&md5MsgState);
+            goto fail;
+        }
+        serr = tls_handshake_internal_prf(ctx,
+                                          ctx->preMasterSecret.data,
+                                          ctx->preMasterSecret.length,
+                                          (const unsigned char *)PLS_EXT_MASTER_SECRET,
+                                          PLS_EXT_MASTER_SECRET_LEN,
+                                          digests,
+                                          SSL_MD5_DIGEST_LEN + SSL_SHA1_DIGEST_LEN,
+                                          ctx->masterSecret,		// destination
+                                          SSL_MASTER_SECRET_SIZE);
+        SSLFreeBuffer(&shaMsgState);
+        SSLFreeBuffer(&md5MsgState);
+
+    } else {
+        memmove(randBuf, ctx->clientRandom, SSL_CLIENT_SRVR_RAND_SIZE);
+        memmove(randBuf + SSL_CLIENT_SRVR_RAND_SIZE,
+            ctx->serverRandom, SSL_CLIENT_SRVR_RAND_SIZE);
+        serr = tls_handshake_internal_prf(ctx,
+            ctx->preMasterSecret.data,
+            ctx->preMasterSecret.length,
+            (const unsigned char *)PLS_MASTER_SECRET,
+            PLS_MASTER_SECRET_LEN,
+            randBuf,
+            2 * SSL_CLIENT_SRVR_RAND_SIZE,
+            ctx->masterSecret,		// destination
+            SSL_MASTER_SECRET_SIZE);
+    }
 	tlsDump("master secret", ctx->masterSecret, SSL_MASTER_SECRET_SIZE);
-	return serr;
+fail:
+
+    return serr;
+}
+
+static int tls12GenerateMasterSecret (
+                                     tls_handshake_t ctx)
+{
+    unsigned char randBuf[2 * SSL_CLIENT_SRVR_RAND_SIZE];
+    unsigned char digest[SSL_MAX_DIGEST_LEN];
+    int serr;
+    tls_buffer digBuf;
+    tls_buffer hashState;
+    const HashReference *hashRef;
+    const tls_buffer *ctxHashState;
+
+    if (ctx->extMSEnabled && ctx->extMSReceived) {
+        // Use handshake hash and generate extended master secret
+        if (ctx->selectedCipherSpecParams.macAlg == HA_SHA384) {
+            hashRef = &SSLHashSHA384;
+            ctxHashState = &ctx->sha384State;
+        } else {
+            hashRef = &SSLHashSHA256;
+            ctxHashState = &ctx->sha256State;
+        }
+
+        hashState.data = 0;
+        if ((serr = CloneHashState(hashRef, ctxHashState, &hashState)) != 0)
+            goto fail;
+        digBuf.data = digest;
+        digBuf.length = hashRef->digestSize;
+        if ((serr = hashRef->final(&hashState, &digBuf)) != 0) {
+            SSLFreeBuffer(&hashState);
+            goto fail;
+        }
+        serr = tls_handshake_internal_prf(ctx,
+                                          ctx->preMasterSecret.data,
+                                          ctx->preMasterSecret.length,
+                                          (const unsigned char *)PLS_EXT_MASTER_SECRET,
+                                          PLS_EXT_MASTER_SECRET_LEN,
+                                          digBuf.data,
+                                          digBuf.length,
+                                          ctx->masterSecret,		// destination
+                                          SSL_MASTER_SECRET_SIZE);
+        SSLFreeBuffer(&hashState);
+        tlsDump("extended master secret", ctx->masterSecret, SSL_MASTER_SECRET_SIZE);
+    } else {
+        memmove(randBuf, ctx->clientRandom, SSL_CLIENT_SRVR_RAND_SIZE);
+        memmove(randBuf + SSL_CLIENT_SRVR_RAND_SIZE,
+                ctx->serverRandom, SSL_CLIENT_SRVR_RAND_SIZE);
+        serr = tls_handshake_internal_prf(ctx,
+                                          ctx->preMasterSecret.data,
+                                          ctx->preMasterSecret.length,
+                                          (const unsigned char *)PLS_MASTER_SECRET,
+                                          PLS_MASTER_SECRET_LEN,
+                                          randBuf,
+                                          2 * SSL_CLIENT_SRVR_RAND_SIZE,
+                                          ctx->masterSecret,		// destination
+                                          SSL_MASTER_SECRET_SIZE);
+        tlsDump("master secret", ctx->masterSecret, SSL_MASTER_SECRET_SIZE);
+    }
+fail:
+    return serr;
 }
 
 /*
@@ -434,7 +542,7 @@ static int tls12ComputeFinishedMac (
     /* The PRF used in the finished message is based on the cipherspec */
     if (ctx->selectedCipherSpecParams.macAlg == HA_SHA384) {
         hashRef = &SSLHashSHA384;
-        ctxHashState = &ctx->sha512State;
+        ctxHashState = &ctx->sha384State;
     } else {
         hashRef = &SSLHashSHA256;
         ctxHashState = &ctx->sha256State;
@@ -495,8 +603,6 @@ static int tls1ComputeCertVfyMac (
     if ((serr = CloneHashState(&SSLHashMD5, &ctx->md5State, &md5MsgState)) != 0)
         goto fail;
 
-
-#warning TODO: Handling of EC cert in client auth.
     //ctx->negAuthType need to be updated when handling the cert message from the client.
     if (ctx->negAuthType == tls_client_auth_type_ECDSASign) {
         //(ctx->isServer && sslPubKeyGetAlgorithmID(ctx->peerPubKey) == kSecECDSAAlgorithmID) ||
@@ -551,6 +657,10 @@ static int tls12ComputeCertVfyMac (
             break;
         case tls_hash_algorithm_SHA384:
             hashRef = &SSLHashSHA384;
+            ctxHashState = &ctx->sha384State;
+            break;
+        case tls_hash_algorithm_SHA512:
+            hashRef = &SSLHashSHA512;
             ctxHashState = &ctx->sha512State;
             break;
         default:
@@ -581,7 +691,7 @@ const SslTlsCallouts Tls1Callouts = {
 
 const SslTlsCallouts Tls12Callouts = {
 	tls1GenerateKeyMaterial,
-	tls1GenerateMasterSecret,
+	tls12GenerateMasterSecret,
 	tls12ComputeFinishedMac,
 	tls12ComputeCertVfyMac
 };

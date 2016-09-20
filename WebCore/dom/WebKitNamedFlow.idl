@@ -28,20 +28,15 @@
  */
 
 [
-    NoInterfaceObject,
-    EventTarget,
-    JSGenerateToJSObject,
     GenerateIsReachable=ImplOwnerNodeRoot,
-] interface WebKitNamedFlow {
+    NoInterfaceObject,
+] interface WebKitNamedFlow : EventTarget
+{
     readonly attribute DOMString name;
     readonly attribute boolean overset;
     readonly attribute long firstEmptyRegionIndex;
-    NodeList getRegionsByContent(Node contentNode);
+    // FIXME: contentNode should not be nullable.
+    NodeList getRegionsByContent(Node? contentNode);
     NodeList getRegions();
     NodeList getContent();
-    
-    // EventTarget interface
-    void addEventListener(DOMString type, EventListener listener, optional boolean useCapture);
-    void removeEventListener(DOMString type, EventListener listener, optional boolean useCapture);
-    [RaisesException] boolean dispatchEvent(Event event);
 };

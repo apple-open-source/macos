@@ -36,7 +36,7 @@
  */
 
 #pragma D option quiet
-
+#pragma D option statusrate=15ms
 
 BEGIN
 {
@@ -48,13 +48,13 @@ BEGIN
 		(c >= 'a' && c <= 'z') ? c + 10 - 'a' : c + 10 - 'A';
 }
 
-tick-1
+tick-10ms
 /x == "zero" && hexval == 13/
 {
 	exit(0);
 }
 
-tick-1
+tick-10ms
 /x != "zero" || hexval != 13/
 {
 	exit(1);

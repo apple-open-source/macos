@@ -31,6 +31,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <dlfcn.h>
+#include <corecrypto/cc.h> //for cc_clear
+#include "CommonCryptor.h"
+#include "CommonCryptorSPI.h"
 
 #include "testmore.h"
 #include "testenv.h"
@@ -58,8 +62,29 @@ rmdir_recursive(const char *path)
 }
 #endif
 
-static int tests_init(void) {
+
+static off_t fsize(const char *fname)
+{
+    struct stat st;
+    return (stat(fname, &st) == 0)? st.st_size:-1;
+}
+
+static void print_lib_path(void)
+{
+    Dl_info dl_info;
+    if( dladdr((void *)cc_clear, &dl_info) != 0){
+        fprintf(stderr, "CoreCrypto loaded: %s %lld bytes\n\n", dl_info.dli_fname, fsize(dl_info.dli_fname));
+    }
+
+    if( dladdr((void *)CCCryptorGCMFinal, &dl_info) != 0){
+        fprintf(stderr, "CommonCrypto loaded: %s %lld bytes\n\n", dl_info.dli_fname, fsize(dl_info.dli_fname));
+    }
+}
+
+static int tests_init(void)
+{
     printf("[TEST] CommonCrypto\n");
+    print_lib_path();
 #if NO_SERVER
 	char preferences_dir[80];
 	char library_dir[70];

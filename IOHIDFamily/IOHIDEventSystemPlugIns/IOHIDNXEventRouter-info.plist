@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOHIDNXEventRouter</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.IOHIDNXEventRouter</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>IOKit HID NXEvent Router Plugin</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(IOHIDFAMILY_VERSION)</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>$(IOHIDFAMILY_VERSION)</string>
+	<key>CFPlugInDynamicRegistration</key>
+	<string>NO</string>
+	<key>CFPlugInFactories</key>
+	<dict>
+		<key>B5593D05-942C-4750-B4D0-64C9C504F545</key>
+		<string>IOHIDNXEventRouterFactory</string>
+	</dict>
+	<key>CFPlugInTypes</key>
+	<dict>
+		<key>0516B563-B15B-11DA-96EB-0014519758EF</key>
+		<array>
+			<string>B5593D05-942C-4750-B4D0-64C9C504F545</string>
+		</array>
+	</dict>
+	<key>NSHumanReadableCopyright</key>
+	<string>$(IOHIDFAMILY_COPYRIGHT)</string>
+</dict>
+</plist>

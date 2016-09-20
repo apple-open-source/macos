@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006,2011,2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006,2011,2014-2015 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,6 +37,11 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/*
+ * A private key in the Usage Contraints dictionary.
+ */
+#define kSecTrustSettingsPolicyName			CFSTR("kSecTrustSettingsPolicyName")
 
 /*
  * Fundamental routine used by TP to ascertain status of one cert.
@@ -89,7 +94,7 @@ OSStatus SecTrustSettingsCopyQualifiedCerts(
 	uint32						policyStringLen,
 	SecTrustSettingsKeyUsage	keyUsage,			/* optional */
 	CFArrayRef					*certArray);		/* RETURNED */
-	
+
 /*
  * Obtain unrestricted root certificates from the specified domain(s).
  * Only returns root certificates with no usage constraints.
@@ -134,6 +139,18 @@ OSStatus SecTrustSettingsSetTrustSettingsExternal(
 	SecCertificateRef	certRef,					/* optional */
 	CFTypeRef			trustSettingsDictOrArray,	/* optional */
 	CFDataRef			*settingsOut);				/* RETURNED */
+
+/*
+ * Purge the cache of User and Admin Certs
+ */
+void SecTrustSettingsPurgeUserAdminCertsCache(void);
+
+/*
+ * A wrapper around SecTrustSettingsCopyCertificates that combines user and admin
+ * domain outputs.
+ */
+OSStatus SecTrustSettingsCopyCertificatesForUserAdminDomains(
+    CFArrayRef CF_RETURNS_RETAINED *certArray);
 
 #ifdef __cplusplus
 }

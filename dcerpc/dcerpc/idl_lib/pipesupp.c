@@ -106,6 +106,8 @@
 #include <dce/idlddefs.h>
 #endif
 
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 void rpc_ss_initialize_callee_pipe
 (
     long pipe_index,    /* Index of pipe in set of pipes in the
@@ -158,6 +160,7 @@ void rpc_ss_initialize_callee_pipe
 #endif
 
 }
+#endif
 
 #ifdef MIA
 

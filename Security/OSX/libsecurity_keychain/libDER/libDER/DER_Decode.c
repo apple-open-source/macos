@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2012 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2005-2016 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -53,41 +53,64 @@
 /*
  *  Basic decoding primitive. Only works with:
  *
- *  -- definite length encoding 
- *  -- one-byte tags 
+ *  -- definite length encoding
+ *  -- one-byte tags (unless DER_MULTIBYTE_TAGS is defined)
  *  -- max content length fits in a DERSize
  *
- * No malloc or copy of the contents is performed; the returned 
+ * No malloc or copy of the contents is performed; the returned
  * content->content.data is a pointer into the incoming der data.
  */
 DERReturn DERDecodeItem(
-	const DERItem	*der,			/* data to decode */
-	DERDecodedInfo	*decoded)		/* RETURNED */
+                        const DERItem        *der,                        /* data to decode */
+                        DERDecodedInfo        *decoded)                /* RETURNED */
 {
-	DERByte tag1;			/* first tag byte */
-	DERByte len1;			/* first length byte */
-	DERTag tagNumber;       /* tag number without class and method bits */
-	DERByte *derPtr = der->data;
-	DERSize derLen = der->length;
-	
+    return DERDecodeItemPartialBuffer(der, decoded, false);
+}
+
+/*
+ *  Basic decoding primitive. Allows for decoding with a partial buffer.
+ *  if allowPartialBuffer is true. A partial buffer would normally fail
+ *  because the encoded length would be greater than the size of the buffer passed in.
+ *  Only works with:
+ *
+ *  -- definite length encoding
+ *  -- one-byte tags (unless DER_MULTIBYTE_TAGS is defined)
+ *  -- max content length fits in a DERSize
+ *
+ * No malloc or copy of the contents is performed; the returned
+ * content->content.data is a pointer into the incoming der data.
+ */
+DERReturn DERDecodeItemPartialBuffer(
+	const DERItem	*der,			/* data to decode */
+	DERDecodedInfo	*decoded,		/* RETURNED */
+    bool allowPartialBuffer)
+{
+    DERByte tag1;                        /* first tag byte */
+    DERByte len1;                        /* first length byte */
+    DERTag tagNumber;       /* tag number without class and method bits */
+    DERByte *derPtr = der->data;
+    DERSize derLen = der->length;
+
     /* The tag decoding below is fully BER complient.  We support a max tag
-       value of 2 ^ ((sizeof(DERTag) * 8) - 3) - 1 so for tag size 1 byte we
-       support tag values from 0 - 0x1F.  For tag size 2 tag values
-       from 0 - 0x1FFF and for tag size 4 values from 0 - 0x1FFFFFFF. */
-	if(derLen < 2) {
-		return DR_DecodeError;
-	}
+     value of 2 ^ ((sizeof(DERTag) * 8) - 3) - 1 so for tag size 1 byte we
+     support tag values from 0 - 0x1F.  For tag size 2 tag values
+     from 0 - 0x1FFF and for tag size 4 values from 0 - 0x1FFFFFFF. */
+    if(derLen < 2) {
+        return DR_DecodeError;
+    }
     /* Grab the first byte of the tag. */
-	tag1 = *derPtr++;
-	derLen--;
-	tagNumber = tag1 & 0x1F;
-	if(tagNumber == 0x1F) {
+    tag1 = *derPtr++;
+    derLen--;
+    tagNumber = tag1 & 0x1F;
+    if(tagNumber == 0x1F) {
 #ifdef DER_MULTIBYTE_TAGS
         /* Long tag form: bit 8 of each octet shall be set to one unless it is
-           the last octet of the tag */
+         the last octet of the tag */
         const DERTag overflowMask = ((DERTag)0x7F << (sizeof(DERTag) * 8 - 7));
         DERByte tagByte;
         tagNumber = 0;
+        if (*derPtr == 0x80 || *derPtr < 0x1F)
+            return DR_DecodeError;
         do {
             if(derLen < 2 || (tagNumber & overflowMask) != 0) {
                 return DR_DecodeError;
@@ -96,55 +119,55 @@ DERReturn DERDecodeItem(
             derLen--;
             tagNumber = (tagNumber << 7) | (tagByte & 0x7F);
         } while((tagByte & 0x80) != 0);
-	
+
         /* Check for any of the top 3 reserved bits being set. */
         if ((tagNumber & (overflowMask << 4)) != 0)
 #endif
             return DR_DecodeError;
-	}
+    }
     /* Returned tag, top 3 bits are class/method remaining bits are number. */
     decoded->tag = ((DERTag)(tag1 & 0xE0) << ((sizeof(DERTag) - 1) * 8)) | tagNumber;
 
     /* Tag decoding above ensured we have at least one more input byte left. */
-	len1 = *derPtr++;
-	derLen--;
-	if(len1 & 0x80) {
-		/* long length form - first byte is length of length */
-		DERSize longLen = 0;	/* long form length */
-		unsigned dex;
+    len1 = *derPtr++;
+    derLen--;
+    if(len1 & 0x80) {
+        /* long length form - first byte is length of length */
+        DERSize longLen = 0;        /* long form length */
 
-		len1 &= 0x7f;
-		if((len1 > sizeof(DERSize)) || (len1 > derLen)) {
-			/* no can do */
-			return DR_DecodeError;
-		}
-		for(dex=0; dex<len1; dex++) {
-			longLen <<= 8;
-			longLen |= *derPtr++;
-			derLen--;
-		}
-		if(longLen > derLen) {
-			/* not enough data left for this encoding */
-			return DR_DecodeError;
-		}
-		decoded->content.data = derPtr;
-		decoded->content.length = longLen;
-	}
-	else {
-		/* short length form, len1 is the length */
-		if(len1 > derLen) {
-			/* not enough data left for this encoding */
-			return DR_DecodeError;
-		}
-		decoded->content.data = derPtr;
-		decoded->content.length = len1;
-	}
+        unsigned dex;
+        len1 &= 0x7f;
+        if((len1 > sizeof(DERSize)) || (len1 > derLen) || len1 == 0 || *derPtr == 0) {
+            /* no can do */
+            return DR_DecodeError;
+        }
+        for(dex=0; dex<len1; dex++) {
+            longLen <<= 8;
+            longLen |= *derPtr++;
+            derLen--;
+        }
+        if(longLen > derLen && !allowPartialBuffer) {
+            /* not enough data left for this encoding */
+            return DR_DecodeError;
+        }
+        decoded->content.data = derPtr;
+        decoded->content.length = longLen;
+    }
+    else {
+        /* short length form, len1 is the length */
+        if(len1 > derLen && !allowPartialBuffer) {
+            /* not enough data left for this encoding */
+            return DR_DecodeError;
+        }
+        decoded->content.data = derPtr;
+        decoded->content.length = len1;
+    }
 
-		return DR_Success;
-	}
+    return DR_Success;
+}
 
-/* 
- * Given a BIT_STRING, in the form of its raw content bytes, 
+/*
+ * Given a BIT_STRING, in the form of its raw content bytes,
  * obtain the number of unused bits and the raw bit string bytes.
  */
 DERReturn DERParseBitString(
@@ -171,12 +194,7 @@ DERReturn DERParseBitString(
  */
 DERReturn DERParseBoolean(
 	const DERItem	*contents,
-	bool			defaultValue,
 	bool			*value) {	/* RETURNED */
-    if (contents->length == 0) {
-        *value = defaultValue;
-        return DR_Success;
-    }
     if (contents->length != 1 ||
         (contents->data[0] != 0 && contents->data[0] != 0xFF))
         return DR_DecodeError;
@@ -185,13 +203,53 @@ DERReturn DERParseBoolean(
     return DR_Success;
 }
 
+/*
+ * Given a BOOLEAN, in the form of its raw content bytes,
+ * obtain it's value.
+ */
+DERReturn DERParseBooleanWithDefault(
+    const DERItem	*contents,
+    bool			defaultValue,
+    bool			*value) {	/* RETURNED */
+    if (contents->length == 0) {
+        *value = defaultValue;
+        return DR_Success;
+    }
+    return DERParseBoolean(contents, value);
+}
+
+
 DERReturn DERParseInteger(
-	const DERItem	*contents,
-	uint32_t        *result) {	/* RETURNED */
+                          const DERItem        *contents,
+                          uint32_t        *result) {        /* RETURNED */
+    uint64_t value;
+    DERReturn drtn = DERParseInteger64(contents, &value);
+    if (drtn == DR_Success) {
+        if (value > UINT32_MAX)
+            drtn = DR_BufOverflow;
+        else
+            *result = (uint32_t)value;
+    }
+    return drtn;
+}
+
+DERReturn DERParseInteger64(
+                            const DERItem        *contents,
+                            uint64_t        *result) {        /* RETURNED */
     DERSize ix, length = contents->length;
-    if (length > 4)
+    if (length == 0)
+        return DR_DecodeError;
+    if (contents->data[0] & 0x80)
+        return DR_DecodeError;
+    if (contents->data[0] == 0) {
+        if (length > 1 && (contents->data[1] & 0x80) == 0)
+            return DR_DecodeError;
+        if (length > sizeof(*result) + 1)
+            return DR_BufOverflow;
+    } else if (length > sizeof(*result)) {
         return DR_BufOverflow;
-    uint32_t value = 0;
+    }
+    uint64_t value = 0;
     for (ix = 0; ix < length; ++ix) {
         value <<= 8;
         value += contents->data[ix];
@@ -262,7 +320,7 @@ DERReturn DERDecodeSeqNext(
 	
 	/* decode next item */
 	item.data = derSeq->nextItem;
-	item.length = derSeq->end - derSeq->nextItem;
+	item.length = (DERSize) (derSeq->end - derSeq->nextItem);
 	drtn = DERDecodeItem(&item, decoded);
 	if(drtn) {
 		return drtn;
@@ -358,12 +416,12 @@ DERReturn DERParseSequenceContent(
 		 * over optional items.
 		 */
 		foundTag = currDecoded.tag;
-		derDecDbg1("--- foundTag 0x%x\n", foundTag);
+		derDecDbg1("--- foundTag 0x%llx\n", foundTag);
 		
 		for(i=itemDex; i<numItems; i++) {
 			const DERItemSpec *currItemSpec = &itemSpecs[i];
 			DERShort currOptions = currItemSpec->options;
-			derDecDbg3("--- currItem %u expectTag 0x%x currOptions 0x%x\n", 
+			derDecDbg3("--- currItem %u expectTag 0x%llx currOptions 0x%x\n",
 				i, currItemSpec->tag, currOptions);
 			
 			if((currOptions & DER_DEC_ASN_ANY) ||
@@ -427,11 +485,12 @@ DERReturn DERParseSequenceContent(
 		/* else on to next item */
 	}	/* main loop */
 	
-	/*
-	 * If we get here, there appears to be more to process, but we've
-	 * given the caller everything they want. 
-	 */
-	return DR_Success;
+    /* Template has 0 items if we get here. */
+    /* normal termination if we consumed everything, (the sequence was empty) */
+    if (derSeq.nextItem == derSeq.end)
+        return DR_Success;
+    else
+        return DR_DecodeError;
 }
 
 #if 0

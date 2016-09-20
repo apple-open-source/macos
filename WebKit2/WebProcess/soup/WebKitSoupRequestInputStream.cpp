@@ -20,8 +20,10 @@
 #include "config.h"
 #include "WebKitSoupRequestInputStream.h"
 
+#include <wtf/Lock.h>
 #include <wtf/Threading.h>
 #include <wtf/glib/GRefPtr.h>
+#include <wtf/glib/GUniquePtr.h>
 
 struct AsyncReadData {
     AsyncReadData(GTask* task, void* buffer, gsize count)
@@ -41,7 +43,9 @@ struct _WebKitSoupRequestInputStreamPrivate {
     uint64_t bytesReceived;
     uint64_t bytesRead;
 
-    Mutex readLock;
+    GUniquePtr<GError> error;
+
+    Lock readLock;
     std::unique_ptr<AsyncReadData> pendingAsyncRead;
 };
 
@@ -84,10 +88,15 @@ static void webkitSoupRequestInputStreamReadAsync(GInputStream* inputStream, voi
     WebKitSoupRequestInputStream* stream = WEBKIT_SOUP_REQUEST_INPUT_STREAM(inputStream);
     GRefPtr<GTask> task = adoptGRef(g_task_new(stream, cancellable, callback, userData));
 
-    MutexLocker locker(stream->priv->readLock);
+    LockHolder locker(stream->priv->readLock);
 
     if (!webkitSoupRequestInputStreamHasDataToRead(stream) && !webkitSoupRequestInputStreamIsWaitingForData(stream)) {
         g_task_return_int(task.get(), 0);
+        return;
+    }
+
+    if (stream->priv->error.get()) {
+        g_task_return_error(task.get(), stream->priv->error.release());
         return;
     }
 
@@ -143,7 +152,7 @@ void webkitSoupRequestInputStreamAddData(WebKitSoupRequestInputStream* stream, c
     if (webkitSoupRequestInputStreamFinished(stream))
         return;
 
-    MutexLocker locker(stream->priv->readLock);
+    LockHolder locker(stream->priv->readLock);
 
     if (dataLength) {
         // Truncate the dataLength to the contentLength if it's known.
@@ -160,6 +169,18 @@ void webkitSoupRequestInputStreamAddData(WebKitSoupRequestInputStream* stream, c
     }
 
     webkitSoupRequestInputStreamPendingReadAsyncComplete(stream);
+}
+
+void webkitSoupRequestInputStreamDidFailWithError(WebKitSoupRequestInputStream* stream, const WebCore::ResourceError& resourceError)
+{
+    GUniquePtr<GError> error(g_error_new(g_quark_from_string(resourceError.domain().utf8().data()), resourceError.errorCode(), "%s", resourceError.localizedDescription().utf8().data()));
+    if (stream->priv->pendingAsyncRead) {
+        AsyncReadData* data = stream->priv->pendingAsyncRead.get();
+        g_task_return_error(data->task.get(), error.release());
+    } else {
+        stream->priv->contentLength = stream->priv->bytesReceived;
+        stream->priv->error = WTFMove(error);
+    }
 }
 
 bool webkitSoupRequestInputStreamFinished(WebKitSoupRequestInputStream* stream)

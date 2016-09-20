@@ -1,55 +1,43 @@
-#include <assert.h>
 #include <pthread.h>
 #include <stdio.h>
 
-void *ptr = NULL;
+#include <darwintest.h>
 
-void destructor(void *value)
+static void *ptr = NULL;
+
+static void destructor(void *value)
 {
 	ptr = value;
 }
 
-void *thread(void *param)
+static void *thread(void *param)
 {
-	int res;
-
 	pthread_key_t key = *(pthread_key_t *)param;
-	res = pthread_setspecific(key, (void *)0x12345678);
-	assert(res == 0);
+	T_ASSERT_POSIX_ZERO(pthread_setspecific(key, (void *)0x12345678), NULL);
 	void *value = pthread_getspecific(key);
 
-	pthread_key_t key2;
-	res = pthread_key_create(&key, NULL);
-	assert(res == 0);
-	res = pthread_setspecific(key, (void *)0x55555555);
-	assert(res == 0);
+	T_ASSERT_POSIX_ZERO(pthread_key_create(&key, NULL), NULL);
+	T_ASSERT_POSIX_ZERO(pthread_setspecific(key, (void *)0x55555555), NULL);
 
 	return value;
 }
 
-int main(int argc, char *argv[])
+T_DECL(tsd, "tsd",
+		T_META_ALL_VALID_ARCHS(YES))
 {
-	int res;
 	pthread_key_t key;
 
-	res = pthread_key_create(&key, destructor);
-	assert(res == 0);
-	printf("key = %ld\n", key);
+	T_ASSERT_POSIX_ZERO(pthread_key_create(&key, destructor), NULL);
+	T_LOG("key = %ld", key);
 
 	pthread_t p = NULL;
-	res = pthread_create(&p, NULL, thread, &key);
-	assert(res == 0);
+	T_ASSERT_POSIX_ZERO(pthread_create(&p, NULL, thread, &key), NULL);
 
 	void *value = NULL;
-	res = pthread_join(p, &value);
-	printf("value = %p\n", value);
-	printf("ptr = %p\n", ptr);
+	T_ASSERT_POSIX_ZERO(pthread_join(p, &value), NULL);
+	T_LOG("value = %p; ptr = %p\n", value, ptr);
 
-	assert(ptr == value);
+	T_EXPECT_EQ(ptr, value, NULL);
 
-	res = pthread_key_delete(key);
-	assert(res == 0);
-
-	return 0;
+	T_ASSERT_POSIX_ZERO(pthread_key_delete(key), NULL);
 }
-

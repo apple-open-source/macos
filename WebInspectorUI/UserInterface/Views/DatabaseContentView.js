@@ -56,13 +56,13 @@ WebInspector.DatabaseContentView = class DatabaseContentView extends WebInspecto
 
     consolePromptCompletionsNeeded(prompt, defaultCompletions, base, prefix, suffix)
     {
-        var results = [];
+        let results = [];
 
         prefix = prefix.toLowerCase();
 
         function accumulateMatches(textArray)
         {
-            for (var text of textArray) {
+            for (let text of textArray) {
                 if (text.toLowerCase().startsWith(prefix))
                     results.push(text);
             }
@@ -93,8 +93,8 @@ WebInspector.DatabaseContentView = class DatabaseContentView extends WebInspecto
 
     _queryFinished(query, columnNames, values)
     {
-        var trimmedQuery = query.trim();
-        var queryView = new WebInspector.DatabaseUserQuerySuccessView(trimmedQuery, columnNames, values);
+        let trimmedQuery = query.trim();
+        let queryView = new WebInspector.DatabaseUserQuerySuccessView(trimmedQuery, columnNames, values);
         this.insertSubviewBefore(queryView, this._prompt);
 
         if (queryView.dataGrid)
@@ -108,7 +108,7 @@ WebInspector.DatabaseContentView = class DatabaseContentView extends WebInspecto
 
     _queryError(query, error)
     {
-        var message;
+        let message;
         if (error.message)
             message = error.message;
         else if (error.code === 2)
@@ -116,7 +116,7 @@ WebInspector.DatabaseContentView = class DatabaseContentView extends WebInspecto
         else
             message = WebInspector.UIString("An unexpected error %s occurred.").format(error.code);
 
-        var queryView = new WebInspector.DatabaseUserQueryErrorView(query, message);
+        let queryView = new WebInspector.DatabaseUserQueryErrorView(query, message);
         this.insertSubviewBefore(queryView, this._prompt);
         this._prompt.element.scrollIntoView(false);
     }

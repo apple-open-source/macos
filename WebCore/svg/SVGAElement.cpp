@@ -71,7 +71,7 @@ Ref<SVGAElement> SVGAElement::create(const QualifiedName& tagName, Document& doc
 String SVGAElement::title() const
 {
     // If the xlink:title is set (non-empty string), use it.
-    const AtomicString& title = fastGetAttribute(XLinkNames::titleAttr);
+    const AtomicString& title = attributeWithoutSynchronization(XLinkNames::titleAttr);
     if (!title.isEmpty())
         return title;
 
@@ -105,12 +105,12 @@ void SVGAElement::svgAttributeChanged(const QualifiedName& attrName)
     SVGGraphicsElement::svgAttributeChanged(attrName);
 }
 
-RenderPtr<RenderElement> SVGAElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition&)
+RenderPtr<RenderElement> SVGAElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
 {
     if (parentNode() && parentNode()->isSVGElement() && downcast<SVGElement>(*parentNode()).isTextContent())
-        return createRenderer<RenderSVGInline>(*this, WTF::move(style));
+        return createRenderer<RenderSVGInline>(*this, WTFMove(style));
 
-    return createRenderer<RenderSVGTransformableContainer>(*this, WTF::move(style));
+    return createRenderer<RenderSVGTransformableContainer>(*this, WTFMove(style));
 }
 
 void SVGAElement::defaultEventHandler(Event* event)
@@ -138,7 +138,7 @@ void SVGAElement::defaultEventHandler(Event* event)
             }
 
             String target = this->target();
-            if (target.isEmpty() && fastGetAttribute(XLinkNames::showAttr) == "new")
+            if (target.isEmpty() && attributeWithoutSynchronization(XLinkNames::showAttr) == "new")
                 target = "_blank";
             event->setDefaultHandled();
 
@@ -153,7 +153,7 @@ void SVGAElement::defaultEventHandler(Event* event)
     SVGGraphicsElement::defaultEventHandler(event);
 }
 
-short SVGAElement::tabIndex() const
+int SVGAElement::tabIndex() const
 {
     // Skip the supportsFocus check in SVGElement.
     return Element::tabIndex();

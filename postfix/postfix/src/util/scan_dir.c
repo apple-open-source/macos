@@ -58,6 +58,11 @@
 /*	IBM T.J. Watson Research
 /*	P.O. Box 704
 /*	Yorktown Heights, NY 10598, USA
+/*
+/*	Wietse Venema
+/*	Google, Inc.
+/*	111 8th Avenue
+/*	New York, NY 10011, USA
 /*--*/
 
 /* System library. */
@@ -78,6 +83,7 @@
 #endif
 #endif
 #include <string.h>
+#include <errno.h>
 
 /* Utility library. */
 
@@ -149,7 +155,7 @@ SCAN_DIR *scan_dir_pop(SCAN_DIR *scan)
     if (msg_verbose > 1)
 	msg_info("%s: close %s", myname, info->path);
     myfree(info->path);
-    myfree((char *) info);
+    myfree((void *) info);
     scan->current = parent;
     return (parent ? scan : 0);
 }
@@ -177,6 +183,13 @@ char   *scan_dir_next(SCAN_DIR *scan)
 #define STREQ(x,y)	(strcmp((x),(y)) == 0)
 
     if (info) {
+
+	/*
+	 * Fix 20150421: readdir() does not reset errno after reaching the
+	 * end-of-directory. This dates back all the way to the initial
+	 * implementation of 19970309.
+	 */
+	errno = 0;
 	while ((dp = readdir(info->dir)) != 0) {
 	    if (STREQ(dp->d_name, ".") || STREQ(dp->d_name, "..")) {
 		if (msg_verbose > 1)
@@ -198,6 +211,6 @@ SCAN_DIR *scan_dir_close(SCAN_DIR *scan)
 {
     while (scan->current)
 	scan_dir_pop(scan);
-    myfree((char *) scan);
+    myfree((void *) scan);
     return (0);
 }

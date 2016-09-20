@@ -33,10 +33,10 @@ public:
     const String& data() const { return m_data; }
     static ptrdiff_t dataMemoryOffset() { return OBJECT_OFFSETOF(CharacterData, m_data); }
 
-    WEBCORE_EXPORT void setData(const String&, ExceptionCode&);
+    WEBCORE_EXPORT void setData(const String&);
     unsigned length() const { return m_data.length(); }
     String substringData(unsigned offset, unsigned count, ExceptionCode&);
-    void appendData(const String&, ExceptionCode&);
+    void appendData(const String&);
     void insertData(unsigned offset, const String&, ExceptionCode&);
     void deleteData(unsigned offset, unsigned count, ExceptionCode&);
     void replaceData(unsigned offset, unsigned count, const String&, ExceptionCode&);
@@ -63,11 +63,11 @@ protected:
     void dispatchModifiedEvent(const String& oldValue);
 
 private:
-    virtual String nodeValue() const override final;
-    virtual void setNodeValue(const String&, ExceptionCode&) override final;
-    virtual bool isCharacterDataNode() const override final { return true; }
-    virtual int maxCharacterOffset() const override final;
-    virtual bool offsetInCharacters() const override final;
+    String nodeValue() const final;
+    void setNodeValue(const String&, ExceptionCode&) final;
+    bool isCharacterDataNode() const final { return true; }
+    int maxCharacterOffset() const final;
+    bool offsetInCharacters() const final;
     void setDataAndUpdate(const String&, unsigned offsetOfReplacedData, unsigned oldLength, unsigned newLength);
     void checkCharDataOperation(unsigned offset, ExceptionCode&);
 

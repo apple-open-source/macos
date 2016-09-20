@@ -45,7 +45,7 @@ static int kTestTestCount = 8;
 #endif
 
 
-int CommonCryptoSymRC2(int argc, char *const *argv) {
+int CommonCryptoSymRC2(int __unused argc, char *const * __unused argv) {
 	char *keyStr;
 	char *iv;
 	char *plainText;

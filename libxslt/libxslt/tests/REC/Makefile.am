@@ -6,6 +6,7 @@ $(top_builddir)/xsltproc/xsltproc:
 EXTRA_DIST = 						\
     article.xsl bigfont.xsl 				\
     test-10-1.out test-10-1.xml test-10-1.xsl		\
+    test-10-2.out test-10-2.xml test-10-2.xsl		\
     test-11.2-1.out test-11.2-1.xml test-11.2-1.xsl	\
     test-11.2-2.out test-11.2-2.xml test-11.2-2.xsl	\
     test-11.2-3.out test-11.2-3.xml test-11.2-3.xsl	\
@@ -45,6 +46,7 @@ EXTRA_DIST = 						\
     test-5.2-19.out test-5.2-19.xml test-5.2-19.xsl	\
     test-5.2-20.out test-5.2-20.xml test-5.2-20.xsl	\
     test-5.2-21.out test-5.2-21.xml test-5.2-21.xsl	\
+    test-5.2-22.out test-5.2-22.xml test-5.2-22.xsl	\
     test-5.3.out test-5.3.xml test-5.3.xsl		\
     test-5.4-1.out test-5.4-1.xml test-5.4-1.xsl	\
     test-5.4-2.out test-5.4-2.xml test-5.4-2.xsl	\
@@ -53,6 +55,7 @@ EXTRA_DIST = 						\
     test-5.4-5.out test-5.4-5.xml test-5.4-5.xsl	\
     test-5.8.out test-5.8.xml test-5.8.xsl		\
     test-6.out test-6.xml test-6.xsl			\
+    test-6.1.out test-6.1.xml test-6.1.xsl test-6.1.err	\
     test-7.1.1.out test-7.1.1.xml test-7.1.1.xsl	\
     test-7.1.1-2.out test-7.1.1-2.xml test-7.1.1-2.xsl	\
     test-7.1.1-3.out test-7.1.1-3.xml test-7.1.1-3.xsl	\
@@ -84,7 +87,7 @@ CLEANFILES = .memdump
 
 valgrind:
 	@echo '## Running the regression tests under Valgrind'
-	$(MAKE) CHECKER='valgrind -q' tests
+	$(MAKE) CHECKER='libtool --mode=execute valgrind -q --leak-check=full' tests
 
 test tests: $(top_builddir)/xsltproc/xsltproc
 	@(echo > .memdump)
@@ -103,7 +106,7 @@ test tests: $(top_builddir)/xsltproc/xsltproc
 			cp $$name.bad $(srcdir)/$$name.err ; \
 		fi ; \
 	  else \
-	  	if  [ ! -s $$name.res ] ; then \
+	  	if  [ ! -f $$name.res ] ; then \
 	  		echo "Fatal error, no $$name.res\n" ; \
 	  	else \
 	  		diff $(srcdir)/$$name.out $$name.res ; \
@@ -132,7 +135,7 @@ test tests: $(top_builddir)/xsltproc/xsltproc
 			cp $$name.bad $(srcdir)/$$name.stand.err ; \
 		fi ; \
 	  else \
-	  	if  [ ! -s $$name.res ] ; then \
+	  	if  [ ! -f $$name.res ] ; then \
 	  		echo "Fatal error, no $$name.res\n" ; \
 	  	else \
 	  		diff $(srcdir)/$$name.stand.out $$name.res ; \
@@ -165,7 +168,7 @@ test tests: $(top_builddir)/xsltproc/xsltproc
 			cp $$name.bad $(srcdir)/$$name.err ; \
 		fi ; \
 	  else \
-	  	if  [ ! -s $$name.res ] ; then \
+	  	if  [ ! -f $$name.res ] ; then \
 	  		echo "Fatal error, no $$name.res\n" ; \
 	  	else \
 	  		diff $(srcdir)/$$name.out $$name.res ; \
@@ -194,7 +197,7 @@ test tests: $(top_builddir)/xsltproc/xsltproc
 			cp $$name.bad $(srcdir)/$$name.stand.err ; \
 		fi ; \
 	  else \
-	  	if  [ ! -s $$name.res ] ; then \
+	  	if  [ ! -f $$name.res ] ; then \
 	  		echo "Fatal error, no $$name.res\n" ; \
 	  	else \
 	  		diff $(srcdir)/$$name.stand.out $$name.res ; \

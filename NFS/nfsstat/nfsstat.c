@@ -755,6 +755,7 @@ struct mountargs {
 	struct timespec	acregmin, acregmax, acdirmin, acdirmax;	/* attrcache values */
 	uint32_t	lockmode;				/* advisory file locking mode */
 	struct nfs_sec	sec;					/* security flavors */
+	struct nfs_etype etype;					/* Supported kerberos encryption types */
 	uint32_t	maxgrouplist;				/* max AUTH_SYS groups */
 	char		sotype[6];				/* socket type */
 	uint32_t	nfs_port, mount_port;			/* port info */
@@ -903,6 +904,12 @@ parse_mountargs(struct xdrbuf *xb, int margslen, struct mountargs *margs)
 		xb_get_32(error, xb, margs->sec.count);
 		for (i=0; i < margs->sec.count; i++)
 			xb_get_32(error, xb, margs->sec.flavors[i]);
+	}
+	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_KERB_ETYPE)) {
+		xb_get_32(error, xb, margs->etype.count);
+		xb_get_32(error, xb, margs->etype.selected);
+		for (uint32_t j = 0; j < margs->etype.count; j++)
+			xb_get_32(error, xb, margs->etype.etypes[j]);
 	}
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_MAX_GROUP_LIST))
 		xb_get_32(error, xb, margs->maxgrouplist);
@@ -1108,6 +1115,17 @@ sec_flavor_name(uint32_t flavor)
 	}
 }
 
+static const char *
+etype_name(uint32_t etype)
+{
+	switch(etype) {
+	case NFS_DES3_CBC_SHA1_KD:		return ("des3-cbc-sha1-kd");
+	case NFS_AES128_CTS_HMAC_SHA1_96:	return ("aes128-cts-hmac-sha1-96");
+	case NFS_AES256_CTS_HMAC_SHA1_96:	return ("aes256-cts-hmac-sha1-96");
+	default:				return ("?");
+	}
+}
+
 const char *
 socket_type(char *sotype)
 {
@@ -1269,14 +1287,18 @@ print_mountargs(struct mountargs *margs, uint32_t origmargsvers)
 			printf(":%s", sec_flavor_name(margs->sec.flavors[i]));
 		SEP;
 	}
-
+	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_KERB_ETYPE)) {
+		printf("%cetype=%s%s", sep, margs->etype.selected == 0 ? "*" : "",  etype_name(margs->etype.etypes[0]));
+		for (uint32_t j = 1; j < margs->etype.count; j++)
+			printf(":%s%s", margs->etype.selected == j ? "*" : "", etype_name(margs->etype.etypes[j]));
+		SEP;
+	}
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_REALM))
 		printf("%crealm=%s", sep, margs->realm);
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_PRINCIPAL))
 		printf("%cprincipal=%s", sep, margs->principal);
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_SVCPRINCIPAL))
 		printf("%csprincipalm=%s", sep, margs->sprinc);
-	
 	printf("\n");
 
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_FS_LOCATIONS)) {

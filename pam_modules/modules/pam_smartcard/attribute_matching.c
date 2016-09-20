@@ -64,7 +64,12 @@ CFPropertyListRef copyConfigFileContent()
         CFRelease(error);
         goto cleanup;
     }
-    
+
+	if (propertyList == NULL)
+	{
+		goto cleanup;
+	}
+
     // now check if config file is valid
     bool configValid;
     
@@ -121,14 +126,10 @@ CFDictionaryRef copyCertificateDetails(SecCertificateRef cert)
     CFTypeRef subjectName = CFDictionaryGetValue(certDetails, kSecOIDX509V1SubjectName);
     if (subjectName)
         subjectName = CFDictionaryGetValue(subjectName, kSecPropertyKeyValue);
-    else
-        subjectName = NULL;
     
     CFTypeRef altName = CFDictionaryGetValue(certDetails, kSecOIDSubjectAltName);
     if (altName)
         altName = CFDictionaryGetValue(altName, kSecPropertyKeyValue);
-    else
-        altName = NULL;
     
     CFMutableDictionaryRef result = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     if (!result)
@@ -237,22 +238,6 @@ cleanup:
     CFRelease(configFile);
     return result;
 }
-
-typedef CF_OPTIONS(uint32_t, SecKeyUsageExtensions)
-{
-    kSecKeyUsageUnspecified      = 0,
-    kSecKeyUsageDigitalSignature = 1 << 0,
-    kSecKeyUsageNonRepudiation   = 1 << 1,
-    kSecKeyUsageKeyEncipherment  = 1 << 2,
-    kSecKeyUsageDataEncipherment = 1 << 3,
-    kSecKeyUsageKeyAgreement     = 1 << 4,
-    kSecKeyUsageKeyCertSign      = 1 << 5,
-    kSecKeyUsageCRLSign          = 1 << 6,
-    kSecKeyUsageEncipherOnly     = 1 << 7,
-    kSecKeyUsageDecipherOnly     = 1 << 8,
-    kSecKeyUsageCritical         = 1 << 31,
-    kSecKeyUsageAll              = 0x7FFFFFFF
-};
 
 bool isNonRepudiated(SecCertificateRef cert)
 {

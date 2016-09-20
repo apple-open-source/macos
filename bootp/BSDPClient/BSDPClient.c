@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1319,7 +1319,7 @@ BSDPClientSendListRequest(BSDPClientRef client)
 	request_size = sizeof(struct bootp);
     }
     if (bootp_transmit(client->fd, (char *)client->send_buf,
-		       if_name(client->if_p), ARPHRD_ETHER, NULL, 0,
+		       if_name(client->if_p), ARPHRD_ETHER, NULL,
 		       ip_broadcast, client->our_ip,
 		       IPPORT_BOOTPS, client->client_port,
 		       request, request_size) < 0) {
@@ -1517,7 +1517,7 @@ BSDPClientSendSelectRequest(BSDPClientRef client)
     }
     /* send the packet */
     if (bootp_transmit(client->fd, (char *)client->send_buf,
-		       if_name(client->if_p), ARPHRD_ETHER, NULL, 0,
+		       if_name(client->if_p), ARPHRD_ETHER, NULL,
 		       ip_broadcast, client->our_ip,
 		       IPPORT_BOOTPS, client->client_port,
 		       request, request_size) < 0) {

@@ -30,7 +30,7 @@ c [options]
 r outFileName [options]
 .Pp
 .B certtool
-v infileName [options]
+V infileName [options]
 .Pp
 .B certtool
 C domainName [options]
@@ -56,7 +56,7 @@ Create keypair and Certificate
 .B r
 Create CSR
 .Pp
-.B v
+.B V
 Verify CSR
 .Pp
 .B C
@@ -176,16 +176,17 @@ Enter key and certificate label: testCert
 
 Please specify parameters for the key pair you will generate. 
 
-	r RSA 
-	d DSA 
-	f FEE 
+    r RSA
+    d DSA
+    f FEE
+    e ECDSA
 
-Select key algorithm by letter: r 
+Select key algorithm by letter: r
 
-Valid key sizes for RSA are 512..2048; default is 512 
-Enter key size in bits or CR for default: 512 
+Valid key sizes for RSA are 1024..2048; default is 2048
+Enter key size in bits or CR for default: 2048
 
-You have selected algorithm RSA, key size 512 bits. 
+You have selected algorithm RSA, key size 2048 bits.
 OK (y/anything)? y 
 Enter cert/key usage (s=signing, b=signing AND encrypting): b 
  ...Generating key pair... 
@@ -196,10 +197,12 @@ system at this point if the specified keychain is not open and you have not spec
 .EX
 Please specify the algorithm with which your certificate will be signed. 
 
-	5 RSA with MD5 
-	s RSA with SHA1 
+    s  RSA with SHA1
+    2  RSA with SHA256
+    3  RSA with SHA384
+    5  RSA with SHA512
 
-Select signature algorithm by letter: s 
+Select signature algorithm by letter: s
 
 You have selected algorithm RSA with SHA1. 
 OK (y/anything)? y 
@@ -219,10 +222,10 @@ that component.
 .EX
 Common Name       (e.g. www.apple.com) : 10.0.61.5
 Country           (e.g. US) : 
-Organization      (e.g. Apple Computer, Inc.) : Apple 
-Organization Unit (e.g. Apple Data Security) : 
+Organization      (e.g. Apple, Inc.) : Apple
+Organization Unit (e.g. Apple Software Engineering) :
 State/Province    (e.g. California) : California 
-Email Address     (e.g. johngalt@rand.com) : 
+Email Address     (e.g. username@apple.com) :
 You have specified: 
  Common Name	: 10.0.61.5 
  Organization	: Apple 
@@ -314,14 +317,14 @@ A CSR contains, among other things, the public key which was generated in
 as described above. The CSR is signed with the associated private key. Thus the
 integrity of a CSR can be verified by extracting its public key and verifying the signature of the CSR. This command performs this integrity check. The format of this command is 
 .EX
-# CertTool v inFileName [options] 
+# CertTool V inFileName [options]
 .EE
 The only available option is the 'd' flag, which as described above in the
 section entitled "Generating a Certificate Signing Request", indiciates 
 that the CSR is in DER format rather than the default PEM format. 
 A typical (successful) run of this command is like so: 
 .EX
-# CertTool v myCsr.pem 
+# CertTool V myCsr.pem
  ...CSR verified successfully. 
 .EE
 A large number of things can go wrong if the verification fails; suffice it to

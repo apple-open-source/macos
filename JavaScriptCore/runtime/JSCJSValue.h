@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003, 2004, 2005, 2007, 2008, 2009, 2012 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003, 2004, 2005, 2007, 2008, 2009, 2012, 2015 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -23,9 +23,11 @@
 #ifndef JSCJSValue_h
 #define JSCJSValue_h
 
-#include <math.h>
+#include "JSExportMacros.h"
 #include "PureNaN.h"
-#include <stddef.h> // for size_t
+#include <functional>
+#include <math.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <wtf/Assertions.h>
 #include <wtf/Forward.h>
@@ -73,6 +75,11 @@ template <class T> class WriteBarrierBase;
 
 enum PreferredPrimitiveType { NoPreference, PreferNumber, PreferString };
 enum ECMAMode { StrictMode, NotStrictMode };
+
+enum class CallType : unsigned;
+struct CallData;
+enum class ConstructType : unsigned;
+struct ConstructData;
 
 typedef int64_t EncodedJSValue;
     
@@ -207,7 +214,7 @@ public:
 
     int32_t asInt32() const;
     uint32_t asUInt32() const;
-    int64_t asMachineInt() const;
+    int64_t asAnyInt() const;
     double asDouble() const;
     bool asBoolean() const;
     double asNumber() const;
@@ -217,11 +224,15 @@ public:
     // Querying the type.
     bool isEmpty() const;
     bool isFunction() const;
+    bool isFunction(CallType&, CallData&) const;
+    bool isCallable(CallType&, CallData&) const;
+    bool isConstructor() const;
+    bool isConstructor(ConstructType&, ConstructData&) const;
     bool isUndefined() const;
     bool isNull() const;
     bool isUndefinedOrNull() const;
     bool isBoolean() const;
-    bool isMachineInt() const;
+    bool isAnyInt() const;
     bool isNumber() const;
     bool isString() const;
     bool isSymbol() const;
@@ -230,6 +241,7 @@ public:
     bool isCustomGetterSetter() const;
     bool isObject() const;
     bool inherits(const ClassInfo*) const;
+    const ClassInfo* classInfoOrNull() const;
         
     // Extracting the value.
     bool getString(ExecState*, WTF::String&) const;
@@ -249,7 +261,8 @@ public:
     // toNumber conversion is expected to be side effect free if an exception has
     // been set in the ExecState already.
     double toNumber(ExecState*) const;
-    JSString* toString(ExecState*) const;
+    JSString* toString(ExecState*) const; // On exception, this returns the empty string.
+    JSString* toStringOrNull(ExecState*) const; // On exception, this returns null, to make exception checks faster.
     Identifier toPropertyKey(ExecState*) const;
     WTF::String toWTFString(ExecState*) const;
     JSObject* toObject(ExecState*) const;
@@ -260,6 +273,7 @@ public:
     JS_EXPORT_PRIVATE double toIntegerPreserveNaN(ExecState*) const;
     int32_t toInt32(ExecState*) const;
     uint32_t toUInt32(ExecState*) const;
+    double toLength(ExecState*) const;
 
     // Floating point conversions (this is a convenience function for WebCore;
     // single precision float is not a representation used in JS or JSC).
@@ -270,13 +284,17 @@ public:
     JSValue get(ExecState*, PropertyName, PropertySlot&) const;
     JSValue get(ExecState*, unsigned propertyName) const;
     JSValue get(ExecState*, unsigned propertyName, PropertySlot&) const;
+    JSValue get(ExecState*, uint64_t propertyName) const;
 
     bool getPropertySlot(ExecState*, PropertyName, PropertySlot&) const;
+    template<typename CallbackWhenNoException> typename std::result_of<CallbackWhenNoException(bool, PropertySlot&)>::type getPropertySlot(ExecState*, PropertyName, CallbackWhenNoException) const;
+    template<typename CallbackWhenNoException> typename std::result_of<CallbackWhenNoException(bool, PropertySlot&)>::type getPropertySlot(ExecState*, PropertyName, PropertySlot&, CallbackWhenNoException) const;
 
-    void put(ExecState*, PropertyName, JSValue, PutPropertySlot&);
-    JS_EXPORT_PRIVATE void putToPrimitive(ExecState*, PropertyName, JSValue, PutPropertySlot&);
-    JS_EXPORT_PRIVATE void putToPrimitiveByIndex(ExecState*, unsigned propertyName, JSValue, bool shouldThrow);
-    void putByIndex(ExecState*, unsigned propertyName, JSValue, bool shouldThrow);
+    bool put(ExecState*, PropertyName, JSValue, PutPropertySlot&);
+    bool putInline(ExecState*, PropertyName, JSValue, PutPropertySlot&);
+    JS_EXPORT_PRIVATE bool putToPrimitive(ExecState*, PropertyName, JSValue, PutPropertySlot&);
+    JS_EXPORT_PRIVATE bool putToPrimitiveByIndex(ExecState*, unsigned propertyName, JSValue, bool shouldThrow);
+    bool putByIndex(ExecState*, unsigned propertyName, JSValue, bool shouldThrow);
 
     JSValue toThis(ExecState*, ECMAMode) const;
 
@@ -291,7 +309,8 @@ public:
     bool isCell() const;
     JSCell* asCell() const;
     JS_EXPORT_PRIVATE bool isValidCallee();
-        
+
+    Structure* structureOrNull() const;
     JSValue structureOrUndefined() const;
 
     JS_EXPORT_PRIVATE void dump(PrintStream&) const;
@@ -431,7 +450,7 @@ private:
 
     inline const JSValue asValue() const { return *this; }
     JS_EXPORT_PRIVATE double toNumberSlowCase(ExecState*) const;
-    JS_EXPORT_PRIVATE JSString* toStringSlowCase(ExecState*) const;
+    JS_EXPORT_PRIVATE JSString* toStringSlowCase(ExecState*, bool returnEmptyStringOnError) const;
     JS_EXPORT_PRIVATE WTF::String toWTFStringSlowCase(ExecState*) const;
     JS_EXPORT_PRIVATE JSObject* toObjectSlowCase(ExecState*, JSGlobalObject*) const;
     JS_EXPORT_PRIVATE JSValue toThisSlowCase(ExecState*, ECMAMode) const;
@@ -485,6 +504,11 @@ inline JSValue jsNull()
 inline JSValue jsUndefined()
 {
     return JSValue(JSValue::JSUndefined);
+}
+
+inline JSValue jsTDZValue()
+{
+    return JSValue();
 }
 
 inline JSValue jsBoolean(bool b)
@@ -559,11 +583,24 @@ ALWAYS_INLINE JSValue jsNumber(unsigned long long i)
     return JSValue(i);
 }
 
+ALWAYS_INLINE EncodedJSValue encodedJSUndefined()
+{
+    return JSValue::encode(jsUndefined());
+}
+
+ALWAYS_INLINE EncodedJSValue encodedJSValue()
+{
+    return JSValue::encode(JSValue());
+}
+
 inline bool operator==(const JSValue a, const JSCell* b) { return a == JSValue(b); }
 inline bool operator==(const JSCell* a, const JSValue b) { return JSValue(a) == b; }
 
 inline bool operator!=(const JSValue a, const JSCell* b) { return a != JSValue(b); }
 inline bool operator!=(const JSCell* a, const JSValue b) { return JSValue(a) != b; }
+
+
+bool isThisValueAltered(const PutPropertySlot&, JSObject* baseObject);
 
 } // namespace JSC
 

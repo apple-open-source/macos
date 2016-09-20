@@ -68,18 +68,35 @@
 #ifndef NTP_RFC2553_H
 #define NTP_RFC2553_H
 
-/*
- * Ensure that we include the configuration file before we check
- * for IPV6
- */
-#include <config.h>
 #include <netdb.h>
 #include <isc/net.h>
 
 #include "ntp_types.h"
+#include "ntp_malloc.h"
 
+struct addrinfo *copy_addrinfo_impl(const struct addrinfo *
+#ifdef EREALLOC_CALLSITE	/* from ntp_malloc.h */
+							   ,
+				    const char *, int
+#endif
+					 );
+struct addrinfo *copy_addrinfo_list_impl(const struct addrinfo *
+#ifdef EREALLOC_CALLSITE	/* from ntp_malloc.h */
+								,
+					 const char *, int
+#endif
+					 );
+#ifdef EREALLOC_CALLSITE
+# define copy_addrinfo(l) \
+	 copy_addrinfo_impl((l), __FILE__, __LINE__)
+# define copy_addrinfo_list(l) \
+	 copy_addrinfo_list_impl((l), __FILE__, __LINE__)
+#else
+# define copy_addrinfo(l)	copy_addrinfo_impl(l)
+# define copy_addrinfo_list(l)	copy_addrinfo_list_impl(l)
+#endif
 
- /*
+/*
  * If various macros are not defined we need to define them
  */
 
@@ -146,7 +163,15 @@ struct sockaddr_storage {
 #endif	/* !AI_PASSIVE */
 
 #ifndef AI_NUMERICHOST		/* such as AIX 4.3 */
-#define AI_NUMERICHOST	0
+# define Z_AI_NUMERICHOST	0
+#else
+# define Z_AI_NUMERICHOST	AI_NUMERICHOST
+#endif
+
+#ifndef AI_NUMERICSERV		/* not in RFC 2553 */
+# define Z_AI_NUMERICSERV	0
+#else
+# define Z_AI_NUMERICSERV	AI_NUMERICSERV
 #endif
 
 #ifndef ISC_PLATFORM_HAVEIPV6

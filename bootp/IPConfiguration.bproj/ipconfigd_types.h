@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,6 +30,7 @@
 #include "DHCPv6Options.h"
 #include "timer.h"
 #include "dhcp_options.h"
+#include "symbol_scope.h"
 
 #define IPV4_METHOD_BIT		0x100
 #define IPV6_METHOD_BIT		0x200
@@ -58,7 +59,7 @@ typedef enum {
 const char *
 ipconfig_method_string(ipconfig_method_t m);
 
-static __inline__ boolean_t
+INLINE boolean_t
 ipconfig_method_is_dhcp_or_bootp(ipconfig_method_t method)
 {
     if (method == ipconfig_method_dhcp_e
@@ -68,7 +69,7 @@ ipconfig_method_is_dhcp_or_bootp(ipconfig_method_t method)
     return (FALSE);
 }
 
-static __inline__ boolean_t
+INLINE boolean_t
 ipconfig_method_is_manual(ipconfig_method_t method)
 {
     if (method == ipconfig_method_manual_e
@@ -79,13 +80,13 @@ ipconfig_method_is_manual(ipconfig_method_t method)
     return (FALSE);
 }
 
-static __inline__ boolean_t
+INLINE boolean_t
 ipconfig_method_is_v4(ipconfig_method_t method)
 {
     return ((method & IPV4_METHOD_BIT) != 0);
 }
 
-static __inline__ boolean_t
+INLINE boolean_t
 ipconfig_method_is_v6(ipconfig_method_t method)
 {
     return ((method & IPV6_METHOD_BIT) != 0);
@@ -97,23 +98,23 @@ typedef struct {
     struct in_addr	router;
     boolean_t		ignore_link_status;
     int32_t		failover_timeout;
-} ipconfig_method_data_manual_t;
+} ipconfig_method_data_manual, *ipconfig_method_data_manual_t;
 
 typedef struct {
     int			client_id_len;
-    uint8_t		client_id[1];
-} ipconfig_method_data_dhcp_t;
+    char *		client_id;	/* malloc'd */
+} ipconfig_method_data_dhcp, *ipconfig_method_data_dhcp_t;
 
 #define LINKLOCAL_ALLOCATE	TRUE
 #define LINKLOCAL_NO_ALLOCATE	FALSE
 typedef struct {
     boolean_t	allocate;
-} ipconfig_method_data_linklocal_t;
+} ipconfig_method_data_linklocal, *ipconfig_method_data_linklocal_t;
 
 typedef struct {
     struct in6_addr	addr;
     int			prefix_length;
-} ipconfig_method_data_manual_v6_t;
+} ipconfig_method_data_manual_v6, *ipconfig_method_data_manual_v6_t;
 
 typedef enum {
     address_type_none_e,
@@ -127,23 +128,58 @@ typedef struct {
     union {
 	struct in_addr	v4;
 	struct in6_addr	v6;
-	char 		dns[1];
+	char * 		dns;	/* malloc'd */
     } relay_addr;
-} ipconfig_method_data_stf_t;
+} ipconfig_method_data_stf, *ipconfig_method_data_stf_t;
 
 /*
- * Type: ipconfig_method_data_t
+ * Type: ipconfig_method_data
  * Purpose:
  *   Used internally by IPConfiguration to communicate the config to
  *   the various methods.
  */
 typedef union {
-    ipconfig_method_data_manual_t	manual;
-    ipconfig_method_data_dhcp_t		dhcp;
-    ipconfig_method_data_linklocal_t	linklocal;
-    ipconfig_method_data_manual_v6_t	manual_v6;
-    ipconfig_method_data_stf_t		stf;
-} ipconfig_method_data_t;
+    ipconfig_method_data_manual		manual;
+    ipconfig_method_data_dhcp		dhcp;
+    ipconfig_method_data_linklocal	linklocal;
+    ipconfig_method_data_manual_v6	manual_v6;
+    ipconfig_method_data_stf		stf;
+} ipconfig_method_data, * ipconfig_method_data_t;
+
+typedef struct {
+    ipconfig_method_t			method;
+    ipconfig_method_data		method_data;
+    boolean_t				disable_cga;
+    struct in6_addr			ipv6_linklocal;
+} ipconfig_method_info, * ipconfig_method_info_t;
+
+INLINE void
+ipconfig_method_info_init(ipconfig_method_info_t info)
+{
+    bzero(info, sizeof(*info));
+}
+
+INLINE void
+ipconfig_method_info_free(ipconfig_method_info_t info)
+{
+    switch (info->method) {
+    case ipconfig_method_dhcp_e:
+	if (info->method_data.dhcp.client_id != NULL) {
+	    free(info->method_data.dhcp.client_id);
+	    info->method_data.dhcp.client_id = NULL;
+	}
+	break;
+    case ipconfig_method_stf_e:
+	if (info->method_data.stf.relay_addr_type == address_type_dns_e
+	    && info->method_data.stf.relay_addr.dns != NULL) {
+	    free(info->method_data.stf.relay_addr.dns);
+	    info->method_data.stf.relay_addr.dns = NULL;
+	}
+	break;
+    default:
+	break;
+    }
+}
 
 /*
  * Types to hold DHCP/auto-configuration information

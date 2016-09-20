@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999-2002 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2012 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2012, 2016 Apple Inc. All rights reserved.
  *  Copyright (C) 2007 Cameron Zwarich (cwzwarich@uwaterloo.ca)
  *  Copyright (C) 2007 Maks Orlovich
  *
@@ -53,33 +53,110 @@ using namespace Unicode;
 
 namespace JSC {
 
+template<typename CallbackWhenNoException>
+static ALWAYS_INLINE typename std::result_of<CallbackWhenNoException(JSString::SafeView&)>::type toSafeView(ExecState* exec, JSValue value, CallbackWhenNoException callback)
+{
+    JSString* string = value.toStringOrNull(exec);
+    if (UNLIKELY(!string))
+        return { };
+    JSString::SafeView view = string->view(exec);
+    return callback(view);
+}
+
 template<unsigned charactersCount>
 static Bitmap<256> makeCharacterBitmap(const char (&characters)[charactersCount])
 {
+    static_assert(charactersCount > 0, "Since string literal is null terminated, characterCount is always larger than 0");
     Bitmap<256> bitmap;
-    for (unsigned i = 0; i < charactersCount; ++i)
+    for (unsigned i = 0; i < charactersCount - 1; ++i)
         bitmap.set(characters[i]);
     return bitmap;
 }
 
-static JSValue encode(ExecState* exec, const Bitmap<256>& doNotEscape)
+template<typename CharacterType>
+static JSValue encode(ExecState* exec, const Bitmap<256>& doNotEscape, const CharacterType* characters, unsigned length)
 {
-    CString cstr = exec->argument(0).toString(exec)->view(exec).get().utf8(StrictConversion);
-    if (!cstr.data())
-        return exec->vm().throwException(exec, createURIError(exec, ASCIILiteral("String contained an illegal UTF-16 sequence.")));
+    // 18.2.6.1.1 Runtime Semantics: Encode ( string, unescapedSet )
+    // https://tc39.github.io/ecma262/#sec-encode
 
-    JSStringBuilder builder;
-    const char* p = cstr.data();
-    for (size_t k = 0; k < cstr.length(); k++, p++) {
-        char c = *p;
-        if (c && doNotEscape.get(static_cast<LChar>(c)))
-            builder.append(static_cast<LChar>(c));
+    auto throwException = [exec] {
+        return exec->vm().throwException(exec, createURIError(exec, ASCIILiteral("String contained an illegal UTF-16 sequence.")));
+    };
+
+    StringBuilder builder;
+    builder.reserveCapacity(length);
+
+    // 4. Repeat
+    auto* end = characters + length;
+    for (auto* cursor = characters; cursor != end; ++cursor) {
+        auto character = *cursor;
+
+        // 4-c. If C is in unescapedSet, then
+        if (character < doNotEscape.size() && doNotEscape.get(character)) {
+            // 4-c-i. Let S be a String containing only the code unit C.
+            // 4-c-ii. Let R be a new String value computed by concatenating the previous value of R and S.
+            builder.append(static_cast<LChar>(character));
+            continue;
+        }
+
+        // 4-d-i. If the code unit value of C is not less than 0xDC00 and not greater than 0xDFFF, throw a URIError exception.
+        if (U16_IS_TRAIL(character))
+            return throwException();
+
+        // 4-d-ii. If the code unit value of C is less than 0xD800 or greater than 0xDBFF, then
+        // 4-d-ii-1. Let V be the code unit value of C.
+        UChar32 codePoint;
+        if (!U16_IS_LEAD(character))
+            codePoint = character;
         else {
+            // 4-d-iii. Else,
+            // 4-d-iii-1. Increase k by 1.
+            ++cursor;
+
+            // 4-d-iii-2. If k equals strLen, throw a URIError exception.
+            if (cursor == end)
+                return throwException();
+
+            // 4-d-iii-3. Let kChar be the code unit value of the code unit at index k within string.
+            auto trail = *cursor;
+
+            // 4-d-iii-4. If kChar is less than 0xDC00 or greater than 0xDFFF, throw a URIError exception.
+            if (!U16_IS_TRAIL(trail))
+                return throwException();
+
+            // 4-d-iii-5. Let V be UTF16Decode(C, kChar).
+            codePoint = U16_GET_SUPPLEMENTARY(character, trail);
+        }
+
+        // 4-d-iv. Let Octets be the array of octets resulting by applying the UTF-8 transformation to V, and let L be the array size.
+        LChar utf8OctetsBuffer[U8_MAX_LENGTH];
+        unsigned utf8Length = 0;
+        // We can use U8_APPEND_UNSAFE here since codePoint is either
+        // 1. non surrogate one, correct code point.
+        // 2. correct code point generated from validated lead and trail surrogates.
+        U8_APPEND_UNSAFE(utf8OctetsBuffer, utf8Length, codePoint);
+
+        // 4-d-v. Let j be 0.
+        // 4-d-vi. Repeat, while j < L
+        for (unsigned index = 0; index < utf8Length; ++index) {
+            // 4-d-vi-1. Let jOctet be the value at index j within Octets.
+            // 4-d-vi-2. Let S be a String containing three code units "%XY" where XY are two uppercase hexadecimal digits encoding the value of jOctet.
+            // 4-d-vi-3. Let R be a new String value computed by concatenating the previous value of R and S.
             builder.append(static_cast<LChar>('%'));
-            appendByteAsHex(c, builder);
+            appendByteAsHex(utf8OctetsBuffer[index], builder);
         }
     }
-    return builder.build(exec);
+
+    return jsString(exec, builder.toString());
+}
+
+static JSValue encode(ExecState* exec, const Bitmap<256>& doNotEscape)
+{
+    return toSafeView(exec, exec->argument(0), [&] (JSString::SafeView& view) {
+        if (view.is8Bit())
+            return encode(exec, doNotEscape, view.characters8(), view.length());
+        return encode(exec, doNotEscape, view.characters16(), view.length());
+    });
 }
 
 template <typename CharType>
@@ -136,7 +213,7 @@ static JSValue decode(ExecState* exec, const CharType* characters, int length, c
                     u = Lexer<UChar>::convertUnicode(p[2], p[3], p[4], p[5]);
                 }
             }
-            if (charLen && (u == 0 || u >= 128 || !doNotUnescape.get(static_cast<LChar>(u)))) {
+            if (charLen && (u >= 128 || !doNotUnescape.get(static_cast<LChar>(u)))) {
                 builder.append(u);
                 k += charLen;
                 continue;
@@ -150,11 +227,11 @@ static JSValue decode(ExecState* exec, const CharType* characters, int length, c
 
 static JSValue decode(ExecState* exec, const Bitmap<256>& doNotUnescape, bool strict)
 {
-    StringView str = exec->argument(0).toString(exec)->view(exec);
-    
-    if (str.is8Bit())
-        return decode(exec, str.characters8(), str.length(), doNotUnescape, strict);
-    return decode(exec, str.characters16(), str.length(), doNotUnescape, strict);
+    return toSafeView(exec, exec->argument(0), [&] (JSString::SafeView& view) {
+        if (view.is8Bit())
+            return decode(exec, view.characters8(), view.length(), doNotUnescape, strict);
+        return decode(exec, view.characters16(), view.length(), doNotUnescape, strict);
+    });
 }
 
 bool isStrWhiteSpace(UChar c)
@@ -574,6 +651,8 @@ EncodedJSValue JSC_HOST_CALL globalFuncEval(ExecState* exec)
     }
 
     String s = x.toString(exec)->value(exec);
+    if (exec->hadException())
+        return JSValue::encode(jsUndefined());
 
     if (s.is8Bit()) {
         LiteralParser<LChar> preparser(exec, s.characters8(), s.length(), NonStrictJSON);
@@ -586,11 +665,12 @@ EncodedJSValue JSC_HOST_CALL globalFuncEval(ExecState* exec)
     }
 
     JSGlobalObject* calleeGlobalObject = exec->callee()->globalObject();
-    EvalExecutable* eval = EvalExecutable::create(exec, makeSource(s), false, ThisTDZMode::CheckIfNeeded);
+    VariableEnvironment emptyTDZVariables; // Indirect eval does not have access to the lexical scope.
+    EvalExecutable* eval = EvalExecutable::create(exec, makeSource(s), false, DerivedContextType::None, false, EvalContextType::None, &emptyTDZVariables);
     if (!eval)
         return JSValue::encode(jsUndefined());
 
-    return JSValue::encode(exec->interpreter()->execute(eval, exec, calleeGlobalObject->globalThis(), calleeGlobalObject));
+    return JSValue::encode(exec->interpreter()->execute(eval, exec, calleeGlobalObject->globalThis(), calleeGlobalObject->globalScope()));
 }
 
 EncodedJSValue JSC_HOST_CALL globalFuncParseInt(ExecState* exec)
@@ -616,27 +696,14 @@ EncodedJSValue JSC_HOST_CALL globalFuncParseInt(ExecState* exec)
     }
 
     // If ToString throws, we shouldn't call ToInt32.
-    StringView s = value.toString(exec)->view(exec);
-    if (exec->hadException())
-        return JSValue::encode(jsUndefined());
-
-    return JSValue::encode(jsNumber(parseInt(s, radixValue.toInt32(exec))));
+    return toSafeView(exec, value, [&] (JSString::SafeView& view) {
+        return JSValue::encode(jsNumber(parseInt(view.get(), radixValue.toInt32(exec))));
+    });
 }
 
 EncodedJSValue JSC_HOST_CALL globalFuncParseFloat(ExecState* exec)
 {
-    return JSValue::encode(jsNumber(parseFloat(exec->argument(0).toString(exec)->view(exec))));
-}
-
-EncodedJSValue JSC_HOST_CALL globalFuncIsNaN(ExecState* exec)
-{
-    return JSValue::encode(jsBoolean(std::isnan(exec->argument(0).toNumber(exec))));
-}
-
-EncodedJSValue JSC_HOST_CALL globalFuncIsFinite(ExecState* exec)
-{
-    double n = exec->argument(0).toNumber(exec);
-    return JSValue::encode(jsBoolean(std::isfinite(n)));
+    return JSValue::encode(jsNumber(parseFloat(exec->argument(0).toString(exec)->view(exec).get())));
 }
 
 EncodedJSValue JSC_HOST_CALL globalFuncDecodeURI(ExecState* exec)
@@ -687,102 +754,110 @@ EncodedJSValue JSC_HOST_CALL globalFuncEscape(ExecState* exec)
         "*+-./@_"
     );
 
-    JSStringBuilder builder;
-    StringView str = exec->argument(0).toString(exec)->view(exec);
-    if (str.is8Bit()) {
-        const LChar* c = str.characters8();
-        for (unsigned k = 0; k < str.length(); k++, c++) {
-            int u = c[0];
-            if (u && doNotEscape.get(static_cast<LChar>(u)))
+    return JSValue::encode(toSafeView(exec, exec->argument(0), [&] (JSString::SafeView& view) {
+        JSStringBuilder builder;
+        if (view.is8Bit()) {
+            const LChar* c = view.characters8();
+            for (unsigned k = 0; k < view.length(); k++, c++) {
+                int u = c[0];
+                if (doNotEscape.get(static_cast<LChar>(u)))
+                    builder.append(*c);
+                else {
+                    builder.append(static_cast<LChar>('%'));
+                    appendByteAsHex(static_cast<LChar>(u), builder);
+                }
+            }
+
+            return builder.build(exec);
+        }
+
+        const UChar* c = view.characters16();
+        for (unsigned k = 0; k < view.length(); k++, c++) {
+            UChar u = c[0];
+            if (u >= doNotEscape.size()) {
+                builder.append(static_cast<LChar>('%'));
+                builder.append(static_cast<LChar>('u'));
+                appendByteAsHex(u >> 8, builder);
+                appendByteAsHex(u & 0xFF, builder);
+            } else if (doNotEscape.get(static_cast<LChar>(u)))
                 builder.append(*c);
             else {
                 builder.append(static_cast<LChar>('%'));
-                appendByteAsHex(static_cast<LChar>(u), builder);
+                appendByteAsHex(u, builder);
             }
         }
 
-        return JSValue::encode(builder.build(exec));        
-    }
-
-    const UChar* c = str.characters16();
-    for (unsigned k = 0; k < str.length(); k++, c++) {
-        int u = c[0];
-        if (u > 255) {
-            builder.append(static_cast<LChar>('%'));
-            builder.append(static_cast<LChar>('u'));
-            appendByteAsHex(u >> 8, builder);
-            appendByteAsHex(u & 0xFF, builder);
-        } else if (u != 0 && doNotEscape.get(static_cast<LChar>(u)))
-            builder.append(*c);
-        else {
-            builder.append(static_cast<LChar>('%'));
-            appendByteAsHex(u, builder);
-        }
-    }
-
-    return JSValue::encode(builder.build(exec));
+        return builder.build(exec);
+    }));
 }
 
 EncodedJSValue JSC_HOST_CALL globalFuncUnescape(ExecState* exec)
 {
-    StringBuilder builder;
-    StringView str = exec->argument(0).toString(exec)->view(exec);
-    int k = 0;
-    int len = str.length();
-    
-    if (str.is8Bit()) {
-        const LChar* characters = str.characters8();
-        LChar convertedLChar;
-        while (k < len) {
-            const LChar* c = characters + k;
-            if (c[0] == '%' && k <= len - 6 && c[1] == 'u') {
-                if (isASCIIHexDigit(c[2]) && isASCIIHexDigit(c[3]) && isASCIIHexDigit(c[4]) && isASCIIHexDigit(c[5])) {
-                    builder.append(Lexer<UChar>::convertUnicode(c[2], c[3], c[4], c[5]));
-                    k += 6;
-                    continue;
-                }
-            } else if (c[0] == '%' && k <= len - 3 && isASCIIHexDigit(c[1]) && isASCIIHexDigit(c[2])) {
-                convertedLChar = LChar(Lexer<LChar>::convertHex(c[1], c[2]));
-                c = &convertedLChar;
-                k += 2;
-            }
-            builder.append(*c);
-            k++;
-        }        
-    } else {
-        const UChar* characters = str.characters16();
+    return JSValue::encode(toSafeView(exec, exec->argument(0), [&] (JSString::SafeView& view) {
+        StringBuilder builder;
+        int k = 0;
+        int len = view.length();
 
-        while (k < len) {
-            const UChar* c = characters + k;
-            UChar convertedUChar;
-            if (c[0] == '%' && k <= len - 6 && c[1] == 'u') {
-                if (isASCIIHexDigit(c[2]) && isASCIIHexDigit(c[3]) && isASCIIHexDigit(c[4]) && isASCIIHexDigit(c[5])) {
-                    convertedUChar = Lexer<UChar>::convertUnicode(c[2], c[3], c[4], c[5]);
+        if (view.is8Bit()) {
+            const LChar* characters = view.characters8();
+            LChar convertedLChar;
+            while (k < len) {
+                const LChar* c = characters + k;
+                if (c[0] == '%' && k <= len - 6 && c[1] == 'u') {
+                    if (isASCIIHexDigit(c[2]) && isASCIIHexDigit(c[3]) && isASCIIHexDigit(c[4]) && isASCIIHexDigit(c[5])) {
+                        builder.append(Lexer<UChar>::convertUnicode(c[2], c[3], c[4], c[5]));
+                        k += 6;
+                        continue;
+                    }
+                } else if (c[0] == '%' && k <= len - 3 && isASCIIHexDigit(c[1]) && isASCIIHexDigit(c[2])) {
+                    convertedLChar = LChar(Lexer<LChar>::convertHex(c[1], c[2]));
+                    c = &convertedLChar;
+                    k += 2;
+                }
+                builder.append(*c);
+                k++;
+            }
+        } else {
+            const UChar* characters = view.characters16();
+
+            while (k < len) {
+                const UChar* c = characters + k;
+                UChar convertedUChar;
+                if (c[0] == '%' && k <= len - 6 && c[1] == 'u') {
+                    if (isASCIIHexDigit(c[2]) && isASCIIHexDigit(c[3]) && isASCIIHexDigit(c[4]) && isASCIIHexDigit(c[5])) {
+                        convertedUChar = Lexer<UChar>::convertUnicode(c[2], c[3], c[4], c[5]);
+                        c = &convertedUChar;
+                        k += 5;
+                    }
+                } else if (c[0] == '%' && k <= len - 3 && isASCIIHexDigit(c[1]) && isASCIIHexDigit(c[2])) {
+                    convertedUChar = UChar(Lexer<UChar>::convertHex(c[1], c[2]));
                     c = &convertedUChar;
-                    k += 5;
+                    k += 2;
                 }
-            } else if (c[0] == '%' && k <= len - 3 && isASCIIHexDigit(c[1]) && isASCIIHexDigit(c[2])) {
-                convertedUChar = UChar(Lexer<UChar>::convertHex(c[1], c[2]));
-                c = &convertedUChar;
-                k += 2;
+                k++;
+                builder.append(*c);
             }
-            k++;
-            builder.append(*c);
         }
-    }
 
-    return JSValue::encode(jsString(exec, builder.toString()));
+        return jsString(exec, builder.toString());
+    }));
 }
 
 EncodedJSValue JSC_HOST_CALL globalFuncThrowTypeError(ExecState* exec)
 {
     return throwVMTypeError(exec);
 }
+    
+EncodedJSValue JSC_HOST_CALL globalFuncThrowTypeErrorArgumentsCalleeAndCaller(ExecState* exec)
+{
+    return throwVMTypeError(exec, "'arguments', 'callee', and 'caller' cannot be accessed in strict mode.");
+}
 
 class GlobalFuncProtoGetterFunctor {
 public:
-    GlobalFuncProtoGetterFunctor(JSObject* thisObject)
-        : m_hasSkippedFirstFrame(false)
+    GlobalFuncProtoGetterFunctor(ExecState* exec, JSObject* thisObject)
+        : m_exec(exec)
+        , m_hasSkippedFirstFrame(false)
         , m_thisObject(thisObject)
         , m_result(JSValue::encode(jsUndefined()))
     {
@@ -790,7 +865,7 @@ public:
 
     EncodedJSValue result() { return m_result; }
 
-    StackVisitor::Status operator()(StackVisitor& visitor)
+    StackVisitor::Status operator()(StackVisitor& visitor) const
     {
         if (!m_hasSkippedFirstFrame) {
             m_hasSkippedFirstFrame = true;
@@ -798,28 +873,36 @@ public:
         }
 
         if (m_thisObject->allowsAccessFrom(visitor->callFrame()))
-            m_result = JSValue::encode(m_thisObject->prototype());
+            m_result = JSValue::encode(m_thisObject->getPrototype(m_exec->vm(), m_exec));
 
         return StackVisitor::Done;
     }
 
 private:
-    bool m_hasSkippedFirstFrame;
+    ExecState* m_exec;
+    mutable bool m_hasSkippedFirstFrame;
     JSObject* m_thisObject;
-    EncodedJSValue m_result;
+    mutable EncodedJSValue m_result;
 };
 
 EncodedJSValue JSC_HOST_CALL globalFuncProtoGetter(ExecState* exec)
 {
     if (exec->thisValue().isUndefinedOrNull()) 
-        return throwVMError(exec, createTypeError(exec, "Can't convert undefined or null to object"));
+        return throwVMTypeError(exec, ASCIILiteral("Can't convert undefined or null to object"));
 
     JSObject* thisObject = jsDynamicCast<JSObject*>(exec->thisValue().toThis(exec, NotStrictMode));
 
-    if (!thisObject)
-        return JSValue::encode(exec->thisValue().synthesizePrototype(exec));
+    if (!thisObject) {
+        JSObject* prototype = exec->thisValue().synthesizePrototype(exec);
+        if (UNLIKELY(!prototype))
+            return JSValue::encode(JSValue());
+        return JSValue::encode(prototype);
+    }
 
-    GlobalFuncProtoGetterFunctor functor(thisObject);
+    GlobalFuncProtoGetterFunctor functor(exec, thisObject);
+    // This can throw but it's just unneeded extra work to check for it. The return
+    // value from this function is only used as the return value from a host call.
+    // Therefore, the return value is only used if there wasn't an exception.
     exec->iterate(functor);
     return functor.result();
 }
@@ -835,7 +918,7 @@ public:
 
     bool allowsAccess() const { return m_allowsAccess; }
 
-    StackVisitor::Status operator()(StackVisitor& visitor)
+    StackVisitor::Status operator()(StackVisitor& visitor) const
     {
         if (!m_hasSkippedFirstFrame) {
             m_hasSkippedFirstFrame = true;
@@ -847,8 +930,8 @@ public:
     }
 
 private:
-    bool m_hasSkippedFirstFrame;
-    bool m_allowsAccess;
+    mutable bool m_hasSkippedFirstFrame;
+    mutable bool m_allowsAccess;
     JSObject* m_thisObject;
 };
 
@@ -862,7 +945,7 @@ bool checkProtoSetterAccessAllowed(ExecState* exec, JSObject* object)
 EncodedJSValue JSC_HOST_CALL globalFuncProtoSetter(ExecState* exec)
 {
     if (exec->thisValue().isUndefinedOrNull()) 
-        return throwVMError(exec, createTypeError(exec, "Can't convert undefined or null to object"));
+        return throwVMTypeError(exec, ASCIILiteral("Can't convert undefined or null to object"));
 
     JSValue value = exec->argument(0);
 
@@ -879,11 +962,9 @@ EncodedJSValue JSC_HOST_CALL globalFuncProtoSetter(ExecState* exec)
     if (!value.isObject() && !value.isNull())
         return JSValue::encode(jsUndefined());
 
-    if (!thisObject->isExtensible())
-        return throwVMError(exec, createTypeError(exec, StrictModeReadonlyPropertyWriteError));
-
-    if (!thisObject->setPrototypeWithCycleCheck(exec, value))
-        exec->vm().throwException(exec, createError(exec, ASCIILiteral("cyclic __proto__ value")));
+    VM& vm = exec->vm();
+    bool shouldThrowIfCantSet = true;
+    thisObject->setPrototype(vm, exec, value, shouldThrowIfCantSet);
     return JSValue::encode(jsUndefined());
 }
     

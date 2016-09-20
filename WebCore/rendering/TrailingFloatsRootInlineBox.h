@@ -39,7 +39,8 @@ public:
     }
 
 private:
-    virtual float virtualLogicalHeight() const override { return 0; }
+    float virtualLogicalHeight() const override { return 0; }
+    bool isTrailingFloatsRootInlineBox() const final { return true; }
 };
 
 } // namespace WebCore

@@ -30,20 +30,19 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         super(delegate, "visual", "visual", WebInspector.UIString("Styles \u2014 Visual"));
 
         this._currentStyle = null;
-        this._forceNextStyleUpdate = false;
 
         this._sections = {};
         this._groups = {};
         this._keywords = {};
         this._units = {};
-        this._autocompletionPropertyEditors = {};
 
         // These keywords, as well as the values below, are not localized as they must match the CSS spec.
         this._keywords.defaults = ["Inherit", "Initial", "Unset", "Revert"];
+        this._keywords.normal = this._keywords.defaults.concat(["Normal"]);
         this._keywords.boxModel = this._keywords.defaults.concat(["Auto"]);
         this._keywords.borderStyle = {
             basic: this._keywords.defaults.concat(["None", "Hidden", "Solid"]),
-            advanced: ["Dashed", "Dotted", "Double", "Groove", "Hidden", "Inset", "None", "Outset", "Ridge"]
+            advanced: ["Dashed", "Dotted", "Double", "Groove", "Inset", "Outset", "Ridge"]
         };
         this._keywords.borderWidth = this._keywords.defaults.concat(["Medium", "Thick", "Thin"]);
 
@@ -55,12 +54,28 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
             basic: ["%"].concat(this._units.defaultsSansPercent.basic),
             advanced: this._units.defaultsSansPercent.advanced
         };
+    }
 
+    // Public
+
+    refresh(significantChange)
+    {
+        if (significantChange)
+            this._selectorSection.update(this._nodeStyles);
+        else
+            this._updateSections();
+
+        super.refresh();
+    }
+
+    // Protected
+
+    initialLayout()
+    {
         // Selector Section
         this._selectorSection = new WebInspector.VisualStyleSelectorSection(this);
         this._selectorSection.addEventListener(WebInspector.VisualStyleSelectorSection.Event.SelectorChanged, this._updateSections, this);
-        this._selectorSection.addEventListener(WebInspector.VisualStyleSelectorSection.Event.StyleTextChanged, this._prepareForChange, this);
-        this._element.appendChild(this._selectorSection.element);
+        this.element.appendChild(this._selectorSection.element);
 
         // Layout Section
         this._generateSection("display", WebInspector.UIString("Display"));
@@ -73,44 +88,49 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         this._generateSection("alignment", WebInspector.UIString("Alignment"));
 
         this._sections.layout = new WebInspector.DetailsSection("layout", WebInspector.UIString("Layout"), [this._groups.display.section, this._groups.position.section, this._groups.float.section, this._groups.dimensions.section, this._groups.margin.section, this._groups.padding.section, this._groups.flexbox.section, this._groups.alignment.section]);
-        this._element.appendChild(this._sections.layout.element);
+        this.element.appendChild(this._sections.layout.element);
 
         // Text Section
         this._generateSection("text-style", WebInspector.UIString("Style"));
         this._generateSection("font", WebInspector.UIString("Font"));
+        this._generateSection("font-variants", WebInspector.UIString("Variants"));
         this._generateSection("text-spacing", WebInspector.UIString("Spacing"));
         this._generateSection("text-shadow", WebInspector.UIString("Shadow"));
 
-        this._sections.text = new WebInspector.DetailsSection("text", WebInspector.UIString("Text"), [this._groups.textStyle.section, this._groups.font.section, this._groups.textSpacing.section, this._groups.textShadow.section]);
-        this._element.appendChild(this._sections.text.element);
+        this._sections.text = new WebInspector.DetailsSection("text", WebInspector.UIString("Text"), [this._groups.textStyle.section, this._groups.font.section, this._groups.fontVariants.section, this._groups.textSpacing.section, this._groups.textShadow.section]);
+        this.element.appendChild(this._sections.text.element);
 
         // Background Section
         this._generateSection("background-style", WebInspector.UIString("Style"));
         this._generateSection("border", WebInspector.UIString("Border"));
         this._generateSection("outline", WebInspector.UIString("Outline"));
-        this._generateSection("box-shadow", WebInspector.UIString("Shadow"));
+        this._generateSection("box-shadow", WebInspector.UIString("Box Shadow"));
+        this._generateSection("list-style", WebInspector.UIString("List Styles"));
 
-        this._sections.background = new WebInspector.DetailsSection("background", WebInspector.UIString("Background"), [this._groups.backgroundStyle.section, this._groups.border.section, this._groups.outline.section, this._groups.boxShadow.section]);
-        this._element.appendChild(this._sections.background.element);
+        this._sections.background = new WebInspector.DetailsSection("background", WebInspector.UIString("Background"), [this._groups.backgroundStyle.section, this._groups.border.section, this._groups.outline.section, this._groups.boxShadow.section, this._groups.listStyle.section]);
+        this.element.appendChild(this._sections.background.element);
 
-        // Animation Section
+        // Effects Section
         this._generateSection("transition", WebInspector.UIString("Transition"));
+        this._generateSection("animation", WebInspector.UIString("Animation"));
 
-        this._sections.animation = new WebInspector.DetailsSection("animation", WebInspector.UIString("Animation"), [this._groups.transition.section]);
-        this._element.appendChild(this._sections.animation.element);
+        this._sections.effects = new WebInspector.DetailsSection("effects", WebInspector.UIString("Effects"), [this._groups.transition.section, this._groups.animation.section]);
+        this.element.appendChild(this._sections.effects.element);
     }
 
-    // Public
-
-    refresh(significantChange)
+    sizeDidChange()
     {
-        if (significantChange || this._forceNextStyleUpdate) {
-            this._selectorSection.update(this._nodeStyles);
-            this._updateSections();
-            this._forceNextStyleUpdate = false;
-        }
+        super.sizeDidChange();
 
-        super.refresh();
+        let sidebarWidth = this.element.realOffsetWidth;
+        for (let key in this._groups) {
+            let group = this._groups[key];
+            if (!group.specifiedWidthProperties)
+                continue;
+
+            for (let editor of group.specifiedWidthProperties)
+                editor.recalculateWidth(sidebarWidth);
+        }
     }
 
     // Private
@@ -120,14 +140,10 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         if (!id || !displayName)
             return;
 
-        function replaceDashWithCapital(match) {
-            return match.replace("-", "").toUpperCase();
-        }
-
-        var camelCaseId = id.replace(/-\b\w/g, replaceDashWithCapital);
+        let camelCaseId = id.toCamelCase();
 
         function createOptionsElement() {
-            var container = document.createElement("div");
+            let container = document.createElement("div");
             container.classList.add("visual-style-section-clear");
             container.title = WebInspector.UIString("Click to clear modified properties");
             container.addEventListener("click", this._clearModifiedSection.bind(this, camelCaseId));
@@ -139,13 +155,8 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
             properties: {}
         };
 
-        var populateFunction = this["_populate" + camelCaseId.capitalize() + "Section"];
+        let populateFunction = this["_populate" + camelCaseId.capitalize() + "Section"];
         populateFunction.call(this);
-    }
-
-    _prepareForChange(event)
-    {
-        this._forceNextStyleUpdate = true;
     }
 
     _updateSections(event)
@@ -154,25 +165,27 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         if (!this._currentStyle)
             return;
 
-        var disabled = this._currentStyle[WebInspector.VisualStyleDetailsPanel.StyleDisabledSymbol];
-        this._element.classList.toggle("disabled", !!disabled);
+        let disabled = this._currentStyle[WebInspector.VisualStyleDetailsPanel.StyleDisabledSymbol];
+        this.element.classList.toggle("disabled", !!disabled);
         if (disabled)
             return;
 
-        for (var key in this._groups)
+        for (let key in this._groups)
             this._updateProperties(this._groups[key], !!event);
 
-        for (var key in this._sections) {
-            var section = this._sections[key];
-            var oneSectionExpanded = false;
-            for (var group of section.groups) {
-                if (!group.collapsed) {
-                    oneSectionExpanded = true;
-                    break;
+        if (event) {
+            for (let key in this._sections) {
+                let section = this._sections[key];
+                let oneSectionExpanded = false;
+                for (let group of section.groups) {
+                    let camelCaseId = group.identifier.toCamelCase();
+                    group.collapsed = !group.expandedByUser && !this._groupHasSetProperty(this._groups[camelCaseId]);
+                    if (!group.collapsed)
+                        oneSectionExpanded = true;
                 }
+                if (oneSectionExpanded)
+                    section.collapsed = false;
             }
-
-            section.collapsed = !oneSectionExpanded;
         }
     }
 
@@ -181,22 +194,22 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         if (!group.section)
             return;
 
-        if (group.links) {
-            for (var key in group.links)
+        if (forceStyleUpdate && group.links) {
+            for (let key in group.links)
                 group.links[key].linked = false;
         }
 
-        var initialTextList = this._initialTextList;
+        let initialTextList = this._initialTextList;
         if (!initialTextList)
             this._currentStyle[WebInspector.VisualStyleDetailsPanel.InitialPropertySectionTextListSymbol] = initialTextList = new WeakMap;
 
-        var initialPropertyText = {};
-        var initialPropertyTextMissing = !initialTextList.has(group);
-        for (var key in group.properties) {
-            var propertyEditor = group.properties[key];
+        let initialPropertyText = {};
+        let initialPropertyTextMissing = !initialTextList.has(group);
+        for (let key in group.properties) {
+            let propertyEditor = group.properties[key];
             propertyEditor.update(!propertyEditor.style || forceStyleUpdate ? this._currentStyle : null);
 
-            var value = propertyEditor.synthesizedValue;
+            let value = propertyEditor.synthesizedValue;
             if (value && !propertyEditor.propertyMissing && initialPropertyTextMissing)
                 initialPropertyText[key] = value;
         }
@@ -204,17 +217,18 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         if (initialPropertyTextMissing)
             initialTextList.set(group, initialPropertyText);
 
-        var groupHasSetProperty = this._groupHasSetProperty(group);
-        group.section.collapsed = !groupHasSetProperty && !group.section.expandedByUser;
-        group.section.element.classList.toggle("has-set-property", groupHasSetProperty);
         this._sectionModified(group);
 
-        var autocompleteCompatibleProperties = group.autocompleteCompatibleProperties;
-        if (!autocompleteCompatibleProperties || !autocompleteCompatibleProperties.length)
-            return;
+        if (group.autocompleteCompatibleProperties) {
+            for (let editor of group.autocompleteCompatibleProperties)
+                this._updateAutocompleteCompatiblePropertyEditor(editor, forceStyleUpdate);
+        }
 
-        for (var editor of autocompleteCompatibleProperties)
-            this._updateAutocompleteCompatiblePropertyEditor(editor, forceStyleUpdate);
+        if (group.specifiedWidthProperties) {
+            let sidebarWidth = this.element.realOffsetWidth;
+            for (let editor of group.specifiedWidthProperties)
+                editor.recalculateWidth(sidebarWidth);
+        }
     }
 
     _updateAutocompleteCompatiblePropertyEditor(editor, force)
@@ -233,16 +247,16 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
 
     _clearModifiedSection(groupId)
     {
-        var group = this._groups[groupId];
+        let group = this._groups[groupId];
         group.section.element.classList.remove("modified");
-        var initialPropertyTextList = this._currentStyle[WebInspector.VisualStyleDetailsPanel.InitialPropertySectionTextListSymbol].get(group);
+        let initialPropertyTextList = this._currentStyle[WebInspector.VisualStyleDetailsPanel.InitialPropertySectionTextListSymbol].get(group);
         if (!initialPropertyTextList)
             return;
 
-        var newStyleText = this._currentStyle.text;
-        for (var key in group.properties) {
-            var propertyEditor = group.properties[key];
-            var initialValue = initialPropertyTextList[key] || null;
+        let newStyleText = this._currentStyle.text;
+        for (let key in group.properties) {
+            let propertyEditor = group.properties[key];
+            let initialValue = initialPropertyTextList[key] || null;
             newStyleText = propertyEditor.modifyPropertyText(newStyleText, initialValue);
             propertyEditor.resetEditorValues(initialValue);
         }
@@ -261,16 +275,16 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         if (!group.properties)
             return false;
 
-        var initialPropertyTextList = this._initialTextList.get(group);
+        let initialPropertyTextList = this._initialTextList.get(group);
         if (!initialPropertyTextList)
             return false;
 
-        for (var key in group.properties) {
-            var propertyEditor = group.properties[key];
+        for (let key in group.properties) {
+            let propertyEditor = group.properties[key];
             if (propertyEditor.propertyMissing)
                 continue;
 
-            var value = propertyEditor.synthesizedValue;
+            let value = propertyEditor.synthesizedValue;
             if (value && initialPropertyTextList[key] !== value)
                 return true;
         }
@@ -280,9 +294,9 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
 
     _groupHasSetProperty(group)
     {
-        for (var key in group.properties) {
-            var propertyEditor = group.properties[key];
-            var value = propertyEditor.synthesizedValue;
+        for (let key in group.properties) {
+            let propertyEditor = group.properties[key];
+            let value = propertyEditor.synthesizedValue;
             if (value && !propertyEditor.propertyMissing)
                 return true;
         }
@@ -295,16 +309,16 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
             return;
 
         group.section.groups = groups;
-        for (var key in group.properties)
+        for (let key in group.properties)
             group.properties[key].addEventListener(WebInspector.VisualStylePropertyEditor.Event.ValueDidChange, this._sectionModified.bind(this, group));
     }
 
     _populateDisplaySection()
     {
-        var group = this._groups.display;
-        var properties = group.properties;
+        let group = this._groups.display;
+        let properties = group.properties;
 
-        var displayRow = new WebInspector.DetailsSectionRow;
+        let displayRow = new WebInspector.DetailsSectionRow;
 
         properties.display = new WebInspector.VisualStyleKeywordPicker("display", WebInspector.UIString("Type"), {
             basic: ["None", "Block", "Flex", "Inline", "Inline Block"],
@@ -318,7 +332,7 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         displayRow.element.appendChild(properties.display.element);
         displayRow.element.appendChild(properties.visibility.element);
 
-        var sizingRow = new WebInspector.DetailsSectionRow;
+        let sizingRow = new WebInspector.DetailsSectionRow;
 
         properties.boxSizing = new WebInspector.VisualStyleKeywordPicker("box-sizing", WebInspector.UIString("Sizing"), this._keywords.defaults.concat(["Border Box", "Content Box"]));
         properties.cursor = new WebInspector.VisualStyleKeywordPicker("cursor", WebInspector.UIString("Cursor"), {
@@ -329,7 +343,7 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         sizingRow.element.appendChild(properties.boxSizing.element);
         sizingRow.element.appendChild(properties.cursor.element);
 
-        var overflowRow = new WebInspector.DetailsSectionRow;
+        let overflowRow = new WebInspector.DetailsSectionRow;
 
         properties.opacity = new WebInspector.VisualStyleUnitSlider("opacity", WebInspector.UIString("Opacity"));
         properties.overflow = new WebInspector.VisualStyleKeywordPicker(["overflow-x", "overflow-y"], WebInspector.UIString("Overflow"), {
@@ -340,7 +354,9 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         overflowRow.element.appendChild(properties.opacity.element);
         overflowRow.element.appendChild(properties.overflow.element);
 
-        var displayGroup = new WebInspector.DetailsSectionGroup([displayRow, sizingRow, overflowRow]);
+        group.specifiedWidthProperties = [properties.opacity];
+
+        let displayGroup = new WebInspector.DetailsSectionGroup([displayRow, sizingRow, overflowRow]);
         this._populateSection(group, [displayGroup]);
     }
 
@@ -368,18 +384,18 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
 
     _generateMetricSectionRows(group, prefix, allowNegatives, highlightOnHover)
     {
-        var properties = group.properties;
-        var links = group.links = {};
+        let properties = group.properties;
+        let links = group.links = {};
 
-        var hasPrefix = prefix && prefix.length;
-        var propertyNamePrefix = hasPrefix ? prefix + "-" : "";
+        let hasPrefix = prefix && prefix.length;
+        let propertyNamePrefix = hasPrefix ? prefix + "-" : "";
 
-        var top = hasPrefix ? prefix + "Top" : "top";
-        var bottom = hasPrefix ? prefix + "Bottom" : "bottom";
-        var left = hasPrefix ? prefix + "Left" : "left";
-        var right = hasPrefix ? prefix + "Right" : "right";
+        let top = hasPrefix ? prefix + "Top" : "top";
+        let bottom = hasPrefix ? prefix + "Bottom" : "bottom";
+        let left = hasPrefix ? prefix + "Left" : "left";
+        let right = hasPrefix ? prefix + "Right" : "right";
 
-        var vertical = new WebInspector.DetailsSectionRow;
+        let vertical = new WebInspector.DetailsSectionRow;
 
         properties[top] = new WebInspector.VisualStyleNumberInputBox(propertyNamePrefix + "top", WebInspector.UIString("Top"), this._keywords.boxModel, this._units.defaults, allowNegatives);
         properties[bottom] = new WebInspector.VisualStyleNumberInputBox(propertyNamePrefix + "bottom", WebInspector.UIString("Bottom"), this._keywords.boxModel, this._units.defaults, allowNegatives, true);
@@ -389,7 +405,7 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         vertical.element.appendChild(links["vertical"].element);
         vertical.element.appendChild(properties[bottom].element);
 
-        var horizontal = new WebInspector.DetailsSectionRow;
+        let horizontal = new WebInspector.DetailsSectionRow;
 
         properties[left] = new WebInspector.VisualStyleNumberInputBox(propertyNamePrefix + "left", WebInspector.UIString("Left"), this._keywords.boxModel, this._units.defaults, allowNegatives);
         properties[right] = new WebInspector.VisualStyleNumberInputBox(propertyNamePrefix + "right", WebInspector.UIString("Right"), this._keywords.boxModel, this._units.defaults, allowNegatives, true);
@@ -399,7 +415,7 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         horizontal.element.appendChild(links["horizontal"].element);
         horizontal.element.appendChild(properties[right].element);
 
-        var allLinkRow = new WebInspector.DetailsSectionRow;
+        let allLinkRow = new WebInspector.DetailsSectionRow;
         links["all"] = new WebInspector.VisualStylePropertyEditorLink([properties[top], properties[bottom], properties[left], properties[right]], "link-all", [links["vertical"], links["horizontal"]]);
         allLinkRow.element.appendChild(links["all"].element);
 
@@ -418,11 +434,11 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
 
     _populatePositionSection()
     {
-        var group = this._groups.position;
-        var rows = this._generateMetricSectionRows(group, null, true);
-        var properties = group.properties;
+        let group = this._groups.position;
+        let rows = this._generateMetricSectionRows(group, null, true);
+        let properties = group.properties;
 
-        var positionType = new WebInspector.DetailsSectionRow;
+        let positionType = new WebInspector.DetailsSectionRow;
 
         properties.position = new WebInspector.VisualStyleKeywordPicker("position", WebInspector.UIString("Type"), {
             basic: ["Static", "Relative", "Absolute", "Fixed"],
@@ -436,87 +452,94 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
 
         rows.unshift(positionType)
 
-        var positionGroup = new WebInspector.DetailsSectionGroup(rows);
+        let positionGroup = new WebInspector.DetailsSectionGroup(rows);
         this._populateSection(group, [positionGroup]);
+
+        let allowedPositionValues = ["relative", "absolute", "fixed", "-webkit-sticky"];
+        properties.zIndex.addDependency("position", allowedPositionValues);
+        properties.top.addDependency("position", allowedPositionValues);
+        properties.right.addDependency("position", allowedPositionValues);
+        properties.bottom.addDependency("position", allowedPositionValues);
+        properties.left.addDependency("position", allowedPositionValues);
     }
 
     _populateFloatSection()
     {
-        var group = this._groups.float;
-        var properties = group.properties;
+        let group = this._groups.float;
+        let properties = group.properties;
 
-        var floatRow = new WebInspector.DetailsSectionRow;
+        let floatRow = new WebInspector.DetailsSectionRow;
 
         properties.float = new WebInspector.VisualStyleKeywordIconList("float", WebInspector.UIString("Float"), ["Left", "Right", "None"]);
         floatRow.element.appendChild(properties.float.element);
 
-        var clearRow = new WebInspector.DetailsSectionRow;
+        let clearRow = new WebInspector.DetailsSectionRow;
 
         properties.clear = new WebInspector.VisualStyleKeywordIconList("clear", WebInspector.UIString("Clear"), ["Left", "Right", "Both", "None"]);
         clearRow.element.appendChild(properties.clear.element);
 
-        var floatGroup = new WebInspector.DetailsSectionGroup([floatRow, clearRow]);
+        let floatGroup = new WebInspector.DetailsSectionGroup([floatRow, clearRow]);
         this._populateSection(group, [floatGroup]);
     }
 
     _populateDimensionsSection()
     {
-        var group = this._groups.dimensions;
-        var properties = group.properties;
+        let group = this._groups.dimensions;
+        let properties = group.properties;
 
-        var dimensionsWidth = new WebInspector.DetailsSectionRow;
+        let dimensionsWidth = new WebInspector.DetailsSectionRow;
 
         properties.width = new WebInspector.VisualStyleRelativeNumberSlider("width", WebInspector.UIString("Width"), this._keywords.boxModel, this._units.defaults);
 
         dimensionsWidth.element.appendChild(properties.width.element);
 
-        var dimensionsHeight = new WebInspector.DetailsSectionRow;
+        let dimensionsHeight = new WebInspector.DetailsSectionRow;
 
         properties.height = new WebInspector.VisualStyleRelativeNumberSlider("height", WebInspector.UIString("Height"), this._keywords.boxModel, this._units.defaults, true);
 
         dimensionsHeight.element.appendChild(properties.height.element);
 
-        var dimensionsProperties = [properties.width, properties.height];
-        var dimensionsRegularGroup = new WebInspector.DetailsSectionGroup([dimensionsWidth, dimensionsHeight]);
+        let dimensionsProperties = [properties.width, properties.height];
+        let dimensionsRegularGroup = new WebInspector.DetailsSectionGroup([dimensionsWidth, dimensionsHeight]);
 
-        var dimensionsMinWidth = new WebInspector.DetailsSectionRow;
+        let dimensionsMinWidth = new WebInspector.DetailsSectionRow;
 
         properties.minWidth = new WebInspector.VisualStyleRelativeNumberSlider("min-width", WebInspector.UIString("Width"), this._keywords.boxModel, this._units.defaults);
 
         dimensionsMinWidth.element.appendChild(properties.minWidth.element);
 
-        var dimensionsMinHeight = new WebInspector.DetailsSectionRow;
+        let dimensionsMinHeight = new WebInspector.DetailsSectionRow;
 
         properties.minHeight = new WebInspector.VisualStyleRelativeNumberSlider("min-height", WebInspector.UIString("Height"), this._keywords.boxModel, this._units.defaults);
 
         dimensionsMinHeight.element.appendChild(properties.minHeight.element);
 
-        var dimensionsMinProperties = [properties.minWidth, properties.minHeight];
-        var dimensionsMinGroup = new WebInspector.DetailsSectionGroup([dimensionsMinWidth, dimensionsMinHeight]);
+        let dimensionsMinProperties = [properties.minWidth, properties.minHeight];
+        let dimensionsMinGroup = new WebInspector.DetailsSectionGroup([dimensionsMinWidth, dimensionsMinHeight]);
 
-        var dimensionsMaxKeywords = this._keywords.defaults.concat("None");
-        var dimensionsMaxWidth = new WebInspector.DetailsSectionRow;
+        let dimensionsMaxKeywords = this._keywords.defaults.concat("None");
+        let dimensionsMaxWidth = new WebInspector.DetailsSectionRow;
 
         properties.maxWidth = new WebInspector.VisualStyleRelativeNumberSlider("max-width", WebInspector.UIString("Width"), dimensionsMaxKeywords, this._units.defaults);
 
         dimensionsMaxWidth.element.appendChild(properties.maxWidth.element);
 
-        var dimensionsMaxHeight = new WebInspector.DetailsSectionRow;
+        let dimensionsMaxHeight = new WebInspector.DetailsSectionRow;
 
         properties.maxHeight = new WebInspector.VisualStyleRelativeNumberSlider("max-height", WebInspector.UIString("Height"), dimensionsMaxKeywords, this._units.defaults);
 
         dimensionsMaxHeight.element.appendChild(properties.maxHeight.element);
 
-        var dimensionsMaxProperties = [properties.maxWidth, properties.maxHeight];
-        var dimensionsMaxGroup = new WebInspector.DetailsSectionGroup([dimensionsMaxWidth, dimensionsMaxHeight]);
+        let dimensionsMaxProperties = [properties.maxWidth, properties.maxHeight];
+        let dimensionsMaxGroup = new WebInspector.DetailsSectionGroup([dimensionsMaxWidth, dimensionsMaxHeight]);
 
-        var dimensionsTabController = new WebInspector.VisualStyleTabbedPropertiesRow({
+        let dimensionsTabController = new WebInspector.VisualStyleTabbedPropertiesRow({
             "default": {title: WebInspector.UIString("Default"), element: dimensionsRegularGroup.element, properties: dimensionsProperties},
             "min": {title: WebInspector.UIString("Min"), element: dimensionsMinGroup.element, properties: dimensionsMinProperties},
             "max": {title: WebInspector.UIString("Max"), element: dimensionsMaxGroup.element, properties: dimensionsMaxProperties}
         });
 
-        var highlightMode = "content";
+        let highlightMode = "content";
         this._addMetricsMouseListeners(group.properties.width, highlightMode);
         this._addMetricsMouseListeners(group.properties.height, highlightMode);
         this._addMetricsMouseListeners(group.properties.minWidth, highlightMode);
@@ -524,32 +547,32 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         this._addMetricsMouseListeners(group.properties.maxWidth, highlightMode);
         this._addMetricsMouseListeners(group.properties.maxHeight, highlightMode);
 
-        var dimensionsGroup = new WebInspector.DetailsSectionGroup([dimensionsTabController, dimensionsRegularGroup, dimensionsMinGroup, dimensionsMaxGroup]);
+        let dimensionsGroup = new WebInspector.DetailsSectionGroup([dimensionsTabController, dimensionsRegularGroup, dimensionsMinGroup, dimensionsMaxGroup]);
         this._populateSection(group, [dimensionsGroup]);
     }
 
     _populateMarginSection()
     {
-        var group = this._groups.margin;
-        var rows = this._generateMetricSectionRows(group, "margin", true, true);
-        var marginGroup = new WebInspector.DetailsSectionGroup(rows);
+        let group = this._groups.margin;
+        let rows = this._generateMetricSectionRows(group, "margin", true, true);
+        let marginGroup = new WebInspector.DetailsSectionGroup(rows);
         this._populateSection(group, [marginGroup]);
     }
 
     _populatePaddingSection()
     {
-        var group = this._groups.padding;
-        var rows = this._generateMetricSectionRows(group, "padding", false, true);
-        var paddingGroup = new WebInspector.DetailsSectionGroup(rows);
+        let group = this._groups.padding;
+        let rows = this._generateMetricSectionRows(group, "padding", false, true);
+        let paddingGroup = new WebInspector.DetailsSectionGroup(rows);
         this._populateSection(group, [paddingGroup]);
     }
 
     _populateFlexboxSection()
     {
-        var group = this._groups.flexbox;
-        var properties = group.properties;
+        let group = this._groups.flexbox;
+        let properties = group.properties;
 
-        var flexOrderRow = new WebInspector.DetailsSectionRow;
+        let flexOrderRow = new WebInspector.DetailsSectionRow;
 
         properties.order = new WebInspector.VisualStyleNumberInputBox("order", WebInspector.UIString("Order"), this._keywords.defaults);
         properties.flexBasis = new WebInspector.VisualStyleNumberInputBox("flex-basis", WebInspector.UIString("Basis"), this._keywords.boxModel, this._units.defaults, true);
@@ -557,7 +580,7 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         flexOrderRow.element.appendChild(properties.order.element);
         flexOrderRow.element.appendChild(properties.flexBasis.element);
 
-        var flexSizeRow = new WebInspector.DetailsSectionRow;
+        let flexSizeRow = new WebInspector.DetailsSectionRow;
 
         properties.flexGrow = new WebInspector.VisualStyleNumberInputBox("flex-grow", WebInspector.UIString("Grow"), this._keywords.defaults);
         properties.flexShrink = new WebInspector.VisualStyleNumberInputBox("flex-shrink", WebInspector.UIString("Shrink"), this._keywords.defaults);
@@ -565,7 +588,7 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         flexSizeRow.element.appendChild(properties.flexGrow.element);
         flexSizeRow.element.appendChild(properties.flexShrink.element);
 
-        var flexFlowRow = new WebInspector.DetailsSectionRow;
+        let flexFlowRow = new WebInspector.DetailsSectionRow;
 
         properties.flexDirection = new WebInspector.VisualStyleKeywordPicker("flex-direction", WebInspector.UIString("Direction"), this._keywords.defaults.concat(["Row", "Row Reverse", "Column", "Column Reverse"]));
         properties.flexWrap = new WebInspector.VisualStyleKeywordPicker("flex-wrap", WebInspector.UIString("Wrap"), this._keywords.defaults.concat(["Wrap", "Wrap Reverse", "Nowrap"]));
@@ -573,19 +596,27 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         flexFlowRow.element.appendChild(properties.flexDirection.element);
         flexFlowRow.element.appendChild(properties.flexWrap.element);
 
-        var flexboxGroup = new WebInspector.DetailsSectionGroup([flexOrderRow, flexSizeRow, flexFlowRow]);
+        let flexboxGroup = new WebInspector.DetailsSectionGroup([flexOrderRow, flexSizeRow, flexFlowRow]);
         this._populateSection(group, [flexboxGroup]);
+
+        let allowedDisplayValues = ["flex", "inline-flex", "-webkit-box", "-webkit-inline-box"];
+        properties.order.addDependency("display", allowedDisplayValues);
+        properties.flexBasis.addDependency("display", allowedDisplayValues);
+        properties.flexGrow.addDependency("display", allowedDisplayValues);
+        properties.flexShrink.addDependency("display", allowedDisplayValues);
+        properties.flexDirection.addDependency("display", allowedDisplayValues);
+        properties.flexWrap.addDependency("display", allowedDisplayValues);
     }
 
     _populateAlignmentSection()
     {
-        var group = this._groups.alignment;
-        var properties = group.properties;
-        var alignmentKeywords = ["Initial", "Unset", "Revert", "Auto", "Flex Start", "Flex End", "Center", "Stretch"];
-        var advancedAlignmentKeywords = ["Start", "End", "Left", "Right", "Baseline", "Last Baseline"];
+        let group = this._groups.alignment;
+        let properties = group.properties;
+        let alignmentKeywords = ["Initial", "Unset", "Revert", "Auto", "Flex Start", "Flex End", "Center", "Stretch"];
+        let advancedAlignmentKeywords = ["Start", "End", "Left", "Right", "Baseline", "Last Baseline"];
 
-        var contentRow = new WebInspector.DetailsSectionRow;
-        var contentKeywords = {
+        let contentRow = new WebInspector.DetailsSectionRow;
+        let contentKeywords = {
             basic: alignmentKeywords.concat(["Space Between", "Space Around"]),
             advanced: advancedAlignmentKeywords.concat(["Space Evenly"])
         };
@@ -596,8 +627,8 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         contentRow.element.appendChild(properties.justifyContent.element);
         contentRow.element.appendChild(properties.alignContent.element);
 
-        var itemsRow = new WebInspector.DetailsSectionRow;
-        var itemKeywords = {
+        let itemsRow = new WebInspector.DetailsSectionRow;
+        let itemKeywords = {
             basic: alignmentKeywords,
             advanced: ["Self Start", "Self End"].concat(advancedAlignmentKeywords)
         };
@@ -608,16 +639,22 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         itemsRow.element.appendChild(properties.alignItems.element);
         itemsRow.element.appendChild(properties.alignSelf.element);
 
-        var alignmentGroup = new WebInspector.DetailsSectionGroup([contentRow, itemsRow]);
+        let alignmentGroup = new WebInspector.DetailsSectionGroup([contentRow, itemsRow]);
         this._populateSection(group, [alignmentGroup]);
+
+        let allowedDisplayValues = ["flex", "inline-flex", "-webkit-box", "-webkit-inline-box"];
+        properties.justifyContent.addDependency("display", allowedDisplayValues);
+        properties.alignContent.addDependency("display", allowedDisplayValues);
+        properties.alignItems.addDependency("display", allowedDisplayValues);
+        properties.alignSelf.addDependency("display", allowedDisplayValues);
     }
 
     _populateTextStyleSection()
     {
-        var group = this._groups.textStyle;
-        var properties = group.properties;
+        let group = this._groups.textStyle;
+        let properties = group.properties;
 
-        var textAppearanceRow = new WebInspector.DetailsSectionRow;
+        let textAppearanceRow = new WebInspector.DetailsSectionRow;
 
         properties.color = new WebInspector.VisualStyleColorPicker("color", WebInspector.UIString("Color"));
         properties.textDirection = new WebInspector.VisualStyleKeywordPicker("direction", WebInspector.UIString("Direction"), this._keywords.defaults.concat(["LTR", "RTL"]));
@@ -625,19 +662,19 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         textAppearanceRow.element.appendChild(properties.color.element);
         textAppearanceRow.element.appendChild(properties.textDirection.element);
 
-        var textAlignRow = new WebInspector.DetailsSectionRow;
+        let textAlignRow = new WebInspector.DetailsSectionRow;
 
         properties.textAlign = new WebInspector.VisualStyleKeywordIconList("text-align", WebInspector.UIString("Align"), ["Left", "Center", "Right", "Justify"]);
 
         textAlignRow.element.appendChild(properties.textAlign.element);
 
-        var textTransformRow = new WebInspector.DetailsSectionRow;
+        let textTransformRow = new WebInspector.DetailsSectionRow;
 
         properties.textTransform = new WebInspector.VisualStyleKeywordIconList("text-transform", WebInspector.UIString("Transform"), ["Capitalize", "Uppercase", "Lowercase", "None"]);
 
         textTransformRow.element.appendChild(properties.textTransform.element);
 
-        var textDecorationRow = new WebInspector.DetailsSectionRow;
+        let textDecorationRow = new WebInspector.DetailsSectionRow;
 
         properties.textDecoration = new WebInspector.VisualStyleKeywordIconList("text-decoration", WebInspector.UIString("Decoration"), ["Underline", "Line Through", "Overline", "None"]);
 
@@ -645,22 +682,22 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
 
         group.autocompleteCompatibleProperties = [properties.color];
 
-        var textStyleGroup = new WebInspector.DetailsSectionGroup([textAppearanceRow, textAlignRow, textTransformRow, textDecorationRow]);
+        let textStyleGroup = new WebInspector.DetailsSectionGroup([textAppearanceRow, textAlignRow, textTransformRow, textDecorationRow]);
         this._populateSection(group, [textStyleGroup]);
     }
 
     _populateFontSection()
     {
-        var group = this._groups.font;
-        var properties = group.properties;
+        let group = this._groups.font;
+        let properties = group.properties;
 
-        var fontFamilyRow = new WebInspector.DetailsSectionRow;
+        let fontFamilyRow = new WebInspector.DetailsSectionRow;
 
         properties.fontFamily = new WebInspector.VisualStyleFontFamilyListEditor("font-family", WebInspector.UIString("Family"));
 
         fontFamilyRow.element.appendChild(properties.fontFamily.element);
 
-        var fontSizeRow = new WebInspector.DetailsSectionRow;
+        let fontSizeRow = new WebInspector.DetailsSectionRow;
 
         properties.fontSize = new WebInspector.VisualStyleNumberInputBox("font-size", WebInspector.UIString("Size"), this._keywords.defaults.concat(["Larger", "XX Large", "X Large", "Large", "Medium", "Small", "X Small", "XX Small", "Smaller"]), this._units.defaults);
 
@@ -672,44 +709,79 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         fontSizeRow.element.appendChild(properties.fontSize.element);
         fontSizeRow.element.appendChild(properties.fontWeight.element);
 
-        var fontStyleRow = new WebInspector.DetailsSectionRow;
+        let fontStyleRow = new WebInspector.DetailsSectionRow;
 
         properties.fontStyle = new WebInspector.VisualStyleKeywordIconList("font-style", WebInspector.UIString("Style"), ["Italic", "Normal"]);
-        properties.fontVariant = new WebInspector.VisualStyleKeywordCheckbox("font-variant", WebInspector.UIString("Variant"), "Small Caps")
+        properties.fontFeatureSettings = new WebInspector.VisualStyleBasicInput("font-feature-settings", WebInspector.UIString("Features"), WebInspector.UIString("Enter Tag"));
 
         fontStyleRow.element.appendChild(properties.fontStyle.element);
-        fontStyleRow.element.appendChild(properties.fontVariant.element);
+        fontStyleRow.element.appendChild(properties.fontFeatureSettings.element);
 
         group.autocompleteCompatibleProperties = [properties.fontFamily];
+        group.specifiedWidthProperties = [properties.fontFamily];
 
-        var fontGroup = new WebInspector.DetailsSectionGroup([fontFamilyRow, fontSizeRow, fontStyleRow]);
+        let fontGroup = new WebInspector.DetailsSectionGroup([fontFamilyRow, fontSizeRow, fontStyleRow]);
         this._populateSection(group, [fontGroup]);
+    }
+
+    _populateFontVariantsSection()
+    {
+        let group = this._groups.fontVariants;
+        let properties = group.properties;
+
+        let alternatesRow = new WebInspector.DetailsSectionRow;
+
+        properties.fontVariantAlternates = new WebInspector.VisualStyleBasicInput("font-variant-alternates", WebInspector.UIString("Alternates"), WebInspector.UIString("Enter Value"));
+
+        alternatesRow.element.appendChild(properties.fontVariantAlternates.element);
+
+        let positionRow = new WebInspector.DetailsSectionRow;
+
+        properties.fontVariantPosition = new WebInspector.VisualStyleKeywordPicker("font-variant-position", WebInspector.UIString("Position"), this._keywords.normal.concat(["Sub", "Super"]));
+
+        positionRow.element.appendChild(properties.fontVariantPosition.element);
+
+        properties.fontVariantCaps = new WebInspector.VisualStyleKeywordPicker("font-variant-caps", WebInspector.UIString("Caps"), this._keywords.normal.concat(["None", "Small Caps", "All Small Caps", "Petite Caps", "All Petite Caps", "Unicase", "Titling Caps"]));
+
+        positionRow.element.appendChild(properties.fontVariantCaps.element);
+
+        let ligaturesRow = new WebInspector.DetailsSectionRow;
+
+        // FIXME <http://webkit.org/b/153645> Add token based editor for Visual Sidebar
+        properties.fontVariantLigatures = new WebInspector.VisualStyleKeywordPicker("font-variant-ligatures", WebInspector.UIString("Ligatures"), this._keywords.normal.concat(["None", "Common Ligatures", "No Common Ligatures", "Discretionary Ligatures", "No Discretionary Ligatures", "Historical Ligatures", "No Historical Ligatures", "Contextual", "No Contextual"]));
+
+        ligaturesRow.element.appendChild(properties.fontVariantLigatures.element);
+
+        properties.fontVariantNumeric = new WebInspector.VisualStyleKeywordPicker("font-variant-numeric", WebInspector.UIString("Numeric"), this._keywords.normal.concat(["None", "Ordinal", "Slashed Zero", "Lining Nums", "Oldstyle Nums", "Proportional Nums", "Tabular Nums", "Diagonal Fractions", "Stacked Fractions"]));
+
+        ligaturesRow.element.appendChild(properties.fontVariantNumeric.element);
+
+        let variantsGroup = new WebInspector.DetailsSectionGroup([alternatesRow, positionRow, ligaturesRow]);
+        this._populateSection(group, [variantsGroup]);
     }
 
     _populateTextSpacingSection()
     {
-        var group = this._groups.textSpacing;
-        var properties = group.properties;
+        let group = this._groups.textSpacing;
+        let properties = group.properties;
 
-        var defaultTextKeywords = this._keywords.defaults.concat(["Normal"]);
+        let textLayoutRow = new WebInspector.DetailsSectionRow;
 
-        var textLayoutRow = new WebInspector.DetailsSectionRow;
-
-        properties.lineHeight = new WebInspector.VisualStyleNumberInputBox("line-height", WebInspector.UIString("Height"), defaultTextKeywords, this._units.defaults);
+        properties.lineHeight = new WebInspector.VisualStyleNumberInputBox("line-height", WebInspector.UIString("Height"), this._keywords.normal, this._units.defaults);
         properties.verticalAlign = new WebInspector.VisualStyleNumberInputBox("vertical-align", WebInspector.UIString("Align"), ["Baseline", "Bottom"].concat(this._keywords.defaults, ["Middle", "Sub", "Super", "Text Bottom", "Text Top", "Top"]), this._units.defaults);
 
         textLayoutRow.element.appendChild(properties.lineHeight.element);
         textLayoutRow.element.appendChild(properties.verticalAlign.element);
 
-        var textSpacingRow = new WebInspector.DetailsSectionRow;
+        let textSpacingRow = new WebInspector.DetailsSectionRow;
 
-        properties.letterSpacing = new WebInspector.VisualStyleNumberInputBox("letter-spacing", WebInspector.UIString("Letter"), defaultTextKeywords, this._units.defaults);
-        properties.wordSpacing = new WebInspector.VisualStyleNumberInputBox("word-spacing", WebInspector.UIString("Word"), defaultTextKeywords, this._units.defaults);
+        properties.letterSpacing = new WebInspector.VisualStyleNumberInputBox("letter-spacing", WebInspector.UIString("Letter"), this._keywords.normal, this._units.defaults);
+        properties.wordSpacing = new WebInspector.VisualStyleNumberInputBox("word-spacing", WebInspector.UIString("Word"), this._keywords.normal, this._units.defaults);
 
         textSpacingRow.element.appendChild(properties.letterSpacing.element);
         textSpacingRow.element.appendChild(properties.wordSpacing.element);
 
-        var textWhitespaceRow = new WebInspector.DetailsSectionRow;
+        let textWhitespaceRow = new WebInspector.DetailsSectionRow;
 
         properties.textIndent = new WebInspector.VisualStyleNumberInputBox("text-indent", WebInspector.UIString("Indent"), this._keywords.defaults, this._units.defaults);
         properties.whiteSpace = new WebInspector.VisualStyleKeywordPicker("white-space", WebInspector.UIString("Whitespace"), this._keywords.defaults.concat(["Normal", "Nowrap", "Pre", "Pre Line", "Pre Wrap"]));
@@ -717,27 +789,27 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         textWhitespaceRow.element.appendChild(properties.textIndent.element);
         textWhitespaceRow.element.appendChild(properties.whiteSpace.element);
 
-        var textSpacingGroup = new WebInspector.DetailsSectionGroup([textLayoutRow, textSpacingRow, textWhitespaceRow]);
+        let textSpacingGroup = new WebInspector.DetailsSectionGroup([textLayoutRow, textSpacingRow, textWhitespaceRow]);
         this._populateSection(group, [textSpacingGroup]);
     }
 
     _populateTextShadowSection()
     {
-        var group = this._groups.textShadow;
-        var properties = group.properties;
+        let group = this._groups.textShadow;
+        let properties = group.properties;
 
-        var textShadowSizing = new WebInspector.DetailsSectionRow;
+        let textShadowSizing = new WebInspector.DetailsSectionRow;
 
-        var textShadowH = new WebInspector.VisualStyleNumberInputBox("text-shadow", WebInspector.UIString("Horizontal"), null, this._units.defaultsSansPercent);
-        var textShadowV = new WebInspector.VisualStyleNumberInputBox("text-shadow", WebInspector.UIString("Vertical"), null, this._units.defaultsSansPercent);
+        let textShadowH = new WebInspector.VisualStyleNumberInputBox("text-shadow", WebInspector.UIString("Horizontal"), null, this._units.defaultsSansPercent);
+        let textShadowV = new WebInspector.VisualStyleNumberInputBox("text-shadow", WebInspector.UIString("Vertical"), null, this._units.defaultsSansPercent);
 
         textShadowSizing.element.appendChild(textShadowH.element);
         textShadowSizing.element.appendChild(textShadowV.element);
 
-        var textShadowStyle = new WebInspector.DetailsSectionRow;
+        let textShadowStyle = new WebInspector.DetailsSectionRow;
 
-        var textShadowColor = new WebInspector.VisualStyleColorPicker("text-shadow", WebInspector.UIString("Color"));
-        var textShadowBlur = new WebInspector.VisualStyleNumberInputBox("text-shadow", WebInspector.UIString("Blur"), null, this._units.defaultsSansPercent);
+        let textShadowColor = new WebInspector.VisualStyleColorPicker("text-shadow", WebInspector.UIString("Color"));
+        let textShadowBlur = new WebInspector.VisualStyleNumberInputBox("text-shadow", WebInspector.UIString("Blur"), null, this._units.defaultsSansPercent);
         textShadowBlur.optionalProperty = true;
 
         textShadowStyle.element.appendChild(textShadowColor.element);
@@ -747,29 +819,38 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
 
         group.autocompleteCompatibleProperties = [textShadowColor];
 
-        var textShadowGroup = new WebInspector.DetailsSectionGroup([textShadowSizing, textShadowStyle]);
+        let textShadowGroup = new WebInspector.DetailsSectionGroup([textShadowSizing, textShadowStyle]);
         this._populateSection(group, [textShadowGroup]);
     }
 
     _populateBackgroundStyleSection()
     {
-        var group = this._groups.backgroundStyle;
-        var properties = group.properties;
+        let group = this._groups.backgroundStyle;
+        let properties = group.properties;
 
-        var backgroundStyleRow = new WebInspector.DetailsSectionRow;
+        let backgroundStyleRow = new WebInspector.DetailsSectionRow;
 
         properties.backgroundColor = new WebInspector.VisualStyleColorPicker("background-color", WebInspector.UIString("Color"));
-        properties.backgroundClip = new WebInspector.VisualStyleKeywordPicker("background-clip", WebInspector.UIString("Clip"), ["Inherit", "Border Box", "Padding Box", "Content Box"]);
+        properties.backgroundBlendMode = new WebInspector.VisualStyleKeywordPicker("background-blend-mode", WebInspector.UIString("Blend"), ["Normal", "Multiply", "Screen", "Overlay", "Darken", "Lighten", "Color", "Color Dodge", "Saturation", "Luminosity"]);
 
         backgroundStyleRow.element.appendChild(properties.backgroundColor.element);
-        backgroundStyleRow.element.appendChild(properties.backgroundClip.element);
+        backgroundStyleRow.element.appendChild(properties.backgroundBlendMode.element);
 
-        var backgroundSizeRow = new WebInspector.DetailsSectionRow;
+        let backgroundClipRow = new WebInspector.DetailsSectionRow;
 
-        var backgroundSizeKeywords = this._keywords.boxModel.concat(["Contain", "Cover"]);
-        var backgroundSizeX = new WebInspector.VisualStyleNumberInputBox("background-size", WebInspector.UIString("Width"), backgroundSizeKeywords, this._units.defaults);
+        let backgroundClipKeywords = ["Initial", "Border Box", "Padding Box", "Content Box"];
+        properties.backgroundClip = new WebInspector.VisualStyleKeywordPicker("background-clip", WebInspector.UIString("Clip"), backgroundClipKeywords);
+        properties.backgroundOrigin = new WebInspector.VisualStyleKeywordPicker("background-origin", WebInspector.UIString("Origin"), backgroundClipKeywords);
+
+        backgroundClipRow.element.appendChild(properties.backgroundClip.element);
+        backgroundClipRow.element.appendChild(properties.backgroundOrigin.element);
+
+        let backgroundSizeRow = new WebInspector.DetailsSectionRow;
+
+        let backgroundSizeKeywords = this._keywords.boxModel.concat(["Contain", "Cover"]);
+        let backgroundSizeX = new WebInspector.VisualStyleNumberInputBox("background-size", WebInspector.UIString("Width"), backgroundSizeKeywords, this._units.defaults);
         backgroundSizeX.masterProperty = true;
-        var backgroundSizeY = new WebInspector.VisualStyleNumberInputBox("background-size", WebInspector.UIString("Height"), backgroundSizeKeywords, this._units.defaults);
+        let backgroundSizeY = new WebInspector.VisualStyleNumberInputBox("background-size", WebInspector.UIString("Height"), backgroundSizeKeywords, this._units.defaults);
         backgroundSizeY.masterProperty = true;
 
         properties.backgroundSize = new WebInspector.VisualStylePropertyCombiner("background-size", [backgroundSizeX, backgroundSizeY]);
@@ -777,7 +858,7 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         backgroundSizeRow.element.appendChild(backgroundSizeX.element);
         backgroundSizeRow.element.appendChild(backgroundSizeY.element);
 
-        var backgroundRow = new WebInspector.DetailsSectionRow;
+        let backgroundRow = new WebInspector.DetailsSectionRow;
 
         properties.background = new WebInspector.VisualStyleCommaSeparatedKeywordEditor("background", null, {
             "background-image": "none",
@@ -788,56 +869,57 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
 
         backgroundRow.element.appendChild(properties.background.element);
 
-        var backgroundImageRow = new WebInspector.DetailsSectionRow;
+        let backgroundImageRow = new WebInspector.DetailsSectionRow;
 
-        var backgroundImage = new WebInspector.VisualStyleBackgroundPicker("background-image", WebInspector.UIString("Type"), this._keywords.defaults.concat(["None"]));
+        let backgroundImage = new WebInspector.VisualStyleBackgroundPicker("background-image", WebInspector.UIString("Type"), this._keywords.defaults.concat(["None"]));
 
         backgroundImageRow.element.appendChild(backgroundImage.element);
 
-        var backgroundPositionRow = new WebInspector.DetailsSectionRow;
+        let backgroundPositionRow = new WebInspector.DetailsSectionRow;
 
-        var backgroundPositionX = new WebInspector.VisualStyleNumberInputBox("background-position", WebInspector.UIString("Position X"), ["Center", "Left", "Right"], this._units.defaults);
+        let backgroundPositionX = new WebInspector.VisualStyleNumberInputBox("background-position", WebInspector.UIString("Position X"), ["Center", "Left", "Right"], this._units.defaults);
         backgroundPositionX.optionalProperty = true;
-        var backgroundPositionY = new WebInspector.VisualStyleNumberInputBox("background-position", WebInspector.UIString("Position Y"), ["Bottom", "Center", "Top"], this._units.defaults);
+        let backgroundPositionY = new WebInspector.VisualStyleNumberInputBox("background-position", WebInspector.UIString("Position Y"), ["Bottom", "Center", "Top"], this._units.defaults);
         backgroundPositionY.optionalProperty = true;
 
         backgroundPositionRow.element.appendChild(backgroundPositionX.element);
         backgroundPositionRow.element.appendChild(backgroundPositionY.element);
 
-        var backgroundRepeatRow = new WebInspector.DetailsSectionRow;
+        let backgroundRepeatRow = new WebInspector.DetailsSectionRow;
 
-        var backgroundRepeat = new WebInspector.VisualStyleKeywordPicker("background-repeat", WebInspector.UIString("Repeat"), this._keywords.defaults.concat(["No Repeat", "Repeat", "Repeat X", "Repeat Y"]));
+        let backgroundRepeat = new WebInspector.VisualStyleKeywordPicker("background-repeat", WebInspector.UIString("Repeat"), this._keywords.defaults.concat(["No Repeat", "Repeat", "Repeat X", "Repeat Y"]));
         backgroundRepeat.optionalProperty = true;
-        var backgroundAttachment = new WebInspector.VisualStyleKeywordPicker("background-attachment", WebInspector.UIString("Attach"), this._keywords.defaults.concat(["Fixed", "Local", "Scroll"]));
+        let backgroundAttachment = new WebInspector.VisualStyleKeywordPicker("background-attachment", WebInspector.UIString("Attach"), this._keywords.defaults.concat(["Fixed", "Local", "Scroll"]));
         backgroundAttachment.optionalProperty = true;
 
         backgroundRepeatRow.element.appendChild(backgroundRepeat.element);
         backgroundRepeatRow.element.appendChild(backgroundAttachment.element);
 
-        var backgroundProperties = [backgroundImage, backgroundPositionX, backgroundPositionY, backgroundRepeat, backgroundAttachment];
-        var backgroundPropertyCombiner = new WebInspector.VisualStylePropertyCombiner("background", backgroundProperties);
+        let backgroundProperties = [backgroundImage, backgroundPositionX, backgroundPositionY, backgroundRepeat, backgroundAttachment];
+        let backgroundPropertyCombiner = new WebInspector.VisualStylePropertyCombiner("background", backgroundProperties);
 
-        var noRemainingCommaSeparatedEditorItems = this._noRemainingCommaSeparatedEditorItems.bind(this, backgroundPropertyCombiner, backgroundProperties);
+        let noRemainingCommaSeparatedEditorItems = this._noRemainingCommaSeparatedEditorItems.bind(this, backgroundPropertyCombiner, backgroundProperties);
         properties.background.addEventListener(WebInspector.VisualStyleCommaSeparatedKeywordEditor.Event.NoRemainingTreeItems, noRemainingCommaSeparatedEditorItems, this);
 
-        var selectedCommaSeparatedEditorItemValueChanged = this._selectedCommaSeparatedEditorItemValueChanged.bind(this, properties.background, backgroundPropertyCombiner);
+        let selectedCommaSeparatedEditorItemValueChanged = this._selectedCommaSeparatedEditorItemValueChanged.bind(this, properties.background, backgroundPropertyCombiner);
         backgroundPropertyCombiner.addEventListener(WebInspector.VisualStylePropertyEditor.Event.ValueDidChange, selectedCommaSeparatedEditorItemValueChanged, this);
 
-        var commaSeparatedEditorTreeItemSelected = this._commaSeparatedEditorTreeItemSelected.bind(backgroundPropertyCombiner);
+        let commaSeparatedEditorTreeItemSelected = this._commaSeparatedEditorTreeItemSelected.bind(backgroundPropertyCombiner);
         properties.background.addEventListener(WebInspector.VisualStyleCommaSeparatedKeywordEditor.Event.TreeItemSelected, commaSeparatedEditorTreeItemSelected, this);
 
         group.autocompleteCompatibleProperties = [properties.backgroundColor];
+        group.specifiedWidthProperties = [properties.background];
 
-        var backgroundStyleGroup = new WebInspector.DetailsSectionGroup([backgroundStyleRow, backgroundSizeRow, backgroundRow, backgroundImageRow, backgroundPositionRow, backgroundRepeatRow]);
+        let backgroundStyleGroup = new WebInspector.DetailsSectionGroup([backgroundStyleRow, backgroundClipRow, backgroundSizeRow, backgroundRow, backgroundImageRow, backgroundPositionRow, backgroundRepeatRow]);
         this._populateSection(group, [backgroundStyleGroup]);
     }
 
     _populateBorderSection()
     {
-        var group = this._groups.border;
-        var properties = group.properties;
+        let group = this._groups.border;
+        let properties = group.properties;
 
-        var borderAllSize = new WebInspector.DetailsSectionRow;
+        let borderAllSize = new WebInspector.DetailsSectionRow;
 
         properties.borderStyle = new WebInspector.VisualStyleKeywordPicker(["border-top-style", "border-right-style", "border-bottom-style", "border-left-style"] , WebInspector.UIString("Style"), this._keywords.borderStyle);
         properties.borderStyle.propertyReferenceName = "border-style";
@@ -847,7 +929,7 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         borderAllSize.element.appendChild(properties.borderStyle.element);
         borderAllSize.element.appendChild(properties.borderWidth.element);
 
-        var borderAllStyle = new WebInspector.DetailsSectionRow;
+        let borderAllStyle = new WebInspector.DetailsSectionRow;
 
         properties.borderColor = new WebInspector.VisualStyleColorPicker(["border-top-color", "border-right-color", "border-bottom-color", "border-left-color"], WebInspector.UIString("Color"));
         properties.borderColor.propertyReferenceName = "border-color";
@@ -857,10 +939,10 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         borderAllStyle.element.appendChild(properties.borderColor.element);
         borderAllStyle.element.appendChild(properties.borderRadius.element);
 
-        var borderAllProperties = [properties.borderStyle, properties.borderWidth, properties.borderColor, properties.borderRadius];
-        var borderAllGroup = new WebInspector.DetailsSectionGroup([borderAllSize, borderAllStyle]);
+        let borderAllProperties = [properties.borderStyle, properties.borderWidth, properties.borderColor, properties.borderRadius];
+        let borderAllGroup = new WebInspector.DetailsSectionGroup([borderAllSize, borderAllStyle]);
 
-        var borderTopSize = new WebInspector.DetailsSectionRow;
+        let borderTopSize = new WebInspector.DetailsSectionRow;
 
         properties.borderTopStyle = new WebInspector.VisualStyleKeywordPicker("border-top-style", WebInspector.UIString("Style"), this._keywords.borderStyle);
         properties.borderTopWidth = new WebInspector.VisualStyleNumberInputBox("border-top-width", WebInspector.UIString("Width"), this._keywords.borderWidth, this._units.defaults);
@@ -868,7 +950,7 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         borderTopSize.element.appendChild(properties.borderTopStyle.element);
         borderTopSize.element.appendChild(properties.borderTopWidth.element);
 
-        var borderTopStyle = new WebInspector.DetailsSectionRow;
+        let borderTopStyle = new WebInspector.DetailsSectionRow;
 
         properties.borderTopColor = new WebInspector.VisualStyleColorPicker("border-top-color", WebInspector.UIString("Color"));
         properties.borderTopRadius = new WebInspector.VisualStyleNumberInputBox(["border-top-left-radius", "border-top-right-radius"], WebInspector.UIString("Radius"), this._keywords.defaults, this._units.defaults);
@@ -876,10 +958,10 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         borderTopStyle.element.appendChild(properties.borderTopColor.element);
         borderTopStyle.element.appendChild(properties.borderTopRadius.element);
 
-        var borderTopProperties = [properties.borderTopStyle, properties.borderTopWidth, properties.borderTopColor, properties.borderTopRadius];
-        var borderTopGroup = new WebInspector.DetailsSectionGroup([borderTopSize, borderTopStyle]);
+        let borderTopProperties = [properties.borderTopStyle, properties.borderTopWidth, properties.borderTopColor, properties.borderTopRadius];
+        let borderTopGroup = new WebInspector.DetailsSectionGroup([borderTopSize, borderTopStyle]);
 
-        var borderRightSize = new WebInspector.DetailsSectionRow;
+        let borderRightSize = new WebInspector.DetailsSectionRow;
 
         properties.borderRightStyle = new WebInspector.VisualStyleKeywordPicker("border-right-style", WebInspector.UIString("Style"), this._keywords.borderStyle);
         properties.borderRightWidth = new WebInspector.VisualStyleNumberInputBox("border-right-width", WebInspector.UIString("Width"), this._keywords.borderWidth, this._units.defaults);
@@ -887,7 +969,7 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         borderRightSize.element.appendChild(properties.borderRightStyle.element);
         borderRightSize.element.appendChild(properties.borderRightWidth.element);
 
-        var borderRightStyle = new WebInspector.DetailsSectionRow;
+        let borderRightStyle = new WebInspector.DetailsSectionRow;
 
         properties.borderRightColor = new WebInspector.VisualStyleColorPicker("border-right-color", WebInspector.UIString("Color"));
         properties.borderRightRadius = new WebInspector.VisualStyleNumberInputBox(["border-top-right-radius", "border-bottom-right-radius"], WebInspector.UIString("Radius"), this._keywords.defaults, this._units.defaults);
@@ -895,10 +977,10 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         borderRightStyle.element.appendChild(properties.borderRightColor.element);
         borderRightStyle.element.appendChild(properties.borderRightRadius.element);
 
-        var borderRightProperties = [properties.borderRightStyle, properties.borderRightWidth, properties.borderRightColor, properties.borderRightRadius];
-        var borderRightGroup = new WebInspector.DetailsSectionGroup([borderRightSize, borderRightStyle]);
+        let borderRightProperties = [properties.borderRightStyle, properties.borderRightWidth, properties.borderRightColor, properties.borderRightRadius];
+        let borderRightGroup = new WebInspector.DetailsSectionGroup([borderRightSize, borderRightStyle]);
 
-        var borderBottomSize = new WebInspector.DetailsSectionRow;
+        let borderBottomSize = new WebInspector.DetailsSectionRow;
 
         properties.borderBottomStyle = new WebInspector.VisualStyleKeywordPicker("border-bottom-style", WebInspector.UIString("Style"), this._keywords.borderStyle);
         properties.borderBottomWidth = new WebInspector.VisualStyleNumberInputBox("border-bottom-width", WebInspector.UIString("Width"), this._keywords.borderWidth, this._units.defaults);
@@ -906,7 +988,7 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         borderBottomSize.element.appendChild(properties.borderBottomStyle.element);
         borderBottomSize.element.appendChild(properties.borderBottomWidth.element);
 
-        var borderBottomStyle = new WebInspector.DetailsSectionRow;
+        let borderBottomStyle = new WebInspector.DetailsSectionRow;
 
         properties.borderBottomColor = new WebInspector.VisualStyleColorPicker("border-bottom-color", WebInspector.UIString("Color"));
         properties.borderBottomRadius = new WebInspector.VisualStyleNumberInputBox(["border-bottom-left-radius", "border-bottom-right-radius"], WebInspector.UIString("Radius"), this._keywords.defaults, this._units.defaults);
@@ -914,10 +996,10 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         borderBottomStyle.element.appendChild(properties.borderBottomColor.element);
         borderBottomStyle.element.appendChild(properties.borderBottomRadius.element);
 
-        var borderBottomProperties = [properties.borderBottomStyle, properties.borderBottomWidth, properties.borderBottomColor, properties.borderBottomRadius];
-        var borderBottomGroup = new WebInspector.DetailsSectionGroup([borderBottomSize, borderBottomStyle]);
+        let borderBottomProperties = [properties.borderBottomStyle, properties.borderBottomWidth, properties.borderBottomColor, properties.borderBottomRadius];
+        let borderBottomGroup = new WebInspector.DetailsSectionGroup([borderBottomSize, borderBottomStyle]);
 
-        var borderLeftSize = new WebInspector.DetailsSectionRow;
+        let borderLeftSize = new WebInspector.DetailsSectionRow;
 
         properties.borderLeftStyle = new WebInspector.VisualStyleKeywordPicker("border-left-style", WebInspector.UIString("Style"), this._keywords.borderStyle);
         properties.borderLeftWidth = new WebInspector.VisualStyleNumberInputBox("border-left-width", WebInspector.UIString("Width"), this._keywords.borderWidth, this._units.defaults);
@@ -925,7 +1007,7 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         borderLeftSize.element.appendChild(properties.borderLeftStyle.element);
         borderLeftSize.element.appendChild(properties.borderLeftWidth.element);
 
-        var borderLeftStyle = new WebInspector.DetailsSectionRow;
+        let borderLeftStyle = new WebInspector.DetailsSectionRow;
 
         properties.borderLeftColor = new WebInspector.VisualStyleColorPicker("border-left-color", WebInspector.UIString("Color"));
         properties.borderLeftRadius = new WebInspector.VisualStyleNumberInputBox(["border-top-left-radius", "border-bottom-left-radius"], WebInspector.UIString("Radius"), this._keywords.defaults, this._units.defaults);
@@ -933,10 +1015,10 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
         borderLeftStyle.element.appendChild(properties.borderLeftColor.element);
         borderLeftStyle.element.appendChild(properties.borderLeftRadius.element);
 
-        var borderLeftProperties = [properties.borderLeftStyle, properties.borderLeftWidth, properties.borderLeftColor, properties.borderLeftRadius];
-        var borderLeftGroup = new WebInspector.DetailsSectionGroup([borderLeftSize, borderLeftStyle]);
+        let borderLeftProperties = [properties.borderLeftStyle, properties.borderLeftWidth, properties.borderLeftColor, properties.borderLeftRadius];
+        let borderLeftGroup = new WebInspector.DetailsSectionGroup([borderLeftSize, borderLeftStyle]);
 
-        var borderTabController = new WebInspector.VisualStyleTabbedPropertiesRow({
+        let borderTabController = new WebInspector.VisualStyleTabbedPropertiesRow({
             "all": {title: WebInspector.UIString("All"), element: borderAllGroup.element, properties: borderAllProperties},
             "top": {title: WebInspector.UIString("Top"), element: borderTopGroup.element, properties: borderTopProperties},
             "right": {title: WebInspector.UIString("Right"), element: borderRightGroup.element, properties: borderRightProperties},
@@ -944,112 +1026,220 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
             "left": {title: WebInspector.UIString("Left"), element: borderLeftGroup.element, properties: borderLeftProperties}
         });
 
-        var highlightMode = "border";
+        let highlightMode = "border";
         this._addMetricsMouseListeners(group.properties.borderWidth, highlightMode);
         this._addMetricsMouseListeners(group.properties.borderTopWidth, highlightMode);
         this._addMetricsMouseListeners(group.properties.borderBottomWidth, highlightMode);
         this._addMetricsMouseListeners(group.properties.borderLeftWidth, highlightMode);
         this._addMetricsMouseListeners(group.properties.borderRightWidth, highlightMode);
 
+        let borderGroup = new WebInspector.DetailsSectionGroup([borderTabController, borderAllGroup, borderTopGroup, borderRightGroup, borderBottomGroup, borderLeftGroup]);
+
+        let borderImageSourceRow = new WebInspector.DetailsSectionRow;
+
+        properties.borderImageSource = new WebInspector.VisualStyleURLInput("border-image-source", WebInspector.UIString("Image"), this._keywords.defaults.concat(["None"]));
+
+        borderImageSourceRow.element.appendChild(properties.borderImageSource.element);
+
+        let borderImageRepeatRow = new WebInspector.DetailsSectionRow;
+
+        let borderImageSliceFill = new WebInspector.VisualStyleKeywordCheckbox("border-image-slice", WebInspector.UIString("Fill"), "Fill");
+        borderImageSliceFill.optionalProperty = true;
+        properties.borderImageRepeat = new WebInspector.VisualStyleKeywordPicker("border-image-repeat", WebInspector.UIString("Repeat"), this._keywords.defaults.concat(["Stretch", "Repeat", "Round", "Space"]));
+
+        borderImageRepeatRow.element.appendChild(borderImageSliceFill.element);
+        borderImageRepeatRow.element.appendChild(properties.borderImageRepeat.element);
+
+        function generateBorderImagePropertyEditors(propertyName, keywords, units) {
+            let vertical = new WebInspector.DetailsSectionRow;
+
+            let top = new WebInspector.VisualStyleNumberInputBox(propertyName, WebInspector.UIString("Top"), keywords, units);
+            top.masterProperty = true;
+            let bottom = new WebInspector.VisualStyleNumberInputBox(propertyName, WebInspector.UIString("Bottom"), keywords, units);
+            bottom.masterProperty = true;
+
+            vertical.element.appendChild(top.element);
+            vertical.element.appendChild(bottom.element);
+
+            let horizontal = new WebInspector.DetailsSectionRow;
+
+            let left = new WebInspector.VisualStyleNumberInputBox(propertyName, WebInspector.UIString("Left"), keywords, units);
+            left.masterProperty = true;
+            let right = new WebInspector.VisualStyleNumberInputBox(propertyName, WebInspector.UIString("Right"), keywords, units);
+            right.masterProperty = true;
+
+            horizontal.element.appendChild(left.element);
+            horizontal.element.appendChild(right.element);
+
+            return {group: new WebInspector.DetailsSectionGroup([vertical, horizontal]), properties: [top, bottom, left, right]};
+        }
+
+        let nonKeywordUnits = [WebInspector.UIString("Number")];
+
+        let borderImageUnits = Object.shallowCopy(this._units.defaults);
+        borderImageUnits.basic = nonKeywordUnits.concat(borderImageUnits.basic);
+        let borderImageWidth = generateBorderImagePropertyEditors("border-image-width", this._keywords.boxModel, borderImageUnits);
+        properties.borderImageWidth = new WebInspector.VisualStylePropertyCombiner("border-image-width", borderImageWidth.properties, true);
+
+        let borderOutsetUnits = Object.shallowCopy(this._units.defaultsSansPercent);
+        borderOutsetUnits.basic = nonKeywordUnits.concat(borderOutsetUnits.basic);
+        let borderImageOutset = generateBorderImagePropertyEditors("border-image-outset", this._keywords.defaults, borderOutsetUnits);
+        properties.borderImageOutset = new WebInspector.VisualStylePropertyCombiner("border-image-outset", borderImageOutset.properties, true);
+
+        let borderImageSlice = generateBorderImagePropertyEditors("border-image-slice", this._keywords.defaults, ["%"].concat(nonKeywordUnits));
+        borderImageSlice.properties.push(borderImageSliceFill);
+        properties.borderImageSlice = new WebInspector.VisualStylePropertyCombiner("border-image-slice", borderImageSlice.properties, true);
+
+        let borderImagePropertiesTabController = new WebInspector.VisualStyleTabbedPropertiesRow({
+            "width": {title: WebInspector.UIString("Width"), element: borderImageWidth.group.element, properties: [properties.borderImageWidth]},
+            "outset": {title: WebInspector.UIString("Outset"), element: borderImageOutset.group.element, properties: [properties.borderImageOutset]},
+            "slice": {title: WebInspector.UIString("Slice"), element: borderImageSlice.group.element, properties: [properties.borderImageSlice]}
+        });
+
+        let borderImageGroup = new WebInspector.DetailsSectionGroup([borderImageSourceRow, borderImageRepeatRow, borderImagePropertiesTabController, borderImageWidth.group, borderImageOutset.group, borderImageSlice.group]);
+
         group.autocompleteCompatibleProperties = [properties.borderColor, properties.borderTopColor, properties.borderBottomColor, properties.borderLeftColor, properties.borderRightColor];
 
-        var borderGroup = new WebInspector.DetailsSectionGroup([borderTabController, borderAllGroup, borderTopGroup, borderRightGroup, borderBottomGroup, borderLeftGroup]);
-        this._populateSection(group, [borderGroup]);
+        this._populateSection(group, [borderGroup, borderImageGroup]);
+
+        let allowedBorderValues = ["solid", "dashed", "dotted", "double", "groove", "inset", "outset", "ridge"];
+        properties.borderWidth.addDependency(["border-top-style", "border-right-style", "border-bottom-style", "border-left-style"], allowedBorderValues);
+        properties.borderColor.addDependency(["border-top-style", "border-right-style", "border-bottom-style", "border-left-style"], allowedBorderValues);
+        properties.borderTopWidth.addDependency("border-top-style", allowedBorderValues);
+        properties.borderTopColor.addDependency("border-top-style", allowedBorderValues);
+        properties.borderRightWidth.addDependency("border-right-style", allowedBorderValues);
+        properties.borderRightColor.addDependency("border-right-style", allowedBorderValues);
+        properties.borderBottomWidth.addDependency("border-bottom-style", allowedBorderValues);
+        properties.borderBottomColor.addDependency("border-bottom-style", allowedBorderValues);
+        properties.borderLeftWidth.addDependency("border-left-style", allowedBorderValues);
+        properties.borderLeftColor.addDependency("border-left-style", allowedBorderValues);
     }
 
     _populateOutlineSection()
     {
-        var group = this._groups.outline;
-        var properties = group.properties;
+        let group = this._groups.outline;
+        let properties = group.properties;
 
-        var outlineSizeRow = new WebInspector.DetailsSectionRow;
-
-        properties.outlineWidth = new WebInspector.VisualStyleNumberInputBox("outline-width", WebInspector.UIString("Width"), this._keywords.borderWidth, this._units.defaults);
-        properties.outlineOffset = new WebInspector.VisualStyleNumberInputBox("outline-offset", WebInspector.UIString("Offset"), this._keywords.defaults, this._units.defaults, true);
-
-        outlineSizeRow.element.appendChild(properties.outlineWidth.element);
-        outlineSizeRow.element.appendChild(properties.outlineOffset.element);
-
-        var outlineStyleRow = new WebInspector.DetailsSectionRow;
+        let outlineSizeRow = new WebInspector.DetailsSectionRow;
 
         properties.outlineStyle = new WebInspector.VisualStyleKeywordPicker("outline-style" , WebInspector.UIString("Style"), this._keywords.borderStyle);
-        properties.outlineColor = new WebInspector.VisualStyleColorPicker("outline-color", WebInspector.UIString("Color"));
+        properties.outlineWidth = new WebInspector.VisualStyleNumberInputBox("outline-width", WebInspector.UIString("Width"), this._keywords.borderWidth, this._units.defaults);
 
-        outlineStyleRow.element.appendChild(properties.outlineStyle.element);
+        outlineSizeRow.element.appendChild(properties.outlineStyle.element);
+        outlineSizeRow.element.appendChild(properties.outlineWidth.element);
+
+        let outlineStyleRow = new WebInspector.DetailsSectionRow;
+
+        properties.outlineColor = new WebInspector.VisualStyleColorPicker("outline-color", WebInspector.UIString("Color"));
+        properties.outlineOffset = new WebInspector.VisualStyleNumberInputBox("outline-offset", WebInspector.UIString("Offset"), this._keywords.defaults, this._units.defaults, true);
+
         outlineStyleRow.element.appendChild(properties.outlineColor.element);
+        outlineStyleRow.element.appendChild(properties.outlineOffset.element);
 
         group.autocompleteCompatibleProperties = [properties.outlineColor];
 
-        var outlineGroup = new WebInspector.DetailsSectionGroup([outlineSizeRow, outlineStyleRow]);
+        let outlineGroup = new WebInspector.DetailsSectionGroup([outlineSizeRow, outlineStyleRow]);
         this._populateSection(group, [outlineGroup]);
+
+        let allowedOutlineValues = ["solid", "dashed", "dotted", "double", "groove", "inset", "outset", "ridge"];
+        properties.outlineWidth.addDependency("outline-style", allowedOutlineValues);
+        properties.outlineColor.addDependency("outline-style", allowedOutlineValues);
     }
 
     _populateBoxShadowSection()
     {
-        var group = this._groups.boxShadow;
-        var properties = group.properties;
+        let group = this._groups.boxShadow;
+        let properties = group.properties;
 
-        var boxShadowRow = new WebInspector.DetailsSectionRow;
+        let boxShadowRow = new WebInspector.DetailsSectionRow;
 
         properties.boxShadow = new WebInspector.VisualStyleCommaSeparatedKeywordEditor("box-shadow");
 
         boxShadowRow.element.appendChild(properties.boxShadow.element);
 
-        var boxShadowHRow = new WebInspector.DetailsSectionRow;
+        let boxShadowHRow = new WebInspector.DetailsSectionRow;
 
-        var boxShadowH = new WebInspector.VisualStyleRelativeNumberSlider("box-shadow", WebInspector.UIString("Left"), null, this._units.defaultsSansPercent, true);
+        let boxShadowH = new WebInspector.VisualStyleRelativeNumberSlider("box-shadow", WebInspector.UIString("Left"), null, this._units.defaultsSansPercent, true);
 
         boxShadowHRow.element.appendChild(boxShadowH.element);
 
-        var boxShadowVRow = new WebInspector.DetailsSectionRow;
+        let boxShadowVRow = new WebInspector.DetailsSectionRow;
 
-        var boxShadowV = new WebInspector.VisualStyleRelativeNumberSlider("box-shadow", WebInspector.UIString("Top"), null, this._units.defaultsSansPercent, true);
+        let boxShadowV = new WebInspector.VisualStyleRelativeNumberSlider("box-shadow", WebInspector.UIString("Top"), null, this._units.defaultsSansPercent, true);
 
         boxShadowVRow.element.appendChild(boxShadowV.element);
 
-        var boxShadowBlurRow = new WebInspector.DetailsSectionRow;
+        let boxShadowBlurRow = new WebInspector.DetailsSectionRow;
 
-        var boxShadowBlur = new WebInspector.VisualStyleNumberInputBox("box-shadow", WebInspector.UIString("Blur"), null, this._units.defaultsSansPercent);
+        let boxShadowBlur = new WebInspector.VisualStyleNumberInputBox("box-shadow", WebInspector.UIString("Blur"), null, this._units.defaultsSansPercent);
         boxShadowBlur.optionalProperty = true;
-        var boxShadowSpread = new WebInspector.VisualStyleNumberInputBox("box-shadow", WebInspector.UIString("Spread"), null, this._units.defaultsSansPercent, true);
+        let boxShadowSpread = new WebInspector.VisualStyleNumberInputBox("box-shadow", WebInspector.UIString("Spread"), null, this._units.defaultsSansPercent, true);
         boxShadowSpread.optionalProperty = true;
 
         boxShadowBlurRow.element.appendChild(boxShadowBlur.element);
         boxShadowBlurRow.element.appendChild(boxShadowSpread.element);
 
-        var boxShadowColorRow = new WebInspector.DetailsSectionRow;
+        let boxShadowColorRow = new WebInspector.DetailsSectionRow;
 
-        var boxShadowColor = new WebInspector.VisualStyleColorPicker("box-shadow", WebInspector.UIString("Color"));
-        var boxShadowInset = new WebInspector.VisualStyleKeywordCheckbox("box-shadow", WebInspector.UIString("Inset"), "Inset");
+        let boxShadowColor = new WebInspector.VisualStyleColorPicker("box-shadow", WebInspector.UIString("Color"));
+        let boxShadowInset = new WebInspector.VisualStyleKeywordCheckbox("box-shadow", WebInspector.UIString("Inset"), "Inset");
         boxShadowInset.optionalProperty = true;
 
         boxShadowColorRow.element.appendChild(boxShadowColor.element);
         boxShadowColorRow.element.appendChild(boxShadowInset.element);
 
-        var boxShadowProperties = [boxShadowH, boxShadowV, boxShadowBlur, boxShadowSpread, boxShadowColor, boxShadowInset];
-        var boxShadowPropertyCombiner = new WebInspector.VisualStylePropertyCombiner("box-shadow", boxShadowProperties);
+        let boxShadowProperties = [boxShadowH, boxShadowV, boxShadowBlur, boxShadowSpread, boxShadowColor, boxShadowInset];
+        let boxShadowPropertyCombiner = new WebInspector.VisualStylePropertyCombiner("box-shadow", boxShadowProperties);
 
-        var noRemainingCommaSeparatedEditorItems = this._noRemainingCommaSeparatedEditorItems.bind(this, boxShadowPropertyCombiner, boxShadowProperties);
+        let noRemainingCommaSeparatedEditorItems = this._noRemainingCommaSeparatedEditorItems.bind(this, boxShadowPropertyCombiner, boxShadowProperties);
         properties.boxShadow.addEventListener(WebInspector.VisualStyleCommaSeparatedKeywordEditor.Event.NoRemainingTreeItems, noRemainingCommaSeparatedEditorItems, this);
 
-        var selectedCommaSeparatedEditorItemValueChanged = this._selectedCommaSeparatedEditorItemValueChanged.bind(this, properties.boxShadow, boxShadowPropertyCombiner);
+        let selectedCommaSeparatedEditorItemValueChanged = this._selectedCommaSeparatedEditorItemValueChanged.bind(this, properties.boxShadow, boxShadowPropertyCombiner);
         boxShadowPropertyCombiner.addEventListener(WebInspector.VisualStylePropertyEditor.Event.ValueDidChange, selectedCommaSeparatedEditorItemValueChanged, this);
 
-        var commaSeparatedEditorTreeItemSelected = this._commaSeparatedEditorTreeItemSelected.bind(boxShadowPropertyCombiner);
+        let commaSeparatedEditorTreeItemSelected = this._commaSeparatedEditorTreeItemSelected.bind(boxShadowPropertyCombiner);
         properties.boxShadow.addEventListener(WebInspector.VisualStyleCommaSeparatedKeywordEditor.Event.TreeItemSelected, commaSeparatedEditorTreeItemSelected, this);
 
         group.autocompleteCompatibleProperties = [boxShadowColor];
+        group.specifiedWidthProperties = [properties.boxShadow];
 
-        var boxShadow = new WebInspector.DetailsSectionGroup([boxShadowRow, boxShadowHRow, boxShadowVRow, boxShadowBlurRow, boxShadowColorRow]);
+        let boxShadow = new WebInspector.DetailsSectionGroup([boxShadowRow, boxShadowHRow, boxShadowVRow, boxShadowBlurRow, boxShadowColorRow]);
         this._populateSection(group, [boxShadow]);
+    }
+
+    _populateListStyleSection()
+    {
+        let group = this._groups.listStyle;
+        let properties = group.properties;
+
+        let listStyleTypeRow = new WebInspector.DetailsSectionRow;
+
+        properties.listStyleType = new WebInspector.VisualStyleKeywordPicker("list-style-type", WebInspector.UIString("Type"), {
+            basic: this._keywords.defaults.concat(["None", "Circle", "Disc", "Square", "Decimal", "Lower Alpha", "Upper Alpha", "Lower Roman", "Upper Roman"]),
+            advanced: ["Decimal Leading Zero", "Asterisks", "Footnotes", "Binary", "Octal", "Lower Hexadecimal", "Upper Hexadecimal", "Lower Latin", "Upper Latin", "Lower Greek", "Upper Greek", "Arabic Indic", "Hebrew", "Hiragana", "Katakana", "Hiragana Iroha", "Katakana Iroha", "CJK Earthly Branch", "CJK Heavenly Stem", "CJK Ideographic", "Bengali", "Cambodian", "Khmer", "Devanagari", "Gujarati", "Gurmukhi", "Kannada", "Lao", "Malayalam", "Mongolian", "Myanmar", "Oriya", "Persian", "Urdu", "Telugu", "Armenian", "Lower Armenian", "Upper Armenian", "Georgian", "Tibetan", "Thai", "Afar", "Hangul Consonant", "Hangul", "Lower Norwegian", "Upper Norwegian", "Ethiopic", "Ethiopic Halehame Gez", "Ethiopic Halehame Aa Et", "Ethiopic Halehame Aa Er", "Oromo", "Ethiopic Halehame Om Et", "Sidama", "Ethiopic Halehame Sid Et", "Somali", "Ethiopic Halehame So Et", "Amharic", "Ethiopic Halehame Am Et", "Tigre", "Ethiopic Halehame Tig", "Tigrinya Er", "Ethiopic Halehame Ti Er", "Tigrinya Et", "Ethiopic Halehame Ti Et", "Ethiopic Abegede", "Ethiopic Abegede Gez", "Amharic Abegede", "Ethiopic Abegede Am Et", "Tigrinya Er Abegede", "Ethiopic Abegede Ti Er", "Tigrinya Et Abegede", "Ethiopic Abegede Ti Et"]
+        });
+
+        properties.listStylePosition = new WebInspector.VisualStyleKeywordIconList("list-style-position", WebInspector.UIString("Position"), ["Outside", "Inside", "Initial"]);
+
+        listStyleTypeRow.element.appendChild(properties.listStyleType.element);
+        listStyleTypeRow.element.appendChild(properties.listStylePosition.element);
+
+        let listStyleImageRow = new WebInspector.DetailsSectionRow;
+
+        properties.listStyleImage = new WebInspector.VisualStyleURLInput("list-style-image", WebInspector.UIString("Image"), this._keywords.defaults.concat(["None"]));
+
+        listStyleImageRow.element.appendChild(properties.listStyleImage.element);
+
+        let listStyle = new WebInspector.DetailsSectionGroup([listStyleTypeRow, listStyleImageRow]);
+        this._populateSection(group, [listStyle]);
     }
 
     _populateTransitionSection()
     {
-        var group = this._groups.transition;
-        var properties = group.properties;
+        let group = this._groups.transition;
+        let properties = group.properties;
 
-        var transitionRow = new WebInspector.DetailsSectionRow;
+        let transitionRow = new WebInspector.DetailsSectionRow;
 
         properties.transition = new WebInspector.VisualStyleCommaSeparatedKeywordEditor("transition", null, {
             "transition-property": "all",
@@ -1060,40 +1250,130 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
 
         transitionRow.element.appendChild(properties.transition.element);
 
-        var transitionPropertyRow = new WebInspector.DetailsSectionRow;
+        let transitionPropertyRow = new WebInspector.DetailsSectionRow;
 
-        var transitionProperty = new WebInspector.VisualStylePropertyNameInput("transition-property", WebInspector.UIString("Property"));
-        var transitionTiming = new WebInspector.VisualStyleTimingEditor("transition-timing-function", WebInspector.UIString("Timing"), ["Linear", "Ease", "Ease In", "Ease Out", "Ease In Out"]);
+        let transitionProperty = new WebInspector.VisualStylePropertyNameInput("transition-property", WebInspector.UIString("Property"));
+        transitionProperty.masterProperty = true;
+        let transitionTiming = new WebInspector.VisualStyleTimingEditor("transition-timing-function", WebInspector.UIString("Timing"), ["Linear", "Ease", "Ease In", "Ease Out", "Ease In Out"]);
+        transitionTiming.optionalProperty = true;
 
         transitionPropertyRow.element.appendChild(transitionProperty.element);
         transitionPropertyRow.element.appendChild(transitionTiming.element);
 
-        var transitionDurationRow = new WebInspector.DetailsSectionRow;
+        let transitionDurationRow = new WebInspector.DetailsSectionRow;
 
-        var transitionTimeKeywords = ["s", "ms"];
-        var transitionDuration = new WebInspector.VisualStyleNumberInputBox("transition-duration", WebInspector.UIString("Duration"), null, transitionTimeKeywords);
-        var transitionDelay = new WebInspector.VisualStyleNumberInputBox("transition-delay", WebInspector.UIString("Delay"), null, transitionTimeKeywords);
+        let transitionTimeKeywords = ["s", "ms"];
+        let transitionDuration = new WebInspector.VisualStyleNumberInputBox("transition-duration", WebInspector.UIString("Duration"), null, transitionTimeKeywords);
+        transitionDuration.optionalProperty = true;
+        let transitionDelay = new WebInspector.VisualStyleNumberInputBox("transition-delay", WebInspector.UIString("Delay"), null, transitionTimeKeywords);
         transitionDelay.optionalProperty = true;
 
         transitionDurationRow.element.appendChild(transitionDuration.element);
         transitionDurationRow.element.appendChild(transitionDelay.element);
 
-        var transitionProperties = [transitionProperty, transitionTiming, transitionDuration, transitionDelay];
-        var transitionPropertyCombiner = new WebInspector.VisualStylePropertyCombiner("transition", transitionProperties);
+        let transitionProperties = [transitionProperty, transitionDuration, transitionTiming, transitionDelay];
+        let transitionPropertyCombiner = new WebInspector.VisualStylePropertyCombiner("transition", transitionProperties);
 
-        var noRemainingCommaSeparatedEditorItems = this._noRemainingCommaSeparatedEditorItems.bind(this, transitionPropertyCombiner, transitionProperties);
+        let noRemainingCommaSeparatedEditorItems = this._noRemainingCommaSeparatedEditorItems.bind(this, transitionPropertyCombiner, transitionProperties);
         properties.transition.addEventListener(WebInspector.VisualStyleCommaSeparatedKeywordEditor.Event.NoRemainingTreeItems, noRemainingCommaSeparatedEditorItems, this);
 
-        var selectedCommaSeparatedEditorItemValueChanged = this._selectedCommaSeparatedEditorItemValueChanged.bind(this, properties.transition, transitionPropertyCombiner);
+        let selectedCommaSeparatedEditorItemValueChanged = this._selectedCommaSeparatedEditorItemValueChanged.bind(this, properties.transition, transitionPropertyCombiner);
         transitionPropertyCombiner.addEventListener(WebInspector.VisualStylePropertyEditor.Event.ValueDidChange, selectedCommaSeparatedEditorItemValueChanged, this);
 
-        var commaSeparatedEditorTreeItemSelected = this._commaSeparatedEditorTreeItemSelected.bind(transitionPropertyCombiner);
+        let commaSeparatedEditorTreeItemSelected = this._commaSeparatedEditorTreeItemSelected.bind(transitionPropertyCombiner);
         properties.transition.addEventListener(WebInspector.VisualStyleCommaSeparatedKeywordEditor.Event.TreeItemSelected, commaSeparatedEditorTreeItemSelected, this);
 
         group.autocompleteCompatibleProperties = [transitionProperty];
+        group.specifiedWidthProperties = [properties.transition];
 
-        var transitionGroup = new WebInspector.DetailsSectionGroup([transitionRow, transitionPropertyRow, transitionDurationRow]);
+        let transitionGroup = new WebInspector.DetailsSectionGroup([transitionRow, transitionPropertyRow, transitionDurationRow]);
         this._populateSection(group, [transitionGroup]);
+    }
+
+    _populateAnimationSection()
+    {
+        let group = this._groups.animation;
+        let properties = group.properties;
+
+        let animationRow = new WebInspector.DetailsSectionRow;
+
+        properties.animation = new WebInspector.VisualStyleCommaSeparatedKeywordEditor("animation", null, {
+            "animation-name": "none",
+            "animation-timing-function": "ease",
+            "animation-iteration-count": "1",
+            "animation-duration": "0",
+            "animation-delay": "0",
+            "animation-direction": "normal",
+            "animation-fill-mode": "none",
+            "animation-play-state": "running"
+        });
+
+        animationRow.element.appendChild(properties.animation.element);
+
+        let animationNameRow = new WebInspector.DetailsSectionRow;
+
+        let animationName = new WebInspector.VisualStyleBasicInput("animation-name", WebInspector.UIString("Name"), WebInspector.UIString("Enter the name of a Keyframe"));
+        animationName.masterProperty = true;
+
+        animationNameRow.element.appendChild(animationName.element);
+
+        let animationTimingRow = new WebInspector.DetailsSectionRow;
+
+        let animationTiming = new WebInspector.VisualStyleTimingEditor("animation-timing-function", WebInspector.UIString("Timing"), ["Linear", "Ease", "Ease In", "Ease Out", "Ease In Out"]);
+        animationTiming.optionalProperty = true;
+        let animationIterationCount = new WebInspector.VisualStyleNumberInputBox("animation-iteration-count", WebInspector.UIString("Iterations"), this._keywords.defaults.concat(["Infinite"]), null);
+        animationIterationCount.optionalProperty = true;
+
+        animationTimingRow.element.appendChild(animationTiming.element);
+        animationTimingRow.element.appendChild(animationIterationCount.element);
+
+        let animationDurationRow = new WebInspector.DetailsSectionRow;
+
+        let animationTimeKeywords = ["s", "ms"];
+        let animationDuration = new WebInspector.VisualStyleNumberInputBox("animation-duration", WebInspector.UIString("Duration"), null, animationTimeKeywords);
+        animationDuration.optionalProperty = true;
+        let animationDelay = new WebInspector.VisualStyleNumberInputBox("animation-delay", WebInspector.UIString("Delay"), null, animationTimeKeywords);
+        animationDelay.optionalProperty = true;
+
+        animationDurationRow.element.appendChild(animationDuration.element);
+        animationDurationRow.element.appendChild(animationDelay.element);
+
+        let animationDirectionRow = new WebInspector.DetailsSectionRow;
+
+        let animationDirection = new WebInspector.VisualStyleKeywordPicker("animation-direction", WebInspector.UIString("Direction"), {
+            basic: this._keywords.normal.concat(["Reverse"]),
+            advanced: ["Alternate", "Alternate Reverse"]
+        });
+        animationDirection.optionalProperty = true;
+        let animationFillMode = new WebInspector.VisualStyleKeywordPicker("animation-fill-mode", WebInspector.UIString("Fill Mode"), this._keywords.defaults.concat(["None", "Forwards", "Backwards", "Both"]));
+        animationFillMode.optionalProperty = true;
+
+        animationDirectionRow.element.appendChild(animationDirection.element);
+        animationDirectionRow.element.appendChild(animationFillMode.element);
+
+        let animationStateRow = new WebInspector.DetailsSectionRow;
+
+        let animationPlayState = new WebInspector.VisualStyleKeywordIconList("animation-play-state", WebInspector.UIString("State"), ["Running", "Paused", "Initial"]);
+        animationPlayState.optionalProperty = true;
+
+        animationStateRow.element.appendChild(animationPlayState.element);
+
+        let animationProperties = [animationName, animationDuration, animationTiming, animationDelay, animationIterationCount, animationDirection, animationFillMode, animationPlayState];
+        let animationPropertyCombiner = new WebInspector.VisualStylePropertyCombiner("animation", animationProperties);
+
+        let noRemainingCommaSeparatedEditorItems = this._noRemainingCommaSeparatedEditorItems.bind(this, animationPropertyCombiner, animationProperties);
+        properties.animation.addEventListener(WebInspector.VisualStyleCommaSeparatedKeywordEditor.Event.NoRemainingTreeItems, noRemainingCommaSeparatedEditorItems, this);
+
+        let selectedCommaSeparatedEditorItemValueChanged = this._selectedCommaSeparatedEditorItemValueChanged.bind(this, properties.animation, animationPropertyCombiner);
+        animationPropertyCombiner.addEventListener(WebInspector.VisualStylePropertyEditor.Event.ValueDidChange, selectedCommaSeparatedEditorItemValueChanged, this);
+
+        let commaSeparatedEditorTreeItemSelected = this._commaSeparatedEditorTreeItemSelected.bind(animationPropertyCombiner);
+        properties.animation.addEventListener(WebInspector.VisualStyleCommaSeparatedKeywordEditor.Event.TreeItemSelected, commaSeparatedEditorTreeItemSelected, this);
+
+        group.specifiedWidthProperties = [properties.animation];
+
+        let animationGroup = new WebInspector.DetailsSectionGroup([animationRow, animationNameRow, animationTimingRow, animationDurationRow, animationDirectionRow, animationStateRow]);
+        this._populateSection(group, [animationGroup]);
     }
 
     _noRemainingCommaSeparatedEditorItems(propertyCombiner, propertyEditors)
@@ -1102,7 +1382,7 @@ WebInspector.VisualStyleDetailsPanel = class VisualStyleDetailsPanel extends Web
             return;
 
         propertyCombiner.updateValuesFromText("");
-        for (var editor of propertyEditors)
+        for (let editor of propertyEditors)
             editor.disabled = true;
     }
 

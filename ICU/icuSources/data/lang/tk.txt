@@ -1,15 +1,15 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2014 International Business Machines
+// * Copyright (C) 2015 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/tk.xml
 // *
 // ***************************************************************************
-/**
- * ICU <specials> source: <path>/common/main/tk.xml
- */
 tk{
+    Keys{
+        calendar{"Senenama"}
+    }
     Languages{
         ar{"arapça"}
         az{"azerbaýjança"}
@@ -39,5 +39,20 @@ tk{
         Cyrl{"kiril"}
         Latn{"latin"}
     }
-    Version{"2.1.6.69"}
+    Types{
+        calendar{
+            buddhist{"Buddist senenamasy"}
+            chinese{"Hytaý senenamasy"}
+            dangi{"Dangi senenamasy"}
+            ethiopic{"Efiopik senenamasy"}
+            gregorian{"Gregorýan senenamasy"}
+            hebrew{"Ýewreý senenamasy"}
+            islamic{"Yslam senenamasy"}
+            iso8601{"ISO-8601 senenamasy"}
+            japanese{"Ýapon senenamasy"}
+            persian{"Pars senenamasy"}
+            roc{"Minguo senenamasy"}
+        }
+    }
+    Version{"2.1.19.77"}
 }

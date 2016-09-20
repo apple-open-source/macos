@@ -37,7 +37,7 @@
  */
 
 #pragma D option bufpolicy=ring
-#pragma D option bufsize=4k
+#pragma D option bufsize=808
 
 profile:::profile-1009hz
 {
@@ -74,7 +74,7 @@ profile-1543hz
 profile-1361hz
 {}
 
-tick-1sec
+tick-200msec
 /i++ >= 10/
 {
 	exit(0);

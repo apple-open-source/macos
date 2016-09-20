@@ -58,7 +58,7 @@ static CFDataRef SecCopyDataFromHexString(CFStringRef string) {
 	CFDataSetLength(data, length / 2);
 	bytes = CFDataGetMutableBytePtr(data);
 
-	CFStringInlineBuffer buf;
+    CFStringInlineBuffer buf = {};
 	CFRange range = { 0, length };
 	CFStringInitInlineBuffer(string, &buf, range);
 	UInt8 lastv = 0;

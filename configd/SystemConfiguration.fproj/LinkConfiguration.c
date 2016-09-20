@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2007, 2010, 2011, 2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2007, 2010, 2011, 2013, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -42,10 +42,7 @@
 #include <netinet/in.h>
 #include <netinet/ip6.h>			// for IPV6_MMTU
 
-#include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCPrivate.h>	// for SCLog()
 #include "SCNetworkConfigurationInternal.h"	// for __SCNetworkInterfaceCreatePrivate
-#include <SystemConfiguration/SCValidation.h>
 
 #include <IOKit/IOKitLib.h>
 #include <IOKit/network/IONetworkInterface.h>
@@ -905,9 +902,9 @@ _SCNetworkInterfaceIsPhysicalEthernet(SCNetworkInterfaceRef interface)
 }
 
 static Boolean
-__getMTULimits(char	ifr_name[IFNAMSIZ],
-	       int	*mtu_min,
-	       int	*mtu_max)
+__getIOMTULimits(char	ifr_name[IFNAMSIZ],
+		 int	*mtu_min,
+		 int	*mtu_max)
 {
 	int			ifType		= 0;
 	io_iterator_t		io_iter		= 0;
@@ -1056,7 +1053,40 @@ SCNetworkInterfaceCopyMTU(SCNetworkInterfaceRef	interface,
 				*mtu_max = devmtu_p->ifdm_max;
 			}
 		} else {
-			(void)__getMTULimits(ifr.ifr_name, mtu_min, mtu_max);
+			ok = __getIOMTULimits(ifr.ifr_name, mtu_min, mtu_max);
+			if (!ok) {
+				CFStringRef	interfaceType;
+
+				interfaceType = SCNetworkInterfaceGetInterfaceType(interface);
+				if (CFEqual(interfaceType, kSCNetworkInterfaceTypeBridge)) {
+					CFIndex		i;
+					CFArrayRef	members;
+					CFIndex		n;
+
+					members = SCBridgeInterfaceGetMemberInterfaces(interface);
+					n = (members != NULL) ? CFArrayGetCount(members) : 0;
+					if (n > 1) {
+						if (mtu_min)	*mtu_min = IF_MINMTU;
+						if (mtu_max)	*mtu_max = IF_MAXMTU;
+					}
+					for (i = 0; i < n; i++) {
+						SCNetworkInterfaceRef	member;
+						int			member_mtu_min;
+						int			member_mtu_max;
+
+						member = CFArrayGetValueAtIndex(members, i);
+						ok = SCNetworkInterfaceCopyMTU(member, NULL, &member_mtu_min, &member_mtu_max);
+						if (ok) {
+							if ((mtu_min != NULL) && (*mtu_min < member_mtu_min)) {
+								*mtu_min = member_mtu_min;	// min MTU needs to be higher
+							}
+							if ((mtu_max != NULL) && (*mtu_max > member_mtu_max)) {
+								*mtu_max = member_mtu_max;	// max MTU needs to be lower
+							}
+						}
+					}
+				}
+			}
 		}
 
 		if (mtu_min != NULL) {

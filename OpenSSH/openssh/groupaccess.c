@@ -44,45 +44,28 @@
 #include "log.h"
 
 #ifdef __APPLE_MEMBERSHIP__
-// SPI for 5235093
 int32_t getgrouplist_2(const char *, gid_t, gid_t **);
-int32_t getgroupcount(const char *, gid_t);
 #endif
 
 static int ngroups;
 static char **groups_byname;
-#ifdef __APPLE_MEMBERSHIP__
-uuid_t u_uuid;
-#endif
 
 /*
  * Initialize group access list for user with primary (base) and
  * supplementary groups.  Return the number of groups in the list.
  */
 int
-ga_init(struct passwd *pw)
+ga_init(const char *user, gid_t base)
 {
-	gid_t *groups_bygid = NULL;
+	gid_t *groups_bygid;
 	int i, j;
 	struct group *gr;
-
-#ifdef __APPLE_MEMBERSHIP__
-	if (0 != mbr_uid_to_uuid(pw->pw_uid, u_uuid))
-		return 0;
-#endif
 
 	if (ngroups > 0)
 		ga_free();
 
-#ifndef __APPLE_MEMBERSHIP__
-	ngroups = NGROUPS_MAX;
-#if defined(HAVE_SYSCONF) && defined(_SC_NGROUPS_MAX)
-	ngroups = MAX(NGROUPS_MAX, sysconf(_SC_NGROUPS_MAX));
-#endif	
-	groups_bygid = xcalloc(ngroups, sizeof(*groups_bygid));
-#else
-	if (-1 == (ngroups = getgrouplist_2(pw->pw_name, pw->pw_gid,
-	    &groups_bygid))) {
+#ifdef __APPLE_MEMBERSHIP__
+	if ((ngroups = getgrouplist_2(user, base, &groups_bygid)) == -1) {
 		logit("getgrouplist_2 failed");
 		/*
 		 * getgrouplist_2 only fails on memory error; in which case
@@ -90,15 +73,19 @@ ga_init(struct passwd *pw)
 		 */
 		return 0;
 	}
-#endif
 	groups_byname = xcalloc(ngroups, sizeof(*groups_byname));
-#ifndef __APPLE_MEMBERSHIP__
-	if (getgrouplist(pw->pw_name, pw->pw_gid, groups_bygid, &ngroups) == -1) {
-	    logit("getgrouplist: groups list too small");
-		free(groups_bygid);
-		return 0;
-	}
+#else
+	ngroups = NGROUPS_MAX;
+#if defined(HAVE_SYSCONF) && defined(_SC_NGROUPS_MAX)
+	ngroups = MAX(NGROUPS_MAX, sysconf(_SC_NGROUPS_MAX));
 #endif
+
+	groups_bygid = xcalloc(ngroups, sizeof(*groups_bygid));
+	groups_byname = xcalloc(ngroups, sizeof(*groups_byname));
+
+	if (getgrouplist(user, base, groups_bygid, &ngroups) == -1)
+		logit("getgrouplist: groups list too small");
+#endif /* __APPLE_MEMBERSHIP__ */
 	for (i = 0, j = 0; i < ngroups; i++)
 		if ((gr = getgrgid(groups_bygid[i])) != NULL)
 			groups_byname[j++] = xstrdup(gr->gr_name);
@@ -109,7 +96,6 @@ ga_init(struct passwd *pw)
 /*
  * Return 1 if one of user's groups is contained in groups.
  * Return 0 otherwise.  Use match_pattern() for string comparison.
- * Use mbr_check_membership() for membership checking on Mac OS X.
  */
 int
 ga_match(char * const *groups, int n)

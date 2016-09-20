@@ -58,21 +58,6 @@
 
 static int kTestTestCount = 58;
 
-static bool SOSAccountAddiCloudIdentity(SOSAccountRef account, SOSCircleRef circle, SecKeyRef user_key, CFErrorRef *error) {
-    bool result = false;
-    SOSFullPeerInfoRef cloud_identity = NULL;
-    SOSPeerInfoRef cloud_peer = GenerateNewCloudIdentityPeerInfo(error);
-    require_quiet(cloud_peer, err_out);
-    cloud_identity = CopyCloudKeychainIdentity(cloud_peer, error);
-    CFReleaseNull(cloud_peer);
-    require_quiet(cloud_identity, err_out);
-    require_quiet(SOSCircleRequestAdmission(circle, user_key, cloud_identity, error), err_out);
-    require_quiet(SOSCircleAcceptRequest(circle, user_key, account->my_identity, SOSFullPeerInfoGetPeerInfo(cloud_identity), error), err_out);
-    result = true;
-err_out:
-    return result;
-}
-
 static bool SOSAccountResetCircleToNastyOffering(SOSAccountRef account, SecKeyRef userPriv, SOSPeerInfoRef pi, CFErrorRef *error) {
     bool result = false;
     SecKeyRef userPub = SecKeyCreatePublicFromPrivate(userPriv);
@@ -146,12 +131,12 @@ static bool performiCloudIdentityAttack(SOSAccountRef attacker, SOSAccountRef de
     ProcessChangesUntilNoChange(changes, defender, accomplice, attacker, NULL);
     
     /*----- Now use our fake iCloud identity to get in to the circle for real -----*/
-    require_action_quiet(SOSAccountJoinCirclesAfterRestore(attacker, &error), testDone, retval = true);
+    require_action_quiet(SOSAccountJoinCirclesAfterRestore_wTxn(attacker, &error), testDone, retval = true);
     CFReleaseNull(error);
     require_action_quiet(countPeers(attacker) == 2, testDone, retval = true);
     
     /*----- Let's see if carole can get bob into the circle and have alice believe it -----*/
-    require_action_quiet(SOSAccountJoinCircles(accomplice, &error), testDone, retval = true);
+    require_action_quiet(SOSAccountJoinCircles_wTxn(accomplice, &error), testDone, retval = true);
     CFReleaseNull(error);
     
     ProcessChangesUntilNoChange(changes, defender, accomplice, attacker, NULL);
@@ -197,12 +182,12 @@ static void tests(void)
     
     ok(SOSAccountAssertUserCredentialsAndUpdate(carole_account, cfaccount, cfpassword, &error), "Credential setting (%@)", error);
     CFReleaseNull(error);
-    ok(SOSAccountResetToOffering(alice_account, &error), "Reset to offering (%@)", error);
+    ok(SOSAccountResetToOffering_wTxn(alice_account, &error), "Reset to offering (%@)", error);
     CFReleaseNull(error);
     
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, NULL), 2, "updates");
     
-    ok(SOSAccountJoinCircles(bob_account, &error), "Bob Applies (%@)", error);
+    ok(SOSAccountJoinCircles_wTxn(bob_account, &error), "Bob Applies (%@)", error);
     CFReleaseNull(error);
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, NULL), 2, "updates");
     

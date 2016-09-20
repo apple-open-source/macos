@@ -30,6 +30,7 @@
 #include "CacheValidation.h"
 #include "HTTPHeaderNames.h"
 #include "HTTPParsers.h"
+#include "ParsedContentRange.h"
 #include "ResourceResponse.h"
 #include <wtf/CurrentTime.h>
 #include <wtf/MathExtras.h>
@@ -38,15 +39,9 @@
 
 namespace WebCore {
 
-inline const ResourceResponse& ResourceResponseBase::asResourceResponse() const
-{
-    return *static_cast<const ResourceResponse*>(this);
-}
-
 ResourceResponseBase::ResourceResponseBase()
     : m_isNull(true)
     , m_expectedContentLength(0)
-    , m_includesCertificateInfo(false)
     , m_httpStatusCode(0)
 {
 }
@@ -57,52 +52,59 @@ ResourceResponseBase::ResourceResponseBase(const URL& url, const String& mimeTyp
     , m_mimeType(mimeType)
     , m_expectedContentLength(expectedLength)
     , m_textEncodingName(textEncodingName)
-    , m_includesCertificateInfo(true) // Empty but valid for synthetic responses.
+    , m_certificateInfo(CertificateInfo()) // Empty but valid for synthetic responses.
     , m_httpStatusCode(0)
 {
 }
 
-std::unique_ptr<ResourceResponse> ResourceResponseBase::adopt(std::unique_ptr<CrossThreadResourceResponseData> data)
+ResourceResponseBase::CrossThreadData ResourceResponseBase::crossThreadData() const
 {
-    auto response = std::make_unique<ResourceResponse>();
-    response->setURL(data->m_url);
-    response->setMimeType(data->m_mimeType);
-    response->setExpectedContentLength(data->m_expectedContentLength);
-    response->setTextEncodingName(data->m_textEncodingName);
+    CrossThreadData data;
 
-    response->setHTTPStatusCode(data->m_httpStatusCode);
-    response->setHTTPStatusText(data->m_httpStatusText);
-    response->setHTTPVersion(data->m_httpVersion);
+    data.url = url().isolatedCopy();
+    data.mimeType = mimeType().isolatedCopy();
+    data.expectedContentLength = expectedContentLength();
+    data.textEncodingName = textEncodingName().isolatedCopy();
 
-    response->lazyInit(AllFields);
-    response->m_httpHeaderFields.adopt(WTF::move(data->m_httpHeaders));
-    response->m_resourceLoadTiming = data->m_resourceLoadTiming;
-    response->doPlatformAdopt(WTF::move(data));
+    data.httpStatusCode = httpStatusCode();
+    data.httpStatusText = httpStatusText().isolatedCopy();
+    data.httpVersion = httpVersion().isolatedCopy();
+
+    data.httpHeaderFields = httpHeaderFields().isolatedCopy();
+    data.resourceLoadTiming = m_resourceLoadTiming.isolatedCopy();
+    data.type = m_type;
+    data.isRedirected = m_isRedirected;
+
+    return data;
+}
+
+ResourceResponse ResourceResponseBase::fromCrossThreadData(CrossThreadData&& data)
+{
+    ResourceResponse response;
+
+    response.setURL(data.url);
+    response.setMimeType(data.mimeType);
+    response.setExpectedContentLength(data.expectedContentLength);
+    response.setTextEncodingName(data.textEncodingName);
+
+    response.setHTTPStatusCode(data.httpStatusCode);
+    response.setHTTPStatusText(data.httpStatusText);
+    response.setHTTPVersion(data.httpVersion);
+
+    response.m_httpHeaderFields = WTFMove(data.httpHeaderFields);
+    response.m_resourceLoadTiming = data.resourceLoadTiming;
+    response.m_type = data.type;
+    response.m_isRedirected = data.isRedirected;
+
     return response;
 }
 
-std::unique_ptr<CrossThreadResourceResponseData> ResourceResponseBase::copyData() const
-{
-    auto data = std::make_unique<CrossThreadResourceResponseData>();
-    data->m_url = url().isolatedCopy();
-    data->m_mimeType = mimeType().isolatedCopy();
-    data->m_expectedContentLength = expectedContentLength();
-    data->m_textEncodingName = textEncodingName().isolatedCopy();
-    data->m_httpStatusCode = httpStatusCode();
-    data->m_httpStatusText = httpStatusText().isolatedCopy();
-    data->m_httpVersion = httpVersion().isolatedCopy();
-    data->m_httpHeaders = httpHeaderFields().copyData();
-    data->m_resourceLoadTiming = m_resourceLoadTiming;
-    return asResourceResponse().doPlatformCopyData(WTF::move(data));
-}
-
+// FIXME: Name does not make it clear this is true for HTTPS!
 bool ResourceResponseBase::isHTTP() const
 {
     lazyInit(CommonFieldsOnly);
 
-    String protocol = m_url.protocol();
-
-    return equalIgnoringCase(protocol, "http")  || equalIgnoringCase(protocol, "https");
+    return m_url.protocolIsInHTTPFamily();
 }
 
 const URL& ResourceResponseBase::url() const
@@ -178,20 +180,20 @@ void ResourceResponseBase::setTextEncodingName(const String& encodingName)
 
 void ResourceResponseBase::includeCertificateInfo() const
 {
-    if (m_includesCertificateInfo)
+    if (m_certificateInfo)
         return;
     m_certificateInfo = static_cast<const ResourceResponse*>(this)->platformCertificateInfo();
-    m_includesCertificateInfo = true;
-}
-
-CertificateInfo ResourceResponseBase::certificateInfo() const
-{
-    return m_certificateInfo;
 }
 
 String ResourceResponseBase::suggestedFilename() const
 {
     return static_cast<const ResourceResponse*>(this)->platformSuggestedFilename();
+}
+
+bool ResourceResponseBase::isSuccessful() const
+{
+    int code = httpStatusCode();
+    return code >= 200 && code < 300;
 }
 
 int ResourceResponseBase::httpStatusCode() const
@@ -301,6 +303,10 @@ void ResourceResponseBase::updateHeaderParsedState(HTTPHeaderName name)
         m_haveParsedLastModifiedHeader = false;
         break;
 
+    case HTTPHeaderName::ContentRange:
+        m_haveParsedContentRangeHeader = false;
+        break;
+
     default:
         break;
     }
@@ -330,15 +336,22 @@ void ResourceResponseBase::setHTTPHeaderField(HTTPHeaderName name, const String&
     // FIXME: Should invalidate or update platform response if present.
 }
 
-void ResourceResponseBase::addHTTPHeaderField(const String& name, const String& value)
+void ResourceResponseBase::addHTTPHeaderField(HTTPHeaderName name, const String& value)
 {
     lazyInit(AllFields);
+    updateHeaderParsedState(name);
+    m_httpHeaderFields.add(name, value);
+}
 
+void ResourceResponseBase::addHTTPHeaderField(const String& name, const String& value)
+{
     HTTPHeaderName headerName;
     if (findHTTPHeaderName(name, headerName))
-        updateHeaderParsedState(headerName);
-
-    m_httpHeaderFields.add(name, value);
+        addHTTPHeaderField(headerName, value);
+    else {
+        lazyInit(AllFields);
+        m_httpHeaderFields.add(name, value);
+    }
 }
 
 const HTTPHeaderMap& ResourceResponseBase::httpHeaderFields() const
@@ -462,19 +475,35 @@ Optional<std::chrono::system_clock::time_point> ResourceResponseBase::lastModifi
     return m_lastModified;
 }
 
+static ParsedContentRange parseContentRangeInHeader(const HTTPHeaderMap& headers)
+{
+    String contentRangeValue = headers.get(HTTPHeaderName::ContentRange);
+    if (contentRangeValue.isEmpty())
+        return ParsedContentRange();
+
+    return ParsedContentRange(contentRangeValue);
+}
+
+ParsedContentRange& ResourceResponseBase::contentRange() const
+{
+    lazyInit(CommonFieldsOnly);
+
+    if (!m_haveParsedContentRangeHeader) {
+        m_contentRange = parseContentRangeInHeader(m_httpHeaderFields);
+        m_haveParsedContentRangeHeader = true;
+    }
+
+    return m_contentRange;
+}
+
 bool ResourceResponseBase::isAttachment() const
 {
     lazyInit(AllFields);
 
-    String value = m_httpHeaderFields.get(HTTPHeaderName::ContentDisposition);
-    size_t loc = value.find(';');
-    if (loc != notFound)
-        value = value.left(loc);
-    value = value.stripWhiteSpace();
-
-    return equalIgnoringCase(value, "attachment");
+    auto value = m_httpHeaderFields.get(HTTPHeaderName::ContentDisposition);
+    return equalLettersIgnoringASCIICase(value.left(value.find(';')).stripWhiteSpace(), "attachment");
 }
-  
+
 ResourceResponseBase::Source ResourceResponseBase::source() const
 {
     lazyInit(AllFields);

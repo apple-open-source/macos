@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2011-2016 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -100,6 +100,15 @@ void PolicyEngine::evaluate(CFURLRef path, AuthorityType type, SecAssessmentFlag
 }
 
 
+//
+// Create GKE whitelist filter screens.
+// These are strings that are used to determine quickly whether unsigned code may
+// have a GKE-style whitelist entry in the authority database. The idea is to make
+// up a decent hash quickly.
+//
+// Note: We continue to use SHA1 here for compatibility of existing GKE entries.
+// These are a prescreen, backed up by code signature checks later on. Use of SHA1 here is not a security problem.
+//
 static std::string createWhitelistScreen(char type, const Byte *digest, size_t length)
 {
 	char buffer[2*length + 2];
@@ -107,6 +116,38 @@ static std::string createWhitelistScreen(char type, const Byte *digest, size_t l
 	for (size_t n = 0; n < length; n++)
 		sprintf(buffer + 1 + 2*n, "%02.2x", digest[n]);
 	return buffer;
+}
+
+static std::string createWhitelistScreen(SecStaticCodeRef code)
+{
+	DiskRep *rep = SecStaticCode::requiredStatic(code)->diskRep();
+	std::string screen;
+	if (CFRef<CFDataRef> info = rep->component(cdInfoSlot)) {
+		// has an Info.plist - hash it
+		SHA1 hash;
+		hash.update(CFDataGetBytePtr(info), CFDataGetLength(info));
+		SHA1::Digest digest;
+		hash.finish(digest);
+		return createWhitelistScreen('I', digest, sizeof(digest));
+	} else if (CFRef<CFDataRef> repSpecific = rep->component(cdRepSpecificSlot)) {
+		// has a rep-specific slot - hash that (this catches disk images cheaply)
+		// got invented after SHA-1 deprecation, so we'll use SHA256, which is the new default
+		CCHashInstance hash(kCCDigestSHA256);
+		hash.update(CFDataGetBytePtr(repSpecific), CFDataGetLength(repSpecific));
+		Byte digest[256/8];
+		hash.finish(digest);
+		return createWhitelistScreen('R', digest, sizeof(digest));
+	} else if (rep->mainExecutableImage()) {
+		// stand-alone Mach-O executables are always candidates
+		return "N";
+	} else {
+		// if everything else fails, hash the (single) file
+		SHA1 hash;
+		hashFileData(rep->mainExecutablePath().c_str(), &hash);
+		SHA1::Digest digest;
+		hash.finish(digest);
+		return createWhitelistScreen('M', digest, sizeof(digest));
+	}
 }
 
 
@@ -154,7 +195,7 @@ void PolicyEngine::evaluateCodeItem(SecStaticCodeRef code, CFURLRef path, Author
 		}
 		
 		// current rule is first rule (in priority order) that matched. Apply it
-		if (nested)	// success, nothing to record
+		if (nested && allow)			// success, nothing to record
 			return;
 
 		CFRef<CFDictionaryRef> info;	// as needed
@@ -194,7 +235,7 @@ void PolicyEngine::evaluateCodeItem(SecStaticCodeRef code, CFURLRef path, Author
 			}
 		}
 		cfadd(result, "{%O=%B}", kSecAssessmentAssessmentVerdict, allow);
-		addAuthority(flags, result, label, id);
+		addAuthority(flags, result, label, id, NULL, false, ruleFlags);
 		return;
 	}
 	
@@ -229,30 +270,7 @@ void PolicyEngine::adjustValidation(SecStaticCodeRef code)
 bool PolicyEngine::temporarySigning(SecStaticCodeRef code, AuthorityType type, CFURLRef path, SecAssessmentFlags matchFlags)
 {
 	if (matchFlags == 0) {	// playback; consult authority table for matches
-		DiskRep *rep = SecStaticCode::requiredStatic(code)->diskRep();
-		std::string screen;
-		if (CFRef<CFDataRef> info = rep->component(cdInfoSlot)) {
-			SHA1 hash;
-			hash.update(CFDataGetBytePtr(info), CFDataGetLength(info));
-			SHA1::Digest digest;
-			hash.finish(digest);
-			screen = createWhitelistScreen('I', digest, sizeof(digest));
-		} else if (CFRef<CFDataRef> repSpecific = rep->component(cdRepSpecificSlot)) {
-			// got invented after SHA-1 deprecation, so we'll use SHA256, which is the new default
-			CCHashInstance hash(kCCDigestSHA256);
-			hash.update(CFDataGetBytePtr(repSpecific), CFDataGetLength(repSpecific));
-			Byte digest[256/8];
-			hash.finish(digest);
-			screen = createWhitelistScreen('R', digest, sizeof(digest));
-		} else if (rep->mainExecutableImage()) {
-			screen = "N";
-		} else {
-			SHA1 hash;
-			hashFileData(rep->mainExecutablePath().c_str(), &hash);
-			SHA1::Digest digest;
-			hash.finish(digest);
-			screen = createWhitelistScreen('M', digest, sizeof(digest));
-		}
+		std::string screen = createWhitelistScreen(code);
 		SQLite::Statement query(*this,
 			"SELECT flags FROM authority "
 			"WHERE type = :type"
@@ -272,6 +290,9 @@ bool PolicyEngine::temporarySigning(SecStaticCodeRef code, AuthorityType type, C
 		CFRef<CFDataRef> signature = CFDataCreateMutable(NULL, 0);
 		CFTemp<CFMutableDictionaryRef> arguments("{%O=%O, %O=#N, %O=%d}", kSecCodeSignerDetached, signature.get(), kSecCodeSignerIdentity,
 			kSecCodeSignerDigestAlgorithm, (matchFlags & kAuthorityFlagWhitelistSHA256) ? kSecCodeSignatureHashSHA256 : kSecCodeSignatureHashSHA1);
+		// for modern whitelist entries, neuter the identifier since it may be derived from the filename
+		if (matchFlags & kAuthorityFlagWhitelistSHA256)
+			CFDictionaryAddValue(arguments, kSecCodeSignerIdentifier, CFSTR("ADHOC"));
 		CFRef<SecCodeSignerRef> signer;
 		MacOSError::check(SecCodeSignerCreate(arguments, (matchFlags & kAuthorityFlagWhitelistV2) ? kSecCSSignOpaque : kSecCSSignV1, &signer.aref()));
 		MacOSError::check(SecCodeSignerAddSignature(signer, code, kSecCSDefaultFlags));
@@ -318,9 +339,11 @@ bool PolicyEngine::temporarySigning(SecStaticCodeRef code, AuthorityType type, C
 void PolicyEngine::evaluateCode(CFURLRef path, AuthorityType type, SecAssessmentFlags flags, CFDictionaryRef context, CFMutableDictionaryRef result, bool handleUnsigned)
 {
 	// not really a Gatekeeper function... but reject all "hard quarantined" files because they were made from sandboxed sources without download privilege
-	FileQuarantine qtn(cfString(path).c_str());
-	if (qtn.flag(QTN_FLAG_HARD))
-		MacOSError::throwMe(errSecCSFileHardQuarantined);
+    if (type == kAuthorityExecute) {
+        FileQuarantine qtn(cfString(path).c_str());
+        if (qtn.flag(QTN_FLAG_HARD))
+            MacOSError::throwMe(errSecCSFileHardQuarantined);
+    }
 	
 	// hack: if caller passed a UTI, use that to turn off app-only checks for some well-known ones
 	bool appOk = false;
@@ -354,8 +377,10 @@ void PolicyEngine::evaluateCode(CFURLRef path, AuthorityType type, SecAssessment
 	}
 
 	// ad-hoc sign unsigned code
+    bool wasAdhocSigned = false;
 	if (rc == errSecCSUnsigned && handleUnsigned && (!overrideAssessment(flags) || SYSPOLICY_RECORDER_MODE_ENABLED())) {
 		if (temporarySigning(code, type, path, 0)) {
+            wasAdhocSigned = true;
 			rc = errSecSuccess;		// clear unsigned; we are now well-signed
 			validationFlags |= kSecCSBasicValidateOnly;	// no need to re-validate deep contents
 		}
@@ -363,6 +388,7 @@ void PolicyEngine::evaluateCode(CFURLRef path, AuthorityType type, SecAssessment
 	
 	// prepare for deep traversal of (hopefully) good signatures
 	SecAssessmentFeedback feedback = SecAssessmentFeedback(CFDictionaryGetValue(context, kSecAssessmentContextKeyFeedback));
+	__block CFRef<CFMutableDictionaryRef> nestedFailure = NULL;	// save a nested failure for later
 	MacOSError::check(SecStaticCodeSetCallback(code, kSecCSDefaultFlags, NULL, ^CFTypeRef (SecStaticCodeRef item, CFStringRef cfStage, CFDictionaryRef info) {
 		string stage = cfString(cfStage);
 		if (stage == "prepared") {
@@ -378,8 +404,15 @@ void PolicyEngine::evaluateCode(CFURLRef path, AuthorityType type, SecAssessment
 			SecStaticCodeSetCallback(item, kSecCSDefaultFlags, NULL, NULL);		// clear callback to avoid unwanted recursion
 			evaluateCodeItem(item, path, type, flags, item != code, result);
 			if (CFTypeRef verdict = CFDictionaryGetValue(result, kSecAssessmentAssessmentVerdict))
-				if (CFEqual(verdict, kCFBooleanFalse))
-					return makeCFNumber(OSStatus(errSecCSVetoed));	// (signal nested-code policy failure, picked up below)
+				if (CFEqual(verdict, kCFBooleanFalse)) {
+					if (item == code)
+						return makeCFNumber(OSStatus(errSecCSVetoed));  // (signal nested-code policy failure, picked up below)
+					// nested code policy failure; save, reset, and continue
+					if (!nestedFailure)
+						nestedFailure = CFMutableDictionaryRef(CFDictionaryGetValue(result, kSecAssessmentAssessmentAuthority));
+					CFDictionaryRemoveValue(result, kSecAssessmentAssessmentAuthority);
+					CFDictionaryRemoveValue(result, kSecAssessmentAssessmentVerdict);
+				}
 		}
 		return NULL;
 	}));
@@ -396,6 +429,8 @@ void PolicyEngine::evaluateCode(CFURLRef path, AuthorityType type, SecAssessment
 		addAuthority(flags, result, "no usable signature");
 		return;
 	case errSecCSVetoed:		// nested code rejected by rule book; result was filled out there
+        if (wasAdhocSigned)
+            addToAuthority(result, kSecAssessmentAssessmentSource, CFSTR("no usable signature"));   // ad-hoc signature proved useless
 		return;
 	case errSecCSWeakResourceRules:
 	case errSecCSWeakResourceEnvelope:
@@ -436,6 +471,17 @@ void PolicyEngine::evaluateCode(CFURLRef path, AuthorityType type, SecAssessment
 	}
 	default:
 		MacOSError::throwMe(rc);
+	}
+	
+	if (nestedFailure && CFEqual(CFDictionaryGetValue(result, kSecAssessmentAssessmentVerdict), kCFBooleanTrue)) {
+		// structure intact, top level approved, nested code failed policy
+		CFMutableDictionaryRef authority = CFMutableDictionaryRef(CFDictionaryGetValue(result, kSecAssessmentAssessmentAuthority));
+		uint64_t ruleFlags = cfNumber<uint64_t>(CFNumberRef(CFDictionaryGetValue(authority, kSecAssessmentAssessmentAuthorityFlags)));
+		if (ruleFlags & kAuthorityFlagDefault) {
+			// default rule requires positive match at each nested code - reinstate failure
+			CFDictionaryReplaceValue(result, kSecAssessmentAssessmentVerdict, kCFBooleanFalse);
+			CFDictionaryReplaceValue(result, kSecAssessmentAssessmentAuthority, nestedFailure);
+		}
 	}
 }
 
@@ -570,6 +616,7 @@ void PolicyEngine::evaluateInstall(CFURLRef path, SecAssessmentFlags flags, CFDi
 //
 // Create a suitable policy array for verification of installer signatures.
 //
+#if !SECTRUST_OSX
 static SecPolicyRef makeCRLPolicy()
 {
 	CFRef<SecPolicyRef> policy;
@@ -595,13 +642,24 @@ static SecPolicyRef makeOCSPPolicy()
 	MacOSError::check(SecPolicySetValue(policy, &optData));
 	return policy.yield();
 }
+#else
+static SecPolicyRef makeRevocationPolicy()
+{
+	CFRef<SecPolicyRef> policy(SecPolicyCreateRevocation(kSecRevocationUseAnyAvailableMethod));
+	return policy.yield();
+}
+#endif
 
 static CFTypeRef installerPolicy()
 {
 	CFRef<SecPolicyRef> base = SecPolicyCreateBasicX509();
+#if !SECTRUST_OSX
 	CFRef<SecPolicyRef> crl = makeCRLPolicy();
 	CFRef<SecPolicyRef> ocsp = makeOCSPPolicy();
-	return makeCFArray(3, base.get(), crl.get(), ocsp.get());
+#else
+	CFRef<SecPolicyRef> revoc = makeRevocationPolicy();
+#endif
+	return makeCFArray(2, base.get(), revoc.get());
 }
 
 
@@ -612,8 +670,21 @@ static CFTypeRef installerPolicy()
 void PolicyEngine::evaluateDocOpen(CFURLRef path, SecAssessmentFlags flags, CFDictionaryRef context, CFMutableDictionaryRef result)
 {
 	if (context) {
+		FileQuarantine qtn(cfString(path).c_str());
+		if (CFDictionaryGetValue(context, kSecAssessmentContextKeyPrimarySignature) == kCFBooleanTrue) {
+			// Client requests that we focus on the code signature on this document and report on that.
+			// On this path, we care about the (code) signature on the document, not its risk assessment,
+			// and any exception is reported as a primary error.
+			if (qtn.flag(QTN_FLAG_ASSESSMENT_OK)) {
+				// previously added by user - hacked to say no/no usable signature to trigger proper DMG processing in XProtect
+				cfadd(result, "{%O=#F}", kSecAssessmentAssessmentVerdict);
+                addAuthority(flags, result, "no usable signature");
+				return;
+			}
+			evaluateCode(path, kAuthorityOpenDoc, flags, context, result, true);
+			return;
+		}
 		if (CFStringRef riskCategory = CFStringRef(CFDictionaryGetValue(context, kLSDownloadRiskCategoryKey))) {
-			FileQuarantine qtn(cfString(path).c_str());
 
 			if (CFEqual(riskCategory, kLSRiskCategorySafe)
 				|| CFEqual(riskCategory, kLSRiskCategoryNeutral)
@@ -624,6 +695,7 @@ void PolicyEngine::evaluateDocOpen(CFURLRef path, SecAssessmentFlags flags, CFDi
 			} else if (qtn.flag(QTN_FLAG_HARD)) {
 				MacOSError::throwMe(errSecCSFileHardQuarantined);
 			} else if (qtn.flag(QTN_FLAG_ASSESSMENT_OK)) {
+				// previously added by user
 				cfadd(result, "{%O=#T}", kSecAssessmentAssessmentVerdict);
 				addAuthority(flags, result, "Prior Assessment");
 			} else if (!overrideAssessment(flags)) {		// no need to do more work if we're off
@@ -650,7 +722,7 @@ void PolicyEngine::evaluateDocOpen(CFURLRef path, SecAssessmentFlags flags, CFDi
 //
 // Result-creation helpers
 //
-void PolicyEngine::addAuthority(SecAssessmentFlags flags, CFMutableDictionaryRef parent, const char *label, SQLite::int64 row, CFTypeRef cacheInfo, bool weak)
+void PolicyEngine::addAuthority(SecAssessmentFlags flags, CFMutableDictionaryRef parent, const char *label, SQLite::int64 row, CFTypeRef cacheInfo, bool weak, uint64_t ruleFlags)
 {
 	CFRef<CFMutableDictionaryRef> auth = makeCFMutableDictionary();
 	if (label && label[0])
@@ -661,6 +733,7 @@ void PolicyEngine::addAuthority(SecAssessmentFlags flags, CFMutableDictionaryRef
 		CFDictionaryAddValue(auth, kSecAssessmentAssessmentAuthorityOverride, kDisabledOverride);
 	if (cacheInfo)
 		CFDictionaryAddValue(auth, kSecAssessmentAssessmentFromCache, cacheInfo);
+	CFDictionaryAddValue(auth, kSecAssessmentAssessmentAuthorityFlags, CFTempNumber(ruleFlags));
 	if (weak) {
 		CFDictionaryAddValue(auth, kSecAssessmentAssessmentWeakSignature, kCFBooleanTrue);
 		CFDictionaryReplaceValue(parent, kSecAssessmentAssessmentAuthority, auth);
@@ -813,6 +886,9 @@ CFDictionaryRef PolicyEngine::disable(CFTypeRef target, AuthorityType type, SecA
 
 CFDictionaryRef PolicyEngine::find(CFTypeRef target, AuthorityType type, SecAssessmentFlags flags, CFDictionaryRef context)
 {
+    //for privacy reasons we only want to allow the admin to list the database
+    authorizeUpdate(flags, context);
+
 	SQLite::Statement query(*this);
 	selectRules(query, "SELECT scan_authority.id, scan_authority.type, scan_authority.requirement, scan_authority.allow, scan_authority.label, scan_authority.priority, scan_authority.remarks, scan_authority.expires, scan_authority.disabled, bookmarkhints.bookmark FROM scan_authority LEFT OUTER JOIN bookmarkhints ON scan_authority.id = bookmarkhints.authority",
 		"scan_authority", target, type, flags, context,
@@ -1062,10 +1138,7 @@ void PolicyEngine::normalizeTarget(CFRef<CFTypeRef> &target, AuthorityType type,
 		case errSecCSUnsigned:
 			if (signUnsigned && temporarySigning(code, type, path, kAuthorityFlagWhitelistV2 | kAuthorityFlagWhitelistSHA256)) {	// ad-hoc sign the code temporarily
 				MacOSError::check(SecCodeCopyDesignatedRequirement(code, kSecCSDefaultFlags, (SecRequirementRef *)&target.aref()));
-				CFRef<CFDictionaryRef> info;
-				MacOSError::check(SecCodeCopySigningInformation(code, kSecCSInternalInformation, &info.aref()));
-				if (CFDataRef cdData = CFDataRef(CFDictionaryGetValue(info, kSecCodeInfoCodeDirectory)))
-					*signUnsigned = ((const CodeDirectory *)CFDataGetBytePtr(cdData))->screeningCode();
+				*signUnsigned = createWhitelistScreen(code);
 				break;
 			}
 			MacOSError::check(rc);
@@ -1108,17 +1181,15 @@ void PolicyEngine::normalizeTarget(CFRef<CFTypeRef> &target, AuthorityType type,
 //
 static bool codeInvalidityExceptions(SecStaticCodeRef code, CFMutableDictionaryRef result)
 {
-	if (OSAIsRecognizedExecutableURL) {
-		CFRef<CFDictionaryRef> info;
-		MacOSError::check(SecCodeCopySigningInformation(code, kSecCSDefaultFlags, &info.aref()));
-		if (CFURLRef executable = CFURLRef(CFDictionaryGetValue(info, kSecCodeInfoMainExecutable))) {
-			SInt32 error;
-			if (OSAIsRecognizedExecutableURL(executable, &error)) {
-				if (result)
-					CFDictionaryAddValue(result,
-						kSecAssessmentAssessmentAuthorityOverride, CFSTR("ignoring known invalid applet signature"));
-				return true;
-			}
+	CFRef<CFDictionaryRef> info;
+	MacOSError::check(SecCodeCopySigningInformation(code, kSecCSDefaultFlags, &info.aref()));
+	if (CFURLRef executable = CFURLRef(CFDictionaryGetValue(info, kSecCodeInfoMainExecutable))) {
+		SInt32 error;
+		if (OSAIsRecognizedExecutableURL(executable, &error)) {
+			if (result)
+				CFDictionaryAddValue(result,
+					kSecAssessmentAssessmentAuthorityOverride, CFSTR("ignoring known invalid applet signature"));
+			return true;
 		}
 	}
 	return false;

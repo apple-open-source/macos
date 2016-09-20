@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2010-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2010-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -37,11 +37,11 @@
 #include <asl.h>
 #include <pthread.h>
 #include <sys/time.h>
+#include <os/log.h>
+#include <os/log_private.h>
 
-#include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCPrivate.h>
-#include "SCD.h"
 #include "SCDynamicStoreInternal.h"
+#include "SCD.h"
 #include "config.h"		/* MiG generated file */
 
 // asl logging
@@ -394,12 +394,71 @@ _SC_isInstallEnvironment() {
 	return is_install;
 }
 
-static void
-__SCLog(asl_object_t asl, asl_object_t msg, int level, CFStringRef formatString, va_list formatArguments)
+
+os_log_t
+_SC_LOG_DEFAULT()
 {
-	CFDataRef	line;
+	static os_log_t	log	= NULL;
+
+	if (log == NULL) {
+		log = os_log_create("com.apple.SystemConfiguration", "");
+	}
+
+	return log;
+}
+
+
+os_log_type_t
+_SC_syslog_os_log_mapping(int level)
+{
+	if (level < 0) {
+		level = ~level;
+	}
+
+	switch (level) {
+		case LOG_EMERG :
+		case LOG_ALERT :
+		case LOG_CRIT :
+			return OS_LOG_TYPE_ERROR;
+
+		case LOG_ERR :
+		case LOG_WARNING :
+		case LOG_NOTICE :
+			return OS_LOG_TYPE_DEFAULT;
+
+		case LOG_INFO :
+			return OS_LOG_TYPE_INFO;
+
+		case LOG_DEBUG :
+			return OS_LOG_TYPE_DEBUG;
+	}
+
+	return OS_LOG_TYPE_DEFAULT;
+};
+
+static void
+__SCLog(asl_object_t asl, asl_object_t msg, int level, void *ret_addr, CFStringRef formatString, va_list formatArguments)
+{
+	char		*line;
 	CFArrayRef	lines;
 	CFStringRef	str;
+
+	if ((asl == NULL) && (level >= 0)) {
+		const char	*__format;
+
+		__format = CFStringGetCStringPtr(formatString, kCFStringEncodingUTF8);
+		if (__format != NULL) {
+			os_log_type_t	__type;
+
+			__type = _SC_syslog_os_log_mapping(level);
+			os_log_with_args(_SC_LOG_DEFAULT(),
+					 __type,
+					 __format,
+					 formatArguments,
+					 ret_addr);
+			return;
+		}
+	}
 
 	if (asl == NULL) {
 		__SCThreadSpecificDataRef	tsd;
@@ -432,26 +491,26 @@ __SCLog(asl_object_t asl, asl_object_t msg, int level, CFStringRef formatString,
 			CFIndex	n	= CFArrayGetCount(lines);
 
 			for (i = 0; i < n; i++) {
-				line = CFStringCreateExternalRepresentation(NULL,
-									    CFArrayGetValueAtIndex(lines, i),
-									    kCFStringEncodingUTF8,
-									    (UInt8)'?');
-				if (line) {
-					asl_log(asl, msg, level, "%.*s", (int)CFDataGetLength(line), CFDataGetBytePtr(line));
-					CFRelease(line);
-				}
+				line =_SC_cfstring_to_cstring_ext(CFArrayGetValueAtIndex(lines, i),
+								  NULL,
+								  0,
+								  kCFStringEncodingUTF8,
+								  (UInt8)'?',
+								  NULL);
+				asl_log(asl, msg, level, "%s", line);
+				CFAllocatorDeallocate(NULL, line);
 			}
 			CFRelease(lines);
 		}
 	} else {
-		line = CFStringCreateExternalRepresentation(NULL,
-							    str,
-							    kCFStringEncodingUTF8,
-							    (UInt8)'?');
-		if (line) {
-			asl_log(asl, msg, ~level, "%.*s", (int)CFDataGetLength(line), CFDataGetBytePtr(line));
-			CFRelease(line);
-		}
+		line =_SC_cfstring_to_cstring_ext(str,
+						  NULL,
+						  0,
+						  kCFStringEncodingUTF8,
+						  (UInt8)'?',
+						  NULL);
+		asl_log(asl, msg, ~level, "%s", line);
+		CFAllocatorDeallocate(NULL, line);
 	}
 	CFRelease(str);
 	return;
@@ -461,8 +520,9 @@ __SCLog(asl_object_t asl, asl_object_t msg, int level, CFStringRef formatString,
 static void
 __SCPrint(FILE *stream, CFStringRef formatString, va_list formatArguments, Boolean trace, Boolean addNL)
 {
-	CFDataRef	line;
+	char		*line;
 	CFStringRef	str;
+	CFIndex		usedBufLen;
 
 #ifdef	ENABLE_SC_FORMATTING
 	str = _CFStringCreateWithFormatAndArgumentsAux(NULL,
@@ -477,10 +537,12 @@ __SCPrint(FILE *stream, CFStringRef formatString, va_list formatArguments, Boole
 						       formatArguments);
 #endif	/* !ENABLE_SC_FORMATTING */
 
-	line = CFStringCreateExternalRepresentation(NULL,
-						    str,
-						    kCFStringEncodingUTF8,
-						    (UInt8)'?');
+	line =_SC_cfstring_to_cstring_ext(str,
+					  NULL,
+					  0,
+					  kCFStringEncodingUTF8,
+					  (UInt8)'?',
+					  &usedBufLen);
 	CFRelease(str);
 	if (!line) {
 		return;
@@ -496,13 +558,13 @@ __SCPrint(FILE *stream, CFStringRef formatString, va_list formatArguments, Boole
 		(void)fprintf(stream, "%2d:%02d:%02d.%03d ",
 			      tm_now.tm_hour, tm_now.tm_min, tm_now.tm_sec, tv_now.tv_usec / 1000);
 	}
-	(void)fwrite((const void *)CFDataGetBytePtr(line), (size_t)CFDataGetLength(line), 1, stream);
+	(void)fwrite((const void *)line, usedBufLen, 1, stream);
 	if (addNL) {
 		(void)fputc('\n', stream);
 	}
 	fflush (stream);
 	pthread_mutex_unlock(&lock);
-	CFRelease(line);
+	CFAllocatorDeallocate(NULL, line);
 
 	return;
 }
@@ -542,7 +604,7 @@ SCLog(Boolean condition, int level, CFStringRef formatString, ...)
 	}
 
 	if (log) {
-		__SCLog(NULL, NULL, level, formatString, formatArguments);
+		__SCLog(NULL, NULL, level, __builtin_return_address(0), formatString, formatArguments);
 		va_end(formatArguments);
 	}
 
@@ -556,6 +618,68 @@ SCLog(Boolean condition, int level, CFStringRef formatString, ...)
 	}
 
 	return;
+}
+
+
+void
+__SC_Log(int level, CFStringRef format_CF, os_log_t log, os_log_type_t type, const char *format, ...)
+{
+	Boolean		do_log		= FALSE;
+	Boolean		do_print	= FALSE;
+	va_list		args_log;
+	va_list		args_print;
+
+	/*
+	 * Note: The following are the expected values for _sc_log
+	 *
+	 * 0 if SC messages should be written to stdout/stderr
+	 * 1 if SC messages should be logged w/asl(3)
+	 * 2 if SC messages should be written to stdout/stderr AND logged
+	 */
+
+	if (_sc_log > 0) {
+		log = TRUE;		// log requested
+		va_start(args_log, format);
+
+		if (_sc_log > 1) {
+			do_print = TRUE;	// log AND print requested
+			va_copy(args_print, args_log);
+		}
+	} else {
+		do_print = TRUE;		// print requested
+		va_start(args_print, format);
+	}
+
+	if (do_log) {
+		if (level >= 0) {
+			os_log_with_args(log,
+					 type,
+					 format,
+					 args_log,
+					 __builtin_return_address(0));
+		} else {
+			// if we need to break apart a multi-line message
+			__SCLog(NULL,
+				NULL,
+				level,
+				__builtin_return_address(0),
+				format_CF,
+				args_log);
+		}
+		va_end(args_log);
+	}
+
+	if (do_print) {
+		__SCPrint(stdout,
+			  format_CF,
+			  args_print,
+			  (_sc_log > 0),	// trace
+			  TRUE);		// add newline
+		va_end(args_print);
+	}
+
+	return;
+
 }
 
 
@@ -589,7 +713,7 @@ SCLOG(asl_object_t asl, asl_object_t msg, int level, CFStringRef formatString, .
 	}
 
 	if (log) {
-		__SCLog(asl, msg, level, formatString, formatArguments);
+		__SCLog(asl, msg, level, __builtin_return_address(0), formatString, formatArguments);
 		va_end(formatArguments);
 	}
 
@@ -620,21 +744,6 @@ SCPrint(Boolean condition, FILE *stream, CFStringRef formatString, ...)
 
 	va_start(formatArguments, formatString);
 	__SCPrint(stream, formatString, formatArguments, FALSE, FALSE);
-	va_end(formatArguments);
-
-	return;
-}
-
-
-void
-SCTrace(FILE *stream, CFStringRef formatString, ...)
-{
-	va_list		formatArguments;
-
-	va_start(formatArguments, formatString);
-	if (stream != NULL) {
-		__SCPrint(stream, formatString, formatArguments, TRUE, FALSE);
-	}
 	va_end(formatArguments);
 
 	return;
@@ -723,7 +832,6 @@ __SCLoggerAllocate(CFAllocatorRef allocator)
 						       __kSCLoggerTypeID,
 						       size,
 						       NULL);
-	bzero((void*)state + sizeof(CFRuntimeBase), size);
 	return (state);
 }
 
@@ -942,9 +1050,9 @@ SCLoggerGetDefaultLogger()
 	return defaultLogger;
 }
 
-void
-SCLoggerVLog(SCLoggerRef logger, int loglevel, CFStringRef formatString,
-	     va_list args)
+static void
+SCLoggerVLogInternal(SCLoggerRef logger, int loglevel, void *ret_addr,
+		     CFStringRef formatString, va_list args)
 {
 	asl_object_t	aslc;
 	asl_object_t	aslm;
@@ -960,7 +1068,7 @@ SCLoggerVLog(SCLoggerRef logger, int loglevel, CFStringRef formatString,
 	}
 	aslc = logger->aslc;
 	aslm = logger->aslm;
-	__SCLog(aslc, aslm, loglevel, formatString, args);
+	__SCLog(aslc, aslm, loglevel, ret_addr, formatString, args);
 	pthread_mutex_unlock(&(logger->lock));
 	return;
 }
@@ -971,9 +1079,16 @@ SCLoggerLog(SCLoggerRef logger, int loglevel, CFStringRef formatString, ...)
 	va_list	args;
 
 	va_start(args, formatString);
-	SCLoggerVLog(logger, loglevel, formatString, args);
+	SCLoggerVLogInternal(logger, loglevel, __builtin_return_address(0), formatString, args);
 	va_end(args);
 
+	return;
+}
+
+void
+SCLoggerVLog(SCLoggerRef logger, int loglevel, CFStringRef formatString, va_list args)
+{
+	SCLoggerVLogInternal(logger, loglevel, __builtin_return_address(0), formatString, args);
 	return;
 }
 

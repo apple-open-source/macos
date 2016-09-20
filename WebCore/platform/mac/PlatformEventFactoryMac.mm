@@ -38,20 +38,22 @@
 
 namespace WebCore {
 
-IntPoint globalPoint(const NSPoint& windowPoint, NSWindow *window)
+NSPoint globalPoint(const NSPoint& windowPoint, NSWindow *window)
 {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    return IntPoint(flipScreenPoint([window convertBaseToScreen:windowPoint], screenForWindow(window)));
+    return flipScreenPoint([window convertBaseToScreen:windowPoint], screen(window));
 #pragma clang diagnostic pop
 }
 
-static IntPoint globalPointForEvent(NSEvent *event)
+static NSPoint globalPointForEvent(NSEvent *event)
 {
     switch ([event type]) {
 #if defined(__LP64__) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101003
         case NSEventTypePressure:
 #endif
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         case NSLeftMouseDown:
         case NSLeftMouseDragged:
         case NSLeftMouseUp:
@@ -65,9 +67,10 @@ static IntPoint globalPointForEvent(NSEvent *event)
         case NSRightMouseDragged:
         case NSRightMouseUp:
         case NSScrollWheel:
+#pragma clang diagnostic pop
             return globalPoint([event locationInWindow], [event window]);
         default:
-            return IntPoint();
+            return { 0, 0 };
     }
 }
 
@@ -77,6 +80,8 @@ static IntPoint pointForEvent(NSEvent *event, NSView *windowView)
 #if defined(__LP64__) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101003
         case NSEventTypePressure:
 #endif
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         case NSLeftMouseDown:
         case NSLeftMouseDragged:
         case NSLeftMouseUp:
@@ -97,6 +102,7 @@ static IntPoint pointForEvent(NSEvent *event, NSView *windowView)
                 location = [windowView convertPoint:location fromView:nil];
             return IntPoint(location);
         }
+#pragma clang diagnostic pop
         default:
             return IntPoint();
     }
@@ -108,6 +114,8 @@ static MouseButton mouseButtonForEvent(NSEvent *event)
 #if defined(__LP64__) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101003
         case NSEventTypePressure:
 #endif
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         case NSLeftMouseDown:
         case NSLeftMouseUp:
         case NSLeftMouseDragged:
@@ -120,6 +128,7 @@ static MouseButton mouseButtonForEvent(NSEvent *event)
         case NSOtherMouseUp:
         case NSOtherMouseDragged:
             return MiddleButton;
+#pragma clang diagnostic pop
         default:
             return NoButton;
     }
@@ -128,6 +137,8 @@ static MouseButton mouseButtonForEvent(NSEvent *event)
 static PlatformEvent::Type mouseEventTypeForEvent(NSEvent* event)
 {
     switch ([event type]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         case NSLeftMouseDragged:
         case NSMouseEntered:
         case NSMouseExited:
@@ -143,6 +154,7 @@ static PlatformEvent::Type mouseEventTypeForEvent(NSEvent* event)
         case NSRightMouseUp:
         case NSOtherMouseUp:
             return PlatformEvent::MouseReleased;
+#pragma clang diagnostic pop
         default:
             return PlatformEvent::MouseMoved;
     }
@@ -151,6 +163,8 @@ static PlatformEvent::Type mouseEventTypeForEvent(NSEvent* event)
 static int clickCountForEvent(NSEvent *event)
 {
     switch ([event type]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         case NSLeftMouseDown:
         case NSLeftMouseUp:
         case NSLeftMouseDragged:
@@ -160,6 +174,7 @@ static int clickCountForEvent(NSEvent *event)
         case NSOtherMouseDown:
         case NSOtherMouseUp:
         case NSOtherMouseDragged:
+#pragma clang diagnostic pop
             return [event clickCount];
         default:
             return 0;
@@ -205,21 +220,30 @@ static PlatformWheelEventPhase phaseForEvent(NSEvent *event)
 
 static inline String textFromEvent(NSEvent* event)
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     if ([event type] == NSFlagsChanged)
+#pragma clang diagnostic pop
         return emptyString();
     return String([event characters]);
 }
 
 static inline String unmodifiedTextFromEvent(NSEvent* event)
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     if ([event type] == NSFlagsChanged)
+#pragma clang diagnostic pop
         return emptyString();
     return String([event charactersIgnoringModifiers]);
 }
 
 String keyIdentifierForKeyEvent(NSEvent* event)
 {
-    if ([event type] == NSFlagsChanged) 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    if ([event type] == NSFlagsChanged)
+#pragma clang diagnostic pop
         switch ([event keyCode]) {
             case 54: // Right Command
             case 55: // Left Command
@@ -257,15 +281,21 @@ static bool isKeypadEvent(NSEvent* event)
 {
     // Check that this is the type of event that has a keyCode.
     switch ([event type]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         case NSKeyDown:
         case NSKeyUp:
         case NSFlagsChanged:
             break;
+#pragma clang diagnostic pop
         default:
             return false;
     }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     if ([event modifierFlags] & NSNumericPadKeyMask)
+#pragma clang diagnostic pop
         return true;
 
     switch ([event keyCode]) {
@@ -302,7 +332,10 @@ int windowsKeyCodeForKeyEvent(NSEvent* event)
     // 2. Keys for which there is no known Mac virtual key codes, like PrintScreen.
     // 3. Certain punctuation keys. On Windows, these are also remapped depending on current keyboard layout,
     //    but see comment in windowsKeyCodeForCharCode().
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     if (!isKeypadEvent(event) && ([event type] == NSKeyDown || [event type] == NSKeyUp)) {
+#pragma clang diagnostic pop
         // Cmd switches Roman letters for Dvorak-QWERTY layout, so try modified characters first.
         NSString* s = [event characters];
         code = [s length] > 0 ? windowsKeyCodeForCharCode([s characterAtIndex:0]) : 0;
@@ -360,6 +393,8 @@ double eventTimeStampSince1970(NSEvent* event)
 
 static inline bool isKeyUpEvent(NSEvent *event)
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     if ([event type] != NSFlagsChanged)
         return [event type] == NSKeyUp;
     // FIXME: This logic fails if the user presses both Shift keys at once, for example:
@@ -386,12 +421,15 @@ static inline bool isKeyUpEvent(NSEvent *event)
             
         case 63: // Function
             return ([event modifierFlags] & NSFunctionKeyMask) == 0;
+#pragma clang diagnostic pop
     }
     return false;
 }
 
 static inline PlatformEvent::Modifiers modifiersForEvent(NSEvent *event)
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     unsigned modifiers = 0;
     if ([event modifierFlags] & NSShiftKeyMask)
         modifiers |= PlatformEvent::ShiftKey;
@@ -401,6 +439,7 @@ static inline PlatformEvent::Modifiers modifiersForEvent(NSEvent *event)
         modifiers |= PlatformEvent::AltKey;
     if ([event modifierFlags] & NSCommandKeyMask)
         modifiers |= PlatformEvent::MetaKey;
+#pragma clang diagnostic pop
     return (PlatformEvent::Modifiers)modifiers;
 }
 
@@ -446,7 +485,7 @@ public:
 
         // PlatformMouseEvent
         m_position = pointForEvent(event, windowView);
-        m_globalPosition = globalPointForEvent(event);
+        m_globalPosition = IntPoint(globalPointForEvent(event));
         m_button = mouseButtonForEvent(event);
         m_clickCount = clickCountForEvent(event);
 
@@ -475,14 +514,14 @@ public:
     PlatformWheelEventBuilder(NSEvent *event, NSView *windowView)
     {
         // PlatformEvent
-        m_type                              = PlatformEvent::Wheel;
-        m_modifiers                         = modifiersForEvent(event);
-        m_timestamp                         = eventTimeStampSince1970(event);
+        m_type = PlatformEvent::Wheel;
+        m_modifiers = modifiersForEvent(event);
+        m_timestamp = eventTimeStampSince1970(event);
 
         // PlatformWheelEvent
-        m_position                          = pointForEvent(event, windowView);
-        m_globalPosition                    = globalPointForEvent(event);
-        m_granularity                       = ScrollByPixelWheelEvent;
+        m_position = pointForEvent(event, windowView);
+        m_globalPosition = IntPoint(globalPointForEvent(event));
+        m_granularity = ScrollByPixelWheelEvent;
 
         BOOL continuous;
         wkGetWheelEventDeltas(event, &m_deltaX, &m_deltaY, &continuous);
@@ -496,10 +535,10 @@ public:
             m_deltaY *= static_cast<float>(Scrollbar::pixelsPerLineStep());
         }
 
-        m_phase                             = phaseForEvent(event);
-        m_momentumPhase                     = momentumPhaseForEvent(event);
-        m_hasPreciseScrollingDeltas         = continuous;
-        m_directionInvertedFromDevice       = [event isDirectionInvertedFromDevice];
+        m_phase = phaseForEvent(event);
+        m_momentumPhase = momentumPhaseForEvent(event);
+        m_hasPreciseScrollingDeltas = continuous;
+        m_directionInvertedFromDevice = [event isDirectionInvertedFromDevice];
     }
 };
 
@@ -514,20 +553,23 @@ public:
     PlatformKeyboardEventBuilder(NSEvent *event)
     {
         // PlatformEvent
-        m_type                              = isKeyUpEvent(event) ? PlatformEvent::KeyUp : PlatformEvent::KeyDown;
-        m_modifiers                         = modifiersForEvent(event);
-        m_timestamp                         = eventTimeStampSince1970(event);
+        m_type = isKeyUpEvent(event) ? PlatformEvent::KeyUp : PlatformEvent::KeyDown;
+        m_modifiers = modifiersForEvent(event);
+        m_timestamp = eventTimeStampSince1970(event);
 
         // PlatformKeyboardEvent
-        m_text                              = textFromEvent(event);
-        m_unmodifiedText                    = unmodifiedTextFromEvent(event);
-        m_keyIdentifier                     = keyIdentifierForKeyEvent(event);
-        m_windowsVirtualKeyCode             = windowsKeyCodeForKeyEvent(event);
-        m_nativeVirtualKeyCode              = [event keyCode];
-        m_macCharCode                       = wkGetNSEventKeyChar(event);
-        m_autoRepeat                        = ([event type] != NSFlagsChanged) && [event isARepeat];
-        m_isKeypad                          = isKeypadEvent(event);
-        m_isSystemKey                       = false; // SystemKey is always false on the Mac.
+        m_text = textFromEvent(event);
+        m_unmodifiedText = unmodifiedTextFromEvent(event);
+        m_keyIdentifier = keyIdentifierForKeyEvent(event);
+        m_windowsVirtualKeyCode = windowsKeyCodeForKeyEvent(event);
+        m_nativeVirtualKeyCode = [event keyCode];
+        m_macCharCode = wkGetNSEventKeyChar(event);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        m_autoRepeat = [event type] != NSFlagsChanged && [event isARepeat];
+#pragma clang diagnostic pop
+        m_isKeypad = isKeypadEvent(event);
+        m_isSystemKey = false; // SystemKey is always false on the Mac.
 
         // Always use 13 for Enter/Return -- we don't want to use AppKit's different character for Enter.
         if (m_windowsVirtualKeyCode == VK_RETURN) {

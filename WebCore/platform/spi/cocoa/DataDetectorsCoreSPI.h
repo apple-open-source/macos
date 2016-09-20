@@ -23,9 +23,23 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef DataDetectorsCoreSPI_h
+#define DataDetectorsCoreSPI_h
+
+typedef struct __DDResult *DDResultRef;
+
 #if USE(APPLE_INTERNAL_SDK)
 
+#import <DataDetectorsCore/DDBinderKeys_Private.h>
+#import <DataDetectorsCore/DDScannerResult.h>
 #import <DataDetectorsCore/DataDetectorsCore.h>
+
+#if PLATFORM(IOS)
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 100000
+#import <DataDetectorsCore/DDOptionalSource.h>
+#endif
+#import <DataDetectorsCore/DDURLifier.h>
+#endif // PLATFORM(IOS)
 
 #else // !USE(APPLE_INTERNAL_SDK)
 
@@ -38,23 +52,102 @@ typedef enum {
 enum {
     DDScannerCopyResultsOptionsNone = 0,
     DDScannerCopyResultsOptionsNoOverlap = 1 << 0,
+    DDScannerCopyResultsOptionsCoalesceSignatures = 1 << 1,
 };
+
+typedef CFIndex DDScannerSource;
+
+enum {
+    DDURLifierPhoneNumberDetectionNone = 0,
+    DDURLifierPhoneNumberDetectionRegular = 1 << 1,
+    DDURLifierPhoneNumberDetectionQuotedShorts = 1 << 2,
+    DDURLifierPhoneNumberDetectionUnquotedShorts = 1 << 3
+};
+typedef NSUInteger DDURLifierPhoneNumberDetectionTypes;
+
+typedef enum __DDTextCoalescingType {
+    DDTextCoalescingTypeNone = 0,
+    DDTextCoalescingTypeSpace = 1,
+    DDTextCoalescingTypeTab = 2,
+    DDTextCoalescingTypeLineBreak = 3,
+    DDTextCoalescingTypeHardBreak = 4,
+} DDTextCoalescingType;
+
+typedef enum {
+    DDResultCategoryUnknown = 0,
+    DDResultCategoryLink = 1,
+    DDResultCategoryPhoneNumber = 2,
+    DDResultCategoryAddress = 3,
+    DDResultCategoryCalendarEvent = 4,
+    DDResultCategoryMisc = 5,
+} DDResultCategory;
+
+typedef enum __DDTextFragmentType {
+    DDTextFragmentTypeTrimWhiteSpace =  0x1,
+    DDTextFragmentTypeIgnoreCRLF =  0x2,
+} DDTextFragmentMode;
+
+extern CFStringRef const DDBinderHttpURLKey;
+extern CFStringRef const DDBinderWebURLKey;
+extern CFStringRef const DDBinderMailURLKey;
+extern CFStringRef const DDBinderGenericURLKey;
+extern CFStringRef const DDBinderEmailKey;
+extern CFStringRef const DDBinderTrackingNumberKey;
+extern CFStringRef const DDBinderFlightInformationKey;
+extern CFStringRef const DDBinderParsecSourceKey;
+extern CFStringRef const DDBinderSignatureBlockKey;
+extern NSString * const DDURLScheme;
+
+@interface DDScannerResult : NSObject <NSCoding, NSSecureCoding>
++ (NSArray *)resultsFromCoreResults:(CFArrayRef)coreResults;
+- (DDResultRef)coreResult;
+@end
+
+#define DDResultPropertyPassiveDisplay   (1 << 0)
+
+typedef struct __DDQueryOffset {
+    CFIndex queryIndex;
+    CFIndex offset;
+} DDQueryOffset;
+
+typedef struct __DDQueryRange {
+    DDQueryOffset start;
+    DDQueryOffset end;
+} DDQueryRange;
 
 #endif // !USE(APPLE_INTERNAL_SDK)
 
-typedef struct __DDResult *DDResultRef;
 typedef struct __DDScanQuery *DDScanQueryRef;
 typedef struct __DDScanner *DDScannerRef;
 
 typedef CFIndex DDScannerCopyResultsOptions;
 typedef CFIndex DDScannerOptions;
 
+enum {
+    DDScannerSourceSpotlight = 1<<1,
+};
+
 extern "C" {
 
+extern const DDScannerCopyResultsOptions DDScannerCopyResultsOptionsForPassiveUse;
+
 DDScannerRef DDScannerCreate(DDScannerType, DDScannerOptions, CFErrorRef*);
+DDScanQueryRef DDScanQueryCreate(CFAllocatorRef);
 DDScanQueryRef DDScanQueryCreateFromString(CFAllocatorRef, CFStringRef, CFRange);
 Boolean DDScannerScanQuery(DDScannerRef, DDScanQueryRef);
 CFArrayRef DDScannerCopyResultsWithOptions(DDScannerRef, DDScannerCopyResultsOptions);
 CFRange DDResultGetRange(DDResultRef);
+CFStringRef DDResultGetType(DDResultRef);
+DDResultCategory DDResultGetCategory(DDResultRef);
+Boolean DDResultIsPastDate(DDResultRef, CFDateRef referenceDate, CFTimeZoneRef referenceTimeZone);
+void DDScanQueryAddTextFragment(DDScanQueryRef, CFStringRef, CFRange, void *identifier, DDTextFragmentMode, DDTextCoalescingType);
+void DDScanQueryAddSeparator(DDScanQueryRef, DDTextCoalescingType);
+void DDScanQueryAddLineBreak(DDScanQueryRef);
+void *DDScanQueryGetFragmentMetaData(DDScanQueryRef, CFIndex queryIndex);
+bool DDResultHasProperties(DDResultRef, CFIndex propertySet);
+CFArrayRef DDResultGetSubResults(DDResultRef);
+DDQueryRange DDResultGetQueryRangeForURLification(DDResultRef);
 
 }
+
+#endif // DataDetectorsCoreSPI_h

@@ -47,7 +47,7 @@ TokenKey::~TokenKey()
 	try {
 		database().token().tokend().releaseKey(mKey);
 	} catch (...) {
-		secdebug("tokendb", "%p release key handle %u threw (ignored)",
+		secinfo("tokendb", "%p release key handle %u threw (ignored)",
 			this, mKey);
 	}
 }

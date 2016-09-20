@@ -587,7 +587,6 @@ static uint32_t
 _internal_post_name(notify_state_t *ns, name_info_t *n, uid_t uid, gid_t gid)
 {
 	int auth;
-	list_t *l;
 	client_t *c;
 
 	if (n == NULL) return NOTIFY_STATUS_INVALID_NAME;
@@ -917,44 +916,6 @@ _notify_lib_cancel_proc(notify_state_t *ns, pid_t pid)
 }
 
 /*
- * Delete all clients for a port
- * N.B. notifyd does not use this routine.
- */
-void
-_notify_lib_cancel_port(notify_state_t *ns, mach_port_t port)
-{
-	client_t *c;
-	void *tt;
-	list_t *l, *x;
-
-	if (ns == NULL) return;
-
-	x = NULL;
-
-	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
-
-	tt = _nc_table_traverse_start(ns->client_table);
-	while (tt != NULL)
-	{
-		c = _nc_table_traverse(ns->client_table, tt);
-		if (c == NULL) break;
-
-		if (c->port == port) x = _nc_list_prepend(x, _nc_list_new(c));
-	}
-	_nc_table_traverse_end(ns->client_table, tt);
-
-	for (l = x; l != NULL; l = _nc_list_next(l))
-	{
-		c = _nc_list_data(l);
-		_internal_cancel(ns, c->client_id);
-	}
-
-	_nc_list_free_list(x);
-
-	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
-}
-
-/*
  * Check if a name has changed since the last time this client checked.
  * Returns true, false, or error.
  */
@@ -1002,70 +963,37 @@ _notify_lib_check(notify_state_t *ns, pid_t pid, int token, int *check)
 /*
  * SPI: get value for a name.
  */
-uint32_t
+__private_extern__ uint32_t
 _notify_lib_peek(notify_state_t *ns, pid_t pid, int token, int *val)
 {
-	client_t *c;
-	uint64_t cid;
-
-	if (ns == NULL) return NOTIFY_STATUS_FAILED;
-	if (val == NULL) return NOTIFY_STATUS_FAILED;
-
-	cid = make_client_id(pid, token);
-
-	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
-
-	c = _nc_table_find_64(ns->client_table, cid);
-
-	if (c == NULL)
-	{
-		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
-		return NOTIFY_STATUS_INVALID_TOKEN;
-	}
-
-	if (c->name_info == NULL)
-	{
-		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
-		return NOTIFY_STATUS_INVALID_TOKEN;
-	}
-
-	*val = c->name_info->val;
-
-	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
-	return NOTIFY_STATUS_OK;
-}
-
-int *
-_notify_lib_check_addr(notify_state_t *ns, pid_t pid, int token)
-{
-	client_t *c;
-	int *addr;
-	uint64_t cid;
-
-	if (ns == NULL) return NULL;
-
-	cid = make_client_id(pid, token);
-
-	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
-
-	c = _nc_table_find_64(ns->client_table, cid);
-
-	if (c == NULL)
-	{
-		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
-		return NULL;
-	}
-
-	if (c->name_info == NULL)
-	{
-		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
-		return NULL;
-	}
-
-	addr = (int *)&(c->name_info->val);
-
-	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
-	return addr;
+    client_t *c;
+    uint64_t cid;
+    
+    if (ns == NULL) return NOTIFY_STATUS_FAILED;
+    if (val == NULL) return NOTIFY_STATUS_FAILED;
+    
+    cid = make_client_id(pid, token);
+    
+    if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
+    
+    c = _nc_table_find_64(ns->client_table, cid);
+    
+    if (c == NULL)
+    {
+        if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+        return NOTIFY_STATUS_INVALID_TOKEN;
+    }
+    
+    if (c->name_info == NULL)
+    {
+        if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+        return NOTIFY_STATUS_INVALID_TOKEN;
+    }
+    
+    *val = c->name_info->val;
+    
+    if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+    return NOTIFY_STATUS_OK;
 }
 
 /*

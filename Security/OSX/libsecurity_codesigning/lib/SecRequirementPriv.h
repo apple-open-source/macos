@@ -87,7 +87,7 @@ OSStatus SecRequirementsCopyRequirements(CFDataRef requirementSet, SecCSFlags fl
 	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
 */
-enum {
+typedef CF_OPTIONS(uint32_t, SecCSFlagsPriv) {
 	kSecCSParseRequirement = 0x0001,		// accept single requirements
 	kSecCSParseRequirementSet = 0x0002,		// accept requirement sets
 };
@@ -110,7 +110,7 @@ OSStatus SecRequirementsCreateWithString(CFStringRef text, SecCSFlags flags,
 	recompiling the text using SecRequirementCreateWithString will produce a
 	SecRequirement object that behaves identically to the one you start with.
 	
-	@param requirements A SecRequirementRef, or a CFDataRef containing a valid requirement set.
+	@param input A SecRequirementRef, or a CFDataRef containing a valid requirement set.
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
 	@param text On successful return, contains a reference to a CFString object
 	containing a text representation of the requirement.
@@ -158,7 +158,9 @@ OSStatus SecRequirementCreateGroup(CFStringRef groupName, SecCertificateRef anch
 	SecCSFlags flags, SecRequirementRef *requirement);
 
 
-	
+extern CFStringRef kSecRequirementKeyInfoPlist;
+extern CFStringRef kSecRequirementKeyEntitlements;
+extern CFStringRef kSecRequirementKeyIdentifier;
 /*!
 	@function SecRequirementEvaluate
 	Explicitly evaluate a SecRequirementRef against context provided in the call.
@@ -181,10 +183,6 @@ OSStatus SecRequirementCreateGroup(CFStringRef groupName, SecCertificateRef anch
 	an entitlement dictionary. If this key is missing, all references to entitlements will fail.
 	@constant kSecRequirementKeyIdentifier A context key providing the signing identifier as a CFString.
 */
-extern CFStringRef kSecRequirementKeyInfoPlist;
-extern CFStringRef kSecRequirementKeyEntitlements;
-extern CFStringRef kSecRequirementKeyIdentifier;
-
 OSStatus SecRequirementEvaluate(SecRequirementRef requirement,
 	CFArrayRef certificateChain, CFDictionaryRef context,
 	SecCSFlags flags);

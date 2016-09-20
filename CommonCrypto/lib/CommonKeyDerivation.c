@@ -98,7 +98,7 @@ CCCalibratePBKDF(CCPBKDFAlgorithm algorithm, size_t passwordLen, size_t saltLen,
 	if((password = malloc(passwordLen)) == NULL) goto error;
 	for(i=0; i<passwordLen; i++) password[i] = 'a';
 	if((salt = malloc(saltLen)) == NULL) goto error;
-	for(i=0; i<saltLen; i++) salt[i] = i%256;
+	for(i=0; i<saltLen; i++) salt[i] = (uint8_t)(i%256);
 	if((derivedKey = malloc(derivedKeyLen)) == NULL) goto error;
     
     for(elapsedTime = 0, i=0; i < 5 && elapsedTime == 0; i++) {

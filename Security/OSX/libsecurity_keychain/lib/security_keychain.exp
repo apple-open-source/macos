@@ -110,6 +110,7 @@ _kSecAttrHasCustomIcon
 _kSecAttrCRLType
 _kSecAttrCRLEncoding
 _kSecAttrAccessGroup
+_kSecAttrAccessGroupToken
 _kSecAttrSynchronizable
 _kSecAttrSyncViewHint
 _kSecMatchPolicy
@@ -212,12 +213,12 @@ _kSecPolicyAppleProfileSigner
 _kSecPolicyAppleQAProfileSigner
 _kSecPolicyAppleTestMobileStore
 _kSecPolicyAppleServerAuthentication
-_kSecPolicyAppleATVAppSigning
-_kSecPolicyAppleTestATVAppSigning
 _kSecPolicyApplePayIssuerEncryption
 _kSecPolicyAppleOSXProvisioningProfileSigning
 _kSecPolicyAppleATVVPNProfileSigning
 _kSecPolicyAppleAST2DiagnosticsServerAuth
+_kSecPolicyAppleEscrowProxyServerAuth
+_kSecPolicyAppleFMiPServerAuth
 _kSecPolicyOid
 _kSecPolicyName
 _kSecPolicyClient
@@ -406,6 +407,8 @@ _SecCertificateCopyFirstFieldValue
 _SecCertificateCopyPreference
 _SecCertificateCopyPreferred
 _SecCertificateCopyPublicKey
+_SecCertificateCopySubjectPublicKeyInfoSHA1Digest
+_SecCertificateCopySubjectPublicKeyInfoSHA256Digest
 _SecCertificateCopySubjectSummary
 _SecCertificateCopyDNSNames
 _SecCertificateCreateItemImplInstance
@@ -430,7 +433,9 @@ _SecCertificateGetSubject
 _SecCertificateGetType
 _SecCertificateGetTypeID
 _SecCertificateInferLabel
+_SecCertificateIsCA
 _SecCertificateIsSelfSigned
+_SecCertificateIsSelfSignedCA
 _SecCertificateRequestCreate
 _SecCertificateRequestGetTypeID
 _SecCertificateRequestSubmit
@@ -472,6 +477,8 @@ _SecInferLabelFromX509Name
 _SecItemAdd
 _SecItemCopyDisplayNames
 _SecItemCopyMatching
+_SecItemCopyParentCertificates
+_SecItemCopyStoredCertificate
 _SecItemDelete
 _SecItemUpdate
 _kSecAttrKeyTypeRSA
@@ -484,6 +491,7 @@ _kSecAttrKeyTypeRC2
 _kSecAttrKeyTypeCAST
 _kSecAttrKeyTypeECDSA
 _kSecAttrKeyTypeEC
+_kSecAttrKeyTypeECSECPrimeRandom
 _kSecAttrPRF
 _kSecAttrPRFHmacAlgSHA1
 _kSecAttrPRFHmacAlgSHA224
@@ -495,7 +503,9 @@ _kSecAttrRounds
 _SecECKeyGetNamedCurve
 _SecItemExport
 _SecItemImport
+_SecKeyCopyAttestationKey
 _SecKeyCreate
+_SecKeyCreateAttestation
 _SecKeyCreatePair
 _SecKeyCreateWithCSSMKey
 _SecKeyDecrypt
@@ -527,6 +537,7 @@ _SecKeychainAddGenericPassword
 _SecKeychainAddIToolsPassword
 _SecKeychainAddInternetPassword
 _SecKeychainAttributeInfoForItemID
+_SecKeychainAttemptMigrationWithMasterKey
 _SecKeychainChangePassword
 _SecKeychainCopyAccess
 _SecKeychainCopyBlob
@@ -555,6 +566,7 @@ _SecKeychainGetTypeID
 _SecKeychainGetUserInteractionAllowed
 _SecKeychainGetVersion
 _SecKeychainGetKeychainVersion
+_SecKeychainGetUserPromptAttempts
 _SecKeychainIsValid
 _SecKeychainMDSInstall
 _SecKeychainItemAdd
@@ -638,8 +650,8 @@ _SecPolicyCreateApplePushService
 _SecPolicyCreateAppleMMCSService
 _SecPolicyCreateApplePPQService
 _SecPolicyCreateAppleAST2Service
-_SecPolicyCreateAppleATVAppSigning
-_SecPolicyCreateTestAppleATVAppSigning
+_SecPolicyCreateAppleEscrowProxyService
+_SecPolicyCreateAppleFMiPService
 _SecPolicyCreateAppleATVVPNProfileSigning
 _SecPolicyCreateApplePayIssuerEncryption
 _SecPolicyCreateAppleSSLService
@@ -686,6 +698,9 @@ _SecTrustGetTPHandle
 _SecTrustGetTypeID
 _SecTrustGetUserTrust
 _SecTrustGetVerifyTime
+_SecTrustLegacySourcesEventRunloopCreate
+_SecTrustLegacyCRLFetch
+_SecTrustLegacyCRLStatus
 _SecTrustSetAnchorCertificates
 _SecTrustSetAnchorCertificatesOnly
 _SecTrustSetExceptions
@@ -768,3 +783,4 @@ _SecFDERecoveryUnwrapCRSKWithPrivKey
 _SecKeychainSearchCreateForCertificateByIssuerAndSN_CF
 _SecRandomCopyBytes
 _SecRandomCopyData
+_SecItemUpdateTokenItems

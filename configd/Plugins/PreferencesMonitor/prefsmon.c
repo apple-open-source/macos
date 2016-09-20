@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2010, 2012-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2010, 2012-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -42,10 +42,10 @@
 #include <unistd.h>
 
 
+#define	SC_LOG_HANDLE	__log_PreferencesMonitor()
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
-
 
 
 
@@ -66,8 +66,22 @@ static CFMutableArrayRef	removedPrefsKeys;	/* old prefs keys to be removed */
 static Boolean			rofs		= FALSE;
 static Boolean			restorePrefs	= FALSE;
 
-#define MY_PLUGIN_NAME			"PreferencesMonitor"
-#define	MY_PLUGIN_ID			CFSTR("com.apple.SystemConfiguration." MY_PLUGIN_NAME)
+#define MY_PLUGIN_NAME		"PreferencesMonitor"
+#define	MY_PLUGIN_ID		CFSTR("com.apple.SystemConfiguration." MY_PLUGIN_NAME)
+
+
+static os_log_t
+__log_PreferencesMonitor()
+{
+	static os_log_t	log	= NULL;
+
+	if (log == NULL) {
+		log = os_log_create("com.apple.SystemConfiguration", "PreferencesMonitor");
+	}
+
+	return log;
+}
+
 
 static Boolean
 restorePreferences()
@@ -122,7 +136,7 @@ restorePreferences()
 			continue;
 		}
 
-		if (CFStringHasPrefix(existingKey, modelPrefixStr) == FALSE) {
+		if (!CFStringHasPrefix(existingKey, modelPrefixStr)) {
 			    continue;
 		}
 
@@ -135,7 +149,7 @@ restorePreferences()
 		CFRelease(splitKey);
 	}
 
-	if (modified == TRUE) {
+	if (modified) {
 		SCPreferencesRef	ni_prefs = NULL;
 		ni_prefs = SCPreferencesCreate(NULL, MY_PLUGIN_ID, CFSTR("NetworkInterfaces.plist"));
 		if (ni_prefs == NULL) {
@@ -146,7 +160,7 @@ restorePreferences()
 		CFRelease(ni_prefs);
 
 		//Commit the changes only if prefs files valid
-		if (ok == TRUE) {
+		if (ok) {
 			if (!SCPreferencesCommitChanges(prefs)) {
 				if (SCError() != EROFS) {
 					SC_log(LOG_NOTICE, "SCPreferencesCommitChanges() failed: %s",
@@ -176,13 +190,11 @@ error:
 static Boolean
 establishNewPreferences()
 {
-	CFBundleRef     bundle;
 	SCNetworkSetRef	current		= NULL;
 	CFStringRef	new_model;
 	Boolean		ok		= FALSE;
 	int		sc_status	= kSCStatusFailed;
 	SCNetworkSetRef	set		= NULL;
-	CFStringRef	setName		= NULL;
 	Boolean		updated		= FALSE;
 
 	while (TRUE) {
@@ -261,29 +273,9 @@ establishNewPreferences()
 	}
 
 	if (set == NULL) {
-		set = SCNetworkSetCreate(prefs);
+		set = _SCNetworkSetCreateDefault(prefs);
 		if (set == NULL) {
 			ok = FALSE;
-			sc_status = SCError();
-			goto done;
-		}
-
-		bundle = _SC_CFBundleGet();
-		if (bundle != NULL) {
-			setName = CFBundleCopyLocalizedString(bundle,
-							      CFSTR("DEFAULT_SET_NAME"),
-							      CFSTR("Automatic"),
-							      NULL);
-		}
-
-		ok = SCNetworkSetSetName(set, (setName != NULL) ? setName : CFSTR("Automatic"));
-		if (!ok) {
-			sc_status = SCError();
-			goto done;
-		}
-
-		ok = SCNetworkSetSetCurrent(set);
-		if (!ok) {
 			sc_status = SCError();
 			goto done;
 		}
@@ -325,7 +317,6 @@ establishNewPreferences()
 	}
 
 	(void)SCPreferencesUnlock(prefs);
-	if (setName != NULL) CFRelease(setName);
 	if (set != NULL) CFRelease(set);
 	return updated;
 }
@@ -337,6 +328,9 @@ quiet(Boolean *timeout)
 	CFDictionaryRef	dict;
 	Boolean		_quiet		= FALSE;
 	Boolean		_timeout	= FALSE;
+
+	// keep the static analyzer happy
+	assert(initKey != NULL);
 
 	// check if quiet
 	dict = SCDynamicStoreCopyValue(store, initKey);
@@ -445,7 +439,7 @@ watchQuietCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 
 		(void) establishNewPreferences();
 
-		if (restorePrefs == TRUE) {
+		if (restorePrefs) {
 			(void) restorePreferences();
 			restorePrefs = FALSE;
 		}
@@ -775,11 +769,12 @@ updateConfiguration(SCPreferencesRef		prefs,
 		    SCPreferencesNotification   notificationType,
 		    void			*info)
 {
-	os_activity_t		activity_id;
+	os_activity_t	activity;
 
-
-	activity_id = os_activity_start("processing [SC] preferences.plist changes",
-					OS_ACTIVITY_FLAG_DEFAULT);
+	activity = os_activity_create("processing [SC] preferences.plist changes",
+				      OS_ACTIVITY_CURRENT,
+				      OS_ACTIVITY_FLAG_DEFAULT);
+	os_activity_scope(activity);
 
 #if	!TARGET_OS_IPHONE
 	if ((notificationType & kSCPreferencesNotificationCommit) == kSCPreferencesNotificationCommit) {
@@ -810,7 +805,7 @@ updateConfiguration(SCPreferencesRef		prefs,
 
     done :
 
-	os_activity_end(activity_id);
+	os_release(activity);
 
 	return;
 }
@@ -872,7 +867,7 @@ load_PreferencesMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 			}
 		}
 
-		if (need_update == FALSE) {
+		if (!need_update) {
 			SCNetworkSetRef current;
 
 			current = SCNetworkSetCopyCurrent(prefs);

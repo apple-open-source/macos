@@ -185,7 +185,7 @@ static const test_vector_t	hkdf_sha256_tests[] = {
 	},
 };	
 
-int CommonHKDF(int argc, char *const *argv)
+int CommonHKDF(int __unused argc, char *const * __unused argv)
 {
 	size_t i, n;
 	int err;

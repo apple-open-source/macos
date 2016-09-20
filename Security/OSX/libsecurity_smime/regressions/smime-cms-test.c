@@ -384,7 +384,7 @@ const uint8_t gkIPACCG2DevCertClass87 [] =
 }; // gkIPACCG2DevCertClass87 []
 
 // Concatenated blob of 2 DER certificat
-const uint8_t TestDoubleCerts [] =
+const uint8_t TestDoubleCerts1 [] =
 {
     0x30, 0x82, 0x01, 0xbe, 0x30, 0x82, 0x01, 0x27, 0x02, 0x01, 0x01, 0x30,
     0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x05,
@@ -423,7 +423,12 @@ const uint8_t TestDoubleCerts [] =
     0x30, 0x0a, 0xff, 0xdb, 0x7a, 0x72, 0xf6, 0x89, 0x51, 0x01, 0x81, 0x3b,
     0x97, 0x46, 0x99, 0x8a, 0x52, 0x42, 0xaf, 0x63, 0xa2, 0x1d, 0xc0, 0xae,
     0x09, 0xa6, 0x6c, 0x7c, 0x7f, 0x93, 0xc7, 0xd0, 0x18, 0x97, 0x6b, 0x59,
-    0xa9, 0x23, 0x84, 0x65, 0xf9, 0xfd, 0x30, 0x82, 0x01, 0xbf, 0x30, 0x82,
+    0xa9, 0x23, 0x84, 0x65, 0xf9, 0xfd,
+};
+
+const uint8_t TestDoubleCerts2 [] =
+{
+    0x30, 0x82, 0x01, 0xbf, 0x30, 0x82,
     0x01, 0x28, 0x02, 0x02, 0x03, 0xe9, 0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86,
     0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x05, 0x05, 0x00, 0x30, 0x25, 0x31,
     0x23, 0x30, 0x21, 0x06, 0x03, 0x55, 0x04, 0x03, 0x13, 0x1a, 0x53, 0x65,
@@ -462,7 +467,7 @@ const uint8_t TestDoubleCerts [] =
     0xea, 0x9c, 0x85, 0xc9, 0x32, 0xde, 0xa9, 0x62, 0xcb, 0x3c, 0xb7, 0xbd,
     0x8d, 0x16, 0xec, 0xcf, 0x52, 0x17, 0xc8, 0x47, 0x99, 0x94, 0xe1, 0x4c,
     0x39
-}; // Test with 2certs []
+};
 
 
 /* Basic processing of input */
@@ -490,6 +495,7 @@ static void tests(void)
 
 
     SecCertificateRef another_cert = NULL;
+    CFMutableArrayRef input_certs = NULL;
 
     // Process a single raw certificate and make it a message
     isnt(another_cert = SecCertificateCreateWithBytes(NULL, _c1, sizeof(_c1)),
@@ -499,29 +505,34 @@ static void tests(void)
        "SecCMSCertificatesOnlyMessageCopyCertificates");
     is(CFArrayGetCount(certs), 1, "certificate count is 1");
 
-    // Process two raw certificates (concatenated DER blobs) and make it a message
-    isnt(another_cert = SecCertificateCreateWithBytes(NULL, TestDoubleCerts, sizeof(TestDoubleCerts)),
+    // Process two raw certificates and make it a message
+    input_certs = CFArrayCreateMutable(NULL, 3, &kCFTypeArrayCallBacks);
+    isnt(another_cert = SecCertificateCreateWithBytes(NULL, TestDoubleCerts1, sizeof(TestDoubleCerts1)),
          NULL, "create certificate");
-    ok(message = SecCMSCreateCertificatesOnlyMessageIAP(another_cert), "create iAP specific cert only message (2certs)");
+    CFArrayAppendValue(input_certs, another_cert);
+    CFReleaseNull(another_cert);
+    isnt(another_cert = SecCertificateCreateWithBytes(NULL, TestDoubleCerts2, sizeof(TestDoubleCerts2)),
+         NULL, "create certificate");
+    CFArrayAppendValue(input_certs, another_cert);
+    CFReleaseNull(another_cert);
+
+    ok(message = SecCMSCreateCertificatesOnlyMessage(input_certs), "create cert only message (2certs)");
     ok(certs = SecCMSCertificatesOnlyMessageCopyCertificates(message),
        "SecCMSCertificatesOnlyMessageCopyCertificates");
-    // FIXME: SecCMSCreateCertificatesOnlyMessageIAP should be changed to take a CFArrayRef argument.
-    // Note that a SecCertificateRef can only contain the data of a single certificate.
-    // If the fix for rdar://17159227 is present, the message will only contain one certificate.
     count = (certs) ? CFArrayGetCount(certs) : 0;
-    ok(count > 0 && count < 3, "certificate count is 1 or 2");
+    ok(count == 2, "certificate count is 2");
 
     // Clean up
     CFReleaseNull(another_cert);
     CFReleaseNull(message);
-
+    CFReleaseNull(input_certs);
     CFReleaseNull(certs);
 }
 
 
 int smime_cms_test(int argc, char *const *argv)
 {
-	plan_tests(12);
+	plan_tests(13);
 
 	tests();
 

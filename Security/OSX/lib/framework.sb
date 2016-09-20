@@ -2,3 +2,6 @@
 (allow mach-lookup (global-name "com.apple.secd"))
 ;; allow clients to communicate with coreauthd
 (allow mach-lookup (global-name "com.apple.CoreAuthentication.daemon.libxpc"))
+(allow mach-lookup (global-name "com.apple.CoreAuthentication.agent.libxpc"))
+;; allow clients to communicate with ctkd
+(allow mach-lookup (global-name "com.apple.ctkd.token-client"))

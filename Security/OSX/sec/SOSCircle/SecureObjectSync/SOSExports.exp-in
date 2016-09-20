@@ -26,9 +26,12 @@ _SOSCCCopyYetToSyncViewsList
 _SOSCCGetLastDepartureReason
 _SOSCCGetStatusDescription
 _SOSCCHandleIDSMessage
+_SOSCCRequestSyncWithPeerOverKVS
+_SOSCCRequestSyncWithPeerOverIDS
 _SOSCCIDSDeviceIDIsAvailableTest
 _SOSCCIDSPingTest
 _SOSCCIDSServiceRegistrationTest
+_SOSCCPeersHaveViewsEnabled
 _SOSCCProcessEnsurePeerRegistration
 _SOSCCProcessSyncWithAllPeers
 _SOSCCPurgeUserCredentials
@@ -63,6 +66,7 @@ _SOSCCIsSafariSyncing
 _SOSCCIsAppleTVSyncing
 _SOSCCIsHomeKitSyncing
 _SOSCCIsWiFiSyncing
+_SOSCCIsContinuityUnlockSyncing
 _SOSCCWaitForInitialSync
 _SOSCCSetEscrowRecord
 _SOSCCCopyEscrowRecord
@@ -71,6 +75,11 @@ _SOSCCCopyAccountState
 _SOSCCDeleteAccountState
 _SOSCCCopyEngineData
 _SOSCCDeleteEngineState
+_SOSCCCopyApplication
+_SOSCCCopyCircleJoiningBlob
+_SOSCCJoinWithCircleJoiningBlob
+_SOSCCAccountHasPublicKey
+_SOSCCAccountIsNew
 
 _UserParametersDescription
 
@@ -151,6 +160,7 @@ _SOSCCApplyToARing
 _SOSCCWithdrawlFromARing
 _SOSCCRingStatus
 _SOSCCEnableRing
+_SOSCCIsThisDeviceLastBackup
 
 _SOSCloudKeychainSendIDSMessage
 
@@ -195,40 +205,8 @@ _SOSWrapToBackupSliceKeyBagForView
  // View SPI
  //
 
-_kSOSViewAppleTV
-_kSOSViewAutofillPasswords
-_kSOSViewBackupBagV0
-_kSOSViewHintAppleTV
-_kSOSViewHintHomeKit
-_kSOSViewHintPCSCloudKit
-_kSOSViewHintPCSEscrow
-_kSOSViewHintPCSFDE
-_kSOSViewHintPCSMailDrop
-_kSOSViewHintPCSMasterKey
-_kSOSViewHintPCSNotes
-_kSOSViewHintPCSPhotos
-_kSOSViewHintPCSiCloudBackup
-_kSOSViewHintPCSiCloudDrive
-_kSOSViewHintPCSiMessage
-_kSOSViewHintPCSFeldspar
-_kSOSViewHomeKit
-_kSOSViewiCloudIdentity
 _kSOSViewKeychainV0
-_kSOSViewPCSCloudKit
-_kSOSViewPCSEscrow
-_kSOSViewPCSFDE
-_kSOSViewPCSMailDrop
-_kSOSViewPCSMasterKey
-_kSOSViewPCSNotes
-_kSOSViewPCSPhotos
-_kSOSViewPCSiCloudBackup
-_kSOSViewPCSiCloudDrive
-_kSOSViewPCSiMessage
-_kSOSViewPCSFeldspar
-_kSOSViewSafariCreditCards
-_kSOSViewWiFi
-_kSOSViewOtherSyncable
-
+_SOSViewCopyViewSet
 
 _SOSViewsGetAllCurrent
 
@@ -236,20 +214,7 @@ _SOSViewsGetAllCurrent
 // Preferred symbols for viewHints
 //
 
-_kSecAttrViewHintPCSMasterKey
-_kSecAttrViewHintPCSiCloudDrive
-_kSecAttrViewHintPCSPhotos
-_kSecAttrViewHintPCSCloudKit
-_kSecAttrViewHintPCSEscrow
-_kSecAttrViewHintPCSFDE
-_kSecAttrViewHintPCSMailDrop
-_kSecAttrViewHintPCSiCloudBackup
-_kSecAttrViewHintPCSNotes
-_kSecAttrViewHintPCSiMessage
-
-_kSecAttrViewHintAppleTV
-_kSecAttrViewHintHomeKit
-_kSecAttrViewHintThumper
+#include "Security/SecureObjectSync/SOSViews.exp-in"
 
 _kSecUseSystemKeychain
 _kSecUseSyncBubbleKeychain
@@ -261,12 +226,12 @@ _SOSCircleCreateFromData
 _SOSCircleGenerationIncrement
 _SOSCircleGenerationSetValue
 _SOSCircleGetGenerationSint
+_SOSAccountPeerGotInSync
 
 _SOSCloudKeychainClearAll
 _SOSCloudKeychainGetAllObjectsFromCloud
 _SOSCloudKeychainGetObjectsFromCloud
 _SOSCloudKeychainPutObjectsInCloud
-_SOSCloudKeychainSendIDSMessage
 _SOSCloudKeychainSetItemsChangedBlock
 _SOSCloudKeychainSynchronizeAndWait
 _SOSCloudKeychainUpdateKeys
@@ -311,6 +276,7 @@ _SOSPeerInfoV2DictionaryCopySet
 _sViewsKey
 _sSerialNumberKey
 _sPreferIDS
+_sPreferIDSFragmentation
 _sDeviceID
 _sTransportType
 _sSecurityPropertiesKey

@@ -49,52 +49,14 @@ WebInspector.VisualStyleKeywordPicker = class VisualStyleKeywordPicker extends W
         this.contentElement.appendChild(this._keywordSelectElement);
     }
 
-    // Public
+    // Protected
 
     get value()
-    {
-        // FIXME: <https://webkit.org/b/147064> Getter and setter on super are called with wrong "this" object
-        return this._getValue();
-    }
-
-    set value(value)
-    {
-        // FIXME: <https://webkit.org/b/147064> Getter and setter on super are called with wrong "this" object
-        this._setValue(value);
-    }
-
-    set placeholder(placeholder)
-    {
-        if (this._updatedValues.conflictingValues)
-            return;
-
-        this.specialPropertyPlaceholderElement.textContent = this._canonicalizedKeywordForKey(placeholder) || placeholder;
-    }
-
-    get synthesizedValue()
-    {
-        // FIXME: <https://webkit.org/b/147064> Getter and setter on super are called with wrong "this" object
-        return this._generateSynthesizedValue();
-    }
-
-    updateEditorValues(updatedValues)
-    {   if (!updatedValues.conflictingValues) {
-            var missing = this._propertyMissing || !updatedValues.value;
-            this._unchangedOptionElement.selected = missing;
-            this.specialPropertyPlaceholderElement.hidden = !missing;
-        }
-
-        super.updateEditorValues(updatedValues);
-    }
-
-    // Private
-
-    _getValue()
     {
         return this._keywordSelectElement.value;
     }
 
-    _setValue(value)
+    set value(value)
     {
         if (!value || !value.length) {
             this._unchangedOptionElement.selected = true;
@@ -114,10 +76,30 @@ WebInspector.VisualStyleKeywordPicker = class VisualStyleKeywordPicker extends W
         this._keywordSelectElement.value = value;
     }
 
-    _generateSynthesizedValue()
+    set placeholder(placeholder)
+    {
+        if (this._updatedValues.conflictingValues)
+            return;
+
+        this.specialPropertyPlaceholderElement.textContent = this._canonicalizedKeywordForKey(placeholder) || placeholder;
+    }
+
+    get synthesizedValue()
     {
         return this._unchangedOptionElement.selected ? null : this._keywordSelectElement.value;
     }
+
+    updateEditorValues(updatedValues)
+    {   if (!updatedValues.conflictingValues) {
+            let missing = this._propertyMissing || !updatedValues.value;
+            this._unchangedOptionElement.selected = missing;
+            this.specialPropertyPlaceholderElement.hidden = !missing;
+        }
+
+        super.updateEditorValues(updatedValues);
+    }
+
+    // Private
 
     _handleKeywordChanged()
     {
@@ -129,15 +111,15 @@ WebInspector.VisualStyleKeywordPicker = class VisualStyleKeywordPicker extends W
     {
         if (event.altKey)
             this._addAdvancedValues();
-        else if (!this._valueIsSupportedAdvancedKeyword())
+        else if (!this._valueIsSupportedAdvancedKeyword(this.value))
             this._removeAdvancedValues();
     }
 
     _createValueOptions(values)
     {
-        var addedElements = [];
-        for (var key in values) {
-            var option = document.createElement("option");
+        let addedElements = [];
+        for (let key in values) {
+            let option = document.createElement("option");
             option.value = key;
             option.text = values[key];
             this._keywordSelectElement.appendChild(option);
@@ -161,7 +143,7 @@ WebInspector.VisualStyleKeywordPicker = class VisualStyleKeywordPicker extends W
             return;
 
         this._keywordSelectElement.removeChild(this._advancedValuesElements[0].previousSibling);
-        for (var element of this._advancedValuesElements)
+        for (let element of this._advancedValuesElements)
             this._keywordSelectElement.removeChild(element);
 
         this._advancedValuesElements = null;

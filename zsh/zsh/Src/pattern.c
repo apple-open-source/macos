@@ -145,7 +145,7 @@ typedef union upat *Upat;
  *
  *  P_ANY, P_ANYOF:  the operand is a null terminated
  *    string.  Normal characters match as expected.  Characters
- *    in the range Meta+PP_ALPHA..Meta+PP_UNKNWN do the appropriate
+ *    in the range Meta+PP_ALPHA..Meta+PP_UNKWN do the appropriate
  *    Posix range tests.  This relies on imeta returning true for these
  *    characters.  We treat unknown POSIX ranges as never matching.
  *    PP_RANGE means the next two (possibly metafied) characters form
@@ -220,9 +220,27 @@ typedef union upat *Upat;
 #if defined(ZSH_64_BIT_TYPE) || defined(LONG_IS_64_BIT)
 typedef zlong zrange_t;
 #define ZRANGE_T_IS_SIGNED	(1)
+#define ZRANGE_MAX ZLONG_MAX
 #else
 typedef unsigned long zrange_t;
+#define ZRANGE_MAX ULONG_MAX
 #endif
+
+#ifdef MULTIBYTE_SUPPORT
+/*
+ * Handle a byte that's not part of a valid character.
+ *
+ * This range in Unicode is recommended for purposes of this
+ * kind as it corresponds to invalid characters.
+ *
+ * Note that this strictly only works if wchar_t represents
+ * Unicode code points, which isn't necessarily true; however,
+ * converting an invalid character into an unknown format is
+ * a bit tricky...
+ */
+#define WCHAR_INVALID(ch)			\
+    ((wchar_t) (0xDC00 + STOUC(ch)))
+#endif /* MULTIBYTE_SUPPORT */
 
 /*
  * Array of characters corresponding to zpc_chars enum, which it must match.
@@ -353,10 +371,10 @@ metacharinc(char **x)
 	return wc;
     }
 
-    /* Error.  Treat as single byte. */
+    /* Error. */
     /* Reset the shift state for next time. */
     memset(&shiftstate, 0, sizeof(shiftstate));
-    return (wchar_t) STOUC(*(*x)++);
+    return WCHAR_INVALID(*(*x)++);
 }
 
 #else
@@ -520,6 +538,8 @@ patcompile(char *exp, int inflags, char **endexp)
     char *lng, *strp = NULL;
     Patprog p;
 
+    queue_signals();
+
     startoff = sizeof(struct patprog);
     /* Ensure alignment of start of program string */
     startoff = (startoff + sizeof(union upat) - 1) & ~(sizeof(union upat) - 1);
@@ -582,8 +602,10 @@ patcompile(char *exp, int inflags, char **endexp)
 	if (!strp || (*strp && *strp != '/')) {
 	    /* No, do normal compilation. */
 	    strp = NULL;
-	    if (patcompswitch(0, &flags) == 0)
+	    if (patcompswitch(0, &flags) == 0) {
+		unqueue_signals();
 		return NULL;
+	    }
 	} else {
 	    /*
 	     * Yes, copy the string, and skip compilation altogether.
@@ -715,6 +737,8 @@ patcompile(char *exp, int inflags, char **endexp)
 
     if (endexp)
 	*endexp = patparse;
+
+    unqueue_signals();
     return p;
 }
 
@@ -1097,7 +1121,7 @@ patgetglobflags(char **strp, long *assertp, int *ignore)
 static const char *colon_stuffs[]  = {
     "alpha", "alnum", "ascii", "blank", "cntrl", "digit", "graph", 
     "lower", "print", "punct", "space", "upper", "xdigit", "IDENT",
-    "IFS", "IFSSPACE", "WORD", NULL
+    "IFS", "IFSSPACE", "WORD", "INCOMPLETE", "INVALID", NULL
 };
 
 /*
@@ -1113,8 +1137,8 @@ range_type(char *start, int len)
     const char **csp;
 
     for (csp = colon_stuffs; *csp; csp++) {
-	if (!strncmp(start, *csp, len))
-	    return (csp - colon_stuffs) + PP_FIRST;
+	if (strlen(*csp) == len && !strncmp(start, *csp, len))
+		return (csp - colon_stuffs) + PP_FIRST;
     }
 
     return PP_UNKWN;
@@ -1848,9 +1872,9 @@ static int globdots;			/* Glob initial dots? */
 #ifdef MULTIBYTE_SUPPORT
 
 /* Get a character from the start point in a string */
-#define CHARREF(x, y)	charref((x), (y))
+#define CHARREF(x, y)	charref((x), (y), (int *)NULL)
 static wchar_t
-charref(char *x, char *y)
+charref(char *x, char *y, int *zmb_ind)
 {
     wchar_t wc;
     size_t ret;
@@ -1861,12 +1885,16 @@ charref(char *x, char *y)
     ret = mbrtowc(&wc, x, y-x, &shiftstate);
 
     if (ret == MB_INVALID || ret == MB_INCOMPLETE) {
-	/* Error.  Treat as single byte. */
+	/* Error. */
 	/* Reset the shift state for next time. */
 	memset(&shiftstate, 0, sizeof(shiftstate));
-	return (wchar_t) STOUC(*x);
+	if (zmb_ind)
+	    *zmb_ind = (ret == MB_INVALID) ? ZMB_INVALID : ZMB_INCOMPLETE;
+	return WCHAR_INVALID(*x);
     }
 
+    if (zmb_ind)
+	*zmb_ind = ZMB_VALID;
     return wc;
 }
 
@@ -1916,7 +1944,7 @@ charrefinc(char **x, char *y, int *z)
 	*z = 1;
 	/* Reset the shift state for next time. */
 	memset(&shiftstate, 0, sizeof(shiftstate));
-	return (wchar_t) STOUC(*(*x)++);
+	return WCHAR_INVALID(*(*x)++);
     }
 
     /* Nulls here are normal characters */
@@ -1995,124 +2023,127 @@ pattrystart(void)
 }
 
 /*
- * Test prog against null-terminated, metafied string.
+ * Fix up string length stuff.
+ *
+ * If we call patallocstr() with "force" to set things up early, it's
+ * done there, else it's done in pattryrefs().  The reason for the
+ * difference is in the latter case we may not be relying on
+ * patallocstr() having an effect.
  */
 
 /**/
-mod_export int
-pattry(Patprog prog, char *string)
+static void
+patmungestring(char **string, int *stringlen, int *unmetalenin)
 {
-    return pattryrefs(prog, string, -1, -1, 0, NULL, NULL, NULL);
+    /*
+     * Special signalling of empty tokenised string.
+     */
+    if (*stringlen > 0 && **string == Nularg) {
+	(*string)++;
+	/*
+	 * If we don't have an unmetafied length
+	 * and need it (we may not) we'll get it later.
+	 */
+	if (*unmetalenin > 0)
+	    (*unmetalenin)--;
+	if (*stringlen > 0)
+	    (*stringlen)--;
+    }
+
+    /* Ensure we have a metafied length */
+    if (*stringlen < 0)
+	*stringlen = strlen(*string);
 }
 
 /*
- * Test prog against string of given length, no null termination
- * but still metafied at this point.  offset gives an offset
- * to include in reported match indices
+ * Allocate memeory for pattern match.  Note this is specific to use
+ * of pattern *and* trial string.
+ *
+ * Unmetafy a trial string for use in pattern matching, if needed.
+ *
+ * If it is needed, returns a heap allocated string; if not needed,
+ * returns NULL.
+ *
+ * prog is the pattern to be executed.
+ * string is the metafied trial string.
+ * stringlen is it's length; it will be calculated if it's negative
+ *   (this is a simple strlen()).
+ * unmetalen is the unmetafied length of the string, may be -1.
+ * force is 1 if we always unmetafy: this is useful if we are going
+ *   to try again with different versions of the string.  If this is
+ *   called from pattryrefs() we don't force unmetafication as it won't
+ *   be optimal.  This option should be used if the resulting
+ *   patstralloc is going to be passed to pattrylen() / pattryrefs().
+ * In patstralloc (supplied by caller, must last until last pattry is done)
+ *  unmetalen is the unmetafied length of the string; it will be
+ *    calculated if the input value is negative.
+ *  unmetalenp is the umetafied length of a path segment preceeding
+ *    the trial string needed for file mananagement; it is calculated as
+ *    needed so does not need to be initialised.
+ *  alloced is the memory allocated on the heap --- same as return value from
+ *    function.
  */
-
 /**/
-mod_export int
-pattrylen(Patprog prog, char *string, int len, int unmetalen, int offset)
+mod_export
+char *patallocstr(Patprog prog, char *string, int stringlen, int unmetalen,
+		  int force, Patstralloc patstralloc)
 {
-    return pattryrefs(prog, string, len, unmetalen, offset, NULL, NULL, NULL);
-}
+    int needfullpath;
 
-/*
- * Test prog against string with given lengths.  The input
- * string is metafied; stringlen is the raw string length, and
- * unmetalen the number of characters in the original string (some
- * of which may now be metafied).  Either value may be -1
- * to indicate a null-terminated string which will be counted.  Note
- * there may be a severe penalty for this if a lot of matching is done
- * on one string.
- *
- * offset is the position in the original string (not seen by
- * the pattern module) at which we are trying to match.
- * This is added in to the positions recorded in patbeginp and patendp
- * when we are looking for substrings.  Currently this only happens
- * in the parameter substitution code.
- *
- * Note this is a character offset, i.e. a metafied character
- * counts as 1.
- *
- * The last three arguments are used to report the positions for the
- * backreferences. On entry, *nump should contain the maximum number
- * of positions to report.  In this case the match, mbegin, mend
- * arrays are not altered.
- *
- * If nump is NULL but endp is not NULL, then *endp is set to the
- * end position of the match, taking into account patinstart.
- */
+    if (force)
+	patmungestring(&string, &stringlen, &unmetalen);
 
-/**/
-mod_export int
-pattryrefs(Patprog prog, char *string, int stringlen, int unmetalen,
-	   int patoffset,
-	   int *nump, int *begp, int *endp)
-{
-    int i, maxnpos = 0, ret, needfullpath, unmetalenp;
-    int origlen;
-    char **sp, **ep, *tryalloced, *ptr;
-    char *progstr = (char *)prog + prog->startoff;
-
-    if (nump) {
-	maxnpos = *nump;
-	*nump = 0;
-    }
-    /* inherited from domatch, but why, exactly? */
-    if (*string == Nularg) {
-	string++;
-	unmetalen--;
-    }
-
-    if (stringlen < 0)
-	stringlen = strlen(string);
-    origlen = stringlen;
-
-    patflags = prog->flags;
     /*
      * For a top-level ~-exclusion, we will need the full
      * path to exclude, so copy the path so far and append the
      * current test string.
      */
-    needfullpath = (patflags & PAT_HAS_EXCLUDP) && pathpos;
+    needfullpath = (prog->flags & PAT_HAS_EXCLUDP) && pathpos;
 
     /* Get the length of the full string when unmetafied. */
     if (unmetalen < 0)
-	unmetalen = ztrsub(string + stringlen, string);
-    if (needfullpath)
-	unmetalenp = ztrsub(pathbuf + pathpos, pathbuf);
+	patstralloc->unmetalen = ztrsub(string + stringlen, string);
     else
-	unmetalenp = 0;
+	patstralloc->unmetalen = unmetalen;
+    if (needfullpath) {
+	patstralloc->unmetalenp = ztrsub(pathbuf + pathpos, pathbuf);
+	if (!patstralloc->unmetalenp)
+	    needfullpath = 0;
+    } else
+	patstralloc->unmetalenp = 0;
+    /* Initialise cache area */
+    patstralloc->progstrunmeta = NULL;
+    patstralloc->progstrunmetalen = 0;
 
-    DPUTS(needfullpath && (patflags & (PAT_PURES|PAT_ANY)),
+    DPUTS(needfullpath && (prog->flags & (PAT_PURES|PAT_ANY)),
 	  "rum sort of file exclusion");
     /*
      * Partly for efficiency, and partly for the convenience of
      * globbing, we don't unmetafy pure string patterns, and
      * there's no reason to if the pattern is just a *.
      */
-    if (!(patflags & (PAT_PURES|PAT_ANY))
-	&& (needfullpath || unmetalen != stringlen)) {
+    if (force ||
+	(!(prog->flags & (PAT_PURES|PAT_ANY))
+	 && (needfullpath || patstralloc->unmetalen != stringlen))) {
 	/*
 	 * We need to copy if we need to prepend the path so far
 	 * (in which case we copy both chunks), or if we have
 	 * Meta characters.
 	 */
-	char *dst;
-	int icopy, ncopy;
+	char *dst, *ptr;
+	int i, icopy, ncopy;
 
-	dst = tryalloced = zalloc(unmetalen + unmetalenp);
+	dst = patstralloc->alloced =
+	    zhalloc(patstralloc->unmetalen + patstralloc->unmetalenp);
 
 	if (needfullpath) {
 	    /* loop twice, copy path buffer first time */
 	    ptr = pathbuf;
-	    ncopy = unmetalenp;
+	    ncopy = patstralloc->unmetalenp;
 	} else {
 	    /* just loop once, copy string with unmetafication */
 	    ptr = string;
-	    ncopy = unmetalen;
+	    ncopy = patstralloc->unmetalen;
 	}
 	for (icopy = 0; icopy < 2; icopy++) {
 	    for (i = 0; i < ncopy; i++) {
@@ -2127,22 +2158,136 @@ pattryrefs(Patprog prog, char *string, int stringlen, int unmetalen,
 		break;
 	    /* next time append test string to path so far */
 	    ptr = string;
-	    ncopy = unmetalen;
+	    ncopy = patstralloc->unmetalen;
 	}
-
-	if (needfullpath) {
-	    patinstart = tryalloced + unmetalenp;
-	    patinpath = tryalloced;
-	} else {
-	    patinstart = tryalloced;
-	    patinpath = NULL;
-	}
-	stringlen = unmetalen;
-    } else {
-	patinstart = string;
-	tryalloced = patinpath = NULL;
+    }
+    else
+    {
+	patstralloc->alloced = NULL;
     }
 
+    return patstralloc->alloced;
+}
+
+
+/*
+ * Test prog against null-terminated, metafied string.
+ */
+
+/**/
+mod_export int
+pattry(Patprog prog, char *string)
+{
+    return pattryrefs(prog, string, -1, -1, NULL, 0, NULL, NULL, NULL);
+}
+
+/*
+ * Test prog against string of given length, no null termination
+ * but still metafied at this point.  offset gives an offset
+ * to include in reported match indices
+ */
+
+/**/
+mod_export int
+pattrylen(Patprog prog, char *string, int len, int unmetalen,
+	  Patstralloc patstralloc, int offset)
+{
+    return pattryrefs(prog, string, len, unmetalen, patstralloc, offset,
+		      NULL, NULL, NULL);
+}
+
+/*
+ * Test prog against string with given lengths.  The input
+ * string is metafied; stringlen is the raw string length, and
+ * unmetalen the number of characters in the original string (some
+ * of which may now be metafied).  Either value may be -1
+ * to indicate a null-terminated string which will be counted.  Note
+ * there may be a severe penalty for this if a lot of matching is done
+ * on one string.
+ *
+ * If patstralloc is not NULL it is used to optimise unmetafication
+ * of a trial string that may be passed (or any substring may be passed) to
+ * pattryrefs multiple times or the same pattern (N.B. so patstralloc
+ * depends on both prog *and* the trial string).  This should only be
+ * done if there is no path prefix (pathpos == 0) as otherwise the path
+ * buffer and unmetafied string may not match.  To do this,
+ * patallocstr() is callled (use force = 1 to ensure it is alway
+ * unmetafied); paststralloc points to existing storage. Memory is
+ * on the heap.
+ *
+ * patstralloc->alloced and patstralloc->unmetalen contain the
+ * unmetafied string and its length.  In that case, the rules for the
+ * earlier arguments change:
+ * - string is an unmetafied string
+ * - stringlen is its unmetafied (i.e. actual) length
+ * - unmetalenin is not used.
+ * string and stringlen may refer to arbitrary substrings of
+ * patstralloc->alloced without any internal modification to patstralloc.
+ *
+ * patoffset is the position in the original string (not seen by
+ * the pattern module) at which we are trying to match.
+ * This is added in to the positions recorded in patbeginp and patendp
+ * when we are looking for substrings.  Currently this only happens
+ * in the parameter substitution code.  It refers to a real character
+ * offset, i.e. is already in the form ready for presentation to the
+ * general public --- this is necessary as we don't have the
+ * information to convert it down here.
+ *
+ * Note this is a character offset, i.e. a single possibly metafied and
+ * possibly multibyte character counts as 1.
+ *
+ * The last three arguments are used to report the positions for the
+ * backreferences. On entry, *nump should contain the maximum number
+ * of positions to report.  In this case the match, mbegin, mend
+ * arrays are not altered.
+ *
+ * If nump is NULL but endp is not NULL, then *endp is set to the
+ * end position of the match, taking into account patinstart.
+ */
+
+/**/
+mod_export int
+pattryrefs(Patprog prog, char *string, int stringlen, int unmetalenin,
+	   Patstralloc patstralloc, int patoffset,
+	   int *nump, int *begp, int *endp)
+{
+    int i, maxnpos = 0, ret;
+    int origlen;
+    char **sp, **ep, *ptr;
+    char *progstr = (char *)prog + prog->startoff;
+    struct patstralloc patstralloc_struct;
+
+    if (nump) {
+	maxnpos = *nump;
+	*nump = 0;
+    }
+
+    if (!patstralloc)
+	patmungestring(&string, &stringlen, &unmetalenin);
+    origlen = stringlen;
+
+    if (patstralloc) {
+	DPUTS(!patstralloc->alloced,
+	      "External unmetafy didn't actually unmetafy.");
+	DPUTS(patstralloc->unmetalenp,
+	      "Ooh-err: pathpos with external unmetafy. I have bad vibes.");
+	patinpath = NULL;
+	patinstart = string;
+	/* stringlen is unmetafied length; unmetalenin is ignored */
+    } else {
+	patstralloc = &patstralloc_struct;
+	if (patallocstr(prog, string, stringlen, unmetalenin, 0, patstralloc)) {
+	    patinstart = patstralloc->alloced + patstralloc->unmetalenp;
+	    stringlen = patstralloc->unmetalen;
+	} else
+	    patinstart = string;
+	if (patstralloc->unmetalenp)
+	    patinpath = patstralloc->alloced;
+	else
+	    patinpath = NULL;
+    }
+
+    patflags = prog->flags;
     patinend = patinstart + stringlen;
     /*
      * From now on we do not require NULL termination of
@@ -2155,7 +2300,31 @@ pattryrefs(Patprog prog, char *string, int stringlen, int unmetalen,
 	 * Either we are testing against a pure string,
 	 * or we can match anything at all.
 	 */
-	int ret;
+	int ret, pstrlen;
+	char *pstr;
+	if (patstralloc->alloced)
+	{
+	    /*
+	     * Unmetafied; we need pattern sring that's also unmetafied.
+	     * We'll cache it in the patstralloc structure.
+	     * Note it's on the heap.
+	     */
+	    if (!patstralloc->progstrunmeta)
+	    {
+		patstralloc->progstrunmeta =
+		    dupstrpfx(progstr, (int)prog->patmlen);
+		unmetafy(patstralloc->progstrunmeta,
+			 &patstralloc->progstrunmetalen);
+	    }
+	    pstr = patstralloc->progstrunmeta;
+	    pstrlen = patstralloc->progstrunmetalen;
+	}
+	else
+	{
+	    /* Metafied. */
+	    pstr = progstr;
+	    pstrlen = (int)prog->patmlen;
+	}
 	if (prog->flags & PAT_ANY) {
 	    /*
 	     * Optimisation for a single "*": always matches
@@ -2167,11 +2336,11 @@ pattryrefs(Patprog prog, char *string, int stringlen, int unmetalen,
 	     * Testing a pure string.  See if initial
 	     * components match.
 	     */
-	    int lendiff = stringlen - prog->patmlen;
+	    int lendiff = stringlen - pstrlen;
 	    if (lendiff < 0) {
 		/* No, the pattern string is too long. */
 		ret = 0;
-	    } else if (!memcmp(progstr, patinstart, prog->patmlen)) {
+	    } else if (!memcmp(pstr, patinstart, pstrlen)) {
 		/*
 		 * Initial component matches.  Matches either
 		 * if lengths are the same or we are not anchored
@@ -2193,28 +2362,35 @@ pattryrefs(Patprog prog, char *string, int stringlen, int unmetalen,
 	    } else {
 		/*
 		 * Remember the length in case used for ${..#..} etc.
-		 * In this case, we didn't unmetafy the string.
+		 * In this case, we didn't unmetafy the pattern string
+		 * In the orignal structure, but it might be unmetafied
+		 * for use with an unmetafied test string.
 		 */
-		patinlen = (int)prog->patmlen;
+		patinlen = pstrlen;
 		/* if matching files, must update globbing flags */
 		patglobflags = prog->globend;
 
 		if ((patglobflags & GF_MATCHREF) &&
 		    !(patflags & PAT_FILE)) {
-		    char *str = ztrduppfx(patinstart, patinlen);
-		    char *ptr = patinstart;
-		    int mlen = 0;
+		    char *str;
+		    int mlen;
 
-		    /*
-		     * Count the characters.  We're not using CHARSUB()
-		     * because the string is still metafied.  We're
-		     * not using mb_metastrlen() because that expects
-		     * the string to be null terminated.
-		     */
-		    MB_METACHARINIT();
-		    while (ptr < patinstart + patinlen) {
-			mlen++;
-			ptr += MB_METACHARLEN(ptr);
+		    if (patstralloc->alloced) {
+			/*
+			 * Unmetafied: pstrlen contains unmetafied
+			 * length in bytes.
+			 */
+			str = metafy(patinstart, pstrlen, META_DUP);
+			mlen = CHARSUB(patinstart, patinstart + pstrlen);
+		    } else {
+			str = ztrduppfx(patinstart, patinlen);
+			/*
+			 * Count the characters.  We're not using CHARSUB()
+			 * because the string is still metafied.
+			 */
+			MB_METACHARINIT();
+			mlen = MB_METASTRLEN2END(patinstart, 0,
+						 patinstart + patinlen);
 		    }
 
 		    setsparam("MATCH", str);
@@ -2226,9 +2402,6 @@ pattryrefs(Patprog prog, char *string, int stringlen, int unmetalen,
 		}
 	    }
 	}
-
-	if (tryalloced)
-	    zfree(tryalloced, unmetalen + unmetalenp);
 
 	return ret;
     } else {
@@ -2266,8 +2439,6 @@ pattryrefs(Patprog prog, char *string, int stringlen, int unmetalen,
 	    }
 	}
 	if (!ret) {
-	    if (tryalloced)
-		zfree(tryalloced, unmetalen + unmetalenp);
 	    return 0;
 	}
 
@@ -2299,8 +2470,11 @@ pattryrefs(Patprog prog, char *string, int stringlen, int unmetalen,
 	    /*
 	     * Optimization: if we didn't find any Meta characters
 	     * to begin with, we don't need to look for them now.
+	     *
+	     * For patstralloc pased in, we want the unmetafied length.
 	     */
-	    if (unmetalen != origlen) {
+	    if (patstralloc == &patstralloc_struct &&
+		patstralloc->unmetalen != origlen) {
 		for (ptr = patinstart; ptr < patinput; ptr++)
 		    if (imeta(*ptr))
 			patinlen++;
@@ -2421,16 +2595,15 @@ pattryrefs(Patprog prog, char *string, int stringlen, int unmetalen,
 
 	restore_queue_signals(q);
 
-	if (tryalloced)
-	    zfree(tryalloced, unmetalen + unmetalenp);
-
 	return ret;
     }
 }
 
 /*
  * Return length of previous succesful match.  This is
- * in metafied bytes, i.e. includes a count of Meta characters.
+ * in metafied bytes, i.e. includes a count of Meta characters,
+ * unless the match was done on an unmetafied string using
+ * a patstralloc stuct, in which case it, too is unmetafed.
  * Unusual and futile attempt at modular encapsulation.
  */
 
@@ -2563,10 +2736,11 @@ patmatch(Upat prog)
 		fail = 1;
 	    else {
 #ifdef MULTIBYTE_SUPPORT
-		wchar_t cr = CHARREF(patinput, patinend);
+		int zmb_ind;
+		wchar_t cr = charref(patinput, patinend, &zmb_ind);
 		char *scanop = (char *)P_OPERAND(scan);
 		if (patglobflags & GF_MULTIBYTE) {
-		    if (mb_patmatchrange(scanop, cr, NULL, NULL) ^
+		    if (mb_patmatchrange(scanop, cr, zmb_ind, NULL, NULL) ^
 			(P_OP(scan) == P_ANYOF))
 			fail = 1;
 		    else
@@ -2619,19 +2793,30 @@ patmatch(Upat prog)
 	    start = compend = patinput;
 	    comp = 0;
 	    while (patinput < patinend && idigit(*patinput)) {
-		if (comp)
-		    comp *= 10;
-		comp += *patinput - '0';
+		int out_of_range = 0;
+		int digit = *patinput - '0';
+		if (comp > ZRANGE_MAX / (zlong)10) {
+		    out_of_range = 1;
+		} else {
+		    zrange_t c10 = comp ? comp * 10 : 0;
+		    if (ZRANGE_MAX - c10 < digit) {
+			out_of_range = 1;
+		    } else {
+			comp = c10;
+			comp += digit;
+		    }
+		}
 		patinput++;
 		compend++;
 
-		if (comp & ((zrange_t)1 << (sizeof(comp)*8 -
+		if (out_of_range ||
+		    (comp & ((zrange_t)1 << (sizeof(comp)*8 -
 #ifdef ZRANGE_T_IS_SIGNED
 					    2
 #else
 					    1
 #endif
-				))) {
+				)))) {
 		    /*
 		     * Out of range (allowing for signedness, which
 		     * we need if we are using zlongs).
@@ -3191,6 +3376,7 @@ patmatch(Upat prog)
 		    scan[P_CT_CURRENT].l = cur + 1;
 		    if (patmatch(scan + P_CT_OPERAND))
 			return 1;
+		    scan[P_CT_CURRENT].l = cur;
 		    patinput = patinput_thistime;
 		}
 		if (cur < min)
@@ -3334,6 +3520,9 @@ patmatch(Upat prog)
  * The null-terminated specification is in range; the test
  * character is in ch.
  *
+ * zmb is one of the enum defined above charref(), for indicating
+ * incomplete or invalid multibyte characters.
+ *
  * indptr is used by completion matching, which is why this
  * function is exported.  If indptr is not NULL we set *indptr
  * to the index of the character in the range string, adjusted
@@ -3350,7 +3539,7 @@ patmatch(Upat prog)
 
 /**/
 mod_export int
-mb_patmatchrange(char *range, wchar_t ch, wint_t *indptr, int *mtp)
+mb_patmatchrange(char *range, wchar_t ch, int zmb_ind, wint_t *indptr, int *mtp)
 {
     wchar_t r1, r2;
 
@@ -3459,6 +3648,14 @@ mb_patmatchrange(char *range, wchar_t ch, wint_t *indptr, int *mtp)
 		    *indptr += r2 - r1;
 		}
 		break;
+	    case PP_INCOMPLETE:
+		if (zmb_ind == ZMB_INCOMPLETE)
+		    return 1;
+		break;
+	    case PP_INVALID:
+		if (zmb_ind == ZMB_INVALID)
+		    return 1;
+		break;
 	    case PP_UNKWN:
 		DPUTS(1, "BUG: unknown posix range passed through.\n");
 		break;
@@ -3528,6 +3725,8 @@ mb_patmatchindex(char *range, wint_t ind, wint_t *chr, int *mtp)
 	    case PP_IFS:
 	    case PP_IFSSPACE:
 	    case PP_WORD:
+	    case PP_INCOMPLETE:
+	    case PP_INVALID:
 		if (!ind) {
 		    *mtp = swtype;
 		    return 1;
@@ -3681,6 +3880,10 @@ patmatchrange(char *range, int ch, int *indptr, int *mtp)
 		if (indptr && r1 < r2)
 		    *indptr += r2 - r1;
 		break;
+	    case PP_INCOMPLETE:
+	    case PP_INVALID:
+		/* Never true if not in multibyte mode */
+		break;
 	    case PP_UNKWN:
 		DPUTS(1, "BUG: unknown posix range passed through.\n");
 		break;
@@ -3751,6 +3954,8 @@ patmatchindex(char *range, int ind, int *chr, int *mtp)
 	    case PP_IFS:
 	    case PP_IFSSPACE:
 	    case PP_WORD:
+	    case PP_INCOMPLETE:
+	    case PP_INVALID:
 		if (!ind) {
 		    *mtp = swtype;
 		    return 1;
@@ -3834,9 +4039,10 @@ static int patrepeat(Upat p, char *charstart)
     case P_ANYBUT:
 	while (scan < patinend) {
 #ifdef MULTIBYTE_SUPPORT
-	    wchar_t cr = CHARREF(scan, patinend);
+	    int zmb_ind;
+	    wchar_t cr = charref(scan, patinend, &zmb_ind);
 	    if (patglobflags & GF_MULTIBYTE) {
-		if (mb_patmatchrange(opnd, cr, NULL, NULL) ^
+		if (mb_patmatchrange(opnd, cr, zmb_ind, NULL, NULL) ^
 		    (P_OP(p) == P_ANYOF))
 		    break;
 	    } else if (patmatchrange(opnd, (int)cr, NULL, NULL) ^

@@ -11,6 +11,7 @@
 #include <Security/SecureObjectSync/SOSRing.h>
 
 #include <SOSCloudKeychainClient.h>
+#include <SOSCloudKeychainLogging.h>
 #include <utilities/debugging.h>
 #include <utilities/SecCFWrappers.h>
 #include <CoreFoundation/CFBase.h>
@@ -226,50 +227,51 @@ static void showWhatWasHandled(CFDictionaryRef updates, CFMutableArrayRef handle
     CFReleaseSafe(handledKeysStr);
 }
 
+#define KVS_STATE_INTERVAL 50
+
 CF_RETURNS_RETAINED
 CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountRef account, CFDictionaryRef updates, CFErrorRef *error){
+    static int KVSLogCountDown = 0;
     
     CFMutableArrayRef handledKeys = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
+    CFStringRef dsid = NULL;
     
-    if(CFDictionaryContainsKey(updates, kSOSKVSAccountChangedKey)){
+    if(CFDictionaryGetValueIfPresent(updates, kSOSKVSAccountChangedKey, (const void**)&dsid)){
         secnotice("accountChange", "SOSTransportDispatchMessages received kSOSKVSAccountChangedKey");
+        KVSLogCountDown = 0; // Get an initial check on KVS values
         // While changing accounts we may modify the key params array. To avoid stepping on ourselves we
         // copy the list for iteration.  Now modifying the transport outside of the list iteration.
-        __block SOSTransportKeyParameterRef tempTransport = NULL;
-        CFMutableArrayRef originalKeyParams = CFArrayCreateMutableCopy(kCFAllocatorDefault, CFArrayGetCount(SOSGetTransportKeyParameters()), SOSGetTransportKeyParameters());
-        do{
-            tempTransport = NULL;
-            CFArrayForEach(originalKeyParams, ^(const void *value) {
-                SOSTransportKeyParameterRef transport = (SOSTransportKeyParameterRef) value;
-                if(CFEqualSafe(SOSTransportKeyParameterGetAccount(transport), account)){
-                    tempTransport = transport;
-                }
-            });
-            if(tempTransport != NULL){
-                SOSTransportKeyParameterHandleNewAccount(tempTransport, account);
-                CFStringRef dsid = NULL;
-                if(CFDictionaryGetValueIfPresent(updates, kSOSKVSAccountChangedKey, (const void**)&dsid)){
-                    if(dsid != NULL){
-                        CFStringRef accountDSID = (CFStringRef)SOSAccountGetValue(account, kSOSDSIDKey, error);
-
-                        if(accountDSID == NULL){
-                            SOSAccountSetValue(account, kSOSDSIDKey, dsid, error);
-                            secdebug("dsid", "Assigning new DSID: %@", dsid);
-                        }
-                        else if(accountDSID != NULL && CFStringCompare(accountDSID, dsid, 0) != 0 ){
-                            SOSAccountSetValue(account, kSOSDSIDKey, dsid, error);
-                            secdebug("dsid", "Assigning new DSID: %@", dsid);
-                        }
-                        else
-                            secdebug("dsid", "DSIDs are the same!");
-                    }
-                }
-                CFArrayRemoveAllValue(originalKeyParams, tempTransport);
-            }
-        }while(tempTransport != NULL);
-        CFArrayAppendValue(handledKeys, kSOSKVSAccountChangedKey);
-        CFReleaseNull(originalKeyParams);
+        CFMutableArrayRef transportsToUse = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
         
+        CFArrayForEach(SOSGetTransportKeyParameters(), ^(const void *value) {
+            SOSTransportKeyParameterRef transport = (SOSTransportKeyParameterRef) value;
+            if(CFEqualSafe(SOSTransportKeyParameterGetAccount(transport), account)){
+                CFArrayAppendValue(transportsToUse, transport);
+            }
+
+        });
+        
+        CFArrayForEach(transportsToUse, ^(const void *value) {
+            SOSTransportKeyParameterRef tempTransport = (SOSTransportKeyParameterRef) value;
+            
+            CFStringRef accountDSID = (CFStringRef)SOSAccountGetValue(account, kSOSDSIDKey, error);
+            
+            if(accountDSID == NULL){
+                SOSTransportKeyParameterHandleNewAccount(tempTransport, account);
+                SOSAccountSetValue(account, kSOSDSIDKey, dsid, error);
+                secdebug("dsid", "Assigning new DSID: %@", dsid);
+            } else if(accountDSID != NULL && CFStringCompare(accountDSID, dsid, 0) != 0 ) {
+                SOSTransportKeyParameterHandleNewAccount(tempTransport, account);
+                SOSAccountSetValue(account, kSOSDSIDKey, dsid, error);
+                secdebug("dsid", "Assigning new DSID: %@", dsid);
+            } else {
+                secdebug("dsid", "DSIDs are the same!");
+            }
+        });
+        
+        CFReleaseNull(transportsToUse);
+    
+        CFArrayAppendValue(handledKeys, kSOSKVSAccountChangedKey);
     }
 
     
@@ -296,6 +298,7 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountRef account, CFDictiona
         CFStringRef to_name = NULL;
         CFStringRef backup_name = NULL;
         
+        require_quiet(isString(key), errOut);
         switch (SOSKVSKeyGetKeyTypeAndParse(key, &circle_name, &peer_info_name, &ring_name, &backup_name, &from_name, &to_name)) {
             case kCircleKey:
                 CFDictionarySetValue(circle_circle_messages_table, circle_name, value);
@@ -338,7 +341,8 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountRef account, CFDictiona
                 break;
                 
         }
-        
+
+    errOut:
         CFReleaseNull(circle_name);
         CFReleaseNull(from_name);
         CFReleaseNull(to_name);
@@ -436,14 +440,51 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountRef account, CFDictiona
     if(CFDictionaryGetCount(circle_peer_messages_table)) {
         CFArrayForEach(SOSGetTransportMessages(), ^(const void *value) {
             SOSTransportMessageRef tkvs = (SOSTransportMessageRef) value;
-            if(SOSTransportMessageGetTransportType(tkvs, error) != kIDS){
+            
+            if(SOSTransportMessageGetTransportType(tkvs, error) == kIDSTest){ //this case is for the IDS test transport
+                if(CFEqualSafe(SOSTransportMessageGetAccount((SOSTransportMessageRef)value), account)){
+                    CFErrorRef handleMessagesError = NULL;
+                    CFDictionaryRef handledPeers = SOSTransportMessageHandleMessages(account->ids_message_transport, circle_peer_messages_table, &handleMessagesError);
+                    
+                    if (handledPeers) {
+                        // We need to look for and send responses.
+                        SOSAccountSendIKSPSyncList(account, error);
+                        SOSAccountSyncWithAllKVSPeers(account, error);
+                        
+                        CFDictionaryForEach(handledPeers, ^(const void *key, const void *value) {
+                            if (isString(key) && isArray(value)) {
+                                CFArrayForEach(value, ^(const void *value) {
+                                    if (isString(value)) {
+                                        CFStringRef peerID = (CFStringRef) value;
+                                        CFStringRef kvsHandledKey = SOSMessageKeyCreateFromPeerToTransport(account->ids_message_transport, peerID);
+                                        CFArrayAppendValue(handledKeys, kvsHandledKey);
+                                        CFReleaseSafe(kvsHandledKey);
+                                    }
+                                });
+                            }
+                        });
+                        CFErrorRef flushError = NULL;
+                        if (!SOSTransportMessageFlushChanges((SOSTransportMessageRef)account->kvs_message_transport, &flushError)) {
+                            secerror("Flush failed: %@", flushError);
+                        }
+                    }
+                    else {
+                        secerror("Didn't handle? : %@", handleMessagesError);
+                    }
+                    CFReleaseNull(handledPeers);
+                    CFReleaseNull(handleMessagesError);
+                }
+            }
+
+            else if(SOSTransportMessageGetTransportType(tkvs, error) != kIDS){
                 if(CFEqualSafe(SOSTransportMessageGetAccount((SOSTransportMessageRef)value), account)){
                     CFErrorRef handleMessagesError = NULL;
                     CFDictionaryRef handledPeers = SOSTransportMessageHandleMessages(account->kvs_message_transport, circle_peer_messages_table, &handleMessagesError);
 
                     if (handledPeers) {
                         // We need to look for and send responses.
-                        SOSAccountSyncWithAllPeers(account, error);
+                        SOSAccountSendIKSPSyncList(account, error);
+                        SOSAccountSyncWithAllKVSPeers(account, error);
                         
                         CFDictionaryForEach(handledPeers, ^(const void *key, const void *value) {
                             if (isString(key) && isArray(value)) {
@@ -451,8 +492,9 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountRef account, CFDictiona
                                     if (isString(value)) {
                                         CFStringRef peerID = (CFStringRef) value;
 
-                                        CFStringRef kvsHandledKey = SOSMessageKeyCreateFromPeerToTransport((SOSTransportMessageKVSRef)account->kvs_message_transport, peerID);
-                                        CFArrayAppendValue(handledKeys, kvsHandledKey);
+                                        CFStringRef kvsHandledKey = SOSMessageKeyCreateFromPeerToTransport(account->kvs_message_transport, peerID);
+                                        if(kvsHandledKey != NULL)
+                                            CFArrayAppendValue(handledKeys, kvsHandledKey);
                                         CFReleaseSafe(kvsHandledKey);
                                     }
                                 });
@@ -510,7 +552,7 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountRef account, CFDictiona
                 CFMutableArrayRef handledRingMessages = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
 
                 CFDictionaryForEach(ring_update_message_table, ^(const void *key, const void *value) {
-                    CFDataRef ringData = (CFDataRef)value;
+                    CFDataRef ringData = asData(value, NULL);
                     SOSRingRef ring = SOSRingCreateFromData(error, ringData);
 
                     if(SOSAccountUpdateRingFromRemote(account, ring, error)){
@@ -541,6 +583,11 @@ CFMutableArrayRef SOSTransportDispatchMessages(SOSAccountRef account, CFDictiona
     CFReleaseNull(ring_update_message_table);
     CFReleaseNull(peer_info_message_table);
     CFReleaseNull(debug_info_message_table);
+    
+    if(KVSLogCountDown <= 0) {
+        SOSCloudKVSLogState();
+        KVSLogCountDown = KVS_STATE_INTERVAL;
+    } else KVSLogCountDown--;
 
     showWhatWasHandled(updates, handledKeys);
     

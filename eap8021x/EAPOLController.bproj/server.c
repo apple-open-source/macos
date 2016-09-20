@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -308,14 +308,35 @@ eapolcontroller_retry(mach_port_t server,
 }
 
 kern_return_t
+eapolcontroller_client_get_session(mach_port_t server, task_t task,
+				   if_name_t if_name,
+				   mach_port_t * bootstrap,
+				   mach_port_t * au_session)
+{
+    int			pid;
+    kern_return_t	status;
+
+    status = pid_for_task(task, &pid);
+    if (status != KERN_SUCCESS) {
+	goto done;
+    }
+    ControllerClientGetSession(pid, if_name,
+			     bootstrap,
+			     au_session);
+done:
+    if (task != TASK_NULL) {
+	(void)mach_port_deallocate(mach_task_self(), task);
+    }
+    return (KERN_SUCCESS);
+}
+
+kern_return_t
 eapolcontroller_client_attach(mach_port_t server, task_t task,
 			      if_name_t if_name, 
 			      mach_port_t notify_port, 
 			      mach_port_t * session,
 			      xmlDataOut_t * control, 
 			      mach_msg_type_number_t * control_len,
-			      mach_port_t * bootstrap,
-			      mach_port_t * au_session,
 			      int * ret_result)
 {
     int			pid;
@@ -331,7 +352,7 @@ eapolcontroller_client_attach(mach_port_t server, task_t task,
 	goto done;
     }
     result = ControllerClientAttach(pid, if_name, notify_port, session,
-				    &dict, bootstrap, au_session);
+				    &dict);
     if (dict != NULL) {
 	*control = (xmlDataOut_t)my_CFPropertyListCreateVMData(dict, 
 							       control_len);

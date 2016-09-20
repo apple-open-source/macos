@@ -1,6 +1,4 @@
 /*
- * "$Id: testsnmp.c 11560 2014-02-06 20:10:19Z msweet $"
- *
  * SNMP test program for CUPS.
  *
  * Copyright 2008-2014 by Apple Inc.
@@ -290,8 +288,3 @@ usage(void)
 
   exit (1);
 }
-
-
-/*
- * End of "$Id: testsnmp.c 11560 2014-02-06 20:10:19Z msweet $".
- */

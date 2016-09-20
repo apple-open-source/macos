@@ -172,6 +172,7 @@ static int process(tls_stream_parser_ctx_t ctx, tls_buffer record)
     test_printf("%s: %p processed, err=%d\n", __FUNCTION__, ctx, err);
 
 errOut:
+    free(decrypted.data);
     return err;
 }
 

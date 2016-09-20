@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2015 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -98,6 +98,7 @@ __unused static const char copyright[] =
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sysexits.h>
 
 #include "ifconfig.h"
 
@@ -762,7 +763,6 @@ setifflags(const char *vname, int value, int s, const struct afswtch *afp)
 		Perror(vname);
 }
 
-#ifdef SIOCGIFCAP
 void
 setifcap(const char *vname, int value, int s, const struct afswtch *afp)
 {
@@ -783,7 +783,6 @@ setifcap(const char *vname, int value, int s, const struct afswtch *afp)
 	if (ioctl(s, SIOCSIFCAP, (caddr_t)&ifr) < 0)
 		Perror(vname);
 }
-#endif
 
 static void
 setifmetric(const char *val, int dummy __unused, int s, 
@@ -941,6 +940,33 @@ setthrottle(const char *val, int dummy __unused, int s,
 }
 
 static void
+setdisableoutput(const char *val, int dummy __unused, int s,
+    const struct afswtch *afp)
+{
+	struct ifreq ifr;
+	char *cp;
+	errno = 0;
+	bzero(&ifr, sizeof (ifr));
+	strncpy(ifr.ifr_name, name, sizeof (ifr.ifr_name));
+
+	ifr.ifr_ifru.ifru_disable_output = strtold(val, &cp);
+	if (val == cp || errno != 0) {
+		warn("Invalid value '%s'", val);
+		return;
+	}
+
+	if (ioctl(s, SIOCSIFDISABLEOUTPUT, &ifr) < 0 && errno != ENXIO) {
+		warn("ioctl set disable output");
+	} else if (errno == ENXIO) {
+		printf("output thread can not be disabled on %s\n", name);
+	} else {
+		printf("output %s on %s\n",
+		    ((ifr.ifr_ifru.ifru_disable_output == 0) ? "enabled" : "disabled"),
+		    name);
+	}
+}
+
+static void
 setlog(const char *val, int dummy __unused, int s,
     const struct afswtch *afp)
 {
@@ -981,6 +1007,19 @@ setexpensive(const char *vname, int value, int s, const struct afswtch *afp)
 		Perror(vname);
 }
 
+void
+settimestamp(const char *vname, int value, int s, const struct afswtch *afp)
+{
+	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	
+	if (value == 0) {
+		if (ioctl(s, SIOCSIFTIMESTAMPDISABLE, (caddr_t)&ifr) < 0)
+			Perror(vname);
+	} else {
+		if (ioctl(s, SIOCSIFTIMESTAMPENABLE, (caddr_t)&ifr) < 0)
+			Perror(vname);
+	}
+}
 
 void
 setecnmode(const char *val, int dummy __unused, int s,
@@ -1008,6 +1047,137 @@ setecnmode(const char *val, int dummy __unused, int s,
 		Perror("ioctl(SIOCSECNMODE)");
 }
 
+#if defined(SIOCSQOSMARKINGMODE) && defined(SIOCSQOSMARKINGENABLED)
+
+void
+setqosmarking(const char *cmd, const char *arg, int s, const struct afswtch *afp)
+{
+	u_long ioc;
+
+#if (DEBUG | DEVELOPMENT)
+	printf("%s(%s, %s)\n", __func__, cmd, arg);
+#endif /* (DEBUG | DEVELOPMENT) */
+	
+	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	
+	if (strcmp(cmd, "mode") == 0) {
+		ioc = SIOCSQOSMARKINGMODE;
+		
+		if (strcmp(arg, "fastlane") == 0)
+			ifr.ifr_qosmarking_mode = IFRTYPE_QOSMARKING_FASTLANE;
+		else if (strcasecmp(arg, "none") == 0 || strcasecmp(arg, "off") == 0)
+			ifr.ifr_qosmarking_mode = IFRTYPE_QOSMARKING_MODE_NONE;
+		else
+			err(EX_USAGE, "bad value for qosmarking mode: %s", arg);
+	} else if (strcmp(cmd, "enabled") == 0) {
+		ioc = SIOCSQOSMARKINGENABLED;
+		if (strcmp(arg, "1") == 0 || strcasecmp(arg, "on") == 0||
+		    strcasecmp(arg, "yes") == 0 || strcasecmp(arg, "true") == 0)
+			ifr.ifr_qosmarking_enabled = 1;
+		else if (strcmp(arg, "0") == 0 || strcasecmp(arg, "off") == 0||
+			 strcasecmp(arg, "no") == 0 || strcasecmp(arg, "false") == 0)
+			ifr.ifr_qosmarking_enabled = 0;
+		else
+			err(EX_USAGE, "bad value for qosmarking enabled: %s", arg);
+	} else {
+		err(EX_USAGE, "qosmarking takes mode or enabled");
+	}
+	
+	if (ioctl(s, ioc, (caddr_t)&ifr) < 0)
+		err(EX_OSERR, "ioctl(%s, %s)", cmd, arg);
+}
+
+void
+setfastlane(const char *cmd, const char *arg, int s, const struct afswtch *afp)
+{
+	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	
+	warnx("### fastlane is obsolete, use qosmarking ###");
+	
+	if (strcmp(cmd, "capable") == 0) {
+		if (strcmp(arg, "1") == 0 || strcasecmp(arg, "on") == 0||
+		    strcasecmp(arg, "yes") == 0 || strcasecmp(arg, "true") == 0)
+			setqosmarking("mode", "fastlane", s, afp);
+		else if (strcmp(arg, "0") == 0 || strcasecmp(arg, "off") == 0||
+			 strcasecmp(arg, "no") == 0 || strcasecmp(arg, "false") == 0)
+			setqosmarking("mode", "off", s, afp);
+		else
+			err(EX_USAGE, "bad value for fastlane %s", cmd);
+	} else if (strcmp(cmd, "enable") == 0) {
+		if (strcmp(arg, "1") == 0 || strcasecmp(arg, "on") == 0||
+		    strcasecmp(arg, "yes") == 0 || strcasecmp(arg, "true") == 0)
+			setqosmarking("enabled", "1", s, afp);
+		else if (strcmp(arg, "0") == 0 || strcasecmp(arg, "off") == 0||
+			 strcasecmp(arg, "no") == 0 || strcasecmp(arg, "false") == 0)
+			setqosmarking("enabled", "0", s, afp);
+		else
+			err(EX_USAGE, "bad value for fastlane %s", cmd);
+	} else {
+		err(EX_USAGE, "fastlane takes capable or enable");
+	}
+}
+
+#else /* defined(SIOCSQOSMARKINGMODE) && defined(SIOCSQOSMARKINGENABLED) */
+
+void
+setfastlane(const char *cmd, const char *arg, int s, const struct afswtch *afp)
+{
+	int value;
+	u_long ioc;
+	
+	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	
+	if (strcmp(cmd, "capable") == 0)
+		ioc = SIOCSFASTLANECAPABLE;
+	else if (strcmp(cmd, "enable") == 0)
+		ioc = SIOCSFASTLEENABLED;
+	else
+		err(EX_USAGE, "fastlane takes capable or enabled");
+	
+	if (strcmp(arg, "1") == 0 || strcasecmp(arg, "on") == 0||
+	    strcasecmp(arg, "yes") == 0 || strcasecmp(arg, "true") == 0)
+		value = 1;
+	else if (strcmp(arg, "0") == 0 || strcasecmp(arg, "off") == 0||
+		 strcasecmp(arg, "no") == 0 || strcasecmp(arg, "false") == 0)
+		value = 0;
+	else
+		err(EX_USAGE, "bad value for fastlane %s", cmd);
+	
+	if (ioc == SIOCSFASTLANECAPABLE)
+		ifr.ifr_fastlane_capable = value;
+	else
+		ifr.ifr_fastlane_enabled = value;
+	
+	if (ioctl(s, ioc, (caddr_t)&ifr) < 0)
+		err(EX_OSERR, "ioctl(%s, %s)", cmd, arg);
+}
+
+
+void
+setqosmarking(const char *cmd, const char *arg, int s, const struct afswtch *afp)
+{
+	if (strcmp(cmd, "mode") == 0) {
+		if (strcmp(arg, "fastlane") == 0)
+			setfastlane("capable", "on", s, afp);
+		else if (strcmp(arg, "none") == 0)
+			setfastlane("capable", "off", s, afp);
+		else
+			err(EX_USAGE, "bad value for qosmarking mode: %s", arg);
+	} else if (strcmp(cmd, "enabled") == 0) {
+		if (strcmp(arg, "1") == 0 || strcasecmp(arg, "on") == 0||
+		    strcasecmp(arg, "yes") == 0 || strcasecmp(arg, "true") == 0)
+			setfastlane("enable", "on", s, afp);
+		else if (strcmp(arg, "0") == 0 || strcasecmp(arg, "off") == 0||
+			 strcasecmp(arg, "no") == 0 || strcasecmp(arg, "false") == 0)
+			setfastlane("enable", "off", s, afp);
+		else
+			err(EX_USAGE, "bad value for qosmarking enabled: %s", arg);
+	} else {
+		err(EX_USAGE, "qosmarking takes mode or enabled");
+	}
+}
+
+#endif /* defined(SIOCSQOSMARKINGMODE) && defined(SIOCSQOSMARKINGENABLED) */
 
 #define	IFFBITS \
 "\020\1UP\2BROADCAST\3DEBUG\4LOOPBACK\5POINTOPOINT\6SMART\7RUNNING" \
@@ -1015,14 +1185,15 @@ setecnmode(const char *val, int dummy __unused, int s,
 "\20MULTICAST"
 
 #define	IFEFBITS \
-"\020\1AUTOCONFIGURING\6IPV6_DISABLED\7ACCEPT_RTADV\10TXSTART\11RXPOLL" \
+"\020\1AUTOCONFIGURING\5FASTLN_CAP\6IPV6_DISABLED\7ACCEPT_RTADV\10TXSTART\11RXPOLL" \
 "\12VLAN\13BOND\14ARPLL\15NOWINDOWSCALE\16NOAUTOIPV6LL\17EXPENSIVE\20ROUTER4" \
 "\21ROUTER6\22LOCALNET_PRIVATE\23ND6ALT\24RESTRICTED_RECV\25AWDL\26NOACKPRI" \
-"\27AWDL_RESTRICTED\30CL2K\31ECN_ENABLE\32ECN_DISABLE\35SENDLIST\36DIRECTLINK\40UPDOWNCHANGE"
+"\27AWDL_RESTRICTED\30CL2K\31ECN_ENABLE\32ECN_DISABLE\34CA\35SENDLIST\36DIRECTLINK" \
+"\37FASTLN_ON\40UPDOWNCHANGE"
 
 #define	IFCAPBITS \
 "\020\1RXCSUM\2TXCSUM\3VLAN_MTU\4VLAN_HWTAGGING\5JUMBO_MTU" \
-"\6TSO4\7TSO6\10LRO\11AV\12TXSTATUS"
+"\6TSO4\7TSO6\10LRO\11AV\12TXSTATUS\14HW_TIMESTAMP\15SW_TIMESTAMP"
 
 #define	IFRLOGF_BITS \
 "\020\1DLIL\21FAMILY\31DRIVER\35FIRMWARE"
@@ -1044,7 +1215,8 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 	struct ifmibdata_supplemental ifmsupp;
 	size_t miblen = sizeof(struct ifmibdata_supplemental);
 	u_int64_t eflags = 0;
-
+	int curcap = 0;
+	
 	if (afp == NULL) {
 		allfamilies = 1;
 		afp = af_getbyname("inet");
@@ -1067,11 +1239,11 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 		printf(" mtu %d", ifr.ifr_mtu);
 	if (showrtref && ioctl(s, SIOCGIFGETRTREFCNT, &ifr) != -1)
 		printf(" rtref %d", ifr.ifr_route_refcnt);
-    if (verbose) {
-        unsigned int ifindex = if_nametoindex(ifa->ifa_name);
-        if (ifindex != 0)
-            printf(" index %u", ifindex);
-    }
+	if (verbose) {
+		unsigned int ifindex = if_nametoindex(ifa->ifa_name);
+		if (ifindex != 0)
+			printf(" index %u", ifindex);
+	}
 	putchar('\n');
 
 	if (verbose && ioctl(s, SIOCGIFEFLAGS, (caddr_t)&ifr) != -1 &&
@@ -1080,9 +1252,9 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 		putchar('\n');
 	}
 
-#ifdef SIOCGIFCAP	
 	if (ioctl(s, SIOCGIFCAP, (caddr_t)&ifr) == 0) {
 		if (ifr.ifr_curcap != 0) {
+			curcap = ifr.ifr_curcap;
 			printb("\toptions", ifr.ifr_curcap, IFCAPBITS);
 			putchar('\n');
 		}
@@ -1091,7 +1263,6 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 			putchar('\n');
 		}
 	}
-#endif
 	
 	tunnel_status(s);
 
@@ -1402,7 +1573,7 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 			printf("\teffective interface: %s\n", delegatedif);
 	}
 
-	if(ioctl(s, SIOCGSTARTDELAY, &ifr) != -1) {
+	if (ioctl(s, SIOCGSTARTDELAY, &ifr) != -1) {
 		if (ifr.ifr_start_delay_qlen > 0 &&
 		    ifr.ifr_start_delay_timeout > 0) {
 			printf("\ttxstart qlen: %u packets "
@@ -1411,7 +1582,32 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 			    ifr.ifr_start_delay_timeout/1000);
 		}
 	}
-
+#if defined(IFCAP_HW_TIMESTAMP) && defined(IFCAP_SW_TIMESTAMP)
+	if ((curcap & (IFCAP_HW_TIMESTAMP | IFCAP_SW_TIMESTAMP)) &&
+	    ioctl(s, SIOCGIFTIMESTAMPENABLED, &ifr) != -1) {
+		printf("\ttimestamp: %s\n",
+		       (ifr.ifr_intval != 0) ? "enabled" : "disabled");
+	}
+#endif
+#if defined(SIOCGQOSMARKINGENABLED) && defined(SIOCGQOSMARKINGMODE)
+	if (ioctl(s, SIOCGQOSMARKINGENABLED, &ifr) != -1) {
+		printf("\tqosmarking enabled: %s mode: ",
+		       ifr.ifr_qosmarking_enabled ? "yes" : "no");
+		if (ioctl(s, SIOCGQOSMARKINGMODE, &ifr) != -1) {
+			switch (ifr.ifr_qosmarking_mode) {
+				case IFRTYPE_QOSMARKING_FASTLANE:
+					printf("fastlane\n");
+					break;
+				case IFRTYPE_QOSMARKING_MODE_NONE:
+					printf("none\n");
+					break;
+				default:
+					printf("unknown (%u)\n", ifr.ifr_qosmarking_mode);
+					break;
+			}
+		}
+	}
+#endif /* defined(SIOCGQOSMARKINGENABLED) && defined(SIOCGQOSMARKINGMODE) */
 done:
 	close(s);
 	return;
@@ -1715,7 +1911,12 @@ static struct cmd basic_cmds[] = {
 	DEF_CMD("-cl2k",	0,		setcl2k),
 	DEF_CMD("expensive",	1,		setexpensive),
 	DEF_CMD("-expensive",	0,		setexpensive),
+	DEF_CMD("timestamp",	1,		settimestamp),
+	DEF_CMD("-timestamp",	0,		settimestamp),
 	DEF_CMD_ARG("ecn",			setecnmode),
+	DEF_CMD_ARG2("fastlane",		setfastlane),
+	DEF_CMD_ARG2("qosmarking",		setqosmarking),
+	DEF_CMD_ARG("disable_output",		setdisableoutput),
 };
 
 static __constructor void

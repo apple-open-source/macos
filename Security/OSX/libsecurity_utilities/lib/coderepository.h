@@ -89,18 +89,18 @@ void CodeRepository<Code>::update()
 		if (CFRef<CFArrayRef> bundles = CFBundleCreateBundlesFromDirectory(NULL,
 				CFTempURL(*it, true), mSuffix.empty() ? NULL : CFStringRef(CFTempString(mSuffix)))) {
 			CFIndex count = CFArrayGetCount(bundles);
-			secdebug("coderep", "%p directory %s has %ld entries", this, it->c_str(), count);
+			secinfo("coderep", "%p directory %s has %ld entries", this, it->c_str(), count);
 			for (CFIndex n = 0; n < count; n++)
 				try {
 					result.push_back(new Code((CFBundleRef)CFArrayGetValueAtIndex(bundles, n)));
 				} catch (...) {
-					secdebug("coderep", "%p exception creating %s (skipped)",
+					secinfo("coderep", "%p exception creating %s (skipped)",
 						this, cfString(CFBundleRef(CFArrayGetValueAtIndex(bundles, n))).c_str());
 				}
 		} else
-			secdebug("coderep", "directory %s bundle read failed", it->c_str());
+			secinfo("coderep", "directory %s bundle read failed", it->c_str());
 	}
-	secdebug("coderep", "%p total of %ld items in list", this, result.size());
+	secinfo("coderep", "%p total of %ld items in list", this, result.size());
 	this->swap(result);
 }
 

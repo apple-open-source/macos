@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,7 +41,6 @@ namespace WebCore {
 
 class Frame;
 class InspectorPageAgent;
-class InstrumentingAgents;
 class Page;
 class ResourceResponse;
 
@@ -50,19 +49,19 @@ typedef String ErrorString;
 class InspectorApplicationCacheAgent final : public InspectorAgentBase, public Inspector::ApplicationCacheBackendDispatcherHandler {
     WTF_MAKE_NONCOPYABLE(InspectorApplicationCacheAgent); WTF_MAKE_FAST_ALLOCATED;
 public:
-    InspectorApplicationCacheAgent(InstrumentingAgents*, InspectorPageAgent*);
+    InspectorApplicationCacheAgent(WebAgentContext&, InspectorPageAgent*);
     virtual ~InspectorApplicationCacheAgent() { }
 
-    virtual void didCreateFrontendAndBackend(Inspector::FrontendChannel*, Inspector::BackendDispatcher*) override;
-    virtual void willDestroyFrontendAndBackend(Inspector::DisconnectReason) override;
+    void didCreateFrontendAndBackend(Inspector::FrontendRouter*, Inspector::BackendDispatcher*) override;
+    void willDestroyFrontendAndBackend(Inspector::DisconnectReason) override;
 
     void updateApplicationCacheStatus(Frame*);
     void networkStateChanged();
 
-    virtual void enable(ErrorString&) override;
-    virtual void getFramesWithManifests(ErrorString&, RefPtr<Inspector::Protocol::Array<Inspector::Protocol::ApplicationCache::FrameWithManifest>>& result) override;
-    virtual void getManifestForFrame(ErrorString&, const String& frameId, String* manifestURL) override;
-    virtual void getApplicationCacheForFrame(ErrorString&, const String& frameId, RefPtr<Inspector::Protocol::ApplicationCache::ApplicationCache>&) override;
+    void enable(ErrorString&) override;
+    void getFramesWithManifests(ErrorString&, RefPtr<Inspector::Protocol::Array<Inspector::Protocol::ApplicationCache::FrameWithManifest>>& result) override;
+    void getManifestForFrame(ErrorString&, const String& frameId, String* manifestURL) override;
+    void getApplicationCacheForFrame(ErrorString&, const String& frameId, RefPtr<Inspector::Protocol::ApplicationCache::ApplicationCache>&) override;
 
 private:
     Ref<Inspector::Protocol::ApplicationCache::ApplicationCache> buildObjectForApplicationCache(const ApplicationCacheHost::ResourceInfoList&, const ApplicationCacheHost::CacheInfo&);
@@ -71,9 +70,9 @@ private:
 
     DocumentLoader* assertFrameWithDocumentLoader(ErrorString&, const String& frameId);
 
-    InspectorPageAgent* m_pageAgent;
     std::unique_ptr<Inspector::ApplicationCacheFrontendDispatcher> m_frontendDispatcher;
     RefPtr<Inspector::ApplicationCacheBackendDispatcher> m_backendDispatcher;
+    InspectorPageAgent* m_pageAgent { nullptr };
 };
 
 } // namespace WebCore

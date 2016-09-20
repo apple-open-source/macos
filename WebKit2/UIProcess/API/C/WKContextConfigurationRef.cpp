@@ -111,3 +111,23 @@ void WKContextConfigurationSetMediaKeysStorageDirectory(WKContextConfigurationRe
 {
     toImpl(configuration)->setMediaKeysStorageDirectory(toImpl(mediaKeysStorageDirectory)->string());
 }
+
+bool WKContextConfigurationFullySynchronousModeIsAllowedForTesting(WKContextConfigurationRef configuration)
+{
+    return toImpl(configuration)->fullySynchronousModeIsAllowedForTesting();
+}
+
+void WKContextConfigurationSetFullySynchronousModeIsAllowedForTesting(WKContextConfigurationRef configuration, bool allowed)
+{
+    toImpl(configuration)->setFullySynchronousModeIsAllowedForTesting(allowed);
+}
+
+WKArrayRef WKContextConfigurationCopyOverrideLanguages(WKContextConfigurationRef configuration)
+{
+    return toAPI(&API::Array::createStringArray(toImpl(configuration)->overrideLanguages()).leakRef());
+}
+
+void WKContextConfigurationSetOverrideLanguages(WKContextConfigurationRef configuration, WKArrayRef overrideLanguages)
+{
+    toImpl(configuration)->setOverrideLanguages(toImpl(overrideLanguages)->toStringVector());
+}

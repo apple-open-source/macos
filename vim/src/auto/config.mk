@@ -19,7 +19,7 @@ VIEWNAME	= view
 
 CC		= gcc
 DEFS		= -DHAVE_CONFIG_H
-CFLAGS		= -g -O2 -D_FORTIFY_SOURCE=1
+CFLAGS		= -g -O2 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=1
 CPPFLAGS	= 
 srcdir		= .
 
@@ -30,6 +30,7 @@ TAGPRG		= ctags -t
 CPP		= gcc -E
 CPP_MM		= M
 DEPEND_CFLAGS_FILTER = | sed 's+-I */+-isystem /+g'
+LINK_AS_NEEDED	= 
 X_CFLAGS	= 
 X_LIBS_DIR	= 
 X_PRE_LIBS	= 
@@ -47,11 +48,12 @@ MZSCHEME_SRC	=
 MZSCHEME_OBJ	= 
 MZSCHEME_CFLAGS	= 
 MZSCHEME_PRO	= 
-MZSCHEME_EXTRA  = 
+MZSCHEME_EXTRA	= 
 MZSCHEME_MZC	= 
 
 PERL		= 
 PERLLIB		= 
+PERL_XSUBPP	= 
 PERL_LIBS	= 
 SHRPENV		= 
 PERL_SRC	= 
@@ -162,6 +164,8 @@ OS_EXTRA_OBJ	=
 
 ### If the *.po files are to be translated to *.mo files.
 MAKEMO		= 
+
+MSGFMT		= 
 
 # Make sure that "make first" will run "make all" once configure has done its
 # work.  This is needed when using the Makefile in the top directory.

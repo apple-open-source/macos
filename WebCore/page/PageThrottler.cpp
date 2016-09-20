@@ -30,23 +30,42 @@
 
 namespace WebCore {
 
+static const double PageLoadHysteresisSeconds = 10;
+
 PageThrottler::PageThrottler(Page& page)
     : m_page(page)
     , m_userInputHysteresis([this](HysteresisState state) { setActivityFlag(PageActivityState::UserInputActivity, state == HysteresisState::Started); })
-    , m_audiblePluginHysteresis([this](HysteresisState state) { setActivityFlag(PageActivityState::AudiblePlugin, state == HysteresisState::Started); })
-    , m_mediaActivityCounter([this](bool value) { setActivityFlag(PageActivityState::MediaActivity, value); })
-    , m_pageLoadActivityCounter([this](bool value) { setActivityFlag(PageActivityState::PageLoadActivity, value); })
+    , m_mediaActivityHysteresis([this](HysteresisState state) { setActivityFlag(PageActivityState::MediaActivity, state == HysteresisState::Started); })
+    , m_pageLoadActivityHysteresis([this](HysteresisState state) { setActivityFlag(PageActivityState::PageLoadActivity, state == HysteresisState::Started); }, PageLoadHysteresisSeconds)
+    , m_mediaActivityCounter([this](RefCounterEvent) { mediaActivityCounterChanged(); })
+    , m_pageLoadActivityCounter([this](RefCounterEvent) { pageLoadActivityCounterChanged(); })
 {
 }
 
 PageActivityAssertionToken PageThrottler::mediaActivityToken()
 {
-    return m_mediaActivityCounter.token<PageActivityAssertionTokenType>();
+    return m_mediaActivityCounter.count();
 }
 
 PageActivityAssertionToken PageThrottler::pageLoadActivityToken()
 {
-    return m_pageLoadActivityCounter.token<PageActivityAssertionTokenType>();
+    return m_pageLoadActivityCounter.count();
+}
+
+void PageThrottler::mediaActivityCounterChanged()
+{
+    if (m_mediaActivityCounter.value())
+        m_mediaActivityHysteresis.start();
+    else
+        m_mediaActivityHysteresis.stop();
+}
+
+void PageThrottler::pageLoadActivityCounterChanged()
+{
+    if (m_pageLoadActivityCounter.value())
+        m_pageLoadActivityHysteresis.start();
+    else
+        m_pageLoadActivityHysteresis.stop();
 }
 
 void PageThrottler::setActivityFlag(PageActivityState::Flags flag, bool value)

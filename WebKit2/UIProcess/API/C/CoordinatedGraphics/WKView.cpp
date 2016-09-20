@@ -23,21 +23,17 @@
 
 #include "WKView.h"
 
+#include "APIPageConfiguration.h"
 #include "WKAPICast.h"
 #include "WebView.h"
 
 using namespace WebCore;
 using namespace WebKit;
 
-WKViewRef WKViewCreate(WKContextRef contextRef, WKPageGroupRef pageGroupRef)
+WKViewRef WKViewCreate(WKPageConfigurationRef pageConfiguration)
 {
-    RefPtr<WebView> webView = WebView::create(toImpl(contextRef), toImpl(pageGroupRef));
-    return toAPI(webView.release().leakRef());
-}
-
-void WKViewInitialize(WKViewRef viewRef)
-{
-    toImpl(viewRef)->initialize();
+    auto webView = WebView::create(*toImpl(pageConfiguration));
+    return toAPI(&webView.leakRef());
 }
 
 WKSize WKViewGetSize(WKViewRef viewRef)
@@ -191,8 +187,13 @@ double WKViewOpacity(WKViewRef view)
 
 void WKViewFindZoomableAreaForRect(WKViewRef viewRef, WKRect wkRect)
 {
+#if USE(COORDINATED_GRAPHICS_MULTIPROCESS)
     IntRect rect = toIntRect(wkRect);
     toImpl(viewRef)->findZoomableAreaForPoint(rect.center(), rect.size());
+#else
+    UNUSED_PARAM(viewRef);
+    UNUSED_PARAM(wkRect);
+#endif
 }
 
 WKSize WKViewGetContentsSize(WKViewRef viewRef)

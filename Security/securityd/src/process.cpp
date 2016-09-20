@@ -29,9 +29,9 @@
 #include "server.h"
 #include "session.h"
 #include "tempdatabase.h"
-#include "authority.h"
 #include "child.h"          // ServerChild (really UnixPlusPlus::Child)::find()
 
+#include <security_utilities/ccaudit.h>
 #include <security_utilities/logging.h>	//@@@ debug only
 #include "agentquery.h"
 
@@ -49,7 +49,7 @@ Process::Process(TaskPort taskPort,	const ClientSetupInfo *info, const CommonCri
 
     // let's take a look at our wannabe client...
 	if (mTaskPort.pid() != mPid) {
-		secdebug("SS", "Task/pid setup mismatch pid=%d task=%d(%d)",
+		secnotice("SS", "Task/pid setup mismatch pid=%d task=%d(%d)",
 			mPid, mTaskPort.port(), mTaskPort.pid());
 		CssmError::throwMe(CSSMERR_CSSM_ADDIN_AUTHENTICATE_FAILED);	// you lied!
 	}
@@ -64,9 +64,8 @@ Process::Process(TaskPort taskPort,	const ClientSetupInfo *info, const CommonCri
         || ServerChild::find<ServerChild>(this->pid()))   // securityd's child; do not mark this txn dirty
 		VProc::Transaction::deactivate();
 
-	if (SECURITYD_CLIENT_NEW_ENABLED())
-		SECURITYD_CLIENT_NEW(this, this->pid(), &this->session(),			
-			(char *)codePath(this->processCode()).c_str(), taskPort, mUid, mGid, mByteFlipped);
+    secnotice("SS", "%p client new: pid:%d session:%d %s taskPort:%d uid:%d gid:%d", this, this->pid(), this->session().sessionId(),
+             (char *)codePath(this->processCode()).c_str(), taskPort.port(), mUid, mGid);
 }
 
 
@@ -80,7 +79,7 @@ void Process::reset(TaskPort taskPort, const ClientSetupInfo *info, const Common
 {
 	StLock<Mutex> _(*this);
 	if (taskPort != mTaskPort) {
-		secdebug("SS", "Process %p(%d) reset mismatch (tp %d-%d)",
+		secnotice("SS", "Process %p(%d) reset mismatch (tp %d-%d)",
 			this, pid(), taskPort.port(), mTaskPort.port());
 		//@@@ CssmError::throwMe(CSSM_ERRCODE_VERIFICATION_FAILURE);		// liar
 	}
@@ -89,9 +88,9 @@ void Process::reset(TaskPort taskPort, const ClientSetupInfo *info, const Common
 
 	ClientIdentification::setup(this->pid());	// re-constructs processCode()
 	if (CFEqual(oldCode, processCode())) {
-		SECURITYD_CLIENT_RESET_AMNESIA(this);
+        secnotice("SS", "%p Client reset amnesia", this);
 	} else {
-		SECURITYD_CLIENT_RESET_FULL(this);
+        secnotice("SS", "%p Client reset full", this);
 		CodeSigningHost::reset();
 	}
 }
@@ -125,20 +124,8 @@ void Process::setup(const ClientSetupInfo *info)
 //
 Process::~Process()
 {
-	SECURITYD_CLIENT_RELEASE(this, this->pid());
+    secnotice("SS", "%p client release: %d", this, this->pid());
 
-	// tell all our authorizations that we're gone
-	IFDEBUG(if (!mAuthorizations.empty()) 
-		secdebug("SS", "Process %p(%d) clearing %d authorizations", 
-			this, mPid, int(mAuthorizations.size())));
-	for (AuthorizationSet::iterator it = mAuthorizations.begin();
-			it != mAuthorizations.end(); ) {
-        AuthorizationToken *auth = *it;
-        while (++it != mAuthorizations.end() && *it == auth) ;	// Skip duplicates
-		if (auth->endProcess(*this))
-			delete auth;
-    }
-	
     // release our name for the process's task port
 	if (mTaskPort)
         mTaskPort.destroy();
@@ -164,7 +151,7 @@ Session& Process::session() const
 
 void Process::checkSession(const audit_token_t &auditToken)
 {
-	AuditToken audit(auditToken);
+	Security::CommonCriteria::AuditToken audit(auditToken);
 	if (audit.sessionId() != this->session().sessionId())
 		this->changeSession(audit.sessionId());
 }
@@ -193,49 +180,7 @@ void Process::changeSession(Session::SessionId sessionId)
 {
 	// re-parent
 	parent(Session::find(sessionId, true));
-	SECURITYD_CLIENT_CHANGE_SESSION(this, &this->session());
-}
-
-
-//
-// Authorization set maintainance
-//
-void Process::addAuthorization(AuthorizationToken *auth)
-{
-	assert(auth);
-	StLock<Mutex> _(*this);
-	mAuthorizations.insert(auth);
-	auth->addProcess(*this);
-}
-
-void Process::checkAuthorization(AuthorizationToken *auth)
-{
-	assert(auth);
-	StLock<Mutex> _(*this);
-	if (mAuthorizations.find(auth) == mAuthorizations.end())
-		MacOSError::throwMe(errAuthorizationInvalidRef);
-}
-
-bool Process::removeAuthorization(AuthorizationToken *auth)
-{
-	assert(auth);
-	StLock<Mutex> _(*this);
-	// we do everything with a single set lookup call...
-	typedef AuthorizationSet::iterator Iter;
-	Iter it = mAuthorizations.lower_bound(auth);
-	bool isLast;
-	if (it == mAuthorizations.end() || auth != *it) {
-		isLast = true;
-	} else {
-		Iter next = it; ++next;			// following element
-		isLast = (next == mAuthorizations.end()) || auth != *next;
-		mAuthorizations.erase(it);		// remove first match
-	}
-	if (isLast) {
-		if (auth->endProcess(*this))	// ... tell it to remove us,
-			return true;				// ... and tell the caller
-	}
-	return false;						// keep the auth; it's still in use
+    secnotice("SS", "%p client change session to %d", this, this->session().sessionId());
 }
 
 

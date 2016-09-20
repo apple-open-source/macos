@@ -1,8 +1,6 @@
-Index: src/ex_docmd.c
-===================================================================
---- src/ex_docmd.c	(revision 57762)
-+++ src/ex_docmd.c	(working copy)
-@@ -652,6 +652,7 @@
+--- src/ex_docmd.c.orig	2015-10-29 16:13:47.000000000 -0700
++++ src/ex_docmd.c	2015-10-29 16:10:48.000000000 -0700
+@@ -662,6 +662,7 @@
      MSG(_("Entering Ex mode.  Type \"visual\" to go to Normal mode."));
      while (exmode_active)
      {
@@ -10,7 +8,7 @@ Index: src/ex_docmd.c
  #ifdef FEAT_EX_EXTRA
  	/* Check for a ":normal" command and no more characters left. */
  	if (ex_normal_busy > 0 && typebuf.tb_len == 0)
-@@ -682,7 +683,7 @@
+@@ -692,7 +693,7 @@
  	if ((prev_line != curwin->w_cursor.lnum
  		    || changedtick != curbuf->b_changedtick) && !ex_no_reprint)
  	{
@@ -19,7 +17,7 @@ Index: src/ex_docmd.c
  		EMSG(_(e_emptybuf));
  	    else
  	    {
-@@ -695,8 +696,13 @@
+@@ -705,8 +706,13 @@
  			msg_row--;
  		}
  		msg_col = 0;
@@ -35,7 +33,20 @@ Index: src/ex_docmd.c
  	    }
  	}
  	else if (ex_pressedreturn && !ex_no_reprint)	/* must be at EOF */
-@@ -8079,7 +8085,15 @@
+@@ -2661,12 +2667,6 @@
+ 	     * versions. */
+ 	    if (*p == '\\' && p[1] == '\n')
+ 		STRMOVE(p, p + 1);
+-	    else if (*p == '\n')
+-	    {
+-		ea.nextcmd = p + 1;
+-		*p = NUL;
+-		break;
+-	    }
+ 	}
+     }
+ 
+@@ -8994,7 +8994,15 @@
  ex_equal(eap)
      exarg_T	*eap;
  {

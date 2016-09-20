@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003, 2004, 2006-2012, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2004, 2006-2012, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -101,7 +101,7 @@ __SCDynamicStoreClose(SCDynamicStoreRef *store)
 	CFStringRef			sessionKey;
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)*store;
 
-	SC_trace(_configd_trace, "close   : %5d\n",
+	SC_trace("close   : %5d",
 		 storePrivate->server);
 
 	/* Remove all notification keys and patterns */
@@ -140,6 +140,8 @@ __SCDynamicStoreClose(SCDynamicStoreRef *store)
 	 * port (for this client).  Then, release the port.
 	 */
 	mySession = getSession(storePrivate->server);
+	assert(mySession != NULL);
+
 	if (mySession->serverRunLoopSource) {
 		CFRunLoopSourceInvalidate(mySession->serverRunLoopSource);
 		CFRelease(mySession->serverRunLoopSource);

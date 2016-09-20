@@ -96,7 +96,6 @@ struct
 typedef struct
 {
     uint8_t                 contentType;
-    SSLProtocolVersion      protocolVersion;
     SSLBuffer               contents;
 } SSLRecord;
 

@@ -123,7 +123,6 @@ toogle_ntlm () {
     else
 	exit 1
     fi
-    defaults $op /Library/Preferences/com.apple.GSS.NTLM NTLMv1 $arg
     defaults $op /Library/Preferences/com.apple.GSS.NTLM NTLMv2 $arg
 
     killall -9 digest-service

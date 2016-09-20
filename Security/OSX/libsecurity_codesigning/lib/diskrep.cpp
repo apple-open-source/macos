@@ -209,6 +209,10 @@ void DiskRep::flush()
 	// nothing cached
 }
 
+CFDictionaryRef DiskRep::diskRepInformation()
+{
+    return NULL;
+}
 
 CFDictionaryRef DiskRep::defaultResourceRules(const SigningContext &)
 {

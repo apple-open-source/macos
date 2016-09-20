@@ -1081,7 +1081,10 @@ int pptp_connect(int *errorcode)
         }    
 
         val = 1;
-        setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
+        if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val))) {
+            error("PPTP failed to set SO_REUSEADDR on listening socket: err = %s\n", strerror(errno));
+            goto fail;
+        }
 
         bzero(&addr, sizeof(addr));
         addr.sin_len = sizeof(addr);
@@ -1090,11 +1093,13 @@ int pptp_connect(int *errorcode)
         addr.sin_addr.s_addr = INADDR_ANY; 
         if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
             error("PPTP bind failed, %m");
+			close(fd);
             goto fail;
         }
 
         if (listen(fd, 10) < 0) {
             error("PPTP listen failed, %m");
+			close(fd);
             return errno;
         }
 
@@ -1725,12 +1730,20 @@ static void pptp_send_echo_request ()
 static void enable_keepalive (int fd)
 {
 	int val;
+    int result;
 	
 	if (tcp_keepalive) {
 		val = 1;
-		setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val));
-		setsockopt(fd, IPPROTO_TCP, TCP_KEEPALIVE, &tcp_keepalive, sizeof(tcp_keepalive));
-		setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val));
+		result = setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val));
+        if (!result) {
+            result = setsockopt(fd, IPPROTO_TCP, TCP_KEEPALIVE, &tcp_keepalive, sizeof(tcp_keepalive));
+        }
+        if (!result) {
+            result = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val));
+        }
+        if (result) {
+            syslog(LOG_ERR, "enable_keepalive: failed to set socket options: %s", strerror(errno));
+        }
 	}
 }
 

@@ -67,8 +67,6 @@ static inline void lastMatrixRow(Vector<float>& parameters)
 
 FilterEffectRenderer::FilterEffectRenderer()
     : Filter(AffineTransform())
-    , m_graphicsBufferAttached(false)
-    , m_hasFilterThatMovesPixels(false)
 {
     setFilterResolution(FloatSize(1, 1));
     m_sourceGraphic = SourceGraphic::create(*this);
@@ -80,7 +78,7 @@ FilterEffectRenderer::~FilterEffectRenderer()
 
 GraphicsContext* FilterEffectRenderer::inputContext()
 {
-    return sourceImage() ? sourceImage()->context() : 0;
+    return sourceImage() ? &sourceImage()->context() : nullptr;
 }
 
 PassRefPtr<FilterEffect> FilterEffectRenderer::buildReferenceFilter(RenderElement* renderer, PassRefPtr<FilterEffect> previousEffect, ReferenceFilterOperation* filterOperation)
@@ -284,13 +282,13 @@ bool FilterEffectRenderer::build(RenderElement* renderer, const FilterOperations
             // Unlike SVG Filters and CSSFilterImages, filter functions on the filter
             // property applied here should not clip to their primitive subregions.
             effect->setClipsToBounds(consumer == FilterFunction);
-            effect->setOperatingColorSpace(ColorSpaceDeviceRGB);
+            effect->setOperatingColorSpace(ColorSpaceSRGB);
             
             if (filterOperation.type() != FilterOperation::REFERENCE) {
                 effect->inputEffects().append(previousEffect);
                 m_effects.append(effect);
             }
-            previousEffect = effect.release();
+            previousEffect = WTFMove(effect);
         }
     }
 
@@ -323,7 +321,7 @@ void FilterEffectRenderer::allocateBackingStoreIfNeeded()
     if (!m_graphicsBufferAttached) {
         IntSize logicalSize(m_sourceDrawingRegion.width(), m_sourceDrawingRegion.height());
         if (!sourceImage() || sourceImage()->logicalSize() != logicalSize)
-            setSourceImage(ImageBuffer::create(logicalSize, filterScale(), ColorSpaceDeviceRGB, renderingMode()));
+            setSourceImage(ImageBuffer::create(logicalSize, renderingMode(), filterScale()));
         m_graphicsBufferAttached = true;
     }
 }
@@ -339,7 +337,7 @@ void FilterEffectRenderer::apply()
 {
     RefPtr<FilterEffect> effect = lastEffect();
     effect->apply();
-    effect->transformResultColorSpace(ColorSpaceDeviceRGB);
+    effect->transformResultColorSpace(ColorSpaceSRGB);
 }
 
 LayoutRect FilterEffectRenderer::computeSourceImageRectForDirtyRect(const LayoutRect& filterBoxRect, const LayoutRect& dirtyRect)
@@ -387,7 +385,7 @@ bool FilterEffectRendererHelper::prepareFilterEffect(RenderLayer* renderLayer, c
 GraphicsContext* FilterEffectRendererHelper::filterContext() const
 {
     if (!m_haveFilterEffect)
-        return 0;
+        return nullptr;
 
     FilterEffectRenderer* filter = m_renderLayer->filterRenderer();
     return filter->inputContext();
@@ -407,7 +405,7 @@ bool FilterEffectRendererHelper::beginFilterEffect()
         return false;
     }
     
-    // Translate the context so that the contents of the layer is captuterd in the offscreen memory buffer.
+    // Translate the context so that the contents of the layer is captured in the offscreen memory buffer.
     sourceGraphicsContext->save();
     sourceGraphicsContext->translate(-m_paintOffset.x(), -m_paintOffset.y());
     sourceGraphicsContext->clearRect(m_repaintRect);
@@ -417,7 +415,7 @@ bool FilterEffectRendererHelper::beginFilterEffect()
     return true;
 }
 
-void FilterEffectRendererHelper::applyFilterEffect(GraphicsContext* destinationContext)
+void FilterEffectRendererHelper::applyFilterEffect(GraphicsContext& destinationContext)
 {
     ASSERT(m_haveFilterEffect && m_renderLayer->filterRenderer());
     FilterEffectRenderer* filter = m_renderLayer->filterRenderer();
@@ -429,8 +427,8 @@ void FilterEffectRendererHelper::applyFilterEffect(GraphicsContext* destinationC
     LayoutRect destRect = filter->outputRect();
     destRect.move(m_paintOffset.x(), m_paintOffset.y());
 
-    destinationContext->drawImageBuffer(filter->output(), m_renderLayer->renderer().style().colorSpace(),
-        snapRectToDevicePixels(destRect, m_renderLayer->renderer().document().deviceScaleFactor()));
+    if (ImageBuffer* outputBuffer = filter->output())
+        destinationContext.drawImageBuffer(*outputBuffer, snapRectToDevicePixels(destRect, m_renderLayer->renderer().document().deviceScaleFactor()));
 
     filter->clearIntermediateResults();
 }

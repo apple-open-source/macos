@@ -20,14 +20,13 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
 #include "DatabaseServer.h"
 
 #include "Database.h"
-#include "DatabaseBackend.h"
 #include "DatabaseContext.h"
 #include "DatabaseTracker.h"
 
@@ -93,9 +92,9 @@ void DatabaseServer::setQuota(SecurityOrigin* origin, unsigned long long quotaSi
     DatabaseTracker::tracker().setQuota(origin, quotaSize);
 }
 
-void DatabaseServer::deleteAllDatabases()
+void DatabaseServer::deleteAllDatabasesImmediately()
 {
-    DatabaseTracker::tracker().deleteAllDatabases();
+    DatabaseTracker::tracker().deleteAllDatabasesImmediately();
 }
 
 bool DatabaseServer::deleteOrigin(SecurityOrigin* origin)
@@ -113,17 +112,12 @@ void DatabaseServer::closeAllDatabases()
     DatabaseTracker::tracker().closeAllDatabases();
 }
 
-void DatabaseServer::interruptAllDatabasesForContext(const DatabaseContext* context)
-{
-    DatabaseTracker::tracker().interruptAllDatabasesForContext(context);
-}
-
-RefPtr<DatabaseBackendBase> DatabaseServer::openDatabase(RefPtr<DatabaseContext>& backendContext, const String& name, const String& expectedVersion, const String& displayName, unsigned long estimatedSize, bool setVersionInNewDatabase, DatabaseError &error, String& errorMessage,
+RefPtr<Database> DatabaseServer::openDatabase(RefPtr<DatabaseContext>& backendContext, const String& name, const String& expectedVersion, const String& displayName, unsigned long estimatedSize, bool setVersionInNewDatabase, DatabaseError &error, String& errorMessage,
     OpenAttempt attempt)
 {
-    RefPtr<DatabaseBackendBase> database;
+    RefPtr<Database> database;
     bool success = false; // Make some older compilers happy.
-    
+
     switch (attempt) {
     case FirstTryToOpenDatabase:
         success = DatabaseTracker::tracker().canEstablishDatabase(backendContext.get(), name, estimatedSize, error);
@@ -137,9 +131,9 @@ RefPtr<DatabaseBackendBase> DatabaseServer::openDatabase(RefPtr<DatabaseContext>
     return database;
 }
 
-RefPtr<DatabaseBackendBase> DatabaseServer::createDatabase(RefPtr<DatabaseContext>& backendContext, const String& name, const String& expectedVersion, const String& displayName, unsigned long estimatedSize, bool setVersionInNewDatabase, DatabaseError& error, String& errorMessage)
+RefPtr<Database> DatabaseServer::createDatabase(RefPtr<DatabaseContext>& backendContext, const String& name, const String& expectedVersion, const String& displayName, unsigned long estimatedSize, bool setVersionInNewDatabase, DatabaseError& error, String& errorMessage)
 {
-    RefPtr<Database> database = adoptRef(new Database(backendContext, name, expectedVersion, displayName, estimatedSize));
+    RefPtr<Database> database = adoptRef(new Database(backendContext.copyRef(), name, expectedVersion, displayName, estimatedSize));
 
     if (!database->openAndVerifyVersion(setVersionInNewDatabase, error, errorMessage))
         return nullptr;

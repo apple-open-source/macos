@@ -81,6 +81,10 @@ static struct vnodeopv_desc * gCDDA_VNodeOperationsDescList[1] =
 };
 
 // vfsops
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-field-initializers"
+
 struct vfsops gCDDA_VFSOps =
 {
 	CDDA_Mount,
@@ -96,8 +100,10 @@ struct vfsops gCDDA_VFSOps =
 	0,			// init
 	0,			// sysctl
 	0,			// setattr
-	{ 0 }		// reserved
+	// Remaining ops unused
 };
+
+#pragma clang diagnostic pop
 
 static void
 FindVolumeName ( const char * mn, const char ** np, ssize_t * nl );

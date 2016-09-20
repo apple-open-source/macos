@@ -79,12 +79,12 @@ static void tests(void)
     is(error ? CFErrorGetCode(error) : 0, kSOSErrorWrongPassword, "Expected SOSErrorWrongPassword");
     CFReleaseNull(error);
     
-    ok(SOSAccountResetToOffering(alice_account, &error), "Reset to offering (%@)", error);
+    ok(SOSAccountResetToOffering_wTxn(alice_account, &error), "Reset to offering (%@)", error);
     CFReleaseNull(error);
     
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, "updates");
     
-    ok(SOSAccountJoinCircles(bob_account, &error), "Bob Applies (%@)", error);
+    ok(SOSAccountJoinCircles_wTxn(bob_account, &error), "Bob Applies (%@)", error);
     CFReleaseNull(error);
     
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, "updates");
@@ -109,7 +109,7 @@ static void tests(void)
     //bob now goes def while Alice does some stuff.
     
     ok(SOSAccountLeaveCircle(alice_account, &error), "ALICE LEAVES THE CIRCLE (%@)", error);
-    ok(SOSAccountResetToOffering(alice_account, &error), "Alice resets to offering again (%@)", error);
+    ok(SOSAccountResetToOffering_wTxn(alice_account, &error), "Alice resets to offering again (%@)", error);
     
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, "updates");
 
@@ -120,7 +120,7 @@ static void tests(void)
     
     ok(SOSAccountAssertUserCredentialsAndUpdate(carol_account, cfaccount, cfpassword, &error), "Credential setting (%@)", error);
     SOSAccountSetUserPublicTrustedForTesting(carol_account);
-    ok(SOSAccountResetToOffering(carol_account, &error), "Carol is going to push a reset to offering (%@)", error);
+    ok(SOSAccountResetToOffering_wTxn(carol_account, &error), "Carol is going to push a reset to offering (%@)", error);
 
     int64_t valuePtr = 0;
     CFNumberRef gencount = CFNumberCreate(kCFAllocatorDefault, kCFNumberCFIndexType, &valuePtr);
@@ -128,7 +128,7 @@ static void tests(void)
     
     SecKeyRef user_privkey = SOSUserKeygen(cfpassword, carol_account->user_key_parameters, &error);
     CFNumberRef genCountTest = SOSCircleGetGeneration(carol_account->trusted_circle);
-    int testPtr;
+    CFIndex testPtr;
     CFNumberGetValue(genCountTest, kCFNumberCFIndexType, &testPtr);
     ok(testPtr== 0);
 

@@ -132,7 +132,7 @@ _git-archive () {
 
   declare -a backend_args
 
-  if (( words[(I)--format=*] > 0 && words[(I)--format=*] < CURRENT )); then
+  if (( words[(b:CURRENT-1:I)--format=*] )); then
     case ${words[$words[(I)--format=*]]#--format=} in
       (zip)
         backend_args=(
@@ -442,7 +442,7 @@ _git-checkout () {
     '(-b -B -t --track --patch --detach)--orphan[create a new orphan branch based at given commit]: :__git_branch_names' \
     '--ignore-skip-worktree-bits[ignores patterns and adds back any files in <paths>]' \
     '(-q --quiet -f --force -m --merge --conflict --patch)'{-m,--merge}'[3way merge current branch, working tree and new branch]' \
-    '(-q --quiet -f --force -m --merge --patch)--conflict[same as --merge, using given merge style]:style:(merge diff3)' \
+    '(-q --quiet -f --force -m --merge --patch)--conflict=[same as --merge, using given merge style]:style:(merge diff3)' \
     '(-)'{-p,--patch}'[interactively select hunks in diff between given tree-ish and working tree]' \
     '(-)--[start file arguments]' \
     '*:: :->branch-or-tree-ish-or-file' && ret=0
@@ -456,14 +456,13 @@ _git-checkout () {
       [[ $line[CURRENT] = -* ]] && return
       if (( CURRENT == 1 )) && [[ -z $opt_args[(I)--] ]]; then
         # TODO: Allow A...B
-        local branch_arg='branches::__git_revisions' \
+        local branch_arg='' \
               remote_branch_noprefix_arg='remote branches::__git_remote_branch_names_noprefix' \
               tree_ish_arg='tree-ishs::__git_tree_ishs' \
               file_arg='modified-files::__git_modified_files'
 
         if [[ -n ${opt_args[(I)-b|-B|--orphan|--detach]} ]]; then
           remote_branch_noprefix_arg=
-          tree_ish_arg=
           file_arg=
         elif [[ -n $opt_args[(I)--track] ]]; then
           branch_arg='remote-branches::__git_remote_branch_names'
@@ -471,7 +470,6 @@ _git-checkout () {
           tree_ish_arg=
           file_arg=
         elif [[ -n ${opt_args[(I)--ours|--theirs|-m|--conflict|--patch]} ]]; then
-          branch_arg=
           remote_branch_noprefix_arg=
         fi
 
@@ -495,6 +493,8 @@ _git-checkout () {
 
 (( $+functions[_git-cherry-pick] )) ||
 _git-cherry-pick () {
+  local -a git_commit_opts
+  git_commit_opts=(--all --not HEAD --not)
   _arguments \
     '(- :)--quit[end revert or cherry-pick sequence]' \
     '(- :)--continue[resume revert or cherry-pick sequence]' \
@@ -511,7 +511,7 @@ _git-cherry-pick () {
     '*'{-s,--strategy=}'[use given merge strategy]:merge strategy:__git_merge_strategies' \
     '*'{-X,--strategy-option=}'[pass merge-strategy-specific option to merge strategy]' \
     '(-e --edit -x -n --no-commit -s --signoff)--ff[fast forward, if possible]' \
-    ': :__git_commit_ranges'
+    ': : __git_commit_ranges -O expl:git_commit_opts'
 }
 
 (( $+functions[_git-citool] )) ||
@@ -583,13 +583,14 @@ _git-clone () {
 
   # TODO: Argument to -o should be a remote name.
   # TODO: Argument to -b should complete branch names in the repository being
-  # cloned.
+  # cloned (see __git_references())
   _arguments -w -C -S -s \
     '(-l --local --no-local)'{-l,--local}'[clone locally, hardlink refs and objects if possible]' \
     '(-l --local --no-local)--no-local[override --local, as if file:/// URL was given]' \
     '--no-hardlinks[copy files instead of hardlinking when doing a local clone]' \
     '(-s --shared)'{-s,--shared}'[share the objects with the source repository (warning: see man page)]' \
     '--reference[reference repository]:repository:_directories' \
+    '--dissociate[make the newly-created repository independent of the --reference repository]' \
     '(-q --quiet)'{-q,--quiet}'[operate quietly]' \
     '(-v --verbose)'{-v,--verbose}'[always display the progressbar]' \
     '--progress[output progress even if stderr is not a terminal]' \
@@ -602,8 +603,10 @@ _git-clone () {
     '--template=[directory to use as a template for the object database]: :_directories' \
     '*'{-c,--config}'[<key>=<value> set a configuration variable in the newly created repository]' \
     '--depth[create a shallow clone, given number of revisions deep]: :__git_guard_number depth' \
-    '--single-branch[clone only history leading up to the main branch or the one specified by -b]' \
+    '(--no-single-branch)--single-branch[clone only history leading up to the main branch or the one specified by -b]' \
+    '(--single-branch)--no-single-branch[clone history leading up to each branch]' \
     '--recursive[initialize all contained submodules]' \
+    '--separate-git-dir[place .git dir outside worktree]:path to .git dir:_path_files -/' \
     ': :->repository' \
     ': :_directories' && ret=0
 
@@ -653,7 +656,7 @@ _git-commit () {
     '(        --porcelain --dry-run)--short[output dry run in short format]' \
     '(--short             --dry-run)--porcelain[output dry run in porcelain-ready format]' \
     '(--short --porcelain --dry-run -z --null)'{-z,--null}'[separate dry run entry output with NUL]' \
-    '--patch[use the interactive patch selection interface to chose which changes to commit]' \
+    {-p,--patch}'[use the interactive patch selection interface to chose which changes to commit]' \
     '(--reset-author)--author[override the author name used in the commit]:author name' \
     '--date=[override the author date used in the commit]:date' \
     '(-s --signoff)'{-s,--signoff}'[add Signed-off-by line at the end of the commit message]' \
@@ -924,7 +927,7 @@ _git-grep () {
   # TODO: Need to implement -<num> as a shorthand for -C<num>
   _arguments -C -A '-*' \
     '(-O --open-files-in-pager --no-index)--cached[search blobs registered in index file instead of working tree]' \
-    '(--cached)--no-index[search files in current directory, not just treacked files]' \
+    '(--cached)--no-index[search files in current directory, not just tracked files]' \
     '(--exclude-standard)--no-exclude-standard[also search in ignored files]' \
     '(--no-exclude-standard)--exclude-standard[exclude files standard ignore mechanisms]' \
     '--untracked[search in untracked files]' \
@@ -950,7 +953,7 @@ _git-grep () {
     '(-z --null)'{-z,--null}'[output \0 after filenames]' \
     '(-c --count)'{-c,--count}'[show number of matching lines in files]' \
     '(        --no-color)--color=-[color matches]:: :__git_color_whens' \
-    '(--color           )---no-color[do not color matches]' \
+    '(--color           )--no-color[do not color matches]' \
     '--break[prefix the line number to matching lines]' \
     '--heading[show the filename above the matches]' \
     '(-A --after-context)'{-A,--after-context=}'[show <num> trailing lines, and separate groups of matches]: :__git_guard_number lines' \
@@ -1089,33 +1092,36 @@ _git-log () {
     $revision_options \
     '-L+[trace the evolution of a line range or regex within a file]:range' \
     '(-)--[start file arguments]' \
-    '*:: :->commit-range-or-file' && ret=0
+    '1: :->first-commit-ranges-or-files' \
+    '*: :->commit-ranges-or-files' && ret=0
 
   case $state in
-    (commit-range-or-file)
-      case $CURRENT in
-        (1)
-          if [[ -n ${opt_args[(I)--]} ]]; then
-            __git_cached_files && ret=0
-          else
-            _alternative \
-              'commit-ranges::__git_commit_ranges' \
-              'cached-files::__git_cached_files' && ret=0
-          fi
-          ;;
-        (*)
-          # TODO: Write a wrapper function that checks whether we have a
-          # committish range or comittish and calls __git_tree_files
-          # appropriately.
-          if __git_is_committish_range $line[1]; then
-            __git_tree_files ${PREFIX:-.} $(__git_committish_range_last $line[1]) && ret=0
-          elif __git_is_committish $line[1]; then
-            __git_tree_files ${PREFIX:-.} $line[1] && ret=0
-          else
-            __git_cached_files && ret=0
-          fi
-          ;;
-      esac
+    (first-commit-ranges-or-files)
+      if [[ -n ${opt_args[(I)--]} ]]; then
+	__git_tree_files ${PREFIX:-.} HEAD && ret=0
+      else
+	_alternative \
+	  'commit-ranges::__git_commit_ranges' \
+	  'cached-files::__git_tree_files ${PREFIX:-.} HEAD' && ret=0
+      fi
+    ;;
+    (commit-ranges-or-files)
+      # Multiple revspecs are permitted.
+      if [[ -z ${opt_args[(I)--]} ]]; then
+        __git_commit_ranges "$@" && ret=0
+      fi
+
+      # TODO: Write a wrapper function that checks whether we have a
+      # committish range or comittish and calls __git_tree_files
+      # appropriately.
+      if __git_is_committish_range $line[1]; then
+	__git_tree_files ${PREFIX:-.} $(__git_committish_range_last $line[1]) && ret=0
+      elif __git_is_committish $line[1]; then
+	__git_tree_files ${PREFIX:-.} $line[1] && ret=0
+      else
+	__git_tree_files ${PREFIX:-.} HEAD && ret=0
+      fi
+    ;;
   esac
 
   return ret
@@ -1125,6 +1131,7 @@ _git-log () {
 _git-merge () {
   local -a merge_options
   __git_setup_merge_options
+  local -a git_commit_opts=(--all --not HEAD --not)
 
   _arguments -w -S -s \
     $merge_options \
@@ -1132,7 +1139,7 @@ _git-merge () {
     '(                    --no-rerere-autoupdate)--rerere-autoupdate[allow the rerere mechanism to update the index]' \
     '(--rerere-autoupdate                       )--no-rerere-autoupdate[do not allow the rerere mechanism to update the index]' \
     '--abort[restore the original branch and abort the merge operation]' \
-    '*: :__git_commits'
+    '*: : __git_commits -O expl:git_commit_opts'
 }
 
 (( $+functions[_git-mv] )) ||
@@ -1287,7 +1294,7 @@ _git-push () {
     '(--verify)--no-verify[bybass the pre-push hook]' \
     '--recurse-submodules=[submodule handling]:submodule handling:((check\:"refuse pushing of supermodule if submodule commit cannot be found on the remote"
                                                                     on-demand\:"push all changed submodules"))' \
-    ':: :__git_any_repositories' \
+    ': :__git_any_repositories' \
     '*: :__git_ref_specs' && ret=0
 
   case $state in
@@ -2925,7 +2932,6 @@ _git-config () {
         (*)
           # TODO: Do we need to set up a _requested/_next_label?
           declare -a action
-          local expl
           _description values expl "$parts[2]"
           eval "action=($parts[4])"
           "$action[1]" "$expl[@]" "${(@)action[2,-1]}" && ret=0
@@ -4976,8 +4982,8 @@ __git_is_treeish () {
 (( $+functions[__git_is_committish_range] )) ||
 __git_is_committish_range () {
   [[ $1 == *..(.|)* ]] || return 1
-  local first=$(__git_committish_range_first $1)
-  local last=$(__git_committish_range_last $1)
+  local first="$(__git_committish_range_first $1)"
+  local last="$(__git_committish_range_last $1)"
   [[ $first != *..* && $last != *..* ]] && \
     __git_is_committish $first && \
     __git_is_committish $last
@@ -4997,6 +5003,33 @@ __git_is_in_middle_of_merge () {
   __git_command_successful $pipestatus || return
 
   [[ -f $gitdir/MERGE_HEAD ]]
+}
+
+(( $+functions[__git_describe_branch] )) ||
+__git_describe_branch () {
+  local __commits_in=$1
+  local __tag=$2
+  local __desc=$3
+  shift 3
+
+  integer maxverbose
+  if zstyle -s :completion:$curcontext max-verbose maxverbose &&
+    (( ${compstate[nmatches]} <= maxverbose )); then
+    local __c
+    local -a __commits
+    for __c in ${(P)__commits_in}; do
+      __commits+=("${__c}:${$(_call_program describe git log -1 --oneline $__c)//:/\\:}")
+    done
+    _describe -t $__tag $__desc __commits "$@"
+  else
+    local expl
+    _wanted $__tag expl $__desc compadd "$@" -a - $__commits_in
+  fi
+}
+
+(( $+functions[__git_describe_commit] )) ||
+__git_describe_commit () {
+  __git_describe_branch $1 $2 $3 -M 'r:|/=**' "${(@)argv[4,-1]}"
 }
 
 # Completion Wrappers
@@ -5025,7 +5058,16 @@ __git_ignore_line_inside_arguments () {
 
 (( $+functions[_git_commands] )) ||
 _git_commands () {
-  local -a main_porcelain_commands
+  local -a cmdtypes
+  cmdtypes=( main_porcelain_commands user_commands
+    third_party_commands ancillary_manipulator_commands
+    ancillary_interrogator_commands interaction_commands
+    plumbing_manipulator_commands plumbing_interrogator_commands
+    plumbing_sync_commands plumbing_sync_helper_commands
+    plumbing_internal_helper_commands
+  )
+  local -a $cmdtypes
+
   main_porcelain_commands=(
     add:'add file contents to index'
     am:'apply patches from a mailbox'
@@ -5064,7 +5106,6 @@ _git_commands () {
     submodule:'initialize, update, or inspect submodules'
     tag:'create, list, delete or verify tag object signed with GPG')
 
-  local -a ancillary_manipulator_commands
   ancillary_manipulator_commands=(
     config:'get and set repository or global options'
     fast-export:'data exporter'
@@ -5079,7 +5120,6 @@ _git_commands () {
     repack:'pack unpacked objects in a repository'
     replace:'create, list, delete refs to replace objects')
 
-  local -a ancillary_interrogator_commands
   ancillary_interrogator_commands=(
     blame:'show what revision and author last modified each line of a file'
     cherry:'find commits not merged upstream'
@@ -5097,7 +5137,6 @@ _git_commands () {
     verify-tag:'check GPG signature of tags'
     whatchanged:'show commit-logs and differences they introduce')
 
-  local -a interaction_commands
   interaction_commands=(
     archimport:'import an Arch repository into git'
     cvsexportcommit:'export a single commit to a CVS checkout'
@@ -5109,7 +5148,6 @@ _git_commands () {
     send-email:'send collection of patches as emails'
     svn:'bidirectional operation between a Subversion repository and git')
 
-  local -a plumbing_manipulator_commands
   plumbing_manipulator_commands=(
     apply:'apply patch to files and/or to index'
     checkout-index:'copy files from index to working directory'
@@ -5129,7 +5167,6 @@ _git_commands () {
     update-ref:'update object name stored in a reference safely'
     write-tree:'create tree from the current index')
 
-  local -a plumbing_interrogator_commands
   plumbing_interrogator_commands=(
     cat-file:'provide content or type information for repository objects'
     diff-files:'compare files in working tree and index'
@@ -5149,7 +5186,6 @@ _git_commands () {
     var:'show git logical variable'
     verify-pack:'validate packed git archive files')
 
-  local -a plumbing_sync_commands
   plumbing_sync_commands=(
     daemon:'run a really simple server for git repositories'
     fetch-pack:'receive missing objects from another repository'
@@ -5157,7 +5193,6 @@ _git_commands () {
     send-pack:'push objects over git protocol to another repository'
     update-server-info:'update auxiliary information file to help dumb servers')
 
-  local -a plumbing_sync_helper_commands
   plumbing_sync_helper_commands=(
     http-fetch:'download from remote git repository via HTTP'
     http-push:'push objects over HTTP/DAV to another repository'
@@ -5167,7 +5202,6 @@ _git_commands () {
     upload-archive:'send archive back to git-archive'
     upload-pack:'send objects packed back to git fetch-pack')
 
-  local -a plumbing_internal_helper_commands
   plumbing_internal_helper_commands=(
     check-attr:'display gitattributes information'
     check-ignore:'debug gitignore/exclude files'
@@ -5180,91 +5214,41 @@ _git_commands () {
     patch-id:'compute unique ID for a patch'
     stripspace:'filter out empty lines')
 
-  local -a user_commands
   zstyle -a :completion:$curcontext: user-commands user_commands
 
-  local -a third_party_commands
   local command
   for command in $_git_third_party_commands; do
     (( $+commands[git-${command%%:*}] )) && third_party_commands+=$command
   done
 
-  local -a aliases unique_aliases
+  local -a aliases
   __git_extract_aliases
-  local alias
-  for alias in $aliases; do
-    local name=${alias%%:*}
-    (( main_porcelain_commands[(I)$name:*] ||
-       user_commands[(I)$name:*] ||
-       third_party_commands[(I)$name:*] ||
-       ancillary_manipulator_commands[(I)$name:*] ||
-       ancillary_interrogator_commands[(I)$name:*] ||
-       interaction_commands[(I)$name:*] ||
-       plumbing_manipulator_commands[(I)$name:*] ||
-       plumbing_interrogator_commands[(I)$name:*] ||
-       plumbing_sync_commands[(I)$name:*] ||
-       plumbing_sync_helper_commands[(I)$name:*] ||
-       plumbing_internal_helper_commands[(I)$name:*] )) || unique_aliases+=$alias
+  local cmdtype len dup sep
+  local -a allcmds allmatching alts disp expl
+
+  zstyle -s ":completion:${curcontext}:" list-separator sep || sep=--
+  for cmdtype in $cmdtypes aliases; do
+    if [[ $cmdtype = aliases ]]; then
+      for dup in ${${aliases%:*}:*allcmds}; do
+	aliases=( ${aliases:#$dup:*} )
+      done
+    fi
+    local -a ${cmdtype}_m
+    set -A ${cmdtype}_m ${(P)cmdtype%%:*}
+    allcmds+=( ${(P)${:-${cmdtype}_m}} )
+  done
+  zstyle -T ":completion:${curcontext}:" verbose && disp=(-ld '${cmdtype}_d')
+  _description '' expl '' # get applicable matchers
+  compadd "$expl[@]" -O allmatching -a allcmds
+  len=${#${(O)allmatching//?/.}[1]} # length of longest match
+  for cmdtype in aliases $cmdtypes; do
+    local -a ${cmdtype}_d
+    (( $#disp )) && set -A ${cmdtype}_d \
+        ${${(r.COLUMNS-4.)${(P)cmdtype}/(#s)(#m)[^:]##:/${(r.len.)MATCH[1,-2]} $sep }%% #}
+    alts+=( "${cmdtype//_/-}:${${cmdtype//_/ }%%(e|)s}:compadd ${(e)disp} -a ${cmdtype}_m" )
   done
 
-  integer ret=1
-
-  _tags \
-    aliases \
-    main-porcelain-commands \
-    user-commands \
-    third-party-commands \
-    ancillary-manipulator-commands \
-    ancillary-interrogator-commands \
-    interaction-commands \
-    plumbing-manipulator-commands \
-    plumbing-interrogator-commands \
-    plumbing-sync-commands \
-    plumbing-sync-helper-commands \
-    plumbing-internal-helper-commands
-
-  while _tags; do
-
-    _requested aliases && \
-      _describe -t aliases 'alias' unique_aliases && ret=0
-
-    _requested main-porcelain-commands && \
-      _describe -t main-porcelain-commands 'main porcelain command' main_porcelain_commands && ret=0
-
-    _requested user-commands && \
-      _describe -t user-commands 'user command' user_commands && ret=0
-
-    _requested third-party-commands && \
-      _describe -t third-party-commands 'third-party command' third_party_commands && ret=0
-
-    _requested ancillary-manipulator-commands && \
-      _describe -t ancillary-manipulator-commands 'ancillary manipulator command' ancillary_manipulator_commands && ret=0
-
-    _requested ancillary-interrogator-commands && \
-      _describe -t ancillary-interrogator-commands 'ancillary interrogator command' ancillary_interrogator_commands && ret=0
-
-    _requested interaction-commands && \
-      _describe -t interaction-commands 'interaction command' interaction_commands && ret=0
-
-    _requested plumbing-manipulator-commands && \
-      _describe -t plumbing-manipulator-commands 'plumbing manipulator command' plumbing_manipulator_commands && ret=0
-
-    _requested plumbing-interrogator-commands && \
-      _describe -t plumbing-interrogator-commands 'plumbing interrogator command' plumbing_interrogator_commands && ret=0
-
-    _requested plumbing-sync-commands && \
-      _describe -t plumbing-sync-commands 'plumbing sync command' plumbing_sync_commands && ret=0
-
-    _requested plumbing-sync-helper-commands && \
-      _describe -t plumbing-sync-helper-commands 'plumbing sync helper command' plumbing_sync_helper_commands && ret=0
-
-    _requested plumbing-internal-helper-commands && \
-      _describe -t plumbing-internal-helper-commands 'plumbing internal helper command' plumbing_internal_helper_commands && ret=0
-
-    (( ret )) || break
-  done
-
-  return ret
+  _alternative $alts
 }
 
 (( $+functions[__git_aliases] )) ||
@@ -5357,7 +5341,8 @@ __git_remotes () {
 __git_ref_specs () {
   # TODO: This needs to deal with a lot more types of things.
   if compset -P '*:'; then
-    __git_heads
+    # TODO: have the caller supply the correct remote name, restrict to refs/remotes/${that_remote}/* only
+    __git_remote_branch_names_noprefix
   else
     compset -P '+'
     if compset -S ':*'; then
@@ -5531,12 +5516,21 @@ __git_signoff_file () {
 (( $+functions[__git_stashes] )) ||
 __git_stashes () {
   local expl
+  declare -a interleaved
   declare -a stashes
+  declare -a descriptions
 
-  stashes=(${(f)"$(_call_program stashes git stash list --pretty=format:%gd 2>/dev/null)"})
+  interleaved=(${(ps:\0:)"$(_call_program stashes git stash list -z --pretty='format:%gd%x00%s%x00\(%cr\)' 2>/dev/null)"})
   __git_command_successful $pipestatus || return 1
+  () {
+    local i j k
+    for i j k in $interleaved; do
+      stashes+=($i)
+      descriptions+=("$i: $j $k")
+    done
+  }
 
-  _wanted stashes expl stash compadd "$@" -a - stashes
+  _wanted stashes expl 'stash' compadd -Vx -d descriptions -a - stashes
 }
 
 (( $+functions[__git_svn_revisions] )) ||
@@ -5575,47 +5569,56 @@ __git_branch_names () {
   branch_names=(${${(f)"$(_call_program branchrefs git for-each-ref --format='"%(refname)"' refs/heads 2>/dev/null)"}#refs/heads/})
   __git_command_successful $pipestatus || return 1
 
-  _wanted branch-names expl branch-name compadd "$@" -a - branch_names
+  __git_describe_commit branch_names branch-names 'branch name' "$@"
 }
 
 (( $+functions[__git_remote_branch_names] )) ||
 __git_remote_branch_names () {
-  local expl
   declare -a branch_names
 
   branch_names=(${${(f)"$(_call_program remote-branch-refs git for-each-ref --format='"%(refname)"' refs/remotes 2>/dev/null)"}#refs/remotes/})
   __git_command_successful $pipestatus || return 1
 
-  _wanted remote-branch-names expl 'remote branch name' compadd -M 'r:|/=**' "$@" -a - branch_names
+  __git_describe_commit branch_names remote-branch-names 'remote branch name' "$@"
 }
 
 (( $+functions[__git_remote_branch_names_noprefix] )) ||
 __git_remote_branch_names_noprefix () {
-  local expl
   declare -a heads
 
-  branch_names=(${${${(f)"$(_call_program remote-branch-refs-noprefix git for-each-ref --format='"%(refname)"' refs/remotes 2>/dev/null)"}##*/}:#HEAD})
+  branch_names=(${${${${(f)"$(_call_program remote-branch-refs-noprefix git for-each-ref --format='"%(refname)"' refs/remotes 2>/dev/null)"}#refs/remotes/}#*/}:#HEAD})
   __git_command_successful $pipestatus || return 1
 
-  _wanted remote-branch-names-noprefix expl 'remote branch name' compadd -M 'r:|/=**' "$@" -a - branch_names
+  __git_describe_commit branch_names remote-branch-names-noprefix 'remote branch name' "$@"
 }
 
 (( $+functions[__git_commit_objects_prefer_recent] )) ||
 __git_commit_objects_prefer_recent () {
-  __git_recent_commits || __git_commit_objects
+  local -a argument_array_names
+  zparseopts -D -E O:=argument_array_names
+
+  __git_recent_commits $argument_array_names || __git_commit_objects
 }
 
 (( $+functions[__git_commits] )) ||
 __git_commits () {
+  local -a argument_array_names
+  zparseopts -D -E O:=argument_array_names
+  # Turn (-O foo:bar) to (foo bar)
+  (( $#argument_array_names )) && argument_array_names=( "${(@s/:/)argument_array_names[2]}" )
+  set -- "${(@P)argument_array_names[1]}"
+  local commit_opts__argument_name=$argument_array_names[2]
+
   # TODO: deal with things that __git_heads and __git_tags has in common (i.e.,
   # if both exists, they need to be completed to heads/x and tags/x.
-  local -a sopts ropt
+  local -a sopts ropt expl
   zparseopts -E -a sopts S: r:=ropt R: q
   sopts+=( $ropt:q )
+  expl=( "$@" )
   _alternative \
     "heads::__git_heads $sopts" \
     "commit-tags::__git_commit_tags $sopts" \
-    'commit-objects::__git_commit_objects_prefer_recent'
+    'commit-objects:: __git_commit_objects_prefer_recent -O expl:$commit_opts__argument_name'
 }
 
 (( $+functions[__git_heads] )) ||
@@ -5626,7 +5629,7 @@ __git_heads () {
 
 (( $+functions[__git_heads_local] )) ||
 __git_heads_local () {
-  local gitdir expl start
+  local gitdir
   declare -a heads
 
   heads=(${(f)"$(_call_program headrefs git for-each-ref --format='"%(refname:short)" refs/heads' 2>/dev/null)"})
@@ -5636,19 +5639,19 @@ __git_heads_local () {
       [[ -f $gitdir/$f ]] && heads+=$f
     done
     [[ -f $gitdir/refs/stash ]] && heads+=stash
+    [[ -f $gitdir/refs/bisect/bad ]] && heads+=bisect/bad
   fi
 
-  _wanted heads-local expl "local head" compadd -M 'r:|/=**' "$@" -a - heads
+  __git_describe_commit heads heads-local "local head" "$@"
 }
 
 (( $+functions[__git_heads_remote] )) ||
 __git_heads_remote () {
-  local gitdir expl start
   declare -a heads
 
   heads=(${(f)"$(_call_program headrefs git for-each-ref --format='"%(refname:short)" refs/remotes' 2>/dev/null)"})
 
-  _wanted heads-remote expl "remote head" compadd -M 'r:|/=**' "$@" -a - heads
+  __git_describe_commit heads heads-remote "remote head" "$@"
 }
 
 (( $+functions[__git_commit_objects] )) ||
@@ -5664,36 +5667,72 @@ __git_commit_objects () {
   commits=(${(f)"$(_call_program commits git --no-pager log -1000 --all --reflog --format='%h:\[%h\]\ %s\ \(%cr\)')"})
   __git_command_successful $pipestatus || return 1
 
-  _describe -V -t commits 'commit object name' commits
+  _describe -Vx -t commits 'commit object name' commits
 }
 
 (( $+functions[__git_recent_commits] )) ||
 __git_recent_commits () {
   local gitdir expl start
-  declare -a descr tags heads commits
+  declare -a descr tags heads commits argument_array_names commit_opts
   local i j k ret
   integer distance_from_head
+  local label
+  local parents
+  local next_first_parent_ancestral_line_commit
+
+  zparseopts -D -E O:=argument_array_names
+  # Turn (-O foo:bar) to (foo bar)
+  (( $#argument_array_names )) && argument_array_names=( "${(@s/:/)argument_array_names[2]}" )
+  (( $#argument_array_names > 1 )) && (( ${(P)+argument_array_names[2]} )) &&
+    commit_opts=( "${(@P)argument_array_names[2]}" )
 
   # Careful: most %d will expand to the empty string.  Quote properly!
   # NOTE: we could use %D directly, but it's not available in git 1.9.1 at least.
-  commits=("${(f)"$(_call_program commits git --no-pager log -20 --format='%h%n%d%n%s\ \(%cr\)')"}")
+  commits=("${(f)"$(_call_program commits git --no-pager log $commit_opts -20 --format='%h%n%d%n%s\ \(%cr\)%n%p')"}")
   __git_command_successful $pipestatus || return 1
 
-  for i j k in "$commits[@]" ; do
+  for i j k parents in "$commits[@]" ; do
     # Note: the after-the-colon part must be unique across the entire array;
     # see workers/34768
-    if (( distance_from_head == 0 )); then
-      descr+=($i:"[HEAD]    $k")
-    elif (( distance_from_head == 1 )); then
-      descr+=($i:"[HEAD^]   $k")
-    elif (( distance_from_head == 2 )); then
-      descr+=($i:"[HEAD^^]  $k")
-    elif (( distance_from_head < 10 )); then
-      descr+=($i:"[HEAD~$distance_from_head]  $k")
+    if (( $#commit_opts )); then
+      # $commit_opts is set, so the commits we receive might not be in order,
+      # or might not be ancestors of HEAD.  However, we must make the
+      # description unique (due to workers/34768), which we do by including the
+      # hash.  Git always prints enough hash digits to make the output unique.)
+      label="[$i]"
+    elif (( distance_from_head )) && [[ $i != $next_first_parent_ancestral_line_commit ]]; then
+      # The first commit (HEAD), and its ancestors along the first-parent line,
+      # get HEAD~$n labels.
+      #
+      # For other commits, we just print the hash.  (${parents} does provide enough
+      # information to compute HEAD~3^2~4 -style labels, though, if somebody cared
+      # enough to implement that.)
+      label="[$i]"
     else
-      descr+=($i:"[HEAD~$distance_from_head] $k")
+      # Compute a first-parent-ancestry commit's label.
+      if false ; then
+      elif (( distance_from_head == 0 )); then
+        label="[HEAD]   "
+      elif (( distance_from_head == 1 )); then
+        label="[HEAD^]  "
+      elif (( distance_from_head == 2 )); then
+        label="[HEAD^^] "
+      elif (( distance_from_head < 10 )); then
+        label="[HEAD~$distance_from_head] "
+      else
+        label="[HEAD~$distance_from_head]"
+      fi
+      ## Disabled because _describe renders the output unhelpfuly when this function
+      ## is called twice during a single completion operation, and list-grouped is
+      ## in its default setting (enabled).
+      #descr+=("@~${distance_from_head}":"${label} $k") # CROSSREF: use the same label as below
+
+      # Prepare for the next first-parent-ancestry commit.
+      (( ++distance_from_head ))
+      next_first_parent_ancestral_line_commit=${parents%% *}
     fi
-    (( ++distance_from_head ))
+    # label is now 9 bytes, so the descriptions ($k) will be aligned.
+    descr+=($i:"${label} $k") # CROSSREF: use the same label as above
 
     j=${${j# \(}%\)} # strip leading ' (' and trailing ')'
     j=${j/ ->/,}  # Convert " -> master, origin/master".
@@ -5713,7 +5752,7 @@ __git_recent_commits () {
   expl=()
   _wanted heads expl 'head' compadd "$@" -a - heads && ret=0
   expl=()
-  _describe -Vx -t commits 'recent commit object name' descr && ret=0
+  _describe -V -t commits 'recent commit object name' descr && ret=0
   return $ret
 }
 
@@ -5759,13 +5798,30 @@ __git_commits2 () {
 
 (( $+functions[__git_commit_ranges] )) ||
 __git_commit_ranges () {
+  local -a argument_array_names
+  zparseopts -D -E O:=argument_array_names
+  # Turn (-O foo:bar) to (foo bar)
+  (( $#argument_array_names )) && argument_array_names=( "${(@s/:/)argument_array_names[2]}" )
+  set -- "${(@P)argument_array_names[1]}"
+  local commit_opts__argument_name=$argument_array_names[2]
+
   local -a suf
+  local -a expl
   if compset -P '*..(.|)'; then
-    __git_commits $*
+    expl=( $* )
   else
-    compset -S '..*' || suf=( -S .. -r '.@~ ^:\t\n\-' )
-    __git_commits $* $suf
+    if ! compset -S '..*'; then
+      local match mbegin mend
+      if [[ ${PREFIX} = (#b)((\\|)\^)* ]]; then
+	compset -p ${#match[1]}
+      else
+	suf=( -S .. -r '.@~ ^:\t\n\-' )
+      fi
+    fi
+    expl=( $* $suf )
   fi
+
+  __git_commits -O expl:$commit_opts__argument_name
 }
 
 (( $+functions[__git_commit_ranges2] )) ||
@@ -5789,7 +5845,11 @@ __git_tree_ishs () {
 __git_objects () {
   compset -P '*:'
   if [[ -n $IPREFIX ]]; then
-    __git_tree_files "$PREFIX" "${IPREFIX%:}"
+    if compset -P ./ ; then
+      __git_tree_files                 "$PREFIX" "${IPREFIX%:./}"
+    else
+      __git_tree_files --root-relative "$PREFIX" "${IPREFIX%:}"
+    fi
   else
     _alternative \
       'revisions::__git_revisions' \
@@ -5818,7 +5878,7 @@ __git_tags () {
   tags=(${${(f)"$(_call_program tagrefs git for-each-ref --format='"%(refname)"' refs/tags 2>/dev/null)"}#refs/tags/})
   __git_command_successful $pipestatus || return 1
 
-  _wanted tags expl tag compadd "$@" -a - tags
+  _wanted tags expl tag compadd -M 'r:|/=**' "$@" -a - tags
 }
 
 (( $+functions[__git_commit_tags] )) ||
@@ -5841,7 +5901,7 @@ __git_tags_of_type () {
   tags=(${${(M)${(f)"$(_call_program $type-tag-refs "git for-each-ref --format='%(*objecttype)%(objecttype) %(refname)' refs/tags 2>/dev/null")"}:#$type(tag|) *}#$type(tag|) refs/tags/})
   __git_command_successful $pipestatus || return 1
 
-  _wanted $type-tags expl "$type tag" compadd "$@" -a - tags
+  _wanted $type-tags expl "$type tag" compadd -M 'r:|/=**' "$@" -a - tags
 }
 
 # Reference Argument Types
@@ -6034,12 +6094,24 @@ __git_changed_files () {
     'changed-in-working-tree-files::__git_changed-in-working-tree_files'
 }
 
+#     __git_tree_files [--root-relative] FSPATH TREEISH [TREEISH...] [COMPADD OPTIONS]
+#
+# Complete [presently: a single level of] repository files under FSPATH.
+# FSPATH is interpreted as a directory path within each TREEISH.
+# FSPATH is relative to cwd, unless --root-relative is specified, in
+# which case it is relative to the repository root.
 (( $+functions[__git_tree_files] )) ||
 __git_tree_files () {
   local multi_parts_opts
   local tree Path
   integer at_least_one_tree_added
   local -a tree_files compadd_opts
+  local -a extra_args
+
+  if [[ $1 == --root-relative ]]; then
+    extra_args+=(--full-tree)
+    shift
+  fi
 
   zparseopts -D -E -a compadd_opts V: J: 1 2 n f X: M: P: S: r: R: q F:
 
@@ -6047,7 +6119,7 @@ __git_tree_files () {
   shift
   (( at_least_one_tree_added = 0 ))
   for tree in $*; do
-    tree_files+=(${(ps:\0:)"$(_call_program tree-files git ls-tree --name-only -z $tree $Path 2>/dev/null)"})
+    tree_files+=(${(ps:\0:)"$(_call_program tree-files git ls-tree $extra_args --name-only -z $tree $Path 2>/dev/null)"})
     __git_command_successful $pipestatus && (( at_least_one_tree_added = 1 ))
   done
 
@@ -6271,6 +6343,95 @@ __git_setup_diff_stage_options () {
   )
 }
 
+(( $+functions[__git_format_placeholders] )) ||
+__git_format_placeholders() {
+  local sep
+  local -a disp names placeholders expl
+  if compset -P 'format:'; then
+    compset -P '(%[^acgCG]|%?[^%]|[^%])#'
+    if compset -P '%C'; then
+      _wanted colors expl color compadd reset red green blue
+      return
+    fi
+    if [[ -prefix %G ]]; then
+      placeholders=(
+	'GG:raw verification message'
+	'G?:indicate [G]ood, [B]ad, [U]ntrusted or [N]o signature'
+	'GS:name of signer'
+	'GK:signing key'
+      )
+      disp=( -l )
+    elif [[ -prefix %g ]]; then
+      placeholders=(
+	gD:'reflog selector'
+	gd:'short reflog selector'
+	gn:'reflog identity'
+	gs:'reflog subject'
+      )
+      disp=( -l )
+    elif [[ $PREFIX = (#b)%([ac]) ]]; then
+      placeholders=(
+	n:'name'
+	N:'name (use .mailmap)'
+	e:'email'
+	E:'email (use .mailmap)'
+	d:'date'
+	D:'date, RFC2822 style'
+	r:'date, relative'
+	t:'date, UNIX timestamp'
+	i:'date, like ISO 8601'
+	I:'date, strict ISO 8601'
+      )
+      placeholders=( $match[1]$^placeholders )
+    else
+      placeholders=(
+	H:commit\ hash
+	h:'abbreviated commit hash'
+	T:'tree hash'
+	t:'abbreviated tree hash'
+	P:'parent hash'
+	p:'abbreviated parent hash'
+	a:'author details'
+	c:'committer details'
+	d:'ref name in brackets'
+	D:'ref name'
+	e:encoding
+	s:subject
+	f:'sanitized subject'
+	g:reflog
+	b:body
+	B:'raw body'
+	N:notes
+	G:GPG\ details
+	C:color
+	m:mark
+	n:newline
+	%:raw\ %
+	x:'hex code'
+	w:'switch line wrapping'
+      )
+    fi
+    names=( ${placeholders%%:*} )
+    if zstyle -T ":completion:${curcontext}:" verbose; then
+      zstyle -s ":completion:${curcontext}:" list-separator sep || sep=--
+      zformat -a placeholders " $sep " $placeholders
+      disp+=(-d placeholders)
+    else
+      disp=()
+    fi
+    _wanted placeholders expl placeholder \
+        compadd -p % -S '' "$disp[@]" "$@" - "$names[@]"
+  else
+    _describe -t formats format '( oneline:"commit-ids and subject of messages"
+      short:"few headers and only subject of messages"
+      medium:"most parts of messages"
+      full:"all parts of commit messages"
+      fuller:"like full and includes dates"
+      email:"use email headers like From and Subject"
+      raw:"the raw commits" )' -- '( format:"specify own format" )' -S ':'
+  fi
+}
+
 (( $+functions[__git_setup_revision_options] )) ||
 __git_setup_revision_options () {
   local -a diff_options
@@ -6278,16 +6439,7 @@ __git_setup_revision_options () {
 
   revision_options=(
     $diff_options
-    # TODO: format pretty print format is a lot more advanced than this.
-    # TODO: You can't actually specify --format without a format.
-    '(-v --header)'{--pretty=-,--format=-}'[pretty print commit messages]::format:((oneline\:"commit-ids and subject of messages"
-                                                                                    short\:"few headers and only subject of messages"
-                                                                                    medium\:"most parts of messages"
-                                                                                    full\:"all parts of commit messages"
-                                                                                    fuller\:"like full and includes dates"
-                                                                                    email\:"use email headers like From and Subject"
-                                                                                    raw\:"the raw commits"
-                                                                                    format\:"specify own format"))'
+    '(-v --header)'{--pretty=-,--format=-}'[pretty print commit messages]::format:__git_format_placeholders'
     '(--abbrev-commit --no-abbrev-commit)--abbrev-commit[show only partial prefixes of commit object names]'
     '(--abbrev-commit --no-abbrev-commit)--no-abbrev-commit[show the full 40-byte hexadecimal commit object name]'
     '(--abbrev --no-abbrev)--abbrev=[set minimum SHA1 display-length (for use with --abbrev-commit)]: :__git_guard_number length'
@@ -6329,8 +6481,8 @@ __git_setup_revision_options () {
     '*--not[reverses meaning of ^ prefix for revisions that follow]'
     '--all[show all commits from refs]'
     '--branches=-[show all commits from refs/heads]::pattern'
-    '--tags=[-show all commits from refs/tags]::pattern'
-    '--remotes=[-show all commits from refs/remotes]::pattern'
+    '--tags=-[show all commits from refs/tags]::pattern'
+    '--remotes=-[show all commits from refs/remotes]::pattern'
     '--glob=[show all commits from refs matching glob]:pattern'
     '--exclude=[do not include refs matching glob]:pattern'
     '--exclude=[do not include refs matching glob]:pattern'
@@ -6348,7 +6500,7 @@ __git_setup_revision_options () {
     '(--full-history --dense --sparse --simplify-merges                )--ancestry-path[only display commits that exists directly on ancestry chains]'
     '(             --date-order --author-date-order)--topo-order[display commits in topological order]'
     '(--topo-order              --author-date-order)--date-order[display commits in date order]'
-    '(--topo-order --date-order                    )--author-date-order[display commits in auhor date order]'
+    '(--topo-order --date-order                    )--author-date-order[display commits in author date order]'
     '(-g --walk-reflogs)--reverse[display commits in reverse order]'
     '(          --objects-edge)--objects[display object ids of objects referenced by listed commits]'
     '(--objects               )--objects-edge[display object ids of objects referenced by listed and excluded commits]'

@@ -37,7 +37,7 @@ cc IOPCIRange.cpp -o /tmp/pcirange -Wall -framework IOKit -framework CoreFoundat
 #include <IOKit/IOKitKeys.h>
 
 #include "IOKit/pci/IOPCIConfigurator.h"
-#define panic(x) printf(x)
+#define panic(x)               do { printf("panic: %s\n", x); assert(0); } while(0)
 #define kprintf(fmt, args...)  printf(fmt, ## args)
 
 #endif
@@ -321,14 +321,15 @@ void IOPCIRangeOptimize(IOPCIRange * headRange)
 		{
             range->size        += chunk;
             range->proposedSize = range->size;
-            range->end          = end;
-			range->start        = range->end - range->size;
+            range->start        = IOPCIScalarTrunc(end - range->size, range->alignment);
+            range->end          = range->start + range->size;
 		}
 
-        if (range->start > headRange->end)   panic("s>");
-        if (range->start < headRange->start) panic("s<");
-        if (range->end > headRange->end)     panic("e>");
-        if (range->end < headRange->start)   panic("e<");
+        if (range->start & (range->alignment - 1)) panic("sA");
+        if (range->start > headRange->end)         panic("s>");
+        if (range->start < headRange->start)       panic("s<");
+        if (range->end > headRange->end)           panic("e>");
+        if (range->end < headRange->start)         panic("e<");
     }
 }
 
@@ -565,6 +566,8 @@ IOPCIScalar IOPCIRangeListSize(IOPCIRange * first)
 
 void IOPCIRangeDump(IOPCIRange * head)
 {
+#if !DEVELOPMENT && !defined(__x86_64__) && defined(KERNEL)
+#else
     IOPCIRange * range;
     uint32_t idx;
     
@@ -597,6 +600,7 @@ void IOPCIRangeDump(IOPCIRange * head)
     while ((head = head->next));
 
     kprintf("------------------------------------\n");
+#endif
 }
 
 #ifndef KERNEL
@@ -606,7 +610,7 @@ int main(int argc, char **argv)
     IOPCIRange * head = NULL;
     IOPCIRange * range;
     IOPCIRange * requests = NULL;
-    IOPCIRange * elems[8];
+    IOPCIRange * elems[24];
     IOPCIScalar  shrink;
     size_t       idx;
     bool         ok;
@@ -618,6 +622,157 @@ int main(int argc, char **argv)
     }
 
 #if 1
+#if 0
+  MEM: 0xd1c00000:0xd00000,0xd00000-0xd00000,0x0:0x400000 (at [i1e]188:0:0(0x8086:0x156d)) ARsmbv  ok allocated
+//  MEM: 0xd1c00000:0x500000,0x500000-0x500000,0x0:0x400000 (at [i1f]189:3:0(0x8086:0x156d)) ARsmbv  ok allocated
+//  MEM: 0xd2400000:0x500000,0x500000-0x500000,0x0:0x400000 (at [i21]189:5:0(0x8086:0x156d)) ARSmbv  ok allocated
+#endif
+
+    IOPCIRangeListAddRange(&head, 0, 0xd1c00000, 0xd00000, 0x400000);
+
+    idx = 0;
+	range = elems[idx++];
+	IOPCIRangeInit(range, 0, 0, 0x500000, 0x400000);
+	range->flags = kIOPCIRangeFlagRelocatable;
+	ok = IOPCIRangeListAllocateSubRange(head, range);
+	assert(ok);
+
+	range = elems[idx++];
+	IOPCIRangeInit(range, 0, 0, 0x500000, 0x400000);
+	range->flags = kIOPCIRangeFlagRelocatable | kIOPCIRangeFlagSplay;
+	ok = IOPCIRangeListAllocateSubRange(head, range);
+	assert(ok);
+
+    IOPCIRangeDump(head);
+    IOPCIRangeListOptimize(head);
+    IOPCIRangeDump(head);
+    exit(0);
+
+#elif 1
+
+#if 0
+  MEM: 0xb1000000:0x500000,0x500000-0x500000,0x0:0x400000 (at [ib]0:29:3(0x8086:0x9d1b)) Arsmbv  ok allocated
+  MEM: 0xb1500000:0x100000,0x100000-0x100000,0x0:0x100000 (at [i8]0:28:0(0x8086:0x9d10)) ARsmbv  ok allocated
+  MEM: 0xb1624000:0x4000,0x4000-0x4000,0x0:0x4000 (at [i11]0:31:2(0x8086:0x9d21)) Arsmbv  ok allocated
+  MEM: 0xba900000:0x200000,0x200000-0x200000,0x0:0x100000 (at [ia]0:29:0(0x8086:0x9d18)) ARsMbv  ok allocated
+  MEM: 0xb1700000:0x200000,0x200000-0x200000,0x0:0x100000 (at [i9]0:28:4(0x8086:0x9d14)) ARsMbv  ok allocated
+  MEM: 0x7f81000000:0x1000000,0x1000000-0x1000000,0x0:0x1000000 (at [i4]0:2:0(0x8086:0x1927)) Arsmbv  ok allocated
+  MEM: 0x7f80200000:0x10000,0x10000-0x10000,0x0:0x10000 (at [i12]0:31:3(0x8086:0x9d70)) Arsmbv  ok allocated
+  MEM: 0x7f80210000:0x10000,0x10000-0x10000,0x0:0x10000 (at [i5]0:20:0(0x8086:0x9d2f)) Arsmbv  ok allocated
+  MEM: 0x7f80220000:0x4000,0x4000-0x4000,0x0:0x4000 (at [i12]0:31:3(0x8086:0x9d70)) Arsmbv  ok allocated
+  MEM: 0x7f80224000:0x1000,0x1000-0x1000,0x0:0x1000 (at [if]0:30:3(0x8086:0x9d2a)) Arsmbv  ok allocated
+  MEM: 0x7f80225000:0x1000,0x1000-0x1000,0x0:0x1000 (at [ie]0:30:2(0x8086:0x9d29)) Arsmbv  ok allocated
+  MEM: 0x7f80226000:0x1000,0x1000-0x1000,0x0:0x1000 (at [id]0:30:1(0x8086:0x9d28)) Arsmbv  ok allocated
+  MEM: 0x7f80227000:0x1000,0x1000-0x1000,0x0:0x1000 (at [ic]0:30:0(0x8086:0x9d27)) Arsmbv  ok allocated
+  MEM: 0x7f80228000:0x1000,0x1000-0x1000,0x0:0x1000 (at [i7]0:25:0(0x8086:0x9d66)) Arsmbv  ok allocated
+  MEM: 0x7f80229000:0x1000,0x1000-0x1000,0x0:0x1000 (at [i6]0:22:0(0x8086:0x9d3a)) Arsmbv  ok allocated
+  MEM: 0x7f8022a000:0x100,0x100-0x100,0x0:0x100 (at [i13]0:31:4(0x8086:0x9d23)) Arsmbv  ok allocated
+#endif
+
+    IOPCIRangeListAddRange(&head, 0, 0x0000000080000000, 0x0000000070000000, 0x1000);
+    IOPCIRangeListAddRange(&head, 0, 0x0000007f80000000, 0x0000000080000000, 0x1000);
+
+    idx = 0;
+	range = elems[idx++];
+	IOPCIRangeInit(range, 0, 0xb1000000, 0x500000, 0x400000);
+	ok = IOPCIRangeListAllocateSubRange(head, range);
+	assert(ok);
+
+	range = elems[idx++];
+	IOPCIRangeInit(range, 0, 0xb1500000, 0x100000, 0x100000);
+	range->flags = kIOPCIRangeFlagRelocatable;
+	ok = IOPCIRangeListAllocateSubRange(head, range);
+	assert(ok);
+
+	range = elems[idx++];
+	IOPCIRangeInit(range, 0, 0xb1624000, 0x4000, 0x4000);
+	ok = IOPCIRangeListAllocateSubRange(head, range);
+	assert(ok);
+
+	range = elems[idx++];
+	IOPCIRangeInit(range, 0, 0xba900000, 0x200000, 0x100000);
+	range->flags = kIOPCIRangeFlagMaximizeSize;
+	ok = IOPCIRangeListAllocateSubRange(head, range);
+	assert(ok);
+
+	range = elems[idx++];
+	IOPCIRangeInit(range, 0, 0xb1700000, 0x200000, 0x100000);
+	range->flags = kIOPCIRangeFlagMaximizeSize;
+	ok = IOPCIRangeListAllocateSubRange(head, range);
+	assert(ok);
+
+	range = elems[idx++];
+	IOPCIRangeInit(range, 0, 0x7f81000000, 0x1000000, 0x1000000);
+	range->maxAddress = 0xffffffffffffffff;
+	ok = IOPCIRangeListAllocateSubRange(head, range);
+	assert(ok);
+
+	range = elems[idx++];
+	IOPCIRangeInit(range, 0, 0x7f80200000, 0x10000, 0x10000);
+	range->maxAddress = 0xffffffffffffffff;
+	ok = IOPCIRangeListAllocateSubRange(head, range);
+	assert(ok);
+
+	range = elems[idx++];
+	IOPCIRangeInit(range, 0, 0x7f80210000, 0x10000, 0x10000);
+	range->maxAddress = 0xffffffffffffffff;
+	ok = IOPCIRangeListAllocateSubRange(head, range);
+	assert(ok);
+
+	range = elems[idx++];
+	IOPCIRangeInit(range, 0, 0x7f80220000, 0x4000, 0x4000);
+	range->maxAddress = 0xffffffffffffffff;
+	ok = IOPCIRangeListAllocateSubRange(head, range);
+	assert(ok);
+
+	range = elems[idx++];
+	IOPCIRangeInit(range, 0, 0x7f80224000, 0x1000, 0x1000);
+	range->maxAddress = 0xffffffffffffffff;
+	ok = IOPCIRangeListAllocateSubRange(head, range);
+	assert(ok);
+
+	range = elems[idx++];
+	IOPCIRangeInit(range, 0, 0x7f80225000, 0x1000, 0x1000);
+	range->maxAddress = 0xffffffffffffffff;
+	ok = IOPCIRangeListAllocateSubRange(head, range);
+	assert(ok);
+
+	range = elems[idx++];
+	IOPCIRangeInit(range, 0, 0x7f80226000, 0x1000, 0x1000);
+	range->maxAddress = 0xffffffffffffffff;
+	ok = IOPCIRangeListAllocateSubRange(head, range);
+	assert(ok);
+
+	range = elems[idx++];
+	IOPCIRangeInit(range, 0, 0x7f80227000, 0x1000, 0x1000);
+	range->maxAddress = 0xffffffffffffffff;
+	ok = IOPCIRangeListAllocateSubRange(head, range);
+	assert(ok);
+
+	range = elems[idx++];
+	IOPCIRangeInit(range, 0, 0x7f80228000, 0x1000, 0x1000);
+	range->maxAddress = 0xffffffffffffffff;
+	ok = IOPCIRangeListAllocateSubRange(head, range);
+	assert(ok);
+
+	range = elems[idx++];
+	IOPCIRangeInit(range, 0, 0x7f80229000, 0x1000, 0x1000);
+	range->maxAddress = 0xffffffffffffffff;
+	ok = IOPCIRangeListAllocateSubRange(head, range);
+	assert(ok);
+
+	range = elems[idx++];
+	IOPCIRangeInit(range, 0, 0x7f8022a000, 0x100, 0x100);
+	range->maxAddress = 0xffffffffffffffff;
+	ok = IOPCIRangeListAllocateSubRange(head, range);
+	assert(ok);
+
+    IOPCIRangeDump(head);
+    IOPCIRangeListOptimize(head);
+    IOPCIRangeDump(head);
+    exit(0);
+
+#elif 0
     idx = 0;
 	range = elems[idx++];
 	IOPCIRangeInit(range, 0, 0, 0x11000000, 0x08000000);

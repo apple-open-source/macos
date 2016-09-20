@@ -26,8 +26,12 @@
 #ifndef ProcessAssertion_h
 #define ProcessAssertion_h
 
+#include <functional>
+#include <wtf/Function.h>
+
 #if PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR)
 #include <wtf/RetainPtr.h>
+#include <wtf/WeakPtr.h>
 OBJC_CLASS BKSProcessAssertion;
 #endif
 
@@ -47,7 +51,7 @@ public:
 
 class ProcessAssertion {
 public:
-    ProcessAssertion(pid_t, AssertionState);
+    ProcessAssertion(pid_t, AssertionState, Function<void()>&& invalidationCallback = { });
     ~ProcessAssertion();
 
     void setClient(ProcessAssertionClient& client) { m_client = &client; }
@@ -56,9 +60,21 @@ public:
     AssertionState state() const { return m_assertionState; }
     void setState(AssertionState);
 
+#if PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR)
+protected:
+    enum class Validity { No, Yes, Unset };
+    Validity validity() const { return m_validity; }
+#endif
+
 private:
 #if PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR)
+    WeakPtr<ProcessAssertion> createWeakPtr() { return m_weakFactory.createWeakPtr(); }
+    void markAsInvalidated();
+
     RetainPtr<BKSProcessAssertion> m_assertion;
+    Validity m_validity { Validity::Unset };
+    WeakPtrFactory<ProcessAssertion> m_weakFactory;
+    Function<void()> m_invalidationCallback;
 #endif
     AssertionState m_assertionState;
     ProcessAssertionClient* m_client { nullptr };
@@ -72,6 +88,13 @@ public:
     void setClient(ProcessAssertionClient&);
 
     void setState(AssertionState);
+
+#if PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR)
+private:
+    void updateRunInBackgroundCount();
+
+    bool m_isHoldingBackgroundAssertion { false };
+#endif
 };
     
 }

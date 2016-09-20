@@ -1,13 +1,13 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/hsb.xml
 // *
 // ***************************************************************************
 hsb{
-    Version{"2.1.12.94"}
+    Version{"2.1.23.7"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -125,6 +125,15 @@ hsb{
                 two{"{0} kwadratnej yardaj"}
             }
         }
+        concentr{
+            karat{
+                dnam{"karaty"}
+                few{"{0} karaty"}
+                one{"{0} karat"}
+                other{"{0} karatow"}
+                two{"{0} karataj"}
+            }
+        }
         consumption{
             liter-per-kilometer{
                 dnam{"litry na kilometer"}
@@ -226,7 +235,7 @@ hsb{
                 few{"{0} hodźiny"}
                 one{"{0} hodźina"}
                 other{"{0} hodźinow"}
-                per{"na hodźinu"}
+                per{"{0} na hodźinu"}
                 two{"{0} hodźinje"}
             }
             microsecond{
@@ -269,7 +278,7 @@ hsb{
                 few{"{0} sekundy"}
                 one{"{0} sekunda"}
                 other{"{0} sekundow"}
-                per{"na sekundu"}
+                per{"{0} na sekundu"}
                 two{"{0} sekundźe"}
             }
             week{
@@ -665,15 +674,6 @@ hsb{
                 one{"{0} punt na kwadratny cól"}
                 other{"{0} puntow na kwadratny cól"}
                 two{"{0} puntaj na kwadratny cól"}
-            }
-        }
-        proportion{
-            karat{
-                dnam{"karaty"}
-                few{"{0} karaty"}
-                one{"{0} karat"}
-                other{"{0} karatow"}
-                two{"{0} karataj"}
             }
         }
         speed{
@@ -1301,6 +1301,15 @@ hsb{
                 two{"{0} yd²"}
             }
         }
+        concentr{
+            karat{
+                dnam{"kt"}
+                few{"{0} kt"}
+                one{"{0} kt"}
+                other{"{0} kt"}
+                two{"{0} kt"}
+            }
+        }
         consumption{
             liter-per-kilometer{
                 dnam{"l/km"}
@@ -1841,15 +1850,6 @@ hsb{
                 one{"{0} psi"}
                 other{"{0} psi"}
                 two{"{0} psi"}
-            }
-        }
-        proportion{
-            karat{
-                dnam{"kt"}
-                few{"{0} kt"}
-                one{"{0} kt"}
-                other{"{0} kt"}
-                two{"{0} kt"}
             }
         }
         speed{

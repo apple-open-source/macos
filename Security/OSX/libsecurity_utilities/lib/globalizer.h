@@ -127,7 +127,7 @@ class CleanModuleNexus : public ModuleNexus<Type> {
 public:
     ~CleanModuleNexus()
     {
-        secdebug("nexus", "ModuleNexus %p destroyed object 0x%x",
+        secinfo("nexus", "ModuleNexus %p destroyed object 0x%x",
 			this, ModuleNexus<Type>::pointer);
         delete reinterpret_cast<Type *>(ModuleNexus<Type>::pointer);
     }

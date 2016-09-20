@@ -30,6 +30,7 @@
 #include "WKAPICast.h"
 #include "WebPageGroup.h"
 #include "WebPreferences.h"
+#include "WebUserContentControllerProxy.h"
 
 using namespace WebKit;
 
@@ -40,8 +41,8 @@ WKTypeID WKPageGroupGetTypeID()
 
 WKPageGroupRef WKPageGroupCreateWithIdentifier(WKStringRef identifier)
 {
-    RefPtr<WebPageGroup> pageGroup = WebPageGroup::create(toWTFString(identifier));
-    return toAPI(pageGroup.release().leakRef());
+    auto pageGroup = WebPageGroup::create(toWTFString(identifier));
+    return toAPI(pageGroup.leakRef());
 }
 
 WKStringRef WKPageGroupCopyIdentifier(WKPageGroupRef pageGroupRef)
@@ -57,6 +58,11 @@ void WKPageGroupSetPreferences(WKPageGroupRef pageGroupRef, WKPreferencesRef pre
 WKPreferencesRef WKPageGroupGetPreferences(WKPageGroupRef pageGroupRef)
 {
     return toAPI(&toImpl(pageGroupRef)->preferences());
+}
+
+WKUserContentControllerRef WKPageGroupGetUserContentController(WKPageGroupRef pageGroupRef)
+{
+    return toAPI(&toImpl(pageGroupRef)->userContentController());
 }
 
 void WKPageGroupAddUserStyleSheet(WKPageGroupRef pageGroupRef, WKStringRef sourceRef, WKURLRef baseURL, WKArrayRef whitelistedURLPatterns, WKArrayRef blacklistedURLPatterns, WKUserContentInjectedFrames injectedFrames)

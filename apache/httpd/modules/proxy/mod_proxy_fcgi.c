@@ -262,11 +262,21 @@ static apr_status_t send_environment(proxy_conn_rec *conn, request_rec *r,
        }
     }
 
-    /* Strip balancer prefix */
-    if (r->filename && !strncmp(r->filename, "proxy:balancer://", 17)) { 
-        char *newfname = apr_pstrdup(r->pool, r->filename+17);
-        newfname = ap_strchr(newfname, '/');
-        r->filename = newfname;
+    /* Strip proxy: prefixes */
+    if (r->filename) {
+        char *newfname = NULL;
+
+        if (!strncmp(r->filename, "proxy:balancer://", 17)) {
+            newfname = apr_pstrdup(r->pool, r->filename+17);
+        }
+        else if (!strncmp(r->filename, "proxy:fcgi://", 13)) {
+            newfname = apr_pstrdup(r->pool, r->filename+13);
+        }
+
+        if (newfname) {
+            newfname = ap_strchr(newfname, '/');
+            r->filename = newfname;
+        }
     }
 
     ap_add_common_vars(r);
@@ -833,6 +843,16 @@ static int fcgi_do_request(apr_pool_t *p, request_rec *r,
     rv = dispatch(conn, conf, r, temp_pool, request_id,
                   &err, &bad_request, &has_responded);
     if (rv != APR_SUCCESS) {
+        /* If the client aborted the connection during retrieval or (partially)
+         * sending the response, don't return a HTTP_SERVICE_UNAVAILABLE, since
+         * this is not a backend problem. */
+        if (r->connection->aborted) {
+            ap_log_rerror(APLOG_MARK, APLOG_TRACE1, rv, r, 
+                          "The client aborted the connection.");
+            conn->close = 1;
+            return OK;
+        }
+
         ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r, APLOGNO(01075)
                       "Error dispatching request to %s: %s%s%s",
                       server_portstr,
@@ -866,17 +886,17 @@ static int proxy_fcgi_handler(request_rec *r, proxy_worker *worker,
     char server_portstr[32];
     conn_rec *origin = NULL;
     proxy_conn_rec *backend = NULL;
+    apr_uri_t *uri;
 
     proxy_dir_conf *dconf = ap_get_module_config(r->per_dir_config,
                                                  &proxy_module);
 
     apr_pool_t *p = r->pool;
 
-    apr_uri_t *uri = apr_palloc(r->pool, sizeof(*uri));
 
     ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(01076)
                   "url: %s proxyname: %s proxyport: %d",
-                 url, proxyname, proxyport);
+                  url, proxyname, proxyport);
 
     if (strncasecmp(url, "fcgi:", 5) != 0) {
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(01077) "declining URL %s", url);
@@ -899,6 +919,7 @@ static int proxy_fcgi_handler(request_rec *r, proxy_worker *worker,
     backend->is_ssl = 0;
 
     /* Step One: Determine Who To Connect To */
+    uri = apr_palloc(p, sizeof(*uri));
     status = ap_proxy_determine_connection(p, r, conf, worker, backend,
                                            uri, &url, proxyname, proxyport,
                                            server_portstr,

@@ -241,9 +241,8 @@ msgstr " 文件名补全 (^F^N^P)"
 msgid " Tag completion (^]^N^P)"
 msgstr " Tag 补全 (^]^N^P)"
 
-#, fuzzy
-#~ msgid " Path pattern completion (^N^P)"
-#~ msgstr " 路径模式补全 (^N^P)"
+msgid " Path pattern completion (^N^P)"
+msgstr " 头文件模式补全 (^N^P)"
 
 msgid " Definition completion (^D^N^P)"
 msgstr " 定义补全 (^D^N^P)"
@@ -435,7 +434,7 @@ msgstr "E109: '?' 后缺少 ':'"
 msgid "E691: Can only compare List with List"
 msgstr "E691: 只能比较 List 和 List"
 
-msgid "E692: Invalid operation for Lists"
+msgid "E692: Invalid operation for List"
 msgstr "E692: 对 List 无效的操作"
 
 msgid "E735: Can only compare Dictionary with Dictionary"
@@ -2014,21 +2013,6 @@ msgstr "全部替换(&A)"
 
 msgid "&Undo"
 msgstr "撤销(&U)"
-
-#, c-format
-msgid "E610: Can't load Zap font '%s'"
-msgstr "E610: 无法加载 Zap 字体 '%s'"
-
-#, c-format
-msgid "E611: Can't use font %s"
-msgstr "E611: 无法使用字体 %s"
-
-msgid ""
-"\n"
-"Sending message to terminate child process.\n"
-msgstr ""
-"\n"
-"正在发送消息终止子进程。\n"
 
 #, c-format
 msgid "E671: Cannot find window title \"%s\""
@@ -4226,9 +4210,6 @@ msgstr "E244: 字符集 \"%s\" 不能对应字体\"%s\""
 msgid "E245: Illegal char '%c' in font name \"%s\""
 msgstr "E245: 不正确的字符 '%c' 出现在字体名称 \"%s\" 内"
 
-msgid "E366: Invalid 'osfiletype' option - using Text"
-msgstr "E366: 不正确的 'osfiletype' 选项 - 使用纯文字模式"
-
 msgid "Vim: Double signal, exiting\n"
 msgstr "Vim: 双重信号，退出中\n"
 
@@ -5302,7 +5283,7 @@ msgstr "Vim: 读错误，退出中...\n"
 
 #. must display the prompt
 msgid "No undo possible; continue anyway"
-msgstr "无法撤销；请继续"
+msgstr "无法撤销；仍然继续"
 
 msgid "Already at oldest change"
 msgstr "已位于最旧的改变"
@@ -5619,13 +5600,13 @@ msgid "type  :help cp-default<Enter> for info on this"
 msgstr "输入  :help cp-default<Enter> 查看相关说明    "
 
 msgid "menu  Help->Orphans           for information    "
-msgstr "菜单  Help->Orphans           查看说明           "
+msgstr "菜单  帮助->孤儿           查看说明           "
 
 msgid "Running modeless, typed text is inserted"
 msgstr "无模式运行，输入文字即插入"
 
 msgid "menu  Edit->Global Settings->Toggle Insert Mode  "
-msgstr "菜单  Edit->Global Settings->Toggle Insert Mode  "
+msgstr "菜单  编辑->全局设定->开/关插入模式  "
 
 #, fuzzy
 #~ msgid "                              for two modes      "

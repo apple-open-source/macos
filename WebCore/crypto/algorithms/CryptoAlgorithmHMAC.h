@@ -40,22 +40,22 @@ public:
     static const char* const s_name;
     static const CryptoAlgorithmIdentifier s_identifier = CryptoAlgorithmIdentifier::HMAC;
 
-    static std::unique_ptr<CryptoAlgorithm> create();
+    static Ref<CryptoAlgorithm> create();
 
-    virtual CryptoAlgorithmIdentifier identifier() const override;
+    CryptoAlgorithmIdentifier identifier() const override;
 
-    virtual void sign(const CryptoAlgorithmParameters&, const CryptoKey&, const CryptoOperationData&, VectorCallback, VoidCallback failureCallback, ExceptionCode&) override;
-    virtual void verify(const CryptoAlgorithmParameters&, const CryptoKey&, const CryptoOperationData& signature, const CryptoOperationData& data, BoolCallback, VoidCallback failureCallback, ExceptionCode&) override;
-    virtual void generateKey(const CryptoAlgorithmParameters&, bool extractable, CryptoKeyUsage, KeyOrKeyPairCallback, VoidCallback failureCallback, ExceptionCode&) override;
-    virtual void importKey(const CryptoAlgorithmParameters&, const CryptoKeyData&, bool extractable, CryptoKeyUsage, KeyCallback, VoidCallback failureCallback, ExceptionCode&) override;
+    void sign(const CryptoAlgorithmParameters&, const CryptoKey&, const CryptoOperationData&, VectorCallback&&, VoidCallback&& failureCallback, ExceptionCode&) override;
+    void verify(const CryptoAlgorithmParameters&, const CryptoKey&, const CryptoOperationData& signature, const CryptoOperationData& data, BoolCallback&&, VoidCallback&& failureCallback, ExceptionCode&) override;
+    void generateKey(const CryptoAlgorithmParameters&, bool extractable, CryptoKeyUsage, KeyOrKeyPairCallback&&, VoidCallback&& failureCallback, ExceptionCode&) override;
+    void importKey(const CryptoAlgorithmParameters&, const CryptoKeyData&, bool extractable, CryptoKeyUsage, KeyCallback&&, VoidCallback&& failureCallback, ExceptionCode&) override;
 
 private:
     CryptoAlgorithmHMAC();
     virtual ~CryptoAlgorithmHMAC();
 
     bool keyAlgorithmMatches(const CryptoAlgorithmHmacParams& algorithmParameters, const CryptoKey&) const;
-    void platformSign(const CryptoAlgorithmHmacParams&, const CryptoKeyHMAC&, const CryptoOperationData&, VectorCallback, VoidCallback failureCallback, ExceptionCode&);
-    void platformVerify(const CryptoAlgorithmHmacParams&, const CryptoKeyHMAC&, const CryptoOperationData& signature, const CryptoOperationData& data, BoolCallback, VoidCallback failureCallback, ExceptionCode&);
+    void platformSign(const CryptoAlgorithmHmacParams&, const CryptoKeyHMAC&, const CryptoOperationData&, VectorCallback&&, VoidCallback&& failureCallback, ExceptionCode&);
+    void platformVerify(const CryptoAlgorithmHmacParams&, const CryptoKeyHMAC&, const CryptoOperationData& signature, const CryptoOperationData& data, BoolCallback&&, VoidCallback&& failureCallback, ExceptionCode&);
 };
 
 }

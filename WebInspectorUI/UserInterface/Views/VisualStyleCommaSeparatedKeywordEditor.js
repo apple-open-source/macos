@@ -32,23 +32,23 @@ WebInspector.VisualStyleCommaSeparatedKeywordEditor = class VisualStyleCommaSepa
         this._insertNewItemsBeforeSelected = insertNewItemsBeforeSelected || false;
         this._longhandProperties = longhandProperties || {};
 
-        var listElement = document.createElement("ol");
+        let listElement = document.createElement("ol");
         listElement.classList.add("visual-style-comma-separated-keyword-list");
         listElement.addEventListener("keydown", this._listElementKeyDown.bind(this));
         this.contentElement.appendChild(listElement);
 
         this._commaSeparatedKeywords = new WebInspector.TreeOutline(listElement);
-        this._commaSeparatedKeywords.onselect = this._treeElementSelected.bind(this);
+        this._commaSeparatedKeywords.addEventListener(WebInspector.TreeOutline.Event.SelectionDidChange, this._treeSelectionDidChange, this);
 
-        var controlContainer = document.createElement("div");
+        let controlContainer = document.createElement("div");
         controlContainer.classList.add("visual-style-comma-separated-keyword-controls");
         this.contentElement.appendChild(controlContainer);
 
-        var addGlyphElement = useSVGSymbol("Images/Plus13.svg", "visual-style-add-comma-separated-keyword");
+        let addGlyphElement = useSVGSymbol("Images/Plus13.svg", "visual-style-add-comma-separated-keyword");
         addGlyphElement.addEventListener("click", this._addEmptyCommaSeparatedKeyword.bind(this));
         controlContainer.appendChild(addGlyphElement);
 
-        var removeGlyphElement = useSVGSymbol("Images/Minus.svg", "visual-style-remove-comma-separated-keyword", WebInspector.UIString("Click to remove the selected item."));
+        let removeGlyphElement = useSVGSymbol("Images/Minus.svg", "visual-style-remove-comma-separated-keyword", WebInspector.UIString("Click to remove the selected item."));
         removeGlyphElement.addEventListener("click", this._removeSelectedCommaSeparatedKeyword.bind(this));
         controlContainer.appendChild(removeGlyphElement);
     }
@@ -57,7 +57,7 @@ WebInspector.VisualStyleCommaSeparatedKeywordEditor = class VisualStyleCommaSepa
 
     set selectedTreeElementValue(text)
     {
-        var selectedTreeElement = this._commaSeparatedKeywords.selectedTreeElement;
+        let selectedTreeElement = this._commaSeparatedKeywords.selectedTreeElement;
         if (!selectedTreeElement)
             return;
 
@@ -71,15 +71,15 @@ WebInspector.VisualStyleCommaSeparatedKeywordEditor = class VisualStyleCommaSepa
         if (!this._commaSeparatedKeywords.hasChildren)
             return;
 
-        var value = "";
-        for (var treeItem of this._commaSeparatedKeywords.children) {
+        let value = "";
+        for (let treeItem of this._commaSeparatedKeywords.children) {
             if (this._treeElementIsEmpty(treeItem))
                 continue;
 
             if (value.length)
                 value += ", ";
 
-            var text = treeItem.mainTitle;
+            let text = treeItem.mainTitle;
             if (typeof this._modifyCommaSeparatedKeyword === "function")
                 text = this._modifyCommaSeparatedKeyword(text);
 
@@ -101,9 +101,21 @@ WebInspector.VisualStyleCommaSeparatedKeywordEditor = class VisualStyleCommaSepa
         }
 
         // It is necessary to add the beginning \) to ensure inner parenthesis are not matched.
-        var values = commaSeparatedValue.split(/\)\s*,\s*(?![^\(\)]*\))/);
-        for (var value of values)
-            this._addCommaSeparatedKeyword(value + (value.endsWith(")") ? "" : ")"));
+        let values = commaSeparatedValue.split(/\)\s*,\s*(?![^\(\)]*\))/);
+        for (let i = 0; i < values.length; ++i) {
+            if (!values[i].includes(","))
+                continue;
+
+            let openParentheses = values[i].getMatchingIndexes("(").length;
+            let closedParenthesis = values[i].getMatchingIndexes(")").length;
+            values[i] += (openParentheses - closedParenthesis === 1) ? ")" : "";
+        }
+
+        if (values.length === 1 && !values[0].includes("(") && !values[0].includes(")"))
+            values = values[0].split(/\s*,\s*/);
+
+        for (let value of values)
+            this._addCommaSeparatedKeyword(value);
 
         this._commaSeparatedKeywords.children[0].select(true);
     }
@@ -113,11 +125,25 @@ WebInspector.VisualStyleCommaSeparatedKeywordEditor = class VisualStyleCommaSepa
         return this.value || null;
     }
 
+    recalculateWidth(value)
+    {
+        if (this._titleElement) {
+            // 55px width and 4px margin on left and right for title element,
+            // plus the 11px margin right on the content element
+            value -= 74;
+        } else {
+            // 11px margin on left and right of the content element
+            value -= 22;
+        }
+
+        this.contentElement.style.width = Math.max(value, 0) + "px";
+    }
+
     // Private
 
     _generateTextFromLonghandProperties()
     {
-        var text = "";
+        let text = "";
         if (!this._style)
             return text;
 
@@ -131,15 +157,15 @@ WebInspector.VisualStyleCommaSeparatedKeywordEditor = class VisualStyleCommaSepa
             return "";
         }
 
-        var onePropertyExists = false;
-        var valueLists = [];
-        var valuesCount = 0;
-        for (var propertyName in this._longhandProperties) {
-            var existingProperty = this._style.propertyForName(propertyName, true);
+        let onePropertyExists = false;
+        let valueLists = [];
+        let valuesCount = 0;
+        for (let propertyName in this._longhandProperties) {
+            let existingProperty = this._style.propertyForName(propertyName, true);
             if (existingProperty)
                 onePropertyExists = true;
 
-            var matches = propertyValue.call(this, existingProperty, propertyName).split(/\s*,\s*(?![^\(]*\))/);
+            let matches = propertyValue.call(this, existingProperty, propertyName).split(/\s*,\s*(?![^\(]*\))/);
             valuesCount = Math.max(valuesCount, matches.length);
             valueLists.push(matches);
         }
@@ -147,12 +173,12 @@ WebInspector.VisualStyleCommaSeparatedKeywordEditor = class VisualStyleCommaSepa
         if (!onePropertyExists)
             return text;
 
-        var count = 0;
+        let count = 0;
         while (count < valuesCount) {
             if (count > 0)
                 text += ",";
 
-            for (var valueList of valueLists)
+            for (let valueList of valueLists)
                 text += valueList[count > valueList.length - 1 ? valueList.length - 1 : count] + " ";
 
             ++count;
@@ -162,8 +188,8 @@ WebInspector.VisualStyleCommaSeparatedKeywordEditor = class VisualStyleCommaSepa
 
     modifyPropertyText(text, value)
     {
-        for (var property in this._longhandProperties) {
-            var replacementRegExp = new RegExp(property + "\s*:\s*[^;]*(;|$)");
+        for (let property in this._longhandProperties) {
+            let replacementRegExp = new RegExp(property + "\s*:\s*[^;]*(;|$)");
             text = text.replace(replacementRegExp, "");
         }
         return super.modifyPropertyText(text, value);
@@ -171,24 +197,28 @@ WebInspector.VisualStyleCommaSeparatedKeywordEditor = class VisualStyleCommaSepa
 
     _listElementKeyDown(event)
     {
-        var selectedTreeElement = this._commaSeparatedKeywords.selectedTreeElement;
+        let selectedTreeElement = this._commaSeparatedKeywords.selectedTreeElement;
         if (!selectedTreeElement)
             return;
 
         if (selectedTreeElement.currentlyEditing)
             return;
 
-        var keyCode = event.keyCode;
-        var backspaceKeyCode = WebInspector.KeyboardShortcut.Key.Backspace.keyCode;
-        var deleteKeyCode = WebInspector.KeyboardShortcut.Key.Delete.keyCode;
+        let keyCode = event.keyCode;
+        let backspaceKeyCode = WebInspector.KeyboardShortcut.Key.Backspace.keyCode;
+        let deleteKeyCode = WebInspector.KeyboardShortcut.Key.Delete.keyCode;
         if (keyCode === backspaceKeyCode || keyCode === deleteKeyCode)
             this._removeSelectedCommaSeparatedKeyword();
     }
 
-    _treeElementSelected(item, selectedByUser)
+    _treeSelectionDidChange(event)
     {
+        let treeElement = event.data.selectedElement;
+        if (!treeElement)
+            return;
+
         this._removeEmptyCommaSeparatedKeywords();
-        this.dispatchEventToListeners(WebInspector.VisualStyleCommaSeparatedKeywordEditor.Event.TreeItemSelected, {text: item.mainTitle});
+        this.dispatchEventToListeners(WebInspector.VisualStyleCommaSeparatedKeywordEditor.Event.TreeItemSelected, {text: treeElement.mainTitle});
     }
 
     _treeElementIsEmpty(item)
@@ -198,7 +228,7 @@ WebInspector.VisualStyleCommaSeparatedKeywordEditor = class VisualStyleCommaSepa
 
     _addEmptyCommaSeparatedKeyword()
     {
-        var newTreeElement = this._addCommaSeparatedKeyword(null, this._commaSeparatedKeywords.selectedTreeElementIndex);
+        let newTreeElement = this._addCommaSeparatedKeyword(null, this._commaSeparatedKeywords.selectedTreeElementIndex);
         newTreeElement.subtitle = WebInspector.UIString("(modify the boxes below to add a value)");
         newTreeElement.element.classList.add("no-value");
         newTreeElement.select(true, true);
@@ -207,13 +237,13 @@ WebInspector.VisualStyleCommaSeparatedKeywordEditor = class VisualStyleCommaSepa
 
     _removeSelectedCommaSeparatedKeyword()
     {
-        var selectedTreeElement = this._commaSeparatedKeywords.selectedTreeElement;
+        let selectedTreeElement = this._commaSeparatedKeywords.selectedTreeElement;
         this._removeCommaSeparatedKeyword(selectedTreeElement);
     }
 
     _removeEmptyCommaSeparatedKeywords()
     {
-        for (var treeElement of this._commaSeparatedKeywords.children) {
+        for (let treeElement of this._commaSeparatedKeywords.children) {
             if (!this._treeElementIsEmpty(treeElement) || treeElement.selected)
                 continue;
 
@@ -224,7 +254,7 @@ WebInspector.VisualStyleCommaSeparatedKeywordEditor = class VisualStyleCommaSepa
 
     _addCommaSeparatedKeyword(value, index)
     {
-        var valueElement = this._createNewTreeElement(value);
+        let valueElement = this._createNewTreeElement(value);
         if (!isNaN(index))
             this._commaSeparatedKeywords.insertChild(valueElement, index + !this._insertNewItemsBeforeSelected);
         else

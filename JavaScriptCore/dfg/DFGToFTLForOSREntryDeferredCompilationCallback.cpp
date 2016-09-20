@@ -31,13 +31,13 @@
 #include "CodeBlock.h"
 #include "DFGJITCode.h"
 #include "Executable.h"
+#include "FTLForOSREntryJITCode.h"
 #include "JSCInlines.h"
 
 namespace JSC { namespace DFG {
 
-ToFTLForOSREntryDeferredCompilationCallback::ToFTLForOSREntryDeferredCompilationCallback(
-    PassRefPtr<CodeBlock> dfgCodeBlock)
-    : m_dfgCodeBlock(dfgCodeBlock)
+ToFTLForOSREntryDeferredCompilationCallback::ToFTLForOSREntryDeferredCompilationCallback(uint8_t* forcedOSREntryTrigger)
+    : m_forcedOSREntryTrigger(forcedOSREntryTrigger)
 {
 }
 
@@ -45,43 +45,46 @@ ToFTLForOSREntryDeferredCompilationCallback::~ToFTLForOSREntryDeferredCompilatio
 {
 }
 
-Ref<ToFTLForOSREntryDeferredCompilationCallback>ToFTLForOSREntryDeferredCompilationCallback::create(
-    PassRefPtr<CodeBlock> dfgCodeBlock)
+Ref<ToFTLForOSREntryDeferredCompilationCallback>ToFTLForOSREntryDeferredCompilationCallback::create(uint8_t* forcedOSREntryTrigger)
 {
-    return adoptRef(*new ToFTLForOSREntryDeferredCompilationCallback(dfgCodeBlock));
+    return adoptRef(*new ToFTLForOSREntryDeferredCompilationCallback(forcedOSREntryTrigger));
 }
 
 void ToFTLForOSREntryDeferredCompilationCallback::compilationDidBecomeReadyAsynchronously(
-    CodeBlock* codeBlock)
+    CodeBlock* codeBlock, CodeBlock* profiledDFGCodeBlock)
 {
     if (Options::verboseOSR()) {
         dataLog(
-            "Optimizing compilation of ", *codeBlock, " (for ", *m_dfgCodeBlock,
+            "Optimizing compilation of ", *codeBlock, " (for ", *profiledDFGCodeBlock,
             ") did become ready.\n");
     }
-    
-    m_dfgCodeBlock->jitCode()->dfg()->forceOptimizationSlowPathConcurrently(
-        m_dfgCodeBlock.get());
+
+    *m_forcedOSREntryTrigger = 1;
 }
 
 void ToFTLForOSREntryDeferredCompilationCallback::compilationDidComplete(
-    CodeBlock* codeBlock, CompilationResult result)
+    CodeBlock* codeBlock, CodeBlock* profiledDFGCodeBlock, CompilationResult result)
 {
     if (Options::verboseOSR()) {
         dataLog(
-            "Optimizing compilation of ", *codeBlock, " (for ", *m_dfgCodeBlock,
+            "Optimizing compilation of ", *codeBlock, " (for ", *profiledDFGCodeBlock,
             ") result: ", result, "\n");
     }
     
-    JITCode* jitCode = m_dfgCodeBlock->jitCode()->dfg();
+    JITCode* jitCode = profiledDFGCodeBlock->jitCode()->dfg();
         
     switch (result) {
-    case CompilationSuccessful:
-        jitCode->osrEntryBlock = codeBlock;
+    case CompilationSuccessful: {
+        jitCode->setOSREntryBlock(*codeBlock->vm(), profiledDFGCodeBlock, codeBlock);
+        unsigned osrEntryBytecode = codeBlock->jitCode()->ftlForOSREntry()->bytecodeIndex();
+        jitCode->tierUpEntryTriggers.set(osrEntryBytecode, 1);
         break;
+    }
     case CompilationFailed:
         jitCode->osrEntryRetry = 0;
         jitCode->abandonOSREntry = true;
+        profiledDFGCodeBlock->jitCode()->dfg()->setOptimizationThresholdBasedOnCompilationResult(
+            profiledDFGCodeBlock, result);
         break;
     case CompilationDeferred:
         RELEASE_ASSERT_NOT_REACHED();
@@ -90,7 +93,7 @@ void ToFTLForOSREntryDeferredCompilationCallback::compilationDidComplete(
         break;
     }
     
-    DeferredCompilationCallback::compilationDidComplete(codeBlock, result);
+    DeferredCompilationCallback::compilationDidComplete(codeBlock, profiledDFGCodeBlock, result);
 }
 
 } } // JSC::DFG

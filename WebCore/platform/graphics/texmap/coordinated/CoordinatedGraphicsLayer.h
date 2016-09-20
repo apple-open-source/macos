@@ -29,6 +29,7 @@
 #include "Image.h"
 #include "IntSize.h"
 #include "TextureMapperAnimation.h"
+#include "TextureMapperPlatformLayer.h"
 #include "TiledBackingStore.h"
 #include "TiledBackingStoreClient.h"
 #include "TransformationMatrix.h"
@@ -48,64 +49,69 @@ class CoordinatedGraphicsLayerClient {
 public:
     virtual bool isFlushingLayerChanges() const = 0;
     virtual FloatRect visibleContentsRect() const = 0;
-    virtual PassRefPtr<CoordinatedImageBacking> createImageBackingIfNeeded(Image*) = 0;
+    virtual Ref<CoordinatedImageBacking> createImageBackingIfNeeded(Image*) = 0;
     virtual void detachLayer(CoordinatedGraphicsLayer*) = 0;
-    virtual bool paintToSurface(const IntSize&, CoordinatedSurface::Flags, uint32_t& atlasID, IntPoint&, CoordinatedSurface::Client*) = 0;
+    virtual bool paintToSurface(const IntSize&, CoordinatedSurface::Flags, uint32_t& atlasID, IntPoint&, CoordinatedSurface::Client&) = 0;
 
     virtual void syncLayerState(CoordinatedLayerID, CoordinatedGraphicsLayerState&) = 0;
 };
 
 class CoordinatedGraphicsLayer : public GraphicsLayer
     , public TiledBackingStoreClient
+#if USE(COORDINATED_GRAPHICS_THREADED)
+    , public TextureMapperPlatformLayer::Client
+#endif
     , public CoordinatedImageBacking::Host {
 public:
     explicit CoordinatedGraphicsLayer(Type, GraphicsLayerClient&);
     virtual ~CoordinatedGraphicsLayer();
 
+    PlatformLayerID primaryLayerID() const override { return id(); }
+
     // Reimplementations from GraphicsLayer.h.
-    virtual bool setChildren(const Vector<GraphicsLayer*>&) override;
-    virtual void addChild(GraphicsLayer*) override;
-    virtual void addChildAtIndex(GraphicsLayer*, int) override;
-    virtual void addChildAbove(GraphicsLayer*, GraphicsLayer*) override;
-    virtual void addChildBelow(GraphicsLayer*, GraphicsLayer*) override;
-    virtual bool replaceChild(GraphicsLayer*, GraphicsLayer*) override;
-    virtual void removeFromParent() override;
-    virtual void setPosition(const FloatPoint&) override;
-    virtual void setAnchorPoint(const FloatPoint3D&) override;
-    virtual void setSize(const FloatSize&) override;
-    virtual void setTransform(const TransformationMatrix&) override;
-    virtual void setChildrenTransform(const TransformationMatrix&) override;
-    virtual void setPreserves3D(bool) override;
-    virtual void setMasksToBounds(bool) override;
-    virtual void setDrawsContent(bool) override;
-    virtual void setContentsVisible(bool) override;
-    virtual void setContentsOpaque(bool) override;
-    virtual void setBackfaceVisibility(bool) override;
-    virtual void setOpacity(float) override;
-    virtual void setContentsRect(const FloatRect&) override;
-    virtual void setContentsTilePhase(const FloatSize&) override;
-    virtual void setContentsTileSize(const FloatSize&) override;
-    virtual void setContentsToImage(Image*) override;
-    virtual void setContentsToSolidColor(const Color&) override;
-    virtual void setShowDebugBorder(bool) override;
-    virtual void setShowRepaintCounter(bool) override;
-    virtual bool shouldDirectlyCompositeImage(Image*) const override;
-    virtual void setContentsToPlatformLayer(PlatformLayer*, ContentsLayerPurpose) override;
-    virtual void setMaskLayer(GraphicsLayer*) override;
-    virtual void setReplicatedByLayer(GraphicsLayer*) override;
-    virtual void setNeedsDisplay() override;
-    virtual void setNeedsDisplayInRect(const FloatRect&, ShouldClipToLayer = ClipToLayer) override;
-    virtual void setContentsNeedsDisplay() override;
-    virtual void deviceOrPageScaleFactorChanged() override;
-    virtual void flushCompositingState(const FloatRect&, bool) override;
-    virtual void flushCompositingStateForThisLayerOnly(bool) override;
-    virtual bool setFilters(const FilterOperations&) override;
-    virtual bool addAnimation(const KeyframeValueList&, const FloatSize&, const Animation*, const String&, double) override;
-    virtual void pauseAnimation(const String&, double) override;
-    virtual void removeAnimation(const String&) override;
-    virtual void suspendAnimations(double time) override;
-    virtual void resumeAnimations() override;
-    virtual bool usesContentsLayer() const override { return m_platformLayer || m_compositedImage; }
+    bool setChildren(const Vector<GraphicsLayer*>&) override;
+    void addChild(GraphicsLayer*) override;
+    void addChildAtIndex(GraphicsLayer*, int) override;
+    void addChildAbove(GraphicsLayer*, GraphicsLayer*) override;
+    void addChildBelow(GraphicsLayer*, GraphicsLayer*) override;
+    bool replaceChild(GraphicsLayer*, GraphicsLayer*) override;
+    void removeFromParent() override;
+    void setPosition(const FloatPoint&) override;
+    void setAnchorPoint(const FloatPoint3D&) override;
+    void setSize(const FloatSize&) override;
+    void setTransform(const TransformationMatrix&) override;
+    void setChildrenTransform(const TransformationMatrix&) override;
+    void setPreserves3D(bool) override;
+    void setMasksToBounds(bool) override;
+    void setDrawsContent(bool) override;
+    void setContentsVisible(bool) override;
+    void setContentsOpaque(bool) override;
+    void setBackfaceVisibility(bool) override;
+    void setOpacity(float) override;
+    void setContentsRect(const FloatRect&) override;
+    void setContentsTilePhase(const FloatSize&) override;
+    void setContentsTileSize(const FloatSize&) override;
+    void setContentsToImage(Image*) override;
+    void setContentsToSolidColor(const Color&) override;
+    void setShowDebugBorder(bool) override;
+    void setShowRepaintCounter(bool) override;
+    bool shouldDirectlyCompositeImage(Image*) const override;
+    void setContentsToPlatformLayer(PlatformLayer*, ContentsLayerPurpose) override;
+    void setMaskLayer(GraphicsLayer*) override;
+    void setReplicatedByLayer(GraphicsLayer*) override;
+    void setNeedsDisplay() override;
+    void setNeedsDisplayInRect(const FloatRect&, ShouldClipToLayer = ClipToLayer) override;
+    void setContentsNeedsDisplay() override;
+    void deviceOrPageScaleFactorChanged() override;
+    void flushCompositingState(const FloatRect&, bool) override;
+    void flushCompositingStateForThisLayerOnly(bool) override;
+    bool setFilters(const FilterOperations&) override;
+    bool addAnimation(const KeyframeValueList&, const FloatSize&, const Animation*, const String&, double) override;
+    void pauseAnimation(const String&, double) override;
+    void removeAnimation(const String&) override;
+    void suspendAnimations(double time) override;
+    void resumeAnimations() override;
+    bool usesContentsLayer() const override { return m_platformLayer || m_compositedImage; }
 
     void syncPendingStateChangesIncludingSubLayers();
     void updateContentBuffersIncludingSubLayers();
@@ -119,22 +125,21 @@ public:
     bool isScrollable() const { return !!m_scrollableArea; }
     void commitScrollOffset(const IntSize&);
 
-    CoordinatedLayerID id() const;
+    CoordinatedLayerID id() const { return m_id; }
 
     void setFixedToViewport(bool isFixed);
 
     IntRect coverRect() const { return m_mainBackingStore ? m_mainBackingStore->mapToContents(m_mainBackingStore->coverRect()) : IntRect(); }
+    IntRect transformedVisibleRect();
 
     // TiledBackingStoreClient
-    virtual void tiledBackingStorePaint(GraphicsContext*, const IntRect&) override;
-    virtual void didUpdateTileBuffers() override;
-    virtual void tiledBackingStoreHasPendingTileCreation() override;
-    virtual IntRect tiledBackingStoreContentsRect() override;
-    virtual IntRect tiledBackingStoreVisibleRect() override;
-    virtual void createTile(uint32_t tileID, float) override;
-    virtual void updateTile(uint32_t tileID, const SurfaceUpdateInfo&, const IntRect&) override;
-    virtual void removeTile(uint32_t tileID) override;
-    virtual bool paintToSurface(const IntSize&, uint32_t& /* atlasID */, IntPoint&, CoordinatedSurface::Client*) override;
+    void tiledBackingStorePaint(GraphicsContext&, const IntRect&) override;
+    void didUpdateTileBuffers() override;
+    void tiledBackingStoreHasPendingTileCreation() override;
+    void createTile(uint32_t tileID, float) override;
+    void updateTile(uint32_t tileID, const SurfaceUpdateInfo&, const IntRect&) override;
+    void removeTile(uint32_t tileID) override;
+    bool paintToSurface(const IntSize&, uint32_t& /* atlasID */, IntPoint&, CoordinatedSurface::Client&) override;
 
     void setCoordinator(CoordinatedGraphicsLayerClient*);
 
@@ -144,6 +149,8 @@ public:
     CoordinatedGraphicsLayer* findFirstDescendantWithContentsRecursively();
 
 private:
+    bool isCoordinatedGraphicsLayer() const override { return true; }
+
 #if USE(GRAPHICS_SURFACE)
     enum PendingPlatformLayerOperation {
         None = 0x00,
@@ -154,12 +161,16 @@ private:
         RecreatePlatformLayer = CreateAndSyncPlatformLayer | DestroyPlatformLayer
     };
 
-    void syncPlatformLayer();
     void destroyPlatformLayerIfNeeded();
     void createPlatformLayerIfNeeded();
 #endif
+    void syncPlatformLayer();
+#if USE(COORDINATED_GRAPHICS_THREADED)
+    void platformLayerWillBeDestroyed() override;
+    void setPlatformLayerNeedsDisplay() override;
+#endif
 
-    virtual void setDebugBorder(const Color&, float width) override;
+    void setDebugBorder(const Color&, float width) override;
 
     bool fixedToViewport() const { return m_fixedToViewport; }
 
@@ -185,7 +196,7 @@ private:
     bool notifyFlushRequired();
 
     // CoordinatedImageBacking::Host
-    virtual bool imageBackingVisible() override;
+    bool imageBackingVisible() override;
     bool shouldHaveBackingStore() const;
     bool selfOrAncestorHasActiveTransformAnimation() const;
     bool selfOrAncestorHaveNonAffineTransforms();
@@ -222,6 +233,9 @@ private:
     bool m_isValidPlatformLayer : 1;
     unsigned m_pendingPlatformLayerOperation : 3;
 #endif
+#if USE(COORDINATED_GRAPHICS_THREADED)
+    bool m_shouldSyncPlatformLayer : 1;
+#endif
 
     CoordinatedGraphicsLayerClient* m_coordinator;
     std::unique_ptr<TiledBackingStore> m_mainBackingStore;
@@ -243,9 +257,10 @@ private:
     ScrollableArea* m_scrollableArea;
 };
 
-CoordinatedGraphicsLayer* toCoordinatedGraphicsLayer(GraphicsLayer*);
-
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_GRAPHICSLAYER(WebCore::CoordinatedGraphicsLayer, isCoordinatedGraphicsLayer())
+
 #endif // USE(COORDINATED_GRAPHICS)
 
 #endif // CoordinatedGraphicsLayer_h

@@ -87,9 +87,6 @@ public:
 #if PLATFORM(COCOA)
     void setProcessSuppressionEnabled(bool);
 
-    // Returns whether the plug-in needs the heap to be marked executable.
-    static bool pluginNeedsExecutableHeap(const PluginModuleInfo&);
-
 #if __MAC_OS_X_VERSION_MIN_REQUIRED <= 101000
     // Creates a property list in ~/Library/Preferences that contains all the MIME types supported by the plug-in.
     static bool createPropertyListFile(const PluginModuleInfo&);
@@ -104,23 +101,23 @@ public:
 private:
     PluginProcessProxy(PluginProcessManager*, const PluginProcessAttributes&, uint64_t pluginProcessToken);
 
-    virtual void getLaunchOptions(ProcessLauncher::LaunchOptions&) override;
+    void getLaunchOptions(ProcessLauncher::LaunchOptions&) override;
     void platformGetLaunchOptions(ProcessLauncher::LaunchOptions&, const PluginProcessAttributes&);
-    virtual void processWillShutDown(IPC::Connection&) override;
+    void processWillShutDown(IPC::Connection&) override;
 
     void pluginProcessCrashedOrFailedToLaunch();
 
     // IPC::Connection::Client
-    virtual void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
-    virtual void didReceiveSyncMessage(IPC::Connection&, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&) override;
+    void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
+    void didReceiveSyncMessage(IPC::Connection&, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&) override;
 
-    virtual void didClose(IPC::Connection&) override;
-    virtual void didReceiveInvalidMessage(IPC::Connection&, IPC::StringReference messageReceiverName, IPC::StringReference messageName) override;
-    virtual IPC::ProcessType localProcessType() override { return IPC::ProcessType::UI; }
-    virtual IPC::ProcessType remoteProcessType() override { return IPC::ProcessType::Plugin; }
+    void didClose(IPC::Connection&) override;
+    void didReceiveInvalidMessage(IPC::Connection&, IPC::StringReference messageReceiverName, IPC::StringReference messageName) override;
+    IPC::ProcessType localProcessType() override { return IPC::ProcessType::UI; }
+    IPC::ProcessType remoteProcessType() override { return IPC::ProcessType::Plugin; }
 
     // ProcessLauncher::Client
-    virtual void didFinishLaunching(ProcessLauncher*, IPC::Connection::Identifier) override;
+    void didFinishLaunching(ProcessLauncher*, IPC::Connection::Identifier) override;
 
     // Message handlers
     void didCreateWebProcessConnection(const IPC::Attachment&, bool supportsAsynchronousPluginInitialization);
@@ -142,7 +139,6 @@ private:
     void endModal();
 
     void applicationDidBecomeActive();
-    void openPluginPreferencePane();
     void launchProcess(const String& launchPath, const Vector<String>& arguments, bool& result);
     void launchApplicationAtURL(const String& urlString, const Vector<String>& arguments, bool& result);
     void openURL(const String& url, bool& result, int32_t& status, String& launchedURLString);

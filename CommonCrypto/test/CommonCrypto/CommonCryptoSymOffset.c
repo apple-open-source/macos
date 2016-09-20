@@ -46,7 +46,7 @@ entryPoint(CommonCryptoSymOffset,"CommonCrypto Symmetric Unaligned Testing")
 static int kTestTestCount = ALITTLEONTHESIDE * 3;
 
 
-int CommonCryptoSymOffset(int argc, char *const *argv) {
+int CommonCryptoSymOffset(int __unused argc, char *const * __unused argv) {
     int accum = 0;
     uint8_t iLikeBigBuffs[ILIKEEMDISBIG];
     uint8_t andICannotLie[ILIKEEMDISBIG];

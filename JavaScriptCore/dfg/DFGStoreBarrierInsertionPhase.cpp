@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -253,16 +253,22 @@ private:
                 break;
             }
                 
+            case PutById:
+            case PutByIdFlush:
+            case PutByIdDirect:
             case PutStructure: {
                 considerBarrier(m_node->child1());
                 break;
             }
-                
+
+            case RecordRegExpCachedResult: {
+                considerBarrier(m_graph.varArgChild(m_node, 0));
+                break;
+            }
+
             case PutClosureVar:
             case PutToArguments:
-            case PutById:
-            case PutByIdFlush:
-            case PutByIdDirect:
+            case SetRegExpObjectLastIndex:
             case MultiPutByOffset: {
                 considerBarrier(m_node->child1(), m_node->child2());
                 break;
@@ -273,11 +279,16 @@ private:
                 break;
             }
                 
-            case PutGlobalVar: {
+            case PutGlobalVariable: {
                 considerBarrier(m_node->child1(), m_node->child2());
                 break;
             }
                 
+            case SetFunctionName: {
+                considerBarrier(m_node->child1(), m_node->child2());
+                break;
+            }
+
             default:
                 break;
             }
@@ -301,6 +312,7 @@ private:
             case CreateScopedArguments:
             case CreateClonedArguments:
             case NewFunction:
+            case NewGeneratorFunction:
                 // Nodes that allocate get to set their epoch because for those nodes we know
                 // that they will be the newest object in the heap.
                 m_node->setEpoch(m_currentEpoch);
@@ -309,7 +321,7 @@ private:
             case AllocatePropertyStorage:
             case ReallocatePropertyStorage:
                 // These allocate but then run their own barrier.
-                insertBarrier(m_nodeIndex + 1, m_node->child1().node());
+                insertBarrier(m_nodeIndex + 1, Edge(m_node->child1().node(), KnownCellUse));
                 m_node->setEpoch(Epoch());
                 break;
                 
@@ -447,12 +459,12 @@ private:
         // Something we watch out for here is that the null epoch is a catch-all for objects
         // allocated before we did any epoch tracking. Two objects being in the null epoch
         // means that we don't know their epoch relationship.
-        if (!!base->epoch() && base->epoch() >= child->epoch()) {
+        if (!!base->epoch() && !!child->epoch() && base->epoch() >= child->epoch()) {
             if (verbose)
                 dataLog("            Rejecting because of epoch ordering.\n");
             return;
         }
-        
+
         considerBarrier(base);
     }
     
@@ -473,10 +485,10 @@ private:
         
         if (verbose)
             dataLog("            Inserting barrier.\n");
-        insertBarrier(m_nodeIndex, base.node());
+        insertBarrier(m_nodeIndex, base);
     }
-    
-    void insertBarrier(unsigned nodeIndex, Node* base)
+
+    void insertBarrier(unsigned nodeIndex, Edge base, bool exitOK = true)
     {
         // If we're in global mode, we should only insert the barriers once we have converged.
         if (!reallyInsertBarriers())
@@ -484,8 +496,18 @@ private:
         
         // FIXME: We could support StoreBarrier(UntypedUse:). That would be sort of cool.
         // But right now we don't need it.
+
+        // If the original edge was unchecked, we should also not have a check. We may be in a context
+        // where checks are not allowed. If we ever did have to insert a barrier at an ExitInvalid
+        // context and that barrier needed a check, then we could make that work by hoisting the check.
+        // That doesn't happen right now.
+        if (base.useKind() != KnownCellUse) {
+            DFG_ASSERT(m_graph, m_node, m_node->origin.exitOK);
+            base.setUseKind(CellUse);
+        }
+        
         m_insertionSet.insertNode(
-            nodeIndex, SpecNone, StoreBarrier, m_node->origin, Edge(base, CellUse));
+            nodeIndex, SpecNone, StoreBarrier, m_node->origin.takeValidExit(exitOK), base);
 
         base->setEpoch(m_currentEpoch);
     }
@@ -512,13 +534,11 @@ private:
 
 bool performFastStoreBarrierInsertion(Graph& graph)
 {
-    SamplingRegion samplingRegion("DFG Fast Store Barrier Insertion Phase");
     return runPhase<StoreBarrierInsertionPhase<PhaseMode::Fast>>(graph);
 }
 
 bool performGlobalStoreBarrierInsertion(Graph& graph)
 {
-    SamplingRegion samplingRegion("DFG Global Store Barrier Insertion Phase");
     return runPhase<StoreBarrierInsertionPhase<PhaseMode::Global>>(graph);
 }
 

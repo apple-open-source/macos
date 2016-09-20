@@ -58,6 +58,11 @@ DrawingAreaProxyImpl::~DrawingAreaProxyImpl()
         exitAcceleratedCompositingMode();
 }
 
+bool DrawingAreaProxyImpl::alwaysUseCompositing() const
+{
+    return m_webPageProxy.preferences().acceleratedCompositingEnabled() && m_webPageProxy.preferences().forceCompositingMode();
+}
+
 void DrawingAreaProxyImpl::paint(BackingStore::PlatformGraphicsContext context, const IntRect& rect, Region& unpaintedRegion)
 {
     unpaintedRegion = rect;
@@ -149,7 +154,7 @@ void DrawingAreaProxyImpl::didUpdateBackingStoreState(uint64_t backingStoreState
     m_isWaitingForDidUpdateBackingStoreState = false;
 
     // Stop the responsiveness timer that was started in sendUpdateBackingStoreState.
-    m_webPageProxy.process().responsivenessTimer()->stop();
+    m_webPageProxy.process().responsivenessTimer().stop();
 
     if (layerTreeContext != m_layerTreeContext) {
         if (!m_layerTreeContext.isEmpty()) {
@@ -208,6 +213,15 @@ void DrawingAreaProxyImpl::updateAcceleratedCompositingMode(uint64_t backingStor
     updateAcceleratedCompositingMode(layerTreeContext);
 }
 
+void DrawingAreaProxyImpl::willEnterAcceleratedCompositingMode(uint64_t backingStoreStateID)
+{
+    // WillEnterAcceleratedCompositingMode message is sent when the LayerTreeHost is created in the Web Process.
+    // This can happen while there's still a DidUpdateBackingStoreState pending, in which case we are receiving
+    // here the new backingStoreStateID, but m_currentBackingStoreStateID hasn't been updated yet.
+    ASSERT_ARG(backingStoreStateID, backingStoreStateID <= m_nextBackingStoreStateID);
+    m_webPageProxy.willEnterAcceleratedCompositingMode();
+}
+
 void DrawingAreaProxyImpl::incorporateUpdate(const UpdateInfo& updateInfo)
 {
     ASSERT(!isInAcceleratedCompositingMode());
@@ -220,20 +234,13 @@ void DrawingAreaProxyImpl::incorporateUpdate(const UpdateInfo& updateInfo)
 
     m_backingStore->incorporateUpdate(updateInfo);
 
-    bool shouldScroll = !updateInfo.scrollRect.isEmpty();
-
-    if (shouldScroll)
-        m_webPageProxy.scrollView(updateInfo.scrollRect, updateInfo.scrollOffset);
-    
-    if (shouldScroll && !m_webPageProxy.canScrollView())
-        m_webPageProxy.setViewNeedsDisplay(IntRect(IntPoint(), m_webPageProxy.viewSize()));
-    else {
-        for (size_t i = 0; i < updateInfo.updateRects.size(); ++i)
-            m_webPageProxy.setViewNeedsDisplay(updateInfo.updateRects[i]);
-    }
-
-    if (shouldScroll)
-        m_webPageProxy.displayView();
+    Region damageRegion;
+    if (updateInfo.scrollRect.isEmpty()) {
+        for (const auto& rect : updateInfo.updateRects)
+            damageRegion.unite(rect);
+    } else
+        damageRegion = IntRect(IntPoint(), m_webPageProxy.viewSize());
+    m_webPageProxy.setViewNeedsDisplay(damageRegion);
 }
 
 void DrawingAreaProxyImpl::backingStoreStateDidChange(RespondImmediatelyOrNot respondImmediatelyOrNot)
@@ -263,7 +270,7 @@ void DrawingAreaProxyImpl::sendUpdateBackingStoreState(RespondImmediatelyOrNot r
     if (m_isWaitingForDidUpdateBackingStoreState) {
         // Start the responsiveness timer. We will stop it when we hear back from the WebProcess
         // in didUpdateBackingStoreState.
-        m_webPageProxy.process().responsivenessTimer()->start();
+        m_webPageProxy.process().responsivenessTimer().start();
     }
 
     if (m_isWaitingForDidUpdateBackingStoreState && !m_layerTreeContext.isEmpty()) {
@@ -293,26 +300,43 @@ void DrawingAreaProxyImpl::waitForAndDispatchDidUpdateBackingStoreState()
 
 void DrawingAreaProxyImpl::enterAcceleratedCompositingMode(const LayerTreeContext& layerTreeContext)
 {
-    ASSERT(!isInAcceleratedCompositingMode());
+    ASSERT(alwaysUseCompositing() || !isInAcceleratedCompositingMode());
 
     m_backingStore = nullptr;
     m_layerTreeContext = layerTreeContext;
     m_webPageProxy.enterAcceleratedCompositingMode(layerTreeContext);
 }
 
-#if USE(TEXTURE_MAPPER_GL) && PLATFORM(GTK)
+#if USE(TEXTURE_MAPPER) && PLATFORM(GTK)
 void DrawingAreaProxyImpl::setNativeSurfaceHandleForCompositing(uint64_t handle)
 {
     m_webPageProxy.process().send(Messages::DrawingArea::SetNativeSurfaceHandleForCompositing(handle), m_webPageProxy.pageID());
 }
+
+void DrawingAreaProxyImpl::destroyNativeSurfaceHandleForCompositing()
+{
+    bool handled;
+    m_webPageProxy.process().sendSync(Messages::DrawingArea::DestroyNativeSurfaceHandleForCompositing(), Messages::DrawingArea::DestroyNativeSurfaceHandleForCompositing::Reply(handled), m_webPageProxy.pageID());
+}
 #endif
+
+void DrawingAreaProxyImpl::dispatchAfterEnsuringDrawing(std::function<void (CallbackBase::Error)> callbackFunction)
+{
+    if (!m_webPageProxy.isValid()) {
+        callbackFunction(CallbackBase::Error::OwnerWasInvalidated);
+        return;
+    }
+
+    RunLoop::main().dispatch([callbackFunction] { callbackFunction(CallbackBase::Error::None); });
+}
 
 void DrawingAreaProxyImpl::exitAcceleratedCompositingMode()
 {
     ASSERT(isInAcceleratedCompositingMode());
 
-    m_layerTreeContext = LayerTreeContext();    
-    m_webPageProxy.exitAcceleratedCompositingMode();
+    m_layerTreeContext = LayerTreeContext();
+    if (!alwaysUseCompositing())
+        m_webPageProxy.exitAcceleratedCompositingMode();
 }
 
 void DrawingAreaProxyImpl::updateAcceleratedCompositingMode(const LayerTreeContext& layerTreeContext)

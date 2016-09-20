@@ -91,8 +91,9 @@ enum {
 __private_extern__ void UPSLowPower_prime(void)
 {
     _thresh = (threshold_struct *)malloc(sizeof(threshold_struct));
-    
-    _getUPSShutdownThresholdsFromDisk(_thresh);
+    if (_thresh) {
+        _getUPSShutdownThresholdsFromDisk(_thresh);
+    }
     return; 
 }
 

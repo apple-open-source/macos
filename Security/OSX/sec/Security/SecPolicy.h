@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2010,2012-2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2002-2016 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,6 +46,7 @@ CF_IMPLICIT_BRIDGING_ENABLED
 	@constant kSecPolicyAppleSSL
 	@constant kSecPolicyAppleSMIME
 	@constant kSecPolicyAppleEAP
+	@constant kSecPolicyAppleiChat
 	@constant kSecPolicyAppleIPsec
 	@constant kSecPolicyApplePKINITClient
 	@constant kSecPolicyApplePKINITServer
@@ -54,6 +55,8 @@ CF_IMPLICIT_BRIDGING_ENABLED
 	@constant kSecPolicyAppleIDValidation
 	@constant kSecPolicyAppleTimeStamping
 	@constant kSecPolicyAppleRevocation
+	@constant kSecPolicyApplePassbookSigning
+	@constant kSecPolicyApplePayIssuerEncryption
 */
 extern const CFStringRef kSecPolicyAppleX509Basic
     __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_7_0);
@@ -65,6 +68,10 @@ extern const CFStringRef kSecPolicyAppleEAP
     __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_7_0);
 extern const CFStringRef kSecPolicyAppleIPsec
     __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_7_0);
+#if TARGET_OS_MAC && !TARGET_OS_IPHONE
+extern const CFStringRef kSecPolicyAppleiChat
+    __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_7, __MAC_10_9, __IPHONE_NA, __IPHONE_NA);
+#endif
 extern const CFStringRef kSecPolicyApplePKINITClient
     __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
 extern const CFStringRef kSecPolicyApplePKINITServer
@@ -78,6 +85,8 @@ extern const CFStringRef kSecPolicyAppleIDValidation
 extern const CFStringRef kSecPolicyAppleTimeStamping
     __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_7_0);
 extern const CFStringRef kSecPolicyAppleRevocation
+    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
+extern const CFStringRef kSecPolicyApplePassbookSigning
     __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 extern const CFStringRef kSecPolicyApplePayIssuerEncryption
     __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
@@ -93,20 +102,26 @@ extern const CFStringRef kSecPolicyApplePayIssuerEncryption
         Additional policy values which your code can optionally set:
             kSecPolicyName      (name which must be matched)
             kSecPolicyClient    (evaluate for client, rather than server)
-            kSecPolicyRevocationFlags (only valid for a revocation policy)
+            kSecPolicyRevocationFlags   (only valid for a revocation policy)
+            kSecPolicyTeamIdentifier    (only valid for a Passbook signing policy)
 
     @constant kSecPolicyOid Specifies the policy OID (value is a CFStringRef)
     @constant kSecPolicyName Specifies a CFStringRef (or CFArrayRef of same)
         containing a name which must be matched in the certificate to satisfy
         this policy. For SSL/TLS, EAP, and IPSec policies, this specifies the
         server name which must match the common name of the certificate.
-        For S/MIME, this specifies the RFC822 email address.
+        For S/MIME, this specifies the RFC822 email address. For Passbook
+        signing, this specifies the pass signer.
     @constant kSecPolicyClient Specifies a CFBooleanRef value that indicates
         this evaluation should be for a client certificate. If not set (or
         false), the policy evaluates the certificate as a server certificate.
     @constant kSecPolicyRevocationFlags Specifies a CFNumberRef that holds a
         kCFNumberCFIndexType bitmask value. See "Revocation Policy Constants"
         for a description of individual bits in this value.
+    @constant kSecPolicyTeamIdentifier Specifies a CFStringRef containing a
+        team identifier which must be matched in the certificate to satisfy
+        this policy. For the Passbook signing policy, this string must match
+        the Organizational Unit field of the certificate subject.
  */
 extern const CFStringRef kSecPolicyOid
 	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_7_0);
@@ -116,6 +131,8 @@ extern const CFStringRef kSecPolicyClient
 	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_7_0);
 extern const CFStringRef kSecPolicyRevocationFlags
 	__OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
+extern const CFStringRef kSecPolicyTeamIdentifier
+    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 
 
 /*!
@@ -137,6 +154,7 @@ CFTypeID SecPolicyGetTypeID(void)
     @discussion This function returns the properties for a policy, as set by the
     policy's construction function or by a prior call to SecPolicySetProperties.
 */
+__nullable
 CFDictionaryRef SecPolicyCopyProperties(SecPolicyRef policyRef)
 	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_7_0);
 
@@ -206,6 +224,7 @@ CF_ENUM(CFOptionFlags) {
 	system behavior (e.g. to force a particular method, or to disable
 	revocation checking entirely.)
 */
+__nullable
 SecPolicyRef SecPolicyCreateRevocation(CFOptionFlags revocationFlags)
 	__OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 
@@ -220,6 +239,7 @@ SecPolicyRef SecPolicyCreateRevocation(CFOptionFlags revocationFlags)
 	@result The returned policy reference, or NULL if the policy could not be
 	created.
 */
+__nullable
 SecPolicyRef SecPolicyCreateWithProperties(CFTypeRef policyIdentifier,
 	CFDictionaryRef __nullable properties)
 	__OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);

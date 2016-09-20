@@ -88,8 +88,11 @@ extern const char *kSecXPCKeyIncludeV0;
 extern const char *kSecXPCKeyEnabledViewsKey;
 extern const char *kSecXPCKeyDisabledViewsKey;
 extern const char *kSecXPCKeyEscrowLabel;
-extern const char *kSecXPCKeyAvailability;
+extern const char *kSecXPCKeyTriesLabel;
 extern const char *kSecXPCKeyFileDescriptor;
+extern const char *kSecXPCKeyAccessGroups;
+extern const char *kSecXPCKeyClasses;
+
 //
 // MARK: Dispatch macros
 //
@@ -132,6 +135,7 @@ extern const char *kSecXPCKeyHSA2AutoAcceptInfo;
 extern const char *kSecXPCKeyEscrowLabel;
 extern const char *kSecXPCKeyTriesLabel;
 extern const char *kSecXPCKeyString;
+extern const char *kSecXPCKeyArray;
 
 extern const char *kSecXPCKeyReason;
 
@@ -184,6 +188,8 @@ enum SecXPCOperation {
     kSecXPCOpRequestDeviceID,
     kSecXPCOpSetDeviceID,
     kSecXPCOpHandleIDSMessage,
+    kSecXPCOpSyncWithKVSPeer,
+    kSecXPCOpSyncWithIDSPeer,
     kSecXPCOpSendIDSMessage,
     kSecXPCOpPingTest,
     kSecXPCOpIDSDeviceID,
@@ -234,12 +240,24 @@ enum SecXPCOperation {
     kSecXPCOpDeleteAccountData,
     kSecXPCOpCopyEngineData,
     kSecXPCOpDeleteEngineData,
+    kSecXPCOpCopyApplication,
+    kSecXPCOpCopyCircleJoiningBlob,
+    kSecXPCOpJoinWithCircleJoiningBlob,
+    kSecXPCOpAccountHasPublicKey,
+    kSecXPCOpAccountIsNew,
     /* after this is free for all */
     kSecXPCOpWhoAmI,
     kSecXPCOpTransmogrifyToSyncBubble,
     kSecXPCOpTransmogrifyToSystemKeychain,
     kSecXPCOpWrapToBackupSliceKeyBagForView,
+    sec_item_update_token_items_id,
     kSecXPCOpDeleteUserView,
+    sec_trust_store_copy_all_id,
+    sec_trust_store_copy_usage_constraints_id,
+    sec_delete_items_with_access_groups_id,
+    kSecXPCOpIsThisDeviceLastBackup,
+    sec_keychain_backup_keybag_uuid_id,
+    kSecXPCOpPeersHaveViewsEnabled,
 };
 
 
@@ -279,7 +297,7 @@ struct securityd {
     bool (*sec_trust_store_remove_certificate)(SecTrustStoreRef ts, CFDataRef digest, CFErrorRef* error);
     bool (*sec_truststore_remove_all)(SecTrustStoreRef ts, CFErrorRef* error);                         // TODO: remove, has no msg id
     bool (*sec_item_delete_all)(CFErrorRef* error);
-    SecTrustResultType (*sec_trust_evaluate)(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef *details, CFDictionaryRef *info, SecCertificatePathRef *chain, CFErrorRef *error);
+    SecTrustResultType (*sec_trust_evaluate)(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef *details, CFDictionaryRef *info, SecCertificatePathRef *chain, CFErrorRef *error);
     CFDataRef (*sec_keychain_backup)(SecurityClient *client, CFDataRef keybag, CFDataRef passcode, CFErrorRef* error);
     bool (*sec_keychain_restore)(CFDataRef backup, SecurityClient *client, CFDataRef keybag, CFDataRef passcode, CFErrorRef* error);
     CFDictionaryRef (*sec_keychain_backup_syncable)(CFDictionaryRef backup_in, CFDataRef keybag, CFDataRef passcode, CFErrorRef* error);
@@ -360,6 +378,19 @@ struct securityd {
     bool (*soscc_DeleteAccountState)(CFErrorRef *error);
     CFDataRef (*soscc_CopyEngineData)(CFErrorRef *error);
     bool (*soscc_DeleteEngineState)(CFErrorRef *error);
+    SOSPeerInfoRef (*soscc_CopyApplicant)(CFErrorRef *error);
+    CFDataRef (*soscc_CopyCircleJoiningBlob)(SOSPeerInfoRef applicant, CFErrorRef *error);
+    bool (*soscc_JoinWithCircleJoiningBlob)(CFDataRef joiningBlob, CFErrorRef *error);
+    bool (*soscc_AccountHasPublicKey)(CFErrorRef *error);
+    bool (*soscc_AccountIsNew)(CFErrorRef *error);
+    bool (*sec_item_update_token_items)(CFStringRef tokenID, CFArrayRef query, SecurityClient *client, CFErrorRef* error);
+    bool (*sec_trust_store_copy_all)(SecTrustStoreRef ts, CFArrayRef *trustStoreContents, CFErrorRef *error);
+    bool (*sec_trust_store_copy_usage_constraints)(SecTrustStoreRef ts, CFDataRef digest, CFArrayRef *usageConstraints, CFErrorRef *error);
+    bool (*sec_delete_items_with_access_groups)(CFArrayRef bundleIDs, SecurityClient *client, CFErrorRef *error);
+    bool (*soscc_IsThisDeviceLastBackup)(CFErrorRef *error);
+    bool (*soscc_requestSyncWithPeerOverKVS)(CFStringRef peerID, CFErrorRef *error);
+    bool (*soscc_requestSyncWithPeerOverIDS)(CFStringRef peerID, CFErrorRef *error);
+    CFBooleanRef (*soscc_SOSCCPeersHaveViewsEnabled)(CFArrayRef views, CFErrorRef *error);
 };
 
 extern struct securityd *gSecurityd;

@@ -109,6 +109,24 @@ read_string(const char *preprompt, const char *prompt,
 #define FLAG_ECHO	1
 #define FLAG_USE_STDIO	2
 
+struct {
+    int signo;
+    enum { IGNORE, SKIP } action;
+} specialSignals[] = {
+    {
+	.signo = SIGALRM,
+	.action = SKIP,
+    }, {
+	.signo = SIGWINCH,
+	.action = IGNORE,
+    }, {
+	.signo = SIGCHLD,
+	.action = IGNORE,
+    }, {
+	.signo = SIGINFO,
+	.action = IGNORE,
+    }
+};
 
 static int
 read_string(const char *preprompt, const char *prompt,
@@ -120,7 +138,8 @@ read_string(const char *preprompt, const char *prompt,
     FILE *tty;
     int ret = 0;
     int of = 0;
-    size_t i;
+    size_t i, j;
+    int skip;
     int c;
     char *p;
 
@@ -129,15 +148,33 @@ read_string(const char *preprompt, const char *prompt,
     memset(&oksigs, 0, sizeof(oksigs));
 
     memset(&sa, 0, sizeof(sa));
-    sa.sa_handler = intr;
     sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
-    for(i = 1; i < sizeof(sigs) / sizeof(sigs[0]); i++)
-	if (i != SIGALRM)
-	    if (sigaction(i, &sa, &sigs[i]) == 0)
-		oksigs[i] = 1;
+    for(i = 1; i < sizeof(sigs) / sizeof(sigs[0]); i++) {
+	sa.sa_flags = 0;
+	sa.sa_handler = intr;
 
-    /* 
+	skip = false;
+
+	for (j = 0; j < sizeof(specialSignals)/sizeof(specialSignals[0]); j++) {
+	    if (specialSignals[j].signo == (int)i) {
+		switch (specialSignals[j].action) {
+		    case IGNORE:
+			sa.sa_handler = SIG_IGN;
+			sa.sa_flags = SA_RESTART;
+			break;
+		    case SKIP:
+			skip = true;
+			break;
+		 }
+	     }
+	}
+	if (!skip && sigaction(i, &sa, &sigs[i]) == 0) {
+	    oksigs[i] = 1;
+	}
+    }
+
+
+    /*
      * Don't use /dev/tty for now since server tools want to to
      * read/write from stdio when setting up and interacting with the
      * Kerberos subsystem.

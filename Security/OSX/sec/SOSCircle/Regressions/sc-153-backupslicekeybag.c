@@ -105,7 +105,6 @@ static void tests(void)
 
     SOSPeerInfoRef peer1WithBackup = SOSFullPeerInfoGetPeerInfo(fullPeer1WithBackup);
 
-
     SecKeyRef peer2SigningKey = NULL;
     SOSFullPeerInfoRef fullPeer2WithBackup = SOSCreateFullPeerInfoFromName(CFSTR("peer2WithBackupID"), &peer2SigningKey, &localError);
     ok(fullPeer2WithBackup, "Allocate peer 2 (%@)", localError);
@@ -119,8 +118,6 @@ static void tests(void)
 
     SOSPeerInfoRef peer2WithBackup = SOSFullPeerInfoGetPeerInfo(fullPeer2WithBackup);
 
-
-
     SOSBackupSliceKeyBagRef vb = SOSBackupSliceKeyBagCreate(kCFAllocatorDefault, piSet, &localError);
     ok(vb == NULL, "Should fail with no peers (%@)", localError);
     CFReleaseNull(localError);
@@ -129,14 +126,16 @@ static void tests(void)
     CFSetAddValue(piSet, peer1WithBackup);
     CFSetAddValue(piSet, peer2WithBackup);
 
+    SOSBackupSliceKeyBagRef vb2 = NULL;
+
 #if !TARGET_IPHONE_SIMULATOR
     vb = SOSBackupSliceKeyBagCreate(kCFAllocatorDefault, piSet, &localError);
     ok(vb != NULL, "Allocation: (%@)", localError);
     CFReleaseNull(localError);
 
-    CFRetainAssign(vb, EncodeDecode(vb));
+    vb2 = EncodeDecode(vb);
 
-    ok(vb != NULL, "transcoded");
+    ok(vb2 != NULL, "transcoded");
 #endif
 #if 0
     // <rdar://problem/20561988> Have helper functions for new security object that load bags
@@ -153,19 +152,19 @@ TODO:{
 #endif
 
     CFReleaseNull(vb);
+    CFReleaseNull(vb2);
     CFReleaseNull(piSet);
 
-    CFReleaseNull(peer1WithBackup);
     CFReleaseNull(peer1SigningKey);
     CFReleaseNull(peer1BackupPublic);
+    CFReleaseNull(fullPeer1WithBackup);
 
-    CFReleaseNull(peer2WithBackup);
     CFReleaseNull(peer2SigningKey);
     CFReleaseNull(peer2BackupPublic);
+    CFReleaseNull(fullPeer2WithBackup);
 
     CFReleaseNull(entropy1);
     CFReleaseNull(entropy2);
-    CFReleaseNull(peer1BackupPublic);
 }
 
 static int kTestTestCount = tests_count;

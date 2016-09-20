@@ -92,7 +92,7 @@ void RemoteScrollingCoordinatorProxy::updateScrollingTree(const RemoteScrollingC
     }
 
     connectStateNodeLayers(*stateTree, *layerTreeHost);
-    m_scrollingTree->commitNewTreeState(WTF::move(stateTree));
+    m_scrollingTree->commitNewTreeState(WTFMove(stateTree));
 
     m_requestedScrollInfo = nullptr;
 }
@@ -149,9 +149,9 @@ bool RemoteScrollingCoordinatorProxy::handleWheelEvent(const PlatformWheelEvent&
     return result == ScrollingTree::DidHandleEvent; // FIXME: handle other values.
 }
 
-bool RemoteScrollingCoordinatorProxy::isPointInNonFastScrollableRegion(const IntPoint& p) const
+TrackingType RemoteScrollingCoordinatorProxy::eventTrackingTypeForPoint(const AtomicString& eventName, IntPoint p) const
 {
-    return m_scrollingTree->isPointInNonFastScrollableRegion(p);
+    return m_scrollingTree->eventTrackingTypeForPoint(eventName, p);
 }
 
 void RemoteScrollingCoordinatorProxy::viewportChangedViaDelegatedScrolling(ScrollingNodeID nodeID, const FloatRect& fixedPositionRect, double scale)

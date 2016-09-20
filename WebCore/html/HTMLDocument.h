@@ -23,13 +23,12 @@
 #ifndef HTMLDocument_h
 #define HTMLDocument_h
 
-#include "CachedResourceClient.h"
 #include "Document.h"
 #include <wtf/HashCountedSet.h>
 
 namespace WebCore {
 
-class HTMLDocument : public Document, public CachedResourceClient {
+class HTMLDocument : public Document {
 public:
     static Ref<HTMLDocument> create(Frame* frame, const URL& url)
     {
@@ -86,11 +85,9 @@ protected:
     HTMLDocument(Frame*, const URL&, DocumentClassFlags = 0, unsigned constructionFlags = 0);
 
 private:
-    virtual RefPtr<Element> createElement(const AtomicString& tagName, ExceptionCode&) override;
-
-    virtual bool isFrameSet() const override;
-    virtual Ref<DocumentParser> createParser() override;
-    virtual Ref<Document> cloneDocumentWithoutChildren() const override final;
+    bool isFrameSet() const override;
+    Ref<DocumentParser> createParser() override;
+    Ref<Document> cloneDocumentWithoutChildren() const final;
 
     DocumentOrderedMap m_documentNamedItem;
     DocumentOrderedMap m_windowNamedItem;

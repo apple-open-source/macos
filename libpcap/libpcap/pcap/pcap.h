@@ -3,14 +3,14 @@
  * Copyright (c) 2012-2014 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -18,7 +18,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
@@ -155,7 +155,7 @@ struct pcap_file_header {
 
 /*
  * Macros for the value returned by pcap_datalink_ext().
- * 
+ *
  * If LT_FCS_LENGTH_PRESENT(x) is true, the LT_FCS_LENGTH(x) macro
  * gives the FCS length of packets in the capture.
  */
@@ -247,6 +247,8 @@ struct pcap_if {
 };
 
 #define PCAP_IF_LOOPBACK	0x00000001	/* interface is loopback */
+#define PCAP_IF_UP		0x00000002	/* interface is up */
+#define PCAP_IF_RUNNING		0x00000004	/* interface is running */
 
 /*
  * Representation of an interface address.
@@ -446,6 +448,7 @@ int	pcap_fileno(pcap_t *);
 
 pcap_dumper_t *pcap_dump_open(pcap_t *, const char *);
 pcap_dumper_t *pcap_dump_fopen(pcap_t *, FILE *fp);
+pcap_dumper_t *pcap_dump_open_append(pcap_t *, const char *);
 FILE	*pcap_dump_file(pcap_dumper_t *);
 long	pcap_dump_ftell(pcap_dumper_t *);
 int	pcap_dump_flush(pcap_dumper_t *);
@@ -458,13 +461,13 @@ void	pcap_freealldevs(pcap_if_t *);
 const char *pcap_lib_version(void);
 
 /*
- * On at least some versions of NetBSD, we don't want to declare
+ * On at least some versions of NetBSD and QNX, we don't want to declare
  * bpf_filter() here, as it's also be declared in <net/bpf.h>, with a
  * different signature, but, on other BSD-flavored UN*Xes, it's not
  * declared in <net/bpf.h>, so we *do* want to declare it here, so it's
  * declared when we build pcap-bpf.c.
  */
-#ifndef __NetBSD__
+#if !defined(__NetBSD__) && !defined(__QNX__)
 u_int	bpf_filter(const struct bpf_insn *, const u_char *, u_int, u_int);
 #endif
 int	bpf_validate(const struct bpf_insn *f, int len);
@@ -508,6 +511,12 @@ u_long pcap_mac_packets (void);
  */
 
 int	pcap_get_selectable_fd(pcap_t *);
+
+#ifdef __APPLE__
+/* Internal API. */
+int	pcap_get_selectable_fd_list(pcap_t *, int **);
+void	pcap_free_selectable_fd_list(int *);
+#endif
 
 #endif /* WIN32/MSDOS/UN*X */
 

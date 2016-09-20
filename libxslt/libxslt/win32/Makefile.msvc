@@ -82,7 +82,6 @@ CFLAGS = $(CFLAGS) /D "_DEBUG" /Od /Z7
 LDFLAGS = $(LDFLAGS) /DEBUG
 !else
 CFLAGS = $(CFLAGS) /D "NDEBUG" /O2 
-LDFLAGS = $(LDFLAGS) /DEBUG
 !endif
 
 # Libxslt object files.

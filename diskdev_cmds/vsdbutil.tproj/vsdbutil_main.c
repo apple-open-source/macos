@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2016 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -53,6 +53,8 @@
 #include <strings.h>
 
 #include <sys/attr.h>
+#include <uuid/uuid.h>
+#include <System/uuid/namespace.h>
 
 /*
  * CommonCrypto is meant to be a more stable API than OpenSSL.
@@ -62,11 +64,6 @@
 #define COMMON_DIGEST_FOR_OPENSSL
 #include <CommonCrypto/CommonDigest.h>
 #include <libkern/OSByteOrder.h>
-
-struct FinderAttrBuf {
-	u_int32_t info_length;
-	u_int32_t finderinfo[8];
-};
 
 static char usage[] = "Usage: %s [-a path] | [-c path ] [-d path] [-i]\n";
 
@@ -78,29 +75,21 @@ static char gHFSTypeName[] = "hfs";
  *
  *****************************************************************************/
 
-#define VOLUMEUUIDVALUESIZE 2
-typedef union VolumeUUID {
-	u_int32_t value[VOLUMEUUIDVALUESIZE];
-	struct {
-		u_int32_t high;
-		u_int32_t low;
-	} v;
+typedef struct VolumeUUID {
+	uuid_t uuid;
 } VolumeUUID;
 
-#define VOLUMEUUIDLENGTH 16
-typedef char VolumeUUIDString[VOLUMEUUIDLENGTH+1];
+#define VOLUMEUUID64LENGTH 16
 
-#define VOLUME_RECORDED 0x80000000
 #define VOLUME_USEPERMISSIONS 0x00000001
 #define VOLUME_VALIDSTATUSBITS ( VOLUME_USEPERMISSIONS )
 
 typedef void *VolumeStatusDBHandle;
 
-void GenerateVolumeUUID(VolumeUUID *newVolumeID);
-void ConvertVolumeUUIDStringToUUID(const char *UUIDString, VolumeUUID *volumeID);
-void ConvertVolumeUUIDToString(VolumeUUID *volumeID, char *UUIDString);
+void ConvertVolumeUUIDString64ToUUID(const char *UUIDString64, VolumeUUID *volumeID);
 
 int OpenVolumeStatusDB(VolumeStatusDBHandle *DBHandlePtr);
+int ConvertVolumeStatusDB(VolumeStatusDBHandle DBHandle);
 int GetVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeID, u_int32_t *VolumeStatus);
 int SetVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeID, u_int32_t VolumeStatus);
 int DeleteVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeID);
@@ -113,8 +102,7 @@ int CloseVolumeStatusDB(VolumeStatusDBHandle DBHandle);
  *****************************************************************************/
 
 static void check_uid(void);
-static int GetVolumeUUID(const char *path, VolumeUUID *volumeUUIDPtr, boolean_t generate);
-static int SetVolumeUUID(const char *path, VolumeUUID *volumeUUIDPtr);
+static int GetVolumeUUID(const char *path, VolumeUUID *volumeUUIDPtr);
 static int AdoptAllLocalVolumes(void);
 static int AdoptVolume(const char *path);
 static int DisownVolume(const char *path);
@@ -122,6 +110,8 @@ static int ClearVolumeUUID(const char *path);
 static int DisplayVolumeStatus(const char *path);
 static int UpdateMountStatus(const char *path, u_int32_t volstatus);
 
+
+static int isVolumeHFS(const char*path);
 
 int main (int argc, const char *argv[])
 {
@@ -266,12 +256,6 @@ UpdateMountStatus(const char *path, u_int32_t volstatus) {
 						"-t", mntstat.f_fstypename,
 						"-u","-o", mountline,
 						mntstat.f_mntfromname, mntstat.f_mntonname, NULL);
-#if DEBUG_TRACE
-		if (result) {
-			fprintf(stderr, "Error from execl(/sbin/mount...): result = %d.\n", result);
-		};
-		fprintf(stderr, "UpdateMountStatus in child: returning 1...\n");
-#endif
 		/* IF WE ARE HERE, WE WERE UNSUCCESFULL */
 		return (1);
 	}
@@ -335,14 +319,14 @@ AdoptVolume(const char *path) {
 	u_int32_t volstatus;
 	int result = 0;
 
-	/* Look up the target volume UUID, generating one if no valid one has been assigned yet: */
-	result = GetVolumeUUID(path, &targetuuid, TRUE);
+	/* Look up the target volume UUID: */
+	result = GetVolumeUUID(path, &targetuuid);
 	if (result != 0) {
 		warnx("no valid volume UUID found on '%s': %s", path, strerror(result));
 		return result;
 	};
 	
-	if ((targetuuid.v.high == 0) || (targetuuid.v.low == 0)) {
+	if (uuid_is_null(targetuuid.uuid)) {
 		warnx("internal error: incomplete UUID generated.");
 		return EINVAL;
 	};
@@ -391,15 +375,15 @@ DisownVolume(const char *path) {
 	u_int32_t volstatus;
 	int result = 0;
 
-	/* Look up the target volume UUID, generating one if no valid one has been assigned yet: */
-	result = GetVolumeUUID(path, &targetuuid, TRUE);
+	/* Look up the target volume UUID: */
+	result = GetVolumeUUID(path, &targetuuid);
 	if (result != 0) {
 		warnx("no valid volume UUID found on '%s': %s", path, strerror(result));
 		return result;
 	};
 	
 	volstatus = 0;
-	if ((targetuuid.v.high != 0) || (targetuuid.v.low != 0)) {
+	if (!uuid_is_null(targetuuid.uuid)) {
 		/* Open the volume status DB to look up the entry for the volume in question: */
 		if ((result = OpenVolumeStatusDB(&vsdb)) != 0) {
 			warnx("couldn't access volume status database: %s", strerror(result));
@@ -447,13 +431,13 @@ ClearVolumeUUID(const char *path) {
 	int result = 0;
 
 	/* Check to see whether the target volume has an assigned UUID: */
-	result = GetVolumeUUID(path, &targetuuid, FALSE);
+	result = GetVolumeUUID(path, &targetuuid);
 	if (result != 0) {
 		warnx("couldn't read volume UUID on '%s': %s", path, strerror(result));
 		return result;
 	};
 	
-	if ((targetuuid.v.high != 0) || (targetuuid.v.low != 0)) {
+	if (uuid_is_null(targetuuid.uuid) == 0) {
 		/* Open the volume status DB to look up the entry for the volume in question: */
 		if ((result = OpenVolumeStatusDB(&vsdb)) != 0) {
 			warnx("couldn't access volume status database: %s", strerror(result));
@@ -476,11 +460,6 @@ ClearVolumeUUID(const char *path) {
 			return result;
 		};
 	
-		/* Erase the volume's UUID: */
-		targetuuid.v.high = 0;
-		targetuuid.v.low = 0;
-		result = SetVolumeUUID(path, &targetuuid);
-	
 	};
 
 	return result;
@@ -501,13 +480,13 @@ DisplayVolumeStatus(const char *path) {
 	int result = 0;
 
 	/* Look up the target volume UUID, exactly as stored on disk: */
-	result = GetVolumeUUID(path, &targetuuid, FALSE);
+	result = GetVolumeUUID(path, &targetuuid);
 	if (result != 0) {
 		warnx("couldn't read volume UUID on '%s': %s", path, strerror(result));
 		return result;
 	};
 	
-	if ((targetuuid.v.high == 0) || (targetuuid.v.low == 0)) {
+	if (uuid_is_null(targetuuid.uuid)) {
 		warnx("no valid volume UUID found on '%s': permissions are disabled.", path);
 		return 0;
 	};
@@ -535,7 +514,36 @@ Std_Exit:
 	return result;
 }
 
+static int isVolumeHFS (const char* path) {
+	
+	/* default to no */
+	int result = 0;
+	int isHFS = 0;
 
+	struct statfs statfs_buf;
+
+	result = statfs (path, &statfs_buf);
+	if (result == 0) {
+		if (!strncmp(statfs_buf.f_fstypename, "hfs", 3)) {
+			isHFS = 1;
+		}
+	}
+	
+	return isHFS;
+}
+
+
+
+//struct definition for calling getattrlist for finderinfos 
+typedef struct FinderInfoBuf {
+	uint32_t info_length;
+	uint32_t finderinfo[8];
+} FinderInfoBuf_t;
+
+typedef struct hfsUUID {
+	uint32_t high;
+	uint32_t low;
+} hfsUUID_t;
 
 /*
  --	GetVolumeUUID
@@ -544,90 +552,78 @@ Std_Exit:
  */
 
 static int
-GetVolumeUUID(const char *path, VolumeUUID *volumeUUIDPtr, boolean_t generate) {
+GetVolumeUUID(const char *path, VolumeUUID *volumeUUIDPtr) {
 	struct attrlist alist;
-	struct FinderAttrBuf volFinderInfo;
-	VolumeUUID *finderInfoUUIDPtr;
+	struct { uint32_t size; uuid_t uuid; } volUUID;
+	
+	FinderInfoBuf_t finfo;
+
 	int result;
 
-	/* Set up the attrlist structure to get the volume's Finder Info: */
-	alist.bitmapcount = 5;
-	alist.reserved = 0;
-	alist.commonattr = ATTR_CMN_FNDRINFO;
-	alist.volattr = ATTR_VOL_INFO;
-	alist.dirattr = 0;
-	alist.fileattr = 0;
-	alist.forkattr = 0;
+	/*
+	 * For a bit more definition on why we have to do this, check out
+	 * hfs.util source.  The gist is that IFF the volume is HFS, then
+	 * we must check the finderinfo UUID FIRST before querying the 
+	 * fs for its full UUID via the getattrlist volume call.
+	 */
 
-	result = getattrlist(path, &alist, &volFinderInfo, sizeof(volFinderInfo), 0);
-	if (result) {
-		warn("Couldn't get volume information for '%s'", path);
-		result = errno;
-		goto Err_Exit;
-	}
+	if (isVolumeHFS(path)) {
+		/* then go get the finderinfo, first... */
+		memset (&alist, 0, sizeof(alist));
+		alist.bitmapcount = ATTR_BIT_MAP_COUNT;
+		alist.reserved = 0;
+		alist.commonattr = ATTR_CMN_FNDRINFO;
+		alist.volattr = ATTR_VOL_INFO;
+		alist.dirattr = 0;
+		alist.fileattr = 0;
+		alist.forkattr = 0;
 
-	finderInfoUUIDPtr = (VolumeUUID *)(&volFinderInfo.finderinfo[6]);
-	if (generate && ((finderInfoUUIDPtr->v.high == 0) || (finderInfoUUIDPtr->v.low == 0))) {
-		GenerateVolumeUUID(volumeUUIDPtr);
-		finderInfoUUIDPtr->v.high = OSSwapHostToBigInt32(volumeUUIDPtr->v.high);
-		finderInfoUUIDPtr->v.low = OSSwapHostToBigInt32(volumeUUIDPtr->v.low);
-		result = setattrlist(path, &alist, &volFinderInfo.finderinfo, sizeof(volFinderInfo.finderinfo), 0);
+		result = getattrlist (path, &alist, &finfo, sizeof(finfo), 0);
 		if (result) {
-			warn("Couldn't update volume information for '%s'", path);
+			warn ("failed to getattrlist finderinfo for %s", path);
 			result = errno;
 			goto Err_Exit;
-		};
-	};
+		}
 
-	volumeUUIDPtr->v.high = OSSwapBigToHostInt32(finderInfoUUIDPtr->v.high);
-	volumeUUIDPtr->v.low = OSSwapBigToHostInt32(finderInfoUUIDPtr->v.low);
-	result = 0;
+		hfsUUID_t* hfs_finfo_uuid = (hfsUUID_t*)(&finfo.finderinfo[6]);
 
-Err_Exit:
-	return result;
-};
+		/*
+		 * Note: this is a bit of HFS-specific chicanery.  When HFS+ generates
+		 * the volume UUID, the formula it uses to generate the 8 bytes of internal
+		 * UUID is re-looped/restarted if either high or low is zero.  Thus, if we
+		 * see either word as '0' then that means we should treat it as an uninitialized
+		 * UUID. 
+		 *
+		 * As a result, if we see either word as zero, then clear out the caller's buffer
+		 * and return the NULL UUID. Otherwise, we'd get the 8 bytes which potentially include 
+		 * one or more zeroes run through HFS+'s MD5 algorithm which is not what we want.
+		 */
+		//technically should endian-swap this but not necessary here
+		if ((hfs_finfo_uuid->high == 0) || (hfs_finfo_uuid->low == 0)) {
+			uuid_clear (volumeUUIDPtr->uuid);
+			return 0;
+		}
+	}
 
 
-
-/*
- --	SetVolumeUUID (needed only to update existing volume UUIDs)
- --
- --	Returns: error code (0 if successful).
- */
-
-static int
-SetVolumeUUID(const char *path, VolumeUUID *volumeUUIDPtr) {
-	struct attrlist alist;
-	struct FinderAttrBuf volFinderInfo;
-	VolumeUUID *finderInfoUUIDPtr;
-	int result;
-
-	/* Set up the attrlist structure to get the volume's Finder Info: */
-	alist.bitmapcount = 5;
+	/* Set up the attrlist structure to get the volume's UUID: */
+	alist.bitmapcount = ATTR_BIT_MAP_COUNT;
 	alist.reserved = 0;
-	alist.commonattr = ATTR_CMN_FNDRINFO;
-	alist.volattr = ATTR_VOL_INFO;
+	alist.commonattr = 0;
+	alist.volattr = (ATTR_VOL_INFO | ATTR_VOL_UUID);
 	alist.dirattr = 0;
 	alist.fileattr = 0;
 	alist.forkattr = 0;
 
-	result = getattrlist(path, &alist, &volFinderInfo, sizeof(volFinderInfo), 0);
+	result = getattrlist(path, &alist, &volUUID, sizeof(volUUID), 0);
 	if (result) {
 		warn("Couldn't get volume information for '%s'", path);
 		result = errno;
 		goto Err_Exit;
 	}
 
-	finderInfoUUIDPtr = (VolumeUUID *)(&volFinderInfo.finderinfo[6]);
-	finderInfoUUIDPtr->v.high = OSSwapHostToBigInt32(volumeUUIDPtr->v.high);
-	finderInfoUUIDPtr->v.low = OSSwapHostToBigInt32(volumeUUIDPtr->v.low);
-	
-	result = setattrlist(path, &alist, &volFinderInfo.finderinfo, sizeof(volFinderInfo.finderinfo), 0);
-	if (result != 0) {
-		warn("Couldn't set volume information for '%s'", path);
-		result = errno;
-		goto Err_Exit;
-	};
+	uuid_copy(volumeUUIDPtr->uuid, volUUID.uuid);
+	result = 0;
 
 Err_Exit:
 	return result;
@@ -655,7 +651,7 @@ static char gVSDBPath[] = "/var/db/volinfo.database";
 /* Database layout: */
 
 struct VSDBKey {
-	char uuid[16];
+	char uuidString[36];
 };
 
 struct VSDBRecord {
@@ -664,6 +660,18 @@ struct VSDBRecord {
 
 struct VSDBEntry {
 	struct VSDBKey key;
+	char keySeparator;
+	char space;
+	struct VSDBRecord record;
+	char terminator;
+};
+
+struct VSDBKey64 {
+	char uuid[16];
+};
+
+struct VSDBEntry64 {
+	struct VSDBKey64 key;
 	char keySeparator;
 	char space;
 	struct VSDBRecord record;
@@ -698,7 +706,6 @@ static int GetVSDBEntry(VSDBStatePtr dbstateptr, struct VSDBEntry *dbentry);
 static int CompareVSDBKeys(struct VSDBKey *key1, struct VSDBKey *key2);
 
 static void FormatULong(u_int32_t u, char *s);
-static void FormatUUID(VolumeUUID *volumeID, char *UUIDField);
 static void FormatDBKey(VolumeUUID *volumeID, struct VSDBKey *dbkey);
 static void FormatDBRecord(u_int32_t volumeStatusFlags, struct VSDBRecord *dbrecord);
 static void FormatDBEntry(VolumeUUID *volumeID, u_int32_t volumeStatusFlags, struct VSDBEntry *dbentry);
@@ -712,99 +719,16 @@ static u_int32_t ConvertHexStringToULong(const char *hs, long maxdigits);
  *
  *****************************************************************************/
 
-void GenerateVolumeUUID(VolumeUUID *newVolumeID) {
-	SHA_CTX context;
-	char randomInputBuffer[26];
-	unsigned char digest[20];
-	time_t now;
-	clock_t uptime;
-	int mib[2];
-	int sysdata;
-	char sysctlstring[128];
-	size_t datalen;
-	double  sysloadavg[3];
-	struct vmtotal sysvmtotal;
-	
-	do {
-		/* Initialize the SHA-1 context for processing: */
-		SHA1_Init(&context);
-		
-		/* Now process successive bits of "random" input to seed the process: */
-		
-		/* The current system's uptime: */
-		uptime = clock();
-		SHA1_Update(&context, &uptime, sizeof(uptime));
-		
-		/* The kernel's boot time: */
-		mib[0] = CTL_KERN;
-		mib[1] = KERN_BOOTTIME;
-		datalen = sizeof(sysdata);
-		sysctl(mib, 2, &sysdata, &datalen, NULL, 0);
-		SHA1_Update(&context, &sysdata, datalen);
-		
-		/* The system's host id: */
-		mib[0] = CTL_KERN;
-		mib[1] = KERN_HOSTID;
-		datalen = sizeof(sysdata);
-		sysctl(mib, 2, &sysdata, &datalen, NULL, 0);
-		SHA1_Update(&context, &sysdata, datalen);
-
-		/* The system's host name: */
-		mib[0] = CTL_KERN;
-		mib[1] = KERN_HOSTNAME;
-		datalen = sizeof(sysctlstring);
-		sysctl(mib, 2, sysctlstring, &datalen, NULL, 0);
-		SHA1_Update(&context, sysctlstring, datalen);
-
-		/* The running kernel's OS release string: */
-		mib[0] = CTL_KERN;
-		mib[1] = KERN_OSRELEASE;
-		datalen = sizeof(sysctlstring);
-		sysctl(mib, 2, sysctlstring, &datalen, NULL, 0);
-		SHA1_Update(&context, sysctlstring, datalen);
-
-		/* The running kernel's version string: */
-		mib[0] = CTL_KERN;
-		mib[1] = KERN_VERSION;
-		datalen = sizeof(sysctlstring);
-		sysctl(mib, 2, sysctlstring, &datalen, NULL, 0);
-		SHA1_Update(&context, sysctlstring, datalen);
-
-		/* The system's load average: */
-		datalen = sizeof(sysloadavg);
-		getloadavg(sysloadavg, 3);
-		SHA1_Update(&context, &sysloadavg, datalen);
-
-		/* The system's VM statistics: */
-		mib[0] = CTL_VM;
-		mib[1] = VM_METER;
-		datalen = sizeof(sysvmtotal);
-		sysctl(mib, 2, &sysvmtotal, &datalen, NULL, 0);
-		SHA1_Update(&context, &sysvmtotal, datalen);
-
-		/* The current GMT (26 ASCII characters): */
-		time(&now);
-		strncpy(randomInputBuffer, asctime(gmtime(&now)), 26);	/* "Mon Mar 27 13:46:26 2000" */
-		SHA1_Update(&context, randomInputBuffer, 26);
-		
-		/* Pad the accumulated input and extract the final digest hash: */
-		SHA1_Final(digest, &context);
-	
-		memcpy(newVolumeID, digest, sizeof(*newVolumeID));
-	} while ((newVolumeID->v.high == 0) || (newVolumeID->v.low == 0));
-}
-
-
-
-void ConvertVolumeUUIDStringToUUID(const char *UUIDString, VolumeUUID *volumeID) {
+void ConvertVolumeUUIDString64ToUUID(const char *UUIDString64, VolumeUUID *volumeID) {
 	int i;
 	char c;
 	u_int32_t nextdigit;
 	u_int32_t high = 0;
 	u_int32_t low = 0;
 	u_int32_t carry;
+	MD5_CTX ctx;
 	
-	for (i = 0; (i < VOLUMEUUIDLENGTH) && ((c = UUIDString[i]) != (char)0) ; ++i) {
+	for (i = 0; (i < VOLUMEUUID64LENGTH) && ((c = UUIDString64[i]) != (char)0) ; ++i) {
 		if ((c >= '0') && (c <= '9')) {
 			nextdigit = c - '0';
 		} else if ((c >= 'A') && (c <= 'F')) {
@@ -819,15 +743,17 @@ void ConvertVolumeUUIDStringToUUID(const char *UUIDString, VolumeUUID *volumeID)
 		low = (low << 4) | nextdigit;
 	};
 	
-	volumeID->v.high = high;
-	volumeID->v.low = low;
-}
+	high = OSSwapHostToBigInt32(high);
+	low = OSSwapHostToBigInt32(low);
 
+	MD5_Init(&ctx);
+	MD5_Update(&ctx, kFSUUIDNamespaceSHA1, sizeof(uuid_t));
+	MD5_Update(&ctx, &high, sizeof(high));
+	MD5_Update(&ctx, &low, sizeof(low));
+	MD5_Final(volumeID->uuid, &ctx);
 
-
-void ConvertVolumeUUIDToString(VolumeUUID *volumeID, char *UUIDString) {
-	FormatUUID(volumeID, UUIDString);
-	*(UUIDString+16) = (char)0;		/* Append a terminating null character */
+	volumeID->uuid[6] = (volumeID->uuid[6] & 0x0F) | 0x30;
+	volumeID->uuid[8] = (volumeID->uuid[8] & 0x3F) | 0x80;
 }
 
 
@@ -843,14 +769,14 @@ int OpenVolumeStatusDB(VolumeStatusDBHandle *DBHandlePtr) {
 	};
 	
 	dbstateptr->dbmode = O_RDWR;
-	dbstateptr->dbfile = open(gVSDBPath, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+	dbstateptr->dbfile = open(gVSDBPath, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
 	if (dbstateptr->dbfile == -1) {
 		/*
 		   The file couldn't be opened for read/write access:
 		   try read-only access before giving up altogether.
 		 */
 		dbstateptr->dbmode = O_RDONLY;
-		dbstateptr->dbfile = open(gVSDBPath, O_RDONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+		dbstateptr->dbfile = open(gVSDBPath, O_RDONLY | O_CREAT, S_IRUSR | S_IWUSR);
 		if (dbstateptr->dbfile == -1) {
 			return errno;
 		};
@@ -858,7 +784,83 @@ int OpenVolumeStatusDB(VolumeStatusDBHandle *DBHandlePtr) {
 	
 	dbstateptr->signature = DBHANDLESIGNATURE;
 	*DBHandlePtr = (VolumeStatusDBHandle)dbstateptr;
+	ConvertVolumeStatusDB(*DBHandlePtr);
 	return 0;
+}
+
+
+
+int ConvertVolumeStatusDB(VolumeStatusDBHandle DBHandle) {
+	VSDBStatePtr dbstateptr = (VSDBStatePtr)DBHandle;
+	struct VSDBEntry64 entry64;
+	struct stat dbinfo;
+	int result;
+	u_int32_t iobuffersize;
+	void *iobuffer = NULL;
+	int i;
+
+	if (dbstateptr->signature != DBHANDLESIGNATURE) return EINVAL;
+
+	if ((result = LockDB(dbstateptr, LOCK_EX)) != 0) return result;
+
+	lseek(dbstateptr->dbfile, 0, SEEK_SET);
+	result = read(dbstateptr->dbfile, &entry64, sizeof(entry64));
+	if ((result != sizeof(entry64)) ||
+		(entry64.keySeparator != DBKEYSEPARATOR) ||
+		(entry64.space != DBBLANKSPACE) ||
+		(entry64.terminator != DBRECORDTERMINATOR)) {
+		result = 0;
+		goto ErrExit;
+	} else {
+		if ((result = stat(gVSDBPath, &dbinfo)) != 0) goto ErrExit;
+		iobuffersize = dbinfo.st_size;
+		iobuffer = malloc(iobuffersize);
+		if (iobuffer == NULL) {
+			result = ENOMEM;
+			goto ErrExit;
+		};
+
+		lseek(dbstateptr->dbfile, 0, SEEK_SET);
+		result = read(dbstateptr->dbfile, iobuffer, iobuffersize);
+		if (result != iobuffersize) {
+			result = errno;
+			goto ErrExit;
+		};
+		if ((result = ftruncate(dbstateptr->dbfile, 0)) != 0) {
+			goto ErrExit;
+		};
+
+		for (i = 0; i < iobuffersize / sizeof(entry64); i++) {
+			VolumeUUID volumeID;
+			u_int32_t VolumeStatus;
+			struct VSDBEntry dbentry;
+
+			entry64 = *(((struct VSDBEntry64 *)iobuffer) + i);
+			if ((entry64.keySeparator != DBKEYSEPARATOR) ||
+				(entry64.space != DBBLANKSPACE) ||
+				(entry64.terminator != DBRECORDTERMINATOR)) {
+				continue;
+			}
+
+			ConvertVolumeUUIDString64ToUUID(entry64.key.uuid, &volumeID);
+			VolumeStatus = ConvertHexStringToULong(entry64.record.statusFlags, sizeof(entry64.record.statusFlags));
+
+			FormatDBEntry(&volumeID, VolumeStatus, &dbentry);
+			if ((result = AddVolumeRecord(dbstateptr, &dbentry)) != sizeof(dbentry)) {
+				warnx("couldn't convert volume status database: %s", strerror(result));
+				goto ErrExit;
+			};
+		};
+
+		fsync(dbstateptr->dbfile);
+		
+		result = 0;
+	};
+
+ErrExit:
+	if (iobuffer) free(iobuffer);
+	UnlockDB(dbstateptr);
+	return result;
 }
 
 
@@ -875,7 +877,7 @@ int GetVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeID, 
 	if ((result = FindVolumeRecordByUUID(dbstateptr, volumeID, &dbentry, 0)) != 0) {
 		goto ErrExit;
 	};
-	*VolumeStatus = VOLUME_RECORDED | ConvertHexStringToULong(dbentry.record.statusFlags, sizeof(dbentry.record.statusFlags));
+	*VolumeStatus = ConvertHexStringToULong(dbentry.record.statusFlags, sizeof(dbentry.record.statusFlags));
 	
 	result = 0;
 
@@ -898,14 +900,8 @@ int SetVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeID, 
 	
 	FormatDBEntry(volumeID, VolumeStatus, &dbentry);
 	if ((result = FindVolumeRecordByUUID(dbstateptr, volumeID, NULL, DBMARKPOSITION)) == 0) {
-#if DEBUG_TRACE
-		fprintf(stderr,"AddLocalVolumeUUID: found record in database; updating in place.\n");
-#endif
 		result = UpdateVolumeRecord(dbstateptr, &dbentry);
 	} else if (result == -1) {
-#if DEBUG_TRACE
-		fprintf(stderr,"AddLocalVolumeUUID: record not found in database; appending at end.\n");
-#endif
 		result = AddVolumeRecord(dbstateptr, &dbentry);
 	} else {
 		goto ErrExit;
@@ -937,26 +933,15 @@ int DeleteVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeI
 	if ((result = LockDB(dbstateptr, LOCK_EX)) != 0) return result;
 	
 	if ((result = FindVolumeRecordByUUID(dbstateptr, volumeID, NULL, DBMARKPOSITION)) != 0) {
-#if DEBUG_TRACE
-		fprintf(stderr, "DeleteLocalVolumeUUID: No record with matching volume UUID in DB (result = %d).\n", result);
-#endif
 		if (result == -1) result = 0;	/* Entry wasn't in the database to begin with? */
 		goto StdEdit;
 	} else {
-#if DEBUG_TRACE
-		fprintf(stderr, "DeleteLocalVolumeUUID: Found record with matching volume UUID...\n");
-#endif
 		if ((result = stat(gVSDBPath, &dbinfo)) != 0) goto ErrExit;
 		if ((dbinfo.st_size - dbstateptr->recordPosition - sizeof(struct VSDBEntry)) <= MAXIOMALLOC) {
 			iobuffersize = dbinfo.st_size - dbstateptr->recordPosition - sizeof(struct VSDBEntry);
 		} else {
 			iobuffersize = MAXIOMALLOC;
 		};
-#if DEBUG_TRACE
-		fprintf(stderr, "DeleteLocalVolumeUUID: DB size = 0x%08lx; recordPosition = 0x%08lx;\n", 
-							(u_int32_t)dbinfo.st_size, (u_int32_t)dbstateptr->recordPosition);
-		fprintf(stderr, "DeleteLocalVolumeUUID: I/O buffer size = 0x%lx\n", iobuffersize);
-#endif
 		if (iobuffersize > 0) {
 			iobuffer = malloc(iobuffersize);
 			if (iobuffer == NULL) {
@@ -970,9 +955,6 @@ int DeleteVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeI
 				if (iotransfersize > 0) {
 					if (iotransfersize > iobuffersize) iotransfersize = iobuffersize;
 	
-#if DEBUG_TRACE
-					fprintf(stderr, "DeleteLocalVolumeUUID: reading 0x%08lx bytes starting at 0x%08lx ...\n", iotransfersize, (u_int32_t)dataoffset);
-#endif
 					lseek(dbstateptr->dbfile, dataoffset, SEEK_SET);
 					bytestransferred = read(dbstateptr->dbfile, iobuffer, iotransfersize);
 					if (bytestransferred != iotransfersize) {
@@ -980,9 +962,6 @@ int DeleteVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeI
 						goto ErrExit;
 					};
 	
-#if DEBUG_TRACE
-					fprintf(stderr, "DeleteLocalVolumeUUID: writing 0x%08lx bytes starting at 0x%08lx ...\n", iotransfersize, (u_int32_t)(dataoffset - (off_t)sizeof(struct VSDBEntry)));
-#endif
 					lseek(dbstateptr->dbfile, dataoffset - (off_t)sizeof(struct VSDBEntry), SEEK_SET);
 					bytestransferred = write(dbstateptr->dbfile, iobuffer, iotransfersize);
 					if (bytestransferred != iotransfersize) {
@@ -994,9 +973,6 @@ int DeleteVolumeStatusDBEntry(VolumeStatusDBHandle DBHandle, VolumeUUID *volumeI
 				};
 			} while (iotransfersize > 0);
 		};
-#if DEBUG_TRACE
-		fprintf(stderr, "DeleteLocalVolumeUUID: truncating database file to 0x%08lx bytes.\n", (u_int32_t)(dbinfo.st_size - (off_t)(sizeof(struct VSDBEntry))));
-#endif
 		if ((result = ftruncate(dbstateptr->dbfile, dbinfo.st_size - (off_t)(sizeof(struct VSDBEntry)))) != 0) {
 			goto ErrExit;
 		};
@@ -1040,18 +1016,12 @@ int CloseVolumeStatusDB(VolumeStatusDBHandle DBHandle) {
  *****************************************************************************/
 
 static int LockDB(VSDBStatePtr dbstateptr, int lockmode) {
-#if DEBUG_TRACE
-	fprintf(stderr, "LockDB: Locking VSDB file...\n");
-#endif
 	return flock(dbstateptr->dbfile, lockmode);
 }
 
 	
 
 static int UnlockDB(VSDBStatePtr dbstateptr) {
-#if DEBUG_TRACE
-	fprintf(stderr, "UnlockDB: Unlocking VSDB file...\n");
-#endif
 	return flock(dbstateptr->dbfile, LOCK_UN);
 }
 
@@ -1069,9 +1039,6 @@ static int FindVolumeRecordByUUID(VSDBStatePtr dbstateptr, VolumeUUID *volumeID,
 		result = GetVSDBEntry(dbstateptr, &dbentry);
 		if ((result == 0) && (CompareVSDBKeys(&dbentry.key, &searchkey) == 0)) {
 			if (targetEntry != NULL) {
-#if DEBUG_TRACE
-				fprintf(stderr, "FindVolumeRecordByUUID: copying %d. bytes from %08xl to %08l...\n", sizeof(*targetEntry), &dbentry, targetEntry);
-#endif
 				memcpy(targetEntry, &dbentry, sizeof(*targetEntry));
 			};
 			return 0;
@@ -1084,15 +1051,6 @@ static int FindVolumeRecordByUUID(VSDBStatePtr dbstateptr, VolumeUUID *volumeID,
 
 
 static int AddVolumeRecord(VSDBStatePtr dbstateptr , struct VSDBEntry *dbentry) {
-#if DEBUG_TRACE
-	VolumeUUIDString id;
-#endif
-
-#if DEBUG_TRACE
-	strncpy(id, dbentry->key.uuid, sizeof(dbentry->key.uuid));
-	id[sizeof(dbentry->key.uuid)] = (char)0;
-	fprintf(stderr, "AddVolumeRecord: Adding record for UUID #%s...\n", id);
-#endif
 	lseek(dbstateptr->dbfile, 0, SEEK_END);
 	return write(dbstateptr->dbfile, dbentry, sizeof(struct VSDBEntry));
 }
@@ -1101,19 +1059,7 @@ static int AddVolumeRecord(VSDBStatePtr dbstateptr , struct VSDBEntry *dbentry) 
 
 
 static int UpdateVolumeRecord(VSDBStatePtr dbstateptr, struct VSDBEntry *dbentry) {
-#if DEBUG_TRACE
-	VolumeUUIDString id;
-#endif
-
-#if DEBUG_TRACE
-	strncpy(id, dbentry->key.uuid, sizeof(dbentry->key.uuid));
-	id[sizeof(dbentry->key.uuid)] = (char)0;
-	fprintf(stderr, "UpdateVolumeRecord: Updating record for UUID #%s at offset 0x%08lx in database...\n", id, (u_int32_t)dbstateptr->recordPosition);
-#endif
 	lseek(dbstateptr->dbfile, dbstateptr->recordPosition, SEEK_SET);
-#if DEBUG_TRACE
-	fprintf(stderr, "UpdateVolumeRecord: Writing %d. bytes...\n", sizeof(*dbentry));
-#endif
 	return write(dbstateptr->dbfile, dbentry, sizeof(*dbentry));
 }
 
@@ -1122,14 +1068,8 @@ static int UpdateVolumeRecord(VSDBStatePtr dbstateptr, struct VSDBEntry *dbentry
 static int GetVSDBEntry(VSDBStatePtr dbstateptr, struct VSDBEntry *dbentry) {
 	struct VSDBEntry entry;
 	int result;
-#if DEBUG_TRACE
-	VolumeUUIDString id;
-#endif
-	
+
 	dbstateptr->recordPosition = lseek(dbstateptr->dbfile, 0, SEEK_CUR);
-#if 0 // DEBUG_TRACE
-	fprintf(stderr, "GetVSDBEntry: starting reading record at offset 0x%08lx...\n", (u_int32_t)dbstateptr->recordPosition);
-#endif
 	result = read(dbstateptr->dbfile, &entry, sizeof(entry));
 	if ((result != sizeof(entry)) ||
 		(entry.keySeparator != DBKEYSEPARATOR) ||
@@ -1138,11 +1078,6 @@ static int GetVSDBEntry(VSDBStatePtr dbstateptr, struct VSDBEntry *dbentry) {
 		return -1;
 	};
 	
-#if DEBUG_TRACE
-	strncpy(id, entry.key.uuid, sizeof(entry.key.uuid));
-	id[sizeof(entry.key.uuid)] = (char)0;
-	fprintf(stderr, "GetVSDBEntry: returning entry for UUID #%s...\n", id);
-#endif
 	memcpy(dbentry, &entry, sizeof(*dbentry));
 	return 0;
 };
@@ -1150,18 +1085,7 @@ static int GetVSDBEntry(VSDBStatePtr dbstateptr, struct VSDBEntry *dbentry) {
 
 
 static int CompareVSDBKeys(struct VSDBKey *key1, struct VSDBKey *key2) {
-#if 0 // DEBUG_TRACE
-	VolumeUUIDString id;
-
-	strncpy(id, key1->uuid, sizeof(key1->uuid));
-	id[sizeof(key1->uuid)] = (char)0;
-	fprintf(stderr, "CompareVSDBKeys: comparing #%s to ", id);
-	strncpy(id, key2->uuid, sizeof(key2->uuid));
-	id[sizeof(key2->uuid)] = (char)0;
-	fprintf(stderr, "%s (%d.)...\n", id, sizeof(key1->uuid));
-#endif
-	
-	return memcmp(key1->uuid, key2->uuid, sizeof(key1->uuid));
+	return memcmp(key1->uuidString, key2->uuidString, sizeof(key1->uuidString));
 }
 
 
@@ -1190,16 +1114,11 @@ static void FormatULong(u_int32_t u, char *s) {
 
 
 
-static void FormatUUID(VolumeUUID *volumeID, char *UUIDField) {
-	FormatULong(volumeID->v.high, UUIDField);
-	FormatULong(volumeID->v.low, UUIDField+8);
-
-};
-
-
-
 static void FormatDBKey(VolumeUUID *volumeID, struct VSDBKey *dbkey) {
-	FormatUUID(volumeID, dbkey->uuid);
+	uuid_string_t uuid_str;
+
+	uuid_unparse(volumeID->uuid, uuid_str);
+	memcpy(dbkey->uuidString, uuid_str, sizeof(dbkey->uuidString));
 }
 
 
@@ -1215,10 +1134,6 @@ static void FormatDBEntry(VolumeUUID *volumeID, u_int32_t volumeStatusFlags, str
 	dbentry->keySeparator = DBKEYSEPARATOR;
 	dbentry->space = DBBLANKSPACE;
 	FormatDBRecord(volumeStatusFlags, &dbentry->record);
-#if 0 // DEBUG_TRACE
-	dbentry->terminator = (char)0;
-	fprintf(stderr, "FormatDBEntry: '%s' (%d.)\n", dbentry, sizeof(*dbentry));
-#endif
 	dbentry->terminator = DBRECORDTERMINATOR;
 }
 

@@ -20,20 +20,25 @@
 # pragma warn -obs
 #endif
 
-#include "vimio.h"
 #include "vim.h"
 
-#include <dos.h>
+/* cproto fails on missing include files */
+#ifndef PROTO
+# include <dos.h>
+#endif
+
 #include <string.h>
 #include <sys/types.h>
-#include <errno.h>
 #include <signal.h>
 #include <limits.h>
-#include <process.h>
 
-#undef chdir
-#include <direct.h>
-#include <shellapi.h>	/* required for FindExecutable() */
+#ifndef PROTO
+# include <process.h>
+
+# undef chdir
+# include <direct.h>
+# include <shellapi.h>	/* required for FindExecutable() */
+#endif
 
 
 /* Record all output and all keyboard & mouse input */
@@ -245,9 +250,9 @@ mch_system(char *cmd, int options)
 	/* Wait for the command to terminate before continuing */
 	while (GetModuleUsage((HINSTANCE)h_module) > 0 && again )
 	{
-	    while( PeekMessage( &msg, NULL, 0, 0, PM_REMOVE ) && again )
+	    while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE) && again)
 	    {
-		if(msg.message == WM_QUIT)
+		if (msg.message == WM_QUIT)
 
 		{
 		    PostQuitMessage(msg.wParam);
@@ -381,13 +386,13 @@ mch_breakcheck()
 
 
 /*
- * How much memory is available?
+ * How much memory is available in Kbyte?
  */
     long_u
 mch_avail_mem(
     int special)
 {
-    return GetFreeSpace(0);
+    return GetFreeSpace(0) >> 10;
 }
 
 

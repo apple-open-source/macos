@@ -36,10 +36,14 @@
 #include "CSSSelectorList.h"
 #include "CSSValueKeywords.h"
 #include "HTMLElement.h"
+#include "HTMLSlotElement.h"
 #include "InspectorInstrumentation.h"
+#include "NodeRenderStyle.h"
 #include "RenderRegion.h"
 #include "SVGElement.h"
 #include "SelectorCompiler.h"
+#include "SelectorFilter.h"
+#include "ShadowRoot.h"
 #include "StyleProperties.h"
 #include "StyledElement.h"
 
@@ -65,14 +69,33 @@ static const StyleProperties& rightToLeftDeclaration()
 
 class MatchRequest {
 public:
-    MatchRequest(RuleSet* ruleSet, bool includeEmptyRules = false)
+    MatchRequest(const RuleSet* ruleSet, bool includeEmptyRules = false, unsigned treeContextOrdinal = 0)
         : ruleSet(ruleSet)
         , includeEmptyRules(includeEmptyRules)
+        , treeContextOrdinal(treeContextOrdinal)
     {
     }
     const RuleSet* ruleSet;
     const bool includeEmptyRules;
+    unsigned treeContextOrdinal;
 };
+
+ElementRuleCollector::ElementRuleCollector(const Element& element, const DocumentRuleSets& ruleSets, const SelectorFilter* selectorFilter)
+    : m_element(element)
+    , m_authorStyle(*ruleSets.authorStyle())
+    , m_userStyle(ruleSets.userStyle())
+    , m_selectorFilter(selectorFilter)
+{
+    ASSERT(!m_selectorFilter || m_selectorFilter->parentStackIsConsistent(element.parentNode()));
+}
+
+ElementRuleCollector::ElementRuleCollector(const Element& element, const RuleSet& authorStyle, const SelectorFilter* selectorFilter)
+    : m_element(element)
+    , m_authorStyle(authorStyle)
+    , m_selectorFilter(selectorFilter)
+{
+    ASSERT(!m_selectorFilter || m_selectorFilter->parentStackIsConsistent(element.parentNode()));
+}
 
 StyleResolver::MatchResult& ElementRuleCollector::matchedResult()
 {
@@ -86,18 +109,20 @@ const Vector<RefPtr<StyleRule>>& ElementRuleCollector::matchedRuleList() const
     return m_matchedRuleList;
 }
 
-inline void ElementRuleCollector::addMatchedRule(const MatchedRule& matchedRule)
+inline void ElementRuleCollector::addMatchedRule(const RuleData& ruleData, unsigned specificity, unsigned treeContextOrdinal, StyleResolver::RuleRange& ruleRange)
 {
-    if (!m_matchedRules)
-        m_matchedRules = std::make_unique<Vector<MatchedRule, 32>>();
-    m_matchedRules->append(matchedRule);
+    // Update our first/last rule indices in the matched rules array.
+    ++ruleRange.lastRuleIndex;
+    if (ruleRange.firstRuleIndex == -1)
+        ruleRange.firstRuleIndex = ruleRange.lastRuleIndex;
+
+    m_matchedRules.append({ &ruleData, specificity, treeContextOrdinal });
 }
 
 void ElementRuleCollector::clearMatchedRules()
 {
-    if (!m_matchedRules)
-        return;
-    m_matchedRules->clear();
+    m_matchedRules.clear();
+    m_keepAliveSlottedPseudoElementRules.clear();
 }
 
 inline void ElementRuleCollector::addElementStyleProperties(const StyleProperties* propertySet, bool isCacheable)
@@ -112,39 +137,9 @@ inline void ElementRuleCollector::addElementStyleProperties(const StylePropertie
         m_result.isCacheable = false;
 }
 
-class MatchingUARulesScope {
-public:
-    MatchingUARulesScope();
-    ~MatchingUARulesScope();
-
-    static bool isMatchingUARules();
-
-private:
-    static bool m_matchingUARules;
-};
-
-MatchingUARulesScope::MatchingUARulesScope()
-{
-    ASSERT(!m_matchingUARules);
-    m_matchingUARules = true;
-}
-
-MatchingUARulesScope::~MatchingUARulesScope()
-{
-    m_matchingUARules = false;
-}
-
-inline bool MatchingUARulesScope::isMatchingUARules()
-{
-    return m_matchingUARules;
-}
-
-bool MatchingUARulesScope::m_matchingUARules = false;
-
 void ElementRuleCollector::collectMatchingRules(const MatchRequest& matchRequest, StyleResolver::RuleRange& ruleRange)
 {
     ASSERT(matchRequest.ruleSet);
-    ASSERT_WITH_MESSAGE(!(m_mode == SelectorChecker::Mode::ResolvingStyle && !m_style), "When resolving style, the SelectorChecker must have a style to set the pseudo elements and/or to do marking. The SelectorCompiler also rely on that behavior.");
     ASSERT_WITH_MESSAGE(!(m_mode == SelectorChecker::Mode::CollectingRulesIgnoringVirtualPseudoElements && m_pseudoStyleRequest.pseudoId != NOPSEUDO), "When in StyleInvalidation or SharingRules, SelectorChecker does not try to match the pseudo ID. While ElementRuleCollector supports matching a particular pseudoId in this case, this would indicate a error at the call site since matching a particular element should be unnecessary.");
 
 #if ENABLE(VIDEO_TRACK)
@@ -152,20 +147,18 @@ void ElementRuleCollector::collectMatchingRules(const MatchRequest& matchRequest
         collectMatchingRulesForList(matchRequest.ruleSet->cuePseudoRules(), matchRequest, ruleRange);
 #endif
 
-    if (m_element.isInShadowTree()) {
+    auto* shadowRoot = m_element.containingShadowRoot();
+    if (shadowRoot && shadowRoot->type() == ShadowRoot::Type::UserAgent) {
         const AtomicString& pseudoId = m_element.shadowPseudoId();
         if (!pseudoId.isEmpty())
             collectMatchingRulesForList(matchRequest.ruleSet->shadowPseudoElementRules(pseudoId.impl()), matchRequest, ruleRange);
-
-        // Only match UA rules in shadow tree.
-        if (!MatchingUARulesScope::isMatchingUARules())
-            return;
     }
 
     // We need to collect the rules for id, class, tag, and everything else into a buffer and
     // then sort the buffer.
-    if (m_element.hasID())
-        collectMatchingRulesForList(matchRequest.ruleSet->idRules(m_element.idForStyleResolution().impl()), matchRequest, ruleRange);
+    auto& id = m_element.idForStyleResolution();
+    if (!id.isNull())
+        collectMatchingRulesForList(matchRequest.ruleSet->idRules(*id.impl()), matchRequest, ruleRange);
     if (m_element.hasClass()) {
         for (size_t i = 0; i < m_element.classNames().size(); ++i)
             collectMatchingRulesForList(matchRequest.ruleSet->classRules(m_element.classNames()[i].impl()), matchRequest, ruleRange);
@@ -173,7 +166,7 @@ void ElementRuleCollector::collectMatchingRules(const MatchRequest& matchRequest
 
     if (m_element.isLink())
         collectMatchingRulesForList(matchRequest.ruleSet->linkPseudoClassRules(), matchRequest, ruleRange);
-    if (SelectorChecker::matchesFocusPseudoClass(&m_element))
+    if (SelectorChecker::matchesFocusPseudoClass(m_element))
         collectMatchingRulesForList(matchRequest.ruleSet->focusPseudoClassRules(), matchRequest, ruleRange);
     collectMatchingRulesForList(matchRequest.ruleSet->tagRules(m_element.localName().impl(), m_element.isHTMLElement() && m_element.document().isHTMLDocument()), matchRequest, ruleRange);
     collectMatchingRulesForList(matchRequest.ruleSet->universalRules(), matchRequest, ruleRange);
@@ -197,49 +190,133 @@ void ElementRuleCollector::collectMatchingRulesForRegion(const MatchRequest& mat
 
 void ElementRuleCollector::sortAndTransferMatchedRules()
 {
-    if (!m_matchedRules || m_matchedRules->isEmpty())
+    if (m_matchedRules.isEmpty())
         return;
 
     sortMatchedRules();
 
-    Vector<MatchedRule, 32>& matchedRules = *m_matchedRules;
     if (m_mode == SelectorChecker::Mode::CollectingRules) {
-        for (const MatchedRule& matchedRule : matchedRules)
+        for (const MatchedRule& matchedRule : m_matchedRules)
             m_matchedRuleList.append(matchedRule.ruleData->rule());
         return;
     }
 
-    // Now transfer the set of matched rules over to our list of declarations.
-    for (const MatchedRule& matchedRule : matchedRules) {
-        if (m_style && matchedRule.ruleData->containsUncommonAttributeSelector())
-            m_style->setUnique();
-        m_result.addMatchedProperties(matchedRule.ruleData->rule()->properties(), matchedRule.ruleData->rule(), matchedRule.ruleData->linkMatchType(), matchedRule.ruleData->propertyWhitelistType(MatchingUARulesScope::isMatchingUARules()));
+    for (const MatchedRule& matchedRule : m_matchedRules) {
+        m_result.addMatchedProperties(matchedRule.ruleData->rule()->properties(), matchedRule.ruleData->rule(), matchedRule.ruleData->linkMatchType(), matchedRule.ruleData->propertyWhitelistType(), matchedRule.treeContextOrdinal);
     }
 }
 
 void ElementRuleCollector::matchAuthorRules(bool includeEmptyRules)
 {
     clearMatchedRules();
+
     m_result.ranges.lastAuthorRule = m_result.matchedProperties().size() - 1;
+    StyleResolver::RuleRange ruleRange = m_result.ranges.authorRuleRange();
 
     // Match global author rules.
-    MatchRequest matchRequest(m_ruleSets.authorStyle(), includeEmptyRules);
-    StyleResolver::RuleRange ruleRange = m_result.ranges.authorRuleRange();
+    MatchRequest matchRequest(&m_authorStyle, includeEmptyRules);
     collectMatchingRules(matchRequest, ruleRange);
     collectMatchingRulesForRegion(matchRequest, ruleRange);
+
+    auto* parent = m_element.parentElement();
+    if (parent && parent->shadowRoot())
+        matchSlottedPseudoElementRules(matchRequest, ruleRange);
+
+    if (m_element.shadowRoot())
+        matchHostPseudoClassRules(matchRequest, ruleRange);
 
     sortAndTransferMatchedRules();
 }
 
+void ElementRuleCollector::matchHostPseudoClassRules(MatchRequest& matchRequest, StyleResolver::RuleRange& ruleRange)
+{
+    ASSERT(m_element.shadowRoot());
+
+    matchRequest.treeContextOrdinal++;
+
+    auto& shadowAuthorStyle = *m_element.shadowRoot()->styleResolver().ruleSets().authorStyle();
+    auto& shadowHostRules = shadowAuthorStyle.hostPseudoClassRules();
+    if (shadowHostRules.isEmpty())
+        return;
+
+    SelectorChecker::CheckingContext context(m_mode);
+    SelectorChecker selectorChecker(m_element.document());
+
+    for (auto& ruleData : shadowHostRules) {
+        if (ruleData.rule()->properties().isEmpty() && !matchRequest.includeEmptyRules)
+            continue;
+        auto& selector = *ruleData.selector();
+        unsigned specificity = 0;
+        if (!selectorChecker.matchHostPseudoClass(selector, m_element, context, specificity))
+            continue;
+        addMatchedRule(ruleData, specificity, matchRequest.treeContextOrdinal, ruleRange);
+    }
+}
+
+void ElementRuleCollector::matchSlottedPseudoElementRules(MatchRequest& matchRequest, StyleResolver::RuleRange& ruleRange)
+{
+    auto* maybeSlotted = &m_element;
+    for (auto* hostShadowRoot = m_element.parentNode()->shadowRoot(); hostShadowRoot; hostShadowRoot = maybeSlotted->parentNode()->shadowRoot()) {
+        auto* slot = hostShadowRoot->findAssignedSlot(*maybeSlotted);
+        if (!slot)
+            return;
+
+        matchRequest.treeContextOrdinal++;
+
+        // In nested case the slot may itself be assigned to a slot. Collect ::slotted rules from all the nested trees.
+        maybeSlotted = slot;
+        auto* shadowAuthorStyle = hostShadowRoot->styleResolver().ruleSets().authorStyle();
+        if (!shadowAuthorStyle)
+            continue;
+        // Find out if there are any ::slotted rules in the shadow tree matching the current slot.
+        // FIXME: This is really part of the slot style and could be cached when resolving it.
+        ElementRuleCollector collector(*slot, *shadowAuthorStyle, nullptr);
+        auto slottedPseudoElementRules = collector.collectSlottedPseudoElementRulesForSlot(matchRequest.includeEmptyRules);
+        if (!slottedPseudoElementRules)
+            continue;
+        // Match in the current scope.
+        TemporaryChange<bool> change(m_isMatchingSlottedPseudoElements, true);
+
+        MatchRequest scopeMatchRequest(nullptr, matchRequest.includeEmptyRules, matchRequest.treeContextOrdinal);
+        collectMatchingRulesForList(slottedPseudoElementRules.get(), scopeMatchRequest, ruleRange);
+
+        m_keepAliveSlottedPseudoElementRules.append(WTFMove(slottedPseudoElementRules));
+    }
+}
+
+std::unique_ptr<RuleSet::RuleDataVector> ElementRuleCollector::collectSlottedPseudoElementRulesForSlot(bool includeEmptyRules)
+{
+    ASSERT(is<HTMLSlotElement>(m_element));
+
+    clearMatchedRules();
+
+    m_mode = SelectorChecker::Mode::CollectingRules;
+
+    // Match global author rules.
+    MatchRequest matchRequest(&m_authorStyle, includeEmptyRules);
+    StyleResolver::RuleRange ruleRange = m_result.ranges.authorRuleRange();
+    collectMatchingRulesForList(&m_authorStyle.slottedPseudoElementRules(), matchRequest, ruleRange);
+
+    if (m_matchedRules.isEmpty())
+        return { };
+
+    auto ruleDataVector = std::make_unique<RuleSet::RuleDataVector>();
+    ruleDataVector->reserveInitialCapacity(m_matchedRules.size());
+    for (auto& matchedRule : m_matchedRules)
+        ruleDataVector->uncheckedAppend(*matchedRule.ruleData);
+
+    return ruleDataVector;
+}
+
 void ElementRuleCollector::matchUserRules(bool includeEmptyRules)
 {
-    if (!m_ruleSets.userStyle())
+    if (!m_userStyle)
         return;
     
     clearMatchedRules();
 
     m_result.ranges.lastUserRule = m_result.matchedProperties().size() - 1;
-    MatchRequest matchRequest(m_ruleSets.userStyle(), includeEmptyRules);
+    MatchRequest matchRequest(m_userStyle, includeEmptyRules);
     StyleResolver::RuleRange ruleRange = m_result.ranges.userRuleRange();
     collectMatchingRules(matchRequest, ruleRange);
     collectMatchingRulesForRegion(matchRequest, ruleRange);
@@ -249,8 +326,6 @@ void ElementRuleCollector::matchUserRules(bool includeEmptyRules)
 
 void ElementRuleCollector::matchUARules()
 {
-    MatchingUARulesScope scope;
-
     // First we match rules from the user agent sheet.
     if (CSSDefaultStyleSheets::simpleDefaultStyleSheet)
         m_result.isCacheable = false;
@@ -272,6 +347,18 @@ void ElementRuleCollector::matchUARules(RuleSet* rules)
     collectMatchingRules(MatchRequest(rules), ruleRange);
 
     sortAndTransferMatchedRules();
+}
+
+static const CSSSelector* findSlottedPseudoElementSelector(const CSSSelector* selector)
+{
+    for (; selector; selector = selector->tagHistory()) {
+        if (selector->match() == CSSSelector::PseudoElement && selector->pseudoElementType() == CSSSelector::PseudoElementSlotted) {
+            if (auto* list = selector->selectorList())
+                return list->first();
+            break;
+        }
+    };
+    return nullptr;
 }
 
 inline bool ElementRuleCollector::ruleMatches(const RuleData& ruleData, unsigned& specificity)
@@ -323,16 +410,21 @@ inline bool ElementRuleCollector::ruleMatches(const RuleData& ruleData, unsigned
 #if CSS_SELECTOR_JIT_PROFILING
         ruleData.compiledSelectorUsed();
 #endif
-        return selectorChecker(&m_element, &specificity);
+        bool selectorMatches = selectorChecker(&m_element, &specificity);
+
+        if (selectorMatches && ruleData.containsUncommonAttributeSelector())
+            m_didMatchUncommonAttributeSelector = true;
+
+        return selectorMatches;
     }
 #endif // ENABLE(CSS_SELECTOR_JIT)
 
     SelectorChecker::CheckingContext context(m_mode);
-    context.elementStyle = m_style;
     context.pseudoId = m_pseudoStyleRequest.pseudoId;
     context.scrollbar = m_pseudoStyleRequest.scrollbar;
     context.scrollbarPart = m_pseudoStyleRequest.scrollbarPart;
 
+    bool selectorMatches;
 #if ENABLE(CSS_SELECTOR_JIT)
     if (compiledSelectorChecker) {
         ASSERT(ruleData.compilationStatus() == SelectorCompilationStatus::SelectorCheckerWithCheckingContext);
@@ -342,13 +434,29 @@ inline bool ElementRuleCollector::ruleMatches(const RuleData& ruleData, unsigned
 #if CSS_SELECTOR_JIT_PROFILING
         ruleData.compiledSelectorUsed();
 #endif
-        return selectorChecker(&m_element, &context, &specificity);
-    }
+        selectorMatches = selectorChecker(&m_element, &context, &specificity);
+    } else
 #endif // ENABLE(CSS_SELECTOR_JIT)
+    {
+        auto* selector = ruleData.selector();
+        if (m_isMatchingSlottedPseudoElements) {
+            selector = findSlottedPseudoElementSelector(ruleData.selector());
+            if (!selector)
+                return false;
+        }
+        // Slow path.
+        SelectorChecker selectorChecker(m_element.document());
+        selectorMatches = selectorChecker.match(*selector, m_element, context, specificity);
+    }
 
-    // Slow path.
-    SelectorChecker selectorChecker(m_element.document());
-    return selectorChecker.match(ruleData.selector(), &m_element, context, specificity);
+    if (ruleData.containsUncommonAttributeSelector()) {
+        if (selectorMatches || context.pseudoIDSet)
+            m_didMatchUncommonAttributeSelector = true;
+    }
+    m_matchedPseudoElementIds.merge(context.pseudoIDSet);
+    m_styleRelations.appendVector(context.styleRelations);
+
+    return selectorMatches;
 }
 
 void ElementRuleCollector::collectMatchingRulesForList(const RuleSet::RuleDataVector* rules, const MatchRequest& matchRequest, StyleResolver::RuleRange& ruleRange)
@@ -362,7 +470,7 @@ void ElementRuleCollector::collectMatchingRulesForList(const RuleSet::RuleDataVe
         if (!ruleData.canMatchPseudoElement() && m_pseudoStyleRequest.pseudoId != NOPSEUDO)
             continue;
 
-        if (m_canUseFastReject && m_selectorFilter.fastRejectSelector<RuleData::maximumIdentifierCount>(ruleData.descendantSelectorIdentifierHashes()))
+        if (m_selectorFilter && m_selectorFilter->fastRejectSelector<RuleData::maximumIdentifierCount>(ruleData.descendantSelectorIdentifierHashes()))
             continue;
 
         StyleRule* rule = ruleData.rule();
@@ -377,29 +485,26 @@ void ElementRuleCollector::collectMatchingRulesForList(const RuleSet::RuleDataVe
             continue;
 
         unsigned specificity;
-        if (ruleMatches(ruleData, specificity)) {
-            // Update our first/last rule indices in the matched rules array.
-            ++ruleRange.lastRuleIndex;
-            if (ruleRange.firstRuleIndex == -1)
-                ruleRange.firstRuleIndex = ruleRange.lastRuleIndex;
-
-            // Add this rule to our list of matched rules.
-            addMatchedRule({&ruleData, specificity});
-        }
+        if (ruleMatches(ruleData, specificity))
+            addMatchedRule(ruleData, specificity, matchRequest.treeContextOrdinal, ruleRange);
     }
 }
 
 static inline bool compareRules(MatchedRule r1, MatchedRule r2)
 {
-    unsigned specificity1 = r1.specificity;
-    unsigned specificity2 = r2.specificity;
-    return (specificity1 == specificity2) ? r1.ruleData->position() < r2.ruleData->position() : specificity1 < specificity2;
+    // For normal properties the earlier tree wins. This may be reversed by !important which is handled when resolving cascade.
+    if (r1.treeContextOrdinal != r2.treeContextOrdinal)
+        return r1.treeContextOrdinal > r2.treeContextOrdinal;
+
+    if (r1.specificity != r2.specificity)
+        return r1.specificity < r2.specificity;
+
+    return r1.ruleData->position() < r2.ruleData->position();
 }
 
 void ElementRuleCollector::sortMatchedRules()
 {
-    ASSERT(m_matchedRules);
-    std::sort(m_matchedRules->begin(), m_matchedRules->end(), compareRules);
+    std::sort(m_matchedRules.begin(), m_matchedRules.end(), compareRules);
 }
 
 void ElementRuleCollector::matchAllRules(bool matchAuthorAndUserStyles, bool includeSMILProperties)
@@ -412,7 +517,7 @@ void ElementRuleCollector::matchAllRules(bool matchAuthorAndUserStyles, bool inc
 
     // Now check author rules, beginning first with presentational attributes mapped from HTML.
     if (is<StyledElement>(m_element)) {
-        StyledElement& styledElement = downcast<StyledElement>(m_element);
+        auto& styledElement = downcast<StyledElement>(m_element);
         addElementStyleProperties(styledElement.presentationAttributeStyle());
 
         // Now we check additional mapped declarations.
@@ -433,7 +538,7 @@ void ElementRuleCollector::matchAllRules(bool matchAuthorAndUserStyles, bool inc
         matchAuthorRules(false);
 
     if (matchAuthorAndUserStyles && is<StyledElement>(m_element)) {
-        StyledElement& styledElement = downcast<StyledElement>(m_element);
+        auto& styledElement = downcast<StyledElement>(m_element);
         // Now check our inline style attribute.
         if (styledElement.inlineStyle()) {
             // Inline style is immutable as long as there is no CSSOM wrapper.
@@ -449,7 +554,7 @@ void ElementRuleCollector::matchAllRules(bool matchAuthorAndUserStyles, bool inc
     }
 }
 
-bool ElementRuleCollector::hasAnyMatchingRules(RuleSet* ruleSet)
+bool ElementRuleCollector::hasAnyMatchingRules(const RuleSet* ruleSet)
 {
     clearMatchedRules();
 
@@ -458,7 +563,7 @@ bool ElementRuleCollector::hasAnyMatchingRules(RuleSet* ruleSet)
     StyleResolver::RuleRange ruleRange(firstRuleIndex, lastRuleIndex);
     collectMatchingRules(MatchRequest(ruleSet), ruleRange);
 
-    return m_matchedRules && !m_matchedRules->isEmpty();
+    return !m_matchedRules.isEmpty();
 }
 
 } // namespace WebCore

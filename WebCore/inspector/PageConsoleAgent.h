@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2011 Google Inc. All rights reserved.
+ * Copyright (C) 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -31,6 +32,7 @@
 #ifndef PageConsoleAgent_h
 #define PageConsoleAgent_h
 
+#include "InspectorWebAgentBase.h"
 #include "WebConsoleAgent.h"
 
 namespace WebCore {
@@ -41,13 +43,12 @@ class PageConsoleAgent final : public WebConsoleAgent {
     WTF_MAKE_NONCOPYABLE(PageConsoleAgent);
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    PageConsoleAgent(WebInjectedScriptManager*, InspectorDOMAgent*);
+    PageConsoleAgent(WebAgentContext&, Inspector::InspectorHeapAgent*, InspectorDOMAgent*);
     virtual ~PageConsoleAgent() { }
 
 private:
-    virtual bool isWorkerAgent() const override { return false; }
-    virtual void clearMessages(ErrorString&) override;
-    virtual void addInspectedNode(ErrorString&, int nodeId) override;
+    void clearMessages(ErrorString&) override;
+    void addInspectedNode(ErrorString&, int nodeId) override;
 
     InspectorDOMAgent* m_inspectorDOMAgent;
 };

@@ -35,6 +35,7 @@
 
 #include "ContextDestructionObserver.h"
 #include "JSDOMPromise.h"
+#include "MediaDeviceInfo.h"
 #include "ScriptWrappable.h"
 #include <functional>
 #include <wtf/RefCounted.h>
@@ -45,7 +46,7 @@ namespace WebCore {
 class Dictionary;
 class Document;
 class MediaStream;
-class NavigatorUserMediaError;
+class MediaTrackSupportedConstraints;
 
 typedef int ExceptionCode;
 
@@ -56,8 +57,12 @@ public:
 
     Document* document() const;
 
-    typedef DOMPromiseWithCallback<RefPtr<MediaStream>, RefPtr<NavigatorUserMediaError>> Promise;
+    typedef DOMPromise<MediaStream> Promise;
+    typedef DOMPromise<MediaDeviceInfoVector> EnumerateDevicesPromise;
+
     void getUserMedia(const Dictionary&, Promise&&, ExceptionCode&) const;
+    void enumerateDevices(EnumerateDevicesPromise&&, ExceptionCode&) const;
+    RefPtr<MediaTrackSupportedConstraints> getSupportedConstraints();
 
 private:
     explicit MediaDevices(ScriptExecutionContext*);

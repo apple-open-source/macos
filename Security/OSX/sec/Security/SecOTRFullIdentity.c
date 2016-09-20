@@ -35,6 +35,7 @@
 #include <CoreFoundation/CFData.h>
 
 #include <Security/SecItem.h>
+#include <Security/SecItemPriv.h>
 #include <Security/SecKeyPriv.h>
 
 #include <Security/oidsalg.h>
@@ -50,6 +51,8 @@
 
 #define kMessageIdentityRSAKeyBits 1280
 #define kMessageIdentityECKeyBits 256
+
+const SecAsn1AlgId *kOTRSignatureAlgIDPtr;
 
 void EnsureOTRAlgIDInited(void)
 {
@@ -146,12 +149,6 @@ fail:
     return (pubID != NULL); // This is safe because we're not accessing the value after release, just checking if it ever had a value of some nature.
 }
 
-#if !TARGET_OS_IPHONE && !TARGET_IPHONE_SIMULATOR
-#define SEC_CONST_DECL(k,v) const CFStringRef k = CFSTR(v);
-SEC_CONST_DECL (kSecAttrAccessible, "pdmn");
-SEC_CONST_DECL (kSecAttrAccessibleAlwaysThisDeviceOnly, "dku");
-#endif
-
 static SecKeyRef SecOTRCreateSigningKey(CFAllocatorRef allocator) {
     SecKeyRef publicKey = NULL;
     SecKeyRef fullKey = NULL;
@@ -169,7 +166,7 @@ static SecKeyRef SecOTRCreateSigningKey(CFAllocatorRef allocator) {
     const void *signing_keygen_vals[] = { kSecAttrKeyTypeEC,
         signing_bitsize,
         kCFBooleanTrue,
-        kSecAttrAccessibleAlwaysThisDeviceOnly,
+        kSecAttrAccessibleAlwaysThisDeviceOnlyPrivate,
         sSigningKeyName
     };
     keygen_parameters = CFDictionaryCreate(allocator,
@@ -467,6 +464,10 @@ bool SecOTRFIAppendSerialization(SecOTRFullIdentityRef fullID, CFMutableDataRef 
 size_t SecOTRFISignatureSize(SecOTRFullIdentityRef fullID)
 {
     return SecKeyGetSize(fullID->publicSigningKey, kSecKeySignatureSize);
+}
+
+bool SecOTRFICompareToPublicKey(SecOTRFullIdentityRef fullID, SecKeyRef publicKey) {
+    return CFEqualSafe(fullID->publicSigningKey, publicKey);
 }
 
 bool SecOTRFIAppendSignature(SecOTRFullIdentityRef fullID,

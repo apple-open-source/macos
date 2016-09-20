@@ -35,8 +35,10 @@
 #import "MediaPlayerPrivateAVFoundationObjC.h"
 #import "SoftLinking.h"
 #import "UUID.h"
+#import "WebCoreNSErrorExtras.h"
 #import <AVFoundation/AVFoundation.h>
 #import <objc/objc-runtime.h>
+#import <wtf/MainThread.h>
 
 SOFT_LINK_FRAMEWORK_OPTIONAL(AVFoundation)
 SOFT_LINK_CLASS(AVFoundation, AVURLAsset)
@@ -47,27 +49,37 @@ SOFT_LINK_CLASS(AVFoundation, AVAssetResourceLoadingRequest)
 namespace WebCore {
 
 CDMSessionAVFoundationObjC::CDMSessionAVFoundationObjC(MediaPlayerPrivateAVFoundationObjC* parent, CDMSessionClient* client)
-    : m_parent(parent)
+    : m_parent(parent->createWeakPtr())
     , m_client(client)
     , m_sessionId(createCanonicalUUIDString())
+    , m_weakPtrFactory(this)
 {
 }
 
-RefPtr<Uint8Array> CDMSessionAVFoundationObjC::generateKeyRequest(const String& mimeType, Uint8Array* initData, String& destinationURL, unsigned short& errorCode, unsigned long& systemCode)
+CDMSessionAVFoundationObjC::~CDMSessionAVFoundationObjC()
+{
+}
+
+RefPtr<Uint8Array> CDMSessionAVFoundationObjC::generateKeyRequest(const String& mimeType, Uint8Array* initData, String& destinationURL, unsigned short& errorCode, uint32_t& systemCode)
 {
     UNUSED_PARAM(mimeType);
+
+    if (!m_parent) {
+        errorCode = CDM::UnknownError;
+        return nullptr;
+    }
 
     String keyURI;
     String keyID;
     RefPtr<Uint8Array> certificate;
     if (!MediaPlayerPrivateAVFoundationObjC::extractKeyURIKeyIDAndCertificateFromInitData(initData, keyURI, keyID, certificate)) {
-        errorCode = MediaPlayer::InvalidPlayerState;
+        errorCode = CDM::UnknownError;
         return nullptr;
     }
 
     m_request = m_parent->takeRequestForKeyURI(keyURI);
     if (!m_request) {
-        errorCode = MediaPlayer::InvalidPlayerState;
+        errorCode = CDM::UnknownError;
         return nullptr;
     }
 
@@ -78,8 +90,8 @@ RefPtr<Uint8Array> CDMSessionAVFoundationObjC::generateKeyRequest(const String& 
     RetainPtr<NSData> keyRequest = [m_request streamingContentKeyRequestDataForApp:certificateData.get() contentIdentifier:assetID.get() options:nil error:&nsError];
 
     if (!keyRequest) {
-        NSError* underlyingError = [[nsError userInfo] objectForKey:NSUnderlyingErrorKey];
-        systemCode = [underlyingError code];
+        errorCode = CDM::DomainError;
+        systemCode = mediaKeyErrorSystemCode(nsError);
         return nullptr;
     }
 
@@ -95,7 +107,7 @@ void CDMSessionAVFoundationObjC::releaseKeys()
 {
 }
 
-bool CDMSessionAVFoundationObjC::update(Uint8Array* key, RefPtr<Uint8Array>& nextMessage, unsigned short& errorCode, unsigned long& systemCode)
+bool CDMSessionAVFoundationObjC::update(Uint8Array* key, RefPtr<Uint8Array>& nextMessage, unsigned short& errorCode, uint32_t& systemCode)
 {
     RetainPtr<NSData> keyData = adoptNS([[NSData alloc] initWithBytes:key->baseAddress() length:key->byteLength()]);
     [[m_request dataRequest] respondWithData:keyData.get()];
@@ -105,6 +117,15 @@ bool CDMSessionAVFoundationObjC::update(Uint8Array* key, RefPtr<Uint8Array>& nex
     nextMessage = nullptr;
 
     return true;
+}
+
+void CDMSessionAVFoundationObjC::playerDidReceiveError(NSError *error)
+{
+    if (!m_client)
+        return;
+
+    unsigned long code = mediaKeyErrorSystemCode(error);
+    m_client->sendError(CDMSessionClient::MediaKeyErrorDomain, code);
 }
 
 }

@@ -1,9 +1,7 @@
 /*
- * "$Id: http-addrlist.c 11645 2014-02-27 16:35:53Z msweet $"
- *
  * HTTP address list routines for CUPS.
  *
- * Copyright 2007-2014 by Apple Inc.
+ * Copyright 2007-2016 by Apple Inc.
  * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  * These coded instructions, statements, and computer programs are the
@@ -34,7 +32,7 @@
 /*
  * 'httpAddrConnect()' - Connect to any of the addresses in the list.
  *
- * @since CUPS 1.2/OS X 10.5@
+ * @since CUPS 1.2/macOS 10.5@
  */
 
 http_addrlist_t *			/* O - Connected address or NULL on failure */
@@ -42,7 +40,7 @@ httpAddrConnect(
     http_addrlist_t *addrlist,		/* I - List of potential addresses */
     int             *sock)		/* O - Socket */
 {
-  DEBUG_printf(("httpAddrConnect(addrlist=%p, sock=%p)", addrlist, sock));
+  DEBUG_printf(("httpAddrConnect(addrlist=%p, sock=%p)", (void *)addrlist, (void *)sock));
 
   return (httpAddrConnect2(addrlist, sock, 30000, NULL));
 }
@@ -52,7 +50,7 @@ httpAddrConnect(
  * 'httpAddrConnect2()' - Connect to any of the addresses in the list with a
  *                        timeout and optional cancel.
  *
- * @since CUPS 1.7/OS X 10.9@
+ * @since CUPS 1.7/macOS 10.9@
  */
 
 http_addrlist_t *			/* O - Connected address or NULL on failure */
@@ -64,26 +62,30 @@ httpAddrConnect2(
 {
   int			val;		/* Socket option value */
 #ifdef O_NONBLOCK
-  socklen_t		len;		/* Length of value */
-  http_addr_t		peer;		/* Peer address */
   int			flags,		/* Socket flags */
 			remaining;	/* Remaining timeout */
+  int			i,		/* Looping var */
+			nfds,		/* Number of file descriptors */
+			fds[100],	/* Socket file descriptors */
+			result;		/* Result from select() or poll() */
+  http_addrlist_t	*addrs[100];	/* Addresses */
 #  ifdef HAVE_POLL
-  struct pollfd		pfd;		/* Polled file descriptor */
+  struct pollfd		pfds[100];	/* Polled file descriptors */
 #  else
+  int			max_fd = -1;	/* Highest file descriptor */
   fd_set		input_set,	/* select() input set */
 			output_set;	/* select() output set */
   struct timeval	timeout;	/* Timeout */
 #  endif /* HAVE_POLL */
-  int			nfds;		/* Result from select()/poll() */
 #endif /* O_NONBLOCK */
 #ifdef DEBUG
+  socklen_t		len;		/* Length of value */
+  http_addr_t		peer;		/* Peer address */
   char			temp[256];	/* Temporary address string */
 #endif /* DEBUG */
 
 
-  DEBUG_printf(("httpAddrConnect2(addrlist=%p, sock=%p, msec=%d, cancel=%p)",
-                addrlist, sock, msec, cancel));
+  DEBUG_printf(("httpAddrConnect2(addrlist=%p, sock=%p, msec=%d, cancel=%p)", (void *)addrlist, (void *)sock, msec, (void *)cancel));
 
   if (!sock)
   {
@@ -95,218 +97,254 @@ httpAddrConnect2(
   if (cancel && *cancel)
     return (NULL);
 
-  if (msec <= 0 || getenv("CUPS_DISABLE_ASYNC_CONNECT"))
+  if (msec <= 0)
     msec = INT_MAX;
 
  /*
   * Loop through each address until we connect or run out of addresses...
   */
 
-  while (addrlist)
+  nfds      = 0;
+  remaining = msec;
+
+  while (remaining > 0)
   {
     if (cancel && *cancel)
-      return (NULL);
-
-   /*
-    * Create the socket...
-    */
-
-    DEBUG_printf(("2httpAddrConnect2: Trying %s:%d...",
-		  httpAddrString(&(addrlist->addr), temp, sizeof(temp)),
-		  httpAddrPort(&(addrlist->addr))));
-
-    if ((*sock = (int)socket(httpAddrFamily(&(addrlist->addr)), SOCK_STREAM,
-                             0)) < 0)
     {
-     /*
-      * Don't abort yet, as this could just be an issue with the local
-      * system not being configured with IPv4/IPv6/domain socket enabled...
-      */
+      while (nfds > 0)
+      {
+        nfds --;
+	httpAddrClose(NULL, fds[nfds]);
+      }
 
-      addrlist = addrlist->next;
-      continue;
+      return (NULL);
     }
 
-   /*
-    * Set options...
-    */
+    if (addrlist && nfds < (int)(sizeof(fds) / sizeof(fds[0])))
+    {
+     /*
+      * Create the socket...
+      */
 
-    val = 1;
-    setsockopt(*sock, SOL_SOCKET, SO_REUSEADDR, CUPS_SOCAST &val, sizeof(val));
+      DEBUG_printf(("2httpAddrConnect2: Trying %s:%d...", httpAddrString(&(addrlist->addr), temp, sizeof(temp)), httpAddrPort(&(addrlist->addr))));
+
+      if ((fds[nfds] = (int)socket(httpAddrFamily(&(addrlist->addr)), SOCK_STREAM, 0)) < 0)
+      {
+       /*
+	* Don't abort yet, as this could just be an issue with the local
+	* system not being configured with IPv4/IPv6/domain socket enabled.
+	*
+	* Just skip this address...
+	*/
+
+        addrlist = addrlist->next;
+	continue;
+      }
+
+     /*
+      * Set options...
+      */
+
+      val = 1;
+      setsockopt(fds[nfds], SOL_SOCKET, SO_REUSEADDR, CUPS_SOCAST &val, sizeof(val));
 
 #ifdef SO_REUSEPORT
-    val = 1;
-    setsockopt(*sock, SOL_SOCKET, SO_REUSEPORT, CUPS_SOCAST &val, sizeof(val));
+      val = 1;
+      setsockopt(fds[nfds], SOL_SOCKET, SO_REUSEPORT, CUPS_SOCAST &val, sizeof(val));
 #endif /* SO_REUSEPORT */
 
 #ifdef SO_NOSIGPIPE
-    val = 1;
-    setsockopt(*sock, SOL_SOCKET, SO_NOSIGPIPE, CUPS_SOCAST &val, sizeof(val));
+      val = 1;
+      setsockopt(fds[nfds], SOL_SOCKET, SO_NOSIGPIPE, CUPS_SOCAST &val, sizeof(val));
 #endif /* SO_NOSIGPIPE */
 
-   /*
-    * Using TCP_NODELAY improves responsiveness, especially on systems
-    * with a slow loopback interface...
-    */
+     /*
+      * Using TCP_NODELAY improves responsiveness, especially on systems
+      * with a slow loopback interface...
+      */
 
-    val = 1;
-    setsockopt(*sock, IPPROTO_TCP, TCP_NODELAY, CUPS_SOCAST &val, sizeof(val));
+      val = 1;
+      setsockopt(fds[nfds], IPPROTO_TCP, TCP_NODELAY, CUPS_SOCAST &val, sizeof(val));
 
 #ifdef FD_CLOEXEC
-   /*
-    * Close this socket when starting another process...
-    */
+     /*
+      * Close this socket when starting another process...
+      */
 
-    fcntl(*sock, F_SETFD, FD_CLOEXEC);
+      fcntl(fds[nfds], F_SETFD, FD_CLOEXEC);
 #endif /* FD_CLOEXEC */
 
 #ifdef O_NONBLOCK
-   /*
-    * Do an asynchronous connect by setting the socket non-blocking...
-    */
+     /*
+      * Do an asynchronous connect by setting the socket non-blocking...
+      */
 
-    DEBUG_printf(("httpAddrConnect2: Setting non-blocking connect()"));
+      DEBUG_printf(("httpAddrConnect2: Setting non-blocking connect()"));
 
-    flags = fcntl(*sock, F_GETFL, 0);
-    if (msec != INT_MAX)
-    {
-      DEBUG_puts("httpAddrConnect2: Setting non-blocking connect()");
-
-      fcntl(*sock, F_SETFL, flags | O_NONBLOCK);
-    }
+      flags = fcntl(fds[nfds], F_GETFL, 0);
+      fcntl(fds[nfds], F_SETFL, flags | O_NONBLOCK);
 #endif /* O_NONBLOCK */
 
-   /*
-    * Then connect...
-    */
+     /*
+      * Then connect...
+      */
 
-    if (!connect(*sock, &(addrlist->addr.addr), (socklen_t)httpAddrLength(&(addrlist->addr))))
-    {
-      DEBUG_printf(("1httpAddrConnect2: Connected to %s:%d...",
-		    httpAddrString(&(addrlist->addr), temp, sizeof(temp)),
-		    httpAddrPort(&(addrlist->addr))));
+      if (!connect(fds[nfds], &(addrlist->addr.addr), (socklen_t)httpAddrLength(&(addrlist->addr))))
+      {
+	DEBUG_printf(("1httpAddrConnect2: Connected to %s:%d...", httpAddrString(&(addrlist->addr), temp, sizeof(temp)), httpAddrPort(&(addrlist->addr))));
 
 #ifdef O_NONBLOCK
-      fcntl(*sock, F_SETFL, flags);
+	fcntl(fds[nfds], F_SETFL, flags);
 #endif /* O_NONBLOCK */
+
+	*sock = fds[nfds];
+
+	while (nfds > 0)
+	{
+	  nfds --;
+	  httpAddrClose(NULL, fds[nfds]);
+	}
+
+	return (addrlist);
+      }
+
+#ifdef WIN32
+      if (WSAGetLastError() != WSAEINPROGRESS && WSAGetLastError() != WSAEWOULDBLOCK)
+#else
+      if (errno != EINPROGRESS && errno != EWOULDBLOCK)
+#endif /* WIN32 */
+      {
+	DEBUG_printf(("1httpAddrConnect2: Unable to connect to %s:%d: %s", httpAddrString(&(addrlist->addr), temp, sizeof(temp)), httpAddrPort(&(addrlist->addr)), strerror(errno)));
+	httpAddrClose(NULL, fds[nfds]);
+	addrlist = addrlist->next;
+	continue;
+      }
+
+      fcntl(fds[nfds], F_SETFL, flags);
+
+#ifndef HAVE_POLL
+      if (fds[nfds] > max_fd)
+	max_fd = fds[nfds];
+#endif /* !HAVE_POLL */
+
+      addrs[nfds] = addrlist;
+      nfds ++;
+      addrlist = addrlist->next;
+    }
+
+   /*
+    * See if we can connect to any of the addresses so far...
+    */
+
+#ifdef O_NONBLOCK
+    DEBUG_puts("1httpAddrConnect2: Finishing async connect()");
+
+    do
+    {
+      if (cancel && *cancel)
+      {
+       /*
+	* Close this socket and return...
+	*/
+
+	DEBUG_puts("1httpAddrConnect2: Canceled connect()");
+
+	while (nfds > 0)
+	{
+	  nfds --;
+	  httpAddrClose(NULL, fds[nfds]);
+	}
+
+	*sock = -1;
+
+	return (NULL);
+      }
+
+#  ifdef HAVE_POLL
+      for (i = 0; i < nfds; i ++)
+      {
+	pfds[i].fd     = fds[i];
+	pfds[i].events = POLLIN | POLLOUT;
+      }
+
+      result = poll(pfds, (nfds_t)nfds, addrlist ? 100 : remaining > 250 ? 250 : remaining);
+
+      DEBUG_printf(("1httpAddrConnect2: poll() returned %d (%d)", result, errno));
+
+#  else
+      FD_ZERO(&input_set);
+      for (i = 0; i < nfds; i ++)
+	FD_SET(fds[i], &input_set);
+      output_set = input_set;
+
+      timeout.tv_sec  = 0;
+      timeout.tv_usec = (addrlist ? 100 : remaining > 250 ? 250 : remaining) * 1000;
+
+      result = select(max_fd + 1, &input_set, &output_set, NULL, &timeout);
+
+      DEBUG_printf(("1httpAddrConnect2: select() returned %d (%d)", result, errno));
+#  endif /* HAVE_POLL */
+    }
+#  ifdef WIN32
+    while (result < 0 && (WSAGetLastError() == WSAEINTR || WSAGetLastError() == WSAEWOULDBLOCK));
+#  else
+    while (result < 0 && (errno == EINTR || errno == EAGAIN));
+#  endif /* WIN32 */
+
+    if (result > 0)
+    {
+      for (i = 0; i < nfds; i ++)
+      {
+#  ifdef HAVE_POLL
+	DEBUG_printf(("pfds[%d].revents=%x\n", i, pfds[i].revents));
+	if (pfds[i].revents)
+#  else
+	if (FD_ISSET(fds[i], &input))
+#  endif /* HAVE_POLL */
+	{
+	  *sock    = fds[i];
+	  addrlist = addrs[i];
+
+#  ifdef DEBUG
+	  len   = sizeof(peer);
+	  if (!getpeername(fds[i], (struct sockaddr *)&peer, &len))
+	    DEBUG_printf(("1httpAddrConnect2: Connected to %s:%d...", httpAddrString(&peer, temp, sizeof(temp)), httpAddrPort(&peer)));
+#  endif /* DEBUG */
+	}
+	else
+	  httpAddrClose(NULL, fds[i]);
+      }
 
       return (addrlist);
     }
-
-#ifdef O_NONBLOCK
-#  ifdef WIN32
-    if (WSAGetLastError() == WSAEINPROGRESS ||
-        WSAGetLastError() == WSAEWOULDBLOCK)
-#  else
-    if (errno == EINPROGRESS || errno == EWOULDBLOCK)
-#  endif /* WIN32 */
-    {
-      DEBUG_puts("1httpAddrConnect2: Finishing async connect()");
-
-      fcntl(*sock, F_SETFL, flags);
-
-      for (remaining = msec; remaining > 0; remaining -= 250)
-      {
-	do
-        {
-          if (cancel && *cancel)
-          {
-	   /*
-	    * Close this socket and return...
-	    */
-
-            DEBUG_puts("1httpAddrConnect2: Canceled connect()");
-
-            httpAddrClose(NULL, *sock);
-
-	    *sock = -1;
-
-	    return (NULL);
-          }
-
-#  ifdef HAVE_POLL
-	  pfd.fd     = *sock;
-	  pfd.events = POLLIN | POLLOUT;
-
-          nfds = poll(&pfd, 1, remaining > 250 ? 250 : remaining);
-
-	  DEBUG_printf(("1httpAddrConnect2: poll() returned %d (%d)", nfds,
-	                errno));
-
-#  else
-	  FD_ZERO(&input_set);
-	  FD_SET(*sock, &input_set);
-	  output_set = input_set;
-
-	  timeout.tv_sec  = 0;
-	  timeout.tv_usec = (remaining > 250 ? 250 : remaining) * 1000;
-
-	  nfds = select(*sock + 1, &input_set, &output_set, NULL, &timeout);
-
-	  DEBUG_printf(("1httpAddrConnect2: select() returned %d (%d)", nfds,
-	                errno));
-#  endif /* HAVE_POLL */
-	}
-#  ifdef WIN32
-	while (nfds < 0 && (WSAGetLastError() == WSAEINTR ||
-			    WSAGetLastError() == WSAEWOULDBLOCK));
-#  else
-	while (nfds < 0 && (errno == EINTR || errno == EAGAIN));
-#  endif /* WIN32 */
-
-        if (nfds > 0)
-        {
-          len = sizeof(peer);
-          if (!getpeername(*sock, (struct sockaddr *)&peer, &len))
-          {
-	    DEBUG_printf(("1httpAddrConnect2: Connected to %s:%d...",
-			  httpAddrString(&peer, temp, sizeof(temp)),
-			  httpAddrPort(&peer)));
-
-	    return (addrlist);
-	  }
-
-          break;
-        }
-      }
-    }
 #endif /* O_NONBLOCK */
 
-    DEBUG_printf(("1httpAddrConnect2: Unable to connect to %s:%d: %s",
-		  httpAddrString(&(addrlist->addr), temp, sizeof(temp)),
-		  httpAddrPort(&(addrlist->addr)), strerror(errno)));
-
-#ifndef WIN32
-    if (errno == EINPROGRESS)
-      errno = ETIMEDOUT;
-#endif /* !WIN32 */
-
-   /*
-    * Close this socket and move to the next address...
-    */
-
-    httpAddrClose(NULL, *sock);
-
-    *sock    = -1;
-    addrlist = addrlist->next;
+    if (addrlist)
+      remaining -= 100;
+    else
+      remaining -= 250;
   }
 
-  if (!addrlist)
+  while (nfds > 0)
+  {
+    nfds --;
+    httpAddrClose(NULL, fds[nfds]);
+  }
+
 #ifdef WIN32
-    _cupsSetError(IPP_STATUS_ERROR_SERVICE_UNAVAILABLE, "Connection failed", 0);
+  _cupsSetError(IPP_STATUS_ERROR_SERVICE_UNAVAILABLE, "Connection failed", 0);
 #else
-    _cupsSetError(IPP_STATUS_ERROR_SERVICE_UNAVAILABLE, strerror(errno), 0);
+  _cupsSetError(IPP_STATUS_ERROR_SERVICE_UNAVAILABLE, strerror(errno), 0);
 #endif /* WIN32 */
 
-  return (addrlist);
+  return (NULL);
 }
-
 
 
 /*
  * 'httpAddrCopyList()' - Copy an address list.
  *
- * @since CUPS 1.7/OS X 10.9@
+ * @since CUPS 1.7/macOS 10.9@
  */
 
 http_addrlist_t	*			/* O - New address list or @code NULL@ on error */
@@ -355,7 +393,7 @@ httpAddrCopyList(
 /*
  * 'httpAddrFreeList()' - Free an address list.
  *
- * @since CUPS 1.2/OS X 10.5@
+ * @since CUPS 1.2/macOS 10.5@
  */
 
 void
@@ -383,7 +421,7 @@ httpAddrFreeList(
 /*
  * 'httpAddrGetList()' - Get a list of addresses for a hostname.
  *
- * @since CUPS 1.2/OS X 10.5@
+ * @since CUPS 1.2/macOS 10.5@
  */
 
 http_addrlist_t	*			/* O - List of addresses or NULL */
@@ -865,8 +903,3 @@ httpAddrGetList(const char *hostname,	/* I - Hostname, IP address, or NULL for p
 
   return (first);
 }
-
-
-/*
- * End of "$Id: http-addrlist.c 11645 2014-02-27 16:35:53Z msweet $".
- */

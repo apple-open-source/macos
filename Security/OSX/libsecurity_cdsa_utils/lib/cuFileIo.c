@@ -32,9 +32,18 @@
 #include "cuFileIo.h"
 
 int writeFile(
+              const char			*fileName,
+              const unsigned char	*bytes,
+              unsigned              numBytes)
+{
+    size_t n = numBytes;
+    return writeFileSizet(fileName, bytes, n);
+}
+
+int writeFileSizet(
 	const char			*fileName,
 	const unsigned char	*bytes,
-	unsigned			numBytes)
+	size_t			numBytes)
 {
 	int		rtn;
 	int 	fd;

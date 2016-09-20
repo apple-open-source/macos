@@ -31,7 +31,7 @@ extern "C" {
 /*
  * Size of giant digit.
  */
-#if	NeXT || __i386__ || __i486__
+#if	NeXT || __i386__ || __i486__ || __x86_64__
 
 typedef unsigned int giantDigit;
 

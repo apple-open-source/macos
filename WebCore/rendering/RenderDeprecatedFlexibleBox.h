@@ -31,30 +31,30 @@ class FlexBoxIterator;
 
 class RenderDeprecatedFlexibleBox final : public RenderBlock {
 public:
-    RenderDeprecatedFlexibleBox(Element&, Ref<RenderStyle>&&);
+    RenderDeprecatedFlexibleBox(Element&, RenderStyle&&);
     virtual ~RenderDeprecatedFlexibleBox();
 
     Element& element() const { return downcast<Element>(nodeForNonAnonymous()); }
 
-    virtual const char* renderName() const override;
+    const char* renderName() const override;
 
-    virtual void styleWillChange(StyleDifference, const RenderStyle& newStyle) override;
+    void styleWillChange(StyleDifference, const RenderStyle& newStyle) override;
 
-    virtual void layoutBlock(bool relayoutChildren, LayoutUnit pageHeight = 0) override;
+    void layoutBlock(bool relayoutChildren, LayoutUnit pageHeight = 0) override;
     void layoutHorizontalBox(bool relayoutChildren);
     void layoutVerticalBox(bool relayoutChildren);
 
     bool isStretchingChildren() const { return m_stretchingChildren; }
 
-    virtual bool avoidsFloats() const override { return true; }
-    virtual bool canCollapseAnonymousBlockChild() const override { return false; }
+    bool avoidsFloats() const override { return true; }
+    bool canDropAnonymousBlockChild() const override { return false; }
 
     void placeChild(RenderBox* child, const LayoutPoint& location, LayoutSize* childLayoutDelta = nullptr);
 
 private:
-    virtual bool isDeprecatedFlexibleBox() const override { return true; }
-    virtual void computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const override;
-    virtual void computePreferredLogicalWidths() override;
+    bool isDeprecatedFlexibleBox() const override { return true; }
+    void computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const override;
+    void computePreferredLogicalWidths() override;
 
     LayoutUnit allowedChildFlex(RenderBox* child, bool expanding, unsigned group);
 

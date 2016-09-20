@@ -46,13 +46,6 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		182BB354146F1117000BF1F3 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 1844611E146E86A900B12992 /* libsecurity_cdsa_plugin.xcodeproj */;
-			proxyType = 1;
-			remoteGlobalIDString = C2C38A530535EDE600D7421F;
-			remoteInfo = libsecurity_cdsa_plugin_generate;
-		};
 		18446123146E86A900B12992 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 1844611E146E86A900B12992 /* libsecurity_cdsa_plugin.xcodeproj */;
@@ -93,16 +86,16 @@
 		C2B5C4D90534C6AA00AF53F5 /* certGroupUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = certGroupUtils.cpp; sourceTree = "<group>"; };
 		C2B5C4DA0534C6AA00AF53F5 /* certGroupUtils.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = certGroupUtils.h; sourceTree = "<group>"; };
 		C2B5C4DF0534C6AA00AF53F5 /* tpCertGroup.cpp */ = {isa = PBXFileReference; fileEncoding = 30; indentWidth = 8; lastKnownFileType = sourcecode.cpp.cpp; path = tpCertGroup.cpp; sourceTree = "<group>"; tabWidth = 8; usesTabs = 1; };
-		C2B5C4E00534C6AA00AF53F5 /* TPCertInfo.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = TPCertInfo.cpp; sourceTree = "<group>"; };
+		C2B5C4E00534C6AA00AF53F5 /* TPCertInfo.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = TPCertInfo.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C2B5C4E10534C6AA00AF53F5 /* TPCertInfo.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = TPCertInfo.h; sourceTree = "<group>"; };
-		C2B5C4E20534C6AA00AF53F5 /* tpCredRequest.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = tpCredRequest.cpp; sourceTree = "<group>"; };
+		C2B5C4E20534C6AA00AF53F5 /* tpCredRequest.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = tpCredRequest.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C2B5C4E30534C6AA00AF53F5 /* TPCrlInfo.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = TPCrlInfo.cpp; sourceTree = "<group>"; };
 		C2B5C4E40534C6AA00AF53F5 /* TPCrlInfo.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = TPCrlInfo.h; sourceTree = "<group>"; };
 		C2B5C4E50534C6AA00AF53F5 /* tpCrlVerify.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = tpCrlVerify.cpp; sourceTree = "<group>"; };
 		C2B5C4E60534C6AA00AF53F5 /* tpCrlVerify.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = tpCrlVerify.h; sourceTree = "<group>"; };
 		C2B5C4E70534C6AA00AF53F5 /* TPDatabase.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = TPDatabase.cpp; sourceTree = "<group>"; };
 		C2B5C4E80534C6AA00AF53F5 /* TPDatabase.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = TPDatabase.h; sourceTree = "<group>"; };
-		C2B5C4E90534C6AA00AF53F5 /* tpdebugging.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = tpdebugging.h; sourceTree = "<group>"; };
+		C2B5C4E90534C6AA00AF53F5 /* tpdebugging.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = tpdebugging.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
 		C2B5C4EA0534C6AA00AF53F5 /* TPNetwork.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = TPNetwork.cpp; sourceTree = "<group>"; };
 		C2B5C4EB0534C6AA00AF53F5 /* TPNetwork.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = TPNetwork.h; sourceTree = "<group>"; };
 		C2B5C4EC0534C6AA00AF53F5 /* tpPolicies.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = tpPolicies.cpp; sourceTree = "<group>"; };
@@ -256,7 +249,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				182BB355146F1117000BF1F3 /* PBXTargetDependency */,
 			);
 			name = libsecurity_apple_x509_tp;
 			productInstallPath = /usr/local/lib;
@@ -270,7 +262,7 @@
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0700;
+				LastUpgradeCheck = 0800;
 			};
 			buildConfigurationList = C27AD29B0987FCDD001272E0 /* Build configuration list for PBXProject "libsecurity_apple_x509_tp" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -337,14 +329,6 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
-/* Begin PBXTargetDependency section */
-		182BB355146F1117000BF1F3 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			name = libsecurity_cdsa_plugin_generate;
-			targetProxy = 182BB354146F1117000BF1F3 /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
-
 /* Begin XCBuildConfiguration section */
 		C27AD2980987FCDD001272E0 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -366,13 +350,22 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1844611C146E85EA00B12992 /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = lossless;
+				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				ONLY_ACTIVE_ARCH = YES;
 			};
 			name = Debug;
 		};
@@ -380,13 +373,20 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1844611C146E85EA00B12992 /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = "respect-asset-catalog";
+				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
 			};
 			name = Release;
 		};

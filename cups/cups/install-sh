@@ -1,7 +1,5 @@
 #!/bin/sh
 #
-# "$Id: install-sh 11093 2013-07-03 20:48:42Z msweet $"
-#
 # Install a program, script, or datafile.
 #
 # Copyright 2008-2012 by Apple Inc.

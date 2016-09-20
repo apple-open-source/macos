@@ -16,6 +16,8 @@
 #ifndef __mod_h2__h2_stream__
 #define __mod_h2__h2_stream__
 
+#include "h2.h"
+
 /**
  * A HTTP/2 stream, e.g. a client request+response in HTTP/1.1 terms.
  * 
@@ -28,61 +30,46 @@
  * The h2_response gives the HEADER frames to sent to the client, followed
  * by DATA frames read from the h2_stream until EOS is reached.
  */
-#include "h2_io.h"
-
-typedef enum {
-    H2_STREAM_ST_IDLE,
-    H2_STREAM_ST_OPEN,
-    H2_STREAM_ST_RESV_LOCAL,
-    H2_STREAM_ST_RESV_REMOTE,
-    H2_STREAM_ST_CLOSED_INPUT,
-    H2_STREAM_ST_CLOSED_OUTPUT,
-    H2_STREAM_ST_CLOSED,
-} h2_stream_state_t;
 
 struct h2_mplx;
 struct h2_priority;
 struct h2_request;
 struct h2_response;
 struct h2_session;
-struct h2_task;
+struct h2_sos;
+struct h2_bucket_beam;
 
 typedef struct h2_stream h2_stream;
 
 struct h2_stream {
     int id;                     /* http2 stream id */
-    int initiated_on;           /* http2 stream id this was initiated on or 0 */
     h2_stream_state_t state;    /* http/2 state of this stream */
     struct h2_session *session; /* the session this stream belongs to */
     
     apr_pool_t *pool;           /* the memory pool for this stream */
     struct h2_request *request; /* the request made in this stream */
-    struct h2_response *response; /* the response, once ready */
+    struct h2_bucket_beam *input;
+    int request_headers_added;  /* number of request headers added */
     
-    int aborted;                /* was aborted */
-    int suspended;              /* DATA sending has been suspended */
+    struct h2_response *response;
+    struct h2_bucket_beam *output;
+    apr_bucket_brigade *buffer;
+    apr_bucket_brigade *tmp;
+    apr_array_header_t *files;  /* apr_file_t* we collected during I/O */
+
     int rst_error;              /* stream error for RST_STREAM */
-    int scheduled;              /* stream has been scheduled */
-    int submitted;              /* response HEADER has been sent */
+    unsigned int aborted   : 1; /* was aborted */
+    unsigned int suspended : 1; /* DATA sending has been suspended */
+    unsigned int scheduled : 1; /* stream has been scheduled */
+    unsigned int started   : 1; /* stream has started processing */
+    unsigned int submitted : 1; /* response HEADER has been sent */
     
     apr_off_t input_remaining;  /* remaining bytes on input as advertised via content-length */
-    apr_bucket_brigade *bbin;   /* input DATA */
-    
-    apr_bucket_brigade *bbout;  /* output DATA */
     apr_off_t data_frames_sent; /* # of DATA frames sent out for this stream */
 };
 
 
 #define H2_STREAM_RST(s, def)    (s->rst_error? s->rst_error : (def))
-
-/**
- * Create a stream in IDLE state.
- * @param id      the stream identifier
- * @param pool    the memory pool to use for this stream
- * @param session the session this stream belongs to
- * @return the newly created IDLE stream
- */
-h2_stream *h2_stream_create(int id, apr_pool_t *pool, struct h2_session *session);
 
 /**
  * Create a stream in OPEN state.
@@ -91,15 +78,18 @@ h2_stream *h2_stream_create(int id, apr_pool_t *pool, struct h2_session *session
  * @param session the session this stream belongs to
  * @return the newly opened stream
  */
-h2_stream *h2_stream_open(int id, apr_pool_t *pool, struct h2_session *session);
+h2_stream *h2_stream_open(int id, apr_pool_t *pool, struct h2_session *session,
+                          int initiated_on, const struct h2_request *req);
 
 /**
- * Destroy any resources held by this stream. Will destroy memory pool
- * if still owned by the stream.
- *
- * @param stream the stream to destroy
+ * Cleanup any resources still held by the stream, called by last bucket.
  */
-apr_status_t h2_stream_destroy(h2_stream *stream);
+void h2_stream_eos_destroy(h2_stream *stream);
+
+/**
+ * Destroy memory pool if still owned by the stream.
+ */
+void h2_stream_destroy(h2_stream *stream);
 
 /**
  * Removes stream from h2_session and destroys it.
@@ -113,7 +103,7 @@ void h2_stream_cleanup(h2_stream *stream);
  * destruction to take the pool with it.
  *
  * @param stream the stream to detach the pool from
- * @param the detached memmory pool or NULL if stream no longer has one
+ * @result the detached memory pool or NULL if stream no longer has one
  */
 apr_pool_t *h2_stream_detach_pool(h2_stream *stream);
 
@@ -125,15 +115,6 @@ apr_pool_t *h2_stream_detach_pool(h2_stream *stream);
  * @param r the request with all the meta data
  */
 apr_status_t h2_stream_set_request(h2_stream *stream, request_rec *r);
-
-/**
- * Initialize stream->request with the given h2_request.
- * 
- * @param stream the stream to init the request for
- * @param req the request for initializing, will be copied
- */
-void h2_stream_set_h2_request(h2_stream *stream, int initiated_on,
-                              const struct h2_request *req);
 
 /*
  * Add a HTTP/2 header (including pseudo headers) or trailer 
@@ -164,7 +145,7 @@ apr_status_t h2_stream_close_input(h2_stream *stream);
  * @param len the number of bytes to write
  */
 apr_status_t h2_stream_write_data(h2_stream *stream,
-                                  const char *data, size_t len);
+                                  const char *data, size_t len, int eos);
 
 /**
  * Reset the stream. Stream write/reads will return errors afterwards.
@@ -172,7 +153,7 @@ apr_status_t h2_stream_write_data(h2_stream *stream,
  * @param stream the stream to reset
  * @param error_code the HTTP/2 error code
  */
-void h2_stream_rst(h2_stream *streamm, int error_code);
+void h2_stream_rst(h2_stream *stream, int error_code);
 
 /**
  * Schedule the stream for execution. All header information must be
@@ -184,7 +165,7 @@ void h2_stream_rst(h2_stream *streamm, int error_code);
  * @param cmp    priority comparision
  * @param ctx    context for comparision
  */
-apr_status_t h2_stream_schedule(h2_stream *stream, int eos,
+apr_status_t h2_stream_schedule(h2_stream *stream, int eos, int push_enabled,
                                 h2_stream_pri_cmp *cmp, void *ctx);
 
 /**
@@ -192,20 +173,27 @@ apr_status_t h2_stream_schedule(h2_stream *stream, int eos,
  * @param stream the stream to check on
  * @return != 0 iff stream has been scheduled
  */
-int h2_stream_is_scheduled(h2_stream *stream);
+int h2_stream_is_scheduled(const h2_stream *stream);
+
+struct h2_response *h2_stream_get_response(h2_stream *stream);
 
 /**
  * Set the response for this stream. Invoked when all meta data for
  * the stream response has been collected.
  * 
  * @param stream the stream to set the response for
- * @param resonse the response data for the stream
+ * @param response the response data for the stream
  * @param bb bucket brigade with output data for the stream. Optional,
  *        may be incomplete.
  */
 apr_status_t h2_stream_set_response(h2_stream *stream, 
                                     struct h2_response *response,
-                                    apr_bucket_brigade *bb);
+                                    struct h2_bucket_beam *output);
+
+/**
+ * Set the HTTP error status as response.
+ */
+apr_status_t h2_stream_set_error(h2_stream *stream, int http_status);
 
 /**
  * Do a speculative read on the stream output to determine the 
@@ -220,25 +208,8 @@ apr_status_t h2_stream_set_response(h2_stream *stream,
  *         APR_EAGAIN if not data is available and end of stream has not been
  *         reached yet.
  */
-apr_status_t h2_stream_prep_read(h2_stream *stream, 
-                                 apr_off_t *plen, int *peos);
-
-/**
- * Read data from the stream output.
- * 
- * @param stream the stream to read from
- * @param cb callback to invoke for byte chunks read. Might be invoked
- *        multiple times (with different values) for one read operation.
- * @param ctx context data for callback
- * @param plen (in-/out) max. number of bytes to read and on return actual
- *        number of bytes read
- * @param peos (out) != 0 iff end of stream has been reached while reading
- * @return APR_SUCCESS if out information was computed successfully.
- *         APR_EAGAIN if not data is available and end of stream has not been
- *         reached yet.
- */
-apr_status_t h2_stream_readx(h2_stream *stream, h2_io_data_cb *cb, 
-                             void *ctx, apr_off_t *plen, int *peos);
+apr_status_t h2_stream_out_prepare(h2_stream *stream, 
+                                   apr_off_t *plen, int *peos);
 
 /**
  * Read a maximum number of bytes into the bucket brigade.
@@ -256,6 +227,16 @@ apr_status_t h2_stream_read_to(h2_stream *stream, apr_bucket_brigade *bb,
                                apr_off_t *plen, int *peos);
 
 /**
+ * Get optional trailers for this stream, may be NULL. Meaningful
+ * results can only be expected when the end of the response body has
+ * been reached.
+ *
+ * @param stream to ask for trailers
+ * @return trailers for NULL
+ */
+apr_table_t *h2_stream_get_trailers(h2_stream *stream);
+
+/**
  * Set the suspended state of the stream.
  * @param stream the stream to change state on
  * @param suspended boolean value if stream is suspended
@@ -267,21 +248,21 @@ void h2_stream_set_suspended(h2_stream *stream, int suspended);
  * @param stream the stream to check
  * @return != 0 iff stream is suspended.
  */
-int h2_stream_is_suspended(h2_stream *stream);
+int h2_stream_is_suspended(const h2_stream *stream);
 
 /**
  * Check if the stream has open input.
  * @param stream the stream to check
  * @return != 0 iff stream has open input.
  */
-int h2_stream_input_is_open(h2_stream *stream);
+int h2_stream_input_is_open(const h2_stream *stream);
 
 /**
  * Check if the stream has not submitted a response or RST yet.
  * @param stream the stream to check
  * @return != 0 iff stream has not submitted a response or RST.
  */
-int h2_stream_needs_submit(h2_stream *stream);
+int h2_stream_needs_submit(const h2_stream *stream);
 
 /**
  * Submit any server push promises on this stream and schedule
@@ -290,16 +271,6 @@ int h2_stream_needs_submit(h2_stream *stream);
  * @param stream the stream for which to submit
  */
 apr_status_t h2_stream_submit_pushes(h2_stream *stream);
-
-/**
- * Get optional trailers for this stream, may be NULL. Meaningful
- * results can only be expected when the end of the response body has
- * been reached.
- *
- * @param stream to ask for trailers
- * @return trailers for NULL
- */
-apr_table_t *h2_stream_get_trailers(h2_stream *stream);
 
 /**
  * Get priority information set for this stream.

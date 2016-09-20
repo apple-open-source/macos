@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004, 2006, 2009-2011, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004, 2006, 2009-2011, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -31,13 +31,10 @@
  * - initial revision
  */
 
-#include <mach/mach.h>
-#include <mach/mach_error.h>
-
-#include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCPrivate.h>
 #include "SCDynamicStoreInternal.h"
 #include "config.h"		/* MiG generated file */
+#include <mach/mach_error.h>
+
 
 static mach_msg_id_t
 waitForMachMessage(mach_port_t port)
@@ -138,6 +135,8 @@ SCDynamicStoreNotifyWait(SCDynamicStoreRef store)
 		SC_log(LOG_NOTICE, "oldNotify != MACH_PORT_NULL");
 	}
 
+	os_activity_scope(storePrivate->activity);
+
     retry :
 
 	status = notifyviaport(storePrivate->server,
@@ -193,6 +192,8 @@ SCDynamicStoreNotifyWait(SCDynamicStoreRef store)
 		_SCErrorSet(kSCStatusNoStoreServer);
 		return FALSE;
 	}
+
+	os_activity_scope(storePrivate->activity);
 
 	// something changed, cancelling notification request
 	status = notifycancel(storePrivate->server,

@@ -35,15 +35,15 @@
 BEGIN
 {
 	/*
-	 * Let's just do this for 5 seconds.
+	 * Let's just do this for 2 seconds.
 	 */
-	timeout = timestamp + 5000000000;
+	timeout = timestamp + 2000000000;
 }
 
 pid$1:a.out:main:
 {}
 
-profile:::tick-4
+profile:::tick-1
 /timestamp > timeout/
 {
 	exit(0);

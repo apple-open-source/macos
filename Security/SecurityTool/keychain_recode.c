@@ -27,7 +27,7 @@
 
 #include "keychain_utilities.h"
 #include "readline.h"
-#include "security.h"
+#include "security_tool.h"
 
 #include <pwd.h>
 #include <stdio.h>

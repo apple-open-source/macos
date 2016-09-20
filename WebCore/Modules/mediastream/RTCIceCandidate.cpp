@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2012 Google Inc. All rights reserved.
  * Copyright (C) 2013 Nokia Corporation and/or its subsidiary(-ies).
+ * Copyright (C) 2015, 2016 Ericsson AB. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,83 +32,59 @@
 
 #include "config.h"
 
-#if ENABLE(MEDIA_STREAM)
+#if ENABLE(WEB_RTC)
 
 #include "RTCIceCandidate.h"
 
 #include "Dictionary.h"
 #include "ExceptionCode.h"
-#include "RTCIceCandidateDescriptor.h"
 
 namespace WebCore {
 
 RefPtr<RTCIceCandidate> RTCIceCandidate::create(const Dictionary& dictionary, ExceptionCode& ec)
 {
     String candidate;
-    bool ok = dictionary.get("candidate", candidate);
-    if (ok && candidate.isEmpty()) {
-        ec = TYPE_MISMATCH_ERR;
+    if (!dictionary.get("candidate", candidate)) {
+        ec = TypeError;
         return nullptr;
     }
 
     String sdpMid;
-    ok = dictionary.get("sdpMid", sdpMid);
-    if (ok && sdpMid.isEmpty()) {
-        ec = TYPE_MISMATCH_ERR;
+    dictionary.getWithUndefinedOrNullCheck("sdpMid", sdpMid);
+
+    Optional<unsigned short> sdpMLineIndex;
+    String sdpMLineIndexString;
+
+    if (dictionary.getWithUndefinedOrNullCheck("sdpMLineIndex", sdpMLineIndexString)) {
+        bool intConversionOk;
+        unsigned result = sdpMLineIndexString.toUIntStrict(&intConversionOk);
+        if (!intConversionOk || result > USHRT_MAX) {
+            ec = TypeError;
+            return nullptr;
+        }
+        sdpMLineIndex = result;
+    }
+
+    if (sdpMid.isNull() && !sdpMLineIndex) {
+        ec = TypeError;
         return nullptr;
     }
 
-    String tempLineIndex;
-    unsigned short sdpMLineIndex = 0;
-    // First we check if the property exists in the Dictionary.
-    ok = dictionary.get("sdpMLineIndex", tempLineIndex);
-    // Then we try to convert it to a number and check if it was successful.
-    if (ok) {
-        bool intConversionOk;
-        sdpMLineIndex = tempLineIndex.toUIntStrict(&intConversionOk);
-        if (!intConversionOk) {
-            ec = TYPE_MISMATCH_ERR;
-            return nullptr;
-        }
-    }
-
-    return adoptRef(*new RTCIceCandidate(RTCIceCandidateDescriptor::create(candidate, sdpMid, sdpMLineIndex)));
+    return adoptRef(new RTCIceCandidate(candidate, sdpMid, sdpMLineIndex));
 }
 
-Ref<RTCIceCandidate> RTCIceCandidate::create(PassRefPtr<RTCIceCandidateDescriptor> descriptor)
+Ref<RTCIceCandidate> RTCIceCandidate::create(const String& candidate, const String& sdpMid, Optional<unsigned short> sdpMLineIndex)
 {
-    return adoptRef(*new RTCIceCandidate(descriptor));
+    return adoptRef(*new RTCIceCandidate(candidate, sdpMid, sdpMLineIndex));
 }
 
-RTCIceCandidate::RTCIceCandidate(PassRefPtr<RTCIceCandidateDescriptor> descriptor)
-    : m_descriptor(descriptor)
+RTCIceCandidate::RTCIceCandidate(const String& candidate, const String& sdpMid, Optional<unsigned short> sdpMLineIndex)
+    : m_candidate(candidate)
+    , m_sdpMid(sdpMid)
+    , m_sdpMLineIndex(sdpMLineIndex)
 {
-}
-
-RTCIceCandidate::~RTCIceCandidate()
-{
-}
-
-const String& RTCIceCandidate::candidate() const
-{
-    return m_descriptor->candidate();
-}
-
-const String& RTCIceCandidate::sdpMid() const
-{
-    return m_descriptor->sdpMid();
-}
-
-unsigned short RTCIceCandidate::sdpMLineIndex() const
-{
-    return m_descriptor->sdpMLineIndex();
-}
-
-RTCIceCandidateDescriptor* RTCIceCandidate::descriptor()
-{
-    return m_descriptor.get();
 }
 
 } // namespace WebCore
 
-#endif // ENABLE(MEDIA_STREAM)
+#endif // ENABLE(WEB_RTC)

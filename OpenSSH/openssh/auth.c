@@ -1,4 +1,4 @@
-/* $OpenBSD: auth.c,v 1.111 2015/05/01 04:17:51 djm Exp $ */
+/* $OpenBSD: auth.c,v 1.113 2015/08/21 03:42:19 djm Exp $ */
 /*
  * Copyright (c) 2000 Markus Friedl.  All rights reserved.
  *
@@ -212,7 +212,7 @@ allowed_user(struct passwd * pw)
 	}
 	if (options.num_deny_groups > 0 || options.num_allow_groups > 0) {
 		/* Get the user's group access list (primary and supplementary) */
-		if (ga_init(pw) == 0) {
+		if (ga_init(pw->pw_name, pw->pw_gid) == 0) {
 			logit("User %.100s from %.100s not allowed because "
 			    "not in any group", pw->pw_name, hostname);
 			return 0;
@@ -352,7 +352,9 @@ auth_root_allowed(const char *method)
 	case PERMIT_YES:
 		return 1;
 	case PERMIT_NO_PASSWD:
-		if (strcmp(method, "password") != 0)
+		if (strcmp(method, "publickey") == 0 ||
+		    strcmp(method, "hostbased") == 0 ||
+		    strcmp(method, "gssapi-with-mic") == 0)
 			return 1;
 		break;
 	case PERMIT_FORCED_ONLY:

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -52,16 +52,28 @@ static WebMouseEvent::Button mouseButtonForMouseEvent(const MouseEvent* mouseEve
     if (!mouseEvent)
         return WebMouseEvent::NoButton;
 
-    if (!mouseEvent->buttonDown())
+    if (!mouseEvent->buttonDown() || !mouseEvent->isTrusted())
         return WebMouseEvent::NoButton;
 
     return static_cast<WebMouseEvent::Button>(mouseEvent->button());
 }
 
+static WebMouseEvent::SyntheticClickType syntheticClickTypeForMouseEvent(const MouseEvent* mouseEvent)
+{
+    if (!mouseEvent)
+        return WebMouseEvent::NoTap;
+    
+    if (!mouseEvent->buttonDown() || !mouseEvent->isTrusted())
+        return WebMouseEvent::NoTap;
+    
+    return static_cast<WebMouseEvent::SyntheticClickType>(mouseEvent->syntheticClickType());
+}
+
 WebEvent::Modifiers InjectedBundleNavigationAction::modifiersForNavigationAction(const NavigationAction& navigationAction)
 {
     uint32_t modifiers = 0;
-    if (const UIEventWithKeyState* keyStateEvent = findEventWithKeyState(const_cast<Event*>(navigationAction.event()))) {
+    const UIEventWithKeyState* keyStateEvent = findEventWithKeyState(const_cast<Event*>(navigationAction.event()));
+    if (keyStateEvent && keyStateEvent->isTrusted()) {
         if (keyStateEvent->shiftKey())
             modifiers |= WebEvent::ShiftKey;
         if (keyStateEvent->ctrlKey())
@@ -80,6 +92,10 @@ WebMouseEvent::Button InjectedBundleNavigationAction::mouseButtonForNavigationAc
     return mouseButtonForMouseEvent(mouseEventForNavigationAction(navigationAction));
 }
 
+WebMouseEvent::SyntheticClickType InjectedBundleNavigationAction::syntheticClickTypeForNavigationAction(const NavigationAction& navigationAction)
+{
+    return syntheticClickTypeForMouseEvent(mouseEventForNavigationAction(navigationAction));
+}
 
 Ref<InjectedBundleNavigationAction> InjectedBundleNavigationAction::create(WebFrame* frame, const NavigationAction& action, PassRefPtr<FormState> formState)
 {
@@ -90,12 +106,14 @@ InjectedBundleNavigationAction::InjectedBundleNavigationAction(WebFrame* frame, 
     : m_navigationType(navigationAction.type())
     , m_modifiers(modifiersForNavigationAction(navigationAction))
     , m_mouseButton(WebMouseEvent::NoButton)
+    , m_downloadAttribute(navigationAction.downloadAttribute())
     , m_shouldOpenExternalURLs(navigationAction.shouldOpenExternalURLsPolicy() == ShouldOpenExternalURLsPolicy::ShouldAllow || navigationAction.shouldOpenExternalURLsPolicy() == ShouldOpenExternalURLsPolicy::ShouldAllowExternalSchemes)
     , m_shouldTryAppLinks(navigationAction.shouldOpenExternalURLsPolicy() == ShouldOpenExternalURLsPolicy::ShouldAllow)
 {
     if (const MouseEvent* mouseEvent = mouseEventForNavigationAction(navigationAction)) {
         m_hitTestResult = InjectedBundleHitTestResult::create(frame->coreFrame()->eventHandler().hitTestResultAtPoint(mouseEvent->absoluteLocation()));
         m_mouseButton   = mouseButtonForMouseEvent(mouseEvent);
+        m_syntheticClickType = syntheticClickTypeForNavigationAction(navigationAction);
     }
 
     RefPtr<FormState> formState = prpFormState;

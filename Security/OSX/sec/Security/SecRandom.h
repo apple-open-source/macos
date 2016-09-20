@@ -53,10 +53,12 @@ extern const SecRandomRef kSecRandomDefault
 /*!
 	@function SecRandomCopyBytes
 	@abstract Return count random bytes in *bytes, allocated by the caller.
+         It is critical to check the return value for error
 	@result Return 0 on success or -1 if something went wrong, check errno
     to find out the real error.
 */
 int SecRandomCopyBytes(SecRandomRef __nullable rnd, size_t count, uint8_t *bytes)
+    __attribute__ ((warn_unused_result))
     __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_2_0);
 
 CF_IMPLICIT_BRIDGING_DISABLED

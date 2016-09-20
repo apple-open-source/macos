@@ -242,7 +242,7 @@ static int test_nistkdf_hmac(CCDigestAlgorithm alg) {
     return 1;
 }
 
-int CommonNISTKDF(int argc, char *const *argv)
+int CommonNISTKDF(int __unused argc, char *const * __unused argv)
 {
 	plan_tests(155);
     if(verbose) diag("Starting nistkdf_hmac tests\n");

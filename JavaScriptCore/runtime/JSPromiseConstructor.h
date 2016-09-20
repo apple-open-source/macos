@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,39 +26,35 @@
 #ifndef JSPromiseConstructor_h
 #define JSPromiseConstructor_h
 
-#if ENABLE(PROMISES)
-
 #include "InternalFunction.h"
 
 namespace JSC {
 
 class JSPromise;
 class JSPromisePrototype;
+class GetterSetter;
 
 class JSPromiseConstructor : public InternalFunction {
 public:
     typedef InternalFunction Base;
-    static const unsigned StructureFlags = Base::StructureFlags | OverridesGetOwnPropertySlot;
+    static const unsigned StructureFlags = Base::StructureFlags | HasStaticPropertyTable;
 
-    static JSPromiseConstructor* create(VM&, Structure*, JSPromisePrototype*);
+    static JSPromiseConstructor* create(VM&, Structure*, JSPromisePrototype*, GetterSetter* speciesSymbol);
     static Structure* createStructure(VM&, JSGlobalObject*, JSValue);
 
     DECLARE_INFO;
 
 protected:
-    void finishCreation(VM&, JSPromisePrototype*);
+    JSPromiseConstructor(VM&, Structure*);
+    void finishCreation(VM&, JSPromisePrototype*, GetterSetter*);
 
 private:
-    JSPromiseConstructor(VM&, Structure*);
     static ConstructType getConstructData(JSCell*, ConstructData&);
     static CallType getCallData(JSCell*, CallData&);
-    static bool getOwnPropertySlot(JSObject*, ExecState*, PropertyName, PropertySlot&);
+
+    void addOwnInternalSlots(VM&, JSGlobalObject*);
 };
 
-JSPromise* constructPromise(ExecState*, JSGlobalObject*, JSFunction*);
-
 } // namespace JSC
-
-#endif // ENABLE(PROMISES)
 
 #endif // JSPromiseConstructor_h

@@ -25,21 +25,18 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/lib/libc_r/man/pthread_cond_init.3,v 1.6.2.5 2001/08/17 15:42:51 ru Exp $
+.\" $FreeBSD$
 .\"
-.Dd July 28, 1998
+.Dd November 4, 2006
 .Dt PTHREAD_COND_INIT 3
 .Os
 .Sh NAME
 .Nm pthread_cond_init
 .Nd create a condition variable
 .Sh SYNOPSIS
-.Fd #include <pthread.h>
+.In pthread.h
 .Ft int
-.Fo pthread_cond_init
-.Fa "pthread_cond_t *restrict cond"
-.Fa "const pthread_condattr_t *restrict attr"
-.Fc
+.Fn pthread_cond_init "pthread_cond_t *cond" "const pthread_condattr_t *attr"
 .Sh DESCRIPTION
 The
 .Fn pthread_cond_init
@@ -47,20 +44,18 @@ function creates a new condition variable, with attributes specified with
 .Fa attr .
 If
 .Fa attr
-is NULL, the default attributes are used.
+is NULL the default attributes are used.
 .Sh RETURN VALUES
 If successful, the
 .Fn pthread_cond_init
 function will return zero and put the new condition variable id into
-.Fa cond .
-Otherwise, an error number will be returned to indicate the error.
+.Fa cond ,
+otherwise an error number will be returned to indicate the error.
 .Sh ERRORS
+The
 .Fn pthread_cond_init
-will fail if:
+function will fail if:
 .Bl -tag -width Er
-.It Bq Er EAGAIN
-The system temporarily lacks the resources to create another condition
-variable.
 .It Bq Er EINVAL
 The value specified by
 .Fa attr
@@ -68,14 +63,19 @@ is invalid.
 .It Bq Er ENOMEM
 The process cannot allocate enough memory to create another condition
 variable.
+.It Bq Er EAGAIN
+The system temporarily lacks the resources to create another condition
+variable.
 .El
 .Sh SEE ALSO
 .Xr pthread_cond_broadcast 3 ,
 .Xr pthread_cond_destroy 3 ,
 .Xr pthread_cond_signal 3 ,
 .Xr pthread_cond_timedwait 3 ,
-.Xr pthread_cond_wait 3
+.Xr pthread_cond_wait 3 ,
+.Xr pthread_condattr 3
 .Sh STANDARDS
+The
 .Fn pthread_cond_init
-conforms to
+function conforms to
 .St -p1003.1-96 .

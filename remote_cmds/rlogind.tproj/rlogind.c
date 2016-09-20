@@ -78,11 +78,7 @@ __FBSDID("$FreeBSD: src/libexec/rlogind/rlogind.c,v 1.44 2005/05/13 16:31:09 ume
 #include <netdb.h>
 
 #include <errno.h>
-#ifndef __APPLE__
 #include <libutil.h>
-#else
-#include <util.h>
-#endif
 #include <paths.h>
 #include <pwd.h>
 #include <syslog.h>
@@ -92,6 +88,7 @@ __FBSDID("$FreeBSD: src/libexec/rlogind/rlogind.c,v 1.44 2005/05/13 16:31:09 ume
 #include <unistd.h>
 
 #ifdef __APPLE__
+#include <util.h>
 #include "pathnames.h"
 #endif
 
@@ -259,22 +256,12 @@ doit(int f, union sockunion *fromp)
 #endif
 
 	alarm(0);
-#ifdef __APPLE__
-	struct hostent* hp;
-	fromp->su_port = ntohs((u_short)fromp->su_port);
-	hp = gethostbyaddr((char *)&fromp->su_sin.sin_addr,
-	    sizeof(struct in_addr), fromp->su_family);
-	if (hp)
-		(void)strcpy(hostname, hp->h_name);
-	else
-		(void)strcpy(hostname, inet_ntoa(fromp->su_sin.sin_addr));
-#else
+
 	realhostname_sa(hostname, sizeof(hostname) - 1,
 			    (struct sockaddr *)fromp, fromp->su_len);
 	/* error check ? */
 	fromp->su_port = ntohs((u_short)fromp->su_port);
 	hostname[sizeof(hostname) - 1] = '\0';
-#endif
 
 #if defined(KERBEROS)
 	if (use_kerberos) {

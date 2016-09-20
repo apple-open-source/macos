@@ -33,7 +33,7 @@ class RenderListMarker;
 
 class RenderListItem final : public RenderBlockFlow {
 public:
-    RenderListItem(Element&, Ref<RenderStyle>&&);
+    RenderListItem(Element&, RenderStyle&&);
     virtual ~RenderListItem();
     Element& element() const { return downcast<Element>(nodeForNonAnonymous()); }
 
@@ -59,26 +59,26 @@ public:
     void didDestroyListMarker() { m_marker = nullptr; }
 
 private:
-    virtual const char* renderName() const override { return "RenderListItem"; }
+    const char* renderName() const override { return "RenderListItem"; }
 
-    virtual bool isListItem() const override { return true; }
+    bool isListItem() const override { return true; }
     
-    virtual void insertedIntoTree() override;
-    virtual void willBeRemovedFromTree() override;
+    void insertedIntoTree() override;
+    void willBeRemovedFromTree() override;
 
-    virtual bool isEmpty() const override;
-    virtual void paint(PaintInfo&, const LayoutPoint&) override;
+    bool isEmpty() const override;
+    void paint(PaintInfo&, const LayoutPoint&) override;
 
-    virtual void layout() override;
+    void layout() override;
 
     void positionListMarker();
 
-    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle) override;
+    void styleDidChange(StyleDifference, const RenderStyle* oldStyle) override;
 
-    virtual bool requiresForcedStyleRecalcPropagation() const override { return true; }
+    bool requiresForcedStyleRecalcPropagation() const override { return true; }
 
-    virtual void addOverflowFromChildren() override;
-    virtual void computePreferredLogicalWidths() override;
+    void addOverflowFromChildren() override;
+    void computePreferredLogicalWidths() override;
 
     void insertOrMoveMarkerRendererIfNeeded();
     inline int calcValue() const;

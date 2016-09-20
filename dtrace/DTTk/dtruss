@@ -176,6 +176,17 @@ dtrace='
 	OPT_cpu      ? printf("%6s ","CPU") : 1;
 	printf("SYSCALL(args) \t\t = return\n");
 
+	/* Apple: Names of top-level sysctl MIBs */
+	sysctl_first[0] = "CTL_UNSPEC";
+	sysctl_first[1] = "CTL_KERN";
+	sysctl_first[2] = "CTL_VM";
+	sysctl_first[3] = "CTL_VFS";
+	sysctl_first[4] = "CTL_NET";
+	sysctl_first[5] = "CTL_DEBUG";
+	sysctl_first[6] = "CTL_HW";
+	sysctl_first[7] = "CTL_MACHDEP";
+	sysctl_first[9] = "CTL_MAXID";
+
 	/* globals */
 	trackedpid[pid] = 0;
 	self->child = 0;
@@ -254,7 +265,10 @@ dtrace='
  syscall::linkat:entry,
  syscall::fchownat:entry,
  syscall::renameat:entry,
- syscall::faccessat:entry
+ syscall::sysctl:entry,
+ syscall::sysctlbyname:entry,
+ syscall::faccessat:entry,
+ syscall::kdebug_trace64:entry
  /(OPT_command && pid == $target) || 
   (OPT_pid && pid == PID) ||
   (OPT_name && NAME == strstr(NAME, execname)) ||
@@ -704,7 +718,87 @@ dtrace='
 	self->arg3 = 0;
  }
 
- /* print select with 5 arguments */
+ /* Apple: print the arguments passed to sysctl */
+ syscall::sysctl:return
+ /self->start/
+ {
+	/* calculate elapsed time */
+	this->elapsed = timestamp - self->start;
+	self->start = 0;
+	this->cpu = vtimestamp - self->vstart;
+	self->vstart = 0;
+	self->code = errno == 0 ? "" : "Err#";
+
+	/* print optional fields */
+	/* OPT_printid  ? printf("%5d/%d:  ",pid,tid) : 1; */
+	OPT_printid  ? printf("%5d/0x%x:  ",pid,tid) : 1;
+	OPT_relative ? printf("%8d ",vtimestamp/1000) : 1;
+	OPT_elapsed  ? printf("%7d ",this->elapsed/1000) : 1;
+	OPT_cpu      ? printf("%6d ",this->cpu/1000) : 1;
+
+	/* print main data */
+	mib = copyin(self->arg0, self->arg1 * sizeof(int));
+	mib1 = *(int *)mib;
+	mib2 = *((int *)mib + 1);
+
+	printf("%s(", probefunc);
+
+	printf("[%s, ", (self->arg1 > 0) ? ((*(int *)mib > 0 && *(int *)mib < 9) ? sysctl_first[mib1] : "unknown") : 0);
+
+	printf("%d, %d, %d, %d, %d] (%d), ",
+	    (self->arg1 > 1) ? *((int *)mib + 1) : 0,
+	    (self->arg1 > 2) ? *((int *)mib + 2) : 0,
+	    (self->arg1 > 3) ? *((int *)mib + 3) : 0,
+	    (self->arg1 > 4) ? *((int *)mib + 4) : 0,
+	    (self->arg1 > 5) ? *((int *)mib + 5) : 0,
+	    self->arg1);
+
+	printf("0x%X, 0x%X, 0x%X, 0x%X)\t\t = %d %s%d\n",
+	    self->arg2, self->arg3, self->arg4, self->arg5,
+		(int)arg0, self->code, (int)errno);
+	OPT_stack ? ustack()    : 1;
+	OPT_stack ? trace("\n") : 1;
+	self->arg0 = 0;
+	self->arg1 = 0;
+	self->arg2 = 0;
+	self->arg3 = 0;
+	self->arg4 = 0;
+	self->arg5 = 0;
+ }
+
+ /* Apple: print the string provided to sysctlbyname */
+ syscall::sysctlbyname:return
+ /self->start/
+ {
+	/* calculate elapsed time */
+	this->elapsed = timestamp - self->start;
+	self->start = 0;
+	this->cpu = vtimestamp - self->vstart;
+	self->vstart = 0;
+	self->code = errno == 0 ? "" : "Err#";
+
+	/* print optional fields */
+	/* OPT_printid  ? printf("%5d/%d:  ",pid,tid) : 1; */
+	OPT_printid  ? printf("%5d/0x%x:  ",pid,tid) : 1;
+	OPT_relative ? printf("%8d ",vtimestamp/1000) : 1;
+	OPT_elapsed  ? printf("%7d ",this->elapsed/1000) : 1;
+	OPT_cpu      ? printf("%6d ",this->cpu/1000) : 1;
+
+	/* print main data */
+	printf("%s(%s, 0x%X, 0x%X, 0x%X, 0x%X)\t\t = %d %s%d\n",probefunc,
+	    copyinstr(self->arg0),
+	    self->arg1,self->arg2,self->arg3,self->arg4,(int)arg0,self->code,(int)errno);
+	OPT_stack ? ustack()    : 1;
+	OPT_stack ? trace("\n") : 1;
+	self->arg0 = 0;
+	self->arg1 = 0;
+	self->arg2 = 0;
+	self->arg3 = 0;
+	self->arg4 = 0;
+ }
+
+ /* print 5 arguments */
+ syscall::kdebug_trace64:return,
  syscall::select:return
  /self->start/
  {

@@ -33,10 +33,6 @@
 namespace WebCore {
 
 struct WebKitPlaybackTargetAvailabilityEventInit : public EventInit {
-    WebKitPlaybackTargetAvailabilityEventInit()
-    {
-    };
-
     String availability;
 };
 
@@ -44,27 +40,21 @@ class WebKitPlaybackTargetAvailabilityEvent : public Event {
 public:
     ~WebKitPlaybackTargetAvailabilityEvent() { }
 
-    static Ref<WebKitPlaybackTargetAvailabilityEvent> create()
-    {
-        return adoptRef(*new WebKitPlaybackTargetAvailabilityEvent);
-    }
-
     static Ref<WebKitPlaybackTargetAvailabilityEvent> create(const AtomicString& eventType, bool available)
     {
         return adoptRef(*new WebKitPlaybackTargetAvailabilityEvent(eventType, available));
     }
 
-    static Ref<WebKitPlaybackTargetAvailabilityEvent> create(const AtomicString& eventType, const WebKitPlaybackTargetAvailabilityEventInit& initializer)
+    static Ref<WebKitPlaybackTargetAvailabilityEvent> createForBindings(const AtomicString& eventType, const WebKitPlaybackTargetAvailabilityEventInit& initializer)
     {
         return adoptRef(*new WebKitPlaybackTargetAvailabilityEvent(eventType, initializer));
     }
 
     String availability() const { return m_availability; }
 
-    virtual EventInterface eventInterface() const override { return WebKitPlaybackTargetAvailabilityEventInterfaceType; }
+    EventInterface eventInterface() const override { return WebKitPlaybackTargetAvailabilityEventInterfaceType; }
 
 private:
-    WebKitPlaybackTargetAvailabilityEvent();
     explicit WebKitPlaybackTargetAvailabilityEvent(const AtomicString& eventType, bool available);
     WebKitPlaybackTargetAvailabilityEvent(const AtomicString& eventType, const WebKitPlaybackTargetAvailabilityEventInit&);
 

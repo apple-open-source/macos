@@ -220,7 +220,9 @@ $(OBJROOT)/$(PROJECT)::
 	ed - $(PROJECT)/perl.h < fix/perl.h.ed && \
 	ed - $(PROJECT)/perlio.c < fix/perlio.c.ed && \
 	ed - $(PROJECT)/pp_sys.c < fix/pp_sys.c.ed && \
+	patch -p0 -F0 $(PROJECT)/perl.c fix/CVE-2016-2381.diff && \
 	patch -p0 -F0 $(PROJECT)/regcomp.c fix/CVE-2013-7422.diff && \
+	patch -p0 -F0 $(PROJECT)/config_h.SH fix/CORE-config.h.diff && \
 	sed -e 's/@VERSION@/$(VERSION)/g' \
 	    -e 's/@VERSION_DEFAULT@/$(ENV_PERL_BASE_VERSION)/g' \
 	    -e 's/@VERSION_ALT@/$(ENV_VERSION_ALT)/g' \

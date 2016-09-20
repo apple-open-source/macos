@@ -99,6 +99,8 @@ CFDataRef SOSFullPeerInfoCopyEncodedData(SOSFullPeerInfoRef peer, CFAllocatorRef
 bool SOSFullPeerInfoUpdateTransportType(SOSFullPeerInfoRef peer, CFStringRef transportType, CFErrorRef* error);
 bool SOSFullPeerInfoUpdateDeviceID(SOSFullPeerInfoRef peer, CFStringRef deviceID, CFErrorRef* error);
 bool SOSFullPeerInfoUpdateTransportPreference(SOSFullPeerInfoRef peer, CFBooleanRef preference, CFErrorRef* error);
+bool SOSFullPeerInfoUpdateTransportFragmentationPreference(SOSFullPeerInfoRef peer, CFBooleanRef preference, CFErrorRef* error);
+
 SOSSecurityPropertyResultCode SOSFullPeerInfoUpdateSecurityProperty(SOSFullPeerInfoRef peer, SOSViewActionCode action, CFStringRef property, CFErrorRef* error);
 SOSSecurityPropertyResultCode SOSFullPeerInfoSecurityPropertyStatus(SOSFullPeerInfoRef peer, CFStringRef property, CFErrorRef *error);
 

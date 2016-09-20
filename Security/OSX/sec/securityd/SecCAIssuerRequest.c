@@ -30,6 +30,7 @@
 #include "SecCAIssuerCache.h"
 
 #include <Security/SecInternal.h>
+#include <Security/SecCMS.h>
 #include <CoreFoundation/CFURL.h>
 #include <CFNetwork/CFHTTPMessage.h>
 #include <utilities/debugging.h>
@@ -65,8 +66,8 @@ static bool SecCAIssuerRequestIssue(SecCAIssuerRequestRef request) {
                 CFHTTPMessageRef msg = CFHTTPMessageCreateRequest(kCFAllocatorDefault,
                                                                   CFSTR("GET"), issuer, kCFHTTPVersion1_1);
                 if (msg) {
-                    secdebug("caissuer", "%@", msg);
-                    bool done = asynchttp_request(msg, &request->http);
+                    secinfo("caissuer", "%@", msg);
+                    bool done = asynchttp_request(msg, 0, &request->http);
                     CFRelease(msg);
                     if (done == false) {
                         CFRelease(scheme);
@@ -75,7 +76,7 @@ static bool SecCAIssuerRequestIssue(SecCAIssuerRequestRef request) {
                 }
                 secdebug("caissuer", "failed to get %@", issuer);
             } else {
-                secdebug("caissuer", "skipping unsupported uri %@", issuer);
+                secnotice("caissuer", "skipping unsupported uri %@", issuer);
             }
             CFRelease(scheme);
         }
@@ -114,7 +115,30 @@ static void SecCAIssuerRequestCompleted(asynchttp_t *http,
     CFDataRef data = (request->http.response ?
         CFHTTPMessageCopyBody(request->http.response) : NULL);
     if (data) {
+        /* RFC5280 4.2.2.1:
+        "accessLocation MUST be a uniformResourceIdentifier and the URI
+        MUST point to either a single DER encoded certificate as speci-
+        fied in [RFC2585] or a collection of certificates in a BER or
+        DER encoded "certs-only" CMS message as specified in [RFC2797]." */
+
+        /* DER-encoded certificate */
         SecCertificateRef parent = SecCertificateCreateWithData(NULL, data);
+
+        /* "certs-only" CMS Message */
+        if (!parent) {
+            CFArrayRef certificates = NULL;
+            certificates = SecCMSCertificatesOnlyMessageCopyCertificates(data);
+            if (certificates && CFArrayGetCount(certificates) == 1) {
+                parent = (SecCertificateRef)CFRetainSafe(CFArrayGetValueAtIndex(certificates, 0));
+            }
+            CFReleaseNull(certificates);
+        }
+
+        /* Retry in case the certificate is in PEM format. Some CAs
+         incorrectly return a PEM encoded cert, despite RFC 5280 4.2.2.1 */
+        if (!parent) {
+            parent = SecCertificateCreateWithPEM(NULL, data);
+        }
         CFRelease(data);
         if (parent) {
             /* We keep responses in the cache for at least 7 days, or longer
@@ -126,7 +150,7 @@ static void SecCAIssuerRequestCompleted(asynchttp_t *http,
                                                      request->issuerIX - 1);
             SecCAIssuerCacheAddCertificate(parent, issuer, expires);
             CFArrayRef parents = SecCAIssuerConvertToParents(
-                request->certificate, parent);
+                request->certificate, parent); /* note: this releases parent */
             if (parents) {
                 secdebug("caissuer", "response: %@ good", http->response);
                 request->callback(request->context, parents);

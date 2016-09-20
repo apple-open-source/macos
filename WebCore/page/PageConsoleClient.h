@@ -30,7 +30,6 @@
 #define PageConsoleClient_h
 
 #include <inspector/ScriptCallStack.h>
-#include <profiler/Profile.h>
 #include <runtime/ConsoleClient.h>
 #include <wtf/Forward.h>
 
@@ -42,8 +41,6 @@ namespace WebCore {
 
 class Document;
 class Page;
-
-typedef Vector<RefPtr<JSC::Profile>> ProfilesArray;
 
 class WEBCORE_EXPORT PageConsoleClient final : public JSC::ConsoleClient {
     WTF_MAKE_FAST_ALLOCATED;
@@ -61,21 +58,18 @@ public:
     void addMessage(MessageSource, MessageLevel, const String& message, RefPtr<Inspector::ScriptCallStack>&&);
     void addMessage(MessageSource, MessageLevel, const String& message, unsigned long requestIdentifier = 0, Document* = nullptr);
 
-    const ProfilesArray& profiles() const { return m_profiles; }
-    void clearProfiles();
-
 protected:
-    virtual void messageWithTypeAndLevel(MessageType, MessageLevel, JSC::ExecState*, RefPtr<Inspector::ScriptArguments>&&) override;
-    virtual void count(JSC::ExecState*, RefPtr<Inspector::ScriptArguments>&&) override;
-    virtual void profile(JSC::ExecState*, const String& title) override;
-    virtual void profileEnd(JSC::ExecState*, const String& title) override;
-    virtual void time(JSC::ExecState*, const String& title) override;
-    virtual void timeEnd(JSC::ExecState*, const String& title) override;
-    virtual void timeStamp(JSC::ExecState*, RefPtr<Inspector::ScriptArguments>&&) override;
+    void messageWithTypeAndLevel(MessageType, MessageLevel, JSC::ExecState*, RefPtr<Inspector::ScriptArguments>&&) override;
+    void count(JSC::ExecState*, RefPtr<Inspector::ScriptArguments>&&) override;
+    void profile(JSC::ExecState*, const String& title) override;
+    void profileEnd(JSC::ExecState*, const String& title) override;
+    void takeHeapSnapshot(JSC::ExecState*, const String& title) override;
+    void time(JSC::ExecState*, const String& title) override;
+    void timeEnd(JSC::ExecState*, const String& title) override;
+    void timeStamp(JSC::ExecState*, RefPtr<Inspector::ScriptArguments>&&) override;
 
 private:
     Page& m_page;
-    ProfilesArray m_profiles;
 };
 
 } // namespace WebCore

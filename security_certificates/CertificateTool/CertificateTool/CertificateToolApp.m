@@ -252,7 +252,7 @@ SEC_CONST_DECL (CTA_kSecCertificateEscrowFileName, "AppleESCertificates");
 		}
 		if (nil == _certs_directory)
 		{
-			_certs_directory = [self checkPath:@"certificates/certs" basePath:_top_level_directory isDirectory:YES];
+			_certs_directory = [self checkPath:@"certificates/removed/intermediates" basePath:_top_level_directory isDirectory:YES];
 		 	if (nil == _certs_directory)
 			{
 				[self usage];

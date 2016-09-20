@@ -3,13 +3,14 @@
  */
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <Security/SecCertificate.h>
 #include <Security/SecCertificatePriv.h>
 #include <Security/SecPolicy.h>
 #include <Security/SecTrust.h>
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "Security_regressions.h"
+#include "shared_regressions.h"
 
 /*
     Apple Inc. CA
@@ -720,6 +721,10 @@ static void tests(void)
 	isnt(cert6 = SecCertificateCreateWithBytes(NULL, _wapi_as_der,
         sizeof(_wapi_as_der)), NULL, "create cert6");
 
+    if (!cert0 || !cert1 || !cert2 || !cert3 || !cert4 || !cert5 || !cert6) {
+        goto errOut;
+    }
+
     ok(SecCertificateIsSelfSignedCA(cert0), "cert0 is CA");
     ok(!SecCertificateIsSelfSignedCA(cert1), "cert1 is not CA");
     ok(SecCertificateIsSelfSignedCA(cert5), "cert5 is v1 CA");
@@ -762,7 +767,17 @@ static void tests(void)
 
     CFStringRef desc = NULL;
     ok(desc = CFCopyDescription(cert4), "cert4 CFCopyDescription works");
+    CFReleaseNull(desc);
 
+    CFDataRef spki1Hash = SecCertificateCopySubjectPublicKeyInfoSHA1Digest(cert0);
+    isnt(spki1Hash, NULL, "cert0 has a SHA-1 subject public key info hash");
+    CFReleaseSafe(spki1Hash);
+
+    CFDataRef spki2Hash = SecCertificateCopySubjectPublicKeyInfoSHA256Digest(cert0);
+    isnt(spki2Hash, NULL, "cert0 has a SHA-256 subject public key info hash");
+    CFReleaseSafe(spki2Hash);
+
+errOut:
 	CFReleaseSafe(cert0);
 	CFReleaseSafe(cert1);
 	CFReleaseSafe(cert2);
@@ -770,12 +785,11 @@ static void tests(void)
 	CFReleaseSafe(cert4);
 	CFReleaseSafe(cert5);
 	CFReleaseSafe(cert6);
-	CFReleaseNull(desc);
 }
 
 int si_15_certificate(int argc, char *const *argv)
 {
-	plan_tests(21);
+	plan_tests(23);
 
 	tests();
 

@@ -1,4 +1,4 @@
-*spell.txt*	For Vim version 7.3.  Last change: 2010 Apr 11
+*spell.txt*	For Vim version 7.4.  Last change: 2014 Sep 19
 
 
 		  VIM REFERENCE MANUAL	  by Bram Moolenaar
@@ -269,6 +269,13 @@ In a table:
 	latin1		yi		transliterated Yiddish
 	utf-8		yi-tr		transliterated Yiddish
 
+							*spell-cjk*
+Chinese, Japanese and other East Asian characters are normally marked as
+errors, because spell checking of these characters is not supported. If
+'spelllang' includes "cjk", these characters are not marked as errors.  This
+is useful when editing text with spell checking while some Asian words are
+present.
+
 
 SPELL FILES						*spell-load*
 
@@ -334,6 +341,9 @@ Spelling for EBCDIC is currently not supported.
 A spell file might not be available in the current 'encoding'.  See
 |spell-mkspell| about how to create a spell file.  Converting a spell file
 with "iconv" will NOT work!
+
+Note: on VMS ".{enc}.spl" is changed to "_{enc}.spl" to avoid trouble with
+filenames.
 
 						    *spell-sug-file* *E781*
 If there is a file with exactly the same name as the ".spl" file but ending in
@@ -519,7 +529,7 @@ then Vim will try to guess.
 			Up to eight regions can be combined. *E754* *E755*
 			The REP and SAL items of the first .aff file where
 			they appear are used. |spell-REP| |spell-SAL|
-
+								*E845*
 			This command uses a lot of memory, required to find
 			the optimal word tree (Polish, Italian and Hungarian
 			require several hundred Mbyte).  The final result will
@@ -925,9 +935,14 @@ When the encoding is UTF-8 no word characters need to be specified.
 Vim allows you to use spell checking for several languages in the same file.
 You can list them in the 'spelllang' option.  As a consequence all spell files
 for the same encoding must use the same word characters, otherwise they can't
-be combined without errors.  If you get a warning that the word tables differ
-you may need to generate the .spl file again with |:mkspell|.  Check the FOL,
-LOW and UPP lines in the used .aff file.
+be combined without errors.
+
+If you get an E763 warning that the word tables differ you need to update your
+".spl" spell files.  If you downloaded the files, get the latest version of
+all spell files you use.  If you are only using one, e.g., German, then also
+download the recent English spell files.  Otherwise generate the .spl file
+again with |:mkspell|.  If you still get errors check the FOL, LOW and UPP
+lines in the used .aff files.
 
 The XX.ascii.spl spell file generated with the "-ascii" argument will not
 contain the table with characters, so that it can be combine with spell files
@@ -1043,6 +1058,9 @@ this text to start with a "#" so that mistakes don't go unnoticed.  Example:
 	SFX F 0 in   [^i]n      # Spion > Spionin  ~
 	SFX F 0 nen  in		# Bauerin > Bauerinnen ~
 
+However, to avoid lots of errors in affix files written for Myspell, you can
+add the IGNOREEXTRA flag.
+
 Apparently Myspell allows an affix name to appear more than once.  Since this
 might also be a mistake, Vim checks for an extra "S".  The affix files for
 Myspell that use this feature apparently have this flag.  Example:
@@ -1096,6 +1114,14 @@ Specifically, the affix flags can be used for:
 - CIRCUMFIX, as explained just below.
 
 
+IGNOREEXTRA						*spell-IGNOREEXTRA*
+
+Normally Vim gives an error for an extra field that does not start with '#'.
+This avoids errors going unnoticed.  However, some files created for Myspell
+or Hunspell may contain many entries with an extra field.  Use the IGNOREEXTRA
+flag to avoid lots of errors.
+
+
 CIRCUMFIX						*spell-CIRCUMFIX*
 
 The CIRCUMFIX flag means a prefix and suffix must be added at the same time.
@@ -1126,7 +1152,7 @@ WORDS WITH A SLASH					*spell-SLASH*
 
 The slash is used in the .dic file to separate the basic word from the affix
 letters and other flags.  Unfortunately, this means you cannot use a slash in
-a word.  Thus "TCP/IP" is not a word but "TCP with the flags "IP".  To include
+a word.  Thus "TCP/IP" is not a word but "TCP" with the flags "IP".  To include
 a slash in the word put a backslash before it: "TCP\/IP".  In the rare case
 you want to use a backslash inside a word you need to use two backslashes.
 Any other use of the backslash is reserved for future expansion.
@@ -1241,6 +1267,7 @@ one or more groups, where each group can be:
 Optionally this may be followed by:
 	*	the group appears zero or more times, e.g., sm*e
 	+	the group appears one or more times, e.g., c+
+	?	the group appears zero times or once, e.g., x?
 
 This is similar to the regexp pattern syntax (but not the same!).  A few
 examples with the sequence of word flags they require:
@@ -1248,6 +1275,7 @@ examples with the sequence of word flags they require:
     COMPOUNDRULE yz	    yz
     COMPOUNDRULE x+z	    xz xxz xxxz etc.
     COMPOUNDRULE yx+	    yx yxx yxxx etc.
+    COMPOUNDRULE xy?z	    xz xyz
 
     COMPOUNDRULE [abc]z    az bz cz
     COMPOUNDRULE [abc]+z   az aaz abaz bz baz bcbz cz caz cbaz etc.
@@ -1373,7 +1401,7 @@ Only case-folded letters need to be included.
 
 Another way to restrict compounding was mentioned above: Adding the
 |spell-COMPOUNDFORBIDFLAG| flag to an affix causes all words that are made
-with that affix not be be used for compounding.
+with that affix to not be used for compounding.
 
 
 UNLIMITED COMPOUNDING					*spell-NOBREAK*

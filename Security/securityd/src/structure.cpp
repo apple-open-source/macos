@@ -98,7 +98,7 @@ bool NodeCore::hasReference(NodeCore &p)
 void NodeCore::clearReferences()
 {
 	StLock<Mutex> _(*this);
-	secdebug("ssnode", "%p clearing all %d references",
+	secinfo("ssnode", "%p clearing all %d references",
 		this, int(mReferences.size()));
 	mReferences.erase(mReferences.begin(), mReferences.end());
 }

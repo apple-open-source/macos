@@ -124,7 +124,7 @@ pindex(POSIXCD)
 pindex(NO_POSIX_CD)
 pindex(NOPOSIXCD)
 cindex(CDPATH, order of checking)
-item(tt(POSIX_CD))(
+item(tt(POSIX_CD) <K> <S>)(
 Modifies the behaviour of tt(cd), tt(chdir) and tt(pushd) commands
 to make them more compatible with the POSIX standard. The behaviour with
 the option unset is described in the documentation for the tt(cd)
@@ -534,6 +534,21 @@ cindex(globbing, of . files)
 item(tt(GLOB_DOTS) (tt(-4)))(
 Do not require a leading `tt(.)' in a filename to be matched explicitly.
 )
+pindex(GLOB_STAR_SHORT)
+pindex(NO_GLOB_STAR_SHORT)
+pindex(GLOBSTARSHORT)
+pindex(NOGLOBSTARSHORT)
+cindex(globbing, short forms)
+cindex(globbing, ** special)
+item(tt(GLOB_STAR_SHORT))(
+When this option is set and the default zsh-style globbing is in
+effect, the pattern `tt(**/*)' can be abbreviated to `tt(**)' and the
+pattern `tt(***/*)' can be abbreviated to tt(***).  Hence `tt(**.c)'
+finds a file ending in tt(.c) in any subdirectory, and `tt(***.c)' does
+the same while also following symbolic links.  A tt(/) immediately
+after the `tt(**)' or `tt(***)' forces the pattern to be treated as the
+unabbreviated form.
+)
 pindex(GLOB_SUBST)
 pindex(NO_GLOB_SUBST)
 pindex(GLOBSUBST)
@@ -634,7 +649,7 @@ pindex(NO_MULTIBYTE)
 pindex(NOMULTIBYTE)
 cindex(characters, multibyte, in expansion and globbing)
 cindex(multibyte characters, in expansion and globbing)
-item(tt(MULTIBYTE) <C> <K> <Z>)(
+item(tt(MULTIBYTE) <D>)(
 Respect multibyte characters when found in strings.
 When this option is set, strings are examined using the
 system library to determine how many bytes form a character, depending
@@ -642,10 +657,8 @@ on the current locale.  This affects the way characters are counted in
 pattern matching, parameter values and various delimiters.
 
 The option is on by default if the shell was compiled with
-tt(MULTIBYTE_SUPPORT) except in tt(sh) emulation; otherwise it is off by
-default and has no effect if turned on.  The mode is off in tt(sh)
-emulation for compatibility but for interactive use may need to be
-turned on if the terminal interprets multibyte characters.
+tt(MULTIBYTE_SUPPORT); otherwise it is off by default and has no effect
+if turned on.
 
 If the option is off a single byte is always treated as a single
 character.  This setting is designed purely for examining strings
@@ -748,7 +761,8 @@ pindex(NOWARNCREATEGLOBAL)
 cindex(parameters, warning when created globally)
 item(tt(WARN_CREATE_GLOBAL))(
 Print a warning message when a global parameter is created in a function
-by an assignment.  This often indicates that a parameter has not been
+by an assignment or in math context.
+This often indicates that a parameter has not been
 declared local when it should have been.  Parameters explicitly declared
 global from within a function using tt(typeset -g) do not cause a warning.
 Note that there is no warning when a local parameter is assigned to in
@@ -1096,10 +1110,12 @@ pindex(NOCLOBBER)
 cindex(clobbering, of files)
 cindex(file clobbering, allowing)
 item(tt(CLOBBER) (tt(PLUS()C), ksh: tt(PLUS()C)) <D>)(
-Allows `tt(>)' redirection to truncate existing files,
-and `tt(>>)' to create files.
-Otherwise `tt(>!)' or `tt(>|)' must be used to truncate a file,
-and `tt(>>!)' or `tt(>>|)' to create a file.
+Allows `tt(>)' redirection to truncate existing files.
+Otherwise `tt(>!)' or `tt(>|)' must be used to truncate a file.
+
+If the option is not set, and the option tt(APPEND_CREATE) is also
+not set, `tt(>>!)' or `tt(>>|)' must be used to create a file.
+If either option is set, `tt(>>)' may be used.
 )
 pindex(CORRECT)
 pindex(NO_CORRECT)
@@ -1552,13 +1568,13 @@ ifnzman(noderef(Arithmetic Evaluation))\
 ifzman(the section ARITHMETIC EVALUATION in zmanref(zshmisc))
 has an explicit list.
 )
-pindex(DEBUG_BEFORE_CMD <D>)
-pindex(NO_DEBUG_BEFORE_CMD <D>)
-pindex(DEBUGBEFORECMD <D>)
-pindex(NODEBUGBEFORECMD <D>)
+pindex(DEBUG_BEFORE_CMD)
+pindex(NO_DEBUG_BEFORE_CMD)
+pindex(DEBUGBEFORECMD)
+pindex(NODEBUGBEFORECMD)
 cindex(traps, DEBUG, before or after command)
 cindex(DEBUG trap, before or after command)
-item(tt(DEBUG_BEFORE_CMD))(
+item(tt(DEBUG_BEFORE_CMD) <D>)(
 Run the tt(DEBUG) trap before each command; otherwise it is run after
 each command.  Setting this option mimics the behaviour of ksh 93; with
 the option unset the behaviour is that of ksh 88.
@@ -1794,6 +1810,21 @@ enditem()
 
 subsect(Shell Emulation)
 startitem()
+pindex(APPEND_CREATE)
+pindex(NO_APPEND_CREATE)
+pindex(APPENDCREATE)
+pindex(NOAPPENDCREATE)
+cindex(clobbering, POSIX compatibility)
+cindex(file clobbering, POSIX compatibility)
+cindex(no clobber, POSIX compatible)
+item(tt(APPEND_CREATE) <K> <S>)(
+This option only applies when tt(NO_CLOBBER) (-tt(C)) is in effect.
+
+If this option is not set, the shell will report an error when a
+append redirection (tt(>>)) is used on a file that does not already
+exists (the traditional zsh behaviour of tt(NO_CLOBBER)).  If the option
+is set, no error is reported (POSIX behaviour).
+)
 pindex(BASH_REMATCH)
 pindex(NO_BASH_REMATCH)
 pindex(BASHREMATCH)
@@ -1930,7 +1961,13 @@ pindex(KSHTYPESET)
 pindex(NOKSHTYPESET)
 cindex(argument splitting, in typeset etc.)
 cindex(ksh, argument splitting in typeset)
-item(tt(KSH_TYPESET) <K>)(
+item(tt(KSH_TYPESET))(
+This option is now obsolete: a better appropximation to the behaviour of
+other shells is obtained with the reserved word interface to
+tt(declare), tt(export), tt(float), tt(integer), tt(local), tt(readonly)
+and tt(typeset).  Note that the option is only applied when the reserved
+word interface is em(not) in use.
+
 Alters the way arguments to the tt(typeset) family of commands, including
 tt(declare), tt(export), tt(float), tt(integer), tt(local) and
 tt(readonly), are processed.  Without this option, zsh will perform normal
@@ -2057,7 +2094,7 @@ of shell parameters and modules).
 In addition, setting this option limits the effect of parameter
 substitution with no braces, so that the expression tt($#) is treated as
 the parameter tt($#) even if followed by a valid parameter name.
-When it is unset, zsh allows expresions of the form tt($#)var(name)
+When it is unset, zsh allows expressions of the form tt($#)var(name)
 to refer to the length of tt($)var(name), even for special variables,
 for example in expressions such as tt($#-) and tt($#*).
 

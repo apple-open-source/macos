@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// *  Copyright (C) 2004-2015, International Business Machines
+// *  Copyright (C) 2004-2016, International Business Machines
 // *  Corporation; Unicode, Inc.; and others.  All Rights Reserved.
 // *
 // ***************************************************************************
@@ -16,15 +16,12 @@ root {
         Digit-Tone {
             alias {"NumericPinyin-Pinyin"}
         }
-        Hans-Hant {
-            alias {"Simplified-Traditional"}
-        }
-        Hant-Hans {
-            alias {"Traditional-Simplified"}
-        }
         Amharic-Latin/BGN {
+            alias {"am-am_Latn/BGN"}
+        }
+        am-am_Latn/BGN {
             file {
-                resource:process(transliterator) {"Amharic_Latin_BGN.txt"}
+                resource:process(transliterator) {"am_am_Latn_BGN.txt"}
                 direction {"FORWARD"}
             }
         }
@@ -69,63 +66,90 @@ root {
         }
 
         Arabic-Latin {
+            alias {"Arab-Latn"}
+        }
+        Arab-Latn {
             file {
-                resource:process(transliterator) {"Arabic_Latin.txt"}
+                resource:process(transliterator) {"Arab_Latn.txt"}
                 direction {"FORWARD"}
             }
         }
         Latin-Arabic {
+            alias {"Latn-Arab"}
+        }
+        Latn-Arab {
             file {
-                resource:process(transliterator) {"Arabic_Latin.txt"}
+                resource:process(transliterator) {"Arab_Latn.txt"}
                 direction {"REVERSE"}
             }
         }
 
         Arabic-Latin/BGN {
+            alias {"ar-ar_Latn/BGN"}
+        }
+        ar-ar_Latn/BGN {
             file {
-                resource:process(transliterator) {"Arabic_Latin_BGN.txt"}
+                resource:process(transliterator) {"ar_ar_Latn_BGN.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Armenian-Latin/BGN {
+            alias {"hy-hy_Latn/BGN"}
+        }
+        hy-hy_Latn/BGN {
             file {
-                resource:process(transliterator) {"Armenian_Latin_BGN.txt"}
+                resource:process(transliterator) {"hy_hy_Latn_BGN.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Azerbaijani-Latin/BGN {
+            alias {"az_Cyrl-az/BGN"}
+        }
+        az_Cyrl-az/BGN {
             file {
-                resource:process(transliterator) {"Azerbaijani_Latin_BGN.txt"}
+                resource:process(transliterator) {"az_Cyrl_az_BGN.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Belarusian-Latin/BGN {
+            alias {"be-be_Latn/BGN"}
+        }
+        be-be_Latn/BGN {
             file {
-                resource:process(transliterator) {"Belarusian_Latin_BGN.txt"}
+                resource:process(transliterator) {"be_be_Latn_BGN.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Bengali-Devanagari {
+            alias {"Beng-Deva"}
+        }
+        Beng-Deva {
             file {
-                resource:process(transliterator) {"Bengali_Devanagari.txt"}
+                resource:process(transliterator) {"Beng_Deva.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Bengali-Gujarati {
+            alias {"Beng-Gujr"}
+        }
+        Beng-Gujr {
             file {
-                resource:process(transliterator) {"Bengali_Gujarati.txt"}
+                resource:process(transliterator) {"Beng_Gujr.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Bengali-Gurmukhi {
+            alias {"Beng-Guru"}
+        }
+        Beng-Guru {
             file {
-                resource:process(transliterator) {"Bengali_Gurmukhi.txt"}
+                resource:process(transliterator) {"Beng_Guru.txt"}
                 direction {"FORWARD"}
             }
         }
@@ -138,84 +162,120 @@ root {
         }
 
         Bengali-Kannada {
+            alias {"Beng-Knda"}
+        }
+        Beng-Knda {
             file {
-                resource:process(transliterator) {"Bengali_Kannada.txt"}
+                resource:process(transliterator) {"Beng_Knda.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Bengali-Latin {
+            alias {"Beng-Latn"}
+        }
+        Beng-Latn {
             file {
-                resource:process(transliterator) {"Bengali_Latin.txt"}
+                resource:process(transliterator) {"Beng_Latn.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Bengali-Malayalam {
+            alias {"Beng-Mlym"}
+        }
+        Beng-Mlym {
             file {
-                resource:process(transliterator) {"Bengali_Malayalam.txt"}
+                resource:process(transliterator) {"Beng_Mlym.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Bengali-Oriya {
+            alias {"Beng-Orya"}
+        }
+        Beng-Orya {
             file {
-                resource:process(transliterator) {"Bengali_Oriya.txt"}
+                resource:process(transliterator) {"Beng_Orya.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Bengali-Tamil {
+            alias {"Beng-Taml"}
+        }
+        Beng-Taml {
             file {
-                resource:process(transliterator) {"Bengali_Tamil.txt"}
+                resource:process(transliterator) {"Beng_Taml.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Bengali-Telugu {
+            alias {"Beng-Telu"}
+        }
+        Beng-Telu {
             file {
-                resource:process(transliterator) {"Bengali_Telugu.txt"}
+                resource:process(transliterator) {"Beng_Telu.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Bulgarian-Latin/BGN {
+            alias {"bg-bg_Latn/BGN"}
+        }
+        bg-bg_Latn/BGN {
             file {
-                resource:process(transliterator) {"Bulgarian_Latin_BGN.txt"}
+                resource:process(transliterator) {"bg_bg_Latn_BGN.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Cyrillic-Latin {
+            alias {"Cyrl-Latn"}
+        }
+        Cyrl-Latn {
             file {
-                resource:process(transliterator) {"Cyrillic_Latin.txt"}
+                resource:process(transliterator) {"Cyrl_Latn.txt"}
                 direction {"FORWARD"}
             }
         }
         Latin-Cyrillic {
+            alias {"Latn-Cyrl"}
+        }
+        Latn-Cyrl {
             file {
-                resource:process(transliterator) {"Cyrillic_Latin.txt"}
+                resource:process(transliterator) {"Cyrl_Latn.txt"}
                 direction {"REVERSE"}
             }
         }
 
         Devanagari-Bengali {
+            alias {"Deva-Beng"}
+        }
+        Deva-Beng {
             file {
-                resource:process(transliterator) {"Devanagari_Bengali.txt"}
+                resource:process(transliterator) {"Deva_Beng.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Devanagari-Gujarati {
+            alias {"Deva-Gujr"}
+        }
+        Deva-Gujr {
             file {
-                resource:process(transliterator) {"Devanagari_Gujarati.txt"}
+                resource:process(transliterator) {"Deva_Gujr.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Devanagari-Gurmukhi {
+            alias {"Deva-Guru"}
+        }
+        Deva-Guru {
             file {
-                resource:process(transliterator) {"Devanagari_Gurmukhi.txt"}
+                resource:process(transliterator) {"Deva_Guru.txt"}
                 direction {"FORWARD"}
             }
         }
@@ -228,43 +288,61 @@ root {
         }
 
         Devanagari-Kannada {
+            alias {"Deva-Knda"}
+        }
+        Deva-Knda {
             file {
-                resource:process(transliterator) {"Devanagari_Kannada.txt"}
+                resource:process(transliterator) {"Deva_Knda.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Devanagari-Latin {
+            alias {"Deva-Latn"}
+        }
+        Deva-Latn {
             file {
-                resource:process(transliterator) {"Devanagari_Latin.txt"}
+                resource:process(transliterator) {"Deva_Latn.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Devanagari-Malayalam {
+            alias {"Deva-Mlym"}
+        }
+        Deva-Mlym {
             file {
-                resource:process(transliterator) {"Devanagari_Malayalam.txt"}
+                resource:process(transliterator) {"Deva_Mlym.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Devanagari-Oriya {
+            alias {"Deva-Orya"}
+        }
+        Deva-Orya {
             file {
-                resource:process(transliterator) {"Devanagari_Oriya.txt"}
+                resource:process(transliterator) {"Deva_Orya.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Devanagari-Tamil {
+            alias {"Deva-Taml"}
+        }
+        Deva-Taml {
             file {
-                resource:process(transliterator) {"Devanagari_Tamil.txt"}
+                resource:process(transliterator) {"Deva_Taml.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Devanagari-Telugu {
+            alias {"Deva-Telu"}
+        }
+        Deva-Telu {
             file {
-                resource:process(transliterator) {"Devanagari_Telugu.txt"}
+                resource:process(transliterator) {"Deva_Telu.txt"}
                 direction {"FORWARD"}
             }
         }
@@ -283,75 +361,108 @@ root {
         }
 
         Georgian-Latin {
+            alias {"Geor-Latn"}
+        }
+        Geor-Latn {
             file {
-                resource:process(transliterator) {"Georgian_Latin.txt"}
+                resource:process(transliterator) {"Geor_Latn.txt"}
                 direction {"FORWARD"}
             }
         }
         Latin-Georgian {
+            alias {"Latn-Geor"}
+        }
+        Latn-Geor {
             file {
-                resource:process(transliterator) {"Georgian_Latin.txt"}
+                resource:process(transliterator) {"Geor_Latn.txt"}
                 direction {"REVERSE"}
             }
         }
 
         Georgian-Latin/BGN {
+            alias {"ka-ka_Latn/BGN"}
+        }
+        ka-ka_Latn/BGN {
             file {
-                resource:process(transliterator) {"Georgian_Latin_BGN.txt"}
+                resource:process(transliterator) {"ka_ka_Latn_BGN.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Greek-Latin {
+            alias {"Grek-Latn"}
+        }
+        Grek-Latn {
             file {
-                resource:process(transliterator) {"Greek_Latin.txt"}
+                resource:process(transliterator) {"Grek_Latn.txt"}
                 direction {"FORWARD"}
             }
         }
         Latin-Greek {
+            alias {"Latn-Grek"}
+        }
+        Latn-Grek {
             file {
-                resource:process(transliterator) {"Greek_Latin.txt"}
+                resource:process(transliterator) {"Grek_Latn.txt"}
                 direction {"REVERSE"}
             }
         }
 
         Greek-Latin/BGN {
+            alias {"el-el_Latn/BGN"}
+        }
+        el-el_Latn/BGN {
             file {
-                resource:process(transliterator) {"Greek_Latin_BGN.txt"}
+                resource:process(transliterator) {"el_el_Latn_BGN.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Greek-Latin/UNGEGN {
+            alias {"Grek-Latn/UNGEGN"}
+        }
+        Grek-Latn/UNGEGN {
             file {
-                resource:process(transliterator) {"Greek_Latin_UNGEGN.txt"}
+                resource:process(transliterator) {"Grek_Latn_UNGEGN.txt"}
                 direction {"FORWARD"}
             }
         }
         Latin-Greek/UNGEGN {
+            alias {"Latn-Grek/UNGEGN"}
+        }
+        Latn-Grek/UNGEGN {
             file {
-                resource:process(transliterator) {"Greek_Latin_UNGEGN.txt"}
+                resource:process(transliterator) {"Grek_Latn_UNGEGN.txt"}
                 direction {"REVERSE"}
             }
         }
 
         Gujarati-Bengali {
+            alias {"Gujr-Beng"}
+        }
+        Gujr-Beng {
             file {
-                resource:process(transliterator) {"Gujarati_Bengali.txt"}
+                resource:process(transliterator) {"Gujr_Beng.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Gujarati-Devanagari {
+            alias {"Gujr-Deva"}
+        }
+        Gujr-Deva {
             file {
-                resource:process(transliterator) {"Gujarati_Devanagari.txt"}
+                resource:process(transliterator) {"Gujr_Deva.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Gujarati-Gurmukhi {
+            alias {"Gujr-Guru"}
+        }
+        Gujr-Guru {
             file {
-                resource:process(transliterator) {"Gujarati_Gurmukhi.txt"}
+                resource:process(transliterator) {"Gujr_Guru.txt"}
                 direction {"FORWARD"}
             }
         }
@@ -364,64 +475,91 @@ root {
         }
 
         Gujarati-Kannada {
+            alias {"Gujr-Knda"}
+        }
+        Gujr-Knda {
             file {
-                resource:process(transliterator) {"Gujarati_Kannada.txt"}
+                resource:process(transliterator) {"Gujr_Knda.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Gujarati-Latin {
+            alias {"Gujr-Latn"}
+        }
+        Gujr-Latn {
             file {
-                resource:process(transliterator) {"Gujarati_Latin.txt"}
+                resource:process(transliterator) {"Gujr_Latn.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Gujarati-Malayalam {
+            alias {"Gujr-Mlym"}
+        }
+        Gujr-Mlym {
             file {
-                resource:process(transliterator) {"Gujarati_Malayalam.txt"}
+                resource:process(transliterator) {"Gujr_Mlym.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Gujarati-Oriya {
+            alias {"Gujr-Orya"}
+        }
+        Gujr-Orya {
             file {
-                resource:process(transliterator) {"Gujarati_Oriya.txt"}
+                resource:process(transliterator) {"Gujr_Orya.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Gujarati-Tamil {
+            alias {"Gujr-Taml"}
+        }
+        Gujr-Taml {
             file {
-                resource:process(transliterator) {"Gujarati_Tamil.txt"}
+                resource:process(transliterator) {"Gujr_Taml.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Gujarati-Telugu {
+            alias {"Gujr-Telu"}
+        }
+        Gujr-Telu {
             file {
-                resource:process(transliterator) {"Gujarati_Telugu.txt"}
+                resource:process(transliterator) {"Gujr_Telu.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Gurmukhi-Bengali {
+            alias {"Guru-Beng"}
+        }
+        Guru-Beng {
             file {
-                resource:process(transliterator) {"Gurmukhi_Bengali.txt"}
+                resource:process(transliterator) {"Guru_Beng.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Gurmukhi-Devanagari {
+            alias {"Guru-Deva"}
+        }
+        Guru-Deva {
             file {
-                resource:process(transliterator) {"Gurmukhi_Devanagari.txt"}
+                resource:process(transliterator) {"Guru_Deva.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Gurmukhi-Gujarati {
+            alias {"Guru-Gujr"}
+        }
+        Guru-Gujr {
             file {
-                resource:process(transliterator) {"Gurmukhi_Gujarati.txt"}
+                resource:process(transliterator) {"Guru_Gujr.txt"}
                 direction {"FORWARD"}
             }
         }
@@ -434,50 +572,71 @@ root {
         }
 
         Gurmukhi-Kannada {
+            alias {"Guru-Knda"}
+        }
+        Guru-Knda {
             file {
-                resource:process(transliterator) {"Gurmukhi_Kannada.txt"}
+                resource:process(transliterator) {"Guru_Knda.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Gurmukhi-Latin {
+            alias {"Guru-Latn"}
+        }
+        Guru-Latn {
             file {
-                resource:process(transliterator) {"Gurmukhi_Latin.txt"}
+                resource:process(transliterator) {"Guru_Latn.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Gurmukhi-Malayalam {
+            alias {"Guru-Mlym"}
+        }
+        Guru-Mlym {
             file {
-                resource:process(transliterator) {"Gurmukhi_Malayalam.txt"}
+                resource:process(transliterator) {"Guru_Mlym.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Gurmukhi-Oriya {
+            alias {"Guru-Orya"}
+        }
+        Guru-Orya {
             file {
-                resource:process(transliterator) {"Gurmukhi_Oriya.txt"}
+                resource:process(transliterator) {"Guru_Orya.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Gurmukhi-Tamil {
+            alias {"Guru-Taml"}
+        }
+        Guru-Taml {
             file {
-                resource:process(transliterator) {"Gurmukhi_Tamil.txt"}
+                resource:process(transliterator) {"Guru_Taml.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Gurmukhi-Telugu {
+            alias {"Guru-Telu"}
+        }
+        Guru-Telu {
             file {
-                resource:process(transliterator) {"Gurmukhi_Telugu.txt"}
+                resource:process(transliterator) {"Guru_Telu.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Han-Latin {
+            alias {"Hani-Latn"}
+        }
+        Hani-Latn {
             file {
-                resource:process(transliterator) {"Han_Latin.txt"}
+                resource:process(transliterator) {"Hani_Latn.txt"}
                 direction {"FORWARD"}
             }
         }
@@ -503,67 +662,97 @@ root {
         }
 
         Hangul-Latin {
+            alias {"Hang-Latn"}
+        }
+        Hang-Latn {
             file {
-                resource:process(transliterator) {"Hangul_Latin.txt"}
+                resource:process(transliterator) {"Hang_Latn.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Hebrew-Latin {
+            alias {"Hebr-Latn"}
+        }
+        Hebr-Latn {
             file {
-                resource:process(transliterator) {"Hebrew_Latin.txt"}
+                resource:process(transliterator) {"Hebr_Latn.txt"}
                 direction {"FORWARD"}
             }
         }
         Latin-Hebrew {
+            alias {"Latn-Hebr"}
+        }
+        Latn-Hebr {
             file {
-                resource:process(transliterator) {"Hebrew_Latin.txt"}
+                resource:process(transliterator) {"Hebr_Latn.txt"}
                 direction {"REVERSE"}
             }
         }
 
         Hebrew-Latin/BGN {
+            alias {"he-he_Latn/BGN"}
+        }
+        he-he_Latn/BGN {
             file {
-                resource:process(transliterator) {"Hebrew_Latin_BGN.txt"}
+                resource:process(transliterator) {"he_he_Latn_BGN.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Hiragana-Katakana {
+            alias {"Hira-Kana"}
+        }
+        Hira-Kana {
             file {
-                resource:process(transliterator) {"Hiragana_Katakana.txt"}
+                resource:process(transliterator) {"Hira_Kana.txt"}
                 direction {"FORWARD"}
             }
         }
         Katakana-Hiragana {
+            alias {"Kana-Hira"}
+        }
+        Kana-Hira {
             file {
-                resource:process(transliterator) {"Hiragana_Katakana.txt"}
+                resource:process(transliterator) {"Hira_Kana.txt"}
                 direction {"REVERSE"}
             }
         }
 
         Hiragana-Latin {
+            alias {"Hira-Latn"}
+        }
+        Hira-Latn {
             file {
-                resource:process(transliterator) {"Hiragana_Latin.txt"}
+                resource:process(transliterator) {"Hira_Latn.txt"}
                 direction {"FORWARD"}
             }
         }
         Latin-Hiragana {
+            alias {"Latn-Hira"}
+        }
+        Latn-Hira {
             file {
-                resource:process(transliterator) {"Hiragana_Latin.txt"}
+                resource:process(transliterator) {"Hira_Latn.txt"}
                 direction {"REVERSE"}
             }
         }
 
         IPA-XSampa {
+            alias {"und_FONIPA-und_FONXSAMP"}
+        }
+        und_FONIPA-und_FONXSAMP {
             file {
-                resource:process(transliterator) {"IPA_XSampa.txt"}
+                resource:process(transliterator) {"und_FONIPA_und_FONXSAMP.txt"}
                 direction {"FORWARD"}
             }
         }
         XSampa-IPA {
+            alias {"und_FONXSAMP-und_FONIPA"}
+        }
+        und_FONXSAMP-und_FONIPA {
             file {
-                resource:process(transliterator) {"IPA_XSampa.txt"}
+                resource:process(transliterator) {"und_FONIPA_und_FONXSAMP.txt"}
                 direction {"REVERSE"}
             }
         }
@@ -639,36 +828,51 @@ root {
         }
 
         Jamo-Latin {
+            alias {"Jamo-Latn"}
+        }
+        Jamo-Latn {
             file {
-                resource:process(transliterator) {"Jamo_Latin.txt"}
+                resource:process(transliterator) {"Jamo_Latn.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Kannada-Bengali {
+            alias {"Knda-Beng"}
+        }
+        Knda-Beng {
             file {
-                resource:process(transliterator) {"Kannada_Bengali.txt"}
+                resource:process(transliterator) {"Knda_Beng.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Kannada-Devanagari {
+            alias {"Knda-Deva"}
+        }
+        Knda-Deva {
             file {
-                resource:process(transliterator) {"Kannada_Devanagari.txt"}
+                resource:process(transliterator) {"Knda_Deva.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Kannada-Gujarati {
+            alias {"Knda-Gujr"}
+        }
+        Knda-Gujr {
             file {
-                resource:process(transliterator) {"Kannada_Gujarati.txt"}
+                resource:process(transliterator) {"Knda_Gujr.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Kannada-Gurmukhi {
+            alias {"Knda-Guru"}
+        }
+        Knda-Guru {
             file {
-                resource:process(transliterator) {"Kannada_Gurmukhi.txt"}
+                resource:process(transliterator) {"Knda_Guru.txt"}
                 direction {"FORWARD"}
             }
         }
@@ -681,64 +885,91 @@ root {
         }
 
         Kannada-Latin {
+            alias {"Knda-Latn"}
+        }
+        Knda-Latn {
             file {
-                resource:process(transliterator) {"Kannada_Latin.txt"}
+                resource:process(transliterator) {"Knda_Latn.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Kannada-Malayalam {
+            alias {"Knda-Mlym"}
+        }
+        Knda-Mlym {
             file {
-                resource:process(transliterator) {"Kannada_Malayalam.txt"}
+                resource:process(transliterator) {"Knda_Mlym.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Kannada-Oriya {
+            alias {"Knda-Orya"}
+        }
+        Knda-Orya {
             file {
-                resource:process(transliterator) {"Kannada_Oriya.txt"}
+                resource:process(transliterator) {"Knda_Orya.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Kannada-Tamil {
+            alias {"Knda-Taml"}
+        }
+        Knda-Taml {
             file {
-                resource:process(transliterator) {"Kannada_Tamil.txt"}
+                resource:process(transliterator) {"Knda_Taml.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Kannada-Telugu {
+            alias {"Knda-Telu"}
+        }
+        Knda-Telu {
             file {
-                resource:process(transliterator) {"Kannada_Telugu.txt"}
+                resource:process(transliterator) {"Knda_Telu.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Katakana-Latin/BGN {
+            alias {"ja_Hrkt-ja_Latn/BGN"}
+        }
+        ja_Hrkt-ja_Latn/BGN {
             file {
-                resource:process(transliterator) {"Katakana_Latin_BGN.txt"}
+                resource:process(transliterator) {"ja_Hrkt_ja_Latn_BGN.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Kazakh-Latin/BGN {
+            alias {"kk-kk_Latn/BGN"}
+        }
+        kk-kk_Latn/BGN {
             file {
-                resource:process(transliterator) {"Kazakh_Latin_BGN.txt"}
+                resource:process(transliterator) {"kk_kk_Latn_BGN.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Kirghiz-Latin/BGN {
+            alias {"ky-ky_Latn/BGN"}
+        }
+        ky-ky_Latn/BGN {
             file {
-                resource:process(transliterator) {"Kirghiz_Latin_BGN.txt"}
+                resource:process(transliterator) {"ky_ky_Latn_BGN.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Korean-Latin/BGN {
+            alias {"ko-ko_Latn/BGN"}
+        }
+        ko-ko_Latn/BGN {
             file {
-                resource:process(transliterator) {"Korean_Latin_BGN.txt"}
+                resource:process(transliterator) {"ko_ko_Latn_BGN.txt"}
                 direction {"FORWARD"}
             }
         }
@@ -757,34 +988,49 @@ root {
         }
 
         Latin-Armenian {
+            alias {"Latn-Armn"}
+        }
+        Latn-Armn {
             file {
-                resource:process(transliterator) {"Latin_Armenian.txt"}
+                resource:process(transliterator) {"Latn_Armn.txt"}
                 direction {"FORWARD"}
             }
         }
         Armenian-Latin {
+            alias {"Armn-Latn"}
+        }
+        Armn-Latn {
             file {
-                resource:process(transliterator) {"Latin_Armenian.txt"}
+                resource:process(transliterator) {"Latn_Armn.txt"}
                 direction {"REVERSE"}
             }
         }
 
         Latin-Bengali {
+            alias {"Latn-Beng"}
+        }
+        Latn-Beng {
             file {
-                resource:process(transliterator) {"Latin_Bengali.txt"}
+                resource:process(transliterator) {"Latn_Beng.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Latin-Bopomofo {
+            alias {"Latn-Bopo"}
+        }
+        Latn-Bopo {
             file {
-                resource:process(transliterator) {"Latin_Bopomofo.txt"}
+                resource:process(transliterator) {"Latn_Bopo.txt"}
                 direction {"FORWARD"}
             }
         }
         Bopomofo-Latin {
+            alias {"Bopo-Latn"}
+        }
+        Bopo-Latn {
             file {
-                resource:process(transliterator) {"Latin_Bopomofo.txt"}
+                resource:process(transliterator) {"Latn_Bopo.txt"}
                 direction {"REVERSE"}
             }
         }
@@ -803,29 +1049,41 @@ root {
         }
 
         Latin-Devanagari {
+            alias {"Latn-Deva"}
+        }
+        Latn-Deva {
             file {
-                resource:process(transliterator) {"Latin_Devanagari.txt"}
+                resource:process(transliterator) {"Latn_Deva.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Latin-Gujarati {
+            alias {"Latn-Gujr"}
+        }
+        Latn-Gujr {
             file {
-                resource:process(transliterator) {"Latin_Gujarati.txt"}
+                resource:process(transliterator) {"Latn_Gujr.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Latin-Gurmukhi {
+            alias {"Latn-Guru"}
+        }
+        Latn-Guru {
             file {
-                resource:process(transliterator) {"Latin_Gurmukhi.txt"}
+                resource:process(transliterator) {"Latn_Guru.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Latin-Hangul {
+            alias {"Latn-Hang"}
+        }
+        Latn-Hang {
             file {
-                resource:process(transliterator) {"Latin_Hangul.txt"}
+                resource:process(transliterator) {"Latn_Hang.txt"}
                 direction {"FORWARD"}
             }
         }
@@ -838,35 +1096,50 @@ root {
         }
 
         Latin-Jamo {
+            alias {"Latn-Jamo"}
+        }
+        Latn-Jamo {
             file {
-                resource:process(transliterator) {"Latin_Jamo.txt"}
+                resource:process(transliterator) {"Latn_Jamo.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Latin-Kannada {
+            alias {"Latn-Knda"}
+        }
+        Latn-Knda {
             file {
-                resource:process(transliterator) {"Latin_Kannada.txt"}
+                resource:process(transliterator) {"Latn_Knda.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Latin-Katakana {
+            alias {"Latn-Kana"}
+        }
+        Latn-Kana {
             file {
-                resource:process(transliterator) {"Latin_Katakana.txt"}
+                resource:process(transliterator) {"Latn_Kana.txt"}
                 direction {"FORWARD"}
             }
         }
         Katakana-Latin {
+            alias {"Kana-Latn"}
+        }
+        Kana-Latn {
             file {
-                resource:process(transliterator) {"Latin_Katakana.txt"}
+                resource:process(transliterator) {"Latn_Kana.txt"}
                 direction {"REVERSE"}
             }
         }
 
         Latin-Malayalam {
+            alias {"Latn-Mlym"}
+        }
+        Latn-Mlym {
             file {
-                resource:process(transliterator) {"Latin_Malayalam.txt"}
+                resource:process(transliterator) {"Latn_Mlym.txt"}
                 direction {"FORWARD"}
             }
         }
@@ -885,64 +1158,91 @@ root {
         }
 
         Latin-Oriya {
+            alias {"Latn-Orya"}
+        }
+        Latn-Orya {
             file {
-                resource:process(transliterator) {"Latin_Oriya.txt"}
+                resource:process(transliterator) {"Latn_Orya.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Latin-Tamil {
+            alias {"Latn-Taml"}
+        }
+        Latn-Taml {
             file {
-                resource:process(transliterator) {"Latin_Tamil.txt"}
+                resource:process(transliterator) {"Latn_Taml.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Latin-Telugu {
+            alias {"Latn-Telu"}
+        }
+        Latn-Telu {
             file {
-                resource:process(transliterator) {"Latin_Telugu.txt"}
+                resource:process(transliterator) {"Latn_Telu.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Latin-Thai {
+            alias {"Latn-Thai"}
+        }
+        Latn-Thai {
             file {
-                resource:process(transliterator) {"Latin_Thai.txt"}
+                resource:process(transliterator) {"Latn_Thai.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Macedonian-Latin/BGN {
+            alias {"mk-mk_Latn/BGN"}
+        }
+        mk-mk_Latn/BGN {
             file {
-                resource:process(transliterator) {"Macedonian_Latin_BGN.txt"}
+                resource:process(transliterator) {"mk_mk_Latn_BGN.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Malayalam-Bengali {
+            alias {"Mlym-Beng"}
+        }
+        Mlym-Beng {
             file {
-                resource:process(transliterator) {"Malayalam_Bengali.txt"}
+                resource:process(transliterator) {"Mlym_Beng.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Malayalam-Devanagari {
+            alias {"Mlym-Deva"}
+        }
+        Mlym-Deva {
             file {
-                resource:process(transliterator) {"Malayalam_Devanagari.txt"}
+                resource:process(transliterator) {"Mlym_Deva.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Malayalam-Gujarati {
+            alias {"Mlym-Gujr"}
+        }
+        Mlym-Gujr {
             file {
-                resource:process(transliterator) {"Malayalam_Gujarati.txt"}
+                resource:process(transliterator) {"Mlym_Gujr.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Malayalam-Gurmukhi {
+            alias {"Mlym-Guru"}
+        }
+        Mlym-Guru {
             file {
-                resource:process(transliterator) {"Malayalam_Gurmukhi.txt"}
+                resource:process(transliterator) {"Mlym_Guru.txt"}
                 direction {"FORWARD"}
             }
         }
@@ -955,78 +1255,111 @@ root {
         }
 
         Malayalam-Kannada {
+            alias {"Mlym-Knda"}
+        }
+        Mlym-Knda {
             file {
-                resource:process(transliterator) {"Malayalam_Kannada.txt"}
+                resource:process(transliterator) {"Mlym_Knda.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Malayalam-Latin {
+            alias {"Mlym-Latn"}
+        }
+        Mlym-Latn {
             file {
-                resource:process(transliterator) {"Malayalam_Latin.txt"}
+                resource:process(transliterator) {"Mlym_Latn.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Malayalam-Oriya {
+            alias {"Mlym-Orya"}
+        }
+        Mlym-Orya {
             file {
-                resource:process(transliterator) {"Malayalam_Oriya.txt"}
+                resource:process(transliterator) {"Mlym_Orya.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Malayalam-Tamil {
+            alias {"Mlym-Taml"}
+        }
+        Mlym-Taml {
             file {
-                resource:process(transliterator) {"Malayalam_Tamil.txt"}
+                resource:process(transliterator) {"Mlym_Taml.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Malayalam-Telugu {
+            alias {"Mlym-Telu"}
+        }
+        Mlym-Telu {
             file {
-                resource:process(transliterator) {"Malayalam_Telugu.txt"}
+                resource:process(transliterator) {"Mlym_Telu.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Maldivian-Latin/BGN {
+            alias {"dv-dv_Latn/BGN"}
+        }
+        dv-dv_Latn/BGN {
             file {
-                resource:process(transliterator) {"Maldivian_Latin_BGN.txt"}
+                resource:process(transliterator) {"dv_dv_Latn_BGN.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Mongolian-Latin/BGN {
+            alias {"mn-mn_Latn/BGN"}
+        }
+        mn-mn_Latn/BGN {
             file {
-                resource:process(transliterator) {"Mongolian_Latin_BGN.txt"}
+                resource:process(transliterator) {"mn_mn_Latn_BGN.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Oriya-Bengali {
+            alias {"Orya-Beng"}
+        }
+        Orya-Beng {
             file {
-                resource:process(transliterator) {"Oriya_Bengali.txt"}
+                resource:process(transliterator) {"Orya_Beng.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Oriya-Devanagari {
+            alias {"Orya-Deva"}
+        }
+        Orya-Deva {
             file {
-                resource:process(transliterator) {"Oriya_Devanagari.txt"}
+                resource:process(transliterator) {"Orya_Deva.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Oriya-Gujarati {
+            alias {"Orya-Gujr"}
+        }
+        Orya-Gujr {
             file {
-                resource:process(transliterator) {"Oriya_Gujarati.txt"}
+                resource:process(transliterator) {"Orya_Gujr.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Oriya-Gurmukhi {
+            alias {"Orya-Guru"}
+        }
+        Orya-Guru {
             file {
-                resource:process(transliterator) {"Oriya_Gurmukhi.txt"}
+                resource:process(transliterator) {"Orya_Guru.txt"}
                 direction {"FORWARD"}
             }
         }
@@ -1039,50 +1372,71 @@ root {
         }
 
         Oriya-Kannada {
+            alias {"Orya-Knda"}
+        }
+        Orya-Knda {
             file {
-                resource:process(transliterator) {"Oriya_Kannada.txt"}
+                resource:process(transliterator) {"Orya_Knda.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Oriya-Latin {
+            alias {"Orya-Latn"}
+        }
+        Orya-Latn {
             file {
-                resource:process(transliterator) {"Oriya_Latin.txt"}
+                resource:process(transliterator) {"Orya_Latn.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Oriya-Malayalam {
+            alias {"Orya-Mlym"}
+        }
+        Orya-Mlym {
             file {
-                resource:process(transliterator) {"Oriya_Malayalam.txt"}
+                resource:process(transliterator) {"Orya_Mlym.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Oriya-Tamil {
+            alias {"Orya-Taml"}
+        }
+        Orya-Taml {
             file {
-                resource:process(transliterator) {"Oriya_Tamil.txt"}
+                resource:process(transliterator) {"Orya_Taml.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Oriya-Telugu {
+            alias {"Orya-Telu"}
+        }
+        Orya-Telu {
             file {
-                resource:process(transliterator) {"Oriya_Telugu.txt"}
+                resource:process(transliterator) {"Orya_Telu.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Pashto-Latin/BGN {
+            alias {"ps-ps_Latn/BGN"}
+        }
+        ps-ps_Latn/BGN {
             file {
-                resource:process(transliterator) {"Pashto_Latin_BGN.txt"}
+                resource:process(transliterator) {"ps_ps_Latn_BGN.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Persian-Latin/BGN {
+            alias {"fa-fa_Latn/BGN"}
+        }
+        fa-fa_Latn/BGN {
             file {
-                resource:process(transliterator) {"Persian_Latin_BGN.txt"}
+                resource:process(transliterator) {"fa_fa_Latn_BGN.txt"}
                 direction {"FORWARD"}
             }
         }
@@ -1101,28 +1455,40 @@ root {
         }
 
         Russian-Latin/BGN {
+            alias {"ru-ru_Latn/BGN"}
+        }
+        ru-ru_Latn/BGN {
             file {
-                resource:process(transliterator) {"Russian_Latin_BGN.txt"}
+                resource:process(transliterator) {"ru_ru_Latn_BGN.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Serbian-Latin/BGN {
+            alias {"sr-sr_Latn/BGN"}
+        }
+        sr-sr_Latn/BGN {
             file {
-                resource:process(transliterator) {"Serbian_Latin_BGN.txt"}
+                resource:process(transliterator) {"sr_sr_Latn_BGN.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Simplified-Traditional {
+            alias {"Hans-Hant"}
+        }
+        Hans-Hant {
             file {
-                resource:process(transliterator) {"Simplified_Traditional.txt"}
+                resource:process(transliterator) {"Hans_Hant.txt"}
                 direction {"FORWARD"}
             }
         }
         Traditional-Simplified {
+            alias {"Hant-Hans"}
+        }
+        Hant-Hans {
             file {
-                resource:process(transliterator) {"Simplified_Traditional.txt"}
+                resource:process(transliterator) {"Hans_Hant.txt"}
                 direction {"REVERSE"}
             }
         }
@@ -1135,42 +1501,60 @@ root {
         }
 
         Syriac-Latin {
+            alias {"Syrc-Latn"}
+        }
+        Syrc-Latn {
             file {
-                resource:process(transliterator) {"Syriac_Latin.txt"}
+                resource:process(transliterator) {"Syrc_Latn.txt"}
                 direction {"FORWARD"}
             }
         }
         Latin-Syriac {
+            alias {"Latn-Syrc"}
+        }
+        Latn-Syrc {
             file {
-                resource:process(transliterator) {"Syriac_Latin.txt"}
+                resource:process(transliterator) {"Syrc_Latn.txt"}
                 direction {"REVERSE"}
             }
         }
 
         Tamil-Bengali {
+            alias {"Taml-Beng"}
+        }
+        Taml-Beng {
             file {
-                resource:process(transliterator) {"Tamil_Bengali.txt"}
+                resource:process(transliterator) {"Taml_Beng.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Tamil-Devanagari {
+            alias {"Taml-Deva"}
+        }
+        Taml-Deva {
             file {
-                resource:process(transliterator) {"Tamil_Devanagari.txt"}
+                resource:process(transliterator) {"Taml_Deva.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Tamil-Gujarati {
+            alias {"Taml-Gujr"}
+        }
+        Taml-Gujr {
             file {
-                resource:process(transliterator) {"Tamil_Gujarati.txt"}
+                resource:process(transliterator) {"Taml_Gujr.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Tamil-Gurmukhi {
+            alias {"Taml-Guru"}
+        }
+        Taml-Guru {
             file {
-                resource:process(transliterator) {"Tamil_Gurmukhi.txt"}
+                resource:process(transliterator) {"Taml_Guru.txt"}
                 direction {"FORWARD"}
             }
         }
@@ -1183,64 +1567,91 @@ root {
         }
 
         Tamil-Kannada {
+            alias {"Taml-Knda"}
+        }
+        Taml-Knda {
             file {
-                resource:process(transliterator) {"Tamil_Kannada.txt"}
+                resource:process(transliterator) {"Taml_Knda.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Tamil-Latin {
+            alias {"Taml-Latn"}
+        }
+        Taml-Latn {
             file {
-                resource:process(transliterator) {"Tamil_Latin.txt"}
+                resource:process(transliterator) {"Taml_Latn.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Tamil-Malayalam {
+            alias {"Taml-Mlym"}
+        }
+        Taml-Mlym {
             file {
-                resource:process(transliterator) {"Tamil_Malayalam.txt"}
+                resource:process(transliterator) {"Taml_Mlym.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Tamil-Oriya {
+            alias {"Taml-Orya"}
+        }
+        Taml-Orya {
             file {
-                resource:process(transliterator) {"Tamil_Oriya.txt"}
+                resource:process(transliterator) {"Taml_Orya.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Tamil-Telugu {
+            alias {"Taml-Telu"}
+        }
+        Taml-Telu {
             file {
-                resource:process(transliterator) {"Tamil_Telugu.txt"}
+                resource:process(transliterator) {"Taml_Telu.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Telugu-Bengali {
+            alias {"Telu-Beng"}
+        }
+        Telu-Beng {
             file {
-                resource:process(transliterator) {"Telugu_Bengali.txt"}
+                resource:process(transliterator) {"Telu_Beng.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Telugu-Devanagari {
+            alias {"Telu-Deva"}
+        }
+        Telu-Deva {
             file {
-                resource:process(transliterator) {"Telugu_Devanagari.txt"}
+                resource:process(transliterator) {"Telu_Deva.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Telugu-Gujarati {
+            alias {"Telu-Gujr"}
+        }
+        Telu-Gujr {
             file {
-                resource:process(transliterator) {"Telugu_Gujarati.txt"}
+                resource:process(transliterator) {"Telu_Gujr.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Telugu-Gurmukhi {
+            alias {"Telu-Guru"}
+        }
+        Telu-Guru {
             file {
-                resource:process(transliterator) {"Telugu_Gurmukhi.txt"}
+                resource:process(transliterator) {"Telu_Guru.txt"}
                 direction {"FORWARD"}
             }
         }
@@ -1253,56 +1664,80 @@ root {
         }
 
         Telugu-Kannada {
+            alias {"Telu-Knda"}
+        }
+        Telu-Knda {
             file {
-                resource:process(transliterator) {"Telugu_Kannada.txt"}
+                resource:process(transliterator) {"Telu_Knda.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Telugu-Latin {
+            alias {"Telu-Latn"}
+        }
+        Telu-Latn {
             file {
-                resource:process(transliterator) {"Telugu_Latin.txt"}
+                resource:process(transliterator) {"Telu_Latn.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Telugu-Malayalam {
+            alias {"Telu-Mlym"}
+        }
+        Telu-Mlym {
             file {
-                resource:process(transliterator) {"Telugu_Malayalam.txt"}
+                resource:process(transliterator) {"Telu_Mlym.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Telugu-Oriya {
+            alias {"Telu-Orya"}
+        }
+        Telu-Orya {
             file {
-                resource:process(transliterator) {"Telugu_Oriya.txt"}
+                resource:process(transliterator) {"Telu_Orya.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Telugu-Tamil {
+            alias {"Telu-Taml"}
+        }
+        Telu-Taml {
             file {
-                resource:process(transliterator) {"Telugu_Tamil.txt"}
+                resource:process(transliterator) {"Telu_Taml.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Latin-Thaana {
+            alias {"Latn-Thaa"}
+        }
+        Latn-Thaa {
             file {
-                resource:process(transliterator) {"Latin_Thaana.txt"}
+                resource:process(transliterator) {"Latn_Thaa.txt"}
                 direction {"FORWARD"}
             }
         }
         Thaana-Latin {
+            alias {"Thaa-Latn"}
+        }
+        Thaa-Latn {
             file {
-                resource:process(transliterator) {"Latin_Thaana.txt"}
+                resource:process(transliterator) {"Latn_Thaa.txt"}
                 direction {"REVERSE"}
             }
         }
 
         Thai-Latin {
+            alias {"Thai-Latn"}
+        }
+        Thai-Latn {
             file {
-                resource:process(transliterator) {"Thai_Latin.txt"}
+                resource:process(transliterator) {"Thai_Latn.txt"}
                 direction {"FORWARD"}
             }
         }
@@ -1347,22 +1782,31 @@ root {
         }
 
         Turkmen-Latin/BGN {
+            alias {"tk_Cyrl-tk/BGN"}
+        }
+        tk_Cyrl-tk/BGN {
             file {
-                resource:process(transliterator) {"Turkmen_Latin_BGN.txt"}
+                resource:process(transliterator) {"tk_Cyrl_tk_BGN.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Ukrainian-Latin/BGN {
+            alias {"uk-uk_Latn/BGN"}
+        }
+        uk-uk_Latn/BGN {
             file {
-                resource:process(transliterator) {"Ukrainian_Latin_BGN.txt"}
+                resource:process(transliterator) {"uk_uk_Latn_BGN.txt"}
                 direction {"FORWARD"}
             }
         }
 
         Uzbek-Latin/BGN {
+            alias {"uz_Cyrl-uz/BGN"}
+        }
+        uz_Cyrl-uz/BGN {
             file {
-                resource:process(transliterator) {"Uzbek_Latin_BGN.txt"}
+                resource:process(transliterator) {"uz_Cyrl_uz_BGN.txt"}
                 direction {"FORWARD"}
             }
         }
@@ -1391,6 +1835,13 @@ root {
         ch-ch_FONIPA {
             file {
                 resource:process(transliterator) {"ch_ch_FONIPA.txt"}
+                direction {"FORWARD"}
+            }
+        }
+
+        cs-ar {
+            file {
+                resource:process(transliterator) {"cs_ar.txt"}
                 direction {"FORWARD"}
             }
         }
@@ -1465,6 +1916,13 @@ root {
             }
         }
 
+        es-ar {
+            file {
+                resource:process(transliterator) {"es_ar.txt"}
+                direction {"FORWARD"}
+            }
+        }
+
         es-es_FONIPA {
             file {
                 resource:process(transliterator) {"es_es_FONIPA.txt"}
@@ -1482,6 +1940,13 @@ root {
         es-zh {
             file {
                 resource:process(transliterator) {"es_zh.txt"}
+                direction {"FORWARD"}
+            }
+        }
+
+        es_419-ar {
+            file {
+                resource:process(transliterator) {"es_419_ar.txt"}
                 direction {"FORWARD"}
             }
         }
@@ -1591,7 +2056,14 @@ root {
             }
         }
 
-        pl-ja {
+        pl-ar {
+            file {
+                resource:process(transliterator) {"pl_ar.txt"}
+                direction {"FORWARD"}
+            }
+        }
+
+         pl-ja {
             file {
                 resource:process(transliterator) {"pl_ja.txt"}
                 direction {"FORWARD"}
@@ -1608,6 +2080,13 @@ root {
         pl_FONIPA-ja {
             file {
                 resource:process(transliterator) {"pl_FONIPA_ja.txt"}
+                direction {"FORWARD"}
+            }
+        }
+
+        ro-ar {
+            file {
+                resource:process(transliterator) {"ro_ar.txt"}
                 direction {"FORWARD"}
             }
         }
@@ -1643,6 +2122,23 @@ root {
         ru-zh {
             file {
                 resource:process(transliterator) {"ru_zh.txt"}
+                direction {"FORWARD"}
+            }
+        }
+
+        Latin-Russian/BGN {
+            alias {"ru_Latn-ru/BGN"}
+        }
+        ru_Latn-ru/BGN {
+            file {
+                resource:process(transliterator) {"ru_Latn_ru_BGN.txt"}
+                direction {"FORWARD"}
+            }
+        }
+
+        sk-ar {
+            file {
+                resource:process(transliterator) {"sk_ar.txt"}
                 direction {"FORWARD"}
             }
         }
@@ -1692,6 +2188,13 @@ root {
         tr-Upper {
             file {
                 resource:process(transliterator) {"tr_Upper.txt"}
+                direction {"FORWARD"}
+            }
+        }
+
+        und_FONIPA-ar {
+            file {
+                resource:process(transliterator) {"und_FONIPA_ar.txt"}
                 direction {"FORWARD"}
             }
         }

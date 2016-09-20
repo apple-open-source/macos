@@ -27,44 +27,11 @@
 #include <IOKit/IOService.h>
 #include <IOKit/IOKitKeys.h>
 
-void _DispatchKeyboardSpecialEvent(int key, bool down)
-{
-    AbsoluteTime            timeStamp;
-    OSDictionary *          matchingDictionary  = 0;
-    OSIterator *            iterator            = 0;
-    IOHIKeyboard *          keyboard            = 0;
-    unsigned                flags               = 0;
-    IOHIDSystem *           hidSystem           = IOHIDSystem::instance();
-    
-    if (!hidSystem) return;
-    
-    matchingDictionary  = IOService::serviceMatching( "IOHIKeyboard" );
-    
-    if( matchingDictionary ) 
-    {
-        iterator = IOService::getMatchingServices( matchingDictionary );
-        if( iterator )
-        {
-            while( (keyboard = (IOHIKeyboard*) iterator->getNextObject()) )
-            {		
-                flags |= keyboard->deviceFlags();
-            }
-            
-            iterator->release();
-        }
-        
-        matchingDictionary->release();
+
+uint32_t _GetGlobalEventFlags () {
+    IOHIDSystem *           hidSystem  = IOHIDSystem::instance();
+    if (!hidSystem) {
+        return 0;
     }
-
-    clock_get_uptime( &timeStamp );
-
-    hidSystem->keyboardSpecialEvent(
-                                    down ? NX_KEYDOWN : NX_KEYUP,
-                                    flags,
-                                    0,
-                                    key,
-                                    0,
-                                    false,
-                                    timeStamp);    
+    return hidSystem->eventFlags();
 }
-

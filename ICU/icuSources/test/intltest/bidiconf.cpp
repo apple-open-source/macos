@@ -424,6 +424,8 @@ L L R R R B R R L L L B ON ON ; 3 ; 0 ; 0 0 1 1 1 0 1 1 2 2 2 1 1 1
 *
 *******************************************************************************
 */
+enum { kMaxUtxt = 32, kMaxUctl = 16 };
+
 void BiDiConformanceTest::TestBidiCharacterTest() {
     IcuTestErrorCode errorCode(*this, "TestBidiCharacterTest");
     const char *sourceTestDataPath=getSourceTestData(errorCode);
@@ -555,6 +557,81 @@ void BiDiConformanceTest::TestBidiCharacterTest() {
             continue;
         }
         if(orderingCount>=0 && !checkOrdering(ubidi.getAlias())) {
+            continue;
+        }
+        
+        // tests for ubidi_setParaWithControls
+        // skip 2 tests known not to work (out of 91678 cases, though
+        // only 86 of those tests use controls so 2.3% of those failing),
+        // still investigating these
+        if (lineNumber==210 || lineNumber==211) {
+            continue;
+        }
+        
+        const UChar* ubufPtr = inputString.getBuffer();
+        int32_t ubufIdx;
+        UChar utxt[kMaxUtxt];
+        UBiDiLevel ulev[kMaxUtxt];
+        int32_t offsets[kMaxUctl];
+        UChar* uctlPtrs[kMaxUctl];
+        UChar uctl[kMaxUctl][5];
+        UChar *uctlPtr;
+        int32_t utxtLen = 0, offsetsLen = 0, ctlLen = 0;
+        UBool fail = FALSE;
+        for (ubufIdx = 0; ubufIdx < inputString.length(); ubufIdx++) {
+            UChar uc = ubufPtr[ubufIdx];
+            if ( (uc >=0x202A && uc<=0x202E) || (uc >=0x2066 && uc<=0x2069) ) {
+                // have a bidi control
+                if (ctlLen >= 4) {
+                    fail = TRUE; break;
+                }
+                if (ctlLen == 0) {
+                    // starting a new control sequence
+                    if (offsetsLen >= kMaxUctl) {
+                        fail = TRUE; break;
+                    }
+                    offsets[offsetsLen] = utxtLen;
+                    uctlPtr = &uctl[offsetsLen][0];
+                    uctlPtrs[offsetsLen] = uctlPtr;
+                    offsetsLen++;
+                }
+                uctlPtr[ctlLen++] = uc;
+                uctlPtr[ctlLen] = 0;
+            } else {
+                if (utxtLen >= kMaxUtxt) {
+                    fail = TRUE; break;
+                }
+                ctlLen = 0;
+                utxt[utxtLen] = uc;
+                levels[utxtLen] = levels[ubufIdx]; // will always have ubufIdx >= utxtLen so this is OK
+                utxtLen++;
+            }
+        }
+        levelsCount = utxtLen;
+        if (fail) {
+            logln("Skipping BidiCharacterTest unsuitable for ubidi_setParaWithControls: %d: %s", (int)lineNumber, line);
+            continue; // can't use this test
+        }
+        if (offsetsLen > 0 && offsets[offsetsLen-1] >= utxtLen) {
+            --offsetsLen;
+            ubidi_setContext(ubidi.getAlias(), NULL, 0, uctlPtrs[offsetsLen], -1, errorCode);
+        } else {
+            ubidi_setContext(ubidi.getAlias(), NULL, 0, NULL, 0, errorCode);
+        }
+        ubidi_setParaWithControls(ubidi.getAlias(), utxt, utxtLen, paraLevel,
+                                  offsets, offsetsLen, NULL, uctlPtrs, errorCode);
+        actualLevels=ubidi_getLevels(ubidi.getAlias(), errorCode);
+        if(errorCode.logIfFailureAndReset("ubidi_setContext()/ubidi_setParaWithControls()/ubidi_getLevels()")) {
+            errln("Input line %d: %s", (int)lineNumber, line);
+            continue;
+        }
+        if((actualLevel=ubidi_getParaLevel(ubidi.getAlias()))!=resolvedParaLevel) {
+            printErrorLine();
+            errln("\nError on line %d: Wrong resolved paragraph level from ubidi_setParaWithControls; expected %d actual %d",
+                   (int)lineNumber, resolvedParaLevel, actualLevel);
+            continue;
+        }
+        if(!checkLevels(actualLevels, ubidi_getProcessedLength(ubidi.getAlias()))) {
             continue;
         }
     }

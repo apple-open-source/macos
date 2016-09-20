@@ -28,9 +28,9 @@
 
 namespace WebCore {
 
-class SVGZoomEvent : public UIEvent {
+class SVGZoomEvent final : public UIEvent {
 public:
-    static Ref<SVGZoomEvent> create() { return adoptRef(*new SVGZoomEvent); }
+    static Ref<SVGZoomEvent> createForBindings() { return adoptRef(*new SVGZoomEvent); }
 
     // 'SVGZoomEvent' functions
     FloatRect zoomRectScreen() const;
@@ -45,7 +45,7 @@ public:
 
     SVGPoint newTranslate() const;
 
-    virtual EventInterface eventInterface() const override;
+    EventInterface eventInterface() const override;
 
 private:
     SVGZoomEvent();

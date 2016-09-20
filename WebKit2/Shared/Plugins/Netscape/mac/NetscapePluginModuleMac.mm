@@ -72,20 +72,6 @@ static bool getPluginArchitecture(CFBundleRef bundle, PluginModuleInfo& plugin)
         plugin.pluginArchitecture = CPU_TYPE_X86;
         return true;
     }
-#elif defined(__ppc64__)
-    // We only support 64-bit PPC plug-ins on 64-bit PPC.
-    if (architectures.contains(kCFBundleExecutableArchitecturePPC64)) {
-        plugin.pluginArchitecture = CPU_TYPE_POWERPC64;
-        return true;
-    }
-#elif defined(__ppc__)
-    // We only support 32-bit PPC plug-ins on 32-bit PPC.
-    if (architectures.contains(kCFBundleExecutableArchitecturePPC)) {
-        plugin.pluginArchitecture = CPU_TYPE_POWERPC;
-        return true;
-    }
-#else
-#error "Unhandled architecture"
 #endif
 
     return false;
@@ -186,7 +172,7 @@ static bool getPluginInfoFromPropertyLists(CFBundleRef bundle, PluginModuleInfo&
         if (mimeTypeDescription && CFGetTypeID(mimeTypeDescription) != CFStringGetTypeID())
             mimeTypeDescription = 0;
 
-        mimeClassInfo.type = String(mimeType).lower();
+        mimeClassInfo.type = String(mimeType).convertToASCIILowercase();
         mimeClassInfo.desc = mimeTypeDescription;
 
         // Now get the extensions for this MIME type.
@@ -204,10 +190,10 @@ static bool getPluginInfoFromPropertyLists(CFBundleRef bundle, PluginModuleInfo&
             // multiple array elements in the property list. Work around this here by splitting the
             // extension string into components.
             Vector<String> extensionComponents;
-            String(extension).lower().split(',', extensionComponents);
+            String(extension).convertToASCIILowercase().split(',', extensionComponents);
 
-            for (size_t i = 0; i < extensionComponents.size(); ++i)
-                mimeClassInfo.extensions.append(extensionComponents[i]);
+            for (auto& component : extensionComponents)
+                mimeClassInfo.extensions.append(component);
         }
 
         // Add this MIME type.
@@ -248,11 +234,6 @@ bool NetscapePluginModule::getPluginInfo(const String& pluginPath, PluginModuleI
             plugin.shortVersionString = static_cast<CFStringRef>(shortVersionTypeRef);
     }
 
-    if (CFTypeRef preferencePathTypeRef = CFBundleGetValueForInfoDictionaryKey(bundle.get(), CFSTR("WebPluginPreferencePanePath"))) {
-        if (CFGetTypeID(preferencePathTypeRef) == CFStringGetTypeID())
-            plugin.preferencePanePath = static_cast<CFStringRef>(preferencePathTypeRef);
-    }
-
     if (!getPluginInfoFromPropertyLists(bundle.get(), plugin))
         return false;
 
@@ -275,27 +256,6 @@ bool NetscapePluginModule::getPluginInfo(const String& pluginPath, PluginModuleI
 
     return true;
 }
-
-#if __MAC_OS_X_VERSION_MIN_REQUIRED <= 101000
-bool NetscapePluginModule::createPluginMIMETypesPreferences(const String& pluginPath)
-{
-    RetainPtr<CFURLRef> bundleURL = adoptCF(CFURLCreateWithFileSystemPath(kCFAllocatorDefault, pluginPath.createCFString().get(), kCFURLPOSIXPathStyle, false));
-    
-    RetainPtr<CFBundleRef> bundle = adoptCF(CFBundleCreate(kCFAllocatorDefault, bundleURL.get()));
-    if (!bundle)
-        return false;
-
-    if (!CFBundleLoadExecutable(bundle.get()))
-        return false;
-
-    void (*createPluginMIMETypesPreferences)(void) = reinterpret_cast<void (*)(void)>(CFBundleGetFunctionPointerForName(bundle.get(), CFSTR("BP_CreatePluginMIMETypesPreferences")));
-    if (!createPluginMIMETypesPreferences)
-        return false;
-
-    createPluginMIMETypesPreferences();
-    return true;
-}
-#endif
 
 // FIXME: This doesn't need to be platform-specific.
 class PluginVersion {

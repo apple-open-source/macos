@@ -26,7 +26,7 @@
 #include "createFVMaster.h"
 
 #include "readline.h"
-#include "security.h"
+#include "security_tool.h"
 
 #include <pwd.h>
 #include <stdio.h>
@@ -62,8 +62,8 @@ const char * const _masterKeychainPath = "./FileVaultMaster";
  * The CSSM_ALGORITHMS and OID values defining the signature
  * algorithm in the generated certificate.
  */
-#define SR_CERT_SIGNATURE_ALGORITHM	CSSM_ALGID_SHA1WithRSA
-#define SR_CERT_SIGNATURE_ALG_OID	CSSMOID_SHA1WithRSA
+#define SR_CERT_SIGNATURE_ALGORITHM	CSSM_ALGID_SHA256WithRSA
+#define SR_CERT_SIGNATURE_ALG_OID	CSSMOID_SHA256WithRSA
 
 OSStatus makeMasterPassword(const char *fvmkcName, const char *masterPasswordPassword, uint32 keySizeInBits, SecKeychainRef *keychainRef);
 
@@ -98,7 +98,7 @@ OSStatus makeMasterPassword(const char *fvmkcName, const char *masterPasswordPas
     }
 
     //  We return an error if the keychain already exists
-    OSStatus status = SecKeychainCreate(fvmkcName, strlen(masterPasswordPassword), masterPasswordPassword, false, initialAccess, keychainRef);
+    OSStatus status = SecKeychainCreate(fvmkcName, (UInt32) strlen(masterPasswordPassword), masterPasswordPassword, false, initialAccess, keychainRef);
     if (status!=noErr)
     {
 		if (status==errSecDuplicateKeychain || status==CSSMERR_DL_DATASTORE_ALREADY_EXISTS)
@@ -430,7 +430,7 @@ static CSSM_RETURN refKeyToRaw(
  * Find private key by label, modify its Label attr to be the
  * hash of the associated public key.
  */
-CSSM_RETURN setPubKeyHash(
+static CSSM_RETURN setPubKeyHash(
 	CSSM_CSP_HANDLE 	cspHand,
 	CSSM_DL_DB_HANDLE 	dlDbHand,
 	const CSSM_KEY		*pubOrPrivKey,	// to get hash; raw or ref/CSPDL
@@ -618,7 +618,7 @@ OSStatus generateKeyPair(
 		&dlDbHand,
 		keyAlg,
 		keyLabel,
-		strlen(keyLabel) + 1,
+		(int) strlen(keyLabel) + 1,
 		keySizeInBits,
 		pubKey,
 		pubKeyUse,

@@ -26,41 +26,13 @@
 
 #include <security_utilities/debugging.h>
 
-/* If OCSP_USE_SYSLOG is defined and not 0, use syslog() for debug
- * logging in addition to invoking the secdebug macro (which, as of
- * Snow Leopard, emits a static dtrace probe instead of an actual
- * log message.)
- */
-#ifndef OCSP_USE_SYSLOG
-#define OCSP_USE_SYSLOG	0
-#endif
-
-#if OCSP_USE_SYSLOG
-#include <syslog.h>
-#define ocsp_secdebug(scope, format...) \
-{ \
-	syslog(LOG_NOTICE, format); \
-	secdebug(scope, format); \
-}
-#else
-#define ocsp_secdebug(scope, format...) \
-	secdebug(scope, format)
-#endif
-
-#ifdef	NDEBUG
-/* this actually compiles to nothing */
-#define ocspdErrorLog(args...)		ocsp_secdebug("ocspdError", ## args)
-#else
-/*#define ocspdErrorLog(args...)		printf(args)*/
-#define ocspdErrorLog(args...)		ocsp_secdebug("ocspdError", ## args)
-#endif
-
-#define ocspdDebug(args...)			ocsp_secdebug("ocspd", ## args)
-#define ocspdDbDebug(args...)		ocsp_secdebug("ocspdDb", ## args)
-#define ocspdCrlDebug(args...)		ocsp_secdebug("ocspdCrlDebug", ## args)
-#define ocspdTrustDebug(args...)	ocsp_secdebug("ocspdTrustDebug", ## args)
-#define ocspdHttpDebug(args...)	ocsp_secdebug("ocspdHttp", ## args)
-#define ocspdLdapDebug(args...)	ocsp_secdebug("ocspdLdap", ## args)
+#define ocspdErrorLog(args...)		secnotice("ocspdError", ## args)
+#define ocspdDebug(args...)			secinfo("ocspd", ## args)
+#define ocspdDbDebug(args...)		secinfo("ocspdDb", ## args)
+#define ocspdCrlDebug(args...)		secinfo("ocspdCrlDebug", ## args)
+#define ocspdTrustDebug(args...)	secinfo("ocspdTrustDebug", ## args)
+#define ocspdHttpDebug(args...)	secinfo("ocspdHttp", ## args)
+#define ocspdLdapDebug(args...)	secinfo("ocspdLdap", ## args)
 
 
 #endif	/* _OCSPD_DEBUGGING_H_ */

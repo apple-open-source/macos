@@ -59,14 +59,16 @@
       "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAECyPLhWKYYUgEc+tUXfPQB4wtGS2MNvXrjwFCCnyYJifBtd2Sk7Cu+Js9DNhMTh35FftHaHu6ZrclnNBKwmbbSA==",
       "url": "log.certly.io",
       "maximum_merge_delay": 86400,
-      "operated_by": [2]
+      "operated_by": [2],
+      "expiry": "2016-04-15T00:00:00-0000"
     },
     {
       "description": "Izenpe log",
       "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEJ2Q5DC3cUBj4IQCiDu0s6j51up+TZAkAEcQRF6tczw90rLWXkJMAW7jr9yc92bIKgV8vDXU4lDeZHvYHduDuvg==",
       "url": "ct.izenpe.com",
       "maximum_merge_delay": 86400,
-      "operated_by": [3]
+      "operated_by": [3],
+      "expiry": "2016-05-30T00:00:00-0000"
     },
     {
       "description": "Symantec log",

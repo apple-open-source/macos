@@ -31,6 +31,7 @@
 #include "CachedResourceHandle.h"
 #include "CachedResourceRequest.h"
 #include "ResourceLoadPriority.h"
+#include "ResourceTimingInformation.h"
 #include "Timer.h"
 #include <wtf/Deque.h>
 #include <wtf/HashMap.h>
@@ -76,6 +77,7 @@ public:
     CachedResourceHandle<CachedCSSStyleSheet> requestUserCSSStyleSheet(CachedResourceRequest&);
     CachedResourceHandle<CachedScript> requestScript(CachedResourceRequest&);
     CachedResourceHandle<CachedFont> requestFont(CachedResourceRequest&, bool isSVG);
+    CachedResourceHandle<CachedRawResource> requestMedia(CachedResourceRequest&);
     CachedResourceHandle<CachedRawResource> requestRawResource(CachedResourceRequest&);
     CachedResourceHandle<CachedRawResource> requestMainResource(CachedResourceRequest&);
     CachedResourceHandle<CachedSVGDocument> requestSVGDocument(CachedResourceRequest&);
@@ -101,6 +103,7 @@ public:
     bool autoLoadImages() const { return m_autoLoadImages; }
     void setAutoLoadImages(bool);
 
+    bool imagesEnabled() const { return m_imagesEnabled; }
     void setImagesEnabled(bool);
 
     bool shouldDeferImageLoad(const URL&) const;
@@ -111,7 +114,7 @@ public:
     Frame* frame() const; // Can be null
     Document* document() const { return m_document; } // Can be null
     void setDocument(Document* document) { m_document = document; }
-    void clearDocumentLoader() { m_documentLoader = 0; }
+    void clearDocumentLoader() { m_documentLoader = nullptr; }
     SessionID sessionID() const;
 
     void removeCachedResource(CachedResource&);
@@ -120,8 +123,8 @@ public:
 
     WEBCORE_EXPORT void garbageCollectDocumentResources();
     
-    void incrementRequestCount(const CachedResource*);
-    void decrementRequestCount(const CachedResource*);
+    void incrementRequestCount(const CachedResource&);
+    void decrementRequestCount(const CachedResource&);
     int requestCount() const { return m_requestCount; }
 
     WEBCORE_EXPORT bool isPreloaded(const String& urlString) const;
@@ -130,7 +133,8 @@ public:
     void preload(CachedResource::Type, CachedResourceRequest&, const String& charset);
     void checkForPendingPreloads();
     void printPreloadStats();
-    bool canRequest(CachedResource::Type, const URL&, const ResourceLoaderOptions&, bool forPreload = false);
+
+    bool canRequest(CachedResource::Type, const URL&, const ResourceLoaderOptions&, bool forPreload = false, bool didReceiveRedirectResponse = false);
 
     static const ResourceLoaderOptions& defaultCachedResourceOptions();
 
@@ -142,9 +146,6 @@ private:
     CachedResourceHandle<CachedResource> requestResource(CachedResource::Type, CachedResourceRequest&);
     CachedResourceHandle<CachedResource> revalidateResource(const CachedResourceRequest&, CachedResource*);
     CachedResourceHandle<CachedResource> loadResource(CachedResource::Type, CachedResourceRequest&);
-#if ENABLE(RESOURCE_TIMING)
-    void storeResourceTimingInitiatorInformation(const CachedResourceHandle<CachedResource>&, const CachedResourceRequest&);
-#endif
     void requestPreload(CachedResource::Type, CachedResourceRequest&, const String& charset);
 
     enum RevalidationPolicy { Use, Revalidate, Reload, Load };
@@ -153,11 +154,12 @@ private:
     bool shouldContinueAfterNotifyingLoadedFromMemoryCache(const CachedResourceRequest&, CachedResource*);
     bool checkInsecureContent(CachedResource::Type, const URL&) const;
 
-    void garbageCollectDocumentResourcesTimerFired();
     void performPostLoadActions();
 
     bool clientDefersImage(const URL&) const;
     void reloadImagesIfNotDeferred();
+
+    bool canRequestInContentDispositionAttachmentSandbox(CachedResource::Type, const URL&) const;
     
     HashSet<String> m_validatedURLs;
     mutable DocumentResourceMap m_documentResources;
@@ -176,12 +178,8 @@ private:
 
     Timer m_garbageCollectDocumentResourcesTimer;
 
-#if ENABLE(RESOURCE_TIMING)
-    struct InitiatorInfo {
-        AtomicString name;
-        double startTime;
-    };
-    HashMap<CachedResource*, InitiatorInfo> m_initiatorMap;
+#if ENABLE(WEB_TIMING)
+    ResourceTimingInformation m_resourceTimingInfo;
 #endif
 
     // 29 bits left

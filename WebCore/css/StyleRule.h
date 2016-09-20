@@ -19,11 +19,9 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef StyleRule_h
-#define StyleRule_h
+#pragma once
 
 #include "CSSSelectorList.h"
-#include "MediaList.h"
 #include "StyleProperties.h"
 #include <wtf/RefPtr.h>
 #include <wtf/TypeCasts.h>
@@ -33,6 +31,7 @@ namespace WebCore {
 class CSSRule;
 class CSSStyleRule;
 class CSSStyleSheet;
+class MediaQuerySet;
 class MutableStyleProperties;
 class StyleProperties;
 
@@ -82,8 +81,8 @@ public:
     }
 
     // FIXME: There shouldn't be any need for the null parent version.
-    PassRefPtr<CSSRule> createCSSOMWrapper(CSSStyleSheet* parentSheet = 0) const;
-    PassRefPtr<CSSRule> createCSSOMWrapper(CSSRule* parentRule) const;
+    RefPtr<CSSRule> createCSSOMWrapper(CSSStyleSheet* parentSheet = nullptr) const;
+    RefPtr<CSSRule> createCSSOMWrapper(CSSRule* parentRule) const;
 
 protected:
     StyleRuleBase(Type type, signed sourceLine = 0) : m_type(type), m_sourceLine(sourceLine) { }
@@ -94,7 +93,7 @@ protected:
 private:
     void destroy();
     
-    PassRefPtr<CSSRule> createCSSOMWrapper(CSSStyleSheet* parentSheet, CSSRule* parentRule) const;
+    RefPtr<CSSRule> createCSSOMWrapper(CSSStyleSheet* parentSheet, CSSRule* parentRule) const;
 
     unsigned m_type : 5;
     signed m_sourceLine : 27;
@@ -105,7 +104,7 @@ class StyleRule : public StyleRuleBase {
 public:
     static Ref<StyleRule> create(int sourceLine, Ref<StyleProperties>&& properties)
     {
-        return adoptRef(*new StyleRule(sourceLine, WTF::move(properties)));
+        return adoptRef(*new StyleRule(sourceLine, WTFMove(properties)));
     }
     
     ~StyleRule();
@@ -115,7 +114,7 @@ public:
     MutableStyleProperties& mutableProperties();
     
     void parserAdoptSelectorVector(Vector<std::unique_ptr<CSSParserSelector>>& selectors) { m_selectorList.adoptSelectorVector(selectors); }
-    void wrapperAdoptSelectorList(CSSSelectorList& selectors) { m_selectorList = WTF::move(selectors); }
+    void wrapperAdoptSelectorList(CSSSelectorList& selectors) { m_selectorList = WTFMove(selectors); }
     void parserAdoptSelectorArray(CSSSelector* selectors) { m_selectorList.adoptSelectorArray(selectors); }
 
     Ref<StyleRule> copy() const { return adoptRef(*new StyleRule(*this)); }
@@ -136,7 +135,7 @@ private:
 
 class StyleRuleFontFace : public StyleRuleBase {
 public:
-    static Ref<StyleRuleFontFace> create(Ref<StyleProperties>&& properties) { return adoptRef(*new StyleRuleFontFace(WTF::move(properties))); }
+    static Ref<StyleRuleFontFace> create(Ref<StyleProperties>&& properties) { return adoptRef(*new StyleRuleFontFace(WTFMove(properties))); }
     
     ~StyleRuleFontFace();
 
@@ -155,7 +154,7 @@ private:
 
 class StyleRulePage : public StyleRuleBase {
 public:
-    static Ref<StyleRulePage> create(Ref<StyleProperties>&& properties) { return adoptRef(*new StyleRulePage(WTF::move(properties))); }
+    static Ref<StyleRulePage> create(Ref<StyleProperties>&& properties) { return adoptRef(*new StyleRulePage(WTFMove(properties))); }
 
     ~StyleRulePage();
 
@@ -164,7 +163,7 @@ public:
     MutableStyleProperties& mutableProperties();
 
     void parserAdoptSelectorVector(Vector<std::unique_ptr<CSSParserSelector>>& selectors) { m_selectorList.adoptSelectorVector(selectors); }
-    void wrapperAdoptSelectorList(CSSSelectorList& selectors) { m_selectorList = WTF::move(selectors); }
+    void wrapperAdoptSelectorList(CSSSelectorList& selectors) { m_selectorList = WTFMove(selectors); }
 
     Ref<StyleRulePage> copy() const { return adoptRef(*new StyleRulePage(*this)); }
 
@@ -193,9 +192,9 @@ private:
 
 class StyleRuleMedia : public StyleRuleGroup {
 public:
-    static Ref<StyleRuleMedia> create(PassRefPtr<MediaQuerySet> media, Vector<RefPtr<StyleRuleBase>>& adoptRules)
+    static Ref<StyleRuleMedia> create(Ref<MediaQuerySet>&& media, Vector<RefPtr<StyleRuleBase>>& adoptRules)
     {
-        return adoptRef(*new StyleRuleMedia(media, adoptRules));
+        return adoptRef(*new StyleRuleMedia(WTFMove(media), adoptRules));
     }
 
     MediaQuerySet* mediaQueries() const { return m_mediaQueries.get(); }
@@ -203,7 +202,7 @@ public:
     Ref<StyleRuleMedia> copy() const { return adoptRef(*new StyleRuleMedia(*this)); }
 
 private:
-    StyleRuleMedia(PassRefPtr<MediaQuerySet>, Vector<RefPtr<StyleRuleBase>>& adoptRules);
+    StyleRuleMedia(Ref<MediaQuerySet>&&, Vector<RefPtr<StyleRuleBase>>& adoptRules);
     StyleRuleMedia(const StyleRuleMedia&);
 
     RefPtr<MediaQuerySet> m_mediaQueries;
@@ -249,7 +248,7 @@ private:
 #if ENABLE(CSS_DEVICE_ADAPTATION)
 class StyleRuleViewport : public StyleRuleBase {
 public:
-    static Ref<StyleRuleViewport> create(Ref<StyleProperties>&& properties) { return adoptRef(*new StyleRuleViewport(WTF::move(properties))); }
+    static Ref<StyleRuleViewport> create(Ref<StyleProperties>&& properties) { return adoptRef(*new StyleRuleViewport(WTFMove(properties))); }
 
     ~StyleRuleViewport();
 
@@ -297,5 +296,3 @@ SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::StyleRuleViewport)
     static bool isType(const WebCore::StyleRuleBase& rule) { return rule.isViewportRule(); }
 SPECIALIZE_TYPE_TRAITS_END()
 #endif // ENABLE(CSS_DEVICE_ADAPTATION)
-
-#endif // StyleRule_h

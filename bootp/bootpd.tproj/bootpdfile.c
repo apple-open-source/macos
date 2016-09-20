@@ -48,12 +48,12 @@
 #include <errno.h>
 #include <ctype.h>
 #include <netdb.h>
-#include <syslog.h>
 #include <arpa/inet.h>
 #include <sys/uio.h>
 
 #include "bootpdfile.h"
 #include "hostlist.h"
+#include "mylog.h"
 
 #define HTYPE_ETHER		1
 #define NUM_EN_ADDR_BYTES	6
@@ -86,7 +86,7 @@ S_getfield(char * * line_p, int linenum, char *str, int len)
 		*cp++ = *linep;
 		if (--len <= 0) {
 			*cp = 0;
-			syslog(LOG_NOTICE, "string truncated: %s,"
+			my_log(LOG_NOTICE, "string truncated: %s,"
 			       " on line %d of bootptab", str, linenum);
 			goto done;
 		}
@@ -120,7 +120,7 @@ bootp_readtab(const char * filename)
 	filename = ETC_BOOTPTAB;
     }
     if ((fp = fopen(filename, "r")) == NULL) {
-	syslog(LOG_INFO, "can't open %s", filename);
+	my_log(LOG_INFO, "can't open %s", filename);
 	return;
     }
     if (fstat(fileno(fp), &st) == 0 
@@ -128,7 +128,7 @@ bootp_readtab(const char * filename)
 	fclose(fp);
 	return;	/* hasn't been modified */
     }
-    syslog(LOG_NOTICE, "re-reading %s", filename);
+    my_log(LOG_NOTICE, "re-reading %s", filename);
     modtime = st.st_mtime;
     linenum = 0;
     skiptopercent = 1;
@@ -197,7 +197,7 @@ bootp_readtab(const char * filename)
 	    cp++;
 	    if (sscanf(cpold, "%x", &v) != 1) {
 		good_hwaddr = FALSE;
-		syslog(LOG_NOTICE, "bad hex address: %s,"
+		my_log(LOG_NOTICE, "bad hex address: %s,"
 		       " at line %d of bootptab", temp, linenum);
 		break;
 	    }
@@ -212,19 +212,19 @@ bootp_readtab(const char * filename)
 	    continue;
 	}
 	if (all_zeroes) {
-	    syslog(LOG_NOTICE, "zero hex address: %s,"
+	    my_log(LOG_NOTICE, "zero hex address: %s,"
 		   " at line %d of bootptab", temp, linenum);
 	    continue;
 	}
 	if (htype == HTYPE_ETHER && hlen != NUM_EN_ADDR_BYTES) {
-	    syslog(LOG_NOTICE, "bad hex address: %s,"
+	    my_log(LOG_NOTICE, "bad hex address: %s,"
 		   " at line %d of bootptab", temp, linenum);
 	    continue;
 	}
 	S_getfield(&linep, linenum, temp, sizeof(temp));
 	iaddr.s_addr = inet_addr(temp);
 	if (iaddr.s_addr == -1 || iaddr.s_addr == 0) {
-	    syslog(LOG_NOTICE, "bad internet address: %s,"
+	    my_log(LOG_NOTICE, "bad internet address: %s,"
 		   " at line %d of bootptab", temp, linenum);
 	    continue;
 	}
@@ -234,7 +234,7 @@ bootp_readtab(const char * filename)
 	host_count++;
     }
     fclose(fp);
-    syslog(LOG_NOTICE, "Loaded %d entries from bootptab (%d bad)",
+    my_log(LOG_NOTICE, "Loaded %d entries from bootptab (%d bad)",
 	   host_count, host_count_all - host_count);
     return;
 }

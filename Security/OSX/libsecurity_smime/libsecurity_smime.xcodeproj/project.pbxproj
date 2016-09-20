@@ -80,6 +80,8 @@
 		ACA9CE4A18BC4543005AD855 /* SecCMS.h in Headers */ = {isa = PBXBuildFile; fileRef = ACBEE90D18B415B60021712D /* SecCMS.h */; };
 		ACBEE90C18B403470021712D /* SecCMS.c in Sources */ = {isa = PBXBuildFile; fileRef = ACBEE90B18B403470021712D /* SecCMS.c */; };
 		ACBEE90E18B415B60021712D /* SecCMS.h in Headers */ = {isa = PBXBuildFile; fileRef = ACBEE90D18B415B60021712D /* SecCMS.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		D421AF641CA45E8C00A8E512 /* cms-01-basic.c in Sources */ = {isa = PBXBuildFile; fileRef = D421AF601CA45E4900A8E512 /* cms-01-basic.c */; };
+		D421AF651CA45E9700A8E512 /* cms-01-basic.h in Headers */ = {isa = PBXBuildFile; fileRef = D421AF611CA45E4900A8E512 /* cms-01-basic.h */; };
 		F64399010420118A01CA2DCC /* cert.h in Headers */ = {isa = PBXBuildFile; fileRef = F64398FF0420118A01CA2DCC /* cert.h */; };
 		F64399020420118A01CA2DCC /* cert.c in Sources */ = {isa = PBXBuildFile; fileRef = F64399000420118A01CA2DCC /* cert.c */; };
 /* End PBXBuildFile section */
@@ -177,13 +179,15 @@
 		5232A821150AD71A00E6BB48 /* tsaSupportPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tsaSupportPriv.h; sourceTree = "<group>"; };
 		52B609D314F4665700134209 /* tsaTemplates.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tsaTemplates.c; sourceTree = "<group>"; };
 		52B609D414F4665700134209 /* tsaTemplates.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tsaTemplates.h; sourceTree = "<group>"; };
-		52D7A24915092A0600CF48F7 /* tsaSupport.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tsaSupport.c; sourceTree = "<group>"; };
+		52D7A24915092A0600CF48F7 /* tsaSupport.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; lineEnding = 0; path = tsaSupport.c; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.c; };
 		52D7A24C15092AAD00CF48F7 /* tsaSupport.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = tsaSupport.h; sourceTree = "<group>"; };
 		AC62F5F018B4356A00704BBD /* libsecurity_smime_regressions.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libsecurity_smime_regressions.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		ACBEE90B18B403470021712D /* SecCMS.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecCMS.c; sourceTree = "<group>"; };
 		ACBEE90D18B415B60021712D /* SecCMS.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecCMS.h; sourceTree = "<group>"; };
 		ACBEE91018B420BC0021712D /* smime-cms-test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "smime-cms-test.c"; sourceTree = "<group>"; };
 		ACBEE91318B421890021712D /* smime_regressions.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = smime_regressions.h; sourceTree = "<group>"; };
+		D421AF601CA45E4900A8E512 /* cms-01-basic.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "cms-01-basic.c"; sourceTree = "<group>"; };
+		D421AF611CA45E4900A8E512 /* cms-01-basic.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "cms-01-basic.h"; sourceTree = "<group>"; };
 		F64398FF0420118A01CA2DCC /* cert.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cert.h; sourceTree = "<group>"; tabWidth = 8; };
 		F64399000420118A01CA2DCC /* cert.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = cert.c; sourceTree = "<group>"; tabWidth = 8; };
 /* End PBXFileReference section */
@@ -315,6 +319,8 @@
 		ACBEE90F18B41FB80021712D /* regressions */ = {
 			isa = PBXGroup;
 			children = (
+				D421AF601CA45E4900A8E512 /* cms-01-basic.c */,
+				D421AF611CA45E4900A8E512 /* cms-01-basic.h */,
 				ACBEE91018B420BC0021712D /* smime-cms-test.c */,
 				ACBEE91318B421890021712D /* smime_regressions.h */,
 			);
@@ -362,6 +368,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D421AF651CA45E9700A8E512 /* cms-01-basic.h in Headers */,
 				ACA9CE4A18BC4543005AD855 /* SecCMS.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -411,7 +418,7 @@
 		4C2741E803E9FBAF00A80181 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0700;
+				LastUpgradeCheck = 0800;
 			};
 			buildConfigurationList = C23B0CD909A298C100B7FCED /* Build configuration list for PBXProject "libsecurity_smime" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -476,6 +483,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D421AF641CA45E8C00A8E512 /* cms-01-basic.c in Sources */,
 				AC62F5F418B4358B00704BBD /* smime-cms-test.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -582,7 +590,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
-					"SECTRUST_OSX=0",
+					"SECTRUST_OSX=1",
 				);
 			};
 			name = Debug;
@@ -594,7 +602,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
-					"SECTRUST_OSX=0",
+					"SECTRUST_OSX=1",
 				);
 			};
 			name = Release;
@@ -603,6 +611,21 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB3A0146F1A68000BF1F3 /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = lossless;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				ONLY_ACTIVE_ARCH = YES;
 			};
 			name = Debug;
 		};
@@ -610,6 +633,19 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB3A0146F1A68000BF1F3 /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = "respect-asset-catalog";
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
 			};
 			name = Release;
 		};

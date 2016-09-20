@@ -53,15 +53,23 @@
 #include <netdb.h>
 #include <poll.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <inttypes.h>
 #include <string.h>
 #include <getopt.h>
 #include <fcntl.h>
+#include <pthread.h>
+#include <sysexits.h>
+
 #include "atomicio.h"
 
 #include <network/conninfo.h>
+
+static int str2sotc(const char *);
+static int str2netservicetype(const char *);
+static u_int8_t str2tos(const char *, bool *);
 
 #ifndef SUN_LEN
 #define SUN_LEN(su) \
@@ -98,6 +106,7 @@ int	Sflag;					/* TCP MD5 signature option */
 #ifdef __APPLE__
 int	Aflag;					/* Set SO_RECV_ANYIF on socket */
 int	aflag;					/* Set SO_AWDL_UNRESTRICTED on socket */
+int	mflag;					/* Set SO_INTCOPROC_ALLOW on socket */
 char	*boundif;				/* interface to bind to */
 int	ifscope;				/* idx of bound to interface */
 int	Cflag;					/* cellular connection OFF option */
@@ -119,18 +128,43 @@ int	Nflag;					/* TCP adaptive write timeout */
 int	oflag;					/* set options after connect/bind */
 int	tcp_conn_adaptive_rtimo;		/* Value of TCP adaptive timeout */
 int	tcp_conn_adaptive_wtimo;		/* Value of TCP adaptive timeout */
-int	pid_flag;				/* delegated pid */
-pid_t	pid;					/* value of delegated pid */
-int	uuid_flag;				/* delegated uuid */
+
+int		pid_flag = 0;			/* delegated pid */
+const char	*pid_optarg = NULL;		/* delegated pid option */
+pid_t		pid = -1;			/* value of delegated pid */
+
+int		uuid_flag = 0;			/* delegated uuid */
+const char	*uuid_optarg = NULL;		/* delegated uuid option */
 uuid_t	uuid;					/* value of delegated uuid */
-int	extbkidle_flag;				/* extended background idle mode */
-int	nowakefromsleep_flag;			/* extended background idle mode */
-int	ecn_mode_flag;				/* ECN mode option */
-int	ecn_mode;				/* ECN mode via TCP_ECN_MODE */
+
+int		extbkidle_flag = 0;		/* extended background idle mode */
+
+int		nowakefromsleep_flag = 0;	/* extended background idle mode */
+
+int		ecn_mode_flag = 0;		/* ECN mode option */
+const char	*ecn_mode_optarg = NULL;	/* ECN mode option */
+int		ecn_mode = -1;			/* TCP_ECN_MODE value  */
+
+int		kao_flag;				/* Keep Alive Offload option */
+const char	*kao_optarg;				/* Keep Alive Offload option */
+int		kao = -1;				/* Keep Alive Offload value */
+
+int		Tflag = -1;			/* IP Type of Service */
+
+int		netsvctype_flag = 0;		/* Network service type  */
+const char	*netsvctype_optarg = NULL;	/* Network service type option string */
+int	netsvctype = -1;			/* SO_NET_SERVICE_TYPE value */
 #endif /* __APPLE__ */
 
 int srcroute = 0;				/* Source routing IPv4/IPv6 options */
 char *srcroute_hosts = NULL;
+
+/* Variables for receiving socket events */
+int sockev = 0;
+pthread_t sockev_thread;
+void* sockev_receive(void *arg);
+
+int notify_ack = 0;
 
 int use_flowadv = 1;
 int timeout = -1;
@@ -149,7 +183,7 @@ int	socks_connect(const char *, const char *, struct addrinfo, const char *, con
 int	udptest(int);
 int	unix_connect(char *);
 int	unix_listen(char *);
-void    set_common_sockopts(int);
+void    set_common_sockopts(int, int);
 void	usage(int);
 int	showconninfo(int, sae_connid_t);
 void	showmpinfo(int);
@@ -196,14 +230,15 @@ const struct option long_options[] =
 #endif /* __APPLE__ */
 	{ "apple-resvd-10",	required_argument,	NULL,	'p' },
 #ifdef __APPLE__
-	{ "apple-delegate-pid",	required_argument,	&pid_flag,1 },
-	{ "apple-delegate-uuid",required_argument,	&uuid_flag,1 },
+	{ "apple-delegate-pid",	required_argument,	&pid_flag, 1 },
+	{ "apple-delegate-uuid",required_argument,	&uuid_flag, 1 },
 #endif /* __APPLE__ */
 	{ "apple-resvd-11",	no_argument,		NULL,	'r' },
 	{ "apple-resvd-12",	required_argument,	NULL,	's' },
 #ifndef __APPLE__
 	{ "apple-resvd-13",	no_argument,		NULL,	'S' },
 #endif /* !__APPLE__ */
+	{ "apple-tos",		required_argument,	NULL,	'T' },
 	{ "apple-resvd-14",	no_argument,		NULL,	't' },
 	{ "apple-resvd-15",	no_argument,		NULL,	'U' },
 	{ "apple-resvd-16",	no_argument,		NULL,	'u' },
@@ -212,9 +247,13 @@ const struct option long_options[] =
 	{ "apple-resvd-19",	required_argument,	NULL,	'X' },
 	{ "apple-resvd-20",	required_argument,	NULL,	'x' },
 	{ "apple-resvd-21",	no_argument,		NULL,	'z' },
-	{ "apple-ext-bk-idle",	no_argument,		&extbkidle_flag,1 },
-	{ "apple-nowakefromsleep",	no_argument,	&nowakefromsleep_flag,1 },
-	{ "apple-ecn",		required_argument,	&ecn_mode_flag,1 },
+	{ "apple-ext-bk-idle",	no_argument,		&extbkidle_flag, 1 },
+	{ "apple-nowakefromsleep",	no_argument,	&nowakefromsleep_flag, 1 },
+	{ "apple-ecn",		required_argument,	&ecn_mode_flag, 1 },
+	{ "apple-kao",		required_argument,	&kao_flag, 1 },
+	{ "apple-sockev",	no_argument, 		&sockev, 1},
+	{ "apple-notify-ack",	no_argument,		&notify_ack, 1},
+	{ "apple-netsvctype",	required_argument,	&netsvctype_flag, 1},
 	{ NULL,			0,			NULL,	0 }
 };
 
@@ -240,7 +279,7 @@ main(int argc, char *argv[])
 	sv = NULL;
 
 	while ((ch = getopt_long(argc, argv,
-	    "46AacDCb:dEhi:jFG:H:I:J:K:L:klMnN:Oop:rSs:tUuvw:X:x:z",
+	    "46AacDCb:dEhi:jFG:H:I:J:K:L:klMnN:Oop:rSs:T:tUuvw:X:x:z",
 	    long_options, NULL)) != -1) {
 		switch (ch) {
 		case '4':
@@ -257,6 +296,9 @@ main(int argc, char *argv[])
 			break;
 		case 'U':
 			family = AF_UNIX;
+			break;
+		case 'm':
+			mflag = 1;
 			break;
 		case 'M':
 			Mflag = 1;
@@ -278,7 +320,7 @@ main(int argc, char *argv[])
 		case 'C':
 			Cflag = 1;
 			break;
-			
+
 		case 'E':
 			Eflag = 1;
 			break;
@@ -310,8 +352,8 @@ main(int argc, char *argv[])
 #ifdef __APPLE__
 		case 'K':
 			Kflag = 1;
-			tclass = (int)strtoul(optarg, &endp, 10);
-			if (tclass < 0 || *endp != '\0')
+			tclass = str2sotc(optarg);
+			if (tclass == -1)
 				errx(1, "invalid traffic class");
 			break;
 		case 'F':
@@ -320,37 +362,37 @@ main(int argc, char *argv[])
 			break;
 		case 'G':
 			Gflag = 1;
-			tcp_conn_timeout = strtoumax(optarg, &endp, 10);
+			tcp_conn_timeout = (int)strtol(optarg, &endp, 10);
 			if (tcp_conn_timeout < 0 || *endp != '\0')
 				errx(1, "invalid tcp connection timeout");
 			break;
 		case 'H':
 			Hflag = 1;
-			tcp_conn_keepidle = strtoumax(optarg, &endp, 10);
+			tcp_conn_keepidle = (int)strtol(optarg, &endp, 10);
 			if (tcp_conn_keepidle < 0 || *endp != '\0')
 				errx(1, "invalid tcp keep idle interval");
 			break;
 		case 'I':
 			Iflag = 1;
-			tcp_conn_keepintvl = strtoumax(optarg, &endp, 10);
+			tcp_conn_keepintvl = (int)strtol(optarg, &endp, 10);
 			if (tcp_conn_keepintvl < 0 || *endp != '\0')
 				errx(1, "invalid tcp keep interval");
 			break;
 		case 'J':
 			Jflag = 1;
-			tcp_conn_keepcnt = strtoumax(optarg, &endp, 10);
+			tcp_conn_keepcnt = (int)strtol(optarg, &endp, 10);
 			if (tcp_conn_keepcnt < 0 || *endp != '\0')
 				errx(1, "invalid tcp keep count");
 			break;
 		case 'L':
 			Lflag = 1;
-			tcp_conn_adaptive_rtimo = strtoumax(optarg, &endp, 10);
+			tcp_conn_adaptive_rtimo = (int)strtol(optarg, &endp, 10);
 			if (tcp_conn_adaptive_rtimo < 0 || *endp != '\0')
 				errx(1, "invalid tcp adaptive read timeout value");
 			break;
 		case 'N':
 			Nflag = 1;
-			tcp_conn_adaptive_wtimo = strtoumax(optarg, &endp, 10);
+			tcp_conn_adaptive_wtimo = (int)strtol(optarg, &endp, 10);
 			if (tcp_conn_adaptive_wtimo < 0 || *endp != '\0')
 				errx(1, "invalid tcp adaptive write timeout value");
 			break;
@@ -379,6 +421,14 @@ main(int argc, char *argv[])
 		case 't':
 			tflag = 1;
 			break;
+		case 'T': {
+			bool valid;
+
+			Tflag = str2tos(optarg, &valid);
+			if (valid == false)
+				errx(EX_USAGE, "invalid TOS value: `%s'", optarg);
+			break;
+		}
 		case 'u':
 			uflag = 1;
 			break;
@@ -413,32 +463,26 @@ main(int argc, char *argv[])
 #endif /* !__APPLE__ */
 		case 0:
 #ifdef __APPLE__
-			if (pid_flag && uuid_flag)
-				errx(1, "cannot use -apple-delegate-pid and --apple-delegate-uuid");
-
 			if (pid_flag) {
-				pid = (pid_t)strtoul(optarg, &endp, 0);
-				if (pid == ULONG_MAX || *endp != '\0')
-				errx(1, "invalid pid value");
+				pid_optarg = optarg;
+				pid_flag = 0;
 			}
 
 			if (uuid_flag) {
-				if (uuid_parse(optarg, uuid))
-					errx(1, "invalid uuid value");
+				uuid_optarg = optarg;
+				uuid_flag = 0;
 			}
 			if (ecn_mode_flag) {
-				if (strcmp(optarg, "default") == 0)
-					ecn_mode = ECN_MODE_DEFAULT;
-				else if (strcmp(optarg, "enable") == 0)
-					ecn_mode = ECN_MODE_ENABLE;
-				else if (strcmp(optarg, "disable") == 0)
-					ecn_mode = ECN_MODE_DISABLE;
-				else {
-					ecn_mode = (int)strtol(optarg, &endp, 0);
-					if (ecn_mode == (int)LONG_MAX || *endp != '\0')
-						errx(1, "invalid ECN mode value");
-				}
-
+				ecn_mode_optarg = optarg;
+				ecn_mode_flag = 0;
+			}
+			if (netsvctype_flag != 0) {
+				netsvctype_optarg = optarg;
+				netsvctype_flag = 0;
+			}
+			if (kao_flag != 0) {
+				kao_optarg = optarg;
+				kao_flag = 0;
 			}
 #endif /* __APPLE__ */
 			break;
@@ -448,6 +492,43 @@ main(int argc, char *argv[])
 	}
 	argc -= optind;
 	argv += optind;
+
+	if (pid_optarg != NULL && uuid_optarg != NULL)
+				errx(1, "cannot use -apple-delegate-pid and --apple-delegate-uuid");
+
+	if (pid_optarg != NULL) {
+		pid = (pid_t)strtoul(pid_optarg, &endp, 0);
+		if (pid == ULONG_MAX || *endp != '\0')
+			errx(1, "invalid pid value");
+	}
+
+	if (uuid_optarg != NULL) {
+		if (uuid_parse(pid_optarg, uuid))
+			errx(1, "invalid uuid value");
+	}
+	if (ecn_mode_optarg != NULL) {
+		if (strcmp(ecn_mode_optarg, "default") == 0)
+			ecn_mode = ECN_MODE_DEFAULT;
+		else if (strcmp(ecn_mode_optarg, "enable") == 0)
+			ecn_mode = ECN_MODE_ENABLE;
+		else if (strcmp(ecn_mode_optarg, "disable") == 0)
+			ecn_mode = ECN_MODE_DISABLE;
+		else {
+			ecn_mode = (int)strtol(ecn_mode_optarg, &endp, 0);
+			if (ecn_mode == (int)LONG_MAX || *endp != '\0')
+				errx(1, "invalid ECN mode value");
+		}
+	}
+	if (netsvctype_optarg != NULL) {
+		netsvctype = str2netservicetype(netsvctype_optarg);
+		if (netsvctype == -1)
+			errx(1, "invalid network service type %s", netsvctype_optarg);
+	}
+	if (kao_optarg != NULL) {
+		kao = strtol(kao_optarg, &endp, 0);
+		if (kao < 0 || kao > UINT_MAX || *endp != '\0')
+			errx(1, "invalid kao value");
+	}
 
 	/* Cruft to make sure options are clean, and used properly. */
 	if (argv[0] && !argv[1] && family == AF_UNIX) {
@@ -791,11 +872,11 @@ remote_connect(const char *host, const char *port, struct addrinfo hints)
 		}
 
 		if (!oflag)
-			set_common_sockopts(s);
+			set_common_sockopts(s, res0->ai_family);
 
 		if (connect(s, res0->ai_addr, res0->ai_addrlen) == 0) {
 			if (oflag)
-				set_common_sockopts(s);
+				set_common_sockopts(s, res0->ai_family);
 			break;
 		} else if (vflag) {
 			warn("connect to %s port %s (%s) failed", host, port,
@@ -861,7 +942,7 @@ remote_connectx(const char *host, const char *port, struct addrinfo hints)
 		}
 
 		if (!oflag)
-			set_common_sockopts(s);
+			set_common_sockopts(s, res0->ai_family);
 
 		cid = SAE_CONNID_ANY;
 		if (ares == NULL) {
@@ -884,7 +965,7 @@ remote_connectx(const char *host, const char *port, struct addrinfo hints)
 
 		if (error == 0) {
 			if (oflag)
-				set_common_sockopts(s);
+				set_common_sockopts(s, res0->ai_family);
 			if (vflag)
 				showmpinfo(s);
 			break;
@@ -900,7 +981,7 @@ remote_connectx(const char *host, const char *port, struct addrinfo hints)
 				close(s);
 				s = ps;
 				if (oflag)
-					set_common_sockopts(s);
+					set_common_sockopts(s, res0->ai_family);
 				break;
 			}
 			warn("peeloff failed for connid %d", cid);
@@ -956,12 +1037,12 @@ local_listen(char *host, char *port, struct addrinfo hints)
 			err(1, NULL);
 
 		if (!oflag)
-			set_common_sockopts(s);
+			set_common_sockopts(s, res0->ai_family);
 
 		if (bind(s, (struct sockaddr *)res0->ai_addr,
 		    res0->ai_addrlen) == 0) {
 			if (oflag)
-				set_common_sockopts(s);
+				set_common_sockopts(s, res0->ai_family);
 			break;
 		}
 
@@ -996,7 +1077,7 @@ readwrite(int nfd)
 	unsigned char buf[8192];
 	int n, wfd = fileno(stdin);
 	int lfd = fileno(stdout);
-	int plen;
+	int plen, rc, marker_id = 0;
 
 #ifndef __APPLE__
 	plen = jflag ? 8192 : 1024;
@@ -1013,6 +1094,18 @@ readwrite(int nfd)
 	pfd[1].fd = wfd;
 	pfd[1].events = POLLIN;
 #endif
+	if (sockev > 0) {
+		bzero(&sockev_thread, sizeof(sockev_thread));
+		/*
+		 * create another thread to listen/print
+		 * socket events
+		 */
+		rc = pthread_create(&sockev_thread, NULL,
+		    &sockev_receive, &nfd);
+		if (rc != 0)
+			errx(1, "pthread_create failed: %d", rc);
+	}
+
 
 #ifdef USE_SELECT
 	while (nfd_open) {
@@ -1091,8 +1184,25 @@ readwrite(int nfd)
 					if (atomicio(vwrite, nfd, buf, n) != n)
 						return;
 				}
+				if (notify_ack > 0) {
+					++marker_id;
+					/* set NOTIFY_ACK socket option */
+					rc = setsockopt(nfd, IPPROTO_TCP,
+					    TCP_NOTIFY_ACKNOWLEDGEMENT,
+					    &marker_id, sizeof (marker_id));
+					if (rc < 0) {
+						perror("setsockopt TCP_NOTIFY_ACKNOWLEDGEMENT failed");
+						notify_ack = 0;
+					}
+				}
 			}
 		}
+	}
+
+	if (sockev > 0) {
+		rc = pthread_join(sockev_thread, NULL);
+		if (rc > 0)
+			errx(1, "pthread_join failed: %d", rc);
 	}
 }
 
@@ -1213,7 +1323,7 @@ udptest(int s)
 }
 
 void
-set_common_sockopts(int s)
+set_common_sockopts(int s, int af)
 {
 	int x = 1;
 
@@ -1242,11 +1352,16 @@ set_common_sockopts(int s)
 			&x, sizeof(x)) == -1)
 			err(1, "SO_RECV_ANYIF");
 	}
-
 	if (aflag) {
 		if (setsockopt(s, SOL_SOCKET, SO_AWDL_UNRESTRICTED,
 			&x, sizeof(x)) == -1)
 			err(1, "SO_AWDL_UNRESTRICTED");
+	}
+
+	if (mflag) {
+		if (setsockopt(s, SOL_SOCKET, SO_INTCOPROC_ALLOW,
+			&x, sizeof(x)) == -1)
+			err(1, "SO_INTCOPROC_ALLOW");
 	}
 
 	if (boundif && (lflag || Oflag)) {
@@ -1272,9 +1387,15 @@ set_common_sockopts(int s)
 			err(1, "SO_RESTRICTIONS: SO_RESTRICT_DENY_EXPENSIVE");
 	}
 
+	if (netsvctype_optarg != NULL) {
+		if (setsockopt(s, SOL_SOCKET, SO_NET_SERVICE_TYPE,
+			       &netsvctype, sizeof (netsvctype)) == -1)
+			err(1, "SO_NET_SERVICE_TYPE netsvctype_optarg %s netsvctype %d",
+			    netsvctype_optarg, netsvctype);
+	}
 	if (Kflag) {
 		if (setsockopt(s, SOL_SOCKET, SO_TRAFFIC_CLASS,
-		    &tclass, sizeof (tclass)) == -1)
+			       &tclass, sizeof (tclass)) == -1)
 			err(1, "SO_TRAFFIC_CLASS");
 	}
 
@@ -1295,7 +1416,7 @@ set_common_sockopts(int s)
 	if (Hflag) {
 		if (setsockopt(s, IPPROTO_TCP, TCP_KEEPALIVE,
 			&tcp_conn_keepidle, sizeof(tcp_conn_keepidle)) == -1)
-			err(1, "TCP_KEEPALIVE");	
+			err(1, "TCP_KEEPALIVE");
 	}
 
 	if (Iflag) {
@@ -1310,27 +1431,33 @@ set_common_sockopts(int s)
 			err(1, "TCP_KEEPCNT");
 	}
 
+	if (kao_optarg != NULL) {
+		if (setsockopt(s, IPPROTO_TCP, TCP_KEEPALIVE_OFFLOAD,
+			       &kao, sizeof(kao)) == -1)
+			err(1, "TCP_KEEPALIVE_OFFLOAD");
+	}
+
 	if (Lflag) {
 		if (setsockopt(s, IPPROTO_TCP, TCP_ADAPTIVE_READ_TIMEOUT,
-			&tcp_conn_adaptive_rtimo, 
+			&tcp_conn_adaptive_rtimo,
 			sizeof(tcp_conn_adaptive_rtimo)) == -1)
 			err(1, "TCP_ADAPTIVE_READ_TIMEOUT");
 	}
 
 	if (Nflag) {
 		if (setsockopt(s, IPPROTO_TCP,TCP_ADAPTIVE_WRITE_TIMEOUT,
-			&tcp_conn_adaptive_wtimo, 
+			&tcp_conn_adaptive_wtimo,
 			sizeof(tcp_conn_adaptive_wtimo)) == -1)
 			err(1, "TCP_ADAPTIVE_WRITE_TIMEOUT");
 	}
 
-	if (pid_flag) {
+	if (pid_optarg != NULL) {
 		if (setsockopt(s, SOL_SOCKET, SO_DELEGATED,
 			       &pid, sizeof(pid)) == -1)
 			err(1, "SO_DELEGATED");
 	}
 
-	if (uuid_flag) {
+	if (uuid_optarg != NULL) {
 		if (setsockopt(s, SOL_SOCKET, SO_DELEGATED_UUID,
 			       uuid, sizeof(uuid)) == -1)
 			err(1, "SO_DELEGATED_UUID");
@@ -1346,10 +1473,24 @@ set_common_sockopts(int s)
 			       &nowakefromsleep_flag, sizeof(int)) == -1)
 			err(1, "SO_NOWAKEFROMSLEEP");
 	}
-	if (ecn_mode_flag) {
+	if (ecn_mode_optarg != NULL) {
 		if (setsockopt(s, IPPROTO_TCP, TCP_ECN_MODE,
 			       &ecn_mode, sizeof(int)) == -1)
 			err(1, "TCP_ECN_MODE");
+	}
+	if (Tflag != -1) {
+		int proto, option;
+
+		if (af == AF_INET6) {
+			proto = IPPROTO_IPV6;
+			option = IPV6_TCLASS;
+		} else {
+			proto = IPPROTO_IP;
+			option = IP_TOS;
+		}
+
+		if (setsockopt(s, proto, option, &Tflag, sizeof(Tflag)) == -1)
+			err(1, "set IP ToS");
 	}
 #endif /* __APPLE__ */
 }
@@ -1422,6 +1563,7 @@ help(void)
 	"	\t-J keepcnt	Number of times to repeat idle timeout\n",
 	"	\t-K tclass	Specify traffic class\n",
 	"	\t-L num_probes Number of probes to send before generating a read timeout event\n",
+	"	\t-m		Set SO_INTCOPROC_ALLOW on socket\n",
 	"	\t-M		Use MULTIPATH domain socket\n",
 	"	\t-N num_probes Number of probes to send before generating a write timeout event\n",
 	"	\t-O		Use old-style connect instead of connectx\n",
@@ -1430,6 +1572,10 @@ help(void)
 	"	\t--apple-delegate-uuid uuid\tSet socket as delegate using uuid\n"
 	"	\t--apple-ext-bk-idle\tExtended background idle time\n"
 	"	\t--apple-ecn\tSet the ECN mode\n"
+	"	\t--apple-sockev\tReceive and print socket events\n"
+	"	\t--apple-notify-ack\tReceive events when data gets acknowledged\n"
+	"	\t--apple-tos\tSet the IP_TOS or IPV6_TCLASS option\n"
+	"	\t--apple-netsvctype\tSet the network service type\n"
 #endif /* !__APPLE__ */
 	);
 	exit(1);
@@ -1485,8 +1631,101 @@ wait_for_flowadv(int fd)
 	if (kev[1].flags & EV_EOF) {
 		return (2);
 	}
-
 	return (0);
+}
+
+void *
+sockev_receive(void *arg)
+{
+	int kq = -1;
+	struct kevent kev[2];
+	int result, sock;
+
+	if (arg == NULL) {
+		printf("Bad argument to sockev_receive thread\n");
+		return (NULL);
+	}
+
+	sock = *((int *) arg);
+	kq = kqueue();
+	if (kq < 0) {
+		errx(1, "failed to create kqueue");
+		return (NULL);
+	}
+
+loop:
+	bzero(kev, sizeof(kev));
+	EV_SET(&kev[0], sock, EVFILT_SOCK, (EV_ADD | EV_ENABLE | EV_CLEAR),
+	    EVFILT_SOCK_ALL_MASK, NULL, NULL);
+
+	/* Wait for events */
+	result = kevent(kq, &kev[0], 1, &kev[1], 1, NULL);
+	if (result < 0) {
+		perror("kevent system call failed");
+		return (NULL);
+	}
+
+	if (kev[1].fflags & NOTE_CONNRESET)
+		printf("Received CONNRESET event, data 0x%lx\n",
+		    kev[1].data);
+	if (kev[1].fflags & NOTE_READCLOSED)
+		printf("Received READCLOSED event, data 0x%lx\n",
+		    kev[1].data);
+	if (kev[1].fflags & NOTE_WRITECLOSED)
+		printf("Received WRITECLOSED event, data 0x%lx\n",
+		    kev[1].data);
+	if (kev[1].fflags & NOTE_TIMEOUT)
+		printf("Received TIMEOUT event, data 0x%lx\n", kev[1].data);
+	if (kev[1].fflags & NOTE_NOSRCADDR)
+		printf("Received NOSRCADDR event, data 0x%lx\n", kev[1].data);
+	if (kev[1].fflags & NOTE_IFDENIED)
+		printf("Received IFDENIED event, data 0x%lx\n", kev[1].data);
+	if (kev[1].fflags & NOTE_SUSPEND)
+		printf("Received SUSPEND event, data 0x%lx\n", kev[1].data);
+	if (kev[1].fflags & NOTE_RESUME)
+		printf("Received RESUME event, data 0x%lx\n", kev[1].data);
+	if (kev[1].fflags & NOTE_KEEPALIVE)
+		printf("Received KEEPALIVE event, data 0x%lx\n", kev[1].data);
+	if (kev[1].fflags & NOTE_ADAPTIVE_WTIMO)
+		printf("Received ADAPTIVE_WTIMO event, data 0x%lx\n",
+		    kev[1].data);
+	if (kev[1].fflags & NOTE_ADAPTIVE_RTIMO)
+		printf("Received ADAPTIVE_RTIMO event, data 0x%lx\n",
+		    kev[1].data);
+	if (kev[1].fflags & NOTE_CONNECTED)
+		printf("Received CONNECTED event, data 0x%lx\n",
+		    kev[1].data);
+	if (kev[1].fflags & NOTE_DISCONNECTED)
+		printf("Received DISCONNECTED event, data 0x%lx\n",
+		    kev[1].data);
+	if (kev[1].fflags & NOTE_CONNINFO_UPDATED)
+		printf("Received CONNINFO_UPDATED event, data 0x%lx\n",
+		    kev[1].data);
+	if (kev[1].fflags & NOTE_NOTIFY_ACK) {
+		struct tcp_notify_ack_complete ack_ids;
+		socklen_t optlen;
+		printf("Received NOTIFY_ACK event, data 0x%lx\n",
+		    kev[1].data);
+		bzero(&ack_ids, sizeof (ack_ids));
+		optlen = sizeof (ack_ids);
+		result = getsockopt(sock, IPPROTO_TCP,
+		    TCP_NOTIFY_ACKNOWLEDGEMENT,
+		    &ack_ids, &optlen);
+		if (result != 0) {
+			perror("getsockopt TCP_NOTIFY_ACKNOWLEDGEMENT failed: ");
+		} else {
+			printf("pending: %u complete: %u id: %u \n",
+			    ack_ids.notify_pending,
+			    ack_ids.notify_complete_count,
+			    ack_ids.notify_complete_id[0]);
+		}
+	}
+	if (kev[1].flags & EV_EOF) {
+		printf("reached EOF\n");
+		return (NULL);
+	} else {
+		goto loop;
+	}
 }
 
 /*
@@ -1636,4 +1875,144 @@ done:
 		freeassocids(aid);
 	if (cid != NULL)
 		freeconnids(cid);
+}
+
+int
+str2sotc(const char *str)
+{
+	int svc;
+	char *endptr;
+
+	if (str == NULL || *str == '\0')
+		svc = -1;
+	else if (strcasecmp(str, "BK_SYS") == 0)
+		svc = SO_TC_BK_SYS;
+	else if (strcasecmp(str, "BK") == 0)
+		svc = SO_TC_BK;
+	else if (strcasecmp(str, "BE") == 0)
+		svc = SO_TC_BE;
+	else if (strcasecmp(str, "RD") == 0)
+		svc = SO_TC_RD;
+	else if (strcasecmp(str, "OAM") == 0)
+		svc = SO_TC_OAM;
+	else if (strcasecmp(str, "AV") == 0)
+		svc = SO_TC_AV;
+	else if (strcasecmp(str, "RV") == 0)
+		svc = SO_TC_RV;
+	else if (strcasecmp(str, "VI") == 0)
+		svc = SO_TC_VI;
+	else if (strcasecmp(str, "VO") == 0)
+		svc = SO_TC_VO;
+	else if (strcasecmp(str, "CTL") == 0)
+		svc = SO_TC_CTL;
+	else {
+		svc = (int)strtol(str, &endptr, 0);
+		if (*endptr != '\0')
+			svc = -1;
+	}
+	return (svc);
+}
+
+int
+str2netservicetype(const char *str)
+{
+	int svc = -1;
+	char *endptr;
+
+	if (str == NULL || *str == '\0')
+		svc = -1;
+	else if (strcasecmp(str, "BK") == 0)
+		svc = NET_SERVICE_TYPE_BK;
+	else if (strcasecmp(str, "BE") == 0)
+		svc = NET_SERVICE_TYPE_BE;
+	else if (strcasecmp(str, "VI") == 0)
+		svc = NET_SERVICE_TYPE_VI;
+	else if (strcasecmp(str, "SIG") == 0)
+		return NET_SERVICE_TYPE_SIG;
+	else if (strcasecmp(str, "VO") == 0)
+		svc = NET_SERVICE_TYPE_VO;
+	else if (strcasecmp(str, "RV") == 0)
+		svc = NET_SERVICE_TYPE_RV;
+	else if (strcasecmp(str, "AV") == 0)
+		svc = NET_SERVICE_TYPE_AV;
+	else if (strcasecmp(str, "OAM") == 0)
+		svc = NET_SERVICE_TYPE_OAM;
+	else if (strcasecmp(str, "RD") == 0)
+		svc = NET_SERVICE_TYPE_RD;
+	else {
+		svc = (int)strtol(str, &endptr, 0);
+		if (*endptr != '\0')
+			svc = -1;
+	}
+	return (svc);
+}
+
+u_int8_t
+str2tos(const char *str, bool *valid)
+{
+	u_int8_t dscp = -1;
+	char *endptr;
+
+	*valid = true;
+
+	if (str == NULL || *str == '\0')
+		*valid = false;
+	else if (strcasecmp(str, "DF") == 0)
+		dscp = _DSCP_DF;
+	else if (strcasecmp(str, "EF") == 0)
+		dscp = _DSCP_EF;
+	else if (strcasecmp(str, "VA") == 0)
+		dscp = _DSCP_VA;
+
+	else if (strcasecmp(str, "CS0") == 0)
+		dscp = _DSCP_CS0;
+	else if (strcasecmp(str, "CS1") == 0)
+		dscp = _DSCP_CS1;
+	else if (strcasecmp(str, "CS2") == 0)
+		dscp = _DSCP_CS2;
+	else if (strcasecmp(str, "CS3") == 0)
+		dscp = _DSCP_CS3;
+	else if (strcasecmp(str, "CS4") == 0)
+		dscp = _DSCP_CS4;
+	else if (strcasecmp(str, "CS5") == 0)
+		dscp = _DSCP_CS5;
+	else if (strcasecmp(str, "CS6") == 0)
+		dscp = _DSCP_CS6;
+	else if (strcasecmp(str, "CS7") == 0)
+		dscp = _DSCP_CS7;
+
+	else if (strcasecmp(str, "AF11") == 0)
+		dscp = _DSCP_AF11;
+	else if (strcasecmp(str, "AF12") == 0)
+		dscp = _DSCP_AF12;
+	else if (strcasecmp(str, "AF13") == 0)
+		dscp = _DSCP_AF13;
+	else if (strcasecmp(str, "AF21") == 0)
+		dscp = _DSCP_AF21;
+	else if (strcasecmp(str, "AF22") == 0)
+		dscp = _DSCP_AF22;
+	else if (strcasecmp(str, "AF23") == 0)
+		dscp = _DSCP_AF23;
+	else if (strcasecmp(str, "AF31") == 0)
+		dscp = _DSCP_AF31;
+	else if (strcasecmp(str, "AF32") == 0)
+		dscp = _DSCP_AF32;
+	else if (strcasecmp(str, "AF33") == 0)
+		dscp = _DSCP_AF33;
+	else if (strcasecmp(str, "AF41") == 0)
+		dscp = _DSCP_AF41;
+	else if (strcasecmp(str, "AF42") == 0)
+		dscp = _DSCP_AF42;
+	else if (strcasecmp(str, "AF43") == 0)
+		dscp = _DSCP_AF43;
+
+	else {
+		unsigned long val = strtoul(str, &endptr, 0);
+		if (*endptr != '\0' || val > 255)
+			*valid = false;
+		else
+			return ((u_int8_t)val);
+	}
+	/* DSCP occupies the 6 upper bits of the TOS field */
+	return (dscp << 2);
 }

@@ -19,7 +19,7 @@
 <div id="page-header">
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p>
 <p class="apache">Serveur Apache HTTP Version 2.4</p>
-<img alt="" src="../images/feather.gif" /></div>
+<img alt="" src="../images/feather.png" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
 <a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">Serveur HTTP</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.4</a> &gt; <a href="./">Modules</a></div>
@@ -48,7 +48,9 @@ du serveur HTTP Apache</td></tr></table>
 <li><img alt="" src="../images/down.gif" /> <a href="#substituteinheritbefore">SubstituteInheritBefore</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#substitutemaxlinelength">SubstituteMaxLineLength</a></li>
 </ul>
-<ul class="seealso"><li><a href="#comments_section">Commentaires</a></li></ul></div>
+<h3>Traitement des bugs</h3><ul class="seealso"><li><a href="https://www.apache.org/dist/httpd/CHANGES_2.4">Journal des modifications de httpd</a></li><li><a href="https://bz.apache.org/bugzilla/buglist.cgi?bug_status=__open__&amp;list_id=144532&amp;product=Apache%20httpd-2&amp;query_format=specific&amp;order=changeddate%20DESC%2Cpriority%2Cbug_severity&amp;component=mod_substitute">Problèmes connus</a></li><li><a href="https://bz.apache.org/bugzilla/enter_bug.cgi?product=Apache%20httpd-2&amp;component=mod_substitute">Signaler un bug</a></li></ul><h3>Voir aussi</h3>
+<ul class="seealso">
+<li><a href="#comments_section">Commentaires</a></li></ul></div>
 
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="substitute" id="substitute">Directive</a> <a name="Substitute" id="Substitute">Substitute</a></h2>
@@ -77,14 +79,14 @@ réponse</td></tr>
 	modèle en tant que chaîne fixe.</dd>
         <dt><code>f</code></dt>
 	
-        <dd>Avec le drapeau <code>f</code>, mod_substitute met à plat le
+        <dd>Avec le drapeau <code>f</code>, <code>mod_substitute</code> met à plat le
 	résultat d'une substitution (les conteneurs ou buckets ne sont
 	pas dissociés), ce qui permet à d'éventuelles substitutions
 	ultérieures de s'effectuer sur cette dernière. C'est le
 	comportement par défaut.</dd>
         <dt><code>q</code></dt>
 	
-        <dd>Avec le drapeau <code>q</code>, mod_substitute dissocie les
+        <dd>Avec le drapeau <code>q</code>, <code>mod_substitute</code> dissocie les
 	conteneurs (ou buckets) après chaque substitution. Ceci peut
 	améliorer la rapidité de la réponse et diminuer la quantité de
 	mémoire utilisée, mais ne doit être utilisé que s'il n'existe
@@ -126,11 +128,11 @@ réponse</td></tr>
     d'arrière-plan. Ces URLs ne fonctionnent pas pour l'utilisateur
     final car le serveur d'arrière-plan est hors d'atteinte.</p>
 
-    <p>On peut, dans ce cas, utiliser <code>mod_substutite</code> pour
+    <p>On peut, dans ce cas, utiliser <code>mod_substitute</code> pour
     réécrire ces URLs afin qu'elles soit utilisables dans la partie
     située derrière le mandataire :</p>
 
-    <div class="example"><h3>Réécriture des URLs intégrées à un contenu mandaté</h3><pre class="prettyprint lang-config">ProxyPass "/blog/" "http://internal.blog.example.com"
+    <div class="example"><h3>Réécriture des URLs intégrées à un contenu mandaté</h3><pre class="prettyprint lang-config">ProxyPass        "/blog/" "http://internal.blog.example.com"
 ProxyPassReverse "/blog/" "http://internal.blog.example.com/"
 
 Substitute "s|http://internal.blog.example.com/|http://www.example.com/blog/|i"</pre>
@@ -139,7 +141,7 @@ Substitute "s|http://internal.blog.example.com/|http://www.example.com/blog/|i"<
     <p>La directive <code class="directive"><a href="../mod/mod_proxy.html#proxypassreverse">ProxyPassReverse</a></code> modifie tout en-tête
     <code>Location</code> (redirection) envoyé par le serveur
     d'arrière-plan et, dans cet exemple, la directive
-    <code>Substitute</code> se charge à son tour de la modification de
+    <code class="directive">Substitute</code> se charge à son tour de la modification de
     la réponse HTML.</p>
 
 
@@ -158,8 +160,8 @@ Substitute "s|http://internal.blog.example.com/|http://www.example.com/blog/|i"<
 Apache</td></tr>
 </table>
     <p>Cette directive permet de définir si l'on applique les modèles
-<code class="directive">Substitute</code> hérités en premier (valeur
-<code>on</code>), ou après ceux du
+<code class="directive"><a href="#substitute">Substitute</a></code> hérités en premier
+(valeur <code>on</code>), ou après ceux du
 contexte courant (valeur <code>off</code>). Sa valeur est maintenant
 définie par défaut à <code>on</code> ; il est cependant possible de
 restaurer le comportement des versions 2.4 et antérieures du serveur qui
@@ -225,7 +227,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_substitute.h
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

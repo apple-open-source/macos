@@ -28,7 +28,7 @@
 #include <Security/Security.h>
 #include <Security/SecItemPriv.h>
 #include <utilities/array_size.h>
-#include <utilities/SecCFWrappers.h>
+#include <utilities/SecCFRelease.h>
 #include <stdlib.h>
 #include <unistd.h>
 

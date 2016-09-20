@@ -151,7 +151,7 @@ host_is_us(const char *host, size_t hostlen)
 	 */
 	err = pthread_rwlock_rdlock(&host_name_cache_lock);
 	if (err != 0) {
-		pr_msg("Can't get read lock on host name cache: %s",
+		pr_msg(LOG_ERR, "Can't get read lock on host name cache: %s",
 		    strerror(err));
 		return (0);
 	}
@@ -254,7 +254,7 @@ convert_to_write_lock(void)
 	pthread_rwlock_unlock(&host_name_cache_lock);
 	err = pthread_rwlock_wrlock(&host_name_cache_lock);
 	if (err != 0) {
-		pr_msg("Error attempting to get write lock on host name cache: %s",
+		pr_msg(LOG_ERR, "Error attempting to get write lock on host name cache: %s",
 		    strerror(err));
 		return (0);
 	}
@@ -288,7 +288,7 @@ get_my_host_names(void)
 		return;
 
 	if (getifaddrs(&ifaddrs) == -1) {
-		pr_msg("getifaddrs failed: %s\n", strerror(errno));
+		pr_msg(LOG_ERR, "getifaddrs failed: %s\n", strerror(errno));
 		return;
 	}
 
@@ -319,7 +319,7 @@ get_my_host_names(void)
 	hostinfo_list = malloc(num_hostinfo * sizeof *hostinfo_list);
 	if (hostinfo_list == NULL) {
 		freeifaddrs(ifaddrs);
-		pr_msg("Couldn't allocate array of hostinfo pointers\n");
+		pr_msg(LOG_ERR, "Couldn't allocate array of hostinfo pointers\n");
 		return;
 	}
 	
@@ -371,7 +371,7 @@ get_my_host_names(void)
 	my_host_names = malloc(num_host_names * sizeof *my_host_names);
 	if (my_host_names == NULL) {
 		free_hostinfo_list();
-		pr_msg("Couldn't allocate array of host name pointers\n");
+		pr_msg(LOG_ERR, "Couldn't allocate array of host name pointers\n");
 		return;
 	}
 
@@ -408,7 +408,7 @@ flush_host_name_cache(void)
 
 	err = pthread_rwlock_wrlock(&host_name_cache_lock);
 	if (err != 0) {
-		pr_msg("Error attempting to get write lock on host name cache: %s",
+		pr_msg(LOG_ERR, "Error attempting to get write lock on host name cache: %s",
 		    strerror(err));
 		return;
 	}

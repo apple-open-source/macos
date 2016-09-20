@@ -51,6 +51,8 @@ SOSCircleRef SOSCircleCreateFromDER(CFAllocatorRef allocator, CFErrorRef* error,
 SOSCircleRef SOSCircleCreateFromData(CFAllocatorRef allocator, CFDataRef circleData, CFErrorRef *error);
 SOSCircleRef SOSCircleCopyCircle(CFAllocatorRef allocator, SOSCircleRef otherCircle, CFErrorRef *error);
 
+bool SOSCircleSetSignature(SOSCircleRef circle, SecKeyRef pubkey, CFDataRef signature, CFErrorRef *error);
+CFDataRef SOSCircleGetSignature(SOSCircleRef circle, SecKeyRef pubkey, CFErrorRef *error);
 bool SOSCircleSign(SOSCircleRef circle, SecKeyRef privkey, CFErrorRef *error);
 bool SOSCircleVerifySignatureExists(SOSCircleRef circle, SecKeyRef pubKey, CFErrorRef *error);
 bool SOSCircleVerify(SOSCircleRef circle, SecKeyRef pubkey, CFErrorRef *error);
@@ -58,7 +60,6 @@ bool SOSCircleVerify(SOSCircleRef circle, SecKeyRef pubkey, CFErrorRef *error);
 bool SOSCircleVerifyPeerSigned(SOSCircleRef circle, SOSPeerInfoRef peer, CFErrorRef *error);
 
 bool SOSCircleGenerationSign(SOSCircleRef circle, SecKeyRef user_approver, SOSFullPeerInfoRef peerinfo, CFErrorRef *error);
-bool SOSCircleGenerationUpdate(SOSCircleRef circle, SecKeyRef user_approver, SOSFullPeerInfoRef peerinfo, CFErrorRef *error);
 bool SOSCircleSignOldStyleResetToOfferingCircle(SOSCircleRef circle, SOSFullPeerInfoRef peerinfo, SecKeyRef user_approver, CFErrorRef *error);
 
 
@@ -97,6 +98,8 @@ SOSPeerInfoRef SOSCircleCopyPeerWithID(SOSCircleRef circle, CFStringRef peerid, 
 int SOSCircleCountPeers(SOSCircleRef circle);
 int SOSCircleCountActivePeers(SOSCircleRef circle);
 int SOSCircleCountActiveValidPeers(SOSCircleRef circle, SecKeyRef pubkey);
+int SOSCircleCountValidSyncingPeers(SOSCircleRef circle, SecKeyRef pubkey);
+
 int SOSCircleCountRetiredPeers(SOSCircleRef circle);
 
 void SOSCircleForEachPeer(SOSCircleRef circle, void (^action)(SOSPeerInfoRef peer));
@@ -104,6 +107,7 @@ void SOSCircleForEachRetiredPeer(SOSCircleRef circle, void (^action)(SOSPeerInfo
 void SOSCircleForEachActivePeer(SOSCircleRef circle, void (^action)(SOSPeerInfoRef peer));
 void SOSCircleForEachActiveValidPeer(SOSCircleRef circle, SecKeyRef user_public_key, void (^action)(SOSPeerInfoRef peer));
 void SOSCircleForEachValidPeer(SOSCircleRef circle, SecKeyRef user_public_key, void (^action)(SOSPeerInfoRef peer));
+void SOSCircleForEachValidSyncingPeer(SOSCircleRef circle, SecKeyRef user_public_key, void (^action)(SOSPeerInfoRef peer));
 
 bool SOSCircleHasPeerWithID(SOSCircleRef circle, CFStringRef peerid, CFErrorRef *error);
 
@@ -115,6 +119,7 @@ bool SOSCircleHasActiveValidPeer(SOSCircleRef circle, SOSPeerInfoRef peerInfo, S
 
 bool SOSCircleResetToOffering(SOSCircleRef circle, SecKeyRef user_privkey, SOSFullPeerInfoRef requestor, CFErrorRef *error);
 bool SOSCircleResetToEmpty(SOSCircleRef circle, CFErrorRef *error);
+bool SOSCircleResetToEmptyWithSameGeneration(SOSCircleRef circle, CFErrorRef *error);
 bool SOSCircleRequestAdmission(SOSCircleRef circle, SecKeyRef user_privkey, SOSFullPeerInfoRef requestor, CFErrorRef *error);
 bool SOSCircleRequestReadmission(SOSCircleRef circle, SecKeyRef user_pubkey, SOSPeerInfoRef requestor, CFErrorRef *error);
 
@@ -146,15 +151,24 @@ bool SOSCircleConcordanceSign(SOSCircleRef circle, SOSFullPeerInfoRef peerinfo, 
 
 bool SOSCircleSharedTrustedPeers(SOSCircleRef current, SOSCircleRef proposed, SOSPeerInfoRef me);
 
+bool SOSCircleIsOlderGeneration(SOSCircleRef current, SOSCircleRef proposed);
+
 SOSConcordanceStatus SOSCircleConcordanceTrust(SOSCircleRef known_circle, SOSCircleRef proposed_circle,
                                                SecKeyRef known_pubkey, SecKeyRef user_pubkey,
                                                SOSPeerInfoRef exclude, CFErrorRef *error);
+
+CFDataRef SOSCircleCopyNextGenSignatureWithPeerAdded(SOSCircleRef circle, SOSPeerInfoRef peer, SecKeyRef privKey, CFErrorRef *error);
+bool SOSCirclePreGenerationSign(SOSCircleRef circle, SecKeyRef userPubKey, CFErrorRef *error);
+
 //
 // Testing routines:
 //
 
 CFDataRef SOSCircleCreateIncompatibleCircleDER(CFErrorRef* error);
 void debugDumpCircle(CFStringRef message, SOSCircleRef circle);
+void SOSCircleLogState(char *category, SOSCircleRef circle, SecKeyRef pubKey, CFStringRef myPID);
+
+bool SOSCircleAcceptPeerFromHSA2(SOSCircleRef circle, SecKeyRef userKey, SOSGenCountRef gencount, SecKeyRef pPubKey, CFDataRef signature, SOSFullPeerInfoRef fpi, CFErrorRef *error);
 
 __END_DECLS
 

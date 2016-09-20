@@ -340,7 +340,7 @@ static void nc_decode_and_compare_subtree(const void *value, void *context) {
                                                                         match_context,
                                                                         nc_compare_subtree);
         if (status == errSecInvalidCertificate) {
-            secdebug("policy","can't parse general name or not a type we support");
+            secnotice("policy","can't parse general name or not a type we support");
         }
     }
 out:

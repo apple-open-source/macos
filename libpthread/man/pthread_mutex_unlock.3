@@ -25,7 +25,7 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/lib/libc_r/man/pthread_mutex_unlock.3,v 1.5.2.4 2001/08/17 15:42:51 ru Exp $
+.\" $FreeBSD$
 .\"
 .Dd July 30, 1998
 .Dt PTHREAD_MUTEX_UNLOCK 3
@@ -34,11 +34,9 @@
 .Nm pthread_mutex_unlock
 .Nd unlock a mutex
 .Sh SYNOPSIS
-.Fd #include <pthread.h>
+.In pthread.h
 .Ft int
-.Fo pthread_mutex_unlock
-.Fa "pthread_mutex_t *mutex"
-.Fc
+.Fn pthread_mutex_unlock "pthread_mutex_t *mutex"
 .Sh DESCRIPTION
 If the current thread holds the lock on
 .Fa mutex ,
@@ -56,11 +54,12 @@ in undefined behavior.
 .Sh RETURN VALUES
 If successful,
 .Fn pthread_mutex_unlock
-will return zero.
-Otherwise, an error number will be returned to indicate the error.
+will return zero, otherwise an error number will be returned to
+indicate the error.
 .Sh ERRORS
+The
 .Fn pthread_mutex_unlock
-will fail if:
+function will fail if:
 .Bl -tag -width Er
 .It Bq Er EINVAL
 The value specified by
@@ -76,6 +75,7 @@ The current thread does not hold a lock on
 .Xr pthread_mutex_lock 3 ,
 .Xr pthread_mutex_trylock 3
 .Sh STANDARDS
+The
 .Fn pthread_mutex_unlock
-conforms to
+function conforms to
 .St -p1003.1-96 .

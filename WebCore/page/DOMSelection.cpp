@@ -35,12 +35,9 @@
 #include "ExceptionCode.h"
 #include "Frame.h"
 #include "FrameSelection.h"
-#include "Node.h"
 #include "Range.h"
 #include "TextIterator.h"
-#include "TreeScope.h"
 #include "htmlediting.h"
-#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -283,43 +280,43 @@ void DOMSelection::modify(const String& alterString, const String& directionStri
         return;
 
     FrameSelection::EAlteration alter;
-    if (equalIgnoringCase(alterString, "extend"))
+    if (equalLettersIgnoringASCIICase(alterString, "extend"))
         alter = FrameSelection::AlterationExtend;
-    else if (equalIgnoringCase(alterString, "move"))
+    else if (equalLettersIgnoringASCIICase(alterString, "move"))
         alter = FrameSelection::AlterationMove;
     else
         return;
 
     SelectionDirection direction;
-    if (equalIgnoringCase(directionString, "forward"))
+    if (equalLettersIgnoringASCIICase(directionString, "forward"))
         direction = DirectionForward;
-    else if (equalIgnoringCase(directionString, "backward"))
+    else if (equalLettersIgnoringASCIICase(directionString, "backward"))
         direction = DirectionBackward;
-    else if (equalIgnoringCase(directionString, "left"))
+    else if (equalLettersIgnoringASCIICase(directionString, "left"))
         direction = DirectionLeft;
-    else if (equalIgnoringCase(directionString, "right"))
+    else if (equalLettersIgnoringASCIICase(directionString, "right"))
         direction = DirectionRight;
     else
         return;
 
     TextGranularity granularity;
-    if (equalIgnoringCase(granularityString, "character"))
+    if (equalLettersIgnoringASCIICase(granularityString, "character"))
         granularity = CharacterGranularity;
-    else if (equalIgnoringCase(granularityString, "word"))
+    else if (equalLettersIgnoringASCIICase(granularityString, "word"))
         granularity = WordGranularity;
-    else if (equalIgnoringCase(granularityString, "sentence"))
+    else if (equalLettersIgnoringASCIICase(granularityString, "sentence"))
         granularity = SentenceGranularity;
-    else if (equalIgnoringCase(granularityString, "line"))
+    else if (equalLettersIgnoringASCIICase(granularityString, "line"))
         granularity = LineGranularity;
-    else if (equalIgnoringCase(granularityString, "paragraph"))
+    else if (equalLettersIgnoringASCIICase(granularityString, "paragraph"))
         granularity = ParagraphGranularity;
-    else if (equalIgnoringCase(granularityString, "lineboundary"))
+    else if (equalLettersIgnoringASCIICase(granularityString, "lineboundary"))
         granularity = LineBoundary;
-    else if (equalIgnoringCase(granularityString, "sentenceboundary"))
+    else if (equalLettersIgnoringASCIICase(granularityString, "sentenceboundary"))
         granularity = SentenceBoundary;
-    else if (equalIgnoringCase(granularityString, "paragraphboundary"))
+    else if (equalLettersIgnoringASCIICase(granularityString, "paragraphboundary"))
         granularity = ParagraphBoundary;
-    else if (equalIgnoringCase(granularityString, "documentboundary"))
+    else if (equalLettersIgnoringASCIICase(granularityString, "documentboundary"))
         granularity = DocumentBoundary;
     else
         return;
@@ -327,36 +324,31 @@ void DOMSelection::modify(const String& alterString, const String& directionStri
     m_frame->selection().modify(alter, direction, granularity);
 }
 
-void DOMSelection::extend(Node* node, int offset, ExceptionCode& ec)
+void DOMSelection::extend(Node& node, int offset, ExceptionCode& ec)
 {
     if (!m_frame)
         return;
 
-    if (!node) {
-        ec = TYPE_MISMATCH_ERR;
-        return;
-    }
-
-    if (offset < 0 || offset > (node->offsetInCharacters() ? caretMaxOffset(node) : static_cast<int>(node->countChildNodes()))) {
+    if (offset < 0 || offset > (node.offsetInCharacters() ? caretMaxOffset(node) : static_cast<int>(node.countChildNodes()))) {
         ec = INDEX_SIZE_ERR;
         return;
     }
 
-    if (!isValidForPosition(node))
+    if (!isValidForPosition(&node))
         return;
 
     // FIXME: Eliminate legacy editing positions
-    m_frame->selection().setExtent(createLegacyEditingPosition(node, offset), DOWNSTREAM);
+    m_frame->selection().setExtent(createLegacyEditingPosition(&node, offset), DOWNSTREAM);
 }
 
-PassRefPtr<Range> DOMSelection::getRangeAt(int index, ExceptionCode& ec)
+RefPtr<Range> DOMSelection::getRangeAt(int index, ExceptionCode& ec)
 {
     if (!m_frame)
-        return 0;
+        return nullptr;
 
     if (index < 0 || index >= rangeCount()) {
         ec = INDEX_SIZE_ERR;
-        return 0;
+        return nullptr;
     }
 
     // If you're hitting this, you've added broken multi-range selection support
@@ -393,10 +385,13 @@ void DOMSelection::addRange(Range* r)
     }
 
     RefPtr<Range> range = selection.selection().toNormalizedRange();
-    if (r->compareBoundaryPoints(Range::START_TO_START, range.get(), IGNORE_EXCEPTION) == -1) {
+    if (!range)
+        return;
+
+    if (r->compareBoundaryPoints(Range::START_TO_START, *range, IGNORE_EXCEPTION) == -1) {
         // We don't support discontiguous selection. We don't do anything if r and range don't intersect.
-        if (r->compareBoundaryPoints(Range::START_TO_END, range.get(), IGNORE_EXCEPTION) > -1) {
-            if (r->compareBoundaryPoints(Range::END_TO_END, range.get(), IGNORE_EXCEPTION) == -1) {
+        if (r->compareBoundaryPoints(Range::START_TO_END, *range, IGNORE_EXCEPTION) > -1) {
+            if (r->compareBoundaryPoints(Range::END_TO_END, *range, IGNORE_EXCEPTION) == -1) {
                 // The original range and r intersect.
                 selection.moveTo(r->startPosition(), range->endPosition(), DOWNSTREAM);
             } else {
@@ -407,8 +402,8 @@ void DOMSelection::addRange(Range* r)
     } else {
         // We don't support discontiguous selection. We don't do anything if r and range don't intersect.
         ExceptionCode ec = 0;
-        if (r->compareBoundaryPoints(Range::END_TO_START, range.get(), ec) < 1 && !ec) {
-            if (r->compareBoundaryPoints(Range::END_TO_END, range.get(), IGNORE_EXCEPTION) == -1) {
+        if (r->compareBoundaryPoints(Range::END_TO_START, *range, ec) < 1 && !ec) {
+            if (r->compareBoundaryPoints(Range::END_TO_END, *range, IGNORE_EXCEPTION) == -1) {
                 // The original range contains r.
                 selection.moveTo(range.get());
             } else {
@@ -429,16 +424,13 @@ void DOMSelection::deleteFromDocument()
     if (selection.isNone())
         return;
 
-    if (isCollapsed())
-        selection.modify(FrameSelection::AlterationExtend, DirectionBackward, CharacterGranularity);
-
     RefPtr<Range> selectedRange = selection.selection().toNormalizedRange();
     if (!selectedRange)
         return;
 
     selectedRange->deleteContents(ASSERT_NO_EXCEPTION);
 
-    setBaseAndExtent(selectedRange->startContainer(ASSERT_NO_EXCEPTION), selectedRange->startOffset(), selectedRange->startContainer(), selectedRange->startOffset(), ASSERT_NO_EXCEPTION);
+    setBaseAndExtent(&selectedRange->startContainer(), selectedRange->startOffset(), &selectedRange->startContainer(), selectedRange->startOffset(), ASSERT_NO_EXCEPTION);
 }
 
 bool DOMSelection::containsNode(Node* n, bool allowPartial) const
@@ -460,14 +452,14 @@ bool DOMSelection::containsNode(Node* n, bool allowPartial) const
     unsigned nodeIndex = node->computeNodeIndex();
 
     ExceptionCode ec = 0;
-    bool nodeFullySelected = Range::compareBoundaryPoints(parentNode, nodeIndex, selectedRange->startContainer(), selectedRange->startOffset(), ec) >= 0 && !ec
-        && Range::compareBoundaryPoints(parentNode, nodeIndex + 1, selectedRange->endContainer(), selectedRange->endOffset(), ec) <= 0 && !ec;
+    bool nodeFullySelected = Range::compareBoundaryPoints(parentNode, nodeIndex, &selectedRange->startContainer(), selectedRange->startOffset(), ec) >= 0 && !ec
+        && Range::compareBoundaryPoints(parentNode, nodeIndex + 1, &selectedRange->endContainer(), selectedRange->endOffset(), ec) <= 0 && !ec;
     ASSERT(!ec);
     if (nodeFullySelected)
         return true;
 
-    bool nodeFullyUnselected = (Range::compareBoundaryPoints(parentNode, nodeIndex, selectedRange->endContainer(), selectedRange->endOffset(), ec) > 0 && !ec)
-        || (Range::compareBoundaryPoints(parentNode, nodeIndex + 1, selectedRange->startContainer(), selectedRange->startOffset(), ec) < 0 && !ec);
+    bool nodeFullyUnselected = (Range::compareBoundaryPoints(parentNode, nodeIndex, &selectedRange->endContainer(), selectedRange->endOffset(), ec) > 0 && !ec)
+        || (Range::compareBoundaryPoints(parentNode, nodeIndex + 1, &selectedRange->startContainer(), selectedRange->startOffset(), ec) < 0 && !ec);
     ASSERT(!ec);
     if (nodeFullyUnselected)
         return false;

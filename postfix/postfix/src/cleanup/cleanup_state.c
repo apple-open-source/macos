@@ -78,7 +78,10 @@ CLEANUP_STATE *cleanup_state_alloc(VSTREAM *src)
     state->orig_rcpt = 0;
     state->return_receipt = 0;
     state->errors_to = 0;
+    state->auto_hdrs = argv_alloc(1);
+    state->hbc_rcpt = 0;
     state->flags = 0;
+    state->tflags = 0;
     state->qmgr_opts = 0;
     state->errs = 0;
     state->err_mask = 0;
@@ -101,7 +104,6 @@ CLEANUP_STATE *cleanup_state_alloc(VSTREAM *src)
     state->append_meta_pt_target = -1;
     state->milter_hbc_checks = 0;
     state->milter_hbc_reply = 0;
-    state->milter_orcpt_buf = 0;
     state->rcpt_count = 0;
     state->reason = 0;
     state->smtp_reply = 0;
@@ -127,6 +129,7 @@ CLEANUP_STATE *cleanup_state_alloc(VSTREAM *src)
     state->milter_ext_rcpt = 0;
     state->milter_err_text = 0;
     state->free_regions = state->body_regions = state->curr_body_region = 0;
+    state->smtputf8 = 0;
     return (state);
 }
 
@@ -151,6 +154,9 @@ void    cleanup_state_free(CLEANUP_STATE *state)
 	myfree(state->return_receipt);
     if (state->errors_to)
 	myfree(state->errors_to);
+    argv_free(state->auto_hdrs);
+    if (state->hbc_rcpt)
+	argv_free(state->hbc_rcpt);
     if (state->queue_name)
 	myfree(state->queue_name);
     if (state->queue_id)
@@ -160,8 +166,6 @@ void    cleanup_state_free(CLEANUP_STATE *state)
 	myfree(state->reason);
     if (state->smtp_reply)
 	myfree(state->smtp_reply);
-    if (state->milter_orcpt_buf)
-	vstring_free(state->milter_orcpt_buf);
     nvtable_free(state->attr);
     if (state->mime_state)
 	mime_state_free(state->mime_state);
@@ -184,5 +188,5 @@ void    cleanup_state_free(CLEANUP_STATE *state)
     if (state->milter_err_text)
 	vstring_free(state->milter_err_text);
     cleanup_region_done(state);
-    myfree((char *) state);
+    myfree((void *) state);
 }

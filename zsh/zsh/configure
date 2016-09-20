@@ -7615,9 +7615,15 @@ _ACEOF
   fi
 fi
 
+
 if test "$zsh_cv_64_bit_type" = "long long"; then
     $as_echo "#define ZLONG_IS_LONG_LONG 1" >>confdefs.h
 
+else
+  if test "$zsh_cv_64_bit_type" = "long"; then
+      $as_echo "#define ZLONG_IS_LONG_64 1" >>confdefs.h
+
+  fi
 fi
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for %lld printf support" >&5
@@ -11603,7 +11609,7 @@ fi
 $as_echo "$ac_cv_have_dev_ptmx" >&6; }
 
 
-if test x$ac_cv_have_dev_ptmx = xyes && \
+if test x$ac_cv_have_dev_ptmx = xyes -o x$ac_cv_func_posix_openpt = xyes && \
    test x$ac_cv_func_grantpt = xyes && \
    test x$ac_cv_func_unlockpt = xyes && \
    test x$ac_cv_func_ptsname = xyes; then

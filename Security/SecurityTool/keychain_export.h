@@ -31,6 +31,7 @@ extern "C" {
 #endif
 
 extern int keychain_export(int argc, char * const *argv);
+extern int ctk_export(int argc, char * const *argv);
 
 #ifdef __cplusplus
 }

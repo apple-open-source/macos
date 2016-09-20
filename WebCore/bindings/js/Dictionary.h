@@ -24,8 +24,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef Dictionary_h
-#define Dictionary_h
+#pragma once
 
 #include "JSDictionary.h"
 #include "JSEventListener.h"
@@ -47,15 +46,13 @@ public:
     Dictionary(JSC::ExecState*, JSC::JSValue);
 
     // Returns true if a value was found for the provided property.
-    template <typename Result>
-    bool get(const char* propertyName, Result&) const;
-    template <typename Result>
-    bool get(const String& propertyName, Result&) const;
-    
-    template <typename T>
-    PassRefPtr<EventListener> getEventListener(const char* propertyName, T* target) const;
-    template <typename T>
-    PassRefPtr<EventListener> getEventListener(const String& propertyName, T* target) const;
+    template<typename Result> bool get(const char* propertyName, Result&) const;
+    template<typename Result> bool get(const String& propertyName, Result&) const;
+
+    template<typename Result> Optional<Result> get(const char* propertyName) const;
+
+    template<typename T> RefPtr<EventListener> getEventListener(const char* propertyName, T* target) const;
+    template<typename T> RefPtr<EventListener> getEventListener(const String& propertyName, T* target) const;
 
     bool isObject() const { return m_dictionary.isValid(); }
     bool isUndefinedOrNull() const { return !m_dictionary.isValid(); }
@@ -63,51 +60,44 @@ public:
     bool getOwnPropertyNames(Vector<String>&) const;
     bool getWithUndefinedOrNullCheck(const char* propertyName, String& value) const;
 
+    JSC::ExecState* execState() const { return m_dictionary.execState(); }
+    JSC::JSObject* initializerObject() const { return m_dictionary.initializerObject(); }
+
 private:
-    template <typename T>
-    JSC::JSObject* asJSObject(T*) const;
+    template<typename T> JSC::JSObject* asJSObject(T*) const;
     
     JSDictionary m_dictionary;
 };
 
-template <typename Result>
-bool Dictionary::get(const char* propertyName, Result& result) const
+template<typename Result> bool Dictionary::get(const char* propertyName, Result& result) const
 {
-    if (!m_dictionary.isValid())
-        return false;
-    
-    return m_dictionary.get(propertyName, result);
+    return m_dictionary.isValid() && m_dictionary.get(propertyName, result);
 }
 
-template <typename Result>
-bool Dictionary::get(const String& propertyName, Result& result) const
+template<typename Result> bool Dictionary::get(const String& propertyName, Result& result) const
 {
     return get(propertyName.utf8().data(), result);
 }
 
-template <typename T>
-PassRefPtr<EventListener> Dictionary::getEventListener(const char* propertyName, T* target) const
+template<typename Result> Optional<Result> Dictionary::get(const char* propertyName) const
 {
-    if (!m_dictionary.isValid())
-        return 0;
-
-    Deprecated::ScriptValue eventListener;
-    if (!m_dictionary.tryGetProperty(propertyName, eventListener))
-        return 0;
-    if (eventListener.hasNoValue())
-        return 0;
-    if (!eventListener.isObject())
-        return 0;
-
-    return JSEventListener::create(asObject(eventListener.jsValue()), asJSObject(target), true, currentWorld(m_dictionary.execState()));
+    Result result;
+    if (!get(propertyName, result))
+        return Nullopt;
+    return result;
 }
 
-template <typename T>
-PassRefPtr<EventListener> Dictionary::getEventListener(const String& propertyName, T* target) const
+template<typename T> RefPtr<EventListener> Dictionary::getEventListener(const char* propertyName, T* target) const
+{
+    JSC::JSValue eventListener;
+    if (!get(propertyName, eventListener) || !eventListener || !eventListener.isObject())
+        return nullptr;
+    return JSEventListener::create(asObject(eventListener), asJSObject(target), true, currentWorld(execState()));
+}
+
+template<typename T> RefPtr<EventListener> Dictionary::getEventListener(const String& propertyName, T* target) const
 {
     return getEventListener(propertyName.utf8().data(), target);
 }
 
 }
-
-#endif // Dictionary_h

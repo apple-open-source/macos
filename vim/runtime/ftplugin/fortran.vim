@@ -1,16 +1,20 @@
 " Vim settings file
-" Language:	Fortran90 (and Fortran95, Fortran77, F and elf90)
-" Version:	0.46
-" Last Change:	2010 July 24
-" Maintainer:	Ajit J. Thakkar <ajit@unb.ca>; <http://www.unb.ca/chem/ajit/>
+" Language:	Fortran 2008 (and older: Fortran 2003, 95, 90, 77, 66)
+" Version:	0.49
+" Last Change:	2013 Oct. 01
+" Maintainer:	Ajit J. Thakkar <ajit@unb.ca>; <http://www2.unb.ca/~ajit/>
 " Usage:	Do :help fortran-plugin from Vim
 " Credits:
-" Useful suggestions were made by Stefano Zacchiroli and Hendrik Merx.
+" Useful suggestions were made by Stefano Zacchiroli, Hendrik Merx, Ben
+" Fritz, and David Barnett.
 
 " Only do these settings when not done yet for this buffer
 if exists("b:did_ftplugin")
   finish
 endif
+
+let s:cposet=&cpoptions
+set cpoptions&vim
 
 " Don't do other file type settings for this buffer
 let b:did_ftplugin = 1
@@ -25,7 +29,7 @@ if !exists("b:fortran_fixed_source")
     " User guarantees fixed source form
     let b:fortran_fixed_source = 1
   else
-    " f90 and f95 allow both fixed and free source form
+    " Modern Fortran allows both fixed and free source form
     " assume fixed source form unless signs of free source form
     " are detected in the first five columns of the first s:lmax lines
     " Detection becomes more accurate and time-consuming if more lines
@@ -60,8 +64,8 @@ if (b:fortran_fixed_source == 1)
   " setlocal tw=73
 else
   setlocal comments=:!
-  " Free format allows a textwidth of 132 for code but 80 is more usual
-  setlocal tw=80
+  " Free format allows a textwidth of 132
+  setlocal tw=132
 endif
 
 " Set commentstring for foldmethod=marker
@@ -72,14 +76,11 @@ if !exists("fortran_have_tabs")
   setlocal expandtab
 endif
 
-" Set 'formatoptions' to break comment and text lines but allow long lines
-setlocal fo+=tcql
+" Set 'formatoptions' to break text lines
+setlocal fo+=t
 
 setlocal include=^\\c#\\=\\s*include\\s\\+
-setlocal suffixesadd+=.f95,.f90,.for,.f,.F,.f77,.ftn,.fpp
-
-let s:cposet=&cpoptions
-set cpoptions-=C
+setlocal suffixesadd+=.f08,.f03,.f95,.f90,.for,.f,.F,.f77,.ftn,.fpp
 
 " Define patterns for the matchit plugin
 if !exists("b:match_words")
@@ -89,6 +90,7 @@ if !exists("b:match_words")
   let s:notprocedure = '\%(\s\+procedure\>\)\@!'
   let b:match_ignorecase = 1
   let b:match_words =
+    \ '(:),' .
     \ '\<select\s*case\>:' . s:notselect. '\<case\>:\<end\s*select\>,' .
     \ s:notelse . '\<if\s*(.\+)\s*then\>:' .
     \ '\<else\s*\%(if\s*(.\+)\s*then\)\=\>:\<end\s*if\>,'.
@@ -96,6 +98,9 @@ if !exists("b:match_words")
     \ s:notend . '\<do\>:\<end\s*do\>,'.
     \ s:notelse . '\<where\>:\<elsewhere\>:\<end\s*where\>,'.
     \ s:notend . '\<type\s*[^(]:\<end\s*type\>,'.
+    \ s:notend . '\<forall\>:\<end\s*forall\>,'.
+    \ s:notend . '\<associate\>:\<end\s*associate\>,'.
+    \ s:notend . '\<enum\>:\<end\s*enum\>,'.
     \ s:notend . '\<interface\>:\<end\s*interface\>,'.
     \ s:notend . '\<subroutine\>:\<end\s*subroutine\>,'.
     \ s:notend . '\<function\>:\<end\s*function\>,'.
@@ -105,11 +110,11 @@ endif
 
 " File filters for :browse e
 if has("gui_win32") && !exists("b:browsefilter")
-  let b:browsefilter = "Fortran Files (*.f;*.F;*.for;*.f77;*.f90;*.f95;*.fpp;*.ftn)\t*.f;*.F;*.for;*.f77;*.f90;*.f95;*.fpp;*.ftn\n" .
+  let b:browsefilter = "Fortran Files (*.f;*.for;*.f77;*.f90;*.f95;*.f03;*.f08;*.fpp;*.ftn)\t*.f;*.for;*.f77;*.f90;*.f95;*.f03;*.f08;*.fpp;*.ftn\n" .
     \ "All Files (*.*)\t*.*\n"
 endif
 
-let b:undo_ftplugin = "setl fo< com< tw< cms< et< inc<"
+let b:undo_ftplugin = "setl fo< com< tw< cms< et< inc< sua<"
 	\ . "| unlet! b:match_ignorecase b:match_words b:browsefilter"
 
 let &cpoptions=s:cposet

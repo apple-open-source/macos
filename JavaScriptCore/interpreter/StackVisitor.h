@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +27,8 @@
 #define StackVisitor_h
 
 #include "VMEntryRecord.h"
+#include <functional>
+#include <wtf/Indenter.h>
 #include <wtf/text/WTFString.h>
 
 namespace JSC {
@@ -52,6 +54,7 @@ public:
             Global,
             Eval,
             Function,
+            Module,
             Native
         };
 
@@ -62,33 +65,38 @@ public:
         JSObject* callee() const { return m_callee; }
         CodeBlock* codeBlock() const { return m_codeBlock; }
         unsigned bytecodeOffset() const { return m_bytecodeOffset; }
+        InlineCallFrame* inlineCallFrame() const {
 #if ENABLE(DFG_JIT)
-        InlineCallFrame* inlineCallFrame() const { return m_inlineCallFrame; }
+            return m_inlineCallFrame;
+#else
+            return nullptr;
 #endif
+        }
 
         bool isJSFrame() const { return !!codeBlock(); }
-#if ENABLE(DFG_JIT)
-        bool isInlinedFrame() const { return !!m_inlineCallFrame; }
-#endif
+        bool isInlinedFrame() const { return !!inlineCallFrame(); }
 
-        JS_EXPORT_PRIVATE String functionName();
-        JS_EXPORT_PRIVATE String sourceURL();
-        JS_EXPORT_PRIVATE String toString();
+        JS_EXPORT_PRIVATE String functionName() const;
+        JS_EXPORT_PRIVATE String sourceURL() const;
+        JS_EXPORT_PRIVATE String toString() const;
+
+        intptr_t sourceID();
 
         CodeType codeType() const;
-        JS_EXPORT_PRIVATE void computeLineAndColumn(unsigned& line, unsigned& column);
+        JS_EXPORT_PRIVATE void computeLineAndColumn(unsigned& line, unsigned& column) const;
 
         ClonedArguments* createArguments();
         VMEntryFrame* vmEntryFrame() const { return m_VMEntryFrame; }
         CallFrame* callFrame() const { return m_callFrame; }
         
-        JS_EXPORT_PRIVATE void print(int indentLevel);
+        void dump(PrintStream&, Indenter = Indenter()) const;
+        void dump(PrintStream&, Indenter, std::function<void(PrintStream&)> prefix) const;
 
     private:
         Frame() { }
         ~Frame() { }
 
-        void retrieveExpressionInfo(int& divot, int& startOffset, int& endOffset, unsigned& line, unsigned& column);
+        void retrieveExpressionInfo(int& divot, int& startOffset, int& endOffset, unsigned& line, unsigned& column) const;
         void setToEnd();
 
         size_t m_index;
@@ -114,10 +122,10 @@ public:
     };
 
     // StackVisitor::visit() expects a Functor that implements the following method:
-    //     Status operator()(StackVisitor&);
+    //     Status operator()(StackVisitor&) const;
 
     template <typename Functor>
-    static void visit(CallFrame* startFrame, Functor& functor)
+    static void visit(CallFrame* startFrame, const Functor& functor)
     {
         StackVisitor visitor(startFrame);
         while (visitor->callFrame()) {
@@ -130,6 +138,7 @@ public:
 
     Frame& operator*() { return m_frame; }
     ALWAYS_INLINE Frame* operator->() { return &m_frame; }
+    void unwindToMachineCodeBlockFrame();
 
 private:
     JS_EXPORT_PRIVATE StackVisitor(CallFrame* startFrame);
@@ -155,7 +164,7 @@ public:
 
     CallFrame* callerFrame() const { return m_callerFrame; }
 
-    StackVisitor::Status operator()(StackVisitor& visitor)
+    StackVisitor::Status operator()(StackVisitor& visitor) const
     {
         if (!m_hasSkippedFirstFrame) {
             m_hasSkippedFirstFrame = true;
@@ -167,8 +176,8 @@ public:
     }
     
 private:
-    bool m_hasSkippedFirstFrame;
-    CallFrame* m_callerFrame;
+    mutable bool m_hasSkippedFirstFrame;
+    mutable CallFrame* m_callerFrame;
 };
 
 } // namespace JSC

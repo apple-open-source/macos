@@ -34,23 +34,27 @@
 
 namespace WebCore {
 
-typedef HashSet<String, CaseFoldingHash> HTTPHeaderSet;
+typedef HashSet<String, ASCIICaseInsensitiveHash> HTTPHeaderSet;
 
 class HTTPHeaderMap;
 enum class HTTPHeaderName;
 class ResourceRequest;
 class ResourceResponse;
 class SecurityOrigin;
+class URL;
 
 bool isSimpleCrossOriginAccessRequest(const String& method, const HTTPHeaderMap&);
 bool isOnAccessControlSimpleRequestMethodWhitelist(const String&);
 bool isOnAccessControlSimpleRequestHeaderWhitelist(HTTPHeaderName, const String& value);
 bool isOnAccessControlResponseHeaderWhitelist(const String&);
 
-void updateRequestForAccessControl(ResourceRequest&, SecurityOrigin*, StoredCredentials);
-ResourceRequest createAccessControlPreflightRequest(const ResourceRequest&, SecurityOrigin*);
+void updateRequestForAccessControl(ResourceRequest&, SecurityOrigin&, StoredCredentials);
+ResourceRequest createAccessControlPreflightRequest(const ResourceRequest&, SecurityOrigin&);
 
-bool passesAccessControlCheck(const ResourceResponse&, StoredCredentials, SecurityOrigin*, String& errorDescription);
+bool isValidCrossOriginRedirectionURL(const URL&);
+void cleanRedirectedRequestForAccessControl(ResourceRequest&);
+
+bool passesAccessControlCheck(const ResourceResponse&, StoredCredentials, SecurityOrigin&, String& errorDescription);
 void parseAccessControlExposeHeadersAllowList(const String& headerValue, HTTPHeaderSet&);
 
 } // namespace WebCore

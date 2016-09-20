@@ -27,11 +27,10 @@
  */
 
 [
-    NoInterfaceObject,
     SkipVTableValidation,
 ] interface SQLTransaction {
     [Custom] void executeSql(DOMString sqlStatement,
                              ObjectArray arguments,
-                             optional SQLStatementCallback callback,
-                             optional SQLStatementErrorCallback errorCallback);
+                             optional SQLStatementCallback? callback,
+                             optional SQLStatementErrorCallback? errorCallback);
 };

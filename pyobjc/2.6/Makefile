@@ -21,7 +21,7 @@ AEP_Version    = 2.3.2a0
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = parser-fixes.diff float.diff CGFloat.diff pyobjc-core_Modules_objc_selector.m.diff pyobjc-core_Modules_objc_objc-runtime-compat.h.diff pyobjc-core_Modules_objc_objc-runtime-compat.m.diff pyobjc-framework-Quartz_Modules__callbacks.m.diff pyobjc-core_Modules_objc_OC_PythonNumber.m.diff
+AEP_Patches    = parser-fixes.diff float.diff CGFloat.diff pyobjc-core_Modules_objc_selector.m.diff pyobjc-core_Modules_objc_objc-runtime-compat.h.diff pyobjc-core_Modules_objc_objc-runtime-compat.m.diff pyobjc-framework-Quartz_Modules__callbacks.m.diff pyobjc-core_Modules_objc_OC_PythonNumber.m.diff pyobjc-framework-Quartz_Lib_Quartz_CoreGraphics_PyObjC.bridgesupport.diff
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j

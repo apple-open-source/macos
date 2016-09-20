@@ -40,12 +40,6 @@ WebContextMenuItem::WebContextMenuItem(const WebContextMenuItemData& data)
 {
 }
 
-WebContextMenuItem::WebContextMenuItem(const WebCore::ContextMenuItem& coreItem)
-    : m_webContextMenuItemData(coreItem)
-{
-    m_nativeContextMenuItem = std::make_unique<NativeContextMenuItem>(coreItem);
-}
-
 PassRefPtr<WebContextMenuItem> WebContextMenuItem::create(const String& title, bool enabled, API::Array* submenuItems)
 {
     size_t size = submenuItems->size();
@@ -56,7 +50,7 @@ PassRefPtr<WebContextMenuItem> WebContextMenuItem::create(const String& title, b
     for (size_t i = 0; i < size; ++i) {
         WebContextMenuItem* item = submenuItems->at<WebContextMenuItem>(i);
         if (item)
-            submenu.append(*item->data());
+            submenu.append(item->data());
     }
 
     return adoptRef(new WebContextMenuItem(WebContextMenuItemData(WebCore::ContextMenuItemTagNoAction, title, enabled, submenu))).leakRef();
@@ -79,7 +73,7 @@ Ref<API::Array> WebContextMenuItem::submenuItemsAsAPIArray() const
     for (const auto& item : m_webContextMenuItemData.submenu())
         submenuItems.uncheckedAppend(WebContextMenuItem::create(item));
 
-    return API::Array::create(WTF::move(submenuItems));
+    return API::Array::create(WTFMove(submenuItems));
 }
 
 API::Object* WebContextMenuItem::userData() const

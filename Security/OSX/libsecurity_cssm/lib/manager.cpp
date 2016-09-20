@@ -42,7 +42,7 @@ CssmManager::CssmManager()
 CssmManager::~CssmManager()
 {
 	if (initCount > 0)
-		secdebug("cssm", "CSSM forcibly shutting down");
+		secinfo("cssm", "CSSM forcibly shutting down");
 }
 
 
@@ -68,7 +68,7 @@ void CssmManager::initialize (const CSSM_VERSION &version,
             CssmError::throwMe(CSSMERR_CSSM_PVC_ALREADY_CONFIGURED);
         }
         initCount++;
-        secdebug("cssm", "re-initializing CSSM (%d levels)", initCount);
+        secinfo("cssm", "re-initializing CSSM (%d levels)", initCount);
         return;
     }
     
@@ -84,7 +84,7 @@ void CssmManager::initialize (const CSSM_VERSION &version,
 
     // we are ready now
     initCount = 1;
-    secdebug("cssm", "CSSM initialized");
+    secinfo("cssm", "CSSM initialized");
 }
 
 
@@ -99,14 +99,14 @@ bool CssmManager::terminate()
     case 0:
         CssmError::throwMe(CSSMERR_CSSM_NOT_INITIALIZED);
     case 1:
-        secdebug("cssm", "Terminating CSSM");
+        secinfo("cssm", "Terminating CSSM");
         if (!moduleMap.empty())
             CssmError::throwMe(CSSM_ERRCODE_FUNCTION_FAILED);	// @#can't terminate with modules loaded
         initCount = 0;	// mark uninitialized
         return true;
     default:
         initCount--;	// nested INIT, just count down
-        secdebug("cssm", "CSSM nested termination (%d remaining)", initCount);
+        secinfo("cssm", "CSSM nested termination (%d remaining)", initCount);
         return false;
     }
 }
@@ -144,13 +144,13 @@ void CssmManager::loadModule(const Guid &guid,
 		  allowed: ;
 		}
 #endif
-		secdebug("cssm", "loading module %s(%s) from %s",
+		secinfo("cssm", "loading module %s(%s) from %s",
 			info.name().c_str(), info.description().c_str(), info.path().c_str());
         module = new Module(this, info, loader(info.path()));
         moduleMap[guid] = module;
     } else {
         module = it->second;
-		secdebug("cssm", "%p reloaded module %s(%s) at %s",
+		secinfo("cssm", "%p reloaded module %s(%s) at %s",
 			module, module->name().c_str(), module->description().c_str(),
 			module->path().c_str());
 	}
@@ -172,12 +172,12 @@ void CssmManager::unloadModule(const Guid &guid,
     StLock<Mutex> _(mLock);
     Module *module = getModule(guid);
     if (module->unload(callback)) {
-		secdebug("cssm", "%p module %s(%s) final unload",
+		secinfo("cssm", "%p module %s(%s) final unload",
 			module, module->name().c_str(), module->description().c_str());
         moduleMap.erase(guid);
         delete module;
     } else
-		secdebug("cssm", "%p module %s(%s) load count now %u", module,
+		secinfo("cssm", "%p module %s(%s) load count now %u", module,
 			module->name().c_str(), module->description().c_str(), module->callbackCount());
 }
 

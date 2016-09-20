@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,19 +34,14 @@ extern "C" {
 
 #define ___kCFUUIDNull CFUUIDGetConstantUUIDWithBytes( 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
 
-#define ___ATTR_INVISIBLE 0x4000
-
 #define ___EDIRTY EILSEQ
 
 #define ___FS_DEFAULT_DIR "/Library/Filesystems"
 
 #define ___PREFS_DEFAULT_DIR "/Library/Preferences/SystemConfiguration"
 
-typedef uint16_t ___attr_t;
-
 typedef char ___io_path_t[1024];
 
-__private_extern__ int             ___chattr( const char * path, ___attr_t attr, ___attr_t noattr );
 __private_extern__ int             ___isautofs( const char * path );
 __private_extern__ int             ___mkdir( const char * path, mode_t mode );
 __private_extern__ void            ___vproc_transaction_begin( void );

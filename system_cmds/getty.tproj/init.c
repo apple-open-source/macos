@@ -31,11 +31,13 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
+
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)from: init.c	8.1 (Berkeley) 6/4/93";
 #endif
-static const char rcsid[] =
+__unused static const char rcsid[] =
   "$FreeBSD: src/libexec/getty/init.c,v 1.16 2005/04/06 17:42:24 stefanf Exp $";
 #endif /* not lint */
 
@@ -115,13 +117,13 @@ struct	gettynums gettynums[] = {
 	{ "o0" },			/* output o_flags */
 	{ "o1" },			/* input o_flags */
 	{ "o2" },			/* user mode o_flags */
- 	{ "de" },   	    	    	/* delay before sending 1st prompt */
+	{ "de" },			/* delay before sending 1st prompt */
 	{ "rt" },			/* reset timeout */
 	{ "ct" },			/* chat script timeout */
 	{ "dc" },			/* debug chat script value */
-  	{ 0 }
+	{ 0 }
 };
-  
+
 
 struct	gettyflags gettyflags[] = {
 	{ "ht",	0 },			/* has tabs */

@@ -30,6 +30,7 @@ general_beval_cb(beval, state)
     long	winnr = 0;
     char_u	*bexpr;
     buf_T	*save_curbuf;
+    size_t	len;
 # ifdef FEAT_WINDOWS
     win_T	*cw;
 # endif
@@ -82,6 +83,16 @@ general_beval_cb(beval, state)
 
 	    vim_free(result);
 	    result = eval_to_string(bexpr, NULL, TRUE);
+
+	    /* Remove one trailing newline, it is added when the result was a
+	     * list and it's hardly every useful.  If the user really wants a
+	     * trailing newline he can add two and one remains. */
+	    if (result != NULL)
+	    {
+		len = STRLEN(result);
+		if (len > 0 && result[len - 1] == NL)
+		    result[len - 1] = NUL;
+	    }
 
 	    if (use_sandbox)
 		--sandbox;
@@ -359,7 +370,7 @@ get_beval_info(beval, getword, winp, lnump, textp, colp)
 			}
 		    }
 
-		    col = vcol2col(wp, lnum, col) - 1;
+		    col = vcol2col(wp, lnum, col);
 
 		    if (VIsual_active
 			    && wp->w_buffer == curwin->w_buffer
@@ -377,8 +388,10 @@ get_beval_info(beval, getword, winp, lnump, textp, colp)
 			    return FAIL;
 
 			lbuf = ml_get_buf(curwin->w_buffer, VIsual.lnum, FALSE);
-			lbuf = vim_strnsave(lbuf + spos->col,
-				     epos->col - spos->col + (*p_sel != 'e'));
+			len = epos->col - spos->col;
+			if (*p_sel != 'e')
+			    len += MB_PTR2LEN(lbuf + epos->col);
+			lbuf = vim_strnsave(lbuf + spos->col, len);
 			lnum = spos->lnum;
 			col = spos->col;
 		    }
@@ -724,7 +737,7 @@ pointerEvent(beval, event)
     BalloonEval	*beval;
     XEvent	*event;
 {
-    Position	distance;	    /* a measure of how much the ponter moved */
+    Position	distance;	    /* a measure of how much the pointer moved */
     Position	delta;		    /* used to compute distance */
 
     switch (event->type)
@@ -1191,11 +1204,13 @@ drawBalloon(beval)
 	    XmFontList fl;
 
 	    fl = gui_motif_fontset2fontlist(&gui.tooltip_fontset);
-	    if (fl != NULL)
+	    if (fl == NULL)
 	    {
-		XmStringExtent(fl, s, &w, &h);
-		XmFontListFree(fl);
+		XmStringFree(s);
+		return;
 	    }
+	    XmStringExtent(fl, s, &w, &h);
+	    XmFontListFree(fl);
 	}
 	w += gui.border_offset << 1;
 	h += gui.border_offset << 1;

@@ -20,7 +20,10 @@
 # define USR_VIMRC_FILE		"$HOME\\_vimrc"
 #endif
 #ifndef USR_VIMRC_FILE2
-# define USR_VIMRC_FILE2	"$VIM\\_vimrc"
+# define USR_VIMRC_FILE2	"$HOME\\vimfiles\\vimrc"
+#endif
+#ifndef USR_VIMRC_FILE3
+# define USR_VIMRC_FILE3	"$VIM\\_vimrc"
 #endif
 #ifndef EVIM_FILE
 # define EVIM_FILE		"$VIMRUNTIME\\evim.vim"
@@ -41,7 +44,10 @@
 #  define USR_GVIMRC_FILE	"$HOME\\_gvimrc"
 # endif
 # ifndef USR_GVIMRC_FILE2
-#  define USR_GVIMRC_FILE2	"$VIM\\_gvimrc"
+#  define USR_GVIMRC_FILE2	"$HOME\\vimfiles\\gvimrc"
+# endif
+# ifndef USR_GVIMRC_FILE3
+#  define USR_GVIMRC_FILE3	"$VIM\\_gvimrc"
 # endif
 # ifndef SYS_MENU_FILE
 #  define SYS_MENU_FILE		"$VIMRUNTIME\\menu.vim"
@@ -103,7 +109,7 @@
 #endif
 
 #ifndef DFLT_BDIR
-# define DFLT_BDIR	".,c:\\tmp,c:\\temp"	/* default for 'backupdir' */
+# define DFLT_BDIR	".,$TEMP,c:\\tmp,c:\\temp" /* default for 'backupdir' */
 #endif
 
 #ifndef DFLT_VDIR
@@ -111,7 +117,7 @@
 #endif
 
 #ifndef DFLT_DIR
-# define DFLT_DIR	".,c:\\tmp,c:\\temp"	/* default for 'directory' */
+# define DFLT_DIR	".,$TEMP,c:\\tmp,c:\\temp" /* default for 'directory' */
 #endif
 
 #define DFLT_ERRORFILE		"errors.err"

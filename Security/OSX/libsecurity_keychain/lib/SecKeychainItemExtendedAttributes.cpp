@@ -42,6 +42,8 @@ static CFTypeID SecKeychainItemExtendedAttributesGetTypeID(void)
 }
 #endif
 
+extern "C" Boolean SecKeyIsCDSAKey(SecKeyRef ref);
+
 /*
  * Determine if incoming itemRef can be considered for 
  * this mechanism; throw if not.
@@ -52,7 +54,7 @@ static void isItemRefCapable(
 	CFTypeID id = CFGetTypeID(itemRef);
 	if((id == gTypes().ItemImpl.typeID) ||
 	   (id == gTypes().Certificate.typeID) || 
-	   (id == gTypes().KeyItem.typeID)) {
+	   (id == SecKeyGetTypeID() && SecKeyIsCDSAKey((SecKeyRef)itemRef))) {
 		return;
 	}
 	else {
@@ -140,9 +142,9 @@ OSStatus SecKeychainItemSetExtendedAttribute(
 	CFStringRef					attrName,
 	CFDataRef					attrValue)			/* NULL means delete the attribute */
 {
-#if SECTRUST_OSX
-#warning This needs to detect SecCertificateRef items, and when it does, SecKeychainItemDelete must be updated
-#endif
+    // <rdar://25635468>
+    //%%% This needs to detect SecCertificateRef items, and when it does, SecKeychainItemDelete must be updated
+
     BEGIN_SECAPI
 	
 	if((itemRef == NULL) || (attrName == NULL)) {
@@ -190,9 +192,9 @@ OSStatus SecKeychainItemCopyExtendedAttribute(
 	CFStringRef					attrName,
 	CFDataRef					*attrValue)		/* RETURNED */
 {
-#if SECTRUST_OSX
-#warning This needs to detect SecCertificateRef items
-#endif
+    // <rdar://25635468>
+    //%%% This needs to detect SecCertificateRef items
+
     BEGIN_SECAPI
 	
 	if((itemRef == NULL) || (attrName == NULL) || (attrValue == NULL)) {
@@ -231,9 +233,9 @@ OSStatus SecKeychainItemCopyAllExtendedAttributes(
 	CFArrayRef					*attrValues)		/* optional, RETURNED, each element is a 
 													 *   CFDataRef */
 {
-#if SECTRUST_OSX
-#warning This needs to detect SecCertificateRef items, and when it does, SecKeychainItemDelete must be updated
-#endif
+    // <rdar://25635468>
+    //%%% This needs to detect SecCertificateRef items, and when it does, SecKeychainItemDelete must be updated
+
     BEGIN_SECAPI
 	
 	if((itemRef == NULL) || (attrNames == NULL)) {

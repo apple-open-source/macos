@@ -12,6 +12,7 @@ such as shell functions, look for comments in the function source files.
 startmenu()
 menu(Utilities)
 menu(Recent Directories)
+menu(Other Directory Functions)
 menu(Version Control Information)
 menu(Prompt Themes)
 menu(ZLE Functions)
@@ -324,7 +325,7 @@ options tt(-Uz) are appropriate.
 )
 enditem()
 
-texinode(Recent Directories)(Version Control Information)(Utilities)(User Contributions)
+texinode(Recent Directories)(Other Directory Functions)(Utilities)(User Contributions)
 cindex(recent directories, maintaining list of)
 cindex(directories, maintaining list of recent)
 findex(cdr)
@@ -339,9 +340,13 @@ previous working directory from a list maintained automatically.  It is
 similar in concept to the directory stack controlled by the tt(pushd),
 tt(popd) and tt(dirs) builtins, but is more configurable, and as it stores
 all entries in files it is maintained across sessions and (by default)
-between terminal emulators in the current session.  (The tt(pushd)
-directory stack is not actually modified or used by tt(cdr) unless you
-configure it to do so as described in the configuration section below.)
+between terminal emulators in the current session.  Duplicates are
+automatically removed, so that the list reflects the single most recent
+use of each directory.
+
+Note that the tt(pushd) directory stack is not actually modified or used
+by tt(cdr) unless you configure it to do so as described in the
+configuration section below.
 
 subsect(Installation)
 
@@ -409,6 +414,18 @@ performed.  Completion is available.  No quoting is necessary (except for
 newlines, where I have in any case no sympathy); directories are in
 unabbreviated from and contain an absolute path, i.e. they start with tt(/).
 Usually the first entry should be left as the current directory.
+)
+item(tt(-p ')var(pattern)tt('))(
+Prunes any items in the directory list that match the given extended glob
+pattern; the pattern needs to be quoted from immediate expansion on the
+command line.  The pattern is matched against each completely expanded
+file name in the list; the full string must match, so wildcards at the
+end (e.g. tt('*removeme*')) are needed to remove entries with a given
+substring.
+
+If output is to a terminal, then the function will print the new list
+after pruning and prompt for confirmation by the user.  This output and
+confirmation step can be skipped by using tt(-P) instead of tt(-p).
 )
 enditem()
 
@@ -581,7 +598,189 @@ avoid side effects if the change to the directory is to be invisible at the
 command line.  See the contents of the function tt(chpwd_recent_dirs) for
 more details.
 
-texinode(Version Control Information)(Prompt Themes)(Recent Directories)(User Contributions)
+texinode(Other Directory Functions)(Version Control Information)(Recent Directories)(User Contributions)
+cindex(directories, named, dynamic, helper function)
+cindex(dynamic directory naming, helper function)
+cindex(named directories, dynamic, helper function)
+findex(zsh_directory_name_generic)
+sect(Abbreviated dynamic references to directories)
+
+The dynamic directory naming system is described in the subsection
+em(Dynamic named directories) of
+ifzman(the section em(Filename Expansion) in zmanref(expn))\
+ifnzman(noderef(Filename Expansion)).  In this, a reference to
+tt(~[)var(...)tt(]) is expanded by a function found by the hooks
+mechanism.
+
+The contributed function tt(zsh_directory_name_generic) provides a
+system allowing the user to refer to directories with only a limited
+amount of new code.  It supports all three of the standard interfaces
+for directory naming: converting from a name to a directory, converting
+in the reverse direction to find a short name, and completion of names.
+
+The main feature of this function is a path-like syntax,
+combining abbreviations at multiple levels separated by ":".
+As an example, ~[g:p:s] might specify:
+startitem()
+item(tt(g))(
+The top level directory for your git area.  This first component
+has to match, or the function will retrun indicating another
+directory name hook function should be tried.
+)
+item(tt(p))(
+The name of a project within your git area.
+)
+item(tt(s))(
+The source area within that project.
+)
+enditem()
+This allows you to collapse references to long hierarchies to a very
+compact form, particularly if the hierarchies are similar across different
+areas of the disk.
+
+Name components may be completed: if a description is shown at the top
+of the list of completions, it includes the path to which previous
+components expand, while the description for an individual completion
+shows the path segment it would add.  No additional configuration is
+needed for this as the completion system is aware of the dynamic
+directory name mechanism.
+
+subsect(Usage)
+
+To use the function, first define a wrapper function for your specific
+case.  We'll assume it's to be autoloaded.  This can have any name but
+we'll refer to it as zdn_mywrapper.  This wrapper function will define
+various variables and then call this function with the same arguments
+that the wrapper function gets.  This configuration is described below.
+
+Then arrange for the wrapper to be run as a zsh_directory_name hook:
+
+example(autoload -Uz add-zsh-hook zsh_diretory_name_generic zdn_mywrapper
+add-zsh-hook -U zsh_directory_name zdn_mywrapper)
+
+subsect(Configuration)
+
+The wrapper function should define a local associative array zdn_top.
+Alternatively, this can be set with a style called tt(mapping).  The
+context for the style is tt(:zdn:)var(wrapper-name) where
+var(wrapper-name) is the function calling zsh_directory_name_generic;
+for example:
+
+example(zstyle :zdn:zdn_mywrapper: mapping zdn_mywrapper_top)
+
+The keys in this associative array correspond to the first component of
+the name.  The values are matching directories.  They may have an
+optional suffix with a slash followed by a colon and the name of a
+variable in the same format to give the next component.  (The slash
+before the colon is to disambiguate the case where a colon is needed in
+the path for a drive.  There is otherwise no syntax for escaping this,
+so path components whose names start with a colon are not supported.)  A
+special component tt(:default:) specifies a variable in the form
+tt(/:)var(var) (the path section is ignored and so is usually empty)
+that will be used for the next component if no variable is given for the
+path.  Variables referred to within tt(zdn_top) have the same format as
+tt(zdn_top) itself, but contain relative paths.
+
+For example,
+
+example(local -A zdn_top=(
+  g   ~/git
+  ga  ~/alternate/git
+  gs  /scratch/$USER/git/:second2
+  :default: /:second1
+))
+
+This specifies the behaviour of a directory referred to as tt(~[g:...])
+or tt(~[ga:...]) or tt(~[gs:...]).  Later path components are optional;
+in that case tt(~[g]) expands to tt(~/git), and so on.  tt(gs) expands
+to tt(/scratch/$USER/git) and uses the associative array tt(second2) to
+match the second component; tt(g) and tt(ga) use the associative array
+tt(second1) to match the second component.
+
+When expanding a name to a directory, if the first component is not tt(g) or
+tt(ga) or tt(gs), it is not an error; the function simply returns 1 so that a
+later hook function can be tried.  However, matching the first component
+commits the function, so if a later component does not match, an error
+is printed (though this still does not stop later hooks from being
+executed).
+
+For components after the first, a relative path is expected, but note that
+multiple levels may still appear.  Here is an example of tt(second1):
+
+example(local -A second1=(
+  p   myproject
+  s   somproject
+  os  otherproject/subproject/:third
+))
+
+The path as found from tt(zdn_top) is extended with the matching
+directory, so tt(~[g:p]) becomes tt(~/git/myproject).  The slash between
+is added automatically (it's not possible to have a later component
+modify the name of a directory already matched).  Only tt(os) specifies
+a variable for a third component, and there's no tt(:default:), so it's
+an error to use a name like tt(~[g:p:x]) or tt(~[ga:s:y]) because
+there's nowhere to look up the tt(x) or tt(y).
+
+The associative arrays need to be visible within this function; the
+generic function therefore uses internal variable names beginning
+tt(_zdn_) in order to avoid clashes.  Note that the variable tt(reply)
+needs to be passed back to the shell, so should not be local in the
+calling function.
+
+The function does not test whether directories assembled by component
+actually exist; this allows the system to work across automounted
+file systems.  The error from the command trying to use a non-existent
+directory should be sufficient to indicate the problem.
+
+subsect(Complete example)
+
+Here is a full fictitious but usable autoloadable definition of the
+example function defined by the code above.  So tt(~[gs:p:s]) expands
+to tt(/scratch/$USER/git/myscratchproject/top/srcdir) (with tt($USER)
+also expanded).
+
+example(local -A zdn_top=(
+  g   ~/git
+  ga  ~/alternate/git
+  gs  /scratch/$USER/git/:second2
+  :default: /:second1
+)
+
+local -A second1=(
+  p   myproject
+  s   somproject
+  os  otherproject/subproject/:third
+)
+
+local -A second2=(
+  p   myscratchproject
+  s   somescratchproject
+)
+
+local -A third=(
+  s   top/srcdir
+  d   top/documentation
+)
+
+# autoload not needed if you did this at initialisation...
+autoload -Uz zsh_directory_name_generic
+zsh_directory_name_generic "$@)
+
+It is also possible to use global associative arrays, suitably named,
+and set the style for the context of your wrapper function to
+refer to this.  Then your set up code would contain the following:
+
+example(typeset -A zdn_mywrapper_top=(...)
+# ... and so on for other associative arrays ...
+zstyle ':zdn:zdn_mywrapper:' mapping zdn_mywrapper_top
+autoload -Uz add-zsh-hook zsh_directory_name_generic zdn_mywrapper
+add-zsh-hook -U zsh_directory_name zdn_mywrapper)
+
+and the function tt(zdn_mywrapper) would contain only the following:
+
+example(zsh_directory_name_generic "$@")
+
+texinode(Version Control Information)(Prompt Themes)(Other Directory Functions)(User Contributions)
 sect(Gathering information from version control systems)
 cindex(version control utility)
 
@@ -756,7 +955,7 @@ revision number. This style lets you modify how that string should look.
 )
 kindex(nvcsformats)
 item(tt(nvcsformats))(
-These "formats" are exported when we didn't detect a version control system
+These "formats" are set when we didn't detect a version control system
 for the current directory or tt(vcs_info) was disabled. This is useful if
 you want tt(vcs_info) to completely take over the generation of your
 prompt. You would do something like tt(PS1='${vcs_info_msg_0_}') to
@@ -775,7 +974,7 @@ behavior using hooks.
 kindex(max-exports)
 item(tt(max-exports))(
 Defines the maximum number of
-tt(vcs_info_msg_*_) variables tt(vcs_info) will export.
+tt(vcs_info_msg_*_) variables tt(vcs_info) will set.
 )
 kindex(enable)
 item(tt(enable))(
@@ -1133,7 +1332,7 @@ otherwise would be something like `svn' or `cvs') will be set to
 identifier is the second element. tt(vcs_info) will have filled in a proper
 value for the "repository's" root directory and the string containing the
 information about quilt's state will be available as the `misc' replacement
-(and tt(%Q) for compatibility with `addon' mode.
+(and tt(%Q) for compatibility with `addon' mode).
 
 What is left to discuss is how `standalone' mode is detected. The detection
 itself is a series of searches for directories. You can have this detection
@@ -1224,16 +1423,15 @@ All functions named tt(VCS_INFO_*) are for internal use only.
 subsect(Variable Description)
 
 startitem()
-item(tt(${vcs_info_msg_)var(N)tt(_)}) (Note the trailing underscore))
-(
+item(tt(${vcs_info_msg_)var(N)tt(_}) (Note the trailing underscore))(
 Where var(N) is an integer, e.g., tt(vcs_info_msg_0_). These variables
 are the storage for the informational message the last tt(vcs_info) call
 has assembled. These are strongly connected to the tt(formats),
 tt(actionformats) and tt(nvcsformats) styles described above. Those styles
 are lists. The first member of that list gets expanded into
 tt(${vcs_info_msg_0_}), the second into tt(${vcs_info_msg_1_})
-and the Nth into tt(${vcs_info_msg_N-1_}). These parameters are
-exported into the environment. (See the tt(max-exports) style above.)
+and the Nth into tt(${vcs_info_msg_N-1_}). (See the tt(max-exports)
+style above.)
 )
 enditem()
 
@@ -1336,7 +1534,7 @@ tt(formats) and tt(actionformats) and will be available in the global
 tt(backend_misc) array as tt(${backend_misc[bookmarks]}).
 )
 item(tt(gen-applied-string))(
-Called in the tt(git) (with tt(stgit) or during rebase), and tt(hg)
+Called in the tt(git) (with tt(stgit) or during rebase or merge), and tt(hg)
 (with tt(mq)) backends and in tt(quilt) support when the tt(applied-string)
 is generated; the tt(use-quilt) zstyle must be true for tt(quilt) (the tt(mq)
 and tt(stgit) backends are active by default).
@@ -1557,7 +1755,7 @@ a customised bookmark string for the tt(hg) backend.
 Again, we start off by registering a function:
 example(zstyle ':vcs_info:hg+gen-hg-bookmark-string:*' hooks hgbookmarks)
 
-And then we define the `tt(+vi-hgbookmarks) function:
+And then we define the `tt(+vi-hgbookmarks)' function:
 example(
 function +vi-hgbookmarks+LPAR()RPAR() {
     # The default is to connect all bookmark names by
@@ -1582,8 +1780,7 @@ function +vi-hgbookmarks+LPAR()RPAR() {
     # something other than the default zero:
     ret=1
     return 0
-}
-)
+})
 
 Some longer examples and code snippets which might be useful are available in
 the examples file located at Misc/vcs_info-examples in the Zsh source
@@ -1702,7 +1899,10 @@ item(tt(select-word-style), tt(match-word-context), tt(match-words-by-style))(
 The eight `tt(-match)' functions are drop-in replacements for the
 builtin widgets without the suffix.  By default they behave in a similar
 way.  However, by the use of styles and the function tt(select-word-style),
-the way words are matched can be altered.
+the way words are matched can be altered.  For comparison, the widgets
+described in ifzman(zmanref(zshzle) under Text Objects)\
+ifnzman(noderef(Text Objects)) use fixed definitions of words, compatible
+with the tt(vim) editor.
 
 The simplest way of configuring the functions is to use
 tt(select-word-style), which can either be called as a normal function with
@@ -1815,9 +2015,10 @@ matched against each var(pattern) in turn until one matches; if it does,
 the context is extended by a colon and the corresponding var(subcontext).
 Note that the test is made against the original word on the line, with no
 stripping of quotes.  Special handling is done between words: the current
-context is examined and if it contains the string tt(back), the word before
-the cursor is considered, else the word after cursor is considered. Some
-examples are given below.
+context is examined and if it contains the string tt(between) the word
+is set to a single space; else if it is contains the string tt(back),
+the word before the cursor is considered, else the word after cursor is
+considered. Some examples are given below.
 
 The style tt(skip-whitespace-first) is only used with the
 tt(forward-word) widget.  If it is set to true, then tt(forward-word)
@@ -1891,6 +2092,100 @@ extract the command argument around the cursor.
 The tt(word-context) style is implemented by the function
 tt(match-word-context).  This should not usually need to be called
 directly.
+)
+tindex(bracketed-paste-magic)
+item(bracketed-paste-magic)(
+The tt(bracketed-paste) widget (see ifzman(subsection Miscellaneous in
+zmanref(zshzle))ifnzman(noderef(Miscellaneous) in noderef(Zle Widgets)))
+inserts pasted text literally into the editor buffer rather than interpret
+it as keystrokes.  This disables some common usages where the self-insert
+widget is replaced in order to accomplish some extra processing.  An
+example is the contributed tt(url-quote-magic) widget described below.
+
+The tt(bracketed-paste-magic) widget is meant to replace tt(bracketed-paste)
+with a wrapper that re-enables these self-insert actions, and other
+actions as selected by zstyles.  Therefore this widget is installed with
+ifzman()
+example(autoload -Uz bracketed-paste-magic
+zle -N bracketed-paste bracketed-paste-magic)
+
+Other than enabling some widget processing, tt(bracketed-paste-magic)
+attempts to replicate tt(bracketed-paste) as faithfully as possible.
+
+The following zstyles may be set to control processing of pasted text.
+All are looked up in the context `tt(:bracketed-paste-magic)'.
+
+startitem()
+item(tt(active-widgets))(
+A list of patterns matching widget names that should be activated during
+the paste.  All other key sequences are processed as self-insert-unmeta.
+The default is `tt(self-*)' so any user-defined widgets named with that
+prefix are active along with the builtin self-insert.
+
+If this style is not set (explicitly deleted) or set to an empty value,
+no widgets are active and the pasted text is inserted literally.  If the
+value includes `tt(undefined-key)', any unknown sequences are discarded
+from the pasted text.
+)
+item(tt(inactive-keys))(
+The inverse of tt(active-widgets), a list of key sequences that always use
+tt(self-insert-unmeta) even when bound to an active widget.  Note that
+this is a list of literal key sequences, not patterns.
+)
+item(tt(paste-init))(
+A list of function names, called in widget context (but not as widgets).
+The functions are called in order until one of them returns a non-zero
+status.  The parameter `tt(PASTED)' contains the initial state of the
+pasted text.  All other ZLE parameters such as `tt(BUFFER)' have their
+normal values and side-effects, and full history is available, so for
+example tt(paste-init) functions may move words from tt(BUFFER) into
+tt(PASTED) to make those words visible to the tt(active-widgets).
+
+A non-zero return from a tt(paste-init) function does em(not) prevent the
+paste itself from proceeding.
+
+Loading tt(bracketed-paste-magic) defines tt(backward-extend-paste), a
+helper function for use in tt(paste-init).
+
+example(zstyle :bracketed-paste-magic paste-init \ 
+       backward-extend-paste)
+
+When a paste would insert into the middle of a word or append text to a
+word already on the line, tt(backward-extend-paste) moves the prefix
+from tt(LBUFFER) into tt(PASTED) so that the tt(active-widgets) see the
+full word so far.  This may be useful with tt(url-quote-magic).
+)
+item(tt(paste-finish))(
+Another list of function names called in order until one returns non-zero.
+These functions are called em(after) the pasted text has been processed
+by the tt(active-widgets), but em(before) it is inserted into `tt(BUFFER)'.
+ZLE parameters have their normal values and side-effects.
+
+A non-zero return from a tt(paste-finish) function does em(not) prevent
+the paste itself from proceeding.
+
+Loading tt(bracketed-paste-magic) also defines tt(quote-paste), a helper
+function for use in tt(paste-finish).
+
+example(zstyle :bracketed-paste-magic paste-finish \ 
+       quote-paste
+zstyle :bracketed-paste-magic:finish quote-style \ 
+       qqq)
+
+When the pasted text is inserted into tt(BUFFER), it is quoted per the
+tt(quote-style) value.  To forcibly turn off the built-in numeric prefix
+quoting of tt(bracketed-paste), use:
+
+example(zstyle :bracketed-paste-magic:finish quote-style \ 
+       none)
+)
+enditem()
+
+em(Important:) During tt(active-widgets) processing of the paste (after
+tt(paste-init) and before tt(paste-finish)), tt(BUFFER) starts empty and
+history is restricted, so cursor motions, etc., may not pass outside of
+the pasted content.  Text assigned to tt(BUFFER) by the active widgets
+is copied back into tt(PASTED) before tt(paste-finish).
 )
 tindex(copy-earlier-word)
 item(tt(copy-earlier-word))(
@@ -2272,7 +2567,8 @@ tindex(narrow-to-region)
 tindex(narrow-to-region-invisible)
 redef(SPACES)(0)(tt(ifztexi(NOTRANS(@ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ @ ))ifnztexi(                 )))
 xitem(tt(narrow-to-region )[ tt(-p) var(pre) ] [ tt(-P) var(post) ])
-xitem(SPACES()[ tt(-S) var(statepm) | tt(-R) var(statepm) ] [ tt(-n) ] [ var(start) var(end) ])
+xitem(SPACES()[ tt(-S) var(statepm) | tt(-R) var(statepm) | [ tt(-l) var(lbufvar) ] [ tt(-r) var(rbufvar) ] ])
+xitem(SPACES()[ tt(-n) ] [ var(start) var(end) ])
 item(tt(narrow-to-region-invisible))(
 Narrow the editable portion of the buffer to the region between the cursor
 and the mark, which may be in either order.  The region may not be empty.
@@ -2308,9 +2604,15 @@ parameter, except that parameters beginning with the prefix tt(_ntr_) are
 reserved for use within tt(narrow-to-region).  Typically the parameter will
 be local to the calling function.
 
+The options tt(-l) var(lbufvar) and tt(-r) var(rbufvar) may be used to
+specify parameters where the widget will store the resulting text from
+the operation.  The parameter var(lbufvar) will contain tt(LBUFFER)
+and var(rbufvar) will contain tt(RBUFFER).  Neither of these two options
+may be used with tt(-S) or tt(-R).
+
 tt(narrow-to-region-invisible) is a simple widget which calls
 tt(narrow-to-region) with arguments which replace any text outside the
-region with `tt(...)'.
+region with `tt(...)'.  It does not take any arguments.
 
 The display is restored (and the widget returns) upon any zle command
 which would usually cause the line to be accepted or aborted.  Hence an
@@ -2546,6 +2848,69 @@ cursor.  These two lines are transposed and the cursor moved to the
 start of the previous line.  Using a numeric argument less than -1
 has the effect of moving the line above the cursor up by minus that
 number of lines.
+)
+tindex(url-quote-magic)
+item(tt(url-quote-magic))(
+This widget replaces the built-in tt(self-insert) to make it easier to
+type URLs as command line arguments.  As you type, the input character is
+analyzed and, if it may need quoting, the current word is checked for a
+URI scheme.  If one is found and the current word is not already in
+quotes, a backslash is inserted before the input character.
+
+Styles to control quoting behavior:
+
+startitem()
+item(tt(url-metas))(
+This style is looked up in the context `tt(:url-quote-magic:)var(scheme)'
+(where var(scheme) is that of the current URL, e.g. "tt(ftp)").  The value
+is a string listing the characters to be treated as globbing
+metacharacters when appearing in a URL using that scheme.  The default is
+to quote all zsh extended globbing characters, excluding 'tt(<)' and
+'tt(>)' but including braces (as in brace expansion).  See also
+tt(url-seps).
+)
+item(tt(url-seps))(
+Like tt(url-metas), but lists characters that should be considered command
+separators, redirections, history references, etc.  The default is to
+quote the standard set of shell separators, excluding those that overlap
+with the extended globbing characters, but including 'tt(<)' and
+'tt(>)' and the first character of tt($histchars).
+)
+item(tt(url-globbers))(
+This style is looked up in the context `tt(:url-quote-magic)'.  The values
+form a list of command names that are expected to do their own globbing
+on the URL string.  This implies that they are aliased to use the
+`tt(noglob)' modifier.  When the first word on the line matches one of the
+values em(and) the URL refers to a local file (see tt(url-local-schema)),
+only the tt(url-seps) characters are quoted; the tt(url-metas) are left
+alone, allowing them to affect command-line parsing, completion, etc.  The
+default values are a literal `tt(noglob)' plus (when the tt(zsh/parameter)
+module is available) any commands aliased to the helper function
+`tt(urlglobber)' or its alias `tt(globurl)'.
+)
+item(tt(url-local-schema))(
+This style is always looked up in the context `tt(:urlglobber)', even
+though it is used by both url-quote-magic and urlglobber.  The values form
+a list of URI schema that should be treated as referring to local files by
+their real local path names, as opposed to files which are specified
+relative to a web-server-defined document root.  The defaults are
+"tt(ftp)" and "tt(file)".
+)
+item(tt(url-other-schema))(
+Like tt(url-local-schema), but lists all other URI schema upon which
+tt(urlglobber) and tt(url-quote-magic) should act.  If the URI on the
+command line does not have a scheme appearing either in this list or in
+tt(url-local-schema), it is not magically quoted.  The default values are
+"tt(http)", "tt(https)", and "tt(ftp)".  When a scheme appears both here
+and in tt(url-local-schema), it is quoted differently depending on whether
+the command name appears in tt(url-globbers).
+)
+enditem()
+
+Loading tt(url-quote-magic) also defines a helper function `tt(urlglobber)'
+and aliases `tt(globurl)' to `tt(noglob urlglobber)'.  This function takes
+a local URL apart, attempts to pattern-match the local file portion of the
+URL path, and then puts the results back into URL format again.
 )
 tindex(which-command)
 item(tt(which-command))(
@@ -3304,6 +3669,14 @@ integer arithmetic, which is not how an ordinary desk calculator
 operates.  To force floating point operation, pass the option tt(-f);
 see further notes below.
 
+If the file tt(~/.zcalcrc) exists it will be sourced inside the function
+once it is set up and about to process the command line.  This
+can be used, for example, to set shell options; tt(emulate -L zsh)
+and tt(setopt extendedglob) are in effect at this point.  Any
+failure to source the file if it exists is treated as fatal.
+As with other initialisation files, the directory tt($ZDOTDIR) is used
+instead of tt($HOME) if it is set.
+
 The mathematical library tt(zsh/mathfunc) will be loaded if it is
 available; see
 ifzman(the section `The zsh/mathfunc Module' in zmanref(zshmodules))\
@@ -3561,7 +3934,7 @@ set to the ANSI terminal escapes that turn off all attributes and turn on
 bold intensity, respectively.
 )
 findex(fned)
-item(tt(fned) var(name))(
+item(tt(fned) [ tt(-x) var(num) ] var(name))(
 Same as tt(zed -f).  This function does not appear in the zsh
 distribution, but can be created by linking tt(zed) to the name tt(fned)
 in some directory in your tt(fpath).
@@ -3749,7 +4122,7 @@ the difference in function between tt(zargs) and tt(xargs)) or run
 tt(zargs) with the tt(-)tt(-help) option.
 )
 findex(zed)
-xitem(tt(zed) [ tt(-f) ] var(name))
+xitem(tt(zed) [ tt(-f) [ tt(-x) var(num) ] ] var(name))
 item(tt(zed -b))(
 This function uses the ZLE editor to edit a file or function.
 
@@ -3758,7 +4131,10 @@ If the tt(-f) option is given, the name is taken to be that of
 a function; if the function is marked for autoloading, tt(zed) searches
 for it in the tt(fpath) and loads it.  Note that functions edited this way
 are installed into the current shell, but em(not) written back to the
-autoload file.
+autoload file.  In this case the tt(-x) option specifies that leading
+tabs indenting the function according to syntax should be converted into
+the given number of spaces; `tt(-x 2)' is consistent with the layout
+of functions distributed with the shell.
 
 Without tt(-f), var(name) is the path name of the file to edit, which need
 not exist; it is created on write, if necessary.
@@ -3825,7 +4201,12 @@ The pattern is always treated as an tt(EXTENDED_GLOB) pattern.  Any file
 whose name is not changed by the substitution is simply ignored.  Any
 error (a substitution resulted in an empty string, two substitutions gave
 the same result, the destination was an existing regular file and tt(-f)
-was not given) causes the entire function to abort without doing anything.
+was not given) causes the entire function to abort without doing
+anything.
+
+In addition to pattern replacement, the variable tt($f) can be referrred
+to in the second (replacement) argument.  This makes it possible to
+use variable substitution to alter the argument; see examples below.
 
 Options:
 
@@ -3873,6 +4254,10 @@ example(zmv -v '(* *)' '${1// /_}')
 
 For any file in the current directory with at least one space in the name,
 replace every space by an underscore and display the commands executed.
+
+example(zmv -v '* *' '${f// /_}')
+
+This does exactly the same by referring to the file name stored in tt($f).
 
 For more complete examples and other implementation details, see the
 tt(zmv) source file, usually located in one of the directories named in

@@ -38,7 +38,7 @@ WebInspector.VisualStyleUnitSlider = class VisualStyleUnitSlider extends WebInsp
 
     set value(value)
     {
-        var knobX = parseFloat(value);
+        let knobX = parseFloat(value);
         if (isNaN(knobX))
             knobX = parseFloat(this._updatedValues.placeholder) || 0;
 
@@ -53,6 +53,11 @@ WebInspector.VisualStyleUnitSlider = class VisualStyleUnitSlider extends WebInsp
     get synthesizedValue()
     {
         return this.value;
+    }
+
+    recalculateWidth(value)
+    {
+        this._slider.recalculateKnobX();
     }
 
     sliderValueDidChange(slider, value)

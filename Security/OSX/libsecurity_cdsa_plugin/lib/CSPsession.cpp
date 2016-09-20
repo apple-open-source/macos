@@ -1045,7 +1045,7 @@ KeyPool::add(ReferencedKey &referencedKey)
 	// never add a key that is already in mKeyMap
 	assert(inserted);
 
-    secdebug("SecAccessReference", "added a referenced key %p for key reference %d", &referencedKey, referencedKey.keyReference());
+    secinfo("SecAccessReference", "added a referenced key %p for key reference %ld", &referencedKey, referencedKey.keyReference());
 }
 
 ReferencedKey &
@@ -1062,7 +1062,7 @@ KeyPool::findKeyReference(ReferencedKey::KeyReference keyReference) const
 	if (it == mKeyMap.end())
 		CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_REFERENCE);
 
-    secdebug("SecAccessReference", "found a referenced key %p for key reference %d [%d]", it->second, keyReference, it->second->keyReference());
+    secinfo("SecAccessReference", "found a referenced key %p for key reference %ld [%ld]", it->second, keyReference, it->second->keyReference());
 
 	return *it->second;
 }

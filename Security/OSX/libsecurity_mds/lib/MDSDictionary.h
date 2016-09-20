@@ -107,11 +107,7 @@ public:
 	const CFPropertyListRef lookupWithIndirect(
 		const char *key,
 		CFBundleRef bundle,
-		CFTypeID	desiredType,
-		bool		&fetchedFromDisk);	// true --> caller must CFRelease the returned
-										//     value
-										// false -> it's part of this dictionary
-	
+		CFTypeID	desiredType);
 	void setDefaults(const MDS_InstallDefaults *defaults);
 	
 private:

@@ -47,9 +47,12 @@ void PluginProcessCreationParameters::encode(IPC::ArgumentEncoder& encoder) cons
     encoder << terminationTimeout;
 #if PLATFORM(COCOA)
     encoder << acceleratedCompositingPort;
-#if (TARGET_OS_IPHONE && __IPHONE_OS_VERSION_MIN_REQUIRED >= 90000) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100)
+#if TARGET_OS_IPHONE || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100)
     IPC::encode(encoder, networkATSContext.get());
 #endif
+#endif
+#if OS(LINUX)
+    encoder << memoryPressureMonitorHandle;
 #endif
 }
 
@@ -66,10 +69,14 @@ bool PluginProcessCreationParameters::decode(IPC::ArgumentDecoder& decoder, Plug
 #if PLATFORM(COCOA)
     if (!decoder.decode(result.acceleratedCompositingPort))
         return false;
-#if (TARGET_OS_IPHONE && __IPHONE_OS_VERSION_MIN_REQUIRED >= 90000) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100)
+#if TARGET_OS_IPHONE || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100)
     if (!IPC::decode(decoder, result.networkATSContext))
         return false;
 #endif
+#endif
+#if OS(LINUX)
+    if (!decoder.decode(result.memoryPressureMonitorHandle))
+        return false;
 #endif
 
     return true;

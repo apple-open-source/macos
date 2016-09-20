@@ -713,7 +713,7 @@
 					"-fprofile-instr-generate",
 					"-fcoverage-mapping",
 				);
-				OTHER_LDFLAGS = "-fprofile-instr-generate";
+				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = IOStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
@@ -730,7 +730,7 @@
 					"-fprofile-instr-generate",
 					"-fcoverage-mapping",
 				);
-				OTHER_LDFLAGS = "-fprofile-instr-generate";
+				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = IOStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
@@ -780,7 +780,7 @@
 					"-fprofile-instr-generate",
 					"-fcoverage-mapping",
 				);
-				OTHER_LDFLAGS = "-fprofile-instr-generate";
+				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = IOStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
@@ -797,7 +797,7 @@
 					"-fprofile-instr-generate",
 					"-fcoverage-mapping",
 				);
-				OTHER_LDFLAGS = "-fprofile-instr-generate";
+				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = IOStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;

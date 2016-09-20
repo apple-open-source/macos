@@ -618,7 +618,7 @@ main(int argc, char *argv[])
 #endif /* FIXME */
 	nkept = 0;
 	if (nentries > 0) {
-		if ((kinfo = malloc(nentries * sizeof(*kinfo))) == NULL)
+		if ((kinfo = calloc(nentries, sizeof(*kinfo))) == NULL)
 			errx(1, "malloc failed");
 		for (i = nentries; --i >= 0; ++kp) {
 #ifdef __APPLE__

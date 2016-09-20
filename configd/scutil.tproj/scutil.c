@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -69,9 +69,7 @@
 #include "session.h"
 #include "tests.h"
 
-
 #define LINE_LENGTH 2048
-
 
 __private_extern__ AuthorizationRef	authorization	= NULL;
 __private_extern__ InputRef		currentInput	= NULL;
@@ -191,7 +189,7 @@ getLine(char *buf, int len, InputRef src)
 		if (line == NULL)
 			return NULL;
 
-		strncpy(buf, line, len);
+		strlcpy(buf, line, len);
 	} else {
 		if (fgets(buf, len, src->fp) == NULL)
 			return NULL;
@@ -213,7 +211,6 @@ getLine(char *buf, int len, InputRef src)
 
 		history(src->h, &ev, H_ENTER, buf);
 	}
-
 
 	return buf;
 }
@@ -362,6 +359,10 @@ usage(const char *command)
 		SCPrint(TRUE, stderr, CFSTR("\n"));
 		SCPrint(TRUE, stderr, CFSTR("   or: %s --log IPMonitor [off|on]\n"), command);
 		SCPrint(TRUE, stderr, CFSTR("\tmanage logging.\n"));
+
+		SCPrint(TRUE, stderr, CFSTR("\n"));
+		SCPrint(TRUE, stderr, CFSTR("   or: %s --disable-until-needed <interfaceName> [on|off ]\n"), command);
+		SCPrint(TRUE, stderr, CFSTR("\tmanage secondary interface demand.\n"));
 	}
 
 	if (getenv("ENABLE_EXPERIMENTAL_SCUTIL_COMMANDS")) {
@@ -381,11 +382,11 @@ usage(const char *command)
 static char *
 prompt(EditLine *el)
 {
-#if	!TARGET_IPHONE_SIMULATOR
+#if	!TARGET_OS_SIMULATOR
 	return "> ";
-#else	// !TARGET_IPHONE_SIMULATOR
+#else	// !TARGET_OS_SIMULATOR
 	return "sim> ";
-#endif	// !TARGET_IPHONE_SIMULATOR
+#endif	// !TARGET_OS_SIMULATOR
 }
 
 
@@ -548,9 +549,9 @@ main(int argc, char * const argv[])
 
 	if (doSnap) {
 		if (!enablePrivateAPI
-#if	!TARGET_IPHONE_SIMULATOR
+#if	!TARGET_OS_SIMULATOR
 		    || (geteuid() != 0)
-#endif	// !TARGET_IPHONE_SIMULATOR
+#endif	// !TARGET_OS_SIMULATOR
 		   ) {
 			usage(prog);
 		}
@@ -573,15 +574,22 @@ main(int argc, char * const argv[])
 
 	/* are we looking up a preference value */
 	if (get) {
-		if (argc != 2) {
+		if (argc == 0) {
 			if (findPref(get) < 0) {
 				usage(prog);
 			}
-		} else {
-			/* need to go back one argument
-			 * for the filename */
+		} else if (argc == 2) {
+			/*
+			 * extended --get
+			 *   i.e. scutil --get <filename> <prefs path> <key>
+			 *
+			 * need to go back one argument to re-use the 1st "--get"
+			 * argument as the prefs path name
+			 */
 			argc++;
 			argv--;
+		} else {
+			usage(prog);
 		}
 
 		do_getPref(get, argc, (char **)argv);

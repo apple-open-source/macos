@@ -21,10 +21,12 @@
 //
 #include <security_cdsa_client/cssmclient.h>
 #include <security_cdsa_client/aclclient.h>
-#include <security_cdsa_client/keychainacl.h> 
+#include <security_cdsa_client/keyclient.h>
+#include <security_cdsa_client/keychainacl.h>
 #include <security_cdsa_utilities/cssmwalkers.h>
 #include <security_cdsa_utilities/cssmdata.h>
-
+#include <security_cdsa_utilities/cssmendian.h>
+#include <securityd_client/handletypes.h>
 
 namespace Security {
 namespace CssmClient {
@@ -243,7 +245,41 @@ AclFactory::PasswordChangeCredentials::PasswordChangeCredentials (const CssmData
 		new (allocator) ListElement (CssmAutoData(allocator, password).release()));
 }
 
-	
+
+//
+// Manage the (pseudo) credentials used to explicitly provide a master key to a keychain.
+//
+AclFactory::MasterKeyUnlockCredentials::MasterKeyUnlockCredentials (const CssmClient::Key& key,
+        Allocator& allocator) : KeychainCredentials(allocator)
+{
+    // Flatten out this key into:
+    //    { h2ni(CSSM_KEY) : raw data for CSSM_KEY }
+    //  which is also (on x86_64):
+    //    { h2ni(CSSM_KEYHEADER) : 4 byte align : CSSM_DATA{0:0} : raw data for CSSM_KEY }
+    //                 (placement of alignment bytes uncertain)
+    //
+    // Data format is for consumption by kcdatabase.cpp:unflattenKey()
+
+    size_t dataLen = sizeof(CSSM_KEY) + key->keyData().length();
+    CssmAutoData flattenedKey(allocator);
+    flattenedKey.malloc(dataLen);
+    memset(flattenedKey, 0, dataLen);
+
+    // The key header must be in network-byte order for some reason
+    CSSM_KEYHEADER header = key->header();
+    Security::h2ni(header);
+    memcpy(flattenedKey, &header, sizeof(CSSM_KEYHEADER));
+    memcpy(((uint8_t*) flattenedKey.data()) + sizeof(CSSM_KEY), key->keyData().data(), key->keyData().length());
+
+    mCredentials->sample(0) = TypedList(allocator, CSSM_SAMPLE_TYPE_KEYCHAIN_LOCK,
+                                         new (allocator) ListElement(CSSM_SAMPLE_TYPE_SYMMETRIC_KEY),
+                                         new (allocator) ListElement(CssmAutoData(allocator, CssmData::wrap((SecurityServer::KeyHandle) 0)).release()),
+                                         new (allocator) ListElement(CssmAutoData(allocator, CssmData::wrap(*((const CssmKey*) key))).release()),
+                                         new (allocator) ListElement(flattenedKey.release()));
+}
+
+
+
 //
 // Wide open ("ANY") CSSM forms for owner and ACL entry
 //

@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1997-2014, International Business Machines
+*   Copyright (C) 1997-2016, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -1000,6 +1000,10 @@ uprv_tzname(int n)
         && uprv_strcmp(tzid, TZ_ENV_CHECK) != 0
 #endif
     ) {
+        /* The colon forces tzset() to treat the remainder as zoneinfo path */ 
+        if (tzid[0] == ':') { 
+            tzid++; 
+        } 
         /* This might be a good Olson ID. */
         skipZoneIDPrefix(&tzid);
         return tzid;
@@ -1308,6 +1312,14 @@ static void setTimeZoneFilesDir(const char *path, UErrorCode &status) {
 #endif
 }
 
+#if U_PLATFORM_IMPLEMENTS_POSIX
+#include <sys/stat.h>
+#if defined(U_TIMEZONE_FILES_DIR)
+const char tzdirbuf[] = U_TIMEZONE_FILES_DIR;
+enum { kTzfilenamebufLen = UPRV_LENGTHOF(tzdirbuf) + 24 }; // extra room for "/icutz44l.dat" or "/zoneinfo64.res"
+#endif
+#endif
+
 #define TO_STRING(x) TO_STRING_2(x) 
 #define TO_STRING_2(x) #x
 
@@ -1320,11 +1332,40 @@ static void U_CALLCONV TimeZoneDataDirInitFn(UErrorCode &status) {
         return;
     }
     const char *dir = getenv("ICU_TIMEZONE_FILES_DIR");
+    UBool usingUTzFilesDir = FALSE;
 #if defined(U_TIMEZONE_FILES_DIR)
     if (dir == NULL) {
-        dir = TO_STRING(U_TIMEZONE_FILES_DIR);
+        // dir = TO_STRING(U_TIMEZONE_FILES_DIR);
+        // Not sure why the above was done for this path only;
+        // it preserves unwanted quotes.
+        dir = tzdirbuf;
+        usingUTzFilesDir = TRUE;
     }
 #endif
+#if U_PLATFORM_IMPLEMENTS_POSIX
+    if (dir != NULL) {
+        struct stat buf;
+        if (stat(dir, &buf) != 0) {
+            dir = NULL;
+        }
+#if defined(U_TIMEZONE_FILES_DIR)
+        else if (usingUTzFilesDir) {
+            char tzfilenamebuf[kTzfilenamebufLen];
+            uprv_strcpy(tzfilenamebuf, tzdirbuf);
+            uprv_strcat(tzfilenamebuf, U_FILE_SEP_STRING);
+#if defined(U_TIMEZONE_PACKAGE)
+            uprv_strcat(tzfilenamebuf, U_TIMEZONE_PACKAGE);
+            uprv_strcat(tzfilenamebuf, ".dat");
+#else
+            uprv_strcat(tzfilenamebuf, "zoneinfo64.res");
+#endif
+            if (stat(tzfilenamebuf, &buf) != 0) {
+                dir = NULL;
+            }
+        }
+#endif /* defined(U_TIMEZONE_FILES_DIR) */
+    }
+#endif /* U_PLATFORM_IMPLEMENTS_POSIX */
     if (dir == NULL) {
         dir = "";
     }
@@ -1383,9 +1424,18 @@ static const char *uprv_getPOSIXIDForCategory(int category)
         {
             /* Maybe we got some garbage.  Try something more reasonable */
             posixID = getenv("LC_ALL");
+            /* Solaris speaks POSIX -  See IEEE Std 1003.1-2008 
+             * This is needed to properly handle empty env. variables
+             */
+#if U_PLATFORM == U_PF_SOLARIS
+            if ((posixID == 0) || (posixID[0] == '\0')) {
+                posixID = getenv(category == LC_MESSAGES ? "LC_MESSAGES" : "LC_CTYPE");
+                if ((posixID == 0) || (posixID[0] == '\0')) {
+#else
             if (posixID == 0) {
                 posixID = getenv(category == LC_MESSAGES ? "LC_MESSAGES" : "LC_CTYPE");
                 if (posixID == 0) {
+#endif                    
                     posixID = getenv("LANG");
                 }
             }
@@ -1877,7 +1927,10 @@ int_getDefaultCodepage()
 
     localeName = uprv_getPOSIXIDForDefaultCodepage();
     uprv_memset(codesetName, 0, sizeof(codesetName));
-#if U_HAVE_NL_LANGINFO_CODESET
+    /* On Solaris nl_langinfo returns C locale values unless setlocale
+     * was called earlier.
+     */
+#if (U_HAVE_NL_LANGINFO_CODESET && U_PLATFORM != U_PF_SOLARIS)
     /* When available, check nl_langinfo first because it usually gives more
        useful names. It depends on LC_CTYPE.
        nl_langinfo may use the same buffer as setlocale. */
@@ -2188,6 +2241,7 @@ uprv_dlsym_func(void *lib, const char* sym, UErrorCode *status) {
 
 U_INTERNAL void * U_EXPORT2
 uprv_dl_open(const char *libName, UErrorCode *status) {
+    (void)libName;
     if(U_FAILURE(*status)) return NULL;
     *status = U_UNSUPPORTED_ERROR;
     return NULL;
@@ -2195,6 +2249,7 @@ uprv_dl_open(const char *libName, UErrorCode *status) {
 
 U_INTERNAL void U_EXPORT2
 uprv_dl_close(void *lib, UErrorCode *status) {
+    (void)lib;
     if(U_FAILURE(*status)) return;
     *status = U_UNSUPPORTED_ERROR;
     return;
@@ -2203,6 +2258,8 @@ uprv_dl_close(void *lib, UErrorCode *status) {
 
 U_INTERNAL UVoidFunction* U_EXPORT2
 uprv_dlsym_func(void *lib, const char* sym, UErrorCode *status) {
+  (void)lib;
+  (void)sym;
   if(U_SUCCESS(*status)) {
     *status = U_UNSUPPORTED_ERROR;
   }

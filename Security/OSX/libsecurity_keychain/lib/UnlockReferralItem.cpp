@@ -42,7 +42,7 @@ UnlockReferralItem::UnlockReferralItem() :
 		UInt32(0/*size*/),
 		NULL/*data*/)
 {
-	secdebug("referral", "create %p", this);
+	secinfo("referral", "create %p", this);
 }
 
 
@@ -51,7 +51,7 @@ UnlockReferralItem::UnlockReferralItem() :
 //
 UnlockReferralItem::~UnlockReferralItem() 
 {
-	secdebug("referral", "destroy %p", this);
+	secinfo("referral", "destroy %p", this);
 }
 
 
@@ -74,7 +74,7 @@ PrimaryKey UnlockReferralItem::add(Keychain &keychain)
 	try
 	{
 		mUniqueId = db->insert(recordType, mDbAttributes.get(), mData.get());
-		secdebug("usertrust", "%p inserted", this);
+		secinfo("usertrust", "%p inserted", this);
 	}
 	catch (const CssmError &e)
 	{
@@ -82,7 +82,7 @@ PrimaryKey UnlockReferralItem::add(Keychain &keychain)
 			throw;
 
 		// Create the referral relation and try again.
-		secdebug("usertrust", "adding schema relation for user trusts");
+		secinfo("usertrust", "adding schema relation for user trusts");
 #if 0
 		db->createRelation(CSSM_DL_DB_RECORD_UNLOCK_REFERRAL,
 			"CSSM_DL_DB_RECORD_UNLOCK_REFERRAL",
@@ -101,7 +101,7 @@ PrimaryKey UnlockReferralItem::add(Keychain &keychain)
 		//keychain->resetSchema();
 
 		mUniqueId = db->insert(recordType, mDbAttributes.get(), mData.get());
-		secdebug("usertrust", "%p inserted now", this);
+		secinfo("usertrust", "%p inserted now", this);
 	}
 
 	mPrimaryKey = keychain->makePrimaryKey(recordType, mUniqueId);

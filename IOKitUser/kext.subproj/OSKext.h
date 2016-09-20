@@ -210,6 +210,18 @@ OSKextGetRunningKernelArchitecture(void)
                 __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
+ * @function OSKextSetExecutableSuffix
+ * @abstract
+ * Set the suffix for kext executables explicitly or derived from a kernel path.
+ */
+CF_EXPORT void
+OSKextSetExecutableSuffix(const char * suffix, const char * kernelPath)
+#if defined(__MAC_10_12)
+                          __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
+#endif
+;
+
+/*!
  * @function OSKextSetLogFilter
  * @abstract
  * Set the logging filter for messages from the kext library
@@ -2468,6 +2480,35 @@ OSKextCopyLoadedKextInfo(
     CFArrayRef kextIdentifiers,
     CFArrayRef infoKeys)
                 __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+
+
+CF_EXPORT CFDictionaryRef
+OSKextCopyLoadedKextInfoByUUID(
+    CFArrayRef kextIdentifiers,
+    CFArrayRef infoKeys)
+#if defined(__MAC_10_12)
+                __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0)
+#endif
+;
+
+/*!
+ * @function OSKextCopyUUIDForAddress
+ * @abstract
+ * Returns the compiler-generated UUID of a kext given an address matching its range.
+ *
+ * @param    address   Address of the instruction that needs to be looked up
+ *
+ * @result
+ * A CFData object containing the UUID of the kext's executable
+ * for an <code>address</code> that falls within the range of a loaded kext
+ *
+ */
+CF_EXPORT CFDataRef
+OSKextCopyUUIDForAddress(uint64_t address)
+#if defined(__MAC_10_12)
+__OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0)
+#endif
+;
 
 /*!
  * @function OSKextReadLoadedKextInfo

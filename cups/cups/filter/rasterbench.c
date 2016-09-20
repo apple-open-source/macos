@@ -1,9 +1,7 @@
 /*
- * "$Id: rasterbench.c 11560 2014-02-06 20:10:19Z msweet $"
- *
  * Raster benchmark program for CUPS.
  *
- * Copyright 2007-2014 by Apple Inc.
+ * Copyright 2007-2016 by Apple Inc.
  * Copyright 1997-2006 by Easy Software Products.
  *
  * These coded instructions, statements, and computer programs are the
@@ -21,6 +19,7 @@
 
 #include <config.h>
 #include <cups/raster.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
 #include <signal.h>
@@ -341,8 +340,3 @@ write_test(int         fd,		/* I - File descriptor to write to */
 
   cupsRasterClose(r);
 }
-
-
-/*
- * End of "$Id: rasterbench.c 11560 2014-02-06 20:10:19Z msweet $".
- */

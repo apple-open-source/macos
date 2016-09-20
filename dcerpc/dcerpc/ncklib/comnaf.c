@@ -564,6 +564,8 @@ PRIVATE void rpc__naf_addr_inq_endpoint
 **--
 **/
 
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PRIVATE void rpc__naf_addr_set_netaddr
 (
     unsigned_char_p_t       netaddr,
@@ -577,7 +579,7 @@ PRIVATE void rpc__naf_addr_set_netaddr
     (*rpc_g_naf_id[(*rpc_addr)->sa.family].epv->naf_addr_set_netaddr)
         (netaddr, rpc_addr, status);
 }
-
+#endif
 /*
 **++
 **
@@ -668,7 +670,8 @@ PRIVATE void rpc__naf_addr_inq_netaddr
 **
 **--
 **/
-
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PRIVATE void rpc__naf_addr_set_options
 (
     unsigned_char_p_t       network_options,
@@ -682,7 +685,7 @@ PRIVATE void rpc__naf_addr_set_options
     (*rpc_g_naf_id[(*rpc_addr)->sa.family].epv->naf_addr_set_options)
         (network_options, rpc_addr, status);
 }
-
+#endif
 /*
 **++
 **
@@ -720,7 +723,8 @@ PRIVATE void rpc__naf_addr_set_options
 **
 **--
 **/
-
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PRIVATE void rpc__naf_addr_inq_options
 (
     rpc_addr_p_t            rpc_addr,
@@ -734,7 +738,7 @@ PRIVATE void rpc__naf_addr_inq_options
     (*rpc_g_naf_id[rpc_addr->sa.family].epv->naf_addr_inq_options)
         (rpc_addr, network_options, status);
 }
-
+#endif
 /*
 **++
 **
@@ -1233,7 +1237,8 @@ PRIVATE void rpc__naf_inq_max_tsdu
 **
 **--
 **/
-
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PRIVATE void rpc__naf_inq_max_pth_unfrg_tpdu
 (
     rpc_addr_p_t rpc_addr,
@@ -1248,7 +1253,7 @@ PRIVATE void rpc__naf_inq_max_pth_unfrg_tpdu
         (rpc_addr, RPC_PROTSEQ_INQ_NET_IF_ID(rpc_addr->rpc_protseq_id),
         RPC_PROTSEQ_INQ_NET_PROT_ID(rpc_addr->rpc_protseq_id), max_tpdu, status);
 }
-
+#endif
 
 /*
 **++
@@ -1289,6 +1294,8 @@ PRIVATE void rpc__naf_inq_max_pth_unfrg_tpdu
 **--
 **/
 
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PRIVATE void rpc__naf_inq_max_loc_unfrg_tpdu
 (
     rpc_protseq_id_t pseq_id,
@@ -1310,7 +1317,7 @@ PRIVATE void rpc__naf_inq_max_loc_unfrg_tpdu
     (*rpc_g_naf_id[naf_id].epv->naf_inq_max_loc_unfrg_tpdu)
         (naf_id, iftype, protocol, max_tpdu, status);
 }
-
+#endif
 
 /*
 **++

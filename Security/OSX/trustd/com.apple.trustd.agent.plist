@@ -26,8 +26,6 @@
 		<key>com.apple.trustd.agent</key>
 		<true/>
 	</dict>
-	<key>OnDemand</key>
-	<true/>
 	<key>POSIXSpawnType</key>
 	<string>Interactive</string>
 	<key>ProgramArguments</key>
@@ -35,8 +33,6 @@
 		<string>/usr/libexec/trustd</string>
 		<string>--agent</string>
 	</array>
-	<key>ServiceIPC</key>
-	<true/>
 	<key>Umask</key>
 	<integer>54</integer>
 </dict>

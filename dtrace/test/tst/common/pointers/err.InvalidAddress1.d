@@ -39,10 +39,10 @@
 
 BEGIN
 {
-	kmemAddress = &`max_ncpus;
+	kmemAddress = &`real_ncpus;
 	*kmemAddress = 20;
-	printf("Address of max_ncpus: %d\n", (int) kmemAddress);
-	printf("Value of max_ncpus: %d\n", `max_ncpus);
+	printf("Address of real_ncpus: %d\n", (int) kmemAddress);
+	printf("Value of real_ncpus: %d\n", `real_ncpus);
 	exit(0);
 }
 

@@ -29,6 +29,14 @@
 
 #import <Foundation/NSURLDownload.h>
 
+#if USE(APPLE_INTERNAL_SDK)
+#import <Foundation/NSURLDownloadPrivate.h>
+#else
+@interface NSURLDownload ()
++(id)_downloadWithLoadingConnection:(NSURLConnection *)connection request:(NSURLRequest *)request response:(NSURLResponse *)response delegate:(id)delegate proxy:(id)proxy;
+@end
+#endif
+
 #else
 
 @class NSString;
@@ -44,7 +52,6 @@
 - (NSURLRequest *)download:(NSURLDownload *)download willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)redirectResponse;
 - (BOOL)download:(NSURLDownload *)connection canAuthenticateAgainstProtectionSpace:(NSURLProtectionSpace *)protectionSpace;
 - (void)download:(NSURLDownload *)download didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge;
-- (void)download:(NSURLDownload *)download didCancelAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge;
 - (BOOL)downloadShouldUseCredentialStorage:(NSURLDownload *)download;
 - (void)download:(NSURLDownload *)download didReceiveResponse:(NSURLResponse *)response;
 - (void)download:(NSURLDownload *)download willResumeWithResponse:(NSURLResponse *)response fromByte:(long long)startingByte;
@@ -56,8 +63,22 @@
 - (void)download:(NSURLDownload *)download didFailWithError:(NSError *)error;
 @end
 
-@interface NSURLDownload (Details)
+#ifndef WebDownload_h
+/* Also defined in <WebKit/WebDownload.h>. */
+@interface NSURLDownload : NSObject
+@end
+#endif
+
+@interface NSURLDownload ()
 - (instancetype)initWithRequest:(NSURLRequest *)request delegate:(id <NSURLDownloadDelegate>)delegate;
+- (instancetype)initWithResumeData:(NSData *)resumeData delegate:(id <NSURLDownloadDelegate>)delegate path:(NSString *)path;
+- (void)cancel;
+- (void)setDestination:(NSString *)path allowOverwrite:(BOOL)allowOverwrite;
+@property (readonly, copy) NSURLRequest *request;
+@property (readonly, copy) NSData *resumeData;
+@property BOOL deletesFileUponFailure;
+
++(id)_downloadWithLoadingConnection:(NSURLConnection *)connection request:(NSURLRequest *)request response:(NSURLResponse *)response delegate:(id)delegate proxy:(id)proxy;
 @end
 
 #endif

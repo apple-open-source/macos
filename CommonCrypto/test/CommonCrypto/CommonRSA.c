@@ -85,6 +85,14 @@ static int sign_verify(CCRSACryptorRef publicKey, CCRSACryptorRef privateKey, CC
                                 signature->bytes, signature->len);
     ok(retval == 0, "RSA Verifying");
     if(retval) goto errout;
+
+    retval = CCRSACryptorVerify(publicKey, padding,
+                                hash->bytes, CCDigestGetOutputSize(digest),
+                                kCCDigestNone, 16,
+                                signature->bytes, signature->len);
+    ok(retval == kCCParamError, "RSA wrong digest test");
+    if(retval!= kCCParamError) goto errout;
+
     status = 0;
     
 errout:
@@ -147,7 +155,6 @@ RSAStdGenTest(size_t keysize, uint32_t exponent)
     ok((status = wrapUnwrap(publicKey, privateKey, ccPKCS1Padding)) == 0, "Can perform round-trip PKCS1 wrap/unwrap");
     ok((status = wrapUnwrap(publicKey, privateKey, ccOAEPPadding)) == 0, "Can perform round-trip OAEP wrap/unwrap");
     ok((status = sign_verify(publicKey, privateKey, ccPKCS1Padding, kCCDigestSHA1)) == 0, "Can perform round-trip ccPKCS1Padding sign/verify");
-    ok((status = sign_verify(publicKey, privateKey, ccOAEPPadding, kCCDigestSHA1)) == 0, "Can perform round-trip OAEP sign/verify");
     ok((status = export_import(publicKey, privateKey)) == 0, "Can perform round-trip import/export");
 
     CCRSACryptorRelease(publicKeyClone);
@@ -216,7 +223,6 @@ RSAX931BuildTest(uint32_t e,
     ok((status = wrapUnwrap(publicKey, privateKey, ccPKCS1Padding)) == 0, "Can perform round-trip PKCS1 wrap/unwrap");
     ok((status = wrapUnwrap(publicKey, privateKey, ccOAEPPadding)) == 0, "Can perform round-trip OAEP wrap/unwrap");
     ok((status = sign_verify(publicKey, privateKey, ccPKCS1Padding, kCCDigestSHA1)) == 0, "Can perform round-trip ccPKCS1Padding sign/verify");
-    ok((status = sign_verify(publicKey, privateKey, ccOAEPPadding, kCCDigestSHA1)) == 0, "Can perform round-trip OAEP sign/verify");
     ok((status = export_import(publicKey, privateKey)) == 0, "Can perform round-trip import/export");
 errout:
     free(retP); free(retQ); free(retD); free(retM);
@@ -266,7 +272,7 @@ static int RSAKnownImport() {
 
 }
 
-int CommonRSA (int argc, char *const *argv) {
+int CommonRSA (int __unused argc, char *const * __unused argv) {
     int verbose = 1;
     int build931 = 1;
     int stdgen = 1;

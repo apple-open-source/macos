@@ -74,3 +74,7 @@ profile-4000hz
 	printa(@);
 }
 
+profile-1sec
+{
+	exit(0);
+}

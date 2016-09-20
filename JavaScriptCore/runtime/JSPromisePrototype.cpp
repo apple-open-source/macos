@@ -26,12 +26,12 @@
 #include "config.h"
 #include "JSPromisePrototype.h"
 
-#if ENABLE(PROMISES)
-
+#include "BuiltinNames.h"
 #include "Error.h"
 #include "JSCBuiltins.h"
 #include "JSCJSValueInlines.h"
 #include "JSCellInlines.h"
+#include "JSFunction.h"
 #include "JSGlobalObject.h"
 #include "JSPromise.h"
 #include "Microtask.h"
@@ -47,20 +47,20 @@ STATIC_ASSERT_IS_TRIVIALLY_DESTRUCTIBLE(JSPromisePrototype);
 
 namespace JSC {
 
-const ClassInfo JSPromisePrototype::s_info = { "PromisePrototype", &JSNonFinalObject::s_info, &promisePrototypeTable, CREATE_METHOD_TABLE(JSPromisePrototype) };
+const ClassInfo JSPromisePrototype::s_info = { "PromisePrototype", &Base::s_info, &promisePrototypeTable, CREATE_METHOD_TABLE(JSPromisePrototype) };
 
 /* Source for JSPromisePrototype.lut.h
 @begin promisePrototypeTable
-  then         JSPromisePrototypeFuncThen             DontEnum|Function 2
-  catch        JSPromisePrototypeFuncCatch            DontEnum|Function 1
+  then         JSBuiltin            DontEnum|Function 2
+  catch        JSBuiltin            DontEnum|Function 1
 @end
 */
 
-JSPromisePrototype* JSPromisePrototype::create(ExecState* exec, JSGlobalObject*, Structure* structure)
+JSPromisePrototype* JSPromisePrototype::create(VM& vm, JSGlobalObject*, Structure* structure)
 {
-    VM& vm = exec->vm();
-    JSPromisePrototype* object = new (NotNull, allocateCell<JSPromisePrototype>(vm.heap)) JSPromisePrototype(exec, structure);
+    JSPromisePrototype* object = new (NotNull, allocateCell<JSPromisePrototype>(vm.heap)) JSPromisePrototype(vm, structure);
     object->finishCreation(vm, structure);
+    object->addOwnInternalSlots(vm, structure->globalObject());
     return object;
 }
 
@@ -69,21 +69,20 @@ Structure* JSPromisePrototype::createStructure(VM& vm, JSGlobalObject* globalObj
     return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info());
 }
 
-JSPromisePrototype::JSPromisePrototype(ExecState* exec, Structure* structure)
-    : JSNonFinalObject(exec->vm(), structure)
+JSPromisePrototype::JSPromisePrototype(VM& vm, Structure* structure)
+    : JSNonFinalObject(vm, structure)
 {
 }
 
 void JSPromisePrototype::finishCreation(VM& vm, Structure*)
 {
     Base::finishCreation(vm);
+    putDirectWithoutTransition(vm, vm.propertyNames->toStringTagSymbol, jsString(&vm, "Promise"), DontEnum | ReadOnly);
 }
 
-bool JSPromisePrototype::getOwnPropertySlot(JSObject* object, ExecState* exec, PropertyName propertyName, PropertySlot& slot)
+void JSPromisePrototype::addOwnInternalSlots(VM& vm, JSGlobalObject* globalObject)
 {
-    return getStaticFunctionSlot<JSObject>(exec, promisePrototypeTable, jsCast<JSPromisePrototype*>(object), propertyName, slot);
+    JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().thenPrivateName(), promisePrototypeThenCodeGenerator, DontEnum | DontDelete | ReadOnly);
 }
 
 } // namespace JSC
-
-#endif // ENABLE(PROMISES)

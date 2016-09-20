@@ -194,7 +194,7 @@ class TrustKeychains
 {
     public:
     TrustKeychains();
-    ~TrustKeychains()	{}
+    ~TrustKeychains();
     CSSM_DL_DB_HANDLE	rootStoreHandle()	{ return mRootStoreHandle; }
     CSSM_DL_DB_HANDLE	systemKcHandle()	{ return mSystem ? mSystem->database()->handle() : nullCSSMDLDBHandle; }
     Keychain			&systemKc()			{ return mSystem; }

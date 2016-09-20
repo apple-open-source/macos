@@ -24,10 +24,7 @@
 
 [
     Conditional=WEB_AUDIO,
-    JSGenerateToJSObject,
-    JSGenerateToNativeObject,
     GenerateIsReachable=Impl,
-    EventTarget,
 ] interface AudioNode : EventTarget {
     readonly attribute AudioContext context;
     readonly attribute unsigned long numberOfInputs;
@@ -37,11 +34,7 @@
     [SetterRaisesException] attribute DOMString channelCountMode;
     [SetterRaisesException] attribute DOMString channelInterpretation;
 
-    [RaisesException] void connect(AudioNode? destination, [Default=Undefined] optional unsigned long output, [Default=Undefined] optional unsigned long input);
-    [RaisesException] void connect(AudioParam? destination, [Default=Undefined] optional unsigned long output);
-    [RaisesException] void disconnect([Default=Undefined] optional unsigned long output);
-
-    void addEventListener(DOMString type, EventListener listener, optional boolean useCapture);
-    void removeEventListener(DOMString type, EventListener listener, optional boolean useCapture);
-    [RaisesException] boolean dispatchEvent(Event event);
+    [RaisesException] void connect(AudioNode? destination, optional unsigned long output = 0, optional unsigned long input = 0);
+    [RaisesException] void connect(AudioParam? destination, optional unsigned long output = 0);
+    [RaisesException] void disconnect(optional unsigned long output = 0);
 };

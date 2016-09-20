@@ -68,11 +68,12 @@ static int id_or_type(const char *);
  * We first define a set of labeled states for use in the D lexer and then a
  * set of regular expressions to simplify things below.  The lexer states are:
  *
- * S0 - D program clause and expression lexing
- * S1 - D comments (i.e. skip everything until end of comment)
- * S2 - D program outer scope (probe specifiers and declarations)
- * S3 - D control line parsing (i.e. after ^# is seen but before \n)
- * S4 - D control line scan (locate control directives only and invoke S3)
+ * S0  - D program clause and expression lexing
+ * S1  - D comments (i.e. skip everything until end of comment)
+ * S1L - D one line comment (i.e. skip everything until end of line)
+ * S2  - D program outer scope (probe specifiers and declarations)
+ * S3  - D control line parsing (i.e. after ^# is seen but before \n)
+ * S4  - D control line scan (locate control directives only and invoke S3)
  */
 %}
 
@@ -80,7 +81,7 @@ static int id_or_type(const char *);
 %p 3700		/* maximum positions */
 %n 600		/* maximum states */
 
-%s S0 S1 S2 S3 S4
+%s S0 S1 S1L S2 S3 S4
 
 RGX_AGG		"@"[a-zA-Z_][0-9a-zA-Z_]*
 RGX_PSPEC	[-+$:a-zA-Z_.?*\\\[\]!][-+$:0-9a-zA-Z_.`?*\\\[\]!\(\)]*
@@ -444,6 +445,11 @@ if (yypcb->pcb_token != 0) {
 			BEGIN(S1);
 		}
 
+<S0>"//"	|
+<S2>"//"	{
+			yypcb->pcb_cstate = (YYSTATE);
+			BEGIN(S1L);
+		}
 <S0>{RGX_INTERP} |
 <S2>{RGX_INTERP}	; /* discard any #! lines */
 
@@ -582,6 +588,13 @@ if (yypcb->pcb_token != 0) {
 <S1>"/*"	yyerror("/* encountered inside a comment\n");
 <S1>"*/"	BEGIN(yypcb->pcb_cstate);
 <S1>.|\n	; /* discard */
+
+<S1L>"/*"	yyerror("/* encountered inside a one-line comment\n");
+<S1L>"*/"	yyerror("*/ encountered inside a one-line comment\n");
+<S1L>"//"	yyerror("// encountered inside a one-line comment\n");
+<S1L>\n|\0	BEGIN(yypcb->pcb_cstate);
+<S1L>.		; /* discard */
+
 
 <S2>{RGX_PSPEC}	{
 			/*

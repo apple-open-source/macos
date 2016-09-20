@@ -28,20 +28,23 @@
 
 __BEGIN_DECLS
 
+CF_ASSUME_NONNULL_BEGIN
+CF_IMPLICIT_BRIDGING_ENABLED
+
 /*! @typedef IOHIDDeviceRef
 	This is the type of a reference to the IOHIDDevice.
 */
-typedef struct __IOHIDDevice * IOHIDDeviceRef;
+typedef struct CF_BRIDGED_TYPE(id) __IOHIDDevice * IOHIDDeviceRef;
 
 /*! @typedef IOHIDElementRef
 	This is the type of a reference to the IOHIDElement.
 */
-typedef struct __IOHIDElement * IOHIDElementRef;
+typedef struct CF_BRIDGED_TYPE(id) __IOHIDElement * IOHIDElementRef;
 
 /*! @typedef IOHIDValueRef
 	This is the type of a reference to the IOHIDValue.
 */
-typedef struct __IOHIDValue * IOHIDValueRef;
+typedef struct CF_BRIDGED_TYPE(id) __IOHIDValue * IOHIDValueRef;
 
 /*!
     @typedef    IOHIDTransactionDirectionType
@@ -49,11 +52,10 @@ typedef struct __IOHIDValue * IOHIDValueRef;
     @constant   kIOHIDTransactionDirectionTypeInput Transaction direction used for requesting element values from a device. 
     @constant   kIOHIDTransactionDirectionTypeOutput Transaction direction used for dispatching element values to a device. 
 */
-enum {
+typedef CF_ENUM(uint32_t, IOHIDTransactionDirectionType) {
     kIOHIDTransactionDirectionTypeInput,
     kIOHIDTransactionDirectionTypeOutput
 };
-typedef uint32_t IOHIDTransactionDirectionType;
 
 /*!
     @enum       IOHIDTransactionOption
@@ -61,9 +63,7 @@ typedef uint32_t IOHIDTransactionDirectionType;
     @constant   kIOHIDTransactionOptionDefaultOutputValue Option to set the default element value to be used with an
                 IOHIDDeviceTransactionInterface of direction kIOHIDTransactionDirectionTypeOutput. 
 */
-enum {
-    kIOHIDTransactionOptionDefaultOutputValue = 0x0001
-};
+static const IOOptionBits kIOHIDTransactionOptionDefaultOutputValue = 0x0001;
 
 
 /*! @typedef IOHIDCallback
@@ -74,9 +74,9 @@ enum {
     @param sender Interface instance sending the completion routine.
 */
 typedef void (*IOHIDCallback)(
-                                    void *                  context, 
+                                    void * _Nullable        context,
                                     IOReturn                result, 
-                                    void *                  sender);
+                                    void * _Nullable        sender);
 
 /*! @typedef IOHIDReportCallback
     @discussion Type and arguments of callout C function that is used when a HID report completion routine is called.
@@ -89,9 +89,9 @@ typedef void (*IOHIDCallback)(
     @param reportLength Size of the buffer received upon completion.
 */
 typedef void (*IOHIDReportCallback) (
-                                    void *                  context, 
+                                    void * _Nullable        context,
                                     IOReturn                result, 
-                                    void *                  sender, 
+                                    void * _Nullable        sender,
                                     IOHIDReportType         type, 
                                     uint32_t                reportID,
                                     uint8_t *               report, 
@@ -109,9 +109,9 @@ typedef void (*IOHIDReportCallback) (
     @param timeStamp The time at which the report arrived.
 */
 typedef void (*IOHIDReportWithTimeStampCallback) (
-                                    void *                  context, 
+                                    void * _Nullable        context,
                                     IOReturn                result, 
-                                    void *                  sender, 
+                                    void * _Nullable        sender,
                                     IOHIDReportType         type, 
                                     uint32_t                reportID,
                                     uint8_t *               report, 
@@ -126,9 +126,9 @@ typedef void (*IOHIDReportWithTimeStampCallback) (
     @param value IOHIDValueRef containing the returned element value.
 */
 typedef void (*IOHIDValueCallback) ( 
-                                    void *                  context,
+                                    void * _Nullable        context,
                                     IOReturn                result, 
-                                    void *                  sender,
+                                    void * _Nullable        sender,
                                     IOHIDValueRef           value);
 
 /*! @typedef IOHIDValueMultipleCallback
@@ -139,9 +139,9 @@ typedef void (*IOHIDValueCallback) (
     @param multiple CFDictionaryRef containing the returned element key value pairs.
 */
 typedef void (*IOHIDValueMultipleCallback) ( 
-                                    void *                  context,
+                                    void * _Nullable        context,
                                     IOReturn                result, 
-                                    void *                  sender,
+                                    void * _Nullable        sender,
                                     CFDictionaryRef         multiple);
 
 /*! @typedef IOHIDDeviceCallback
@@ -151,10 +151,14 @@ typedef void (*IOHIDValueMultipleCallback) (
     @param device IOHIDDeviceRef containing the sending device.
 */
 typedef void (*IOHIDDeviceCallback) ( 
-                                    void *                  context,
+                                    void * _Nullable        context,
                                     IOReturn                result, 
-                                    void *                  sender,
+                                    void * _Nullable        sender,
                                     IOHIDDeviceRef          device);
 
+CF_IMPLICIT_BRIDGING_DISABLED
+CF_ASSUME_NONNULL_END
+
 __END_DECLS
+
 #endif /* _IOKIT_HID_IOHIDBASE_H_ */

@@ -480,7 +480,7 @@ static int testDigests(DigestVector *dv) {
 
 static size_t testsPerVector = 242;
 
-int CommonDigest(int argc, char *const *argv) {
+int CommonDigest(int __unused argc, char *const * __unused argv) {
 	plan_tests((int) (dvLen*testsPerVector));
     
     for(size_t testcase = 0; testcase < dvLen; testcase++) {

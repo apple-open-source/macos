@@ -99,7 +99,7 @@ static void tests(void)
 
     ok_status(SecItemDelete(query),"Deleted the item we added");
 
-    is(__security_simulatecrash_enable(true), 3, "expecting 3 simcrashes from opening DB connection");
+    is(__security_simulatecrash_enable(true), 1, "expecting 1 simcrashes from opening DB connection");
 
     CFRelease(query);
     CFRelease(eighty);

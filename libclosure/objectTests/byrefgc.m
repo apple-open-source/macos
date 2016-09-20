@@ -12,22 +12,19 @@
 //  Copyright 2008 __MyCompanyName__. All rights reserved.
 //
 
-// TEST_CONFIG SDK=macosx
 // TEST_CFLAGS -framework Foundation
 
 
-#import <objc/objc-auto.h>
-#import <Foundation/Foundation.h>
 #import <stdio.h>
 #import <Block.h>
 #import "test.h"
+#import "testroot.i"
 
-int DidFinalize = 0;
 int GotHi = 0;
 
 int VersionCounter = 0;
 
-@interface TestObject : NSObject {
+@interface TestObject : TestRoot {
     int version;
 }
 - (void) hi;
@@ -41,10 +38,6 @@ int VersionCounter = 0;
     return self;
 }
 
-- (void)finalize {
-    DidFinalize++;
-    [super finalize];
-}
 - (void) hi {
     GotHi++;
 }
@@ -66,16 +59,16 @@ int main() {
     voidvoid();
     voidvoid();
     voidvoid();
-    voidvoid = nil;
-    for (int i = 0; i < 8000; ++i) {
-        [NSObject new];
-    }
-    if (objc_collectingEnabled()) {
-        objc_collect(OBJC_EXHAUSTIVE_COLLECTION|OBJC_WAIT_UNTIL_DONE);
-        if ((DidFinalize + 2) < VersionCounter) {
-            fail("didn't recover all objects %d/%d", DidFinalize, VersionCounter);
-        }
-    }
+    RELEASE_VAR(voidvoid);
+    testprintf("alloc %d dealloc %d\n", TestRootAlloc, TestRootDealloc);
+#if __has_feature(objc_arc)
+    // one TestObject still alive in get_block's __block variable
+    testassert(TestRootAlloc == TestRootDealloc + 1);
+#else
+    // __block variables are unretained so they all leaked
+    testassert(TestRootAlloc == 7);
+    testassert(TestRootDealloc == 0);
+#endif
 
     succeed(__FILE__);
 }

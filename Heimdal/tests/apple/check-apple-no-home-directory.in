@@ -58,9 +58,10 @@ EOF
 
 sandbox-exec \
     -D HOME="$HOME" \
+    -D KRB5_TRACE=${testdir}/messages \
     -p '(version 1)(allow default)(deny file-read-data file-write-data (subpath (param "HOME")) (with send-signal SIGABRT))' \
     ${rkpty} ${kinitpty} ${kinit} --no-home-directory heimdalcoreos@APPLECONNECT-UAT.APPLE.COM >/dev/null || \
-        { cat ${testdir}/messages ; exit 1; }
+        { echo "kinit failed with: $?"; cat ${testdir}/messages ; exit 1; }
 ${kdestroy}
 
 

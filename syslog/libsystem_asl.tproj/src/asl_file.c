@@ -2551,7 +2551,7 @@ _jump_set_iteration_index(asl_object_private_t *obj, size_t n)
 }
 
 static void
-_jump_append(asl_object_private_t *obj, asl_object_private_t *newobj)
+_jump_append(asl_object_private_t *obj, asl_object_private_t *newobj, void *addr)
 {
 	uint64_t xid;
 	asl_file_t *s = (asl_file_t *)obj;

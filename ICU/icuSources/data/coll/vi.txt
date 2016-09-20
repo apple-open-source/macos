@@ -1,13 +1,13 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/collation/vi.xml
 // *
 // ***************************************************************************
 vi{
-    Version{"2.0.96.14"}
+    Version{"2.1.19.14"}
     collations{
         standard{
             Sequence{
@@ -19,7 +19,7 @@ vi{
                 "&o<ô<<<Ô<ơ<<<Ơ"
                 "&u<ư<<<Ư"
             }
-            Version{"27.0.1"}
+            Version{"29"}
         }
         traditional{
             Sequence{
@@ -38,7 +38,7 @@ vi{
                 "&T<th<<<Th<<<TH<tr<<<Tr<<<TR"
                 "&u<ư<<<Ư"
             }
-            Version{"27.0.1"}
+            Version{"29"}
         }
     }
 }

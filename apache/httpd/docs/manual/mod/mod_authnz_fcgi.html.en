@@ -19,7 +19,7 @@
 <div id="page-header">
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p>
 <p class="apache">Apache HTTP Server Version 2.4</p>
-<img alt="" src="../images/feather.gif" /></div>
+<img alt="" src="../images/feather.png" /></div>
 <div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
 <a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.4</a> &gt; <a href="./">Modules</a></div>
@@ -58,14 +58,14 @@ httpd authentication and authorization</td></tr>
 <li><img alt="" src="../images/down.gif" /> <a href="#authnzfcgicheckauthnprovider">AuthnzFcgiCheckAuthnProvider</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#authnzfcgidefineprovider">AuthnzFcgiDefineProvider</a></li>
 </ul>
-<h3>See also</h3>
+<h3>Bugfix checklist</h3><ul class="seealso"><li><a href="https://www.apache.org/dist/httpd/CHANGES_2.4">httpd changelog</a></li><li><a href="https://bz.apache.org/bugzilla/buglist.cgi?bug_status=__open__&amp;list_id=144532&amp;product=Apache%20httpd-2&amp;query_format=specific&amp;order=changeddate%20DESC%2Cpriority%2Cbug_severity&amp;component=mod_authnz_fcgi">Known issues</a></li><li><a href="https://bz.apache.org/bugzilla/enter_bug.cgi?product=Apache%20httpd-2&amp;component=mod_authnz_fcgi">Report a bug</a></li></ul><h3>See also</h3>
 <ul class="seealso">
 <li><a href="../howto/auth.html">Authentication, Authorization,
 and Access Control</a></li>
 <li><code class="module"><a href="../mod/mod_auth_basic.html">mod_auth_basic</a></code></li>
 <li><code class="program"><a href="../programs/fcgistarter.html">fcgistarter</a></code></li>
 <li><code class="module"><a href="../mod/mod_proxy_fcgi.html">mod_proxy_fcgi</a></code></li>
-</ul><ul class="seealso"><li><a href="#comments_section">Comments</a></li></ul></div>
+<li><a href="#comments_section">Comments</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="invocations" id="invocations">Invocation modes</a></h2>
@@ -104,7 +104,8 @@ and Access Control</a></li>
 
 <pre class="prettyprint lang-perl">#!/usr/bin/perl
 use FCGI;
-while (FCGI::accept &gt;= 0) {
+my $request = FCGI::Request();
+while ($request-&gt;Accept() &gt;= 0) {
     die if $ENV{'FCGI_APACHE_ROLE'} ne "AUTHENTICATOR";
     die if $ENV{'FCGI_ROLE'}        ne "AUTHORIZER";
     die if !$ENV{'REMOTE_PASSWD'};
@@ -147,7 +148,8 @@ while (FCGI::accept &gt;= 0) {
       request data.  Example application:
 <pre class="prettyprint lang-perl">#!/usr/bin/perl
 use FCGI;
-while (FCGI::accept &gt;= 0) {
+my $request = FCGI::Request();
+while ($request-&gt;Accept() &gt;= 0) {
     die if $ENV{'FCGI_APACHE_ROLE'} ne "AUTHORIZER";
     die if $ENV{'FCGI_ROLE'}        ne "AUTHORIZER";
     die if $ENV{'REMOTE_PASSWD'};
@@ -195,7 +197,8 @@ while (FCGI::accept &gt;= 0) {
       application.  Example application:
 <pre class="prettyprint lang-perl">#!/usr/bin/perl
 use FCGI;
-while (FCGI::accept &gt;= 0) {
+my $request = FCGI::Request();
+while ($request-&gt;Accept() &gt;= 0) {
     die if $ENV{'FCGI_APACHE_ROLE'};
     die if $ENV{'FCGI_ROLE'} ne "AUTHORIZER";
     die if !$ENV{'REMOTE_PASSWD'};
@@ -239,7 +242,8 @@ while (FCGI::accept &gt;= 0) {
       specifies when it is called.  Example application:
 <pre class="prettyprint lang-perl">#!/usr/bin/perl
 use FCGI;
-while (FCGI::accept &gt;= 0) {
+my $request = FCGI::Request();
+while ($request-&gt;Accept() &gt;= 0) {
     die if $ENV{'FCGI_APACHE_ROLE'} ne "AUTHENTICATOR";
     die if $ENV{'FCGI_ROLE'} ne "AUTHORIZER";
 
@@ -551,7 +555,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_authnz_fcgi.
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2015 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2016 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -160,6 +160,23 @@
 	</dict>
 	<dict>
 		<key>OpenSourceProject</key>
+		<string>ee</string>
+		<key>OpenSourceVersion</key>
+		<string>2011-12-17</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://svnweb.freebsd.org/base/head/contrib/ee/</string>
+		<key>OpenSourceSCM</key>
+		<string>svn co http://svn.freebsd.org/base/head/contrib/ee/</string>
+		<key>OpenSourceImportDate</key>
+		<string>2015-08-04</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
 		<string>expand</string>
 		<key>OpenSourceVersion</key>
 		<string>2005-09-16</string>
@@ -203,6 +220,40 @@
 		<string>2005-09-16</string>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>bsdgrep</string>
+		<key>OpenSourceVersion</key>
+		<string>2012-01-15</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://wiki.freebsd.org/BSDgrep</string>
+		<key>OpenSourceSCM</key>
+		<string>cvs -d anoncvs@anoncvs1.FreeBSD.org:/home/ncvs co src/usr.bin/grep</string>
+		<key>OpenSourceImportDate</key>
+		<string>2012-01-23</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>9510115 (grep.c, util.c)</string>
+			<string>WITHOUT_FASTMATCH (grep.h, grep.c, util.c)</string>
+			<string>WITHOUT_LZMA (file.c, grep.c)</string>
+			<string>file.c: casts in grep_fgetln to fix warnings</string>
+			<string>file.c: adjust mmap flags</string>
+			<string>grep.c: enable REG_ENHANCED (except for -F mode)</string>
+			<string>grep.c: disable FILE_MMAP options</string>
+			<string>util.c: basename expects char *</string>
+			<string>util.c: ignore locale for binary files (10462853)</string>
+			<string>util.c: recursive stdin warning (10290183)</string>
+			<string>util.c: -w fix (10593340)</string>
+			<string>util.c: -c -q fix (10680370)</string>
+			<string>util.c, grep.h: avoid MAX_LINE_MATCHES limitation (10511988)</string>
+			<string>grep.c: Remove -P from usage statement (13475367)</string>
+			<string>util.c: Use mbtowc instead of sscanf (20248554)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>bsdgrep.txt</string>
 	</dict>
 	<dict>
 		<key>OpenSourceProject</key>

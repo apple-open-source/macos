@@ -299,17 +299,38 @@ char *(array[100]) = {
 
 enum soppie
 {
-	yes = 0,
-	no,
-	maybe
+yes = 0,
+no,
+maybe
 };
 
 typedef enum soppie
 {
-	yes = 0,
-	no,
-	maybe
+yes = 0,
+no,
+maybe
 };
+
+static enum
+{
+yes = 0,
+no,
+maybe
+} soppie;
+
+public static enum
+{
+yes = 0,
+no,
+maybe
+} soppie;
+
+static private enum
+{
+yes = 0,
+no,
+maybe
+} soppie;
 
 {
 	int a,
@@ -441,6 +462,14 @@ label:  if (asdf &&
 		} while (asdfasdf);
 	a = b + 1;
 	asdfasdf
+}
+
+{
+for ( int i = 0;
+	i < 10; i++ )
+{
+}
+	i = 0;
 }
 
 class bob
@@ -799,6 +828,137 @@ main()
 	df */
 		hello
 }
+
+/* valid namespaces with normal indent */
+namespace
+{
+{
+  111111111111;
+}
+}
+namespace /* test */
+{
+  11111111111111111;
+}
+namespace // test
+{
+  111111111111111111;
+}
+namespace
+{
+  111111111111111111;
+}
+namespace test
+{
+  111111111111111111;
+}
+namespace{
+  111111111111111111;
+}
+namespace test{
+  111111111111111111;
+}
+namespace {
+  111111111111111111;
+}
+namespace test {
+  111111111111111111;
+namespace test2 {
+  22222222222222222;
+}
+}
+
+/* invalid namespaces use block indent */
+namespace test test2 {
+  111111111111111111111;
+}
+namespace11111111111 {
+  111111111111;
+}
+namespace() {
+  1111111111111;
+}
+namespace()
+{
+  111111111111111111;
+}
+namespace test test2
+{
+  1111111111111111111;
+}
+namespace111111111
+{
+  111111111111111111;
+}
+
+void getstring() {
+/* Raw strings */
+const char* s = R"(
+  test {
+    # comment
+    field: 123
+  }
+ )";
+     }
+
+void getstring() {
+const char* s = R"foo(
+  test {
+    # comment
+    field: 123
+  }
+    )foo";
+     }
+
+{
+int a[4] = {
+[0] = 0,
+[1] = 1,
+[2] = 2,
+[3] = 3,
+};
+}
+
+{
+a = b[2]
++ 3;
+}
+
+{
+if (1)
+/* aaaaa
+* bbbbb
+*/
+a = 1;
+}
+
+void func()
+{
+switch (foo)
+{
+case (bar):
+if (baz())
+quux();
+break;
+case (shmoo):
+if (!bar)
+{
+}
+case (foo1):
+switch (bar)
+{
+case baz:
+baz_f();
+break;
+}
+break;
+default:
+baz();
+baz();
+break;
+}
+}
+
 /* end of AUTO */
 
 STARTTEST
@@ -903,6 +1063,24 @@ main ( int first_par, /*
                       */
         );
 
+}
+
+STARTTEST
+:set cin
+:set cino=es,n0s
+/main
+=][
+ENDTEST
+
+main(void)
+{
+	/* Make sure that cino=X0s is not parsed like cino=Xs. */
+	if (cond)
+		foo();
+	else
+	{
+		bar();
+	}
 }
 
 STARTTEST
@@ -1246,6 +1424,20 @@ protected:
 };
 
 STARTTEST
+:set cino=(0,gs,hs
+2kdd]]=][
+ENDTEST
+
+class Foo : public Bar
+{
+public:
+virtual void method1(void) = 0;
+virtual void method2(int arg1,
+int arg2,
+int arg3) = 0;
+};
+
+STARTTEST
 :set cino=+20
 2kdd]]=][
 ENDTEST
@@ -1313,6 +1505,790 @@ int main ()
 			)
 		foo;
 }
+
+STARTTEST
+:set cino=(0,ts
+2kdd2j=][
+ENDTEST
+
+void func(int a
+#if defined(FOO)
+		  , int b
+		  , int c
+#endif
+		 )
+{
+}
+
+STARTTEST
+:set cino=(0
+2kdd2j=][
+ENDTEST
+
+void
+func(int a
+#if defined(FOO)
+		  , int b
+		  , int c
+#endif
+		 )
+{
+}
+
+STARTTEST
+:set cino&
+2kdd2j=7][
+ENDTEST
+
+void func(void)
+{
+	if(x==y)
+		if(y==z)
+			foo=1;
+		else { bar=1;
+			baz=2;
+		}
+	printf("Foo!\n");
+}
+
+void func1(void)
+{
+	char* tab[] = {"foo", "bar",
+		"baz", "quux",
+			"this line used", "to be indented incorrectly"};
+	foo();
+}
+
+void func2(void)
+{
+	int tab[] =
+	{1, 2,
+		3, 4,
+		5, 6};
+
+		printf("This line used to be indented incorrectly.\n");
+}
+
+int foo[]
+#ifdef BAR
+
+= { 1, 2, 3,
+	4, 5, 6 }
+
+#endif
+;
+	int baz;
+
+void func3(void)
+{
+	int tab[] = {
+	1, 2,
+	3, 4,
+	5, 6};
+
+printf("Don't you dare indent this line incorrectly!\n");
+}
+
+void
+func4(a, b,
+		c)
+int a;
+int b;
+int c;
+{
+}
+
+void
+func5(
+		int a,
+		int b)
+{
+}
+
+void
+func6(
+		int a)
+{
+}
+
+STARTTEST
+:set cino&
+:set cino+=l1
+2kdd2j=][
+ENDTEST
+
+void func(void)
+{
+	int tab[] =
+	{
+		1, 2, 3,
+		4, 5, 6};
+
+	printf("Indent this line correctly!\n");
+
+	switch (foo)
+	{
+		case bar:
+			printf("bar");
+			break;
+		case baz: {
+			printf("baz");
+			break;
+		}
+		case quux:
+printf("But don't break the indentation of this instruction\n");
+break;
+	}
+}
+
+STARTTEST
+:set cino&
+2kdd2j=][
+ENDTEST
+
+void func(void)
+{
+	cout << "a"
+	<< "b"
+	<< ") :"
+	<< "c";
+}
+
+STARTTEST
+:set com=s1:/*,m:*,ex:*/
+]]3jofoo();
+ENDTEST
+
+void func(void)
+{
+	/*
+	 * This is a comment.
+	 */
+}
+
+STARTTEST
+:set cino&
+2kdd2j=][
+ENDTEST
+
+void func(void)
+{
+	for (int i = 0; i < 10; ++i)
+		if (i & 1) {
+			foo(1);
+		} else
+			foo(0);
+baz();
+}
+
+STARTTEST
+:set cino=k2s,(0
+2kdd3j=][
+ENDTEST
+
+void func(void)
+{
+	if (condition1
+	&& condition2)
+	action();
+	function(argument1
+	&& argument2);
+
+	if (c1 && (c2 ||
+	c3))
+	foo;
+	if (c1 &&
+	(c2 || c3))
+	{
+	}
+
+	if (   c1
+	&& (      c2
+	|| c3))
+	foo;
+	func( c1
+	&& (     c2
+	|| c3))
+	foo;
+}
+
+STARTTEST
+:set cino=k2s,(s
+2kdd3j=][
+ENDTEST
+
+void func(void)
+{
+	if (condition1
+	&& condition2)
+	action();
+	function(argument1
+	&& argument2);
+
+	if (c1 && (c2 ||
+	c3))
+	foo;
+	if (c1 &&
+	(c2 || c3))
+	{
+	}
+
+	if (   c1
+	&& (      c2
+	|| c3))
+	foo;
+	func(   c1
+	&& (      c2
+	|| c3))
+	foo;
+}
+
+STARTTEST
+:set cino=k2s,(s,U1
+2kdd3j=][
+ENDTEST
+
+void func(void)
+{
+	if (condition1
+	&& condition2)
+	action();
+	function(argument1
+	&& argument2);
+
+	if (c1 && (c2 ||
+	c3))
+	foo;
+	if (c1 &&
+	(c2 || c3))
+	{
+	}
+	if (c123456789
+	&& (c22345
+	|| c3))
+	printf("foo\n");
+
+	c = c1 &&
+	(
+	c2 ||
+	c3
+	) && c4;
+}
+
+STARTTEST
+:set cino=k2s,(0,W4
+2kdd3j=][
+ENDTEST
+
+void func(void)
+{
+	if (condition1
+	&& condition2)
+	action();
+	function(argument1
+	&& argument2);
+
+	if (c1 && (c2 ||
+	c3))
+	foo;
+	if (c1 &&
+	(c2 || c3))
+	{
+	}
+	if (c123456789
+	&& (c22345
+	|| c3))
+	printf("foo\n");
+
+	if (   c1
+	&& (   c2
+	|| c3))
+	foo;
+
+	a_long_line(
+	argument,
+	argument);
+	a_short_line(argument,
+	argument);
+}
+
+STARTTEST
+:set cino=k2s,u2
+2kdd3j=][
+ENDTEST
+
+void func(void)
+{
+	if (condition1
+	&& condition2)
+	action();
+	function(argument1
+	&& argument2);
+
+	if (c1 && (c2 ||
+	c3))
+	foo;
+	if (c1 &&
+	(c2 || c3))
+	{
+	}
+	if (c123456789
+	&& (c22345
+	|| c3))
+	printf("foo\n");
+}
+
+STARTTEST
+:set cino=k2s,(0,w1
+2kdd3j=][
+ENDTEST
+
+void func(void)
+{
+	if (condition1
+	&& condition2)
+	action();
+	function(argument1
+	&& argument2);
+
+	if (c1 && (c2 ||
+	c3))
+	foo;
+	if (c1 &&
+	(c2 || c3))
+	{
+	}
+	if (c123456789
+	&& (c22345
+	|| c3))
+	printf("foo\n");
+
+	if (   c1
+	&& (      c2
+	|| c3))
+	foo;
+	func(   c1
+	&& (      c2
+	|| c3))
+	foo;
+}
+
+STARTTEST
+:set cino=k2,(s
+2kdd3j=][
+ENDTEST
+
+void func(void)
+{
+	if (condition1
+	  && condition2)
+		action();
+	function(argument1
+		&& argument2);
+
+	if (c1 && (c2 ||
+		  c3))
+		foo;
+	if (c1 &&
+	  (c2 || c3))
+	{
+	}
+}
+
+STARTTEST
+:set cino=N-s
+/^NAMESPACESTART
+=/^NAMESPACEEND
+ENDTEST
+
+NAMESPACESTART
+/* valid namespaces with normal indent */
+namespace
+{
+   {
+	111111111111;
+}
+}
+namespace /* test */
+{
+  11111111111111111;
+}
+namespace // test
+{
+  111111111111111111;
+}
+namespace
+{
+  111111111111111111;
+}
+namespace test
+{
+  111111111111111111;
+}
+namespace{
+  111111111111111111;
+}
+namespace test{
+  111111111111111111;
+}
+namespace {
+  111111111111111111;
+}
+namespace test {
+  111111111111111111;
+namespace test2 {
+  22222222222222222;
+}
+}
+
+/* invalid namespaces use block indent */
+namespace test test2 {
+  111111111111111111111;
+}
+namespace11111111111 {
+  111111111111;
+}
+namespace() {
+  1111111111111;
+}
+namespace()
+{
+  111111111111111111;
+}
+namespace test test2
+{
+  1111111111111111111;
+}
+namespace111111111
+{
+  111111111111111111;
+}
+NAMESPACEEND
+
+
+STARTTEST
+:set cino=j1,J1
+/^JSSTART
+=/^JSEND
+ENDTEST
+
+JSSTART
+var bar = {
+foo: {
+that: this,
+some: ok,
+},
+"bar":{
+a : 2,
+b: "123abc",
+x: 4,
+"y": 5
+}
+}
+JSEND
+
+STARTTEST
+:set cino=j1,J1
+/^JSSTART
+=/^JSEND
+ENDTEST
+
+JSSTART
+var foo = [
+1,
+2,
+3
+];
+JSEND
+
+STARTTEST
+:set cino=j1,J1
+/^JSSTART
+=/^JSEND
+ENDTEST
+
+JSSTART
+function bar() {
+var foo = [
+1,
+2,
+3
+];
+}
+JSEND
+
+STARTTEST
+:set cino=j1,J1
+/^JSSTART
+=/^JSEND
+ENDTEST
+
+JSSTART
+(function($){
+
+if (cond &&
+cond) {
+stmt;
+}
+window.something.left =
+(width - 50 + offset) + "px";
+var class_name='myclass';
+
+function private_method() {
+}
+
+var public_method={
+method: function(options,args){
+private_method();
+}
+}
+
+function init(options) {
+
+$(this).data(class_name+'_public',$.extend({},{
+foo: 'bar',
+bar: 2,
+foobar: [
+1,
+2,
+3
+],
+callback: function(){
+return true;
+}
+}, options||{}));
+}
+
+$.fn[class_name]=function() {
+
+var _arguments=arguments;
+return this.each(function(){
+
+var options=$(this).data(class_name+'_public');
+if (!options) {
+init.apply(this,_arguments);
+
+} else {
+var method=public_method[_arguments[0]];
+
+if (typeof(method)!='function') {
+console.log(class_name+' has no method "'+_arguments[0]+'"');
+return false;
+}
+_arguments[0]=options;
+method.apply(this,_arguments);
+}
+});
+}
+
+})(jQuery);
+JSEND
+
+STARTTEST
+:set cino=j1,J1
+/^JSSTART
+=/^JSEND
+ENDTEST
+
+JSSTART
+function init(options) {
+$(this).data(class_name+'_public',$.extend({},{
+foo: 'bar',
+bar: 2,
+foobar: [
+1,
+2,
+3
+],
+callback: function(){
+return true;
+}
+}, options||{}));
+}
+JSEND
+
+STARTTEST
+:set cino=j1,J1
+/^JSSTART
+=/^JSEND
+ENDTEST
+
+JSSTART
+(function($){
+function init(options) {
+$(this).data(class_name+'_public',$.extend({},{
+foo: 'bar',
+bar: 2,
+foobar: [
+1,
+2,
+3
+],
+callback: function(){
+return true;
+}
+}, options||{}));
+}
+})(jQuery);
+JSEND
+
+STARTTEST
+:set cino=j1,J1,+2
+/^JSSTART
+=/^JSEND
+ENDTEST
+
+JSSTART
+// Results of JavaScript indent
+// 1
+(function(){
+var a = [
+'a',
+'b',
+'c',
+'d',
+'e',
+'f',
+'g',
+'h',
+'i'
+];
+}())
+
+// 2
+(function(){
+var a = [
+0 +
+5 *
+9 *
+'a',
+'b',
+0 +
+5 *
+9 *
+'c',
+'d',
+'e',
+'f',
+'g',
+'h',
+'i'
+];
+}())
+
+// 3
+(function(){
+var a = [
+0 +
+// comment 1
+5 *
+/* comment 2 */
+9 *
+'a',
+'b',
+0 +
+5 *
+9 *
+'c',
+'d',
+'e',
+'f',
+'g',
+'h',
+'i'
+];
+}())
+
+// 4
+{
+var a = [
+0,
+1
+];
+var b;
+var c;
+}
+
+// 5
+{
+var a = [
+[
+0
+],
+2,
+3
+];
+}
+
+// 6
+{
+var a = [
+[
+0,
+1
+],
+2,
+3
+];
+}
+
+// 7
+{
+var a = [
+// [
+0,
+// 1
+// ],
+2,
+3
+];
+}
+
+// 8
+var x = [
+(function(){
+var a,
+b,
+c,
+d,
+e,
+f,
+g,
+h,
+i;
+})
+];
+
+// 9
+var a = [
+0 +
+5 *
+9 *
+'a',
+'b',
+0 +
+5 *
+9 *
+'c',
+'d',
+'e',
+'f',
+'g',
+'h',
+'i'
+];
+
+// 10
+var a,
+b,
+c,
+d,
+e,
+f,
+g,
+h,
+i;
+JSEND
 
 STARTTEST
 :g/^STARTTEST/.,/^ENDTEST/d

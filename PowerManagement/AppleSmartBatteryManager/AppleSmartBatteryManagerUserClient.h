@@ -36,10 +36,12 @@ enum {
     kSBChargeInhibit        = 1,
     kSBSetPollingInterval   = 2,
     kSBSMBusReadWriteWord   = 3,
-    kSBRequestPoll          = 4
+    kSBRequestPoll          = 4,
+    kSBSetOverrideCapacity  = 5,
+    kSBSwitchToTrueCapacity = 6
 };
 
-#define kNumBattMethods     5
+#define kNumBattMethods     7
 
 /*
  * user client types

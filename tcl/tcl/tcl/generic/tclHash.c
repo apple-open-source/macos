@@ -824,14 +824,14 @@ AllocStringEntry(
 {
     const char *string = (const char *) keyPtr;
     Tcl_HashEntry *hPtr;
-    unsigned int size;
+    unsigned int size, allocsize;
 
-    size = sizeof(Tcl_HashEntry) + strlen(string) + 1 - sizeof(hPtr->key);
-    if (size < sizeof(Tcl_HashEntry)) {
-	size = sizeof(Tcl_HashEntry);
+    allocsize = size = strlen(string) + 1;
+    if (size < sizeof(hPtr->key)) {
+        allocsize = sizeof(hPtr->key);
     }
-    hPtr = (Tcl_HashEntry *) ckalloc(size);
-    strcpy(hPtr->key.string, string);
+    hPtr = (Tcl_HashEntry *) ckalloc(TclOffset(Tcl_HashEntry, key) + allocsize);
+    memcpy(hPtr->key.string, string, size);
     hPtr->clientData = 0;
     return hPtr;
 }

@@ -26,15 +26,6 @@
 #ifndef TextFlags_h
 #define TextFlags_h
 
-// <rdar://problem/16980736>: Web fonts crash on certain OSes when using CTFontManagerCreateFontDescriptorFromData()
-// FIXME: When we have moved entirely to CORETEXT_WEB_FONTS, remove the isCustomFont member variable from Font, since it will no longer be used.
-// See https://bug-145873-attachments.webkit.org/attachment.cgi?id=254710
-#if (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED < 80000) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101000)
-#define CORETEXT_WEB_FONTS 0
-#else
-#define CORETEXT_WEB_FONTS 1
-#endif
-
 namespace WebCore {
 
 enum TextRenderingMode { AutoTextRendering, OptimizeSpeed, OptimizeLegibility, GeometricPrecision };
@@ -43,11 +34,11 @@ enum FontSmoothingMode { AutoSmoothing, NoSmoothing, Antialiased, SubpixelAntial
 
 // This setting is used to provide ways of switching between multiple rendering modes that may have different
 // metrics. It is used to switch between CG and GDI text on Windows.
-enum FontRenderingMode { NormalRenderingMode, AlternateRenderingMode };
+enum class FontRenderingMode { Normal, Alternate };
 
 enum FontOrientation { Horizontal, Vertical };
 
-enum NonCJKGlyphOrientation { NonCJKGlyphOrientationVerticalRight, NonCJKGlyphOrientationUpright };
+enum class NonCJKGlyphOrientation { Mixed, Upright };
 
 // Here, "Leading" and "Trailing" are relevant after the line has been rearranged for bidi.
 // ("Leading" means "left" and "Trailing" means "right.")
@@ -221,7 +212,7 @@ struct FontVariantSettings {
             && eastAsianRuby == FontVariantEastAsianRuby::Normal;
     }
 
-    bool operator==(const FontVariantSettings& other)
+    bool operator==(const FontVariantSettings& other) const
     {
         return commonLigatures == other.commonLigatures
             && discretionaryLigatures == other.discretionaryLigatures
@@ -240,6 +231,27 @@ struct FontVariantSettings {
             && eastAsianRuby == other.eastAsianRuby;
     }
 
+    bool operator!=(const FontVariantSettings& other) const { return !(*this == other); }
+
+    unsigned uniqueValue() const
+    {
+        return static_cast<unsigned>(commonLigatures) << 26
+            | static_cast<unsigned>(discretionaryLigatures) << 24
+            | static_cast<unsigned>(historicalLigatures) << 22
+            | static_cast<unsigned>(contextualAlternates) << 20
+            | static_cast<unsigned>(position) << 18
+            | static_cast<unsigned>(caps) << 15
+            | static_cast<unsigned>(numericFigure) << 13
+            | static_cast<unsigned>(numericSpacing) << 11
+            | static_cast<unsigned>(numericFraction) << 9
+            | static_cast<unsigned>(numericOrdinal) << 8
+            | static_cast<unsigned>(numericSlashedZero) << 7
+            | static_cast<unsigned>(alternates) << 6
+            | static_cast<unsigned>(eastAsianVariant) << 3
+            | static_cast<unsigned>(eastAsianWidth) << 1
+            | static_cast<unsigned>(eastAsianRuby) << 0;
+    }
+
     FontVariantLigatures commonLigatures;
     FontVariantLigatures discretionaryLigatures;
     FontVariantLigatures historicalLigatures;
@@ -255,6 +267,63 @@ struct FontVariantSettings {
     FontVariantEastAsianVariant eastAsianVariant;
     FontVariantEastAsianWidth eastAsianWidth;
     FontVariantEastAsianRuby eastAsianRuby;
+};
+
+struct FontVariantLigaturesValues {
+    FontVariantLigaturesValues(
+        FontVariantLigatures commonLigatures,
+        FontVariantLigatures discretionaryLigatures,
+        FontVariantLigatures historicalLigatures,
+        FontVariantLigatures contextualAlternates)
+            : commonLigatures(commonLigatures)
+            , discretionaryLigatures(discretionaryLigatures)
+            , historicalLigatures(historicalLigatures)
+            , contextualAlternates(contextualAlternates)
+    {
+    }
+
+    FontVariantLigatures commonLigatures;
+    FontVariantLigatures discretionaryLigatures;
+    FontVariantLigatures historicalLigatures;
+    FontVariantLigatures contextualAlternates;
+};
+
+struct FontVariantNumericValues {
+    FontVariantNumericValues(
+        FontVariantNumericFigure figure,
+        FontVariantNumericSpacing spacing,
+        FontVariantNumericFraction fraction,
+        FontVariantNumericOrdinal ordinal,
+        FontVariantNumericSlashedZero slashedZero)
+            : figure(figure)
+            , spacing(spacing)
+            , fraction(fraction)
+            , ordinal(ordinal)
+            , slashedZero(slashedZero)
+    {
+    }
+
+    FontVariantNumericFigure figure;
+    FontVariantNumericSpacing spacing;
+    FontVariantNumericFraction fraction;
+    FontVariantNumericOrdinal ordinal;
+    FontVariantNumericSlashedZero slashedZero;
+};
+
+struct FontVariantEastAsianValues {
+    FontVariantEastAsianValues(
+        FontVariantEastAsianVariant variant,
+        FontVariantEastAsianWidth width,
+        FontVariantEastAsianRuby ruby)
+            : variant(variant)
+            , width(width)
+            , ruby(ruby)
+    {
+    }
+
+    FontVariantEastAsianVariant variant;
+    FontVariantEastAsianWidth width;
+    FontVariantEastAsianRuby ruby;
 };
 
 enum FontWidthVariant {

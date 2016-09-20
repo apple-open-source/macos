@@ -40,6 +40,7 @@
 #include "IOHIDElement.h"
 #include "IOHIDFamilyTrace.h"
 #include "AppleHIDUsageTables.h"
+#include "IOHIDDebug.h"
 
 #define kFnModifierUsagePageKey		"FnModifierUsagePage"
 #define kFnModifierUsageKey		"FnModifierUsage"
@@ -102,6 +103,7 @@ IOHIDKeyboard::start(IOService *provider)
     OSNumber *xml_swap_CTRL_CAPSLOCK;
     OSNumber *xml_swap_CMD_ALT;
 	OSNumber *xml_use_pc_keyboard;
+    OSObject *obj;
 	
     UInt16 productIDVal;
     UInt16 vendorIDVal;
@@ -117,8 +119,9 @@ IOHIDKeyboard::start(IOService *provider)
     productIDVal    = _provider->getProductID();
     vendorIDVal     = _provider->getVendorID();
 
-    xml_swap_CTRL_CAPSLOCK = (OSNumber*)provider->copyProperty("Swap control and capslock");
-    if (OSDynamicCast( OSNumber, xml_swap_CTRL_CAPSLOCK ))
+    obj = provider->copyProperty("Swap control and capslock");
+    xml_swap_CTRL_CAPSLOCK = OSDynamicCast(OSNumber, obj);
+    if (xml_swap_CTRL_CAPSLOCK)
     {
         if ( xml_swap_CTRL_CAPSLOCK->unsigned32BitValue())
         {
@@ -129,10 +132,11 @@ IOHIDKeyboard::start(IOService *provider)
                 _usb_2_adb_keymap[0xe0] = temp;
         }
     }
-    OSSafeReleaseNULL(xml_swap_CTRL_CAPSLOCK);
+    OSSafeReleaseNULL(obj);
 
-    xml_swap_CMD_ALT = (OSNumber*)provider->copyProperty("Swap command and alt");
-    if (OSDynamicCast( OSNumber, xml_swap_CMD_ALT ))
+    obj = provider->copyProperty("Swap command and alt");
+    xml_swap_CMD_ALT = OSDynamicCast(OSNumber, obj);
+    if (xml_swap_CMD_ALT)
     {
         if ( xml_swap_CMD_ALT->unsigned32BitValue())
         {
@@ -148,10 +152,11 @@ IOHIDKeyboard::start(IOService *provider)
     
         }
     }
-    OSSafeReleaseNULL(xml_swap_CMD_ALT);
+    OSSafeReleaseNULL(obj);
 
-	xml_use_pc_keyboard = (OSNumber*)provider->copyProperty("Use PC keyboard");
-	if (OSDynamicCast( OSNumber, xml_use_pc_keyboard ))
+    obj = provider->copyProperty("Use PC keyboard");
+    xml_use_pc_keyboard = OSDynamicCast(OSNumber, obj);
+	if (xml_use_pc_keyboard)
 	{
         if ( xml_use_pc_keyboard->unsigned32BitValue())
         {
@@ -167,7 +172,7 @@ IOHIDKeyboard::start(IOService *provider)
             _usb_2_adb_keymap[0xe4] = temp;                      // Right control becomes right alt
         }
 	}
-    OSSafeReleaseNULL(xml_use_pc_keyboard);
+    OSSafeReleaseNULL(obj);
 
     // Need separate thread to handle LED
     _asyncLEDThread = thread_call_allocate((thread_call_func_t)_asyncLED, (thread_call_param_t)this);
@@ -217,7 +222,7 @@ void IOHIDKeyboard::dispatchKeyboardEvent(
     unsigned int    keycode = 0xff;
     
     if ((usagePage > 0xffff) || (usage > 0xffff))
-        IOLog("IOHIDKeyboard::dispatchKeyboardEvent usage/page unexpectedly large %02x:%02x\n", (int)usagePage, (int)usage);
+        HIDLogError("usage/page unexpectedly large %02x:%02x", (int)usagePage, (int)usage);
     setLastPageAndUsage(usagePage, usage);
     
 	switch (usagePage)
@@ -232,16 +237,16 @@ void IOHIDKeyboard::dispatchKeyboardEvent(
 
             do {
                 if ( usagePage == kHIDPage_KeyboardOrKeypad ) {
-                    if ( alpha >= sizeof(_usb_2_adb_keymap) ) {
-                        IOLog("IOHIDKeyboard::dispatchKeyboardEvent usage unexpectedly large %02x:%02x\n", (int)usagePage, (int)usage);
+                    if ( alpha >= (sizeof(_usb_2_adb_keymap)/sizeof(_usb_2_adb_keymap[0])) ) {
+                        HIDLogError("usage unexpectedly large %02x:%02x", (int)usagePage, (int)usage);
                         break;
                     }
 
                     keycode = _usb_2_adb_keymap[alpha];
                 }
                 else {
-                    if ( alpha >= sizeof(_usb_apple_2_adb_keymap) ) {
-                        IOLog("IOHIDKeyboard::dispatchKeyboardEvent usage unexpectedly large %02x:%02x\n", (int)usagePage, (int)usage);
+                    if ( alpha >= (sizeof(_usb_apple_2_adb_keymap)/sizeof(_usb_apple_2_adb_keymap[0])) ) {
+                        HIDLogError("usage unexpectedly large %02x:%02x", (int)usagePage, (int)usage);
                         break;
                     }
 
@@ -295,9 +300,10 @@ IOHIDKeyboard::Set_LED_States(UInt8 ledState)
         UInt32 value = (ledState >> i) & 1;
         
         if (resync)
-			_provider->setElementValue(kHIDPage_LEDs, i + kHIDUsage_LED_NumLock, value ? 0 : 1);
+            ;//_provider->setElementValue(kHIDPage_LEDs, i + kHIDUsage_LED_NumLock, value ? 0 : 1);
 		
-		_provider->setElementValue(kHIDPage_LEDs, i + kHIDUsage_LED_NumLock, value);
+        ;//_provider->setElementValue(kHIDPage_LEDs, i + kHIDUsage_LED_NumLock, value);
+        // TODO: fully remove old keyboard LED management
     }    
     }
 }
@@ -384,6 +390,7 @@ UInt32
 IOHIDKeyboard::deviceType ( void )
 {
     OSNumber 	*xml_handlerID;
+    OSObject    *obj;
     UInt32      id;	
 
 	// RY: If a _deviceType an IOHIKeyboard protected variable.  If it is 
@@ -397,14 +404,15 @@ IOHIDKeyboard::deviceType ( void )
     }
     //Info.plist key is <integer>, not <string>
     else {
-        xml_handlerID = _provider ? (OSNumber*)_provider->copyProperty("alt_handler_id") : NULL;
-        if ( OSDynamicCast(OSNumber, xml_handlerID) ) {
-        id = xml_handlerID->unsigned32BitValue();
-    }
+        obj = _provider ? _provider->copyProperty("alt_handler_id") : NULL;
+        xml_handlerID = obj ? OSDynamicCast(OSNumber, obj) : NULL;
+        if ( xml_handlerID ) {
+            id = xml_handlerID->unsigned32BitValue();
+        }
         else {
-        id = handlerID();
-    }
-        OSSafeReleaseNULL(xml_handlerID);
+            id = handlerID();
+        }
+        OSSafeReleaseNULL(obj);
     }
     
     // ISO specific mappign to match ADB keyboards

@@ -32,7 +32,7 @@ namespace Security {
 namespace CssmClient {
 
 class CSP;
-
+class Key;
 
 //
 // Any client-side object that has CSSM-layer ACLs shall be
@@ -137,6 +137,12 @@ public:
     class PasswordChangeCredentials : public KeychainCredentials {
     public:
         PasswordChangeCredentials (const CssmData& password, Allocator& allocator);
+    };
+
+    // create an AccessCredentials to explicitly provide a keychain master key
+    class MasterKeyUnlockCredentials : public KeychainCredentials {
+    public:
+        MasterKeyUnlockCredentials (const Key& key, Allocator& allocator);
     };
 
 public:

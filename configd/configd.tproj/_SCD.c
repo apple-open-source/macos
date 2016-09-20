@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2009, 2011, 2012, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2009, 2011, 2012, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -72,7 +72,7 @@ _addWatcher(CFNumberRef sessionNum, CFStringRef watchedKey)
 	 * Get the dictionary associated with this key out of the store
 	 */
 	dict = CFDictionaryGetValue(storeData, watchedKey);
-	if (dict) {
+	if (dict != NULL) {
 		newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
 	} else {
 		newDict = CFDictionaryCreateMutable(NULL,
@@ -157,7 +157,7 @@ _removeWatcher(CFNumberRef sessionNum, CFStringRef watchedKey)
 	 * Get the dictionary associated with this key out of the store
 	 */
 	dict = CFDictionaryGetValue(storeData, watchedKey);
-	if ((dict == NULL) || (CFDictionaryContainsKey(dict, kSCDWatchers) == FALSE)) {
+	if ((dict == NULL) || !CFDictionaryContainsKey(dict, kSCDWatchers)) {
 		/* key doesn't exist (isn't this really fatal?) */
 #ifdef	DEBUG
 		SC_log(LOG_DEBUG, "  _removeWatcher: %@, %@, key not watched", sessionNum, watchedKey);
@@ -237,7 +237,7 @@ _removeWatcher(CFNumberRef sessionNum, CFStringRef watchedKey)
 
 __private_extern__
 void
-pushNotifications(FILE *_configd_trace)
+pushNotifications()
 {
 	CFIndex				notifyCnt;
 	int				server;
@@ -258,6 +258,8 @@ pushNotifications(FILE *_configd_trace)
 					kCFNumberIntType,
 					&server);
 		theSession = getSession(server);
+		assert(theSession != NULL);
+
 		storePrivate = (SCDynamicStorePrivateRef)theSession->store;
 
 		/*
@@ -266,10 +268,14 @@ pushNotifications(FILE *_configd_trace)
 		if ((storePrivate->notifyStatus == Using_NotifierInformViaMachPort) &&
 		    (storePrivate->notifyPort != MACH_PORT_NULL)) {
 			/*
+			 * Associate notification activity with the client
+			 */
+			os_activity_scope(theSession->activity);
+
+			/*
 			 * Post notification as mach message
 			 */
-			SC_trace(_configd_trace, "%s : %5d : port = %d\n",
-				 "-->port",
+			SC_trace("-->port : %5d : port = %d",
 				 storePrivate->server,
 				 storePrivate->notifyPort);
 
@@ -285,8 +291,12 @@ pushNotifications(FILE *_configd_trace)
 		    (storePrivate->notifyFile >= 0)) {
 			ssize_t		written;
 
-			SC_trace(_configd_trace, "%s : %5d : fd = %d, msgid = %d\n",
-				 "-->fd  ",
+			/*
+			 * Associate notification activity with the client
+			 */
+			os_activity_scope(theSession->activity);
+
+			SC_trace("-->fd   : %5d : fd = %d, msgid = %d",
 				 storePrivate->server,
 				 storePrivate->notifyFile,
 				 storePrivate->notifyFileIdentifier);
@@ -318,13 +328,18 @@ pushNotifications(FILE *_configd_trace)
 		    (storePrivate->notifySignal > 0)) {
 			kern_return_t	status;
 			pid_t		pid;
+
+			/*
+			 * Associate notification activity with the client
+			 */
+			os_activity_scope(theSession->activity);
+
 			/*
 			 * Post notification as signal
 			 */
 			status = pid_for_task(storePrivate->notifySignalTask, &pid);
 			if (status == KERN_SUCCESS) {
-				SC_trace(_configd_trace, "%s : %5d : pid = %d, signal = sig%s (%d)\n",
-					 "-->sig ",
+				SC_trace("-->sig  : %5d : pid = %d, signal = sig%s (%d)",
 					 storePrivate->server,
 					 pid,
 					 sys_signame[storePrivate->notifySignal],

@@ -101,10 +101,10 @@ static cc_result new_v5_creds_union_compat (cred_union *out_union, const char *r
         v5creds->keyblock.type = 1;
         v5creds->keyblock.length = 0;
         v5creds->keyblock.data = NULL;
-        v5creds->authtime = time (NULL);
-        v5creds->starttime = time (NULL);
-        v5creds->endtime = time(NULL) + 1000;
-        v5creds->renew_till = time(NULL) + 10000;
+        v5creds->authtime = (cc_time_t)time (NULL);
+        v5creds->starttime = (cc_time_t)time (NULL);
+        v5creds->endtime = (cc_time_t)time(NULL) + 1000;
+        v5creds->renew_till = (cc_time_t)time(NULL) + 10000;
         v5creds->is_skey = 0;
         v5creds->ticket_flags = TKT_FLG_FORWARDABLE | TKT_FLG_PROXIABLE | TKT_FLG_RENEWABLE | TKT_FLG_INITIAL;
         v5creds->addresses = NULL;

@@ -50,7 +50,7 @@ bool JSCSSValueOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown> handl
     if (!jsCSSValue->hasCustomProperties())
         return false;
     DOMWrapperWorld* world = static_cast<DOMWrapperWorld*>(context);
-    void* root = world->m_cssValueRoots.get(&jsCSSValue->impl());
+    void* root = world->m_cssValueRoots.get(&jsCSSValue->wrapped());
     if (!root)
         return false;
     return visitor.containsOpaqueRoot(root);
@@ -60,43 +60,37 @@ void JSCSSValueOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
 {
     JSCSSValue* jsCSSValue = jsCast<JSCSSValue*>(handle.slot()->asCell());
     DOMWrapperWorld& world = *static_cast<DOMWrapperWorld*>(context);
-    world.m_cssValueRoots.remove(&jsCSSValue->impl());
-    uncacheWrapper(world, &jsCSSValue->impl(), jsCSSValue);
+    world.m_cssValueRoots.remove(&jsCSSValue->wrapped());
+    uncacheWrapper(world, &jsCSSValue->wrapped(), jsCSSValue);
 }
 
-JSValue toJS(ExecState*, JSDOMGlobalObject* globalObject, CSSValue* value)
+JSValue toJSNewlyCreated(ExecState*, JSDOMGlobalObject* globalObject, Ref<CSSValue>&& value)
 {
-    if (!value)
-        return jsNull();
+    if (value->isWebKitCSSTransformValue())
+        return CREATE_DOM_WRAPPER(globalObject, WebKitCSSTransformValue, WTFMove(value));
+    if (value->isWebKitCSSFilterValue())
+        return CREATE_DOM_WRAPPER(globalObject, WebKitCSSFilterValue, WTFMove(value));
+    if (value->isValueList())
+        return CREATE_DOM_WRAPPER(globalObject, CSSValueList, WTFMove(value));
+    if (value->isSVGPaint())
+        return CREATE_DOM_WRAPPER(globalObject, SVGPaint, WTFMove(value));
+    if (value->isSVGColor())
+        return CREATE_DOM_WRAPPER(globalObject, SVGColor, WTFMove(value));
+    if (value->isPrimitiveValue())
+        return CREATE_DOM_WRAPPER(globalObject, CSSPrimitiveValue, WTFMove(value));
+    return CREATE_DOM_WRAPPER(globalObject, CSSValue, WTFMove(value));
+}
 
+JSValue toJS(ExecState* state, JSDOMGlobalObject* globalObject, CSSValue& value)
+{
     // Scripts should only ever see cloned CSSValues, never the internal ones.
-    ASSERT(value->isCSSOMSafe());
+    ASSERT(value.isCSSOMSafe());
 
     // If we're here under erroneous circumstances, prefer returning null over a potentially insecure value.
-    if (!value->isCSSOMSafe())
+    if (!value.isCSSOMSafe())
         return jsNull();
 
-    JSObject* wrapper = getCachedWrapper(globalObject->world(), value);
-
-    if (wrapper)
-        return wrapper;
-
-    if (value->isWebKitCSSTransformValue())
-        wrapper = CREATE_DOM_WRAPPER(globalObject, WebKitCSSTransformValue, value);
-    else if (value->isWebKitCSSFilterValue())
-        wrapper = CREATE_DOM_WRAPPER(globalObject, WebKitCSSFilterValue, value);
-    else if (value->isValueList())
-        wrapper = CREATE_DOM_WRAPPER(globalObject, CSSValueList, value);
-    else if (value->isSVGPaint())
-        wrapper = CREATE_DOM_WRAPPER(globalObject, SVGPaint, value);
-    else if (value->isSVGColor())
-        wrapper = CREATE_DOM_WRAPPER(globalObject, SVGColor, value);
-    else if (value->isPrimitiveValue())
-        wrapper = CREATE_DOM_WRAPPER(globalObject, CSSPrimitiveValue, value);
-    else
-        wrapper = CREATE_DOM_WRAPPER(globalObject, CSSValue, value);
-
-    return wrapper;
+    return wrap(state, globalObject, value);
 }
 
 } // namespace WebCore

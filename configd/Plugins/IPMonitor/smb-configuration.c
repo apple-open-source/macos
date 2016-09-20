@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -49,10 +49,10 @@
 #include <CoreFoundation/CFStringDefaultEncoding.h>	// for __CFStringGetInstallationEncodingAndRegion()
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCValidation.h>
-#include <SystemConfiguration/SCPrivate.h>		// for SCLog(), SCPrint()
+#include <SystemConfiguration/SCPrivate.h>
 
 #ifdef	MAIN
-#define my_log(__level, fmt, ...)	SCPrint(TRUE, stdout, CFSTR(fmt "\n"), ## __VA_ARGS__)
+#define	my_log(__level, __format, ...)	SCPrint(TRUE, stdout, CFSTR(__format "\n"), ## __VA_ARGS__)
 #else	// MAIN
 #include "ip_plugin.h"
 #endif	// MAIN

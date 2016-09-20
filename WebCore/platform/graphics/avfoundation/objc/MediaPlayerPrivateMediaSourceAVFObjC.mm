@@ -28,6 +28,8 @@
 
 #if ENABLE(MEDIA_SOURCE) && USE(AVFOUNDATION)
 
+#import "AVFoundationMIMETypeCache.h"
+#import "AVFoundationSPI.h"
 #import "CDMSessionAVStreamSession.h"
 #import "CDMSessionMediaSourceAVFObjC.h"
 #import "FileSystem.h"
@@ -43,6 +45,10 @@
 #import <objc_runtime.h>
 #import <wtf/MainThread.h>
 #import <wtf/NeverDestroyed.h>
+
+#if PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE)
+#import "VideoFullscreenLayerManager.h"
+#endif
 
 #pragma mark - Soft Linking
 
@@ -125,8 +131,7 @@ namespace WebCore {
 static void CMTimebaseEffectiveRateChangedCallback(CMNotificationCenterRef, const void *listener, CFStringRef, const void *, CFTypeRef)
 {
     MediaPlayerPrivateMediaSourceAVFObjC* player = (MediaPlayerPrivateMediaSourceAVFObjC*)listener;
-    auto weakThis = player->createWeakPtr();
-    callOnMainThread([weakThis]{
+    callOnMainThread([weakThis = player->createWeakPtr()] {
         if (!weakThis)
             return;
         weakThis.get()->effectiveRateChanged();
@@ -137,7 +142,7 @@ MediaPlayerPrivateMediaSourceAVFObjC::MediaPlayerPrivateMediaSourceAVFObjC(Media
     : m_player(player)
     , m_weakPtrFactory(this)
     , m_synchronizer(adoptNS([allocAVSampleBufferRenderSynchronizerInstance() init]))
-    , m_seekTimer(*this, &MediaPlayerPrivateMediaSourceAVFObjC::seekTimerFired)
+    , m_seekTimer(*this, &MediaPlayerPrivateMediaSourceAVFObjC::seekInternal)
     , m_session(nullptr)
     , m_networkState(MediaPlayer::Empty)
     , m_readyState(MediaPlayer::HaveNothing)
@@ -146,6 +151,9 @@ MediaPlayerPrivateMediaSourceAVFObjC::MediaPlayerPrivateMediaSourceAVFObjC(Media
     , m_seeking(false)
     , m_seekCompleted(true)
     , m_loadingProgressed(false)
+#if PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE)
+    , m_videoFullscreenLayerManager(VideoFullscreenLayerManager::create())
+#endif
 {
     CMTimebaseRef timebase = [m_synchronizer timebase];
     CMNotificationCenterRef nc = CMNotificationCenterGetDefaultLocalCenter();
@@ -196,9 +204,12 @@ MediaPlayerPrivateMediaSourceAVFObjC::~MediaPlayerPrivateMediaSourceAVFObjC()
 
 void MediaPlayerPrivateMediaSourceAVFObjC::registerMediaEngine(MediaEngineRegistrar registrar)
 {
-    if (isAvailable())
-        registrar([](MediaPlayer* player) { return std::make_unique<MediaPlayerPrivateMediaSourceAVFObjC>(player); }, getSupportedTypes,
-            supportsType, 0, 0, 0, 0);
+    if (!isAvailable())
+        return;
+
+    registrar([](MediaPlayer* player) { return std::make_unique<MediaPlayerPrivateMediaSourceAVFObjC>(player); },
+        getSupportedTypes, supportsType, 0, 0, 0, 0);
+    AVFoundationMIMETypeCache::singleton().loadTypes();
 }
 
 bool MediaPlayerPrivateMediaSourceAVFObjC::isAvailable()
@@ -211,25 +222,9 @@ bool MediaPlayerPrivateMediaSourceAVFObjC::isAvailable()
         && class_getInstanceMethod(getAVSampleBufferAudioRendererClass(), @selector(setMuted:));
 }
 
-static const HashSet<String>& mimeTypeCache()
+void MediaPlayerPrivateMediaSourceAVFObjC::getSupportedTypes(HashSet<String, ASCIICaseInsensitiveHash>& types)
 {
-    static NeverDestroyed<HashSet<String>> cache;
-    static bool typeListInitialized = false;
-
-    if (typeListInitialized)
-        return cache;
-    typeListInitialized = true;
-
-    NSArray *types = [getAVURLAssetClass() audiovisualMIMETypes];
-    for (NSString *mimeType in types)
-        cache.get().add(mimeType);
-    
-    return cache;
-} 
-
-void MediaPlayerPrivateMediaSourceAVFObjC::getSupportedTypes(HashSet<String>& types)
-{
-    types = mimeTypeCache();
+    types = AVFoundationMIMETypeCache::singleton().types();
 }
 
 MediaPlayer::SupportsType MediaPlayerPrivateMediaSourceAVFObjC::supportsType(const MediaEngineSupportParameters& parameters)
@@ -241,7 +236,8 @@ MediaPlayer::SupportsType MediaPlayerPrivateMediaSourceAVFObjC::supportsType(con
     if (parameters.isMediaStream)
         return MediaPlayer::IsNotSupported;
 #endif
-    if (!mimeTypeCache().contains(parameters.type))
+
+    if (parameters.type.isEmpty() || !AVFoundationMIMETypeCache::singleton().types().contains(parameters.type))
         return MediaPlayer::IsNotSupported;
 
     // The spec says:
@@ -249,7 +245,11 @@ MediaPlayer::SupportsType MediaPlayerPrivateMediaSourceAVFObjC::supportsType(con
     if (parameters.codecs.isEmpty())
         return MediaPlayer::MayBeSupported;
 
-    NSString *typeString = [NSString stringWithFormat:@"%@; codecs=\"%@\"", (NSString *)parameters.type, (NSString *)parameters.codecs];
+    NSString *outputCodecs = parameters.codecs;
+    if ([getAVStreamDataParserClass() respondsToSelector:@selector(outputMIMECodecParameterForInputMIMECodecParameter:)])
+        outputCodecs = [getAVStreamDataParserClass() outputMIMECodecParameterForInputMIMECodecParameter:outputCodecs];
+
+    NSString *typeString = [NSString stringWithFormat:@"%@; codecs=\"%@\"", (NSString *)parameters.type, (NSString *)outputCodecs];
     return [getAVURLAssetClass() isPlayableExtendedMIMEType:typeString] ? MediaPlayer::IsSupported : MediaPlayer::MayBeSupported;;
 }
 
@@ -271,7 +271,7 @@ void MediaPlayerPrivateMediaSourceAVFObjC::load(const String& url, MediaSourcePr
 }
 
 #if ENABLE(MEDIA_STREAM)
-void MediaPlayerPrivateMediaSourceAVFObjC::load(MediaStreamPrivate*)
+void MediaPlayerPrivateMediaSourceAVFObjC::load(MediaStreamPrivate&)
 {
     setNetworkState(MediaPlayer::FormatError);
 }
@@ -295,13 +295,16 @@ PlatformMedia MediaPlayerPrivateMediaSourceAVFObjC::platformMedia() const
 
 PlatformLayer* MediaPlayerPrivateMediaSourceAVFObjC::platformLayer() const
 {
+#if PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE)
+    return m_videoFullscreenLayerManager->videoInlineLayer();
+#else
     return m_sampleBufferDisplayLayer.get();
+#endif
 }
 
 void MediaPlayerPrivateMediaSourceAVFObjC::play()
 {
-    auto weakThis = createWeakPtr();
-    callOnMainThread([weakThis]{
+    callOnMainThread([weakThis = createWeakPtr()] {
         if (!weakThis)
             return;
         weakThis.get()->playInternal();
@@ -320,8 +323,7 @@ void MediaPlayerPrivateMediaSourceAVFObjC::playInternal()
 
 void MediaPlayerPrivateMediaSourceAVFObjC::pause()
 {
-    auto weakThis = createWeakPtr();
-    callOnMainThread([weakThis]{
+    callOnMainThread([weakThis = createWeakPtr()] {
         if (!weakThis)
             return;
         weakThis.get()->pauseInternal();
@@ -422,11 +424,6 @@ void MediaPlayerPrivateMediaSourceAVFObjC::seekWithTolerance(const MediaTime& ti
     m_seekTimer.startOneShot(0);
 }
 
-void MediaPlayerPrivateMediaSourceAVFObjC::seekTimerFired()
-{
-    seekInternal();
-}
-
 void MediaPlayerPrivateMediaSourceAVFObjC::seekInternal()
 {
     std::unique_ptr<PendingSeek> pendingSeek;
@@ -476,7 +473,8 @@ bool MediaPlayerPrivateMediaSourceAVFObjC::seeking() const
 
 void MediaPlayerPrivateMediaSourceAVFObjC::setRateDouble(double rate)
 {
-    m_rate = rate;
+    // AVSampleBufferRenderSynchronizer does not support negative rate yet.
+    m_rate = std::max<double>(rate, 0);
     if (shouldBePlaying())
         [m_synchronizer setRate:m_rate];
 }
@@ -530,12 +528,12 @@ void MediaPlayerPrivateMediaSourceAVFObjC::setSize(const IntSize&)
     // No-op.
 }
 
-void MediaPlayerPrivateMediaSourceAVFObjC::paint(GraphicsContext*, const FloatRect&)
+void MediaPlayerPrivateMediaSourceAVFObjC::paint(GraphicsContext&, const FloatRect&)
 {
     // FIXME(125157): Implement painting.
 }
 
-void MediaPlayerPrivateMediaSourceAVFObjC::paintCurrentFrameInContext(GraphicsContext*, const FloatRect&)
+void MediaPlayerPrivateMediaSourceAVFObjC::paintCurrentFrameInContext(GraphicsContext&, const FloatRect&)
 {
     // FIXME(125157): Implement painting.
 }
@@ -761,6 +759,10 @@ void MediaPlayerPrivateMediaSourceAVFObjC::addDisplayLayer(AVSampleBufferDisplay
 
     // FIXME: move this somewhere appropriate:
     m_player->firstVideoFrameAvailable();
+
+#if PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE)
+    m_videoFullscreenLayerManager->setVideoLayer(m_sampleBufferDisplayLayer.get(), snappedIntRect(m_player->client().mediaPlayerContentBoxRect()).size());
+#endif
 }
 
 void MediaPlayerPrivateMediaSourceAVFObjC::removeDisplayLayer(AVSampleBufferDisplayLayer* displayLayer)
@@ -775,6 +777,10 @@ void MediaPlayerPrivateMediaSourceAVFObjC::removeDisplayLayer(AVSampleBufferDisp
 
     m_sampleBufferDisplayLayer = nullptr;
     m_player->client().mediaPlayerRenderingModeChanged(m_player);
+
+#if PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE)
+    m_videoFullscreenLayerManager->didDestroyVideoLayer();
+#endif
 }
 
 void MediaPlayerPrivateMediaSourceAVFObjC::addAudioRenderer(AVSampleBufferAudioRenderer* audioRenderer)
@@ -812,10 +818,22 @@ void MediaPlayerPrivateMediaSourceAVFObjC::characteristicsChanged()
     m_player->characteristicChanged();
 }
 
+#if PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE)
+void MediaPlayerPrivateMediaSourceAVFObjC::setVideoFullscreenLayer(PlatformLayer *videoFullscreenLayer, std::function<void()> completionHandler)
+{
+    m_videoFullscreenLayerManager->setVideoFullscreenLayer(videoFullscreenLayer, completionHandler);
+}
+
+void MediaPlayerPrivateMediaSourceAVFObjC::setVideoFullscreenFrame(FloatRect frame)
+{
+    m_videoFullscreenLayerManager->setVideoFullscreenFrame(frame);
+}
+#endif
+
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
 void MediaPlayerPrivateMediaSourceAVFObjC::setWirelessPlaybackTarget(Ref<MediaPlaybackTarget>&& target)
 {
-    m_playbackTarget = WTF::move(target);
+    m_playbackTarget = WTFMove(target);
 }
 
 void MediaPlayerPrivateMediaSourceAVFObjC::setShouldPlayToPlaybackTarget(bool shouldPlayToTarget)

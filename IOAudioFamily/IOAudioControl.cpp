@@ -571,7 +571,7 @@ IOReturn IOAudioControl::hardwareValueChanged(OSObject *newValue)
             if (result == kIOReturnSuccess) {
                 result = updateValue(newValue);
             } else {
-                IOLog("IOAudioControl[%p]::hardwareValueChanged(%p) - Error 0x%x - invalid value.\n", this, newValue, result);
+                IOLog("IOAudioControl::hardwareValueChanged - Error 0x%x - invalid value.\n", result);
             }
         }
     } else {
@@ -628,12 +628,12 @@ IOReturn IOAudioControl::performValueChange(OSObject *newValue)
                 OSNumber *oldNumber, *newNumber;
                 
                 if ((oldNumber = OSDynamicCast(OSNumber, getValue())) == NULL) {
-                    IOLog("IOAudioControl[%p]::performValueChange(%p) - Error: can't call handler - int handler set and old value is not an OSNumber.\n", this, newValue);
+                    IOLog("IOAudioControl::performValueChange - Error: can't call handler - int handler set and old value is not an OSNumber.\n");
                     break;
                 }
                 
                 if ((newNumber = OSDynamicCast(OSNumber, newValue)) == NULL) {
-                    IOLog("IOAudioControl[%p]::performValueChange(%p) - Error: can't call handler - int handler set and new value is not an OSNumber.\n", this, newValue);
+                    IOLog("IOAudioControl::performValueChange - Error: can't call handler - int handler set and new value is not an OSNumber.\n");
                     break;
                 }
                 
@@ -647,7 +647,7 @@ IOReturn IOAudioControl::performValueChange(OSObject *newValue)
                 
                 if (getValue()) {
                     if ((oldData = OSDynamicCast(OSData, getValue())) == NULL) {
-                        IOLog("IOAudioControl[%p]::performValueChange(%p) - Error: can't call handler - data handler set and old value is not an OSData.\n", this, newValue);
+                        IOLog("IOAudioControl::performValueChange - Error: can't call handler - data handler set and old value is not an OSData.\n");
                         break;
                     }
                     
@@ -660,7 +660,7 @@ IOReturn IOAudioControl::performValueChange(OSObject *newValue)
                 
                 if (newValue) {
                     if ((newData = OSDynamicCast(OSData, newValue)) == NULL) {
-                        IOLog("IOAudioControl[%p]::performValueChange(%p) - Error: can't call handler - data handler set and new value is not an OSData.\n", this, newValue);
+                        IOLog("IOAudioControl::performValueChange - Error: can't call handler - data handler set and new value is not an OSData.\n");
                         break;
                     }
                     
@@ -797,41 +797,7 @@ IOReturn IOAudioControl::createUserClient(task_t task, void *securityID, UInt32 
 
 IOReturn IOAudioControl::newUserClient(task_t task, void *securityID, UInt32 taskType, IOUserClient **handler)
 {
-#if __i386__ || __x86_64__
 	return kIOReturnUnsupported;
-#else
-    IOReturn result = kIOReturnSuccess;
-    IOAudioControlUserClient *client = NULL;
-    
-    audioDebugIOLog(3, "+ IOAudioControl[%p]::newUserClient()\n", this);
-
-	*handler = NULL;		// <rdar://8370885>
-
-    if (!isInactive()) {	// <rdar://7324947>
-		result = createUserClient(task, securityID, taskType, &client);
-		
-		if ((result == kIOReturnSuccess) && (client != NULL)) {
-			if (workLoop) {		// <rdar://7324947>
-				result = workLoop->runAction(_addUserClientAction, this, client);	// <rdar://7324947>, <rdar://7529580>
-	
-				if (result == kIOReturnSuccess) {
-					*handler = client;
-				} else {
-					client->release();	// <rdar://8370885>
-				}
-
-			} else {
-				client->release();		// <rdar://8370885>
-				result = kIOReturnError;
-			}
-		}
-    } else {	// <rdar://7324947>
-        result = kIOReturnNoDevice;
-    }
-	
-    audioDebugIOLog(3, "- IOAudioControl[%p]::newUserClient() returns 0x%lX\n", this, (long unsigned int)result );
-    return result;
-#endif
 }
 
 //	<rdar://8121989>	Restructured for single point of entry and single point of exit so that 

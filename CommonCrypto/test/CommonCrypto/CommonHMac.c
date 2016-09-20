@@ -184,7 +184,7 @@ static int testHMac(HMacVector *hv) {
 
 static size_t testsPerVector = 61;
 
-int CommonHMac(int argc, char *const *argv) {
+int CommonHMac(int __unused argc, char *const * __unused argv) {
 	plan_tests((int) (hmvLen*testsPerVector));
     
     for(size_t testcase = 0; testcase < hmvLen; testcase++) {

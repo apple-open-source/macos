@@ -52,7 +52,7 @@ public:
     }
 
 protected:
-    virtual void generateInternal(SpeculativeJIT* jit) override
+    void generateInternal(SpeculativeJIT* jit) override
     {
         linkFrom(jit);
         for (unsigned i = 0; i < m_plans.size(); ++i)
@@ -61,6 +61,7 @@ protected:
         GPRReg canTrample = SpeculativeJIT::pickCanTrample(m_resultGPR);
         for (unsigned i = m_plans.size(); i--;)
             jit->silentFill(m_plans[i], canTrample);
+        jit->m_jit.exceptionCheck();
         jit->m_jit.loadPtr(MacroAssembler::Address(m_resultGPR, JSObject::butterflyOffset()), m_storageGPR);
         jumpTo(jit);
     }
@@ -90,7 +91,7 @@ public:
     }
 
 protected:
-    virtual void generateInternal(SpeculativeJIT* jit) override
+    void generateInternal(SpeculativeJIT* jit) override
     {
         linkFrom(jit);
         for (unsigned i = 0; i < m_plans.size(); ++i)
@@ -106,6 +107,7 @@ protected:
         GPRReg canTrample = SpeculativeJIT::pickCanTrample(m_resultGPR);
         for (unsigned i = m_plans.size(); i--;)
             jit->silentFill(m_plans[i], canTrample);
+        jit->m_jit.exceptionCheck();
         jumpTo(jit);
     }
     

@@ -1,5 +1,8 @@
 # Makefile for the Vim message translations.
 
+# Include stuff found by configure.
+include ../auto/config.mk
+
 # TODO make this configurable
 # Note: ja.sjis, *.cp1250 and zh_CN.cp936 are only for MS-Windows, they are
 # not installed on Unix
@@ -20,6 +23,7 @@ LANGUAGES = \
 		ko \
 		ko.UTF-8 \
 		nb \
+		nl \
 		no \
 		pl \
 		pt_BR \
@@ -32,6 +36,17 @@ LANGUAGES = \
 		zh_CN.UTF-8 \
 		zh_TW \
 		zh_TW.UTF-8
+
+CONVERTED = \
+		cs.cp1250 \
+		ja.sjis \
+		ja.euc-jp \
+		pl.cp1250 \
+		pl.UTF-8 \
+		ru.cp1251 \
+		sk.cp1250 \
+		uk.cp1251 \
+		zh_CN.cp936
 
 MOFILES = \
 		af.mo \
@@ -49,6 +64,7 @@ MOFILES = \
 		ko.mo \
 		ko.UTF-8.mo \
 		nb.mo \
+		nl.mo \
 		no.mo \
 		pl.mo \
 		pt_BR.mo \
@@ -62,9 +78,10 @@ MOFILES = \
 		zh_TW.UTF-8.mo \
 		zh_TW.mo
 
-CONVERTED = \
+MOCONVERTED = \
 		cs.cp1250.mo \
 		ja.sjis.mo \
+		ja.euc-jp.mo \
 		pl.cp1250.mo \
 		pl.UTF-8.mo \
 		ru.cp1251.mo \
@@ -88,6 +105,7 @@ CHECKFILES = \
 		ko.ck \
 		ko.UTF-8.ck \
 		nb.ck \
+		nl.ck \
 		no.ck \
 		pl.ck \
 		pt_BR.ck \
@@ -102,6 +120,7 @@ CHECKFILES = \
 		zh_TW.ck \
 		cs.cp1250.ck \
 		ja.sjis.ck \
+		ja.euc-jp.ck \
 		pl.cp1250.ck \
 		pl.UTF-8.ck \
 		ru.cp1251.ck \
@@ -117,28 +136,28 @@ VIM = ../vim
 # tools 0.10.37, which use a slightly different .po file format that is not
 # compatible with Solaris (and old gettext implementations) unless these are
 # set.  gettext 0.10.36 will not work!
-MSGFMT = OLD_PO_FILE_INPUT=yes msgfmt -v
+MSGFMTCMD = OLD_PO_FILE_INPUT=yes $(MSGFMT) -v
 XGETTEXT = OLD_PO_FILE_INPUT=yes OLD_PO_FILE_OUTPUT=yes xgettext
 MSGMERGE = OLD_PO_FILE_INPUT=yes OLD_PO_FILE_OUTPUT=yes msgmerge
 
 .SUFFIXES:
 .SUFFIXES: .po .mo .pot .ck
-.PHONY: all install uninstall prefixcheck converted check clean checkclean distclean update-po $(LANGUAGES)
+.PHONY: all install uninstall prefixcheck converted check clean checkclean distclean update-po $(LANGUAGES) $(CONVERTED)
 
 .po.mo:
-	$(MSGFMT) -o $@ $<
+	$(MSGFMTCMD) -o $@ $<
 
 .po.ck:
 	$(VIM) -u NONE -e -X -S check.vim -c "if error == 0 | q | endif" -c cq $<
 	touch $@
 
-all: $(MOFILES)
+all: $(MOFILES) $(MOCONVERTED)
 
 check: $(CHECKFILES)
 
-install: $(MOFILES)
+install: $(MOFILES) $(MOCONVERTED)
 	@$(MAKE) prefixcheck
-	for lang in $(LANGUAGES); do \
+	for lang in $(LANGUAGES) $(CONVERTED); do \
 	  dir=$(LOCALEDIR)/$$lang/; \
 	  if test ! -x "$$dir"; then \
 	    mkdir $$dir; chmod 755 $$dir; \
@@ -155,13 +174,18 @@ install: $(MOFILES)
 
 uninstall:
 	@$(MAKE) prefixcheck
-	for cat in $(MOFILES); do \
+	for cat in $(MOFILES) $(MOCONVERTED); do \
 	  cat=`basename $$cat`; \
 	  lang=`echo $$cat | sed 's/\$(CATOBJEXT)$$//'`; \
 	  rm -f $(LOCALEDIR)/$$lang/LC_MESSAGES/$(PACKAGE).mo; \
 	done
 
-converted: $(CONVERTED)
+converted: $(MOCONVERTED)
+
+# nl.po was added later, if it does not exist use a file with just a # in it
+# (an empty file doesn't work with old msgfmt).
+nl.po:
+	@( echo \# > nl.po )
 
 # Norwegian/Bokmal: "nb" is an alias for "no".
 # Copying the file is not efficient, but I don't know of another way to make
@@ -175,10 +199,14 @@ nb.po: no.po
 ja.sjis.po: ja.po
 	@$(MAKE) sjiscorr
 	rm -f ja.sjis.po
-	iconv -f euc-jp -t cp932 ja.po | ./sjiscorr > ja.sjis.po
+	iconv -f utf-8 -t cp932 ja.po | ./sjiscorr > ja.sjis.po
 
 sjiscorr: sjiscorr.c
 	$(CC) -o sjiscorr sjiscorr.c
+
+ja.euc-jp.po: ja.po
+	iconv -f utf-8 -t euc-jp ja.po | \
+		sed -e 's/charset=utf-8/charset=euc-jp/' -e 's/# Original translations/# Generated from ja.po, DO NOT EDIT/' > ja.euc-jp.po
 
 # Convert cs.po to create cs.cp1250.po.
 cs.cp1250.po: cs.po

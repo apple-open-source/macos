@@ -29,10 +29,9 @@
 #ifndef SQLTransaction_h
 #define SQLTransaction_h
 
+#include "EventTarget.h"
 #include "SQLCallbackWrapper.h"
-#include "SQLStatement.h"
 #include "SQLTransactionStateMachine.h"
-#include <wtf/PassRefPtr.h>
 #include <wtf/Ref.h>
 #include <wtf/RefPtr.h>
 
@@ -72,20 +71,17 @@ private:
     void clearCallbackWrappers();
 
     // State Machine functions:
-    virtual StateFunction stateFunctionFor(SQLTransactionState) override;
-    bool computeNextStateAndCleanupIfNeeded();
+    StateFunction stateFunctionFor(SQLTransactionState) override;
+    void computeNextStateAndCleanupIfNeeded();
 
     // State functions:
-    SQLTransactionState deliverTransactionCallback();
-    SQLTransactionState deliverTransactionErrorCallback();
-    SQLTransactionState deliverStatementCallback();
-    SQLTransactionState deliverQuotaIncreaseCallback();
-    SQLTransactionState deliverSuccessCallback();
+    void deliverTransactionCallback();
+    void deliverTransactionErrorCallback();
+    void deliverStatementCallback();
+    void deliverQuotaIncreaseCallback();
+    void deliverSuccessCallback();
 
-    SQLTransactionState unreachableState();
-    SQLTransactionState sendToBackendState();
-
-    SQLTransactionState nextStateForTransactionError();
+    NO_RETURN_DUE_TO_ASSERT void unreachableState();
 
     Ref<Database> m_database;
     RefPtr<SQLTransactionBackend> m_backend;

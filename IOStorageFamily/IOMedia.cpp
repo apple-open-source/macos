@@ -796,7 +796,7 @@ IOReturn IOMedia::synchronize(IOService *                 client,
     // Flush the cached data in the storage object, if any.
     //
 
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
     if (_respondsTo_synchronizeCache)
     {
         if (options == _kIOStorageSynchronizeOption_super__synchronizeCache)
@@ -808,7 +808,7 @@ IOReturn IOMedia::synchronize(IOService *                 client,
             return IOStorage::synchronize(client, byteStart, byteCount, options);
         }
     }
-#endif /* __x86_64__ */
+#endif /* TARGET_OS_OSX && defined(__x86_64__) */
 
     if (isInactive())
     {
@@ -837,7 +837,8 @@ IOReturn IOMedia::synchronize(IOService *                 client,
         return kIOReturnUnformattedMedia;
     }
 
-    if (_mediaSize < byteStart + byteCount)
+    if ( ( _mediaSize < byteStart ) ||
+         ( _mediaSize - byteStart < byteCount ) )
     {
         return kIOReturnBadArgument;
     }
@@ -886,7 +887,9 @@ IOReturn IOMedia::unmap(IOService *           client,
 
     for (extentsIndex = 0; extentsIndex < extentsCount; extentsIndex++)
     {
-        if (_mediaSize < extents[extentsIndex].byteStart + extents[extentsIndex].byteCount)
+
+        if ( ( _mediaSize < extents[extentsIndex].byteStart ) ||
+             ( _mediaSize - extents[extentsIndex].byteStart < extents[extentsIndex].byteCount ) )
         {
             return kIOReturnBadArgument;
         }
@@ -895,6 +898,84 @@ IOReturn IOMedia::unmap(IOService *           client,
     }
 
     return getProvider()->unmap(this, extents, extentsCount, options);
+}
+
+IOReturn
+IOMedia::getProvisionStatus(IOService *                         client,
+                            UInt64                              byteStart,
+                            UInt64                              byteCount,
+                            UInt32 *                            extentsCount,
+                            IOStorageProvisionExtent *          extents,
+                            IOStorageGetProvisionStatusOptions  options)
+{
+    UInt32   extentsCountIn;
+    IOReturn result;
+
+    if ( options != 0 )
+    {
+        return kIOReturnBadArgument;
+    }
+
+    if ( _mediaSize < byteStart )
+    {
+        return kIOReturnBadArgument;
+    }
+
+    if ( ( _mediaSize - byteStart ) < byteCount )
+    {
+        return kIOReturnBadArgument;
+    }
+
+    if ( byteCount == 0 )
+    {
+        byteCount = _mediaSize;
+    }
+    byteCount = min ( byteCount, _mediaSize - byteStart );
+
+    if ( ( extents == NULL ) || ( extentsCount == NULL ) || ( *extentsCount == 0 ) )
+    {
+        return kIOReturnBadArgument;
+    }
+
+    extentsCountIn = *extentsCount;
+
+    result = getProvider()->getProvisionStatus ( this,
+                                                 byteStart + _mediaBase,
+                                                 byteCount,
+                                                 extentsCount,
+                                                 extents,
+                                                 options );
+
+    if ( result == kIOReturnSuccess )
+    {
+        UInt32                          extentsIndex;
+
+        extentsCountIn = min ( extentsCountIn, *extentsCount );
+
+        for ( extentsIndex = 0; extentsIndex < extentsCountIn; extentsIndex++ )
+        {
+
+            extents [ extentsIndex ].byteStart -= _mediaBase;
+
+            if ( extents [ extentsIndex ].byteStart > _mediaSize )
+            {
+                break;
+            }
+
+            if ( extents [ extentsIndex ].byteCount > _mediaSize -  extents [ extentsIndex ].byteStart )
+            {
+                extents [ extentsIndex ].byteCount = _mediaSize - extents [ extentsIndex ].byteStart;
+                extentsIndex ++;
+                break;
+            }
+
+        }
+
+        *extentsCount = extentsIndex;
+
+    }
+
+    return result;
 }
 
 bool IOMedia::lockPhysicalExtents(IOService * client)
@@ -947,7 +1028,8 @@ IOStorage * IOMedia::copyPhysicalExtent(IOService * client,
         return NULL;
     }
 
-    if (_mediaSize < *byteStart + *byteCount)
+    if ( ( _mediaSize < *byteStart ) ||
+         ( _mediaSize - *byteStart < *byteCount ) )
     {
         return NULL;
     }
@@ -999,7 +1081,8 @@ IOReturn IOMedia::setPriority(IOService *       client,
 
     for (extentsIndex = 0; extentsIndex < extentsCount; extentsIndex++)
     {
-        if (_mediaSize < extents[extentsIndex].byteStart + extents[extentsIndex].byteCount)
+        if ( ( _mediaSize < extents[extentsIndex].byteStart ) ||
+             ( _mediaSize - extents[extentsIndex].byteStart < extents[extentsIndex].byteCount ) )
         {
             return kIOReturnBadArgument;
         }
@@ -1239,9 +1322,9 @@ OSMetaClassDefineReservedUnused(IOMedia, 13);
 OSMetaClassDefineReservedUnused(IOMedia, 14);
 OSMetaClassDefineReservedUnused(IOMedia, 15);
 
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
 extern "C" void _ZN7IOMedia16synchronizeCacheEP9IOService( IOMedia * media, IOService * client )
 {
     media->synchronize( client, 0, 0 );
 }
-#endif /* __x86_64__ */
+#endif /* TARGET_OS_OSX && defined(__x86_64__) */

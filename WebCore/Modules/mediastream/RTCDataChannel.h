@@ -25,7 +25,7 @@
 #ifndef RTCDataChannel_h
 #define RTCDataChannel_h
 
-#if ENABLE(MEDIA_STREAM)
+#if ENABLE(WEB_RTC)
 
 #include "EventTarget.h"
 #include "RTCDataChannelHandlerClient.h"
@@ -45,7 +45,7 @@ class Dictionary;
 class RTCDataChannelHandler;
 class RTCPeerConnectionHandler;
 
-class RTCDataChannel final : public RefCounted<RTCDataChannel>, public ScriptWrappable, public EventTargetWithInlineData, public RTCDataChannelHandlerClient {
+class RTCDataChannel final : public RefCounted<RTCDataChannel>, public EventTargetWithInlineData, public RTCDataChannelHandlerClient {
 public:
     static Ref<RTCDataChannel> create(ScriptExecutionContext*, std::unique_ptr<RTCDataChannelHandler>);
     static RefPtr<RTCDataChannel> create(ScriptExecutionContext*, RTCPeerConnectionHandler*, const String& label, const Dictionary& options, ExceptionCode&);
@@ -65,17 +65,17 @@ public:
     void setBinaryType(const AtomicString&, ExceptionCode&);
 
     void send(const String&, ExceptionCode&);
-    void send(PassRefPtr<JSC::ArrayBuffer>, ExceptionCode&);
-    void send(PassRefPtr<JSC::ArrayBufferView>, ExceptionCode&);
-    void send(PassRefPtr<Blob>, ExceptionCode&);
+    void send(JSC::ArrayBuffer&, ExceptionCode&);
+    void send(JSC::ArrayBufferView&, ExceptionCode&);
+    void send(Blob&, ExceptionCode&);
 
     void close();
 
     void stop();
 
     // EventTarget
-    virtual EventTargetInterface eventTargetInterface() const override { return RTCDataChannelEventTargetInterfaceType; }
-    virtual ScriptExecutionContext* scriptExecutionContext() const override { return m_scriptExecutionContext; }
+    EventTargetInterface eventTargetInterface() const override { return RTCDataChannelEventTargetInterfaceType; }
+    ScriptExecutionContext* scriptExecutionContext() const override { return m_scriptExecutionContext; }
 
     using RefCounted<RTCDataChannel>::ref;
     using RefCounted<RTCDataChannel>::deref;
@@ -83,20 +83,20 @@ public:
 private:
     RTCDataChannel(ScriptExecutionContext*, std::unique_ptr<RTCDataChannelHandler>);
 
-    void scheduleDispatchEvent(PassRefPtr<Event>);
+    void scheduleDispatchEvent(Ref<Event>&&);
     void scheduledEventTimerFired();
 
     // EventTarget
-    virtual void refEventTarget() override { ref(); }
-    virtual void derefEventTarget() override { deref(); }
+    void refEventTarget() override { ref(); }
+    void derefEventTarget() override { deref(); }
 
     ScriptExecutionContext* m_scriptExecutionContext;
 
     // RTCDataChannelHandlerClient
-    virtual void didChangeReadyState(ReadyState) override;
-    virtual void didReceiveStringData(const String&) override;
-    virtual void didReceiveRawData(const char*, size_t) override;
-    virtual void didDetectError() override;
+    void didChangeReadyState(ReadyState) override;
+    void didReceiveStringData(const String&) override;
+    void didReceiveRawData(const char*, size_t) override;
+    void didDetectError() override;
 
     std::unique_ptr<RTCDataChannelHandler> m_handler;
 
@@ -110,11 +110,11 @@ private:
     BinaryType m_binaryType;
 
     Timer m_scheduledEventTimer;
-    Vector<RefPtr<Event>> m_scheduledEvents;
+    Vector<Ref<Event>> m_scheduledEvents;
 };
 
 } // namespace WebCore
 
-#endif // ENABLE(MEDIA_STREAM)
+#endif // ENABLE(WEB_RTC)
 
 #endif // RTCDataChannel_h

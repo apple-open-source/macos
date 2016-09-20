@@ -51,7 +51,7 @@ typedef struct asl_jump_table_s
 	asl_object_private_t *(*get_object_at_index)(asl_object_private_t *obj, size_t n);
 	void (*set_iteration_index)(asl_object_private_t *obj, size_t n);
 	void (*remove_object_at_index)(asl_object_private_t *obj, size_t n);
-	void (*append)(asl_object_private_t *obj, asl_object_private_t *newobj);
+	void (*append)(asl_object_private_t *obj, asl_object_private_t *newobj, void *addr);
 	void (*prepend)(asl_object_private_t *obj, asl_object_private_t *newobj);
 	asl_object_private_t *(*search)(asl_object_private_t *obj, asl_object_private_t *query);
 	asl_object_private_t *(*match)(asl_object_private_t *obj, asl_object_private_t *querylist, size_t *last, size_t start, size_t count, uint32_t duration, int32_t dir);
@@ -68,7 +68,7 @@ asl_object_private_t *asl_object_prev(asl_object_private_t *obj);
 asl_object_private_t *asl_object_get_object_at_index(asl_object_private_t *obj, size_t n);
 void asl_object_set_iteration_index(asl_object_private_t *obj, size_t n);
 void asl_object_remove_object_at_index(asl_object_private_t *obj, size_t n);
-void asl_object_append(asl_object_private_t *obj, asl_object_private_t *newobj);
+void asl_object_append(asl_object_private_t *obj, asl_object_private_t *newobj, void *addr);
 void asl_object_prepend(asl_object_private_t *obj, asl_object_private_t *newobj);
 asl_object_private_t *asl_object_search(asl_object_private_t *obj, asl_object_private_t *query);
 asl_object_private_t *asl_object_match(asl_object_private_t *obj, asl_object_private_t *querylist, size_t *last, size_t start, size_t count, uint32_t duration, int32_t dir);

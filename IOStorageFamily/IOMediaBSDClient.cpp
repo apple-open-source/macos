@@ -30,6 +30,7 @@
 #include <sys/proc.h>                        // (proc_is64bit, ...)
 #include <sys/stat.h>                        // (S_ISBLK, ...)
 #include <sys/systm.h>                       // (DEV_BSIZE, ...)
+#include <sys/kdebug.h>                      // (FSDBG_CODE, ...)
 #include <IOKit/assert.h>
 #include <IOKit/IOBSD.h>
 #include <IOKit/IODeviceTreeSupport.h>
@@ -62,6 +63,8 @@ const UInt32 kAnchorsMaxCount    = kMinorsMaxCount;
 
 #define kMsgNoWhole    "%s: No whole media found for media \"%s\".\n", getName()
 #define kMsgNoLocation "%s: No location is found for media \"%s\".\n", getName()
+
+#define MAX_PROVISION_EXTENTS_COUNT (PAGE_SIZE/sizeof(IOStorageProvisionExtent))
 
 extern "C"
 {
@@ -165,6 +168,7 @@ struct MinorSlot
     UInt32             isAssigned:1;  // (slot is occupied)
     UInt32             isObsolete:1;  // (slot is to be removed, close pending)
     UInt32             isOrphaned:1;  // (slot is in  open flux, close pending)
+    UInt32             isVirtual:1;   // (slot is virtual disk, such as disk images)
 
     UInt32             anchorID;      // (minor's associated anchor ID)
     IOMediaBSDClient * client;        // (minor's media bsd client object)
@@ -731,6 +735,43 @@ static bool DKIOC_IS_RESERVED(caddr_t data, uint32_t reserved)
     return false;
 }
 
+#define IOMEDIAWAITQUIET_IN_SECONDS     ( 10*1000*1000*1000ULL )
+static bool _IOMediaWaitQuietOrInactive( IOMedia * media )
+{
+
+    bool quiet = false;
+
+    if ( media == NULL )
+    {
+        return quiet;
+    }
+
+    quiet = ( media->getBusyState() == 0 );
+
+    while ( !quiet )
+    {
+
+        //
+        // Do not wait while I/O Kit is working on terminate the stack
+        //
+        if ( media->isInactive() )
+            break;
+
+        //
+        // Every 10s, check if terminated, bail out if it is
+        //
+        media->waitQuiet( IOMEDIAWAITQUIET_IN_SECONDS );
+
+        quiet = ( media->getBusyState() == 0 );
+    }
+
+    //
+    // return TRUE if media is not busy
+    //
+    return quiet;
+
+}
+
 UInt64 _IOMediaBSDClientGetThrottleMask(IOMedia * media)
 {
     UInt64 mask;
@@ -860,6 +901,27 @@ UInt64 _IOMediaBSDClientGetThrottleMask(IOMedia * media)
     return mask;
 }
 
+// Workaround for rdar://23244646, but limit removing the R/W hack to just an
+// APFS boot container (concern HFS journal replay depends on the W upgrade).
+// See rdar://23170211 and rdar://23265650 about removing it/this entirely.
+static int _IOMedia_is_APFS(IOMedia *media)
+{
+	IORegistryIterator * iter;
+	IORegistryEntry *    entry;
+	bool                 apfs = false;
+
+	if ((iter = IORegistryIterator::iterateOver(media, gIOServicePlane, 0))) {
+		while ((entry = iter->getNextObject())) {
+			if (entry->metaCast("AppleAPFSContainer") != NULL) {
+				apfs = true;
+				break;
+			}
+		}
+		iter->release();
+	}
+	return apfs;
+}
+
 int dkopen(dev_t dev, int flags, int devtype, proc_t /* proc */)
 {
     //
@@ -908,7 +970,7 @@ int dkopen(dev_t dev, int flags, int devtype, proc_t /* proc */)
         {
             root = 1;
 
-            if ( minor->media->isWritable() )
+            if ( minor->media->isWritable() && !_IOMedia_is_APFS(minor->media) )
             {
                 access |= kIOStorageAccessReaderWriter;
             }
@@ -1002,7 +1064,7 @@ int dkopen(dev_t dev, int flags, int devtype, proc_t /* proc */)
 
     if ( media )
     {
-        media->waitQuiet();
+        _IOMediaWaitQuietOrInactive( media );
         media->release();
     }
 
@@ -1130,7 +1192,7 @@ int dkclose(dev_t dev, int /* flags */, int devtype, proc_t /* proc */)
 
     if ( media )
     {
-        media->waitQuiet();
+        _IOMediaWaitQuietOrInactive( media );
         media->release();
     }
 
@@ -1179,7 +1241,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
     int         error = 0;
     MinorSlot * minor = gIOMediaBSDClientGlobals.getMinor(getminor(dev));
 
-    if ( minor->isOrphaned )  return EBADF;               // (is minor in flux?)
+    if ( ( minor == NULL ) || ( minor->isOrphaned ) ) return EBADF;               // (is minor in flux?)
 
     //
     // Process the ioctl.
@@ -1752,6 +1814,12 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
             request = (dk_synchronize_t *) data;
 
+            if ( kdebug_enable )
+            {
+                KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_IOCTL, 0) | DBG_FUNC_NONE, dev, cmd,
+                        request->options, 0, 0);
+            }
+
             if ( DKIOC_IS_RESERVED( data, 0xF00000 ) )  { error = EINVAL;  break; }
 
             // Flush the media onto the drive.
@@ -1820,6 +1888,18 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
             if ( error == 0 )
             {
+
+                if ( kdebug_enable )
+                {
+                    uint32_t        i;
+
+                    for ( i = 0; i < request.extentsCount; i++ )
+                    {
+                        KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_IOCTL, 1) | DBG_FUNC_NONE, dev,
+                            extents[i].byteStart / minor->bdevBlockSize, extents[i].byteCount, 0, 0);
+                    }
+
+                }
                 status = minor->media->unmap( /* client       */ minor->client,
                                               /* extents      */ extents,
                                               /* extentsCount */ request.extentsCount,
@@ -1829,6 +1909,64 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
             }
 
             IODelete(extents, IOStorageExtent, request.extentsCount);
+
+        } break;
+
+        case DKIOCGETPROVISIONSTATUS:
+        {
+
+            //
+            // This ioctl asks that the media what is the provision status
+            //
+
+            IOStorageProvisionExtent * extents;
+            UInt32                     extentsCount;
+            dk_provision_status_t *    request;
+
+            request = ( dk_provision_status_t *) data;
+
+            extentsCount = request->extentsCount;
+            extentsCount = min ( extentsCount,  MAX_PROVISION_EXTENTS_COUNT );
+            request->extentsCount = extentsCount;
+
+            extents = IONew(IOStorageProvisionExtent, request->extentsCount);
+            if ( extents == 0 )  { error = ENOMEM;  break; }
+
+            bzero ( extents, sizeof(IOStorageProvisionExtent)*request->extentsCount);
+
+            if ( error == 0 )
+            {
+                IOReturn               status;
+
+                status = minor->media->getProvisionStatus( /* client       */ minor->client,
+                                                           /* byteStart    */ request->offset,
+                                                           /* byteCount    */ request->length,
+                                                           /* extentsCount */ (UInt32 *)&request->extentsCount,
+                                                           /* extents      */ extents,
+                                                           /* options      */ request->options );
+
+                if ( status == kIOReturnSuccess )
+                {
+
+                    request->extentsCount = min ( request->extentsCount, extentsCount );
+
+                    if ( proc == kernproc )
+                    {
+                        bcopy( /* src */ extents,
+                               /* dst */ (void *) request->extents,
+                               /* n   */ request->extentsCount * sizeof(IOStorageProvisionExtent) );
+                    }
+                    else
+                    {
+                        error = copyout( /* kaddr */ (void *) extents,
+                                         /* uaddr */ (user_addr_t)request->extents,
+                                         /* len   */ request->extentsCount * sizeof(IOStorageProvisionExtent) );
+                    }
+                }
+                error = minor->media->errnoFromReturn(status);
+            }
+
+            IODelete(extents, IOStorageProvisionExtent, extentsCount);
 
         } break;
 
@@ -1921,24 +2059,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
             // This ioctl returns truth if the device is virtual.
             //
 
-            OSDictionary * dictionary = OSDynamicCast(
-                         /* class  */ OSDictionary,
-                         /* object */ minor->media->getProperty(
-                                 /* key   */ kIOPropertyProtocolCharacteristicsKey,
-                                 /* plane */ gIOServicePlane ) );
-
-            *(uint32_t *)data = false;
-
-            if ( dictionary )
-            {
-                OSString * string = OSDynamicCast(
-                         /* class  */ OSString,
-                         /* object */ dictionary->getObject(
-                                 /* key   */ kIOPropertyPhysicalInterconnectTypeKey ) );
-
-                if ( string && string->isEqualTo(kIOPropertyPhysicalInterconnectTypeVirtual) )
-                    *(uint32_t *)data = true;
-            }
+            *(uint32_t *)data = minor->isVirtual;
 
         } break;
 
@@ -2075,6 +2196,24 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
             }
 
         } break;
+            
+        case DKIOCGETIOMINSATURATIONBYTECOUNT:                   // (uint32_t *)
+        {
+            //
+            // This ioctl returns the minimum byte count required to saturate the IO bus.
+            //
+            
+            OSNumber * number = OSDynamicCast(
+                         /* class  */ OSNumber,
+                         /* object */ minor->media->getProperty(
+                                 /* key   */ kIOMinimumSaturationByteCountKey,
+                                 /* plane */ gIOServicePlane ) );
+            if ( number )
+                *(uint32_t *)data = number->unsigned32BitValue();
+            else
+                *(uint32_t *)data = 0;
+            
+        } break;
 
         default:
         {
@@ -2100,7 +2239,7 @@ int dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
     int         error = 0;
     MinorSlot * minor = gIOMediaBSDClientGlobals.getMinor(getminor(dev));
 
-    if ( minor->isOrphaned )  return EBADF;               // (is minor in flux?)
+    if ( ( minor == NULL ) || (  minor->isOrphaned ) )  return EBADF;               // (is minor in flux?)
 
     //
     // Process the ioctl.
@@ -2313,7 +2452,7 @@ int dkioctl_cdev(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
     int         error = 0;
     MinorSlot * minor = gIOMediaBSDClientGlobals.getMinor(getminor(dev));
 
-    if ( minor->isOrphaned )  return EBADF;               // (is minor in flux?)
+    if ( ( minor == NULL ) || ( minor->isOrphaned ) )  return EBADF;               // (is minor in flux?)
 
     //
     // Process the ioctl.
@@ -2355,7 +2494,7 @@ int dksize(dev_t dev)
 
     MinorSlot * minor = gIOMediaBSDClientGlobals.getMinor(getminor(dev));
 
-    if ( minor->isOrphaned )  return 0;                   // (is minor in flux?)
+    if ( ( minor == NULL ) || ( minor->isOrphaned ) ) return 0;                   // (is minor in flux?)
 
     return (int) minor->bdevBlockSize;                    // (return block size)
 }
@@ -2453,7 +2592,7 @@ inline void DKR_RUN_COMPLETION(dkr_t dkr, dkrtype_t dkrtype, IOReturn status)
     }
 }
 
-inline IOMemoryDescriptor * DKR_GET_BUFFER(dkr_t dkr, dkrtype_t dkrtype)
+inline IOMemoryDescriptor * DKR_GET_BUFFER(dkr_t dkr, dkrtype_t dkrtype, IOOptionBits dkroptions = 0)
 {
     if (dkrtype == DKRTYPE_BUF)
     {
@@ -2464,7 +2603,7 @@ inline IOMemoryDescriptor * DKR_GET_BUFFER(dkr_t dkr, dkrtype_t dkrtype)
 
         if ( (flags & B_CLUSTER) )
         {
-            IOOptionBits options = kIOMemoryTypeUPL | kIOMemoryAsReference;
+            IOOptionBits options = kIOMemoryTypeUPL | kIOMemoryAsReference | dkroptions;
 
             options |= (flags & B_READ) ? kIODirectionIn : kIODirectionOut;
 
@@ -2480,13 +2619,13 @@ inline IOMemoryDescriptor * DKR_GET_BUFFER(dkr_t dkr, dkrtype_t dkrtype)
             return IOMemoryDescriptor::withAddressRange(       // (single-range)
                 buf_dataptr(bp),
                 buf_count(bp),
-                (flags & B_READ) ? kIODirectionIn : kIODirectionOut,
+                ( (flags & B_READ) ? kIODirectionIn : kIODirectionOut) | dkroptions,
                 (flags & B_PHYS) ? get_user_task() : get_kernel_task() );
         }
     }
     else
     {
-        IOOptionBits options = kIOMemoryTypeUIO | kIOMemoryAsReference;
+        IOOptionBits options = kIOMemoryTypeUIO | kIOMemoryAsReference | dkroptions;
         uio_t        uio     = ((dio_t)dkr)->uio;
 
         options |= (uio_rw(uio) == UIO_READ) ? kIODirectionIn : kIODirectionOut;
@@ -2577,7 +2716,7 @@ int dkreadwrite(dkr_t dkr, dkrtype_t dkrtype)
 
     minor = gIOMediaBSDClientGlobals.getMinor(getminor(DKR_GET_DEV(dkr, dkrtype)));
 
-    if ( minor->isOrphaned )                              // (is minor in flux?)
+    if ( ( minor == NULL ) || ( minor->isOrphaned ) )                             // (is minor in flux?)
     {
         status = kIOReturnNoMedia;
         goto dkreadwriteErr;
@@ -2625,7 +2764,7 @@ int dkreadwrite(dkr_t dkr, dkrtype_t dkrtype)
     // Build a descriptor which describes the buffer involved in the transfer.
     //
 
-    buffer = DKR_GET_BUFFER(dkr, dkrtype);
+    buffer = DKR_GET_BUFFER(dkr, dkrtype, minor->isVirtual?kIOMemoryMapperNone:0);
 
     if ( buffer == 0 )                                           // (no buffer?)
     {
@@ -3170,12 +3309,13 @@ UInt32 MinorTable::insert( IOMedia *          media,
     // for an anchorID of 2 and slicePath of "s3s1".
     //
 
-    void *      bdevNode;
-    void *      cdevNode;
-    UInt32      majorID = gIOMediaBSDClientGlobals.getMajorID();
-    UInt32      minorID;
-    char *      minorName;
-    IOByteCount minorNameSize;
+    void *         bdevNode;
+    void *         cdevNode;
+    UInt32         majorID = gIOMediaBSDClientGlobals.getMajorID();
+    UInt32         minorID;
+    char *         minorName;
+    IOByteCount    minorNameSize;
+    OSDictionary * dictionary = NULL;
 
     if ( _table.buckets == 0 )  return kInvalidMinorID;
 
@@ -3269,6 +3409,27 @@ UInt32 MinorTable::insert( IOMedia *          media,
 
     _table[minorID].client->retain();              // (retain client)
     _table[minorID].media->retain();               // (retain media)
+
+    dictionary = OSDynamicCast(
+                   /* class  */ OSDictionary,
+                   /* object */ _table[minorID].media->getProperty(
+                            /* key   */ kIOPropertyProtocolCharacteristicsKey,
+                            /* plane */ gIOServicePlane ) );
+
+    _table[minorID].isVirtual = false;
+
+    if ( dictionary )
+    {
+        OSString * string = OSDynamicCast(
+                 /* class  */ OSString,
+                 /* object */ dictionary->getObject(
+                         /* key   */ kIOPropertyPhysicalInterconnectTypeKey ) );
+
+        if ( string && string->isEqualTo(kIOPropertyPhysicalInterconnectTypeVirtual) )
+        {
+            _table[minorID].isVirtual = true;
+        }
+    }
 
     return minorID;
 }

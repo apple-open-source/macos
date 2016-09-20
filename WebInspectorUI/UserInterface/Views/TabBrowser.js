@@ -48,8 +48,15 @@ WebInspector.TabBrowser = class TabBrowser extends WebInspector.View
         this._contentViewContainer = new WebInspector.ContentViewContainer;
         this.addSubview(this._contentViewContainer);
 
-        var showNextTab = this._showNextTab.bind(this);
-        var showPreviousTab = this._showPreviousTab.bind(this);
+        let showNextTab = () => { this._showNextTab(); }
+        let showPreviousTab = () => { this._showPreviousTab(); }
+        let closeCurrentTab = () => {
+            let selectedTabBarItem = this._tabBar.selectedTabBarItem;
+            if (this._tabBar.tabBarItems.length > 2 || !selectedTabBarItem.isDefaultTab)
+                this._tabBar.removeTabBarItem(selectedTabBarItem);
+        }
+
+        this._closeCurrentTabKeyboardShortuct = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.CommandOrControl | WebInspector.KeyboardShortcut.Modifier.Shift, "W", closeCurrentTab);
 
         this._showNextTabKeyboardShortcut1 = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.CommandOrControl | WebInspector.KeyboardShortcut.Modifier.Shift, WebInspector.KeyboardShortcut.Key.RightCurlyBrace, showNextTab);
         this._showPreviousTabKeyboardShortcut1 = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.CommandOrControl | WebInspector.KeyboardShortcut.Modifier.Shift, WebInspector.KeyboardShortcut.Key.LeftCurlyBrace, showPreviousTab);
@@ -160,6 +167,13 @@ WebInspector.TabBrowser = class TabBrowser extends WebInspector.View
 
         this._tabBar.selectedTabBarItem = tabContentView.tabBarItem;
 
+        // FIXME: this is a workaround for <https://webkit.org/b/151876>.
+        // Without this extra call, we might never lay out the child tab
+        // if it has already marked itself as dirty in the same run loop
+        // as it is attached. It will schedule a layout, but when the rAF
+        // fires the parent will abort the layout because the counter is
+        // out of sync.
+        this.needsLayout();
         return true;
     }
 

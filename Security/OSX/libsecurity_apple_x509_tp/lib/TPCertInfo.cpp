@@ -40,8 +40,8 @@
 #include <Security/SecImportExport.h>
 #include <Security/SecTrustSettingsPriv.h>
 
-#define tpTimeDbg(args...)		secdebug("tpTime", ## args)
-#define tpCertInfoDbg(args...)	secdebug("tpCert", ## args)
+#define tpTimeDbg(args...)		secinfo("tpTime", ## args)
+#define tpCertInfoDbg(args...)	secinfo("tpCert", ## args)
 
 static const TPClItemCalls tpCertClCalls =
 {

@@ -41,31 +41,34 @@ public:
     void setAsync(bool);
     bool async() const;
 
+    void setCrossOrigin(const AtomicString&);
+    String crossOrigin() const;
+
 private:
     HTMLScriptElement(const QualifiedName&, Document&, bool wasInsertedByParser, bool alreadyStarted);
 
-    virtual void parseAttribute(const QualifiedName&, const AtomicString&) override;
-    virtual InsertionNotificationRequest insertedInto(ContainerNode&) override;
-    virtual void finishedInsertingSubtree() override;
-    virtual void childrenChanged(const ChildChange&) override;
+    void parseAttribute(const QualifiedName&, const AtomicString&) final;
+    InsertionNotificationRequest insertedInto(ContainerNode&) final;
+    void finishedInsertingSubtree() final;
+    void childrenChanged(const ChildChange&) final;
 
-    virtual bool isURLAttribute(const Attribute&) const override;
+    bool isURLAttribute(const Attribute&) const final;
 
-    virtual void addSubresourceAttributeURLs(ListHashSet<URL>&) const override;
+    void addSubresourceAttributeURLs(ListHashSet<URL>&) const final;
 
-    virtual String sourceAttributeValue() const override;
-    virtual String charsetAttributeValue() const override;
-    virtual String typeAttributeValue() const override;
-    virtual String languageAttributeValue() const override;
-    virtual String forAttributeValue() const override;
-    virtual String eventAttributeValue() const override;
-    virtual bool asyncAttributeValue() const override;
-    virtual bool deferAttributeValue() const override;
-    virtual bool hasSourceAttribute() const override;
+    String sourceAttributeValue() const final;
+    String charsetAttributeValue() const final;
+    String typeAttributeValue() const final;
+    String languageAttributeValue() const final;
+    String forAttributeValue() const final;
+    String eventAttributeValue() const final;
+    bool asyncAttributeValue() const final;
+    bool deferAttributeValue() const final;
+    bool hasSourceAttribute() const final;
 
-    virtual void dispatchLoadEvent() override;
+    void dispatchLoadEvent() final;
 
-    virtual RefPtr<Element> cloneElementWithoutAttributesAndChildren(Document&) override;
+    Ref<Element> cloneElementWithoutAttributesAndChildren(Document&) final;
 };
 
 } //namespace

@@ -7,7 +7,7 @@ CODE_SIGN_IDENTITY =
 
 HEADER_SEARCH_PATHS[sdk=macosx*] = $(PROJECT_DIR) $(PROJECT_DIR)/../regressions $(PROJECT_DIR)/../include $(BUILT_PRODUCTS_DIR)/derived_src $(PROJECT_DIR)/../utilities $(PROJECT_DIR)/../libsecurity_keychain/ $(PROJECT_DIR)/../libsecurity_keychain/libDER $(BUILT_PRODUCTS_DIR) $(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework/Headers $(inherited)
 
-HEADER_SEARCH_PATHS[sdk=iphone*] = $(PROJECT_DIR) $(PROJECT_DIR)/../regressions $(PROJECT_DIR)/../utilities $(PROJECT_DIR)/../libsecurity_asn1 $(PROJECT_DIR)/../libsecurity_keychain/libDER $(PROJECT_DIR)/../sec $(BUILT_PRODUCTS_DIR)$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/include $(inherited)
+HEADER_SEARCH_PATHS[sdk=embedded*] = $(PROJECT_DIR) $(PROJECT_DIR)/../regressions $(PROJECT_DIR)/../utilities $(PROJECT_DIR)/../libsecurity_asn1 $(PROJECT_DIR)/../libsecurity_keychain/libDER $(PROJECT_DIR)/../sec $(BUILT_PRODUCTS_DIR)/usr/local/include $(inherited)
 
 SKIP_INSTALL = YES
 
@@ -25,6 +25,4 @@ GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES
 GCC_WARN_ABOUT_RETURN_TYPE = YES
 GCC_WARN_UNUSED_VARIABLE = YES
 
-SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator
-
-GCC_PREPROCESSOR_DEFINITIONS[sdk=iphonesimulator*] = INDIGO=1 $(inherited)
+SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator

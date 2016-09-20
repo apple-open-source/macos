@@ -1,4 +1,4 @@
-/* 
+/*
  *  gloadavg.h -  header for atrun(8)
  *  Copyright (C) 1993  Thomas Koenig
  *

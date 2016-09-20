@@ -28,10 +28,10 @@
 
 #if ENABLE(CONTEXT_MENUS)
 
-#import "DictionaryPopupInfo.h"
 #import "WebCoreArgumentCoders.h"
 #import "WebPage.h"
 #import "WebPageProxyMessages.h"
+#import <WebCore/DictionaryLookup.h>
 #import <WebCore/FrameView.h>
 #import <WebCore/MainFrame.h>
 #import <WebCore/Page.h>
@@ -92,11 +92,6 @@ void WebContextMenuClient::searchWithSpotlight()
         return;
 
     m_page->send(Messages::WebPageProxy::SearchWithSpotlight(selectedString));
-}
-
-ContextMenuItem WebContextMenuClient::shareMenuItem(const HitTestResult&)
-{
-    return ContextMenuItem(SubmenuType, ContextMenuItemTagShareMenu, emptyString());
 }
 
 } // namespace WebKit

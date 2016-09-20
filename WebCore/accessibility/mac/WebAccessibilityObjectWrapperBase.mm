@@ -189,13 +189,27 @@ static NSArray *convertMathPairsToNSArray(const AccessibilityObject::Accessibili
     
     Vector<AccessibilityText> textOrder;
     m_object->accessibilityText(textOrder);
-    
+
+    NSMutableString *returnText = [NSMutableString string];
     bool visibleTextAvailable = false;
     for (const auto& text : textOrder) {
-        if (text.textSource == AlternativeText)
-            return text.text;
+        if (text.textSource == AlternativeText) {
+            [returnText appendString:text.text];
+            break;
+        }
         
         switch (text.textSource) {
+        // These are sub-components of one element (Attachment) that are re-combined in OSX and iOS.
+        case TitleText:
+        case SubtitleText:
+        case ActionText: {
+            if (!text.text.length())
+                break;
+            if ([returnText length])
+                [returnText appendString:@", "];
+            [returnText appendString:text.text];
+            break;
+        }
         case VisibleText:
         case ChildrenText:
         case LabelByElementText:
@@ -205,11 +219,13 @@ static NSArray *convertMathPairsToNSArray(const AccessibilityObject::Accessibili
             break;
         }
         
-        if (text.textSource == TitleTagText && !visibleTextAvailable)
-            return text.text;
+        if (text.textSource == TitleTagText && !visibleTextAvailable) {
+            [returnText appendString:text.text];
+            break;
+        }
     }
     
-    return [NSString string];
+    return returnText;
 }
 
 - (NSString *)baseAccessibilityHelpText
@@ -247,36 +263,35 @@ struct PathConversionInfo {
     CGMutablePathRef path;
 };
 
-static void ConvertPathToScreenSpaceFunction(void* info, const PathElement* element)
+static void convertPathToScreenSpaceFunction(PathConversionInfo& conversion, const PathElement& element)
 {
-    PathConversionInfo* conversion = (PathConversionInfo*)info;
-    WebAccessibilityObjectWrapperBase *wrapper = conversion->wrapper;
-    CGMutablePathRef newPath = conversion->path;
-    switch (element->type) {
+    WebAccessibilityObjectWrapperBase *wrapper = conversion.wrapper;
+    CGMutablePathRef newPath = conversion.path;
+    switch (element.type) {
     case PathElementMoveToPoint:
     {
-        CGPoint newPoint = [wrapper convertPointToScreenSpace:element->points[0]];
+        CGPoint newPoint = [wrapper convertPointToScreenSpace:element.points[0]];
         CGPathMoveToPoint(newPath, nil, newPoint.x, newPoint.y);
         break;
     }
     case PathElementAddLineToPoint:
     {
-        CGPoint newPoint = [wrapper convertPointToScreenSpace:element->points[0]];
+        CGPoint newPoint = [wrapper convertPointToScreenSpace:element.points[0]];
         CGPathAddLineToPoint(newPath, nil, newPoint.x, newPoint.y);
         break;
     }
     case PathElementAddQuadCurveToPoint:
     {
-        CGPoint newPoint1 = [wrapper convertPointToScreenSpace:element->points[0]];
-        CGPoint newPoint2 = [wrapper convertPointToScreenSpace:element->points[1]];
+        CGPoint newPoint1 = [wrapper convertPointToScreenSpace:element.points[0]];
+        CGPoint newPoint2 = [wrapper convertPointToScreenSpace:element.points[1]];
         CGPathAddQuadCurveToPoint(newPath, nil, newPoint1.x, newPoint1.y, newPoint2.x, newPoint2.y);
         break;
     }
     case PathElementAddCurveToPoint:
     {
-        CGPoint newPoint1 = [wrapper convertPointToScreenSpace:element->points[0]];
-        CGPoint newPoint2 = [wrapper convertPointToScreenSpace:element->points[1]];
-        CGPoint newPoint3 = [wrapper convertPointToScreenSpace:element->points[2]];
+        CGPoint newPoint1 = [wrapper convertPointToScreenSpace:element.points[0]];
+        CGPoint newPoint2 = [wrapper convertPointToScreenSpace:element.points[1]];
+        CGPoint newPoint3 = [wrapper convertPointToScreenSpace:element.points[2]];
         CGPathAddCurveToPoint(newPath, nil, newPoint1.x, newPoint1.y, newPoint2.x, newPoint2.y, newPoint3.x, newPoint3.y);
         break;
     }
@@ -291,7 +306,9 @@ static void ConvertPathToScreenSpaceFunction(void* info, const PathElement* elem
 - (CGPathRef)convertPathToScreenSpace:(Path &)path
 {
     PathConversionInfo conversion = { self, CGPathCreateMutable() };
-    path.apply(&conversion, ConvertPathToScreenSpaceFunction);    
+    path.apply([&conversion](const PathElement& pathElement) {
+        convertPathToScreenSpaceFunction(conversion, pathElement);
+    });
     return (CGPathRef)[(id)conversion.path autorelease];
 }
 
@@ -305,8 +322,6 @@ static void ConvertPathToScreenSpaceFunction(void* info, const PathElement* elem
 - (NSString *)ariaLandmarkRoleDescription
 {
     switch (m_object->roleValue()) {
-    case LandmarkApplicationRole:
-        return AXARIAContentGroupText(@"ARIALandmarkApplication");
     case LandmarkBannerRole:
         return AXARIAContentGroupText(@"ARIALandmarkBanner");
     case LandmarkComplementaryRole:
@@ -317,6 +332,8 @@ static void ConvertPathToScreenSpaceFunction(void* info, const PathElement* elem
         return AXARIAContentGroupText(@"ARIALandmarkMain");
     case LandmarkNavigationRole:
         return AXARIAContentGroupText(@"ARIALandmarkNavigation");
+    case LandmarkRegionRole:
+        return AXARIAContentGroupText(@"ARIALandmarkRegion");
     case LandmarkSearchRole:
         return AXARIAContentGroupText(@"ARIALandmarkSearch");
     case ApplicationAlertRole:
@@ -341,12 +358,12 @@ static void ConvertPathToScreenSpaceFunction(void* info, const PathElement* elem
         return AXARIAContentGroupText(@"ARIADocumentMath");
     case DocumentNoteRole:
         return AXARIAContentGroupText(@"ARIADocumentNote");
-    case DocumentRegionRole:
-        return AXARIAContentGroupText(@"ARIADocumentRegion");
     case UserInterfaceTooltipRole:
         return AXARIAContentGroupText(@"ARIAUserInterfaceTooltip");
     case TabPanelRole:
         return AXARIAContentGroupText(@"ARIATabPanel");
+    case WebApplicationRole:
+        return AXARIAContentGroupText(@"ARIAWebApplication");
     default:
         return nil;
     }

@@ -339,7 +339,7 @@ zcurses_colorget(const char *nam, char *colorpair)
 	return NULL;
 
     if (zc_color_phase==1 ||
-	!(cpn = (Colorpairnode) gethashnode(zcurses_colorpairs, colorpair))) {
+	!(cpn = (Colorpairnode) gethashnode2(zcurses_colorpairs, colorpair))) {
 	zc_color_phase = 2;
 	cp = ztrdup(colorpair);
 
@@ -370,7 +370,7 @@ zcurses_colorget(const char *nam, char *colorpair)
 	    return NULL;
 	}
 
-	cpn = (Colorpairnode)zalloc(sizeof(struct colorpairnode));
+	cpn = (Colorpairnode)zshcalloc(sizeof(struct colorpairnode));
 	
 	if (!cpn) {
 	    zsfree(cp);
@@ -462,7 +462,7 @@ zccmd_init(const char *nam, char **args)
 	    use_default_colors();
 #endif
 	    /* Initialise the default color pair, always 0 */
-	    cpn = (Colorpairnode)zalloc(sizeof(struct colorpairnode));
+	    cpn = (Colorpairnode)zshcalloc(sizeof(struct colorpairnode));
 	    if (cpn) {
 		cpn->colorpair = 0;
 		addhashnode(zcurses_colorpairs,
@@ -765,7 +765,7 @@ zccmd_string(const char *nam, char **args)
     w = (ZCWin)getdata(node);
 
 #ifdef HAVE_WADDWSTR
-    mb_metacharinit();
+    mb_charinit();
     wptr = wstr = zhalloc((strlen(str)+1) * sizeof(wchar_t));
 
     while (*str && (clen = mb_metacharlenconv(str, &wc))) {

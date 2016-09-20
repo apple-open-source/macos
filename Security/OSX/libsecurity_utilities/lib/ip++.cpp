@@ -159,7 +159,7 @@ void Socket::open(int domain, int type, int protocol)
 {
     checkSetFd(::socket(domain, type, protocol));
     mAtEnd = false;
-    secdebug("sockio", "socket(%d,%d) -> %d", type, protocol, fd());
+    secinfo("sockio", "socket(%d,%d) -> %d", type, protocol, fd());
 }
 
 void Socket::prepare(int fdFlags, int domain, int type, int protocol)
@@ -182,13 +182,13 @@ void Socket::bind(const IPAddress &addr, IPPort port)
 void Socket::bind(const IPSockAddress &local)
 {
     checkError(::bind(fd(), local, sizeof(local)));
-    secdebug("sockio", "%d bind to %s", fd(), string(local).c_str());
+    secinfo("sockio", "%d bind to %s", fd(), string(local).c_str());
 }
 
 void Socket::bind(const UNSockAddress &local)
 {
     checkError(::bind(fd(), local, sizeof(local)));
-    secdebug("sockio", "%d bind to %s", fd(), string(local).c_str());
+    secinfo("sockio", "%d bind to %s", fd(), string(local).c_str());
 }
 
 
@@ -224,17 +224,17 @@ bool Socket::connect(const IPSockAddress &peer)
     if (::connect(fd(), peer, sizeof(peer))) {
         switch (errno) {
         case EINPROGRESS:
-            secdebug("sockio", "%d connecting to %s", fd(), string(peer).c_str());
+            secinfo("sockio", "%d connecting to %s", fd(), string(peer).c_str());
             return false;
         case EALREADY:
             if (int err = error())		// connect failed
                 UnixError::throwMe(err);
             // just keep trying
-            secdebug("sockio", "%d still trying to connect", fd());
+            secinfo("sockio", "%d still trying to connect", fd());
             return false;
         case EISCONN:
             if (flags() & O_NONBLOCK) {
-                secdebug("sockio", "%d now connected", fd());
+                secinfo("sockio", "%d now connected", fd());
                 return true;
             } else {
                 UnixError::throwMe();
@@ -243,7 +243,7 @@ bool Socket::connect(const IPSockAddress &peer)
             UnixError::throwMe();
         }
     } else {
-        secdebug("sockio", "%d connect to %s", fd(), string(peer).c_str());
+        secinfo("sockio", "%d connect to %s", fd(), string(peer).c_str());
         return true;
     }
 }
@@ -257,7 +257,7 @@ bool Socket::connect(const UNSockAddress &peer)
 {
 	// no nice async support here: local operation (but keep the niceties)
 	checkError(::connect(fd(), peer, sizeof(peer)));
-	secdebug("sockio", "%d connect to %s", fd(), string(peer).c_str());
+	secinfo("sockio", "%d connect to %s", fd(), string(peer).c_str());
 	return true;
 }
 
@@ -314,7 +314,7 @@ void Socket::connect(const Host &host, IPPort port)
     for (set<IPAddress>::const_iterator it = addrs.begin(); it != addrs.end(); it++) {
         const IPSockAddress address(*it, port);
         if (::connect(fd(), address, sizeof(IPSockAddress)) == 0) {
-            secdebug("sockio", "%d connect to %s", fd(), string(address).c_str());
+            secinfo("sockio", "%d connect to %s", fd(), string(address).c_str());
             return;
         }
     }

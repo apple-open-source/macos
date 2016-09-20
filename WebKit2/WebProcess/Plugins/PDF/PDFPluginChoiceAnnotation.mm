@@ -29,7 +29,7 @@
 #import "PDFPluginChoiceAnnotation.h"
 
 #import "PDFKitImports.h"
-#import "PDFLayerControllerDetails.h"
+#import "PDFLayerControllerSPI.h"
 #import <PDFKit/PDFKit.h>
 #import <WebCore/CSSPrimitiveValue.h>
 #import <WebCore/CSSPropertyNames.h>
@@ -69,7 +69,10 @@ void PDFPluginChoiceAnnotation::commit()
 PassRefPtr<Element> PDFPluginChoiceAnnotation::createAnnotationElement()
 {
     Document& document = parent()->document();
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     PDFAnnotationChoiceWidget *choiceAnnotation = this->choiceAnnotation();
+#pragma clang diagnostic pop
 
     RefPtr<Element> element = document.createElement(selectTag, false);
 
@@ -83,12 +86,12 @@ PassRefPtr<Element> PDFPluginChoiceAnnotation::createAnnotationElement()
     NSString *selectedChoice = choiceAnnotation.stringValue;
 
     for (NSString *choice in choices) {
-        RefPtr<Element> choiceOption = document.createElement(optionTag, false);
-        choiceOption->setAttribute(valueAttr, choice);
+        auto choiceOption = document.createElement(optionTag, false);
+        choiceOption->setAttributeWithoutSynchronization(valueAttr, choice);
         choiceOption->setTextContent(choice, ASSERT_NO_EXCEPTION);
 
         if (choice == selectedChoice)
-            choiceOption->setAttribute(selectedAttr, "selected");
+            choiceOption->setAttributeWithoutSynchronization(selectedAttr, AtomicString("selected", AtomicString::ConstructFromLiteral));
 
         styledElement->appendChild(choiceOption);
     }

@@ -1809,7 +1809,7 @@ rl_complete(int ignore __attribute__((__unused__)), int invoking_key)
 	    _rl_completion_append_character_function,
 	    (size_t)rl_completion_query_items,
 	    &rl_completion_type, &rl_attempted_completion_over,
-	    &rl_point, &rl_end);
+	    &rl_point, &rl_end, NULL, NULL, NULL);
 
 
 }

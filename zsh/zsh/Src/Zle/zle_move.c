@@ -344,6 +344,8 @@ endofline(char **args)
 	    zlecs = zlell;
 	    return 0;
 	}
+	if ((zlecs += invicmdmode()) == zlell)
+	    break;
 	if (zleline[zlecs] == '\n')
 	    if (++zlecs == zlell)
 		return 0;
@@ -414,6 +416,8 @@ endoflinehist(char **args)
 	    zlecs = zlell;
 	    break;
 	}
+	if ((zlecs += invicmdmode()) == zlell)
+	    break;
 	if (zleline[zlecs] == '\n')
 	    if (++zlecs == zlell)
 		break;
@@ -555,6 +559,13 @@ visuallinemode(UNUSED(char **args))
     return 0;
 }
 
+/**/
+int
+deactivateregion(UNUSED(char **args))
+{
+    region_active = 0;
+    return 0;
+}
 
 /**/
 int
@@ -876,24 +887,36 @@ int
 vigotomark(UNUSED(char **args))
 {
     ZLE_INT_T ch;
+    int *markcs, *markhist = 0;
     int oldcs = zlecs;
     int oldline = histline;
+    int tmpcs, tmphist;
 
     ch = getfullchar(0);
-    if (ch == ZWC('\'') || ch == ZWC('`'))
-	ch = 26;
-    else {
-	if (ch < ZWC('a') || ch > ZWC('z'))
+    if (ch == ZWC('\'') || ch == ZWC('`')) {
+	markhist = vimarkline + 26;
+	markcs = vimarkcs + 26;
+    } else if (ch == ZWC('.') && curchange->prev) {
+	/* position cursor where it was after the last change. not exactly
+	 * what vim does but close enough */
+	tmpcs = curchange->prev->new_cs;
+	tmphist = curchange->prev->hist;
+	markcs = &tmpcs;
+	markhist = &tmphist;
+    } else if (ch >= ZWC('a') && ch <= ZWC('z')) {
+	markhist = vimarkline + (ch - ZWC('a'));
+	markcs = vimarkcs + (ch - ZWC('a'));
+    } else
+	return 1;
+    if (markhist) {
+	if (!*markhist)
 	    return 1;
-	ch -= ZWC('a');
+	if (histline != *markhist && !zle_goto_hist(*markhist, 0, 0)) {
+	    *markhist = 0;
+	    return 1;
+	}
     }
-    if (!vimarkline[ch])
-	return 1;
-    if (curhist != vimarkline[ch] && !zle_goto_hist(vimarkline[ch], 0, 0)) {
-	vimarkline[ch] = 0;
-	return 1;
-    }
-    zlecs = vimarkcs[ch];
+    zlecs = *markcs;
     vimarkcs[26] = oldcs;
     vimarkline[26] = oldline;
     if (zlecs > zlell)

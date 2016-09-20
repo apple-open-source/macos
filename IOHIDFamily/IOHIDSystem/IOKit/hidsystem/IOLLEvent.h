@@ -188,6 +188,10 @@ typedef struct _NXSize {	/* size */
 #define NX_SUBTYPE_SLEEP_EVENT				11
 #define NX_SUBTYPE_RESTART_EVENT			12
 #define NX_SUBTYPE_SHUTDOWN_EVENT			13
+#define NX_SUBTYPE_MENU               16
+#define NX_SUBTYPE_ACCESSIBILITY      17
+
+
 
 #define NX_SUBTYPE_STICKYKEYS_ON			100
 #define NX_SUBTYPE_STICKYKEYS_OFF			101
@@ -522,6 +526,7 @@ typedef struct _NXEvent {
     UInt64              service_id __attribute__ ((packed)); /* service id */
     SInt32              ext_pid;    /* external pid */
 } NXEvent, *NXEventPtr;
+
 #endif
 
 /* The current version number of the NXEvent structure. */
@@ -558,6 +563,21 @@ typedef struct _NXEvent {
                             NX_MOUSEMOVEDMASK | NX_MOUSEENTEREDMASK | NX_MOUSEEXITEDMASK | \
                             NX_TABLETPOINTERMASK | NX_TABLETPROXIMITYMASK \
                         )
+
+
+#define  NX_EVENT_EXTENSION_LOCATION_INVALID            0x1
+#define  NX_EVENT_EXTENSION_LOCATION_TYPE_FLOAT         0x2
+#define  NX_EVENT_EXTENSION_LOCATION_DEVICE_SCALED      0x4
+#define  NX_EVENT_EXTENSION_MOUSE_DELTA_TYPE_FLOAT      0x8
+
+typedef struct _NXEventExtension {
+    UInt32              flags;
+} NXEventExtension;
+
+typedef struct _NXEventExt {
+    NXEvent             payload;
+    NXEventExtension    extension;
+} NXEventExt;
 
 #endif /* !_DEV_EVENT_H */
 

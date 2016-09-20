@@ -60,7 +60,7 @@ When the integer attribute, tt(-i), or a floating point attribute, tt(-E)
 or tt(-F), is set for var(name), the var(value) is subject to arithmetic
 evaluation.  Furthermore, by replacing `tt(=)' with `tt(+=)', a parameter
 can be incremented or appended to.  See noderef(Array Parameters) and
-ifzman(em(Arithmetic Evaluation) LPAR()in zmanref(zshexpn)RPAR())\
+ifzman(em(Arithmetic Evaluation) LPAR()in zmanref(zshmisc)RPAR())\
 ifnzman(noderef(Arithmetic Evaluation))
 for additional forms of assignment.
 
@@ -98,6 +98,11 @@ array.  To append to an array without changing the existing values, use
 the syntax:
 ifzman()
 indent(var(name)tt(+=LPAR())var(value) ...tt(RPAR()))
+
+Within the parentheses on the right hand side of either form of the
+assignment, newlines and semicolons are treated the same as white space,
+separating individual var(value)s.  Any consecutive sequence of such
+characters has the same effect.
 
 Ordinary array parameters may also be explicitly declared with:
 findex(typeset, use of)
@@ -383,9 +388,7 @@ as part of an arithmetic expression in an ordinary subscript.
 To avoid subscript parsing limitations in assignments to associative array
 elements, use the append syntax:
 
-example(
-   aa+=('key with "*strange*" characters' 'value string')
-)
+example(aa+=('key with "*strange*" characters' 'value string'))
 
 The basic rule to remember when writing a subscript expression is that all
 text between the opening `tt([)' and the closing `tt(])' is interpreted
@@ -773,7 +776,13 @@ Incremented by one each time a new shell is started.
 )
 vindex(signals)
 item(tt(signals))(
-An array containing the names of the signals.
+An array containing the names of the signals.  Note that with
+the standard zsh numbering of array indices, where the first element
+has index 1, the signals are offset by 1 from the signal number
+used by the operating system.  For example, on typical Unix-like systems
+tt(HUP) is signal number 1, but is referred to as tt($signals[2]).  This
+is because of tt(EXIT) at position 1 in the array, which is used
+internally by zsh but is not known to the operating system.
 )
 vindex(TRY_BLOCK_ERROR)
 item(tt(TRY_BLOCK_ERROR) <S>)(
@@ -1641,6 +1650,29 @@ vindex(ZDOTDIR)
 item(tt(ZDOTDIR))(
 The directory to search for shell startup files (.zshrc, etc),
 if not tt($HOME).
+)
+vindex(zle_bracketed_paste)
+cindex(bracketed paste)
+cindex(enabling bracketed paste)
+item(tt(zle_bracketed_paste))(
+Many terminal emulators have a feature that allows applications to
+identify when text is pasted into the terminal rather than being typed
+normally. For ZLE, this means that special characters such as tabs
+and newlines can be inserted instead of invoking editor commands.
+Furthermore, pasted text forms a single undo event and if the region is
+active, pasted text will replace the region.
+
+This two-element array contains the terminal escape sequences for
+enabling and disabling the feature. These escape sequences are used to
+enable bracketed paste when ZLE is active and disable it at other times.
+Unsetting the parameter has the effect of ensuring that bracketed paste
+remains disabled.
+)
+vindex(zle_highlight)
+item(tt(zle_highlight))(
+An array describing contexts in which ZLE should highlight the input text.
+See ifzman(em(Character Highlighting) in zmanref(zshzle))\
+ifnzman(noderef(Character Highlighting)).
 )
 vindex(ZLE_LINE_ABORTED)
 item(tt(ZLE_LINE_ABORTED))(

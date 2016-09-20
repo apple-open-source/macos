@@ -61,14 +61,14 @@ namespace WebCore {
 #if ENABLE(CONTEXT_MENUS)
 class FrontendMenuProvider : public ContextMenuProvider {
 public:
-    static PassRefPtr<FrontendMenuProvider> create(InspectorFrontendHost* frontendHost, Deprecated::ScriptObject frontendApiObject, const Vector<ContextMenuItem>& items)
+    static Ref<FrontendMenuProvider> create(InspectorFrontendHost* frontendHost, Deprecated::ScriptObject frontendApiObject, const Vector<ContextMenuItem>& items)
     {
-        return adoptRef(new FrontendMenuProvider(frontendHost, frontendApiObject, items));
+        return adoptRef(*new FrontendMenuProvider(frontendHost, frontendApiObject, items));
     }
     
     void disconnect()
     {
-        m_frontendApiObject = Deprecated::ScriptObject();
+        m_frontendApiObject = { };
         m_frontendHost = nullptr;
     }
     
@@ -85,17 +85,17 @@ private:
         contextMenuCleared();
     }
     
-    virtual void populateContextMenu(ContextMenu* menu) override
+    void populateContextMenu(ContextMenu* menu) override
     {
-        for (size_t i = 0; i < m_items.size(); ++i)
-            menu->appendItem(m_items[i]);
+        for (auto& item : m_items)
+            menu->appendItem(item);
     }
     
-    virtual void contextMenuItemSelected(ContextMenuItem* item) override
+    void contextMenuItemSelected(ContextMenuAction action, const String&) override
     {
         if (m_frontendHost) {
-            UserGestureIndicator gestureIndicator(DefinitelyProcessingUserGesture);
-            int itemNumber = item->action() - ContextMenuItemBaseCustomTag;
+            UserGestureIndicator gestureIndicator(ProcessingUserGesture);
+            int itemNumber = action - ContextMenuItemBaseCustomTag;
 
             Deprecated::ScriptFunctionCall function(m_frontendApiObject, "contextMenuItemSelected", WebCore::functionCallHandlerFromAnyThread);
             function.appendArgument(itemNumber);
@@ -103,7 +103,7 @@ private:
         }
     }
     
-    virtual void contextMenuCleared() override
+    void contextMenuCleared() override
     {
         if (m_frontendHost) {
             Deprecated::ScriptFunctionCall function(m_frontendApiObject, "contextMenuCleared", WebCore::functionCallHandlerFromAnyThread);
@@ -208,12 +208,6 @@ void InspectorFrontendHost::setAttachedWindowWidth(unsigned width)
         m_client->changeAttachedWindowWidth(width);
 }
 
-void InspectorFrontendHost::setToolbarHeight(unsigned height)
-{
-    if (m_client)
-        m_client->setToolbarHeight(height);
-}
-
 void InspectorFrontendHost::startWindowDrag()
 {
     if (m_client)
@@ -228,12 +222,47 @@ void InspectorFrontendHost::moveWindowBy(float x, float y) const
 
 String InspectorFrontendHost::localizedStringsURL()
 {
-    return m_client ? m_client->localizedStringsURL() : "";
+    return m_client ? m_client->localizedStringsURL() : emptyString();
 }
 
 String InspectorFrontendHost::debuggableType()
 {
     return ASCIILiteral("web");
+}
+
+unsigned InspectorFrontendHost::inspectionLevel()
+{
+    return m_client ? m_client->inspectionLevel() : 1;
+}
+
+String InspectorFrontendHost::platform()
+{
+#if PLATFORM(MAC) || PLATFORM(IOS)
+    return ASCIILiteral("mac");
+#elif OS(WINDOWS)
+    return ASCIILiteral("windows");
+#elif OS(LINUX)
+    return ASCIILiteral("linux");
+#elif OS(FREEBSD)
+    return ASCIILiteral("freebsd");
+#elif OS(OPENBSD)
+    return ASCIILiteral("openbsd");
+#elif OS(SOLARIS)
+    return ASCIILiteral("solaris");
+#else
+    return ASCIILiteral("unknown");
+#endif
+}
+
+String InspectorFrontendHost::port()
+{
+#if PLATFORM(GTK)
+    return ASCIILiteral("gtk");
+#elif PLATFORM(EFL)
+    return ASCIILiteral("efl");
+#else
+    return ASCIILiteral("unknown");
+#endif
 }
 
 void InspectorFrontendHost::copyText(const String& text)
@@ -288,22 +317,24 @@ void InspectorFrontendHost::sendMessageToBackend(const String& message)
 }
 
 #if ENABLE(CONTEXT_MENUS)
+
 void InspectorFrontendHost::showContextMenu(Event* event, const Vector<ContextMenuItem>& items)
 {
     if (!event)
         return;
 
     ASSERT(m_frontendPage);
-    JSC::ExecState* frontendExecState = execStateFromPage(debuggerWorld(), m_frontendPage);
-    Deprecated::ScriptObject frontendApiObject;
-    if (!ScriptGlobalObject::get(frontendExecState, "InspectorFrontendAPI", frontendApiObject)) {
+    auto& state = *execStateFromPage(debuggerWorld(), m_frontendPage);
+    JSC::JSObject* frontendApiObject;
+    if (!ScriptGlobalObject::get(state, "InspectorFrontendAPI", frontendApiObject)) {
         ASSERT_NOT_REACHED();
         return;
     }
-    RefPtr<FrontendMenuProvider> menuProvider = FrontendMenuProvider::create(this, frontendApiObject, items);
-    m_frontendPage->contextMenuController().showContextMenu(event, menuProvider);
-    m_menuProvider = menuProvider.get();
+    auto menuProvider = FrontendMenuProvider::create(this, { &state, frontendApiObject }, items);
+    m_frontendPage->contextMenuController().showContextMenu(event, menuProvider.ptr());
+    m_menuProvider = menuProvider.ptr();
 }
+
 #endif
 
 void InspectorFrontendHost::dispatchEventAsContextMenuEvent(Event* event)
@@ -330,22 +361,12 @@ bool InspectorFrontendHost::isUnderTest()
 void InspectorFrontendHost::unbufferedLog(const String& message)
 {
     // This is used only for debugging inspector tests.
-    WTFLogAlways("InspectorTest: %s", message.utf8().data());
+    WTFLogAlways("%s", message.utf8().data());
 }
 
 void InspectorFrontendHost::beep()
 {
     systemBeep();
-}
-
-bool InspectorFrontendHost::canSaveAs()
-{
-    return false;
-}
-
-bool InspectorFrontendHost::canInspectWorkers()
-{
-    return false;
 }
 
 } // namespace WebCore

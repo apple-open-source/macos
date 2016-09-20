@@ -57,9 +57,9 @@ class SVGPathElement final : public SVGGraphicsElement,
 public:
     static Ref<SVGPathElement> create(const QualifiedName&, Document&);
     
-    float getTotalLength();
-    SVGPoint getPointAtLength(float distance);
-    unsigned getPathSegAtLength(float distance);
+    float getTotalLength() const;
+    SVGPoint getPointAtLength(float distance) const;
+    unsigned getPathSegAtLength(float distance) const;
 
     Ref<SVGPathSegClosePath> createSVGPathSegClosePath(SVGPathSegRole = PathSegUndefinedRole);
     Ref<SVGPathSegMovetoAbs> createSVGPathSegMovetoAbs(float x, float y, SVGPathSegRole = PathSegUndefinedRole);
@@ -82,30 +82,36 @@ public:
     Ref<SVGPathSegCurvetoQuadraticSmoothRel> createSVGPathSegCurvetoQuadraticSmoothRel(float x, float y, SVGPathSegRole = PathSegUndefinedRole);
 
     // Used in the bindings only.
-    SVGPathSegListPropertyTearOff* pathSegList();
-    SVGPathSegListPropertyTearOff* animatedPathSegList();
-    SVGPathSegListPropertyTearOff* normalizedPathSegList();
-    SVGPathSegListPropertyTearOff* animatedNormalizedPathSegList();
+    RefPtr<SVGPathSegListPropertyTearOff> pathSegList();
+    RefPtr<SVGPathSegListPropertyTearOff> animatedPathSegList();
+    RefPtr<SVGPathSegListPropertyTearOff> normalizedPathSegList();
+    RefPtr<SVGPathSegListPropertyTearOff> animatedNormalizedPathSegList();
 
-    SVGPathByteStream* pathByteStream() const;
+    const SVGPathByteStream& pathByteStream() const;
 
     void pathSegListChanged(SVGPathSegRole, ListModification = ListModificationUnknown);
 
-    virtual FloatRect getBBox(StyleUpdateStrategy = AllowStyleUpdate) override;
+    FloatRect getBBox(StyleUpdateStrategy = AllowStyleUpdate) override;
 
     static const SVGPropertyInfo* dPropertyInfo();
 
     bool isAnimValObserved() const { return m_isAnimValObserved; }
 
+    WeakPtr<SVGPathElement> createWeakPtr() const { return m_weakPtrFactory.createWeakPtr(); }
+
+    void animatedPropertyWillBeDeleted();
+
+    size_t approximateMemoryCost() const override;
+
 private:
     SVGPathElement(const QualifiedName&, Document&);
 
-    virtual bool isValid() const override { return SVGTests::isValid(); }
+    bool isValid() const override { return SVGTests::isValid(); }
 
     static bool isSupportedAttribute(const QualifiedName&);
-    virtual void parseAttribute(const QualifiedName&, const AtomicString&) override;
-    virtual void svgAttributeChanged(const QualifiedName&) override;
-    virtual bool supportsMarkers() const override { return true; }
+    void parseAttribute(const QualifiedName&, const AtomicString&) override;
+    void svgAttributeChanged(const QualifiedName&) override;
+    bool supportsMarkers() const override { return true; }
 
     // Custom 'd' property
     static void synchronizeD(SVGElement* contextElement);
@@ -116,16 +122,17 @@ private:
         DECLARE_ANIMATED_BOOLEAN_OVERRIDE(ExternalResourcesRequired, externalResourcesRequired)
     END_DECLARE_ANIMATED_PROPERTIES
 
-    virtual RenderPtr<RenderElement> createElementRenderer(Ref<RenderStyle>&&, const RenderTreePosition&) override;
+    RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) override;
 
-    virtual Node::InsertionNotificationRequest insertedInto(ContainerNode&) override;
-    virtual void removedFrom(ContainerNode&) override;
+    Node::InsertionNotificationRequest insertedInto(ContainerNode&) override;
+    void removedFrom(ContainerNode&) override;
 
     void invalidateMPathDependencies();
 
 private:
-    std::unique_ptr<SVGPathByteStream> m_pathByteStream;
+    SVGPathByteStream m_pathByteStream;
     mutable SVGSynchronizableAnimatedProperty<SVGPathSegList> m_pathSegList;
+    WeakPtrFactory<SVGPathElement> m_weakPtrFactory;
     bool m_isAnimValObserved;
 };
 

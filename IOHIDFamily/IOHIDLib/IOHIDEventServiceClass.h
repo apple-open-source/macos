@@ -29,6 +29,18 @@
 #include <IOKit/IODataQueueClient.h>
 #include "IOHIDIUnknown.h"
 
+enum {
+  kPropertyInfoCache        = 0x1,
+  kPropertyInfoMutable      = 0x2,
+  kPropertyInfoProviderOnly = 0x4,
+  kPropertyNotification     = 0x8
+};
+
+typedef struct  {
+  CFStringRef   key;
+  uint32_t      flags;
+} PROPERTY_INFO;
+
 class IOHIDEventServiceClass : public IOHIDIUnknown
 {
 private:
@@ -63,7 +75,6 @@ protected:
     vm_size_t                           _queueMappedMemorySize;
         
     dispatch_queue_t                    _dispatchQueue;
-    
 
     static inline IOHIDEventServiceClass *getThis(void *self) { return (IOHIDEventServiceClass *)((InterfaceMap *) self)->obj; };
 
@@ -89,6 +100,8 @@ protected:
     void                    dispatchHIDEvent(IOHIDEventRef event, IOOptionBits options=0);
 
     CFDictionaryRef         createFixedProperties(CFDictionaryRef floatProperties);
+    PROPERTY_INFO*          getPropertyInfo(CFStringRef key);
+
 public:
     // IOCFPlugin stuff
     static IOCFPlugInInterface **alloc();

@@ -339,6 +339,7 @@ ctxtlex(void)
 	incmdpos = 1;
 	break;
     case STRING:
+    case TYPESET:
  /* case ENVSTRING: */
     case ENVARRAY:
     case OUTPAR:
@@ -782,6 +783,15 @@ gettok(void)
 		     */
 		    tokstr = NULL;
 		    return INPAR;
+		    
+		case CMD_OR_MATH_ERR:
+		    /*
+		     * LEXFLAGS_ACTIVE means we came from bufferwords(),
+		     * so we treat as an incomplete math expression
+		     */
+		    if (lexflags & LEXFLAGS_ACTIVE)
+			tokstr = dyncat("((", tokstr ? tokstr : "");
+		    /* fall through */
 
 		default:
 		    return LEXERR;
@@ -1182,7 +1192,7 @@ gettokstr(int c, int sub)
 			c = Outpar;
 		    }
 		} else if (peek != ENVSTRING &&
-			   incmdpos && !bct && !brct) {
+			   (incmdpos || intypeset) && !bct && !brct) {
 		    char *t = tokstr;
 		    if (idigit(*t))
 			while (++t < lexbuf.ptr && idigit(*t));
@@ -1200,7 +1210,7 @@ gettokstr(int c, int sub)
 			t++;
 		    if (t == lexbuf.ptr) {
 			e = hgetc();
-			if (e == '(' && incmdpos) {
+			if (e == '(') {
 			    *lexbuf.ptr = '\0';
 			    return ENVARRAY;
 			}
@@ -1387,7 +1397,7 @@ dquote_parse(char endchar, int sub)
 {
     int pct = 0, brct = 0, bct = 0, intick = 0, err = 0;
     int c;
-    int math = endchar == ')' || endchar == ']';
+    int math = endchar == ')' || endchar == ']' || infor;
     int zlemath = math && zlemetacs > zlemetall + addedx - inbufct;
 
     while (((c = hgetc()) != endchar || bct ||
@@ -1607,7 +1617,7 @@ parsestrnoerr(char **s)
 mod_export char *
 parse_subscript(char *s, int sub, int endchar)
 {
-    int l = strlen(s), err;
+    int l = strlen(s), err, toklen;
     char *t;
 
     if (!*s || *s == endchar)
@@ -1616,18 +1626,34 @@ parse_subscript(char *s, int sub, int endchar)
     untokenize(t = dupstring(s));
     inpush(t, 0, NULL);
     strinbeg(0);
+    /*
+     * Warning to Future Generations:
+     *
+     * This way of passing the subscript through the lexer is brittle.
+     * Code above this for several layers assumes that when we tokenise
+     * the input it goes into the same place as the original string.
+     * However, the lexer may overwrite later bits of the string or
+     * reallocate it, in particular when expanding aliaes.  To get
+     * around this, we copy the string and then copy it back.  This is a
+     * bit more robust but still relies on the underlying assumption of
+     * length preservation.
+     */
     lexbuf.len = 0;
-    lexbuf.ptr = tokstr = s;
+    lexbuf.ptr = tokstr = dupstring(s);
     lexbuf.siz = l + 1;
     err = dquote_parse(endchar, sub);
+    toklen = (int)(lexbuf.ptr - tokstr);
+    DPUTS(toklen > l, "Bad length for parsed subscript");
+    memcpy(s, tokstr, toklen);
     if (err) {
-	err = *lexbuf.ptr;
-	*lexbuf.ptr = '\0';
+	char *strend = s + toklen;
+	err = *strend;
+	*strend = '\0';
 	untokenize(s);
-	*lexbuf.ptr = err;
+	*strend = err;
 	s = NULL;
     } else {
-	s = lexbuf.ptr;
+	s += toklen;
     }
     strinend();
     inpop();
@@ -1994,8 +2020,12 @@ skipcomm(void)
 #else
     char *new_tokstr;
     int new_lexstop, new_lex_add_raw;
+    int save_infor = infor;
     struct lexbufstate new_lexbuf;
+    int noalias = noaliases;
 
+    noaliases = 1;
+    infor = 0;
     cmdpush(CS_CMDSUBST);
     SETPARBEGIN
     add(Inpar);
@@ -2020,6 +2050,18 @@ skipcomm(void)
 	new_tokstr = tokstr;
 	new_lexbuf = lexbuf;
 
+	/*
+	 * If we're expanding an alias at this point, we need the whole
+	 * remaining text as part of the string for the command in
+	 * parentheses, so don't backtrack.  This is different from the
+	 * usual case where the alias is fully within the command, where
+	 * we want the unexpanded text so that it will be expanded
+	 * again when the command in the parentheses is executed.
+	 *
+	 * I never wanted to be a software engineer, you know.
+	 */
+	if (inbufflags & INP_ALIAS)
+	    inbufflags |= INP_RAW_KEEP;
 	zcontext_save_partial(ZCONTEXT_LEX|ZCONTEXT_PARSE);
 	hist_in_word(1);
     } else {
@@ -2052,6 +2094,7 @@ skipcomm(void)
      * the recursive parsing.
      */
     lexflags &= ~LEXFLAGS_ZLE;
+    dbparens = 0;	/* restored by zcontext_restore_partial() */
 
     if (!parse_event(OUTPAR) || tok != OUTPAR)
 	lexstop = 1;
@@ -2098,6 +2141,8 @@ skipcomm(void)
     if (!lexstop)
 	SETPAREND
     cmdpop();
+    infor = save_infor;
+    noaliases = noalias;
 
     return lexstop;
 #endif

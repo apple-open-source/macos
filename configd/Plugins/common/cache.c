@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2004, 2006, 2011, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2003, 2004, 2006, 2011, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -29,9 +29,14 @@
  */
 
 
+#ifdef	SC_LOG_HANDLE
+#include <os/log.h>
+os_log_t	SC_LOG_HANDLE;
+#endif	//SC_LOG_HANDLE
+
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCPrivate.h>	// for SCLog()
+#include <SystemConfiguration/SCPrivate.h>
 
 #include "cache.h"
 
@@ -157,9 +162,9 @@ cache_write(SCDynamicStoreRef store)
 	    (CFArrayGetCount(cached_removals) > 0) ||
 	    (CFArrayGetCount(cached_notifys)  > 0)) {
 		if (!SCDynamicStoreSetMultiple(store,
-				 cached_set,
-				 cached_removals,
-				 cached_notifys)) {
+					       cached_set,
+					       cached_removals,
+					       cached_notifys)) {
 			SC_log(LOG_NOTICE, "SCDynamicStoreSetMultiple() failed: %s",
 			       SCErrorString(SCError()));
 		}

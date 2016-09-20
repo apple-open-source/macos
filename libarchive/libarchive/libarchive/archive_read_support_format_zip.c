@@ -380,6 +380,7 @@ zip_read_file_header(struct archive_read *a, struct archive_entry *entry,
 {
 	const struct zip_file_header *p;
 	const void *h;
+	size_t len;
 
 	if ((p = __archive_read_ahead(a, sizeof *p, NULL)) == NULL) {
 		archive_set_error(&a->archive, ARCHIVE_ERRNO_FILE_FORMAT,
@@ -423,7 +424,8 @@ zip_read_file_header(struct archive_read *a, struct archive_entry *entry,
 	__archive_read_consume(a, zip->filename_length);
 	archive_entry_set_pathname(entry, zip->pathname.s);
 
-	if (zip->pathname.s[archive_strlen(&zip->pathname) - 1] == '/')
+	len = archive_strlen(&zip->pathname);
+	if (len > 0 && zip->pathname.s[len - 1] == '/')
 		zip->mode = AE_IFDIR | 0777;
 	else
 		zip->mode = AE_IFREG | 0777;

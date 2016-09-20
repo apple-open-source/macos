@@ -1,4 +1,4 @@
-/* 
+/*
  *  at.c : Put file into atrun queue
  *  Copyright (C) 1993, 1994 Thomas Koenig
  *
@@ -77,7 +77,7 @@ __FBSDID("$FreeBSD: /usr/local/www/cvsroot/FreeBSD/src/usr.bin/at/at.c,v 1.34 20
 
 /* Macros */
 
-#ifndef ATJOB_DIR 
+#ifndef ATJOB_DIR
 #define ATJOB_DIR _PATH_ATJOBS
 #endif
 
@@ -129,9 +129,10 @@ static long *get_job_list(int, char *[], int *);
 
 /* Signal catching functions */
 
-static void sigc(int signo __unused)
+static void
+sigc(int signo __unused)
 {
-/* If the user presses ^C, remove the spool file and exit 
+/* If the user presses ^C, remove the spool file and exit
  */
     if (fcreated)
     {
@@ -143,7 +144,8 @@ static void sigc(int signo __unused)
     _exit(EXIT_FAILURE);
 }
 
-static void alarmc(int signo __unused)
+static void
+alarmc(int signo __unused)
 {
     char buf[1024];
 
@@ -156,7 +158,8 @@ static void alarmc(int signo __unused)
 
 /* Local functions */
 
-static char *cwdname(void)
+static char *
+cwdname(void)
 {
 /* Read in the current directory; the name will be overwritten on
  * subsequent calls.
@@ -175,10 +178,10 @@ static char *cwdname(void)
 
 	if (getcwd(ptr, size-1) != NULL)
 	    return ptr;
-	
+
 	if (errno != ERANGE)
 	    perr("cannot get directory");
-	
+
 	free (ptr);
 	size += SIZE;
 	if ((ptr = malloc(size)) == NULL)
@@ -228,7 +231,7 @@ writefile(time_t runtimer, char queue)
     mode_t cmask;
     struct flock lock;
     char * oldpwd_str = NULL;
-    
+
 #ifdef __FreeBSD__
     (void) setlocale(LC_TIME, "");
 #endif
@@ -273,7 +276,7 @@ writefile(time_t runtimer, char queue)
     if ((jobno = nextjob()) == EOF)
 	perr("cannot generate job number");
 
-    sprintf(ppos, "%c%5lx%8lx", queue, 
+    sprintf(ppos, "%c%5lx%8lx", queue,
 	    jobno, (unsigned long) (runtimer/60));
 
     for(ap=ppos; *ap != '\0'; ap ++)
@@ -291,7 +294,7 @@ writefile(time_t runtimer, char queue)
      */
     cmask = umask(S_IRUSR | S_IWUSR | S_IXUSR);
     if ((fdes = creat(atfile, O_WRONLY)) == -1)
-	perr("cannot create atjob file"); 
+	perr("cannot create atjob file");
 
     if ((fd2 = dup(fdes)) <0)
 	perr("error in dup() of job file");
@@ -307,7 +310,7 @@ writefile(time_t runtimer, char queue)
 
     REDUCE_PRIV(DAEMON_UID, DAEMON_GID)
 
-    /* We've successfully created the file; let's set the flag so it 
+    /* We've successfully created the file; let's set the flag so it
      * gets removed in case of an interrupt or error.
      */
     fcreated = 1;
@@ -329,7 +332,7 @@ writefile(time_t runtimer, char queue)
     if (mailname == NULL)
 	mailname = getenv("LOGNAME");
 
-    if ((mailname == NULL) || (mailname[0] == '\0') 
+    if ((mailname == NULL) || (mailname[0] == '\0')
 	|| (strlen(mailname) >= MAXLOGNAME) || (getpwnam(mailname)==NULL))
     {
 	pass_entry = getpwuid(real_uid);
@@ -377,7 +380,7 @@ writefile(time_t runtimer, char queue)
 		for (i=0; i<sizeof(no_export)/sizeof(no_export[0]); i++)
 		{
 		    export = export
-			&& (strncmp(*atenv, no_export[i], 
+			&& (strncmp(*atenv, no_export[i],
 				(size_t) (eqp-*atenv)) != 0);
 		}
 	    }
@@ -411,9 +414,9 @@ writefile(time_t runtimer, char queue)
 	    fputs("; export ", fp);
 	    fwrite(*atenv, sizeof(char), eqp-*atenv -1, fp);
 	    fputc('\n', fp);
-	    
+
 	}
-    }	
+    }
     /* Cd to the directory at the time and write out all the
      * commands the user supplies from stdin.
      */
@@ -426,7 +429,7 @@ writefile(time_t runtimer, char queue)
 	{
 	    if (*ap != '/' && !isalnum(*ap))
 		fputc('\\', fp);
-	    
+
 	    fputc(*ap, fp);
 	}
     }
@@ -451,7 +454,7 @@ writefile(time_t runtimer, char queue)
     fprintf(fp, "\n");
     if (ferror(fp))
 	panic("output error");
-	
+
     if (ferror(stdin))
 	panic("input error");
 
@@ -474,7 +477,7 @@ writefile(time_t runtimer, char queue)
 	fprintf(stderr, "Job %ld will be executed using /bin/sh\n", jobno);
 }
 
-static int 
+static int
 in_job_list(long job, long *joblist, int len)
 {
     int i;
@@ -499,7 +502,7 @@ list_one_job(char *name, long *joblist, int len, int *first)
 
     if (stat(name, &buf) != 0)
 	perr("cannot stat in " ATJOB_DIR);
-	
+
     /* See it's a regular file and has its x bit turned on and
      * is the user's
      */
@@ -531,11 +534,11 @@ list_one_job(char *name, long *joblist, int len, int *first)
     else {
 	struct passwd *pw = getpwuid(buf.st_uid);
 
-	printf("%s\t%s\t%c%s\t%s\n", 
-	       timestr, 
-	       pw ? pw->pw_name : "???", 
-	       queue, 
-	       (S_IXUSR & buf.st_mode) ? "":"(done)", 
+	printf("%s\t%s\t%c%s\t%s\n",
+	       timestr,
+	       pw ? pw->pw_name : "???",
+	       queue,
+	       (S_IXUSR & buf.st_mode) ? "":"(done)",
 	       name);
     }
 }
@@ -543,13 +546,13 @@ list_one_job(char *name, long *joblist, int len, int *first)
 static void
 list_jobs(long *joblist, int len)
 {
-    /* List all a user's jobs in the queue, by looping through ATJOB_DIR, 
+    /* List all a user's jobs in the queue, by looping through ATJOB_DIR,
      * or everybody's if we are root
      */
     DIR *spool;
     struct dirent *dirent;
     int first=1;
-    
+
 #ifdef __FreeBSD__
     (void) setlocale(LC_TIME, "");
 #endif
@@ -579,7 +582,7 @@ list_jobs(long *joblist, int len)
 	if ((spool = opendir(".")) == NULL)
 	    perr("cannot open " ATJOB_DIR);
 
-	/*	Loop over every file in the directory 
+	/*	Loop over every file in the directory
 	 */
 	while((dirent = readdir(spool)) != NULL) {
 	   list_one_job(dirent->d_name, joblist, len, &first);
@@ -612,7 +615,7 @@ process_jobs(int argc, char **argv, int what)
 
     PRIV_END
 
-    /*	Loop over every file in the directory 
+    /*	Loop over every file in the directory
      */
     while((dirent = readdir(spool)) != NULL) {
 
@@ -686,10 +689,10 @@ ttime(const char *arg)
     struct tm *t;
     int yearset;
     char *p;
-    
+
     if (gettimeofday(&tv[0], NULL))
 	panic("Cannot get current time");
-    
+
     /* Start with the current time. */
     now = tv[0].tv_sec;
     if ((t = localtime(&now)) == NULL)
@@ -703,7 +706,7 @@ ttime(const char *arg)
 	*p++ = '\0';
 	t->tm_sec = ATOI2(p);
     }
-    
+
     yearset = 0;
     switch(strlen(arg)) {
     case 12:			/* CCYYMMDDhhmm */
@@ -731,7 +734,7 @@ ttime(const char *arg)
     default:
 	goto terr;
     }
-    
+
     t->tm_isdst = -1;		/* Figure out DST. */
     tv[0].tv_sec = tv[1].tv_sec = mktime(t);
     if (tv[0].tv_sec != -1)
@@ -787,7 +790,7 @@ main(int argc, char **argv)
     timer = -1;
     RELINQUISH_PRIVS
 
-    if (argv[0] == NULL) 
+    if (argv[0] == NULL)
 	usage();
     /* Eat any leading paths
      */
@@ -829,7 +832,7 @@ main(int argc, char **argv)
 	case 'f':
 	    atinput = optarg;
 	    break;
-	    
+
 	case 'q':    /* specify queue */
 	    if (strlen(optarg) > 1)
 		usage();
@@ -916,9 +919,9 @@ main(int argc, char **argv)
     case AT:
 	/*
 	 * If timer is > -1, then the user gave the time with -t.  In that
-	 * case, it's already been set. If not, set it now.  
+	 * case, it's already been set. If not, set it now.
 	 */
-	if (timer == -1) 
+	if (timer == -1)
 	    timer = parsetime(argc, argv);
 
 	if (atverify)
@@ -939,7 +942,7 @@ main(int argc, char **argv)
 	    timer = parsetime(argc, argv);
 	else
 	    timer = time(NULL);
-	
+
 	if (atverify)
 	{
 	    struct tm *tm = localtime(&timer);

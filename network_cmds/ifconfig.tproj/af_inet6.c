@@ -83,7 +83,7 @@
 
 #define ND6BITS "\020\001PERFORMNUD\002ACCEPT_RTADV\003PREFER_SOURCE" \
 	"\004IFDISABLED\005DONT_SET_IFROUTE\006PROXY_PREFIXES" \
-	"\007IGNORE_NA\010INSECURE"
+	"\007IGNORE_NA\010INSECURE\011REPLICATED\012DAD"
 
 static	struct in6_ifreq in6_ridreq;
 static	struct in6_aliasreq in6_addreq = 
@@ -607,8 +607,8 @@ static struct cmd inet6_cmds[] = {
 	DEF_CMD("-nud",		-ND6_IFF_PERFORMNUD,	setnd6flags),
 	DEF_CMD("ifdisabled",   ND6_IFF_IFDISABLED,	setnd6flags),
 	DEF_CMD("-ifdisabled",  -ND6_IFF_IFDISABLED,	setnd6flags),
-	DEF_CMD("ignore_na",	ND6_IFF_IGNORE_NA,	setnd6flags),
-	DEF_CMD("-ignore_na",	-ND6_IFF_IGNORE_NA,	setnd6flags),
+	DEF_CMD("replicated",	ND6_IFF_REPLICATED,	setnd6flags),
+	DEF_CMD("-replicated",	-ND6_IFF_REPLICATED,	setnd6flags),
 	DEF_CMD("proxy_prefixes", ND6_IFF_PROXY_PREFIXES,	setnd6flags),
 	DEF_CMD("-proxy_prefixes", -ND6_IFF_PROXY_PREFIXES,	setnd6flags),
 	DEF_CMD("insecure",	ND6_IFF_INSECURE,	setnd6flags),
@@ -618,6 +618,8 @@ static struct cmd inet6_cmds[] = {
 	DEF_CMD("eui64",	0,			setip6eui64),
 	DEF_CMD("secured",	IN6_IFF_SECURED,	setip6flags),
 	DEF_CMD("-secured",	-IN6_IFF_SECURED,	setip6flags),
+	DEF_CMD("dad",		ND6_IFF_DAD,		setnd6flags),
+	DEF_CMD("-dad",		-ND6_IFF_DAD,		setnd6flags),
 };
 
 static struct afswtch af_inet6 = {

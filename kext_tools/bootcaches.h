@@ -126,7 +126,7 @@ struct bootCaches {
     cachedPath ofbooter;        // (we have to bless them, etc)
 
     // pointers to special watched paths (stored in arrays above)
-    cachedPath *kext_boot_cache_file;     // -> kernelcache
+    cachedPath *kext_boot_cache_file;     // -> prelinkedkernel
     cachedPath *bootconfig;     // -> .../L/Prefs/SC/com.apple.Boot.plist
     cachedPath *efidefrsrcs;    // -> usr/standalone/i386/EfiLoginUI
     cachedPath *efiloccache;    // -> ...Caches/../EFILoginLocalizations
@@ -138,7 +138,7 @@ struct bootCaches {
                                 // This will be 0 for volumes that do not support
                                 // /System/Library/Kernels/.
     int nekcp;                          // number of extraKernelCachePaths
-    cachedPath *extraKernelCachePaths;  // kernelcache files with suffix, may be NULL
+    cachedPath *extraKernelCachePaths;  // prelinkedkernel files with suffix, may be NULL
 #endif
 };
 /* use sizeof() to get it the right bounds */

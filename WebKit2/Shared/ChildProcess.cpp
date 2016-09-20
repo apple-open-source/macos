@@ -29,6 +29,8 @@
 #include "SandboxInitializationParameters.h"
 #include <unistd.h>
 
+#define CHILDPROCESS_LOG_ALWAYS_ERROR(...) LOG_ALWAYS_ERROR(true, __VA_ARGS__)
+
 namespace WebKit {
 
 ChildProcess::ChildProcess()
@@ -53,6 +55,7 @@ static void didCloseOnConnectionWorkQueue(IPC::Connection*)
         // We use _exit here since the watchdog callback is called from another thread and we don't want
         // global destructors or atexit handlers to be called from this thread while the main thread is busy
         // doing its thing.
+        CHILDPROCESS_LOG_ALWAYS_ERROR("Exiting process early due to unacknowledged closed-connection");
         _exit(EXIT_FAILURE);
     });
 }
@@ -60,6 +63,10 @@ static void didCloseOnConnectionWorkQueue(IPC::Connection*)
 void ChildProcess::initialize(const ChildProcessInitializationParameters& parameters)
 {
     platformInitialize();
+
+#if PLATFORM(COCOA)
+    m_priorityBoostMessage = parameters.priorityBoostMessage;
+#endif
 
     initializeProcess(parameters);
     initializeProcessName(parameters);
@@ -113,6 +120,11 @@ void ChildProcess::removeMessageReceiver(IPC::StringReference messageReceiverNam
     m_messageReceiverMap.removeMessageReceiver(messageReceiverName);
 }
 
+void ChildProcess::removeMessageReceiver(IPC::MessageReceiver& messageReceiver)
+{
+    m_messageReceiverMap.removeMessageReceiver(messageReceiver);
+}
+
 void ChildProcess::disableTermination()
 {
     m_terminationCounter++;
@@ -155,8 +167,15 @@ void ChildProcess::terminationTimerFired()
 
 void ChildProcess::stopRunLoop()
 {
+    platformStopRunLoop();
+}
+
+#if !PLATFORM(IOS)
+void ChildProcess::platformStopRunLoop()
+{
     RunLoop::main().stop();
 }
+#endif
 
 void ChildProcess::terminate()
 {

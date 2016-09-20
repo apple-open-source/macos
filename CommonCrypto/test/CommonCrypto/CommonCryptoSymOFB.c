@@ -32,7 +32,7 @@ entryPoint(CommonCryptoSymOFB,"CommonCrypto Symmetric OFB Testing")
 #else
 static int kTestTestCount = 5;
 
-int CommonCryptoSymOFB(int argc, char *const *argv)
+int CommonCryptoSymOFB(int __unused argc, char *const * __unused argv)
 {
 	char *keyStr;
 	char *iv;

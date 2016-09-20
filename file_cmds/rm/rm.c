@@ -530,10 +530,24 @@ checkdot(argv)
 
 	complained = 0;
 	for (t = argv; *t;) {
-		if ((p = strrchr(*t, '/')) != NULL)
-			++p;
-		else
+		size_t len = strlen(*t);
+		char truncated[len];
+
+		if ((p = strrchr(*t, '/')) != NULL) {
+			if (p[1] == '\0') { // trailing / -- treat as if not present
+				strlcpy(truncated, *t, len);
+				p = strrchr(truncated, '/');
+				if (p) {
+					++p;
+				} else {
+					p = truncated;
+				}
+			} else {
+				++p;
+			}
+		} else {
 			p = *t;
+		}
 		if (ISDOT(p)) {
 			if (!complained++)
 				warnx("\".\" and \"..\" may not be removed");

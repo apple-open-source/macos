@@ -147,7 +147,7 @@ int main(int argc, char * const * argv)
 
    /*****
     * Read the kexts we'll be working with; first the set of all kexts, then
-    * the repository and named kexts for use with mkext-creation flags.
+    * the repository and named kexts for use with prelink kernel creation flags.
     */
     if (toolArgs.printTestResults) {
         OSKextSetRecordsDiagnostics(kOSKextDiagnosticsFlagAll);
@@ -1117,6 +1117,10 @@ ExitStatus createPrelinkedKernelForArch(
                 "Error - failed to read kernel file.");
         goto finish;
     }
+
+    /* Set suffix for kext executables from kernel path
+     */
+    OSKextSetExecutableSuffix(NULL, toolArgs->kernelPath);
     
     /* Set the architecture in the OSKext library */
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2012, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,9 +28,11 @@
 
 #if ENABLE(ASYNC_SCROLLING)
 
-#include <condition_variable>
 #include <functional>
+#include <wtf/Condition.h>
 #include <wtf/Forward.h>
+#include <wtf/Function.h>
+#include <wtf/Lock.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/Threading.h>
 #include <wtf/Vector.h>
@@ -46,11 +48,11 @@ class ScrollingThread {
 
 public:
     static bool isCurrentThread();
-    WEBCORE_EXPORT static void dispatch(std::function<void ()>);
+    WEBCORE_EXPORT static void dispatch(Function<void ()>&&);
 
     // Will dispatch the given function on the main thread once all pending functions
     // on the scrolling thread have finished executing. Used for synchronization purposes.
-    WEBCORE_EXPORT static void dispatchBarrier(std::function<void ()>);
+    WEBCORE_EXPORT static void dispatchBarrier(Function<void ()>&&);
 
 private:
     friend NeverDestroyed<ScrollingThread>;
@@ -74,11 +76,11 @@ private:
 
     ThreadIdentifier m_threadIdentifier;
 
-    std::condition_variable m_initializeRunLoopConditionVariable;
-    std::mutex m_initializeRunLoopMutex;
+    Condition m_initializeRunLoopConditionVariable;
+    Lock m_initializeRunLoopMutex;
 
-    std::mutex m_functionsMutex;
-    Vector<std::function<void ()>> m_functions;
+    Lock m_functionsMutex;
+    Vector<Function<void ()>> m_functions;
 
 #if PLATFORM(COCOA)
     // FIXME: We should use WebCore::RunLoop here.

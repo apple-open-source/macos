@@ -43,7 +43,7 @@ typedef char new_char;
 inline new_char char_var = 'c';
 
 typedef unsigned int * pointer;
-inline pointer p = &`max_ncpus;
+inline pointer p = &`real_ncpus;
 
 BEGIN
 {

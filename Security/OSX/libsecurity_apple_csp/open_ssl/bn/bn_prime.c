@@ -157,6 +157,8 @@ BIGNUM *BN_generate_prime(BIGNUM *ret, int bits, int safe, BIGNUM *add,
 	BN_CTX *ctx;
 	int checks = BN_prime_checks_for_size(bits);
 
+    BN_init(&t);
+
 	ctx=BN_CTX_new();
 	if (ctx == NULL) goto err;
 	if (ret == NULL)
@@ -165,8 +167,7 @@ BIGNUM *BN_generate_prime(BIGNUM *ret, int bits, int safe, BIGNUM *add,
 		}
 	else
 		rnd=ret;
-	BN_init(&t);
-loop: 
+loop:
 	/* make a random number and set the top and bottom bits */
 	if (add == NULL)
 		{

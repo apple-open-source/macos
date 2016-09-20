@@ -37,7 +37,8 @@ public:
     CachedScript(const ResourceRequest&, const String& charset, SessionID);
     virtual ~CachedScript();
 
-    const String& script();
+    StringView script();
+    unsigned scriptHash();
 
     String mimeType() const;
 
@@ -46,18 +47,23 @@ public:
 #endif
 
 private:
-    virtual bool mayTryReplaceEncodedData() const override { return true; }
+    bool mayTryReplaceEncodedData() const override { return true; }
 
-    virtual bool shouldIgnoreHTTPStatusCodeErrors() const override;
+    bool shouldIgnoreHTTPStatusCodeErrors() const override;
 
-    virtual void setEncoding(const String&) override;
-    virtual String encoding() const override;
+    void setEncoding(const String&) override;
+    String encoding() const override;
     const TextResourceDecoder* textResourceDecoder() const override { return m_decoder.get(); }
-    virtual void finishLoading(SharedBuffer*) override;
+    void finishLoading(SharedBuffer*) override;
 
-    virtual void destroyDecodedData() override;
+    void destroyDecodedData() override;
 
     String m_script;
+    unsigned m_scriptHash { 0 };
+
+    enum DecodingState { NeverDecoded, DataAndDecodedStringHaveSameBytes, DataAndDecodedStringHaveDifferentBytes };
+    DecodingState m_decodingState { NeverDecoded };
+
     RefPtr<TextResourceDecoder> m_decoder;
 };
 

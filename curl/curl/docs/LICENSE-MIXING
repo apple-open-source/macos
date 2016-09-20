@@ -18,7 +18,7 @@ accompany your license with an exception[2]. This particular problem was
 addressed when the Modified BSD license was created, which does not have the
 announcement clause that collides with GPL.
 
-libcurl http://curl.haxx.se/docs/copyright.html
+libcurl https://curl.haxx.se/docs/copyright.html
 
         Uses an MIT (or Modified BSD)-style license that is as liberal as
         possible.
@@ -73,7 +73,7 @@ libressl http://www.libressl.org/
         (May be used for SSL/TLS support) As an OpenSSL fork, it has the same
         license as that.
 
-c-ares  http://daniel.haxx.se/projects/c-ares/license.html
+c-ares  https://daniel.haxx.se/projects/c-ares/license.html
 
         (Used for asynchronous name resolves) Uses an MIT license that is very
         liberal and imposes no restrictions on any other library or part you
@@ -116,7 +116,7 @@ OpenLDAP http://www.openldap.org/software/release/license.html
         libcurl uses OpenLDAP as a shared library only, I have not heard of
         anyone that ships OpenLDAP linked with libcurl in an app.
 
-libssh2 http://www.libssh2.org/
+libssh2 https://www.libssh2.org/
 
         (Used for scp and sftp support) libssh2 uses a Modified BSD-style
         license.

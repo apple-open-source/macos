@@ -135,3 +135,7 @@
 "system.services.networkextension.filtering" = "Modify Configuration";
 
 "com.apple.iCloud.passwordReset" = "Reset Password";
+
+"system.preferences.continuity" = "Unlock";
+
+"com.apple.ctkbind.admin" = "Pair";

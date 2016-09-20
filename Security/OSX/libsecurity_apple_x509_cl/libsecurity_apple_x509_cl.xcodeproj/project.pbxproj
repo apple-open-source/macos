@@ -49,13 +49,6 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		182BB350146F110B000BF1F3 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 18446107146E84E500B12992 /* libsecurity_cdsa_plugin.xcodeproj */;
-			proxyType = 1;
-			remoteGlobalIDString = C2C38A530535EDE600D7421F;
-			remoteInfo = libsecurity_cdsa_plugin_generate;
-		};
 		1844610C146E84E500B12992 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 18446107146E84E500B12992 /* libsecurity_cdsa_plugin.xcodeproj */;
@@ -86,7 +79,7 @@
 		C284365A053485B1000AE0FC /* AppleX509CL.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleX509CL.cpp; sourceTree = "<group>"; };
 		C284365B053485B1000AE0FC /* AppleX509CL.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleX509CL.h; sourceTree = "<group>"; };
 		C284365C053485B1000AE0FC /* AppleX509CLPlugin.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleX509CLPlugin.cpp; sourceTree = "<group>"; };
-		C284365D053485B1000AE0FC /* AppleX509CLSession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleX509CLSession.cpp; sourceTree = "<group>"; };
+		C284365D053485B1000AE0FC /* AppleX509CLSession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = AppleX509CLSession.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C284365E053485B1000AE0FC /* AppleX509CLSession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleX509CLSession.h; sourceTree = "<group>"; };
 		C284365F053485B1000AE0FC /* CertFields.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CertFields.cpp; sourceTree = "<group>"; };
 		C2843660053485B1000AE0FC /* CLCachedEntry.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CLCachedEntry.cpp; sourceTree = "<group>"; };
@@ -95,7 +88,7 @@
 		C2843663053485B1000AE0FC /* CLCertExtensions.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CLCertExtensions.h; sourceTree = "<group>"; };
 		C2843664053485B1000AE0FC /* CLCrlExtensions.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CLCrlExtensions.cpp; sourceTree = "<group>"; };
 		C2843665053485B1000AE0FC /* CLCrlExtensions.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CLCrlExtensions.h; sourceTree = "<group>"; };
-		C2843666053485B1000AE0FC /* cldebugging.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cldebugging.h; sourceTree = "<group>"; };
+		C2843666053485B1000AE0FC /* cldebugging.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = cldebugging.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
 		C2843667053485B1000AE0FC /* CLFieldsCommon.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CLFieldsCommon.cpp; sourceTree = "<group>"; };
 		C2843668053485B1000AE0FC /* CLFieldsCommon.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CLFieldsCommon.h; sourceTree = "<group>"; };
 		C2843669053485B1000AE0FC /* clNameUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = clNameUtils.cpp; sourceTree = "<group>"; };
@@ -269,7 +262,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				182BB351146F110B000BF1F3 /* PBXTargetDependency */,
 			);
 			name = libsecurity_apple_x509_cl;
 			productInstallPath = /usr/local/lib;
@@ -302,7 +294,7 @@
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0700;
+				LastUpgradeCheck = 0800;
 			};
 			buildConfigurationList = C27AD28D0987FCDC001272E0 /* Build configuration list for PBXProject "libsecurity_apple_x509_cl" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -390,11 +382,6 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		182BB351146F110B000BF1F3 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			name = libsecurity_cdsa_plugin_generate;
-			targetProxy = 182BB350146F110B000BF1F3 /* PBXContainerItemProxy */;
-		};
 		C2AAE44B053B54E2009142E3 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 4CA1FEBD052A3C8100F22E42 /* libsecurity_apple_x509_cl */;
@@ -445,12 +432,21 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18446100146E82B800B12992 /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = lossless;
+				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				ONLY_ACTIVE_ARCH = YES;
 			};
 			name = Debug;
 		};
@@ -458,12 +454,19 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18446100146E82B800B12992 /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = "respect-asset-catalog";
+				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
 			};
 			name = Release;
 		};

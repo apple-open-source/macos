@@ -67,19 +67,26 @@
 #include <security_smime/secoid.h>
 #include <security_smime/cmslocal.h>
 
-CFTypeRef kSecCMSBulkEncryptionAlgorithm = CFSTR("kSecCMSBulkEncryptionAlgorithm");
+
 CFTypeRef kSecCMSSignDigest = CFSTR("kSecCMSSignDigest");
 CFTypeRef kSecCMSSignDetached = CFSTR("kSecCMSSignDetached");
-CFTypeRef kSecCMSSignHashAlgorithm = CFSTR("kSecCMSSignHashAlgorithm");
-CFTypeRef kSecCMSEncryptionAlgorithmDESCBC = CFSTR("kSecCMSEncryptionAlgorithmDESCBC");
-CFTypeRef kSecCMSEncryptionAlgorithmAESCBC = CFSTR("kSecCMSEncryptionAlgorithmAESCBC");
-CFTypeRef kSecCMSHashingAlgorithmMD5 = CFSTR("kSecCMSHashingAlgorithmMD5");
 CFTypeRef kSecCMSCertChainMode = CFSTR("kSecCMSCertChainMode");
 CFTypeRef kSecCMSCertChainModeNone = CFSTR("0");
 CFTypeRef kSecCMSAdditionalCerts = CFSTR("kSecCMSAdditionalCerts");
 CFTypeRef kSecCMSSignedAttributes = CFSTR("kSecCMSSignedAttributes");
 CFTypeRef kSecCMSSignDate = CFSTR("kSecCMSSignDate");
 CFTypeRef kSecCMSAllCerts = CFSTR("kSecCMSAllCerts");
+
+CFTypeRef kSecCMSBulkEncryptionAlgorithm = CFSTR("kSecCMSBulkEncryptionAlgorithm");
+CFTypeRef kSecCMSEncryptionAlgorithmDESCBC = CFSTR("kSecCMSEncryptionAlgorithmDESCBC");
+CFTypeRef kSecCMSEncryptionAlgorithmAESCBC = CFSTR("kSecCMSEncryptionAlgorithmAESCBC");
+
+CFTypeRef kSecCMSSignHashAlgorithm = CFSTR("kSecCMSSignHashAlgorithm");
+CFTypeRef kSecCMSHashingAlgorithmMD5 = CFSTR("kSecCMSHashingAlgorithmMD5");
+CFTypeRef kSecCMSHashingAlgorithmSHA1 = CFSTR("kSecCMSHashingAlgorithmSHA1");
+CFTypeRef kSecCMSHashingAlgorithmSHA256 = CFSTR("kSecCMSHashingAlgorithmSHA256");
+CFTypeRef kSecCMSHashingAlgorithmSHA384 = CFSTR("kSecCMSHashingAlgorithmSHA384");
+CFTypeRef kSecCMSHashingAlgorithmSHA512 = CFSTR("kSecCMSHashingAlgorithmSHA512");
 
 OSStatus SecCMSCreateEnvelopedData(CFTypeRef recipient_or_cfarray_thereof, 
     CFDictionaryRef params, CFDataRef data, CFMutableDataRef enveloped_data)
@@ -344,12 +351,18 @@ OSStatus SecCMSCreateSignedData(SecIdentityRef identity, CFDataRef data,
     
     SECOidTag algorithm = SEC_OID_SHA1;
     if (algorithm_name) {
-        if (CFEqual(kSecCMSHashingAlgorithmMD5, algorithm_name)) {
-            algorithm = SEC_OID_MD5;
+        if (CFEqual(kSecCMSHashingAlgorithmSHA1, algorithm_name)) {
+            algorithm = SEC_OID_SHA1;
+        } else if (CFEqual(kSecCMSHashingAlgorithmSHA256, algorithm_name)) {
+            algorithm = SEC_OID_SHA256;
+        } else if (CFEqual(kSecCMSHashingAlgorithmSHA384, algorithm_name)) {
+            algorithm = SEC_OID_SHA384;
+        } else if (CFEqual(kSecCMSHashingAlgorithmSHA512, algorithm_name)) {
+            algorithm = SEC_OID_SHA512;
         } else {
+            // signing with MD5 is no longer allowed
             algorithm = SEC_OID_UNKNOWN;
         }
-
     }
     
     return SecCMSSignDataOrDigestAndAttributes(identity, data, 

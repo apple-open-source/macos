@@ -38,6 +38,7 @@
 #include <WebCore/MainFrame.h>
 #include <WebCore/Page.h>
 #include <WebCore/Settings.h>
+#include <WebCore/SystemInfo.h>
 #include <WebCore/TemporaryOpenGLSetting.h>
 #include <WebCore/TextureMapperGL.h>
 #include <WebCore/TextureMapperLayer.h>
@@ -80,6 +81,8 @@ void AcceleratedCompositingContext::initialize()
     m_rootLayer = GraphicsLayer::create(nullptr, *this);
     m_rootLayer->setDrawsContent(false);
     m_rootLayer->setSize(pageSize);
+
+    applyDeviceScaleFactor();
 
     // The non-composited contents are a child of the root layer.
     m_nonCompositedContentLayer = GraphicsLayer::create(nullptr, *this);
@@ -149,6 +152,22 @@ bool AcceleratedCompositingContext::startedAnimation(WebCore::GraphicsLayer* lay
     return downcast<GraphicsLayerTextureMapper>(*layer).layer().descendantsOrSelfHaveRunningAnimations();
 }
 
+void AcceleratedCompositingContext::applyDeviceScaleFactor()
+{
+    if (!m_rootLayer)
+        return;
+
+    const FloatSize& size = m_rootLayer->size();
+
+    TransformationMatrix m;
+    m.scale(deviceScaleFactor());
+    // Center view
+    double tx = (size.width() - size.width() / deviceScaleFactor()) / 2.0;
+    double ty = (size.height() - size.height() / deviceScaleFactor()) / 2.0;
+    m.translate(tx, ty);
+    m_rootLayer->setTransform(m);
+}
+
 void AcceleratedCompositingContext::compositeLayersToContext(CompositePurpose purpose)
 {
     if (!prepareForRendering())
@@ -168,7 +187,7 @@ void AcceleratedCompositingContext::compositeLayersToContext(CompositePurpose pu
 
     m_textureMapper->beginPainting();
     downcast<GraphicsLayerTextureMapper>(*m_rootLayer).layer().paint();
-    m_fpsCounter.updateFPSAndDisplay(m_textureMapper.get());
+    m_fpsCounter.updateFPSAndDisplay(*m_textureMapper);
     m_textureMapper->endPainting();
 
     m_context->swapBuffers();
@@ -221,6 +240,8 @@ void AcceleratedCompositingContext::resizeRootLayer(const IntSize& newSize)
 
     m_rootLayer->setSize(newSize);
 
+    applyDeviceScaleFactor();
+
     // If the newSize exposes new areas of the non-composited content a setNeedsDisplay is needed
     // for those newly exposed areas.
     FloatSize oldSize = m_nonCompositedContentLayer->size();
@@ -249,6 +270,10 @@ bool AcceleratedCompositingContext::acceleratedCompositingAvailable()
 {
     const int width = 10;
     const int height = 10;
+
+    // ANGLE requires Win7 or later.
+    if (windowsVersion() < Windows7)
+        return false;
 
     // Create test window to render texture in.
     HWND testWindow = ::CreateWindowEx(WS_EX_NOACTIVATE, defWndProcWindowClassName(), L"AcceleratedCompositingTesterWindow", WS_POPUP | WS_VISIBLE | WS_DISABLED, -width, -height, width, height, 0, 0, 0, 0);
@@ -353,6 +378,7 @@ void AcceleratedCompositingContext::flushAndRenderLayers()
     Frame& frame = core(&m_webView)->mainFrame();
     if (!frame.contentRenderer() || !frame.view())
         return;
+
     frame.view()->updateLayoutAndStyleIfNeededRecursive();
 
     if (!enabled())
@@ -380,8 +406,13 @@ void AcceleratedCompositingContext::paintContents(const GraphicsLayer*, Graphics
 {
     context.save();
     context.clip(rectToPaint);
-    core(&m_webView)->mainFrame().view()->paint(&context, enclosingIntRect(rectToPaint));
+    core(&m_webView)->mainFrame().view()->paint(context, enclosingIntRect(rectToPaint));
     context.restore();
+}
+
+float AcceleratedCompositingContext::deviceScaleFactor() const
+{
+    return m_webView.deviceScaleFactor();
 }
 
 #endif // USE(TEXTURE_MAPPER_GL)

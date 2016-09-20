@@ -1,15 +1,17 @@
 
 /*
- *  Time-stamp:      "2008-11-01 20:08:06 bkorb"
- *
- *  autoopts.h  $Id: d5e30331d37ca10ec88c592d24d8615dd6c1f0ee $
+ *  \file autoopts.h
  *
  *  This file defines all the global structures and special values
  *  used in the automated option processing library.
  *
+ * @group autoopts
+ * @{
+ */
+/*
  *  This file is part of AutoOpts, a companion to AutoGen.
  *  AutoOpts is free software.
- *  AutoOpts is copyright (c) 1992-2009 by Bruce Korb - all rights reserved
+ *  AutoOpts is Copyright (C) 1992-2015 by Bruce Korb - all rights reserved
  *
  *  AutoOpts is available under any one of two licenses.  The license
  *  in use must be one of these two and the choice is under the control
@@ -21,18 +23,16 @@
  *   The Modified Berkeley Software Distribution License
  *      See the file "COPYING.mbsd"
  *
- *  These files have the following md5sums:
+ *  These files have the following sha256 sums:
  *
- *  43b91e8ca915626ed3818ffb1b71248b pkg/libopts/COPYING.gplv3
- *  06a1a2e4760c90ea5e1dad8dfaac4d39 pkg/libopts/COPYING.lgplv3
- *  66a5cedaf62c4b2637025f049f9b826f pkg/libopts/COPYING.mbsd
+ *  8584710e9b04216a394078dc156b781d0b47e1729104d666658aecef8ee32e95  COPYING.gplv3
+ *  4379e7444a0e2ce2b12dd6f5a52a27a4d02d39d247901d3285c88cf0d37f477b  COPYING.lgplv3
+ *  13aa749a5b0a454917a944ed8fffc530b784f5ead522b1aacaf4ec8aa55a6239  COPYING.mbsd
  */
 
 #ifndef AUTOGEN_AUTOOPTS_H
 #define AUTOGEN_AUTOOPTS_H
-
-#include "compat/compat.h"
-#include "ag-char-map.h"
+#include <stdnoreturn.h>
 
 #define AO_NAME_LIMIT           127
 #define AO_NAME_SIZE            ((size_t)(AO_NAME_LIMIT + 1))
@@ -53,21 +53,71 @@
 #undef  EXPORT
 #define EXPORT
 
+#ifndef NUL
+#define NUL                     '\0'
+#endif
+#define BEL                     '\a'
+#define BS                      '\b'
+#define HT                      '\t'
+#define LF                      '\n'
+#define VT                      '\v'
+#define FF                      '\f'
+#define CR                      '\r'
+
 #if defined(_WIN32) && !defined(__CYGWIN__)
 # define DIRCH                  '\\'
 #else
 # define DIRCH                  '/'
 #endif
 
+#ifndef EX_USAGE
+   /**
+    *  Command line usage problem
+    */
+#  define EX_USAGE              64
+#endif
+#ifndef EX_DATAERR
+   /**
+    *  The input data was incorrect in some way.
+    */
+#  define EX_DATAERR            64
+#endif
 #ifndef EX_NOINPUT
+   /**
+    *  option state was requested from a file that cannot be loaded.
+    */
 #  define EX_NOINPUT            66
 #endif
 #ifndef EX_SOFTWARE
+   /**
+    *  AutoOpts Software failure.
+    */
 #  define EX_SOFTWARE           70
 #endif
-#ifndef EX_CONFIG
-#  define EX_CONFIG             78
+#ifndef EX_OSERR
+   /**
+    *  Command line usage problem
+    */
+#  define EX_OSERR              71
 #endif
+
+#define NL '\n'
+#ifndef C
+/**
+ *  Coercive cast.  Compel an address to be interpreted as the type
+ *  of the first argument.  No complaints, just do it.
+ */
+#define C(_t,_p)  ((_t)VOIDP(_p))
+#endif
+
+/* The __attribute__((__warn_unused_result__)) feature
+   is available in gcc versions 3.4 and newer,
+   while the typeof feature has been available since 2.7 at least.  */
+# if __GNUC__ < 3 || (__GNUC__ == 3 && __GNUC_MINOR__ < 4)
+#  define ignore_val(x) ((void) (x))
+# else
+#  define ignore_val(x) (({ __typeof__ (x) __x = (x); (void) __x; }))
+# endif
 
 /*
  *  Convert the number to a list usable in a printf call
@@ -77,74 +127,59 @@
 #define NAMED_OPTS(po) \
         (((po)->fOptSet & (OPTPROC_SHORTOPT | OPTPROC_LONGOPT)) == 0)
 
-#define SKIP_OPT(p)  (((p)->fOptState & (OPTST_DOCUMENT|OPTST_OMITTED)) != 0)
+#define SKIP_OPT(p)  (((p)->fOptState & OPTST_IMMUTABLE_MASK) != 0)
 
 typedef int tDirection;
+/**
+ * handling option presets.  Start with command line and work through
+ * config settings in reverse order.
+ */
 #define DIRECTION_PRESET        -1
+/**
+ * handling normal options.  Start with first config file, then environment
+ * variables and finally the command line.
+ */
 #define DIRECTION_PROCESS       1
+/**
+ * An initialzation phase or an option being loaded from program sources.
+ */
 #define DIRECTION_CALLED        0
 
 #define PROCESSING(d)           ((d)>0)
 #define PRESETTING(d)           ((d)<0)
+#define CALLED(d)               ((d)==0)
 
-/*
- *  Procedure success codes
- *
- *  USAGE:  define procedures to return "tSuccess".  Test their results
- *          with the SUCCEEDED, FAILED and HADGLITCH macros.
- *
- *  Microsoft sticks its nose into user space here, so for Windows' sake,
- *  make sure all of these are undefined.
- */
-#undef  SUCCESS
-#undef  FAILURE
-#undef  PROBLEM
-#undef  SUCCEEDED
-#undef  SUCCESSFUL
-#undef  FAILED
-#undef  HADGLITCH
-
-#define SUCCESS                 ((tSuccess) 0)
-#define FAILURE                 ((tSuccess)-1)
-#define PROBLEM                 ((tSuccess) 1)
-
-typedef int tSuccess;
-
-#define SUCCEEDED( p )          ((p) == SUCCESS)
-#define SUCCESSFUL( p )         SUCCEEDED( p )
-#define FAILED( p )             ((p) <  SUCCESS)
-#define HADGLITCH( p )          ((p) >  SUCCESS)
-
-/*
+/**
  *  When loading a line (or block) of text as an option, the value can
- *  be processed in any of several modes:
- *
- *  @table @samp
- *  @item keep
- *  Every part of the value between the delimiters is saved.
- *
- *  @item uncooked
- *  Even if the value begins with quote characters, do not do quote processing.
- *
- *  @item cooked
- *  If the value looks like a quoted string, then process it.
- *  Double quoted strings are processed the way strings are in "C" programs,
- *  except they are treated as regular characters if the following character
- *  is not a well-established escape sequence.
- *  Single quoted strings (quoted with apostrophies) are handled the way
- *  strings are handled in shell scripts, *except* that backslash escapes
- *  are honored before backslash escapes and apostrophies.
- *  @end table
+ *  be processed in any of several modes.
  */
 typedef enum {
+    /**
+     *  If the value looks like a quoted string, then process it.  Double
+     *  quoted strings are processed the way strings are in "C" programs,
+     *  except they are treated as regular characters if the following
+     *  character is not a well-established escape sequence.  Single quoted
+     *  strings (quoted with apostrophies) are handled the way strings are
+     *  handled in shell scripts, *except* that backslash escapes are
+     *  honored before backslash escapes and apostrophies.
+     */
     OPTION_LOAD_COOKED,
+
+    /**
+     * Even if the value begins with quote characters, do not do quote
+     * processing.  Strip leading and trailing white space.
+     */
     OPTION_LOAD_UNCOOKED,
+
+    /**
+     * Keep every part of the value between the delimiters.
+     */
     OPTION_LOAD_KEEP
 } tOptionLoadMode;
 
-extern tOptionLoadMode option_load_mode;
+static tOptionLoadMode option_load_mode;
 
-/*
+/**
  *  The pager state is used by optionPagedUsage() procedure.
  *  When it runs, it sets itself up to be called again on exit.
  *  If, however, a routine needs a child process to do some work
@@ -153,12 +188,18 @@ extern tOptionLoadMode option_load_mode;
  *  to run the pager program before its time.
  */
 typedef enum {
-    PAGER_STATE_INITIAL,
+    PAGER_STATE_INITIAL, //@< initial option paging state
+
+    /**
+     * temp file created and optionPagedUsage is scheduled to run at exit
+     */
     PAGER_STATE_READY,
+
+    /**
+     *  This is a child process used in creating shell script usage.
+     */
     PAGER_STATE_CHILD
 } tePagerState;
-
-extern tePagerState pagerState;
 
 typedef enum {
     ENV_ALL,
@@ -174,18 +215,18 @@ typedef enum {
 } teOptType;
 
 typedef struct {
-    tOptDesc*  pOD;
-    tCC*       pzOptArg;
-    tAoUL      flags;
-    teOptType  optType;
+    tOptDesc *          pOD;
+    char const *        pzOptArg;
+    opt_state_mask_t    flags;
+    teOptType           optType;
 } tOptState;
 #define OPTSTATE_INITIALIZER(st) \
     { NULL, NULL, OPTST_ ## st, TOPT_UNDEFINED }
 
 #define TEXTTO_TABLE \
-        _TT_( LONGUSAGE ) \
-        _TT_( USAGE ) \
-        _TT_( VERSION )
+        _TT_(LONGUSAGE) \
+        _TT_(USAGE) \
+        _TT_(VERSION)
 #define _TT_(n) \
         TT_ ## n ,
 
@@ -193,44 +234,45 @@ typedef enum { TEXTTO_TABLE COUNT_TT } teTextTo;
 
 #undef _TT_
 
+/**
+ * option argument types.  Used to create usage information for
+ * particular options.
+ */
 typedef struct {
-    tCC*    pzStr;
-    tCC*    pzReq;
-    tCC*    pzNum;
-    tCC*    pzFile;
-    tCC*    pzKey;
-    tCC*    pzKeyL;
-    tCC*    pzBool;
-    tCC*    pzNest;
-    tCC*    pzOpt;
-    tCC*    pzNo;
-    tCC*    pzBrk;
-    tCC*    pzNoF;
-    tCC*    pzSpc;
-    tCC*    pzOptFmt;
-    tCC*    pzTime;
+    char const * pzStr;
+    char const * pzReq;
+    char const * pzNum;
+    char const * pzFile;
+    char const * pzKey;
+    char const * pzKeyL;
+    char const * pzBool;
+    char const * pzNest;
+    char const * pzOpt;
+    char const * pzNo;
+    char const * pzBrk;
+    char const * pzNoF;
+    char const * pzSpc;
+    char const * pzOptFmt;
+    char const * pzTime;
 } arg_types_t;
 
-#define AGALOC( c, w )          ao_malloc((size_t)c)
-#define AGREALOC( p, c, w )     ao_realloc((void*)p, (size_t)c)
-#define AGFREE(_p)              do{void*X=(void*)_p;ao_free(X);}while(0)
-#define AGDUPSTR( p, s, w )     (p = ao_strdup(s))
+#define AGALOC(_c, _w)        ao_malloc((size_t)_c)
+#define AGREALOC(_p, _c, _w)  ao_realloc(VOIDP(_p), (size_t)_c)
+#define AGFREE(_p)            free(VOIDP(_p))
+#define AGDUPSTR(_p, _s, _w)  (_p = ao_strdup(_s))
 
 static void *
-ao_malloc( size_t sz );
+ao_malloc(size_t sz);
 
 static void *
-ao_realloc( void *p, size_t sz );
+ao_realloc(void *p, size_t sz);
 
-static void
-ao_free( void *p );
+#define ao_free(_p) free(VOIDP(_p))
 
 static char *
-ao_strdup( char const *str );
+ao_strdup(char const * str);
 
-#define TAGMEM( m, t )
-
-/*
+/**
  *  DO option handling?
  *
  *  Options are examined at two times:  at immediate handling time and at
@@ -260,7 +302,8 @@ ao_strdup( char const *str );
     || (   ((_flg) & (OPTST_DISABLED|OPTST_DISABLE_IMM))    \
         == (OPTST_DISABLED|OPTST_DISABLE_IMM)  ))
 
-/*  B) handling at "regular" time because it was not immediate
+/**
+ *  B) handling at "regular" time because it was not immediate
  *
  *  1.  OPTST_DISABLED is not set:
  *      IMM           must *NOT* be set
@@ -281,7 +324,8 @@ ao_strdup( char const *str );
     || (((_flg) & (OPTST_DISABLED|OPTST_DISABLE_IMM))    ==     \
                   OPTST_DISABLED)  )
 
-/*  C)  handling at "regular" time because it is to be handled twice.
+/**
+ *  C)  handling at "regular" time because it is to be handled twice.
  *      The immediate bit was already tested and found to be set:
  *
  *  3.  OPTST_DISABLED is not set:
@@ -325,7 +369,7 @@ ao_strdup( char const *str );
 #endif
 
 #ifndef MAP_FAILED
-#  define  MAP_FAILED           ((void*)-1)
+#  define  MAP_FAILED           VOIDP(-1)
 #endif
 
 #ifndef  _SC_PAGESIZE
@@ -335,11 +379,21 @@ ao_strdup( char const *str );
 #endif
 
 #ifndef HAVE_STRCHR
-extern char* strchr( char const *s, int c);
-extern char* strrchr( char const *s, int c);
+extern char * strchr(char const * s, int c);
+extern char * strrchr(char const * s, int c);
 #endif
 
-/*
+/**
+ * INQUERY_CALL() tests whether the option handling function has been
+ * called by an inquery (help text needed, or option being reset),
+ * or called by a set-the-option operation.
+ */
+#define INQUERY_CALL(_o, _d) (                  \
+    ((_o) <= OPTPROC_EMIT_LIMIT)                \
+    || ((_d) == NULL)                           \
+    || (((_d)->fOptState & OPTST_RESET) != 0) )
+
+/**
  *  Define and initialize all the user visible strings.
  *  We do not do translations.  If translations are to be done, then
  *  the client will provide a callback for that purpose.
@@ -347,15 +401,81 @@ extern char* strrchr( char const *s, int c);
 #undef DO_TRANSLATIONS
 #include "autoopts/usage-txt.h"
 
-/*
+/**
  *  File pointer for usage output
  */
-extern FILE* option_usage_fp;
-
+FILE * option_usage_fp;
+/**
+ *  If provided in the option structure
+ */
+static char const * program_pkgdatadir;
+/**
+ * privately exported functions
+ */
 extern tOptProc optionPrintVersion, optionPagedUsage, optionLoadOpt;
 
+#ifdef AUTOOPTS_INTERNAL
+
+#ifndef PKGDATADIR
+#  define PKGDATADIR ""
+#endif
+#define APOSTROPHE '\''
+
+#define OPTPROC_L_N_S  (OPTPROC_LONGOPT | OPTPROC_SHORTOPT)
+#if defined(ENABLE_NLS) && defined(HAVE_LIBINTL_H)
+# include <libintl.h>
+#endif
+
+typedef struct {
+    size_t          fnm_len;
+    uint32_t        fnm_mask;
+    char const *    fnm_name;
+} ao_flag_names_t;
+
+/**
+ * Automated Options Usage Flags.
+ * NB: no entry may be a prefix of another entry
+ */
+#define AOFLAG_TABLE                            \
+    _aof_(gnu,             OPTPROC_GNUUSAGE )   \
+    _aof_(autoopts,        ~OPTPROC_GNUUSAGE)   \
+    _aof_(no_misuse_usage, OPTPROC_MISUSE   )   \
+    _aof_(misuse_usage,    ~OPTPROC_MISUSE  )   \
+    _aof_(compute,         OPTPROC_COMPUTE  )
+
+#define _aof_(_n, _f)   AOUF_ ## _n ## _ID,
+typedef enum { AOFLAG_TABLE AOUF_COUNT } ao_flag_id_t;
+#undef  _aof_
+
+#define _aof_(_n, _f)   AOUF_ ## _n = (1 << AOUF_ ## _n ## _ID),
+typedef enum { AOFLAG_TABLE } ao_flags_t;
+#undef  _aof_
+
+static char const   zNil[] = "";
+static arg_types_t  argTypes             = { NULL };
+static char         line_fmt_buf[32];
+static bool         displayEnum          = false;
+static char const   pkgdatadir_default[] = PKGDATADIR;
+static char const * program_pkgdatadir   = pkgdatadir_default;
+static tOptionLoadMode option_load_mode  = OPTION_LOAD_UNCOOKED;
+static tePagerState pagerState           = PAGER_STATE_INITIAL;
+
+       FILE *       option_usage_fp      = NULL;
+
+static char const * pz_enum_err_fmt;
+
+tOptions * optionParseShellOptions = NULL;
+
+static char const * shell_prog = NULL;
+static char * script_leader    = NULL;
+static char * script_trailer   = NULL;
+static char * script_text      = NULL;
+static bool   print_exit       = false;
+#endif /* AUTOOPTS_INTERNAL */
+
 #endif /* AUTOGEN_AUTOOPTS_H */
-/*
+/**
+ * @}
  * Local Variables:
  * mode: C
  * c-file-style: "stroustrup"

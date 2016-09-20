@@ -27,11 +27,12 @@
 #include "config.h"
 #include "FileSystem.h"
 
+#include "ScopeGuard.h"
 #include <wtf/HexNumber.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
 
-#if !PLATFORM(WIN)
+#if !OS(WINDOWS)
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -82,26 +83,166 @@ static const bool needsEscaping[128] = {
     /* 78-7F */ false, false, false, false, true,  false, false, true, 
 };
 
-static inline bool shouldEscapeUChar(UChar c)
+static inline bool shouldEscapeUChar(UChar character, UChar previousCharacter, UChar nextCharacter)
 {
-    return c > 127 ? false : needsEscaping[c];
+    if (character <= 127)
+        return needsEscaping[character];
+
+    if (U16_IS_LEAD(character) && !U16_IS_TRAIL(nextCharacter))
+        return true;
+
+    if (U16_IS_TRAIL(character) && !U16_IS_LEAD(previousCharacter))
+        return true;
+
+    return false;
 }
 
 String encodeForFileName(const String& inputString)
 {
-    StringBuilder result;
-    StringImpl* stringImpl = inputString.impl();
     unsigned length = inputString.length();
+    if (!length)
+        return inputString;
+
+    StringBuilder result;
+    result.reserveCapacity(length);
+
+    UChar previousCharacter;
+    UChar character = 0;
+    UChar nextCharacter = inputString[0];
     for (unsigned i = 0; i < length; ++i) {
-        UChar character = (*stringImpl)[i];
-        if (shouldEscapeUChar(character)) {
-            result.append('%');
-            appendByteAsHex(character, result);
+        previousCharacter = character;
+        character = nextCharacter;
+        nextCharacter = i + 1 < length ? inputString[i + 1] : 0;
+
+        if (shouldEscapeUChar(character, previousCharacter, nextCharacter)) {
+            if (character <= 255) {
+                result.append('%');
+                appendByteAsHex(character, result);
+            } else {
+                result.appendLiteral("%+");
+                appendByteAsHex(character >> 8, result);
+                appendByteAsHex(character, result);
+            }
         } else
             result.append(character);
     }
 
     return result.toString();
+}
+
+String decodeFromFilename(const String& inputString)
+{
+    unsigned length = inputString.length();
+    if (!length)
+        return inputString;
+
+    StringBuilder result;
+    result.reserveCapacity(length);
+
+    for (unsigned i = 0; i < length; ++i) {
+        if (inputString[i] != '%') {
+            result.append(inputString[i]);
+            continue;
+        }
+
+        // If the input string is a valid encoded filename, it must be at least 2 characters longer
+        // than the current index to account for this percent encoded value.
+        if (i + 2 >= length)
+            return { };
+
+        if (inputString[i+1] != '+') {
+            char value;
+            if (!hexDigitValue(inputString[i + 1], value))
+                return { };
+            LChar character = value << 4;
+
+            if (!hexDigitValue(inputString[i + 2], value))
+                return { };
+
+            result.append(character | value);
+            i += 2;
+
+            continue;
+        }
+
+        // If the input string is a valid encoded filename, it must be at least 5 characters longer
+        // than the current index to account for this percent encoded value.
+        if (i + 5 >= length)
+            return { };
+
+        char value;
+        if (!hexDigitValue(inputString[i + 2], value))
+            return { };
+        UChar character = value << 12;
+
+        if (!hexDigitValue(inputString[i + 3], value))
+            return { };
+        character = character | (value << 8);
+
+        if (!hexDigitValue(inputString[i + 4], value))
+            return { };
+        character = character | (value << 4);
+
+        if (!hexDigitValue(inputString[i + 5], value))
+            return { };
+
+        result.append(character | value);
+        i += 5;
+    }
+
+    return result.toString();
+}
+
+String lastComponentOfPathIgnoringTrailingSlash(const String& path)
+{
+#if OS(WINDOWS)
+    char pathSeparator = '\\';
+#else
+    char pathSeparator = '/';
+#endif
+
+    auto position = path.reverseFind(pathSeparator);
+    if (position == notFound)
+        return path;
+
+    size_t endOfSubstring = path.length() - 1;
+    if (position == endOfSubstring) {
+        --endOfSubstring;
+        position = path.reverseFind(pathSeparator, endOfSubstring);
+    }
+
+    return path.substring(position + 1, endOfSubstring - position);
+}
+
+bool appendFileContentsToFileHandle(const String& path, PlatformFileHandle& target)
+{
+    auto source = openFile(path, OpenForRead);
+
+    if (!isHandleValid(source))
+        return false;
+
+    static int bufferSize = 1 << 19;
+    Vector<char> buffer(bufferSize);
+
+    ScopeGuard fileCloser([source]() {
+        PlatformFileHandle handle = source;
+        closeFile(handle);
+    });
+
+    do {
+        int readBytes = readFromFile(source, buffer.data(), bufferSize);
+        
+        if (readBytes < 0)
+            return false;
+
+        if (writeToFile(target, buffer.data(), readBytes) != readBytes)
+            return false;
+
+        if (readBytes < bufferSize)
+            return true;
+    } while (true);
+
+    ASSERT_NOT_REACHED();
 }
 
 #if !PLATFORM(MAC)
@@ -124,7 +265,7 @@ bool excludeFromBackup(const String&)
 
 MappedFileData::~MappedFileData()
 {
-#if !PLATFORM(WIN)
+#if !OS(WINDOWS)
     if (!m_fileData)
         return;
     munmap(m_fileData, m_fileSize);
@@ -133,7 +274,7 @@ MappedFileData::~MappedFileData()
 
 MappedFileData::MappedFileData(const String& filePath, bool& success)
 {
-#if PLATFORM(WIN)
+#if OS(WINDOWS)
     // FIXME: Implement mapping
     success = false;
 #else
@@ -151,13 +292,12 @@ MappedFileData::MappedFileData(const String& filePath, bool& success)
         return;
     }
 
-    if (fileStat.st_size < 0 || fileStat.st_size > std::numeric_limits<unsigned>::max()) {
+    unsigned size;
+    if (!WTF::convertSafely(fileStat.st_size, size)) {
         close(fd);
         success = false;
         return;
     }
-
-    unsigned size = static_cast<unsigned>(fileStat.st_size);
 
     if (!size) {
         close(fd);

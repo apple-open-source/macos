@@ -29,12 +29,13 @@
 
 #import "DOMTestObj.h"
 
+#import "DOMCustomXPathNSResolver.h"
 #import "DOMDictionaryInternal.h"
 #import "DOMDocumentInternal.h"
 #import "DOMNodeInternal.h"
-#import "DOMPromiseInternal.h"
 #import "DOMSVGDocumentInternal.h"
 #import "DOMSVGPointInternal.h"
+#import "DOMTestDictionaryInternal.h"
 #import "DOMTestEnumTypeInternal.h"
 #import "DOMTestNodeInternal.h"
 #import "DOMTestObjInternal.h"
@@ -43,19 +44,17 @@
 #import "DOMTestObjectCConstructorInternal.h"
 #import "DOMTestSubObjConstructorInternal.h"
 #import "DOManyInternal.h"
-#import "DOMboolInternal.h"
 #import "Dictionary.h"
 #import "Document.h"
 #import "EventListener.h"
 #import "ExceptionHandlers.h"
 #import "HTMLNames.h"
 #import "JSMainThreadExecState.h"
-#import "Node.h"
 #import "ObjCEventListener.h"
-#import "Promise.h"
 #import "SVGDocument.h"
 #import "SVGPoint.h"
 #import "SerializedScriptValue.h"
+#import "TestDictionary.h"
 #import "TestEnumType.h"
 #import "TestNode.h"
 #import "TestObj.h"
@@ -67,8 +66,7 @@
 #import "URL.h"
 #import "WebCoreObjCExtras.h"
 #import "WebScriptObjectPrivate.h"
-#import "any.h"
-#import "bool.h"
+#import "XPathNSResolver.h"
 #import <wtf/GetPtr.h>
 
 #define IMPL reinterpret_cast<WebCore::TestObj*>(_internal)
@@ -83,13 +81,6 @@
     if (_internal)
         IMPL->deref();
     [super dealloc];
-}
-
-- (void)finalize
-{
-    if (_internal)
-        IMPL->deref();
-    [super finalize];
 }
 
 - (int)readOnlyLongAttr
@@ -121,7 +112,9 @@
     WebCore::JSMainThreadNullState state;
     ASSERT(newTestSubObjEnabledBySetting);
 
-    IMPL->setTestSubObjEnabledBySetting(core(newTestSubObjEnabledBySetting));
+    if (!core(newTestSubObjEnabledBySetting))
+        WebCore::raiseTypeErrorException();
+    IMPL->setTestSubObjEnabledBySetting(*core(newTestSubObjEnabledBySetting));
 }
 
 - (char)byteAttr
@@ -158,6 +151,30 @@
 {
     WebCore::JSMainThreadNullState state;
     IMPL->setShortAttr(newShortAttr);
+}
+
+- (short)clampedShortAttr
+{
+    WebCore::JSMainThreadNullState state;
+    return IMPL->clampedShortAttr();
+}
+
+- (void)setClampedShortAttr:(short)newClampedShortAttr
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->setClampedShortAttr(newClampedShortAttr);
+}
+
+- (short)enforceRangeShortAttr
+{
+    WebCore::JSMainThreadNullState state;
+    return IMPL->enforceRangeShortAttr();
+}
+
+- (void)setEnforceRangeShortAttr:(short)newEnforceRangeShortAttr
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->setEnforceRangeShortAttr(newEnforceRangeShortAttr);
 }
 
 - (unsigned short)unsignedShortAttr
@@ -231,7 +248,57 @@
     WebCore::JSMainThreadNullState state;
     ASSERT(newTestObjAttr);
 
-    IMPL->setTestObjAttr(core(newTestObjAttr));
+    if (!core(newTestObjAttr))
+        WebCore::raiseTypeErrorException();
+    IMPL->setTestObjAttr(*core(newTestObjAttr));
+}
+
+- (DOMTestObj *)testNullableObjAttr
+{
+    WebCore::JSMainThreadNullState state;
+    return kit(WTF::getPtr(IMPL->testNullableObjAttr()));
+}
+
+- (void)setTestNullableObjAttr:(DOMTestObj *)newTestNullableObjAttr
+{
+    WebCore::JSMainThreadNullState state;
+    ASSERT(newTestNullableObjAttr);
+
+    IMPL->setTestNullableObjAttr(core(newTestNullableObjAttr));
+}
+
+- (DOMTestObj *)lenientTestObjAttr
+{
+    WebCore::JSMainThreadNullState state;
+    return kit(WTF::getPtr(IMPL->lenientTestObjAttr()));
+}
+
+- (void)setLenientTestObjAttr:(DOMTestObj *)newLenientTestObjAttr
+{
+    WebCore::JSMainThreadNullState state;
+    ASSERT(newLenientTestObjAttr);
+
+    if (!core(newLenientTestObjAttr))
+        WebCore::raiseTypeErrorException();
+    IMPL->setLenientTestObjAttr(*core(newLenientTestObjAttr));
+}
+
+- (NSString *)unforgeableAttr
+{
+    WebCore::JSMainThreadNullState state;
+    return IMPL->unforgeableAttr();
+}
+
+- (NSString *)stringAttrTreatingNullAsEmptyString
+{
+    WebCore::JSMainThreadNullState state;
+    return IMPL->stringAttrTreatingNullAsEmptyString();
+}
+
+- (void)setStringAttrTreatingNullAsEmptyString:(NSString *)newStringAttrTreatingNullAsEmptyString
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->setStringAttrTreatingNullAsEmptyString(newStringAttrTreatingNullAsEmptyString);
 }
 
 - (DOMTestObj *)XMLObjAttr
@@ -245,7 +312,9 @@
     WebCore::JSMainThreadNullState state;
     ASSERT(newXMLObjAttr);
 
-    IMPL->setXMLObjAttr(core(newXMLObjAttr));
+    if (!core(newXMLObjAttr))
+        WebCore::raiseTypeErrorException();
+    IMPL->setXMLObjAttr(*core(newXMLObjAttr));
 }
 
 - (BOOL)create
@@ -299,7 +368,7 @@
 - (BOOL)reflectedBooleanAttr
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->fastHasAttribute(WebCore::HTMLNames::reflectedbooleanattrAttr);
+    return IMPL->hasAttributeWithoutSynchronization(WebCore::HTMLNames::reflectedbooleanattrAttr);
 }
 
 - (void)setReflectedBooleanAttr:(BOOL)newReflectedBooleanAttr
@@ -347,7 +416,7 @@
 - (BOOL)reflectedCustomBooleanAttr
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->fastHasAttribute(WebCore::HTMLNames::customContentBooleanAttrAttr);
+    return IMPL->hasAttributeWithoutSynchronization(WebCore::HTMLNames::customContentBooleanAttrAttr);
 }
 
 - (void)setReflectedCustomBooleanAttr:(BOOL)newReflectedCustomBooleanAttr
@@ -368,6 +437,20 @@
     IMPL->setAttributeWithoutSynchronization(WebCore::HTMLNames::customContentURLAttrAttr, newReflectedCustomURLAttr);
 }
 
+#if ENABLE(TEST_FEATURE)
+- (NSString *)enabledAtRuntimeAttribute
+{
+    WebCore::JSMainThreadNullState state;
+    return IMPL->enabledAtRuntimeAttribute();
+}
+
+- (void)setEnabledAtRuntimeAttribute:(NSString *)newEnabledAtRuntimeAttribute
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->setEnabledAtRuntimeAttribute(newEnabledAtRuntimeAttribute);
+}
+#endif
+
 - (int)attrWithGetterException
 {
     WebCore::JSMainThreadNullState state;
@@ -383,6 +466,18 @@
     IMPL->setAttrWithGetterException(newAttrWithGetterException);
 }
 
+- (int)attrWithGetterExceptionWithMessage
+{
+    WebCore::JSMainThreadNullState state;
+    return IMPL->attrWithGetterExceptionWithMessage();
+}
+
+- (void)setAttrWithGetterExceptionWithMessage:(int)newAttrWithGetterExceptionWithMessage
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->setAttrWithGetterExceptionWithMessage(newAttrWithGetterExceptionWithMessage);
+}
+
 - (int)attrWithSetterException
 {
     WebCore::JSMainThreadNullState state;
@@ -395,6 +490,18 @@
     WebCore::ExceptionCode ec = 0;
     IMPL->setAttrWithSetterException(newAttrWithSetterException, ec);
     WebCore::raiseOnDOMError(ec);
+}
+
+- (int)attrWithSetterExceptionWithMessage
+{
+    WebCore::JSMainThreadNullState state;
+    return IMPL->attrWithSetterExceptionWithMessage();
+}
+
+- (void)setAttrWithSetterExceptionWithMessage:(int)newAttrWithSetterExceptionWithMessage
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->setAttrWithSetterExceptionWithMessage(newAttrWithSetterExceptionWithMessage);
 }
 
 - (NSString *)stringAttrWithGetterException
@@ -426,6 +533,20 @@
     WebCore::raiseOnDOMError(ec);
 }
 
+- (DOMTestObj *)strictTypeCheckingAttribute
+{
+    WebCore::JSMainThreadNullState state;
+    return kit(WTF::getPtr(IMPL->strictTypeCheckingAttribute()));
+}
+
+- (void)setStrictTypeCheckingAttribute:(DOMTestObj *)newStrictTypeCheckingAttribute
+{
+    WebCore::JSMainThreadNullState state;
+    ASSERT(newStrictTypeCheckingAttribute);
+
+    IMPL->setStrictTypeCheckingAttribute(core(newStrictTypeCheckingAttribute));
+}
+
 - (int)customAttr
 {
     WebCore::JSMainThreadNullState state;
@@ -437,6 +558,32 @@
     WebCore::JSMainThreadNullState state;
     IMPL->setCustomAttr(newCustomAttr);
 }
+
+#if ENABLE(Condition4)
+- (DOMTestObj *)jsBuiltinAttribute
+{
+    WebCore::JSMainThreadNullState state;
+    return kit(WTF::getPtr(IMPL->jsBuiltinAttribute()));
+}
+
+- (void)setJsBuiltinAttribute:(DOMTestObj *)newJsBuiltinAttribute
+{
+    WebCore::JSMainThreadNullState state;
+    ASSERT(newJsBuiltinAttribute);
+
+    if (!core(newJsBuiltinAttribute))
+        WebCore::raiseTypeErrorException();
+    IMPL->setJsBuiltinAttribute(*core(newJsBuiltinAttribute));
+}
+#endif
+
+#if ENABLE(Condition4)
+- (DOMTestObj *)jsBuiltinReadOnlyAttribute
+{
+    WebCore::JSMainThreadNullState state;
+    return kit(WTF::getPtr(IMPL->jsBuiltinReadOnlyAttribute()));
+}
+#endif
 
 - (int)withScriptStateAttribute
 {
@@ -450,6 +597,18 @@
     IMPL->setWithScriptStateAttribute(newWithScriptStateAttribute);
 }
 
+- (int)withCallWithAndSetterCallWithAttribute
+{
+    WebCore::JSMainThreadNullState state;
+    return IMPL->withCallWithAndSetterCallWithAttribute();
+}
+
+- (void)setWithCallWithAndSetterCallWithAttribute:(int)newWithCallWithAndSetterCallWithAttribute
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->setWithCallWithAndSetterCallWithAttribute(newWithCallWithAndSetterCallWithAttribute);
+}
+
 - (DOMTestObj *)withScriptExecutionContextAttribute
 {
     WebCore::JSMainThreadNullState state;
@@ -461,7 +620,9 @@
     WebCore::JSMainThreadNullState state;
     ASSERT(newWithScriptExecutionContextAttribute);
 
-    IMPL->setWithScriptExecutionContextAttribute(core(newWithScriptExecutionContextAttribute));
+    if (!core(newWithScriptExecutionContextAttribute))
+        WebCore::raiseTypeErrorException();
+    IMPL->setWithScriptExecutionContextAttribute(*core(newWithScriptExecutionContextAttribute));
 }
 
 - (DOMTestObj *)withScriptStateAttributeRaises
@@ -478,7 +639,9 @@
     WebCore::JSMainThreadNullState state;
     ASSERT(newWithScriptStateAttributeRaises);
 
-    IMPL->setWithScriptStateAttributeRaises(core(newWithScriptStateAttributeRaises));
+    if (!core(newWithScriptStateAttributeRaises))
+        WebCore::raiseTypeErrorException();
+    IMPL->setWithScriptStateAttributeRaises(*core(newWithScriptStateAttributeRaises));
 }
 
 - (DOMTestObj *)withScriptExecutionContextAttributeRaises
@@ -495,7 +658,9 @@
     WebCore::JSMainThreadNullState state;
     ASSERT(newWithScriptExecutionContextAttributeRaises);
 
-    IMPL->setWithScriptExecutionContextAttributeRaises(core(newWithScriptExecutionContextAttributeRaises));
+    if (!core(newWithScriptExecutionContextAttributeRaises))
+        WebCore::raiseTypeErrorException();
+    IMPL->setWithScriptExecutionContextAttributeRaises(*core(newWithScriptExecutionContextAttributeRaises));
 }
 
 - (DOMTestObj *)withScriptExecutionContextAndScriptStateAttribute
@@ -509,7 +674,9 @@
     WebCore::JSMainThreadNullState state;
     ASSERT(newWithScriptExecutionContextAndScriptStateAttribute);
 
-    IMPL->setWithScriptExecutionContextAndScriptStateAttribute(core(newWithScriptExecutionContextAndScriptStateAttribute));
+    if (!core(newWithScriptExecutionContextAndScriptStateAttribute))
+        WebCore::raiseTypeErrorException();
+    IMPL->setWithScriptExecutionContextAndScriptStateAttribute(*core(newWithScriptExecutionContextAndScriptStateAttribute));
 }
 
 - (DOMTestObj *)withScriptExecutionContextAndScriptStateAttributeRaises
@@ -526,7 +693,9 @@
     WebCore::JSMainThreadNullState state;
     ASSERT(newWithScriptExecutionContextAndScriptStateAttributeRaises);
 
-    IMPL->setWithScriptExecutionContextAndScriptStateAttributeRaises(core(newWithScriptExecutionContextAndScriptStateAttributeRaises));
+    if (!core(newWithScriptExecutionContextAndScriptStateAttributeRaises))
+        WebCore::raiseTypeErrorException();
+    IMPL->setWithScriptExecutionContextAndScriptStateAttributeRaises(*core(newWithScriptExecutionContextAndScriptStateAttributeRaises));
 }
 
 - (DOMTestObj *)withScriptExecutionContextAndScriptStateWithSpacesAttribute
@@ -540,7 +709,9 @@
     WebCore::JSMainThreadNullState state;
     ASSERT(newWithScriptExecutionContextAndScriptStateWithSpacesAttribute);
 
-    IMPL->setWithScriptExecutionContextAndScriptStateWithSpacesAttribute(core(newWithScriptExecutionContextAndScriptStateWithSpacesAttribute));
+    if (!core(newWithScriptExecutionContextAndScriptStateWithSpacesAttribute))
+        WebCore::raiseTypeErrorException();
+    IMPL->setWithScriptExecutionContextAndScriptStateWithSpacesAttribute(*core(newWithScriptExecutionContextAndScriptStateWithSpacesAttribute));
 }
 
 - (DOMTestObj *)withScriptArgumentsAndCallStackAttribute
@@ -554,7 +725,9 @@
     WebCore::JSMainThreadNullState state;
     ASSERT(newWithScriptArgumentsAndCallStackAttribute);
 
-    IMPL->setWithScriptArgumentsAndCallStackAttribute(core(newWithScriptArgumentsAndCallStackAttribute));
+    if (!core(newWithScriptArgumentsAndCallStackAttribute))
+        WebCore::raiseTypeErrorException();
+    IMPL->setWithScriptArgumentsAndCallStackAttribute(*core(newWithScriptArgumentsAndCallStackAttribute));
 }
 
 #if ENABLE(Condition1)
@@ -611,7 +784,9 @@
     WebCore::JSMainThreadNullState state;
     ASSERT(newConditionalAttr4);
 
-    IMPL->setConditionalAttr4(core(newConditionalAttr4));
+    if (!core(newConditionalAttr4))
+        WebCore::raiseTypeErrorException();
+    IMPL->setConditionalAttr4(*core(newConditionalAttr4));
 }
 #endif
 
@@ -627,7 +802,9 @@
     WebCore::JSMainThreadNullState state;
     ASSERT(newConditionalAttr5);
 
-    IMPL->setConditionalAttr5(core(newConditionalAttr5));
+    if (!core(newConditionalAttr5))
+        WebCore::raiseTypeErrorException();
+    IMPL->setConditionalAttr5(*core(newConditionalAttr5));
 }
 #endif
 
@@ -643,7 +820,9 @@
     WebCore::JSMainThreadNullState state;
     ASSERT(newConditionalAttr6);
 
-    IMPL->setConditionalAttr6(core(newConditionalAttr6));
+    if (!core(newConditionalAttr6))
+        WebCore::raiseTypeErrorException();
+    IMPL->setConditionalAttr6(*core(newConditionalAttr6));
 }
 #endif
 
@@ -752,31 +931,31 @@
 - (double)nullableDoubleAttribute
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->nullableDoubleAttribute(isNull);
+    return IMPL->nullableDoubleAttribute();
 }
 
 - (int)nullableLongAttribute
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->nullableLongAttribute(isNull);
+    return IMPL->nullableLongAttribute();
 }
 
 - (BOOL)nullableBooleanAttribute
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->nullableBooleanAttribute(isNull);
+    return IMPL->nullableBooleanAttribute();
 }
 
 - (NSString *)nullableStringAttribute
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->nullableStringAttribute(isNull);
+    return IMPL->nullableStringAttribute();
 }
 
 - (int)nullableLongSettableAttribute
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->nullableLongSettableAttribute(isNull);
+    return IMPL->nullableLongSettableAttribute();
 }
 
 - (void)setNullableLongSettableAttribute:(int)newNullableLongSettableAttribute
@@ -785,11 +964,23 @@
     IMPL->setNullableLongSettableAttribute(newNullableLongSettableAttribute);
 }
 
+- (NSString *)nullableStringSettableAttribute
+{
+    WebCore::JSMainThreadNullState state;
+    return IMPL->nullableStringSettableAttribute();
+}
+
+- (void)setNullableStringSettableAttribute:(NSString *)newNullableStringSettableAttribute
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->setNullableStringSettableAttribute(newNullableStringSettableAttribute);
+}
+
 - (int)nullableStringValue
 {
     WebCore::JSMainThreadNullState state;
     WebCore::ExceptionCode ec = 0;
-    int result = IMPL->nullableStringValue(isNull, ec);
+    int result = IMPL->nullableStringValue(ec);
     WebCore::raiseOnDOMError(ec);
     return result;
 }
@@ -806,11 +997,37 @@
     return IMPL->attribute();
 }
 
-- (DOMPromise *)testPromiseAttr
+- (DOMTestNode *)putForwardsAttribute
 {
     WebCore::JSMainThreadNullState state;
-    return kit(WTF::getPtr(IMPL->testPromiseAttr()));
+    return kit(WTF::getPtr(IMPL->putForwardsAttribute()));
 }
+
+- (DOMTestNode *)putForwardsNullableAttribute
+{
+    WebCore::JSMainThreadNullState state;
+    return kit(WTF::getPtr(IMPL->putForwardsNullableAttribute()));
+}
+
+
+#if ENABLE(TEST_FEATURE)
+- (void)enabledAtRuntimeOperation:(NSString *)testParam
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->enabledAtRuntimeOperation(testParam);
+}
+
+#endif
+
+
+#if ENABLE(TEST_FEATURE)
+- (void)enabledAtRuntimeOperation:(int)testParam
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->enabledAtRuntimeOperation(testParam);
+}
+
+#endif
 
 - (void)voidMethod
 {
@@ -821,7 +1038,9 @@
 - (void)voidMethodWithArgs:(int)longArg strArg:(NSString *)strArg objArg:(DOMTestObj *)objArg
 {
     WebCore::JSMainThreadNullState state;
-    IMPL->voidMethodWithArgs(longArg, strArg, core(objArg));
+    if (!objArg)
+        WebCore::raiseTypeErrorException();
+    IMPL->voidMethodWithArgs(longArg, strArg, *core(objArg));
 }
 
 - (char)byteMethod
@@ -833,7 +1052,9 @@
 - (char)byteMethodWithArgs:(char)byteArg strArg:(NSString *)strArg objArg:(DOMTestObj *)objArg
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->byteMethodWithArgs(byteArg, strArg, core(objArg));
+    if (!objArg)
+        WebCore::raiseTypeErrorException();
+    return IMPL->byteMethodWithArgs(byteArg, strArg, *core(objArg));
 }
 
 - (unsigned char)octetMethod
@@ -845,7 +1066,9 @@
 - (unsigned char)octetMethodWithArgs:(unsigned char)octetArg strArg:(NSString *)strArg objArg:(DOMTestObj *)objArg
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->octetMethodWithArgs(octetArg, strArg, core(objArg));
+    if (!objArg)
+        WebCore::raiseTypeErrorException();
+    return IMPL->octetMethodWithArgs(octetArg, strArg, *core(objArg));
 }
 
 - (int)longMethod
@@ -857,7 +1080,9 @@
 - (int)longMethodWithArgs:(int)longArg strArg:(NSString *)strArg objArg:(DOMTestObj *)objArg
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->longMethodWithArgs(longArg, strArg, core(objArg));
+    if (!objArg)
+        WebCore::raiseTypeErrorException();
+    return IMPL->longMethodWithArgs(longArg, strArg, *core(objArg));
 }
 
 - (DOMTestObj *)objMethod
@@ -869,7 +1094,57 @@
 - (DOMTestObj *)objMethodWithArgs:(int)longArg strArg:(NSString *)strArg objArg:(DOMTestObj *)objArg
 {
     WebCore::JSMainThreadNullState state;
-    return kit(WTF::getPtr(IMPL->objMethodWithArgs(longArg, strArg, core(objArg))));
+    if (!objArg)
+        WebCore::raiseTypeErrorException();
+    return kit(WTF::getPtr(IMPL->objMethodWithArgs(longArg, strArg, *core(objArg))));
+}
+
+- (int)unforgeableMethod
+{
+    WebCore::JSMainThreadNullState state;
+    return IMPL->unforgeableMethod();
+}
+
+- (void)methodWithArgTreatingNullAsEmptyString:(NSString *)arg
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->methodWithArgTreatingNullAsEmptyString(arg);
+}
+
+- (void)methodWithXPathNSResolverParameter:(id <DOMXPathNSResolver>)resolver
+{
+    WebCore::JSMainThreadNullState state;
+    if (!resolver)
+        WebCore::raiseTypeErrorException();
+    WebCore::XPathNSResolver* nativeResolver = 0;
+    RefPtr<WebCore::XPathNSResolver> customResolver;
+    if (resolver) {
+        if ([resolver isMemberOfClass:[DOMNativeXPathNSResolver class]])
+            nativeResolver = core(static_cast<DOMNativeXPathNSResolver *>(resolver));
+        else {
+            customResolver = WebCore::DOMCustomXPathNSResolver::create(resolver);
+            nativeResolver = WTF::getPtr(customResolver);
+        }
+    }
+    IMPL->methodWithXPathNSResolverParameter(*WTF::getPtr(nativeResolver));
+}
+
+- (NSString *)nullableStringMethod
+{
+    WebCore::JSMainThreadNullState state;
+    return IMPL->nullableStringMethod();
+}
+
+- (NSString *)nullableStringStaticMethod
+{
+    WebCore::JSMainThreadNullState state;
+    return IMPL->nullableStringStaticMethod();
+}
+
+- (NSString *)nullableStringSpecialMethod:(unsigned)index
+{
+    WebCore::JSMainThreadNullState state;
+    return IMPL->nullableStringSpecialMethod(index);
 }
 
 - (void)methodWithEnumArg:(DOMTestEnumType *)enumArg
@@ -878,11 +1153,25 @@
     IMPL->methodWithEnumArg(core(enumArg));
 }
 
+- (void)methodWithOptionalEnumArg:(DOMTestEnumType *)enumArg
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->methodWithOptionalEnumArg(core(enumArg));
+}
+
+- (void)methodWithOptionalEnumArgAndDefaultValue:(DOMTestEnumType *)enumArg
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->methodWithOptionalEnumArgAndDefaultValue(core(enumArg));
+}
+
 - (DOMTestObj *)methodThatRequiresAllArgsAndThrows:(NSString *)strArg objArg:(DOMTestObj *)objArg
 {
     WebCore::JSMainThreadNullState state;
+    if (!objArg)
+        WebCore::raiseTypeErrorException();
     WebCore::ExceptionCode ec = 0;
-    DOMTestObj *result = kit(WTF::getPtr(IMPL->methodThatRequiresAllArgsAndThrows(strArg, core(objArg), ec)));
+    DOMTestObj *result = kit(WTF::getPtr(IMPL->methodThatRequiresAllArgsAndThrows(strArg, *core(objArg), ec)));
     WebCore::raiseOnDOMError(ec);
     return result;
 }
@@ -907,6 +1196,12 @@
     WebCore::raiseOnDOMError(ec);
 }
 
+- (void)methodWithExceptionWithMessage
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->methodWithExceptionWithMessage();
+}
+
 - (void)customMethod
 {
     WebCore::JSMainThreadNullState state;
@@ -916,21 +1211,55 @@
 - (void)customMethodWithArgs:(int)longArg strArg:(NSString *)strArg objArg:(DOMTestObj *)objArg
 {
     WebCore::JSMainThreadNullState state;
-    IMPL->customMethodWithArgs(longArg, strArg, core(objArg));
+    if (!objArg)
+        WebCore::raiseTypeErrorException();
+    IMPL->customMethodWithArgs(longArg, strArg, *core(objArg));
+}
+
+
+#if ENABLE(Condition3)
+- (void)jsBuiltinMethod
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->jsBuiltinMethod();
+}
+
+#endif
+
+
+#if ENABLE(Condition3)
+- (void)jsBuiltinMethodWithArgs:(int)longArg strArg:(NSString *)strArg objArg:(DOMTestObj *)objArg
+{
+    WebCore::JSMainThreadNullState state;
+    if (!objArg)
+        WebCore::raiseTypeErrorException();
+    IMPL->jsBuiltinMethodWithArgs(longArg, strArg, *core(objArg));
+}
+
+#endif
+
+- (NSString *)publicAndPrivateMethod:(NSString *)argument
+{
+    WebCore::JSMainThreadNullState state;
+    return IMPL->publicAndPrivateMethod(argument);
 }
 
 - (void)addEventListener:(NSString *)type listener:(id <DOMEventListener>)listener useCapture:(BOOL)useCapture
 {
     WebCore::JSMainThreadNullState state;
+    if (!listener)
+        WebCore::raiseTypeErrorException();
     RefPtr<WebCore::EventListener> nativeEventListener = WebCore::ObjCEventListener::wrap(listener);
-    IMPL->addEventListener(type, WTF::getPtr(nativeEventListener), useCapture);
+    IMPL->addEventListener(type, *WTF::getPtr(nativeEventListener), useCapture);
 }
 
 - (void)removeEventListener:(NSString *)type listener:(id <DOMEventListener>)listener useCapture:(BOOL)useCapture
 {
     WebCore::JSMainThreadNullState state;
+    if (!listener)
+        WebCore::raiseTypeErrorException();
     RefPtr<WebCore::EventListener> nativeEventListener = WebCore::ObjCEventListener::wrap(listener);
-    IMPL->removeEventListener(type, WTF::getPtr(nativeEventListener), useCapture);
+    IMPL->removeEventListener(type, *WTF::getPtr(nativeEventListener), useCapture);
 }
 
 - (void)withScriptStateVoid
@@ -995,10 +1324,34 @@
     IMPL->withScriptArgumentsAndCallStack();
 }
 
+- (void)withDocumentArgument
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->withDocumentArgument();
+}
+
+- (void)withCallerDocumentArgument
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->withCallerDocumentArgument();
+}
+
+- (void)withCallerWindowArgument
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->withCallerWindowArgument();
+}
+
 - (void)methodWithOptionalArg:(int)opt
 {
     WebCore::JSMainThreadNullState state;
     IMPL->methodWithOptionalArg(opt);
+}
+
+- (void)methodWithOptionalArgAndDefaultValue:(int)opt
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->methodWithOptionalArgAndDefaultValue(opt);
 }
 
 - (void)methodWithNonOptionalArgAndOptionalArg:(int)nonOpt opt:(int)opt
@@ -1019,16 +1372,134 @@
     IMPL->methodWithOptionalString(str);
 }
 
+- (void)methodWithOptionalAtomicString:(NSString *)str
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->methodWithOptionalAtomicString(str);
+}
+
+- (void)methodWithOptionalStringAndDefaultValue:(NSString *)str
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->methodWithOptionalStringAndDefaultValue(str);
+}
+
+- (void)methodWithOptionalAtomicStringAndDefaultValue:(NSString *)str
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->methodWithOptionalAtomicStringAndDefaultValue(str);
+}
+
+- (void)methodWithOptionalStringIsNull:(NSString *)str
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->methodWithOptionalStringIsNull(str);
+}
+
 - (void)methodWithOptionalStringIsUndefined:(NSString *)str
 {
     WebCore::JSMainThreadNullState state;
     IMPL->methodWithOptionalStringIsUndefined(str);
 }
 
-- (void)methodWithOptionalStringIsNullString:(NSString *)str
+- (void)methodWithOptionalAtomicStringIsNull:(NSString *)str
 {
     WebCore::JSMainThreadNullState state;
-    IMPL->methodWithOptionalStringIsNullString(str);
+    IMPL->methodWithOptionalAtomicStringIsNull(str);
+}
+
+- (void)methodWithOptionalStringIsEmptyString:(NSString *)str
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->methodWithOptionalStringIsEmptyString(str);
+}
+
+- (void)methodWithOptionalAtomicStringIsEmptyString:(NSString *)str
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->methodWithOptionalAtomicStringIsEmptyString(str);
+}
+
+- (void)methodWithOptionalDoubleIsNaN:(double)number
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->methodWithOptionalDoubleIsNaN(number);
+}
+
+- (void)methodWithOptionalFloatIsNaN:(float)number
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->methodWithOptionalFloatIsNaN(number);
+}
+
+- (void)methodWithOptionalLongLong:(long long)number
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->methodWithOptionalLongLong(number);
+}
+
+- (void)methodWithOptionalLongLongIsZero:(long long)number
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->methodWithOptionalLongLongIsZero(number);
+}
+
+- (void)methodWithOptionalUnsignedLongLong:(unsigned long long)number
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->methodWithOptionalUnsignedLongLong(number);
+}
+
+- (void)methodWithOptionalUnsignedLongLongIsZero:(unsigned long long)number
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->methodWithOptionalUnsignedLongLongIsZero(number);
+}
+
+- (void)methodWithOptionalBoolean:(BOOL)b
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->methodWithOptionalBoolean(b);
+}
+
+- (void)methodWithOptionalBooleanIsFalse:(BOOL)b
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->methodWithOptionalBooleanIsFalse(b);
+}
+
+- (void)methodWithOptionalAny:(DOMany *)a
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->methodWithOptionalAny(core(a));
+}
+
+- (void)methodWithOptionalNullableWrapper:(DOMTestObj *)obj
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->methodWithOptionalNullableWrapper(core(obj));
+}
+
+- (void)methodWithOptionalNullableWrapperIsNull:(DOMTestObj *)obj
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->methodWithOptionalNullableWrapperIsNull(core(obj));
+}
+
+- (void)methodWithOptionalXPathNSResolver:(id <DOMXPathNSResolver>)resolver
+{
+    WebCore::JSMainThreadNullState state;
+    WebCore::XPathNSResolver* nativeResolver = 0;
+    RefPtr<WebCore::XPathNSResolver> customResolver;
+    if (resolver) {
+        if ([resolver isMemberOfClass:[DOMNativeXPathNSResolver class]])
+            nativeResolver = core(static_cast<DOMNativeXPathNSResolver *>(resolver));
+        else {
+            customResolver = WebCore::DOMCustomXPathNSResolver::create(resolver);
+            nativeResolver = WTF::getPtr(customResolver);
+        }
+    }
+    IMPL->methodWithOptionalXPathNSResolver(WTF::getPtr(nativeResolver));
 }
 
 
@@ -1099,6 +1570,12 @@
 
 #endif
 
+- (void)classMethodWithEnforceRange:(unsigned short)objArgsShort objArgsLong:(unsigned)objArgsLong
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->classMethodWithEnforceRange(objArgsShort, objArgsLong);
+}
+
 - (DOMSVGDocument *)getSVGDocument
 {
     WebCore::JSMainThreadNullState state;
@@ -1111,7 +1588,9 @@
 - (void)convert1:(DOMTestNode *)value
 {
     WebCore::JSMainThreadNullState state;
-    IMPL->convert1(core(value));
+    if (!value)
+        WebCore::raiseTypeErrorException();
+    IMPL->convert1(*core(value));
 }
 
 - (void)convert2:(DOMTestNode *)value
@@ -1120,16 +1599,16 @@
     IMPL->convert2(core(value));
 }
 
-- (void)convert4:(DOMTestNode *)value
+- (void)convert3:(NSString *)value
 {
     WebCore::JSMainThreadNullState state;
-    IMPL->convert4(core(value));
+    IMPL->convert3(value);
 }
 
-- (void)convert5:(DOMTestNode *)value
+- (void)convert4:(NSString *)value
 {
     WebCore::JSMainThreadNullState state;
-    IMPL->convert5(core(value));
+    IMPL->convert4(value);
 }
 
 - (DOMSVGPoint *)mutablePointFunction
@@ -1150,37 +1629,25 @@
     IMPL->banana();
 }
 
-- (DOMbool *)strictFunction:(NSString *)str a:(float)a b:(int)b
+- (BOOL)strictFunction:(NSString *)str a:(float)a b:(int)b
 {
     WebCore::JSMainThreadNullState state;
     WebCore::ExceptionCode ec = 0;
-    DOMbool *result = kit(WTF::getPtr(IMPL->strictFunction(str, a, b, ec)));
+    BOOL result = IMPL->strictFunction(str, a, b, ec);
     WebCore::raiseOnDOMError(ec);
     return result;
-}
-
-- (void)variadicStringMethod:(NSString *)head tail:(NSString *)tail
-{
-    WebCore::JSMainThreadNullState state;
-    IMPL->variadicStringMethod(head, tail);
-}
-
-- (void)variadicDoubleMethod:(double)head tail:(double)tail
-{
-    WebCore::JSMainThreadNullState state;
-    IMPL->variadicDoubleMethod(head, tail);
-}
-
-- (void)variadicNodeMethod:(DOMNode *)head tail:(DOMNode *)tail
-{
-    WebCore::JSMainThreadNullState state;
-    IMPL->variadicNodeMethod(core(head), core(tail));
 }
 
 - (void)any:(float)a b:(int)b
 {
     WebCore::JSMainThreadNullState state;
     IMPL->any(a, b);
+}
+
+- (void)attachShadowRoot:(DOMTestDictionary *)init
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->attachShadowRoot(core(init));
 }
 
 @end

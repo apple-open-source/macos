@@ -41,6 +41,7 @@
 #include "IOHIDLibUserClient.h"
 #include "IOHIDDevice.h"
 #include "IOHIDEventQueue.h"
+#include "IOHIDDebug.h"
 
 __BEGIN_DECLS
 #include <ipc/ipc_port.h>
@@ -48,8 +49,10 @@ __END_DECLS
 
 #if TARGET_OS_EMBEDDED
 #include <AppleMobileFileIntegrity/AppleMobileFileIntegrity.h>
-#define kIOHIDManagerUserAccessKeyboardEntitlement  "com.apple.hid.manager.user-access-keyboard"
 #endif
+
+#define kIOHIDManagerUserAccessKeyboardEntitlement    "com.apple.hid.manager.user-access-keyboard"
+#define kIOHIDManagerUserAccessPrivilegedEntitlement  "com.apple.hid.manager.user-access-privileged"
 
 #define super IOUserClient
 
@@ -186,6 +189,8 @@ bool IOHIDLibUserClient::initWithTask(task_t owningTask, void * /* security_id *
         setProperty(kIOHIDLibClientExtendedData, true);
     }
 
+    fClientOpened = false;
+    
     fClient = owningTask;
     task_reference (fClient);
 
@@ -201,79 +206,58 @@ bool IOHIDLibUserClient::initWithTask(task_t owningTask, void * /* security_id *
 
 IOReturn IOHIDLibUserClient::clientClose(void)
 {
-    if ( !isInactive() && fGate ) {
-        fGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDLibUserClient::cleanupGated));
-        terminate();
-    }
-
+    
+    terminate();
+    
     return kIOReturnSuccess;
 }
 
-void IOHIDLibUserClient::cleanupGated(void)
-{
-    if (fClient) {
-        task_deallocate(fClient);
-        fClient = 0;
-    }
-
-   if (fNub) {
-
-        // First clear any remaining queues
-        setStateForQueues(kHIDQueueStateClear);
-        
-        // Have been started so we better detach
-        
-        // make sure device is closed (especially on crash)
-        // note radar #2729708 for a more comprehensive fix
-        // probably should also subclass clientDied for crash specific code
-        fNub->close(this, fCachedOptionBits);
-    }
-
-    if ( fResourceNotification ) {
-        fResourceNotification->remove();
-        fResourceNotification = 0;
-    }
-
-    if (fResourceES) {
-        if ( fWL )
-            fWL->removeEventSource(fResourceES);
-        fResourceES->release();
-        fResourceES = 0;
-    }
-}
 
 bool IOHIDLibUserClient::start(IOService *provider)
 {
-    OSDictionary *matching = NULL;
-    if (!super::start(provider))
-        return false;
+    OSDictionary    *matching = NULL;
+    IOCommandGate   *cmdGate  = NULL;
+    OSObject        *obj;
+    OSNumber        *primaryUsage;
+    OSObject        *obj2;
+    OSNumber        *primaryUsagePage;
+  
+    if (!super::start(provider)) {
+        goto ErrorExit;
+    }
 
     fNub = OSDynamicCast(IOHIDDevice, provider);
-    if (!fNub)
-        return false;
+    if (!fNub) {
+        goto ErrorExit;
+    }
+    
     fNub->retain();
 
     fWL = getWorkLoop();
-    if (!fWL)
-        return false;
+    if (!fWL) {
+        goto ErrorExit;
+    }
 
     fWL->retain();
 
-    OSNumber *primaryUsage = (OSNumber*)fNub->copyProperty(kIOHIDPrimaryUsageKey);
-    OSNumber *primaryUsagePage = (OSNumber*)fNub->copyProperty(kIOHIDPrimaryUsagePageKey);
+    obj = fNub->copyProperty(kIOHIDPrimaryUsageKey);
+    primaryUsage = OSDynamicCast(OSNumber, obj);
+    obj2 = fNub->copyProperty(kIOHIDPrimaryUsagePageKey);
+    primaryUsagePage = OSDynamicCast(OSNumber, obj2);
 
-    if ((OSDynamicCast(OSNumber, primaryUsagePage) && (primaryUsagePage->unsigned32BitValue() == kHIDPage_GenericDesktop)) &&
-        (OSDynamicCast(OSNumber, primaryUsage) && ((primaryUsage->unsigned32BitValue() == kHIDUsage_GD_Keyboard) || (primaryUsage->unsigned32BitValue() == kHIDUsage_GD_Keypad))))
+    if ((primaryUsagePage && (primaryUsagePage->unsigned32BitValue() == kHIDPage_GenericDesktop)) &&
+        (primaryUsage && ((primaryUsage->unsigned32BitValue() == kHIDUsage_GD_Keyboard) || (primaryUsage->unsigned32BitValue() == kHIDUsage_GD_Keypad))))
     {
         fNubIsKeyboard = true;
     }
     
-    OSSafeReleaseNULL(primaryUsage);
-    OSSafeReleaseNULL(primaryUsagePage);
+    OSSafeReleaseNULL(obj);
+    OSSafeReleaseNULL(obj2);
             
-    IOCommandGate * cmdGate = IOCommandGate::commandGate(this);
-    if (!cmdGate)
-        goto ABORT_START;
+    cmdGate = IOCommandGate::commandGate(this);
+    if (!cmdGate) {
+        goto ErrorExit;
+    }
     
     fWL->addEventSource(cmdGate);
     
@@ -282,8 +266,9 @@ bool IOHIDLibUserClient::start(IOService *provider)
     fResourceES = IOInterruptEventSource::interruptEventSource
         (this, OSMemberFunctionCast(IOInterruptEventSource::Action, this, &IOHIDLibUserClient::resourceNotificationGated));
         
-    if ( !fResourceES )
-        goto ABORT_START;
+    if ( !fResourceES ) {
+        goto ErrorExit;
+    }
 
     fWL->addEventSource(fResourceES);
 
@@ -297,30 +282,32 @@ bool IOHIDLibUserClient::start(IOService *provider)
     matching->release();
     matching = NULL;
 
-    if ( !fResourceNotification )
-        goto ABORT_START;
-        
+    if ( !fResourceNotification ) {
+        goto ErrorExit;
+    }
+    
     return true;
 
-ABORT_START:
-    if (fResourceES) {
-        fWL->removeEventSource(fResourceES);
-        fResourceES->release();
-        fResourceES = 0;
-    }
-    if (fGate) {
-        fWL->removeEventSource(fGate);
-        fGate->release();
-        fGate = 0;
-    }
-    fWL->release();
-    fWL = 0;
+ErrorExit:
 
     return false;
 }
 
 void IOHIDLibUserClient::stop(IOService *provider)
 {
+    
+    close();
+    
+    if ( fResourceNotification ) {
+        fResourceNotification->remove();
+    }
+    if (fResourceES) {
+        fWL->removeEventSource(fResourceES);
+    }
+    if (fGate) {
+        fWL->removeEventSource(fGate);
+    }
+    
     super::stop(provider);
 }
 
@@ -344,18 +331,20 @@ void IOHIDLibUserClient::resourceNotificationGated()
             break;
         
 #if !TARGET_OS_EMBEDDED
+        OSObject * obj;
         OSData * data;
         IOService * service = getResourceService();
         if ( !service ) {
             ret = kIOReturnError;
             break;
         }
-            
-        data = (OSData*)service->copyProperty(kIOConsoleUsersSeedKey);
+        
+        obj = service->copyProperty(kIOConsoleUsersSeedKey);
+        data = OSDynamicCast(OSData, obj);
 
-        if ( !OSDynamicCast(OSData, data) || !data->getLength() || !data->getBytesNoCopy() ) {
+        if ( !data || !data->getLength() || !data->getBytesNoCopy() ) {
             ret = kIOReturnError;
-            OSSafeReleaseNULL(data);
+            OSSafeReleaseNULL(obj);
             break;
         }
             
@@ -376,7 +365,7 @@ void IOHIDLibUserClient::resourceNotificationGated()
                 currentSeed = *(UInt64*)(data->getBytesNoCopy());
                 break;
         }
-        OSSafeReleaseNULL(data);
+        OSSafeReleaseNULL(obj);
             
         // We should return rather than break so that previous setting is retained
         if ( currentSeed == fCachedConsoleUsersSeed )
@@ -384,50 +373,56 @@ void IOHIDLibUserClient::resourceNotificationGated()
             
         fCachedConsoleUsersSeed = currentSeed;
 #endif
+
         ret = clientHasPrivilege(fClient, kIOClientPrivilegeAdministrator);
-        if (ret == kIOReturnSuccess)
+        if (ret == kIOReturnSuccess) {
             break;
+        }
+
+#if !TARGET_OS_EMBEDDED
+        OSObject* entitlement = copyClientEntitlement(fClient, kIOHIDManagerUserAccessPrivilegedEntitlement);
+        if (entitlement) {
+            ret = (entitlement == kOSBooleanTrue) ? kIOReturnSuccess : kIOReturnNotPrivileged;
+            entitlement->release();
+        }
+        if (ret == kIOReturnSuccess) {
+            break;
+        }
+
+       if ( fNubIsKeyboard ) {
+          IOUCProcessToken token;
+          token.token = fClient;
+          token.pid = fPid;
+          ret = clientHasPrivilege(&token, kIOClientPrivilegeSecureConsoleProcess);
+        }
+        if (ret == kIOReturnSuccess) {
+            break;
+        }
+#endif
+        if (fNubIsKeyboard) {
+            OSObject* entitlement = copyClientEntitlement(fClient, kIOHIDManagerUserAccessKeyboardEntitlement);
+            if (entitlement) {
+                ret = (entitlement == kOSBooleanTrue) ? kIOReturnSuccess : kIOReturnNotPrivileged;
+                entitlement->release();
+            }
+            if (ret != kIOReturnSuccess) {
+                proc_t      process;
+                process = (proc_t)get_bsdtask_info(fClient);
+                char name[255];
+                bzero(name, sizeof(name));
+                proc_name(proc_pid(process), name, sizeof(name));
+                HIDLogError("%s is not entitled", name);
+            }
+            break;
+        }
 
 #if TARGET_OS_EMBEDDED
-        if ( fNubIsKeyboard ) {
-            bool result = false;
-            IOReturn    kr;
-            proc_t      process;
-
-            process = (proc_t)get_bsdtask_info(fClient);
-            if ( process ) {
-
-                kr = AppleMobileFileIntegrity::AMFIEntitlementGetBool(process, kIOHIDManagerUserAccessKeyboardEntitlement, &result);
-
-                if ( kr || !result ) {
-                    char name[255];
-
-                    bzero(name, sizeof(name));
-                    proc_name(fPid, name, sizeof(name));
-
-                    IOLog("IOHIDLibUserClient: %s is not entitled\n", name);
-                }
-
-                if (kr == kIOReturnSuccess && result) {
-                    ret = kIOReturnSuccess;
-                }
-            }
-        } else {
-            ret = kIOReturnSuccess;
-        }
+        ret = kIOReturnSuccess;
 #else
-        if ( fNubIsKeyboard ) {
-            IOUCProcessToken token;
-            token.token = fClient;
-            token.pid = fPid;
-            ret = clientHasPrivilege(&token, kIOClientPrivilegeSecureConsoleProcess);
-        } else {
-            ret = clientHasPrivilege(fClient, kIOClientPrivilegeConsoleUser);
-        }
-#endif /* TARGET_OS_EMBEDDED */
-
+        ret = clientHasPrivilege(fClient, kIOClientPrivilegeConsoleUser);
+#endif
     } while (false);
-    
+  
     setValid(kIOReturnSuccess == ret);
 }
 
@@ -511,11 +506,21 @@ IOReturn IOHIDLibUserClient::open(IOOptionBits options)
 {
     IOReturn ret = kIOReturnNotPrivileged;
     
-    do { 
+    do {
         ret = clientHasPrivilege(fClient, kIOClientPrivilegeAdministrator);
-        if ( ret == kIOReturnSuccess )
+        if ( ret == kIOReturnSuccess ) {
             break;
-
+        }
+#if !TARGET_OS_EMBEDDED
+        OSObject* entitlement = copyClientEntitlement(fClient, kIOHIDManagerUserAccessPrivilegedEntitlement);
+        if (entitlement) {
+            ret = (entitlement == kOSBooleanTrue) ? kIOReturnSuccess : kIOReturnNotPrivileged;
+            entitlement->release();
+        }
+        if (ret == kIOReturnSuccess) {
+            break;
+        }
+#endif
         // RY: If this is a keyboard and the client is attempting to seize,
         // the client needs to be admin
         if ( !fNubIsKeyboard || ((options & kIOHIDOptionsTypeSeizeDevice) == 0) ) {
@@ -523,6 +528,9 @@ IOReturn IOHIDLibUserClient::open(IOOptionBits options)
             ret = kIOReturnSuccess;
 #else
             ret = clientHasPrivilege(fClient, kIOClientPrivilegeLocalUser);
+            if (ret == kIOReturnSuccess) {
+              break;
+            }
 #endif
         }
     } while (false);
@@ -534,7 +542,8 @@ IOReturn IOHIDLibUserClient::open(IOOptionBits options)
         return kIOReturnOffline;
     if (!fNub->open(this, options))
         return kIOReturnExclusiveAccess;
-        
+    
+    fClientOpened = true;
     fCachedOptionBits = options;
 
     fCachedConsoleUsersSeed = 0;
@@ -551,25 +560,27 @@ IOReturn IOHIDLibUserClient::_close(IOHIDLibUserClient * target, void * referenc
 
 IOReturn IOHIDLibUserClient::close()
 {
-    if (fNub)
-    fNub->close(this, fCachedOptionBits);
-
+    if (!fClientOpened) {
+        return kIOReturnSuccess;
+    }
+    if (fNub) {
+        fNub->close(this, fCachedOptionBits);
+    }
     setValid(false);
     
     fCachedOptionBits = 0;
 
-    // @@@ gvdl: release fWakePort leak them for the time being
-
+    fClientOpened = false;
+ 
     return kIOReturnSuccess;
 }
 
 bool
 IOHIDLibUserClient::didTerminate( IOService * provider, IOOptionBits options, bool * defer )
 {
-    if (fGate) {
-        fGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDLibUserClient::cleanupGated));
-    }
 
+    close ();
+    
     return super::didTerminate(provider, options, defer);
 }
 
@@ -577,22 +588,8 @@ void IOHIDLibUserClient::free()
 {
     OSSafeReleaseNULL(fQueueMap);
     OSSafeReleaseNULL(fNub);
-    
-    if (fResourceES) {
-        if (fWL)
-            fWL->removeEventSource(fResourceES);
-        fResourceES->release();
-        fResourceES = 0;
-    }
-
-    if (fGate) {
-        if (fWL)
-            fWL->removeEventSource(fGate);
-        
-        fGate->release();
-        fGate = 0;
-    }
-    
+    OSSafeReleaseNULL(fResourceES);
+    OSSafeReleaseNULL(fGate);
     OSSafeReleaseNULL(fWL);
     
     if ( fValidMessage ) {
@@ -609,6 +606,12 @@ void IOHIDLibUserClient::free()
         ipc_port_release_send(fValidPort);
         fValidPort = MACH_PORT_NULL;
     }
+
+    if (fClient) {
+        task_deallocate(fClient);
+        fClient = 0;
+    }
+
     super::free();
 }
 
@@ -851,13 +854,21 @@ IOReturn IOHIDLibUserClient::_getElementCount(IOHIDLibUserClient * target, void 
 
 IOReturn IOHIDLibUserClient::getElementCount(uint64_t * pOutElementCount, uint64_t * pOutReportElementCount)
 {
-    uint32_t outElementCount, outReportElementCount;
+    uint32_t    outElementCount         = 0;
+    uint32_t    outReportElementCount   = 0;
+    IOReturn    ret                     = kIOReturnError;
     
     if (!pOutElementCount || !pOutReportElementCount)
         return kIOReturnBadArgument;
         
-    getElements(kHIDElementType, (void *)NULL, &outElementCount);
-    getElements(kHIDReportHandlerType, (void*)NULL, &outReportElementCount);
+    ret = getElements(kHIDElementType, (void *)NULL, &outElementCount);
+    if (ret != kIOReturnSuccess) {
+        return ret;
+    }
+    ret = getElements(kHIDReportHandlerType, (void*)NULL, &outReportElementCount);
+    if (ret != kIOReturnSuccess) {
+        return ret;
+    }
     
     *pOutElementCount        = outElementCount / sizeof(IOHIDElementStruct);
     *pOutReportElementCount    = outReportElementCount / sizeof(IOHIDElementStruct);
@@ -1234,10 +1245,26 @@ IOReturn IOHIDLibUserClient::_getReport(IOHIDLibUserClient * target, void * refe
         tap.action = OSMemberFunctionCast(IOHIDCompletionAction, target, &IOHIDLibUserClient::ReqComplete);
         tap.parameter = pb;
 
-        if ( arguments->structureOutputDescriptor )
-            ret = target->getReport(arguments->structureOutputDescriptor, &(arguments->structureOutputDescriptorSize), (IOHIDReportType)arguments->scalarInput[0], (uint32_t)arguments->scalarInput[1], (uint32_t)arguments->scalarInput[2], &tap);
-        else
+        if ( arguments->structureOutputDescriptor ) {
+            IOBufferMemoryDescriptor *  mem;
+            
+            mem = IOBufferMemoryDescriptor::withCapacity(arguments->structureOutputDescriptorSize, kIODirectionNone);
+            if(mem) {
+                ret = target->getReport(mem, &(arguments->structureOutputDescriptorSize), (IOHIDReportType)arguments->scalarInput[0], (uint32_t)arguments->scalarInput[1], (uint32_t)arguments->scalarInput[2], &tap);
+                
+                arguments->structureOutputDescriptor->prepare();
+                arguments->structureOutputDescriptor->writeBytes(0, mem->getBytesNoCopy(), arguments->structureOutputDescriptorSize);
+                arguments->structureOutputDescriptor->complete();
+                
+                mem->release();
+            }
+            else {
+                ret = kIOReturnNoMemory;
+            }
+        }
+        else {
             ret = target->getReport(arguments->structureOutput, &(arguments->structureOutputSize), (IOHIDReportType)arguments->scalarInput[0], (uint32_t)arguments->scalarInput[1], (uint32_t)arguments->scalarInput[2], &tap);
+        }
             
         if ( ret ) {
             if ( pb )
@@ -1245,10 +1272,29 @@ IOReturn IOHIDLibUserClient::_getReport(IOHIDLibUserClient * target, void * refe
             target->release();
         }
     }
-    if ( arguments->structureOutputDescriptor )
-        return target->getReport(arguments->structureOutputDescriptor, &(arguments->structureOutputDescriptorSize), (IOHIDReportType)arguments->scalarInput[0], (uint32_t)arguments->scalarInput[1]);
-    else
+    if ( arguments->structureOutputDescriptor ) {
+        IOReturn                    ret = kIOReturnBadArgument;
+        IOBufferMemoryDescriptor *  mem;
+        
+        mem = IOBufferMemoryDescriptor::withCapacity(arguments->structureOutputDescriptorSize, kIODirectionNone);
+        if(mem) {
+            ret = target->getReport(mem, &(arguments->structureOutputDescriptorSize), (IOHIDReportType)arguments->scalarInput[0], (uint32_t)arguments->scalarInput[1]);
+            
+            arguments->structureOutputDescriptor->prepare();
+            arguments->structureOutputDescriptor->writeBytes(0, mem->getBytesNoCopy(), arguments->structureOutputDescriptorSize);
+            arguments->structureOutputDescriptor->complete();
+            
+            mem->release();
+        }
+        else {
+            ret = kIOReturnNoMemory;
+        }
+        
+        return ret;
+    }
+    else {
         return target->getReport(arguments->structureOutput, &(arguments->structureOutputSize), (IOHIDReportType)arguments->scalarInput[0], (uint32_t)arguments->scalarInput[1]);
+    }
 }
 
 IOReturn IOHIDLibUserClient::getReport(void *reportBuffer, uint32_t *pOutsize, IOHIDReportType reportType, uint32_t reportID, uint32_t timeout, IOHIDCompletion * completion)
@@ -1260,7 +1306,7 @@ IOReturn IOHIDLibUserClient::getReport(void *reportBuffer, uint32_t *pOutsize, I
     // 1024 bytes, but that will (or has) changed. 65536 is above every upper limit
     // I have seen by a few factors.
     if (*pOutsize > 0x10000) {
-        IOLog("IOHIDLibUserClient::getReport called with an irrationally large output size: %lu\n", (long unsigned) *pOutsize);
+        HIDLogError("called with an irrationally large output size: %lu", (long unsigned) *pOutsize);
     }
     else {
         mem = IOBufferMemoryDescriptor::withCapacity(*pOutsize, kIODirectionInOut);
@@ -1286,7 +1332,7 @@ IOReturn IOHIDLibUserClient::getReport(IOMemoryDescriptor * mem, uint32_t * pOut
     // 1024 bytes, but that will (or has) changed. 65536 is above every upper limit
     // I have seen by a few factors.
     if (*pOutsize > 0x10000) {
-        IOLog("IOHIDLibUserClient::getReport called with an irrationally large output size: %lu\n", (long unsigned) *pOutsize);
+        HIDLogError("called with an irrationally large output size: %lu", (long unsigned) *pOutsize);
     }
     else if (fNub && !isInactive()) {
         ret = mem->prepare();
@@ -1384,8 +1430,9 @@ IOReturn IOHIDLibUserClient::setReport(IOMemoryDescriptor * mem, IOHIDReportType
     if (fNub && !isInactive()) {
         ret = mem->prepare();
         if(ret == kIOReturnSuccess) {
-            OSArray *extended = (OSArray*)copyProperty(kIOHIDLibClientExtendedData);
-            if (OSDynamicCast(OSArray, extended) && extended->getCount()) {
+            OSObject *obj = copyProperty(kIOHIDLibClientExtendedData);
+            OSArray *extended = OSDynamicCast(OSArray, obj);
+            if (extended && extended->getCount()) {
                 OSCollectionIterator *itr = OSCollectionIterator::withCollection(extended);
                 if (itr) {
                     bool done = false;
@@ -1399,7 +1446,7 @@ IOReturn IOHIDLibUserClient::setReport(IOMemoryDescriptor * mem, IOHIDReportType
 
                                 if ((excludedReportID == reportID) && (excludedReportType == (reportType + 1))) {
                                      // Block
-                                    IOLog("IOHIDLibUserClient::setReport %02x/%02x blocked due to lack of privileges\n", reportID, reportType);
+                                    HIDLogError("%02x/%02x blocked due to lack of privileges", reportID, reportType);
                                     done = true;
                                     ret = kIOReturnNotPrivileged;
                                 }
@@ -1417,7 +1464,7 @@ IOReturn IOHIDLibUserClient::setReport(IOMemoryDescriptor * mem, IOHIDReportType
                     itr->release();
                 }
             }
-            OSSafeReleaseNULL(extended);
+            OSSafeReleaseNULL(obj);
             if (ret == kIOReturnSuccess) {
                 if ( completion ) {
                     AsyncParam * pb = (AsyncParam *)completion->parameter;
@@ -1507,7 +1554,7 @@ u_int IOHIDLibUserClient::createTokenForQueue(IOHIDEventQueue *queue)
     	result = index + kIOHIDLibUserClientQueueTokenOffset;
     }
     else {
-		IOLog("IOHIDLibUserClient::createTokenForQueue generated out-of-range index: %d\n", index);
+		HIDLogError("generated out-of-range index: %d", index);
     }
 
     return (result);
@@ -1533,7 +1580,7 @@ IOHIDEventQueue* IOHIDLibUserClient::getQueueForToken(u_int token)
 		result = OSDynamicCast(IOHIDEventQueue, fQueueMap->getObject(token - kIOHIDLibUserClientQueueTokenOffset));
 	}
 	else {
-		IOLog("IOHIDLibUserClient::getQueueForToken received out-of-range token: %d\n", token);
+		HIDLogError("received out-of-range token: %d", token);
 	}
 
 	return (result);
@@ -1568,7 +1615,8 @@ IOHIDLibUserClient::attach(IOService * provider)
     }
     if (provider && getProperty(kIOHIDLibClientExtendedData)) {
         // Check for extended data
-        OSArray *extended = (OSArray*)provider->copyProperty(kIOHIDLibClientExtendedData, gIOServicePlane);
+        OSObject *obj = provider->copyProperty(kIOHIDLibClientExtendedData, gIOServicePlane);
+        OSArray *extended = OSDynamicCast(OSArray, obj);
         if (OSDynamicCast(OSArray, extended) && extended->getCount()) {
             // Extended data found. Replace the temporary key.
             setProperty(kIOHIDLibClientExtendedData, extended);
@@ -1577,7 +1625,7 @@ IOHIDLibUserClient::attach(IOService * provider)
             // No extended data found. Remove the temporary key.
             removeProperty(kIOHIDLibClientExtendedData);
         }
-        OSSafeReleaseNULL(extended);
+        OSSafeReleaseNULL(obj);
     }
     return true;
 }

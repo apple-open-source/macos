@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2013, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,37 +31,37 @@
 #include "YarrSyntaxChecker.h"
 
 namespace JSC {
-    
+
 class SyntaxChecker {
 public:
     struct BinaryExprContext {
         BinaryExprContext(SyntaxChecker& context)
             : m_context(&context)
         {
-            m_context->m_topBinaryExprs.append(m_context->m_topBinaryExpr);
+            m_token = m_context->m_topBinaryExpr;
             m_context->m_topBinaryExpr = 0;
         }
         ~BinaryExprContext()
         {
-            m_context->m_topBinaryExpr = m_context->m_topBinaryExprs.last();
-            m_context->m_topBinaryExprs.removeLast();
+            m_context->m_topBinaryExpr = m_token;
         }
     private:
+        int m_token;
         SyntaxChecker* m_context;
     };
     struct UnaryExprContext {
         UnaryExprContext(SyntaxChecker& context)
             : m_context(&context)
         {
-            m_context->m_topUnaryTokens.append(m_context->m_topUnaryToken);
+            m_token = m_context->m_topUnaryToken;
             m_context->m_topUnaryToken = 0;
         }
         ~UnaryExprContext()
         {
-            m_context->m_topUnaryToken = m_context->m_topUnaryTokens.last();
-            m_context->m_topUnaryTokens.removeLast();
+            m_context->m_topUnaryToken = m_token;
         }
     private:
+        int m_token;
         SyntaxChecker* m_context;
     };
     
@@ -69,14 +69,13 @@ public:
     {
     }
 
-    typedef SyntaxChecker FunctionBodyBuilder;
     enum { NoneExpr = 0,
         ResolveEvalExpr, ResolveExpr, IntegerExpr, DoubleExpr, StringExpr,
         ThisExpr, NullExpr, BoolExpr, RegExpExpr, ObjectLiteralExpr,
         FunctionExpr, ClassExpr, SuperExpr, BracketExpr, DotExpr, CallExpr,
         NewExpr, PreExpr, PostExpr, UnaryExpr, BinaryExpr,
-        ConditionalExpr, AssignmentExpr, TypeofExpr,
-        DeleteExpr, ArrayLiteralExpr, BindingDestructuring,
+        ConditionalExpr, AssignmentExpr, TypeofExpr, NewTargetExpr,
+        DeleteExpr, ArrayLiteralExpr, BindingDestructuring, RestParameter,
         ArrayDestructuring, ObjectDestructuring, SourceElementsResult,
         FunctionBodyResult, SpreadExpr, ArgumentsResult,
         PropertyListResult, ArgumentsListResult, ElementsListResult,
@@ -84,7 +83,10 @@ public:
         ClauseListResult, CommaExpr, DestructuringAssignment,
         TemplateStringResult, TemplateStringListResult,
         TemplateExpressionListResult, TemplateExpr,
-        TaggedTemplateExpr
+        TaggedTemplateExpr, YieldExpr,
+        ModuleNameResult,
+        ImportSpecifierResult, ImportSpecifierListResult,
+        ExportSpecifierResult, ExportSpecifierListResult
     };
     typedef int ExpressionType;
 
@@ -114,25 +116,26 @@ public:
     typedef int PropertyList;
     typedef int ElementList;
     typedef int ArgumentsList;
-#if ENABLE(ES6_TEMPLATE_LITERAL_SYNTAX)
     typedef int TemplateExpressionList;
     typedef int TemplateString;
     typedef int TemplateStringList;
     typedef int TemplateLiteral;
-#endif
     typedef int FormalParameterList;
     typedef int FunctionBody;
-#if ENABLE(ES6_CLASS_SYNTAX)
     typedef int ClassExpression;
-#endif
+    typedef int ModuleName;
+    typedef int ImportSpecifier;
+    typedef int ImportSpecifierList;
+    typedef int ExportSpecifier;
+    typedef int ExportSpecifierList;
     typedef int Statement;
     typedef int ClauseList;
     typedef int Clause;
-    typedef int ConstDeclList;
     typedef int BinaryOperand;
     typedef int DestructuringPattern;
     typedef DestructuringPattern ArrayPattern;
     typedef DestructuringPattern ObjectPattern;
+    typedef DestructuringPattern RestPattern;
 
     static const bool CreatesAST = false;
     static const bool NeedsFreeVariableInfo = false;
@@ -154,9 +157,11 @@ public:
     ExpressionType createLogicalNot(const JSTokenLocation&, ExpressionType) { return UnaryExpr; }
     ExpressionType createUnaryPlus(const JSTokenLocation&, ExpressionType) { return UnaryExpr; }
     ExpressionType createVoid(const JSTokenLocation&, ExpressionType) { return UnaryExpr; }
-    ExpressionType thisExpr(const JSTokenLocation&, ThisTDZMode) { return ThisExpr; }
-    ExpressionType superExpr(const JSTokenLocation&) { return SuperExpr; }
-    ExpressionType createResolve(const JSTokenLocation&, const Identifier*, int) { return ResolveExpr; }
+    ExpressionType createThisExpr(const JSTokenLocation&) { return ThisExpr; }
+    ExpressionType createSuperExpr(const JSTokenLocation&) { return SuperExpr; }
+    ExpressionType createNewTargetExpr(const JSTokenLocation&) { return NewTargetExpr; }
+    ALWAYS_INLINE bool isNewTarget(ExpressionType type) { return type == NewTargetExpr; }
+    ExpressionType createResolve(const JSTokenLocation&, const Identifier&, int, int) { return ResolveExpr; }
     ExpressionType createObjectLiteral(const JSTokenLocation&) { return ObjectLiteralExpr; }
     ExpressionType createObjectLiteral(const JSTokenLocation&, int) { return ObjectLiteralExpr; }
     ExpressionType createArray(const JSTokenLocation&, int) { return ArrayLiteralExpr; }
@@ -168,25 +173,24 @@ public:
     ExpressionType createNull(const JSTokenLocation&) { return NullExpr; }
     ExpressionType createBracketAccess(const JSTokenLocation&, ExpressionType, ExpressionType, bool, int, int, int) { return BracketExpr; }
     ExpressionType createDotAccess(const JSTokenLocation&, ExpressionType, const Identifier*, int, int, int) { return DotExpr; }
-    ExpressionType createRegExp(const JSTokenLocation&, const Identifier& pattern, const Identifier&, int) { return Yarr::checkSyntax(pattern.string()) ? 0 : RegExpExpr; }
+    ExpressionType createRegExp(const JSTokenLocation&, const Identifier& pattern, const Identifier& flags, int) { return Yarr::checkSyntax(pattern.string(), flags.string()) ? 0 : RegExpExpr; }
     ExpressionType createNewExpr(const JSTokenLocation&, ExpressionType, int, int, int, int) { return NewExpr; }
     ExpressionType createNewExpr(const JSTokenLocation&, ExpressionType, int, int) { return NewExpr; }
     ExpressionType createConditionalExpr(const JSTokenLocation&, ExpressionType, ExpressionType, ExpressionType) { return ConditionalExpr; }
-    ExpressionType createAssignResolve(const JSTokenLocation&, const Identifier&, ExpressionType, int, int, int) { return AssignmentExpr; }
+    ExpressionType createAssignResolve(const JSTokenLocation&, const Identifier&, ExpressionType, int, int, int, AssignmentContext) { return AssignmentExpr; }
     ExpressionType createEmptyVarExpression(const JSTokenLocation&, const Identifier&) { return AssignmentExpr; }
-#if ENABLE(ES6_CLASS_SYNTAX)
-    ClassExpression createClassExpr(const JSTokenLocation&, const Identifier&, ExpressionType, ExpressionType, PropertyList, PropertyList) { return ClassExpr; }
-#endif
+    ExpressionType createEmptyLetExpression(const JSTokenLocation&, const Identifier&) { return AssignmentExpr; }
+    ExpressionType createYield(const JSTokenLocation&) { return YieldExpr; }
+    ExpressionType createYield(const JSTokenLocation&, ExpressionType, bool, int, int, int) { return YieldExpr; }
+    ClassExpression createClassExpr(const JSTokenLocation&, const ParserClassInfo<SyntaxChecker>&, VariableEnvironment&, ExpressionType, ExpressionType, PropertyList, PropertyList) { return ClassExpr; }
     ExpressionType createFunctionExpr(const JSTokenLocation&, const ParserFunctionInfo<SyntaxChecker>&) { return FunctionExpr; }
-    int createFunctionBody(const JSTokenLocation&, const JSTokenLocation&, int, int, bool, int, int, int, ConstructorKind) { return FunctionBodyResult; }
-#if ENABLE(ES6_ARROWFUNCTION_SYNTAX)
+    int createFunctionMetadata(const JSTokenLocation&, const JSTokenLocation&, int, int, bool, int, int, int, ConstructorKind, SuperBinding, unsigned, SourceParseMode, bool, InnerArrowFunctionCodeFeatures = NoInnerArrowFunctionFeatures) { return FunctionBodyResult; }
     ExpressionType createArrowFunctionExpr(const JSTokenLocation&, const ParserFunctionInfo<SyntaxChecker>&) { return FunctionExpr; }
-#endif 
+    ExpressionType createMethodDefinition(const JSTokenLocation&, const ParserFunctionInfo<SyntaxChecker>&) { return FunctionExpr; }
     void setFunctionNameStart(int, int) { }
     int createArguments() { return ArgumentsResult; }
     int createArguments(int) { return ArgumentsResult; }
     ExpressionType createSpreadExpression(const JSTokenLocation&, ExpressionType, int, int, int) { return SpreadExpr; }
-#if ENABLE(ES6_TEMPLATE_LITERAL_SYNTAX)
     TemplateString createTemplateString(const JSTokenLocation&, const Identifier&, const Identifier&) { return TemplateStringResult; }
     TemplateStringList createTemplateStringList(TemplateString) { return TemplateStringListResult; }
     TemplateStringList createTemplateStringList(TemplateStringList, TemplateString) { return TemplateStringListResult; }
@@ -195,24 +199,23 @@ public:
     TemplateLiteral createTemplateLiteral(const JSTokenLocation&, TemplateStringList) { return TemplateExpr; }
     TemplateLiteral createTemplateLiteral(const JSTokenLocation&, TemplateStringList, TemplateExpressionList) { return TemplateExpr; }
     ExpressionType createTaggedTemplate(const JSTokenLocation&, ExpressionType, TemplateLiteral, int, int, int) { return TaggedTemplateExpr; }
-#endif
 
     int createArgumentsList(const JSTokenLocation&, int) { return ArgumentsListResult; }
     int createArgumentsList(const JSTokenLocation&, int, int) { return ArgumentsListResult; }
-    Property createProperty(const Identifier* name, int, PropertyNode::Type type, PropertyNode::PutType, bool complete, SuperBinding = SuperBinding::NotNeeded)
+    Property createProperty(const Identifier* name, int, PropertyNode::Type type, PropertyNode::PutType, bool complete, SuperBinding, bool)
     {
         if (!complete)
             return Property(type);
         ASSERT(name);
         return Property(name, type);
     }
-    Property createProperty(VM* vm, ParserArena& parserArena, double name, int, PropertyNode::Type type, PropertyNode::PutType, bool complete)
+    Property createProperty(VM* vm, ParserArena& parserArena, double name, int, PropertyNode::Type type, PropertyNode::PutType, bool complete, SuperBinding, bool)
     {
         if (!complete)
             return Property(type);
         return Property(&parserArena.identifierArena().makeNumericIdentifier(vm, name), type);
     }
-    Property createProperty(int, int, PropertyNode::Type type, PropertyNode::PutType, bool)
+    Property createProperty(int, int, PropertyNode::Type type, PropertyNode::PutType, bool, SuperBinding, bool)
     {
         return Property(type);
     }
@@ -220,32 +223,31 @@ public:
     int createPropertyList(const JSTokenLocation&, Property, int) { return PropertyListResult; }
     int createElementList(int, int) { return ElementsListResult; }
     int createElementList(int, int, int) { return ElementsListResult; }
-    int createFormalParameterList(DestructuringPattern) { return FormalParameterListResult; }
-    int createFormalParameterList(int, DestructuringPattern) { return FormalParameterListResult; }
+    int createElementList(int) { return ElementsListResult; }
+    int createFormalParameterList() { return FormalParameterListResult; }
+    void appendParameter(int, DestructuringPattern, int) { }
     int createClause(int, int) { return ClauseResult; }
     int createClauseList(int) { return ClauseListResult; }
     int createClauseList(int, int) { return ClauseListResult; }
     int createFuncDeclStatement(const JSTokenLocation&, const ParserFunctionInfo<SyntaxChecker>&) { return StatementResult; }
-#if ENABLE(ES6_CLASS_SYNTAX)
     int createClassDeclStatement(const JSTokenLocation&, ClassExpression,
         const JSTextPosition&, const JSTextPosition&, int, int) { return StatementResult; }
-#endif
-    int createBlockStatement(const JSTokenLocation&, int, int, int) { return StatementResult; }
+    int createBlockStatement(const JSTokenLocation&, int, int, int, VariableEnvironment&, DeclarationStacks::FunctionStack&&) { return StatementResult; }
     int createExprStatement(const JSTokenLocation&, int, int, int) { return StatementResult; }
     int createIfStatement(const JSTokenLocation&, int, int, int, int) { return StatementResult; }
     int createIfStatement(const JSTokenLocation&, int, int, int, int, int) { return StatementResult; }
-    int createForLoop(const JSTokenLocation&, int, int, int, int, int, int) { return StatementResult; }
-    int createForInLoop(const JSTokenLocation&, int, int, int, int, int, int, int, int) { return StatementResult; }
-    int createForOfLoop(const JSTokenLocation&, int, int, int, int, int, int, int, int) { return StatementResult; }
+    int createForLoop(const JSTokenLocation&, int, int, int, int, int, int, VariableEnvironment&) { return StatementResult; }
+    int createForInLoop(const JSTokenLocation&, int, int, int, int, int, int, int, int, VariableEnvironment&) { return StatementResult; }
+    int createForOfLoop(const JSTokenLocation&, int, int, int, int, int, int, int, int, VariableEnvironment&) { return StatementResult; }
     int createEmptyStatement(const JSTokenLocation&) { return StatementResult; }
-    int createVarStatement(const JSTokenLocation&, int, int, int) { return StatementResult; }
+    int createDeclarationStatement(const JSTokenLocation&, int, int, int) { return StatementResult; }
     int createReturnStatement(const JSTokenLocation&, int, int, int) { return StatementResult; }
     int createBreakStatement(const JSTokenLocation&, int, int) { return StatementResult; }
     int createBreakStatement(const JSTokenLocation&, const Identifier*, int, int) { return StatementResult; }
     int createContinueStatement(const JSTokenLocation&, int, int) { return StatementResult; }
     int createContinueStatement(const JSTokenLocation&, const Identifier*, int, int) { return StatementResult; }
-    int createTryStatement(const JSTokenLocation&, int, const Identifier*, int, int, int, int) { return StatementResult; }
-    int createSwitchStatement(const JSTokenLocation&, int, int, int, int, int, int) { return StatementResult; }
+    int createTryStatement(const JSTokenLocation&, int, int, int, int, int, int, VariableEnvironment&) { return StatementResult; }
+    int createSwitchStatement(const JSTokenLocation&, int, int, int, int, int, int, VariableEnvironment&, DeclarationStacks::FunctionStack&&) { return StatementResult; }
     int createWhileStatement(const JSTokenLocation&, int, int, int, int) { return StatementResult; }
     int createWithStatement(const JSTokenLocation&, int, int, int, int, int, int) { return StatementResult; }
     int createDoWhileStatement(const JSTokenLocation&, int, int, int, int) { return StatementResult; }
@@ -253,15 +255,32 @@ public:
     int createThrowStatement(const JSTokenLocation&, int, int, int) { return StatementResult; }
     int createDebugger(const JSTokenLocation&, int, int) { return StatementResult; }
     int createConstStatement(const JSTokenLocation&, int, int, int) { return StatementResult; }
+    int createModuleName(const JSTokenLocation&, const Identifier&) { return ModuleNameResult; }
+    ImportSpecifier createImportSpecifier(const JSTokenLocation&, const Identifier&, const Identifier&) { return ImportSpecifierResult; }
+    ImportSpecifierList createImportSpecifierList() { return ImportSpecifierListResult; }
+    void appendImportSpecifier(ImportSpecifierList, ImportSpecifier) { }
+    int createImportDeclaration(const JSTokenLocation&, ImportSpecifierList, ModuleName) { return StatementResult; }
+    int createExportAllDeclaration(const JSTokenLocation&, ModuleName) { return StatementResult; }
+    int createExportDefaultDeclaration(const JSTokenLocation&, int, const Identifier&) { return StatementResult; }
+    int createExportLocalDeclaration(const JSTokenLocation&, int) { return StatementResult; }
+    int createExportNamedDeclaration(const JSTokenLocation&, ExportSpecifierList, ModuleName) { return StatementResult; }
+    ExportSpecifier createExportSpecifier(const JSTokenLocation&, const Identifier&, const Identifier&) { return ExportSpecifierResult; }
+    ExportSpecifierList createExportSpecifierList() { return ExportSpecifierListResult; }
+    void appendExportSpecifier(ExportSpecifierList, ExportSpecifier) { }
+
     int appendConstDecl(const JSTokenLocation&, int, const Identifier*, int) { return StatementResult; }
-    Property createGetterOrSetterProperty(const JSTokenLocation&, PropertyNode::Type type, bool strict, const Identifier* name, const ParserFunctionInfo<SyntaxChecker>&, SuperBinding)
+    Property createGetterOrSetterProperty(const JSTokenLocation&, PropertyNode::Type type, bool strict, const Identifier* name, const ParserFunctionInfo<SyntaxChecker>&, bool)
     {
         ASSERT(name);
         if (!strict)
             return Property(type);
         return Property(name, type);
     }
-    Property createGetterOrSetterProperty(VM* vm, ParserArena& parserArena, const JSTokenLocation&, PropertyNode::Type type, bool strict, double name, const ParserFunctionInfo<SyntaxChecker>&, SuperBinding)
+    Property createGetterOrSetterProperty(const JSTokenLocation&, PropertyNode::Type type, bool, int, const ParserFunctionInfo<SyntaxChecker>&, bool)
+    {
+        return Property(type);
+    }
+    Property createGetterOrSetterProperty(VM* vm, ParserArena& parserArena, const JSTokenLocation&, PropertyNode::Type type, bool strict, double name, const ParserFunctionInfo<SyntaxChecker>&, bool)
     {
         if (!strict)
             return Property(type);
@@ -269,7 +288,6 @@ public:
     }
 
     void appendStatement(int, int) { }
-    void addVar(const Identifier*, bool) { }
     int combineCommaNodes(const JSTokenLocation&, int, int) { return CommaExpr; }
     int evalCount() const { return 0; }
     void appendBinaryExpressionInfo(int& operandStackDepth, int expr, int, int, int, bool)
@@ -328,7 +346,19 @@ public:
     void appendObjectPatternEntry(ArrayPattern, const JSTokenLocation&, bool, const Identifier&, DestructuringPattern, int)
     {
     }
-    DestructuringPattern createBindingLocation(const JSTokenLocation&, const Identifier&, const JSTextPosition&, const JSTextPosition&)
+    void appendObjectPatternEntry(ArrayPattern, const JSTokenLocation&, Expression, DestructuringPattern, Expression)
+    {
+    }
+
+    DestructuringPattern createBindingLocation(const JSTokenLocation&, const Identifier&, const JSTextPosition&, const JSTextPosition&, AssignmentContext)
+    {
+        return BindingDestructuring;
+    }
+    RestPattern createRestParameter(const Identifier&, size_t, const JSTextPosition&, const JSTextPosition&)
+    { 
+        return RestParameter;
+    }
+    DestructuringPattern createAssignmentElement(const Expression&, const JSTextPosition&, const JSTextPosition&)
     {
         return BindingDestructuring;
     }
@@ -338,15 +368,35 @@ public:
         return pattern == BindingDestructuring;
     }
 
+    bool isAssignmentLocation(ExpressionType type)
+    {
+        return type == ResolveExpr || type == DotExpr || type == BracketExpr;
+    }
+
+    bool isObjectLiteral(ExpressionType type)
+    {
+        return type == ObjectLiteralExpr;
+    }
+
+    bool isArrayLiteral(ExpressionType type)
+    {
+        return type == ArrayLiteralExpr;
+    }
+
+    bool isObjectOrArrayLiteral(ExpressionType type)
+    {
+        return isObjectLiteral(type) || isArrayLiteral(type);
+    }
+
     void setEndOffset(int, int) { }
     int endOffset(int) { return 0; }
     void setStartOffset(int, int) { }
 
+    void propagateArgumentsUse() { }
+
 private:
     int m_topBinaryExpr;
     int m_topUnaryToken;
-    Vector<int, 8> m_topBinaryExprs;
-    Vector<int, 8> m_topUnaryTokens;
 };
 
 }

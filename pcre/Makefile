@@ -1,6 +1,7 @@
 Project        = pcre
 ProjectVersion = 8.02
-Patches        = Makefile.in.diff no-programs.diff
+Patches        = Makefile.in.diff no-programs.diff \
+                 CVE-2015-5073.diff
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 

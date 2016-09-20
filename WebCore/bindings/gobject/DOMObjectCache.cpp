@@ -27,6 +27,7 @@
 #include <glib-object.h>
 #include <wtf/HashMap.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/RunLoop.h>
 #include <wtf/Vector.h>
 #include <wtf/glib/GRefPtr.h>
 
@@ -130,7 +131,7 @@ private:
         WebCore::DOMWindow* domWindow() const { return m_domWindow; }
 
     private:
-        virtual void willDetachGlobalObjectFromFrame() override
+        void willDetachGlobalObjectFromFrame() override
         {
             // Clear the DOMWindowProperty first, and then notify the Frame observer.
             DOMWindowProperty::willDetachGlobalObjectFromFrame();
@@ -154,19 +155,26 @@ private:
         if (m_objects.isEmpty())
             return;
 
-        auto objects = WTF::move(m_objects);
-        for (auto* data : objects) {
+        auto objects = WTFMove(m_objects);
+
+        // Deleting of DOM wrappers might end up deleting the wrapped core object which could cause some problems
+        // for example if a Document is deleted during the frame destruction, so we remove the weak references now
+        // and delete the objects on next run loop iteration. See https://bugs.webkit.org/show_bug.cgi?id=151700.
+        for (auto* data : objects)
             g_object_weak_unref(data->object, DOMObjectCacheFrameObserver::objectFinalizedCallback, this);
-            data->clearObject();
-        }
+
+        RunLoop::main().dispatch([objects] {
+            for (auto* data : objects)
+                data->clearObject();
+        });
     }
 
-    virtual void willDetachPage() override
+    void willDetachPage() override
     {
         clear();
     }
 
-    virtual void frameDestroyed() override
+    void frameDestroyed() override
     {
         clear();
         WebCore::Frame* frame = m_frame;

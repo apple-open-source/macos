@@ -61,16 +61,32 @@ IOReturn IOBDMedia::reportKey( IOMemoryDescriptor * buffer,
                                UInt8                grantID,
                                UInt8                format )
 {
+    return reportKey( /* buffer     */                buffer,
+                      /* keyClass   */ (DVDKeyClass)  keyClass,
+                      /* address    */                address,
+                      /* blockCount */                0,
+                      /* grantID    */                grantID,
+                      /* format     */ (DVDKeyFormat) format );
+}
+
+IOReturn IOBDMedia::reportKey( IOMemoryDescriptor * buffer,
+                               UInt8                keyClass,
+                               UInt32               address,
+                               UInt8                blockCount,
+                               UInt8                grantID,
+                               UInt8                format )
+{
     if (isInactive())
     {
         return kIOReturnNoMedia;
     }
 
-    return getProvider()->reportKey( /* buffer   */                buffer,
-                                     /* keyClass */ (DVDKeyClass)  keyClass,
-                                     /* address  */                address,
-                                     /* grantID  */                grantID,
-                                     /* format   */ (DVDKeyFormat) format );
+    return getProvider()->reportKey( /* buffer     */                buffer,
+                                     /* keyClass   */ (DVDKeyClass)  keyClass,
+                                     /* address    */                address,
+                                     /* blockCount */                blockCount,
+                                     /* grantID    */                grantID,
+                                     /* format     */ (DVDKeyFormat) format );
 }
 
 IOReturn IOBDMedia::sendKey( IOMemoryDescriptor * buffer,
@@ -191,7 +207,7 @@ IOReturn IOBDMedia::splitTrack(UInt32 address)
     return getProvider()->splitTrack(address);
 }
 
-OSMetaClassDefineReservedUnused(IOBDMedia,  0);
+OSMetaClassDefineReservedUsed(IOBDMedia,  0);       /* reportKey */
 OSMetaClassDefineReservedUnused(IOBDMedia,  1);
 OSMetaClassDefineReservedUnused(IOBDMedia,  2);
 OSMetaClassDefineReservedUnused(IOBDMedia,  3);

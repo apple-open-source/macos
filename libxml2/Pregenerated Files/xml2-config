@@ -58,7 +58,7 @@ while test $# -gt 0; do
       ;;
 
     --version)
-	echo 2.9.2
+	echo 2.9.4
 	exit 0
 	;;
 
@@ -86,16 +86,16 @@ while test $# -gt 0; do
 	then
 	    if [ "-L${libdir}" = "-L/usr/lib" -o "-L${libdir}" = "-L/usr/lib64" ]
 	    then
-		echo -lxml2 -lz -lpthread   -licucore -lm  
+		echo -lxml2 -L/usr/lib -lz   -lpthread   -licucore -lm  
 	    else
-		echo -L${libdir} -lxml2 -lz -lpthread   -licucore -lm  
+		echo -L${libdir} -lxml2 -L/usr/lib -lz   -lpthread   -licucore -lm  
 	    fi
 	else
 	    if [ "`uname`" = "Darwin" -a "-L${libdir}" = "-L/usr/lib" ]
 	    then
-		echo -lxml2 -lz -lpthread   -licucore -lm   
+		echo -lxml2 -lz   -lpthread   -licucore -lm   
 	    else
-		echo -L${libdir} -lxml2 -lz -lpthread   -licucore -lm   
+		echo -L${libdir} -lxml2 -lz   -lpthread   -licucore -lm   
 	    fi
 	fi
        	;;

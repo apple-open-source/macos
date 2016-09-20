@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/wae.xml
@@ -33,7 +33,7 @@ wae{
             "Yen",
         }
         RUB{
-            "руб",
+            "RUB",
             "Rubel",
         }
         USD{
@@ -87,5 +87,5 @@ wae{
         one{"{0} {1}"}
         other{"{0} {1}"}
     }
-    Version{"2.1.10.93"}
+    Version{"2.1.21.28"}
 }

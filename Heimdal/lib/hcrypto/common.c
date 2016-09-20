@@ -39,6 +39,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <heimbase.h>
 
 #include <krb5-types.h>
 #include <rfc2459_asn1.h>
@@ -85,8 +86,9 @@ _hc_get_cdsa_csphandle(void)
     ret = CSSM_Init(&vers, CSSM_PRIVILEGE_SCOPE_NONE,
                     &guid, CSSM_KEY_HIERARCHY_NONE,
                     &pvcPolicy, NULL);
-    if (ret != CSSM_OK) 
-        abort();
+    if (ret != CSSM_OK) {
+	heim_abort("CSSM_Init failed with: %d", ret);
+    }
 
     ret = CSSM_ModuleLoad(&gGuidAppleCSP, CSSM_KEY_HIERARCHY_NONE, NULL, NULL);
     if (ret)
@@ -96,8 +98,9 @@ _hc_get_cdsa_csphandle(void)
                             0, CSSM_SERVICE_CSP, 0,
                             CSSM_KEY_HIERARCHY_NONE,
                             NULL, 0, NULL, &cspHandle);
-    if (ret)
-        abort();
+    if (ret) {
+	heim_abort("CSSM_ModuleAttach failed with: %d", ret);
+    }
 
     return cspHandle;
 }

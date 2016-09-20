@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/es_419.xml
@@ -46,10 +46,26 @@ es_419{
                 group{","}
             }
         }
+        minimumGroupingDigits{"1"}
     }
-    Version{"2.1.13.23"}
+    Version{"2.1.21.97"}
     calendar{
         generic{
+            DateTimePatterns{
+                "HH:mm:ss zzzz",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
+                "EEEE, d 'de' MMMM 'de' y G",
+                "d 'de' MMMM 'de' y G",
+                "d/M/y G",
+                "dd/MM/yy GGGGG",
+                "{1} {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
             availableFormats{
                 GyMMM{"MMM 'de' y G"}
                 GyMMMd{"d 'de' MMM 'de' y G"}
@@ -59,6 +75,17 @@ es_419{
                 yMEd{"E d/M/y G"}
             }
             intervalFormats{
+                MEd{
+                    M{"E, d/M–E, d/M"}
+                    d{"E, d/M–E, d/M"}
+                }
+                MMMEd{
+                    M{"E, d 'de' MMM–E, d 'de' MMM"}
+                    d{"E, d 'de' MMM–E, d 'de' MMM"}
+                }
+                MMMd{
+                    M{"d 'de' MMM–d 'de' MMM"}
+                }
                 yM{
                     M{"M/y – M/y GGGGG"}
                     y{"M/y – M/y GGGGG"}
@@ -80,11 +107,15 @@ es_419{
                 "a.m.",
                 "p.m.",
             }
+            AmPmMarkersAbbr{
+                "a.m.",
+                "p.m.",
+            }
             DateTimePatterns{
-                "h:mm:ss a zzzz",
-                "h:mm:ss a z",
-                "h:mm:ss a",
-                "h:mm a",
+                "HH:mm:ss zzzz",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
                 "EEEE, d 'de' MMMM 'de' y",
                 "d 'de' MMMM 'de' y",
                 "d MMM y",
@@ -105,7 +136,11 @@ es_419{
                 MMMMEd{"E, d 'de' MMMM"}
                 MMMdd{"dd-MMM"}
                 yMEd{"E d/M/y"}
+                yMMM{"MMM 'de' y"}
                 yMMMEd{"E, d 'de' MMM 'de' y"}
+                yMMMM{"MMMM 'de' y"}
+                yMMMMd{"d 'de' MMMM 'de' y"}
+                yMMMd{"d 'de' MMM 'de' y"}
                 yQQQ{"QQQ 'de' y"}
             }
             dayNames{
@@ -149,13 +184,13 @@ es_419{
                 }
                 stand-alone{
                     abbreviated{
-                        "Dom",
-                        "Lun",
-                        "Mar",
-                        "Mié",
-                        "Jue",
-                        "Vie",
-                        "Sáb",
+                        "dom",
+                        "lun",
+                        "mar",
+                        "mié",
+                        "jue",
+                        "vie",
+                        "sáb",
                     }
                     narrow{
                         "D",
@@ -167,13 +202,38 @@ es_419{
                         "S",
                     }
                     wide{
-                        "Domingo",
-                        "Lunes",
-                        "Martes",
-                        "Miércoles",
-                        "Jueves",
-                        "Viernes",
-                        "Sábado",
+                        "domingo",
+                        "lunes",
+                        "martes",
+                        "miércoles",
+                        "jueves",
+                        "viernes",
+                        "sábado",
+                    }
+                }
+            }
+            dayPeriod{
+                format{
+                    narrow{
+                        evening1{"tarde"}
+                        morning1{"madrugada"}
+                        morning2{"mañana"}
+                        night1{"noche"}
+                        noon{"m."}
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        am{"a.m."}
+                        pm{"p.m."}
+                    }
+                    narrow{
+                        am{"a.m."}
+                        pm{"p.m."}
+                    }
+                    wide{
+                        am{"a.m."}
+                        pm{"p.m."}
                     }
                 }
             }
@@ -192,6 +252,10 @@ es_419{
                 Hv{
                     H{"HH – HH v"}
                 }
+                MEd{
+                    M{"E, d/M–E, d/M"}
+                    d{"E, d/M–E, d/M"}
+                }
                 MMMEd{
                     M{"E, d 'de' MMM – E, d 'de' MMM"}
                     d{"E, d 'de' MMM – E, d 'de' MMM"}
@@ -199,6 +263,20 @@ es_419{
                 MMMd{
                     M{"d 'de' MMM – d 'de' MMM"}
                     d{"d – d 'de' MMM"}
+                }
+                h{
+                    a{"h a–h a"}
+                }
+                hmv{
+                    a{"h:mm a–h:mm a v"}
+                }
+                hv{
+                    a{"h a–h a v"}
+                }
+                yMEd{
+                    M{"E, d/M/y–E, d/M/y"}
+                    d{"E, d/M/y–E, d/M/y"}
+                    y{"E, d/M/y–E, d/M/y"}
                 }
                 yMMM{
                     y{"MMM 'de' y – MMM 'de' y"}
@@ -208,12 +286,77 @@ es_419{
                     d{"E, d 'de' MMM – E, d 'de' MMM 'de' y"}
                     y{"E, d 'de' MMM 'de' y – E, d 'de' MMM 'de' y"}
                 }
+                yMMMM{
+                    y{"MMMM 'de' y–MMMM 'de' y"}
+                }
                 yMMMd{
                     M{"d 'de' MMM – d 'de' MMM 'de' y"}
                     d{"d – d 'de' MMM 'de' y"}
                     y{"d 'de' MMM 'de' y – d 'de' MMM 'de' y"}
                 }
             }
+            monthNames{
+                format{
+                    abbreviated{
+                        "ene.",
+                        "feb.",
+                        "mar.",
+                        "abr.",
+                        "may.",
+                        "jun.",
+                        "jul.",
+                        "ago.",
+                        "sep.",
+                        "oct.",
+                        "nov.",
+                        "dic.",
+                    }
+                    narrow{
+                        "e",
+                        "f",
+                        "m",
+                        "a",
+                        "m",
+                        "j",
+                        "j",
+                        "a",
+                        "s",
+                        "o",
+                        "n",
+                        "d",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "ene.",
+                        "feb.",
+                        "mar.",
+                        "abr.",
+                        "may.",
+                        "jun.",
+                        "jul.",
+                        "ago.",
+                        "sep.",
+                        "oct.",
+                        "nov.",
+                        "dic.",
+                    }
+                }
+            }
+        }
+    }
+    delimiters{
+        alternateQuotationEnd{"’"}
+        alternateQuotationStart{"‘"}
+        quotationEnd{"”"}
+        quotationStart{"“"}
+    }
+    fields{
+        dayperiod{
+            dn{"a.m./p.m."}
+        }
+        zone{
+            dn{"Zona horaria"}
         }
     }
 }

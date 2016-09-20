@@ -102,9 +102,9 @@ void RenderScrollbar::styleChanged()
     updateScrollbarParts();
 }
 
-void RenderScrollbar::paint(GraphicsContext* context, const IntRect& damageRect)
+void RenderScrollbar::paint(GraphicsContext& context, const IntRect& damageRect)
 {
-    if (context->updatingControlTints()) {
+    if (context.updatingControlTints()) {
         updateScrollbarParts();
         return;
     }
@@ -138,12 +138,12 @@ void RenderScrollbar::setPressedPart(ScrollbarPart part)
     updateScrollbarPart(TrackBGPart);
 }
 
-PassRefPtr<RenderStyle> RenderScrollbar::getScrollbarPseudoStyle(ScrollbarPart partType, PseudoId pseudoId)
+std::unique_ptr<RenderStyle> RenderScrollbar::getScrollbarPseudoStyle(ScrollbarPart partType, PseudoId pseudoId)
 {
     if (!owningRenderer())
         return 0;
 
-    RefPtr<RenderStyle> result = owningRenderer()->getUncachedPseudoStyle(PseudoStyleRequest(pseudoId, this, partType), &owningRenderer()->style());
+    std::unique_ptr<RenderStyle> result = owningRenderer()->getUncachedPseudoStyle(PseudoStyleRequest(pseudoId, this, partType), &owningRenderer()->style());
     // Scrollbars for root frames should always have background color 
     // unless explicitly specified as transparent. So we force it.
     // This is because WebKit assumes scrollbar to be always painted and missing background
@@ -213,12 +213,12 @@ void RenderScrollbar::updateScrollbarPart(ScrollbarPart partType)
     if (partType == NoPart)
         return;
 
-    RefPtr<RenderStyle> partStyle = getScrollbarPseudoStyle(partType, pseudoForScrollbarPart(partType));
+    std::unique_ptr<RenderStyle> partStyle = getScrollbarPseudoStyle(partType, pseudoForScrollbarPart(partType));
     bool needRenderer = partStyle && partStyle->display() != NONE;
 
     if (needRenderer && partStyle->display() != BLOCK) {
         // See if we are a button that should not be visible according to OS settings.
-        ScrollbarButtonsPlacement buttonsPlacement = theme()->buttonsPlacement();
+        ScrollbarButtonsPlacement buttonsPlacement = theme().buttonsPlacement();
         switch (partType) {
             case BackButtonStartPart:
                 needRenderer = (buttonsPlacement == ScrollbarButtonsSingle || buttonsPlacement == ScrollbarButtonsDoubleStart ||
@@ -245,14 +245,14 @@ void RenderScrollbar::updateScrollbarPart(ScrollbarPart partType)
     }
 
     if (auto& partRendererSlot = m_parts.add(partType, nullptr).iterator->value)
-        partRendererSlot->setStyle(partStyle.releaseNonNull());
+        partRendererSlot->setStyle(WTFMove(*partStyle));
     else {
-        partRendererSlot = createRenderer<RenderScrollbarPart>(owningRenderer()->document(), partStyle.releaseNonNull(), this, partType);
+        partRendererSlot = createRenderer<RenderScrollbarPart>(owningRenderer()->document(), WTFMove(*partStyle), this, partType);
         partRendererSlot->initializeStyle();
     }
 }
 
-void RenderScrollbar::paintPart(GraphicsContext* graphicsContext, ScrollbarPart partType, const IntRect& rect)
+void RenderScrollbar::paintPart(GraphicsContext& graphicsContext, ScrollbarPart partType, const IntRect& rect)
 {
     RenderScrollbarPart* partRenderer = m_parts.get(partType);
     if (!partRenderer)
@@ -269,7 +269,7 @@ IntRect RenderScrollbar::buttonRect(ScrollbarPart partType)
     partRenderer->layout();
     
     bool isHorizontal = orientation() == HorizontalScrollbar;
-    IntSize pixelSnappedIntSize = partRenderer->pixelSnappedSize();
+    IntSize pixelSnappedIntSize = snappedIntRect(partRenderer->frameRect()).size();
     if (partType == BackButtonStartPart)
         return IntRect(location(), IntSize(isHorizontal ? pixelSnappedIntSize.width() : width(), isHorizontal ? height() : pixelSnappedIntSize.height()));
     if (partType == ForwardButtonEndPart)

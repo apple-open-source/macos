@@ -28,6 +28,7 @@
 #include <utilities/SecFileLocations.h>
 #include <utilities/SecCFWrappers.h>
 #include <securityd/SecItemServer.h>
+#include <Security/SecureObjectSync/SOSViews.h>
 
 
 #include <CoreFoundation/CoreFoundation.h>
@@ -57,3 +58,22 @@ void secd_test_setup_temp_keychain(const char* test_prefix, dispatch_block_t do_
     CFReleaseNull(tmp_dir);
     CFReleaseNull(keychain_dir);
 }
+
+CFStringRef kTestView1 = CFSTR("TestView1");
+CFStringRef kTestView2 = CFSTR("TestView2");
+
+void secd_test_setup_testviews(void) {
+    static dispatch_once_t onceToken = 0;
+    
+    dispatch_once(&onceToken, ^{
+        CFMutableSetRef testViews = CFSetCreateMutableForCFTypes(kCFAllocatorDefault);
+        CFSetAddValue(testViews, kTestView1);
+        CFSetAddValue(testViews, kTestView2);
+        
+        SOSViewsSetTestViewsSet(testViews);
+        CFReleaseNull(testViews);
+    });
+}
+
+
+

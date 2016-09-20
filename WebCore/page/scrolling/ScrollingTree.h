@@ -33,6 +33,7 @@
 #include "ScrollingCoordinator.h"
 #include "WheelEventTestTrigger.h"
 #include <wtf/HashMap.h>
+#include <wtf/Lock.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/TypeCasts.h>
 
@@ -100,7 +101,7 @@ public:
     virtual void scrollingTreeNodeDidEndScroll() { }
 #endif
 
-    WEBCORE_EXPORT bool isPointInNonFastScrollableRegion(IntPoint);
+    WEBCORE_EXPORT TrackingType eventTrackingTypeForPoint(const AtomicString& eventName, IntPoint);
     
 #if PLATFORM(MAC)
     virtual void handleWheelEventPhase(PlatformWheelEventPhase) = 0;
@@ -160,11 +161,11 @@ private:
     typedef HashMap<ScrollingNodeID, ScrollingTreeNode*> ScrollingTreeNodeMap;
     ScrollingTreeNodeMap m_nodeMap;
 
-    Mutex m_mutex;
-    Region m_nonFastScrollableRegion;
+    Lock m_mutex;
+    EventTrackingRegions m_eventTrackingRegions;
     FloatPoint m_mainFrameScrollPosition;
 
-    Mutex m_swipeStateMutex;
+    Lock m_swipeStateMutex;
     ScrollPinningBehavior m_scrollPinningBehavior { DoNotPin };
     ScrollingNodeID m_latchedNode { 0 };
 

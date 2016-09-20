@@ -68,7 +68,7 @@ SecCmsDigestContextStartMultiple(SECAlgorithmID **digestalgs)
 
     digcnt = (digestalgs == NULL) ? 0 : SecCmsArrayCount((void **)digestalgs);
 
-    cmsdigcx = (SecCmsDigestContextRef)PORT_Alloc(sizeof(struct SecCmsDigestContextStr));
+    cmsdigcx = (SecCmsDigestContextRef)PORT_ZAlloc(sizeof(struct SecCmsDigestContextStr));
     if (cmsdigcx == NULL)
 	return NULL;
 
@@ -77,7 +77,7 @@ SecCmsDigestContextStartMultiple(SECAlgorithmID **digestalgs)
         if (digcnt >= (int)(INT_MAX/sizeof(CSSM_CC_HANDLE))) {
             goto loser;
         }
-	cmsdigcx->digobjs = (CSSM_CC_HANDLE *)PORT_Alloc(digcnt * sizeof(CSSM_CC_HANDLE));
+	cmsdigcx->digobjs = (CSSM_CC_HANDLE *)PORT_ZAlloc(digcnt * sizeof(CSSM_CC_HANDLE));
 	if (cmsdigcx->digobjs == NULL)
 	    goto loser;
     }
@@ -117,8 +117,11 @@ SecCmsDigestContextStartMultiple(SECAlgorithmID **digestalgs)
 
 loser:
     if (cmsdigcx) {
-	if (cmsdigcx->digobjs)
+        if (cmsdigcx->digobjs) {
 	    PORT_Free(cmsdigcx->digobjs);
+            cmsdigcx->digobjs = NULL;
+            cmsdigcx->digcnt = 0;
+        }
     }
     return NULL;
 }
@@ -149,7 +152,7 @@ SecCmsDigestContextUpdate(SecCmsDigestContextRef cmsdigcx, const unsigned char *
     dataBuf.Data = (uint8 *)data;
     cmsdigcx->saw_contents = PR_TRUE;
     for (i = 0; i < cmsdigcx->digcnt; i++)
-	if (cmsdigcx->digobjs[i])
+	if (cmsdigcx->digobjs && cmsdigcx->digobjs[i])
 	    CSSM_DigestDataUpdate(cmsdigcx->digobjs[i], &dataBuf, 1);
 }
 
@@ -162,8 +165,10 @@ SecCmsDigestContextCancel(SecCmsDigestContextRef cmsdigcx)
     int i;
 
     for (i = 0; i < cmsdigcx->digcnt; i++)
-	if (cmsdigcx->digobjs[i])
+        if (cmsdigcx->digobjs && cmsdigcx->digobjs[i]) {
 	    CSSM_DeleteContext(cmsdigcx->digobjs[i]);
+            cmsdigcx->digobjs[i] = 0;
+        }
 }
 
 /*
@@ -183,8 +188,10 @@ SecCmsDigestContextFinishMultiple(SecCmsDigestContextRef cmsdigcx, SecArenaPoolR
     /* no contents? do not update digests */
     if (digestsp == NULL || !cmsdigcx->saw_contents) {
 	for (i = 0; i < cmsdigcx->digcnt; i++)
-	    if (cmsdigcx->digobjs[i])
+            if (cmsdigcx->digobjs && cmsdigcx->digobjs[i]) {
 		CSSM_DeleteContext(cmsdigcx->digobjs[i]);
+                cmsdigcx->digobjs[i] = 0;
+            }
 	rv = SECSuccess;
 	if (digestsp)
 	    *digestsp = NULL;
@@ -205,7 +212,12 @@ SecCmsDigestContextFinishMultiple(SecCmsDigestContextRef cmsdigcx, SecArenaPoolR
     }
 
     for (i = 0; i < cmsdigcx->digcnt; i++, digest++) {
-	digobj = cmsdigcx->digobjs[i];
+        if (cmsdigcx->digobjs) {
+            digobj = cmsdigcx->digobjs[i];
+        } else {
+            digobj = 0;
+        }
+
 	CSSM_QUERY_SIZE_DATA dataSize;
 	rv = CSSM_QuerySize(digobj, CSSM_FALSE, 1, &dataSize);
         if (rv != CSSM_OK)
@@ -228,6 +240,7 @@ SecCmsDigestContextFinishMultiple(SecCmsDigestContextRef cmsdigcx, SecArenaPoolR
             }
             
 	    CSSM_DeleteContext(digobj);
+            cmsdigcx->digobjs[i] = 0;
 	}
 	else
 	{
@@ -251,6 +264,8 @@ loser:
 cleanup:
     if (cmsdigcx->digcnt > 0) {
 	PORT_Free(cmsdigcx->digobjs);
+        cmsdigcx->digobjs = NULL;
+        cmsdigcx->digcnt = 0;
     }
     PORT_Free(cmsdigcx);
 

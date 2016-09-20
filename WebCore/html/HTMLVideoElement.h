@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef HTMLVideoElement_h
-#define HTMLVideoElement_h
+#pragma once
 
 #if ENABLE(VIDEO)
 
@@ -34,20 +33,22 @@
 namespace WebCore {
 
 class HTMLImageLoader;
+class RenderVideo;
 
 class HTMLVideoElement final : public HTMLMediaElement {
 public:
-    static Ref<HTMLVideoElement> create(const QualifiedName&, Document&, bool);
+    static Ref<HTMLVideoElement> create(const QualifiedName&, Document&, bool createdByParser);
 
     WEBCORE_EXPORT unsigned videoWidth() const;
     WEBCORE_EXPORT unsigned videoHeight() const;
-    
-    // Fullscreen
+
     void webkitEnterFullscreen(ExceptionCode&);
     void webkitExitFullscreen();
     bool webkitSupportsFullscreen();
     bool webkitDisplayingFullscreen();
 
+    void ancestorWillEnterFullscreen() final;
+    
     // FIXME: Maintain "FullScreen" capitalization scheme for backwards compatibility.
     // https://bugs.webkit.org/show_bug.cgi?id=36081
     void webkitEnterFullScreen(ExceptionCode& ec) { webkitEnterFullscreen(ec); }
@@ -59,56 +60,68 @@ public:
 #endif
 
 #if ENABLE(MEDIA_STATISTICS)
-    // Statistics
     unsigned webkitDecodedFrameCount() const;
     unsigned webkitDroppedFrameCount() const;
 #endif
 
     // Used by canvas to gain raw pixel access
-    void paintCurrentFrameInContext(GraphicsContext*, const FloatRect&);
+    void paintCurrentFrameInContext(GraphicsContext&, const FloatRect&);
 
-    PassNativeImagePtr nativeImageForCurrentTime();
+    NativeImagePtr nativeImageForCurrentTime();
 
     // Used by WebGL to do GPU-GPU textures copy if possible.
     // See more details at MediaPlayer::copyVideoTextureToPlatformTexture() defined in Source/WebCore/platform/graphics/MediaPlayer.h.
-    bool copyVideoTextureToPlatformTexture(GraphicsContext3D*, Platform3DObject texture, GC3Dint level, GC3Denum type, GC3Denum internalFormat, bool premultiplyAlpha, bool flipY);
+    bool copyVideoTextureToPlatformTexture(GraphicsContext3D*, Platform3DObject texture, GC3Denum target, GC3Dint level, GC3Denum internalFormat, GC3Denum format, GC3Denum type, bool premultiplyAlpha, bool flipY);
 
     bool shouldDisplayPosterImage() const { return displayMode() == Poster || displayMode() == PosterWaitingForVideo; }
 
     URL posterImageURL() const;
-    virtual RenderPtr<RenderElement> createElementRenderer(Ref<RenderStyle>&&, const RenderTreePosition&) override;
+    RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) final;
 
 #if ENABLE(VIDEO_PRESENTATION_MODE)
-    bool webkitSupportsPresentationMode(const String&) const;
-    void webkitSetPresentationMode(const String&);
-    String webkitPresentationMode() const;
-    virtual void fullscreenModeChanged(VideoFullscreenMode) override;
+    enum class VideoPresentationMode { Fullscreen, PictureInPicture, Inline };
+    bool webkitSupportsPresentationMode(VideoPresentationMode) const;
+    void webkitSetPresentationMode(VideoPresentationMode);
+    VideoPresentationMode webkitPresentationMode() const;
+    void setFullscreenMode(VideoFullscreenMode);
+    void fullscreenModeChanged(VideoFullscreenMode) final;
 #endif
 
-private:
-    HTMLVideoElement(const QualifiedName&, Document&, bool);
+#if PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE)
+    void exitToFullscreenModeWithoutAnimationIfPossible(HTMLMediaElementEnums::VideoFullscreenMode fromMode, HTMLMediaElementEnums::VideoFullscreenMode toMode);
+#endif
 
-    virtual bool rendererIsNeeded(const RenderStyle&) override;
-    virtual void didAttachRenderers() override;
-    virtual void parseAttribute(const QualifiedName&, const AtomicString&) override;
-    virtual bool isPresentationAttribute(const QualifiedName&) const override;
-    virtual void collectStyleForPresentationAttribute(const QualifiedName&, const AtomicString&, MutableStyleProperties&) override;
-    virtual bool isVideo() const override { return true; }
-    virtual bool hasVideo() const override { return player() && player()->hasVideo(); }
-    virtual bool supportsFullscreen() const override;
-    virtual bool isURLAttribute(const Attribute&) const override;
-    virtual const AtomicString& imageSourceURL() const override;
+    RenderVideo* renderer() const;
+
+private:
+    HTMLVideoElement(const QualifiedName&, Document&, bool createdByParser);
+
+    void scheduleResizeEvent() final;
+    void scheduleResizeEventIfSizeChanged() final;
+    bool rendererIsNeeded(const RenderStyle&) final;
+    void didAttachRenderers() final;
+    void parseAttribute(const QualifiedName&, const AtomicString&) final;
+    bool isPresentationAttribute(const QualifiedName&) const final;
+    void collectStyleForPresentationAttribute(const QualifiedName&, const AtomicString&, MutableStyleProperties&) final;
+    bool isVideo() const final { return true; }
+    bool hasVideo() const final { return player() && player()->hasVideo(); }
+    bool supportsFullscreen(HTMLMediaElementEnums::VideoFullscreenMode) const final;
+    bool isURLAttribute(const Attribute&) const final;
+    const AtomicString& imageSourceURL() const final;
 
     bool hasAvailableVideoFrame() const;
-    virtual void updateDisplayState() override;
-    virtual void didMoveToNewDocument(Document* oldDocument) override;
-    virtual void setDisplayMode(DisplayMode) override;
+    void updateDisplayState() final;
+    void didMoveToNewDocument(Document* oldDocument) final;
+    void setDisplayMode(DisplayMode) final;
 
-    virtual PlatformMediaSession::MediaType presentationType() const override { return PlatformMediaSession::Video; }
+    PlatformMediaSession::MediaType presentationType() const final { return PlatformMediaSession::Video; }
 
     std::unique_ptr<HTMLImageLoader> m_imageLoader;
 
     AtomicString m_defaultPosterURL;
+
+    unsigned m_lastReportedVideoWidth { 0 };
+    unsigned m_lastReportedVideoHeight { 0 };
 };
 
 } // namespace WebCore
@@ -120,4 +133,3 @@ SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::HTMLVideoElement)
 SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // ENABLE(VIDEO)
-#endif // HTMLVideoElement_h

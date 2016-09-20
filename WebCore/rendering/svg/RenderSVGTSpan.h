@@ -28,8 +28,8 @@
 namespace WebCore {
 class RenderSVGTSpan final : public RenderSVGInline {
 public:
-    explicit RenderSVGTSpan(SVGTextPositioningElement& element, Ref<RenderStyle>&& style)
-        : RenderSVGInline(element, WTF::move(style))
+    explicit RenderSVGTSpan(SVGTextPositioningElement& element, RenderStyle&& style)
+        : RenderSVGInline(element, WTFMove(style))
     {
     }
 
@@ -37,8 +37,11 @@ public:
 
 private:
     void graphicsElement() const = delete;
-    virtual const char* renderName() const override { return "RenderSVGTSpan"; }
+    const char* renderName() const override { return "RenderSVGTSpan"; }
+    bool isSVGTSpan() const override { return true; }
 };
 }
+
+SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderSVGTSpan, isSVGTSpan())
 
 #endif // !RenderSVGTSpan_h

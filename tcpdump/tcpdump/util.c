@@ -257,8 +257,6 @@ ts_print(netdissect_options *ndo,
 	register int s;
 	struct tm *tm;
 	time_t Time;
-	static unsigned long b_sec;
-	static unsigned b_usec;
 	int d_usec;
 	long d_sec;
 	
@@ -277,14 +275,17 @@ ts_print(netdissect_options *ndo,
 	
 	/* Microseconds since previous packet */
 	if (ndo->ndo_tflag == 3 || ndo->ndo_t3flag) {
-		if (b_sec == 0) {
+		static unsigned long p_sec;
+		static unsigned p_usec;
+
+		if (p_sec == 0) {
 			/* init timestamp for first packet */
-			b_usec = tvp->tv_usec;
-			b_sec = tvp->tv_sec;
+			p_usec = tvp->tv_usec;
+			p_sec = tvp->tv_sec;
 		}
 		
-		d_usec = tvp->tv_usec - b_usec;
-		d_sec = tvp->tv_sec - b_sec;
+		d_usec = tvp->tv_usec - p_usec;
+		d_sec = tvp->tv_sec - p_sec;
 		
 		while (d_usec < 0) {
 			d_usec += 1000000;
@@ -294,8 +295,8 @@ ts_print(netdissect_options *ndo,
 		ND_PRINT((ndo, "%s ", ts_format(ndo, (int)d_sec, d_usec)));
 		
 		/* set timestamp for last packet */
-		b_sec = tvp->tv_sec;
-		b_usec = tvp->tv_usec;
+		p_sec = tvp->tv_sec;
+		p_usec = tvp->tv_usec;
 	}
 	
 	/* Default + Date */
@@ -313,14 +314,17 @@ ts_print(netdissect_options *ndo,
 	
 	/* Microseconds since first packet */
 	if (ndo->ndo_tflag == 5 || ndo->ndo_t5flag) {
-		if (b_sec == 0) {
+		static unsigned long f_sec;
+		static unsigned f_usec;
+
+		if (f_sec == 0) {
 			/* init timestamp for first packet */
-			b_usec = tvp->tv_usec;
-			b_sec = tvp->tv_sec;
+			f_usec = tvp->tv_usec;
+			f_sec = tvp->tv_sec;
 		}
 		
-		d_usec = tvp->tv_usec - b_usec;
-		d_sec = tvp->tv_sec - b_sec;
+		d_usec = tvp->tv_usec - f_usec;
+		d_sec = tvp->tv_sec - f_sec;
 		
 		while (d_usec < 0) {
 			d_usec += 1000000;

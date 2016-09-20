@@ -26,26 +26,33 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-10-05</string>
+		<string>2015-7-23</string>
 		<key>OpenSourceLicense</key>
 		<string>Info-ZIP</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>unzip.txt</string>
 		<key>OpenSourceModifications</key>
 		<array>
-			<string>CVE-2005-2475, obtained from FreeBSD ports/85920</string>
-			<string>Support for quarantine</string>
-			<string>CVE-2008-8880, obtained from FedoraProject</string>
-			<string>Fix memory corruption in test_compr_eb and overflow in list_files()</string>
+			<string>cve-2014-8140-test-compr-eb from Debian</string>
+			<string>cve-2014-8139-crc-overflow from Debian</string>
+			<string>cve-2014-8141-getzip64data from Debian</string>
+			<string>cve-2014-9636-test-compr-eb from Debian</string>
+			<string>allow-greater-hostver-values from Debian</string>
+			<string>include-unistd-for-kfreebsd from Debian</string>
+			<string>handle-pkware-verification-bit from Debian</string>
+			<string>initialize-the-symlink-flag from Debian</string>
+			<string>increase-size-of-cfactorstr from Debian</string>
+                        <string>Apple-patch</string>
+                        <string>patch-quarantine</string>
 		</array>
 		<key>OpenSourceProject</key>
 		<string>unzip</string>
-		<key>OpenSourceSHA1</key>
-		<string>1831bd59b9e607a69052f83b263384895e2d4a19</string>
+		<key>OpenSourceMD5</key>
+		<string>62b490407489521db863b523a7f86375</string>
 		<key>OpenSourceURL</key>
-		<string>http://ftp.info-zip.org/pub/infozip/src/unzip552.tar.gz</string>
+		<string>ftp://ftp.info-zip.org/pub/infozip/src/unzip60.tgz</string>
 		<key>OpenSourceVersion</key>
-		<string>5.52</string>
+		<string>6.0</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.info-zip.org/UnZip.html</string>
 	</dict>

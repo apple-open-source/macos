@@ -2,13 +2,15 @@ set(WTF_LIBRARY_TYPE STATIC)
 set(WTF_OUTPUT_NAME WTFGTK)
 
 list(APPEND WTF_SOURCES
+    generic/WorkQueueGeneric.cpp
     glib/GLibUtilities.cpp
-    glib/GMainLoopSource.cpp
     glib/GRefPtr.cpp
-    glib/GThreadSafeMainLoopSource.cpp
     glib/MainThreadGLib.cpp
     glib/RunLoopGLib.cpp
-    glib/WorkQueueGLib.cpp
+    PlatformUserPreferredLanguagesUnix.cpp
+    UniStdExtras.cpp
+
+    text/gtk/TextBreakIteratorInternalICUGtk.cpp
 )
 
 list(APPEND WTF_LIBRARIES

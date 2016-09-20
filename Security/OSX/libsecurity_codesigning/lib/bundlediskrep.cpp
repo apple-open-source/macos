@@ -47,7 +47,7 @@ static std::string findDistFile(const std::string &directory);
 // We make a CFBundleRef immediately, but everything else is lazy
 //
 BundleDiskRep::BundleDiskRep(const char *path, const Context *ctx)
-	: mBundle(CFBundleCreate(NULL, CFTempURL(path)))
+	: mBundle(_CFBundleCreateUnique(NULL, CFTempURL(path)))
 {
 	if (!mBundle)
 		MacOSError::throwMe(errSecCSBadBundleFormat);
@@ -74,7 +74,7 @@ void BundleDiskRep::checkMoved(CFURLRef oldPath, CFURLRef newPath)
 	// to their "Current" version binary in the main bundle
 	if (realpath(cfString(oldPath).c_str(), cOld) == NULL ||
 		realpath(cfString(newPath).c_str(), cNew) == NULL)
-		MacOSError::throwMe(errSecCSInternalError);
+		MacOSError::throwMe(errSecCSAmbiguousBundleFormat);
 	
 	if (strcmp(cOld, cNew) != 0)
 		recordStrictError(errSecCSAmbiguousBundleFormat);
@@ -83,16 +83,19 @@ void BundleDiskRep::checkMoved(CFURLRef oldPath, CFURLRef newPath)
 // common construction code
 void BundleDiskRep::setup(const Context *ctx)
 {
+	mComponentsFromExecValid = false; // not yet known
 	mInstallerPackage = false;	// default
 	mAppLike = false;			// pessimism first
 	bool appDisqualified = false; // found reason to disqualify as app
-
+	
 	// capture the path of the main executable before descending into a specific version
 	CFRef<CFURLRef> mainExecBefore = CFBundleCopyExecutableURL(mBundle);
 	CFRef<CFURLRef> infoPlistBefore = _CFBundleCopyInfoPlistURL(mBundle);
 
 	// validate the bundle root; fish around for the desired framework version
 	string root = cfStringRelease(copyCanonicalPath());
+	if (filehasExtendedAttribute(root, XATTR_FINDERINFO_NAME))
+		recordStrictError(errSecCSInvalidAssociatedFileData);
 	string contents = root + "/Contents";
 	string supportFiles = root + "/Support Files";
 	string version = root + "/Versions/"
@@ -111,7 +114,7 @@ void BundleDiskRep::setup(const Context *ctx)
 		// treat like a shallow bundle; do not allow Versions arbitration
 		appDisqualified = true;
 	} else if (::access(version.c_str(), F_OK) == 0) {	// versioned bundle
-		if (CFBundleRef versionBundle = CFBundleCreate(NULL, CFTempURL(version)))
+		if (CFBundleRef versionBundle = _CFBundleCreateUnique(NULL, CFTempURL(version)))
 			mBundle.take(versionBundle);	// replace top bundle ref
 		else
 			MacOSError::throwMe(errSecCSStaticCodeNotFound);
@@ -145,8 +148,7 @@ void BundleDiskRep::setup(const Context *ctx)
 
 			mMainExecutableURL = mainExec;
 			mExecRep = DiskRep::bestFileGuess(this->mainExecutablePath(), ctx);
-			if (!mExecRep->fd().isPlainFile(this->mainExecutablePath()))
-				recordStrictError(errSecCSRegularFile);
+			checkPlainFile(mExecRep->fd(), this->mainExecutablePath());
 			CFDictionaryRef infoDict = CFBundleGetInfoDictionary(mBundle);
 			bool isAppBundle = false;
 			if (infoDict)
@@ -169,8 +171,7 @@ void BundleDiskRep::setup(const Context *ctx)
 		if (!mMainExecutableURL)
 			MacOSError::throwMe(errSecCSBadBundleFormat);
 		mExecRep = new FileDiskRep(this->mainExecutablePath().c_str());
-		if (!mExecRep->fd().isPlainFile(this->mainExecutablePath()))
-			recordStrictError(errSecCSRegularFile);
+		checkPlainFile(mExecRep->fd(), this->mainExecutablePath());
 		mFormat = "widget bundle";
 		mAppLike = true;
 		return;
@@ -181,8 +182,7 @@ void BundleDiskRep::setup(const Context *ctx)
 		// focus on the Info.plist (which we know exists) as the nominal "main executable" file
 		mMainExecutableURL = infoURL;
 		mExecRep = new FileDiskRep(this->mainExecutablePath().c_str());
-		if (!mExecRep->fd().isPlainFile(this->mainExecutablePath()))
-			recordStrictError(errSecCSRegularFile);
+		checkPlainFile(mExecRep->fd(), this->mainExecutablePath());
 		if (packageVersion) {
 			mInstallerPackage = true;
 			mFormat = "installer package bundle";
@@ -197,8 +197,7 @@ void BundleDiskRep::setup(const Context *ctx)
 	if (!distFile.empty()) {
 		mMainExecutableURL = makeCFURL(distFile);
 		mExecRep = new FileDiskRep(this->mainExecutablePath().c_str());
-		if (!mExecRep->fd().isPlainFile(this->mainExecutablePath()))
-			recordStrictError(errSecCSRegularFile);
+		checkPlainFile(mExecRep->fd(), this->mainExecutablePath());
 		mInstallerPackage = true;
 		mFormat = "installer package bundle";
 		return;
@@ -245,34 +244,13 @@ static std::string findDistFile(const std::string &directory)
 
 
 //
-// Create a path to a bundle signing resource, by name.
-// If the BUNDLEDISKREP_DIRECTORY directory exists in the bundle's support directory, files
-// will be read and written there. Otherwise, they go directly into the support directory.
-//
-string BundleDiskRep::metaPath(const char *name)
-{
-	if (mMetaPath.empty()) {
-		string support = cfStringRelease(CFBundleCopySupportFilesDirectoryURL(mBundle));
-		mMetaPath = support + "/" BUNDLEDISKREP_DIRECTORY;
-		if (::access(mMetaPath.c_str(), F_OK) == 0) {
-			mMetaExists = true;
-		} else {
-			mMetaPath = support;
-			mMetaExists = false;
-		}
-	}
-	return mMetaPath + "/" + name;
-}
-
-
-//
 // Try to create the meta-file directory in our bundle.
 // Does nothing if the directory already exists.
 // Throws if an error occurs.
 //
 void BundleDiskRep::createMeta()
 {
-	string meta = metaPath(BUNDLEDISKREP_DIRECTORY);
+	string meta = metaPath(NULL);
 	if (!mMetaExists) {
 		if (::mkdir(meta.c_str(), 0755) == 0) {
 			copyfile(cfStringRelease(copyCanonicalPath()).c_str(), meta.c_str(), NULL, COPYFILE_SECURITY);
@@ -282,7 +260,40 @@ void BundleDiskRep::createMeta()
 			UnixError::throwMe();
 	}
 }
+	
 
+//
+// Create a path to a bundle signing resource, by name.
+// This is in the BUNDLEDISKREP_DIRECTORY directory in the bundle's support directory.
+//
+string BundleDiskRep::metaPath(const char *name)
+{
+	if (mMetaPath.empty()) {
+		string support = cfStringRelease(CFBundleCopySupportFilesDirectoryURL(mBundle));
+		mMetaPath = support + "/" BUNDLEDISKREP_DIRECTORY;
+		mMetaExists = ::access(mMetaPath.c_str(), F_OK) == 0;
+	}
+	if (name)
+		return mMetaPath + "/" + name;
+	else
+		return mMetaPath;
+}
+	
+CFDataRef BundleDiskRep::metaData(const char *name)
+{
+	return cfLoadFile(CFTempURL(metaPath(name)));
+}
+
+CFDataRef BundleDiskRep::metaData(CodeDirectory::SpecialSlot slot)
+{
+	if (const char *name = CodeDirectory::canonicalSlotName(slot))
+		return metaData(name);
+	else
+		return NULL;
+}
+
+
+	
 //
 // Load's a CFURL and makes sure that it is a regular file and not a symlink (or fifo, etc.)
 //
@@ -296,14 +307,13 @@ CFDataRef BundleDiskRep::loadRegularFile(CFURLRef url)
 
 	AutoFileDesc fd(path);
 
-	if (!fd.isPlainFile(path))
-		recordStrictError(errSecCSRegularFile);
+	checkPlainFile(fd, path);
 
 	data = cfLoadFile(fd, fd.fileSize());
 
 	if (!data) {
-		secdebug(__PRETTY_FUNCTION__, "failed to load %s", cfString(url).c_str());
-		MacOSError::throwMe(errSecCSInternalError);
+		secinfo("bundlediskrep", "failed to load %s", cfString(url).c_str());
+		MacOSError::throwMe(errSecCSInvalidSymlink);
 	}
 
 	return data;
@@ -313,8 +323,10 @@ CFDataRef BundleDiskRep::loadRegularFile(CFURLRef url)
 // Load and return a component, by slot number.
 // Info.plist components come from the bundle, always (we don't look
 // for Mach-O embedded versions).
+// ResourceDirectory always comes from bundle files.
 // Everything else comes from the embedded blobs of a Mach-O image, or from
-// files located in the Contents directory of the bundle.
+// files located in the Contents directory of the bundle; but we must be consistent
+// (no half-and-half situations).
 //
 CFDataRef BundleDiskRep::component(CodeDirectory::SpecialSlot slot)
 {
@@ -325,17 +337,36 @@ CFDataRef BundleDiskRep::component(CodeDirectory::SpecialSlot slot)
 			return loadRegularFile(info);
 		else
 			return NULL;
-	// by default, we take components from the executable image or files
-	default:
-		if (CFDataRef data = mExecRep->component(slot))
-			return data;
-		// falling through
-	// but the following always come from files
 	case cdResourceDirSlot:
-		if (const char *name = CodeDirectory::canonicalSlotName(slot))
-			return metaData(name);
-		else
-			return NULL;
+		mUsedComponents.insert(slot);
+		return metaData(slot);
+	// by default, we take components from the executable image or files (but not both)
+	default:
+		if (CFRef<CFDataRef> data = mExecRep->component(slot)) {
+			componentFromExec(true);
+			return data.yield();
+		}
+		if (CFRef<CFDataRef> data = metaData(slot)) {
+			componentFromExec(false);
+			mUsedComponents.insert(slot);
+			return data.yield();
+		}
+		return NULL;
+	}
+}
+
+
+// Check that all components of this BundleDiskRep come from either the main
+// executable or the _CodeSignature directory (not mix-and-match).
+void BundleDiskRep::componentFromExec(bool fromExec)
+{
+	if (!mComponentsFromExecValid) {
+		// first use; set latch
+		mComponentsFromExecValid = true;
+		mComponentsFromExec = fromExec;
+	} else if (mComponentsFromExec != fromExec) {
+		// subsequent use: check latch
+		MacOSError::throwMe(errSecCSSignatureFailed);
 	}
 }
 
@@ -451,6 +482,10 @@ void BundleDiskRep::flush()
 	mExecRep->flush();
 }
 
+CFDictionaryRef BundleDiskRep::diskRepInformation()
+{
+    return mExecRep->diskRepInformation();
+}
 
 //
 // Defaults for signing operations
@@ -531,6 +566,7 @@ CFDictionaryRef BundleDiskRep::defaultResourceRules(const SigningContext &ctx)
 			"'^version.plist$' = #T"					// include version.plist
 			"%s = #T"									// include Resources
 			"%s = {optional=#T, weight=1000}"			// make localizations optional
+			"%s = {weight=1010}"						// ... except for Base.lproj which really isn't optional at all
 			"%s = {omit=#T, weight=1100}"				// exclude all locversion.plist files
 		"},rules2={"
 			"'^.*' = #T"								// include everything as a resource, with the following exceptions
@@ -544,15 +580,18 @@ CFDictionaryRef BundleDiskRep::defaultResourceRules(const SigningContext &ctx)
 			"'^PkgInfo$' = {omit=#T, weight=20}"		// traditionally not included
 			"%s = {weight=20}"							// Resources override default nested (widgets)
 			"%s = {optional=#T, weight=1000}"			// make localizations optional
+			"%s = {weight=1010}"						// ... except for Base.lproj which really isn't optional at all
 			"%s = {omit=#T, weight=1100}"				// exclude all locversion.plist files
 		"}}",
 			
 		(string("^") + resources).c_str(),
 		(string("^") + resources + ".*\\.lproj/").c_str(),
+		(string("^") + resources + "Base\\.lproj/").c_str(),
 		(string("^") + resources + ".*\\.lproj/locversion.plist$").c_str(),
 			
 		(string("^") + resources).c_str(),
 		(string("^") + resources + ".*\\.lproj/").c_str(),
+		(string("^") + resources + "Base\\.lproj/").c_str(),
 		(string("^") + resources + ".*\\.lproj/locversion.plist$").c_str()
 	);
 }
@@ -588,6 +627,14 @@ size_t BundleDiskRep::pageSize(const SigningContext &ctx)
 //
 void BundleDiskRep::strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated, SecCSFlags flags)
 {
+	// scan our metadirectory (_CodeSignature) for unwanted guests
+	if (!(flags & kSecCSQuickCheck))
+		validateMetaDirectory(cd);
+	
+	// check accumulated strict errors and report them
+	if (!(flags & kSecCSRestrictSidebandData))	// tolerate resource forks etc.
+		mStrictErrors.erase(errSecCSInvalidAssociatedFileData);
+	
 	std::vector<OSStatus> fatalErrors;
 	set_difference(mStrictErrors.begin(), mStrictErrors.end(), tolerated.begin(), tolerated.end(), back_inserter(fatalErrors));
 	if (!fatalErrors.empty())
@@ -606,6 +653,45 @@ void BundleDiskRep::strictValidate(const CodeDirectory* cd, const ToleratedError
 void BundleDiskRep::recordStrictError(OSStatus error)
 {
 	mStrictErrors.insert(error);
+}
+
+
+void BundleDiskRep::validateMetaDirectory(const CodeDirectory* cd)
+{
+	// we know the resource directory will be checked after this call, so we'll give it a pass here
+	if (cd->slotIsPresent(-cdResourceDirSlot))
+		mUsedComponents.insert(cdResourceDirSlot);
+	
+	// make a set of allowed (regular) filenames in this directory
+	std::set<std::string> allowedFiles;
+	for (auto it = mUsedComponents.begin(); it != mUsedComponents.end(); ++it) {
+		switch (*it) {
+		case cdInfoSlot:
+			break;		// always from Info.plist, not from here
+		default:
+			if (const char *name = CodeDirectory::canonicalSlotName(*it)) {
+				allowedFiles.insert(name);
+			}
+			break;
+		}
+	}
+	DirScanner scan(mMetaPath);
+	if (scan.initialized()) {
+		while (struct dirent* ent = scan.getNext()) {
+			if (!scan.isRegularFile(ent))
+				MacOSError::throwMe(errSecCSUnsealedAppRoot);	// only regular files allowed
+			if (allowedFiles.find(ent->d_name) == allowedFiles.end()) {	// not in expected set of files
+				if (strcmp(ent->d_name, kSecCS_SIGNATUREFILE) == 0) {
+					// special case - might be empty and unused (adhoc signature)
+					AutoFileDesc fd(metaPath(kSecCS_SIGNATUREFILE));
+					if (fd.fileSize() == 0)
+						continue;	// that's okay, then
+				}
+				// not on list of needed files; it's a freeloading rogue!
+				recordStrictError(errSecCSUnsealedAppRoot);	// funnel through strict set so GKOpaque can override it
+			}
+		}
+	}
 }
 
 
@@ -644,6 +730,23 @@ void BundleDiskRep::validateFrameworkRoot(string root)
 	}
 }
 
+	
+//
+// Check a file descriptor for harmlessness. This is a strict check (only).
+//
+void BundleDiskRep::checkPlainFile(FileDesc fd, const std::string& path)
+{
+	if (!fd.isPlainFile(path))
+		recordStrictError(errSecCSRegularFile);
+	checkForks(fd);
+}
+	
+void BundleDiskRep::checkForks(FileDesc fd)
+{
+	if (fd.hasExtendedAttribute(XATTR_RESOURCEFORK_NAME) || fd.hasExtendedAttribute(XATTR_FINDERINFO_NAME))
+		recordStrictError(errSecCSInvalidAssociatedFileData);
+}
+
 
 //
 // Writers
@@ -679,6 +782,7 @@ void BundleDiskRep::Writer::component(CodeDirectory::SpecialSlot slot, CFDataRef
 			string path = rep->metaPath(name);
 			AutoFileDesc fd(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 			fd.writeAll(CFDataGetBytePtr(data), CFDataGetLength(data));
+			mWrittenFiles.insert(name);
 		} else
 			MacOSError::throwMe(errSecCSBadBundleFormat);
 	}
@@ -715,6 +819,24 @@ void BundleDiskRep::Writer::remove(CodeDirectory::SpecialSlot slot)
 void BundleDiskRep::Writer::flush()
 {
 	execWriter->flush();
+	purgeMetaDirectory();
+}
+	
+	
+// purge _CodeSignature of all left-over files from any previous signature
+void BundleDiskRep::Writer::purgeMetaDirectory()
+{
+	DirScanner scan(rep->mMetaPath);
+	if (scan.initialized()) {
+		while (struct dirent* ent = scan.getNext()) {
+			if (!scan.isRegularFile(ent))
+				MacOSError::throwMe(errSecCSUnsealedAppRoot);	// only regular files allowed
+			if (mWrittenFiles.find(ent->d_name) == mWrittenFiles.end()) {	// we didn't write this!
+				scan.unlink(ent, 0);
+			}
+		}
+	}
+	
 }
 
 

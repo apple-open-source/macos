@@ -30,6 +30,8 @@ namespace WTF {
 
 template<typename T>
 class Bag {
+    WTF_MAKE_NONCOPYABLE(Bag);
+    WTF_MAKE_FAST_ALLOCATED;
 private:
     class Node {
         WTF_MAKE_FAST_ALLOCATED;
@@ -46,8 +48,21 @@ private:
     
 public:
     Bag()
-        : m_head(nullptr)
     {
+    }
+
+    Bag(Bag<T>&& other)
+    {
+        ASSERT(!m_head);
+        m_head = other.m_head;
+        other.m_head = nullptr;
+    }
+
+    Bag& operator=(Bag<T>&& other)
+    {
+        m_head = other.m_head;
+        other.m_head = nullptr;
+        return *this;
     }
     
     ~Bag()
@@ -119,7 +134,7 @@ public:
     bool isEmpty() const { return !m_head; }
     
 private:
-    Node* m_head;
+    Node* m_head { nullptr };
 };
 
 } // namespace WTF

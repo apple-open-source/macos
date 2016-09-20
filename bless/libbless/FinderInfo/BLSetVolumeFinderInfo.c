@@ -34,6 +34,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 #include <unistd.h>
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/attr.h>
 
@@ -46,7 +47,7 @@ struct volinfobuf {
 }; 
 
 
-int BLSetVolumeFinderInfo(BLContextPtr context, const char * mountpoint, uint32_t * words) {
+int BLSetVolumeFinderInfo(BLContextPtr context, const char *mountpoint, uint32_t *words) {
 
     struct attrlist alist;
     struct volinfobuf vinfo;
@@ -61,20 +62,22 @@ int BLSetVolumeFinderInfo(BLContextPtr context, const char * mountpoint, uint32_
     alist.forkattr = 0;
 
     err = getattrlist(mountpoint, &alist, &vinfo, sizeof(vinfo), 0);
-    if(err) {
-        contextprintf(context, kBLLogLevelError,  "Can't volume information for %s\n", mountpoint );
-        return 1;
+    if (err) {
+		int rval = errno;
+		contextprintf(context, kBLLogLevelError,  "Can't volume information for %s\n", mountpoint );
+		return rval;
     }
 
     // only let the user overwrite words 0-5 (i.e. not VSDB)
-    for(i=0; i<6; i++) {
+    for (i=0; i<6; i++) {
         vinfo.finderinfo[i] = CFSwapInt32HostToBig(words[i]);
     }
 
     err = setattrlist(mountpoint, &alist, &vinfo.finderinfo, sizeof(vinfo.finderinfo), 0);
-    if(err) {
-      contextprintf(context, kBLLogLevelError,  "Error while setting volume information for %s\n", mountpoint );
-      return 2;
+    if (err) {
+		int rval = errno;
+		contextprintf(context, kBLLogLevelError,  "Error while setting volume information for %s\n", mountpoint );
+		return rval;
     }
 
     return 0;

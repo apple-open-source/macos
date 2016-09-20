@@ -23,6 +23,7 @@
 
 #include "HTMLElement.h"
 #include <wtf/HashCountedSet.h>
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
@@ -62,8 +63,8 @@ protected:
     void setSandboxFlags(SandboxFlags);
 
 private:
-    virtual bool isKeyboardFocusable(KeyboardEvent*) const override;
-    virtual bool isFrameOwnerElement() const override final { return true; }
+    bool isKeyboardFocusable(KeyboardEvent*) const override;
+    bool isFrameOwnerElement() const final { return true; }
 
     Frame* m_contentFrame;
     SandboxFlags m_sandboxFlags;
@@ -87,7 +88,7 @@ public:
 private:
     static HashCountedSet<ContainerNode*>& disabledSubtreeRoots()
     {
-        DEPRECATED_DEFINE_STATIC_LOCAL(HashCountedSet<ContainerNode*>, nodes, ());
+        static NeverDestroyed<HashCountedSet<ContainerNode*>> nodes;
         return nodes;
     }
 

@@ -33,8 +33,8 @@ using namespace Inspector;
 
 namespace WebCore {
 
-WebInjectedScriptManager::WebInjectedScriptManager(InspectorEnvironment& environment, PassRefPtr<InjectedScriptHost> host)
-    : InjectedScriptManager(environment, host)
+WebInjectedScriptManager::WebInjectedScriptManager(InspectorEnvironment& environment, RefPtr<InjectedScriptHost>&& host)
+    : InjectedScriptManager(environment, WTFMove(host))
     , m_commandLineAPIHost(CommandLineAPIHost::create())
 {
 }
@@ -54,7 +54,7 @@ void WebInjectedScriptManager::discardInjectedScripts()
     m_commandLineAPIHost->clearAllWrappers();
 }
 
-void WebInjectedScriptManager::didCreateInjectedScript(InjectedScript injectedScript)
+void WebInjectedScriptManager::didCreateInjectedScript(const Inspector::InjectedScript& injectedScript)
 {
     CommandLineAPIModule::injectIfNeeded(this, injectedScript);
 }
@@ -73,8 +73,8 @@ void WebInjectedScriptManager::discardInjectedScriptsFor(DOMWindow* window)
         idsToRemove.append(it.key);
     }
 
-    for (size_t i = 0; i < idsToRemove.size(); i++)
-        m_idToInjectedScript.remove(idsToRemove[i]);
+    for (auto& id : idsToRemove)
+        m_idToInjectedScript.remove(id);
 
     // Now remove script states that have id but no injected script.
     Vector<JSC::ExecState*> scriptStatesToRemove;
@@ -84,8 +84,8 @@ void WebInjectedScriptManager::discardInjectedScriptsFor(DOMWindow* window)
             scriptStatesToRemove.append(scriptState);
     }
 
-    for (size_t i = 0; i < scriptStatesToRemove.size(); i++)
-        m_scriptStateToId.remove(scriptStatesToRemove[i]);
+    for (auto& scriptState : scriptStatesToRemove)
+        m_scriptStateToId.remove(scriptState);
 }
 
 } // namespace WebCore

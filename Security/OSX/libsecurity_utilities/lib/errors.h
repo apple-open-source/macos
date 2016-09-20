@@ -54,6 +54,11 @@ public:
 
     virtual OSStatus osStatus() const = 0;
 	virtual int unixError() const = 0;
+
+    char whatBuffer[128];
+    const size_t whatBufferSize = sizeof(whatBuffer);
+
+    static void LogBacktrace();
 };
 
 

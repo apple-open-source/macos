@@ -52,11 +52,7 @@ namespace WebKit {
 
 void PluginProcessProxy::platformGetLaunchOptions(ProcessLauncher::LaunchOptions& launchOptions, const PluginProcessAttributes& pluginProcessAttributes)
 {
-#if PLATFORM(EFL) && !defined(NDEBUG)
-    const char* commandPrefix = getenv("PLUGIN_PROCESS_COMMAND_PREFIX");
-    if (commandPrefix && *commandPrefix)
-        launchOptions.processCmdPrefix = String::fromUTF8(commandPrefix);
-#endif
+    launchOptions.processType = ProcessLauncher::ProcessType::Plugin64;
 
     launchOptions.extraInitializationData.add("plugin-path", pluginProcessAttributes.moduleInfo.path);
 #if PLATFORM(GTK)
@@ -87,12 +83,15 @@ bool PluginProcessProxy::scanPlugin(const String& pluginPath, RawPluginMetaData&
 
 #if PLATFORM(GTK)
     bool requiresGtk2 = pluginRequiresGtk2(pluginPath);
-    if (requiresGtk2)
+    if (requiresGtk2) {
 #if ENABLE(PLUGIN_PROCESS_GTK2)
         pluginProcessPath.append('2');
+        if (!fileExists(pluginProcessPath))
+            return false;
 #else
         return false;
 #endif
+    }
 #endif
 
     CString binaryPath = fileSystemRepresentation(pluginProcessPath);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2007, 2011, 2012 Apple Inc.  All rights reserved.
+ * Copyright (C) 2005-2016 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -53,8 +53,6 @@ typedef enum {
 } WebStorageBlockingPolicy;
 
 typedef enum {
-    WebKitJavaScriptRuntimeFlagsSymbolDisabled = 1u << 0,
-    WebKitJavaScriptRuntimeFlagsPromiseDisabled = 1u << 1,
     WebKitJavaScriptRuntimeFlagsAllEnabled = 0
 } WebKitJavaScriptRuntimeFlags;
 
@@ -202,17 +200,17 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification;
 - (BOOL)acceleratedDrawingEnabled;
 - (void)setAcceleratedDrawingEnabled:(BOOL)enabled;
 
+- (BOOL)displayListDrawingEnabled;
+- (void)setDisplayListDrawingEnabled:(BOOL)enabled;
+
+- (BOOL)resourceLoadStatisticsEnabled;
+- (void)setResourceLoadStatisticsEnabled:(BOOL)enabled;
+
 - (BOOL)canvasUsesAcceleratedDrawing;
 - (void)setCanvasUsesAcceleratedDrawing:(BOOL)enabled;
 
 - (BOOL)acceleratedCompositingEnabled;
 - (void)setAcceleratedCompositingEnabled:(BOOL)enabled;
-
-- (BOOL)cssRegionsEnabled;
-- (void)setCSSRegionsEnabled:(BOOL)enabled;
-
-- (BOOL)cssCompositingEnabled;
-- (void)setCSSCompositingEnabled:(BOOL)enabled;
 
 - (BOOL)showDebugBorders;
 - (void)setShowDebugBorders:(BOOL)show;
@@ -232,6 +230,9 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification;
 - (BOOL)webGLEnabled;
 - (void)setWebGLEnabled:(BOOL)enabled;
 
+- (BOOL)webGL2Enabled;
+- (void)setWebGL2Enabled:(BOOL)enabled;
+
 - (BOOL)forceSoftwareWebGLRendering;
 - (void)setForceSoftwareWebGLRendering:(BOOL)forced;
 
@@ -244,11 +245,28 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification;
 - (BOOL)hyperlinkAuditingEnabled;
 - (void)setHyperlinkAuditingEnabled:(BOOL)enabled;
 
+// Deprecated. Use -setVideoPlaybackRequiresUserGesture and -setAudioPlaybackRequiresUserGesture instead.
 - (void)setMediaPlaybackRequiresUserGesture:(BOOL)flag;
+// Deprecated. Use -videoPlaybackRequiresUserGesture and -audioPlaybackRequiresUserGesture instead.
 - (BOOL)mediaPlaybackRequiresUserGesture;
+
+- (void)setVideoPlaybackRequiresUserGesture:(BOOL)flag;
+- (BOOL)videoPlaybackRequiresUserGesture;
+
+- (void)setAudioPlaybackRequiresUserGesture:(BOOL)flag;
+- (BOOL)audioPlaybackRequiresUserGesture;
+
+- (void)setOverrideUserGestureRequirementForMainContent:(BOOL)flag;
+- (BOOL)overrideUserGestureRequirementForMainContent;
 
 - (void)setMediaPlaybackAllowsInline:(BOOL)flag;
 - (BOOL)mediaPlaybackAllowsInline;
+
+- (void)setInlineMediaPlaybackRequiresPlaysInlineAttribute:(BOOL)flag;
+- (BOOL)inlineMediaPlaybackRequiresPlaysInlineAttribute;
+
+- (void)setInvisibleAutoplayNotPermitted:(BOOL)flag;
+- (BOOL)invisibleAutoplayNotPermitted;
 
 - (void)setMediaControlsScaleWithPageZoom:(BOOL)flag;
 - (BOOL)mediaControlsScaleWithPageZoom;
@@ -295,6 +313,9 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification;
 - (void)setMediaPlaybackAllowsAirPlay:(BOOL)flag;
 - (BOOL)mediaPlaybackAllowsAirPlay;
 #endif
+
+- (void)_setTextAutosizingEnabled:(BOOL)enabled;
+- (BOOL)_textAutosizingEnabled;
 
 - (BOOL)isInheritURIQueryComponentEnabled;
 - (void)setEnableInheritURIQueryComponent:(BOOL)flag;
@@ -359,6 +380,9 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification;
 // compiled with USE_AVFOUNDATION.
 - (void)setAVFoundationEnabled:(BOOL)flag;
 - (BOOL)isAVFoundationEnabled;
+
+- (void)setAVFoundationNSURLSessionEnabled:(BOOL)flag;
+- (BOOL)isAVFoundationNSURLSessionEnabled;
 
 - (void)setQTKitEnabled:(BOOL)flag;
 - (BOOL)isQTKitEnabled;
@@ -442,19 +466,37 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification;
 - (void)setMediaKeysStorageDirectory:(NSString *)directory;
 - (NSString *)mediaKeysStorageDirectory;
 
-- (void)setAntialiasedFontDilationEnabled:(BOOL)flag;
-- (BOOL)antialiasedFontDilationEnabled;
-
 - (void)setMetaRefreshEnabled:(BOOL)flag;
 - (BOOL)metaRefreshEnabled;
 
 - (void)setHTTPEquivEnabled:(BOOL)flag;
 - (BOOL)httpEquivEnabled;
 
-@property (nonatomic) BOOL javaScriptMarkupEnabled;
+- (void)setMockCaptureDevicesEnabled:(BOOL)flag;
+- (BOOL)mockCaptureDevicesEnabled;
 
-#if TARGET_OS_IPHONE && __IPHONE_OS_VERSION_MIN_REQUIRED < 80000
-- (void)_setAllowCompositingLayerVisualDegradation:(BOOL)flag;
-#endif
+- (void)setShadowDOMEnabled:(BOOL)flag;
+- (BOOL)shadowDOMEnabled;
+
+- (void)setCustomElementsEnabled:(BOOL)flag;
+- (BOOL)customElementsEnabled;
+
+- (void)setDOMIteratorEnabled:(BOOL)flag;
+- (BOOL)DOMIteratorEnabled;
+
+- (void)setFetchAPIEnabled:(BOOL)flag;
+- (BOOL)fetchAPIEnabled;
+
+- (void)setDownloadAttributeEnabled:(BOOL)flag;
+- (BOOL)downloadAttributeEnabled;
+
+- (void)setCSSGridLayoutEnabled:(BOOL)flag;
+- (BOOL)isCSSGridLayoutEnabled;
+
+@property (nonatomic) BOOL javaScriptMarkupEnabled;
+@property (nonatomic) BOOL mediaDataLoadsAutomatically;
+@property (nonatomic) BOOL attachmentElementEnabled;
+@property (nonatomic) BOOL allowsInlineMediaPlaybackAfterFullscreen;
+
 
 @end

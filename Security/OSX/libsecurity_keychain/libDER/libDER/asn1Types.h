@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2007,2011,2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2005-2016 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,12 +30,15 @@
 #ifndef	_ASN1_TYPES_H_
 #define _ASN1_TYPES_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <sys/cdefs.h>
+
+#include <libDER/libDER_config.h>
+
+__BEGIN_DECLS
 
 /* copied from libsecurity_asn1 project */
 
+/* Type tag numbers */
 #define ASN1_BOOLEAN			0x01
 #define ASN1_INTEGER			0x02
 #define ASN1_BIT_STRING			0x03
@@ -69,8 +72,7 @@ extern "C" {
 #define ASN1_HIGH_TAG_NUMBER	0x1f
 #define ASN1_TELETEX_STRING ASN1_T61_STRING
 
-#ifdef DER_MULTIBYTE_TAGS
-
+/* Tag modifiers */
 #define ASN1_TAG_MASK			((DERTag)~0)
 #define ASN1_TAGNUM_MASK        ((DERTag)~((DERTag)7 << (sizeof(DERTag) * 8 - 3)))
 
@@ -84,29 +86,26 @@ extern "C" {
 #define ASN1_CONTEXT_SPECIFIC	((DERTag)2 << (sizeof(DERTag) * 8 - 2))
 #define ASN1_PRIVATE			((DERTag)3 << (sizeof(DERTag) * 8 - 2))
 
-#else /* DER_MULTIBYTE_TAGS */
+/* One-byte tag modifiers */
+#define ONE_BYTE_ASN1_TAG_MASK          0xff
+#define ONE_BYTE_ASN1_TAGNUM_MASK       0x1f
+#define ONE_BYTE_ASN1_METHOD_MASK       0x20
+#define ONE_BYTE_ASN1_PRIMITIVE         0x00
+#define ONE_BYTE_ASN1_CONSTRUCTED       0x20
 
-#define ASN1_TAG_MASK			0xff
-#define ASN1_TAGNUM_MASK		0x1f
-#define ASN1_METHOD_MASK		0x20
-#define ASN1_PRIMITIVE			0x00
-#define ASN1_CONSTRUCTED		0x20
-
-#define ASN1_CLASS_MASK			0xc0
-#define ASN1_UNIVERSAL			0x00
-#define ASN1_APPLICATION		0x40
-#define ASN1_CONTEXT_SPECIFIC	0x80
-#define ASN1_PRIVATE			0xc0
-
-#endif /* !DER_MULTIBYTE_TAGS */
+#define ONE_BYTE_ASN1_CLASS_MASK        0xc0
+#define ONE_BYTE_ASN1_UNIVERSAL         0x00
+#define ONE_BYTE_ASN1_APPLICATION       0x40
+#define ONE_BYTE_ASN1_CONTEXT_SPECIFIC  0x80
+#define ONE_BYTE_ASN1_PRIVATE           0xc0
 
 /* sequence and set appear as the following */
-#define ASN1_CONSTR_SEQUENCE	(ASN1_CONSTRUCTED | ASN1_SEQUENCE)
-#define ASN1_CONSTR_SET			(ASN1_CONSTRUCTED | ASN1_SET)
+#define ASN1_CONSTR_SEQUENCE	((DERTag)(ASN1_CONSTRUCTED | ASN1_SEQUENCE))
+#define ASN1_CONSTR_SET			((DERTag)(ASN1_CONSTRUCTED | ASN1_SET))
 
-#ifdef __cplusplus
-}
-#endif
+#define ONE_BYTE_ASN1_CONSTR_SEQUENCE   ((uint8_t)(ONE_BYTE_ASN1_CONSTRUCTED | ASN1_SEQUENCE))
+#define ONE_BYTE_ASN1_CONSTR_SET        ((uint8_t)(ONE_BYTE_ASN1_CONSTRUCTED | ASN1_SET))
+
+__END_DECLS
 
 #endif	/* _ASN1_TYPES_H_ */
-

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 45;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -14,10 +14,14 @@
 		18A25BEE14752A48004F59F8 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C67F36D0468956400CA2E66 /* Security.framework */; };
 		18A25BEF14752A50004F59F8 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C67F36F0468957300CA2E66 /* CoreFoundation.framework */; };
 		18B6B2A614DB72BC00EDDE5F /* libASN1.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B6B2A514DB72BC00EDDE5F /* libASN1.a */; };
+		1FCCD2BC1CD96A7F0045DB49 /* translocate.c in Sources */ = {isa = PBXBuildFile; fileRef = 1FCCD2BA1CD96A7F0045DB49 /* translocate.c */; };
+		1FCCD2BD1CD96A7F0045DB49 /* translocate.h in Headers */ = {isa = PBXBuildFile; fileRef = 1FCCD2BB1CD96A7F0045DB49 /* translocate.h */; };
 		5287946E13CCCC32007AFF54 /* createFVMaster.c in Sources */ = {isa = PBXBuildFile; fileRef = 5287946C13CCCC32007AFF54 /* createFVMaster.c */; };
 		5287946F13CCCC32007AFF54 /* createFVMaster.h in Headers */ = {isa = PBXBuildFile; fileRef = 5287946D13CCCC32007AFF54 /* createFVMaster.h */; };
 		5287947713CCD56A007AFF54 /* srCdsaUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5287947513CCD56A007AFF54 /* srCdsaUtils.cpp */; };
 		5287947813CCD56A007AFF54 /* srCdsaUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = 5287947613CCD56A007AFF54 /* srCdsaUtils.h */; };
+		5E26C4DF1CC77EB200C26137 /* security_tool.h in Headers */ = {isa = PBXBuildFile; fileRef = 5E26C4DE1CC77EB200C26137 /* security_tool.h */; };
+		5E87AECD1CC7790C00B2CD90 /* smartcards.m in Sources */ = {isa = PBXBuildFile; fileRef = 5E87AECC1CC7790C00B2CD90 /* smartcards.m */; };
 		AACD2C7D0E12D81D00D485EA /* db_commands.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CFE73F3048809CA00CA2E66 /* db_commands.h */; };
 		AACD2C7E0E12D81D00D485EA /* key_create.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C2597F4047EFB4900CA2E66 /* key_create.h */; };
 		AACD2C7F0E12D81D00D485EA /* keychain_add.h in Headers */ = {isa = PBXBuildFile; fileRef = 83C583DC0484475600933075 /* keychain_add.h */; };
@@ -34,7 +38,6 @@
 		AACD2C8A0E12D81D00D485EA /* keychain_utilities.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C7A49B70469F0CB00CA2E66 /* keychain_utilities.h */; };
 		AACD2C8B0E12D81D00D485EA /* leaks.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAEBD830469D90400CA2E66 /* leaks.h */; };
 		AACD2C8C0E12D81D00D485EA /* readline.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C67F3690468892B00CA2E66 /* readline.h */; };
-		AACD2C8D0E12D81D00D485EA /* security.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C67F3560468831300CA2E66 /* security.h */; };
 		AACD2C8E0E12D81D00D485EA /* cmsutil.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CA9BF2C0637403D0013F16F /* cmsutil.h */; };
 		AACD2C8F0E12D81D00D485EA /* mds_install.h in Headers */ = {isa = PBXBuildFile; fileRef = 0599C5F006F77CED00C2A9E0 /* mds_install.h */; };
 		AACD2C900E12D81D00D485EA /* keychain_recode.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CEFD16E07BD8E10002A0D93 /* keychain_recode.h */; };
@@ -81,6 +84,7 @@
 		BE851CE70E270695008295B3 /* access_utils.h in Headers */ = {isa = PBXBuildFile; fileRef = BE851CE50E270695008295B3 /* access_utils.h */; };
 		BE926A540F253EBB00371998 /* identity_prefs.h in Headers */ = {isa = PBXBuildFile; fileRef = BE926A520F253EBB00371998 /* identity_prefs.h */; };
 		BE926A550F253EBB00371998 /* identity_prefs.c in Sources */ = {isa = PBXBuildFile; fileRef = BE926A530F253EBB00371998 /* identity_prefs.c */; };
+		DC1417F71CCED9DC00CFD769 /* libutilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DC1417F61CCED9DC00CFD769 /* libutilities.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -123,12 +127,13 @@
 		18A25BEB14752959004F59F8 /* project.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = project.xcconfig; sourceTree = "<group>"; };
 		18A25BEC14752959004F59F8 /* release.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
 		18B6B2A514DB72BC00EDDE5F /* libASN1.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libASN1.a; path = /usr/local/lib/libASN1.a; sourceTree = "<absolute>"; };
+		1FCCD2BA1CD96A7F0045DB49 /* translocate.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = translocate.c; sourceTree = "<group>"; };
+		1FCCD2BB1CD96A7F0045DB49 /* translocate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = translocate.h; sourceTree = "<group>"; };
 		40F182790A4C625B00A6E783 /* authz.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = authz.c; sourceTree = "<group>"; };
 		40F1827A0A4C625B00A6E783 /* authz.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = authz.h; sourceTree = "<group>"; };
 		4C2597F4047EFB4900CA2E66 /* key_create.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = key_create.h; sourceTree = "<group>"; };
 		4C2597F5047EFB4900CA2E66 /* key_create.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = key_create.c; sourceTree = "<group>"; };
 		4C67F3550468831300CA2E66 /* security.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = security.c; sourceTree = "<group>"; };
-		4C67F3560468831300CA2E66 /* security.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = security.h; sourceTree = "<group>"; };
 		4C67F35D046885F400CA2E66 /* keychain_create.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = keychain_create.h; sourceTree = "<group>"; };
 		4C67F35E046885F400CA2E66 /* keychain_create.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = keychain_create.c; sourceTree = "<group>"; };
 		4C67F3610468866E00CA2E66 /* keychain_delete.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = keychain_delete.h; sourceTree = "<group>"; };
@@ -157,6 +162,9 @@
 		5287946D13CCCC32007AFF54 /* createFVMaster.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = createFVMaster.h; sourceTree = "<group>"; };
 		5287947513CCD56A007AFF54 /* srCdsaUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = srCdsaUtils.cpp; sourceTree = "<group>"; };
 		5287947613CCD56A007AFF54 /* srCdsaUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = srCdsaUtils.h; sourceTree = "<group>"; };
+		5E26C4DE1CC77EB200C26137 /* security_tool.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = security_tool.h; sourceTree = "<group>"; };
+		5E87AECB1CC7789800B2CD90 /* smartcards.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = smartcards.h; sourceTree = "<group>"; };
+		5E87AECC1CC7790C00B2CD90 /* smartcards.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = smartcards.m; sourceTree = "<group>"; };
 		831FF8BD046F4CCE00CC0098 /* keychain_unlock.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = keychain_unlock.h; sourceTree = "<group>"; };
 		831FF8BF046F4CE000CC0098 /* keychain_unlock.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = keychain_unlock.c; sourceTree = "<group>"; };
 		83A749330488FE6D0042026C /* keychain_find.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = keychain_find.h; sourceTree = "<group>"; };
@@ -175,6 +183,7 @@
 		BE926A520F253EBB00371998 /* identity_prefs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = identity_prefs.h; sourceTree = "<group>"; };
 		BE926A530F253EBB00371998 /* identity_prefs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = identity_prefs.c; sourceTree = "<group>"; };
 		C6A0FF2C0290799A04C91782 /* security.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = security.1; sourceTree = "<group>"; };
+		DC1417F61CCED9DC00CFD769 /* libutilities.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libutilities.a; path = "../../../Library/Developer/Xcode/DerivedData/Security-fkwwcnddijtngfaslvsedvgyzbou/Build/Products/Debug/libutilities.a"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -185,6 +194,7 @@
 				18B6B2A614DB72BC00EDDE5F /* libASN1.a in Frameworks */,
 				18A25BEF14752A50004F59F8 /* CoreFoundation.framework in Frameworks */,
 				18A25BEE14752A48004F59F8 /* Security.framework in Frameworks */,
+				DC1417F71CCED9DC00CFD769 /* libutilities.a in Frameworks */,
 				1865FCAF14725BC600FD79DF /* libsecurity_cdsa_client.a in Frameworks */,
 				1865FCB014725BD100FD79DF /* libsecurity_cdsa_utilities.a in Frameworks */,
 				1865FCAA14725B6F00FD79DF /* libsecurity_cdsa_utils.a in Frameworks */,
@@ -261,7 +271,7 @@
 				4C67F36A0468892B00CA2E66 /* readline.c */,
 				4C67F3690468892B00CA2E66 /* readline.h */,
 				4C67F3550468831300CA2E66 /* security.c */,
-				4C67F3560468831300CA2E66 /* security.h */,
+				5E26C4DE1CC77EB200C26137 /* security_tool.h */,
 				058C7A8709F6AC2D00DB7E98 /* trusted_cert_add.c */,
 				058C7A8809F6AC2D00DB7E98 /* trusted_cert_add.h */,
 				058C7A8909F6AC2D00DB7E98 /* trusted_cert_utils.c */,
@@ -276,6 +286,10 @@
 				056A9CEC0AD57D7C00847C65 /* verify_cert.h */,
 				BE851CE40E270695008295B3 /* access_utils.c */,
 				BE851CE50E270695008295B3 /* access_utils.h */,
+				5E87AECB1CC7789800B2CD90 /* smartcards.h */,
+				5E87AECC1CC7790C00B2CD90 /* smartcards.m */,
+				1FCCD2BA1CD96A7F0045DB49 /* translocate.c */,
+				1FCCD2BB1CD96A7F0045DB49 /* translocate.h */,
 			);
 			name = Source;
 			sourceTree = "<group>";
@@ -301,6 +315,7 @@
 		4C67F3710468957A00CA2E66 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				DC1417F61CCED9DC00CFD769 /* libutilities.a */,
 				18B6B2A514DB72BC00EDDE5F /* libASN1.a */,
 				1865FCAD14725BBA00FD79DF /* libsecurity_cdsa_utilities.a */,
 				1865FCAB14725B8B00FD79DF /* libsecurity_cdsa_client.a */,
@@ -343,7 +358,6 @@
 				AACD2C8A0E12D81D00D485EA /* keychain_utilities.h in Headers */,
 				AACD2C8B0E12D81D00D485EA /* leaks.h in Headers */,
 				AACD2C8C0E12D81D00D485EA /* readline.h in Headers */,
-				AACD2C8D0E12D81D00D485EA /* security.h in Headers */,
 				AACD2C8E0E12D81D00D485EA /* cmsutil.h in Headers */,
 				AACD2C8F0E12D81D00D485EA /* mds_install.h in Headers */,
 				AACD2C900E12D81D00D485EA /* keychain_recode.h in Headers */,
@@ -353,6 +367,8 @@
 				AACD2C940E12D81D00D485EA /* user_trust_enable.h in Headers */,
 				AACD2C950E12D81D00D485EA /* trust_settings_impexp.h in Headers */,
 				AACD2C960E12D81D00D485EA /* authz.h in Headers */,
+				1FCCD2BD1CD96A7F0045DB49 /* translocate.h in Headers */,
+				5E26C4DF1CC77EB200C26137 /* security_tool.h in Headers */,
 				AACD2C970E12D81D00D485EA /* verify_cert.h in Headers */,
 				AACD2C980E12D81D00D485EA /* display_error_code.h in Headers */,
 				BE851CE70E270695008295B3 /* access_utils.h in Headers */,
@@ -391,10 +407,10 @@
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0410;
+				LastUpgradeCheck = 0800;
 			};
 			buildConfigurationList = C27AD1BA0987FCDB001272E0 /* Build configuration list for PBXProject "SecurityTool" */;
-			compatibilityVersion = "Xcode 3.1";
+			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
@@ -434,6 +450,7 @@
 				AACD2CA80E12D81D00D485EA /* keychain_utilities.c in Sources */,
 				AACD2CA90E12D81D00D485EA /* leaks.c in Sources */,
 				AACD2CAA0E12D81D00D485EA /* readline.c in Sources */,
+				5E87AECD1CC7790C00B2CD90 /* smartcards.m in Sources */,
 				AACD2CAB0E12D81D00D485EA /* security.c in Sources */,
 				AACD2CAC0E12D81D00D485EA /* mds_install.cpp in Sources */,
 				AACD2CAD0E12D81D00D485EA /* keychain_recode.c in Sources */,
@@ -443,6 +460,7 @@
 				AACD2CB10E12D81D00D485EA /* user_trust_enable.cpp in Sources */,
 				AACD2CB20E12D81D00D485EA /* trust_settings_impexp.c in Sources */,
 				AACD2CB30E12D81D00D485EA /* authz.c in Sources */,
+				1FCCD2BC1CD96A7F0045DB49 /* translocate.c in Sources */,
 				AACD2CB40E12D81D00D485EA /* verify_cert.c in Sources */,
 				AACD2CB50E12D81D00D485EA /* display_error_code.c in Sources */,
 				BE851CE60E270695008295B3 /* access_utils.c in Sources */,
@@ -460,6 +478,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18A25BEA14752959004F59F8 /* debug.xcconfig */;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_ARC = YES;
 				INSTALL_PATH = /usr/bin;
 			};
 			name = Debug;
@@ -468,6 +487,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18A25BEC14752959004F59F8 /* release.xcconfig */;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_ARC = YES;
 				INSTALL_PATH = /usr/bin;
 			};
 			name = Release;
@@ -477,7 +497,29 @@
 			baseConfigurationReference = 18A25BEB14752959004F59F8 /* project.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				HEADER_SEARCH_PATHS = "${CONFIGURATION_BUILD_DIR}/usr/local/include";
+				ASSETCATALOG_COMPRESSION = lossless;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				HEADER_SEARCH_PATHS = (
+					"${CONFIGURATION_BUILD_DIR}/usr/local/include",
+					"$(PROJECT_DIR)/../OSX/include",
+					"$(PROJECT_DIR)/../OSX/utilities",
+					"$(inherited)",
+				);
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx.internal;
 				USER_HEADER_SEARCH_PATHS = "";
 			};
 			name = Debug;
@@ -487,9 +529,28 @@
 			baseConfigurationReference = 18A25BEB14752959004F59F8 /* project.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				HEADER_SEARCH_PATHS = "${CONFIGURATION_BUILD_DIR}/usr/local/include";
-				"HEADER_SEARCH_PATHS[arch=*]" = "";
-				USER_HEADER_SEARCH_PATHS = "";
+				ASSETCATALOG_COMPRESSION = "respect-asset-catalog";
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				HEADER_SEARCH_PATHS = (
+					"${CONFIGURATION_BUILD_DIR}/usr/local/include",
+					"$(PROJECT_DIR)/../OSX/include",
+					"$(PROJECT_DIR)/../OSX/utilities",
+					"$(SDKROOT)/usr/local/include",
+					"$(inherited)",
+				);
+				SDKROOT = macosx.internal;
 			};
 			name = Release;
 		};

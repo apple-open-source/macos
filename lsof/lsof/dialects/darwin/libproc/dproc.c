@@ -556,6 +556,9 @@ process_fds(pid, n, ckscko)
 	    case PROX_FDTYPE_VNODE:
 		(void) process_vnode(pid, fdp->proc_fd);
 		break;
+	    case PROX_FDTYPE_NETPOLICY:
+		(void) process_netpolicy(pid, fdp->proc_fd);
+		break;
 	    default:
 		(void) snpf(Namech, Namechl - 1, "unknown file type: %d",
 		    fdp->proc_fdtype);

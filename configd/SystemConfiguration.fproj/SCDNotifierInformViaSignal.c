@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004, 2005, 2009-2011, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004, 2005, 2009-2011, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -31,11 +31,6 @@
  * - initial revision
  */
 
-#include <mach/mach.h>
-#include <mach/mach_error.h>
-
-#include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCPrivate.h>
 #include "SCDynamicStoreInternal.h"
 #include "config.h"		/* MiG generated file */
 
@@ -71,6 +66,8 @@ SCDynamicStoreNotifySignal(SCDynamicStoreRef store, pid_t pid, int sig)
 		_SCErrorSet(status);
 		return FALSE;
 	}
+
+	os_activity_scope(storePrivate->activity);
 
     retry :
 

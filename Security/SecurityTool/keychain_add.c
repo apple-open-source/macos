@@ -26,13 +26,14 @@
 #include "keychain_add.h"
 #include "keychain_find.h"
 #include "readline.h"
-#include "security.h"
+#include "security_tool.h"
 #include "access_utils.h"
 #include "keychain_utilities.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <AssertMacros.h>
 #include <libkern/OSByteOrder.h>
 #include <Security/SecAccess.h>
 #include <Security/SecCertificate.h>
@@ -90,43 +91,43 @@ do_update_generic_password(const char *keychainName,
 	}
 	if (kind != NULL) {
 		attrs[attrList.count].tag = kSecDescriptionItemAttr;
-		attrs[attrList.count].length = strlen(kind);
+		attrs[attrList.count].length = (UInt32) strlen(kind);
 		attrs[attrList.count].data = (void *)kind;
 		attrList.count++;
 	}
 	if (value != NULL) {
 		attrs[attrList.count].tag = kSecGenericItemAttr;
-		attrs[attrList.count].length = strlen(value);
+		attrs[attrList.count].length = (UInt32) strlen(value);
 		attrs[attrList.count].data = (void *)value;
 		attrList.count++;
 	}
 	if (comment != NULL) {
 		attrs[attrList.count].tag = kSecCommentItemAttr;
-		attrs[attrList.count].length = strlen(comment);
+		attrs[attrList.count].length = (UInt32) strlen(comment);
 		attrs[attrList.count].data = (void *)comment;
 		attrList.count++;
 	}
 	if (label != NULL) {
 		attrs[attrList.count].tag = kSecLabelItemAttr;
-		attrs[attrList.count].length = strlen(label);
+		attrs[attrList.count].length = (UInt32) strlen(label);
 		attrs[attrList.count].data = (void *)label;
 		attrList.count++;
 	}
 	if (serviceName != NULL) {
 		attrs[attrList.count].tag = kSecServiceItemAttr;
-		attrs[attrList.count].length = strlen(serviceName);
+		attrs[attrList.count].length = (UInt32) strlen(serviceName);
 		attrs[attrList.count].data = (void *)serviceName;
 		attrList.count++;
 	}
 	if (accountName != NULL) {
 		attrs[attrList.count].tag = kSecAccountItemAttr;
-		attrs[attrList.count].length = strlen(accountName);
+		attrs[attrList.count].length = (UInt32) strlen(accountName);
 		attrs[attrList.count].data = (void *)accountName;
 		attrList.count++;
 	}
 
 	// modify attributes and password data, if provided
-	status = SecKeychainItemModifyContent(itemRef, &attrList, (passwordData) ? strlen(passwordData) : 0, passwordData);
+	status = SecKeychainItemModifyContent(itemRef, &attrList, (passwordData) ? ((UInt32) strlen(passwordData)) : 0, passwordData);
 	if (status) {
 		sec_error("SecKeychainItemModifyContent: %s", sec_errstr(status));
 	}
@@ -195,12 +196,12 @@ do_add_generic_password(const char *keychainName,
 
 	// set up attribute vector for new item (each attribute consists of {tag, length, pointer})
 	SecKeychainAttribute attrs[] = {
-		{ kSecLabelItemAttr, label ? strlen(label) : 0, (char *)label },
-		{ kSecDescriptionItemAttr, kind ? strlen(kind) : 0, (char *)kind },
-		{ kSecGenericItemAttr, value ? strlen(value) : 0, (char *)value },
-		{ kSecCommentItemAttr, comment ? strlen(comment) : 0, (char *)comment },
-		{ kSecServiceItemAttr, serviceName ? strlen(serviceName) : 0, (char *)serviceName },
-		{ kSecAccountItemAttr, accountName ? strlen(accountName) : 0, (char *)accountName },
+		{ kSecLabelItemAttr, label ? (UInt32) strlen(label) : 0, (char *)label },
+		{ kSecDescriptionItemAttr, kind ? (UInt32) strlen(kind) : 0, (char *)kind },
+		{ kSecGenericItemAttr, value ? (UInt32) strlen(value) : 0, (char *)value },
+		{ kSecCommentItemAttr, comment ? (UInt32) strlen(comment) : 0, (char *)comment },
+		{ kSecServiceItemAttr, serviceName ? (UInt32) strlen(serviceName) : 0, (char *)serviceName },
+		{ kSecAccountItemAttr, accountName ? (UInt32) strlen(accountName) : 0, (char *)accountName },
 		{ (SecKeychainAttrType)0, sizeof(FourCharCode), NULL }, /* placeholder */
 		{ (SecKeychainAttrType)0, sizeof(FourCharCode), NULL }  /* placeholder */
 	};
@@ -222,7 +223,7 @@ do_add_generic_password(const char *keychainName,
 
 	result = SecKeychainItemCreateFromContent(kSecGenericPasswordItemClass,
 		&attributes,
-		passwordData ? strlen(passwordData) : 0,
+		passwordData ? (UInt32) strlen(passwordData) : 0,
 		passwordData,
 		keychain,
 		access,
@@ -293,43 +294,43 @@ do_update_internet_password(const char *keychainName,
 	}
 	if (kind != NULL) {
 		attrs[attrList.count].tag = kSecDescriptionItemAttr;
-		attrs[attrList.count].length = strlen(kind);
+		attrs[attrList.count].length = (UInt32) strlen(kind);
 		attrs[attrList.count].data = (void *)kind;
 		attrList.count++;
 	}
 	if (comment != NULL) {
 		attrs[attrList.count].tag = kSecCommentItemAttr;
-		attrs[attrList.count].length = strlen(comment);
+		attrs[attrList.count].length = (UInt32) strlen(comment);
 		attrs[attrList.count].data = (void *)comment;
 		attrList.count++;
 	}
 	if (label != NULL) {
 		attrs[attrList.count].tag = kSecLabelItemAttr;
-		attrs[attrList.count].length = strlen(label);
+		attrs[attrList.count].length = (UInt32) strlen(label);
 		attrs[attrList.count].data = (void *)label;
 		attrList.count++;
 	}
 	if (serverName != NULL) {
 		attrs[attrList.count].tag = kSecServerItemAttr;
-		attrs[attrList.count].length = strlen(serverName);
+		attrs[attrList.count].length = (UInt32) strlen(serverName);
 		attrs[attrList.count].data = (void *)serverName;
 		attrList.count++;
 	}
 	if (securityDomain != NULL) {
 		attrs[attrList.count].tag = kSecSecurityDomainItemAttr;
-		attrs[attrList.count].length = strlen(securityDomain);
+		attrs[attrList.count].length = (UInt32) strlen(securityDomain);
 		attrs[attrList.count].data = (void *)securityDomain;
 		attrList.count++;
 	}
 	if (accountName != NULL) {
 		attrs[attrList.count].tag = kSecAccountItemAttr;
-		attrs[attrList.count].length = strlen(accountName);
+		attrs[attrList.count].length = (UInt32) strlen(accountName);
 		attrs[attrList.count].data = (void *)accountName;
 		attrList.count++;
 	}
 	if (path != NULL) {
 		attrs[attrList.count].tag = kSecPathItemAttr;
-		attrs[attrList.count].length = strlen(path);
+		attrs[attrList.count].length = (UInt32) strlen(path);
 		attrs[attrList.count].data = (void *)path;
 		attrList.count++;
 	}
@@ -353,7 +354,7 @@ do_update_internet_password(const char *keychainName,
 	}
 
 	// modify attributes and password data, if provided
-	status = SecKeychainItemModifyContent(itemRef, &attrList, (passwordData) ? strlen(passwordData) : 0, passwordData);
+	status = SecKeychainItemModifyContent(itemRef, &attrList, (passwordData) ? (UInt32) strlen(passwordData) : 0, passwordData);
 	if (status) {
 		sec_error("SecKeychainItemModifyContent: %s", sec_errstr(status));
 	}
@@ -411,13 +412,13 @@ do_add_internet_password(const char *keychainName,
 
 	// set up attribute vector for new item (each attribute consists of {tag, length, pointer})
 	SecKeychainAttribute attrs[] = {
-		{ kSecLabelItemAttr, label ? strlen(label) : 0, (char *)label },
-		{ kSecDescriptionItemAttr, kind ? strlen(kind) : 0, (char *)kind },
-		{ kSecCommentItemAttr, comment ? strlen(comment) : 0, (char *)comment },
-		{ kSecServerItemAttr, serverName ? strlen(serverName) : 0, (char *)serverName },
-		{ kSecSecurityDomainItemAttr, securityDomain ? strlen(securityDomain) : 0, (char *)securityDomain },
-		{ kSecAccountItemAttr, accountName ? strlen(accountName) : 0, (char *)accountName },
-		{ kSecPathItemAttr, path ? strlen(path) : 0, (char *)path },
+		{ kSecLabelItemAttr, label ? (UInt32) strlen(label) : 0, (char *)label },
+		{ kSecDescriptionItemAttr, kind ? (UInt32) strlen(kind) : 0, (char *)kind },
+		{ kSecCommentItemAttr, comment ? (UInt32) strlen(comment) : 0, (char *)comment },
+		{ kSecServerItemAttr, serverName ? (UInt32) strlen(serverName) : 0, (char *)serverName },
+		{ kSecSecurityDomainItemAttr, securityDomain ? (UInt32) strlen(securityDomain) : 0, (char *)securityDomain },
+		{ kSecAccountItemAttr, accountName ? (UInt32) strlen(accountName) : 0, (char *)accountName },
+		{ kSecPathItemAttr, path ? (UInt32) strlen(path) : 0, (char *)path },
 		{ kSecPortItemAttr, sizeof(UInt16), (UInt16 *)&port },
 		{ kSecProtocolItemAttr, sizeof(SecProtocolType), (SecProtocolType *)&protocol },
 		{ kSecAuthenticationTypeItemAttr, sizeof(SecAuthenticationType), (SecAuthenticationType *)&authenticationType },
@@ -442,7 +443,7 @@ do_add_internet_password(const char *keychainName,
 
 	result = SecKeychainItemCreateFromContent(kSecInternetPasswordItemClass,
 		&attributes,
-		passwordData ? strlen(passwordData) : 0,
+		passwordData ? (UInt32) strlen(passwordData) : 0,
 		passwordData,
 		keychain,
 		access,
@@ -529,6 +530,50 @@ cleanup:
 	return result;
 }
 
+static bool promptForPasswordData(char **returnedPasswordData) {
+    // Caller must zero memory and free returned value.
+    // Returns true if we have data; false means the user cancelled
+    if (!returnedPasswordData)
+        return false;
+
+    bool result = false;
+    char *password = NULL;
+    int tries;
+
+    for (tries = 3; tries-- > 0;) {
+        bool passwordsMatch = false;
+        char *firstpass = NULL;
+
+        password = getpass("password data for new item: ");
+        if (!password)
+            break;
+
+        firstpass = malloc(strlen(password) + 1);
+        strcpy(firstpass, password);
+        password = getpass("retype password for new item: ");
+        passwordsMatch = password && (strcmp(password, firstpass) == 0);
+        memset(firstpass, 0, strlen(firstpass));
+        free(firstpass);
+        if (!password)
+            break;
+
+        if (passwordsMatch) {
+            result = true;
+            break;
+        }
+
+        fprintf(stderr, "passwords don't match\n");
+        memset(password, 0, strlen(password));
+    }
+
+    if (result) {
+        *returnedPasswordData = password;
+    } else {
+        free(password);
+    }
+    return result;
+}
+
 int
 keychain_add_generic_password(int argc, char * const *argv)
 {
@@ -543,6 +588,7 @@ keychain_add_generic_password(int argc, char * const *argv)
 	SecAccessRef access = NULL;
 	CFMutableArrayRef trusted_list = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	OSStatus status;
+    bool mustFreePasswordData = false; // if we got it via user prompting
 
   /*
    *  "    -a  Specify account name (required)\n"
@@ -560,7 +606,7 @@ keychain_add_generic_password(int argc, char * const *argv)
    *  "    -U  Update item if it already exists (if omitted, the item cannot already exist)\n"
    */
 
-	while ((ch = getopt(argc, argv, "a:c:C:D:G:j:l:s:p:w:UAT:")) != -1)
+	while ((ch = getopt(argc, argv, ":a:c:C:D:G:j:l:s:p:w:UAT:")) != -1)
 	{
 		switch  (ch)
 		{
@@ -632,6 +678,20 @@ keychain_add_generic_password(int argc, char * const *argv)
 			break;
 		}
         case '?':
+        case ':':
+            // They supplied the -p or -w but with no data, so prompt
+            // This differs from the case where no -p or -w was given, where we set the data to empty
+            if (optopt == 'p' || optopt == 'w') {
+                if (promptForPasswordData(&passwordData)) {
+                    mustFreePasswordData = true;
+                    break;
+                } else {
+                    result = 1;
+                    goto cleanup; /* @@@ Do not trigger usage message, but indicate failure. */
+                }
+            }
+            result = 2;
+            goto cleanup; /* @@@ Return 2 triggers usage message. */
 		default:
 			result = 2;
 			goto cleanup; /* @@@ Return 2 triggers usage message. */
@@ -677,6 +737,8 @@ keychain_add_generic_password(int argc, char * const *argv)
 									 update_item);
 
 cleanup:
+    if (mustFreePasswordData)
+        free(passwordData);
 	if (trusted_list)
 		CFRelease(trusted_list);
 	if (access)
@@ -702,6 +764,7 @@ keychain_add_internet_password(int argc, char * const *argv)
 	SecAccessRef access = NULL;
 	CFMutableArrayRef trusted_list = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	OSStatus status;
+    bool mustFreePasswordData = false; // if we got it via user prompting
 
   /*
    *  "    -a  Specify account name (required)\n"
@@ -722,7 +785,7 @@ keychain_add_internet_password(int argc, char * const *argv)
    *  "    -U  Update item if it already exists (if omitted, the item cannot already exist)\n"
    */
 
-	while ((ch = getopt(argc, argv, "a:c:C:d:D:j:l:p:P:r:s:t:w:UAT:h")) != -1)
+	while ((ch = getopt(argc, argv, ":a:c:C:d:D:j:l:p:P:r:s:t:w:UAT:h")) != -1)
 	{
 		switch  (ch)
 		{
@@ -809,6 +872,21 @@ keychain_add_internet_password(int argc, char * const *argv)
 			break;
 		}
 		case '?':
+        case ':':
+            // They supplied the -p or -w but with no data, so prompt
+            // This differs from the case where no -p or -w was given, where we set the data to empty
+            if (optopt == 'p' || optopt == 'w') {
+                if (promptForPasswordData(&passwordData)) {
+                    mustFreePasswordData = true;
+                    break;
+                } else {
+                    result = 1;
+                    goto cleanup; /* @@@ Do not trigger usage message, but indicate failure. */
+                }
+            }
+            result = 2;
+            goto cleanup; /* @@@ Return 2 triggers usage message. */
+
 		default:
 			result = 2;
 			goto cleanup; /* @@@ Return 2 triggers usage message. */
@@ -858,6 +936,8 @@ keychain_add_internet_password(int argc, char * const *argv)
 									  update_item);
 
 cleanup:
+    if (mustFreePasswordData)
+        free(passwordData);
 	if (trusted_list)
 		CFRelease(trusted_list);
 	if (access)

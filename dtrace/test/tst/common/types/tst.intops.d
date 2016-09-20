@@ -36,7 +36,7 @@
  */
 
 #pragma D option quiet
-
+#pragma D option statusrate=15ms
 
 BEGIN
 {
@@ -45,7 +45,7 @@ BEGIN
 	int_3 = 0x99;
 }
 
-tick-1
+tick-15ms
 /int_1 >= int_2 || int_2 <= int_1 || int_1 == int_2/
 {
 	printf("Shouldn't end up here (1)\n");
@@ -54,7 +54,7 @@ tick-1
 	exit(1);
 }
 
-tick-1
+tick-15ms
 /int_3 > int_1 || int_1 < int_3 || int_3 == int_1/
 {
 	printf("Shouldn't end up here (2)\n");
@@ -63,7 +63,7 @@ tick-1
 	exit(1);
 }
 
-tick-1
+tick-15ms
 /int_2 > int_3 && int_1 < int_2 ^^ int_3 == int_2 && !(int_1 != int_2)/
 {
 	exit(0);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009,2012-2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2009,2012-2016 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -159,8 +159,8 @@ void SecOCSPSingleResponseDestroy(SecOCSPSingleResponseRef this);
    we can find one and NULL if we can't find a valid signer. The issuerPath
    contains the cert chain from the anchor to the certificate that issued the
    leaf certificate for which this ocspResponse is supposed to be valid. */
-SecCertificatePathRef SecOCSPResponseCopySigner(SecOCSPResponseRef this,
-    SecCertificatePathRef issuerPath);
+SecCertificateRef SecOCSPResponseCopySigner(SecOCSPResponseRef this,
+    SecCertificateRef issuerPath);
 
 __END_DECLS
 

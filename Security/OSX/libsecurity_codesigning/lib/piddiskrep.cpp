@@ -32,10 +32,23 @@ namespace Security {
 namespace CodeSigning {
                 
 using namespace UnixPlusPlus;
-        
+
+
+void
+PidDiskRep::setCredentials(const Security::CodeSigning::CodeDirectory *cd)
+{
+	// save the Info.plist slot
+	if (cd->slotIsPresent(cdInfoSlot)) {
+		mInfoPlistHash.take(makeCFData((*cd)[cdInfoSlot], cd->hashSize));
+	}
+}
+
 void
 PidDiskRep::fetchData(void)
 {
+	if (mDataFetched)	// once
+		return;
+	
 	xpc_connection_t conn = xpc_connection_create("com.apple.CodeSigningHelper",
 						      dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0));
 	xpc_connection_set_event_handler(conn, ^(xpc_object_t object){ });
@@ -45,6 +58,7 @@ PidDiskRep::fetchData(void)
 	assert(request != NULL);
 	xpc_dictionary_set_string(request, "command", "fetchData");
 	xpc_dictionary_set_int64(request, "pid", mPid);
+	xpc_dictionary_set_data(request, "infohash", CFDataGetBytePtr(mInfoPlistHash), CFDataGetLength(mInfoPlistHash));
         
 	xpc_object_t reply = xpc_connection_send_message_with_reply_sync(conn, request);
 	if (reply && xpc_get_type(reply) == XPC_TYPE_DICTIONARY) {
@@ -70,10 +84,13 @@ PidDiskRep::fetchData(void)
     
     if (!mBundleURL)
         MacOSError::throwMe(errSecCSNoSuchCode);
+	
+	mDataFetched = true;
 }
 
 
 PidDiskRep::PidDiskRep(pid_t pid, CFDataRef infoPlist)
+	: mDataFetched(false)
 {
         BlobCore header;
         CODESIGN_DISKREP_CREATE_KERNEL(this);
@@ -81,7 +98,7 @@ PidDiskRep::PidDiskRep(pid_t pid, CFDataRef infoPlist)
         mPid = pid;
         mInfoPlist = infoPlist;
 
-        fetchData();
+//        fetchData();
     
         int rcent = ::csops(pid, CS_OPS_BLOB, &header, sizeof(header));
         if (rcent == 0)
@@ -112,17 +129,20 @@ PidDiskRep::~PidDiskRep()
 
 bool PidDiskRep::supportInfoPlist()
 {
+		fetchData();
         return mInfoPlist;
 }
 
 
 CFDataRef PidDiskRep::component(CodeDirectory::SpecialSlot slot)
 {
-	if (slot == cdInfoSlot)
-                return mInfoPlist.retain();
+	if (slot == cdInfoSlot) {
+		fetchData();
+		return mInfoPlist.retain();
+	}
 
-        EmbeddedSignatureBlob *b = (EmbeddedSignatureBlob *)this->blob();
-        return b->component(slot);
+	EmbeddedSignatureBlob *b = (EmbeddedSignatureBlob *)this->blob();
+	return b->component(slot);
 }
 
 CFDataRef PidDiskRep::identification()
@@ -133,7 +153,8 @@ CFDataRef PidDiskRep::identification()
 
 CFURLRef PidDiskRep::copyCanonicalPath()
 {
-        return mBundleURL.retain();
+	fetchData();
+	return mBundleURL.retain();
 }
 
 string PidDiskRep::recommendedIdentifier(const SigningContext &)

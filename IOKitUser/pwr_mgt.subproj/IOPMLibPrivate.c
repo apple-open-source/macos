@@ -35,6 +35,7 @@
 #include <sys/types.h>
 #include <sys/sysctl.h>
 #include <notify.h>
+#include <os/log.h>
 #include "IOSystemConfiguration.h"
 #include "IOPMLibPrivate.h"
 #include "powermanagement.h"
@@ -47,11 +48,13 @@
 #include <pthread.h>
 
 
+#define POWERD_XPC_ID   "com.apple.iokit.powerdxpc"
 #define pwrLogDirName "/System/Library/PowerEvents"
 
 static const int kMaxNameLength = 128;
 static mach_port_t powerd_connection = MACH_PORT_NULL;
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+
 
 static void _reset_connection( )
 {
@@ -110,6 +113,22 @@ IOReturn _pm_disconnect(mach_port_t connection __unused)
     return kIOReturnSuccess;
 }
 
+dispatch_queue_t  getPMQueue()
+{
+    static dispatch_once_t pmQueue_pred;
+    static dispatch_queue_t pmQueue = NULL;
+
+    if (!pmQueue) {
+        dispatch_once(&pmQueue_pred, ^{
+                pmQueue = dispatch_queue_create("PM Notifications", NULL);
+                });
+        if (!pmQueue) {
+            return NULL;
+        }
+    }
+
+    return pmQueue;
+}
 
 bool IOPMUserIsActive(void)
 {
@@ -137,13 +156,19 @@ bool IOPMUserIsActive(void)
 }
 
 typedef struct {
+
+    dispatch_queue_t    clientQueue;
 // UserActive
     void (^callblock_bool)(bool);
     IONotificationPortRef           notify;
     io_object_t                     letItGo;
+
 // UserActivityLevel
     void (^callblock_activity)(uint64_t, uint64_t);
-    int                             dtoken;
+    int             dtoken;
+    xpc_object_t    connection;
+    uint32_t        idleTimeout;
+    uint64_t            levels;
 } _UserActiveNotification;
 
 void IOPMUserDidChangeCallback(
@@ -156,10 +181,41 @@ void IOPMUserDidChangeCallback(
     
     if (_useractive && (messageType == kIOPMMessageUserIsActiveChanged))
     {
-        _useractive->callblock_bool( IOPMUserIsActive() );
+        dispatch_async(_useractive->clientQueue, ^{
+            _useractive->callblock_bool( IOPMUserIsActive() );
+        });
     }
 }
 
+
+static void unregisterNotification(IOPMNotificationHandle handle)
+{
+    _UserActiveNotification *_useractive = (_UserActiveNotification *)handle;
+    if (!_useractive)
+    {
+        return;
+    }
+    if (_useractive->callblock_bool) {
+        Block_release(_useractive->callblock_bool);
+    }
+    if (_useractive->notify) {
+        IONotificationPortDestroy(_useractive->notify);
+    }
+    if (IO_OBJECT_NULL != _useractive->letItGo) {
+        IOObjectRelease(_useractive->letItGo);
+    }
+    if (_useractive->dtoken) {
+        notify_cancel(_useractive->dtoken);
+    }
+    if (_useractive->connection) {
+        xpc_release(_useractive->connection);
+    }
+    if (_useractive->clientQueue) {
+        dispatch_release(_useractive->clientQueue);
+    }
+    bzero(_useractive, sizeof(*_useractive));
+    free(_useractive);
+}
 
 IOPMNotificationHandle IOPMScheduleUserActiveChangedNotification(dispatch_queue_t queue, void (^block)(bool))
 {
@@ -172,10 +228,12 @@ IOPMNotificationHandle IOPMScheduleUserActiveChangedNotification(dispatch_queue_
     if (_useractive)
     {
         _useractive->callblock_bool = Block_copy(block);
+        _useractive->clientQueue = queue;
+        dispatch_retain(queue);
         
         _useractive->notify = IONotificationPortCreate(MACH_PORT_NULL);
         if (_useractive->notify) {
-            IONotificationPortSetDispatchQueue(_useractive->notify, queue);
+            IONotificationPortSetDispatchQueue(_useractive->notify, getPMQueue());
         }
         
         service = IORegistryEntryFromPath(kIOMasterPortDefault,
@@ -189,36 +247,18 @@ IOPMNotificationHandle IOPMScheduleUserActiveChangedNotification(dispatch_queue_
     }
     
     if (kIOReturnSuccess != kr) {
-        IOPMUnregisterNotification((IOPMNotificationHandle)_useractive);
+        unregisterNotification((IOPMNotificationHandle)_useractive);
         _useractive = NULL;
     }
     
     return _useractive;
 }
 
+
 void IOPMUnregisterNotification(IOPMNotificationHandle handle)
 {
-    _UserActiveNotification *_useractive = (_UserActiveNotification *)handle;
-
-    if (_useractive)
-    {
-        if (_useractive->callblock_bool) {
-            Block_release(_useractive->callblock_bool);
-        }
-        if (_useractive->notify) {
-            IONotificationPortDestroy(_useractive->notify);
-        }
-        if (IO_OBJECT_NULL != _useractive->letItGo) {
-            IOObjectRelease(_useractive->letItGo);
-        }
-        if (_useractive->dtoken) {
-            notify_cancel(_useractive->dtoken);
-        }
-        bzero(_useractive, sizeof(*_useractive));
-        free(_useractive);
-    }
+    dispatch_sync(getPMQueue(), ^{ unregisterNotification(handle); });
 }
-
 
 static void decodeUserActivityLevel64(uint64_t in,
                                       uint64_t *outActive,
@@ -257,6 +297,99 @@ IOReturn IOPMGetUserActivityLevel(uint64_t *outUserActive,
     return kIOReturnSuccess;
 }
 
+void sendUserActivityMsg(_UserActiveNotification *_useractive, char *key)
+{
+    xpc_object_t            desc = NULL;
+    xpc_object_t            msg = NULL;
+
+
+    desc = xpc_dictionary_create(NULL, NULL, 0);
+    msg = xpc_dictionary_create(NULL, NULL, 0);
+    if (desc && msg) {
+        xpc_dictionary_set_uint64(desc, kUserActivityTimeoutKey, _useractive->idleTimeout);
+        xpc_dictionary_set_value(msg, key, desc);
+
+        xpc_connection_send_message(_useractive->connection, msg);
+        xpc_release(msg);
+        xpc_release(desc);
+    }
+    else {
+        os_log_error(OS_LOG_DEFAULT, "Failed to create xpc objects to send userActivityRegister message\n");
+        return;
+    }
+
+}
+
+void processUserActivityMsg(_UserActiveNotification *_useractive, xpc_object_t msg)
+{
+    xpc_type_t type = xpc_get_type(msg);
+
+    if (type == XPC_TYPE_DICTIONARY) {
+        _useractive->levels = xpc_dictionary_get_uint64(msg, kUserActivityLevels);
+        uint64_t significant = _useractive->levels ? (1 << (ffsl(_useractive->levels)-1)) : 0;
+
+        dispatch_async(_useractive->clientQueue, ^{_useractive->callblock_activity(_useractive->levels, significant);});
+    }
+    else if (type == XPC_TYPE_ERROR) {
+        if (msg == XPC_ERROR_CONNECTION_INTERRUPTED) {
+            dispatch_async(getPMQueue(), ^{sendUserActivityMsg(_useractive, kUserActivityRegister);});
+        }
+        else {
+            os_log_error(OS_LOG_DEFAULT, "Irrecoverable error for useractivity connection\n");
+            unregisterNotification(_useractive);
+        }
+    }
+}
+
+IOPMNotificationHandle IOPMScheduleUserActivityLevelNotificationWithTimeout(
+                               dispatch_queue_t queue,
+                               uint32_t timeout,
+                               void (^inblock)(uint64_t, uint64_t))
+{
+    xpc_object_t connection;
+    _UserActiveNotification *_useractive = NULL;
+    _useractive = calloc(1, sizeof(_UserActiveNotification));
+
+    if (!_useractive) {
+        return NULL;
+    }
+
+    connection = xpc_connection_create_mach_service(POWERD_XPC_ID, dispatch_get_main_queue(), 0);
+    if (!connection) {
+        free(_useractive);
+        return NULL;
+    }
+    xpc_connection_set_target_queue(connection, getPMQueue());
+    xpc_connection_set_event_handler(connection,
+            ^(xpc_object_t msg ) {processUserActivityMsg(_useractive, msg); });
+
+    _useractive->connection = connection;
+    dispatch_retain(queue);
+    _useractive->clientQueue = queue;
+
+    _useractive->callblock_activity = Block_copy(inblock);
+    _useractive->idleTimeout = timeout;
+    xpc_connection_resume(connection);
+    sendUserActivityMsg(_useractive, kUserActivityRegister);
+
+    return _useractive;
+}
+
+IOReturn IOPMSetUserActivityIdleTimeout(IOPMNotificationHandle handle, uint32_t timeout)
+{
+    _UserActiveNotification *_useractive = (_UserActiveNotification *)handle;
+
+    if (!_useractive || !_useractive->connection) {
+        return kIOReturnBadArgument;
+    }
+
+    _useractive->idleTimeout = timeout;
+    sendUserActivityMsg(_useractive, kUserActivityTimeoutUpdate);
+
+    return kIOReturnSuccess;
+
+}
+
 IOPMNotificationHandle IOPMScheduleUserActivityLevelNotification(dispatch_queue_t queue,
                                                                  void (^inblock)(uint64_t, uint64_t))
 {
@@ -265,37 +398,39 @@ IOPMNotificationHandle IOPMScheduleUserActivityLevelNotification(dispatch_queue_
 
     _useractive = calloc(1, sizeof(_UserActiveNotification));
 
-    if (_useractive)
+    if (!_useractive) {
+        return NULL;
+    }
+
+    notify_handler_t calloutBlock = ^(int token)
     {
-        notify_handler_t calloutBlock = ^(int token)
+        uint64_t data = 0;
+        uint64_t active = 0;
+        uint64_t most = 0;
+        uint32_t r2;
+
+        r2 = notify_get_state(token, &data);
+        if (NOTIFY_STATUS_OK == r2)
         {
-            uint64_t data = 0;
-            uint64_t active = 0;
-            uint64_t most = 0;
-            uint32_t r2;
+            decodeUserActivityLevel64(data, &active, &most);
 
-            r2 = notify_get_state(token, &data);
-            if (NOTIFY_STATUS_OK == r2)
-            {
-                decodeUserActivityLevel64(data, &active, &most);
-
-                if (_useractive)
-                    inblock(active, most);
-            }
-        };
-
-        r = notify_register_dispatch("com.apple.system.powermanagement.useractivity2",
-                                     &_useractive->dtoken,
-                                     queue,
-                                     calloutBlock);
-        if (NOTIFY_STATUS_OK != r) {
-            free(_useractive);
-            _useractive = NULL;
+            if (_useractive)
+                inblock(active, most);
         }
+    };
+
+    r = notify_register_dispatch("com.apple.system.powermanagement.useractivity2",
+                                 &_useractive->dtoken,
+                                 queue,
+                                 calloutBlock);
+    if (NOTIFY_STATUS_OK != r) {
+        free(_useractive);
+        _useractive = NULL;
     }
 
     return _useractive;
 }
+
 
 
 CFStringRef IOPMCopyUserActivityLevelDescription(uint64_t userActive)
@@ -328,7 +463,145 @@ exit:
     return result;
 }
 
+typedef struct {
+    void (^callblock)(IOMessage msgType, void *msgData);
+    io_object_t             letItGo;
+    IONotificationPortRef   port;
+    io_connect_t            svc;
+    dispatch_queue_t        clientQueue;
+    uint32_t                pendingMessage;
+    void                    *messageArgument;
+} _powerNotification;
 
+IOReturn IOPMAllowRemotePowerChange(IOPMNotificationHandle ref, IOMessage  message)
+{
+    __block IOReturn ret = kIOReturnSuccess;
+    _powerNotification *handle = (_powerNotification *)ref;
+    if (!handle) {
+        return kIOReturnBadArgument;
+    }
+    dispatch_sync(getPMQueue(), ^{
+        uint64_t  inData = (uint64_t)handle->messageArgument;
+        if (message != handle->pendingMessage) {
+            ret = kIOReturnBadArgument;
+            return;
+        }
+
+        ret = IOConnectCallScalarMethod(
+                        handle->svc, kPMAllowPowerChange,
+                        &inData, 1, NULL, NULL);
+
+    });
+
+    return ret;
+}
+
+void _systemPowerCallback(
+    void *refcon __unused,
+    io_service_t service __unused,
+    uint32_t messageType,
+    void *messageArgument)
+{
+    // This function gets called on pmQueue
+    _powerNotification *handle = (_powerNotification *)refcon;
+
+    handle->pendingMessage = messageType;
+    handle->messageArgument = messageArgument;
+    dispatch_async(handle->clientQueue, ^{
+        handle->callblock(messageType, NULL);
+    });
+}
+
+
+IOPMNotificationHandle IOPMRegisterForRemoteSystemPower(
+                            dispatch_queue_t queue,
+                            void (^inblock)(IOMessage msgType, void *msgData))
+{
+
+    _powerNotification     *handle = NULL;
+    io_service_t            object = IO_OBJECT_NULL;
+    kern_return_t           kr = KERN_INVALID_VALUE;
+
+    if (!queue) {
+        return NULL;
+    }
+    handle = calloc(1, sizeof(_powerNotification));
+
+    if (!handle) {
+        goto failure_exit;
+    }
+    dispatch_retain(queue);
+    handle->clientQueue = queue;
+
+    handle->callblock= Block_copy(inblock);
+
+    handle->port = IONotificationPortCreate(MACH_PORT_NULL);
+    if (handle->port) {
+        IONotificationPortSetDispatchQueue(handle->port, getPMQueue());
+    }
+
+    object = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("AppleEmbeddedSleepWakeHandler"));
+    if (!object) {
+        goto failure_exit;
+    }
+    kr = IOServiceOpen( object, mach_task_self(), 0, &handle->svc);
+
+    if ( (kr != kIOReturnSuccess) || (handle->svc == IO_OBJECT_NULL) )  {
+        goto failure_exit;
+    }
+
+    kr = IOServiceAddInterestNotification(
+            handle->port, object, kIOGeneralInterest,
+            _systemPowerCallback, (void *)handle, &handle->letItGo);
+
+    IOObjectRelease(object);
+    object = IO_OBJECT_NULL;
+
+    if (kIOReturnSuccess != kr) {
+        goto failure_exit;
+    }
+
+    return handle;
+
+failure_exit:
+    if (object) {
+        IOObjectRelease(object);
+    }
+    if (handle) {
+        IODeregisterForRemoteSystemPower((IOPMNotificationHandle)handle);
+    }
+    return NULL;
+
+}
+
+void IODeregisterForRemoteSystemPower(IOPMNotificationHandle ref)
+{
+    _powerNotification *handle = (_powerNotification *)ref;
+    if (!handle) {
+        return;
+    }
+
+    dispatch_sync(getPMQueue(), ^{
+        if (handle->clientQueue) {
+            dispatch_release(handle->clientQueue);
+        }
+        if (handle->callblock) {
+            Block_release(handle->callblock);
+        }
+        if (handle->port) {
+            IONotificationPortDestroy(handle->port);
+        }
+        if (IO_OBJECT_NULL != handle->letItGo) {
+            IOObjectRelease(handle->letItGo);
+        }
+        if (handle->svc) {
+            IOServiceClose(handle->svc);
+        }
+        bzero(handle, sizeof(*handle));
+        free(handle);
+    });
+
+}
 
 /*****************************************************************************/
 /*****************************************************************************/
@@ -719,32 +992,45 @@ bool IOPMGetUUID(int whichUUID, char *putTheUUIDHere, int sizeOfBuffer)
 }
 
 /******************************************************************************
- * IOPMDebugTracePoint
+ * IOPMLogWakeProgress
  *
  ******************************************************************************/
-IOReturn IOPMDebugTracePoint(CFStringRef facility, uint8_t *data, int dataCount)
+IOReturn IOPMLogWakeProgress(uint32_t component, uint32_t progress_data)
 {
     io_registry_entry_t gRoot = IO_OBJECT_NULL;
     CFNumberRef         setNum = NULL;
     IOReturn            ret = kIOReturnError;
-    if (data == NULL || facility == NULL || 1 != dataCount)
-        return kIOReturnBadArgument;
+    CFStringRef         key = NULL;
+    
+    os_log_debug(OS_LOG_DEFAULT, "Wake progress from %d. data: 0x%x\n", component, progress_data);
 
-    gRoot = IORegistryEntryFromPath( kIOMasterPortDefault, 
+    switch (component) {
+        case kIOPMLoginWindowProgress:
+            key = CFSTR(kIOPMLoginWindowProgressKey);
+            break;
+        case kIOPMCoreDisplayProgress:
+            key = CFSTR(kIOPMCoreDisplayProgressKey);
+            break;
+        case kIOPMCoreGraphicsProgress:
+            key = CFSTR(kIOPMCoreGraphicsProgressKey);
+            break;
+        default:
+            return kIOReturnBadArgument;
+    }
+    
+    gRoot = IORegistryEntryFromPath( kIOMasterPortDefault,
         kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
-
+    
     if (IO_OBJECT_NULL == gRoot)
         return kIOReturnError;
-        
-    // We allow CF to treat this number as a signed integer. We're using it as a bitfield;
-    // we shouldn't have to worry about sign extension when it gets unpacked.
-    setNum = CFNumberCreate(0, kCFNumberSInt8Type, data);
+    
+    setNum = CFNumberCreate(0, kCFNumberIntType, &progress_data);
+    
     if (!setNum)
         goto exit;
-
-    ret = IORegistryEntrySetCFProperty( gRoot, 
-                        CFSTR(kIOPMLoginWindowSecurityDebugKey), 
-                        setNum);
+    
+    ret = IORegistryEntrySetCFProperty(gRoot, key, setNum);
+    
 exit:
     if (setNum)
         CFRelease(setNum);
@@ -793,7 +1079,6 @@ exit:
 }
 
 
-#define POWERD_XPC_ID   "com.apple.iokit.powerdxpc"
 
 void IOPMClaimSystemWakeEvent(
     CFStringRef         identity,
@@ -847,6 +1132,9 @@ void IOPMClaimSystemWakeEvent(
         xpc_release(msg);
     }
 exit:
+    if (sendClaim) {
+        xpc_release(sendClaim);
+    }
     if (connection) {
         xpc_release(connection);
     }

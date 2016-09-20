@@ -35,7 +35,7 @@
 namespace WebCore {
 
 LayoutState::LayoutState(std::unique_ptr<LayoutState> next, RenderBox* renderer, const LayoutSize& offset, LayoutUnit pageLogicalHeight, bool pageLogicalHeightChanged)
-    : m_next(WTF::move(next))
+    : m_next(WTFMove(next))
 #ifndef NDEBUG
     , m_renderer(renderer)
 #endif
@@ -75,7 +75,7 @@ LayoutState::LayoutState(std::unique_ptr<LayoutState> next, RenderBox* renderer,
             m_clipped = true;
         }
 
-        m_paintOffset -= renderer->scrolledContentOffset();
+        m_paintOffset -= toLayoutSize(renderer->scrollPosition());
     }
 
     // If we establish a new page height, then cache the offset to the top of the first page.
@@ -106,7 +106,7 @@ LayoutState::LayoutState(std::unique_ptr<LayoutState> next, RenderBox* renderer,
     propagateLineGridInfo(renderer);
 
     m_layoutDelta = m_next->m_layoutDelta;
-#if !ASSERT_DISABLED && ENABLE(SATURATED_LAYOUT_ARITHMETIC)
+#if !ASSERT_DISABLED
     m_layoutDeltaXSaturated = m_next->m_layoutDeltaXSaturated;
     m_layoutDeltaYSaturated = m_next->m_layoutDeltaYSaturated;
 #endif
@@ -125,7 +125,7 @@ LayoutState::LayoutState(RenderObject& root)
     : m_clipped(false)
     , m_isPaginated(false)
     , m_pageLogicalHeightChanged(false)
-#if !ASSERT_DISABLED && ENABLE(SATURATED_LAYOUT_ARITHMETIC)
+#if !ASSERT_DISABLED
     , m_layoutDeltaXSaturated(false)
     , m_layoutDeltaYSaturated(false)
 #endif    
@@ -141,7 +141,7 @@ LayoutState::LayoutState(RenderObject& root)
             m_clipped = true;
             auto& containerBox = downcast<RenderBox>(*container);
             m_clipRect = LayoutRect(toLayoutPoint(m_paintOffset), containerBox.cachedSizeForOverflowClip());
-            m_paintOffset -= containerBox.scrolledContentOffset();
+            m_paintOffset -= toLayoutSize(containerBox.scrollPosition());
         }
     }
 }

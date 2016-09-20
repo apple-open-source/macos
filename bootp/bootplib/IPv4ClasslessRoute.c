@@ -40,6 +40,7 @@
 #include <mach/boolean.h>
 #include <stddef.h>
 #include <arpa/inet.h>
+#include "IPConfigurationLog.h"
 #include <SystemConfiguration/SCValidation.h>
 #include "IPv4ClasslessRoute.h"
 #include "symbol_scope.h"
@@ -53,7 +54,6 @@
 #define DEBUG 1
 #endif
 
-#include "IPConfigurationLog.h"
 
 #define N_BITS_PER_BYTE			8
 

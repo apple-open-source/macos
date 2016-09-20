@@ -34,7 +34,6 @@
 #include "AudioSummingJunction.h"
 #include <runtime/Float32Array.h>
 #include <sys/types.h>
-#include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/text/WTFString.h>
 
@@ -47,14 +46,14 @@ public:
     static const double DefaultSmoothingConstant;
     static const double SnapThreshold;
 
-    static Ref<AudioParam> create(AudioContext* context, const String& name, double defaultValue, double minValue, double maxValue, unsigned units = 0)
+    static Ref<AudioParam> create(AudioContext& context, const String& name, double defaultValue, double minValue, double maxValue, unsigned units = 0)
     {
         return adoptRef(*new AudioParam(context, name, defaultValue, minValue, maxValue, units));
     }
 
     // AudioSummingJunction
-    virtual bool canUpdateState() override { return true; }
-    virtual void didUpdate() override { }
+    bool canUpdateState() override { return true; }
+    void didUpdate() override { }
 
     // Intrinsic value.
     float value();
@@ -89,7 +88,7 @@ public:
     void linearRampToValueAtTime(float value, float time) { m_timeline.linearRampToValueAtTime(value, time); }
     void exponentialRampToValueAtTime(float value, float time) { m_timeline.exponentialRampToValueAtTime(value, time); }
     void setTargetAtTime(float target, float time, float timeConstant) { m_timeline.setTargetAtTime(target, time, timeConstant); }
-    void setValueCurveAtTime(Float32Array* curve, float time, float duration) { m_timeline.setValueCurveAtTime(curve, time, duration); }
+    void setValueCurveAtTime(const RefPtr<Float32Array>& curve, float time, float duration) { m_timeline.setValueCurveAtTime(curve.get(), time, duration); }
     void cancelScheduledValues(float startTime) { m_timeline.cancelScheduledValues(startTime); }
 
     bool hasSampleAccurateValues() { return m_timeline.hasValues() || numberOfRenderingConnections(); }
@@ -103,7 +102,7 @@ public:
     void disconnect(AudioNodeOutput*);
 
 protected:
-    AudioParam(AudioContext* context, const String& name, double defaultValue, double minValue, double maxValue, unsigned units = 0)
+    AudioParam(AudioContext& context, const String& name, double defaultValue, double minValue, double maxValue, unsigned units = 0)
         : AudioSummingJunction(context)
         , m_name(name)
         , m_value(defaultValue)

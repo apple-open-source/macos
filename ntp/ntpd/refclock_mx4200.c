@@ -67,8 +67,6 @@
 # include <sys/ppsclock.h>
 #endif
 
-#include "ntp_sprintf.h"
-
 #ifndef HAVE_STRUCT_PPSCLOCKEV
 struct ppsclockev {
 # ifdef HAVE_STRUCT_TIMESPEC
@@ -175,11 +173,7 @@ static	void	mx4200_poll	(int, struct peer *);
 static	char *	mx4200_parse_t	(struct peer *);
 static	char *	mx4200_parse_p	(struct peer *);
 static	char *	mx4200_parse_s	(struct peer *);
-#ifdef QSORT_USES_VOID_P
 int	mx4200_cmpl_fp	(const void *, const void *);
-#else
-int	mx4200_cmpl_fp	(const l_fp *, const l_fp *);
-#endif /* not QSORT_USES_VOID_P */
 static	int	mx4200_config	(struct peer *);
 static	void	mx4200_ref	(struct peer *);
 static	void	mx4200_send	(struct peer *, char *, ...)
@@ -222,31 +216,27 @@ mx4200_start(
 	/*
 	 * Open serial port
 	 */
-	(void)sprintf(gpsdev, DEVICE, unit);
-	if (!(fd = refclock_open(gpsdev, SPEED232, LDISC_PPS))) {
-	    return (0);
-	}
+	snprintf(gpsdev, sizeof(gpsdev), DEVICE, unit);
+	fd = refclock_open(gpsdev, SPEED232, LDISC_PPS);
+	if (fd <= 0)
+		return 0;
 
 	/*
 	 * Allocate unit structure
 	 */
-	if (!(up = (struct mx4200unit *) emalloc(sizeof(struct mx4200unit)))) {
-		perror("emalloc");
-		(void) close(fd);
-		return (0);
-	}
-	memset((char *)up, 0, sizeof(struct mx4200unit));
+	up = emalloc_zero(sizeof(*up));
 	pp = peer->procptr;
 	pp->io.clock_recv = mx4200_receive;
-	pp->io.srcclock = (caddr_t)peer;
+	pp->io.srcclock = peer;
 	pp->io.datalen = 0;
 	pp->io.fd = fd;
 	if (!io_addclock(&pp->io)) {
-		(void) close(fd);
+		close(fd);
+		pp->io.fd = -1;
 		free(up);
 		return (0);
 	}
-	pp->unitptr = (caddr_t)up;
+	pp->unitptr = up;
 
 	/*
 	 * Initialize miscellaneous variables
@@ -273,9 +263,11 @@ mx4200_shutdown(
 	struct refclockproc *pp;
 
 	pp = peer->procptr;
-	up = (struct mx4200unit *)pp->unitptr;
-	io_closeclock(&pp->io);
-	free(up);
+	up = pp->unitptr;
+	if (-1 != pp->io.fd)
+		io_closeclock(&pp->io);
+	if (NULL != up)
+		free(up);
 }
 
 
@@ -294,7 +286,7 @@ mx4200_config(
 	int mode;
 
 	pp = peer->procptr;
-	up = (struct mx4200unit *)pp->unitptr;
+	up = pp->unitptr;
 
 	/*
 	 * Initialize the unit variables
@@ -494,7 +486,7 @@ mx4200_ref(
 	char nsc, ewc;
 
 	pp = peer->procptr;
-	up = (struct mx4200unit *)pp->unitptr;
+	up = pp->unitptr;
 
 	/* Should never happen! */
 	if (up->moving) return;
@@ -576,9 +568,9 @@ mx4200_ref(
 	}
 	alt = up->avg_alt;
 	minute = (lat - (double)(int)lat) * 60.0;
-	sprintf(lats,"%02d%02.4f", (int)lat, minute);
+	snprintf(lats, sizeof(lats), "%02d%02.4f", (int)lat, minute);
 	minute = (lon - (double)(int)lon) * 60.0;
-	sprintf(lons,"%03d%02.4f", (int)lon, minute);
+	snprintf(lons, sizeof(lons), "%03d%02.4f", (int)lon, minute);
 
 	mx4200_send(peer, "%s,%03d,,,,,%s,%c,%s,%c,%.2f,%d", pmvxg,
 	    PMVXG_S_INITMODEA,
@@ -612,7 +604,7 @@ mx4200_poll(
 	struct refclockproc *pp;
 
 	pp = peer->procptr;
-	up = (struct mx4200unit *)pp->unitptr;
+	up = pp->unitptr;
 
 	/*
 	 * You don't need to poll this clock.  It puts out timecodes
@@ -679,9 +671,9 @@ mx4200_receive(
 	/*
 	 * Initialize pointers and read the timecode and timestamp.
 	 */
-	peer = (struct peer *)rbufp->recv_srcclock;
+	peer = rbufp->recv_peer;
 	pp = peer->procptr;
-	up = (struct mx4200unit *)pp->unitptr;
+	up = pp->unitptr;
 
 	/*
 	 * If operating mode has been changed, then reinitialize the receiver
@@ -845,7 +837,7 @@ mx4200_receive(
 		 * Capture the last PPS signal.
 		 * Precision timestamp is returned in pp->lastrec
 		 */
-		if (mx4200_pps(peer) != NULL) {
+		if (0 != mx4200_pps(peer)) {
 			mx4200_debug(peer, "mx4200_receive: pps failure\n");
 			refclock_report(peer, CEVNT_FAULT);
 			return;
@@ -965,7 +957,7 @@ mx4200_parse_t(
 	int    oscillator_offset, time_mark_error, time_bias;
 
 	pp = peer->procptr;
-	up = (struct mx4200unit *)pp->unitptr;
+	up = pp->unitptr;
 
 	leapsec_warn = 0;  /* Not all receivers output leap second warnings (!) */
 	sscanf(pp->a_lastcode,
@@ -1245,7 +1237,7 @@ mx4200_parse_p(
 	char   north_south, east_west;
 
 	pp = peer->procptr;
-	up = (struct mx4200unit *)pp->unitptr;
+	up = pp->unitptr;
 
 	/* Should never happen! */
 	if (up->moving) return ("mobile platform - no pos!");
@@ -1464,7 +1456,7 @@ mx4200_parse_s(
 	int sentence_type;
 
 	pp = peer->procptr;
-	up = (struct mx4200unit *)pp->unitptr;
+	up = pp->unitptr;
 
         sscanf ( pp->a_lastcode, "$PMVXG,%d", &sentence_type);
 
@@ -1509,7 +1501,7 @@ mx4200_pps(
 	struct timespec timeout;
 
 	pp = peer->procptr;
-	up = (struct mx4200unit *)pp->unitptr;
+	up = pp->unitptr;
 
 	/*
 	 * Grab the timestamp of the PPS signal.
@@ -1520,8 +1512,8 @@ mx4200_pps(
 	if (time_pps_fetch(up->pps_h, PPS_TSFMT_TSPEC, &(up->pps_i),
 			&timeout) < 0) {
 		mx4200_debug(peer,
-		  "mx4200_pps: time_pps_fetch: serial=%lu, %s\n",
-		     (unsigned long)up->pps_i.assert_sequence, strerror(errno));
+		  "mx4200_pps: time_pps_fetch: serial=%lu, %m\n",
+		     (unsigned long)up->pps_i.assert_sequence);
 		refclock_report(peer, CEVNT_FAULT);
 		return(1);
 	}
@@ -1562,15 +1554,8 @@ mx4200_pps(
 /*
  * mx4200_debug - print debug messages
  */
-#if defined(__STDC__)
 static void
 mx4200_debug(struct peer *peer, char *fmt, ...)
-#else
-static void
-mx4200_debug(peer, fmt, va_alist)
-     struct peer *peer;
-     char *fmt;
-#endif /* __STDC__ */
 {
 #ifdef DEBUG
 	va_list ap;
@@ -1578,22 +1563,16 @@ mx4200_debug(peer, fmt, va_alist)
 	struct mx4200unit *up;
 
 	if (debug) {
-
-#if defined(__STDC__)
 		va_start(ap, fmt);
-#else
-		va_start(ap);
-#endif /* __STDC__ */
 
 		pp = peer->procptr;
-		up = (struct mx4200unit *)pp->unitptr;
-
+		up = pp->unitptr;
 
 		/*
 		 * Print debug message to stdout
 		 * In the future, we may want to get get more creative...
 		 */
-		vprintf(fmt, ap);
+		mvprintf(fmt, ap);
 
 		va_end(ap);
 	}
@@ -1630,7 +1609,7 @@ mx4200_send(peer, fmt, va_alist)
 #endif /* __STDC__ */
 
 	pp = peer->procptr;
-	up = (struct mx4200unit *)pp->unitptr;
+	up = pp->unitptr;
 
 	cp = buf;
 	*cp++ = '$';

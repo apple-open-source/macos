@@ -65,7 +65,7 @@ public:
 	void recordFailure(CFDictionaryRef info);
 
 public:
-	static void addAuthority(SecAssessmentFlags flags, CFMutableDictionaryRef parent, const char *label, SQLite::int64 row = 0, CFTypeRef cacheInfo = NULL, bool weak = false);
+	static void addAuthority(SecAssessmentFlags flags, CFMutableDictionaryRef parent, const char *label, SQLite::int64 row = 0, CFTypeRef cacheInfo = NULL, bool weak = false, uint64_t ruleFlags = 0);
 	static void addToAuthority(CFMutableDictionaryRef parent, CFStringRef key, CFTypeRef value);
 
 private:

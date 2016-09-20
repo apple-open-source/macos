@@ -29,6 +29,7 @@
 #include <spawn.h>
 #include <spawn_private.h>
 #include <sys/spawn_internal.h>
+#include <sys/ulock.h>
 
 // TODO: remove me when internal.h can include *_private.h itself
 #include "workqueue_private.h"
@@ -379,7 +380,7 @@ pthread_override_qos_class_start_np(pthread_t __pthread,  qos_class_t __qos_clas
 		kr = mach_vm_allocate(mach_task_self(), &vm_addr, round_page(sizeof(struct pthread_override_s)), VM_MAKE_TAG(VM_MEMORY_LIBDISPATCH) | VM_FLAGS_ANYWHERE);
 		if (kr != KERN_SUCCESS) {
 			errno = ENOMEM;
-			return NULL;
+			return (_Nonnull pthread_override_t) NULL;
 		}
 	}
 
@@ -412,7 +413,7 @@ pthread_override_qos_class_start_np(pthread_t __pthread,  qos_class_t __qos_clas
 		}
 		rv = NULL;
 	}
-	return rv;
+	return (_Nonnull pthread_override_t) rv;
 }
 
 int
@@ -458,21 +459,33 @@ pthread_override_qos_class_end_np(pthread_override_t override)
 }
 
 int
+_pthread_qos_override_start_direct(mach_port_t thread, pthread_priority_t priority, void *resource)
+{
+	int res = __bsdthread_ctl(BSDTHREAD_CTL_QOS_OVERRIDE_START, thread, priority, (uintptr_t)resource);
+	if (res == -1) { res = errno; }
+	return res;
+}
+
+int
+_pthread_qos_override_end_direct(mach_port_t thread, void *resource)
+{
+	int res = __bsdthread_ctl(BSDTHREAD_CTL_QOS_OVERRIDE_END, thread, (uintptr_t)resource, 0);
+	if (res == -1) { res = errno; }
+	return res;
+}
+
+int
 _pthread_override_qos_class_start_direct(mach_port_t thread, pthread_priority_t priority)
 {
 	// use pthread_self as the default per-thread memory allocation to track the override in the kernel
-	int res = __bsdthread_ctl(BSDTHREAD_CTL_QOS_OVERRIDE_START, thread, priority, (uintptr_t)pthread_self());
-	if (res == -1) { res = errno; }
-	return res;
+	return _pthread_qos_override_start_direct(thread, priority, pthread_self());
 }
 
 int
 _pthread_override_qos_class_end_direct(mach_port_t thread)
 {
 	// use pthread_self as the default per-thread memory allocation to track the override in the kernel
-	int res = __bsdthread_ctl(BSDTHREAD_CTL_QOS_OVERRIDE_END, thread, (uintptr_t)pthread_self(), 0);
-	if (res == -1) { res = errno; }
-	return res;
+	return _pthread_qos_override_end_direct(thread, pthread_self());
 }
 
 int
@@ -481,6 +494,47 @@ _pthread_workqueue_override_start_direct(mach_port_t thread, pthread_priority_t 
 	int res = __bsdthread_ctl(BSDTHREAD_CTL_QOS_OVERRIDE_DISPATCH, thread, priority, 0);
 	if (res == -1) { res = errno; }
 	return res;
+}
+
+int
+_pthread_workqueue_override_start_direct_check_owner(mach_port_t thread, pthread_priority_t priority, mach_port_t *ulock_addr)
+{
+#if !TARGET_OS_IPHONE
+	static boolean_t kernel_supports_owner_check = TRUE;
+	if (!kernel_supports_owner_check) {
+		ulock_addr = NULL;
+	}
+#endif
+
+	for (;;) {
+		int res = __bsdthread_ctl(BSDTHREAD_CTL_QOS_OVERRIDE_DISPATCH, thread, priority, ulock_addr);
+		if (res == -1) { res = errno; }
+#if !TARGET_OS_IPHONE
+		if (ulock_addr && res == EINVAL) {
+			if ((uintptr_t)ulock_addr % _Alignof(_Atomic uint32_t)) {
+				// do not mute bad ulock addresses related errors
+				return EINVAL;
+			}
+			// backward compatibility for the XBS chroot
+			// BSDTHREAD_CTL_QOS_OVERRIDE_DISPATCH used to return EINVAL if
+			// arg3 was non NULL.
+			kernel_supports_owner_check = FALSE;
+			ulock_addr = NULL;
+			continue;
+		}
+#endif
+		if (ulock_addr && res == EFAULT) {
+			// kernel wants us to redrive the call, so while we refault the
+			// memory, also revalidate the owner
+			uint32_t uval = os_atomic_load(ulock_addr, relaxed);
+			if (ulock_owner_value_to_port_name(uval) != thread) {
+				return ESTALE;
+			}
+			continue;
+		}
+
+		return res;
+	}
 }
 
 int

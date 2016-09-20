@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -67,6 +67,11 @@ ResourceError blockedError(const ResourceRequest& request)
     return ResourceError(API::Error::webKitErrorDomain(), kWKErrorCodeCannotUseRestrictedPort, request.url(), WEB_UI_STRING("Not allowed to use restricted network port", "WebKitErrorCannotUseRestrictedPort description"));
 }
 
+ResourceError blockedByContentBlockerError(const ResourceRequest& request)
+{
+    return ResourceError(API::Error::webKitErrorDomain(), kWKErrorCodeFrameLoadBlockedByContentBlocker, request.url(), WEB_UI_STRING("The URL was blocked by a content blocker", "WebKitErrorBlockedByContentBlocker description"));
+}
+
 ResourceError cannotShowURLError(const ResourceRequest& request)
 {
     return ResourceError(API::Error::webKitErrorDomain(), kWKErrorCodeCannotShowURL, request.url(), WEB_UI_STRING("The URL can’t be shown", "WebKitErrorCannotShowURL description"));
@@ -75,6 +80,11 @@ ResourceError cannotShowURLError(const ResourceRequest& request)
 ResourceError interruptedForPolicyChangeError(const ResourceRequest& request)
 {
     return ResourceError(API::Error::webKitErrorDomain(), kWKErrorCodeFrameLoadInterruptedByPolicyChange, request.url(), WEB_UI_STRING("Frame load interrupted", "WebKitErrorFrameLoadInterruptedByPolicyChange description"));
+}
+
+ResourceError blockedByContentFilterError(const ResourceRequest& request)
+{
+    return ResourceError(API::Error::webKitErrorDomain(), kWKErrorCodeFrameLoadBlockedByContentFilter, request.url(), WEB_UI_STRING("The URL was blocked by a content filter", "WebKitErrorBlockedByContentFilter"));
 }
 
 ResourceError cannotShowMIMETypeError(const ResourceResponse& response)

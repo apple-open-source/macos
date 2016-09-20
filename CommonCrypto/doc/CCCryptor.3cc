@@ -80,6 +80,12 @@ is aligned to the block size. (If padding is disabled, encrypting
 with block ciphers does require that the *total* length of data
 input to CCCryptorUpdate() call(s) be aligned to the block size.)
 .Pp
+Encryption and decryption can be performed "in-place", with the
+same buffer used for input and output. The .Fn CCCryptorUpdate
+does not support in-place operation for ciphers modes that work
+with blocks of data such as CBC and ECB, because of block buffering.
+
+.Pp
 A given CCCryptor can only be used by one thread at a time;
 multiple threads can use safely different CCCryptors at the
 same time. 

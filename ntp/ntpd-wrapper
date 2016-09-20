@@ -24,7 +24,7 @@ if [[ ! -f ${LOG} ]]; then
 fi
 
 for server in $(awk '/^server/ {print $2}' /etc/ntp.conf); do
-    if sntp -K /dev/null -s ${server} &> ${LOG}; then
+    if sntp -K /dev/null -S ${server} &> ${LOG}; then
 	break
     else
 	logger -p daemon.err -f ${LOG}

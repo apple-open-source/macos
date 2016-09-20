@@ -91,8 +91,8 @@ OpenDevice(const char *devname, int flushJournal)
 	} else {
 		errx(kBadExit, "device name `%s' does not fit pattern", devname);
 	}
-	// Only use an exclusive open if we're not debugging.
-	fd = open(dev.devname, O_RDONLY | (debug ? 0 : O_EXLOCK));
+	// Open with a shared lock if we're not debugging, since the hfs estimator api is invoked from the booted system
+	fd = open(dev.devname, O_RDONLY | (debug ? 0 : O_SHLOCK));
 	if (fd == -1) {
 		err(kBadExit, "cannot open raw device %s", dev.devname);
 	}

@@ -26,4 +26,5 @@
 #include <test/testmore.h>
 
 ONE_TEST(smime_cms_test)
+ONE_TEST(cms_01_basic)
 

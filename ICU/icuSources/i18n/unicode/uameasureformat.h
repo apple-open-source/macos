@@ -1,6 +1,6 @@
 /*
 *****************************************************************************************
-* Copyright (C) 2014-2015 Apple Inc. All Rights Reserved.
+* Copyright (C) 2014-2016 Apple Inc. All Rights Reserved.
 *****************************************************************************************
 */
 
@@ -15,6 +15,7 @@
 #include "unicode/localpointer.h"
 #include "unicode/unum.h"
 #include "unicode/umisc.h"
+#include "unicode/ufieldpositer.h"
 
 /**
  * \file
@@ -43,13 +44,13 @@ typedef enum UAMeasureFormatWidth {
     UAMEASFMT_WIDTH_WIDE,
  
     /**
-     * Abbreviated unit names, e.g. "5 hrs, 37 mins"
+     * Abbreviated unit names, e.g. "5 hr, 37 min"
      * @draft ICU 53
      */
     UAMEASFMT_WIDTH_SHORT,
 
     /**
-     * Use unit symbols if possible, e.g. "5 h, 37 m"
+     * Use unit symbols if possible, e.g. "5h 37m"
      * @draft ICU 53
      */
     UAMEASFMT_WIDTH_NARROW,
@@ -59,6 +60,12 @@ typedef enum UAMeasureFormatWidth {
      * @draft ICU 53
      */
     UAMEASFMT_WIDTH_NUMERIC,
+
+    /**
+     * Shorter, between SHORT and NARROW, e.g. "5hr 37min"
+     * @draft ICU 57
+     */
+    UAMEASFMT_WIDTH_SHORTER,
 
     /**
      * Count of values in this enum.
@@ -79,6 +86,7 @@ typedef enum UAMeasureUnit {
     UAMEASUNIT_ANGLE_ARC_MINUTE     = (1 << 8) + 1,
     UAMEASUNIT_ANGLE_ARC_SECOND     = (1 << 8) + 2,
     UAMEASUNIT_ANGLE_RADIAN         = (1 << 8) + 3,     // (CLDR 26, ICU-541)
+    UAMEASUNIT_ANGLE_REVOLUTION     = (1 << 8) + 4,     // (CLDR 28, ICU-561.3)
     //
     UAMEASUNIT_AREA_SQUARE_METER     = (2 << 8) + 0,
     UAMEASUNIT_AREA_SQUARE_KILOMETER = (2 << 8) + 1,
@@ -102,6 +110,7 @@ typedef enum UAMeasureUnit {
     UAMEASUNIT_DURATION_MILLISECOND = (4 << 8) + 7,
     UAMEASUNIT_DURATION_MICROSECOND = (4 << 8) + 8,     // (CLDR 26, ICU-541)
     UAMEASUNIT_DURATION_NANOSECOND  = (4 << 8) + 9,     // (CLDR 26, ICU-541)
+    UAMEASUNIT_DURATION_CENTURY     = (4 << 8) + 10,    // (CLDR 28, ICU-561.3)
     //
     UAMEASUNIT_LENGTH_METER         = (5 << 8) + 0,
     UAMEASUNIT_LENGTH_CENTIMETER    = (5 << 8) + 1,
@@ -121,6 +130,7 @@ typedef enum UAMeasureUnit {
     UAMEASUNIT_LENGTH_FURLONG       = (5 << 8) + 15,    // (CLDR 26, ICU-541)
     UAMEASUNIT_LENGTH_ASTRONOMICAL_UNIT = (5 << 8) + 16, // (CLDR 26, ICU-541)
     UAMEASUNIT_LENGTH_PARSEC        = (5 << 8) + 17,    // (CLDR 26, ICU-541)
+    UAMEASUNIT_LENGTH_MILE_SCANDINAVIAN = (5 << 8) + 18, // (CLDR 28, ICU-561.3)
     //
     UAMEASUNIT_MASS_GRAM            = (6 << 8) + 0,
     UAMEASUNIT_MASS_KILOGRAM        = (6 << 8) + 1,
@@ -150,6 +160,7 @@ typedef enum UAMeasureUnit {
     UAMEASUNIT_SPEED_METER_PER_SECOND   = (9 << 8) + 0,
     UAMEASUNIT_SPEED_KILOMETER_PER_HOUR = (9 << 8) + 1,
     UAMEASUNIT_SPEED_MILE_PER_HOUR      = (9 << 8) + 2,
+    UAMEASUNIT_SPEED_KNOT               = (9 << 8) + 3,     // (CLDR 28, ICU-561.3)
     //
     UAMEASUNIT_TEMPERATURE_CELSIUS      = (10 << 8) + 0,
     UAMEASUNIT_TEMPERATURE_FAHRENHEIT   = (10 << 8) + 1,
@@ -178,6 +189,9 @@ typedef enum UAMeasureUnit {
     UAMEASUNIT_VOLUME_PINT              = (11 << 8) + 19,   // (CLDR 26, ICU-541)
     UAMEASUNIT_VOLUME_QUART             = (11 << 8) + 20,   // (CLDR 26, ICU-541)
     UAMEASUNIT_VOLUME_GALLON            = (11 << 8) + 21,   // (CLDR 26, ICU-541)
+    UAMEASUNIT_VOLUME_CUP_METRIC        = (11 << 8) + 22,   // (CLDR 28, ICU-561.3)
+    UAMEASUNIT_VOLUME_PINT_METRIC       = (11 << 8) + 23,   // (CLDR 28, ICU-561.3)
+    UAMEASUNIT_VOLUME_GALLON_IMPERIAL   = (11 << 8) + 24,   // (CLDR 29, ICU-561.8+)
     //
     // new categories/values in CLDR 26
     //
@@ -192,6 +206,8 @@ typedef enum UAMeasureUnit {
     //
     UAMEASUNIT_CONSUMPTION_LITER_PER_KILOMETER = (13 << 8) + 0,
     UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON     = (13 << 8) + 1,
+    UAMEASUNIT_CONSUMPTION_LITER_PER_100_KILOMETERs = (13 << 8) + 2, // (CLDR 28, ICU-561.3)
+    UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON_IMPERIAL = (13 << 8) + 3, // (CLDR 29, ICU-561.8+)
     //
     UAMEASUNIT_DIGITAL_BIT              = (14 << 8) + 0,
     UAMEASUNIT_DIGITAL_BYTE             = (14 << 8) + 1,
@@ -216,8 +232,20 @@ typedef enum UAMeasureUnit {
     //
     UAMEASUNIT_LIGHT_LUX                = (17 << 8) + 0,
     //
-    //UAMEASUNIT_PROPORTION_KARAT       = (18 << 8) + 0,    // wait on this one
+    // new categories/values in CLDR 29, ICU-561.8+
+    //
+    UAMEASUNIT_CONCENTRATION_KARAT      = (18 << 8) + 0,    // (CLDR 29, ICU-561.8+)
+    UAMEASUNIT_CONCENTRATION_MILLIGRAM_PER_DECILITER = (18 << 8) + 1, // (CLDR 29, ICU-561.8+)
+    UAMEASUNIT_CONCENTRATION_MILLIMOLE_PER_LITER = (18 << 8) + 2, // (CLDR 29, ICU-561.8+)
+    UAMEASUNIT_CONCENTRATION_PART_PER_MILLION = (18 << 8) + 3, // (CLDR 29, ICU-561.8+)
+    //
 } UAMeasureUnit;
+
+enum {
+    // Mask bit set in UFieldPosition, in addition to a UAMeasureUnit value,
+    // to indicate the numeric portion of the field corresponding to the UAMeasureUnit.
+    UAMEASFMT_NUMERIC_FIELD_FLAG = (1 << 30)
+};
 
 /**
  * Structure that combines value and UAMeasureUnit,
@@ -236,9 +264,11 @@ typedef struct UAMeasure {
  * along with a number formatter (if desired) to override the default formatter
  * that would be used for the numeric part of the unit in uameasfmt_format, or the
  * numeric part of the *last unit* (only) in uameasfmt_formatMultiple. The default
- * formatter uses zero decimal places and rounds toward 0; an alternate number formatter
- * can be used to produce (e.g.) "37.2 mins" instead of "37 mins", or
- * "5 hours, 37.2 minutes" instead of "5 hours, 37 minutes".
+ * formatter typically rounds toward 0 and has a minimum of 0 fraction digits and a
+ * maximum of 3 fraction digits (i.e. it will show as many decimal places as
+ * necessary up to 3, without showing trailing 0s). An alternate number formatter
+ * can be used to produce (e.g.) "37.0 mins" instead of "37 mins", or
+ * "5 hours, 37.2 minutes" instead of "5 hours, 37.217 minutes".
  *
  * @param locale
  *          The locale
@@ -397,6 +427,216 @@ uameasfmt_formatMultiple( const UAMeasureFormat* measfmt,
                           UChar*            result,
                           int32_t           resultCapacity,
                           UErrorCode*       status );
+
+/**
+ * Format a list of value and unit combinations, using locale-appropriate
+ * conventions for the list. This has the same format behavior as
+ * uameasfmt_formatMultiple but adds the fpositer parameter. 
+ *
+ * @param measfmt
+ *            The UAMeasureFormat object specifying the format conventions.
+ * @param measures
+ *            A list of UAMeasure structs each specifying a numeric value
+ *            and a UAMeasureUnit.
+ * @param measureCount
+ *            The count of UAMeasureUnits in measures. Currently this has a limit of 8.
+ * @param result
+ *            A pointer to a buffer to receive the formatted result.
+ * @param resultCapacity
+ *            The maximum size of result.
+ * @param fpositer
+ *            A pointer to a UFieldPositionIterator created by ufieldpositer_open
+ *            (may be NULL if field position information is not needed). Any
+ *            iteration information already present in the UFieldPositionIterator
+ *            will be deleted, and the iterator will be reset to apply to the
+ *            fields in the formatted string created by this function call. In the
+ *            the formatted result, each unit field (unit name or symbol plus any
+ *            associated numeric value) will correspond to one or two results from
+ *            ufieldpositer_next. The first result returns a UAMeasureUnit value and
+ *            indicates the begin and end index for the complete field. If there is
+ *            a numeric value contained in the field, then a subsequent call to
+ *            ufieldpositer_next returns a value with UAMEASFMT_NUMERIC_FIELD_FLAG
+ *            set and the same UAMeasureUnit value in the low-order bits, and
+ *            indicates the begin and end index for the numeric portion of the field.
+ *            For example with the string "3 hours, dualminute" the sequence of
+ *            calls to ufieldpositer_next would result in:
+ *            (1) return UAMEASUNIT_DURATION_HOUR, begin index 0, end index 7
+ *            (2) return UAMEASUNIT_DURATION_HOUR | UAMEASFMT_NUMERIC_FIELD_FLAG, begin index 0, end index 1
+ *            (3) return UAMEASUNIT_DURATION_MINUTE, begin index 9, end index 19
+ *            (4) return -1 to indicate end of interation
+ * @param status
+ *            A pointer to a UErrorCode to receive any errors. In case of error status,
+ *            the contents of result are undefined.
+ * @return
+ *            The length of the formatted result; may be greater than resultCapacity,
+ *            in which case an error is returned.
+ * @draft ICU 58
+ */
+U_DRAFT int32_t U_EXPORT2
+uameasfmt_formatMultipleForFields( const UAMeasureFormat* measfmt,
+                                   const UAMeasure*  measures,
+                                   int32_t           measureCount,
+                                   UChar*            result,
+                                   int32_t           resultCapacity,
+                                   UFieldPositionIterator* fpositer,
+                                   UErrorCode*       status );
+
+/**
+ * Get the display name for a unit, such as "minutes" or "kilometers".
+ *
+ * @param measfmt
+ *          The UAMeasureFormat object specifying the format conventions.
+ * @param unit
+ *          The unit whose localized name to get
+ * @param result
+ *          A pointer to a buffer to receive the name.
+ * @param resultCapacity
+ *          The maximum size of result.
+ * @param status
+ *          A pointer to a UErrorCode to receive any errors. In case of error status,
+ *          the contents of result are undefined.
+ * @return
+ *          The length of the name; may be greater than resultCapacity,
+ *          in which case an error is returned.
+ * @draft ICU 57
+ */
+U_DRAFT int32_t U_EXPORT2
+uameasfmt_getUnitName( const UAMeasureFormat* measfmt,
+                       UAMeasureUnit unit,
+                       UChar* result,
+                       int32_t resultCapacity,
+                       UErrorCode* status );
+
+/**
+ * Constants for unit display name list styles
+ * @draft ICU 57
+ */
+typedef enum UAMeasureNameListStyle {
+    /**
+     * Use standard (linguistic) list style, the same for all unit widths; e.g.
+     *   wide:    "hours, minutes, and seconds"
+     *   short:   "hours, min, and secs"
+     *   narrow:  "hour, min, and sec"
+     * @draft ICU 57 
+     */
+    UAMEASNAME_LIST_STANDARD,
+ 
+    /**
+      * Use the same list style as used by the formatted units, depends on width; e.g.
+     *   wide:    "hours, minutes, seconds"
+     *   short:   "hours, min, secs"
+     *   narrow:  "hour min sec"
+     * @draft ICU 57
+     */
+    UAMEASNAME_LIST_MATCHUNITS,
+} UAMeasureNameListStyle;
+
+/**
+ * Get a list of display names for multiple units
+ *
+ * @param measfmt
+ *          The UAMeasureFormat object specifying the format conventions.
+ * @param units
+ *          The array of unit types whose names to get.
+ * @param unitCount
+ *          The number of unit types in the units array.
+ * @param listStyle
+ *          The list style used for combining the unit names.
+ * @param result
+ *          A pointer to a buffer to receive the list of names.
+ * @param resultCapacity
+ *          The maximum size of result.
+ * @param status
+ *          A pointer to a UErrorCode to receive any errors. In case of error status,
+ *          the contents of result are undefined.
+ * @return
+ *          The length of the list of names; may be greater than resultCapacity,
+ *          in which case an error is returned.
+ * @draft ICU 57
+ */
+U_DRAFT int32_t U_EXPORT2
+uameasfmt_getMultipleUnitNames( const UAMeasureFormat* measfmt,
+                                const UAMeasureUnit* units,
+                                int32_t unitCount,
+                                UAMeasureNameListStyle listStyle,
+                                UChar* result,
+                                int32_t resultCapacity,
+                                UErrorCode* status );
+
+/**
+ * Get the units used for a particular usage. This low-level function depends
+ * one some knowledge of the relevant CLDR keys. After more experience with
+ * usage, enums for relevant usage values may be created.
+ *
+ * @param locale
+ *          The locale.
+ * @param category
+ *          A string representing the CLDR category key for the desired usage,
+ *          such as "length" or "mass". Must not be NULL.
+ * @param usage
+ *          A string representing the CLDR usage subkey for the desired usage,
+ *          such as "person", "person-small" (for infants), "person-informal"
+ *          (for conversational/informal usage), etc. To get the general unit
+ *          for the category (not for a specific usage), this may be NULL, or
+ *          may be just "large" or "small" to indicate a variant of the general
+ *          unit for larger or smaller ranges than normal.
+ * @param units
+ *          Array to be filled in with UAMeasureUnit values; the size is
+ *          specified by unitsCapacity (which in general should be at least 3).
+ *          The number of array elements actually filled in is indicated by
+ *          the return value; if no error status is set then this will be
+ *          non-zero.
+ *
+ *          If the return value is positive then units represents an ordered
+ *          list of one or more units that should be used in combination for
+ *          the desired usage (e.g. the values UAMEASUNIT_LENGTH_FOOT,
+ *          UAMEASUNIT_LENGTH_INCH to indicate a height expressed as a
+ *          combination of feet and inches, or just UAMEASUNIT_LENGTH_CENTIMETER
+ *          to indicate height expressed in centimeters alone).
+ *
+ *          Negative return values may be used for future uses (such as
+ *          indicating an X-per-Y relationship among the returned units).
+ *
+ *          The units parameter may be NULL if unitsCapacity is 0, for
+ *          pre-flighting (i.e. to determine the size of the units array that
+ *          woud be required for the given category and usage).
+ * @param unitsCapacity
+ *          The maximum capacity of the passed-in units array.
+ * @param status
+ *          A pointer to a UErrorCode to receive any errors. In case of error status,
+ *          the contents of result are undefined.
+ * @return
+ *          Positive values indicate the number of units require for the usage;
+ *          may be greater than resultCapacity, in which case an error is returned.
+ *          If no error, than this number of units are actually provided in the
+ *          units array. Negative return values are reserved for future uses.
+ * @draft ICU 57
+ */
+U_DRAFT int32_t U_EXPORT2
+uameasfmt_getUnitsForUsage( const char*     locale,
+                            const char*     category,
+                            const char*     usage,
+                            UAMeasureUnit*  units,
+                            int32_t         unitsCapacity,
+                            UErrorCode*     status );
+
+/**
+ * Get the (non-localized) category name for a unit. For example, for
+ * UAMEASUNIT_VOLUME_LITER, returns "volume".
+ *
+ * @param unit
+ *          The unit whose category name to get
+ * @param status
+ *          A pointer to a UErrorCode to receive any errors. In case of error status,
+ *          the return value is undefined.
+ * @return
+ *          Pointer to a zero-terminated string giving the
+ *          (non-localized) category name.
+ * @draft ICU 58
+ */
+U_DRAFT const char * U_EXPORT2
+uameasfmt_getUnitCategory(UAMeasureUnit unit,
+                          UErrorCode* status );
 
 
 #endif /* U_HIDE_DRAFT_API */

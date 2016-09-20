@@ -48,7 +48,7 @@ public:
     void clearClient()
     {
         m_done = true;
-        m_client = 0;
+        m_client = nullptr;
     }
 
     bool done() const
@@ -86,20 +86,6 @@ public:
         m_done = true;
         if (m_client)
             m_client->didFail(error);
-    }
-
-    void didFailAccessControlCheck(const ResourceError& error)
-    {
-        m_done = true;
-        if (m_client)
-            m_client->didFailAccessControlCheck(error);
-    }
-
-    void didFailRedirectCheck()
-    {
-        m_done = true;
-        if (m_client)
-            m_client->didFailRedirectCheck();
     }
 
     void didReceiveAuthenticationCancellation(unsigned long identifier, const ResourceResponse& response)

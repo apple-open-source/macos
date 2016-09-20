@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -44,11 +44,13 @@
 #include <SystemConfiguration/SCPrivate.h>
 
 #ifdef TEST_IPMONITOR_CONTROL
-#define my_log(__level, fmt, ...)	SCPrint(TRUE, stdout, CFSTR(fmt "\n"), ## __VA_ARGS__)
+
+#define	my_log(__level, __format, ...)	SCPrint(TRUE, stdout, CFSTR(__format "\n"), ## __VA_ARGS__)
 
 #else /* TEST_IPMONITOR_CONTROL */
 
-#define my_log(__level, fmt, ...)	SCLog(TRUE, __level, CFSTR(fmt), ## __VA_ARGS__)
+#define	my_log(__level, __format, ...)	SC_log(__level, __format, ## __VA_ARGS__)
+
 #endif /* TEST_IPMONITOR_CONTROL */
 
 /**
@@ -58,6 +60,7 @@
 struct IPMonitorControl {
     CFRuntimeBase		cf_base;
 
+    os_activity_t		activity;
     dispatch_queue_t		queue;
     xpc_connection_t		connection;
     CFMutableDictionaryRef	assertions; /* ifname<string> = rank<number> */
@@ -99,6 +102,9 @@ __IPMonitorControlDeallocate(CFTypeRef cf)
     if (control->connection != NULL) {
 	xpc_release(control->connection);
     }
+    if (control->activity != NULL) {
+	os_release(control->activity);
+    }
     if (control->queue != NULL) {
 	xpc_release(control->queue);
     }
@@ -131,7 +137,6 @@ __IPMonitorControlAllocate(CFAllocatorRef allocator)
     control = (IPMonitorControlRef)
 	_CFRuntimeCreateInstance(allocator,
 				 __kIPMonitorControlTypeID, size, NULL);
-    bzero(((void *)control) + sizeof(CFRuntimeBase), size);
     return (control);
 }
 
@@ -229,11 +234,11 @@ ApplyInterfaceRank(const void * key, const void * value, void * context)
     SCNetworkServicePrimaryRank	rank;
     xpc_object_t		request;
 
-    if (CFStringGetCString(key, ifname, sizeof(ifname),
-			   kCFStringEncodingUTF8) == FALSE) {
+    if (!CFStringGetCString(key, ifname, sizeof(ifname),
+			    kCFStringEncodingUTF8)) {
 	return;
     }
-    if (CFNumberGetValue(value, kCFNumberSInt32Type, &rank) == FALSE) {
+    if (!CFNumberGetValue(value, kCFNumberSInt32Type, &rank)) {
 	return;
     }
     request = xpc_dictionary_create(NULL, NULL, 0);
@@ -270,11 +275,13 @@ IPMonitorControlCreate(void)
 	= xpc_connection_create_mach_service(kIPMonitorControlServerName,
 					     queue, flags);
     handler = ^(xpc_object_t event) {
-	os_activity_t	activity_id;
+	os_activity_t	activity;
 	Boolean		retry;
 
-	activity_id = os_activity_start("processing IPMonitor [rank] reply",
-					OS_ACTIVITY_FLAG_DEFAULT);
+	activity = os_activity_create("processing IPMonitor [rank] reply",
+				      OS_ACTIVITY_CURRENT,
+				      OS_ACTIVITY_FLAG_DEFAULT);
+	os_activity_scope(activity);
 
 	(void)IPMonitorControlHandleResponse(event, TRUE, &retry);
 	if (retry && control->assertions != NULL) {
@@ -283,9 +290,12 @@ IPMonitorControlCreate(void)
 				      control->connection);
 	}
 
-	os_activity_end(activity_id);
+	os_release(activity);
     };
     xpc_connection_set_event_handler(connection, handler);
+    control->activity = os_activity_create("accessing IPMonitor [rank] controls",
+					   OS_ACTIVITY_CURRENT,
+					   OS_ACTIVITY_FLAG_DEFAULT);
     control->connection = connection;
     control->queue = queue;
     xpc_connection_resume(connection);
@@ -301,10 +311,13 @@ IPMonitorControlSetInterfacePrimaryRank(IPMonitorControlRef control,
     xpc_object_t	request;
     Boolean		success = FALSE;
 
-    if (CFStringGetCString(ifname_cf, ifname, sizeof(ifname),
-			   kCFStringEncodingUTF8) == FALSE) {
+    if (!CFStringGetCString(ifname_cf, ifname, sizeof(ifname),
+			    kCFStringEncodingUTF8)) {
 	return (FALSE);
     }
+
+    os_activity_scope(control->activity);
+
     request = xpc_dictionary_create(NULL, NULL, 0);
     xpc_dictionary_set_uint64(request,
 			      kIPMonitorControlRequestKeyType,
@@ -358,15 +371,18 @@ SCNetworkServicePrimaryRank
 IPMonitorControlGetInterfacePrimaryRank(IPMonitorControlRef control,
 					CFStringRef ifname_cf)
 {
-    char			ifname[IF_NAMESIZE];
-    SCNetworkServicePrimaryRank rank;
-    xpc_object_t		request;
+    char				ifname[IF_NAMESIZE];
+    SCNetworkServicePrimaryRank		rank;
+    xpc_object_t			request;
 
     rank = kSCNetworkServicePrimaryRankDefault;
-    if (CFStringGetCString(ifname_cf, ifname, sizeof(ifname),
-			   kCFStringEncodingUTF8) == FALSE) {
-	goto done;
+    if (!CFStringGetCString(ifname_cf, ifname, sizeof(ifname),
+			   kCFStringEncodingUTF8)) {
+	return rank;
     }
+
+    os_activity_scope(control->activity);
+
     request = xpc_dictionary_create(NULL, NULL, 0);
     xpc_dictionary_set_uint64(request,
 			      kIPMonitorControlRequestKeyType,
@@ -402,7 +418,6 @@ IPMonitorControlGetInterfacePrimaryRank(IPMonitorControlRef control,
     }
     xpc_release(request);
 
- done:
     return (rank);
 }
 

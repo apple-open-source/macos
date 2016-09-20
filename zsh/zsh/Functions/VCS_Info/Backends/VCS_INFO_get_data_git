@@ -87,13 +87,19 @@ VCS_INFO_git_getbranch () {
         gitbranch="$(${(z)gitsymref} 2> /dev/null)"
         [[ -z ${gitbranch} ]] && [[ -r ${actiondir}/head-name ]] \
             && gitbranch="$(< ${actiondir}/head-name)"
+        [[ -z ${gitbranch} || ${gitbranch} == 'detached HEAD' ]] \
+            && gitbranch="$(< ${gitdir}/ORIG_HEAD)"
 
     elif [[ -f "${gitdir}/MERGE_HEAD" ]] ; then
         gitbranch="$(${(z)gitsymref} 2> /dev/null)"
-        [[ -z ${gitbranch} ]] && gitbranch="$(< ${gitdir}/MERGE_HEAD)"
+        [[ -z ${gitbranch} ]] && gitbranch="$(< ${gitdir}/ORIG_HEAD)"
 
     elif [[ -d "${gitdir}/rebase-merge" ]] ; then
         gitbranch="$(< ${gitdir}/rebase-merge/head-name)"
+        if [[ $gitbranch == 'detached HEAD' ]]; then
+            # get a sha1
+            gitbranch="$(< ${gitdir}/rebase-merge/orig-head)"
+        fi
 
     elif [[ -d "${gitdir}/.dotest-merge" ]] ; then
         gitbranch="$(< ${gitdir}/.dotest-merge/head-name)"
@@ -210,24 +216,79 @@ elif [[ -d "${gitdir}/rebase-merge" ]]; then
         # remove action
         git_patches_applied+=("${${(s: :)p}[2,-1]}")
     done
-    git_patches_unapplied=(${(f)"$(grep -v '^$' "${patchdir}/git-rebase-todo" | grep -v '^#')"})
+    if [[ -f "${patchdir}/git-rebase-todo" ]] ; then
+        git_patches_unapplied=(${(f)"$(grep -v '^$' "${patchdir}/git-rebase-todo" | grep -v '^#')"})
+    fi
     VCS_INFO_git_handle_patches
 elif [[ -d "${gitdir}/rebase-apply" ]]; then
     # Fake patch names for all but current patch
     patchdir="${gitdir}/rebase-apply"
-    local cur=$(< "${patchdir}/next")
-    local p subject
-    for p in $(seq $(($cur - 1))); do
-        git_patches_applied+=("$(printf "%04d" $p) ?")
-    done
-    subject="${$(< "${patchdir}/msg-clean")[(f)1]}"
-    if [[ -f "${patchdir}/original-commit" ]]; then
-        git_patches_applied+=("$(< ${patchdir}/original-commit) $subject")
-    else
-        git_patches_applied+=("? $subject")
+    local next="${patchdir}/next"
+    if [[ -f $next ]]; then
+        local cur=$(< $next)
+        local p subject
+        for ((p = 1; p < cur; p++)); do
+            git_patches_applied+=("$(printf "%04d" $p) ?")
+        done
+        if [[ -f "${patchdir}/msg-clean" ]]; then
+            subject="${$(< "${patchdir}/msg-clean")[(f)1]}"
+        fi
+        if [[ -f "${patchdir}/original-commit" ]]; then
+            if [[ -n $subject ]]; then
+                git_patches_applied+=("$(< ${patchdir}/original-commit) $subject")
+            else
+                git_patches_applied+=("$(< ${patchdir}/original-commit)")
+            fi
+        else
+            if [[ -n $subject ]]; then
+                git_patches_applied+=("? $subject")
+            else
+                git_patches_applied+=("?")
+            fi
+        fi
+        local last="$(< "${patchdir}/last")"
+        git_patches_unapplied=( {$cur..$last} )
     fi
-    git_patches_unapplied=($(seq $cur $(< "${patchdir}/last")))
 
+    VCS_INFO_git_handle_patches
+elif [[ -f "${gitdir}/MERGE_HEAD" ]]; then
+    # This is 'git merge --no-commit'
+    local -a heads=( ${(@f)"$(<"${gitdir}/MERGE_HEAD")"} )
+    local subject;
+    IFS='' read -r subject < "${gitdir}/MERGE_MSG"
+    # $subject is the subject line of the would-be commit
+    # Maybe we can get the subject lines of MERGE_HEAD's commits cheaply?
+
+    local p
+    for p in $heads[@]; do
+      git_patches_applied+=("$p $subject")
+    done
+    unset p
+
+    # Not touching git_patches_unapplied
+
+    VCS_INFO_git_handle_patches
+elif [[ -f "${gitdir}/CHERRY_PICK_HEAD" ]]; then
+    # 'git cherry-pick' without -n, that conflicted.  (With -n, git doesn't
+    # record the CHERRY_PICK_HEAD information anywhere, as of git 2.6.2.)
+    #
+    # ### 'git cherry-pick foo bar baz' only records the "remaining" part of
+    # ### the queue in the .git dir: if 'bar' has a conflict, the .git dir 
+    # ### has a record of 'baz' being queued, but no record of 'foo' having been
+    # ### part of the queue as well.  Therefore, the %n/%c applied/unapplied
+    # ### expandos will be memoryless: the "applied" counter will always
+    # ### be "1".  The %u/%c tuple will assume the values [(1,2), (1,1), (1,0)],
+    # ### whereas the correct sequence would be [(1,2), (2,1), (3,0)].
+    local subject
+    IFS='' read -r subject < "${gitdir}/MERGE_MSG"
+    git_patches_applied=( "$(<${gitdir}/CHERRY_PICK_HEAD) ${subject}" )
+    if [[ -f "${gitdir}/sequencer/todo" ]]; then
+        # Get the next patches, and remove the one that's in CHERRY_PICK_HEAD.
+        git_patches_unapplied=( ${${(M)${(f)"$(<"${gitdir}/sequencer/todo")"}:#pick *}#pick } )
+        git_patches_unapplied[1]=()
+    else
+        git_patches_unapplied=()
+    fi
     VCS_INFO_git_handle_patches
 else
     gitmisc=''

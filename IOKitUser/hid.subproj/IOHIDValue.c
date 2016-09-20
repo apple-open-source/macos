@@ -114,13 +114,13 @@ IOHIDValueRef _IOHIDValueCreateWithElementValuePtr(CFAllocatorRef allocator, IOH
     uint32_t        length  = 0;
 
     if ( !element || !pElementValue )
-        return NULL;
+        return (_Nonnull IOHIDValueRef)NULL;
         
     length  = _IOHIDElementGetLength(element);
     event   = __IOHIDValueCreatePrivate(allocator, NULL, length);
 
     if (!event)
-        return NULL;
+        return (_Nonnull IOHIDValueRef)NULL;
         
     event->element      = (IOHIDElementRef)CFRetain(element);
     event->timeStamp    = *((uint64_t *)&(pElementValue->timestamp));
@@ -138,14 +138,14 @@ IOHIDValueRef _IOHIDValueCreateWithStruct(CFAllocatorRef allocator, IOHIDElement
     uint32_t        length      = 0;
 
     if ( !element || !pEventStruct )
-        return NULL;
+        return (_Nonnull IOHIDValueRef)NULL;
         
     isLongValue = (pEventStruct->longValue && pEventStruct->longValueSize);
     length  = _IOHIDElementGetLength(element);
     event   = __IOHIDValueCreatePrivate(allocator, NULL, isLongValue ? 0 : length);
 
     if (!event)
-        return NULL;
+        return (_Nonnull IOHIDValueRef)NULL;
         
     event->element      = (IOHIDElementRef)CFRetain(element);
     event->timeStamp    = *((uint64_t *)&(pEventStruct->timestamp));
@@ -168,13 +168,13 @@ IOHIDValueRef IOHIDValueCreateWithIntegerValue(CFAllocatorRef allocator, IOHIDEl
     uint64_t        tempValue;
 
     if ( !element )
-        return NULL;
+        return (_Nonnull IOHIDValueRef)NULL;
 
     length  = _IOHIDElementGetLength(element);
     event   = __IOHIDValueCreatePrivate(allocator, NULL, length);
 
     if (!event)
-        return NULL;
+        return (_Nonnull IOHIDValueRef)NULL;
         
     event->element      = (IOHIDElementRef)CFRetain(element);
     event->timeStamp    = timeStamp;

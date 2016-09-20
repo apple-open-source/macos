@@ -41,6 +41,10 @@
 #import <WebCore/LocalizedStrings.h>
 #import <WebKitSystemInterface.h>
 #import <dlfcn.h>
+#import <mach-o/dyld.h>
+#import <mach-o/getsect.h>
+#import <mach/mach_vm.h>
+#import <mach/vm_statistics.h>
 #import <objc/runtime.h>
 #import <sysexits.h>
 #import <wtf/HashSet.h>
@@ -203,6 +207,30 @@ static bool openCFURLRef(CFURLRef url, int32_t& status, CFURLRef* launchedURL)
     return true;
 }
 
+static bool isMallocTinyMemoryTag(int tag)
+{
+    switch (tag) {
+    case VM_MEMORY_MALLOC_TINY:
+        return true;
+
+    default:
+        return false;
+    }
+}
+
+static bool shouldMapMallocMemoryExecutable;
+
+static bool shouldMapMemoryExecutable(int flags)
+{
+    if (!shouldMapMallocMemoryExecutable)
+        return false;
+
+    if (!isMallocTinyMemoryTag((flags >> 24) & 0xff))
+        return false;
+
+    return true;
+}
+
 #endif
 
 static void setModal(bool modalWindowIsShowing)
@@ -210,7 +238,7 @@ static void setModal(bool modalWindowIsShowing)
     PluginProcess::singleton().setModalWindowIsShowing(modalWindowIsShowing);
 }
 
-static unsigned modalCount = 0;
+static unsigned modalCount;
 
 static void beginModal()
 {
@@ -243,11 +271,70 @@ static NSInteger replacedRunModalForWindow(id self, SEL _cmd, NSWindow* window)
     return result;
 }
 
-#if defined(__i386__)
+static bool oldPluginProcessNameShouldEqualNewPluginProcessNameForAdobeReader;
+
+static bool isAdobeAcrobatAddress(const void* address)
+{
+    Dl_info imageInfo;
+    if (!dladdr(address, &imageInfo))
+        return false;
+
+    const char* pathSuffix = "/Contents/Frameworks/Acrobat.framework/Acrobat";
+
+    int pathSuffixLength = strlen(pathSuffix);
+    int imageFilePathLength = strlen(imageInfo.dli_fname);
+
+    if (imageFilePathLength < pathSuffixLength)
+        return false;
+
+    if (strcmp(imageInfo.dli_fname + (imageFilePathLength - pathSuffixLength), pathSuffix))
+        return false;
+
+    return true;
+}
+
+static bool stringCompare(CFStringRef a, CFStringRef b, CFStringCompareFlags options, void* returnAddress, CFComparisonResult& result)
+{
+    if (pthread_main_np() != 1)
+        return false;
+
+    if (!oldPluginProcessNameShouldEqualNewPluginProcessNameForAdobeReader)
+        return false;
+
+    if (options != kCFCompareCaseInsensitive)
+        return false;
+
+    const char* aCString = CFStringGetCStringPtr(a, kCFStringEncodingASCII);
+    if (!aCString)
+        return false;
+
+    const char* bCString = CFStringGetCStringPtr(b, kCFStringEncodingASCII);
+    if (!bCString)
+        return false;
+
+    if (strcmp(aCString, "com.apple.WebKit.PluginProcess"))
+        return false;
+
+    if (strcmp(bCString, "com.apple.WebKit.Plugin.64"))
+        return false;
+
+    // Check if the LHS string comes from the Acrobat framework.
+    if (!isAdobeAcrobatAddress(a))
+        return false;
+
+    // Check if the return adress is part of the Acrobat framework as well.
+    if (!isAdobeAcrobatAddress(returnAddress))
+        return false;
+
+    result = kCFCompareEqualTo;
+    return true;
+}
+
 static void initializeShim()
 {
     // Initialize the shim for 32-bit only.
     const PluginProcessShimCallbacks callbacks = {
+#if defined(__i386__)
         shouldCallRealDebugger,
         isWindowActive,
         getCurrentEventButtonState,
@@ -257,12 +344,14 @@ static void initializeShim()
         carbonWindowHidden,
         setModal,
         openCFURLRef,
+        shouldMapMemoryExecutable,
+#endif
+        stringCompare,
     };
 
     PluginProcessShimInitializeFunc initFunc = reinterpret_cast<PluginProcessShimInitializeFunc>(dlsym(RTLD_DEFAULT, "WebKitPluginProcessShimInitialize"));
     initFunc(callbacks);
 }
-#endif
 
 static void (*NSConcreteTask_launch)(NSTask *, SEL);
 
@@ -406,7 +495,7 @@ static void muteAudio(void)
 
 void PluginProcess::platformInitializePluginProcess(PluginProcessCreationParameters&& parameters)
 {
-    m_compositingRenderServerPort = WTF::move(parameters.acceleratedCompositingPort);
+    m_compositingRenderServerPort = WTFMove(parameters.acceleratedCompositingPort);
     if (parameters.processType == PluginProcessTypeSnapshot)
         muteAudio();
 
@@ -418,12 +507,8 @@ void PluginProcess::platformInitializePluginProcess(PluginProcessCreationParamet
 
 void PluginProcess::platformInitializeProcess(const ChildProcessInitializationParameters& parameters)
 {
-#if defined(__i386__)
-    // Initialize the shim.
     initializeShim();
-#endif
 
-    // Initialize Cocoa overrides.
     initializeCocoaOverrides();
 
     // FIXME: It would be better to proxy SetCursor calls over to the UI process instead of
@@ -439,6 +524,68 @@ void PluginProcess::platformInitializeProcess(const ChildProcessInitializationPa
         return;
 
     m_pluginBundleIdentifier = CFBundleGetIdentifier(pluginBundle.get());
+
+    if (m_pluginBundleIdentifier == "com.adobe.acrobat.pdfviewerNPAPI")
+        oldPluginProcessNameShouldEqualNewPluginProcessNameForAdobeReader = true;
+
+#if defined(__i386__)
+    if (m_pluginBundleIdentifier == "com.microsoft.SilverlightPlugin") {
+        // Set this so that any calls to mach_vm_map for pages reserved by malloc will be executable.
+        shouldMapMallocMemoryExecutable = true;
+
+        // Go through the address space looking for already existing malloc regions and change the
+        // protection to make them executable.
+        mach_vm_size_t size;
+        uint32_t depth = 0;
+        struct vm_region_submap_info_64 info = { };
+        mach_msg_type_number_t count = VM_REGION_SUBMAP_INFO_COUNT_64;
+        for (mach_vm_address_t addr = 0; ; addr += size) {
+            kern_return_t kr = mach_vm_region_recurse(mach_task_self(), &addr, &size, &depth, (vm_region_recurse_info_64_t)&info, &count);
+            if (kr != KERN_SUCCESS)
+                break;
+
+            if (isMallocTinyMemoryTag(info.user_tag))
+                mach_vm_protect(mach_task_self(), addr, size, false, info.protection | VM_PROT_EXECUTE);
+        }
+
+        // Silverlight expects the data segment of its coreclr library to be executable.
+        // Register with dyld to get notified when libraries are bound, then look for the
+        // coreclr image and make its __DATA segment executable.
+        _dyld_register_func_for_add_image([](const struct mach_header* mh, intptr_t vmaddr_slide) {
+            Dl_info imageInfo;
+            if (!dladdr(mh, &imageInfo))
+                return;
+
+            const char* pathSuffix = "/Silverlight.plugin/Contents/MacOS/CoreCLR.bundle/Contents/MacOS/coreclr";
+
+            int pathSuffixLength = strlen(pathSuffix);
+            int imageFilePathLength = strlen(imageInfo.dli_fname);
+
+            if (imageFilePathLength < pathSuffixLength)
+                return;
+
+            if (strcmp(imageInfo.dli_fname + (imageFilePathLength - pathSuffixLength), pathSuffix))
+                return;
+
+            unsigned long segmentSize;
+            const uint8_t* segmentData = getsegmentdata(mh, "__DATA", &segmentSize);
+            if (!segmentData)
+                return;
+
+            mach_vm_size_t size;
+            uint32_t depth = 0;
+            struct vm_region_submap_info_64 info = { };
+            mach_msg_type_number_t count = VM_REGION_SUBMAP_INFO_COUNT_64;
+            for (mach_vm_address_t addr = reinterpret_cast<mach_vm_address_t>(segmentData); addr < reinterpret_cast<mach_vm_address_t>(segmentData) + segmentSize ; addr += size) {
+                kern_return_t kr = mach_vm_region_recurse(mach_task_self(), &addr, &size, &depth, (vm_region_recurse_info_64_t)&info, &count);
+                if (kr != KERN_SUCCESS)
+                    break;
+
+                mach_vm_protect(mach_task_self(), addr, size, false, info.protection | VM_PROT_EXECUTE);
+            }
+        });
+    }
+#endif
 
     // FIXME: Workaround for Java not liking its plugin process to be suppressed - <rdar://problem/14267843>
     if (m_pluginBundleIdentifier == "com.oracle.java.JavaAppletPlugin")
@@ -508,7 +655,7 @@ void PluginProcess::initializeSandbox(const ChildProcessInitializationParameters
         exit(EX_OSERR);
     }
 
-    sandboxParameters.setSystemDirectorySuffix([[[[NSFileManager defaultManager] stringWithFileSystemRepresentation:temporaryDirectory length:strlen(temporaryDirectory)] lastPathComponent] fileSystemRepresentation]);
+    sandboxParameters.setUserDirectorySuffix([[[[NSFileManager defaultManager] stringWithFileSystemRepresentation:temporaryDirectory length:strlen(temporaryDirectory)] lastPathComponent] fileSystemRepresentation]);
 
     sandboxParameters.addPathParameter("PLUGIN_PATH", m_pluginPath);
     sandboxParameters.addPathParameter("NSURL_CACHE_DIR", m_nsurlCacheDirectory);

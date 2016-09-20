@@ -81,7 +81,7 @@ WebRenderObject::WebRenderObject(RenderObject* renderer, bool shouldIncludeDesce
                 for (size_t i = 0, size = element.classNames().size(); i < size; ++i)
                     classNames.append(API::String::create(element.classNames()[i]));
 
-                m_elementClassNames = API::Array::create(WTF::move(classNames));
+                m_elementClassNames = API::Array::create(WTFMove(classNames));
             }
         }
 
@@ -106,32 +106,25 @@ WebRenderObject::WebRenderObject(RenderObject* renderer, bool shouldIncludeDesce
         m_frameRect = downcast<RenderText>(*renderer).linesBoundingBox();
         m_frameRect.setLocation(downcast<RenderText>(*renderer).firstRunLocation());
     } else if (is<RenderInline>(*renderer))
-        m_frameRect = downcast<RenderInline>(*renderer).borderBoundingBox();
+        m_frameRect = IntRect(downcast<RenderInline>(*renderer).borderBoundingBox());
 
     if (!shouldIncludeDescendants)
         return;
 
     Vector<RefPtr<API::Object>> children;
 
-    for (RenderObject* coreChild = renderer->firstChildSlow(); coreChild; coreChild = coreChild->nextSibling()) {
-        RefPtr<WebRenderObject> child = adoptRef(new WebRenderObject(coreChild, shouldIncludeDescendants));
-        children.append(WTF::move(child));
-    }
+    for (auto* coreChild = renderer->firstChildSlow(); coreChild; coreChild = coreChild->nextSibling())
+        children.append(adoptRef(*new WebRenderObject(coreChild, shouldIncludeDescendants)));
 
     if (is<RenderWidget>(*renderer)) {
-        if (Widget* widget = downcast<RenderWidget>(*renderer).widget()) {
-            if (is<FrameView>(*widget)) {
-                FrameView& frameView = downcast<FrameView>(*widget);
-                if (RenderView* coreContentRenderer = frameView.frame().contentRenderer()) {
-                    RefPtr<WebRenderObject> contentRenderer = adoptRef(new WebRenderObject(coreContentRenderer, shouldIncludeDescendants));
-
-                    children.append(WTF::move(contentRenderer));
-                }
-            }
+        auto* widget = downcast<RenderWidget>(*renderer).widget();
+        if (is<FrameView>(widget)) {
+            if (auto* coreContentRenderer = downcast<FrameView>(*widget).frame().contentRenderer())
+                children.append(adoptRef(*new WebRenderObject(coreContentRenderer, shouldIncludeDescendants)));
         }
     }
 
-    m_children = API::Array::create(WTF::move(children));
+    m_children = API::Array::create(WTFMove(children));
 }
 
 WebRenderObject::WebRenderObject(const String& name, const String& elementTagName, const String& elementID, PassRefPtr<API::Array> elementClassNames, WebCore::IntPoint absolutePosition, WebCore::IntRect frameRect, const String& textSnippet, unsigned textLength, PassRefPtr<API::Array> children)

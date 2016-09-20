@@ -260,9 +260,13 @@ int pptpvpn_listen(void)
     addrListener.sin_family = AF_INET;
     addrListener.sin_addr.s_addr = htonl(INADDR_ANY);
     addrListener.sin_port = htons(PPTP_TCP_PORT);
+    addrListener.sin_len = sizeof(struct sockaddr_in);
 
     val = 1;
-    setsockopt(listen_sockfd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
+    if (setsockopt(listen_sockfd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val))) {
+        vpnlog(LOG_ERR, "PPTP plugin: Unable set socket option SO_REUSEADDR, err = %s\n", strerror(errno));
+        return -1;
+    }
     
     while (bind(listen_sockfd, (struct sockaddr *) &addrListener, sizeof (addrListener)) < 0) 
         if (errno != EINTR) {

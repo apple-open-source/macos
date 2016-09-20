@@ -591,7 +591,7 @@ static void writePeerCerts(
 	for(i=0; i<numCerts; i++) {
 		sprintf(fileName, "%s%02d.cer", fileBase, (int)i);
 		certRef = (SecCertificateRef)CFArrayGetValueAtIndex(peerCerts, i);
-		writeFile(fileName, SecCertificateGetBytePtr(certRef),
+		writeFileSizet(fileName, SecCertificateGetBytePtr(certRef),
 			SecCertificateGetLength(certRef));
 	}
 	printf("...wrote %lu certs to fileBase %s\n", numCerts, fileBase);

@@ -136,17 +136,17 @@ public:
     }
 #endif // SOUP_CHECK_VERSION(2, 49, 91)
 
-    virtual void didReceiveResponse(ResourceHandle*, const ResourceResponse& response) override
+    void didReceiveResponse(ResourceHandle*, ResourceResponse&& response) override
     {
         m_response = response;
     }
 
-    virtual void didReceiveData(ResourceHandle*, const char* /* data */, unsigned /* length */, int) override
+    void didReceiveData(ResourceHandle*, const char* /* data */, unsigned /* length */, int) override
     {
         ASSERT_NOT_REACHED();
     }
 
-    virtual void didReceiveBuffer(ResourceHandle*, PassRefPtr<SharedBuffer> buffer, int /* encodedLength */) override
+    void didReceiveBuffer(ResourceHandle*, Ref<SharedBuffer>&& buffer, int /* encodedLength */) override
     {
         // This pattern is suggested by SharedBuffer.h.
         const char* segment;
@@ -157,26 +157,26 @@ public:
         }
     }
 
-    virtual void didFinishLoading(ResourceHandle*, double) override
+    void didFinishLoading(ResourceHandle*, double) override
     {
         if (g_main_loop_is_running(m_mainLoop.get()))
             g_main_loop_quit(m_mainLoop.get());
         m_finished = true;
     }
 
-    virtual void didFail(ResourceHandle* handle, const ResourceError& error) override
+    void didFail(ResourceHandle* handle, const ResourceError& error) override
     {
         m_error = error;
         didFinishLoading(handle, 0);
     }
 
-    virtual void didReceiveAuthenticationChallenge(ResourceHandle*, const AuthenticationChallenge& challenge) override
+    void didReceiveAuthenticationChallenge(ResourceHandle*, const AuthenticationChallenge& challenge) override
     {
         // We do not handle authentication for synchronous XMLHttpRequests.
         challenge.authenticationClient()->receivedRequestToContinueWithoutCredential(challenge);
     }
 
-    virtual bool shouldUseCredentialStorage(ResourceHandle*) override
+    bool shouldUseCredentialStorage(ResourceHandle*) override
     {
         return m_storedCredentials == AllowStoredCredentials;
     }
@@ -244,13 +244,14 @@ static void continueAfterDidReceiveResponse(ResourceHandle*);
 
 static bool gIgnoreSSLErrors = false;
 
-static HashSet<String>& allowsAnyHTTPSCertificateHosts()
+typedef HashSet<String, ASCIICaseInsensitiveHash> HostsSet;
+static HostsSet& allowsAnyHTTPSCertificateHosts()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(HashSet<String>, hosts, ());
+    DEPRECATED_DEFINE_STATIC_LOCAL(HostsSet, hosts, ());
     return hosts;
 }
 
-typedef HashMap<String, HostTLSCertificateSet> CertificatesMap;
+typedef HashMap<String, HostTLSCertificateSet, ASCIICaseInsensitiveHash> CertificatesMap;
 static CertificatesMap& clientCertificates()
 {
     DEPRECATED_DEFINE_STATIC_LOCAL(CertificatesMap, certificates, ());
@@ -322,12 +323,12 @@ static bool handleUnignoredTLSErrors(ResourceHandle* handle, SoupMessage* messag
     if (!tlsErrors)
         return false;
 
-    String lowercaseHostURL = handle->firstRequest().url().host().lower();
-    if (allowsAnyHTTPSCertificateHosts().contains(lowercaseHostURL))
+    String host = handle->firstRequest().url().host();
+    if (allowsAnyHTTPSCertificateHosts().contains(host))
         return false;
 
     // We aren't ignoring errors globally, but the user may have already decided to accept this certificate.
-    auto it = clientCertificates().find(lowercaseHostURL);
+    auto it = clientCertificates().find(host);
     if (it != clientCertificates().end() && it->value.contains(certificate))
         return false;
 
@@ -338,11 +339,11 @@ static bool handleUnignoredTLSErrors(ResourceHandle* handle, SoupMessage* messag
 
 static void tlsErrorsChangedCallback(SoupMessage* message, GParamSpec*, gpointer data)
 {
-    ResourceHandle* handle = static_cast<ResourceHandle*>(data);
+    RefPtr<ResourceHandle> handle = static_cast<ResourceHandle*>(data);
     if (!handle || handle->cancelledOrClientless())
         return;
 
-    if (handleUnignoredTLSErrors(handle, message))
+    if (handleUnignoredTLSErrors(handle.get(), message))
         handle->cancel();
 }
 
@@ -463,18 +464,17 @@ static bool shouldRedirectAsGET(SoupMessage* message, URL& newURL, bool crossOri
     return false;
 }
 
-static void continueAfterWillSendRequest(ResourceHandle* handle, const ResourceRequest& request)
+static void continueAfterWillSendRequest(ResourceHandle* handle, ResourceRequest&& request)
 {
     // willSendRequest might cancel the load.
     if (handle->cancelledOrClientless())
         return;
 
-    ResourceRequest newRequest(request);
     ResourceHandleInternal* d = handle->getInternal();
-    if (protocolHostAndPortAreEqual(newRequest.url(), d->m_response.url()))
-        applyAuthenticationToRequest(handle, newRequest, true);
+    if (protocolHostAndPortAreEqual(request.url(), d->m_response.url()))
+        applyAuthenticationToRequest(handle, request, true);
 
-    if (!createSoupRequestAndMessageForHandle(handle, newRequest)) {
+    if (!createSoupRequestAndMessageForHandle(handle, request)) {
         d->client()->cannotShowURL(handle);
         return;
     }
@@ -506,7 +506,7 @@ static void doRedirect(ResourceHandle* handle)
         // or if current redirection says so
         if (message->method == SOUP_METHOD_GET || shouldRedirectAsGET(message, newURL, crossOrigin)) {
             newRequest.setHTTPMethod("GET");
-            newRequest.setHTTPBody(0);
+            newRequest.setHTTPBody(nullptr);
             newRequest.clearHTTPContentType();
         }
     }
@@ -531,11 +531,12 @@ static void doRedirect(ResourceHandle* handle)
 
     cleanupSoupRequestOperation(handle);
 
+    ResourceResponse responseCopy = d->m_response;
     if (d->client()->usesAsyncCallbacks())
-        d->client()->willSendRequestAsync(handle, newRequest, d->m_response);
+        d->client()->willSendRequestAsync(handle, WTFMove(newRequest), WTFMove(responseCopy));
     else {
-        d->client()->willSendRequest(handle, newRequest, d->m_response);
-        continueAfterWillSendRequest(handle, newRequest);
+        auto request = d->client()->willSendRequest(handle, WTFMove(newRequest), WTFMove(responseCopy));
+        continueAfterWillSendRequest(handle, WTFMove(request));
     }
 
 }
@@ -601,7 +602,7 @@ static void cleanupSoupRequestOperation(ResourceHandle* handle, bool isDestroyin
         d->m_soupMessage.clear();
     }
 
-    d->m_timeoutSource.cancel();
+    d->m_timeoutSource.stop();
 
     if (!isDestroying)
         handle->deref();
@@ -653,9 +654,9 @@ static void nextMultipartResponsePartCallback(GObject* /*source*/, GAsyncResult*
     d->m_previousPosition = 0;
 
     if (handle->client()->usesAsyncCallbacks())
-        handle->client()->didReceiveResponseAsync(handle.get(), d->m_response);
+        handle->client()->didReceiveResponseAsync(handle.get(), ResourceResponse(d->m_response));
     else {
-        handle->client()->didReceiveResponse(handle.get(), d->m_response);
+        handle->client()->didReceiveResponse(handle.get(), ResourceResponse(d->m_response));
         continueAfterDidReceiveResponse(handle.get());
     }
 }
@@ -717,9 +718,9 @@ static void sendRequestCallback(GObject*, GAsyncResult* result, gpointer data)
         d->m_inputStream = inputStream;
 
     if (d->client()->usesAsyncCallbacks())
-        handle->client()->didReceiveResponseAsync(handle.get(), d->m_response);
+        handle->client()->didReceiveResponseAsync(handle.get(), ResourceResponse(d->m_response));
     else {
-        handle->client()->didReceiveResponse(handle.get(), d->m_response);
+        handle->client()->didReceiveResponse(handle.get(), ResourceResponse(d->m_response));
         continueAfterDidReceiveResponse(handle.get());
     }
 }
@@ -768,30 +769,30 @@ static bool addFileToSoupMessageBody(SoupMessage* message, const String& fileNam
 
 static bool blobIsOutOfDate(const BlobDataItem& blobItem)
 {
-    ASSERT(blobItem.type == BlobDataItem::File);
-    if (!isValidFileTime(blobItem.file->expectedModificationTime()))
+    ASSERT(blobItem.type() == BlobDataItem::Type::File);
+    if (!isValidFileTime(blobItem.file()->expectedModificationTime()))
         return false;
 
     time_t fileModificationTime;
-    if (!getFileModificationTime(blobItem.file->path(), fileModificationTime))
+    if (!getFileModificationTime(blobItem.file()->path(), fileModificationTime))
         return true;
 
-    return fileModificationTime != static_cast<time_t>(blobItem.file->expectedModificationTime());
+    return fileModificationTime != static_cast<time_t>(blobItem.file()->expectedModificationTime());
 }
 
 static void addEncodedBlobItemToSoupMessageBody(SoupMessage* message, const BlobDataItem& blobItem, unsigned long& totalBodySize)
 {
-    if (blobItem.type == BlobDataItem::Data) {
+    if (blobItem.type() == BlobDataItem::Type::Data) {
         totalBodySize += blobItem.length();
-        soup_message_body_append(message->request_body, SOUP_MEMORY_TEMPORARY, blobItem.data->data() + blobItem.offset(), blobItem.length());
+        soup_message_body_append(message->request_body, SOUP_MEMORY_TEMPORARY, blobItem.data().data()->data() + blobItem.offset(), blobItem.length());
         return;
     }
 
-    ASSERT(blobItem.type == BlobDataItem::File);
+    ASSERT(blobItem.type() == BlobDataItem::Type::File);
     if (blobIsOutOfDate(blobItem))
         return;
 
-    addFileToSoupMessageBody(message, blobItem.file->path(), blobItem.offset(), blobItem.length() == BlobDataItem::toEndOfFile ? 0 : blobItem.length(),  totalBodySize);
+    addFileToSoupMessageBody(message, blobItem.file()->path(), blobItem.offset(), blobItem.length() == BlobDataItem::toEndOfFile ? 0 : blobItem.length(),  totalBodySize);
 }
 
 static void addEncodedBlobToSoupMessageBody(SoupMessage* message, const FormDataElement& element, unsigned long& totalBodySize)
@@ -1036,16 +1037,23 @@ bool ResourceHandle::start()
 RefPtr<ResourceHandle> ResourceHandle::releaseForDownload(ResourceHandleClient* downloadClient)
 {
     // We don't adopt the ref, as it will be released by cleanupSoupRequestOperation, which should always run.
-    RefPtr<ResourceHandle> newHandle = new ResourceHandle(d->m_context.get(), firstRequest(), nullptr, d->m_defersLoading, d->m_shouldContentSniff);
+    ResourceHandle* newHandle = new ResourceHandle(d->m_context.get(), firstRequest(), nullptr, d->m_defersLoading, d->m_shouldContentSniff);
+    newHandle->relaxAdoptionRequirement();
     std::swap(d, newHandle->d);
 
     g_signal_handlers_disconnect_matched(newHandle->d->m_soupMessage.get(), G_SIGNAL_MATCH_DATA, 0, 0, nullptr, nullptr, this);
-    g_object_set_data(G_OBJECT(newHandle->d->m_soupMessage.get()), "handle", newHandle.get());
+    g_object_set_data(G_OBJECT(newHandle->d->m_soupMessage.get()), "handle", newHandle);
 
     newHandle->d->m_client = downloadClient;
-    continueAfterDidReceiveResponse(newHandle.get());
+    continueAfterDidReceiveResponse(newHandle);
 
     return newHandle;
+}
+
+void ResourceHandle::timeoutFired()
+{
+    client()->didFail(this, ResourceError::timeoutError(firstRequest().url()));
+    cancel();
 }
 
 void ResourceHandle::sendPendingRequest()
@@ -1054,13 +1062,8 @@ void ResourceHandle::sendPendingRequest()
     m_requestTime = monotonicallyIncreasingTime();
 #endif
 
-    if (d->m_firstRequest.timeoutInterval() > 0) {
-        d->m_timeoutSource.scheduleAfterDelay("[WebKit] ResourceHandle request timeout", [this] {
-            client()->didFail(this, ResourceError::timeoutError(firstRequest().url().string()));
-            cancel();
-        }, std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::duration<double>(d->m_firstRequest.timeoutInterval())),
-        G_PRIORITY_DEFAULT, nullptr, g_main_context_get_thread_default());
-    }
+    if (d->m_firstRequest.timeoutInterval() > 0)
+        d->m_timeoutSource.startOneShot(d->m_firstRequest.timeoutInterval());
 
     // Balanced by a deref() in cleanupSoupRequestOperation, which should always run.
     ref();
@@ -1085,12 +1088,12 @@ bool ResourceHandle::shouldUseCredentialStorage()
 
 void ResourceHandle::setHostAllowsAnyHTTPSCertificate(const String& host)
 {
-    allowsAnyHTTPSCertificateHosts().add(host.lower());
+    allowsAnyHTTPSCertificateHosts().add(host);
 }
 
 void ResourceHandle::setClientCertificate(const String& host, GTlsCertificate* certificate)
 {
-    clientCertificates().add(host.lower(), HostTLSCertificateSet()).iterator->value.add(certificate);
+    clientCertificates().add(host, HostTLSCertificateSet()).iterator->value.add(certificate);
 }
 
 void ResourceHandle::setIgnoreSSLErrors(bool ignoreSSLErrors)
@@ -1244,9 +1247,11 @@ void ResourceHandle::receivedRequestToPerformDefaultHandling(const Authenticatio
     ASSERT_NOT_REACHED();
 }
 
-void ResourceHandle::receivedChallengeRejection(const AuthenticationChallenge&)
+void ResourceHandle::receivedChallengeRejection(const AuthenticationChallenge& challenge)
 {
-    ASSERT_NOT_REACHED();
+    // This is only used by layout tests, soup based ports don't implement this.
+    notImplemented();
+    receivedRequestToContinueWithoutCredential(challenge);
 }
 
 static bool waitingToSendRequest(ResourceHandle* handle)
@@ -1264,7 +1269,7 @@ void ResourceHandle::platformSetDefersLoading(bool defersLoading)
 
     // Except when canceling a possible timeout timer, we only need to take action here to UN-defer loading.
     if (defersLoading) {
-        d->m_timeoutSource.cancel();
+        d->m_timeoutSource.stop();
         return;
     }
 
@@ -1364,17 +1369,15 @@ static void readCallback(GObject*, GAsyncResult* asyncResult, gpointer data)
         d->m_cancellable.get(), readCallback, handle.get());
 }
 
-void ResourceHandle::continueWillSendRequest(const ResourceRequest& request)
+void ResourceHandle::continueWillSendRequest(ResourceRequest&& request)
 {
-    ASSERT(client());
-    ASSERT(client()->usesAsyncCallbacks());
-    continueAfterWillSendRequest(this, request);
+    ASSERT(!client() || client()->usesAsyncCallbacks());
+    continueAfterWillSendRequest(this, WTFMove(request));
 }
 
 void ResourceHandle::continueDidReceiveResponse()
 {
-    ASSERT(client());
-    ASSERT(client()->usesAsyncCallbacks());
+    ASSERT(!client() || client()->usesAsyncCallbacks());
     continueAfterDidReceiveResponse(this);
 }
 

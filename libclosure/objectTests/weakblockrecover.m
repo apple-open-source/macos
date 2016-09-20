@@ -20,7 +20,6 @@
 
 #import <Foundation/Foundation.h>
 #import <Block.h>
-#import <objc/objc-auto.h>
 #import "test.h"
 
 int Allocated = 0;
@@ -39,11 +38,6 @@ int Recovered = 0;
     ++Recovered;
     [super dealloc];
 }
-- (void)finalize {
-    ++Recovered;
-    [super finalize];
-}
-
 
 @end
 
@@ -55,8 +49,6 @@ void testRecovery() {
         [listOfBlocks addObject:[block copy]];
         [to release];
     }
-    // let's see if we can recover any under GC circumstances
-    objc_collect(OBJC_EXHAUSTIVE_COLLECTION | OBJC_WAIT_UNTIL_DONE);
 
     [listOfBlocks self]; // by using it here we keep listOfBlocks alive across the GC
 }

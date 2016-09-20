@@ -9,7 +9,7 @@
 #define __CAPABILITIES_H__
 
 #define entryPoint(testname,supportname) \
-int testname(int argc, char *const *argv) { \
+int testname(int __unused argc, char *const * __unused argv) { \
 char prString[80];\
 sprintf(prString, "No %s Support in this release\n", supportname);\
 plan_tests(1); \

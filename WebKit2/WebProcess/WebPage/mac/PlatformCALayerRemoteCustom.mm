@@ -48,10 +48,10 @@ static NSString * const platformCALayerPointer = @"WKPlatformCALayer";
 
 PassRefPtr<PlatformCALayerRemote> PlatformCALayerRemoteCustom::create(PlatformLayer *platformLayer, PlatformCALayerClient* owner, RemoteLayerTreeContext& context)
 {
-    RefPtr<PlatformCALayerRemote> layer = adoptRef(new PlatformCALayerRemoteCustom(PlatformCALayerCocoa::layerTypeForPlatformLayer(platformLayer), platformLayer, owner, context));
-    context.layerWasCreated(*layer, layer->layerType());
+    auto layer = adoptRef(*new PlatformCALayerRemoteCustom(PlatformCALayerCocoa::layerTypeForPlatformLayer(platformLayer), platformLayer, owner, context));
+    context.layerWasCreated(layer.get(), layer->layerType());
 
-    return layer.release();
+    return WTFMove(layer);
 }
 
 PlatformCALayerRemoteCustom::PlatformCALayerRemoteCustom(LayerType layerType, PlatformLayer * customLayer, PlatformCALayerClient* owner, RemoteLayerTreeContext& context)
@@ -65,10 +65,12 @@ PlatformCALayerRemoteCustom::PlatformCALayerRemoteCustom(LayerType layerType, Pl
     case LayerHostingMode::OutOfProcess:
         m_layerHostingContext = LayerHostingContext::createForExternalHostingProcess();
 #if PLATFORM(IOS)
-        float scaleFactor = context.deviceScaleFactor();
-        // Set a scale factor here to make convertRect:toLayer:nil take scale factor into account. <rdar://problem/18316542>.
-        // This scale factor is inverted in the hosting process.
-        [customLayer setTransform:CATransform3DMakeScale(scaleFactor, scaleFactor, 1)];
+        if (layerType == LayerTypeAVPlayerLayer) {
+            float scaleFactor = context.deviceScaleFactor();
+            // Set a scale factor here to make convertRect:toLayer:nil take scale factor into account. <rdar://problem/18316542>.
+            // This scale factor is inverted in the hosting process.
+            [customLayer setTransform:CATransform3DMakeScale(scaleFactor, scaleFactor, 1)];
+        }
 #endif
         break;
 #endif
@@ -125,13 +127,13 @@ PassRefPtr<WebCore::PlatformCALayer> PlatformCALayerRemoteCustom::clone(Platform
         copyContents = false;
     }
 
-    RefPtr<PlatformCALayerRemote> clone = adoptRef(new PlatformCALayerRemoteCustom(layerType(), clonedLayer.get(), owner, *context()));
-    context()->layerWasCreated(*clone, clone->layerType());
+    auto clone = adoptRef(*new PlatformCALayerRemoteCustom(layerType(), clonedLayer.get(), owner, *context()));
+    context()->layerWasCreated(clone.get(), clone->layerType());
 
-    updateClonedLayerProperties(*clone, copyContents);
+    updateClonedLayerProperties(clone.get(), copyContents);
 
     clone->setClonedLayer(this);
-    return clone.release();
+    return WTFMove(clone);
 }
 
 CFTypeRef PlatformCALayerRemoteCustom::contents() const

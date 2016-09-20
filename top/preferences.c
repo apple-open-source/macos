@@ -32,6 +32,11 @@
 #include "statistic.h"
 #include "top.h"
 
+struct pid_entry {
+    SLIST_ENTRY(pid_entry) pid_le;
+    pid_t pid;
+};
+
 static struct {
     int mode;
     int sort_by;
@@ -45,8 +50,7 @@ static struct {
     uid_t uid;
     int samples;
     int nprocs;
-    bool have_pid;
-    pid_t pid;
+    SLIST_HEAD(, pid_entry) pids;
     bool logging_mode;
     bool have_ncols;
     int ncols;
@@ -75,8 +79,6 @@ static struct {
     .uid = 0,
     .samples = -1,
     .nprocs = -1,
-    .have_pid = false,
-    .pid = 0,
     .logging_mode = false,
     .have_ncols = false,
     .ncols = -1,
@@ -197,6 +199,7 @@ static struct {
 void top_prefs_init(void) {
     int i;
 
+    SLIST_INIT(&prefs.pids);
     prefs.display_stats.total = 0;
 
 #define SPREF(e) do { \
@@ -593,18 +596,32 @@ void top_prefs_set_nprocs(int n) {
     prefs.nprocs = n;
 }
 
-void top_prefs_set_pid(pid_t pid) {
-    prefs.have_pid = true;
-    prefs.pid = pid;
+void top_prefs_add_pid(pid_t pid) {
+    struct pid_entry *pe;
+
+    pe = malloc(sizeof(*pe));
+    pe->pid = pid;
+
+    SLIST_INSERT_HEAD(&prefs.pids, pe, pid_le);
 }
 
-bool top_prefs_get_pid(pid_t *pidptr) {
-    if(prefs.have_pid) {
-	*pidptr = prefs.pid;
-	return true;
+bool top_prefs_want_pid(pid_t pid) {
+    struct pid_entry *pe;
+    bool want;
+
+    want = false;
+    if(SLIST_EMPTY(&prefs.pids)) {
+        want = true;
+    } else {
+        SLIST_FOREACH(pe, &prefs.pids, pid_le) {
+            if (pe->pid == pid) {
+                want = true;
+                break;
+            }
+        }
     }
 
-    return false;
+    return want;
 }
 
 /* Return true if the signal string is invalid. */

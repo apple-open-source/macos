@@ -44,7 +44,7 @@ InjectedBundlePageUIClient::InjectedBundlePageUIClient(const WKBundlePageUIClien
     initialize(client);
 }
 
-void InjectedBundlePageUIClient::willAddMessageToConsole(WebPage* page, const String& message, int32_t lineNumber)
+void InjectedBundlePageUIClient::willAddMessageToConsole(WebPage* page, MessageSource, MessageLevel, const String& message, unsigned lineNumber, unsigned /*columnNumber*/, const String& /*sourceID*/)
 {
     if (m_client.willAddMessageToConsole)
         m_client.willAddMessageToConsole(toAPI(page), toAPI(message.impl()), lineNumber, m_client.base.clientInfo);
@@ -200,38 +200,6 @@ String InjectedBundlePageUIClient::plugInExtraScript() const
 
     RefPtr<API::String> script = adoptRef(toImpl(m_client.createPlugInExtraScript(m_client.base.clientInfo)));
     return script ? script->string() : String();
-}
-
-void InjectedBundlePageUIClient::didBeginTrackingPotentialLongMousePress(WebPage* page, const IntPoint& mouseDownPosition, const HitTestResult& coreHitTestResult, RefPtr<API::Object>& userData)
-{
-    if (!m_client.didBeginTrackingPotentialLongMousePress)
-        return;
-
-    RefPtr<InjectedBundleHitTestResult> hitTestResult = InjectedBundleHitTestResult::create(coreHitTestResult);
-
-    WKTypeRef userDataToPass = nullptr;
-    m_client.didBeginTrackingPotentialLongMousePress(toAPI(page), toAPI(mouseDownPosition), toAPI(hitTestResult.get()), &userDataToPass, m_client.base.clientInfo);
-    userData = adoptRef(toImpl(userDataToPass));
-}
-
-void InjectedBundlePageUIClient::didRecognizeLongMousePress(WebPage* page, RefPtr<API::Object>& userData)
-{
-    if (!m_client.didRecognizeLongMousePress)
-        return;
-
-    WKTypeRef userDataToPass = nullptr;
-    m_client.didRecognizeLongMousePress(toAPI(page), &userDataToPass, m_client.base.clientInfo);
-    userData = adoptRef(toImpl(userDataToPass));
-}
-
-void InjectedBundlePageUIClient::didCancelTrackingPotentialLongMousePress(WebPage* page, RefPtr<API::Object>& userData)
-{
-    if (!m_client.didCancelTrackingPotentialLongMousePress)
-        return;
-
-    WKTypeRef userDataToPass = nullptr;
-    m_client.didCancelTrackingPotentialLongMousePress(toAPI(page), &userDataToPass, m_client.base.clientInfo);
-    userData = adoptRef(toImpl(userDataToPass));
 }
 
 void InjectedBundlePageUIClient::didClickAutoFillButton(WebPage& page, InjectedBundleNodeHandle& nodeHandle, RefPtr<API::Object>& userData)

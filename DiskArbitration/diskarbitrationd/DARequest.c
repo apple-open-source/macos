@@ -507,6 +507,49 @@ static Boolean __DARequestMount( DARequestRef request )
             }
         }
 
+        /*
+         * Determine whether the mount point is accessible by the user.
+         */
+
+        if ( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) == NULL )
+        {
+            if ( DARequestGetUserUID( request ) )
+            {
+                CFTypeRef mountpoint;
+
+                mountpoint = DARequestGetArgument2( request );
+
+                if ( mountpoint )
+                {
+                    mountpoint = CFURLCreateWithString( kCFAllocatorDefault, mountpoint, NULL );
+                }
+
+                if ( mountpoint )
+                {
+                    char * path;
+
+                    path = ___CFURLCopyFileSystemRepresentation( mountpoint );
+
+                    if ( path )
+                    {
+                        struct stat st;
+
+                        if ( stat( path, &st ) == 0 )
+                        {
+                            if ( st.st_uid != DARequestGetUserUID( request ) )
+                            {
+                                status = kDAReturnNotPermitted;
+                            }
+                        }
+
+                        free( path );
+                    }
+
+                    CFRelease( mountpoint );
+                }
+            }
+        }
+
         if ( status )
         {
             DARequestDispatchCallback( request, status );
@@ -1203,7 +1246,36 @@ static Boolean __DARequestUnmount( DARequestRef request )
 
                 if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanTrue )
                 {
-                    DADialogShowDeviceRemoval( disk );
+                    Boolean  dialog = TRUE;
+                    CFURLRef mountpoint;
+                    char *   path;
+
+                    mountpoint = DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey );
+
+                    path = ___CFURLCopyFileSystemRepresentation( mountpoint );
+
+                    if ( path )
+                    {
+                        struct statfs fs;
+                        int           status;
+
+                        status = ___statfs( path, &fs, MNT_NOWAIT );
+
+                        if ( status == 0 )
+                        {
+                            if ( ( fs.f_flags & MNT_RDONLY ) )
+                            {
+                                dialog = FALSE;
+                            }
+                        }
+
+                        free( path );
+                    }
+
+                    if ( dialog )
+                    {
+                        DADialogShowDeviceRemoval( disk );
+                    }
                 }
             }
             else

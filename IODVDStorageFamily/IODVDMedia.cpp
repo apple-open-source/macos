@@ -61,6 +61,21 @@ IOReturn IODVDMedia::reportKey( IOMemoryDescriptor * buffer,
                                 const UInt8          grantID,
                                 const DVDKeyFormat   format )
 {
+    return reportKey( /* buffer     */ buffer,
+                      /* keyClass   */ keyClass,
+                      /* address    */ address,
+                      /* blockCount */ 0,
+                      /* grantID    */ grantID,
+                      /* format     */ format );
+}
+
+IOReturn IODVDMedia::reportKey( IOMemoryDescriptor * buffer,
+                                const DVDKeyClass    keyClass,
+                                const UInt32         address,
+                                const UInt8          blockCount,
+                                const UInt8          grantID,
+                                const DVDKeyFormat   format )
+{
     if (isInactive())
     {
         return kIOReturnNoMedia;
@@ -71,11 +86,12 @@ IOReturn IODVDMedia::reportKey( IOMemoryDescriptor * buffer,
         return kIOReturnBadArgument;
     }
 
-    return getProvider()->reportKey( /* buffer   */ buffer,
-                                     /* keyClass */ keyClass,
-                                     /* address  */ address,
-                                     /* grantID  */ grantID,
-                                     /* format   */ format );
+    return getProvider()->reportKey( /* buffer     */ buffer,
+                                     /* keyClass   */ keyClass,
+                                     /* address    */ address,
+                                     /* blockCount */ blockCount,
+                                     /* grantID    */ grantID,
+                                     /* format     */ format );
 }
 
 IOReturn IODVDMedia::sendKey( IOMemoryDescriptor * buffer,
@@ -189,7 +205,7 @@ IOReturn IODVDMedia::readRZoneInfo( IOMemoryDescriptor *    buffer,
                                         /* actualByteCount */ actualByteCount );
 }
 
-OSMetaClassDefineReservedUnused(IODVDMedia,  0);
+OSMetaClassDefineReservedUsed(IODVDMedia,  0);      /* reportKey */
 OSMetaClassDefineReservedUnused(IODVDMedia,  1);
 OSMetaClassDefineReservedUnused(IODVDMedia,  2);
 OSMetaClassDefineReservedUnused(IODVDMedia,  3);

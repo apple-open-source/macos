@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2016 Apple Inc. All rights reserved.
  * Copyright (C) 2014 Adobe Systems Incorporated. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,7 +36,7 @@
 
 namespace WebCore {
 
-PassRefPtr<ImageData> ImageData::create(unsigned sw, unsigned sh, ExceptionCode& ec)
+RefPtr<ImageData> ImageData::create(unsigned sw, unsigned sh, ExceptionCode& ec)
 {
     if (!sw || !sh) {
         ec = INDEX_SIZE_ERR;
@@ -52,38 +52,38 @@ PassRefPtr<ImageData> ImageData::create(unsigned sw, unsigned sh, ExceptionCode&
     }
 
     IntSize size(sw, sh);
-    RefPtr<ImageData> data = adoptRef(new ImageData(size));
+    auto data = adoptRef(*new ImageData(size));
     data->data()->zeroFill();
-    return data.release();
+    return WTFMove(data);
 }
 
-PassRefPtr<ImageData> ImageData::create(const IntSize& size)
+RefPtr<ImageData> ImageData::create(const IntSize& size)
 {
     Checked<int, RecordOverflow> dataSize = 4;
     dataSize *= size.width();
     dataSize *= size.height();
     if (dataSize.hasOverflowed())
-        return 0;
+        return nullptr;
 
-    return adoptRef(new ImageData(size));
+    return adoptRef(*new ImageData(size));
 }
 
-PassRefPtr<ImageData> ImageData::create(const IntSize& size, PassRefPtr<Uint8ClampedArray> byteArray)
+RefPtr<ImageData> ImageData::create(const IntSize& size, Ref<Uint8ClampedArray>&& byteArray)
 {
     Checked<int, RecordOverflow> dataSize = 4;
     dataSize *= size.width();
     dataSize *= size.height();
     if (dataSize.hasOverflowed())
-        return 0;
+        return nullptr;
 
     if (dataSize.unsafeGet() < 0
         || static_cast<unsigned>(dataSize.unsafeGet()) > byteArray->length())
-        return 0;
+        return nullptr;
 
-    return adoptRef(new ImageData(size, byteArray));
+    return adoptRef(*new ImageData(size, WTFMove(byteArray)));
 }
 
-PassRefPtr<ImageData> ImageData::create(PassRefPtr<Uint8ClampedArray> byteArray, unsigned sw, unsigned sh, ExceptionCode& ec)
+RefPtr<ImageData> ImageData::create(Ref<Uint8ClampedArray>&& byteArray, unsigned sw, unsigned sh, ExceptionCode& ec)
 {
     unsigned length = byteArray->length();
     if (!length || length % 4 != 0) {
@@ -108,18 +108,19 @@ PassRefPtr<ImageData> ImageData::create(PassRefPtr<Uint8ClampedArray> byteArray,
         return nullptr;
     }
 
-    return create(IntSize(sw, height), byteArray);
+    return create(IntSize(sw, height), WTFMove(byteArray));
 }
 
 ImageData::ImageData(const IntSize& size)
     : m_size(size)
     , m_data(Uint8ClampedArray::createUninitialized(size.width() * size.height() * 4))
 {
+    ASSERT_WITH_SECURITY_IMPLICATION(m_data);
 }
 
-ImageData::ImageData(const IntSize& size, PassRefPtr<Uint8ClampedArray> byteArray)
+ImageData::ImageData(const IntSize& size, Ref<Uint8ClampedArray>&& byteArray)
     : m_size(size)
-    , m_data(byteArray)
+    , m_data(WTFMove(byteArray))
 {
     ASSERT_WITH_SECURITY_IMPLICATION(static_cast<unsigned>(size.width() * size.height() * 4) <= m_data->length());
 }

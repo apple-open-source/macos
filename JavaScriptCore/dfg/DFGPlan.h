@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,17 +33,17 @@
 #include "DFGDesiredTransitions.h"
 #include "DFGDesiredWatchpoints.h"
 #include "DFGDesiredWeakReferences.h"
-#include "DFGDesiredWriteBarriers.h"
 #include "DFGFinalizer.h"
 #include "DeferredCompilationCallback.h"
 #include "Operands.h"
 #include "ProfilerCompilation.h"
+#include <wtf/HashMap.h>
 #include <wtf/ThreadSafeRefCounted.h>
+#include <wtf/text/CString.h>
 
 namespace JSC {
 
 class CodeBlock;
-class CodeBlockSet;
 class SlotVisitor;
 
 namespace DFG {
@@ -55,7 +55,7 @@ class ThreadData;
 
 struct Plan : public ThreadSafeRefCounted<Plan> {
     Plan(
-        PassRefPtr<CodeBlock> codeBlockToCompile, CodeBlock* profiledDFGCodeBlock,
+        CodeBlock* codeBlockToCompile, CodeBlock* profiledDFGCodeBlock,
         CompilationMode, unsigned osrEntryBytecodeIndex,
         const Operands<JSValue>& mustHandleValues);
     ~Plan();
@@ -71,13 +71,22 @@ struct Plan : public ThreadSafeRefCounted<Plan> {
     
     CompilationKey key();
     
-    void checkLivenessAndVisitChildren(SlotVisitor&, CodeBlockSet&);
+    void rememberCodeBlocks();
+    void checkLivenessAndVisitChildren(SlotVisitor&);
     bool isKnownToBeLiveDuringGC();
     void cancel();
+
+    bool canTierUpAndOSREnter() const { return !tierUpAndOSREnterBytecodes.isEmpty(); }
     
-    VM& vm;
-    RefPtr<CodeBlock> codeBlock;
-    RefPtr<CodeBlock> profiledDFGCodeBlock;
+    // Warning: pretty much all of the pointer fields in this object get nulled by cancel(). So, if
+    // you're writing code that is callable on the cancel path, be sure to null check everything!
+    
+    VM* vm;
+
+    // These can be raw pointers because we visit them during every GC in checkLivenessAndVisitChildren.
+    CodeBlock* codeBlock;
+    CodeBlock* profiledDFGCodeBlock;
+
     CompilationMode mode;
     const unsigned osrEntryBytecodeIndex;
     Operands<JSValue> mustHandleValues;
@@ -92,10 +101,12 @@ struct Plan : public ThreadSafeRefCounted<Plan> {
     DesiredWatchpoints watchpoints;
     DesiredIdentifiers identifiers;
     DesiredWeakReferences weakReferences;
-    DesiredWriteBarriers writeBarriers;
     DesiredTransitions transitions;
     
-    bool willTryToTierUp;
+    bool willTryToTierUp { false };
+
+    HashMap<unsigned, Vector<unsigned>> tierUpInLoopHierarchy;
+    Vector<unsigned> tierUpAndOSREnterBytecodes;
 
     enum Stage { Preparing, Compiling, Compiled, Ready, Cancelled };
     Stage stage;
@@ -103,6 +114,7 @@ struct Plan : public ThreadSafeRefCounted<Plan> {
     RefPtr<DeferredCompilationCallback> callback;
 
 private:
+    bool computeCompileTimes() const;
     bool reportCompileTimes() const;
     
     enum CompilationPath { FailPath, DFGPath, FTLPath, CancelPath };
@@ -112,12 +124,6 @@ private:
     void reallyAdd(CommonData*);
 
     double m_timeBeforeFTL;
-};
-
-#else // ENABLE(DFG_JIT)
-
-class Plan : public RefCounted<Plan> {
-    // Dummy class to allow !ENABLE(DFG_JIT) to build.
 };
 
 #endif // ENABLE(DFG_JIT)

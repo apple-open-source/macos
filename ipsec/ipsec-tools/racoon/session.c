@@ -115,7 +115,6 @@ extern int launchdlaunched;
 static void close_session (int);
 static int init_signal (void);
 static int set_signal (int sig, RETSIGTYPE (*func) (int, siginfo_t *, void *));
-static void check_sigreq (void);
 static void check_flushsa_stub (void *);
 static void check_flushsa (void);
 static void auto_exit_do (void *);
@@ -123,6 +122,7 @@ static int close_sockets (void);
 
 static volatile sig_atomic_t sigreq[NSIG + 1];
 int terminated = 0;
+int pending_signal_handle = 0;
 
 static int64_t racoon_keepalive = -1;
 
@@ -482,7 +482,7 @@ static int signals[] = {
 };
 
 
-static void
+void
 check_sigreq()
 {
 	int sig;
@@ -603,9 +603,14 @@ signal_handler(int sig, siginfo_t *sigi, void *ctx)
     if ( sig == SIGTERM ){
         terminated = 1;
     }
+
+	pending_signal_handle = 1;
     dispatch_async(main_queue, 
                    ^{
-                        check_sigreq(); 
+						if (pending_signal_handle) {
+							check_sigreq();
+							pending_signal_handle = 0;
+						}
                    });
 }
 

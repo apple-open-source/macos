@@ -1,4 +1,4 @@
-/* 
+/*
  *  parsetime.c - parse time for at(1)
  *  Copyright (C) 1993, 1994  Thomas Koenig
  *
@@ -272,7 +272,7 @@ plonk(int tok)
 } /* plonk */
 
 
-/* 
+/*
  * expect() gets a token and dies most horribly if it's not the token we want
  */
 static void
@@ -320,7 +320,7 @@ plus(struct tm *tm)
 	    tm->tm_min += delay;
 	    break;
     default:
-    	    plonk(sc_tokid);
+	    plonk(sc_tokid);
 	    break;
     }
 
@@ -343,32 +343,32 @@ next(struct tm *tm)
         case YEARS:
             tm->tm_year++;
             break;
-            
+
         case MONTHS:
             tm->tm_mon++;
             break;
-            
+
         case WEEKS:
             tm->tm_mday += 7;
             break;
-            
+
         case DAYS:
             tm->tm_mday++;
             break;
-            
+
         case HOURS:
             tm->tm_hour++;
             break;
-            
+
         case MINUTES:
             tm->tm_min++;
             break;
-            
+
         default:
-    	    plonk(sc_tokid);
+	    plonk(sc_tokid);
             break;
     }
-    
+
     if (sc_tokplur) {
         warnx("pluralization is wrong");
     }
@@ -387,10 +387,10 @@ tod(struct tm *tm)
 {
     int hour, minute = 0;
     size_t tlen;
-    
+
     hour = atoi(sc_token);
     tlen = strlen(sc_token);
-    
+
     /* first pick out the time of day - if it's 4 digits, we assume
      * a HHMM time, otherwise it's HH DOT MM time
      */
@@ -407,7 +407,7 @@ tod(struct tm *tm)
             panic("garbled time");
         hour = hour/100;
     }
-    
+
     /* check if an AM or PM specifier was given
      */
     switch (sc_tokid) {
@@ -415,7 +415,7 @@ tod(struct tm *tm)
         case PM:
             if (hour > 12)
                 panic("garbled time");
-            
+
             if (sc_tokid == PM) {
                 if (hour != 12)	/* 12:xx PM is 12:xx, not 24:xx */
                     hour += 12;
@@ -425,7 +425,7 @@ tod(struct tm *tm)
             }
             if (UTC != token())
                 break;		/* else fallthrough */
-            
+
         case UTC:
             hour += tm->tm_gmtoff/(60*60);
             while (hour < 0)
@@ -441,18 +441,18 @@ tod(struct tm *tm)
                 panic("garbled time");
             break;
     }
-    
+
     /* if we specify an absolute time, we don't want to bump the day even
      * if we've gone past that time - but if we're specifying a time plus
      * a relative offset, it's okay to bump things
      * If minutes are the same assume tomorrow was meant
      */
-    if ((sc_tokid == EOF || sc_tokid == PLUS) && 
+    if ((sc_tokid == EOF || sc_tokid == PLUS) &&
         ((tm->tm_hour > hour) || ((tm->tm_hour == hour) && (tm->tm_min >= minute)))) {
         tm->tm_mday++;
         tm->tm_wday++;
     }
-    
+
     tm->tm_hour = hour;
     tm->tm_min = minute;
     if (tm->tm_hour == 24) {
@@ -504,7 +504,7 @@ assign_date(struct tm *tm, int mday, int mon, int year)
 } /* assign_date */
 
 
-/* 
+/*
  * month() picks apart a month specification
  *
  *  /[<month> NUMBER [NUMBER]]           \
@@ -648,19 +648,19 @@ parsetime(int argc, char **argv)
     struct tm nowtime, runtime;
     int hr = 0;
     /* this MUST be initialized to zero for midnight/noon/teatime */
-    
+
     nowtimer = time(NULL);
     nowtime = *localtime(&nowtimer);
-    
+
     runtime = nowtime;
     runtime.tm_sec = 0;
     runtime.tm_isdst = 0;
-    
+
     if (argc <= optind)
         usage();
-    
+
     init_scanner(argc-optind, argv+optind);
-    
+
     switch (token()) {
         case NOW:
             if (scc < 1) {
@@ -671,30 +671,30 @@ parsetime(int argc, char **argv)
                 case PLUS:
                     plus(&runtime);
                     break;
-                    
+
                 case NEXT:
                     next(&runtime);
                     break;
-                    
+
                 default:
                     plonk(sc_token);
                     break;
             }
             break;
-            
+
         case PLUS:
             plus(&runtime);
             break;
-            
+
         case NEXT:
             next(&runtime);
             break;
-            
+
         case NUMBER:
             tod(&runtime);
             month(&runtime);
             break;
-            
+
             /* evil coding for TEATIME|NOON|MIDNIGHT - we've initialised
              * hr to zero up above, then fall into this case in such a
              * way so we add +12 +4 hours to it for teatime, +12 hours
@@ -720,17 +720,17 @@ parsetime(int argc, char **argv)
             break;
     } /* ugly case statement */
     expect(EOF);
-    
+
     /* convert back to time_t
      */
     runtime.tm_isdst = -1;
     runtimer = mktime(&runtime);
-    
+
     if (runtimer < 0)
         panic("garbled time");
-    
+
     if (nowtimer > runtimer)
         panic("trying to travel back in time");
-    
+
     return runtimer;
 } /* parsetime */

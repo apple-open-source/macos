@@ -232,6 +232,7 @@ static void tests(void)
     }
     dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
     dispatch_release(group);
+    dispatch_release(sema);
 
     CFErrorRef writeError = NULL;
     ts_ok(SecDbPerformWrite(db, &writeError, ^(SecDbConnectionRef dbconn){
@@ -251,6 +252,7 @@ static void tests(void)
         is(max_readers, kSecDbMaxReaders, "max readers is %d", kSecDbMaxReaders);
     }
 
+    CFReleaseSafe(dbName);
     CFReleaseNull(db);
 }
 

@@ -22,7 +22,7 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/lib/libc_r/man/pthread_rwlockattr_destroy.3,v 1.6 2001/10/01 16:09:09 ru Exp $
+.\" $FreeBSD$
 .\"
 .Dd August 4, 1998
 .Dt PTHREAD_RWLOCKATTR_DESTROY 3
@@ -33,20 +33,29 @@
 .Sh SYNOPSIS
 .In pthread.h
 .Ft int
-.Fo pthread_rwlockattr_destroy
-.Fa "pthread_rwlockattr_t *attr"
-.Fc
+.Fn pthread_rwlockattr_destroy "pthread_rwlockattr_t *attr"
 .Sh DESCRIPTION
 The
 .Fn pthread_rwlockattr_destroy
-function is used to destroy a read/write lock attribute object,
+function is used to destroy a read/write lock attribute object
 previously created with
 .Fn pthread_rwlockattr_init .
 .Sh RETURN VALUES
 If successful, the
 .Fn pthread_rwlockattr_destroy
 function will return zero.
-Otherwise, an error number will be returned to indicate the error.
+Otherwise an error number will be returned
+to indicate the error.
+.Sh ERRORS
+The
+.Fn pthread_rwlockattr_destroy
+function may fail if:
+.Bl -tag -width Er
+.It Bq Er EINVAL
+The value specified by
+.Fa attr
+is invalid.
+.El
 .Sh SEE ALSO
 .Xr pthread_rwlockattr_init 3
 .Sh STANDARDS
@@ -54,15 +63,6 @@ The
 .Fn pthread_rwlockattr_destroy
 function is expected to conform to
 .St -susv2 .
-.Sh ERRORS
-.Fn pthread_rwlockattr_destroy
-may fail if:
-.Bl -tag -width Er
-.It Bq Er EINVAL
-The value specified by
-.Fa attr
-is invalid.
-.El
 .Sh HISTORY
 The
 .Fn pthread_rwlockattr_destroy

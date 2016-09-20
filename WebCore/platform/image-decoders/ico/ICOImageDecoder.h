@@ -38,25 +38,25 @@ namespace WebCore {
     class PNGImageDecoder;
 
     // This class decodes the ICO and CUR image formats.
-    class ICOImageDecoder : public ImageDecoder {
+    class ICOImageDecoder final : public ImageDecoder {
     public:
         ICOImageDecoder(ImageSource::AlphaOption, ImageSource::GammaAndColorProfileOption);
         virtual ~ICOImageDecoder();
 
         // ImageDecoder
-        virtual String filenameExtension() const { return "ico"; }
-        virtual void setData(SharedBuffer*, bool allDataReceived);
-        virtual bool isSizeAvailable();
-        virtual IntSize size() const;
-        virtual IntSize frameSizeAtIndex(size_t) const;
-        virtual bool setSize(unsigned width, unsigned height);
-        virtual size_t frameCount();
-        virtual ImageFrame* frameBufferAtIndex(size_t);
+        String filenameExtension() const override { return "ico"; }
+        void setData(SharedBuffer&, bool allDataReceived) override;
+        bool isSizeAvailable() override;
+        IntSize size() override;
+        IntSize frameSizeAtIndex(size_t, SubsamplingLevel) override;
+        bool setSize(unsigned width, unsigned height) override;
+        size_t frameCount() override;
+        ImageFrame* frameBufferAtIndex(size_t) override;
         // CAUTION: setFailed() deletes all readers and decoders.  Be careful to
         // avoid accessing deleted memory, especially when calling this from
         // inside BMPImageReader!
-        virtual bool setFailed();
-        virtual bool hotSpot(IntPoint&) const;
+        bool setFailed() override;
+        Optional<IntPoint> hotSpot() const override;
 
     private:
         enum ImageType {
@@ -116,9 +116,8 @@ namespace WebCore {
         // could be decoded.
         bool processDirectoryEntries();
 
-        // Stores the hot-spot for |index| in |hotSpot| and returns true,
-        // or returns false if there is none.
-        bool hotSpotAtIndex(size_t index, IntPoint& hotSpot) const;
+        // Returns the hot-spot for |index|, returns Nullopt if there is none.
+        Optional<IntPoint> hotSpotAtIndex(size_t) const;
 
         // Reads and returns a directory entry from the current offset into
         // |data|.

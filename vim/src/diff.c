@@ -615,11 +615,14 @@ diff_redraw(dofold)
 #endif
 	    /* A change may have made filler lines invalid, need to take care
 	     * of that for other windows. */
-	    if (wp != curwin && wp->w_topfill > 0)
+	    n = diff_check(wp, wp->w_topline);
+	    if ((wp != curwin && wp->w_topfill > 0) || n > 0)
 	    {
-		n = diff_check(wp, wp->w_topline);
 		if (wp->w_topfill > n)
 		    wp->w_topfill = (n < 0 ? 0 : n);
+		else if (n > 0 && n > wp->w_topfill)
+		    wp->w_topfill = n;
+		check_topfill(wp, FALSE);
 	    }
 	}
 }
@@ -685,9 +688,9 @@ ex_diffupdate(eap)
 	return;
 
     /* We need three temp file names. */
-    tmp_orig = vim_tempname('o');
-    tmp_new = vim_tempname('n');
-    tmp_diff = vim_tempname('d');
+    tmp_orig = vim_tempname('o', TRUE);
+    tmp_new = vim_tempname('n', TRUE);
+    tmp_diff = vim_tempname('d', TRUE);
     if (tmp_orig == NULL || tmp_new == NULL || tmp_diff == NULL)
 	goto theend;
 
@@ -783,6 +786,15 @@ ex_diffupdate(eap)
 	goto theend;
     }
 
+    /* :diffupdate! */
+    if (eap != NULL && eap->forceit)
+	for (idx_new = idx_orig; idx_new < DB_COUNT; ++idx_new)
+	{
+	    buf = curtab->tp_diffbuf[idx_new];
+	    if (buf_valid(buf))
+		buf_check_timestamp(buf, FALSE);
+	}
+
     /* Write the first buffer to a tempfile. */
     buf = curtab->tp_diffbuf[idx_orig];
     if (diff_write(buf, tmp_orig) == FAIL)
@@ -792,8 +804,8 @@ ex_diffupdate(eap)
     for (idx_new = idx_orig + 1; idx_new < DB_COUNT; ++idx_new)
     {
 	buf = curtab->tp_diffbuf[idx_new];
-	if (buf == NULL)
-	    continue;
+	if (buf == NULL || buf->b_ml.ml_mfp == NULL)
+	    continue; /* skip buffer that isn't loaded */
 	if (diff_write(buf, tmp_new) == FAIL)
 	    continue;
 	diff_file(tmp_orig, tmp_new, tmp_diff);
@@ -908,8 +920,8 @@ ex_diffpatch(eap)
 #endif
 
     /* We need two temp file names. */
-    tmp_orig = vim_tempname('o');
-    tmp_new = vim_tempname('n');
+    tmp_orig = vim_tempname('o', FALSE);
+    tmp_new = vim_tempname('n', FALSE);
     if (tmp_orig == NULL || tmp_new == NULL)
 	goto theend;
 
@@ -1099,7 +1111,7 @@ ex_diffsplit(eap)
 }
 
 /*
- * Set options to show difs for the current window.
+ * Set options to show diffs for the current window.
  */
     void
 ex_diffthis(eap)
@@ -1126,20 +1138,39 @@ diff_win_options(wp, addbuf)
     curwin = old_curwin;
 # endif
 
-    wp->w_p_diff = TRUE;
+    /* Use 'scrollbind' and 'cursorbind' when available */
+#ifdef FEAT_SCROLLBIND
+    if (!wp->w_p_diff)
+	wp->w_p_scb_save = wp->w_p_scb;
+    wp->w_p_scb = TRUE;
+#endif
 #ifdef FEAT_CURSORBIND
-    /* Use cursorbind if it's available */
+    if (!wp->w_p_diff)
+	wp->w_p_crb_save = wp->w_p_crb;
     wp->w_p_crb = TRUE;
 #endif
-    wp->w_p_scb = TRUE;
+    if (!wp->w_p_diff)
+	wp->w_p_wrap_save = wp->w_p_wrap;
     wp->w_p_wrap = FALSE;
 # ifdef FEAT_FOLDING
     curwin = wp;
     curbuf = curwin->w_buffer;
+    if (!wp->w_p_diff)
+    {
+	if (wp->w_p_diff_saved)
+	    free_string_option(wp->w_p_fdm_save);
+	wp->w_p_fdm_save = vim_strsave(wp->w_p_fdm);
+    }
     set_string_option_direct((char_u *)"fdm", -1, (char_u *)"diff",
 						       OPT_LOCAL|OPT_FREE, 0);
     curwin = old_curwin;
     curbuf = curwin->w_buffer;
+    if (!wp->w_p_diff)
+    {
+	wp->w_p_fdc_save = wp->w_p_fdc;
+	wp->w_p_fen_save = wp->w_p_fen;
+	wp->w_p_fdl_save = wp->w_p_fdl;
+    }
     wp->w_p_fdc = diff_foldcolumn;
     wp->w_p_fen = TRUE;
     wp->w_p_fdl = 0;
@@ -1151,6 +1182,10 @@ diff_win_options(wp, addbuf)
     if (vim_strchr(p_sbo, 'h') == NULL)
 	do_cmdline_cmd((char_u *)"set sbo+=hor");
 #endif
+    /* Saved the current values, to be restored in ex_diffoff(). */
+    wp->w_p_diff_saved = TRUE;
+
+    wp->w_p_diff = TRUE;
 
     if (addbuf)
 	diff_buf_add(wp->w_buffer);
@@ -1166,36 +1201,54 @@ ex_diffoff(eap)
     exarg_T	*eap;
 {
     win_T	*wp;
-    win_T	*old_curwin = curwin;
 #ifdef FEAT_SCROLLBIND
     int		diffwin = FALSE;
 #endif
 
     for (wp = firstwin; wp != NULL; wp = wp->w_next)
     {
-	if (wp == curwin || (eap->forceit && wp->w_p_diff))
+	if (eap->forceit ? wp->w_p_diff : wp == curwin)
 	{
-	    /* Set 'diff', 'scrollbind' off and 'wrap' on. */
+	    /* Set 'diff' off. If option values were saved in
+	     * diff_win_options(), restore the ones whose settings seem to have
+	     * been left over from diff mode.  */
 	    wp->w_p_diff = FALSE;
+
+	    if (wp->w_p_diff_saved)
+	    {
+
+#ifdef FEAT_SCROLLBIND
+		if (wp->w_p_scb)
+		    wp->w_p_scb = wp->w_p_scb_save;
+#endif
 #ifdef FEAT_CURSORBIND
-	    wp->w_p_crb = FALSE;
+		if (wp->w_p_crb)
+		    wp->w_p_crb = wp->w_p_crb_save;
 #endif
-	    wp->w_p_scb = FALSE;
-	    wp->w_p_wrap = TRUE;
+		if (!wp->w_p_wrap)
+		    wp->w_p_wrap = wp->w_p_wrap_save;
 #ifdef FEAT_FOLDING
-	    curwin = wp;
-	    curbuf = curwin->w_buffer;
-	    set_string_option_direct((char_u *)"fdm", -1,
-				   (char_u *)"manual", OPT_LOCAL|OPT_FREE, 0);
-	    curwin = old_curwin;
-	    curbuf = curwin->w_buffer;
-	    wp->w_p_fdc = 0;
-	    wp->w_p_fen = FALSE;
-	    wp->w_p_fdl = 0;
-	    foldUpdateAll(wp);
-	    /* make sure topline is not halfway a fold */
-	    changed_window_setting_win(wp);
+		free_string_option(wp->w_p_fdm);
+		wp->w_p_fdm = vim_strsave(wp->w_p_fdm_save);
+
+		if (wp->w_p_fdc == diff_foldcolumn)
+		    wp->w_p_fdc = wp->w_p_fdc_save;
+		if (wp->w_p_fdl == 0)
+		    wp->w_p_fdl = wp->w_p_fdl_save;
+
+		/* Only restore 'foldenable' when 'foldmethod' is not
+		 * "manual", otherwise we continue to show the diff folds. */
+		if (wp->w_p_fen)
+		    wp->w_p_fen = foldmethodIsManual(wp) ? FALSE
+							 : wp->w_p_fen_save;
+
+		foldUpdateAll(wp);
+		/* make sure topline is not halfway a fold */
+		changed_window_setting_win(wp);
 #endif
+	    }
+
+	    /* Note: 'sbo' is not restored, it's a global option. */
 	    diff_buf_adjust(wp);
 	}
 #ifdef FEAT_SCROLLBIND
@@ -2047,12 +2100,20 @@ diff_infold(wp, lnum)
  * "dp" and "do" commands.
  */
     void
-nv_diffgetput(put)
+nv_diffgetput(put, count)
     int		put;
+    long	count;
 {
     exarg_T	ea;
+    char_u	buf[30];
 
-    ea.arg = (char_u *)"";
+    if (count == 0)
+	ea.arg = (char_u *)"";
+    else
+    {
+	vim_snprintf((char *)buf, 30, "%ld", count);
+	ea.arg = buf;
+    }
     if (put)
 	ea.cmdidx = CMD_diffput;
     else
@@ -2142,7 +2203,7 @@ ex_diffgetput(eap)
 	    i = atol((char *)eap->arg);
 	else
 	{
-	    i = buflist_findpat(eap->arg, p, FALSE, TRUE);
+	    i = buflist_findpat(eap->arg, p, FALSE, TRUE, FALSE);
 	    if (i < 0)
 		return;		/* error message already given */
 	}
@@ -2265,7 +2326,7 @@ ex_diffgetput(eap)
 		    end_skip = 0;
 	    }
 
-	    buf_empty = FALSE;
+	    buf_empty = bufempty();
 	    added = 0;
 	    for (i = 0; i < count; ++i)
 	    {

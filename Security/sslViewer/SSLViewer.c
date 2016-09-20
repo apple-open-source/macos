@@ -319,6 +319,8 @@ alpnFunc(SSLContextRef          ctx,
     printf("[selected ALPN]");
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 /*
  * Perform one SSL diagnostic session. Returns nonzero on error. Normally no
@@ -772,6 +774,8 @@ static void showInfo(CFDictionaryRef info) {
 }
 #endif
 
+#pragma clang diagnostic pop
+
 static void showPeerTrust(SecTrustRef peerTrust, bool verbose) {
 
 	if(peerTrust == NULL) {
@@ -853,7 +857,7 @@ static void writePeerCerts(
 		certRef = (SecCertificateRef)CFArrayGetValueAtIndex(peerCerts, i);
         CFDataRef derCert = SecCertificateCopyData(certRef);
         if (derCert) {
-            writeFile(fileName, CFDataGetBytePtr(derCert),
+            writeFileSizet(fileName, CFDataGetBytePtr(derCert),
                 CFDataGetLength(derCert));
             CFRelease(derCert);
         }

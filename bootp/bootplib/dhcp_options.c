@@ -804,14 +804,19 @@ dhcpol_parse_buffer(dhcpol_t * list, void * buffer, int length,
 	      scan++;
 	      len--;
 	      break;
-	  default: {
-	      uint8_t	option_len = scan[LEN_OFFSET];
-	    
-	      dhcpol_add(list, scan);
-	      len -= (option_len + 2);
-	      scan += (option_len + 2);
+	  default:
+	      if (len > LEN_OFFSET) {
+		  uint8_t	option_len;
+
+		  option_len = scan[LEN_OFFSET];
+		  dhcpol_add(list, scan);
+		  len -= (option_len + OPTION_OFFSET);
+		  scan += (option_len + OPTION_OFFSET);
+	      }
+	      else {
+		  len = -1;
+	      }
 	      break;
-	  }
 	}
     }
     if (len < 0) {
@@ -1381,6 +1386,11 @@ char test_empty[] = {
     255,
 };
 
+char test_short[] = {
+    99, 130, 83, 99,
+    1,
+};
+
 char test_simple[] = {
     99, 130, 83, 99,
     1, 4, 255, 255, 252, 0,
@@ -1423,7 +1433,7 @@ char test_no_end[] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
-char test_too_short[] = {
+char test_no_magic[] = {
     0x1 
 };
 struct test {
@@ -1438,7 +1448,8 @@ struct test tests[] = {
     { "simple", test_simple, sizeof(test_simple), TRUE },
     { "vendor", test_vendor, sizeof(test_vendor), TRUE },
     { "no_end", test_no_end, sizeof(test_no_end), TRUE },
-    { "too_short", test_too_short, sizeof(test_too_short), FALSE },
+    { "no magic", test_no_magic, sizeof(test_no_magic), FALSE },
+    { "short", test_short, sizeof(test_short), FALSE },
     { NULL, NULL, 0, FALSE },
 };
 
@@ -1474,13 +1485,13 @@ main()
 				&error) != tests[i].result) {
 	    printf("FAILED\n");
 	    if (tests[i].result == TRUE) {
-		printf("error message returned was %s\n", error.str);
+		printf("error: %s\n", error.str);
 	    }
 	}
 	else {
 	    printf("PASSED\n");
 	    if (tests[i].result == FALSE) {
-		printf("error message returned was %s\n", error.str);
+		printf("error: %s\n", error.str);
 	    }
 	}
 	dhcpol_print(&options);

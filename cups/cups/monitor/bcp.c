@@ -1,6 +1,4 @@
 /*
- * "$Id: bcp.c 11560 2014-02-06 20:10:19Z msweet $"
- *
  * TBCP port monitor for CUPS.
  *
  * Copyright 2007-2014 by Apple Inc.
@@ -278,8 +276,3 @@ pswrite(const char *buf,		/* I - Buffer to write */
 
   return ((ssize_t)bytes);
 }
-
-
-/*
- * End of "$Id: bcp.c 11560 2014-02-06 20:10:19Z msweet $".
- */

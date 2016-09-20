@@ -23,6 +23,10 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#import <wtf/Platform.h>
+
+#if PLATFORM(MAC)
+
 // FIXME: We should just include the appropriate internal headers.
 
 typedef NS_ENUM(NSInteger, NSMenuType) {
@@ -40,3 +44,8 @@ typedef NS_ENUM(NSInteger, NSMenuType) {
 + (QLPreviewMenuItem *)standardQuickLookMenuItem;
 + (NSMenuItem *)standardShareMenuItemWithItems:(NSArray *)items;
 @end
+
+@interface NSMenuItem () <NSUserInterfaceItemIdentification>
+@end
+
+#endif

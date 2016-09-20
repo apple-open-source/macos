@@ -30,10 +30,10 @@
 #import "PlatformCALayerRemote.h"
 #import "RemoteLayerTreeHost.h"
 #import <QuartzCore/QuartzCore.h>
-#import <WebCore/BlockExceptions.h>
 #import <WebCore/PlatformCAFilters.h>
 #import <WebCore/QuartzCoreSPI.h>
 #import <WebCore/ScrollbarThemeMac.h>
+#import <wtf/BlockObjCExceptions.h>
 
 #if PLATFORM(IOS)
 #import <UIKit/UIView.h>
@@ -81,16 +81,12 @@ using namespace WebCore;
 
 namespace WebKit {
 
-static RetainPtr<CGColorRef> cgColorFromColor(Color color)
+static CGColorRef cgColorFromColor(const Color& color)
 {
     if (!color.isValid())
         return nil;
 
-    CGFloat components[4];
-    color.getRGBA(components[0], components[1], components[2], components[3]);
-
-    RetainPtr<CGColorSpaceRef> colorSpace = adoptCF(CGColorSpaceCreateDeviceRGB());
-    return adoptCF(CGColorCreate(colorSpace.get(), components));
+    return cachedCGColor(color);
 }
 
 static NSString *toCAFilterType(PlatformCALayer::FilterType type)
@@ -149,10 +145,10 @@ static void applyPropertiesToLayer(CALayer *layer, RemoteLayerTreeHost* layerTre
         layer.bounds = properties.bounds;
     
     if (properties.changedProperties & RemoteLayerTreeTransaction::BackgroundColorChanged)
-        layer.backgroundColor = cgColorFromColor(properties.backgroundColor).get();
+        layer.backgroundColor = cgColorFromColor(properties.backgroundColor);
 
     if (properties.changedProperties & RemoteLayerTreeTransaction::BorderColorChanged)
-        layer.borderColor = cgColorFromColor(properties.borderColor).get();
+        layer.borderColor = cgColorFromColor(properties.borderColor);
 
     if (properties.changedProperties & RemoteLayerTreeTransaction::BorderWidthChanged)
         layer.borderWidth = properties.borderWidth;
@@ -316,16 +312,29 @@ void RemoteLayerTreePropertyApplier::applyProperties(UIView *view, RemoteLayerTr
     }
 
     if (properties.changedProperties & RemoteLayerTreeTransaction::MaskLayerChanged) {
+        CALayer *maskOwnerLayer = view.layer;
+
+        if (properties.customAppearance == GraphicsLayer::LightBackdropAppearance || properties.customAppearance == GraphicsLayer::DarkBackdropAppearance) {
+            // This is a UIBackdropView, which means any mask must be applied to the CABackdropLayer rather
+            // that the view's layer. The backdrop is the first layer child.
+            if (view.layer.sublayers.count && [view.layer.sublayers[0] isKindOfClass:[CABackdropLayer class]])
+                maskOwnerLayer = view.layer.sublayers[0];
+        }
+
         if (!properties.maskLayerID)
-            view.layer.mask = nullptr;
+            maskOwnerLayer.mask = nullptr;
         else {
             UIView *maskView = relatedLayers.get(properties.maskLayerID);
             // FIXME: need to check that the mask view is kept alive.
             ASSERT(!maskView.layer.superlayer);
             if (!maskView.layer.superlayer)
-                view.layer.mask = maskView.layer;
+                maskOwnerLayer.mask = maskView.layer;
         }
     }
+
+    if (properties.changedProperties & (RemoteLayerTreeTransaction::ContentsHiddenChanged | RemoteLayerTreeTransaction::UserInteractionEnabledChanged))
+        view.userInteractionEnabled = !properties.contentsHidden && properties.userInteractionEnabled;
+
     END_BLOCK_OBJC_EXCEPTIONS;
 }
 #endif

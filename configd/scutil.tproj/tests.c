@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -48,12 +48,12 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#define my_log(__level, fmt, ...)	SCPrint(TRUE, stdout, CFSTR(fmt "\n"), ## __VA_ARGS__)
+#define	my_log(__level, __format, ...)	SCPrint(TRUE, stdout, CFSTR(__format "\n"), ## __VA_ARGS__)
 
 #include <dnsinfo.h>
 #include "dnsinfo_internal.h"
 #include <network_information.h>
-#include "network_information_priv.h"
+#include "network_state_information_priv.h"
 #include "SCNetworkReachabilityInternal.h"
 #include <CommonCrypto/CommonDigest.h>
 
@@ -714,7 +714,7 @@ do_watchNWI(int argc, char **argv)
 						  }
 					  });
 	if (status != NOTIFY_STATUS_OK) {
-		SC_log(LOG_INFO, "notify_register_dispatch() failed for nwi changes, status=%u", status);
+		SCPrint(TRUE, stderr, CFSTR("notify_register_dispatch() failed for nwi changes, status=%u\n"), status);
 		exit(1);
 	}
 
@@ -897,7 +897,7 @@ do_watchDNSConfiguration(int argc, char **argv)
 						  }
 					  });
 	if (status != NOTIFY_STATUS_OK) {
-		SC_log(LOG_INFO, "notify_register_dispatch() failed for DNS configuration changes, status=%u", status);
+		SCPrint(TRUE, stderr, CFSTR("notify_register_dispatch() failed for nwi changes, status=%u\n"), status);
 		exit(1);
 	}
 
@@ -929,20 +929,19 @@ __private_extern__
 void
 do_showProxyConfiguration(int argc, char **argv)
 {
-	CFMutableDictionaryRef	options = NULL;
 	CFDictionaryRef		proxies;
 
 	if (getenv("BYPASS_GLOBAL_PROXY") != NULL) {
+		CFMutableDictionaryRef	options ;
+
 		options = CFDictionaryCreateMutable(NULL, 0,
 						    &kCFTypeDictionaryKeyCallBacks,
 						    &kCFTypeDictionaryValueCallBacks);
 		CFDictionaryAddValue(options, kSCProxiesNoGlobal, kCFBooleanTrue);
-	}
-
-	proxies = SCDynamicStoreCopyProxiesWithOptions(NULL, options);
-
-	if (options != NULL) {
+		proxies = SCDynamicStoreCopyProxiesWithOptions(NULL, options);
 		CFRelease(options);
+	} else {
+		proxies = SCDynamicStoreCopyProxies(NULL);
 	}
 
 	if (proxies != NULL) {

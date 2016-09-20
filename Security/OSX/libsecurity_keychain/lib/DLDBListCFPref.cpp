@@ -41,6 +41,7 @@
 #include <xpc/private.h>
 #include <syslog.h>
 #include <sandbox.h>
+#include <security_keychain/StorageManager.h>
 
 dispatch_once_t AppSandboxChecked;
 xpc_object_t KeychainHomeFromXPC;
@@ -96,7 +97,7 @@ void PasswordDBLookup::lookupInfoOnUID (uid_t uid)
         mCurrent = uid;
         mTime = currentTime;
 
-        secdebug("secpref", "uid=%d caching home=%s", uid, pw->pw_dir);
+        secinfo("secpref", "uid=%d caching home=%s", uid, pw->pw_dir);
 
         endpwent();
     }
@@ -113,7 +114,7 @@ PasswordDBLookup *DLDbListCFPref::mPdbLookup = NULL;
 DLDbListCFPref::DLDbListCFPref(SecPreferencesDomain domain) : mDomain(domain), mPropertyList(NULL), mChanged(false),
     mSearchListSet(false), mDefaultDLDbIdentifierSet(false), mLoginDLDbIdentifierSet(false)
 {
-    secdebug("secpref", "New DLDbListCFPref %p for domain %d", this, domain);
+    secinfo("secpref", "New DLDbListCFPref %p for domain %d", this, domain);
 	loadPropertyList(true);
 }
 
@@ -123,7 +124,7 @@ void DLDbListCFPref::set(SecPreferencesDomain domain)
 
 	mDomain = domain;
 
-    secdebug("secpref", "DLDbListCFPref %p domain set to %d", this, domain);
+    secinfo("secpref", "DLDbListCFPref %p domain set to %d", this, domain);
 
 	if (loadPropertyList(true))
         resetCachedValues();
@@ -164,7 +165,7 @@ DLDbListCFPref::loadPropertyList(bool force)
 		MacOSError::throwMe(errSecInvalidPrefsDomain);
 	}
 
-	secdebug("secpref", "force=%s prefsPath=%s", force ? "true" : "false",
+	secinfo("secpref", "force=%s prefsPath=%s", force ? "true" : "false",
 		prefsPath.c_str());
 
 	CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
@@ -973,6 +974,8 @@ DLDbListCFPref::defaultDLDbIdentifier(const DLDbIdentifier &dlDbIdentifier)
 	}
 }
 
+// Caution: if the backing file for the defaultDLDbIdentifier doesn't exist (or if the plist file is corrupt),
+//  this will return a DLDbIdentifier with a NULL impl
 const DLDbIdentifier &
 DLDbListCFPref::defaultDLDbIdentifier()
 {
@@ -988,9 +991,9 @@ DLDbListCFPref::defaultDLDbIdentifier()
             CFDictionaryRef defaultDict = reinterpret_cast<CFDictionaryRef>(CFArrayGetValueAtIndex(defaultArray, 0));
             try
             {
-                secdebug("secpref", "getting default DLDbIdentifier from defaultDict");
+                secinfo("secpref", "getting default DLDbIdentifier from defaultDict");
                 mDefaultDLDbIdentifier = cfDictionaryRefToDLDbIdentifier(defaultDict);
-                secdebug("secpref", "now we think the default keychain is %s", (mDefaultDLDbIdentifier) ? mDefaultDLDbIdentifier.dbName() : "<NULL>");
+                secinfo("secpref", "now we think the default keychain is %s", (mDefaultDLDbIdentifier) ? mDefaultDLDbIdentifier.dbName() : "<NULL>");
             }
             catch (...)
             {
@@ -1001,26 +1004,29 @@ DLDbListCFPref::defaultDLDbIdentifier()
     
         if (!defaultArray)
         {
-			
             // If the Panther style login keychain actually exists we use that otherwise no
             // default is set.
             mDefaultDLDbIdentifier = loginDLDbIdentifier();
-            secdebug("secpref", "now we think the default keychain is: %s", (mDefaultDLDbIdentifier) ? mDefaultDLDbIdentifier.dbName() : 
-			"Name doesn't exist");
-			
+
+            //Since we might be changing the keychain filename, we have to stat the right file. Delegate the knowledge of which files to StorageManager; DLDbListCFPref should contain "login.keychain".
+            DLDbIdentifier actualIdentifier = KeychainCore::StorageManager::mungeDLDbIdentifier(mDefaultDLDbIdentifier, false);
+            secinfo("secpref", "now we think the default keychain is: %s (actual: %s)",
+                    (mDefaultDLDbIdentifier) ? mDefaultDLDbIdentifier.dbName() : "Name doesn't exist",
+                    (actualIdentifier) ? actualIdentifier.dbName() : "Name doesn't exist");
+
             struct stat st;
             int st_result = -1;
-			
-			if (mDefaultDLDbIdentifier.mImpl != NULL)
-			{
-				st_result = stat(mDefaultDLDbIdentifier.dbName(), &st);
-			}
-			
+
+            if (mDefaultDLDbIdentifier.mImpl != NULL && actualIdentifier.mImpl != NULL)
+            {
+                st_result = stat(actualIdentifier.dbName(), &st);
+            }
+
             if (st_result)
             {
-				secdebug("secpref", "stat(%s) -> %d", mDefaultDLDbIdentifier.dbName(), st_result);
+				secinfo("secpref", "stat(%s) -> %d", actualIdentifier.dbName(), st_result);
                 mDefaultDLDbIdentifier  = DLDbIdentifier(); // initialize a NULL keychain
-                secdebug("secpref", "after DLDbIdentifier(), we think the default keychain is %s", static_cast<bool>(mDefaultDLDbIdentifier) ? mDefaultDLDbIdentifier.dbName() : "<NULL>");
+                secinfo("secpref", "after DLDbIdentifier(), we think the default keychain is %s", static_cast<bool>(mDefaultDLDbIdentifier) ? mDefaultDLDbIdentifier.dbName() : "<NULL>");
             }
         }
 		
@@ -1055,9 +1061,9 @@ DLDbListCFPref::loginDLDbIdentifier()
             CFDictionaryRef loginDict = reinterpret_cast<CFDictionaryRef>(CFArrayGetValueAtIndex(loginArray, 0));
             try
             {
-                secdebug("secpref", "Getting login DLDbIdentifier from loginDict");
+                secinfo("secpref", "Getting login DLDbIdentifier from loginDict");
                 mLoginDLDbIdentifier = cfDictionaryRefToDLDbIdentifier(loginDict);
-                secdebug("secpref", "we think the login keychain is %s", static_cast<bool>(mLoginDLDbIdentifier) ? mLoginDLDbIdentifier.dbName() : "<NULL>");
+                secinfo("secpref", "we think the login keychain is %s", static_cast<bool>(mLoginDLDbIdentifier) ? mLoginDLDbIdentifier.dbName() : "<NULL>");
             }
             catch (...)
             {
@@ -1069,7 +1075,7 @@ DLDbListCFPref::loginDLDbIdentifier()
         if (!loginArray)
         {
 			mLoginDLDbIdentifier = LoginDLDbIdentifier();
-			secdebug("secpref", "after LoginDLDbIdentifier(), we think the login keychain is %s", static_cast<bool>(mLoginDLDbIdentifier) ? mLoginDLDbIdentifier.dbName() : "<NULL>");
+			secinfo("secpref", "after LoginDLDbIdentifier(), we think the login keychain is %s", static_cast<bool>(mLoginDLDbIdentifier) ? mLoginDLDbIdentifier.dbName() : "<NULL>");
         }
 
         mLoginDLDbIdentifierSet = true;

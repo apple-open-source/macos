@@ -54,7 +54,6 @@
 #import "WebView.h"
 #import "WebViewInternal.h"
 #import <Foundation/Foundation.h>
-#import <WebCore/BlockExceptions.h>
 #import <WebCore/ColorChooser.h>
 #import <WebCore/ContextMenu.h>
 #import <WebCore/ContextMenuController.h>
@@ -82,6 +81,7 @@
 #import <WebCore/SerializedCryptoKeyWrap.h>
 #import <WebCore/Widget.h>
 #import <WebCore/WindowFeatures.h>
+#import <wtf/BlockObjCExceptions.h>
 #import <wtf/PassRefPtr.h>
 #import <wtf/Vector.h>
 #import <wtf/text/WTFString.h>
@@ -842,7 +842,7 @@ bool WebChromeClient::hasOpenedPopup() const
     return false;
 }
 
-PassRefPtr<WebCore::PopupMenu> WebChromeClient::createPopupMenu(WebCore::PopupMenuClient* client) const
+RefPtr<WebCore::PopupMenu> WebChromeClient::createPopupMenu(WebCore::PopupMenuClient* client) const
 {
 #if !PLATFORM(IOS)
     return adoptRef(new PopupMenuMac(client));
@@ -851,7 +851,7 @@ PassRefPtr<WebCore::PopupMenu> WebChromeClient::createPopupMenu(WebCore::PopupMe
 #endif
 }
 
-PassRefPtr<WebCore::SearchPopupMenu> WebChromeClient::createSearchPopupMenu(WebCore::PopupMenuClient* client) const
+RefPtr<WebCore::SearchPopupMenu> WebChromeClient::createSearchPopupMenu(WebCore::PopupMenuClient* client) const
 {
 #if !PLATFORM(IOS)
     return adoptRef(new SearchPopupMenuMac(client));
@@ -909,8 +909,7 @@ void WebChromeClient::scheduleCompositingLayerFlush()
 }
 
 #if ENABLE(VIDEO)
-
-bool WebChromeClient::supportsVideoFullscreen()
+bool WebChromeClient::supportsVideoFullscreen(HTMLMediaElementEnums::VideoFullscreenMode)
 {
 #if PLATFORM(IOS)
     if (!Settings::avKitEnabled())
@@ -934,7 +933,18 @@ void WebChromeClient::exitVideoFullscreenForVideoElement(WebCore::HTMLVideoEleme
     END_BLOCK_OBJC_EXCEPTIONS;    
 }
 
-#endif
+#if PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE)
+void WebChromeClient::setUpPlaybackControlsManager(HTMLMediaElement& element)
+{
+    [m_webView _setUpPlaybackControlsManagerForMediaElement:element];
+}
+
+void WebChromeClient::clearPlaybackControlsManager()
+{
+    [m_webView _clearPlaybackControlsManager];
+}
+#endif // PLATFORM(MAC)
+#endif // ENABLE(VIDEO)
 
 #if ENABLE(FULLSCREEN_API)
 
@@ -1041,4 +1051,15 @@ void WebChromeClient::playbackTargetPickerClientStateDidChange(uint64_t contextI
 {
     [m_webView _playbackTargetPickerClientStateDidChange:contextId state:state];
 }
+
+void WebChromeClient::setMockMediaPlaybackTargetPickerEnabled(bool enabled)
+{
+    [m_webView _setMockMediaPlaybackTargetPickerEnabled:enabled];
+}
+
+void WebChromeClient::setMockMediaPlaybackTargetPickerState(const String& name, MediaPlaybackTargetContext::State state)
+{
+    [m_webView _setMockMediaPlaybackTargetPickerName:name state:state];
+}
+
 #endif

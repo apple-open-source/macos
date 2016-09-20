@@ -532,6 +532,12 @@ typedef unsigned int uint;
 typedef unsigned long ulong;
 #endif
 
+#if defined(__GNUC__)
+#define TIDY_ATTRIBUTE_PRINTF(formatStringArgument, extraArguments) __attribute__((__format__(printf, formatStringArgument, extraArguments)))
+#else
+#define TIDY_ATTRIBUTE_PRINTF(formatStringArgument, extraArguments)
+#endif
+
 /*
 With GCC 4,  __attribute__ ((visibility("default"))) can be used along compiling with tidylib 
 with "-fvisibility=hidden". See http://gcc.gnu.org/wiki/Visibility and build/gmake/Makefile.

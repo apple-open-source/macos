@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2016 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
@@ -31,15 +31,18 @@
 #include "config.h"
 #include "PolicyChecker.h"
 
+#include "ContentFilter.h"
 #include "ContentSecurityPolicy.h"
 #include "DOMWindow.h"
 #include "DocumentLoader.h"
+#include "EventNames.h"
 #include "FormState.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
 #include "HTMLFormElement.h"
 #include "HTMLFrameOwnerElement.h"
+#include "HTMLPlugInElement.h"
 #include "SecurityOrigin.h"
 
 #if USE(QUICK_LOOK)
@@ -47,6 +50,16 @@
 #endif
 
 namespace WebCore {
+
+static bool isAllowedByContentSecurityPolicy(const URL& url, const Element* ownerElement, bool didReceiveRedirectResponse)
+{
+    if (!ownerElement)
+        return true;
+    auto redirectResponseReceived = didReceiveRedirectResponse ? ContentSecurityPolicy::RedirectResponseReceived::Yes : ContentSecurityPolicy::RedirectResponseReceived::No;
+    if (is<HTMLPlugInElement>(ownerElement))
+        return ownerElement->document().contentSecurityPolicy()->allowObjectFromSource(url, ownerElement->isInUserAgentShadowTree(), redirectResponseReceived);
+    return ownerElement->document().contentSecurityPolicy()->allowChildFrameFromSource(url, ownerElement->isInUserAgentShadowTree(), redirectResponseReceived);
+}
 
 PolicyChecker::PolicyChecker(Frame& frame)
     : m_frame(frame)
@@ -56,12 +69,12 @@ PolicyChecker::PolicyChecker(Frame& frame)
 {
 }
 
-void PolicyChecker::checkNavigationPolicy(const ResourceRequest& newRequest, NavigationPolicyDecisionFunction function)
+void PolicyChecker::checkNavigationPolicy(const ResourceRequest& newRequest, bool didReceiveRedirectResponse, NavigationPolicyDecisionFunction function)
 {
-    checkNavigationPolicy(newRequest, m_frame.loader().activeDocumentLoader(), nullptr, WTF::move(function));
+    checkNavigationPolicy(newRequest, didReceiveRedirectResponse, m_frame.loader().activeDocumentLoader(), nullptr, WTFMove(function));
 }
 
-void PolicyChecker::checkNavigationPolicy(const ResourceRequest& request, DocumentLoader* loader, PassRefPtr<FormState> formState, NavigationPolicyDecisionFunction function)
+void PolicyChecker::checkNavigationPolicy(const ResourceRequest& request, bool didReceiveRedirectResponse, DocumentLoader* loader, PassRefPtr<FormState> formState, NavigationPolicyDecisionFunction function)
 {
     NavigationAction action = loader->triggeringAction();
     if (action.isEmpty()) {
@@ -79,21 +92,31 @@ void PolicyChecker::checkNavigationPolicy(const ResourceRequest& request, Docume
 
     // We are always willing to show alternate content for unreachable URLs;
     // treat it like a reload so it maintains the right state for b/f list.
-    if (loader->substituteData().isValid() && !loader->substituteData().failingURL().isEmpty()) {
+    auto& substituteData = loader->substituteData();
+    if (substituteData.isValid() && !substituteData.failingURL().isEmpty()) {
+        bool shouldContinue = true;
+#if ENABLE(CONTENT_FILTERING)
+        shouldContinue = ContentFilter::continueAfterSubstituteDataRequest(*m_frame.loader().activeDocumentLoader(), substituteData);
+#endif
         if (isBackForwardLoadType(m_loadType))
             m_loadType = FrameLoadType::Reload;
-        function(request, 0, true);
+        function(request, 0, shouldContinue);
         return;
     }
 
-    if (m_frame.ownerElement() && !m_frame.ownerElement()->document().contentSecurityPolicy()->allowChildFrameFromSource(request.url(), m_frame.ownerElement()->isInUserAgentShadowTree())) {
+    if (!isAllowedByContentSecurityPolicy(request.url(), m_frame.ownerElement(), didReceiveRedirectResponse)) {
+        if (m_frame.ownerElement()) {
+            // Fire a load event (even though we were blocked by CSP) as timing attacks would otherwise
+            // reveal that the frame was blocked. This way, it looks like any other cross-origin page load.
+            m_frame.ownerElement()->dispatchEvent(Event::create(eventNames().loadEvent, false, false));
+        }
         function(request, 0, false);
         return;
     }
 
     loader->setLastCheckedRequest(request);
 
-    m_callback.set(request, formState.get(), WTF::move(function));
+    m_callback.set(request, formState.get(), WTFMove(function));
 
 #if USE(QUICK_LOOK)
     // Always allow QuickLook-generated URLs based on the protocol scheme.
@@ -117,6 +140,7 @@ void PolicyChecker::checkNavigationPolicy(const ResourceRequest& request, Docume
 #endif
 
     m_delegateIsDecidingNavigationPolicy = true;
+    m_suggestedFilename = action.downloadAttribute();
     m_frame.loader().client().dispatchDecidePolicyForNavigationAction(action, request, formState, [this](PolicyAction action) {
         continueAfterNavigationPolicy(action);
     });
@@ -131,7 +155,7 @@ void PolicyChecker::checkNewWindowPolicy(const NavigationAction& action, const R
     if (!DOMWindow::allowPopUp(&m_frame))
         return continueAfterNavigationPolicy(PolicyIgnore);
 
-    m_callback.set(request, formState, frameName, action, WTF::move(function));
+    m_callback.set(request, formState, frameName, action, WTFMove(function));
     m_frame.loader().client().dispatchDecidePolicyForNewWindowAction(action, request, formState, frameName, [this](PolicyAction action) {
         continueAfterNewWindowPolicy(action);
     });
@@ -139,7 +163,7 @@ void PolicyChecker::checkNewWindowPolicy(const NavigationAction& action, const R
 
 void PolicyChecker::checkContentPolicy(const ResourceResponse& response, ContentPolicyDecisionFunction function)
 {
-    m_callback.set(WTF::move(function));
+    m_callback.set(WTFMove(function));
     m_frame.loader().client().dispatchDecidePolicyForResponse(response, m_frame.loader().activeDocumentLoader()->request(), [this](PolicyAction action) {
         continueAfterContentPolicy(action);
     });
@@ -185,7 +209,7 @@ void PolicyChecker::continueAfterNavigationPolicy(PolicyAction policy)
         case PolicyDownload: {
             ResourceRequest request = callback.request();
             m_frame.loader().setOriginalURLForDownloadRequest(request);
-            m_frame.loader().client().startDownload(request);
+            m_frame.loader().client().startDownload(request, m_suggestedFilename);
             callback.clearRequest();
             break;
         }

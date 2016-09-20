@@ -31,12 +31,6 @@
 #import <CoreFoundation/CoreFoundation.h>
 #import <AssertMacros.h>
 #import <Security/Security.h>
-#import <Security/SecRandom.h>
-#import <CommonCrypto/CommonCryptor.h>
-#import <CommonCrypto/CommonCryptorSPI.h>
-#if TARGET_OS_EMBEDDED
-#import <libaks.h>
-#endif
 #import "HeimCredCoder.h"
 #import "common.h"
 
@@ -170,234 +164,27 @@ convertDict(const void *key, const void *value, void *context)
     return NULL;
 }
 
-#if TARGET_OS_EMBEDDED
-
-static keybag_handle_t
-get_keybag(void)
-{
-    static keybag_handle_t handle;
-    static dispatch_once_t once;
-    dispatch_once(&once, ^{
-	    keybag_handle_t special_handle;
-#if TARGET_OS_EMBEDDED
-	    special_handle = device_keybag_handle;
-#else
-	    special_handle = session_keybag_handle;
-#endif
-
-	    kern_return_t kr = aks_get_system(special_handle, &handle);
-	    if (kr != KERN_SUCCESS)
-		abort();
-	});
-    return handle;
-}
-#endif
-
-/*
- * stored as [32:wrapped_key_len][wrapped_key_len:wrapped_key][variable:ctdata][16:tag] 
- */
-
-static NSData *
-ksEncryptData(NSData *plainText)
-{
-    NSMutableData *blob = NULL;
-    
-    const uint32_t bulkKeySize = 32; /* Use 256 bit AES key for bulkKey. */
-    const uint32_t maxKeyWrapOverHead = 8 + 32;
-    uint8_t bulkKey[bulkKeySize];
-    uint8_t bulkKeyWrapped[bulkKeySize + maxKeyWrapOverHead];
-    uint32_t key_wrapped_size;
-    CCCryptorStatus ccerr;
-
-    if (![plainText isKindOfClass:[NSData class]]) abort();
-    
-    size_t ctLen = [plainText length];
-    size_t tagLen = 16;
-    
-    if (SecRandomCopyBytes(kSecRandomDefault, bulkKeySize, bulkKey))
-        abort();
-
-    int bulkKeyWrappedSize;
-#if TARGET_OS_EMBEDDED
-    kern_return_t error;
-
-    bulkKeyWrappedSize = sizeof(bulkKeyWrapped);
-
-    error = aks_wrap_key(bulkKey, sizeof(bulkKey), key_class_f, get_keybag(), bulkKeyWrapped, &bulkKeyWrappedSize, NULL);
-    if (error)
-	abort();
-
-#else
-    bulkKeyWrappedSize = bulkKeySize;
-    memcpy(bulkKeyWrapped, bulkKey, bulkKeySize);
-#endif
-    key_wrapped_size = (uint32_t)bulkKeyWrappedSize;
-    
-    size_t blobLen = sizeof(key_wrapped_size) + key_wrapped_size + ctLen + tagLen;
-    
-    blob = [[NSMutableData alloc] initWithLength:blobLen];
-    if (blob == NULL)
-	return NULL;
-
-    UInt8 *cursor = [blob mutableBytes];
-    
-    *((uint32_t *)cursor) = key_wrapped_size;
-    cursor += sizeof(key_wrapped_size);
-    
-    memcpy(cursor, bulkKeyWrapped, key_wrapped_size);
-    cursor += key_wrapped_size;
-    
-    ccerr = CCCryptorGCM(kCCEncrypt, kCCAlgorithmAES128,
-			 bulkKey, bulkKeySize,
-			 NULL, 0,  /* iv */
-			 NULL, 0,  /* auth data */
-			 [plainText bytes], ctLen,
-			 cursor,
-			 cursor + ctLen, &tagLen);
-    memset(bulkKey, 0, sizeof(bulkKey));
-    if (ccerr || tagLen != 16) {
-	[blob release];
-	return NULL;
-    }
-
-    return blob;
-}
-
-static int
-ks_decrypt_data(CFDataRef blob, CFDataRef *pPlainText) {
-    const uint32_t bulkKeySize = 32; /* Use 256 bit AES key for bulkKey. */
-    uint8_t bulkKey[bulkKeySize];
-    int error = EINVAL;
-    CCCryptorStatus ccerr;
-    uint8_t *tag = NULL;
-    
-    CFMutableDataRef plainText = NULL;
-    
-    if (CFGetTypeID(blob) != CFDataGetTypeID())
-        return EINVAL;
-    
-    size_t blobLen = CFDataGetLength(blob);
-    const uint8_t *cursor = CFDataGetBytePtr(blob);
-
-    uint32_t wrapped_key_size;
-    
-    size_t ctLen = blobLen;
-    
-    /* tag is stored after the plain text data */
-    size_t tagLen = 16;
-    if (ctLen < tagLen)
-	return EINVAL;
-    ctLen -= tagLen;
-
-    if (ctLen < sizeof(wrapped_key_size))
-	return EINVAL;
-
-    memcpy(&wrapped_key_size, cursor, sizeof(wrapped_key_size));
-
-    cursor += sizeof(wrapped_key_size);
-    ctLen -= sizeof(wrapped_key_size);
-    
-    /* Validate key wrap length against total length */
-    if (ctLen < wrapped_key_size)
-	return EINVAL;
-
-    int keySize = sizeof(bulkKey);
-#if TARGET_OS_EMBEDDED
-
-    error = aks_unwrap_key(cursor, wrapped_key_size, key_class_f, get_keybag(), bulkKey, &keySize);
-    if (error != KERN_SUCCESS)
-	goto out;
-#else
-    memset(bulkKey, 0, sizeof(bulkKey));
-    keySize = 32;
-#endif
-
-    if (keySize != 32) {
-	error = EINVAL;
-	goto out;
-    }
-
-    cursor += wrapped_key_size;
-    ctLen -= wrapped_key_size;
-    
-    plainText = CFDataCreateMutable(NULL, ctLen);
-    if (!plainText) {
-	error = EINVAL;
-        goto out;
-    }
-    CFDataSetLength(plainText, ctLen);
-    
-    tag = malloc(tagLen);
-    if (tag == NULL) {
-	error = EINVAL;
-        goto out;
-    }
-
-    /* Decrypt the cipherText with the bulkKey. */
-
-    ccerr = CCCryptorGCM(kCCDecrypt, kCCAlgorithmAES128,
-			 bulkKey, bulkKeySize,
-			 NULL, 0,  /* iv */
-			 NULL, 0,  /* auth data */
-			 cursor, ctLen,
-			 CFDataGetMutableBytePtr(plainText),
-			 tag, &tagLen);
-    if (ccerr) {
-	error = EINVAL;
-	goto out;
-    }
-    if (tagLen != 16) {
-	error = EINVAL;
-	goto out;
-    }
-
-    /* check that tag stored after the plaintext is correct */
-    cursor += ctLen;
-    if (memcmp(tag, cursor, tagLen)) {
-	error = EINVAL;
-	goto out;
-    }
-
-    error = 0;
-
-out:
-    memset(bulkKey, 0, bulkKeySize);
-    free(tag);
-    if (error) {
-	CFRELEASE_NULL(plainText);
-    } else {
-	*pPlainText = plainText;
-    }
-
-    return error;
-}
-
-
 + (id) copyUnarchiveObjectWithFileSecureEncoding:(NSString *)path
 {
     @autoreleasepool {
-	CFDataRef clearText = NULL;
+	NSData *clearText = NULL;
 	NSData *data = [NSData dataWithContentsOfFile:path options:NSDataReadingMappedIfSafe error:NULL];
 	if (data == nil)
 	    return NULL;
 	
-	int error = ks_decrypt_data((CFDataRef)data, &clearText);
-	if (error)
+	clearText = [ksDecryptData(data) autorelease];
+	if (clearText == NULL)
 	    return NULL;
-	
-	HeimCredDecoder *decoder = [[HeimCredDecoder alloc] initForReadingWithData:(NSData *)clearText];
-	if (decoder == nil) {
-	    CFRelease(clearText);
+
+	HeimCredDecoder *decoder = [[[HeimCredDecoder alloc] initForReadingWithData:(NSData *)clearText] autorelease];
+	if (decoder == nil)
 	    return NULL;
-	}
-	
+
 	[decoder setRequiresSecureCoding:true];
 	
 	id obj = [[decoder decodeObjectForKey:NSKeyedArchiveRootObjectKey] retain];
         [decoder finishDecoding];
-        [decoder release];
-	CFRelease(clearText);
-	
+
 	return obj;
     }
 }
@@ -410,8 +197,10 @@ out:
 	    return;
     
 	NSData *encText = ksEncryptData(data);
-	if (encText == NULL)
+	if (encText == NULL) {
+	    [[NSFileManager defaultManager] removeItemAtPath:archiveFile error:NULL];
 	    return;
+	}
 	
 	[encText writeToFile:archiveFile atomically:NO];
 	[encText release];

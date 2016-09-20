@@ -94,11 +94,13 @@ void HTMLFrameElementBase::parseAttribute(const QualifiedName& name, const Atomi
 {
     if (name == srcdocAttr)
         setLocation("about:srcdoc");
-    else if (name == srcAttr && !fastHasAttribute(srcdocAttr))
+    else if (name == srcAttr && !hasAttributeWithoutSynchronization(srcdocAttr))
         setLocation(stripLeadingAndTrailingHTMLSpaces(value));
-    else if (name == HTMLNames::idAttr) {
+    else if (name == idAttr) {
         HTMLFrameOwnerElement::parseAttribute(name, value);
-        m_frameName = value;
+        // Falling back to using the 'id' attribute is not standard but some content relies on this behavior.
+        if (!hasAttributeWithoutSynchronization(nameAttr))
+            m_frameName = value;
     } else if (name == nameAttr) {
         m_frameName = value;
         // FIXME: If we are already attached, this doesn't actually change the frame's name.
@@ -112,9 +114,9 @@ void HTMLFrameElementBase::parseAttribute(const QualifiedName& name, const Atomi
         // FIXME: If we are already attached, this has no effect.
     } else if (name == scrollingAttr) {
         // Auto and yes both simply mean "allow scrolling." No means "don't allow scrolling."
-        if (equalIgnoringCase(value, "auto") || equalIgnoringCase(value, "yes"))
+        if (equalLettersIgnoringASCIICase(value, "auto") || equalLettersIgnoringASCIICase(value, "yes"))
             m_scrolling = document().frameElementsShouldIgnoreScrolling() ? ScrollbarAlwaysOff : ScrollbarAuto;
-        else if (equalIgnoringCase(value, "no"))
+        else if (equalLettersIgnoringASCIICase(value, "no"))
             m_scrolling = ScrollbarAlwaysOff;
         // FIXME: If we are already attached, this has no effect.
     } else
@@ -124,6 +126,7 @@ void HTMLFrameElementBase::parseAttribute(const QualifiedName& name, const Atomi
 void HTMLFrameElementBase::setNameAndOpenURL()
 {
     m_frameName = getNameAttribute();
+    // Falling back to using the 'id' attribute is not standard but some content relies on this behavior.
     if (m_frameName.isNull())
         m_frameName = getIdAttribute();
     openURL();
@@ -164,9 +167,9 @@ void HTMLFrameElementBase::didAttachRenderers()
 
 URL HTMLFrameElementBase::location() const
 {
-    if (fastHasAttribute(srcdocAttr))
+    if (hasAttributeWithoutSynchronization(srcdocAttr))
         return URL(ParsedURLString, "about:srcdoc");
-    return document().completeURL(fastGetAttribute(srcAttr));
+    return document().completeURL(attributeWithoutSynchronization(srcAttr));
 }
 
 void HTMLFrameElementBase::setLocation(const String& str)

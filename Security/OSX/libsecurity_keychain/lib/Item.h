@@ -45,7 +45,10 @@ class Keychain;
 class ItemImpl : public SecCFObject
 {
 public:
-	SECCFFUNCTIONS(ItemImpl, SecKeychainItemRef, errSecInvalidItemRef, gTypes().ItemImpl)
+	SECCFFUNCTIONS_CREATABLE(ItemImpl, SecKeychainItemRef, gTypes().ItemImpl)
+
+    static ItemImpl *required(SecKeychainItemRef ptr);
+    static ItemImpl *optional(SecKeychainItemRef ptr);
 
     friend class Item;
 	friend class KeychainImpl;
@@ -79,7 +82,7 @@ public:
 	CFDataRef getPersistentRef();
 	
 	PrimaryKey addWithCopyInfo(Keychain &keychain, bool isCopy);
-	Mutex* getMutexForObject();
+	Mutex* getMutexForObject() const;
 
     // Return true iff the item integrity has not been compromised.
     virtual bool checkIntegrity();
@@ -194,6 +197,9 @@ protected:
      * the ACL will be copied from the old group, and the old group deleted. */
     void updateSSGroup(Db& db, CSSM_DB_RECORDTYPE recordType, CssmDataContainer* data, Keychain keychain = NULL, SecPointer<Access> access = NULL);
 
+    // Helper function to abstract out error handling. Does not report any errors.
+    void deleteSSGroup(SSGroup & ssgroup, const AccessCredentials* nullCred);
+
     void doChange(Keychain keychain, CSSM_DB_RECORDTYPE recordType, void (^tryChange) () );
 
     // Add integrity acl entry to access.
@@ -207,6 +213,12 @@ protected:
 
     // Set the integrity of this bearer to be whatever my attributes are now
     virtual void setIntegrity(AclBearer &bearer, bool force = false);
+
+    // Call this function to remove the integrity and partition_id ACLs from
+    // this item. You're not supposed to be able to do this, so force the issue
+    // by providing credentials to this keychain.
+    virtual void removeIntegrity(const AccessCredentials *cred);
+    virtual void removeIntegrity(AclBearer &bearer, const AccessCredentials *cred);
 
 	// new item members
 	RefPointer<CssmDataContainer> mData;

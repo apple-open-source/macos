@@ -1,6 +1,4 @@
 /*
- * "$Id: pstops.c 12669 2015-05-27 19:42:43Z msweet $"
- *
  * PostScript filter for CUPS.
  *
  * Copyright 2007-2015 by Apple Inc.
@@ -3402,8 +3400,3 @@ write_options(
     doc_puts(doc, "userdict/setpagedevice{pop}bind put\n");
   }
 }
-
-
-/*
- * End of "$Id: pstops.c 12669 2015-05-27 19:42:43Z msweet $".
- */

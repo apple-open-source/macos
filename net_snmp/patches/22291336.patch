@@ -1,0 +1,13 @@
+diff -Naur net-snmp-5.6.2.1.orig/configure net-snmp-5.6.2.1.work/configure
+--- net-snmp-5.6.2.1.orig/configure	2014-02-20 06:49:38.000000000 -0800
++++ net-snmp-5.6.2.1.work/configure	2016-03-24 14:18:38.000000000 -0700
+@@ -15438,7 +15438,7 @@
+ #       MIBDIRS   (default)
+ #
+ if test "x$NETSNMP_DEFAULT_MIBDIRS" = "x"; then
+-    NETSNMP_DEFAULT_MIBDIRS="\$HOME/.snmp/mibs:$SNMPSHAREPATH/mibs"
++    NETSNMP_DEFAULT_MIBDIRS="\$HOME/.snmp/mibs:/usr/local/share/snmp/mibs:$SNMPSHAREPATH/mibs"
+     if test "x$PARTIALTARGETOS" = "xmingw32" -o "x$PARTIALTARGETOS" = "xmingw32msvc" -o "x$PARTIALTARGETOS" = "xcygwin"; then
+         #
+         #    USe Windows-style path separator
+

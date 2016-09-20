@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 1999-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*-
@@ -139,7 +139,7 @@ atot(char *p, time_t *store)
 			if (!*mp)
 				goto bad;
 			if (!strncasecmp(*mp, t, 3)) {
-				month = mp - months + 1;
+				month = (int)(mp - months + 1);
 				break;
 			}
 		}
@@ -223,27 +223,28 @@ dup_shell(char *name)
 
 #if OPEN_DIRECTORY
 int
-cfprintf(FILE* file, const char* format, ...) {
-		char* cstr;
-		int result = 0;
-        va_list args;
-        va_start(args, format);
-        CFStringRef formatStr = CFStringCreateWithCStringNoCopy(NULL, format, kCFStringEncodingUTF8, kCFAllocatorNull);
-		if (formatStr) {
-			CFStringRef str = CFStringCreateWithFormatAndArguments(NULL, NULL, formatStr, args);
-			if (str) {
-				size_t size = CFStringGetMaximumSizeForEncoding(CFStringGetLength(str), kCFStringEncodingUTF8) + 1;
-				va_end(args);
-				cstr = malloc(size);
-				if (cstr && CFStringGetCString(str, cstr, size, kCFStringEncodingUTF8)) {
-					result = fprintf(file, "%s", cstr);
-					free(cstr);
-				}
-				CFRelease(str);
+cfprintf(FILE* file, const char* format, ...)
+{
+	char* cstr;
+	int result = 0;
+	va_list args;
+	va_start(args, format);
+	CFStringRef formatStr = CFStringCreateWithCStringNoCopy(NULL, format, kCFStringEncodingUTF8, kCFAllocatorNull);
+	if (formatStr) {
+		CFStringRef str = CFStringCreateWithFormatAndArguments(NULL, NULL, formatStr, args);
+		if (str) {
+			size_t size = CFStringGetMaximumSizeForEncoding(CFStringGetLength(str), kCFStringEncodingUTF8) + 1;
+			va_end(args);
+			cstr = malloc(size);
+			if (cstr && CFStringGetCString(str, cstr, size, kCFStringEncodingUTF8)) {
+				result = fprintf(file, "%s", cstr);
+				free(cstr);
 			}
-			CFRelease(formatStr);
+			CFRelease(str);
 		}
-		return result;
+		CFRelease(formatStr);
+	}
+	return result;
 }
 
 /*
@@ -262,9 +263,9 @@ editfile(const char* tfn)
 
 	if ((editor = getenv("EDITOR")) == NULL)
 		editor = _PATH_VI;
-	if (p = strrchr(editor, '/'))
+	if ((p = strrchr(editor, '/')))
 		++p;
-	else 
+	else
 		p = editor;
 
 	if (stat(tfn, &st1) == -1)
@@ -321,12 +322,14 @@ editfile(const char* tfn)
 	return (st1.st_mtime != st2.st_mtime);
 }
 
-void
+#if 0
+static void
 pw_error(char *name, int err, int eval)
 {
 	if (err)
 		warn("%s", name);
 	exit(eval);
 }
+#endif
 
 #endif /* OPEN_DIRECTORY */

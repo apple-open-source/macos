@@ -415,6 +415,7 @@ extern int codesign_util(int argc, char * const *argv)
                 fprintf(stderr, "\n");
             }
         }
+        CFReleaseNull(policy);
     }
     
     CFReleaseSafe(sigs);

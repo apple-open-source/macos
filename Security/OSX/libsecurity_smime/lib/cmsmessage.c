@@ -135,8 +135,10 @@ SecCmsMessageDestroy(SecCmsMessageRef cmsg)
     SecCmsContentInfoDestroy(&(cmsg->contentInfo));
 
     /* if poolp is not NULL, cmsg is the owner of its arena */
-    if (cmsg->poolp_is_ours)
+    if (cmsg->poolp_is_ours) {
 	PORT_FreeArena (cmsg->poolp, PR_FALSE);	/* XXX clear it? */
+        cmsg->poolp = NULL;
+    }
 }
 
 /*

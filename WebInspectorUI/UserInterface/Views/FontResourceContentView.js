@@ -57,7 +57,7 @@ WebInspector.FontResourceContentView = class FontResourceContentView extends Web
     {
         this.element.removeChildren();
 
-        var uniqueFontName = "WebInspectorFontPreview" + (++WebInspector.FontResourceContentView._uniqueFontIdentifier);
+        const uniqueFontName = "WebInspectorFontPreview" + (++WebInspector.FontResourceContentView._uniqueFontIdentifier);
 
         var format = "";
 

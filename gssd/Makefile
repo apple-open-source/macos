@@ -12,6 +12,8 @@ DSTROOT ?= .
 DST_DIR = $(DSTROOT)/usr/sbin
 MAN_DIR = $(DSTROOT)/usr/share/man/man8
 
+RPCGEN=/System/Library/PrivateFrameworks/oncrpc.framework/bin/rpcgen
+
 #
 # Standard B&I targets
 #
@@ -32,7 +34,7 @@ installhdrs:
 
 clean:
 	-rm -f *.o gssd gsstest \
-		gssd_mach.h gssd_machServer.c gssd_machUser.c gssd_machServer.h
+		gssd_mach.h gssd_machServer.c gssd_machUser.c gssd_machServer.h lucid.h lucid_xdr.c
 installsrc: clean
 	ditto . $(SRCROOT)
 
@@ -46,10 +48,11 @@ CFLAGS		= -g -Os -Wall -Wextra -Wshadow -Wmissing-prototypes \
 CFLAGS		+= $(RC_CFLAGS)
 LDFLAGS	= -lbsm -framework Heimdal -framework GSS
 
-$(SYMROOT)/gssd: $(OBJROOT)/gssd.o $(OBJROOT)/gssd_machUser.o $(OBJROOT)/gssd_machServer.o $(OBJROOT)/gssd_validate.o
+$(SYMROOT)/gssd: $(OBJROOT)/gssd.o $(OBJROOT)/gssd_machUser.o $(OBJROOT)/gssd_machServer.o $(OBJROOT)/gssd_validate.o \
+	$(OBJROOT)/lucid_xdr.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
-$(SRCROOT)/gssd.c: $(OBJROOT)/gssd_mach.h $(OBJROOT)/gssd_machServer.h
+$(SRCROOT)/gssd.c: $(OBJROOT)/gssd_mach.h $(OBJROOT)/gssd_machServer.h $(OBJROOT)/lucid.h
 
 $(OBJROOT)/%.o: $(SRCROOT)/%.c
 	$(CC) -c $(CFLAGS) -o $@ $<
@@ -64,9 +67,13 @@ $(OBJROOT)/gssd_mach.h $(OBJROOT)/gssd_machServer.c $(OBJROOT)/gssd_machUser.c \
 		$(SRCROOT)/gssd_mach.defs
 
 
+$(OBJROOT)/lucid.h $(OBJROOT)/lucid_xdr.c: lucid.x
+	$(RPCGEN) -h -o lucid.h lucid.x
+	$(RPCGEN) -x -o lucid_xdr.c lucid.x
+
 # gsstest is a client used to test gssd - not installed
 
-$(SYMROOT)/gsstest: $(OBJROOT)/gsstest.o $(OBJROOT)/gssd_machUser.o
+$(SYMROOT)/gsstest: $(OBJROOT)/gsstest.o $(OBJROOT)/gssd_machUser.o $(OBJROOT)/lucid_xdr.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
-$(SRCROOT)/gsstest.c: $(OBJROOT)/gssd_mach.h
+$(SRCROOT)/gsstest.c: $(OBJROOT)/gssd_mach.h $(OBJROOT)/lucid.h

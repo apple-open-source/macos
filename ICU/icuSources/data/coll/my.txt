@@ -1,17 +1,18 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/collation/my.xml
 // *
 // ***************************************************************************
 my{
-    Version{"2.0.96.14"}
+    Version{"2.1.19.14"}
     collations{
         standard{
             Sequence{
-                "[normalization on][reorder Mymr]"
+                "[normalization on]"
+                "[reorder Mymr]"
                 "&ႌ<့<း<့း"
                 "&ာ<<ါ"
                 "&ဲ<ော<<ေါ<ော်<<ေါ်"
@@ -378,7 +379,7 @@ my{
                 "&ထမင်း=ထ္မင်း"
                 "&လက်ဘက်=လ္ဘက်"
             }
-            Version{"27.0.1"}
+            Version{"29"}
         }
     }
 }

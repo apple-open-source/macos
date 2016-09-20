@@ -38,6 +38,11 @@
 #endif
 #include <dirent.h>
 
+#if __APPLE__
+#include <sys/codesign.h>
+#endif
+
+
 struct krb5_plugin {
     void *symbol;
     struct krb5_plugin *next;
@@ -101,10 +106,31 @@ _krb5_plugin_get_next(struct krb5_plugin *p)
 
 #ifdef HAVE_DLOPEN
 
+const char SystemSafeToLoad[] = "/System/";
+
+
 static krb5_error_code
 loadlib(krb5_context context, char *path)
 {
     struct plugin *e;
+#if __APPLE__
+    int flags = 0;
+
+    if (csops(0, CS_OPS_STATUS, &flags, sizeof(flags)) != 0) {
+	free(path);
+	return 0;
+    }
+
+    /*
+     * If restricted, only load plugins from safe locations
+     */
+    if ((flags & CS_RESTRICT) &&
+	strncmp(path, SystemSafeToLoad, sizeof(SystemSafeToLoad) - 1) != 0)
+    {
+	free(path);
+	return 0;
+    }
+#endif
 
     e = calloc(1, sizeof(*e));
     if (e == NULL) {

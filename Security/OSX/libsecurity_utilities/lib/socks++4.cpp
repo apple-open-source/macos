@@ -47,7 +47,7 @@ void Server::connect(SocksClientSocket &me, const IPSockAddress &peer)
     request.send(me, "nobody");
     (Message(me));				// read and check reply message
     me.mPeerAddress = peer;		// best guess, Mr. Sulu
-    secdebug("socks", "%d socks4 connected to %s", me.fd(), string(peer).c_str());
+    secinfo("socks", "%d socks4 connected to %s", me.fd(), string(peer).c_str());
 }
 
 void Server::connect(SocksClientSocket &me, const Host &host, IPPort port)
@@ -77,7 +77,7 @@ void Server::bind(SocksServerSocket &me, const IPAddress &peer, IPPort port)
     request.send(me, "nobody");
     Message reply(me);
     me.mLocalAddress = reply.address().defaults(mServerAddress.address());
-    secdebug("socks", "%d socks4 bound to %s", me.fd(), string(me.mLocalAddress).c_str());
+    secinfo("socks", "%d socks4 bound to %s", me.fd(), string(me.mLocalAddress).c_str());
 }
 
 void Server::receive(SocksServerSocket &me, SocksClientSocket &receiver)
@@ -85,7 +85,7 @@ void Server::receive(SocksServerSocket &me, SocksClientSocket &receiver)
     Message reply(me);
     receiver.setFd(me.fd(), me.mLocalAddress, reply.address());
     me.clear();					// clear our own (don't close on destruction)
-    secdebug("socks", "%d socks4 inbound connect", receiver.fd());
+    secinfo("socks", "%d socks4 inbound connect", receiver.fd());
 }
 
 

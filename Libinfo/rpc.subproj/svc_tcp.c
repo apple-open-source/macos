@@ -193,6 +193,7 @@ svctcp_create(sock, sendsize, recvsize)
 	r->recvsize = recvsize;
 	xprt = (SVCXPRT *)mem_alloc(sizeof(SVCXPRT));
 	if (xprt == NULL) {
+		mem_free(r, sizeof(*r));
 		(void) fprintf(stderr, "svctcp_create: out of memory\n");
 		return (NULL);
 	}

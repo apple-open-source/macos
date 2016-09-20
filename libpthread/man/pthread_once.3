@@ -28,7 +28,7 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/lib/libc_r/man/pthread_once.3,v 1.6.2.6 2001/08/17 15:42:52 ru Exp $
+.\" $FreeBSD$
 .\"
 .Dd April 4, 1996
 .Dt PTHREAD_ONCE 3
@@ -37,7 +37,7 @@
 .Nm pthread_once
 .Nd dynamic package initialization
 .Sh SYNOPSIS
-.Fd #include <pthread.h>
+.In pthread.h
 .Pp
 pthread_once_t
 .Fa once_control
@@ -74,14 +74,15 @@ is not a cancellation point.
 However, if
 .Fn init_routine
 is a cancellation point and is cancelled, the effect on
-.Fa once_control is as if
+.Fa once_control
+is as if
 .Fn pthread_once
 was never called.
 .Pp
 The constant
 .Fa PTHREAD_ONCE_INIT
 is defined by header
-.Aq Pa pthread.h .
+.In pthread.h .
 .Pp
 The behavior of
 .Fn pthread_once
@@ -93,10 +94,12 @@ has automatic storage duration or is not initialized by
 If successful, the
 .Fn pthread_once
 function will return zero.
-Otherwise, an error number will be returned to indicate the error.
+Otherwise an error number will be returned to
+indicate the error.
 .Sh ERRORS
 None.
 .Sh STANDARDS
+The
 .Fn pthread_once
-conforms to
+function conforms to
 .St -p1003.1-96 .

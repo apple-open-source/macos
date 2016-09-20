@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007, 2008  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007-2009  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: ifiter_getifaddrs.c,v 1.11 2008/03/20 23:47:00 tbox Exp $ */
+/* $Id: ifiter_getifaddrs.c,v 1.13 2009/09/24 23:48:13 tbox Exp $ */
 
 /*! \file
  * \brief
@@ -55,6 +55,7 @@ isc_interfaceiter_create(isc_mem_t *mctx, isc_interfaceiter_t **iterp) {
 	isc_interfaceiter_t *iter;
 	isc_result_t result;
 	char strbuf[ISC_STRERRORSIZE];
+	int trys, ret;
 
 	REQUIRE(mctx != NULL);
 	REQUIRE(iterp != NULL);
@@ -73,21 +74,34 @@ isc_interfaceiter_create(isc_mem_t *mctx, isc_interfaceiter_t **iterp) {
 	 * Only open "/proc/net/if_inet6" if we have never seen a IPv6
 	 * address returned by getifaddrs().
 	 */
-	if (!seenv6)
+	if (!seenv6) {
 		iter->proc = fopen("/proc/net/if_inet6", "r");
-	else
+		if (iter->proc == NULL) {
+			isc__strerror(errno, strbuf, sizeof(strbuf));
+			isc_log_write(isc_lctx, ISC_LOGCATEGORY_GENERAL,
+				      ISC_LOGMODULE_SOCKET, ISC_LOG_WARNING,
+				      "failed to open /proc/net/if_inet6");
+		}
+	} else
 		iter->proc = NULL;
 	iter->valid = ISC_R_FAILURE;
 #endif
 
-	if (getifaddrs(&iter->ifaddrs) < 0) {
+	/* If interrupted, try again */
+	for (trys = 0; trys < 3; trys++) {
+		if ((ret = getifaddrs(&iter->ifaddrs)) >= 0)
+			break;
+		if (errno != EINTR)
+			break;
+	}
+	if (ret < 0) {
 		isc__strerror(errno, strbuf, sizeof(strbuf));
 		UNEXPECTED_ERROR(__FILE__, __LINE__,
+                		 "getting interface addresses: %s: %s",
 				 isc_msgcat_get(isc_msgcat,
 						ISC_MSGSET_IFITERGETIFADDRS,
 						ISC_MSG_GETIFADDRS,
-						"getting interface "
-						"addresses: getifaddrs: %s"),
+						"getifaddrs"),
 				 strbuf);
 		result = ISC_R_UNEXPECTED;
 		goto failure;
@@ -133,6 +147,14 @@ internal_current(isc_interfaceiter_t *iter) {
 	ifa = iter->pos;
 
 #ifdef __linux
+	/*
+	 * [Bug 2792]
+	 * burnicki: iter->pos is usually never NULL here (anymore?),
+	 * so linux_if_inet6_current(iter) is never called here.
+	 * However, that routine would check (under Linux), if the
+	 * interface is in a tentative state, e.g. if there's no link
+	 * yet but an IPv6 address has already be assigned.
+	 */
 	if (iter->pos == NULL)
 		return (linux_if_inet6_current(iter));
 #endif
@@ -140,13 +162,24 @@ internal_current(isc_interfaceiter_t *iter) {
 	INSIST(ifa != NULL);
 	INSIST(ifa->ifa_name != NULL);
 
+
+#ifdef IFF_RUNNING
+	/*
+	 * [Bug 2792]
+	 * burnicki: if the interface is not running then
+	 * it may be in a tentative state. See above.
+	 */
+	if ((ifa->ifa_flags & IFF_RUNNING) == 0)
+		return (ISC_R_IGNORE);
+#endif
+
 	if (ifa->ifa_addr == NULL)
 		return (ISC_R_IGNORE);
 
 	family = ifa->ifa_addr->sa_family;
 	if (family != AF_INET && family != AF_INET6)
 		return (ISC_R_IGNORE);
-	
+
 #ifdef __linux
 	if (family == AF_INET6)
 		seenv6 = ISC_TRUE;
@@ -198,6 +231,9 @@ internal_current(isc_interfaceiter_t *iter) {
 		get_addr(family, &iter->current.broadcast, ifa->ifa_broadaddr,
 			 ifa->ifa_name);
 
+#ifdef ISC_PLATFORM_HAVEIFNAMETOINDEX
+	iter->current.ifindex = if_nametoindex(iter->current.name);
+#endif
 	return (ISC_R_SUCCESS);
 }
 

@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2003, 2008 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003, 2008, 2016 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -21,6 +21,8 @@
 #include "config.h"
 #include "ErrorInstance.h"
 
+#include "CodeBlock.h"
+#include "InlineCallFrame.h"
 #include "JSScope.h"
 #include "JSCInlines.h"
 #include "JSGlobalObjectFunctions.h"
@@ -52,14 +54,20 @@ static void appendSourceToError(CallFrame* callFrame, ErrorInstance* exception, 
     int divotPoint = 0;
     unsigned line = 0;
     unsigned column = 0;
-    
-    CodeBlock* codeBlock = callFrame->codeBlock();
+
+    CodeBlock* codeBlock;
+    CodeOrigin codeOrigin = callFrame->codeOrigin();
+    if (codeOrigin && codeOrigin.inlineCallFrame)
+        codeBlock = baselineCodeBlockForInlineCallFrame(codeOrigin.inlineCallFrame);
+    else
+        codeBlock = callFrame->codeBlock();
+
     codeBlock->expressionRangeForBytecodeOffset(bytecodeOffset, divotPoint, startOffset, endOffset, line, column);
     
     int expressionStart = divotPoint - startOffset;
     int expressionStop = divotPoint + endOffset;
 
-    const String& sourceString = codeBlock->source()->source();
+    StringView sourceString = codeBlock->source()->source();
     if (!expressionStop || expressionStart > static_cast<int>(sourceString.length()))
         return;
     
@@ -70,24 +78,23 @@ static void appendSourceToError(CallFrame* callFrame, ErrorInstance* exception, 
     
     String message = asString(jsMessage)->value(callFrame);
     if (expressionStart < expressionStop)
-        message = appender(message, codeBlock->source()->getRange(expressionStart, expressionStop) , type, ErrorInstance::FoundExactSource);
+        message = appender(message, codeBlock->source()->getRange(expressionStart, expressionStop).toString(), type, ErrorInstance::FoundExactSource);
     else {
         // No range information, so give a few characters of context.
-        const StringImpl* data = sourceString.impl();
         int dataLength = sourceString.length();
         int start = expressionStart;
         int stop = expressionStart;
         // Get up to 20 characters of context to the left and right of the divot, clamping to the line.
         // Then strip whitespace.
-        while (start > 0 && (expressionStart - start < 20) && (*data)[start - 1] != '\n')
+        while (start > 0 && (expressionStart - start < 20) && sourceString[start - 1] != '\n')
             start--;
-        while (start < (expressionStart - 1) && isStrWhiteSpace((*data)[start]))
+        while (start < (expressionStart - 1) && isStrWhiteSpace(sourceString[start]))
             start++;
-        while (stop < dataLength && (stop - expressionStart < 20) && (*data)[stop] != '\n')
+        while (stop < dataLength && (stop - expressionStart < 20) && sourceString[stop] != '\n')
             stop++;
-        while (stop > expressionStart && isStrWhiteSpace((*data)[stop - 1]))
+        while (stop > expressionStart && isStrWhiteSpace(sourceString[stop - 1]))
             stop--;
-        message = appender(message, codeBlock->source()->getRange(start, stop), type, ErrorInstance::FoundApproximateSource);
+        message = appender(message, codeBlock->source()->getRange(start, stop).toString(), type, ErrorInstance::FoundApproximateSource);
     }
     exception->putDirect(*vm, vm->propertyNames->message, jsString(vm, message));
 
@@ -128,50 +135,6 @@ private:
     unsigned m_index;
 };
 
-static bool addErrorInfoAndGetBytecodeOffset(ExecState* exec, VM& vm, JSObject* obj, bool useCurrentFrame, CallFrame*& callFrame, unsigned &bytecodeOffset)
-{
-    Vector<StackFrame> stackTrace = Vector<StackFrame>();
-
-    if (exec && stackTrace.isEmpty())
-        vm.interpreter->getStackTrace(stackTrace);
-
-    if (!stackTrace.isEmpty()) {
-
-        ASSERT(exec == vm.topCallFrame || exec == exec->lexicalGlobalObject()->globalExec() || exec == exec->vmEntryGlobalObject()->globalExec());
-
-        StackFrame* stackFrame;
-        for (unsigned i = 0 ; i < stackTrace.size(); ++i) {
-            stackFrame = &stackTrace.at(i);
-            if (stackFrame->bytecodeOffset)
-                break;
-        }
-
-        if (bytecodeOffset) {
-            FindFirstCallerFrameWithCodeblockFunctor functor(exec);
-            vm.topCallFrame->iterate(functor);
-            callFrame = functor.foundCallFrame();
-            unsigned stackIndex = functor.index();
-            bytecodeOffset = stackTrace.at(stackIndex).bytecodeOffset;
-        }
-        
-        unsigned line;
-        unsigned column;
-        stackFrame->computeLineAndColumn(line, column);
-        obj->putDirect(vm, vm.propertyNames->line, jsNumber(line), ReadOnly | DontDelete);
-        obj->putDirect(vm, vm.propertyNames->column, jsNumber(column), ReadOnly | DontDelete);
-
-        if (!stackFrame->sourceURL.isEmpty())
-            obj->putDirect(vm, vm.propertyNames->sourceURL, jsString(&vm, stackFrame->sourceURL), ReadOnly | DontDelete);
-    
-        if (!useCurrentFrame)
-            stackTrace.remove(0);
-        obj->putDirect(vm, vm.propertyNames->stack, vm.interpreter->stackTraceAsString(vm.topCallFrame, stackTrace), DontEnum);
-
-        return true;
-    }
-    return false;
-}
-
 void ErrorInstance::finishCreation(ExecState* exec, VM& vm, const String& message, bool useCurrentFrame)
 {
     Base::finishCreation(vm);
@@ -179,14 +142,79 @@ void ErrorInstance::finishCreation(ExecState* exec, VM& vm, const String& messag
     if (!message.isNull())
         putDirect(vm, vm.propertyNames->message, jsString(&vm, message), DontEnum);
 
-    unsigned bytecodeOffset = hasSourceAppender();
+    unsigned bytecodeOffset = 0;
     CallFrame* callFrame = nullptr;
-    bool hasTrace = addErrorInfoAndGetBytecodeOffset(exec, vm, this, useCurrentFrame, callFrame, bytecodeOffset);
+    bool hasTrace = addErrorInfoAndGetBytecodeOffset(exec, vm, this, useCurrentFrame, callFrame, hasSourceAppender() ? &bytecodeOffset : nullptr);
 
     if (hasTrace && callFrame && hasSourceAppender()) {
         if (callFrame && callFrame->codeBlock()) 
             appendSourceToError(callFrame, this, bytecodeOffset);
     }
 }
-    
+
+// Based on ErrorPrototype's errorProtoFuncToString(), but is modified to
+// have no observable side effects to the user (i.e. does not call proxies,
+// and getters).
+String ErrorInstance::sanitizedToString(ExecState* exec)
+{
+    VM& vm = exec->vm();
+
+    JSValue nameValue;
+    auto namePropertName = vm.propertyNames->name;
+    PropertySlot nameSlot(this, PropertySlot::InternalMethodType::VMInquiry);
+
+    JSValue currentObj = this;
+    unsigned prototypeDepth = 0;
+
+    // We only check the current object and its prototype (2 levels) because normal
+    // Error objects may have a name property, and if not, its prototype should have
+    // a name property for the type of error e.g. "SyntaxError".
+    while (currentObj.isCell() && prototypeDepth++ < 2) {
+        JSObject* obj = jsCast<JSObject*>(currentObj);
+        if (JSObject::getOwnPropertySlot(obj, exec, namePropertName, nameSlot) && nameSlot.isValue()) {
+            nameValue = nameSlot.getValue(exec, namePropertName);
+            break;
+        }
+        currentObj = obj->getPrototypeDirect();
+    }
+    ASSERT(!vm.exception());
+
+    String nameString;
+    if (!nameValue)
+        nameString = ASCIILiteral("Error");
+    else {
+        nameString = nameValue.toString(exec)->value(exec);
+        if (vm.exception())
+            return String();
+    }
+
+    JSValue messageValue;
+    auto messagePropertName = vm.propertyNames->message;
+    PropertySlot messageSlot(this, PropertySlot::InternalMethodType::VMInquiry);
+    if (JSObject::getOwnPropertySlot(this, exec, messagePropertName, messageSlot) && messageSlot.isValue())
+        messageValue = messageSlot.getValue(exec, messagePropertName);
+    ASSERT(!vm.exception());
+
+    String messageString;
+    if (!messageValue)
+        messageString = String();
+    else {
+        messageString = messageValue.toString(exec)->value(exec);
+        if (vm.exception())
+            return String();
+    }
+
+    if (!nameString.length())
+        return messageString;
+
+    if (!messageString.length())
+        return nameString;
+
+    StringBuilder builder;
+    builder.append(nameString);
+    builder.append(": ");
+    builder.append(messageString);
+    return builder.toString();
+}
+
 } // namespace JSC

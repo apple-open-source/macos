@@ -3,11 +3,11 @@
  */
 
 #include <Security/SecPolicyPriv.h>
-#include <Security/SecInternal.h>
+#include <utilities/SecCFWrappers.h>
 
 #include <test/testpolicy.h>
 
-#include "Security_regressions.h"
+#include "shared_regressions.h"
 
 static void tests(void)
 {
@@ -23,7 +23,7 @@ static void tests(void)
 
 int si_24_sectrust_diginotar(int argc, char *const *argv)
 {
-	plan_tests(27);
+	plan_tests(25);
 
 	tests();
 

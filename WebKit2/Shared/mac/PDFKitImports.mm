@@ -26,6 +26,8 @@
 #include "config.h"
 #include "PDFKitImports.h"
 
+#if PLATFORM(MAC)
+
 namespace WebKit {
 
 NSString *pdfKitFrameworkPath()
@@ -76,6 +78,16 @@ Class pdfAnnotationChoiceWidgetClass()
     ASSERT(pdfAnnotationChoiceWidgetClass);
     return pdfAnnotationChoiceWidgetClass;
 }
+
+Class pdfSelectionClass()
+{
+    static Class pdfSelectionClass = classFromPDFKit(@"PDFSelection");
+    ASSERT(pdfSelectionClass);
+    return pdfSelectionClass;
+}
+
 #endif
 
 }
+
+#endif // PLATFORM(MAC)

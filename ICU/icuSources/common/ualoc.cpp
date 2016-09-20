@@ -4,6 +4,11 @@
 *****************************************************************************************
 */
 
+#define DEBUG_UALOC 0
+#if DEBUG_UALOC
+#include <stdio.h>
+#endif
+#include <string.h>
 #include "unicode/utypes.h"
 #include "unicode/ualoc.h"
 #include "unicode/uloc.h"
@@ -189,8 +194,9 @@ static const char * forceParent[] = {
     "en_JE",   "en_GB",
     "en_MO",   "en_GB",
     "en_MT",   "en_GB",
+    "en_MV",   "en_GB",  // for Maldives
     "en_MY",   "en_GB",  // en for Malaysia
-    "en_NZ",   "en_GB",
+    "en_NZ",   "en_AU",
     "en_PK",   "en_GB",  // en for Pakistan
     "en_SG",   "en_GB",
     "en_SH",   "en_GB",
@@ -201,6 +207,8 @@ static const char * forceParent[] = {
     "zh_TW",   "root",
     NULL
 };
+
+enum { kLocBaseNameMax = 16 };
 
 U_CAPI int32_t U_EXPORT2
 ualoc_getAppleParent(const char* localeID,
@@ -258,6 +266,7 @@ ualoc_getAppleParent(const char* localeID,
     rb = ures_openDirect(NULL, locbuf, &tempStatus);
     if (U_SUCCESS(tempStatus)) {
         const char * actualLocale = ures_getLocaleByType(rb, ULOC_ACTUAL_LOCALE, &tempStatus);
+        ures_close(rb);
         if (U_SUCCESS(tempStatus) && uprv_strcmp(locbuf, actualLocale) != 0) {
             // we have followed an alias
             len = uprv_strlen(actualLocale);
@@ -266,22 +275,58 @@ ualoc_getAppleParent(const char* localeID,
             } else {
                 *err = U_BUFFER_OVERFLOW_ERROR;
             }
-            ures_close(rb);
             return len;
         }
-        tempStatus = U_ZERO_ERROR;
-        const UChar * parentUName = ures_getStringByKey(rb, "%%Parent", &len, &tempStatus);
-        if (U_SUCCESS(tempStatus) && tempStatus != U_USING_FALLBACK_WARNING) {
+    }
+    tempStatus = U_ZERO_ERROR;
+    rb = ures_openDirect(NULL, "supplementalData", &tempStatus);
+    rb = ures_getByKey(rb, "parentLocales", rb, &tempStatus);
+    if (U_SUCCESS(tempStatus)) {
+        UResourceBundle * parentMapBundle = NULL;
+        int32_t childLen = 0;
+        while (childLen == 0) {
+            tempStatus = U_ZERO_ERROR;
+            parentMapBundle = ures_getNextResource(rb, parentMapBundle, &tempStatus);
+            if (U_FAILURE(tempStatus)) {
+                break; // no more parent bundles, normal exit
+            }
+            char childName[kLocBaseNameMax + 1];
+            childName[kLocBaseNameMax] = 0;
+            const char * childPtr = NULL;
+            if (ures_getType(parentMapBundle) == URES_STRING) {
+                childLen = kLocBaseNameMax;
+                childPtr = ures_getUTF8String(parentMapBundle, childName, &childLen, FALSE, &tempStatus);
+                if (U_FAILURE(tempStatus) || uprv_strncmp(locbuf, childPtr, kLocBaseNameMax) != 0) {
+                    childLen = 0;
+                }
+            } else { // should be URES_ARRAY
+                int32_t childCur, childCount = ures_getSize(parentMapBundle);
+                for (childCur = 0; childCur < childCount && childLen == 0; childCur++) {
+                    tempStatus = U_ZERO_ERROR;
+                    childLen = kLocBaseNameMax;
+                    childPtr = ures_getUTF8StringByIndex(parentMapBundle, childCur, childName, &childLen, FALSE, &tempStatus);
+                    if (U_FAILURE(tempStatus) || uprv_strncmp(locbuf, childPtr, kLocBaseNameMax) != 0) {
+                        childLen = 0;
+                    }
+                }
+            }
+        }
+        ures_close(rb);
+        if (childLen > 0) {
+            // parentMapBundle key is the parent we are looking for
+            const char * keyStr = ures_getKey(parentMapBundle);
+            len = uprv_strlen(keyStr);
             if (len < parentCapacity) {
-                u_UCharsToChars(parentUName, parent, len + 1);
+                 uprv_strcpy(parent, keyStr);
             } else {
                 *err = U_BUFFER_OVERFLOW_ERROR;
             }
-            ures_close(rb);
+            ures_close(parentMapBundle);
             return len;
         }
-        ures_close(rb);
+        ures_close(parentMapBundle);
     }
+    
     len = uloc_getParent(locbuf, parent, parentCapacity, err);
     if (U_SUCCESS(*err) && len == 0) {
         len = 4;
@@ -322,7 +367,7 @@ static const char * appleAliasMap[][2] = {
     { "turkish",    "tr"      },    // T2
     { "zh",         "zh_Hans" },    // special
 };
-enum { kAppleAliasMapCount = sizeof(appleAliasMap)/sizeof(appleAliasMap[0]) };
+enum { kAppleAliasMapCount = UPRV_LENGTHOF(appleAliasMap) };
 
 static const char * appleParentMap[][2] = {
     { "en_150",     "en_GB"   },    // Apple custom parent
@@ -364,10 +409,11 @@ static const char * appleParentMap[][2] = {
     { "en_ME",      "en_150"  },    // Apple locale addition
     { "en_MO",      "en_GB"   },
     { "en_MT",      "en_GB"   },
+    { "en_MV",      "en_GB"   },
     { "en_MY",      "en_GB"   },    // Apple custom parent
     { "en_NL",      "en_150"  },    // Apple locale addition
     { "en_NO",      "en_150"  },    // Apple locale addition
-    { "en_NZ",      "en_GB"   },
+    { "en_NZ",      "en_AU"   },
     { "en_PK",      "en_GB"   },    // Apple custom parent
     { "en_PL",      "en_150"  },    // Apple locale addition
     { "en_PT",      "en_150"  },    // Apple locale addition
@@ -381,17 +427,31 @@ static const char * appleParentMap[][2] = {
     { "en_TR",      "en_150"  },    // Apple locale addition
     { "en_VG",      "en_GB"   },
 };
-enum { kAppleParentMapCount = sizeof(appleParentMap)/sizeof(appleParentMap[0]) };
+enum { kAppleParentMapCount = UPRV_LENGTHOF(appleParentMap) };
 
-// Might do something better for this, perhaps maximizing locales then stripping.
-// Selected parents of available localizations, add as necessary.
-static const char * locParentMap[][2] = {
-    { "pt_BR",      "pt"        },
-    { "pt_PT",      "pt"        },
-    { "zh_Hans_CN", "zh_Hans"   },
-    { "zh_Hant_TW", "zh_Hant"   },
+typedef struct {
+    const char * locale;
+    const char * parent;
+    int8_t       distance;
+} LocParentAndDistance;
+
+static LocParentAndDistance locParentMap[] = {
+    // The localizations listed in the first column are in
+    // normalized form (e.g. zh_CN -> zh_Hans_CN, etc.).
+    // The distance is a rough measure of distance from
+    // the localization to its parent, used as a weight.
+    { "en_100",     "en",      2 },
+    { "en_150",     "en_GB",   1 },
+    { "en_AU",      "en_GB",   1 },
+    { "en_GB",      "en_100",  0 },
+    { "es_419",     "es",      2 },
+    { "es_MX",      "es_419",  0 },
+    { "pt_PT",      "pt",      2 },
+    { "zh_Hans_CN", "zh_Hans", 0 },
+    { "zh_Hant_HK", "zh_Hant", 1 },
+    { "zh_Hant_TW", "zh_Hant", 0 },
 };
-enum { kLocParentMapCount = sizeof(locParentMap)/sizeof(locParentMap[0]) };
+enum { kLocParentMapCount = UPRV_LENGTHOF(locParentMap), kMaxParentDistance = 8 };
 
 enum {
     kStringsAllocSize = 4096, // cannot expand; current actual usage 3610
@@ -566,8 +626,10 @@ static void initializeMapData() {
         return;
     }
 
-    //printf("# gStrings size %ld\n", stringsPtr - gStrings);
-    //printf("# gParentMap count %d\n", uhash_count(gParentMap));
+#if DEBUG_UALOC
+    printf("# gStrings size %ld\n", stringsPtr - gStrings);
+    printf("# gParentMap count %d\n", uhash_count(gParentMap));
+#endif
     gMapDataState = 1;
 }
 
@@ -588,7 +650,7 @@ static void ualoc_normalize(const char *locale, char *normalized, int32_t normal
     if (replacement == NULL) {
         replacement = locale;
     }
-    int32_t len = uprv_strlen(replacement);
+    int32_t len = strnlen(replacement, normalizedCapacity);
     if (len < normalizedCapacity) { // allow for 0 termination
         uprv_strcpy(normalized, replacement);
     } else {
@@ -618,12 +680,13 @@ static void ualoc_getParent(const char *locale, char *parent, int32_t parentCapa
 }
 
 // Might do something better for this, perhaps maximizing locales then stripping
-const char * getLocParent(const char *locale)
+static const char * getLocParent(const char *locale, int32_t* distance)
 {
     int32_t locParentIndex;
     for (locParentIndex = 0; locParentIndex < kLocParentMapCount; locParentIndex++) {
-        if (uprv_strcmp(locale, locParentMap[locParentIndex][0]) == 0) {
-            return locParentMap[locParentIndex][1];
+        if (uprv_strcmp(locale, locParentMap[locParentIndex].locale) == 0) {
+            *distance = locParentMap[locParentIndex].distance;
+            return locParentMap[locParentIndex].parent;
         }
     }
     return NULL;
@@ -665,10 +728,21 @@ ualoc_localizationsToUse( const char* const *preferredLanguages,
     }
     int32_t locsToUseCount = 0;
     int32_t prefLangIndex, availLocIndex = 0;
+    int32_t availLocIndexBackup = -1; // if >= 0, contains index of backup match
+    int32_t foundMatchPrefLangIndex = 0, backupMatchPrefLangIndex = 0;
     char (*availLocBase)[kLangScriptRegMaxLen + 1] = NULL;
     char (*availLocNorm)[kLangScriptRegMaxLen + 1] = NULL;
-    UBool checkAvailLocParents = FALSE;
     UBool foundMatch = FALSE;
+
+#if DEBUG_UALOC
+    if (preferredLanguagesCount > 0 && availableLocalizationsCount > 0) {
+        printf("\n # ualoc_localizationsToUse start, preferredLanguages %d: %s, ..., availableLocalizations %d: %s, ...\n",
+                 preferredLanguagesCount, preferredLanguages[0], availableLocalizationsCount, availableLocalizations[0]);
+    } else {
+        printf("\n # ualoc_localizationsToUse start, preferredLanguages %d: ..., availableLocalizations %d: ...\n",
+                 preferredLanguagesCount, availableLocalizationsCount);
+    }
+#endif
 
     // Part 1, find the best matching localization, if any
     for (prefLangIndex = 0; prefLangIndex < preferredLanguagesCount; prefLangIndex++) {
@@ -687,7 +761,9 @@ ualoc_localizationsToUse( const char* const *preferredLanguages,
             continue; // can't handle this preferredLanguages entry or it is invalid, go to next one
         }
         prefLangBaseName[kLangScriptRegMaxLen] = 0; // ensure 0 termination, could have U_STRING_NOT_TERMINATED_WARNING
-        //printf("   # prefLangBaseName %s\n", prefLangBaseName);
+#if DEBUG_UALOC
+        printf("  # loop: try prefLangBaseName %s\n", prefLangBaseName);
+#endif
 
         // if we have not already allocated and filled the array of
         // base availableLocalizations, do so now.
@@ -696,25 +772,38 @@ ualoc_localizationsToUse( const char* const *preferredLanguages,
             if (availLocBase == NULL) {
                 continue; // cannot further check this preferredLanguages entry, go to next one
             }
+#if DEBUG_UALOC
+            printf("   # allocate & fill availLocBase\n");
+#endif
             for (availLocIndex = 0; availLocIndex < availableLocalizationsCount; availLocIndex++) {
                 tmpStatus = U_ZERO_ERROR;
+                if (availableLocalizations[availLocIndex] == NULL) {
+                    availLocBase[availLocIndex][0] = 0; // effectively remove this entry
+                    continue;
+                }
                 uloc_getBaseName(availableLocalizations[availLocIndex], availLocBase[availLocIndex], kLangScriptRegMaxLen, &tmpStatus);
                 if (U_FAILURE(tmpStatus) || uprv_strcmp(availLocBase[availLocIndex], "root") == 0 || availLocBase[availLocIndex][0] == '_') {
                     availLocBase[availLocIndex][0] = 0; // effectively remove this entry
-                } else {
-                    availLocBase[availLocIndex][kLangScriptRegMaxLen] = 0; // ensure 0 termination, could have U_STRING_NOT_TERMINATED_WARNING
+                    continue;
                 }
+                availLocBase[availLocIndex][kLangScriptRegMaxLen] = 0; // ensure 0 termination, could have U_STRING_NOT_TERMINATED_WARNING
+#if DEBUG_UALOC
+                printf("    # add availLocBase %s\n", availLocBase[availLocIndex]);
+#endif
             }
         }
         // first compare base preferredLanguage to base versions of availableLocalizations names
         for (availLocIndex = 0; availLocIndex < availableLocalizationsCount; availLocIndex++) {
             if (uprv_strcmp(prefLangBaseName, availLocBase[availLocIndex]) == 0) {
                 foundMatch = TRUE; // availLocIndex records where
+                foundMatchPrefLangIndex = prefLangIndex;
+#if DEBUG_UALOC
+                printf("   # FOUND: matched availLocBase %s -> actualLoc %s\n", availLocBase[availLocIndex], availableLocalizations[availLocIndex]);
+#endif
                 break;
             }
         }
         if (foundMatch) {
-            //printf("   # matched actualLocName\n");
             break; // found a loc for this preferredLanguages entry
         }
 
@@ -724,7 +813,9 @@ ualoc_localizationsToUse( const char* const *preferredLanguages,
         if (U_FAILURE(tmpStatus)) {
             continue; // can't handle this preferredLanguages entry, go to next one
         }
-        //printf("   # prefLangNormName %s\n", prefLangNormName);
+#if DEBUG_UALOC
+        printf("   # prefLangNormName %s\n", prefLangNormName);
+#endif
         // if we have not already allocated and filled the array of
         // normalized availableLocalizations, do so now.
         // Note: ualoc_normalize turns "zh_TW" into "zh_Hant_TW", zh_HK" into "zh_Hant_HK",
@@ -734,15 +825,19 @@ ualoc_localizationsToUse( const char* const *preferredLanguages,
             if (availLocNorm == NULL) {
                 continue; // cannot further check this preferredLanguages entry, go to next one
             }
+#if DEBUG_UALOC
+            printf("   # allocate & fill availLocNorm\n");
+#endif
             for (availLocIndex = 0; availLocIndex < availableLocalizationsCount; availLocIndex++) {
                 tmpStatus = U_ZERO_ERROR;
                 ualoc_normalize(availLocBase[availLocIndex], availLocNorm[availLocIndex], kLangScriptRegMaxLen + 1, &tmpStatus);
                 if (U_FAILURE(tmpStatus)) {
                     availLocNorm[availLocIndex][0] = 0; // effectively remove this entry
-                } else if (getLocParent(availLocNorm[availLocIndex]) != NULL) {
-                    checkAvailLocParents = TRUE;
+#if DEBUG_UALOC
+                } else {
+                    printf("   # actualLoc %-11s -> norm %s\n", availableLocalizations[availLocIndex], availLocNorm[availLocIndex]);
+#endif
                 }
-                //printf("   # actualLoc %-11s -> norm %s\n", availableLocalizations[availLocIndex], availLocNorm[availLocIndex]);
             }
         }
         // now compare normalized preferredLanguage to normalized localization names
@@ -750,11 +845,14 @@ ualoc_localizationsToUse( const char* const *preferredLanguages,
         for (availLocIndex = 0; availLocIndex < availableLocalizationsCount; availLocIndex++) {
             if (uprv_strcmp(prefLangNormName, availLocNorm[availLocIndex]) == 0) {
                 foundMatch = TRUE; // availLocIndex records where
+                foundMatchPrefLangIndex = prefLangIndex;
+#if DEBUG_UALOC
+                printf("   # FOUND: matched availLocNorm %s -> actualLoc %s\n", availLocNorm[availLocIndex], availableLocalizations[availLocIndex]);
+#endif
                 break;
             }
         }
         if (foundMatch) {
-            //printf("   # matched actualLocNormName\n");
             break; // found a loc for this preferredLanguages entry
         }
 
@@ -767,13 +865,19 @@ ualoc_localizationsToUse( const char* const *preferredLanguages,
             if (U_FAILURE(tmpStatus) || uprv_strcmp(prefLangParentName, "root") == 0 || prefLangParentName[0] == 0) {
                 break; // reached root or cannot proceed further
             }
-            //printf("   # prefLangParentName %s\n", prefLangParentName);
+#if DEBUG_UALOC
+            printf("   # prefLangParentName %s\n", prefLangParentName);
+#endif
 
             // now compare this preferredLanguage parent to normalized localization names
             // if matches, copy *original* localization name
             for (availLocIndex = 0; availLocIndex < availableLocalizationsCount; availLocIndex++) {
                 if (uprv_strcmp(prefLangParentName, availLocNorm[availLocIndex]) == 0) {
                     foundMatch = TRUE; // availLocIndex records where
+                    foundMatchPrefLangIndex = prefLangIndex;
+#if DEBUG_UALOC
+                    printf("   # FOUND: matched availLocNorm %s -> actualLoc %s\n", availLocNorm[availLocIndex], availableLocalizations[availLocIndex]);
+#endif
                     break;
                 }
             }
@@ -783,26 +887,101 @@ ualoc_localizationsToUse( const char* const *preferredLanguages,
             break; // found a loc for this preferredLanguages entry
         }
 
-        // last try, use parents of selected
-        if (checkAvailLocParents) {
+        // last try, use parents of selected language to try for backup match
+        // if we have not already found one
+        if (availLocIndexBackup < 0) {
             // now walk up the parent chain for preferredLanguage again
             // checking against parents of selected availLocNorm entries
             // but this time start with current prefLangNormName
             uprv_strcpy(prefLangBaseName, prefLangNormName);
+            int32_t minDistance = kMaxParentDistance;
             while (TRUE) {
-                tmpStatus = U_ZERO_ERROR;
                 // now compare this preferredLanguage to normalized localization names
                 // parent if have one for this;  if matches, copy *original* localization name
+#if DEBUG_UALOC
+                printf("   # BACKUP: trying prefLangBaseName %s\n", prefLangBaseName);
+#endif
                 for (availLocIndex = 0; availLocIndex < availableLocalizationsCount; availLocIndex++) {
-                    const char *availLocParent = getLocParent(availLocNorm[availLocIndex]);
-                    if (availLocParent && uprv_strcmp(prefLangBaseName, availLocParent) == 0) {
-                        foundMatch = TRUE; // availLocIndex records where
-                        break;
+                    char availLocMinOrParent[kLangScriptRegMaxLen + 1];
+                    int32_t distance;
+                    // first check for special Apple parents of availLocNorm -
+                    // - the number of locales with such parents is small -
+                    // or if not such parent, then try stripping region.
+                    const char *availLocParent = getLocParent(availLocNorm[availLocIndex], &distance);
+                    if (availLocParent) {
+#if DEBUG_UALOC
+                        printf("    # availLocAppleParentName %s\n", availLocParent);
+#endif
+                        if (uprv_strcmp(prefLangBaseName, availLocParent) == 0 && distance < minDistance) {
+                            availLocIndexBackup = availLocIndex; // records where the match occurred
+                            backupMatchPrefLangIndex = prefLangIndex;
+                            minDistance = distance;
+#if DEBUG_UALOC
+                            printf("    # BACKUP: LocAppleParent matched prefLangNormName with distance %d\n", distance);
+#endif
+                            continue;
+                        }
+                    }
+                    if (minDistance <= 1) {
+                        continue; // we can't get any closer in the rest of this iteration
+                    }
+                    if (availLocParent == NULL) {
+                        tmpStatus = U_ZERO_ERROR;
+                        int32_t regLen = uloc_getCountry(availLocNorm[availLocIndex], availLocMinOrParent, kLangScriptRegMaxLen, &tmpStatus);
+                        if (U_SUCCESS(tmpStatus) && regLen > 1) {
+                            uloc_addLikelySubtags(availLocNorm[availLocIndex], availLocMinOrParent, kLangScriptRegMaxLen, &tmpStatus);
+                            if (U_SUCCESS(tmpStatus)) {
+                                availLocMinOrParent[kLangScriptRegMaxLen] = 0; // ensure 0 termination, could have U_STRING_NOT_TERMINATED_WARNING
+#if DEBUG_UALOC
+                                printf("    # availLocRegMaxName %s\n", availLocMinOrParent);
+#endif
+                                char availLocTemp[kLangScriptRegMaxLen + 1];
+                                uloc_getParent(availLocMinOrParent, availLocTemp, kLangScriptRegMaxLen, &tmpStatus);
+                                if (U_SUCCESS(tmpStatus)) {
+                                    availLocTemp[kLangScriptRegMaxLen] = 0;
+                                    uloc_minimizeSubtags(availLocTemp, availLocMinOrParent, kLangScriptRegMaxLen, &tmpStatus);
+                                    if (U_SUCCESS(tmpStatus)) {
+                                        availLocMinOrParent[kLangScriptRegMaxLen] = 0; 
+#if DEBUG_UALOC
+                                        printf("    # availLocNoRegParentName %s\n", availLocMinOrParent);
+#endif
+                                        if (uprv_strcmp(prefLangBaseName, availLocMinOrParent) == 0) {
+                                            availLocIndexBackup = availLocIndex; // records where the match occurred
+                                            backupMatchPrefLangIndex = prefLangIndex;
+                                            minDistance = 1;
+#if DEBUG_UALOC
+                                            printf("    # BACKUP: LocNoRegParent matched prefLangNormName with distance 1\n");
+#endif
+                                            continue;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // then check against minimized version of availLocNorm
+                    tmpStatus = U_ZERO_ERROR;
+                    uloc_minimizeSubtags(availLocNorm[availLocIndex], availLocMinOrParent, kLangScriptRegMaxLen, &tmpStatus);
+                    if (U_FAILURE(tmpStatus)) {
+                        continue;
+                    }
+                    availLocMinOrParent[kLangScriptRegMaxLen] = 0; // ensure 0 termination, could have U_STRING_NOT_TERMINATED_WARNING
+#if DEBUG_UALOC
+                    printf("    # availLocMinimized %s\n", availLocMinOrParent);
+#endif
+                    if (uprv_strcmp(prefLangBaseName, availLocMinOrParent) == 0) {
+                        availLocIndexBackup = availLocIndex; // records where the match occurred
+                        backupMatchPrefLangIndex = prefLangIndex;
+                        minDistance = 1;
+#if DEBUG_UALOC
+                        printf("    # BACKUP: LocMinimized matched prefLangNormName with distance 1\n");
+#endif
                     }
                 }
-                if (foundMatch) {
+                if (availLocIndexBackup >= 0) {
                     break;
                 }
+                tmpStatus = U_ZERO_ERROR;
                 ualoc_getParent(prefLangBaseName, prefLangParentName, kLangScriptRegMaxLen + 1, &tmpStatus);
                 if (U_FAILURE(tmpStatus) || uprv_strcmp(prefLangParentName, "root") == 0 || prefLangParentName[0] == 0) {
                     break; // reached root or cannot proceed further
@@ -810,8 +989,60 @@ ualoc_localizationsToUse( const char* const *preferredLanguages,
                 uprv_strcpy(prefLangBaseName, prefLangParentName);
             }
         }
-        if (foundMatch) {
-            break; // found a loc for this preferredLanguages entry
+    }
+    // If we have a backup match, decide what to do
+    if (availLocIndexBackup >= 0) {
+        if (!foundMatch) {
+            // no main match, just use the backup
+            availLocIndex = availLocIndexBackup;
+            foundMatch = TRUE;
+#if DEBUG_UALOC
+            printf(" # no main match, have backup => use availLocIndexBackup %d\n", availLocIndexBackup);
+#endif
+        } else if (backupMatchPrefLangIndex < foundMatchPrefLangIndex && uprv_strncmp(availLocNorm[availLocIndexBackup], "pt_BR", ULOC_LANG_CAPACITY) != 0) {
+            // have a main match but backup match was higher in the prefs, use it if for a different language
+#if DEBUG_UALOC
+            printf(" # have backup match higher in prefs, comparing its language and script to main match\n");
+#endif
+            char mainLang[ULOC_LANG_CAPACITY + 1];
+            char backupLang[ULOC_LANG_CAPACITY + 1];
+            UErrorCode tmpStatus = U_ZERO_ERROR;
+            uloc_getLanguage(availLocNorm[availLocIndex], mainLang, ULOC_LANG_CAPACITY, &tmpStatus);
+            mainLang[ULOC_LANG_CAPACITY] = 0; // ensure zero termination
+            uloc_getLanguage(availLocNorm[availLocIndexBackup], backupLang, ULOC_LANG_CAPACITY, &tmpStatus);
+            backupLang[ULOC_LANG_CAPACITY] = 0; // ensure zero termination
+            if (U_SUCCESS(tmpStatus)) {
+                if (uprv_strncmp(mainLang, backupLang, ULOC_LANG_CAPACITY) != 0) {
+                    // backup match has different language than main match
+                    availLocIndex = availLocIndexBackup;
+                    // foundMatch is already TRUE
+#if DEBUG_UALOC
+                    printf(" # main match but backup is for a different lang higher in prefs => use availLocIndexBackup %d\n", availLocIndexBackup);
+#endif
+                } else {
+                    // backup match has same language as main match, check scripts too
+                    char availLocMaximized[kLangScriptRegMaxLen + 1];
+
+                    uloc_addLikelySubtags(availLocNorm[availLocIndex], availLocMaximized, kLangScriptRegMaxLen, &tmpStatus);
+                    availLocMaximized[kLangScriptRegMaxLen] = 0;
+                    uloc_getScript(availLocMaximized, mainLang, ULOC_LANG_CAPACITY, &tmpStatus);
+                    mainLang[ULOC_LANG_CAPACITY] = 0;
+ 
+                    uloc_addLikelySubtags(availLocNorm[availLocIndexBackup], availLocMaximized, kLangScriptRegMaxLen, &tmpStatus);
+                    availLocMaximized[kLangScriptRegMaxLen] = 0;
+                    uloc_getScript(availLocMaximized, backupLang, ULOC_LANG_CAPACITY, &tmpStatus);
+                    backupLang[ULOC_LANG_CAPACITY] = 0;
+
+                    if (U_SUCCESS(tmpStatus) && uprv_strncmp(mainLang, backupLang, ULOC_LANG_CAPACITY) != 0) {
+                        // backup match has different script than main match
+                        availLocIndex = availLocIndexBackup;
+                        // foundMatch is already TRUE
+#if DEBUG_UALOC
+                        printf(" # main match but backup is for a different script higher in prefs => use availLocIndexBackup %d\n", availLocIndexBackup);
+#endif
+                    }
+                 }
+            }
         }
     }
 

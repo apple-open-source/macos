@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2013, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -41,7 +41,7 @@ __BEGIN_DECLS
 
 #ifndef	my_log
 #define	MY_LOG_DEFINED_LOCALLY
-#define	my_log(__level, fmt, ...)	SC_log(__level, fmt, ## __VA_ARGS__)
+#define	my_log(__level, __format, ...)	SC_log(__level, __format, ## __VA_ARGS__)
 #endif	// !my_log
 
 
@@ -354,7 +354,8 @@ _dns_resolver_log(dns_resolver_t *resolver, int index, Boolean debug)
 	uint32_t		flags;
 	CFMutableStringRef	str;
 
-	my_log(LOG_INFO, "\nresolver #%d", index);
+	my_log(LOG_INFO, " ");
+	my_log(LOG_INFO, "resolver #%d", index);
 
 	if (resolver->domain != NULL) {
 		my_log(LOG_INFO, "  domain   : %s", resolver->domain);
@@ -470,7 +471,8 @@ _dns_configuration_log(dns_config_t *dns_config, Boolean debug)
 	}
 
 	if ((dns_config->n_scoped_resolver > 0) && (dns_config->scoped_resolver != NULL)) {
-		my_log(LOG_INFO, "\nDNS configuration (for scoped queries)");
+		my_log(LOG_INFO, " ");
+		my_log(LOG_INFO, "DNS configuration (for scoped queries)");
 
 		for (i = 0; i < dns_config->n_scoped_resolver; i++) {
 			dns_resolver_t	*resolver	= dns_config->scoped_resolver[i];
@@ -480,7 +482,8 @@ _dns_configuration_log(dns_config_t *dns_config, Boolean debug)
 	}
 
 	if ((dns_config->n_service_specific_resolver > 0) && (dns_config->service_specific_resolver != NULL)) {
-		my_log(LOG_INFO, "\nDNS configuration (for service-specific queries)");
+		my_log(LOG_INFO, " ");
+		my_log(LOG_INFO, "DNS configuration (for service-specific queries)");
 
 		for (i = 0; i < dns_config->n_service_specific_resolver; i++) {
 			dns_resolver_t	*resolver	= dns_config->service_specific_resolver[i];

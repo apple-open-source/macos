@@ -53,11 +53,11 @@ class AudioNode : public EventTargetWithInlineData {
 public:
     enum { ProcessingSizeInFrames = 128 };
 
-    AudioNode(AudioContext*, float sampleRate);
+    AudioNode(AudioContext&, float sampleRate);
     virtual ~AudioNode();
 
-    AudioContext* context() { return m_context.get(); }
-    const AudioContext* context() const { return m_context.get(); }
+    AudioContext& context() { return m_context.get(); }
+    const AudioContext& context() const { return m_context.get(); }
 
     enum NodeType {
         NodeTypeUnknown,
@@ -179,8 +179,8 @@ public:
     AudioBus::ChannelInterpretation internalChannelInterpretation() const { return m_channelInterpretation; }
 
     // EventTarget
-    virtual EventTargetInterface eventTargetInterface() const override;
-    virtual ScriptExecutionContext* scriptExecutionContext() const override final;
+    EventTargetInterface eventTargetInterface() const override;
+    ScriptExecutionContext* scriptExecutionContext() const final;
 
 protected:
     // Inputs and outputs must be created before the AudioNode is initialized.
@@ -198,7 +198,7 @@ protected:
 private:
     volatile bool m_isInitialized;
     NodeType m_nodeType;
-    RefPtr<AudioContext> m_context;
+    Ref<AudioContext> m_context;
     float m_sampleRate;
     Vector<std::unique_ptr<AudioNodeInput>> m_inputs;
     Vector<std::unique_ptr<AudioNodeOutput>> m_outputs;
@@ -218,8 +218,8 @@ private:
     static int s_nodeCount[NodeTypeEnd];
 #endif
 
-    virtual void refEventTarget() override { ref(); }
-    virtual void derefEventTarget() override { deref(); }
+    void refEventTarget() override { ref(); }
+    void derefEventTarget() override { deref(); }
 
 protected:
     unsigned m_channelCount;

@@ -32,7 +32,6 @@
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "Database.h"
-#include "DatabaseBackendBase.h"
 #include "DatabaseContext.h"
 #include "DatabaseManager.h"
 #include "DatabaseManagerClient.h"
@@ -50,6 +49,7 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/StringBuilder.h>
 
 #if PLATFORM(IOS)
 #include "WebCoreThread.h"
@@ -76,7 +76,7 @@ void DatabaseTracker::initializeTracker(const String& databasePath)
 DatabaseTracker& DatabaseTracker::tracker()
 {
     if (!staticTracker)
-        staticTracker = new DatabaseTracker("");
+        staticTracker = new DatabaseTracker(emptyString());
 
     return *staticTracker;
 }
@@ -89,7 +89,7 @@ DatabaseTracker::DatabaseTracker(const String& databasePath)
 
 void DatabaseTracker::setDatabaseDirectoryPath(const String& path)
 {
-    MutexLocker lockDatabase(m_databaseGuard);
+    LockHolder lockDatabase(m_databaseGuard);
     ASSERT(!m_database.isOpen());
     m_databaseDirectoryPath = path.isolatedCopy();
 }
@@ -166,7 +166,7 @@ bool DatabaseTracker::canEstablishDatabase(DatabaseContext* context, const Strin
 {
     error = DatabaseError::None;
 
-    MutexLocker lockDatabase(m_databaseGuard);
+    LockHolder lockDatabase(m_databaseGuard);
     SecurityOrigin* origin = context->securityOrigin();
 
     if (isDeletingDatabaseOrOriginFor(origin, name)) {
@@ -218,7 +218,7 @@ bool DatabaseTracker::retryCanEstablishDatabase(DatabaseContext* context, const 
 {
     error = DatabaseError::None;
 
-    MutexLocker lockDatabase(m_databaseGuard);
+    LockHolder lockDatabase(m_databaseGuard);
     SecurityOrigin* origin = context->securityOrigin();
 
     // We have already eliminated other types of errors in canEstablishDatabase().
@@ -257,7 +257,7 @@ bool DatabaseTracker::hasEntryForOriginNoLock(SecurityOrigin* origin)
 
 bool DatabaseTracker::hasEntryForOrigin(SecurityOrigin* origin)
 {
-    MutexLocker lockDatabase(m_databaseGuard);
+    LockHolder lockDatabase(m_databaseGuard);
     return hasEntryForOriginNoLock(origin);
 }
 
@@ -286,7 +286,7 @@ unsigned long long DatabaseTracker::getMaxSizeForDatabase(const Database* databa
 {
     // The maximum size for a database is the full quota for its origin, minus the current usage within the origin,
     // plus the current usage of the given database
-    MutexLocker lockDatabase(m_databaseGuard);
+    LockHolder lockDatabase(m_databaseGuard);
     SecurityOrigin* origin = database->securityOrigin();
 
     unsigned long long quota = quotaForOriginNoLock(origin);
@@ -307,11 +307,11 @@ unsigned long long DatabaseTracker::getMaxSizeForDatabase(const Database* databa
     return maxSize;
 }
 
-void DatabaseTracker::closeAllDatabases()
+void DatabaseTracker::closeAllDatabases(CurrentQueryBehavior currentQueryBehavior)
 {
     Vector<Ref<Database>> openDatabases;
     {
-        MutexLocker openDatabaseMapLock(m_openDatabaseMapGuard);
+        LockHolder openDatabaseMapLock(m_openDatabaseMapGuard);
         if (!m_openDatabaseMap)
             return;
         for (auto& nameMap : m_openDatabaseMap->values()) {
@@ -321,33 +321,11 @@ void DatabaseTracker::closeAllDatabases()
             }
         }
     }
-    for (auto& database : openDatabases)
+    for (auto& database : openDatabases) {
+        if (currentQueryBehavior == CurrentQueryBehavior::Interrupt)
+            database->interrupt();
         database->close();
-}
-
-void DatabaseTracker::interruptAllDatabasesForContext(const DatabaseContext* context)
-{
-    Vector<RefPtr<DatabaseBackendBase>> openDatabases;
-    {
-        MutexLocker openDatabaseMapLock(m_openDatabaseMapGuard);
-
-        if (!m_openDatabaseMap)
-            return;
-
-        DatabaseNameMap* nameMap = m_openDatabaseMap->get(context->securityOrigin());
-        if (!nameMap)
-            return;
-
-        for (auto& databaseSet : nameMap->values()) {
-            for (auto& database : *databaseSet) {
-                if (database->databaseContext() == context)
-                    openDatabases.append(database);
-            }
-        }
     }
-
-    for (auto& openDatabase : openDatabases)
-        openDatabase->interrupt();
 }
 
 String DatabaseTracker::originPath(SecurityOrigin* origin) const
@@ -414,13 +392,13 @@ String DatabaseTracker::fullPathForDatabaseNoLock(SecurityOrigin* origin, const 
 
 String DatabaseTracker::fullPathForDatabase(SecurityOrigin* origin, const String& name, bool createIfNotExists)
 {
-    MutexLocker lockDatabase(m_databaseGuard);
+    LockHolder lockDatabase(m_databaseGuard);
     return fullPathForDatabaseNoLock(origin, name, createIfNotExists).isolatedCopy();
 }
 
 void DatabaseTracker::origins(Vector<RefPtr<SecurityOrigin>>& originsResult)
 {
-    MutexLocker lockDatabase(m_databaseGuard);
+    LockHolder lockDatabase(m_databaseGuard);
 
     openTrackerDatabase(DontCreateIfDoesNotExist);
     if (!m_database.isOpen())
@@ -473,7 +451,7 @@ bool DatabaseTracker::databaseNamesForOrigin(SecurityOrigin* origin, Vector<Stri
 {
     Vector<String> temp;
     {
-        MutexLocker lockDatabase(m_databaseGuard);
+        LockHolder lockDatabase(m_databaseGuard);
         if (!databaseNamesForOriginNoLock(origin, temp))
           return false;
     }
@@ -490,7 +468,7 @@ DatabaseDetails DatabaseTracker::detailsForNameAndOrigin(const String& name, Sec
     int64_t expectedUsage;
 
     {
-        MutexLocker lockDatabase(m_databaseGuard);
+        LockHolder lockDatabase(m_databaseGuard);
 
         openTrackerDatabase(DontCreateIfDoesNotExist);
         if (!m_database.isOpen())
@@ -525,7 +503,7 @@ void DatabaseTracker::setDatabaseDetails(SecurityOrigin* origin, const String& n
     String originIdentifier = origin->databaseIdentifier();
     int64_t guid = 0;
 
-    MutexLocker lockDatabase(m_databaseGuard);
+    LockHolder lockDatabase(m_databaseGuard);
 
     openTrackerDatabase(CreateIfDoesNotExist);
     if (!m_database.isOpen())
@@ -574,7 +552,7 @@ void DatabaseTracker::setDatabaseDetails(SecurityOrigin* origin, const String& n
 
 void DatabaseTracker::doneCreatingDatabase(Database* database)
 {
-    MutexLocker lockDatabase(m_databaseGuard);
+    LockHolder lockDatabase(m_databaseGuard);
     doneCreatingDatabase(database->securityOrigin(), database->stringIdentifier());
 }
 
@@ -584,7 +562,7 @@ void DatabaseTracker::addOpenDatabase(Database* database)
         return;
 
     {
-        MutexLocker openDatabaseMapLock(m_openDatabaseMapGuard);
+        LockHolder openDatabaseMapLock(m_openDatabaseMapGuard);
 
         if (!m_openDatabaseMap)
             m_openDatabaseMap = std::make_unique<DatabaseOriginMap>();
@@ -614,7 +592,7 @@ void DatabaseTracker::removeOpenDatabase(Database* database)
         return;
 
     {
-        MutexLocker openDatabaseMapLock(m_openDatabaseMapGuard);
+        LockHolder openDatabaseMapLock(m_openDatabaseMapGuard);
 
         if (!m_openDatabaseMap) {
             ASSERT_NOT_REACHED();
@@ -654,7 +632,7 @@ void DatabaseTracker::removeOpenDatabase(Database* database)
 
 void DatabaseTracker::getOpenDatabases(SecurityOrigin* origin, const String& name, HashSet<RefPtr<Database>>* databases)
 {
-    MutexLocker openDatabaseMapLock(m_openDatabaseMapGuard);
+    LockHolder openDatabaseMapLock(m_openDatabaseMapGuard);
     if (!m_openDatabaseMap)
         return;
 
@@ -672,7 +650,7 @@ void DatabaseTracker::getOpenDatabases(SecurityOrigin* origin, const String& nam
 
 RefPtr<OriginLock> DatabaseTracker::originLockFor(SecurityOrigin* origin)
 {
-    MutexLocker lockDatabase(m_databaseGuard);
+    LockHolder lockDatabase(m_databaseGuard);
     String databaseIdentifier = origin->databaseIdentifier();
 
     // The originLockMap is accessed from multiple DatabaseThreads since
@@ -692,7 +670,7 @@ RefPtr<OriginLock> DatabaseTracker::originLockFor(SecurityOrigin* origin)
     ASSERT(lock);
     addResult.iterator->value = lock;
 
-    return WTF::move(lock);
+    return lock;
 }
 
 void DatabaseTracker::deleteOriginLockFor(SecurityOrigin* origin)
@@ -752,13 +730,13 @@ unsigned long long DatabaseTracker::quotaForOriginNoLock(SecurityOrigin* origin)
 
 unsigned long long DatabaseTracker::quotaForOrigin(SecurityOrigin* origin)
 {
-    MutexLocker lockDatabase(m_databaseGuard);
+    LockHolder lockDatabase(m_databaseGuard);
     return quotaForOriginNoLock(origin);
 }
 
 void DatabaseTracker::setQuota(SecurityOrigin* origin, unsigned long long quota)
 {
-    MutexLocker lockDatabase(m_databaseGuard);
+    LockHolder lockDatabase(m_databaseGuard);
 
     if (quotaForOriginNoLock(origin) == quota)
         return;
@@ -801,16 +779,13 @@ void DatabaseTracker::setQuota(SecurityOrigin* origin, unsigned long long quota)
             LOG_ERROR("Failed to set quota %llu in tracker database for origin %s", quota, origin->databaseIdentifier().ascii().data());
     }
 
-    if (m_client)
+    if (m_client) {
 #if PLATFORM(IOS)
-    {
         if (insertedNewOrigin)
             m_client->dispatchDidAddNewOrigin(origin);
 #endif
         m_client->dispatchDidModifyOrigin(origin);
-#if PLATFORM(IOS)
     }
-#endif
 }
 
 bool DatabaseTracker::addDatabase(SecurityOrigin* origin, const String& name, const String& path)
@@ -843,13 +818,17 @@ bool DatabaseTracker::addDatabase(SecurityOrigin* origin, const String& name, co
     return true;
 }
 
-void DatabaseTracker::deleteAllDatabases()
+void DatabaseTracker::deleteAllDatabasesImmediately()
 {
     Vector<RefPtr<SecurityOrigin>> originsCopy;
     origins(originsCopy);
 
+    // This method is only intended for use by DumpRenderTree / WebKitTestRunner.
+    // Actually deleting the databases is necessary to reset to a known state before running
+    // each test case, but may be unsafe in deployment use cases (where multiple applications
+    // may be accessing the same databases concurrently).
     for (auto& origin : originsCopy)
-        deleteOrigin(origin.get());
+        deleteOrigin(origin.get(), DeletionMode::Immediate);
 }
 
 void DatabaseTracker::deleteDatabasesModifiedSince(std::chrono::system_clock::time_point time)
@@ -887,9 +866,14 @@ void DatabaseTracker::deleteDatabasesModifiedSince(std::chrono::system_clock::ti
 // taking place.
 bool DatabaseTracker::deleteOrigin(SecurityOrigin* origin)
 {
+    return deleteOrigin(origin, DeletionMode::Default);
+}
+
+bool DatabaseTracker::deleteOrigin(SecurityOrigin* origin, DeletionMode deletionMode)
+{
     Vector<String> databaseNames;
     {
-        MutexLocker lockDatabase(m_databaseGuard);
+        LockHolder lockDatabase(m_databaseGuard);
         openTrackerDatabase(DontCreateIfDoesNotExist);
         if (!m_database.isOpen())
             return false;
@@ -908,14 +892,14 @@ bool DatabaseTracker::deleteOrigin(SecurityOrigin* origin)
 
     // We drop the lock here because holding locks during a call to deleteDatabaseFile will deadlock.
     for (auto& name : databaseNames) {
-        if (!deleteDatabaseFile(origin, name)) {
+        if (!deleteDatabaseFile(origin, name, deletionMode)) {
             // Even if the file can't be deleted, we want to try and delete the rest, don't return early here.
             LOG_ERROR("Unable to delete file for database %s in origin %s", name.ascii().data(), origin->databaseIdentifier().ascii().data());
         }
     }
 
     {
-        MutexLocker lockDatabase(m_databaseGuard);
+        LockHolder lockDatabase(m_databaseGuard);
         deleteOriginLockFor(origin);
         doneDeletingOrigin(origin);
 
@@ -1096,7 +1080,7 @@ void DatabaseTracker::doneDeletingOrigin(SecurityOrigin *origin)
 bool DatabaseTracker::deleteDatabase(SecurityOrigin* origin, const String& name)
 {
     {
-        MutexLocker lockDatabase(m_databaseGuard);
+        LockHolder lockDatabase(m_databaseGuard);
         openTrackerDatabase(DontCreateIfDoesNotExist);
         if (!m_database.isOpen())
             return false;
@@ -1109,14 +1093,14 @@ bool DatabaseTracker::deleteDatabase(SecurityOrigin* origin, const String& name)
     }
 
     // We drop the lock here because holding locks during a call to deleteDatabaseFile will deadlock.
-    if (!deleteDatabaseFile(origin, name)) {
+    if (!deleteDatabaseFile(origin, name, DeletionMode::Default)) {
         LOG_ERROR("Unable to delete file for database %s in origin %s", name.ascii().data(), origin->databaseIdentifier().ascii().data());
-        MutexLocker lockDatabase(m_databaseGuard);
+        LockHolder lockDatabase(m_databaseGuard);
         doneDeletingDatabase(origin, name);
         return false;
     }
 
-    MutexLocker lockDatabase(m_databaseGuard);
+    LockHolder lockDatabase(m_databaseGuard);
 
     SQLiteStatement statement(m_database, "DELETE FROM Databases WHERE origin=? AND name=?");
     if (statement.prepare() != SQLITE_OK) {
@@ -1148,7 +1132,7 @@ bool DatabaseTracker::deleteDatabase(SecurityOrigin* origin, const String& name)
 
 // deleteDatabaseFile has to release locks between looking up the list of databases to close and closing them.  While this is in progress, the caller
 // is responsible for making sure no new databases are opened in the file to be deleted.
-bool DatabaseTracker::deleteDatabaseFile(SecurityOrigin* origin, const String& name)
+bool DatabaseTracker::deleteDatabaseFile(SecurityOrigin* origin, const String& name, DeletionMode deletionMode)
 {
     String fullPath = fullPathForDatabase(origin, name, false);
     if (fullPath.isEmpty())
@@ -1156,7 +1140,7 @@ bool DatabaseTracker::deleteDatabaseFile(SecurityOrigin* origin, const String& n
 
 #ifndef NDEBUG
     {
-        MutexLocker lockDatabase(m_databaseGuard);
+        LockHolder lockDatabase(m_databaseGuard);
         ASSERT(isDeletingDatabaseOrOriginFor(origin, name));
     }
 #endif
@@ -1167,7 +1151,7 @@ bool DatabaseTracker::deleteDatabaseFile(SecurityOrigin* origin, const String& n
     // Database::markAsDeletedAndClose(), since that can cause a deadlock
     // during the synchronous DatabaseThread call it triggers.
     {
-        MutexLocker openDatabaseMapLock(m_openDatabaseMapGuard);
+        LockHolder openDatabaseMapLock(m_openDatabaseMapGuard);
         if (m_openDatabaseMap) {
             // There are some open databases, lets check if they are for this origin.
             DatabaseNameMap* nameMap = m_openDatabaseMap->get(origin);
@@ -1187,19 +1171,23 @@ bool DatabaseTracker::deleteDatabaseFile(SecurityOrigin* origin, const String& n
     for (auto& database : deletedDatabases)
         database->markAsDeletedAndClose();
 
-#if !PLATFORM(IOS)
-    return SQLiteFileSystem::deleteDatabaseFile(fullPath);
-#else
-    // On the phone, other background processes may still be accessing this database.  Deleting the database directly
-    // would nuke the POSIX file locks, potentially causing Safari/WebApp to corrupt the new db if it's running in the background.
-    // We'll instead truncate the database file to 0 bytes.  If another process is operating on this same database file after
-    // the truncation, it should get an error since the database file is no longer valid.  When Safari is launched
-    // next time, it'll go through the database files and clean up any zero-bytes ones.
-    SQLiteDatabase database;
-    if (database.open(fullPath))
+#if PLATFORM(IOS)
+    if (deletionMode == DeletionMode::Deferred) {
+        // On the phone, other background processes may still be accessing this database. Deleting the database directly
+        // would nuke the POSIX file locks, potentially causing Safari/WebApp to corrupt the new db if it's running in the background.
+        // We'll instead truncate the database file to 0 bytes. If another process is operating on this same database file after
+        // the truncation, it should get an error since the database file is no longer valid. When Safari is launched
+        // next time, it'll go through the database files and clean up any zero-bytes ones.
+        SQLiteDatabase database;
+        if (!database.open(fullPath))
+            return false;
         return SQLiteFileSystem::truncateDatabaseFile(database.sqlite3Handle());
-    return false;
+    }
+#else
+    UNUSED_PARAM(deletionMode);
 #endif
+
+    return SQLiteFileSystem::deleteDatabaseFile(fullPath);
 }
     
 #if PLATFORM(IOS)
@@ -1210,7 +1198,7 @@ void DatabaseTracker::removeDeletedOpenedDatabases()
     
     {
         // Acquire the lock before calling openTrackerDatabase.
-        MutexLocker lockDatabase(m_databaseGuard);
+        LockHolder lockDatabase(m_databaseGuard);
         openTrackerDatabase(DontCreateIfDoesNotExist);
     }
 
@@ -1226,7 +1214,7 @@ void DatabaseTracker::removeDeletedOpenedDatabases()
     // Database::markAsDeletedAndClose(), since that can cause a deadlock
     // during the synchronous DatabaseThread call it triggers.
     {
-        MutexLocker openDatabaseMapLock(m_openDatabaseMapGuard);
+        LockHolder openDatabaseMapLock(m_openDatabaseMapGuard);
         if (m_openDatabaseMap) {
             for (auto& openDatabase : *m_openDatabaseMap) {
                 auto& origin = openDatabase.key;
@@ -1330,9 +1318,9 @@ bool DatabaseTracker::deleteDatabaseFileIfEmpty(const String& path)
     return SQLiteFileSystem::deleteDatabaseFile(path);
 }
 
-Mutex& DatabaseTracker::openDatabaseMutex()
+Lock& DatabaseTracker::openDatabaseMutex()
 {
-    static NeverDestroyed<Mutex> mutex;
+    static NeverDestroyed<Lock> mutex;
     return mutex;
 }
 
@@ -1348,22 +1336,6 @@ void DatabaseTracker::emptyDatabaseFilesRemovalTaskDidFinish()
     openDatabaseMutex().unlock();
 }
 
-void DatabaseTracker::setDatabasesPaused(bool paused)
-{
-    MutexLocker openDatabaseMapLock(m_openDatabaseMapGuard);
-    if (!m_openDatabaseMap)
-        return;
-
-    // This walking is - sadly - the only reliable way to get at each open database thread.
-    // This will be cleaner once <rdar://problem/5680441> or some other DB thread consolidation takes place.
-    for (auto& databaseNameMap : m_openDatabaseMap->values()) {
-        for (auto& databaseSet : databaseNameMap->values()) {
-            for (auto& database : *databaseSet)
-                database->databaseContext()->setPaused(paused);
-        }
-    }
-}
-
 #endif
 
 void DatabaseTracker::setClient(DatabaseManagerClient* client)
@@ -1371,9 +1343,9 @@ void DatabaseTracker::setClient(DatabaseManagerClient* client)
     m_client = client;
 }
 
-static Mutex& notificationMutex()
+static Lock& notificationMutex()
 {
-    static NeverDestroyed<Mutex> mutex;
+    static NeverDestroyed<Lock> mutex;
     return mutex;
 }
 
@@ -1387,7 +1359,7 @@ static NotificationQueue& notificationQueue()
 
 void DatabaseTracker::scheduleNotifyDatabaseChanged(SecurityOrigin* origin, const String& name)
 {
-    MutexLocker locker(notificationMutex());
+    LockHolder locker(notificationMutex());
 
     notificationQueue().append(std::pair<RefPtr<SecurityOrigin>, String>(origin->isolatedCopy(), name.isolatedCopy()));
     scheduleForNotification();
@@ -1400,12 +1372,14 @@ void DatabaseTracker::scheduleForNotification()
     ASSERT(!notificationMutex().tryLock());
 
     if (!notificationScheduled) {
-        callOnMainThread(DatabaseTracker::notifyDatabasesChanged, 0);
+        callOnMainThread([] {
+            notifyDatabasesChanged();
+        });
         notificationScheduled = true;
     }
 }
 
-void DatabaseTracker::notifyDatabasesChanged(void*)
+void DatabaseTracker::notifyDatabasesChanged()
 {
     // Note that if DatabaseTracker ever becomes non-singleton, we'll have to amend this notification
     // mechanism to include which tracker the notification goes out on as well.
@@ -1413,7 +1387,7 @@ void DatabaseTracker::notifyDatabasesChanged(void*)
 
     NotificationQueue notifications;
     {
-        MutexLocker locker(notificationMutex());
+        LockHolder locker(notificationMutex());
 
         notifications.swap(notificationQueue());
 

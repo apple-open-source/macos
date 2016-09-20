@@ -68,8 +68,8 @@ void SVGPolyElement::parseAttribute(const QualifiedName& name, const AtomicStrin
         if (!pointsListFromSVGData(newList, value))
             document().accessSVGExtensions().reportError("Problem parsing points=\"" + value + "\"");
 
-        if (SVGAnimatedProperty* wrapper = SVGAnimatedProperty::lookupWrapper<SVGPolyElement, SVGAnimatedPointList>(this, pointsPropertyInfo()))
-            static_cast<SVGAnimatedPointList*>(wrapper)->detachListWrappers(newList.size());
+        if (auto wrapper = SVGAnimatedProperty::lookupWrapper<SVGPolyElement, SVGAnimatedPointList>(this, pointsPropertyInfo()))
+            static_pointer_cast<SVGAnimatedPointList>(wrapper)->detachListWrappers(newList.size());
 
         m_points.value = newList;
         return;
@@ -118,16 +118,23 @@ Ref<SVGAnimatedProperty> SVGPolyElement::lookupOrCreatePointsWrapper(SVGElement*
         (&ownerType, pointsPropertyInfo(), ownerType.m_points.value);
 }
 
-SVGListPropertyTearOff<SVGPointList>* SVGPolyElement::points()
+RefPtr<SVGListPropertyTearOff<SVGPointList>> SVGPolyElement::points()
 {
     m_points.shouldSynchronize = true;
-    return static_cast<SVGListPropertyTearOff<SVGPointList>*>(static_reference_cast<SVGAnimatedPointList>(lookupOrCreatePointsWrapper(this))->baseVal());
+    return static_cast<SVGListPropertyTearOff<SVGPointList>*>(static_reference_cast<SVGAnimatedPointList>(lookupOrCreatePointsWrapper(this))->baseVal().get());
 }
 
-SVGListPropertyTearOff<SVGPointList>* SVGPolyElement::animatedPoints()
+RefPtr<SVGListPropertyTearOff<SVGPointList>> SVGPolyElement::animatedPoints()
 {
     m_points.shouldSynchronize = true;
-    return static_cast<SVGListPropertyTearOff<SVGPointList>*>(static_reference_cast<SVGAnimatedPointList>(lookupOrCreatePointsWrapper(this))->animVal());
+    return static_cast<SVGListPropertyTearOff<SVGPointList>*>(static_reference_cast<SVGAnimatedPointList>(lookupOrCreatePointsWrapper(this))->animVal().get());
+}
+
+size_t SVGPolyElement::approximateMemoryCost() const
+{
+    size_t pointsCost = pointList().size() * sizeof(FloatPoint);
+    // We need to account for the memory which is allocated by the RenderSVGPath::m_path.
+    return sizeof(*this) + (renderer() ? pointsCost * 2 + sizeof(RenderSVGPath) : pointsCost);
 }
 
 }

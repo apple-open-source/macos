@@ -22,11 +22,19 @@
  */
 
 #include <IOKit/pwr_mgt/RootDomain.h>
+#include <sys/sysctl.h>
 
 #include "AppleSmartBatteryManager.h"
 #include "AppleSmartBattery.h"
 
 #define kMaxRetries     5
+
+uint32_t gBMDebugFlags = 0;
+/*
+ * 0x00000001 : Level 1 - Log completions and failures
+ * 0x00000020 : Level 2 - Transaction logging
+ */
+static SYSCTL_INT(_debug, OID_AUTO, batman, CTLFLAG_RW, &gBMDebugFlags, 0, "");
 
 static int  retryDelaysTable[kMaxRetries] =
     { 1, 10, 100, 1000, 1000 };
@@ -105,6 +113,8 @@ bool AppleSmartBatteryManager::start(IOService *provider)
     wl->addEventSource(gate);
     fBatteryGate = gate;      // enable messages
 
+    sysctl_register_oid(&sysctl__debug_batman);
+
     // Track UserClient exclusive access to smartbattery
     fExclusiveUserClient = false;
 
@@ -153,6 +163,10 @@ IOReturn AppleSmartBatteryManager::performExternalTransaction(
     if (!inSMBus || !outSMBus) 
         return kIOReturnBadArgument;
     
+    if (inSize < sizeof(EXSMBUSInputStruct) || *outSize < sizeof(EXSMBUSOutputStruct)) {
+        return kIOReturnBadArgument;
+    }
+
     /* Attempt up to 5 transactions if we get failures
      */
     do {
@@ -287,11 +301,14 @@ IOReturn AppleSmartBatteryManager::performExternalTransaction(
          || (kIOSMBusProtocolReadByte == newTransaction.protocol))
         && (kIOSMBusStatusOK == newTransaction.status))
     {
-        outSMBus->outByteCount = newTransaction.receiveDataCount;
-        
-        for(i = 0; i<outSMBus->outByteCount; i++) {
-            outSMBus->outBuf[i] = newTransaction.receiveData[i];    
+        if (newTransaction.receiveDataCount > sizeof(outSMBus->outBuf)) {
+            outSMBus->outByteCount = sizeof(outSMBus->outBuf);
         }
+        else {
+            outSMBus->outByteCount = newTransaction.receiveDataCount;
+        }
+        
+        memcpy(outSMBus->outBuf, newTransaction.receiveData, outSMBus->outByteCount);
     }
 
     return kIOReturnSuccess;
@@ -541,7 +558,8 @@ bool AppleSmartBatteryManager::hasExclusiveClient(void) {
 bool AppleSmartBatteryManager::requestPoll(int type) {
     IOReturn ret;
 
-    BattLog("AppleSmartBatteryManager requests a poll (type=%d).\n", type);
+    BM_LOG1("AppleSmartBatteryManager requests a poll (type=%d).\n", type);
+
     ret = fBatteryGate->runAction(OSMemberFunctionCast(IOCommandGate::Action,
                            fBattery, &AppleSmartBattery::pollBatteryState),
                            (void *)(uintptr_t) type, NULL, NULL, NULL);
@@ -645,15 +663,14 @@ bool AppleSmartBatteryManager::transactionCompletion(
             }       
             
         } else {
-            BattLog("AppleSmartBatteryManager::transactionCompletion:"\
-                                        "ERROR 0x%08x!\n", transaction->status);
+            BM_LOG1("AppleSmartBatteryManager::transactionCompletion: ERROR 0x%08x!\n", transaction->status);
         }
     } else {
         /* 
          * transaction was initiated by user client
          */
         
-        BattLog("completion: commandWaking: 0x%08x\n", transaction);
+        BM_LOG1("completion: commandWaking: 0x%08x\n", transaction->command);
         
         // If it's an external transaction completion; stash the result
         // in (ref) data structure
@@ -664,19 +681,36 @@ bool AppleSmartBatteryManager::transactionCompletion(
     return false;
 }
 
-void BattLog(const char *fmt, ...)
+/*
+ * setOverrideCapacity
+ *
+ */
+IOReturn AppleSmartBatteryManager::setOverrideCapacity(uint16_t level)
 {
-#if 0
-    va_list     listp;
-    char        buf[128];
-
-    va_start(listp, fmt);
-    vsnprintf(buf, sizeof(buf), fmt, listp);
-    va_end(listp);
-
-    IOLog("BattLog: %s", buf);
+    IOReturn ret = kIOReturnSuccess;
     
-    return;
-#endif
+    if (!fBatteryGate) return kIOReturnInternalError;
+    
+    fBatteryGate->runAction(OSMemberFunctionCast(IOCommandGate::Action,
+                            fBattery, &AppleSmartBattery::handleSetOverrideCapacity),
+                            (void *)(uintptr_t)level, NULL, NULL, NULL);
+    
+    return ret;
 }
 
+/*
+ * switchToTrueCapacity
+ *
+ */
+IOReturn AppleSmartBatteryManager::switchToTrueCapacity(void)
+{
+    IOReturn ret = kIOReturnSuccess;
+    
+    if (!fBatteryGate) return kIOReturnInternalError;
+    
+    fBatteryGate->runAction(OSMemberFunctionCast(IOCommandGate::Action,
+                            fBattery, &AppleSmartBattery::handleSwitchToTrueCapacity),
+                            NULL, NULL, NULL, NULL);
+    
+    return ret;
+}

@@ -41,7 +41,8 @@ extern "C" {
 #define SSL_SHA1_DIGEST_LEN     20
 #define SSL_SHA256_DIGEST_LEN	32
 #define SSL_SHA384_DIGEST_LEN	48
-#define SSL_MAX_DIGEST_LEN      48 /* >= SSL_MD5_DIGEST_LEN + SSL_SHA1_DIGEST_LEN */
+#define SSL_SHA512_DIGEST_LEN	64
+#define SSL_MAX_DIGEST_LEN      64 /* >= SSL_MD5_DIGEST_LEN + SSL_SHA1_DIGEST_LEN */
 
 #define MAX_MAC_PADDING         48	/* MD5 MAC padding size = 48 bytes */
 
@@ -71,6 +72,7 @@ extern const HashReference SSLHashMD5;
 extern const HashReference SSLHashSHA1;
 extern const HashReference SSLHashSHA256;
 extern const HashReference SSLHashSHA384;
+extern const HashReference SSLHashSHA512;
 
 
 #ifdef __cplusplus

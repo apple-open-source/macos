@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2012, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2013, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,11 +34,14 @@
 #include "JSArray.h"
 #include "SpeculatedType.h"
 #include "Structure.h"
+#include "TagRegistersMode.h"
 #include "WriteBarrier.h"
 #include <wtf/PrintStream.h>
 #include <wtf/StringPrintStream.h>
 
 namespace JSC {
+
+class CCallHelpers;
 
 template<unsigned numberOfBucketsArgument>
 struct ValueProfileBase {
@@ -206,7 +209,88 @@ inline int getRareCaseProfileBytecodeOffset(RareCaseProfile* rareCaseProfile)
     return rareCaseProfile->m_bytecodeOffset;
 }
 
+struct ResultProfile {
+private:
+    static const int numberOfFlagBits = 5;
+
+public:
+    ResultProfile(int bytecodeOffset)
+        : m_bytecodeOffsetAndFlags(bytecodeOffset << numberOfFlagBits)
+    {
+        ASSERT(((bytecodeOffset << numberOfFlagBits) >> numberOfFlagBits) == bytecodeOffset);
+    }
+
+    enum ObservedResults {
+        NonNegZeroDouble = 1 << 0,
+        NegZeroDouble    = 1 << 1,
+        NonNumber        = 1 << 2,
+        Int32Overflow    = 1 << 3,
+        Int52Overflow    = 1 << 4,
+    };
+
+    int bytecodeOffset() const { return m_bytecodeOffsetAndFlags >> numberOfFlagBits; }
+    unsigned specialFastPathCount() const { return m_specialFastPathCount; }
+
+    bool didObserveNonInt32() const { return hasBits(NonNegZeroDouble | NegZeroDouble | NonNumber); }
+    bool didObserveDouble() const { return hasBits(NonNegZeroDouble | NegZeroDouble); }
+    bool didObserveNonNegZeroDouble() const { return hasBits(NonNegZeroDouble); }
+    bool didObserveNegZeroDouble() const { return hasBits(NegZeroDouble); }
+    bool didObserveNonNumber() const { return hasBits(NonNumber); }
+    bool didObserveInt32Overflow() const { return hasBits(Int32Overflow); }
+    bool didObserveInt52Overflow() const { return hasBits(Int52Overflow); }
+
+    void setObservedNonNegZeroDouble() { setBit(NonNegZeroDouble); }
+    void setObservedNegZeroDouble() { setBit(NegZeroDouble); }
+    void setObservedNonNumber() { setBit(NonNumber); }
+    void setObservedInt32Overflow() { setBit(Int32Overflow); }
+    void setObservedInt52Overflow() { setBit(Int52Overflow); }
+
+    void* addressOfFlags() { return &m_bytecodeOffsetAndFlags; }
+    void* addressOfSpecialFastPathCount() { return &m_specialFastPathCount; }
+    
+    void detectNumericness(JSValue value)
+    {
+        if (value.isInt32())
+            return;
+        if (value.isNumber()) {
+            m_bytecodeOffsetAndFlags |= Int32Overflow | Int52Overflow | NonNegZeroDouble | NegZeroDouble;
+            return;
+        }
+        m_bytecodeOffsetAndFlags |= NonNumber;
+    }
+
+#if ENABLE(JIT)    
+    // Sets (Int32Overflow | Int52Overflow | NonNegZeroDouble | NegZeroDouble) if it sees a
+    // double. Sets NonNumber if it sees a non-number.
+    void emitDetectNumericness(CCallHelpers&, JSValueRegs, TagRegistersMode = HaveTagRegisters);
+    
+    // Sets (Int32Overflow | Int52Overflow | NonNegZeroDouble | NegZeroDouble).
+    void emitSetDouble(CCallHelpers&);
+    
+    // Sets NonNumber.
+    void emitSetNonNumber(CCallHelpers&);
+#endif // ENABLE(JIT)
+
+private:
+    bool hasBits(int mask) const { return m_bytecodeOffsetAndFlags & mask; }
+    void setBit(int mask) { m_bytecodeOffsetAndFlags |= mask; }
+
+    int m_bytecodeOffsetAndFlags;
+    unsigned m_specialFastPathCount { 0 };
+};
+
+inline int getResultProfileBytecodeOffset(ResultProfile* profile)
+{
+    return profile->bytecodeOffset();
+}
+
 } // namespace JSC
+
+namespace WTF {
+
+void printInternal(PrintStream&, const JSC::ResultProfile&);
+
+} // namespace WTF
 
 #endif // ValueProfile_h
 

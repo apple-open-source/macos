@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -113,7 +113,11 @@ static void __DAMediaBusyStateChangedCallback( void * context, io_service_t serv
         }
         else
         {
+            _DAMediaAppearedCallback( NULL, gDAMediaAppearedNotification );
+
             DADiskSetBusy( disk, 0 );
+
+            DAStageSignal( );
         }
     }
 }
@@ -338,7 +342,7 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
             {
                 userList = SCDynamicStoreCopyConsoleInformation( session );
 
-                if ( userList ) /* not OS X Installer */
+                if ( userList ) /* not macOS Installer */
                 {
                     CFRelease( user );
                     CFRelease( userList );
@@ -802,6 +806,27 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
                 }
 
                 /*
+                 * Skip the "mount" stage if the unit has quiesced.
+                 */
+
+///w:23678897:start
+                CFStringRef content;
+
+                content = DADiskGetDescription( disk, kDADiskDescriptionMediaContentKey );
+
+                if ( CFEqual( content, CFSTR( "41504653-0000-11AA-AA11-00306543ECAC" ) ) )
+                {
+                    DAUnitSetState( disk, _kDAUnitStateHasAPFS, TRUE );
+                }
+
+                if ( DAUnitGetState( disk, _kDAUnitStateHasAPFS ) )
+///w:23678897:stop
+                if ( DAUnitGetState( disk, kDAUnitStateHasQuiesced ) )
+                {
+                    DADiskSetState( disk, kDADiskStateStagedMount, TRUE );
+                }
+
+                /*
                  * Add the disk object to our tables.
                  */
 
@@ -914,7 +939,17 @@ void _DAMediaDisappearedCallback( void * context, io_iterator_t notification )
 
             if ( DADiskGetState( disk, kDADiskStateStagedMount ) )
             {
+                DADiskSetState( disk, kDADiskStateStagedAppear, TRUE );
+
                 DADiskUnmount( disk, kDADiskUnmountOptionForce, NULL );
+            }
+
+            if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWholeKey ) == kCFBooleanTrue )
+            {
+///w:23678897:start
+                DAUnitSetState( disk, _kDAUnitStateHasAPFS, FALSE );
+///w:23678897:stop
+                DAUnitSetState( disk, kDAUnitStateHasQuiesced, FALSE );
             }
 
             DADiskSetState( disk, kDADiskStateZombie, TRUE );
@@ -983,6 +1018,50 @@ void _DAServerCallback( CFMachPortRef port, void * parameter, CFIndex messageSiz
             }
         }
     }
+}
+
+kern_return_t _DAServermkdir( mach_port_t _session, ___path_t _path, security_token_t _token )
+{
+    kern_return_t status;
+
+    status = kDAReturnBadArgument;
+
+    if ( _session )
+    {
+        DASessionRef session;
+
+        session = __DASessionListGetSession( _session );
+
+        if ( session )
+        {
+            /*
+             * Determine whether the mount point path is within the mount point folder.
+             */
+
+            if ( strncmp( _path, kDAMainMountPointFolder, strlen( kDAMainMountPointFolder ) ) == 0 )
+            {
+                if ( strrchr( _path + strlen( kDAMainMountPointFolder ), '/' ) == _path + strlen( kDAMainMountPointFolder ) )
+                {
+                    /*
+                     * Create the mount point.
+                     */
+
+                    status = mkdir( _path, 0111 );
+
+                    if ( status == 0 )
+                    {
+                        chown( _path, _token.val[0], -1 );
+                    }
+                    else
+                    {
+                        status = unix_err( errno );
+                    }
+                }
+            }
+        }
+    }
+
+    return status;
 }
 
 kern_return_t _DAServerDiskCopyDescription( mach_port_t _session, caddr_t _disk, vm_address_t * _description, mach_msg_type_number_t * _descriptionSize )
@@ -2035,6 +2114,26 @@ void _DAVolumeMountedCallback( CFMachPortRef port, void * parameter, CFIndex mes
 }
 
 void _DAVolumeUnmountedCallback( CFMachPortRef port, void * parameter, CFIndex messageSize, void * info )
+{
+    CFIndex count;
+    CFIndex index;
+
+    count = CFArrayGetCount( gDADiskList );
+
+    for ( index = 0; index < count; index++ )
+    {
+        DADiskRef disk;
+
+        disk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
+
+        if ( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) )
+        {
+            DADiskRefresh( disk, NULL );
+        }
+    }
+}
+
+void _DAVolumeUpdatedCallback( CFMachPortRef port, void * parameter, CFIndex messageSize, void * info )
 {
     CFIndex count;
     CFIndex index;

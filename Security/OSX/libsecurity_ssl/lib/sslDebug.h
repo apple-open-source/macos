@@ -29,8 +29,8 @@
 #define _SSL_DEBUG_H_
 
 #ifdef KERNEL
-/* TODO: support secdebug in the kernel */
-#define secdebug(x...)
+/* TODO: support secinfo in the kernel */
+#define secinfo(x...)
 #else /* KERNEL */
 #include <utilities/debugging.h>
 #endif
@@ -40,43 +40,43 @@
 #endif
 
 
-#define ssl_secdebug secdebug
+#define ssl_secinfo secinfo
 
 #ifndef NDEBUG
 
 /* log changes in handshake state */
-#define sslHdskStateDebug(args...)		ssl_secdebug("sslHdskState", ## args)
+#define sslHdskStateDebug(args...)		ssl_secinfo("sslHdskState", ## args)
 
 /* log handshake and alert messages */
-#define sslHdskMsgDebug(args...)		ssl_secdebug("sslHdskMsg", ## args)
+#define sslHdskMsgDebug(args...)		ssl_secinfo("sslHdskMsg", ## args)
 
 /* log negotiated handshake parameters */
-#define sslLogNegotiateDebug(args...)	ssl_secdebug("sslLogNegotiate", ## args)
+#define sslLogNegotiateDebug(args...)	ssl_secinfo("sslLogNegotiate", ## args)
 
 /* log received protocol messsages */
-#define sslLogRxProtocolDebug(msgType)	ssl_secdebug("sslLogRxProtocol", \
+#define sslLogRxProtocolDebug(msgType)	ssl_secinfo("sslLogRxProtocol", \
 										"---received protoMsg %s", msgType)
 
 /* log resumable session info */
-#define sslLogResumSessDebug(args...)	ssl_secdebug("sslResumSession", ## args)
+#define sslLogResumSessDebug(args...)	ssl_secinfo("sslResumSession", ## args)
 
 /* log low-level session info in appleSession.c */
-#define sslLogSessCacheDebug(args...)	ssl_secdebug("sslSessionCache", ## args)
+#define sslLogSessCacheDebug(args...)	ssl_secinfo("sslSessionCache", ## args)
 
 /* log record-level I/O (SSLRead, SSLWrite) */
-#define sslLogRecordIo(args...)			ssl_secdebug("sslRecordIo", ## args)
+#define sslLogRecordIo(args...)			ssl_secinfo("sslRecordIo", ## args)
 
 /* cert-related info */
-#define sslCertDebug(args...)			ssl_secdebug("sslCert", ## args)
+#define sslCertDebug(args...)			ssl_secinfo("sslCert", ## args)
 
 /* Diffie-Hellman */
-#define sslDhDebug(args...)				ssl_secdebug("sslDh", ## args)
+#define sslDhDebug(args...)				ssl_secinfo("sslDh", ## args)
 
 /* EAP-FAST PAC-based session resumption */
-#define sslEapDebug(args...)			ssl_secdebug("sslEap", ## args)
+#define sslEapDebug(args...)			ssl_secinfo("sslEap", ## args)
 
 /* ECDSA */
-#define sslEcdsaDebug(args...)			ssl_secdebug("sslEcdsa", ## args)
+#define sslEcdsaDebug(args...)			ssl_secinfo("sslEcdsa", ## args)
 
 #else /* NDEBUG */
 
@@ -110,13 +110,13 @@ extern void SSLDump(const unsigned char *data, unsigned long len);
 /* extra debug logging of non-error conditions, if SSL_DEBUG is defined */
 #if SSL_DEBUG
 //#define sslDebugLog(args...)        printf(args)
-#define sslDebugLog(args...)        ssl_secdebug("sslDebug", ## args)
+#define sslDebugLog(args...)        ssl_secinfo("sslDebug", ## args)
 #else
 #define sslDebugLog(args...)
 #endif
 /* all errors logged to stdout for DEBUG config only */
 //#define sslErrorLog(args...)        printf(args)
-#define sslErrorLog(args...)        ssl_secdebug("sslError", ## args)
+#define sslErrorLog(args...)        ssl_secinfo("sslError", ## args)
 #define sslDump(d, l)               SSLDump((d), (l))
 
 #endif	/* NDEBUG */

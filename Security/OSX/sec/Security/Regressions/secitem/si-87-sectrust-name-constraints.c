@@ -5,17 +5,15 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecCertificatePriv.h>
-#include <Security/SecInternal.h>
 #include <Security/SecPolicyPriv.h>
 #include <Security/SecTrustPriv.h>
 #include <Security/SecItem.h>
-#include <ipc/securityd_client.h>
 #include <utilities/array_size.h>
 #include <utilities/SecCFWrappers.h>
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "Security_regressions.h"
+#include "shared_regressions.h"
 
 #include "si-87-sectrust-name-constraints.h"
 
@@ -46,6 +44,7 @@ static void test_att(void)
     /* Set explicit verify date: Aug 14 2015. */
     CFDateRef date = NULL;
     isnt(date = CFDateCreateForGregorianZuluMoment(NULL, 2015, 8, 14, 12, 0, 0), NULL, "create verify date");
+    if (!date) { goto errOut; }
     ok_status(SecTrustSetVerifyDate(trust, date), "set date");
 
     /* Provide root certificate. */
@@ -55,6 +54,7 @@ static void test_att(void)
     is_status(trustResult, kSecTrustResultUnspecified, "trustResult is kSecTrustResultUnspecified");
 	is(SecTrustGetCertificateCount(trust), 5, "cert count is 5");
 
+errOut:
     CFReleaseSafe(date);
 	CFReleaseSafe(trust);
 	CFReleaseSafe(policy);
@@ -93,6 +93,7 @@ static void test_intel1(void)
     /* Set explicit verify date: Sep 3 2015. */
     CFDateRef date = NULL;
     isnt(date = CFDateCreate(NULL, 463037436.0), NULL, "create verify date");
+    if (!date) { goto errOut; }
     ok_status(SecTrustSetVerifyDate(trust, date), "set date");
 
     /* Provide root certificate. */
@@ -102,6 +103,7 @@ static void test_intel1(void)
     is_status(trustResult, kSecTrustResultUnspecified, "trustResult is kSecTrustResultUnspecified");
     is(SecTrustGetCertificateCount(trust), 4, "cert count is 4");
 
+errOut:
     CFReleaseSafe(date);
     CFReleaseSafe(trust);
     CFReleaseSafe(policy);
@@ -139,6 +141,7 @@ static void test_intel2(void)
     /* Set explicit verify date: Sep 3 2015. */
     CFDateRef date = NULL;
     isnt(date = CFDateCreate(NULL, 463037436.0), NULL, "create verify date");
+    if (!date) { goto errOut; }
     ok_status(SecTrustSetVerifyDate(trust, date), "set date");
 
     /* Provide root certificate. */
@@ -148,6 +151,7 @@ static void test_intel2(void)
     is_status(trustResult, kSecTrustResultUnspecified, "trustResult is kSecTrustResultUnspecified");
     is(SecTrustGetCertificateCount(trust), 4, "cert count is 4");
 
+errOut:
     CFReleaseSafe(date);
     CFReleaseSafe(trust);
     CFReleaseSafe(policy);
@@ -185,6 +189,7 @@ static void test_abb(void)
     /* Set explicit verify date: Sep 16 2015. */
     CFDateRef date = NULL;
     isnt(date = CFDateCreate(NULL, 464128479.0), NULL, "create verify date");
+    if (!date) { goto errOut; }
     ok_status(SecTrustSetVerifyDate(trust, date), "set date");
 
     /* Provide root certificate. */
@@ -194,6 +199,7 @@ static void test_abb(void)
     is_status(trustResult, kSecTrustResultUnspecified, "trustResult is kSecTrustResultUnspecified");
     is(SecTrustGetCertificateCount(trust), 4, "cert count is 4");
 
+errOut:
     CFReleaseSafe(date);
     CFReleaseSafe(trust);
     CFReleaseSafe(policy);
@@ -231,6 +237,7 @@ static void test_bechtel1(void)
     /* Set explicit verify date: Sep 29 2015. */
     CFDateRef date = NULL;
     isnt(date = CFDateCreate(NULL, 465253810.0), NULL, "create verify date");
+    if (!date) { goto errOut; }
     ok_status(SecTrustSetVerifyDate(trust, date), "set date");
 
     /* Provide root certificate. */
@@ -240,6 +247,7 @@ static void test_bechtel1(void)
     is_status(trustResult, kSecTrustResultUnspecified, "trustResult is kSecTrustResultUnspecified");
     is(SecTrustGetCertificateCount(trust), 4, "cert count is 4");
 
+errOut:
     CFReleaseSafe(date);
     CFReleaseSafe(trust);
     CFReleaseSafe(policy);
@@ -277,6 +285,7 @@ static void test_bechtel2(void)
     /* Set explicit verify date: Sep 29 2015. */
     CFDateRef date = NULL;
     isnt(date = CFDateCreate(NULL, 465253810.0), NULL, "create verify date");
+    if (!date) { goto errOut; }
     ok_status(SecTrustSetVerifyDate(trust, date), "set date");
 
     /* Provide root certificate. */
@@ -286,6 +295,7 @@ static void test_bechtel2(void)
     is_status(trustResult, kSecTrustResultUnspecified, "trustResult is kSecTrustResultUnspecified");
     is(SecTrustGetCertificateCount(trust), 4, "cert count is 4");
 
+errOut:
     CFReleaseSafe(date);
     CFReleaseSafe(trust);
     CFReleaseSafe(policy);

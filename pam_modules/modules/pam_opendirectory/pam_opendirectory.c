@@ -31,6 +31,8 @@
 #include <pwd.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <mach/mach.h>
+#include <mach/mach_time.h>
 #include <membership.h>
 #include <membershipPriv.h>
 #include <CoreFoundation/CoreFoundation.h>
@@ -52,6 +54,26 @@
 
 #define PM_DISPLAY_NAME "OpenDirectory"
 #define PAM_OD_PW_EXP "ODPasswordExpire"
+
+// <rdar://problem/12503092> OD password verification API always leads to user existence timing attacks
+// Define our own implementation of AbsoluteToMicroseconds rather than using CoreService ==> CarbonCore
+// Nanoseconds AbsoluteToNanoseconds(AbsoluteTime inTime);
+//
+// Based on Technical Q&A QA1398 - Mach Absolute Time Units
+// https://developer.apple.com/library/mac/qa/qa1398/_index.html
+
+uint64_t AbsoluteToMicroseconds(uint64_t t) {
+	static double f = 0.0;
+
+	if (f == 0.0) {
+		mach_timebase_info_data_t tbinfo;
+		(void) mach_timebase_info(&tbinfo);
+		f = tbinfo.numer / (1000.0 * tbinfo.denom);
+	}
+
+	return t * f;
+}
+
 
 PAM_EXTERN int
 pam_sm_acct_mgmt(pam_handle_t * pamh, int flags, int argc, const char **argv)
@@ -152,6 +174,7 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
 	CFStringRef cfPassword = NULL;
 	CFErrorRef odErr = NULL;
 	ODRecordRef cfRecord = NULL;
+	uint64_t mach_start_time = mach_absolute_time();
 
 	if (PAM_SUCCESS != (retval = pam_get_user(pamh, &user, NULL))) {
 		openpam_log(PAM_LOG_DEBUG, "%s - Unable to obtain the username.", PM_DISPLAY_NAME);
@@ -210,6 +233,19 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
 				retval = PAM_AUTH_ERR;
 				break;
 		}
+
+		// <rdar://problem/12503092> OD password verification API always leads to user existence timing attacks
+		uint64_t elapsed      = mach_absolute_time() - mach_start_time;
+		uint64_t microseconds = AbsoluteToMicroseconds(elapsed);
+
+		const uint64_t response_delay = 200000;    // 200000 us == 200 ms
+		openpam_log(PAM_LOG_DEBUG, "%s - auth %lld µs", PM_DISPLAY_NAME, microseconds);
+		if (microseconds < response_delay)
+			usleep(response_delay - microseconds);
+
+		elapsed      = mach_absolute_time() - mach_start_time;
+		microseconds = AbsoluteToMicroseconds(elapsed);
+		openpam_log(PAM_LOG_DEBUG, "%s - auth %lld µs (blinding)", PM_DISPLAY_NAME, microseconds);
 	} else {
 		retval = PAM_SUCCESS;
 	}

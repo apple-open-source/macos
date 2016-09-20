@@ -25,42 +25,48 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/lib/libc_r/man/pthread_cleanup_pop.3,v 1.5.2.3 2001/08/17 15:42:51 ru Exp $
+.\" $FreeBSD$
 .\"
-.Dd July 30, 1998
+.Dd October 25, 2014
 .Dt PTHREAD_CLEANUP_POP 3
 .Os
 .Sh NAME
 .Nm pthread_cleanup_pop
 .Nd call the first cleanup routine
 .Sh SYNOPSIS
-.Fd #include <pthread.h>
+.In pthread.h
 .Ft void
 .Fn pthread_cleanup_pop "int execute"
 .Sh DESCRIPTION
 The
 .Fn pthread_cleanup_pop
-function pops the top cleanup routine off
-of the current thread's cleanup routine stack and, if
+function pops the top cleanup routine off of the current threads cleanup
+routine stack, and, if
 .Fa execute
 is non-zero, it will execute the function.
-If there is no cleanup routine,
+If there is no cleanup routine
+then
 .Fn pthread_cleanup_pop
 does nothing.
 .Pp
+The
 .Fn pthread_cleanup_pop
-must be paired with a corresponding
+function is implemented as a macro that closes a block.
+Invocations of this function must appear as standalone statements that are
+paired with an earlier call of
 .Xr pthread_cleanup_push 3
 in the same lexical scope.
 .Sh RETURN VALUES
+The
 .Fn pthread_cleanup_pop
-does not return any value.
+function does not return any value.
 .Sh ERRORS
 None
 .Sh SEE ALSO
 .Xr pthread_cleanup_push 3 ,
 .Xr pthread_exit 3
 .Sh STANDARDS
+The
 .Fn pthread_cleanup_pop
-conforms to
+function conforms to
 .St -p1003.1-96 .

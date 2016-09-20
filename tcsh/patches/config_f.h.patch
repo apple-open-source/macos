@@ -1,5 +1,14 @@
 --- config_f.h	2014-09-04 11:34:56.000000000 -0700
 +++ config_f.h	2014-09-04 11:34:11.000000000 -0700
+@@ -70,7 +70,7 @@
+ /*
+  * KAI          use "bye" command and rename "log" to "watchlog"
+  */
+-#undef KAI
++#define KAI
+ 
+ /*
+  * TESLA	drops DTR on logout. Historical note:
 @@ -135,7 +135,7 @@
   *		This can be much slower and no memory statistics will be
   *		provided.

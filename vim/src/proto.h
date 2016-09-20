@@ -47,10 +47,12 @@
    typedef int LPBOOL;
 #  include "os_win16.pro"
 #  include "os_mswin.pro"
+#  include "winclip.pro"
 # endif
 # ifdef WIN3264
 #  include "os_win32.pro"
 #  include "os_mswin.pro"
+#  include "winclip.pro"
 #  if (defined(__GNUC__) && !defined(__MINGW32__)) \
 	|| (defined(__BORLANDC__) && __BORLANDC__ < 0x502)
 extern int _stricoll __ARGS((char *a, char *b));
@@ -62,15 +64,14 @@ extern int _stricoll __ARGS((char *a, char *b));
 # ifdef __BEOS__
 #  include "os_beos.pro"
 # endif
-# ifdef RISCOS
-#  include "os_riscos.pro"
-# endif
 # ifdef __QNX__
 #  include "os_qnx.pro"
 # endif
 
 # ifdef FEAT_CRYPT
 #  include "blowfish.pro"
+#  include "crypt.pro"
+#  include "crypt_zip.pro"
 # endif
 # include "buffer.pro"
 # include "charset.pro"
@@ -244,9 +245,6 @@ extern char *vim_SelFile __ARGS((Widget toplevel, char *prompt, char *init_path,
 #  endif
 #  ifdef FEAT_GUI_X11
 #   include "gui_x11.pro"
-#  endif
-#  ifdef RISCOS
-#   include "gui_riscos.pro"
 #  endif
 #  ifdef FEAT_GUI_PHOTON
 #   include "gui_photon.pro"

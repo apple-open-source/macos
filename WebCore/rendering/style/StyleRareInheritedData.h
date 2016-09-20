@@ -58,7 +58,6 @@ public:
     {
         return !(*this == o);
     }
-    bool shadowDataEquivalent(const StyleRareInheritedData&) const;
 
     RefPtr<StyleImage> listStyleImage;
 
@@ -93,7 +92,6 @@ public:
     unsigned overflowWrap : 1; // EOverflowWrap
     unsigned nbspMode : 1; // ENBSPMode
     unsigned lineBreak : 3; // LineBreak
-    unsigned resize : 2; // EResize
     unsigned userSelect : 2; // EUserSelect
     unsigned colorSpace : 1; // ColorSpace
     unsigned speak : 3; // ESpeak
@@ -111,7 +109,7 @@ public:
 #if ENABLE(CSS_IMAGE_ORIENTATION)
     unsigned m_imageOrientation : 4; // ImageOrientationEnum
 #endif
-    unsigned m_imageRendering : 2; // EImageRendering
+    unsigned m_imageRendering : 3; // EImageRendering
     unsigned m_lineSnap : 2; // LineSnap
     unsigned m_lineAlign : 1; // LineAlign
 #if ENABLE(ACCELERATED_OVERFLOW_SCROLLING)
@@ -128,6 +126,7 @@ public:
     unsigned m_textDecorationSkip : 5; // TextDecorationSkip
     unsigned m_textUnderlinePosition : 3; // TextUnderlinePosition
     unsigned m_rubyPosition : 2; // RubyPosition
+    unsigned m_textZoom: 1; // TextZoom
 
 #if PLATFORM(IOS)
     unsigned touchCalloutEnabled : 1;
@@ -137,12 +136,12 @@ public:
     unsigned trailingWord : 1;
 #endif
 
+    unsigned m_hangingPunctuation : 4;
+
     AtomicString hyphenationString;
     short hyphenationLimitBefore;
     short hyphenationLimitAfter;
     short hyphenationLimitLines;
-
-    AtomicString locale;
 
     AtomicString textEmphasisCustomMark;
     RefPtr<QuotesData> quotes;

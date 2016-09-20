@@ -45,9 +45,9 @@ class ScriptExecutionContext;
 
 class DataCue final : public TextTrackCue {
 public:
-    static Ref<DataCue> create(ScriptExecutionContext& context, const MediaTime& start, const MediaTime& end, ArrayBuffer* data, ExceptionCode& ec)
+    static Ref<DataCue> create(ScriptExecutionContext& context, const MediaTime& start, const MediaTime& end, ArrayBuffer& data)
     {
-        return adoptRef(*new DataCue(context, start, end, data, emptyString(), ec));
+        return adoptRef(*new DataCue(context, start, end, data, emptyString()));
     }
 
     static Ref<DataCue> create(ScriptExecutionContext& context, const MediaTime& start, const MediaTime& end, const void* data, unsigned length)
@@ -55,15 +55,15 @@ public:
         return adoptRef(*new DataCue(context, start, end, data, length));
     }
 
-    static Ref<DataCue> create(ScriptExecutionContext& context, const MediaTime& start, const MediaTime& end, ArrayBuffer* data, const String& type, ExceptionCode& ec)
+    static Ref<DataCue> create(ScriptExecutionContext& context, const MediaTime& start, const MediaTime& end, ArrayBuffer& data, const String& type)
     {
-        return adoptRef(*new DataCue(context, start, end, data, type, ec));
+        return adoptRef(*new DataCue(context, start, end, data, type));
     }
 
 #if ENABLE(DATACUE_VALUE)
-    static Ref<DataCue> create(ScriptExecutionContext& context, const MediaTime& start, const MediaTime& end, PassRefPtr<SerializedPlatformRepresentation> platformValue, const String& type)
+    static Ref<DataCue> create(ScriptExecutionContext& context, const MediaTime& start, const MediaTime& end, RefPtr<SerializedPlatformRepresentation>&& platformValue, const String& type)
     {
-        return adoptRef(*new DataCue(context, start, end, platformValue, type));
+        return adoptRef(*new DataCue(context, start, end, WTFMove(platformValue), type));
     }
 
     static Ref<DataCue> create(ScriptExecutionContext& context, const MediaTime& start, const MediaTime& end, JSC::JSValue value, const String& type)
@@ -73,13 +73,13 @@ public:
 #endif
 
     virtual ~DataCue();
-    virtual CueType cueType() const override { return Data; }
+    CueType cueType() const override { return Data; }
 
-    PassRefPtr<ArrayBuffer> data() const;
-    void setData(ArrayBuffer*, ExceptionCode&);
+    RefPtr<ArrayBuffer> data() const;
+    void setData(ArrayBuffer&);
 
 #if ENABLE(DATACUE_VALUE)
-    const PassRefPtr<SerializedPlatformRepresentation> platformValue() const { return m_platformValue; }
+    const SerializedPlatformRepresentation* platformValue() const { return m_platformValue.get(); }
 
     JSC::JSValue value(JSC::ExecState*) const;
     void setValue(JSC::ExecState*, JSC::JSValue);
@@ -88,15 +88,15 @@ public:
     void setType(const String& type) { m_type = type; }
 #endif
 
-    virtual bool isEqual(const TextTrackCue&, CueMatchRules) const override;
-    virtual bool cueContentsMatch(const TextTrackCue&) const override;
-    virtual bool doesExtendCue(const TextTrackCue&) const override;
+    bool isEqual(const TextTrackCue&, CueMatchRules) const override;
+    bool cueContentsMatch(const TextTrackCue&) const override;
+    bool doesExtendCue(const TextTrackCue&) const override;
 
 protected:
-    DataCue(ScriptExecutionContext&, const MediaTime& start, const MediaTime& end, ArrayBuffer*, const String&, ExceptionCode&);
+    DataCue(ScriptExecutionContext&, const MediaTime& start, const MediaTime& end, ArrayBuffer&, const String&);
     DataCue(ScriptExecutionContext&, const MediaTime& start, const MediaTime& end, const void*, unsigned);
 #if ENABLE(DATACUE_VALUE)
-    DataCue(ScriptExecutionContext&, const MediaTime& start, const MediaTime& end, PassRefPtr<SerializedPlatformRepresentation>, const String&);
+    DataCue(ScriptExecutionContext&, const MediaTime& start, const MediaTime& end, RefPtr<SerializedPlatformRepresentation>&&, const String&);
     DataCue(ScriptExecutionContext&, const MediaTime& start, const MediaTime& end, JSC::JSValue, const String&);
 #endif
 

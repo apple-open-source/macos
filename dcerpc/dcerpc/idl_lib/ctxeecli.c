@@ -582,6 +582,8 @@ void rpc_ss_ctx_client_ref_count_inc
 /*  ENTRY POINT INTO LIBIDL FROM STUB                                         */
 /*                                                                            */
 /******************************************************************************/
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 void rpc_ss_ctx_client_ref_count_dec
 (
     handle_t h,
@@ -619,6 +621,7 @@ void rpc_ss_ctx_client_ref_count_dec
         was destroyed by manager */
     RPC_SS_THREADS_MUTEX_UNLOCK(&rpc_ss_context_table_mutex);
 }
+#endif
 
 /*
  *  OT_8069 - context reference counts incorrectly maintained

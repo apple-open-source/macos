@@ -59,7 +59,7 @@ typedef struct _CCRSACryptor {
 } CCRSACryptor;
 
 static CCRSACryptor *
-ccMallocRSACryptor(size_t nbits, CCRSAKeyType keyType)
+ccMallocRSACryptor(size_t nbits, CCRSAKeyType __unused keyType)
 {
     CCRSACryptor *retval;
     cc_size n = ccn_nof(nbits);
@@ -92,7 +92,7 @@ CCRSACryptorGeneratePair(size_t keysize, uint32_t e, CCRSACryptorRef *publicKey,
     CCRSACryptor *privateCryptor = NULL;
     CCRSACryptor *publicCryptor = NULL;
     struct ccrng_state *theRng1 = ccDRBGGetRngState();
-    struct ccrng_state *theRng2 = ccDevRandomGetRngState();
+    struct ccrng_state *theRng2 = ccDevRandomGetRngState(); // Expect deprecated warning
     
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
     // ccrsa_generate_key() requires the exponent as length / pointer to bytes
@@ -331,7 +331,7 @@ CCRSACryptorCrypt(CCRSACryptorRef rsaKey, const void *in, size_t inLen, void *ou
             ccrsa_pub_crypt(ccrsa_ctx_public(rsaKey->fk), buf, buf);
             break;
         case ccRSAKeyPrivate:
-            ccrsa_priv_crypt(ccrsa_ctx_private(rsaKey->fk), buf, buf);
+            ccrsa_priv_crypt(rsaKey->fk, buf, buf);
             break;
         default:
             return kCCParamError;
@@ -470,20 +470,20 @@ CCRSACryptorCreateFromData( CCRSAKeyType keyType, uint8_t *modulus, size_t modul
             break;
 		
 		case ccRSAKeyPrivate: {
-            ccrsa_priv_ctx_t privk = ccrsa_ctx_private(rsaKey->fk);
+            ccrsa_full_ctx_t fk = (ccrsa_full_ctx_t)(rsaKey->fk); //ccrsa_ctx_private_xxx() macros take full key now
             size_t psize = ccn_nof_size(pLength);
             size_t qsize = ccn_nof_size(qLength);
 
             
-            CCZP_N(ccrsa_ctx_private_zp(privk)) = psize;
-            __Require_Action(ccn_read_uint(psize, CCZP_PRIME(ccrsa_ctx_private_zp(privk)), pLength, p) == 0, errOut, retval = kCCParamError);
-            CCZP_N(ccrsa_ctx_private_zq(privk)) = qsize;
-            __Require_Action(ccn_read_uint(qsize, CCZP_PRIME(ccrsa_ctx_private_zq(privk)), qLength, q) == 0, errOut, retval = kCCParamError);
+            CCZP_N(ccrsa_ctx_private_zp(fk)) = psize;
+            __Require_Action(ccn_read_uint(psize, CCZP_PRIME(ccrsa_ctx_private_zp(fk)), pLength, p) == 0, errOut, retval = kCCParamError);
+            CCZP_N(ccrsa_ctx_private_zq(fk)) = qsize;
+            __Require_Action(ccn_read_uint(qsize, CCZP_PRIME(ccrsa_ctx_private_zq(fk)), qLength, q) == 0, errOut, retval = kCCParamError);
 
             ccrsa_crt_makekey(ccrsa_ctx_zm(rsaKey->fk), ccrsa_ctx_e(rsaKey->fk), ccrsa_ctx_d(rsaKey->fk),
-                              ccrsa_ctx_private_zp(privk),
-                              ccrsa_ctx_private_dp(privk), ccrsa_ctx_private_qinv(privk),
-                              ccrsa_ctx_private_zq(privk), ccrsa_ctx_private_dq(privk));
+                              ccrsa_ctx_private_zp(fk),
+                              ccrsa_ctx_private_dp(fk), ccrsa_ctx_private_qinv(fk),
+                              ccrsa_ctx_private_zq(fk), ccrsa_ctx_private_dq(fk));
             
             rsaKey->keyType = ccRSAKeyPrivate;
 
@@ -531,11 +531,10 @@ CCRSAGetKeyComponents(CCRSACryptorRef rsaKey, uint8_t *modulus, size_t *modulusL
     return kCCSuccess;
 }
 
-
 CCCryptorStatus 
 CCRSACryptorSign(CCRSACryptorRef privateKey, CCAsymmetricPadding padding, 
                  const void *hashToSign, size_t hashSignLen,
-                 CCDigestAlgorithm digestType, size_t saltLen,
+                 CCDigestAlgorithm digestType, size_t __unused saltLen,
                  void *signedData, size_t *signedDataLen)
 {    
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
@@ -547,13 +546,7 @@ CCRSACryptorSign(CCRSACryptorRef privateKey, CCAsymmetricPadding padding,
                                    hashSignLen, hashToSign, signedDataLen, signedData) != 0)
                 return kCCDecodeError;
             break;
-            
-        case ccOAEPPadding:           
-            if(ccrsa_sign_oaep(privateKey->fk, CCDigestGetDigestInfo(digestType),
-                               ccDRBGGetRngState(), hashSignLen, hashToSign, 
-                               signedDataLen, signedData) != 0)
-                return kCCDecodeError;
-            break;
+  
         case ccX931Padding:
         case ccPKCS1PaddingRaw:
         case ccPaddingNone:
@@ -565,32 +558,26 @@ CCRSACryptorSign(CCRSACryptorRef privateKey, CCAsymmetricPadding padding,
 }
 
 
-
 CCCryptorStatus 
 CCRSACryptorVerify(CCRSACryptorRef publicKey, CCAsymmetricPadding padding,
                    const void *hash, size_t hashLen, 
-                   CCDigestAlgorithm digestType, size_t saltLen,
+                   CCDigestAlgorithm digestType, size_t __unused saltLen,
                    const void *signedData, size_t signedDataLen)
 {
     bool valid;
     
     CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
-    if(!publicKey || !hash || !signedData) return kCCParamError;
-    
+    const struct ccdigest_info *di = CCDigestGetDigestInfo(digestType);
+    if(publicKey==NULL || hash==NULL || signedData==NULL || di==NULL) return kCCParamError;
+
     switch(padding) {
         case ccPKCS1Padding: 
-            if(ccrsa_verify_pkcs1v15(ccrsa_ctx_public(publicKey->fk), CCDigestGetDigestInfo(digestType)->oid,
+            if(ccrsa_verify_pkcs1v15(ccrsa_ctx_public(publicKey->fk), di->oid,
                                      hashLen, hash, signedDataLen, signedData, &valid) != 0)
                 return kCCDecodeError;
             if(!valid) return kCCDecodeError;
             break;
             
-        case ccOAEPPadding:
-            if(ccrsa_verify_oaep(ccrsa_ctx_public(publicKey->fk),  CCDigestGetDigestInfo(digestType),
-                                 hashLen, hash, signedDataLen, signedData, &valid) != 0)
-                return kCCDecodeError;
-            if(!valid) return kCCDecodeError;
-            break;
         case ccX931Padding:
         case ccPKCS1PaddingRaw:
         case ccPaddingNone:

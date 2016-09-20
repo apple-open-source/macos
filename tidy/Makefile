@@ -5,7 +5,10 @@
 
 # Project info
 Project               = tidy
-BuildNumber           = 15.17
+BuildNumber           = $(RC_ProjectSourceVersion)
+ifeq ($(BuildNumber),)
+BuildNumber           = 15.18.1
+endif
 UserType              = Administrator
 ToolType              = Libraries
 
@@ -39,6 +42,9 @@ CFLAGS += -isysroot $(SDK_DIR)
 endif
 
 CFLAGS+= -DTIDY_APPLE_CHANGES=1 -DTIDY_APPLE_BUILD_NUMBER=$(BuildNumber) -DTIDY_APPLE_BUILD_NUMBER_STR='"\"$(BuildNumber)\""'
+
+# Additional warning flags. See tidy/build/gmake/Makefile for others.
+CFLAGS+= -Wformat=2 -Wmissing-format-attribute
 
 OSV     = $(DSTROOT)/usr/local/OpenSourceVersions
 OSL     = $(DSTROOT)/usr/local/OpenSourceLicenses

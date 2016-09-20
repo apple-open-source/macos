@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2002-2010,2012-2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2002-2016 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -80,16 +80,15 @@ CF_IMPLICIT_BRIDGING_ENABLED
     of trust evaluation. This value may be returned by the SecTrustEvaluate
     function but not stored as part of the user trust settings.
  */
-typedef uint32_t SecTrustResultType;
-enum {
-    kSecTrustResultInvalid = 0,
-    kSecTrustResultProceed = 1,
-    kSecTrustResultConfirm SEC_DEPRECATED_ATTRIBUTE = 2,
-    kSecTrustResultDeny = 3,
-    kSecTrustResultUnspecified = 4,
-    kSecTrustResultRecoverableTrustFailure = 5,
-    kSecTrustResultFatalTrustFailure = 6,
-    kSecTrustResultOtherError = 7
+typedef CF_ENUM(uint32_t, SecTrustResultType) {
+    kSecTrustResultInvalid  CF_ENUM_AVAILABLE(10_3, 2_0) = 0,
+    kSecTrustResultProceed  CF_ENUM_AVAILABLE(10_3, 2_0) = 1,
+    kSecTrustResultConfirm  CF_ENUM_DEPRECATED(10_3, 10_9, 2_0, 7_0) = 2,
+    kSecTrustResultDeny  CF_ENUM_AVAILABLE(10_3, 2_0) = 3,
+    kSecTrustResultUnspecified  CF_ENUM_AVAILABLE(10_3, 2_0) = 4,
+    kSecTrustResultRecoverableTrustFailure  CF_ENUM_AVAILABLE(10_3, 2_0) = 5,
+    kSecTrustResultFatalTrustFailure  CF_ENUM_AVAILABLE(10_3, 2_0) = 6,
+    kSecTrustResultOtherError  CF_ENUM_AVAILABLE(10_3, 2_0) = 7
 };
 
 /*!
@@ -150,6 +149,9 @@ extern const CFStringRef kSecPropertyTypeError
     @constant kSecTrustCertificateTransparency
         This key will be present and have a value of kCFBooleanTrue
         if this chain is CT qualified.
+    @constant kSecTrustCertificateTransparencyWhiteList
+        This key will be present and have a value of kCFBooleanTrue
+        if this chain is EV, not CT qualified, but included of the CT WhiteList.
 
  */
 extern const CFStringRef kSecTrustEvaluationDate
@@ -165,7 +167,9 @@ extern const CFStringRef kSecTrustRevocationChecked
 extern const CFStringRef kSecTrustRevocationValidUntilDate
     __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 extern const CFStringRef kSecTrustCertificateTransparency
-__OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
+    __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
+extern const CFStringRef kSecTrustCertificateTransparencyWhiteList
+    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
 
 #ifdef __BLOCKS__
 /*!
@@ -444,8 +448,9 @@ CFDataRef SecTrustCopyExceptions(SecTrustRef trust)
     @abstract Set a trust cookie to be used for evaluating this certificate chain.
     @param trust A reference to a trust object.
     @param exceptions An exceptions cookie as returned by a call to
-    SecTrustCopyExceptions() in the past.
-    @result Upon calling SecTrustEvaluate(), any failures that where present at the
+    SecTrustCopyExceptions() in the past.  You may pass NULL to clear any
+    exceptions which have been previously set on this trust reference.
+    @result Upon calling SecTrustEvaluate(), any failures that were present at the
     time the exceptions object was created are ignored, and instead of returning
     kSecTrustResultRecoverableTrustFailure, kSecTrustResultProceed will be returned
     (if the certificate for which exceptions was created matches the current leaf
@@ -462,7 +467,7 @@ CFDataRef SecTrustCopyExceptions(SecTrustRef trust)
     of the wireless network for which this cert is needed, the account for which
     this cert should be considered valid, and so on.
  */
-bool SecTrustSetExceptions(SecTrustRef trust, CFDataRef exceptions)
+bool SecTrustSetExceptions(SecTrustRef trust, CFDataRef __nullable exceptions)
     __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_4_0);
 
 /*!
@@ -551,8 +556,7 @@ typedef SecTrustResultType SecTrustUserSetting
     @constant kSecTrustOptionImplicitAnchors Properly self-signed certs are
     treated as anchors implicitly.
  */
-typedef uint32_t SecTrustOptionFlags;
-enum {
+typedef CF_OPTIONS(uint32_t, SecTrustOptionFlags) {
     kSecTrustOptionAllowExpired       = 0x00000001,
     kSecTrustOptionLeafIsCA           = 0x00000002,
     kSecTrustOptionFetchIssuerFromNet = 0x00000004,
@@ -628,7 +632,7 @@ OSStatus SecTrustSetKeychains(SecTrustRef trust, CFTypeRef __nullable keychainOr
     for the evaluation, use SecTrustGetTrustResult.
  */
 OSStatus SecTrustGetResult(SecTrustRef trustRef, SecTrustResultType * __nullable result,
-    CFArrayRef * __nonnull CF_RETURNS_RETAINED certChain, CSSM_TP_APPLE_EVIDENCE_INFO * __nullable * __nonnull statusChain)
+    CFArrayRef * __nullable CF_RETURNS_RETAINED certChain, CSSM_TP_APPLE_EVIDENCE_INFO * __nullable * __nullable statusChain)
     __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2, __MAC_10_7, __IPHONE_NA, __IPHONE_NA);
 
 /*!

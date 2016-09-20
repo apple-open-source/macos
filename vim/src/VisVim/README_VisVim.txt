@@ -17,11 +17,15 @@ own window.
 VisVim is based upon VisEmacs by Christopher Payne
 (Copyright (C) Christopher Payne 1997).
 
-Author: Heiko Erhardt <Heiko.Erhardt@munich.netsurf.de>
+Author: Heiko Erhardt <heiko.erhardt@gmx.net>
 Based upon: VisEmacs by Christopher Payne <payneca@sagian.com>
 Version: 1.0
 Created: 23 Oct 1997
 Date: 23 Oct 1997
+
+VisVim was originally GNU GPL licensed, as stated below.  On March 21 2012
+Heiko Erhardt declared this work to be relicensed under the Vim license, as
+stated in ../../runtime/doc/uganda.txt (or ":help uganda" in Vim).
 
 VisVim is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -216,7 +220,7 @@ Troubleshooting
 		 2. Close Visual Studio.
 		 3. Delete VisVim.dll or move it somewhere it can't be found.
 		 4. Run Visual Studio.
-		 5. Tools -> Cursomize ->Add-ins and Macro-Files.
+		 5. Tools -> Customize ->Add-ins and Macro-Files.
 		 6. A message appears:
 		    ".../VisVim.dll" "This add-in no longer exists.  It will
 		    no longer be displayed."
@@ -278,7 +282,7 @@ No new features, just some fine tuning:
   occasionally still seems to happen, but it's more stable now).
   (Vince Negri)
 - Added support for the new CTRL-\ CTRL-N command of Vim 5.4a.
-  This prevents Vim from beeping when a VisVim command is executed an Vim is
+  This prevents Vim from beeping when a VisVim command is executed and Vim is
   not in insert mode.
 
 
@@ -294,7 +298,7 @@ P9  Switching to DevStudio using ALT-TAB may get annoying. Would be nice to
 P8  Execute :tag command in Vim for word under cursor in DevStudio
 
 P7  Controlling the Visual Studio Debugger from inside Vim
-    See message above. Also a 'Debug' highligh group and a
+    See message above. Also a 'Debug' highlight group and a
     command to highlight a certain line would be necessary.
 
 P6  Provide an option to open the current file in VisVim in
@@ -318,5 +322,5 @@ Known Problems
 Have fun!
 
 Heiko Erhardt
-Heiko.Erhardt@munich.netsurf.de
+heiko.erhardt@gmx.net
 

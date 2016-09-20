@@ -25,6 +25,7 @@
 #import <SpringBoardServices/SBSCFUserNotificationKeys.h>
 #include <dispatch/dispatch.h>
 #include "SecureObjectSync/SOSCloudCircle.h"
+#include "SecureObjectSync/SOSCloudCircleInternal.h"
 #include "SecureObjectSync/SOSPeerInfo.h"
 #include <notify.h>
 #include <sysexits.h>
@@ -36,9 +37,14 @@
 #import "NSDate+TimeIntervalDescription.h"
 #include <xpc/activity.h>
 #include <xpc/private.h>
+#import "os/activity.h"
 #import <syslog.h>
 #include "utilities/SecCFRelease.h"
 #include "utilities/debugging.h"
+#include "utilities/SecAKSWrappers.h"
+
+#import "CoreCDP/CDPFollowUpController.h"
+#import "CoreCDP/CDPFollowUpContext.h"
 
 // As long as we are logging the failure use exit code of zero to make launchd happy
 #define EXIT_LOGGED_FAILURE(code)  xpc_transaction_end();  exit(0)
@@ -51,9 +57,63 @@ bool currentAlertIsForKickOut = false;
 NSMutableDictionary *applicants = nil;
 volatile NSString *debugState = @"main?";
 dispatch_block_t doOnceInMainBlockChain = NULL;
+bool _isLocked = true;
+bool processApplicantsAfterUnlock = false;
+bool _unlockedSinceBoot = false;
 
 NSString *castleKeychainUrl = @"prefs:root=CASTLE&path=Keychain/ADVANCED";
 NSString *rejoinICDPUrl     = @"prefs:root=CASTLE&aaaction=CDP&command=rejoin";
+
+BOOL processRequests(CFErrorRef *error);
+
+
+static void keybagDidLock()
+{
+    secnotice("cjr", "keybagDidLock");
+}
+
+static void keybagDidUnlock()
+{
+    secnotice("cjr", "keybagDidUnlock");
+    
+    CFErrorRef error = NULL;
+    
+    if(processApplicantsAfterUnlock){
+        processRequests(&error);
+        processApplicantsAfterUnlock = false;
+    }
+    
+}
+
+static bool updateIsLocked ()
+{
+    CFErrorRef aksError = NULL;
+    if (!SecAKSGetIsLocked(&_isLocked, &aksError)) {
+        _isLocked = YES;
+        secerror("Got error querying lock state: %@", aksError);
+        CFReleaseSafe(aksError);
+        return NO;
+    }
+    if (!_isLocked)
+        _unlockedSinceBoot = YES;
+    return YES;
+}
+
+static void keybagStateChange ()
+{
+    secerror("osactivity initiated");
+    os_activity_initiate("keybagStateChanged", OS_ACTIVITY_FLAG_DEFAULT, ^{
+        BOOL wasLocked = _isLocked;
+        if ( updateIsLocked()) {
+            if (wasLocked == _isLocked)
+                secerror("still %s ignoring", _isLocked ? "locked" : "unlocked");
+            else if (_isLocked)
+                keybagDidLock();
+            else
+                keybagDidUnlock();
+        }
+    });
+}
 
 static void doOnceInMain(dispatch_block_t block)
 {
@@ -111,22 +171,22 @@ static NSMutableArray *applicantsInState(ApplicantUIState state)
 }
 
 
-static BOOL processRequests(CFErrorRef *error) {
+BOOL processRequests(CFErrorRef *error) {
 	NSMutableArray *toAccept = [[applicantsInState(ApplicantAccepted) mapWithBlock:^id(id obj) {return (id)[obj rawPeerInfo];}] mutableCopy];
 	NSMutableArray *toReject = [[applicantsInState(ApplicantRejected) mapWithBlock:^id(id obj) {return (id)[obj rawPeerInfo];}] mutableCopy];
 	bool			ok = true;
 
 	if ([toAccept count]) {
-		NSLog(@"Process accept: %@", toAccept);
+		secnotice("cjr", "Process accept: %@", toAccept);
 		ok = ok && SOSCCAcceptApplicants((__bridge CFArrayRef) toAccept, error);
 		if (ok) {
-			NSLog(@"kSOSCCHoldLockForInitialSync");
+			secnotice("cjr", "kSOSCCHoldLockForInitialSync");
 			notify_post(kSOSCCHoldLockForInitialSync);
 		}
 	}
 
 	if ([toReject count]) {
-		NSLog(@"Process reject: %@", toReject);
+		secnotice("cjr", "Process reject: %@", toReject);
 		ok = ok && SOSCCRejectApplicants((__bridge CFArrayRef) toReject, error);
 	}
 
@@ -162,7 +222,7 @@ static void applicantChoice(CFUserNotificationRef userNotification, CFOptionFlag
 	} else if (kCFUserNotificationDefaultResponse == responseFlags) {
 		choice = ApplicantAccepted;
 	} else {
-		NSLog(@"Unexpected response %lu", responseFlags);
+		secnotice("cjr", "Unexpected response %lu", responseFlags);
 		choice = ApplicantRejected;
 	}
 
@@ -179,20 +239,26 @@ static void applicantChoice(CFUserNotificationRef userNotification, CFOptionFlag
 		// If this device has ever set up the public key this should work without the password...
 		processed = processRequests(&error);
 		if (processed) {
-			NSLog(@"Didn't need password to process %@", onScreen);
+			secnotice("cjr", "Didn't need password to process %@", onScreen);
 			cancelCurrentAlert(true);
 			return;
 		} else {
 			// ...however if the public key gets lost we should "just" fall through to the validate
 			// password path.
-			NSLog(@"Couldn't process reject without password (e=%@) for %@ (will try with password next)", error, onScreen);
+			secnotice("cjr", "Couldn't process reject without password (e=%@) for %@ (will try with password next)", error, onScreen);
+
+            if (CFErrorGetCode(error) == -536870174 && CFErrorGetDomain(error) == kSecKernDomain) {
+                secnotice("cjr", "system is locked, dismiss the notification");
+                processApplicantsAfterUnlock = true;
+                return;
+            }
 		}
 		CFReleaseNull(error);
 	}
 
 	NSString *password = (__bridge NSString *) CFUserNotificationGetResponseValue(userNotification, kCFUserNotificationTextFieldValuesKey, 0);
 	if (!password) {
-		NSLog(@"No password given, retry");
+		secnotice("cjr", "No password given, retry");
 		askAboutAll(true);
 		return;
 	}
@@ -204,10 +270,10 @@ static void applicantChoice(CFUserNotificationRef userNotification, CFOptionFlag
 	// failure a few times before we give up.
 	for (int try = 0; try < 5 && !processed; try++) {
 		if (!SOSCCTryUserCredentials(CFSTR(""), (__bridge CFDataRef) passwordBytes, &error)) {
-			NSLog(@"Try user credentials failed %@", error);
+			secnotice("cjr", "Try user credentials failed %@", error);
 			if ((error == NULL) ||
 				(CFEqual(kSOSErrorDomain, CFErrorGetDomain(error)) && kSOSErrorWrongPassword == CFErrorGetCode(error))) {
-				NSLog(@"Calling askAboutAll again...");
+				secnotice("cjr", "Calling askAboutAll again...");
 				[onScreen enumerateObjectsUsingBlock:^(id obj, NSUInteger idx, BOOL *stop) {
 					Applicant *applicant = (Applicant*) obj;
 					applicant.applicantUIState = ApplicantWaiting;
@@ -221,7 +287,7 @@ static void applicantChoice(CFUserNotificationRef userNotification, CFOptionFlag
 
 		processed = processRequests(&error);
 		if (!processed) {
-			NSLog(@"Can't processRequests: %@ for %@", error, onScreen);
+			secnotice("cjr", "Can't processRequests: %@ for %@", error, onScreen);
 		}
 		CFReleaseNull(error);
 	}
@@ -299,7 +365,7 @@ static NSDictionary *createNote(Applicant *applicantToAskAbout)
 static void askAboutAll(bool passwordFailure)
 {
 	if ([[MCProfileConnection sharedConnection] effectiveBoolValueForSetting: MCFeatureAccountModificationAllowed] == MCRestrictedBoolExplicitNo) {
-		NSLog(@"Account modifications not allowed.");
+		secnotice("cjr", "Account modifications not allowed.");
 		return;
 	}
 
@@ -319,11 +385,11 @@ static void askAboutAll(bool passwordFailure)
 	currentAlertIsForApplicants = true;
 
 	Applicant *applicantToAskAbout = firstApplicantWaitingOrOnScreen();
-	NSLog(@"Asking about: %@ (of: %@)", applicantToAskAbout, applicants);
+	secnotice("cjr", "Asking about: %@ (of: %@)", applicantToAskAbout, applicants);
 
 	NSDictionary *noteAttributes = createNote(applicantToAskAbout);
 	if(!noteAttributes) {
-		NSLog(@"NULL data for %@", applicantToAskAbout);
+		secnotice("cjr", "NULL data for %@", applicantToAskAbout);
 		cancelCurrentAlert(true);
 		return;
 	}
@@ -333,14 +399,14 @@ static void askAboutAll(bool passwordFailure)
 	if (currentAlert) {
 		SInt32 err = CFUserNotificationUpdate(currentAlert, 0, flags, (__bridge CFDictionaryRef) noteAttributes);
 		if (err) {
-			NSLog(@"CFUserNotificationUpdate err=%d", (int)err);
+			secnotice("cjr", "CFUserNotificationUpdate err=%d", (int)err);
 			EXIT_LOGGED_FAILURE(EX_SOFTWARE);
 		}
 	} else {
 		SInt32 err = 0;
 		currentAlert = CFUserNotificationCreate(NULL, 0.0, flags, &err, (__bridge CFDictionaryRef) noteAttributes);
 		if (err) {
-			NSLog(@"Can't make notification for %@ err=%x", applicantToAskAbout, (int)err);
+			secnotice("cjr", "Can't make notification for %@ err=%x", applicantToAskAbout, (int)err);
 			EXIT_LOGGED_FAILURE(EX_SOFTWARE);
 		}
 
@@ -362,7 +428,7 @@ static void scheduleActivity(int alertInterval)
     xpc_dictionary_set_string(options, XPC_ACTIVITY_PRIORITY, XPC_ACTIVITY_PRIORITY_UTILITY);
     
     xpc_activity_register(kLaunchLaterXPCName, options, ^(xpc_activity_t activity) {
-        NSLog(@"activity handler fired");
+        secnotice("cjr", "activity handler fired");
     });
 }
 
@@ -377,7 +443,7 @@ static void reminderChoice(CFUserNotificationRef userNotification, CFOptionFlags
         if (responseFlags == kCFUserNotificationAlternateResponse) {
 			// Use security code
             BOOL ok = [[LSApplicationWorkspace defaultWorkspace] openSensitiveURL:[NSURL URLWithString:castleKeychainUrl] withOptions:nil];
-			NSLog(@"%s iCSC: opening %@ ok=%d", __FUNCTION__, castleKeychainUrl, ok);
+			secnotice("cjr", "%s iCSC: opening %@ ok=%d", __FUNCTION__, castleKeychainUrl, ok);
         }
     }
 
@@ -389,7 +455,7 @@ static bool iCloudResetAvailable() {
 	SecureBackup *backupd = [SecureBackup new];
 	NSDictionary *backupdResults;
 	NSError		 *error = [backupd getAccountInfoWithInfo:nil results:&backupdResults];
-	NSLog(@"SecureBackup e=%@ r=%@", error, backupdResults);
+	secnotice("cjr", "SecureBackup e=%@ r=%@", error, backupdResults);
 	return (error == nil && [backupdResults[kSecureBackupIsEnabledKey] isEqualToNumber:@YES]);
 }
 
@@ -422,7 +488,7 @@ static void postApplicationReminderAlert(NSDate *nowish, PersistentState *state,
 
 	if (CPIsInternalDevice() &&
 		state.defaultPendingApplicationReminderAlertInterval != state.pendingApplicationReminderAlertInterval) {
-#if !defined(NDEBUG)
+#ifdef DEBUG
 		body = [body stringByAppendingFormat: @"〖debug interval %u; wait time %@〗",
 					state.pendingApplicationReminderAlertInterval,
 					[nowish copyDescriptionOfIntervalSince:state.applicationDate]];
@@ -437,13 +503,12 @@ static void postApplicationReminderAlert(NSDate *nowish, PersistentState *state,
 		(id) kCFUserNotificationAlertTopMostKey				: @YES,
 		(__bridge id) SBUserNotificationDontDismissOnUnlock	: @YES,
 		(__bridge id) SBUserNotificationDismissOnLock		: @NO,
-		(__bridge id) SBUserNotificationOneButtonPerLine	: @YES,
 	};
     SInt32 err = 0;
     currentAlert = CFUserNotificationCreate(NULL, 0.0, kCFUserNotificationPlainAlertLevel, &err, (__bridge CFDictionaryRef) pendingAttributes);
 
 	if (err) {
-		NSLog(@"Can't make pending notification err=%x", (int)err);
+		secnotice("cjr", "Can't make pending notification err=%x", (int)err);
 	} else {
 		currentAlertIsForApplicants = false;
 		currentAlertSource = CFUserNotificationCreateRunLoopSource(NULL, currentAlert, reminderChoice, 0);
@@ -453,7 +518,9 @@ static void postApplicationReminderAlert(NSDate *nowish, PersistentState *state,
 
 
 static void kickOutChoice(CFUserNotificationRef userNotification, CFOptionFlags responseFlags) {
-	NSLog(@"kOC %@ %lu", userNotification, responseFlags);
+	secnotice("cjr", "kOC %@ %lu", userNotification, responseFlags);
+    
+    //default response: continue -> settings pref pane advanced keychain sync page
 	if (responseFlags == kCFUserNotificationDefaultResponse) {
 		// We need to let things unwind to main for the new state to get saved
 		doOnceInMain(^{
@@ -472,9 +539,40 @@ static void kickOutChoice(CFUserNotificationRef userNotification, CFOptionFlags 
 			}
 			NSURL    		  *url		= [NSURL URLWithString: localICDP ? rejoinICDPUrl : castleKeychainUrl];
 			BOOL 			  ok		= [[LSApplicationWorkspace defaultWorkspace] openSensitiveURL:url withOptions:nil];
-			NSLog(@"ok=%d opening %@", ok, url);
+            secnotice("cjr", "ok=%d opening %@", ok, url);
 		});
 	}
+    //alternate response: later -> call CD
+    else if (responseFlags == kCFUserNotificationAlternateResponse) {
+        // We need to let things unwind to main for the new state to get saved
+        doOnceInMain(^{
+            CDPFollowUpController *cdpd = [[CDPFollowUpController alloc] init];
+            ACAccountStore	  *store	= [ACAccountStore new];
+            ACAccount		  *primary  = [store aa_primaryAppleAccount];
+            NSString		  *dsid 	= [primary aa_personID];
+            bool			  localICDP = false;
+            if (dsid) {
+                NSDictionary	  *options = @{ (__bridge id) kPCSSetupDSID : dsid, };
+                PCSIdentitySetRef identity = PCSIdentitySetCreate((__bridge CFDictionaryRef) options, NULL, NULL);
+                
+                if (identity) {
+                    localICDP = PCSIdentitySetIsICDP(identity, NULL);
+                    CFRelease(identity);
+                }
+            }
+            if(localICDP){
+                NSError *localError = nil;
+                CDPFollowUpContext *context = [CDPFollowUpContext contextForStateRepair];
+                [cdpd postFollowUpWithContext:context error:&localError ];
+                if(localError){
+                    secnotice("cjr", "request to CoreCDP to follow up failed: %@", localError);
+                }
+                else
+                    secnotice("cjr", "CoreCDP handling follow up");
+            }
+        });
+
+    }
 	cancelCurrentAlert(true);
 }
 
@@ -505,7 +603,7 @@ static void postKickedOutAlert(enum DepartureReason reason)
 	ADClientSetValueForScalarKey(CJRAggdNumCircleDevicesKey, num_peers);
 
 	debugState = @"pKOA A";
-	syslog(LOG_ERR, "DepartureReason %d", reason);
+	secnotice("cjr", "DepartureReason %d", reason);
 	switch (reason) {
 	case kSOSDiscoveredRetirement:
 	case kSOSLostPrivateKey:
@@ -522,6 +620,7 @@ static void postKickedOutAlert(enum DepartureReason reason)
 		return;
 		break;
 
+    case kSOSPasswordChanged:
 	case kSOSNeverLeftCircle:
 	case kSOSMembershipRevoked:
 	case kSOSLeftUntrustedCircle:
@@ -541,6 +640,7 @@ static void postKickedOutAlert(enum DepartureReason reason)
 			"kSOSNeverAppliedToCircle",
 			"kSOSDiscoveredRetirement",
 			"kSOSLostPrivateKey",
+            "kSOSPasswordChanged",
 			"unknown reason"
 		};
 		int idx = (kSOSDepartureReasonError <= reason && reason <= kSOSLostPrivateKey) ? reason : (kSOSLostPrivateKey + 1);
@@ -557,13 +657,12 @@ static void postKickedOutAlert(enum DepartureReason reason)
 		(id) kCFUserNotificationAlertTopMostKey		   : @YES,
 		(__bridge id) SBUserNotificationDismissOnLock		: @NO,
 		(__bridge id) SBUserNotificationDontDismissOnUnlock	: @YES,
-		(__bridge id) SBUserNotificationOneButtonPerLine	: @YES,
 	};
     SInt32 err = 0;
-    
+
     if (currentAlertIsForKickOut) {
         debugState = @"pKOA B";
-        NSLog(@"Updating existing alert %@ with %@", currentAlert, kickedAttributes);
+        secnotice("cjr", "Updating existing alert %@ with %@", currentAlert, kickedAttributes);
         CFUserNotificationUpdate(currentAlert, 0, kCFUserNotificationPlainAlertLevel, (__bridge CFDictionaryRef) kickedAttributes);
     } else {
         debugState = @"pKOA C";
@@ -571,24 +670,26 @@ static void postKickedOutAlert(enum DepartureReason reason)
         CFUserNotificationRef note = CFUserNotificationCreate(NULL, 0.0, kCFUserNotificationPlainAlertLevel, &err, (__bridge CFDictionaryRef) kickedAttributes);
 		assert((note == NULL) == (err != 0));
 		if (err) {
-			NSLog(@"Can't make kicked out notification err=%x", (int)err);
+			secnotice("cjr", "Can't make kicked out notification err=%x", (int)err);
+            CFReleaseNull(note);
 		} else {
             currentAlertIsForApplicants = false;
             currentAlertIsForKickOut = true;
             
             currentAlert = note;
-            NSLog(@"New ko alert %@ a=%@", currentAlert, kickedAttributes);
+            secnotice("cjr", "New ko alert %@ a=%@", currentAlert, kickedAttributes);
             currentAlertSource = CFUserNotificationCreateRunLoopSource(NULL, currentAlert, kickOutChoice, 0);
             CFRunLoopAddSource(CFRunLoopGetCurrent(), currentAlertSource, kCFRunLoopDefaultMode);
             int backupStateChangeToken;
             notify_register_dispatch("com.apple.EscrowSecurityAlert.reset", &backupStateChangeToken, dispatch_get_main_queue(), ^(int token) {
                 if (currentAlert == note) {
-                    NSLog(@"Backup state might have changed (dS=%@)", debugState);
+                    secnotice("cjr", "Backup state might have changed (dS=%@)", debugState);
                     postKickedOutAlert(reason);
                 } else {
-                    NSLog(@"Backup state may have changed, but we don't care anymore (dS=%@)", debugState);
+                    secnotice("cjr", "Backup state may have changed, but we don't care anymore (dS=%@)", debugState);
                 }
             });
+            
             debugState = @"pKOA D";
             CFRunLoopRun();
             debugState = @"pKOA E";
@@ -609,12 +710,11 @@ static bool processEvents()
 	NSDate				*nowish			 = [NSDate date];
 	PersistentState 	*state     		 = [PersistentState loadFromStorage];
 	enum DepartureReason departureReason = SOSCCGetLastDepartureReason(&departError);
-	NSLog(@"CircleStatus %d -> %d{%d} (s=%p)", state.lastCircleStatus, circleStatus, departureReason, state);
-
+	secnotice("cjr", "CircleStatus %d -> %d{%d} (s=%p)", state.lastCircleStatus, circleStatus, departureReason, state);
 
 	// Pending application reminder
 	NSTimeInterval timeUntilApplicationAlert = [state.pendingApplicationReminder timeIntervalSinceDate:nowish];
-	NSLog(@"Time until pendingApplicationReminder (%@) %f", [state.pendingApplicationReminder debugDescription], timeUntilApplicationAlert);
+	secnotice("cjr", "Time until pendingApplicationReminder (%@) %f", [state.pendingApplicationReminder debugDescription], timeUntilApplicationAlert);
 	if (circleStatus == kSOSCCRequestPending) {
 		if (timeUntilApplicationAlert <= 0) {
 			debugState = @"reminderAlert";
@@ -624,16 +724,27 @@ static bool processEvents()
 		}
 	}
 
-
+    if(circleStatus == kSOSCCError && state.lastCircleStatus != kSOSCCError && (departureReason == kSOSNeverLeftCircle)) {
+        secnotice("cjr", "error from SOSCCThisDeviceIsInCircle: %@", error);
+        CFIndex errorCode = CFErrorGetCode(error);
+        if(errorCode == kSOSErrorPublicKeyAbsent){
+            secnotice("cjr", "We need the password to re-validate ourselves - it's changed on another device");
+            postKickedOutAlert(kSOSPasswordChanged);
+            state.lastCircleStatus = kSOSCCError;
+            [state writeToStorage];
+            return true;
+        }
+    }
+    
 	// No longer in circle?
 	if ((state.lastCircleStatus == kSOSCCInCircle     && (circleStatus == kSOSCCNotInCircle || circleStatus == kSOSCCCircleAbsent)) ||
 		(state.lastCircleStatus == kSOSCCCircleAbsent && circleStatus == kSOSCCNotInCircle && state.absentCircleWithNoReason) ||
 		state.debugShowLeftReason) {
 		// Used to be in the circle, now we aren't - tell the user why
 		debugState = @"processEvents B";
-
-		if (state.debugShowLeftReason) {
-			NSLog(@"debugShowLeftReason: %@", state.debugShowLeftReason);
+    
+        if (state.debugShowLeftReason) {
+			secnotice("cjr", "debugShowLeftReason: %@", state.debugShowLeftReason);
 			departureReason = [state.debugShowLeftReason intValue];
 			state.debugShowLeftReason = nil;
 			CFReleaseNull(departError);
@@ -642,14 +753,14 @@ static bool processEvents()
 
 		if (departureReason != kSOSDepartureReasonError) {
 			state.absentCircleWithNoReason = (circleStatus == kSOSCCCircleAbsent && departureReason == kSOSNeverLeftCircle);
-			NSLog(@"Depature reason %d", departureReason);
+			secnotice("cjr", "Depature reason %d", departureReason);
 			postKickedOutAlert(departureReason);
-			NSLog(@"pKOA returned (cS %d lCS %d)", circleStatus, state.lastCircleStatus);
+			secnotice("cjr", "pKOA returned (cS %d lCS %d)", circleStatus, state.lastCircleStatus);
 		} else {
-			NSLog(@"Couldn't get last departure reason: %@", departError);
+			secnotice("cjr", "Couldn't get last departure reason: %@", departError);
 		}
-	}
-
+       
+    }
 
 	// Circle applications: pending request(s) started / completed
 	debugState = @"processEvents C";
@@ -658,13 +769,13 @@ static bool processEvents()
 		state.lastCircleStatus = circleStatus;
 		
 		if (lastCircleStatus != kSOSCCRequestPending && circleStatus == kSOSCCRequestPending) {
-			NSLog(@"Pending request started");
+			secnotice("cjr", "Pending request started");
 			state.applicationDate			 = nowish;
 			state.pendingApplicationReminder = [nowish dateByAddingTimeInterval: state.pendingApplicationReminderAlertInterval];
 			scheduleActivity(state.pendingApplicationReminderAlertInterval);
 		}
 		if (lastCircleStatus == kSOSCCRequestPending && circleStatus != kSOSCCRequestPending) {
-			NSLog(@"Pending request completed");
+			secnotice("cjr", "Pending request completed");
 			state.applicationDate			 = [NSDate distantPast];
 			state.pendingApplicationReminder = [NSDate distantFuture];
 		}
@@ -680,31 +791,31 @@ static bool processEvents()
 			debugState = @"processEvents D1";
 			notify_register_dispatch(kSOSCCCircleChangedNotification, &notifyToken, dispatch_get_main_queue(), ^(int token) {
 				if (postedAlert != currentAlert) {
-					NSLog(@"-- CC after original alert gone (currentAlertIsForApplicants %d, pA %p, cA %p -- %@)",
+					secnotice("cjr", "-- CC after original alert gone (currentAlertIsForApplicants %d, pA %p, cA %p -- %@)",
 						  currentAlertIsForApplicants, postedAlert, currentAlert, currentAlert);
 					notify_cancel(token);
 				} else {
-					CFErrorRef localError = NULL;
+                    CFErrorRef localError = NULL;
 					SOSCCStatus newCircleStatus = SOSCCThisDeviceIsInCircle(&localError);
 					if (newCircleStatus != kSOSCCRequestPending) {
 						if (newCircleStatus == kSOSCCError)
-							NSLog(@"No longer pending (nCS=%d, alert=%@) error: %@", newCircleStatus, currentAlert, localError);
+							secnotice("cjr", "No longer pending (nCS=%d, alert=%@) error: %@", newCircleStatus, currentAlert, localError);
 						else
-							NSLog(@"No longer pending (nCS=%d, alert=%@)", newCircleStatus, currentAlert);
+							secnotice("cjr", "No longer pending (nCS=%d, alert=%@)", newCircleStatus, currentAlert);
 						cancelCurrentAlert(true);
 					} else {
-						NSLog(@"Still pending...");
+						secnotice("cjr", "Still pending...");
 					}
 					CFReleaseNull(localError);
 				}
 			});
 			debugState = @"processEvents D2";
-			NSLog(@"NOTE: currentAlertIsForApplicants %d, token %d", currentAlertIsForApplicants, notifyToken);
+			secnotice("cjr", "NOTE: currentAlertIsForApplicants %d, token %d", currentAlertIsForApplicants, notifyToken);
 			CFRunLoopRun();
 			return true;
 		}
-		debugState = @"processEvents D4";
-		NSLog(@"SOSCCThisDeviceIsInCircle status %d, not checking applicants", circleStatus);
+        debugState = @"processEvents D4";
+		secnotice("cjr", "SOSCCThisDeviceIsInCircle status %d, not checking applicants", circleStatus);
 		return false;
 	}
 
@@ -723,7 +834,7 @@ static bool processEvents()
 	int notify_token = -42;
 	debugState = @"processEvents F";
 	int notify_register_status = notify_register_dispatch(kSOSCCCircleChangedNotification, &notify_token, dispatch_get_main_queue(), ^(int token) {
-		NSLog(@"Notified: %s", kSOSCCCircleChangedNotification);
+		secnotice("cjr", "Notified: %s", kSOSCCCircleChangedNotification);
 		CFErrorRef circleStatusError = NULL;
 		
 		bool needsUpdate = false;
@@ -745,7 +856,7 @@ static bool processEvents()
 					break;
 					
 				default:
-					NSLog(@"Update to %@ >> %@ with pending order, should work out ok though", existingApplicant, newApplicant);
+					secnotice("cjr", "Update to %@ >> %@ with pending order, should work out ok though", existingApplicant, newApplicant);
 					break;
 				}
 			} else {
@@ -754,7 +865,7 @@ static bool processEvents()
 			}
 		}
 		if (copyPeerError) {
-			NSLog(@"Could not update peer info array: %@", copyPeerError);
+			secnotice("cjr", "Could not update peer info array: %@", copyPeerError);
 			CFRelease(copyPeerError);
 			return;
 		}
@@ -769,27 +880,27 @@ static bool processEvents()
 		[applicants removeObjectsForKeys:idsToRemoveFromApplicants];
 		
 		if (newIds.count == 0) {
-			NSLog(@"All applicants were handled elsewhere");
+			secnotice("cjr", "All applicants were handled elsewhere");
 			cancelCurrentAlert(true);
 		}
 		SOSCCStatus currentCircleStatus = SOSCCThisDeviceIsInCircle(&circleStatusError);
 		if (kSOSCCInCircle != currentCircleStatus) {
-			NSLog(@"Left circle (%d), not handling remaining %lu applicants", currentCircleStatus, (unsigned long)newIds.count);
+			secnotice("cjr", "Left circle (%d), not handling remaining %lu applicants", currentCircleStatus, (unsigned long)newIds.count);
 			cancelCurrentAlert(true);
 		}
 		if (needsUpdate) {
 			askAboutAll(false);
 		} else {
-			NSLog(@"needsUpdate false, not updating alert");
+			secnotice("cjr", "needsUpdate false, not updating alert");
 		}
 		// Log circleStatusError?
 		CFReleaseNull(circleStatusError);
 	});
-	NSLog(@"ACC token %d, status %d", notify_token, notify_register_status);
+	secnotice("cjr", "ACC token %d, status %d", notify_token, notify_register_status);
 	debugState = @"processEvents F2";
 
 	if (applicants.count == 0) {
-		NSLog(@"No applicants");
+		secnotice("cjr", "No applicants");
 	} else {
 		debugState = @"processEvents F3";
 		askAboutAll(false);
@@ -809,24 +920,34 @@ static bool processEvents()
 
 
 int main (int argc, const char * argv[]) {
+    
 	xpc_transaction_begin();
-
+    
 	@autoreleasepool {
-		// NOTE: DISPATCH_QUEUE_PRIORITY_LOW will not actually manage to drain events in a lot of cases (like circleStatus != kSOSCCInCircle)
-		xpc_set_event_stream_handler("com.apple.notifyd.matching", dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^(xpc_object_t object) {
-			char *event_description = xpc_copy_description(object);
-			NSLog(@"notifyd event: %s\nAlert (%p) %s %s\ndebugState: %@", event_description, currentAlert,
-				  currentAlertIsForApplicants ? "for applicants" : "!applicants",
-				  currentAlertIsForKickOut ? "KO" : "!KO", debugState);
-			free(event_description);
-		});
-		
-		xpc_activity_register(kLaunchLaterXPCName, XPC_ACTIVITY_CHECK_IN, ^(xpc_activity_t activity) {
-		});
 
+        // NOTE: DISPATCH_QUEUE_PRIORITY_LOW will not actually manage to drain events in a lot of cases (like circleStatus != kSOSCCInCircle)
+        xpc_set_event_stream_handler("com.apple.notifyd.matching", dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^(xpc_object_t object) {
+            char *event_description = xpc_copy_description(object);
+            const char *notificationName = xpc_dictionary_get_string(object, "Notification");
+
+            if (notificationName && strcmp(notificationName, kUserKeybagStateChangeNotification)==0) {
+                secnotice("cjr", "keybag changed!");
+                keybagStateChange();
+            }
+
+            secnotice("cjr", "notifyd event: %s\nAlert (%p) %s %s\ndebugState: %@", event_description, currentAlert,
+                      currentAlertIsForApplicants ? "for applicants" : "!applicants",
+                      currentAlertIsForKickOut ? "KO" : "!KO", debugState);
+            free(event_description);
+        });
+        
+		xpc_activity_register(kLaunchLaterXPCName, XPC_ACTIVITY_CHECK_IN, ^(xpc_activity_t activity) {
+        });
+        
 		int falseInARow = 0;
 		while (falseInARow < 2) {
 			if (processEvents()) {
+                secnotice("cjr", "Processed events!!!");
 				falseInARow = 0;
 			} else {
 				falseInARow++;
@@ -838,8 +959,8 @@ int main (int argc, const char * argv[]) {
 			}
 		}
 	}
-
-	NSLog(@"Done");
+    
+	secnotice("cjr", "Done");
 	xpc_transaction_end();
 	return(0);
 }

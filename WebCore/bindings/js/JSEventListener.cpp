@@ -21,6 +21,7 @@
 #include "JSEventListener.h"
 
 #include "BeforeUnloadEvent.h"
+#include "ContentSecurityPolicy.h"
 #include "Event.h"
 #include "Frame.h"
 #include "HTMLElement.h"
@@ -34,6 +35,7 @@
 #include <runtime/ExceptionHelpers.h>
 #include <runtime/JSLock.h>
 #include <runtime/VMEntryScope.h>
+#include <runtime/Watchdog.h>
 #include <wtf/Ref.h>
 #include <wtf/RefCountedLeakCounter.h>
 
@@ -90,10 +92,12 @@ void JSEventListener::handleEvent(ScriptExecutionContext* scriptExecutionContext
 
     if (scriptExecutionContext->isDocument()) {
         JSDOMWindow* window = jsCast<JSDOMWindow*>(globalObject);
-        if (!window->impl().isCurrentlyDisplayedInFrame())
+        if (!window->wrapped().isCurrentlyDisplayedInFrame())
+            return;
+        if (wasCreatedFromMarkup() && !scriptExecutionContext->contentSecurityPolicy()->allowInlineEventHandlers(sourceURL(), sourcePosition().m_line))
             return;
         // FIXME: Is this check needed for other contexts?
-        ScriptController& script = window->impl().frame()->script();
+        ScriptController& script = window->wrapped().frame()->script();
         if (!script.canExecuteScripts(AboutToExecuteScript) || script.isPaused())
             return;
     }
@@ -104,13 +108,13 @@ void JSEventListener::handleEvent(ScriptExecutionContext* scriptExecutionContext
     CallData callData;
     CallType callType = getCallData(handleEventFunction, callData);
     // If jsFunction is not actually a function, see if it implements the EventListener interface and use that
-    if (callType == CallTypeNone) {
+    if (callType == CallType::None) {
         handleEventFunction = jsFunction->get(exec, Identifier::fromString(exec, "handleEvent"));
         callType = getCallData(handleEventFunction, callData);
     }
 
-    if (callType != CallTypeNone) {
-        Ref<JSEventListener> protect(*this);
+    if (callType != CallType::None) {
+        Ref<JSEventListener> protectedThis(*this);
 
         MarkedArgumentBuffer args;
         args.append(toJS(exec, globalObject, event));
@@ -126,17 +130,18 @@ void JSEventListener::handleEvent(ScriptExecutionContext* scriptExecutionContext
         JSValue thisValue = handleEventFunction == jsFunction ? toJS(exec, globalObject, event->currentTarget()) : jsFunction;
         NakedPtr<Exception> exception;
         JSValue retval = scriptExecutionContext->isDocument()
-            ? JSMainThreadExecState::call(exec, handleEventFunction, callType, callData, thisValue, args, exception)
-            : JSC::call(exec, handleEventFunction, callType, callData, thisValue, args, exception);
+            ? JSMainThreadExecState::profiledCall(exec, JSC::ProfilingReason::Other, handleEventFunction, callType, callData, thisValue, args, exception)
+            : JSC::profiledCall(exec, JSC::ProfilingReason::Other, handleEventFunction, callType, callData, thisValue, args, exception);
 
         InspectorInstrumentation::didCallFunction(cookie, scriptExecutionContext);
 
         globalObject->setCurrentEvent(savedEvent);
 
         if (is<WorkerGlobalScope>(*scriptExecutionContext)) {
+            auto scriptController = downcast<WorkerGlobalScope>(*scriptExecutionContext).script();
             bool terminatorCausedException = (exec->hadException() && isTerminatedExecutionException(exec->exception()));
-            if (terminatorCausedException || (vm.watchdog && vm.watchdog->didFire()))
-                downcast<WorkerGlobalScope>(*scriptExecutionContext).script()->forbidExecution();
+            if (terminatorCausedException || scriptController->isTerminatingExecution())
+                scriptController->forbidExecution();
         }
 
         if (exception) {
@@ -158,18 +163,11 @@ bool JSEventListener::virtualisAttribute() const
     return m_isAttribute;
 }
 
-bool JSEventListener::operator==(const EventListener& listener)
+bool JSEventListener::operator==(const EventListener& listener) const
 {
     if (const JSEventListener* jsEventListener = JSEventListener::cast(&listener))
         return m_jsFunction == jsEventListener->m_jsFunction && m_isAttribute == jsEventListener->m_isAttribute;
     return false;
-}
-
-Ref<JSEventListener> createJSEventListenerForAdd(JSC::ExecState& state, JSC::JSObject& listener, JSC::JSObject& wrapper)
-{
-    // FIXME: This abstraction is no longer needed. It was part of support for SVGElementInstance.
-    // We should remove it and simplify the bindings generation scripts.
-    return JSEventListener::create(&listener, &wrapper, false, currentWorld(&state));
 }
 
 static inline JSC::JSValue eventHandlerAttribute(EventListener* abstractListener, ScriptExecutionContext& context)

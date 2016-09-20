@@ -446,35 +446,59 @@ finish:
 }
 
 /*******************************************************************************
-*******************************************************************************/
+ *******************************************************************************/
+ExitStatus
+readFatFileArchsWith_fd(
+                         int                the_fd,
+                         CFMutableArrayRef * archsOut)
+{
+    ExitStatus          result          = EX_SOFTWARE;
+    void              * headerPage      = NULL;         // must unmapFatHeaderPage()
+    
+    /* Map the fat headers in */
+    
+    headerPage = mapAndSwapFatHeaderPage(the_fd);
+    if (!headerPage) {
+        goto finish;
+    }
+    
+    result = readFatFileArchsWithHeader(headerPage, archsOut);
+finish:
+    if (headerPage) unmapFatHeaderPage(headerPage);
+    
+    return result;
+}
+
+/*******************************************************************************
+ *******************************************************************************/
 ExitStatus
 readFatFileArchsWithPath(
-    const char        * filePath,
-    CFMutableArrayRef * archsOut)
+                         const char        * filePath,
+                         CFMutableArrayRef * archsOut)
 {
     ExitStatus          result          = EX_SOFTWARE;
     void              * headerPage      = NULL;         // must unmapFatHeaderPage()
     int                 fileDescriptor  = 0;            // must close()
-
+    
     /* Open the file. */
-
+    
     fileDescriptor = open(filePath, O_RDONLY);
     if (fileDescriptor < 0) {
         goto finish;
     }
-
+    
     /* Map the fat headers in */
-
+    
     headerPage = mapAndSwapFatHeaderPage(fileDescriptor);
     if (!headerPage) {
         goto finish;
     }
-
+    
     result = readFatFileArchsWithHeader(headerPage, archsOut);
 finish:
     if (fileDescriptor >= 0) close(fileDescriptor);
     if (headerPage) unmapFatHeaderPage(headerPage);
-
+    
     return result;
 }
 
@@ -550,6 +574,34 @@ readMachOSlices(
     mode_t            * modeOut,
     struct timeval      machOTimesOut[2])
 {
+    ExitStatus          result          = EX_SOFTWARE;
+    int                 fileDescriptor  = 0;    // must close()
+
+    /* Open the file. */
+    fileDescriptor = open(filePath, O_RDONLY);
+    if (fileDescriptor < 0) {
+        goto finish;
+    }
+
+    result = readMachOSlicesWith_fd(fileDescriptor, slicesOut,
+                                    archsOut, modeOut, machOTimesOut);
+
+finish:
+    if (fileDescriptor >= 0) close(fileDescriptor);
+
+    return result;
+}
+
+/*******************************************************************************
+ *******************************************************************************/
+ExitStatus
+readMachOSlicesWith_fd(
+    int                 the_fd,
+    CFMutableArrayRef * slicesOut,
+    CFMutableArrayRef * archsOut,
+    mode_t            * modeOut,
+    struct timeval      machOTimesOut[2])
+{
     struct stat         statBuf;
     ExitStatus          result          = EX_SOFTWARE;
     CFMutableArrayRef   fileSlices      = NULL;         // release
@@ -558,67 +610,59 @@ readMachOSlices(
     u_char            * fileBuf         = NULL;         // must free
     void              * headerPage      = NULL;         // must unmapFatHeaderPage()
     struct fat_arch   * fatArch         = NULL;         // do not free
-    int                 fileDescriptor  = 0;            // must close()
-
+    
     /* Create an array to hold the fat slices */
-
+    
     if (!createCFMutableArray(&fileSlices, &kCFTypeArrayCallBacks))
     {
         OSKextLogMemError();
         result = EX_OSERR;
         goto finish;
     }
-
-    /* Open the file. */
-
-    fileDescriptor = open(filePath, O_RDONLY);
-    if (fileDescriptor < 0) {
+    
+    if (fstat(the_fd, &statBuf)) {
         goto finish;
     }
-
-    if (fstat(fileDescriptor, &statBuf)) {
-        goto finish;
-    }
-
+    
     /* Map the fat headers in */
-
-    headerPage = mapAndSwapFatHeaderPage(fileDescriptor);
+    
+    headerPage = mapAndSwapFatHeaderPage(the_fd);
     if (!headerPage) {
         goto finish;
     }
-
+    
     /* If the file is fat, read the slices into separate objects.  If not,
      * read the whole file into one large slice.
      */
-
+    
     fatArch = getFirstFatArch(headerPage);
     if (fatArch) {
         while (fatArch) {
-            sliceData = readMachOSlice(fileDescriptor,
-                fatArch->offset, fatArch->size);
+            sliceData = readMachOSlice(the_fd,
+                                       fatArch->offset, fatArch->size);
             if (!sliceData) goto finish;
-
+            
             CFArrayAppendValue(fileSlices, sliceData);
             fatArch = getNextFatArch(headerPage, fatArch);
             CFRelease(sliceData); // drop ref from readMachOSlice()
             sliceData = NULL;
         }
     } else {
-        sliceData = readMachOSlice(fileDescriptor, 0, (size_t)statBuf.st_size);
+        sliceData = readMachOSlice(the_fd, 0, (size_t)statBuf.st_size);
         if (!sliceData) goto finish;
-
+        
         CFArrayAppendValue(fileSlices, sliceData);
     }
-
+    
     if (archsOut) {
         result = readFatFileArchsWithHeader(headerPage, &fileArchs);
         if (result != EX_OK) {
             goto finish;
         }
-
+        
         if (!fileArchs) archsOut = NULL;
     }
-
+    
     result = EX_OK;
     if (slicesOut) *slicesOut = (CFMutableArrayRef) CFRetain(fileSlices);
     if (archsOut) *archsOut = (CFMutableArrayRef) CFRetain(fileArchs);
@@ -627,15 +671,14 @@ readMachOSlices(
         TIMESPEC_TO_TIMEVAL(&machOTimesOut[0], &statBuf.st_atimespec);
         TIMESPEC_TO_TIMEVAL(&machOTimesOut[1], &statBuf.st_mtimespec);
     }
-
+    
 finish:
     SAFE_RELEASE(fileSlices);
     SAFE_RELEASE(fileArchs);
     SAFE_RELEASE(sliceData);
     SAFE_FREE(fileBuf);
-    if (fileDescriptor >= 0) close(fileDescriptor);
     if (headerPage) unmapFatHeaderPage(headerPage);
-
+    
     return result;
 }
 
@@ -648,15 +691,8 @@ readMachOSliceForArch(
     Boolean             checkArch)
 {   
     CFDataRef           result          = NULL; // must release
-    CFDataRef           fileData        = NULL; // must release
-    void              * headerPage      = NULL; // must unmapFatHeaderPage()
-    struct fat_header * fatHeader       = NULL; // do not free
-    struct fat_arch   * fatArch         = NULL; // do not free
     int                 fileDescriptor  = 0;    // must close()
-    off_t               fileSliceOffset = 0;
-    size_t              fileSliceSize   = 0;
-    struct stat statBuf;
-
+ 
     /* Open the file */
 
     fileDescriptor = open(filePath, O_RDONLY);
@@ -664,64 +700,89 @@ readMachOSliceForArch(
         goto finish;
     }
 
-    /* Map the fat headers in */
+    result = readMachOSliceForArchWith_fd(fileDescriptor, archInfo, checkArch);
 
-    headerPage = mapAndSwapFatHeaderPage(fileDescriptor);
+finish:
+    if (fileDescriptor >= 0) close(fileDescriptor);
+
+    return result;
+}
+
+
+/*******************************************************************************
+ *******************************************************************************/
+CFDataRef
+readMachOSliceForArchWith_fd(
+    int                   the_fd,
+    const NXArchInfo *    archInfo,
+    Boolean               checkArch)
+{
+    CFDataRef           result          = NULL; // must release
+    CFDataRef           fileData        = NULL; // must release
+    void              * headerPage      = NULL; // must unmapFatHeaderPage()
+    struct fat_header * fatHeader       = NULL; // do not free
+    struct fat_arch   * fatArch         = NULL; // do not free
+    off_t               fileSliceOffset = 0;
+    size_t              fileSliceSize   = 0;
+    struct stat statBuf;
+    
+    /* Map the fat headers in */
+    
+    headerPage = mapAndSwapFatHeaderPage(the_fd);
     if (!headerPage) {
         goto finish;
     }
-
+    
     /* Find the slice for the target architecture */
-
+    
     fatHeader = (struct fat_header *)headerPage;
-
+    
     if (archInfo && fatHeader->magic == FAT_MAGIC) {
-        fatArch = NXFindBestFatArch(archInfo->cputype, archInfo->cpusubtype, 
-            (struct fat_arch *)(&fatHeader[1]), fatHeader->nfat_arch);
+        fatArch = NXFindBestFatArch(archInfo->cputype, archInfo->cpusubtype,
+                                    (struct fat_arch *)(&fatHeader[1]), fatHeader->nfat_arch);
         if (!fatArch) {
             OSKextLog(/* kext */ NULL,
-                    kOSKextLogErrorLevel | kOSKextLogGeneralFlag, 
-                    "Fat file does not contain requested architecture %s.",
-                    archInfo->name);
+                      kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                      "Fat file does not contain requested architecture %s.",
+                      archInfo->name);
             goto finish;
         }
-
+        
         fileSliceOffset = fatArch->offset;
         fileSliceSize = fatArch->size;
     } else {
-        if (fstat(fileDescriptor, &statBuf)) {
+        if (fstat(the_fd, &statBuf)) {
             goto finish;
         }
-
+        
         fileSliceOffset = 0;
         fileSliceSize = (size_t)statBuf.st_size;
     }
-
-    /* Read the file */    
-
-    fileData = readMachOSlice(fileDescriptor, fileSliceOffset, 
-        fileSliceSize);
+    
+    /* Read the file */
+    
+    fileData = readMachOSlice(the_fd, fileSliceOffset,
+                              fileSliceSize);
     if (!fileData) {
         goto finish;
     }
-
+    
     /* Verify that the file is of the right architecture */
-
+    
     if (checkArch) {
-        if (verifyMachOIsArch(CFDataGetBytePtr(fileData), 
-                fileSliceSize, archInfo)) 
+        if (verifyMachOIsArch(CFDataGetBytePtr(fileData),
+                              fileSliceSize, archInfo))
         {
             goto finish;
         }
     }
-
+    
     result = CFRetain(fileData);
-
+    
 finish:
     SAFE_RELEASE(fileData);
-    if (fileDescriptor >= 0) close(fileDescriptor);
     if (headerPage) unmapFatHeaderPage(headerPage);
-
+    
     return result;
 }
 

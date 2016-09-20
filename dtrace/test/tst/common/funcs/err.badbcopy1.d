@@ -44,7 +44,7 @@ BEGIN
 	ptr = alloca(0);
 
 	/* Attempt to bcopy to scratch memory that isn't allocated */
-	bcopy((void *)&`max_ncpus, ptr, sizeof (int));
+	bcopy((void *)&`real_ncpus, ptr, sizeof (int));
 	exit(1);
 }
 

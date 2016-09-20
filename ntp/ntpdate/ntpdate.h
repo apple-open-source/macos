@@ -89,9 +89,13 @@ struct server {
 
 
 /*
- * Some defaults
+ * No less than 2s between requests to a server to stay within ntpd's
+ * default "discard minimum 1" (and 1s enforcement slop).  That is
+ * enforced only if the nondefault limited restriction is in place, such
+ * as with "restrict ... limited" and "restrict ... kod limited".
  */
-#define	DEFTIMEOUT	5		/* 5 timer increments */
+#define	MINTIMEOUT	(1 * TIMER_HZ)	/* 1s min. between packets */
+#define	DEFTIMEOUT	(2 * TIMER_HZ)	/* 2s by default */
 #define	DEFSAMPLES	4		/* get 4 samples per server */
 #define	DEFPRECISION	(-5)		/* the precision we claim */
 #define	DEFMAXPERIOD	60		/* maximum time to wait */

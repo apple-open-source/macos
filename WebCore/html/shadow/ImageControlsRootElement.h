@@ -38,13 +38,13 @@ class ImageControlsRootElement : public HTMLDivElement {
 public:
     virtual ~ImageControlsRootElement();
 
-    static RefPtr<ImageControlsRootElement> maybeCreate(Document&);
+    static RefPtr<ImageControlsRootElement> tryCreate(Document&);
 
 protected:
     explicit ImageControlsRootElement(Document&);
 
 private:
-    virtual bool isImageControlsRootElement() const override final { return true; }
+    bool isImageControlsRootElement() const final { return true; }
 };
 
 } // namespace WebCore

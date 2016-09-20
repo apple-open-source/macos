@@ -47,7 +47,17 @@
 #endif
 
 #if KERNEL
+#include <vm/vm_kern.h>
+
 extern uint32_t pthread_debug_tracing;
+
+static __unused void*
+VM_UNSLIDE(void* ptr)
+{
+    vm_offset_t unslid_ptr;
+    vm_kernel_unslide_or_perm_external(ptr, &unslid_ptr);
+    return (void*)unslid_ptr;
+}
 
 # define PTHREAD_TRACE(x,a,b,c,d,e) \
 	{ if (pthread_debug_tracing) { KERNEL_DEBUG_CONSTANT(x, a, b, c, d, e); } }
@@ -55,6 +65,12 @@ extern uint32_t pthread_debug_tracing;
 # define PTHREAD_TRACE1(x,a,b,c,d,e) \
 	{ if (pthread_debug_tracing) { KERNEL_DEBUG_CONSTANT1(x, a, b, c, d, e); } }
 #endif
+
+# define PTHREAD_TRACE_WQ(x,a,b,c,d,e) \
+	{ if (pthread_debug_tracing) { KERNEL_DEBUG_CONSTANT(x, VM_UNSLIDE(a), b, c, d, e); } }
+
+# define PTHREAD_TRACE1_WQ(x,a,b,c,d,e) \
+	{ if (pthread_debug_tracing) { KERNEL_DEBUG_CONSTANT1(x, VM_UNSLIDE(a), b, c, d, e); } }
 
 # define TRACE_CODE(name, subclass, code) \
 	static const int TRACE_##name = KDBG_CODE(DBG_PTHREAD, subclass, code)
@@ -109,6 +125,8 @@ TRACE_CODE(wq_thread_limit_exceeded, _TRACE_SUB_WORKQUEUE, 0x1a);
 TRACE_CODE(wq_thread_constrained_maxed, _TRACE_SUB_WORKQUEUE, 0x1b);
 TRACE_CODE(wq_thread_add_during_exit, _TRACE_SUB_WORKQUEUE, 0x1c);
 TRACE_CODE(wq_thread_create_failed, _TRACE_SUB_WORKQUEUE, 0x1d);
+TRACE_CODE(wq_manager_request, _TRACE_SUB_WORKQUEUE, 0x1e);
+TRACE_CODE(wq_thread_create, _TRACE_SUB_WORKQUEUE, 0x1f);
 
 // synch trace points
 TRACE_CODE(psynch_mutex_ulock, _TRACE_SUB_MUTEX, 0x0);

@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
@@ -10,7 +10,7 @@
  * except in compliance with the License.  Please obtain a copy of the
  * License at http://www.apple.com/publicsource and read it before using
  * this file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -18,7 +18,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
  * License for the specific language governing rights and limitations
  * under the License."
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 #import <string.h>
@@ -27,9 +27,10 @@
 #import <stdarg.h>
 #import "stringops.h"
 
-char *copyString(char *s)
+char *
+copyString(char *s)
 {
-	int len;
+	size_t len;
 	char *t;
 
 	if (s == NULL) return NULL;
@@ -40,9 +41,10 @@ char *copyString(char *s)
 	return t;
 }
 
-char *concatString(char *s, char *t)
+char *
+concatString(char *s, char *t)
 {
-	int len;
+	size_t len;
 
 	if (t == NULL) return s;
 
@@ -52,12 +54,13 @@ char *concatString(char *s, char *t)
 	return s;
 }
 
-char **insertString(char *s, char **l, unsigned int x)
+char **
+insertString(char *s, char **l, unsigned int x)
 {
 	int i, len;
 
 	if (s == NULL) return l;
-	if (l == NULL) 
+	if (l == NULL)
 	{
 		l = (char **)malloc(2 * sizeof(char *));
 		l[0] = copyString(s);
@@ -82,12 +85,14 @@ char **insertString(char *s, char **l, unsigned int x)
 	return l;
 }
 
-char **appendString(char *s, char **l)
+char **
+appendString(char *s, char **l)
 {
 	return insertString(s, l, IndexNull);
 }
 
-void freeList(char **l)
+void
+freeList(char **l)
 {
 	int i;
 
@@ -100,13 +105,15 @@ void freeList(char **l)
 	if (l != NULL) free(l);
 }
 
-void freeString(char *s)
+void
+freeString(char *s)
 {
 	if (s == NULL) return;
 	free(s);
 }
 
-unsigned int listLength(char **l)
+unsigned int
+listLength(char **l)
 {
 	int i;
 
@@ -115,7 +122,8 @@ unsigned int listLength(char **l)
 	return i;
 }
 
-unsigned int listIndex(char *s,char **l)
+unsigned int
+listIndex(char *s,char **l)
 {
 	int i;
 
@@ -127,7 +135,8 @@ unsigned int listIndex(char *s,char **l)
 	return IndexNull;
 }
 
-char *prefix(char *s, char c)
+char *
+prefix(char *s, char c)
 {
 	int i;
 	char *t;
@@ -144,9 +153,11 @@ char *prefix(char *s, char c)
 	return t;
 }
 
-char *postfix(char *s, char c)
+char *
+postfix(char *s, char c)
 {
-	int i, len;
+	int i;
+	size_t len;
 	char *t;
 
 	if (s == NULL) return NULL;
@@ -162,10 +173,12 @@ char *postfix(char *s, char c)
 	t[len] = '\0';
 	return t;
 }
-	
-char *presuffix(char *s, char c)
+
+char *
+presuffix(char *s, char c)
 {
-	int i, len;
+	ssize_t i;
+	size_t len;
 	char *t;
 
 	if (s == NULL) return NULL;
@@ -181,9 +194,11 @@ char *presuffix(char *s, char c)
 	return t;
 }
 
-char *suffix(char *s, char c)
+char *
+suffix(char *s, char c)
 {
-	int i, len;
+	ssize_t i;
+	size_t len;
 	char *t;
 
 	if (s == NULL) return NULL;
@@ -200,7 +215,8 @@ char *suffix(char *s, char c)
 	return t;
 }
 
-char *lowerCase(char *s)
+char *
+lowerCase(char *s)
 {
 	int i;
 	char *t;
@@ -208,7 +224,7 @@ char *lowerCase(char *s)
 	if (s == NULL) return NULL;
 	t = malloc(strlen(s) + 1);
 
-	for (i = 0; s[i] != '\0'; i++) 
+	for (i = 0; s[i] != '\0'; i++)
 	{
 		if ((s[i] >= 'A') && (s[i] <= 'Z')) t[i] = s[i] + 32;
 		else t[i] = s[i];
@@ -217,7 +233,8 @@ char *lowerCase(char *s)
 	return t;
 }
 
-char **explode(char *s, char c)
+char **
+explode(char *s, char c)
 {
 	char **l = NULL;
 	char *p, *t;

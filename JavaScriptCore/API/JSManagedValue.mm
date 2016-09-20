@@ -37,18 +37,19 @@
 #import "WeakHandleOwner.h"
 #import "ObjcRuntimeExtras.h"
 #import "JSCInlines.h"
+#import <wtf/NeverDestroyed.h>
 #import <wtf/spi/cocoa/NSMapTableSPI.h>
 
 class JSManagedValueHandleOwner : public JSC::WeakHandleOwner {
 public:
-    virtual void finalize(JSC::Handle<JSC::Unknown>, void* context) override;
-    virtual bool isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown>, void* context, JSC::SlotVisitor&) override;
+    void finalize(JSC::Handle<JSC::Unknown>, void* context) override;
+    bool isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown>, void* context, JSC::SlotVisitor&) override;
 };
 
 static JSManagedValueHandleOwner* managedValueHandleOwner()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(JSManagedValueHandleOwner, jsManagedValueHandleOwner, ());
-    return &jsManagedValueHandleOwner;
+    static NeverDestroyed<JSManagedValueHandleOwner> jsManagedValueHandleOwner;
+    return &jsManagedValueHandleOwner.get();
 }
 
 class WeakValueRef {

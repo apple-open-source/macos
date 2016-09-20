@@ -334,7 +334,7 @@ xdr_nlm4_testrply(XDR *xdrs, nlm4_testrply *objp)
 	if (!xdr_nlm4_stats(xdrs, &objp->stat))
 		return (FALSE);
 	switch (objp->stat) {
-	case nlm_denied:
+	case nlm4_denied:
 		if (!xdr_nlm4_holder(xdrs, &objp->nlm4_testrply_u.holder))
 			return (FALSE);
 		break;

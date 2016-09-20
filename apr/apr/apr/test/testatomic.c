@@ -167,6 +167,17 @@ static void test_add32(abts_case *tc, void *data)
     ABTS_INT_EQUAL(tc, 27, y32);
 }
 
+static void test_add32_neg(abts_case *tc, void *data)
+{
+    apr_uint32_t oldval;
+    apr_uint32_t y32;
+
+    apr_atomic_set32(&y32, 23);
+    oldval = apr_atomic_add32(&y32, -10);
+    ABTS_INT_EQUAL(tc, 23, oldval);
+    ABTS_INT_EQUAL(tc, 13, y32);
+}
+
 static void test_inc32(abts_case *tc, void *data)
 {
     apr_uint32_t oldval;
@@ -194,7 +205,7 @@ static void test_wrap_zero(abts_case *tc, void *data)
 {
     apr_uint32_t y32;
     apr_uint32_t rv;
-    apr_uint32_t minus1 = -1;
+    apr_uint32_t minus1 = (apr_uint32_t)-1;
     char *str;
 
     apr_atomic_set32(&y32, 0);
@@ -207,8 +218,8 @@ static void test_wrap_zero(abts_case *tc, void *data)
 
 static void test_inc_neg1(abts_case *tc, void *data)
 {
-    apr_uint32_t y32 = -1;
-    apr_uint32_t minus1 = -1;
+    apr_uint32_t y32 = (apr_uint32_t)-1;
+    apr_uint32_t minus1 = (apr_uint32_t)-1;
     apr_uint32_t rv;
     char *str;
 
@@ -509,6 +520,7 @@ abts_suite *testatomic(abts_suite *suite)
     abts_run_test(suite, test_casptr_equal_nonnull, NULL);
     abts_run_test(suite, test_casptr_notequal, NULL);
     abts_run_test(suite, test_add32, NULL);
+    abts_run_test(suite, test_add32_neg, NULL);
     abts_run_test(suite, test_inc32, NULL);
     abts_run_test(suite, test_set_add_inc_sub, NULL);
     abts_run_test(suite, test_wrap_zero, NULL);

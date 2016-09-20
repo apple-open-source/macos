@@ -41,13 +41,13 @@ AppleX509CLSession::~AppleX509CLSession()
 	/* free leftover contents of cache and query maps */
 	CLCachedEntry *cachedCert = cacheMap.removeFirstEntry();
 	while(cachedCert != NULL) {
-		secdebug("clDetach", "CL detach: deleting a cached Cert\n");
+		secinfo("clDetach", "CL detach: deleting a cached Cert\n");
 		delete cachedCert;
 		cachedCert = cacheMap.removeFirstEntry();
 	}
 	CLQuery *query = queryMap.removeFirstEntry();
 	while(query != NULL) {
-		secdebug("clDetach", "CL detach: deleting a cached query\n");
+		secinfo("clDetach", "CL detach: deleting a cached query\n");
 		delete query;
 		query = queryMap.removeFirstEntry();
 	}

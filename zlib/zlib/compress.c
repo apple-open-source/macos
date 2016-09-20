@@ -29,7 +29,7 @@ int ZEXPORT compress2 (dest, destLen, source, sourceLen, level)
     z_stream stream;
     int err;
 
-    stream.next_in = (Bytef*)source;
+    stream.next_in = (z_const Bytef *)source;
     stream.avail_in = (uInt)sourceLen;
 #if defined(__LP64__) || defined(MAXSEG_64K)
     /* Check for source > 4G under LP64 or > 64K on 16-bit machine: */

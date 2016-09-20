@@ -37,29 +37,29 @@ WKTypeID WKResourceCacheManagerGetTypeID()
     return toAPI(API::WebsiteDataStore::APIType);
 }
 
-static WebsiteDataTypes toWebsiteDataTypes(WKResourceCachesToClear cachesToClear)
+static OptionSet<WebsiteDataType> toWebsiteDataTypes(WKResourceCachesToClear cachesToClear)
 {
-    using WebsiteDataTypes = WebKit::WebsiteDataTypes;
+    OptionSet<WebsiteDataType> websiteDataTypes;
 
-    int websiteDataTypes = WebsiteDataTypeMemoryCache;
+    websiteDataTypes |= WebsiteDataType::MemoryCache;
 
     if (cachesToClear == WKResourceCachesToClearAll)
-        websiteDataTypes |= WebsiteDataTypeDiskCache;
+        websiteDataTypes |= WebsiteDataType::DiskCache;
 
-    return static_cast<WebsiteDataTypes>(websiteDataTypes);
+    return websiteDataTypes;
 }
 
 void WKResourceCacheManagerGetCacheOrigins(WKResourceCacheManagerRef cacheManager, void* context, WKResourceCacheManagerGetCacheOriginsFunction callback)
 {
     auto& websiteDataStore = toImpl(reinterpret_cast<WKWebsiteDataStoreRef>(cacheManager))->websiteDataStore();
-    websiteDataStore.fetchData(toWebsiteDataTypes(WKResourceCachesToClearAll), [context, callback](Vector<WebsiteDataRecord> dataRecords) {
+    websiteDataStore.fetchData(toWebsiteDataTypes(WKResourceCachesToClearAll), { }, [context, callback](auto dataRecords) {
         Vector<RefPtr<API::Object>> securityOrigins;
         for (const auto& dataRecord : dataRecords) {
             for (const auto& origin : dataRecord.origins)
                 securityOrigins.append(API::SecurityOrigin::create(*origin));
         }
 
-        callback(toAPI(API::Array::create(WTF::move(securityOrigins)).ptr()), nullptr, context);
+        callback(toAPI(API::Array::create(WTFMove(securityOrigins)).ptr()), nullptr, context);
     });
 }
 
@@ -71,14 +71,14 @@ void WKResourceCacheManagerClearCacheForOrigin(WKResourceCacheManagerRef cacheMa
 
     {
         WebsiteDataRecord dataRecord;
-        dataRecord.add(WebsiteDataTypes::WebsiteDataTypeMemoryCache, &toImpl(origin)->securityOrigin());
+        dataRecord.add(WebsiteDataType::MemoryCache, &toImpl(origin)->securityOrigin());
 
         dataRecords.append(dataRecord);
     }
 
     if (cachesToClear == WKResourceCachesToClearAll) {
         WebsiteDataRecord dataRecord;
-        dataRecord.add(WebsiteDataTypes::WebsiteDataTypeDiskCache, &toImpl(origin)->securityOrigin());
+        dataRecord.add(WebsiteDataType::DiskCache, &toImpl(origin)->securityOrigin());
 
         dataRecords.append(dataRecord);
     }

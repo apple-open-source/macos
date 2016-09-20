@@ -33,6 +33,7 @@
 #include <WebCore/GLContext.h>
 #include <WebCore/IntSize.h>
 #include <WebCore/TransformationMatrix.h>
+#include <wtf/Condition.h>
 #include <wtf/FastMalloc.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/ThreadSafeRefCounted.h>
@@ -43,10 +44,10 @@ struct CoordinatedGraphicsState;
 }
 
 namespace WebKit {
-class CoordinatedGraphicsScene;
-class CoordinatedGraphicsSceneClient;
 
 class CompositingRunLoop;
+class CoordinatedGraphicsScene;
+class CoordinatedGraphicsSceneClient;
 
 class ThreadedCompositor : public SimpleViewportController::Client, public CoordinatedGraphicsSceneClient, public ThreadSafeRefCounted<ThreadedCompositor> {
     WTF_MAKE_NONCOPYABLE(ThreadedCompositor);
@@ -63,9 +64,8 @@ public:
     static Ref<ThreadedCompositor> create(Client*);
     virtual ~ThreadedCompositor();
 
-    void setNeedsDisplay();
-
     void setNativeSurfaceHandleForCompositing(uint64_t);
+    void setDeviceScaleFactor(float);
 
     void updateSceneState(const WebCore::CoordinatedGraphicsState&);
 
@@ -79,20 +79,18 @@ private:
     ThreadedCompositor(Client*);
 
     // CoordinatedGraphicsSceneClient
-    virtual void purgeBackingStores() override;
-    virtual void renderNextFrame() override;
-    virtual void updateViewport() override;
-    virtual void commitScrollOffset(uint32_t layerID, const WebCore::IntSize& offset) override;
+    void purgeBackingStores() override;
+    void renderNextFrame() override;
+    void updateViewport() override;
+    void commitScrollOffset(uint32_t layerID, const WebCore::IntSize& offset) override;
 
     void renderLayerTree();
     void scheduleDisplayImmediately();
-    virtual void didChangeVisibleRect() override;
+    void didChangeVisibleRect() override;
 
-    bool ensureGLContext();
+    bool tryEnsureGLContext();
     WebCore::GLContext* glContext();
-    SimpleViewportController* viewportController() { return m_viewportController.get(); }
 
-    void callOnCompositingThread(std::function<void()>);
     void createCompositingThread();
     void runCompositingThread();
     void terminateCompositingThread();
@@ -105,15 +103,16 @@ private:
     std::unique_ptr<WebCore::GLContext> m_context;
 
     WebCore::IntSize m_viewportSize;
-    uint64_t m_nativeSurfaceHandle;
+    float m_deviceScaleFactor { 1 };
+    uint64_t m_nativeSurfaceHandle { 0 };
 
     std::unique_ptr<CompositingRunLoop> m_compositingRunLoop;
 
-    ThreadIdentifier m_threadIdentifier;
-    ThreadCondition m_initializeRunLoopCondition;
-    Mutex m_initializeRunLoopConditionMutex;
-    ThreadCondition m_terminateRunLoopCondition;
-    Mutex m_terminateRunLoopConditionMutex;
+    ThreadIdentifier m_threadIdentifier { 0 };
+    Condition m_initializeRunLoopCondition;
+    Lock m_initializeRunLoopConditionMutex;
+    Condition m_terminateRunLoopCondition;
+    Lock m_terminateRunLoopConditionMutex;
 };
 
 } // namespace WebKit

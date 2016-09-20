@@ -41,6 +41,8 @@
 #include <IOKit/IOKitLib.h>
 #include <IOKit/hidsystem/IOHIDLib.h>
 #include <IOKit/hidsystem/IOHIDParameter.h>
+#include <IOKit/hid/IOHIDEventSystemClient.h>
+#include "IOHIDLibPrivate.h"
 
 #include <math.h>
 #include <limits.h>
@@ -177,6 +179,88 @@ NXEventSystemInfoType NXEventSystemInfo(NXEventHandle handle,
     return evs_info;
 }
 
+kern_return_t IOHIDCopyHIDParameterFromEventSystem(io_connect_t handle, CFStringRef key, CFTypeRef *parameter) {
+    CFTypeRef param = NULL;
+    IOHIDEventSystemClientRef client = IOHIDEventSystemClientCreateWithType (kCFAllocatorDefault, kIOHIDEventSystemClientTypePassive, NULL);
+    kern_return_t  kr = kIOReturnNotReady;
+    if (!client) {
+        goto exit;
+    }
+    io_service_t  service = 0;
+    if (IOConnectGetService (handle, &service) == kIOReturnSuccess) {
+        if (IOObjectConformsTo (service, "IOHIDSystem")) {
+            param = IOHIDEventSystemClientCopyProperty(client, key);
+        } else {
+            uint64_t entryID = 0;
+            if (IORegistryEntryGetRegistryEntryID (service, &entryID) == kIOReturnSuccess) {
+                IOHIDServiceClientRef serviceClient = IOHIDEventSystemClientCopyServiceForRegistryID(client, entryID);
+                if (serviceClient) {
+                    param = IOHIDServiceClientCopyProperty(serviceClient, key);
+                    CFRelease(serviceClient);
+                }
+            }
+        }
+        IOObjectRelease(service);
+    }
+  
+ exit:
+    if (param) {
+        *parameter = param;
+        kr = kIOReturnSuccess;
+    }
+    if (client) {
+        CFRelease(client);
+    }
+    if (kr) {
+        os_log_error(_IOHIDLog(), "Fail to get parameter with status 0x%x", kr);
+    }
+    return kr;
+}
+
+
+
+kern_return_t IOHIDSetHIDParameterToEventSystem(io_connect_t handle, CFStringRef key, CFTypeRef parameter) {
+    IOHIDEventSystemClientRef client = IOHIDEventSystemClientCreateWithType (kCFAllocatorDefault, kIOHIDEventSystemClientTypeMonitor, NULL);
+    kern_return_t  kr = kIOReturnNotReady;
+    if (!client) {
+        goto exit;
+    }
+ 
+    kr = kIOReturnUnsupported;
+    io_service_t  service = 0;
+    if (IOConnectGetService (handle, &service) == kIOReturnSuccess) {
+        if (IOObjectConformsTo (service, "IOHIDSystem")) {
+            IOHIDEventSystemClientSetProperty(client, key, parameter);
+            kr = kIOReturnSuccess;
+        } else {
+            uint64_t entryID = 0;
+            if (IORegistryEntryGetRegistryEntryID (service, &entryID) == kIOReturnSuccess) {
+                IOHIDServiceClientRef serviceClient = IOHIDEventSystemClientCopyServiceForRegistryID(client, entryID);
+                if (serviceClient) {
+                    if (IOHIDServiceClientSetProperty(serviceClient, key, parameter)) {
+                      kr = kIOReturnSuccess;
+                    } else {
+                      kr = kIOReturnInternalError;
+                    }
+                    CFRelease(serviceClient);
+                }
+            }
+        }
+        IOObjectRelease(service);
+    }
+    
+ exit:
+
+    if (client) {
+        CFRelease(client);
+    }
+    if (kr) {
+        os_log_error(_IOHIDLog(), "Fail to set parameter with status 0x%x", kr);
+    }
+    return kr;
+}
+
+
 kern_return_t IOHIDSetParameter( io_connect_t handle, CFStringRef key,
                 const void * bytes, IOByteCount size )
 {
@@ -209,7 +293,10 @@ kern_return_t IOHIDSetParameter( io_connect_t handle, CFStringRef key,
     numberRef = CFNumberCreate(kCFAllocatorDefault, numberType, bytes);
     if( numberRef)
     {
+
+        kr = IOHIDSetHIDParameterToEventSystem (handle, key, numberRef);
         kr = IOConnectSetCFProperty( handle, key, numberRef );
+
         CFRelease(numberRef);
     }
 
@@ -222,7 +309,10 @@ kern_return_t IOHIDSetCFTypeParameter( io_connect_t handle, CFStringRef key, CFT
     kern_return_t		kr = kIOReturnError;
 
     if ( parameter )
+    {
+        kr = IOHIDSetHIDParameterToEventSystem (handle, key, parameter);
         kr = IOConnectSetCFProperty( handle, key, parameter );
+    }
     else
         kr = kIOReturnBadArgument;
     
@@ -248,7 +338,6 @@ kern_return_t IOHIDGetParameter( io_connect_t handle, CFStringRef key,
         return kIOReturnBadArgument;
 
     kr = IOHIDCopyCFTypeParameter(handle, key, &typeRef);
-
     if ( kr != kIOReturnSuccess )
         return kr;
 
@@ -307,35 +396,37 @@ kern_return_t IOHIDGetParameter( io_connect_t handle, CFStringRef key,
 kern_return_t IOHIDCopyCFTypeParameter( io_connect_t handle, CFStringRef key, CFTypeRef * parameter )
 {
     kern_return_t	kr;
-    io_service_t	hidsystem;
+    io_service_t	hidsystem = MACH_PORT_NULL;
     CFDictionaryRef	paramDict;
     CFTypeRef		tempParameter = NULL;
 
     if (!parameter)
         return kIOReturnError;
-    
+  
     kr = IOConnectGetService( handle, &hidsystem );
-    if( KERN_SUCCESS != kr )
-        return( kr );
+    if (KERN_SUCCESS == kr) {
+        if( (paramDict = IORegistryEntryCreateCFProperty( hidsystem, CFSTR(kIOHIDParametersKey), kCFAllocatorDefault, kNilOptions)))
+        {
+            if ( (tempParameter = CFDictionaryGetValue( paramDict, key)) )
+                CFRetain(tempParameter);
+            
+            CFRelease(paramDict);
+        }
+      
+        if ( !tempParameter )
+            tempParameter = IORegistryEntryCreateCFProperty( hidsystem, key, kCFAllocatorDefault, kNilOptions);
 
-    if( (paramDict = IORegistryEntryCreateCFProperty( hidsystem, CFSTR(kIOHIDParametersKey), kCFAllocatorDefault, kNilOptions)))
-    {
-        if ( (tempParameter = CFDictionaryGetValue( paramDict, key)) )
-            CFRetain(tempParameter);
-        
-        CFRelease(paramDict);
+        if ( !tempParameter )
+            kr = kIOReturnBadArgument;
+      
+        *parameter = tempParameter;
     }
-        
-    if ( !tempParameter )
-        tempParameter = IORegistryEntryCreateCFProperty( hidsystem, key, kCFAllocatorDefault, kNilOptions);
-
-    if ( !tempParameter )
-        kr = kIOReturnBadArgument;
-    
-    *parameter = tempParameter;
-
-    IOObjectRelease( hidsystem );
-
+    if (KERN_SUCCESS != kr) {
+       kr = IOHIDCopyHIDParameterFromEventSystem(handle, key, parameter);
+    }
+    if (hidsystem) {
+        IOObjectRelease( hidsystem );
+    }
     return( kr );
 }
 

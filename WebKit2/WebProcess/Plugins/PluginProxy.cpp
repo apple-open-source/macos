@@ -200,7 +200,7 @@ void PluginProxy::destroy()
     m_connection->removePluginProxy(this);
 }
 
-void PluginProxy::paint(GraphicsContext* graphicsContext, const IntRect& dirtyRect)
+void PluginProxy::paint(GraphicsContext& graphicsContext, const IntRect& dirtyRect)
 {
     if (!needsBackingStore() || !m_backingStore)
         return;
@@ -218,7 +218,7 @@ void PluginProxy::paint(GraphicsContext* graphicsContext, const IntRect& dirtyRe
         m_pluginBackingStoreContainsValidData = true;
     }
 
-    m_backingStore->paint(*graphicsContext, contentsScaleFactor(), dirtyRect.location(), dirtyRect);
+    m_backingStore->paint(graphicsContext, contentsScaleFactor(), dirtyRect.location(), dirtyRect);
 
     if (m_waitingForPaintInResponseToUpdate) {
         m_waitingForPaintInResponseToUpdate = false;
@@ -238,16 +238,16 @@ bool PluginProxy::supportsSnapshotting() const
     return isSupported;
 }
 
-PassRefPtr<ShareableBitmap> PluginProxy::snapshot()
+RefPtr<ShareableBitmap> PluginProxy::snapshot()
 {
     ShareableBitmap::Handle snapshotStoreHandle;
     m_connection->connection()->sendSync(Messages::PluginControllerProxy::Snapshot(), Messages::PluginControllerProxy::Snapshot::Reply(snapshotStoreHandle), m_pluginInstanceID);
 
     if (snapshotStoreHandle.isNull())
-        return 0;
+        return nullptr;
 
     RefPtr<ShareableBitmap> snapshotBuffer = ShareableBitmap::create(snapshotStoreHandle);
-    return snapshotBuffer.release();
+    return snapshotBuffer;
 }
 
 bool PluginProxy::isTransparent()
@@ -371,11 +371,8 @@ bool PluginProxy::handleMouseEvent(const WebMouseEvent& mouseEvent)
     if (m_waitingOnAsynchronousInitialization)
         return false;
 
-    bool handled = false;
-    if (!m_connection->connection()->sendSync(Messages::PluginControllerProxy::HandleMouseEvent(mouseEvent), Messages::PluginControllerProxy::HandleMouseEvent::Reply(handled), m_pluginInstanceID))
-        return false;
-
-    return handled;
+    m_connection->connection()->send(Messages::PluginControllerProxy::HandleMouseEvent(mouseEvent), m_pluginInstanceID);
+    return true;
 }
 
 bool PluginProxy::handleWheelEvent(const WebWheelEvent& wheelEvent)
@@ -461,7 +458,7 @@ bool PluginProxy::isEditingCommandEnabled(const String& commandName)
     return enabled;
 }
     
-bool PluginProxy::handlesPageScaleFactor()
+bool PluginProxy::handlesPageScaleFactor() const
 {
     if (m_waitingOnAsynchronousInitialization)
         return false;
@@ -471,6 +468,18 @@ bool PluginProxy::handlesPageScaleFactor()
         return false;
     
     return handled;
+}
+
+bool PluginProxy::requiresUnifiedScaleFactor() const
+{
+    if (m_waitingOnAsynchronousInitialization)
+        return false;
+
+    bool required = false;
+    if (!m_connection->connection()->sendSync(Messages::PluginControllerProxy::RequiresUnifiedScaleFactor(), Messages::PluginControllerProxy::RequiresUnifiedScaleFactor::Reply(required), m_pluginInstanceID))
+        return false;
+    
+    return required;
 }
 
 NPObject* PluginProxy::pluginScriptableNPObject()
@@ -726,9 +735,9 @@ IntPoint PluginProxy::convertToRootView(const IntPoint& point) const
     return m_pluginToRootViewTransform.mapPoint(point);
 }
 
-PassRefPtr<WebCore::SharedBuffer> PluginProxy::liveResourceData() const
+RefPtr<WebCore::SharedBuffer> PluginProxy::liveResourceData() const
 {
-    return 0;
+    return nullptr;
 }
 
 #if PLATFORM(COCOA)

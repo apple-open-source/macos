@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #
-#  Copyright © 2015 Apple Inc.
+#  Copyright © 2015, 2016 Apple Inc.
 #
 #  get-network-info
 #
@@ -15,22 +15,29 @@ PATH=/bin:/usr/bin:/sbin:/usr/sbin
 process_opts () {
 
 	for i in $ARGS
-           do
-		case "$i"
-                   in
-                           -s)
-				   COLLECT_SENSITIVE_INFO="Y"
-                                   shift;;
-                           -c)
-				   COLLECT_CONFIGURATION_FILES="Y"
-                                   shift;;
-			   --)
-				   shift;;
-			   *)
-				   REQUESTED_OUTDIR="${i}"
-                                   shift;;
-                   esac
-           done
+	   do
+		case "$i" in
+		    -c)
+			   COLLECT_CONFIGURATION_FILES="Y"
+			   shift
+			   ;;
+		    -n)
+			   COLLECT_NDF_INFO="Y"
+			   shift
+			   ;;
+		    -s)
+			   COLLECT_SENSITIVE_INFO="Y"
+			   shift
+			   ;;
+		    --)
+			   shift
+			   ;;
+		    *)
+			   REQUESTED_OUTDIR="${i}"
+			   shift
+			   ;;
+		esac
+	   done
 
 }
 
@@ -61,13 +68,6 @@ setup () {
 
 # note: the daemons dump to syslog so you need to wait a bit before
 # capturing the logs.
-collect_state_dump () {
-
-	${PRIV} /usr/bin/killall -INFO networkd							2>/dev/null
-
-	sleep 1											&
-}
-
 collect_state_dump_sensitive () {
 
 	${PRIV} /usr/bin/killall -INFO mDNSResponder						2>/dev/null
@@ -115,6 +115,11 @@ run_netstat () {
 	echo "# netstat -s"						>> netstat.txt
 	echo "#"							>> netstat.txt
 	/usr/sbin/netstat -s						>> netstat.txt		2>&1
+
+	echo "#"							>> netstat.txt
+	echo "# netstat -rs"						>> netstat.txt
+	echo "#"							>> netstat.txt
+	/usr/sbin/netstat -rs						>> netstat.txt		2>&1
 
 	echo "#"							>> netstat.txt
 	echo "# netstat -mmm"						>> netstat.txt
@@ -169,6 +174,9 @@ run_netstat () {
 
 }
 
+#
+# ndp
+#
 run_ndp () {
 
 	if [ ! -x /usr/sbin/ndp ]; then
@@ -202,6 +210,9 @@ run_ndp () {
 
 }
 
+#
+# arp
+#
 run_arp () {
 
 	if   [ ! -x /usr/sbin/arp ]; then
@@ -227,8 +238,9 @@ run_ipconfig () {
 	for if in ${IF_LIST}
 	do
 		case ${if} in
-		lo* )	;;
-		*)
+		    lo* )
+			;;
+		    *)
 			echo "#"					>> ipconfig-info.txt
 			echo "# INTERFACE ${if}"			>> ipconfig-info.txt
 			echo "#"					>> ipconfig-info.txt
@@ -343,6 +355,9 @@ collect_configuration_files () {
 	fi
 }
 
+#
+# VPN
+#
 collect_vpn_logs () {
 
 	for f in										\
@@ -355,6 +370,40 @@ collect_vpn_logs () {
 			${PRIV} cat "${f}"							> "${b}".txt	2>&1
 		fi
 	done
+}
+
+#
+# Policy
+#
+run_neutil () {
+
+	if [ ! -x /usr/local/bin/neutil ]; then
+		return
+	fi
+
+	echo "#"								>  necp.txt
+	echo "# neutil policy dump"						>> necp.txt
+	echo "#"								>> necp.txt
+	/usr/local/bin/neutil policy dump					>> necp.txt		2>&1
+
+	echo "#"								>  network-agents.txt
+	echo "# neutil agent dump"						>> network-agents.txt
+	echo "#"								>> network-agents.txt
+	/usr/local/bin/neutil agent dump					>> network-agents.txt	2>&1
+
+}
+
+#
+# Path
+#
+run_network_test () {
+
+	if [ ! -x /usr/local/bin/network_test ]; then
+		return
+	fi
+
+	/usr/local/bin/network_test path_watcher				> nw_path.txt	2>&1
+
 }
 
 #
@@ -399,6 +448,16 @@ run_scutil () {
 	echo "#"								>> reachability-info.txt
 	/usr/sbin/scutil -d -v -r 0.0.0.0					>> reachability-info.txt	2>&1
 
+	echo "#"								>> reachability-info.txt
+	echo '# scutil -d -v -r 169.254.0.0'					>> reachability-info.txt
+	echo "#"								>> reachability-info.txt
+	/usr/sbin/scutil -d -v -r 169.254.0.0					>> reachability-info.txt	2>&1
+
+	echo "#"								>  nc-info.txt
+	echo '# scutil --nc list'						>> nc-info.txt
+	echo "#"								>> nc-info.txt
+	/usr/sbin/scutil --nc list						>> nc-info.txt			2>&1
+
 	${PRIV} /usr/sbin/scutil -p --snapshot
 	if [ -f /var/tmp/configd-store.plist ]; then
 		cat /var/tmp/configd-store.plist				> configd-store.plist		2>&1
@@ -415,6 +474,9 @@ run_scutil () {
 
 }
 
+#
+# route
+#
 run_route () {
 
 	if [ ! -x /sbin/route ]; then
@@ -433,6 +495,9 @@ run_route () {
 
 }
 
+#
+# dig
+#
 run_dig () {
 
 	if [ ! -x /usr/bin/dig -o ! -f /etc/resolv.conf ]; then
@@ -447,7 +512,7 @@ run_dig () {
 }
 
 #
-# Host name
+# hostname
 #
 run_hostname () {
 
@@ -459,14 +524,59 @@ run_hostname () {
 
 }
 
+#
+# lsof
+#
+run_lsof () {
+
+	if [ ! -x /usr/sbin/lsof ]; then
+		return
+	fi
+
+	${PRIV} /usr/sbin/lsof -i -n -O -P -T q					> lsof.txt		2>&1	&
+	LSOF_PID=$!
+	# start a watchdog for lsof
+	(
+		WAIT_TIME=5
+		while [ $WAIT_TIME -gt 0 ]
+		do
+			${PRIV} kill -0 ${LSOF_PID}							2>/dev/null
+			if [ $? -eq 0 ]; then
+				# lsof is [still] gathering data...
+				sleep 1
+				WAIT_TIME=$((WAIT_TIME - 1))
+				continue
+			fi
+
+			# lsof completed gathering data
+			break
+		done
+
+		if [ $WAIT_TIME -eq 0 ]; then
+			# lsof timed out
+			${PRIV} kill ${LSOF_PID}							2>/dev/null
+		fi
+	) &
+
+}
+
+collect_ndf_info () {
+	run_lsof
+}
+
 collect_sensitive_info () {
 	collect_state_dump_sensitive
 	run_ndp
 	run_arp
+	run_neutil
+	run_network_test
 }
 
 collect_info () {
-	collect_state_dump
+
+	if [ "${COLLECT_NDF_INFO}" == "Y" ]; then
+		collect_ndf_info
+	fi
 
 	if [ "${COLLECT_SENSITIVE_INFO}" == "Y" ]; then
 		collect_sensitive_info
@@ -493,9 +603,10 @@ collect_info () {
 
 usage () {
 
-	echo "Usage: get-network-info [-s] [-c] <info-directory>"
-	echo "		-s		    collects sensitive information (ARP/NDP/mDNS cache)"
+	echo "Usage: get-network-info [-c] [-n] [-s] <info-directory>"
 	echo "		-c		    collects system configuration files"
+	echo "		-n		    collects NDF information (lsof)"
+	echo "		-s		    collects sensitive information (ARP/NDP/mDNS cache)"
 	echo "		<info-directory>    path to directory where all the information will be collected"
 
 }
@@ -538,7 +649,7 @@ init_globals () {
 #
 # __MAIN__
 #
-ARGS=`getopt sc $*`
+ARGS=`getopt cns $*`
 if [ $? != 0 ]; then
 	usage
 	exit 1
@@ -551,7 +662,5 @@ setup
 optimize
 collect_info
 wait
-
-#TO-DO: Add packet trace
 
 exit 0

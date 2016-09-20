@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/en.xml
@@ -46,7 +46,6 @@ en{
         AI{"Anguilla"}
         AL{"Albania"}
         AM{"Armenia"}
-        AN{"Netherlands Antilles"}
         AO{"Angola"}
         AQ{"Antarctica"}
         AR{"Argentina"}
@@ -138,7 +137,7 @@ en{
         GU{"Guam"}
         GW{"Guinea-Bissau"}
         GY{"Guyana"}
-        HK{"Hong Kong SAR China"}
+        HK{"Hong Kong (China)"}
         HM{"Heard & McDonald Islands"}
         HN{"Honduras"}
         HR{"Croatia"}
@@ -192,7 +191,7 @@ en{
         ML{"Mali"}
         MM{"Myanmar (Burma)"}
         MN{"Mongolia"}
-        MO{"Macau SAR China"}
+        MO{"Macau (China)"}
         MP{"Northern Mariana Islands"}
         MQ{"Martinique"}
         MR{"Mauritania"}
@@ -316,5 +315,5 @@ en{
         MK{"Macedonia (FYROM)"}
         TL{"East Timor"}
     }
-    Version{"2.1.13.48"}
+    Version{"2.1.24.18"}
 }

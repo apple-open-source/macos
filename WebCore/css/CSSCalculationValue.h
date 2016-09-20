@@ -28,17 +28,18 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CSSCalculationValue_h
-#define CSSCalculationValue_h
+#pragma once
 
-#include "CSSParserValues.h"
 #include "CSSPrimitiveValue.h"
 #include "CalculationValue.h"
 
 namespace WebCore {
 
+class CSSParserValueList;
 class CSSToLengthConversionData;
 class RenderStyle;
+
+struct CSSParserString;
 
 enum CalculationCategory {
     CalcNumber = 0,
@@ -113,7 +114,7 @@ private:
 
 inline CSSCalcValue::CSSCalcValue(Ref<CSSCalcExpressionNode>&& expression, bool shouldClampToNonNegative)
     : CSSValue(CalculationClass)
-    , m_expression(WTF::move(expression))
+    , m_expression(WTFMove(expression))
     , m_shouldClampToNonNegative(shouldClampToNonNegative)
 {
 }
@@ -132,5 +133,3 @@ inline void CSSCalcValue::setPermittedValueRange(CalculationPermittedValueRange 
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_CSS_VALUE(CSSCalcValue, isCalcValue())
-
-#endif // CSSCalculationValue_h

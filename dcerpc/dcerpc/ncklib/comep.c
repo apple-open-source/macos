@@ -271,7 +271,8 @@ PUBLIC void rpc_ep_register
 **
 **--
 **/
-
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PUBLIC void rpc_ep_register_no_replace
 (
     rpc_if_handle_t             ifspec,
@@ -283,7 +284,7 @@ PUBLIC void rpc_ep_register_no_replace
 {
     ep_register (ifspec, binding_vec, object_uuid_vec, annotation, false, status);
 }
-
+#endif
 /*
 **++
 **
@@ -1373,7 +1374,8 @@ PUBLIC void rpc_mgmt_ep_elt_inq_done
 **
 **--
 **/
-
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PUBLIC void rpc_mgmt_ep_unregister
 (
     rpc_binding_handle_t    input_binding,
@@ -1475,7 +1477,7 @@ PUBLIC void rpc_mgmt_ep_unregister
     rpc__tower_ref_vec_free(&tower_vec, &tmp_st);
     rpc_binding_free(&ep_binding, &tmp_st);
 }
-
+#endif
 
 /*
 **++
@@ -1641,6 +1643,9 @@ INTERNAL void get_ep_binding
 **
 **--
 **/
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
+ *
 PRIVATE void rpc_binding_to_epmap
 (
     rpc_binding_handle_t    input_binding,
@@ -1650,7 +1655,8 @@ PRIVATE void rpc_binding_to_epmap
 {
     get_ep_binding(input_binding, output_binding, status);
 }
-
+#endif
+
 /*
 **++
 **

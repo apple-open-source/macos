@@ -31,8 +31,8 @@
  */
 
 [
+    ImplementationLacksVTable,
     NoInterfaceObject,
-    ImplementationLacksVTable
 ] interface InspectorFrontendHost {
     void loaded();
     void closeWindow();
@@ -46,13 +46,13 @@
 
     void setAttachedWindowHeight(unsigned long height);
     void setAttachedWindowWidth(unsigned long width);
-    void setToolbarHeight(unrestricted float height);
 
     void startWindowDrag();
     void moveWindowBy(unrestricted float x, unrestricted float y);
 
     DOMString localizedStringsURL();
     DOMString debuggableType();
+    unsigned long inspectionLevel();
 
     void copyText(DOMString text);
     void killText(DOMString text, boolean shouldPrependToKillRing, boolean shouldStartNewSequence);
@@ -62,18 +62,15 @@
     void append(DOMString url, DOMString content);
     void close(DOMString url);
 
-    [Custom] DOMString platform();
-    [Custom] DOMString port();
+    DOMString platform();
+    DOMString port();
+
     [Custom] void showContextMenu(MouseEvent event, any items);
-    void dispatchEventAsContextMenuEvent(Event event);
+    void dispatchEventAsContextMenuEvent(Event? event);
     void sendMessageToBackend(DOMString message);
     void unbufferedLog(DOMString message);
 
     boolean isUnderTest();
 
     void beep();
-
-    // Deprecated
-    boolean canInspectWorkers();
-    boolean canSaveAs();
 };

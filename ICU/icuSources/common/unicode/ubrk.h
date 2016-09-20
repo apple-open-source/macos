@@ -57,9 +57,7 @@
  * Note: The locale keyword "ss" can be used to enable use of
  * segmentation suppression data (preventing breaks in English after
  * abbreviations such as "Mr." or "Est.", for example), as follows:
- * "en@ss=standard". However, use of the suppression data is
- * currently supported only for ubrk_next; ubrk_previous, ubrk_following,
- * and ubrk_preceding will ignore the suppression data.
+ * "en@ss=standard".
  * <p>
  * Word boundary analysis is used by search and replace functions, as
  * well as within text editing applications that allow the user to

@@ -181,7 +181,7 @@ static void test_okmfunion(SOSManifestRef a, SOSManifestRef b, SOSManifestRef n,
 static SOSManifestRef createManifestWithString(CFStringRef string) {
     struct SOSDigestVector dv = SOSDigestVectorInit;
     CFIndex length = string ? CFStringGetLength(string) : 0;
-    CFStringInlineBuffer buf;
+    CFStringInlineBuffer buf = {};
     CFRange range = { 0, length };
     CFStringInitInlineBuffer(string, &buf, range);
     for (CFIndex ix = 0; ix < length; ++ix) {

@@ -43,6 +43,7 @@
 #include "IOHIDParameter.h"
 #include "IOFixed64.h"
 #include "ev_private.h"
+#include "IOHIDDebug.h"
 
 #ifndef abs
 #define abs(_a)	((_a >= 0) ? _a : -_a)
@@ -120,7 +121,6 @@
 #define _scrollPointDeltaAxis2              _reserved->scrollPointDeltaAxis2
 #define _scrollPointDeltaAxis3              _reserved->scrollPointDeltaAxis3
 
-#define _hidPointingNub                     _reserved->hidPointingNub
 #define _isSeized                           _reserved->isSeized
 #define _openClient                         _reserved->openClient
 #define _accelerateMode                     _reserved->accelerateMode
@@ -231,8 +231,6 @@ struct IOHIPointing::ExpansionData
     SInt32		scrollPointDeltaAxis3;
     UInt32      scrollButtonMask;
 
-    // Added to post events to the HID Manager
-    IOHIDPointingDevice	* hidPointingNub;
     IOService   * openClient;
 
     UInt32      accelerateMode;
@@ -274,8 +272,6 @@ bool IOHIPointing::init(OSDictionary * properties)
     _pressureThresholdToClick = 128;
     _previousLocation.x = 0;
     _previousLocation.y = 0;
-
-    _hidPointingNub = 0;
 
     _isSeized = false;
 
@@ -335,9 +331,6 @@ bool IOHIPointing::start(IOService * provider)
             _scrollButtonMask = (1 << (value-1));
     }
     OSSafeReleaseNULL(number);
-
-  // create a IOHIDPointingDevice to post events to the HID Manager
-  _hidPointingNub = IOHIDPointingDevice::newPointingDeviceAndStart(this, buttonCount(), resolution() >> 16);
 
   /*
    * IOHIPointing serves both as a service and a nub (we lead a double
@@ -403,12 +396,6 @@ void IOHIPointing::free()
 
         IOFree(_scrollPointerInfo, sizeof(ScrollAccelInfo));
         _scrollPointerInfo = 0;
-    }
-
-    if ( _hidPointingNub )
-    {
-        _hidPointingNub->release();
-        _hidPointingNub = 0;
     }
 
     if (_reserved) {
@@ -761,7 +748,7 @@ void IOHIPointing::setupForAcceleration( IOFixed desired )
     IOFixed         crsrScale   = IOFixedDivide( SCREEN_RESOLUTION, FRAME_RATE );
     bool            useParametric = false;
 
-//  IOLog("%s %d: got %08x and %p\n", __PRETTY_FUNCTION__, __LINE__, desired, parametricAccelerationCurves);
+//  HIDLog("got %08x and %p", desired, parametricAccelerationCurves);
     if (!OSDynamicCast( OSArray, parametricAccelerationCurves)) {
         OSSafeReleaseNULL(parametricAccelerationCurves);
         parametricAccelerationCurves = (OSArray*)copyProperty(kHIDAccelParametricCurvesKey, gIOServicePlane);
@@ -777,14 +764,14 @@ void IOHIPointing::setupForAcceleration( IOFixed desired )
             _paraAccelSecondaryParams = (IOHIPointing__PASecondaryParameters*)IOMalloc(sizeof(IOHIPointing__PASecondaryParameters));
         }
 
-//      IOLog("%s %d: have %p and %p\n", __PRETTY_FUNCTION__, __LINE__, _paraAccelParams, _paraAccelSecondaryParams);
+//      HIDLog("have %p and %p", _paraAccelParams, _paraAccelSecondaryParams);
 
         if (_paraAccelParams && _paraAccelSecondaryParams) {
             IOFixed64 desired64;
             IOFixed64 devScale64;
             IOFixed64 crsrScale64;
 
-        //  IOLog("%s: Calling PACurvesSetupAccelParams with %08x, %08x, %08x\n", __PRETTY_FUNCTION__, desired, devScale, crsrScale);
+        //  HIDLog("Calling PACurvesSetupAccelParams with %08x, %08x, %08x", desired, devScale, crsrScale);
 
             useParametric = PACurvesSetupAccelParams(parametricAccelerationCurves,
                                                       desired64.fromFixed(desired),
@@ -792,7 +779,7 @@ void IOHIPointing::setupForAcceleration( IOFixed desired )
                                                       crsrScale64.fromFixed(crsrScale),
                                                       *_paraAccelParams,
                                                       *_paraAccelSecondaryParams);
-            if (useParametric && getProperty(kHIDAccelParametricCurvesDebugKey, gIOServicePlane)) {
+            if (useParametric) { // && getProperty(kHIDAccelParametricCurvesDebugKey, gIOServicePlane)) {
                 OSDictionary *debugInfo = PACurvesDebugDictionary(*_paraAccelParams, *_paraAccelSecondaryParams);
                 if (debugInfo) {
                     setProperty(kHIDAccelParametricCurvesDebugKey, debugInfo);
@@ -803,7 +790,7 @@ void IOHIPointing::setupForAcceleration( IOFixed desired )
     }
     OSSafeReleaseNULL(parametricAccelerationCurves);
 
-//  IOLog("%s %d: %s parametric\n", __PRETTY_FUNCTION__, __LINE__, useParametric ? "using" : "NOT using");
+//  HIDLog("%s parametric", useParametric ? "using" : "NOT using");
 
     // If that fails, fall back to classic acceleration
     if (!useParametric) {
@@ -918,12 +905,12 @@ void IOHIPointing::setupScrollForAcceleration( IOFixed desired )
                             debugInfo->release();
                         }
                         else {
-                            IOLog("IOHIPointing 0x%llx unable to generate debug info for scroll axis %d\n", getRegistryEntryID(), type);
+                            HIDLogError("IOHIPointing 0x%llx unable to generate debug info for scroll axis %d", getRegistryEntryID(), type);
                             newDebugArray->replaceObject(type, OSSymbol::withCString("no debug info"));
                         }
                     }
                     else {
-                        IOLog("IOHIPointing 0x%llx unable to generate parametric data for axis %d\n", getRegistryEntryID(), type);
+                        HIDLogError("IOHIPointing 0x%llx unable to generate parametric data for axis %d", getRegistryEntryID(), type);
                         newDebugArray->replaceObject(type, OSSymbol::withCString("not parametric"));
                     }
                 }
@@ -955,7 +942,7 @@ void IOHIPointing::setupScrollForAcceleration( IOFixed desired )
                         debugInfo->release();
                     }
                     else {
-                        IOLog("IOHIPointing 0x%llx unable to generate traditional debug info for scroll axis %d\n", getRegistryEntryID(), type);
+                        HIDLogError("IOHIPointing 0x%llx unable to generate traditional debug info for scroll axis %d", getRegistryEntryID(), type);
                         newDebugArray->replaceObject(type, OSSymbol::withCString("traditional but no debug info"));
                     }
 
@@ -1105,10 +1092,6 @@ void IOHIPointing::dispatchRelativePointerEvent(int        dx,
 
     DEVICE_LOCK;
 
-    // post the raw event to the IOHIDPointingDevice
-    if (_hidPointingNub)
-        _hidPointingNub->postMouseEvent(buttonState, dx, dy, 0);
-
     if (_isSeized)
     {
         DEVICE_UNLOCK;
@@ -1149,12 +1132,12 @@ void IOHIPointing::dispatchRelativePointerEvent(int        dx,
         scalePointer(&dx, &dy);
 
         if (((oldDx < 0) && (dx > 0)) || ((oldDx > 0) && (dx < 0))) {
-            IOLog("IOHIPointing::dispatchRelativePointerEvent: Unwanted Direction Change X: oldDx=%d dx=%d\n", oldDy, dy);
+            HIDLogError("Unwanted Direction Change X: oldDx=%d dx=%d", oldDy, dy);
         }
 
 
         if (((oldDy < 0) && (dy > 0)) || ((oldDy > 0) && (dy < 0))) {
-            IOLog("IOHIPointing::dispatchRelativePointerEvent: Unwanted Direction Change Y: oldDy=%d dy=%d\n", oldDy, dy);
+            HIDLogError("Unwanted Direction Change Y: oldDy=%d dy=%d", oldDy, dy);
         }
     }
 
@@ -1208,30 +1191,6 @@ void IOHIPointing::dispatchScrollWheelEventWithAccelInfo(
     UInt32          eventFlags      = (hidSystem ? hidSystem->eventFlags() : 0);
 
     DEVICE_LOCK;
-
-    // Change the report descriptor for the IOHIDPointingDevice
-    // to include a scroll whell
-    if (_hidPointingNub && !_hidPointingNub->isScrollPresent())
-    {
-        IOHIDPointingDevice * nub = _hidPointingNub;
-
-        _hidPointingNub = 0;
-
-        DEVICE_UNLOCK;
-
-        nub->terminate(kIOServiceAsynchronous); // rdar://8810574
-        nub->release();
-
-        nub = IOHIDPointingDevice::newPointingDeviceAndStart(this, buttonCount(), resolution() >> 16, true);
-
-        DEVICE_LOCK;
-
-        _hidPointingNub = nub;
-    }
-
-    // Post the raw event to IOHIDPointingDevice
-    if (_hidPointingNub)
-        _hidPointingNub->postMouseEvent(0, 0, 0, deltaAxis1);
 
     if (_isSeized) {
         DEVICE_UNLOCK;
@@ -1371,12 +1330,13 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
 {
     OSData			*data;
     OSNumber		*number;
-    OSString		*pointerAccelKey;
-    OSString		*scrollAccelKey;
-    IOReturn		err = kIOReturnSuccess;
-    bool		updated = false;
-    UInt32		value;
-
+    OSString		*pointerAccelKey  = NULL;
+    OSString		*scrollAccelKey   = NULL;
+    IOReturn		err               = kIOReturnSuccess;
+    bool        updated           = false;
+    UInt32      value;
+    OSObject    *propertyValue;
+  
     // The resetPointer and resetScroll methods attempt to grab the DEVICE_LOCK
     // We should make these calls outside of DEVICE_LOCK as it is not recursive
     if( dict->getObject(kIOHIDResetPointerKey))
@@ -1384,9 +1344,22 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
 
     if( dict->getObject(kIOHIDScrollResetKey))
         resetScroll();
+  
+    propertyValue = copyProperty(kIOHIDPointerAccelerationTypeKey);
+    if (propertyValue != NULL) {
+        pointerAccelKey = OSDynamicCast(OSString, propertyValue);
+        if (pointerAccelKey == NULL) {
+            propertyValue->release();
+        }
+    }
 
-    pointerAccelKey = (OSString*)copyProperty(kIOHIDPointerAccelerationTypeKey);
-    scrollAccelKey = (OSString*)copyProperty(kIOHIDScrollAccelerationTypeKey);
+    propertyValue = copyProperty(kIOHIDScrollAccelerationTypeKey);
+    if (propertyValue) {
+        scrollAccelKey = OSDynamicCast(OSString, propertyValue);
+        if (scrollAccelKey == NULL) {
+            propertyValue->release();
+        }
+    }
 
     DEVICE_LOCK;
 
@@ -1588,7 +1561,7 @@ IOFixed	IOHIPointing::scrollResolutionForType(SInt32 type)
 
     number = (OSNumber*)copyProperty(key);
     if( !OSDynamicCast( OSNumber, number ) ) {
-        OSSafeRelease(number);
+        OSSafeReleaseNULL(number);
 		number = (OSNumber*)copyProperty(kIOHIDScrollResolutionKey);
 	}
 
@@ -1603,7 +1576,7 @@ IOFixed	IOHIPointing::scrollResolutionForType(SInt32 type)
 
 	if( OSDynamicCast( OSNumber, number ) )
 		res = number->unsigned32BitValue();
-    OSSafeRelease(number);
+    OSSafeReleaseNULL(number);
 
     return( res );
 }
@@ -1618,7 +1591,7 @@ IOFixed	IOHIPointing::scrollReportRate()
     if (OSDynamicCast( OSNumber, number ))
         if (number->unsigned32BitValue())
             result = number->unsigned32BitValue();
-    OSSafeRelease(number);
+    OSSafeReleaseNULL(number);
 
     if (result == 0)
         result = FRAME_RATE;
@@ -1684,7 +1657,7 @@ OSData * IOHIPointing::copyScrollAccelerationTableForType(SInt32 type)
         data = (OSData*)copyProperty( key );
 
     if ( !OSDynamicCast( OSData, data ) ) {
-        OSSafeRelease(data);
+        OSSafeReleaseNULL(data);
 		data = (OSData*)copyProperty( kIOHIDScrollAccelerationTableKey );
 		if (data && !OSDynamicCast( OSData, data )) {
             data->release();
@@ -1823,7 +1796,7 @@ bool SetupAcceleration (OSData * data, IOFixed desired, IOFixed devScale, IOFixe
     else
         segCount = highPoints;
     segCount *= 2;
-/*    IOLog("lowPoints %ld, highPoints %ld, segCount %ld\n",
+/*    HIDLog("lowPoints %ld, highPoints %ld, segCount %ld",
             lowPoints, highPoints, segCount); */
     segments = IONew( CursorDeviceSegment, segCount );
     assert( segments );
@@ -1887,7 +1860,7 @@ bool SetupAcceleration (OSData * data, IOFixed desired, IOFixed devScale, IOFixe
 
         segment->intercept = scaledY2
                             - IOFixedMultiply( segment->slope, scaledX2 );
-/*        IOLog("devUnits = %08lx, slope = %08lx, intercept = %08lx\n",
+/*        HIDLog("devUnits = %08lx, slope = %08lx, intercept = %08lx",
                 segment->devUnits, segment->slope, segment->intercept); */
 
         scaledX1 = scaledX2;
@@ -1984,7 +1957,7 @@ PACurvesSetupAccelParams (OSArray *parametricCurves,
     IOHIPointing__PAParameters high_curve_params;
     IOHIPointing__PAParameters low_curve_params;
 
-//  IOLog("%s %d: Called with %08x, %08x, %08x\n", __PRETTY_FUNCTION__, __LINE__, desired.asFixed(), devScale.asFixed(), crsrScale.asFixed());
+//  HIDLog("Called with %08x, %08x, %08x", desired.asFixed(), devScale.asFixed(), crsrScale.asFixed());
 
     require(parametricCurves, exit_early);
     require(crsrScale > 0LL, exit_early);
@@ -2020,7 +1993,7 @@ PACurvesSetupAccelParams (OSArray *parametricCurves,
         IOFixed64   ratio = (desired - low_curve_params.accelIndex) / (high_curve_params.accelIndex - low_curve_params.accelIndex);
         int         index;
 
-//      IOLog("%s %d: Using %08x, %08x, %08x\n", __PRETTY_FUNCTION__, __LINE__, high_curve_params.accelIndex.asFixed(), low_curve_params.accelIndex.asFixed(), ratio.asFixed());
+//      HIDLog("Using %08x, %08x, %08x", high_curve_params.accelIndex.asFixed(), low_curve_params.accelIndex.asFixed(), ratio.asFixed());
 
         primaryParams.deviceMickysDivider   = high_curve_params.deviceMickysDivider;
         primaryParams.cursorSpeedMultiplier = high_curve_params.cursorSpeedMultiplier;

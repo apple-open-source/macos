@@ -28,6 +28,7 @@
 
 #if ENABLE(CONTENT_EXTENSIONS)
 
+#include "PlatformExportMacros.h"
 #include <system_error>
 
 namespace WebCore {
@@ -60,6 +61,8 @@ enum class ContentExtensionError {
     JSONInvalidRegex,
 };
 
+extern const char* WebKitContentBlockerDomain;
+    
 WEBCORE_EXPORT const std::error_category& contentExtensionErrorCategory();
 
 inline std::error_code make_error_code(ContentExtensionError error)

@@ -91,6 +91,9 @@ loser:
 void
 SecCmsDigestedDataDestroy(SecCmsDigestedDataRef digd)
 {
+    if (digd == NULL) {
+        return;
+    }
     /* everything's in a pool, so don't worry about the storage */
     SecCmsContentInfoDestroy(&(digd->contentInfo));
     return;
@@ -226,6 +229,9 @@ SecCmsDigestedDataDecodeAfterData(SecCmsDigestedDataRef digd)
 OSStatus
 SecCmsDigestedDataDecodeAfterEnd(SecCmsDigestedDataRef digd)
 {
+    if (!digd) {
+        return SECFailure;
+    }
     /* did we have digest calculation going on? */
     if (digd->cdigest.Length != 0) {
 	/* XXX comparision btw digest & cdigest */

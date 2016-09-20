@@ -235,9 +235,10 @@ find_host(char *hostname, int create)
 	/* Now create an entry, using the spare slot if one was found or	 */
 	/* adding to the end of the list otherwise, extending file if reqd	 */
 	if (!hip && !spare_slot) {
+		uint8_t byte = 0;
+
 		off = spare_off = status_file_len;
-		i = 0;
-		rv = pwrite(status_fd, &i, 1, off + len - 1);
+		rv = pwrite(status_fd, &byte, 1, off + len - 1);
 		if (rv < 1) {
 			free(mhp);
 			log(LOG_ERR, "Unable to extend status file");
@@ -378,7 +379,7 @@ convert_version0_file(const char *filename0)
 		hip->hi_notify = htons((hi0p->notifyReqd != 0) ? 1 : 0);
 		if (!hip->hi_monitored && !hip->hi_notify)
 			continue;
-		namelen = strlen(hi0p->hostname);
+		namelen = strnlen(hi0p->hostname, SM_MAXSTRLEN+1);
 		if (namelen > SM_MAXSTRLEN) {
 			log(LOG_ERR, "status file entry %d, name too long: %d", i, namelen);
 			goto fail;

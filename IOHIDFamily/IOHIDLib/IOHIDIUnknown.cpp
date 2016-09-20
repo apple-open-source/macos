@@ -29,29 +29,13 @@
 #include "IOHIDIUnknown.h"
 #include "IOHIDDeviceClass.h"
 #include "IOHIDUPSClass.h"
-
-#if TARGET_OS_EMBEDDED
+//YG #if TARGET_OS_EMBEDDED
     #include "IOHIDEventServiceClass.h"
-#endif
+//YG #endif
 
 
 int IOHIDIUnknown::factoryRefCount = 0;
 
-void *IOHIDLibFactory(CFAllocatorRef allocator __unused, CFUUIDRef typeID)
-{
-    if (CFEqual(typeID, kIOHIDDeviceUserClientTypeID))
-        return (void *) IOHIDObsoleteDeviceClass::alloc();
-    else if (CFEqual(typeID, kIOHIDDeviceTypeID))
-        return (void *) IOHIDDeviceClass::alloc();
-#if TARGET_OS_EMBEDDED
-    else if (CFEqual(typeID, kIOHIDServicePlugInTypeID))
-        return (void *) IOHIDEventServiceClass::alloc();
-#endif
-    else if (CFEqual(typeID, kIOUPSPlugInTypeID))
-        return (void *) IOHIDUPSClass::alloc();
-    else
-        return NULL;
-}
 
 void IOHIDIUnknown::factoryAddRef()
 {

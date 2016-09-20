@@ -70,7 +70,8 @@ private:
     CustomSetter m_setter;
 };
 
-void callCustomSetter(ExecState*, JSValue customGetterSetter, JSObject* base, JSValue thisValue, JSValue value);
+JS_EXPORT_PRIVATE bool callCustomSetter(ExecState*, CustomGetterSetter::CustomSetter, bool isAccessor, JSValue thisValue, JSValue);
+JS_EXPORT_PRIVATE bool callCustomSetter(ExecState*, JSValue customGetterSetter, bool isAccessor, JSObject* slotBase, JSValue thisValue, JSValue);
 
 } // namespace JSC
 

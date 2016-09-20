@@ -45,8 +45,29 @@ DLTransaction::~DLTransaction() {
     finalize();
 }
 
-void DLTransaction::success() {
+void DLTransaction::commit() {
+    // Commit the transaction, and throw if it fails
+
+    // If autocommit wasn't on on the database when we started, don't
+    // actually commit. There might be something else going on...
+    if(mAutoCommit) {
+        Security::CssmClient::ObjectImpl::check(CSSM_DL_PassThrough(mDldbh, CSSM_APPLEFILEDL_COMMIT, NULL, NULL));
+        CSSM_DL_PassThrough(mDldbh, CSSM_APPLEFILEDL_TOGGLE_AUTOCOMMIT, reinterpret_cast<const void *>(mAutoCommit), NULL);
+    }
+
+    // Throwing above means this wasn't a success and we're not finalized. On exit, we'll roll back the transaction.
     mSuccess = true;
+    mFinalized = true;
+}
+
+void DLTransaction::rollback() {
+    // If autocommit wasn't on on the database when we started, don't
+    // actually roll back. There might be something else going on...
+    if(mAutoCommit) {
+        CSSM_DL_PassThrough(mDldbh, CSSM_APPLEFILEDL_ROLLBACK, NULL, NULL);
+        CSSM_DL_PassThrough(mDldbh, CSSM_APPLEFILEDL_TOGGLE_AUTOCOMMIT,
+                            reinterpret_cast<const void *>(mAutoCommit), NULL);
+    }
 }
 
 void DLTransaction::finalize() {
@@ -54,31 +75,18 @@ void DLTransaction::finalize() {
         return;
     }
 
-    // If autocommit wasn't on on the database when we started, don't
-    // actually commit. There might be something else going on...
-    if(mAutoCommit) {
-        // if this transaction was a success, commit. Otherwise, roll back.
-        if(mSuccess) {
-            Security::CssmClient::ObjectImpl::check(CSSM_DL_PassThrough(mDldbh,
-                        CSSM_APPLEFILEDL_COMMIT, NULL, NULL));
-            CSSM_DL_PassThrough(mDldbh, CSSM_APPLEFILEDL_TOGGLE_AUTOCOMMIT,
-                    reinterpret_cast<const void *>(mAutoCommit), NULL);
-        } else {
-            // This is a failed transaction. Roll back, and turn autoCommit back on.
-            //
-            // Note that we're likely (but not necessarily) unwinding the stack for an exception right now.
-            // (If this transaction succeeded, we wouldn't be here. So, it failed, and this code likes to fail with exceptions.)
-            // If this throws an exception, we might crash the whole process.
-            // Swallow exceptions whole, but log them aggressively.
-            try {
-                CSSM_DL_PassThrough(mDldbh, CSSM_APPLEFILEDL_ROLLBACK, NULL, NULL);
-                CSSM_DL_PassThrough(mDldbh, CSSM_APPLEFILEDL_TOGGLE_AUTOCOMMIT,
-                        reinterpret_cast<const void *>(mAutoCommit), NULL);
-            } catch(CssmError cssme) {
-                const char* errStr = cssmErrorString(cssme.error);
-                secdebugfunc("integrity", "caught CssmError during transaction rollback: %d %s", (int) cssme.error, errStr);
-                syslog(LOG_ERR, "ERROR: failed to rollback keychain transaction: %d %s", (int) cssme.error, errStr);
-            }
+    // if this transaction was not a success, roll back.
+    if(!mSuccess) {
+        // Note that we're likely (but not necessarily) unwinding the stack for an exception right now.
+        // (If this transaction succeeded, we wouldn't be here. So, it failed, and this code likes to fail with exceptions.)
+        // If this throws an exception, we might crash the whole process.
+        // Swallow exceptions whole, but log them aggressively.
+        try {
+            rollback();
+        } catch(CssmError cssme) {
+            const char* errStr = cssmErrorString(cssme.error);
+            secnotice("integrity", "caught CssmError during transaction rollback: %d %s", (int) cssme.error, errStr);
+            syslog(LOG_ERR, "ERROR: failed to rollback keychain transaction: %d %s", (int) cssme.error, errStr);
         }
     }
     mFinalized = true;
@@ -95,6 +103,5 @@ CSPDLTransaction::CSPDLTransaction(Security::CssmClient::Db& db)
 }
 
 CSPDLTransaction::~CSPDLTransaction() {
-    finalize();
 }
 

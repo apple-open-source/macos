@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/ro.xml
@@ -46,7 +46,6 @@ ro{
         AI{"Anguilla"}
         AL{"Albania"}
         AM{"Armenia"}
-        AN{"Antilele Olandeze"}
         AO{"Angola"}
         AQ{"Antarctica"}
         AR{"Argentina"}
@@ -202,12 +201,12 @@ ro{
         MV{"Maldive"}
         MW{"Malawi"}
         MX{"Mexic"}
-        MY{"Malaezia"}
+        MY{"Malaysia"}
         MZ{"Mozambic"}
         NA{"Namibia"}
         NC{"Noua Caledonie"}
         NE{"Niger"}
-        NF{"Insulele Norfolk"}
+        NF{"Insula Norfolk"}
         NG{"Nigeria"}
         NI{"Nicaragua"}
         NL{"Țările de Jos"}
@@ -252,7 +251,7 @@ ro{
         SM{"San Marino"}
         SN{"Senegal"}
         SO{"Somalia"}
-        SR{"Surinam"}
+        SR{"Suriname"}
         SS{"Sudanul de Sud"}
         ST{"Sao Tome și Principe"}
         SV{"El Salvador"}
@@ -283,7 +282,7 @@ ro{
         UY{"Uruguay"}
         UZ{"Uzbekistan"}
         VA{"Statul Cetății Vaticanului"}
-        VC{"Saint Vincent și Grenadine"}
+        VC{"Saint Vincent și Grenadinele"}
         VE{"Venezuela"}
         VG{"Insulele Virgine Britanice"}
         VI{"Insulele Virgine S.U.A."}
@@ -313,5 +312,5 @@ ro{
         FK{"Insulele Falkland (Insulele Malvine)"}
         MK{"Macedonia (FRIM)"}
     }
-    Version{"2.1.12.94"}
+    Version{"2.1.22.93"}
 }

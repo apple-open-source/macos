@@ -21,7 +21,7 @@
 #define XMLSerializer_h
 
 #include <wtf/Forward.h>
-#include <wtf/PassRefPtr.h>
+#include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
@@ -34,7 +34,7 @@ namespace WebCore {
     public:
         static Ref<XMLSerializer> create() { return adoptRef(*new XMLSerializer); }
         
-        String serializeToString(Node*, ExceptionCode&);
+        String serializeToString(Node&);
         
     private:
         XMLSerializer()  { }        

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -28,41 +29,38 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef DedicatedWorkerGlobalScope_h
-#define DedicatedWorkerGlobalScope_h
+#pragma once
 
-#include "ContentSecurityPolicy.h"
 #include "MessagePort.h"
 #include "WorkerGlobalScope.h"
 
 namespace WebCore {
 
+    class ContentSecurityPolicyResponseHeaders;
     class DedicatedWorkerThread;
 
     class DedicatedWorkerGlobalScope : public WorkerGlobalScope {
     public:
         typedef WorkerGlobalScope Base;
-        static Ref<DedicatedWorkerGlobalScope> create(const URL&, const String& userAgent, DedicatedWorkerThread&, const String& contentSecurityPolicy, ContentSecurityPolicy::HeaderType contentSecurityPolicyType, PassRefPtr<SecurityOrigin> topOrigin);
+        static Ref<DedicatedWorkerGlobalScope> create(const URL&, const String& userAgent, DedicatedWorkerThread&, const ContentSecurityPolicyResponseHeaders&, bool shouldBypassMainWorldContentSecurityPolicy, PassRefPtr<SecurityOrigin> topOrigin, IDBClient::IDBConnectionProxy*, SocketProvider*);
         virtual ~DedicatedWorkerGlobalScope();
 
-        virtual bool isDedicatedWorkerGlobalScope() const override { return true; }
+        bool isDedicatedWorkerGlobalScope() const override { return true; }
 
         // Overridden to allow us to check our pending activity after executing imported script.
-        virtual void importScripts(const Vector<String>& urls, ExceptionCode&) override;
+        void importScripts(const Vector<String>& urls, ExceptionCode&) override;
 
         // EventTarget
-        virtual EventTargetInterface eventTargetInterface() const override;
+        EventTargetInterface eventTargetInterface() const override;
 
-        void postMessage(PassRefPtr<SerializedScriptValue>, const MessagePortArray*, ExceptionCode&);
+        void postMessage(RefPtr<SerializedScriptValue>&&, const MessagePortArray*, ExceptionCode&);
         // Needed for Objective-C bindings (see bug 28774).
-        void postMessage(PassRefPtr<SerializedScriptValue>, MessagePort*, ExceptionCode&);
+        void postMessage(RefPtr<SerializedScriptValue>&&, MessagePort*, ExceptionCode&);
 
         DedicatedWorkerThread& thread();
 
     private:
-        DedicatedWorkerGlobalScope(const URL&, const String& userAgent, DedicatedWorkerThread&, PassRefPtr<SecurityOrigin> topOrigin);
+        DedicatedWorkerGlobalScope(const URL&, const String& userAgent, DedicatedWorkerThread&, bool shouldBypassMainWorldContentSecurityPolicy, PassRefPtr<SecurityOrigin> topOrigin, IDBClient::IDBConnectionProxy*, SocketProvider*);
     };
 
 } // namespace WebCore
-
-#endif // DedicatedWorkerGlobalScope_h

@@ -41,12 +41,14 @@
 		05AE954A0AA748580076501C /* SecImportExportOpenSSH.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 05AE95480AA748570076501C /* SecImportExportOpenSSH.cpp */; };
 		05FB016805E54A3A00A5194C /* SecNetscapeTemplates.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 05FB016605E54A3A00A5194C /* SecNetscapeTemplates.cpp */; };
 		05FB016905E54A3A00A5194C /* SecNetscapeTemplates.h in Headers */ = {isa = PBXBuildFile; fileRef = 05FB016705E54A3A00A5194C /* SecNetscapeTemplates.h */; };
-		0CBD509A16C3246D00713B6C /* kc-40-seckey.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CBD509816C3246D00713B6C /* kc-40-seckey.c */; };
-		0CBD509B16C3246D00713B6C /* kc-41-sececkey.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CBD509916C3246D00713B6C /* kc-41-sececkey.c */; };
+		0CBD509A16C3246D00713B6C /* kc-40-seckey.m in Sources */ = {isa = PBXBuildFile; fileRef = 0CBD509816C3246D00713B6C /* kc-40-seckey.m */; };
+		0CBD509B16C3246D00713B6C /* kc-41-sececkey.m in Sources */ = {isa = PBXBuildFile; fileRef = 0CBD509916C3246D00713B6C /* kc-41-sececkey.m */; };
 		182BB5CD146FF72B000BF1F3 /* libDER.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5297A731112CB13800EAA0C0 /* libDER.a */; };
 		188BB546171DD8B5009D22CE /* si-33-keychain-backup.c in Sources */ = {isa = PBXBuildFile; fileRef = 188BB53F171DD774009D22CE /* si-33-keychain-backup.c */; };
 		1B11967B062F4C1800F3B659 /* SecKeychainSearchPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 1B11967A062F4C1800F3B659 /* SecKeychainSearchPriv.h */; settings = {ATTRIBUTES = (); }; };
 		30E17F5B062B0A25004208EB /* SecIdentitySearchPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 30E17F5A062B0A25004208EB /* SecIdentitySearchPriv.h */; settings = {ATTRIBUTES = (); }; };
+		3A353D7D1CC50583000446F4 /* TokenLogin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3A353D7B1CC50583000446F4 /* TokenLogin.cpp */; };
+		3A353D7E1CC50583000446F4 /* TokenLogin.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A353D7C1CC50583000446F4 /* TokenLogin.h */; };
 		407AC2C0066661620030E07D /* SecPassword.h in Headers */ = {isa = PBXBuildFile; fileRef = 407AC2BE066661620030E07D /* SecPassword.h */; settings = {ATTRIBUTES = (); }; };
 		407AC2C1066661620030E07D /* SecPassword.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 407AC2BF066661620030E07D /* SecPassword.cpp */; };
 		407AC2C5066798420030E07D /* Password.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 407AC2C3066798420030E07D /* Password.cpp */; };
@@ -103,6 +105,7 @@
 		52E950CD1509B47000DA6511 /* tsaDERUtilities.c in Sources */ = {isa = PBXBuildFile; fileRef = 52E950CC1509B47000DA6511 /* tsaDERUtilities.c */; };
 		52E950D61509B48D00DA6511 /* tsaDERUtilities.h in Headers */ = {isa = PBXBuildFile; fileRef = 52E950D51509B48D00DA6511 /* tsaDERUtilities.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		52FB44A91146D769006D3B0A /* SecCertificateOIDs.h in Headers */ = {isa = PBXBuildFile; fileRef = 52FB44A81146D769006D3B0A /* SecCertificateOIDs.h */; settings = {ATTRIBUTES = (); }; };
+		87701A8E1C4B91E300CB437B /* kc-43-seckey-interop.m in Sources */ = {isa = PBXBuildFile; fileRef = 87701A841C4B91D000CB437B /* kc-43-seckey-interop.m */; };
 		AA31456F134B716B00133245 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA31456E134B716B00133245 /* CoreFoundation.framework */; };
 		AC9ADAD3199AD6BA00BDAF54 /* kc-42-trust-revocation.c in Sources */ = {isa = PBXBuildFile; fileRef = AC9ADAD2199AD6BA00BDAF54 /* kc-42-trust-revocation.c */; };
 		BE296DBF0EAC299C00FD22BE /* SecImportExport.c in Sources */ = {isa = PBXBuildFile; fileRef = BE296DBE0EAC299C00FD22BE /* SecImportExport.c */; };
@@ -157,10 +160,45 @@
 		C2AA2C22052E099D006D0211 /* TrustStore.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2AA2BB2052E099D006D0211 /* TrustStore.cpp */; };
 		C2FD26380731CEFB0027896A /* defaultcreds.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2FD26370731CEE60027896A /* defaultcreds.cpp */; };
 		C429431E053B2F8B00470431 /* KCUtilities.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C429431C053B2F8B00470431 /* KCUtilities.cpp */; };
+		D4486BCF1C65528B0040880D /* SecTrustOSXEntryPoints.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D4486BCD1C65528B0040880D /* SecTrustOSXEntryPoints.cpp */; };
+		D45FA39C1C6578CE003DBB97 /* SecTrustOSXEntryPoints.h in Headers */ = {isa = PBXBuildFile; fileRef = D45FA39B1C6578CE003DBB97 /* SecTrustOSXEntryPoints.h */; };
 		D4A2FC821BC8A65B00BF6E56 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D4A2FC811BC8A65B00BF6E56 /* Security.framework */; };
 		D6095E960A94F17C0026C68B /* KCEventNotifier.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D6E1457B0A632A5A008AA7E8 /* KCEventNotifier.cpp */; };
+		DC196F691CBD70B400A66F4B /* kc-12-key-create-symmetric-and-use.m in Sources */ = {isa = PBXBuildFile; fileRef = DC7EFCA61CBD6ADC005F9624 /* kc-12-key-create-symmetric-and-use.m */; };
+		DC196F6A1CBD70C100A66F4B /* kc-12-key-create-symmetric.c in Sources */ = {isa = PBXBuildFile; fileRef = DC7EFCA71CBD6ADC005F9624 /* kc-12-key-create-symmetric.c */; };
+		DC196F6D1CBD77CD00A66F4B /* kc-15-key-update-valueref.c in Sources */ = {isa = PBXBuildFile; fileRef = DC196F6B1CBD77C300A66F4B /* kc-15-key-update-valueref.c */; };
+		DC19708A1CBEC2FA00A66F4B /* kc-15-item-update-label-skimaad.m in Sources */ = {isa = PBXBuildFile; fileRef = DC1970801CBEC2EE00A66F4B /* kc-15-item-update-label-skimaad.m */; };
+		DC19708D1CBEE43E00A66F4B /* kc-16-item-update-password.c in Sources */ = {isa = PBXBuildFile; fileRef = DC19708B1CBEE43600A66F4B /* kc-16-item-update-password.c */; };
+		DC247FDB1CBF22AD00527D67 /* kc-27-key-non-extractable.c in Sources */ = {isa = PBXBuildFile; fileRef = DC247FD91CBF1FF800527D67 /* kc-27-key-non-extractable.c */; };
+		DC2480511CC1B58B00527D67 /* kc-21-item-use-callback.c in Sources */ = {isa = PBXBuildFile; fileRef = DC2480471CC1B58200527D67 /* kc-21-item-use-callback.c */; };
+		DC336B3C1D246E4C00D24F15 /* kc-20-identity-find-stress.c in Sources */ = {isa = PBXBuildFile; fileRef = DC336B3B1D246E4C00D24F15 /* kc-20-identity-find-stress.c */; };
 		DC3C16001BAB76B50041A23A /* kc-30-xara.c in Sources */ = {isa = PBXBuildFile; fileRef = DC3C15F81BAB6FE20041A23A /* kc-30-xara.c */; };
+		DC6B46641C90EE1200D899C6 /* kc-01-keychain-creation.c in Sources */ = {isa = PBXBuildFile; fileRef = DC6B46421C90E36900D899C6 /* kc-01-keychain-creation.c */; };
+		DC6B46651C90EE1200D899C6 /* kc-02-unlock-noui.c in Sources */ = {isa = PBXBuildFile; fileRef = DC6B46431C90E36900D899C6 /* kc-02-unlock-noui.c */; };
+		DC6B46661C90EE1A00D899C6 /* kc-03-status.c in Sources */ = {isa = PBXBuildFile; fileRef = DC6B46441C90E36900D899C6 /* kc-03-status.c */; };
+		DC6B46671C90EE1A00D899C6 /* kc-10-item-add-generic.c in Sources */ = {isa = PBXBuildFile; fileRef = DC6B46451C90E36900D899C6 /* kc-10-item-add-generic.c */; };
+		DC6B46681C90EE1A00D899C6 /* kc-10-item-add-certificate.c in Sources */ = {isa = PBXBuildFile; fileRef = DC6B46461C90E36900D899C6 /* kc-10-item-add-certificate.c */; };
+		DC6B46691C90EE1A00D899C6 /* kc-12-item-create-keypair.c in Sources */ = {isa = PBXBuildFile; fileRef = DC6B46471C90E36900D899C6 /* kc-12-item-create-keypair.c */; };
+		DC6B466A1C90EE1A00D899C6 /* kc-10-item-add-internet.c in Sources */ = {isa = PBXBuildFile; fileRef = DC6B46481C90E36900D899C6 /* kc-10-item-add-internet.c */; };
+		DC6B466B1C90EE1A00D899C6 /* kc-19-item-copy-internet.c in Sources */ = {isa = PBXBuildFile; fileRef = DC6B46491C90E36900D899C6 /* kc-19-item-copy-internet.c */; };
+		DC6B466C1C90EE1A00D899C6 /* kc-21-item-use-callback.c in Sources */ = {isa = PBXBuildFile; fileRef = DC6B464A1C90E36900D899C6 /* kc-21-item-use-callback.c */; };
+		DC6B466E1C90EE1A00D899C6 /* kc-04-is-valid.c in Sources */ = {isa = PBXBuildFile; fileRef = DC6B464E1C90E36900D899C6 /* kc-04-is-valid.c */; };
+		DC6B466F1C90EE1A00D899C6 /* kc-18-find-combined.c in Sources */ = {isa = PBXBuildFile; fileRef = DC6B464F1C90E36900D899C6 /* kc-18-find-combined.c */; };
+		DC7EFBA91CBC4448005F9624 /* kc-06-cert-search-email.m in Sources */ = {isa = PBXBuildFile; fileRef = DC7EFBA71CBC4443005F9624 /* kc-06-cert-search-email.m */; };
+		DC840D871CBEF5CB0083F55C /* kc-20-identity-persistent-refs.c in Sources */ = {isa = PBXBuildFile; fileRef = DC19708E1CBEF00F00A66F4B /* kc-20-identity-persistent-refs.c */; };
+		DC840D8A1CBEFC6A0083F55C /* kc-20-identity-key-attributes.c in Sources */ = {isa = PBXBuildFile; fileRef = DC840D881CBEFC640083F55C /* kc-20-identity-key-attributes.c */; };
+		DC840D8E1CBF13C00083F55C /* kc-23-key-export-symmetric.m in Sources */ = {isa = PBXBuildFile; fileRef = DC840D8C1CBF121F0083F55C /* kc-23-key-export-symmetric.m */; };
+		DC840D911CBF17AF0083F55C /* kc-26-key-import-public.m in Sources */ = {isa = PBXBuildFile; fileRef = DC840D8F1CBF179C0083F55C /* kc-26-key-import-public.m */; };
+		DC9642751D25F4650073E0C5 /* kc-20-item-find-stress.c in Sources */ = {isa = PBXBuildFile; fileRef = DC9642741D25F4650073E0C5 /* kc-20-item-find-stress.c */; };
+		DC9642771D25F5DD0073E0C5 /* kc-20-key-find-stress.c in Sources */ = {isa = PBXBuildFile; fileRef = DC9642761D25F5DD0073E0C5 /* kc-20-key-find-stress.c */; };
+		DC9A61A21CCA9279002793D6 /* kc-03-keychain-list.c in Sources */ = {isa = PBXBuildFile; fileRef = DC9A61A01CCA9273002793D6 /* kc-03-keychain-list.c */; };
+		DC9A61AF1CCAA4CF002793D6 /* kc-24-key-copy-keychains.c in Sources */ = {isa = PBXBuildFile; fileRef = DC9A61A51CCAA0A1002793D6 /* kc-24-key-copy-keychains.c */; };
+		DC9A61B21CCAAE05002793D6 /* kc-28-cert-sign.c in Sources */ = {isa = PBXBuildFile; fileRef = DC9A61B01CCAA91F002793D6 /* kc-28-cert-sign.c */; };
+		DC9A61B51CCABD1F002793D6 /* kc-21-item-xattrs.c in Sources */ = {isa = PBXBuildFile; fileRef = DC9A61B31CCABD18002793D6 /* kc-21-item-xattrs.c */; };
+		DCA424031CB81EF20095B7DF /* kc-05-find-existing-items.c in Sources */ = {isa = PBXBuildFile; fileRef = DCA424021CB81EF20095B7DF /* kc-05-find-existing-items.c */; };
+		DCBD63151CC86028008C27FC /* kc-28-p12-import.m in Sources */ = {isa = PBXBuildFile; fileRef = DCBD630B1CC86020008C27FC /* kc-28-p12-import.m */; };
 		DCD20F421BCDA8260046D8EB /* kc-30-xara-upgrade-helpers.h in Headers */ = {isa = PBXBuildFile; fileRef = DCD20F411BCDA8260046D8EB /* kc-30-xara-upgrade-helpers.h */; };
+		DCE537591D2EE36800A12A95 /* kc-05-find-existing-items-locked.c in Sources */ = {isa = PBXBuildFile; fileRef = DCE537581D2EE36800A12A95 /* kc-05-find-existing-items-locked.c */; };
 		F92321381ACF69EE00634C21 /* si-34-one-true-keychain.c in Sources */ = {isa = PBXBuildFile; fileRef = F92321371ACF69EE00634C21 /* si-34-one-true-keychain.c */; };
 /* End PBXBuildFile section */
 
@@ -171,13 +209,6 @@
 			proxyType = 2;
 			remoteGlobalIDString = 4CA2A53A0523D32800978A7B;
 			remoteInfo = libsecurity_utilities;
-		};
-		182BB340146F106C000BF1F3 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 182BB30C146F0AE6000BF1F3 /* libsecurity_utilities.xcodeproj */;
-			proxyType = 1;
-			remoteGlobalIDString = C2C9C69D0CECBE8400B3FE07;
-			remoteInfo = libsecurity_utilitiesDTrace;
 		};
 		521FBA8B112CB465002BEF54 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -231,7 +262,7 @@
 		051A053205DAC86400E02A64 /* SecImportExportPem.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecImportExportPem.cpp; sourceTree = "<group>"; };
 		052AF722060A3472003FEB8D /* SecWrappedKeys.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecWrappedKeys.cpp; sourceTree = "<group>"; };
 		054F90AD05E2860E0013C1D1 /* SecImportExportUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecImportExportUtils.cpp; sourceTree = "<group>"; };
-		054F90AF05E286180013C1D1 /* SecImportExportUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecImportExportUtils.h; sourceTree = "<group>"; };
+		054F90AF05E286180013C1D1 /* SecImportExportUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = SecImportExportUtils.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
 		055EA6B006AC5C13005079CE /* TrustRevocation.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TrustRevocation.cpp; sourceTree = "<group>"; };
 		056CDA3805FD573B00820BC3 /* SecImportExportPkcs8.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecImportExportPkcs8.cpp; sourceTree = "<group>"; };
 		056CDA5C05FD5AEB00820BC3 /* SecPkcs8Templates.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecPkcs8Templates.h; sourceTree = "<group>"; };
@@ -245,8 +276,8 @@
 		058AAA9105D97EAE00F543ED /* SecImportExportPem.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecImportExportPem.h; sourceTree = "<group>"; };
 		058C796F09F56CCB00DB7E98 /* SecTrustSettings.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecTrustSettings.h; sourceTree = "<group>"; };
 		058C797009F56CCB00DB7E98 /* SecTrustSettingsPriv.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecTrustSettingsPriv.h; sourceTree = "<group>"; };
-		058C797509F56CFB00DB7E98 /* SecTrustSettings.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SecTrustSettings.cpp; sourceTree = "<group>"; };
-		058C797709F56D1400DB7E98 /* TrustSettings.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = TrustSettings.cpp; sourceTree = "<group>"; };
+		058C797509F56CFB00DB7E98 /* SecTrustSettings.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = SecTrustSettings.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
+		058C797709F56D1400DB7E98 /* TrustSettings.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = TrustSettings.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		058C797809F56D1400DB7E98 /* TrustSettings.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = TrustSettings.h; sourceTree = "<group>"; };
 		058C797909F56D1400DB7E98 /* TrustSettingsSchema.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = TrustSettingsSchema.h; sourceTree = "<group>"; };
 		058C797A09F56D1400DB7E98 /* TrustSettingsUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = TrustSettingsUtils.cpp; sourceTree = "<group>"; };
@@ -260,8 +291,8 @@
 		05FB016605E54A3A00A5194C /* SecNetscapeTemplates.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SecNetscapeTemplates.cpp; sourceTree = "<group>"; };
 		05FB016705E54A3A00A5194C /* SecNetscapeTemplates.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecNetscapeTemplates.h; sourceTree = "<group>"; };
 		0CBD509716C3242200713B6C /* libsecurity_keychain_regressions.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libsecurity_keychain_regressions.a; sourceTree = BUILT_PRODUCTS_DIR; };
-		0CBD509816C3246D00713B6C /* kc-40-seckey.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-40-seckey.c"; path = "regressions/kc-40-seckey.c"; sourceTree = "<group>"; };
-		0CBD509916C3246D00713B6C /* kc-41-sececkey.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-41-sececkey.c"; path = "regressions/kc-41-sececkey.c"; sourceTree = "<group>"; };
+		0CBD509816C3246D00713B6C /* kc-40-seckey.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "kc-40-seckey.m"; path = "regressions/kc-40-seckey.m"; sourceTree = "<group>"; };
+		0CBD509916C3246D00713B6C /* kc-41-sececkey.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "kc-41-sececkey.m"; path = "regressions/kc-41-sececkey.m"; sourceTree = "<group>"; };
 		0CBD509C16C324B100713B6C /* keychain_regressions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = keychain_regressions.h; path = regressions/keychain_regressions.h; sourceTree = "<group>"; };
 		182BB224146F063C000BF1F3 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
 		182BB225146F063C000BF1F3 /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
@@ -271,8 +302,10 @@
 		188BB53F171DD774009D22CE /* si-33-keychain-backup.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = "si-33-keychain-backup.c"; path = "regressions/si-33-keychain-backup.c"; sourceTree = "<group>"; };
 		1B11967A062F4C1800F3B659 /* SecKeychainSearchPriv.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecKeychainSearchPriv.h; sourceTree = "<group>"; };
 		30E17F5A062B0A25004208EB /* SecIdentitySearchPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SecIdentitySearchPriv.h; path = lib/SecIdentitySearchPriv.h; sourceTree = SOURCE_ROOT; };
+		3A353D7B1CC50583000446F4 /* TokenLogin.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = TokenLogin.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
+		3A353D7C1CC50583000446F4 /* TokenLogin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TokenLogin.h; sourceTree = "<group>"; };
 		407AC2BE066661620030E07D /* SecPassword.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecPassword.h; sourceTree = "<group>"; };
-		407AC2BF066661620030E07D /* SecPassword.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecPassword.cpp; sourceTree = "<group>"; };
+		407AC2BF066661620030E07D /* SecPassword.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = SecPassword.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		407AC2C2066798420030E07D /* Password.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Password.h; sourceTree = "<group>"; };
 		407AC2C3066798420030E07D /* Password.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Password.cpp; sourceTree = "<group>"; };
 		4885CFF611C8182D0093ECF6 /* SecRecoveryPassword.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecRecoveryPassword.c; sourceTree = "<group>"; };
@@ -291,12 +324,11 @@
 		4CFDC28306CD9C6A007BEE7E /* DynamicDLDBList.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = DynamicDLDBList.cpp; sourceTree = "<group>"; };
 		4CFDC28406CD9C6A007BEE7E /* DynamicDLDBList.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DynamicDLDBList.h; sourceTree = "<group>"; };
 		52008C6311496BD200E8CA78 /* SecCertificateInternalP.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecCertificateInternalP.h; sourceTree = "<group>"; };
-		521DC57D1125FEE300937BF2 /* SecCertificateP.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecCertificateP.c; sourceTree = "<group>"; };
+		521DC57D1125FEE300937BF2 /* SecCertificateP.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; lineEnding = 0; path = SecCertificateP.c; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.c; };
 		521DC57E1125FEE300937BF2 /* SecCertificateP.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecCertificateP.h; sourceTree = "<group>"; };
 		52200F8F14F2B88000F7F6E7 /* XPCTimeStampingService.xpc */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = XPCTimeStampingService.xpc; sourceTree = BUILT_PRODUCTS_DIR; };
 		52200F9B14F2B93700F7F6E7 /* XPCTimeStampingService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "XPCTimeStampingService-Info.plist"; sourceTree = "<group>"; };
 		5261C289112F0D570047EF8B /* SecFrameworkP.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecFrameworkP.c; sourceTree = "<group>"; };
-		5261C2E1112F19BA0047EF8B /* debuggingP.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = debuggingP.c; sourceTree = "<group>"; };
 		5261C30F112F1C560047EF8B /* SecBase64P.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecBase64P.c; sourceTree = "<group>"; };
 		527067DB070246B300C5D30E /* iToolsTrustedApps.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = iToolsTrustedApps.plist; path = plist/iToolsTrustedApps.plist; sourceTree = SOURCE_ROOT; };
 		5297A586112B78BB00EAA0C0 /* libDER.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = libDER.xcodeproj; path = libDER/libDER.xcodeproj; sourceTree = "<group>"; };
@@ -311,14 +343,14 @@
 		52C23EF71135AE5100E079D2 /* SecCertificatePrivP.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecCertificatePrivP.h; sourceTree = "<group>"; };
 		52E950CC1509B47000DA6511 /* tsaDERUtilities.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tsaDERUtilities.c; sourceTree = "<group>"; };
 		52E950D51509B48D00DA6511 /* tsaDERUtilities.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tsaDERUtilities.h; sourceTree = "<group>"; };
-		52FB42C1113F056D006D3B0A /* debuggingP.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = debuggingP.h; sourceTree = "<group>"; };
 		52FB44A81146D769006D3B0A /* SecCertificateOIDs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecCertificateOIDs.h; sourceTree = "<group>"; };
+		87701A841C4B91D000CB437B /* kc-43-seckey-interop.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "kc-43-seckey-interop.m"; path = "regressions/kc-43-seckey-interop.m"; sourceTree = "<group>"; };
 		AA31456E134B716B00133245 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		AC9ADAD2199AD6BA00BDAF54 /* kc-42-trust-revocation.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-42-trust-revocation.c"; path = "regressions/kc-42-trust-revocation.c"; sourceTree = "<group>"; };
 		BE0FAED51B967FB30017DAC9 /* si-20-sectrust-provisioning.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "si-20-sectrust-provisioning.h"; path = "regressions/si-20-sectrust-provisioning.h"; sourceTree = "<group>"; };
 		BE296DBE0EAC299C00FD22BE /* SecImportExport.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecImportExport.c; sourceTree = "<group>"; };
 		BE296DC40EAC2B5600FD22BE /* SecInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecInternal.h; sourceTree = "<group>"; };
-		BE50AE650F687AB900D28C54 /* TrustAdditions.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TrustAdditions.cpp; sourceTree = "<group>"; };
+		BE50AE650F687AB900D28C54 /* TrustAdditions.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = TrustAdditions.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		BE50AE660F687AB900D28C54 /* TrustAdditions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TrustAdditions.h; sourceTree = "<group>"; };
 		BECE5140106B056C0091E644 /* TrustKeychains.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TrustKeychains.h; sourceTree = "<group>"; };
 		BED2BCA11B96217B006CF43A /* si-20-sectrust-provisioning.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "si-20-sectrust-provisioning.c"; path = "regressions/si-20-sectrust-provisioning.c"; sourceTree = "<group>"; };
@@ -326,14 +358,14 @@
 		BEE896E10A61F0BB00BF88A5 /* SecItemPriv.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecItemPriv.h; sourceTree = "<group>"; };
 		BEE896E60A61F12300BF88A5 /* SecItem.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SecItem.cpp; sourceTree = "<group>"; usesTabs = 1; };
 		BEE897100A62CDD800BF88A5 /* SecItemConstants.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = SecItemConstants.c; sourceTree = "<group>"; };
-		C26BA9FE072580AE0049AF3C /* UnlockReferralItem.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = UnlockReferralItem.cpp; path = lib/UnlockReferralItem.cpp; sourceTree = SOURCE_ROOT; };
+		C26BA9FE072580AE0049AF3C /* UnlockReferralItem.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; name = UnlockReferralItem.cpp; path = lib/UnlockReferralItem.cpp; sourceTree = SOURCE_ROOT; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C2975B9B072580DC00AFECAD /* UnlockReferralItem.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = UnlockReferralItem.h; path = lib/UnlockReferralItem.h; sourceTree = SOURCE_ROOT; };
-		C2AA2B42052E099D006D0211 /* Access.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Access.cpp; sourceTree = "<group>"; };
+		C2AA2B42052E099D006D0211 /* Access.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = Access.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C2AA2B43052E099D006D0211 /* Access.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Access.h; sourceTree = "<group>"; };
-		C2AA2B44052E099D006D0211 /* ACL.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = ACL.cpp; sourceTree = "<group>"; };
+		C2AA2B44052E099D006D0211 /* ACL.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = ACL.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C2AA2B45052E099D006D0211 /* ACL.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ACL.h; sourceTree = "<group>"; };
 		C2AA2B46052E099D006D0211 /* CCallbackMgr.cp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CCallbackMgr.cp; sourceTree = "<group>"; };
-		C2AA2B47052E099D006D0211 /* CCallbackMgr.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CCallbackMgr.h; sourceTree = "<group>"; };
+		C2AA2B47052E099D006D0211 /* CCallbackMgr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CCallbackMgr.h; sourceTree = "<group>"; };
 		C2AA2B48052E099D006D0211 /* Certificate.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Certificate.cpp; sourceTree = "<group>"; };
 		C2AA2B49052E099D006D0211 /* Certificate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Certificate.h; sourceTree = "<group>"; };
 		C2AA2B4A052E099D006D0211 /* CertificateRequest.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CertificateRequest.cpp; sourceTree = "<group>"; };
@@ -349,16 +381,16 @@
 		C2AA2B59052E099D006D0211 /* Identity.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Identity.h; sourceTree = "<group>"; };
 		C2AA2B5A052E099D006D0211 /* IdentityCursor.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IdentityCursor.cpp; sourceTree = "<group>"; };
 		C2AA2B5B052E099D006D0211 /* IdentityCursor.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IdentityCursor.h; sourceTree = "<group>"; };
-		C2AA2B5C052E099D006D0211 /* Item.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Item.cpp; sourceTree = "<group>"; };
+		C2AA2B5C052E099D006D0211 /* Item.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = Item.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C2AA2B5D052E099D006D0211 /* Item.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Item.h; sourceTree = "<group>"; };
-		C2AA2B5E052E099D006D0211 /* KCCursor.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = KCCursor.cpp; sourceTree = "<group>"; };
+		C2AA2B5E052E099D006D0211 /* KCCursor.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = KCCursor.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C2AA2B5F052E099D006D0211 /* KCCursor.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = KCCursor.h; sourceTree = "<group>"; };
 		C2AA2B64052E099D006D0211 /* KCExceptions.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = KCExceptions.h; sourceTree = "<group>"; };
-		C2AA2B67052E099D006D0211 /* Keychains.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Keychains.cpp; sourceTree = "<group>"; };
+		C2AA2B67052E099D006D0211 /* Keychains.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = Keychains.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C2AA2B68052E099D006D0211 /* Keychains.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Keychains.h; sourceTree = "<group>"; };
-		C2AA2B69052E099D006D0211 /* KeyItem.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = KeyItem.cpp; sourceTree = "<group>"; };
+		C2AA2B69052E099D006D0211 /* KeyItem.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = KeyItem.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C2AA2B6A052E099D006D0211 /* KeyItem.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = KeyItem.h; sourceTree = "<group>"; };
-		C2AA2B6B052E099D006D0211 /* Policies.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Policies.cpp; sourceTree = "<group>"; };
+		C2AA2B6B052E099D006D0211 /* Policies.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = Policies.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C2AA2B6C052E099D006D0211 /* Policies.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Policies.h; sourceTree = "<group>"; };
 		C2AA2B6D052E099D006D0211 /* PolicyCursor.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = PolicyCursor.cpp; sourceTree = "<group>"; };
 		C2AA2B6E052E099D006D0211 /* PolicyCursor.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = PolicyCursor.h; sourceTree = "<group>"; };
@@ -407,30 +439,70 @@
 		C2AA2BA3052E099D006D0211 /* SecTrustedApplicationPriv.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecTrustedApplicationPriv.h; sourceTree = "<group>"; };
 		C2AA2BA4052E099D006D0211 /* SecTrustPriv.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecTrustPriv.h; sourceTree = "<group>"; };
 		C2AA2BA5052E099D006D0211 /* Security.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Security.h; sourceTree = "<group>"; };
-		C2AA2BAA052E099D006D0211 /* StorageManager.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = StorageManager.cpp; sourceTree = "<group>"; };
+		C2AA2BAA052E099D006D0211 /* StorageManager.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = StorageManager.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C2AA2BAB052E099D006D0211 /* StorageManager.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = StorageManager.h; sourceTree = "<group>"; };
-		C2AA2BAC052E099D006D0211 /* Trust.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Trust.cpp; sourceTree = "<group>"; };
+		C2AA2BAC052E099D006D0211 /* Trust.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = Trust.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C2AA2BAD052E099D006D0211 /* Trust.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Trust.h; sourceTree = "<group>"; };
-		C2AA2BAE052E099D006D0211 /* TrustedApplication.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = TrustedApplication.cpp; sourceTree = "<group>"; };
+		C2AA2BAE052E099D006D0211 /* TrustedApplication.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = TrustedApplication.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C2AA2BAF052E099D006D0211 /* TrustedApplication.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = TrustedApplication.h; sourceTree = "<group>"; };
-		C2AA2BB0052E099D006D0211 /* TrustItem.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = TrustItem.cpp; sourceTree = "<group>"; };
+		C2AA2BB0052E099D006D0211 /* TrustItem.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = TrustItem.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C2AA2BB1052E099D006D0211 /* TrustItem.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = TrustItem.h; sourceTree = "<group>"; };
-		C2AA2BB2052E099D006D0211 /* TrustStore.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = TrustStore.cpp; sourceTree = "<group>"; };
+		C2AA2BB2052E099D006D0211 /* TrustStore.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = TrustStore.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C2AA2BB3052E099D006D0211 /* TrustStore.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = TrustStore.h; sourceTree = "<group>"; };
 		C2FD262F0731CEB40027896A /* defaultcreds.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = defaultcreds.h; path = lib/defaultcreds.h; sourceTree = SOURCE_ROOT; };
-		C2FD26370731CEE60027896A /* defaultcreds.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = defaultcreds.cpp; path = lib/defaultcreds.cpp; sourceTree = SOURCE_ROOT; };
+		C2FD26370731CEE60027896A /* defaultcreds.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; name = defaultcreds.cpp; path = lib/defaultcreds.cpp; sourceTree = SOURCE_ROOT; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		C429431C053B2F8B00470431 /* KCUtilities.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = KCUtilities.cpp; sourceTree = "<group>"; };
 		C429431D053B2F8B00470431 /* KCUtilities.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = KCUtilities.h; sourceTree = "<group>"; };
 		C4A397A1053B1D50000E1B34 /* SecKeychainPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecKeychainPriv.h; sourceTree = "<group>"; };
 		C4A397FA053B21F9000E1B34 /* SecKeychainItemPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecKeychainItemPriv.h; sourceTree = "<group>"; };
+		D4486BCD1C65528B0040880D /* SecTrustOSXEntryPoints.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecTrustOSXEntryPoints.cpp; sourceTree = "<group>"; };
+		D45FA39B1C6578CE003DBB97 /* SecTrustOSXEntryPoints.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SecTrustOSXEntryPoints.h; path = ../../trustd/SecTrustOSXEntryPoints.h; sourceTree = "<group>"; };
 		D4A2FC811BC8A65B00BF6E56 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		D6E1457B0A632A5A008AA7E8 /* KCEventNotifier.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = KCEventNotifier.cpp; sourceTree = "<group>"; };
 		D6E1457C0A632A5A008AA7E8 /* KCEventNotifier.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = KCEventNotifier.h; sourceTree = "<group>"; };
-		DC3C15F81BAB6FE20041A23A /* kc-30-xara.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-30-xara.c"; path = "regressions/kc-30-xara.c"; sourceTree = "<group>"; };
-		DC6949791BC71B2300AB4DC3 /* kc-30-xara-item-helpers.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "kc-30-xara-item-helpers.h"; path = "regressions/kc-30-xara-item-helpers.h"; sourceTree = "<group>"; };
-		DC6949801BC71B3B00AB4DC3 /* kc-30-xara-key-helpers.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "kc-30-xara-key-helpers.h"; path = "regressions/kc-30-xara-key-helpers.h"; sourceTree = "<group>"; };
+		DC196F6B1CBD77C300A66F4B /* kc-15-key-update-valueref.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-15-key-update-valueref.c"; path = "regressions/kc-15-key-update-valueref.c"; sourceTree = "<group>"; };
+		DC1970801CBEC2EE00A66F4B /* kc-15-item-update-label-skimaad.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "kc-15-item-update-label-skimaad.m"; path = "regressions/kc-15-item-update-label-skimaad.m"; sourceTree = "<group>"; };
+		DC19708B1CBEE43600A66F4B /* kc-16-item-update-password.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-16-item-update-password.c"; path = "regressions/kc-16-item-update-password.c"; sourceTree = "<group>"; };
+		DC19708E1CBEF00F00A66F4B /* kc-20-identity-persistent-refs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-20-identity-persistent-refs.c"; path = "regressions/kc-20-identity-persistent-refs.c"; sourceTree = "<group>"; };
+		DC247FD91CBF1FF800527D67 /* kc-27-key-non-extractable.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-27-key-non-extractable.c"; path = "regressions/kc-27-key-non-extractable.c"; sourceTree = "<group>"; };
+		DC2480471CC1B58200527D67 /* kc-21-item-use-callback.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-21-item-use-callback.c"; path = "regressions/kc-21-item-use-callback.c"; sourceTree = "<group>"; };
+		DC336B3B1D246E4C00D24F15 /* kc-20-identity-find-stress.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-20-identity-find-stress.c"; path = "regressions/kc-20-identity-find-stress.c"; sourceTree = "<group>"; };
+		DC3C15F81BAB6FE20041A23A /* kc-30-xara.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; lineEnding = 0; name = "kc-30-xara.c"; path = "regressions/kc-30-xara.c"; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.c; };
+		DC6949791BC71B2300AB4DC3 /* kc-30-xara-item-helpers.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = "kc-30-xara-item-helpers.h"; path = "regressions/kc-30-xara-item-helpers.h"; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		DC6949801BC71B3B00AB4DC3 /* kc-30-xara-key-helpers.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = "kc-30-xara-key-helpers.h"; path = "regressions/kc-30-xara-key-helpers.h"; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
 		DC6949821BC71C7600AB4DC3 /* kc-30-xara-helpers.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "kc-30-xara-helpers.h"; path = "regressions/kc-30-xara-helpers.h"; sourceTree = "<group>"; };
+		DC6B46421C90E36900D899C6 /* kc-01-keychain-creation.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-01-keychain-creation.c"; path = "regressions/kc-01-keychain-creation.c"; sourceTree = "<group>"; };
+		DC6B46431C90E36900D899C6 /* kc-02-unlock-noui.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-02-unlock-noui.c"; path = "regressions/kc-02-unlock-noui.c"; sourceTree = "<group>"; };
+		DC6B46441C90E36900D899C6 /* kc-03-status.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-03-status.c"; path = "regressions/kc-03-status.c"; sourceTree = "<group>"; };
+		DC6B46451C90E36900D899C6 /* kc-10-item-add-generic.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-10-item-add-generic.c"; path = "regressions/kc-10-item-add-generic.c"; sourceTree = "<group>"; };
+		DC6B46461C90E36900D899C6 /* kc-10-item-add-certificate.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-10-item-add-certificate.c"; path = "regressions/kc-10-item-add-certificate.c"; sourceTree = "<group>"; };
+		DC6B46471C90E36900D899C6 /* kc-12-item-create-keypair.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-12-item-create-keypair.c"; path = "regressions/kc-12-item-create-keypair.c"; sourceTree = "<group>"; };
+		DC6B46481C90E36900D899C6 /* kc-10-item-add-internet.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-10-item-add-internet.c"; path = "regressions/kc-10-item-add-internet.c"; sourceTree = "<group>"; };
+		DC6B46491C90E36900D899C6 /* kc-19-item-copy-internet.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-19-item-copy-internet.c"; path = "regressions/kc-19-item-copy-internet.c"; sourceTree = "<group>"; };
+		DC6B464A1C90E36900D899C6 /* kc-21-item-use-callback.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-21-item-use-callback.c"; path = "regressions/kc-21-item-use-callback.c"; sourceTree = "<group>"; };
+		DC6B464E1C90E36900D899C6 /* kc-04-is-valid.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-04-is-valid.c"; path = "regressions/kc-04-is-valid.c"; sourceTree = "<group>"; };
+		DC6B464F1C90E36900D899C6 /* kc-18-find-combined.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-18-find-combined.c"; path = "regressions/kc-18-find-combined.c"; sourceTree = "<group>"; };
+		DC6B46701C90F2C100D899C6 /* kc-helpers.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "kc-helpers.h"; path = "regressions/kc-helpers.h"; sourceTree = "<group>"; };
+		DC7EFBA71CBC4443005F9624 /* kc-06-cert-search-email.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "kc-06-cert-search-email.m"; path = "regressions/kc-06-cert-search-email.m"; sourceTree = "<group>"; };
+		DC7EFCA61CBD6ADC005F9624 /* kc-12-key-create-symmetric-and-use.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "kc-12-key-create-symmetric-and-use.m"; path = "regressions/kc-12-key-create-symmetric-and-use.m"; sourceTree = "<group>"; };
+		DC7EFCA71CBD6ADC005F9624 /* kc-12-key-create-symmetric.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-12-key-create-symmetric.c"; path = "regressions/kc-12-key-create-symmetric.c"; sourceTree = "<group>"; };
+		DC840D881CBEFC640083F55C /* kc-20-identity-key-attributes.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-20-identity-key-attributes.c"; path = "regressions/kc-20-identity-key-attributes.c"; sourceTree = "<group>"; };
+		DC840D8B1CBEFCAD0083F55C /* kc-identity-helpers.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "kc-identity-helpers.h"; path = "regressions/kc-identity-helpers.h"; sourceTree = "<group>"; };
+		DC840D8C1CBF121F0083F55C /* kc-23-key-export-symmetric.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "kc-23-key-export-symmetric.m"; path = "regressions/kc-23-key-export-symmetric.m"; sourceTree = "<group>"; };
+		DC840D8F1CBF179C0083F55C /* kc-26-key-import-public.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "kc-26-key-import-public.m"; path = "regressions/kc-26-key-import-public.m"; sourceTree = "<group>"; };
+		DC9642741D25F4650073E0C5 /* kc-20-item-find-stress.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-20-item-find-stress.c"; path = "regressions/kc-20-item-find-stress.c"; sourceTree = "<group>"; };
+		DC9642761D25F5DD0073E0C5 /* kc-20-key-find-stress.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-20-key-find-stress.c"; path = "regressions/kc-20-key-find-stress.c"; sourceTree = "<group>"; };
+		DC9A61A01CCA9273002793D6 /* kc-03-keychain-list.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-03-keychain-list.c"; path = "regressions/kc-03-keychain-list.c"; sourceTree = "<group>"; };
+		DC9A61A51CCAA0A1002793D6 /* kc-24-key-copy-keychains.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-24-key-copy-keychains.c"; path = "regressions/kc-24-key-copy-keychains.c"; sourceTree = "<group>"; };
+		DC9A61B01CCAA91F002793D6 /* kc-28-cert-sign.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-28-cert-sign.c"; path = "regressions/kc-28-cert-sign.c"; sourceTree = "<group>"; };
+		DC9A61B31CCABD18002793D6 /* kc-21-item-xattrs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-21-item-xattrs.c"; path = "regressions/kc-21-item-xattrs.c"; sourceTree = "<group>"; };
+		DCA424021CB81EF20095B7DF /* kc-05-find-existing-items.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-05-find-existing-items.c"; path = "regressions/kc-05-find-existing-items.c"; sourceTree = "<group>"; };
+		DCA4240C1CB81FE90095B7DF /* kc-keychain-file-helpers.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "kc-keychain-file-helpers.h"; path = "regressions/kc-keychain-file-helpers.h"; sourceTree = "<group>"; };
+		DCA4240D1CB8240E0095B7DF /* kc-item-helpers.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "kc-item-helpers.h"; path = "regressions/kc-item-helpers.h"; sourceTree = "<group>"; };
+		DCA4240E1CB828D80095B7DF /* kc-key-helpers.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "kc-key-helpers.h"; path = "regressions/kc-key-helpers.h"; sourceTree = "<group>"; };
+		DCBD630B1CC86020008C27FC /* kc-28-p12-import.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "kc-28-p12-import.m"; path = "regressions/kc-28-p12-import.m"; sourceTree = "<group>"; };
 		DCD20F411BCDA8260046D8EB /* kc-30-xara-upgrade-helpers.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "kc-30-xara-upgrade-helpers.h"; path = "regressions/kc-30-xara-upgrade-helpers.h"; sourceTree = "<group>"; };
+		DCE537581D2EE36800A12A95 /* kc-05-find-existing-items-locked.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-05-find-existing-items-locked.c"; path = "regressions/kc-05-find-existing-items-locked.c"; sourceTree = "<group>"; };
 		F92321371ACF69EE00634C21 /* si-34-one-true-keychain.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "si-34-one-true-keychain.c"; path = "regressions/si-34-one-true-keychain.c"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -592,6 +664,8 @@
 				058C797709F56D1400DB7E98 /* TrustSettings.cpp */,
 				058C797809F56D1400DB7E98 /* TrustSettings.h */,
 				BECE5140106B056C0091E644 /* TrustKeychains.h */,
+				D4486BCD1C65528B0040880D /* SecTrustOSXEntryPoints.cpp */,
+				D45FA39B1C6578CE003DBB97 /* SecTrustOSXEntryPoints.h */,
 			);
 			name = "API Classes";
 			sourceTree = "<group>";
@@ -630,10 +704,8 @@
 				C2975B9B072580DC00AFECAD /* UnlockReferralItem.h */,
 				058C797A09F56D1400DB7E98 /* TrustSettingsUtils.cpp */,
 				058C797B09F56D1400DB7E98 /* TrustSettingsUtils.h */,
-				52FB42C1113F056D006D3B0A /* debuggingP.h */,
 				52C23EF71135AE5100E079D2 /* SecCertificatePrivP.h */,
 				5261C30F112F1C560047EF8B /* SecBase64P.c */,
-				5261C2E1112F19BA0047EF8B /* debuggingP.c */,
 				5261C289112F0D570047EF8B /* SecFrameworkP.c */,
 				521DC57D1125FEE300937BF2 /* SecCertificateP.c */,
 				521DC57E1125FEE300937BF2 /* SecCertificateP.h */,
@@ -642,6 +714,8 @@
 				C2AA2B55052E099D006D0211 /* generateErrStrings.pl */,
 				52E950CC1509B47000DA6511 /* tsaDERUtilities.c */,
 				52E950D51509B48D00DA6511 /* tsaDERUtilities.h */,
+				3A353D7B1CC50583000446F4 /* TokenLogin.cpp */,
+				3A353D7C1CC50583000446F4 /* TokenLogin.h */,
 			);
 			name = Internal;
 			sourceTree = "<group>";
@@ -679,13 +753,51 @@
 			isa = PBXGroup;
 			children = (
 				0CBD509C16C324B100713B6C /* keychain_regressions.h */,
+				DC6B46701C90F2C100D899C6 /* kc-helpers.h */,
+				DCA4240D1CB8240E0095B7DF /* kc-item-helpers.h */,
+				DCA4240E1CB828D80095B7DF /* kc-key-helpers.h */,
+				DC840D8B1CBEFCAD0083F55C /* kc-identity-helpers.h */,
+				DCA4240C1CB81FE90095B7DF /* kc-keychain-file-helpers.h */,
+				DC6B46421C90E36900D899C6 /* kc-01-keychain-creation.c */,
+				DC6B46431C90E36900D899C6 /* kc-02-unlock-noui.c */,
+				DC6B46441C90E36900D899C6 /* kc-03-status.c */,
+				DC9A61A01CCA9273002793D6 /* kc-03-keychain-list.c */,
+				DC6B464E1C90E36900D899C6 /* kc-04-is-valid.c */,
+				DCA424021CB81EF20095B7DF /* kc-05-find-existing-items.c */,
+				DCE537581D2EE36800A12A95 /* kc-05-find-existing-items-locked.c */,
+				DC7EFBA71CBC4443005F9624 /* kc-06-cert-search-email.m */,
+				DC6B46451C90E36900D899C6 /* kc-10-item-add-generic.c */,
+				DC6B46481C90E36900D899C6 /* kc-10-item-add-internet.c */,
+				DC6B46461C90E36900D899C6 /* kc-10-item-add-certificate.c */,
+				DC7EFCA71CBD6ADC005F9624 /* kc-12-key-create-symmetric.c */,
+				DC7EFCA61CBD6ADC005F9624 /* kc-12-key-create-symmetric-and-use.m */,
+				DC6B46471C90E36900D899C6 /* kc-12-item-create-keypair.c */,
+				DC196F6B1CBD77C300A66F4B /* kc-15-key-update-valueref.c */,
+				DC1970801CBEC2EE00A66F4B /* kc-15-item-update-label-skimaad.m */,
+				DC19708B1CBEE43600A66F4B /* kc-16-item-update-password.c */,
+				DC6B464F1C90E36900D899C6 /* kc-18-find-combined.c */,
+				DC6B46491C90E36900D899C6 /* kc-19-item-copy-internet.c */,
+				DC19708E1CBEF00F00A66F4B /* kc-20-identity-persistent-refs.c */,
+				DC840D881CBEFC640083F55C /* kc-20-identity-key-attributes.c */,
+				DC9642741D25F4650073E0C5 /* kc-20-item-find-stress.c */,
+				DC9642761D25F5DD0073E0C5 /* kc-20-key-find-stress.c */,
+				DC336B3B1D246E4C00D24F15 /* kc-20-identity-find-stress.c */,
+				DC6B464A1C90E36900D899C6 /* kc-21-item-use-callback.c */,
+				DC9A61B31CCABD18002793D6 /* kc-21-item-xattrs.c */,
+				DC840D8C1CBF121F0083F55C /* kc-23-key-export-symmetric.m */,
+				DC9A61A51CCAA0A1002793D6 /* kc-24-key-copy-keychains.c */,
+				DC840D8F1CBF179C0083F55C /* kc-26-key-import-public.m */,
+				DC247FD91CBF1FF800527D67 /* kc-27-key-non-extractable.c */,
+				DCBD630B1CC86020008C27FC /* kc-28-p12-import.m */,
+				DC9A61B01CCAA91F002793D6 /* kc-28-cert-sign.c */,
 				DC3C15F81BAB6FE20041A23A /* kc-30-xara.c */,
 				DC6949821BC71C7600AB4DC3 /* kc-30-xara-helpers.h */,
 				DCD20F411BCDA8260046D8EB /* kc-30-xara-upgrade-helpers.h */,
 				DC6949791BC71B2300AB4DC3 /* kc-30-xara-item-helpers.h */,
 				DC6949801BC71B3B00AB4DC3 /* kc-30-xara-key-helpers.h */,
-				0CBD509816C3246D00713B6C /* kc-40-seckey.c */,
-				0CBD509916C3246D00713B6C /* kc-41-sececkey.c */,
+				0CBD509816C3246D00713B6C /* kc-40-seckey.m */,
+				0CBD509916C3246D00713B6C /* kc-41-sececkey.m */,
+				87701A841C4B91D000CB437B /* kc-43-seckey-interop.m */,
 				AC9ADAD2199AD6BA00BDAF54 /* kc-42-trust-revocation.c */,
 				BED2BCA11B96217B006CF43A /* si-20-sectrust-provisioning.c */,
 				BE0FAED51B967FB30017DAC9 /* si-20-sectrust-provisioning.h */,
@@ -801,6 +913,7 @@
 				4CF36F680581376700834D11 /* SecACL.h in Headers */,
 				4CF36F6A0581376700834D11 /* SecBase.h in Headers */,
 				4CF36F690581376700834D11 /* SecCertificate.h in Headers */,
+				3A353D7E1CC50583000446F4 /* TokenLogin.h in Headers */,
 				4CF36F6C0581376700834D11 /* SecIdentity.h in Headers */,
 				4CF36F670581376700834D11 /* SecIdentitySearch.h in Headers */,
 				BEE896E20A61F0BB00BF88A5 /* SecItem.h in Headers */,
@@ -846,6 +959,7 @@
 				058C797209F56CCC00DB7E98 /* SecTrustSettingsPriv.h in Headers */,
 				058C797D09F56D1400DB7E98 /* TrustSettings.h in Headers */,
 				058C797E09F56D1400DB7E98 /* TrustSettingsSchema.h in Headers */,
+				D45FA39C1C6578CE003DBB97 /* SecTrustOSXEntryPoints.h in Headers */,
 				058C798009F56D1400DB7E98 /* TrustSettingsUtils.h in Headers */,
 				BEE896E30A61F0BB00BF88A5 /* SecItemPriv.h in Headers */,
 				05A83C380AAF591100906F28 /* SecKeychainItemExtendedAttributes.h in Headers */,
@@ -905,7 +1019,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				182BB341146F106C000BF1F3 /* PBXTargetDependency */,
 				521FBA8C112CB465002BEF54 /* PBXTargetDependency */,
 			);
 			name = libsecurity_keychain;
@@ -935,7 +1048,7 @@
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0700;
+				LastUpgradeCheck = 0800;
 			};
 			buildConfigurationList = C27AD3810987FCDE001272E0 /* Build configuration list for PBXProject "libsecurity_keychain" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -1020,13 +1133,47 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DC6B46641C90EE1200D899C6 /* kc-01-keychain-creation.c in Sources */,
+				DC196F691CBD70B400A66F4B /* kc-12-key-create-symmetric-and-use.m in Sources */,
+				DC9A61A21CCA9279002793D6 /* kc-03-keychain-list.c in Sources */,
+				DC6B46651C90EE1200D899C6 /* kc-02-unlock-noui.c in Sources */,
+				DC840D8A1CBEFC6A0083F55C /* kc-20-identity-key-attributes.c in Sources */,
+				DC6B46661C90EE1A00D899C6 /* kc-03-status.c in Sources */,
+				DCBD63151CC86028008C27FC /* kc-28-p12-import.m in Sources */,
+				DC6B46671C90EE1A00D899C6 /* kc-10-item-add-generic.c in Sources */,
+				DC6B46681C90EE1A00D899C6 /* kc-10-item-add-certificate.c in Sources */,
+				DC6B46691C90EE1A00D899C6 /* kc-12-item-create-keypair.c in Sources */,
+				DC196F6D1CBD77CD00A66F4B /* kc-15-key-update-valueref.c in Sources */,
+				DC6B466A1C90EE1A00D899C6 /* kc-10-item-add-internet.c in Sources */,
+				DC6B466B1C90EE1A00D899C6 /* kc-19-item-copy-internet.c in Sources */,
+				DC6B466C1C90EE1A00D899C6 /* kc-21-item-use-callback.c in Sources */,
+				DC6B466E1C90EE1A00D899C6 /* kc-04-is-valid.c in Sources */,
+				DC6B466F1C90EE1A00D899C6 /* kc-18-find-combined.c in Sources */,
+				DC336B3C1D246E4C00D24F15 /* kc-20-identity-find-stress.c in Sources */,
+				87701A8E1C4B91E300CB437B /* kc-43-seckey-interop.m in Sources */,
+				DC9A61B51CCABD1F002793D6 /* kc-21-item-xattrs.c in Sources */,
 				DC3C16001BAB76B50041A23A /* kc-30-xara.c in Sources */,
 				AC9ADAD3199AD6BA00BDAF54 /* kc-42-trust-revocation.c in Sources */,
-				0CBD509B16C3246D00713B6C /* kc-41-sececkey.c in Sources */,
+				DC2480511CC1B58B00527D67 /* kc-21-item-use-callback.c in Sources */,
+				DCE537591D2EE36800A12A95 /* kc-05-find-existing-items-locked.c in Sources */,
+				0CBD509B16C3246D00713B6C /* kc-41-sececkey.m in Sources */,
+				DC19708A1CBEC2FA00A66F4B /* kc-15-item-update-label-skimaad.m in Sources */,
 				188BB546171DD8B5009D22CE /* si-33-keychain-backup.c in Sources */,
+				DC840D871CBEF5CB0083F55C /* kc-20-identity-persistent-refs.c in Sources */,
+				DC19708D1CBEE43E00A66F4B /* kc-16-item-update-password.c in Sources */,
+				DC9642751D25F4650073E0C5 /* kc-20-item-find-stress.c in Sources */,
+				DC9A61AF1CCAA4CF002793D6 /* kc-24-key-copy-keychains.c in Sources */,
 				BED2BCA21B96217B006CF43A /* si-20-sectrust-provisioning.c in Sources */,
+				DC840D8E1CBF13C00083F55C /* kc-23-key-export-symmetric.m in Sources */,
+				DC840D911CBF17AF0083F55C /* kc-26-key-import-public.m in Sources */,
+				DC247FDB1CBF22AD00527D67 /* kc-27-key-non-extractable.c in Sources */,
 				F92321381ACF69EE00634C21 /* si-34-one-true-keychain.c in Sources */,
-				0CBD509A16C3246D00713B6C /* kc-40-seckey.c in Sources */,
+				DC9642771D25F5DD0073E0C5 /* kc-20-key-find-stress.c in Sources */,
+				DC196F6A1CBD70C100A66F4B /* kc-12-key-create-symmetric.c in Sources */,
+				DC7EFBA91CBC4448005F9624 /* kc-06-cert-search-email.m in Sources */,
+				0CBD509A16C3246D00713B6C /* kc-40-seckey.m in Sources */,
+				DCA424031CB81EF20095B7DF /* kc-05-find-existing-items.c in Sources */,
+				DC9A61B21CCAAE05002793D6 /* kc-28-cert-sign.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1101,6 +1248,7 @@
 				05012D46060B94A000C044CB /* SecImportExportCrypto.cpp in Sources */,
 				055EA6B106AC5C13005079CE /* TrustRevocation.cpp in Sources */,
 				C26BA9FF072580AE0049AF3C /* UnlockReferralItem.cpp in Sources */,
+				3A353D7D1CC50583000446F4 /* TokenLogin.cpp in Sources */,
 				058C797609F56CFB00DB7E98 /* SecTrustSettings.cpp in Sources */,
 				058C797C09F56D1400DB7E98 /* TrustSettings.cpp in Sources */,
 				058C797F09F56D1400DB7E98 /* TrustSettingsUtils.cpp in Sources */,
@@ -1119,6 +1267,7 @@
 				52B88DFB11DD0D2D005BCA6B /* SecFDERecoveryAsymmetricCrypto.cpp in Sources */,
 				48E66AE3120254D700E878AD /* SecRandom.c in Sources */,
 				52E950CD1509B47000DA6511 /* tsaDERUtilities.c in Sources */,
+				D4486BCF1C65528B0040880D /* SecTrustOSXEntryPoints.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1134,11 +1283,6 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		182BB341146F106C000BF1F3 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			name = libsecurity_utilitiesDTrace;
-			targetProxy = 182BB340146F106C000BF1F3 /* PBXContainerItemProxy */;
-		};
 		521FBA8C112CB465002BEF54 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			name = libDER;
@@ -1152,6 +1296,15 @@
 			baseConfigurationReference = 182BB225146F063C000BF1F3 /* debug.xcconfig */;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(PROJECT_DIR)/../regressions",
+					"$(PROJECT_DIR)/../include",
+					"$(BUILT_PRODUCTS_DIR)/derived_src",
+					"$(BUILT_PRODUCTS_DIR)",
+					"$(PROJECT_DIR)/lib",
+					"$(PROJECT_DIR)/../utilities",
+					"$(inherited)",
+				);
 				WARNING_CFLAGS = (
 					"$(inherited)",
 					"-Wno-error=overloaded-virtual",
@@ -1180,6 +1333,7 @@
 				GCC_MODEL_TUNING = G5;
 				INFOPLIST_FILE = "xpc/XPCKeychainSandboxCheck-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Versions/${FRAMEWORK_VERSION}/XPCServices";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.security.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = XPCKeychainSandboxCheck;
 				PROVISIONING_PROFILE = "";
 				SKIP_INSTALL = NO;
@@ -1196,6 +1350,7 @@
 				GCC_MODEL_TUNING = G5;
 				INFOPLIST_FILE = "xpc/XPCKeychainSandboxCheck-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Versions/${FRAMEWORK_VERSION}/XPCServices";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.security.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = XPCKeychainSandboxCheck;
 				PROVISIONING_PROFILE = "";
 				SKIP_INSTALL = NO;
@@ -1212,6 +1367,7 @@
 				GCC_MODEL_TUNING = G5;
 				INFOPLIST_FILE = "xpc-tsa/XPCTimeStampingService-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Versions/${FRAMEWORK_VERSION}/XPCServices";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.security.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = XPCTimeStampingService;
 				PROVISIONING_PROFILE = "";
 				SKIP_INSTALL = NO;
@@ -1228,6 +1384,7 @@
 				GCC_MODEL_TUNING = G5;
 				INFOPLIST_FILE = "xpc-tsa/XPCTimeStampingService-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Versions/${FRAMEWORK_VERSION}/XPCServices";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.security.${PRODUCT_NAME:rfc1034identifier}";
 				PRODUCT_NAME = XPCTimeStampingService;
 				PROVISIONING_PROFILE = "";
 				SKIP_INSTALL = NO;
@@ -1242,11 +1399,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
-					"SECTRUST_OSX=0",
-				);
-				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/libDER",
+					"SECTRUST_OSX=1",
 				);
 				WARNING_CFLAGS = (
 					"$(inherited)",
@@ -1262,11 +1415,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
-					"SECTRUST_OSX=0",
-				);
-				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/libDER",
+					"SECTRUST_OSX=1",
 				);
 				WARNING_CFLAGS = (
 					"$(inherited)",
@@ -1279,13 +1428,32 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB226146F063C000BF1F3 /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = lossless;
+				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(PROJECT_DIR)/../regressions",
+					"$(PROJECT_DIR)/../include",
+					"$(BUILT_PRODUCTS_DIR)/derived_src",
+					"$(BUILT_PRODUCTS_DIR)",
+					"$(PROJECT_DIR)/lib",
+					"$(PROJECT_DIR)/../utilities",
+					"$(PROJECT_DIR)/libDER",
+					"$(inherited)",
+				);
+				ONLY_ACTIVE_ARCH = YES;
 			};
 			name = Debug;
 		};
@@ -1293,13 +1461,30 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB226146F063C000BF1F3 /* lib.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPRESSION = "respect-asset-catalog";
+				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(PROJECT_DIR)/../regressions",
+					"$(PROJECT_DIR)/../include",
+					"$(BUILT_PRODUCTS_DIR)/derived_src",
+					"$(BUILT_PRODUCTS_DIR)",
+					"$(PROJECT_DIR)/lib",
+					"$(PROJECT_DIR)/../utilities",
+					"$(PROJECT_DIR)/libDER",
+					"$(inherited)",
+				);
 			};
 			name = Release;
 		};

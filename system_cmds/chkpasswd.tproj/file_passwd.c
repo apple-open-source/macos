@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
@@ -10,7 +10,7 @@
  * except in compliance with the License.  Please obtain a copy of the
  * License at http://www.apple.com/publicsource and read it before using
  * this file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -18,7 +18,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
  * License for the specific language governing rights and limitations
  * under the License."
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <stdio.h>
@@ -36,18 +36,18 @@
 #define _PASSWD_FIELDS 10
 #define BUFSIZE 8192
 
-extern void checkpasswd(char *, char *);
+#include "passwd.h"
 
-char *
+static char *
 _getline(FILE *fp)
 {
 	static char s[BUFSIZE];
-	int len;
+	size_t len;
 
-    s[0] = '\0';
+	s[0] = '\0';
 
-    fgets(s, BUFSIZE, fp);
-    if (s == NULL || s[0] == '\0') return NULL;
+	fgets(s, BUFSIZE, fp);
+	if (s[0] == '\0') return NULL;
 
 	if (s[0] == '#') return s;
 
@@ -57,7 +57,7 @@ _getline(FILE *fp)
 	return s;
 }
 
-struct passwd *
+static struct passwd *
 parse_user(char *line)
 {
 	static struct passwd pw = {0};
@@ -107,7 +107,7 @@ parse_user(char *line)
 	return &pw;
 }
 
-struct passwd *
+static struct passwd *
 find_user(char *uname, FILE *fp)
 {
 	char *line;
@@ -127,14 +127,15 @@ find_user(char *uname, FILE *fp)
 	return (struct passwd *)NULL;
 }
 
-void
+#if 0
+static void
 rewrite_file(char *pwname, FILE *fp, struct passwd *newpw)
 {
 	char *line;
 	struct passwd *pw;
 	FILE *tfp, *cfp;
 	char fname[256];
-	
+
 	sprintf(fname, "%s.%d", TEMP_FILE, getpid());
 
 	tfp = fopen(fname, "w+");
@@ -241,6 +242,7 @@ rewrite_file(char *pwname, FILE *fp, struct passwd *newpw)
 	fclose(tfp);
 	unlink(fname);
 }
+#endif /* 0 */
 
 int
 file_check_passwd(char *uname, char *locn)

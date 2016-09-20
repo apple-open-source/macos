@@ -1,6 +1,4 @@
 #
-# "$Id: Makefile 12234 2014-10-28 21:00:20Z msweet $"
-#
 # Locale file makefile for CUPS.
 #
 # Copyright 2007-2014 by Apple Inc.
@@ -172,7 +170,7 @@ checkall:	checkpo
 
 #
 # po2strings - A simple utility which uses iconv to convert GNU gettext
-#              message catalogs to OS X .strings files.
+#              message catalogs to macOS .strings files.
 #
 # po2strings filename.po filename.strings
 #
@@ -185,7 +183,7 @@ po2strings:	po2strings.o ../cups/$(LIBCUPSSTATIC)
 
 
 #
-# strings2po - A simple utility which uses iconv to convert OS X .strings files
+# strings2po - A simple utility which uses iconv to convert macOS .strings files
 #              to GNU gettext message catalogs.
 #
 # strings2po filename.strings filename.po
@@ -201,8 +199,3 @@ strings2po:	strings2po.o
 #
 
 include Dependencies
-
-
-#
-# End of "$Id: Makefile 12234 2014-10-28 21:00:20Z msweet $".
-#

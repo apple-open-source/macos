@@ -101,7 +101,7 @@
 		</group>
 		<arg choice="opt"><replaceable>STYLESHEET</replaceable></arg>
 		<group choice="req">
-			<arg choice="plain" rep="norepeat"><replaceable>XML-FILE</replaceable></arg>
+			<arg choice="plain" rep="repeat"><replaceable>XML-FILE</replaceable></arg>
 			<arg choice="plain" rep="norepeat">-</arg>
 		</group>
 	</cmdsynopsis>

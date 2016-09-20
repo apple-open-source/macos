@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		226F987D1CA9A5F000E4A1A2 /* Chess_128x128.png in Resources */ = {isa = PBXBuildFile; fileRef = 226F987C1CA9A5F000E4A1A2 /* Chess_128x128.png */; };
 		950BD1140A1E582B00395116 /* MBCBoard.h in Headers */ = {isa = PBXBuildFile; fileRef = F5C8AC0A02FA7C5601AC80B8 /* MBCBoard.h */; };
 		950BD1150A1E582B00395116 /* MBCEngineCommands.h in Headers */ = {isa = PBXBuildFile; fileRef = F5C8AC1002FAB09301AC80B8 /* MBCEngineCommands.h */; };
 		950BD1160A1E582B00395116 /* MBCPlayer.h in Headers */ = {isa = PBXBuildFile; fileRef = F5C8AC1202FAB09301AC80B8 /* MBCPlayer.h */; };
@@ -266,6 +267,7 @@
 /* Begin PBXFileReference section */
 		089C165DFE840E0CC02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
+		226F987C1CA9A5F000E4A1A2 /* Chess_128x128.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Chess_128x128.png; path = Resources/Icons/Chess_128x128.png; sourceTree = "<group>"; };
 		29B97324FDCFA39411CA2CEA /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = /System/Library/Frameworks/AppKit.framework; sourceTree = "<absolute>"; };
 		29B97325FDCFA39411CA2CEA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
 		950B5942049D8C73000001C9 /* MBCMoveGenerator.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCMoveGenerator.h; path = Sources/MBCMoveGenerator.h; sourceTree = "<group>"; };
@@ -503,6 +505,7 @@
 		29B97317FDCFA39411CA2CEA /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				226F987C1CA9A5F000E4A1A2 /* Chess_128x128.png */,
 				95DEC3D81488581300E1305A /* Chess.entitlements */,
 				95261CDC1478580E004EF501 /* background.pdf */,
 				95D8520D13E710190045366C /* Board.xib */,
@@ -920,6 +923,7 @@
 				950BD12C0A1E582B00395116 /* bug.opn in Resources */,
 				950BD12D0A1E582B00395116 /* losers.opn in Resources */,
 				950BD12E0A1E582B00395116 /* nbook.db in Resources */,
+				226F987D1CA9A5F000E4A1A2 /* Chess_128x128.png in Resources */,
 				950BD12F0A1E582B00395116 /* suicide.opn in Resources */,
 				950BD1300A1E582B00395116 /* zbook.db in Resources */,
 				950BD1420A1E582B00395116 /* Defaults.plist in Resources */,

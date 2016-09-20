@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2014-2016 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  *
  * SecSharedCredential.c - CoreFoundation-based functions to store and retrieve shared credentials.
@@ -54,7 +54,7 @@ OSStatus SecAddSharedWebCredentialSync(CFStringRef fqdn,
         CFDictionaryAddValue(args, kSecAttrAccount, account);
     }
     if (password) {
-#if TARGET_OS_IPHONE && !TARGET_IPHONE_SIMULATOR && !TARGET_OS_WATCH
+#if TARGET_OS_IPHONE && !TARGET_IPHONE_SIMULATOR && !TARGET_OS_WATCH && !TARGET_OS_TV
         CFDictionaryAddValue(args, kSecSharedPassword, password);
 #else
         CFDictionaryAddValue(args, CFSTR("spwd"), password);
@@ -244,16 +244,16 @@ void SecRequestSharedWebCredential(CFStringRef fqdn,
 
 CFStringRef SecCreateSharedWebCredentialPassword(void)
 {
-    
+
     CFStringRef password = NULL;
     CFErrorRef error = NULL;
     CFMutableDictionaryRef passwordRequirements = NULL;
-    
+
     CFStringRef allowedCharacters = CFSTR("abcdefghkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789");
     CFCharacterSetRef requiredCharactersLower = CFCharacterSetCreateWithCharactersInString(NULL, CFSTR("abcdefghkmnopqrstuvwxyz"));
     CFCharacterSetRef requiredCharactersUppder = CFCharacterSetCreateWithCharactersInString(NULL, CFSTR("ABCDEFGHJKLMNPQRSTUVWXYZ"));
     CFCharacterSetRef requiredCharactersNumbers = CFCharacterSetCreateWithCharactersInString(NULL, CFSTR("3456789"));
-    
+
     int groupSize = 3;
     int groupCount = 4;
     int totalLength = (groupSize * groupCount);
@@ -261,12 +261,12 @@ CFStringRef SecCreateSharedWebCredentialPassword(void)
     CFNumberRef groupCountRef = CFNumberCreate(NULL, kCFNumberIntType, &groupCount);
     CFNumberRef totalLengthRef = CFNumberCreate(NULL, kCFNumberIntType, &totalLength);
     CFStringRef separator = CFSTR("-");
-    
+
     CFMutableArrayRef requiredCharacterSets = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
     CFArrayAppendValue(requiredCharacterSets, requiredCharactersLower);
     CFArrayAppendValue(requiredCharacterSets, requiredCharactersUppder);
     CFArrayAppendValue(requiredCharacterSets, requiredCharactersNumbers);
-    
+
     passwordRequirements = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
     CFDictionaryAddValue(passwordRequirements, kSecPasswordAllowedCharactersKey, allowedCharacters);
     CFDictionaryAddValue(passwordRequirements, kSecPasswordRequiredCharactersKey, requiredCharacterSets);
@@ -282,11 +282,11 @@ CFStringRef SecCreateSharedWebCredentialPassword(void)
     CFRelease(groupSizeRef);
     CFRelease(groupCountRef);
     CFRelease(totalLengthRef);
-    
+
     password = SecPasswordGenerate(kSecPasswordTypeSafari, &error, passwordRequirements);
-    
+
     CFRelease(requiredCharacterSets);
-    CFRelease(passwordRequirements);    
+    CFRelease(passwordRequirements);
     if ((error && error != errSecSuccess) || !password)
     {
         if (password) CFRelease(password);
@@ -295,6 +295,6 @@ CFStringRef SecCreateSharedWebCredentialPassword(void)
     } else {
         return password;
     }
-    
+
 }
 

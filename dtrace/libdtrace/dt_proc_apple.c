@@ -53,6 +53,16 @@ extern Phandler_func_t dt_proc_control_activity_handler; // See libproc.m
 
 extern psaddr_t rd_event_mock_addr(struct ps_prochandle *); // See libproc.m
 
+
+void
+dt_proc_signal(dtrace_hdl_t *dtp)
+{
+	if (dt_ioctl(dtp, DTRACEIOC_SIGNAL, NULL) == -1) {
+		dt_set_errno(dtp, errno);
+		return;
+	}
+}
+
 static void
 dt_proc_bpmatch(dtrace_hdl_t *dtp, dt_proc_t *dpr)
 {

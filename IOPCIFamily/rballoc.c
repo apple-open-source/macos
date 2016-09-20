@@ -233,6 +233,7 @@ vtd_rbfree(vtd_space_t * bf, vtd_rbaddr_t addr, vtd_rbaddr_t size, vtd_rbaddr_t 
 				end = next->end;
 				RB_REMOVE(vtd_rbaddr_list, &bf->rbaddr_list, next);
 				RB_REMOVE(vtd_rbsize_list, &bf->rbsize_list, next);
+				bf->rentries--;
 				IODelete(next, typeof(*next), 1);
 			}
 		}
@@ -253,6 +254,7 @@ vtd_rbfree(vtd_space_t * bf, vtd_rbaddr_t addr, vtd_rbaddr_t size, vtd_rbaddr_t 
 	else
 	{
 		next = IONew(typeof(*next), 1);
+		bf->rentries++;
 #if VTASRT
 		memset(next, 0xef, sizeof(*next));
 #endif
@@ -314,7 +316,11 @@ vtd_rballoc(vtd_space_t * bf, vtd_rbaddr_t pages, vtd_rbaddr_t align, vtd_rbaddr
 		tail = prior->end - end;
 		head = addr - prior->start;
 
-		if (!head && !tail) IODelete(prior, typeof(*prior), 1);
+		if (!head && !tail)
+		{
+			bf->rentries--;
+			IODelete(prior, typeof(*prior), 1);
+		}
 		else
 		{
 			if (tail)
@@ -330,6 +336,7 @@ vtd_rballoc(vtd_space_t * bf, vtd_rbaddr_t pages, vtd_rbaddr_t align, vtd_rbaddr
 				if (tail)
 				{
 					prior = IONew(typeof(*prior), 1);
+					bf->rentries++;
 #if VASRT
 					memset(prior, 0xef, sizeof(*prior));
 #endif
@@ -351,7 +358,7 @@ vtd_rballoc(vtd_space_t * bf, vtd_rbaddr_t pages, vtd_rbaddr_t align, vtd_rbaddr
 	return (addr);
 }
 
-static void 
+static vtd_rbaddr_t
 vtd_rballoc_fixed(vtd_space_t * bf, vtd_rbaddr_t addr, vtd_rbaddr_t size)
 {
 	vtd_rbaddr_t end, head, tail;
@@ -394,6 +401,7 @@ vtd_rballoc_fixed(vtd_space_t * bf, vtd_rbaddr_t addr, vtd_rbaddr_t size)
 			if (tail)
 			{
 				prior = IONew(typeof(*prior), 1);
+				bf->rentries++;
 #if VASRT
 				memset(prior, 0xef, sizeof(*prior));
 #endif
@@ -410,6 +418,8 @@ vtd_rballoc_fixed(vtd_space_t * bf, vtd_rbaddr_t addr, vtd_rbaddr_t size)
 			vtassert(NULL == next);
 		}
 	}
+
+	return (addr);
 }
 
 
@@ -423,4 +433,16 @@ vtd_rballocator_init(vtd_space_t * bf, ppnum_t start, ppnum_t size)
 	vtd_rbfree(bf, start, size, 0);
 }
 
+static void
+vtd_rballocator_free(vtd_space_t * bf)
+{
+	struct vtd_rblock * elem;
+	struct vtd_rblock * next;
 
+	RB_FOREACH_SAFE(elem, vtd_rbaddr_list, &bf->rbaddr_list, next)
+	{
+		RB_REMOVE(vtd_rbaddr_list, &bf->rbaddr_list, elem);
+		bf->rentries--;
+		IODelete(elem, typeof(*elem), 1);
+	}
+}

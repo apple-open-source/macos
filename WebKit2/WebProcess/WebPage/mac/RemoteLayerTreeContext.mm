@@ -35,6 +35,7 @@
 #import <WebCore/FrameView.h>
 #import <WebCore/MainFrame.h>
 #import <WebCore/Page.h>
+#import <wtf/SystemTracing.h>
 #import <wtf/TemporaryChange.h>
 
 using namespace WebCore;
@@ -66,7 +67,7 @@ void RemoteLayerTreeContext::layerWasCreated(PlatformCALayerRemote& layer, Platf
         creationProperties.hostingDeviceScaleFactor = deviceScaleFactor();
     }
 
-    m_createdLayers.add(layerID, WTF::move(creationProperties));
+    m_createdLayers.add(layerID, WTFMove(creationProperties));
     m_liveLayers.add(layerID, &layer);
 }
 
@@ -106,6 +107,8 @@ std::unique_ptr<GraphicsLayer> RemoteLayerTreeContext::createGraphicsLayer(WebCo
 
 void RemoteLayerTreeContext::buildTransaction(RemoteLayerTreeTransaction& transaction, PlatformCALayer& rootLayer)
 {
+    TraceScope tracingScope(RAFBuildTransactionStart, RAFBuildTransactionEnd);
+
     PlatformCALayerRemote& rootLayerRemote = downcast<PlatformCALayerRemote>(rootLayer);
     transaction.setRootLayerID(rootLayerRemote.layerID());
 
@@ -115,8 +118,8 @@ void RemoteLayerTreeContext::buildTransaction(RemoteLayerTreeTransaction& transa
 
     Vector<RemoteLayerTreeTransaction::LayerCreationProperties> createdLayerProperties;
     copyValuesToVector(m_createdLayers, createdLayerProperties);
-    transaction.setCreatedLayers(WTF::move(createdLayerProperties));
-    transaction.setDestroyedLayerIDs(WTF::move(m_destroyedLayers));
+    transaction.setCreatedLayers(WTFMove(createdLayerProperties));
+    transaction.setDestroyedLayerIDs(WTFMove(m_destroyedLayers));
     
     m_createdLayers.clear();
 }

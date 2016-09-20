@@ -23,7 +23,7 @@
  * security.c
  */
 
-#include "security.h"
+#include "security_tool.h"
 
 #include "leaks.h"
 #include "readline.h"
@@ -52,8 +52,11 @@
 #include "trust_settings_impexp.h"
 #include "verify_cert.h"
 #include "authz.h"
+#include "smartcards.h"
 #include "display_error_code.h"
 #include "createFVMaster.h"
+#include "smartcards.h"
+#include "translocate.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -110,6 +113,10 @@ const command commands[] =
 	  "With no parameters, display the search list.",
 	  "Display or manipulate the keychain search list." },
 
+    { "list-smartcards", ctk_list,
+      "With no parameters, display IDs of available smartcards.",
+      "Display available smartcards." },
+
 	{ "default-keychain", keychain_default,
 	  "[-d user|system|common|dynamic] [-s [keychain]]\n"
 	  "    -d  Use the specified preference domain\n"
@@ -127,8 +134,10 @@ const command commands[] =
 	{ "create-keychain", keychain_create,
 	  "[-P] [-p password] [keychains...]\n"
 	  "    -p  Use \"password\" as the password for the keychains being created\n"
-	  "    -P  Prompt the user for a password using the SecurityAgent",
-	  "Create keychains and add them to the search list." },
+	  "    -P  Prompt the user for a password using the SecurityAgent\n"
+      "Use of the -p option is insecure",
+	  "Create keychains and add them to the search list.",
+    },
 
 	{ "delete-keychain", keychain_delete,
 	  "[keychains...]",
@@ -142,7 +151,8 @@ const command commands[] =
 	{ "unlock-keychain", keychain_unlock,
 	  "[-u] [-p password] [keychain]\n"
 	  "    -p  Use \"password\" as the password to unlock the keychain\n"
-	  "    -u  Do not use the password",
+	  "    -u  Do not use the password\n"
+      "Use of the -p option is insecure",
 	  "Unlock the specified keychain."},
 
 	{ "set-keychain-settings", keychain_set_settings,
@@ -155,7 +165,8 @@ const command commands[] =
 	{ "set-keychain-password", keychain_set_password,
 	  "[-o oldPassword] [-p newPassword] [keychain]\n"
 	  "    -o  Old keychain password (if not provided, will prompt)\n"
-	  "    -p  New keychain password (if not provided, will prompt)\n",
+	  "    -p  New keychain password (if not provided, will prompt)\n"
+      "Use of either the -o or -p options is insecure\n",
 	  "Set password for a keychain."},
 
 	{ "show-keychain-info", keychain_show_info,
@@ -223,7 +234,8 @@ const command commands[] =
 	  "\n"
 	  "By default, the application which creates an item is trusted to access its data without warning.\n"
 	  "You can remove this default access by explicitly specifying an empty app pathname: -T \"\"\n"
-	  "If no keychain is specified, the password is added to the default keychain.",
+	  "If no keychain is specified, the password is added to the default keychain.\n"
+      "Use of the -p or -w options is insecure. Specify -w as the last option to be prompted.\n",
 	  "Add a generic password item."},
 
 	{ "add-internet-password", keychain_add_internet_password,
@@ -247,7 +259,8 @@ const command commands[] =
 	  "\n"
 	  "By default, the application which creates an item is trusted to access its data without warning.\n"
 	  "You can remove this default access by explicitly specifying an empty app pathname: -T \"\"\n"
-	  "If no keychain is specified, the password is added to the default keychain.",
+	  "If no keychain is specified, the password is added to the default keychain.\n"
+      "Use of the -p or -w options is insecure. Specify -w as the last option to be prompted.\n",
 	  "Add an internet password item."},
 
 	{ "add-certificates", keychain_add_certificates,
@@ -295,7 +308,8 @@ const command commands[] =
         "    -s  Match \"service\" string\n"
         "    -S  Comma-separated list of allowed partition IDs\n"
         "    -k  The password for the keychain (required)\n"
-        "If no keychains are specified to search, the default search list is used.",
+        "If no keychains are specified to search, the default search list is used.\n"
+        "Use of the -k option is insecure. Omit it to be prompted.\n",
         "Set the partition ID list of a generic password item."},
 
 	{ "find-internet-password", keychain_find_internet_password,
@@ -348,11 +362,52 @@ const command commands[] =
         "    -r  Match \"protocol\" (four-character code)\n"
         "    -s  Match \"server\" string\n"
         "    -t  Match \"authenticationType\" (four-character code)\n"
-        "    -S  Comma-separated list of allowed partition IDs"
-        "    -k  password for keychain (required)"
+        "    -S  Comma-separated list of allowed partition IDs\n"
+        "    -k  password for keychain (required)\n"
+
+        "If no keychains are specified to search, the default search list is used.\n"
+        "Use of the -k option is insecure. Omit it to be prompted.\n",
+        "Set the partition ID list of a internet password item."},
+
+    { "find-key", keychain_find_key,
+        "[options...] [keychain...]\n"
+        "    -a  Match \"application label\" string\n"
+        "    -c  Match \"creator\" (four-character code)\n"
+        "    -d  Match keys that can decrypt\n"
+        "    -D  Match \"description\" string\n"
+        "    -e  Match keys that can encrypt\n"
+        "    -j  Match \"comment\" string\n"
+        "    -l  Match \"label\" string\n"
+        "    -r  Match keys that can derive\n"
+        "    -s  Match keys that can sign\n"
+        "    -t  Type of key to find: one of \"symmetric\", \"public\", or \"private\"\n"
+        "    -u  Match keys that can unwrap\n"
+        "    -v  Match keys that can verify\n"
+        "    -w  Match keys that can wrap\n"
 
         "If no keychains are specified to search, the default search list is used.",
-        "Set the partition ID list of a internet password item."},
+        "Find keys in the keychain"},
+
+    { "set-key-partition-list", keychain_set_key_partition_list,
+        "[options...] [keychain]\n"
+        "    -a  Match \"application label\" string\n"
+        "    -c  Match \"creator\" (four-character code)\n"
+        "    -d  Match keys that can decrypt\n"
+        "    -D  Match \"description\" string\n"
+        "    -e  Match keys that can encrypt\n"
+        "    -j  Match \"comment\" string\n"
+        "    -l  Match \"label\" string\n"
+        "    -r  Match keys that can derive\n"
+        "    -s  Match keys that can sign\n"
+        "    -t  Type of key to find: one of \"symmetric\", \"public\", or \"private\"\n"
+        "    -u  Match keys that can unwrap\n"
+        "    -v  Match keys that can verify\n"
+        "    -w  Match keys that can wrap\n"
+        "    -S  Comma-separated list of allowed partition IDs\n"
+        "    -k  password for keychain (required)\n"
+
+        "If no keychains are specified to search, the default search list is used.",
+        "Set the partition ID list of a key."},
 
 	{ "find-certificate", keychain_find_certificate,
 	  "[-a] [-c name] [-e emailAddress] [-m] [-p] [-Z] [keychain...]\n"
@@ -425,7 +480,8 @@ const command commands[] =
 	  "    -w  Private keys are wrapped\n"
 	  "    -p  PEM encode the output\n"
 	  "    -P  Specify wrapping passphrase immediately (default is secure passphrase via GUI)\n"
-	  "    -o  Specify output file (default is stdout)",
+	  "    -o  Specify output file (default is stdout)\n"
+	  "Use of the -P option is insecure\n",
 	  "Export items from a keychain." },
 
 	{ "import", keychain_import,
@@ -438,8 +494,16 @@ const command commands[] =
 	  "    -P  Specify wrapping passphrase immediately (default is secure passphrase via GUI)\n"
 	  "    -a  Specify name and value of extended attribute (can be used multiple times)\n"
 	  "    -A  Allow any application to access the imported key without warning (insecure, not recommended!)\n"
-	  "    -T  Specify an application which may access the imported key (multiple -T options are allowed)\n",
+	  "    -T  Specify an application which may access the imported key (multiple -T options are allowed)\n"
+	  "Use of the -P option is insecure\n",
 	  "Import items into a keychain." },
+
+    { "export-smartcard" , ctk_export,
+        "[-i id] [-t type] \n"
+        "    -i  id of the smartcard to export (available IDs can be listed by list-smartcards\n"
+        "        command, default: export all smartcards)\n"
+        "    -t  Type = certs|privKeys|identities|all  (Default: all)\n",
+        "Export items from a smartcard." },
 
 	{ "cms", cms_util,
 	  "[-C|-D|-E|-S] [<options>]\n"
@@ -471,7 +535,7 @@ const command commands[] =
 	  "  -k keychain  specify keychain to use\n"
 	  "  -i infile    use infile as source of data (default: stdin)\n"
 	  "  -o outfile   use outfile as destination of data (default: stdout)\n"
-	  "  -p password  use password as key db password (default: prompt)\n"
+	  "  -p password  use password as key db password (default: prompt). Using -p is insecure\n"
 	  "  -s           pass data a single byte at a time to CMS\n"
 	  "  -u certusage set type of certificate usage (default: certUsageEmailSigner)\n"
 	  "  -v           print debugging information\n"
@@ -548,9 +612,8 @@ const command commands[] =
 	  " [<options>]\n"
 	  "    -c certFile         Certificate to verify. Can be specified multiple times, leaf first.\n"
 	  "    -r rootCertFile     Root Certificate. Can be specified multiple times.\n"
-	  "    -p policy           Verify Policy (basic, ssl, smime, codeSign, IPSec, iChat, swUpdate,\n"
-	  "                                       pkgSign, pkinitClient, pkinitServer, eap, appleID,\n"
-	  "                                       macappstore, timestamping); default is basic.\n"
+	  "    -p policy           Verify Policy (basic, ssl, smime, codeSign, IPSec, swUpdate, pkgSign,\n"
+	  "                                       eap, appleID, macappstore, timestamping); default is basic.\n"
       "    -d date             Set date and time to use when verifying certificate,\n"
       "                        provided in the form of YYYY-MM-DD-hh:mm:ss (time optional) in GMT.\n"
       "                        e.g: 2016-04-25-15:59:59 for April 25, 2016 at 3:59:59 pm in GMT\n"
@@ -591,7 +654,7 @@ const command commands[] =
 	  "If no destination path is specified, merge will merge to /etc/authorization.\n"
       "       authorizationdb smartcard <enable|disable|status>\n"
       "Enables/disables smartcard login support or report current status.",
-      "Make changes to the authorization policy database.\n" },
+      "Make changes to the authorization policy database." },
 
 	{ "execute-with-privileges" , execute_with_privileges,
 	  "<program> [args...]\n"
@@ -618,10 +681,40 @@ const command commands[] =
 	  "[-p password] [keychain name]\n"
 	  "    -p       Use \"password\" as the password for the keychain being created\n"
       "    -s  Specify the keysize in bits (default 2048; 1024 & 4096 are allowed)\n"
-	  "By default the keychain will be created in ~/Library/Keychains/\n",
+	  "By default the keychain will be created in ~/Library/Keychains/.\n"
+	  "Use of the -p option is insecure. Omit it to be prompted.\n",
       "Create a keychain containing a key pair for FileVault recovery use."
       },
 
+    { "smartcards" , smartcards,
+        "token [-l] [-e token] [-d token]\n"
+        "  -l         List disabled smartcard tokens]\n"
+        "  -e token   Enable specified token\n"
+        "  -d token   Disable specified token\n",
+        "Enable, disable or list disabled smartcard tokens." },
+
+    { "translocate-create", translocate_create,
+      "<path to translocate>\n"
+      "Displays the created path or the error returned.",
+      "Create a translocation point for the provided path" },
+
+    { "translocate-policy-check", translocate_policy,
+        "<path to check>\n"
+        "Displays \"Would translocate\" or \"Would not translocate\"\n"
+        "based on the current state of the path and system policy.",
+        "Check whether a path would be translocated." },
+
+    { "translocate-status-check", translocate_check,
+        "<path to check>\n"
+        "Displays \"TRANSLOCATED\" or \"NOT TRANSLOCATED\"\n"
+        "for the given path.",
+        "Check whether a path is translocated." },
+
+    { "translocate-original-path", translocate_original_path,
+        "<path to check>\n"
+        "If the provided path is translocated, display the original path\n"
+        "If the provided path is not translocated, display the passed in path",
+        "Find the original path for a translocated path." },
 	{}
 };
 
@@ -670,7 +763,7 @@ help(int argc, char * const *argv)
 	else
 	{
 		for (c = commands; c->c_name; ++c)
-			printf("    %-17s %s\n", c->c_name, c->c_help);
+			printf("    %-36s %s\n", c->c_name, c->c_help);
 	}
 
 	return 0;

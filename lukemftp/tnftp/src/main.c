@@ -737,7 +737,7 @@ cmdscanner(void)
 			 * false positive if prog != "ftp", so treat
 			 * such commands as invalid.
 			 */
-			if (strchr(margv[0], ':') != NULL ||
+			if (!editing || strchr(margv[0], ':') != NULL ||
 			    el_parse(el, margc, (const char **)margv) != 0)
 #endif /* !NO_EDITCOMPLETE */
 				fputs("?Invalid command.\n", ttyout);

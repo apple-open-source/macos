@@ -38,20 +38,20 @@
 #define UNIX 1
 
 /* Defined to the size of an int */
-#define SIZEOF_INT 4
+#define VIM_SIZEOF_INT 4
 
 /* Defined to the size of a long */
 #if __LP64__
-#define SIZEOF_LONG 8
+#define VIM_SIZEOF_LONG 8
 #else
-#define SIZEOF_LONG 4
+#define VIM_SIZEOF_LONG 4
 #endif
 
 /* Defined to the size of off_t */
 #define SIZEOF_OFF_T 8
 
 /* Defined to the size of time_t */
-#define SIZEOF_TIME_T SIZEOF_LONG
+#define VIM_SIZEOF_TIME_T VIM_SIZEOF_LONG
 
 /* Define when wchar_t is only 2 bytes. */
 /* #undef SMALL_WCHAR_T */
@@ -169,6 +169,7 @@
 #define HAVE_FSYNC 1
 #define HAVE_GETCWD 1
 /* #undef HAVE_GETPSEUDOTTY */
+#define HAVE_GETPWENT 1
 #define HAVE_GETPWNAM 1
 #define HAVE_GETPWUID 1
 #define HAVE_GETRLIMIT 1
@@ -198,6 +199,7 @@
 #define HAVE_SIGSETJMP 1
 /* #undef HAVE_SIGSTACK */
 #define HAVE_SIGVEC 1
+/* #undef HAVE_SMACK */
 #define HAVE_STRCASECMP 1
 #define HAVE_STRERROR 1
 #define HAVE_STRFTIME 1
@@ -207,7 +209,7 @@
 #define HAVE_STRPBRK 1
 #define HAVE_STRTOL 1
 #define HAVE_ST_BLKSIZE 1
-/* #undef HAVE_SYSCONF */
+#define HAVE_SYSCONF 1
 #define HAVE_SYSCTL 1
 /* #undef HAVE_SYSINFO */
 /* #undef HAVE_SYSINFO_MEM_UNIT */
@@ -354,8 +356,14 @@
 /* Define if dynamic python does not require RTLD_GLOBAL */
 /* #undef PY_NO_RTLD_GLOBAL */
 
+/* Define if dynamic python3 does not require RTLD_GLOBAL */
+/* #undef PY3_NO_RTLD_GLOBAL */
+
 /* Define if you want to include the Ruby interpreter. */
 /* #undef FEAT_RUBY */
+
+/* Define for linking via dlopen() or LoadLibrary() */
+/* #undef DYNAMIC_RUBY */
 
 /* Define if you want to include the Tcl interpreter. */
 /* #undef FEAT_TCL */
@@ -365,8 +373,12 @@
 
 /* Define if you want to add support for ACL */
 #define HAVE_POSIX_ACL 1
+/* #undef HAVE_SOLARIS_ZFS_ACL */
 /* #undef HAVE_SOLARIS_ACL */
 /* #undef HAVE_AIX_ACL */
+
+/* Define if pango_shape_full() is available. */
+/* #undef HAVE_PANGO_SHAPE_FULL */
 
 /* Define if you want to add support of GPM (Linux console mouse daemon) */
 /* #undef HAVE_GPM */
@@ -439,6 +451,15 @@
 
 /* Define if fcntl()'s F_SETFD command knows about FD_CLOEXEC */
 #define HAVE_FD_CLOEXEC 1
+
+/* Define if you want Cygwin to use the WIN32 clipboard, not compatible with X11*/
+/* #undef FEAT_CYGWIN_WIN32_CLIPBOARD */
+
+/* Define if we have AvailabilityMacros.h on Mac OS X */
+#define HAVE_AVAILABILITYMACROS_H 1
+
+/* Define if Xutf8SetWMProperties() is in an X library. */
+/* #undef HAVE_XUTF8SETWMPROPERTIES */
 
 /* Define if there is a copyfile() */
 #define HAVE_COPYFILE 1

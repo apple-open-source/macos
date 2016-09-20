@@ -1,19 +1,21 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/segments/en.xml ../../xml/brkitr/en.xml
 // *
 // ***************************************************************************
 en{
-    Version{"2.1.7.45"}
+    Version{"2.1.19.14"}
     exceptions{
         SentenceBreak:array{
             "L.P.",
             "Alt.",
             "Approx.",
             "E.G.",
+            "E.g.",
+            "e.g.",
             "O.",
             "Maj.",
             "Misc.",
@@ -83,7 +85,9 @@ en{
             "PC.",
             "Feb.",
             "Exec.",
+            "I.E.",
             "I.e.",
+            "i.e.",
             "Sep.",
             "Gb.",
             "K.",
@@ -153,7 +157,6 @@ en{
             "D.",
             "Adv.",
             "Lib.",
-            "E.g.",
             "Pro.",
             "U.S.A.",
             "S.E.",

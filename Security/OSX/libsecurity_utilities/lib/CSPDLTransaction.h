@@ -29,14 +29,9 @@
 //
 // This class performs a transaction on a CSPDL database.
 //
-// It will commit when:
+// If commit() has not yet been called when the object goes out of scope, the transaction will roll back instead (exceptions will be swallowed).
 //
-// 1) success() has been called
-// 2) the object goes out of scope OR finalize() is called
-//
-// if success() has not been called, the transaction will roll back instead.
-//
-// You can nest transaction objects, but I don't really suggest it...
+// Nesting transactions will likely work, but isn't recommended.
 //
 class DLTransaction {
 public:
@@ -45,17 +40,21 @@ public:
     ~DLTransaction();
 
     // Everything has gone right; this transaction will commit.
-    // If you don't call this, the transaction will roll back.
-    void success();
-
-    // Commit or rollback as appropriate
-    void finalize();
+    // If you don't call this, the transaction will roll back when the object goes out of scope.
+    // Might throw on error.
+    void commit();
 
 protected:
     DLTransaction();
 
-    // Actually toggle autocommit using the dldbh
+    // Note: disables autocommit using the dldbh
     void initialize();
+
+    // Call rollback if necessary. Never throws.
+    void finalize();
+
+    // Rolls back database transactions. Might throw.
+    void rollback();
 
     CSSM_DL_DB_HANDLE mDldbh;
 

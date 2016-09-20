@@ -106,7 +106,6 @@ Hostname:	apple.com
 CN:		Test10
 SAN:		*.com
 Expected Result:FAIL
-Actual Result:	FAIL
 Notes:		https://www.niap-ccevs.org/pp/pp_md_v2.0.pdf, FCS_TLSC_EXT.2.2, Assurance Activity Test 5, Bullet 3
 
 Test 11
@@ -117,7 +116,6 @@ Hostname:	apple.co.uk
 CN:		Test11
 SAN:		*.co.uk
 Expected Result:FAIL
-Actual Result:	SUCCEED
 Notes:		https://www.niap-ccevs.org/pp/pp_md_v2.0.pdf, FCS_TLSC_EXT.2.2, Assurance Activity Test 5, Bullet 3
 
 Test 12
@@ -128,28 +126,27 @@ Hostname:	test.apple.com
 CN:		Test12
 SAN:		t*t.apple.com
 Expected Result:FAIL
+Notes:		Technically this is allowed per specifications.
 
 Test 13
 ----------
-Description:	Wildcard at the end of a label. Hostname has no letter for wildcard.
+Description:	Wildcard at the end of a label preceding top-level domain. Hostname has no letter for wildcard.
 Certificate:	InvalidWildcardTest13Test14.cer
 Hostname:	apple.com
 CN:		Test13 Test14
 SAN:		apple*.com
 Expected Result:FAIL
-Actual Result:	FAIL
 Notes:		Technically this is allowed per specifications, but we think this allows evil.
 
 Test 14
 ----------
-Description:	Wildcard at the end of a label. Hostname has letters for the wildcard.
+Description:	Wildcard at the end of a label preceding top-level domain. Hostname has letters for the wildcard.
 Certificate:	InvalidWildcardTest13Test14.cer
 Hostname:	appleseed.com
 CN:		Test13 Test14
 SAN:		apple*.com
 Expected Result:FAIL
-Actual Result:	FAIL
-Notes:		Not clear whether we should really allow this.
+Notes:		Technically this is allowed per specifications.
 
 Test 15
 ----------
@@ -197,7 +194,8 @@ Certificate:    ValidHostnameTest18Test19Test20.cer
 Hostname:       test.apple.com.
 CN:             Test18 Test19 Test20
 SAN:            test.apple.com
-Expected Result:FAIL
+Expected Result:SUCCEED
+Notes:          Allowed as a mechanism to force TLS renegotiation.
 
 Test 20
 ----------
@@ -252,6 +250,7 @@ Hostname:	test.apple.com
 CN:		Test25 Test26
 SAN:		*est.apple.com
 Expected Result:FAIL
+Notes:		Technically this is allowed per specifications.
 
 Test 26
 ---------
@@ -261,4 +260,108 @@ Hostname:	est.apple.com
 CN:		Test25 Test26
 SAN:		*est.apple.com
 Expected Result:FAIL
+Notes:		Technically this is allowed per specifications.
 
+Test 27
+----------
+Description:	Wildcard at the end of label. Hostname has letter for wildcard.
+Certificate:	InvalidWildcardTest27Test28.cer
+Hostname:	test.apple.com
+CN:		Test27 Test28
+SAN:		tes*.apple.com
+Expected Result:FAIL
+Notes:		We used to have an inconsistent approach to partial-label wildcards
+		(see Tests 12, 13, 14, 25, and 26); now, we disallow all partial-label
+		wildcards.
+
+Test 28
+---------
+Description:	Wildcard at the end of label. Hostname has not letter for wildcard.
+Certificate:	InvalidWildcardTest27Test28.cer
+Hostname:	tes.apple.com
+CN:		Test27 Test28
+SAN:		tes*.apple.com
+Expected Result:FAIL
+Notes:		See notes for Test 27.
+
+Test 29
+---------
+Description:	Hostname matches CN, case insensitive
+Certificate:	ValidHostnameTest3.cer
+Hostname:	TEST.apple.com
+CN:		test.apple.com
+SAN not present
+Expected Result:SUCCEED
+Notes:      <rdar://problem/26555272>
+
+Test 30
+---------
+Description:	Wildcards only - 1 label.
+Certificate:	InvalidWildcardTest30.cer
+Hostname:	apple
+CN:		Test30
+SAN:		*
+Expected Result:FAIL
+
+Test 31
+---------
+Description:	Wildcards only - 2 labels
+Certificate:	InvalidWildcardTest31.cer
+Hostname:	apple.com
+CN:		Test31
+SAN:		*.*
+Expected Result:FAIL
+
+Test 32
+---------
+Description:	Wildcards only - 3 labels
+Certificate:	InvalidWildcardTest32.cer
+Hostname:	test.apple.com
+CN:		Test32
+SAN:		*.*.*
+Expected Result:FAIL
+
+Test 33
+---------
+Description:	Wildcards only - 1 label, trailing '.'
+Certificate:	InvalidWildcardTest33.cer
+Hostname:	apple
+CN:		Test33
+SAN:		*.
+Expected Result:FAIL
+
+Test 34
+---------
+Description:	Wildcards only - 1 label, preceding '.'
+Certificate:	InvalidWildcardTest34.cer
+Hostname:	apple
+CN:		Test34
+SAN:		.*
+Expected Result:FAIL
+
+Test 35
+---------
+Description:	Wildcards only - 1 label to 2 labels
+Certificate:	InvalidWildcardTest30.cer
+Hostname:	apple.com
+CN:		Test30
+SAN:		*
+Expected Result:FAIL
+
+Test 36
+---------
+Description:	Wildcards only - 1 label to 2 labels, trailing '.'
+Certificate:	InvalidWildcardTest33.cer
+Hostname:	apple.com
+CN:		Test33
+SAN:		*.
+Expected Result:FAIL
+
+Test 37
+---------
+Description:	Wildcards only - 1 label to 2 labels, preceding '.'
+Certificate:	InvalidWildcardTest34.cer
+Hostname:	apple.com
+CN:		Test34
+SAN:		.*
+Expected Result:FAIL

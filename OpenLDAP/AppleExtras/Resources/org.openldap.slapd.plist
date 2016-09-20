@@ -31,8 +31,6 @@
 		<string>-h</string>
 		<string>ldap:/// ldapi://%2Fvar%2Frun%2Fldapi</string>
 	</array>
-	<key>ServiceIPC</key>
-	<false/>
 	<key>SoftResourceLimits</key>
 	<dict>
 		<key>NumberOfFiles</key>

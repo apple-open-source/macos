@@ -53,7 +53,7 @@ class WebVTTCueData;
 
 class VTTCueBox : public HTMLElement {
 public:
-    static PassRefPtr<VTTCueBox> create(Document&, VTTCue&);
+    static Ref<VTTCueBox> create(Document&, VTTCue&);
 
     VTTCue* getCue() const;
     virtual void applyCSSProperties(const IntSize& videoSize);
@@ -64,7 +64,7 @@ public:
 protected:
     VTTCueBox(Document&, VTTCue&);
 
-    virtual RenderPtr<RenderElement> createElementRenderer(Ref<RenderStyle>&&, const RenderTreePosition&) override final;
+    RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) final;
 
     VTTCue& m_cue;
     int m_fontSizeFromCaptionUserPrefs;
@@ -114,16 +114,14 @@ public:
     const String& cueSettings() const { return m_settings; }
     void setCueSettings(const String&);
 
-    PassRefPtr<DocumentFragment> getCueAsHTML();
-    PassRefPtr<DocumentFragment> createCueRenderingTree();
+    RefPtr<DocumentFragment> getCueAsHTML();
+    RefPtr<DocumentFragment> createCueRenderingTree();
 
-#if ENABLE(WEBVTT_REGIONS)
     const String& regionId() const { return m_regionId; }
     void setRegionId(const String&);
     void notifyRegionWhenRemovingDisplayTree(bool);
-#endif
 
-    virtual void setIsActive(bool) override;
+    void setIsActive(bool) override;
 
     bool hasDisplayTree() const { return m_displayTree; }
     VTTCueBox* getDisplayTree(const IntSize& videoSize, int fontSize);
@@ -163,14 +161,14 @@ public:
 
     virtual void setFontSize(int, const IntSize&, bool important);
 
-    virtual bool isEqual(const TextTrackCue&, CueMatchRules) const override;
-    virtual bool cueContentsMatch(const TextTrackCue&) const override;
-    virtual bool doesExtendCue(const TextTrackCue&) const override;
+    bool isEqual(const TextTrackCue&, CueMatchRules) const override;
+    bool cueContentsMatch(const TextTrackCue&) const override;
+    bool doesExtendCue(const TextTrackCue&) const override;
 
-    virtual CueType cueType() const override { return WebVTT; }
-    virtual bool isRenderable() const override final { return true; }
+    CueType cueType() const override { return WebVTT; }
+    bool isRenderable() const final { return true; }
 
-    virtual void didChange() override;
+    void didChange() override;
 
 protected:
     VTTCue(ScriptExecutionContext&, const MediaTime& start, const MediaTime& end, const String& content);
@@ -196,9 +194,7 @@ private:
         Position,
         Size,
         Align,
-#if ENABLE(WEBVTT_REGIONS)
         RegionId
-#endif
     };
     CueSetting settingName(VTTScanner&);
 
@@ -211,9 +207,7 @@ private:
 
     WritingDirection m_writingDirection;
     CueAlignment m_cueAlignment;
-#if ENABLE(WEBVTT_REGIONS)
     String m_regionId;
-#endif
 
     RefPtr<DocumentFragment> m_webVTTNodeTree;
     RefPtr<HTMLSpanElement> m_cueHighlightBox;

@@ -54,12 +54,11 @@ protected:
     RegionOverlay(MainFrame&, Color);
 
 private:
-    virtual void pageOverlayDestroyed(PageOverlay&) final;
-    virtual void willMoveToPage(PageOverlay&, Page*) final;
-    virtual void didMoveToPage(PageOverlay&, Page*) final;
-    virtual void drawRect(PageOverlay&, GraphicsContext&, const IntRect& dirtyRect) final;
-    virtual bool mouseEvent(PageOverlay&, const PlatformMouseEvent&) final;
-    virtual void didScrollFrame(PageOverlay&, Frame&) final;
+    void willMoveToPage(PageOverlay&, Page*) final;
+    void didMoveToPage(PageOverlay&, Page*) final;
+    void drawRect(PageOverlay&, GraphicsContext&, const IntRect& dirtyRect) final;
+    bool mouseEvent(PageOverlay&, const PlatformMouseEvent&) final;
+    void didScrollFrame(PageOverlay&, Frame&) final;
 
 protected:
     // Returns true if the region changed.
@@ -85,7 +84,7 @@ private:
     {
     }
 
-    virtual bool updateRegion() override;
+    bool updateRegion() override;
 };
 
 bool MouseWheelRegionOverlay::updateRegion()
@@ -107,7 +106,7 @@ bool MouseWheelRegionOverlay::updateRegion()
     region->translate(m_overlay->viewToOverlayOffset());
 
     bool regionChanged = !m_region || !(*m_region == *region);
-    m_region = WTF::move(region);
+    m_region = WTFMove(region);
     return regionChanged;
 }
 
@@ -124,7 +123,7 @@ private:
     {
     }
 
-    virtual bool updateRegion() override;
+    bool updateRegion() override;
 };
 
 bool NonFastScrollableRegionOverlay::updateRegion()
@@ -132,12 +131,15 @@ bool NonFastScrollableRegionOverlay::updateRegion()
     std::unique_ptr<Region> region = std::make_unique<Region>();
 
     if (Page* page = m_frame.page()) {
-        if (ScrollingCoordinator* scrollingCoordinator = page->scrollingCoordinator())
-            *region = scrollingCoordinator->absoluteNonFastScrollableRegion();
+        if (ScrollingCoordinator* scrollingCoordinator = page->scrollingCoordinator()) {
+            EventTrackingRegions eventTrackingRegions = scrollingCoordinator->absoluteEventTrackingRegions();
+            for (const auto& synchronousEventRegion : eventTrackingRegions.eventSpecificSynchronousDispatchRegions)
+                region->unite(synchronousEventRegion.value);
+        }
     }
 
     bool regionChanged = !m_region || !(*m_region == *region);
-    m_region = WTF::move(region);
+    m_region = WTFMove(region);
     return regionChanged;
 }
 
@@ -166,10 +168,6 @@ RegionOverlay::~RegionOverlay()
         m_frame.pageOverlayController().uninstallPageOverlay(m_overlay.get(), PageOverlay::FadeMode::DoNotFade);
 }
 
-void RegionOverlay::pageOverlayDestroyed(PageOverlay&)
-{
-}
-
 void RegionOverlay::willMoveToPage(PageOverlay&, Page* page)
 {
     if (!page)
@@ -190,7 +188,7 @@ void RegionOverlay::drawRect(PageOverlay&, GraphicsContext& context, const IntRe
         return;
     
     GraphicsContextStateSaver saver(context);
-    context.setFillColor(m_color, ColorSpaceSRGB);
+    context.setFillColor(m_color);
     for (auto rect : m_region->rects()) {
     
         if (rect.intersects(dirtyRect))
@@ -243,7 +241,7 @@ RegionOverlay& DebugPageOverlays::ensureRegionOverlayForFrame(MainFrame& frame, 
     RefPtr<RegionOverlay> visualizer = RegionOverlay::create(frame, regionType);
     visualizers[indexOf(regionType)] = visualizer;
 
-    m_frameRegionOverlays.add(&frame, WTF::move(visualizers));
+    m_frameRegionOverlays.add(&frame, WTFMove(visualizers));
     return *visualizer;
 }
 

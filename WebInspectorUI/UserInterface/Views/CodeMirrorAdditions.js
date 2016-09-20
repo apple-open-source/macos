@@ -484,12 +484,17 @@
             var newLength = alteredNumberString.length;
 
             // Fix up the selection so it follows the increase or decrease in the replacement length.
-            if (previousLength !== newLength) {
-                if (selectionStart.line === from.line && selectionStart.ch > from.ch)
-                    selectionStart.ch += newLength - previousLength;
-
-                if (selectionEnd.line === from.line && selectionEnd.ch > from.ch)
-                    selectionEnd.ch += newLength - previousLength;
+            // selectionStart/End may the same object if there is no selection. If that is the case
+            // make only one modification to prevent a double adjustment, and keep it a single object
+            // to avoid CodeMirror inadvertently creating an actual selection range.
+            let diff = (newLength - previousLength);
+            if (selectionStart === selectionEnd)
+                selectionStart.ch += diff;
+            else {
+                if (selectionStart.ch > from.ch)
+                    selectionStart.ch += diff;
+                if (selectionEnd.ch > from.ch)
+                    selectionEnd.ch += diff;
             }
 
             this.setSelection(selectionStart, selectionEnd);
@@ -626,19 +631,21 @@ WebInspector.compareCodeMirrorPositions = function(a, b)
 
 WebInspector.walkTokens = function(cm, mode, initialPosition, callback)
 {
-    var state = CodeMirror.copyState(mode, cm.getTokenAt(initialPosition).state);
-    var lineCount = cm.lineCount();
+    let state = CodeMirror.copyState(mode, cm.getTokenAt(initialPosition).state);
+    if (state.localState)
+        state = state.localState;
 
-    var abort = false;
+    let lineCount = cm.lineCount();
+    let abort = false;
     for (lineNumber = initialPosition.line; !abort && lineNumber < lineCount; ++lineNumber) {
-        var line = cm.getLine(lineNumber);
-        var stream = new CodeMirror.StringStream(line);
+        let line = cm.getLine(lineNumber);
+        let stream = new CodeMirror.StringStream(line);
         if (lineNumber === initialPosition.line)
             stream.start = stream.pos = initialPosition.ch;
 
         while (!stream.eol()) {
-            var innerMode = CodeMirror.innerMode(mode, state);
-            var tokenType = mode.token(stream, state);
+            let innerMode = CodeMirror.innerMode(mode, state);
+            let tokenType = mode.token(stream, state);
             if (!callback(tokenType, stream.current())) {
                 abort = true;
                 break;

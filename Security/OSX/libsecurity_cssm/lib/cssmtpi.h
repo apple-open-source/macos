@@ -32,6 +32,9 @@
 extern "C" {
 #endif
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 typedef struct cssm_spi_tp_funcs {
     CSSM_RETURN (CSSMTPI *SubmitCredRequest)
         (CSSM_TP_HANDLE TPHandle,
@@ -194,6 +197,8 @@ typedef struct cssm_spi_tp_funcs {
          const void *InputParams,
          void **OutputParams);
 } CSSM_SPI_TP_FUNCS DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_SPI_TP_FUNCS_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+
+#pragma clang diagnostic pop
 
 #ifdef __cplusplus
 }

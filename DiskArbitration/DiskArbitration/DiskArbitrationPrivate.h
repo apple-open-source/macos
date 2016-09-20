@@ -287,6 +287,8 @@ extern const CFStringRef kDADiskDescriptionMediaMatchKey;
 
 #ifndef __DISKARBITRATIOND__
 
+extern int _DAmkdir( const char * path, mode_t mode );
+
 extern DADiskRef _DADiskCreateFromSerialization( CFAllocatorRef allocator, DASessionRef session, CFDataRef serialization );
 
 extern DASessionRef _DADiskGetSession( DADiskRef disk );

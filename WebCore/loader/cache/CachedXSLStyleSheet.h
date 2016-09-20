@@ -42,13 +42,13 @@ public:
     const String& sheet() const { return m_sheet; }
 
 private:
-    virtual void checkNotify() override;
-    virtual bool mayTryReplaceEncodedData() const override { return true; }
-    virtual void didAddClient(CachedResourceClient*) override;
-    virtual void setEncoding(const String&) override;
-    virtual String encoding() const override;
+    void checkNotify() override;
+    bool mayTryReplaceEncodedData() const override { return true; }
+    void didAddClient(CachedResourceClient*) override;
+    void setEncoding(const String&) override;
+    String encoding() const override;
     const TextResourceDecoder* textResourceDecoder() const override { return m_decoder.get(); }
-    virtual void finishLoading(SharedBuffer*) override;
+    void finishLoading(SharedBuffer*) override;
 
     String m_sheet;
     RefPtr<TextResourceDecoder> m_decoder;

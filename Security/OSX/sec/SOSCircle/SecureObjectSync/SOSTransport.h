@@ -28,7 +28,9 @@ enum TransportType{
     kUnknown = 0,
     kKVS = 1,
     kIDS = 2,
-    kBackupPeer = 3
+    kBackupPeer = 3,
+    kIDSTest = 4,
+    kKVSTest = 5
 };
 
 #endif

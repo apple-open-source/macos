@@ -22,15 +22,18 @@
 #include "config.h"
 #include "Text.h"
 
+#include "Event.h"
 #include "RenderCombineText.h"
 #include "RenderSVGInlineText.h"
 #include "RenderText.h"
+#include "RenderTreeUpdater.h"
 #include "SVGElement.h"
 #include "SVGNames.h"
 #include "ScopedEventQueue.h"
 #include "ShadowRoot.h"
 #include "StyleInheritedData.h"
 #include "StyleResolver.h"
+#include "StyleUpdate.h"
 #include "TextNodeTraversal.h"
 #include <wtf/CheckedArithmetic.h>
 #include <wtf/text/CString.h>
@@ -72,7 +75,7 @@ RefPtr<Text> Text::splitText(unsigned offset, ExceptionCode& ec)
     dispatchModifiedEvent(oldStr);
 
     if (parentNode())
-        parentNode()->insertBefore(newText.ptr(), nextSibling(), ec);
+        parentNode()->insertBefore(newText, nextSibling(), ec);
     if (ec)
         return 0;
 
@@ -82,7 +85,7 @@ RefPtr<Text> Text::splitText(unsigned offset, ExceptionCode& ec)
     if (renderer())
         renderer()->setTextWithOffset(data(), 0, oldStr.length());
 
-    return WTF::move(newText);
+    return WTFMove(newText);
 }
 
 static const Text* earliestLogicallyAdjacentTextNode(const Text* text)
@@ -131,28 +134,28 @@ RefPtr<Text> Text::replaceWholeText(const String& newText, ExceptionCode&)
     RefPtr<Text> protectedThis(this); // Mutation event handlers could cause our last ref to go away
     RefPtr<ContainerNode> parent = parentNode(); // Protect against mutation handlers moving this node during traversal
     for (RefPtr<Node> n = startText; n && n != this && n->isTextNode() && n->parentNode() == parent;) {
-        RefPtr<Node> nodeToRemove(n.release());
+        Ref<Node> nodeToRemove(n.releaseNonNull());
         n = nodeToRemove->nextSibling();
-        parent->removeChild(nodeToRemove.get(), IGNORE_EXCEPTION);
+        parent->removeChild(WTFMove(nodeToRemove), IGNORE_EXCEPTION);
     }
 
     if (this != endText) {
         Node* onePastEndText = endText->nextSibling();
         for (RefPtr<Node> n = nextSibling(); n && n != onePastEndText && n->isTextNode() && n->parentNode() == parent;) {
-            RefPtr<Node> nodeToRemove(n.release());
+            Ref<Node> nodeToRemove(n.releaseNonNull());
             n = nodeToRemove->nextSibling();
-            parent->removeChild(nodeToRemove.get(), IGNORE_EXCEPTION);
+            parent->removeChild(WTFMove(nodeToRemove), IGNORE_EXCEPTION);
         }
     }
 
     if (newText.isEmpty()) {
         if (parent && parentNode() == parent)
-            parent->removeChild(this, IGNORE_EXCEPTION);
-        return 0;
+            parent->removeChild(*this, IGNORE_EXCEPTION);
+        return nullptr;
     }
 
-    setData(newText, IGNORE_EXCEPTION);
-    return protectedThis.release();
+    setData(newText);
+    return protectedThis;
 }
 
 String Text::nodeName() const
@@ -165,7 +168,7 @@ Node::NodeType Text::nodeType() const
     return TEXT_NODE;
 }
 
-RefPtr<Node> Text::cloneNodeInternal(Document& targetDocument, CloningOperation)
+Ref<Node> Text::cloneNodeInternal(Document& targetDocument, CloningOperation)
 {
     return create(targetDocument, data());
 }
@@ -174,7 +177,7 @@ static bool isSVGShadowText(Text* text)
 {
     Node* parentNode = text->parentNode();
     ASSERT(parentNode);
-    return is<ShadowRoot>(*parentNode) && downcast<ShadowRoot>(*parentNode).hostElement()->hasTagName(SVGNames::trefTag);
+    return is<ShadowRoot>(*parentNode) && downcast<ShadowRoot>(*parentNode).host()->hasTagName(SVGNames::trefTag);
 }
 
 static bool isSVGText(Text* text)
@@ -215,6 +218,23 @@ Ref<Text> Text::createWithLengthLimit(Document& document, const String& data, un
     result->parserAppendData(data, start, lengthLimit);
     return result;
 }
+
+void Text::updateRendererAfterContentChange(unsigned offsetOfReplacedData, unsigned lengthOfReplacedData)
+{
+    ASSERT(parentNode());
+    if (styleChangeType() == ReconstructRenderTree)
+        return;
+
+    auto textUpdate = std::make_unique<Style::Update>(document());
+    textUpdate->addText(*this);
+
+    RenderTreeUpdater renderTreeUpdater(document());
+    renderTreeUpdater.commit(WTFMove(textUpdate));
+
+    if (auto* renderer = this->renderer())
+        renderer->setTextWithOffset(data(), offsetOfReplacedData, lengthOfReplacedData);
+}
+
 
 #if ENABLE(TREE_DEBUGGING)
 void Text::formatForDebugger(char* buffer, unsigned length) const

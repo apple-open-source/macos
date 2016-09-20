@@ -26,7 +26,6 @@
 #import "config.h"
 #import "ScrollView.h"
 
-#import "BlockExceptions.h"
 #import "FloatRect.h"
 #import "IntRect.h"
 #import "Logging.h"
@@ -38,6 +37,7 @@
 #import "WAKWindow.h"
 #import "WKViewPrivate.h"
 #import "WebCoreFrameView.h"
+#import <wtf/BlockObjCExceptions.h>
 #import <wtf/CurrentTime.h>
 
 using namespace std;
@@ -108,7 +108,7 @@ IntRect ScrollView::unobscuredContentRect(VisibleContentRectIncludesScrollbars) 
     }
 
     if (!m_unobscuredContentSize.isEmpty())
-        return IntRect(scrollOrigin() + m_scrollOffset, roundedIntSize(m_unobscuredContentSize));
+        return IntRect(m_scrollPosition, roundedIntSize(m_unobscuredContentSize));
 
     return unobscuredContentRectInternal();
 }
@@ -116,7 +116,11 @@ IntRect ScrollView::unobscuredContentRect(VisibleContentRectIncludesScrollbars) 
 void ScrollView::setUnobscuredContentSize(const FloatSize& size)
 {
     ASSERT(!platformWidget());
+    if (size == m_unobscuredContentSize)
+        return;
+
     m_unobscuredContentSize = size;
+    unobscuredContentSizeChanged();
 }
 
 FloatRect ScrollView::exposedContentRect() const

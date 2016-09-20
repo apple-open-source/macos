@@ -357,7 +357,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "echo \"Starting OS X trust store build\"\nruby \"$PROJECT_DIR\"/BuildOSXAsset/buildRootKeychain.rb\necho \"Finished OS X trust store build\"\n\nexit 0\n";
+			shellScript = "echo \"Starting OS X trust store build\"\nruby \"$PROJECT_DIR\"/BuildOSXAsset/buildRootKeychain.rb\nSTATUS=$?\nif [ $STATUS -ne 0 ] ; then\n    echo \"buildRootKeychain.rb failed with exit status $STATUS\"\n    exit 1\nfi\necho \"Finished OS X trust store build\"\nexit 0\n";
 		};
 		7280A8C716D2AC45000DD5AC /* Run Script */ = {
 			isa = PBXShellScriptBuildPhase;

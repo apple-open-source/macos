@@ -12,9 +12,9 @@
 //  Copyright 2008 __MyCompanyName__. All rights reserved.
 //
 
-// test non-GC -retain
+// test -retain
 
-// TEST_CONFIG MEM=mrc
+// TEST_CONFIG
 // TEST_CFLAGS -framework Foundation
 
 #import <stdio.h>

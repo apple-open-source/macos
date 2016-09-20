@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,9 +28,9 @@
 
 #if WK_API_ENABLED
 
+#import "AutomationClient.h"
 #import "CacheModel.h"
 #import "DownloadClient.h"
-#import "ProcessModel.h"
 #import "SandboxUtilities.h"
 #import "WKObject.h"
 #import "WeakObjCPtr.h"
@@ -38,6 +38,8 @@
 #import "WebCookieManagerProxy.h"
 #import "WebProcessMessages.h"
 #import "WebProcessPool.h"
+#import "_WKAutomationDelegate.h"
+#import "_WKAutomationSessionInternal.h"
 #import "_WKDownloadDelegate.h"
 #import "_WKProcessPoolConfigurationInternal.h"
 #import <WebCore/CFNetworkSPI.h>
@@ -49,9 +51,13 @@
 #import "WKGeolocationProviderIOS.h"
 #endif
 
+static WKProcessPool *sharedProcessPool;
+
 @implementation WKProcessPool {
+    WebKit::WeakObjCPtr<id <_WKAutomationDelegate>> _automationDelegate;
     WebKit::WeakObjCPtr<id <_WKDownloadDelegate>> _downloadDelegate;
 
+    RetainPtr<_WKAutomationSession> _automationSession;
 #if PLATFORM(IOS)
     RetainPtr<WKGeolocationProviderIOS> _geolocationProvider;
 #endif // PLATFORM(IOS)
@@ -84,6 +90,28 @@
     [super dealloc];
 }
 
+- (void)encodeWithCoder:(NSCoder *)coder
+{
+    if (self == sharedProcessPool) {
+        [coder encodeBool:YES forKey:@"isSharedProcessPool"];
+        return;
+    }
+}
+
+- (instancetype)initWithCoder:(NSCoder *)coder
+{
+    if (!(self = [self init]))
+        return nil;
+
+    if ([coder decodeBoolForKey:@"isSharedProcessPool"]) {
+        [self release];
+
+        return [[WKProcessPool _sharedProcessPool] retain];
+    }
+
+    return self;
+}
+
 - (NSString *)description
 {
     return [NSString stringWithFormat:@"<%@: %p; configuration = %@>", NSStringFromClass(self.class), self, wrapper(_processPool->configuration())];
@@ -111,6 +139,16 @@
 @end
 
 @implementation WKProcessPool (WKPrivate)
+
++ (WKProcessPool *)_sharedProcessPool
+{
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        sharedProcessPool = [[WKProcessPool alloc] init];
+    });
+
+    return sharedProcessPool;
+}
 
 + (NSURL *)_websiteDataURLForContainerWithURL:(NSURL *)containerURL
 {
@@ -188,6 +226,27 @@ static WebKit::HTTPCookieAcceptPolicy toHTTPCookieAcceptPolicy(NSHTTPCookieAccep
     _processPool->sendToAllProcesses(Messages::WebProcess::SetInjectedBundleParameter(parameter, IPC::DataReference(static_cast<const uint8_t*>([data bytes]), [data length])));
 }
 
+- (void)_setObjectsForBundleParametersWithDictionary:(NSDictionary *)dictionary
+{
+    auto copy = adoptNS([[NSDictionary alloc] initWithDictionary:dictionary copyItems:YES]);
+
+    auto data = adoptNS([[NSMutableData alloc] init]);
+    auto keyedArchiver = adoptNS([[NSKeyedArchiver alloc] initForWritingWithMutableData:data.get()]);
+    [keyedArchiver setRequiresSecureCoding:YES];
+
+    @try {
+        [keyedArchiver encodeObject:copy.get() forKey:@"parameters"];
+        [keyedArchiver finishEncoding];
+    } @catch (NSException *exception) {
+        LOG_ERROR("Failed to encode bundle parameters: %@", exception);
+    }
+
+    [_processPool->ensureBundleParameters() setValuesForKeysWithDictionary:copy.get()];
+
+    _processPool->sendToAllProcesses(Messages::WebProcess::SetInjectedBundleParameters(IPC::DataReference(static_cast<const uint8_t*>([data bytes]), [data length])));
+}
+
+
 - (id <_WKDownloadDelegate>)_downloadDelegate
 {
     return _downloadDelegate.getAutoreleased();
@@ -197,6 +256,38 @@ static WebKit::HTTPCookieAcceptPolicy toHTTPCookieAcceptPolicy(NSHTTPCookieAccep
 {
     _downloadDelegate = downloadDelegate;
     _processPool->setDownloadClient(std::make_unique<WebKit::DownloadClient>(downloadDelegate));
+}
+
+- (id <_WKAutomationDelegate>)_automationDelegate
+{
+    return _automationDelegate.getAutoreleased();
+}
+
+- (void)_setAutomationDelegate:(id <_WKAutomationDelegate>)automationDelegate
+{
+    _automationDelegate = automationDelegate;
+    _processPool->setAutomationClient(std::make_unique<WebKit::AutomationClient>(self, automationDelegate));
+}
+
+- (void)_warmInitialProcess
+{
+    _processPool->warmInitialProcess();
+}
+
+- (void)_automationCapabilitiesDidChange
+{
+    _processPool->updateAutomationCapabilities();
+}
+
+- (void)_setAutomationSession:(_WKAutomationSession *)automationSession
+{
+    _automationSession = automationSession;
+    _processPool->setAutomationSession(automationSession ? automationSession->_session.get() : nullptr);
+}
+
+- (void)_terminateDatabaseProcess
+{
+    _processPool->terminateDatabaseProcess();
 }
 
 @end

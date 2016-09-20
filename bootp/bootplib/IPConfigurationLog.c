@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,48 +33,20 @@
  * - created
  */
 
-#include <SystemConfiguration/SCPrivate.h>
-#include "symbol_scope.h"
 #include "IPConfigurationLog.h"
+#include "symbol_scope.h"
 
-/*
- * kIPConfigurationLoggerID
- * - used with SCLoggerCreate to identify which ASL logging module to use
- */
-#define kIPConfigurationLoggerID CFSTR("com.apple.networking.IPConfiguration")
+STATIC os_log_t	S_log_handle;
 
-STATIC SCLoggerRef	S_logger;
-
-STATIC void
-IPConfigurationLogInit(void)
+PRIVATE_EXTERN void
+IPConfigLogSetHandle(os_log_t handle)
 {
-    if (S_logger == NULL) {
-	S_logger = SCLoggerCreate(kIPConfigurationLoggerID);
-    }
+    S_log_handle = handle;
     return;
 }
 
-PRIVATE_EXTERN void
-IPConfigurationLog(int level, CFStringRef format, ...)
+PRIVATE_EXTERN os_log_t
+IPConfigLogGetHandle(void)
 {
-    va_list	args;
-
-    IPConfigurationLogInit();
-    va_start(args, format);
-    SCLoggerVLog(S_logger, level, format, args);
-    va_end(args);
-    return;
-}
-
-PRIVATE_EXTERN void
-IPConfigurationLogSetVerbose(bool verbose)
-{
-    SCLoggerFlags	flags = kSCLoggerFlagsDefault;
-
-    IPConfigurationLogInit();
-    if (verbose) {
-	flags |= kSCLoggerFlagsFile;
-    }
-    SCLoggerSetFlags(S_logger, flags);
-    return;
+    return (S_log_handle);
 }

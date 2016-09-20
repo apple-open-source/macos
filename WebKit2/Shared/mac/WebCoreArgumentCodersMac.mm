@@ -163,30 +163,52 @@ bool ArgumentCoder<ResourceRequest>::decodePlatformData(ArgumentDecoder& decoder
 
 void ArgumentCoder<CertificateInfo>::encode(ArgumentEncoder& encoder, const CertificateInfo& certificateInfo)
 {
-    CFArrayRef certificateChain = certificateInfo.certificateChain();
-    if (!certificateChain) {
-        encoder << false;
-        return;
-    }
+    encoder.encodeEnum(certificateInfo.type());
 
-    encoder << true;
-    IPC::encode(encoder, certificateChain);
+    switch (certificateInfo.type()) {
+#if HAVE(SEC_TRUST_SERIALIZATION)
+    case CertificateInfo::Type::Trust:
+        IPC::encode(encoder, certificateInfo.trust());
+        break;
+#endif
+    case CertificateInfo::Type::CertificateChain:
+        IPC::encode(encoder, certificateInfo.certificateChain());
+        break;
+    case CertificateInfo::Type::None:
+        // Do nothing.
+        break;
+    }
 }
 
 bool ArgumentCoder<CertificateInfo>::decode(ArgumentDecoder& decoder, CertificateInfo& certificateInfo)
 {
-    bool hasCertificateChain;
-    if (!decoder.decode(hasCertificateChain))
+    CertificateInfo::Type certificateInfoType;
+    if (!decoder.decodeEnum(certificateInfoType))
         return false;
 
-    if (!hasCertificateChain)
+    switch (certificateInfoType) {
+#if HAVE(SEC_TRUST_SERIALIZATION)
+    case CertificateInfo::Type::Trust: {
+        RetainPtr<SecTrustRef> trust;
+        if (!IPC::decode(decoder, trust))
+            return false;
+
+        certificateInfo = CertificateInfo(WTFMove(trust));
         return true;
+    }
+#endif
+    case CertificateInfo::Type::CertificateChain: {
+        RetainPtr<CFArrayRef> certificateChain;
+        if (!IPC::decode(decoder, certificateChain))
+            return false;
 
-    RetainPtr<CFArrayRef> certificateChain;
-    if (!IPC::decode(decoder, certificateChain))
-        return false;
-
-    certificateInfo.setCertificateChain(certificateChain.get());
+        certificateInfo = CertificateInfo(WTFMove(certificateChain));
+        return true;
+    }    
+    case CertificateInfo::Type::None:
+        // Do nothing.
+        break;
+    }
 
     return true;
 }
@@ -219,9 +241,7 @@ static void encodeNSError(ArgumentEncoder& encoder, NSError *nsError)
         }());
 
         CFDictionarySetValue(filteredUserInfo.get(), @"NSErrorClientCertificateChainKey", clientIdentityAndCertificates);
-    };
-
-    IPC::encode(encoder, filteredUserInfo.get());
+    }
 
     id peerCertificateChain = [userInfo objectForKey:@"NSErrorPeerCertificateChainKey"];
     if (!peerCertificateChain) {
@@ -233,7 +253,15 @@ static void encodeNSError(ArgumentEncoder& encoder, NSError *nsError)
         }
     }
     ASSERT(!peerCertificateChain || [peerCertificateChain isKindOfClass:[NSArray class]]);
-    encoder << CertificateInfo((CFArrayRef)peerCertificateChain);
+    if (peerCertificateChain)
+        CFDictionarySetValue(filteredUserInfo.get(), @"NSErrorPeerCertificateChainKey", peerCertificateChain);
+
+#if HAVE(SEC_TRUST_SERIALIZATION)
+    if (SecTrustRef peerTrust = (SecTrustRef)[userInfo objectForKey:NSURLErrorFailingURLPeerTrustErrorKey])
+        CFDictionarySetValue(filteredUserInfo.get(), NSURLErrorFailingURLPeerTrustErrorKey, peerTrust);
+#endif
+
+    IPC::encode(encoder, filteredUserInfo.get());
 
     if (id underlyingError = [userInfo objectForKey:NSUnderlyingErrorKey]) {
         ASSERT([underlyingError isKindOfClass:[NSError class]]);
@@ -268,15 +296,6 @@ static bool decodeNSError(ArgumentDecoder& decoder, RetainPtr<NSError>& nsError)
     RetainPtr<CFDictionaryRef> userInfo;
     if (!IPC::decode(decoder, userInfo))
         return false;
-
-    CertificateInfo certificate;
-    if (!decoder.decode(certificate))
-        return false;
-
-    if (certificate.certificateChain()) {
-        userInfo = adoptCF(CFDictionaryCreateMutableCopy(kCFAllocatorDefault, CFDictionaryGetCount(userInfo.get()) + 1, userInfo.get()));
-        CFDictionarySetValue((CFMutableDictionaryRef)userInfo.get(), CFSTR("NSErrorPeerCertificateChainKey"), (CFArrayRef)certificate.certificateChain());
-    }
 
     bool hasUnderlyingError = false;
     if (!decoder.decode(hasUnderlyingError))
@@ -491,14 +510,12 @@ static NSString *deviceContextKey()
 
 void ArgumentCoder<MediaPlaybackTargetContext>::encodePlatformData(ArgumentEncoder& encoder, const MediaPlaybackTargetContext& target)
 {
-    ASSERT(target.type == MediaPlaybackTargetContext::AVOutputContextType);
-
     RetainPtr<NSMutableData> data = adoptNS([[NSMutableData alloc] init]);
     RetainPtr<NSKeyedArchiver> archiver = adoptNS([[NSKeyedArchiver alloc] initForWritingWithMutableData:data.get()]);
     [archiver setRequiresSecureCoding:YES];
 
     if ([getAVOutputContextClass() conformsToProtocol:@protocol(NSSecureCoding)])
-        [archiver encodeObject:target.context.avOutputContext forKey:deviceContextKey()];
+        [archiver encodeObject:target.avOutputContext() forKey:deviceContextKey()];
 
     [archiver finishEncoding];
     IPC::encode(encoder, reinterpret_cast<CFDataRef>(data.get()));
@@ -507,8 +524,6 @@ void ArgumentCoder<MediaPlaybackTargetContext>::encodePlatformData(ArgumentEncod
 
 bool ArgumentCoder<MediaPlaybackTargetContext>::decodePlatformData(ArgumentDecoder& decoder, MediaPlaybackTargetContext& target)
 {
-    ASSERT(target.type == MediaPlaybackTargetContext::AVOutputContextType);
-
     if (![getAVOutputContextClass() conformsToProtocol:@protocol(NSSecureCoding)])
         return false;
 
@@ -523,11 +538,11 @@ bool ArgumentCoder<MediaPlaybackTargetContext>::decodePlatformData(ArgumentDecod
     @try {
         context = [unarchiver decodeObjectOfClass:getAVOutputContextClass() forKey:deviceContextKey()];
     } @catch (NSException *exception) {
-        LOG_ERROR("The target picker being decoded is not a AVOutputContext.");
+        LOG_ERROR("The target picker being decoded is not an AVOutputContext.");
         return false;
     }
 
-    target.context.avOutputContext = context;
+    target = MediaPlaybackTargetContext(context);
     
     [unarchiver finishDecoding];
     return true;

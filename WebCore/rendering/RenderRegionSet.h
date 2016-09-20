@@ -50,14 +50,14 @@ public:
     void expandToEncompassFlowThreadContentsIfNeeded();
 
 protected:
-    RenderRegionSet(Document&, Ref<RenderStyle>&&, RenderFlowThread&);
+    RenderRegionSet(Document&, RenderStyle&&, RenderFlowThread&);
 
 private:
-    virtual void installFlowThread() override final;
+    void installFlowThread() final;
 
-    virtual const char* renderName() const override = 0;
+    const char* renderName() const override = 0;
     
-    virtual bool isRenderRegionSet() const override final { return true; }
+    bool isRenderRegionSet() const final { return true; }
 };
 
 } // namespace WebCore

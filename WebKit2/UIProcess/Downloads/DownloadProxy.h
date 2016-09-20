@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,6 +28,7 @@
 
 #include "APIObject.h"
 #include "Connection.h"
+#include "DownloadID.h"
 #include "SandboxExtension.h"
 #include <WebCore/ResourceRequest.h>
 #include <wtf/Forward.h>
@@ -38,13 +39,15 @@ class Data;
 }
 
 namespace WebCore {
-    class AuthenticationChallenge;
-    class ResourceError;
-    class ResourceResponse;
+class AuthenticationChallenge;
+class ProtectionSpace;
+class ResourceError;
+class ResourceResponse;
 }
 
 namespace WebKit {
 
+class DownloadID;
 class DownloadProxyMap;
 class WebPageProxy;
 class WebProcessPool;
@@ -54,7 +57,7 @@ public:
     static PassRefPtr<DownloadProxy> create(DownloadProxyMap&, WebProcessPool&, const WebCore::ResourceRequest&);
     ~DownloadProxy();
 
-    uint64_t downloadID() const { return m_downloadID; }
+    DownloadID downloadID() const { return m_downloadID; }
     const WebCore::ResourceRequest& request() const { return m_request; }
     API::Data* resumeData() const { return m_resumeData.get(); }
 
@@ -70,27 +73,35 @@ private:
     explicit DownloadProxy(DownloadProxyMap&, WebProcessPool&, const WebCore::ResourceRequest&);
 
     // IPC::MessageReceiver
-    virtual void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
-    virtual void didReceiveSyncMessage(IPC::Connection&, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&) override;
+    void didReceiveMessage(IPC::Connection&, IPC::MessageDecoder&) override;
+    void didReceiveSyncMessage(IPC::Connection&, IPC::MessageDecoder&, std::unique_ptr<IPC::MessageEncoder>&) override;
 
     // Message handlers.
-    void didStart(const WebCore::ResourceRequest&);
+    void didStart(const WebCore::ResourceRequest&, const AtomicString& suggestedFilename);
     void didReceiveAuthenticationChallenge(const WebCore::AuthenticationChallenge&, uint64_t challengeID);
     void didReceiveResponse(const WebCore::ResourceResponse&);
     void didReceiveData(uint64_t length);
     void shouldDecodeSourceDataOfMIMEType(const String& mimeType, bool& result);
+#if !USE(NETWORK_SESSION)
     void decideDestinationWithSuggestedFilename(const String& filename, String& destination, bool& allowOverwrite, SandboxExtension::Handle& sandboxExtensionHandle);
+#endif
     void didCreateDestination(const String& path);
     void didFinish();
     void didFail(const WebCore::ResourceError&, const IPC::DataReference& resumeData);
     void didCancel(const IPC::DataReference& resumeData);
+#if USE(NETWORK_SESSION)
+    void canAuthenticateAgainstProtectionSpace(const WebCore::ProtectionSpace&);
+    void willSendRequest(const WebCore::ResourceRequest& redirectRequest, const WebCore::ResourceResponse& redirectResponse);
+    void decideDestinationWithSuggestedFilenameAsync(DownloadID, const String& suggestedFilename);
+#endif
 
     DownloadProxyMap& m_downloadProxyMap;
     RefPtr<WebProcessPool> m_processPool;
-    uint64_t m_downloadID;
+    DownloadID m_downloadID;
 
     RefPtr<API::Data> m_resumeData;
     WebCore::ResourceRequest m_request;
+    AtomicString m_suggestedFilename;
 };
 
 } // namespace WebKit

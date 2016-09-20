@@ -2,14 +2,14 @@
  * Copyright (c) 2006-2014 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -34,6 +34,7 @@
 #include <CoreFoundation/CFData.h>
 #include <CoreFoundation/CFError.h>
 #include <TargetConditionals.h>
+#include <Security/SecBase.h>
 
 #if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
 #include <Security/SecTask.h>
@@ -280,10 +281,23 @@ extern const CFStringRef kSecAttrNoLegacy
     __OSX_AVAILABLE(10.11) __IOS_AVAILABLE(9.3) __TVOS_AVAILABLE(9.3) __WATCHOS_AVAILABLE(2.3);
 extern const CFStringRef kSecAttrSyncViewHint
     __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
-extern const CFStringRef kSecAttrTokenID
-    __OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
 extern const CFStringRef kSecAttrMultiUser
     __OSX_AVAILABLE(10.11.5) __IOS_AVAILABLE(9.3) __TVOS_AVAILABLE(9.3) __WATCHOS_AVAILABLE(2.3);
+extern const CFStringRef kSecAttrTokenOID
+	__OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);
+
+
+/*!
+    @enum kSecAttrAccessible Value Constants (Private)
+    @constant kSecAttrAccessibleAlwaysPrivate Private alias for kSecAttrAccessibleAlways,
+        which is going to be deprecated for 3rd party use.
+    @constant kSecAttrAccessibleAlwaysThisDeviceOnlyPrivate for kSecAttrAccessibleAlwaysThisDeviceOnly,
+        which is going to be deprecated for 3rd party use.
+*/
+extern const CFStringRef kSecAttrAccessibleAlwaysPrivate
+;//%%%    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
+extern const CFStringRef kSecAttrAccessibleAlwaysThisDeviceOnlyPrivate
+;//%%%    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
 
 /*  View Hint Constants */
 
@@ -297,10 +311,13 @@ extern const CFStringRef kSecAttrViewHintPCSMailDrop;
 extern const CFStringRef kSecAttrViewHintPCSiCloudBackup;
 extern const CFStringRef kSecAttrViewHintPCSNotes;
 extern const CFStringRef kSecAttrViewHintPCSiMessage;
+extern const CFStringRef kSecAttrViewHintPCSSharing;
 
 extern const CFStringRef kSecAttrViewHintAppleTV;
 extern const CFStringRef kSecAttrViewHintHomeKit;
 extern const CFStringRef kSecAttrViewHintThumper;
+extern const CFStringRef kSecAttrViewHintContinuityUnlock;
+extern const CFStringRef kSecAttrViewHintAccessoryPairing;
 
 /*!
     @enum Other Constants (Private)
@@ -365,6 +382,42 @@ OSStatus SecItemCopyDisplayNames(CFArrayRef items, CFArrayRef *displayNames);
 */
 OSStatus SecItemDeleteAll(void);
 
+
+/*!
+ @function SecItemParentCachePurge
+ @abstract Clear the cache of parent certificates used in SecItemCopyParentCertificates.
+ */
+void SecItemParentCachePurge();
+
+/*!
+    @function SecItemCopyParentCertificates
+    @abstract Retrieve an array of possible issuing certificates for a given certificate.
+    @param certificate A reference to a certificate whose issuers are being sought.
+    @param context Pass NULL in this parameter to indicate that the default certificate
+    source(s) should be searched. The default is to search all available keychains.
+    Values of context other than NULL are currently ignored.
+    @result An array of zero or more certificates whose normalized subject matches the
+    normalized issuer of the provided certificate. Note that no cryptographic validation
+    of the signature is performed by this function; its purpose is only to provide a list
+    of candidate certificates.
+*/
+CFArrayRef SecItemCopyParentCertificates(SecCertificateRef certificate, void *context)
+    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_NA);
+
+/*!
+    @function SecItemCopyStoredCertificate
+    @abstract Retrieve the first stored instance of a given certificate.
+    @param certificate A reference to a certificate.
+    @param context Pass NULL in this parameter to indicate that the default certificate
+    source(s) should be searched. The default is to search all available keychains.
+    Values of context other than NULL are currently ignored.
+    @result Returns a certificate reference if the given certificate exists in a keychain,
+    or NULL if the certificate cannot be found in any keychain. The caller is responsible
+    for releasing the returned certificate reference when finished with it.
+*/
+SecCertificateRef SecItemCopyStoredCertificate(SecCertificateRef certificate, void *context)
+    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_NA);
+
 /*
     Ensure the escrow keybag has been used to unlock the system keybag before
     calling either of these APIs.
@@ -388,7 +441,7 @@ CFArrayRef _SecKeychainSyncUpdateMessage(CFDictionaryRef updates, CFErrorRef *er
 CFDataRef _SecItemGetPersistentReference(CFTypeRef raw_item);
 #endif
 
-/* Returns an OSStatus value for the given CFErrorRef, returns errSecInternal if the 
+/* Returns an OSStatus value for the given CFErrorRef, returns errSecInternal if the
    domain of the provided error is not recognized.  Passing NULL returns errSecSuccess (0). */
 OSStatus SecErrorGetOSStatus(CFErrorRef error);
 
@@ -397,6 +450,8 @@ bool _SecKeychainRollKeys(bool force, CFErrorRef *error);
 CFDictionaryRef _SecSecuritydCopyWhoAmI(CFErrorRef *error);
 bool _SecSyncBubbleTransfer(CFArrayRef services, CFErrorRef *error);
 bool _SecSystemKeychainTransfer(CFErrorRef *error);
+
+OSStatus SecItemUpdateTokenItems(CFTypeRef tokenID, CFArrayRef tokenItemsAttributes);
 
 __END_DECLS
 

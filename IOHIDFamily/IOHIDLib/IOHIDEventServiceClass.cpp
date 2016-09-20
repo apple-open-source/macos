@@ -29,6 +29,8 @@
 #include <IOKit/hid/IOHIDUsageTables.h>
 #include <IOKit/hid/IOHIDServiceKeys.h>
 #include <IOKit/hid/IOHIDKeys.h>
+#include "IOHIDevicePrivateKeys.h"
+#include "IOHIDPrivateKeys.h"
 
 #if TARGET_OS_EMBEDDED // {
 #include <IOKit/hid/AppleEmbeddedHIDKeys.h>
@@ -81,6 +83,100 @@ IOHIDServiceInterface2 IOHIDEventServiceClass::sIOHIDServiceInterface2 =
     &IOHIDEventServiceClass::_setOutputEvent
 };
 
+
+
+
+static PROPERTY_INFO PropertyInfoTable [] = {
+    {
+        CFSTR(kIOHIDKeyboardModifierMappingPairsKey),
+        (kPropertyInfoCache | kPropertyInfoMutable)
+    },
+    {
+        CFSTR(kIOHIDTransportKey),
+        kPropertyInfoCache
+    },
+    {
+        CFSTR(kIOHIDVendorIDKey),
+        kPropertyInfoCache
+    },
+    {
+        CFSTR(kIOHIDProductIDKey),
+        kPropertyInfoCache
+    },
+    {
+        CFSTR(kIOHIDVersionNumberKey),
+        kPropertyInfoCache
+    },
+    {
+        CFSTR(kIOHIDManufacturerKey),
+        kPropertyInfoCache
+    },
+    {
+        CFSTR(kIOHIDProductKey),
+        kPropertyInfoCache
+    },
+    {
+        CFSTR(kIOHIDSerialNumberKey),
+        kPropertyInfoCache
+    },
+    {
+        CFSTR(kIOHIDCountryCodeKey),
+        kPropertyInfoCache
+    },
+    {
+        CFSTR(kIOHIDLocationIDKey),
+        kPropertyInfoCache
+    },
+    {
+        CFSTR(kIOHIDPrimaryUsagePageKey),
+        kPropertyInfoCache
+    },
+    {
+        CFSTR(kIOHIDPrimaryUsageKey),
+        kPropertyInfoCache
+    },
+    {
+        CFSTR(kIOHIDDeviceUsagePairsKey),
+        kPropertyInfoCache
+    },
+    {
+        CFSTR(kIOHIDScrollAccelerationTypeKey),
+        kPropertyInfoProviderOnly
+    },
+    {
+        CFSTR(kIOHIDPointerAccelerationTypeKey),
+        kPropertyInfoProviderOnly
+    },
+    {
+        CFSTR(kIOHIDPointerAccelerationTableKey),
+        kPropertyInfoProviderOnly
+    },
+    {
+        CFSTR(kIOHIDScrollAccelerationTableKey),
+        kPropertyInfoProviderOnly
+    },
+    {
+        CFSTR(kIOHIDScrollAccelerationTableXKey),
+        kPropertyInfoProviderOnly
+    },
+    {
+        CFSTR(kIOHIDScrollAccelerationTableYKey),
+        kPropertyInfoProviderOnly
+    },
+    {
+        CFSTR(kIOHIDScrollAccelerationTableZKey),
+        kPropertyInfoProviderOnly
+    },
+    {
+        CFSTR(kIOHIDScrollAccelerationTableZKey),
+        kPropertyInfoProviderOnly
+    },
+    {
+        CFSTR(kIOHIDMouseClickNotification),
+        kPropertyNotification
+    }
+};
+
 //===========================================================================
 // CONSTRUCTOR / DESTRUCTOR methods
 //===========================================================================
@@ -104,7 +200,6 @@ IOHIDEventServiceClass::IOHIDEventServiceClass() : IOHIDIUnknown(&sIOCFPlugInInt
     _eventCallback              = NULL;
     _eventTarget                = NULL;
     _eventRefcon                = NULL;
-    
     _queueMappedMemory          = NULL;
     _queueMappedMemorySize      = 0;    
 }
@@ -369,72 +464,84 @@ IOReturn IOHIDEventServiceClass::probe(CFDictionaryRef propertyTable __unused, i
 IOReturn IOHIDEventServiceClass::start(CFDictionaryRef propertyTable __unused, io_service_t service)
 {
     IOReturn                ret             = kIOReturnError;
-    HRESULT                 plugInResult 	= S_OK;
+    HRESULT                 plugInResult    = S_OK;
     SInt32                  score           = 0;
     CFMutableDictionaryRef  serviceProps    = NULL;
     
     do {
         _service = service;
         IOObjectRetain(_service);
-
+      
         _serviceProperties = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-        
         if ( !_serviceProperties ) {
             ret = kIOReturnNoMemory;
             break;
         }
-
-        IORegistryEntryCreateCFProperties(service, &serviceProps, kCFAllocatorDefault, 0);
-
-        if ( !serviceProps )
-            break;
-            
-        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDTransportKey), _serviceProperties, CFSTR(kIOHIDServiceTransportKey));
-        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDVendorIDKey), _serviceProperties, CFSTR(kIOHIDServiceVendorIDKey));
-        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDVendorIDSourceKey), _serviceProperties, CFSTR(kIOHIDServiceVendorIDSourceKey));
-        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDProductIDKey), _serviceProperties, CFSTR(kIOHIDServiceProductIDKey));
-        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDVersionNumberKey), _serviceProperties, CFSTR(kIOHIDServiceVersionNumberKey));
-        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDManufacturerKey), _serviceProperties, CFSTR(kIOHIDServiceManufacturerKey));
-        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDProductKey), _serviceProperties, CFSTR(kIOHIDServiceProductKey));
-        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDSerialNumberKey), _serviceProperties, CFSTR(kIOHIDServiceSerialNumberKey));
-        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDCountryCodeKey), _serviceProperties, CFSTR(kIOHIDServiceCountryCodeKey));
-        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDLocationIDKey), _serviceProperties, CFSTR(kIOHIDServiceLocationIDKey));
-        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDPrimaryUsagePageKey), _serviceProperties, CFSTR(kIOHIDServicePrimaryUsagePageKey));
-        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDPrimaryUsageKey), _serviceProperties, CFSTR(kIOHIDServicePrimaryUsageKey));
-        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDDeviceUsagePairsKey), _serviceProperties, CFSTR(kIOHIDServiceDeviceUsagePairsKey));
-// This should be considered a dymanic property
-//        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDReportIntervalKey), _serviceProperties, CFSTR(kIOHIDServiceReportIntervalKey));
-
-        CFRelease(serviceProps);
+//
+//        IORegistryEntryCreateCFProperties(service, &serviceProps, kCFAllocatorDefault, 0);
+//
+//        if ( !serviceProps )
+//            break;
+//            
+//        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDTransportKey), _serviceProperties, CFSTR(kIOHIDServiceTransportKey));
+//        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDVendorIDKey), _serviceProperties, CFSTR(kIOHIDServiceVendorIDKey));
+//        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDVendorIDSourceKey), _serviceProperties, CFSTR(kIOHIDServiceVendorIDSourceKey));
+//        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDProductIDKey), _serviceProperties, CFSTR(kIOHIDServiceProductIDKey));
+//        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDVersionNumberKey), _serviceProperties, CFSTR(kIOHIDServiceVersionNumberKey));
+//        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDManufacturerKey), _serviceProperties, CFSTR(kIOHIDServiceManufacturerKey));
+//        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDProductKey), _serviceProperties, CFSTR(kIOHIDServiceProductKey));
+//        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDSerialNumberKey), _serviceProperties, CFSTR(kIOHIDServiceSerialNumberKey));
+//        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDCountryCodeKey), _serviceProperties, CFSTR(kIOHIDServiceCountryCodeKey));
+//        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDLocationIDKey), _serviceProperties, CFSTR(kIOHIDServiceLocationIDKey));
+//        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDPrimaryUsagePageKey), _serviceProperties, CFSTR(kIOHIDServicePrimaryUsagePageKey));
+//        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDPrimaryUsageKey), _serviceProperties, CFSTR(kIOHIDServicePrimaryUsageKey));
+//        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDDeviceUsagePairsKey), _serviceProperties, CFSTR(kIOHIDServiceDeviceUsagePairsKey));
+//// This should be considered a dymanic property
+////        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDReportIntervalKey), _serviceProperties, CFSTR(kIOHIDServiceReportIntervalKey));
+//
+//        CFRelease(serviceProps);
         
         // Establish connection with device
-        ret = IOServiceOpen(_service, mach_task_self(), 0, &_connect);
+        ret = IOServiceOpen(_service, mach_task_self(), kIOHIDEventServiceUserClientType, &_connect);
         if (ret != kIOReturnSuccess || !_connect)
             break;
-                        
-        // allocate the memory
-#if !__LP64__
-        vm_address_t        address = nil;
-        vm_size_t           size    = 0;
-#else
-        mach_vm_address_t   address = nil;
-        mach_vm_size_t      size    = 0;
-#endif
-        ret = IOConnectMapMemory (	_connect, 
-                                    0, 
-                                    mach_task_self(), 
-                                    &address, 
-                                    &size, 
-                                    kIOMapAnywhere	);
-        if (ret != kIOReturnSuccess) 
-            return false;
-        
-        _queueMappedMemory = (IODataQueueMemory *) address;
-        _queueMappedMemorySize = size;
-        
-        if ( !_queueMappedMemory || !_queueMappedMemorySize )
-            break;
 
+        boolean_t createQueue = true;
+        CFNumberRef queueSize = (CFNumberRef)IORegistryEntryCreateCFProperty (_service, CFSTR(kIOHIDEventServiceQueueSize), kCFAllocatorDefault, 0);
+        if (queueSize) {
+            uint32_t value = 0;
+            CFNumberGetValue (queueSize, kCFNumberSInt32Type, &value);
+            if (value == 0) {
+               createQueue =  false;
+            }
+            CFRelease(queueSize);
+        }
+        
+        if (createQueue) {
+            // allocate the memory
+#if !__LP64__
+            vm_address_t        address = static_cast<vm_address_t>(nil);
+            vm_size_t           size    = 0;
+#else
+            mach_vm_address_t   address = static_cast<mach_vm_address_t>(nil);
+            mach_vm_size_t      size    = 0;
+#endif
+            ret = IOConnectMapMemory (	_connect, 
+                                        0, 
+                                        mach_task_self(), 
+                                        &address, 
+                                        &size, 
+                                        kIOMapAnywhere	);
+            if (ret != kIOReturnSuccess) 
+                return false;
+            
+            _queueMappedMemory = (IODataQueueMemory *) address;
+            _queueMappedMemorySize = size;
+            
+            if (!_queueMappedMemory || !_queueMappedMemorySize ) {
+                break;
+            }
+        }
         return kIOReturnSuccess;
         
     } while (0);
@@ -506,14 +613,52 @@ void IOHIDEventServiceClass::close(IOOptionBits options)
 //---------------------------------------------------------------------------
 CFTypeRef IOHIDEventServiceClass::copyProperty(CFStringRef key)
 {
+  
+    //collect debug info
+    if (CFEqual(key, CFSTR(kIOHIDServicePluginDebugKey))) {
+        CFStringRef class_key = CFSTR ("Class");
+        CFStringRef class_value = CFSTR ("IOHIDEventServiceClass");
+        CFDictionaryRef debug = CFDictionaryCreate(kCFAllocatorDefault, (const void**)&class_key, (const void**)&class_value, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        return debug;
+    }
     CFTypeRef value = CFDictionaryGetValue(_serviceProperties, key);
-    
     if ( value ) {
         CFRetain(value);
     } else {
-        value = IORegistryEntrySearchCFProperty(_service, kIOServicePlane, key, kCFAllocatorDefault, kIORegistryIterateRecursively| kIORegistryIterateParents);
+        CFDictionaryRef sericePropertyCache = (CFDictionaryRef)IORegistryEntryCreateCFProperty (_service, CFSTR(kIOHIDEventServicePropertiesKey), kCFAllocatorDefault, 0);
+        if (sericePropertyCache) {
+            if (CFGetTypeID(sericePropertyCache) == CFDictionaryGetTypeID()) {
+                value = CFDictionaryGetValue(sericePropertyCache, key);
+                if (value) {
+                  CFRetain(value);
+                }
+            }
+            CFRelease(sericePropertyCache);
+        }
+        
+        PROPERTY_INFO* propertyInfo = getPropertyInfo(key);
+        
+        if (!value) {
+            if  (propertyInfo && propertyInfo->flags & kPropertyInfoProviderOnly) {
+                
+                value = (CFDictionaryRef)IORegistryEntryCreateCFProperty (_service, key, kCFAllocatorDefault, 0);
+            
+            } else {
+                
+                value = IORegistryEntrySearchCFProperty(_service, kIOServicePlane, key, kCFAllocatorDefault, kIORegistryIterateRecursively| kIORegistryIterateParents);
+            
+            }
+        }
+        if (value) {
+            //
+            // Push back to cache if applicable for property
+            //
+            if (propertyInfo && propertyInfo->flags & kPropertyInfoCache) {
+                CFDictionarySetValue(_serviceProperties, key, value);
+            }
+            
+        }
     }
-    
     return value;
 }
 
@@ -569,7 +714,14 @@ boolean_t IOHIDEventServiceClass::setProperty(CFStringRef key, CFTypeRef propert
 {
     CFDictionaryRef floatProperties = NULL;
     boolean_t       retVal;
-    
+  
+    PROPERTY_INFO *propertyInfo = getPropertyInfo(key);
+    if (propertyInfo && (propertyInfo->flags & kPropertyNotification)) {
+        return true;
+    }
+    if ( propertyInfo && (propertyInfo->flags & kPropertyInfoCache)) {
+      CFDictionarySetValue(_serviceProperties, key, property);
+    }
 #if TARGET_OS_EMBEDDED // {
     // RY: Convert these floating point properties to IOFixed. Limiting to accel shake but can get apply to others as well
     if ( CFEqual(CFSTR(kIOHIDAccelerometerShakeKey), key) && (CFDictionaryGetTypeID() == CFGetTypeID(property)) ) {
@@ -584,6 +736,19 @@ boolean_t IOHIDEventServiceClass::setProperty(CFStringRef key, CFTypeRef propert
         
     return retVal;
 }
+
+//---------------------------------------------------------------------------
+// IOHIDEventServiceClass::getPropertyInfo
+//---------------------------------------------------------------------------
+PROPERTY_INFO* IOHIDEventServiceClass::getPropertyInfo(CFStringRef key) {
+  for (int index = 0; index < sizeof(PropertyInfoTable)/sizeof(PropertyInfoTable[0]); index++) {
+    if (CFEqual (PropertyInfoTable[index].key, key)) {
+      return &PropertyInfoTable[index];
+    }
+  }
+  return NULL;
+}
+
 
 //---------------------------------------------------------------------------
 // IOHIDEventServiceClass::copyEvent
@@ -657,12 +822,15 @@ IOHIDEventRef IOHIDEventServiceClass::copyEvent(IOHIDEventType eventType, IOHIDE
 IOReturn IOHIDEventServiceClass::setOutputEvent(IOHIDEventRef event)
 {
     IOReturn result = kIOReturnUnsupported;
-    if ( IOHIDEventGetType(event) == kIOHIDEventTypeLED ) {        
-        uint64_t input[3] = {kHIDPage_LEDs, IOHIDEventGetIntegerValue(event, kIOHIDEventFieldLEDNumber), IOHIDEventGetIntegerValue(event, kIOHIDEventFieldLEDState)};
-
+    CFIndex  LEDUsage = IOHIDEventGetIntegerValue(event, kIOHIDEventFieldLEDNumber);
+    if (IOHIDEventGetType(event) == kIOHIDEventTypeLED ) {
+        uint64_t input[3] = {kHIDPage_LEDs, LEDUsage, IOHIDEventGetIntegerValue(event, kIOHIDEventFieldLEDState)};
         result = IOConnectCallMethod(_connect, kIOHIDEventServiceUserClientSetElementValue, input, 3, NULL, 0, NULL, NULL, NULL, NULL);
+        if (result == kIOReturnUnsupported && LEDUsage >= kHIDUsage_LED_Player1 && LEDUsage <= kHIDUsage_LED_Player8) {
+            input[1] = 0xff00 | IOHIDEventGetIntegerValue(event, kIOHIDEventFieldLEDNumber) - kHIDUsage_LED_Player1;
+            result = IOConnectCallMethod(_connect, kIOHIDEventServiceUserClientSetElementValue, input, 3, NULL, 0, NULL, NULL, NULL, NULL);
+        }
     }
-    
     return result;
 }
 
@@ -692,13 +860,12 @@ void IOHIDEventServiceClass::scheduleWithDispatchQueue(dispatch_queue_t dispatch
             return;
     }
     
-    
     if ( !_asyncEventSource ) {
         _asyncEventSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV, _asyncPort, 0, dispatchQueue);
         
-        if ( !_asyncEventSource )
+        if ( !_asyncEventSource ) {
             return;
-        
+        }
         dispatch_set_context(_asyncEventSource, this);
         dispatch_source_set_event_handler_f(_asyncEventSource, _queueEventSourceCallback);
     }
@@ -715,8 +882,8 @@ void IOHIDEventServiceClass::scheduleWithDispatchQueue(dispatch_queue_t dispatch
 void IOHIDEventServiceClass::unscheduleFromDispatchQueue(dispatch_queue_t queue __unused)
 {
     if ( _asyncEventSource ) {
+        dispatch_source_cancel (_asyncEventSource);
         dispatch_release(_asyncEventSource);
-        _asyncEventSource = NULL;
     }
 }
 

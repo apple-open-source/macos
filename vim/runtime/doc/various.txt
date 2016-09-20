@@ -1,4 +1,4 @@
-*various.txt*   For Vim version 7.3.  Last change: 2010 Aug 10
+*various.txt*   For Vim version 7.4.  Last change: 2014 Aug 06
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -101,13 +101,14 @@ g8			Print the hex values of the bytes used in the
 :[range]P[rint] [count] [flags]
 			Just as ":print".  Was apparently added to Vi for
 			people that keep the shift key pressed too long...
+			Note: A user command can overrule this command.
 			See |ex-flags| for [flags].
 
 							*:l* *:list*
 :[range]l[ist] [count] [flags]
 			Same as :print, but display unprintable characters
 			with '^' and put $ after the line.  This can be
-			changed with the 'listchars' option.
+			further changed with the 'listchars' option.
 			See |ex-flags| for [flags].
 
 							*:nu* *:number*
@@ -132,14 +133,17 @@ g8			Print the hex values of the bytes used in the
 			specified with {range}, or around the current line
 			if there is no {range}.  If there is a {count}, that's
 			how many lines you'll see; if there is only one window
-			then the 'window' option is used, otherwise the
-			current window size is used.
+			then twice the value of the 'scroll' option is used,
+			otherwise the current window height minus 3 is used.
+
+			If there is a {count} the 'window' option is set to
+			its value.
 
 			:z can be used either alone or followed by any of
 			several punctuation marks.  These have the following
 			effect:
 
-			mark   first line    last line      new location   ~
+			mark   first line    last line      new cursor line ~
 			----   ----------    ---------      ------------
 			+      current line  1 scr forward  1 scr forward
 			-      1 scr back    current line   current line
@@ -167,30 +171,40 @@ g8			Print the hex values of the bytes used in the
 :norm[al][!] {commands}					*:norm* *:normal*
 			Execute Normal mode commands {commands}.  This makes
 			it possible to execute Normal mode commands typed on
-			the command-line.  {commands} is executed like it is
-			typed.  For undo all commands are undone together.
+			the command-line.  {commands} are executed like they
+			are typed.  For undo all commands are undone together.
 			Execution stops when an error is encountered.
+
 			If the [!] is given, mappings will not be used.
+			Without it, when this command is called from a
+			non-remappable mapping (|:noremap|), the argument can
+			be mapped anyway.
+
 			{commands} should be a complete command.  If
 			{commands} does not finish a command, the last one
 			will be aborted as if <Esc> or <C-C> was typed.
-			The display isn't updated while ":normal" is busy.
 			This implies that an insert command must be completed
 			(to start Insert mode, see |:startinsert|).  A ":"
 			command must be completed as well.  And you can't use
 			"Q" or "gQ" to start Ex mode.
+
+			The display is not updated while ":normal" is busy.
+
 			{commands} cannot start with a space.  Put a count of
 			1 (one) before it, "1 " is one space.
+
 			The 'insertmode' option is ignored for {commands}.
+
 			This command cannot be followed by another command,
 			since any '|' is considered part of the command.
+
 			This command can be used recursively, but the depth is
 			limited by 'maxmapdepth'.
-			When this command is called from a non-remappable
-			mapping |:noremap|, the argument can be mapped anyway.
+
 			An alternative is to use |:execute|, which uses an
 			expression as argument.  This allows the use of
 			printable characters to represent special characters.
+
 			Example: >
 				:exe "normal \<c-w>\<c-w>"
 <			{not in Vi, of course}
@@ -220,25 +234,41 @@ g8			Print the hex values of the bytes used in the
 							*:!cmd* *:!* *E34*
 :!{cmd}			Execute {cmd} with the shell.  See also the 'shell'
 			and 'shelltype' option.
+
 			Any '!' in {cmd} is replaced with the previous
 			external command (see also 'cpoptions').  But not when
 			there is a backslash before the '!', then that
 			backslash is removed.  Example: ":!ls" followed by
 			":!echo ! \! \\!" executes "echo ls ! \!".
-			After the command has been executed, the timestamp of
-			the current file is checked |timestamp|.
+
 			A '|' in {cmd} is passed to the shell, you cannot use
 			it to append a Vim command.  See |:bar|.
+
+			If {cmd} contains "%" it is expanded to the current
+			file name.  Special characters are not escaped, use
+			quotes to avoid their special meaning: >
+				:!ls "%"
+<			If the file name contains a "$" single quotes might
+			work better (but a single quote causes trouble): >
+				:!ls '%'
+<			This should always work, but it's more typing: >
+				:exe "!ls " . shellescape(expand("%"))
+<
 			A newline character ends {cmd}, what follows is
 			interpreted as a following ":" command.  However, if
 			there is a backslash before the newline it is removed
 			and {cmd} continues.  It doesn't matter how many
 			backslashes are before the newline, only one is
 			removed.
+
 			On Unix the command normally runs in a non-interactive
 			shell.  If you want an interactive shell to be used
 			(to use aliases) set 'shellcmdflag' to "-ic".
 			For Win32 also see |:!start|.
+
+			After the command has been executed, the timestamp and
+			size of the current file is checked |timestamp|.
+
 			Vim redraws the screen after the command is finished,
 			because it may have printed any text.  This requires a
 			hit-enter prompt, so that you can read any messages.
@@ -277,6 +307,7 @@ g8			Print the hex values of the bytes used in the
 			in the normal, big and huge versions of Vim.
 
 							*+feature-list*
+   *+acl*		|ACL| support included
    *+ARP*		Amiga only: ARP support included
 B  *+arabic*		|Arabic| language support
 N  *+autocmd*		|:autocmd|, automatic commands
@@ -306,6 +337,7 @@ N  *+dialog_con*	Support for |:confirm| with console dialog.
 N  *+dialog_con_gui*	Support for |:confirm| with GUI and console dialog.
 N  *+diff*		|vimdiff| and 'diff'
 N  *+digraphs*		|digraphs| *E196*
+m  *+directx*		Win32 GUI only: DirectX and |'renderoptions'|
    *+dnd*		Support for DnD into the "~ register |quote_~|.
 B  *+emacs_tags*	|emacs-tags| files
 N  *+eval*		expression evaluation |eval.txt|
@@ -348,19 +380,20 @@ N  *+mouse*		Mouse handling |mouse-using|
 N  *+mouseshape*	|'mouseshape'|
 B  *+mouse_dec*		Unix only: Dec terminal mouse handling |dec-mouse|
 N  *+mouse_gpm*		Unix only: Linux console mouse handling |gpm-mouse|
+N  *+mouse_jsbterm*	JSB mouse handling |jsbterm-mouse|
 B  *+mouse_netterm*	Unix only: netterm mouse handling |netterm-mouse|
 N  *+mouse_pterm*	QNX only: pterm mouse handling |qnx-terminal|
 N  *+mouse_sysmouse*	Unix only: *BSD console mouse handling |sysmouse|
+B  *+mouse_sgr*		Unix only: sgr mouse handling |sgr-mouse|
+B  *+mouse_urxvt*	Unix only: urxvt mouse handling |urxvt-mouse|
 N  *+mouse_xterm*	Unix only: xterm mouse handling |xterm-mouse|
-B  *+multi_byte*	16 and 32 bit characters |multibyte|
+N  *+multi_byte*	16 and 32 bit characters |multibyte|
    *+multi_byte_ime*	Win32 input method for multibyte chars |multibyte-ime|
 N  *+multi_lang*	non-English language support |multi-lang|
 m  *+mzscheme*		Mzscheme interface |mzscheme|
 m  *+mzscheme/dyn*	Mzscheme interface |mzscheme-dynamic| |/dyn|
 m  *+netbeans_intg*	|netbeans|
 m  *+ole*		Win32 GUI only: |ole-interface|
-   *+osfiletype*	Support for the 'osfiletype' option and filetype
-			checking in automatic commands.  |autocmd-osfiletypes|
 N  *+path_extra*	Up/downwards search in 'path' and 'tags'
 m  *+perl*		Perl interface |perl|
 m  *+perl/dyn*		Perl interface |perl-dynamic| |/dyn|
@@ -403,7 +436,7 @@ N  *+user_commands*	User-defined commands. |user-commands|
 N  *+viminfo*		|'viminfo'|
 N  *+vertsplit*		Vertically split windows |:vsplit|
 N  *+virtualedit*	|'virtualedit'|
-S  *+visual*		Visual mode |Visual-mode|
+S  *+visual*		Visual mode |Visual-mode| Always enabled since 7.4.200.
 N  *+visualextra*	extra Visual mode commands |blockwise-operators|
 N  *+vreplace*		|gR| and |gr|
 N  *+wildignore*	|'wildignore'|
@@ -412,6 +445,8 @@ S  *+windows*		more than one window
 m  *+writebackup*	|'writebackup'| is default on
 m  *+xim*		X input method |xim|
    *+xfontset*		X fontset support |xfontset|
+   *+xpm*		pixmap support
+m  *+xpm_w32*		Win32 GUI only: pixmap support |w32-xpm-support|
    *+xsmp*		XSMP (X session management) support
    *+xsmp_interact*	interactive XSMP (X session management) support
 N  *+xterm_clipboard*	Unix only: xterm clipboard handling
@@ -603,6 +638,10 @@ K			Run a program to lookup the keyword under the
 			"gs" stands for "goto sleep".
 			While sleeping the cursor is positioned in the text,
 			if at a visible position.  {not in Vi}
+			Also process the received netbeans messages. {only
+			available when compiled with the |+netbeans_intg|
+			feature}
+
 
 							*g_CTRL-A*
 g CTRL-A		Only when Vim was compiled with MEM_PROFILING defined
@@ -610,7 +649,7 @@ g CTRL-A		Only when Vim was compiled with MEM_PROFILING defined
 			Only useful for debugging Vim.
 
 ==============================================================================
-3. Using Vim like less or more					*less*
+2. Using Vim like less or more					*less*
 
 If you use the less or more program to view a file, you don't get syntax
 highlighting.  Thus you would like to use Vim instead.  You can do this by

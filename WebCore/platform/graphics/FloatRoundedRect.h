@@ -37,6 +37,7 @@
 namespace WebCore {
 
 class FloatRoundedRect {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     class Radii {
     public:
@@ -131,6 +132,8 @@ public:
     bool isRenderable() const;
     bool xInterceptsAtY(float y, float& minXIntercept, float& maxXIntercept) const;
 
+    bool intersectionIsRectangular(const FloatRect&) const;
+
 private:
     FloatRect m_rect;
     Radii m_radii;
@@ -141,9 +144,19 @@ inline bool operator==(const FloatRoundedRect::Radii& a, const FloatRoundedRect:
     return a.topLeft() == b.topLeft() && a.topRight() == b.topRight() && a.bottomLeft() == b.bottomLeft() && a.bottomRight() == b.bottomRight();
 }
 
+inline bool operator!=(const FloatRoundedRect::Radii& a, const FloatRoundedRect::Radii& b)
+{
+    return !(a == b);
+}
+
 inline bool operator==(const FloatRoundedRect& a, const FloatRoundedRect& b)
 {
     return a.rect() == b.rect() && a.radii() == b.radii();
+}
+
+inline bool operator!=(const FloatRoundedRect& a, const FloatRoundedRect& b)
+{
+    return !(a == b);
 }
 
 inline float calcBorderRadiiConstraintScaleFor(const FloatRect& rect, const FloatRoundedRect::Radii& radii)
@@ -177,6 +190,8 @@ inline float calcBorderRadiiConstraintScaleFor(const FloatRect& rect, const Floa
     ASSERT(factor <= 1);
     return factor;
 }
+
+WEBCORE_EXPORT TextStream& operator<<(TextStream&, const FloatRoundedRect&);
 
 } // namespace WebCore
 

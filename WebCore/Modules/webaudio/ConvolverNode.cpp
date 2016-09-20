@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010, Google Inc. All rights reserved.
+ * Copyright (C) 2016, Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,6 +33,7 @@
 #include "AudioContext.h"
 #include "AudioNodeInput.h"
 #include "AudioNodeOutput.h"
+#include "ExceptionCode.h"
 #include "Reverb.h"
 #include <wtf/MainThread.h>
 
@@ -45,7 +47,7 @@ const size_t MaxFFTSize = 32768;
 
 namespace WebCore {
 
-ConvolverNode::ConvolverNode(AudioContext* context, float sampleRate)
+ConvolverNode::ConvolverNode(AudioContext& context, float sampleRate)
     : AudioNode(context, sampleRate)
     , m_normalize(true)
 {
@@ -73,7 +75,7 @@ void ConvolverNode::process(size_t framesToProcess)
     ASSERT(outputBus);
 
     // Synchronize with possible dynamic changes to the impulse response.
-    std::unique_lock<std::mutex> lock(m_processMutex, std::try_to_lock);
+    std::unique_lock<Lock> lock(m_processMutex, std::try_to_lock);
     if (!lock.owns_lock()) {
         // Too bad - the try_lock() failed. We must be in the middle of setting a new impulse response.
         outputBus->zero();
@@ -93,7 +95,7 @@ void ConvolverNode::process(size_t framesToProcess)
 
 void ConvolverNode::reset()
 {
-    std::lock_guard<std::mutex> lock(m_processMutex);
+    std::lock_guard<Lock> lock(m_processMutex);
     if (m_reverb)
         m_reverb->reset();
 }
@@ -115,21 +117,29 @@ void ConvolverNode::uninitialize()
     AudioNode::uninitialize();
 }
 
-void ConvolverNode::setBuffer(AudioBuffer* buffer)
+void ConvolverNode::setBuffer(AudioBuffer* buffer, ExceptionCode& ec)
 {
     ASSERT(isMainThread());
     
     if (!buffer)
         return;
 
+    if (buffer->sampleRate() != context().sampleRate()) {
+        ec = NOT_SUPPORTED_ERR;
+        return;
+    }
+
     unsigned numberOfChannels = buffer->numberOfChannels();
     size_t bufferLength = buffer->length();
 
-    // The current implementation supports up to four channel impulse responses, which are interpreted as true-stereo (see Reverb class).
-    bool isBufferGood = numberOfChannels > 0 && numberOfChannels <= 4 && bufferLength;
-    ASSERT(isBufferGood);
-    if (!isBufferGood)
+    // The current implementation supports only 1-, 2-, or 4-channel impulse responses, with the
+    // 4-channel response being interpreted as true-stereo (see Reverb class).
+    bool isChannelCountGood = (numberOfChannels == 1 || numberOfChannels == 2 || numberOfChannels == 4) && bufferLength;
+
+    if (!isChannelCountGood) {
+        ec = NOT_SUPPORTED_ERR;
         return;
+    }
 
     // Wrap the AudioBuffer by an AudioBus. It's an efficient pointer set and not a memcpy().
     // This memory is simply used in the Reverb constructor and no reference to it is kept for later use in that class.
@@ -140,13 +150,13 @@ void ConvolverNode::setBuffer(AudioBuffer* buffer)
     bufferBus->setSampleRate(buffer->sampleRate());
 
     // Create the reverb with the given impulse response.
-    bool useBackgroundThreads = !context()->isOfflineContext();
+    bool useBackgroundThreads = !context().isOfflineContext();
     auto reverb = std::make_unique<Reverb>(bufferBus.get(), AudioNode::ProcessingSizeInFrames, MaxFFTSize, 2, useBackgroundThreads, m_normalize);
 
     {
         // Synchronize with process().
-        std::lock_guard<std::mutex> lock(m_processMutex);
-        m_reverb = WTF::move(reverb);
+        std::lock_guard<Lock> lock(m_processMutex);
+        m_reverb = WTFMove(reverb);
         m_buffer = buffer;
     }
 }

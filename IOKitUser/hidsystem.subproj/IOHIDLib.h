@@ -72,45 +72,39 @@ IOHIDSetMouseLocation( io_connect_t connect,
 
 extern kern_return_t
 IOHIDGetButtonEventNum( io_connect_t connect,
-	NXMouseButton button, int * eventNum );
+	NXMouseButton button, int * eventNum ) __deprecated;
 
 extern kern_return_t
-IOHIDSetCursorBounds( io_connect_t connect, const IOGBounds * bounds );
+IOHIDGetScrollAcceleration( io_connect_t handle, double * acceleration ) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_12, __IPHONE_NA, __IPHONE_NA);
 
 extern kern_return_t
-IOHIDSetOnScreenCursorBounds( io_connect_t connect, const IOGPoint * point, const IOGBounds * bounds );
+IOHIDSetScrollAcceleration( io_connect_t handle, double acceleration ) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_12, __IPHONE_NA, __IPHONE_NA);
 
 extern kern_return_t
-IOHIDGetScrollAcceleration( io_connect_t handle, double * acceleration );
+IOHIDGetMouseAcceleration( io_connect_t handle, double * acceleration ) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_12, __IPHONE_NA, __IPHONE_NA);
 
 extern kern_return_t
-IOHIDSetScrollAcceleration( io_connect_t handle, double acceleration );
-
-extern kern_return_t
-IOHIDGetMouseAcceleration( io_connect_t handle, double * acceleration );
-
-extern kern_return_t
-IOHIDSetMouseAcceleration( io_connect_t handle, double acceleration );
+IOHIDSetMouseAcceleration( io_connect_t handle, double acceleration ) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_12, __IPHONE_NA, __IPHONE_NA);
 
 extern kern_return_t
 IOHIDGetMouseButtonMode( io_connect_t handle, int * mode );
 
 extern kern_return_t
-IOHIDSetMouseButtonMode( io_connect_t handle, int mode );
+IOHIDSetMouseButtonMode( io_connect_t handle, int mode ) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_12, __IPHONE_NA, __IPHONE_NA);
 
 extern kern_return_t
-IOHIDGetAccelerationWithKey( io_connect_t handle, CFStringRef key, double * acceleration );
+IOHIDGetAccelerationWithKey( io_connect_t handle, CFStringRef key, double * acceleration ) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_12, __IPHONE_NA, __IPHONE_NA);
 
 extern kern_return_t
-IOHIDSetAccelerationWithKey( io_connect_t handle, CFStringRef key, double acceleration );
+IOHIDSetAccelerationWithKey( io_connect_t handle, CFStringRef key, double acceleration ) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_12, __IPHONE_NA, __IPHONE_NA);
 
 extern kern_return_t
 IOHIDGetParameter( io_connect_t handle, CFStringRef key, IOByteCount maxSize, 
-		void * bytes, IOByteCount * actualSize );
+		void * bytes, IOByteCount * actualSize ) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_12, __IPHONE_2_0, __IPHONE_10_0);
 
 extern kern_return_t
 IOHIDSetParameter( io_connect_t handle, CFStringRef key, 
-		const void * bytes, IOByteCount size );
+		const void * bytes, IOByteCount size ) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_12, __IPHONE_NA, __IPHONE_NA);
 
 extern kern_return_t
 IOHIDCopyCFTypeParameter( io_connect_t handle, CFStringRef key,

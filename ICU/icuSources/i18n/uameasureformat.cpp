@@ -1,6 +1,6 @@
 /*
 *****************************************************************************************
-* Copyright (C) 2014-2015 Apple Inc. All Rights Reserved.
+* Copyright (C) 2014-2016 Apple Inc. All Rights Reserved.
 *****************************************************************************************
 */
 
@@ -8,6 +8,7 @@
 
 #if !UCONFIG_NO_FORMATTING
 
+#include <stdlib.h>
 #include "unicode/uameasureformat.h"
 #include "unicode/fieldpos.h"
 #include "unicode/localpointer.h"
@@ -21,6 +22,8 @@
 #include "unicode/ures.h"
 #include "uresimp.h"
 #include "ustr_imp.h"
+#include "cstring.h"
+#include "ulocimp.h"
 
 U_NAMESPACE_USE
 
@@ -44,6 +47,8 @@ uameasfmt_open( const char*          locale,
             mfWidth = UMEASFMT_WIDTH_NARROW; break;
         case UAMEASFMT_WIDTH_NUMERIC:
             mfWidth = UMEASFMT_WIDTH_NUMERIC; break;
+        case UAMEASFMT_WIDTH_SHORTER:
+            mfWidth = UMEASFMT_WIDTH_SHORTER; break;
         default:
             *status = U_ILLEGAL_ARGUMENT_ERROR; return NULL;
     }
@@ -72,6 +77,7 @@ static MeasureUnit * createObjectForMeasureUnit(UAMeasureUnit unit, UErrorCode* 
         case UAMEASUNIT_ANGLE_ARC_MINUTE:       munit = MeasureUnit::createArcMinute(*status);   break;
         case UAMEASUNIT_ANGLE_ARC_SECOND:       munit = MeasureUnit::createArcSecond(*status);   break;
         case UAMEASUNIT_ANGLE_RADIAN:           munit = MeasureUnit::createRadian(*status);      break;
+        case UAMEASUNIT_ANGLE_REVOLUTION:       munit = MeasureUnit::createRevolutionAngle(*status); break;
 
         case UAMEASUNIT_AREA_SQUARE_METER:      munit = MeasureUnit::createSquareMeter(*status);     break;
         case UAMEASUNIT_AREA_SQUARE_KILOMETER:  munit = MeasureUnit::createSquareKilometer(*status); break;
@@ -85,14 +91,15 @@ static MeasureUnit * createObjectForMeasureUnit(UAMeasureUnit unit, UErrorCode* 
 
         case UAMEASUNIT_DURATION_YEAR:          munit = MeasureUnit::createYear(*status);        break;
         case UAMEASUNIT_DURATION_MONTH:         munit = MeasureUnit::createMonth(*status);       break;
-        case UAMEASUNIT_DURATION_WEEK:          munit = MeasureUnit::createDay(*status);         break;
-        case UAMEASUNIT_DURATION_DAY:           munit = MeasureUnit::createWeek(*status);        break;
+        case UAMEASUNIT_DURATION_WEEK:          munit = MeasureUnit::createWeek(*status);        break;
+        case UAMEASUNIT_DURATION_DAY:           munit = MeasureUnit::createDay(*status);         break;
         case UAMEASUNIT_DURATION_HOUR:          munit = MeasureUnit::createHour(*status);        break;
         case UAMEASUNIT_DURATION_MINUTE:        munit = MeasureUnit::createMinute(*status);      break;
         case UAMEASUNIT_DURATION_SECOND:        munit = MeasureUnit::createSecond(*status);      break;
         case UAMEASUNIT_DURATION_MILLISECOND:   munit = MeasureUnit::createMillisecond(*status); break;
         case UAMEASUNIT_DURATION_MICROSECOND:   munit = MeasureUnit::createMicrosecond(*status); break;
         case UAMEASUNIT_DURATION_NANOSECOND:    munit = MeasureUnit::createNanosecond(*status);  break;
+        case UAMEASUNIT_DURATION_CENTURY:       munit = MeasureUnit::createCentury(*status);     break;
 
         case UAMEASUNIT_LENGTH_METER:           munit = MeasureUnit::createMeter(*status);       break;
         case UAMEASUNIT_LENGTH_CENTIMETER:      munit = MeasureUnit::createCentimeter(*status);  break;
@@ -112,6 +119,7 @@ static MeasureUnit * createObjectForMeasureUnit(UAMeasureUnit unit, UErrorCode* 
         case UAMEASUNIT_LENGTH_FURLONG:         munit = MeasureUnit::createFurlong(*status);     break;
         case UAMEASUNIT_LENGTH_ASTRONOMICAL_UNIT: munit = MeasureUnit::createAstronomicalUnit(*status); break;
         case UAMEASUNIT_LENGTH_PARSEC:          munit = MeasureUnit::createParsec(*status);      break;
+        case UAMEASUNIT_LENGTH_MILE_SCANDINAVIAN: munit = MeasureUnit::createMileScandinavian(*status); break;
 
         case UAMEASUNIT_MASS_GRAM:              munit = MeasureUnit::createGram(*status);        break;
         case UAMEASUNIT_MASS_KILOGRAM:          munit = MeasureUnit::createKilogram(*status);    break;
@@ -141,6 +149,7 @@ static MeasureUnit * createObjectForMeasureUnit(UAMeasureUnit unit, UErrorCode* 
         case UAMEASUNIT_SPEED_METER_PER_SECOND:   munit = MeasureUnit::createMeterPerSecond(*status);   break;
         case UAMEASUNIT_SPEED_KILOMETER_PER_HOUR: munit = MeasureUnit::createKilometerPerHour(*status); break;
         case UAMEASUNIT_SPEED_MILE_PER_HOUR:      munit = MeasureUnit::createMilePerHour(*status);      break;
+        case UAMEASUNIT_SPEED_KNOT:               munit = MeasureUnit::createKnot(*status);      break;
 
         case UAMEASUNIT_TEMPERATURE_CELSIUS:    munit = MeasureUnit::createCelsius(*status);     break;
         case UAMEASUNIT_TEMPERATURE_FAHRENHEIT: munit = MeasureUnit::createFahrenheit(*status);  break;
@@ -169,6 +178,9 @@ static MeasureUnit * createObjectForMeasureUnit(UAMeasureUnit unit, UErrorCode* 
         case UAMEASUNIT_VOLUME_PINT:            munit = MeasureUnit::createPint(*status);           break;
         case UAMEASUNIT_VOLUME_QUART:           munit = MeasureUnit::createQuart(*status);          break;
         case UAMEASUNIT_VOLUME_GALLON:          munit = MeasureUnit::createGallon(*status);         break;
+        case UAMEASUNIT_VOLUME_CUP_METRIC:      munit = MeasureUnit::createCupMetric(*status);      break;
+        case UAMEASUNIT_VOLUME_PINT_METRIC:     munit = MeasureUnit::createPintMetric(*status);     break;
+        case UAMEASUNIT_VOLUME_GALLON_IMPERIAL: munit = MeasureUnit::createGallonImperial(*status); break;
 
         case UAMEASUNIT_ENERGY_JOULE:           munit = MeasureUnit::createJoule(*status);          break;
         case UAMEASUNIT_ENERGY_KILOJOULE:       munit = MeasureUnit::createKilojoule(*status);      break;
@@ -179,6 +191,8 @@ static MeasureUnit * createObjectForMeasureUnit(UAMeasureUnit unit, UErrorCode* 
 
         case UAMEASUNIT_CONSUMPTION_LITER_PER_KILOMETER: munit = MeasureUnit::createLiterPerKilometer(*status); break;
         case UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON:     munit = MeasureUnit::createMilePerGallon(*status);     break;
+        case UAMEASUNIT_CONSUMPTION_LITER_PER_100_KILOMETERs: munit = MeasureUnit::createLiterPer100Kilometers(*status); break;
+        case UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON_IMPERIAL: munit = MeasureUnit::createMilePerGallonImperial(*status); break;
 
         case UAMEASUNIT_DIGITAL_BIT:            munit = MeasureUnit::createBit(*status);         break;
         case UAMEASUNIT_DIGITAL_BYTE:           munit = MeasureUnit::createByte(*status);        break;
@@ -203,7 +217,10 @@ static MeasureUnit * createObjectForMeasureUnit(UAMeasureUnit unit, UErrorCode* 
 
         case UAMEASUNIT_LIGHT_LUX:              munit = MeasureUnit::createLux(*status);         break;
 
-        //case UAMEASUNIT_PROPORTION_KARAT:     munit = MeasureUnit::createKarat(*status);       break;
+        case UAMEASUNIT_CONCENTRATION_KARAT:    munit = MeasureUnit::createKarat(*status);       break;
+        case UAMEASUNIT_CONCENTRATION_MILLIGRAM_PER_DECILITER: munit = MeasureUnit::createMilligramPerDeciliter(*status); break;
+        case UAMEASUNIT_CONCENTRATION_MILLIMOLE_PER_LITER:     munit = MeasureUnit::createMillimolePerLiter(*status);     break;
+        case UAMEASUNIT_CONCENTRATION_PART_PER_MILLION:        munit = MeasureUnit::createPartPerMillion(*status);        break;
 
         default: *status = U_ILLEGAL_ARGUMENT_ERROR; break;
     }
@@ -285,6 +302,19 @@ uameasfmt_formatMultiple( const UAMeasureFormat* measfmt,
                           int32_t           resultCapacity,
                           UErrorCode*       status )
 {
+    return uameasfmt_formatMultipleForFields(measfmt, measures, measureCount,
+                                             result, resultCapacity, NULL, status);
+}
+
+U_CAPI int32_t U_EXPORT2
+uameasfmt_formatMultipleForFields( const UAMeasureFormat* measfmt,
+                                   const UAMeasure*  measures,
+                                   int32_t           measureCount,
+                                   UChar*            result,
+                                   int32_t           resultCapacity,
+                                   UFieldPositionIterator* fpositer,
+                                   UErrorCode*       status )
+{
     if (U_FAILURE(*status)) {
         return 0;
     }
@@ -319,13 +349,258 @@ uameasfmt_formatMultiple( const UAMeasureFormat* measfmt,
                                           *measurePtrs[4], *measurePtrs[5], *measurePtrs[6], *measurePtrs[7] };
     UnicodeString res;
     res.setTo(result, 0, resultCapacity);
-    FieldPosition pos(0);
-    ((MeasureFormat*)measfmt)->formatMeasures(measureObjs, measureCount, res, pos, *status);
+    ((MeasureFormat*)measfmt)->formatMeasures(measureObjs, measureCount, res, (FieldPositionIterator*)fpositer, *status);
     for (i = 0; i < kMeasuresMax; i++) {
         delete measurePtrs[i];
     }
     return res.extract(result, resultCapacity, *status);
 }
 
+U_CAPI int32_t U_EXPORT2
+uameasfmt_getUnitName( const UAMeasureFormat* measfmt,
+                       UAMeasureUnit unit,
+                       UChar* result,
+                       int32_t resultCapacity,
+                       UErrorCode* status )
+{
+    if (U_FAILURE(*status)) {
+        return 0;
+    }
+    if ( ((result==NULL)? resultCapacity!=0: resultCapacity<0) ) {
+        *status = U_ILLEGAL_ARGUMENT_ERROR;
+        return 0;
+    }
+    LocalPointer<const MeasureUnit> munit(createObjectForMeasureUnit(unit, status));
+    if (U_FAILURE(*status)) {
+        return 0;
+    }
+    UnicodeString res;
+    res.setTo(result, 0, resultCapacity);
+    ((MeasureFormat*)measfmt)->getUnitName(munit.getAlias(), res);
+    if (res.isBogus()) {
+        *status = U_MISSING_RESOURCE_ERROR;
+        return 0;
+    }
+    return res.extract(result, resultCapacity, *status);
+}
+
+U_CAPI int32_t U_EXPORT2
+uameasfmt_getMultipleUnitNames( const UAMeasureFormat* measfmt,
+                                const UAMeasureUnit* units,
+                                int32_t unitCount,
+                                UAMeasureNameListStyle listStyle,
+                                UChar* result,
+                                int32_t resultCapacity,
+                                UErrorCode* status )
+{
+    if (U_FAILURE(*status)) {
+        return 0;
+    }
+    if ( ((result==NULL)? resultCapacity!=0: resultCapacity<0) || unitCount <= 0 || unitCount > kMeasuresMax ) {
+        *status = U_ILLEGAL_ARGUMENT_ERROR;
+        return 0;
+    }
+    int32_t i;
+    const MeasureUnit * unitPtrs[kMeasuresMax];
+    for (i = 0; i < unitCount && U_SUCCESS(*status); i++) {
+        unitPtrs[i] = createObjectForMeasureUnit(units[i], status);
+    }
+    if (U_FAILURE(*status)) {
+        while (i-- > 0) {
+            delete unitPtrs[i];
+        }
+        return 0;
+    }
+    UnicodeString res;
+    res.setTo(result, 0, resultCapacity);
+    ((MeasureFormat*)measfmt)->getMultipleUnitNames(unitPtrs, unitCount, listStyle, res);
+    for (i = 0; i < unitCount; i++) {
+        delete unitPtrs[i];
+    }
+    if (res.isBogus()) {
+        *status = U_MISSING_RESOURCE_ERROR;
+        return 0;
+    }
+    return res.extract(result, resultCapacity, *status);
+}
+
+// Temporary hack until we can use the forthcoming C++ MeasureUnitPreferences class for this
+typedef struct {
+    const char*     key;
+    int32_t         count;
+    UAMeasureUnit   units[2];
+} KeyToUnits;
+static const KeyToUnits keyToUnits[] = {
+    {   "acre",                     1,  { UAMEASUNIT_AREA_ACRE }   },
+    {   "celsius",                  1,  { UAMEASUNIT_TEMPERATURE_CELSIUS }   },
+    {   "centimeter",               1,  { UAMEASUNIT_LENGTH_CENTIMETER }   },
+    {   "fahrenheit",               1,  { UAMEASUNIT_TEMPERATURE_FAHRENHEIT }   },
+    {   "foodcalorie",              1,  { UAMEASUNIT_ENERGY_FOODCALORIE }   },
+    {   "foot",                     1,  { UAMEASUNIT_LENGTH_FOOT }   },
+    {   "foot inch",                2,  { UAMEASUNIT_LENGTH_FOOT, UAMEASUNIT_LENGTH_INCH }   },
+    {   "gallon",                   1,  { UAMEASUNIT_VOLUME_GALLON }   },
+    {   "gram",                     1,  { UAMEASUNIT_MASS_GRAM }   },
+    {   "hectare",                  1,  { UAMEASUNIT_AREA_HECTARE }   },
+    {   "hectopascal",              1,  { UAMEASUNIT_PRESSURE_HECTOPASCAL }   },
+    {   "inch",                     1,  { UAMEASUNIT_LENGTH_INCH }   },
+    {   "inch-hg",                  1,  { UAMEASUNIT_PRESSURE_INCH_HG }   },
+    {   "kilocalorie",              1,  { UAMEASUNIT_ENERGY_KILOCALORIE }   },
+    {   "kilogram",                 1,  { UAMEASUNIT_MASS_KILOGRAM }   },
+    {   "kilogram gram",            2,  { UAMEASUNIT_MASS_KILOGRAM, UAMEASUNIT_MASS_GRAM }   },
+    {   "kilometer",                1,  { UAMEASUNIT_LENGTH_KILOMETER }   },
+    {   "kilometer-per-hour",       1,  { UAMEASUNIT_SPEED_KILOMETER_PER_HOUR }   },
+    {   "liter-per-100kilometers",  1,  { UAMEASUNIT_CONSUMPTION_LITER_PER_100_KILOMETERs }   },
+    {   "liter-per-kilometer",      1,  { UAMEASUNIT_CONSUMPTION_LITER_PER_KILOMETER }   },
+    {   "liter",                    1,  { UAMEASUNIT_VOLUME_LITER }   },
+    {   "meter",                    1,  { UAMEASUNIT_LENGTH_METER }   },
+    {   "meter centimeter",         2,  { UAMEASUNIT_LENGTH_METER, UAMEASUNIT_LENGTH_CENTIMETER }   },
+    {   "meter-per-second",         1,  { UAMEASUNIT_SPEED_METER_PER_SECOND }   },
+    {   "mile",                     1,  { UAMEASUNIT_LENGTH_MILE }   },
+    {   "mile-per-gallon",          1,  { UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON }   },
+    {   "mile-per-gallon-imperial", 1,  { UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON_IMPERIAL }   },
+    {   "mile-per-hour",            1,  { UAMEASUNIT_SPEED_MILE_PER_HOUR }   },
+    {   "mile-scandinavian",        1,  { UAMEASUNIT_LENGTH_MILE_SCANDINAVIAN }   },
+    {   "millibar",                 1,  { UAMEASUNIT_PRESSURE_MILLIBAR }   },
+    {   "milligram-per-deciliter",  1,  { UAMEASUNIT_CONCENTRATION_MILLIGRAM_PER_DECILITER }   },
+    {   "millimeter",               1,  { UAMEASUNIT_LENGTH_MILLIMETER }   },
+    {   "millimeter-of-mercury",    1,  { UAMEASUNIT_PRESSURE_MILLIMETER_OF_MERCURY }   },
+    {   "millimole-per-liter",      1,  { UAMEASUNIT_CONCENTRATION_MILLIMOLE_PER_LITER }   },
+    {   "minute second",            2,  { UAMEASUNIT_DURATION_MINUTE, UAMEASUNIT_DURATION_SECOND }   },
+    {   "pound",                    1,  { UAMEASUNIT_MASS_POUND }   },
+    {   "pound ounce",              2,  { UAMEASUNIT_MASS_POUND, UAMEASUNIT_MASS_OUNCE }   },
+    {   "stone pound",              2,  { UAMEASUNIT_MASS_STONE, UAMEASUNIT_MASS_POUND }   },
+    {   "yard",                     1,  { UAMEASUNIT_LENGTH_YARD }   },
+    {   "year-person month-person", 2,  { UAMEASUNIT_DURATION_YEAR, UAMEASUNIT_DURATION_MONTH }   },
+};
+enum { kKeyToUnitsCount = UPRV_LENGTHOF(keyToUnits) };
+
+enum { kCombinedKeyMax = 64 };
+
+static int compareKeyToUnits(const void* searchKey, const void* tableEntry) {
+    return uprv_strncmp(((const KeyToUnits*)searchKey)->key, ((const KeyToUnits*)tableEntry)->key, kCombinedKeyMax);
+}
+
+U_CAPI int32_t U_EXPORT2
+uameasfmt_getUnitsForUsage( const char*     locale,
+                            const char*     category,
+                            const char*     usage,
+                            UAMeasureUnit*  units,
+                            int32_t         unitsCapacity,
+                            UErrorCode*     status )
+{
+    if (U_FAILURE(*status)) {
+        return 0;
+    }
+    if ( category==NULL || ((units==NULL)? unitsCapacity!=0: unitsCapacity<0) ) {
+        *status = U_ILLEGAL_ARGUMENT_ERROR;
+        return 0;
+    }
+    char combinedKey[kCombinedKeyMax+1] = "";
+    char* combinedKeyPtr;
+    uprv_strncat(combinedKey, category, kCombinedKeyMax);
+    if (usage != NULL) {
+        uprv_strncat(combinedKey, "-", kCombinedKeyMax-uprv_strlen(combinedKey));
+        uprv_strncat(combinedKey, usage, kCombinedKeyMax-uprv_strlen(combinedKey));
+    }
+
+    // get unitPreferenceData bundle
+    UResourceBundle *prefb = ures_openDirect(NULL, "supplementalData", status);
+    ures_getByKey(prefb, "unitPreferenceData", prefb, status);
+    if (U_FAILURE(*status)) {
+        return 0;
+    }
+    
+    // Get region to use
+    char region[ULOC_COUNTRY_CAPACITY];
+    (void)ulocimp_getRegionForSupplementalData(locale, TRUE, region, sizeof(region), status);
+    if (U_FAILURE(*status)) {
+        return 0;
+    }
+
+    UResourceBundle *unitb = NULL;
+    UErrorCode localStatus = U_ZERO_ERROR;
+    int32_t retval = 0;
+    UResourceBundle *regb = ures_getByKey(prefb, region, NULL, &localStatus);
+    if (U_SUCCESS(localStatus)) {
+        unitb = ures_getByKey(regb, combinedKey, unitb, &localStatus);
+        if (U_FAILURE(localStatus)) {
+            combinedKeyPtr = uprv_strstr(combinedKey, "-informal");
+            if (combinedKeyPtr != NULL) {
+                *combinedKeyPtr = 0;
+                localStatus = U_ZERO_ERROR;
+                unitb = ures_getByKey(regb, combinedKey, unitb, &localStatus);
+            }
+        }
+    } else {
+        combinedKeyPtr = uprv_strstr(combinedKey, "-informal");
+        if (combinedKeyPtr != NULL) {
+            *combinedKeyPtr = 0;
+        }
+    }
+    if (U_FAILURE(localStatus)) {
+        localStatus = U_ZERO_ERROR;
+        regb = ures_getByKey(prefb, "001", regb, &localStatus);
+        if (U_SUCCESS(localStatus)) {
+            unitb = ures_getByKey(regb, combinedKey, unitb, &localStatus);
+            if (U_FAILURE(localStatus)) {
+                combinedKeyPtr = uprv_strstr(combinedKey, "-small");
+                if (combinedKeyPtr == NULL) {
+                    combinedKeyPtr = uprv_strstr(combinedKey, "-large");
+                }
+                if (combinedKeyPtr != NULL) {
+                    *combinedKeyPtr = 0;
+                    localStatus = U_ZERO_ERROR;
+                    unitb = ures_getByKey(regb, combinedKey, unitb, &localStatus);
+                }
+            }
+        }
+    }
+    if (U_FAILURE(localStatus)) {
+        *status = localStatus;
+    } else {
+        int32_t keyLen = kCombinedKeyMax;
+        const char* unitsKey = ures_getUTF8String(unitb, combinedKey, &keyLen, FALSE, status);
+        if (U_SUCCESS(*status)) {
+            KeyToUnits  searchKey = { unitsKey, 0, { (UAMeasureUnit)0 } };
+            const KeyToUnits* keyToUnitsPtr = (const KeyToUnits*)bsearch(&searchKey, keyToUnits, kKeyToUnitsCount,
+                                                                        sizeof(KeyToUnits), compareKeyToUnits);
+            if (keyToUnitsPtr == NULL) {
+                *status = U_MISSING_RESOURCE_ERROR;
+            } else {
+                retval = keyToUnitsPtr->count;
+                if (units != NULL) {
+                    if (retval > unitsCapacity) {
+                        *status = U_BUFFER_OVERFLOW_ERROR;
+                    } else {
+                        units[0] = keyToUnitsPtr->units[0];
+                        if (retval > 1) {
+                            units[1] = keyToUnitsPtr->units[1];
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    ures_close(unitb);
+    ures_close(regb);
+    ures_close(prefb);
+
+    return retval;
+}
+
+U_CAPI const char * U_EXPORT2
+uameasfmt_getUnitCategory(UAMeasureUnit unit,
+                          UErrorCode* status )
+{
+    if (U_FAILURE(*status)) {
+        return NULL;
+    }
+    LocalPointer<const MeasureUnit> munit(createObjectForMeasureUnit(unit, status));
+    if (U_FAILURE(*status)) {
+        return NULL;
+    }
+    return munit->getType();
+}
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

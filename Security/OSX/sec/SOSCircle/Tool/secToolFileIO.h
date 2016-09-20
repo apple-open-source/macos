@@ -2,7 +2,6 @@
 //  secToolFileIO.h
 //  sec
 //
-//  Created by Richard Murphy on 1/22/16.
 //
 //
 

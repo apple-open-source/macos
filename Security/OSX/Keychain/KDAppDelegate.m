@@ -43,7 +43,9 @@
     
     self.itemDataSource = [[KDSecItems alloc] init];
     self.itemTable.dataSource = self.itemDataSource;
-    
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-variable"
     int notificationToken;
     uint32_t rc = notify_register_dispatch(kSecServerKeychainChangedNotification, &notificationToken, dispatch_get_main_queue(), ^(int token __unused) {
             NSLog(@"Received %s", kSecServerKeychainChangedNotification);
@@ -51,26 +53,32 @@
             [self.itemTable reloadData];
          });
     NSAssert(rc == 0, @"Can't register for %s", kSecServerKeychainChangedNotification);
+#pragma clang diagnostic pop
 	
 	self.circle = [KDSecCircle new];
+
+    __weak typeof(self) weakSelf = self;
 	[self.circle addChangeCallback:^{
-		self.circleStatusCell.stringValue = self.circle.status;
-        
-        [self setCheckbox];
-        
-		self.peerCountCell.objectValue = @(self.circle.peers.count);
-		NSString *peerNames = [[self.circle.peers mapWithBlock:^id(id obj) {
-			return ((KDCirclePeer*)obj).name;
-		}] componentsJoinedByString:@"\n"];
-		[self.peerTextList.textStorage replaceCharactersInRange:NSMakeRange(0, [self.peerTextList.textStorage length]) withString:peerNames];
-        
-		self.applicantCountCell.objectValue = @(self.circle.applicants.count);
-		NSString *applicantNames = [[self.circle.applicants mapWithBlock:^id(id obj) {
-			return ((KDCirclePeer*)obj).name;
-		}] componentsJoinedByString:@"\n"];
-		[self.applicantTextList.textStorage replaceCharactersInRange:NSMakeRange(0, [self.applicantTextList.textStorage length]) withString:applicantNames];
-        
-        [self.syncSpinner stopAnimation:nil];
+        __strong typeof(self) strongSelf = weakSelf;
+        if(strongSelf) {
+            strongSelf.circleStatusCell.stringValue = strongSelf.circle.status;
+
+            [strongSelf setCheckbox];
+
+            strongSelf.peerCountCell.objectValue = @(strongSelf.circle.peers.count);
+            NSString *peerNames = [[strongSelf.circle.peers mapWithBlock:^id(id obj) {
+                return ((KDCirclePeer*)obj).name;
+            }] componentsJoinedByString:@"\n"];
+            [strongSelf.peerTextList.textStorage replaceCharactersInRange:NSMakeRange(0, [strongSelf.peerTextList.textStorage length]) withString:peerNames];
+
+            strongSelf.applicantCountCell.objectValue = @(strongSelf.circle.applicants.count);
+            NSString *applicantNames = [[strongSelf.circle.applicants mapWithBlock:^id(id obj) {
+                return ((KDCirclePeer*)obj).name;
+            }] componentsJoinedByString:@"\n"];
+            [strongSelf.applicantTextList.textStorage replaceCharactersInRange:NSMakeRange(0, [strongSelf.applicantTextList.textStorage length]) withString:applicantNames];
+
+            [strongSelf.syncSpinner stopAnimation:nil];
+        }
 	}];
 }
 

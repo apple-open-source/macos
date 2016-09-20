@@ -60,25 +60,24 @@ bool DocumentFragment::childTypeAllowed(NodeType type) const
         case COMMENT_NODE:
         case TEXT_NODE:
         case CDATA_SECTION_NODE:
-        case ENTITY_REFERENCE_NODE:
             return true;
         default:
             return false;
     }
 }
 
-RefPtr<Node> DocumentFragment::cloneNodeInternal(Document& targetDocument, CloningOperation type)
+Ref<Node> DocumentFragment::cloneNodeInternal(Document& targetDocument, CloningOperation type)
 {
-    RefPtr<DocumentFragment> clone = create(targetDocument);
+    Ref<DocumentFragment> clone = create(targetDocument);
     switch (type) {
     case CloningOperation::OnlySelf:
     case CloningOperation::SelfWithTemplateContent:
         break;
     case CloningOperation::Everything:
-        cloneChildNodes(clone.get());
+        cloneChildNodes(clone);
         break;
     }
-    return clone;
+    return WTFMove(clone);
 }
 
 void DocumentFragment::parseHTML(const String& source, Element* contextElement, ParserContentPolicy parserContentPolicy)
@@ -94,6 +93,9 @@ bool DocumentFragment::parseXML(const String& source, Element* contextElement, P
 
 Element* DocumentFragment::getElementById(const AtomicString& id) const
 {
+    if (id.isNull())
+        return nullptr;
+
     // Fast path for ShadowRoot, where we are both a DocumentFragment and a TreeScope.
     if (isTreeScope())
         return treeScope().getElementById(id);

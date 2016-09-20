@@ -51,26 +51,15 @@
 
 #include "SecdTestKeychainUtilities.h"
 
-static int kTestTestCount = 118;
+static int kTestTestCount = 230;
 
-#if 0
-static int countPeers(SOSAccountRef account, bool active) {
-    CFErrorRef error = NULL;
-    CFArrayRef peers;
-    
-    if(active) peers = SOSAccountCopyActivePeers(account, &error);
-    else peers = SOSAccountCopyPeers(account, &error);
-    int retval = (int) CFArrayGetCount(peers);
-    CFReleaseNull(error);
-    CFReleaseNull(peers);
-    return retval;
-}
-#endif
+#define kAccountPasswordString ((uint8_t*) "FooFooFoo")
+#define kAccountPasswordStringLen 10
 
 static void tests(void)
 {
     CFErrorRef error = NULL;
-    CFDataRef cfpassword = CFDataCreate(NULL, (uint8_t *) "FooFooFoo", 10);
+    CFDataRef cfpassword = CFDataCreate(NULL, kAccountPasswordString, kAccountPasswordStringLen);
     CFStringRef cfaccount = CFSTR("test@test.org");
 
     CFMutableDictionaryRef changes = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
@@ -95,16 +84,16 @@ static void tests(void)
     CFReleaseNull(cfpassword);
     CFReleaseNull(error);
     
-    ok(SOSAccountResetToOffering(alice_account, &error), "Reset to offering (%@)", error);
+    ok(SOSAccountResetToOffering_wTxn(alice_account, &error), "Reset to offering (%@)", error);
     CFReleaseNull(error);
     
     // Lost Application Scenario
     is(ProcessChangesOnce(changes, alice_account, bob_account, carole_account, david_account, NULL), 1, "updates");
 
-    ok(SOSAccountJoinCircles(bob_account, &error), "Bob Applies (%@)", error);
+    ok(SOSAccountJoinCircles_wTxn(bob_account, &error), "Bob Applies (%@)", error);
     CFReleaseNull(error);
     
-    ok(SOSAccountJoinCircles(carole_account, &error), "Carole Applies too (%@)", error);
+    ok(SOSAccountJoinCircles_wTxn(carole_account, &error), "Carole Applies too (%@)", error);
     CFReleaseNull(error);
     
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, david_account, NULL), 3, "updates");
@@ -145,9 +134,18 @@ static void tests(void)
         CFReleaseSafe(applicants);
     }
     
-    ok(SOSAccountJoinCircles(bob_account, &error), "Bob asks again");
+    ok(SOSAccountLeaveCircle(carole_account, &error), "Carole bails (%@)", error);
     CFReleaseNull(error);
 
+    // Everyone but bob sees that carole bails.
+    is(ProcessChangesUntilNoChange(changes, alice_account, carole_account, david_account, NULL), 1, "updates");
+
+
+    // Bob reapplies, but it's to an old circle.
+    ok(SOSAccountJoinCircles_wTxn(bob_account, &error), "Bob asks again");
+    CFReleaseNull(error);
+
+    // Bob returns and we mix our split worlds up.
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, david_account, NULL), 2, "updates");
 
     {
@@ -161,122 +159,54 @@ static void tests(void)
 
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, david_account, NULL), 3, "updates");
 
-#if 0
-    
-    {
-        CFArrayRef applicants = SOSAccountCopyApplicants(alice_account, &error);
-        
-        ok(applicants && CFArrayGetCount(applicants) == 1, "Bob automatically re-applied %@ (%@)", applicants, error);
-        ok(SOSAccountAcceptApplicants(alice_account, applicants, &error), "Alice accepts (%@)", error);
-        CFReleaseNull(error);
-        CFReleaseNull(applicants);
-    }
-    
-    is(countPeers(alice_account, 0), 3, "Bob is accepted after auto-reapply");
-    
-    FillAllChanges(changes);
-    FeedChangesToMulti(AliceChanges, bob_account, carole_account, david_account, NULL);
-    FeedChangesToMulti(BobChanges, alice_account, carole_account, david_account, NULL);
-    FeedChangesToMulti(CarolChanges, bob_account, alice_account, david_account, NULL);
-    FeedChangesToMulti(DavidChanges, bob_account, alice_account, carole_account, NULL);
-    
-    FillAllChanges(changes);
-    FeedChangesToMulti(AliceChanges, bob_account, carole_account, david_account, NULL);
-    FeedChangesToMulti(BobChanges, alice_account, carole_account, david_account, NULL);
-    FeedChangesToMulti(CarolChanges, bob_account, alice_account, david_account, NULL);
-    FeedChangesToMulti(DavidChanges, bob_account, alice_account, carole_account, NULL);
-    
-    FillAllChanges(changes);
-    FeedChangesToMulti(AliceChanges, bob_account, carole_account, david_account, NULL);
-    FeedChangesToMulti(BobChanges, alice_account, carole_account, david_account, NULL);
-    FeedChangesToMulti(CarolChanges, bob_account, alice_account, david_account, NULL);
-    FeedChangesToMulti(DavidChanges, bob_account, alice_account, carole_account, NULL);
-    accounts_agree("alice and carole agree after bob gets in", alice_account, carole_account);
-    
+    is(countPeers(bob_account), 2, "Bob sees 2 valid peers after admission from re-apply");
+
+    accounts_agree("alice and bob agree", alice_account, bob_account);
+    accounts_agree_internal("alice and carole agree", alice_account, carole_account, false);
+
+
     // Rejected Application Scenario
-    ok(SOSAccountJoinCircles(david_account, &error), "Dave Applies (%@)", error);
+    ok(SOSAccountJoinCircles_wTxn(david_account, &error), "Dave Applies (%@)", error);
     CFReleaseNull(error);
-    
-    FillAllChanges(changes);
-    FeedChangesToMulti(AliceChanges, bob_account, carole_account, david_account, NULL);
-    FeedChangesToMulti(BobChanges, alice_account, carole_account, david_account, NULL);
-    FeedChangesToMulti(CarolChanges, bob_account, alice_account, david_account, NULL);
-    FeedChangesToMulti(DavidChanges, bob_account, alice_account, carole_account, NULL);
-    
+
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, david_account, NULL), 2, "updates");
+
+    accounts_agree_internal("alice and david agree", alice_account, david_account, false);
+
     SOSAccountPurgePrivateCredential(alice_account);
-    
+
     {
         CFArrayRef applicants = SOSAccountCopyApplicants(alice_account, &error);
-        
+
         ok(applicants && CFArrayGetCount(applicants) == 1, "See one applicant %@ (%@)", applicants, error);
         ok(SOSAccountRejectApplicants(alice_account, applicants, &error), "Alice rejects (%@)", error);
         CFReleaseNull(error);
         CFReleaseNull(applicants);
     }
-    
-    FillAllChanges(changes);
-    FeedChangesToMulti(AliceChanges, bob_account, carole_account, david_account, NULL);
-    FeedChangesToMulti(BobChanges, alice_account, carole_account, david_account, NULL);
-    FeedChangesToMulti(CarolChanges, bob_account, alice_account, david_account, NULL);
-    FeedChangesToMulti(DavidChanges, bob_account, alice_account, carole_account, NULL);
-    
-    FillAllChanges(changes);
-    FeedChangesToMulti(AliceChanges, bob_account, carole_account, david_account, NULL);
-    FeedChangesToMulti(BobChanges, alice_account, carole_account, david_account, NULL);
-    FeedChangesToMulti(CarolChanges, bob_account, alice_account, david_account, NULL);
-    FeedChangesToMulti(DavidChanges, bob_account, alice_account, carole_account, NULL);
-    
-    FillAllChanges(changes);
-    FeedChangesToMulti(AliceChanges, bob_account, carole_account, david_account, NULL);
-    FeedChangesToMulti(BobChanges, alice_account, carole_account, david_account, NULL);
-    FeedChangesToMulti(CarolChanges, bob_account, alice_account, david_account, NULL);
-    FeedChangesToMulti(DavidChanges, bob_account, alice_account, carole_account, NULL);
-    
-    accounts_agree("alice and carole still agree after david is rejected", alice_account, carole_account);
+
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, david_account, NULL), 2, "updates");
+
+    accounts_agree_internal("alice and carole still agree after david is rejected", alice_account, carole_account, false);
+
+    cfpassword = CFDataCreate(NULL, kAccountPasswordString, kAccountPasswordStringLen);
+
     ok(SOSAccountTryUserCredentials(alice_account, cfaccount, cfpassword, &error), "Credential setting (%@)", error);
     CFReleaseNull(error);
-    
-    FillAllChanges(changes);
-    FeedChangesToMulti(AliceChanges, bob_account, carole_account, david_account, NULL);
-    FeedChangesToMulti(BobChanges, alice_account, carole_account, david_account, NULL);
-    FeedChangesToMulti(CarolChanges, bob_account, alice_account, david_account, NULL);
-    FeedChangesToMulti(DavidChanges, bob_account, alice_account, carole_account, NULL);
-    
-    FillAllChanges(changes);
-    
-    ok(CFDictionaryGetCount(CarolChanges) == 0, "We converged. (%@)", CarolChanges);
-    ok(CFDictionaryGetCount(BobChanges) == 0, "We converged. (%@)", BobChanges);
-    ok(CFDictionaryGetCount(AliceChanges) == 0, "We converged. (%@)", AliceChanges);
-    ok(CFDictionaryGetCount(DavidChanges) == 0, "We converged. (%@)", DavidChanges);
-    
+    CFReleaseNull(cfpassword);
+
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, david_account, NULL), 1, "updates");
+
     accounts_agree("bob&alice pair", bob_account, alice_account);
-    
-    ok(SOSAccountJoinCirclesAfterRestore(carole_account, &error), "Carole cloud identiy joins (%@)", error);
+
+    ok(SOSAccountJoinCirclesAfterRestore_wTxn(carole_account, &error), "Carole cloud identiy joins (%@)", error);
     CFReleaseNull(error);
-    
-    is(countPeers(carole_account, false), 3, "Carole sees 3 valid peers after sliding in");
-    
-    FillAllChanges(changes);
-    FeedChangesToMulti(AliceChanges, bob_account, carole_account, david_account, NULL);
-    FeedChangesToMulti(BobChanges, alice_account, carole_account, david_account, NULL);
-    FeedChangesToMulti(CarolChanges, bob_account, alice_account, david_account, NULL);
-    FeedChangesToMulti(DavidChanges, bob_account, alice_account, carole_account, NULL);
-    
-    FillAllChanges(changes);
-    FeedChangesToMulti(AliceChanges, bob_account, carole_account, david_account, NULL);
-    FeedChangesToMulti(BobChanges, alice_account, carole_account, david_account, NULL);
-    FeedChangesToMulti(CarolChanges, bob_account, alice_account, david_account, NULL);
-    FeedChangesToMulti(DavidChanges, bob_account, alice_account, carole_account, NULL);
-    
-    FillAllChanges(changes);
-    FeedChangesToMulti(AliceChanges, bob_account, carole_account, david_account, NULL);
-    FeedChangesToMulti(BobChanges, alice_account, carole_account, david_account, NULL);
-    FeedChangesToMulti(CarolChanges, bob_account, alice_account, david_account, NULL);
-    FeedChangesToMulti(DavidChanges, bob_account, alice_account, carole_account, NULL); // Bob and carole see the final result.
-    
-    accounts_agree_internal("Carole's in", bob_account, alice_account, false);
-    accounts_agree_internal("Carole's in - 2", bob_account, carole_account, false);
-#endif
+
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, david_account, NULL), 4, "updates");
+
+    accounts_agree_internal("carole&alice pair", carole_account, alice_account, false);
+
+    is(countPeers(carole_account), 3, "Carole sees 3 valid peers after sliding in");
+
     CFReleaseNull(bob_account);
     CFReleaseNull(alice_account);
     CFReleaseNull(carole_account);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2013, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -34,12 +34,7 @@
 #include <SystemConfiguration/SCValidation.h>
 
 #include <dns_sd.h>
-#ifndef	kDNSServiceCompMulticastDNS
-#define	kDNSServiceCompMulticastDNS	"MulticastDNS"
-#endif
-#ifndef	kDNSServiceCompPrivateDNS
-#define	kDNSServiceCompPrivateDNS	"PrivateDNS"
-#endif
+#include <dns_sd_private.h>
 
 #include "cache.h"
 
@@ -48,6 +43,26 @@ static CFMutableArrayRef	mirror_keys	= NULL;
 static CFMutableArrayRef	mirror_patterns	= NULL;
 static SCDynamicStoreRef	store_host	= NULL;
 static SCDynamicStoreRef	store_sim	= NULL;
+
+
+#pragma mark -
+#pragma mark Logging
+
+
+/*
+ * Logging
+ */
+__private_extern__ os_log_t
+__log_SimulatorSupport()
+{
+	static os_log_t	log = NULL;
+
+	if (log == NULL) {
+		log = os_log_create("com.apple.SystemConfiguration", "SimulatorSupport");
+	}
+
+	return log;
+}
 
 
 #pragma mark -

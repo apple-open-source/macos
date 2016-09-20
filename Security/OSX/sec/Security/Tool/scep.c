@@ -452,6 +452,8 @@ extern int command_scep(int argc, char * const *argv)
     bool scep_can_use_post = false;
     bool scep_use_3des = false;
     bool scep_can_use_sha1 = false;
+    bool scep_can_use_sha512 = false;
+    bool scep_can_use_sha256 = false;
 
     CFArrayRef caps = NULL;
     if (!scep_capabilities) {
@@ -481,6 +483,8 @@ extern int command_scep(int argc, char * const *argv)
         scep_can_use_post = CFArrayContainsValue(caps, caps_length, CFSTR("POSTPKIOperation"));
         scep_use_3des = CFArrayContainsValue(caps, caps_length, CFSTR("DES3"));
         scep_can_use_sha1 = CFArrayContainsValue(caps, caps_length, CFSTR("SHA-1"));
+        scep_can_use_sha256 = CFArrayContainsValue(caps, caps_length, CFSTR("SHA-256"));
+        scep_can_use_sha512 = CFArrayContainsValue(caps, caps_length, CFSTR("SHA-512"));
 
         // We probably inteded these to be the values and not override them below..
         // but for now to quiet the analyzer we reference them here. see <rdar://problem/15010402> scep.c, command_scep assumes 3des and sha1
@@ -504,9 +508,15 @@ extern int command_scep(int argc, char * const *argv)
         CFDictionarySetValue(csr_parameters, kSecCMSBulkEncryptionAlgorithm, kSecCMSEncryptionAlgorithmDESCBC);
         fprintf(stderr, "SCEP server does not support 3DES, falling back to DES.  You should reconfigure your server.\n");
     }
-    if (!scep_can_use_sha1) {
-        CFDictionarySetValue(csr_parameters, kSecCMSSignHashAlgorithm, kSecCMSHashingAlgorithmMD5);
-        fprintf(stderr, "SCEP server does not support SHA-1, falling back to MD5.  You should reconfigure your server.\n");    
+
+    if (scep_can_use_sha512) {
+        CFDictionarySetValue(csr_parameters, kSecCMSSignHashAlgorithm, kSecCMSHashingAlgorithmSHA512);
+    } else if (scep_can_use_sha256) {
+        CFDictionarySetValue(csr_parameters, kSecCMSSignHashAlgorithm, kSecCMSHashingAlgorithmSHA256);
+    } else if (scep_can_use_sha1) {
+        CFDictionarySetValue(csr_parameters, kSecCMSSignHashAlgorithm, kSecCMSHashingAlgorithmSHA1);
+    } else {
+        fprintf(stderr, "SCEP server does not support SHA-1.  You must reconfigure your server.\n");
     }
 
     if (scep_subject_alt_name) {
@@ -585,7 +595,8 @@ extern int command_scep(int argc, char * const *argv)
     result = 0;
     
 out:
-    SecItemDelete(identity_add);
+    if (identity_add)
+        SecItemDelete(identity_add);
     CFReleaseSafe(identity_add);
     //if (uuid_cfstr) CFRelease(uuid_cfstr);
     CFReleaseSafe(candidate_identity);

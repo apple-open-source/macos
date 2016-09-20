@@ -121,6 +121,9 @@ loser:
 void
 SecCmsEncryptedDataDestroy(SecCmsEncryptedDataRef encd)
 {
+    if (encd == NULL) {
+        return;
+    }
     /* everything's in a pool, so don't worry about the storage */
     SecCmsContentInfoDestroy(&(encd->contentInfo));
     return;

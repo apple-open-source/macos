@@ -43,12 +43,15 @@ public:
 	SECCFFUNCTIONS(Identity, SecIdentityRef, errSecInvalidItemRef, gTypes().Identity)
 
     Identity(const SecPointer<KeyItem> &privateKey,
-		const SecPointer<Certificate> &certificate);
+             const SecPointer<Certificate> &certificate);
+    Identity(const SecKeyRef privateKey,
+             const SecPointer<Certificate> &certificate);
     Identity(const StorageManager::KeychainList &keychains, const SecPointer<Certificate> &certificate);
     virtual ~Identity() throw();
 
 	SecPointer<KeyItem> privateKey() const;
 	SecPointer<Certificate> certificate() const;
+    SecKeyRef privateKeyRef() const;
 
 	bool operator < (const Identity &other) const;
 	bool operator == (const Identity &other) const;
@@ -57,7 +60,7 @@ public:
     CFHashCode hash();
 
 private:
-	SecPointer<KeyItem> mPrivateKey;
+    SecKeyRef mPrivateKey;
 	SecPointer<Certificate> mCertificate;
 };
 

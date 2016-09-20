@@ -50,12 +50,12 @@ String HTMLParamElement::name() const
 
 String HTMLParamElement::value() const
 {
-    return fastGetAttribute(valueAttr);
+    return attributeWithoutSynchronization(valueAttr);
 }
 
 bool HTMLParamElement::isURLParameter(const String& name)
 {
-    return equalIgnoringCase(name, "data") || equalIgnoringCase(name, "movie") || equalIgnoringCase(name, "src");
+    return equalLettersIgnoringASCIICase(name, "data") || equalLettersIgnoringASCIICase(name, "movie") || equalLettersIgnoringASCIICase(name, "src");
 }
 
 bool HTMLParamElement::isURLAttribute(const Attribute& attribute) const

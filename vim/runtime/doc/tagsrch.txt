@@ -1,4 +1,4 @@
-*tagsrch.txt*   For Vim version 7.3.  Last change: 2009 Feb 18
+*tagsrch.txt*   For Vim version 7.4.  Last change: 2013 Oct 01
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -115,7 +115,7 @@ CTRL-T			Jump to [count] older entry in the tag stack
 
 The output of ":tags" looks like this:
 
-   # TO tag      FROM line in file/line
+   # TO tag      FROM line  in file/text
    1  1 main		 1  harddisk2:text/vim/test
  > 2  2 FuncA		58  i = FuncA(10);
    3  1 FuncC	       357  harddisk2:text/vim/src/amiga.c
@@ -135,7 +135,7 @@ you were before the tag command.  The line number will be correct, also when
 deleting/inserting lines, unless this was done by another program (e.g.
 another instance of Vim).
 
-For the current file, the "file/line" column shows the text at the position.
+For the current file, the "file/text" column shows the text at the position.
 An indent is removed and a long line is truncated to fit in the window.
 
 You can jump to previously used tags with several commands.  Some examples:
@@ -164,9 +164,9 @@ entry was not at the bottom, the entries below the last used one are
 deleted.  This means that an old branch in the call graph is lost.  After the
 commands explained above the tag stack will look like this:
 
-   # TO tag	FROM line in file
-   1 main	       1  harddisk2:text/vim/test
-   2 FuncB	      59  harddisk2:text/vim/src/main.c
+   # TO tag	FROM line  in file/text
+   1  1 main		1  harddisk2:text/vim/test
+   2  1 FuncB	       59  harddisk2:text/vim/src/main.c
 
 							*E73*
 When you try to use the tag stack while it doesn't contain anything you will
@@ -357,7 +357,7 @@ slower then.  The former can be avoided by case-fold sorting the tags file.
 See 'tagbsearch' for details.
 
 							*tag-regexp*
-The ":tag" and "tselect" commands accept a regular expression argument.  See
+The ":tag" and ":tselect" commands accept a regular expression argument.  See
 |pattern| for the special characters that can be used.
 When the argument starts with '/', it is used as a pattern.  If the argument
 does not start with '/', it is taken literally, as a full tag name.
@@ -770,12 +770,12 @@ CTRL-W i		Open a new window, with the cursor on the first line
 			{not in Vi}
 
 							*:dli* *:dlist*
-:[range]dl[ist][!] [/]string[/]
-			Like "[D"  and "]D", but search in [range] lines
+:[range]dli[st][!] [/]string[/]
+			Like `[D`  and `]D`, but search in [range] lines
 			(default: whole file).
 			See |:search-args| for [/] and [!].  {not in Vi}
-			Note that ":dl" works like ":delete" with the "l"
-			flag.
+			Note that `:dl` works like `:delete` with the "l"
+			flag, not `:dlist`.
 
 							*[_CTRL-D*
 [ CTRL-D		Jump to the first macro definition that contains the

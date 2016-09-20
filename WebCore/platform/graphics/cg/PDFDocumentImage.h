@@ -52,35 +52,42 @@ public:
         return adoptRef(new PDFDocumentImage(observer));
     }
 
+    void setCachedPDFImageEnabled(bool);
+
 private:
     PDFDocumentImage(ImageObserver*);
     virtual ~PDFDocumentImage();
 
-    virtual bool isPDFDocumentImage() const override { return true; }
+    bool isPDFDocumentImage() const override { return true; }
 
-    virtual String filenameExtension() const override;
+    String filenameExtension() const override;
 
-    virtual bool hasSingleSecurityOrigin() const override { return true; }
+    bool hasSingleSecurityOrigin() const override { return true; }
 
-    virtual bool dataChanged(bool allDataReceived) override;
+    bool dataChanged(bool allDataReceived) override;
 
-    virtual void destroyDecodedData(bool /*destroyAll*/ = true) override;
+    void destroyDecodedData(bool /*destroyAll*/ = true) override;
 
-    virtual void computeIntrinsicDimensions(Length& intrinsicWidth, Length& intrinsicHeight, FloatSize& intrinsicRatio) override;
-    virtual FloatSize size() const override;
+    void computeIntrinsicDimensions(Length& intrinsicWidth, Length& intrinsicHeight, FloatSize& intrinsicRatio) override;
+    FloatSize size() const override;
 
-    virtual void draw(GraphicsContext*, const FloatRect& dstRect, const FloatRect& srcRect, ColorSpace styleColorSpace, CompositeOperator, BlendMode, ImageOrientationDescription) override;
+    void draw(GraphicsContext&, const FloatRect& dstRect, const FloatRect& srcRect, CompositeOperator, BlendMode, ImageOrientationDescription) override;
 
     // FIXME: Implement this to be less conservative.
-    virtual bool currentFrameKnownToBeOpaque() override { return false; }
+    bool currentFrameKnownToBeOpaque() override { return false; }
+
+    void dump(TextStream&) const override;
 
     void createPDFDocument();
     void computeBoundsForCurrentPage();
     unsigned pageCount() const;
-    void drawPDFPage(GraphicsContext*);
+    void drawPDFPage(GraphicsContext&);
 
-    void updateCachedImageIfNeeded(GraphicsContext*, const FloatRect& dstRect, const FloatRect& srcRect);
-    bool cacheParametersMatch(GraphicsContext*, const FloatRect& dstRect, const FloatRect& srcRect) const;
+    void decodedSizeChanged(size_t newCachedBytes);
+    void updateCachedImageIfNeeded(GraphicsContext&, const FloatRect& dstRect, const FloatRect& srcRect);
+    bool cacheParametersMatch(GraphicsContext&, const FloatRect& dstRect, const FloatRect& srcRect) const;
+
+    bool m_isCachedPDFImageEnabled { true };
 
 #if USE(PDFKIT_FOR_PDFDOCUMENTIMAGE)
     RetainPtr<PDFDocument> m_document;
@@ -89,6 +96,7 @@ private:
 #endif
 
     std::unique_ptr<ImageBuffer> m_cachedImageBuffer;
+    FloatRect m_cachedImageRect;
     AffineTransform m_cachedTransform;
     FloatSize m_cachedDestinationSize;
     FloatRect m_cachedSourceRect;
@@ -100,6 +108,8 @@ private:
 };
 
 }
+
+SPECIALIZE_TYPE_TRAITS_IMAGE(PDFDocumentImage)
 
 #endif // USE(CG)
 

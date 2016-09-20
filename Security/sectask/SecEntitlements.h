@@ -108,6 +108,14 @@ __BEGIN_DECLS
 /* Entitlement to control usage of system keychain migration */
 #define kSecEntitlementPrivateNetworkExtension CFSTR("com.apple.developer.networking.networkextension")
 
+/* Entitlement to control usage of deletion of keychain items on app uninstallation */
+#define kSecEntitlementPrivateUninstallDeletion CFSTR("com.apple.private.uninstall.deletion")
+
+/* Entitlement to allow access to circle joining APIs in SOSCC */
+#define kSecEntitlementCircleJoin CFSTR("com.apple.private.keychain.circle.join")
+
+/* Entitlement to deny use of keychain APIs, only effective on iOS keychain */
+#define kSecEntitlementKeychainDeny CFSTR("com.apple.private.keychain.deny")
 
 __END_DECLS
 

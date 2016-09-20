@@ -27,7 +27,6 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <syslog.h>
 #include <mach/boolean.h>
 #include <sys/errno.h>
 #include <limits.h>
@@ -45,9 +44,7 @@
 #include "AFPUsers.h"
 #include "NetBootServer.h"
 #include "cfutil.h"
-
-extern void
-my_log(int priority, const char *message, ...);
+#include "mylog.h"
 
 static ODRecordRef
 groupRecordCopy(ODNodeRef node, const char * group)
@@ -240,7 +237,7 @@ AFPUserList_init(AFPUserListRef users)
 	    if (!ODRecordAddMember(users->afp_access_group,
 				   record, &error)) {
 		my_log(LOG_NOTICE,
-		       "AFPUsers: failed to add user to group %s, %d",
+		       "AFPUsers: failed to add user to group %s, %ld",
 		       AFP_ACCESS_GROUP, CFErrorGetCode(error));
 		my_CFRelease(&error);
 	    }
@@ -388,7 +385,7 @@ AFPUserList_create(AFPUserListRef users, gid_t gid,
 	    if (!ODRecordAddMember(users->afp_access_group,
 				   record, &error)) {
 		my_log(LOG_NOTICE,
-		       "AFPUsers: failed to add user to group %s, %d",
+		       "AFPUsers: failed to add user to group %s, %ld",
 		       AFP_ACCESS_GROUP, CFErrorGetCode(error));
 	    }
 	    my_CFRelease(&error);

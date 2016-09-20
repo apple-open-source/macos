@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,6 +27,7 @@
 
 #include <stdint.h>
 #include <sys/cdefs.h>
+#include <Availability.h>
 
 typedef struct _nwi_state * nwi_state_t;
 typedef struct _nwi_ifstate * nwi_ifstate_t;

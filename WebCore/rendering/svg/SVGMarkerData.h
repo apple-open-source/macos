@@ -48,28 +48,27 @@ struct MarkerPosition {
 
 class SVGMarkerData {
 public:
-    SVGMarkerData(Vector<MarkerPosition>& positions)
+    SVGMarkerData(Vector<MarkerPosition>& positions, bool reverseStart)
         : m_positions(positions)
         , m_elementIndex(0)
+        , m_reverseStart(reverseStart)
     {
     }
 
-    static void updateFromPathElement(void* info, const PathElement* element)
+    static void updateFromPathElement(SVGMarkerData& markerData, const PathElement& element)
     {
-        SVGMarkerData* markerData = static_cast<SVGMarkerData*>(info);
-
         // First update the outslope for the previous element.
-        markerData->updateOutslope(element->points[0]);
+        markerData.updateOutslope(element.points[0]);
 
         // Record the marker for the previous element.
-        if (markerData->m_elementIndex > 0) {
-            SVGMarkerType markerType = markerData->m_elementIndex == 1 ? StartMarker : MidMarker;
-            markerData->m_positions.append(MarkerPosition(markerType, markerData->m_origin, markerData->currentAngle(markerType)));
+        if (markerData.m_elementIndex > 0) {
+            SVGMarkerType markerType = markerData.m_elementIndex == 1 ? StartMarker : MidMarker;
+            markerData.m_positions.append(MarkerPosition(markerType, markerData.m_origin, markerData.currentAngle(markerType)));
         }
 
         // Update our marker data for this element.
-        markerData->updateMarkerDataForPathElement(element);
-        ++markerData->m_elementIndex;
+        markerData.updateMarkerDataForPathElement(element);
+        ++markerData.m_elementIndex;
     }
 
     void pathIsDone()
@@ -89,6 +88,8 @@ private:
 
         switch (type) {
         case StartMarker:
+            if (m_reverseStart)
+                return narrowPrecisionToFloat(outAngle - 180);
             return narrowPrecisionToFloat(outAngle);
         case MidMarker:
             // WK193015: Prevent bugs due to angles being non-continuous.
@@ -109,11 +110,11 @@ private:
         m_outslopePoints[1] = point;
     }
 
-    void updateMarkerDataForPathElement(const PathElement* element)
+    void updateMarkerDataForPathElement(const PathElement& element)
     {
-        FloatPoint* points = element->points;
+        FloatPoint* points = element.points;
 
-        switch (element->type) {
+        switch (element.type) {
         case PathElementAddQuadCurveToPoint:
             // FIXME: https://bugs.webkit.org/show_bug.cgi?id=33115 (PathElementAddQuadCurveToPoint not handled for <marker>)
             m_origin = points[1];
@@ -149,6 +150,7 @@ private:
     FloatPoint m_subpathStart;
     FloatPoint m_inslopePoints[2];
     FloatPoint m_outslopePoints[2];
+    bool m_reverseStart;
 };
 
 }

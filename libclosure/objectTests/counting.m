@@ -15,7 +15,6 @@
 // TEST_CFLAGS -framework Foundation
 
 #import <Foundation/Foundation.h>
-#import <objc/objc-auto.h>
 #import <Block.h>
 #import <stdio.h>
 #import <libkern/OSAtomic.h>
@@ -38,28 +37,10 @@ int recovered = 0;
     OSAtomicIncrement32(&recovered);
     [super dealloc];
 }
-- (void)finalize {
-    // printf("finalized...\n");
-    OSAtomicIncrement32(&recovered);
-    [super finalize];
-}
 
-#if 0
-- (id)retain {
-    printf("retaining...\n");
-    return [super retain];
-}
-
-- (void)release {
-    printf("releasing...\n");
-    [super release];
-}
-#endif
 @end
 
 void recoverMemory(const char *caller) {
-    objc_collect(OBJC_EXHAUSTIVE_COLLECTION|OBJC_WAIT_UNTIL_DONE);
-    objc_collect(OBJC_EXHAUSTIVE_COLLECTION|OBJC_WAIT_UNTIL_DONE);
     if (recovered != allocated) {
         fail("after %s recovered %d vs allocated %d", caller, recovered, allocated);
     }
@@ -67,7 +48,6 @@ void recoverMemory(const char *caller) {
 
 // test that basic refcounting works
 void *testsingle(void *arg __unused) {
-    objc_registerThreadWithCollector();
     TestObject *to = [TestObject new];
     void (^b)(void) = [^{ printf("hi %p\n", to); } copy];
     [b release];
@@ -76,7 +56,6 @@ void *testsingle(void *arg __unused) {
 }
 
 void *testlatch(void *arg __unused) {
-    objc_registerThreadWithCollector();
     TestObject *to = [TestObject new];
     void (^b)(void) = [^{ printf("hi %p\n", to); } copy];
     for (int i = 0; i < 0xfffff; ++i) {
@@ -93,7 +72,6 @@ void *testlatch(void *arg __unused) {
 }
 
 void *testmultiple(void *arg __unused) {
-    objc_registerThreadWithCollector();
     TestObject *to = [TestObject new];
     void (^b)(void) = [^{ printf("hi %p\n", to); } copy];
 #if 2

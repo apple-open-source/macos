@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007, 2008  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007-2009, 2011, 2012  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: net.c,v 1.18 2008/08/08 05:06:49 marka Exp $ */
+/* $Id$ */
 
 #include <config.h>
 
@@ -47,11 +47,11 @@
 #define ISC_NET_PORTRANGEHIGH 65535
 #endif	/* ISC_NET_PORTRANGEHIGH */
 
-#if defined(ISC_PLATFORM_HAVEIPV6) && defined(ISC_PLATFORM_NEEDIN6ADDRANY)
+#if defined(ISC_PLATFORM_NEEDIN6ADDRANY)
 const struct in6_addr isc_net_in6addrany = IN6ADDR_ANY_INIT;
 #endif
 
-#if defined(ISC_PLATFORM_HAVEIPV6) && defined(ISC_PLATFORM_NEEDIN6ADDRLOOPBACK)
+#if defined(ISC_PLATFORM_NEEDIN6ADDRLOOPBACK)
 const struct in6_addr isc_net_in6addrloop = IN6ADDR_LOOPBACK_INIT;
 #endif
 
@@ -69,7 +69,6 @@ void InitSockets(void);
 static isc_result_t
 try_proto(int domain) {
 	SOCKET s;
-	isc_result_t result = ISC_R_SUCCESS;
 	char strbuf[ISC_STRERRORSIZE];
 	int errval;
 
@@ -171,7 +170,8 @@ try_ipv6only(void) {
 	}
 
 	on = 1;
-	if (setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&on, sizeof(on)) < 0) {
+	if (setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, (const char *)&on,
+		       sizeof(on)) < 0) {
 		ipv6only_result = ISC_R_NOTFOUND;
 		goto close;
 	}
@@ -194,7 +194,8 @@ try_ipv6only(void) {
 	}
 
 	on = 1;
-	if (setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&on, sizeof(on)) < 0) {
+	if (setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, (const char *)&on,
+		       sizeof(on)) < 0) {
 		ipv6only_result = ISC_R_NOTFOUND;
 		goto close;
 	}
@@ -215,7 +216,8 @@ initialize_ipv6only(void) {
 
 static void
 try_ipv6pktinfo(void) {
-	int s, on;
+	SOCKET s;
+	int on;
 	char strbuf[ISC_STRERRORSIZE];
 	isc_result_t result;
 	int optname;

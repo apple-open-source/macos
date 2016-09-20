@@ -586,7 +586,7 @@ IOHIDManagerRef IOHIDManagerCreate(
     manager = __IOHIDManagerCreate(allocator, NULL);
     
     if (!manager)
-        return NULL;
+        return (_Nonnull IOHIDManagerRef)NULL;
     
     manager->createOptions = options;
     

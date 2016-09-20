@@ -35,6 +35,7 @@
 #include "MouseEvent.h"
 #include "Page.h"
 #include "RenderBox.h"
+#include "RenderTheme.h"
 #include "ScrollbarTheme.h"
 #include "WheelEvent.h"
 #include <wtf/Ref.h>
@@ -89,11 +90,11 @@ void SpinButtonElement::defaultEventHandler(Event* event)
     MouseEvent& mouseEvent = downcast<MouseEvent>(*event);
     IntPoint local = roundedIntPoint(box->absoluteToLocal(mouseEvent.absoluteLocation(), UseTransforms));
     if (mouseEvent.type() == eventNames().mousedownEvent && mouseEvent.button() == LeftButton) {
-        if (box->pixelSnappedBorderBoxRect().contains(local)) {
+        if (box->borderBoxRect().contains(local)) {
             // The following functions of HTMLInputElement may run JavaScript
             // code which detaches this shadow node. We need to take a reference
             // and check renderer() after such function calls.
-            Ref<SpinButtonElement> protect(*this);
+            Ref<SpinButtonElement> protectedThis(*this);
             if (m_spinButtonOwner)
                 m_spinButtonOwner->focusAndSelectSpinButtonOwner();
             if (renderer()) {
@@ -112,7 +113,7 @@ void SpinButtonElement::defaultEventHandler(Event* event)
     } else if (mouseEvent.type() == eventNames().mouseupEvent && mouseEvent.button() == LeftButton)
         stopRepeatingTimer();
     else if (mouseEvent.type() == eventNames().mousemoveEvent) {
-        if (box->pixelSnappedBorderBoxRect().contains(local)) {
+        if (box->borderBoxRect().contains(local)) {
             if (!m_capturing) {
                 if (Frame* frame = document().frame()) {
                     frame->eventHandler().setCapturingMouseEventsElement(this);
@@ -122,7 +123,17 @@ void SpinButtonElement::defaultEventHandler(Event* event)
                 }
             }
             UpDownState oldUpDownState = m_upDownState;
-            m_upDownState = local.y() < box->height() / 2 ? Up : Down;
+            switch (renderer()->theme().innerSpinButtonLayout(*renderer())) {
+            case RenderTheme::InnerSpinButtonLayout::Vertical:
+                m_upDownState = local.y() < box->height() / 2 ? Up : Down;
+                break;
+            case RenderTheme::InnerSpinButtonLayout::HorizontalUpLeft:
+                m_upDownState = local.x() < box->width() / 2 ? Up : Down;
+                break;
+            case RenderTheme::InnerSpinButtonLayout::HorizontalUpRight:
+                m_upDownState = local.x() > box->width() / 2 ? Up : Down;
+                break;
+            }
             if (m_upDownState != oldUpDownState)
                 renderer()->repaint();
         } else {
@@ -207,8 +218,8 @@ bool SpinButtonElement::matchesReadWritePseudoClass() const
 void SpinButtonElement::startRepeatingTimer()
 {
     m_pressStartingState = m_upDownState;
-    ScrollbarTheme* theme = ScrollbarTheme::theme();
-    m_repeatingTimer.start(theme->initialAutoscrollTimerDelay(), theme->autoscrollTimerDelay());
+    ScrollbarTheme& theme = ScrollbarTheme::theme();
+    m_repeatingTimer.start(theme.initialAutoscrollTimerDelay(), theme.autoscrollTimerDelay());
 }
 
 void SpinButtonElement::stopRepeatingTimer()

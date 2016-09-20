@@ -1,6 +1,4 @@
 /*
- * "$Id: langprintf.c 11560 2014-02-06 20:10:19Z msweet $"
- *
  * Localized printf/puts functions for CUPS.
  *
  * Copyright 2007-2014 by Apple Inc.
@@ -334,8 +332,3 @@ _cupsSetLocale(char *argv[])		/* IO - Command-line arguments */
     }
   }
 }
-
-
-/*
- * End of "$Id: langprintf.c 11560 2014-02-06 20:10:19Z msweet $".
- */

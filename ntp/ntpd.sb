@@ -12,8 +12,10 @@
 (deny default)
 
 (allow process-fork)
+(allow signal (target same-sandbox))
 
-(allow iokit-open (iokit-user-client-class "RootDomainUserClient"))
+(allow iokit-open (iokit-user-client-class "RootDomainUserClient")
+                  (iokit-user-client-class "AppleSMCClient"))
 
 (allow file-read-data file-read-metadata
        (literal "/private/etc/ntp-restrict.conf")
@@ -25,9 +27,7 @@
 
 (allow file-write* file-read-data file-read-metadata
        (literal "/private/var/run/ntpd.pid")
-       (regex "^/private/var/db/ntp\\.drift(\\.TEMP)?$")
-       (subpath "/private/tmp")
-       (subpath "/private/var/tmp"))
+       (regex "^/private/var/db/ntp\\.drift(\\.TEMP)?$"))
 
 (allow network-inbound
        (local udp "*:123"))

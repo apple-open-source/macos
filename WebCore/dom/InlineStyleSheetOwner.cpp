@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006, 2007 Rob Buis
- * Copyright (C) 2008, 2013 Apple, Inc. All rights reserved.
+ * Copyright (C) 2008-2016 Apple, Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,13 +21,16 @@
 #include "config.h"
 #include "InlineStyleSheetOwner.h"
 
+#include "AuthorStyleSheets.h"
 #include "ContentSecurityPolicy.h"
 #include "Element.h"
 #include "MediaList.h"
 #include "MediaQueryEvaluator.h"
 #include "ScriptableDocumentParser.h"
+#include "ShadowRoot.h"
 #include "StyleSheetContents.h"
 #include "TextNodeTraversal.h"
+#include <wtf/NeverDestroyed.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
@@ -43,11 +46,19 @@ InlineStyleSheetOwner::InlineStyleSheetOwner(Document& document, bool createdByP
 
 InlineStyleSheetOwner::~InlineStyleSheetOwner()
 {
+    if (m_sheet)
+        clearSheet();
 }
 
-void InlineStyleSheetOwner::insertedIntoDocument(Document& document, Element& element)
+static AuthorStyleSheets& authorStyleSheetsForElement(Element& element)
 {
-    document.styleSheetCollection().addStyleSheetCandidateNode(element, m_isParsingChildren);
+    auto* shadowRoot = element.containingShadowRoot();
+    return shadowRoot ? shadowRoot->authorStyleSheets() : element.document().authorStyleSheets();
+}
+
+void InlineStyleSheetOwner::insertedIntoDocument(Document&, Element& element)
+{
+    authorStyleSheetsForElement(element).addStyleSheetCandidateNode(element, m_isParsingChildren);
 
     if (m_isParsingChildren)
         return;
@@ -56,7 +67,7 @@ void InlineStyleSheetOwner::insertedIntoDocument(Document& document, Element& el
 
 void InlineStyleSheetOwner::removedFromDocument(Document& document, Element& element)
 {
-    document.styleSheetCollection().removeStyleSheetCandidateNode(element);
+    authorStyleSheetsForElement(element).removeStyleSheetCandidateNode(element);
 
     if (m_sheet)
         clearSheet();
@@ -66,14 +77,14 @@ void InlineStyleSheetOwner::removedFromDocument(Document& document, Element& ele
         document.styleResolverChanged(DeferRecalcStyle);
 }
 
-void InlineStyleSheetOwner::clearDocumentData(Document& document, Element& element)
+void InlineStyleSheetOwner::clearDocumentData(Document&, Element& element)
 {
     if (m_sheet)
         m_sheet->clearOwnerNode();
 
     if (!element.inDocument())
         return;
-    document.styleSheetCollection().removeStyleSheetCandidateNode(element);
+    authorStyleSheetsForElement(element).removeStyleSheetCandidateNode(element);
 }
 
 void InlineStyleSheetOwner::childrenChanged(Element& element)
@@ -100,15 +111,19 @@ void InlineStyleSheetOwner::createSheetFromTextContents(Element& element)
 void InlineStyleSheetOwner::clearSheet()
 {
     ASSERT(m_sheet);
-    m_sheet.release()->clearOwnerNode();
+    auto sheet = WTFMove(m_sheet);
+    sheet->clearOwnerNode();
 }
 
 inline bool isValidCSSContentType(Element& element, const AtomicString& type)
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(const AtomicString, cssContentType, ("text/css", AtomicString::ConstructFromLiteral));
     if (type.isEmpty())
         return true;
-    return element.isHTMLElement() ? equalIgnoringCase(type, cssContentType) : type == cssContentType;
+    // FIXME: Should MIME types really be case sensitive in XML documents? Doesn't seem like they should,
+    // even though other things are case sensitive in that context. MIME types should never be case sensitive.
+    // We should verify this and then remove the isHTMLElement check here.
+    static NeverDestroyed<const AtomicString> cssContentType("text/css", AtomicString::ConstructFromLiteral);
+    return element.isHTMLElement() ? equalLettersIgnoringASCIICase(type, "text/css") : type == cssContentType;
 }
 
 void InlineStyleSheetOwner::createSheet(Element& element, const String& text)
@@ -117,13 +132,17 @@ void InlineStyleSheetOwner::createSheet(Element& element, const String& text)
     Document& document = element.document();
     if (m_sheet) {
         if (m_sheet->isLoading())
-            document.styleSheetCollection().removePendingSheet();
+            document.authorStyleSheets().removePendingSheet();
         clearSheet();
     }
 
     if (!isValidCSSContentType(element, m_contentType))
         return;
-    if (!document.contentSecurityPolicy()->allowInlineStyle(document.url(), m_startTextPosition.m_line, element.isInUserAgentShadowTree()))
+
+    ASSERT(document.contentSecurityPolicy());
+    const ContentSecurityPolicy& contentSecurityPolicy = *document.contentSecurityPolicy();
+    bool hasKnownNonce = contentSecurityPolicy.allowStyleWithNonce(element.attributeWithoutSynchronization(HTMLNames::nonceAttr), element.isInUserAgentShadowTree());
+    if (!contentSecurityPolicy.allowInlineStyle(document.url(), m_startTextPosition.m_line, text, hasKnownNonce))
         return;
 
     RefPtr<MediaQuerySet> mediaQueries;
@@ -134,15 +153,15 @@ void InlineStyleSheetOwner::createSheet(Element& element, const String& text)
 
     MediaQueryEvaluator screenEval(ASCIILiteral("screen"), true);
     MediaQueryEvaluator printEval(ASCIILiteral("print"), true);
-    if (!screenEval.eval(mediaQueries.get()) && !printEval.eval(mediaQueries.get()))
+    if (!screenEval.evaluate(*mediaQueries) && !printEval.evaluate(*mediaQueries))
         return;
 
-    document.styleSheetCollection().addPendingSheet();
+    authorStyleSheetsForElement(element).addPendingSheet();
 
     m_loading = true;
 
-    m_sheet = CSSStyleSheet::createInline(element, URL(), m_startTextPosition, document.inputEncoding());
-    m_sheet->setMediaQueries(mediaQueries.release());
+    m_sheet = CSSStyleSheet::createInline(element, URL(), m_startTextPosition, document.encoding());
+    m_sheet->setMediaQueries(mediaQueries.releaseNonNull());
     m_sheet->setTitle(element.title());
     m_sheet->contents().parseStringAtPosition(text, m_startTextPosition, m_isParsingChildren);
 
@@ -159,18 +178,18 @@ bool InlineStyleSheetOwner::isLoading() const
     return m_sheet && m_sheet->isLoading();
 }
 
-bool InlineStyleSheetOwner::sheetLoaded(Document& document)
+bool InlineStyleSheetOwner::sheetLoaded(Element& element)
 {
     if (isLoading())
         return false;
 
-    document.styleSheetCollection().removePendingSheet();
+    authorStyleSheetsForElement(element).removePendingSheet();
     return true;
 }
 
-void InlineStyleSheetOwner::startLoadingDynamicSheet(Document& document)
+void InlineStyleSheetOwner::startLoadingDynamicSheet(Element& element)
 {
-    document.styleSheetCollection().addPendingSheet();
+    authorStyleSheetsForElement(element).addPendingSheet();
 }
 
 }

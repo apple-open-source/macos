@@ -1,0 +1,5 @@
+DARWIN_BUNDLE_IDENTIFIER="com.apple.system_cmds.wait4path"
+DARWIN_DISPLAY_NAME="Darwin Filesystem Path Waiter"
+DARWIN_DISPLAY_VERSION="1.0.0"
+DARWIN_INCREMENTAL_VERSION="$CURRENT_PROJECT_VERSION"
+DARWIN_COPYRIGHT="Copyright 2015 Apple Inc. All rights reserved."

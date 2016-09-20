@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2009-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,7 +33,6 @@
 #import <WebCore/CoreGraphicsSPI.h>
 #import <WebCore/HTMLVideoElement.h>
 #import <WebCoreSystemInterface.h>
-#import <wtf/RetainPtr.h>
 
 using namespace WebCore;
 
@@ -74,7 +73,10 @@ using namespace WebCore;
 - (id)initWithContentRect:(NSRect)contentRect styleMask:(NSUInteger)aStyle backing:(NSBackingStoreType)bufferingType defer:(BOOL)flag
 {
     UNUSED_PARAM(aStyle);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     self = [super initWithContentRect:contentRect styleMask:NSBorderlessWindowMask backing:bufferingType defer:flag];
+#pragma clang diagnostic pop
     if (!self)
         return nil;
 
@@ -120,13 +122,15 @@ using namespace WebCore;
 
 - (BOOL)performKeyEquivalent:(NSEvent *)event
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     // Block all command key events while the fullscreen window is up.
     if ([event type] != NSKeyDown)
         return NO;
     
     if (!([event modifierFlags] & NSCommandKeyMask))
         return NO;
-    
+#pragma clang diagnostic pop
     return YES;
 }
 
@@ -141,8 +145,11 @@ static const NSTimeInterval HUDWindowFadeOutDelay = 3;
 
 - (id)init
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     NSWindow *window = [[WebVideoFullscreenHUDWindow alloc] initWithContentRect:NSMakeRect(0, 0, windowWidth, windowHeight)
                             styleMask:NSBorderlessWindowMask backing:NSBackingStoreBuffered defer:NO];
+#pragma clang diagnostic pop
     self = [super initWithWindow:window];
     [window setDelegate:self];
     [window release];
@@ -181,6 +188,8 @@ static const NSTimeInterval HUDWindowFadeOutDelay = 3;
             case ' ':
                 [self togglePlaying:nil];
                 return;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
             case NSUpArrowFunctionKey:
                 if ([event modifierFlags] & NSAlternateKeyMask)
                     [self setVolume:[self maxVolume]];
@@ -192,6 +201,7 @@ static const NSTimeInterval HUDWindowFadeOutDelay = 3;
                     [self setVolume:0];
                 else
                     [self decrementVolume];
+#pragma clang diagnostic pop
                 return;
             default:
                 break;
@@ -368,11 +378,17 @@ static NSTextField *createTimeTextField(NSRect frame)
     [contentView addSubview:_timeline];
 
     _elapsedTimeText = createTimeTextField(NSMakeRect(timeTextFieldHorizontalMargin, timelineBottomMargin, timeTextFieldWidth, timeTextFieldHeight));
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     [_elapsedTimeText setAlignment:NSLeftTextAlignment];
+#pragma clang diagnostic pop
     [contentView addSubview:_elapsedTimeText];
 
     _remainingTimeText = createTimeTextField(NSMakeRect(windowWidth - timeTextFieldHorizontalMargin - timeTextFieldWidth, timelineBottomMargin, timeTextFieldWidth, timeTextFieldHeight));
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     [_remainingTimeText setAlignment:NSRightTextAlignment];
+#pragma clang diagnostic pop
     [contentView addSubview:_remainingTimeText];
 
     [window recalculateKeyViewLoop];

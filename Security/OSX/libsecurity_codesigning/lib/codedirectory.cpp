@@ -125,7 +125,7 @@ const char * const CodeDirectory::debugSlotName[] = {
 	"info",
 	"requirements",
 	"resources",
-	"application",
+	"rep-specific",
 	"entitlement"
 };
 #endif //NDEBUG
@@ -155,7 +155,7 @@ void CodeDirectory::checkIntegrity() const
 	if (version < earliestVersion)
 		MacOSError::throwMe(errSecCSSignatureUnsupported);	// too old - can't support
 	if (version > currentVersion)
-		secdebug("codedir", "%p version 0x%x newer than current 0x%x",
+		secinfo("codedir", "%p version 0x%x newer than current 0x%x",
 			this, uint32_t(version), currentVersion);
 	
 	// now check interior offsets for validity
@@ -199,7 +199,7 @@ void CodeDirectory::checkIntegrity() const
 //
 bool CodeDirectory::validateSlot(const void *data, size_t length, Slot slot) const
 {
-	secdebug("codedir", "%p validating slot %d", this, int(slot));
+	secinfo("codedir", "%p validating slot %d", this, int(slot));
 	MakeHash<CodeDirectory> hasher(this);
 	Hashing::Byte digest[hasher->digestLength()];
 	generateHash(hasher, data, length, digest);
@@ -308,6 +308,17 @@ void CodeDirectory::multipleHashFileData(FileDesc fd, size_t limit, CodeDirector
 	for (auto it = types.begin(); it != types.end(); ++it, ++n) {
 		action(*it, hashers[n]);
 	}
+}
+    
+    
+    //
+    // Hash data in memory using our hashAlgorithm()
+    //
+bool CodeDirectory::verifyMemoryContent(CFDataRef data, const Byte* digest) const
+{
+    RefPointer<DynamicHash> hasher = CodeDirectory::hashFor(this->hashType);
+    hasher->update(CFDataGetBytePtr(data), CFDataGetLength(data));
+    return hasher->verify(digest);
 }
 	
 	

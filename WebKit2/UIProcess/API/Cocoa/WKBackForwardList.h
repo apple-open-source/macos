@@ -32,24 +32,24 @@
 /*! @abstract A WKBackForwardList object is a list of webpages previously
  visited in a web view that can be reached by going back or forward.
  */
-WK_ASSUME_NONNULL_BEGIN
+NS_ASSUME_NONNULL_BEGIN
 
-WK_CLASS_AVAILABLE(10_10, 8_0)
+WK_CLASS_AVAILABLE(macosx(10.10), ios(8.0))
 @interface WKBackForwardList : NSObject
 
 /*! @abstract The current item.
  */
-@property (WK_NULLABLE_PROPERTY nonatomic, readonly, strong) WKBackForwardListItem *currentItem;
+@property (nullable, nonatomic, readonly, strong) WKBackForwardListItem *currentItem;
 
 /*! @abstract The item immediately preceding the current item, or nil
 if there isn't one.
  */
-@property (WK_NULLABLE_PROPERTY nonatomic, readonly, strong) WKBackForwardListItem *backItem;
+@property (nullable, nonatomic, readonly, strong) WKBackForwardListItem *backItem;
 
 /*! @abstract The item immediately following the current item, or nil
 if there isn't one.
  */
-@property (WK_NULLABLE_PROPERTY nonatomic, readonly, strong) WKBackForwardListItem *forwardItem;
+@property (nullable, nonatomic, readonly, strong) WKBackForwardListItem *forwardItem;
 
 /*! @abstract Returns the item at a specified distance from the current
  item.
@@ -59,22 +59,22 @@ if there isn't one.
  @result The item at the specified distance from the current item, or nil
  if the index parameter exceeds the limits of the list.
  */
-- (WK_NULLABLE WKBackForwardListItem *)itemAtIndex:(NSInteger)index;
+- (nullable WKBackForwardListItem *)itemAtIndex:(NSInteger)index;
 
 /*! @abstract The portion of the list preceding the current item.
  @discussion The items are in the order in which they were originally
  visited.
  */
-@property (nonatomic, readonly, copy) WK_ARRAY(WKBackForwardListItem *) *backList;
+@property (nonatomic, readonly, copy) NSArray<WKBackForwardListItem *> *backList;
 
 /*! @abstract The portion of the list following the current item.
  @discussion The items are in the order in which they were originally
  visited.
  */
-@property (nonatomic, readonly, copy) WK_ARRAY(WKBackForwardListItem *) *forwardList;
+@property (nonatomic, readonly, copy) NSArray<WKBackForwardListItem *> *forwardList;
 
 @end
 
-WK_ASSUME_NONNULL_END
+NS_ASSUME_NONNULL_END
 
 #endif

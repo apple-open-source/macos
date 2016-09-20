@@ -22,6 +22,8 @@
 	Description: simple file read/write utilities
 */
 
+#include <stddef.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -35,6 +37,11 @@ int writeFile(
 	const char			*fileName,
 	const unsigned char	*bytes,
 	unsigned			numBytes);
+
+int writeFileSizet(
+    const char			*fileName,
+    const unsigned char	*bytes,
+    size_t              numBytes);
 
 #ifdef __cplusplus
 }

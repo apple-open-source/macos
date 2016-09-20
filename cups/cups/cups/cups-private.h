@@ -1,18 +1,16 @@
 /*
- * "$Id: cups-private.h 12442 2015-01-29 14:43:14Z msweet $"
+ * Private definitions for CUPS.
  *
- *   Private definitions for CUPS.
+ * Copyright 2007-2015 by Apple Inc.
+ * Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
- *   Copyright 2007-2015 by Apple Inc.
- *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
+ * These coded instructions, statements, and computer programs are the
+ * property of Apple Inc. and are protected by Federal copyright
+ * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
+ * which should have been included with this file.  If this file is
+ * file is missing or damaged, see the license at "http://www.cups.org/".
  *
- *   These coded instructions, statements, and computer programs are the
- *   property of Apple Inc. and are protected by Federal copyright
- *   law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- *   which should have been included with this file.  If this file is
- *   file is missing or damaged, see the license at "http://www.cups.org/".
- *
- *   This file is subject to the Apple OS-Developed Software exception.
+ * This file is subject to the Apple OS-Developed Software exception.
  */
 
 #ifndef _CUPS_CUPS_PRIVATE_H_
@@ -29,7 +27,6 @@
 #  include "http-private.h"
 #  include "language-private.h"
 #  include "pwg-private.h"
-#  include "ppd-private.h"
 #  include "thread-private.h"
 #  include <cups/cups.h>
 #  ifdef __APPLE__
@@ -122,11 +119,6 @@ typedef struct _cups_globals_s		/**** CUPS global state data ****/
   char			language[32];	/* Cached language */
 #  endif /* __APPLE__ */
 
-  /* ppd.c */
-  ppd_status_t		ppd_status;	/* Status of last ppdOpen*() */
-  int			ppd_line;	/* Current line number */
-  ppd_conform_t		ppd_conform;	/* Level of conformance required */
-
   /* pwg-media.c */
   cups_array_t		*leg_size_lut,	/* Lookup table for legacy names */
 			*ppd_size_lut,	/* Lookup table for PPD names */
@@ -166,6 +158,7 @@ typedef struct _cups_globals_s		/**** CUPS global state data ****/
   void			*server_cert_data;
 					/* Server certificate user data */
   int			server_version,	/* Server IPP version */
+			trust_first,	/* Trust on first use? */
 			any_root,	/* Allow any (e.g., self-signed) root */
 			expired_certs,	/* Allow expired certs */
 			validate_certs;	/* Validate certificates */
@@ -173,8 +166,6 @@ typedef struct _cups_globals_s		/**** CUPS global state data ****/
   /* util.c */
   char			def_printer[256];
 					/* Default printer */
-  char			ppd_filename[HTTP_MAX_URI];
-					/* PPD filename */
 } _cups_globals_t;
 
 typedef struct _cups_media_db_s		/* Media database */
@@ -244,6 +235,7 @@ extern char		*_cupsBufferGet(size_t size);
 extern void		_cupsBufferRelease(char *b);
 
 extern http_t		*_cupsConnect(void);
+extern char		*_cupsCreateDest(const char *name, const char *info, const char *device_id, const char *device_uri, char *uri, size_t urisize);
 extern int		_cupsGet1284Values(const char *device_id,
 			                   cups_option_t **values);
 extern const char	*_cupsGetDestResource(cups_dest_t *dest, char *resource,
@@ -279,7 +271,3 @@ extern char		*_cupsUserDefault(char *name, size_t namesize);
 }
 #  endif /* __cplusplus */
 #endif /* !_CUPS_CUPS_PRIVATE_H_ */
-
-/*
- * End of "$Id: cups-private.h 12442 2015-01-29 14:43:14Z msweet $".
- */

@@ -61,9 +61,9 @@ child=$!
 #
 if [ -f /usr/lib/dtrace/darwin.d ] ; then
 #script | tee /dev/fd/2 | grep '0x9000' > /dev/null
-script | tee /dev/fd/2 | grep 'ksh`[0-9a-zA-Z_]' > /dev/null
+script | tee /dev/fd/2 | grep 'sh`[0-9a-zA-Z_]' > /dev/null
 else
-script | tee /dev/fd/2 | grep 'ksh`[a-zA-Z_]' > /dev/null
+script | tee /dev/fd/2 | grep 'sh`[a-zA-Z_]' > /dev/null
 fi
 status=$? 
 

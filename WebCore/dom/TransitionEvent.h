@@ -32,24 +32,18 @@
 namespace WebCore {
 
 struct TransitionEventInit : public EventInit {
-    TransitionEventInit();
-
     String propertyName;
-    double elapsedTime;
+    double elapsedTime { 0 };
     String pseudoElement;
 };
 
 class TransitionEvent final : public Event {
 public:
-    static Ref<TransitionEvent> create()
-    {
-        return adoptRef(*new TransitionEvent);
-    }
     static Ref<TransitionEvent> create(const AtomicString& type, const String& propertyName, double elapsedTime, const String& pseudoElement)
     {
         return adoptRef(*new TransitionEvent(type, propertyName, elapsedTime, pseudoElement));
     }
-    static Ref<TransitionEvent> create(const AtomicString& type, const TransitionEventInit& initializer)
+    static Ref<TransitionEvent> createForBindings(const AtomicString& type, const TransitionEventInit& initializer)
     {
         return adoptRef(*new TransitionEvent(type, initializer));
     }
@@ -60,10 +54,9 @@ public:
     double elapsedTime() const;
     const String& pseudoElement() const;
 
-    virtual EventInterface eventInterface() const override;
+    EventInterface eventInterface() const override;
 
 private:
-    TransitionEvent();
     TransitionEvent(const AtomicString& type, const String& propertyName, double elapsedTime, const String& pseudoElement);
     TransitionEvent(const AtomicString& type, const TransitionEventInit& initializer);
 

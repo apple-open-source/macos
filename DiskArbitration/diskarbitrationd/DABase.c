@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,11 +25,7 @@
 
 #include "DAInternal.h"
 
-#include <fcntl.h>
-#include <paths.h>
-#include <sysexits.h>
 #include <vproc.h>
-#include <sys/attr.h>
 #include <sys/stat.h>
 #include <CommonCrypto/CommonDigest.h>
 #include <CoreFoundation/CFBundlePriv.h>
@@ -37,45 +33,6 @@
 
 static vproc_transaction_t __vproc_transaction       = NULL;
 static size_t              __vproc_transaction_count = 0;
-
-__private_extern__ int ___chattr( const char * path, ___attr_t attr, ___attr_t noattr )
-{
-    /*
-     * Change file flags.
-     */
-
-    struct __chattrbuf
-    {
-        uint32_t  size;
-        uint8_t   reserved0032[8];
-        ___attr_t attr;
-        uint8_t   reserved0112[22];
-    };
-
-    typedef struct __chattrbuf __chattrbuf;
-
-    struct attrlist attributes;
-    __chattrbuf     buffer;
-    int             status;
-
-    attributes.bitmapcount = ATTR_BIT_MAP_COUNT;
-    attributes.commonattr  = ATTR_CMN_FNDRINFO;
-    attributes.dirattr     = 0;
-    attributes.fileattr    = 0;
-    attributes.forkattr    = 0;
-    attributes.volattr     = 0;
-
-    status = getattrlist( path, &attributes, &buffer, sizeof( buffer ), 0 );
-
-    if ( status == 0 )
-    {
-        buffer.attr = OSSwapHostToBigInt16( ( OSSwapBigToHostInt16( buffer.attr ) & ~noattr ) | attr );
-
-        status = setattrlist( path, &attributes, ( ( uint8_t * ) &buffer ) + sizeof( buffer.size ), sizeof( buffer ) - sizeof( buffer.size ), 0 );
-    }
-
-    return status;
-}
 
 __private_extern__ int ___isautofs( const char * path )
 {

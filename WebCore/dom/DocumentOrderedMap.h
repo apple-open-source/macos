@@ -31,7 +31,6 @@
 #ifndef DocumentOrderedMap_h
 #define DocumentOrderedMap_h
 
-#include <wtf/HashCountedSet.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/Vector.h>
@@ -60,8 +59,8 @@ public:
     Element* getElementById(const AtomicStringImpl&, const TreeScope&) const;
     Element* getElementByName(const AtomicStringImpl&, const TreeScope&) const;
     HTMLMapElement* getElementByMapName(const AtomicStringImpl&, const TreeScope&) const;
-    HTMLMapElement* getElementByLowercasedMapName(const AtomicStringImpl&, const TreeScope&) const;
-    HTMLImageElement* getElementByLowercasedUsemap(const AtomicStringImpl&, const TreeScope&) const;
+    HTMLMapElement* getElementByCaseFoldedMapName(const AtomicStringImpl&, const TreeScope&) const;
+    HTMLImageElement* getElementByCaseFoldedUsemap(const AtomicStringImpl&, const TreeScope&) const;
     HTMLLabelElement* getElementByLabelForAttribute(const AtomicStringImpl&, const TreeScope&) const;
     Element* getElementByWindowNamedItem(const AtomicStringImpl&, const TreeScope&) const;
     Element* getElementByDocumentNamedItem(const AtomicStringImpl&, const TreeScope&) const;
@@ -73,17 +72,14 @@ private:
     Element* get(const AtomicStringImpl&, const TreeScope&, const KeyMatchingFunction&) const;
 
     struct MapEntry {
-        MapEntry()
-            : element(0)
-            , count(0)
-        { }
+        MapEntry() { }
         explicit MapEntry(Element* firstElement)
             : element(firstElement)
             , count(1)
         { }
 
-        Element* element;
-        unsigned count;
+        Element* element { nullptr };
+        unsigned count { 0 };
         Vector<Element*> orderedList;
 #if !ASSERT_DISABLED || ENABLE(SECURITY_ASSERTIONS)
         HashSet<Element*> registeredElements;

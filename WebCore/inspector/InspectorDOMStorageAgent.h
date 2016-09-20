@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 Google Inc. All rights reserved.
+ * Copyright (C) 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,7 +45,6 @@ namespace WebCore {
 
 class Frame;
 class InspectorPageAgent;
-class InstrumentingAgents;
 class Page;
 class SecurityOrigin;
 class Storage;
@@ -54,18 +54,18 @@ typedef String ErrorString;
 class InspectorDOMStorageAgent final : public InspectorAgentBase, public Inspector::DOMStorageBackendDispatcherHandler {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    InspectorDOMStorageAgent(InstrumentingAgents*, InspectorPageAgent*);
+    InspectorDOMStorageAgent(WebAgentContext&, InspectorPageAgent*);
     virtual ~InspectorDOMStorageAgent();
 
-    virtual void didCreateFrontendAndBackend(Inspector::FrontendChannel*, Inspector::BackendDispatcher*) override;
-    virtual void willDestroyFrontendAndBackend(Inspector::DisconnectReason) override;
+    void didCreateFrontendAndBackend(Inspector::FrontendRouter*, Inspector::BackendDispatcher*) override;
+    void willDestroyFrontendAndBackend(Inspector::DisconnectReason) override;
 
     // Called from the front-end.
-    virtual void enable(ErrorString&) override;
-    virtual void disable(ErrorString&) override;
-    virtual void getDOMStorageItems(ErrorString&, const Inspector::InspectorObject& storageId, RefPtr<Inspector::Protocol::Array<Inspector::Protocol::Array<String>>>& items) override;
-    virtual void setDOMStorageItem(ErrorString&, const Inspector::InspectorObject& storageId, const String& key, const String& value) override;
-    virtual void removeDOMStorageItem(ErrorString&, const Inspector::InspectorObject& storageId, const String& key) override;
+    void enable(ErrorString&) override;
+    void disable(ErrorString&) override;
+    void getDOMStorageItems(ErrorString&, const Inspector::InspectorObject& storageId, RefPtr<Inspector::Protocol::Array<Inspector::Protocol::Array<String>>>& items) override;
+    void setDOMStorageItem(ErrorString&, const Inspector::InspectorObject& storageId, const String& key, const String& value) override;
+    void removeDOMStorageItem(ErrorString&, const Inspector::InspectorObject& storageId, const String& key) override;
 
     // Called from the injected script.
     String storageId(Storage*);
@@ -77,10 +77,11 @@ public:
 private:
     RefPtr<StorageArea> findStorageArea(ErrorString&, const Inspector::InspectorObject&, Frame*&);
 
-    InspectorPageAgent* m_pageAgent;
     std::unique_ptr<Inspector::DOMStorageFrontendDispatcher> m_frontendDispatcher;
     RefPtr<Inspector::DOMStorageBackendDispatcher> m_backendDispatcher;
-    bool m_enabled;
+    InspectorPageAgent* m_pageAgent { nullptr };
+
+    bool m_enabled { false };
 };
 
 } // namespace WebCore

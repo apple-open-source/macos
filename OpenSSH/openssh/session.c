@@ -1,4 +1,4 @@
-/* $OpenBSD: session.c,v 1.278 2015/04/24 01:36:00 deraadt Exp $ */
+/* $OpenBSD: session.c,v 1.280 2016/02/16 03:37:48 djm Exp $ */
 /*
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
  *                    All rights reserved
@@ -46,6 +46,7 @@
 
 #include <arpa/inet.h>
 
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <grp.h>
@@ -160,6 +161,7 @@ login_cap_t *lc;
 #endif
 
 static int is_child = 0;
+static int in_chroot = 0;
 
 /* Name and directory of socket for authentication agent forwarding. */
 static char *auth_sock_name = NULL;
@@ -273,6 +275,21 @@ do_authenticated(Authctxt *authctxt)
 	do_cleanup(authctxt);
 }
 
+/* Check untrusted xauth strings for metacharacters */
+static int
+xauth_valid_string(const char *s)
+{
+	size_t i;
+
+	for (i = 0; s[i] != '\0'; i++) {
+		if (!isalnum((u_char)s[i]) &&
+		    s[i] != '.' && s[i] != ':' && s[i] != '/' &&
+		    s[i] != '-' && s[i] != '_')
+		return 0;
+	}
+	return 1;
+}
+
 /*
  * Prepares for an interactive session.  This is called after the user has
  * been successfully authenticated.  During this message exchange, pseudo
@@ -346,7 +363,13 @@ do_authenticated1(Authctxt *authctxt)
 				s->screen = 0;
 			}
 			packet_check_eom();
-			success = session_setup_x11fwd(s);
+			if (xauth_valid_string(s->auth_proto) &&
+			    xauth_valid_string(s->auth_data))
+				success = session_setup_x11fwd(s);
+			else {
+				success = 0;
+				error("Invalid X11 forwarding data");
+			}
 			if (!success) {
 				free(s->auth_proto);
 				free(s->auth_data);
@@ -731,7 +754,7 @@ do_exec_pty(Session *s, const char *command)
 
 	/* Enter interactive session. */
 	s->ptymaster = ptymaster;
-	packet_set_interactive(1, 
+	packet_set_interactive(1,
 	    options.ip_qos_interactive, options.ip_qos_bulk);
 	if (compat20) {
 		session_set_fds(s, ptyfd, fdout, -1, 1, 1);
@@ -778,8 +801,8 @@ int
 do_exec(Session *s, const char *command)
 {
 	int ret;
-	const char *forced = NULL;
-	char session_type[1024], *tty = NULL;
+	const char *forced = NULL, *tty = NULL;
+	char session_type[1024];
 
 	if (options.adm_forced_command) {
 		original_command = command;
@@ -814,13 +837,14 @@ do_exec(Session *s, const char *command)
 			tty += 5;
 	}
 
-	verbose("Starting session: %s%s%s for %s from %.200s port %d",
+	verbose("Starting session: %s%s%s for %s from %.200s port %d id %d",
 	    session_type,
 	    tty == NULL ? "" : " on ",
 	    tty == NULL ? "" : tty,
 	    s->pw->pw_name,
 	    get_remote_ipaddr(),
-	    get_remote_port());
+	    get_remote_port(),
+	    s->self);
 
 #ifdef SSH_AUDIT_EVENTS
 	if (command != NULL)
@@ -1262,23 +1286,20 @@ do_setup_env(Session *s, const char *shell)
 		child_set_env(&env, &envsize, "TMPDIR", cray_tmpdir);
 #endif /* _UNICOS */
 
-#ifdef __APPLE__
-	/* <rdar://problem/6676814> TMPDIR not set when you ssh in */
-	{
-		char tmpdir[MAXPATHLEN];
-		size_t len = 0;
+#ifdef __APPLE_TMPDIR__
+	char tmpdir[MAXPATHLEN] = {0};
+	size_t len = 0;
 
-		len = confstr(_CS_DARWIN_USER_TEMP_DIR, tmpdir, sizeof(tmpdir));
-		if (len > 0) {
-			child_set_env(&env, &envsize, "TMPDIR", tmpdir);
-			debug2("%s: set TMPDIR", __func__);
-		} else {
-			// errno is set by confstr
-			errno = 0;
-			debug2("%s: unable to set TMPDIR", __func__);
-		}
+	len = confstr(_CS_DARWIN_USER_TEMP_DIR, tmpdir, sizeof(tmpdir));
+	if (len > 0) {
+		child_set_env(&env, &envsize, "TMPDIR", tmpdir);
+		debug2("%s: set TMPDIR", __func__);
+	} else {
+		// errno is set by confstr
+		errno = 0;
+		debug2("%s: unable to set TMPDIR", __func__);
 	}
-#endif /* __APPLE__ */
+#endif /* __APPLE_TMPDIR__ */
 
 	/*
 	 * Since we clear KRB5CCNAME at startup, if it's set now then it
@@ -1476,7 +1497,7 @@ safely_chroot(const char *path, uid_t uid)
 			memcpy(component, path, cp - path);
 			component[cp - path] = '\0';
 		}
-	
+
 		debug3("%s: checking '%s'", __func__, component);
 
 		if (stat(component, &st) != 0)
@@ -1484,7 +1505,7 @@ safely_chroot(const char *path, uid_t uid)
 			    component, strerror(errno));
 		if (st.st_uid != 0 || (st.st_mode & 022) != 0)
 			fatal("bad ownership or modes for chroot "
-			    "directory %s\"%s\"", 
+			    "directory %s\"%s\"",
 			    cp == NULL ? "" : "component ", component);
 		if (!S_ISDIR(st.st_mode))
 			fatal("chroot path %s\"%s\" is not a directory",
@@ -1508,9 +1529,6 @@ void
 do_setusercontext(struct passwd *pw)
 {
 	char *chroot_path, *tmp;
-#ifdef USE_LIBIAF
-	int doing_chroot = 0;
-#endif
 
 	platform_setusercontext(pw);
 
@@ -1538,7 +1556,7 @@ do_setusercontext(struct passwd *pw)
 
 		platform_setusercontext_post_groups(pw);
 
-		if (options.chroot_directory != NULL &&
+		if (!in_chroot && options.chroot_directory != NULL &&
 		    strcasecmp(options.chroot_directory, "none") != 0) {
                         tmp = tilde_expand_filename(options.chroot_directory,
 			    pw->pw_uid);
@@ -1550,9 +1568,7 @@ do_setusercontext(struct passwd *pw)
 			/* Make sure we don't attempt to chroot again */
 			free(options.chroot_directory);
 			options.chroot_directory = NULL;
-#ifdef USE_LIBIAF
-			doing_chroot = 1;
-#endif
+			in_chroot = 1;
 		}
 
 #ifdef HAVE_LOGIN_CAP
@@ -1560,23 +1576,23 @@ do_setusercontext(struct passwd *pw)
 			perror("unable to set user context (setuser)");
 			exit(1);
 		}
-		/* 
+		/*
 		 * FreeBSD's setusercontext() will not apply the user's
 		 * own umask setting unless running with the user's UID.
 		 */
 		(void) setusercontext(lc, pw, pw->pw_uid, LOGIN_SETUMASK);
 #else
 # ifdef USE_LIBIAF
-/* In a chroot environment, the set_id() will always fail; typically 
- * because of the lack of necessary authentication services and runtime
- * such as ./usr/lib/libiaf.so, ./usr/lib/libpam.so.1, and ./etc/passwd
- * We skip it in the internal sftp chroot case.
- * We'll lose auditing and ACLs but permanently_set_uid will
- * take care of the rest.
- */
-	if ((doing_chroot == 0) && set_id(pw->pw_name) != 0) {
-		fatal("set_id(%s) Failed", pw->pw_name);
-	}
+		/*
+		 * In a chroot environment, the set_id() will always fail;
+		 * typically because of the lack of necessary authentication
+		 * services and runtime such as ./usr/lib/libiaf.so,
+		 * ./usr/lib/libpam.so.1, and ./etc/passwd We skip it in the
+		 * internal sftp chroot case.  We'll lose auditing and ACLs but
+		 * permanently_set_uid will take care of the rest.
+		 */
+		if (!in_chroot && set_id(pw->pw_name) != 0)
+			fatal("set_id(%s) Failed", pw->pw_name);
 # endif /* USE_LIBIAF */
 		/* Permanently switch to the desired uid. */
 		permanently_set_uid(pw);
@@ -1808,11 +1824,11 @@ do_child(Session *s, const char *command)
 #ifdef HAVE_LOGIN_CAP
 		r = login_getcapbool(lc, "requirehome", 0);
 #endif
-		if (r || options.chroot_directory == NULL ||
-		    strcasecmp(options.chroot_directory, "none") == 0)
+		if (r || !in_chroot) {
 			fprintf(stderr, "Could not chdir to home "
 			    "directory %s: %s\n", pw->pw_dir,
 			    strerror(errno));
+		}
 		if (r)
 			exit(1);
 	}
@@ -2132,10 +2148,8 @@ session_pty_req(Session *s)
 		n_bytes = packet_remaining();
 	tty_parse_modes(s->ttyfd, &n_bytes);
 
-#ifndef __APPLE_PRIVPTY__
 	if (!use_privsep)
 		pty_setowner(s->pw, s->tty);
-#endif
 
 	/* Set window size from the packet. */
 	pty_change_window_size(s->ptyfd, s->row, s->col, s->xpixel, s->ypixel);
@@ -2201,7 +2215,13 @@ session_x11_req(Session *s)
 	s->screen = packet_get_int();
 	packet_check_eom();
 
-	success = session_setup_x11fwd(s);
+	if (xauth_valid_string(s->auth_proto) &&
+	    xauth_valid_string(s->auth_data))
+		success = session_setup_x11fwd(s);
+	else {
+		success = 0;
+		error("Invalid X11 forwarding data");
+	}
 	if (!success) {
 		free(s->auth_proto);
 		free(s->auth_data);
@@ -2375,11 +2395,9 @@ session_pty_cleanup2(Session *s)
 	if (s->pid != 0)
 		record_logout(s->pid, s->tty, s->pw->pw_name);
 
-#ifndef __APPLE_PRIVPTY__
 	/* Release the pseudo-tty. */
 	if (getuid() == 0)
 		pty_release(s->tty);
-#endif
 
 	/*
 	 * Close the server side of the socket pairs.  We must do this after
@@ -2525,7 +2543,12 @@ session_close(Session *s)
 {
 	u_int i;
 
-	debug("session_close: session %d pid %ld", s->self, (long)s->pid);
+	verbose("Close session: user %s from %.200s port %d id %d",
+	    s->pw->pw_name,
+	    get_remote_ipaddr(),
+	    get_remote_port(),
+	    s->self);
+
 	if (s->ttyfd != -1)
 		session_pty_cleanup(s);
 	free(s->term);
@@ -2671,35 +2694,6 @@ session_setup_x11fwd(Session *s)
 		debug("X11 forwarding disabled in server configuration file.");
 		return 0;
 	}
-#if __APPLE__
-	if (options.xauth_location) {
-		char cmd[2048];
-		char tmpdir[MAXPATHLEN];
-		size_t len = 0;
-
-		len = confstr(_CS_DARWIN_USER_TEMP_DIR, tmpdir, sizeof(tmpdir));
-		if (len == 0) {
-			strlcpy(tmpdir, "/tmp", sizeof(tmpdir));
-		}
-
-		/* Try executing xauth (as we do below) rather than using stat,
-		 * since we want to search our $PATH.  Note that the xauth_test
-		 * file is not created if it doesn't exist, so there will be no
-		 * turds leftover.  If for some reason it does exist it will have
-		 * no effect assuming it is valid.  If it is invalid, the only
-		 * result is that xauth will error out, and X11 forwarding will
-		 * be disabled.
-		 */
-		snprintf(cmd, sizeof(cmd),
-		         "%s -f %s/xauth_test exit > /dev/null 2> /dev/null",
-			 options.xauth_location, tmpdir);
-
-		packet_send_debug("Checking for xauth using %s\n", cmd);
-		if (system(cmd) != 0) {
-			options.xauth_location = NULL;
-		}
-	}
-#endif
 	if (options.xauth_location == NULL ||
 	    (stat(options.xauth_location, &st) == -1)) {
 		packet_send_debug("No xauth program; cannot forward with spoofing.");

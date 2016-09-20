@@ -51,7 +51,15 @@
 
 #include "SecdTestKeychainUtilities.h"
 
-static int kTestTestCount = 141;
+static int kTestTestCount = 215;
+
+static bool purgeICloudIdentity(SOSAccountRef account) {
+    bool retval = false;
+    SOSFullPeerInfoRef icfpi = SOSCircleCopyiCloudFullPeerInfoRef(SOSAccountGetCircle(account, NULL), NULL);
+    if(!icfpi) return false;
+    retval = SOSFullPeerInfoPurgePersistentKey(icfpi, NULL);
+    return retval;
+}
 
 static void tests(void)
 {
@@ -75,13 +83,12 @@ static void tests(void)
     
     ok(SOSAccountAssertUserCredentialsAndUpdate(carole_account, cfaccount, cfpassword, &error), "Credential setting (%@)", error);
     CFReleaseNull(error);
-    CFReleaseNull(cfpassword);
-    ok(SOSAccountResetToOffering(alice_account, &error), "Reset to offering (%@)", error);
+    ok(SOSAccountResetToOffering_wTxn(alice_account, &error), "Reset to offering (%@)", error);
     CFReleaseNull(error);
     
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, NULL), 2, "updates");
 
-    ok(SOSAccountJoinCircles(bob_account, &error), "Bob Applies (%@)", error);
+    ok(SOSAccountJoinCircles_wTxn(bob_account, &error), "Bob Applies (%@)", error);
     CFReleaseNull(error);
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, NULL), 2, "updates");
 
@@ -100,7 +107,7 @@ static void tests(void)
     
     /*----- normal join after restore -----*/
     
-    ok(SOSAccountJoinCirclesAfterRestore(carole_account, &error), "Carole cloud identity joins (%@)", error);
+    ok(SOSAccountJoinCirclesAfterRestore_wTxn(carole_account, &error), "Carole cloud identity joins (%@)", error);
     CFReleaseNull(error);
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, NULL), 4, "updates");
 
@@ -120,14 +127,14 @@ static void tests(void)
 
     /*----- join - join after restore -----*/
     
-    ok(SOSAccountJoinCircles(carole_account, &error), "Carole normally joins (%@)", error);
+    ok(SOSAccountJoinCircles_wTxn(carole_account, &error), "Carole normally joins (%@)", error);
     CFReleaseNull(error);
     
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, NULL), 2, "updates");
 
     is(countApplicants(alice_account), 1, "See one applicant");
     
-    ok(SOSAccountJoinCirclesAfterRestore(carole_account, &error), "Carole cloud identity joins (%@)", error);
+    ok(SOSAccountJoinCirclesAfterRestore_wTxn(carole_account, &error), "Carole cloud identity joins (%@)", error);
     CFReleaseNull(error);
     
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, NULL), 4, "updates");
@@ -142,10 +149,52 @@ static void tests(void)
     accounts_agree_internal("Carole's in", bob_account, alice_account, false);
     accounts_agree_internal("Carole's in - 2", bob_account, carole_account, false);
     
+    /* Break iCloud identity FPI in all peers */
+    
+    ok(purgeICloudIdentity(alice_account), "remove iCloud private key");
+    
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, NULL), 1, "updates");
+
+    
+    ok(SOSAccountAssertUserCredentialsAndUpdate(alice_account, cfaccount, cfpassword, &error), "Credential setting (%@)", error);
+    CFReleaseNull(error);
+    
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, NULL), 4, "updates");
+    
+    ok(SOSAccountLeaveCircle(carole_account, &error), "Carol Leaves again");
+    CFReleaseNull(error);
+    
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, NULL), 2, "updates");
+    
+    /*----- join - join after restore -----*/
+    
+    ok(SOSAccountJoinCircles_wTxn(carole_account, &error), "Carole normally joins (%@)", error);
+    CFReleaseNull(error);
+    
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, NULL), 2, "updates");
+    
+    is(countApplicants(alice_account), 1, "See one applicant");
+    
+    ok(SOSAccountJoinCirclesAfterRestore_wTxn(carole_account, &error), "Carole cloud identity joins (%@)", error);
+    CFReleaseNull(error);
+    
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, NULL), 4, "updates");
+    
+    
+    is(countApplicants(alice_account), 0, "See no applicants");
+    
+    is(countPeers(carole_account), 3, "Carole sees 3 valid peers after sliding in");
+    
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carole_account, NULL), 1, "updates");
+    
+    accounts_agree_internal("Carole's in", bob_account, alice_account, false);
+    accounts_agree_internal("Carole's in - 2", bob_account, carole_account, false);
+
     CFReleaseNull(bob_account);
     CFReleaseNull(alice_account);
     CFReleaseNull(carole_account);
-    
+    CFReleaseNull(cfpassword);
+
     SOSUnregisterAllTransportMessages();
     SOSUnregisterAllTransportCircles();
     SOSUnregisterAllTransportKeyParameters();

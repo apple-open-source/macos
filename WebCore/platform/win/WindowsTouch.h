@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Apple Inc.  All rights reserved.
+ * Copyright (C) 2009, 2015 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -71,6 +71,8 @@
 #define GC_PRESSANDTAP 0x00000001
 #define GC_ROLLOVER GC_PRESSANDTAP
 
+#if WINVER < 0x0601
+
 // GESTUREINFO struct definition
 typedef struct tagGESTUREINFO {
     UINT cbSize;                    // size, in bytes, of this structure (including variable length Args field)
@@ -108,5 +110,7 @@ typedef struct tagGESTURENOTIFYSTRUCT {
 } GESTURENOTIFYSTRUCT, *PGESTURENOTIFYSTRUCT;
 
 DECLARE_HANDLE(HGESTUREINFO);
+
+#endif
 
 #endif

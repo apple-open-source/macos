@@ -38,6 +38,7 @@
 #include <webkit2/WebKitDefines.h>
 #include <webkit2/WebKitDownload.h>
 #include <webkit2/WebKitEditingCommands.h>
+#include <webkit2/WebKitEditorState.h>
 #include <webkit2/WebKitEnumTypes.h>
 #include <webkit2/WebKitError.h>
 #include <webkit2/WebKitFaviconDatabase.h>
@@ -47,6 +48,7 @@
 #include <webkit2/WebKitFormSubmissionRequest.h>
 #include <webkit2/WebKitGeolocationPermissionRequest.h>
 #include <webkit2/WebKitHitTestResult.h>
+#include <webkit2/WebKitInstallMissingMediaPluginsPermissionRequest.h>
 #include <webkit2/WebKitJavascriptResult.h>
 #include <webkit2/WebKitMimeInfo.h>
 #include <webkit2/WebKitNavigationAction.h>
@@ -72,8 +74,11 @@
 #include <webkit2/WebKitWebResource.h>
 #include <webkit2/WebKitWebView.h>
 #include <webkit2/WebKitWebViewBase.h>
+#include <webkit2/WebKitWebViewSessionState.h>
 #include <webkit2/WebKitWebsiteDataManager.h>
 #include <webkit2/WebKitWindowProperties.h>
+
+#include <webkit2/WebKitAutocleanups.h>
 
 #undef __WEBKIT2_H_INSIDE__
 

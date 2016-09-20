@@ -57,6 +57,8 @@
 int test_strict_bats = 1;
 int test_verbose = 0;
 int test_onebatstest = 0;
+int test_check_leaks = 0;
+char **test_skip_leaks_test = NULL;
 
 #ifdef NO_SERVER
 #include <securityd/spi.h>
@@ -176,12 +178,59 @@ static int tests_run_test(struct one_test_s *test, int argc, char * const *argv)
     } else {
         struct timeval start, stop;
         gettimeofday(&start, NULL);
-        test->entry(argc, argv);
+        @autoreleasepool {
+            test->entry(argc, argv);
+        }
         gettimeofday(&stop, NULL);
         /* this may overflow... */
         test->duration = (stop.tv_sec-start.tv_sec) * 1000 + (stop.tv_usec / 1000) - (start.tv_usec / 1000);
         if (test_plan_ok()) {
             token = "WARN";
+        }
+    }
+
+    /*
+     * Check if we have any leaks, allow skipping test
+     */
+
+    if (test_check_leaks) {
+        char *cmd = NULL;
+        int ret = 0;
+
+        asprintf(&cmd, "leaks %d >/dev/null", getpid());
+        if (cmd) {
+            ret = system(cmd);
+            free(cmd);
+        }
+        if (ret != 0) {
+            unsigned n = 0;
+            fprintf(stdout, "leaks found in test %s\n", test->name);
+
+            if (test_skip_leaks_test) {
+                while (test_skip_leaks_test[n]) {
+                    if (strcmp(test_skip_leaks_test[n], test->name) == 0) {
+                        fprintf(stdout, "test %s known to be leaky, skipping\n", test->name);
+                        ret = 0;
+                        break;
+                    }
+                }
+            }
+            if (ret) {
+                token = "FAIL";
+            }
+        } else {
+            if (test_skip_leaks_test) {
+                unsigned n = 0;
+
+                while (test_skip_leaks_test[n]) {
+                    if (strcmp(test_skip_leaks_test[n], test->name) == 0) {
+                        fprintf(stdout, "leaks didn't find leak in test %s, yet it was ignore\n", test->name);
+                        token = "FAIL";
+                        break;
+                    }
+                }
+            }
+
         }
     }
 
@@ -314,9 +363,12 @@ tests_begin(int argc, char * const *argv) {
 #if ASYNC_LOGGING
     dispatch_queue_t show_queue = dispatch_queue_create("sec log queue", DISPATCH_QUEUE_SERIAL);
 #endif
+    
 
+#if USEOLDLOGGING
     security_log_handler handle_logs = ^(int level, CFStringRef scope, const char *function, const char *file, int line, CFStringRef message) {
         time_t now = time(NULL);
+        
 #if DATE_LOGGING
         char *date = ctime(&now);
         date[19] = '\0';
@@ -335,6 +387,8 @@ tests_begin(int argc, char * const *argv) {
         CFReleaseSafe(logStr);
 #endif
     };
+#endif
+
 
     for (;;) {
         while (!testcase && (ch = getopt(argc, argv, "bklL1vwqs")) != -1)
@@ -348,7 +402,7 @@ tests_begin(int argc, char * const *argv) {
 #endif
             case 's':
                 if (!print_security_logs) {
-                    add_security_log_handler(handle_logs);
+                    //add_security_log_handler(handle_logs);
                     print_security_logs = true;
                 }
                 break;
@@ -387,6 +441,9 @@ tests_begin(int argc, char * const *argv) {
                 usage(argv[0]);
             }
         }
+        
+        if(!print_security_logs) secLogDisable();
+
 
         if (!list && !initialized && !test_onebatstest)
             fprintf(stdout, "[TEST] %s\n", getprogname());
@@ -427,7 +484,7 @@ tests_begin(int argc, char * const *argv) {
         tests_summary(getprogname());
     }
     
-    remove_security_log_handler(handle_logs);
+    // remove_security_log_handler(handle_logs);
     fflush(stdout);
 
 

@@ -268,7 +268,15 @@ IOReturn
 IODVDBlockStorageDriver::reportKey(IOMemoryDescriptor *buffer,const DVDKeyClass keyClass,
                                         const UInt32 lba,const UInt8 agid,const DVDKeyFormat keyFormat)
 {
-    return(getProvider()->reportKey(buffer,keyClass,lba,agid,keyFormat));
+    return(reportKey(buffer,keyClass,lba,0,agid,keyFormat));
+}
+
+IOReturn
+IODVDBlockStorageDriver::reportKey(IOMemoryDescriptor *buffer,const DVDKeyClass keyClass,
+                                        const UInt32 lba,const UInt8 blockCount,
+                                        const UInt8 agid,const DVDKeyFormat keyFormat)
+{
+    return(getProvider()->reportKey(buffer,keyClass,lba,blockCount,agid,keyFormat));
 }
 
 IOReturn
@@ -285,7 +293,7 @@ IODVDBlockStorageDriver::readStructure(IOMemoryDescriptor *buffer,const DVDStruc
     return(getProvider()->readDVDStructure(buffer,format,address,layer,agid));
 }
 
-OSMetaClassDefineReservedUnused(IODVDBlockStorageDriver,  0);
+OSMetaClassDefineReservedUsed(IODVDBlockStorageDriver,  0);     /* reportKey */
 OSMetaClassDefineReservedUnused(IODVDBlockStorageDriver,  1);
 OSMetaClassDefineReservedUnused(IODVDBlockStorageDriver,  2);
 OSMetaClassDefineReservedUnused(IODVDBlockStorageDriver,  3);

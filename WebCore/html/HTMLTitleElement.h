@@ -32,16 +32,18 @@ public:
     static Ref<HTMLTitleElement> create(const QualifiedName&, Document&);
 
     String text() const;
-    void setText(const String&);
+    void setText(const String&, ExceptionCode&);
 
-    StringWithDirection textWithDirection();
+    const StringWithDirection& textWithDirection() const { return m_title; }
 
 private:
     HTMLTitleElement(const QualifiedName&, Document&);
 
-    virtual InsertionNotificationRequest insertedInto(ContainerNode&) override;
-    virtual void removedFrom(ContainerNode&) override;
-    virtual void childrenChanged(const ChildChange&) override;
+    InsertionNotificationRequest insertedInto(ContainerNode&) final;
+    void removedFrom(ContainerNode&) final;
+    void childrenChanged(const ChildChange&) final;
+
+    StringWithDirection computedTextWithDirection();
 
     StringWithDirection m_title;
 };

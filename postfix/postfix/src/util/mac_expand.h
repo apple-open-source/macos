@@ -8,8 +8,8 @@
 /*	expand macro references in string
 /* SYNOPSIS
 /*	#include <mac_expand.h>
- DESCRIPTION
- .nf
+/* DESCRIPTION
+/* .nf
 
  /*
   * Utility library.
@@ -24,6 +24,7 @@
 #define MAC_EXP_FLAG_RECURSE	(1<<0)
 #define MAC_EXP_FLAG_APPEND	(1<<1)
 #define MAC_EXP_FLAG_SCAN	(1<<2)
+#define MAC_EXP_FLAG_PRINTABLE  (1<<3)
 
  /*
   * Real lookup or just a test?
@@ -31,9 +32,9 @@
 #define MAC_EXP_MODE_TEST	(0)
 #define MAC_EXP_MODE_USE	(1)
 
-typedef const char *(*MAC_EXP_LOOKUP_FN)(const char *, int, char *);
+typedef const char *(*MAC_EXP_LOOKUP_FN) (const char *, int, void *);
 
-extern int mac_expand(VSTRING *, const char *, int, const char *, MAC_EXP_LOOKUP_FN, char *);
+extern int mac_expand(VSTRING *, const char *, int, const char *, MAC_EXP_LOOKUP_FN, void *);
 
 /* LICENSE
 /* .ad

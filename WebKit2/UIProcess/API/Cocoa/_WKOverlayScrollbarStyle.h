@@ -34,4 +34,4 @@ typedef NS_ENUM(NSUInteger, _WKOverlayScrollbarStyle) {
     // heuristic to choose an appropriate color.
     _WKOverlayScrollbarStyleAutomatic
 
-} WK_ENUM_AVAILABLE(WK_MAC_TBA, WK_IOS_TBA);
+} WK_API_AVAILABLE(macosx(10.11), ios(9.0));

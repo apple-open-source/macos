@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2009, 2014-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,7 +46,7 @@ template<class Delegate, typename CharType>
 class Parser {
 private:
     template<class FriendDelegate>
-    friend const char* parse(FriendDelegate&, const String& pattern, unsigned backReferenceLimit);
+    friend const char* parse(FriendDelegate&, const String& pattern, bool isUnicode, unsigned backReferenceLimit);
 
     enum ErrorCode {
         NoError,
@@ -60,6 +60,8 @@ private:
         CharacterClassUnmatched,
         CharacterClassOutOfOrder,
         EscapeUnterminated,
+        InvalidUnicodeEscape,
+        InvalidIdentityEscape,
         NumberOfErrorCodes
     };
 
@@ -101,7 +103,7 @@ private:
          * mode we will allow a hypen to be treated as indicating a range (i.e. /[a-z]/
          * is different to /[a\-z]/).
          */
-        void atomPatternCharacter(UChar ch, bool hyphenIsRange = false)
+        void atomPatternCharacter(UChar32 ch, bool hyphenIsRange = false)
         {
             switch (m_state) {
             case AfterCharacterClass:
@@ -225,18 +227,32 @@ private:
             AfterCharacterClass,
             AfterCharacterClassHyphen,
         } m_state;
-        UChar m_character;
+        UChar32 m_character;
     };
 
-    Parser(Delegate& delegate, const String& pattern, unsigned backReferenceLimit)
+    Parser(Delegate& delegate, const String& pattern, bool isUnicode, unsigned backReferenceLimit)
         : m_delegate(delegate)
         , m_backReferenceLimit(backReferenceLimit)
         , m_err(NoError)
         , m_data(pattern.characters<CharType>())
         , m_size(pattern.length())
         , m_index(0)
+        , m_isUnicode(isUnicode)
         , m_parenthesesNestingDepth(0)
     {
+    }
+
+    // The handling of IdentityEscapes is different depending on the unicode flag.
+    // For Unicode patterns, IdentityEscapes only include SyntaxCharacters or '/'.
+    // For non-unicode patterns, most any character can be escaped.
+    bool isIdentityEscapeAnError(int ch)
+    {
+        if (m_isUnicode && !strchr("^$\\.*+?()[]{}|/", ch)) {
+            m_err = InvalidIdentityEscape;
+            return true;
+        }
+
+        return false;
     }
 
     /*
@@ -275,18 +291,24 @@ private:
         // Assertions
         case 'b':
             consume();
-            if (inCharacterClass)
+            if (inCharacterClass) {
+                if (isIdentityEscapeAnError('b'))
+                    break;
+
                 delegate.atomPatternCharacter('\b');
-            else {
+            } else {
                 delegate.assertionWordBoundary(false);
                 return false;
             }
             break;
         case 'B':
             consume();
-            if (inCharacterClass)
+            if (inCharacterClass) {
+                if (isIdentityEscapeAnError('B'))
+                    break;
+
                 delegate.atomPatternCharacter('B');
-            else {
+            } else {
                 delegate.assertionWordBoundary(true);
                 return false;
             }
@@ -401,9 +423,12 @@ private:
         case 'x': {
             consume();
             int x = tryConsumeHex(2);
-            if (x == -1)
+            if (x == -1) {
+                if (isIdentityEscapeAnError('x'))
+                    break;
+
                 delegate.atomPatternCharacter('x');
-            else
+            } else
                 delegate.atomPatternCharacter(x);
             break;
         }
@@ -411,20 +436,99 @@ private:
         // UnicodeEscape
         case 'u': {
             consume();
-            int u = tryConsumeHex(4);
-            if (u == -1)
+            if (atEndOfPattern()) {
+                if (isIdentityEscapeAnError('u'))
+                    break;
+
                 delegate.atomPatternCharacter('u');
-            else
+                break;
+            }
+
+            if (m_isUnicode && peek() == '{') {
+                consume();
+                UChar32 codePoint = 0;
+                do {
+                    if (atEndOfPattern() || !isASCIIHexDigit(peek())) {
+                        m_err = InvalidUnicodeEscape;
+                        break;
+                    }
+
+                    codePoint = (codePoint << 4) | toASCIIHexValue(consume());
+
+                    if (codePoint > UCHAR_MAX_VALUE)
+                        m_err = InvalidUnicodeEscape;
+                } while (!atEndOfPattern() && peek() != '}');
+                if (!atEndOfPattern() && peek() == '}')
+                    consume();
+                else if (!m_err)
+                    m_err = InvalidUnicodeEscape;
+                if (m_err)
+                    return false;
+
+                delegate.atomPatternCharacter(codePoint);
+                break;
+            }
+            int u = tryConsumeHex(4);
+            if (u == -1) {
+                if (isIdentityEscapeAnError('u'))
+                    break;
+
+                delegate.atomPatternCharacter('u');
+            } else {
+                // If we have the first of a surrogate pair, look for the second.
+                if (U16_IS_LEAD(u) && m_isUnicode && (patternRemaining() >= 6) && peek() == '\\') {
+                    ParseState state = saveState();
+                    consume();
+                    
+                    if (tryConsume('u')) {
+                        int surrogate2 = tryConsumeHex(4);
+                        if (U16_IS_TRAIL(surrogate2)) {
+                            u = U16_GET_SUPPLEMENTARY(u, surrogate2);
+                            delegate.atomPatternCharacter(u);
+                            break;
+                        }
+                    }
+
+                    restoreState(state);
+                }
                 delegate.atomPatternCharacter(u);
+            }
             break;
         }
 
         // IdentityEscape
         default:
+            int ch = peek();
+
+            if (ch == '-' && m_isUnicode && inCharacterClass) {
+                // \- is allowed for ClassEscape with unicode flag.
+                delegate.atomPatternCharacter(consume());
+                break;
+            }
+
+            if (isIdentityEscapeAnError(ch))
+                break;
+
             delegate.atomPatternCharacter(consume());
         }
         
         return true;
+    }
+
+    UChar32 consumePossibleSurrogatePair()
+    {
+        UChar32 ch = consume();
+        if (U16_IS_LEAD(ch) && m_isUnicode && (patternRemaining() > 0)) {
+            ParseState state = saveState();
+
+            UChar32 surrogate2 = consume();
+            if (U16_IS_TRAIL(surrogate2))
+                ch = U16_GET_SUPPLEMENTARY(ch, surrogate2);
+            else
+                restoreState(state);
+        }
+
+        return ch;
     }
 
     /*
@@ -470,7 +574,7 @@ private:
                 break;
 
             default:
-                characterClassConstructor.atomPatternCharacter(consume(), true);
+                characterClassConstructor.atomPatternCharacter(consumePossibleSurrogatePair(), true);
             }
 
             if (m_err)
@@ -662,7 +766,7 @@ private:
             FALLTHROUGH;
 
             default:
-                m_delegate.atomPatternCharacter(consume());
+                m_delegate.atomPatternCharacter(consumePossibleSurrogatePair());
                 lastTokenWasAnAtom = true;
             }
 
@@ -700,7 +804,9 @@ private:
             REGEXP_ERROR_PREFIX "unrecognized character after (?",
             REGEXP_ERROR_PREFIX "missing terminating ] for character class",
             REGEXP_ERROR_PREFIX "range out of order in character class",
-            REGEXP_ERROR_PREFIX "\\ at end of pattern"
+            REGEXP_ERROR_PREFIX "\\ at end of pattern",
+            REGEXP_ERROR_PREFIX "invalid unicode {} escape",
+            REGEXP_ERROR_PREFIX "invalid escaped character for unicode pattern"
         };
 
         return errorMessages[m_err];
@@ -724,6 +830,12 @@ private:
     {
         ASSERT(m_index <= m_size);
         return m_index == m_size;
+    }
+
+    unsigned patternRemaining()
+    {
+        ASSERT(m_index <= m_size);
+        return m_size - m_index;
     }
 
     int peek()
@@ -805,6 +917,7 @@ private:
     const CharType* m_data;
     unsigned m_size;
     unsigned m_index;
+    bool m_isUnicode;
     unsigned m_parenthesesNestingDepth;
 
     // Derived by empirical testing of compile time in PCRE and WREC.
@@ -825,11 +938,11 @@ private:
  *    void assertionEOL();
  *    void assertionWordBoundary(bool invert);
  *
- *    void atomPatternCharacter(UChar ch);
+ *    void atomPatternCharacter(UChar32 ch);
  *    void atomBuiltInCharacterClass(BuiltInCharacterClassID classID, bool invert);
  *    void atomCharacterClassBegin(bool invert)
- *    void atomCharacterClassAtom(UChar ch)
- *    void atomCharacterClassRange(UChar begin, UChar end)
+ *    void atomCharacterClassAtom(UChar32 ch)
+ *    void atomCharacterClassRange(UChar32 begin, UChar32 end)
  *    void atomCharacterClassBuiltIn(BuiltInCharacterClassID classID, bool invert)
  *    void atomCharacterClassEnd()
  *    void atomParenthesesSubpatternBegin(bool capture = true);
@@ -871,11 +984,11 @@ private:
  */
 
 template<class Delegate>
-const char* parse(Delegate& delegate, const String& pattern, unsigned backReferenceLimit = quantifyInfinite)
+const char* parse(Delegate& delegate, const String& pattern, bool isUnicode, unsigned backReferenceLimit = quantifyInfinite)
 {
     if (pattern.is8Bit())
-        return Parser<Delegate, LChar>(delegate, pattern, backReferenceLimit).parse();
-    return Parser<Delegate, UChar>(delegate, pattern, backReferenceLimit).parse();
+        return Parser<Delegate, LChar>(delegate, pattern, isUnicode, backReferenceLimit).parse();
+    return Parser<Delegate, UChar>(delegate, pattern, isUnicode, backReferenceLimit).parse();
 }
 
 } } // namespace JSC::Yarr

@@ -67,13 +67,13 @@ Ref<SVGFESpecularLightingElement> SVGFESpecularLightingElement::create(const Qua
 
 const AtomicString& SVGFESpecularLightingElement::kernelUnitLengthXIdentifier()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, s_identifier, ("SVGKernelUnitLengthX", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<AtomicString> s_identifier("SVGKernelUnitLengthX", AtomicString::ConstructFromLiteral);
     return s_identifier;
 }
 
 const AtomicString& SVGFESpecularLightingElement::kernelUnitLengthYIdentifier()
 {
-    DEPRECATED_DEFINE_STATIC_LOCAL(AtomicString, s_identifier, ("SVGKernelUnitLengthY", AtomicString::ConstructFromLiteral));
+    static NeverDestroyed<AtomicString> s_identifier("SVGKernelUnitLengthY", AtomicString::ConstructFromLiteral);
     return s_identifier;
 }
 
@@ -190,7 +190,7 @@ RefPtr<FilterEffect> SVGFESpecularLightingElement::build(SVGFilterBuilder* filte
     if (!input1)
         return nullptr;
 
-    RefPtr<LightSource> lightSource = SVGFELightElement::findLightSource(this);
+    auto lightSource = SVGFELightElement::findLightSource(this);
     if (!lightSource)
         return nullptr;
 
@@ -201,7 +201,7 @@ RefPtr<FilterEffect> SVGFESpecularLightingElement::build(SVGFilterBuilder* filte
     Color color = renderer->style().svgStyle().lightingColor();
 
     RefPtr<FilterEffect> effect = FESpecularLighting::create(filter, color, surfaceScale(), specularConstant(),
-                                          specularExponent(), kernelUnitLengthX(), kernelUnitLengthY(), lightSource.release());
+                                          specularExponent(), kernelUnitLengthX(), kernelUnitLengthY(), WTFMove(lightSource));
     effect->inputEffects().append(input1);
     return effect;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-20014 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -29,13 +29,11 @@
 #include <TargetConditionals.h>
 #include "common.h"
 
-
 #if TARGET_OS_EMBEDDED
 #define TASK_FOR_PID_USAGE_MESG "\nPlease check your boot-args to ensure you have access to task_for_pid()."
 #else
 #define TASK_FOR_PID_USAGE_MESG ""
 #endif
-
 
 struct prog_configs lsmp_config = {
     .show_all_tasks         = FALSE,
@@ -66,7 +64,7 @@ int main(int argc, char *argv[]) {
     char *progname = "lsmp";
     int i, option = 0;
     lsmp_config.voucher_detail_length = 128; /* default values for config */
-    
+
     while((option = getopt(argc, argv, "hvalp:")) != -1) {
 		switch(option) {
             case 'a':
@@ -74,17 +72,17 @@ int main(int argc, char *argv[]) {
                 lsmp_config.pid = 0;
                 lsmp_config.show_all_tasks = 1;
                 break;
-                
+
             case 'l':
                 /* for compatibility with sysdiagnose's usage of -all */
                 lsmp_config.voucher_detail_length = 1024;
                 /* Fall through to 'v' */
-                
+
             case 'v':
                 lsmp_config.show_voucher_details = TRUE;
                 lsmp_config.verbose = TRUE;
                 break;
-                
+
             case 'p':
                 lsmp_config.pid = atoi(optarg);
                 if (lsmp_config.pid == 0) {
@@ -92,28 +90,26 @@ int main(int argc, char *argv[]) {
                     exit(1);
                 }
                 break;
-                
+
             default:
                 fprintf(stderr, "Unknown argument. \n");
                 /* Fall through to 'h' */
-                
+
             case 'h':
                 print_usage(progname);
                 break;
-                
+
         }
     }
     argc -= optind;
     argv += optind;
-    
-    
+
 	/* if privileged, get the info for all tasks so we can match ports up */
 	if (geteuid() == 0) {
 		processor_set_name_array_t psets;
 		mach_msg_type_number_t psetCount;
 		mach_port_t pset_priv;
-        
-		
+
 		ret = host_processor_sets(mach_host_self(), &psets, &psetCount);
 		if (ret != KERN_SUCCESS) {
 			fprintf(stderr, "host_processor_sets() failed: %s\n", mach_error_string(ret));
@@ -123,7 +119,7 @@ int main(int argc, char *argv[]) {
 			fprintf(stderr, "Assertion Failure: pset count greater than one (%d)\n", psetCount);
 			exit(1);
 		}
-        
+
 		/* convert the processor-set-name port to a privileged port */
 		ret = host_processor_set_priv(mach_host_self(), psets[0], &pset_priv);
 		if (ret != KERN_SUCCESS) {
@@ -132,7 +128,7 @@ int main(int argc, char *argv[]) {
 		}
 		mach_port_deallocate(mach_task_self(), psets[0]);
 		vm_deallocate(mach_task_self(), (vm_address_t)psets, (vm_size_t)psetCount * sizeof(mach_port_t));
-        
+
 		/* convert the processor-set-priv to a list of tasks for the processor set */
 		ret = processor_set_tasks(pset_priv, &tasks, &taskCount);
 		if (ret != KERN_SUCCESS) {
@@ -140,7 +136,7 @@ int main(int argc, char *argv[]) {
 			exit(1);
 		}
 		mach_port_deallocate(mach_task_self(), pset_priv);
-        
+
         /* swap my current instances port to be last to collect all threads and exception port info */
         int myTaskPosition = -1;
         for (int i = 0; i < taskCount; i++) {
@@ -169,24 +165,23 @@ int main(int argc, char *argv[]) {
         taskCount = 1;
         tasks = &aTask;
 	}
-    
+
     /* convert each task to structure of pointer for the task info */
     psettaskinfo = allocate_taskinfo_memory(taskCount);
-    
+
     for (i = 0; i < taskCount; i++) {
         ret = collect_per_task_info(&psettaskinfo[i], tasks[i]);
         if (ret != KERN_SUCCESS) {
             printf("Ignoring failure of mach_port_space_info() for task %d for '-all'\n", tasks[i]);
             continue;
         }
-        
+
         if (psettaskinfo[i].pid == lsmp_config.pid)
             taskinfo = &psettaskinfo[i];
-        
+
         ret = KERN_SUCCESS;
     }
-    
-    
+
     if (lsmp_config.show_all_tasks == FALSE) {
         if (taskinfo == NULL) {
             fprintf(stderr, "Failed to find task ipc information for pid %d\n", lsmp_config.pid);
@@ -198,7 +193,6 @@ int main(int argc, char *argv[]) {
         printf("\n");
         print_task_threads_special_ports(taskinfo);
 
-        
     } else {
         for (i=0; i < taskCount; i++) {
             if (psettaskinfo[i].valid != TRUE)
@@ -215,12 +209,12 @@ int main(int argc, char *argv[]) {
             printf("\n\n");
         }
     }
-    
+
 	if (taskCount > 1) {
         vm_deallocate(mach_task_self(), (vm_address_t)tasks, (vm_size_t)taskCount * sizeof(mach_port_t));
     }
-    
+
     deallocate_taskinfo_memory(psettaskinfo);
-    
+
 	return(0);
 }

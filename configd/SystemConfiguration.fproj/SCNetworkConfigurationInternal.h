@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2004-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,25 +17,29 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
 #ifndef _SCNETWORKCONFIGURATIONINTERNAL_H
 #define _SCNETWORKCONFIGURATIONINTERNAL_H
 
-
 #include <TargetConditionals.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
+
+#ifndef	SC_LOG_HANDLE
+#define	SC_LOG_HANDLE	__log_SCNetworkConfiguration()
+#endif	// SC_LOG_HANDLE
 #include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>
+#include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPreferencesPathKey.h>
-#include <SystemConfiguration/SCNetworkConfigurationPrivate.h>
 #include <IOKit/IOKitLib.h>
 
-#if	!TARGET_IPHONE_SIMULATOR
+#if	!TARGET_OS_SIMULATOR
 #include "IPMonitorControl.h"
-#endif	// !TARGET_IPHONE_SIMULATOR
+#endif	// !TARGET_OS_SIMULATOR
 
 
 typedef struct {
@@ -156,6 +160,8 @@ typedef struct {
 	CFStringRef		prefix;
 	CFNumberRef		type;
 	CFNumberRef		unit;
+	CFNumberRef		family;
+	CFNumberRef		subfamily;
 	struct {
 		CFStringRef	name;
 		CFNumberRef	vid;
@@ -188,10 +194,10 @@ typedef struct {
 		CFDictionaryRef		options;
 	} vlan;
 
-#if	!TARGET_IPHONE_SIMULATOR
+#if	!TARGET_OS_SIMULATOR
 	// for interface rank assertions
 	IPMonitorControlRef	IPMonitorControl;
-#endif	// !TARGET_IPHONE_SIMULATOR
+#endif	// !TARGET_OS_SIMULATOR
 } SCNetworkInterfacePrivate, *SCNetworkInterfacePrivateRef;
 
 
@@ -306,6 +312,10 @@ __SCNetworkInterfaceGetEntityType		(SCNetworkInterfaceRef interface);
 CFStringRef
 __SCNetworkInterfaceGetNonLocalizedDisplayName	(SCNetworkInterfaceRef	interface);
 
+Boolean
+__SCNetworkInterfaceSetDisableUntilNeededValue	(SCNetworkInterfaceRef	interface,
+						 CFTypeRef		disable);
+
 void
 __SCNetworkInterfaceSetUserDefinedName(SCNetworkInterfaceRef interface, CFStringRef name);
 
@@ -325,11 +335,14 @@ __SCNetworkInterfaceGetUserDefinedName(SCNetworkInterfaceRef interface);
  @result	TRUE if the interface configuration is active.
  */
 Boolean
-__SCNetworkInterfaceIsActive			(SCNetworkInterfaceRef		interface);
+__SCNetworkInterfaceIsActive			(SCNetworkInterfaceRef	interface);
 
 Boolean
 __SCNetworkInterfaceIsMember			(SCPreferencesRef	prefs,
 						 SCNetworkInterfaceRef	interface);
+
+Boolean
+__SCNetworkInterfaceEntityIsPPTP		(CFDictionaryRef	entity);
 
 Boolean
 __SCNetworkInterfaceIsValidExtendedConfigurationType
@@ -378,7 +391,7 @@ __SCNetworkInterfaceSetDeepConfiguration	(SCNetworkSetRef	set,
  */
 void
 __SCNetworkInterfaceSetIOInterfaceUnit		(SCNetworkInterfaceRef interface,
-						 CFNumberRef unit);
+						 CFNumberRef		unit);
 
 Boolean
 __SCNetworkInterfaceSupportsVLAN		(CFStringRef		bsd_if);
@@ -437,6 +450,10 @@ __SCNetworkServiceCreate			(SCPreferencesRef	prefs,
 						 SCNetworkInterfaceRef	interface,
 						 CFStringRef		userDefinedName);
 
+Boolean
+__SCNetworkServiceIsPPTP			(SCNetworkServiceRef	service);
+
+
 SCPreferencesRef
 __SCNetworkCreateDefaultNIPrefs			(CFStringRef		prefsID);
 
@@ -449,11 +466,11 @@ __SCNetworkCreateDefaultNIPrefs			(CFStringRef		prefsID);
  @result TRUE if add service to prefs is successful
  */
 Boolean
-__SCNetworkServiceMigrateNew			(SCPreferencesRef		prefs,
-						 SCNetworkServiceRef		service,
-						 CFDictionaryRef		bsdMapping,
-						 CFDictionaryRef		setMapping,
-						 CFDictionaryRef		serviceSetMapping);
+__SCNetworkServiceMigrateNew			(SCPreferencesRef	prefs,
+						 SCNetworkServiceRef	service,
+						 CFDictionaryRef	bsdMapping,
+						 CFDictionaryRef	setMapping,
+						 CFDictionaryRef	serviceSetMapping);
 
 void
 __SCNetworkServiceAddProtocolToService		(SCNetworkServiceRef		service,
@@ -463,6 +480,14 @@ __SCNetworkServiceAddProtocolToService		(SCNetworkServiceRef		service,
 
 #pragma mark -
 #pragma mark SCNetworkSet configuration (internal)
+
+
+#pragma mark -
+#pragma mark Logging
+
+
+os_log_t
+__log_SCNetworkConfiguration			();
 
 
 #pragma mark -

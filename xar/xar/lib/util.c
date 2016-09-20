@@ -38,6 +38,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <sys/types.h>
+#include <sys/param.h>
 #include <arpa/inet.h>
 #include <string.h>
 #include <unistd.h>
@@ -51,6 +52,51 @@
 #include "archive.h"
 #include "filetree.h"
 
+
+// SC: This is function is a exact copy of dirname BUT instead of
+// just using the same buffer over and over again, we allocate one.
+// This means the result needs to be freed, but it also means the
+// result will be correct.
+char *xar_safe_dirname(const char *path)
+{
+	char *dname = malloc(MAXPATHLEN);
+	size_t len;
+	const char *endp;
+
+	/* Empty or NULL string gets treated as "." */
+	if (path == NULL || *path == '\0') {
+		dname[0] = '.';
+		dname[1] = '\0';
+		return (dname);
+	}
+	/* Strip any trailing slashes */
+	endp = path + strlen(path) - 1;
+	while (endp > path && *endp == '/')
+		endp--;
+	/* Find the start of the dir */
+	while (endp > path && *endp != '/')
+		endp--;
+	/* Either the dir is "/" or there are no slashes */
+	if (endp == path) {
+		dname[0] = *endp == '/' ? '/' : '.';
+		dname[1] = '\0';
+		return (dname);
+	} else {
+		/* Move forward past the separating slashes */
+		do {
+			endp--;
+		} while (endp > path && *endp == '/');
+	}
+	len = endp - path + 1;
+	if (len >= MAXPATHLEN) {
+		errno = ENAMETOOLONG;
+		free(dname);
+		return (NULL);
+	}
+	memcpy(dname, path, len);
+	dname[len] = '\0';
+	return (dname);
+}
 
 
 uint64_t xar_ntoh64(uint64_t num) {
@@ -94,6 +140,10 @@ char *xar_get_path(xar_file_t f) {
 	xar_file_t i;
 
 	xar_prop_get(f, "name", &name);
+	if( name == NULL ) {
+		return NULL;
+	}
+	
 	ret = strdup(name);
 	for(i = XAR_FILE(f)->parent; i; i = XAR_FILE(i)->parent) {
 		const char *name;
@@ -259,6 +309,10 @@ int xar_path_issane(char* path) {
 	char* path_walker = path;
 	char* component = NULL;
 	int path_depth = 0;
+	
+	if (path == NULL) {
+		return 0;
+	}
 	
 	// Ban 0 length / absolute paths.
 	if (strlen(path) == 0 || path[0] == '/')

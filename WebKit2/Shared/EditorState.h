@@ -27,6 +27,7 @@
 #define EditorState_h
 
 #include "ArgumentCoders.h"
+#include <WebCore/Color.h>
 #include <WebCore/IntRect.h>
 #include <wtf/text/WTFString.h>
 
@@ -40,7 +41,22 @@ enum TypingAttributes {
     AttributeNone = 0,
     AttributeBold = 1,
     AttributeItalics = 2,
-    AttributeUnderline = 4
+    AttributeUnderline = 4,
+    AttributeStrikeThrough = 8
+};
+
+enum TextAlignment {
+    NoAlignment = 0,
+    LeftAlignment = 1,
+    RightAlignment = 2,
+    CenterAlignment = 3,
+    JustifiedAlignment = 4,
+};
+
+enum ListType {
+    NoList = 0,
+    OrderedList,
+    UnorderedList
 };
 
 struct EditorState {
@@ -59,20 +75,36 @@ struct EditorState {
     WebCore::IntRect firstMarkedRect;
     WebCore::IntRect lastMarkedRect;
     String markedText;
+#endif
 
+#if PLATFORM(IOS) || PLATFORM(GTK) || PLATFORM(MAC)
     struct PostLayoutData {
-        WebCore::IntRect selectionClipRect;
-        Vector<WebCore::SelectionRect> selectionRects;
+        uint32_t typingAttributes { AttributeNone };
+#if PLATFORM(IOS) || PLATFORM(GTK)
         WebCore::IntRect caretRectAtStart;
-        WebCore::IntRect caretRectAtEnd;
-        String wordAtSelection;
+#endif
+#if PLATFORM(IOS) || PLATFORM(MAC)
+        WebCore::IntRect selectionClipRect;
         uint64_t selectedTextLength { 0 };
+        uint32_t textAlignment { NoAlignment };
+        WebCore::Color textColor { WebCore::Color::black };
+        uint32_t enclosingListType { NoList };
+#endif
+#if PLATFORM(IOS)
+        WebCore::IntRect caretRectAtEnd;
+        Vector<WebCore::SelectionRect> selectionRects;
+        String wordAtSelection;
         UChar32 characterAfterSelection { 0 };
         UChar32 characterBeforeSelection { 0 };
         UChar32 twoCharacterBeforeSelection { 0 };
-        uint32_t typingAttributes { AttributeNone };
         bool isReplaceAllowed { false };
         bool hasContent { false };
+#endif
+#if PLATFORM(MAC)
+        uint64_t candidateRequestStartPosition { 0 };
+        String paragraphContextForCandidateRequest;
+        String stringForCandidateRequest;
+#endif
 
         void encode(IPC::ArgumentEncoder&) const;
         static bool decode(IPC::ArgumentDecoder&, PostLayoutData&);
@@ -80,22 +112,18 @@ struct EditorState {
 
     const PostLayoutData& postLayoutData() const;
     PostLayoutData& postLayoutData();
-#endif
-
-#if PLATFORM(GTK)
-    WebCore::IntRect cursorRect;
-#endif
+#endif // PLATFORM(IOS) || PLATFORM(GTK) || PLATFORM(MAC)
 
     void encode(IPC::ArgumentEncoder&) const;
     static bool decode(IPC::ArgumentDecoder&, EditorState&);
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || PLATFORM(GTK) || PLATFORM(MAC)
 private:
     PostLayoutData m_postLayoutData;
 #endif
 };
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) || PLATFORM(GTK) || PLATFORM(MAC)
 inline auto EditorState::postLayoutData() -> PostLayoutData&
 {
     ASSERT_WITH_MESSAGE(!isMissingPostLayoutData, "Attempt to access post layout data before receiving it");

@@ -258,6 +258,17 @@ dt_opt_debug(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	return (0);
 }
 
+/*ARGSUSED*/
+static int
+dt_opt_disallow_dsym(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
+{
+	if (arg != NULL)
+		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+
+	_dtrace_disallow_dsym = 1;
+	return (0);
+}
+
 static int
 dt_opt_nojtanalysis(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 {
@@ -266,6 +277,18 @@ dt_opt_nojtanalysis(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	}
 
 	dtp->dt_nojtanalysis = 1;
+
+	return (0);
+}
+
+/*ARGSUSED*/
+static int
+dt_opt_noerror(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
+{
+	if (arg != NULL)
+		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+
+	_dtrace_error = 0;
 
 	return (0);
 }
@@ -777,6 +800,25 @@ dt_opt_strsize(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
 	return (0);
 }
 
+
+static int
+dt_opt_buflimit(dtrace_hdl_t *dtp, const char *arg, uintptr_t option)
+{
+	dtrace_optval_t val = DTRACEOPT_UNSET;
+
+	if (arg == NULL)
+		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+
+	val = strtoull(arg, NULL, 0);
+
+	if (val <= 0 || val > 100)
+		return (dt_set_errno(dtp, EDT_BADOPTVAL));
+
+	dtp->dt_options[option] = val;
+
+	return (0);
+}
+
 static const struct {
 	const char *dtbp_name;
 	int dtbp_policy;
@@ -950,6 +992,7 @@ static const dt_option_t _dtrace_ctoptions[] = {
 	{ "dtypes", dt_opt_dtypes },
 	{ "debug", dt_opt_debug },
 	{ "define", dt_opt_cpp_opts, (uintptr_t)"-D" },
+	{ "disallow_dsym", dt_opt_disallow_dsym },
 	{ "droptags", dt_opt_droptags },
 	{ "empty", dt_opt_cflags, DTRACE_C_EMPTY },
 	{ "encoding", dt_opt_encoding },
@@ -968,6 +1011,7 @@ static const dt_option_t _dtrace_ctoptions[] = {
 	{ "mangled", dt_opt_mangled },
 	{ "nolibs", dt_opt_cflags, DTRACE_C_NOLIBS },
 	{ "nojtanalysis", dt_opt_nojtanalysis },
+	{ "noerror", dt_opt_noerror},
 	{ "pgmax", dt_opt_pgmax },
 	{ "preallocate", dt_opt_preallocate },
 	{ "pspec", dt_opt_cflags, DTRACE_C_PSPEC },
@@ -1022,6 +1066,7 @@ static const dt_option_t _dtrace_drtoptions[] = {
 	{ "aggsortpos", dt_opt_runtime, DTRACEOPT_AGGSORTPOS },
 	{ "aggsortrev", dt_opt_runtime, DTRACEOPT_AGGSORTREV },
 	{ "aggzoom", dt_opt_runtime, DTRACEOPT_AGGZOOM },
+	{ "buflimit", dt_opt_buflimit, DTRACEOPT_BUFLIMIT },
 	{ "flowindent", dt_opt_runtime, DTRACEOPT_FLOWINDENT },
 	{ "quiet", dt_opt_runtime, DTRACEOPT_QUIET },
 	{ "rawbytes", dt_opt_runtime, DTRACEOPT_RAWBYTES },

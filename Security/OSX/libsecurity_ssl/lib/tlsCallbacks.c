@@ -28,11 +28,12 @@
 #include "sslCrypto.h"
 #include "sslDebug.h"
 #include "sslMemory.h"
-#include "appleSession.h"
 #include <Security/SecCertificate.h>
 #include <Security/SecCertificatePriv.h>
 #include "utilities/SecCFRelease.h"
 
+#include <tls_helpers.h>
+#include <tls_cache.h>
 
 static
 int tls_handshake_write_callback(tls_handshake_ctx_t ctx, const SSLBuffer data, uint8_t content_type)
@@ -65,8 +66,7 @@ tls_handshake_message_callback(tls_handshake_ctx_t ctx, tls_handshake_message_t 
             // Need to call this here, in case SetCertificate was already called.
             myCtx->clientCertState = kSSLClientCertRequested;
             myCtx->clientAuthTypes = tls_handshake_get_peer_acceptable_client_auth_type(myCtx->hdsk, &myCtx->numAuthTypes);
-            SSLUpdateNegotiatedClientAuthType(myCtx);
-            if (myCtx->breakOnCertRequest && (myCtx->localCert==NULL)) {
+            if (myCtx->breakOnCertRequest && (myCtx->localCertArray==NULL)) {
                 myCtx->signalCertRequest = true;
                 err = errSSLClientCertRequested;
             }
@@ -93,7 +93,7 @@ tls_handshake_message_callback(tls_handshake_ctx_t ctx, tls_handshake_message_t 
         case tls_handshake_message_certificate:
             /* For clients, we only check the cert when we receive the ServerHelloDone message.
                For servers, we check the client's cert right here. For both we set the public key */
-            err = tls_set_peer_pubkey(myCtx);
+            err = tls_helper_set_peer_pubkey(myCtx->hdsk);
             if(!err && (myCtx->protocolSide == kSSLServerSide)) {
                 err = tls_verify_peer_cert(myCtx);
             }
@@ -199,22 +199,28 @@ int tls_handshake_set_protocol_version_callback(tls_handshake_ctx_t ctx,
 static int
 tls_handshake_save_session_data_callback(tls_handshake_ctx_t ctx, SSLBuffer sessionKey, SSLBuffer sessionData)
 {
+    int err = errSSLSessionNotFound;
     SSLContext *myCtx = (SSLContext *)ctx;
+
     sslDebugLog("%s: %p, key len=%zd, k[0]=%02x, data len=%zd\n", __FUNCTION__, myCtx, sessionKey.length, sessionKey.data[0], sessionData.length);
-    return sslAddSession(sessionKey, sessionData, myCtx->sessionCacheTimeout);
+
+    if(myCtx->cache) {
+        err = tls_cache_save_session_data(myCtx->cache, &sessionKey, &sessionData, myCtx->sessionCacheTimeout);
+    }
+    return err;
 }
 
 static int
 tls_handshake_load_session_data_callback(tls_handshake_ctx_t ctx, SSLBuffer sessionKey, SSLBuffer *sessionData)
 {
     SSLContext *myCtx = (SSLContext *)ctx;
-    int err;
+    int err = errSSLSessionNotFound;
 
     SSLFreeBuffer(&myCtx->resumableSession);
-    err = sslCopySession(sessionKey, &myCtx->resumableSession);
-
+    if(myCtx->cache) {
+        err = tls_cache_load_session_data(myCtx->cache, &sessionKey, &myCtx->resumableSession);
+    }
     sslDebugLog("%p, key len=%zd, data len=%zd, err=%d\n", ctx, sessionKey.length, sessionData->length, err);
-
     *sessionData = myCtx->resumableSession;
 
     return err;
@@ -223,16 +229,26 @@ tls_handshake_load_session_data_callback(tls_handshake_ctx_t ctx, SSLBuffer sess
 static int
 tls_handshake_delete_session_data_callback(tls_handshake_ctx_t ctx, SSLBuffer sessionKey)
 {
+    int err = errSSLSessionNotFound;
+    SSLContext *myCtx = (SSLContext *)ctx;
+
     sslDebugLog("%p, key len=%zd k[0]=%02x\n", ctx, sessionKey.length, sessionKey.data[0]);
-    return sslDeleteSession(sessionKey);
+    if(myCtx->cache) {
+        err = tls_cache_delete_session_data(myCtx->cache, &sessionKey);
+    }
+    return err;
 }
 
 static int
 tls_handshake_delete_all_sessions_callback(tls_handshake_ctx_t ctx)
 {
+    SSLContext *myCtx = (SSLContext *)ctx;
     sslDebugLog("%p\n", ctx);
 
-    return sslCleanupSession();
+    if(myCtx->cache) {
+        tls_cache_empty(myCtx->cache);
+    }
+    return 0;
 }
 
 tls_handshake_callbacks_t tls_handshake_callbacks = {
@@ -250,5 +266,3 @@ tls_handshake_callbacks_t tls_handshake_callbacks = {
     .advance_read_cipher = tls_handshake_advance_read_cipher_callback,
     .set_protocol_version = tls_handshake_set_protocol_version_callback,
 };
-
-

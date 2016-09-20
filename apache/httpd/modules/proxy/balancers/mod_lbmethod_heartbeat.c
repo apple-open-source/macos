@@ -82,7 +82,7 @@ argstr_to_table(apr_pool_t *p, char *str, apr_table_t *parms)
         ap_unescape_url(value);
         apr_table_set(parms, key, value);
         /*
-         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
+         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(03230)
          "Found query arg: %s = %s", key, value);
          */
         key = apr_strtok(NULL, "&", &strtok_state);
@@ -127,7 +127,7 @@ static apr_status_t readfile_heartbeats(const char *path, apr_hash_t *servers,
             hb_server_t *server;
             char buf[4096];
             apr_size_t bsize = sizeof(buf);
-            const char *ip;
+            const char *ip, *val;
 
             apr_brigade_cleanup(tmpbb);
 
@@ -180,20 +180,20 @@ static apr_status_t readfile_heartbeats(const char *path, apr_hash_t *servers,
 
             argstr_to_table(pool, apr_pstrdup(pool, t), hbt);
 
-            if (apr_table_get(hbt, "busy")) {
-                server->busy = atoi(apr_table_get(hbt, "busy"));
+            if ((val = apr_table_get(hbt, "busy"))) {
+                server->busy = atoi(val);
             }
 
-            if (apr_table_get(hbt, "ready")) {
-                server->ready = atoi(apr_table_get(hbt, "ready"));
+            if ((val = apr_table_get(hbt, "ready"))) {
+                server->ready = atoi(val);
             }
 
-            if (apr_table_get(hbt, "lastseen")) {
-                server->seen = atoi(apr_table_get(hbt, "lastseen"));
+            if ((val = apr_table_get(hbt, "lastseen"))) {
+                server->seen = atoi(val);
             }
 
-            if (apr_table_get(hbt, "port")) {
-                server->port = atoi(apr_table_get(hbt, "port"));
+            if ((val = apr_table_get(hbt, "port"))) {
+                server->port = atoi(val);
             }
 
             if (server->busy == 0 && server->ready != 0) {

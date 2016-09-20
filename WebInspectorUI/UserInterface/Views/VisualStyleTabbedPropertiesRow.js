@@ -31,13 +31,13 @@ WebInspector.VisualStyleTabbedPropertiesRow = class VisualStyleTabbedPropertiesR
 
         this._element.classList.add("visual-style-tabbed-properties-row");
 
-        var containerElement = document.createElement("div");
+        let containerElement = document.createElement("div");
         containerElement.classList.add("visual-style-tabbed-properties-row-container");
 
         this._tabButtons = [];
         this._tabMap = tabMap;
-        for (var key in this._tabMap) {
-            var button = document.createElement("button");
+        for (let key in this._tabMap) {
+            let button = document.createElement("button");
             button.id = key;
             button.textContent = this._tabMap[key].title;
             button.addEventListener("click", this._handleButtonClicked.bind(this));
@@ -46,7 +46,7 @@ WebInspector.VisualStyleTabbedPropertiesRow = class VisualStyleTabbedPropertiesR
             this._tabButtons.push(button);
         }
 
-        var firstButton = this._tabButtons[0];
+        let firstButton = this._tabButtons[0];
         firstButton.classList.add("selected");
         this._tabMap[firstButton.id].element.classList.add("visible");
 
@@ -57,12 +57,12 @@ WebInspector.VisualStyleTabbedPropertiesRow = class VisualStyleTabbedPropertiesR
 
     _handleButtonClicked(event)
     {
-        for (var item of this._tabButtons) {
-            var tab = this._tabMap[item.id];
-            var selected = item === event.target;
+        for (let item of this._tabButtons) {
+            let tab = this._tabMap[item.id];
+            let selected = item === event.target;
             item.classList.toggle("selected", selected);
             tab.element.classList.toggle("visible", selected);
-            for (var propertyEditor of tab.properties)
+            for (let propertyEditor of tab.properties)
                 propertyEditor.update();
         }
     }

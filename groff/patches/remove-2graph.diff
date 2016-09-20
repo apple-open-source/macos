@@ -1,0 +1,12 @@
+--- Makefile.in.orig	2015-09-22 17:31:39.000000000 -0700
++++ Makefile.in	2015-09-22 17:31:41.000000000 -0700
+@@ -546,9 +546,6 @@
+   src/roff/nroff \
+   doc \
+   contrib/mm \
+-  contrib/pic2graph \
+-  contrib/eqn2graph \
+-  contrib/grap2graph \
+   contrib/groffer \
+   contrib/mom \
+   contrib/pdfmark \

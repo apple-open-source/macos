@@ -32,12 +32,12 @@
 typedef struct MemTag {
     int refCount;		/* Number of mem_headers referencing
 				 * this tag. */
-    char string[4];		/* Actual size of string will be as
+    char string[1];		/* Actual size of string will be as
 				 * large as needed for actual tag.  This
 				 * must be the last field in the structure. */
 } MemTag;
 
-#define TAG_SIZE(bytesInString) ((unsigned) sizeof(MemTag) + bytesInString - 3)
+#define TAG_SIZE(bytesInString) ((unsigned) ((TclOffset(MemTag, string) + 1) + bytesInString))
 
 static MemTag *curTagPtr = NULL;/* Tag to use in all future mem_headers
 				 * (set by "memory tag" command). */
@@ -793,6 +793,7 @@ MemoryCmd (clientData, interp, argc, argv)
     CONST char *fileName;
     Tcl_DString buffer;
     int result;
+    size_t len;
 
     if (argc < 2) {
 	Tcl_AppendResult(interp, "wrong # args: should be \"",
@@ -870,9 +871,10 @@ MemoryCmd (clientData, interp, argc, argv)
 	if ((curTagPtr != NULL) && (curTagPtr->refCount == 0)) {
 	    TclpFree((char *) curTagPtr);
 	}
-	curTagPtr = (MemTag *) TclpAlloc(TAG_SIZE(strlen(argv[2])));
+        len = strlen(argv[2]);
+	curTagPtr = (MemTag *) TclpAlloc(TAG_SIZE(len));
 	curTagPtr->refCount = 0;
-	strcpy(curTagPtr->string, argv[2]);
+	memcpy(curTagPtr->string, argv[2], len + 1);
 	return TCL_OK;
     }
     if (strcmp(argv[1],"trace") == 0) {

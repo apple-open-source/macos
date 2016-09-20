@@ -36,6 +36,6 @@
 
 BEGIN
 {
-	this->x = `max_ncpus;
+	this->x = `real_ncpus;
 	this->x = *`rootvp;
 }

@@ -63,7 +63,8 @@ public:
     
     static void selectCache(Frame*, const URL& manifestURL);
     static void selectCacheWithoutManifestURL(Frame*);
-    
+
+    ApplicationCacheStorage& storage() { return m_storage; }
     const URL& manifestURL() const { return m_manifestURL; }
     const SecurityOrigin* origin() const { return m_origin.get(); }
     UpdateStatus updateStatus() const { return m_updateStatus; }
@@ -101,16 +102,16 @@ private:
 
     void scheduleReachedMaxAppCacheSizeCallback();
 
-    PassRefPtr<ResourceHandle> createResourceHandle(const URL&, ApplicationCacheResource* newestCachedResource);
+    RefPtr<ResourceHandle> createResourceHandle(const URL&, ApplicationCacheResource* newestCachedResource);
 
     // For normal resource loading, WebKit client is asked about each resource individually. Since application cache does not belong to any particular document,
     // the existing client callback cannot be used, so assume that any client that enables application cache also wants it to use credential storage.
-    virtual bool shouldUseCredentialStorage(ResourceHandle*) override { return true; }
+    bool shouldUseCredentialStorage(ResourceHandle*) override { return true; }
 
-    virtual void didReceiveResponse(ResourceHandle*, const ResourceResponse&) override;
-    virtual void didReceiveData(ResourceHandle*, const char*, unsigned length, int encodedDataLength) override;
-    virtual void didFinishLoading(ResourceHandle*, double finishTime) override;
-    virtual void didFail(ResourceHandle*, const ResourceError&) override;
+    void didReceiveResponse(ResourceHandle*, ResourceResponse&&) override;
+    void didReceiveData(ResourceHandle*, const char*, unsigned length, int encodedDataLength) override;
+    void didFinishLoading(ResourceHandle*, double finishTime) override;
+    void didFail(ResourceHandle*, const ResourceError&) override;
 
     void didReceiveManifestResponse(const ResourceResponse&);
     void didReceiveManifestData(const char*, int);

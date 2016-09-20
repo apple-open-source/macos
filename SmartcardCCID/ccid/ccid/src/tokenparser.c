@@ -514,17 +514,15 @@ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
 THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * $Id$
  */
 /**
  * @file
  * @brief provides parsing functions for Info.plist files
  * platforms
  */
-#line 44 "tokenparser.l"
+#line 42 "tokenparser.l"
 
-#include <config.h>
+#include "config.h"
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -543,7 +541,7 @@ static list_t *ListKeys;
 static list_t *ListValues;
 
 #define YY_NO_INPUT 1
-#line 547 "tokenparser.c"
+#line 545 "tokenparser.c"
 
 #define INITIAL 0
 
@@ -755,10 +753,10 @@ YY_DECL
 		}
 
 	{
-#line 69 "tokenparser.l"
+#line 67 "tokenparser.l"
 
 
-#line 762 "tokenparser.c"
+#line 760 "tokenparser.c"
 
 	while ( 1 )		/* loops until end-of-file is reached */
 		{
@@ -817,41 +815,41 @@ do_action:	/* This label is used only to access EOF actions. */
 
 case 1:
 YY_RULE_SETUP
-#line 71 "tokenparser.l"
+#line 69 "tokenparser.l"
 {}
 	YY_BREAK
 case 2:
 /* rule 2 can match eol */
 YY_RULE_SETUP
-#line 72 "tokenparser.l"
+#line 70 "tokenparser.l"
 {}
 	YY_BREAK
 case 3:
 YY_RULE_SETUP
-#line 73 "tokenparser.l"
+#line 71 "tokenparser.l"
 { eval_key(yytext, ListKeys); }
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 74 "tokenparser.l"
+#line 72 "tokenparser.l"
 {}
 	YY_BREAK
 case 5:
 YY_RULE_SETUP
-#line 75 "tokenparser.l"
+#line 73 "tokenparser.l"
 { eval_value(yytext, ListValues); }
 	YY_BREAK
 case 6:
 YY_RULE_SETUP
-#line 76 "tokenparser.l"
+#line 74 "tokenparser.l"
 { tperrorCheck(yytext); }
 	YY_BREAK
 case 7:
 YY_RULE_SETUP
-#line 77 "tokenparser.l"
+#line 75 "tokenparser.l"
 ECHO;
 	YY_BREAK
-#line 855 "tokenparser.c"
+#line 853 "tokenparser.c"
 case YY_STATE_EOF(INITIAL):
 	yyterminate();
 
@@ -1809,7 +1807,7 @@ void yyfree (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 76 "tokenparser.l"
+#line 74 "tokenparser.l"
 
 
 

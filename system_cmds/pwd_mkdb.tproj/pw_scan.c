@@ -53,6 +53,7 @@ static const char rcsid[] = "$OpenBSD: passwd.c,v 1.42 2003/06/26 16:34:42 deraa
 #include <limits.h>
 
 #include "util.h"
+#include "pw_scan.h"
 
 int
 pw_scan(char *bp, struct passwd *pw, int *flags)

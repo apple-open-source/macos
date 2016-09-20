@@ -35,10 +35,13 @@ OSObject * IOFireWireIPDiagnostics::createDiagnostics( IOFireWireIP* obj )
 		diagnostics = NULL;
 	}
 	
-	diagnostics->fIPObj		= obj;
-	
-	bzero(&obj->fIPoFWDiagnostics, sizeof(IOFireWireIP::IPoFWDiagnostics));
-	
+    if( diagnostics )
+    {
+        diagnostics->fIPObj		= obj;
+        
+        bzero(&obj->fIPoFWDiagnostics, sizeof(IOFireWireIP::IPoFWDiagnostics));
+    }
+    
 	return diagnostics;
 }
 

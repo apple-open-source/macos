@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,10 +37,12 @@
 #include "DFGCommon.h"
 #include "DFGEpoch.h"
 #include "DFGLazyJSValue.h"
+#include "DFGMultiGetByOffsetData.h"
 #include "DFGNodeFlags.h"
 #include "DFGNodeOrigin.h"
 #include "DFGNodeType.h"
 #include "DFGObjectMaterializationData.h"
+#include "DFGOpInfo.h"
 #include "DFGTransition.h"
 #include "DFGUseKind.h"
 #include "DFGVariableAccessData.h"
@@ -54,7 +56,13 @@
 #include "ValueProfile.h"
 #include <wtf/ListDump.h>
 
-namespace JSC { namespace DFG {
+namespace JSC {
+
+namespace Profiler {
+class ExecutionCounter;
+}
+
+namespace DFG {
 
 class Graph;
 class PromotedLocationDescriptor;
@@ -63,11 +71,11 @@ struct BasicBlock;
 struct StorageAccessData {
     PropertyOffset offset;
     unsigned identifierNumber;
-};
 
-struct MultiGetByOffsetData {
-    unsigned identifierNumber;
-    Vector<GetByIdVariant, 2> variants;
+    // This needs to know the inferred type. For puts, this is necessary because we need to remember
+    // what check is needed. For gets, this is necessary because otherwise AI might forget what type is
+    // guaranteed.
+    InferredType::Descriptor inferredType;
 };
 
 struct MultiPutByOffsetData {
@@ -216,20 +224,6 @@ struct StackAccessData {
     FlushFormat format;
     
     FlushedAt flushedAt() { return FlushedAt(format, machineLocal); }
-};
-
-// This type used in passing an immediate argument to Node constructor;
-// distinguishes an immediate value (typically an index into a CodeBlock data structure - 
-// a constant index, argument, or identifier) from a Node*.
-struct OpInfo {
-    OpInfo() : m_value(0) { }
-    explicit OpInfo(int32_t value) : m_value(static_cast<uintptr_t>(value)) { }
-    explicit OpInfo(uint32_t value) : m_value(static_cast<uintptr_t>(value)) { }
-#if OS(DARWIN) || USE(JSVALUE64)
-    explicit OpInfo(size_t value) : m_value(static_cast<uintptr_t>(value)) { }
-#endif
-    explicit OpInfo(void* value) : m_value(reinterpret_cast<uintptr_t>(value)) { }
-    uintptr_t m_value;
 };
 
 // === Node ===
@@ -493,6 +487,8 @@ struct Node {
         m_opInfo = bitwise_cast<uintptr_t>(value);
         children.reset();
     }
+
+    void convertToLazyJSConstant(Graph&, LazyJSValue);
     
     void convertToConstantStoragePointer(void* pointer)
     {
@@ -528,13 +524,12 @@ struct Node {
         children.reset();
     }
     
-    void convertToGetByOffset(StorageAccessData& data, Edge storage)
+    void convertToGetByOffset(StorageAccessData& data, Edge storage, Edge base)
     {
         ASSERT(m_op == GetById || m_op == GetByIdFlush || m_op == MultiGetByOffset);
         m_opInfo = bitwise_cast<uintptr_t>(&data);
-        children.setChild2(children.child1());
-        children.child2().setUseKind(KnownCellUse);
         children.setChild1(storage);
+        children.setChild2(base);
         m_op = GetByOffset;
         m_flags &= ~NodeMustGenerate;
     }
@@ -548,12 +543,12 @@ struct Node {
         ASSERT(m_flags & NodeMustGenerate);
     }
     
-    void convertToPutByOffset(StorageAccessData& data, Edge storage)
+    void convertToPutByOffset(StorageAccessData& data, Edge storage, Edge base)
     {
         ASSERT(m_op == PutById || m_op == PutByIdDirect || m_op == PutByIdFlush || m_op == MultiPutByOffset);
         m_opInfo = bitwise_cast<uintptr_t>(&data);
         children.setChild3(children.child2());
-        children.setChild2(children.child1());
+        children.setChild2(base);
         children.setChild1(storage);
         m_op = PutByOffset;
     }
@@ -584,8 +579,18 @@ struct Node {
 
     void convertToPhantomNewFunction()
     {
-        ASSERT(m_op == NewFunction);
+        ASSERT(m_op == NewFunction || m_op == NewGeneratorFunction);
         m_op = PhantomNewFunction;
+        m_flags |= NodeMustGenerate;
+        m_opInfo = 0;
+        m_opInfo2 = 0;
+        children = AdjacencyList();
+    }
+
+    void convertToPhantomNewGeneratorFunction()
+    {
+        ASSERT(m_op == NewGeneratorFunction);
+        m_op = PhantomNewGeneratorFunction;
         m_flags |= NodeMustGenerate;
         m_opInfo = 0;
         m_opInfo2 = 0;
@@ -633,11 +638,10 @@ struct Node {
         m_op = ToString;
     }
 
-    void convertToArithSqrt()
+    void convertToArithNegate()
     {
-        ASSERT(m_op == ArithPow);
-        child2() = Edge();
-        m_op = ArithSqrt;
+        ASSERT(m_op == ArithAbs && child1().useKind() == Int32Use);
+        m_op = ArithNegate;
     }
     
     JSValue asJSValue()
@@ -675,14 +679,14 @@ struct Node {
         return asJSValue().asNumber();
     }
      
-    bool isMachineIntConstant()
+    bool isAnyIntConstant()
     {
-        return isConstant() && constant()->value().isMachineInt();
+        return isConstant() && constant()->value().isAnyInt();
     }
      
-    int64_t asMachineInt()
+    int64_t asAnyInt()
     {
-        return asJSValue().asMachineInt();
+        return asJSValue().asAnyInt();
     }
      
     bool isBooleanConstant()
@@ -694,7 +698,12 @@ struct Node {
     {
         return constant()->value().asBoolean();
     }
-     
+
+    bool isUndefinedOrNullConstant()
+    {
+        return isConstant() && constant()->value().isUndefinedOrNull();
+    }
+
     bool isCellConstant()
     {
         return isConstant() && constant()->value() && constant()->value().isCell();
@@ -720,7 +729,70 @@ struct Node {
         RELEASE_ASSERT(result);
         return result;
     }
-     
+
+    bool hasLazyJSValue()
+    {
+        return op() == LazyJSConstant;
+    }
+
+    LazyJSValue lazyJSValue()
+    {
+        ASSERT(hasLazyJSValue());
+        return *bitwise_cast<LazyJSValue*>(m_opInfo);
+    }
+
+    String tryGetString(Graph&);
+
+    JSValue initializationValueForActivation() const
+    {
+        ASSERT(op() == CreateActivation);
+        return bitwise_cast<FrozenValue*>(m_opInfo2)->value();
+    }
+
+    bool hasArgumentsChild()
+    {
+        switch (op()) {
+        case GetMyArgumentByVal:
+        case GetMyArgumentByValOutOfBounds:
+        case LoadVarargs:
+        case ForwardVarargs:
+        case CallVarargs:
+        case CallForwardVarargs:
+        case ConstructVarargs:
+        case ConstructForwardVarargs:
+        case TailCallVarargs:
+        case TailCallForwardVarargs:
+        case TailCallVarargsInlinedCaller:
+        case TailCallForwardVarargsInlinedCaller:
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    Edge& argumentsChild()
+    {
+        switch (op()) {
+        case GetMyArgumentByVal:
+        case GetMyArgumentByValOutOfBounds:
+        case LoadVarargs:
+        case ForwardVarargs:
+            return child1();
+        case CallVarargs:
+        case CallForwardVarargs:
+        case ConstructVarargs:
+        case ConstructForwardVarargs:
+        case TailCallVarargs:
+        case TailCallForwardVarargs:
+        case TailCallVarargsInlinedCaller:
+        case TailCallForwardVarargsInlinedCaller:
+            return child3();
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+            return child1();
+        }
+    }
+
     bool containsMovHint()
     {
         switch (op()) {
@@ -836,11 +908,21 @@ struct Node {
     bool hasIdentifier()
     {
         switch (op()) {
+        case TryGetById:
         case GetById:
         case GetByIdFlush:
+        case GetByIdWithThis:
         case PutById:
         case PutByIdFlush:
         case PutByIdDirect:
+        case PutByIdWithThis:
+        case PutGetterById:
+        case PutSetterById:
+        case PutGetterSetterById:
+        case DeleteById:
+        case GetDynamicVar:
+        case PutDynamicVar:
+        case ResolveScope:
             return true;
         default:
             return false;
@@ -851,6 +933,54 @@ struct Node {
     {
         ASSERT(hasIdentifier());
         return m_opInfo;
+    }
+
+    bool hasGetPutInfo()
+    {
+        switch (op()) {
+        case GetDynamicVar:
+        case PutDynamicVar:
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    unsigned getPutInfo()
+    {
+        ASSERT(hasGetPutInfo());
+        return m_opInfo2;
+    }
+
+    bool hasAccessorAttributes()
+    {
+        switch (op()) {
+        case PutGetterById:
+        case PutSetterById:
+        case PutGetterSetterById:
+        case PutGetterByVal:
+        case PutSetterByVal:
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    int32_t accessorAttributes()
+    {
+        ASSERT(hasAccessorAttributes());
+        switch (op()) {
+        case PutGetterById:
+        case PutSetterById:
+        case PutGetterSetterById:
+            return m_opInfo2;
+        case PutGetterByVal:
+        case PutSetterByVal:
+            return m_opInfo;
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+            return 0;
+        }
     }
     
     bool hasPromotedLocationDescriptor()
@@ -866,11 +996,26 @@ struct Node {
     NodeFlags arithNodeFlags()
     {
         NodeFlags result = m_flags & NodeArithFlagsMask;
-        if (op() == ArithMul || op() == ArithDiv || op() == ArithMod || op() == ArithNegate || op() == ArithPow || op() == ArithRound || op() == DoubleAsInt32)
+        if (op() == ArithMul || op() == ArithDiv || op() == ArithMod || op() == ArithNegate || op() == ArithPow || op() == ArithRound || op() == ArithFloor || op() == ArithCeil || op() == ArithTrunc || op() == DoubleAsInt32)
             return result;
         return result & ~NodeBytecodeNeedsNegZero;
     }
+
+    bool mayHaveNonIntResult()
+    {
+        return m_flags & NodeMayHaveNonIntResult;
+    }
     
+    bool mayHaveDoubleResult()
+    {
+        return m_flags & NodeMayHaveDoubleResult;
+    }
+    
+    bool mayHaveNonNumberResult()
+    {
+        return m_flags & NodeMayHaveNonNumberResult;
+    }
+
     bool hasConstantBuffer()
     {
         return op() == NewArrayBuffer;
@@ -955,6 +1100,9 @@ struct Node {
         m_opInfo = indexingType;
     }
     
+    // FIXME: We really should be able to inline code that uses NewRegexp. That means
+    // using something other than the index into the CodeBlock here.
+    // https://bugs.webkit.org/show_bug.cgi?id=154808
     bool hasRegexpIndex()
     {
         return op() == NewRegexp;
@@ -990,7 +1138,7 @@ struct Node {
     
     bool hasRegisterPointer()
     {
-        return op() == GetGlobalVar || op() == PutGlobalVar;
+        return op() == GetGlobalVar || op() == GetGlobalLexicalVariable || op() == PutGlobalVariable;
     }
     
     WriteBarrier<Unknown>* variablePointer()
@@ -1003,6 +1151,10 @@ struct Node {
         switch (op()) {
         case CallVarargs:
         case CallForwardVarargs:
+        case TailCallVarargs:
+        case TailCallForwardVarargs:
+        case TailCallVarargsInlinedCaller:
+        case TailCallForwardVarargsInlinedCaller:
         case ConstructVarargs:
         case ConstructForwardVarargs:
             return true;
@@ -1100,11 +1252,22 @@ struct Node {
         case Branch:
         case Switch:
         case Return:
+        case TailCall:
+        case TailCallVarargs:
+        case TailCallForwardVarargs:
         case Unreachable:
             return true;
         default:
             return false;
         }
+    }
+
+    bool isFunctionTerminal()
+    {
+        if (isTerminal() && !numSuccessors())
+            return true;
+
+        return false;
     }
 
     unsigned targetBytecodeOffsetDuringParsing()
@@ -1226,6 +1389,10 @@ struct Node {
         {
             return iterator(m_terminal, m_terminal->numSuccessors());
         }
+
+        size_t size() const { return m_terminal->numSuccessors(); }
+        BasicBlock* at(size_t index) const { return m_terminal->successor(index); }
+        BasicBlock* operator[](size_t index) const { return at(index); }
         
     private:
         Node* m_terminal;
@@ -1245,17 +1412,21 @@ struct Node {
     {
         switch (op()) {
         case ArithRound:
+        case ArithFloor:
+        case ArithCeil:
+        case ArithTrunc:
         case GetDirectPname:
         case GetById:
         case GetByIdFlush:
         case GetByVal:
         case Call:
+        case TailCallInlinedCaller:
         case Construct:
         case CallVarargs:
+        case TailCallVarargsInlinedCaller:
         case ConstructVarargs:
         case CallForwardVarargs:
-        case NativeCall:
-        case NativeConstruct:
+        case TailCallForwardVarargsInlinedCaller:
         case GetByOffset:
         case MultiGetByOffset:
         case GetClosureVar:
@@ -1265,6 +1436,10 @@ struct Node {
         case RegExpExec:
         case RegExpTest:
         case GetGlobalVar:
+        case GetGlobalLexicalVariable:
+        case StringReplace:
+        case StringReplaceRegExp:
+        case ToNumber:
             return true;
         default:
             return false;
@@ -1287,9 +1462,9 @@ struct Node {
     {
         switch (op()) {
         case CheckCell:
-        case NativeConstruct:
-        case NativeCall:
+        case OverridesHasInstance:
         case NewFunction:
+        case NewGeneratorFunction:
         case CreateActivation:
         case MaterializeCreateActivation:
             return true;
@@ -1301,13 +1476,7 @@ struct Node {
     FrozenValue* cellOperand()
     {
         ASSERT(hasCellOperand());
-        switch (op()) {
-        case MaterializeCreateActivation:
-            return reinterpret_cast<FrozenValue*>(m_opInfo2);
-        default:
-            return reinterpret_cast<FrozenValue*>(m_opInfo);
-        }
-        RELEASE_ASSERT_NOT_REACHED();
+        return reinterpret_cast<FrozenValue*>(m_opInfo);
     }
     
     template<typename T>
@@ -1344,6 +1513,28 @@ struct Node {
         return reinterpret_cast<void*>(m_opInfo);
     }
 
+    bool hasUidOperand()
+    {
+        return op() == CheckIdent;
+    }
+
+    UniquedStringImpl* uidOperand()
+    {
+        ASSERT(hasUidOperand());
+        return reinterpret_cast<UniquedStringImpl*>(m_opInfo);
+    }
+
+    bool hasTypeInfoOperand()
+    {
+        return op() == CheckTypeInfoFlags;
+    }
+
+    unsigned typeInfoOperand()
+    {
+        ASSERT(hasTypeInfoOperand() && m_opInfo <= UCHAR_MAX);
+        return static_cast<unsigned>(m_opInfo);
+    }
+
     bool hasTransition()
     {
         switch (op()) {
@@ -1367,6 +1558,7 @@ struct Node {
         switch (op()) {
         case CheckStructure:
         case CheckStructureImmediate:
+        case MaterializeNewObject:
             return true;
         default:
             return false;
@@ -1452,7 +1644,7 @@ struct Node {
     ObjectMaterializationData& objectMaterializationData()
     {
         ASSERT(hasObjectMaterializationData());
-        return *reinterpret_cast<ObjectMaterializationData*>(m_opInfo);
+        return *reinterpret_cast<ObjectMaterializationData*>(m_opInfo2);
     }
 
     bool isObjectAllocation()
@@ -1501,6 +1693,7 @@ struct Node {
     {
         switch (op()) {
         case NewFunction:
+        case NewGeneratorFunction:
             return true;
         default:
             return false;
@@ -1511,6 +1704,7 @@ struct Node {
     {
         switch (op()) {
         case PhantomNewFunction:
+        case PhantomNewGeneratorFunction:
             return true;
         default:
             return false;
@@ -1524,6 +1718,7 @@ struct Node {
         case PhantomDirectArguments:
         case PhantomClonedArguments:
         case PhantomNewFunction:
+        case PhantomNewGeneratorFunction:
         case PhantomCreateActivation:
             return true;
         default:
@@ -1574,6 +1769,7 @@ struct Node {
     bool hasArithMode()
     {
         switch (op()) {
+        case ArithAbs:
         case ArithAdd:
         case ArithSub:
         case ArithNegate:
@@ -1601,7 +1797,7 @@ struct Node {
 
     bool hasArithRoundingMode()
     {
-        return op() == ArithRound;
+        return op() == ArithRound || op() == ArithFloor || op() == ArithCeil || op() == ArithTrunc;
     }
 
     Arith::RoundingMode arithRoundingMode()
@@ -1780,9 +1976,9 @@ struct Node {
         return isInt32OrBooleanSpeculationExpectingDefined(prediction());
     }
     
-    bool shouldSpeculateMachineInt()
+    bool shouldSpeculateAnyInt()
     {
-        return isMachineIntSpeculation(prediction());
+        return isAnyIntSpeculation(prediction());
     }
     
     bool shouldSpeculateDouble()
@@ -1840,6 +2036,11 @@ struct Node {
         return isStringSpeculation(prediction());
     }
  
+    bool shouldSpeculateStringOrOther()
+    {
+        return isStringOrOtherSpeculation(prediction());
+    }
+ 
     bool shouldSpeculateStringObject()
     {
         return isStringObjectSpeculation(prediction());
@@ -1848,6 +2049,16 @@ struct Node {
     bool shouldSpeculateStringOrStringObject()
     {
         return isStringOrStringObjectSpeculation(prediction());
+    }
+
+    bool shouldSpeculateRegExpObject()
+    {
+        return isRegExpObjectSpeculation(prediction());
+    }
+    
+    bool shouldSpeculateSymbol()
+    {
+        return isSymbolSpeculation(prediction());
     }
     
     bool shouldSpeculateFinalObject()
@@ -1940,9 +2151,34 @@ struct Node {
         return isCellSpeculation(prediction());
     }
     
+    bool shouldSpeculateCellOrOther()
+    {
+        return isCellOrOtherSpeculation(prediction());
+    }
+    
     bool shouldSpeculateNotCell()
     {
         return isNotCellSpeculation(prediction());
+    }
+    
+    bool shouldSpeculateUntypedForArithmetic()
+    {
+        return isUntypedSpeculationForArithmetic(prediction());
+    }
+
+    static bool shouldSpeculateUntypedForArithmetic(Node* op1, Node* op2)
+    {
+        return op1->shouldSpeculateUntypedForArithmetic() || op2->shouldSpeculateUntypedForArithmetic();
+    }
+    
+    bool shouldSpeculateUntypedForBitOps()
+    {
+        return isUntypedSpeculationForBitOps(prediction());
+    }
+    
+    static bool shouldSpeculateUntypedForBitOps(Node* op1, Node* op2)
+    {
+        return op1->shouldSpeculateUntypedForBitOps() || op2->shouldSpeculateUntypedForBitOps();
     }
     
     static bool shouldSpeculateBoolean(Node* op1, Node* op2)
@@ -1973,9 +2209,9 @@ struct Node {
             && op2->shouldSpeculateInt32OrBooleanExpectingDefined();
     }
     
-    static bool shouldSpeculateMachineInt(Node* op1, Node* op2)
+    static bool shouldSpeculateAnyInt(Node* op1, Node* op2)
     {
-        return op1->shouldSpeculateMachineInt() && op2->shouldSpeculateMachineInt();
+        return op1->shouldSpeculateAnyInt() && op2->shouldSpeculateAnyInt();
     }
     
     static bool shouldSpeculateNumber(Node* op1, Node* op2)
@@ -1993,6 +2229,11 @@ struct Node {
     {
         return op1->shouldSpeculateNumberOrBooleanExpectingDefined()
             && op2->shouldSpeculateNumberOrBooleanExpectingDefined();
+    }
+
+    static bool shouldSpeculateSymbol(Node* op1, Node* op2)
+    {
+        return op1->shouldSpeculateSymbol() && op2->shouldSpeculateSymbol();
     }
     
     static bool shouldSpeculateFinalObject(Node* op1, Node* op2)
@@ -2073,7 +2314,13 @@ struct Node {
     {
         m_misc.epoch = epoch.toUnsigned();
     }
-    
+
+    unsigned numberOfArgumentsToSkip()
+    {
+        ASSERT(op() == CopyRest || op() == GetRestLength);
+        return static_cast<unsigned>(m_opInfo);
+    }
+
     void dumpChildren(PrintStream& out)
     {
         if (!child1())
@@ -2096,7 +2343,7 @@ struct Node {
 
 private:
     unsigned m_op : 10; // real type is NodeType
-    unsigned m_flags : 22;
+    unsigned m_flags : 20;
     // The virtual register number (spill location) associated with this .
     VirtualRegister m_virtualRegister;
     // The number of uses of the result of this operation (+1 for 'must generate' nodes, which have side-effects).
@@ -2155,6 +2402,22 @@ CString nodeMapDump(const T& nodeMap, DumpContext* context = 0)
     CommaPrinter comma;
     for(unsigned i = 0; i < keys.size(); ++i)
         out.print(comma, keys[i], "=>", inContext(nodeMap.get(keys[i]), context));
+    return out.toCString();
+}
+
+template<typename T>
+CString nodeValuePairListDump(const T& nodeValuePairList, DumpContext* context = 0)
+{
+    using V = typename T::ValueType;
+    T sortedList = nodeValuePairList;
+    std::sort(sortedList.begin(), sortedList.end(), [](const V& a, const V& b) {
+        return nodeComparator(a.node, b.node);
+    });
+
+    StringPrintStream out;
+    CommaPrinter comma;
+    for (const auto& pair : sortedList)
+        out.print(comma, pair.node, "=>", inContext(pair.value, context));
     return out.toCString();
 }
 

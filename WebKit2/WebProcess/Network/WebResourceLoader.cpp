@@ -26,8 +26,6 @@
 #include "config.h"
 #include "WebResourceLoader.h"
 
-#if ENABLE(NETWORK_PROCESS)
-
 #include "DataReference.h"
 #include "Logging.h"
 #include "NetworkProcessConnection.h"
@@ -44,15 +42,17 @@
 
 using namespace WebCore;
 
+#define WEBRESOURCELOADER_LOG_ALWAYS(...) LOG_ALWAYS(isAlwaysOnLoggingAllowed(), __VA_ARGS__)
+
 namespace WebKit {
 
-Ref<WebResourceLoader> WebResourceLoader::create(PassRefPtr<ResourceLoader> coreLoader)
+Ref<WebResourceLoader> WebResourceLoader::create(Ref<ResourceLoader>&& coreLoader)
 {
-    return adoptRef(*new WebResourceLoader(coreLoader));
+    return adoptRef(*new WebResourceLoader(WTFMove(coreLoader)));
 }
 
-WebResourceLoader::WebResourceLoader(PassRefPtr<WebCore::ResourceLoader> coreLoader)
-    : m_coreLoader(coreLoader)
+WebResourceLoader::WebResourceLoader(Ref<WebCore::ResourceLoader>&& coreLoader)
+    : m_coreLoader(WTFMove(coreLoader))
 {
 }
 
@@ -62,7 +62,7 @@ WebResourceLoader::~WebResourceLoader()
 
 IPC::Connection* WebResourceLoader::messageSenderConnection()
 {
-    return WebProcess::singleton().networkConnection()->connection();
+    return &WebProcess::singleton().networkConnection().connection();
 }
 
 uint64_t WebResourceLoader::messageSenderDestinationID()
@@ -70,31 +70,26 @@ uint64_t WebResourceLoader::messageSenderDestinationID()
     return m_coreLoader->identifier();
 }
 
-void WebResourceLoader::cancelResourceLoader()
-{
-    m_coreLoader->cancel();
-}
-
 void WebResourceLoader::detachFromCoreLoader()
 {
     m_coreLoader = nullptr;
 }
 
-void WebResourceLoader::willSendRequest(const ResourceRequest& proposedRequest, const ResourceResponse& redirectResponse)
+void WebResourceLoader::willSendRequest(ResourceRequest&& proposedRequest, ResourceResponse&& redirectResponse)
 {
-    LOG(Network, "(WebProcess) WebResourceLoader::willSendRequest to '%s'", proposedRequest.url().string().utf8().data());
+    LOG(Network, "(WebProcess) WebResourceLoader::willSendRequest to '%s'", proposedRequest.url().string().latin1().data());
+    WEBRESOURCELOADER_LOG_ALWAYS("WebResourceLoader::willSendRequest, WebResourceLoader = %p", this);
 
-    RefPtr<WebResourceLoader> protect(this);
+    RefPtr<WebResourceLoader> protectedThis(this);
 
-    ResourceRequest newRequest = proposedRequest;
-    if (m_coreLoader->documentLoader()->applicationCacheHost()->maybeLoadFallbackForRedirect(m_coreLoader.get(), newRequest, redirectResponse))
+    if (m_coreLoader->documentLoader()->applicationCacheHost()->maybeLoadFallbackForRedirect(m_coreLoader.get(), proposedRequest, redirectResponse))
         return;
     // FIXME: Do we need to update NetworkResourceLoader clientCredentialPolicy in case loader policy is DoNotAskClientForCrossOriginCredentials?
-    m_coreLoader->willSendRequest(WTF::move(newRequest), redirectResponse, [protect](ResourceRequest&& request) {
-        if (!protect->m_coreLoader)
+    m_coreLoader->willSendRequest(WTFMove(proposedRequest), redirectResponse, [protectedThis](ResourceRequest&& request) {
+        if (!protectedThis->m_coreLoader)
             return;
 
-        protect->send(Messages::NetworkResourceLoader::ContinueWillSendRequest(request));
+        protectedThis->send(Messages::NetworkResourceLoader::ContinueWillSendRequest(request));
     });
 }
 
@@ -105,7 +100,8 @@ void WebResourceLoader::didSendData(uint64_t bytesSent, uint64_t totalBytesToBeS
 
 void WebResourceLoader::didReceiveResponse(const ResourceResponse& response, bool needsContinueDidReceiveResponseMessage)
 {
-    LOG(Network, "(WebProcess) WebResourceLoader::didReceiveResponseWithCertificateInfo for '%s'. Status %d.", m_coreLoader->url().string().utf8().data(), response.httpStatusCode());
+    LOG(Network, "(WebProcess) WebResourceLoader::didReceiveResponse for '%s'. Status %d.", m_coreLoader->url().string().latin1().data(), response.httpStatusCode());
+    WEBRESOURCELOADER_LOG_ALWAYS("WebResourceLoader::didReceiveResponse, WebResourceLoader = %p, status = %d.", this, response.httpStatusCode());
 
     Ref<WebResourceLoader> protect(*this);
 
@@ -136,7 +132,8 @@ void WebResourceLoader::didReceiveResponse(const ResourceResponse& response, boo
 
 void WebResourceLoader::didReceiveData(const IPC::DataReference& data, int64_t encodedDataLength)
 {
-    LOG(Network, "(WebProcess) WebResourceLoader::didReceiveData of size %i for '%s'", (int)data.size(), m_coreLoader->url().string().utf8().data());
+    LOG(Network, "(WebProcess) WebResourceLoader::didReceiveData of size %lu for '%s'", data.size(), m_coreLoader->url().string().latin1().data());
+    WEBRESOURCELOADER_LOG_ALWAYS("WebResourceLoader::didReceiveData, WebResourceLoader = %p, size = %lu", this, data.size());
 
 #if USE(QUICK_LOOK)
     if (QuickLookHandle* quickLookHandle = m_coreLoader->documentLoader()->quickLookHandle()) {
@@ -149,7 +146,8 @@ void WebResourceLoader::didReceiveData(const IPC::DataReference& data, int64_t e
 
 void WebResourceLoader::didFinishResourceLoad(double finishTime)
 {
-    LOG(Network, "(WebProcess) WebResourceLoader::didFinishResourceLoad for '%s'", m_coreLoader->url().string().utf8().data());
+    LOG(Network, "(WebProcess) WebResourceLoader::didFinishResourceLoad for '%s'", m_coreLoader->url().string().latin1().data());
+    WEBRESOURCELOADER_LOG_ALWAYS("WebResourceLoader::didFinishResourceLoad, WebResourceLoader = %p", this);
 
 #if USE(QUICK_LOOK)
     if (QuickLookHandle* quickLookHandle = m_coreLoader->documentLoader()->quickLookHandle()) {
@@ -162,8 +160,9 @@ void WebResourceLoader::didFinishResourceLoad(double finishTime)
 
 void WebResourceLoader::didFailResourceLoad(const ResourceError& error)
 {
-    LOG(Network, "(WebProcess) WebResourceLoader::didFailResourceLoad for '%s'", m_coreLoader->url().string().utf8().data());
-    
+    LOG(Network, "(WebProcess) WebResourceLoader::didFailResourceLoad for '%s'", m_coreLoader->url().string().latin1().data());
+    WEBRESOURCELOADER_LOG_ALWAYS("WebResourceLoader::didFailResourceLoad, WebResourceLoader = %p", this);
+
 #if USE(QUICK_LOOK)
     if (QuickLookHandle* quickLookHandle = m_coreLoader->documentLoader()->quickLookHandle())
         quickLookHandle->didFail();
@@ -176,7 +175,8 @@ void WebResourceLoader::didFailResourceLoad(const ResourceError& error)
 #if ENABLE(SHAREABLE_RESOURCE)
 void WebResourceLoader::didReceiveResource(const ShareableResource::Handle& handle, double finishTime)
 {
-    LOG(Network, "(WebProcess) WebResourceLoader::didReceiveResource for '%s'", m_coreLoader->url().string().utf8().data());
+    LOG(Network, "(WebProcess) WebResourceLoader::didReceiveResource for '%s'", m_coreLoader->url().string().latin1().data());
+    WEBRESOURCELOADER_LOG_ALWAYS("WebResourceLoader::didReceiveResource, WebResourceLoader = %p", this);
 
     RefPtr<SharedBuffer> buffer = handle.tryWrapInSharedBuffer();
 
@@ -201,8 +201,8 @@ void WebResourceLoader::didReceiveResource(const ShareableResource::Handle& hand
     Ref<WebResourceLoader> protect(*this);
 
     // Only send data to the didReceiveData callback if it exists.
-    if (buffer->size())
-        m_coreLoader->didReceiveBuffer(buffer.get(), buffer->size(), DataPayloadWholeResource);
+    if (unsigned bufferSize = buffer->size())
+        m_coreLoader->didReceiveBuffer(buffer.releaseNonNull(), bufferSize, DataPayloadWholeResource);
 
     if (!m_coreLoader)
         return;
@@ -211,20 +211,9 @@ void WebResourceLoader::didReceiveResource(const ShareableResource::Handle& hand
 }
 #endif
 
-#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
-void WebResourceLoader::canAuthenticateAgainstProtectionSpace(const ProtectionSpace& protectionSpace)
+bool WebResourceLoader::isAlwaysOnLoggingAllowed() const
 {
-    Ref<WebResourceLoader> protect(*this);
-
-    bool result = m_coreLoader->canAuthenticateAgainstProtectionSpace(protectionSpace);
-
-    if (!m_coreLoader)
-        return;
-
-    send(Messages::NetworkResourceLoader::ContinueCanAuthenticateAgainstProtectionSpace(result));
+    return resourceLoader() && resourceLoader()->isAlwaysOnLoggingAllowed();
 }
-#endif
 
 } // namespace WebKit
-
-#endif // ENABLE(NETWORK_PROCESS)

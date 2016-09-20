@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
    LastUpgradeVersion = "0700"
-   version = "1.3">
+   version = "1.7">
    <BuildAction
       parallelizeBuildables = "NO"
       buildImplicitDependencies = "YES">
@@ -16,7 +16,7 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "0CBB16E31877286800FCF0F7"
                BuildableName = "libsystem_coretls.dylib"
-               BlueprintName = "coretls"
+               BlueprintName = "coretls_system"
                ReferencedContainer = "container:coretls.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -81,6 +81,38 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
+            argument = "--host secureauth.gsa.gov --port 443"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "--alpn h2"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "--host www.google.com --port 443 --fallback --protocol_max 0x0301"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "--host www.howsmyssl.com --port 443"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "--host localhost --port 4443  --config 9"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "--host 192.168.2.1 --port 4003 --cipher TLS_ECDHE_ECDSA_WITH_NULL_SHA"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "--host 192.168.2.1 --port 4003"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "--host sha512.rackexp.org"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
             argument = "--host www.paypal.com --port 443 --resume_with_higher_version"
             isEnabled = "NO">
          </CommandLineArgument>
@@ -89,7 +121,7 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "--host localhost --port 4433 --dtls"
+            argument = "--host localhost --port 4443 --dtls --fallback"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -110,6 +142,10 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "--reconnect 2"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "--host localhost --port 8443"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -139,6 +175,10 @@
       </CommandLineArguments>
       <AdditionalOptions>
       </AdditionalOptions>
+      <LocationScenarioReference
+         identifier = "com.apple.dt.IDEFoundation.CurrentLocationScenarioIdentifier"
+         referenceType = "1">
+      </LocationScenarioReference>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"

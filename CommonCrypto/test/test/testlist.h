@@ -4,7 +4,7 @@
 #define __TESTLIST_H__
 
 
-#define ONE_TEST(x) int x(int argc, char *const *argv);
+#define ONE_TEST(x) int x(int __unused argc, char *const * __unused argv);
 #define DISABLED_ONE_TEST(x) ONE_TEST(x)
 #include "testlistInc.h"
 #undef ONE_TEST

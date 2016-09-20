@@ -37,7 +37,6 @@
 #if USE(APPKIT)
 
 #import "WebColorPicker.h"
-#import "WKView.h"
 #import <WebCore/IntRect.h>
 #include <wtf/RetainPtr.h>
 
@@ -60,17 +59,17 @@ namespace WebKit {
     
 class WebColorPickerMac : public WebColorPicker {
 public:        
-    static Ref<WebColorPickerMac> create(WebColorPicker::Client*, const WebCore::Color&, const WebCore::IntRect&, WKView*);
+    static Ref<WebColorPickerMac> create(WebColorPicker::Client*, const WebCore::Color&, const WebCore::IntRect&, NSView*);
     ~WebColorPickerMac();
 
-    virtual void endPicker() override;
-    virtual void setSelectedColor(const WebCore::Color&) override;
-    virtual void showColorPicker(const WebCore::Color&) override;
+    void endPicker() override;
+    void setSelectedColor(const WebCore::Color&) override;
+    void showColorPicker(const WebCore::Color&) override;
     
     void didChooseColor(const WebCore::Color&);
 
 private:
-    WebColorPickerMac(WebColorPicker::Client*, const WebCore::Color&, const WebCore::IntRect&, WKView*);
+    WebColorPickerMac(WebColorPicker::Client*, const WebCore::Color&, const WebCore::IntRect&, NSView*);
     RetainPtr<NSObject<WKColorPickerUIMac> > m_colorPickerUI;
 };
 

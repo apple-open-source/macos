@@ -18,6 +18,7 @@
 #include "apr_file_io.h"
 #include "apr_general.h"
 #include "apr_strings.h"
+#include "apr_escape.h"
 #if APR_HAVE_ERRNO_H
 #include <errno.h>
 #endif
@@ -26,7 +27,7 @@
 #if APR_HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
-#if APR_HAVE_SYS_STAT_H
+#ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
 #endif
 #if APR_HAVE_PROCESS_H
@@ -46,7 +47,8 @@ APR_DECLARE(apr_status_t) apr_file_pipe_timeout_set(apr_file_t *thepipe,
         return APR_ENOTIMPL;
     }
     if (timeout && !(thepipe->pOverlapped)) {
-        /* Cannot be nonzero if a pipe was opened blocking */
+        /* Cannot be nonzero if a pipe was opened blocking
+         */
         return APR_EINVAL;
     }
     thepipe->timeout = timeout;
@@ -81,7 +83,6 @@ APR_DECLARE(apr_status_t) apr_file_pipe_create_ex(apr_file_t **in,
     static unsigned long id = 0;
     DWORD dwPipeMode;
     DWORD dwOpenMode;
-    char name[50];
 
     sa.nLength = sizeof(sa);
 
@@ -107,8 +108,9 @@ APR_DECLARE(apr_status_t) apr_file_pipe_create_ex(apr_file_t **in,
     (*in)->dataRead = 0;
     (*in)->direction = 0;
     (*in)->pOverlapped = NULL;
+#if APR_FILES_AS_SOCKETS
     (void) apr_pollset_create(&(*in)->pollset, 1, p, 0);
-
+#endif
     (*out) = (apr_file_t *)apr_pcalloc(p, sizeof(apr_file_t));
     (*out)->pool = p;
     (*out)->fname = NULL;
@@ -121,11 +123,30 @@ APR_DECLARE(apr_status_t) apr_file_pipe_create_ex(apr_file_t **in,
     (*out)->dataRead = 0;
     (*out)->direction = 0;
     (*out)->pOverlapped = NULL;
+#if APR_FILES_AS_SOCKETS
     (void) apr_pollset_create(&(*out)->pollset, 1, p, 0);
-
+#endif
     if (apr_os_level >= APR_WIN_NT) {
+        char rand[8];
+        int pid = getpid();
+#define FMT_PIPE_NAME "\\\\.\\pipe\\apr-pipe-%x.%lx."
+        /*                                    ^   ^ ^
+         *                                  pid   | |
+         *                                        | |
+         *                                       id |
+         *                                          |
+         *                        hex-escaped rand[8] (16 bytes)
+         */
+        char name[sizeof FMT_PIPE_NAME + 2 * sizeof(pid)
+                                       + 2 * sizeof(id)
+                                       + 2 * sizeof(rand)];
+        apr_size_t pos;
+
         /* Create the read end of the pipe */
         dwOpenMode = PIPE_ACCESS_INBOUND;
+#ifdef FILE_FLAG_FIRST_PIPE_INSTANCE
+        dwOpenMode |= FILE_FLAG_FIRST_PIPE_INSTANCE;
+#endif
         if (blocking == APR_WRITE_BLOCK /* READ_NONBLOCK */
                || blocking == APR_FULL_NONBLOCK) {
             dwOpenMode |= FILE_FLAG_OVERLAPPED;
@@ -133,10 +154,11 @@ APR_DECLARE(apr_status_t) apr_file_pipe_create_ex(apr_file_t **in,
             (*in)->pOverlapped->hEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
             (*in)->timeout = 0;
         }
-
         dwPipeMode = 0;
 
-        sprintf(name, "\\\\.\\pipe\\apr-pipe-%u.%lu", getpid(), id++);
+        apr_generate_random_bytes(rand, sizeof rand);
+        pos = apr_snprintf(name, sizeof name, FMT_PIPE_NAME, pid, id++);
+        apr_escape_hex(name + pos, rand, sizeof rand, 0, NULL);
 
         (*in)->filehand = CreateNamedPipe(name,
                                           dwOpenMode,
@@ -146,6 +168,11 @@ APR_DECLARE(apr_status_t) apr_file_pipe_create_ex(apr_file_t **in,
                                           65536,        /* nInBufferSize,   */
                                           1,            /* nDefaultTimeOut, */
                                           &sa);
+        if ((*in)->filehand == INVALID_HANDLE_VALUE) {
+            apr_status_t rv = apr_get_os_error();
+            file_cleanup(*in);
+            return rv;
+        }
 
         /* Create the write end of the pipe */
         dwOpenMode = FILE_ATTRIBUTE_NORMAL;
@@ -158,12 +185,18 @@ APR_DECLARE(apr_status_t) apr_file_pipe_create_ex(apr_file_t **in,
         }
 
         (*out)->filehand = CreateFile(name,
-                                      GENERIC_WRITE, /* access mode             */
-                                      0,             /* share mode              */
-                                      &sa,           /* Security attributes     */
-                                      OPEN_EXISTING, /* dwCreationDisposition   */
-                                      dwOpenMode,    /* Pipe attributes         */
-                                      NULL);         /* handle to template file */
+                                      GENERIC_WRITE,   /* access mode             */
+                                      0,               /* share mode              */
+                                      &sa,             /* Security attributes     */
+                                      OPEN_EXISTING,   /* dwCreationDisposition   */
+                                      dwOpenMode,      /* Pipe attributes         */
+                                      NULL);           /* handle to template file */
+        if ((*out)->filehand == INVALID_HANDLE_VALUE) {
+            apr_status_t rv = apr_get_os_error();
+            file_cleanup(*out);
+            file_cleanup(*in);
+            return rv;
+        }
     }
     else {
         /* Pipes on Win9* are blocking. Live with it. */
@@ -210,8 +243,9 @@ APR_DECLARE(apr_status_t) apr_os_pipe_put_ex(apr_file_t **file,
     (*file)->timeout = -1;
     (*file)->ungetchar = -1;
     (*file)->filehand = *thefile;
+#if APR_FILES_AS_SOCKETS
     (void) apr_pollset_create(&(*file)->pollset, 1, pool, 0);
-
+#endif
     if (register_cleanup) {
         apr_pool_cleanup_register(pool, *file, file_cleanup,
                                   apr_pool_cleanup_null);

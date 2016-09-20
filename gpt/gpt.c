@@ -56,6 +56,7 @@ u_int	parts;
 u_int	secsz;
 
 int	readonly, verbose;
+int	sharelock = 0;
 
 static uint32_t crc32_tab[] = {
 	0x00000000, 0x77073096, 0xee0e612c, 0x990951ba, 0x076dc419, 0x706af48f,
@@ -292,6 +293,12 @@ parse_uuid(const char *s, uuid_t *uuid)
 	case 'h':
 		if (strcmp(s, "hfs") == 0) {
 			uuid_copy(*uuid, GPT_ENT_TYPE_APPLE_HFS);
+			return (0);
+		}
+		break;
+	case 'a':
+		if (strcmp(s, "apfs") == 0) {
+			uuid_copy(*uuid, GPT_ENT_TYPE_APPLE_APFS);
 			return (0);
 		}
 		break;
@@ -597,7 +604,7 @@ gpt_open(const char *dev)
 	struct stat sb;
 	int fd, mode;
 
-	mode = readonly ? O_RDONLY : O_RDWR|O_EXCL;
+	mode = readonly ? O_RDONLY : O_RDWR|O_EXCL|sharelock;
 
 	strlcpy(device_path, dev, sizeof(device_path));
 	device_name = device_path;
@@ -723,7 +730,7 @@ usage(void)
 {
 
 	fprintf(stderr,
-	    "usage: %s [-rv] [-p nparts] command [options] device ...\n",
+	    "usage: %s [-frv] [-p nparts] command [options] device ...\n",
 	    getprogname());
 	exit(1);
 }
@@ -751,8 +758,11 @@ main(int argc, char *argv[])
 	int ch, i;
 
 	/* Get the generic options */
-	while ((ch = getopt(argc, argv, "p:rv")) != -1) {
+	while ((ch = getopt(argc, argv, "fp:rv")) != -1) {
 		switch(ch) {
+		case 'f':
+			sharelock = O_SHLOCK;
+			break;
 		case 'p':
 			if (parts > 0)
 				usage();

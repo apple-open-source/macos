@@ -63,12 +63,12 @@ CSSImageValue::~CSSImageValue()
     detachPendingImage();
 }
 
-StyleImage* CSSImageValue::cachedOrPendingImage()
+StyleImage& CSSImageValue::cachedOrPendingImage()
 {
     if (!m_image)
         m_image = StylePendingImage::create(this);
 
-    return m_image.get();
+    return *m_image;
 }
 
 StyleCachedImage* CSSImageValue::cachedImage(CachedResourceLoader& loader, const ResourceLoaderOptions& options)
@@ -82,9 +82,10 @@ StyleCachedImage* CSSImageValue::cachedImage(CachedResourceLoader& loader, const
         else
             request.setInitiator(m_initiatorName);
 
-        if (options.requestOriginPolicy() == PotentiallyCrossOriginEnabled)
-            updateRequestForAccessControl(request.mutableResourceRequest(), loader.document()->securityOrigin(), options.allowCredentials());
-
+        if (options.mode == FetchOptions::Mode::Cors) {
+            ASSERT(loader.document()->securityOrigin());
+            updateRequestForAccessControl(request.mutableResourceRequest(), *loader.document()->securityOrigin(), options.allowCredentials());
+        }
         if (CachedResourceHandle<CachedImage> cachedImage = loader.requestImage(request)) {
             detachPendingImage();
             m_image = StyleCachedImage::create(cachedImage.get());
@@ -113,12 +114,12 @@ String CSSImageValue::customCSSText() const
     return "url(" + quoteCSSURLIfNeeded(m_url) + ')';
 }
 
-PassRefPtr<CSSValue> CSSImageValue::cloneForCSSOM() const
+Ref<CSSValue> CSSImageValue::cloneForCSSOM() const
 {
     // NOTE: We expose CSSImageValues as URI primitive values in CSSOM to maintain old behavior.
-    RefPtr<CSSPrimitiveValue> uriValue = CSSPrimitiveValue::create(m_url, CSSPrimitiveValue::CSS_URI);
+    Ref<CSSPrimitiveValue> uriValue = CSSPrimitiveValue::create(m_url, CSSPrimitiveValue::CSS_URI);
     uriValue->setCSSOMSafe();
-    return uriValue.release();
+    return WTFMove(uriValue);
 }
 
 bool CSSImageValue::knownToBeOpaque(const RenderElement* renderer) const

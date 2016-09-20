@@ -26,13 +26,15 @@
 #include "config.h"
 #include "NativeWebTouchEvent.h"
 
+#if ENABLE(TOUCH_EVENTS)
+
 #include "WebEventFactory.h"
 #include <gdk/gdk.h>
 
 namespace WebKit {
 
 NativeWebTouchEvent::NativeWebTouchEvent(GdkEvent* event, Vector<WebPlatformTouchPoint>&& touchPoints)
-    : WebTouchEvent(WebEventFactory::createWebTouchEvent(event, WTF::move(touchPoints)))
+    : WebTouchEvent(WebEventFactory::createWebTouchEvent(event, WTFMove(touchPoints)))
     , m_nativeEvent(gdk_event_copy(event))
 {
 }
@@ -44,3 +46,5 @@ NativeWebTouchEvent::NativeWebTouchEvent(const NativeWebTouchEvent& event)
 }
 
 } // namespace WebKit
+
+#endif // ENABLE(TOUCH_EVENTS)

@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef RemoteLayerTreeDrawingArea_h
-#define RemoteLayerTreeDrawingArea_h
+#pragma once
 
 #include "DrawingArea.h"
 #include "GraphicsLayerCARemote.h"
@@ -61,67 +60,68 @@ public:
     
 private:
     // DrawingArea
-    virtual void setNeedsDisplay() override;
-    virtual void setNeedsDisplayInRect(const WebCore::IntRect&) override;
-    virtual void scroll(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollDelta) override;
-    virtual void updateGeometry(const WebCore::IntSize& viewSize, const WebCore::IntSize& layerPosition, bool flushSynchronously, const WebCore::MachSendRight& fencePort) override;
+    void setNeedsDisplay() override;
+    void setNeedsDisplayInRect(const WebCore::IntRect&) override;
+    void scroll(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollDelta) override;
+    void updateGeometry(const WebCore::IntSize& viewSize, const WebCore::IntSize& layerPosition, bool flushSynchronously, const WebCore::MachSendRight& fencePort) override;
 
-    virtual WebCore::GraphicsLayerFactory* graphicsLayerFactory() override;
-    virtual void setRootCompositingLayer(WebCore::GraphicsLayer*) override;
-    virtual void scheduleCompositingLayerFlush() override;
-    virtual void scheduleCompositingLayerFlushImmediately() override;
-    virtual void attachViewOverlayGraphicsLayer(WebCore::Frame*, WebCore::GraphicsLayer*) override;
+    WebCore::GraphicsLayerFactory* graphicsLayerFactory() override;
+    void setRootCompositingLayer(WebCore::GraphicsLayer*) override;
+    void scheduleCompositingLayerFlush() override;
+    void scheduleCompositingLayerFlushImmediately() override;
+    void attachViewOverlayGraphicsLayer(WebCore::Frame*, WebCore::GraphicsLayer*) override;
 
-    virtual void addTransactionCallbackID(uint64_t callbackID) override;
+    void addTransactionCallbackID(uint64_t callbackID) override;
 
-    virtual RefPtr<WebCore::DisplayRefreshMonitor> createDisplayRefreshMonitor(PlatformDisplayID) override;
+    RefPtr<WebCore::DisplayRefreshMonitor> createDisplayRefreshMonitor(WebCore::PlatformDisplayID) override;
     void willDestroyDisplayRefreshMonitor(WebCore::DisplayRefreshMonitor*);
 
-    virtual bool shouldUseTiledBackingForFrameView(const WebCore::FrameView*) override;
+    bool shouldUseTiledBackingForFrameView(const WebCore::FrameView*) override;
 
-    virtual void updatePreferences(const WebPreferencesStore&) override;
+    void updatePreferences(const WebPreferencesStore&) override;
 
-    virtual bool supportsAsyncScrolling() override { return true; }
+    bool supportsAsyncScrolling() override { return true; }
 
-    virtual void setLayerTreeStateIsFrozen(bool) override;
+    void setLayerTreeStateIsFrozen(bool) override;
 
-    virtual void forceRepaint() override;
-    virtual bool forceRepaintAsync(uint64_t) override { return false; }
+    void forceRepaint() override;
+    bool forceRepaintAsync(uint64_t) override { return false; }
 
-    virtual void setExposedRect(const WebCore::FloatRect&) override;
-    virtual WebCore::FloatRect exposedRect() const override { return m_scrolledExposedRect; }
+    void setViewExposedRect(Optional<WebCore::FloatRect>) override;
+    Optional<WebCore::FloatRect> viewExposedRect() const override { return m_scrolledViewExposedRect; }
 
-    virtual void acceleratedAnimationDidStart(uint64_t layerID, const String& key, double startTime) override;
-    virtual void acceleratedAnimationDidEnd(uint64_t layerID, const String& key) override;
-
-#if PLATFORM(IOS)
-    virtual WebCore::FloatRect exposedContentRect() const override;
-    virtual void setExposedContentRect(const WebCore::FloatRect&) override;
-#endif
-
-    virtual void didUpdate() override;
+    void acceleratedAnimationDidStart(uint64_t layerID, const String& key, double startTime) override;
+    void acceleratedAnimationDidEnd(uint64_t layerID, const String& key) override;
 
 #if PLATFORM(IOS)
-    virtual void setDeviceScaleFactor(float) override;
+    WebCore::FloatRect exposedContentRect() const override;
+    void setExposedContentRect(const WebCore::FloatRect&) override;
 #endif
 
-    virtual void mainFrameContentSizeChanged(const WebCore::IntSize&) override;
+    void didUpdate() override;
 
-    virtual void viewStateDidChange(WebCore::ViewState::Flags changed, bool wantsDidUpdateViewState, const Vector<uint64_t>& callbackIDs) override;
+#if PLATFORM(IOS)
+    void setDeviceScaleFactor(float) override;
+#endif
 
-    virtual bool adjustLayerFlushThrottling(WebCore::LayerFlushThrottleState::Flags) override;
+    void mainFrameContentSizeChanged(const WebCore::IntSize&) override;
+
+    void viewStateDidChange(WebCore::ViewState::Flags changed, bool wantsDidUpdateViewState, const Vector<uint64_t>& callbackIDs) override;
+
+    bool adjustLayerFlushThrottling(WebCore::LayerFlushThrottleState::Flags) override;
+
+    bool dispatchDidLayout(WebCore::LayoutMilestones) override;
 
     void updateScrolledExposedRect();
     void updateRootLayers();
 
-    void layerFlushTimerFired();
     void flushLayers();
 
     WebCore::TiledBacking* mainFrameTiledBacking() const;
 
     uint64_t takeNextTransactionID() { return ++m_currentTransactionID; }
 
-    virtual bool markLayersVolatileImmediatelyIfPossible() override;
+    bool markLayersVolatileImmediatelyIfPossible() override;
 
     class BackingStoreFlusher : public ThreadSafeRefCounted<BackingStoreFlusher> {
     public:
@@ -145,8 +145,8 @@ private:
 
     WebCore::IntSize m_viewSize;
 
-    WebCore::FloatRect m_exposedRect;
-    WebCore::FloatRect m_scrolledExposedRect;
+    Optional<WebCore::FloatRect> m_viewExposedRect;
+    Optional<WebCore::FloatRect> m_scrolledViewExposedRect;
 
     WebCore::Timer m_layerFlushTimer;
     bool m_isFlushingSuspended;
@@ -167,6 +167,8 @@ private:
     uint64_t m_currentTransactionID;
     Vector<RemoteLayerTreeTransaction::TransactionCallbackID> m_pendingCallbackIDs;
 
+    WebCore::LayoutMilestones m_pendingNewlyReachedLayoutMilestones;
+
     WebCore::GraphicsLayer* m_contentLayer;
     WebCore::GraphicsLayer* m_viewOverlayRootLayer;
     
@@ -176,5 +178,3 @@ private:
 } // namespace WebKit
 
 SPECIALIZE_TYPE_TRAITS_DRAWING_AREA(RemoteLayerTreeDrawingArea, DrawingAreaTypeRemoteLayerTree)
-
-#endif // RemoteLayerTreeDrawingArea_h

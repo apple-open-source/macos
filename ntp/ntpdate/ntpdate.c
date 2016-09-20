@@ -14,7 +14,7 @@
 #include "ntp_fp.h"
 #include "ntp.h"
 #include "ntp_io.h"
-#include "ntp_unixtime.h"
+#include "timevalops.h"
 #include "ntpdate.h"
 #include "ntp_string.h"
 #include "ntp_syslog.h"
@@ -58,7 +58,7 @@ struct timeval timeout = {0,0};
 #elif defined(SYS_WINNT)
 /*
  * Windows does not abort a select select call if SIGALRM goes off
- * so a 200 ms timeout is needed
+ * so a 200 ms timeout is needed (TIMER_HZ is 5).
  */
 struct sock_timeval timeout = {0,1000000/TIMER_HZ};
 #else
@@ -88,7 +88,7 @@ UINT wTimerRes;
 # define	NTPDATE_PRIO	(100)
 #endif
 
-#if defined(HAVE_TIMER_SETTIME) || defined (HAVE_TIMER_CREATE)
+#ifdef HAVE_TIMER_CREATE
 /* POSIX TIMERS - vxWorks doesn't have itimer - casey */
 static timer_t ntpdate_timerid;
 #endif
@@ -110,18 +110,13 @@ static timer_t ntpdate_timerid;
 s_char	sys_precision;		/* local clock precision (log2 s) */
 
 /*
- * Debugging flag
- */
-volatile int debug = 0;
-
-/*
  * File descriptor masks etc. for call to select
  */
 
 int ai_fam_templ;
-int nbsock;             /* the number of sockets used */
+int nbsock;			/* the number of sockets used */
 SOCKET fd[MAX_AF];
-int fd_family[MAX_AF];	/* to remember the socket family */
+int fd_family[MAX_AF];		/* to remember the socket family */
 #ifdef HAVE_POLL_H
 struct pollfd fdmask[MAX_AF];
 #else
@@ -154,7 +149,7 @@ int unpriv_port = 0;
 /*
  * Program name.
  */
-char *progname;
+char const *progname;
 
 /*
  * Systemwide parameters and flags
@@ -329,7 +324,7 @@ ntpdatemain (
 	key_file = key_file_storage;
 
 	if (!ExpandEnvironmentStrings(KEYFILE, key_file, MAX_PATH))
-		msyslog(LOG_ERR, "ExpandEnvironmentStrings(KEYFILE) failed: %m\n");
+		msyslog(LOG_ERR, "ExpandEnvironmentStrings(KEYFILE) failed: %m");
 
 	ssl_applink();
 #endif /* SYS_WINNT */
@@ -419,8 +414,7 @@ ntpdatemain (
 			} else {
 				sys_timeout = ((LFPTOFP(&tmp) * TIMER_HZ)
 					   + 0x8000) >> 16;
-				if (sys_timeout == 0)
-				sys_timeout = 1;
+				sys_timeout = max(sys_timeout, MINTIMEOUT);
 			}
 			break;
 		case 'v':
@@ -567,8 +561,8 @@ ntpdatemain (
 			nfound = poll(rdfdes, (unsigned int)nbsock, timeout.tv_sec * 1000);
 
 #else
-			nfound = select(maxfd, &rdfdes, (fd_set *)0,
-					(fd_set *)0, &timeout);
+			nfound = select(maxfd, &rdfdes, NULL, NULL,
+					&timeout);
 #endif
 			if (nfound > 0)
 				input_handler();
@@ -601,7 +595,6 @@ ntpdatemain (
 				was_alarmed = 1;
 				alarm_flag = 0;
 			}
-			tot_recvbufs = full_recvbuffs();	/* get received buffers */
 		}
 
 		/*
@@ -702,7 +695,7 @@ transmit(
 	 * If not, just timestamp it and send it away.
 	 */
 	if (sys_authenticate) {
-		int len;
+		size_t len;
 
 		xpkt.exten[0] = htonl(sys_authkey);
 		get_systime(&server->xmt);
@@ -757,7 +750,7 @@ receive(
 	 */
 	if (rbufp->recv_length == LEN_PKT_NOMAC)
 		has_mac = 0;
-	else if (rbufp->recv_length >= LEN_PKT_NOMAC)
+	else if (rbufp->recv_length >= (int)LEN_PKT_NOMAC)
 		has_mac = 1;
 	else {
 		if (debug)
@@ -814,11 +807,11 @@ receive(
 			printf("receive: rpkt keyid=%ld sys_authkey=%ld decrypt=%ld\n",
 			   (long int)ntohl(rpkt->exten[0]), (long int)sys_authkey,
 			   (long int)authdecrypt(sys_authkey, (u_int32 *)rpkt,
-				LEN_PKT_NOMAC, (int)(rbufp->recv_length - LEN_PKT_NOMAC)));
+				LEN_PKT_NOMAC, (size_t)(rbufp->recv_length - LEN_PKT_NOMAC)));
 
 		if (has_mac && ntohl(rpkt->exten[0]) == sys_authkey &&
 			authdecrypt(sys_authkey, (u_int32 *)rpkt, LEN_PKT_NOMAC,
-			(int)(rbufp->recv_length - LEN_PKT_NOMAC)))
+			(size_t)(rbufp->recv_length - LEN_PKT_NOMAC)))
 			is_authentic = 1;
 		if (debug)
 			printf("receive: authentication %s\n",
@@ -827,6 +820,19 @@ receive(
 	server->trust <<= 1;
 	if (!is_authentic)
 		server->trust |= 1;
+
+	/*
+	 * Check for a KoD (rate limiting) response, cease and decist.
+	 */
+	if (LEAP_NOTINSYNC == PKT_LEAP(rpkt->li_vn_mode) &&
+	    STRATUM_PKT_UNSPEC == rpkt->stratum &&
+	    !memcmp("RATE", &rpkt->refid, 4)) {
+		msyslog(LOG_ERR, "%s rate limit response from server.",
+			stoa(&rbufp->recv_srcadr));
+		server->event_time = 0;
+		complete_servers++;
+		return;
+	}
 
 	/*
 	 * Looks good.	Record info from the packet.
@@ -846,7 +852,7 @@ receive(
 	 * again.
 	 */
 	if (L_ISZERO(&rec) || !L_ISHIS(&server->org, &rec)) {
-		transmit(server);
+		server->event_time = current_time + sys_timeout;
 		return;
 	}
 
@@ -895,10 +901,21 @@ receive(
 	}
 
 	/*
-	 * Shift this data in, then transmit again.
+	 * Shift this data in, then schedule another transmit.
 	 */
 	server_data(server, (s_fp) di, &ci, 0);
-	transmit(server);
+
+	if ((int)server->filter_nextpt >= sys_samples) {
+		/*
+		 * Got all the data we need.  Mark this guy
+		 * completed and return.
+		 */
+		server->event_time = 0;
+		complete_servers++;
+		return;
+	}
+
+	server->event_time = current_time + sys_timeout;
 }
 
 
@@ -937,6 +954,7 @@ clock_filter(
 	register int i, j;
 	int ord[NTP_SHIFT];
 
+	assert(sys_samples >= 1);
 	/*
 	 * Sort indices into increasing delay order
 	 */
@@ -1006,12 +1024,14 @@ clock_filter(
 static struct server *
 clock_select(void)
 {
-	register struct server *server;
-	register int i;
-	register int nlist;
-	register s_fp d;
-	register int j;
-	register int n;
+	struct server *server;
+	u_int nlist;
+	s_fp d;
+	u_int count;
+	u_int i;
+	u_int j;
+	u_int k;
+	int n;
 	s_fp local_threshold;
 	struct server *server_list[NTP_MAXCLOCK];
 	u_fp server_badness[NTP_MAXCLOCK];
@@ -1107,12 +1127,14 @@ clock_select(void)
 	 * Got the five-or-less best.	 Cut the list where the number of
 	 * strata exceeds two.
 	 */
-	j = 0;
+	count = 0;
 	for (i = 1; i < nlist; i++)
-		if (server_list[i]->stratum > server_list[i-1]->stratum)
-		if (++j == 2) {
-			nlist = i;
-			break;
+		if (server_list[i]->stratum > server_list[i-1]->stratum) {
+			count++;
+			if (2 == count) {
+				nlist = i;
+				break;
+			}
 		}
 
 	/*
@@ -1122,9 +1144,9 @@ clock_select(void)
 	 * detection.
 	 */
 
-	if (nlist == 0)
-		sys_server = 0;
-	else if (nlist == 1) {
+	if (0 == nlist)
+		sys_server = NULL;
+	else if (1 == nlist) {
 		sys_server = server_list[0];
 	} else {
 		/*
@@ -1133,12 +1155,13 @@ clock_select(void)
 		 */
 		for (i = 0; i < nlist-1; i++)
 			for (j = i+1; j < nlist; j++) {
-				if (server_list[i]->stratum
-				< server_list[j]->stratum)
-				break;	/* already sorted by stratum */
-				if (server_list[i]->delay
-				< server_list[j]->delay)
-				continue;
+				if (server_list[i]->stratum <
+				    server_list[j]->stratum)
+					/* already sorted by stratum */
+					break;
+				if (server_list[i]->delay <
+				    server_list[j]->delay)
+					continue;
 				server = server_list[i];
 				server_list[i] = server_list[j];
 				server_list[j] = server;
@@ -1154,14 +1177,14 @@ clock_select(void)
 		 * Now drop samples until we're down to one.
 		 */
 		while (nlist > 1) {
-			for (n = 0; n < nlist; n++) {
-				server_badness[n] = 0;
+			for (k = 0; k < nlist; k++) {
+				server_badness[k] = 0;
 				for (j = 0; j < nlist; j++) {
-					if (j == n) /* with self? */
+					if (j == k) /* with self? */
 						continue;
-					d = server_list[j]->soffset
-						- server_list[n]->soffset;
-					if (d < 0)	/* absolute value */
+					d = server_list[j]->soffset -
+					    server_list[k]->soffset;
+					if (d < 0)	/* abs value */
 						d = -d;
 					/*
 					 * XXX This code *knows* that
@@ -1169,7 +1192,7 @@ clock_select(void)
 					 */
 					for (i = 0; i < j; i++)
 						d = (d>>1) + (d>>2);
-					server_badness[n] += d;
+					server_badness[k] += d;
 				}
 			}
 
@@ -1224,7 +1247,6 @@ static int
 clock_adjust(void)
 {
 	register struct server *sp, *server;
-	s_fp absoffset;
 	int dostep;
 
 	for (sp = sys_servers; sp != NULL; sp = sp->next_server)
@@ -1247,10 +1269,15 @@ clock_adjust(void)
 	} else if (never_step) {
 		dostep = 0;
 	} else {
-		absoffset = server->soffset;
-		if (absoffset < 0)
-			absoffset = -absoffset;
-		dostep = (absoffset >= NTPDATE_THRESHOLD || absoffset < 0);
+		/* [Bug 3023] get absolute difference, avoiding signed
+		 * integer overflow like hell.
+		 */
+		u_fp absoffset;
+		if (server->soffset < 0)
+			absoffset = 1u + (u_fp)(-(server->soffset + 1));
+		else
+			absoffset = (u_fp)server->soffset;
+		dostep = (absoffset >= NTPDATE_THRESHOLD);
 	}
 
 	if (dostep) {
@@ -1260,7 +1287,7 @@ clock_adjust(void)
 				lfptoa(&server->offset, 6));
 		}
 	} else {
-#if !defined SYS_WINNT && !defined SYS_CYGWIN32
+#ifndef SYS_WINNT
 		if (simple_query || l_adj_systime(&server->offset)) {
 			msyslog(LOG_NOTICE, "adjust time server %s offset %s sec",
 				stoa(&server->srcadr),
@@ -1327,10 +1354,12 @@ addserver(
 	int error;
 	/* Service name */
 	char service[5];
-	strcpy(service, "ntp");
+	sockaddr_u addr;
+
+	strlcpy(service, "ntp", sizeof(service));
 
 	/* Get host address. Looking for UDP datagram connection. */
-	memset(&hints, 0, sizeof(hints));
+	ZERO(hints);
 	hints.ai_family = ai_fam_templ;
 	hints.ai_socktype = SOCK_DGRAM;
 
@@ -1346,26 +1375,34 @@ addserver(
 			/* Name server is unusable. Exit after failing on the
 			   first server, in order to shorten the timeout caused
 			   by waiting for resolution of several servers */
-			fprintf(stderr, "Name server cannot be used, exiting");
-			msyslog(LOG_ERR, "name server cannot be used, reason: %s\n", gai_strerror(error));
+			fprintf(stderr, "Exiting, name server cannot be used: %s (%d)",
+				gai_strerror(error), error);
+			msyslog(LOG_ERR, "name server cannot be used: %s (%d)",
+				gai_strerror(error), error);
 			exit(1);
 		}
-		fprintf(stderr, "Error : %s\n", gai_strerror(error));
-		msyslog(LOG_ERR, "can't find host %s\n", serv);
+		fprintf(stderr, "Error resolving %s: %s (%d)\n", serv,
+			gai_strerror(error), error);
+		msyslog(LOG_ERR, "Can't find host %s: %s (%d)", serv,
+			gai_strerror(error), error);
 		return;
 	}
 #ifdef DEBUG
-	else if (debug) {
-		fprintf(stderr, "host found : %s\n", stohost((sockaddr_u *)addrResult->ai_addr));
+	if (debug) {
+		ZERO(addr);
+		INSIST(addrResult->ai_addrlen <= sizeof(addr));
+		memcpy(&addr, addrResult->ai_addr, addrResult->ai_addrlen);
+		fprintf(stderr, "host found : %s\n", stohost(&addr));
 	}
 #endif
 
 	/* We must get all returned server in case the first one fails */
 	for (ptr = addrResult; ptr != NULL; ptr = ptr->ai_next) {
-		if (is_reachable ((sockaddr_u *)ptr->ai_addr)) {
-			server = emalloc(sizeof(*server));
-			memset(server, 0, sizeof(*server));
-
+		ZERO(addr);
+		INSIST(ptr->ai_addrlen <= sizeof(addr));
+		memcpy(&addr, ptr->ai_addr, ptr->ai_addrlen);
+		if (is_reachable(&addr)) {
+			server = emalloc_zero(sizeof(*server));
 			memcpy(&server->srcadr, ptr->ai_addr, ptr->ai_addrlen);
 			server->event_time = ++sys_numservers;
 			if (sys_servers == NULL)
@@ -1374,7 +1411,8 @@ addserver(
 				struct server *sp;
 
 				for (sp = sys_servers; sp->next_server != NULL;
-				     sp = sp->next_server) ;
+				     sp = sp->next_server)
+					/* empty */;
 				sp->next_server = server;
 			}
 		}
@@ -1420,15 +1458,15 @@ findserver(
 			complete_servers++;
 		}
 
-		server = emalloc(sizeof(*server));
-		memset(server, 0, sizeof(*server));
+		server = emalloc_zero(sizeof(*server));
 
 		server->srcadr = *addr;
 
 		server->event_time = ++sys_numservers;
 
 		for (sp = sys_servers; sp->next_server != NULL;
-		     sp = sp->next_server) ;
+		     sp = sp->next_server)
+			/* empty */;
 		sp->next_server = server;
 		transmit(server);
 	}
@@ -1479,7 +1517,7 @@ alarming(
 {
 	alarm_flag++;
 }
-#else
+#else	/* SYS_WINNT follows */
 void CALLBACK 
 alarming(UINT uTimerID, UINT uMsg, DWORD dwUser, DWORD dw1, DWORD dw2)
 {
@@ -1505,16 +1543,14 @@ static void
 init_alarm(void)
 {
 #ifndef SYS_WINNT
-# ifndef HAVE_TIMER_SETTIME
-	struct itimerval itimer;
+# ifdef HAVE_TIMER_CREATE
+	struct itimerspec its;
 # else
-	struct itimerspec ntpdate_itimer;
+	struct itimerval itv;
 # endif
-#else
+#else	/* SYS_WINNT follows */
 	TIMECAPS tc;
 	UINT wTimerID;
-# endif /* SYS_WINNT */
-#if defined SYS_CYGWIN32 || defined SYS_WINNT
 	HANDLE hToken;
 	TOKEN_PRIVILEGES tkp;
 	DWORD dwUser = 0;
@@ -1523,7 +1559,7 @@ init_alarm(void)
 	alarm_flag = 0;
 
 #ifndef SYS_WINNT
-# if defined(HAVE_TIMER_CREATE) && defined(HAVE_TIMER_SETTIME)
+# ifdef HAVE_TIMER_CREATE
 	alarm_flag = 0;
 	/* this code was put in as setitimer() is non existant this us the
 	 * POSIX "equivalents" setup - casey
@@ -1545,44 +1581,26 @@ init_alarm(void)
 	 * Set up the alarm interrupt.	The first comes 1/(2*TIMER_HZ)
 	 * seconds from now and they continue on every 1/TIMER_HZ seconds.
 	 */
-	(void) signal_no_reset(SIGALRM, alarming);
-	ntpdate_itimer.it_interval.tv_sec = ntpdate_itimer.it_value.tv_sec = 0;
-	ntpdate_itimer.it_interval.tv_nsec = 1000000000/TIMER_HZ;
-	ntpdate_itimer.it_value.tv_nsec = 1000000000/(TIMER_HZ<<1);
-	timer_settime(ntpdate_timerid, 0 /* !TIMER_ABSTIME */, &ntpdate_itimer, NULL);
-# else
+	signal_no_reset(SIGALRM, alarming);
+	its.it_interval.tv_sec = 0;
+	its.it_value.tv_sec = 0;
+	its.it_interval.tv_nsec = 1000000000/TIMER_HZ;
+	its.it_value.tv_nsec = 1000000000/(TIMER_HZ<<1);
+	timer_settime(ntpdate_timerid, 0 /* !TIMER_ABSTIME */, &its, NULL);
+# else	/* !HAVE_TIMER_CREATE follows */
 	/*
 	 * Set up the alarm interrupt.	The first comes 1/(2*TIMER_HZ)
 	 * seconds from now and they continue on every 1/TIMER_HZ seconds.
 	 */
-	(void) signal_no_reset(SIGALRM, alarming);
-	itimer.it_interval.tv_sec = itimer.it_value.tv_sec = 0;
-	itimer.it_interval.tv_usec = 1000000/TIMER_HZ;
-	itimer.it_value.tv_usec = 1000000/(TIMER_HZ<<1);
+	signal_no_reset(SIGALRM, alarming);
+	itv.it_interval.tv_sec = 0;
+	itv.it_value.tv_sec = 0;
+	itv.it_interval.tv_usec = 1000000/TIMER_HZ;
+	itv.it_value.tv_usec = 1000000/(TIMER_HZ<<1);
 
-	setitimer(ITIMER_REAL, &itimer, (struct itimerval *)0);
-# endif
-#if defined SYS_CYGWIN32
-	/*
-	 * Get privileges needed for fiddling with the clock
-	 */
-
-	/* get the current process token handle */
-	if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken)) {
-		msyslog(LOG_ERR, "OpenProcessToken failed: %m");
-		exit(1);
-	}
-	/* get the LUID for system-time privilege. */
-	LookupPrivilegeValue(NULL, SE_SYSTEMTIME_NAME, &tkp.Privileges[0].Luid);
-	tkp.PrivilegeCount = 1;		/* one privilege to set */
-	tkp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-	/* get set-time privilege for this process. */
-	AdjustTokenPrivileges(hToken, FALSE, &tkp, 0,(PTOKEN_PRIVILEGES) NULL, 0);
-	/* cannot test return value of AdjustTokenPrivileges. */
-	if (GetLastError() != ERROR_SUCCESS)
-		msyslog(LOG_ERR, "AdjustTokenPrivileges failed: %m");
-#endif
-#else	/* SYS_WINNT */
+	setitimer(ITIMER_REAL, &itv, NULL);
+# endif	/* !HAVE_TIMER_CREATE */
+#else	/* SYS_WINNT follows */
 	_tzset();
 
 	/*
@@ -1660,7 +1678,9 @@ init_io(void)
 {
 	struct addrinfo *res, *ressave;
 	struct addrinfo hints;
+	sockaddr_u addr;
 	char service[5];
+	int rc;
 	int optval = 1;
 	int check_ntp_port_in_use = !debug && !simple_query && !unpriv_port;
 
@@ -1673,20 +1693,20 @@ init_io(void)
 	 * Open the socket
 	 */
 
-	strcpy(service, "ntp");
+	strlcpy(service, "ntp", sizeof(service));
 
 	/*
 	 * Init hints addrinfo structure
 	 */
-	memset(&hints, 0, sizeof(hints));
+	ZERO(hints);
 	hints.ai_family = ai_fam_templ;
 	hints.ai_flags = AI_PASSIVE;
 	hints.ai_socktype = SOCK_DGRAM;
 
-	if(getaddrinfo(NULL, service, &hints, &res) != 0) {
-	       msyslog(LOG_ERR, "getaddrinfo() failed: %m");
-	       exit(1);
-	       /*NOTREACHED*/
+	if (getaddrinfo(NULL, service, &hints, &res) != 0) {
+		msyslog(LOG_ERR, "getaddrinfo() failed: %m");
+		exit(1);
+		/*NOTREACHED*/
 	}
 
 #ifdef SYS_WINNT
@@ -1742,13 +1762,12 @@ init_io(void)
 		 * bind the socket to the NTP port
 		 */
 		if (check_ntp_port_in_use) {
-			if (bind(fd[nbsock], res->ai_addr, 
-				 SOCKLEN((sockaddr_u *)res->ai_addr)) < 0) {
-#ifndef SYS_WINNT
-				if (errno == EADDRINUSE)
-#else
-				if (WSAGetLastError() == WSAEADDRINUSE)
-#endif /* SYS_WINNT */
+			ZERO(addr);
+			INSIST(res->ai_addrlen <= sizeof(addr));
+			memcpy(&addr, res->ai_addr, res->ai_addrlen);
+			rc = bind(fd[nbsock], &addr.sa, SOCKLEN(&addr));
+			if (rc < 0) {
+				if (EADDRINUSE == socket_errno())
 					msyslog(LOG_ERR, "the NTP socket is in use, exiting");
 				else
 					msyslog(LOG_ERR, "bind() fails: %m");
@@ -1865,7 +1884,7 @@ input_handler(void)
 	register int n;
 	register struct recvbuf *rb;
 	struct sock_timeval tvzero;
-	socklen_t fromlen;
+	GETSOCKNAME_SOCKLEN_TYPE fromlen;
 	l_fp ts;
 	int i;
 #ifdef HAVE_POLL_H
@@ -1873,7 +1892,7 @@ input_handler(void)
 #else
 	fd_set fds;
 #endif
-	int fdc = 0;
+	SOCKET fdc = 0;
 
 	/*
 	 * Do a poll to see if we have data
@@ -1897,7 +1916,7 @@ input_handler(void)
 
 #else
 		fds = fdmask;
-		n = select(maxfd, &fds, (fd_set *)0, (fd_set *)0, &tvzero);
+		n = select(maxfd, &fds, NULL, NULL, &tvzero);
 
 		/*
 		 * Determine which socket received data
@@ -2023,7 +2042,7 @@ l_adj_systime(
 	if (adjtv.tv_usec != 0 && !debug) {
 		if (adjtime(&adjtv, &oadjtv) < 0) {
 			msyslog(LOG_ERR, "Can't adjust the time of day: %m");
-			return 0;
+			exit(1);
 		}
 	}
 	return 1;
@@ -2104,7 +2123,7 @@ printserver(
 {
 	register int i;
 	char junk[5];
-	char *str;
+	const char *str;
 
 	if (!debug) {
 		(void) fprintf(fp, "server %s, stratum %d, offset %s, delay %s\n",
@@ -2167,57 +2186,6 @@ printserver(
 			   lfptoa(&pp->offset, 6));
 }
 
-#if !defined(HAVE_VSPRINTF)
-int
-vsprintf(
-	char *str,
-	const char *fmt,
-	va_list ap
-	)
-{
-	FILE f;
-	int len;
-
-	f._flag = _IOWRT+_IOSTRG;
-	f._ptr = str;
-	f._cnt = 32767;
-	len = _doprnt(fmt, ap, &f);
-	*f._ptr = 0;
-	return (len);
-}
-#endif
-
-#if 0
-/* override function in library since SA_RESTART makes ALL syscalls restart */
-#ifdef SA_RESTART
-void
-signal_no_reset(
-	int sig,
-	void (*func)()
-	)
-{
-	int n;
-	struct sigaction vec;
-
-	vec.sa_handler = func;
-	sigemptyset(&vec.sa_mask);
-	vec.sa_flags = 0;
-
-	while (1)
-	{
-		n = sigaction(sig, &vec, NULL);
-		if (n == -1 && errno == EINTR)
-			continue;
-		break;
-	}
-	if (n == -1)
-	{
-		perror("sigaction");
-		exit(1);
-	}
-}
-#endif
-#endif
 
 #ifdef HAVE_NETINFO
 static ni_namelist *

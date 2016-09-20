@@ -36,6 +36,11 @@ void SOSRingAssertStable(SOSRingRef ring)
     assert(ring->data);
 }
 
+static inline
+bool SOSRingIsStable(SOSRingRef ring) {
+    return (ring) && (ring->unSignedInformation) && (ring->signedInformation) && (ring->signatures)&& (ring->data);
+}
+
 /* unSignedInformation Dictionary Keys */
 extern CFStringRef sApplicantsKey;
 extern CFStringRef sRejectionsKey;

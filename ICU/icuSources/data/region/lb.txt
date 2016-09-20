@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/lb.xml
@@ -82,7 +82,7 @@ lb{
         CF{"Zentralafrikanesch Republik"}
         CG{"Kongo-Brazzaville"}
         CH{"Schwäiz"}
-        CI{"Elfebeeküst"}
+        CI{"Côte d’Ivoire"}
         CK{"Cookinselen"}
         CL{"Chile"}
         CM{"Kamerun"}
@@ -308,8 +308,8 @@ lb{
     Countries%variant{
         CD{"Kongo (Demokratesch Republik)"}
         CG{"Kongo (Republik)"}
-        CI{"Côte d’Ivoire"}
+        CI{"Elfebeeküst"}
         MK{"Mazedonien (EJR)"}
     }
-    Version{"2.1.12.94"}
+    Version{"2.1.23.7"}
 }

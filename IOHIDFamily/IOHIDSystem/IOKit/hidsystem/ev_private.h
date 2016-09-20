@@ -147,6 +147,8 @@ typedef struct {
 
 // This shares the same bitspace as NX_ALPHASHIFTMASK and NX_DEVICELCTLKEYMASK
 #define NX_HIGHCODE_ENCODING_MASK 0x80000000
+#define NX_DIAGNOSTIC_EVENT_MASK  0x40000000
+
 
 #endif /* !_DEV_EV_PRIVATE_H */
 

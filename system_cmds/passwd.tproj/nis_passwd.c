@@ -1,8 +1,8 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
@@ -10,7 +10,7 @@
  * except in compliance with the License.  Please obtain a copy of the
  * License at http://www.apple.com/publicsource and read it before using
  * this file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -18,10 +18,10 @@
  * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
  * License for the specific language governing rights and limitations
  * under the License."
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
-/* 
+/*
  * Portions Copyright (c) 1998 by Apple Computer, Inc.
  * Portions Copyright (c) 1988 by Sun Microsystems, Inc.
  * Portions Copyright (c) 1988 The Regents of the University of California.
@@ -90,7 +90,7 @@ static struct passwd *ypgetpwnam(char *name, char *domain);
 static struct passwd *interpret(struct passwd *pwent, char *line);
 
 int nis_passwd(char *uname, char *domain)
-{	
+{
 	int ans, port, ok = -1;
 	char *master;
 	char *ne;	/* new encrypted password */
@@ -110,13 +110,13 @@ int nis_passwd(char *uname, char *domain)
 			exit(1);
 		}
 	}
-	
+
 	if (yp_master(domain, "passwd.byname", &master) != 0)
 	{
 		(void)fprintf(stderr, "can't get master for passwd file\n");
 		exit(1);
 	}
-	
+
 	port = getrpcport(master, YPPASSWDPROG, YPPASSWDPROC_UPDATE,
 		IPPROTO_UDP);
 	if (port == 0)
@@ -138,16 +138,16 @@ int nis_passwd(char *uname, char *domain)
 		(void)fprintf(stderr, "user %s not found\n", uname);
 		exit(1);
 	}
-	
+
 	uid = getuid();
 	if (uid != 0 && uid != pwd->pw_uid)
 	{
 		(void)fprintf(stderr, "you may only change your own password\n");
 		exit(1);
 	}
-	
+
 	getpasswd(uname, 0, 5, 0, 0, pwd->pw_passwd, &ne, &oc, &nc);
-		
+
 	yppasswd.oldpass = oc;
 	yppasswd.newpw.pw_name = pwd->pw_name;
 	yppasswd.newpw.pw_passwd = ne;
@@ -155,8 +155,8 @@ int nis_passwd(char *uname, char *domain)
 	yppasswd.newpw.pw_gid = pwd->pw_gid;
 	yppasswd.newpw.pw_gecos = pwd->pw_gecos;
 	yppasswd.newpw.pw_dir = pwd->pw_dir;
-	yppasswd.newpw.pw_shell = pwd->pw_shell;	
-	
+	yppasswd.newpw.pw_shell = pwd->pw_shell;
+
 	cl = clnt_create(master, YPPASSWDPROG, YPPASSWDVERS, "udp");
 	if (cl == NULL)
 	{

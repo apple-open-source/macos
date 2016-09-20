@@ -69,6 +69,7 @@ protected:
     bool                        fChargeInhibited;
     uint16_t                    fRemainingCapacity;
     uint16_t                    fFullChargeCapacity;
+    bool                        fCapacityOverride;
     
     uint8_t                     fInitialPollCountdown;
     uint8_t                     fIncompleteReadRetries;
@@ -76,6 +77,7 @@ protected:
 
     IOService *                 fPowerServiceToAck;
     bool                        fSystemSleeping;
+    bool                        fPollRequestedInSleep;
 
     bool                        fPermanentFailure;
     bool                        fFullyDischarged;
@@ -155,6 +157,8 @@ public:
     void    handleInflowDisabled(bool inflow_state);
     void    handleChargeInhibited(bool charge_state);
     void    handleExclusiveAccess(bool exclusive);
+    void    handleSetOverrideCapacity(uint16_t value);
+    void    handleSwitchToTrueCapacity(void);
     IOReturn handleSystemSleepWake(IOService * powerService, bool isSystemSleep);
     
 protected:

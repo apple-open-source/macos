@@ -134,6 +134,9 @@ errOut:
 static CFStringRef SecOCSPCacheCopyPath(void) {
     CFStringRef ocspRelPath = kSecOCSPCacheFileName;
     CFURLRef ocspURL = SecCopyURLForFileInKeychainDirectory(ocspRelPath);
+    if (!ocspURL) {
+        ocspURL = SecCopyURLForFileInUserCacheDirectory(ocspRelPath);
+    }
     CFStringRef ocspPath = NULL;
     if (ocspURL) {
         ocspPath = CFURLCopyFileSystemPath(ocspURL, kCFURLPOSIXPathStyle);

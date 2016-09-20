@@ -25,7 +25,6 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecCertificatePriv.h>
-#include <Security/SecInternal.h>
 #include <Security/SecPolicyPriv.h>
 #include <Security/SecTrust.h>
 #include <stdlib.h>
@@ -48,7 +47,7 @@
 #include "si-67-sectrust-blacklist/login.skype.com.cer.h"
 #include "si-67-sectrust-blacklist/www.google.com.cer.h"
 
-#include "Security_regressions.h"
+#include "shared_regressions.h"
 
 static void validate_one_cert(uint8_t *data, size_t len, int chain_length, SecTrustResultType trust_result)
 {
@@ -78,18 +77,18 @@ static void validate_one_cert(uint8_t *data, size_t len, int chain_length, SecTr
 
 static void tests(void)
 {
-    validate_one_cert(Global_Trustee_cer, sizeof(Global_Trustee_cer), 3, kSecTrustResultFatalTrustFailure);
-    validate_one_cert(login_yahoo_com_1_cer, sizeof(login_yahoo_com_1_cer), 3, kSecTrustResultFatalTrustFailure);
+    validate_one_cert(Global_Trustee_cer, sizeof(Global_Trustee_cer), 2, kSecTrustResultFatalTrustFailure);
+    validate_one_cert(login_yahoo_com_1_cer, sizeof(login_yahoo_com_1_cer), 2, kSecTrustResultFatalTrustFailure);
     /* this is the root, which isn't ok for ssl and fails here, but at the
        same time it proves that kSecTrustResultFatalTrustFailure isn't
        returned for policy failures that aren't blacklisting */
-    validate_one_cert(login_yahoo_com_2_cer, sizeof(login_yahoo_com_2_cer), 3, kSecTrustResultFatalTrustFailure);
-    validate_one_cert(addons_mozilla_org_cer, sizeof(addons_mozilla_org_cer), 3, kSecTrustResultFatalTrustFailure);
-    validate_one_cert(login_yahoo_com_cer, sizeof(login_yahoo_com_cer), 3, kSecTrustResultFatalTrustFailure);
-    validate_one_cert(login_live_com_cer, sizeof(login_live_com_cer), 3, kSecTrustResultFatalTrustFailure);
-    validate_one_cert(mail_google_com_cer, sizeof(mail_google_com_cer), 3, kSecTrustResultFatalTrustFailure);
-    validate_one_cert(login_skype_com_cer, sizeof(login_skype_com_cer), 3, kSecTrustResultFatalTrustFailure);
-    validate_one_cert(www_google_com_cer, sizeof(www_google_com_cer), 3, kSecTrustResultFatalTrustFailure);
+    validate_one_cert(login_yahoo_com_2_cer, sizeof(login_yahoo_com_2_cer), 2, kSecTrustResultFatalTrustFailure);
+    validate_one_cert(addons_mozilla_org_cer, sizeof(addons_mozilla_org_cer), 2, kSecTrustResultFatalTrustFailure);
+    validate_one_cert(login_yahoo_com_cer, sizeof(login_yahoo_com_cer), 2, kSecTrustResultFatalTrustFailure);
+    validate_one_cert(login_live_com_cer, sizeof(login_live_com_cer), 2, kSecTrustResultFatalTrustFailure);
+    validate_one_cert(mail_google_com_cer, sizeof(mail_google_com_cer), 2, kSecTrustResultFatalTrustFailure);
+    validate_one_cert(login_skype_com_cer, sizeof(login_skype_com_cer), 2, kSecTrustResultFatalTrustFailure);
+    validate_one_cert(www_google_com_cer, sizeof(www_google_com_cer), 2, kSecTrustResultFatalTrustFailure);
 }
 
 static int ping_host(char *host_name){

@@ -485,6 +485,8 @@ int keychain_item(int argc, char * const *argv) {
             result = 1;
         }
     } else {
+        if (!do_delete && CFDictionaryGetValue(query, kSecUseAuthenticationUI) == NULL)
+            CFDictionarySetValue(query, kSecUseAuthenticationUI, kSecUseAuthenticationUISkip);
         do_find_or_delete(query, do_delete);
     }
 

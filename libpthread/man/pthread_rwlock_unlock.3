@@ -22,7 +22,7 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/lib/libc_r/man/pthread_rwlock_unlock.3,v 1.4 2001/10/01 16:09:09 ru Exp $
+.\" $FreeBSD$
 .\"
 .Dd August 4, 1998
 .Dt PTHREAD_RWLOCK_UNLOCK 3
@@ -33,9 +33,7 @@
 .Sh SYNOPSIS
 .In pthread.h
 .Ft int
-.Fo pthread_rwlock_unlock
-.Fa "pthread_rwlock_t *rwlock"
-.Fc
+.Fn pthread_rwlock_unlock "pthread_rwlock_t *lock"
 .Sh DESCRIPTION
 The
 .Fn pthread_rwlock_unlock
@@ -49,11 +47,24 @@ or
 If successful, the
 .Fn pthread_rwlock_unlock
 function will return zero.
-Otherwise, an error number will be returned to indicate the error.
+Otherwise an error number will be returned
+to indicate the error.
 .Pp
 The results are undefined if
-.Fa rwlock
+.Fa lock
 is not held by the calling thread.
+.Sh ERRORS
+The
+.Fn pthread_rwlock_unlock
+function may fail if:
+.Bl -tag -width Er
+.It Bq Er EINVAL
+The value specified by
+.Fa lock
+is invalid.
+.It Bq Er EPERM
+The current thread does not own the read/write lock.
+.El
 .Sh SEE ALSO
 .Xr pthread_rwlock_rdlock 3 ,
 .Xr pthread_rwlock_wrlock 3
@@ -62,18 +73,6 @@ The
 .Fn pthread_rwlock_unlock
 function is expected to conform to
 .St -susv2 .
-.Sh ERRORS
-The
-.Fn pthread_rwlock_unlock
-function may fail if:
-.Bl -tag -width Er
-.It Bq Er EINVAL
-The value specified by
-.Fa rwlock
-is invalid.
-.It Bq Er EPERM
-The current thread does not own the read/write lock.
-.El
 .Sh HISTORY
 The
 .Fn pthread_rwlock_unlock

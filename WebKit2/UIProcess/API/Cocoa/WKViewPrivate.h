@@ -73,23 +73,21 @@
 @property (nonatomic, setter=_setLayoutMode:) WKLayoutMode _layoutMode;
 // For use with _layoutMode = kWKLayoutModeFixedSize:
 @property (nonatomic, setter=_setFixedLayoutSize:) CGSize _fixedLayoutSize;
-// For use with _layoutMode = kWKLayoutModeDynamicSizeWithMinimumViewSize:
-@property (nonatomic, setter=_setMinimumViewSize:) CGSize _minimumViewSize;
 
 @property (nonatomic, setter=_setViewScale:) CGFloat _viewScale;
 
-@property (nonatomic, setter=_setOverrideDeviceScaleFactor:) CGFloat _overrideDeviceScaleFactor WK_AVAILABLE(WK_MAC_TBA, NA);
+@property (nonatomic, setter=_setOverrideDeviceScaleFactor:) CGFloat _overrideDeviceScaleFactor WK_API_AVAILABLE(macosx(10.11));
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101000
 @property (nonatomic, setter=_setAutomaticallyAdjustsContentInsets:) BOOL _automaticallyAdjustsContentInsets;
-#endif
 
 @property (readonly) NSColor *_pageExtendedBackgroundColor;
 @property (copy, nonatomic) NSColor *underlayColor;
 
 #if WK_API_ENABLED
-@property (strong, nonatomic, setter=_setInspectorAttachmentView:) NSView *_inspectorAttachmentView WK_AVAILABLE(WK_MAC_TBA, NA);
+@property (strong, nonatomic, setter=_setInspectorAttachmentView:) NSView *_inspectorAttachmentView WK_API_AVAILABLE(macosx(10.11));
 #endif
+
+@property (nonatomic, readwrite, setter=_setRequiresUserActionForEditingControlsManager:) BOOL _requiresUserActionForEditingControlsManager;
 
 - (NSView*)fullScreenPlaceholderView;
 - (NSWindow*)createFullScreenWindow;
@@ -102,9 +100,6 @@
 
 - (BOOL)windowOcclusionDetectionEnabled;
 - (void)setWindowOcclusionDetectionEnabled:(BOOL)flag;
-
-- (void)forceAsyncDrawingAreaSizeUpdate:(NSSize)size;
-- (void)waitForAsyncDrawingAreaSizeUpdate;
 
 - (void)setMagnification:(double)magnification centeredAtPoint:(NSPoint)point;
 
@@ -124,7 +119,7 @@
 
 // Clients that want to maintain default behavior can return nil. To disable the immediate action entirely, return NSNull. And to
 // do something custom, return an object that conforms to the NSImmediateActionAnimationController protocol.
-- (id)_immediateActionAnimationControllerForHitTestResult:(WKHitTestResultRef)hitTestResult withType:(_WKImmediateActionType)type userData:(WKTypeRef)userData;
+- (id)_immediateActionAnimationControllerForHitTestResult:(WKHitTestResultRef)hitTestResult withType:(uint32_t)type userData:(WKTypeRef)userData;
 
 - (void)_prepareForImmediateActionAnimation;
 - (void)_cancelImmediateActionAnimation;

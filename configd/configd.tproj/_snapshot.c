@@ -82,7 +82,11 @@ _expandStore(CFDictionaryRef storeData)
 
 				nValues[i] = CFDictionaryCreateMutableCopy(NULL, 0, oValues[i]);
 
-				_SCUnserialize(&plist, data, NULL, 0);
+				if (!_SCUnserialize(&plist, data, NULL, 0)) {
+					SC_log(LOG_NOTICE, "_SCUnserialize() failed, key=%@", keys[i]);
+					continue;
+				}
+
 				CFDictionarySetValue((CFMutableDictionaryRef)nValues[i],
 						     kSCDData,
 						     plist);

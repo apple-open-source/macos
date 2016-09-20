@@ -100,7 +100,7 @@ static void usage(char **argv)
 	printf("   Create a keypair and cert: %s c [options]\n", argv[0]);
 	printf("   Create a CSR:              %s r outFileName [options]\n", 
 			argv[0]);
-	printf("   Verify a CSR:              %s v infileName [options]\n", argv[0]);
+	printf("   Verify a CSR:              %s V infileName [options]\n", argv[0]);
 	printf("   Create a system Identity:  %s C domainName [options]\n", argv[0]);
 	printf("   Import a certificate:      %s i inFileName [options]\n", argv[0]);
 	printf("   Display a certificate:     %s d inFileName [options]\n", argv[0]);
@@ -969,6 +969,7 @@ static OSStatus importCRL(
 	CSSM_DATA crlData;
 	unsigned char *der = NULL;
 	unsigned derLen = 0;
+	CSSM_DATA uriData;
 	
 	if(readFile(fileName, &crl, &crlLen)) {
 		printf("***Error reading CRL from file %s. Aborting.\n",
@@ -988,7 +989,17 @@ static OSStatus importCRL(
 		crlData.Data = crl;
 		crlData.Length = crlLen;
 	}
-	CSSM_RETURN crtn = cuAddCrlToDb(dlDbHand, clHand, &crlData, NULL);
+
+    char *uri = NULL;
+    asprintf(&uri, "file://%s", fileName);
+    if (uri == NULL) {
+        printf("***Could not allocate memory for uri. Aborting.\n");
+        return ioErr;
+    }
+    uriData.Data = (uint8_t *)uri;
+    uriData.Length = strlen(uri);
+
+	CSSM_RETURN crtn = cuAddCrlToDb(dlDbHand, clHand, &crlData, &uriData);
 	if(crtn) {
 		printError("***Error adding CRL to keychain. Aborting","cuAddCrlToDb",crtn);
 	}
@@ -1001,6 +1012,9 @@ static OSStatus importCRL(
 	if(crl) {
 		free(crl);
 	}
+    if (uri) {
+        free(uri);
+    }
 	return noErr;
 }
 
@@ -1076,8 +1090,12 @@ static OSStatus createCertCsr(
 	CSSM_FIELD					policyId;
 	unsigned char				serialNum[SERIAL_NUM_LENGTH];
 	CSSM_BOOL			isSystemKDC = CSSM_FALSE;
-	
-	/* Note a lot of the CSSM_APPLE_TP_CERT_REQUEST fields are not 
+
+    /* KDC extKeyUsage */
+    uint8_t	    KDCoidData[] = {0x2B, 0x6, 0x1, 0x5, 0x2, 0x3, 0x5};
+    CSSM_OID    KDCoid = {sizeof(KDCoidData), KDCoidData};
+
+	/* Note a lot of the CSSM_APPLE_TP_CERT_REQUEST fields are not
 	 * used for the createCsr option, but we'll fill in as much as is practical
 	 * for either case.
 	 */
@@ -1161,12 +1179,10 @@ static OSStatus createCertCsr(
 		}
 
 	    if (isSystemKDC) {
-		uint8_t	    oidData[] = {0x2B, 0x6, 0x1, 0x5, 0x2, 0x3, 0x5};
-		CSSM_OID    oid = {sizeof(oidData), oidData};
 		extp->type = DT_ExtendedKeyUsage;
 		extp->critical = CSSM_FALSE;
 		extp->extension.extendedKeyUsage.numPurposes = 1;
-		extp->extension.extendedKeyUsage.purposes = &oid;
+		extp->extension.extendedKeyUsage.purposes = &KDCoid;
 		extp++;
 		numExts++;
 	    }
@@ -1450,6 +1466,14 @@ int realmain (int argc, char **argv)
 		case 'y':
 			op = CO_DumpDb;
 			optArgs = 2;
+			break;
+		case 'V':
+			if(argc < 3) {
+				usage(argv);
+			}
+			op = CO_VerifyCSR;
+			fileName = argv[2];
+			optArgs = 3;
 			break;
 		default:
 			usage(argv);

@@ -34,7 +34,7 @@
 #if ENABLE(ENCRYPTED_MEDIA_V2) && ENABLE(MEDIA_SOURCE)
 
 OBJC_CLASS AVStreamSession;
-OBJC_CLASS CDMSessionAVStreamSessionObserver;
+OBJC_CLASS WebCDMSessionAVStreamSessionObserver;
 
 namespace WebCore {
 
@@ -46,10 +46,10 @@ public:
     virtual ~CDMSessionAVStreamSession();
 
     // CDMSession
-    virtual CDMSessionType type() override { return CDMSessionTypeAVStreamSession; }
-    virtual RefPtr<Uint8Array> generateKeyRequest(const String& mimeType, Uint8Array* initData, String& destinationURL, unsigned short& errorCode, unsigned long& systemCode) override;
-    virtual void releaseKeys() override;
-    virtual bool update(Uint8Array*, RefPtr<Uint8Array>& nextMessage, unsigned short& errorCode, unsigned long& systemCode) override;
+    CDMSessionType type() override { return CDMSessionTypeAVStreamSession; }
+    RefPtr<Uint8Array> generateKeyRequest(const String& mimeType, Uint8Array* initData, String& destinationURL, unsigned short& errorCode, uint32_t& systemCode) override;
+    void releaseKeys() override;
+    bool update(Uint8Array*, RefPtr<Uint8Array>& nextMessage, unsigned short& errorCode, uint32_t& systemCode) override;
 
     // CDMSessionMediaSourceAVFObjC
     void addParser(AVStreamDataParser*) override;
@@ -58,14 +58,14 @@ public:
     void setStreamSession(AVStreamSession*);
 
 protected:
-    PassRefPtr<Uint8Array> generateKeyReleaseMessage(unsigned short& errorCode, unsigned long& systemCode);
+    PassRefPtr<Uint8Array> generateKeyReleaseMessage(unsigned short& errorCode, uint32_t systemCode);
 
     WeakPtrFactory<CDMSessionAVStreamSession> m_weakPtrFactory;
     RetainPtr<AVStreamSession> m_streamSession;
     RefPtr<Uint8Array> m_initData;
     RefPtr<Uint8Array> m_certificate;
     RetainPtr<NSData> m_expiredSession;
-    RetainPtr<CDMSessionAVStreamSessionObserver> m_dataParserObserver;
+    RetainPtr<WebCDMSessionAVStreamSessionObserver> m_dataParserObserver;
     Vector<int> m_protocolVersions;
     enum { Normal, KeyRelease } m_mode;
 };

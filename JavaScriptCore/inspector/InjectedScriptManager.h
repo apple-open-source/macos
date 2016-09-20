@@ -67,14 +67,14 @@ public:
     void clearExceptionValue();
 
 protected:
-    virtual void didCreateInjectedScript(InjectedScript);
+    virtual void didCreateInjectedScript(const InjectedScript&);
 
     HashMap<int, InjectedScript> m_idToInjectedScript;
     HashMap<JSC::ExecState*, int> m_scriptStateToId;
 
 private:
     String injectedScriptSource();
-    Deprecated::ScriptObject createInjectedScript(const String& source, JSC::ExecState*, int id);
+    JSC::JSObject* createInjectedScript(const String& source, JSC::ExecState*, int id);
 
     InspectorEnvironment& m_environment;
     RefPtr<InjectedScriptHost> m_injectedScriptHost;

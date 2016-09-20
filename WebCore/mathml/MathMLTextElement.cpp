@@ -32,11 +32,10 @@
 
 #include "MathMLNames.h"
 #include "RenderMathMLOperator.h"
-#include "RenderMathMLSpace.h"
 #include "RenderMathMLToken.h"
 
 namespace WebCore {
-    
+
 using namespace MathMLNames;
 
 inline MathMLTextElement::MathMLTextElement(const QualifiedName& tagName, Document& document)
@@ -66,31 +65,28 @@ void MathMLTextElement::childrenChanged(const ChildChange& change)
 
 void MathMLTextElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    if (name == stretchyAttr) {
+    if (name == stretchyAttr || name == lspaceAttr || name == rspaceAttr || name == movablelimitsAttr) {
         if (is<RenderMathMLOperator>(renderer()))
-            downcast<RenderMathMLOperator>(*renderer()).setOperatorFlagAndScheduleLayoutIfNeeded(MathMLOperatorDictionary::Stretchy, value);
+            downcast<RenderMathMLOperator>(*renderer()).updateFromElement();
         return;
     }
+
+    if (name == mathvariantAttr && renderer())
+        MathMLStyle::resolveMathMLStyleTree(renderer());
 
     MathMLElement::parseAttribute(name, value);
 }
 
-RenderPtr<RenderElement> MathMLTextElement::createElementRenderer(Ref<RenderStyle>&& style, const RenderTreePosition& insertionPosition)
+RenderPtr<RenderElement> MathMLTextElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition& insertionPosition)
 {
     if (hasTagName(MathMLNames::moTag))
-        return createRenderer<RenderMathMLOperator>(*this, WTF::move(style));
-    if (hasTagName(MathMLNames::mspaceTag))
-        return createRenderer<RenderMathMLSpace>(*this, WTF::move(style));
+        return createRenderer<RenderMathMLOperator>(*this, WTFMove(style));
     if (hasTagName(MathMLNames::annotationTag))
-        return MathMLElement::createElementRenderer(WTF::move(style), insertionPosition);
+        return MathMLElement::createElementRenderer(WTFMove(style), insertionPosition);
 
     ASSERT(hasTagName(MathMLNames::miTag) || hasTagName(MathMLNames::mnTag) || hasTagName(MathMLNames::msTag) || hasTagName(MathMLNames::mtextTag));
 
-    // FIXME: why do we have to set the alignment here ? It seems needed to make the
-    // style-changed.htmt test to pass, since mathml renders expect Stretch as default.
-    style.get().setAlignItemsPosition(ItemPositionStretch);
-
-    return createRenderer<RenderMathMLToken>(*this, WTF::move(style));
+    return createRenderer<RenderMathMLToken>(*this, WTFMove(style));
 }
 
 bool MathMLTextElement::childShouldCreateRenderer(const Node& child) const
@@ -98,8 +94,7 @@ bool MathMLTextElement::childShouldCreateRenderer(const Node& child) const
     if (hasTagName(MathMLNames::mspaceTag))
         return false;
 
-    // FIXME: phrasing content should be accepted in <mo> elements too (https://bugs.webkit.org/show_bug.cgi?id=130245).
-    if (hasTagName(MathMLNames::annotationTag) || hasTagName(MathMLNames::moTag))
+    if (hasTagName(MathMLNames::annotationTag))
         return child.isTextNode();
 
     // The HTML specification defines <mi>, <mo>, <mn>, <ms> and <mtext> as insertion points.

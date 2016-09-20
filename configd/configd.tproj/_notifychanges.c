@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2011, 2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2011, 2013, 2015 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,7 +46,7 @@ __SCDynamicStoreCopyNotifiedKeys(SCDynamicStoreRef store, CFArrayRef *notifierKe
 	sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), storePrivate->server);
 	info = CFDictionaryGetValue(sessionData, sessionKey);
 	if ((info == NULL) ||
-	    (CFDictionaryContainsKey(info, kSCDChangedKeys) == FALSE)) {
+	    !CFDictionaryContainsKey(info, kSCDChangedKeys)) {
 		CFRelease(sessionKey);
 		*notifierKeys = CFArrayCreate(NULL, NULL, 0, &kCFTypeArrayCallBacks);
 		return kSCStatusOK;

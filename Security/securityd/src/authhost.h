@@ -28,27 +28,17 @@
 
 class Session;
 
-typedef enum {
-	privilegedAuthHost,
-	securityAgent,
-	userAuthHost
-} AuthHostType;
-
 class AuthHostInstance : public PerSession, public ServerChild {
 public:
-	AuthHostInstance(Session &session, AuthHostType host);
+	AuthHostInstance(Session &session);
 	virtual ~AuthHostInstance();
 
 	Session &session() const;
-	mach_port_t lookup();
-	Port activate();
 		
 protected:
 	void childAction();
 
 private:
-	AuthHostType mHostType;
-
 	bool inDarkWake();
 };
 

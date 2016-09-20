@@ -1,3 +1,4 @@
+0755	root	wheel	.vol
 0755	root	wheel	Library/ColorPickers
 0755	root	wheel	Library/Extensions
 1775	root	admin	Library/Fonts
@@ -5,23 +6,29 @@
 0775	root	admin	Library/Logs
 0750	root	admin	Library/Logs/DiagnosticReports
 0755	root	wheel	Library/PreferencePanes
+0755	root	wheel	Library/Preferences
+0755	root	wheel	Library/Preferences/Logging
+0755	root	wheel	Library/Preferences/Logging/Events
+0755	root	wheel	Library/Preferences/Logging/Processes
+0755	root	wheel	Library/Preferences/Logging/Subsystems
 0775	root	admin	Library/Receipts
 0755	root	wheel	Library/ScriptingAdditions
 0755	root	wheel	Library/SystemProfiler
 0755	root	wheel	Library/Filesystems/NetFSPlugins
 0755	root	admin	Library/Application Support
 0775	root	admin	Library/Application Support/CrashReporter
+0700	root	admin	Library/Application Support/com.apple.TCC
 1775	root	admin	Library/Application Support/ProApps
 0755	root	admin	Users
 1777	root	wheel	Users/Shared
 0755	root	wheel	System/Library/Sandbox/Profiles
 0700	root	wheel	System/Library/DirectoryServices/DefaultLocalDB/Default
 0755	root	wheel	System/Library/Keychains
+0755	root	wheel	Volumes
 0755	root	wheel	private/var/db/ConfigurationProfiles
-0755	root	wheel	private/var/db/systemstats
-0755	root	wheel	private/var/db/systemstats/retired
 0755	root	wheel	private/var/db/caches
 0770	root	wheel	private/var/db/caches/opendirectory
+0700	260	260	private/var/db/applepay
 0750	56	56	private/var/db/geod
 0777	213	213	private/var/db/lockdown
 0750	205	205	private/var/db/locationd
@@ -29,5 +36,6 @@
 0750 	92	92	private/var/db/securityagent
 0750	84	84	private/var/jabberd
 0770	root	admin	private/var/log/DiagnosticMessages
+0750	253	253	private/var/ma
 0755	root	wheel	private/var/yp/binding
 1777	root	wheel	private/tmp

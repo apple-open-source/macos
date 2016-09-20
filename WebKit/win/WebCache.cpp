@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006-2007, 2015 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +27,7 @@
 #include "WebCache.h"
 
 #include "CFDictionaryPropertyBag.h"
+#include "WebApplicationCache.h"
 #include <WebCore/ApplicationCacheStorage.h>
 #include <WebCore/BString.h>
 #include <WebCore/MemoryCache.h>
@@ -39,7 +40,6 @@
 // WebCache ---------------------------------------------------------------------------
 
 WebCache::WebCache()
-    : m_refCount(0)
 {
     gClassCount++;
     gClassNameCount().add("WebCache");
@@ -60,9 +60,11 @@ WebCache* WebCache::createInstance()
 
 // IUnknown -------------------------------------------------------------------
 
-HRESULT STDMETHODCALLTYPE WebCache::QueryInterface(REFIID riid, void** ppvObject)
+HRESULT WebCache::QueryInterface(_In_ REFIID riid, _COM_Outptr_ void** ppvObject)
 {
-    *ppvObject = 0;
+    if (!ppvObject)
+        return E_POINTER;
+    *ppvObject = nullptr;
     if (IsEqualGUID(riid, IID_IUnknown))
         *ppvObject = static_cast<WebCache*>(this);
     else if (IsEqualGUID(riid, IID_IWebCache))
@@ -74,12 +76,12 @@ HRESULT STDMETHODCALLTYPE WebCache::QueryInterface(REFIID riid, void** ppvObject
     return S_OK;
 }
 
-ULONG STDMETHODCALLTYPE WebCache::AddRef(void)
+ULONG WebCache::AddRef()
 {
     return ++m_refCount;
 }
 
-ULONG STDMETHODCALLTYPE WebCache::Release(void)
+ULONG WebCache::Release()
 {
     ULONG newRef = --m_refCount;
     if (!newRef)
@@ -90,7 +92,7 @@ ULONG STDMETHODCALLTYPE WebCache::Release(void)
 
 // IWebCache ------------------------------------------------------------------------------
 
-HRESULT WebCache::statistics(int* count, IPropertyBag** s)
+HRESULT WebCache::statistics(_Inout_ int* count, _Inout_opt_ IPropertyBag** s)
 {
     if (!count || (s && *count < 6))
         return E_FAIL;
@@ -204,7 +206,7 @@ HRESULT WebCache::statistics(int* count, IPropertyBag** s)
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE WebCache::empty( void)
+HRESULT WebCache::empty()
 {
     auto& memoryCache = WebCore::MemoryCache::singleton();
     if (memoryCache.disabled())
@@ -213,7 +215,7 @@ HRESULT STDMETHODCALLTYPE WebCache::empty( void)
     memoryCache.setDisabled(false);
 
     // Empty the application cache.
-    WebCore::ApplicationCacheStorage::singleton().empty();
+    WebApplicationCache::storage().empty();
 
     // Empty the Cross-Origin Preflight cache
     WebCore::CrossOriginPreflightResultCache::singleton().empty();
@@ -221,15 +223,13 @@ HRESULT STDMETHODCALLTYPE WebCache::empty( void)
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE WebCache::setDisabled( 
-    /* [in] */ BOOL disabled)
+HRESULT WebCache::setDisabled(BOOL disabled)
 {
     WebCore::MemoryCache::singleton().setDisabled(!!disabled);
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE WebCache::disabled(
-    /* [out][retval] */ BOOL* disabled)
+HRESULT WebCache::disabled(_Out_ BOOL* disabled)
 {
     if (!disabled)
         return E_POINTER;
@@ -237,7 +237,7 @@ HRESULT STDMETHODCALLTYPE WebCache::disabled(
     return S_OK;
 }
 
-HRESULT WebCache::cacheFolder(BSTR* location)
+HRESULT WebCache::cacheFolder(__deref_out_opt BSTR* location)
 {
 #if USE(CURL)
     String cacheFolder = WebCore::CurlCacheManager::getInstance().cacheDirectory();
@@ -248,7 +248,7 @@ HRESULT WebCache::cacheFolder(BSTR* location)
 #endif
 }
 
-HRESULT WebCache::setCacheFolder(BSTR location)
+HRESULT WebCache::setCacheFolder(_In_ BSTR location)
 {
 #if USE(CURL)
     String cacheFolder(location, SysStringLen(location));

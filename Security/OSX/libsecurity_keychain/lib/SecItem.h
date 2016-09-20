@@ -517,6 +517,8 @@ extern const CFStringRef kSecAttrCanWrap
 	__OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
 extern const CFStringRef kSecAttrCanUnwrap
 	__OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+extern const CFStringRef kSecAttrTokenID
+    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_9_0);
 
 /*!
     @enum kSecAttrAccessible Value Constants
@@ -742,6 +744,7 @@ extern const CFStringRef kSecAttrKeyClassSymmetric
 	 @constant kSecAttrKeyTypeCAST
      @constant kSecAttrKeyTypeECDSA (deprecated; use kSecAttrKeyTypeEC instead.)
      @constant kSecAttrKeyTypeEC
+     @constant kSecAttrKeyTypeECSECPrimeRandom
 */
 extern const CFStringRef kSecAttrKeyTypeRSA
 	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_2_0);
@@ -763,6 +766,8 @@ extern const CFStringRef kSecAttrKeyTypeECDSA
 	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
 extern const CFStringRef kSecAttrKeyTypeEC
 	__OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_4_0);
+extern const CFStringRef kSecAttrKeyTypeECSECPrimeRandom
+    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_4_0);
 
 /*!
 	 @enum kSecAttrPRF Value Constants
@@ -1008,6 +1013,37 @@ extern const CFStringRef kSecUseAuthenticationUIFail
 	__OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
 extern const CFStringRef kSecUseAuthenticationUISkip
 	__OSX_AVAILABLE_STARTING(__MAC_10_11, __IPHONE_9_0);
+
+#if !RC_HIDE_J79 && !RC_HIDE_J80
+/*!
+     @enum kSecAttrTokenID Value Constants
+     @discussion Predefined item attribute constant used to get or set values
+         in a dictionary. The kSecAttrTokenID constant is the key and its value
+         can be kSecAttrTokenIDSecureEnclave.
+     @constant kSecAttrTokenIDSecureEnclave Specifies well-known identifier of the
+         token implemented using device's Secure Enclave. The only keychain items
+         supported by the Secure Enclave token are 256-bit elliptic curve keys
+         (kSecAttrKeyTypeEC).  Keys must be generated on the secure enclave using
+         SecKeyGenerateKeyPair call with kSecAttrTokenID set to
+         kSecAttrTokenIDSecureEnclave in the parameters dictionary, it is not
+         possible to import pregenerated keys to kSecAttrTokenIDSecureEnclave token.
+*/
+extern const CFStringRef kSecAttrTokenIDSecureEnclave
+    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_9_0);
+#endif
+
+/*!
+     @enum kSecAttrAccessGroup Value Constants
+     @constant kSecAttrAccessGroupToken Represents well-known access group
+         which contains items provided by external token (typically smart card).
+         This may be used as a value for kSecAttrAccessGroup attribute. Every
+         application has access to this access group so it is not needed to
+         explicitly list it in keychain-access-groups entitlement, but application
+         must explicitly state this access group in keychain queries in order to
+         be able to access items from external tokens.
+*/
+extern const CFStringRef kSecAttrAccessGroupToken
+    __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_10_0);
 
 /*!
 	 @function SecItemCopyMatching

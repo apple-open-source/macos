@@ -32,8 +32,7 @@
 #include "HTMLMediaElement.h"
 #include "MultiChannelResampler.h"
 #include <memory>
-#include <mutex>
-#include <wtf/PassRefPtr.h>
+#include <wtf/Lock.h>
 
 namespace WebCore {
 
@@ -41,33 +40,33 @@ class AudioContext;
     
 class MediaElementAudioSourceNode : public AudioNode, public AudioSourceProviderClient {
 public:
-    static Ref<MediaElementAudioSourceNode> create(AudioContext*, HTMLMediaElement*);
+    static Ref<MediaElementAudioSourceNode> create(AudioContext&, HTMLMediaElement&);
 
     virtual ~MediaElementAudioSourceNode();
 
-    HTMLMediaElement* mediaElement() { return m_mediaElement.get(); }                                        
+    HTMLMediaElement& mediaElement() { return m_mediaElement; }
 
     // AudioNode
-    virtual void process(size_t framesToProcess) override;
-    virtual void reset() override;
+    void process(size_t framesToProcess) override;
+    void reset() override;
     
     // AudioSourceProviderClient
-    virtual void setFormat(size_t numberOfChannels, float sampleRate) override;
+    void setFormat(size_t numberOfChannels, float sampleRate) override;
     
     void lock();
     void unlock();
 
 private:
-    MediaElementAudioSourceNode(AudioContext*, HTMLMediaElement*);
+    MediaElementAudioSourceNode(AudioContext&, HTMLMediaElement&);
 
-    virtual double tailTime() const override { return 0; }
-    virtual double latencyTime() const override { return 0; }
+    double tailTime() const override { return 0; }
+    double latencyTime() const override { return 0; }
 
     // As an audio source, we will never propagate silence.
-    virtual bool propagatesSilence() const override { return false; }
+    bool propagatesSilence() const override { return false; }
 
-    RefPtr<HTMLMediaElement> m_mediaElement;
-    std::mutex m_processMutex;
+    Ref<HTMLMediaElement> m_mediaElement;
+    Lock m_processMutex;
 
     unsigned m_sourceNumberOfChannels;
     double m_sourceSampleRate;

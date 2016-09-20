@@ -1761,9 +1761,7 @@ static void tests(void)
     CFDataSetLength(message_data, 0);
     CFMutableDictionaryRef params = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     CFDictionarySetValue(params, kSecCMSSignHashAlgorithm, kSecCMSHashingAlgorithmMD5);
-    ok_status(SecCMSCreateSignedData(identity, NULL, params, NULL, message_data), "sign md5 message");
-    //write_data("/var/tmp/md5_sign", message_data);
-    ok_status(SecCMSVerify(message_data, NULL, policy, &trust, NULL), "verify it");
+    is(SecCMSCreateSignedData(identity, NULL, params, NULL, message_data), errSecParam, "signing md5 message should fail");
 
     message = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault,
         mobileconfig_with_long_issuer, sizeof(mobileconfig_with_long_issuer),
@@ -1822,7 +1820,7 @@ static void tests(void)
 
 int si_60_cms(int argc, char *const *argv)
 {
-	plan_tests(43);
+	plan_tests(42);
 
 
 	tests();

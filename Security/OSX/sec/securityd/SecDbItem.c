@@ -357,7 +357,7 @@ CFDataRef SecDbItemCopyEncryptedDataToBackup(SecDbItemRef item, uint64_t handle,
     if (attributes || auth_attributes) {
         SecAccessControlRef access_control = SecDbItemCopyAccessControl(item, error);
         if (access_control) {
-            if (ks_encrypt_data(keybag, access_control, item->credHandle, attributes, auth_attributes, &edata, error)) {
+            if (ks_encrypt_data(keybag, access_control, item->credHandle, attributes, auth_attributes, &edata, false, error)) {
                 item->_edataState = kSecDbItemEncrypting;
             } else {
                 seccritical("ks_encrypt_data (db): failed: %@", error ? *error : (CFErrorRef)CFSTR(""));
@@ -934,18 +934,19 @@ SecDbItemRef SecDbItemCreateWithStatement(CFAllocatorRef allocator, const SecDbC
     SecDbForEachAttr(class, attr) {
         if (return_attr(attr)) {
             CFTypeRef value = SecDbColumnCopyValueWithAttr(allocator, stmt, attr, col++, error);
-            if (value) {
-                CFDictionarySetValue(item->attributes, SecDbAttrGetHashName(attr), value);
-                CFRelease(value);
-            }
+            require_action_quiet(value, errOut, CFReleaseNull(item));
+
+            CFDictionarySetValue(item->attributes, SecDbAttrGetHashName(attr), value);
+            CFRelease(value);
         }
 
-        const SecDbAttr *data_attr = SecDbClassAttrWithKind(class, kSecDbEncryptedDataAttr, error);
+        const SecDbAttr *data_attr = SecDbClassAttrWithKind(class, kSecDbEncryptedDataAttr, NULL);
         if (data_attr != NULL && CFDictionaryGetValue(item->attributes, data_attr->name) != NULL) {
             item->_edataState = kSecDbItemEncrypted;
         }
     }
 
+errOut:
     return item;
 }
 
@@ -1355,6 +1356,8 @@ static bool SecDbItemDoInsert(SecDbItemRef item, SecDbConnectionRef dbconn, CFEr
     if (ok) {
         secnotice("item", "inserted %@", item);
         SecDbItemRecordUpdate(dbconn, NULL, item);
+    } else {
+        secnotice("item", "insert failed for item %@ with %@", item, error ? *error : NULL);
     }
 
     return ok;

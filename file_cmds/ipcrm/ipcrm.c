@@ -83,14 +83,12 @@ static int shmrm(key_t key, int id)
 
 static int semrm(key_t key, int id)
 {
-    union semun arg;
-
     if (key) {
 	id = semget(key, 0, 0);
 	if (id == -1)
 	    return -1;
     }
-    return semctl(id, 0, IPC_RMID, arg);
+    return semctl(id, 0, IPC_RMID);
 }
 
 static void not_configured(__unused int unused)

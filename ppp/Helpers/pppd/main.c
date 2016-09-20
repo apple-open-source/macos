@@ -365,7 +365,6 @@ main(argc, argv)
     link_stats_valid = 0;
     new_phase(PHASE_INITIALIZE);
 
-	
     script_env = NULL;
 
     if (gethostname(hostname, MAXNAMELEN) < 0 ) {
@@ -1036,7 +1035,6 @@ handle_events()
 {
     struct timeval timo;
     sigset_t mask;
-
 
     kill_link = open_ccp_flag = 0;
 #ifdef __APPLE__

@@ -97,30 +97,16 @@ static int SocketConnect(const char *hostName, int port)
     int                 err;
     struct hostent      *ent;
 
-    if (hostName[0] >= '0' && hostName[0] <= '9')
-    {
+    if (hostName[0] >= '0' && hostName[0] <= '9') {
         host.s_addr = inet_addr(hostName);
-    }
-    else {
-		unsigned dex;
-#define GETHOST_RETRIES 5
-		/* seeing a lot of soft failures here that I really don't want to track down */
-		for(dex=0; dex<GETHOST_RETRIES; dex++) {
-			if(dex != 0) {
-				printf("\n...retrying gethostbyname(%s)", hostName);
-			}
-			ent = gethostbyname(hostName);
-			if(ent != NULL) {
-				break;
-			}
-		}
+    } else {
+        ent = gethostbyname(hostName);
         if(ent == NULL) {
 			printf("\n***gethostbyname(%s) returned: %s\n", hostName, hstrerror(h_errno));
-            return -1;
+            return -2;
         }
         memcpy(&host, ent->h_addr, sizeof(struct in_addr));
     }
-
 
     sock = socket(AF_INET, SOCK_STREAM, 0);
     addr.sin_addr = host;
@@ -132,7 +118,7 @@ static int SocketConnect(const char *hostName, int port)
     if(err!=0)
     {
         perror("connect failed");
-        return err;
+        return -1;
     }
 
     return sock;
@@ -268,12 +254,17 @@ out:
 
 
 
+#define CONNECT_TRIES 3
+
 static ssl_test_handle *
 ssl_test_handle_create(struct s_server *server)
 {
-    int comm;
+    int comm = -1;
 
-    comm=SocketConnect(server->host, server->port);
+    for(int try = 0; comm<0 && try<CONNECT_TRIES; try++) {
+        comm=SocketConnect(server->host, server->port);
+    }
+
     if(comm<0) {
         fail("connect failed with err=%d - %s:%d", comm, server->host, server->port);
         return NULL;
@@ -307,7 +298,7 @@ struct s_server servers[] = {
     {"www.amazon.com",443, kTLSProtocol12 },
     //{"www.mikestoolbox.org",443, kTLSProtocol12 },
     /* servers with issues */
-    {"vpp.visa.co.uk", 443, kTLSProtocol12 }, // Doesnt like SSL 3.0 in initial record layer version
+    // This server went offline as of May 2016 -- {"vpp.visa.co.uk", 443, kTLSProtocol12 }, // Doesnt like SSL 3.0 in initial record layer version
     {"imap.softbank.jp",993, kTLSProtocol12 },   // softbank imap server, there are multiple servers behind this, one of them is not able to handle downgrading to TLS 1.2 properly (126.240.66.17).
     {"mobile.charter.net",993, kTLSProtocol12 }, // Support 1.2 but fail to negotiate properly
     {"mybill.vodafone.com.au", 443, kTLSProtocol1 }, /* 2056 bit server key */

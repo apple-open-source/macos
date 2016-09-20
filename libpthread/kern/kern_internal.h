@@ -50,19 +50,20 @@
 #define PTHREAD_FEATURE_BSDTHREADCTL	0x04		/* is the bsdthread_ctl syscall available */
 #define PTHREAD_FEATURE_SETSELF			0x08		/* is the BSDTHREAD_CTL_SET_SELF command of bsdthread_ctl available */
 #define PTHREAD_FEATURE_QOS_MAINTENANCE	0x10		/* is QOS_CLASS_MAINTENANCE available */
-#define PTHREAD_FEATURE_KEVENT          0x20		/* supports direct kevent delivery */
+#define PTHREAD_FEATURE_RESERVED		0x20		/* burnt, shipped in OSX 10.11 & iOS 9 with partial kevent delivery support */
+#define PTHREAD_FEATURE_KEVENT          0x40		/* supports direct kevent delivery */
 #define PTHREAD_FEATURE_QOS_DEFAULT		0x40000000	/* the kernel supports QOS_CLASS_DEFAULT */
 
 /* pthread bsdthread_ctl sysctl commands */
-#define BSDTHREAD_CTL_SET_QOS	0x10	/* bsdthread_ctl(BSDTHREAD_CTL_SET_QOS, thread_port, tsd_entry_addr, 0) */
-#define BSDTHREAD_CTL_GET_QOS	0x20	/* bsdthread_ctl(BSDTHREAD_CTL_GET_QOS, thread_port, 0, 0) */
+#define BSDTHREAD_CTL_SET_QOS				0x10	/* bsdthread_ctl(BSDTHREAD_CTL_SET_QOS, thread_port, tsd_entry_addr, 0) */
+#define BSDTHREAD_CTL_GET_QOS				0x20	/* bsdthread_ctl(BSDTHREAD_CTL_GET_QOS, thread_port, 0, 0) */
 #define BSDTHREAD_CTL_QOS_OVERRIDE_START	0x40	/* bsdthread_ctl(BSDTHREAD_CTL_QOS_OVERRIDE_START, thread_port, priority, 0) */
 #define BSDTHREAD_CTL_QOS_OVERRIDE_END		0x80	/* bsdthread_ctl(BSDTHREAD_CTL_QOS_OVERRIDE_END, thread_port, 0, 0) */
-#define BSDTHREAD_CTL_SET_SELF	0x100	/* bsdthread_ctl(BSDTHREAD_CTL_SET_SELF, priority, voucher, flags) */
+#define BSDTHREAD_CTL_SET_SELF				0x100	/* bsdthread_ctl(BSDTHREAD_CTL_SET_SELF, priority, voucher, flags) */
 #define BSDTHREAD_CTL_QOS_OVERRIDE_RESET	0x200	/* bsdthread_ctl(BSDTHREAD_CTL_QOS_OVERRIDE_RESET, 0, 0, 0) */
 #define BSDTHREAD_CTL_QOS_OVERRIDE_DISPATCH	0x400	/* bsdthread_ctl(BSDTHREAD_CTL_QOS_OVERRIDE_DISPATCH, thread_port, priority, 0) */
-#define BSDTHREAD_CTL_QOS_DISPATCH_ASYNCHRONOUS_OVERRIDE_ADD	0x401	/* bsdthread_ctl(BSDTHREAD_CTL_QOS_DISPATCH_ASYNCHRONOUS_OVERRIDE_ADD, thread_port, priority, resource) */
-#define BSDTHREAD_CTL_QOS_DISPATCH_ASYNCHRONOUS_OVERRIDE_RESET	0x402	/* bsdthread_ctl(BSDTHREAD_CTL_QOS_DISPATCH_ASYNCHRONOUS_OVERRIDE_RESET, 0|1 (?reset_all), resource, 0) */
+#define BSDTHREAD_CTL_QOS_DISPATCH_ASYNCHRONOUS_OVERRIDE_ADD				0x401	/* bsdthread_ctl(BSDTHREAD_CTL_QOS_DISPATCH_ASYNCHRONOUS_OVERRIDE_ADD, thread_port, priority, resource) */
+#define BSDTHREAD_CTL_QOS_DISPATCH_ASYNCHRONOUS_OVERRIDE_RESET				0x402	/* bsdthread_ctl(BSDTHREAD_CTL_QOS_DISPATCH_ASYNCHRONOUS_OVERRIDE_RESET, 0|1 (?reset_all), resource, 0) */
 
 /* qos_class_t is mapped into one of these bits in the bitfield, this mapping now exists here because
  * libdispatch requires the QoS class mask of the pthread_priority_t to be a bitfield.
@@ -209,10 +210,21 @@ _pthread_priority_get_qos_version2(pthread_priority_t priority)
 
 /* userspace <-> kernel registration struct, for passing data to/from the kext during main thread init. */
 struct _pthread_registration_data {
-	uint64_t version; /* copy-in */
+	/*
+	 * version == sizeof(struct _pthread_registration_data)
+	 *
+	 * The structure can only grow, so we use its size as the version.
+	 * Userspace initializes this to the size of its structure and the kext
+	 * will copy out the version that was actually consumed.
+	 *
+	 * n.b. you must make sure the size of this structure isn't LP64-dependent
+	 */
+	uint64_t version;
+
 	uint64_t dispatch_queue_offset; /* copy-in */
-	pthread_priority_t main_qos; /* copy-out */
-};
+	uint64_t /* pthread_priority_t */ main_qos; /* copy-out */
+	uint32_t tsd_offset; /* copy-in */
+} __attribute__ ((packed));
 
 #ifdef KERNEL
 
@@ -240,11 +252,13 @@ struct ksyn_waitq_element {
 };
 typedef struct ksyn_waitq_element * ksyn_waitq_element_t;
 
-pthread_priority_t pthread_qos_class_get_priority(int qos) __attribute__((const));
-int pthread_priority_get_qos_class(pthread_priority_t priority) __attribute__((const));
+pthread_priority_t thread_qos_get_pthread_priority(int qos) __attribute__((const));
+int thread_qos_get_class_index(int qos) __attribute__((const));
+int pthread_priority_get_thread_qos(pthread_priority_t priority) __attribute__((const));
 int pthread_priority_get_class_index(pthread_priority_t priority) __attribute__((const));
-int qos_get_class_index(int qos) __attribute__((const));
-pthread_priority_t pthread_priority_from_class_index(int index) __attribute__((const));
+pthread_priority_t class_index_get_pthread_priority(int index) __attribute__((const));
+int class_index_get_thread_qos(int index) __attribute__((const));
+int qos_class_get_class_index(int qos) __attribute__((const));
 
 #define PTH_DEFAULT_STACKSIZE 512*1024
 #define MAX_PTHREAD_SIZE 64*1024
@@ -262,8 +276,7 @@ void psynch_wq_cleanup(void*, void*);
 
 void _pthread_init(void);
 int _fill_procworkqueue(proc_t p, struct proc_workqueueinfo * pwqinfo);
-void _workqueue_init_lock(proc_t p);
-void _workqueue_destroy_lock(proc_t p);
+uint32_t _get_pwq_state_kdp(proc_t p);
 void _workqueue_exit(struct proc *p);
 void _workqueue_mark_exiting(struct proc *p);
 void _workqueue_thread_yielded(void);
@@ -314,6 +327,8 @@ thread_t _workq_reqthreads(struct proc *p, int requests_count,
 
 // Resolve a pthread_priority_t to a QoS/relative pri
 integer_t _thread_qos_from_pthread_priority(unsigned long pri, unsigned long *flags);
+// Clear out extraneous flags/pri info for putting in voucher
+pthread_priority_t _pthread_priority_canonicalize(pthread_priority_t pri, boolean_t for_propagation);
 
 #endif // KERNEL
 

@@ -32,6 +32,9 @@
 extern "C" {
 #endif
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 typedef uint8 CSSM_BER_TAG;
 #define BER_TAG_UNKNOWN 0
 #define BER_TAG_BOOLEAN 1
@@ -222,6 +225,8 @@ typedef struct cssm_x509_signed_crl {
     CSSM_X509_TBS_CERTLIST tbsCertList;
     CSSM_X509_SIGNATURE signature;
 } CSSM_X509_SIGNED_CRL DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_X509_SIGNED_CRL_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+
+#pragma clang diagnostic pop
 
 #ifdef __cplusplus
 }

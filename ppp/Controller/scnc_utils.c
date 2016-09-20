@@ -1568,7 +1568,7 @@ CFDictionaryRef create_stateaddr(SCDynamicStoreRef store, CFStringRef serviceID,
 	if (!isprimary) {
 		netservRef = _SCNetworkServiceCopyActive(store, serviceID);
 		if (netservRef) {
-			SCNetworkServiceSetPrimaryRank(netservRef, kSCNetworkServicePrimaryRankLast);
+			SCNetworkServiceSetPrimaryRank(netservRef, kSCNetworkServicePrimaryRankNever);
 			CFRelease(netservRef);
 		}
 	}
@@ -2967,7 +2967,7 @@ Boolean primary_interface_is_cellular(Boolean *hasPrimaryInterface)
 				}
 
 				foundPrimaryInterface = TRUE;
-				isCellular = nwi_ifstate_get_reachability_flags(ifstate) & kSCNetworkReachabilityFlagsIsWWAN;
+				isCellular = ((nwi_ifstate_get_reachability_flags(ifstate) & kSCNetworkReachabilityFlagsIsWWAN) != 0);
 				break;
 			}
 		}
@@ -3107,7 +3107,7 @@ CFStringRef scnc_copy_remote_server (struct service *serv, Boolean *isHostname)
 			remote_address_key = kSCPropNetIPSecRemoteAddress;
 			break;
 		case TYPE_VPN:
-			remote_address_key = kSCPropNetVPNRemoteAddress;
+			// ignore legacy TYPE_VPN of plugin VPN setup when NE framework is in use.
 			break;
 	}
 	

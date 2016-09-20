@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2013, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2012, 2013, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -23,10 +23,17 @@
 #include <CommonCrypto/CommonDigest.h>
 #include <dirent.h>
 #include <notify.h>
+#include <os/log.h>
 #include <sys/param.h>
 #include <sys/queue.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+
+#ifndef	SC_LOG_HANDLE
+#define SC_LOG_HANDLE	__log_SCPreferences()
+#endif	//SC_LOG_HANDLE
+os_log_t	SC_LOG_HANDLE;
+
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/scprefs_observer.h>
 
@@ -102,7 +109,7 @@ build_digest(const char *top_dir, const char *file)
 	CC_SHA1_Init(&ctx);
 	iterate_dir(top_dir, file, &ctx, &found);
 	CC_SHA1_Final(bytes, &ctx);
-	if (found == TRUE) {
+	if (found) {
 		digest = CFDataCreate(NULL, bytes, sizeof(bytes));
 	}
 	return (digest);
@@ -207,16 +214,22 @@ prefs_observer_handle_notifications()
 static void
 _prefs_observer_init()
 {
-	static int token;
+	uint32_t	status;
+	static int	token;
 
 	prefs_observer_queue = dispatch_queue_create("com.apple.SystemConfiguration.SCPreferencesObserver", NULL);
 
 	SLIST_INIT(&head);
 
-	notify_register_dispatch(PREFS_OBSERVER_KEY,
-			     &token,
-			     prefs_observer_queue,
-			     ^(int token) { prefs_observer_handle_notifications(); });
+	status = notify_register_dispatch(PREFS_OBSERVER_KEY,
+					  &token,
+					  prefs_observer_queue,
+					  ^(int token) {
+						  prefs_observer_handle_notifications();
+					  });
+	if (status != NOTIFY_STATUS_OK) {
+		SC_log(LOG_INFO, "notify_register_dispatch() failed: %d", status);
+	}
 }
 
 static scprefs_observer_t

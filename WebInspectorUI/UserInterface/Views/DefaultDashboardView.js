@@ -29,7 +29,8 @@ WebInspector.DefaultDashboardView = class DefaultDashboardView extends WebInspec
     {
         super(representedObject, "default");
 
-        representedObject.addEventListener(WebInspector.DefaultDashboard.Event.DataDidChange, window.requestAnimationFrame.bind(null, this._updateDisplay.bind(this)));
+        representedObject.addEventListener(WebInspector.DefaultDashboard.Event.DataDidChange, () => { this._updateDisplaySoon() });
+        this._scheduledUpdateIdentifier = undefined;
 
         this._items = {
             resourcesCount: {
@@ -64,15 +65,25 @@ WebInspector.DefaultDashboardView = class DefaultDashboardView extends WebInspec
     
     // Private
 
+    _updateDisplaySoon()
+    {
+        if (this._scheduledUpdateIdentifier)
+            return;
+
+        this._scheduledUpdateIdentifier = requestAnimationFrame(this._updateDisplay.bind(this));
+    }
+
     _updateDisplay()
     {
+        this._scheduledUpdateIdentifier = undefined;
+
         var dashboard = this.representedObject;
 
         for (var category of ["logs", "issues", "errors"])
             this._setConsoleItemValue(category, dashboard[category]);
 
         var timeItem = this._items.time;
-        timeItem.text = dashboard.time ? Number.secondsToString(dashboard.time) : "\u2014";
+        timeItem.text = dashboard.time ? Number.secondsToString(dashboard.time) : emDash;
         this._setItemEnabled(timeItem, dashboard.time > 0);
 
         var countItem = this._items.resourcesCount;
@@ -80,7 +91,7 @@ WebInspector.DefaultDashboardView = class DefaultDashboardView extends WebInspec
         this._setItemEnabled(countItem, dashboard.resourcesCount > 0);
 
         var sizeItem = this._items.resourcesSize;
-        sizeItem.text = dashboard.resourcesSize ? Number.bytesToString(dashboard.resourcesSize, false) : "\u2014";
+        sizeItem.text = dashboard.resourcesSize ? Number.bytesToString(dashboard.resourcesSize, false) : emDash;
         this._setItemEnabled(sizeItem, dashboard.resourcesSize > 0);
     }
 
@@ -104,15 +115,16 @@ WebInspector.DefaultDashboardView = class DefaultDashboardView extends WebInspec
         Object.defineProperty(item, "text", {
             set: function(newText)
             {
+                newText = newText.toString();
                 if (newText === item.outlet.textContent)
                     return;
                 item.outlet.textContent = newText;
             }
         });
 
-        item.container.addEventListener("click", function(event) {
+        item.container.addEventListener("click", (event) => {
             this._itemWasClicked(name);
-        }.bind(this));
+        });
     }
 
     _itemWasClicked(name)

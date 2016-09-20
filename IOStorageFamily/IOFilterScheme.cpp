@@ -142,7 +142,7 @@ IOReturn IOFilterScheme::synchronize(IOService *                 client,
     // Flush the cached data in the storage object, if any.
     //
 
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
     if ( _respondsTo_synchronizeCache )
     {
         if ( options == _kIOStorageSynchronizeOption_super__synchronizeCache )
@@ -154,7 +154,7 @@ IOReturn IOFilterScheme::synchronize(IOService *                 client,
             return IOStorage::synchronize( client, byteStart, byteCount, options );
         }
     }
-#endif /* __x86_64__ */
+#endif /* TARGET_OS_OSX && defined(__x86_64__) */
 
     return getProvider( )->synchronize( this, byteStart, byteCount, options );
 }
@@ -169,6 +169,17 @@ IOReturn IOFilterScheme::unmap(IOService *           client,
     //
 
     return getProvider( )->unmap( this, extents, extentsCount, options );
+}
+
+IOReturn
+IOFilterScheme::getProvisionStatus(IOService *                          client,
+                                   UInt64                               byteStart,
+                                   UInt64                               byteCount,
+                                   UInt32 *                             extentsCount,
+                                   IOStorageProvisionExtent *           extents,
+                                   IOStorageGetProvisionStatusOptions   options)
+{
+    return getProvider( )->getProvisionStatus( this, byteStart, byteCount, extentsCount, extents, options );
 }
 
 bool IOFilterScheme::lockPhysicalExtents(IOService * client)
@@ -249,9 +260,9 @@ OSMetaClassDefineReservedUnused(IOFilterScheme, 29);
 OSMetaClassDefineReservedUnused(IOFilterScheme, 30);
 OSMetaClassDefineReservedUnused(IOFilterScheme, 31);
 
-#ifdef __x86_64__
+#if TARGET_OS_OSX && defined(__x86_64__)
 extern "C" void _ZN14IOFilterScheme16synchronizeCacheEP9IOService( IOFilterScheme * scheme, IOService * client )
 {
     scheme->synchronize( client, 0, 0 );
 }
-#endif /* __x86_64__ */
+#endif /* TARGET_OS_OSX && defined(__x86_64__) */

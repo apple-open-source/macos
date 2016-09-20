@@ -41,51 +41,44 @@ void ArchiveResourceCollection::addAllResources(Archive* archive)
     if (!archive)
         return;
 
-    const Vector<RefPtr<ArchiveResource>>& subresources = archive->subresources();
-    for (Vector<RefPtr<ArchiveResource>>::const_iterator iterator = subresources.begin(); iterator != subresources.end(); ++iterator)
-        m_subresources.set((*iterator)->url(), iterator->get());
+    for (auto& subresource : archive->subresources())
+        m_subresources.set(subresource->url(), subresource.get());
 
-    const Vector<RefPtr<Archive>>& subframes = archive->subframeArchives();
-    for (Vector<RefPtr<Archive>>::const_iterator iterator = subframes.begin(); iterator != subframes.end(); ++iterator) {
-        RefPtr<Archive> archive = *iterator;
-        ASSERT(archive->mainResource());
+    for (auto& subframeArchive : archive->subframeArchives()) {
+        ASSERT(subframeArchive->mainResource());
 
-        const String& frameName = archive->mainResource()->frameName();
+        const String& frameName = subframeArchive->mainResource()->frameName();
         if (!frameName.isNull())
-            m_subframes.set(frameName, archive.get());
+            m_subframes.set(frameName, subframeArchive.get());
         else {
             // In the MHTML case, frames don't have a name so we use the URL instead.
-            m_subframes.set(archive->mainResource()->url().string(), archive.get());
+            m_subframes.set(subframeArchive->mainResource()->url().string(), subframeArchive.get());
         }
     }
 }
 
 // FIXME: Adding a resource directly to a DocumentLoader/ArchiveResourceCollection seems like bad design, but is API some apps rely on.
 // Can we change the design in a manner that will let us deprecate that API without reducing functionality of those apps?
-void ArchiveResourceCollection::addResource(PassRefPtr<ArchiveResource> resource)
+void ArchiveResourceCollection::addResource(Ref<ArchiveResource>&& resource)
 {
-    ASSERT(resource);
-    if (!resource)
-        return;
-
-    const URL& url = resource->url(); // get before passing PassRefPtr (which sets it to 0)
-    m_subresources.set(url, resource);
+    const URL& url = resource->url();
+    m_subresources.set(url, WTFMove(resource));
 }
 
 ArchiveResource* ArchiveResourceCollection::archiveResourceForURL(const URL& url)
 {
     ArchiveResource* resource = m_subresources.get(url);
     if (!resource)
-        return 0;
+        return nullptr;
         
     return resource;
 }
 
 PassRefPtr<Archive> ArchiveResourceCollection::popSubframeArchive(const String& frameName, const URL& url)
 {
-    RefPtr<Archive> archive = m_subframes.take(frameName);
+    auto archive = m_subframes.take(frameName);
     if (archive)
-        return archive.release();
+        return WTFMove(archive);
 
     return m_subframes.take(url.string());
 }

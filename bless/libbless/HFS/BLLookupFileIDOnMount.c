@@ -33,6 +33,8 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
+#include <hfs/hfs_format.h>
 #include <sys/param.h>
 #include <sys/mount.h>
 #include <sys/attr.h>
@@ -53,19 +55,20 @@ struct cataloginforeturn {
   struct cataloginfo c;
 };
 
-static int lookupIDOnVolID(uint32_t volid, uint32_t fileID, char * out);
+static int lookupIDOnVolID(uint32_t volid, uint32_t fileID, char *out);
 
-int BLLookupFileIDOnMount(BLContextPtr context, const char * mount, uint32_t fileID, char * out) {
+int BLLookupFileIDOnMount(BLContextPtr context, const char *mount, uint32_t fileID, char *out) {
     struct attrlist alist;
     struct cataloginforeturn catinfo;
     int err;
 
     uint32_t volid;
     char relpath[MAXPATHLEN];
+	
+	out[0] = '\0';
 
-    if(fileID < 2) {
-        out[0] = '\0';
-        return 0;
+    if (fileID < kHFSRootFolderID) {
+		return ENOENT;
     }
 
     alist.bitmapcount = 5;
@@ -76,15 +79,15 @@ int BLLookupFileIDOnMount(BLContextPtr context, const char * mount, uint32_t fil
     alist.forkattr = 0;
     
 	err = getattrlist(mount, &alist, &catinfo, sizeof(catinfo), 0);
-    if(err) {
-        return 1;
+    if (err) {
+        return errno;
     }
 
     volid = (uint32_t)catinfo.c.volid.val[0];
 
     err = lookupIDOnVolID(volid, fileID, relpath);
-    if(err) {
-        return 2;
+    if (err) {
+        return err;
     }
 
     if(strcmp(mount, "/")) {
@@ -97,7 +100,7 @@ int BLLookupFileIDOnMount(BLContextPtr context, const char * mount, uint32_t fil
     return 0;
 }
 
-static int lookupIDOnVolID(uint32_t volid, uint32_t fileID, char * out) {
+static int lookupIDOnVolID(uint32_t volid, uint32_t fileID, char *out) {
 
     char *bp;
 
@@ -110,7 +113,7 @@ static int lookupIDOnVolID(uint32_t volid, uint32_t fileID, char * out) {
 
     out[0] = '\0';
 
-    if(fileID <= 2) {
+    if (fileID <= 2) {
         return 0;
     }
 
@@ -128,7 +131,7 @@ static int lookupIDOnVolID(uint32_t volid, uint32_t fileID, char * out) {
     bp = &(out[MAXPATHLEN-1]);
     *bp = '\0';
 
-    while(dirID != 2) {
+    while(dirID != kHFSRootFolderID) {
         char *nameptr;
         size_t namelen;
         sprintf(volpath, "/.vol/%u/%u", volid, dirID);
@@ -141,25 +144,31 @@ static int lookupIDOnVolID(uint32_t volid, uint32_t fileID, char * out) {
         
         err = getattrlist(volpath, &alist, &catinfo, sizeof(catinfo), 0);
         if (err) {
-            return 3;
+            return errno;
         }
 
         dirID = (uint32_t)catinfo.c.parentid.fid_objno;
         nameptr = (char *)(&catinfo.c.name) + catinfo.c.name.attr_dataoffset;
         namelen = strlen(nameptr); /* move bp by this many and copy */
+		
+		/* make sure we don't overwrite beginning of buffer */
+		if (bp - out < namelen) {
+			return ENAMETOOLONG;
+		}
+		
         bp -= namelen;
         strncpy(bp, nameptr, namelen); /* ignore trailing \0 */
-        bp--;
-        *bp = '/';
-    }
+		
+		if (dirID != kHFSRootFolderID /* 2 */) {
+			/* make sure we don't overwrite beginning of buffer */
+			if (!(bp > out)) {
+				return ENAMETOOLONG;
+			}
+			bp--;
+			*bp = '/';
+		}
+	} // while dirID != 2
 
-    bp++; /* Don't want a '/' prefix, relative path! */
     memmove(out, bp, strlen(bp)+1);
     return 0;
 }
-
-
-
-
-
-

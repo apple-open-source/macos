@@ -33,6 +33,9 @@
 extern "C" {
 #endif
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 typedef CSSM_DL_HANDLE MDS_HANDLE;
 
 typedef CSSM_DL_DB_HANDLE MDS_DB_HANDLE;
@@ -145,6 +148,8 @@ MDS_Install (MDS_HANDLE MdsHandle)
 CSSM_RETURN CSSMAPI
 MDS_Uninstall (MDS_HANDLE MdsHandle)
 	DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+
+#pragma clang diagnostic pop
 
 #ifdef __cplusplus
 }

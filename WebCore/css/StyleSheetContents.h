@@ -38,9 +38,9 @@ class CachedCSSStyleSheet;
 class CachedResource;
 class Document;
 class Node;
+class SecurityOrigin;
 class StyleRuleBase;
 class StyleRuleImport;
-class SecurityOrigin;
 
 class StyleSheetContents : public RefCounted<StyleSheetContents> {
 public:
@@ -94,7 +94,7 @@ public:
     bool hasSyntacticallyValidCSSHeader() const { return m_hasSyntacticallyValidCSSHeader; }
 
     void parserAddNamespace(const AtomicString& prefix, const AtomicString& uri);
-    void parserAppendRule(PassRefPtr<StyleRuleBase>);
+    void parserAppendRule(Ref<StyleRuleBase>&&);
     void parserSetEncodingFromCharsetRule(const String& encoding); 
     void parserSetUsesRemUnits() { m_usesRemUnits = true; }
     void parserSetUsesStyleBasedEditability() { m_usesStyleBasedEditability = true; }
@@ -127,7 +127,7 @@ public:
 
     unsigned estimatedSizeInBytes() const;
     
-    bool wrapperInsertRule(PassRefPtr<StyleRuleBase>, unsigned index);
+    bool wrapperInsertRule(Ref<StyleRuleBase>&&, unsigned index);
     void wrapperDeleteRule(unsigned index);
 
     Ref<StyleSheetContents> copy() const { return adoptRef(*new StyleSheetContents(*this)); }

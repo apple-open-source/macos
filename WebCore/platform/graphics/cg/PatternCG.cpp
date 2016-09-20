@@ -54,14 +54,11 @@ static void patternCallback(void* info, CGContextRef context)
     CGContextDrawImage(context, rect, platformImage);
 }
 
-static void patternReleaseOnMainThreadCallback(void* info)
-{
-    CGImageRelease(static_cast<CGImageRef>(info));
-}
-
 static void patternReleaseCallback(void* info)
 {
-    callOnMainThread(patternReleaseOnMainThreadCallback, info);
+    callOnMainThread([image = static_cast<CGImageRef>(info)] {
+        CGImageRelease(image);
+    });
 }
 
 CGPatternRef Pattern::createPlatformPattern(const AffineTransform& userSpaceTransformation) const

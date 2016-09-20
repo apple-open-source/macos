@@ -28,7 +28,9 @@
 #include "config.h"
 #include "EmptyClients.h"
 
+#include "ApplicationCacheStorage.h"
 #include "ColorChooser.h"
+#include "DOMWrapperWorld.h"
 #include "DatabaseProvider.h"
 #include "DocumentLoader.h"
 #include "FileChooser.h"
@@ -36,66 +38,107 @@
 #include "Frame.h"
 #include "FrameNetworkingContext.h"
 #include "HTMLFormElement.h"
-#include "IDBFactoryBackendInterface.h"
+#include "InProcessIDBServer.h"
+#include "Page.h"
 #include "PageConfiguration.h"
+#include "PaymentCoordinatorClient.h"
 #include "StorageArea.h"
 #include "StorageNamespace.h"
 #include "StorageNamespaceProvider.h"
+#include "ThreadableWebSocketChannel.h"
+#include "UserContentProvider.h"
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
+#if ENABLE(APPLE_PAY)
+class EmptyPaymentCoordinatorClient final : public PaymentCoordinatorClient {
+    bool supportsVersion(unsigned) override { return false; }
+    bool canMakePayments() override { return false; }
+    void canMakePaymentsWithActiveCard(const String&, const String&, std::function<void (bool)> completionHandler) override { callOnMainThread([completionHandler] { completionHandler(false); }); }
+    bool showPaymentUI(const URL&, const Vector<URL>&, const PaymentRequest&) override { return false; }
+    void completeMerchantValidation(const PaymentMerchantSession&) override { }
+
+    void completeShippingMethodSelection(PaymentAuthorizationStatus, Optional<PaymentRequest::TotalAndLineItems>) override { }
+    void completeShippingContactSelection(PaymentAuthorizationStatus, const Vector<PaymentRequest::ShippingMethod>&, Optional<PaymentRequest::TotalAndLineItems>) override { }
+    void completePaymentMethodSelection(Optional<WebCore::PaymentRequest::TotalAndLineItems>) override { }
+    void completePaymentSession(PaymentAuthorizationStatus) override { }
+    void abortPaymentSession() override { }
+    void paymentCoordinatorDestroyed() override { }
+};
+#endif
+
 class EmptyDatabaseProvider final : public DatabaseProvider {
 #if ENABLE(INDEXED_DATABASE)
-    virtual RefPtr<IDBFactoryBackendInterface> createIDBFactoryBackend() { return nullptr; }
+    virtual IDBClient::IDBConnectionToServer& idbConnectionToServerForSession(const SessionID&)
+    {
+        static NeverDestroyed<Ref<InProcessIDBServer>> sharedConnection(InProcessIDBServer::create());
+        return sharedConnection.get()->connectionToServer();
+    }
 #endif
 };
 
 class EmptyStorageNamespaceProvider final : public StorageNamespaceProvider {
     struct EmptyStorageArea : public StorageArea {
-        virtual unsigned length() override { return 0; }
-        virtual String key(unsigned) override { return String(); }
-        virtual String item(const String&) override { return String(); }
-        virtual void setItem(Frame*, const String&, const String&, bool&) override { }
-        virtual void removeItem(Frame*, const String&) override { }
-        virtual void clear(Frame*) override { }
-        virtual bool contains(const String&) override { return false; }
-        virtual bool canAccessStorage(Frame*) override { return false; }
-        virtual StorageType storageType() const override { return LocalStorage; }
-        virtual size_t memoryBytesUsedByCache() override { return 0; }
+        unsigned length() override { return 0; }
+        String key(unsigned) override { return String(); }
+        String item(const String&) override { return String(); }
+        void setItem(Frame*, const String&, const String&, bool&) override { }
+        void removeItem(Frame*, const String&) override { }
+        void clear(Frame*) override { }
+        bool contains(const String&) override { return false; }
+        bool canAccessStorage(Frame*) override { return false; }
+        StorageType storageType() const override { return LocalStorage; }
+        size_t memoryBytesUsedByCache() override { return 0; }
         SecurityOrigin& securityOrigin() override { return SecurityOrigin::createUnique(); }
     };
 
     struct EmptyStorageNamespace final : public StorageNamespace {
-        virtual PassRefPtr<StorageArea> storageArea(PassRefPtr<SecurityOrigin>) override { return adoptRef(new EmptyStorageArea); }
-        virtual PassRefPtr<StorageNamespace> copy(Page*) override { return adoptRef(new EmptyStorageNamespace); }
+        RefPtr<StorageArea> storageArea(RefPtr<SecurityOrigin>&&) override { return adoptRef(new EmptyStorageArea); }
+        RefPtr<StorageNamespace> copy(Page*) override { return adoptRef(new EmptyStorageNamespace); }
     };
 
-    virtual RefPtr<StorageNamespace> createSessionStorageNamespace(Page&, unsigned) override
+    RefPtr<StorageNamespace> createSessionStorageNamespace(Page&, unsigned) override
     {
         return adoptRef(new EmptyStorageNamespace);
     }
 
-    virtual RefPtr<StorageNamespace> createLocalStorageNamespace(unsigned) override
+    RefPtr<StorageNamespace> createLocalStorageNamespace(unsigned) override
     {
         return adoptRef(new EmptyStorageNamespace);
     }
 
-    virtual RefPtr<StorageNamespace> createTransientLocalStorageNamespace(SecurityOrigin&, unsigned) override
+    RefPtr<StorageNamespace> createTransientLocalStorageNamespace(SecurityOrigin&, unsigned) override
     {
         return adoptRef(new EmptyStorageNamespace);
     }
 };
 
-class EmptyVisitedLinkStore : public VisitedLinkStore {
-    virtual bool isLinkVisited(Page&, LinkHash, const URL&, const AtomicString&) override { return false; }
-    virtual void addVisitedLink(Page&, LinkHash) override { }
+class EmptyUserContentProvider final : public UserContentProvider {
+    void forEachUserScript(const std::function<void(DOMWrapperWorld&, const UserScript&)>&) const override { }
+    void forEachUserStyleSheet(const std::function<void(const UserStyleSheet&)>&) const override { }
+#if ENABLE(USER_MESSAGE_HANDLERS)
+    void forEachUserMessageHandler(const std::function<void(const UserMessageHandlerDescriptor&)>&) const override { }
+#endif
+#if ENABLE(CONTENT_EXTENSIONS)
+    ContentExtensions::ContentExtensionsBackend& userContentExtensionBackend() override { static NeverDestroyed<ContentExtensions::ContentExtensionsBackend> backend; return backend.get(); };
+#endif
+};
+
+class EmptyVisitedLinkStore final : public VisitedLinkStore {
+    bool isLinkVisited(Page&, LinkHash, const URL&, const AtomicString&) override { return false; }
+    void addVisitedLink(Page&, LinkHash) override { }
 };
 
 void fillWithEmptyClients(PageConfiguration& pageConfiguration)
 {
     static NeverDestroyed<EmptyChromeClient> dummyChromeClient;
     pageConfiguration.chromeClient = &dummyChromeClient.get();
+
+#if ENABLE(APPLE_PAY)
+    static NeverDestroyed<EmptyPaymentCoordinatorClient> dummyPaymentCoordinatorClient;
+    pageConfiguration.paymentCoordinatorClient = &dummyPaymentCoordinatorClient.get();
+#endif
 
 #if ENABLE(CONTEXT_MENUS)
     static NeverDestroyed<EmptyContextMenuClient> dummyContextMenuClient;
@@ -107,9 +150,6 @@ void fillWithEmptyClients(PageConfiguration& pageConfiguration)
     pageConfiguration.dragClient = &dummyDragClient.get();
 #endif
 
-    static NeverDestroyed<EmptyEditorClient> dummyEditorClient;
-    pageConfiguration.editorClient = &dummyEditorClient.get();
-
     static NeverDestroyed<EmptyInspectorClient> dummyInspectorClient;
     pageConfiguration.inspectorClient = &dummyInspectorClient.get();
 
@@ -119,39 +159,40 @@ void fillWithEmptyClients(PageConfiguration& pageConfiguration)
     static NeverDestroyed<EmptyProgressTrackerClient> dummyProgressTrackerClient;
     pageConfiguration.progressTrackerClient = &dummyProgressTrackerClient.get();
 
-    static NeverDestroyed<EmptyDiagnosticLoggingClient> dummyDiagnosticLoggingClient;
-    pageConfiguration.diagnosticLoggingClient = &dummyDiagnosticLoggingClient.get();
+    pageConfiguration.diagnosticLoggingClient = std::make_unique<EmptyDiagnosticLoggingClient>();
 
+    pageConfiguration.applicationCacheStorage = ApplicationCacheStorage::create(String(), String());
     pageConfiguration.databaseProvider = adoptRef(new EmptyDatabaseProvider);
     pageConfiguration.storageNamespaceProvider = adoptRef(new EmptyStorageNamespaceProvider);
+    pageConfiguration.userContentProvider = adoptRef(new EmptyUserContentProvider);
     pageConfiguration.visitedLinkStore = adoptRef(new EmptyVisitedLinkStore);
 }
 
 class EmptyPopupMenu : public PopupMenu {
 public:
-    virtual void show(const IntRect&, FrameView*, int) { }
-    virtual void hide() { }
-    virtual void updateFromElement() { }
-    virtual void disconnectClient() { }
+    void show(const IntRect&, FrameView*, int) override { }
+    void hide() override { }
+    void updateFromElement() override { }
+    void disconnectClient() override { }
 };
 
 class EmptySearchPopupMenu : public SearchPopupMenu {
 public:
-    virtual PopupMenu* popupMenu() { return m_popup.get(); }
-    virtual void saveRecentSearches(const AtomicString&, const Vector<RecentSearch>&) { }
-    virtual void loadRecentSearches(const AtomicString&, Vector<RecentSearch>&) { }
-    virtual bool enabled() { return false; }
+    PopupMenu* popupMenu() override { return m_popup.get(); }
+    void saveRecentSearches(const AtomicString&, const Vector<RecentSearch>&) override { }
+    void loadRecentSearches(const AtomicString&, Vector<RecentSearch>&) override { }
+    bool enabled() override { return false; }
 
 private:
     RefPtr<EmptyPopupMenu> m_popup;
 };
 
-PassRefPtr<PopupMenu> EmptyChromeClient::createPopupMenu(PopupMenuClient*) const
+RefPtr<PopupMenu> EmptyChromeClient::createPopupMenu(PopupMenuClient*) const
 {
     return adoptRef(new EmptyPopupMenu());
 }
 
-PassRefPtr<SearchPopupMenu> EmptyChromeClient::createSearchPopupMenu(PopupMenuClient*) const
+RefPtr<SearchPopupMenu> EmptyChromeClient::createSearchPopupMenu(PopupMenuClient*) const
 {
     return adoptRef(new EmptySearchPopupMenu());
 }
@@ -183,19 +224,19 @@ void EmptyFrameLoaderClient::dispatchWillSubmitForm(PassRefPtr<FormState>, Frame
 {
 }
 
-PassRefPtr<DocumentLoader> EmptyFrameLoaderClient::createDocumentLoader(const ResourceRequest& request, const SubstituteData& substituteData)
+Ref<DocumentLoader> EmptyFrameLoaderClient::createDocumentLoader(const ResourceRequest& request, const SubstituteData& substituteData)
 {
     return DocumentLoader::create(request, substituteData);
 }
 
-PassRefPtr<Frame> EmptyFrameLoaderClient::createFrame(const URL&, const String&, HTMLFrameOwnerElement*, const String&, bool, int, int)
+RefPtr<Frame> EmptyFrameLoaderClient::createFrame(const URL&, const String&, HTMLFrameOwnerElement*, const String&, bool, int, int)
 {
-    return 0;
+    return nullptr;
 }
 
-PassRefPtr<Widget> EmptyFrameLoaderClient::createPlugin(const IntSize&, HTMLPlugInElement*, const URL&, const Vector<String>&, const Vector<String>&, const String&, bool)
+RefPtr<Widget> EmptyFrameLoaderClient::createPlugin(const IntSize&, HTMLPlugInElement*, const URL&, const Vector<String>&, const Vector<String>&, const String&, bool)
 {
-    return 0;
+    return nullptr;
 }
 
 void EmptyFrameLoaderClient::recreatePlugin(Widget*)
@@ -204,7 +245,7 @@ void EmptyFrameLoaderClient::recreatePlugin(Widget*)
 
 PassRefPtr<Widget> EmptyFrameLoaderClient::createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const URL&, const Vector<String>&, const Vector<String>&)
 {
-    return 0;
+    return nullptr;
 }
 
 PassRefPtr<FrameNetworkingContext> EmptyFrameLoaderClient::createNetworkingContext()
@@ -212,7 +253,7 @@ PassRefPtr<FrameNetworkingContext> EmptyFrameLoaderClient::createNetworkingConte
     return PassRefPtr<FrameNetworkingContext>();
 }
 
-void EmptyTextCheckerClient::requestCheckingOfString(PassRefPtr<TextCheckingRequest>)
+void EmptyTextCheckerClient::requestCheckingOfString(PassRefPtr<TextCheckingRequest>, const VisibleSelection&)
 {
 }
 
@@ -223,14 +264,5 @@ void EmptyEditorClient::registerUndoStep(PassRefPtr<UndoStep>)
 void EmptyEditorClient::registerRedoStep(PassRefPtr<UndoStep>)
 {
 }
-
-#if ENABLE(CONTEXT_MENUS)
-#if USE(CROSS_PLATFORM_CONTEXT_MENUS)
-std::unique_ptr<ContextMenu> EmptyContextMenuClient::customizeMenu(std::unique_ptr<ContextMenu>)
-{
-    return nullptr;
-}
-#endif
-#endif
 
 }

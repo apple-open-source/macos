@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2008, 2010-2012, 2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008, 2010-2012, 2015, 2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -69,7 +69,7 @@ __SCDynamicStoreRemoveWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boole
 	CFNumberRef			sessionNum;
 	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 
-	SC_trace(_configd_trace, "%s : %5d : %s : %@\n",
+	SC_trace("%s : %5d : %s : %@",
 		 internal ? "*watch-" : "watch- ",
 		 storePrivate->server,
 		 isRegex  ? "pattern" : "key",

@@ -36,6 +36,8 @@
 #include <msgtracer_client.h>
 #include <msgtracer_keys.h>
 #include <CrashReporterSupport/CrashReporterSupportPrivate.h>
+#import "CoreCDP/CDPFollowUpController.h"
+#import "CoreCDP/CDPFollowUpContext.h"
 
 static const char     * const kLaunchLaterXPCName      = "com.apple.security.Keychain-Circle-Notification-TICK";
 static const NSString * const kKickedOutKey            = @"KickedOut";
@@ -62,9 +64,11 @@ static NSUserNotificationCenter *appropriateNotificationCenter()
 	AEDesc	aeDesc;
 	BOOL	createdAEDesc = createAEDescWithAEActionAndAccountID((__bridge NSString *) kMMServiceIDKeychainSync, eventName, account, &aeDesc);
 	if (createdAEDesc) {
-		LSLaunchURLSpec	lsSpec = {
+        NSArray *prefPaneURL = [NSArray arrayWithObject: [NSURL fileURLWithPath:@"/System/Library/PreferencePanes/iCloudPref.prefPane"]];
+		
+        LSLaunchURLSpec	lsSpec = {
 			.appURL			= NULL,
-			.itemURLs		= (__bridge CFArrayRef)([NSArray arrayWithObject: [NSURL fileURLWithPath:@"/System/Library/PreferencePanes/iCloudPref.prefPane"]]),
+			.itemURLs		= (__bridge CFArrayRef)prefPaneURL,
 			.passThruParams	= &aeDesc,
 			.launchFlags	= kLSLaunchDefaults | kLSLaunchAsync,
 			.asyncRefCon	= NULL,
@@ -313,7 +317,7 @@ bool isAppleInternal(void)
 				// Remove reminders
 				NSUserNotificationCenter *noteCenter = appropriateNotificationCenter();
 				for (NSUserNotification *note in noteCenter.deliveredNotifications) {
-					if (note.userInfo[kValidOnlyOutOfCircleKey] && note.userInfo[@"ApplicationReminder"]) {
+					if (note.userInfo[(NSString*) kValidOnlyOutOfCircleKey] && note.userInfo[@"ApplicationReminder"]) {
 						NSLog(@"{ChangeCallback} Removing notification %@", note);
 						[appropriateNotificationCenter() removeDeliveredNotification: note];
 					}
@@ -333,7 +337,7 @@ bool isAppleInternal(void)
 			NSLog(@"{ChangeCallback} me.circle.isInCircle");
             NSUserNotificationCenter *noteCenter = appropriateNotificationCenter();
             for (NSUserNotification *note in noteCenter.deliveredNotifications) {
-                if (note.userInfo[kValidOnlyOutOfCircleKey]) {
+                if (note.userInfo[(NSString*) kValidOnlyOutOfCircleKey]) {
                     NSLog(@"Removing existing notification (%@) now that we are in circle", note);
                     [appropriateNotificationCenter() removeDeliveredNotification: note];
                 }
@@ -455,7 +459,7 @@ bool isAppleInternal(void)
 {
 	NSUserNotificationCenter *noteCenter = appropriateNotificationCenter();
 	for (NSUserNotification *note in noteCenter.deliveredNotifications) {
-		if (note.userInfo[kKickedOutKey]) {
+		if (note.userInfo[(NSString*) kKickedOutKey]) {
 			if (note.isPresented) {
 				NSLog(@"Already posted&presented (removing): %@", note);
 				[appropriateNotificationCenter() removeDeliveredNotification: note];
@@ -540,8 +544,8 @@ bool isAppleInternal(void)
     note.userInfo = @{
 		@"ApplicationReminder"	: @1,
 		kValidOnlyOutOfCircleKey: @1,
-		@"Activate"				: (__bridge NSString *) kMMPropertyKeychainWADetailsAEAction,
-	};
+        @"Activate"				: (__bridge NSString *) kMMPropertyKeychainWADetailsAEAction,
+    };
 	
     NSLog(@"About to post #-/%lu (REMINDER): %@ (I=%@)", noteCenter.deliveredNotifications.count, note, [note.userInfo compactDescription]);
 	[appropriateNotificationCenter() deliverNotification:note];

@@ -39,6 +39,7 @@
 /* FIXME including SecCertificateInternalP.h here produces errors; investigate */
 extern "C" CFDataRef SecCertificateCopyIssuerSequenceP(SecCertificateRefP certificate);
 extern "C" CFDataRef SecCertificateCopySubjectSequenceP(SecCertificateRefP certificate);
+extern "C" CFDictionaryRef SecCertificateCopyAttributeDictionaryP(SecCertificateRefP certificate);
 
 extern "C" void appendPropertyP(CFMutableArrayRef properties, CFStringRef propertyType, CFStringRef label, CFTypeRef value);
 
@@ -417,6 +418,18 @@ CFDataRef CertificateValues::copySubjectSequence(CFErrorRef *error)
 		CFRelease(certificateP);
 	}
 	return result;
+}
+
+CFDictionaryRef CertificateValues::copyAttributeDictionary(CFErrorRef *error)
+{
+    CFDictionaryRef result = NULL;
+    SecCertificateRefP certificateP = getSecCertificateRefP(error);
+    if (certificateP)
+    {
+        result = SecCertificateCopyAttributeDictionaryP(certificateP);
+        CFRelease(certificateP);
+    }
+    return result;
 }
 
 bool CertificateValues::isValid(CFAbsoluteTime verifyTime, CFErrorRef *error)

@@ -1,7 +1,8 @@
 " Vim syntax file
-" Language:         reStructuredText documentation format
-" Maintainer:       Nikolai Weibull <now@bitwi.se>
-" Latest Revision:  2010-01-23
+" Language: reStructuredText documentation format
+" Maintainer: Marshall Ward <marshall.ward@gmail.com>
+" Previous Maintainer: Nikolai Weibull <now@bitwi.se>
+" Latest Revision: 2015-09-07
 
 if exists("b:current_syntax")
   finish
@@ -47,7 +48,7 @@ syn match   rstSimpleTableLines     contained display
 syn cluster rstDirectives           contains=rstFootnote,rstCitation,
       \ rstHyperlinkTarget,rstExDirective
 
-syn match   rstExplicitMarkup       '^\.\.\_s'
+syn match   rstExplicitMarkup       '^\s*\.\.\_s'
       \ nextgroup=@rstDirectives,rstComment,rstSubstitutionDefinition
 
 let s:ReferenceName = '[[:alnum:]]\+\%([_.-][[:alnum:]]\+\)*'
@@ -80,7 +81,7 @@ syn region rstHyperlinkTarget matchgroup=rstDirective
 execute 'syn region rstExDirective contained matchgroup=rstDirective' .
       \ ' start=+' . s:ReferenceName . '::\_s+' .
       \ ' skip=+^$+' .
-      \ ' end=+^\s\@!+ contains=@rstCruft'
+      \ ' end=+^\s\@!+ contains=@rstCruft,rstLiteralBlock'
 
 execute 'syn match rstSubstitutionDefinition contained' .
       \ ' /|' . s:ReferenceName . '|\_s\+/ nextgroup=@rstDirectives'
@@ -99,11 +100,11 @@ function! s:DefineInlineMarkup(name, start, middle, end)
         \ ""
 
   call s:DefineOneInlineMarkup(a:name, a:start, middle, a:end, "'", "'")
-  call s:DefineOneInlineMarkup(a:name, a:start, middle, a:end, '"', '"') 
-  call s:DefineOneInlineMarkup(a:name, a:start, middle, a:end, '(', ')') 
-  call s:DefineOneInlineMarkup(a:name, a:start, middle, a:end, '\[', '\]') 
-  call s:DefineOneInlineMarkup(a:name, a:start, middle, a:end, '{', '}') 
-  call s:DefineOneInlineMarkup(a:name, a:start, middle, a:end, '<', '>') 
+  call s:DefineOneInlineMarkup(a:name, a:start, middle, a:end, '"', '"')
+  call s:DefineOneInlineMarkup(a:name, a:start, middle, a:end, '(', ')')
+  call s:DefineOneInlineMarkup(a:name, a:start, middle, a:end, '\[', '\]')
+  call s:DefineOneInlineMarkup(a:name, a:start, middle, a:end, '{', '}')
+  call s:DefineOneInlineMarkup(a:name, a:start, middle, a:end, '<', '>')
 
   call s:DefineOneInlineMarkup(a:name, a:start, middle, a:end, '\%(^\|\s\|[/:]\)', '')
 
@@ -135,14 +136,42 @@ execute 'syn match rstHyperlinkReference' .
 syn match   rstStandaloneHyperlink  contains=@NoSpell
       \ "\<\%(\%(\%(https\=\|file\|ftp\|gopher\)://\|\%(mailto\|news\):\)[^[:space:]'\"<>]\+\|www[[:alnum:]_-]*\.[[:alnum:]_-]\+\.[^[:space:]'\"<>]\+\)[[:alnum:]/]"
 
-" TODO: Use better syncing.  I don’t know the specifics of syncing well enough,
-" though.
-syn sync minlines=50 linebreaks=1
+syn region rstCodeBlock contained matchgroup=rstDirective
+      \ start=+\%(sourcecode\|code\%(-block\)\=\)::\_s*\n\ze\z(\s\+\)+
+      \ skip=+^$+
+      \ end=+^\z1\@!+
+      \ contains=@NoSpell
+syn cluster rstDirectives add=rstCodeBlock
+
+if !exists('g:rst_syntax_code_list')
+    let g:rst_syntax_code_list = ['vim', 'java', 'cpp', 'lisp', 'php',
+                                \ 'python', 'perl', 'sh']
+endif
+
+for code in g:rst_syntax_code_list
+    unlet! b:current_syntax
+    " guard against setting 'isk' option which might cause problems (issue #108)
+    let prior_isk = &l:iskeyword
+    exe 'syn include @rst'.code.' syntax/'.code.'.vim'
+    exe 'syn region rstDirective'.code.' matchgroup=rstDirective fold '
+                \.'start=#\%(sourcecode\|code\%(-block\)\=\)::\s\+'.code.'\_s*\n\ze\z(\s\+\)# '
+                \.'skip=#^$# '
+                \.'end=#^\z1\@!# contains=@NoSpell,@rst'.code
+    exe 'syn cluster rstDirectives add=rstDirective'.code
+    " reset 'isk' setting, if it has been changed
+    if &l:iskeyword !=# prior_isk
+        let &l:iskeyword = prior_isk
+    endif
+    unlet! prior_isk
+endfor
+
+" TODO: Use better syncing.
+syn sync minlines=50 linebreaks=2
 
 hi def link rstTodo                         Todo
 hi def link rstComment                      Comment
-hi def link rstSections                     Type
-hi def link rstTransition                   Type
+hi def link rstSections                     Title
+hi def link rstTransition                   rstSections
 hi def link rstLiteralBlock                 String
 hi def link rstQuotedLiteralBlock           String
 hi def link rstDoctestBlock                 PreProc
@@ -168,6 +197,7 @@ hi def link rstFootnoteReference            Identifier
 hi def link rstCitationReference            Identifier
 hi def link rstHyperLinkReference           Identifier
 hi def link rstStandaloneHyperlink          Identifier
+hi def link rstCodeBlock                    String
 
 let b:current_syntax = "rst"
 

@@ -22,19 +22,17 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WaveShaperNode_h
-#define WaveShaperNode_h
+#pragma once
 
 #include "AudioBasicProcessorNode.h"
-#include "BiquadProcessor.h"
 #include "WaveShaperProcessor.h"
 #include <wtf/Forward.h>
 
 namespace WebCore {
-    
-class WaveShaperNode : public AudioBasicProcessorNode {
+
+class WaveShaperNode final : public AudioBasicProcessorNode {
 public:
-    static Ref<WaveShaperNode> create(AudioContext* context)
+    static Ref<WaveShaperNode> create(AudioContext& context)
     {
         return adoptRef(*new WaveShaperNode(context));
     }
@@ -43,17 +41,16 @@ public:
     void setCurve(Float32Array*);
     Float32Array* curve();
 
-    void setOversample(const String& , ExceptionCode&);
-    String oversample() const;
+    enum class OverSampleType { None, _2x, _4x };
+    void setOversample(OverSampleType);
+    OverSampleType oversample() const;
 
     double latency() const { return latencyTime(); }
 
 private:    
-    explicit WaveShaperNode(AudioContext*);    
+    explicit WaveShaperNode(AudioContext&);    
 
     WaveShaperProcessor* waveShaperProcessor() { return static_cast<WaveShaperProcessor*>(processor()); }
 };
 
 } // namespace WebCore
-
-#endif // WaveShaperNode_h

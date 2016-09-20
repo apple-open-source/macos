@@ -56,7 +56,7 @@ namespace WebKit {
 
 static PassRefPtr<ShareableBitmap> convertImageToBitmap(NSImage *image, const IntSize& size)
 {
-    RefPtr<ShareableBitmap> bitmap = ShareableBitmap::createShareable(size, ShareableBitmap::SupportsAlpha);
+    auto bitmap = ShareableBitmap::createShareable(size, ShareableBitmap::SupportsAlpha);
     if (!bitmap)
         return nullptr;
 
@@ -65,11 +65,14 @@ static PassRefPtr<ShareableBitmap> convertImageToBitmap(NSImage *image, const In
     RetainPtr<NSGraphicsContext> savedContext = [NSGraphicsContext currentContext];
 
     [NSGraphicsContext setCurrentContext:[NSGraphicsContext graphicsContextWithGraphicsPort:graphicsContext->platformContext() flipped:YES]];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     [image drawInRect:NSMakeRect(0, 0, bitmap->size().width(), bitmap->size().height()) fromRect:NSZeroRect operation:NSCompositeSourceOver fraction:1 respectFlipped:YES hints:nil];
+#pragma clang diagnostic pop
 
     [NSGraphicsContext setCurrentContext:savedContext.get()];
 
-    return bitmap.release();
+    return WTFMove(bitmap);
 }
 
 void WebDragClient::startDrag(RetainPtr<NSImage> image, const IntPoint& point, const IntPoint&, DataTransfer&, Frame& frame, bool linkDrag)
@@ -127,7 +130,7 @@ void WebDragClient::declareAndWriteDragImage(const String& pasteboardName, Eleme
             title = userVisibleString((NSURL *)url);
     }
 
-    RefPtr<LegacyWebArchive> archive = LegacyWebArchive::create(&element);
+    RefPtr<LegacyWebArchive> archive = LegacyWebArchive::create(element);
 
     NSURLResponse *response = image->response().nsURLResponse();
     

@@ -173,10 +173,13 @@ static OSStatus NSCarbonWindowHandleEvent(EventHandlerCallRef inEventHandlerCall
 
     // Figure out the window's style mask.
     styleMask = WKCarbonWindowMask();
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     if (windowAttributes & kWindowCloseBoxAttribute) styleMask |= NSClosableWindowMask;
     if (windowAttributes & kWindowResizableAttribute) styleMask |= NSResizableWindowMask;
     if (windowFeatures & kWindowCanCollapse) styleMask |= NSMiniaturizableWindowMask;
     if (windowFeatures & kWindowHasTitleBar) styleMask |= NSTitledWindowMask;
+#pragma clang diagnostic pop
 
     osStatus = GetWindowModality(_windowRef, &windowModality, NULL);
     if (osStatus != noErr) {
@@ -273,7 +276,6 @@ static OSStatus NSCarbonWindowHandleEvent(EventHandlerCallRef inEventHandlerCall
     JSC::initializeThreading();
     WTF::initializeMainThreadToProcessMainThread();
     RunLoop::initializeMainRunLoop();
-    WebCoreObjCFinalizeOnMainThread(self);
 }
 
 // Given a reference to a Carbon window that is to be encapsulated, and an indicator of whether or not this object should take responsibility for disposing of the Carbon window, initialize.
@@ -294,11 +296,6 @@ static OSStatus NSCarbonWindowHandleEvent(EventHandlerCallRef inEventHandlerCall
 
     // Do the standard Cocoa thing.
     [super dealloc];
-}
-
-- (void)finalize {
-    if (_eventHandler) RemoveEventHandler(_eventHandler);
-    [super finalize];
 }
 
 - (WindowRef)windowRef {
@@ -396,12 +393,18 @@ static OSStatus NSCarbonWindowHandleEvent(EventHandlerCallRef inEventHandlerCall
     // Ignore some unknown event that gets sent when NSTextViews in printing accessory views are focused.  M.P. Notice - 12/7/00
     BOOL ignoreEvent = NO;
     NSEventType eventType = [inEvent type];
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     if (eventType==NSSystemDefined) {
+#pragma clang diagnostic pop
         short eventSubtype = [inEvent subtype];
         if (eventSubtype==7) {
             ignoreEvent = YES;
         }
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     } else if (eventType == NSKeyDown) {
+#pragma clang diagnostic pop
         // Handle command-space as [NSApp sendEvent:] does.
         if ([NSInputContext processInputKeyBindings:inEvent]) {
             return;

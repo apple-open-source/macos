@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -33,13 +33,16 @@
 
 #include <pcap/pcap.h>
 
+#include <uuid/uuid.h>
+
 struct pcap_if_info {
 	int if_id;
+	int if_dump_id; /* may be different from if_id because of filtering */
 	char *if_name;
 	int if_linktype;
 	int if_snaplen;
 	struct bpf_program if_filter_program;
-	int if_block_added;
+	int if_block_dumped;
 };
 extern struct pcap_if_info * pcap_find_if_info_by_name(pcap_t *, const char *);
 extern struct pcap_if_info * pcap_find_if_info_by_id(pcap_t *, int);
@@ -51,13 +54,17 @@ int pcap_set_filter_info(pcap_t *, const char *, int, bpf_u_int32);
 
 struct pcap_proc_info {
 	uint32_t proc_index;
+	uint32_t proc_dump_index;  /* may be different from proc_index because of filtering */
 	uint32_t proc_pid;
 	char *proc_name;
-	int proc_block_added;
+	int proc_block_dumped;
+	uuid_t proc_uuid;
 };
-extern struct pcap_proc_info * pcap_find_proc_info(pcap_t *, uint32_t , const char *);
+extern struct pcap_proc_info * pcap_find_proc_info(pcap_t *, uint32_t, const char *);
+extern struct pcap_proc_info * pcap_find_proc_info_uuid(pcap_t *, uint32_t, const char *, uuid_t);
 extern struct pcap_proc_info * pcap_find_proc_info_by_index(pcap_t *, uint32_t);
-extern struct pcap_proc_info * pcap_add_proc_info(pcap_t *, uint32_t , const char *);
+extern struct pcap_proc_info * pcap_add_proc_info(pcap_t *, uint32_t, const char *);
+extern struct pcap_proc_info * pcap_add_proc_info_uuid(pcap_t *, uint32_t, const char *, uuid_t);
 extern void pcap_free_proc_info(pcap_t *, struct pcap_proc_info *);
 extern void pcap_clear_proc_infos(pcap_t *);
 
@@ -71,9 +78,17 @@ extern char * pcap_setup_pktap_interface(const char *, char *);
 extern void pcap_cleanup_pktap_interface(const char *);
 
 extern int pcap_ng_dump_pktap(pcap_t *, pcap_dumper_t *, const struct pcap_pkthdr *, const u_char *);
+extern int pcap_ng_dump_pktap_comment(pcap_t *, pcap_dumper_t *, const struct pcap_pkthdr *, const u_char *, const char *);
+
 struct kern_event_msg;
 extern int pcap_ng_dump_kern_event(pcap_t *, pcap_dumper_t *,
 				   struct kern_event_msg *, struct timeval *);
+
+extern struct pcap_if_info *pcap_ng_dump_if_info(pcap_t *, pcap_dumper_t *, pcapng_block_t,
+						 struct pcap_if_info *);
+
+extern struct pcap_proc_info *pcap_ng_dump_proc_info(pcap_t *, pcap_dumper_t *, pcapng_block_t,
+						 struct pcap_proc_info *);
 
 #endif /* PRIVATE */
 

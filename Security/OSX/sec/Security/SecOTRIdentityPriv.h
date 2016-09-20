@@ -74,7 +74,7 @@ enum SecOTRError {
     secOTRErrorOSError,
 };
 
-const SecAsn1AlgId *kOTRSignatureAlgIDPtr;
+extern const SecAsn1AlgId *kOTRSignatureAlgIDPtr;
 void EnsureOTRAlgIDInited(void);
     
 // Private functions for Public and Full IDs
@@ -90,6 +90,8 @@ bool SecOTRFIComparePublicHash(SecOTRFullIdentityRef fullID, const uint8_t hash[
 
 size_t SecOTRFISignatureSize(SecOTRFullIdentityRef privateID);
 
+bool SecOTRFICompareToPublicKey(SecOTRFullIdentityRef fullID, SecKeyRef publicKey);
+
 bool SecOTRPIVerifySignature(SecOTRPublicIdentityRef publicID,
                                 const uint8_t *dataToHash, size_t amountToHash,
                                 const uint8_t *signatureStart, size_t signatureSize, CFErrorRef *error);
@@ -103,6 +105,9 @@ void SecOTRPICopyHash(SecOTRPublicIdentityRef publicID, uint8_t hash[kMPIDHashSi
 void SecOTRPIAppendHash(SecOTRPublicIdentityRef publicID, CFMutableDataRef appendTo);
 
 bool SecOTRPICompareHash(SecOTRPublicIdentityRef publicID, const uint8_t hash[kMPIDHashSize]);
+
+bool SecOTRPICompareToPublicKey(SecOTRPublicIdentityRef publicID, SecKeyRef publicKey);
+
 
 // Utility streaming functions
 OSStatus insertSize(CFIndex size, uint8_t* here);

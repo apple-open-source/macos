@@ -24,6 +24,7 @@
 #include "IOHIDUserDevice.h"
 #include "IOHIDResourceUserClient.h"
 #include "IOHIDKeys.h"
+#include "IOHIDParameter.h"
 #include <IOKit/IOLib.h>
 
 #define super IOHIDDevice
@@ -70,6 +71,9 @@ bool IOHIDUserDevice::initWithProperties(OSDictionary * properties)
         
     _properties = properties;
     _properties->retain();
+
+    if (getProperty("HIDVirtualDevice") == NULL)
+        setProperty("HIDVirtualDevice", kOSBooleanTrue); 
 
     setProperty("HIDDefaultBehavior", kOSBooleanTrue);
     

@@ -59,6 +59,10 @@ SOFT_LINK_PRIVATE_FRAMEWORK(TCC)
 SOFT_LINK(TCC, TCCAccessPreflight, TCCAccessPreflightResult, (CFStringRef service, CFDictionaryRef options), (service, options))
 SOFT_LINK_CONSTANT(TCC, kTCCServicePhotos, CFStringRef)
 
+@interface DDDetectionController (StagingToRemove)
+- (NSArray *)actionsForURL:(NSURL *)url identifier:(NSString *)identifier selectedText:(NSString *)selectedText results:(NSArray *)results context:(NSDictionary *)context;
+@end
+
 using namespace WebKit;
 
 #if HAVE(APP_LINKS)
@@ -204,9 +208,13 @@ static LSAppLink *appLinkForURL(NSURL *url)
     [_interactionSheet updateSheetPosition];
 }
 
+- (BOOL)isShowingSheet
+{
+    return _interactionSheet != nil;
+}
+
 - (void)_createSheetWithElementActions:(NSArray *)actions showLinkTitle:(BOOL)showLinkTitle
 {
-    ASSERT(!_interactionSheet);
     auto delegate = _delegate.get();
     if (!delegate)
         return;
@@ -263,7 +271,6 @@ static LSAppLink *appLinkForURL(NSURL *url)
 
 - (void)showImageSheet
 {
-    ASSERT(!_interactionSheet);
     ASSERT(!_elementInfo);
 
     auto delegate = _delegate.get();
@@ -273,10 +280,12 @@ static LSAppLink *appLinkForURL(NSURL *url)
     const auto& positionInformation = [delegate positionInformationForActionSheetAssistant:self];
 
     NSURL *targetURL = [NSURL _web_URLWithWTFString:positionInformation.url];
-    auto elementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeImage URL:targetURL location:positionInformation.point title:positionInformation.title rect:positionInformation.bounds image:positionInformation.image.get()]);
+    auto elementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeImage URL:targetURL location:positionInformation.point title:positionInformation.title ID:positionInformation.idAttribute rect:positionInformation.bounds image:positionInformation.image.get()]);
+    if ([delegate respondsToSelector:@selector(actionSheetAssistant:showCustomSheetForElement:)] && [delegate actionSheetAssistant:self showCustomSheetForElement:elementInfo.get()])
+        return;
     auto defaultActions = [self defaultActionsForImageSheet:elementInfo.get()];
 
-    RetainPtr<NSArray> actions = [delegate actionSheetAssistant:self decideActionsForElement:elementInfo.get() defaultActions:WTF::move(defaultActions)];
+    RetainPtr<NSArray> actions = [delegate actionSheetAssistant:self decideActionsForElement:elementInfo.get() defaultActions:WTFMove(defaultActions)];
 
     if (![actions count])
         return;
@@ -285,7 +294,7 @@ static LSAppLink *appLinkForURL(NSURL *url)
     if (!_interactionSheet)
         return;
 
-    _elementInfo = WTF::move(elementInfo);
+    _elementInfo = WTFMove(elementInfo);
 
     if (![_interactionSheet presentSheet])
         [self cleanupSheet];
@@ -340,8 +349,10 @@ static LSAppLink *appLinkForURL(NSURL *url)
     if ([getSSReadingListClass() supportsURL:targetURL])
         [defaultActions addObject:[_WKElementAction _elementActionWithType:_WKElementActionTypeAddToReadingList assistant:self]];
 #endif
-    if (![[targetURL scheme] length] || [[targetURL scheme] caseInsensitiveCompare:@"javascript"] != NSOrderedSame)
+    if (![[targetURL scheme] length] || [[targetURL scheme] caseInsensitiveCompare:@"javascript"] != NSOrderedSame) {
         [defaultActions addObject:[_WKElementAction _elementActionWithType:_WKElementActionTypeCopy assistant:self]];
+        [defaultActions addObject:[_WKElementAction _elementActionWithType:_WKElementActionTypeShare assistant:self]];
+    }
 
     return defaultActions;
 }
@@ -373,7 +384,6 @@ static LSAppLink *appLinkForURL(NSURL *url)
 
 - (void)showLinkSheet
 {
-    ASSERT(!_interactionSheet);
     ASSERT(!_elementInfo);
 
     auto delegate = _delegate.get();
@@ -386,10 +396,13 @@ static LSAppLink *appLinkForURL(NSURL *url)
     if (!targetURL)
         return;
 
-    auto elementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeLink URL:targetURL location:positionInformation.point title:positionInformation.title rect:positionInformation.bounds image:positionInformation.image.get()]);
+    auto elementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeLink URL:targetURL location:positionInformation.point title:positionInformation.title ID:positionInformation.idAttribute rect:positionInformation.bounds image:positionInformation.image.get()]);
+    if ([delegate respondsToSelector:@selector(actionSheetAssistant:showCustomSheetForElement:)] && [delegate actionSheetAssistant:self showCustomSheetForElement:elementInfo.get()])
+        return;
+
     auto defaultActions = [self defaultActionsForLinkSheet:elementInfo.get()];
 
-    RetainPtr<NSArray> actions = [delegate actionSheetAssistant:self decideActionsForElement:elementInfo.get() defaultActions:WTF::move(defaultActions)];
+    RetainPtr<NSArray> actions = [delegate actionSheetAssistant:self decideActionsForElement:elementInfo.get() defaultActions:WTFMove(defaultActions)];
 
     if (![actions count])
         return;
@@ -398,7 +411,7 @@ static LSAppLink *appLinkForURL(NSURL *url)
     if (!_interactionSheet)
         return;
 
-    _elementInfo = WTF::move(elementInfo);
+    _elementInfo = WTFMove(elementInfo);
 
     if (![_interactionSheet presentSheet])
         [self cleanupSheet];
@@ -406,20 +419,42 @@ static LSAppLink *appLinkForURL(NSURL *url)
 
 - (void)showDataDetectorsSheet
 {
-    ASSERT(!_interactionSheet);
-
     auto delegate = _delegate.get();
     if (!delegate)
         return;
 
-    NSURL *targetURL = [NSURL URLWithString:[delegate positionInformationForActionSheetAssistant:self].url];
+    const WebKit::InteractionInformationAtPosition& positionInformation = [delegate positionInformationForActionSheetAssistant:self];
+    NSURL *targetURL = [NSURL _web_URLWithWTFString:positionInformation.url];
     if (!targetURL)
         return;
 
     if (![[getDDDetectionControllerClass() tapAndHoldSchemes] containsObject:[targetURL scheme]])
         return;
 
-    NSArray *dataDetectorsActions = [[getDDDetectionControllerClass() sharedController] actionsForAnchor:nil url:targetURL forFrame:nil];
+    DDDetectionController *controller = [getDDDetectionControllerClass() sharedController];
+    NSArray *dataDetectorsActions = nil;
+    if ([controller respondsToSelector:@selector(actionsForURL:identifier:selectedText:results:context:)]) {
+        NSDictionary *context = nil;
+        NSString *textAtSelection = nil;
+        RetainPtr<NSMutableDictionary> extendedContext;
+
+        if ([delegate respondsToSelector:@selector(dataDetectionContextForActionSheetAssistant:)])
+            context = [delegate dataDetectionContextForActionSheetAssistant:self];
+        if ([delegate respondsToSelector:@selector(selectedTextForActionSheetAssistant:)])
+            textAtSelection = [delegate selectedTextForActionSheetAssistant:self];
+        if (!positionInformation.textBefore.isEmpty() || !positionInformation.textAfter.isEmpty()) {
+            extendedContext = adoptNS([@{
+                getkDataDetectorsLeadingText() : positionInformation.textBefore,
+                getkDataDetectorsTrailingText() : positionInformation.textAfter,
+            } mutableCopy]);
+            
+            if (context)
+                [extendedContext addEntriesFromDictionary:context];
+            context = extendedContext.get();
+        }
+        dataDetectorsActions = [controller actionsForURL:targetURL identifier:positionInformation.dataDetectorIdentifier selectedText:textAtSelection results:positionInformation.dataDetectorResults.get() context:context];
+    } else
+        dataDetectorsActions = [controller actionsForAnchor:nil url:targetURL forFrame:nil];
     if ([dataDetectorsActions count] == 0)
         return;
 

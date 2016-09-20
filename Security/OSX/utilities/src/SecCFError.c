@@ -186,7 +186,7 @@ bool SecCFCreateErrorWithFormat(CFIndex errorCode, CFStringRef domain, CFErrorRe
 }
 
 bool SecCFCreateErrorWithFormatAndArguments(CFIndex errorCode, CFStringRef domain,
-                                            CFErrorRef previousError, CFErrorRef *newError,
+                                            CF_CONSUMED CFErrorRef previousError, CFErrorRef *newError,
                                             CFDictionaryRef formatoptions, CFStringRef format, va_list args)
 {
     if (newError && !(*newError)) {
@@ -202,6 +202,7 @@ bool SecCFCreateErrorWithFormatAndArguments(CFIndex errorCode, CFStringRef domai
         CFReleaseNull(formattedString);
         if (previousError)
             secdebug("error_thee_well", "encapsulated %@ with new error: %@", previousError, *newError);
+        CFReleaseNull(previousError);
     } else {
         if (previousError && newError && (previousError != *newError)) {
             secdebug("error_thee_well", "dropping %@", previousError);

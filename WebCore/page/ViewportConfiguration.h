@@ -33,6 +33,11 @@
 
 namespace WebCore {
 
+static const double forceAlwaysUserScalableMaximumScale = 5.0;
+static const double forceAlwaysUserScalableMinimumScale = 1.0;
+
+class TextStream;
+
 class ViewportConfiguration {
     WTF_MAKE_NONCOPYABLE(ViewportConfiguration); WTF_MAKE_FAST_ALLOCATED;
 public:
@@ -71,23 +76,24 @@ public:
     WEBCORE_EXPORT void setDefaultConfiguration(const Parameters&);
 
     const IntSize& contentsSize() const { return m_contentSize; }
-    WEBCORE_EXPORT void setContentsSize(const IntSize&);
+    WEBCORE_EXPORT bool setContentsSize(const IntSize&);
 
     const FloatSize& minimumLayoutSize() const { return m_minimumLayoutSize; }
-    WEBCORE_EXPORT void setMinimumLayoutSize(const FloatSize&);
+    WEBCORE_EXPORT bool setMinimumLayoutSize(const FloatSize&);
 
     const ViewportArguments& viewportArguments() const { return m_viewportArguments; }
-    WEBCORE_EXPORT void setViewportArguments(const ViewportArguments&);
+    WEBCORE_EXPORT bool setViewportArguments(const ViewportArguments&);
 
-    void setCanIgnoreScalingConstraints(bool canIgnoreScalingConstraints) { m_canIgnoreScalingConstraints = canIgnoreScalingConstraints; }
+    WEBCORE_EXPORT bool setCanIgnoreScalingConstraints(bool);
     void setForceAlwaysUserScalable(bool forceAlwaysUserScalable) { m_forceAlwaysUserScalable = forceAlwaysUserScalable; }
 
     WEBCORE_EXPORT IntSize layoutSize() const;
     WEBCORE_EXPORT double initialScale() const;
     WEBCORE_EXPORT double initialScaleIgnoringContentSize() const;
     WEBCORE_EXPORT double minimumScale() const;
-    double maximumScale() const { return m_configuration.maximumScale; }
+    double maximumScale() const { return m_forceAlwaysUserScalable ? forceAlwaysUserScalableMaximumScale : m_configuration.maximumScale; }
     WEBCORE_EXPORT bool allowsUserScaling() const;
+    WEBCORE_EXPORT bool allowsUserScalingIgnoringForceAlwaysScaling() const;
     bool allowsShrinkToFit() const;
 
     WEBCORE_EXPORT static Parameters webpageParameters();
@@ -98,7 +104,7 @@ public:
     
 #ifndef NDEBUG
     WTF::CString description() const;
-    void dump() const;
+    WEBCORE_EXPORT void dump() const;
 #endif
 
 private:
@@ -121,6 +127,8 @@ private:
     bool m_canIgnoreScalingConstraints;
     bool m_forceAlwaysUserScalable;
 };
+
+TextStream& operator<<(TextStream&, const ViewportConfiguration::Parameters&);
 
 } // namespace WebCore
 

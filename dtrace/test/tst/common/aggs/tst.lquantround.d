@@ -27,30 +27,30 @@
 #pragma ident	"@(#)tst.lquantround.d	1.1	06/08/28 SMI"
 
 #pragma D option quiet
-
+#pragma D option statusrate=50ms
 /*
  * This test verifies that the height of the ASCII quantization bars is
  * determined using rounding and not truncated integer arithmetic.
  */
-tick-10ms
+tick-1ms
 /i++ >= 27/
 {
 	exit(0);
 }
 
-tick-10ms
+tick-1ms
 /i > 8/
 {
 	@ = lquantize(2, 0, 4);
 }
 
-tick-10ms
+tick-1ms
 /i > 2 && i <= 8/
 {
 	@ = lquantize(1, 0, 4);
 }
 
-tick-10ms
+tick-1ms
 /i <= 2/
 {
 	@ = lquantize(0, 0, 4);

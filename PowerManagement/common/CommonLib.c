@@ -57,6 +57,7 @@
 #include "PMSettings.h"
 #include "PMAssertions.h"
 
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 enum
 {
@@ -292,6 +293,7 @@ extern Boolean _IOReadBytesFromFile(CFAllocatorRef alloc, const char *path, void
 
 static int ProcessHibernateSettings(CFDictionaryRef dict, bool standby, bool isDesktop, io_registry_entry_t rootDomain)
 {
+#if !TARGET_OS_EMBEDDED
     IOReturn    ret;
     CFTypeRef   obj;
     CFNumberRef modeNum;
@@ -525,6 +527,7 @@ static int ProcessHibernateSettings(CFDictionaryRef dict, bool standby, bool isD
     if (url)
         CFRelease(url);
     
+#endif
     return (0);
 }
 
@@ -825,11 +828,14 @@ __private_extern__ CFCalendarRef        _gregorian(void)
 }
 
 /***************************************************************************/
-__private_extern__  asl_object_t open_pm_asl_store(void)
+__private_extern__  asl_object_t open_pm_asl_store(char *store)
 {
     asl_object_t        response = NULL;
     size_t              endMessageID;
 
+    if (!store) {
+        return NULL;
+    }
     asl_object_t query = asl_new(ASL_TYPE_LIST);
     if (query != NULL)
     {
@@ -840,7 +846,7 @@ __private_extern__  asl_object_t open_pm_asl_store(void)
 			asl_append(query, cq);
 			asl_release(cq);
 
-			asl_object_t pmstore = asl_open_path(kPMASLStorePath, 0);
+			asl_object_t pmstore = asl_open_path(store, 0);
 			if (pmstore != NULL) {
 				response = asl_match(pmstore, query, &endMessageID, 0, 0, 0, ASL_MATCH_DIRECTION_FORWARD);
 			}

@@ -31,6 +31,7 @@
 #include "IntPoint.h"
 #include <string.h> //for memcpy
 #include <wtf/FastMalloc.h>
+#include <wtf/Optional.h>
 
 #if USE(CA)
 typedef struct CATransform3D CATransform3D;
@@ -56,6 +57,7 @@ class IntRect;
 class LayoutRect;
 class FloatRect;
 class FloatQuad;
+class TextStream;
 
 #if CPU(X86_64)
 #define TRANSFORMATION_MATRIX_USE_X86_64_SSE2
@@ -65,7 +67,7 @@ class TransformationMatrix {
     WTF_MAKE_FAST_ALLOCATED;
 public:
 
-#if CPU(APPLE_ARMV7S) || defined(TRANSFORMATION_MATRIX_USE_X86_64_SSE2)
+#if (PLATFORM(IOS) && CPU(ARM_THUMB2)) || defined(TRANSFORMATION_MATRIX_USE_X86_64_SSE2)
 #if COMPILER(MSVC)
     __declspec(align(16)) typedef double Matrix4[4][4];
 #else
@@ -250,11 +252,8 @@ public:
     // Returns a transformation that maps a rect to a rect.
     static TransformationMatrix rectToRect(const FloatRect&, const FloatRect&);
 
-    bool isInvertible() const;
-
-    // Returns the identity matrix if it is not invertible.
-    // Use isInvertible() before calling this if you need to know.
-    WEBCORE_EXPORT TransformationMatrix inverse() const;
+    bool isInvertible() const; // If you call this this, you're probably doing it wrong.
+    WEBCORE_EXPORT Optional<TransformationMatrix> inverse() const;
 
     // Decompose the matrix into its component parts.
     struct Decomposed2Type {
@@ -412,6 +411,8 @@ private:
 
     Matrix4 m_matrix;
 };
+
+WEBCORE_EXPORT TextStream& operator<<(TextStream&, const TransformationMatrix&);
 
 } // namespace WebCore
 

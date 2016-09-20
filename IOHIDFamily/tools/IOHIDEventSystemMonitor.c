@@ -20,7 +20,9 @@
 #include <IOKit/hid/IOHIDServicePrivate.h>
 #include <IOKit/hid/IOHIDNotification.h>
 #include <IOKit/hid/IOHIDKeys.h>
-#include <IOKit/hid/AppleHIDUsageTables.h>
+//#include <IOKit/hid/AppleHIDUsageTables.h>
+#include "AppleHIDUsageTables.h"
+#include "IOHIDNXEventDescription.h"
 
 static const char kAdded[]      = "ADDED";
 static const char kRemoved[]    = "REMOVED";
@@ -30,6 +32,8 @@ static uint32_t                     __persist           = 0;
 static uint32_t                     __dispatchOnly      = 0;
 static uint64_t                     __dispatchEventMask = 0;
 static uint64_t                     __eventMask         = -1;
+static int64_t                      __nxTypeMask        = -1;
+static int64_t                      __nxUsageMask       = -1;
 static boolean_t                    __filter            = false;
 static boolean_t                    __virtualService    = false;
 static IOHIDEventSystemClientType   __clientType        = kIOHIDEventSystemClientTypeMonitor;
@@ -38,6 +42,7 @@ static struct {
     uint32_t usage;
     uint32_t builtin;
 } __matching[0xff]   = {};
+static CFDictionaryRef              __matchingDictionary                        = NULL;
 static uint32_t                     __matchingCount                             = 0;
 static uint32_t                     __matchingInterval                          = -1;
 static uint32_t                     __matchingBatchInterval                     = -1;
@@ -52,9 +57,78 @@ static CFTimeInterval               __timeout                                   
 static mach_timebase_info_data_t    __timeBaseinfo                              = {};
 static bool                         __monitorServices                           = false;
 static bool                         __monitorClients                            = false;
+static CFStringRef                  __propertyKey                               = NULL;
+static CFNumberRef                  __numericValue                              = NULL;
+static CFBooleanRef                 __boolValue                                 = NULL;
+
+boolean_t isNXEvent (IOHIDEventRef event);
+void printNXEventInfo (IOHIDEventRef event);
+void serviceRemovalCallback(void * target, void * refcon, IOHIDServiceRef service);
 
 
-IOHIDEventBlock eventBlock = ^(void * target, void * refcon, void * sender, IOHIDEventRef event)
+
+boolean_t isNXEvent (IOHIDEventRef event) {
+  CFIndex usage = IOHIDEventGetIntegerValue(event, kIOHIDEventFieldVendorDefinedUsage);
+  if (IOHIDEventGetType(event) == kIOHIDEventTypeVendorDefined &&
+      IOHIDEventGetIntegerValue(event, kIOHIDEventFieldVendorDefinedUsagePage) == kHIDPage_AppleVendor &&
+      (usage == kHIDUsage_AppleVendor_NXEvent ||
+       usage == kHIDUsage_AppleVendor_NXEvent_Translated ||
+       usage == kHIDUsage_AppleVendor_NXEvent_Diagnostic)) {
+        return true;
+      }
+    return false;
+}
+
+
+void printNXEventInfo (IOHIDEventRef event) {
+  CFIndex usage = IOHIDEventGetIntegerValue(event, kIOHIDEventFieldVendorDefinedUsage);
+  if (__nxUsageMask & (1 << usage))
+  {
+    
+    NXEvent *nxEvent = NULL;
+    CFIndex nxEventLength = 0;
+    IOHIDEventGetVendorDefinedData (event, (uint8_t**)&nxEvent, &nxEventLength);
+    if (nxEvent && (nxEventLength == sizeof(NXEvent) || nxEventLength == sizeof(NXEventExt)))
+    {
+      if (__nxTypeMask & (1 << nxEvent->type))
+      {
+         CFStringRef nxEventDescription;
+         if (nxEventLength == sizeof(NXEventExt)) {
+            nxEventDescription = NxEventExtCreateDescription (nxEvent);
+         } else {
+            nxEventDescription = NxEventCreateDescription (nxEvent);
+         }
+        printf("[NXEvent Dispatch Type: %s]\n%s",
+               (usage == kHIDUsage_AppleVendor_NXEvent) ? "Kernel" : (
+               (usage == kHIDUsage_AppleVendor_NXEvent_Translated) ? "Translated" : "Diagnostic"),
+               CFStringGetCStringPtr(nxEventDescription, kCFStringEncodingMacRoman)
+               );
+        CFRelease(nxEventDescription);
+      }
+    }
+    else
+    {
+      printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+      printf("ERROR!!! NXEventData %p, nxEventLength = 0x%lx (expected length 0x%lx)\n", nxEvent, nxEventLength, sizeof(NXEvent));
+      printf("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+    }
+  }
+}
+
+void printNXEvents (IOHIDEventRef event) {
+  if (isNXEvent (event)) {
+    printNXEventInfo (event);
+  }
+  CFArrayRef childrens = IOHIDEventGetChildren (event);
+  for (CFIndex index = 0 , count = childrens ? CFArrayGetCount(childrens) : 0 ; index < count ; index++) {
+    IOHIDEventRef child = (IOHIDEventRef)CFArrayGetValueAtIndex(childrens, index);
+    if (isNXEvent (child)) {
+      printNXEventInfo (child);
+    }
+  }
+}
+
+IOHIDEventBlock eventBlock = ^(void * target __unused, void * refcon, void * sender __unused, IOHIDEventRef event)
 {
     IOHIDEventType  type        = IOHIDEventGetType(event);
     uint64_t        timestamp   = IOHIDEventGetTimeStamp(event);
@@ -86,8 +160,11 @@ IOHIDEventBlock eventBlock = ^(void * target, void * refcon, void * sender, IOHI
     }
     
     __eventLastTimestamps[type] = timestamp;
-    
-    if ( (((uint64_t)1<<type) & __eventMask) != 0 ) {
+
+    if ((__eventMask & (1ull << 63)) && IOHIDEventConformsTo (event, kIOHIDEventTypeVendorDefined)) {
+      printNXEvents (event);
+    }
+    if  ((((uint64_t)1<<type) & __eventMask) != 0 ) {
     
         CFStringRef outputString = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%@"), event);
         
@@ -105,7 +182,7 @@ IOHIDEventBlock eventBlock = ^(void * target, void * refcon, void * sender, IOHI
     }
 };
 
-IOHIDEventFilterBlock eventFilterBlock = ^ boolean_t (void * target, void * refcon, void * sender, IOHIDEventRef event)
+IOHIDEventFilterBlock eventFilterBlock = ^ boolean_t (void * target, void * refcon __unused, void * sender, IOHIDEventRef event)
 {
     eventBlock(target, true, sender, event);
     
@@ -117,7 +194,7 @@ static boolean_t filterEventCallback(void * target, void * refcon, void * sender
     return eventFilterBlock(target, refcon, sender, event);
 }
 
-IOHIDServiceClientBlock serviceClientBlock =  ^(void * target, void * refcon, IOHIDServiceClientRef service)
+IOHIDServiceClientBlock serviceClientBlock =  ^(void * target __unused, void * refcon, IOHIDServiceClientRef service)
 {
     CFStringRef string;
     CFNumberRef number;
@@ -126,7 +203,7 @@ IOHIDServiceClientBlock serviceClientBlock =  ^(void * target, void * refcon, IO
         IOHIDServiceClientRegisterRemovalBlock(service, serviceClientBlock, NULL, (void*)kRemoved);
 
         if ( __clientType == kIOHIDEventSystemClientTypeRateControlled ) {
-            if ( __matchingInterval != -1 ) {
+            if ( __matchingInterval != (uint32_t)-1 ) {
                 number = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &__matchingInterval);
                 if ( number ) {
                     IOHIDServiceClientSetProperty(service, CFSTR(kIOHIDServiceReportIntervalKey), number);
@@ -135,12 +212,19 @@ IOHIDServiceClientBlock serviceClientBlock =  ^(void * target, void * refcon, IO
             }
         }
 
-        if ( __matchingBatchInterval != -1 ) {
+        if ( __matchingBatchInterval != (uint32_t)-1 ) {
             number = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &__matchingBatchInterval);
             if ( number ) {
                 IOHIDServiceClientSetProperty(service, CFSTR(kIOHIDServiceBatchIntervalKey), number);
                 CFRelease(number);
             }
+        }
+        
+        if ( __propertyKey != NULL ) {
+            if ( __boolValue )
+                IOHIDServiceClientSetProperty(service, __propertyKey, __boolValue);
+            if ( __numericValue )
+                IOHIDServiceClientSetProperty(service, __propertyKey, __numericValue);
         }
     }
     printf("SERVICE %s:\n", (char *)refcon);
@@ -153,7 +237,7 @@ IOHIDServiceClientBlock serviceClientBlock =  ^(void * target, void * refcon, IO
 };
 
 static CFMutableDictionaryRef __serviceNotifications = NULL;
-void serviceRemovalCallback(void * target, void * refcon, IOHIDServiceRef service)
+void serviceRemovalCallback(void * target __unused, void * refcon __unused, IOHIDServiceRef service)
 {
     CFStringRef string;
 
@@ -168,7 +252,7 @@ void serviceRemovalCallback(void * target, void * refcon, IOHIDServiceRef servic
     }
 }
 
-static void servicesAddedCallback(void * target, void * refcon, void * sender, CFArrayRef services)
+static void servicesAddedCallback(void * target __unused, void * refcon __unused, void * sender __unused, CFArrayRef services)
 {
     CFIndex index, count;
     
@@ -192,7 +276,7 @@ static void servicesAddedCallback(void * target, void * refcon, void * sender, C
     }
 }
 
-static void connectionAddedCallback(void * target, void * refcon, IOHIDEventSystemConnectionRef connection)
+static void connectionAddedCallback(void * target __unused, void * refcon __unused, IOHIDEventSystemConnectionRef connection)
 {
     CFStringRef string;
 
@@ -205,7 +289,7 @@ static void connectionAddedCallback(void * target, void * refcon, IOHIDEventSyst
     }
 }
 
-static void connectionRemovedCallback(void * target, void * refcon, IOHIDEventSystemConnectionRef connection)
+static void connectionRemovedCallback(void * target __unused, void * refcon __unused, IOHIDEventSystemConnectionRef connection)
 {
     CFStringRef string;
     
@@ -261,18 +345,18 @@ static void * dispatchClientThread(void * context)
     return NULL;
 }
 
-static boolean_t VirtualOpen(void * target, void * refcon, IOOptionBits options)
+static boolean_t VirtualOpen(void * target __unused, void * refcon __unused, IOOptionBits options __unused)
 {
     printf("%s\n", __PRETTY_FUNCTION__);
     return true;
 }
 
-static void VirtualClose(void * target, void * refcon, IOOptionBits options)
+static void VirtualClose(void * target __unused, void * refcon __unused, IOOptionBits options __unused)
 {
     printf("%s\n", __PRETTY_FUNCTION__);
 }
 
-static CFTypeRef VirtualCopyProperty(void * target, void * refcon, CFStringRef key)
+static CFTypeRef VirtualCopyProperty(void * target __unused, void * refcon __unused, CFStringRef key)
 {
     printf("%s\n", __PRETTY_FUNCTION__);
     
@@ -285,34 +369,34 @@ static CFTypeRef VirtualCopyProperty(void * target, void * refcon, CFStringRef k
     return NULL;
 }
 
-static boolean_t VirtualSetProperty(void * target, void * refcon, CFStringRef key, CFTypeRef value)
+static boolean_t VirtualSetProperty(void * target __unused, void * refcon __unused, CFStringRef key __unused, CFTypeRef value __unused)
 {
     printf("%s\n", __PRETTY_FUNCTION__);
     return false;
 }
 
-static void VirtualSetEventCallback(void * target, void * refcon, IOHIDServiceEventCallback callback, void *callbackTarget, void *callbackRefcon)
+static void VirtualSetEventCallback(void * target __unused, void * refcon __unused, IOHIDServiceEventCallback callback __unused, void *callbackTarget __unused, void *callbackRefcon __unused)
 {
     printf("%s\n", __PRETTY_FUNCTION__);
 }
 
-static void VirtualScheduleWithDispatchQueue(void * target, void * refcon, dispatch_queue_t queue)
+static void VirtualScheduleWithDispatchQueue(void * target __unused, void * refcon __unused, dispatch_queue_t queue __unused)
 {
     printf("%s\n", __PRETTY_FUNCTION__);
 }
 
-static void VirtualUnscheduleFromDispatchQueue(void * target, void * refcon, dispatch_queue_t queue)
+static void VirtualUnscheduleFromDispatchQueue(void * target __unused, void * refcon __unused, dispatch_queue_t queue __unused)
 {
     printf("%s\n", __PRETTY_FUNCTION__);
 }
 
-static IOHIDEventRef VirtualCopyEvent(void * target, void * refcon, IOHIDEventType type, IOHIDEventRef matching, IOOptionBits options)
+static IOHIDEventRef VirtualCopyEvent(void * target __unused, void * refcon __unused, IOHIDEventType type __unused, IOHIDEventRef matching __unused, IOOptionBits options __unused)
 {
     printf("%s\n", __PRETTY_FUNCTION__);
     return NULL;
 }
 
-static IOReturn VirtualSetOutputEvent(void * target, void * refcon, IOHIDEventRef event)
+static IOReturn VirtualSetOutputEvent(void * target __unused, void * refcon __unused, IOHIDEventRef event __unused)
 {
     printf("%s\n", __PRETTY_FUNCTION__);
     return kIOReturnUnsupported;
@@ -456,10 +540,10 @@ static void printDictionaryValue(CFStringRef key, CFDictionaryRef dictionary, CF
     
     for (index=0; index<count; index++) {
         CFTypeRef   value;
-        CFStringRef key;
+        CFStringRef lkey;
         
-        key = keys[index];
-        if ( !keys )
+        lkey = keys[index];
+        if ( !lkey )
             continue;
 
         value = values[index];
@@ -467,11 +551,11 @@ static void printDictionaryValue(CFStringRef key, CFDictionaryRef dictionary, CF
             continue;
 
         if ( CFGetTypeID(value) == CFStringGetTypeID() )
-            printStringValue(key, (CFStringRef)value, indentationLevel+1, true);
+            printStringValue(lkey, (CFStringRef)value, indentationLevel+1, true);
         else if ( CFGetTypeID(value) == CFNumberGetTypeID() )
-            printNumberValue(key, (CFNumberRef)value, indentationLevel+1, true);
+            printNumberValue(lkey, (CFNumberRef)value, indentationLevel+1, true);
         else if ( CFGetTypeID(value) == CFBooleanGetTypeID() )
-            printBooleanValue(key, (CFBooleanRef)value, indentationLevel+1, true);
+            printBooleanValue(lkey, (CFBooleanRef)value, indentationLevel+1, true);
     }
 }
 
@@ -487,7 +571,7 @@ static void listServices(CFArrayRef services, CFIndex indentationLevel)
         if ( !serviceRecord )
             continue;        
         
-        for ( CFIndex keyIndex=0; keyIndex<(sizeof(sServiceKeys)/sizeof(CFStringRef)); keyIndex++ ) {
+        for ( UInt32 keyIndex=0; keyIndex<(sizeof(sServiceKeys)/sizeof(CFStringRef)); keyIndex++ ) {
             CFStringRef key;
             CFTypeRef   value;
             
@@ -515,7 +599,7 @@ static void listAllServicesWithSystem(IOHIDEventSystemClientRef eventSystem)
     
     require(eventSystem, exit);
     
-    services = _IOHIDEventSystemClientCopyServiceRecords(eventSystem);
+    services = (CFArrayRef)IOHIDEventSystemClientCopyProperty(eventSystem, CFSTR(kIOHIDServiceRecordsKey));
     require(services, exit);
     
     listServices(services, 0);
@@ -541,49 +625,46 @@ exit:
 
 static void listAllClientsWithSystem(IOHIDEventSystemClientRef eventSystem)
 {
-    CFIndex     types;
+    CFIndex     types, index;
+    CFArrayRef  clients = NULL;
 
     require(eventSystem, exit);
     
-    for ( types=kIOHIDEventSystemClientTypeAdmin; types<=kIOHIDEventSystemClientTypeRateControlled; types++ ) {
-        CFArrayRef  clients = _IOHIDEventSystemClientCopyClientRecords(eventSystem, (IOHIDEventSystemClientType)types);
-        CFIndex     index;
+    clients = (CFArrayRef)IOHIDEventSystemClientCopyProperty(eventSystem, CFSTR(kIOHIDClientRecordsKey));
+    require(clients, exit);
+    
+    for ( index=0, printBorder(0); index<CFArrayGetCount(clients); index++, printBorder(0) ) {
+        CFDictionaryRef clientRecord    = (CFDictionaryRef)CFArrayGetValueAtIndex(clients, index);
+        CFArrayRef      services        = NULL;
+        CFNumberRef     number;
         
-        if ( !clients )
-            continue;
         
-        for ( index=0, printBorder(0); index<CFArrayGetCount(clients); index++, printBorder(0) ) {
-            CFDictionaryRef clientRecord    = (CFDictionaryRef)CFArrayGetValueAtIndex(clients, index);
-            CFArrayRef      services        = NULL;
-            CFNumberRef     number;
+        number = CFDictionaryGetValue(clientRecord, CFSTR(kIOHIDEventSystemClientTypeKey));
+        if ( number ) {
+            uint32_t value;
             
+            CFNumberGetValue(number, kCFNumberSInt32Type, &value);
             
-            number = CFDictionaryGetValue(clientRecord, CFSTR(kIOHIDEventSystemClientTypeKey));
-            if ( number ) {
-                uint32_t value;
-                
-                CFNumberGetValue(number, kCFNumberSInt32Type, &value);
-                
-                printf("%20.20s: %d (%s)\n", kIOHIDEventSystemClientTypeKey, value, IOHIDEventSystemClientGetTypeString((IOHIDEventSystemClientType)value));
-            }
-            printNumberValue(CFSTR(kIOHIDEventSystemClientPIDKey), CFDictionaryGetValue(clientRecord, CFSTR(kIOHIDEventSystemClientPIDKey)), 0, true);
-            printBooleanValue(CFSTR(kIOHIDEventSystemClientIsInactiveKey), CFDictionaryGetValue(clientRecord, CFSTR(kIOHIDEventSystemClientIsInactiveKey)), 0, true);
-            printBooleanValue(CFSTR(kIOHIDEventSystemClientProtectedServicesDisabledKey), CFDictionaryGetValue(clientRecord, CFSTR(kIOHIDEventSystemClientProtectedServicesDisabledKey)), 0, true);
-            printStringValue(CFSTR(kIOHIDEventSystemClientCallerKey), CFDictionaryGetValue(clientRecord, CFSTR(kIOHIDEventSystemClientCallerKey)), 0, true);
-            printStringValue(CFSTR(kIOHIDEventSystemClientExecutablePathKey), CFDictionaryGetValue(clientRecord, CFSTR(kIOHIDEventSystemClientExecutablePathKey)), 0, true);
-            printDictionaryValue(CFSTR(kIOHIDEventSystemClientAttributesKey), CFDictionaryGetValue(clientRecord, CFSTR(kIOHIDEventSystemClientAttributesKey)), 0);
-            
-            services = CFDictionaryGetValue(clientRecord, CFSTR(kIOHIDEventSystemClientServicesKey));
-            if ( services ) {
-                printf("%20.20s:\n", kIOHIDEventSystemClientServicesKey);
-                listServices(services, 1);
-            }
-            
+            printf("%20.20s: %d (%s)\n", kIOHIDEventSystemClientTypeKey, value, IOHIDEventSystemClientGetTypeString((IOHIDEventSystemClientType)value));
         }
+        printNumberValue(CFSTR(kIOHIDEventSystemClientPIDKey), CFDictionaryGetValue(clientRecord, CFSTR(kIOHIDEventSystemClientPIDKey)), 0, true);
+        printBooleanValue(CFSTR(kIOHIDEventSystemClientIsInactiveKey), CFDictionaryGetValue(clientRecord, CFSTR(kIOHIDEventSystemClientIsInactiveKey)), 0, true);
+        printBooleanValue(CFSTR(kIOHIDEventSystemClientProtectedServicesDisabledKey), CFDictionaryGetValue(clientRecord, CFSTR(kIOHIDEventSystemClientProtectedServicesDisabledKey)), 0, true);
+        printStringValue(CFSTR(kIOHIDEventSystemClientCallerKey), CFDictionaryGetValue(clientRecord, CFSTR(kIOHIDEventSystemClientCallerKey)), 0, true);
+        printStringValue(CFSTR(kIOHIDEventSystemClientExecutablePathKey), CFDictionaryGetValue(clientRecord, CFSTR(kIOHIDEventSystemClientExecutablePathKey)), 0, true);
+        printDictionaryValue(CFSTR(kIOHIDEventSystemClientAttributesKey), CFDictionaryGetValue(clientRecord, CFSTR(kIOHIDEventSystemClientAttributesKey)), 0);
         
-        CFRelease(clients);
+        services = CFDictionaryGetValue(clientRecord, CFSTR(kIOHIDEventSystemClientServicesKey));
+        if ( services ) {
+            printf("%20.20s:\n", kIOHIDEventSystemClientServicesKey);
+            listServices(services, 1);
+        }
     }
+    
 exit:
+    if (clients)
+        CFRelease(clients);
+    
     return;
 }
 
@@ -601,12 +682,12 @@ exit:
         CFRelease(eventSystem);
 }
 
-static void serviceRecordsChangedCallback(void * target, IOHIDEventSystemClientRef client, void * context)
+static void serviceRecordsChangedCallback(void * target __unused, IOHIDEventSystemClientRef client, void * context __unused)
 {
     listAllServicesWithSystem(client);
 }
 
-static void clientRecordsChangedCallback(void * target, IOHIDEventSystemClientRef client, void * context)
+static void clientRecordsChangedCallback(void * target __unused, IOHIDEventSystemClientRef client, void * context __unused)
 {
     listAllClientsWithSystem(client);
 }
@@ -667,10 +748,14 @@ static void runClient()
         else
             IOHIDEventSystemClientRegisterEventBlock(eventSystem, eventBlock, NULL, NULL);
         
-        if ( __matchingCount ) {
+        if ( __matchingCount || __matchingDictionary ) {
             multiple = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
             require(multiple, exit);
-            
+            if (__matchingDictionary) {
+              CFArrayAppendValue(multiple, __matchingDictionary);
+              CFRelease(__matchingDictionary);
+              __matchingDictionary = NULL;
+            }
             for (index=0; index<__matchingCount; index++) {
                 CFNumberRef number = NULL;
                 
@@ -681,14 +766,14 @@ static void runClient()
                         CFDictionaryAddValue(matching, CFSTR(kIOHIDServiceDeviceUsagePageKey), number);
                         CFRelease(number);
                     }
-                    if ( __matching[index].usage != -1 ) {
+                    if ( __matching[index].usage != (uint32_t)-1 ) {
                         number = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &__matching[index].usage);
                         if ( number ) {
                             CFDictionaryAddValue(matching, CFSTR(kIOHIDServiceDeviceUsageKey), number);
                             CFRelease(number);
                         }
                     }
-                    if ( __matching[index].builtin != -1 ) {
+                    if ( __matching[index].builtin != (uint32_t)-1 ) {
                         CFDictionaryAddValue(matching, CFSTR(kIOHIDBuiltInKey), kCFBooleanTrue);
                     }
                     
@@ -706,10 +791,10 @@ static void runClient()
         
         CFArrayRef services = IOHIDEventSystemClientCopyServices(eventSystem);
         if ( services ) {
-            CFIndex index, count;
+            CFIndex i, count;
             
-            for(index=0, count = CFArrayGetCount(services); index<count; index++)
-                serviceClientBlock(NULL, (void*)kAdded, (IOHIDServiceClientRef)CFArrayGetValueAtIndex(services, index));
+            for(i=0, count = CFArrayGetCount(services); i<count; i++)
+                serviceClientBlock(NULL, (void*)kAdded, (IOHIDServiceClientRef)CFArrayGetValueAtIndex(services, i));
             
             CFRelease(services);
             
@@ -793,7 +878,7 @@ static void printStatistics()
     printf("Average latency: %10llu us\n", __eventLatencyTotal ? __eventLatencyTotal/__eventCount : 0);
 }
 
-static void exitTimerCallback(CFRunLoopTimerRef timer, void *info)
+static void exitTimerCallback(CFRunLoopTimerRef timer __unused, void *info __unused)
 {
     printStatistics();
     exit(0);
@@ -820,6 +905,13 @@ static void printHelp()
     printf("\t-ne <event type number>\t\t: monitor all events except those of the passed type\n");
     printf("\t-d <event type number>\t\t: dispatch event of the passed type\n");
     printf("\t-dm <event type number>\t\t: dispatch events of the passed mask\n");
+    printf("\t-k <string>\t\t: Key to be used with -bp or -np options for setting properties\n");
+    printf("\t-bp <0/1>\t\t:Boolean to use with -k option\n");
+    printf("\t-np <number>\t\t: Numeric value, use with -k option\n");
+#if !TARGET_OS_EMBEDDED
+    printf("\t-nxtype <NX event type number> monitor all NX events with type\n");
+    printf("\t-nxusage <NX event usage number> monitor all NX events with usage\n");
+#endif
     printf("\t-p\t\t\t\t: persist event dispatch\n");
     printf("\n");
     printf("\t-a\t\t\t\t: Admin (Unfiltered event stream)\n");
@@ -838,6 +930,35 @@ static void printHelp()
     for (int type = kIOHIDEventTypeNULL; type<kIOHIDEventTypeCount; type++) {
         printf("\t\t%2d: %s\n", type, CFStringGetCStringPtr(IOHIDEventTypeGetName(type), kCFStringEncodingMacRoman));
     }
+#if !TARGET_OS_EMBEDDED
+    printf("\t\t%2d: %s\n", 63, "Legacy NXEvents");
+    printf("\n\tAvailable NXEvent Types:\n");
+    printf("\t\t%2d: %s\n", NX_NULLEVENT, "NX_NULLEVENT");
+    printf("\t\t%2d: %s\n", NX_LMOUSEDOWN, "NX_LMOUSEDOWN");
+    printf("\t\t%2d: %s\n", NX_LMOUSEUP, "NX_LMOUSEUP");
+    printf("\t\t%2d: %s\n", NX_RMOUSEDOWN, "NX_RMOUSEDOWN");
+    printf("\t\t%2d: %s\n", NX_RMOUSEUP, "NX_RMOUSEUP");
+    printf("\t\t%2d: %s\n", NX_MOUSEMOVED, "NX_MOUSEMOVED");
+    printf("\t\t%2d: %s\n", NX_LMOUSEDRAGGED, "NX_LMOUSEDRAGGED");
+    printf("\t\t%2d: %s\n", NX_RMOUSEDRAGGED, "NX_RMOUSEDRAGGED");
+    printf("\t\t%2d: %s\n", NX_MOUSEENTERED, "NX_MOUSEENTERED");
+    printf("\t\t%2d: %s\n", NX_MOUSEEXITED, "NX_MOUSEEXITED");
+    printf("\t\t%2d: %s\n", NX_OMOUSEDOWN, "NX_OMOUSEDOWN");
+    printf("\t\t%2d: %s\n", NX_OMOUSEUP, "NX_OMOUSEUP");
+    printf("\t\t%2d: %s\n", NX_OMOUSEDRAGGED, "NX_OMOUSEDRAGGED");
+    printf("\t\t%2d: %s\n", NX_KEYDOWN, "NX_KEYDOWN");
+    printf("\t\t%2d: %s\n", NX_KEYUP, "NX_KEYUP");
+    printf("\t\t%2d: %s\n", NX_FLAGSCHANGED, "NX_FLAGSCHANGED");
+    printf("\t\t%2d: %s\n", NX_SYSDEFINED, "NX_SYSDEFINED");
+    printf("\t\t%2d: %s\n", NX_SCROLLWHEELMOVED, "NX_SCROLLWHEELMOVED");
+    printf("\t\t%2d: %s\n", NX_ZOOM, "NX_ZOOM");
+    printf("\t\t%2d: %s\n", NX_TABLETPOINTER, "NX_TABLETPOINTER");
+    printf("\t\t%2d: %s\n", NX_TABLETPROXIMITY, "NX_TABLETPROXIMITY");
+    printf("\n\tAvailable NXEvent Usages:\n");
+    printf("\t\t%2d: %s\n", kHIDUsage_AppleVendor_NXEvent, "kHIDUsage_AppleVendor_NXEvent");
+    printf("\t\t%2d: %s\n", kHIDUsage_AppleVendor_NXEvent_Translated, "kHIDUsage_AppleVendor_NXEvent_Translated");
+    printf("\t\t%2d: %s\n", kHIDUsage_AppleVendor_NXEvent_Diagnostic, "kHIDUsage_AppleVendor_NXEvent_Diagnostic");
+#endif
 }
 
 typedef enum {
@@ -854,6 +975,12 @@ typedef enum {
     kEventRegistrationTypeInterval,
     kEventRegistrationTypeTimeout,
     kEventRegistrationTypeBatch,
+    kEventRegistrationTypePlist,
+    kEventRegistrationTypeAddNxEventUsage,
+    kEventRegistrationTypeAddNxEventType,
+    kEventRegistrationTypePropertyKey,
+    kEventRegistrationTypeBooleanProperty,
+    kEventRegistrationTypeNumberProperty,
 } EventRegistrationType;
 
 int main (int argc __unused, const char * argv[] __unused)
@@ -881,10 +1008,16 @@ int main (int argc __unused, const char * argv[] __unused)
             else if ( !strcmp("-r", arg ) ) {
                 __clientType = kIOHIDEventSystemClientTypeRateControlled;
             }
+            else if ( !strcmp("-plist", arg ) ) {
+                registrationType = kEventRegistrationTypePlist;
+            }
             else if ( !strcmp("-up", arg ) ) {
                 registrationType = kEventRegistrationTypeUsagePage;
             }
             else if ( !strcmp("-u", arg ) ) {
+                registrationType = kEventRegistrationTypeUsage;
+            }
+            else if ( !strcmp("-d", arg ) ) {
                 registrationType = kEventRegistrationTypeUsage;
             }
             else if ( !strcmp("-b", arg) ) {
@@ -946,6 +1079,35 @@ int main (int argc __unused, const char * argv[] __unused)
             else if ( !strcmp("-V", arg) ) {
                 printf("Version: %s\n", __version);
             }
+            else if ( !strcmp("-k", arg) ) {
+                registrationType = kEventRegistrationTypePropertyKey;
+            }
+            else if ( !strcmp("-np", arg) ) {
+                registrationType = kEventRegistrationTypeNumberProperty;
+            }
+            else if ( !strcmp("-bp", arg) ) {
+                registrationType = kEventRegistrationTypeBooleanProperty;
+            }
+#if !TARGET_OS_EMBEDDED
+            else if ( !strcmp("-nxtype", arg) ) {
+              if (__nxTypeMask == -1) {
+                __nxTypeMask = 0;
+              }
+              registrationType = kEventRegistrationTypeAddNxEventType;
+            }
+            else if ( !strcmp("-nxusage", arg) ) {
+              if (__nxUsageMask == -1) {
+                __nxUsageMask = 0;
+              }
+              registrationType = kEventRegistrationTypeAddNxEventUsage;
+            }
+            else if ( registrationType == kEventRegistrationTypeAddNxEventType ) {
+             __nxTypeMask |= ((uint64_t)1)<<(strtoull(arg, NULL, 10));
+            }
+            else if ( registrationType == kEventRegistrationTypeAddNxEventUsage ) {
+              __nxUsageMask |= ((uint64_t)1)<<(strtoull(arg, NULL, 10));
+            }
+#endif
             else if ( registrationType == kEventRegistrationTypeReplaceMask ) {
                 __eventMask = strtoull(arg, NULL, 16);
             }
@@ -954,6 +1116,28 @@ int main (int argc __unused, const char * argv[] __unused)
             }
             else if ( registrationType == kEventRegistrationTypeAdd ) {
                 __eventMask |= ((uint64_t)1)<<(strtoull(arg, NULL, 10));
+            }
+            else if ( registrationType == kEventRegistrationTypePlist ) {
+              CFStringRef path = CFStringCreateWithCString(kCFAllocatorDefault, arg, kCFStringEncodingMacRoman);
+              if (path) {
+                  CFURLRef url = CFURLCreateWithFileSystemPath (kCFAllocatorDefault, path, kCFURLPOSIXPathStyle, false);
+                  if (url) {
+                      CFReadStreamRef plistReader = CFReadStreamCreateWithFile(kCFAllocatorDefault, url);
+                      if (plistReader) {
+                          if (CFReadStreamOpen(plistReader)) {
+                              CFErrorRef error;
+                              __matchingDictionary = CFPropertyListCreateWithStream(kCFAllocatorDefault, plistReader, 0, kCFPropertyListImmutable, NULL, &error);
+                          }
+                          CFRelease(plistReader);
+                      }
+                      CFRelease(url);
+                  }
+                  CFRelease(path);
+              }
+              if (__matchingDictionary == NULL) {
+                    printf ("ERROR!!! Creating dictionary from plist file\n");
+                    return 0;
+              }
             }
             else if ( registrationType ==  kEventRegistrationTypeRemove ) {
                 __eventMask &= ~(((uint64_t)1)<<(strtoull(arg, NULL, 10)));
@@ -965,10 +1149,10 @@ int main (int argc __unused, const char * argv[] __unused)
                 __dispatchEventMask = strtoull(arg, NULL, 16);
             }
             else if ( registrationType == kEventRegistrationTypeUsagePage ) {
-                uint32_t index = __matchingCount++;
-                __matching[index].usagePage = (uint32_t)strtoul(arg, NULL, 10);
-                __matching[index].usage = -1;
-                __matching[index].builtin = -1;
+                uint32_t ix = __matchingCount++;
+                __matching[ix].usagePage = (uint32_t)strtoul(arg, NULL, 10);
+                __matching[ix].usage = -1;
+                __matching[ix].builtin = -1;
             }
             else if ( registrationType == kEventRegistrationTypeUsage && __matchingCount ) {
                 __matching[__matchingCount-1].usage = (uint32_t)strtoul(arg, NULL, 10);
@@ -984,6 +1168,17 @@ int main (int argc __unused, const char * argv[] __unused)
             }
             else if ( registrationType == kEventRegistrationTypeBatch ) {
                 __matchingBatchInterval = (uint32_t)strtoul(arg, NULL, 10);
+            }
+            else if ( registrationType == kEventRegistrationTypePropertyKey ) {
+                __propertyKey = CFStringCreateWithCString(kCFAllocatorDefault, arg, kCFStringEncodingUTF8);
+            }
+            else if ( registrationType == kEventRegistrationTypeNumberProperty ) {
+                uint32_t num = (uint32_t)strtoul(arg, NULL, 10);
+                __numericValue = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &num);
+            }
+            else if ( registrationType == kEventRegistrationTypeBooleanProperty ) {
+                uint32_t num = (uint32_t)strtoul(arg, NULL, 10);
+                __boolValue = (0 == num ? kCFBooleanFalse : kCFBooleanTrue);
             }
             else if ( !strcmp("-h", arg ) ) {
                 printHelp();

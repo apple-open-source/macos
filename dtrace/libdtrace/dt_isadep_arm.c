@@ -88,7 +88,7 @@ dt_pid_create_return_probe32(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 	 * This function best read with the ARM architecture reference handy.
 	 */
 
-	uint8_t *text;
+	uint8_t *text, *allocated_text;
 
 	/*
 	 * When all the pc relative data is at the end of a function, there are no problems. But
@@ -120,14 +120,14 @@ dt_pid_create_return_probe32(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 	 * We allocate a few extra bytes at the end so we don't have to check
 	 * for overrunning the buffer.
 	 */
-	if ((text = calloc(1, symp->st_size + 4)) == NULL) {
+	if ((text = allocated_text = calloc(1, symp->st_size + 4)) == NULL) {
 		dt_dprintf("mr sparkle: malloc() failed\n");
 		return (DT_PROC_ERR);
 	}
 
 	if ((constants = calloc(1, symp->st_size + 4)) == NULL) {
 		dt_dprintf("mr sparkle: malloc() failed\n");
-		free(text);
+		free(allocated_text);
 		return (DT_PROC_ERR);
 	}
 
@@ -142,7 +142,7 @@ dt_pid_create_return_probe32(struct ps_prochandle *P, dtrace_hdl_t *dtp,
 
 	if (Pread(P, text, symp->st_size, symp->st_value) != symp->st_size) {
 		dt_dprintf("mr sparkle: Pread() failed\n");
-		free(text);
+		free(allocated_text);
 		free(constants);
 		return (DT_PROC_ERR);
 	}
@@ -388,10 +388,7 @@ is_ret_thumb:
 		}
 	}
 
-	/* Reset the buffer base (see above comments) */
-	if ((ftp->ftps_arch_subinfo == 2) && (symp->st_value & 2))
-		text = text - 2;
-	free(text);
+	free(allocated_text);
 	free(constants);
 	if (ftp->ftps_noffs > 0) {
 		if (ioctl(dtp->dt_ftfd, FASTTRAPIOC_MAKEPROBE, ftp) != 0) {

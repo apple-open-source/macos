@@ -1,4 +1,1704 @@
-commit 67b190c1c8144c60110a13fc3c07de9e8b992654 (HEAD -> master, origin/master, origin/HEAD)
+commit a1197c49cee479f4187dfd05c900224b99127e17 (HEAD -> master, tag: ccid-1.4.24, origin/master, origin/HEAD)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun May 22 17:07:03 2016 +0200
+
+    Release 1.4.24
+
+ README       | 12 ++++++++++++
+ configure.ac |  2 +-
+ 2 files changed, 13 insertions(+), 1 deletion(-)
+
+commit b4c2cae5f311eef313777124937520c780d002fd
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 20 15:19:05 2016 +0200
+
+    IFDHGetCapabilities: fix SCARD_ATTR_VENDOR_IFD_SERIAL_NO size
+    
+    We use strlcpy() to copy the IFD (reader) serial number string. So we
+    must must take into account the terminating NUL byte.
+    
+    Without the patch the size was "correctly" reported on the first call
+    (without including the final NUL byte). So the application allocates a
+    buffer for this size and the next strlcpy() tuncates the string to add
+    the NUL byte.
+    
+    Thanks to Daniel Kucera for the bug report.
+
+ src/ifdhandler.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 5eaa22bbaac16ca3e20e49418c37291ac128c3ad
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu May 19 21:16:48 2016 +0200
+
+    Add Giesecke & Devrient GmbH StarSign CUT S
+
+ readers/GnD_StarSign_CUT_S.txt | 56 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt  |  1 +
+ 2 files changed, 57 insertions(+)
+
+commit b3eedaf7873e5438f5f2e8b163b2c0362099e318
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu May 19 20:56:13 2016 +0200
+
+    Add Generic USB Smart Card Reader
+    
+    This reader is the same as the "HID AVIATOR Generic" except that it
+    supports "Short and Extended APDU level exchange" instead of "Short APDU
+    level exchange".
+
+ readers/Generic_USB_Smart_Card_Reader.txt | 161 ++++++++++++++++++++++++++++++
+ readers/supported_readers.txt             |   9 +-
+ 2 files changed, 168 insertions(+), 2 deletions(-)
+
+commit e039760f0ab57a0e66e2f6dabebfdf6ba3134b14
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon May 9 10:05:45 2016 +0200
+
+    Fix support of HID Aviator generic
+    
+    This reader firmware is bogus:
+    - it declares pinpad support but as no keyboard
+    - it declares short APDU but uses chaining as for extended APDU
+    
+    Thanks to Martin Paljak for the bug report
+    https://github.com/LudovicRousseau/CCID/pull/16
+
+ src/ccid.c | 7 +++++++
+ src/ccid.h | 1 +
+ 2 files changed, 8 insertions(+)
+
+commit c18293616c834362555a61b3d84624ec24522bb3
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon May 9 20:10:13 2016 +0200
+
+    Add HID AVIATOR Generic
+
+ readers/HID_Aviator.txt       | 161 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |   5 +-
+ 2 files changed, 165 insertions(+), 1 deletion(-)
+
+commit b5673dfae8ab054557938abea864e5c34f61d2ed
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon May 9 09:53:35 2016 +0200
+
+    Update c.sh link
+    
+    The c.sh script is used call ./configure with "correct" parameter for
+    me (maintainer).
+    This file comes from PCSC and is a symbolic link.
+    
+    Thanks to Martin Paljak for the bug report
+    https://github.com/LudovicRousseau/CCID/pull/15
+
+ c.sh | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 5c9dbb25abb9fed9882b7c28b65fe55d4d7924fb
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat May 7 12:12:28 2016 +0200
+
+    SCM SCL011: use a 400 ms timeout instead of 100 ms
+    
+    The SCM SCL011 reader is a contactless reader that needs 350 ms to
+    answer to the PC_to_RDR_GetSlotStatus CCID command when no card is in
+    the field.
+    
+    We use the same patch as for the ElatecTWN4.
+    
+    Thanks to Chris Calvesbert for the bug report.
+
+ src/ccid.c | 3 +++
+ src/ccid.h | 1 +
+ 2 files changed, 4 insertions(+)
+
+commit 5bea205f085a6b5ddd263843f410abab728550b7
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed May 4 18:31:57 2016 +0200
+
+    ElatecTWN4: use a 400 ms timeout instead of 100 ms
+    
+    The ElatecTWN4 reader is a contactless reader that needs 280 ms to
+    answer to the PC_to_RDR_GetSlotStatus CCID command when no card is in
+    the field.
+
+ src/ccid.c | 12 ++++++++++++
+ src/ccid.h |  1 +
+ 2 files changed, 13 insertions(+)
+
+commit 1e3c6c14683e3b5a9bc27fed55ae32b7dc2ee157
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed May 4 18:20:13 2016 +0200
+
+    CreateChannel: allow to use a non default timeout
+    
+    By default the read timeout is set to 100 ms for the double call of
+    CmdGetSlotStatus() in CreateChannelByNameOrChannel() use to resync the
+    USB toggle bits.
+    This is a short delay so that a failing reader will not block for too
+    long. The defaut timeout value is 3 seconds so a total of 6 seconds
+    would be lost is the reader is not responding.
+    
+    Unfortunately some readers (in particular contactless readers) are very
+    long to anwser to the PC_to_RDR_GetSlotStatus CCID command. I guess it
+    is to be sure no contactless card is present in the field.
+    
+    It is now possible to change the 100 ms timeout to something else for a
+    specific reader by adding code in ccid_open_hack_pre() and
+    ccid_open_hack_post().
+
+ src/ifdhandler.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+commit 2c8ffab9962484653b6445a6c85a6c690a5948b3
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Apr 22 14:59:21 2016 +0200
+
+    ccid_usb.c: fix a race condition on multi reader
+    
+    When using multiple threads we shall use libusb function
+    libusb_handle_events_completed() instead of libusb_handle_events() as
+    documented in http://libusb.sourceforge.net/api-1.0/mtasync.html#Using
+    
+    Problems may occur when using more than one reader. In that case a card
+    movement notification may be missed and reported only after a 60 seconds
+    timeout.
+    
+    Thanks to Maksim Ivanov for the bug report
+    "CCID handling of multiple devices"
+    http://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20160418/000564.html
+
+ src/ccid_usb.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+commit d636d54fdd07b416f591f28d84c6f0e3f4bda4f9 (tag: ccid-1.4.23)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Apr 20 10:04:45 2016 +0200
+
+    Release 1.4.23
+
+ README       | 23 +++++++++++++++++++++++
+ configure.ac |  2 +-
+ 2 files changed, 24 insertions(+), 1 deletion(-)
+
+commit 358952bef37c3a71fce7adbae32388cefdea283f
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Apr 19 21:02:13 2016 +0200
+
+    Add IonIDe Smartcard Reader reader
+
+ readers/IonIDe_Smartcard_Reader.txt | 161 ++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt       |   3 +
+ 2 files changed, 164 insertions(+)
+
+commit 80b4db807ef6d8f52245285fb7e9d6fbe1e3e353
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Apr 19 20:59:26 2016 +0200
+
+    Add HID Global OMNIKEY 6121 Smart Card Reader reader
+
+ .../HID_Global_OMNIKEY_6121_Smart_Card_Reader.txt  | 161 +++++++++++++++++++++
+ readers/supported_readers.txt                      |   1 +
+ 2 files changed, 162 insertions(+)
+
+commit 0991e840b1243cdf9c7f375077e68ac6efa35af7
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Apr 19 20:58:02 2016 +0200
+
+    Add HID Global OMNIKEY 5022 Smart Card Reader reader
+
+ .../HID_Global_OMNIKEY_5022_Smart_Card_Reader.txt  | 163 +++++++++++++++++++++
+ readers/supported_readers.txt                      |   1 +
+ 2 files changed, 164 insertions(+)
+
+commit 7c943dd36500fdb2d10036c6a1976b51e51daee8
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Apr 19 20:55:35 2016 +0200
+
+    Add HID Global OMNIKEY 3x21 Smart Card Reader reader
+
+ .../HID_Global_OMNIKEY_3x21_Smart_Card_Reader.txt  | 161 +++++++++++++++++++++
+ readers/supported_readers.txt                      |   3 +-
+ 2 files changed, 163 insertions(+), 1 deletion(-)
+
+commit 3c21f452543983f3625a1965ce234074cbda6865
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Apr 19 20:30:06 2016 +0200
+
+    Fix a busy loop consuming 100% of CPU
+    
+    If opening a reader fails then we must call close_libusb_if_needed() to
+    free any libusb resources and stop the libusb hotplug thread.
+    
+    The problem as been detected with the Yubico Yubikey NEO U2F+CCID and
+    the 2 Boardcom devices. These devices are composite USB devices so
+    loading the CCID driver for a non-CCID interface was calling
+    libusb_init() but not libusb_exit(). The libusb hotplug thread and other
+    libusb allocated resources were not stopped and unallocated. On the next
+    USB plug (even if not CCID) then an endless busy loop is started inside
+    libusb hotplug.
+    
+    Fixes:
+    - Debian bug #812087
+    "pcscd takes 100 % cpu each time I insert a mass storage USB key"
+    - Debian bug #821787
+    "cleanup libusb when open fails"
+    - Ubuntu bug #1572004
+    "pcscd consumes 100% CPU"
+    - Ubuntu bug #1551897
+    "Excessive CPU utilization"
+    
+    Thanks a lot to Stefan Bühler for the analysis and patch
+    https://bugs.debian.org/821787
+
+ src/ccid_usb.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+commit 57b93f4f553e3573b1e857df6c3429c7f017d5d0
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Apr 19 20:29:13 2016 +0200
+
+    ccid_usb.c: improve close_libusb_if_needed()
+    
+    If the libusb context (ctx) is already NULL then no need to call
+    libusb_exit().
+    
+    The idea is to be able to call close_libusb_if_needed() any time
+    without checking the value of ctx first.
+
+ src/ccid_usb.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+commit d507a07c855fbead039564f1006144a0d4b9b908
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Apr 14 15:36:35 2016 +0200
+
+    Add Cherry SmartTerminal XX44 reader
+
+ readers/Cherry_SmartTerminal_XX44.txt | 161 ++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt         |   1 +
+ 2 files changed, 162 insertions(+)
+
+commit f6942cf1d886394f43233cac7dc40a39a3462dfd
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Apr 14 15:32:24 2016 +0200
+
+    Add Fujitsu Smartcard Reader D323 reader
+
+ readers/Fujitsu_Smartcard_Reader_D323.txt | 161 ++++++++++++++++++++++++++++++
+ readers/supported_readers.txt             |   5 +-
+ 2 files changed, 165 insertions(+), 1 deletion(-)
+
+commit c9591e9920bc6f90e61f05a17839b0e05945dd3d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Apr 1 15:56:24 2016 +0200
+
+    Update URL in a comment
+    
+    The page at URL
+    http://martinpaljak.net/2011/03/19/insecure-hp-usb-smart-card-keyboard/
+    is no more available. Fortunately a copy of the page is available at the
+    Way Back Machine service.
+
+ src/ccid.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+commit dd479b7c62f9a290a5d0994f0cbadd9b3af8d0d5 (github/master)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Mar 15 09:10:38 2016 +0100
+
+    Remove support of DRIVER_OPTION_RESET_ON_CLOSE
+    
+    I do not remember a case of use for DRIVER_OPTION_RESET_ON_CLOSE in the
+    last 10 years.
+    
+    The problem DRIVER_OPTION_RESET_ON_CLOSE is trying to solve is already
+    solved:
+    - Resynchronising the USB toggle bits is already done by the 3 calls to
+      CmdGetSlotStatus() in CreateChannelByNameOrChannel().
+    - Resetting bSeq to 0 is not needed.
+
+ src/Info.plist.src    | 6 +-----
+ src/ccid_ifdhandler.h | 1 -
+ src/ccid_usb.c        | 4 ----
+ 3 files changed, 1 insertion(+), 10 deletions(-)
+
+commit 998c7965c69b855d1dbb7a04a8d367cf8dbb1a78
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Mar 27 21:43:35 2016 +0200
+
+    InterruptRead(): log libusb error name
+    
+    As in 7a46f702e3c4752304d94efc61a84618a0a566c9 use libusb_error_name()
+    to display the libusb error name instead of error value.
+
+ src/ccid_usb.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+commit 767fd1b3b8eb20d1fca56288ab29d82de873b9be
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Mar 14 17:44:13 2016 +0100
+
+    Add KACST HSID Reader Dual Storage reader
+
+ readers/KACST_HSID_Reader_Dual_Storage.txt | 57 ++++++++++++++++++++++++++++++
+ readers/supported_readers.txt              |  1 +
+ 2 files changed, 58 insertions(+)
+
+commit 01c67d2e16d173b49bb14eb18cb4b54d902424b0
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Mar 14 17:40:36 2016 +0100
+
+    Add KACST HSID Reader Single Storage reader
+
+ readers/KACST_HSID_Reader_Single_Storage.txt | 57 ++++++++++++++++++++++++++++
+ readers/supported_readers.txt                |  1 +
+ 2 files changed, 58 insertions(+)
+
+commit 0e2133655ae719833fba1e38a518af4113dfcc81
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Mar 14 17:38:33 2016 +0100
+
+    Add KACST HSID Reader reader
+
+ readers/KACST_HSID_Reader.txt | 57 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  5 +++-
+ 2 files changed, 61 insertions(+), 1 deletion(-)
+
+commit f4d5dec7226699878baa4df34b11c7fbaaa1eb6a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Mar 2 10:45:17 2016 +0100
+
+    Add ACS ACR3901U ICC Reader
+
+ readers/ACS_ACR3901U_ICC_Reader.txt | 53 +++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt       |  3 ++-
+ 2 files changed, 55 insertions(+), 1 deletion(-)
+
+commit cda36311338d8624fa6eeef5e8c2a824df5265b3
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Feb 29 17:31:04 2016 +0100
+
+    Add DUALi DE-ABCM6 in _disabled_ list
+
+ readers/DUALi_DE-ABCM6.txt    | 56 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  5 +++-
+ 2 files changed, 60 insertions(+), 1 deletion(-)
+
+commit 5cc77fe25299dd8f5ac1d105c298b8c5d0108981
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 6 17:02:08 2016 +0100
+
+    Add VMware Virtual USB CCID
+    
+    A reader with the same VendorID and ProductID was already present in the
+    "should work" list.
+    This new version of the reader is bogus and is in the "unsupported"
+    list. See the associated note.
+
+ readers/VMware_Virtual_USB_CCID2.txt | 58 ++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt        |  7 ++++-
+ 2 files changed, 64 insertions(+), 1 deletion(-)
+
+commit 0eaa5bc8e7f5deb77c7f71d3ce231628fe261bca
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Jan 27 10:45:10 2016 +0100
+
+    Add Alcor Micro AU9560
+
+ readers/AlcorMicro_AU9560.txt | 62 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  7 +++--
+ 2 files changed, 67 insertions(+), 2 deletions(-)
+
+commit 43ccf87ea24ade4c5603e0e719383779fe7201bf
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jan 15 09:49:09 2016 +0100
+
+    INSTALL: remove udev use chapter
+    
+    It is no more possible to build libccid with udev since 14 Oct 2010 and
+    the use of libhal.
+    
+    The support has been removed from configure.in in
+    eab2fde6c9327b291267972ee3266a4ab1425fda
+    
+    Closes: github issue #11 "--enable-udev switch mentioned in INSTALL, but
+    not available in configure.ac"
+    https://github.com/LudovicRousseau/CCID/issues/11
+
+ INSTALL | 29 -----------------------------
+ 1 file changed, 29 deletions(-)
+
+commit 33964bcc8f9cbbb9898ac6aa9bbfc3ea98569927
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jan 10 17:21:59 2016 +0100
+
+    MacOSX/configure: exit in error if configure failed
+    
+    Exit with the return code from ./configure
+    It allows to test if the script execution succeeded or not.
+
+ MacOSX/configure | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+commit 894b184b85c6c45b017a0ea9bef6b3892d207942 (tag: ccid-1.4.22)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jan 10 14:40:02 2016 +0100
+
+    Release 1.4.22
+
+ README       | 31 +++++++++++++++++++++++++++++++
+ configure.ac |  2 +-
+ 2 files changed, 32 insertions(+), 1 deletion(-)
+
+commit 208b60e48ba38433e3fd36faaf6694daf068f3b3
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Jan 6 10:33:10 2016 +0100
+
+    OpenUSBByName(): fix possible use of uninitialized variable
+    
+    The change in bc6124cb44677540fa5d5267e7af759796d6101c was not complete.
+    Now that the call to GET_KEYS() occurs _before_ libusb_get_device_list()
+    we should not try to call libusb_free_device_list() if GET_KEYS() fails.
+    
+    ccid_usb.c:326:2: warning: variable 'devs' is used uninitialized whenever 'if'
+          condition is true [-Wsometimes-uninitialized]
+            GET_KEYS("ifdVendorID", &ifdVendorID)
+            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    ccid_usb.c:319:6: note: expanded from macro 'GET_KEYS'
+            if (rv) \
+                ^~
+    ccid_usb.c:739:26: note: uninitialized use occurs here
+            libusb_free_device_list(devs, 1);
+                                    ^~~~
+    ccid_usb.c:326:2: note: remove the 'if' if its condition is always false
+            GET_KEYS("ifdVendorID", &ifdVendorID)
+            ^
+    ccid_usb.c:319:2: note: expanded from macro 'GET_KEYS'
+            if (rv) \
+            ^
+    ccid_usb.c:227:22: note: initialize the variable 'devs' to silence this warning
+            libusb_device **devs, *dev;
+                                ^
+                                 = NULL
+
+ src/ccid_usb.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 0b0b6e00f6e3e50ec3d015b60c6551ec27fb9ada
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Jan 4 20:36:30 2016 +0100
+
+    Patch for Cherry KC 1000 SC
+    
+    The Cherry KC 1000 SC is (by default) a "Short APDU level exchange" CCID
+    reader. But firmware 1.00 is bogus.
+    With a T=1 card and case 2 APDU (data from card to host) the maximum
+    size returned by the reader is 128 byes. The reader is then using
+    chaining as with extended APDU.
+    
+    In order to limit the impacts on the driver I just change the dwFeatures
+    to declare the reader as a "Short and Extended APDU level exchange" CCID
+    reader to use the chaining even for short APDU.
+    
+    Thanks to ZF Friedrichshafen AG for the patch.
+
+ src/ccid.c | 14 ++++++++++++++
+ src/ccid.h |  1 +
+ 2 files changed, 15 insertions(+)
+
+commit f2abd7954b50ed741d98d78270f7a863f9e18e4a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Jan 4 20:25:10 2016 +0100
+
+    Patch for Microchip SEC1110 on Mac OS X
+    
+    The Microchip SEC1110 is bogus and does not report card status correctly
+    with PC_to_RDR_GetSlotStatus if the Interrupt pipe is not read.
+    
+    The problem is that Mac OS X still does not use the
+    TAG_IFD_POLLING_THREAD_WITH_TIMEOUT and then the Interrupt pipe to
+    detect card events. Only IFDHICCPresence(), and then GetSlotStatus, is
+    used.
+    
+    The solution is to empty the interrupt pipe by doing a very short read
+    (10 ms) before each call to PC_to_RDR_GetSlotStatus.
+
+ src/ccid.h     | 1 +
+ src/commands.c | 5 +++++
+ 2 files changed, 6 insertions(+)
+
+commit e49bd051d6398829439a6f5ca47c9be235f67fc9
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Jan 4 20:18:22 2016 +0100
+
+    OpenUSBByName(): add some low level debug
+    
+    Log the bus_number, device_address, idVendor and idProduct of the
+    current libusb device in the loop.
+    
+    This debug is mostly useful on Mac OS X since the idVendor and idProduct
+    of the searched device is _not_ given in the device name.
+
+ src/ccid_usb.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+commit bc6124cb44677540fa5d5267e7af759796d6101c
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Dec 31 16:49:07 2015 +0100
+
+    OpenUSBByName(): read Info.plist only once
+    
+    On Mac OS X it is possible to ask libusb to rescan the USB bus waiting
+    for a device o be available.
+    See commit 690e90f476c3815c31874e523ba017f7f1d372cd
+    
+    The problem was that the code to parse the driver Info.plist was also
+    re-executed. This code is now moved earlier and is executed only once
+    even on Mac OS X.
+
+ src/ccid_usb.c | 22 +++++++++++-----------
+ 1 file changed, 11 insertions(+), 11 deletions(-)
+
+commit 325052621ed4280c27ef4f5d24f59424b5d76ecc
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Dec 12 13:35:34 2015 +0100
+
+    Add THURSBY SOFTWARE TSS-PK1
+
+ readers/Thursby_TSS_PK1.txt   | 60 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  3 +++
+ 2 files changed, 63 insertions(+)
+
+commit d6672c33e2c307a1cbd9b022176a17cde1dcecdc
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Dec 12 13:32:22 2015 +0100
+
+    Add Thursby Software Systems, Inc. TSS-PK8
+
+ readers/Thursby_TSS_PK8.txt   | 60 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  3 +++
+ 2 files changed, 63 insertions(+)
+
+commit 5c9edb58c1d5e602f7626554c92766a950bc5174
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Dec 12 13:26:38 2015 +0100
+
+    Add Thursby Software Systems, Inc. TSS-PK7
+
+ readers/Thursby_TSS_PK7.txt   | 60 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  7 ++++-
+ 2 files changed, 66 insertions(+), 1 deletion(-)
+
+commit 21d4bc6963b47e1a7baf74b1818cb6c84d08eb05
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Dec 5 19:02:19 2015 +0100
+
+    Add Nitrokey Nitrokey Storage
+    
+    "Nitrokey Nitrokey Storage" is the new name for "German Privacy
+    Foundation Crypto Stick v2.0"
+
+ ...German_Privacy_Foundation_Crypto_Stick_v2.0.txt | 51 ----------------------
+ readers/Nitrokey_Storage.txt                       | 51 ++++++++++++++++++++++
+ readers/supported_readers.txt                      |  4 +-
+ 3 files changed, 53 insertions(+), 53 deletions(-)
+
+commit d1fbc9bf2817832f4e8be6282fd09d5e206e4ce9
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Dec 4 16:43:42 2015 +0100
+
+    ccid.h: fix Kobil mIDentity visual identification
+    
+    The definition of KOBIL_MIDENTITY_VISUAL reader in
+    af3d2ae17337508a7e1a49e3f9dc7546195d62a0 (from 2010) was wrong.
+    
+    So the support of FEATURE_MCT_READER_DIRECT was broken for this reader.
+    It looks like this code has never been tested or used.
+
+ src/ccid.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 95a9a0552a8a4020992f65a97ccf0ab1051e1479
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Nov 18 20:43:38 2015 +0100
+
+    Add Aktiv Rutoken PINPad 2
+
+ readers/Aktiv_Rutoken_PINPad_2.txt | 49 ++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt      |  3 ++-
+ 2 files changed, 51 insertions(+), 1 deletion(-)
+
+commit 8ee6962f08beb1dfd539ae70b819246732019a91
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Nov 13 11:27:12 2015 +0100
+
+    OpenUSBByName(): do not call close_libusb_if_needed()
+    
+    close_libusb_if_needed() is no more needed in OpenUSBByName() now that
+    FreeChannel() is called in case of error.
+    
+    FreeChannel() will call ClosePort() and ClosePort() will call
+    close_libusb_if_needed()
+
+ src/ccid_usb.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+commit 522ebb2056b7b2170b142f7ce57b834074abffab
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Nov 13 11:20:04 2015 +0100
+
+    CreateChannelByNameOrChannel(): call FreeChannel() in case of error
+    
+    If the creation of a channel fails then call FreeChannel() instead of
+    IFDHCloseChannel().
+    The ressources are unalocated but with no access at the lower layer.
+    
+    Since the creation failed the channel is not correctly created and
+    only part of the reader stucture is initialised.
+    
+    The problem was discovered with the folowing problem:
+    Program received signal SIGSEGV, Segmentation fault.
+    [Switching to Thread 0x7ffff6fe2700 (LWP 6120)]
+    0x00007ffff5dca8f2 in CmdPowerOff (reader_index=0) at commands.c:1076
+    1076		cmd[6] = (*ccid_descriptor->pbSeq)++;
+    (gdb) print ccid_descriptor
+    $1 = (_ccid_descriptor *) 0x7ffff5fe0468 <usbDevice+40>
+    (gdb) print ccid_descriptor->pbSeq
+    $2 = (unsigned char *) 0x0
+    
+    The pbSeq pointer is NULL and can't be dereferenced.
+    
+    (gdb) bt
+     #0  0x00007ffff5dca8f2 in CmdPowerOff (reader_index=0) at commands.c:1076
+     #1  0x00007ffff5dce556 in IFDHCloseChannel (Lun=0) at ifdhandler.c:269
+     #2  0x00007ffff5dce773 in CreateChannelByNameOrChannel (Lun=0,
+         lpcDevice=0x269 <error: Cannot access memory at address 0x269>, Channel=0)
+         at ifdhandler.c:194
+     #3  0x000000000040673a in IFDOpenIFD (rContext=rContext@entry=0x61e010)
+         at ifdwrapper.c:136
+     #4  0x0000000000408151 in RFInitializeReader (rContext=0x61e010)
+         at readerfactory.c:1036
+     #5  0x0000000000408a93 in RFAddReader (readerNameLong=<optimized out>,
+         port=2097152, library=<optimized out>,
+         device=0x7ffff6fe1d30 "usb:08e6/3437:libusb-1.0:1:2:0")
+         at readerfactory.c:329
+     #6  0x000000000040d9d4 in HPAddHotPluggable (dev=0x0,
+         bus_device=0x61d660 <readerTracker+32> "", interface=0,
+         driver=<optimized out>, driver=<optimized out>, desc=...)
+         at hotplug_libusb.c:608
+     #7  0x000000000040dd2a in HPRescanUsbBus () at hotplug_libusb.c:373
+     #8  0x000000000040dfa1 in HPEstablishUSBNotifications (pipefd=0x7fffffffe440)
+         at hotplug_libusb.c:429
+     #9  0x00007ffff75a30a4 in start_thread (arg=0x7ffff6fe2700)
+         at pthread_create.c:309
+     #10 0x00007ffff72d804d in clone ()
+         at ../sysdeps/unix/sysv/linux/x86_64/clone.S:111
+
+ src/ifdhandler.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit eda850192dbd6b5d8dca3a6355174ed9649bad38
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Nov 13 11:18:10 2015 +0100
+
+    IFDHCloseChannel(): use FreeChannel()
+    
+    Move part of the code of IFDHCloseChannel() into a new function
+    FreeChannel().
+    Call the new function FreeChannel() from IFDHCloseChannel().
+    
+    No code semantic change.
+
+ src/ifdhandler.c | 30 +++++++++++++++++-------------
+ 1 file changed, 17 insertions(+), 13 deletions(-)
+
+commit e46fa30ead3f1eff72769d70be6adf031fafe606
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Nov 13 11:48:07 2015 +0100
+
+    OpenUSBByName(): use device bus and address only when available
+    
+    Use the device_bus and device_addr only if they have a value i.e. when
+    libudev is used by pcscd.
+    
+    If pcsc-lite uses libusb instead of libudev for the hotplug mechanism
+    the driver is called with device="usb:08e6/3437:libusb-1.0:1:10:0" and
+    then device_bus and device_addr are set to 0.  In this case the driver
+    must not uses these values.
+    The patch in 8b9f6f33b16e808a5769dbc4193e5f107a09a693 was not complete.
+    
+    Thanks to Luka Logar for the bug report and patch.
+
+ src/ccid_usb.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+commit fdc248ed1dd64c88065d7fcd92c6ce8b04e82b8b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Nov 12 18:42:57 2015 +0100
+
+    Add GEMALTO K1100
+
+ readers/Gemalto_K1100.txt     | 51 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  3 +++
+ 2 files changed, 54 insertions(+)
+
+commit 5a56181dcaa66899a67e7fbe1b4f00be4b1248e5
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Nov 12 18:40:58 2015 +0100
+
+    Add GEMALTO CT1100
+
+ readers/Gemalto_CT1100.txt    | 51 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  5 ++++-
+ 2 files changed, 55 insertions(+), 1 deletion(-)
+
+commit 8b9f6f33b16e808a5769dbc4193e5f107a09a693
+Author: Santiago Gimeno <santiago.gimeno@ionide.es>
+Date:   Tue Nov 3 17:24:49 2015 +0100
+
+    OpenUSBByName(): the device bus & addr must match
+    
+    In Linux, before this change, if there were multiple card readers of the same
+    model connected, a new Reader could be initialized by opening the wrong USB
+    device.
+
+ src/ccid_usb.c | 18 +++++++++++++++---
+ 1 file changed, 15 insertions(+), 3 deletions(-)
+
+commit a26e6265ad4f8e86d1eea9cdd97dbfd2713194c5
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Nov 9 17:21:10 2015 +0100
+
+    Fix timeout for PPDU commands
+    
+    The timeout value is in milliseconds, not in seconds.
+    
+    Thanks to Roman Pasechnik for the bug report.
+
+ src/ifdhandler.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit c2b6e04a9153b198a7f9415847d9dd7273cf11af
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Nov 8 21:58:45 2015 +0100
+
+    RSA_SecurID_getpasswd.c: fix compiler warnings on OS X
+    
+    Apple defines DWORD as uint32_t so %d is correct
+    pcsc-lite defines DWORD as unsigned long so %ld is correct
+    
+    To get a compilation without warnings on Mac OS X and GNU/Linux you have
+    to use "%d" on Mac OS X and "%ld" on GNU/Linux.
+    Using the macro LF you can use: "%"LF"d".
+    
+    This change fixes a lot of compiler warnings like:
+    RSA_SecurID_getpasswd.c:54:77: warning: format specifies type 'unsigned long'
+          but the argument has type 'LONG' (aka 'int') [-Wformat]
+      ...Cannot Connect to Resource Manager %lX\n", rv);
+                                            ~~~     ^~
+                                            %X
+
+ contrib/RSA_SecurID/RSA_SecurID_getpasswd.c | 25 +++++++++++++++++--------
+ 1 file changed, 17 insertions(+), 8 deletions(-)
+
+commit e4415fd84f7b91e9bebd0bc3ac07204ee6054db1
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Nov 8 21:52:53 2015 +0100
+
+    scardcontrol.c: fix compiler warnings on OS X
+    
+    Apple defines DWORD as uint32_t so %d is correct
+    pcsc-lite defines DWORD as unsigned long so %ld is correct
+    
+    To get a compilation without warnings on Mac OS X and GNU/Linux you have
+    to use "%d" on Mac OS X and "%ld" on GNU/Linux.
+    Using the macro LF you can use: "%"LF"d".
+    
+    This change fixes a lot of compiler warnings like:
+    scardcontrol.c:253:77: warning: format specifies type 'unsigned long' but the
+          argument has type 'LONG' (aka 'int') [-Wformat]
+      ...Cannot Connect to Resource Manager %lX\n", rv);
+                                            ~~~     ^~
+                                            %X
+
+ examples/scardcontrol.c | 39 ++++++++++++++++++++++++---------------
+ 1 file changed, 24 insertions(+), 15 deletions(-)
+
+commit cda5ca7aeb1440bfd0215ee9d79cfe1f845b735c
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Nov 6 20:41:21 2015 +0100
+
+    IFDHTransmitToICC: Reuse ccid_descriptor
+    
+    ccid_descriptor is now already computed. Reuse this value where
+    possible.
+
+ src/ifdhandler.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 7748ae13bf4c48d2f34993dd6086d62aa0a91cf0
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Nov 6 20:21:58 2015 +0100
+
+    Set timeout to 90 sec for PPDU commands
+    
+    PPDU (Pseudo APDU) commands are described in PC/SC v2 part 10
+    supplement document. They are defined as CLA=0xFF, INS=0xC2, P1=0x01.
+    When a PPDU is sent through SCardTransmit() the communication timeout is
+    changed to 90 seconds (the same as for a SCardControl() command).
+    
+    This change allows the use of a Secure Verify command sent as a PPDU
+    through SCardTransmit(). The calculated timeout of 2.85 seconds was too
+    short in this case.
+    
+    Fix alioth bug [#315217] "Cherry KC 1000 SC direct PIN modification
+    timeout Pseudo APDU"
+    https://alioth.debian.org/tracker/?func=detail&atid=410085&aid=315217&group_id=30105
+    
+    Thanks to Roman Pasechnik for the bug report.
+
+ src/ifdhandler.c | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+commit 144a5ff7a61ad3a18c3d4d7ca0ad6639100ee538
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Nov 6 20:37:38 2015 +0100
+
+    Move max() definition in a header file
+    
+    The max() macro is now defined in defs.h instead of commands.c.
+    This allows other .c files to use this macro.
+
+ src/commands.c | 1 -
+ src/defs.h     | 2 ++
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+commit 6ec40b99efdebf238f5deb91bdcb5d64c83df8bc
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Nov 6 09:38:20 2015 +0100
+
+    Comments: Remove the $Id$ tag
+    
+    The $Id$ tag was used by subversion (svn) to indicate the file revision.
+    This tag is now useless with git.
+
+ INSTALL                 | 2 --
+ MacOSX/configure        | 2 --
+ bootstrap               | 2 --
+ configure.ac            | 2 --
+ examples/scardcontrol.c | 4 ----
+ readers/Makefile.am     | 2 --
+ 6 files changed, 14 deletions(-)
+
+commit 0f71939d079f4c909f815a90ed64e8ebe26e687d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Nov 6 09:34:10 2015 +0100
+
+    submodule: resync with upstream
+    
+    sync git modules PCSC and contrib_libPCSCv2part10
+
+ PCSC                    | 2 +-
+ contrib_libPCSCv2part10 | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+commit 780f7f393b4e49d7c484455b9b04c2aab6056afa
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Nov 6 09:29:36 2015 +0100
+
+    Comments: Remove the $Id$ tag
+    
+    The $Id$ tag was used by subversion (svn) to indicate the file revision.
+    This tag is now useless with git.
+
+ README                  | 2 --
+ reconf                  | 2 --
+ src/92_pcscd_ccid.rules | 2 --
+ src/Makefile.am         | 2 --
+ src/ccid.c              | 4 ----
+ src/ccid.h              | 4 ----
+ src/ccid_ifdhandler.h   | 4 ----
+ src/ccid_serial.c       | 4 ----
+ src/ccid_serial.h       | 4 ----
+ src/ccid_usb.c          | 4 ----
+ src/ccid_usb.h          | 4 ----
+ src/commands.c          | 4 ----
+ src/commands.h          | 4 ----
+ src/debug.c             | 5 -----
+ src/debug.h             | 4 ----
+ src/defs.h              | 4 ----
+ src/ifdhandler.c        | 2 --
+ src/openct/README       | 2 --
+ src/openct/checksum.h   | 2 --
+ src/openct/proto-t1.h   | 2 --
+ src/parse.c             | 4 ----
+ src/towitoko/README     | 2 --
+ src/utils.c             | 4 ----
+ src/utils.h             | 4 ----
+ 24 files changed, 79 deletions(-)
+
+commit 53dedae5bf5afb8b07f94a17b812eb57a8910142
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Nov 5 15:33:01 2015 +0100
+
+    .gitignore: ignore libccidtwin .lo files
+
+ .gitignore | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+commit 3c0a6f6a8cf8bb7051ac32a6f089b904747e7ab6
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Nov 6 09:00:34 2015 +0100
+
+    command.c: returns IFD_ERROR_INSUFFICIENT_BUFFER
+    
+    If the reader returns an error (cancel or timeout) that the driver
+    reports as SW=0x6400 or SW=0x6401 and the RX buffer is less than 2
+    bytes the driver now returns IFD_ERROR_INSUFFICIENT_BUFFER instead of
+    IFD_COMMUNICATION_ERROR.
+    
+    Thanks to Godfrey Chung and the ACS driver version 1.1.1 for idea.
+
+ src/commands.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 4a222e816baa03d211f898fda227c2dc9c0db323
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Nov 4 11:50:46 2015 +0100
+
+    Add Athena ASEDrive IIIe KB Bio PIV
+
+ readers/Athena_ASEDrive_IIIe_KB_BIO_PIV.txt | 51 +++++++++++++++++++++++++++++
+ readers/supported_readers.txt               |  1 +
+ 2 files changed, 52 insertions(+)
+
+commit ceaafe4b1a23475afa7573cea3cc422070db0f49
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Nov 4 11:42:44 2015 +0100
+
+    Add Athena ASEDrive IIIe Combo Bio PIV
+
+ readers/Athena_ASEDrive_IIIe_Combo.txt | 58 ++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt          |  3 +-
+ 2 files changed, 60 insertions(+), 1 deletion(-)
+
+commit 3f801e6ed56508e8b7906e4a162ca7eb80ef15e3
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Oct 28 12:58:32 2015 +0100
+
+    Add Hitachi, Ltd. Hitachi Portable Biometric Reader
+
+ readers/Hitachi_Portable_Biometric_Reader.txt | 49 +++++++++++++++++++++++++++
+ readers/supported_readers.txt                 |  1 +
+ 2 files changed, 50 insertions(+)
+
+commit 7872d5be115552fa51124009b0b8c90d5d8f88a7
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Oct 28 12:57:25 2015 +0100
+
+    Add Hitachi, Ltd. Hitachi Biometric Reader
+
+ readers/Hitachi_Biometric_Reader.txt | 49 ++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt        |  5 +++-
+ 2 files changed, 53 insertions(+), 1 deletion(-)
+
+commit 9a1932bed605fb3e38d9853449bb33b8791fa142
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Oct 26 16:02:50 2015 +0100
+
+    CreateChannel(): cleanup in case of error
+    
+    If the initialisation fails after the OpenPortByName() (during the check
+    and hack phases) then we need to correctly close the device.
+    
+    The problem occured on OS X with a Gemalto Pinpad reader.
+    The ccid_open_hack_post() failed and the port was not closed.
+    usbDevice[reader_index].dev_handle was not set to NULL and the next
+    reader plug (any reader) failed because the index was already in use.
+
+ src/ifdhandler.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+commit fe2a1def4207d3be16604a1c2be5381def6eab93
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Oct 22 18:41:27 2015 +0200
+
+    Add Aladdin R.D. JaCarta U2F (JC602)
+
+ readers/Aladdin_R.D._JaCarta_U2F.txt | 50 ++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt        |  1 +
+ 2 files changed, 51 insertions(+)
+
+commit 31369cd4e4cf79bfb94e10d1f9f46f931bc82fa2
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Oct 22 18:39:47 2015 +0200
+
+    Add Aladdin R.D. JC-WebPass (JC600)
+
+ readers/Aladdin_R.D._JaCarta_WebPass.txt | 50 ++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt            |  1 +
+ 2 files changed, 51 insertions(+)
+
+commit d1a72e49356e49b3f7e587e4f93984b3525b068d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Oct 22 18:35:08 2015 +0200
+
+    Add Aladdin R.D. JCR-770
+
+ readers/Aladdin_R.D._JCR-770.txt | 108 +++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt    |   1 +
+ 2 files changed, 109 insertions(+)
+
+commit f17347ca7f702885ed6325ce302d49e6a3376dab
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Oct 22 18:32:03 2015 +0200
+
+    Add Aladdin R.D. JaCarta Flash
+
+ readers/Aladdin_R.D._JaCarta_Flash.txt | 53 ++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt          |  1 +
+ 2 files changed, 54 insertions(+)
+
+commit 001a48795d99195f6263dd5a01cb74bcc69a965c
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Oct 22 18:28:24 2015 +0200
+
+    Add Aladdin R.D. JaCarta LT
+
+ readers/Aladdin_R.D._JaCarta_LT.txt | 53 +++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt       |  1 +
+ 2 files changed, 54 insertions(+)
+
+commit a48551f30d49fa5188a1df79e99b378cac8b51d9
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Oct 22 18:14:48 2015 +0200
+
+    Remove execution bit from .txt files
+
+ readers/Chicony_HP_USB_Smartcard_CCID_Keyboard_JP.txt           | 0
+ readers/Chicony_HP_USB_Smartcard_CCID_Keyboard_KR.txt           | 0
+ readers/Identiv_@MAXX_ID-1_Smart_Card_Reader.txt                | 0
+ readers/Identiv_@MAXX_Light2_token.txt                          | 0
+ readers/Identiv_CLOUD_2980_F_Smart_Card_Reader.txt              | 0
+ readers/Identiv_Identiv_uTrust_4701_F_Dual_Interface_Reader.txt | 0
+ readers/Identiv_SCR3500_A_Contact_Reader.txt                    | 0
+ readers/Identiv_SCR3500_B_Contact_Reader.txt                    | 0
+ readers/Identiv_SCR35xx_USB_Smart_Card_Reader.txt               | 0
+ readers/Identiv_uTrust_2900_R_Smart_Card_Reader.txt             | 0
+ readers/Identiv_uTrust_2910_R_Smart_Card_Reader.txt             | 0
+ readers/Identiv_uTrust_2910_R_Taglio_SC_Reader.txt              | 0
+ readers/Identiv_uTrust_3512_SAM_slot_Token.txt                  | 0
+ readers/Identiv_uTrust_3522_embd_SE_RFID_Token.txt              | 0
+ readers/Identiv_uTrust_3700_F_CL_Reader.txt                     | 0
+ readers/Identiv_uTrust_3701_F_CL_Reader.txt                     | 0
+ readers/Identive_Identive_CLOUD_4000_F_DTC.txt                  | 0
+ readers/Liteon_HP_SC_Keyboard_Apollo_JP_Liteon.txt              | 0
+ readers/Liteon_HP_SC_Keyboard_Apollo_KR_Liteon.txt              | 0
+ readers/Liteon_HP_SC_Keyboard_Apollo_Liteon.txt                 | 0
+ 20 files changed, 0 insertions(+), 0 deletions(-)
+
+commit e1d9a34b9e366361a7ae9411d387bfd2d8bae622
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Oct 22 18:14:20 2015 +0200
+
+    Add Aladdin R.D. JaCarta
+
+ readers/Aladdin_R.D._JaCarta.txt | 53 ++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt    |  5 +++-
+ 2 files changed, 57 insertions(+), 1 deletion(-)
+
+commit 65886986170191a4b825bbf4701428e2d8442f1d (tag: ccid-1.4.21)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Oct 21 20:38:46 2015 +0200
+
+    Release 1.4.21
+
+ README       | 44 ++++++++++++++++++++++++++++++++++++++++++++
+ configure.ac |  2 +-
+ 2 files changed, 45 insertions(+), 1 deletion(-)
+
+commit f5eebab921f1eb7e93d8c206c72e30c5c0f09e80
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Oct 20 18:08:32 2015 +0200
+
+    Info.plist: use hex values in the documentation
+    
+    The value of ifdDriverOptions is an hex value. So the documentation
+    should also use hex values.
+    
+    Thanks to Thomas Capricelli for the bug report
+    https://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20151019/000471.html
+
+ src/Info.plist.src | 18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
+
+commit 8090d7a49bde4c238e50c825c6d1b06d979d7702
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Oct 20 18:03:28 2015 +0200
+
+    supported_readers.txt: regenerate
+    
+    The "Generic Smart Card Reader Interface" (idVendor: 0x0BDA, idProduct: 0x0165)
+    moved from supported to unsupported.
+    
+    https://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20151019/000471.html
+
+ readers/supported_readers.txt | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+commit 9ef9abc950bd4ef138d3f505b632cd188e34deab
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Oct 17 17:55:28 2015 +0200
+
+    Add FT ePass2003Auto
+
+ readers/FT_ePass2003Auto.txt  | 49 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  5 ++++-
+ 2 files changed, 53 insertions(+), 1 deletion(-)
+
+commit 1e9aa449e14ae71d38f45f6d65741fab43892f3b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Oct 15 20:34:22 2015 +0200
+
+    Add WatchCNPC USB CCID Key
+
+ readers/WatchCNPC_USB_CCID_Key.txt | 49 ++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt      |  5 +++-
+ 2 files changed, 53 insertions(+), 1 deletion(-)
+
+commit 215e9b71209fef5ee8c03fb8913526e4138a2733
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Oct 12 20:48:31 2015 +0200
+
+    .gitignore: ignore src/Info.plist
+    
+    src/Info.plist is generated from src/Info.plist.src
+
+ .gitignore | 1 +
+ 1 file changed, 1 insertion(+)
+
+commit bfab1f2368bb7c8eb07272a295701e9358f0eff3
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Oct 7 09:57:10 2015 +0200
+
+    Rename FEITIAN readers
+    
+    The iManufacturer name is FEITIAN not Feitian.
+
+ readers/supported_readers.txt | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+commit 862e6c97410b0d414b04e0539b42d3ea6928bc77
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Oct 7 09:38:02 2015 +0200
+
+    Feitian bR301: firmware update
+    
+    Update firmware from 1.30 to 2.00
+    
+    Changes:
+    iManufacturer: Feitian -> FEITIAN
+    iInterface: R502 -> bR301
+
+ readers/Feitian_bR301.txt | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+commit 854442af5cc528cd79028892739fa8ee1827336f
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Oct 3 05:46:44 2015 +0200
+
+    Feitian 502-CL: firmware update
+    
+    Update firmware from 1.60 to 1.64.
+    No other changes than the firmware version in the CCID descriptor.
+
+ readers/Feitian_R502-CL.txt | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+commit 8f9ef7bdfaccc5cde4688d165aef5fb809d80ee1
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Oct 3 05:42:17 2015 +0200
+
+    Add Feitian iR301 (ProductID 0x0619)
+
+ readers/Feitian_iR301-U_30PIN.txt | 60 +++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt     |  1 +
+ 2 files changed, 61 insertions(+)
+
+commit 755a8c3a89012472959bd19020601c9b7d29d91f
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Oct 3 05:39:30 2015 +0200
+
+    Add Feitian iR301 (ProductID 0x061C)
+
+ readers/Feitian_iR301-U_8PIN.txt | 60 ++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt    |  1 +
+ 2 files changed, 61 insertions(+)
+
+commit 59921cf1553f12b9aff8f6cfca0a941327767850
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Oct 3 05:34:46 2015 +0200
+
+    Feitian R502: firmware update
+    
+    Update firmware from 1.63 to 1.64. No other changes than the firmware
+    version in the CCID descriptor.
+
+ readers/Feitian_R502.txt | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+commit da357d34ce8e6a7595d71db5d52473c87f4dbfc5
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Oct 3 05:32:42 2015 +0200
+
+    Add Feitian bR301 BLE
+
+ readers/Feitian_bR301_BLE.txt | 102 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |   3 +-
+ 2 files changed, 104 insertions(+), 1 deletion(-)
+
+commit 5c9c548416a9384f855d629bb08d27053e54c601
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Sep 23 11:05:56 2015 +0200
+
+    Cherry SmartTerminal ST-2xxx: new firmware
+    
+    Upgrade firmware from 5.08 to 6.01.
+    dwMaxCCIDMessageLength changed from 263 to 270 bytes.
+
+ readers/CherrySmartTerminalST2XXX.txt | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
+
+commit ea05cef175ad772221386da0d681853339642f98
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Sep 21 20:35:39 2015 +0200
+
+    Add Rocketek RT-SCR1
+
+ readers/Rocketek_RT-SCR1.txt  | 59 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  5 +++-
+ 2 files changed, 63 insertions(+), 1 deletion(-)
+
+commit a5b0723806afd360485149a1c413eb6139dbd9ba
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Sep 19 16:33:35 2015 +0200
+
+    Add Liteon HP SC Keyboard - Apollo JP (Liteon)
+
+ readers/Liteon_HP_SC_Keyboard_Apollo_JP_Liteon.txt | 58 ++++++++++++++++++++++
+ readers/supported_readers.txt                      |  1 +
+ 2 files changed, 59 insertions(+)
+
+commit 0c4b19f294fc8954d163bf8d4675ad1ad2ae23b2
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Sep 19 16:30:40 2015 +0200
+
+    Add Liteon HP SC Keyboard - Apollo KR (Liteon)
+
+ readers/Liteon_HP_SC_Keyboard_Apollo_KR_Liteon.txt | 58 ++++++++++++++++++++++
+ readers/supported_readers.txt                      |  1 +
+ 2 files changed, 59 insertions(+)
+
+commit 66cb880bfe5cbffd61f84395eaf5116f322d24e3
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Sep 19 16:27:52 2015 +0200
+
+    Add Liteon HP SC Keyboard - Apollo (Liteon)
+
+ readers/Liteon_HP_SC_Keyboard_Apollo_Liteon.txt | 58 +++++++++++++++++++++++++
+ readers/supported_readers.txt                   |  3 ++
+ 2 files changed, 61 insertions(+)
+
+commit a2c88d43ae2d33466fb0095622854e18369d2d47
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Sep 19 16:24:18 2015 +0200
+
+    Add Chicony HP USB Smartcard CCID Keyboard JP
+
+ .../Chicony_HP_USB_Smartcard_CCID_Keyboard_JP.txt  | 58 ++++++++++++++++++++++
+ readers/supported_readers.txt                      |  1 +
+ 2 files changed, 59 insertions(+)
+
+commit 307ff853347809021b9ab3ef2a4867e860e7faa3
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Sep 19 16:21:21 2015 +0200
+
+    Add Chicony HP USB Smartcard CCID Keyboard KR
+
+ .../Chicony_HP_USB_Smartcard_CCID_Keyboard_KR.txt  | 58 ++++++++++++++++++++++
+ readers/supported_readers.txt                      |  1 +
+ 2 files changed, 59 insertions(+)
+
+commit 7c1f7cc5b27a29306c1cd94b323d0e049b980255
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Sep 19 16:17:34 2015 +0200
+
+    Add Identiv Identiv uTrust 4701 F Dual Interface Reader
+
+ ...Identiv_uTrust_4701_F_Dual_Interface_Reader.txt | 111 +++++++++++++++++++++
+ readers/supported_readers.txt                      |   4 +
+ 2 files changed, 115 insertions(+)
+
+commit 7cf39b7a2c9d2e29d87b77f6017fee371b182cd0
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Sep 19 16:12:15 2015 +0200
+
+    Add Identive Identive CLOUD 4000 F DTC
+
+ readers/Identive_Identive_CLOUD_4000_F_DTC.txt | 111 +++++++++++++++++++++++++
+ readers/supported_readers.txt                  |   4 +
+ 2 files changed, 115 insertions(+)
+
+commit 28d2e6067f801f2c934630dd91f3a977af612bc0
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Sep 19 16:06:23 2015 +0200
+
+    Add Identiv uTrust 3701 F CL Reader
+
+ readers/Identiv_uTrust_3701_F_CL_Reader.txt | 55 +++++++++++++++++++++++++++++
+ readers/supported_readers.txt               |  1 +
+ 2 files changed, 56 insertions(+)
+
+commit 5e149e0601ea7715cae37b1706375d11377dd007
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Sep 19 16:00:58 2015 +0200
+
+    Add Identiv uTrust 3700 F CL Reader
+
+ readers/Identiv_uTrust_3700_F_CL_Reader.txt | 55 +++++++++++++++++++++++++++++
+ readers/supported_readers.txt               |  1 +
+ 2 files changed, 56 insertions(+)
+
+commit 12c073e316fb4b4d694334988e7a571b52d653b9
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Sep 19 15:55:23 2015 +0200
+
+    Add Identiv CLOUD 2980 F Smart Card Reader
+
+ readers/Identiv_CLOUD_2980_F_Smart_Card_Reader.txt | 56 ++++++++++++++++++++++
+ readers/supported_readers.txt                      |  1 +
+ 2 files changed, 57 insertions(+)
+
+commit f0e8382da592e9e29b14138d63bfc8a631cad866
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Sep 19 15:49:38 2015 +0200
+
+    Add Identiv SCR35xx USB Smart Card Reader
+
+ readers/Identiv_SCR35xx_USB_Smart_Card_Reader.txt | 55 +++++++++++++++++++++++
+ readers/supported_readers.txt                     |  1 +
+ 2 files changed, 56 insertions(+)
+
+commit a93ac9367e3a9c990f4fb3bc113a442bdfd42b81
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Sep 19 14:59:03 2015 +0200
+
+    Add Identiv uTrust 2910 R Taglio SC Reader
+
+ readers/Identiv_uTrust_2910_R_Taglio_SC_Reader.txt | 55 ++++++++++++++++++++++
+ readers/supported_readers.txt                      |  1 +
+ 2 files changed, 56 insertions(+)
+
+commit 2188e7708476078d7da476af82dea23be04b069e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Sep 19 14:54:26 2015 +0200
+
+    Add Identiv uTrust 3522 embd SE RFID Token
+
+ readers/Identiv_uTrust_3522_embd_SE_RFID_Token.txt | 55 ++++++++++++++++++++++
+ readers/supported_readers.txt                      |  1 +
+ 2 files changed, 56 insertions(+)
+
+commit 693671c43b2d9da6b41bdc16ef8eefbd079b43eb
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Sep 19 14:50:23 2015 +0200
+
+    Add Identiv @MAXX ID-1 Smart Card Reader
+
+ readers/Identiv_@MAXX_ID-1_Smart_Card_Reader.txt | 55 ++++++++++++++++++++++++
+ readers/supported_readers.txt                    |  1 +
+ 2 files changed, 56 insertions(+)
+
+commit 24804384c6f0696fefaef942d36d9e9a3534ceef
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Sep 19 14:43:11 2015 +0200
+
+    Add Identiv @MAXX Light2 token
+
+ readers/Identiv_@MAXX_Light2_token.txt | 55 ++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt          |  1 +
+ 2 files changed, 56 insertions(+)
+
+commit d17dcff104d7980f216a764214544b1c8921010d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Sep 19 14:39:18 2015 +0200
+
+    Add Identiv uTrust 3512 SAM slot Token
+
+ readers/Identiv_uTrust_3512_SAM_slot_Token.txt | 55 ++++++++++++++++++++++++++
+ readers/supported_readers.txt                  |  1 +
+ 2 files changed, 56 insertions(+)
+
+commit 214cfb01a721c2a1ca21f7e5659fb7603dee1405
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Sep 19 14:35:56 2015 +0200
+
+    Add Identiv SCR3500 B Contact Reader
+
+ readers/Identiv_SCR3500_B_Contact_Reader.txt | 55 ++++++++++++++++++++++++++++
+ readers/supported_readers.txt                |  1 +
+ 2 files changed, 56 insertions(+)
+
+commit a89995364dbe81dc2741a4662d2e4c9abf9cfca8
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Sep 19 14:32:20 2015 +0200
+
+    Add Identiv SCR3500 A Contact Reader
+
+ readers/Identiv_SCR3500_A_Contact_Reader.txt | 55 ++++++++++++++++++++++++++++
+ readers/supported_readers.txt                |  1 +
+ 2 files changed, 56 insertions(+)
+
+commit 3bb33cd520bb3cd9b31f3813e27df2875f7dab85
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Sep 19 14:24:13 2015 +0200
+
+    Add Identiv uTrust 2910 R Smart Card Reader
+
+ .../Identiv_uTrust_2910_R_Smart_Card_Reader.txt    | 55 ++++++++++++++++++++++
+ readers/supported_readers.txt                      |  1 +
+ 2 files changed, 56 insertions(+)
+
+commit 7e57f1a32e7cba9bff43983365e383275613b46e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Sep 19 14:18:32 2015 +0200
+
+    Add Identiv uTrust 2900 R Smart Card Reader
+
+ .../Identiv_uTrust_2900_R_Smart_Card_Reader.txt    | 55 ++++++++++++++++++++++
+ readers/supported_readers.txt                      |  5 +-
+ 2 files changed, 59 insertions(+), 1 deletion(-)
+
+commit 4cb29aac717b00bda5e97c9f26eb82279c1f9514
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Sep 17 14:16:21 2015 +0200
+
+    OpenUSBByName(): free the device list in case of error
+    
+    If no reader is found the code should release the device list in any
+    case.
+    
+    Either the code will try again to find the reader (in case of Mac OS X)
+    or return an error code.
+    
+    The list of USB devices shall always be released before returning from the
+    function (in error or normal cases).
+
+ src/ccid_usb.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+commit 2517cbe1672b4af57420131634eff376ede1f58b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Sep 16 18:23:36 2015 +0200
+
+    The Feitian R502 DUAL reader has 3 interfaces
+    
+    If USE_COMPOSITE_AS_MULTISLOT is defined the Feitian R502 reader is
+    reported as 3 slots:
+    iInterface: R502 Contactless Reader
+    iInterface: R502 Contact Reader
+    iInterface: R502 SAM1 Reader
+
+ src/ifdhandler.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+commit 0fe9bda3e9af88d2cd8e2e08edbcb7aad9f4792a
+Author: Feitian Technologies <hongbin@ftsafe.com>
+Date:   Wed Jul 8 22:46:01 2015 +0200
+
+    Add Feitain R502 dual interface reader into CCID driver
+    
+    Feitian R502 is a composite multislot reader.
+    Mac OS X does not yet support composite readers.
+
+ src/ccid.h       | 1 +
+ src/ccid_usb.c   | 5 +++--
+ src/ifdhandler.c | 2 +-
+ 3 files changed, 5 insertions(+), 3 deletions(-)
+
+commit 94142da9a4b11bf9cd2b429e1a15139936c751af
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Sep 16 18:10:45 2015 +0200
+
+    OpenUSBByName(): fix the order of interfaces in log
+    
+    The log message "Found interface %d but expecting %d" has the parameters
+    inversed.
+    The order is not corrected.
+
+ src/ccid_usb.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit e31d36c6003fb3e572895c068c48fd3d22fc3f32
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Sep 16 10:43:04 2015 +0200
+
+    Feitian_R502.txt: new firmware
+    
+    Change bcdDevice from 1.60 to 1.63
+
+ readers/Feitian_R502.txt | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+commit 690e90f476c3815c31874e523ba017f7f1d372cd
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Sep 16 10:31:55 2015 +0200
+
+    OpenUSBByName(): add more time on Mac OS X
+    
+    The change in 0a295238204b8aef683fa5e69187b1060210f487 (svn revision
+    6890) was not enough.  Some readers (like SafeNet eToken 7300) need
+    more than 100 ms to be available at the libusb level.
+    
+    The code now:
+    - waits for 100 ms only if the reader is not found. No more performance
+      impact in "normal" situations
+    - loops up to 10 times before returning an error
+    
+    The maximum waiting time is now 10 x 100 ms = 1 second. It should be
+    enough even with slow readers and slow computers.
+
+ src/ccid_usb.c | 18 ++++++++++++++++--
+ 1 file changed, 16 insertions(+), 2 deletions(-)
+
+commit 5d91f63afdd3c8ba00bc645085ea8a2e7fcf6ee0
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Sep 11 11:12:16 2015 +0200
+
+    Add VASCO DIGIPASS 875
+
+ readers/Vasco_DIGIPASS_875.txt | 108 +++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt  |   3 +-
+ 2 files changed, 110 insertions(+), 1 deletion(-)
+
+commit 64eec8e84b1cd4dd8653039d967d99b3d5fd945f
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Aug 31 10:22:23 2015 +0200
+
+    Add ACS ACR1252 Dual Reader
+
+ readers/ACS_ACR1252_Dual_Reader.txt | 100 ++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt       |   6 ++-
+ 2 files changed, 105 insertions(+), 1 deletion(-)
+
+commit 94445035640e6fa788d961ec00d15ad3e55c9508
+Author: Ludovic Rousseau <ludovic.rousseau@gmail.com>
+Date:   Sun Aug 30 16:06:17 2015 +0200
+
+    Regenerate supported_readers.txt
+    
+    Use Nitrokey manufacturer name instead of the old versions
+
+ readers/supported_readers.txt | 14 +++-----------
+ 1 file changed, 3 insertions(+), 11 deletions(-)
+
+commit 7d2b26963a3701b4a6258dc561e85af4890c2f61
+Author: Ludovic Rousseau <ludovic.rousseau@gmail.com>
+Date:   Sun Aug 30 16:05:07 2015 +0200
+
+    Remove Free Software Initiative of Japan Gnuk Token
+    
+    Free_Software_Initiative_of_Japan_Gnuk_Token.txt is an old version of
+    Nitrokey_Start.txt
+    The same VendorID/ProdictID is used.
+
+ ...ree_Software_Initiative_of_Japan_Gnuk_Token.txt | 50 ----------------------
+ 1 file changed, 50 deletions(-)
+
+commit 03d1833fcc9a67d1215e952802e2c0145f3acef6
+Author: Ludovic Rousseau <ludovic.rousseau@gmail.com>
+Date:   Sun Aug 30 15:50:59 2015 +0200
+
+    Remove Crypto Stick Crypto Stick v1.4
+    
+    Crypto_Stick_Crypto_Stick_v1.4.txt is an old version of Nitrokey_Pro.txt
+    The same VendorID/ProdictID is used.
+    
+    " Crypto Stick 1.4 was the name of the old beta version where only <50
+    devices were produced. The final product has been renamed to Nitrokey
+    Pro which is the one being sold in substantial quantities.  Hence, I
+    suggest to drop the "Crypto Stick 1.4" string. "
+
+ readers/Crypto_Stick_Crypto_Stick_v1.4.txt | 51 ------------------------------
+ 1 file changed, 51 deletions(-)
+
+commit b5d3da3aa0faaca911522473a718bab6c02bad14
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 29 11:03:55 2015 +0200
+
+    Add Nitrokey Nitrokey Start
+
+ readers/Nitrokey_Start.txt    | 50 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  3 +++
+ 2 files changed, 53 insertions(+)
+
+commit 87d1cf823355f1798ac1a21e0154a578d889b550
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 29 11:01:47 2015 +0200
+
+    Add Nitrokey Nitrokey Pro
+
+ readers/Nitrokey_Pro.txt      | 51 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  3 +++
+ 2 files changed, 54 insertions(+)
+
+commit b3dbc774e27521be80bb7089419bda0e83f58d5d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 29 10:57:35 2015 +0200
+
+    Add Nitrokey Nitrokey HSM
+
+ readers/Nitrokey_HSM.txt      | 51 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  9 ++++++--
+ 2 files changed, 58 insertions(+), 2 deletions(-)
+
+commit 7a46f702e3c4752304d94efc61a84618a0a566c9
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Aug 27 09:51:13 2015 +0200
+
+    Use libusb_error_name() to display the error name
+    
+    libusb provides libusb_error_name() to display a human readable
+    version of the error code returned by libusb.
+    
+    LIBUSB_ERROR_BUSY is easier to understand than -6
+    
+    See also changes in 9c3fd753186aa18a56d2bfeee6acac8c6b399de6
+
+ src/ccid_usb.c | 19 ++++++++++---------
+ 1 file changed, 10 insertions(+), 9 deletions(-)
+
+commit 44e385a91534795864c64d54c481770bc39565fd
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Aug 7 20:49:15 2015 +0200
+
+    Update access rights of some .txt files
+    
+    Remove the executable bit of some reader .txt files.
+
+ readers/Cherry_KC_1000_SC.txt                                  | 0
+ readers/Cherry_KC_1000_SC_DI.txt                               | 0
+ readers/Cherry_KC_1000_SC_DI_Z.txt                             | 0
+ readers/Cherry_KC_1000_SC_Z.txt                                | 0
+ readers/FujitsuTechnologySolutions_Keyboard_KB100_SCR.txt      | 0
+ readers/FujitsuTechnologySolutions_Keyboard_KB100_SCR_eSIG.txt | 0
+ readers/GnD_StarSign_CUT.txt                                   | 0
+ readers/Rutoken_PINPad_ex.txt                                  | 0
+ readers/Rutoken_PINPad_in.txt                                  | 0
+ 9 files changed, 0 insertions(+), 0 deletions(-)
+
+commit 67b190c1c8144c60110a13fc3c07de9e8b992654 (tag: ccid-1.4.20)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Aug 5 13:21:33 2015 +0200
 

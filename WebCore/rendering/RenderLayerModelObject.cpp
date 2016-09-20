@@ -26,7 +26,9 @@
 #include "RenderLayerModelObject.h"
 
 #include "RenderLayer.h"
+#include "RenderLayerCompositor.h"
 #include "RenderView.h"
+#include "Settings.h"
 
 namespace WebCore {
 
@@ -35,13 +37,13 @@ bool RenderLayerModelObject::s_hadLayer = false;
 bool RenderLayerModelObject::s_hadTransform = false;
 bool RenderLayerModelObject::s_layerWasSelfPainting = false;
 
-RenderLayerModelObject::RenderLayerModelObject(Element& element, Ref<RenderStyle>&& style, unsigned baseTypeFlags)
-    : RenderElement(element, WTF::move(style), baseTypeFlags | RenderLayerModelObjectFlag)
+RenderLayerModelObject::RenderLayerModelObject(Element& element, RenderStyle&& style, BaseTypeFlags baseTypeFlags)
+    : RenderElement(element, WTFMove(style), baseTypeFlags | RenderLayerModelObjectFlag)
 {
 }
 
-RenderLayerModelObject::RenderLayerModelObject(Document& document, Ref<RenderStyle>&& style, unsigned baseTypeFlags)
-    : RenderElement(document, WTF::move(style), baseTypeFlags | RenderLayerModelObjectFlag)
+RenderLayerModelObject::RenderLayerModelObject(Document& document, RenderStyle&& style, BaseTypeFlags baseTypeFlags)
+    : RenderElement(document, WTFMove(style), baseTypeFlags | RenderLayerModelObjectFlag)
 {
 }
 
@@ -124,6 +126,16 @@ void RenderLayerModelObject::styleWillChange(StyleDifference diff, const RenderS
     RenderElement::styleWillChange(diff, newStyle);
 }
 
+#if ENABLE(CSS_SCROLL_SNAP)
+static bool scrollSnapContainerRequiresUpdateForStyleUpdate(const RenderStyle& oldStyle, const RenderStyle& newStyle)
+{
+    return !(oldStyle.scrollSnapType() == newStyle.scrollSnapType()
+        && oldStyle.scrollSnapPointsX() == newStyle.scrollSnapPointsX()
+        && oldStyle.scrollSnapPointsY() == newStyle.scrollSnapPointsY()
+        && oldStyle.scrollSnapDestination() == newStyle.scrollSnapDestination());
+}
+#endif
+
 void RenderLayerModelObject::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
     RenderElement::styleDidChange(diff, oldStyle);
@@ -148,6 +160,9 @@ void RenderLayerModelObject::styleDidChange(StyleDifference diff, const RenderSt
 #endif
         setHasTransformRelatedProperty(false); // All transform-related propeties force layers, so we know we don't have one or the object doesn't support them.
         setHasReflection(false);
+        // Repaint the about to be destroyed self-painting layer when style change also triggers repaint.
+        if (layer()->isSelfPaintingLayer() && layer()->repaintStatus() == NeedsFullRepaint && layer()->hasComputedRepaintRect())
+            repaintUsingContainer(containerForRepaint(), layer()->repaintRect());
         layer()->removeOnlyThisLayer(); // calls destroyLayer() which clears m_layer
         if (s_wasFloating && isFloating())
             setChildNeedsLayout();
@@ -169,6 +184,50 @@ void RenderLayerModelObject::styleDidChange(StyleDifference diff, const RenderSt
         else
             view().frameView().removeViewportConstrainedObject(this);
     }
+
+#if ENABLE(CSS_SCROLL_SNAP)
+    const RenderStyle& newStyle = style();
+    if (oldStyle && scrollSnapContainerRequiresUpdateForStyleUpdate(*oldStyle, newStyle)) {
+        if (RenderLayer* renderLayer = layer()) {
+            renderLayer->updateSnapOffsets();
+            renderLayer->updateScrollSnapState();
+        } else if (isBody() || isDocumentElementRenderer()) {
+            FrameView& frameView = view().frameView();
+            frameView.updateSnapOffsets();
+            frameView.updateScrollSnapState();
+            frameView.updateScrollingCoordinatorScrollSnapProperties();
+        }
+    }
+    if (oldStyle && oldStyle->scrollSnapCoordinates() != newStyle.scrollSnapCoordinates()) {
+        const RenderBox* scrollSnapBox = enclosingBox().findEnclosingScrollableContainer();
+        if (scrollSnapBox && scrollSnapBox->layer()) {
+            const RenderStyle& style = scrollSnapBox->style();
+            if (style.scrollSnapType() != ScrollSnapType::None) {
+                scrollSnapBox->layer()->updateSnapOffsets();
+                scrollSnapBox->layer()->updateScrollSnapState();
+                if (scrollSnapBox->isBody() || scrollSnapBox->isDocumentElementRenderer())
+                    scrollSnapBox->view().frameView().updateScrollingCoordinatorScrollSnapProperties();
+            }
+        }
+    }
+#endif
+}
+
+bool RenderLayerModelObject::shouldPlaceBlockDirectionScrollbarOnLeft() const
+{
+// RTL Scrollbars require some system support, and this system support does not exist on certain versions of OS X. iOS uses a separate mechanism.
+#if PLATFORM(IOS) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101200)
+    return false;
+#else
+    switch (frame().settings().userInterfaceDirectionPolicy()) {
+    case UserInterfaceDirectionPolicy::Content:
+        return style().shouldPlaceBlockDirectionScrollbarOnLeft();
+    case UserInterfaceDirectionPolicy::System:
+        return frame().settings().systemLayoutDirection() == RTL;
+    }
+    ASSERT_NOT_REACHED();
+    return style().shouldPlaceBlockDirectionScrollbarOnLeft();
+#endif
 }
 
 } // namespace WebCore

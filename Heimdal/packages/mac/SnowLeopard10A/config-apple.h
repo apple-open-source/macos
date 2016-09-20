@@ -60,5 +60,6 @@
 #define ENABLE_NTLM 1
 #define ENABLE_SCRAM 1
 
+#define HEIM_KS_P11 1
 
 #endif

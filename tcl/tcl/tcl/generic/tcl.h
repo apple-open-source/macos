@@ -1124,7 +1124,7 @@ struct Tcl_HashEntry {
 	int words[1];		/* Multiple integer words for key. The actual
 				 * size will be as large as necessary for this
 				 * table's keys. */
-	char string[4];		/* String for key. The actual size will be as
+	char string[1];		/* String for key. The actual size will be as
 				 * large as needed to hold the key. */
     } key;			/* MUST BE LAST FIELD IN RECORD!! */
 };

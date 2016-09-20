@@ -1,6 +1,4 @@
 /*
- * "$Id: testfile.c 12579 2015-03-30 19:27:44Z msweet $"
- *
  * File test program for CUPS.
  *
  * Copyright 2007-2015 by Apple Inc.
@@ -138,9 +136,9 @@ main(int  argc,				/* I - Number of command-line arguments */
       puts("PASS");
       fputs("cupsFileGets: ", stdout);
 
-      if ((count = count_lines(fp)) != 208)
+      if ((count = count_lines(fp)) != 201)
       {
-        printf("FAIL (got %d lines, expected 208)\n", count);
+        printf("FAIL (got %d lines, expected 201)\n", count);
 	status ++;
       }
       else
@@ -158,9 +156,9 @@ main(int  argc,				/* I - Number of command-line arguments */
 	  puts("PASS");
 	  fputs("cupsFileGets: ", stdout);
 
-	  if ((count = count_lines(fp)) != 208)
+	  if ((count = count_lines(fp)) != 201)
 	  {
-	    printf("FAIL (got %d lines, expected 208)\n", count);
+	    printf("FAIL (got %d lines, expected 201)\n", count);
 	    status ++;
 	  }
 	  else
@@ -822,8 +820,3 @@ read_write_tests(int compression)	/* I - Use compression? */
 
   return (status);
 }
-
-
-/*
- * End of "$Id: testfile.c 12579 2015-03-30 19:27:44Z msweet $".
- */

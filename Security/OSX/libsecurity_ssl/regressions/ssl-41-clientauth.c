@@ -13,6 +13,7 @@
 #include <utilities/array_size.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <AssertMacros.h>
 
 #if TARGET_OS_IPHONE
 #include <Security/SecRSAKey.h>
@@ -333,6 +334,7 @@ static void tests(void)
     is(CFGetRetainCount(privKey), 1, "privKey rc = 1");
 
     ok(ctx=SSLCreateContext(NULL, kSSLClientSide, kSSLStreamType), "SSLNewContext");
+    require(ctx, errOut);
     ok_status(SSLSetCertificate(ctx, trust_chain), "SSLSetCertificate");
     CFReleaseSafe(ctx);
 
@@ -343,6 +345,7 @@ static void tests(void)
     is(CFGetRetainCount(privKey), 1, "privKey rc = 1");
 
     ok(ctx=SSLCreateContext(NULL, kSSLClientSide, kSSLStreamType), "SSLCreateContext");
+    require(ctx, errOut);
     ok_status(SSLSetCertificate(ctx, trust_chain), "SSLSetCertificate");
     CFReleaseSafe(ctx);
 
@@ -353,6 +356,7 @@ static void tests(void)
     is(CFGetRetainCount(privKey), 1, "privKey rc = 1");
 
     ok(ctx=SSLCreateContext(NULL, kSSLClientSide, kSSLStreamType), "SSLCreateContext");
+    require(ctx, errOut);
     ok_status(SSLSetCertificate(ctx, trust_chain), "SSLSetCertificate");
     ok_status(SSLSetCertificate(ctx, trust_chain), "SSLSetCertificate");
     CFReleaseSafe(ctx);
@@ -363,6 +367,7 @@ static void tests(void)
     is(CFGetRetainCount(cert2), 1, "cert2 rc = 1");
     is(CFGetRetainCount(privKey), 1, "privKey rc = 1");
 
+errOut:
     CFReleaseNull(trust_chain);
 }
 

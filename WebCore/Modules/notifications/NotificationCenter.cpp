@@ -38,6 +38,7 @@
 #include "Notification.h"
 #include "ScriptExecutionContext.h"
 #include "SecurityOrigin.h"
+#include "VoidCallback.h"
 
 namespace WebCore {
 
@@ -59,11 +60,11 @@ NotificationCenter::NotificationCenter(ScriptExecutionContext* context, Notifica
 
 RefPtr<Notification> NotificationCenter::createNotification(const String& iconURI, const String& title, const String& body, ExceptionCode& ec)
 {
-    if (!m_client) {
+    if (!m_client || !scriptExecutionContext()) {
         ec = INVALID_STATE_ERR;
         return nullptr;
     }
-    return Notification::create(title, body, iconURI, scriptExecutionContext(), ec, this);
+    return Notification::create(title, body, iconURI, *scriptExecutionContext(), ec, *this);
 }
 
 int NotificationCenter::checkPermission()
@@ -120,7 +121,7 @@ void NotificationCenter::stop()
     // Clear m_client immediately to guarantee reentrant calls to NotificationCenter do nothing.
     // Also protect |this| so it's not indirectly destroyed under us by work done by the client.
     auto& client = *std::exchange(m_client, nullptr);
-    Ref<NotificationCenter> protector(*this);
+    Ref<NotificationCenter> protectedThis(*this);
 
     if (!m_callbacks.isEmpty())
         deref(); // Balanced by the ref in NotificationCenter::requestPermission.
@@ -137,7 +138,7 @@ const char* NotificationCenter::activeDOMObjectName() const
     return "NotificationCenter";
 }
 
-bool NotificationCenter::canSuspendForPageCache() const
+bool NotificationCenter::canSuspendForDocumentSuspension() const
 {
     // We don't need to worry about Notifications because those are ActiveDOMObject too.
     // The NotificationCenter can safely be suspended if there are no pending permission requests.
@@ -147,7 +148,7 @@ bool NotificationCenter::canSuspendForPageCache() const
 void NotificationCenter::timerFired()
 {
     ASSERT(m_client);
-    auto callbacks = WTF::move(m_callbacks);
+    auto callbacks = WTFMove(m_callbacks);
     for (auto& callback : callbacks)
         callback();
     deref(); // Balanced by the ref in NotificationCenter::requestPermission.

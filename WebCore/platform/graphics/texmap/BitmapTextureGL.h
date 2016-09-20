@@ -21,7 +21,10 @@
 #ifndef BitmapTextureGL_h
 #define BitmapTextureGL_h
 
+#if USE(TEXTURE_MAPPER_GL)
+
 #include "BitmapTexture.h"
+#include "ClipStack.h"
 #include "FilterOperation.h"
 #include "GraphicsContext3D.h"
 #include "IntSize.h"
@@ -35,25 +38,24 @@ class FilterOperation;
 
 class BitmapTextureGL : public BitmapTexture {
 public:
-    BitmapTextureGL(PassRefPtr<GraphicsContext3D>);
+    BitmapTextureGL(PassRefPtr<GraphicsContext3D>, const Flags = NoFlag);
     virtual ~BitmapTextureGL();
 
-    virtual IntSize size() const override;
-    virtual bool isValid() const override;
-    virtual bool canReuseWith(const IntSize& contentsSize, Flags = 0) override;
-    virtual void didReset() override;
+    IntSize size() const override;
+    bool isValid() const override;
+    void didReset() override;
     void bindAsSurface(GraphicsContext3D*);
     void initializeStencil();
     void initializeDepthBuffer();
     virtual uint32_t id() const { return m_id; }
     uint32_t textureTarget() const { return GraphicsContext3D::TEXTURE_2D; }
     IntSize textureSize() const { return m_textureSize; }
-    virtual void updateContents(Image*, const IntRect&, const IntPoint&, UpdateContentsFlag) override;
-    virtual void updateContents(const void*, const IntRect& target, const IntPoint& sourceOffset, int bytesPerLine, UpdateContentsFlag) override;
+    void updateContents(Image*, const IntRect&, const IntPoint&, UpdateContentsFlag) override;
+    void updateContents(const void*, const IntRect& target, const IntPoint& sourceOffset, int bytesPerLine, UpdateContentsFlag) override;
     void updateContentsNoSwizzle(const void*, const IntRect& target, const IntPoint& sourceOffset, int bytesPerLine, unsigned bytesPerPixel = 4, Platform3DObject glFormat = GraphicsContext3D::RGBA);
-    virtual bool isBackedByOpenGL() const override { return true; }
+    bool isBackedByOpenGL() const override { return true; }
 
-    virtual PassRefPtr<BitmapTexture> applyFilters(TextureMapper*, const FilterOperations&) override;
+    PassRefPtr<BitmapTexture> applyFilters(TextureMapper&, const FilterOperations&) override;
     struct FilterInfo {
         RefPtr<FilterOperation> filter;
         unsigned pass;
@@ -66,7 +68,9 @@ public:
             { }
     };
     const FilterInfo* filterInfo() const { return &m_filterInfo; }
-    TextureMapperGL::ClipStack& clipStack() { return m_clipStack; }
+    ClipStack& clipStack() { return m_clipStack; }
+
+    GC3Dint internalFormat() const { return m_internalFormat; }
 
 private:
 
@@ -77,7 +81,7 @@ private:
     Platform3DObject m_rbo;
     Platform3DObject m_depthBufferObject;
     bool m_shouldClear;
-    TextureMapperGL::ClipStack m_clipStack;
+    ClipStack m_clipStack;
     RefPtr<GraphicsContext3D> m_context3D;
 
     BitmapTextureGL();
@@ -86,10 +90,16 @@ private:
     void createFboIfNeeded();
 
     FilterInfo m_filterInfo;
+
+    GC3Dint m_internalFormat;
+    GC3Denum m_format;
+    GC3Denum m_type;
 };
 
 BitmapTextureGL* toBitmapTextureGL(BitmapTexture*);
 
 }
+
+#endif // USE(TEXTURE_MAPPER_GL)
 
 #endif // BitmapTextureGL_h

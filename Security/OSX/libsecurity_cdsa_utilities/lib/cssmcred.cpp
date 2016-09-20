@@ -92,7 +92,7 @@ bool AccessCredentials::authorizesUI() const {
         TypedList &sample = *it;
 
         if(!sample.isProper()) {
-            secdebugfunc("integrity", "found a non-proper sample, skipping...");
+            secnotice("integrity", "found a non-proper sample, skipping...");
             continue;
         }
 

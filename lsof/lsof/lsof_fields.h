@@ -32,7 +32,7 @@
 
 
 /*
- * $Id: lsof_fields.h,v 1.12 2010/07/29 15:59:28 abe Exp $
+ * $Id: lsof_fields.h,v 1.13 2014/10/13 22:36:20 abe Exp $
  */
 
 
@@ -79,7 +79,7 @@
 
 #define	LSOF_FID_FD		'f'
 #define	LSOF_FIX_FD		5
-#define	LSOF_FNM_FD		"file descriptor"
+#define	LSOF_FNM_FD		"file descriptor (always selected)"
 
 #define	LSOF_FID_FA		'F'
 #define	LSOF_FIX_FA		6

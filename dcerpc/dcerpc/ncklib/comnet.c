@@ -2414,7 +2414,8 @@ PRIVATE rpc_protocol_id_t rpc__network_pseq_id_from_pseq
 **
 **--
 **/
-
+#if 0
+/* Removed unused symbol for rdar://problem/26430747 */
 PRIVATE void rpc__network_pseq_from_pseq_id
 (
     rpc_protseq_id_t    protseq_id,
@@ -2429,7 +2430,7 @@ PRIVATE void rpc__network_pseq_from_pseq_id
     *status = rpc_s_ok;
     return;
 }
-
+#endif
 /*
 **++
 **

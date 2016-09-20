@@ -26,8 +26,6 @@
 #include "config.h"
 #include "CookieStorageShim.h"
 
-#if ENABLE(NETWORK_PROCESS)
-
 #include "CookieStorageShimLibrary.h"
 #include "NetworkConnectionToWebProcess.h"
 #include "NetworkProcessConnection.h"
@@ -47,6 +45,7 @@ typedef const struct _CFURLRequest* CFURLRequestRef;
 
 SOFT_LINK_FRAMEWORK(CFNetwork)
 SOFT_LINK(CFNetwork, CFURLRequestGetURL, CFURLRef, (CFURLRequestRef request), (request))
+SOFT_LINK(CFNetwork, CFURLRequestShouldHandleHTTPCookies, Boolean, (CFURLRequestRef request), (request))
 
 using namespace WebCore;
 
@@ -61,7 +60,7 @@ static CFDictionaryRef webKitCookieStorageCopyRequestHeaderFieldsForURL(CFHTTPCo
 {
     String cookies;
     URL firstPartyForCookiesURL;
-    if (!WebProcess::singleton().networkConnection()->connection()->sendSync(Messages::NetworkConnectionToWebProcess::CookieRequestHeaderFieldValue(SessionID::defaultSessionID(), firstPartyForCookiesURL, inRequestURL), Messages::NetworkConnectionToWebProcess::CookiesForDOM::Reply(cookies), 0))
+    if (!WebProcess::singleton().networkConnection().connection().sendSync(Messages::NetworkConnectionToWebProcess::CookieRequestHeaderFieldValue(SessionID::defaultSessionID(), firstPartyForCookiesURL, inRequestURL), Messages::NetworkConnectionToWebProcess::CookiesForDOM::Reply(cookies), 0))
         return 0;
 
     if (cookies.isNull())
@@ -108,6 +107,8 @@ void CookieStorageShim::initialize()
 @implementation WKNSURLSessionLocal
 - (CFDictionaryRef)_copyCookiesForRequestUsingAllAppropriateStorageSemantics:(CFURLRequestRef) request
 {
+    if (!CFURLRequestShouldHandleHTTPCookies(request))
+        return nullptr;
     return WebKit::webKitCookieStorageCopyRequestHeaderFieldsForURL(nullptr, CFURLRequestGetURL(request));
 }
 
@@ -117,15 +118,17 @@ using CompletionHandlerBlock = void(^)(CFDictionaryRef);
     if (!completionHandler)
         return;
 
-    RetainPtr<NSURLSessionTask> strongTask = task;
+    if (![[task currentRequest] HTTPShouldHandleCookies]) {
+        completionHandler(nullptr);
+        return;
+    }
+
     CompletionHandlerBlock completionHandlerCopy = [completionHandler copy];
-    RunLoop::main().dispatch([strongTask, completionHandlerCopy] {
-        RetainPtr<CFDictionaryRef> headers = adoptCF(WebKit::webKitCookieStorageCopyRequestHeaderFieldsForURL(nullptr, (CFURLRef)[[strongTask currentRequest] URL]));
+    RunLoop::main().dispatch([task = RetainPtr<NSURLSessionTask>(task), completionHandlerCopy] {
+        RetainPtr<CFDictionaryRef> headers = adoptCF(WebKit::webKitCookieStorageCopyRequestHeaderFieldsForURL(nullptr, (CFURLRef)[[task currentRequest] URL]));
         completionHandlerCopy(headers.get());
         [completionHandlerCopy release];
     });
 }
 
 @end
-
-#endif // ENABLE(NETWORK_PROCESS)

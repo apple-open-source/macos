@@ -26,14 +26,15 @@
 #include "config.h"
 #include "InsertListCommand.h"
 
-#include "Element.h"
 #include "ElementTraversal.h"
 #include "ExceptionCodePlaceholder.h"
-#include "htmlediting.h"
-#include "HTMLElement.h"
+#include "HTMLBRElement.h"
+#include "HTMLLIElement.h"
 #include "HTMLNames.h"
+#include "HTMLUListElement.h"
 #include "Range.h"
 #include "VisibleUnits.h"
+#include "htmlediting.h"
 
 namespace WebCore {
 
@@ -56,12 +57,12 @@ RefPtr<HTMLElement> InsertListCommand::insertList(Document& document, Type type)
 
 HTMLElement* InsertListCommand::fixOrphanedListChild(Node* node)
 {
-    RefPtr<HTMLElement> listElement = createUnorderedListElement(document());
-    insertNodeBefore(listElement, node);
+    auto listElement = HTMLUListElement::create(document());
+    insertNodeBefore(listElement.copyRef(), node);
     removeNode(node);
-    appendNode(node, listElement);
-    m_listElement = listElement;
-    return listElement.get();
+    appendNode(node, listElement.copyRef());
+    m_listElement = listElement.copyRef();
+    return listElement.ptr();
 }
 
 RefPtr<HTMLElement> InsertListCommand::mergeWithNeighboringLists(PassRefPtr<HTMLElement> passedList)
@@ -111,12 +112,9 @@ InsertListCommand::InsertListCommand(Document& document, Type type)
 
 void InsertListCommand::doApply()
 {
-    if (!endingSelection().isNonOrphanedCaretOrRange())
+    if (endingSelection().isNoneOrOrphaned() || !endingSelection().isContentRichlyEditable())
         return;
 
-    if (!endingSelection().rootEditableElement())
-        return;
-    
     VisiblePosition visibleEnd = endingSelection().visibleEnd();
     VisiblePosition visibleStart = endingSelection().visibleStart();
     // When a selection ends at the start of a paragraph, we rarely paint 
@@ -127,8 +125,11 @@ void InsertListCommand::doApply()
     // FIXME: We paint the gap before some paragraphs that are indented with left 
     // margin/padding, but not others.  We should make the gap painting more consistent and 
     // then use a left margin/padding rule here.
-    if (visibleEnd != visibleStart && isStartOfParagraph(visibleEnd, CanSkipOverEditingBoundary))
+    if (visibleEnd != visibleStart && isStartOfParagraph(visibleEnd, CanSkipOverEditingBoundary)) {
         setEndingSelection(VisibleSelection(visibleStart, visibleEnd.previous(CannotCrossEditingBoundary), endingSelection().isDirectional()));
+        if (!endingSelection().rootEditableElement())
+            return;
+    }
 
     auto& listTag = (m_type == OrderedList) ? olTag : ulTag;
     if (endingSelection().isRange()) {
@@ -217,15 +218,15 @@ void InsertListCommand::doApplyForSingleParagraph(bool forceCreateList, const HT
             return;
 
         // If the entire list is selected, then convert the whole list.
-        if (switchListType && isNodeVisiblyContainedWithin(listNode.get(), currentSelection)) {
-            bool rangeStartIsInList = visiblePositionBeforeNode(listNode.get()) == currentSelection->startPosition();
-            bool rangeEndIsInList = visiblePositionAfterNode(listNode.get()) == currentSelection->endPosition();
+        if (switchListType && isNodeVisiblyContainedWithin(*listNode, *currentSelection)) {
+            bool rangeStartIsInList = visiblePositionBeforeNode(*listNode) == currentSelection->startPosition();
+            bool rangeEndIsInList = visiblePositionAfterNode(*listNode) == currentSelection->endPosition();
 
             RefPtr<HTMLElement> newList = createHTMLElement(document(), listTag);
             insertNodeBefore(newList, listNode);
 
-            Node* firstChildInList = enclosingListChild(VisiblePosition(firstPositionInNode(listNode.get())).deepEquivalent().deprecatedNode(), listNode.get());
-            Node* outerBlock = isBlockFlowElement(firstChildInList) ? firstChildInList : listNode.get();
+            auto* firstChildInList = enclosingListChild(VisiblePosition(firstPositionInNode(listNode.get())).deepEquivalent().deprecatedNode(), listNode.get());
+            Node* outerBlock = firstChildInList && isBlockFlowElement(*firstChildInList) ? firstChildInList : listNode.get();
             
             moveParagraphWithClones(firstPositionInNode(listNode.get()), lastPositionInNode(listNode.get()), newList.get(), outerBlock);
 
@@ -240,9 +241,9 @@ void InsertListCommand::doApplyForSingleParagraph(bool forceCreateList, const HT
             // Restore the start and the end of current selection if they started inside listNode
             // because moveParagraphWithClones could have removed them.
             if (rangeStartIsInList && newList)
-                currentSelection->setStart(newList, 0, IGNORE_EXCEPTION);
+                currentSelection->setStart(*newList, 0, IGNORE_EXCEPTION);
             if (rangeEndIsInList && newList)
-                currentSelection->setEnd(newList, lastOffsetInNode(newList.get()), IGNORE_EXCEPTION);
+                currentSelection->setEnd(*newList, lastOffsetInNode(newList.get()), IGNORE_EXCEPTION);
 
             setEndingSelection(VisiblePosition(firstPositionInNode(newList.get())));
 
@@ -278,12 +279,12 @@ void InsertListCommand::unlistifyParagraph(const VisiblePosition& originalStart,
     }
     // When removing a list, we must always create a placeholder to act as a point of insertion
     // for the list content being removed.
-    RefPtr<Element> placeholder = createBreakElement(document());
+    RefPtr<Element> placeholder = HTMLBRElement::create(document());
     RefPtr<Element> nodeToInsert = placeholder;
     // If the content of the list item will be moved into another list, put it in a list item
     // so that we don't create an orphaned list child.
     if (enclosingList(listNode)) {
-        nodeToInsert = createListItemElement(document());
+        nodeToInsert = HTMLLIElement::create(document());
         appendNode(placeholder, nodeToInsert);
     }
 
@@ -340,29 +341,29 @@ RefPtr<HTMLElement> InsertListCommand::listifyParagraph(const VisiblePosition& o
         return 0;
 
     // Check for adjoining lists.
-    RefPtr<HTMLElement> listItemElement = createListItemElement(document());
-    RefPtr<HTMLElement> placeholder = createBreakElement(document());
-    appendNode(placeholder, listItemElement);
+    auto listItemElement = HTMLLIElement::create(document());
+    auto placeholder = HTMLBRElement::create(document());
+    appendNode(placeholder.copyRef(), listItemElement.copyRef());
 
     // Place list item into adjoining lists.
     Element* previousList = adjacentEnclosingList(start.deepEquivalent(), start.previous(CannotCrossEditingBoundary), listTag);
     Element* nextList = adjacentEnclosingList(start.deepEquivalent(), end.next(CannotCrossEditingBoundary), listTag);
     RefPtr<HTMLElement> listElement;
     if (previousList)
-        appendNode(listItemElement, previousList);
+        appendNode(WTFMove(listItemElement), previousList);
     else if (nextList)
-        insertNodeAt(listItemElement, positionBeforeNode(nextList));
+        insertNodeAt(WTFMove(listItemElement), positionBeforeNode(nextList));
     else {
         // Create the list.
         listElement = createHTMLElement(document(), listTag);
-        appendNode(listItemElement, listElement);
+        appendNode(WTFMove(listItemElement), listElement);
 
         if (start == end && isBlock(start.deepEquivalent().deprecatedNode())) {
             // Inserting the list into an empty paragraph that isn't held open 
             // by a br or a '\n', will invalidate start and end.  Insert 
             // a placeholder and then recompute start and end.
-            RefPtr<Node> placeholder = insertBlockPlaceholder(start.deepEquivalent());
-            start = positionBeforeNode(placeholder.get());
+            auto blockPlaceholder = insertBlockPlaceholder(start.deepEquivalent());
+            start = positionBeforeNode(blockPlaceholder.get());
             end = start;
         }
 
@@ -390,7 +391,7 @@ RefPtr<HTMLElement> InsertListCommand::listifyParagraph(const VisiblePosition& o
         }
     }
 
-    moveParagraph(start, end, positionBeforeNode(placeholder.get()), true);
+    moveParagraph(start, end, positionBeforeNode(placeholder.ptr()), true);
 
     if (listElement)
         return mergeWithNeighboringLists(listElement);

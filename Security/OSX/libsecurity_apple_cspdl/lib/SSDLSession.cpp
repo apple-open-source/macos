@@ -73,6 +73,8 @@ try
 }
 catch (...)
 {
+    // Prevent re-throw of exception.
+    return;
 }
 
 // Utility functions
@@ -117,7 +119,7 @@ SSDLSession::DbCreate(const char *inDbName,
 	db->accessRequest(inAccessRequest);
 	db->resourceControlContext(inCredAndAclEntry);
 	db->openParameters(inOpenParameters);
-	db->create(DLDbIdentifier(CssmSubserviceUid(plugin.myGuid(), &version(), subserviceId(),
+	db->ssCreate(DLDbIdentifier(CssmSubserviceUid(plugin.myGuid(), &version(), subserviceId(),
 												CSSM_SERVICE_DL | CSSM_SERVICE_CSP),
 							  inDbName, inDbLocation));
 	db->dbInfo(NULL);
@@ -139,7 +141,7 @@ SSDLSession::CreateWithBlob(const char *DbName,
 	db->accessRequest(AccessRequest);
 	db->resourceControlContext(NULL);
 	db->openParameters(OpenParameters);
-	db->createWithBlob(DLDbIdentifier(CssmSubserviceUid(plugin.myGuid(), &version(), subserviceId(),
+	db->ssCreateWithBlob(DLDbIdentifier(CssmSubserviceUid(plugin.myGuid(), &version(), subserviceId(),
 									  CSSM_SERVICE_DL | CSSM_SERVICE_CSP),
 									  DbName, DbLocation),
 					   blob);
@@ -160,7 +162,7 @@ SSDLSession::DbOpen(const char *inDbName,
 	db->accessRequest(inAccessRequest);
 	db->accessCredentials(inAccessCred);
 	db->openParameters(inOpenParameters);
-	db->open(DLDbIdentifier(CssmSubserviceUid(plugin.myGuid(), &version(), subserviceId(),
+	db->ssOpen(DLDbIdentifier(CssmSubserviceUid(plugin.myGuid(), &version(), subserviceId(),
 											  CSSM_SERVICE_DL | CSSM_SERVICE_CSP),
 							inDbName, inDbLocation));
 	outDbHandle = makeDbHandle(db);
@@ -267,7 +269,7 @@ SSDLSession::DataInsert(CSSM_DB_HANDLE inDbHandle,
 {
 	SSDatabase db = findDbHandle(inDbHandle);
 	// @@@ Fix client lib.
-    SSUniqueRecord uniqueId = db->insert(inRecordType, inAttributes, inData, true); // @@@ Fix me
+    SSUniqueRecord uniqueId = db->ssInsert(inRecordType, inAttributes, inData);
 	outUniqueId = makeSSUniqueRecord(uniqueId);
 	// @@@ If this is a key do the right thing.
 }
@@ -1289,7 +1291,7 @@ SSDLSession::PassThrough(CSSM_DB_HANDLE inDbHandle,
 		case CSSM_APPLECSPDL_DB_COPY_BLOB:
 		{
 			// make the output parameters
-			db->copyBlob(*reinterpret_cast<CSSM_DATA *>(outOutputParams));
+			db->ssCopyBlob(*reinterpret_cast<CSSM_DATA *>(outOutputParams));
 			break;
 		}
 		case CSSM_APPLECSPDL_DB_INSERT_WITHOUT_ENCRYPTION:
@@ -1322,6 +1324,11 @@ SSDLSession::PassThrough(CSSM_DB_HANDLE inDbHandle,
             *((uint32*) *outOutputParams) = db->recodeDbToVersion(*((uint32*) inInputParams));
             break;
         }
+        case CSSM_APPLECSPDL_DB_RECODE_FINISHED:
+        {
+            db->recodeFinished();
+            break;
+        }
         case CSSM_APPLECSPDL_DB_TAKE_FILE_LOCK:
         {
             db->takeFileLock();
@@ -1335,6 +1342,22 @@ SSDLSession::PassThrough(CSSM_DB_HANDLE inDbHandle,
         case CSSM_APPLECSPDL_DB_MAKE_BACKUP:
         {
             db->makeBackup();
+            break;
+        }
+        case CSSM_APPLECSPDL_DB_MAKE_COPY:
+        {
+            db->makeCopy((const char*) inInputParams);
+            break;
+        }
+        case CSSM_APPLECSPDL_DB_DELETE_FILE:
+        {
+            db->deleteFile();
+            break;
+        }
+        case CSSM_APPLECSPDL_DB_CLONE:
+        {
+            SSDatabase ssdb = db->ssCloneTo(*((DLDbIdentifier*) inInputParams));
+            *((CSSM_DB_HANDLE*) outOutputParams) = makeDbHandle(ssdb);
             break;
         }
 		default:

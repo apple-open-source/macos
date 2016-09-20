@@ -1,4 +1,4 @@
-/* $OpenBSD: sftp.c,v 1.170 2015/01/20 23:14:00 deraadt Exp $ */
+/* $OpenBSD: sftp.c,v 1.172 2016/02/15 09:47:49 dtucker Exp $ */
 /*
  * Copyright (c) 2001-2004 Damien Miller <djm@openbsd.org>
  *
@@ -1958,7 +1958,7 @@ complete(EditLine *el, int ch)
 
 	/* Figure out which argument the cursor points to */
 	cursor = lf->cursor - lf->buffer;
-	line = (char *)xmalloc(cursor + 1);
+	line = xmalloc(cursor + 1);
 	memcpy(line, lf->buffer, cursor);
 	line[cursor] = '\0';
 	argv = makeargv(line, &carg, 1, &quote, &terminated);
@@ -1966,7 +1966,7 @@ complete(EditLine *el, int ch)
 
 	/* Get all the arguments on the line */
 	len = lf->lastchar - lf->buffer;
-	line = (char *)xmalloc(len + 1);
+	line = xmalloc(len + 1);
 	memcpy(line, lf->buffer, len);
 	line[len] = '\0';
 	argv = makeargv(line, &argc, 1, NULL, NULL);
@@ -2248,6 +2248,7 @@ main(int argc, char **argv)
 	size_t num_requests = DEFAULT_NUM_REQUESTS;
 	long long limit_kbps = 0;
 
+	ssh_malloc_init();	/* must be called before any mallocs */
 	/* Ensure that fds 0, 1 and 2 are open or directed to /dev/null */
 	sanitise_stdfd();
 	setlocale(LC_CTYPE, "");

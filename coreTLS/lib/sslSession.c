@@ -28,6 +28,7 @@
 #include "sslUtils.h"
 #include "sslDebug.h"
 #include "sslCipherSpecs.h"
+#include "sslAlertMessage.h"
 
 #include <assert.h>
 #include <string.h>
@@ -43,14 +44,32 @@ typedef struct
 	uint16_t			  padding;          /* so remainder is word aligned */
     uint8_t               masterSecret[48];
     size_t                ticketLen;
-    size_t                certCount;
-    uint8_t               data[1];         /* Actually, variable length */
-    /* data contain the session ticket (if any), followed by certCount certs */
+    size_t                ocspResponseLen;
+    size_t                sctListLen;
+    size_t                certListLen;
+    bool                  sessExtMSSet;
+    uint8_t               data[0];         /* Actually, variable length */
+    /* data contain the session ticket (if any), followed by stappled ocsp response (if any),
+       sct list (if any), and finally certs list */
 } ResumableSession;
 
 /* Special fixed sessionID when using a session ticket */
 #define SESSION_TICKET_ID "SESSION-TICKET"
 
+/*
+ * Given a sessionData blob, perform sanity check
+ */
+static bool
+SSLSessionDataCheck(const tls_buffer sessionData)
+{
+    ResumableSession *session;
+    if(sessionData.length < sizeof(ResumableSession))
+        return false;
+
+    session = (ResumableSession *)sessionData.data;
+
+    return (sessionData.length == (sizeof(ResumableSession) + session->ticketLen + session->ocspResponseLen + session->sctListLen + session->certListLen));
+}
 /*
  * Cook up a (private) resumable session blob, based on the
  * specified ctx, store it with ctx->peerID (client) or ctx->sessionID (server) as the key.
@@ -61,23 +80,19 @@ SSLAddSessionData(const tls_handshake_t ctx)
 	size_t              sessionDataLen;
 	tls_buffer          sessionData;
 	ResumableSession    *session;
-	size_t              certCount;
-	SSLCertificate      *cert;
-	uint8_t             *certDest;
+    size_t              sctListLen;
+    size_t              certListLen;
+    uint8_t             *p;
 
 	/* If we don't have session ID or a ticket, we can't store a session */
 	if (!ctx->sessionID.data && !ctx->sessionTicket.data)
 		return errSSLSessionNotFound;
 
+    sctListLen = SSLEncodedBufferListSize(ctx->sct_list, 2);
+    certListLen = SSLEncodedBufferListSize((tls_buffer_list_t *)ctx->peerCert, 3);
 
-	sessionDataLen = offsetof(ResumableSession, data) + ctx->sessionTicket.length;
-	cert = ctx->peerCert;
-	certCount = 0;
-	while (cert)
-	{   ++certCount;
-		sessionDataLen += 4 + cert->derCert.length;
-		cert = cert->next;
-	}
+    sessionDataLen = sizeof(ResumableSession) + ctx->sessionTicket.length
+                    + ctx->ocsp_response.length + sctListLen + certListLen;
 
     if ((err = SSLAllocBuffer(&sessionData, sessionDataLen)))
         return err;
@@ -95,26 +110,33 @@ SSLAddSessionData(const tls_handshake_t ctx)
     session->reqProtocolVersion = ctx->clientReqProtocol;
     session->cipherSuite = ctx->selectedCipher;
     memcpy(session->masterSecret, ctx->masterSecret, 48);
-    session->certCount = certCount;
-    session->padding = 0;
     session->ticketLen = ctx->sessionTicket.length;
+    session->ocspResponseLen = ctx->ocsp_response.length;
+    session->sctListLen = sctListLen;
+    session->certListLen = certListLen;
+    session->padding = 0;
+    p = session->data;
 
-    memcpy(session->data, ctx->sessionTicket.data,ctx->sessionTicket.length);
+    memcpy(p, ctx->sessionTicket.data, ctx->sessionTicket.length); p += ctx->sessionTicket.length;
+    memcpy(p, ctx->ocsp_response.data, ctx->ocsp_response.length); p += ctx->ocsp_response.length;
+    p = SSLEncodeBufferList(ctx->sct_list, 2, p);
+    p = SSLEncodeBufferList((tls_buffer_list_t *)ctx->peerCert, 3, p);
 
-    certDest = session->data + session->ticketLen;
+    if(!SSLSessionDataCheck(sessionData)) {
+        SSLFreeBuffer(&sessionData);
+        return errSSLInternal;
+    }
 
-	cert = ctx->peerCert;
-	while (cert)
-	{   certDest = SSLEncodeInt(certDest, cert->derCert.length, 4);
-		memcpy(certDest, cert->derCert.data, cert->derCert.length);
-		certDest += cert->derCert.length;
-		cert = cert->next;
-	}
+    if (ctx->extMSEnabled && ctx->extMSReceived)
+        session->sessExtMSSet = true;
+    else
+        session->sessExtMSSet = false;
 
     if(ctx->isServer)
         err = ctx->callbacks->save_session_data(ctx->callback_ctx, ctx->sessionID, sessionData);
     else
         err = ctx->callbacks->save_session_data(ctx->callback_ctx, ctx->peerID, sessionData);
+
 
     SSLFreeBuffer(&sessionData);
 
@@ -132,7 +154,6 @@ SSLDeleteSessionData(const tls_handshake_t ctx)
     return err;
 }
 
-
 /*
  * Given a sessionData blob, obtain the associated sessionTicket (if Any).
  */
@@ -142,6 +163,9 @@ SSLRetrieveSessionTicket(
                      tls_buffer *ticket)
 {
     ResumableSession    *session;
+
+    if(!SSLSessionDataCheck(sessionData))
+        return errSSLInternal;
 
     session = (ResumableSession*) sessionData.data;
     ticket->data = session->data;
@@ -159,6 +183,9 @@ SSLRetrieveSessionID(
 {
     ResumableSession    *session;
 
+    if(!SSLSessionDataCheck(sessionData))
+        return errSSLInternal;
+
     session = (ResumableSession*) sessionData.data;
     identifier->data = session->sessionID;
     identifier->length = session->sessionIDLen;
@@ -172,6 +199,9 @@ SSLRetrieveSessionID(
 int SSLServerValidateSessionData(const tls_buffer sessionData, tls_handshake_t ctx)
 {
     ResumableSession *session = (ResumableSession *)sessionData.data;
+
+    if(!SSLSessionDataCheck(sessionData))
+        return errSSLInternal;
 
     /*
        Currently, the session cache is looked up by sessionID on the server side,
@@ -200,6 +230,16 @@ int SSLServerValidateSessionData(const tls_buffer sessionData, tls_handshake_t c
     require(cipherSuiteInSet(session->cipherSuite, ctx->enabledCipherSuites, ctx->numEnabledCipherSuites), out);
     require(cipherSuiteInSet(session->cipherSuite, ctx->requestedCipherSuites, ctx->numRequestedCipherSuites), out);
 
+    if (session->sessExtMSSet) {
+        if (!ctx->extMSReceived) {
+            SSLFatalSessionAlert(SSL_AlertHandshakeFail, ctx);
+            return errSSLFatalAlert;
+        }
+    } else {
+        if (ctx->extMSReceived) {
+            goto out;
+        }
+    }
     ctx->selectedCipher = session->cipherSuite;
     InitCipherSpecParams(ctx);
 
@@ -216,6 +256,9 @@ out:
 int SSLClientValidateSessionDataBefore(const tls_buffer sessionData, tls_handshake_t ctx)
 {
     ResumableSession *session = (ResumableSession *)sessionData.data;
+
+    if(!SSLSessionDataCheck(sessionData))
+        return errSSLInternal;
 
     /*
         If the current requested version is higher than the session one,
@@ -247,11 +290,14 @@ int SSLClientValidateSessionDataAfter(const tls_buffer sessionData, tls_handshak
 {
     ResumableSession *session = (ResumableSession *)sessionData.data;
 
+    if(!SSLSessionDataCheck(sessionData))
+        return errSSLInternal;
+
     /* Make sure that the session version and server version match. */
     require(session->negProtocolVersion == ctx->negProtocolVersion, out);
     /* Make sure that the session ciphersuite and server ciphersuite match. */
     require(session->cipherSuite == ctx->selectedCipher, out);
-
+    require(session->sessExtMSSet == ctx->extMSReceived, out);
     return 0;
 
 out:
@@ -268,11 +314,10 @@ int
 SSLInstallSessionFromData(const tls_buffer sessionData, tls_handshake_t ctx)
 {   int            err;
     ResumableSession    *session;
-    uint8_t             *storedCertProgress;
-    SSLCertificate		*cert;
-    SSLCertificate      *lastCert = NULL;
-    size_t              certCount;
-    size_t              certLen;
+    uint8_t             *p;
+
+    if(!SSLSessionDataCheck(sessionData))
+        return errSSLInternal;
 
     session = (ResumableSession*)sessionData.data;
 
@@ -283,33 +328,34 @@ SSLInstallSessionFromData(const tls_buffer sessionData, tls_handshake_t ctx)
     assert(ctx->negProtocolVersion == session->negProtocolVersion);
 
     memcpy(ctx->masterSecret, session->masterSecret, 48);
+    p = session->data + session->ticketLen;
 
-    storedCertProgress = session->data + session->ticketLen;
-    certCount = session->certCount;
+    // Get the stappled ocsp_response (if any)
+    SSLFreeBuffer(&ctx->ocsp_response);
+    ctx->ocsp_response_received = false;
+    if(session->ocspResponseLen) {
+        ctx->ocsp_response_received =  true;
+        SSLCopyBufferFromData(p, session->ocspResponseLen, &ctx->ocsp_response);
+    }
+    p += session->ocspResponseLen;
 
-    while (certCount--)
-    {
-		cert = (SSLCertificate *)sslMalloc(sizeof(SSLCertificate));
-		if(cert == NULL) {
-			return errSSLAllocate;
-		}
-        cert->next = 0;
-        certLen = SSLDecodeInt(storedCertProgress, 4);
-        storedCertProgress += 4;
-        if ((err = SSLAllocBuffer(&cert->derCert, certLen)))
-        {   
-			sslFree(cert);
+    // Get the SCT list (if any)
+    tls_free_buffer_list(ctx->sct_list);
+    ctx->sct_list = NULL;
+    if(session->sctListLen) {
+        if((err=SSLDecodeBufferList(p, session->sctListLen, 2, &ctx->sct_list))) {
             return err;
         }
-        memcpy(cert->derCert.data, storedCertProgress, certLen);
-        storedCertProgress += certLen;
-        if (lastCert == 0) {
-            SSLFreeCertificates(ctx->peerCert);
-            ctx->peerCert = cert;
+    }
+    p += session->sctListLen;
+
+    // Get the certs
+    SSLFreeCertificates(ctx->peerCert);
+    ctx->peerCert = NULL;
+    if(session->certListLen) {
+        if((err=SSLDecodeBufferList(p, session->certListLen, 3, (tls_buffer_list_t **)&ctx->peerCert))) {
+            return err;
         }
-        else
-            lastCert->next = cert;
-        lastCert = cert;
     }
 
     return errSSLSuccess;

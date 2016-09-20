@@ -193,7 +193,7 @@ static void webkit_web_audio_src_init(WebKitWebAudioSrc* src)
     priv->bus = 0;
 
     g_rec_mutex_init(&priv->mutex);
-    priv->task = gst_task_new(reinterpret_cast<GstTaskFunction>(webKitWebAudioSrcLoop), src, 0);
+    priv->task = adoptGRef(gst_task_new(reinterpret_cast<GstTaskFunction>(webKitWebAudioSrcLoop), src, 0));
 
     gst_task_set_lock(priv->task.get(), &priv->mutex);
 }
@@ -229,7 +229,8 @@ static void webKitWebAudioSrcConstructed(GObject* object)
         GRefPtr<GstCaps> caps = adoptGRef(gst_audio_info_to_caps(&info));
 
         // Configure the appsrc for minimal latency.
-        g_object_set(appsrc, "max-bytes", 2 * priv->bufferSize, "block", TRUE,
+        g_object_set(appsrc, "max-bytes", static_cast<guint64>(2 * priv->bufferSize), "block", TRUE,
+            "blocksize", priv->bufferSize,
             "format", GST_FORMAT_TIME, "caps", caps.get(), nullptr);
 
         priv->sources = g_slist_prepend(priv->sources, gst_object_ref(appsrc));

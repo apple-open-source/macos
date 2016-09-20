@@ -48,7 +48,6 @@ JSObject* createSyntaxError(ExecState*, const String&, ErrorInstance::SourceAppe
 JSObject* createTypeError(ExecState*, const String&, ErrorInstance::SourceAppender, RuntimeType);
 JSObject* createNotEnoughArgumentsError(ExecState*, ErrorInstance::SourceAppender);
 JSObject* createURIError(ExecState*, const String&, ErrorInstance::SourceAppender);
-JSObject* createOutOfMemoryError(ExecState*, ErrorInstance::SourceAppender);
 
 
 JS_EXPORT_PRIVATE JSObject* createError(ExecState*, const String&);
@@ -63,7 +62,7 @@ JS_EXPORT_PRIVATE JSObject* createURIError(ExecState*, const String&);
 JS_EXPORT_PRIVATE JSObject* createOutOfMemoryError(ExecState*);
 
 
-bool addErrorInfoAndGetBytecodeOffset(ExecState*, VM&, JSObject*, bool, CallFrame*&, unsigned&);
+bool addErrorInfoAndGetBytecodeOffset(ExecState*, VM&, JSObject*, bool, CallFrame*&, unsigned* = nullptr);
 
 bool hasErrorInfo(ExecState*, JSObject* error);
 JS_EXPORT_PRIVATE void addErrorInfo(ExecState*, JSObject*, bool); 
@@ -72,14 +71,19 @@ JSObject* addErrorInfo(ExecState*, JSObject* error, int line, const SourceCode&)
 // Methods to throw Errors.
 
 // Convenience wrappers, create an throw an exception with a default message.
+JS_EXPORT_PRIVATE JSObject* throwConstructorCannotBeCalledAsFunctionTypeError(ExecState*, const char* constructorName);
 JS_EXPORT_PRIVATE JSObject* throwTypeError(ExecState*);
+JS_EXPORT_PRIVATE JSObject* throwTypeError(ExecState*, ASCIILiteral errorMessage);
+JS_EXPORT_PRIVATE JSObject* throwTypeError(ExecState*, const String& errorMessage);
 JS_EXPORT_PRIVATE JSObject* throwSyntaxError(ExecState*);
+JS_EXPORT_PRIVATE JSObject* throwSyntaxError(ExecState*, const String& errorMessage);
 inline JSObject* throwRangeError(ExecState* state, const String& errorMessage) { return state->vm().throwException(state, createRangeError(state, errorMessage)); }
 
 // Convenience wrappers, wrap result as an EncodedJSValue.
 inline void throwVMError(ExecState* exec, Exception* exception) { exec->vm().throwException(exec, exception); }
 inline EncodedJSValue throwVMError(ExecState* exec, JSValue error) { return JSValue::encode(exec->vm().throwException(exec, error)); }
 inline EncodedJSValue throwVMTypeError(ExecState* exec) { return JSValue::encode(throwTypeError(exec)); }
+inline EncodedJSValue throwVMTypeError(ExecState* exec, ASCIILiteral errorMessage) { return JSValue::encode(throwTypeError(exec, errorMessage)); }
 inline EncodedJSValue throwVMTypeError(ExecState* exec, const String& errorMessage) { return JSValue::encode(throwTypeError(exec, errorMessage)); }
 inline EncodedJSValue throwVMRangeError(ExecState* state, const String& errorMessage) { return JSValue::encode(throwRangeError(state, errorMessage)); }
 
@@ -112,7 +116,7 @@ public:
     static ConstructType getConstructData(JSCell*, ConstructData& constructData)
     {
         constructData.native.function = constructThrowTypeError;
-        return ConstructTypeHost;
+        return ConstructType::Host;
     }
 
     static EncodedJSValue JSC_HOST_CALL callThrowTypeError(ExecState* exec)
@@ -124,7 +128,7 @@ public:
     static CallType getCallData(JSCell*, CallData& callData)
     {
         callData.native.function = callThrowTypeError;
-        return CallTypeHost;
+        return CallType::Host;
     }
 
     DECLARE_INFO;

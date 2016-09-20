@@ -84,10 +84,6 @@ CFIndex SOSPeerGetVersion(SOSPeerRef peer);
 CFStringRef SOSPeerGetID(SOSPeerRef peer);
 bool SOSPeersEqual(SOSPeerRef peerA, SOSPeerRef peerB);
 
-// Coders
-SOSCoderRef SOSPeerGetCoder(SOSPeerRef peer, CFErrorRef *error);
-bool SOSPeerEnsureCoder(SOSPeerRef peer, SOSFullPeerInfoRef myPeerInfo, SOSPeerInfoRef peerInfo, CFErrorRef *error);
-
 uint64_t SOSPeerNextSequenceNumber(SOSPeerRef peer);
 uint64_t SOSPeerGetMessageVersion(SOSPeerRef peer);
 

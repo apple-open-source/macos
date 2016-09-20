@@ -241,7 +241,19 @@ Set the operating system capture buffer size to \fIbuffer_size\fP, in
 units of KiB (1024 bytes).
 .TP
 .BI \-c " count"
-Exit after receiving \fIcount\fP packets.
+.PD 0
+.TP
+.BI \-c " skip,count"
+.PD
+Exit after receiving or displaying \fIcount\fP packets. 
+.IP
+The second form allows to pass the number of initial packets to ignore with the
+.B skip
+parameter. The
+.B skip
+parameter is required before the comma but the
+.B count
+parameters is optional after the comma.
 .TP
 .BI \-C " file_size"
 Before writing a raw packet to a savefile, check whether the file is
@@ -524,6 +536,8 @@ where each character corresponds to a type of packet metadata as follows:
 \fBS\fP     service class
 \fBD\fP     direction
 \fBC\fP     comment
+\fBU\fP     process UUID (not shown by default)
+\fBA\fP     display all types of metadata
 .fi
 .RE
 .RE
@@ -729,6 +743,12 @@ PGM and UDP at once. During the native PGM decoding the application data of an
 ODATA/RDATA packet would be decoded as a ZeroMQ datagram with ZMTP/1.0 frames.
 During the UDP decoding in addition to that any UDP packet would be treated as
 an encapsulated PGM packet.
+.IP
+Additional dissectors for non registered UDP protocols: 
+\fBiperf\fR (iperf 2.x),
+\fBiperf3\fR (iperf 3.x),
+\fBiperf3-64\fR (iperf 3.x with 64 bits packet ID),
+\fBsuttp\fR (Simple UDP Throughput Test Protocol),
 .TP
 .B \-t
 \fIDon't\fP print a timestamp on each dump line.

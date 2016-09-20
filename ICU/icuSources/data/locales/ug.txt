@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2015 International Business Machines
+// * Copyright (C) 2016 International Business Machines
 // * Corporation and others. All Rights Reserved.
 // * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
 // * Source File: <path>/common/main/ug.xml
@@ -140,11 +140,17 @@ ug{
         }
         native{"arabext"}
     }
-    Version{"2.1.7.39"}
+    Version{"2.1.23.13"}
     calendar{
         buddhist{
             eras{
                 abbreviated{
+                    "BE",
+                }
+                narrow{
+                    "BE",
+                }
+                wide{
                     "بۇددا يىلنامەسى",
                 }
             }
@@ -327,6 +333,10 @@ ug{
                 "چۈشتىن بۇرۇن",
                 "چۈشتىن كېيىن",
             }
+            AmPmMarkersAbbr{
+                "AM",
+                "PM",
+            }
             AmPmMarkersNarrow{
                 "چۈشتىن بۇرۇن",
                 "چۈشتىن كېيىن",
@@ -346,8 +356,6 @@ ug{
                 "{1}، {0}",
                 "{1}، {0}",
             }
-            NoonMarker{"چۈش"}
-            NoonMarkerNarrow{"چۈش"}
             appendItems{
                 Timezone{"{0} {1}"}
             }
@@ -393,7 +401,7 @@ ug{
                         "سە",
                         "چا",
                         "پە",
-                        "چۈ",
+                        "جۈ",
                         "شە",
                     }
                     short{
@@ -429,11 +437,11 @@ ug{
             }
             eras{
                 abbreviated{
-                    "مىلادىيەدىن بۇرۇن",
+                    "BCE",
                     "مىلادىيە",
                 }
                 narrow{
-                    "مىلادىيەدىن بۇرۇن",
+                    "BCE",
                     "مىلادىيە",
                 }
                 wide{
@@ -563,7 +571,7 @@ ug{
                         "ئاۋغۇست",
                         "سېنتەبىر",
                         "ئۆكتەبىر",
-                        "بويابىر",
+                        "نويابىر",
                         "دېكابىر",
                     }
                 }
@@ -699,6 +707,10 @@ ug{
         roc{
             eras{
                 abbreviated{
+                    "Before R.O.C.",
+                    "مىنگو",
+                }
+                wide{
                     "جۇڭخۇا مىنگودىن بۇرۇن",
                     "مىنگو",
                 }

@@ -22,7 +22,10 @@
 
 #include <tls_handshake.h>
 #include <tls_ciphersuites.h>
+#include <tls_helpers.h>
+#include <tls_cache.h>
 
+#include <Security/CipherSuite.h>
 #include <Security/SecKeyPriv.h>
 #include <Security/SecIdentity.h>
 
@@ -124,28 +127,6 @@ const CipherSuiteName ciphers[] = {
 #endif
 
 #if 1
-    /* ECDH_RSA cipher suites */
-    CIPHER(TLS_ECDH_RSA_WITH_RC4_128_SHA),
-    CIPHER(TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA),
-    CIPHER(TLS_ECDH_RSA_WITH_AES_128_CBC_SHA),
-    CIPHER(TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256),
-    CIPHER(TLS_ECDH_RSA_WITH_AES_256_CBC_SHA),
-    CIPHER(TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384), // Not supported by either gnutls or openssl
-#endif
-
-
-#if 1
-    /* ECDH_ECDSA cipher suites */
-    CIPHER(TLS_ECDH_ECDSA_WITH_NULL_SHA),
-    CIPHER(TLS_ECDH_ECDSA_WITH_RC4_128_SHA),
-    CIPHER(TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA),
-    CIPHER(TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA),
-    CIPHER(TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256),
-    CIPHER(TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA),
-    CIPHER(TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384),
-#endif
-
-#if 1
     CIPHER(TLS_PSK_WITH_RC4_128_SHA),
     CIPHER(TLS_PSK_WITH_3DES_EDE_CBC_SHA),
     CIPHER(TLS_PSK_WITH_AES_128_CBC_SHA),
@@ -172,12 +153,6 @@ const CipherSuiteName ciphers[] = {
 
     CIPHER(TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256),
     CIPHER(TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384),
-
-    CIPHER(TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256),
-    CIPHER(TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384),
-
-    CIPHER(TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256),
-    CIPHER(TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384),
 
 #endif
 
@@ -283,8 +258,7 @@ tls_handshake_message_callback(tls_handshake_ctx_t ctx, tls_handshake_message_t 
             break;
         case tls_handshake_message_certificate:
             require_noerr((err = tls_handshake_set_peer_trust(sc->hdsk, tls_handshake_trust_ok)), fail);
-            require_noerr((err = tls_create_peer_trust(sc->hdsk, &trustRef)), fail);
-            require_noerr((err = tls_set_peer_pubkey(sc->hdsk, trustRef)), fail);
+            require_noerr((err = tls_helper_set_peer_pubkey(sc->hdsk)), fail);
             break;
         default:
             break;
@@ -366,20 +340,21 @@ int mySSLRecordSetProtocolVersionFunc(tls_handshake_ctx_t ref,
     return tls_record_set_protocol_version(sc->rec, protocolVersion);
 }
 
+static tls_cache_t g_cache = NULL;
 
 static int
 tls_handshake_save_session_data_callback(tls_handshake_ctx_t ctx, tls_buffer sessionKey, tls_buffer sessionData)
 {
     tls_server_ctx_t *sc = (tls_server_ctx_t *)ctx;
     session_log("key = %016llx... data=[%p,%zd]\n", *(uint64_t *)sessionKey.data, sessionData.data, sessionData.length);
-    return sslAddSession(sessionKey, sessionData, 0);
+    return tls_cache_save_session_data(g_cache, &sessionKey, &sessionData, 0);
 }
 
 static int
 tls_handshake_load_session_data_callback(tls_handshake_ctx_t ctx, tls_buffer sessionKey, tls_buffer *sessionData)
 {
     tls_server_ctx_t *sc = (tls_server_ctx_t *)ctx;
-    int err = sslGetSession(sessionKey, sessionData);
+    int err = tls_cache_load_session_data(g_cache,&sessionKey, sessionData);
     session_log("key = %s data=[%p,%zd], err=%d\n", sessionKey.data, sessionData->data, sessionData->length, err);
     return err;
 }
@@ -389,7 +364,7 @@ tls_handshake_delete_session_data_callback(tls_handshake_ctx_t ctx, tls_buffer s
 {
     tls_server_ctx_t *sc = (tls_server_ctx_t *)ctx;
     session_log("\n");
-    return sslDeleteSession(sessionKey);
+    return tls_cache_delete_session_data(g_cache,&sessionKey);
 }
 
 static int
@@ -397,7 +372,7 @@ tls_handshake_delete_all_sessions_callback(tls_handshake_ctx_t ctx)
 {
     tls_server_ctx_t *sc = (tls_server_ctx_t *)ctx;
     session_log("\n");
-    return sslCleanupSession();
+    return -1;
 }
 
 /* TLS callbacks */
@@ -539,6 +514,8 @@ int init_connection(tls_server_ctx_t **psc, int fd, struct sockaddr_in address, 
 
     require_noerr((err = tls_handshake_set_identity(sc->hdsk, &params->cert1, params->key1)), fail);
 
+    if(params->config)
+        require_noerr((err=tls_handshake_set_config(sc->hdsk, atoi(params->config))), fail);
     if(params->num_ciphersuites)
         require_noerr((err=tls_handshake_set_ciphersuites(sc->hdsk, params->ciphersuites, params->num_ciphersuites)), fail);
     if(params->protocol_min)
@@ -559,6 +536,7 @@ int init_connection(tls_server_ctx_t **psc, int fd, struct sockaddr_in address, 
     if(params->rsa_server_key_exchange)
         require_noerr((err=tls_set_encrypt_pubkey(sc->hdsk, &params->cert1)), fail);
 
+    require_noerr(tls_handshake_set_ems_enable(sc->hdsk, params->allow_ext_master_secret), fail);
     /* success, print ciphersuites, return allocated context */
 
     if(params->verbose) {
@@ -863,6 +841,8 @@ static int start_server(tls_server_params *params)
 {
     dispatch_source_t socket_source  = NULL;
 
+    g_cache = tls_cache_create();
+
     int server_sock = SocketBind(params->port, params->dtls);
     if(server_sock<0)
         return server_sock;
@@ -897,7 +877,7 @@ static int start_server(tls_server_params *params)
 
     dispatch_resume(socket_source);
 
-    server_log("Main DTLS server thread is now spinning...\n");
+    server_log("Main (D)TLS server thread is now spinning...\n");
 
     char  line[80];
     do {
@@ -928,6 +908,8 @@ fail:
         dispatch_release(socket_source);
     }
     
+    tls_cache_destroy(g_cache);
+
     return 0;
 }
 
@@ -1072,21 +1054,22 @@ int main(int argc, const char * argv[])
     bool use_ecdsa_cert = false;
     bool use_empty_cert = false;
     uint16_t cipher_to_use;
-
     tls_server_params params;
-    memset(&params, 0, sizeof(params));
 
+    memset(&params, 0, sizeof(params));
     params.hostname="localhost";
     params.port=4443;
-    params.num_ciphersuites = CipherSuiteCount;
-    params.ciphersuites = KnownCipherSuites;
     params.allow_resumption = true;
+    params.allow_ext_master_secret = true;
 
     if (argc > 1) {
         int i = 0;
         for (i = 0 ; i < argc ; i+=1){
             if (strcmp(argv[i], "--port") == 0 && argv[i+1] != NULL){
                 params.port = atoi(argv[++i]);
+            }
+            if (strcmp(argv[i], "--config") == 0 && argv[i+1] != NULL){
+                params.config = argv[++i];
             }
             if (strcmp(argv[i], "--cipher") == 0 && argv[i+1] != NULL){
                 cipher_to_use = sslcipher_atoi((char*)argv[++i]);
@@ -1132,6 +1115,9 @@ int main(int argc, const char * argv[])
                     default:
                         params.dh_parameters = NULL;
                 }
+            }
+            if (strcmp(argv[i], "--no-extended-ms") == 0){
+                params.allow_ext_master_secret = false;
             }
             if (strcmp(argv[i], "--debug") == 0){
                 tls_add_debug_logger(logger, NULL);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,7 +28,6 @@
 
 #include "ExecutableAllocator.h"
 #include "VM.h"
-#include "JSStack.h"
 
 namespace JSC {
 
@@ -36,12 +35,11 @@ GlobalMemoryStatistics globalMemoryStatistics()
 {
     GlobalMemoryStatistics stats;
 
-    stats.stackBytes = JSStack::committedByteCount();
-#if ENABLE(EXECUTABLE_ALLOCATOR_FIXED) || (PLATFORM(EFL) && ENABLE(JIT))
+    stats.stackBytes = VM::committedStackByteCount();
+#if ENABLE(ASSEMBLER)
     stats.JITBytes = ExecutableAllocator::committedByteCount();
-#else
-    stats.JITBytes = 0;
 #endif
+
     return stats;
 }
 

@@ -281,6 +281,46 @@ open_asl(krb5_context context,
 			    log_asl, close_asl, sd);
 }
 
+#include <os/log.h>
+
+static void KRB5_CALLCONV
+log_oslog(const char *timestr,
+	  const char *msg,
+	  void *data)
+{
+    os_log_t t = data;
+    os_log(t, "%s", msg);
+}
+
+static void KRB5_CALLCONV
+log_oslog_debug(const char *timestr,
+		const char *msg,
+		void *data)
+{
+    os_log_t t = data;
+    os_log_debug(t, "%s", msg);
+}
+
+static void KRB5_CALLCONV
+close_oslog(void *data)
+{
+    os_release((os_log_t)data);
+}
+
+static krb5_error_code
+open_oslog(krb5_context context,
+	   krb5_log_facility *facility, int min, int max,
+	   const char *type, const char *fac)
+{
+    os_log_t t = os_log_create("com.apple.Heimdal", fac);
+    krb5_log_log_func_t log = log_oslog;
+    if (strcmp(type, "debug") == 0)
+	log = log_oslog_debug;
+    return krb5_addlog_func(context, facility, min, max,
+			    log, close_oslog, t);
+}
+
+
 #endif /* __APPLE__ */
 
 
@@ -453,6 +493,25 @@ krb5_addlog_dest(krb5_context context, krb5_log_facility *f, const char *orig)
 	ret = HEIM_ERR_LOG_PARSE;
 	krb5_set_error_message (context, ret,
 				N_("asl is not supported on this platform", ""), p);
+#endif /* __APPLE__ */
+    }else if(strncmp(p, "OSLOG", 3) == 0 && (p[3] == '\0' || p[3] == ':')){
+#ifdef __APPLE__
+	char type[128] = "";
+	char facility[128] = "";
+	p += 5;
+	if(*p != '\0')
+	    p++;
+	if(strsep_copy(&p, ":", type, sizeof(type)) != -1)
+	    strsep_copy(&p, ":", facility, sizeof(facility));
+	if(*type == '\0')
+	    strlcpy(type, "normal", sizeof(type));
+	if(*facility == '\0')
+	    strlcpy(facility, "general", sizeof(facility));
+	ret = open_oslog(context, f, min, max, type, facility);
+#else
+	ret = HEIM_ERR_LOG_PARSE;
+	krb5_set_error_message (context, ret,
+				N_("OSLOG is not supported on this platform", ""), p);
 #endif /* __APPLE__ */
     }else{
 	ret = HEIM_ERR_LOG_PARSE; /* XXX */

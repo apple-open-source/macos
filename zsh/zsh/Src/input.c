@@ -141,16 +141,19 @@ shingetline(void)
     int c;
     char buf[BUFSIZ];
     char *p;
+    int q = queue_signal_level();
 
     p = buf;
-    winch_unblock();
     for (;;) {
+	winch_unblock();
+	dont_queue_signals();
 	do {
 	    errno = 0;
 	    c = fgetc(bshin);
 	} while (c < 0 && errno == EINTR);
 	if (c < 0 || c == '\n') {
 	    winch_block();
+	    restore_queue_signals(q);
 	    if (c == '\n')
 		*p++ = '\n';
 	    if (p > buf) {
@@ -167,12 +170,13 @@ shingetline(void)
 	    *p++ = c;
 	if (p >= buf + BUFSIZ - 1) {
 	    winch_block();
+	    queue_signals();
 	    line = zrealloc(line, ll + (p - buf) + 1);
 	    memcpy(line + ll, buf, p - buf);
 	    ll += p - buf;
 	    line[ll] = '\0';
 	    p = buf;
-	    winch_unblock();
+	    unqueue_signals();
 	}
     }
 }
@@ -222,7 +226,8 @@ ingetc(void)
 	if (inputline())
 	    break;
     }
-    zshlex_raw_add(lastc);
+    if (!lexstop)
+	zshlex_raw_add(lastc);
     return lastc;
 }
 
@@ -376,6 +381,8 @@ inputline(void)
 static void
 inputsetline(char *str, int flags)
 {
+    queue_signals();
+
     if ((inbufflags & INP_FREE) && inbuf) {
 	free(inbuf);
     }
@@ -393,6 +400,8 @@ inputsetline(char *str, int flags)
     else
 	inbufct = inbufleft;
     inbufflags = flags;
+
+    unqueue_signals();
 }
 
 /*
@@ -591,7 +600,7 @@ inpoptop(void)
 	     * history is before, but they're both pushed onto
 	     * the input stack.
 	     */
-	    if ((inbufflags & (INP_ALIAS|INP_HIST)) == INP_ALIAS)
+	    if ((inbufflags & (INP_ALIAS|INP_HIST|INP_RAW_KEEP)) == INP_ALIAS)
 		zshlex_raw_back();
 	}
     }

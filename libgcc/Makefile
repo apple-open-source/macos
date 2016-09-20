@@ -60,8 +60,9 @@ install-MacOSX: $(OBJROOT)/libgcc_s.dylib
 	cp $(OBJROOT)/libgcc_s.dylib $(DSTROOT)/usr/lib/libgcc_s.10.5.dylib 
 	cd $(DSTROOT)/usr/lib; \
 	ln -s libgcc_s.10.5.dylib libgcc_s.10.4.dylib; \
+	ln -s libSystem.B.tbd libgcc_s.1.tbd; \
 	ln -s libSystem.B.dylib libgcc_s.1.dylib; \
-	
+    
 
 install-iPhoneOS : $(SYMROOT)/libgcc_s.1.dylib 
 	mkdir -p $(DSTROOT)/usr/lib

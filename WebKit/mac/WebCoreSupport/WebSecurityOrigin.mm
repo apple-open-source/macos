@@ -54,8 +54,8 @@ using namespace WebCore;
     if (!self)
         return nil;
 
-    RefPtr<SecurityOrigin> origin = SecurityOrigin::create(URL([url absoluteURL]));
-    SecurityOrigin* rawOrigin = origin.release().leakRef();
+    auto origin = SecurityOrigin::create(URL([url absoluteURL]));
+    SecurityOrigin* rawOrigin = &origin.leakRef();
     _private = reinterpret_cast<WebSecurityOriginPrivate *>(rawOrigin);
 
     return self;
@@ -112,13 +112,6 @@ using namespace WebCore;
     if (_databaseQuotaManager)
         [(NSObject *)_databaseQuotaManager release];
     [super dealloc];
-}
-
-- (void)finalize
-{
-    if (_private)
-        reinterpret_cast<SecurityOrigin*>(_private)->deref();
-    [super finalize];
 }
 
 @end

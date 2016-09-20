@@ -173,7 +173,7 @@ static void *securetransport_ssl_thread(void *arg)
 
     if (ssl->is_server) {
         size_t len;
-        SecRandomCopyBytes(kSecRandomDefault, ssl->write_size, obuf);
+        require_action(errSecSuccess==SecRandomCopyBytes(kSecRandomDefault, ssl->write_size, obuf), out, ortn = -1);
         require_noerr(ortn = SSLWrite(ctx, obuf, ssl->write_size, &len), out);
         require_action(len == ssl->write_size, out, ortn = -1);
         require_noerr(ortn = SSLWrite(ctx, obuf, ssl->write_size, &len), out);

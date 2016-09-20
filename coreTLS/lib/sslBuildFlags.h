@@ -54,8 +54,6 @@ extern "C" {
 #define ENABLE_AES256		1		/* normally enabled */
 #define ENABLE_ECDHE		1
 #define ENABLE_ECDHE_RSA	1
-#define ENABLE_ECDH			1
-#define ENABLE_ECDH_RSA		1
 #define ENABLE_AES_GCM      1
 
 

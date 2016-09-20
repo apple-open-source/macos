@@ -18,8 +18,7 @@
     Boston, MA 02110-1301, USA.
 */
 
-#ifndef JSTestCustomConstructorWithNoInterfaceObject_h
-#define JSTestCustomConstructorWithNoInterfaceObject_h
+#pragma once
 
 #include "JSDOMWrapper.h"
 #include "TestCustomConstructorWithNoInterfaceObject.h"
@@ -27,21 +26,20 @@
 
 namespace WebCore {
 
-class JSTestCustomConstructorWithNoInterfaceObject : public JSDOMWrapper {
+class JSTestCustomConstructorWithNoInterfaceObject : public JSDOMWrapper<TestCustomConstructorWithNoInterfaceObject> {
 public:
-    typedef JSDOMWrapper Base;
+    typedef JSDOMWrapper<TestCustomConstructorWithNoInterfaceObject> Base;
     static JSTestCustomConstructorWithNoInterfaceObject* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, Ref<TestCustomConstructorWithNoInterfaceObject>&& impl)
     {
-        JSTestCustomConstructorWithNoInterfaceObject* ptr = new (NotNull, JSC::allocateCell<JSTestCustomConstructorWithNoInterfaceObject>(globalObject->vm().heap)) JSTestCustomConstructorWithNoInterfaceObject(structure, globalObject, WTF::move(impl));
+        JSTestCustomConstructorWithNoInterfaceObject* ptr = new (NotNull, JSC::allocateCell<JSTestCustomConstructorWithNoInterfaceObject>(globalObject->vm().heap)) JSTestCustomConstructorWithNoInterfaceObject(structure, *globalObject, WTFMove(impl));
         ptr->finishCreation(globalObject->vm());
         return ptr;
     }
 
     static JSC::JSObject* createPrototype(JSC::VM&, JSC::JSGlobalObject*);
-    static JSC::JSObject* getPrototype(JSC::VM&, JSC::JSGlobalObject*);
+    static JSC::JSObject* prototype(JSC::VM&, JSC::JSGlobalObject*);
     static TestCustomConstructorWithNoInterfaceObject* toWrapped(JSC::JSValue);
     static void destroy(JSC::JSCell*);
-    ~JSTestCustomConstructorWithNoInterfaceObject();
 
     DECLARE_INFO;
 
@@ -50,13 +48,8 @@ public:
         return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), info());
     }
 
-    TestCustomConstructorWithNoInterfaceObject& impl() const { return *m_impl; }
-    void releaseImpl() { std::exchange(m_impl, nullptr)->deref(); }
-
-private:
-    TestCustomConstructorWithNoInterfaceObject* m_impl;
 protected:
-    JSTestCustomConstructorWithNoInterfaceObject(JSC::Structure*, JSDOMGlobalObject*, Ref<TestCustomConstructorWithNoInterfaceObject>&&);
+    JSTestCustomConstructorWithNoInterfaceObject(JSC::Structure*, JSDOMGlobalObject&, Ref<TestCustomConstructorWithNoInterfaceObject>&&);
 
     void finishCreation(JSC::VM& vm)
     {
@@ -78,13 +71,18 @@ inline JSC::WeakHandleOwner* wrapperOwner(DOMWrapperWorld&, TestCustomConstructo
     return &owner.get();
 }
 
-JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, TestCustomConstructorWithNoInterfaceObject*);
-inline JSC::JSValue toJS(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, TestCustomConstructorWithNoInterfaceObject& impl) { return toJS(exec, globalObject, &impl); }
+inline void* wrapperKey(TestCustomConstructorWithNoInterfaceObject* wrappableObject)
+{
+    return wrappableObject;
+}
+
+JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, TestCustomConstructorWithNoInterfaceObject&);
+inline JSC::JSValue toJS(JSC::ExecState* state, JSDOMGlobalObject* globalObject, TestCustomConstructorWithNoInterfaceObject* impl) { return impl ? toJS(state, globalObject, *impl) : JSC::jsNull(); }
+JSC::JSValue toJSNewlyCreated(JSC::ExecState*, JSDOMGlobalObject*, Ref<TestCustomConstructorWithNoInterfaceObject>&&);
+inline JSC::JSValue toJSNewlyCreated(JSC::ExecState* state, JSDOMGlobalObject* globalObject, RefPtr<TestCustomConstructorWithNoInterfaceObject>&& impl) { return impl ? toJSNewlyCreated(state, globalObject, impl.releaseNonNull()) : JSC::jsNull(); }
 
 // Custom constructor
-JSC::EncodedJSValue JSC_HOST_CALL constructJSTestCustomConstructorWithNoInterfaceObject(JSC::ExecState*);
+JSC::EncodedJSValue JSC_HOST_CALL constructJSTestCustomConstructorWithNoInterfaceObject(JSC::ExecState&);
 
 
 } // namespace WebCore
-
-#endif
